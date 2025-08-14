@@ -97,7 +97,7 @@ ROUTER  ..> LOGG
 ORCH    ..> LOGG
 DAO     ..> SECR
 
-scale 1000 width
+scale 950 width
 @enduml
 ```
 

@@ -2,6 +2,8 @@
 
 ## Links
 ### 1. [Define Requirements](./Documents/01_Define_requirements.md)
+### 2. [System Design](./Documents/02_System_design.md)
+### 3. [Functional World](./Documents/03_Functional_design.md)
 
 
 ## 1. プロジェクト概要

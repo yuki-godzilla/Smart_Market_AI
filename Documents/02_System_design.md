@@ -1,5 +1,7 @@
 # 🏗️ System Architecture — Smart Market AI (Based on Refined Requirements)
 
+#### [BACK TO README](../README.md)
+
 ## 0. Guiding Principles
 - **Simplicity First**: ローカル実行を前提に、依存を最小化。
 - **Modular Design**: UI・アプリケーション・データ・MLを疎結合化。

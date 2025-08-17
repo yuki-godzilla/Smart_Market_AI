@@ -1,2 +1,19 @@
+# Documents
 *.pdf
 /Documents/*.html
+
+# Python
+venv_*/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# VSCode
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db

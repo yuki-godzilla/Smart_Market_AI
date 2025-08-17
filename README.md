@@ -1,14 +1,17 @@
 # 📊 Smart Market AI - 要件定義書
 
 ## Links
-### 1. [Define Requirements](./Documents/01_Define_requirements.md)
-### 2. [System Design](./Documents/02_System_design.md)
-### 3. [Functional World](./Documents/03_Functional_design.md)
+#### 1. [Define Requirements](./Documents/01_Define_requirements.md)
+#### 2. [System Design](./Documents/02_System_design.md)
+#### 3. [Functional Design](./Documents/03_Functional_design.md)
+#### 4. [Detail Design](./Documents/04_Detail_Design/04.Detail_Design_README.md)
+#### 5. [Implementation Checklist & Stubs](./Documents/05_Implementation_Checklist_and_Stubs.md)
 
+---
 
 ## 1. プロジェクト概要
 
-「Smart Market AI」は、NISAを活用した個人投資家向けの**市場予測・銘柄分析支援AIアプリ**である。
+「Smart Market AI」は、NISAを活用した個人投資家向けの**市場予測・銘柄分析支援AIアプリ**である。  
 売買タイミング予測やポートフォリオ最適化などを通じて、投資判断をスマートにサポートする。
 
 ---

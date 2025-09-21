@@ -1,5 +1,7 @@
 # 📊 Smart Market AI - 要件定義書
 
+![CI](https://github.com/yuki-godzilla/Smart_Market_AI/actions/workflows/ci.yml/badge.svg)
+
 ## Links
 #### 1. [Define Requirements](./Documents/01_Define_requirements.md)
 #### 2. [System Design](./Documents/02_System_design.md)

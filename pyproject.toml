@@ -4,7 +4,10 @@ target-version = ["py311"]
 
 [tool.ruff]
 line-length = 100
-extend-select = ["I"]  # import順チェック
+
+[tool.ruff.lint]
+extend-select = ["I"]   # import order/isort
+
 
 [tool.pytest.ini_options]
 minversion = "8.0"

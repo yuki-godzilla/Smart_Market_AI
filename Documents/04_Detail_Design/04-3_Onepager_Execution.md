@@ -14,7 +14,7 @@
 Client -> Execution.place_orders -> BrokerAdapter(REST) -> Broker
            ^                       \
            |                        +-- Retry/Backoff
-           |                                  
+           |
            +-- ExecReceipt <-------- Idempotency Store
 
 Broker -> Webhook(POST /exec/fill) -> InBox(verify HMAC) -> Dedupe -> StateMachine -> Orders/Exec DB -> Notify
@@ -24,7 +24,7 @@ Broker -> Webhook(POST /exec/fill) -> InBox(verify HMAC) -> Dedupe -> StateMachi
 
 ```python
 class ExecutionService:
-    def place_orders(self, orders: list[Order], idempotency_key: str, account_id: str, 
+    def place_orders(self, orders: list[Order], idempotency_key: str, account_id: str,
                      tif: Literal['DAY','IOC','GTC']='DAY',
                      dry_run: bool=False) -> ExecReceipt: ...
 

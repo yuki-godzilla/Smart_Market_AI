@@ -1,0 +1,43 @@
+# Run "pre-commit run --all-files" once after installing to see current issues.
+repos:
+  # 基本の小回りフック
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-yaml
+
+  # Black（コード整形）
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
+
+  # Ruff（Lint + import順/自動修正）
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.3
+    hooks:
+      - id: ruff
+        args: [--fix]    # 可能なものは自動修正
+
+  # mypy（型チェック）
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.1
+    hooks:
+      - id: mypy
+        additional_dependencies: []   # 必要になったら types-xxx を足す
+        # pyproject.toml の [tool.mypy] 設定が使われます
+
+  # pre-push で pytest を走らせる（重いので push 時のみ）
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest (pre-push)
+        entry: pytest -q
+        language: system
+        pass_filenames: false
+        stages: [push]
+        env:
+          PYTHONPATH: .

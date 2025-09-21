@@ -1,6 +1,6 @@
 # Setup Guide (Python) — Smart Market AI
 
-このドキュメントは **Windows + PowerShell** 前提で、仮想環境名を **`venv_SMA`** として統一します。  
+このドキュメントは **Windows + PowerShell** 前提で、仮想環境名を **`venv_SMA`** として統一します。
 ワンコマンド実行の **`setup.bat`** にも対応しました。
 
 ---
@@ -18,7 +18,7 @@
    ```
 2. 正常終了後、仮想環境は `venv_SMA/` に作成されます。
 
-> **補足（PowerShell の実行ポリシー）**  
+> **補足（PowerShell の実行ポリシー）**
 > 実行時に *「スクリプトの実行が無効」* と出る場合:
 > ```powershell
 > Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
@@ -72,11 +72,11 @@ uvicorn backend.app.main:app --reload
 ---
 
 ## 4) よくあるトラブル
-- **python が見つからない**  
+- **python が見つからない**
   → Python を再インストールし、 *「PATH を追加」* を有効化。新しい PowerShell を開き直す。
-- **依存のビルドに失敗**  
+- **依存のビルドに失敗**
   → `pip install --upgrade pip setuptools wheel` を実行後、再インストール。
-- **仮想環境が有効化できない**  
+- **仮想環境が有効化できない**
   → 実行ポリシーを `RemoteSigned` に変更（上記参照）。
 
 ---

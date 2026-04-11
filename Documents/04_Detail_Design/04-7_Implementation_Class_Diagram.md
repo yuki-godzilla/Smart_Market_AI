@@ -16,7 +16,7 @@
 
 現在の対象:
 - Core Foundation: 実装済み
-- MarketData MVP: 次フェーズで実装予定
+- MarketData MVP: 実装済み（mock provider）
 
 ## 3. Core Foundation Class Diagram
 
@@ -173,10 +173,9 @@ package "backend.core.errors" {
 @enduml
 ```
 
-## 4. Near-Term MarketData Relationships
+## 4. MarketData MVP Relationships
 
-`backend.marketdata` は次フェーズで実装する。
-現時点では、Core Foundation の型を入力・出力に使う方針だけを固定する。
+`backend.marketdata` は、外部 API に依存しない mock provider と、最小の特徴量計算から開始する。
 
 ```plantuml
 @startuml
@@ -186,14 +185,18 @@ skinparam roundcorner 8
 skinparam classAttributeIconSize 0
 skinparam linetype ortho
 
-package "backend.marketdata (planned)" {
+package "backend.marketdata" {
   class DataAccess {
+    +cfg: DataAccessConfig
     +fetch_ohlcv(symbols, start, end, interval): list[Bar]
     +fetch_quotes(symbols, at): list[Quote]
     +get_fx_rates(pairs, at, method): list[FxRate]
+    +healthcheck(): dict[str, str]
   }
 
   class FeatureBuilder {
+    +data_access: DataAccess
+    +cfg: FeatureBuilderConfig
     +build_daily_snapshot(symbols, as_of): list[DailySnapshot]
     +compute_adv(symbol, as_of, window): Decimal
     +compute_vol(symbol, as_of, window, method): Decimal

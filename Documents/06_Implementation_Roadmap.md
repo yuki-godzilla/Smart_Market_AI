@@ -52,6 +52,8 @@ Design diagram: [04-7_Implementation_Class_Diagram.md](./04_Detail_Design/04-7_I
 
 ### Phase 2: MarketData MVP
 
+Status: MVP complete
+
 Design diagrams:
 - [04-2_Onepager_marketdata_dataaccess.md](./04_Detail_Design/04-2_Onepager_marketdata_dataaccess.md)
 - [04-5_Onepager_Feature_Builder.md](./04_Detail_Design/04-5_Onepager_Feature_Builder.md)
@@ -60,20 +62,22 @@ Design diagrams:
 目的: 外部 API に依存しない形で価格・為替・スナップショットの入力を作る。
 
 成果物:
-- `backend/marketdata/data_access.py`
-- `backend/marketdata/feature_builder.py`
-- MarketData 向けユニットテスト
+- Done: `backend/marketdata/data_access.py`
+- Done: `backend/marketdata/feature_builder.py`
+- Done: MarketData 向けユニットテスト
 
 主な内容:
-- `mock` provider による `fetch_ohlcv`, `fetch_quotes`, `get_fx_rates`
-- `compute_adv`
-- `compute_vol`
-- `build_daily_snapshot`
+- Done: `mock` provider による `fetch_ohlcv`, `fetch_quotes`, `get_fx_rates`
+- Done: `compute_adv`
+- Done: `compute_vol`
+- Done: `build_daily_snapshot`
+- Remaining: `csv` / `yahoo` provider
+- Remaining: 配当利回り、発行株式数、営業日カレンダーの正式データ源
 
 完了条件:
-- ネットワークなしで MarketData のテストが通る
-- `DailySnapshot` を生成できる
-- Risk / Portfolio の入力として使える
+- Done: ネットワークなしで MarketData のテストが通る
+- Done: `DailySnapshot` を生成できる
+- Done: Risk / Portfolio の入力として使える最小項目が揃っている
 
 ### Phase 3: Risk MVP
 
@@ -129,12 +133,12 @@ Design diagrams:
 
 ## 5. Near-Term Decision
 
-次に着手する推奨範囲は **Phase 2: MarketData MVP**。
+次に着手する推奨範囲は **Phase 3: Risk MVP**。
 
 理由:
 - Phase 1 の最小 core 基盤は追加済み。
-- Risk / Portfolio / Screening の入力になる `DailySnapshot` を生成する必要がある。
-- 外部 API なしの `mock` provider から始めると、ネットワークに依存せずテストできる。
+- Phase 2 の mock MarketData で `DailySnapshot` を生成できる。
+- 次は `TradeIntent` と `DailySnapshot` を使って、取引前チェックの最小ルールを作れる。
 
 ## 6. Verification Notes
 

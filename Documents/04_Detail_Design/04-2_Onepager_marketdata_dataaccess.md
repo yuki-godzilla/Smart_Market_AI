@@ -111,10 +111,10 @@ class CalendarEvent(BaseModel):
 
 ```yaml
 dataaccess:
-  provider: yahoo|csv|polygon|mock # 初期はyahoo/csvで開始、必要に応じpolygonを追加
+  provider: mock|csv|yahoo|polygon # MVPはmockで開始、次にcsv/yahoo、必要に応じpolygonを追加
   base_currency: JPY # 01の要件に基づく既定通貨
   cache:
-    backend: redis|memory
+    backend: memory|redis # MVPはmemory、運用時はredisへ移行可能
     ttl_intraday_sec: 60
     ttl_daily_sec: 86400
   rate_limit:
@@ -138,11 +138,11 @@ dataaccess:
 
 ## 12) Open Questions（TBD）
 
-* 主要データ供給元 → **初期は `yahoo`/`csv` を採用**、有料API（polygon等）はスループット要求次第で追加。
+* 主要データ供給元 → **MVPは `mock` を採用**。次に `csv` / `yahoo`、有料API（polygon等）はスループット要求次第で追加。
 * 対応市場/銘柄 → **JP: TSE 上場の高配当候補、US: S\&P500 高配当候補**（初期は数十銘柄から拡大）。
 * 足種 → **必須: `1d`、任意: `1m/5m`**（Execution検証用途）。
 * ベース通貨 → **JPY を既定**。必要に応じ USD/EUR への切替オプションを追加。
-* キャッシュ基盤 → **Redis 推奨**（メモリから移行可能）。初期TTL: intraday 60s / daily 24h。
+* キャッシュ基盤 → **MVPは memory**。運用時は Redis 推奨（メモリから移行可能）。初期TTL: intraday 60s / daily 24h。
 * コスト上限 → 03でのSLO/利用頻度を踏まえて設定（TBD）。
 
 ---

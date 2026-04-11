@@ -23,7 +23,7 @@ class FeatureBuilder:
     def compute_adv(self, symbol: str, as_of: date, window: int = 20) -> Decimal:
         ...
 
-    def compute_vol(self, symbol: str, as_of: date, window: int = 20, method: Literal['close2close','parkison']='close2close') -> Decimal:
+    def compute_vol(self, symbol: str, as_of: date, window: int = 20, method: Literal['close2close','parkinson']='close2close') -> Decimal:
         ...
 
     def get_dividend_yield(self, symbol: str, as_of: date) -> Decimal | None:

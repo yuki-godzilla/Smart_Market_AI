@@ -35,9 +35,7 @@ repos:
     hooks:
       - id: pytest
         name: pytest (pre-push)
-        entry: pytest -q
+        entry: venv_SMAI/Scripts/python.exe -m pytest -q
         language: system
         pass_filenames: false
         stages: [push]
-        env:
-          PYTHONPATH: .

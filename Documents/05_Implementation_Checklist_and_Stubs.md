@@ -7,16 +7,17 @@
 ## A. レポジトリ初期化（共通）
 
 * [ ] `python 3.11` / `poetry` / `ruff` / `mypy` / `pytest`
-* [ ] ディレクトリ: `/app` `/common` `/tests` `/docs`
-* [ ] `pyproject.toml` に `pydantic`, `fastapi`, `uvicorn`, `redis`, `httpx`, `orjson`, `prometheus_client`, `pulp`（or `ortools`）
-* [ ] `.env` / `.env.example` / `docker-compose.yml`（redis）
+* [x] ディレクトリ: `/backend/app` `/backend/core` `/tests` `/Documents`
+* [ ] `pyproject.toml` に `pydantic`, `fastapi`, `uvicorn`, `httpx`, `orjson`, `prometheus_client`
+* [ ] 後続フェーズで `redis`, `pulp`（or `ortools`）を必要時に追加
+* [ ] `.env` / `.env.example` / `docker-compose.yml`（redisは運用時候補）
 
 ## B. data\_contracts.py（共通型）
 
 > Risk/Portfolio/Executionの間で型を揃える。**ProposedOrder/Orderの橋渡し**は`TradeIntent`で。
 
 ```python
-# common/data_contracts.py
+# backend/core/data_contracts.py
 from datetime import datetime, date
 from decimal import Decimal
 from typing import Literal, Optional
@@ -66,9 +67,9 @@ app:
   log_json: true
 
 dataaccess:
-  provider: yahoo|csv|polygon|mock
+  provider: mock|csv|yahoo|polygon
   cache:
-    backend: redis
+    backend: memory
     ttl_intraday_sec: 60
     ttl_daily_sec: 86400
   timeouts_ms:
@@ -89,14 +90,14 @@ risk:
 
 portfolio:
   solver:
-    backend: pulp
+    backend: none
     tolerance: 1e-6
 
 execution:
   webhook:
     secret: ${WEBHOOK_SECRET}
   idempotency:
-    storage: redis
+    storage: memory
     ttl_hours: 24
 ```
 
@@ -112,7 +113,7 @@ execution:
 ## E. DataAccess スケルトン
 
 ```python
-# app/marketdata/data_access.py
+# backend/marketdata/data_access.py
 from typing import Literal
 from datetime import datetime, date
 from decimal import Decimal
@@ -139,7 +140,7 @@ class DataAccess:
 ## F. FeatureBuilder スケルトン（綴り修正TODO）
 
 ```python
-# app/marketdata/feature_builder.py
+# backend/marketdata/feature_builder.py
 from typing import Literal
 from datetime import date
 from decimal import Decimal
@@ -159,7 +160,7 @@ class FeatureBuilder:
 ## G. RiskService ルール評価エンジン
 
 ```python
-# app/risk/service.py
+# backend/risk/service.py
 from common.data_contracts import TradeIntent, DailySnapshot
 
 class RiskService:
@@ -173,8 +174,7 @@ class RiskService:
 ## H. PortfolioService（pulp例）
 
 ```python
-# app/portfolio/service.py
-import pulp
+# backend/portfolio/service.py
 class PortfolioService:
     def rebalance(self, constraints, as_of):
         # 変数 w_i ∈ [0,1], Σ w_i = 1
@@ -185,7 +185,7 @@ class PortfolioService:
 ## I. Execution（FastAPI Webhook雛形＋Idempotency）
 
 ```python
-# app/execution/webhook.py
+# backend/execution/webhook.py
 from fastapi import APIRouter, Header, HTTPException
 router = APIRouter()
 
@@ -199,9 +199,8 @@ async def on_fill_webhook(payload: dict, x_signature: str = Header(...), x_sent_
 ```
 
 ```python
-# app/execution/idempotency.py
-import redis, json, hashlib
-r = redis.Redis(host='localhost', port=6379, decode_responses=True)
+# backend/execution/idempotency.py
+import json, hashlib
 
 def idem_key(body: dict, headers: dict) -> str:
     h = hashlib.sha256((json.dumps(body, sort_keys=True)+json.dumps(headers, sort_keys=True)).encode()).hexdigest()
@@ -262,5 +261,5 @@ def test_vol_non_negative(data):
 ### 備考/軽微修正
 
 * `FeatureBuilder.compute_vol` の引数 `parkison` は **`parkinson`** に統一（設計04-5の綴り修正）。
-* DataAccess/Execution のキャッシュ/Idempotencyは **Redis** を共通採用（運用簡素化）。
+* DataAccess/Execution のキャッシュ/Idempotencyは **MVPではmemory**、運用時に **Redis** へ移行（運用簡素化）。
 * 休日カレンダー/配当/発行株式の **データ源確定**（Yahoo/CSV/取引所公式等）は別表で後続反映。

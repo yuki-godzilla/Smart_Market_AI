@@ -72,26 +72,27 @@
 ## 6. レポジトリ構成（提案）
 
 ```
-/ app
-  /execution
-  /portfolio
-  /marketdata
-    /dataaccess
-    /feature_builder
-  /risk
-  /forecast
-  /reporting
-  /ui
-/common
-  data_contracts.py
-  errors.py
-  logging.py
-  config.py
+backend/
+  app/
+    main.py
+  core/
+    data_contracts.py
+    errors.py
+    logging.py
+    config.py
+  marketdata/
+    data_access.py
+    feature_builder.py
+  execution/
+  portfolio/
+  risk/
+  forecast/
+  reporting/
+  ui/
 /tests
   /unit  /integration  /e2e
-/docs
-  /onepagers
-  /standards
+Documents/
+  04_Detail_Design/
 ```
 
 ## 7. 作業順序（Implementation Order）

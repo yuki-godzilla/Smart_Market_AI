@@ -6,8 +6,9 @@
 #### 1. [Define Requirements](./Documents/01_Define_requirements.md)
 #### 2. [System Design](./Documents/02_System_design.md)
 #### 3. [Functional Design](./Documents/03_Functional_design.md)
-#### 4. [Detail Design](./Documents/04_Detail_Design/04.Detail_Design_README.md)
+#### 4. [Detail Design](./Documents/04_Detail_Design/04_Detail_Design_README.md)
 #### 5. [Implementation Checklist & Stubs](./Documents/05_Implementation_Checklist_and_Stubs.md)
+#### 6. [Implementation Roadmap](./Documents/06_Implementation_Roadmap.md)
 
 ---
 

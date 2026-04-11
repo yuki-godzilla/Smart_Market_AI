@@ -1,0 +1,155 @@
+# 06_Implementation_Roadmap
+
+#### [BACK TO README](../README.md)
+
+## 1. Purpose
+
+このドキュメントは、既存の要件定義・設計書を実装作業に接続するためのロードマップです。
+実装を進めるたびに、対象範囲・成果物・完了条件をここへ反映し、プロジェクトの現在地を追えるようにします。
+
+## 2. Current State
+
+- 実装は FastAPI の最小スケルトンから開始している。
+- 現在ある API は `/health` のみ。
+- テストはヘルスチェックに加えて、core 基盤のユニットテストを追加済み。
+- 設計上の主要機能は、まだ実装前。
+- 依存関係は FastAPI / Pydantic / SQLAlchemy / httpx / pandas / numpy などの基盤寄りが中心。
+- Streamlit、yfinance、最適化ライブラリ、ML ライブラリはまだ導入前。
+
+## 3. Implementation Policy
+
+- 最初は外部 API や重い ML 処理に入らず、ローカルで再現できる土台から作る。
+- 共通型、設定、例外、MarketData の mock/csv 実装を先に整える。
+- 各実装ステップでテストを追加し、後続の Risk / Portfolio / Screening / Forecast が同じ入力を使えるようにする。
+- ドキュメントとコードの差分が広がらないよう、完了したこと・未決事項をこの文書へ反映する。
+
+## 4. Recommended Order
+
+### Phase 1: Core Foundation
+
+Status: MVP complete
+
+Design diagram: [04-7_Implementation_Class_Diagram.md](./04_Detail_Design/04-7_Implementation_Class_Diagram.md)
+
+目的: 後続機能が共有する基盤を作る。
+
+成果物:
+- Done: `backend/core/data_contracts.py`
+- Done: `backend/core/errors.py`
+- Done: `backend/core/config.py`
+- Done: core 向けユニットテスト
+
+主な内容:
+- Done: `Symbol`, `FxRate`, `TradeIntent`, `Position`, `DailySnapshot` などの Pydantic モデル
+- Done: `Bar`, `Quote` など MarketData MVP で使う基本データ型
+- Done: `AppError`, `DataSourceError`, `RateLimitError`, `SchemaMismatchError` などの共通例外
+- Done: `base_currency`, `dataaccess.provider`, cache TTL などの最小設定モデル
+
+完了条件:
+- Done: core のユニットテストが通る
+- Done: 後続フェーズから import できる型と例外が揃っている
+- Remaining: 実装が進んだ段階で、config の YAML/.env 読み込み要否を判断する
+
+### Phase 2: MarketData MVP
+
+Design diagrams:
+- [04-2_Onepager_marketdata_dataaccess.md](./04_Detail_Design/04-2_Onepager_marketdata_dataaccess.md)
+- [04-5_Onepager_Feature_Builder.md](./04_Detail_Design/04-5_Onepager_Feature_Builder.md)
+- [04-7_Implementation_Class_Diagram.md](./04_Detail_Design/04-7_Implementation_Class_Diagram.md)
+
+目的: 外部 API に依存しない形で価格・為替・スナップショットの入力を作る。
+
+成果物:
+- `backend/marketdata/data_access.py`
+- `backend/marketdata/feature_builder.py`
+- MarketData 向けユニットテスト
+
+主な内容:
+- `mock` provider による `fetch_ohlcv`, `fetch_quotes`, `get_fx_rates`
+- `compute_adv`
+- `compute_vol`
+- `build_daily_snapshot`
+
+完了条件:
+- ネットワークなしで MarketData のテストが通る
+- `DailySnapshot` を生成できる
+- Risk / Portfolio の入力として使える
+
+### Phase 3: Risk MVP
+
+目的: 取引前チェックの最小ルールエンジンを作る。
+
+成果物:
+- `backend/risk/service.py`
+- Risk 向けユニットテスト
+
+主な内容:
+- `ALLOW`, `REVIEW`, `BLOCK` の判定
+- 1銘柄上限、バスケット上限、集中度、最低配当利回りなどのしきい値評価
+
+完了条件:
+- `TradeIntent` と `DailySnapshot` から判定できる
+- 判定理由をテストで検証できる
+
+### Phase 4: Portfolio MVP
+
+目的: シンプルな制約付きリバランス案を作る。
+
+成果物:
+- `backend/portfolio/service.py`
+- Portfolio 向けユニットテスト
+
+主な内容:
+- 現在ポジションの JPY 評価
+- 集中度・配当利回りなどの制約評価
+- まずは最適化ソルバなしの単純提案から開始し、後で pulp / ortools に拡張
+
+完了条件:
+- サンプルポートフォリオを評価できる
+- Risk に渡せる `TradeIntent` を生成できる
+
+### Phase 5: API and UI Integration
+
+目的: バックエンド機能を API / UI から呼び出せるようにする。
+
+成果物:
+- FastAPI ルーター
+- Streamlit UI の初期画面
+- API / UI の簡易テスト
+
+主な内容:
+- 銘柄リスト入力
+- スナップショット生成
+- リスク判定
+- レポート出力への接続準備
+
+完了条件:
+- ローカルで主要フローを手動確認できる
+- `/health` 以外の最小 API が動作する
+
+## 5. Near-Term Decision
+
+次に着手する推奨範囲は **Phase 2: MarketData MVP**。
+
+理由:
+- Phase 1 の最小 core 基盤は追加済み。
+- Risk / Portfolio / Screening の入力になる `DailySnapshot` を生成する必要がある。
+- 外部 API なしの `mock` provider から始めると、ネットワークに依存せずテストできる。
+
+## 6. Verification Notes
+
+重い全体チェックは避け、当面は対象を絞って実行する。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe -m pytest tests -q
+.\venv_SMAI\Scripts\python.exe -m ruff check backend tests --no-cache
+```
+
+`black` と `mypy` は実行対象や除外設定を整えてから再確認する。
+
+## 7. Open Items
+
+- README と詳細設計 README のリンク整合性を確認する。
+- CI が `.venv` / `venv_*` を走査しないよう、必要なら設定を追加する。
+- `setup/SETUP.md` 内の仮想環境名表記を `venv_SMAI` に統一する。
+- `yfinance` / Streamlit / 最適化ライブラリの導入タイミングを決める。

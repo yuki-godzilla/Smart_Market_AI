@@ -8,6 +8,8 @@ from backend.core.errors import DataSourceError
 
 
 class MockBarPoint(TypedDict):
+    """In-memory OHLCV row used by the mock market-data provider."""
+
     ts: datetime
     open: Decimal
     high: Decimal
@@ -17,7 +19,15 @@ class MockBarPoint(TypedDict):
 
 
 class DataAccess:
+    """Read-only market-data access layer.
+
+    The current MVP supports only the deterministic mock provider so tests and
+    downstream feature work do not depend on network access.
+    """
+
     def __init__(self, cfg: DataAccessConfig | None = None) -> None:
+        """Create a data-access instance from optional provider settings."""
+
         self.cfg = cfg or DataAccessConfig()
         if self.cfg.provider != "mock":
             raise DataSourceError(
@@ -32,6 +42,8 @@ class DataAccess:
         end: datetime,
         interval: Interval = "1d",
     ) -> list[Bar]:
+        """Return mock OHLCV bars for the requested symbols and UTC range."""
+
         start_utc = _as_utc(start)
         end_utc = _as_utc(end)
         bars: list[Bar] = []
@@ -58,6 +70,8 @@ class DataAccess:
         return bars
 
     async def fetch_quotes(self, symbols: list[str], at: datetime | None = None) -> list[Quote]:
+        """Return latest available mock quotes at or before the requested time."""
+
         at_utc = _as_utc(at) if at else datetime.now(UTC)
         quotes: list[Quote] = []
 
@@ -82,6 +96,8 @@ class DataAccess:
         at: datetime | None = None,
         method: str = "spot",
     ) -> list[FxRate]:
+        """Return mock FX rates for supported pairs and methods."""
+
         if method not in {"spot", "close", "twap"}:
             raise DataSourceError("Unsupported FX method", details={"method": method})
 
@@ -95,16 +111,22 @@ class DataAccess:
         return rates
 
     def healthcheck(self) -> dict[str, str]:
+        """Report the active provider status."""
+
         return {"provider": self.cfg.provider, "status": "ok"}
 
 
 def _as_utc(value: datetime) -> datetime:
+    """Normalize a datetime to UTC, treating naive values as already UTC."""
+
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
 
 
 def _mock_symbol(raw_symbol: str) -> Symbol:
+    """Resolve a raw symbol string to a supported mock symbol contract."""
+
     try:
         return _MOCK_SYMBOLS[raw_symbol]
     except KeyError as exc:
@@ -112,6 +134,8 @@ def _mock_symbol(raw_symbol: str) -> Symbol:
 
 
 def _latest_bar_at(raw_symbol: str, at: datetime) -> MockBarPoint:
+    """Return the latest mock OHLCV row at or before a timestamp."""
+
     matching = [point for point in _MOCK_OHLCV[raw_symbol] if point["ts"] <= at]
     if not matching:
         raise DataSourceError(

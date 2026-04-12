@@ -10,15 +10,21 @@ from backend.marketdata.data_access import DataAccess
 
 
 class FeatureBuilder:
+    """Build lightweight features from market data for downstream services."""
+
     def __init__(
         self,
         data_access: DataAccess,
         cfg: FeatureBuilderConfig | None = None,
     ) -> None:
+        """Create a feature builder backed by a DataAccess instance."""
+
         self.data_access = data_access
         self.cfg = cfg or FeatureBuilderConfig()
 
     async def build_daily_snapshot(self, symbols: list[str], as_of: date) -> list[DailySnapshot]:
+        """Build DailySnapshot rows for risk and portfolio MVP workflows."""
+
         snapshots: list[DailySnapshot] = []
         quotes = await self.data_access.fetch_quotes(symbols, at=_end_of_day_utc(as_of))
         quotes_by_symbol = {quote.symbol.raw: quote for quote in quotes}
@@ -47,6 +53,8 @@ class FeatureBuilder:
         return snapshots
 
     async def compute_adv(self, symbol: str, as_of: date, window: int = 20) -> Decimal:
+        """Compute average traded value from close price and volume."""
+
         bars = await self._window_bars(symbol, as_of)
         selected = bars[-window:]
         if not selected:
@@ -64,6 +72,8 @@ class FeatureBuilder:
         window: int = 20,
         method: str = "close2close",
     ) -> Decimal:
+        """Compute annualized realized volatility for a symbol."""
+
         bars = await self._window_bars(symbol, as_of)
         selected = bars[-(window + 1) :]
         if len(selected) < 2:
@@ -85,6 +95,8 @@ class FeatureBuilder:
         raise DataSourceError("Unsupported volatility method", details={"method": method})
 
     async def _window_bars(self, symbol: str, as_of: date) -> list[Bar]:
+        """Load sorted historical bars through the requested as-of date."""
+
         bars = await self.data_access.fetch_ohlcv(
             [symbol],
             start=datetime(1900, 1, 1, tzinfo=UTC),
@@ -95,4 +107,6 @@ class FeatureBuilder:
 
 
 def _end_of_day_utc(value: date) -> datetime:
+    """Convert a date to the final representable UTC datetime for that day."""
+
     return datetime.combine(value, time.max, tzinfo=UTC)

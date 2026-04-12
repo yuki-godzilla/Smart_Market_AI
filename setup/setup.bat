@@ -8,12 +8,27 @@ REM ===========================
 REM base directories
 set "SCRIPT_DIR=%~dp0"
 set "REPO_ROOT=%SCRIPT_DIR%\.."
+for %%I in ("%REPO_ROOT%") do set "REPO_ROOT=%%~fI"
 set "VENV_NAME=venv_SMAI"
 set "VENV_DIR=%REPO_ROOT%\%VENV_NAME%"
+set "BLACK_CACHE_DIR=%REPO_ROOT%\.black_cache"
 
 REM requirements inside setup folder
 set "REQ_MAIN=%SCRIPT_DIR%\requirements.txt"
 set "REQ_DEV=%SCRIPT_DIR%\requirements-dev.txt"
+
+if "%~1"=="/?" (
+  echo Usage: setup\setup.bat
+  echo.
+  echo Creates %VENV_NAME%, installs dependencies, and configures BLACK_CACHE_DIR.
+  exit /b 0
+)
+if /I "%~1"=="--help" (
+  echo Usage: setup\setup.bat
+  echo.
+  echo Creates %VENV_NAME%, installs dependencies, and configures BLACK_CACHE_DIR.
+  exit /b 0
+)
 
 REM ---------- Pick Python ----------
 set "PYCMD=py -3.11"
@@ -51,6 +66,11 @@ REM ---------- Activate ----------
 echo [2/6] Activate virtual environment...
 call "%VENV_DIR%\Scripts\activate.bat" || (echo [ERROR] Failed to activate venv & exit /b 1)
 
+REM ---------- Configure tool cache ----------
+echo [info] Configure Black cache: %BLACK_CACHE_DIR%
+setx BLACK_CACHE_DIR "%BLACK_CACHE_DIR%" >nul
+set "BLACK_CACHE_DIR=%BLACK_CACHE_DIR%"
+
 REM ---------- Upgrade pip ----------
 echo [3/6] Upgrade pip...
 python -m pip install --upgrade pip || (echo [ERROR] pip upgrade failed & exit /b 1)
@@ -69,5 +89,8 @@ echo.
 echo To activate later:
 echo   %VENV_NAME%\Scripts\Activate.ps1   (PowerShell)
 echo   %VENV_NAME%\Scripts\activate.bat   (cmd)
+echo.
+echo Black cache:
+echo   BLACK_CACHE_DIR=%BLACK_CACHE_DIR%
 
 endlocal

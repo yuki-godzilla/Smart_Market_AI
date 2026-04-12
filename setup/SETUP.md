@@ -1,6 +1,6 @@
 # Setup Guide (Python) — Smart Market AI
 
-このドキュメントは **Windows + PowerShell** 前提で、仮想環境名を **`venv_SMA`** として統一します。
+このドキュメントは **Windows + PowerShell** 前提で、仮想環境名を **`venv_SMAI`** として統一します。
 ワンコマンド実行の **`setup.bat`** にも対応しました。
 
 ---
@@ -16,7 +16,8 @@
    ```powershell
    .\setup\setup.bat
    ```
-2. 正常終了後、仮想環境は `venv_SMA/` に作成されます。
+2. 正常終了後、仮想環境は `venv_SMAI/` に作成されます。
+3. `BLACK_CACHE_DIR` はリポジトリ直下の `.black_cache/` に設定されます。
 
 > **補足（PowerShell の実行ポリシー）**
 > 実行時に *「スクリプトの実行が無効」* と出る場合:
@@ -42,20 +43,30 @@ python -m venv venv_SMAI
 3) 依存インストール（本番＋開発）
 ```powershell
 python -m pip install --upgrade pip
-pip install -r requirements.txt -r requirements-dev.txt
+pip install -r setup\requirements.txt -r setup\requirements-dev.txt
 ```
 
-4) 動作確認（主要ツールが表示されればOK）
+4) Black キャッシュ先の設定
+```powershell
+$env:BLACK_CACHE_DIR = "$PWD\.black_cache"
+[Environment]::SetEnvironmentVariable("BLACK_CACHE_DIR", "$PWD\.black_cache", "User")
+```
+
+> Windows 環境では Black の既定キャッシュ先で処理が止まる場合があるため、プロジェクト内の `.black_cache/` を使います。
+> `.black_cache/` は `.gitignore` 済みです。
+
+5) 動作確認（主要ツールが表示されればOK）
 ```powershell
 ruff --version
 black --version
 pytest --version
 ```
 
-5) 品質チェック一括（lint/format/check/test）
+6) 品質チェック一括（lint/format/check/test）
 ```powershell
 pytest
 ruff check .
+$env:BLACK_CACHE_DIR = "$PWD\.black_cache"
 black --check .
 mypy .
 ```
@@ -78,17 +89,26 @@ uvicorn backend.app.main:app --reload
   → `pip install --upgrade pip setuptools wheel` を実行後、再インストール。
 - **仮想環境が有効化できない**
   → 実行ポリシーを `RemoteSigned` に変更（上記参照）。
+- **black が長時間終わらない**
+  → `BLACK_CACHE_DIR` が設定されているか確認し、未設定なら以下を実行。
+  ```powershell
+  $env:BLACK_CACHE_DIR = "$PWD\.black_cache"
+  ```
 
 ---
 
 ## 5) 便利コマンド（PowerShell）
 ```powershell
 # venv 有効化
-.\venv_SMA\Scripts\Activate.ps1
+.\venv_SMAI\Scripts\Activate.ps1
 
 # venv 無効化
 deactivate
 
 # 依存を再インストール
-pip install -r requirements.txt -r requirements-dev.txt
+pip install -r setup\requirements.txt -r setup\requirements-dev.txt
+
+# Black 実行
+$env:BLACK_CACHE_DIR = "$PWD\.black_cache"
+black --check backend tests
 ```

@@ -33,16 +33,19 @@ def health():
     return {"status": "ok"}
 
 
+def create_risk_service() -> RiskService:
+    """Create the default Risk MVP service for API requests."""
+    settings = get_settings()
+    data_access = DataAccess(cfg=settings.dataaccess)
+    feature_builder = FeatureBuilder(data_access, cfg=settings.feature_builder)
+    return RiskService(feature_builder, cfg=settings.risk)
+
+
 @app.post("/risk/pre-trade-check", response_model=RiskDecision)
 async def pre_trade_check(request: PreTradeCheckRequest) -> RiskDecision:
     """Evaluate a basket through the deterministic Risk MVP service."""
 
-    settings = get_settings()
-    data_access = DataAccess(cfg=settings.dataaccess)
-    feature_builder = FeatureBuilder(data_access, cfg=settings.feature_builder)
-    service = RiskService(feature_builder, cfg=settings.risk)
-
-    return await service.pre_trade_check(
+    return await create_risk_service().pre_trade_check(
         request.basket,
         request.as_of,
         request.account_id,

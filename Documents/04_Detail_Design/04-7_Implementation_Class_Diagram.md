@@ -18,7 +18,7 @@
 - Core Foundation: 実装済み
 - MarketData MVP: 実装済み（mock provider）
 - Risk MVP: initial `RiskService`, `RiskDecision`, and pre-trade API implemented
-- Portfolio MVP: initial `PortfolioService`, snapshots, and no-solver rebalance proposals implemented
+- Portfolio MVP: initial `PortfolioService`, snapshots, no-solver rebalance proposals, and Portfolio-to-Risk workflow implemented
 
 ## 3. Core Foundation Class Diagram
 
@@ -333,6 +333,17 @@ package "backend.portfolio" {
     +trades: list[TradeIntent]
     +solver_backend: "none"
   }
+
+  class PortfolioRiskWorkflow {
+    +portfolio_service: PortfolioService
+    +risk_service: RiskService
+    +propose_and_check(account_id, positions, targets, as_of, cash_jpy): PortfolioRiskResult
+  }
+
+  class PortfolioRiskResult {
+    +proposal: RebalanceProposal
+    +risk_decision: RiskDecision | None
+  }
 }
 
 package "backend.core" {
@@ -344,6 +355,11 @@ package "backend.core" {
 
 package "backend.marketdata" {
   class FeatureBuilder
+}
+
+package "backend.risk" {
+  class RiskService
+  class RiskDecision
 }
 
 PortfolioService --> FeatureBuilder
@@ -358,6 +374,11 @@ PortfolioSnapshot *-- ValuedPosition
 RebalanceProposal *-- PortfolioSnapshot
 RebalanceProposal *-- TargetAllocation
 RebalanceProposal *-- TradeIntent
+PortfolioRiskWorkflow --> PortfolioService
+PortfolioRiskWorkflow --> RiskService
+PortfolioRiskWorkflow ..> PortfolioRiskResult
+PortfolioRiskResult *-- RebalanceProposal
+PortfolioRiskResult o-- RiskDecision
 @enduml
 ```
 

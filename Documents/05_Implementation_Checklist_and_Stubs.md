@@ -179,6 +179,7 @@ class RiskService:
 ## H. PortfolioService（pulp例）
 
 Status: initial no-solver MVP implemented in `backend/portfolio/service.py`. It supports deterministic JPY snapshots and target-weight rebalance proposals that emit `TradeIntent`.
+Workflow: `backend/portfolio/workflow.py` connects generated rebalance trades to `RiskService.pre_trade_check()`.
 
 ```python
 # backend/portfolio/service.py

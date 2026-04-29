@@ -48,7 +48,7 @@ The repository appears to be at:
 - Core contracts/config/errors: implemented / Core の契約・設定・エラーは実装済み
 - MarketData MVP: implemented with `mock` provider / MarketData MVP は `mock` プロバイダで実装済み
 - API bootstrap: implemented with `/health` and `POST /risk/pre-trade-check` / API の起点は `/health` と `POST /risk/pre-trade-check` 付きで実装済み
-- Portfolio MVP: initial service implemented; next likely work is Portfolio API or Portfolio-to-Risk integration / Portfolio MVP は初期サービスが実装済み、次は Portfolio API または Risk 連携
+- Portfolio-to-Risk workflow: implemented; next likely work is API exposure / Portfolio-to-Risk workflow は実装済み、次は API 公開
 
 Unless a task says otherwise, optimize changes for this progression.
 特別な指示がない限り、この進行順を前提に変更を最適化します。

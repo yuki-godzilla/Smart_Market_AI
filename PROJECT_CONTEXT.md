@@ -52,6 +52,7 @@ The implementation is still MVP-oriented and pre-integration. Risk has a minimal
 - `FeatureBuilder` for ADV, volatility, and daily snapshot generation / ADV、ボラティリティ、日次スナップショットを生成する `FeatureBuilder`
 - Risk `RiskService` and `POST /risk/pre-trade-check` API endpoint / Risk `RiskService` と `POST /risk/pre-trade-check` API エンドポイント
 - Portfolio `PortfolioService` for deterministic snapshots and no-solver rebalance proposals / deterministic なスナップショットと solver なしのリバランス提案を行う Portfolio `PortfolioService`
+- Portfolio-to-Risk workflow for checking generated rebalance trades / 生成されたリバランス取引を判定する Portfolio-to-Risk workflow
 - pytest suite for current MVP modules / 現在の MVP モジュールを対象とした pytest 群
 
 ## Not Yet Implemented Or Partial / 未実装または部分実装
@@ -115,8 +116,8 @@ These commands are also referenced by the roadmap document.
 
 ## Next Good Targets / 次の着手候補
 
-- expose the Portfolio MVP through FastAPI or connect generated `TradeIntent` proposals to Risk checks
-  Portfolio MVP を FastAPI から公開するか、生成した `TradeIntent` 提案を Risk 判定へ接続する
+- expose the Portfolio-to-Risk workflow through FastAPI
+  Portfolio-to-Risk workflow を FastAPI から公開する
 - add config loading from YAML or environment variables without breaking current defaults
   現在のデフォルト挙動を壊さずに YAML や環境変数からの設定読み込みを追加する
 - expand mock market data coverage or add a second provider behind the existing interface
@@ -144,3 +145,4 @@ Update this file when:
 - 2026-04-29: Synchronized project documents with the implemented Risk service and API state. / 実装済みの Risk サービスと API の状態に合わせてドキュメントを同期。
 - 2026-04-29: Hardened Risk API error-response tests for data-source and computation failures. / データソース失敗と計算失敗に対する Risk API エラー応答テストを強化。
 - 2026-04-29: Started Phase 4 Portfolio MVP with deterministic snapshot valuation and no-solver rebalance proposals. / deterministic な評価スナップショットと solver なしのリバランス提案で Phase 4 Portfolio MVP に着手。
+- 2026-04-29: Connected Portfolio rebalance proposals to Risk pre-trade checks through a service-level workflow. / service-level workflow で Portfolio リバランス提案を Risk 取引前判定へ接続。

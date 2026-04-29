@@ -22,6 +22,7 @@ Current implementation sync note:
 - Done: Risk MVP initial service at `backend/risk/service.py`.
 - Done: FastAPI endpoints `/health` and `POST /risk/pre-trade-check`.
 - Done: Portfolio MVP initial service at `backend/portfolio/service.py`.
+- Done: Portfolio-to-Risk workflow for generated rebalance trades.
 - Remaining: non-mock market data providers, Execution, UI, and external config loading.
 
 ## 3. Implementation Policy
@@ -146,14 +147,15 @@ Status: MVP initial service complete
 
 ## 5. Near-Term Decision
 
-次に着手する推奨範囲は **Portfolio API exposure or Portfolio-to-Risk integration**。
+次に着手する推奨範囲は **Portfolio-to-Risk API exposure**。
 
 理由:
 - Phase 1 の最小 core 基盤は追加済み。
 - Phase 2 の mock MarketData で `DailySnapshot` を生成できる。
 - Phase 3 の最小 RiskService と API は追加済み。
 - Phase 4 の最小 PortfolioService は追加済み。
-- 次は Portfolio が生成した `TradeIntent` を Risk 判定へ接続するか、Portfolio MVP を API から呼び出せるようにする。
+- Portfolio が生成した `TradeIntent` は service-level workflow で Risk 判定へ接続済み。
+- 次は Portfolio-to-Risk workflow を API から呼び出せるようにする。
 
 ## 6. Verification Notes
 

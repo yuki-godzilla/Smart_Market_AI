@@ -21,7 +21,8 @@ Current implementation sync note:
 - Done: MarketData MVP with deterministic `mock` provider.
 - Done: Risk MVP initial service at `backend/risk/service.py`.
 - Done: FastAPI endpoints `/health` and `POST /risk/pre-trade-check`.
-- Remaining: non-mock market data providers, Portfolio, Execution, UI, and external config loading.
+- Done: Portfolio MVP initial service at `backend/portfolio/service.py`.
+- Remaining: non-mock market data providers, Execution, UI, and external config loading.
 
 ## 3. Implementation Policy
 
@@ -107,11 +108,13 @@ Status: MVP initial service and API complete
 
 ### Phase 4: Portfolio MVP
 
+Status: MVP initial service complete
+
 目的: シンプルな制約付きリバランス案を作る。
 
 成果物:
-- `backend/portfolio/service.py`
-- Portfolio 向けユニットテスト
+- Done: `backend/portfolio/service.py`
+- Done: Portfolio 向けユニットテスト
 
 主な内容:
 - 現在ポジションの JPY 評価
@@ -143,13 +146,14 @@ Status: MVP initial service and API complete
 
 ## 5. Near-Term Decision
 
-次に着手する推奨範囲は **Risk API contract/error hardening, then Phase 4: Portfolio MVP**。
+次に着手する推奨範囲は **Portfolio API exposure or Portfolio-to-Risk integration**。
 
 理由:
 - Phase 1 の最小 core 基盤は追加済み。
 - Phase 2 の mock MarketData で `DailySnapshot` を生成できる。
 - Phase 3 の最小 RiskService と API は追加済み。
-- 次は `TradeIntent` から `RiskDecision` への API 契約とアプリケーションエラー応答を安定化し、その後 Portfolio MVP に進める。
+- Phase 4 の最小 PortfolioService は追加済み。
+- 次は Portfolio が生成した `TradeIntent` を Risk 判定へ接続するか、Portfolio MVP を API から呼び出せるようにする。
 
 ## 6. Verification Notes
 

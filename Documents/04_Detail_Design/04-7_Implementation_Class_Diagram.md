@@ -18,6 +18,7 @@
 - Core Foundation: 実装済み
 - MarketData MVP: 実装済み（mock provider）
 - Risk MVP: initial `RiskService`, `RiskDecision`, and pre-trade API implemented
+- Portfolio MVP: initial `PortfolioService`, snapshots, and no-solver rebalance proposals implemented
 
 ## 3. Core Foundation Class Diagram
 
@@ -281,7 +282,86 @@ PreTradeCheckRequest ..> TradeIntent
 @enduml
 ```
 
-## 6. Component-Specific Diagram Links
+## 6. Portfolio MVP Relationships
+
+`backend.portfolio` currently provides deterministic JPY valuation and target-weight rebalance proposals without an optimization solver.
+
+```plantuml
+@startuml
+top to bottom direction
+skinparam shadowing true
+skinparam roundcorner 8
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+package "backend.portfolio" {
+  class PortfolioService {
+    +feature_builder: FeatureBuilder
+    +cfg: PortfolioConfig
+    +snapshot(account_id, positions, as_of, cash_jpy): PortfolioSnapshot
+    +rebalance(account_id, positions, targets, as_of, cash_jpy): RebalanceProposal
+  }
+
+  class PortfolioSnapshot {
+    +account_id: str
+    +as_of: date
+    +positions: list[ValuedPosition]
+    +cash_jpy: Decimal
+    +total_value_jpy: Decimal
+  }
+
+  class ValuedPosition {
+    +symbol: str
+    +qty: Decimal
+    +currency: Currency
+    +last: Decimal
+    +fx_rate_jpy: Decimal
+    +value_jpy: Decimal
+  }
+
+  class TargetAllocation {
+    +symbol: str
+    +currency: Currency
+    +target_weight: Decimal
+  }
+
+  class RebalanceProposal {
+    +account_id: str
+    +as_of: date
+    +current: PortfolioSnapshot
+    +targets: list[TargetAllocation]
+    +trades: list[TradeIntent]
+    +solver_backend: "none"
+  }
+}
+
+package "backend.core" {
+  class Position
+  class TradeIntent
+  class PortfolioConfig
+  class ComputationError
+}
+
+package "backend.marketdata" {
+  class FeatureBuilder
+}
+
+PortfolioService --> FeatureBuilder
+PortfolioService ..> PortfolioConfig
+PortfolioService ..> Position
+PortfolioService ..> TargetAllocation
+PortfolioService ..> PortfolioSnapshot
+PortfolioService ..> RebalanceProposal
+PortfolioService ..> TradeIntent
+PortfolioService ..> ComputationError
+PortfolioSnapshot *-- ValuedPosition
+RebalanceProposal *-- PortfolioSnapshot
+RebalanceProposal *-- TargetAllocation
+RebalanceProposal *-- TradeIntent
+@enduml
+```
+
+## 7. Component-Specific Diagram Links
 
 - MarketData / DataAccess: [04-2_Onepager_marketdata_dataaccess.md](./04-2_Onepager_marketdata_dataaccess.md)
 - Execution: [04-3_Onepager_Execution.md](./04-3_Onepager_Execution.md)

@@ -178,6 +178,8 @@ class RiskService:
 
 ## H. PortfolioService（pulp例）
 
+Status: initial no-solver MVP implemented in `backend/portfolio/service.py`. It supports deterministic JPY snapshots and target-weight rebalance proposals that emit `TradeIntent`.
+
 ```python
 # backend/portfolio/service.py
 class PortfolioService:

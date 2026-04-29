@@ -19,9 +19,9 @@ The current codebase provides:
 - a minimal FastAPI app / 最小構成の FastAPI アプリ
 - shared domain contracts and configuration models / 共通ドメイン契約と設定モデル
 - a deterministic MarketData MVP based on a mock provider / mock provider ベースの再現性ある MarketData MVP
-- tests for core models, config, errors, marketdata, API health, and Risk API / core モデル、config、errors、marketdata、API health、Risk API のテスト
+- tests for core models, config, errors, marketdata, portfolio, API health, and Risk API / core モデル、config、errors、marketdata、portfolio、API health、Risk API のテスト
 
-The implementation is still MVP-oriented and pre-integration. Risk now has a minimal service and API endpoint, while external providers, UI, portfolio, and execution flows are mostly planned rather than fully built.
+The implementation is still MVP-oriented and pre-integration. Risk has a minimal service and API endpoint, Portfolio has a minimal service, and external providers, UI, and execution flows are mostly planned rather than fully built.
 実装はまだ統合前段階であり、外部プロバイダ、UI、risk、portfolio、execution の各フローは多くが計画段階です。
 
 ## Repository Layout / リポジトリ構成
@@ -51,13 +51,13 @@ The implementation is still MVP-oriented and pre-integration. Risk now has a min
 - MarketData `DataAccess` with `mock` provider only / `mock` provider 専用の MarketData `DataAccess`
 - `FeatureBuilder` for ADV, volatility, and daily snapshot generation / ADV、ボラティリティ、日次スナップショットを生成する `FeatureBuilder`
 - Risk `RiskService` and `POST /risk/pre-trade-check` API endpoint / Risk `RiskService` と `POST /risk/pre-trade-check` API エンドポイント
+- Portfolio `PortfolioService` for deterministic snapshots and no-solver rebalance proposals / deterministic なスナップショットと solver なしのリバランス提案を行う Portfolio `PortfolioService`
 - pytest suite for current MVP modules / 現在の MVP モジュールを対象とした pytest 群
 
 ## Not Yet Implemented Or Partial / 未実装または部分実装
 
 - non-mock market data providers such as `csv` or `yahoo` / `csv` や `yahoo` などの非 mock 市場データプロバイダ
 - YAML or `.env` driven settings loading / YAML や `.env` ベースの設定読み込み
-- `backend/portfolio/`
 - `backend/execution/`
 - Streamlit or other UI layer / Streamlit などの UI レイヤ
 - report/export pipelines / レポート・出力パイプライン
@@ -81,7 +81,8 @@ Based on code and roadmap documents, the project is effectively here:
 - Phase 1 Core Foundation: complete for MVP / Phase 1 Core Foundation: MVP として完了
 - Phase 2 MarketData MVP: complete for MVP / Phase 2 MarketData MVP: MVP として完了
 - Phase 3 Risk MVP: initial service and API complete for MVP / Phase 3 Risk MVP: 初期サービスと API は MVP として完了
-- Next recommended work: harden Risk API contract and error mapping / 次の推奨作業: Risk API 契約とエラーマッピングの強化
+- Phase 4 Portfolio MVP: initial service complete for MVP / Phase 4 Portfolio MVP: 初期サービスは MVP として完了
+- Next recommended work: expose Portfolio through API or connect Portfolio proposals to Risk checks / 次の推奨作業: Portfolio API 公開または Portfolio 提案と Risk 判定の連携
 
 ## Test And Verification Baseline / テストと確認の基準
 
@@ -114,8 +115,8 @@ These commands are also referenced by the roadmap document.
 
 ## Next Good Targets / 次の着手候補
 
-- stabilize the Risk API contract and error mapping around `TradeIntent` and `RiskDecision`
-  `TradeIntent` と `RiskDecision` を中心に Risk API 契約とエラーマッピングを安定化する
+- expose the Portfolio MVP through FastAPI or connect generated `TradeIntent` proposals to Risk checks
+  Portfolio MVP を FastAPI から公開するか、生成した `TradeIntent` 提案を Risk 判定へ接続する
 - add config loading from YAML or environment variables without breaking current defaults
   現在のデフォルト挙動を壊さずに YAML や環境変数からの設定読み込みを追加する
 - expand mock market data coverage or add a second provider behind the existing interface
@@ -142,3 +143,4 @@ Update this file when:
 - 2026-04-29: Exposed Risk MVP through `POST /risk/pre-trade-check` with deterministic API tests. / `POST /risk/pre-trade-check` で Risk MVP を公開し、決定的な API テストを追加。
 - 2026-04-29: Synchronized project documents with the implemented Risk service and API state. / 実装済みの Risk サービスと API の状態に合わせてドキュメントを同期。
 - 2026-04-29: Hardened Risk API error-response tests for data-source and computation failures. / データソース失敗と計算失敗に対する Risk API エラー応答テストを強化。
+- 2026-04-29: Started Phase 4 Portfolio MVP with deterministic snapshot valuation and no-solver rebalance proposals. / deterministic な評価スナップショットと solver なしのリバランス提案で Phase 4 Portfolio MVP に着手。

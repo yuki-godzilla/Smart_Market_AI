@@ -19,7 +19,7 @@ The current codebase provides:
 - a minimal FastAPI app / 最小構成の FastAPI アプリ
 - shared domain contracts and configuration models / 共通ドメイン契約と設定モデル
 - a deterministic MarketData MVP based on a mock provider / mock provider ベースの再現性ある MarketData MVP
-- tests for core models, config, errors, marketdata, and API health / core モデル、config、errors、marketdata、API health のテスト
+- tests for core models, config, errors, marketdata, API health, and Risk API / core モデル、config、errors、marketdata、API health、Risk API のテスト
 
 The implementation is still pre-integration. External providers, UI, risk, portfolio, and execution flows are mostly planned rather than fully built.
 実装はまだ統合前段階であり、外部プロバイダ、UI、risk、portfolio、execution の各フローは多くが計画段階です。
@@ -50,13 +50,13 @@ The implementation is still pre-integration. External providers, UI, risk, portf
 - core error classes in `backend/core/errors.py` / `backend/core/errors.py` の基底エラー群
 - MarketData `DataAccess` with `mock` provider only / `mock` provider 専用の MarketData `DataAccess`
 - `FeatureBuilder` for ADV, volatility, and daily snapshot generation / ADV、ボラティリティ、日次スナップショットを生成する `FeatureBuilder`
+- Risk `RiskService` and `POST /risk/pre-trade-check` API endpoint / Risk `RiskService` と `POST /risk/pre-trade-check` API エンドポイント
 - pytest suite for current MVP modules / 現在の MVP モジュールを対象とした pytest 群
 
 ## Not Yet Implemented Or Partial / 未実装または部分実装
 
 - non-mock market data providers such as `csv` or `yahoo` / `csv` や `yahoo` などの非 mock 市場データプロバイダ
 - YAML or `.env` driven settings loading / YAML や `.env` ベースの設定読み込み
-- `backend/risk/`
 - `backend/portfolio/`
 - `backend/execution/`
 - Streamlit or other UI layer / Streamlit などの UI レイヤ
@@ -113,8 +113,8 @@ These commands are also referenced by the roadmap document.
 
 ## Next Good Targets / 次の着手候補
 
-- introduce `backend/risk/` MVP aligned with existing `TradeIntent` and `DailySnapshot`
-  既存の `TradeIntent` と `DailySnapshot` に沿った `backend/risk/` MVP を導入する
+- stabilize the Risk API contract and error mapping around `TradeIntent` and `RiskDecision`
+  `TradeIntent` と `RiskDecision` を中心に Risk API 契約とエラーマッピングを安定化する
 - add config loading from YAML or environment variables without breaking current defaults
   現在のデフォルト挙動を壊さずに YAML や環境変数からの設定読み込みを追加する
 - expand mock market data coverage or add a second provider behind the existing interface
@@ -138,3 +138,4 @@ Update this file when:
 - 2026-04-29: Updated both root documents to bilingual English/Japanese format. / ルート文書2点を英日併記に更新。
 - 2026-04-29: Updated `AGENTS.md` to require diff-first review and work-log updates per task unit. / `AGENTS.md` に差分先出しレビューと作業単位ごとのログ更新ルールを追記。
 - 2026-04-29: Started Phase 3 Risk MVP by adding `backend/risk/` with minimal `RiskService` and decision tests. / `backend/risk/` の最小 `RiskService` と判定テストを追加し、Phase 3 Risk MVP に着手。
+- 2026-04-29: Exposed Risk MVP through `POST /risk/pre-trade-check` with deterministic API tests. / `POST /risk/pre-trade-check` で Risk MVP を公開し、決定的な API テストを追加。

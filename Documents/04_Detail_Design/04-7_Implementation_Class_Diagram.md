@@ -17,6 +17,7 @@
 現在の対象:
 - Core Foundation: 実装済み
 - MarketData MVP: 実装済み（mock provider）
+- Risk MVP: initial `RiskService`, `RiskDecision`, and pre-trade API implemented
 
 ## 3. Core Foundation Class Diagram
 
@@ -157,6 +158,7 @@ package "backend.core.errors" {
   class ValidationAppError
   class DataSourceError
   class RateLimitError
+  class ComputationError
   class BrokerError
   class UnsupportedTifError
   class SecurityError
@@ -164,6 +166,7 @@ package "backend.core.errors" {
 
   AppError <|-- ValidationAppError
   AppError <|-- DataSourceError
+  AppError <|-- ComputationError
   DataSourceError <|-- RateLimitError
   AppError <|-- BrokerError
   BrokerError <|-- UnsupportedTifError
@@ -222,7 +225,63 @@ FeatureBuilder ..> DailySnapshot
 @enduml
 ```
 
-## 5. Component-Specific Diagram Links
+## 5. Risk MVP Relationships
+
+`backend.risk` currently provides a deterministic MVP pre-trade service backed by `FeatureBuilder`.
+
+```plantuml
+@startuml
+top to bottom direction
+skinparam shadowing true
+skinparam roundcorner 8
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+package "backend.risk" {
+  class RiskService {
+    +feature_builder: FeatureBuilder
+    +cfg: RiskConfig
+    +pre_trade_check(basket, as_of, account_id): RiskDecision
+  }
+
+  class RiskDecision {
+    +decision_id: str
+    +status: "ALLOW" | "BLOCK" | "REVIEW"
+    +breaches: list[str]
+    +evaluated_rules_version: str
+  }
+}
+
+package "backend.app" {
+  class PreTradeCheckRequest {
+    +account_id: str
+    +as_of: date
+    +basket: list[TradeIntent]
+  }
+}
+
+package "backend.core" {
+  class TradeIntent
+  class DailySnapshot
+  class RiskConfig
+  class ComputationError
+}
+
+package "backend.marketdata" {
+  class FeatureBuilder
+}
+
+RiskService --> FeatureBuilder
+RiskService ..> RiskConfig
+RiskService ..> TradeIntent
+RiskService ..> DailySnapshot
+RiskService ..> RiskDecision
+RiskService ..> ComputationError
+PreTradeCheckRequest ..> TradeIntent
+@enduml
+```
+
+## 6. Component-Specific Diagram Links
 
 - MarketData / DataAccess: [04-2_Onepager_marketdata_dataaccess.md](./04-2_Onepager_marketdata_dataaccess.md)
 - Execution: [04-3_Onepager_Execution.md](./04-3_Onepager_Execution.md)

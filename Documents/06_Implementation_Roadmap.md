@@ -16,6 +16,13 @@
 - 依存関係は FastAPI / Pydantic / SQLAlchemy / httpx / pandas / numpy などの基盤寄りが中心。
 - Streamlit、yfinance、最適化ライブラリ、ML ライブラリはまだ導入前。
 
+Current implementation sync note:
+- Done: Core Foundation MVP.
+- Done: MarketData MVP with deterministic `mock` provider.
+- Done: Risk MVP initial service at `backend/risk/service.py`.
+- Done: FastAPI endpoints `/health` and `POST /risk/pre-trade-check`.
+- Remaining: non-mock market data providers, Portfolio, Execution, UI, and external config loading.
+
 ## 3. Implementation Policy
 
 - 最初は外部 API や重い ML 処理に入らず、ローカルで再現できる土台から作る。
@@ -81,11 +88,14 @@ Design diagrams:
 
 ### Phase 3: Risk MVP
 
+Status: MVP initial service and API complete
+
 目的: 取引前チェックの最小ルールエンジンを作る。
 
 成果物:
-- `backend/risk/service.py`
-- Risk 向けユニットテスト
+- Done: `backend/risk/service.py`
+- Done: Risk 向けユニットテスト
+- Done: `POST /risk/pre-trade-check` FastAPI endpoint and deterministic API tests
 
 主な内容:
 - `ALLOW`, `REVIEW`, `BLOCK` の判定
@@ -133,12 +143,13 @@ Design diagrams:
 
 ## 5. Near-Term Decision
 
-次に着手する推奨範囲は **Phase 3: Risk MVP**。
+次に着手する推奨範囲は **Risk API contract/error hardening, then Phase 4: Portfolio MVP**。
 
 理由:
 - Phase 1 の最小 core 基盤は追加済み。
 - Phase 2 の mock MarketData で `DailySnapshot` を生成できる。
-- 次は `TradeIntent` と `DailySnapshot` を使って、取引前チェックの最小ルールを作れる。
+- Phase 3 の最小 RiskService と API は追加済み。
+- 次は `TradeIntent` から `RiskDecision` への API 契約とアプリケーションエラー応答を安定化し、その後 Portfolio MVP に進める。
 
 ## 6. Verification Notes
 

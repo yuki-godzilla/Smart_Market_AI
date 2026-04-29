@@ -1,5 +1,8 @@
 # 📊 Smart Market AI - 要件定義書
 
+> Note: This README currently has encoding/display issues in this environment.
+> Treat `PROJECT_CONTEXT.md` and the files under `Documents/` as the operational source of truth until the README is cleaned up.
+
 ![CI](https://github.com/yuki-godzilla/Smart_Market_AI/actions/workflows/ci.yml/badge.svg)
 
 ## Links

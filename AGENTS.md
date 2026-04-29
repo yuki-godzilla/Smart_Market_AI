@@ -47,8 +47,8 @@ The repository appears to be at:
 
 - Core contracts/config/errors: implemented / Core の契約・設定・エラーは実装済み
 - MarketData MVP: implemented with `mock` provider / MarketData MVP は `mock` プロバイダで実装済み
-- API bootstrap: implemented with `/health` / API の起点は `/health` 付きで実装済み
-- Next likely phase: Risk MVP / 次フェーズ候補は Risk MVP
+- API bootstrap: implemented with `/health` and `POST /risk/pre-trade-check` / API の起点は `/health` と `POST /risk/pre-trade-check` 付きで実装済み
+- Risk MVP: initial service and API implemented; next likely work is API contract/error hardening / Risk MVP は初期サービスと API が実装済み、次は API 契約とエラー応答の強化
 
 Unless a task says otherwise, optimize changes for this progression.
 特別な指示がない限り、この進行順を前提に変更を最適化します。

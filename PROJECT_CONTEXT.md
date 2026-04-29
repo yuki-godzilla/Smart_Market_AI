@@ -21,7 +21,7 @@ The current codebase provides:
 - a deterministic MarketData MVP based on a mock provider / mock provider ベースの再現性ある MarketData MVP
 - tests for core models, config, errors, marketdata, API health, and Risk API / core モデル、config、errors、marketdata、API health、Risk API のテスト
 
-The implementation is still pre-integration. External providers, UI, risk, portfolio, and execution flows are mostly planned rather than fully built.
+The implementation is still MVP-oriented and pre-integration. Risk now has a minimal service and API endpoint, while external providers, UI, portfolio, and execution flows are mostly planned rather than fully built.
 実装はまだ統合前段階であり、外部プロバイダ、UI、risk、portfolio、execution の各フローは多くが計画段階です。
 
 ## Repository Layout / リポジトリ構成
@@ -80,7 +80,8 @@ Based on code and roadmap documents, the project is effectively here:
 
 - Phase 1 Core Foundation: complete for MVP / Phase 1 Core Foundation: MVP として完了
 - Phase 2 MarketData MVP: complete for MVP / Phase 2 MarketData MVP: MVP として完了
-- Next recommended phase: Risk MVP / 次の推奨フェーズ: Risk MVP
+- Phase 3 Risk MVP: initial service and API complete for MVP / Phase 3 Risk MVP: 初期サービスと API は MVP として完了
+- Next recommended work: harden Risk API contract and error mapping / 次の推奨作業: Risk API 契約とエラーマッピングの強化
 
 ## Test And Verification Baseline / テストと確認の基準
 
@@ -139,3 +140,4 @@ Update this file when:
 - 2026-04-29: Updated `AGENTS.md` to require diff-first review and work-log updates per task unit. / `AGENTS.md` に差分先出しレビューと作業単位ごとのログ更新ルールを追記。
 - 2026-04-29: Started Phase 3 Risk MVP by adding `backend/risk/` with minimal `RiskService` and decision tests. / `backend/risk/` の最小 `RiskService` と判定テストを追加し、Phase 3 Risk MVP に着手。
 - 2026-04-29: Exposed Risk MVP through `POST /risk/pre-trade-check` with deterministic API tests. / `POST /risk/pre-trade-check` で Risk MVP を公開し、決定的な API テストを追加。
+- 2026-04-29: Synchronized project documents with the implemented Risk service and API state. / 実装済みの Risk サービスと API の状態に合わせてドキュメントを同期。

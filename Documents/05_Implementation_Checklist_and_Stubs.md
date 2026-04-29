@@ -6,9 +6,12 @@
 
 ## A. レポジトリ初期化（共通）
 
-* [ ] `python 3.11` / `poetry` / `ruff` / `mypy` / `pytest`
+* [x] `python 3.11` / `ruff` / `mypy` / `pytest`
+* [ ] `poetry`
 * [x] ディレクトリ: `/backend/app` `/backend/core` `/tests` `/Documents`
-* [ ] `pyproject.toml` に `pydantic`, `fastapi`, `uvicorn`, `httpx`, `orjson`, `prometheus_client`
+* [x] `setup/requirements.txt` に `pydantic`, `fastapi`, `uvicorn`, `httpx` を記載
+* [ ] `pyproject.toml` に runtime dependencies を記載するか、現行の `setup/requirements*.txt` 方針を継続するかを決定する
+* [ ] `orjson`, `prometheus_client`
 * [ ] 後続フェーズで `redis`, `pulp`（or `ortools`）を必要時に追加
 * [ ] `.env` / `.env.example` / `docker-compose.yml`（redisは運用時候補）
 
@@ -158,6 +161,8 @@ class FeatureBuilder:
 ```
 
 ## G. RiskService ルール評価エンジン
+
+Status: initial MVP implemented in `backend/risk/service.py` and exposed through `POST /risk/pre-trade-check`. Remaining work is API contract/error hardening and richer rule output.
 
 ```python
 # backend/risk/service.py

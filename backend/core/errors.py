@@ -38,6 +38,13 @@ class DataSourceError(AppError):
     http_status = HTTPStatus.BAD_GATEWAY
 
 
+class ComputationError(AppError):
+    """Application could not compute a derived value from otherwise valid inputs."""
+
+    code = "APP-2002"
+    http_status = HTTPStatus.UNPROCESSABLE_ENTITY
+
+
 class RateLimitError(DataSourceError):
     """Data provider rejected or delayed a request due to rate limits."""
 

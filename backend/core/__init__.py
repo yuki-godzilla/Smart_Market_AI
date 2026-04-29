@@ -15,6 +15,7 @@ from backend.core.data_contracts import (
 from backend.core.errors import (
     AppError,
     BrokerError,
+    ComputationError,
     DataSourceError,
     RateLimitError,
     SchemaMismatchError,
@@ -28,6 +29,7 @@ __all__ = [
     "Bar",
     "BrokerError",
     "Currency",
+    "ComputationError",
     "DailySnapshot",
     "DataSourceError",
     "FxRate",

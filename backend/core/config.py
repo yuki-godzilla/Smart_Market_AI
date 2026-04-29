@@ -54,7 +54,9 @@ class RiskThresholdsConfig(StrictConfigModel):
     max_notional_per_symbol: int = Field(default=3_000_000, gt=0)
     max_notional_per_basket: int = Field(default=10_000_000, gt=0)
     max_concentration: float = Field(default=0.25, gt=0, le=1)
+    min_adv: int = Field(default=50_000_000, gt=0)
     min_dividend_yield: float = Field(default=0.03, ge=0)
+    max_volatility: float = Field(default=0.6, gt=0)
 
 
 class RiskConfig(StrictConfigModel):

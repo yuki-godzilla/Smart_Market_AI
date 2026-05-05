@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
 import streamlit as st
@@ -66,7 +67,7 @@ def main() -> None:
         try:
             request = build_rebalance_request(
                 account_id=account_id,
-                as_of=as_of,
+                as_of=_single_date_from_input(as_of),
                 cash_jpy=_decimal_from_text(cash_jpy_text),
                 positions_json=positions_json,
                 targets_json=targets_json,
@@ -91,6 +92,12 @@ def main() -> None:
 
 def _decimal_from_text(value: str) -> Decimal:
     return Decimal(value.strip())
+
+
+def _single_date_from_input(value: object) -> date:
+    if isinstance(value, date):
+        return value
+    raise ValueError("As of must be a single date.")
 
 
 def _render_runtime_settings() -> None:

@@ -136,6 +136,9 @@ Update `PROJECT_CONTEXT.md` when any of the following change:
 - known risks, blockers, or temporary assumptions / 既知のリスク、ブロッカー、一時的な前提
 - each meaningful unit of work / 意味のある作業単位ごと
 
+When an implementation changes API behavior, UI behavior, configuration behavior, workflows, or verification steps, check the relevant design/operation documents under `Documents/` and keep them synchronized in the same work unit when practical.
+API 挙動、UI 挙動、設定挙動、workflow、確認手順が変わる実装では、`Documents/` 配下の関連する設計・運用ドキュメントを照合し、可能な限り同じ作業単位で同期します。
+
 Update `AGENTS.md` when any of the following change:
 次の内容が変わったら `AGENTS.md` を更新します。
 

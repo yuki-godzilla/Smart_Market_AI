@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from typing import Any
@@ -37,15 +38,81 @@ DEFAULT_TARGETS_JSON = """[
 ]"""
 
 
-def build_default_rebalance_request() -> RebalanceCheckRequest:
-    """Build the deterministic sample request used by docs, tests, and the UI."""
+NO_TRADES_POSITIONS_JSON = """[
+  {
+    "symbol": "7203.T",
+    "qty": "10",
+    "avg_price": "2800",
+    "currency": "JPY"
+  }
+]"""
 
-    return build_rebalance_request(
+NO_TRADES_TARGETS_JSON = """[
+  {
+    "symbol": "7203.T",
+    "currency": "JPY",
+    "target_weight": "1.0"
+  }
+]"""
+
+
+@dataclass(frozen=True)
+class RebalanceSample:
+    """Deterministic sample inputs offered by the Streamlit UI."""
+
+    account_id: str
+    as_of: date
+    cash_jpy: Decimal
+    positions_json: str
+    targets_json: str
+
+
+SAMPLE_DEFAULT_REBALANCE = "Default rebalance"
+SAMPLE_NO_TRADES = "No trades"
+
+REBALANCE_SAMPLES: dict[str, RebalanceSample] = {
+    SAMPLE_DEFAULT_REBALANCE: RebalanceSample(
         account_id=DEFAULT_ACCOUNT_ID,
         as_of=DEFAULT_AS_OF,
         cash_jpy=DEFAULT_CASH_JPY,
         positions_json=DEFAULT_POSITIONS_JSON,
         targets_json=DEFAULT_TARGETS_JSON,
+    ),
+    SAMPLE_NO_TRADES: RebalanceSample(
+        account_id=DEFAULT_ACCOUNT_ID,
+        as_of=DEFAULT_AS_OF,
+        cash_jpy=Decimal("0"),
+        positions_json=NO_TRADES_POSITIONS_JSON,
+        targets_json=NO_TRADES_TARGETS_JSON,
+    ),
+}
+
+
+def rebalance_sample_names() -> list[str]:
+    """Return sample names in the order they should appear in the UI."""
+
+    return list(REBALANCE_SAMPLES)
+
+
+def get_rebalance_sample(name: str) -> RebalanceSample:
+    """Return a deterministic UI sample by name."""
+
+    try:
+        return REBALANCE_SAMPLES[name]
+    except KeyError as exc:
+        raise ValueError(f"Unknown rebalance sample: {name}") from exc
+
+
+def build_default_rebalance_request() -> RebalanceCheckRequest:
+    """Build the deterministic sample request used by docs, tests, and the UI."""
+
+    sample = get_rebalance_sample(SAMPLE_DEFAULT_REBALANCE)
+    return build_rebalance_request(
+        account_id=sample.account_id,
+        as_of=sample.as_of,
+        cash_jpy=sample.cash_jpy,
+        positions_json=sample.positions_json,
+        targets_json=sample.targets_json,
     )
 
 

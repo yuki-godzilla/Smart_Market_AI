@@ -2,46 +2,70 @@
 
 #### [BACK TO README](../README.md)
 
-## 目的
+## Purpose / 目的
 
-この文書は、Smart Market AI の最小 Streamlit UI をローカルで起動する手順をまとめます。
+This document explains how to run and manually check the minimal Smart Market AI Streamlit UI locally.
+この文書は、Smart Market AI の最小 Streamlit UI をローカルで起動し、手動確認する手順をまとめます。
 
-現在の UI は `POST /portfolio/rebalance-check` 相当の Portfolio-to-Risk workflow を画面から確認するための
-MVP です。broker や execution provider に注文は送りません。
+The current UI is an MVP screen for the Portfolio-to-Risk rebalance-check workflow. It does not send orders to a broker or execution provider.
+現在の UI は Portfolio-to-Risk rebalance-check workflow 向けの MVP 画面です。broker や execution provider に注文は送信しません。
 
-## 起動方法
+## Run / 起動方法
 
-依存関係をインストールします。
+Install dependencies if needed.
+必要に応じて依存関係をインストールします。
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe -m pip install -r setup\requirements.txt -r setup\requirements-dev.txt
 ```
 
+Run the Streamlit UI.
 Streamlit UI を起動します。
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
 ```
 
-CSV provider のサンプルデータで確認する場合は、先に設定ファイルを指定します。
+To run with the deterministic CSV provider, set `SMAI_CONFIG_FILE` first.
+決定的な CSV provider で確認する場合は、先に `SMAI_CONFIG_FILE` を指定します。
 
 ```powershell
 $env:SMAI_CONFIG_FILE = ".\config\csv_example.yaml"
 .\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
 ```
 
-## 画面でできること
+## What You Can Check / 画面で確認できること
 
-- `account_id` を入力する
-- 評価日を選ぶ
-- JPY cash を入力する
-- positions JSON を編集する
-- target allocations JSON を編集する
-- リバランス案と Risk 判定を JSON で確認する
+- Runtime settings: active provider, config source, and CSV data directory when using `csv`.
+  Runtime 設定: 使用中の provider、設定ファイル、`csv` 利用時の CSV data directory。
+- Sample input selection: `Default rebalance` and `No trades`.
+  サンプル入力切り替え: `Default rebalance` と `No trades`。
+- Account, as-of date, JPY cash, positions JSON, and target allocations JSON.
+  account、評価日、JPY cash、positions JSON、target allocations JSON。
+- Rebalance result summary, current positions, target allocations, proposed trades, risk breaches, and raw JSON.
+  リバランス結果 summary、現在ポジション、目標配分、提案取引、risk breach、raw JSON。
 
-## MVP 制約
+## Expected Manual Checks / 手動確認ポイント
 
-- UI はローカル手動確認用です。
-- 現在は Portfolio-to-Risk workflow のみを対象にしています。
-- デフォルトでは `mock` provider を使います。
-- `SMAI_CONFIG_FILE` で `csv` provider に切り替えできます。
+With `Default rebalance`, the UI should generate an AAPL `BUY` proposal and show a `BLOCK` risk status with breach rows.
+`Default rebalance` では、AAPL の `BUY` 提案が生成され、risk status は `BLOCK`、breach 行が表示されます。
+
+With `No trades`, the UI should generate zero proposed trades and show `NO_TRADES`, because Risk is skipped when there are no generated trades.
+`No trades` では、提案取引が 0 件になり、生成取引がないため Risk は実行されず `NO_TRADES` が表示されます。
+
+If `Cash JPY` is not a decimal number, the UI should show a clear cash-input error.
+`Cash JPY` が decimal number でない場合、cash 入力エラーが表示されます。
+
+If positions or targets JSON is invalid, the UI should show a JSON validation error.
+positions または targets JSON が不正な場合、JSON validation error が表示されます。
+
+## MVP Constraints / MVP 制約
+
+- The UI is for local manual verification.
+  UI はローカル手動確認用です。
+- The UI currently targets only the Portfolio-to-Risk workflow.
+  現在は Portfolio-to-Risk workflow のみを対象にしています。
+- The default provider is deterministic `mock`.
+  デフォルト provider は deterministic な `mock` です。
+- `SMAI_CONFIG_FILE` can switch the UI to the deterministic `csv` provider.
+  `SMAI_CONFIG_FILE` で deterministic な `csv` provider に切り替えできます。

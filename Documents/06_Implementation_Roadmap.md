@@ -9,12 +9,12 @@
 
 ## 2. Current State
 
-- 実装は FastAPI の最小スケルトンから始まり、現在は Risk / Portfolio の MVP API まで公開済み。
+- 実装は FastAPI の最小スケルトンから始まり、現在は Risk / Portfolio の MVP API と最小 Streamlit UI まで公開済み。
 - 現在ある API は `/health`、`POST /risk/pre-trade-check`、`POST /portfolio/rebalance-check`。
 - テストは core、MarketData、Risk、Portfolio、API、OpenAPI schema を対象に追加済み。
-- Execution、UI、live market-data provider はまだ実装前。
+- Execution と live market-data provider はまだ実装前。UI は Portfolio-to-Risk workflow 向けの最小 Streamlit 画面から着手済み。
 - 依存関係は FastAPI / Pydantic / SQLAlchemy / httpx / pandas / numpy などの基盤寄りが中心。
-- Streamlit、yfinance、最適化ライブラリ、ML ライブラリはまだ導入前。
+- Streamlit は最小 UI 用に導入済み。yfinance、最適化ライブラリ、ML ライブラリはまだ導入前。
 
 Current implementation sync note:
 - Done: Core Foundation MVP.
@@ -29,6 +29,7 @@ Current implementation sync note:
 - Done: Deterministic manual workflow docs and example request for Portfolio-to-Risk checks.
 - Done: Local sample CSV market-data files and `config/csv_example.yaml`.
 - Done: Minimal Streamlit UI for the Portfolio-to-Risk rebalance-check workflow.
+- Done: Streamlit UI runtime settings display and deterministic sample selector.
 - Remaining: live market data providers, Execution, broader UI workflows, and broader environment settings loading.
 
 ## 3. Implementation Policy

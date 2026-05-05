@@ -8,14 +8,11 @@ from pydantic import ValidationError
 
 from backend.portfolio.workflow import PortfolioRiskResult
 from ui.rebalance_app import (
-    DEFAULT_ACCOUNT_ID,
-    DEFAULT_AS_OF,
-    DEFAULT_CASH_JPY,
-    DEFAULT_POSITIONS_JSON,
-    DEFAULT_TARGETS_JSON,
     build_rebalance_request,
     current_position_rows,
+    get_rebalance_sample,
     proposed_trade_rows,
+    rebalance_sample_names,
     result_summary,
     risk_breach_rows,
     run_rebalance_check,
@@ -30,15 +27,17 @@ def main() -> None:
 
     with st.sidebar:
         _render_runtime_settings()
-        account_id = st.text_input("Account", value=DEFAULT_ACCOUNT_ID)
-        as_of = st.date_input("As of", value=DEFAULT_AS_OF)
-        cash_jpy_text = st.text_input("Cash JPY", value=str(DEFAULT_CASH_JPY))
+        sample_name = st.selectbox("Sample", rebalance_sample_names())
+        sample = get_rebalance_sample(sample_name)
+        account_id = st.text_input("Account", value=sample.account_id)
+        as_of = st.date_input("As of", value=sample.as_of)
+        cash_jpy_text = st.text_input("Cash JPY", value=str(sample.cash_jpy))
 
     col_positions, col_targets = st.columns(2)
     with col_positions:
-        positions_json = st.text_area("Positions", value=DEFAULT_POSITIONS_JSON, height=280)
+        positions_json = st.text_area("Positions", value=sample.positions_json, height=280)
     with col_targets:
-        targets_json = st.text_area("Targets", value=DEFAULT_TARGETS_JSON, height=280)
+        targets_json = st.text_area("Targets", value=sample.targets_json, height=280)
 
     if st.button("Run rebalance check", type="primary"):
         try:

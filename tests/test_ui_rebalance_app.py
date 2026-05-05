@@ -13,7 +13,9 @@ from ui.rebalance_app import (
     build_default_rebalance_request,
     build_rebalance_request,
     current_position_rows,
+    get_rebalance_sample,
     proposed_trade_rows,
+    rebalance_sample_names,
     result_summary,
     risk_breach_rows,
     run_rebalance_check,
@@ -45,6 +47,22 @@ def test_build_default_rebalance_request_matches_ui_defaults():
     assert request.cash_jpy == DEFAULT_CASH_JPY
     assert request.positions[0].symbol == "7203.T"
     assert request.targets[1].symbol == "AAPL"
+
+
+def test_rebalance_samples_include_no_trades_case():
+    sample_names = rebalance_sample_names()
+    sample = get_rebalance_sample("No trades")
+
+    assert sample_names == ["Default rebalance", "No trades"]
+    assert sample.cash_jpy == Decimal("0")
+    assert '"target_weight": "1.0"' in sample.targets_json
+
+
+def test_get_rebalance_sample_rejects_unknown_name():
+    with pytest.raises(ValueError) as exc_info:
+        get_rebalance_sample("missing")
+
+    assert str(exc_info.value) == "Unknown rebalance sample: missing"
 
 
 def test_build_rebalance_request_rejects_invalid_positions_json():

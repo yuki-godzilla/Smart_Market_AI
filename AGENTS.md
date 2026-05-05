@@ -39,6 +39,12 @@ The current implementation is still MVP-oriented and intentionally favors determ
    コードやドキュメントを変更する前に、想定差分を提示してレビューしたうえで変更すること。
 7. Append a work-log entry to `PROJECT_CONTEXT.md` for each unit of work.
    作業単位ごとに `PROJECT_CONTEXT.md` へ作業ログを追記すること。
+8. After each implementation task, explain the result in beginner-friendly language.
+   各実装作業の完了後は、初学者にも分かる言葉で結果を説明すること。
+   Include what changed, why it changed, how to use it, and how it was verified.
+   変更内容、変更理由、使い方、検証結果を含めること。
+   When introducing a new concept or technology, briefly explain what role it plays.
+   新しい概念や技術を導入した場合は、その役割も短く説明すること。
 
 ## Current Development Focus / 現在の開発フォーカス
 

@@ -1,0 +1,7 @@
+risk:
+  thresholds:
+    max_concentration: 0.3
+    min_dividend_yield: 0.02
+portfolio:
+  solver:
+    tolerance: 0.0001

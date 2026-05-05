@@ -25,7 +25,8 @@ Current implementation sync note:
 - Done: Portfolio-to-Risk workflow for generated rebalance trades.
 - Done: Portfolio-to-Risk API endpoint `POST /portfolio/rebalance-check`.
 - Done: Swagger/OpenAPI metadata and Japanese API specification notes.
-- Remaining: non-mock market data providers, Execution, UI, and external config loading.
+- Done: Optional YAML settings loading through `SMAI_CONFIG_FILE`.
+- Remaining: non-mock market data providers, Execution, UI, and broader environment settings loading.
 
 ## 3. Implementation Policy
 
@@ -59,7 +60,8 @@ Design diagram: [04-7_Implementation_Class_Diagram.md](./04_Detail_Design/04-7_I
 完了条件:
 - Done: core のユニットテストが通る
 - Done: 後続フェーズから import できる型と例外が揃っている
-- Remaining: 実装が進んだ段階で、config の YAML/.env 読み込み要否を判断する
+- Done: `SMAI_CONFIG_FILE` で YAML 設定を読み込める
+- Remaining: `.env` や個別環境変数による設定上書き
 
 ### Phase 2: MarketData MVP
 
@@ -159,7 +161,8 @@ Status: MVP initial service complete
 - Portfolio が生成した `TradeIntent` は service-level workflow で Risk 判定へ接続済み。
 - Done: Portfolio-to-Risk workflow can now be called through `POST /portfolio/rebalance-check`.
 - Done: Swagger UI now has tags, summaries, descriptions, and request examples for current MVP APIs.
-- 次はローカル UI / 手動確認フロー、または YAML/.env 設定読み込みの整備に進む。
+- Done: YAML settings can be loaded through `SMAI_CONFIG_FILE`.
+- 次はローカル UI / 手動確認フロー、または csv provider の整備に進む。
 
 ## 6. Verification Notes
 

@@ -2,6 +2,8 @@ from pydantic import ValidationError
 
 from backend.core.config import Settings, get_settings
 
+FIXTURE_DIR = "tests/fixtures/config"
+
 
 def test_settings_defaults_are_local_and_mock_first():
     settings = get_settings()
@@ -10,6 +12,40 @@ def test_settings_defaults_are_local_and_mock_first():
     assert settings.dataaccess.provider == "mock"
     assert settings.dataaccess.cache.backend == "memory"
     assert settings.portfolio.solver.backend == "none"
+
+
+def test_settings_loads_yaml_overrides(monkeypatch):
+    monkeypatch.setenv("SMAI_CONFIG_FILE", f"{FIXTURE_DIR}/local.yaml")
+
+    settings = get_settings()
+
+    assert settings.dataaccess.provider == "mock"
+    assert settings.risk.thresholds.max_concentration == 0.3
+    assert settings.risk.thresholds.min_dividend_yield == 0.02
+    assert settings.portfolio.solver.backend == "none"
+    assert settings.portfolio.solver.tolerance == 0.0001
+
+
+def test_settings_rejects_unknown_yaml_keys(monkeypatch):
+    monkeypatch.setenv("SMAI_CONFIG_FILE", f"{FIXTURE_DIR}/unknown_key.yaml")
+
+    try:
+        get_settings()
+    except ValidationError as exc:
+        assert exc.errors()[0]["type"] == "extra_forbidden"
+    else:
+        raise AssertionError("Settings YAML should reject unknown keys")
+
+
+def test_settings_rejects_non_mapping_yaml(monkeypatch):
+    monkeypatch.setenv("SMAI_CONFIG_FILE", f"{FIXTURE_DIR}/non_mapping.yaml")
+
+    try:
+        get_settings()
+    except ValueError as exc:
+        assert str(exc) == "Settings YAML must contain a mapping at the document root"
+    else:
+        raise AssertionError("Settings YAML should require a mapping root")
 
 
 def test_settings_reject_unknown_keys():

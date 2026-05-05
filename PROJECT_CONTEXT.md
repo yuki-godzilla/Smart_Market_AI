@@ -60,7 +60,7 @@ The implementation is still MVP-oriented and pre-integration. Risk has a minimal
 ## Not Yet Implemented Or Partial / 未実装または部分実装
 
 - non-mock market data providers such as `csv` or `yahoo` / `csv` や `yahoo` などの非 mock 市場データプロバイダ
-- YAML or `.env` driven settings loading / YAML や `.env` ベースの設定読み込み
+- `.env` driven settings loading beyond `SMAI_CONFIG_FILE` / `SMAI_CONFIG_FILE` 以外の `.env` ベース設定読み込み
 - `backend/execution/`
 - Streamlit or other UI layer / Streamlit などの UI レイヤ
 - report/export pipelines / レポート・出力パイプライン
@@ -73,8 +73,8 @@ The implementation is still MVP-oriented and pre-integration. Risk has a minimal
   市場データはリポジトリ内の固定データで、テストをオフラインかつ安定して実行できます。
 - `FeatureBuilder.build_daily_snapshot()` currently leaves `dividend_yield` and `market_cap_jpy` as missing values.
   `FeatureBuilder.build_daily_snapshot()` は現在 `dividend_yield` と `market_cap_jpy` を欠損値扱いにしています。
-- `get_settings()` currently returns default in-code settings rather than loading external config.
-  `get_settings()` は現在、外部設定を読む代わりにコード内デフォルト設定を返します。
+- `get_settings()` returns defaults unless `SMAI_CONFIG_FILE` points to a YAML config file.
+  `get_settings()` は `SMAI_CONFIG_FILE` が YAML 設定ファイルを指す場合のみ外部設定を読み込み、それ以外はデフォルトを返します。
 
 ## Likely Current Phase / 現在フェーズの見立て
 
@@ -121,8 +121,8 @@ These commands are also referenced by the roadmap document.
 
 - add a local UI or manual workflow entry point for the rebalance-check flow
   rebalance-check フロー向けのローカル UI または手動確認用入口を追加する
-- add config loading from YAML or environment variables without breaking current defaults
-  現在のデフォルト挙動を壊さずに YAML や環境変数からの設定読み込みを追加する
+- expand environment-variable settings support beyond `SMAI_CONFIG_FILE`
+  `SMAI_CONFIG_FILE` 以外の環境変数ベース設定対応を拡張する
 - expand mock market data coverage or add a second provider behind the existing interface
   mock 市場データのカバレッジを広げるか、既存インターフェースの背後に第2 provider を追加する
 - improve documentation consistency, especially README encoding and status summaries
@@ -142,6 +142,9 @@ Update this file when:
 
 - 2026-05-05: Exposed the Portfolio-to-Risk workflow through `POST /portfolio/rebalance-check` and added deterministic API tests. / `POST /portfolio/rebalance-check` で Portfolio-to-Risk workflow を公開し、決定的な API テストを追加。
 - 2026-05-05: Improved Swagger/OpenAPI metadata and added Japanese API specification notes in `Documents/07_API_Specification.md`. / Swagger/OpenAPI メタデータを整備し、`Documents/07_API_Specification.md` に日本語 API 仕様メモを追加。
+- 2026-05-05: Added optional YAML settings loading via `SMAI_CONFIG_FILE`, PyYAML dependency, example config, and deterministic config tests. / `SMAI_CONFIG_FILE` による任意の YAML 設定読み込み、PyYAML 依存、設定例、決定的な config テストを追加。
+- 2026-05-05: Updated `AGENTS.md` to require beginner-friendly implementation explanations after each work unit. / 各作業単位の完了後に初学者向け説明を行うルールを `AGENTS.md` に追記。
+- 2026-05-05: Added `types-PyYAML` to development and pre-commit mypy dependencies so YAML imports have type stubs. / YAML import の型スタブを使えるように、開発依存と pre-commit mypy 依存へ `types-PyYAML` を追加。
 - 2026-04-29: Added `AGENTS.md` and `PROJECT_CONTEXT.md` as root-level shared context documents. / ルート共有文書として `AGENTS.md` と `PROJECT_CONTEXT.md` を追加。
 - 2026-04-29: Updated both root documents to bilingual English/Japanese format. / ルート文書2点を英日併記に更新。
 - 2026-04-29: Updated `AGENTS.md` to require diff-first review and work-log updates per task unit. / `AGENTS.md` に差分先出しレビューと作業単位ごとのログ更新ルールを追記。

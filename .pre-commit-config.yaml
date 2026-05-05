@@ -27,7 +27,8 @@ repos:
     rev: v1.11.1
     hooks:
       - id: mypy
-        additional_dependencies: []   # 必要になったら types-xxx を足す
+        additional_dependencies:
+          - types-PyYAML==6.0.12.20240808
         # pyproject.toml の [tool.mypy] 設定が使われます
 
   # pre-push で pytest を走らせる（重いので push 時のみ）

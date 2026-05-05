@@ -80,6 +80,16 @@ uvicorn backend.app.main:app --reload
 ```
 ブラウザで `http://127.0.0.1:8000/health` にアクセス → `{"status":"ok"}` が返ればOK。
 
+任意で YAML 設定ファイルを指定できます。未指定の場合はコード内デフォルト設定で起動します。
+
+```powershell
+$env:SMAI_CONFIG_FILE = ".\config\example.yaml"
+uvicorn backend.app.main:app --reload
+```
+
+`SMAI_CONFIG_FILE` には、`backend/core/config.py` の `Settings` モデルに対応する YAML ファイルを指定します。
+不明なキーは設定ミスとして拒否されます。
+
 ---
 
 ## 4) よくあるトラブル

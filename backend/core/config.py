@@ -1,6 +1,11 @@
+import os
+from pathlib import Path
 from typing import Literal
 
+import yaml
 from pydantic import BaseModel, ConfigDict, Field
+
+CONFIG_FILE_ENV = "SMAI_CONFIG_FILE"
 
 
 class StrictConfigModel(BaseModel):
@@ -110,9 +115,20 @@ class Settings(StrictConfigModel):
 
 
 def get_settings() -> Settings:
-    """Return default application settings.
+    """Return application settings from defaults plus optional YAML config.
 
-    This is intentionally simple until YAML or environment loading is introduced.
+    Set SMAI_CONFIG_FILE to a YAML file path to override default values.
     """
 
-    return Settings()
+    config_file = os.getenv(CONFIG_FILE_ENV)
+    if not config_file:
+        return Settings()
+    return Settings.model_validate(_load_yaml_config(Path(config_file)))
+
+
+def _load_yaml_config(path: Path) -> dict[str, object]:
+    with path.open(encoding="utf-8") as file:
+        data = yaml.safe_load(file) or {}
+    if not isinstance(data, dict):
+        raise ValueError("Settings YAML must contain a mapping at the document root")
+    return data

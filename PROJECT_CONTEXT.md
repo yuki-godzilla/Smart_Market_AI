@@ -23,6 +23,7 @@ The current codebase provides:
 - Swagger/OpenAPI metadata and Japanese API specification notes / Swagger/OpenAPI メタデータと日本語 API 仕様メモ
 - deterministic manual workflow docs and example request for Portfolio-to-Risk checks / Portfolio-to-Risk チェック向けの決定的な手動確認手順とサンプル request
 - local sample CSV market-data files under `data/marketdata` / `data/marketdata` 配下のローカル CSV market-data サンプル
+- minimal Streamlit UI for the Portfolio-to-Risk workflow / Portfolio-to-Risk workflow 向けの最小 Streamlit UI
 
 The implementation is still MVP-oriented and pre-integration. Risk has a minimal service and API endpoint, Portfolio has a minimal service, and external providers, UI, and execution flows are mostly planned rather than fully built.
 実装はまだ統合前段階であり、外部プロバイダ、UI、risk、portfolio、execution の各フローは多くが計画段階です。
@@ -59,6 +60,7 @@ The implementation is still MVP-oriented and pre-integration. Risk has a minimal
 - Swagger UI / OpenAPI specification metadata for current MVP endpoints / 現在の MVP エンドポイント向け Swagger UI / OpenAPI 仕様メタデータ
 - Manual workflow example for `POST /portfolio/rebalance-check` / `POST /portfolio/rebalance-check` の手動確認 example
 - CSV provider sample config and data files for local smoke checks / ローカル smoke check 用の CSV provider 設定例とデータファイル
+- Streamlit UI entrypoint at `ui/app.py` / `ui/app.py` の Streamlit UI エントリポイント
 - pytest suite for current MVP modules / 現在の MVP モジュールを対象とした pytest 群
 
 ## Not Yet Implemented Or Partial / 未実装または部分実装
@@ -66,7 +68,7 @@ The implementation is still MVP-oriented and pre-integration. Risk has a minimal
 - non-local market data providers such as `yahoo` / `yahoo` などの非ローカル市場データプロバイダ
 - `.env` driven settings loading beyond `SMAI_CONFIG_FILE` / `SMAI_CONFIG_FILE` 以外の `.env` ベース設定読み込み
 - `backend/execution/`
-- Streamlit or other UI layer / Streamlit などの UI レイヤ
+- broader UI workflows beyond the initial Streamlit rebalance-check screen / 初期 Streamlit rebalance-check 画面以外の UI workflow
 - report/export pipelines / レポート・出力パイプライン
 
 ## Behavioral Notes / 挙動メモ
@@ -92,7 +94,7 @@ Based on code and roadmap documents, the project is effectively here:
 - Phase 3 Risk MVP: initial service and API complete for MVP / Phase 3 Risk MVP: 初期サービスと API は MVP として完了
 - Phase 4 Portfolio MVP: initial service complete for MVP / Phase 4 Portfolio MVP: 初期サービスは MVP として完了
 - Phase 5 API and UI Integration: started with Portfolio-to-Risk API exposure / Phase 5 API and UI Integration: Portfolio-to-Risk API 公開から着手済み
-- Next recommended work: start a lightweight UI layer or add richer CSV data conventions / 次の推奨作業: 軽量 UI レイヤへの着手、または CSV データ規約の拡張
+- Next recommended work: expand the UI workflow or add richer CSV data conventions / 次の推奨作業: UI workflow の拡張、または CSV データ規約の拡張
 
 ## Test And Verification Baseline / テストと確認の基準
 
@@ -157,6 +159,7 @@ Update this file when:
 - 2026-05-05: Added deterministic manual workflow docs, example request, and serverless demo script for `POST /portfolio/rebalance-check`. / `POST /portfolio/rebalance-check` 向けの決定的な手動確認手順、サンプル request、サーバー不要の demo script を追加。
 - 2026-05-05: Fixed CI mypy issues for PyYAML imports, FastAPI response metadata typing, and CSV currency parsing. / PyYAML import、FastAPI response metadata の型、CSV currency parsing に関する CI mypy 問題を修正。
 - 2026-05-05: Added local sample CSV market-data files, `config/csv_example.yaml`, and CSV-provider manual workflow coverage. / ローカル CSV market-data サンプル、`config/csv_example.yaml`、CSV provider 手動確認フローのカバレッジを追加。
+- 2026-05-05: Added a minimal Streamlit UI for the Portfolio-to-Risk rebalance-check workflow and UI helper tests. / Portfolio-to-Risk rebalance-check workflow 向けの最小 Streamlit UI と UI helper テストを追加。
 - 2026-04-29: Added `AGENTS.md` and `PROJECT_CONTEXT.md` as root-level shared context documents. / ルート共有文書として `AGENTS.md` と `PROJECT_CONTEXT.md` を追加。
 - 2026-04-29: Updated both root documents to bilingual English/Japanese format. / ルート文書2点を英日併記に更新。
 - 2026-04-29: Updated `AGENTS.md` to require diff-first review and work-log updates per task unit. / `AGENTS.md` に差分先出しレビューと作業単位ごとのログ更新ルールを追記。

@@ -28,7 +28,8 @@ Current implementation sync note:
 - Done: Optional YAML settings loading through `SMAI_CONFIG_FILE`.
 - Done: Deterministic manual workflow docs and example request for Portfolio-to-Risk checks.
 - Done: Local sample CSV market-data files and `config/csv_example.yaml`.
-- Remaining: live market data providers, Execution, UI, and broader environment settings loading.
+- Done: Minimal Streamlit UI for the Portfolio-to-Risk rebalance-check workflow.
+- Remaining: live market data providers, Execution, broader UI workflows, and broader environment settings loading.
 
 ## 3. Implementation Policy
 
@@ -154,7 +155,7 @@ Status: MVP initial service complete
 
 ## 5. Near-Term Decision
 
-次に着手する推奨範囲は **lightweight UI layer or richer CSV data conventions**。
+次に着手する推奨範囲は **expand UI workflow or richer CSV data conventions**。
 
 理由:
 - Phase 1 の最小 core 基盤は追加済み。
@@ -167,7 +168,8 @@ Status: MVP initial service complete
 - Done: YAML settings can be loaded through `SMAI_CONFIG_FILE`.
 - Done: `POST /portfolio/rebalance-check` can be manually checked with an example request and demo script.
 - Done: CSV provider can be smoke-checked through `config/csv_example.yaml` and `data/marketdata`.
-- 次は軽量 UI レイヤ、または csv provider のデータ規約拡張に進む。
+- Done: A minimal Streamlit UI can run the Portfolio-to-Risk rebalance-check workflow.
+- 次は UI workflow の拡張、または csv provider のデータ規約拡張に進む。
 
 ## 6. Verification Notes
 

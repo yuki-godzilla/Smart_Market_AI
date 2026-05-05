@@ -5,8 +5,8 @@
 This document captures the current repository state so future work can start from a shared understanding instead of rediscovering context each time.
 この文書は、毎回コンテキストを掘り直さなくても将来の作業を共通認識から始められるように、現在のリポジトリ状況を記録するものです。
 
-Last updated: 2026-04-29
-最終更新日: 2026-04-29
+Last updated: 2026-05-05
+最終更新日: 2026-05-05
 
 ## Project Summary / プロジェクト概要
 
@@ -19,7 +19,7 @@ The current codebase provides:
 - a minimal FastAPI app / 最小構成の FastAPI アプリ
 - shared domain contracts and configuration models / 共通ドメイン契約と設定モデル
 - a deterministic MarketData MVP based on a mock provider / mock provider ベースの再現性ある MarketData MVP
-- tests for core models, config, errors, marketdata, portfolio, API health, and Risk API / core モデル、config、errors、marketdata、portfolio、API health、Risk API のテスト
+- tests for core models, config, errors, marketdata, portfolio, API health, Risk API, and Portfolio API / core モデル、config、errors、marketdata、portfolio、API health、Risk API、Portfolio API のテスト
 
 The implementation is still MVP-oriented and pre-integration. Risk has a minimal service and API endpoint, Portfolio has a minimal service, and external providers, UI, and execution flows are mostly planned rather than fully built.
 実装はまだ統合前段階であり、外部プロバイダ、UI、risk、portfolio、execution の各フローは多くが計画段階です。
@@ -52,7 +52,7 @@ The implementation is still MVP-oriented and pre-integration. Risk has a minimal
 - `FeatureBuilder` for ADV, volatility, and daily snapshot generation / ADV、ボラティリティ、日次スナップショットを生成する `FeatureBuilder`
 - Risk `RiskService` and `POST /risk/pre-trade-check` API endpoint / Risk `RiskService` と `POST /risk/pre-trade-check` API エンドポイント
 - Portfolio `PortfolioService` for deterministic snapshots and no-solver rebalance proposals / deterministic なスナップショットと solver なしのリバランス提案を行う Portfolio `PortfolioService`
-- Portfolio-to-Risk workflow for checking generated rebalance trades / 生成されたリバランス取引を判定する Portfolio-to-Risk workflow
+- Portfolio-to-Risk workflow and `POST /portfolio/rebalance-check` API endpoint / Portfolio-to-Risk workflow と `POST /portfolio/rebalance-check` API エンドポイント
 - pytest suite for current MVP modules / 現在の MVP モジュールを対象とした pytest 群
 
 ## Not Yet Implemented Or Partial / 未実装または部分実装
@@ -83,7 +83,8 @@ Based on code and roadmap documents, the project is effectively here:
 - Phase 2 MarketData MVP: complete for MVP / Phase 2 MarketData MVP: MVP として完了
 - Phase 3 Risk MVP: initial service and API complete for MVP / Phase 3 Risk MVP: 初期サービスと API は MVP として完了
 - Phase 4 Portfolio MVP: initial service complete for MVP / Phase 4 Portfolio MVP: 初期サービスは MVP として完了
-- Next recommended work: expose Portfolio through API or connect Portfolio proposals to Risk checks / 次の推奨作業: Portfolio API 公開または Portfolio 提案と Risk 判定の連携
+- Phase 5 API and UI Integration: started with Portfolio-to-Risk API exposure / Phase 5 API and UI Integration: Portfolio-to-Risk API 公開から着手済み
+- Next recommended work: add a UI/manual workflow entry point or improve configuration loading / 次の推奨作業: UI/手動確認用フロー入口の追加、または設定読み込み改善
 
 ## Test And Verification Baseline / テストと確認の基準
 
@@ -116,8 +117,8 @@ These commands are also referenced by the roadmap document.
 
 ## Next Good Targets / 次の着手候補
 
-- expose the Portfolio-to-Risk workflow through FastAPI
-  Portfolio-to-Risk workflow を FastAPI から公開する
+- add a local UI or manual workflow entry point for the rebalance-check flow
+  rebalance-check フロー向けのローカル UI または手動確認用入口を追加する
 - add config loading from YAML or environment variables without breaking current defaults
   現在のデフォルト挙動を壊さずに YAML や環境変数からの設定読み込みを追加する
 - expand mock market data coverage or add a second provider behind the existing interface
@@ -137,6 +138,7 @@ Update this file when:
 
 ## Work Log / 作業ログ
 
+- 2026-05-05: Exposed the Portfolio-to-Risk workflow through `POST /portfolio/rebalance-check` and added deterministic API tests. / `POST /portfolio/rebalance-check` で Portfolio-to-Risk workflow を公開し、決定的な API テストを追加。
 - 2026-04-29: Added `AGENTS.md` and `PROJECT_CONTEXT.md` as root-level shared context documents. / ルート共有文書として `AGENTS.md` と `PROJECT_CONTEXT.md` を追加。
 - 2026-04-29: Updated both root documents to bilingual English/Japanese format. / ルート文書2点を英日併記に更新。
 - 2026-04-29: Updated `AGENTS.md` to require diff-first review and work-log updates per task unit. / `AGENTS.md` に差分先出しレビューと作業単位ごとのログ更新ルールを追記。

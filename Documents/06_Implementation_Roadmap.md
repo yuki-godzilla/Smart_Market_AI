@@ -23,6 +23,7 @@ Current implementation sync note:
 - Done: FastAPI endpoints `/health` and `POST /risk/pre-trade-check`.
 - Done: Portfolio MVP initial service at `backend/portfolio/service.py`.
 - Done: Portfolio-to-Risk workflow for generated rebalance trades.
+- Done: Portfolio-to-Risk API endpoint `POST /portfolio/rebalance-check`.
 - Remaining: non-mock market data providers, Execution, UI, and external config loading.
 
 ## 3. Implementation Policy
@@ -147,7 +148,7 @@ Status: MVP initial service complete
 
 ## 5. Near-Term Decision
 
-次に着手する推奨範囲は **Portfolio-to-Risk API exposure**。
+次に着手する推奨範囲は **UI/manual workflow entry point or external config loading**。
 
 理由:
 - Phase 1 の最小 core 基盤は追加済み。
@@ -155,7 +156,8 @@ Status: MVP initial service complete
 - Phase 3 の最小 RiskService と API は追加済み。
 - Phase 4 の最小 PortfolioService は追加済み。
 - Portfolio が生成した `TradeIntent` は service-level workflow で Risk 判定へ接続済み。
-- 次は Portfolio-to-Risk workflow を API から呼び出せるようにする。
+- Done: Portfolio-to-Risk workflow can now be called through `POST /portfolio/rebalance-check`.
+- 次はローカル UI / 手動確認フロー、または YAML/.env 設定読み込みの整備に進む。
 
 ## 6. Verification Notes
 

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import TypedDict
 
 from backend.core.config import DataAccessConfig
-from backend.core.data_contracts import Bar, FxRate, Interval, Quote, Symbol
+from backend.core.data_contracts import Bar, Currency, FxRate, Interval, Quote, Symbol
 from backend.core.errors import DataSourceError
 
 
@@ -240,7 +240,7 @@ class DataAccess:
                 raw=row["raw"],
                 exchange=row["exchange"],
                 code=row["code"],
-                currency=row["currency"],
+                currency=_parse_currency(row["currency"], row["raw"]),
             )
             for row in rows
         }
@@ -301,6 +301,17 @@ def _csv_symbol(raw_symbol: str, symbols: dict[str, Symbol]) -> Symbol:
 
 def _parse_datetime(value: str) -> datetime:
     return _as_utc(datetime.fromisoformat(value.replace("Z", "+00:00")))
+
+
+def _parse_currency(value: str, raw_symbol: str) -> Currency:
+    if value == "JPY":
+        return "JPY"
+    if value == "USD":
+        return "USD"
+    raise DataSourceError(
+        "Unsupported csv currency",
+        details={"symbol": raw_symbol, "currency": value},
+    )
 
 
 _MOCK_SYMBOLS = {

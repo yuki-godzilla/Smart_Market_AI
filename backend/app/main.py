@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -33,7 +34,7 @@ class AppErrorResponse(StrictBaseModel):
     details: dict[str, object] = Field(default_factory=dict)
 
 
-ERROR_RESPONSES = {
+ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     422: {
         "description": "Domain computation error or request validation error.",
         "model": AppErrorResponse,

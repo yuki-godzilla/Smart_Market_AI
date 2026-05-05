@@ -24,6 +24,7 @@ Current implementation sync note:
 - Done: Portfolio MVP initial service at `backend/portfolio/service.py`.
 - Done: Portfolio-to-Risk workflow for generated rebalance trades.
 - Done: Portfolio-to-Risk API endpoint `POST /portfolio/rebalance-check`.
+- Done: Swagger/OpenAPI metadata and Japanese API specification notes.
 - Remaining: non-mock market data providers, Execution, UI, and external config loading.
 
 ## 3. Implementation Policy
@@ -157,6 +158,7 @@ Status: MVP initial service complete
 - Phase 4 の最小 PortfolioService は追加済み。
 - Portfolio が生成した `TradeIntent` は service-level workflow で Risk 判定へ接続済み。
 - Done: Portfolio-to-Risk workflow can now be called through `POST /portfolio/rebalance-check`.
+- Done: Swagger UI now has tags, summaries, descriptions, and request examples for current MVP APIs.
 - 次はローカル UI / 手動確認フロー、または YAML/.env 設定読み込みの整備に進む。
 
 ## 6. Verification Notes

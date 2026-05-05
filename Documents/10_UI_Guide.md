@@ -38,6 +38,8 @@ $env:SMAI_CONFIG_FILE = ".\config\csv_example.yaml"
 
 - Runtime settings: active provider, config source, and CSV data directory when using `csv`.
   Runtime 設定: 使用中の provider、設定ファイル、`csv` 利用時の CSV data directory。
+- Sample symbol reference for `7203.T` and `AAPL`.
+  `7203.T` と `AAPL` のサンプル銘柄リファレンス。
 - Sample input selection: `Default rebalance` and `No trades`.
   サンプル入力切り替え: `Default rebalance` と `No trades`。
 - Sample-specific input state: switching samples refreshes the account, cash, positions, and targets fields for that sample.
@@ -48,6 +50,8 @@ $env:SMAI_CONFIG_FILE = ".\config\csv_example.yaml"
   `7203.T` と `AAPL` の MVP target allocations JSON を再生成する AAPL target-weight slider。
 - Rebalance result summary, current positions, target allocations, proposed trades, risk breaches, and raw JSON.
   リバランス結果 summary、現在ポジション、目標配分、提案取引、risk breach、raw JSON。
+- Allocation comparison showing current weight, target weight, and drift by symbol.
+  銘柄ごとの current weight、target weight、drift を表示する allocation comparison。
 - Local JSON download for the current rebalance-check result.
   現在の rebalance-check 結果のローカル JSON ダウンロード。
 

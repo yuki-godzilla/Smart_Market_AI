@@ -15,6 +15,10 @@ from backend.portfolio.workflow import PortfolioRiskResult
 DEFAULT_ACCOUNT_ID = "acct-1"
 DEFAULT_AS_OF = date(2026, 4, 9)
 DEFAULT_CASH_JPY = Decimal("29000")
+SYMBOL_DISPLAY_NAMES = {
+    "7203.T": "Toyota Motor",
+    "AAPL": "Apple Inc.",
+}
 DEFAULT_POSITIONS_JSON = """[
   {
     "symbol": "7203.T",
@@ -74,6 +78,21 @@ def target_allocations_json(*, toyota_weight: Decimal, apple_weight: Decimal) ->
         ],
         indent=2,
     )
+
+
+def symbol_display_name(symbol: str) -> str:
+    """Return a human-readable symbol label for UI display."""
+
+    name = SYMBOL_DISPLAY_NAMES.get(symbol)
+    if name is None:
+        return symbol
+    return f"{symbol} ({name})"
+
+
+def symbol_reference_rows() -> list[dict[str, str]]:
+    """Return the MVP sample symbols with human-readable names."""
+
+    return [{"symbol": symbol, "name": name} for symbol, name in SYMBOL_DISPLAY_NAMES.items()]
 
 
 @dataclass(frozen=True)
@@ -205,7 +224,7 @@ def current_position_rows(proposal: RebalanceProposal) -> list[dict[str, str]]:
 
     return [
         {
-            "symbol": position.symbol,
+            "symbol": symbol_display_name(position.symbol),
             "qty": _format_decimal(position.qty),
             "currency": position.currency,
             "last": _format_decimal(position.last),
@@ -221,7 +240,7 @@ def target_allocation_rows(proposal: RebalanceProposal) -> list[dict[str, str]]:
 
     return [
         {
-            "symbol": target.symbol,
+            "symbol": symbol_display_name(target.symbol),
             "currency": target.currency,
             "target_weight": _format_decimal(target.target_weight),
         }
@@ -229,12 +248,41 @@ def target_allocation_rows(proposal: RebalanceProposal) -> list[dict[str, str]]:
     ]
 
 
+def allocation_comparison_rows(proposal: RebalanceProposal) -> list[dict[str, str]]:
+    """Format current-vs-target weights for table display."""
+
+    total_value = proposal.current.total_value_jpy
+    current_values = {
+        position.symbol: position.value_jpy for position in proposal.current.positions
+    }
+    target_weights = {target.symbol: target.target_weight for target in proposal.targets}
+    symbols = sorted(set(current_values) | set(target_weights))
+
+    rows: list[dict[str, str]] = []
+    for symbol in symbols:
+        current_weight = (
+            current_values.get(symbol, Decimal("0")) / total_value
+            if total_value > 0
+            else Decimal("0")
+        )
+        target_weight = target_weights.get(symbol, Decimal("0"))
+        rows.append(
+            {
+                "symbol": symbol_display_name(symbol),
+                "current_weight": _format_decimal(current_weight),
+                "target_weight": _format_decimal(target_weight),
+                "drift": _format_decimal(target_weight - current_weight),
+            }
+        )
+    return rows
+
+
 def proposed_trade_rows(proposal: RebalanceProposal) -> list[dict[str, str]]:
     """Format proposed trades for table display."""
 
     return [
         {
-            "symbol": trade.symbol,
+            "symbol": symbol_display_name(trade.symbol),
             "side": trade.side,
             "qty": _format_decimal(trade.qty),
             "price_hint": _format_optional_decimal(trade.price_hint),

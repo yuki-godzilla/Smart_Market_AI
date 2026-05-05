@@ -29,7 +29,7 @@ Current implementation sync note:
 - Done: Deterministic manual workflow docs and example request for Portfolio-to-Risk checks.
 - Done: Local sample CSV market-data files and `config/csv_example.yaml`.
 - Done: Minimal Streamlit UI for the Portfolio-to-Risk rebalance-check workflow.
-- Done: Streamlit UI runtime settings display and deterministic sample selector.
+- Done: Streamlit UI runtime settings display, deterministic sample selector, target controls, result download, allocation comparison, and sample-symbol labels.
 - Remaining: live market data providers, Execution, broader UI workflows, and broader environment settings loading.
 
 ## 3. Implementation Policy
@@ -188,4 +188,4 @@ Status: MVP initial service complete
 - README と詳細設計 README のリンク整合性を確認する。
 - CI が `.venv` / `venv_*` を走査しないよう、必要なら設定を追加する。
 - `setup/SETUP.md` 内の仮想環境名表記を `venv_SMAI` に統一する。
-- `yfinance` / Streamlit / 最適化ライブラリの導入タイミングを決める。
+- `yfinance` / 最適化ライブラリの導入タイミングを決める。

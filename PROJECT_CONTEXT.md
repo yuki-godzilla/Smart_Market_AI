@@ -127,7 +127,7 @@ These commands are also referenced by the roadmap document.
 
 ## Next Good Targets / 次の着手候補
 
-- add a local UI or manual workflow entry point for the rebalance-check flow
+- expand the local rebalance-check UI beyond sample-driven MVP controls
   rebalance-check フロー向けのローカル UI または手動確認用入口を追加する
 - expand environment-variable settings support beyond `SMAI_CONFIG_FILE`
   `SMAI_CONFIG_FILE` 以外の環境変数ベース設定対応を拡張する
@@ -147,6 +147,12 @@ Update this file when:
 - a notable mismatch between docs and code is discovered / ドキュメントとコードの目立つ差異を発見したとき
 
 ## Work Log / 作業ログ
+
+- 2026-05-05: Rechecked project-wide implementation direction against roadmap and context documents, then removed stale Streamlit/UI next-step wording. / プロジェクト全体の実装方針を roadmap と context 文書に照らして再確認し、古い Streamlit/UI の次ステップ表現を削除。
+
+- 2026-05-05: Added Streamlit sample-symbol explanations and human-readable symbol labels in rebalance result tables. / Streamlit にサンプル銘柄の説明と rebalance 結果テーブル向けの読みやすい銘柄ラベルを追加。
+
+- 2026-05-05: Added Streamlit allocation comparison rows showing current weights, target weights, and drift by symbol. / 銘柄ごとの current weight、target weight、drift を表示する Streamlit allocation comparison 行を追加。
 
 - 2026-05-05: Added a Streamlit AAPL target-weight slider that regenerates deterministic MVP target-allocation JSON. / deterministic な MVP target-allocation JSON を再生成する Streamlit の AAPL target-weight slider を追加。
 

@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from backend.portfolio.workflow import PortfolioRiskResult
 from ui.rebalance_app import (
+    allocation_comparison_rows,
     build_rebalance_request,
     current_position_rows,
     get_rebalance_sample,
@@ -21,6 +22,7 @@ from ui.rebalance_app import (
     run_rebalance_check,
     runtime_settings_summary,
     sample_widget_key,
+    symbol_reference_rows,
     target_allocation_rows,
     target_allocations_json,
 )
@@ -32,6 +34,7 @@ def main() -> None:
 
     with st.sidebar:
         _render_runtime_settings()
+        _render_symbol_reference()
         sample_name = cast(str, st.selectbox("Sample", rebalance_sample_names()))
         sample = get_rebalance_sample(sample_name)
         account_id = st.text_input(
@@ -136,6 +139,11 @@ def _render_runtime_settings() -> None:
         st.write(f"CSV data: `{settings['csv_data_dir']}`")
 
 
+def _render_symbol_reference() -> None:
+    st.caption("Sample Symbols")
+    st.dataframe(symbol_reference_rows(), hide_index=True, use_container_width=True)
+
+
 def _render_result(result: PortfolioRiskResult) -> None:
     summary = result_summary(result)
     status = summary["risk_status"]
@@ -164,6 +172,12 @@ def _render_result(result: PortfolioRiskResult) -> None:
     with col_targets:
         st.subheader("Target Allocations")
         _render_table(target_allocation_rows(proposal), "No target allocations.")
+
+    st.subheader("Allocation Comparison")
+    _render_table(
+        allocation_comparison_rows(proposal),
+        "No allocation comparison is available.",
+    )
 
     st.subheader("Proposed Trades")
     _render_table(proposed_trade_rows(proposal), "No rebalance trades were proposed.")

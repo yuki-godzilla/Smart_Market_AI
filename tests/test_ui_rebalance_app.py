@@ -10,6 +10,7 @@ from ui.rebalance_app import (
     DEFAULT_CASH_JPY,
     DEFAULT_POSITIONS_JSON,
     DEFAULT_TARGETS_JSON,
+    allocation_comparison_rows,
     build_default_rebalance_request,
     build_rebalance_request,
     current_position_rows,
@@ -22,6 +23,8 @@ from ui.rebalance_app import (
     run_rebalance_check,
     runtime_settings_summary,
     sample_widget_key,
+    symbol_display_name,
+    symbol_reference_rows,
     target_allocation_rows,
     target_allocations_json,
 )
@@ -87,6 +90,16 @@ def test_target_allocations_json_builds_current_mvp_symbol_targets():
     assert '"target_weight": "0.25"' in payload
 
 
+def test_symbol_display_helpers_explain_current_mvp_symbols():
+    assert symbol_display_name("AAPL") == "AAPL (Apple Inc.)"
+    assert symbol_display_name("7203.T") == "7203.T (Toyota Motor)"
+    assert symbol_display_name("MSFT") == "MSFT"
+    assert symbol_reference_rows() == [
+        {"symbol": "7203.T", "name": "Toyota Motor"},
+        {"symbol": "AAPL", "name": "Apple Inc."},
+    ]
+
+
 def test_build_rebalance_request_rejects_invalid_positions_json():
     with pytest.raises(ValueError) as exc_info:
         build_rebalance_request(
@@ -138,8 +151,22 @@ def test_rebalance_result_formatters_create_table_rows():
     assert summary["trade_count"] == "1"
     assert summary["risk_status"] == "BLOCK"
 
-    assert current_position_rows(result.proposal)[0]["symbol"] == "7203.T"
-    assert target_allocation_rows(result.proposal)[1]["symbol"] == "AAPL"
+    assert current_position_rows(result.proposal)[0]["symbol"] == "7203.T (Toyota Motor)"
+    assert target_allocation_rows(result.proposal)[1]["symbol"] == "AAPL (Apple Inc.)"
+    assert allocation_comparison_rows(result.proposal) == [
+        {
+            "symbol": "7203.T (Toyota Motor)",
+            "current_weight": "0.5",
+            "target_weight": "0.5",
+            "drift": "0",
+        },
+        {
+            "symbol": "AAPL (Apple Inc.)",
+            "current_weight": "0",
+            "target_weight": "0.5",
+            "drift": "0.5",
+        },
+    ]
     assert proposed_trade_rows(result.proposal)[0]["side"] == "BUY"
     assert risk_breach_rows(result) == [
         {"breach": "R5:min_dividend_yield:AAPL"},

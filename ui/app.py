@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import date
 from decimal import Decimal, InvalidOperation
 
 import streamlit as st
@@ -9,6 +8,9 @@ from pydantic import ValidationError
 
 from backend.portfolio.workflow import PortfolioRiskResult
 from ui.rebalance_app import (
+    DEFAULT_ACCOUNT_ID,
+    DEFAULT_AS_OF,
+    DEFAULT_CASH_JPY,
     DEFAULT_POSITIONS_JSON,
     DEFAULT_TARGETS_JSON,
     build_rebalance_request,
@@ -17,6 +19,7 @@ from ui.rebalance_app import (
     result_summary,
     risk_breach_rows,
     run_rebalance_check,
+    runtime_settings_summary,
     target_allocation_rows,
 )
 
@@ -26,9 +29,10 @@ def main() -> None:
     st.title("Smart Market AI")
 
     with st.sidebar:
-        account_id = st.text_input("Account", value="acct-1")
-        as_of = st.date_input("As of", value=date(2026, 4, 9))
-        cash_jpy_text = st.text_input("Cash JPY", value="29000")
+        _render_runtime_settings()
+        account_id = st.text_input("Account", value=DEFAULT_ACCOUNT_ID)
+        as_of = st.date_input("As of", value=DEFAULT_AS_OF)
+        cash_jpy_text = st.text_input("Cash JPY", value=str(DEFAULT_CASH_JPY))
 
     col_positions, col_targets = st.columns(2)
     with col_positions:
@@ -46,7 +50,17 @@ def main() -> None:
                 targets_json=targets_json,
             )
             result = asyncio.run(run_rebalance_check(request))
-        except (InvalidOperation, ValueError, ValidationError) as exc:
+        except InvalidOperation:
+            st.error("Cash JPY must be a decimal number.")
+            return
+        except ValueError as exc:
+            st.error(str(exc))
+            return
+        except ValidationError as exc:
+            st.error("Request validation failed.")
+            st.json(exc.errors())
+            return
+        except Exception as exc:  # noqa: BLE001
             st.error(str(exc))
             return
 
@@ -55,6 +69,15 @@ def main() -> None:
 
 def _decimal_from_text(value: str) -> Decimal:
     return Decimal(value.strip())
+
+
+def _render_runtime_settings() -> None:
+    settings = runtime_settings_summary()
+    st.caption("Runtime")
+    st.write(f"Provider: `{settings['provider']}`")
+    st.write(f"Config: `{settings['config_file']}`")
+    if settings["provider"] == "csv":
+        st.write(f"CSV data: `{settings['csv_data_dir']}`")
 
 
 def _render_result(result: PortfolioRiskResult) -> None:

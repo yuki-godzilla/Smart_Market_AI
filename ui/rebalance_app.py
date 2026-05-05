@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import date
 from decimal import Decimal
 from typing import Any
 
 from backend.app.main import RebalanceCheckRequest, create_portfolio_risk_workflow
+from backend.core.config import CONFIG_FILE_ENV, get_settings
 from backend.portfolio.service import RebalanceProposal
 from backend.portfolio.workflow import PortfolioRiskResult
 
+DEFAULT_ACCOUNT_ID = "acct-1"
+DEFAULT_AS_OF = date(2026, 4, 9)
+DEFAULT_CASH_JPY = Decimal("29000")
 DEFAULT_POSITIONS_JSON = """[
   {
     "symbol": "7203.T",
@@ -32,6 +37,18 @@ DEFAULT_TARGETS_JSON = """[
 ]"""
 
 
+def build_default_rebalance_request() -> RebalanceCheckRequest:
+    """Build the deterministic sample request used by docs, tests, and the UI."""
+
+    return build_rebalance_request(
+        account_id=DEFAULT_ACCOUNT_ID,
+        as_of=DEFAULT_AS_OF,
+        cash_jpy=DEFAULT_CASH_JPY,
+        positions_json=DEFAULT_POSITIONS_JSON,
+        targets_json=DEFAULT_TARGETS_JSON,
+    )
+
+
 def build_rebalance_request(
     *,
     account_id: str,
@@ -51,6 +68,17 @@ def build_rebalance_request(
             "cash_jpy": cash_jpy,
         }
     )
+
+
+def runtime_settings_summary() -> dict[str, str]:
+    """Return the active local runtime settings relevant to the UI."""
+
+    settings = get_settings()
+    return {
+        "provider": settings.dataaccess.provider,
+        "csv_data_dir": settings.dataaccess.csv_data_dir,
+        "config_file": os.getenv(CONFIG_FILE_ENV) or "defaults",
+    }
 
 
 async def run_rebalance_check(request: RebalanceCheckRequest) -> PortfolioRiskResult:

@@ -21,6 +21,7 @@ The current codebase provides:
 - a deterministic MarketData MVP based on mock and csv providers / mock provider と csv provider ベースの再現性ある MarketData MVP
 - tests for core models, config, errors, marketdata, portfolio, API health, Risk API, and Portfolio API / core モデル、config、errors、marketdata、portfolio、API health、Risk API、Portfolio API のテスト
 - Swagger/OpenAPI metadata and Japanese API specification notes / Swagger/OpenAPI メタデータと日本語 API 仕様メモ
+- deterministic manual workflow docs and example request for Portfolio-to-Risk checks / Portfolio-to-Risk チェック向けの決定的な手動確認手順とサンプル request
 
 The implementation is still MVP-oriented and pre-integration. Risk has a minimal service and API endpoint, Portfolio has a minimal service, and external providers, UI, and execution flows are mostly planned rather than fully built.
 実装はまだ統合前段階であり、外部プロバイダ、UI、risk、portfolio、execution の各フローは多くが計画段階です。
@@ -55,6 +56,7 @@ The implementation is still MVP-oriented and pre-integration. Risk has a minimal
 - Portfolio `PortfolioService` for deterministic snapshots and no-solver rebalance proposals / deterministic なスナップショットと solver なしのリバランス提案を行う Portfolio `PortfolioService`
 - Portfolio-to-Risk workflow and `POST /portfolio/rebalance-check` API endpoint / Portfolio-to-Risk workflow と `POST /portfolio/rebalance-check` API エンドポイント
 - Swagger UI / OpenAPI specification metadata for current MVP endpoints / 現在の MVP エンドポイント向け Swagger UI / OpenAPI 仕様メタデータ
+- Manual workflow example for `POST /portfolio/rebalance-check` / `POST /portfolio/rebalance-check` の手動確認 example
 - pytest suite for current MVP modules / 現在の MVP モジュールを対象とした pytest 群
 
 ## Not Yet Implemented Or Partial / 未実装または部分実装
@@ -88,7 +90,7 @@ Based on code and roadmap documents, the project is effectively here:
 - Phase 3 Risk MVP: initial service and API complete for MVP / Phase 3 Risk MVP: 初期サービスと API は MVP として完了
 - Phase 4 Portfolio MVP: initial service complete for MVP / Phase 4 Portfolio MVP: 初期サービスは MVP として完了
 - Phase 5 API and UI Integration: started with Portfolio-to-Risk API exposure / Phase 5 API and UI Integration: Portfolio-to-Risk API 公開から着手済み
-- Next recommended work: add a UI/manual workflow entry point or harden CSV data conventions / 次の推奨作業: UI/手動確認用フロー入口の追加、または CSV データ規約の強化
+- Next recommended work: harden CSV data conventions or start a lightweight UI layer / 次の推奨作業: CSV データ規約の強化、または軽量 UI レイヤへの着手
 
 ## Test And Verification Baseline / テストと確認の基準
 
@@ -150,6 +152,7 @@ Update this file when:
 - 2026-05-05: Added deterministic CSV market-data provider support for symbols, OHLCV bars, quotes, and USDJPY FX rates. / symbols、OHLCV、quotes、USDJPY FX rates に対応する決定的な CSV market-data provider を追加。
 - 2026-05-05: Synchronized current-state documents with implemented APIs/providers and added CSV required-column validation. / 実装済み API/provider に合わせて現在地ドキュメントを同期し、CSV 必須列検証を追加。
 - 2026-05-05: Updated `AGENTS.md` to require commit message suggestions after each completed work unit. / 各作業単位の完了後にコミットメッセージ案を提示するルールを `AGENTS.md` に追記。
+- 2026-05-05: Added deterministic manual workflow docs, example request, and serverless demo script for `POST /portfolio/rebalance-check`. / `POST /portfolio/rebalance-check` 向けの決定的な手動確認手順、サンプル request、サーバー不要の demo script を追加。
 - 2026-04-29: Added `AGENTS.md` and `PROJECT_CONTEXT.md` as root-level shared context documents. / ルート共有文書として `AGENTS.md` と `PROJECT_CONTEXT.md` を追加。
 - 2026-04-29: Updated both root documents to bilingual English/Japanese format. / ルート文書2点を英日併記に更新。
 - 2026-04-29: Updated `AGENTS.md` to require diff-first review and work-log updates per task unit. / `AGENTS.md` に差分先出しレビューと作業単位ごとのログ更新ルールを追記。

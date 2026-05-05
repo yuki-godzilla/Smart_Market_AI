@@ -14,6 +14,7 @@
 #### 6. [Implementation Roadmap](./Documents/06_Implementation_Roadmap.md)
 #### 7. [API Specification](./Documents/07_API_Specification.md)
 #### 8. [MarketData CSV Format](./Documents/08_MarketData_CSV_Format.md)
+#### 9. [Manual Workflows](./Documents/09_Manual_Workflows.md)
 
 ---
 

@@ -26,6 +26,7 @@ Current implementation sync note:
 - Done: Portfolio-to-Risk API endpoint `POST /portfolio/rebalance-check`.
 - Done: Swagger/OpenAPI metadata and Japanese API specification notes.
 - Done: Optional YAML settings loading through `SMAI_CONFIG_FILE`.
+- Done: Deterministic manual workflow docs and example request for Portfolio-to-Risk checks.
 - Remaining: live market data providers, Execution, UI, and broader environment settings loading.
 
 ## 3. Implementation Policy
@@ -152,7 +153,7 @@ Status: MVP initial service complete
 
 ## 5. Near-Term Decision
 
-次に着手する推奨範囲は **UI/manual workflow entry point or CSV data convention hardening**。
+次に着手する推奨範囲は **CSV data convention hardening or lightweight UI layer**。
 
 理由:
 - Phase 1 の最小 core 基盤は追加済み。
@@ -163,7 +164,8 @@ Status: MVP initial service complete
 - Done: Portfolio-to-Risk workflow can now be called through `POST /portfolio/rebalance-check`.
 - Done: Swagger UI now has tags, summaries, descriptions, and request examples for current MVP APIs.
 - Done: YAML settings can be loaded through `SMAI_CONFIG_FILE`.
-- 次はローカル UI / 手動確認フロー、または csv provider のファイル規約整備に進む。
+- Done: `POST /portfolio/rebalance-check` can be manually checked with an example request and demo script.
+- 次は csv provider のファイル規約整備、または軽量 UI レイヤに進む。
 
 ## 6. Verification Notes
 

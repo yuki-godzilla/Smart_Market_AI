@@ -12,6 +12,8 @@
 #### 4. [Detail Design](./Documents/04_Detail_Design/04_Detail_Design_README.md)
 #### 5. [Implementation Checklist & Stubs](./Documents/05_Implementation_Checklist_and_Stubs.md)
 #### 6. [Implementation Roadmap](./Documents/06_Implementation_Roadmap.md)
+#### 7. [API Specification](./Documents/07_API_Specification.md)
+#### 8. [MarketData CSV Format](./Documents/08_MarketData_CSV_Format.md)
 
 ---
 

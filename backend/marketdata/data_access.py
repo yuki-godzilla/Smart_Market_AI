@@ -136,7 +136,10 @@ class DataAccess:
         start_utc = _as_utc(start)
         end_utc = _as_utc(end)
         symbol_contracts = self._csv_symbols()
-        rows = self._read_csv_rows("ohlcv.csv")
+        rows = self._read_csv_rows(
+            "ohlcv.csv",
+            required_columns={"symbol", "ts", "open", "high", "low", "close", "volume"},
+        )
         bars: list[Bar] = []
 
         for raw_symbol in symbols:
@@ -165,7 +168,10 @@ class DataAccess:
     def _fetch_csv_quotes(self, symbols: list[str], at: datetime | None) -> list[Quote]:
         at_utc = _as_utc(at) if at else datetime.now(UTC)
         symbol_contracts = self._csv_symbols()
-        rows = self._read_csv_rows("ohlcv.csv")
+        rows = self._read_csv_rows(
+            "ohlcv.csv",
+            required_columns={"symbol", "ts", "open", "high", "low", "close", "volume"},
+        )
         quotes: list[Quote] = []
 
         for raw_symbol in symbols:
@@ -196,7 +202,9 @@ class DataAccess:
 
     def _fetch_csv_fx_rates(self, pairs: list[str], at: datetime | None) -> list[FxRate]:
         at_utc = _as_utc(at) if at else datetime.now(UTC)
-        rows = self._read_csv_rows("fx_rates.csv")
+        rows = self._read_csv_rows(
+            "fx_rates.csv", required_columns={"pair", "rate", "ts", "source"}
+        )
         rates: list[FxRate] = []
 
         for pair in pairs:
@@ -223,7 +231,10 @@ class DataAccess:
         return rates
 
     def _csv_symbols(self) -> dict[str, Symbol]:
-        rows = self._read_csv_rows("symbols.csv")
+        rows = self._read_csv_rows(
+            "symbols.csv",
+            required_columns={"raw", "exchange", "code", "currency"},
+        )
         return {
             row["raw"]: Symbol(
                 raw=row["raw"],
@@ -234,12 +245,23 @@ class DataAccess:
             for row in rows
         }
 
-    def _read_csv_rows(self, filename: str) -> list[dict[str, str]]:
+    def _read_csv_rows(
+        self,
+        filename: str,
+        required_columns: set[str],
+    ) -> list[dict[str, str]]:
         path = Path(self.cfg.csv_data_dir) / filename
         if not path.exists():
             raise DataSourceError("CSV market-data file is missing", details={"path": str(path)})
         with path.open(encoding="utf-8", newline="") as file:
-            return list(csv.DictReader(file))
+            reader = csv.DictReader(file)
+            missing_columns = sorted(required_columns - set(reader.fieldnames or []))
+            if missing_columns:
+                raise DataSourceError(
+                    "CSV market-data file is missing required columns",
+                    details={"path": str(path), "columns": missing_columns},
+                )
+            return list(reader)
 
 
 def _as_utc(value: datetime) -> datetime:

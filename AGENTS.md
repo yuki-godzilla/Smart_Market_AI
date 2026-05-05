@@ -43,6 +43,8 @@ The current implementation is still MVP-oriented and intentionally favors determ
    各実装作業の完了後は、初学者にも分かる言葉で結果を説明すること。
    Include what changed, why it changed, how to use it, and how it was verified.
    変更内容、変更理由、使い方、検証結果を含めること。
+   Also suggest an appropriate commit message for the completed work.
+   完了した作業に適したコミットメッセージも提案すること。
    When introducing a new concept or technology, briefly explain what role it plays.
    新しい概念や技術を導入した場合は、その役割も短く説明すること。
 
@@ -52,9 +54,10 @@ The repository appears to be at:
 現時点のリポジトリの状態は次の通りです。
 
 - Core contracts/config/errors: implemented / Core の契約・設定・エラーは実装済み
-- MarketData MVP: implemented with `mock` provider / MarketData MVP は `mock` プロバイダで実装済み
-- API bootstrap: implemented with `/health` and `POST /risk/pre-trade-check` / API の起点は `/health` と `POST /risk/pre-trade-check` 付きで実装済み
-- Portfolio-to-Risk workflow: implemented; next likely work is API exposure / Portfolio-to-Risk workflow は実装済み、次は API 公開
+- MarketData MVP: implemented with deterministic `mock` and `csv` providers / MarketData MVP は deterministic な `mock` / `csv` プロバイダで実装済み
+- API bootstrap: implemented with `/health`, `POST /risk/pre-trade-check`, and `POST /portfolio/rebalance-check` / API の起点は `/health`、`POST /risk/pre-trade-check`、`POST /portfolio/rebalance-check` 付きで実装済み
+- Portfolio-to-Risk workflow: implemented and exposed through FastAPI / Portfolio-to-Risk workflow は実装済みで FastAPI から公開済み
+- Swagger/OpenAPI metadata and YAML settings loading via `SMAI_CONFIG_FILE`: implemented / Swagger/OpenAPI メタデータと `SMAI_CONFIG_FILE` による YAML 設定読み込みは実装済み
 
 Unless a task says otherwise, optimize changes for this progression.
 特別な指示がない限り、この進行順を前提に変更を最適化します。

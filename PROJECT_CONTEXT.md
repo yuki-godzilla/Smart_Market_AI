@@ -67,8 +67,8 @@ The implementation is still MVP-oriented and pre-integration. Risk has a minimal
 
 ## Behavioral Notes / 挙動メモ
 
-- `DataAccess` currently rejects providers other than `mock`.
-  `DataAccess` は現在 `mock` 以外の provider を拒否します。
+- `DataAccess` currently supports deterministic `mock` and `csv` providers, and rejects live providers such as `yahoo`.
+  `DataAccess` は現在 deterministic な `mock` / `csv` provider に対応し、`yahoo` などの live provider は拒否します。
 - Market data is deterministic and in-repo, which keeps tests offline and stable.
   市場データはリポジトリ内の固定データで、テストをオフラインかつ安定して実行できます。
 - The `csv` provider reads local `symbols.csv`, `ohlcv.csv`, and `fx_rates.csv` files from `dataaccess.csv_data_dir`.
@@ -88,7 +88,7 @@ Based on code and roadmap documents, the project is effectively here:
 - Phase 3 Risk MVP: initial service and API complete for MVP / Phase 3 Risk MVP: 初期サービスと API は MVP として完了
 - Phase 4 Portfolio MVP: initial service complete for MVP / Phase 4 Portfolio MVP: 初期サービスは MVP として完了
 - Phase 5 API and UI Integration: started with Portfolio-to-Risk API exposure / Phase 5 API and UI Integration: Portfolio-to-Risk API 公開から着手済み
-- Next recommended work: add a UI/manual workflow entry point or improve configuration loading / 次の推奨作業: UI/手動確認用フロー入口の追加、または設定読み込み改善
+- Next recommended work: add a UI/manual workflow entry point or harden CSV data conventions / 次の推奨作業: UI/手動確認用フロー入口の追加、または CSV データ規約の強化
 
 ## Test And Verification Baseline / テストと確認の基準
 
@@ -148,6 +148,8 @@ Update this file when:
 - 2026-05-05: Updated `AGENTS.md` to require beginner-friendly implementation explanations after each work unit. / 各作業単位の完了後に初学者向け説明を行うルールを `AGENTS.md` に追記。
 - 2026-05-05: Added `types-PyYAML` to development and pre-commit mypy dependencies so YAML imports have type stubs. / YAML import の型スタブを使えるように、開発依存と pre-commit mypy 依存へ `types-PyYAML` を追加。
 - 2026-05-05: Added deterministic CSV market-data provider support for symbols, OHLCV bars, quotes, and USDJPY FX rates. / symbols、OHLCV、quotes、USDJPY FX rates に対応する決定的な CSV market-data provider を追加。
+- 2026-05-05: Synchronized current-state documents with implemented APIs/providers and added CSV required-column validation. / 実装済み API/provider に合わせて現在地ドキュメントを同期し、CSV 必須列検証を追加。
+- 2026-05-05: Updated `AGENTS.md` to require commit message suggestions after each completed work unit. / 各作業単位の完了後にコミットメッセージ案を提示するルールを `AGENTS.md` に追記。
 - 2026-04-29: Added `AGENTS.md` and `PROJECT_CONTEXT.md` as root-level shared context documents. / ルート共有文書として `AGENTS.md` と `PROJECT_CONTEXT.md` を追加。
 - 2026-04-29: Updated both root documents to bilingual English/Japanese format. / ルート文書2点を英日併記に更新。
 - 2026-04-29: Updated `AGENTS.md` to require diff-first review and work-log updates per task unit. / `AGENTS.md` に差分先出しレビューと作業単位ごとのログ更新ルールを追記。

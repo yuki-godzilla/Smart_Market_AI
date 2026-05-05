@@ -1,6 +1,7 @@
 import asyncio
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
@@ -122,6 +123,33 @@ def test_missing_csv_file_is_rejected():
         )
 
     assert exc_info.value.message == "CSV market-data file is missing"
+
+
+def test_csv_missing_required_columns_is_rejected():
+    da = DataAccess(
+        DataAccessConfig(
+            provider="csv",
+            csv_data_dir="tests/fixtures/marketdata_csv_missing_columns",
+        )
+    )
+
+    with pytest.raises(DataSourceError) as exc_info:
+        asyncio.run(
+            da.fetch_ohlcv(
+                ["AAPL"],
+                start=datetime(2026, 4, 7, tzinfo=UTC),
+                end=datetime(2026, 4, 9, tzinfo=UTC),
+            )
+        )
+
+    assert exc_info.value.to_dict() == {
+        "code": "APP-2000",
+        "message": "CSV market-data file is missing required columns",
+        "details": {
+            "path": str(Path("tests/fixtures/marketdata_csv_missing_columns/ohlcv.csv")),
+            "columns": ["volume"],
+        },
+    }
 
 
 def test_unsupported_symbol_is_rejected():

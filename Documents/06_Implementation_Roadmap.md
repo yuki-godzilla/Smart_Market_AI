@@ -9,10 +9,10 @@
 
 ## 2. Current State
 
-- 実装は FastAPI の最小スケルトンから開始している。
-- 現在ある API は `/health` のみ。
-- テストはヘルスチェックに加えて、core 基盤のユニットテストを追加済み。
-- 設計上の主要機能は、まだ実装前。
+- 実装は FastAPI の最小スケルトンから始まり、現在は Risk / Portfolio の MVP API まで公開済み。
+- 現在ある API は `/health`、`POST /risk/pre-trade-check`、`POST /portfolio/rebalance-check`。
+- テストは core、MarketData、Risk、Portfolio、API、OpenAPI schema を対象に追加済み。
+- Execution、UI、live market-data provider はまだ実装前。
 - 依存関係は FastAPI / Pydantic / SQLAlchemy / httpx / pandas / numpy などの基盤寄りが中心。
 - Streamlit、yfinance、最適化ライブラリ、ML ライブラリはまだ導入前。
 
@@ -152,7 +152,7 @@ Status: MVP initial service complete
 
 ## 5. Near-Term Decision
 
-次に着手する推奨範囲は **UI/manual workflow entry point or external config loading**。
+次に着手する推奨範囲は **UI/manual workflow entry point or CSV data convention hardening**。
 
 理由:
 - Phase 1 の最小 core 基盤は追加済み。

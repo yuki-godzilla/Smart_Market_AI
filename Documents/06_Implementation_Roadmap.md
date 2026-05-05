@@ -170,9 +170,94 @@ Status: MVP initial service complete
 - Done: `POST /portfolio/rebalance-check` can be manually checked with an example request and demo script.
 - Done: CSV provider can be smoke-checked through `config/csv_example.yaml` and `data/marketdata`.
 - Done: A minimal Streamlit UI can run the Portfolio-to-Risk rebalance-check workflow.
-- 次は UI workflow の拡張、または csv provider のデータ規約拡張に進む。
+- Next: stabilize the current MVP, expand local CSV/scenario coverage, then prepare explicit opt-in external data providers.
+  次は現在の MVP を安定化し、ローカル CSV/scenario coverage を広げ、その後に明示 opt-in の外部データ取得 provider を準備する。
 
-## 6. Verification Notes
+## 6. Next Roadmap / 次期ロードマップ
+
+### Phase 5.5: MVP Stabilization
+
+Goal: make the current Portfolio-to-Risk API/UI workflow easy to run, verify, and explain as a local MVP.
+目的: 現在の Portfolio-to-Risk API/UI workflow を、ローカル MVP として起動・確認・説明しやすい状態に固める。
+
+Scope:
+- synchronize README, `PROJECT_CONTEXT.md`, roadmap, API docs, UI guide, and manual workflow docs
+- keep local verification commands aligned with CI where practical
+- polish the Streamlit rebalance-check UX without expanding into unrelated workflows
+- keep deterministic `mock` / `csv` behavior as the default path
+
+Completion criteria:
+- a new contributor can run the API and Streamlit UI from docs
+- `Default rebalance` and `No trades` can be manually checked from the UI
+- `ruff`, `mypy`, and `pytest` pass in the project virtual environment
+- docs describe the current MVP without stale UI/API status
+
+### Phase 6: CSV Data And Scenario Expansion
+
+Goal: improve local, deterministic validation before introducing network-dependent providers.
+目的: ネットワーク依存 provider を入れる前に、ローカルで再現可能な検証範囲を広げる。
+
+Scope:
+- expand sample symbols and OHLCV date coverage under `data/marketdata`
+- define how dividend yield and market-cap-like fields should be represented locally
+- add deterministic scenarios that exercise `ALLOW`, `REVIEW`, `BLOCK`, and `NO_TRADES`
+- document CSV and scenario conventions
+
+Completion criteria:
+- CSV provider can reproduce the main UI/manual workflow scenarios
+- risk outcomes can be checked with local files only
+- CI remains fully offline and deterministic
+
+### Phase 7: Config And Scenario Management
+
+Goal: make examples and UI samples configurable without editing Python code.
+目的: Python コードを編集せずに example や UI sample を追加・切り替えできるようにする。
+
+Scope:
+- load scenario JSON/YAML files from `examples/` or a configured local directory
+- extend the Streamlit sample selector to include file-backed scenarios
+- improve validation messages for malformed scenarios and settings
+- evaluate environment-variable support beyond `SMAI_CONFIG_FILE`
+
+Completion criteria:
+- a new rebalance scenario can be added as data, not code
+- invalid scenario/config files fail with beginner-friendly errors
+- existing default scenarios remain deterministic
+
+### Phase 8: Reporting MVP
+
+Goal: make manual verification results easier to preserve and share locally.
+目的: 手動確認結果をローカルで保存・共有しやすくする。
+
+Scope:
+- extend JSON download toward CSV/table exports for summary, allocation comparison, proposed trades, and risk breaches
+- define a lightweight report context model if needed
+- document what is MVP export versus future PDF/Excel reporting
+
+Completion criteria:
+- rebalance-check results can be saved in at least one table-friendly format
+- report/export behavior stays local and deterministic
+- future PDF/Excel work has a clear boundary
+
+### Phase 9: External Data Provider Preparation
+
+Goal: add a safe path toward external market data without making the MVP network-dependent by default.
+目的: MVP の既定経路をネットワーク依存にせず、外部 market data 取得へ進む安全な道筋を作る。
+
+Scope:
+- design an explicit opt-in provider such as `yahoo`
+- keep `mock` as the default and `csv` as the deterministic local integration path
+- add timeout, rate-limit, unavailable-data, and schema-mismatch error handling
+- keep CI tests mocked/offline even after live provider support is introduced
+- document setup, limitations, and failure modes for external data
+
+Completion criteria:
+- external data can be enabled only through explicit config
+- no CI or default local workflow requires network access
+- provider failures map to domain errors and API responses consistently
+- docs clearly distinguish deterministic MVP behavior from live-data behavior
+
+## 7. Verification Notes
 
 重い全体チェックは避け、当面は対象を絞って実行する。
 
@@ -183,7 +268,7 @@ Status: MVP initial service complete
 
 `black` と `mypy` は実行対象や除外設定を整えてから再確認する。
 
-## 7. Open Items
+## 8. Open Items
 
 - README と詳細設計 README のリンク整合性を確認する。
 - CI が `.venv` / `venv_*` を走査しないよう、必要なら設定を追加する。

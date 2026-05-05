@@ -18,7 +18,7 @@
 
 Current implementation sync note:
 - Done: Core Foundation MVP.
-- Done: MarketData MVP with deterministic `mock` provider.
+- Done: MarketData MVP with deterministic `mock` and `csv` providers.
 - Done: Risk MVP initial service at `backend/risk/service.py`.
 - Done: FastAPI endpoints `/health` and `POST /risk/pre-trade-check`.
 - Done: Portfolio MVP initial service at `backend/portfolio/service.py`.
@@ -26,7 +26,7 @@ Current implementation sync note:
 - Done: Portfolio-to-Risk API endpoint `POST /portfolio/rebalance-check`.
 - Done: Swagger/OpenAPI metadata and Japanese API specification notes.
 - Done: Optional YAML settings loading through `SMAI_CONFIG_FILE`.
-- Remaining: non-mock market data providers, Execution, UI, and broader environment settings loading.
+- Remaining: live market data providers, Execution, UI, and broader environment settings loading.
 
 ## 3. Implementation Policy
 
@@ -81,10 +81,11 @@ Design diagrams:
 
 主な内容:
 - Done: `mock` provider による `fetch_ohlcv`, `fetch_quotes`, `get_fx_rates`
+- Done: `csv` provider によるローカル CSV からの `fetch_ohlcv`, `fetch_quotes`, `get_fx_rates`
 - Done: `compute_adv`
 - Done: `compute_vol`
 - Done: `build_daily_snapshot`
-- Remaining: `csv` / `yahoo` provider
+- Remaining: `yahoo` provider
 - Remaining: 配当利回り、発行株式数、営業日カレンダーの正式データ源
 
 完了条件:
@@ -162,7 +163,7 @@ Status: MVP initial service complete
 - Done: Portfolio-to-Risk workflow can now be called through `POST /portfolio/rebalance-check`.
 - Done: Swagger UI now has tags, summaries, descriptions, and request examples for current MVP APIs.
 - Done: YAML settings can be loaded through `SMAI_CONFIG_FILE`.
-- 次はローカル UI / 手動確認フロー、または csv provider の整備に進む。
+- 次はローカル UI / 手動確認フロー、または csv provider のファイル規約整備に進む。
 
 ## 6. Verification Notes
 

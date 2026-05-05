@@ -1,5 +1,7 @@
+import csv
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 from typing import TypedDict
 
 from backend.core.config import DataAccessConfig
@@ -21,17 +23,17 @@ class MockBarPoint(TypedDict):
 class DataAccess:
     """Read-only market-data access layer.
 
-    The current MVP supports only the deterministic mock provider so tests and
-    downstream feature work do not depend on network access.
+    The current MVP supports deterministic mock and CSV providers so tests and
+    downstream feature work can stay offline.
     """
 
     def __init__(self, cfg: DataAccessConfig | None = None) -> None:
         """Create a data-access instance from optional provider settings."""
 
         self.cfg = cfg or DataAccessConfig()
-        if self.cfg.provider != "mock":
+        if self.cfg.provider not in {"mock", "csv"}:
             raise DataSourceError(
-                "Only the mock provider is supported in the MarketData MVP",
+                "Only mock and csv providers are supported in the MarketData MVP",
                 details={"provider": self.cfg.provider},
             )
 
@@ -42,7 +44,10 @@ class DataAccess:
         end: datetime,
         interval: Interval = "1d",
     ) -> list[Bar]:
-        """Return mock OHLCV bars for the requested symbols and UTC range."""
+        """Return OHLCV bars for the requested symbols and UTC range."""
+
+        if self.cfg.provider == "csv":
+            return self._fetch_csv_ohlcv(symbols, start, end, interval)
 
         start_utc = _as_utc(start)
         end_utc = _as_utc(end)
@@ -70,7 +75,10 @@ class DataAccess:
         return bars
 
     async def fetch_quotes(self, symbols: list[str], at: datetime | None = None) -> list[Quote]:
-        """Return latest available mock quotes at or before the requested time."""
+        """Return latest available quotes at or before the requested time."""
+
+        if self.cfg.provider == "csv":
+            return self._fetch_csv_quotes(symbols, at)
 
         at_utc = _as_utc(at) if at else datetime.now(UTC)
         quotes: list[Quote] = []
@@ -96,10 +104,13 @@ class DataAccess:
         at: datetime | None = None,
         method: str = "spot",
     ) -> list[FxRate]:
-        """Return mock FX rates for supported pairs and methods."""
+        """Return FX rates for supported pairs and methods."""
 
         if method not in {"spot", "close", "twap"}:
             raise DataSourceError("Unsupported FX method", details={"method": method})
+
+        if self.cfg.provider == "csv":
+            return self._fetch_csv_fx_rates(pairs, at)
 
         ts = _as_utc(at) if at else datetime.now(UTC)
         rates: list[FxRate] = []
@@ -114,6 +125,121 @@ class DataAccess:
         """Report the active provider status."""
 
         return {"provider": self.cfg.provider, "status": "ok"}
+
+    def _fetch_csv_ohlcv(
+        self,
+        symbols: list[str],
+        start: datetime,
+        end: datetime,
+        interval: Interval,
+    ) -> list[Bar]:
+        start_utc = _as_utc(start)
+        end_utc = _as_utc(end)
+        symbol_contracts = self._csv_symbols()
+        rows = self._read_csv_rows("ohlcv.csv")
+        bars: list[Bar] = []
+
+        for raw_symbol in symbols:
+            symbol = _csv_symbol(raw_symbol, symbol_contracts)
+            for row in rows:
+                if row["symbol"] != raw_symbol:
+                    continue
+                ts = _parse_datetime(row["ts"])
+                if start_utc <= ts <= end_utc:
+                    bars.append(
+                        Bar(
+                            symbol=symbol,
+                            ts=ts,
+                            open=Decimal(row["open"]),
+                            high=Decimal(row["high"]),
+                            low=Decimal(row["low"]),
+                            close=Decimal(row["close"]),
+                            volume=Decimal(row["volume"]),
+                            interval=interval,
+                            provider=self.cfg.provider,
+                        )
+                    )
+
+        return bars
+
+    def _fetch_csv_quotes(self, symbols: list[str], at: datetime | None) -> list[Quote]:
+        at_utc = _as_utc(at) if at else datetime.now(UTC)
+        symbol_contracts = self._csv_symbols()
+        rows = self._read_csv_rows("ohlcv.csv")
+        quotes: list[Quote] = []
+
+        for raw_symbol in symbols:
+            symbol = _csv_symbol(raw_symbol, symbol_contracts)
+            matching = [
+                row
+                for row in rows
+                if row["symbol"] == raw_symbol and _parse_datetime(row["ts"]) <= at_utc
+            ]
+            if not matching:
+                raise DataSourceError(
+                    "No csv quote available at requested time",
+                    details={"symbol": raw_symbol},
+                )
+            latest = max(matching, key=lambda row: _parse_datetime(row["ts"]))
+            close = Decimal(latest["close"])
+            quotes.append(
+                Quote(
+                    symbol=symbol,
+                    bid=close,
+                    ask=close,
+                    last=close,
+                    ts=_parse_datetime(latest["ts"]),
+                )
+            )
+
+        return quotes
+
+    def _fetch_csv_fx_rates(self, pairs: list[str], at: datetime | None) -> list[FxRate]:
+        at_utc = _as_utc(at) if at else datetime.now(UTC)
+        rows = self._read_csv_rows("fx_rates.csv")
+        rates: list[FxRate] = []
+
+        for pair in pairs:
+            if pair != "USDJPY":
+                raise DataSourceError("Unsupported FX pair", details={"pair": pair})
+            matching = [
+                row for row in rows if row["pair"] == pair and _parse_datetime(row["ts"]) <= at_utc
+            ]
+            if not matching:
+                raise DataSourceError(
+                    "No csv FX rate available at requested time",
+                    details={"pair": pair},
+                )
+            latest = max(matching, key=lambda row: _parse_datetime(row["ts"]))
+            rates.append(
+                FxRate(
+                    pair="USDJPY",
+                    rate=Decimal(latest["rate"]),
+                    ts=_parse_datetime(latest["ts"]),
+                    source=latest.get("source") or "csv",
+                )
+            )
+
+        return rates
+
+    def _csv_symbols(self) -> dict[str, Symbol]:
+        rows = self._read_csv_rows("symbols.csv")
+        return {
+            row["raw"]: Symbol(
+                raw=row["raw"],
+                exchange=row["exchange"],
+                code=row["code"],
+                currency=row["currency"],
+            )
+            for row in rows
+        }
+
+    def _read_csv_rows(self, filename: str) -> list[dict[str, str]]:
+        path = Path(self.cfg.csv_data_dir) / filename
+        if not path.exists():
+            raise DataSourceError("CSV market-data file is missing", details={"path": str(path)})
+        with path.open(encoding="utf-8", newline="") as file:
+            return list(csv.DictReader(file))
 
 
 def _as_utc(value: datetime) -> datetime:
@@ -142,6 +268,17 @@ def _latest_bar_at(raw_symbol: str, at: datetime) -> MockBarPoint:
             "No mock quote available at requested time", details={"symbol": raw_symbol}
         )
     return matching[-1]
+
+
+def _csv_symbol(raw_symbol: str, symbols: dict[str, Symbol]) -> Symbol:
+    try:
+        return symbols[raw_symbol]
+    except KeyError as exc:
+        raise DataSourceError("Unsupported csv symbol", details={"symbol": raw_symbol}) from exc
+
+
+def _parse_datetime(value: str) -> datetime:
+    return _as_utc(datetime.fromisoformat(value.replace("Z", "+00:00")))
 
 
 _MOCK_SYMBOLS = {

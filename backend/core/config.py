@@ -41,6 +41,7 @@ class DataAccessConfig(StrictConfigModel):
     """Market-data provider settings."""
 
     provider: Literal["mock", "csv", "yahoo", "polygon"] = "mock"
+    csv_data_dir: str = "data/marketdata"
     cache: CacheConfig = Field(default_factory=CacheConfig)
     timeouts_ms: TimeoutConfig = Field(default_factory=TimeoutConfig)
 

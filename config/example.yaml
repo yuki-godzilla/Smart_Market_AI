@@ -4,6 +4,7 @@ app:
 
 dataaccess:
   provider: mock
+  csv_data_dir: data/marketdata
 
 risk:
   thresholds:

@@ -18,7 +18,7 @@ The current codebase provides:
 
 - a minimal FastAPI app / 最小構成の FastAPI アプリ
 - shared domain contracts and configuration models / 共通ドメイン契約と設定モデル
-- a deterministic MarketData MVP based on a mock provider / mock provider ベースの再現性ある MarketData MVP
+- a deterministic MarketData MVP based on mock and csv providers / mock provider と csv provider ベースの再現性ある MarketData MVP
 - tests for core models, config, errors, marketdata, portfolio, API health, Risk API, and Portfolio API / core モデル、config、errors、marketdata、portfolio、API health、Risk API、Portfolio API のテスト
 - Swagger/OpenAPI metadata and Japanese API specification notes / Swagger/OpenAPI メタデータと日本語 API 仕様メモ
 
@@ -49,7 +49,7 @@ The implementation is still MVP-oriented and pre-integration. Risk has a minimal
 - strict domain contracts in `backend/core/data_contracts.py` / `backend/core/data_contracts.py` の厳格なドメイン契約
 - strict settings models in `backend/core/config.py` / `backend/core/config.py` の厳格な設定モデル
 - core error classes in `backend/core/errors.py` / `backend/core/errors.py` の基底エラー群
-- MarketData `DataAccess` with `mock` provider only / `mock` provider 専用の MarketData `DataAccess`
+- MarketData `DataAccess` with deterministic `mock` and `csv` providers / deterministic な `mock` / `csv` provider 対応の MarketData `DataAccess`
 - `FeatureBuilder` for ADV, volatility, and daily snapshot generation / ADV、ボラティリティ、日次スナップショットを生成する `FeatureBuilder`
 - Risk `RiskService` and `POST /risk/pre-trade-check` API endpoint / Risk `RiskService` と `POST /risk/pre-trade-check` API エンドポイント
 - Portfolio `PortfolioService` for deterministic snapshots and no-solver rebalance proposals / deterministic なスナップショットと solver なしのリバランス提案を行う Portfolio `PortfolioService`
@@ -59,7 +59,7 @@ The implementation is still MVP-oriented and pre-integration. Risk has a minimal
 
 ## Not Yet Implemented Or Partial / 未実装または部分実装
 
-- non-mock market data providers such as `csv` or `yahoo` / `csv` や `yahoo` などの非 mock 市場データプロバイダ
+- non-local market data providers such as `yahoo` / `yahoo` などの非ローカル市場データプロバイダ
 - `.env` driven settings loading beyond `SMAI_CONFIG_FILE` / `SMAI_CONFIG_FILE` 以外の `.env` ベース設定読み込み
 - `backend/execution/`
 - Streamlit or other UI layer / Streamlit などの UI レイヤ
@@ -71,6 +71,8 @@ The implementation is still MVP-oriented and pre-integration. Risk has a minimal
   `DataAccess` は現在 `mock` 以外の provider を拒否します。
 - Market data is deterministic and in-repo, which keeps tests offline and stable.
   市場データはリポジトリ内の固定データで、テストをオフラインかつ安定して実行できます。
+- The `csv` provider reads local `symbols.csv`, `ohlcv.csv`, and `fx_rates.csv` files from `dataaccess.csv_data_dir`.
+  `csv` provider は `dataaccess.csv_data_dir` 配下の `symbols.csv`、`ohlcv.csv`、`fx_rates.csv` を読み込みます。
 - `FeatureBuilder.build_daily_snapshot()` currently leaves `dividend_yield` and `market_cap_jpy` as missing values.
   `FeatureBuilder.build_daily_snapshot()` は現在 `dividend_yield` と `market_cap_jpy` を欠損値扱いにしています。
 - `get_settings()` returns defaults unless `SMAI_CONFIG_FILE` points to a YAML config file.
@@ -123,8 +125,8 @@ These commands are also referenced by the roadmap document.
   rebalance-check フロー向けのローカル UI または手動確認用入口を追加する
 - expand environment-variable settings support beyond `SMAI_CONFIG_FILE`
   `SMAI_CONFIG_FILE` 以外の環境変数ベース設定対応を拡張する
-- expand mock market data coverage or add a second provider behind the existing interface
-  mock 市場データのカバレッジを広げるか、既存インターフェースの背後に第2 provider を追加する
+- expand csv market data coverage and document production-like file conventions
+  csv 市場データのカバレッジを広げ、本番に近いファイル規約を文書化する
 - improve documentation consistency, especially README encoding and status summaries
   特に README の文字化け問題や進捗サマリの整合性を改善する
 
@@ -145,6 +147,7 @@ Update this file when:
 - 2026-05-05: Added optional YAML settings loading via `SMAI_CONFIG_FILE`, PyYAML dependency, example config, and deterministic config tests. / `SMAI_CONFIG_FILE` による任意の YAML 設定読み込み、PyYAML 依存、設定例、決定的な config テストを追加。
 - 2026-05-05: Updated `AGENTS.md` to require beginner-friendly implementation explanations after each work unit. / 各作業単位の完了後に初学者向け説明を行うルールを `AGENTS.md` に追記。
 - 2026-05-05: Added `types-PyYAML` to development and pre-commit mypy dependencies so YAML imports have type stubs. / YAML import の型スタブを使えるように、開発依存と pre-commit mypy 依存へ `types-PyYAML` を追加。
+- 2026-05-05: Added deterministic CSV market-data provider support for symbols, OHLCV bars, quotes, and USDJPY FX rates. / symbols、OHLCV、quotes、USDJPY FX rates に対応する決定的な CSV market-data provider を追加。
 - 2026-04-29: Added `AGENTS.md` and `PROJECT_CONTEXT.md` as root-level shared context documents. / ルート共有文書として `AGENTS.md` と `PROJECT_CONTEXT.md` を追加。
 - 2026-04-29: Updated both root documents to bilingual English/Japanese format. / ルート文書2点を英日併記に更新。
 - 2026-04-29: Updated `AGENTS.md` to require diff-first review and work-log updates per task unit. / `AGENTS.md` に差分先出しレビューと作業単位ごとのログ更新ルールを追記。

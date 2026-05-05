@@ -16,12 +16,14 @@ from ui.rebalance_app import (
     get_rebalance_sample,
     proposed_trade_rows,
     rebalance_sample_names,
+    result_json_download,
     result_summary,
     risk_breach_rows,
     run_rebalance_check,
     runtime_settings_summary,
     sample_widget_key,
     target_allocation_rows,
+    target_allocations_json,
 )
 
 
@@ -71,6 +73,18 @@ def test_sample_widget_key_is_stable_and_sample_specific():
         "sample_default_rebalance_cash_jpy"
     )
     assert sample_widget_key("No trades", "cash_jpy") == "sample_no_trades_cash_jpy"
+
+
+def test_target_allocations_json_builds_current_mvp_symbol_targets():
+    payload = target_allocations_json(
+        toyota_weight=Decimal("0.75"),
+        apple_weight=Decimal("0.25"),
+    )
+
+    assert '"symbol": "7203.T"' in payload
+    assert '"target_weight": "0.75"' in payload
+    assert '"symbol": "AAPL"' in payload
+    assert '"target_weight": "0.25"' in payload
 
 
 def test_build_rebalance_request_rejects_invalid_positions_json():
@@ -131,3 +145,14 @@ def test_rebalance_result_formatters_create_table_rows():
         {"breach": "R5:min_dividend_yield:AAPL"},
         {"breach": "R3:max_concentration"},
     ]
+
+
+def test_result_json_download_contains_portfolio_risk_result():
+    request = build_default_rebalance_request()
+    result = asyncio.run(run_rebalance_check(request))
+
+    payload = result_json_download(result)
+
+    assert '"proposal"' in payload
+    assert '"risk_decision"' in payload
+    assert '"status": "BLOCK"' in payload

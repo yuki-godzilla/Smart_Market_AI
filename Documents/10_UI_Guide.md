@@ -44,8 +44,12 @@ $env:SMAI_CONFIG_FILE = ".\config\csv_example.yaml"
   サンプル別入力状態: サンプルを切り替えると、そのサンプル用の account、cash、positions、targets 入力に切り替わります。
 - Account, as-of date, JPY cash, positions JSON, and target allocations JSON.
   account、評価日、JPY cash、positions JSON、target allocations JSON。
+- AAPL target-weight slider that regenerates the MVP target allocations JSON for `7203.T` and `AAPL`.
+  `7203.T` と `AAPL` の MVP target allocations JSON を再生成する AAPL target-weight slider。
 - Rebalance result summary, current positions, target allocations, proposed trades, risk breaches, and raw JSON.
   リバランス結果 summary、現在ポジション、目標配分、提案取引、risk breach、raw JSON。
+- Local JSON download for the current rebalance-check result.
+  現在の rebalance-check 結果のローカル JSON ダウンロード。
 
 ## Expected Manual Checks / 手動確認ポイント
 
@@ -60,6 +64,9 @@ If `Cash JPY` is not a decimal number, the UI should show a clear cash-input err
 
 If positions or targets JSON is invalid, the UI should show a JSON validation error.
 positions または targets JSON が不正な場合、JSON validation error が表示されます。
+
+The `Raw JSON` expander should offer a `Download JSON` button for saving the current result locally.
+`Raw JSON` expander には、現在の結果をローカル保存するための `Download JSON` button が表示されます。
 
 ## MVP Constraints / MVP 制約
 

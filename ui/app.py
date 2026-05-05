@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from datetime import date
 from decimal import Decimal, InvalidOperation
+from typing import cast
 
 import streamlit as st
 from pydantic import ValidationError
@@ -14,12 +15,14 @@ from ui.rebalance_app import (
     get_rebalance_sample,
     proposed_trade_rows,
     rebalance_sample_names,
+    result_json_download,
     result_summary,
     risk_breach_rows,
     run_rebalance_check,
     runtime_settings_summary,
     sample_widget_key,
     target_allocation_rows,
+    target_allocations_json,
 )
 
 
@@ -29,7 +32,7 @@ def main() -> None:
 
     with st.sidebar:
         _render_runtime_settings()
-        sample_name = st.selectbox("Sample", rebalance_sample_names())
+        sample_name = cast(str, st.selectbox("Sample", rebalance_sample_names()))
         sample = get_rebalance_sample(sample_name)
         account_id = st.text_input(
             "Account",
@@ -46,6 +49,18 @@ def main() -> None:
             value=str(sample.cash_jpy),
             key=sample_widget_key(sample_name, "cash_jpy"),
         )
+        apple_target_weight = cast(
+            int,
+            st.slider(
+                "AAPL target weight",
+                min_value=0,
+                max_value=100,
+                value=_default_apple_target_weight(sample.targets_json),
+                step=5,
+                format="%d%%",
+                key=sample_widget_key(sample_name, "apple_target_weight"),
+            ),
+        )
 
     col_positions, col_targets = st.columns(2)
     with col_positions:
@@ -56,9 +71,13 @@ def main() -> None:
             key=sample_widget_key(sample_name, "positions"),
         )
     with col_targets:
+        generated_targets_json = target_allocations_json(
+            toyota_weight=Decimal(100 - apple_target_weight) / Decimal("100"),
+            apple_weight=Decimal(apple_target_weight) / Decimal("100"),
+        )
         targets_json = st.text_area(
             "Targets",
-            value=sample.targets_json,
+            value=generated_targets_json,
             height=280,
             key=sample_widget_key(sample_name, "targets"),
         )
@@ -98,6 +117,14 @@ def _single_date_from_input(value: object) -> date:
     if isinstance(value, date):
         return value
     raise ValueError("As of must be a single date.")
+
+
+def _default_apple_target_weight(targets_json: str) -> int:
+    if '"symbol": "AAPL"' not in targets_json:
+        return 0
+    if '"target_weight": "0.5"' in targets_json:
+        return 50
+    return 0
 
 
 def _render_runtime_settings() -> None:
@@ -148,6 +175,12 @@ def _render_result(result: PortfolioRiskResult) -> None:
 
     with st.expander("Raw JSON"):
         st.json(result.model_dump(mode="json"))
+        st.download_button(
+            "Download JSON",
+            data=result_json_download(result),
+            file_name="rebalance_check_result.json",
+            mime="application/json",
+        )
 
 
 def _render_table(rows: list[dict[str, str]], empty_message: str) -> None:

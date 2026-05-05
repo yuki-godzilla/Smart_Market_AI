@@ -56,6 +56,26 @@ NO_TRADES_TARGETS_JSON = """[
 ]"""
 
 
+def target_allocations_json(*, toyota_weight: Decimal, apple_weight: Decimal) -> str:
+    """Build pretty target-allocation JSON for the current MVP symbols."""
+
+    return json.dumps(
+        [
+            {
+                "symbol": "7203.T",
+                "currency": "JPY",
+                "target_weight": _format_decimal(toyota_weight),
+            },
+            {
+                "symbol": "AAPL",
+                "currency": "USD",
+                "target_weight": _format_decimal(apple_weight),
+            },
+        ],
+        indent=2,
+    )
+
+
 @dataclass(frozen=True)
 class RebalanceSample:
     """Deterministic sample inputs offered by the Streamlit UI."""
@@ -230,6 +250,12 @@ def risk_breach_rows(result: PortfolioRiskResult) -> list[dict[str, str]]:
     if result.risk_decision is None:
         return []
     return [{"breach": breach} for breach in result.risk_decision.breaches]
+
+
+def result_json_download(result: PortfolioRiskResult) -> str:
+    """Return a stable JSON payload for local UI result downloads."""
+
+    return result.model_dump_json(indent=2)
 
 
 def _load_json_list(value: str, field_name: str) -> list[dict[str, Any]]:

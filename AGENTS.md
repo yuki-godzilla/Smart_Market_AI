@@ -118,6 +118,13 @@ Use the project virtual environment when available.
 .\venv_SMAI\Scripts\python.exe -m ruff check backend tests --no-cache
 ```
 
+## Text Encoding / 文字コード
+
+- Repository Markdown files are expected to be UTF-8 without BOM unless a task explicitly says otherwise.
+  リポジトリ内の Markdown ファイルは、特別な指示がない限り UTF-8 without BOM を前提とします。
+- If Japanese text appears garbled in a terminal or tool output, verify the file bytes with strict UTF-8 decoding before treating the document as corrupted.
+  ターミナルやツール出力で日本語が文字化けして見える場合でも、文書が壊れていると判断する前に strict UTF-8 decode でファイル本体を確認します。
+
 ## Documentation Maintenance / ドキュメント更新方針
 
 Update `PROJECT_CONTEXT.md` when any of the following change:

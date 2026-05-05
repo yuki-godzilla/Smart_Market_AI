@@ -7,11 +7,17 @@ from decimal import Decimal, InvalidOperation
 import streamlit as st
 from pydantic import ValidationError
 
+from backend.portfolio.workflow import PortfolioRiskResult
 from ui.rebalance_app import (
     DEFAULT_POSITIONS_JSON,
     DEFAULT_TARGETS_JSON,
     build_rebalance_request,
+    current_position_rows,
+    proposed_trade_rows,
+    result_summary,
+    risk_breach_rows,
     run_rebalance_check,
+    target_allocation_rows,
 )
 
 
@@ -44,14 +50,59 @@ def main() -> None:
             st.error(str(exc))
             return
 
-        st.subheader("Proposal")
-        st.json(result.proposal.model_dump(mode="json"))
-        st.subheader("Risk Decision")
-        st.json(result.risk_decision.model_dump(mode="json") if result.risk_decision else None)
+        _render_result(result)
 
 
 def _decimal_from_text(value: str) -> Decimal:
     return Decimal(value.strip())
+
+
+def _render_result(result: PortfolioRiskResult) -> None:
+    summary = result_summary(result)
+    status = summary["risk_status"]
+
+    st.subheader("Summary")
+    col_total, col_cash, col_trades, col_status = st.columns(4)
+    col_total.metric("Total value JPY", summary["total_value_jpy"])
+    col_cash.metric("Cash JPY", summary["cash_jpy"])
+    col_trades.metric("Proposed trades", summary["trade_count"])
+    col_status.metric("Risk status", status)
+
+    if status == "ALLOW":
+        st.success("Risk decision: ALLOW")
+    elif status == "REVIEW":
+        st.warning("Risk decision: REVIEW")
+    elif status == "BLOCK":
+        st.error("Risk decision: BLOCK")
+    else:
+        st.info("No trades were generated, so Risk was not evaluated.")
+
+    proposal = result.proposal
+    col_current, col_targets = st.columns(2)
+    with col_current:
+        st.subheader("Current Positions")
+        _render_table(current_position_rows(proposal), "No current positions.")
+    with col_targets:
+        st.subheader("Target Allocations")
+        _render_table(target_allocation_rows(proposal), "No target allocations.")
+
+    st.subheader("Proposed Trades")
+    _render_table(proposed_trade_rows(proposal), "No rebalance trades were proposed.")
+
+    breaches = risk_breach_rows(result)
+    if breaches:
+        st.subheader("Risk Breaches")
+        st.dataframe(breaches, hide_index=True, use_container_width=True)
+
+    with st.expander("Raw JSON"):
+        st.json(result.model_dump(mode="json"))
+
+
+def _render_table(rows: list[dict[str, str]], empty_message: str) -> None:
+    if rows:
+        st.dataframe(rows, hide_index=True, use_container_width=True)
+    else:
+        st.info(empty_message)
 
 
 if __name__ == "__main__":

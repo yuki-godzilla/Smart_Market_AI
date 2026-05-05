@@ -1,0 +1,21 @@
+app:
+  timezone: UTC
+  log_json: true
+
+dataaccess:
+  provider: csv
+  csv_data_dir: data/marketdata
+
+risk:
+  thresholds:
+    max_notional_per_symbol: 3000000
+    max_notional_per_basket: 10000000
+    max_concentration: 0.25
+    min_adv: 50000000
+    min_dividend_yield: 0.03
+    max_volatility: 0.6
+
+portfolio:
+  solver:
+    backend: none
+    tolerance: 0.000001

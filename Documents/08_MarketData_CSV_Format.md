@@ -37,6 +37,18 @@ ohlcv.csv
 fx_rates.csv
 ```
 
+リポジトリには手動確認用のサンプルとして、次のディレクトリを用意しています。
+
+```text
+data/marketdata
+```
+
+このサンプルを使う設定ファイルは次です。
+
+```text
+config/csv_example.yaml
+```
+
 ## `symbols.csv`
 
 銘柄の基本情報を定義します。

@@ -26,6 +26,15 @@ def test_settings_loads_yaml_overrides(monkeypatch):
     assert settings.portfolio.solver.tolerance == 0.0001
 
 
+def test_settings_loads_csv_example_config(monkeypatch):
+    monkeypatch.setenv("SMAI_CONFIG_FILE", "config/csv_example.yaml")
+
+    settings = get_settings()
+
+    assert settings.dataaccess.provider == "csv"
+    assert settings.dataaccess.csv_data_dir == "data/marketdata"
+
+
 def test_settings_rejects_unknown_yaml_keys(monkeypatch):
     monkeypatch.setenv("SMAI_CONFIG_FILE", f"{FIXTURE_DIR}/unknown_key.yaml")
 

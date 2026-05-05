@@ -103,6 +103,12 @@ def get_rebalance_sample(name: str) -> RebalanceSample:
         raise ValueError(f"Unknown rebalance sample: {name}") from exc
 
 
+def sample_widget_key(sample_name: str, field_name: str) -> str:
+    """Build a stable Streamlit widget key for sample-specific inputs."""
+
+    return f"sample_{_slug(sample_name)}_{_slug(field_name)}"
+
+
 def build_default_rebalance_request() -> RebalanceCheckRequest:
     """Build the deterministic sample request used by docs, tests, and the UI."""
 
@@ -246,3 +252,7 @@ def _format_optional_decimal(value: Decimal | None) -> str:
     if value is None:
         return ""
     return _format_decimal(value)
+
+
+def _slug(value: str) -> str:
+    return "_".join(value.lower().split())

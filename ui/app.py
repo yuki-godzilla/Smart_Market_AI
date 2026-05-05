@@ -17,6 +17,7 @@ from ui.rebalance_app import (
     risk_breach_rows,
     run_rebalance_check,
     runtime_settings_summary,
+    sample_widget_key,
     target_allocation_rows,
 )
 
@@ -29,15 +30,37 @@ def main() -> None:
         _render_runtime_settings()
         sample_name = st.selectbox("Sample", rebalance_sample_names())
         sample = get_rebalance_sample(sample_name)
-        account_id = st.text_input("Account", value=sample.account_id)
-        as_of = st.date_input("As of", value=sample.as_of)
-        cash_jpy_text = st.text_input("Cash JPY", value=str(sample.cash_jpy))
+        account_id = st.text_input(
+            "Account",
+            value=sample.account_id,
+            key=sample_widget_key(sample_name, "account"),
+        )
+        as_of = st.date_input(
+            "As of",
+            value=sample.as_of,
+            key=sample_widget_key(sample_name, "as_of"),
+        )
+        cash_jpy_text = st.text_input(
+            "Cash JPY",
+            value=str(sample.cash_jpy),
+            key=sample_widget_key(sample_name, "cash_jpy"),
+        )
 
     col_positions, col_targets = st.columns(2)
     with col_positions:
-        positions_json = st.text_area("Positions", value=sample.positions_json, height=280)
+        positions_json = st.text_area(
+            "Positions",
+            value=sample.positions_json,
+            height=280,
+            key=sample_widget_key(sample_name, "positions"),
+        )
     with col_targets:
-        targets_json = st.text_area("Targets", value=sample.targets_json, height=280)
+        targets_json = st.text_area(
+            "Targets",
+            value=sample.targets_json,
+            height=280,
+            key=sample_widget_key(sample_name, "targets"),
+        )
 
     if st.button("Run rebalance check", type="primary"):
         try:

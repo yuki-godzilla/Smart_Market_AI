@@ -20,6 +20,7 @@ from ui.rebalance_app import (
     risk_breach_rows,
     run_rebalance_check,
     runtime_settings_summary,
+    sample_widget_key,
     target_allocation_rows,
 )
 
@@ -63,6 +64,13 @@ def test_get_rebalance_sample_rejects_unknown_name():
         get_rebalance_sample("missing")
 
     assert str(exc_info.value) == "Unknown rebalance sample: missing"
+
+
+def test_sample_widget_key_is_stable_and_sample_specific():
+    assert sample_widget_key("Default rebalance", "cash_jpy") == (
+        "sample_default_rebalance_cash_jpy"
+    )
+    assert sample_widget_key("No trades", "cash_jpy") == "sample_no_trades_cash_jpy"
 
 
 def test_build_rebalance_request_rejects_invalid_positions_json():

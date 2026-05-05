@@ -40,6 +40,8 @@ $env:SMAI_CONFIG_FILE = ".\config\csv_example.yaml"
   Runtime 設定: 使用中の provider、設定ファイル、`csv` 利用時の CSV data directory。
 - Sample input selection: `Default rebalance` and `No trades`.
   サンプル入力切り替え: `Default rebalance` と `No trades`。
+- Sample-specific input state: switching samples refreshes the account, cash, positions, and targets fields for that sample.
+  サンプル別入力状態: サンプルを切り替えると、そのサンプル用の account、cash、positions、targets 入力に切り替わります。
 - Account, as-of date, JPY cash, positions JSON, and target allocations JSON.
   account、評価日、JPY cash、positions JSON、target allocations JSON。
 - Rebalance result summary, current positions, target allocations, proposed trades, risk breaches, and raw JSON.

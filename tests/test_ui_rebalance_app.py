@@ -25,6 +25,7 @@ from ui.rebalance_app import (
     proposed_trade_rows,
     rebalance_sample_names,
     rebalance_scenario_dir,
+    request_json_download,
     result_json_download,
     result_report_manifest_download,
     result_report_zip_download,
@@ -272,6 +273,16 @@ def test_result_json_download_contains_portfolio_risk_result():
     assert '"status": "BLOCK"' in payload
 
 
+def test_request_json_download_contains_validated_rebalance_request():
+    request = build_default_rebalance_request()
+
+    payload = request_json_download(request)
+
+    assert '"account_id": "acct-1"' in payload
+    assert '"cash_jpy": "29000"' in payload
+    assert '"positions"' in payload
+
+
 def test_table_csv_download_writes_stable_header_and_rows():
     payload = table_csv_download(
         [
@@ -293,7 +304,7 @@ def test_result_report_zip_download_contains_json_and_csv_files():
     request = build_default_rebalance_request()
     result = asyncio.run(run_rebalance_check(request))
 
-    payload = result_report_zip_download(result)
+    payload = result_report_zip_download(result, request=request)
 
     with ZipFile(BytesIO(payload)) as archive:
         assert archive.namelist() == [
@@ -302,14 +313,17 @@ def test_result_report_zip_download_contains_json_and_csv_files():
             "rebalance_current_positions.csv",
             "rebalance_proposed_trades.csv",
             "rebalance_report_manifest.json",
+            "rebalance_request.json",
             "rebalance_risk_breaches.csv",
             "rebalance_summary.csv",
             "rebalance_target_allocations.csv",
         ]
         assert '"status": "BLOCK"' in archive.read("rebalance_check_result.json").decode("utf-8")
+        assert '"account_id": "acct-1"' in archive.read("rebalance_request.json").decode("utf-8")
         manifest = archive.read("rebalance_report_manifest.json").decode("utf-8")
         assert '"schema_version": "rebalance-report-v1"' in manifest
         assert '"risk_status": "BLOCK"' in manifest
+        assert "rebalance_request.json" in manifest
         assert "rebalance_summary.csv" in manifest
         summary_csv = archive.read("rebalance_summary.csv").decode("utf-8")
         assert "risk_status" in summary_csv

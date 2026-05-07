@@ -8,6 +8,7 @@ from typing import cast
 import streamlit as st
 from pydantic import ValidationError
 
+from backend.app.main import RebalanceCheckRequest
 from backend.portfolio.workflow import PortfolioRiskResult
 from ui.rebalance_app import (
     RebalanceScenarioError,
@@ -17,6 +18,7 @@ from ui.rebalance_app import (
     get_rebalance_sample,
     proposed_trade_rows,
     rebalance_sample_names,
+    request_json_download,
     result_json_download,
     result_report_zip_download,
     result_summary,
@@ -120,7 +122,7 @@ def main() -> None:
             st.error(str(exc))
             return
 
-        _render_result(result)
+        _render_result(result, request)
 
 
 def _decimal_from_text(value: str) -> Decimal:
@@ -156,7 +158,7 @@ def _render_symbol_reference() -> None:
     st.dataframe(symbol_reference_rows(), hide_index=True, use_container_width=True)
 
 
-def _render_result(result: PortfolioRiskResult) -> None:
+def _render_result(result: PortfolioRiskResult, request: RebalanceCheckRequest) -> None:
     summary = result_summary(result)
     status = summary["risk_status"]
 
@@ -213,8 +215,14 @@ def _render_result(result: PortfolioRiskResult) -> None:
             mime="application/json",
         )
         st.download_button(
+            "Download request JSON",
+            data=request_json_download(request),
+            file_name="rebalance_request.json",
+            mime="application/json",
+        )
+        st.download_button(
             "Download report ZIP",
-            data=result_report_zip_download(result),
+            data=result_report_zip_download(result, request=request),
             file_name="rebalance_report.zip",
             mime="application/zip",
         )

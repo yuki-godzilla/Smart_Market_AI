@@ -86,6 +86,8 @@ The implementation is still MVP-oriented and pre-integration. Risk has a minimal
   将来の live provider 失敗は、rate limit、provider unavailable、provider timeout、schema mismatch 向けの専用ドメインエラーで表現できます。
 - API metadata and tests cover structured provider failure responses for opt-in rejection, provider unavailability, and provider timeouts.
   API metadata とテストは、opt-in 拒否、provider unavailable、provider timeout の構造化 provider 失敗レスポンスをカバーしています。
+- API tests also cover structured rate-limit and schema-mismatch provider failure responses.
+  API テストは、rate limit と schema mismatch の構造化 provider 失敗レスポンスもカバーしています。
 - Market data is deterministic and in-repo, which keeps tests offline and stable.
   市場データはリポジトリ内の固定データで、テストをオフラインかつ安定して実行できます。
 - The `csv` provider reads local `symbols.csv`, `ohlcv.csv`, and `fx_rates.csv` files from `dataaccess.csv_data_dir`.
@@ -172,6 +174,7 @@ Update this file when:
 - 2026-05-08: Added provider unavailable and timeout domain errors for future live market-data API mapping. / 将来の live market-data API mapping に向けて、provider unavailable と timeout のドメインエラーを追加した。
 - 2026-05-08: Added `dataaccess.allow_external_providers` as an explicit opt-in gate before future live provider implementation paths. / 将来の live provider 実装経路へ進む前の明示 opt-in gate として `dataaccess.allow_external_providers` を追加した。
 - 2026-05-08: Added structured API response coverage and OpenAPI metadata for live-provider opt-in, unavailable, and timeout failures. / live provider の opt-in、unavailable、timeout 失敗に対する構造化 API レスポンスのカバレッジと OpenAPI metadata を追加した。
+- 2026-05-08: Added structured API response tests for provider rate-limit and schema-mismatch failures. / provider rate limit と schema mismatch 失敗に対する構造化 API レスポンステストを追加した。
 - 2026-05-07: Added explicit `RebalanceScenarioError` handling for malformed file-backed rebalance scenarios and covered invalid JSON, invalid request schema, and duplicate scenario names with tests. / 壊れた file-backed rebalance scenario 向けに明示的な `RebalanceScenarioError` 処理を追加し、不正 JSON、不正 request schema、重複 scenario 名をテストでカバーした。
 - 2026-05-07: Added file-backed rebalance scenarios under `examples/rebalance_scenarios/` and made the Streamlit UI sample selector load them. / `examples/rebalance_scenarios/` に file-backed rebalance scenario を追加し、Streamlit UI の sample selector から読み込むようにした。
 

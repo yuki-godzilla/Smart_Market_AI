@@ -270,6 +270,7 @@ Completion criteria:
 - Done: provider unavailable and timeout failures have dedicated domain errors for future API mapping.
 - Done: live providers require `dataaccess.allow_external_providers: true` before reaching future implementation paths.
 - Done: provider opt-in, unavailable, and timeout failures are covered by structured API response tests and OpenAPI response metadata.
+- Done: provider rate-limit and schema-mismatch failures are covered by structured API response tests.
 - external data can be enabled only through explicit config
 - no CI or default local workflow requires network access
 - provider failures map to domain errors and API responses consistently

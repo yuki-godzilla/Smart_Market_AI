@@ -2,7 +2,13 @@ from fastapi.testclient import TestClient
 
 from backend.app import main
 from backend.app.main import app
-from backend.core.errors import ComputationError, ProviderTimeoutError, ProviderUnavailableError
+from backend.core.errors import (
+    ComputationError,
+    ProviderTimeoutError,
+    ProviderUnavailableError,
+    RateLimitError,
+    SchemaMismatchError,
+)
 
 client = TestClient(app)
 
@@ -180,6 +186,76 @@ def test_pre_trade_check_api_returns_computation_error_body(monkeypatch):
         "code": "APP-2002",
         "message": "Trade intent requires price_hint or snapshot.last",
         "details": {"symbol": "AAPL", "account_id": "acct-1"},
+    }
+
+
+def test_pre_trade_check_api_returns_rate_limit_error_body(monkeypatch):
+    class BrokenRiskService:
+        async def pre_trade_check(self, basket, as_of, account_id):
+            raise RateLimitError(
+                "provider rate limit",
+                details={"provider": "yahoo", "retry_after_seconds": 60},
+            )
+
+    monkeypatch.setattr(main, "create_risk_service", BrokenRiskService)
+
+    response = client.post(
+        "/risk/pre-trade-check",
+        json={
+            "account_id": "acct-1",
+            "as_of": "2026-04-09",
+            "basket": [
+                {
+                    "symbol": "AAPL",
+                    "side": "BUY",
+                    "qty": "10",
+                    "price_hint": "175",
+                    "currency": "USD",
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 429
+    assert response.json() == {
+        "code": "APP-2001",
+        "message": "provider rate limit",
+        "details": {"provider": "yahoo", "retry_after_seconds": 60},
+    }
+
+
+def test_pre_trade_check_api_returns_schema_mismatch_error_body(monkeypatch):
+    class BrokenRiskService:
+        async def pre_trade_check(self, basket, as_of, account_id):
+            raise SchemaMismatchError(
+                "provider payload schema mismatch",
+                details={"provider": "polygon", "field": "close"},
+            )
+
+    monkeypatch.setattr(main, "create_risk_service", BrokenRiskService)
+
+    response = client.post(
+        "/risk/pre-trade-check",
+        json={
+            "account_id": "acct-1",
+            "as_of": "2026-04-09",
+            "basket": [
+                {
+                    "symbol": "AAPL",
+                    "side": "BUY",
+                    "qty": "10",
+                    "price_hint": "175",
+                    "currency": "USD",
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "code": "APP-5001",
+        "message": "provider payload schema mismatch",
+        "details": {"provider": "polygon", "field": "close"},
     }
 
 

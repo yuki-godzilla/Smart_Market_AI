@@ -27,6 +27,7 @@ from ui.rebalance_app import (
     rebalance_scenario_dir,
     request_json_download,
     result_json_download,
+    result_markdown_report_download,
     result_report_manifest_download,
     result_report_zip_download,
     result_summary,
@@ -283,6 +284,19 @@ def test_request_json_download_contains_validated_rebalance_request():
     assert '"positions"' in payload
 
 
+def test_result_markdown_report_download_summarizes_result():
+    request = build_default_rebalance_request()
+    result = asyncio.run(run_rebalance_check(request))
+
+    payload = result_markdown_report_download(result, request=request)
+
+    assert payload.startswith("# Rebalance Check Report\n")
+    assert "- Account: acct-1" in payload
+    assert "- Risk status: BLOCK" in payload
+    assert "- Positions: 1" in payload
+    assert "- R5:min_dividend_yield:AAPL" in payload
+
+
 def test_table_csv_download_writes_stable_header_and_rows():
     payload = table_csv_download(
         [
@@ -312,6 +326,7 @@ def test_result_report_zip_download_contains_json_and_csv_files():
             "rebalance_check_result.json",
             "rebalance_current_positions.csv",
             "rebalance_proposed_trades.csv",
+            "rebalance_report.md",
             "rebalance_report_manifest.json",
             "rebalance_request.json",
             "rebalance_risk_breaches.csv",
@@ -320,9 +335,13 @@ def test_result_report_zip_download_contains_json_and_csv_files():
         ]
         assert '"status": "BLOCK"' in archive.read("rebalance_check_result.json").decode("utf-8")
         assert '"account_id": "acct-1"' in archive.read("rebalance_request.json").decode("utf-8")
+        report_md = archive.read("rebalance_report.md").decode("utf-8")
+        assert "# Rebalance Check Report" in report_md
+        assert "- Risk status: BLOCK" in report_md
         manifest = archive.read("rebalance_report_manifest.json").decode("utf-8")
         assert '"schema_version": "rebalance-report-v1"' in manifest
         assert '"risk_status": "BLOCK"' in manifest
+        assert "rebalance_report.md" in manifest
         assert "rebalance_request.json" in manifest
         assert "rebalance_summary.csv" in manifest
         summary_csv = archive.read("rebalance_summary.csv").decode("utf-8")

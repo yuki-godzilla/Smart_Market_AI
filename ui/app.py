@@ -20,6 +20,7 @@ from ui.rebalance_app import (
     rebalance_sample_names,
     request_json_download,
     result_json_download,
+    result_markdown_report_download,
     result_report_zip_download,
     result_summary,
     risk_breach_rows,
@@ -219,6 +220,12 @@ def _render_result(result: PortfolioRiskResult, request: RebalanceCheckRequest) 
             data=request_json_download(request),
             file_name="rebalance_request.json",
             mime="application/json",
+        )
+        st.download_button(
+            "Download report Markdown",
+            data=result_markdown_report_download(result, request=request),
+            file_name="rebalance_report.md",
+            mime="text/markdown",
         )
         st.download_button(
             "Download report ZIP",

@@ -377,6 +377,51 @@ def request_json_download(request: RebalanceCheckRequest) -> str:
     return request.model_dump_json(indent=2)
 
 
+def result_markdown_report_download(
+    result: PortfolioRiskResult,
+    *,
+    request: RebalanceCheckRequest | None = None,
+) -> str:
+    """Return a human-readable local Markdown report for a rebalance result."""
+
+    summary = result_summary(result)
+    breaches = risk_breach_rows(result)
+    lines = [
+        "# Rebalance Check Report",
+        "",
+        "## Summary",
+        "",
+        f"- Account: {summary['account_id']}",
+        f"- As of: {summary['as_of']}",
+        f"- Total value JPY: {summary['total_value_jpy']}",
+        f"- Cash JPY: {summary['cash_jpy']}",
+        f"- Proposed trades: {summary['trade_count']}",
+        f"- Risk status: {summary['risk_status']}",
+    ]
+    if request is not None:
+        lines.extend(
+            [
+                "",
+                "## Request",
+                "",
+                f"- Positions: {len(request.positions)}",
+                f"- Targets: {len(request.targets)}",
+            ]
+        )
+    lines.extend(
+        [
+            "",
+            "## Risk Breaches",
+            "",
+        ]
+    )
+    if breaches:
+        lines.extend(f"- {row['breach']}" for row in breaches)
+    else:
+        lines.append("- None")
+    return "\n".join(lines) + "\n"
+
+
 def result_table_downloads(result: PortfolioRiskResult) -> dict[str, str]:
     """Return table-friendly CSV downloads for a rebalance result."""
 
@@ -418,6 +463,7 @@ def result_report_zip_download(
             result,
             includes_request=request is not None,
         ),
+        "rebalance_report.md": result_markdown_report_download(result, request=request),
         "rebalance_check_result.json": result_json_download(result),
         **result_table_downloads(result),
     }
@@ -438,6 +484,10 @@ def result_report_manifest_download(
         {
             "filename": "rebalance_check_result.json",
             "description": "Portfolio-to-Risk workflow result payload.",
+        },
+        {
+            "filename": "rebalance_report.md",
+            "description": "Human-readable Markdown summary of the rebalance check.",
         },
         {
             "filename": "rebalance_summary.csv",

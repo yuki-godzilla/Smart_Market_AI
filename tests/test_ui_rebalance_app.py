@@ -294,6 +294,10 @@ def test_result_markdown_report_download_summarizes_result():
     assert "- Account: acct-1" in payload
     assert "- Risk status: BLOCK" in payload
     assert "- Positions: 1" in payload
+    assert "## Allocation Comparison" in payload
+    assert "| symbol | current_weight | target_weight | drift |" in payload
+    assert "## Proposed Trades" in payload
+    assert "| AAPL (Apple Inc.) | BUY |" in payload
     assert "- R5:min_dividend_yield:AAPL" in payload
 
 

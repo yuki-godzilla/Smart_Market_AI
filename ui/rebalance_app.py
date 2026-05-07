@@ -408,6 +408,27 @@ def result_markdown_report_download(
                 f"- Targets: {len(request.targets)}",
             ]
         )
+
+    lines.extend(
+        [
+            "",
+            "## Allocation Comparison",
+            "",
+            _markdown_table(
+                allocation_comparison_rows(result.proposal),
+                ["symbol", "current_weight", "target_weight", "drift"],
+            ),
+            "",
+            "## Proposed Trades",
+            "",
+            _markdown_table(
+                proposed_trade_rows(result.proposal),
+                ["symbol", "side", "qty", "price_hint", "currency"],
+                empty_message="No rebalance trades were proposed.",
+            ),
+        ]
+    )
+
     lines.extend(
         [
             "",
@@ -561,6 +582,27 @@ def zip_text_downloads(files: dict[str, str]) -> bytes:
             info.compress_type = ZIP_DEFLATED
             archive.writestr(info, files[filename].encode("utf-8"))
     return buffer.getvalue()
+
+
+def _markdown_table(
+    rows: list[dict[str, str]],
+    fieldnames: list[str],
+    *,
+    empty_message: str = "No rows.",
+) -> str:
+    if not rows:
+        return empty_message
+    header = "| " + " | ".join(fieldnames) + " |"
+    separator = "| " + " | ".join("---" for _ in fieldnames) + " |"
+    body = [
+        "| " + " | ".join(_markdown_cell(row.get(field, "")) for field in fieldnames) + " |"
+        for row in rows
+    ]
+    return "\n".join([header, separator, *body])
+
+
+def _markdown_cell(value: str) -> str:
+    return value.replace("|", "\\|")
 
 
 def _load_json_list(value: str, field_name: str) -> list[dict[str, Any]]:

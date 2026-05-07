@@ -246,6 +246,7 @@ Completion criteria:
 - Done: report ZIP includes a deterministic manifest that explains the exported files.
 - Done: report ZIP includes the validated request JSON used to run the rebalance check.
 - Done: Streamlit can download a human-readable Markdown report summary.
+- Done: Markdown report includes allocation comparison and proposed-trade tables.
 - rebalance-check results can be saved in at least one table-friendly format
 - report/export behavior stays local and deterministic
 - future PDF/Excel work has a clear boundary

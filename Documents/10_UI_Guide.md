@@ -56,6 +56,7 @@ $env:SMAI_CONFIG_FILE = ".\config\csv_example.yaml"
 - raw JSON result、local JSON download、table CSV download、report ZIP download
 - validated request JSON download
 - human-readable Markdown report download
+- Markdown report 内の allocation comparison table と proposed trades table
 - report ZIP 内の `rebalance_report_manifest.json` による同梱ファイル説明
 
 ## 手動確認ポイント

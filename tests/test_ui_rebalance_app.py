@@ -26,6 +26,7 @@ from ui.rebalance_app import (
     rebalance_sample_names,
     rebalance_scenario_dir,
     result_json_download,
+    result_report_manifest_download,
     result_report_zip_download,
     result_summary,
     risk_breach_rows,
@@ -300,11 +301,28 @@ def test_result_report_zip_download_contains_json_and_csv_files():
             "rebalance_check_result.json",
             "rebalance_current_positions.csv",
             "rebalance_proposed_trades.csv",
+            "rebalance_report_manifest.json",
             "rebalance_risk_breaches.csv",
             "rebalance_summary.csv",
             "rebalance_target_allocations.csv",
         ]
         assert '"status": "BLOCK"' in archive.read("rebalance_check_result.json").decode("utf-8")
+        manifest = archive.read("rebalance_report_manifest.json").decode("utf-8")
+        assert '"schema_version": "rebalance-report-v1"' in manifest
+        assert '"risk_status": "BLOCK"' in manifest
+        assert "rebalance_summary.csv" in manifest
         summary_csv = archive.read("rebalance_summary.csv").decode("utf-8")
         assert "risk_status" in summary_csv
         assert "BLOCK" in summary_csv
+
+
+def test_result_report_manifest_download_describes_report_files():
+    request = build_default_rebalance_request()
+    result = asyncio.run(run_rebalance_check(request))
+
+    payload = result_report_manifest_download(result)
+
+    assert '"schema_version": "rebalance-report-v1"' in payload
+    assert '"account_id": "acct-1"' in payload
+    assert '"risk_status": "BLOCK"' in payload
+    assert "rebalance_proposed_trades.csv" in payload

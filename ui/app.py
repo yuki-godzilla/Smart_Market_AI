@@ -43,6 +43,8 @@ def main() -> None:
         except RebalanceScenarioError as exc:
             st.error(str(exc))
             st.stop()
+        if sample.description:
+            st.caption(sample.description)
 
         account_id = st.text_input(
             "Account",

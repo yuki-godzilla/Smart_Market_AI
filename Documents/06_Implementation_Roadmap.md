@@ -226,6 +226,7 @@ Completion criteria:
 - Done: a new rebalance scenario can be added as JSON data under `examples/rebalance_scenarios/`
 - Done: Streamlit can load rebalance scenario JSON from `SMAI_REBALANCE_SCENARIO_DIR`.
 - Done: invalid configured rebalance scenario paths fail with beginner-friendly errors.
+- Done: scenario JSON can include a `description` that is shown in the Streamlit UI.
 - invalid scenario/config files fail with beginner-friendly errors
 - existing default scenarios remain deterministic
 

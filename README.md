@@ -120,6 +120,7 @@ examples/rebalance_scenarios/
 ```
 
 新しい sample を追加する場合は、同じ形式の JSON を追加します。
+`description` を書くと、UI の Sample 選択欄の下にシナリオ説明として表示されます。
 
 別のローカルディレクトリから sample を読み込む場合は、`SMAI_REBALANCE_SCENARIO_DIR` を指定します。
 

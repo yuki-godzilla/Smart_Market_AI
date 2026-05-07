@@ -1,6 +1,6 @@
 {
-  "name": "No trades",
-  "description": "Keeps the current Toyota allocation at 100%, so no rebalance trades are generated.",
+  "name": "Invalid description",
+  "description": 123,
   "request": {
     "account_id": "acct-1",
     "as_of": "2026-04-09",

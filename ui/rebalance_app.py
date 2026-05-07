@@ -110,6 +110,7 @@ class RebalanceSample:
     cash_jpy: Decimal
     positions_json: str
     targets_json: str
+    description: str = ""
 
 
 class RebalanceScenarioError(ValueError):
@@ -389,9 +390,12 @@ def _load_rebalance_sample_file(path: Path) -> tuple[str, RebalanceSample]:
     if not isinstance(data, dict):
         raise RebalanceScenarioError(f"{path}: scenario must be a JSON object")
     name = data.get("name")
+    description = data.get("description", "")
     request = data.get("request")
     if not isinstance(name, str) or not name:
         raise RebalanceScenarioError(f"{path}: scenario requires a non-empty name")
+    if not isinstance(description, str):
+        raise RebalanceScenarioError(f"{path}: scenario description must be a string")
     if not isinstance(request, dict):
         raise RebalanceScenarioError(f"{path}: scenario requires a request object")
 
@@ -411,6 +415,7 @@ def _load_rebalance_sample_file(path: Path) -> tuple[str, RebalanceSample]:
             cash_jpy=validated.cash_jpy,
             positions_json=json.dumps(payload["positions"], indent=2),
             targets_json=json.dumps(payload["targets"], indent=2),
+            description=description,
         ),
     )
 

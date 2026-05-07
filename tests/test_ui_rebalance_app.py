@@ -77,6 +77,7 @@ def test_load_rebalance_samples_from_json_files():
 
     assert list(samples) == ["Default rebalance", "No trades"]
     assert samples["Default rebalance"].cash_jpy == Decimal("29000")
+    assert samples["Default rebalance"].description.startswith("Creates one AAPL buy")
     assert samples["No trades"].cash_jpy == Decimal("0")
 
 
@@ -88,7 +89,9 @@ def test_rebalance_samples_can_use_configured_scenario_dir(monkeypatch):
 
     assert rebalance_scenario_dir() == PROJECT_ROOT / "tests/fixtures/rebalance_scenarios_custom"
     assert rebalance_sample_names() == ["Custom cash scenario"]
-    assert get_rebalance_sample("Custom cash scenario").cash_jpy == Decimal("1000")
+    sample = get_rebalance_sample("Custom cash scenario")
+    assert sample.cash_jpy == Decimal("1000")
+    assert sample.description == "Fixture scenario loaded from a configured scenario directory."
 
 
 def test_configured_rebalance_scenario_dir_must_exist(monkeypatch):
@@ -126,6 +129,8 @@ def test_load_rebalance_samples_reports_invalid_files():
     assert "invalid JSON" in message
     assert "invalid_request.json" in message
     assert "request does not match rebalance-check schema" in message
+    assert "invalid_description.json" in message
+    assert "scenario description must be a string" in message
     assert "missing_name.json" in message
     assert "scenario requires a non-empty name" in message
 

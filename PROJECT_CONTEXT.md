@@ -5,8 +5,8 @@
 This document captures the current repository state so future work can start from a shared understanding instead of rediscovering context each time.
 この文書は、毎回コンテキストを掘り直さなくても将来の作業を共通認識から始められるように、現在のリポジトリ状況を記録するものです。
 
-Last updated: 2026-05-05
-最終更新日: 2026-05-05
+Last updated: 2026-05-07
+最終更新日: 2026-05-07
 
 ## Project Summary / プロジェクト概要
 
@@ -147,6 +147,12 @@ Update this file when:
 - a notable mismatch between docs and code is discovered / ドキュメントとコードの目立つ差異を発見したとき
 
 ## Work Log / 作業ログ
+
+- 2026-05-07: Updated `AGENTS.md` to clarify that diff review and verification are checkpoints, not automatic stopping points, when the implementation direction is already approved. / 実装方針が承認済みの場合、差分確認と検証は自動停止地点ではなくチェックポイントとして扱うよう `AGENTS.md` に明記。
+
+- 2026-05-07: Clarified documentation language policy in `AGENTS.md`: human-facing docs are Japanese-first, while AI-facing operating/context docs are bilingual English/Japanese. / `AGENTS.md` のドキュメント言語方針を明確化し、人向け文書は日本語中心、AI 向け運用・文脈文書は英日併記と定義。
+
+- 2026-05-07: Synchronized README, manual workflow docs, and UI guide with the current deterministic Portfolio-to-Risk MVP. / README、手動確認手順、UI ガイドを現在の deterministic な Portfolio-to-Risk MVP に合わせて同期。
 
 - 2026-05-05: Extended the implementation roadmap through MVP stabilization, CSV/scenario expansion, configurable scenarios, reporting MVP, and explicit opt-in external data provider preparation. / 実装ロードマップを MVP stabilization、CSV/scenario expansion、configurable scenarios、reporting MVP、明示 opt-in の外部データ provider 準備まで拡張。
 

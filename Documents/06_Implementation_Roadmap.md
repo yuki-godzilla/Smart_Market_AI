@@ -30,6 +30,7 @@ Current implementation sync note:
 - Done: Local sample CSV market-data files and `config/csv_example.yaml`.
 - Done: Minimal Streamlit UI for the Portfolio-to-Risk rebalance-check workflow.
 - Done: Streamlit UI runtime settings display, deterministic sample selector, target controls, result download, allocation comparison, and sample-symbol labels.
+- Done: README、手動確認手順、UI ガイドを現在の deterministic な MVP と同期済み。
 - Remaining: live market data providers, Execution, broader UI workflows, and broader environment settings loading.
 
 ## 3. Implementation Policy
@@ -187,8 +188,8 @@ Scope:
 - keep deterministic `mock` / `csv` behavior as the default path
 
 Completion criteria:
-- a new contributor can run the API and Streamlit UI from docs
-- `Default rebalance` and `No trades` can be manually checked from the UI
+- Done: 新しい contributor が README、手動確認手順、UI ガイドから API と Streamlit UI を起動できる
+- Done: `Default rebalance` と `No trades` を UI ガイドから手動確認できる
 - `ruff`, `mypy`, and `pytest` pass in the project virtual environment
 - docs describe the current MVP without stale UI/API status
 

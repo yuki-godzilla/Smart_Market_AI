@@ -1,108 +1,132 @@
-# 📊 Smart Market AI - 要件定義書
+# Smart Market AI
 
-> Note: This README currently has encoding/display issues in this environment.
-> Treat `PROJECT_CONTEXT.md` and the files under `Documents/` as the operational source of truth until the README is cleaned up.
+Smart Market AI は、投資支援ワークフロー向けの Python プロジェクトです。
+現在のリポジトリは、Portfolio-to-Risk workflow をローカルで再現できる deterministic な MVP として整備しています。
 
 ![CI](https://github.com/yuki-godzilla/Smart_Market_AI/actions/workflows/ci.yml/badge.svg)
 
-## Links
-#### 1. [Define Requirements](./Documents/01_Define_requirements.md)
-#### 2. [System Design](./Documents/02_System_design.md)
-#### 3. [Functional Design](./Documents/03_Functional_design.md)
-#### 4. [Detail Design](./Documents/04_Detail_Design/04_Detail_Design_README.md)
-#### 5. [Implementation Checklist & Stubs](./Documents/05_Implementation_Checklist_and_Stubs.md)
-#### 6. [Implementation Roadmap](./Documents/06_Implementation_Roadmap.md)
-#### 7. [API Specification](./Documents/07_API_Specification.md)
-#### 8. [MarketData CSV Format](./Documents/08_MarketData_CSV_Format.md)
-#### 9. [Manual Workflows](./Documents/09_Manual_Workflows.md)
-#### 10. [UI Guide](./Documents/10_UI_Guide.md)
+## 現在の MVP
 
----
+実装済み:
 
-## 1. プロジェクト概要
+- `/health`、`POST /risk/pre-trade-check`、`POST /portfolio/rebalance-check` を持つ FastAPI backend
+- Pydantic v2 の共通データ契約、設定モデル、ドメインエラー
+- deterministic な MarketData provider: `mock` と `csv`
+- 日次 snapshot、ADV、volatility の feature building
+- deterministic な MVP ルールによる Risk pre-trade check
+- Portfolio 評価と solver なしの rebalance proposal
+- rebalance-check workflow 向け Streamlit UI
+- ローカル sample CSV と deterministic な example request
 
-「Smart Market AI」は、NISAを活用した個人投資家向けの**市場予測・銘柄分析支援AIアプリ**である。
-売買タイミング予測やポートフォリオ最適化などを通じて、投資判断をスマートにサポートする。
+未実装:
 
----
+- `yahoo` などの live market-data provider
+- Execution / broker への注文送信
+- 現在の MVP を超える screening、forecasting、reporting workflow
+- `SMAI_CONFIG_FILE` 以外の環境変数設定
 
-## 2. 目的
+## ドキュメント
 
-- 銘柄の売買タイミングを予測する
-- 優良銘柄をランキング表示する
-- 市場全体（日経平均など）の方向性を予測する
-- ポートフォリオ（分散投資戦略）を最適化する
-- 上記をレポート形式で出力する
+- [プロジェクト現在地](./PROJECT_CONTEXT.md)
+- [実装ロードマップ](./Documents/06_Implementation_Roadmap.md)
+- [API 仕様](./Documents/07_API_Specification.md)
+- [MarketData CSV 形式](./Documents/08_MarketData_CSV_Format.md)
+- [手動確認手順](./Documents/09_Manual_Workflows.md)
+- [UI ガイド](./Documents/10_UI_Guide.md)
 
----
+設計背景:
 
-## 3. 対象市場・資産
+- [要件定義](./Documents/01_Define_requirements.md)
+- [システム設計](./Documents/02_System_design.md)
+- [機能設計](./Documents/03_Functional_design.md)
+- [詳細設計](./Documents/04_Detail_Design/04_Detail_Design_README.md)
+- [実装チェックリストと雛形](./Documents/05_Implementation_Checklist_and_Stubs.md)
 
-- **投資枠（NISA）**：配当利率の高い日本の個別株
-- **積立枠（つみたてNISA）**：安定成長する信託商品（インデックスファンドなど）
+## セットアップ
 
----
+リポジトリ直下で実行します。
 
-## 4. AIの役割
+```powershell
+.\setup\setup.bat
+```
 
-- 株価の将来予測（数値予測）
-- 株価上昇 / 下落の2値分類
-- ニュースデータによるリスク分析
-- 強化学習または最適化理論によるポートフォリオ自動最適化
+既存の仮想環境を使う場合は、依存関係を直接インストールします。
 
----
+```powershell
+.\venv_SMAI\Scripts\python.exe -m pip install -r setup\requirements.txt -r setup\requirements-dev.txt
+```
 
-## 5. 予測スパン（※検討中）
+## API の起動
 
-- 短期（1日〜1週間）
-- 中期（1ヶ月〜四半期）
-- 長期（1年程度）
+```powershell
+.\venv_SMAI\Scripts\python.exe -m uvicorn backend.app.main:app --reload
+```
 
----
+ローカル確認用 URL:
 
-## 6. データソース（※検討中）
+```text
+http://127.0.0.1:8000/health
+http://127.0.0.1:8000/docs
+http://127.0.0.1:8000/openapi.json
+```
 
-候補：
-- Yahoo Finance / yfinance（株価、配当）
-- 投資信託協会 / モーニングスター（信託商品）
-- NewsAPI / GNews（ニュース）
-- ファンダメンタル：EDINET、決算短信など
+## Streamlit UI の起動
 
----
+```powershell
+.\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
+```
 
-## 7. 技術構成
+現在の UI は Portfolio-to-Risk rebalance-check workflow を対象にしています。
+broker へ注文は送信しません。
 
-| 項目 | 技術 |
-|------|------|
-| 言語 | Python |
-| UI | Streamlit（Webアプリ） |
-| モデル | scikit-learn, XGBoost, PyTorch, Prophet 他 |
-| 可視化 | matplotlib, plotly, seaborn |
-| ポートフォリオ分析 | PyPortfolioOpt, cvxpy |
-| レポート出力 | openpyxl, fpdf, pandas |
-| データ取得 | yfinance, requests, BeautifulSoup |
-| ニュース処理 | transformers, textblob, VADER |
+## CSV MarketData で起動
 
----
+デフォルト provider は deterministic な `mock` です。
+ローカル CSV サンプルデータを使う場合は、次のように設定します。
 
-## 8. 出力形式
+```powershell
+$env:SMAI_CONFIG_FILE = ".\config\csv_example.yaml"
+.\venv_SMAI\Scripts\python.exe -m uvicorn backend.app.main:app --reload
+```
 
-- Streamlit上でのWeb可視化
-- PDF / Excel形式での週次・月次レポート出力
+同じ設定は Streamlit UI でも使えます。
 
----
+```powershell
+$env:SMAI_CONFIG_FILE = ".\config\csv_example.yaml"
+.\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
+```
 
-## 9. 開発ステップ（案）
+## 手動 Smoke Check
 
-1. 2値分類モデルで「株価上昇／下落」を予測する PoC を構築
-2. 信託商品のスコア化／ランキングロジックを作成
-3. ポートフォリオ自動最適化ロジックを実装
-4. Streamlitによる可視化ダッシュボードを作成
-5. レポート生成機能を追加
+サーバーを起動せずに rebalance-check flow を確認できます。
 
----
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\run_rebalance_check_demo.py
+```
 
-## 10. その他
+期待される結果:
 
-- 開発名・コード名：**Smart Market AI（SMAI）**
-- 想定利用者：NISA/つみたてNISAを活用する個人投資家
+- `AAPL` の `BUY` proposal が 1 件出る
+- `risk_decision.status` が `BLOCK` になる
+- breach に dividend-yield data 欠損と concentration が含まれる
+
+## 検証
+
+```powershell
+.\venv_SMAI\Scripts\python.exe -m pytest tests -q
+.\venv_SMAI\Scripts\python.exe -m ruff check backend tests --no-cache
+```
+
+CI では現在、`black --check .` と `mypy .` も実行します。
+
+## 作業メモ
+
+実装判断では次の順序を優先します。
+
+1. ユーザー要求
+2. `backend/` と `tests/` の実コード
+3. `PROJECT_CONTEXT.md`
+4. `Documents/06_Implementation_Roadmap.md`
+5. `Documents/` 配下のその他設計資料
+
+明示的に必要な作業でない限り、MVP の主要経路は offline かつ deterministic に保ちます。

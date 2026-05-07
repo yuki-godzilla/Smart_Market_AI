@@ -2,83 +2,71 @@
 
 #### [BACK TO README](../README.md)
 
-## Purpose / 目的
+## 目的
 
-This document explains how to run and manually check the minimal Smart Market AI Streamlit UI locally.
-この文書は、Smart Market AI の最小 Streamlit UI をローカルで起動し、手動確認する手順をまとめます。
+この文書は、現在の Streamlit UI をローカルで起動し、手動確認する方法をまとめます。
 
-The current UI is an MVP screen for the Portfolio-to-Risk rebalance-check workflow. It does not send orders to a broker or execution provider.
-現在の UI は Portfolio-to-Risk rebalance-check workflow 向けの MVP 画面です。broker や execution provider に注文は送信しません。
+UI は Portfolio-to-Risk rebalance-check workflow 向けの MVP 画面です。
+broker や execution provider へ注文を送信しません。
 
-## Run / 起動方法
+## 起動
 
-Install dependencies if needed.
 必要に応じて依存関係をインストールします。
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe -m pip install -r setup\requirements.txt -r setup\requirements-dev.txt
 ```
 
-Run the Streamlit UI.
-Streamlit UI を起動します。
+Streamlit を起動します。
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
 ```
 
-To run with the deterministic CSV provider, set `SMAI_CONFIG_FILE` first.
-決定的な CSV provider で確認する場合は、先に `SMAI_CONFIG_FILE` を指定します。
+## CSV MarketData で起動
+
+UI はデフォルトで deterministic な `mock` provider を使います。
+ローカル CSV provider を使う場合:
 
 ```powershell
 $env:SMAI_CONFIG_FILE = ".\config\csv_example.yaml"
 .\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
 ```
 
-## What You Can Check / 画面で確認できること
+## UI で確認できること
 
-- Runtime settings: active provider, config source, and CSV data directory when using `csv`.
-  Runtime 設定: 使用中の provider、設定ファイル、`csv` 利用時の CSV data directory。
-- Sample symbol reference for `7203.T` and `AAPL`.
-  `7203.T` と `AAPL` のサンプル銘柄リファレンス。
-- Sample input selection: `Default rebalance` and `No trades`.
-  サンプル入力切り替え: `Default rebalance` と `No trades`。
-- Sample-specific input state: switching samples refreshes the account, cash, positions, and targets fields for that sample.
-  サンプル別入力状態: サンプルを切り替えると、そのサンプル用の account、cash、positions、targets 入力に切り替わります。
-- Account, as-of date, JPY cash, positions JSON, and target allocations JSON.
-  account、評価日、JPY cash、positions JSON、target allocations JSON。
-- AAPL target-weight slider that regenerates the MVP target allocations JSON for `7203.T` and `AAPL`.
-  `7203.T` と `AAPL` の MVP target allocations JSON を再生成する AAPL target-weight slider。
-- Rebalance result summary, current positions, target allocations, proposed trades, risk breaches, and raw JSON.
-  リバランス結果 summary、現在ポジション、目標配分、提案取引、risk breach、raw JSON。
-- Allocation comparison showing current weight, target weight, and drift by symbol.
-  銘柄ごとの current weight、target weight、drift を表示する allocation comparison。
-- Local JSON download for the current rebalance-check result.
-  現在の rebalance-check 結果のローカル JSON ダウンロード。
+- Runtime settings: 使用中の provider、config source、CSV data directory
+- `7203.T` と `AAPL` の sample symbol reference
+- `Default rebalance` と `No trades` の sample selector
+- account、as-of date、JPY cash、positions JSON、target allocations JSON
+- 現在の 2 銘柄 target allocation JSON を再生成する AAPL target-weight slider
+- rebalance summary、current positions、target allocations、allocation comparison、proposed trades、risk breaches
+- raw JSON result と local JSON download
 
-## Expected Manual Checks / 手動確認ポイント
+## 手動確認ポイント
 
-With `Default rebalance`, the UI should generate an AAPL `BUY` proposal and show a `BLOCK` risk status with breach rows.
-`Default rebalance` では、AAPL の `BUY` 提案が生成され、risk status は `BLOCK`、breach 行が表示されます。
+`Default rebalance` を使う場合:
 
-With `No trades`, the UI should generate zero proposed trades and show `NO_TRADES`, because Risk is skipped when there are no generated trades.
-`No trades` では、提案取引が 0 件になり、生成取引がないため Risk は実行されず `NO_TRADES` が表示されます。
+- UI は `AAPL` の `BUY` proposal を 1 件生成します。
+- Risk status は `BLOCK` になります。
+- breach rows には dividend-yield data 欠損と concentration が含まれます。
 
-If `Cash JPY` is not a decimal number, the UI should show a clear cash-input error.
-`Cash JPY` が decimal number でない場合、cash 入力エラーが表示されます。
+`No trades` を使う場合:
 
-If positions or targets JSON is invalid, the UI should show a JSON validation error.
-positions または targets JSON が不正な場合、JSON validation error が表示されます。
+- proposed trades は 0 件になります。
+- Risk status は `NO_TRADES` になります。
+- 生成された trade がないため、Risk は実行されません。
 
-The `Raw JSON` expander should offer a `Download JSON` button for saving the current result locally.
-`Raw JSON` expander には、現在の結果をローカル保存するための `Download JSON` button が表示されます。
+不正入力の確認:
 
-## MVP Constraints / MVP 制約
+- Decimal ではない `Cash JPY` は cash-input error になります。
+- 不正な positions JSON は JSON validation error になります。
+- 不正な targets JSON は JSON validation error になります。
 
-- The UI is for local manual verification.
-  UI はローカル手動確認用です。
-- The UI currently targets only the Portfolio-to-Risk workflow.
-  現在は Portfolio-to-Risk workflow のみを対象にしています。
-- The default provider is deterministic `mock`.
-  デフォルト provider は deterministic な `mock` です。
-- `SMAI_CONFIG_FILE` can switch the UI to the deterministic `csv` provider.
-  `SMAI_CONFIG_FILE` で deterministic な `csv` provider に切り替えできます。
+## MVP 制約
+
+- UI はローカル手動確認用です。
+- 現在の UI は Portfolio-to-Risk workflow のみを対象にしています。
+- デフォルト provider は deterministic な `mock` です。
+- `SMAI_CONFIG_FILE` で deterministic な `csv` に切り替えられます。
+- broker や execution provider は呼び出しません。

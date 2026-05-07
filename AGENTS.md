@@ -47,6 +47,10 @@ The current implementation is still MVP-oriented and intentionally favors determ
    完了した作業に適したコミットメッセージも提案すること。
    When introducing a new concept or technology, briefly explain what role it plays.
    新しい概念や技術を導入した場合は、その役割も短く説明すること。
+9. Treat diff review and verification as checkpoints, not as automatic stopping points.
+   差分確認と検証はチェックポイントであり、自動的な停止地点ではありません。
+   When the user has already approved the implementation direction, continue to the next logical small task after reporting the checkpoint unless a new decision or risk needs user review.
+   ユーザーが実装方針を承認済みの場合、チェックポイントを報告した後も、新しい判断やリスク確認が必要でない限り、次の自然な小タスクへ進みます。
 
 ## Current Development Focus / 現在の開発フォーカス
 
@@ -124,6 +128,19 @@ Use the project virtual environment when available.
   リポジトリ内の Markdown ファイルは、特別な指示がない限り UTF-8 without BOM を前提とします。
 - If Japanese text appears garbled in a terminal or tool output, verify the file bytes with strict UTF-8 decoding before treating the document as corrupted.
   ターミナルやツール出力で日本語が文字化けして見える場合でも、文書が壊れていると判断する前に strict UTF-8 decode でファイル本体を確認します。
+
+## Documentation Language / ドキュメント言語
+
+- Human-facing documents should be written primarily in Japanese.
+  人が読む通常ドキュメントは、日本語を主言語として書きます。
+- AI-facing operating/context documents should be bilingual English/Japanese.
+  AI や coding agent が作業判断に使う運用・文脈ドキュメントは、英日併記で書きます。
+- `AGENTS.md` and `PROJECT_CONTEXT.md` are AI-facing documents.
+  `AGENTS.md` と `PROJECT_CONTEXT.md` は AI-facing documents として扱います。
+- `README.md`, `Documents/`, `setup/`, examples, and UI/manual guides are human-facing unless a task explicitly says otherwise.
+  `README.md`、`Documents/`、`setup/`、examples、UI/manual guide は、明示的な指示がない限り human-facing documents として扱います。
+- Technical identifiers such as endpoint paths, config keys, class names, and command names may remain in English.
+  endpoint path、config key、class name、command name などの技術識別子は英語のままで構いません。
 
 ## Documentation Maintenance / ドキュメント更新方針
 

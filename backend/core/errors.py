@@ -52,6 +52,20 @@ class RateLimitError(DataSourceError):
     http_status = HTTPStatus.TOO_MANY_REQUESTS
 
 
+class ProviderUnavailableError(DataSourceError):
+    """Data provider is unavailable or has no usable data for the request."""
+
+    code = "APP-2003"
+    http_status = HTTPStatus.SERVICE_UNAVAILABLE
+
+
+class ProviderTimeoutError(DataSourceError):
+    """Data provider did not respond before the configured timeout."""
+
+    code = "APP-2004"
+    http_status = HTTPStatus.GATEWAY_TIMEOUT
+
+
 class BrokerError(AppError):
     """Broker or execution provider request failed."""
 

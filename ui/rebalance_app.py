@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import csv
 import json
 import os
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from io import StringIO
 from pathlib import Path
 from typing import Any
 
@@ -366,6 +368,23 @@ def result_json_download(result: PortfolioRiskResult) -> str:
     """Return a stable JSON payload for local UI result downloads."""
 
     return result.model_dump_json(indent=2)
+
+
+def table_csv_download(
+    rows: list[dict[str, str]],
+    *,
+    fieldnames: list[str] | None = None,
+) -> str:
+    """Return stable CSV text for UI table downloads."""
+
+    resolved_fieldnames = fieldnames or (list(rows[0]) if rows else [])
+    if not resolved_fieldnames:
+        return ""
+    buffer = StringIO(newline="")
+    writer = csv.DictWriter(buffer, fieldnames=resolved_fieldnames, lineterminator="\n")
+    writer.writeheader()
+    writer.writerows(rows)
+    return buffer.getvalue()
 
 
 def _load_json_list(value: str, field_name: str) -> list[dict[str, Any]]:

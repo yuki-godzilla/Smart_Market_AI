@@ -24,6 +24,7 @@ from ui.rebalance_app import (
     runtime_settings_summary,
     sample_widget_key,
     symbol_reference_rows,
+    table_csv_download,
     target_allocation_rows,
     target_allocations_json,
 )
@@ -175,35 +176,88 @@ def _render_result(result: PortfolioRiskResult) -> None:
         st.info("No trades were generated, so Risk was not evaluated.")
 
     proposal = result.proposal
+    current_rows = current_position_rows(proposal)
+    target_rows = target_allocation_rows(proposal)
+    allocation_rows = allocation_comparison_rows(proposal)
+    trade_rows = proposed_trade_rows(proposal)
+    breach_rows = risk_breach_rows(result)
+
     col_current, col_targets = st.columns(2)
     with col_current:
         st.subheader("Current Positions")
-        _render_table(current_position_rows(proposal), "No current positions.")
+        _render_table(current_rows, "No current positions.")
     with col_targets:
         st.subheader("Target Allocations")
-        _render_table(target_allocation_rows(proposal), "No target allocations.")
+        _render_table(target_rows, "No target allocations.")
 
     st.subheader("Allocation Comparison")
     _render_table(
-        allocation_comparison_rows(proposal),
+        allocation_rows,
         "No allocation comparison is available.",
     )
 
     st.subheader("Proposed Trades")
-    _render_table(proposed_trade_rows(proposal), "No rebalance trades were proposed.")
+    _render_table(trade_rows, "No rebalance trades were proposed.")
 
-    breaches = risk_breach_rows(result)
-    if breaches:
+    if breach_rows:
         st.subheader("Risk Breaches")
-        st.dataframe(breaches, hide_index=True, use_container_width=True)
+        st.dataframe(breach_rows, hide_index=True, use_container_width=True)
 
-    with st.expander("Raw JSON"):
+    with st.expander("Downloads"):
         st.json(result.model_dump(mode="json"))
         st.download_button(
             "Download JSON",
             data=result_json_download(result),
             file_name="rebalance_check_result.json",
             mime="application/json",
+        )
+        st.download_button(
+            "Download summary CSV",
+            data=table_csv_download([summary]),
+            file_name="rebalance_summary.csv",
+            mime="text/csv",
+        )
+        st.download_button(
+            "Download current positions CSV",
+            data=table_csv_download(
+                current_rows,
+                fieldnames=["symbol", "qty", "currency", "last", "fx_rate_jpy", "value_jpy"],
+            ),
+            file_name="rebalance_current_positions.csv",
+            mime="text/csv",
+        )
+        st.download_button(
+            "Download target allocations CSV",
+            data=table_csv_download(
+                target_rows,
+                fieldnames=["symbol", "currency", "target_weight"],
+            ),
+            file_name="rebalance_target_allocations.csv",
+            mime="text/csv",
+        )
+        st.download_button(
+            "Download allocation comparison CSV",
+            data=table_csv_download(
+                allocation_rows,
+                fieldnames=["symbol", "current_weight", "target_weight", "drift"],
+            ),
+            file_name="rebalance_allocation_comparison.csv",
+            mime="text/csv",
+        )
+        st.download_button(
+            "Download proposed trades CSV",
+            data=table_csv_download(
+                trade_rows,
+                fieldnames=["symbol", "side", "qty", "price_hint", "currency"],
+            ),
+            file_name="rebalance_proposed_trades.csv",
+            mime="text/csv",
+        )
+        st.download_button(
+            "Download risk breaches CSV",
+            data=table_csv_download(breach_rows, fieldnames=["breach"]),
+            file_name="rebalance_risk_breaches.csv",
+            mime="text/csv",
         )
 
 

@@ -31,6 +31,7 @@ from ui.rebalance_app import (
     sample_widget_key,
     symbol_display_name,
     symbol_reference_rows,
+    table_csv_download,
     target_allocation_rows,
     target_allocations_json,
 )
@@ -265,3 +266,20 @@ def test_result_json_download_contains_portfolio_risk_result():
     assert '"proposal"' in payload
     assert '"risk_decision"' in payload
     assert '"status": "BLOCK"' in payload
+
+
+def test_table_csv_download_writes_stable_header_and_rows():
+    payload = table_csv_download(
+        [
+            {"symbol": "7203.T", "qty": "10"},
+            {"symbol": "AAPL", "qty": "1.5"},
+        ]
+    )
+
+    assert payload == "symbol,qty\n7203.T,10\nAAPL,1.5\n"
+
+
+def test_table_csv_download_can_write_header_for_empty_rows():
+    payload = table_csv_download([], fieldnames=["symbol", "qty"])
+
+    assert payload == "symbol,qty\n"

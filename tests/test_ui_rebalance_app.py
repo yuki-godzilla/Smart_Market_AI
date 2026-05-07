@@ -77,7 +77,7 @@ def test_load_rebalance_samples_from_json_files():
 
     assert list(samples) == ["Default rebalance", "No trades"]
     assert samples["Default rebalance"].cash_jpy == Decimal("29000")
-    assert samples["Default rebalance"].description.startswith("Creates one AAPL buy")
+    assert samples["Default rebalance"].description.startswith("AAPL の買い提案")
     assert samples["No trades"].cash_jpy == Decimal("0")
 
 
@@ -91,7 +91,9 @@ def test_rebalance_samples_can_use_configured_scenario_dir(monkeypatch):
     assert rebalance_sample_names() == ["Custom cash scenario"]
     sample = get_rebalance_sample("Custom cash scenario")
     assert sample.cash_jpy == Decimal("1000")
-    assert sample.description == "Fixture scenario loaded from a configured scenario directory."
+    assert (
+        sample.description == "設定されたシナリオディレクトリから読み込まれるテスト用シナリオです。"
+    )
 
 
 def test_configured_rebalance_scenario_dir_must_exist(monkeypatch):

@@ -1,6 +1,6 @@
 {
   "name": "Custom cash scenario",
-  "description": "Fixture scenario loaded from a configured scenario directory.",
+  "description": "設定されたシナリオディレクトリから読み込まれるテスト用シナリオです。",
   "request": {
     "account_id": "acct-custom",
     "as_of": "2026-04-09",

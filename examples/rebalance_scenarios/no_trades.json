@@ -1,6 +1,6 @@
 {
   "name": "No trades",
-  "description": "Keeps the current Toyota allocation at 100%, so no rebalance trades are generated.",
+  "description": "Toyota の現在配分を 100% のまま維持し、リバランス取引を生成しないシナリオです。",
   "request": {
     "account_id": "acct-1",
     "as_of": "2026-04-09",

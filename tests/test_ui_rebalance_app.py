@@ -15,6 +15,7 @@ from ui.rebalance_app import (
     build_rebalance_request,
     current_position_rows,
     get_rebalance_sample,
+    load_rebalance_samples,
     proposed_trade_rows,
     rebalance_sample_names,
     result_json_download,
@@ -62,6 +63,14 @@ def test_rebalance_samples_include_no_trades_case():
     assert sample_names == ["Default rebalance", "No trades"]
     assert sample.cash_jpy == Decimal("0")
     assert '"target_weight": "1.0"' in sample.targets_json
+
+
+def test_load_rebalance_samples_from_json_files():
+    samples = load_rebalance_samples()
+
+    assert list(samples) == ["Default rebalance", "No trades"]
+    assert samples["Default rebalance"].cash_jpy == Decimal("29000")
+    assert samples["No trades"].cash_jpy == Decimal("0")
 
 
 def test_get_rebalance_sample_rejects_unknown_name():

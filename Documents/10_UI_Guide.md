@@ -38,6 +38,7 @@ $env:SMAI_CONFIG_FILE = ".\config\csv_example.yaml"
 - Runtime settings: 使用中の provider、config source、CSV data directory
 - `7203.T` と `AAPL` の sample symbol reference
 - `Default rebalance` と `No trades` の sample selector
+- `examples/rebalance_scenarios/` から読み込まれる file-backed sample
 - account、as-of date、JPY cash、positions JSON、target allocations JSON
 - 現在の 2 銘柄 target allocation JSON を再生成する AAPL target-weight slider
 - rebalance summary、current positions、target allocations、allocation comparison、proposed trades、risk breaches

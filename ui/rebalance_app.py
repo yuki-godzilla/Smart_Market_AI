@@ -5,6 +5,7 @@ import os
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 from backend.app.main import RebalanceCheckRequest, create_portfolio_risk_workflow
@@ -15,6 +16,8 @@ from backend.portfolio.workflow import PortfolioRiskResult
 DEFAULT_ACCOUNT_ID = "acct-1"
 DEFAULT_AS_OF = date(2026, 4, 9)
 DEFAULT_CASH_JPY = Decimal("29000")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_SCENARIO_DIR = PROJECT_ROOT / "examples" / "rebalance_scenarios"
 SYMBOL_DISPLAY_NAMES = {
     "7203.T": "Toyota Motor",
     "AAPL": "Apple Inc.",
@@ -109,7 +112,7 @@ class RebalanceSample:
 SAMPLE_DEFAULT_REBALANCE = "Default rebalance"
 SAMPLE_NO_TRADES = "No trades"
 
-REBALANCE_SAMPLES: dict[str, RebalanceSample] = {
+_FALLBACK_REBALANCE_SAMPLES: dict[str, RebalanceSample] = {
     SAMPLE_DEFAULT_REBALANCE: RebalanceSample(
         account_id=DEFAULT_ACCOUNT_ID,
         as_of=DEFAULT_AS_OF,
@@ -127,17 +130,36 @@ REBALANCE_SAMPLES: dict[str, RebalanceSample] = {
 }
 
 
+def load_rebalance_samples(scenario_dir: Path = DEFAULT_SCENARIO_DIR) -> dict[str, RebalanceSample]:
+    """Load deterministic rebalance samples from JSON files."""
+
+    if not scenario_dir.exists():
+        return dict(_FALLBACK_REBALANCE_SAMPLES)
+
+    samples: dict[str, RebalanceSample] = {}
+    for path in sorted(scenario_dir.glob("*.json")):
+        name, sample = _load_rebalance_sample_file(path)
+        if name in samples:
+            raise ValueError(f"Duplicate rebalance scenario name: {name}")
+        samples[name] = sample
+
+    if not samples:
+        return dict(_FALLBACK_REBALANCE_SAMPLES)
+    return samples
+
+
 def rebalance_sample_names() -> list[str]:
     """Return sample names in the order they should appear in the UI."""
 
-    return list(REBALANCE_SAMPLES)
+    return list(load_rebalance_samples())
 
 
 def get_rebalance_sample(name: str) -> RebalanceSample:
     """Return a deterministic UI sample by name."""
 
+    samples = load_rebalance_samples()
     try:
-        return REBALANCE_SAMPLES[name]
+        return samples[name]
     except KeyError as exc:
         raise ValueError(f"Unknown rebalance sample: {name}") from exc
 
@@ -316,6 +338,32 @@ def _load_json_list(value: str, field_name: str) -> list[dict[str, Any]]:
     if not all(isinstance(item, dict) for item in data):
         raise ValueError(f"{field_name} must contain JSON objects")
     return data
+
+
+def _load_rebalance_sample_file(path: Path) -> tuple[str, RebalanceSample]:
+    with path.open(encoding="utf-8") as file:
+        data = json.load(file)
+    if not isinstance(data, dict):
+        raise ValueError(f"Rebalance scenario must be a JSON object: {path}")
+    name = data.get("name")
+    request = data.get("request")
+    if not isinstance(name, str) or not name:
+        raise ValueError(f"Rebalance scenario requires a non-empty name: {path}")
+    if not isinstance(request, dict):
+        raise ValueError(f"Rebalance scenario requires a request object: {path}")
+
+    validated = RebalanceCheckRequest.model_validate(request)
+    payload = validated.model_dump(mode="json")
+    return (
+        name,
+        RebalanceSample(
+            account_id=validated.account_id,
+            as_of=validated.as_of,
+            cash_jpy=validated.cash_jpy,
+            positions_json=json.dumps(payload["positions"], indent=2),
+            targets_json=json.dumps(payload["targets"], indent=2),
+        ),
+    )
 
 
 def _format_decimal(value: Decimal) -> str:

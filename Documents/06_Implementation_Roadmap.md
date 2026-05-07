@@ -171,6 +171,7 @@ Status: MVP initial service complete
 - Done: `POST /portfolio/rebalance-check` can be manually checked with an example request and demo script.
 - Done: CSV provider can be smoke-checked through `config/csv_example.yaml` and `data/marketdata`.
 - Done: A minimal Streamlit UI can run the Portfolio-to-Risk rebalance-check workflow.
+- Done: Rebalance UI samples can be loaded from `examples/rebalance_scenarios/`.
 - Next: stabilize the current MVP, expand local CSV/scenario coverage, then prepare explicit opt-in external data providers.
   次は現在の MVP を安定化し、ローカル CSV/scenario coverage を広げ、その後に明示 opt-in の外部データ取得 provider を準備する。
 
@@ -222,7 +223,7 @@ Scope:
 - evaluate environment-variable support beyond `SMAI_CONFIG_FILE`
 
 Completion criteria:
-- a new rebalance scenario can be added as data, not code
+- Done: a new rebalance scenario can be added as JSON data under `examples/rebalance_scenarios/`
 - invalid scenario/config files fail with beginner-friendly errors
 - existing default scenarios remain deterministic
 

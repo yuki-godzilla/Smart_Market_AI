@@ -24,6 +24,7 @@ The current codebase provides:
 - deterministic manual workflow docs and example request for Portfolio-to-Risk checks / Portfolio-to-Risk チェック向けの決定的な手動確認手順とサンプル request
 - local sample CSV market-data files under `data/marketdata` / `data/marketdata` 配下のローカル CSV market-data サンプル
 - minimal Streamlit UI for the Portfolio-to-Risk workflow / Portfolio-to-Risk workflow 向けの最小 Streamlit UI
+- file-backed deterministic rebalance scenarios under `examples/rebalance_scenarios` / `examples/rebalance_scenarios` 配下の file-backed deterministic rebalance scenario
 
 The implementation is still MVP-oriented and pre-integration. Risk has a minimal service and API endpoint, Portfolio has a minimal service, and external providers, UI, and execution flows are mostly planned rather than fully built.
 実装はまだ統合前段階であり、外部プロバイダ、UI、risk、portfolio、execution の各フローは多くが計画段階です。
@@ -61,6 +62,8 @@ The implementation is still MVP-oriented and pre-integration. Risk has a minimal
 - Manual workflow example for `POST /portfolio/rebalance-check` / `POST /portfolio/rebalance-check` の手動確認 example
 - CSV provider sample config and data files for local smoke checks / ローカル smoke check 用の CSV provider 設定例とデータファイル
 - Streamlit UI entrypoint at `ui/app.py` / `ui/app.py` の Streamlit UI エントリポイント
+- `examples/rebalance_scenarios/`
+  file-backed rebalance-check UI samples / file-backed rebalance-check UI sample
 - pytest suite for current MVP modules / 現在の MVP モジュールを対象とした pytest 群
 
 ## Not Yet Implemented Or Partial / 未実装または部分実装
@@ -148,6 +151,8 @@ Update this file when:
 - a notable mismatch between docs and code is discovered / ドキュメントとコードの目立つ差異を発見したとき
 
 ## Work Log / 作業ログ
+
+- 2026-05-07: Added file-backed rebalance scenarios under `examples/rebalance_scenarios/` and made the Streamlit UI sample selector load them. / `examples/rebalance_scenarios/` に file-backed rebalance scenario を追加し、Streamlit UI の sample selector から読み込むようにした。
 
 - 2026-05-07: Added Black exclude settings for local virtualenv and cache directories so `black --check .` does not scan `venv_SMAI`. / `black --check .` が `venv_SMAI` を走査しないよう、ローカル仮想環境と cache ディレクトリの Black 除外設定を追加。
 

@@ -112,6 +112,14 @@ $env:SMAI_CONFIG_FILE = ".\config\csv_example.yaml"
 
 ## 検証
 
+まずローカル MVP の基本確認をまとめて実行します。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\run_local_checks.py
+```
+
+個別に実行する場合:
+
 ```powershell
 .\venv_SMAI\Scripts\python.exe -m pytest tests -q
 .\venv_SMAI\Scripts\python.exe -m ruff check backend tests --no-cache

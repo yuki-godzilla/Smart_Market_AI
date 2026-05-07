@@ -118,6 +118,7 @@ Use the project virtual environment when available.
 利用可能であれば、プロジェクトの仮想環境を使います。
 
 ```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\run_local_checks.py
 .\venv_SMAI\Scripts\python.exe -m pytest tests -q
 .\venv_SMAI\Scripts\python.exe -m ruff check backend tests --no-cache
 ```

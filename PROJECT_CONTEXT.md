@@ -102,6 +102,7 @@ Known useful commands:
 現時点で有用な確認コマンドです。
 
 ```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\run_local_checks.py
 .\venv_SMAI\Scripts\python.exe -m pytest tests -q
 .\venv_SMAI\Scripts\python.exe -m ruff check backend tests --no-cache
 ```
@@ -147,6 +148,10 @@ Update this file when:
 - a notable mismatch between docs and code is discovered / ドキュメントとコードの目立つ差異を発見したとき
 
 ## Work Log / 作業ログ
+
+- 2026-05-07: Added Black exclude settings for local virtualenv and cache directories so `black --check .` does not scan `venv_SMAI`. / `black --check .` が `venv_SMAI` を走査しないよう、ローカル仮想環境と cache ディレクトリの Black 除外設定を追加。
+
+- 2026-05-07: Added cache-free local Black and MVP verification helpers, then covered command construction and file discovery with tests. / cache-free のローカル Black 確認 helper と MVP 確認 helper を追加し、コマンド生成とファイル探索をテストでカバー。
 
 - 2026-05-07: Updated `AGENTS.md` to clarify that diff review and verification are checkpoints, not automatic stopping points, when the implementation direction is already approved. / 実装方針が承認済みの場合、差分確認と検証は自動停止地点ではなくチェックポイントとして扱うよう `AGENTS.md` に明記。
 

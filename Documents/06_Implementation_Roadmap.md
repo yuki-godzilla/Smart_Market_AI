@@ -190,6 +190,7 @@ Scope:
 Completion criteria:
 - Done: 新しい contributor が README、手動確認手順、UI ガイドから API と Streamlit UI を起動できる
 - Done: `Default rebalance` と `No trades` を UI ガイドから手動確認できる
+- Done: local MVP checks can be run through `tools/run_local_checks.py`
 - `ruff`, `mypy`, and `pytest` pass in the project virtual environment
 - docs describe the current MVP without stale UI/API status
 
@@ -263,11 +264,13 @@ Completion criteria:
 重い全体チェックは避け、当面は対象を絞って実行する。
 
 ```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\run_local_checks.py
 .\venv_SMAI\Scripts\python.exe -m pytest tests -q
 .\venv_SMAI\Scripts\python.exe -m ruff check backend tests --no-cache
 ```
 
-`black` と `mypy` は実行対象や除外設定を整えてから再確認する。
+`tools/run_local_checks.py` は local MVP の基本確認用 helper として、cache-free の Black check、`ruff`、`pytest` を順に実行する。
+`black` と `mypy` は CI で継続確認し、ローカルでは必要に応じて個別に実行する。
 
 ## 8. Open Items
 

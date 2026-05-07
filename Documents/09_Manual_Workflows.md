@@ -109,3 +109,13 @@ Invoke-RestMethod http://127.0.0.1:8000/health
 - CSV provider は deterministic で、ローカルファイルだけを読みます。
 - Decimal 値は JSON 文字列として送れます。
 - 現在の MVP はローカル確認と説明用であり、live trading 用ではありません。
+
+## ローカル検証
+
+ローカル MVP の基本確認は次の helper でまとめて実行できます。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\run_local_checks.py
+```
+
+この helper は cache-free の Black check、`ruff`、`pytest` を順に実行します。

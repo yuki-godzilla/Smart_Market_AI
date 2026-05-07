@@ -35,7 +35,10 @@ class DataAccess:
 
         self.cfg = cfg or DataAccessConfig()
         if self.cfg.provider not in SUPPORTED_PROVIDERS:
-            raise _unsupported_provider_error(self.cfg.provider)
+            raise _unsupported_provider_error(
+                self.cfg.provider,
+                allow_external_providers=self.cfg.allow_external_providers,
+            )
 
     async def fetch_ohlcv(
         self,
@@ -314,15 +317,29 @@ def _parse_currency(value: str, raw_symbol: str) -> Currency:
     )
 
 
-def _unsupported_provider_error(provider: str) -> DataSourceError:
+def _unsupported_provider_error(
+    provider: str, *, allow_external_providers: bool
+) -> DataSourceError:
     if provider in PLANNED_LIVE_PROVIDERS:
+        if not allow_external_providers:
+            return DataSourceError(
+                "Live market-data provider requires explicit opt-in",
+                details={
+                    "provider": provider,
+                    "supported_providers": list(SUPPORTED_PROVIDERS),
+                    "planned_live_providers": list(PLANNED_LIVE_PROVIDERS),
+                    "allow_external_providers": False,
+                    "opt_in_status": "explicit_config_required",
+                },
+            )
         return DataSourceError(
-            "Live market-data providers are not implemented in the deterministic MVP",
+            "Live market-data providers are not implemented yet",
             details={
                 "provider": provider,
                 "supported_providers": list(SUPPORTED_PROVIDERS),
                 "planned_live_providers": list(PLANNED_LIVE_PROVIDERS),
-                "opt_in_status": "future_explicit_config_required",
+                "allow_external_providers": True,
+                "opt_in_status": "explicitly_enabled_not_implemented",
             },
         )
     return DataSourceError(

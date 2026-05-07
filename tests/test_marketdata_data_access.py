@@ -103,30 +103,38 @@ def test_get_fx_rates_returns_csv_usdjpy():
     assert rates[0].source == "csv"
 
 
-def test_unsupported_provider_is_rejected():
+def test_live_provider_requires_explicit_opt_in():
     with pytest.raises(DataSourceError) as exc_info:
         DataAccess(DataAccessConfig(provider="yahoo"))
 
     assert exc_info.value.to_dict() == {
         "code": "APP-2000",
-        "message": "Live market-data providers are not implemented in the deterministic MVP",
+        "message": "Live market-data provider requires explicit opt-in",
         "details": {
             "provider": "yahoo",
             "supported_providers": ["mock", "csv"],
             "planned_live_providers": ["yahoo", "polygon"],
-            "opt_in_status": "future_explicit_config_required",
+            "allow_external_providers": False,
+            "opt_in_status": "explicit_config_required",
         },
     }
 
 
-def test_planned_polygon_provider_is_rejected_with_opt_in_status():
+def test_opted_in_live_provider_is_rejected_until_implemented():
     with pytest.raises(DataSourceError) as exc_info:
-        DataAccess(DataAccessConfig(provider="polygon"))
+        DataAccess(DataAccessConfig(provider="polygon", allow_external_providers=True))
 
-    assert exc_info.value.message == (
-        "Live market-data providers are not implemented in the deterministic MVP"
-    )
-    assert exc_info.value.details["opt_in_status"] == "future_explicit_config_required"
+    assert exc_info.value.to_dict() == {
+        "code": "APP-2000",
+        "message": "Live market-data providers are not implemented yet",
+        "details": {
+            "provider": "polygon",
+            "supported_providers": ["mock", "csv"],
+            "planned_live_providers": ["yahoo", "polygon"],
+            "allow_external_providers": True,
+            "opt_in_status": "explicitly_enabled_not_implemented",
+        },
+    }
 
 
 def test_missing_csv_file_is_rejected():

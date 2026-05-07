@@ -10,6 +10,7 @@ def test_settings_defaults_are_local_and_mock_first():
 
     assert settings.app.base_currency == "JPY"
     assert settings.dataaccess.provider == "mock"
+    assert settings.dataaccess.allow_external_providers is False
     assert settings.dataaccess.cache.backend == "memory"
     assert settings.portfolio.solver.backend == "none"
 
@@ -33,6 +34,20 @@ def test_settings_loads_csv_example_config(monkeypatch):
 
     assert settings.dataaccess.provider == "csv"
     assert settings.dataaccess.csv_data_dir == "data/marketdata"
+
+
+def test_settings_can_load_explicit_external_provider_opt_in():
+    settings = Settings.model_validate(
+        {
+            "dataaccess": {
+                "provider": "yahoo",
+                "allow_external_providers": True,
+            }
+        }
+    )
+
+    assert settings.dataaccess.provider == "yahoo"
+    assert settings.dataaccess.allow_external_providers is True
 
 
 def test_settings_rejects_unknown_yaml_keys(monkeypatch):

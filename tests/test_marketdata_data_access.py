@@ -107,7 +107,26 @@ def test_unsupported_provider_is_rejected():
     with pytest.raises(DataSourceError) as exc_info:
         DataAccess(DataAccessConfig(provider="yahoo"))
 
-    assert exc_info.value.details == {"provider": "yahoo"}
+    assert exc_info.value.to_dict() == {
+        "code": "APP-2000",
+        "message": "Live market-data providers are not implemented in the deterministic MVP",
+        "details": {
+            "provider": "yahoo",
+            "supported_providers": ["mock", "csv"],
+            "planned_live_providers": ["yahoo", "polygon"],
+            "opt_in_status": "future_explicit_config_required",
+        },
+    }
+
+
+def test_planned_polygon_provider_is_rejected_with_opt_in_status():
+    with pytest.raises(DataSourceError) as exc_info:
+        DataAccess(DataAccessConfig(provider="polygon"))
+
+    assert exc_info.value.message == (
+        "Live market-data providers are not implemented in the deterministic MVP"
+    )
+    assert exc_info.value.details["opt_in_status"] == "future_explicit_config_required"
 
 
 def test_missing_csv_file_is_rejected():

@@ -8,6 +8,9 @@ from backend.core.config import DataAccessConfig
 from backend.core.data_contracts import Bar, Currency, FxRate, Interval, Quote, Symbol
 from backend.core.errors import DataSourceError
 
+SUPPORTED_PROVIDERS = ("mock", "csv")
+PLANNED_LIVE_PROVIDERS = ("yahoo", "polygon")
+
 
 class MockBarPoint(TypedDict):
     """In-memory OHLCV row used by the mock market-data provider."""
@@ -31,11 +34,8 @@ class DataAccess:
         """Create a data-access instance from optional provider settings."""
 
         self.cfg = cfg or DataAccessConfig()
-        if self.cfg.provider not in {"mock", "csv"}:
-            raise DataSourceError(
-                "Only mock and csv providers are supported in the MarketData MVP",
-                details={"provider": self.cfg.provider},
-            )
+        if self.cfg.provider not in SUPPORTED_PROVIDERS:
+            raise _unsupported_provider_error(self.cfg.provider)
 
     async def fetch_ohlcv(
         self,
@@ -311,6 +311,26 @@ def _parse_currency(value: str, raw_symbol: str) -> Currency:
     raise DataSourceError(
         "Unsupported csv currency",
         details={"symbol": raw_symbol, "currency": value},
+    )
+
+
+def _unsupported_provider_error(provider: str) -> DataSourceError:
+    if provider in PLANNED_LIVE_PROVIDERS:
+        return DataSourceError(
+            "Live market-data providers are not implemented in the deterministic MVP",
+            details={
+                "provider": provider,
+                "supported_providers": list(SUPPORTED_PROVIDERS),
+                "planned_live_providers": list(PLANNED_LIVE_PROVIDERS),
+                "opt_in_status": "future_explicit_config_required",
+            },
+        )
+    return DataSourceError(
+        "Unsupported market-data provider",
+        details={
+            "provider": provider,
+            "supported_providers": list(SUPPORTED_PROVIDERS),
+        },
     )
 
 

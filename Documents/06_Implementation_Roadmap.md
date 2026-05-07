@@ -266,6 +266,7 @@ Scope:
 - document setup, limitations, and failure modes for external data
 
 Completion criteria:
+- Done: planned live providers such as `yahoo` and `polygon` are rejected with explicit MVP opt-in status.
 - external data can be enabled only through explicit config
 - no CI or default local workflow requires network access
 - provider failures map to domain errors and API responses consistently

@@ -78,6 +78,8 @@ The implementation is still MVP-oriented and pre-integration. Risk has a minimal
 
 - `DataAccess` currently supports deterministic `mock` and `csv` providers, and rejects live providers such as `yahoo`.
   `DataAccess` は現在 deterministic な `mock` / `csv` provider に対応し、`yahoo` などの live provider は拒否します。
+- Rejected live providers return a `DataSourceError` that names supported providers and marks live-provider support as a future explicit opt-in path.
+  拒否された live provider は、対応済み provider と live provider が将来の明示 opt-in 経路であることを示す `DataSourceError` を返します。
 - Market data is deterministic and in-repo, which keeps tests offline and stable.
   市場データはリポジトリ内の固定データで、テストをオフラインかつ安定して実行できます。
 - The `csv` provider reads local `symbols.csv`, `ohlcv.csv`, and `fx_rates.csv` files from `dataaccess.csv_data_dir`.
@@ -160,6 +162,7 @@ Update this file when:
 - 2026-05-08: Added allocation-comparison and proposed-trade tables to the Streamlit rebalance Markdown report. / Streamlit rebalance Markdown report に allocation comparison と proposed trade の表を追加した。
 - 2026-05-08: Added current-position and target-allocation tables to the Streamlit rebalance Markdown report. / Streamlit rebalance Markdown report に current position と target allocation の表を追加した。
 - 2026-05-08: Completed Reporting MVP scope by sharing report rows through `RebalanceReportContext` and documenting the JSON/CSV/Markdown/manifest/ZIP boundary for MVP exports. / `RebalanceReportContext` で report rows を共有し、MVP export の範囲を JSON/CSV/Markdown/manifest/ZIP として文書化して Reporting MVP の範囲を完了扱いにした。
+- 2026-05-08: Clarified planned live market-data provider failures with explicit `DataSourceError` details for future opt-in support. / 将来の opt-in 対応に向けて、予定されている live market-data provider の失敗を明示的な `DataSourceError` details で分かるようにした。
 - 2026-05-07: Added explicit `RebalanceScenarioError` handling for malformed file-backed rebalance scenarios and covered invalid JSON, invalid request schema, and duplicate scenario names with tests. / 壊れた file-backed rebalance scenario 向けに明示的な `RebalanceScenarioError` 処理を追加し、不正 JSON、不正 request schema、重複 scenario 名をテストでカバーした。
 - 2026-05-07: Added file-backed rebalance scenarios under `examples/rebalance_scenarios/` and made the Streamlit UI sample selector load them. / `examples/rebalance_scenarios/` に file-backed rebalance scenario を追加し、Streamlit UI の sample selector から読み込むようにした。
 

@@ -21,8 +21,11 @@ def test_openapi_schema_documents_main_api_contracts():
 
     portfolio_operation = paths["/portfolio/rebalance-check"]["post"]
     assert portfolio_operation["summary"] == "Generate a rebalance proposal and check risk"
+    assert "429" in portfolio_operation["responses"]
     assert "422" in portfolio_operation["responses"]
     assert "502" in portfolio_operation["responses"]
+    assert "503" in portfolio_operation["responses"]
+    assert "504" in portfolio_operation["responses"]
 
 
 def test_openapi_schema_includes_request_examples():

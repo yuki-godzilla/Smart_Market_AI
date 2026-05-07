@@ -35,12 +35,24 @@ class AppErrorResponse(StrictBaseModel):
 
 
 ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    429: {
+        "description": "Market-data provider rate limit.",
+        "model": AppErrorResponse,
+    },
     422: {
         "description": "Domain computation error or request validation error.",
         "model": AppErrorResponse,
     },
     502: {
         "description": "Market-data source error.",
+        "model": AppErrorResponse,
+    },
+    503: {
+        "description": "Market-data provider unavailable.",
+        "model": AppErrorResponse,
+    },
+    504: {
+        "description": "Market-data provider timeout.",
         "model": AppErrorResponse,
     },
 }

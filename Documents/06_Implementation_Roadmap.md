@@ -269,6 +269,7 @@ Completion criteria:
 - Done: planned live providers such as `yahoo` and `polygon` are rejected with explicit MVP opt-in status.
 - Done: provider unavailable and timeout failures have dedicated domain errors for future API mapping.
 - Done: live providers require `dataaccess.allow_external_providers: true` before reaching future implementation paths.
+- Done: provider opt-in, unavailable, and timeout failures are covered by structured API response tests and OpenAPI response metadata.
 - external data can be enabled only through explicit config
 - no CI or default local workflow requires network access
 - provider failures map to domain errors and API responses consistently

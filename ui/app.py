@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from backend.portfolio.workflow import PortfolioRiskResult
 from ui.rebalance_app import (
+    RebalanceScenarioError,
     allocation_comparison_rows,
     build_rebalance_request,
     current_position_rows,
@@ -35,8 +36,14 @@ def main() -> None:
     with st.sidebar:
         _render_runtime_settings()
         _render_symbol_reference()
-        sample_name = cast(str, st.selectbox("Sample", rebalance_sample_names()))
-        sample = get_rebalance_sample(sample_name)
+        try:
+            sample_names = rebalance_sample_names()
+            sample_name = cast(str, st.selectbox("Sample", sample_names))
+            sample = get_rebalance_sample(sample_name)
+        except RebalanceScenarioError as exc:
+            st.error(str(exc))
+            st.stop()
+
         account_id = st.text_input(
             "Account",
             value=sample.account_id,

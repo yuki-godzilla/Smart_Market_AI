@@ -152,6 +152,7 @@ Update this file when:
 
 ## Work Log / 作業ログ
 
+- 2026-05-07: Added explicit `RebalanceScenarioError` handling for malformed file-backed rebalance scenarios and covered invalid JSON, invalid request schema, and duplicate scenario names with tests. / 壊れた file-backed rebalance scenario 向けに明示的な `RebalanceScenarioError` 処理を追加し、不正 JSON、不正 request schema、重複 scenario 名をテストでカバーした。
 - 2026-05-07: Added file-backed rebalance scenarios under `examples/rebalance_scenarios/` and made the Streamlit UI sample selector load them. / `examples/rebalance_scenarios/` に file-backed rebalance scenario を追加し、Streamlit UI の sample selector から読み込むようにした。
 
 - 2026-05-07: Added Black exclude settings for local virtualenv and cache directories so `black --check .` does not scan `venv_SMAI`. / `black --check .` が `venv_SMAI` を走査しないよう、ローカル仮想環境と cache ディレクトリの Black 除外設定を追加。

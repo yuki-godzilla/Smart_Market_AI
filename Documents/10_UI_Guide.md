@@ -39,6 +39,7 @@ $env:SMAI_CONFIG_FILE = ".\config\csv_example.yaml"
 - `7203.T` と `AAPL` の sample symbol reference
 - `Default rebalance` と `No trades` の sample selector
 - `examples/rebalance_scenarios/` から読み込まれる file-backed sample
+- 壊れた scenario JSON がある場合の読み込みエラーメッセージ
 - account、as-of date、JPY cash、positions JSON、target allocations JSON
 - 現在の 2 銘柄 target allocation JSON を再生成する AAPL target-weight slider
 - rebalance summary、current positions、target allocations、allocation comparison、proposed trades、risk breaches
@@ -63,6 +64,7 @@ $env:SMAI_CONFIG_FILE = ".\config\csv_example.yaml"
 - Decimal ではない `Cash JPY` は cash-input error になります。
 - 不正な positions JSON は JSON validation error になります。
 - 不正な targets JSON は JSON validation error になります。
+- `examples/rebalance_scenarios/` 配下の scenario JSON が壊れている場合は、対象ファイル名と原因をまとめた scenario load error になります。
 
 ## MVP 制約
 

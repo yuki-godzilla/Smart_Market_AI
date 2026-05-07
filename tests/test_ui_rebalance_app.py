@@ -1,6 +1,7 @@
 import asyncio
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
@@ -10,6 +11,7 @@ from ui.rebalance_app import (
     DEFAULT_CASH_JPY,
     DEFAULT_POSITIONS_JSON,
     DEFAULT_TARGETS_JSON,
+    RebalanceScenarioError,
     allocation_comparison_rows,
     build_default_rebalance_request,
     build_rebalance_request,
@@ -29,6 +31,8 @@ from ui.rebalance_app import (
     target_allocation_rows,
     target_allocations_json,
 )
+
+FIXTURE_ROOT = Path("tests/fixtures")
 
 
 def test_build_rebalance_request_from_default_ui_json():
@@ -71,6 +75,27 @@ def test_load_rebalance_samples_from_json_files():
     assert list(samples) == ["Default rebalance", "No trades"]
     assert samples["Default rebalance"].cash_jpy == Decimal("29000")
     assert samples["No trades"].cash_jpy == Decimal("0")
+
+
+def test_load_rebalance_samples_reports_invalid_files():
+    with pytest.raises(RebalanceScenarioError) as exc_info:
+        load_rebalance_samples(FIXTURE_ROOT / "rebalance_scenarios_invalid")
+
+    message = str(exc_info.value)
+    assert message.startswith("Invalid rebalance scenario file(s):")
+    assert "bad_json.json" in message
+    assert "invalid JSON" in message
+    assert "invalid_request.json" in message
+    assert "request does not match rebalance-check schema" in message
+    assert "missing_name.json" in message
+    assert "scenario requires a non-empty name" in message
+
+
+def test_load_rebalance_samples_reports_duplicate_names():
+    with pytest.raises(RebalanceScenarioError) as exc_info:
+        load_rebalance_samples(FIXTURE_ROOT / "rebalance_scenarios_duplicate")
+
+    assert "Duplicate rebalance scenario name: Same scenario" in str(exc_info.value)
 
 
 def test_get_rebalance_sample_rejects_unknown_name():

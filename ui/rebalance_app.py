@@ -8,6 +8,8 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
+
 from backend.app.main import RebalanceCheckRequest, create_portfolio_risk_workflow
 from backend.core.config import CONFIG_FILE_ENV, get_settings
 from backend.portfolio.service import RebalanceProposal
@@ -109,6 +111,10 @@ class RebalanceSample:
     targets_json: str
 
 
+class RebalanceScenarioError(ValueError):
+    """Raised when file-backed rebalance scenarios cannot be loaded."""
+
+
 SAMPLE_DEFAULT_REBALANCE = "Default rebalance"
 SAMPLE_NO_TRADES = "No trades"
 
@@ -137,11 +143,21 @@ def load_rebalance_samples(scenario_dir: Path = DEFAULT_SCENARIO_DIR) -> dict[st
         return dict(_FALLBACK_REBALANCE_SAMPLES)
 
     samples: dict[str, RebalanceSample] = {}
+    errors: list[str] = []
     for path in sorted(scenario_dir.glob("*.json")):
-        name, sample = _load_rebalance_sample_file(path)
+        try:
+            name, sample = _load_rebalance_sample_file(path)
+        except RebalanceScenarioError as exc:
+            errors.append(str(exc))
+            continue
+
         if name in samples:
-            raise ValueError(f"Duplicate rebalance scenario name: {name}")
+            errors.append(f"{path}: Duplicate rebalance scenario name: {name}")
+            continue
         samples[name] = sample
+
+    if errors:
+        raise RebalanceScenarioError("Invalid rebalance scenario file(s): " + "; ".join(errors))
 
     if not samples:
         return dict(_FALLBACK_REBALANCE_SAMPLES)
@@ -341,18 +357,28 @@ def _load_json_list(value: str, field_name: str) -> list[dict[str, Any]]:
 
 
 def _load_rebalance_sample_file(path: Path) -> tuple[str, RebalanceSample]:
-    with path.open(encoding="utf-8") as file:
-        data = json.load(file)
+    try:
+        with path.open(encoding="utf-8") as file:
+            data = json.load(file)
+    except json.JSONDecodeError as exc:
+        raise RebalanceScenarioError(f"{path}: invalid JSON ({exc.msg})") from exc
+
     if not isinstance(data, dict):
-        raise ValueError(f"Rebalance scenario must be a JSON object: {path}")
+        raise RebalanceScenarioError(f"{path}: scenario must be a JSON object")
     name = data.get("name")
     request = data.get("request")
     if not isinstance(name, str) or not name:
-        raise ValueError(f"Rebalance scenario requires a non-empty name: {path}")
+        raise RebalanceScenarioError(f"{path}: scenario requires a non-empty name")
     if not isinstance(request, dict):
-        raise ValueError(f"Rebalance scenario requires a request object: {path}")
+        raise RebalanceScenarioError(f"{path}: scenario requires a request object")
 
-    validated = RebalanceCheckRequest.model_validate(request)
+    try:
+        validated = RebalanceCheckRequest.model_validate(request)
+    except ValidationError as exc:
+        raise RebalanceScenarioError(
+            f"{path}: request does not match rebalance-check schema"
+        ) from exc
+
     payload = validated.model_dump(mode="json")
     return (
         name,

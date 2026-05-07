@@ -116,6 +116,18 @@ class RebalanceSample:
     description: str = ""
 
 
+@dataclass(frozen=True)
+class RebalanceReportContext:
+    """Table rows shared by Streamlit result rendering and local report exports."""
+
+    summary: dict[str, str]
+    current_rows: list[dict[str, str]]
+    target_rows: list[dict[str, str]]
+    allocation_rows: list[dict[str, str]]
+    trade_rows: list[dict[str, str]]
+    breach_rows: list[dict[str, str]]
+
+
 class RebalanceScenarioError(ValueError):
     """Raised when file-backed rebalance scenarios cannot be loaded."""
 
@@ -284,6 +296,20 @@ def result_summary(result: PortfolioRiskResult) -> dict[str, str]:
     }
 
 
+def build_rebalance_report_context(result: PortfolioRiskResult) -> RebalanceReportContext:
+    """Build shared table rows for UI rendering and local report exports."""
+
+    proposal = result.proposal
+    return RebalanceReportContext(
+        summary=result_summary(result),
+        current_rows=current_position_rows(proposal),
+        target_rows=target_allocation_rows(proposal),
+        allocation_rows=allocation_comparison_rows(proposal),
+        trade_rows=proposed_trade_rows(proposal),
+        breach_rows=risk_breach_rows(result),
+    )
+
+
 def current_position_rows(proposal: RebalanceProposal) -> list[dict[str, str]]:
     """Format valued current positions for table display."""
 
@@ -384,8 +410,8 @@ def result_markdown_report_download(
 ) -> str:
     """Return a human-readable local Markdown report for a rebalance result."""
 
-    summary = result_summary(result)
-    breaches = risk_breach_rows(result)
+    context = build_rebalance_report_context(result)
+    summary = context.summary
     lines = [
         "# Rebalance Check Report",
         "",
@@ -412,17 +438,33 @@ def result_markdown_report_download(
     lines.extend(
         [
             "",
+            "## Current Positions",
+            "",
+            _markdown_table(
+                context.current_rows,
+                ["symbol", "qty", "currency", "last", "fx_rate_jpy", "value_jpy"],
+                empty_message="No current positions.",
+            ),
+            "",
+            "## Target Allocations",
+            "",
+            _markdown_table(
+                context.target_rows,
+                ["symbol", "currency", "target_weight"],
+                empty_message="No target allocations.",
+            ),
+            "",
             "## Allocation Comparison",
             "",
             _markdown_table(
-                allocation_comparison_rows(result.proposal),
+                context.allocation_rows,
                 ["symbol", "current_weight", "target_weight", "drift"],
             ),
             "",
             "## Proposed Trades",
             "",
             _markdown_table(
-                proposed_trade_rows(result.proposal),
+                context.trade_rows,
                 ["symbol", "side", "qty", "price_hint", "currency"],
                 empty_message="No rebalance trades were proposed.",
             ),
@@ -436,8 +478,8 @@ def result_markdown_report_download(
             "",
         ]
     )
-    if breaches:
-        lines.extend(f"- {row['breach']}" for row in breaches)
+    if context.breach_rows:
+        lines.extend(f"- {row['breach']}" for row in context.breach_rows)
     else:
         lines.append("- None")
     return "\n".join(lines) + "\n"
@@ -446,27 +488,27 @@ def result_markdown_report_download(
 def result_table_downloads(result: PortfolioRiskResult) -> dict[str, str]:
     """Return table-friendly CSV downloads for a rebalance result."""
 
-    proposal = result.proposal
+    context = build_rebalance_report_context(result)
     return {
-        "rebalance_summary.csv": table_csv_download([result_summary(result)]),
+        "rebalance_summary.csv": table_csv_download([context.summary]),
         "rebalance_current_positions.csv": table_csv_download(
-            current_position_rows(proposal),
+            context.current_rows,
             fieldnames=["symbol", "qty", "currency", "last", "fx_rate_jpy", "value_jpy"],
         ),
         "rebalance_target_allocations.csv": table_csv_download(
-            target_allocation_rows(proposal),
+            context.target_rows,
             fieldnames=["symbol", "currency", "target_weight"],
         ),
         "rebalance_allocation_comparison.csv": table_csv_download(
-            allocation_comparison_rows(proposal),
+            context.allocation_rows,
             fieldnames=["symbol", "current_weight", "target_weight", "drift"],
         ),
         "rebalance_proposed_trades.csv": table_csv_download(
-            proposed_trade_rows(proposal),
+            context.trade_rows,
             fieldnames=["symbol", "side", "qty", "price_hint", "currency"],
         ),
         "rebalance_risk_breaches.csv": table_csv_download(
-            risk_breach_rows(result),
+            context.breach_rows,
             fieldnames=["breach"],
         ),
     }

@@ -12,24 +12,19 @@ from backend.app.main import RebalanceCheckRequest
 from backend.portfolio.workflow import PortfolioRiskResult
 from ui.rebalance_app import (
     RebalanceScenarioError,
-    allocation_comparison_rows,
+    build_rebalance_report_context,
     build_rebalance_request,
-    current_position_rows,
     get_rebalance_sample,
-    proposed_trade_rows,
     rebalance_sample_names,
     request_json_download,
     result_json_download,
     result_markdown_report_download,
     result_report_zip_download,
-    result_summary,
-    risk_breach_rows,
     run_rebalance_check,
     runtime_settings_summary,
     sample_widget_key,
     symbol_reference_rows,
     table_csv_download,
-    target_allocation_rows,
     target_allocations_json,
 )
 
@@ -160,7 +155,8 @@ def _render_symbol_reference() -> None:
 
 
 def _render_result(result: PortfolioRiskResult, request: RebalanceCheckRequest) -> None:
-    summary = result_summary(result)
+    context = build_rebalance_report_context(result)
+    summary = context.summary
     status = summary["risk_status"]
 
     st.subheader("Summary")
@@ -179,12 +175,11 @@ def _render_result(result: PortfolioRiskResult, request: RebalanceCheckRequest) 
     else:
         st.info("No trades were generated, so Risk was not evaluated.")
 
-    proposal = result.proposal
-    current_rows = current_position_rows(proposal)
-    target_rows = target_allocation_rows(proposal)
-    allocation_rows = allocation_comparison_rows(proposal)
-    trade_rows = proposed_trade_rows(proposal)
-    breach_rows = risk_breach_rows(result)
+    current_rows = context.current_rows
+    target_rows = context.target_rows
+    allocation_rows = context.allocation_rows
+    trade_rows = context.trade_rows
+    breach_rows = context.breach_rows
 
     col_current, col_targets = st.columns(2)
     with col_current:

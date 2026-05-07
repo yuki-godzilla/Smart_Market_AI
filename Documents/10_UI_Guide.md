@@ -56,8 +56,13 @@ $env:SMAI_CONFIG_FILE = ".\config\csv_example.yaml"
 - raw JSON result、local JSON download、table CSV download、report ZIP download
 - validated request JSON download
 - human-readable Markdown report download
-- Markdown report 内の allocation comparison table と proposed trades table
+- Markdown report 内の current positions、target allocations、allocation comparison、proposed trades table
 - report ZIP 内の `rebalance_report_manifest.json` による同梱ファイル説明
+
+## Export 範囲
+
+現在の MVP export は、JSON、CSV、Markdown、manifest、ZIP に限定します。
+PDF や Excel 形式のレポート生成は将来の Reporting 拡張で扱います。
 
 ## 手動確認ポイント
 

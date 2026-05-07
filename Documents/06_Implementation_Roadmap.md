@@ -241,15 +241,17 @@ Scope:
 - document what is MVP export versus future PDF/Excel reporting
 
 Completion criteria:
+- Done: report rows are gathered through a lightweight `RebalanceReportContext` shared by UI rendering and report exports.
 - Done: summary, allocation, trade, and risk-breach tables can be downloaded as local CSV files from the Streamlit UI.
 - Done: JSON and CSV report files can be downloaded together as a local ZIP from the Streamlit UI.
 - Done: report ZIP includes a deterministic manifest that explains the exported files.
 - Done: report ZIP includes the validated request JSON used to run the rebalance check.
 - Done: Streamlit can download a human-readable Markdown report summary.
 - Done: Markdown report includes allocation comparison and proposed-trade tables.
-- rebalance-check results can be saved in at least one table-friendly format
-- report/export behavior stays local and deterministic
-- future PDF/Excel work has a clear boundary
+- Done: Markdown report includes current-position and target-allocation tables.
+- Done: rebalance-check results can be saved in table-friendly CSV and human-readable Markdown formats.
+- Done: report/export behavior stays local and deterministic.
+- Done: MVP export is limited to JSON, CSV, Markdown, manifest, and ZIP; PDF/Excel reporting is future work.
 
 ### Phase 9: External Data Provider Preparation
 

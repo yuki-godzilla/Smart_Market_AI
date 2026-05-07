@@ -111,7 +111,7 @@ $env:SMAI_CONFIG_FILE = ".\config\csv_example.yaml"
 - `risk_decision.status` が `BLOCK` になる
 - breach に dividend-yield data 欠損と concentration が含まれる
 
-Streamlit UI の実行結果は JSON に加えて、summary、current positions、target allocations、allocation comparison、proposed trades、risk breaches を CSV としてダウンロードできます。入力 request、Markdown summary、JSON、CSV 一式、内容説明用 manifest をまとめた ZIP も保存できます。
+Streamlit UI の実行結果は JSON に加えて、summary、current positions、target allocations、allocation comparison、proposed trades、risk breaches を CSV としてダウンロードできます。入力 request、Markdown summary、JSON、CSV 一式、内容説明用 manifest をまとめた ZIP も保存できます。現在の MVP export は JSON、CSV、Markdown、manifest、ZIP までを対象とし、PDF / Excel は将来の拡張範囲です。
 
 ## Rebalance Scenario
 

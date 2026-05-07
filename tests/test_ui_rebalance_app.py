@@ -18,6 +18,7 @@ from ui.rebalance_app import (
     RebalanceScenarioError,
     allocation_comparison_rows,
     build_default_rebalance_request,
+    build_rebalance_report_context,
     build_rebalance_request,
     current_position_rows,
     get_rebalance_sample,
@@ -263,6 +264,20 @@ def test_rebalance_result_formatters_create_table_rows():
     ]
 
 
+def test_build_rebalance_report_context_reuses_result_table_rows():
+    request = build_default_rebalance_request()
+    result = asyncio.run(run_rebalance_check(request))
+
+    context = build_rebalance_report_context(result)
+
+    assert context.summary["risk_status"] == "BLOCK"
+    assert context.current_rows == current_position_rows(result.proposal)
+    assert context.target_rows == target_allocation_rows(result.proposal)
+    assert context.allocation_rows == allocation_comparison_rows(result.proposal)
+    assert context.trade_rows == proposed_trade_rows(result.proposal)
+    assert context.breach_rows == risk_breach_rows(result)
+
+
 def test_result_json_download_contains_portfolio_risk_result():
     request = build_default_rebalance_request()
     result = asyncio.run(run_rebalance_check(request))
@@ -294,6 +309,10 @@ def test_result_markdown_report_download_summarizes_result():
     assert "- Account: acct-1" in payload
     assert "- Risk status: BLOCK" in payload
     assert "- Positions: 1" in payload
+    assert "## Current Positions" in payload
+    assert "| symbol | qty | currency | last | fx_rate_jpy | value_jpy |" in payload
+    assert "## Target Allocations" in payload
+    assert "| symbol | currency | target_weight |" in payload
     assert "## Allocation Comparison" in payload
     assert "| symbol | current_weight | target_weight | drift |" in payload
     assert "## Proposed Trades" in payload

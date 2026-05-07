@@ -30,6 +30,8 @@ $env:SMAI_REBALANCE_SCENARIO_DIR = ".\my_rebalance_scenarios"
 .\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
 ```
 
+指定したパスが存在しない場合やディレクトリではない場合は、scenario load error として表示されます。
+
 ## CSV MarketData で起動
 
 UI はデフォルトで deterministic な `mock` provider を使います。
@@ -71,7 +73,7 @@ $env:SMAI_CONFIG_FILE = ".\config\csv_example.yaml"
 - Decimal ではない `Cash JPY` は cash-input error になります。
 - 不正な positions JSON は JSON validation error になります。
 - 不正な targets JSON は JSON validation error になります。
-- `examples/rebalance_scenarios/` 配下の scenario JSON が壊れている場合は、対象ファイル名と原因をまとめた scenario load error になります。
+- `examples/rebalance_scenarios/` 配下の scenario JSON が壊れている場合や、`SMAI_REBALANCE_SCENARIO_DIR` の指定先が不正な場合は、対象パスと原因を示す scenario load error になります。
 
 ## MVP 制約
 

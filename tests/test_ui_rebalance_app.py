@@ -91,6 +91,31 @@ def test_rebalance_samples_can_use_configured_scenario_dir(monkeypatch):
     assert get_rebalance_sample("Custom cash scenario").cash_jpy == Decimal("1000")
 
 
+def test_configured_rebalance_scenario_dir_must_exist(monkeypatch):
+    monkeypatch.setenv(
+        SCENARIO_DIR_ENV,
+        "tests/fixtures/rebalance_scenarios_missing",
+    )
+
+    with pytest.raises(RebalanceScenarioError) as exc_info:
+        rebalance_sample_names()
+
+    assert "Rebalance scenario directory does not exist" in str(exc_info.value)
+    assert "rebalance_scenarios_missing" in str(exc_info.value)
+
+
+def test_rebalance_scenario_path_must_be_directory(monkeypatch):
+    monkeypatch.setenv(
+        SCENARIO_DIR_ENV,
+        "examples/rebalance_scenarios/default_rebalance.json",
+    )
+
+    with pytest.raises(RebalanceScenarioError) as exc_info:
+        rebalance_sample_names()
+
+    assert "Rebalance scenario path must be a directory" in str(exc_info.value)
+
+
 def test_load_rebalance_samples_reports_invalid_files():
     with pytest.raises(RebalanceScenarioError) as exc_info:
         load_rebalance_samples(FIXTURE_ROOT / "rebalance_scenarios_invalid")

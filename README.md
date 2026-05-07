@@ -128,6 +128,8 @@ $env:SMAI_REBALANCE_SCENARIO_DIR = ".\my_rebalance_scenarios"
 .\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
 ```
 
+指定したパスが存在しない場合やディレクトリではない場合は、UI に scenario load error が表示されます。
+
 ## 検証
 
 まずローカル MVP の基本確認をまとめて実行します。

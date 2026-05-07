@@ -153,9 +153,16 @@ def rebalance_scenario_dir() -> Path:
 def load_rebalance_samples(scenario_dir: Path | None = None) -> dict[str, RebalanceSample]:
     """Load deterministic rebalance samples from JSON files."""
 
+    uses_default_dir = scenario_dir is None and not os.getenv(SCENARIO_DIR_ENV)
     scenario_dir = scenario_dir or rebalance_scenario_dir()
     if not scenario_dir.exists():
+        if not uses_default_dir:
+            raise RebalanceScenarioError(
+                f"Rebalance scenario directory does not exist: {scenario_dir}"
+            )
         return dict(_FALLBACK_REBALANCE_SAMPLES)
+    if not scenario_dir.is_dir():
+        raise RebalanceScenarioError(f"Rebalance scenario path must be a directory: {scenario_dir}")
 
     samples: dict[str, RebalanceSample] = {}
     errors: list[str] = []

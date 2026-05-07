@@ -6,9 +6,10 @@ import os
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from io import StringIO
+from io import BytesIO, StringIO
 from pathlib import Path
 from typing import Any
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 from pydantic import ValidationError
 
@@ -370,6 +371,45 @@ def result_json_download(result: PortfolioRiskResult) -> str:
     return result.model_dump_json(indent=2)
 
 
+def result_table_downloads(result: PortfolioRiskResult) -> dict[str, str]:
+    """Return table-friendly CSV downloads for a rebalance result."""
+
+    proposal = result.proposal
+    return {
+        "rebalance_summary.csv": table_csv_download([result_summary(result)]),
+        "rebalance_current_positions.csv": table_csv_download(
+            current_position_rows(proposal),
+            fieldnames=["symbol", "qty", "currency", "last", "fx_rate_jpy", "value_jpy"],
+        ),
+        "rebalance_target_allocations.csv": table_csv_download(
+            target_allocation_rows(proposal),
+            fieldnames=["symbol", "currency", "target_weight"],
+        ),
+        "rebalance_allocation_comparison.csv": table_csv_download(
+            allocation_comparison_rows(proposal),
+            fieldnames=["symbol", "current_weight", "target_weight", "drift"],
+        ),
+        "rebalance_proposed_trades.csv": table_csv_download(
+            proposed_trade_rows(proposal),
+            fieldnames=["symbol", "side", "qty", "price_hint", "currency"],
+        ),
+        "rebalance_risk_breaches.csv": table_csv_download(
+            risk_breach_rows(result),
+            fieldnames=["breach"],
+        ),
+    }
+
+
+def result_report_zip_download(result: PortfolioRiskResult) -> bytes:
+    """Return a deterministic ZIP report containing JSON and CSV downloads."""
+
+    files = {
+        "rebalance_check_result.json": result_json_download(result),
+        **result_table_downloads(result),
+    }
+    return zip_text_downloads(files)
+
+
 def table_csv_download(
     rows: list[dict[str, str]],
     *,
@@ -384,6 +424,18 @@ def table_csv_download(
     writer = csv.DictWriter(buffer, fieldnames=resolved_fieldnames, lineterminator="\n")
     writer.writeheader()
     writer.writerows(rows)
+    return buffer.getvalue()
+
+
+def zip_text_downloads(files: dict[str, str]) -> bytes:
+    """Return a deterministic ZIP archive for text download payloads."""
+
+    buffer = BytesIO()
+    with ZipFile(buffer, mode="w") as archive:
+        for filename in sorted(files):
+            info = ZipInfo(filename, date_time=(2026, 1, 1, 0, 0, 0))
+            info.compress_type = ZIP_DEFLATED
+            archive.writestr(info, files[filename].encode("utf-8"))
     return buffer.getvalue()
 
 

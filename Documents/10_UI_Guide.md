@@ -53,7 +53,7 @@ $env:SMAI_CONFIG_FILE = ".\config\csv_example.yaml"
 - account、as-of date、JPY cash、positions JSON、target allocations JSON
 - 現在の 2 銘柄 target allocation JSON を再生成する AAPL target-weight slider
 - rebalance summary、current positions、target allocations、allocation comparison、proposed trades、risk breaches
-- raw JSON result、local JSON download、table CSV download
+- raw JSON result、local JSON download、table CSV download、report ZIP download
 
 ## 手動確認ポイント
 

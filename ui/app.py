@@ -18,6 +18,7 @@ from ui.rebalance_app import (
     proposed_trade_rows,
     rebalance_sample_names,
     result_json_download,
+    result_report_zip_download,
     result_summary,
     risk_breach_rows,
     run_rebalance_check,
@@ -210,6 +211,12 @@ def _render_result(result: PortfolioRiskResult) -> None:
             data=result_json_download(result),
             file_name="rebalance_check_result.json",
             mime="application/json",
+        )
+        st.download_button(
+            "Download report ZIP",
+            data=result_report_zip_download(result),
+            file_name="rebalance_report.zip",
+            mime="application/zip",
         )
         st.download_button(
             "Download summary CSV",

@@ -242,6 +242,7 @@ Scope:
 
 Completion criteria:
 - Done: summary, allocation, trade, and risk-breach tables can be downloaded as local CSV files from the Streamlit UI.
+- Done: JSON and CSV report files can be downloaded together as a local ZIP from the Streamlit UI.
 - rebalance-check results can be saved in at least one table-friendly format
 - report/export behavior stays local and deterministic
 - future PDF/Excel work has a clear boundary

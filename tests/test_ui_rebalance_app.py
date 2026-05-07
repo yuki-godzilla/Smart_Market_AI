@@ -1,7 +1,9 @@
 import asyncio
 from datetime import date
 from decimal import Decimal
+from io import BytesIO
 from pathlib import Path
+from zipfile import ZipFile
 
 import pytest
 
@@ -24,6 +26,7 @@ from ui.rebalance_app import (
     rebalance_sample_names,
     rebalance_scenario_dir,
     result_json_download,
+    result_report_zip_download,
     result_summary,
     risk_breach_rows,
     run_rebalance_check,
@@ -283,3 +286,25 @@ def test_table_csv_download_can_write_header_for_empty_rows():
     payload = table_csv_download([], fieldnames=["symbol", "qty"])
 
     assert payload == "symbol,qty\n"
+
+
+def test_result_report_zip_download_contains_json_and_csv_files():
+    request = build_default_rebalance_request()
+    result = asyncio.run(run_rebalance_check(request))
+
+    payload = result_report_zip_download(result)
+
+    with ZipFile(BytesIO(payload)) as archive:
+        assert archive.namelist() == [
+            "rebalance_allocation_comparison.csv",
+            "rebalance_check_result.json",
+            "rebalance_current_positions.csv",
+            "rebalance_proposed_trades.csv",
+            "rebalance_risk_breaches.csv",
+            "rebalance_summary.csv",
+            "rebalance_target_allocations.csv",
+        ]
+        assert '"status": "BLOCK"' in archive.read("rebalance_check_result.json").decode("utf-8")
+        summary_csv = archive.read("rebalance_summary.csv").decode("utf-8")
+        assert "risk_status" in summary_csv
+        assert "BLOCK" in summary_csv

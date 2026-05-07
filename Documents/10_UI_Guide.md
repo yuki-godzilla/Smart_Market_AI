@@ -23,6 +23,13 @@ Streamlit を起動します。
 .\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
 ```
 
+別のローカルディレクトリに置いた rebalance scenario JSON を使う場合は、`SMAI_REBALANCE_SCENARIO_DIR` を指定します。
+
+```powershell
+$env:SMAI_REBALANCE_SCENARIO_DIR = ".\my_rebalance_scenarios"
+.\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
+```
+
 ## CSV MarketData で起動
 
 UI はデフォルトで deterministic な `mock` provider を使います。
@@ -35,7 +42,7 @@ $env:SMAI_CONFIG_FILE = ".\config\csv_example.yaml"
 
 ## UI で確認できること
 
-- Runtime settings: 使用中の provider、config source、CSV data directory
+- Runtime settings: 使用中の provider、config source、CSV data directory、rebalance scenario directory
 - `7203.T` と `AAPL` の sample symbol reference
 - `Default rebalance` と `No trades` の sample selector
 - `examples/rebalance_scenarios/` から読み込まれる file-backed sample

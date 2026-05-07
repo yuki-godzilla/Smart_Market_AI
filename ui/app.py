@@ -142,6 +142,7 @@ def _render_runtime_settings() -> None:
     st.caption("Runtime")
     st.write(f"Provider: `{settings['provider']}`")
     st.write(f"Config: `{settings['config_file']}`")
+    st.write(f"Scenarios: `{settings['scenario_dir']}`")
     if settings["provider"] == "csv":
         st.write(f"CSV data: `{settings['csv_data_dir']}`")
 

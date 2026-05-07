@@ -20,6 +20,7 @@ DEFAULT_AS_OF = date(2026, 4, 9)
 DEFAULT_CASH_JPY = Decimal("29000")
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SCENARIO_DIR = PROJECT_ROOT / "examples" / "rebalance_scenarios"
+SCENARIO_DIR_ENV = "SMAI_REBALANCE_SCENARIO_DIR"
 SYMBOL_DISPLAY_NAMES = {
     "7203.T": "Toyota Motor",
     "AAPL": "Apple Inc.",
@@ -136,9 +137,23 @@ _FALLBACK_REBALANCE_SAMPLES: dict[str, RebalanceSample] = {
 }
 
 
-def load_rebalance_samples(scenario_dir: Path = DEFAULT_SCENARIO_DIR) -> dict[str, RebalanceSample]:
+def rebalance_scenario_dir() -> Path:
+    """Return the configured scenario directory used by the Streamlit UI."""
+
+    raw_path = os.getenv(SCENARIO_DIR_ENV)
+    if not raw_path:
+        return DEFAULT_SCENARIO_DIR
+
+    path = Path(raw_path).expanduser()
+    if path.is_absolute():
+        return path
+    return PROJECT_ROOT / path
+
+
+def load_rebalance_samples(scenario_dir: Path | None = None) -> dict[str, RebalanceSample]:
     """Load deterministic rebalance samples from JSON files."""
 
+    scenario_dir = scenario_dir or rebalance_scenario_dir()
     if not scenario_dir.exists():
         return dict(_FALLBACK_REBALANCE_SAMPLES)
 
@@ -228,6 +243,7 @@ def runtime_settings_summary() -> dict[str, str]:
         "provider": settings.dataaccess.provider,
         "csv_data_dir": settings.dataaccess.csv_data_dir,
         "config_file": os.getenv(CONFIG_FILE_ENV) or "defaults",
+        "scenario_dir": str(rebalance_scenario_dir()),
     }
 
 

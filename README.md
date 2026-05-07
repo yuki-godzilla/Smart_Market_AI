@@ -121,6 +121,13 @@ examples/rebalance_scenarios/
 
 新しい sample を追加する場合は、同じ形式の JSON を追加します。
 
+別のローカルディレクトリから sample を読み込む場合は、`SMAI_REBALANCE_SCENARIO_DIR` を指定します。
+
+```powershell
+$env:SMAI_REBALANCE_SCENARIO_DIR = ".\my_rebalance_scenarios"
+.\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
+```
+
 ## 検証
 
 まずローカル MVP の基本確認をまとめて実行します。

@@ -11,6 +11,8 @@ from ui.rebalance_app import (
     DEFAULT_CASH_JPY,
     DEFAULT_POSITIONS_JSON,
     DEFAULT_TARGETS_JSON,
+    PROJECT_ROOT,
+    SCENARIO_DIR_ENV,
     RebalanceScenarioError,
     allocation_comparison_rows,
     build_default_rebalance_request,
@@ -20,6 +22,7 @@ from ui.rebalance_app import (
     load_rebalance_samples,
     proposed_trade_rows,
     rebalance_sample_names,
+    rebalance_scenario_dir,
     result_json_download,
     result_summary,
     risk_breach_rows,
@@ -75,6 +78,17 @@ def test_load_rebalance_samples_from_json_files():
     assert list(samples) == ["Default rebalance", "No trades"]
     assert samples["Default rebalance"].cash_jpy == Decimal("29000")
     assert samples["No trades"].cash_jpy == Decimal("0")
+
+
+def test_rebalance_samples_can_use_configured_scenario_dir(monkeypatch):
+    monkeypatch.setenv(
+        SCENARIO_DIR_ENV,
+        "tests/fixtures/rebalance_scenarios_custom",
+    )
+
+    assert rebalance_scenario_dir() == PROJECT_ROOT / "tests/fixtures/rebalance_scenarios_custom"
+    assert rebalance_sample_names() == ["Custom cash scenario"]
+    assert get_rebalance_sample("Custom cash scenario").cash_jpy == Decimal("1000")
 
 
 def test_load_rebalance_samples_reports_invalid_files():
@@ -162,12 +176,14 @@ def test_build_rebalance_request_rejects_non_array_targets_json():
 
 def test_runtime_settings_summary_reports_default_provider(monkeypatch):
     monkeypatch.delenv("SMAI_CONFIG_FILE", raising=False)
+    monkeypatch.delenv(SCENARIO_DIR_ENV, raising=False)
 
     summary = runtime_settings_summary()
 
     assert summary["provider"] == "mock"
     assert summary["config_file"] == "defaults"
     assert summary["csv_data_dir"] == "data/marketdata"
+    assert summary["scenario_dir"] == str(PROJECT_ROOT / "examples/rebalance_scenarios")
 
 
 def test_rebalance_result_formatters_create_table_rows():

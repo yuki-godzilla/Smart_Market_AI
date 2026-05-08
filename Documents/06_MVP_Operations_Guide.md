@@ -253,6 +253,7 @@ dataaccess:
 
 ただし、現時点では live provider adapter 本体が未実装です。
 opt-in しても外部 API へは接続せず、未実装であることを示す domain error を返します。
+Phase 10 の完了時点では、明示 opt-in した live provider から実データを取得し、Streamlit UI 上で取得結果と provider 状態を確認できることを目標にします。
 
 通常のローカル確認では、次のどちらかを使います。
 

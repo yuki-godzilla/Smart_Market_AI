@@ -127,8 +127,8 @@ Based on code and roadmap documents, the project is effectively here:
 - Phase 7 Config And Scenario Management: implemented for file-backed rebalance scenarios / Phase 7 Config And Scenario Management: file-backed rebalance scenario 向けに実装済み
 - Phase 8 Reporting MVP: complete for JSON/CSV/Markdown/manifest/ZIP exports / Phase 8 Reporting MVP: JSON/CSV/Markdown/manifest/ZIP export として完了
 - Phase 9 External Data Provider Preparation: complete before live adapter implementation / Phase 9 External Data Provider Preparation: live adapter 実装前の準備として完了
-- Phase 10 External Data Ingestion MVP: started with planned live-provider adapter metadata, a shared `MarketDataProviderAdapter` protocol, and a provider adapter factory / Phase 10 External Data Ingestion MVP: planned live-provider adapter metadata、共通 `MarketDataProviderAdapter` protocol、provider adapter factory から着手
-- Next recommended work: continue External Data Ingestion MVP by adding the first opt-in live-provider stub, then move to Feature Store Lite. / 次の推奨作業: 最初の opt-in live-provider stub を追加して External Data Ingestion MVP を進め、その後 Feature Store Lite へ進む。
+- Phase 10 External Data Ingestion MVP: started with planned live-provider adapter metadata, a shared `MarketDataProviderAdapter` protocol, and a provider adapter factory; its completion target now includes Streamlit UI confirmation of live-provider data and provider status. / Phase 10 External Data Ingestion MVP: planned live-provider adapter metadata、共通 `MarketDataProviderAdapter` protocol、provider adapter factory から着手。完了目標には、live provider の取得データと provider 状態を Streamlit UI で確認できることも含める。
+- Next recommended work: continue External Data Ingestion MVP by adding the first opt-in live-provider stub, then expose provider data/status in the Streamlit UI before moving to Feature Store Lite. / 次の推奨作業: 最初の opt-in live-provider stub を追加し、その後 Feature Store Lite へ進む前に provider data / status を Streamlit UI で確認できるようにする。
 
 ## Test And Verification Baseline / テストと確認の基準
 
@@ -189,6 +189,7 @@ Update this file when:
 
 ## Work Log / 作業ログ
 
+- 2026-05-08: Expanded the Phase 10 completion target to include Streamlit UI confirmation of live-provider data and provider status. / Phase 10 の完了目標を拡張し、live provider の取得データと provider 状態を Streamlit UI で確認できることを含めた。
 - 2026-05-08: Added `create_market_data_provider_adapter()` as the configured factory entrypoint for deterministic and future live market-data adapters. / deterministic provider と将来の live market-data adapter の設定済み factory 入口として `create_market_data_provider_adapter()` を追加した。
 - 2026-05-08: Added the shared `MarketDataProviderAdapter` protocol and linked planned live-provider adapter metadata to that interface. / 共通 `MarketDataProviderAdapter` protocol を追加し、planned live-provider adapter metadata をその interface に紐づけた。
 - 2026-05-08: Started Phase 10 by adding planned live-provider adapter metadata for `yahoo` and `polygon` without importing network-dependent libraries. / network-dependent library を import せずに、`yahoo` と `polygon` の planned live-provider adapter metadata を追加して Phase 10 に着手した。

@@ -1,4 +1,4 @@
-# 06_Implementation_Roadmap
+# 05_Implementation_Roadmap
 
 #### [BACK TO README](../README.md)
 
@@ -283,7 +283,7 @@ Completion criteria:
 
 ## 7. Multi-Model Investment Intelligence Roadmap
 
-詳細方針は [12_Multi_Model_Investment_Intelligence_Roadmap.md](./12_Multi_Model_Investment_Intelligence_Roadmap.md) を参照します。
+この章は、Phase 9 までの MVP 完了後に進める次期ロードマップをまとめます。
 
 Phase 9 完了後の重点は、Execution ではなく、外部データ取得、特徴量管理、銘柄スコアリング、複数モデル予測、可視化、判断補助レポートです。
 Execution / broker order 送信は将来領域として残しますが、今回のロードマップでは優先順位を下げます。

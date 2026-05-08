@@ -79,7 +79,7 @@ When deciding what to build next, consult these in order:
 1. User request / ユーザー要求
 2. Actual code in `backend/` and `tests/` / `backend/` と `tests/` の実コード
 3. `PROJECT_CONTEXT.md`
-4. `Documents/06_Implementation_Roadmap.md`
+4. `Documents/05_Implementation_Roadmap.md`
 5. Other design docs under `Documents/` / `Documents/` 配下のその他設計資料
 
 If docs and code disagree, trust the code for current behavior and record the mismatch in `PROJECT_CONTEXT.md`.

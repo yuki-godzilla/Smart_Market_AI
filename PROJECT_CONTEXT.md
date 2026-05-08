@@ -93,8 +93,8 @@ The implementation is still MVP-oriented. Risk, Portfolio, API, Streamlit UI, lo
   API metadata とテストは、opt-in 拒否、provider unavailable、provider timeout の構造化 provider 失敗レスポンスをカバーしています。
 - API tests also cover structured rate-limit and schema-mismatch provider failure responses.
   API テストは、rate limit と schema mismatch の構造化 provider 失敗レスポンスもカバーしています。
-- External provider setup, limitations, and failure modes are documented in `Documents/11_External_MarketData_Providers.md`.
-  external provider の setup、制約、failure mode は `Documents/11_External_MarketData_Providers.md` に記録しています。
+- API, CSV, manual workflow, UI, and external provider notes are consolidated in `Documents/06_MVP_Operations_Guide.md`.
+  API、CSV、manual workflow、UI、external provider の説明は `Documents/06_MVP_Operations_Guide.md` に統合しています。
 - Market data is deterministic and in-repo, which keeps tests offline and stable.
   市場データはリポジトリ内の固定データで、テストをオフラインかつ安定して実行できます。
 - The `csv` provider reads local `symbols.csv`, `ohlcv.csv`, and `fx_rates.csv` files from `dataaccess.csv_data_dir`.
@@ -132,7 +132,7 @@ Known useful commands:
 ```
 
 These commands are also referenced by the roadmap document.
-これらのコマンドはロードマップ文書でも参照されています。
+これらのコマンドはロードマップ文書と MVP 運用ガイドでも参照されています。
 
 ## Known Documentation Mismatches / 既知のドキュメント差分
 
@@ -179,6 +179,7 @@ Update this file when:
 
 ## Work Log / 作業ログ
 
+- 2026-05-08: Consolidated post-05 documents by merging API, CSV, manual workflow, UI, external provider, and next-roadmap notes into `Documents/05_Implementation_Roadmap.md` and `Documents/06_MVP_Operations_Guide.md`. / 05 以降の文書を整理し、API、CSV、manual workflow、UI、external provider、次期 roadmap の説明を `Documents/05_Implementation_Roadmap.md` と `Documents/06_MVP_Operations_Guide.md` に統合した。
 - 2026-05-08: Documented the next Multi-Model Investment Intelligence roadmap across requirements, system design, functional design, roadmap, README, AGENTS, and project context. / 次期 Multi-Model Investment Intelligence roadmap を、要件定義、システム設計、機能設計、ロードマップ、README、AGENTS、project context に反映した。
 - 2026-05-08: Added local CSV downloads for Streamlit rebalance result tables. / Streamlit rebalance 結果テーブル向けのローカル CSV ダウンロードを追加した。
 - 2026-05-08: Added a deterministic local ZIP download for Streamlit rebalance JSON and CSV report files. / Streamlit rebalance の JSON と CSV レポートファイルをまとめる deterministic なローカル ZIP ダウンロードを追加した。
@@ -234,7 +235,7 @@ Update this file when:
 - 2026-05-05: Aligned the Streamlit UI helper test expectations with current Risk MVP breach rules and fixed import ordering. / Streamlit UI helper テストの期待値を現在の Risk MVP 違反ルールに合わせ、import 順を修正。
 
 - 2026-05-05: Exposed the Portfolio-to-Risk workflow through `POST /portfolio/rebalance-check` and added deterministic API tests. / `POST /portfolio/rebalance-check` で Portfolio-to-Risk workflow を公開し、決定的な API テストを追加。
-- 2026-05-05: Improved Swagger/OpenAPI metadata and added Japanese API specification notes in `Documents/07_API_Specification.md`. / Swagger/OpenAPI メタデータを整備し、`Documents/07_API_Specification.md` に日本語 API 仕様メモを追加。
+- 2026-05-05: Improved Swagger/OpenAPI metadata and added Japanese API specification notes, now consolidated into `Documents/06_MVP_Operations_Guide.md`. / Swagger/OpenAPI メタデータを整備し、日本語 API 仕様メモを追加した。現在は `Documents/06_MVP_Operations_Guide.md` に統合済み。
 - 2026-05-05: Added optional YAML settings loading via `SMAI_CONFIG_FILE`, PyYAML dependency, example config, and deterministic config tests. / `SMAI_CONFIG_FILE` による任意の YAML 設定読み込み、PyYAML 依存、設定例、決定的な config テストを追加。
 - 2026-05-05: Updated `AGENTS.md` to require beginner-friendly implementation explanations after each work unit. / 各作業単位の完了後に初学者向け説明を行うルールを `AGENTS.md` に追記。
 - 2026-05-05: Added `types-PyYAML` to development and pre-commit mypy dependencies so YAML imports have type stubs. / YAML import の型スタブを使えるように、開発依存と pre-commit mypy 依存へ `types-PyYAML` を追加。

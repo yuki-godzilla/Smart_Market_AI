@@ -35,18 +35,13 @@ MVP の既定経路は引き続きネットワーク不要の `mock` / `csv` で
 
 次期重点は Multi-Model Investment Intelligence です。
 注文執行の優先度を下げ、外部データ取得、特徴量管理、銘柄スコアリング、複数モデル予測、可視化、判断補助レポートを段階的に整備します。
-詳細は [Multi-Model Investment Intelligence ロードマップ](./Documents/12_Multi_Model_Investment_Intelligence_Roadmap.md) を参照してください。
+詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント
 
 - [プロジェクト現在地](./PROJECT_CONTEXT.md)
-- [実装ロードマップ](./Documents/06_Implementation_Roadmap.md)
-- [API 仕様](./Documents/07_API_Specification.md)
-- [MarketData CSV 形式](./Documents/08_MarketData_CSV_Format.md)
-- [手動確認手順](./Documents/09_Manual_Workflows.md)
-- [UI ガイド](./Documents/10_UI_Guide.md)
-- [外部 MarketData provider 準備](./Documents/11_External_MarketData_Providers.md)
-- [Multi-Model Investment Intelligence ロードマップ](./Documents/12_Multi_Model_Investment_Intelligence_Roadmap.md)
+- [実装ロードマップ](./Documents/05_Implementation_Roadmap.md)
+- [MVP 運用ガイド](./Documents/06_MVP_Operations_Guide.md)
 
 設計背景:
 
@@ -54,7 +49,7 @@ MVP の既定経路は引き続きネットワーク不要の `mock` / `csv` で
 - [システム設計](./Documents/02_System_design.md)
 - [機能設計](./Documents/03_Functional_design.md)
 - [詳細設計](./Documents/04_Detail_Design/04_Detail_Design_README.md)
-- [実装チェックリストと雛形](./Documents/05_Implementation_Checklist_and_Stubs.md)
+- 実装 checklist / stubs は、現在の実装ロードマップと実コードを正とします。
 
 ## セットアップ
 
@@ -170,7 +165,7 @@ CI では現在、`black --check .` と `mypy .` も実行します。
 1. ユーザー要求
 2. `backend/` と `tests/` の実コード
 3. `PROJECT_CONTEXT.md`
-4. `Documents/06_Implementation_Roadmap.md`
+4. `Documents/05_Implementation_Roadmap.md`
 5. `Documents/` 配下のその他設計資料
 
 明示的に必要な作業でない限り、MVP の主要経路は offline かつ deterministic に保ちます。

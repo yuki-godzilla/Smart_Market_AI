@@ -271,6 +271,7 @@ dataaccess:
 
 provider capability は `backend/marketdata/provider_registry.py` で管理します。
 将来の live provider adapter の依存や module 予定は `backend/marketdata/live_provider_adapters.py` で管理します。
+provider adapter の共通 interface は `backend/marketdata/provider_adapters.py` の `MarketDataProviderAdapter` protocol です。
 
 ## 8. ローカル検証
 

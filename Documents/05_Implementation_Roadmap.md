@@ -213,6 +213,7 @@ Status: MVP complete
 - `mock` / `csv` / `yahoo` / `polygon` capability metadata
 - provider opt-in rejection
 - live provider adapter metadata
+- `MarketDataProviderAdapter` protocol
 - provider unavailable / timeout / rate limit / schema mismatch error mapping
 - structured API response tests
 - OpenAPI response metadata
@@ -239,7 +240,7 @@ Status: started
 Scope:
 
 - Done: live provider adapter metadata を `backend/marketdata/live_provider_adapters.py` に分離する
-- live provider adapter interface を整理する
+- Done: live provider adapter interface を `backend/marketdata/provider_adapters.py` の `MarketDataProviderAdapter` protocol として定義する
 - 最初の provider 候補を opt-in で実装する
 - 取得結果を `Bar` / `Quote` / `FxRate` へ正規化する
 - rate limit、timeout、provider unavailable、schema mismatch を domain error と API response に mapping する
@@ -411,7 +412,6 @@ Scope:
 - `setup/SETUP.md` 内の仮想環境名を `venv_SMAI` に統一する
 - `SMAI_CONFIG_FILE` 以外の環境変数設定を拡張するか判断する
 - live provider adapter の最初の候補を決める
-- live provider adapter interface を定義する
 - Feature Store Lite の contract を定義する
 - Screening Score MVP の score breakdown を設計する
 - Forecast Lab Baseline の評価手順を定義する

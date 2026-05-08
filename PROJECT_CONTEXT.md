@@ -92,6 +92,8 @@ The implementation is still MVP-oriented. Risk, Portfolio, API, Streamlit UI, lo
   market-data provider の capability は `backend/marketdata/provider_registry.py` に集約しています。
 - Planned live-provider adapter metadata is centralized in `backend/marketdata/live_provider_adapters.py`.
   将来の live provider adapter metadata は `backend/marketdata/live_provider_adapters.py` に集約しています。
+- Market-data provider adapters share the `MarketDataProviderAdapter` protocol in `backend/marketdata/provider_adapters.py`.
+  market-data provider adapter は `backend/marketdata/provider_adapters.py` の `MarketDataProviderAdapter` protocol を共通契約にします。
 - Future live-provider failures can use dedicated domain errors for rate limits, provider unavailability, provider timeouts, and schema mismatches.
   将来の live provider 失敗は、rate limit、provider unavailable、provider timeout、schema mismatch 向けの専用ドメインエラーで表現できます。
 - API metadata and tests cover structured provider failure responses for opt-in rejection, provider unavailability, and provider timeouts.
@@ -123,8 +125,8 @@ Based on code and roadmap documents, the project is effectively here:
 - Phase 7 Config And Scenario Management: implemented for file-backed rebalance scenarios / Phase 7 Config And Scenario Management: file-backed rebalance scenario 向けに実装済み
 - Phase 8 Reporting MVP: complete for JSON/CSV/Markdown/manifest/ZIP exports / Phase 8 Reporting MVP: JSON/CSV/Markdown/manifest/ZIP export として完了
 - Phase 9 External Data Provider Preparation: complete before live adapter implementation / Phase 9 External Data Provider Preparation: live adapter 実装前の準備として完了
-- Phase 10 External Data Ingestion MVP: started with planned live-provider adapter metadata / Phase 10 External Data Ingestion MVP: 将来の live-provider adapter metadata から着手
-- Next recommended work: continue External Data Ingestion MVP by defining the live provider adapter interface, then move to Feature Store Lite. / 次の推奨作業: live provider adapter interface を定義して External Data Ingestion MVP を進め、その後 Feature Store Lite へ進む。
+- Phase 10 External Data Ingestion MVP: started with planned live-provider adapter metadata and a shared `MarketDataProviderAdapter` protocol / Phase 10 External Data Ingestion MVP: planned live-provider adapter metadata と共通 `MarketDataProviderAdapter` protocol から着手
+- Next recommended work: continue External Data Ingestion MVP by adding a provider adapter factory or the first opt-in live-provider stub, then move to Feature Store Lite. / 次の推奨作業: provider adapter factory または最初の opt-in live-provider stub を追加して External Data Ingestion MVP を進め、その後 Feature Store Lite へ進む。
 
 ## Test And Verification Baseline / テストと確認の基準
 
@@ -185,6 +187,7 @@ Update this file when:
 
 ## Work Log / 作業ログ
 
+- 2026-05-08: Added the shared `MarketDataProviderAdapter` protocol and linked planned live-provider adapter metadata to that interface. / 共通 `MarketDataProviderAdapter` protocol を追加し、planned live-provider adapter metadata をその interface に紐づけた。
 - 2026-05-08: Started Phase 10 by adding planned live-provider adapter metadata for `yahoo` and `polygon` without importing network-dependent libraries. / network-dependent library を import せずに、`yahoo` と `polygon` の planned live-provider adapter metadata を追加して Phase 10 に着手した。
 - 2026-05-08: Checked project-wide consistency after document consolidation and aligned current context/agent guidance with the new roadmap and operations-guide files. / 文書統合後にプロジェクト全体の整合性を確認し、現在地コンテキストと agent 向け方針を新しい roadmap / operations guide 構成に合わせた。
 - 2026-05-08: Reorganized `Documents/05_Implementation_Roadmap.md` into a cleaner Japanese structure with current state, completed phases, next roadmap, verification commands, and open items. / `Documents/05_Implementation_Roadmap.md` を、現在地、完了済みフェーズ、次期ロードマップ、検証コマンド、未決事項が見やすい日本語構成へ整理した。

@@ -10,6 +10,7 @@ class LiveProviderAdapterSpec:
     """
 
     provider: str
+    adapter_protocol: str
     adapter_module: str
     optional_dependency: str
     smoke_check_status: str
@@ -18,12 +19,14 @@ class LiveProviderAdapterSpec:
 LIVE_PROVIDER_ADAPTER_SPECS: dict[str, LiveProviderAdapterSpec] = {
     "yahoo": LiveProviderAdapterSpec(
         provider="yahoo",
+        adapter_protocol="MarketDataProviderAdapter",
         adapter_module="backend.marketdata.providers.yahoo",
         optional_dependency="yfinance",
         smoke_check_status="not_implemented",
     ),
     "polygon": LiveProviderAdapterSpec(
         provider="polygon",
+        adapter_protocol="MarketDataProviderAdapter",
         adapter_module="backend.marketdata.providers.polygon",
         optional_dependency="polygon-api-client",
         smoke_check_status="not_implemented",
@@ -41,6 +44,7 @@ def live_provider_adapter_details(provider: str) -> dict[str, object]:
         }
     return {
         "adapter_registered": True,
+        "adapter_protocol": spec.adapter_protocol,
         "adapter_module": spec.adapter_module,
         "optional_dependency": spec.optional_dependency,
         "smoke_check_status": spec.smoke_check_status,

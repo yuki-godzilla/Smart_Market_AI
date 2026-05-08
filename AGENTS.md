@@ -62,6 +62,9 @@ The repository appears to be at:
 - API bootstrap: implemented with `/health`, `POST /risk/pre-trade-check`, and `POST /portfolio/rebalance-check` / API の起点は `/health`、`POST /risk/pre-trade-check`、`POST /portfolio/rebalance-check` 付きで実装済み
 - Portfolio-to-Risk workflow: implemented and exposed through FastAPI / Portfolio-to-Risk workflow は実装済みで FastAPI から公開済み
 - Swagger/OpenAPI metadata and YAML settings loading via `SMAI_CONFIG_FILE`: implemented / Swagger/OpenAPI メタデータと `SMAI_CONFIG_FILE` による YAML 設定読み込みは実装済み
+- Streamlit rebalance UI, file-backed scenarios, and local report exports: implemented for MVP / Streamlit rebalance UI、file-backed scenarios、local report exports は MVP として実装済み
+- External MarketData provider preparation: implemented through explicit opt-in gates, provider registry, and documented failure modes / External MarketData provider preparation は明示 opt-in gate、provider registry、failure mode 文書化まで実装済み
+- Live market-data provider adapters and Execution workflows: not implemented / live market-data provider adapter と Execution workflow は未実装
 
 Unless a task says otherwise, optimize changes for this progression.
 特別な指示がない限り、この進行順を前提に変更を最適化します。

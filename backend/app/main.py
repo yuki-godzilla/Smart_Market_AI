@@ -21,7 +21,7 @@ from backend.risk import RiskDecision, RiskService
 APP_DESCRIPTION = """
 Smart Market AI MVP API for deterministic local investment-support workflows.
 
-The current API uses the mock market-data provider and does not submit orders to a broker.
+The current API uses deterministic market-data providers and does not submit orders to a broker.
 Decimal values are accepted as JSON strings in examples to avoid floating-point ambiguity.
 """
 
@@ -194,7 +194,7 @@ def create_portfolio_risk_workflow() -> PortfolioRiskWorkflow:
     summary="Run a pre-trade risk check",
     description=(
         "Evaluates a proposed basket through deterministic MVP rules. "
-        "The endpoint uses mock market data and returns ALLOW, REVIEW, or BLOCK."
+        "The endpoint uses configured deterministic market data and returns ALLOW, REVIEW, or BLOCK."
     ),
     responses=ERROR_RESPONSES,
 )

@@ -25,9 +25,11 @@ The current codebase provides:
 - local sample CSV market-data files under `data/marketdata` / `data/marketdata` 配下のローカル CSV market-data サンプル
 - minimal Streamlit UI for the Portfolio-to-Risk workflow / Portfolio-to-Risk workflow 向けの最小 Streamlit UI
 - file-backed deterministic rebalance scenarios under `examples/rebalance_scenarios` / `examples/rebalance_scenarios` 配下の file-backed deterministic rebalance scenario
+- local JSON/CSV/Markdown/manifest/ZIP reporting exports for rebalance-check results / rebalance-check 結果向けのローカル JSON/CSV/Markdown/manifest/ZIP reporting export
+- external market-data provider preparation with explicit opt-in gates / 明示 opt-in gate を持つ外部 market-data provider 準備
 
-The implementation is still MVP-oriented and pre-integration. Risk has a minimal service and API endpoint, Portfolio has a minimal service, and external providers, UI, and execution flows are mostly planned rather than fully built.
-実装はまだ統合前段階であり、外部プロバイダ、UI、risk、portfolio、execution の各フローは多くが計画段階です。
+The implementation is still MVP-oriented. Risk, Portfolio, API, Streamlit UI, local reporting exports, and external-provider preparation are implemented for deterministic MVP use; live market-data providers and execution flows are still planned.
+実装はまだ MVP 指向です。Risk、Portfolio、API、Streamlit UI、ローカル reporting export、external-provider preparation は deterministic MVP 用に実装済みで、live market-data provider と execution flow はまだ計画段階です。
 
 ## Repository Layout / リポジトリ構成
 
@@ -72,7 +74,7 @@ The implementation is still MVP-oriented and pre-integration. Risk has a minimal
 - `.env` driven settings loading beyond `SMAI_CONFIG_FILE` / `SMAI_CONFIG_FILE` 以外の `.env` ベース設定読み込み
 - `backend/execution/`
 - broader UI workflows beyond the initial Streamlit rebalance-check screen / 初期 Streamlit rebalance-check 画面以外の UI workflow
-- report/export pipelines / レポート・出力パイプライン
+- advanced reporting beyond local JSON/CSV/Markdown/ZIP exports / ローカル JSON/CSV/Markdown/ZIP export を超える高度な reporting
 
 ## Behavioral Notes / 挙動メモ
 
@@ -110,8 +112,12 @@ Based on code and roadmap documents, the project is effectively here:
 - Phase 2 MarketData MVP: complete for MVP / Phase 2 MarketData MVP: MVP として完了
 - Phase 3 Risk MVP: initial service and API complete for MVP / Phase 3 Risk MVP: 初期サービスと API は MVP として完了
 - Phase 4 Portfolio MVP: initial service complete for MVP / Phase 4 Portfolio MVP: 初期サービスは MVP として完了
-- Phase 5 API and UI Integration: started with Portfolio-to-Risk API exposure / Phase 5 API and UI Integration: Portfolio-to-Risk API 公開から着手済み
-- Next recommended work: expand the UI workflow or add richer CSV data conventions / 次の推奨作業: UI workflow の拡張、または CSV データ規約の拡張
+- Phase 5 API and UI Integration: complete for the current Portfolio-to-Risk MVP / Phase 5 API and UI Integration: 現在の Portfolio-to-Risk MVP として完了
+- Phase 6 CSV Data And Scenario Expansion: implemented for current local examples / Phase 6 CSV Data And Scenario Expansion: 現在のローカル example 向けに実装済み
+- Phase 7 Config And Scenario Management: implemented for file-backed rebalance scenarios / Phase 7 Config And Scenario Management: file-backed rebalance scenario 向けに実装済み
+- Phase 8 Reporting MVP: complete for JSON/CSV/Markdown/manifest/ZIP exports / Phase 8 Reporting MVP: JSON/CSV/Markdown/manifest/ZIP export として完了
+- Phase 9 External Data Provider Preparation: complete before live adapter implementation / Phase 9 External Data Provider Preparation: live adapter 実装前の準備として完了
+- Next recommended work: choose the next roadmap scope, such as Execution MVP, broader UI workflows, or environment-variable settings expansion. / 次の推奨作業: Execution MVP、より広い UI workflow、環境変数設定拡張など、次の roadmap scope を選ぶ。
 
 ## Test And Verification Baseline / テストと確認の基準
 
@@ -145,14 +151,18 @@ These commands are also referenced by the roadmap document.
 
 ## Next Good Targets / 次の着手候補
 
+- define the next roadmap phase after Phase 9
+  Phase 9 後の次フェーズを定義する
+- start an Execution MVP without sending live broker orders
+  live broker 注文を送らない Execution MVP に着手する
 - expand the local rebalance-check UI beyond sample-driven MVP controls
-  rebalance-check フロー向けのローカル UI または手動確認用入口を追加する
+  sample-driven MVP control を超えて rebalance-check UI を拡張する
 - expand environment-variable settings support beyond `SMAI_CONFIG_FILE`
   `SMAI_CONFIG_FILE` 以外の環境変数ベース設定対応を拡張する
 - expand csv market data coverage and document production-like file conventions
   csv 市場データのカバレッジを広げ、本番に近いファイル規約を文書化する
-- improve documentation consistency, especially README encoding and status summaries
-  特に README の文字化け問題や進捗サマリの整合性を改善する
+- keep documentation status summaries aligned after phase transitions
+  phase 移行後もドキュメントの進捗サマリを揃える
 
 ## Maintenance Rule / 更新ルール
 
@@ -181,6 +191,7 @@ Update this file when:
 - 2026-05-08: Added structured API response tests for provider rate-limit and schema-mismatch failures. / provider rate limit と schema mismatch 失敗に対する構造化 API レスポンステストを追加した。
 - 2026-05-08: Centralized market-data provider capability metadata in a registry for future live adapter implementation. / 将来の live adapter 実装に向けて、market-data provider の capability metadata を registry に集約した。
 - 2026-05-08: Completed Phase 9 preparation by documenting external provider setup, limitations, failure modes, and offline default behavior. / external provider の setup、制約、failure mode、offline default behavior を文書化して Phase 9 の準備作業を完了扱いにした。
+- 2026-05-08: Checked project-wide documentation consistency after Phase 9 and corrected stale status wording. / Phase 9 後にプロジェクト全体のドキュメント整合性を確認し、古い状態表現を修正した。
 - 2026-05-07: Added explicit `RebalanceScenarioError` handling for malformed file-backed rebalance scenarios and covered invalid JSON, invalid request schema, and duplicate scenario names with tests. / 壊れた file-backed rebalance scenario 向けに明示的な `RebalanceScenarioError` 処理を追加し、不正 JSON、不正 request schema、重複 scenario 名をテストでカバーした。
 - 2026-05-07: Added file-backed rebalance scenarios under `examples/rebalance_scenarios/` and made the Streamlit UI sample selector load them. / `examples/rebalance_scenarios/` に file-backed rebalance scenario を追加し、Streamlit UI の sample selector から読み込むようにした。
 

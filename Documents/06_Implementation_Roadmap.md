@@ -9,10 +9,10 @@
 
 ## 2. Current State
 
-- 実装は FastAPI の最小スケルトンから始まり、現在は Risk / Portfolio の MVP API と最小 Streamlit UI まで公開済み。
+- 実装は FastAPI の最小スケルトンから始まり、現在は Risk / Portfolio の MVP API、Streamlit UI、ローカル reporting export、外部 provider 準備まで公開済み。
 - 現在ある API は `/health`、`POST /risk/pre-trade-check`、`POST /portfolio/rebalance-check`。
 - テストは core、MarketData、Risk、Portfolio、API、OpenAPI schema を対象に追加済み。
-- Execution と live market-data provider はまだ実装前。UI は Portfolio-to-Risk workflow 向けの最小 Streamlit 画面から着手済み。
+- Execution と live market-data provider adapter はまだ実装前。UI は Portfolio-to-Risk workflow 向けの MVP 画面と export まで実装済み。
 - 依存関係は FastAPI / Pydantic / SQLAlchemy / httpx / pandas / numpy などの基盤寄りが中心。
 - Streamlit は最小 UI 用に導入済み。yfinance、最適化ライブラリ、ML ライブラリはまだ導入前。
 
@@ -30,8 +30,10 @@ Current implementation sync note:
 - Done: Local sample CSV market-data files and `config/csv_example.yaml`.
 - Done: Minimal Streamlit UI for the Portfolio-to-Risk rebalance-check workflow.
 - Done: Streamlit UI runtime settings display, deterministic sample selector, target controls, result download, allocation comparison, and sample-symbol labels.
+- Done: Reporting MVP exports JSON, CSV, Markdown, manifest, and ZIP locally.
+- Done: External MarketData provider preparation with explicit opt-in gates, provider registry, API error mapping, and documentation.
 - Done: README、手動確認手順、UI ガイドを現在の deterministic な MVP と同期済み。
-- Remaining: live market data providers, Execution, broader UI workflows, and broader environment settings loading.
+- Remaining: live market-data provider adapters, Execution, broader UI workflows, advanced reporting, and broader environment settings loading.
 
 ## 3. Implementation Policy
 
@@ -157,7 +159,7 @@ Status: MVP initial service complete
 
 ## 5. Near-Term Decision
 
-次に着手する推奨範囲は **expand UI workflow or richer CSV data conventions**。
+次に着手する推奨範囲は **Phase 9 後の次フェーズ定義、Execution MVP、broader UI workflow、または環境変数設定拡張**。
 
 理由:
 - Phase 1 の最小 core 基盤は追加済み。
@@ -172,8 +174,10 @@ Status: MVP initial service complete
 - Done: CSV provider can be smoke-checked through `config/csv_example.yaml` and `data/marketdata`.
 - Done: A minimal Streamlit UI can run the Portfolio-to-Risk rebalance-check workflow.
 - Done: Rebalance UI samples can be loaded from `examples/rebalance_scenarios/`.
-- Next: stabilize the current MVP, expand local CSV/scenario coverage, then prepare explicit opt-in external data providers.
-  次は現在の MVP を安定化し、ローカル CSV/scenario coverage を広げ、その後に明示 opt-in の外部データ取得 provider を準備する。
+- Done: Reporting MVP can export JSON, CSV, Markdown, manifest, and ZIP locally.
+- Done: External provider preparation is complete without introducing network-dependent default behavior.
+- Next: define the next roadmap phase, likely Execution MVP, broader UI workflow, or settings expansion.
+  次は Phase 9 後の次フェーズを定義し、Execution MVP、より広い UI workflow、または設定拡張へ進む。
 
 ## 6. Next Roadmap / 次期ロードマップ
 
@@ -227,8 +231,8 @@ Completion criteria:
 - Done: Streamlit can load rebalance scenario JSON from `SMAI_REBALANCE_SCENARIO_DIR`.
 - Done: invalid configured rebalance scenario paths fail with beginner-friendly errors.
 - Done: scenario JSON can include a `description` that is shown in the Streamlit UI.
-- invalid scenario/config files fail with beginner-friendly errors
-- existing default scenarios remain deterministic
+- Done: invalid scenario/config files fail with beginner-friendly errors
+- Done: existing default scenarios remain deterministic
 
 ### Phase 8: Reporting MVP
 

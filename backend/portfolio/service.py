@@ -81,7 +81,7 @@ class PortfolioService:
         as_of: date,
         cash_jpy: Decimal = Decimal("0"),
     ) -> PortfolioSnapshot:
-        """Value current positions in JPY using daily snapshots and mock FX."""
+        """Value current positions in JPY using daily snapshots and configured FX."""
 
         valued_positions: list[ValuedPosition] = []
         if positions:

@@ -105,8 +105,8 @@ If docs and code disagree, trust the code for current behavior and record the mi
 - `backend/app`: FastAPI entrypoints and application wiring / FastAPI のエントリポイントとアプリ配線
 - `backend/core`: shared contracts, config, and base errors / 共通契約、設定、基底エラー
 - `backend/marketdata`: market data access and feature construction / マーケットデータ取得と特徴量構築
-- future modules should follow the roadmap names where practical: `backend/risk`, `backend/portfolio`, `backend/execution`
-  今後のモジュールは、可能な範囲でロードマップ上の命名 `backend/risk`、`backend/portfolio`、`backend/execution` に合わせます。
+- future modules should follow the roadmap names where practical: `backend/risk`, `backend/portfolio`, `backend/screening`, `backend/forecast`, `backend/scoring`, `backend/execution`
+  今後のモジュールは、可能な範囲でロードマップ上の命名 `backend/risk`、`backend/portfolio`、`backend/screening`、`backend/forecast`、`backend/scoring`、`backend/execution` に合わせます。
 
 ## Tests / テスト
 

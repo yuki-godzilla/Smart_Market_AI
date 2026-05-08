@@ -51,6 +51,10 @@ The current implementation is still MVP-oriented and intentionally favors determ
    差分確認と検証はチェックポイントであり、自動的な停止地点ではありません。
    When the user has already approved the implementation direction, continue to the next logical small task after reporting the checkpoint unless a new decision or risk needs user review.
    ユーザーが実装方針を承認済みの場合、チェックポイントを報告した後も、新しい判断やリスク確認が必要でない限り、次の自然な小タスクへ進みます。
+10. For roadmap phases that affect user-visible UI behavior, include UI-level confirmation in the phase completion criteria.
+    UI 上で見える挙動に影響するロードマップフェーズでは、フェーズ完了条件に UI 上で変更を確認できることを含めます。
+    For external-provider features, prefer confirmation with live provider data when available, while keeping deterministic local checks independent from external APIs.
+    外部 provider に関する機能では、利用可能であれば live provider の生きたデータで確認することを優先しつつ、通常の local checks は外部 API に依存させません。
 
 ## Current Development Focus / 現在の開発フォーカス
 

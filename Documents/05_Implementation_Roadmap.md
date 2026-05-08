@@ -232,6 +232,13 @@ Status: MVP complete
 注文執行ではなく、外部データ取得、特徴量管理、銘柄スコアリング、複数モデル予測、可視化、判断補助レポートを優先します。
 Execution / broker order 送信は重要な将来領域ですが、今回のロードマップでは優先度を下げます。
 
+### UI 確認方針
+
+Phase 10 以降で UI 上の体験に影響する機能は、バックエンド実装だけでは完了としません。
+各フェーズの完了条件には、Streamlit UI または将来の UI 画面で、ユーザーが変更内容を確認できることを含めます。
+特に外部 provider に関する機能では、可能であれば live provider の生きたデータで、provider、as-of、取得時刻、取得結果、失敗理由を確認できる状態を目標にします。
+ただし、通常の自動テストと local checks は外部 API に依存させず、mock / csv / fixture による deterministic な検証を維持します。
+
 ### Phase 10: External Data Ingestion MVP
 
 Status: started
@@ -254,7 +261,7 @@ Scope:
 完了条件:
 
 - 設定で明示した場合だけ live provider が呼ばれる
-- live provider の取得結果を Streamlit UI 上で確認できる
+- live provider の生きた取得結果を Streamlit UI 上で確認できる
 - UI から provider、symbol、as-of / date range、取得結果、失敗理由を確認できる
 - live provider なしで local checks が通る
 - failure mode が tests / API / docs で説明されている
@@ -276,6 +283,9 @@ Scope:
 - 欠損理由を追跡できる
 - screening / forecast / report から再利用できる
 
+- UI 上で feature snapshot、provider metadata、欠損理由を確認できる
+- 外部 provider 由来の特徴量は、可能であれば live data 取得後の snapshot として確認できる
+
 ### Phase 12: Screening Score MVP
 
 目的: 銘柄を ranking し、スコア理由を説明できるようにする。
@@ -292,6 +302,9 @@ Scope:
 - 複数銘柄を deterministic に順位付けできる
 - score breakdown がテストされている
 - UI / report で順位の理由を確認できる
+
+- UI 上でランキング、総合 score、sub score、data quality warning を確認できる
+- 外部 provider 由来データを使う場合は、live data 取得結果を元にした score で確認できる
 
 ### Phase 13: Forecast Lab Baseline
 
@@ -310,6 +323,9 @@ Scope:
 - data leakage を避ける評価手順がある
 - forecast result と metrics を保存・表示できる
 
+- UI 上で forecast horizon、model 別 metrics、評価期間を確認できる
+- 外部 provider 由来の時系列を使う場合は、live data 取得結果から forecast までつながることを確認できる
+
 ### Phase 14: Multi-Model Forecasting
 
 目的: 複数モデルの予測結果を並べ、合意度と不確実性を扱えるようにする。
@@ -327,6 +343,9 @@ Scope:
 - model 間で意見が割れている銘柄を見つけられる
 - forecast summary が investment score に利用できる
 
+- UI 上で model comparison、agreement / disagreement、forecast summary を確認できる
+- live data を入力にした場合も、model 別の出力差分を UI で確認できる
+
 ### Phase 15: Model-Informed Scoring
 
 目的: screening、forecast、risk、data quality を統合した投資判断補助スコアを作る。
@@ -343,6 +362,9 @@ Scope:
 - 銘柄ごとに総合スコアと内訳を返せる
 - データ品質が低い場合や model 不一致が大きい場合に注意表示できる
 - deterministic tests で計算結果を検証できる
+
+- UI 上で screening、forecast、risk、data quality を統合した投資判断補助 score を確認できる
+- live provider 由来データを使った score と、その算出根拠を UI で確認できる
 
 ### Phase 16: Visualization Cockpit
 
@@ -362,6 +384,9 @@ Scope:
 - 予測とスコア理由を同じ画面で確認できる
 - UI は注文送信を行わず、判断補助に限定されている
 
+- 外部 provider 由来の最新に近いデータを使った ranking / forecast / score を UI で確認できる
+- UI 上で provider、as-of、取得時刻、データ品質を確認できる
+
 ### Phase 17: Research Model Adapters
 
 目的: 最新研究や高度なモデルを optional adapter として試せる構造を作る。
@@ -379,6 +404,9 @@ Scope:
 - model ごとの入力、出力、制約、検証結果を追跡できる
 - production-like 経路へ入れる前に評価できる
 
+- UI または research view 上で adapter ごとの予測結果、制約、評価結果を確認できる
+- live data を使う adapter は、取得元と as-of を表示したうえで結果を確認できる
+
 ### Phase 18: Decision Report
 
 目的: ユーザーが判断材料を読み取れる report を出力する。
@@ -394,6 +422,9 @@ Scope:
 - report だけで主要な判断材料を確認できる
 - 予測の限界と注意点が明記されている
 - 既存の deterministic export 方針を保っている
+
+- UI から report preview と export を確認できる
+- live provider 由来データを使った report では、provider、as-of、取得時刻、主要な注意点を確認できる
 
 ## 6. 検証コマンド
 

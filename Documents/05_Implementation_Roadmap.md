@@ -2,444 +2,411 @@
 
 #### [BACK TO README](../README.md)
 
-## 1. Purpose
+## 1. 目的
 
-このドキュメントは、既存の要件定義・設計書を実装作業に接続するためのロードマップです。
-実装を進めるたびに、対象範囲・成果物・完了条件をここへ反映し、プロジェクトの現在地を追えるようにします。
+この文書は、Smart Market AI の実装ロードマップをまとめます。
 
-## 2. Current State
+役割は次の 3 つです。
 
-- 実装は FastAPI の最小スケルトンから始まり、現在は Risk / Portfolio の MVP API、Streamlit UI、ローカル reporting export、外部 provider 準備まで公開済み。
-- 現在ある API は `/health`、`POST /risk/pre-trade-check`、`POST /portfolio/rebalance-check`。
-- テストは core、MarketData、Risk、Portfolio、API、OpenAPI schema を対象に追加済み。
-- Execution と live market-data provider adapter はまだ実装前。UI は Portfolio-to-Risk workflow 向けの MVP 画面と export まで実装済み。
-- 依存関係は FastAPI / Pydantic / SQLAlchemy / httpx / pandas / numpy などの基盤寄りが中心。
-- Streamlit は最小 UI 用に導入済み。yfinance、最適化ライブラリ、ML ライブラリはまだ導入前。
+- 現在どこまで実装済みかを確認する
+- 次に何を優先するかを明確にする
+- 実装フェーズごとの完了条件を追跡する
 
-Current implementation sync note:
-- Done: Core Foundation MVP.
-- Done: MarketData MVP with deterministic `mock` and `csv` providers.
-- Done: Risk MVP initial service at `backend/risk/service.py`.
-- Done: FastAPI endpoints `/health` and `POST /risk/pre-trade-check`.
-- Done: Portfolio MVP initial service at `backend/portfolio/service.py`.
-- Done: Portfolio-to-Risk workflow for generated rebalance trades.
-- Done: Portfolio-to-Risk API endpoint `POST /portfolio/rebalance-check`.
-- Done: Swagger/OpenAPI metadata and Japanese API specification notes.
-- Done: Optional YAML settings loading through `SMAI_CONFIG_FILE`.
-- Done: Deterministic manual workflow docs and example request for Portfolio-to-Risk checks.
-- Done: Local sample CSV market-data files and `config/csv_example.yaml`.
-- Done: Minimal Streamlit UI for the Portfolio-to-Risk rebalance-check workflow.
-- Done: Streamlit UI runtime settings display, deterministic sample selector, target controls, result download, allocation comparison, and sample-symbol labels.
-- Done: Reporting MVP exports JSON, CSV, Markdown, manifest, and ZIP locally.
-- Done: External MarketData provider preparation with explicit opt-in gates, provider registry, API error mapping, and documentation.
-- Done: README、手動確認手順、UI ガイドを現在の deterministic な MVP と同期済み。
-- Remaining: live market-data provider adapters, Execution, broader UI workflows, advanced reporting, and broader environment settings loading.
+API の起動方法、CSV 形式、UI の使い方、手動確認手順は [06_MVP_Operations_Guide.md](./06_MVP_Operations_Guide.md) に集約しています。
 
-## 3. Implementation Policy
+## 2. 現在地
 
-- 最初は外部 API や重い ML 処理に入らず、ローカルで再現できる土台から作る。
-- 共通型、設定、例外、MarketData の mock/csv 実装を先に整える。
-- 各実装ステップでテストを追加し、後続の Risk / Portfolio / Screening / Forecast が同じ入力を使えるようにする。
-- ドキュメントとコードの差分が広がらないよう、完了したこと・未決事項をこの文書へ反映する。
+Phase 1 から Phase 9 までは、現在の MVP として完了扱いです。
 
-## 4. Recommended Order
+実装済みの主な範囲:
+
+- Core contracts / config / errors
+- deterministic な `mock` / `csv` MarketData provider
+- Risk MVP
+- Portfolio MVP
+- Portfolio-to-Risk workflow
+- FastAPI endpoint
+  - `GET /health`
+  - `POST /risk/pre-trade-check`
+  - `POST /portfolio/rebalance-check`
+- Swagger / OpenAPI metadata
+- `SMAI_CONFIG_FILE` による YAML settings loading
+- Streamlit rebalance-check UI
+- file-backed rebalance scenarios
+- JSON / CSV / Markdown / manifest / ZIP report export
+- 外部 MarketData provider の opt-in gate と provider registry
+
+未実装または今後の範囲:
+
+- `yahoo` / `polygon` などの live provider adapter 本体
+- screening score
+- forecast engine
+- multi-model forecasting
+- investment score
+- visualization cockpit
+- decision report
+- broker への live order 送信
+- Execution workflow
+
+## 3. 実装方針
+
+- 既定経路は local / deterministic に保つ。
+- 外部 API は明示 opt-in の場合だけ使う。
+- CI と通常の local checks は外部 API に依存させない。
+- まず軽量な baseline を作り、後から高度なモデルや optional adapter を追加する。
+- ユーザーに見える機能では、最終結果だけでなく理由・内訳・制約を表示する。
+- 実装状態が変わったら `PROJECT_CONTEXT.md` と関連ドキュメントを同期する。
+
+## 4. 完了済みフェーズ
 
 ### Phase 1: Core Foundation
 
 Status: MVP complete
 
-Design diagram: [04-7_Implementation_Class_Diagram.md](./04_Detail_Design/04-7_Implementation_Class_Diagram.md)
-
 目的: 後続機能が共有する基盤を作る。
 
-成果物:
-- Done: `backend/core/data_contracts.py`
-- Done: `backend/core/errors.py`
-- Done: `backend/core/config.py`
-- Done: core 向けユニットテスト
+完了済み:
 
-主な内容:
-- Done: `Symbol`, `FxRate`, `TradeIntent`, `Position`, `DailySnapshot` などの Pydantic モデル
-- Done: `Bar`, `Quote` など MarketData MVP で使う基本データ型
-- Done: `AppError`, `DataSourceError`, `RateLimitError`, `SchemaMismatchError` などの共通例外
-- Done: `base_currency`, `dataaccess.provider`, cache TTL などの最小設定モデル
+- `backend/core/data_contracts.py`
+- `backend/core/errors.py`
+- `backend/core/config.py`
+- Pydantic v2 の domain contracts
+- domain-specific error
+- YAML settings loading through `SMAI_CONFIG_FILE`
 
-完了条件:
-- Done: core のユニットテストが通る
-- Done: 後続フェーズから import できる型と例外が揃っている
-- Done: `SMAI_CONFIG_FILE` で YAML 設定を読み込める
-- Remaining: `.env` や個別環境変数による設定上書き
+残り:
+
+- `.env` や個別環境変数による設定上書き
 
 ### Phase 2: MarketData MVP
 
 Status: MVP complete
 
-Design diagrams:
-- [04-2_Onepager_marketdata_dataaccess.md](./04_Detail_Design/04-2_Onepager_marketdata_dataaccess.md)
-- [04-5_Onepager_Feature_Builder.md](./04_Detail_Design/04-5_Onepager_Feature_Builder.md)
-- [04-7_Implementation_Class_Diagram.md](./04_Detail_Design/04-7_Implementation_Class_Diagram.md)
+目的: 外部 API なしで market data を扱える基盤を作る。
 
-目的: 外部 API に依存しない形で価格・為替・スナップショットの入力を作る。
+完了済み:
 
-成果物:
-- Done: `backend/marketdata/data_access.py`
-- Done: `backend/marketdata/feature_builder.py`
-- Done: MarketData 向けユニットテスト
+- `mock` provider
+- `csv` provider
+- `fetch_ohlcv`
+- `fetch_quotes`
+- `get_fx_rates`
+- `compute_adv`
+- `compute_vol`
+- `build_daily_snapshot`
+- local sample CSV
 
-主な内容:
-- Done: `mock` provider による `fetch_ohlcv`, `fetch_quotes`, `get_fx_rates`
-- Done: `csv` provider によるローカル CSV からの `fetch_ohlcv`, `fetch_quotes`, `get_fx_rates`
-- Done: `compute_adv`
-- Done: `compute_vol`
-- Done: `build_daily_snapshot`
-- Remaining: `yahoo` provider
-- Remaining: 配当利回り、発行株式数、営業日カレンダーの正式データ源
+残り:
 
-完了条件:
-- Done: ネットワークなしで MarketData のテストが通る
-- Done: `DailySnapshot` を生成できる
-- Done: Risk / Portfolio の入力として使える最小項目が揃っている
+- live provider adapter
+- 配当利回り、発行株式数、営業日 calendar などの正式データ連携
 
 ### Phase 3: Risk MVP
 
-Status: MVP initial service and API complete
+Status: MVP complete
 
 目的: 取引前チェックの最小ルールエンジンを作る。
 
-成果物:
-- Done: `backend/risk/service.py`
-- Done: Risk 向けユニットテスト
-- Done: `POST /risk/pre-trade-check` FastAPI endpoint and deterministic API tests
+完了済み:
 
-主な内容:
-- `ALLOW`, `REVIEW`, `BLOCK` の判定
-- 1銘柄上限、バスケット上限、集中度、最低配当利回りなどのしきい値評価
-
-完了条件:
-- `TradeIntent` と `DailySnapshot` から判定できる
-- 判定理由をテストで検証できる
+- `backend/risk/service.py`
+- `POST /risk/pre-trade-check`
+- `ALLOW` / `REVIEW` / `BLOCK`
+- concentration、cash、dividend-yield missing などの MVP risk rule
+- deterministic tests
 
 ### Phase 4: Portfolio MVP
 
-Status: MVP initial service complete
+Status: MVP complete
 
-目的: シンプルな制約付きリバランス案を作る。
+目的: portfolio valuation と no-solver rebalance proposal を作る。
 
-成果物:
-- Done: `backend/portfolio/service.py`
-- Done: Portfolio 向けユニットテスト
+完了済み:
 
-主な内容:
-- 現在ポジションの JPY 評価
-- 集中度・配当利回りなどの制約評価
-- まずは最適化ソルバなしの単純提案から開始し、後で pulp / ortools に拡張
+- `backend/portfolio/service.py`
+- JPY base valuation
+- no-solver rebalance proposal
+- generated `TradeIntent`
+- Portfolio-to-Risk workflow の service-level 接続
 
-完了条件:
-- サンプルポートフォリオを評価できる
-- Risk に渡せる `TradeIntent` を生成できる
+残り:
+
+- optimizer library を使った最適化
+- より高度な constraint
 
 ### Phase 5: API and UI Integration
 
-目的: バックエンド機能を API / UI から呼び出せるようにする。
+Status: MVP complete
 
-成果物:
-- FastAPI ルーター
-- Streamlit UI の初期画面
-- API / UI の簡易テスト
+目的: backend 機能を API / UI から確認できるようにする。
 
-主な内容:
-- 銘柄リスト入力
-- スナップショット生成
-- リスク判定
-- レポート出力への接続準備
+完了済み:
 
-完了条件:
-- ローカルで主要フローを手動確認できる
-- `/health` 以外の最小 API が動作する
-
-## 5. Near-Term Decision
-
-次に着手する推奨範囲は **Multi-Model Investment Intelligence** です。外部データ取得、特徴量管理、銘柄スコアリング、複数モデル予測、可視化、判断補助レポートを優先します。
-
-理由:
-- Phase 1 の最小 core 基盤は追加済み。
-- Phase 2 の mock MarketData で `DailySnapshot` を生成できる。
-- Phase 3 の最小 RiskService と API は追加済み。
-- Phase 4 の最小 PortfolioService は追加済み。
-- Portfolio が生成した `TradeIntent` は service-level workflow で Risk 判定へ接続済み。
-- Done: Portfolio-to-Risk workflow can now be called through `POST /portfolio/rebalance-check`.
-- Done: Swagger UI now has tags, summaries, descriptions, and request examples for current MVP APIs.
-- Done: YAML settings can be loaded through `SMAI_CONFIG_FILE`.
-- Done: `POST /portfolio/rebalance-check` can be manually checked with an example request and demo script.
-- Done: CSV provider can be smoke-checked through `config/csv_example.yaml` and `data/marketdata`.
-- Done: A minimal Streamlit UI can run the Portfolio-to-Risk rebalance-check workflow.
-- Done: Rebalance UI samples can be loaded from `examples/rebalance_scenarios/`.
-- Done: Reporting MVP can export JSON, CSV, Markdown, manifest, and ZIP locally.
-- Done: External provider preparation is complete without introducing network-dependent default behavior.
-- Next: start the Multi-Model Investment Intelligence roadmap with External Data Ingestion MVP, Feature Store Lite, Screening Score MVP, and Forecast Lab Baseline.
-  次は Multi-Model Investment Intelligence roadmap として、External Data Ingestion MVP、Feature Store Lite、Screening Score MVP、Forecast Lab Baseline へ進む。
-
-## 6. Next Roadmap / 次期ロードマップ
-
-### Phase 5.5: MVP Stabilization
-
-Goal: make the current Portfolio-to-Risk API/UI workflow easy to run, verify, and explain as a local MVP.
-目的: 現在の Portfolio-to-Risk API/UI workflow を、ローカル MVP として起動・確認・説明しやすい状態に固める。
-
-Scope:
-- synchronize README, `PROJECT_CONTEXT.md`, roadmap, API docs, UI guide, and manual workflow docs
-- keep local verification commands aligned with CI where practical
-- polish the Streamlit rebalance-check UX without expanding into unrelated workflows
-- keep deterministic `mock` / `csv` behavior as the default path
-
-Completion criteria:
-- Done: 新しい contributor が README、手動確認手順、UI ガイドから API と Streamlit UI を起動できる
-- Done: `Default rebalance` と `No trades` を UI ガイドから手動確認できる
-- Done: local MVP checks can be run through `tools/run_local_checks.py`
-- `ruff`, `mypy`, and `pytest` pass in the project virtual environment
-- docs describe the current MVP without stale UI/API status
+- FastAPI app wiring
+- Swagger / OpenAPI metadata
+- `POST /portfolio/rebalance-check`
+- Streamlit rebalance-check UI
+- sample selector
+- target controls
+- allocation comparison
+- result download
 
 ### Phase 6: CSV Data And Scenario Expansion
 
-Goal: improve local, deterministic validation before introducing network-dependent providers.
-目的: ネットワーク依存 provider を入れる前に、ローカルで再現可能な検証範囲を広げる。
+Status: MVP complete
 
-Scope:
-- expand sample symbols and OHLCV date coverage under `data/marketdata`
-- define how dividend yield and market-cap-like fields should be represented locally
-- add deterministic scenarios that exercise `ALLOW`, `REVIEW`, `BLOCK`, and `NO_TRADES`
-- document CSV and scenario conventions
+目的: local / deterministic な検証範囲を広げる。
 
-Completion criteria:
-- CSV provider can reproduce the main UI/manual workflow scenarios
-- risk outcomes can be checked with local files only
-- CI remains fully offline and deterministic
+完了済み:
+
+- `data/marketdata` sample CSV
+- `config/csv_example.yaml`
+- `examples/rebalance_scenarios/`
+- CSV provider smoke check
+- deterministic scenarios
 
 ### Phase 7: Config And Scenario Management
 
-Goal: make examples and UI samples configurable without editing Python code.
-目的: Python コードを編集せずに example や UI sample を追加・切り替えできるようにする。
+Status: MVP complete
 
-Scope:
-- load scenario JSON/YAML files from `examples/` or a configured local directory
-- extend the Streamlit sample selector to include file-backed scenarios
-- improve validation messages for malformed scenarios and settings
-- evaluate environment-variable support beyond `SMAI_CONFIG_FILE`
+目的: Python code を編集せずに scenario を追加・切り替えられるようにする。
 
-Completion criteria:
-- Done: a new rebalance scenario can be added as JSON data under `examples/rebalance_scenarios/`
-- Done: Streamlit can load rebalance scenario JSON from `SMAI_REBALANCE_SCENARIO_DIR`.
-- Done: invalid configured rebalance scenario paths fail with beginner-friendly errors.
-- Done: scenario JSON can include a `description` that is shown in the Streamlit UI.
-- Done: invalid scenario/config files fail with beginner-friendly errors
-- Done: existing default scenarios remain deterministic
+完了済み:
+
+- file-backed rebalance scenario
+- `SMAI_REBALANCE_SCENARIO_DIR`
+- scenario `description`
+- invalid scenario/config error handling
+- UI sample selector integration
 
 ### Phase 8: Reporting MVP
 
-Goal: make manual verification results easier to preserve and share locally.
-目的: 手動確認結果をローカルで保存・共有しやすくする。
+Status: MVP complete
 
-Scope:
-- extend JSON download toward CSV/table exports for summary, allocation comparison, proposed trades, and risk breaches
-- define a lightweight report context model if needed
-- document what is MVP export versus future PDF/Excel reporting
+目的: 手動確認結果を保存・共有しやすくする。
 
-Completion criteria:
-- Done: report rows are gathered through a lightweight `RebalanceReportContext` shared by UI rendering and report exports.
-- Done: summary, allocation, trade, and risk-breach tables can be downloaded as local CSV files from the Streamlit UI.
-- Done: JSON and CSV report files can be downloaded together as a local ZIP from the Streamlit UI.
-- Done: report ZIP includes a deterministic manifest that explains the exported files.
-- Done: report ZIP includes the validated request JSON used to run the rebalance check.
-- Done: Streamlit can download a human-readable Markdown report summary.
-- Done: Markdown report includes allocation comparison and proposed-trade tables.
-- Done: Markdown report includes current-position and target-allocation tables.
-- Done: rebalance-check results can be saved in table-friendly CSV and human-readable Markdown formats.
-- Done: report/export behavior stays local and deterministic.
-- Done: MVP export is limited to JSON, CSV, Markdown, manifest, and ZIP; PDF/Excel reporting is future work.
+完了済み:
+
+- `RebalanceReportContext`
+- JSON download
+- CSV downloads
+- Markdown report
+- manifest
+- ZIP export
+- validated request JSON export
+
+残り:
+
+- PDF / Excel export
+- broader reporting workflow
 
 ### Phase 9: External Data Provider Preparation
 
-Goal: add a safe path toward external market data without making the MVP network-dependent by default.
-目的: MVP の既定経路をネットワーク依存にせず、外部 market data 取得へ進む安全な道筋を作る。
+Status: MVP complete
 
-Scope:
-- design an explicit opt-in provider such as `yahoo`
-- keep `mock` as the default and `csv` as the deterministic local integration path
-- add timeout, rate-limit, unavailable-data, and schema-mismatch error handling
-- keep CI tests mocked/offline even after live provider support is introduced
-- document setup, limitations, and failure modes for external data
+目的: MVP の既定経路を network-dependent にせず、将来の live provider 実装口を作る。
 
-Completion criteria:
-- Done: planned live providers such as `yahoo` and `polygon` are rejected with explicit MVP opt-in status.
-- Done: provider unavailable and timeout failures have dedicated domain errors for future API mapping.
-- Done: live providers require `dataaccess.allow_external_providers: true` before reaching future implementation paths.
-- Done: provider opt-in, unavailable, and timeout failures are covered by structured API response tests and OpenAPI response metadata.
-- Done: provider rate-limit and schema-mismatch failures are covered by structured API response tests.
-- Done: provider capability metadata is centralized in a registry before live adapter implementation.
-- Done: external data can be enabled only through explicit config.
-- Done: no CI or default local workflow requires network access.
-- Done: provider failures map to domain errors and API responses consistently.
-- Done: docs clearly distinguish deterministic MVP behavior from live-data behavior.
+完了済み:
 
-## 7. Multi-Model Investment Intelligence Roadmap
+- `dataaccess.allow_external_providers`
+- provider registry
+- `mock` / `csv` / `yahoo` / `polygon` capability metadata
+- provider opt-in rejection
+- provider unavailable / timeout / rate limit / schema mismatch error mapping
+- structured API response tests
+- OpenAPI response metadata
 
-この章は、Phase 9 までの MVP 完了後に進める次期ロードマップをまとめます。
+残り:
 
-Phase 9 完了後の重点は、Execution ではなく、外部データ取得、特徴量管理、銘柄スコアリング、複数モデル予測、可視化、判断補助レポートです。
-Execution / broker order 送信は将来領域として残しますが、今回のロードマップでは優先順位を下げます。
+- `yahoo` live adapter
+- `polygon` live adapter
+- live provider smoke check 手順
+
+## 5. 次期ロードマップ
+
+次期重点は **Multi-Model Investment Intelligence** です。
+
+注文執行ではなく、外部データ取得、特徴量管理、銘柄スコアリング、複数モデル予測、可視化、判断補助レポートを優先します。
+Execution / broker order 送信は重要な将来領域ですが、今回のロードマップでは優先度を下げます。
 
 ### Phase 10: External Data Ingestion MVP
 
-Goal: 外部 MarketData provider を明示 opt-in の範囲で実装し、既存の deterministic 経路を保ったまま実データ取得の入口を作る。
+目的: 外部 MarketData provider から実データを取得する最小経路を作る。
 
 Scope:
-- live provider adapter の共通インターフェースを整理する
-- `yahoo` など最初の provider を opt-in で実装する
-- `Bar` / `Quote` / `FxRate` へ正規化する
-- rate limit、timeout、provider unavailable、schema mismatch を一貫した domain error と API response にする
+
+- live provider adapter interface を整理する
+- 最初の provider 候補を opt-in で実装する
+- 取得結果を `Bar` / `Quote` / `FxRate` へ正規化する
+- rate limit、timeout、provider unavailable、schema mismatch を domain error と API response に mapping する
 - CI は外部 API に依存させない
 
-Completion criteria:
+完了条件:
+
 - 設定で明示した場合だけ live provider が呼ばれる
 - live provider なしで local checks が通る
-- failure mode が API / docs / tests で説明されている
+- failure mode が tests / API / docs で説明されている
 
 ### Phase 11: Feature Store Lite
 
-Goal: screening と forecast で再利用する銘柄特徴量 snapshot を定義する。
+目的: screening と forecast で再利用する特徴量 snapshot を定義する。
 
 Scope:
+
 - feature snapshot contract を追加する
 - return、volatility、momentum、ADV、drawdown、data completeness を計算する
 - `dividend_yield`、`market_cap_jpy` など外部データ由来項目の扱いを整理する
 - as-of date、provider metadata、feature version を保持する
 
-Completion criteria:
+完了条件:
+
 - 銘柄ごとに同じ形式の特徴量を取得できる
-- 欠損理由を追える
+- 欠損理由を追跡できる
 - screening / forecast / report から再利用できる
 
 ### Phase 12: Screening Score MVP
 
-Goal: 銘柄を ranking し、スコアの理由を説明できるようにする。
+目的: 銘柄を ranking し、スコア理由を説明できるようにする。
 
 Scope:
+
 - `ScreeningService` を追加する
 - momentum、liquidity、risk、data quality などの sub score を定義する
 - `ScoreBreakdown` を返す
 - API / Streamlit から ranking を確認できるようにする
 
-Completion criteria:
+完了条件:
+
 - 複数銘柄を deterministic に順位付けできる
 - score breakdown がテストされている
 - UI / report で順位の理由を確認できる
 
 ### Phase 13: Forecast Lab Baseline
 
-Goal: 複数 forecast model を比較するための最小基盤を作る。
+目的: 複数 forecast model を比較するための最小基盤を作る。
 
 Scope:
+
 - `ForecastModel` protocol / base class を定義する
 - naive、moving average、momentum baseline を実装する
 - time split / walk-forward 評価を用意する
 - MAE、RMSE、direction accuracy などの metrics を返す
 
-Completion criteria:
-- 複数 baseline を同じインターフェースで実行できる
+完了条件:
+
+- 複数 baseline を同じ interface で実行できる
 - data leakage を避ける評価手順がある
 - forecast result と metrics を保存・表示できる
 
 ### Phase 14: Multi-Model Forecasting
 
-Goal: 複数モデルの予測結果を並べ、合意度と不確実性を扱えるようにする。
+目的: 複数モデルの予測結果を並べ、合意度と不確実性を扱えるようにする。
 
 Scope:
+
 - model registry lite を追加する
 - horizon、入力特徴量、出力形式を揃える
 - ensemble、median forecast、model agreement / disagreement を計算する
 - forecast summary を scoring に接続する
 
-Completion criteria:
-- モデルごとの予測結果を比較できる
-- モデル間で意見が割れている銘柄を見つけられる
+完了条件:
+
+- model ごとの予測結果を比較できる
+- model 間で意見が割れている銘柄を見つけられる
 - forecast summary が investment score に利用できる
 
 ### Phase 15: Model-Informed Scoring
 
-Goal: screening、forecast、risk、data quality を統合した投資判断補助スコアを作る。
+目的: screening、forecast、risk、data quality を統合した投資判断補助スコアを作る。
 
 Scope:
+
 - investment score contract を定義する
 - score breakdown に加点・減点理由を含める
 - forecast confidence と model disagreement を score に反映する
 - YAML で score weight を調整できるようにする
 
-Completion criteria:
+完了条件:
+
 - 銘柄ごとに総合スコアと内訳を返せる
-- データ品質が低い場合やモデル不一致が大きい場合に注意表示できる
+- データ品質が低い場合や model 不一致が大きい場合に注意表示できる
 - deterministic tests で計算結果を検証できる
 
 ### Phase 16: Visualization Cockpit
 
-Goal: ranking、予測、スコア内訳、モデル比較を UI で確認しやすくする。
+目的: ranking、予測、スコア内訳、モデル比較を UI で確認しやすくする。
 
 Scope:
+
 - ranking table
 - score breakdown chart
 - forecast horizon chart
 - model comparison / agreement view
 - risk and data-quality warnings
 
-Completion criteria:
-- ユーザーがランキングから詳細へ進める
+完了条件:
+
+- ユーザーが ranking から詳細へ進める
 - 予測とスコア理由を同じ画面で確認できる
 - UI は注文送信を行わず、判断補助に限定されている
 
 ### Phase 17: Research Model Adapters
 
-Goal: 最新研究や高度なモデルを optional adapter として試せる構造を作る。
+目的: 最新研究や高度なモデルを optional adapter として試せる構造を作る。
 
 Scope:
+
 - tree model、sequence model、Transformer、foundation model、sentiment model の adapter 方針を整理する
 - model card を用意する
 - heavy dependency は optional に分離する
 - offline fixture で adapter contract をテストする
 
-Completion criteria:
+完了条件:
+
 - 実験モデルを既定経路から分離して追加できる
-- モデルごとの入力、出力、制約、検証結果を追跡できる
+- model ごとの入力、出力、制約、検証結果を追跡できる
 - production-like 経路へ入れる前に評価できる
 
 ### Phase 18: Decision Report
 
-Goal: ユーザーが判断材料を読み取れる report を出力する。
+目的: ユーザーが判断材料を読み取れる report を出力する。
 
 Scope:
+
 - score、forecast、risk、data quality を report context にまとめる
-- モデル間の一致・不一致と注意点を文章化する
+- model 間の一致・不一致と注意点を文章化する
 - Markdown / JSON / CSV / ZIP export を拡張する
 
-Completion criteria:
+完了条件:
+
 - report だけで主要な判断材料を確認できる
 - 予測の限界と注意点が明記されている
 - 既存の deterministic export 方針を保っている
 
-## 8. Verification Notes
+## 6. 検証コマンド
 
-重い全体チェックは避け、当面は対象を絞って実行する。
+基本確認:
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\run_local_checks.py
-.\venv_SMAI\Scripts\python.exe -m pytest tests -q
-.\venv_SMAI\Scripts\python.exe -m ruff check backend tests --no-cache
 ```
 
-`tools/run_local_checks.py` は local MVP の基本確認用 helper として、cache-free の Black check、`ruff`、`pytest` を順に実行する。
-`black` と `mypy` は CI で継続確認し、ローカルでは必要に応じて個別に実行する。
+個別確認:
 
-## 9. Open Items
+```powershell
+.\venv_SMAI\Scripts\python.exe -m pytest tests -q
+.\venv_SMAI\Scripts\python.exe -m ruff check backend tests --no-cache
+.\venv_SMAI\Scripts\python.exe -m mypy .
+```
 
-- README と詳細設計 README のリンク整合性を確認する。
-- CI が `.venv` / `venv_*` を走査しないよう、必要なら設定を追加する。
-- `setup/SETUP.md` 内の仮想環境名表記を `venv_SMAI` に統一する。
-- `yfinance` / 最適化ライブラリの導入タイミングを決める。
+`tools/run_local_checks.py` は、cache-free Black check、`ruff`、`pytest` を順に実行します。
+重い確認は必要なタイミングで対象を絞って実行します。
+
+## 7. Open Items
+
+- `setup/SETUP.md` 内の仮想環境名を `venv_SMAI` に統一する
+- `SMAI_CONFIG_FILE` 以外の環境変数設定を拡張するか判断する
+- live provider adapter の最初の候補を決める
+- Feature Store Lite の contract を定義する
+- Screening Score MVP の score breakdown を設計する
+- Forecast Lab Baseline の評価手順を定義する

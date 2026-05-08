@@ -243,9 +243,10 @@ Scope:
 - Done: live provider adapter metadata を `backend/marketdata/live_provider_adapters.py` に分離する
 - Done: live provider adapter interface を `backend/marketdata/provider_adapters.py` の `MarketDataProviderAdapter` protocol として定義する
 - Done: provider adapter factory を `backend/marketdata/provider_factory.py` に追加する
+- Done: Streamlit UI に deterministic provider で動く Market Data preview tab を追加する
 - 最初の provider 候補を opt-in stub として実装する
 - 取得結果を `Bar` / `Quote` / `FxRate` へ正規化する
-- Streamlit UI に external provider 確認 view を追加する
+- live provider の取得結果を Streamlit UI の Market Data tab で確認できるようにする
 - UI 上で取得した quote / OHLCV summary / FX rate / provider metadata を確認できるようにする
 - rate limit、timeout、provider unavailable、schema mismatch を domain error と API response に mapping する
 - CI は外部 API に依存させない

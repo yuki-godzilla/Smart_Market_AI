@@ -12,6 +12,7 @@ from backend.app.main import RebalanceCheckRequest
 from backend.portfolio.workflow import PortfolioRiskResult
 from ui.rebalance_app import (
     RebalanceScenarioError,
+    build_market_data_preview,
     build_rebalance_report_context,
     build_rebalance_request,
     get_rebalance_sample,
@@ -32,6 +33,8 @@ from ui.rebalance_app import (
 def main() -> None:
     st.set_page_config(page_title="Smart Market AI", layout="wide")
     st.title("Smart Market AI")
+
+    rebalance_tab, market_data_tab = st.tabs(["Rebalance", "Market Data"])
 
     with st.sidebar:
         _render_runtime_settings()
@@ -74,51 +77,55 @@ def main() -> None:
             ),
         )
 
-    col_positions, col_targets = st.columns(2)
-    with col_positions:
-        positions_json = st.text_area(
-            "Positions",
-            value=sample.positions_json,
-            height=280,
-            key=sample_widget_key(sample_name, "positions"),
-        )
-    with col_targets:
-        generated_targets_json = target_allocations_json(
-            toyota_weight=Decimal(100 - apple_target_weight) / Decimal("100"),
-            apple_weight=Decimal(apple_target_weight) / Decimal("100"),
-        )
-        targets_json = st.text_area(
-            "Targets",
-            value=generated_targets_json,
-            height=280,
-            key=sample_widget_key(sample_name, "targets"),
-        )
-
-    if st.button("Run rebalance check", type="primary"):
-        try:
-            request = build_rebalance_request(
-                account_id=account_id,
-                as_of=_single_date_from_input(as_of),
-                cash_jpy=_decimal_from_text(cash_jpy_text),
-                positions_json=positions_json,
-                targets_json=targets_json,
+    with rebalance_tab:
+        col_positions, col_targets = st.columns(2)
+        with col_positions:
+            positions_json = st.text_area(
+                "Positions",
+                value=sample.positions_json,
+                height=280,
+                key=sample_widget_key(sample_name, "positions"),
             )
-            result = asyncio.run(run_rebalance_check(request))
-        except InvalidOperation:
-            st.error("Cash JPY must be a decimal number.")
-            return
-        except ValueError as exc:
-            st.error(str(exc))
-            return
-        except ValidationError as exc:
-            st.error("Request validation failed.")
-            st.json(exc.errors())
-            return
-        except Exception as exc:  # noqa: BLE001
-            st.error(str(exc))
-            return
+        with col_targets:
+            generated_targets_json = target_allocations_json(
+                toyota_weight=Decimal(100 - apple_target_weight) / Decimal("100"),
+                apple_weight=Decimal(apple_target_weight) / Decimal("100"),
+            )
+            targets_json = st.text_area(
+                "Targets",
+                value=generated_targets_json,
+                height=280,
+                key=sample_widget_key(sample_name, "targets"),
+            )
 
-        _render_result(result, request)
+        if st.button("Run rebalance check", type="primary"):
+            try:
+                request = build_rebalance_request(
+                    account_id=account_id,
+                    as_of=_single_date_from_input(as_of),
+                    cash_jpy=_decimal_from_text(cash_jpy_text),
+                    positions_json=positions_json,
+                    targets_json=targets_json,
+                )
+                result = asyncio.run(run_rebalance_check(request))
+            except InvalidOperation:
+                st.error("Cash JPY must be a decimal number.")
+                return
+            except ValueError as exc:
+                st.error(str(exc))
+                return
+            except ValidationError as exc:
+                st.error("Request validation failed.")
+                st.json(exc.errors())
+                return
+            except Exception as exc:  # noqa: BLE001
+                st.error(str(exc))
+                return
+
+            _render_result(result, request)
+
+    with market_data_tab:
+        _render_market_data_preview()
 
 
 def _decimal_from_text(value: str) -> Decimal:
@@ -152,6 +159,54 @@ def _render_runtime_settings() -> None:
 def _render_symbol_reference() -> None:
     st.caption("Sample Symbols")
     st.dataframe(symbol_reference_rows(), hide_index=True, use_container_width=True)
+
+
+def _render_market_data_preview() -> None:
+    st.subheader("Market Data")
+    col_symbol, col_start, col_end = st.columns(3)
+    with col_symbol:
+        symbol = st.text_input("Symbol", value="AAPL", key="market_data_symbol")
+    with col_start:
+        start = st.date_input("Start", value=date(2026, 4, 7), key="market_data_start")
+    with col_end:
+        end = st.date_input("End", value=date(2026, 4, 9), key="market_data_end")
+
+    if st.button("Fetch market data", key="fetch_market_data"):
+        try:
+            preview = asyncio.run(
+                build_market_data_preview(
+                    symbol=symbol.strip(),
+                    start=_single_date_from_input(start),
+                    end=_single_date_from_input(end),
+                )
+            )
+        except ValueError as exc:
+            st.error(str(exc))
+            return
+        except Exception as exc:  # noqa: BLE001
+            st.error(str(exc))
+            return
+
+        if preview.status == "OK":
+            st.success("Market data fetched.")
+        else:
+            st.error("Market data fetch failed.")
+
+        st.subheader("Provider")
+        _render_table(preview.provider_rows, "No provider metadata.")
+
+        st.subheader("Quote")
+        _render_table(preview.quote_rows, "No quote rows.")
+
+        st.subheader("OHLCV Summary")
+        _render_table(preview.ohlcv_rows, "No OHLCV rows.")
+
+        st.subheader("FX")
+        _render_table(preview.fx_rows, "No FX rows.")
+
+        if preview.error_rows:
+            st.subheader("Errors")
+            st.dataframe(preview.error_rows, hide_index=True, use_container_width=True)
 
 
 def _render_result(result: PortfolioRiskResult, request: RebalanceCheckRequest) -> None:

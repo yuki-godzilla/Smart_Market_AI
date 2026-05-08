@@ -18,12 +18,15 @@ from ui.rebalance_app import (
     RebalanceScenarioError,
     allocation_comparison_rows,
     build_default_rebalance_request,
+    build_market_data_preview,
     build_rebalance_report_context,
     build_rebalance_request,
     current_position_rows,
     get_rebalance_sample,
     load_rebalance_samples,
+    ohlcv_summary_rows,
     proposed_trade_rows,
+    provider_metadata_rows,
     rebalance_sample_names,
     rebalance_scenario_dir,
     request_json_download,
@@ -224,6 +227,78 @@ def test_runtime_settings_summary_reports_default_provider(monkeypatch):
     assert summary["config_file"] == "defaults"
     assert summary["csv_data_dir"] == "data/marketdata"
     assert summary["scenario_dir"] == str(PROJECT_ROOT / "examples/rebalance_scenarios")
+
+
+def test_provider_metadata_rows_include_default_provider_details(monkeypatch):
+    monkeypatch.delenv("SMAI_CONFIG_FILE", raising=False)
+
+    assert provider_metadata_rows("mock") == [
+        {"field": "provider", "value": "mock"},
+        {"field": "registered", "value": "True"},
+        {"field": "implemented", "value": "True"},
+        {"field": "deterministic", "value": "True"},
+        {"field": "requires_external_opt_in", "value": "False"},
+        {"field": "supported_providers", "value": "mock, csv"},
+        {"field": "planned_live_providers", "value": "yahoo, polygon"},
+        {"field": "adapter_registered", "value": "False"},
+    ]
+
+
+def test_build_market_data_preview_returns_mock_rows(monkeypatch):
+    monkeypatch.delenv("SMAI_CONFIG_FILE", raising=False)
+
+    preview = asyncio.run(
+        build_market_data_preview(
+            symbol="AAPL",
+            start=date(2026, 4, 7),
+            end=date(2026, 4, 9),
+        )
+    )
+
+    assert preview.status == "OK"
+    assert preview.quote_rows[0]["symbol"] == "AAPL"
+    assert preview.quote_rows[0]["last"] == "175"
+    assert preview.ohlcv_rows == [
+        {
+            "symbol": "AAPL",
+            "bars": "3",
+            "first_ts": "2026-04-07T00:00:00+00:00",
+            "last_ts": "2026-04-09T00:00:00+00:00",
+            "first_close": "170",
+            "last_close": "175",
+            "total_volume": "182000000",
+            "provider": "mock",
+        }
+    ]
+    assert preview.fx_rows[0]["pair"] == "USDJPY"
+    assert preview.error_rows == []
+
+
+def test_build_market_data_preview_returns_provider_error(monkeypatch):
+    monkeypatch.setenv(
+        "SMAI_CONFIG_FILE",
+        "tests/fixtures/config/live_provider_no_opt_in.yaml",
+    )
+
+    preview = asyncio.run(
+        build_market_data_preview(
+            symbol="AAPL",
+            start=date(2026, 4, 7),
+            end=date(2026, 4, 9),
+        )
+    )
+
+    assert preview.status == "ERROR"
+    assert preview.quote_rows == []
+    assert preview.ohlcv_rows == []
+    assert preview.fx_rows == []
+    assert preview.error_rows[0]["code"] == "APP-2000"
+    assert preview.error_rows[0]["message"] == "Live market-data provider requires explicit opt-in"
+    assert "explicit_config_required" in preview.error_rows[0]["details"]
+
+
+def test_ohlcv_summary_rows_returns_empty_rows_for_no_bars():
+    assert ohlcv_summary_rows([]) == []
 
 
 def test_rebalance_result_formatters_create_table_rows():

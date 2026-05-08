@@ -4,7 +4,7 @@ import csv
 import json
 import os
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from io import BytesIO, StringIO
 from pathlib import Path
@@ -15,6 +15,11 @@ from pydantic import ValidationError
 
 from backend.app.main import RebalanceCheckRequest, create_portfolio_risk_workflow
 from backend.core.config import CONFIG_FILE_ENV, get_settings
+from backend.core.data_contracts import Bar
+from backend.core.errors import AppError
+from backend.marketdata import create_market_data_provider_adapter
+from backend.marketdata.live_provider_adapters import live_provider_adapter_details
+from backend.marketdata.provider_registry import provider_capability_details
 from backend.portfolio.service import RebalanceProposal
 from backend.portfolio.workflow import PortfolioRiskResult
 
@@ -126,6 +131,18 @@ class RebalanceReportContext:
     allocation_rows: list[dict[str, str]]
     trade_rows: list[dict[str, str]]
     breach_rows: list[dict[str, str]]
+
+
+@dataclass(frozen=True)
+class MarketDataPreview:
+    """Market-data provider preview rows used by the Streamlit UI."""
+
+    status: str
+    provider_rows: list[dict[str, str]]
+    quote_rows: list[dict[str, str]]
+    ohlcv_rows: list[dict[str, str]]
+    fx_rows: list[dict[str, str]]
+    error_rows: list[dict[str, str]]
 
 
 class RebalanceScenarioError(ValueError):
@@ -268,6 +285,102 @@ def runtime_settings_summary() -> dict[str, str]:
         "config_file": os.getenv(CONFIG_FILE_ENV) or "defaults",
         "scenario_dir": str(rebalance_scenario_dir()),
     }
+
+
+async def build_market_data_preview(
+    *,
+    symbol: str,
+    start: date,
+    end: date,
+    fx_pair: str = "USDJPY",
+) -> MarketDataPreview:
+    """Fetch a small market-data preview for the configured provider."""
+
+    settings = get_settings()
+    provider = settings.dataaccess.provider
+    start_dt = datetime.combine(start, time.min, tzinfo=UTC)
+    end_dt = datetime.combine(end, time.max, tzinfo=UTC)
+    provider_rows = provider_metadata_rows(provider)
+
+    try:
+        adapter = create_market_data_provider_adapter(settings.dataaccess)
+        quotes = await adapter.fetch_quotes([symbol], at=end_dt)
+        bars = await adapter.fetch_ohlcv([symbol], start=start_dt, end=end_dt)
+        fx_rates = await adapter.get_fx_rates([fx_pair], at=end_dt)
+    except AppError as exc:
+        return MarketDataPreview(
+            status="ERROR",
+            provider_rows=provider_rows,
+            quote_rows=[],
+            ohlcv_rows=[],
+            fx_rows=[],
+            error_rows=[
+                {
+                    "code": exc.code,
+                    "message": exc.message,
+                    "details": json.dumps(exc.details, ensure_ascii=False, sort_keys=True),
+                }
+            ],
+        )
+
+    return MarketDataPreview(
+        status="OK",
+        provider_rows=provider_rows,
+        quote_rows=[
+            {
+                "symbol": quote.symbol.raw,
+                "exchange": quote.symbol.exchange,
+                "bid": _format_optional_decimal(quote.bid),
+                "ask": _format_optional_decimal(quote.ask),
+                "last": _format_optional_decimal(quote.last),
+                "ts": quote.ts.isoformat(),
+            }
+            for quote in quotes
+        ],
+        ohlcv_rows=ohlcv_summary_rows(bars),
+        fx_rows=[
+            {
+                "pair": rate.pair,
+                "rate": _format_decimal(rate.rate),
+                "ts": rate.ts.isoformat(),
+                "source": rate.source,
+            }
+            for rate in fx_rates
+        ],
+        error_rows=[],
+    )
+
+
+def provider_metadata_rows(provider: str) -> list[dict[str, str]]:
+    """Return provider metadata rows for UI display."""
+
+    details = provider_capability_details(provider)
+    details.update(live_provider_adapter_details(provider))
+    return [
+        {"field": key, "value": _stringify_metadata_value(value)} for key, value in details.items()
+    ]
+
+
+def ohlcv_summary_rows(bars: list[Bar]) -> list[dict[str, str]]:
+    """Return compact OHLCV summary rows grouped for UI display."""
+
+    if not bars:
+        return []
+    first = bars[0]
+    last = bars[-1]
+    volume = sum((bar.volume for bar in bars), Decimal("0"))
+    return [
+        {
+            "symbol": first.symbol.raw,
+            "bars": str(len(bars)),
+            "first_ts": first.ts.isoformat(),
+            "last_ts": last.ts.isoformat(),
+            "first_close": _format_decimal(first.close),
+            "last_close": _format_decimal(last.close),
+            "total_volume": _format_decimal(volume),
+            "provider": last.provider,
+        }
+    ]
 
 
 async def run_rebalance_check(request: RebalanceCheckRequest) -> PortfolioRiskResult:
@@ -707,6 +820,12 @@ def _format_optional_decimal(value: Decimal | None) -> str:
     if value is None:
         return ""
     return _format_decimal(value)
+
+
+def _stringify_metadata_value(value: object) -> str:
+    if isinstance(value, list):
+        return ", ".join(str(item) for item in value)
+    return str(value)
 
 
 def _slug(value: str) -> str:

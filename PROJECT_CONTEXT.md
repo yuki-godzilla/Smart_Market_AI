@@ -24,6 +24,7 @@ The current codebase provides:
 - deterministic manual workflow guide and example request for Portfolio-to-Risk checks / Portfolio-to-Risk チェック向けの決定的な手動確認ガイドとサンプル request
 - local sample CSV market-data files under `data/marketdata` / `data/marketdata` 配下のローカル CSV market-data サンプル
 - minimal Streamlit UI for the Portfolio-to-Risk workflow / Portfolio-to-Risk workflow 向けの最小 Streamlit UI
+- Streamlit Market Data preview tab for provider metadata and deterministic market-data checks / provider metadata と deterministic market-data 確認向けの Streamlit Market Data preview tab
 - file-backed deterministic rebalance scenarios under `examples/rebalance_scenarios` / `examples/rebalance_scenarios` 配下の file-backed deterministic rebalance scenario
 - local JSON/CSV/Markdown/manifest/ZIP reporting exports for rebalance-check results / rebalance-check 結果向けのローカル JSON/CSV/Markdown/manifest/ZIP reporting export
 - external market-data provider preparation with explicit opt-in gates / 明示 opt-in gate を持つ外部 market-data provider 準備
@@ -65,6 +66,7 @@ The implementation is still MVP-oriented. Risk, Portfolio, API, Streamlit UI, lo
 - Manual workflow example for `POST /portfolio/rebalance-check` / `POST /portfolio/rebalance-check` の手動確認 example
 - CSV provider sample config and data files for local smoke checks / ローカル smoke check 用の CSV provider 設定例とデータファイル
 - Streamlit UI entrypoint at `ui/app.py` / `ui/app.py` の Streamlit UI エントリポイント
+- Streamlit Market Data preview tab for provider metadata, quotes, OHLCV summary, FX, and provider errors / provider metadata、quotes、OHLCV summary、FX、provider error を表示する Streamlit Market Data preview tab
 - `examples/rebalance_scenarios/`
   file-backed rebalance-check UI samples / file-backed rebalance-check UI sample
 - pytest suite for current MVP modules / 現在の MVP モジュールを対象とした pytest 群
@@ -127,7 +129,7 @@ Based on code and roadmap documents, the project is effectively here:
 - Phase 7 Config And Scenario Management: implemented for file-backed rebalance scenarios / Phase 7 Config And Scenario Management: file-backed rebalance scenario 向けに実装済み
 - Phase 8 Reporting MVP: complete for JSON/CSV/Markdown/manifest/ZIP exports / Phase 8 Reporting MVP: JSON/CSV/Markdown/manifest/ZIP export として完了
 - Phase 9 External Data Provider Preparation: complete before live adapter implementation / Phase 9 External Data Provider Preparation: live adapter 実装前の準備として完了
-- Phase 10 External Data Ingestion MVP: started with planned live-provider adapter metadata, a shared `MarketDataProviderAdapter` protocol, and a provider adapter factory; its completion target now includes Streamlit UI confirmation of live-provider data and provider status. / Phase 10 External Data Ingestion MVP: planned live-provider adapter metadata、共通 `MarketDataProviderAdapter` protocol、provider adapter factory から着手。完了目標には、live provider の取得データと provider 状態を Streamlit UI で確認できることも含める。
+- Phase 10 External Data Ingestion MVP: started with planned live-provider adapter metadata, a shared `MarketDataProviderAdapter` protocol, a provider adapter factory, and a Streamlit Market Data preview tab; completion target still requires live-provider data retrieval. / Phase 10 External Data Ingestion MVP: planned live-provider adapter metadata、共通 `MarketDataProviderAdapter` protocol、provider adapter factory、Streamlit Market Data preview tab から着手。完了にはまだ live-provider data retrieval が必要。
 - Next recommended work: continue External Data Ingestion MVP by adding the first opt-in live-provider stub, then expose provider data/status in the Streamlit UI before moving to Feature Store Lite. / 次の推奨作業: 最初の opt-in live-provider stub を追加し、その後 Feature Store Lite へ進む前に provider data / status を Streamlit UI で確認できるようにする。
 
 ## Test And Verification Baseline / テストと確認の基準
@@ -189,6 +191,7 @@ Update this file when:
 
 ## Work Log / 作業ログ
 
+- 2026-05-08: Added a Streamlit Market Data preview tab that shows provider metadata, quote rows, OHLCV summary, FX rates, and provider error details for the configured provider. / 設定中 provider の provider metadata、quote rows、OHLCV summary、FX rates、provider error details を表示する Streamlit Market Data preview tab を追加した。
 - 2026-05-08: Expanded the Phase 10 completion target to include Streamlit UI confirmation of live-provider data and provider status. / Phase 10 の完了目標を拡張し、live provider の取得データと provider 状態を Streamlit UI で確認できることを含めた。
 - 2026-05-08: Added `create_market_data_provider_adapter()` as the configured factory entrypoint for deterministic and future live market-data adapters. / deterministic provider と将来の live market-data adapter の設定済み factory 入口として `create_market_data_provider_adapter()` を追加した。
 - 2026-05-08: Added the shared `MarketDataProviderAdapter` protocol and linked planned live-provider adapter metadata to that interface. / 共通 `MarketDataProviderAdapter` protocol を追加し、planned live-provider adapter metadata をその interface に紐づけた。

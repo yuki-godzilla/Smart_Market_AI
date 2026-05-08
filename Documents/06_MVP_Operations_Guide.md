@@ -203,6 +203,7 @@ Streamlit UI を起動します。
 
 UI で確認できる主な内容:
 
+- Market Data tab での provider metadata、quote、OHLCV summary、FX、error details
 - runtime settings
 - sample symbol reference
 - `Default rebalance` / `No trades` sample selector

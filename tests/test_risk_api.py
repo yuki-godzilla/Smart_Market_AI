@@ -110,6 +110,10 @@ def test_pre_trade_check_api_returns_live_provider_opt_in_error(monkeypatch):
         "message": "Live market-data provider requires explicit opt-in",
         "details": {
             "provider": "yahoo",
+            "registered": True,
+            "implemented": False,
+            "deterministic": False,
+            "requires_external_opt_in": True,
             "supported_providers": ["mock", "csv"],
             "planned_live_providers": ["yahoo", "polygon"],
             "allow_external_providers": False,
@@ -147,6 +151,10 @@ def test_pre_trade_check_api_returns_live_provider_not_implemented_error(monkeyp
         "message": "Live market-data providers are not implemented yet",
         "details": {
             "provider": "polygon",
+            "registered": True,
+            "implemented": False,
+            "deterministic": False,
+            "requires_external_opt_in": True,
             "supported_providers": ["mock", "csv"],
             "planned_live_providers": ["yahoo", "polygon"],
             "allow_external_providers": True,

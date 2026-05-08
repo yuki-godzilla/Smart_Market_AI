@@ -38,6 +38,7 @@ MVP の既定経路は引き続きネットワーク不要の `mock` / `csv` で
 - [MarketData CSV 形式](./Documents/08_MarketData_CSV_Format.md)
 - [手動確認手順](./Documents/09_Manual_Workflows.md)
 - [UI ガイド](./Documents/10_UI_Guide.md)
+- [外部 MarketData provider 準備](./Documents/11_External_MarketData_Providers.md)
 
 設計背景:
 

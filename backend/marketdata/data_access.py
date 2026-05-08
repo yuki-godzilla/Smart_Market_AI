@@ -7,9 +7,11 @@ from typing import TypedDict
 from backend.core.config import DataAccessConfig
 from backend.core.data_contracts import Bar, Currency, FxRate, Interval, Quote, Symbol
 from backend.core.errors import DataSourceError
-
-SUPPORTED_PROVIDERS = ("mock", "csv")
-PLANNED_LIVE_PROVIDERS = ("yahoo", "polygon")
+from backend.marketdata.provider_registry import (
+    PLANNED_LIVE_PROVIDERS,
+    SUPPORTED_PROVIDERS,
+    provider_capability_details,
+)
 
 
 class MockBarPoint(TypedDict):
@@ -322,32 +324,33 @@ def _unsupported_provider_error(
 ) -> DataSourceError:
     if provider in PLANNED_LIVE_PROVIDERS:
         if not allow_external_providers:
-            return DataSourceError(
-                "Live market-data provider requires explicit opt-in",
-                details={
-                    "provider": provider,
-                    "supported_providers": list(SUPPORTED_PROVIDERS),
-                    "planned_live_providers": list(PLANNED_LIVE_PROVIDERS),
+            details = provider_capability_details(provider)
+            details.update(
+                {
                     "allow_external_providers": False,
                     "opt_in_status": "explicit_config_required",
-                },
+                }
             )
-        return DataSourceError(
-            "Live market-data providers are not implemented yet",
-            details={
-                "provider": provider,
-                "supported_providers": list(SUPPORTED_PROVIDERS),
-                "planned_live_providers": list(PLANNED_LIVE_PROVIDERS),
+            return DataSourceError(
+                "Live market-data provider requires explicit opt-in",
+                details=details,
+            )
+        details = provider_capability_details(provider)
+        details.update(
+            {
                 "allow_external_providers": True,
                 "opt_in_status": "explicitly_enabled_not_implemented",
-            },
+            }
         )
+        return DataSourceError(
+            "Live market-data providers are not implemented yet",
+            details=details,
+        )
+    details = provider_capability_details(provider)
+    details.pop("registered", None)
     return DataSourceError(
         "Unsupported market-data provider",
-        details={
-            "provider": provider,
-            "supported_providers": list(SUPPORTED_PROVIDERS),
-        },
+        details=details,
     )
 
 

@@ -271,10 +271,11 @@ Completion criteria:
 - Done: live providers require `dataaccess.allow_external_providers: true` before reaching future implementation paths.
 - Done: provider opt-in, unavailable, and timeout failures are covered by structured API response tests and OpenAPI response metadata.
 - Done: provider rate-limit and schema-mismatch failures are covered by structured API response tests.
-- external data can be enabled only through explicit config
-- no CI or default local workflow requires network access
-- provider failures map to domain errors and API responses consistently
-- docs clearly distinguish deterministic MVP behavior from live-data behavior
+- Done: provider capability metadata is centralized in a registry before live adapter implementation.
+- Done: external data can be enabled only through explicit config.
+- Done: no CI or default local workflow requires network access.
+- Done: provider failures map to domain errors and API responses consistently.
+- Done: docs clearly distinguish deterministic MVP behavior from live-data behavior.
 
 ## 7. Verification Notes
 

@@ -64,6 +64,20 @@ data/marketdata/fx_rates.csv
 
 期待される結果は、デフォルトの mock provider 確認と同じです。
 
+## Live Provider 設定の確認
+
+`yahoo` / `polygon` は provider 名として予約されていますが、現時点では未実装です。
+通常の手動確認では `mock` または `csv` を使います。
+
+live provider を指定した場合でも、`dataaccess.allow_external_providers: true` の明示 opt-in がない限り拒否されます。
+opt-in しても provider 本体はまだ未実装のため、外部 API へは接続しません。
+
+詳細は次の文書を参照します。
+
+```text
+Documents/11_External_MarketData_Providers.md
+```
+
 ## API サーバーを起動して確認
 
 FastAPI を起動します。

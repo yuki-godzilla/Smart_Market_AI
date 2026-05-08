@@ -112,6 +112,10 @@ def test_live_provider_requires_explicit_opt_in():
         "message": "Live market-data provider requires explicit opt-in",
         "details": {
             "provider": "yahoo",
+            "registered": True,
+            "implemented": False,
+            "deterministic": False,
+            "requires_external_opt_in": True,
             "supported_providers": ["mock", "csv"],
             "planned_live_providers": ["yahoo", "polygon"],
             "allow_external_providers": False,
@@ -129,6 +133,10 @@ def test_opted_in_live_provider_is_rejected_until_implemented():
         "message": "Live market-data providers are not implemented yet",
         "details": {
             "provider": "polygon",
+            "registered": True,
+            "implemented": False,
+            "deterministic": False,
+            "requires_external_opt_in": True,
             "supported_providers": ["mock", "csv"],
             "planned_live_providers": ["yahoo", "polygon"],
             "allow_external_providers": True,

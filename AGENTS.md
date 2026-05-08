@@ -65,6 +65,8 @@ The repository appears to be at:
 - Streamlit rebalance UI, file-backed scenarios, and local report exports: implemented for MVP / Streamlit rebalance UI、file-backed scenarios、local report exports は MVP として実装済み
 - External MarketData provider preparation: implemented through explicit opt-in gates, provider registry, and documented failure modes / External MarketData provider preparation は明示 opt-in gate、provider registry、failure mode 文書化まで実装済み
 - Live market-data provider adapters and Execution workflows: not implemented / live market-data provider adapter と Execution workflow は未実装
+- Next roadmap focus: Multi-Model Investment Intelligence, including external data ingestion, Feature Store Lite, screening scores, multi-model forecasts, visualization, and decision reports / 次期ロードマップの重点は Multi-Model Investment Intelligence で、外部データ取得、Feature Store Lite、screening score、multi-model forecast、可視化、decision report を含みます
+- Execution and broker order sending are lower priority unless the user explicitly requests them / Execution と broker order 送信は、ユーザーが明示的に依頼しない限り優先度を下げます
 
 Unless a task says otherwise, optimize changes for this progression.
 特別な指示がない限り、この進行順を前提に変更を最適化します。

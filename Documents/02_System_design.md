@@ -2,6 +2,45 @@
 
 #### [BACK TO README](../README.md)
 
+## 次期アーキテクチャ方針: Multi-Model Investment Intelligence
+
+Phase 9 以降の重点は、Execution よりも、外部データ取得、特徴量管理、複数モデル予測、スコアリング、可視化、判断補助レポートです。
+既存の deterministic MVP 経路を保ちながら、次の構成を段階的に追加します。
+
+### 追加予定コンポーネント
+
+- External Provider Adapter
+  - `mock` / `csv` と同じ契約へ正規化する live provider adapter。
+  - opt-in 設定、timeout、rate limit、schema mismatch を明示的に扱う。
+- Feature Store Lite
+  - 銘柄、as-of date、provider、feature version を持つ特徴量 snapshot。
+  - return、volatility、momentum、ADV、drawdown、data completeness などを保持する。
+- Screening Service
+  - 複数銘柄を比較し、サブスコア付きの ranking を返す。
+- Forecast Service
+  - `ForecastModel` インターフェースを通じて複数モデルを実行する。
+  - baseline model から始め、後で研究モデル adapter を追加する。
+- Model Registry Lite
+  - 利用可能モデル、horizon、入力特徴量、出力形式、model card を管理する。
+- Investment Score Service
+  - screening、forecast、risk、data quality を統合して総合スコアを返す。
+- Visualization Cockpit
+  - ranking、score breakdown、forecast chart、model comparison を表示する。
+- Decision Report
+  - ユーザーが判断材料、注意点、モデル間の不一致を読み取れる Markdown/JSON/CSV/ZIP report を出力する。
+
+### データフロー
+
+1. MarketData provider が `Bar` / `Quote` / `FxRate` へ正規化した市場データを返す。
+2. Feature Store Lite が銘柄ごとの特徴量 snapshot を作る。
+3. Screening Service が特徴量から候補銘柄を ranking する。
+4. Forecast Service が複数モデルの予測を実行する。
+5. Investment Score Service が screening、forecast、risk、data quality を統合する。
+6. API / UI / report がスコア、予測、根拠、不確実性を表示する。
+
+この構成では、CI と通常のローカル検証は引き続き外部 API なしで実行できます。
+live provider や高度なモデルは、明示設定または optional adapter として扱います。
+
 ## 0. Guiding Principles
 - **Simplicity First**: ローカル実行を前提に、依存を最小化。
 - **Modular Design**: UI・アプリケーション・データ・MLを疎結合化。

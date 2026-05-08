@@ -2,6 +2,63 @@
 
 #### [BACK TO README](../README.md)
 
+## 次期機能設計: Multi-Model Investment Intelligence
+
+次期機能は、外部データ、特徴量、スクリーニング、複数モデル予測、投資判断補助スコア、可視化を一つの流れとして扱います。
+
+### External Data Ingestion
+
+- 入力: provider 名、銘柄、期間、必要なデータ種別。
+- 出力: 既存契約に正規化された `Bar`、`Quote`、`FxRate`。
+- 例外: provider unavailable、timeout、rate limit、schema mismatch。
+- 制約: live provider は明示 opt-in の場合だけ利用する。
+
+### Feature Store Lite
+
+- 入力: 正規化済み market data。
+- 出力: 銘柄ごとの feature snapshot。
+- 主な項目: return、volatility、momentum、ADV、drawdown、data completeness、provider metadata。
+- 制約: as-of date と feature version を保持し、未来情報を混入させない。
+
+### Screening Service
+
+- 入力: 候補銘柄、feature snapshot、screening 設定。
+- 出力: ranking、総合 screening score、sub score、除外理由。
+- 役割: 予測モデルに渡す前の候補銘柄整理と、説明可能な初期スコア付け。
+
+### Forecast Service
+
+- 入力: 銘柄、horizon、feature snapshot、model list。
+- 出力: model ごとの予測値、信頼度、評価指標、model metadata。
+- 役割: 複数モデルの結果を同じ形式で比較できるようにする。
+- 初期モデル: naive、moving average、momentum baseline。
+
+### Multi-Model Summary
+
+- 入力: 複数 forecast result。
+- 出力: ensemble forecast、median forecast、model agreement、model disagreement、不確実性。
+- 役割: 単一モデルに依存せず、モデル間の見解差を判断材料として表示する。
+
+### Investment Score Service
+
+- 入力: screening score、forecast summary、risk result、data quality。
+- 出力: 総合 investment score、score breakdown、主な加点・減点理由。
+- 役割: ユーザーが銘柄候補を比較しやすいよう、複数の判断材料を一つの説明可能なスコアへ統合する。
+
+### Visualization Cockpit
+
+- ranking table
+- score breakdown chart
+- forecast horizon chart
+- model comparison view
+- data quality / risk warning display
+
+### Decision Report
+
+- 出力形式: Markdown、JSON、CSV、ZIP。
+- 内容: 銘柄ランキング、スコア内訳、予測結果、モデル間の一致・不一致、リスク要因、注意点。
+- 制約: 投資助言ではなく判断補助として記述する。
+
 > 本ドキュメントは「01\_Define\_requirements」および「02\_System\_design」に基づき、要素ごとの具体的な機能仕様を示します。
 
 ---

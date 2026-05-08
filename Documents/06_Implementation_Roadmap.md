@@ -159,7 +159,7 @@ Status: MVP initial service complete
 
 ## 5. Near-Term Decision
 
-次に着手する推奨範囲は **Phase 9 後の次フェーズ定義、Execution MVP、broader UI workflow、または環境変数設定拡張**。
+次に着手する推奨範囲は **Multi-Model Investment Intelligence** です。外部データ取得、特徴量管理、銘柄スコアリング、複数モデル予測、可視化、判断補助レポートを優先します。
 
 理由:
 - Phase 1 の最小 core 基盤は追加済み。
@@ -176,8 +176,8 @@ Status: MVP initial service complete
 - Done: Rebalance UI samples can be loaded from `examples/rebalance_scenarios/`.
 - Done: Reporting MVP can export JSON, CSV, Markdown, manifest, and ZIP locally.
 - Done: External provider preparation is complete without introducing network-dependent default behavior.
-- Next: define the next roadmap phase, likely Execution MVP, broader UI workflow, or settings expansion.
-  次は Phase 9 後の次フェーズを定義し、Execution MVP、より広い UI workflow、または設定拡張へ進む。
+- Next: start the Multi-Model Investment Intelligence roadmap with External Data Ingestion MVP, Feature Store Lite, Screening Score MVP, and Forecast Lab Baseline.
+  次は Multi-Model Investment Intelligence roadmap として、External Data Ingestion MVP、Feature Store Lite、Screening Score MVP、Forecast Lab Baseline へ進む。
 
 ## 6. Next Roadmap / 次期ロードマップ
 
@@ -281,7 +281,150 @@ Completion criteria:
 - Done: provider failures map to domain errors and API responses consistently.
 - Done: docs clearly distinguish deterministic MVP behavior from live-data behavior.
 
-## 7. Verification Notes
+## 7. Multi-Model Investment Intelligence Roadmap
+
+詳細方針は [12_Multi_Model_Investment_Intelligence_Roadmap.md](./12_Multi_Model_Investment_Intelligence_Roadmap.md) を参照します。
+
+Phase 9 完了後の重点は、Execution ではなく、外部データ取得、特徴量管理、銘柄スコアリング、複数モデル予測、可視化、判断補助レポートです。
+Execution / broker order 送信は将来領域として残しますが、今回のロードマップでは優先順位を下げます。
+
+### Phase 10: External Data Ingestion MVP
+
+Goal: 外部 MarketData provider を明示 opt-in の範囲で実装し、既存の deterministic 経路を保ったまま実データ取得の入口を作る。
+
+Scope:
+- live provider adapter の共通インターフェースを整理する
+- `yahoo` など最初の provider を opt-in で実装する
+- `Bar` / `Quote` / `FxRate` へ正規化する
+- rate limit、timeout、provider unavailable、schema mismatch を一貫した domain error と API response にする
+- CI は外部 API に依存させない
+
+Completion criteria:
+- 設定で明示した場合だけ live provider が呼ばれる
+- live provider なしで local checks が通る
+- failure mode が API / docs / tests で説明されている
+
+### Phase 11: Feature Store Lite
+
+Goal: screening と forecast で再利用する銘柄特徴量 snapshot を定義する。
+
+Scope:
+- feature snapshot contract を追加する
+- return、volatility、momentum、ADV、drawdown、data completeness を計算する
+- `dividend_yield`、`market_cap_jpy` など外部データ由来項目の扱いを整理する
+- as-of date、provider metadata、feature version を保持する
+
+Completion criteria:
+- 銘柄ごとに同じ形式の特徴量を取得できる
+- 欠損理由を追える
+- screening / forecast / report から再利用できる
+
+### Phase 12: Screening Score MVP
+
+Goal: 銘柄を ranking し、スコアの理由を説明できるようにする。
+
+Scope:
+- `ScreeningService` を追加する
+- momentum、liquidity、risk、data quality などの sub score を定義する
+- `ScoreBreakdown` を返す
+- API / Streamlit から ranking を確認できるようにする
+
+Completion criteria:
+- 複数銘柄を deterministic に順位付けできる
+- score breakdown がテストされている
+- UI / report で順位の理由を確認できる
+
+### Phase 13: Forecast Lab Baseline
+
+Goal: 複数 forecast model を比較するための最小基盤を作る。
+
+Scope:
+- `ForecastModel` protocol / base class を定義する
+- naive、moving average、momentum baseline を実装する
+- time split / walk-forward 評価を用意する
+- MAE、RMSE、direction accuracy などの metrics を返す
+
+Completion criteria:
+- 複数 baseline を同じインターフェースで実行できる
+- data leakage を避ける評価手順がある
+- forecast result と metrics を保存・表示できる
+
+### Phase 14: Multi-Model Forecasting
+
+Goal: 複数モデルの予測結果を並べ、合意度と不確実性を扱えるようにする。
+
+Scope:
+- model registry lite を追加する
+- horizon、入力特徴量、出力形式を揃える
+- ensemble、median forecast、model agreement / disagreement を計算する
+- forecast summary を scoring に接続する
+
+Completion criteria:
+- モデルごとの予測結果を比較できる
+- モデル間で意見が割れている銘柄を見つけられる
+- forecast summary が investment score に利用できる
+
+### Phase 15: Model-Informed Scoring
+
+Goal: screening、forecast、risk、data quality を統合した投資判断補助スコアを作る。
+
+Scope:
+- investment score contract を定義する
+- score breakdown に加点・減点理由を含める
+- forecast confidence と model disagreement を score に反映する
+- YAML で score weight を調整できるようにする
+
+Completion criteria:
+- 銘柄ごとに総合スコアと内訳を返せる
+- データ品質が低い場合やモデル不一致が大きい場合に注意表示できる
+- deterministic tests で計算結果を検証できる
+
+### Phase 16: Visualization Cockpit
+
+Goal: ranking、予測、スコア内訳、モデル比較を UI で確認しやすくする。
+
+Scope:
+- ranking table
+- score breakdown chart
+- forecast horizon chart
+- model comparison / agreement view
+- risk and data-quality warnings
+
+Completion criteria:
+- ユーザーがランキングから詳細へ進める
+- 予測とスコア理由を同じ画面で確認できる
+- UI は注文送信を行わず、判断補助に限定されている
+
+### Phase 17: Research Model Adapters
+
+Goal: 最新研究や高度なモデルを optional adapter として試せる構造を作る。
+
+Scope:
+- tree model、sequence model、Transformer、foundation model、sentiment model の adapter 方針を整理する
+- model card を用意する
+- heavy dependency は optional に分離する
+- offline fixture で adapter contract をテストする
+
+Completion criteria:
+- 実験モデルを既定経路から分離して追加できる
+- モデルごとの入力、出力、制約、検証結果を追跡できる
+- production-like 経路へ入れる前に評価できる
+
+### Phase 18: Decision Report
+
+Goal: ユーザーが判断材料を読み取れる report を出力する。
+
+Scope:
+- score、forecast、risk、data quality を report context にまとめる
+- モデル間の一致・不一致と注意点を文章化する
+- Markdown / JSON / CSV / ZIP export を拡張する
+
+Completion criteria:
+- report だけで主要な判断材料を確認できる
+- 予測の限界と注意点が明記されている
+- 既存の deterministic export 方針を保っている
+
+## 8. Verification Notes
 
 重い全体チェックは避け、当面は対象を絞って実行する。
 
@@ -294,7 +437,7 @@ Completion criteria:
 `tools/run_local_checks.py` は local MVP の基本確認用 helper として、cache-free の Black check、`ruff`、`pytest` を順に実行する。
 `black` と `mypy` は CI で継続確認し、ローカルでは必要に応じて個別に実行する。
 
-## 8. Open Items
+## 9. Open Items
 
 - README と詳細設計 README のリンク整合性を確認する。
 - CI が `.venv` / `venv_*` を走査しないよう、必要なら設定を追加する。

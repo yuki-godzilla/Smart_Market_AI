@@ -2,6 +2,33 @@
 
 #### [BACK TO README](../README.md)
 
+## 次期重点要件: Multi-Model Investment Intelligence
+
+Phase 9 までの MVP では、Portfolio-to-Risk workflow、local reporting、外部 MarketData provider の opt-in 準備までを整備しました。
+次期ロードマップでは、注文執行よりも、外部データ取得、銘柄スコアリング、複数予測モデル、可視化、投資判断補助を優先します。
+
+### 目的
+
+ユーザーが複数銘柄を比較し、予測モデルの結果、スコア内訳、リスク要因、データ品質を確認しながら、投資判断の材料を整理できるようにします。
+本機能は売買推奨ではなく、判断材料を構造化して提示する支援機能です。
+
+### 主要要件
+
+- 外部 provider から取得した市場データを、明示 opt-in の場合だけ利用できること。
+- `mock` / `csv` provider による deterministic なローカル検証経路を維持すること。
+- 銘柄ごとの特徴量 snapshot を作成し、screening、forecast、report から再利用できること。
+- 複数の forecast model を同じインターフェースで実行・比較できること。
+- 銘柄スコアは、screening score、forecast score、risk penalty、data quality を分解して説明できること。
+- UI とレポートでは、最終スコアだけでなく、モデル間の一致・不一致、不確実性、注意点を表示すること。
+- 最新研究を参考にする高度なモデルは、既定経路ではなく optional adapter として追加できること。
+
+### 非優先要件
+
+- broker への live order 送信は今回の重点から外す。
+- 外部 provider を既定動作にしない。
+- 重い ML ライブラリを通常の MVP 確認や CI の必須依存にしない。
+- 単一モデルの予測を投資助言として扱わない。
+
 ## 1. Background & Purpose
 個人投資家がNISA制度や通常の株式投資において、効率的かつ戦略的に投資判断を行えるよう支援するAIツールを開発する。
 株価データ、企業財務データ、経済指標、ニュース等を統合的に分析し、**高配当株（国内外）**や安定成長型投資信託の選定、売買タイミング予測、リスク評価を行い、ユーザーに分かりやすいレポートとして提供する。

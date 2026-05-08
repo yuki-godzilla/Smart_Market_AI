@@ -5,8 +5,8 @@
 This document captures the current repository state so future work can start from a shared understanding instead of rediscovering context each time.
 この文書は、毎回コンテキストを掘り直さなくても将来の作業を共通認識から始められるように、現在のリポジトリ状況を記録するものです。
 
-Last updated: 2026-05-07
-最終更新日: 2026-05-07
+Last updated: 2026-05-08
+最終更新日: 2026-05-08
 
 ## Project Summary / プロジェクト概要
 
@@ -27,9 +27,10 @@ The current codebase provides:
 - file-backed deterministic rebalance scenarios under `examples/rebalance_scenarios` / `examples/rebalance_scenarios` 配下の file-backed deterministic rebalance scenario
 - local JSON/CSV/Markdown/manifest/ZIP reporting exports for rebalance-check results / rebalance-check 結果向けのローカル JSON/CSV/Markdown/manifest/ZIP reporting export
 - external market-data provider preparation with explicit opt-in gates / 明示 opt-in gate を持つ外部 market-data provider 準備
+- next roadmap for Multi-Model Investment Intelligence / Multi-Model Investment Intelligence の次期ロードマップ
 
-The implementation is still MVP-oriented. Risk, Portfolio, API, Streamlit UI, local reporting exports, and external-provider preparation are implemented for deterministic MVP use; live market-data providers and execution flows are still planned.
-実装はまだ MVP 指向です。Risk、Portfolio、API、Streamlit UI、ローカル reporting export、external-provider preparation は deterministic MVP 用に実装済みで、live market-data provider と execution flow はまだ計画段階です。
+The implementation is still MVP-oriented. Risk, Portfolio, API, Streamlit UI, local reporting exports, and external-provider preparation are implemented for deterministic MVP use; the next focus is Multi-Model Investment Intelligence, while live broker execution remains lower priority.
+実装はまだ MVP 指向です。Risk、Portfolio、API、Streamlit UI、ローカル reporting export、external-provider preparation は deterministic MVP 用に実装済みで、次の重点は Multi-Model Investment Intelligence です。live broker execution は優先度を下げています。
 
 ## Repository Layout / リポジトリ構成
 
@@ -117,7 +118,7 @@ Based on code and roadmap documents, the project is effectively here:
 - Phase 7 Config And Scenario Management: implemented for file-backed rebalance scenarios / Phase 7 Config And Scenario Management: file-backed rebalance scenario 向けに実装済み
 - Phase 8 Reporting MVP: complete for JSON/CSV/Markdown/manifest/ZIP exports / Phase 8 Reporting MVP: JSON/CSV/Markdown/manifest/ZIP export として完了
 - Phase 9 External Data Provider Preparation: complete before live adapter implementation / Phase 9 External Data Provider Preparation: live adapter 実装前の準備として完了
-- Next recommended work: choose the next roadmap scope, such as Execution MVP, broader UI workflows, or environment-variable settings expansion. / 次の推奨作業: Execution MVP、より広い UI workflow、環境変数設定拡張など、次の roadmap scope を選ぶ。
+- Next recommended work: start the Multi-Model Investment Intelligence roadmap, beginning with External Data Ingestion MVP, Feature Store Lite, Screening Score MVP, and Forecast Lab Baseline. / 次の推奨作業: Multi-Model Investment Intelligence roadmap に着手し、External Data Ingestion MVP、Feature Store Lite、Screening Score MVP、Forecast Lab Baseline から進める。
 
 ## Test And Verification Baseline / テストと確認の基準
 
@@ -151,12 +152,14 @@ These commands are also referenced by the roadmap document.
 
 ## Next Good Targets / 次の着手候補
 
-- define the next roadmap phase after Phase 9
-  Phase 9 後の次フェーズを定義する
-- start an Execution MVP without sending live broker orders
-  live broker 注文を送らない Execution MVP に着手する
-- expand the local rebalance-check UI beyond sample-driven MVP controls
-  sample-driven MVP control を超えて rebalance-check UI を拡張する
+- start External Data Ingestion MVP with explicit opt-in live provider behavior
+  明示 opt-in の live provider 挙動を持つ External Data Ingestion MVP に着手する
+- define Feature Store Lite contracts for screening and forecast reuse
+  screening と forecast で再利用する Feature Store Lite の契約を定義する
+- add Screening Score MVP with explainable score breakdowns
+  説明可能な score breakdown を持つ Screening Score MVP を追加する
+- add Forecast Lab Baseline before heavier research model adapters
+  重い research model adapter の前に Forecast Lab Baseline を追加する
 - expand environment-variable settings support beyond `SMAI_CONFIG_FILE`
   `SMAI_CONFIG_FILE` 以外の環境変数ベース設定対応を拡張する
 - expand csv market data coverage and document production-like file conventions
@@ -176,6 +179,7 @@ Update this file when:
 
 ## Work Log / 作業ログ
 
+- 2026-05-08: Documented the next Multi-Model Investment Intelligence roadmap across requirements, system design, functional design, roadmap, README, AGENTS, and project context. / 次期 Multi-Model Investment Intelligence roadmap を、要件定義、システム設計、機能設計、ロードマップ、README、AGENTS、project context に反映した。
 - 2026-05-08: Added local CSV downloads for Streamlit rebalance result tables. / Streamlit rebalance 結果テーブル向けのローカル CSV ダウンロードを追加した。
 - 2026-05-08: Added a deterministic local ZIP download for Streamlit rebalance JSON and CSV report files. / Streamlit rebalance の JSON と CSV レポートファイルをまとめる deterministic なローカル ZIP ダウンロードを追加した。
 - 2026-05-08: Added a deterministic report manifest to the Streamlit rebalance ZIP export. / Streamlit rebalance の ZIP export に deterministic な report manifest を追加した。

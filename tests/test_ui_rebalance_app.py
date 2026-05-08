@@ -297,6 +297,27 @@ def test_build_market_data_preview_returns_provider_error(monkeypatch):
     assert "explicit_config_required" in preview.error_rows[0]["details"]
 
 
+def test_build_market_data_preview_returns_yahoo_stub_error(monkeypatch):
+    monkeypatch.setenv(
+        "SMAI_CONFIG_FILE",
+        "tests/fixtures/config/live_provider_yahoo_opt_in.yaml",
+    )
+
+    preview = asyncio.run(
+        build_market_data_preview(
+            symbol="AAPL",
+            start=date(2026, 4, 7),
+            end=date(2026, 4, 9),
+        )
+    )
+
+    assert preview.status == "ERROR"
+    assert preview.error_rows[0]["message"] == (
+        "Yahoo market-data provider adapter is not implemented yet"
+    )
+    assert "explicitly_enabled_stub" in preview.error_rows[0]["details"]
+
+
 def test_ohlcv_summary_rows_returns_empty_rows_for_no_bars():
     assert ohlcv_summary_rows([]) == []
 

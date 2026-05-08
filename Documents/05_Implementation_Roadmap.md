@@ -244,7 +244,7 @@ Scope:
 - Done: live provider adapter interface を `backend/marketdata/provider_adapters.py` の `MarketDataProviderAdapter` protocol として定義する
 - Done: provider adapter factory を `backend/marketdata/provider_factory.py` に追加する
 - Done: Streamlit UI に deterministic provider で動く Market Data preview tab を追加する
-- 最初の provider 候補を opt-in stub として実装する
+- Done: `yahoo` provider を opt-in stub として `backend/marketdata/providers/yahoo.py` に追加する
 - 取得結果を `Bar` / `Quote` / `FxRate` へ正規化する
 - live provider の取得結果を Streamlit UI の Market Data tab で確認できるようにする
 - UI 上で取得した quote / OHLCV summary / FX rate / provider metadata を確認できるようにする
@@ -418,7 +418,7 @@ Scope:
 
 - `setup/SETUP.md` 内の仮想環境名を `venv_SMAI` に統一する
 - `SMAI_CONFIG_FILE` 以外の環境変数設定を拡張するか判断する
-- live provider adapter の最初の候補を決める
+- `yahoo` stub を実データ取得 adapter へ拡張する
 - 最初の opt-in live-provider stub を追加する
 - Feature Store Lite の contract を定義する
 - Screening Score MVP の score breakdown を設計する

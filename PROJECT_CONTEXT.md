@@ -129,8 +129,8 @@ Based on code and roadmap documents, the project is effectively here:
 - Phase 7 Config And Scenario Management: implemented for file-backed rebalance scenarios / Phase 7 Config And Scenario Management: file-backed rebalance scenario 向けに実装済み
 - Phase 8 Reporting MVP: complete for JSON/CSV/Markdown/manifest/ZIP exports / Phase 8 Reporting MVP: JSON/CSV/Markdown/manifest/ZIP export として完了
 - Phase 9 External Data Provider Preparation: complete before live adapter implementation / Phase 9 External Data Provider Preparation: live adapter 実装前の準備として完了
-- Phase 10 External Data Ingestion MVP: started with planned live-provider adapter metadata, a shared `MarketDataProviderAdapter` protocol, a provider adapter factory, and a Streamlit Market Data preview tab; completion target still requires live-provider data retrieval. / Phase 10 External Data Ingestion MVP: planned live-provider adapter metadata、共通 `MarketDataProviderAdapter` protocol、provider adapter factory、Streamlit Market Data preview tab から着手。完了にはまだ live-provider data retrieval が必要。
-- Next recommended work: continue External Data Ingestion MVP by adding the first opt-in live-provider stub, then expose provider data/status in the Streamlit UI before moving to Feature Store Lite. / 次の推奨作業: 最初の opt-in live-provider stub を追加し、その後 Feature Store Lite へ進む前に provider data / status を Streamlit UI で確認できるようにする。
+- Phase 10 External Data Ingestion MVP: started with planned live-provider adapter metadata, a shared `MarketDataProviderAdapter` protocol, a provider adapter factory, a Streamlit Market Data preview tab, and a `yahoo` opt-in stub; completion target still requires live-provider data retrieval. / Phase 10 External Data Ingestion MVP: planned live-provider adapter metadata、共通 `MarketDataProviderAdapter` protocol、provider adapter factory、Streamlit Market Data preview tab、`yahoo` opt-in stub から着手。完了にはまだ live-provider data retrieval が必要。
+- Next recommended work: continue External Data Ingestion MVP by expanding the `yahoo` stub into a real data retrieval adapter, then verify provider data/status in the Streamlit UI before moving to Feature Store Lite. / 次の推奨作業: `yahoo` stub を実データ取得 adapter へ拡張し、その後 Feature Store Lite へ進む前に provider data / status を Streamlit UI で確認する。
 
 ## Test And Verification Baseline / テストと確認の基準
 
@@ -191,6 +191,7 @@ Update this file when:
 
 ## Work Log / 作業ログ
 
+- 2026-05-08: Added a `yahoo` opt-in live-provider stub and connected it through the market-data provider factory without importing external provider libraries. / external provider library を import せずに `yahoo` opt-in live-provider stub を追加し、market-data provider factory へ接続した。
 - 2026-05-08: Added a Streamlit Market Data preview tab that shows provider metadata, quote rows, OHLCV summary, FX rates, and provider error details for the configured provider. / 設定中 provider の provider metadata、quote rows、OHLCV summary、FX rates、provider error details を表示する Streamlit Market Data preview tab を追加した。
 - 2026-05-08: Expanded the Phase 10 completion target to include Streamlit UI confirmation of live-provider data and provider status. / Phase 10 の完了目標を拡張し、live provider の取得データと provider 状態を Streamlit UI で確認できることを含めた。
 - 2026-05-08: Added `create_market_data_provider_adapter()` as the configured factory entrypoint for deterministic and future live market-data adapters. / deterministic provider と将来の live market-data adapter の設定済み factory 入口として `create_market_data_provider_adapter()` を追加した。

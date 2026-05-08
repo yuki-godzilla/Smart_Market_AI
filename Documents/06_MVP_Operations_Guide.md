@@ -241,7 +241,7 @@ PDF / Excel は将来の reporting 拡張で扱います。
 | --- | --- | --- | --- |
 | `mock` | 実装済み | 不要 | 既定の MVP 確認 |
 | `csv` | 実装済み | 不要 | ローカル CSV 確認 |
-| `yahoo` | 未実装 | 将来必要 | live provider 候補 |
+| `yahoo` | opt-in stub | 将来必要 | 最初の live provider 候補 |
 | `polygon` | 未実装 | 将来必要 | live provider 候補 |
 
 live provider を指定するには、設定ファイルで `dataaccess.allow_external_providers: true` を明示する必要があります。
@@ -253,6 +253,7 @@ dataaccess:
 ```
 
 ただし、現時点では live provider adapter 本体が未実装です。
+`yahoo` は opt-in stub として factory から呼ばれますが、外部 API へは接続せず、未実装であることを示す domain error を返します。
 opt-in しても外部 API へは接続せず、未実装であることを示す domain error を返します。
 Phase 10 の完了時点では、明示 opt-in した live provider から実データを取得し、Streamlit UI 上で取得結果と provider 状態を確認できることを目標にします。
 

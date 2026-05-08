@@ -7,6 +7,7 @@ from typing import TypedDict
 from backend.core.config import DataAccessConfig
 from backend.core.data_contracts import Bar, Currency, FxRate, Interval, Quote, Symbol
 from backend.core.errors import DataSourceError
+from backend.marketdata.live_provider_adapters import live_provider_adapter_details
 from backend.marketdata.provider_registry import (
     PLANNED_LIVE_PROVIDERS,
     SUPPORTED_PROVIDERS,
@@ -325,6 +326,7 @@ def _unsupported_provider_error(
     if provider in PLANNED_LIVE_PROVIDERS:
         if not allow_external_providers:
             details = provider_capability_details(provider)
+            details.update(live_provider_adapter_details(provider))
             details.update(
                 {
                     "allow_external_providers": False,
@@ -336,6 +338,7 @@ def _unsupported_provider_error(
                 details=details,
             )
         details = provider_capability_details(provider)
+        details.update(live_provider_adapter_details(provider))
         details.update(
             {
                 "allow_external_providers": True,

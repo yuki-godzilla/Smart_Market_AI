@@ -31,22 +31,39 @@ class FeatureBuilder:
 
         for symbol in symbols:
             quote = quotes_by_symbol[symbol]
+            bars = await self._window_bars(symbol, as_of)
+            return_1d = _compute_return(bars, 1)
+            momentum_5d = _compute_return(bars, 5)
+            drawdown_20d = _compute_drawdown(bars, 20)
+            missing = {
+                "dividend_yield": True,
+                "market_cap_jpy": True,
+                "return_1d": return_1d is None,
+                "momentum_5d": momentum_5d is None,
+                "drawdown_20d": drawdown_20d is None,
+            }
             snapshots.append(
                 DailySnapshot(
                     symbol=symbol,
                     as_of=as_of,
                     last=quote.last,
                     close_1d=quote.last,
-                    adv_20d=await self.compute_adv(symbol, as_of, self.cfg.adv_window),
-                    vol_20d=await self.compute_vol(
-                        symbol,
-                        as_of,
+                    return_1d=return_1d,
+                    momentum_5d=momentum_5d,
+                    adv_20d=_compute_adv_from_bars(bars, self.cfg.adv_window),
+                    vol_20d=_compute_vol_from_bars(
+                        bars,
                         self.cfg.vol_window,
                         self.cfg.vol_method,
                     ),
+                    drawdown_20d=drawdown_20d,
+                    data_completeness=_compute_data_completeness(
+                        bars,
+                        max(self.cfg.adv_window, self.cfg.vol_window + 1, 20),
+                    ),
                     dividend_yield=None,
                     market_cap_jpy=None,
-                    missing={"dividend_yield": True, "market_cap_jpy": True},
+                    missing=missing,
                 )
             )
 
@@ -74,13 +91,7 @@ class FeatureBuilder:
 
         bars = await self._window_bars(symbol, as_of)
         selected = bars[-window:]
-        if not selected:
-            raise DataSourceError(
-                "No bars available for ADV calculation", details={"symbol": symbol}
-            )
-
-        total = sum((bar.close * bar.volume for bar in selected), start=Decimal("0"))
-        return total / Decimal(len(selected))
+        return _adv_from_selected(selected, symbol=symbol)
 
     async def compute_vol(
         self,
@@ -92,24 +103,7 @@ class FeatureBuilder:
         """Compute annualized realized volatility for a symbol."""
 
         bars = await self._window_bars(symbol, as_of)
-        selected = bars[-(window + 1) :]
-        if len(selected) < 2:
-            raise DataSourceError(
-                "At least two bars are required for volatility", details={"symbol": symbol}
-            )
-
-        if method == "close2close":
-            returns = [
-                log(float(selected[index].close / selected[index - 1].close))
-                for index in range(1, len(selected))
-            ]
-            return Decimal(str(pstdev(returns) * sqrt(252)))
-
-        if method == "parkinson":
-            values = [log(float(bar.high / bar.low)) ** 2 for bar in selected if bar.low > 0]
-            return Decimal(str(sqrt(sum(values) / (4 * log(2) * len(values)))))
-
-        raise DataSourceError("Unsupported volatility method", details={"method": method})
+        return _compute_vol_from_bars(bars, window, method, symbol=symbol)
 
     async def _window_bars(self, symbol: str, as_of: date) -> list[Bar]:
         """Load sorted historical bars through the requested as-of date."""
@@ -136,3 +130,70 @@ def _missing_summary(rows: list[DailySnapshot]) -> dict[str, int]:
             if is_missing:
                 summary[feature] = summary.get(feature, 0) + 1
     return summary
+
+
+def _compute_adv_from_bars(bars: list[Bar], window: int) -> Decimal:
+    return _adv_from_selected(bars[-window:])
+
+
+def _adv_from_selected(selected: list[Bar], *, symbol: str | None = None) -> Decimal:
+    if not selected:
+        details: dict[str, object] = {"symbol": symbol} if symbol is not None else {}
+        raise DataSourceError("No bars available for ADV calculation", details=details)
+
+    total = sum((bar.close * bar.volume for bar in selected), start=Decimal("0"))
+    return total / Decimal(len(selected))
+
+
+def _compute_vol_from_bars(
+    bars: list[Bar],
+    window: int,
+    method: str,
+    *,
+    symbol: str | None = None,
+) -> Decimal:
+    selected = bars[-(window + 1) :]
+    if len(selected) < 2:
+        details: dict[str, object] = {"symbol": symbol} if symbol is not None else {}
+        raise DataSourceError("At least two bars are required for volatility", details=details)
+
+    if method == "close2close":
+        returns = [
+            log(float(selected[index].close / selected[index - 1].close))
+            for index in range(1, len(selected))
+        ]
+        return Decimal(str(pstdev(returns) * sqrt(252)))
+
+    if method == "parkinson":
+        values = [log(float(bar.high / bar.low)) ** 2 for bar in selected if bar.low > 0]
+        return Decimal(str(sqrt(sum(values) / (4 * log(2) * len(values)))))
+
+    raise DataSourceError("Unsupported volatility method", details={"method": method})
+
+
+def _compute_return(bars: list[Bar], lookback: int) -> Decimal | None:
+    if len(bars) <= lookback:
+        return None
+    previous = bars[-(lookback + 1)].close
+    current = bars[-1].close
+    if previous <= 0:
+        return None
+    return (current / previous) - Decimal("1")
+
+
+def _compute_drawdown(bars: list[Bar], window: int) -> Decimal | None:
+    selected = bars[-window:]
+    if not selected:
+        return None
+    peak = max(bar.high for bar in selected)
+    if peak <= 0:
+        return None
+    latest_close = selected[-1].close
+    return (peak - latest_close) / peak
+
+
+def _compute_data_completeness(bars: list[Bar], expected_count: int) -> Decimal:
+    if expected_count <= 0:
+        return Decimal("1")
+    completeness = Decimal(min(len(bars), expected_count)) / Decimal(expected_count)
+    return min(completeness, Decimal("1"))

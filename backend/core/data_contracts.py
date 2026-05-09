@@ -84,8 +84,12 @@ class DailySnapshot(StrictBaseModel):
     as_of: date
     last: Decimal | None = Field(default=None, ge=0)
     close_1d: Decimal | None = Field(default=None, ge=0)
+    return_1d: Decimal | None = None
+    momentum_5d: Decimal | None = None
     adv_20d: Decimal | None = Field(default=None, ge=0)
     vol_20d: Decimal | None = Field(default=None, ge=0)
+    drawdown_20d: Decimal | None = Field(default=None, ge=0)
+    data_completeness: Decimal | None = Field(default=None, ge=0, le=1)
     dividend_yield: Decimal | None = Field(default=None, ge=0)
     market_cap_jpy: Decimal | None = Field(default=None, ge=0)
     missing: dict[str, bool] = Field(default_factory=dict)

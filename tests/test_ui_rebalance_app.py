@@ -291,7 +291,11 @@ def test_build_market_data_preview_returns_mock_rows(monkeypatch):
     assert preview.feature_rows[0]["symbol"] == "AAPL"
     assert preview.feature_rows[0]["provider"] == "mock"
     assert preview.feature_rows[0]["feature_version"] == "feature-snapshot-v1"
-    assert preview.feature_rows[0]["missing"] == "dividend_yield, market_cap_jpy"
+    assert preview.feature_rows[0]["return_1d"] != ""
+    assert preview.feature_rows[0]["momentum_5d"] == ""
+    assert preview.feature_rows[0]["drawdown_20d"] != ""
+    assert preview.feature_rows[0]["data_completeness"] != ""
+    assert preview.feature_rows[0]["missing"] == "dividend_yield, market_cap_jpy, momentum_5d"
     assert preview.error_rows == []
 
 
@@ -368,8 +372,12 @@ def test_feature_snapshot_rows_formats_missing_summary():
             "feature_version": "feature-snapshot-v1",
             "last": "",
             "close_1d": "",
+            "return_1d": "",
+            "momentum_5d": "",
             "adv_20d": "",
             "vol_20d": "",
+            "drawdown_20d": "",
+            "data_completeness": "",
             "missing": "dividend_yield, market_cap_jpy",
             "missing_summary": "dividend_yield: 1, market_cap_jpy: 1",
         }

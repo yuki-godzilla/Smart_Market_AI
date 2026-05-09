@@ -401,8 +401,12 @@ def feature_snapshot_rows(snapshot: FeatureSnapshot) -> list[dict[str, str]]:
             "feature_version": snapshot.feature_version,
             "last": _format_optional_decimal(row.last),
             "close_1d": _format_optional_decimal(row.close_1d),
+            "return_1d": _format_optional_decimal(row.return_1d),
+            "momentum_5d": _format_optional_decimal(row.momentum_5d),
             "adv_20d": _format_optional_decimal(row.adv_20d),
             "vol_20d": _format_optional_decimal(row.vol_20d),
+            "drawdown_20d": _format_optional_decimal(row.drawdown_20d),
+            "data_completeness": _format_optional_decimal(row.data_completeness),
             "missing": _missing_flags(row.missing),
             "missing_summary": _missing_summary_text(snapshot.missing_summary),
         }

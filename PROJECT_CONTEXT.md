@@ -130,8 +130,8 @@ Based on code and roadmap documents, the project is effectively here:
 - Phase 8 Reporting MVP: complete for JSON/CSV/Markdown/manifest/ZIP exports / Phase 8 Reporting MVP: JSON/CSV/Markdown/manifest/ZIP export として完了
 - Phase 9 External Data Provider Preparation: complete before live adapter implementation / Phase 9 External Data Provider Preparation: live adapter 実装前の準備として完了
 - Phase 10 External Data Ingestion MVP: code implementation and deterministic verification are complete with planned live-provider adapter metadata, a shared `MarketDataProviderAdapter` protocol, a provider adapter factory, a Streamlit Market Data preview tab, and a `yahoo` opt-in live adapter backed by `yfinance`; live Yahoo UI smoke remains pending in an environment with network access and writable yfinance cache. / Phase 10 External Data Ingestion MVP: planned live-provider adapter metadata、共通 `MarketDataProviderAdapter` protocol、provider adapter factory、Streamlit Market Data preview tab、`yfinance` を使う `yahoo` opt-in live adapter まで、コード実装と deterministic 検証は完了。Yahoo の live UI smoke は network と yfinance cache 書き込みが可能な環境での確認待ち。
-- Phase 11 Feature Store Lite: started with a reusable `FeatureSnapshot` contract and Streamlit Market Data preview rows for provider, feature version, feature values, and missing reasons. / Phase 11 Feature Store Lite: 再利用可能な `FeatureSnapshot` contract と、provider、feature version、feature 値、欠損理由を確認する Streamlit Market Data preview 行から着手。
-- Next recommended work: extend Feature Store Lite with return, momentum, drawdown, and data-completeness fields after a live Yahoo provider smoke check in a network-enabled environment. / 次の推奨作業: network 利用可能な環境で Yahoo provider の live smoke check を実施したうえで、Feature Store Lite に return、momentum、drawdown、data completeness を拡張する。
+- Phase 11 Feature Store Lite: started with a reusable `FeatureSnapshot` contract, Streamlit Market Data preview rows, and computed return, momentum, drawdown, volatility, ADV, and data-completeness fields. / Phase 11 Feature Store Lite: 再利用可能な `FeatureSnapshot` contract、Streamlit Market Data preview 行、return、momentum、drawdown、volatility、ADV、data completeness の計算から着手。
+- Next recommended work: extend Feature Store Lite with external-data fields and data-quality judgement after a live Yahoo provider smoke check in a network-enabled environment. / 次の推奨作業: network 利用可能な環境で Yahoo provider の live smoke check を実施したうえで、Feature Store Lite に外部データ由来項目と data quality 判定を拡張する。
 
 ## Test And Verification Baseline / テストと確認の基準
 
@@ -167,8 +167,8 @@ These commands are also referenced by the roadmap document.
 
 - run Yahoo live-provider UI smoke in a network-enabled environment
   network 利用可能な環境で Yahoo live-provider UI smoke を実施する
-- extend Feature Store Lite with return, momentum, drawdown, and data completeness
-  Feature Store Lite に return、momentum、drawdown、data completeness を拡張する
+- extend Feature Store Lite with external-data fields and data-quality judgement
+  Feature Store Lite に外部データ由来項目と data quality 判定を拡張する
 - add Screening Score MVP with explainable score breakdowns
   説明可能な score breakdown を持つ Screening Score MVP を追加する
 - add Forecast Lab Baseline before heavier research model adapters
@@ -285,3 +285,4 @@ Update this file when:
 - 2026-05-09: Updated Streamlit date input defaults so rebalance `As of` and Market Data `End` use the current date, while Market Data `Start` defaults to seven days before today. / Streamlit の日付入力初期値を更新し、rebalance の `As of` と Market Data の `End` は現在日付、Market Data の `Start` は現在日付の 7 日前を使うようにした。
 - 2026-05-09: Started Feature Store Lite by adding a `FeatureSnapshot` contract, `FeatureBuilder.build_feature_snapshot()`, and Streamlit Market Data feature snapshot rows with provider/version/missing metadata. / `FeatureSnapshot` contract、`FeatureBuilder.build_feature_snapshot()`、provider/version/missing metadata 付きの Streamlit Market Data feature snapshot 行を追加し、Feature Store Lite に着手した。
 - 2026-05-09: Added rolling recent OHLCV rows to the mock market-data provider so current-date Streamlit defaults can show an OHLCV summary without losing fixed historical fixture rows. / Streamlit の現在日付デフォルトでも OHLCV summary を表示できるように、固定の historical fixture 行を残したまま mock market-data provider に直近日付の rolling OHLCV 行を追加した。
+- 2026-05-09: Extended Feature Store Lite snapshots with return, momentum, drawdown, volatility, ADV, and data-completeness fields, and exposed those values in the Streamlit Market Data feature snapshot table. / Feature Store Lite snapshot に return、momentum、drawdown、volatility、ADV、data completeness を追加し、Streamlit Market Data の feature snapshot table で確認できるようにした。

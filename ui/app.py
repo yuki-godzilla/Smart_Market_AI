@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import cast
 
@@ -56,7 +56,7 @@ def main() -> None:
         )
         as_of = st.date_input(
             "As of",
-            value=sample.as_of,
+            value=default_as_of_date(),
             key=sample_widget_key(sample_name, "as_of"),
         )
         cash_jpy_text = st.text_input(
@@ -138,6 +138,18 @@ def _single_date_from_input(value: object) -> date:
     raise ValueError("As of must be a single date.")
 
 
+def default_as_of_date() -> date:
+    return date.today()
+
+
+def default_market_data_start_date() -> date:
+    return default_market_data_end_date() - timedelta(days=7)
+
+
+def default_market_data_end_date() -> date:
+    return date.today()
+
+
 def _default_apple_target_weight(targets_json: str) -> int:
     if '"symbol": "AAPL"' not in targets_json:
         return 0
@@ -167,9 +179,13 @@ def _render_market_data_preview() -> None:
     with col_symbol:
         symbol = st.text_input("Symbol", value="AAPL", key="market_data_symbol")
     with col_start:
-        start = st.date_input("Start", value=date(2026, 4, 7), key="market_data_start")
+        start = st.date_input(
+            "Start",
+            value=default_market_data_start_date(),
+            key="market_data_start",
+        )
     with col_end:
-        end = st.date_input("End", value=date(2026, 4, 9), key="market_data_end")
+        end = st.date_input("End", value=default_market_data_end_date(), key="market_data_end")
 
     if st.button("Fetch market data", key="fetch_market_data"):
         try:

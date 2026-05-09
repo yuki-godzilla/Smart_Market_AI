@@ -1,5 +1,5 @@
 import asyncio
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
@@ -9,6 +9,11 @@ import pandas as pd
 import pytest
 
 from backend.marketdata.providers import yahoo
+from ui.app import (
+    default_as_of_date,
+    default_market_data_end_date,
+    default_market_data_start_date,
+)
 from ui.rebalance_app import (
     DEFAULT_ACCOUNT_ID,
     DEFAULT_AS_OF,
@@ -64,6 +69,14 @@ def test_build_rebalance_request_from_default_ui_json():
     assert request.positions[0].symbol == "7203.T"
     assert request.targets[1].symbol == "AAPL"
     assert request.cash_jpy == DEFAULT_CASH_JPY
+
+
+def test_app_date_defaults_use_current_date():
+    today = date.today()
+
+    assert default_as_of_date() == today
+    assert default_market_data_end_date() == today
+    assert default_market_data_start_date() == today - timedelta(days=7)
 
 
 def test_build_default_rebalance_request_matches_ui_defaults():

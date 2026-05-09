@@ -5,8 +5,10 @@ from io import BytesIO
 from pathlib import Path
 from zipfile import ZipFile
 
+import pandas as pd
 import pytest
 
+from backend.marketdata.providers import yahoo
 from ui.rebalance_app import (
     DEFAULT_ACCOUNT_ID,
     DEFAULT_AS_OF,
@@ -297,11 +299,12 @@ def test_build_market_data_preview_returns_provider_error(monkeypatch):
     assert "explicit_config_required" in preview.error_rows[0]["details"]
 
 
-def test_build_market_data_preview_returns_yahoo_stub_error(monkeypatch):
+def test_build_market_data_preview_returns_yahoo_live_rows(monkeypatch):
     monkeypatch.setenv(
         "SMAI_CONFIG_FILE",
         "tests/fixtures/config/live_provider_yahoo_opt_in.yaml",
     )
+    monkeypatch.setattr(yahoo, "_load_yfinance", lambda: _FakeYFinance())
 
     preview = asyncio.run(
         build_market_data_preview(
@@ -311,15 +314,48 @@ def test_build_market_data_preview_returns_yahoo_stub_error(monkeypatch):
         )
     )
 
-    assert preview.status == "ERROR"
-    assert preview.error_rows[0]["message"] == (
-        "Yahoo market-data provider adapter is not implemented yet"
-    )
-    assert "explicitly_enabled_stub" in preview.error_rows[0]["details"]
+    assert preview.status == "OK"
+    assert preview.quote_rows[0]["last"] == "175.25"
+    assert preview.ohlcv_rows[0]["provider"] == "yahoo"
+    assert preview.fx_rows[0]["rate"] == "150.12"
+    assert preview.error_rows == []
 
 
 def test_ohlcv_summary_rows_returns_empty_rows_for_no_bars():
     assert ohlcv_summary_rows([]) == []
+
+
+class _FakeYFinance:
+    def Ticker(self, raw_symbol: str) -> "_FakeTicker":
+        return _FakeTicker(raw_symbol)
+
+
+class _FakeTicker:
+    def __init__(self, raw_symbol: str) -> None:
+        self.raw_symbol = raw_symbol
+
+    def history(self, **_: object) -> pd.DataFrame:
+        if self.raw_symbol == "JPY=X":
+            return pd.DataFrame(
+                {
+                    "Open": [Decimal("149.80")],
+                    "High": [Decimal("150.50")],
+                    "Low": [Decimal("149.70")],
+                    "Close": [Decimal("150.12")],
+                    "Volume": [Decimal("0")],
+                },
+                index=pd.to_datetime(["2026-04-09T00:00:00Z"]),
+            )
+        return pd.DataFrame(
+            {
+                "Open": [Decimal("169.0"), Decimal("174.0")],
+                "High": [Decimal("171.0"), Decimal("176.0")],
+                "Low": [Decimal("168.0"), Decimal("173.0")],
+                "Close": [Decimal("170.5"), Decimal("175.25")],
+                "Volume": [Decimal("61000000"), Decimal("62000000")],
+            },
+            index=pd.to_datetime(["2026-04-08T00:00:00Z", "2026-04-09T00:00:00Z"]),
+        )
 
 
 def test_rebalance_result_formatters_create_table_rows():

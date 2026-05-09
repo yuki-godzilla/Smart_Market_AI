@@ -118,7 +118,7 @@ def test_pre_trade_check_api_returns_live_provider_opt_in_error(monkeypatch):
             "adapter_protocol": "MarketDataProviderAdapter",
             "adapter_module": "backend.marketdata.providers.yahoo",
             "optional_dependency": "yfinance",
-            "smoke_check_status": "not_implemented",
+            "smoke_check_status": "implemented_live_opt_in",
             "supported_providers": ["mock", "csv"],
             "planned_live_providers": ["yahoo", "polygon"],
             "allow_external_providers": False,

@@ -1,18 +1,21 @@
-from datetime import datetime
+from __future__ import annotations
+
+import asyncio
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
+from typing import Any
 
 from backend.core.config import DataAccessConfig
-from backend.core.data_contracts import Bar, FxRate, Interval, Quote
-from backend.core.errors import DataSourceError
+from backend.core.data_contracts import Bar, FxRate, Interval, Quote, Symbol
+from backend.core.errors import DataSourceError, ProviderUnavailableError, SchemaMismatchError
 from backend.marketdata.live_provider_adapters import live_provider_adapter_details
 from backend.marketdata.provider_registry import provider_capability_details
 
+YAHOO_FX_TICKERS = {"USDJPY": "JPY=X"}
+
 
 class YahooMarketDataProviderAdapter:
-    """Opt-in Yahoo market-data adapter stub.
-
-    The class satisfies the provider adapter protocol but intentionally avoids
-    importing yfinance until the real live adapter is implemented.
-    """
+    """Opt-in Yahoo market-data adapter backed by yfinance."""
 
     def __init__(self, cfg: DataAccessConfig) -> None:
         self.cfg = cfg
@@ -24,19 +27,47 @@ class YahooMarketDataProviderAdapter:
         end: datetime,
         interval: Interval = "1d",
     ) -> list[Bar]:
-        raise self._not_implemented_error(
-            operation="fetch_ohlcv",
-            symbols=symbols,
-            start=start.isoformat(),
-            end=end.isoformat(),
-            interval=interval,
-        )
+        bars: list[Bar] = []
+        for raw_symbol in symbols:
+            frame = await self._history(
+                raw_symbol,
+                start=start,
+                end=end,
+                interval=interval,
+                operation="fetch_ohlcv",
+            )
+            symbol = _normalize_symbol(raw_symbol)
+            for ts, row in frame.iterrows():
+                bars.append(
+                    Bar(
+                        symbol=symbol,
+                        ts=_normalize_timestamp(ts),
+                        open=_decimal_cell(row, "Open"),
+                        high=_decimal_cell(row, "High"),
+                        low=_decimal_cell(row, "Low"),
+                        close=_decimal_cell(row, "Close"),
+                        volume=_decimal_cell(row, "Volume"),
+                        interval=interval,
+                        provider="yahoo",
+                    )
+                )
+        return bars
 
     async def fetch_quotes(self, symbols: list[str], at: datetime | None = None) -> list[Quote]:
-        details = {"operation": "fetch_quotes", "symbols": symbols}
-        if at is not None:
-            details["at"] = at.isoformat()
-        raise self._not_implemented_error(**details)
+        quotes: list[Quote] = []
+        for raw_symbol in symbols:
+            frame = await self._quote_history(raw_symbol, at=at)
+            ts, row = _last_row(frame)
+            quotes.append(
+                Quote(
+                    symbol=_normalize_symbol(raw_symbol),
+                    bid=None,
+                    ask=None,
+                    last=_decimal_cell(row, "Close"),
+                    ts=_normalize_timestamp(ts),
+                )
+            )
+        return quotes
 
     async def get_fx_rates(
         self,
@@ -44,29 +75,210 @@ class YahooMarketDataProviderAdapter:
         at: datetime | None = None,
         method: str = "spot",
     ) -> list[FxRate]:
-        details = {"operation": "get_fx_rates", "pairs": pairs, "method": method}
-        if at is not None:
-            details["at"] = at.isoformat()
-        raise self._not_implemented_error(**details)
+        if method != "spot":
+            raise DataSourceError("Unsupported Yahoo FX method", details={"method": method})
+
+        rates: list[FxRate] = []
+        for pair in pairs:
+            ticker = YAHOO_FX_TICKERS.get(pair)
+            if ticker is None:
+                raise DataSourceError("Unsupported Yahoo FX pair", details={"pair": pair})
+
+            frame = await self._quote_history(ticker, at=at, operation="get_fx_rates")
+            ts, row = _last_row(frame)
+            rates.append(
+                FxRate(
+                    pair="USDJPY",
+                    rate=_decimal_cell(row, "Close"),
+                    ts=_normalize_timestamp(ts),
+                    source="yahoo",
+                )
+            )
+        return rates
 
     def healthcheck(self) -> dict[str, str]:
+        status = "available" if _yfinance_available() else "missing_dependency"
         return {
             "provider": self.cfg.provider,
-            "status": "not_implemented",
+            "status": status,
             "adapter": "YahooMarketDataProviderAdapter",
         }
 
-    def _not_implemented_error(self, **request_details: object) -> DataSourceError:
+    async def _quote_history(
+        self,
+        raw_symbol: str,
+        *,
+        at: datetime | None,
+        operation: str = "fetch_quotes",
+    ) -> Any:
+        if at is None:
+            return await self._history(
+                raw_symbol,
+                period="5d",
+                interval="1d",
+                operation=operation,
+            )
+        return await self._history(
+            raw_symbol,
+            start=at - timedelta(days=7),
+            end=at + timedelta(days=1),
+            interval="1d",
+            operation=operation,
+        )
+
+    async def _history(
+        self,
+        raw_symbol: str,
+        *,
+        interval: Interval,
+        operation: str,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        period: str | None = None,
+    ) -> Any:
+        yf = _load_yfinance()
+        ticker = yf.Ticker(raw_symbol)
+        kwargs: dict[str, object] = {
+            "interval": interval,
+            "auto_adjust": False,
+            "actions": False,
+            "timeout": self.cfg.timeouts_ms.read / 1000,
+            "raise_errors": True,
+        }
+        if period is not None:
+            kwargs["period"] = period
+        if start is not None:
+            kwargs["start"] = _date_arg(start)
+        if end is not None:
+            kwargs["end"] = _exclusive_end_arg(end, interval)
+
+        try:
+            frame = await asyncio.to_thread(ticker.history, **kwargs)
+        except Exception as exc:
+            raise ProviderUnavailableError(
+                "Yahoo market-data provider request failed",
+                details=self._provider_details(
+                    operation=operation,
+                    symbol=raw_symbol,
+                    interval=interval,
+                    start=start.isoformat() if start else None,
+                    end=end.isoformat() if end else None,
+                    period=period,
+                    error=str(exc),
+                ),
+            ) from exc
+
+        if getattr(frame, "empty", True):
+            raise ProviderUnavailableError(
+                "Yahoo market-data provider returned no data",
+                details=self._provider_details(
+                    operation=operation,
+                    symbol=raw_symbol,
+                    interval=interval,
+                    start=start.isoformat() if start else None,
+                    end=end.isoformat() if end else None,
+                    period=period,
+                ),
+            )
+        _validate_history_columns(frame, operation=operation, symbol=raw_symbol)
+        return frame
+
+    def _provider_details(self, **request_details: object) -> dict[str, object]:
         details = provider_capability_details(self.cfg.provider)
         details.update(live_provider_adapter_details(self.cfg.provider))
         details.update(
             {
                 "allow_external_providers": self.cfg.allow_external_providers,
-                "opt_in_status": "explicitly_enabled_stub",
+                "opt_in_status": "explicitly_enabled_live",
                 "request": request_details,
             }
         )
-        return DataSourceError(
-            "Yahoo market-data provider adapter is not implemented yet",
+        return details
+
+
+def _load_yfinance() -> Any:
+    try:
+        import yfinance as yf  # type: ignore[import-untyped]
+    except ImportError as exc:
+        details = provider_capability_details("yahoo")
+        details.update(live_provider_adapter_details("yahoo"))
+        details["opt_in_status"] = "missing_optional_dependency"
+        raise ProviderUnavailableError(
+            "Yahoo market-data provider dependency is not installed",
             details=details,
+        ) from exc
+    return yf
+
+
+def _yfinance_available() -> bool:
+    try:
+        _load_yfinance()
+    except ProviderUnavailableError:
+        return False
+    return True
+
+
+def _normalize_symbol(raw_symbol: str) -> Symbol:
+    if raw_symbol.endswith(".T"):
+        return Symbol(
+            raw=raw_symbol,
+            exchange="TSE",
+            code=raw_symbol.removesuffix(".T"),
+            currency="JPY",
         )
+    return Symbol(raw=raw_symbol, exchange="NASDAQ", code=raw_symbol, currency="USD")
+
+
+def _normalize_timestamp(value: object) -> datetime:
+    if hasattr(value, "to_pydatetime"):
+        value = value.to_pydatetime()
+    if not isinstance(value, datetime):
+        raise SchemaMismatchError(
+            "Yahoo market-data timestamp is not a datetime",
+            details={"timestamp": str(value)},
+        )
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
+def _decimal_cell(row: Any, column: str) -> Decimal:
+    try:
+        value = row[column]
+    except Exception as exc:
+        raise SchemaMismatchError(
+            "Yahoo market-data response is missing a required column",
+            details={"column": column},
+        ) from exc
+
+    if value is None or str(value) == "nan":
+        raise SchemaMismatchError(
+            "Yahoo market-data response contains an empty numeric value",
+            details={"column": column},
+        )
+    return Decimal(str(value))
+
+
+def _last_row(frame: Any) -> tuple[object, Any]:
+    return frame.index[-1], frame.iloc[-1]
+
+
+def _validate_history_columns(frame: Any, *, operation: str, symbol: str) -> None:
+    missing = [
+        column for column in ["Open", "High", "Low", "Close", "Volume"] if column not in frame
+    ]
+    if missing:
+        raise SchemaMismatchError(
+            "Yahoo market-data response is missing required columns",
+            details={"operation": operation, "symbol": symbol, "missing_columns": missing},
+        )
+
+
+def _date_arg(value: datetime) -> str:
+    return value.astimezone(UTC).date().isoformat()
+
+
+def _exclusive_end_arg(value: datetime, interval: Interval) -> str:
+    if interval == "1d":
+        value = value + timedelta(days=1)
+    return _date_arg(value)

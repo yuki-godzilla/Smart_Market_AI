@@ -88,8 +88,8 @@ The implementation is still MVP-oriented. Risk, Portfolio, API, Streamlit UI, lo
   `DataAccess` は現在 deterministic な `mock` / `csv` provider に対応し、`yahoo` などの live provider は拒否します。
 - Rejected live providers return a `DataSourceError` that names supported providers and marks live-provider support as a future explicit opt-in path.
   拒否された live provider は、対応済み provider と live provider が将来の明示 opt-in 経路であることを示す `DataSourceError` を返します。
-- Live providers require `dataaccess.allow_external_providers: true` before reaching future implementation paths, and remain unimplemented for now.
-  live provider は将来の実装経路へ進む前に `dataaccess.allow_external_providers: true` を必要とし、現時点ではまだ未実装です。
+- Live providers require `dataaccess.allow_external_providers: true`; `yahoo` now has an opt-in live adapter, while `polygon` remains unimplemented.
+  live provider は `dataaccess.allow_external_providers: true` を必要とします。`yahoo` は opt-in live adapter を実装済みで、`polygon` はまだ未実装です。
 - Market-data provider capabilities are centralized in `backend/marketdata/provider_registry.py`.
   market-data provider の capability は `backend/marketdata/provider_registry.py` に集約しています。
 - Planned live-provider adapter metadata is centralized in `backend/marketdata/live_provider_adapters.py`.
@@ -129,8 +129,8 @@ Based on code and roadmap documents, the project is effectively here:
 - Phase 7 Config And Scenario Management: implemented for file-backed rebalance scenarios / Phase 7 Config And Scenario Management: file-backed rebalance scenario 向けに実装済み
 - Phase 8 Reporting MVP: complete for JSON/CSV/Markdown/manifest/ZIP exports / Phase 8 Reporting MVP: JSON/CSV/Markdown/manifest/ZIP export として完了
 - Phase 9 External Data Provider Preparation: complete before live adapter implementation / Phase 9 External Data Provider Preparation: live adapter 実装前の準備として完了
-- Phase 10 External Data Ingestion MVP: started with planned live-provider adapter metadata, a shared `MarketDataProviderAdapter` protocol, a provider adapter factory, a Streamlit Market Data preview tab, and a `yahoo` opt-in stub; completion target still requires live-provider data retrieval. / Phase 10 External Data Ingestion MVP: planned live-provider adapter metadata、共通 `MarketDataProviderAdapter` protocol、provider adapter factory、Streamlit Market Data preview tab、`yahoo` opt-in stub から着手。完了にはまだ live-provider data retrieval が必要。
-- Next recommended work: continue External Data Ingestion MVP by expanding the `yahoo` stub into a real data retrieval adapter, then verify provider data/status in the Streamlit UI before moving to Feature Store Lite. / 次の推奨作業: `yahoo` stub を実データ取得 adapter へ拡張し、その後 Feature Store Lite へ進む前に provider data / status を Streamlit UI で確認する。
+- Phase 10 External Data Ingestion MVP: implemented for code and deterministic verification with planned live-provider adapter metadata, a shared `MarketDataProviderAdapter` protocol, a provider adapter factory, a Streamlit Market Data preview tab, and a `yahoo` opt-in live adapter backed by `yfinance`. / Phase 10 External Data Ingestion MVP: planned live-provider adapter metadata、共通 `MarketDataProviderAdapter` protocol、provider adapter factory、Streamlit Market Data preview tab、`yfinance` を使う `yahoo` opt-in live adapter まで、コードと deterministic 検証として実装済み。
+- Next recommended work: run a live Yahoo provider smoke check in a network-enabled environment, then move to Feature Store Lite. / 次の推奨作業: network 利用可能な環境で Yahoo provider の live smoke check を実施し、その後 Feature Store Lite へ進む。
 
 ## Test And Verification Baseline / テストと確認の基準
 
@@ -280,3 +280,4 @@ Update this file when:
 - 2026-05-08: Added optional rebalance scenario descriptions and displayed them under the Streamlit sample selector. / 任意の rebalance scenario 説明を追加できるようにし、Streamlit の sample selector 下に表示するようにした。
 - 2026-05-08: Localized the default user-facing rebalance scenario descriptions to Japanese. / 既定のユーザー向け rebalance scenario 説明を日本語化した。
 - 2026-05-08: Clarified that future roadmap phases affecting UI behavior must include UI-level completion criteria, and that external-provider features should prefer live-data UI confirmation when available. / 今後のロードマップで UI に影響するフェーズは UI 上の確認を完了条件に含め、外部 provider 機能では可能な限り live data による UI 確認を優先する方針を明確化した。
+- 2026-05-08: Expanded the Yahoo market-data provider from an opt-in stub to a `yfinance`-backed live adapter for OHLCV, quotes, and USDJPY FX, with deterministic fake-provider tests and Streamlit Market Data preview coverage. / Yahoo market-data provider を opt-in stub から `yfinance` を使う live adapter へ拡張し、OHLCV、quote、USDJPY FX の取得、deterministic fake-provider test、Streamlit Market Data preview の検証を追加した。

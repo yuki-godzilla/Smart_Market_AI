@@ -25,7 +25,7 @@
 
 未実装:
 
-- `yahoo` / `polygon` などの live provider adapter 本体
+- `polygon` などの追加 live provider adapter 本体
 - broker への live order 送信
 - Execution workflow
 - screening / forecasting / multi-model scoring の実装
@@ -241,7 +241,7 @@ PDF / Excel は将来の reporting 拡張で扱います。
 | --- | --- | --- | --- |
 | `mock` | 実装済み | 不要 | 既定の MVP 確認 |
 | `csv` | 実装済み | 不要 | ローカル CSV 確認 |
-| `yahoo` | opt-in stub | 将来必要 | 最初の live provider 候補 |
+| `yahoo` | opt-in live adapter | 必要 | 最初の live provider |
 | `polygon` | 未実装 | 将来必要 | live provider 候補 |
 
 live provider を指定するには、設定ファイルで `dataaccess.allow_external_providers: true` を明示する必要があります。
@@ -252,10 +252,19 @@ dataaccess:
   allow_external_providers: true
 ```
 
-ただし、現時点では live provider adapter 本体が未実装です。
-`yahoo` は opt-in stub として factory から呼ばれますが、外部 API へは接続せず、未実装であることを示す domain error を返します。
-opt-in しても外部 API へは接続せず、未実装であることを示す domain error を返します。
-Phase 10 の完了時点では、明示 opt-in した live provider から実データを取得し、Streamlit UI 上で取得結果と provider 状態を確認できることを目標にします。
+`yahoo` は `yfinance` を使う opt-in live adapter として factory から呼ばれます。
+`yfinance` が未インストール、provider が応答しない、または取得データが空の場合は domain error として UI に表示されます。
+Phase 10 の確認では、明示 opt-in した `yahoo` provider から実データを取得し、Streamlit UI 上で取得結果と provider 状態を確認します。
+
+live provider を UI で確認する例:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe -m pip install -r .\setup\requirements.txt
+$env:SMAI_CONFIG_FILE = ".\tests\fixtures\config\live_provider_yahoo_opt_in.yaml"
+.\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
+```
+
+Streamlit の `Market Data` tab で `AAPL` などの symbol と date range を指定し、quote、OHLCV summary、USDJPY FX、provider metadata を確認します。
 
 通常のローカル確認では、次のどちらかを使います。
 

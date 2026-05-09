@@ -261,10 +261,12 @@ live provider を UI で確認する例:
 ```powershell
 .\venv_SMAI\Scripts\python.exe -m pip install -r .\setup\requirements.txt
 $env:SMAI_CONFIG_FILE = ".\tests\fixtures\config\live_provider_yahoo_opt_in.yaml"
+$env:SMAI_YFINANCE_CACHE_DIR = ".\.yfinance_cache"
 .\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
 ```
 
 Streamlit の `Market Data` tab で `AAPL` などの symbol と date range を指定し、quote、OHLCV summary、USDJPY FX、provider metadata を確認します。
+`unable to open database file` が出る場合は、`SMAI_YFINANCE_CACHE_DIR` に書き込み可能なディレクトリを指定してください。
 
 通常のローカル確認では、次のどちらかを使います。
 

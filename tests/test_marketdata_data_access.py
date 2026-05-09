@@ -1,5 +1,5 @@
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -26,6 +26,23 @@ def test_fetch_ohlcv_returns_mock_bars():
     assert bars[0].symbol.exchange == "NASDAQ"
     assert bars[0].close == Decimal("170.00")
     assert bars[0].provider == "mock"
+
+
+def test_fetch_ohlcv_returns_recent_mock_bars_for_current_date_defaults():
+    da = DataAccess()
+    today = datetime.now(UTC).date()
+
+    bars = asyncio.run(
+        da.fetch_ohlcv(
+            ["AAPL"],
+            start=datetime.combine(today - timedelta(days=7), time.min, tzinfo=UTC),
+            end=datetime.combine(today, time.max, tzinfo=UTC),
+        )
+    )
+
+    assert bars
+    assert bars[-1].ts.date() == today
+    assert bars[-1].provider == "mock"
 
 
 def test_fetch_ohlcv_returns_csv_bars():

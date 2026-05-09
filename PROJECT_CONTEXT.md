@@ -73,7 +73,7 @@ The implementation is still MVP-oriented. Risk, Portfolio, API, Streamlit UI, lo
 
 ## Not Yet Implemented Or Partial / 未実装または部分実装
 
-- non-local market data providers such as `yahoo` / `yahoo` などの非ローカル市場データプロバイダ
+- live provider smoke verification for `yahoo` in a network-enabled environment / network 利用可能な環境での `yahoo` live provider smoke verification
 - `.env` driven settings loading beyond `SMAI_CONFIG_FILE` / `SMAI_CONFIG_FILE` 以外の `.env` ベース設定読み込み
 - `backend/execution/`
 - `backend/screening/`
@@ -84,10 +84,10 @@ The implementation is still MVP-oriented. Risk, Portfolio, API, Streamlit UI, lo
 
 ## Behavioral Notes / 挙動メモ
 
-- `DataAccess` currently supports deterministic `mock` and `csv` providers, and rejects live providers such as `yahoo`.
-  `DataAccess` は現在 deterministic な `mock` / `csv` provider に対応し、`yahoo` などの live provider は拒否します。
-- Rejected live providers return a `DataSourceError` that names supported providers and marks live-provider support as a future explicit opt-in path.
-  拒否された live provider は、対応済み provider と live provider が将来の明示 opt-in 経路であることを示す `DataSourceError` を返します。
+- `DataAccess` directly supports deterministic `mock` and `csv` providers; live providers are created through `create_market_data_provider_adapter()`.
+  `DataAccess` は deterministic な `mock` / `csv` provider を直接扱います。live provider は `create_market_data_provider_adapter()` 経由で作成します。
+- Live providers without explicit opt-in return a `DataSourceError` that names supported providers and explains the opt-in requirement.
+  明示 opt-in のない live provider は、対応済み provider と opt-in 要件を示す `DataSourceError` を返します。
 - Live providers require `dataaccess.allow_external_providers: true`; `yahoo` now has an opt-in live adapter, while `polygon` remains unimplemented.
   live provider は `dataaccess.allow_external_providers: true` を必要とします。`yahoo` は opt-in live adapter を実装済みで、`polygon` はまだ未実装です。
 - Market-data provider capabilities are centralized in `backend/marketdata/provider_registry.py`.
@@ -129,7 +129,7 @@ Based on code and roadmap documents, the project is effectively here:
 - Phase 7 Config And Scenario Management: implemented for file-backed rebalance scenarios / Phase 7 Config And Scenario Management: file-backed rebalance scenario 向けに実装済み
 - Phase 8 Reporting MVP: complete for JSON/CSV/Markdown/manifest/ZIP exports / Phase 8 Reporting MVP: JSON/CSV/Markdown/manifest/ZIP export として完了
 - Phase 9 External Data Provider Preparation: complete before live adapter implementation / Phase 9 External Data Provider Preparation: live adapter 実装前の準備として完了
-- Phase 10 External Data Ingestion MVP: implemented for code and deterministic verification with planned live-provider adapter metadata, a shared `MarketDataProviderAdapter` protocol, a provider adapter factory, a Streamlit Market Data preview tab, and a `yahoo` opt-in live adapter backed by `yfinance`. / Phase 10 External Data Ingestion MVP: planned live-provider adapter metadata、共通 `MarketDataProviderAdapter` protocol、provider adapter factory、Streamlit Market Data preview tab、`yfinance` を使う `yahoo` opt-in live adapter まで、コードと deterministic 検証として実装済み。
+- Phase 10 External Data Ingestion MVP: code implementation and deterministic verification are complete with planned live-provider adapter metadata, a shared `MarketDataProviderAdapter` protocol, a provider adapter factory, a Streamlit Market Data preview tab, and a `yahoo` opt-in live adapter backed by `yfinance`; live Yahoo UI smoke remains pending in an environment with network access and writable yfinance cache. / Phase 10 External Data Ingestion MVP: planned live-provider adapter metadata、共通 `MarketDataProviderAdapter` protocol、provider adapter factory、Streamlit Market Data preview tab、`yfinance` を使う `yahoo` opt-in live adapter まで、コード実装と deterministic 検証は完了。Yahoo の live UI smoke は network と yfinance cache 書き込みが可能な環境での確認待ち。
 - Phase 11 Feature Store Lite: started with a reusable `FeatureSnapshot` contract and Streamlit Market Data preview rows for provider, feature version, feature values, and missing reasons. / Phase 11 Feature Store Lite: 再利用可能な `FeatureSnapshot` contract と、provider、feature version、feature 値、欠損理由を確認する Streamlit Market Data preview 行から着手。
 - Next recommended work: extend Feature Store Lite with return, momentum, drawdown, and data-completeness fields after a live Yahoo provider smoke check in a network-enabled environment. / 次の推奨作業: network 利用可能な環境で Yahoo provider の live smoke check を実施したうえで、Feature Store Lite に return、momentum、drawdown、data completeness を拡張する。
 
@@ -165,10 +165,10 @@ These commands are also referenced by the roadmap document.
 
 ## Next Good Targets / 次の着手候補
 
-- start External Data Ingestion MVP with explicit opt-in live provider behavior
-  明示 opt-in の live provider 挙動を持つ External Data Ingestion MVP に着手する
-- define Feature Store Lite contracts for screening and forecast reuse
-  screening と forecast で再利用する Feature Store Lite の契約を定義する
+- run Yahoo live-provider UI smoke in a network-enabled environment
+  network 利用可能な環境で Yahoo live-provider UI smoke を実施する
+- extend Feature Store Lite with return, momentum, drawdown, and data completeness
+  Feature Store Lite に return、momentum、drawdown、data completeness を拡張する
 - add Screening Score MVP with explainable score breakdowns
   説明可能な score breakdown を持つ Screening Score MVP を追加する
 - add Forecast Lab Baseline before heavier research model adapters
@@ -284,3 +284,4 @@ Update this file when:
 - 2026-05-08: Expanded the Yahoo market-data provider from an opt-in stub to a `yfinance`-backed live adapter for OHLCV, quotes, and USDJPY FX, with deterministic fake-provider tests and Streamlit Market Data preview coverage. / Yahoo market-data provider を opt-in stub から `yfinance` を使う live adapter へ拡張し、OHLCV、quote、USDJPY FX の取得、deterministic fake-provider test、Streamlit Market Data preview の検証を追加した。
 - 2026-05-09: Updated Streamlit date input defaults so rebalance `As of` and Market Data `End` use the current date, while Market Data `Start` defaults to seven days before today. / Streamlit の日付入力初期値を更新し、rebalance の `As of` と Market Data の `End` は現在日付、Market Data の `Start` は現在日付の 7 日前を使うようにした。
 - 2026-05-09: Started Feature Store Lite by adding a `FeatureSnapshot` contract, `FeatureBuilder.build_feature_snapshot()`, and Streamlit Market Data feature snapshot rows with provider/version/missing metadata. / `FeatureSnapshot` contract、`FeatureBuilder.build_feature_snapshot()`、provider/version/missing metadata 付きの Streamlit Market Data feature snapshot 行を追加し、Feature Store Lite に着手した。
+- 2026-05-09: Added rolling recent OHLCV rows to the mock market-data provider so current-date Streamlit defaults can show an OHLCV summary without losing fixed historical fixture rows. / Streamlit の現在日付デフォルトでも OHLCV summary を表示できるように、固定の historical fixture 行を残したまま mock market-data provider に直近日付の rolling OHLCV 行を追加した。

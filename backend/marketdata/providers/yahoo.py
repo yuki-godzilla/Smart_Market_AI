@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 from backend.core.config import DataAccessConfig
@@ -12,6 +14,7 @@ from backend.marketdata.live_provider_adapters import live_provider_adapter_deta
 from backend.marketdata.provider_registry import provider_capability_details
 
 YAHOO_FX_TICKERS = {"USDJPY": "JPY=X"}
+YFINANCE_CACHE_DIR_ENV = "SMAI_YFINANCE_CACHE_DIR"
 
 
 class YahooMarketDataProviderAdapter:
@@ -207,7 +210,29 @@ def _load_yfinance() -> Any:
             "Yahoo market-data provider dependency is not installed",
             details=details,
         ) from exc
+    _configure_yfinance_cache(yf)
     return yf
+
+
+def _configure_yfinance_cache(yf: Any) -> None:
+    cache_dir = Path(os.getenv(YFINANCE_CACHE_DIR_ENV, ".yfinance_cache"))
+    try:
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        yf.set_tz_cache_location(str(cache_dir))
+    except OSError as exc:
+        details = provider_capability_details("yahoo")
+        details.update(live_provider_adapter_details("yahoo"))
+        details.update(
+            {
+                "opt_in_status": "cache_unavailable",
+                "cache_dir": str(cache_dir),
+                "error": str(exc),
+            }
+        )
+        raise ProviderUnavailableError(
+            "Yahoo market-data provider cache directory is unavailable",
+            details=details,
+        ) from exc
 
 
 def _yfinance_available() -> bool:

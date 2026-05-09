@@ -1,5 +1,5 @@
 import csv
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import TypedDict
@@ -362,6 +362,34 @@ _MOCK_SYMBOLS = {
     "7203.T": Symbol(raw="7203.T", exchange="TSE", code="7203", currency="JPY"),
 }
 
+
+def _rolling_mock_ohlcv(
+    *,
+    base_close: Decimal,
+    base_volume: Decimal,
+    days: int = 10,
+) -> list[MockBarPoint]:
+    """Return recent mock bars so current-date UI defaults have data."""
+
+    today = datetime.now(UTC).date()
+    start = today - timedelta(days=days - 1)
+    rows: list[MockBarPoint] = []
+    for offset in range(days):
+        ts = datetime.combine(start + timedelta(days=offset), datetime.min.time(), tzinfo=UTC)
+        close = base_close + Decimal(offset)
+        rows.append(
+            {
+                "ts": ts,
+                "open": close - Decimal("1"),
+                "high": close + Decimal("1"),
+                "low": close - Decimal("2"),
+                "close": close,
+                "volume": base_volume + (Decimal(offset) * Decimal("100000")),
+            }
+        )
+    return rows
+
+
 _MOCK_OHLCV: dict[str, list[MockBarPoint]] = {
     "AAPL": [
         {
@@ -388,6 +416,10 @@ _MOCK_OHLCV: dict[str, list[MockBarPoint]] = {
             "close": Decimal("175.00"),
             "volume": Decimal("62000000"),
         },
+        *_rolling_mock_ohlcv(
+            base_close=Decimal("175.00"),
+            base_volume=Decimal("62000000"),
+        ),
     ],
     "7203.T": [
         {
@@ -414,5 +446,9 @@ _MOCK_OHLCV: dict[str, list[MockBarPoint]] = {
             "close": Decimal("2900"),
             "volume": Decimal("23000000"),
         },
+        *_rolling_mock_ohlcv(
+            base_close=Decimal("2900"),
+            base_volume=Decimal("23000000"),
+        ),
     ],
 }

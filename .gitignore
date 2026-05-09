@@ -11,6 +11,7 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .black_cache/
+.yfinance_cache/
 .coverage
 coverage.xml
 htmlcov/

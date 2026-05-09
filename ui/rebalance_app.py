@@ -407,6 +407,8 @@ def feature_snapshot_rows(snapshot: FeatureSnapshot) -> list[dict[str, str]]:
             "vol_20d": _format_optional_percent(row.vol_20d),
             "drawdown_20d": _format_optional_percent(row.drawdown_20d),
             "data_completeness": _format_optional_percent(row.data_completeness),
+            "data_quality": row.data_quality,
+            "data_quality_reasons": _quality_reasons(row.data_quality_reasons),
             "missing": _missing_flags(row.missing),
             "missing_summary": _missing_summary_text(snapshot.missing_summary),
         }
@@ -876,6 +878,12 @@ def _missing_summary_text(summary: dict[str, int]) -> str:
     if not summary:
         return ""
     return ", ".join(f"{feature}: {count}" for feature, count in sorted(summary.items()))
+
+
+def _quality_reasons(reasons: list[str]) -> str:
+    if not reasons:
+        return ""
+    return ", ".join(reasons)
 
 
 def _slug(value: str) -> str:

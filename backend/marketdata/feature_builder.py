@@ -4,7 +4,7 @@ from math import log, sqrt
 from statistics import pstdev
 
 from backend.core.config import FeatureBuilderConfig
-from backend.core.data_contracts import Bar, DailySnapshot, FeatureSnapshot
+from backend.core.data_contracts import Bar, DailySnapshot, DataQuality, FeatureSnapshot
 from backend.core.errors import DataSourceError
 from backend.marketdata.provider_adapters import MarketDataProviderAdapter
 
@@ -35,6 +35,10 @@ class FeatureBuilder:
             return_1d = _compute_return(bars, 1)
             momentum_5d = _compute_return(bars, 5)
             drawdown_20d = _compute_drawdown(bars, 20)
+            data_completeness = _compute_data_completeness(
+                bars,
+                max(self.cfg.adv_window, self.cfg.vol_window + 1, 20),
+            )
             missing = {
                 "dividend_yield": True,
                 "market_cap_jpy": True,
@@ -42,6 +46,10 @@ class FeatureBuilder:
                 "momentum_5d": momentum_5d is None,
                 "drawdown_20d": drawdown_20d is None,
             }
+            data_quality, data_quality_reasons = _data_quality_for_snapshot(
+                missing,
+                data_completeness,
+            )
             snapshots.append(
                 DailySnapshot(
                     symbol=symbol,
@@ -57,13 +65,12 @@ class FeatureBuilder:
                         self.cfg.vol_method,
                     ),
                     drawdown_20d=drawdown_20d,
-                    data_completeness=_compute_data_completeness(
-                        bars,
-                        max(self.cfg.adv_window, self.cfg.vol_window + 1, 20),
-                    ),
+                    data_completeness=data_completeness,
                     dividend_yield=None,
                     market_cap_jpy=None,
                     missing=missing,
+                    data_quality=data_quality,
+                    data_quality_reasons=data_quality_reasons,
                 )
             )
 
@@ -84,6 +91,7 @@ class FeatureBuilder:
             provider=provider,
             rows=rows,
             missing_summary=_missing_summary(rows),
+            quality_summary=_quality_summary(rows),
         )
 
     async def compute_adv(self, symbol: str, as_of: date, window: int = 20) -> Decimal:
@@ -130,6 +138,32 @@ def _missing_summary(rows: list[DailySnapshot]) -> dict[str, int]:
             if is_missing:
                 summary[feature] = summary.get(feature, 0) + 1
     return summary
+
+
+def _quality_summary(rows: list[DailySnapshot]) -> dict[DataQuality, int]:
+    summary: dict[DataQuality, int] = {}
+    for row in rows:
+        summary[row.data_quality] = summary.get(row.data_quality, 0) + 1
+    return summary
+
+
+def _data_quality_for_snapshot(
+    missing: dict[str, bool],
+    data_completeness: Decimal,
+) -> tuple[DataQuality, list[str]]:
+    reasons = [
+        f"missing:{feature}" for feature, is_missing in sorted(missing.items()) if is_missing
+    ]
+
+    blocking_features = {"return_1d", "drawdown_20d"}
+    if any(missing.get(feature, False) for feature in blocking_features):
+        return "BLOCK", reasons
+    if reasons or data_completeness < Decimal("0.8"):
+        quality_reasons = list(reasons)
+        if data_completeness < Decimal("0.8"):
+            quality_reasons.append(f"partial_data_completeness:{data_completeness:.2f}")
+        return "WARN", quality_reasons
+    return "OK", []
 
 
 def _compute_adv_from_bars(bars: list[Bar], window: int) -> Decimal:

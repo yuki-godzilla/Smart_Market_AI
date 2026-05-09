@@ -48,7 +48,7 @@ jobs:
         run: ruff check .
 
       - name: Black (format check)
-        run: black --check .
+        run: python tools/run_black_check.py
 
       - name: Mypy (type check)
         run: mypy .

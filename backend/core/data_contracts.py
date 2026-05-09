@@ -8,6 +8,7 @@ Currency = Literal["JPY", "USD"]
 Side = Literal["BUY", "SELL"]
 OrderType = Literal["MKT", "LMT", "STP", "IOC"]
 Interval = Literal["1m", "5m", "15m", "1h", "1d"]
+DataQuality = Literal["OK", "WARN", "BLOCK"]
 
 
 class StrictBaseModel(BaseModel):
@@ -93,6 +94,8 @@ class DailySnapshot(StrictBaseModel):
     dividend_yield: Decimal | None = Field(default=None, ge=0)
     market_cap_jpy: Decimal | None = Field(default=None, ge=0)
     missing: dict[str, bool] = Field(default_factory=dict)
+    data_quality: DataQuality = "OK"
+    data_quality_reasons: list[str] = Field(default_factory=list)
 
 
 class FeatureSnapshot(StrictBaseModel):
@@ -103,3 +106,4 @@ class FeatureSnapshot(StrictBaseModel):
     feature_version: str = Field(default="feature-snapshot-v1", min_length=1)
     rows: list[DailySnapshot]
     missing_summary: dict[str, int] = Field(default_factory=dict)
+    quality_summary: dict[DataQuality, int] = Field(default_factory=dict)

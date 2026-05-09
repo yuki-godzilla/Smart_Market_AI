@@ -64,11 +64,8 @@ pytest --version
 
 6) 品質チェック一括（lint/format/check/test）
 ```powershell
-pytest
-ruff check .
-$env:BLACK_CACHE_DIR = "$PWD\.black_cache"
-black --check .
-mypy .
+.\venv_SMAI\Scripts\python.exe .\tools\run_local_checks.py
+.\venv_SMAI\Scripts\python.exe -m mypy .
 ```
 
 ---
@@ -100,9 +97,9 @@ uvicorn backend.app.main:app --reload
 - **仮想環境が有効化できない**
   → 実行ポリシーを `RemoteSigned` に変更（上記参照）。
 - **black が長時間終わらない**
-  → `BLACK_CACHE_DIR` が設定されているか確認し、未設定なら以下を実行。
+  → `black --check .` を直接実行せず、cache-free helper を使います。
   ```powershell
-  $env:BLACK_CACHE_DIR = "$PWD\.black_cache"
+  .\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py
   ```
 
 ---
@@ -118,7 +115,6 @@ deactivate
 # 依存を再インストール
 pip install -r setup\requirements.txt -r setup\requirements-dev.txt
 
-# Black 実行
-$env:BLACK_CACHE_DIR = "$PWD\.black_cache"
-black --check backend tests
+# Black 確認
+.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py
 ```

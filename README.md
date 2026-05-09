@@ -156,7 +156,7 @@ $env:SMAI_REBALANCE_SCENARIO_DIR = ".\my_rebalance_scenarios"
 .\venv_SMAI\Scripts\python.exe -m ruff check backend tests --no-cache
 ```
 
-CI では現在、`black --check .` と `mypy .` も実行します。
+CI では現在、cache-free の `tools/run_black_check.py` と `mypy .` も実行します。
 
 ## 作業メモ
 

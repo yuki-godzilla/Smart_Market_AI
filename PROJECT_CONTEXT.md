@@ -5,8 +5,8 @@
 This document captures the current repository state so future work can start from a shared understanding instead of rediscovering context each time.
 この文書は、毎回コンテキストを掘り直さなくても将来の作業を共通認識から始められるように、現在のリポジトリ状況を記録するものです。
 
-Last updated: 2026-05-08
-最終更新日: 2026-05-08
+Last updated: 2026-05-10
+最終更新日: 2026-05-10
 
 ## Project Summary / プロジェクト概要
 
@@ -130,8 +130,8 @@ Based on code and roadmap documents, the project is effectively here:
 - Phase 8 Reporting MVP: complete for JSON/CSV/Markdown/manifest/ZIP exports / Phase 8 Reporting MVP: JSON/CSV/Markdown/manifest/ZIP export として完了
 - Phase 9 External Data Provider Preparation: complete before live adapter implementation / Phase 9 External Data Provider Preparation: live adapter 実装前の準備として完了
 - Phase 10 External Data Ingestion MVP: code implementation and deterministic verification are complete with planned live-provider adapter metadata, a shared `MarketDataProviderAdapter` protocol, a provider adapter factory, a Streamlit Market Data preview tab, and a `yahoo` opt-in live adapter backed by `yfinance`; live Yahoo UI smoke remains pending in an environment with network access and writable yfinance cache. / Phase 10 External Data Ingestion MVP: planned live-provider adapter metadata、共通 `MarketDataProviderAdapter` protocol、provider adapter factory、Streamlit Market Data preview tab、`yfinance` を使う `yahoo` opt-in live adapter まで、コード実装と deterministic 検証は完了。Yahoo の live UI smoke は network と yfinance cache 書き込みが可能な環境での確認待ち。
-- Phase 11 Feature Store Lite: started with a reusable `FeatureSnapshot` contract, Streamlit Market Data preview rows, and computed return, momentum, drawdown, volatility, ADV, and data-completeness fields. / Phase 11 Feature Store Lite: 再利用可能な `FeatureSnapshot` contract、Streamlit Market Data preview 行、return、momentum、drawdown、volatility、ADV、data completeness の計算から着手。
-- Next recommended work: extend Feature Store Lite with external-data fields and data-quality judgement after a live Yahoo provider smoke check in a network-enabled environment. / 次の推奨作業: network 利用可能な環境で Yahoo provider の live smoke check を実施したうえで、Feature Store Lite に外部データ由来項目と data quality 判定を拡張する。
+- Phase 11 Feature Store Lite: started with a reusable `FeatureSnapshot` contract, Streamlit Market Data preview rows, computed return, momentum, drawdown, volatility, ADV, data-completeness fields, and data-quality judgement. / Phase 11 Feature Store Lite: 再利用可能な `FeatureSnapshot` contract、Streamlit Market Data preview 行、return、momentum、drawdown、volatility、ADV、data completeness、data quality 判定の計算から着手。
+- Next recommended work: extend Feature Store Lite with external-data fields after a live Yahoo provider smoke check in a network-enabled environment. / 次の推奨作業: network 利用可能な環境で Yahoo provider の live smoke check を実施したうえで、Feature Store Lite に外部データ由来項目を拡張する。
 
 ## Test And Verification Baseline / テストと確認の基準
 
@@ -167,8 +167,8 @@ These commands are also referenced by the roadmap document.
 
 - run Yahoo live-provider UI smoke in a network-enabled environment
   network 利用可能な環境で Yahoo live-provider UI smoke を実施する
-- extend Feature Store Lite with external-data fields and data-quality judgement
-  Feature Store Lite に外部データ由来項目と data quality 判定を拡張する
+- extend Feature Store Lite with external-data fields
+  Feature Store Lite に外部データ由来項目を拡張する
 - add Screening Score MVP with explainable score breakdowns
   説明可能な score breakdown を持つ Screening Score MVP を追加する
 - add Forecast Lab Baseline before heavier research model adapters
@@ -221,7 +221,7 @@ Update this file when:
 - 2026-05-07: Added explicit `RebalanceScenarioError` handling for malformed file-backed rebalance scenarios and covered invalid JSON, invalid request schema, and duplicate scenario names with tests. / 壊れた file-backed rebalance scenario 向けに明示的な `RebalanceScenarioError` 処理を追加し、不正 JSON、不正 request schema、重複 scenario 名をテストでカバーした。
 - 2026-05-07: Added file-backed rebalance scenarios under `examples/rebalance_scenarios/` and made the Streamlit UI sample selector load them. / `examples/rebalance_scenarios/` に file-backed rebalance scenario を追加し、Streamlit UI の sample selector から読み込むようにした。
 
-- 2026-05-07: Added Black exclude settings for local virtualenv and cache directories so `black --check .` does not scan `venv_SMAI`. / `black --check .` が `venv_SMAI` を走査しないよう、ローカル仮想環境と cache ディレクトリの Black 除外設定を追加。
+- 2026-05-07: Added Black exclude settings for local virtualenv and cache directories, then moved routine local checks to `tools/run_black_check.py` to avoid direct `black --check .` scans. / ローカル仮想環境と cache ディレクトリの Black 除外設定を追加し、その後の通常ローカル確認は `black --check .` 直接実行ではなく `tools/run_black_check.py` に寄せた。
 
 - 2026-05-07: Added cache-free local Black and MVP verification helpers, then covered command construction and file discovery with tests. / cache-free のローカル Black 確認 helper と MVP 確認 helper を追加し、コマンド生成とファイル探索をテストでカバー。
 
@@ -287,3 +287,6 @@ Update this file when:
 - 2026-05-09: Added rolling recent OHLCV rows to the mock market-data provider so current-date Streamlit defaults can show an OHLCV summary without losing fixed historical fixture rows. / Streamlit の現在日付デフォルトでも OHLCV summary を表示できるように、固定の historical fixture 行を残したまま mock market-data provider に直近日付の rolling OHLCV 行を追加した。
 - 2026-05-09: Extended Feature Store Lite snapshots with return, momentum, drawdown, volatility, ADV, and data-completeness fields, and exposed those values in the Streamlit Market Data feature snapshot table. / Feature Store Lite snapshot に return、momentum、drawdown、volatility、ADV、data completeness を追加し、Streamlit Market Data の feature snapshot table で確認できるようにした。
 - 2026-05-09: Formatted Streamlit Feature Snapshot ratio fields as percentages for easier UI inspection. / Streamlit Feature Snapshot の比率系項目を UI で読みやすい percentage 表示に整えた。
+- 2026-05-09: Updated `AGENTS.md` current-state wording so deterministic local defaults and explicit opt-in live-provider support are both represented accurately. / deterministic な local default と明示 opt-in の live-provider support の両方が正確に伝わるように、`AGENTS.md` の現在地表現を更新した。
+- 2026-05-10: Added Feature Store Lite data-quality judgement to `DailySnapshot` / `FeatureSnapshot`, computed `OK` / `WARN` / `BLOCK` from missing features and data completeness, and exposed the result in the Streamlit Market Data Feature Snapshot table. / `DailySnapshot` / `FeatureSnapshot` に Feature Store Lite の data quality 判定を追加し、欠損特徴量と data completeness から `OK` / `WARN` / `BLOCK` を計算して Streamlit Market Data の Feature Snapshot 表で確認できるようにした。
+- 2026-05-10: Confirmed that direct multi-file `python -m black` can leave worker processes stuck in the current local PowerShell environment, stopped the leftover processes, and aligned CI/setup docs with the cache-free `tools/run_black_check.py` helper. / 現在のローカル PowerShell 環境では複数ファイル指定の `python -m black` が worker process を残して固まる場合があることを確認し、残存 process を停止したうえで、CI と setup docs を cache-free の `tools/run_black_check.py` helper に合わせた。

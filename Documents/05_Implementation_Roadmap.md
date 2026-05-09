@@ -275,6 +275,7 @@ Scope:
 - Done: feature snapshot contract を追加する
 - Done: Market Data tab で feature snapshot、provider、version、欠損理由を確認できるようにする
 - Done: return、volatility、momentum、ADV、drawdown、data completeness を計算する
+- Done: 欠損特徴量と data completeness から `OK` / `WARN` / `BLOCK` の data quality 判定を計算し、UI で確認できるようにする
 - `dividend_yield`、`market_cap_jpy` など外部データ由来項目の扱いを整理する
 - as-of date、provider metadata、feature version を保持する
 
@@ -282,9 +283,10 @@ Scope:
 
 - 銘柄ごとに同じ形式の特徴量を取得できる
 - 欠損理由を追跡できる
+- data quality 判定と理由を追跡できる
 - screening / forecast / report から再利用できる
 
-- UI 上で feature snapshot、provider metadata、欠損理由を確認できる
+- UI 上で feature snapshot、provider metadata、欠損理由、data quality 判定を確認できる
 - 外部 provider 由来の特徴量は、可能であれば live data 取得後の snapshot として確認できる
 
 ### Phase 12: Screening Score MVP
@@ -452,6 +454,6 @@ Scope:
 - `SMAI_CONFIG_FILE` 以外の環境変数設定を拡張するか判断する
 - network 利用可能な環境で `yahoo` live provider の smoke check を行う
 - `polygon` など追加 live provider adapter の優先度を判断する
-- Feature Store Lite の外部データ由来項目と data quality 判定を拡張する
+- Feature Store Lite の外部データ由来項目を拡張する
 - Screening Score MVP の score breakdown を設計する
 - Forecast Lab Baseline の評価手順を定義する

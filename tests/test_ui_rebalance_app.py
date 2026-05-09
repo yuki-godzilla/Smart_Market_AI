@@ -295,6 +295,8 @@ def test_build_market_data_preview_returns_mock_rows(monkeypatch):
     assert preview.feature_rows[0]["momentum_5d"] == ""
     assert preview.feature_rows[0]["drawdown_20d"] != ""
     assert preview.feature_rows[0]["data_completeness"] != ""
+    assert preview.feature_rows[0]["data_quality"] == "WARN"
+    assert "missing:dividend_yield" in preview.feature_rows[0]["data_quality_reasons"]
     assert preview.feature_rows[0]["missing"] == "dividend_yield, market_cap_jpy, momentum_5d"
     assert preview.error_rows == []
 
@@ -364,9 +366,16 @@ def test_feature_snapshot_rows_formats_missing_summary():
                 drawdown_20d=Decimal("0.005405405405405405405405405405"),
                 data_completeness=Decimal("0.619047619047619047619047619"),
                 missing={"dividend_yield": True, "market_cap_jpy": True},
+                data_quality="WARN",
+                data_quality_reasons=[
+                    "missing:dividend_yield",
+                    "missing:market_cap_jpy",
+                    "partial_data_completeness:0.62",
+                ],
             )
         ],
         missing_summary={"dividend_yield": 1, "market_cap_jpy": 1},
+        quality_summary={"WARN": 1},
     )
 
     assert feature_snapshot_rows(snapshot) == [
@@ -383,6 +392,10 @@ def test_feature_snapshot_rows_formats_missing_summary():
             "vol_20d": "6.41%",
             "drawdown_20d": "0.54%",
             "data_completeness": "61.90%",
+            "data_quality": "WARN",
+            "data_quality_reasons": (
+                "missing:dividend_yield, missing:market_cap_jpy, " "partial_data_completeness:0.62"
+            ),
             "missing": "dividend_yield, market_cap_jpy",
             "missing_summary": "dividend_yield: 1, market_cap_jpy: 1",
         }

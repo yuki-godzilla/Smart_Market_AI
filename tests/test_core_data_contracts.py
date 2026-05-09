@@ -29,6 +29,8 @@ def test_daily_snapshot_defaults_missing_flags():
     snapshot = DailySnapshot(symbol="AAPL", as_of=date(2026, 4, 11))
 
     assert snapshot.missing == {}
+    assert snapshot.data_quality == "OK"
+    assert snapshot.data_quality_reasons == []
 
 
 def test_feature_snapshot_carries_provider_metadata():
@@ -47,6 +49,7 @@ def test_feature_snapshot_carries_provider_metadata():
     assert snapshot.feature_version == "feature-snapshot-v1"
     assert snapshot.provider == "mock"
     assert snapshot.missing_summary == {"dividend_yield": 1}
+    assert snapshot.quality_summary == {}
     assert snapshot.rows[0].last is None
 
 

@@ -61,6 +61,13 @@ def test_build_daily_snapshot_returns_feature_rows():
         "momentum_5d": True,
         "drawdown_20d": False,
     }
+    assert snapshots[0].data_quality == "WARN"
+    assert snapshots[0].data_quality_reasons == [
+        "missing:dividend_yield",
+        "missing:market_cap_jpy",
+        "missing:momentum_5d",
+        "partial_data_completeness:0.14",
+    ]
 
 
 def test_build_feature_snapshot_returns_metadata_and_missing_summary():
@@ -77,3 +84,4 @@ def test_build_feature_snapshot_returns_metadata_and_missing_summary():
         "market_cap_jpy": 2,
         "momentum_5d": 2,
     }
+    assert snapshot.quality_summary == {"WARN": 2}

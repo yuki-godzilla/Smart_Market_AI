@@ -48,6 +48,7 @@ from ui.rebalance_app import (
     run_rebalance_check,
     runtime_settings_summary,
     sample_widget_key,
+    screening_score_rows,
     symbol_display_name,
     symbol_reference_rows,
     table_csv_download,
@@ -302,6 +303,10 @@ def test_build_market_data_preview_returns_mock_rows(monkeypatch):
         "missing:momentum_5d, partial_data_completeness:0.14"
     )
     assert preview.feature_rows[0]["missing"] == "momentum_5d"
+    assert len(preview.screening_rows) == 2
+    assert preview.screening_rows[0]["rank"] == "1"
+    assert preview.screening_rows[0]["total_score"] != ""
+    assert preview.screening_rows[0]["data_quality"] == "WARN"
     assert preview.error_rows == []
 
 
@@ -324,6 +329,7 @@ def test_build_market_data_preview_returns_provider_error(monkeypatch):
     assert preview.ohlcv_rows == []
     assert preview.fx_rows == []
     assert preview.feature_rows == []
+    assert preview.screening_rows == []
     assert preview.error_rows[0]["code"] == "APP-2000"
     assert preview.error_rows[0]["message"] == "Live market-data provider requires explicit opt-in"
     assert "explicit_config_required" in preview.error_rows[0]["details"]
@@ -349,6 +355,7 @@ def test_build_market_data_preview_returns_yahoo_live_rows(monkeypatch):
     assert preview.ohlcv_rows[0]["provider"] == "yahoo"
     assert preview.fx_rows[0]["rate"] == "150.12"
     assert preview.feature_rows[0]["provider"] == "yahoo"
+    assert preview.screening_rows[0]["total_score"] != ""
     assert preview.error_rows == []
 
 
@@ -403,6 +410,40 @@ def test_feature_snapshot_rows_formats_missing_summary():
             "data_quality_reasons": ("missing:momentum_5d, partial_data_completeness:0.62"),
             "missing": "momentum_5d",
             "missing_summary": "momentum_5d: 1",
+        }
+    ]
+
+
+def test_screening_score_rows_formats_score_breakdown():
+    from backend.screening import ScreeningScore
+
+    rows = screening_score_rows(
+        [
+            ScreeningScore(
+                rank=1,
+                symbol="AAPL",
+                total_score=Decimal("81.23"),
+                momentum_score=Decimal("70.00"),
+                liquidity_score=Decimal("100.00"),
+                risk_score=Decimal("90.00"),
+                data_quality_score=Decimal("60.00"),
+                data_quality="WARN",
+                reasons=["partial_data_completeness:0.60"],
+            )
+        ]
+    )
+
+    assert rows == [
+        {
+            "rank": "1",
+            "symbol": "AAPL",
+            "total_score": "81.23",
+            "momentum_score": "70",
+            "liquidity_score": "100",
+            "risk_score": "90",
+            "data_quality_score": "60",
+            "data_quality": "WARN",
+            "reasons": "partial_data_completeness:0.60",
         }
     ]
 

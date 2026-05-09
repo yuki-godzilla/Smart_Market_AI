@@ -223,6 +223,9 @@ def _render_market_data_preview() -> None:
         st.subheader("Feature Snapshot")
         _render_table(preview.feature_rows, "No feature snapshot rows.")
 
+        st.subheader("Screening Score")
+        _render_table(preview.screening_rows, "No screening score rows.")
+
         if preview.error_rows:
             st.subheader("Errors")
             st.dataframe(preview.error_rows, hide_index=True, use_container_width=True)

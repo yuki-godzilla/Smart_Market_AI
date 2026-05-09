@@ -296,18 +296,19 @@ Scope:
 
 Scope:
 
-- `ScreeningService` を追加する
-- momentum、liquidity、risk、data quality などの sub score を定義する
-- `ScoreBreakdown` を返す
-- API / Streamlit から ranking を確認できるようにする
+- Done: `ScreeningService` を追加する
+- Done: momentum、liquidity、risk、data quality などの sub score を定義する
+- Done: `ScreeningScore` と score breakdown を返す
+- Done: Streamlit の Market Data tab から ranking を確認できるようにする
+- API から ranking を確認できるようにする
 
 完了条件:
 
-- 複数銘柄を deterministic に順位付けできる
-- score breakdown がテストされている
+- Done: 複数銘柄を deterministic に順位付けできる
+- Done: score breakdown がテストされている
 - UI / report で順位の理由を確認できる
 
-- UI 上でランキング、総合 score、sub score、data quality warning を確認できる
+- Done: UI 上でランキング、総合 score、sub score、data quality warning を確認できる
 - 外部 provider 由来データを使う場合は、live data 取得結果を元にした score で確認できる
 
 ### Phase 13: Forecast Lab Baseline
@@ -430,6 +431,48 @@ Scope:
 - UI から report preview と export を確認できる
 - live provider 由来データを使った report では、provider、as-of、取得時刻、主要な注意点を確認できる
 
+### Phase 19: UI Design And Beginner Experience
+
+目的: 投資初心者でも symbol や指標名に迷わず、候補銘柄の確認から理由理解まで進められる UI 体験を作る。
+
+Scope:
+
+- `Market Data` など開発者向けの画面名を、ユーザー向けの「銘柄チェック」「候補ランキング」などへ整理する
+- symbol 手入力だけでなく、watchlist、プリセット銘柄群、銘柄名検索から始められるようにする
+- score、sub score、data quality、欠損理由を初心者向けの日本語ラベルと説明に変換する
+- ranking、Feature Snapshot、forecast、risk、report への導線を整理する
+- 注意表示は「購入推奨ではなく判断補助」であることを明確にしつつ、画面を邪魔しない配置にする
+- desktop / mobile の主要 viewport で、表・カード・説明文が読める layout にする
+
+完了条件:
+
+- symbol を知らないユーザーでも、プリセットまたは検索から銘柄チェックを開始できる
+- UI 上で総合 score、sub score、data quality warning、主要な理由を日本語で理解できる
+- 銘柄比較から詳細確認、report preview までの導線が分かる
+- UI に影響する変更はスクリーンショットまたは手動確認観点で検証できる
+- 外部 provider 由来データを使う場合は、provider、as-of、取得時刻、データ品質がユーザーに見える
+
+### Phase 20: Low-Cost AI Assistant Experience
+
+目的: 外部 AI API の利用を前提にせず、まずはルールベースとテンプレートで「AI が投資判断を補助してくれる」体験を作る。
+
+Scope:
+
+- Screening Score、Feature Snapshot、forecast、risk、data quality を入力にした explanation layer を作る
+- `missing:momentum_5d` などの技術的な理由を初心者向け日本語文に変換する
+- 銘柄比較コメント、注意点、次に確認すべき観点をテンプレートで生成する
+- AI API を使わない deterministic assistant を既定実装にする
+- 将来 OpenAI API、ローカル LLM、他 provider に差し替えられる adapter 境界を設計する
+- 「購入推奨」ではなく「判断補助」であることを UI と report に明記する
+
+完了条件:
+
+- API 課金なしで、スコアと特徴量に基づく自然文の説明を生成できる
+- 同じ入力に対して同じ説明が返る deterministic tests がある
+- UI 上で「なぜこの銘柄が上位か」「どこに注意すべきか」を日本語で確認できる
+- report export に assistant summary を含められる
+- LLM を使う場合も optional adapter とし、既定の local checks は外部 API に依存しない
+
 ## 6. 検証コマンド
 
 基本確認:
@@ -458,3 +501,5 @@ Scope:
 - Feature Store Lite の外部データ由来項目を拡張する
 - Screening Score MVP の score breakdown を設計する
 - Forecast Lab Baseline の評価手順を定義する
+- 初心者向け UI Design phase の具体的な画面構成と確認観点を設計する
+- Low-Cost AI Assistant phase のルールベース説明と optional LLM adapter 境界を設計する

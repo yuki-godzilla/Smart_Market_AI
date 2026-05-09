@@ -22,6 +22,7 @@ from backend.marketdata.live_provider_adapters import live_provider_adapter_deta
 from backend.marketdata.provider_registry import provider_capability_details
 from backend.portfolio.service import RebalanceProposal
 from backend.portfolio.workflow import PortfolioRiskResult
+from backend.screening import ScreeningScore, ScreeningService
 
 DEFAULT_ACCOUNT_ID = "acct-1"
 DEFAULT_AS_OF = date(2026, 4, 9)
@@ -143,6 +144,7 @@ class MarketDataPreview:
     ohlcv_rows: list[dict[str, str]]
     fx_rows: list[dict[str, str]]
     feature_rows: list[dict[str, str]]
+    screening_rows: list[dict[str, str]]
     error_rows: list[dict[str, str]]
 
 
@@ -311,7 +313,8 @@ async def build_market_data_preview(
         feature_snapshot = await FeatureBuilder(
             adapter,
             cfg=settings.feature_builder,
-        ).build_feature_snapshot([symbol], end)
+        ).build_feature_snapshot(_screening_symbols(symbol), end)
+        screening_scores = ScreeningService().score(feature_snapshot)
     except AppError as exc:
         return MarketDataPreview(
             status="ERROR",
@@ -320,6 +323,7 @@ async def build_market_data_preview(
             ohlcv_rows=[],
             fx_rows=[],
             feature_rows=[],
+            screening_rows=[],
             error_rows=[
                 {
                     "code": exc.code,
@@ -354,6 +358,7 @@ async def build_market_data_preview(
             for rate in fx_rates
         ],
         feature_rows=feature_snapshot_rows(feature_snapshot),
+        screening_rows=screening_score_rows(screening_scores),
         error_rows=[],
     )
 
@@ -416,6 +421,30 @@ def feature_snapshot_rows(snapshot: FeatureSnapshot) -> list[dict[str, str]]:
         }
         for row in snapshot.rows
     ]
+
+
+def screening_score_rows(scores: list[ScreeningScore]) -> list[dict[str, str]]:
+    """Return screening score rows for UI display."""
+
+    return [
+        {
+            "rank": str(score.rank),
+            "symbol": score.symbol,
+            "total_score": _format_decimal(score.total_score),
+            "momentum_score": _format_decimal(score.momentum_score),
+            "liquidity_score": _format_decimal(score.liquidity_score),
+            "risk_score": _format_decimal(score.risk_score),
+            "data_quality_score": _format_decimal(score.data_quality_score),
+            "data_quality": score.data_quality,
+            "reasons": _quality_reasons(score.reasons),
+        }
+        for score in scores
+    ]
+
+
+def _screening_symbols(primary_symbol: str) -> list[str]:
+    symbols = [primary_symbol, *SYMBOL_DISPLAY_NAMES]
+    return list(dict.fromkeys(symbol for symbol in symbols if symbol))
 
 
 async def run_rebalance_check(request: RebalanceCheckRequest) -> PortfolioRiskResult:

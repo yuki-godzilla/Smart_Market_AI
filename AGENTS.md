@@ -65,13 +65,14 @@ The repository appears to be at:
 - MarketData MVP: implemented with deterministic `mock` and `csv` providers / MarketData MVP は deterministic な `mock` / `csv` プロバイダで実装済み
 - Yahoo MarketData live adapter: implemented as explicit opt-in through `create_market_data_provider_adapter()`; not the default path / Yahoo MarketData live adapter は `create_market_data_provider_adapter()` 経由の明示 opt-in として実装済みで、既定経路ではありません
 - Feature Store Lite: started with reusable `FeatureSnapshot` rows and Streamlit preview for return, momentum, volatility, drawdown, ADV, data completeness, dividend yield, market cap, missing metadata, and data-quality judgement / Feature Store Lite は再利用可能な `FeatureSnapshot` 行と、return、momentum、volatility、drawdown、ADV、data completeness、dividend yield、market cap、missing metadata、data-quality judgement の Streamlit preview から着手済み
+- Screening Score MVP: started with explainable score breakdown rows in the Streamlit Market Data preview / Screening Score MVP は Streamlit Market Data preview の説明可能な score breakdown 行から着手済み
 - API bootstrap: implemented with `/health`, `POST /risk/pre-trade-check`, and `POST /portfolio/rebalance-check` / API の起点は `/health`、`POST /risk/pre-trade-check`、`POST /portfolio/rebalance-check` 付きで実装済み
 - Portfolio-to-Risk workflow: implemented and exposed through FastAPI / Portfolio-to-Risk workflow は実装済みで FastAPI から公開済み
 - Swagger/OpenAPI metadata and YAML settings loading via `SMAI_CONFIG_FILE`: implemented / Swagger/OpenAPI メタデータと `SMAI_CONFIG_FILE` による YAML 設定読み込みは実装済み
 - Streamlit rebalance UI, file-backed scenarios, and local report exports: implemented for MVP / Streamlit rebalance UI、file-backed scenarios、local report exports は MVP として実装済み
 - External MarketData provider preparation: implemented through explicit opt-in gates, provider registry, documented failure modes, and the initial `yahoo` live adapter / External MarketData provider preparation は明示 opt-in gate、provider registry、failure mode 文書化、初期 `yahoo` live adapter まで実装済み
 - Additional live market-data provider adapters such as `polygon`, and Execution workflows: not implemented / `polygon` など追加 live market-data provider adapter と Execution workflow は未実装
-- Next roadmap focus: Multi-Model Investment Intelligence, including external data ingestion, Feature Store Lite, screening scores, multi-model forecasts, visualization, and decision reports / 次期ロードマップの重点は Multi-Model Investment Intelligence で、外部データ取得、Feature Store Lite、screening score、multi-model forecast、可視化、decision report を含みます
+- Next roadmap focus: Multi-Model Investment Intelligence, including external data ingestion, Feature Store Lite, screening scores, multi-model forecasts, visualization, decision reports, beginner-friendly UI design, and low-cost AI assistant experiences / 次期ロードマップの重点は Multi-Model Investment Intelligence で、外部データ取得、Feature Store Lite、screening score、multi-model forecast、可視化、decision report、初心者向け UI design、低コスト AI assistant 体験を含みます
 - Execution and broker order sending are lower priority unless the user explicitly requests them / Execution と broker order 送信は、ユーザーが明示的に依頼しない限り優先度を下げます
 
 Unless a task says otherwise, optimize changes for this progression.

@@ -4,9 +4,9 @@ from math import log, sqrt
 from statistics import pstdev
 
 from backend.core.config import FeatureBuilderConfig
-from backend.core.data_contracts import Bar, DailySnapshot
+from backend.core.data_contracts import Bar, DailySnapshot, FeatureSnapshot
 from backend.core.errors import DataSourceError
-from backend.marketdata.data_access import DataAccess
+from backend.marketdata.provider_adapters import MarketDataProviderAdapter
 
 
 class FeatureBuilder:
@@ -14,7 +14,7 @@ class FeatureBuilder:
 
     def __init__(
         self,
-        data_access: DataAccess,
+        data_access: MarketDataProviderAdapter,
         cfg: FeatureBuilderConfig | None = None,
     ) -> None:
         """Create a feature builder backed by a DataAccess instance."""
@@ -51,6 +51,23 @@ class FeatureBuilder:
             )
 
         return snapshots
+
+    async def build_feature_snapshot(
+        self,
+        symbols: list[str],
+        as_of: date,
+    ) -> FeatureSnapshot:
+        """Build a reusable feature snapshot with provider metadata."""
+
+        rows = await self.build_daily_snapshot(symbols, as_of)
+        health = self.data_access.healthcheck()
+        provider = health.get("provider", "unknown")
+        return FeatureSnapshot(
+            as_of=as_of,
+            provider=provider,
+            rows=rows,
+            missing_summary=_missing_summary(rows),
+        )
 
     async def compute_adv(self, symbol: str, as_of: date, window: int = 20) -> Decimal:
         """Compute average traded value from close price and volume."""
@@ -110,3 +127,12 @@ def _end_of_day_utc(value: date) -> datetime:
     """Convert a date to the final representable UTC datetime for that day."""
 
     return datetime.combine(value, time.max, tzinfo=UTC)
+
+
+def _missing_summary(rows: list[DailySnapshot]) -> dict[str, int]:
+    summary: dict[str, int] = {}
+    for row in rows:
+        for feature, is_missing in row.missing.items():
+            if is_missing:
+                summary[feature] = summary.get(feature, 0) + 1
+    return summary

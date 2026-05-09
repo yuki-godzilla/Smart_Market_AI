@@ -272,7 +272,8 @@ Scope:
 
 Scope:
 
-- feature snapshot contract を追加する
+- Done: feature snapshot contract を追加する
+- Done: Market Data tab で feature snapshot、provider、version、欠損理由を確認できるようにする
 - return、volatility、momentum、ADV、drawdown、data completeness を計算する
 - `dividend_yield`、`market_cap_jpy` など外部データ由来項目の扱いを整理する
 - as-of date、provider metadata、feature version を保持する

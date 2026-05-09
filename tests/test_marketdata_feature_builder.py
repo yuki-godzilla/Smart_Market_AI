@@ -51,3 +51,15 @@ def test_build_daily_snapshot_returns_feature_rows():
     assert snapshots[0].adv_20d is not None
     assert snapshots[0].vol_20d is not None
     assert snapshots[0].missing == {"dividend_yield": True, "market_cap_jpy": True}
+
+
+def test_build_feature_snapshot_returns_metadata_and_missing_summary():
+    fb = FeatureBuilder(DataAccess())
+
+    snapshot = asyncio.run(fb.build_feature_snapshot(["AAPL", "7203.T"], date(2026, 4, 9)))
+
+    assert snapshot.as_of == date(2026, 4, 9)
+    assert snapshot.provider == "mock"
+    assert snapshot.feature_version == "feature-snapshot-v1"
+    assert len(snapshot.rows) == 2
+    assert snapshot.missing_summary == {"dividend_yield": 2, "market_cap_jpy": 2}

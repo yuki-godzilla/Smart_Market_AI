@@ -220,6 +220,9 @@ def _render_market_data_preview() -> None:
         st.subheader("FX")
         _render_table(preview.fx_rows, "No FX rows.")
 
+        st.subheader("Feature Snapshot")
+        _render_table(preview.feature_rows, "No feature snapshot rows.")
+
         if preview.error_rows:
             st.subheader("Errors")
             st.dataframe(preview.error_rows, hide_index=True, use_container_width=True)

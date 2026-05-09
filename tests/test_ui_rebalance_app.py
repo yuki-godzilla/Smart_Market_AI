@@ -8,6 +8,7 @@ from zipfile import ZipFile
 import pandas as pd
 import pytest
 
+from backend.core.data_contracts import DailySnapshot, FeatureSnapshot
 from backend.marketdata.providers import yahoo
 from ui.app import (
     default_as_of_date,
@@ -29,6 +30,7 @@ from ui.rebalance_app import (
     build_rebalance_report_context,
     build_rebalance_request,
     current_position_rows,
+    feature_snapshot_rows,
     get_rebalance_sample,
     load_rebalance_samples,
     ohlcv_summary_rows,
@@ -286,6 +288,10 @@ def test_build_market_data_preview_returns_mock_rows(monkeypatch):
         }
     ]
     assert preview.fx_rows[0]["pair"] == "USDJPY"
+    assert preview.feature_rows[0]["symbol"] == "AAPL"
+    assert preview.feature_rows[0]["provider"] == "mock"
+    assert preview.feature_rows[0]["feature_version"] == "feature-snapshot-v1"
+    assert preview.feature_rows[0]["missing"] == "dividend_yield, market_cap_jpy"
     assert preview.error_rows == []
 
 
@@ -307,6 +313,7 @@ def test_build_market_data_preview_returns_provider_error(monkeypatch):
     assert preview.quote_rows == []
     assert preview.ohlcv_rows == []
     assert preview.fx_rows == []
+    assert preview.feature_rows == []
     assert preview.error_rows[0]["code"] == "APP-2000"
     assert preview.error_rows[0]["message"] == "Live market-data provider requires explicit opt-in"
     assert "explicit_config_required" in preview.error_rows[0]["details"]
@@ -331,11 +338,42 @@ def test_build_market_data_preview_returns_yahoo_live_rows(monkeypatch):
     assert preview.quote_rows[0]["last"] == "175.25"
     assert preview.ohlcv_rows[0]["provider"] == "yahoo"
     assert preview.fx_rows[0]["rate"] == "150.12"
+    assert preview.feature_rows[0]["provider"] == "yahoo"
     assert preview.error_rows == []
 
 
 def test_ohlcv_summary_rows_returns_empty_rows_for_no_bars():
     assert ohlcv_summary_rows([]) == []
+
+
+def test_feature_snapshot_rows_formats_missing_summary():
+    snapshot = FeatureSnapshot(
+        as_of=date(2026, 4, 9),
+        provider="mock",
+        rows=[
+            DailySnapshot(
+                symbol="AAPL",
+                as_of=date(2026, 4, 9),
+                missing={"dividend_yield": True, "market_cap_jpy": True},
+            )
+        ],
+        missing_summary={"dividend_yield": 1, "market_cap_jpy": 1},
+    )
+
+    assert feature_snapshot_rows(snapshot) == [
+        {
+            "symbol": "AAPL",
+            "as_of": "2026-04-09",
+            "provider": "mock",
+            "feature_version": "feature-snapshot-v1",
+            "last": "",
+            "close_1d": "",
+            "adv_20d": "",
+            "vol_20d": "",
+            "missing": "dividend_yield, market_cap_jpy",
+            "missing_summary": "dividend_yield: 1, market_cap_jpy: 1",
+        }
+    ]
 
 
 class _FakeYFinance:

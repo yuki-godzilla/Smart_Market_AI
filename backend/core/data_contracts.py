@@ -89,3 +89,13 @@ class DailySnapshot(StrictBaseModel):
     dividend_yield: Decimal | None = Field(default=None, ge=0)
     market_cap_jpy: Decimal | None = Field(default=None, ge=0)
     missing: dict[str, bool] = Field(default_factory=dict)
+
+
+class FeatureSnapshot(StrictBaseModel):
+    """Reusable feature snapshot with provider and version metadata."""
+
+    as_of: date
+    provider: str = Field(min_length=1)
+    feature_version: str = Field(default="feature-snapshot-v1", min_length=1)
+    rows: list[DailySnapshot]
+    missing_summary: dict[str, int] = Field(default_factory=dict)

@@ -15,9 +15,9 @@ from pydantic import ValidationError
 
 from backend.app.main import RebalanceCheckRequest, create_portfolio_risk_workflow
 from backend.core.config import CONFIG_FILE_ENV, get_settings
-from backend.core.data_contracts import Bar
+from backend.core.data_contracts import Bar, FeatureSnapshot
 from backend.core.errors import AppError
-from backend.marketdata import create_market_data_provider_adapter
+from backend.marketdata import FeatureBuilder, create_market_data_provider_adapter
 from backend.marketdata.live_provider_adapters import live_provider_adapter_details
 from backend.marketdata.provider_registry import provider_capability_details
 from backend.portfolio.service import RebalanceProposal
@@ -142,6 +142,7 @@ class MarketDataPreview:
     quote_rows: list[dict[str, str]]
     ohlcv_rows: list[dict[str, str]]
     fx_rows: list[dict[str, str]]
+    feature_rows: list[dict[str, str]]
     error_rows: list[dict[str, str]]
 
 
@@ -307,6 +308,10 @@ async def build_market_data_preview(
         quotes = await adapter.fetch_quotes([symbol], at=end_dt)
         bars = await adapter.fetch_ohlcv([symbol], start=start_dt, end=end_dt)
         fx_rates = await adapter.get_fx_rates([fx_pair], at=end_dt)
+        feature_snapshot = await FeatureBuilder(
+            adapter,
+            cfg=settings.feature_builder,
+        ).build_feature_snapshot([symbol], end)
     except AppError as exc:
         return MarketDataPreview(
             status="ERROR",
@@ -314,6 +319,7 @@ async def build_market_data_preview(
             quote_rows=[],
             ohlcv_rows=[],
             fx_rows=[],
+            feature_rows=[],
             error_rows=[
                 {
                     "code": exc.code,
@@ -347,6 +353,7 @@ async def build_market_data_preview(
             }
             for rate in fx_rates
         ],
+        feature_rows=feature_snapshot_rows(feature_snapshot),
         error_rows=[],
     )
 
@@ -380,6 +387,26 @@ def ohlcv_summary_rows(bars: list[Bar]) -> list[dict[str, str]]:
             "total_volume": _format_decimal(volume),
             "provider": last.provider,
         }
+    ]
+
+
+def feature_snapshot_rows(snapshot: FeatureSnapshot) -> list[dict[str, str]]:
+    """Return feature snapshot rows for UI display."""
+
+    return [
+        {
+            "symbol": row.symbol,
+            "as_of": row.as_of.isoformat(),
+            "provider": snapshot.provider,
+            "feature_version": snapshot.feature_version,
+            "last": _format_optional_decimal(row.last),
+            "close_1d": _format_optional_decimal(row.close_1d),
+            "adv_20d": _format_optional_decimal(row.adv_20d),
+            "vol_20d": _format_optional_decimal(row.vol_20d),
+            "missing": _missing_flags(row.missing),
+            "missing_summary": _missing_summary_text(snapshot.missing_summary),
+        }
+        for row in snapshot.rows
     ]
 
 
@@ -826,6 +853,19 @@ def _stringify_metadata_value(value: object) -> str:
     if isinstance(value, list):
         return ", ".join(str(item) for item in value)
     return str(value)
+
+
+def _missing_flags(missing: dict[str, bool]) -> str:
+    flags = [feature for feature, is_missing in sorted(missing.items()) if is_missing]
+    if not flags:
+        return ""
+    return ", ".join(flags)
+
+
+def _missing_summary_text(summary: dict[str, int]) -> str:
+    if not summary:
+        return ""
+    return ", ".join(f"{feature}: {count}" for feature, count in sorted(summary.items()))
 
 
 def _slug(value: str) -> str:

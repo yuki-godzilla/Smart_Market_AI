@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 from pydantic import ValidationError
 
-from backend.core.data_contracts import DailySnapshot, FxRate, Symbol, TradeIntent
+from backend.core.data_contracts import DailySnapshot, FeatureSnapshot, FxRate, Symbol, TradeIntent
 
 
 def test_trade_intent_accepts_valid_buy_order():
@@ -29,7 +29,25 @@ def test_daily_snapshot_defaults_missing_flags():
     snapshot = DailySnapshot(symbol="AAPL", as_of=date(2026, 4, 11))
 
     assert snapshot.missing == {}
-    assert snapshot.last is None
+
+
+def test_feature_snapshot_carries_provider_metadata():
+    row = DailySnapshot(
+        symbol="AAPL",
+        as_of=date(2026, 4, 11),
+        missing={"dividend_yield": True},
+    )
+    snapshot = FeatureSnapshot(
+        as_of=date(2026, 4, 11),
+        provider="mock",
+        rows=[row],
+        missing_summary={"dividend_yield": 1},
+    )
+
+    assert snapshot.feature_version == "feature-snapshot-v1"
+    assert snapshot.provider == "mock"
+    assert snapshot.missing_summary == {"dividend_yield": 1}
+    assert snapshot.rows[0].last is None
 
 
 def test_fx_rate_requires_supported_pair():

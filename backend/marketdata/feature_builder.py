@@ -28,9 +28,12 @@ class FeatureBuilder:
         snapshots: list[DailySnapshot] = []
         quotes = await self.data_access.fetch_quotes(symbols, at=_end_of_day_utc(as_of))
         quotes_by_symbol = {quote.symbol.raw: quote for quote in quotes}
+        fundamentals = await self.data_access.fetch_fundamentals(symbols, as_of=as_of)
+        fundamentals_by_symbol = {row.symbol: row for row in fundamentals}
 
         for symbol in symbols:
             quote = quotes_by_symbol[symbol]
+            fundamental = fundamentals_by_symbol.get(symbol)
             bars = await self._window_bars(symbol, as_of)
             return_1d = _compute_return(bars, 1)
             momentum_5d = _compute_return(bars, 5)
@@ -40,8 +43,8 @@ class FeatureBuilder:
                 max(self.cfg.adv_window, self.cfg.vol_window + 1, 20),
             )
             missing = {
-                "dividend_yield": True,
-                "market_cap_jpy": True,
+                "dividend_yield": fundamental is None or fundamental.dividend_yield is None,
+                "market_cap_jpy": fundamental is None or fundamental.market_cap_jpy is None,
                 "return_1d": return_1d is None,
                 "momentum_5d": momentum_5d is None,
                 "drawdown_20d": drawdown_20d is None,
@@ -66,8 +69,8 @@ class FeatureBuilder:
                     ),
                     drawdown_20d=drawdown_20d,
                     data_completeness=data_completeness,
-                    dividend_yield=None,
-                    market_cap_jpy=None,
+                    dividend_yield=fundamental.dividend_yield if fundamental else None,
+                    market_cap_jpy=fundamental.market_cap_jpy if fundamental else None,
                     missing=missing,
                     data_quality=data_quality,
                     data_quality_reasons=data_quality_reasons,

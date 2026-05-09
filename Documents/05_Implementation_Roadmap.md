@@ -276,7 +276,7 @@ Scope:
 - Done: Market Data tab で feature snapshot、provider、version、欠損理由を確認できるようにする
 - Done: return、volatility、momentum、ADV、drawdown、data completeness を計算する
 - Done: 欠損特徴量と data completeness から `OK` / `WARN` / `BLOCK` の data quality 判定を計算し、UI で確認できるようにする
-- `dividend_yield`、`market_cap_jpy` など外部データ由来項目の扱いを整理する
+- Done: `dividend_yield`、`market_cap_jpy` など外部データ由来項目を provider 共通 contract で取り込み、UI で確認できるようにする
 - as-of date、provider metadata、feature version を保持する
 
 完了条件:
@@ -284,6 +284,7 @@ Scope:
 - 銘柄ごとに同じ形式の特徴量を取得できる
 - 欠損理由を追跡できる
 - data quality 判定と理由を追跡できる
+- `dividend_yield`、`market_cap_jpy` を Feature Snapshot 上で確認できる
 - screening / forecast / report から再利用できる
 
 - UI 上で feature snapshot、provider metadata、欠損理由、data quality 判定を確認できる

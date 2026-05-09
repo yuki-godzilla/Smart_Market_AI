@@ -153,6 +153,7 @@ dataaccess:
 symbols.csv
 ohlcv.csv
 fx_rates.csv
+fundamentals.csv
 ```
 
 サンプル配置:
@@ -162,6 +163,7 @@ config/csv_example.yaml
 data/marketdata/symbols.csv
 data/marketdata/ohlcv.csv
 data/marketdata/fx_rates.csv
+data/marketdata/fundamentals.csv
 ```
 
 `symbols.csv`:
@@ -186,10 +188,18 @@ pair,rate,ts,source
 USDJPY,150.00,2026-04-09T00:00:00+00:00,csv
 ```
 
+`fundamentals.csv`:
+
+```csv
+symbol,as_of,dividend_yield,market_cap_jpy
+AAPL,2026-04-09,0.005,450000000000000
+```
+
 MVP 制約:
 
 - `fx_rates.csv` の対応 pair は現在 `USDJPY` のみ
 - `ohlcv.csv` は日次データを想定
+- `fundamentals.csv` は `as_of` 以前の最新行を使い、`dividend_yield` と `market_cap_jpy` を Feature Snapshot に反映する
 - 必須列がない場合はエラー
 - 余分な列は無視される
 

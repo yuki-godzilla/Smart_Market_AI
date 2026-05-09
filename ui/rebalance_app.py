@@ -407,6 +407,8 @@ def feature_snapshot_rows(snapshot: FeatureSnapshot) -> list[dict[str, str]]:
             "vol_20d": _format_optional_percent(row.vol_20d),
             "drawdown_20d": _format_optional_percent(row.drawdown_20d),
             "data_completeness": _format_optional_percent(row.data_completeness),
+            "dividend_yield": _format_optional_percent(row.dividend_yield),
+            "market_cap_jpy": _format_optional_decimal(row.market_cap_jpy),
             "data_quality": row.data_quality,
             "data_quality_reasons": _quality_reasons(row.data_quality_reasons),
             "missing": _missing_flags(row.missing),

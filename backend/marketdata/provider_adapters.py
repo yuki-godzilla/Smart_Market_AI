@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Protocol, runtime_checkable
 
-from backend.core.data_contracts import Bar, FxRate, Interval, Quote
+from backend.core.data_contracts import Bar, FundamentalSnapshot, FxRate, Interval, Quote
 
 
 @runtime_checkable
@@ -27,6 +27,13 @@ class MarketDataProviderAdapter(Protocol):
         method: str = "spot",
     ) -> list[FxRate]:
         """Return normalized FX rates for requested currency pairs."""
+
+    async def fetch_fundamentals(
+        self,
+        symbols: list[str],
+        as_of: date,
+    ) -> list[FundamentalSnapshot]:
+        """Return normalized point-in-time fundamentals for requested symbols."""
 
     def healthcheck(self) -> dict[str, str]:
         """Return provider health details for diagnostics."""

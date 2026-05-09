@@ -1,11 +1,19 @@
 import csv
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import TypedDict
 
 from backend.core.config import DataAccessConfig
-from backend.core.data_contracts import Bar, Currency, FxRate, Interval, Quote, Symbol
+from backend.core.data_contracts import (
+    Bar,
+    Currency,
+    FundamentalSnapshot,
+    FxRate,
+    Interval,
+    Quote,
+    Symbol,
+)
 from backend.core.errors import DataSourceError
 from backend.marketdata.live_provider_adapters import live_provider_adapter_details
 from backend.marketdata.provider_registry import (
@@ -127,6 +135,31 @@ class DataAccess:
 
         return rates
 
+    async def fetch_fundamentals(
+        self,
+        symbols: list[str],
+        as_of: date,
+    ) -> list[FundamentalSnapshot]:
+        """Return point-in-time fundamentals for supported symbols."""
+
+        if self.cfg.provider == "csv":
+            return self._fetch_csv_fundamentals(symbols, as_of)
+
+        fundamentals: list[FundamentalSnapshot] = []
+        for raw_symbol in symbols:
+            _mock_symbol(raw_symbol)
+            row = _MOCK_FUNDAMENTALS.get(raw_symbol, {})
+            fundamentals.append(
+                FundamentalSnapshot(
+                    symbol=raw_symbol,
+                    as_of=as_of,
+                    provider=self.cfg.provider,
+                    dividend_yield=row.get("dividend_yield"),
+                    market_cap_jpy=row.get("market_cap_jpy"),
+                )
+            )
+        return fundamentals
+
     def healthcheck(self) -> dict[str, str]:
         """Report the active provider status."""
 
@@ -236,6 +269,42 @@ class DataAccess:
 
         return rates
 
+    def _fetch_csv_fundamentals(
+        self,
+        symbols: list[str],
+        as_of: date,
+    ) -> list[FundamentalSnapshot]:
+        symbol_contracts = self._csv_symbols()
+        rows = self._read_csv_rows(
+            "fundamentals.csv",
+            required_columns={"symbol", "as_of", "dividend_yield", "market_cap_jpy"},
+        )
+        fundamentals: list[FundamentalSnapshot] = []
+
+        for raw_symbol in symbols:
+            _csv_symbol(raw_symbol, symbol_contracts)
+            matching = [
+                row
+                for row in rows
+                if row["symbol"] == raw_symbol and date.fromisoformat(row["as_of"]) <= as_of
+            ]
+            if not matching:
+                fundamentals.append(
+                    FundamentalSnapshot(symbol=raw_symbol, as_of=as_of, provider="csv")
+                )
+                continue
+            latest = max(matching, key=lambda row: date.fromisoformat(row["as_of"]))
+            fundamentals.append(
+                FundamentalSnapshot(
+                    symbol=raw_symbol,
+                    as_of=date.fromisoformat(latest["as_of"]),
+                    provider="csv",
+                    dividend_yield=_optional_decimal(latest["dividend_yield"]),
+                    market_cap_jpy=_optional_decimal(latest["market_cap_jpy"]),
+                )
+            )
+        return fundamentals
+
     def _csv_symbols(self) -> dict[str, Symbol]:
         rows = self._read_csv_rows(
             "symbols.csv",
@@ -320,6 +389,12 @@ def _parse_currency(value: str, raw_symbol: str) -> Currency:
     )
 
 
+def _optional_decimal(value: str) -> Decimal | None:
+    if value == "":
+        return None
+    return Decimal(value)
+
+
 def _unsupported_provider_error(
     provider: str, *, allow_external_providers: bool
 ) -> DataSourceError:
@@ -360,6 +435,18 @@ def _unsupported_provider_error(
 _MOCK_SYMBOLS = {
     "AAPL": Symbol(raw="AAPL", exchange="NASDAQ", code="AAPL", currency="USD"),
     "7203.T": Symbol(raw="7203.T", exchange="TSE", code="7203", currency="JPY"),
+}
+
+
+_MOCK_FUNDAMENTALS: dict[str, dict[str, Decimal]] = {
+    "AAPL": {
+        "dividend_yield": Decimal("0.005"),
+        "market_cap_jpy": Decimal("450000000000000"),
+    },
+    "7203.T": {
+        "dividend_yield": Decimal("0.028"),
+        "market_cap_jpy": Decimal("52000000000000"),
+    },
 }
 
 

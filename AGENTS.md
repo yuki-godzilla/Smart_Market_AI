@@ -64,7 +64,7 @@ The repository appears to be at:
 - Core contracts/config/errors: implemented / Core の契約・設定・エラーは実装済み
 - MarketData MVP: implemented with deterministic `mock` and `csv` providers / MarketData MVP は deterministic な `mock` / `csv` プロバイダで実装済み
 - Yahoo MarketData live adapter: implemented as explicit opt-in through `create_market_data_provider_adapter()`; not the default path / Yahoo MarketData live adapter は `create_market_data_provider_adapter()` 経由の明示 opt-in として実装済みで、既定経路ではありません
-- Feature Store Lite: started with reusable `FeatureSnapshot` rows and Streamlit preview for return, momentum, volatility, drawdown, ADV, data completeness, missing metadata, and data-quality judgement / Feature Store Lite は再利用可能な `FeatureSnapshot` 行と、return、momentum、volatility、drawdown、ADV、data completeness、missing metadata、data-quality judgement の Streamlit preview から着手済み
+- Feature Store Lite: started with reusable `FeatureSnapshot` rows and Streamlit preview for return, momentum, volatility, drawdown, ADV, data completeness, dividend yield, market cap, missing metadata, and data-quality judgement / Feature Store Lite は再利用可能な `FeatureSnapshot` 行と、return、momentum、volatility、drawdown、ADV、data completeness、dividend yield、market cap、missing metadata、data-quality judgement の Streamlit preview から着手済み
 - API bootstrap: implemented with `/health`, `POST /risk/pre-trade-check`, and `POST /portfolio/rebalance-check` / API の起点は `/health`、`POST /risk/pre-trade-check`、`POST /portfolio/rebalance-check` 付きで実装済み
 - Portfolio-to-Risk workflow: implemented and exposed through FastAPI / Portfolio-to-Risk workflow は実装済みで FastAPI から公開済み
 - Swagger/OpenAPI metadata and YAML settings loading via `SMAI_CONFIG_FILE`: implemented / Swagger/OpenAPI メタデータと `SMAI_CONFIG_FILE` による YAML 設定読み込みは実装済み

@@ -78,6 +78,16 @@ class Quote(StrictBaseModel):
     ts: datetime
 
 
+class FundamentalSnapshot(StrictBaseModel):
+    """Point-in-time fundamental fields normalized across market-data providers."""
+
+    symbol: str = Field(min_length=1)
+    as_of: date
+    provider: str = Field(min_length=1)
+    dividend_yield: Decimal | None = Field(default=None, ge=0)
+    market_cap_jpy: Decimal | None = Field(default=None, ge=0)
+
+
 class DailySnapshot(StrictBaseModel):
     """Feature row consumed by risk, portfolio, and screening services."""
 

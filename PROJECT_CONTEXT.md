@@ -110,8 +110,8 @@ The implementation is still MVP-oriented. Risk, Portfolio, API, Streamlit UI, lo
   市場データはリポジトリ内の固定データで、テストをオフラインかつ安定して実行できます。
 - The `csv` provider reads local `symbols.csv`, `ohlcv.csv`, and `fx_rates.csv` files from `dataaccess.csv_data_dir`.
   `csv` provider は `dataaccess.csv_data_dir` 配下の `symbols.csv`、`ohlcv.csv`、`fx_rates.csv` を読み込みます。
-- `FeatureBuilder.build_daily_snapshot()` currently leaves `dividend_yield` and `market_cap_jpy` as missing values.
-  `FeatureBuilder.build_daily_snapshot()` は現在 `dividend_yield` と `market_cap_jpy` を欠損値扱いにしています。
+- `FeatureBuilder.build_daily_snapshot()` pulls `dividend_yield` and `market_cap_jpy` from provider fundamentals when available, and marks only unavailable fields as missing.
+  `FeatureBuilder.build_daily_snapshot()` は provider fundamentals から `dividend_yield` と `market_cap_jpy` を取得できる場合は取り込み、取得できない項目だけを欠損扱いにします。
 - `get_settings()` returns defaults unless `SMAI_CONFIG_FILE` points to a YAML config file.
   `get_settings()` は `SMAI_CONFIG_FILE` が YAML 設定ファイルを指す場合のみ外部設定を読み込み、それ以外はデフォルトを返します。
 
@@ -130,8 +130,8 @@ Based on code and roadmap documents, the project is effectively here:
 - Phase 8 Reporting MVP: complete for JSON/CSV/Markdown/manifest/ZIP exports / Phase 8 Reporting MVP: JSON/CSV/Markdown/manifest/ZIP export として完了
 - Phase 9 External Data Provider Preparation: complete before live adapter implementation / Phase 9 External Data Provider Preparation: live adapter 実装前の準備として完了
 - Phase 10 External Data Ingestion MVP: code implementation and deterministic verification are complete with planned live-provider adapter metadata, a shared `MarketDataProviderAdapter` protocol, a provider adapter factory, a Streamlit Market Data preview tab, and a `yahoo` opt-in live adapter backed by `yfinance`; live Yahoo UI smoke remains pending in an environment with network access and writable yfinance cache. / Phase 10 External Data Ingestion MVP: planned live-provider adapter metadata、共通 `MarketDataProviderAdapter` protocol、provider adapter factory、Streamlit Market Data preview tab、`yfinance` を使う `yahoo` opt-in live adapter まで、コード実装と deterministic 検証は完了。Yahoo の live UI smoke は network と yfinance cache 書き込みが可能な環境での確認待ち。
-- Phase 11 Feature Store Lite: started with a reusable `FeatureSnapshot` contract, Streamlit Market Data preview rows, computed return, momentum, drawdown, volatility, ADV, data-completeness fields, and data-quality judgement. / Phase 11 Feature Store Lite: 再利用可能な `FeatureSnapshot` contract、Streamlit Market Data preview 行、return、momentum、drawdown、volatility、ADV、data completeness、data quality 判定の計算から着手。
-- Next recommended work: extend Feature Store Lite with external-data fields after a live Yahoo provider smoke check in a network-enabled environment. / 次の推奨作業: network 利用可能な環境で Yahoo provider の live smoke check を実施したうえで、Feature Store Lite に外部データ由来項目を拡張する。
+- Phase 11 Feature Store Lite: started with a reusable `FeatureSnapshot` contract, Streamlit Market Data preview rows, computed return, momentum, drawdown, volatility, ADV, data-completeness fields, provider fundamentals, and data-quality judgement. / Phase 11 Feature Store Lite: 再利用可能な `FeatureSnapshot` contract、Streamlit Market Data preview 行、return、momentum、drawdown、volatility、ADV、data completeness、provider fundamentals、data quality 判定の計算から着手。
+- Next recommended work: connect Feature Store Lite snapshots to Screening Score MVP after a live Yahoo provider smoke check in a network-enabled environment. / 次の推奨作業: network 利用可能な環境で Yahoo provider の live smoke check を実施したうえで、Feature Store Lite snapshot を Screening Score MVP へ接続する。
 
 ## Test And Verification Baseline / テストと確認の基準
 
@@ -167,8 +167,8 @@ These commands are also referenced by the roadmap document.
 
 - run Yahoo live-provider UI smoke in a network-enabled environment
   network 利用可能な環境で Yahoo live-provider UI smoke を実施する
-- extend Feature Store Lite with external-data fields
-  Feature Store Lite に外部データ由来項目を拡張する
+- connect Feature Store Lite snapshots to Screening Score MVP
+  Feature Store Lite snapshot を Screening Score MVP に接続する
 - add Screening Score MVP with explainable score breakdowns
   説明可能な score breakdown を持つ Screening Score MVP を追加する
 - add Forecast Lab Baseline before heavier research model adapters
@@ -290,3 +290,4 @@ Update this file when:
 - 2026-05-09: Updated `AGENTS.md` current-state wording so deterministic local defaults and explicit opt-in live-provider support are both represented accurately. / deterministic な local default と明示 opt-in の live-provider support の両方が正確に伝わるように、`AGENTS.md` の現在地表現を更新した。
 - 2026-05-10: Added Feature Store Lite data-quality judgement to `DailySnapshot` / `FeatureSnapshot`, computed `OK` / `WARN` / `BLOCK` from missing features and data completeness, and exposed the result in the Streamlit Market Data Feature Snapshot table. / `DailySnapshot` / `FeatureSnapshot` に Feature Store Lite の data quality 判定を追加し、欠損特徴量と data completeness から `OK` / `WARN` / `BLOCK` を計算して Streamlit Market Data の Feature Snapshot 表で確認できるようにした。
 - 2026-05-10: Confirmed that direct multi-file `python -m black` can leave worker processes stuck in the current local PowerShell environment, stopped the leftover processes, and aligned CI/setup docs with the cache-free `tools/run_black_check.py` helper. / 現在のローカル PowerShell 環境では複数ファイル指定の `python -m black` が worker process を残して固まる場合があることを確認し、残存 process を停止したうえで、CI と setup docs を cache-free の `tools/run_black_check.py` helper に合わせた。
+- 2026-05-10: Added provider-level fundamentals through `FundamentalSnapshot` and `fetch_fundamentals()`, wired `dividend_yield` and `market_cap_jpy` into Feature Store Lite, and exposed those fields in the Streamlit Market Data Feature Snapshot table. / `FundamentalSnapshot` と `fetch_fundamentals()` で provider-level fundamentals を追加し、Feature Store Lite に `dividend_yield` と `market_cap_jpy` を接続して Streamlit Market Data の Feature Snapshot 表で確認できるようにした。

@@ -1,5 +1,5 @@
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import pandas as pd
@@ -27,6 +27,10 @@ def test_provider_factory_returns_csv_adapter():
 
     assert rates[0].rate == Decimal("150.00")
     assert rates[0].source == "csv"
+
+    fundamentals = asyncio.run(adapter.fetch_fundamentals(["AAPL"], as_of=date(2026, 4, 9)))
+    assert fundamentals[0].dividend_yield == Decimal("0.005")
+    assert fundamentals[0].market_cap_jpy == Decimal("450000000000000")
 
 
 def test_provider_factory_preserves_live_provider_opt_in_error():
@@ -84,6 +88,7 @@ def test_yahoo_adapter_fetches_live_contracts_from_yfinance(monkeypatch):
     )
     quotes = asyncio.run(adapter.fetch_quotes(["AAPL"], at=datetime(2026, 4, 9, tzinfo=UTC)))
     rates = asyncio.run(adapter.get_fx_rates(["USDJPY"], at=datetime(2026, 4, 9, tzinfo=UTC)))
+    fundamentals = asyncio.run(adapter.fetch_fundamentals(["AAPL"], as_of=date(2026, 4, 9)))
 
     assert [bar.close for bar in bars] == [Decimal("170.5"), Decimal("175.25")]
     assert bars[0].symbol.raw == "AAPL"
@@ -92,6 +97,8 @@ def test_yahoo_adapter_fetches_live_contracts_from_yfinance(monkeypatch):
     assert quotes[0].last == Decimal("175.25")
     assert rates[0].rate == Decimal("150.12")
     assert rates[0].source == "yahoo"
+    assert fundamentals[0].dividend_yield == Decimal("0.006")
+    assert fundamentals[0].market_cap_jpy == Decimal("480000000000000")
 
 
 def test_yahoo_adapter_maps_empty_history_to_provider_unavailable(monkeypatch):
@@ -121,6 +128,11 @@ class _FakeTicker:
     def __init__(self, raw_symbol: str, *, empty: bool) -> None:
         self.raw_symbol = raw_symbol
         self.empty = empty
+        self.info = {
+            "dividendYield": Decimal("0.006"),
+            "marketCap": Decimal("3200000000000"),
+            "currency": "USD",
+        }
 
     def history(self, **_: object) -> pd.DataFrame:
         if self.empty:

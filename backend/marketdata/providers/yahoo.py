@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 from backend.core.config import DataAccessConfig
-from backend.core.data_contracts import Bar, FxRate, Interval, Quote, Symbol
+from backend.core.data_contracts import Bar, FundamentalSnapshot, FxRate, Interval, Quote, Symbol
 from backend.core.errors import DataSourceError, ProviderUnavailableError, SchemaMismatchError
 from backend.marketdata.live_provider_adapters import live_provider_adapter_details
 from backend.marketdata.provider_registry import provider_capability_details
@@ -98,6 +98,37 @@ class YahooMarketDataProviderAdapter:
                 )
             )
         return rates
+
+    async def fetch_fundamentals(
+        self,
+        symbols: list[str],
+        as_of: date,
+    ) -> list[FundamentalSnapshot]:
+        fundamentals: list[FundamentalSnapshot] = []
+        yf = _load_yfinance()
+        for raw_symbol in symbols:
+            ticker = yf.Ticker(raw_symbol)
+            try:
+                info = await asyncio.to_thread(_ticker_info, ticker)
+            except Exception as exc:
+                raise ProviderUnavailableError(
+                    "Yahoo fundamentals request failed",
+                    details=self._provider_details(
+                        operation="fetch_fundamentals",
+                        symbol=raw_symbol,
+                        error=str(exc),
+                    ),
+                ) from exc
+            fundamentals.append(
+                FundamentalSnapshot(
+                    symbol=raw_symbol,
+                    as_of=as_of,
+                    provider="yahoo",
+                    dividend_yield=_optional_decimal_info(info, "dividendYield"),
+                    market_cap_jpy=_market_cap_jpy(info, raw_symbol),
+                )
+            )
+        return fundamentals
 
     def healthcheck(self) -> dict[str, str]:
         status = "available" if _yfinance_available() else "missing_dependency"
@@ -282,6 +313,35 @@ def _decimal_cell(row: Any, column: str) -> Decimal:
             details={"column": column},
         )
     return Decimal(str(value))
+
+
+def _ticker_info(ticker: Any) -> dict[str, object]:
+    info = getattr(ticker, "info", {})
+    if not isinstance(info, dict):
+        raise SchemaMismatchError(
+            "Yahoo fundamentals response is not a mapping",
+            details={"type": type(info).__name__},
+        )
+    return info
+
+
+def _optional_decimal_info(info: dict[str, object], key: str) -> Decimal | None:
+    value = info.get(key)
+    if value is None or str(value) == "nan":
+        return None
+    return Decimal(str(value))
+
+
+def _market_cap_jpy(info: dict[str, object], raw_symbol: str) -> Decimal | None:
+    market_cap = _optional_decimal_info(info, "marketCap")
+    if market_cap is None:
+        return None
+    currency = info.get("currency")
+    if currency == "JPY" or raw_symbol.endswith(".T"):
+        return market_cap
+    if currency == "USD" or currency is None:
+        return market_cap * Decimal("150")
+    return None
 
 
 def _last_row(frame: Any) -> tuple[object, Any]:

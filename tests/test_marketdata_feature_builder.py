@@ -54,17 +54,17 @@ def test_build_daily_snapshot_returns_feature_rows():
     assert snapshots[0].vol_20d is not None
     assert snapshots[0].drawdown_20d is not None
     assert snapshots[0].data_completeness is not None
+    assert snapshots[0].dividend_yield is not None
+    assert snapshots[0].market_cap_jpy is not None
     assert snapshots[0].missing == {
-        "dividend_yield": True,
-        "market_cap_jpy": True,
+        "dividend_yield": False,
+        "market_cap_jpy": False,
         "return_1d": False,
         "momentum_5d": True,
         "drawdown_20d": False,
     }
     assert snapshots[0].data_quality == "WARN"
     assert snapshots[0].data_quality_reasons == [
-        "missing:dividend_yield",
-        "missing:market_cap_jpy",
         "missing:momentum_5d",
         "partial_data_completeness:0.14",
     ]
@@ -79,9 +79,5 @@ def test_build_feature_snapshot_returns_metadata_and_missing_summary():
     assert snapshot.provider == "mock"
     assert snapshot.feature_version == "feature-snapshot-v1"
     assert len(snapshot.rows) == 2
-    assert snapshot.missing_summary == {
-        "dividend_yield": 2,
-        "market_cap_jpy": 2,
-        "momentum_5d": 2,
-    }
+    assert snapshot.missing_summary == {"momentum_5d": 2}
     assert snapshot.quality_summary == {"WARN": 2}

@@ -1,9 +1,23 @@
 # Smart Market AI
-
-Smart Market AI は、投資支援ワークフロー向けの Python プロジェクトです。
-現在のリポジトリは、Portfolio-to-Risk workflow をローカルで再現できる deterministic な MVP として整備しています。
-
 ![CI](https://github.com/yuki-godzilla/Smart_Market_AI/actions/workflows/ci.yml/badge.svg)
+
+Smart Market AI（SMAI）は、投資判断に必要な情報を整理・可視化し、
+スクリーニング、予測、リスク分析、ポートフォリオ評価を通じて「投資判断を支援する」ことを目的とした
+ローカルファーストの投資分析プラットフォームです。
+
+SMAI は以下の思想を重視しています。
+
+- deterministic（再現可能）な分析基盤
+- explainable（説明可能）なスコアリング
+- local-first な実行環境
+- optional な外部API連携
+- モジュール分離された拡張可能アーキテクチャ
+
+また、自動売買そのものではなく、
+「なぜその結果になったか」を理解できる
+投資判断補助を重視しています。
+
+<img src="C:\WorkSpace\Smart_Market_AI\Documents\img\01_system_diagram.png" width="1200">
 
 ## 現在の MVP
 

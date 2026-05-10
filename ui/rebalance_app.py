@@ -442,6 +442,31 @@ def screening_score_rows(scores: list[ScreeningScore]) -> list[dict[str, str]]:
     ]
 
 
+def screening_score_json_download(rows: list[dict[str, str]]) -> str:
+    """Return screening score rows as stable JSON text."""
+
+    return json.dumps(rows, ensure_ascii=False, indent=2) + "\n"
+
+
+def screening_score_csv_download(rows: list[dict[str, str]]) -> str:
+    """Return screening score rows as CSV text."""
+
+    return table_csv_download(
+        rows,
+        fieldnames=[
+            "rank",
+            "symbol",
+            "total_score",
+            "momentum_score",
+            "liquidity_score",
+            "risk_score",
+            "data_quality_score",
+            "data_quality",
+            "reasons",
+        ],
+    )
+
+
 def _screening_symbols(primary_symbol: str) -> list[str]:
     symbols = [primary_symbol, *SYMBOL_DISPLAY_NAMES]
     return list(dict.fromkeys(symbol for symbol in symbols if symbol))

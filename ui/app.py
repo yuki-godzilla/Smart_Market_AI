@@ -24,6 +24,8 @@ from ui.rebalance_app import (
     run_rebalance_check,
     runtime_settings_summary,
     sample_widget_key,
+    screening_score_csv_download,
+    screening_score_json_download,
     symbol_reference_rows,
     table_csv_download,
     target_allocations_json,
@@ -225,6 +227,20 @@ def _render_market_data_preview() -> None:
 
         st.subheader("Screening Score")
         _render_table(preview.screening_rows, "No screening score rows.")
+        if preview.screening_rows:
+            col_json, col_csv = st.columns(2)
+            col_json.download_button(
+                "Download screening JSON",
+                data=screening_score_json_download(preview.screening_rows),
+                file_name="screening_score.json",
+                mime="application/json",
+            )
+            col_csv.download_button(
+                "Download screening CSV",
+                data=screening_score_csv_download(preview.screening_rows),
+                file_name="screening_score.csv",
+                mime="text/csv",
+            )
 
         if preview.error_rows:
             st.subheader("Errors")

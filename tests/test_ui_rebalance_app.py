@@ -48,6 +48,8 @@ from ui.rebalance_app import (
     run_rebalance_check,
     runtime_settings_summary,
     sample_widget_key,
+    screening_score_csv_download,
+    screening_score_json_download,
     screening_score_rows,
     symbol_display_name,
     symbol_reference_rows,
@@ -446,6 +448,29 @@ def test_screening_score_rows_formats_score_breakdown():
             "reasons": "partial_data_completeness:0.60",
         }
     ]
+
+
+def test_screening_score_downloads_export_ranked_rows():
+    rows = [
+        {
+            "rank": "1",
+            "symbol": "AAPL",
+            "total_score": "81.23",
+            "momentum_score": "70",
+            "liquidity_score": "100",
+            "risk_score": "90",
+            "data_quality_score": "60",
+            "data_quality": "WARN",
+            "reasons": "partial_data_completeness:0.60",
+        }
+    ]
+
+    assert '"symbol": "AAPL"' in screening_score_json_download(rows)
+    assert screening_score_csv_download(rows) == (
+        "rank,symbol,total_score,momentum_score,liquidity_score,risk_score,"
+        "data_quality_score,data_quality,reasons\n"
+        "1,AAPL,81.23,70,100,90,60,WARN,partial_data_completeness:0.60\n"
+    )
 
 
 class _FakeYFinance:

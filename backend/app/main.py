@@ -9,7 +9,7 @@ from pydantic import ConfigDict, Field
 from backend.core.config import get_settings
 from backend.core.data_contracts import Position, StrictBaseModel, TradeIntent
 from backend.core.errors import AppError
-from backend.marketdata import DataAccess, FeatureBuilder
+from backend.marketdata import DataAccess, FeatureBuilder, create_market_data_provider_adapter
 from backend.portfolio import (
     PortfolioRiskResult,
     PortfolioRiskWorkflow,
@@ -17,6 +17,7 @@ from backend.portfolio import (
     TargetAllocation,
 )
 from backend.risk import RiskDecision, RiskService
+from backend.screening import ScreeningScore, ScreeningService
 
 APP_DESCRIPTION = """
 Smart Market AI MVP API for deterministic local investment-support workflows.
@@ -73,6 +74,10 @@ app = FastAPI(
         {
             "name": "Portfolio",
             "description": "Portfolio valuation and rebalance proposal workflows.",
+        },
+        {
+            "name": "Screening",
+            "description": "Explainable symbol ranking from Feature Store Lite snapshots.",
         },
     ],
 )
@@ -150,6 +155,25 @@ class RebalanceCheckRequest(StrictBaseModel):
     cash_jpy: Decimal = Field(default=Decimal("0"), ge=0)
 
 
+class ScreeningScoreRequest(StrictBaseModel):
+    """Request body for explainable screening score ranking."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {
+                    "symbols": ["AAPL", "7203.T"],
+                    "as_of": "2026-04-09",
+                }
+            ]
+        },
+    )
+
+    symbols: list[str] = Field(min_length=1)
+    as_of: date
+
+
 @app.exception_handler(AppError)
 async def app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
     """Return domain errors with their configured HTTP status."""
@@ -185,6 +209,22 @@ def create_portfolio_risk_workflow() -> PortfolioRiskWorkflow:
         PortfolioService(feature_builder, cfg=settings.portfolio),
         RiskService(feature_builder, cfg=settings.risk),
     )
+
+
+def create_screening_service() -> ScreeningService:
+    """Create the default Screening Score MVP service for API requests."""
+
+    return ScreeningService()
+
+
+async def build_screening_scores(request: ScreeningScoreRequest) -> list[ScreeningScore]:
+    """Build feature snapshots and rank requested symbols through ScreeningService."""
+
+    settings = get_settings()
+    adapter = create_market_data_provider_adapter(settings.dataaccess)
+    feature_builder = FeatureBuilder(adapter, cfg=settings.feature_builder)
+    snapshot = await feature_builder.build_feature_snapshot(request.symbols, request.as_of)
+    return create_screening_service().score(snapshot)
 
 
 @app.post(
@@ -230,3 +270,20 @@ async def rebalance_check(request: RebalanceCheckRequest) -> PortfolioRiskResult
         as_of=request.as_of,
         cash_jpy=request.cash_jpy,
     )
+
+
+@app.post(
+    "/screening/score",
+    response_model=list[ScreeningScore],
+    tags=["Screening"],
+    summary="Rank symbols with explainable screening scores",
+    description=(
+        "Builds Feature Store Lite snapshots for requested symbols and returns deterministic "
+        "screening rankings with sub-score breakdowns and data-quality reasons."
+    ),
+    responses=ERROR_RESPONSES,
+)
+async def screening_score(request: ScreeningScoreRequest) -> list[ScreeningScore]:
+    """Rank requested symbols using the configured market-data provider."""
+
+    return await build_screening_scores(request)

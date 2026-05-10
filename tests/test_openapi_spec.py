@@ -12,12 +12,18 @@ def test_openapi_schema_documents_main_api_contracts():
     schema = response.json()
     assert schema["info"]["title"] == "Smart Market AI API"
     assert schema["info"]["version"] == "0.1.0"
-    assert [tag["name"] for tag in schema["tags"]] == ["Health", "Risk", "Portfolio"]
+    assert [tag["name"] for tag in schema["tags"]] == [
+        "Health",
+        "Risk",
+        "Portfolio",
+        "Screening",
+    ]
 
     paths = schema["paths"]
     assert paths["/health"]["get"]["tags"] == ["Health"]
     assert paths["/risk/pre-trade-check"]["post"]["tags"] == ["Risk"]
     assert paths["/portfolio/rebalance-check"]["post"]["tags"] == ["Portfolio"]
+    assert paths["/screening/score"]["post"]["tags"] == ["Screening"]
 
     portfolio_operation = paths["/portfolio/rebalance-check"]["post"]
     assert portfolio_operation["summary"] == "Generate a rebalance proposal and check risk"
@@ -26,6 +32,10 @@ def test_openapi_schema_documents_main_api_contracts():
     assert "502" in portfolio_operation["responses"]
     assert "503" in portfolio_operation["responses"]
     assert "504" in portfolio_operation["responses"]
+
+    screening_operation = paths["/screening/score"]["post"]
+    assert screening_operation["summary"] == "Rank symbols with explainable screening scores"
+    assert "502" in screening_operation["responses"]
 
 
 def test_openapi_schema_includes_request_examples():
@@ -42,3 +52,7 @@ def test_openapi_schema_includes_request_examples():
     assert portfolio_example["positions"][0]["symbol"] == "7203.T"
     assert portfolio_example["targets"][1]["symbol"] == "AAPL"
     assert portfolio_example["cash_jpy"] == "29000"
+
+    screening_example = schemas["ScreeningScoreRequest"]["examples"][0]
+    assert screening_example["symbols"] == ["AAPL", "7203.T"]
+    assert screening_example["as_of"] == "2026-04-09"

@@ -57,6 +57,8 @@ http://127.0.0.1:8000/openapi.json
   - trade intent を deterministic な MVP リスクルールで評価します。
 - `POST /portfolio/rebalance-check`
   - 現在 portfolio と target allocation から rebalance proposal を作り、必要に応じて Risk check へ接続します。
+- `POST /screening/score`
+  - 指定した銘柄の Feature Snapshot を作り、ranking と score breakdown を返します。
 
 エラー応答は JSON です。
 
@@ -116,6 +118,31 @@ Invoke-RestMethod http://127.0.0.1:8000/health
   "status": "ok"
 }
 ```
+
+Screening score:
+
+```powershell
+$body = @{
+  symbols = @("AAPL", "7203.T")
+  as_of = "2026-04-09"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8000/screening/score `
+  -ContentType "application/json" `
+  -Body $body
+```
+
+期待される response:
+
+- `rank`
+- `total_score`
+- `momentum_score`
+- `liquidity_score`
+- `risk_score`
+- `data_quality_score`
+- `reasons`
 
 ## 5. CSV MarketData provider
 

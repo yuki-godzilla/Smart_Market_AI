@@ -300,13 +300,14 @@ Scope:
 - Done: momentum、liquidity、risk、data quality などの sub score を定義する
 - Done: `ScreeningScore` と score breakdown を返す
 - Done: Streamlit の Market Data tab から ranking を確認できるようにする
-- API から ranking を確認できるようにする
+- Done: API から ranking を確認できるようにする
 
 完了条件:
 
 - Done: 複数銘柄を deterministic に順位付けできる
 - Done: score breakdown がテストされている
-- UI / report で順位の理由を確認できる
+- Done: UI / API で順位の理由を確認できる
+- report で順位の理由を確認できる
 
 - Done: UI 上でランキング、総合 score、sub score、data quality warning を確認できる
 - 外部 provider 由来データを使う場合は、live data 取得結果を元にした score で確認できる

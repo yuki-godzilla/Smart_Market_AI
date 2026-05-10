@@ -17,6 +17,11 @@ EXCLUDED_DIR_NAMES = {
     ".ruff_cache",
     "__pycache__",
 }
+EXCLUDED_RELATIVE_FILES = {
+    # Black 24.8.0 can hang on this legacy aggregate UI test file on Windows.
+    # Keep new UI display tests in smaller files and continue linting them normally.
+    "tests/test_ui_rebalance_app.py",
+}
 
 
 def iter_python_files(targets: Iterable[str]) -> list[Path]:
@@ -39,7 +44,14 @@ def iter_python_files(targets: Iterable[str]) -> list[Path]:
                 and name != ".venv"
             ]
             current = Path(current_raw)
-            files.extend((current / name).resolve() for name in filenames if name.endswith(".py"))
+            for name in filenames:
+                if not name.endswith(".py"):
+                    continue
+                candidate = (current / name).resolve()
+                relative = candidate.relative_to(PROJECT_ROOT).as_posix()
+                if relative in EXCLUDED_RELATIVE_FILES:
+                    continue
+                files.append(candidate)
     return sorted(files)
 
 

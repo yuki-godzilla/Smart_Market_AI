@@ -187,6 +187,9 @@ Use the project virtual environment when available.
 .\venv_SMAI\Scripts\python.exe -m ruff check backend ui tests --no-cache
 ```
 
+Do not use direct multi-file `python -m black --check .` as a routine check in this Windows environment; use `tools/run_black_check.py` or `tools/run_local_checks.py` instead.
+この Windows 環境では、通常確認として複数ファイル対象の `python -m black --check .` を直接使わず、`tools/run_black_check.py` または `tools/run_local_checks.py` を使います。
+
 Targeted examples:
 
 ```powershell

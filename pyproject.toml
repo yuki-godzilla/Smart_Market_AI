@@ -11,6 +11,9 @@ extend-exclude = '''
   | __pycache__
 )/
 '''
+force-exclude = '''
+(^|[\\/])tests[\\/]test_ui_rebalance_app\.py$
+'''
 
 [tool.ruff]
 line-length = 100

@@ -35,6 +35,13 @@ from ui.rebalance_app import (
 
 MARKET_DATA_PROVIDER_OPTIONS = ["mock", "yahoo", "csv"]
 
+FORECAST_MODEL_LABELS = {
+    "close": "実績価格",
+    "naive": "予測: 直近値維持",
+    "moving_average_3": "予測: 3日移動平均",
+    "momentum_3": "予測: 3日モメンタム",
+}
+
 
 def main() -> None:
     st.set_page_config(page_title="Smart Market AI", layout="wide")
@@ -245,28 +252,17 @@ def _render_market_data_preview() -> None:
             st.error("Market data fetch failed.")
             _render_provider_error_summary(preview.error_rows)
 
-        st.subheader("Provider")
-        _render_table(preview.provider_rows, "No provider metadata.")
-
-        st.subheader("Quote")
-        _render_table(preview.quote_rows, "No quote rows.")
-
-        st.subheader("OHLCV Summary")
-        _render_table(preview.ohlcv_rows, "No OHLCV rows.")
-
         st.subheader("Price And Forecast")
         if preview.provider_rows:
             provider_name = _metadata_value(preview.provider_rows, "provider")
             st.caption(f"Data provider: {provider_name}")
+        for message in forecast_metric_summary(preview.forecast_metric_rows):
+            st.info(message)
         _render_market_chart(preview.forecast_chart_rows)
         st.subheader("Forecast Metrics")
-        _render_table(preview.forecast_metric_rows, "No forecast metrics.")
-
-        st.subheader("FX")
-        _render_table(preview.fx_rows, "No FX rows.")
-
-        st.subheader("Feature Snapshot")
-        _render_table(preview.feature_rows, "No feature snapshot rows.")
+        _render_table(
+            forecast_metric_display_rows(preview.forecast_metric_rows), "No forecast metrics."
+        )
 
         st.subheader("Screening Score")
         _render_table(preview.screening_rows, "No screening score rows.")
@@ -284,6 +280,23 @@ def _render_market_data_preview() -> None:
                 file_name="screening_score.csv",
                 mime="text/csv",
             )
+
+        with st.expander("Provider / Quote / OHLCV"):
+            st.subheader("Provider")
+            _render_table(preview.provider_rows, "No provider metadata.")
+
+            st.subheader("Quote")
+            _render_table(preview.quote_rows, "No quote rows.")
+
+            st.subheader("OHLCV Summary")
+            _render_table(preview.ohlcv_rows, "No OHLCV rows.")
+
+        with st.expander("FX / Feature Snapshot"):
+            st.subheader("FX")
+            _render_table(preview.fx_rows, "No FX rows.")
+
+            st.subheader("Feature Snapshot")
+            _render_table(preview.feature_rows, "No feature snapshot rows.")
 
         if preview.error_rows:
             st.subheader("Errors")
@@ -426,18 +439,40 @@ def _render_market_chart(rows: list[dict[str, str]]) -> None:
         st.info("No chart rows.")
         return
     chart_data = market_chart_long_frame(rows)
+    boundary_data = forecast_boundary_frame(rows)
     chart = (
         alt.Chart(chart_data)
         .mark_line(point=True)
         .encode(
-            x=alt.X("date:T", title="Date"),
+            x=alt.X("date:T", title="Date", axis=alt.Axis(format="%m/%d", labelAngle=0)),
             y=alt.Y("value:Q", title="Close", scale=alt.Scale(zero=False)),
-            color=alt.Color("series:N", title="Series"),
-            strokeDash=alt.StrokeDash("line_type:N", title="Line"),
-            tooltip=["date:T", "series:N", "value:Q", "line_type:N"],
+            color=alt.Color("series_label:N", title="線"),
+            strokeDash=alt.StrokeDash(
+                "line_label:N",
+                title="種類",
+                scale=alt.Scale(domain=["実績", "予測"], range=[[1, 0], [6, 4]]),
+            ),
+            tooltip=[
+                alt.Tooltip("date:T", title="日付"),
+                alt.Tooltip("series_label:N", title="線"),
+                alt.Tooltip("value:Q", title="終値"),
+                alt.Tooltip("line_label:N", title="種類"),
+            ],
         )
         .properties(height=360)
     )
+    if not boundary_data.empty:
+        boundary_rule = (
+            alt.Chart(boundary_data)
+            .mark_rule(color="#f59e0b", strokeDash=[4, 4])
+            .encode(x="date:T", tooltip=[alt.Tooltip("label:N", title="目印")])
+        )
+        boundary_label = (
+            alt.Chart(boundary_data)
+            .mark_text(align="left", baseline="top", dx=6, dy=8, color="#f59e0b")
+            .encode(x="date:T", y=alt.value(8), text="label:N")
+        )
+        chart = chart + boundary_rule + boundary_label
     st.altair_chart(chart, use_container_width=True)
 
 
@@ -464,7 +499,97 @@ def market_chart_long_frame(rows: list[dict[str, str]]) -> pd.DataFrame:
     long_frame["line_type"] = long_frame["series"].map(
         lambda series: "actual" if series == "close" else "forecast"
     )
+    long_frame["line_label"] = long_frame["line_type"].map(
+        lambda line_type: "実績" if line_type == "actual" else "予測"
+    )
+    long_frame["series_label"] = long_frame["series"].map(_forecast_series_label)
     return long_frame
+
+
+def forecast_boundary_frame(rows: list[dict[str, str]]) -> pd.DataFrame:
+    frame = market_chart_frame(rows).reset_index(names="date")
+    actual_rows = frame.dropna(subset=["close"])
+    if actual_rows.empty:
+        return pd.DataFrame(columns=["date", "label"])
+    latest_actual_date = actual_rows["date"].max()
+    return pd.DataFrame(
+        [
+            {
+                "date": latest_actual_date,
+                "label": "ここから先は将来予測",
+            }
+        ]
+    )
+
+
+def forecast_metric_display_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    return [
+        {
+            "モデル": _forecast_series_label(row.get("model", "")),
+            "銘柄": row.get("symbol", ""),
+            "予測日数": row.get("horizon_days", ""),
+            "予測終値": row.get("forecast_close", ""),
+            "MAE(小さいほど良い)": row.get("mae", ""),
+            "RMSE(小さいほど良い)": row.get("rmse", ""),
+            "方向一致率(高いほど良い)": row.get("direction_accuracy", ""),
+            "評価サンプル数": row.get("sample_count", ""),
+        }
+        for row in rows
+    ]
+
+
+def forecast_metric_summary(rows: list[dict[str, str]]) -> list[str]:
+    candidates: list[tuple[Decimal, dict[str, str]]] = []
+    for row in rows:
+        rmse = _optional_decimal_from_text(row.get("rmse", ""))
+        sample_count = _int_from_text(row.get("sample_count", ""))
+        if rmse is None or sample_count <= 0:
+            continue
+        candidates.append((rmse, row))
+
+    if not candidates:
+        return [
+            "予測評価に必要なサンプルがまだ不足しています。日付範囲を広げるとモデル比較が安定します。"
+        ]
+
+    best_rmse, best_row = min(candidates, key=lambda item: item[0])
+    best_label = _forecast_series_label(best_row.get("model", ""))
+    direction = best_row.get("direction_accuracy") or "未計算"
+    return [
+        (
+            f"今回の比較では「{best_label}」が RMSE {best_rmse} で最も誤差が小さいです。"
+            f"方向一致率は {direction} です。"
+        ),
+        "RMSE/MAE は小さいほど良く、方向一致率は高いほど良い指標です。予測は投資判断の補助であり、売買推奨ではありません。",
+    ]
+
+
+def _forecast_series_label(series: str) -> str:
+    if series in FORECAST_MODEL_LABELS:
+        return FORECAST_MODEL_LABELS[series]
+    if series.startswith("moving_average_"):
+        window = series.removeprefix("moving_average_")
+        return f"予測: {window}日移動平均"
+    if series.startswith("momentum_"):
+        lookback = series.removeprefix("momentum_")
+        return f"予測: {lookback}日モメンタム"
+    return series
+
+
+def _optional_decimal_from_text(value: str) -> Decimal | None:
+    if not value:
+        return None
+    try:
+        return Decimal(value.replace("%", ""))
+    except InvalidOperation:
+        return None
+
+
+def _int_from_text(value: str) -> int:
+    try:
+        return int(value)
+    except ValueError:
+        return 0
 
 
 def _metadata_value(rows: list[dict[str, str]], field: str) -> str:

@@ -9,11 +9,15 @@ repos:
       - id: check-merge-conflict
       - id: check-yaml
 
-  # Black（コード整形）
-  - repo: https://github.com/psf/black
-    rev: 24.8.0
+  # Black formatting check.
+  # Use the local single-process helper because direct multi-file Black can hang on Windows.
+  - repo: local
     hooks:
-      - id: black
+      - id: black-check
+        name: black check
+        entry: venv_SMAI/Scripts/python.exe tools/run_black_check.py
+        language: system
+        pass_filenames: false
 
   # Ruff（Lint + import順/自動修正）
   - repo: https://github.com/astral-sh/ruff-pre-commit

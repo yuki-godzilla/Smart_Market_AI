@@ -190,7 +190,7 @@ def _render_market_data_preview() -> None:
     st.subheader("Market Data")
     settings = runtime_settings_summary()
     default_provider = settings["provider"]
-    col_provider, col_symbol, col_start, col_end = st.columns(4)
+    col_provider, col_symbol, col_start, col_end, col_horizon = st.columns(5)
     with col_provider:
         provider = cast(
             str,
@@ -211,6 +211,15 @@ def _render_market_data_preview() -> None:
         )
     with col_end:
         end = st.date_input("End", value=default_market_data_end_date(), key="market_data_end")
+    with col_horizon:
+        forecast_horizon_days = st.number_input(
+            "Forecast days",
+            min_value=1,
+            max_value=30,
+            value=1,
+            step=1,
+            key="market_data_forecast_horizon_days",
+        )
 
     if st.button("Fetch market data", key="fetch_market_data"):
         try:
@@ -220,6 +229,7 @@ def _render_market_data_preview() -> None:
                     start=_single_date_from_input(start),
                     end=_single_date_from_input(end),
                     provider_override=provider,
+                    forecast_horizon_days=int(forecast_horizon_days),
                 )
             )
         except ValueError as exc:

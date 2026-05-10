@@ -334,6 +334,8 @@ Scope:
 - Done: live provider が失敗した場合、UI 上で error code、message、details をすぐ確認できるようにする
 - Done: mock の直近日付 OHLCV を、単調な右肩上がりではなく上下動のあるサンプル系列にする
 - Done: Forecast result を `POST /forecast/evaluate` で API から確認できるようにする
+- Done: Streamlit UI から forecast horizon を 1〜30 日の範囲で選べるようにする
+- Done: chart 上の予測点の日付を、選択した forecast horizon に合わせて表示する
 - Pending: Forecast result を export へ接続する
 
 完了条件:
@@ -342,6 +344,7 @@ Scope:
 - Done: data leakage を避ける評価手順がある
 - Done: forecast result と metrics を UI で表示できる
 - Done: forecast result と metrics を API で取得できる
+- Done: UI 上で forecast horizon を変更し、model 別 metrics と予測線に反映されたことを確認できる
 - Pending: forecast result と metrics を保存できる
 
 - Done: UI 上で forecast horizon、model 別 metrics、評価期間を確認できる

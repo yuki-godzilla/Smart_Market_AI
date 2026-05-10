@@ -152,8 +152,9 @@ def _evaluate_model(
     direction_hits = 0
     sample_count = 0
 
-    for target_index in range(model.min_history, len(bars)):
-        history = bars[:target_index]
+    for target_index in range(model.min_history + horizon_days - 1, len(bars)):
+        history_end = target_index - horizon_days + 1
+        history = bars[:history_end]
         actual = bars[target_index].close
         previous = history[-1].close
         forecast = model.predict(history, horizon_days=horizon_days)

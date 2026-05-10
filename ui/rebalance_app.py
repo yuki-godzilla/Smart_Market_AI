@@ -308,9 +308,13 @@ async def build_market_data_preview(
     start: date,
     end: date,
     provider_override: str | None = None,
+    forecast_horizon_days: int = 1,
     fx_pair: str = "USDJPY",
 ) -> MarketDataPreview:
     """Fetch a small market-data preview for the configured provider."""
+
+    if forecast_horizon_days < 1 or forecast_horizon_days > 30:
+        raise ValueError("forecast_horizon_days must be between 1 and 30")
 
     settings = get_settings()
     dataaccess_cfg = settings.dataaccess
@@ -374,8 +378,16 @@ async def build_market_data_preview(
         ],
         ohlcv_rows=ohlcv_summary_rows(bars),
         price_chart_rows=price_chart_rows(bars),
-        forecast_chart_rows=forecast_chart_rows(bars),
-        forecast_metric_rows=forecast_metric_rows(_available_forecast_evaluations(bars)),
+        forecast_chart_rows=forecast_chart_rows(
+            bars,
+            horizon_days=forecast_horizon_days,
+        ),
+        forecast_metric_rows=forecast_metric_rows(
+            _available_forecast_evaluations(
+                bars,
+                horizon_days=forecast_horizon_days,
+            )
+        ),
         fx_rows=[
             {
                 "pair": rate.pair,
@@ -438,8 +450,15 @@ def price_chart_rows(bars: list[Bar]) -> list[dict[str, str]]:
     ]
 
 
-def forecast_chart_rows(bars: list[Bar]) -> list[dict[str, str]]:
+def forecast_chart_rows(
+    bars: list[Bar],
+    *,
+    horizon_days: int = 1,
+) -> list[dict[str, str]]:
     """Return actual close and model forecast rows for chart display."""
+
+    if horizon_days < 1 or horizon_days > 30:
+        raise ValueError("horizon_days must be between 1 and 30")
 
     sorted_bars = sorted(bars, key=lambda row: row.ts)
     if not sorted_bars:
@@ -451,16 +470,17 @@ def forecast_chart_rows(bars: list[Bar]) -> list[dict[str, str]]:
         for bar in sorted_bars
     }
     for model in models:
-        for target_index in range(model.min_history, len(sorted_bars)):
-            history = sorted_bars[:target_index]
+        for target_index in range(model.min_history + horizon_days - 1, len(sorted_bars)):
+            history_end = target_index - horizon_days + 1
+            history = sorted_bars[:history_end]
             target_bar = sorted_bars[target_index]
-            forecast = model.predict(history)
+            forecast = model.predict(history, horizon_days=horizon_days)
             rows_by_ts[target_bar.ts.isoformat()][model.name] = _format_decimal(
                 forecast.forecast_close
             )
 
-        latest_forecast = model.predict(sorted_bars)
-        forecast_ts = _next_forecast_ts(sorted_bars[-1])
+        latest_forecast = model.predict(sorted_bars, horizon_days=horizon_days)
+        forecast_ts = _next_forecast_ts(sorted_bars[-1], horizon_days=horizon_days)
         forecast_row = rows_by_ts.setdefault(forecast_ts, {"ts": forecast_ts, "close": ""})
         forecast_row[model.name] = _format_decimal(latest_forecast.forecast_close)
 
@@ -1031,11 +1051,15 @@ def _quality_reasons(reasons: list[str]) -> str:
     return ", ".join(reasons)
 
 
-def _available_forecast_evaluations(bars: list[Bar]) -> list[ForecastEvaluation]:
+def _available_forecast_evaluations(
+    bars: list[Bar],
+    *,
+    horizon_days: int = 1,
+) -> list[ForecastEvaluation]:
     models = _available_forecast_models(bars)
     if not models:
         return []
-    return evaluate_models(bars, models=models)
+    return evaluate_models(bars, models=models, horizon_days=horizon_days)
 
 
 def _available_forecast_models(bars: list[Bar]) -> list[ForecastModel]:
@@ -1047,8 +1071,8 @@ def _available_forecast_models(bars: list[Bar]) -> list[ForecastModel]:
     return [model for model in models if len(bars) >= model.min_history]
 
 
-def _next_forecast_ts(bar: Bar) -> str:
-    return (bar.ts + _ONE_DAY).isoformat()
+def _next_forecast_ts(bar: Bar, *, horizon_days: int = 1) -> str:
+    return (bar.ts + (_ONE_DAY * horizon_days)).isoformat()
 
 
 def _slug(value: str) -> str:

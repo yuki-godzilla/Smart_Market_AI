@@ -33,6 +33,7 @@ from ui.rebalance_app import (
     build_rebalance_request,
     current_position_rows,
     feature_snapshot_rows,
+    forecast_chart_rows,
     get_rebalance_sample,
     load_rebalance_samples,
     ohlcv_summary_rows,
@@ -407,6 +408,33 @@ def test_build_market_data_preview_returns_mock_rows(monkeypatch):
     assert preview.error_rows == []
 
 
+def test_build_market_data_preview_uses_selected_forecast_horizon(monkeypatch):
+    monkeypatch.delenv("SMAI_CONFIG_FILE", raising=False)
+
+    preview = asyncio.run(
+        build_market_data_preview(
+            symbol="AAPL",
+            start=date(2026, 4, 7),
+            end=date(2026, 4, 9),
+            forecast_horizon_days=2,
+        )
+    )
+
+    assert preview.forecast_chart_rows == [
+        {"ts": "2026-04-07T00:00:00+00:00", "close": "170"},
+        {"ts": "2026-04-08T00:00:00+00:00", "close": "173"},
+        {"ts": "2026-04-09T00:00:00+00:00", "close": "175", "naive": "170"},
+        {
+            "ts": "2026-04-11T00:00:00+00:00",
+            "close": "",
+            "naive": "175",
+            "moving_average_3": "172.6667",
+        },
+    ]
+    assert preview.forecast_metric_rows[0]["horizon_days"] == "2"
+    assert preview.forecast_metric_rows[0]["sample_count"] == "1"
+
+
 def test_build_market_data_preview_returns_provider_error(monkeypatch):
     monkeypatch.setenv(
         "SMAI_CONFIG_FILE",
@@ -495,6 +523,24 @@ def test_price_chart_rows_formats_close_history():
         {"ts": "2026-04-08T00:00:00+00:00", "close": "172"},
         {"ts": "2026-04-09T00:00:00+00:00", "close": "175"},
     ]
+
+
+def test_forecast_chart_rows_places_latest_point_on_selected_horizon():
+    rows = forecast_chart_rows(
+        [
+            _bar("AAPL", "2026-04-07T00:00:00Z", "170"),
+            _bar("AAPL", "2026-04-08T00:00:00Z", "173"),
+            _bar("AAPL", "2026-04-09T00:00:00Z", "175"),
+        ],
+        horizon_days=3,
+    )
+
+    assert rows[-1] == {
+        "ts": "2026-04-12T00:00:00+00:00",
+        "close": "",
+        "naive": "175",
+        "moving_average_3": "172.6667",
+    }
 
 
 def _bar(symbol: str, ts: str, close: str) -> Bar:

@@ -38,6 +38,27 @@ def test_evaluate_models_returns_baseline_metrics():
     assert evaluations[2].metrics.sample_count == 2
 
 
+def test_evaluate_models_uses_horizon_days_for_walk_forward_target():
+    bars = _bars([100, 102, 104, 103, 106, 108])
+
+    evaluations = evaluate_models(
+        bars,
+        models=[
+            NaiveForecastModel(),
+            MovingAverageForecastModel(window=3),
+            MomentumForecastModel(lookback=3),
+        ],
+        horizon_days=2,
+    )
+
+    assert evaluations[0].latest_forecast.horizon_days == 2
+    assert evaluations[0].metrics.sample_count == 4
+    assert evaluations[0].metrics.mae == Decimal("3.0000")
+    assert evaluations[0].metrics.rmse == Decimal("3.3912")
+    assert evaluations[1].metrics.sample_count == 2
+    assert evaluations[2].metrics.sample_count == 1
+
+
 def test_moving_average_predict_uses_trailing_window():
     forecast = MovingAverageForecastModel(window=3).predict(_bars([100, 110, 120]))
 

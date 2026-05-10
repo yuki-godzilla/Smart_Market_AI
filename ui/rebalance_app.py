@@ -41,7 +41,100 @@ DEFAULT_SCENARIO_DIR = PROJECT_ROOT / "examples" / "rebalance_scenarios"
 SCENARIO_DIR_ENV = "SMAI_REBALANCE_SCENARIO_DIR"
 SYMBOL_DISPLAY_NAMES = {
     "7203.T": "Toyota Motor",
+    "9983.T": "Fast Retailing",
+    "6758.T": "Sony Group",
+    "8306.T": "Mitsubishi UFJ Financial Group",
+    "9432.T": "Nippon Telegraph and Telephone",
+    "6861.T": "Keyence",
+    "8035.T": "Tokyo Electron",
+    "6098.T": "Recruit Holdings",
+    "4063.T": "Shin-Etsu Chemical",
+    "6501.T": "Hitachi",
+    "8058.T": "Mitsubishi Corporation",
+    "8001.T": "Itochu",
+    "8031.T": "Mitsui",
+    "2914.T": "Japan Tobacco",
+    "7974.T": "Nintendo",
+    "4519.T": "Chugai Pharmaceutical",
+    "4568.T": "Daiichi Sankyo",
+    "4502.T": "Takeda Pharmaceutical",
+    "6367.T": "Daikin Industries",
+    "6981.T": "Murata Manufacturing",
+    "7751.T": "Canon",
+    "6902.T": "Denso",
+    "7267.T": "Honda Motor",
+    "8411.T": "Mizuho Financial Group",
+    "8316.T": "Sumitomo Mitsui Financial Group",
+    "8766.T": "Tokio Marine Holdings",
+    "8591.T": "ORIX",
+    "8801.T": "Mitsui Fudosan",
+    "9020.T": "East Japan Railway",
+    "9022.T": "Central Japan Railway",
+    "4661.T": "Oriental Land",
+    "9613.T": "NTT Data Group",
+    "4755.T": "Rakuten Group",
+    "4689.T": "LY Corporation",
+    "6702.T": "Fujitsu",
+    "5401.T": "Nippon Steel",
+    "7011.T": "Mitsubishi Heavy Industries",
+    "1605.T": "Inpex",
+    "5108.T": "Bridgestone",
+    "3382.T": "Seven & i Holdings",
+    "8267.T": "Aeon",
+    "9843.T": "Nitori Holdings",
+    "4452.T": "Kao",
+    "4911.T": "Shiseido",
+    "2502.T": "Asahi Group Holdings",
+    "2802.T": "Ajinomoto",
     "AAPL": "Apple Inc.",
+    "MSFT": "Microsoft",
+    "NVDA": "NVIDIA",
+    "TSLA": "Tesla",
+    "GOOGL": "Alphabet",
+    "AMZN": "Amazon.com",
+    "META": "Meta Platforms",
+    "NFLX": "Netflix",
+    "AMD": "Advanced Micro Devices",
+    "INTC": "Intel",
+    "AVGO": "Broadcom",
+    "ORCL": "Oracle",
+    "ADBE": "Adobe",
+    "CRM": "Salesforce",
+    "NOW": "ServiceNow",
+    "SHOP": "Shopify",
+    "UBER": "Uber Technologies",
+    "ABNB": "Airbnb",
+    "PYPL": "PayPal Holdings",
+    "JPM": "JPMorgan Chase",
+    "BAC": "Bank of America",
+    "V": "Visa",
+    "MA": "Mastercard",
+    "AXP": "American Express",
+    "BRK-B": "Berkshire Hathaway",
+    "UNH": "UnitedHealth Group",
+    "JNJ": "Johnson & Johnson",
+    "LLY": "Eli Lilly",
+    "MRK": "Merck",
+    "PFE": "Pfizer",
+    "ABBV": "AbbVie",
+    "XOM": "Exxon Mobil",
+    "CVX": "Chevron",
+    "KO": "Coca-Cola",
+    "PEP": "PepsiCo",
+    "PG": "Procter & Gamble",
+    "COST": "Costco Wholesale",
+    "WMT": "Walmart",
+    "HD": "Home Depot",
+    "MCD": "McDonald's",
+    "NKE": "Nike",
+    "DIS": "Walt Disney",
+    "TM": "Toyota Motor ADR",
+    "SONY": "Sony Group ADR",
+    "SPY": "SPDR S&P 500 ETF",
+    "QQQ": "Invesco QQQ Trust",
+    "VTI": "Vanguard Total Stock Market ETF",
+    "VOO": "Vanguard S&P 500 ETF",
+    "IWM": "iShares Russell 2000 ETF",
 }
 DEFAULT_POSITIONS_JSON = """[
   {
@@ -107,16 +200,66 @@ def target_allocations_json(*, toyota_weight: Decimal, apple_weight: Decimal) ->
 def symbol_display_name(symbol: str) -> str:
     """Return a human-readable symbol label for UI display."""
 
-    name = SYMBOL_DISPLAY_NAMES.get(symbol)
+    name = symbol_name(symbol)
     if name is None:
         return symbol
     return f"{symbol} ({name})"
+
+
+def symbol_name(symbol: str) -> str | None:
+    """Return the known company name for a yfinance-compatible ticker."""
+
+    return SYMBOL_DISPLAY_NAMES.get(symbol.strip().upper())
 
 
 def symbol_reference_rows() -> list[dict[str, str]]:
     """Return the MVP sample symbols with human-readable names."""
 
     return [{"symbol": symbol, "name": name} for symbol, name in SYMBOL_DISPLAY_NAMES.items()]
+
+
+def yfinance_search_symbol_rows(query: str, *, max_results: int = 12) -> list[dict[str, str]]:
+    """Return symbol candidates from yfinance Search for the user's query."""
+
+    normalized_query = query.strip()
+    if not normalized_query:
+        return []
+
+    try:
+        import yfinance as yf  # type: ignore[import-untyped]
+
+        quotes = yf.Search(
+            normalized_query,
+            max_results=max_results,
+            news_count=0,
+            lists_count=0,
+            include_cb=False,
+            include_nav_links=False,
+            include_research=False,
+            include_cultural_assets=False,
+            enable_fuzzy_query=True,
+            timeout=5,
+            raise_errors=False,
+        ).quotes
+    except Exception:  # noqa: BLE001
+        return []
+
+    rows: list[dict[str, str]] = []
+    for quote in quotes:
+        if not isinstance(quote, dict):
+            continue
+        symbol = str(quote.get("symbol") or "").strip()
+        if not symbol:
+            continue
+        name = str(
+            quote.get("shortname")
+            or quote.get("longname")
+            or quote.get("name")
+            or quote.get("exchange")
+            or symbol
+        ).strip()
+        rows.append({"symbol": symbol, "name": name})
+    return rows
 
 
 @dataclass(frozen=True)
@@ -467,7 +610,7 @@ def forecast_chart_rows(
     if not sorted_bars:
         return []
 
-    models = _available_forecast_models(sorted_bars)
+    models = _available_forecast_models(sorted_bars, horizon_days=horizon_days)
     rows_by_ts: dict[str, dict[str, str]] = {
         bar.ts.isoformat(): {"ts": bar.ts.isoformat(), "close": _format_decimal(bar.close)}
         for bar in sorted_bars
@@ -521,6 +664,23 @@ def forecast_metric_rows_for_bars(
             horizon_days=horizon_days,
         )
     )
+
+
+def forecast_reference_period(
+    bars: list[Bar],
+    *,
+    horizon_days: int = 1,
+) -> int:
+    """Return the automatically selected reference period for baseline models."""
+
+    if horizon_days < 1 or horizon_days > 30:
+        raise ValueError("horizon_days must be between 1 and 30")
+    bar_count = len(bars)
+    if bar_count <= 3:
+        return 3
+    period_from_horizon = max(3, horizon_days * 2)
+    period_cap = max(3, bar_count // 3)
+    return min(period_from_horizon, period_cap, 30, bar_count - 1)
 
 
 def feature_snapshot_rows(snapshot: FeatureSnapshot) -> list[dict[str, str]]:
@@ -1074,17 +1234,22 @@ def _available_forecast_evaluations(
     *,
     horizon_days: int = 1,
 ) -> list[ForecastEvaluation]:
-    models = _available_forecast_models(bars)
+    models = _available_forecast_models(bars, horizon_days=horizon_days)
     if not models:
         return []
     return evaluate_models(bars, models=models, horizon_days=horizon_days)
 
 
-def _available_forecast_models(bars: list[Bar]) -> list[ForecastModel]:
+def _available_forecast_models(
+    bars: list[Bar],
+    *,
+    horizon_days: int = 1,
+) -> list[ForecastModel]:
+    reference_period = forecast_reference_period(bars, horizon_days=horizon_days)
     models: list[ForecastModel] = [
         NaiveForecastModel(),
-        MovingAverageForecastModel(),
-        MomentumForecastModel(),
+        MovingAverageForecastModel(window=reference_period),
+        MomentumForecastModel(lookback=reference_period),
     ]
     return [model for model in models if len(bars) >= model.min_history]
 

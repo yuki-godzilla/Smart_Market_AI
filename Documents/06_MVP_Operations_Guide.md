@@ -271,7 +271,14 @@ UI で確認できる主な内容:
 - Market Data tab での forecast chart / metrics、screening score、provider metadata、quote、OHLCV summary、FX、feature snapshot、error details
 - Market Data tab では、取得後の chart 付近にある `Forecast days` で 1〜30 日先の forecast horizon を選択
 - `Forecast days` の初期値は表示期間から自動設定され、変更時は取得済みデータから chart / metrics だけを再計算
+- forecast model の参照期間は取得期間と forecast horizon から自動計算され、UI には `自動計算された参照期間` として表示
+- forecast chart の凡例では、各系列をクリックして表示 / 非表示を切り替え可能
 - forecast chart では実績価格とモデル別予測線を分け、将来予測の開始位置を確認
+- provider の UI 既定値は `yahoo`
+- symbol は `Symbol search` と `Symbol` プルダウンで指定し、国内・米国の代表候補を ticker / company name の部分一致で検索して選択できる
+- `Symbol search` に入力がある場合は、代表候補に加えて yfinance `Search` の候補も補助的に表示する
+- yfinance 検索候補はネットワークや Yahoo 側の応答に依存するため、失敗時は代表候補だけで動作する
+- 既知の銘柄は名称を横に表示する
 - provider metadata、quote、OHLCV summary、FX、feature snapshot は補助情報として折りたたみ表示
 
 UI のラベル、凡例、指標説明などの文言方針は [07_UI_Wording_Policy.md](./07_UI_Wording_Policy.md) を参照します。

@@ -336,6 +336,8 @@ Scope:
 - Done: Forecast result を `POST /forecast/evaluate` で API から確認できるようにする
 - Done: Streamlit UI から forecast horizon を 1〜30 日の範囲で選べるようにする
 - Done: chart 上の予測点の日付を、選択した forecast horizon に合わせて表示する
+- Done: Market Data tab を左側に移動し、Forecast chart の凡例クリックで系列表示を切り替えられるようにする
+- Done: Forecast model の参照期間を取得期間と forecast horizon から自動算出し、UI に自然な日本語で表示する
 - Pending: Forecast result を export へ接続する
 
 完了条件:
@@ -458,6 +460,8 @@ Scope:
 
 - `Market Data` など開発者向けの画面名を、ユーザー向けの「銘柄チェック」「候補ランキング」などへ整理する
 - symbol 手入力だけでなく、watchlist、プリセット銘柄群、銘柄名検索から始められるようにする
+- 市場選択と symbol resolver を設計し、`9983` などの日本株4桁コード、`9983.T` のような Yahoo provider 表記、`AAPL` などの米国 ticker をユーザーが迷わず扱えるようにする
+- provider 固有の symbol 補完は UI 上で補完後の symbol を見せ、入力値と provider 問い合わせ値の差分を確認できるようにする
 - 複数銘柄 ranking は、単一銘柄チェックとは別の UI 体験として設計する
 - score、sub score、data quality、欠損理由を初心者向けの日本語ラベルと説明に変換する
 - ranking、Feature Snapshot、forecast、risk、report への導線を整理する
@@ -467,6 +471,7 @@ Scope:
 完了条件:
 
 - symbol を知らないユーザーでも、プリセットまたは検索から銘柄チェックを開始できる
+- 日本株と米国株を少なくとも UI 上で区別でき、Yahoo provider 利用時の `.T` などの suffix 補完が分かる
 - 複数銘柄 ranking では、比較対象、並び順、score 理由、data quality warning が分かる
 - UI 上で総合 score、sub score、data quality warning、主要な理由を日本語で理解できる
 - 銘柄比較から詳細確認、report preview までの導線が分かる

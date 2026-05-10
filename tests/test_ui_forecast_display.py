@@ -1,18 +1,79 @@
-from datetime import date
+from datetime import UTC, date, datetime
+from decimal import Decimal
 
+from backend.core.data_contracts import Bar, Symbol
 from ui.app import (
+    _name_from_candidate,
+    _render_market_chart,
+    _symbol_from_candidate,
     default_forecast_horizon_days,
+    default_market_data_provider,
     forecast_boundary_frame,
     forecast_metric_display_rows,
     forecast_metric_summary,
     market_chart_long_frame,
+    merged_symbol_candidate_rows,
+    symbol_candidate_labels,
 )
+from ui.rebalance_app import forecast_reference_period
 
 
 def test_default_forecast_horizon_days_uses_chart_period():
     assert default_forecast_horizon_days(date(2026, 5, 1), date(2026, 5, 7)) == 1
     assert default_forecast_horizon_days(date(2026, 5, 1), date(2026, 5, 30)) == 3
     assert default_forecast_horizon_days(date(2026, 1, 1), date(2026, 12, 31)) == 30
+
+
+def test_market_data_provider_defaults_to_yahoo():
+    assert default_market_data_provider() == "yahoo"
+
+
+def test_symbol_from_candidate_extracts_ticker_or_custom():
+    assert _symbol_from_candidate("") is None
+    assert _symbol_from_candidate("9983.T - Fast Retailing") == "9983.T"
+
+
+def test_name_from_candidate_extracts_display_name():
+    assert _name_from_candidate("9983.T - Fast Retailing") == "Fast Retailing"
+    assert _name_from_candidate("AAPL") is None
+
+
+def test_merged_symbol_candidate_rows_deduplicates_representative_first():
+    rows = merged_symbol_candidate_rows(
+        [{"symbol": "AAPL", "name": "Apple Inc."}],
+        [
+            {"symbol": "aapl", "name": "Apple"},
+            {"symbol": "MSFT", "name": "Microsoft"},
+        ],
+    )
+
+    assert rows == [
+        {"symbol": "AAPL", "name": "Apple Inc."},
+        {"symbol": "MSFT", "name": "Microsoft"},
+    ]
+
+
+def test_symbol_candidate_labels_filter_by_symbol_or_name():
+    rows = [
+        {"symbol": "9983.T", "name": "Fast Retailing"},
+        {"symbol": "AAPL", "name": "Apple Inc."},
+    ]
+
+    assert symbol_candidate_labels(rows, "") == [
+        "9983.T - Fast Retailing",
+        "AAPL - Apple Inc.",
+    ]
+    assert symbol_candidate_labels(rows, "retail") == ["9983.T - Fast Retailing"]
+    assert symbol_candidate_labels(rows, "AAPL") == ["AAPL - Apple Inc."]
+    assert symbol_candidate_labels(rows, "missing") == []
+
+
+def test_forecast_reference_period_uses_horizon_and_bar_count():
+    bars = [_bar(f"2026-05-{day:02d}") for day in range(1, 31)]
+
+    assert forecast_reference_period(bars, horizon_days=1) == 3
+    assert forecast_reference_period(bars, horizon_days=5) == 10
+    assert forecast_reference_period(bars[:3], horizon_days=5) == 3
 
 
 def test_market_chart_long_frame_adds_beginner_friendly_labels():
@@ -43,6 +104,39 @@ def test_market_chart_long_frame_adds_beginner_friendly_labels():
             "series_label": "予測: 直近値維持",
         },
     ]
+
+
+def test_render_market_chart_uses_currency_axis_title_and_compact_width(monkeypatch):
+    captured: dict[str, object] = {}
+
+    def fake_altair_chart(chart: object, *, use_container_width: bool = False) -> None:
+        captured["spec"] = chart.to_dict(validate=True)  # type: ignore[attr-defined]
+        captured["use_container_width"] = use_container_width
+
+    monkeypatch.setattr("ui.app.st.altair_chart", fake_altair_chart)
+    monkeypatch.setattr("ui.app.st.info", lambda message: None)
+
+    _render_market_chart(
+        [
+            {
+                "ts": "2026-05-10T00:00:00+00:00",
+                "close": "185",
+                "naive": "",
+            },
+            {
+                "ts": "2026-05-11T00:00:00+00:00",
+                "close": "",
+                "naive": "186.5",
+            },
+        ],
+        currency="USD",
+    )
+
+    spec = captured["spec"]
+    chart_spec = spec["hconcat"][0]  # type: ignore[index]
+    assert chart_spec["width"] == 880
+    assert chart_spec["layer"][0]["encoding"]["y"]["title"] == "終値 (USD)"
+    assert captured["use_container_width"] is True
 
 
 def test_forecast_boundary_frame_marks_latest_actual_date():
@@ -101,3 +195,17 @@ def test_forecast_metric_display_rows_and_summary_are_beginner_friendly():
     summary = forecast_metric_summary(rows)
     assert "予測: 直近値維持" in summary[0]
     assert summary[1] == "誤差と方向一致率で、モデルの当たりやすさを比べます。"
+
+
+def _bar(ts: str) -> Bar:
+    return Bar(
+        symbol=Symbol(raw="AAPL", exchange="NASDAQ", code="AAPL", currency="USD"),
+        ts=datetime.fromisoformat(f"{ts}T00:00:00+00:00").astimezone(UTC),
+        open=Decimal("100"),
+        high=Decimal("100"),
+        low=Decimal("100"),
+        close=Decimal("100"),
+        volume=Decimal("1000"),
+        interval="1d",
+        provider="test",
+    )

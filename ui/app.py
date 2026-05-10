@@ -20,6 +20,7 @@ from ui.rebalance_app import (
     build_rebalance_request,
     forecast_chart_rows,
     forecast_metric_rows_for_bars,
+    forecast_reference_period,
     get_rebalance_sample,
     rebalance_sample_names,
     request_json_download,
@@ -31,15 +32,18 @@ from ui.rebalance_app import (
     sample_widget_key,
     screening_score_csv_download,
     screening_score_json_download,
+    symbol_name,
     symbol_reference_rows,
     table_csv_download,
     target_allocations_json,
+    yfinance_search_symbol_rows,
 )
 
 MARKET_DATA_PROVIDER_OPTIONS = ["mock", "yahoo", "csv"]
 MARKET_DATA_PREVIEW_STATE_KEY = "market_data_preview"
 MARKET_DATA_STATUS_STATE_KEY = "market_data_status_message"
 MARKET_DATA_FORECAST_DAYS_STATE_KEY = "market_data_forecast_horizon_days"
+MARKET_DATA_TOAST_STATE_KEY = "market_data_toast_message"
 
 FORECAST_MODEL_LABELS = {
     "close": "実績価格",
@@ -53,7 +57,7 @@ def main() -> None:
     st.set_page_config(page_title="Smart Market AI", layout="wide")
     st.title("Smart Market AI")
 
-    rebalance_tab, market_data_tab = st.tabs(["Rebalance", "Market Data"])
+    market_data_tab, rebalance_tab = st.tabs(["Market Data", "Rebalance"])
 
     with st.sidebar:
         _render_runtime_settings()
@@ -208,23 +212,94 @@ def _provider_option_index(provider: str) -> int:
         return 0
 
 
+def default_market_data_provider() -> str:
+    return "yahoo"
+
+
+def _symbol_from_candidate(label: str) -> str | None:
+    if not label:
+        return None
+    return label.split(" - ", 1)[0]
+
+
+def _name_from_candidate(label: str) -> str | None:
+    if " - " not in label:
+        return None
+    return label.split(" - ", 1)[1]
+
+
+def symbol_candidate_labels(rows: list[dict[str, str]], query: str = "") -> list[str]:
+    labels = [f"{row['symbol']} - {row['name']}" for row in rows]
+    normalized_query = query.strip().lower()
+    if normalized_query:
+        labels = [label for label in labels if normalized_query in label.lower()]
+    return labels
+
+
+def merged_symbol_candidate_rows(
+    reference_rows: list[dict[str, str]],
+    live_rows: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    """Merge representative and live-search symbol candidates without duplicates."""
+
+    merged: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for row in [*reference_rows, *live_rows]:
+        symbol = row.get("symbol", "").strip()
+        name = row.get("name", "").strip() or symbol
+        normalized_symbol = symbol.upper()
+        if not normalized_symbol or normalized_symbol in seen:
+            continue
+        seen.add(normalized_symbol)
+        merged.append({"symbol": symbol, "name": name})
+    return merged
+
+
 def _render_market_data_preview() -> None:
     st.subheader("Market Data")
-    settings = runtime_settings_summary()
-    default_provider = settings["provider"]
-    col_provider, col_symbol, col_start, col_end = st.columns(4)
+    symbol_options = symbol_reference_rows()
+    col_provider, col_search, col_symbol, col_name, col_start, col_end = st.columns(
+        [1.0, 1.3, 1.7, 1.4, 1.0, 1.0]
+    )
     with col_provider:
         provider = cast(
             str,
             st.selectbox(
                 "Provider",
                 MARKET_DATA_PROVIDER_OPTIONS,
-                index=_provider_option_index(default_provider),
+                index=_provider_option_index(default_market_data_provider()),
                 key="market_data_provider",
             ),
         )
+    with col_search:
+        symbol_query = st.text_input(
+            "Symbol search",
+            value="",
+            key="market_data_symbol_search",
+            placeholder="ticker or company name",
+        )
     with col_symbol:
-        symbol = st.text_input("Symbol", value="AAPL", key="market_data_symbol")
+        live_symbol_options = (
+            yfinance_search_symbol_rows(symbol_query) if symbol_query.strip() else []
+        )
+        candidate_rows = merged_symbol_candidate_rows(symbol_options, live_symbol_options)
+        symbol_option_labels = symbol_candidate_labels(candidate_rows, symbol_query)
+        if not symbol_option_labels:
+            symbol_option_labels = symbol_candidate_labels(symbol_options)
+        symbol_candidate = cast(
+            str,
+            st.selectbox(
+                "Symbol",
+                symbol_option_labels,
+                index=min(1, len(symbol_option_labels) - 1),
+                key="market_data_symbol_candidate",
+                placeholder="ticker or company name",
+            ),
+        )
+    symbol = _symbol_from_candidate(symbol_candidate) or "AAPL"
+    with col_name:
+        company_name = symbol_name(symbol) or _name_from_candidate(symbol_candidate) or "名称未登録"
+        st.text_input("Name", value=company_name, disabled=True, key="market_data_symbol_name")
     with col_start:
         start = st.date_input(
             "Start",
@@ -258,14 +333,18 @@ def _render_market_data_preview() -> None:
 
         st.session_state[MARKET_DATA_PREVIEW_STATE_KEY] = preview
         st.session_state[MARKET_DATA_STATUS_STATE_KEY] = preview.status
+        if preview.status == "OK":
+            st.session_state[MARKET_DATA_TOAST_STATE_KEY] = "データを取得しました。"
 
     stored_preview = _market_data_preview_from_state()
     if stored_preview is None:
         return
 
-    if st.session_state.get(MARKET_DATA_STATUS_STATE_KEY) == "OK":
-        st.success("Market data fetched.")
-    else:
+    toast_message = st.session_state.pop(MARKET_DATA_TOAST_STATE_KEY, None)
+    if toast_message:
+        st.toast(str(toast_message), icon="✅")
+
+    if st.session_state.get(MARKET_DATA_STATUS_STATE_KEY) != "OK":
         st.error("Market data fetch failed.")
         _render_provider_error_summary(stored_preview.error_rows)
 
@@ -280,28 +359,41 @@ def _market_data_preview_from_state() -> MarketDataPreview | None:
 
 
 def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
-    forecast_horizon_days = cast(
-        int,
-        st.number_input(
-            "Forecast days",
-            min_value=1,
-            max_value=30,
-            value=int(st.session_state.get(MARKET_DATA_FORECAST_DAYS_STATE_KEY, 1)),
-            step=1,
-            key=MARKET_DATA_FORECAST_DAYS_STATE_KEY,
-            help="取得済みデータを使ってチャートと指標だけを再計算します。",
-        ),
-    )
+    title_col, horizon_col = st.columns([4.0, 1.0])
+    with title_col:
+        st.subheader("Price And Forecast")
+    with horizon_col:
+        forecast_horizon_days = cast(
+            int,
+            st.number_input(
+                "Forecast days",
+                min_value=1,
+                max_value=30,
+                value=int(st.session_state.get(MARKET_DATA_FORECAST_DAYS_STATE_KEY, 1)),
+                step=1,
+                key=MARKET_DATA_FORECAST_DAYS_STATE_KEY,
+                help="取得済みデータを使ってチャートと指標だけを再計算します。",
+            ),
+        )
     forecast_rows = forecast_chart_rows(preview.bars, horizon_days=forecast_horizon_days)
     metric_rows = forecast_metric_rows_for_bars(preview.bars, horizon_days=forecast_horizon_days)
+    reference_period = forecast_reference_period(
+        preview.bars,
+        horizon_days=forecast_horizon_days,
+    )
 
-    st.subheader("Price And Forecast")
     if preview.provider_rows:
         provider_name = _metadata_value(preview.provider_rows, "provider")
-        st.caption(f"Data provider: {provider_name}")
-    for message in forecast_metric_summary(metric_rows):
-        st.info(message)
-    _render_market_chart(forecast_rows)
+        st.caption(f"Data provider: {provider_name} / 自動計算された参照期間: {reference_period}日")
+    else:
+        st.caption(f"自動計算された参照期間: {reference_period}日")
+    for index, message in enumerate(forecast_metric_summary(metric_rows)):
+        if index == 0:
+            st.info(message)
+        else:
+            st.caption(message)
+    chart_currency = preview.bars[0].symbol.currency if preview.bars else ""
+    _render_market_chart(forecast_rows, currency=chart_currency)
     st.subheader("Forecast Metrics")
     _render_table(forecast_metric_display_rows(metric_rows), "No forecast metrics.")
 
@@ -475,37 +567,52 @@ def _render_table(rows: list[dict[str, str]], empty_message: str) -> None:
         st.info(empty_message)
 
 
-def _render_market_chart(rows: list[dict[str, str]]) -> None:
+def _render_market_chart(rows: list[dict[str, str]], *, currency: str = "") -> None:
     if not rows:
         st.info("No chart rows.")
         return
+    y_axis_title = f"終値 ({currency})" if currency else "終値"
     chart_data = market_chart_long_frame(rows)
     boundary_data = forecast_boundary_frame(rows)
+    legend_data = chart_data[["series_label", "line_label"]].drop_duplicates().copy()
+    line_type_legend_data = pd.DataFrame(
+        [
+            {"line_label": "実績", "description": "実線: 実績価格"},
+            {"line_label": "予測", "description": "破線: 予測モデル"},
+        ]
+    )
+    disabled_series = alt.selection_point(
+        fields=["series_label"],
+        on="click",
+        toggle="true",
+        empty=False,
+    )
     chart = (
         alt.Chart(chart_data)
         .mark_line(point=True)
         .encode(
             x=alt.X("date:T", title="Date", axis=alt.Axis(format="%m/%d", labelAngle=0)),
-            y=alt.Y("value:Q", title="Close", scale=alt.Scale(zero=False)),
+            y=alt.Y("value:Q", title=y_axis_title, scale=alt.Scale(zero=False)),
             color=alt.Color(
                 "series_label:N",
                 title="価格・モデル",
-                legend=alt.Legend(orient="bottom"),
+                legend=None,
             ),
             strokeDash=alt.StrokeDash(
                 "line_label:N",
                 title="実績/予測",
                 scale=alt.Scale(domain=["実績", "予測"], range=[[1, 0], [6, 4]]),
-                legend=alt.Legend(orient="bottom"),
+                legend=None,
             ),
             tooltip=[
                 alt.Tooltip("date:T", title="日付"),
-                alt.Tooltip("series_label:N", title="線"),
+                alt.Tooltip("series_label:N", title="価格・モデル"),
                 alt.Tooltip("value:Q", title="終値"),
-                alt.Tooltip("line_label:N", title="種類"),
+                alt.Tooltip("line_label:N", title="実績/予測"),
             ],
+            opacity=alt.condition(disabled_series, alt.value(0.18), alt.value(1.0)),
         )
-        .properties(height=360)
+        .properties(height=540, width=1500)
     )
     if not boundary_data.empty:
         boundary_rule = (
@@ -514,7 +621,66 @@ def _render_market_chart(rows: list[dict[str, str]]) -> None:
             .encode(x="date:T")
         )
         chart = chart + boundary_rule
-    st.altair_chart(chart, use_container_width=True)
+    series_legend_base = alt.Chart(legend_data).encode(
+        y=alt.Y("series_label:N", title=None, axis=None, sort=None),
+        color=alt.Color("series_label:N", title="価格・モデル", legend=None),
+        opacity=alt.condition(disabled_series, alt.value(0.25), alt.value(1.0)),
+        tooltip=[
+            alt.Tooltip("series_label:N", title="価格・モデル"),
+            alt.Tooltip("line_label:N", title="実績/予測"),
+        ],
+    )
+    series_legend = series_legend_base.mark_point(filled=True, size=95).encode(
+        x=alt.value(12)
+    ) + series_legend_base.mark_text(align="left", baseline="middle", dx=16, fontSize=12).encode(
+        x=alt.value(12),
+        text="series_label:N",
+    )
+    line_type_legend_base = alt.Chart(line_type_legend_data).encode(
+        y=alt.Y("description:N", title=None, axis=None, sort=None),
+        strokeDash=alt.StrokeDash(
+            "line_label:N",
+            scale=alt.Scale(domain=["実績", "予測"], range=[[1, 0], [6, 4]]),
+            legend=None,
+        ),
+    )
+    line_type_legend = line_type_legend_base.mark_rule(color="#c9d1dc", strokeWidth=2).encode(
+        x=alt.value(12),
+        x2=alt.value(46),
+    ) + line_type_legend_base.mark_text(
+        align="left",
+        baseline="middle",
+        dx=52,
+        fontSize=12,
+        color="#c9d1dc",
+    ).encode(
+        x=alt.value(12),
+        text="description:N",
+    )
+    legend = alt.vconcat(
+        series_legend.properties(title="価格・モデル", height=190, width=190),
+        line_type_legend.properties(title="実績/予測", height=60, width=190),
+        spacing=10,
+    )
+    combined_chart = (
+        alt.hconcat(chart, legend, spacing=10)
+        .add_params(disabled_series)
+        .resolve_scale(color="shared")
+        .configure(background="#090d14")
+        .configure_view(fill="#101722", stroke="#344155")
+        .configure_axis(
+            domainColor="#3b4556",
+            gridColor="#2b3646",
+            labelColor="#c9d1dc",
+            titleColor="#c9d1dc",
+            tickColor="#3b4556",
+        )
+        .configure_title(color="#e5edf7", fontSize=13, anchor="start", offset=8)
+    )
+    st.altair_chart(
+        combined_chart,
+        use_container_width=True,
+    )
 
 
 def _render_provider_error_summary(rows: list[dict[str, str]]) -> None:

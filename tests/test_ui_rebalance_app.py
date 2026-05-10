@@ -1,8 +1,10 @@
 import asyncio
+import sys
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 from zipfile import ZipFile
 
 import pandas as pd
@@ -60,6 +62,7 @@ from ui.rebalance_app import (
     table_csv_download,
     target_allocation_rows,
     target_allocations_json,
+    yfinance_search_symbol_rows,
 )
 
 FIXTURE_ROOT = Path("tests/fixtures")
@@ -252,10 +255,35 @@ def test_target_allocations_json_builds_current_mvp_symbol_targets():
 def test_symbol_display_helpers_explain_current_mvp_symbols():
     assert symbol_display_name("AAPL") == "AAPL (Apple Inc.)"
     assert symbol_display_name("7203.T") == "7203.T (Toyota Motor)"
-    assert symbol_display_name("MSFT") == "MSFT"
-    assert symbol_reference_rows() == [
-        {"symbol": "7203.T", "name": "Toyota Motor"},
-        {"symbol": "AAPL", "name": "Apple Inc."},
+    assert symbol_display_name("MSFT") == "MSFT (Microsoft)"
+    rows = symbol_reference_rows()
+    assert len(rows) >= 80
+    assert {"symbol": "7203.T", "name": "Toyota Motor"} in rows
+    assert {"symbol": "9983.T", "name": "Fast Retailing"} in rows
+    assert {"symbol": "AAPL", "name": "Apple Inc."} in rows
+    assert {"symbol": "MSFT", "name": "Microsoft"} in rows
+    assert {"symbol": "SPY", "name": "SPDR S&P 500 ETF"} in rows
+
+
+def test_yfinance_search_symbol_rows_returns_empty_for_blank_query():
+    assert yfinance_search_symbol_rows("") == []
+
+
+def test_yfinance_search_symbol_rows_maps_quote_candidates(monkeypatch):
+    class FakeSearch:
+        def __init__(self, query: str, **kwargs: object) -> None:
+            assert query == "toyota"
+            self.quotes = [
+                {"symbol": "TM", "shortname": "Toyota Motor ADR"},
+                {"symbol": "7203.T", "longname": "Toyota Motor Corporation"},
+                {"symbol": ""},
+            ]
+
+    monkeypatch.setitem(sys.modules, "yfinance", SimpleNamespace(Search=FakeSearch))
+
+    assert yfinance_search_symbol_rows("toyota") == [
+        {"symbol": "TM", "name": "Toyota Motor ADR"},
+        {"symbol": "7203.T", "name": "Toyota Motor Corporation"},
     ]
 
 

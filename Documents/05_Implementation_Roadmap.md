@@ -292,26 +292,29 @@ Scope:
 
 ### Phase 12: Screening Score MVP
 
-目的: 銘柄を ranking し、スコア理由を説明できるようにする。
+目的: 銘柄スコアを計算し、スコア理由を説明できるようにする。
 
 Scope:
 
 - Done: `ScreeningService` を追加する
 - Done: momentum、liquidity、risk、data quality などの sub score を定義する
 - Done: `ScreeningScore` と score breakdown を返す
-- Done: Streamlit の Market Data tab から ranking を確認できるようにする
+- Done: Streamlit の Market Data tab では入力銘柄の score を確認できるようにする
 - Done: API から ranking を確認できるようにする
 - Done: スコアの summary と技術的な理由を初心者向け日本語ラベルとして返す
+- Deferred: 複数銘柄 ranking を UI 上でどう見せるかは、初心者向け UI Design phase で設計する
 
 完了条件:
 
 - Done: 複数銘柄を deterministic に順位付けできる
 - Done: score breakdown がテストされている
-- Done: UI / API で順位の理由を確認できる
-- Done: JSON / CSV export で順位の理由を確認できる
+- Done: API で順位の理由を確認できる
+- Done: UI / JSON / CSV export で入力銘柄の score と理由を確認できる
 - Done: UI / API / JSON / CSV export で初心者向けの日本語説明を確認できる
 
-- Done: UI 上でランキング、総合 score、sub score、data quality warning を確認できる
+- Done: UI 上で入力銘柄の総合 score、sub score、data quality warning を確認できる
+- Done: UI 上の Market Data preview では、入力していないサンプル銘柄を暗黙に混ぜない
+- Deferred: watchlist、プリセット銘柄群、銘柄名検索を使った ranking UI は Phase 19 で扱う
 - 外部 provider 由来データを使う場合は、live data 取得結果を元にした score で確認できる
 
 ### Phase 13: Forecast Lab Baseline
@@ -320,18 +323,19 @@ Scope:
 
 Scope:
 
-- `ForecastModel` protocol / base class を定義する
-- naive、moving average、momentum baseline を実装する
-- time split / walk-forward 評価を用意する
-- MAE、RMSE、direction accuracy などの metrics を返す
+- Done: `ForecastModel` protocol を定義する
+- Done: naive、moving average、momentum baseline を実装する
+- Done: walk-forward 評価を用意する
+- Done: MAE、RMSE、direction accuracy などの metrics を返す
+- Pending: Forecast result を API / UI / export へ接続する
 
 完了条件:
 
-- 複数 baseline を同じ interface で実行できる
-- data leakage を避ける評価手順がある
-- forecast result と metrics を保存・表示できる
+- Done: 複数 baseline を同じ interface で実行できる
+- Done: data leakage を避ける評価手順がある
+- Pending: forecast result と metrics を保存・表示できる
 
-- UI 上で forecast horizon、model 別 metrics、評価期間を確認できる
+- Pending: UI 上で forecast horizon、model 別 metrics、評価期間を確認できる
 - 外部 provider 由来の時系列を使う場合は、live data 取得結果から forecast までつながることを確認できる
 
 ### Phase 14: Multi-Model Forecasting
@@ -442,6 +446,7 @@ Scope:
 
 - `Market Data` など開発者向けの画面名を、ユーザー向けの「銘柄チェック」「候補ランキング」などへ整理する
 - symbol 手入力だけでなく、watchlist、プリセット銘柄群、銘柄名検索から始められるようにする
+- 複数銘柄 ranking は、単一銘柄チェックとは別の UI 体験として設計する
 - score、sub score、data quality、欠損理由を初心者向けの日本語ラベルと説明に変換する
 - ranking、Feature Snapshot、forecast、risk、report への導線を整理する
 - 注意表示は「購入推奨ではなく判断補助」であることを明確にしつつ、画面を邪魔しない配置にする
@@ -450,6 +455,7 @@ Scope:
 完了条件:
 
 - symbol を知らないユーザーでも、プリセットまたは検索から銘柄チェックを開始できる
+- 複数銘柄 ranking では、比較対象、並び順、score 理由、data quality warning が分かる
 - UI 上で総合 score、sub score、data quality warning、主要な理由を日本語で理解できる
 - 銘柄比較から詳細確認、report preview までの導線が分かる
 - UI に影響する変更はスクリーンショットまたは手動確認観点で検証できる

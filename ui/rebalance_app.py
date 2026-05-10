@@ -313,7 +313,7 @@ async def build_market_data_preview(
         feature_snapshot = await FeatureBuilder(
             adapter,
             cfg=settings.feature_builder,
-        ).build_feature_snapshot(_screening_symbols(symbol), end)
+        ).build_feature_snapshot([symbol], end)
         screening_scores = ScreeningService().score(feature_snapshot)
     except AppError as exc:
         return MarketDataPreview(
@@ -469,11 +469,6 @@ def screening_score_csv_download(rows: list[dict[str, str]]) -> str:
             "reasons",
         ],
     )
-
-
-def _screening_symbols(primary_symbol: str) -> list[str]:
-    symbols = [primary_symbol, *SYMBOL_DISPLAY_NAMES]
-    return list(dict.fromkeys(symbol for symbol in symbols if symbol))
 
 
 async def run_rebalance_check(request: RebalanceCheckRequest) -> PortfolioRiskResult:

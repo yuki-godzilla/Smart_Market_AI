@@ -305,8 +305,9 @@ def test_build_market_data_preview_returns_mock_rows(monkeypatch):
         "missing:momentum_5d, partial_data_completeness:0.14"
     )
     assert preview.feature_rows[0]["missing"] == "momentum_5d"
-    assert len(preview.screening_rows) == 2
+    assert len(preview.screening_rows) == 1
     assert preview.screening_rows[0]["rank"] == "1"
+    assert preview.screening_rows[0]["symbol"] == "AAPL"
     assert preview.screening_rows[0]["total_score"] != ""
     assert preview.screening_rows[0]["data_quality"] == "WARN"
     assert preview.error_rows == []

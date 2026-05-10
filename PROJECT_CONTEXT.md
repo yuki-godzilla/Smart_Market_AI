@@ -43,6 +43,8 @@ The implementation is still MVP-oriented. Risk, Portfolio, API, Streamlit UI, lo
   mock data access and feature building / mock データアクセスと特徴量構築
 - `backend/screening/`
   explainable screening score rows and beginner-friendly Japanese reason labels built from Feature Store Lite snapshots / Feature Store Lite snapshot から説明可能な screening score 行と初心者向けの日本語理由ラベルを構築
+- `backend/forecast/`
+  deterministic baseline forecast models and walk-forward metrics / deterministic な baseline forecast model と walk-forward metrics
 - `tests/`
   pytest coverage for current MVP behavior / 現在の MVP 挙動を対象にした pytest
 - `Documents/`
@@ -62,6 +64,7 @@ The implementation is still MVP-oriented. Risk, Portfolio, API, Streamlit UI, lo
 - MarketData `DataAccess` with deterministic `mock` and `csv` providers / deterministic な `mock` / `csv` provider 対応の MarketData `DataAccess`
 - `FeatureBuilder` for ADV, volatility, and daily snapshot generation / ADV、ボラティリティ、日次スナップショットを生成する `FeatureBuilder`
 - `ScreeningService` for explainable ranking and beginner-friendly reason labels from Feature Store Lite snapshots / Feature Store Lite snapshot から説明可能な ranking と初心者向け理由ラベルを作る `ScreeningService`
+- Forecast Lab baseline models for naive, moving-average, and momentum forecasts with MAE, RMSE, and direction-accuracy metrics / naive、moving-average、momentum の forecast baseline model と MAE、RMSE、direction accuracy metrics
 - Risk `RiskService` and `POST /risk/pre-trade-check` API endpoint / Risk `RiskService` と `POST /risk/pre-trade-check` API エンドポイント
 - Portfolio `PortfolioService` for deterministic snapshots and no-solver rebalance proposals / deterministic なスナップショットと solver なしのリバランス提案を行う Portfolio `PortfolioService`
 - Portfolio-to-Risk workflow and `POST /portfolio/rebalance-check` API endpoint / Portfolio-to-Risk workflow と `POST /portfolio/rebalance-check` API エンドポイント
@@ -70,7 +73,7 @@ The implementation is still MVP-oriented. Risk, Portfolio, API, Streamlit UI, lo
 - CSV provider sample config and data files for local smoke checks / ローカル smoke check 用の CSV provider 設定例とデータファイル
 - Streamlit UI entrypoint at `ui/app.py` / `ui/app.py` の Streamlit UI エントリポイント
 - Streamlit Market Data preview tab for provider metadata, quotes, OHLCV summary, FX, and provider errors / provider metadata、quotes、OHLCV summary、FX、provider error を表示する Streamlit Market Data preview tab
-- Streamlit Screening Score preview rows for deterministic ranking, score breakdowns, summaries, and Japanese reason labels / deterministic ranking、score breakdown、summary、日本語理由ラベルを表示する Streamlit Screening Score preview 行
+- Streamlit Screening Score preview rows for the selected Market Data symbol, including score breakdowns, summaries, and Japanese reason labels / Market Data で選択した銘柄の score breakdown、summary、日本語理由ラベルを表示する Streamlit Screening Score preview 行
 - `examples/rebalance_scenarios/`
   file-backed rebalance-check UI samples / file-backed rebalance-check UI sample
 - pytest suite for current MVP modules / 現在の MVP モジュールを対象とした pytest 群
@@ -80,7 +83,6 @@ The implementation is still MVP-oriented. Risk, Portfolio, API, Streamlit UI, lo
 - live provider smoke verification for `yahoo` in a network-enabled environment / network 利用可能な環境での `yahoo` live provider smoke verification
 - `.env` driven settings loading beyond `SMAI_CONFIG_FILE` / `SMAI_CONFIG_FILE` 以外の `.env` ベース設定読み込み
 - `backend/execution/`
-- `backend/forecast/`
 - `backend/scoring/`
 - broader UI workflows beyond the initial Streamlit rebalance-check screen / 初期 Streamlit rebalance-check 画面以外の UI workflow
 - advanced reporting beyond local JSON/CSV/Markdown/ZIP exports / ローカル JSON/CSV/Markdown/ZIP export を超える高度な reporting
@@ -134,8 +136,9 @@ Based on code and roadmap documents, the project is effectively here:
 - Phase 9 External Data Provider Preparation: complete before live adapter implementation / Phase 9 External Data Provider Preparation: live adapter 実装前の準備として完了
 - Phase 10 External Data Ingestion MVP: code implementation and deterministic verification are complete with planned live-provider adapter metadata, a shared `MarketDataProviderAdapter` protocol, a provider adapter factory, a Streamlit Market Data preview tab, and a `yahoo` opt-in live adapter backed by `yfinance`; live Yahoo UI smoke remains pending in an environment with network access and writable yfinance cache. / Phase 10 External Data Ingestion MVP: planned live-provider adapter metadata、共通 `MarketDataProviderAdapter` protocol、provider adapter factory、Streamlit Market Data preview tab、`yfinance` を使う `yahoo` opt-in live adapter まで、コード実装と deterministic 検証は完了。Yahoo の live UI smoke は network と yfinance cache 書き込みが可能な環境での確認待ち。
 - Phase 11 Feature Store Lite: started with a reusable `FeatureSnapshot` contract, Streamlit Market Data preview rows, computed return, momentum, drawdown, volatility, ADV, data-completeness fields, provider fundamentals, and data-quality judgement. / Phase 11 Feature Store Lite: 再利用可能な `FeatureSnapshot` contract、Streamlit Market Data preview 行、return、momentum、drawdown、volatility、ADV、data completeness、provider fundamentals、data quality 判定の計算から着手。
-- Phase 12 Screening Score MVP: implemented with `ScreeningService`, deterministic ranking, score breakdowns, beginner-friendly Japanese summaries and reason labels, Streamlit Market Data preview rows, `POST /screening/score`, and JSON / CSV score exports. / Phase 12 Screening Score MVP: `ScreeningService`、deterministic ranking、score breakdown、初心者向けの日本語 summary / reason label、Streamlit Market Data preview 行、`POST /screening/score`、JSON / CSV score export まで実装。
-- Next recommended work: start Forecast Lab Baseline, while keeping beginner-friendly UI design and low-cost AI assistant experiences as dedicated roadmap phases. / 次の推奨作業: Forecast Lab Baseline に着手しつつ、初心者向け UI design と低コスト AI assistant 体験は専用 roadmap phase として維持する。
+- Phase 12 Screening Score MVP: implemented with `ScreeningService`, deterministic API ranking, single-symbol Streamlit score preview rows, score breakdowns, beginner-friendly Japanese summaries and reason labels, `POST /screening/score`, and JSON / CSV score exports; multi-symbol ranking UI is deferred to the beginner-friendly UI design phase. / Phase 12 Screening Score MVP: `ScreeningService`、deterministic な API ranking、Streamlit の単一銘柄 score preview 行、score breakdown、初心者向けの日本語 summary / reason label、`POST /screening/score`、JSON / CSV score export まで実装。複数銘柄 ranking UI は初心者向け UI design phase に回す。
+- Phase 13 Forecast Lab Baseline: started with deterministic naive, moving-average, and momentum baseline models plus walk-forward MAE, RMSE, and direction-accuracy metrics. / Phase 13 Forecast Lab Baseline: deterministic な naive、moving-average、momentum baseline model と walk-forward の MAE、RMSE、direction accuracy metrics から着手。
+- Next recommended work: connect Forecast Lab Baseline results to API / UI / export, while keeping beginner-friendly UI design and low-cost AI assistant experiences as dedicated roadmap phases. / 次の推奨作業: Forecast Lab Baseline の結果を API / UI / export へ接続しつつ、初心者向け UI design と低コスト AI assistant 体験は専用 roadmap phase として維持する。
 
 ## Test And Verification Baseline / テストと確認の基準
 
@@ -171,8 +174,8 @@ These commands are also referenced by the roadmap document.
 
 - run Yahoo live-provider UI smoke in a network-enabled environment
   network 利用可能な環境で Yahoo live-provider UI smoke を実施する
-- start Forecast Lab Baseline with deterministic model interfaces and metrics
-  deterministic な model interface と metrics から Forecast Lab Baseline に着手する
+- connect Forecast Lab Baseline results to API / UI / export
+  Forecast Lab Baseline の結果を API / UI / export へ接続する
 - design beginner-friendly UI flows for watchlists, symbol search, score explanations, and comparison views
   watchlist、銘柄検索、score 説明、比較 view の初心者向け UI flow を設計する
 - design a deterministic low-cost AI assistant layer before adding optional LLM adapters
@@ -301,5 +304,8 @@ Update this file when:
 - 2026-05-10: Exposed Screening Score MVP through `POST /screening/score` with deterministic API coverage for ranked score breakdowns. / `POST /screening/score` で Screening Score MVP を公開し、ranking と score breakdown の deterministic API テストを追加した。
 - 2026-05-10: Added Streamlit Screening Score JSON / CSV downloads so ranking, sub-scores, and reasons can be saved from the UI. / Streamlit Screening Score に JSON / CSV download を追加し、ranking、sub score、理由を UI から保存できるようにした。
 - 2026-05-10: Added beginner-friendly Screening Score summaries and Japanese reason labels to the service, API, Streamlit preview, and JSON / CSV exports. / Screening Score の summary と日本語 reason label を初心者向けに追加し、service、API、Streamlit preview、JSON / CSV export で確認できるようにした。
+- 2026-05-10: Changed the Streamlit Market Data Screening Score preview to score only the input symbol, while keeping multi-symbol ranking available through `POST /screening/score`. / Streamlit Market Data の Screening Score preview は入力銘柄だけを score 表示するように変更し、複数銘柄 ranking は `POST /screening/score` 側に残した。
+- 2026-05-10: Documented that multi-symbol ranking UI should be designed in the beginner-friendly UI phase instead of the current Market Data preview. / 複数銘柄 ranking UI は現在の Market Data preview ではなく、初心者向け UI phase で設計する方針として文書化した。
+- 2026-05-10: Started Forecast Lab Baseline by adding deterministic naive, moving-average, and momentum forecast models with walk-forward MAE, RMSE, and direction-accuracy metrics. / deterministic な naive、moving-average、momentum forecast model と walk-forward の MAE、RMSE、direction accuracy metrics を追加して Forecast Lab Baseline に着手した。
 - 2026-05-10: Added a dedicated roadmap phase for beginner-friendly UI design, including watchlists, symbol search, Japanese score explanations, comparison flows, and UI verification criteria. / watchlist、銘柄検索、日本語の score 説明、比較 flow、UI 確認観点を含む初心者向け UI design の専用 roadmap phase を追加した。
 - 2026-05-10: Added a dedicated roadmap phase for a low-cost AI assistant experience that starts with deterministic rule-based explanations and leaves optional LLM adapters for later. / deterministic な rule-based 説明から始め、optional LLM adapter は後から差し替えられる形にする低コスト AI assistant 体験の専用 roadmap phase を追加した。

@@ -175,7 +175,7 @@ Use the project virtual environment when available.
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\run_local_checks.py
 .\venv_SMAI\Scripts\python.exe -m pytest tests -q
-.\venv_SMAI\Scripts\python.exe -m ruff check backend tests --no-cache
+.\venv_SMAI\Scripts\python.exe -m ruff check backend ui tests --no-cache
 ```
 
 Targeted examples:

@@ -59,6 +59,8 @@ http://127.0.0.1:8000/openapi.json
   - 現在 portfolio と target allocation から rebalance proposal を作り、必要に応じて Risk check へ接続します。
 - `POST /screening/score`
   - 指定した銘柄の Feature Snapshot を作り、ranking と score breakdown を返します。
+- `POST /forecast/evaluate`
+  - 指定した銘柄の OHLCV から baseline forecast と walk-forward metrics を返します。
 
 エラー応答は JSON です。
 
@@ -143,6 +145,32 @@ Invoke-RestMethod `
 - `risk_score`
 - `data_quality_score`
 - `reasons`
+
+Forecast evaluate:
+
+```powershell
+$body = @{
+  symbol = "AAPL"
+  start = "2026-04-07"
+  end = "2026-04-09"
+  horizon_days = 1
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8000/forecast/evaluate `
+  -ContentType "application/json" `
+  -Body $body
+```
+
+期待される response:
+
+- `model_name`
+- `latest_forecast.forecast_close`
+- `metrics.mae`
+- `metrics.rmse`
+- `metrics.direction_accuracy`
+- `metrics.sample_count`
 
 ## 5. CSV MarketData provider
 
@@ -337,7 +365,7 @@ provider adapter の共通 interface は `backend/marketdata/provider_adapters.p
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe -m pytest tests -q
-.\venv_SMAI\Scripts\python.exe -m ruff check backend tests --no-cache
+.\venv_SMAI\Scripts\python.exe -m ruff check backend ui tests --no-cache
 .\venv_SMAI\Scripts\python.exe -m mypy .
 ```
 

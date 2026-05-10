@@ -6,7 +6,7 @@ def test_build_commands_runs_ruff_then_pytest():
 
     assert commands == [
         ["python", "tools/run_black_check.py"],
-        ["python", "-m", "ruff", "check", "backend", "tests", "--no-cache"],
+        ["python", "-m", "ruff", "check", "backend", "ui", "tests", "--no-cache"],
         ["python", "-m", "pytest", "tests", "-q", "-s", "-p", "no:cacheprovider"],
     ]
 
@@ -17,5 +17,5 @@ def test_build_commands_can_skip_individual_checks():
     ]
     assert build_commands("python", skip_pytest=True) == [
         ["python", "tools/run_black_check.py"],
-        ["python", "-m", "ruff", "check", "backend", "tests", "--no-cache"],
+        ["python", "-m", "ruff", "check", "backend", "ui", "tests", "--no-cache"],
     ]

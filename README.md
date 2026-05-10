@@ -23,7 +23,7 @@ SMAI は以下の思想を重視しています。
 
 実装済み:
 
-- `/health`、`POST /risk/pre-trade-check`、`POST /portfolio/rebalance-check`、`POST /screening/score` を持つ FastAPI backend
+- `/health`、`POST /risk/pre-trade-check`、`POST /portfolio/rebalance-check`、`POST /screening/score`、`POST /forecast/evaluate` を持つ FastAPI backend
 - Pydantic v2 の共通データ契約、設定モデル、ドメインエラー
 - deterministic な MarketData provider: `mock` と `csv`
 - 日次 snapshot、ADV、volatility の feature building
@@ -39,7 +39,7 @@ SMAI は以下の思想を重視しています。
 
 - `polygon` など追加 live market-data provider
 - Execution / broker への注文送信
-- forecast、高度な reporting workflow、AI assistant experience
+- 高度な forecast workflow、高度な reporting workflow、AI assistant experience
 - `SMAI_CONFIG_FILE` 以外の環境変数設定
 
 `yahoo` / `polygon` は設定値として予約されています。`yahoo` は `allow_external_providers: true` の明示 opt-in 時だけ `yfinance` 経由の live adapter として利用できます。`polygon` はまだ未実装です。

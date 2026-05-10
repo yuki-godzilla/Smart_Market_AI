@@ -32,6 +32,7 @@ def build_commands(
                 "ruff",
                 "check",
                 "backend",
+                "ui",
                 "tests",
                 "--no-cache",
             ]

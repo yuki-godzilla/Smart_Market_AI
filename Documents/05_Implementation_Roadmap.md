@@ -333,13 +333,15 @@ Scope:
 - Done: Market Data tab で `mock` / `yahoo` / `csv` provider を選べるようにする
 - Done: live provider が失敗した場合、UI 上で error code、message、details をすぐ確認できるようにする
 - Done: mock の直近日付 OHLCV を、単調な右肩上がりではなく上下動のあるサンプル系列にする
-- Pending: Forecast result を API / export へ接続する
+- Done: Forecast result を `POST /forecast/evaluate` で API から確認できるようにする
+- Pending: Forecast result を export へ接続する
 
 完了条件:
 
 - Done: 複数 baseline を同じ interface で実行できる
 - Done: data leakage を避ける評価手順がある
 - Done: forecast result と metrics を UI で表示できる
+- Done: forecast result と metrics を API で取得できる
 - Pending: forecast result と metrics を保存できる
 
 - Done: UI 上で forecast horizon、model 別 metrics、評価期間を確認できる

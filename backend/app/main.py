@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from typing import Any
 
@@ -8,7 +8,15 @@ from pydantic import ConfigDict, Field
 
 from backend.core.config import get_settings
 from backend.core.data_contracts import Position, StrictBaseModel, TradeIntent
-from backend.core.errors import AppError
+from backend.core.errors import AppError, ComputationError
+from backend.forecast import (
+    ForecastEvaluation,
+    ForecastModel,
+    MomentumForecastModel,
+    MovingAverageForecastModel,
+    NaiveForecastModel,
+    evaluate_models,
+)
 from backend.marketdata import DataAccess, FeatureBuilder, create_market_data_provider_adapter
 from backend.portfolio import (
     PortfolioRiskResult,
@@ -78,6 +86,10 @@ app = FastAPI(
         {
             "name": "Screening",
             "description": "Explainable symbol ranking from Feature Store Lite snapshots.",
+        },
+        {
+            "name": "Forecast",
+            "description": "Deterministic baseline forecasts and walk-forward metrics.",
         },
     ],
 )
@@ -174,6 +186,29 @@ class ScreeningScoreRequest(StrictBaseModel):
     as_of: date
 
 
+class ForecastEvaluateRequest(StrictBaseModel):
+    """Request body for deterministic baseline forecast evaluation."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {
+                    "symbol": "AAPL",
+                    "start": "2026-04-07",
+                    "end": "2026-04-09",
+                    "horizon_days": 1,
+                }
+            ]
+        },
+    )
+
+    symbol: str = Field(min_length=1)
+    start: date
+    end: date
+    horizon_days: int = Field(default=1, ge=1, le=30)
+
+
 @app.exception_handler(AppError)
 async def app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
     """Return domain errors with their configured HTTP status."""
@@ -225,6 +260,46 @@ async def build_screening_scores(request: ScreeningScoreRequest) -> list[Screeni
     feature_builder = FeatureBuilder(adapter, cfg=settings.feature_builder)
     snapshot = await feature_builder.build_feature_snapshot(request.symbols, request.as_of)
     return create_screening_service().score(snapshot)
+
+
+async def build_forecast_evaluations(
+    request: ForecastEvaluateRequest,
+) -> list[ForecastEvaluation]:
+    """Fetch OHLCV bars and evaluate available deterministic forecast baselines."""
+
+    if request.start > request.end:
+        raise ComputationError(
+            "Forecast start date must be on or before end date",
+            details={"start": request.start.isoformat(), "end": request.end.isoformat()},
+        )
+
+    settings = get_settings()
+    adapter = create_market_data_provider_adapter(settings.dataaccess)
+    bars = await adapter.fetch_ohlcv(
+        [request.symbol],
+        start=datetime.combine(request.start, time.min, tzinfo=UTC),
+        end=datetime.combine(request.end, time.max, tzinfo=UTC),
+    )
+    models = _available_forecast_models(len(bars))
+    if not bars or not models:
+        raise ComputationError(
+            "Not enough OHLCV bars for forecast evaluation",
+            details={
+                "symbol": request.symbol,
+                "bar_count": len(bars),
+                "minimum_bars": 1,
+            },
+        )
+    return evaluate_models(bars, models=models, horizon_days=request.horizon_days)
+
+
+def _available_forecast_models(bar_count: int) -> list[ForecastModel]:
+    models: list[ForecastModel] = [
+        NaiveForecastModel(),
+        MovingAverageForecastModel(),
+        MomentumForecastModel(),
+    ]
+    return [model for model in models if bar_count >= model.min_history]
 
 
 @app.post(
@@ -287,3 +362,22 @@ async def screening_score(request: ScreeningScoreRequest) -> list[ScreeningScore
     """Rank requested symbols using the configured market-data provider."""
 
     return await build_screening_scores(request)
+
+
+@app.post(
+    "/forecast/evaluate",
+    response_model=list[ForecastEvaluation],
+    tags=["Forecast"],
+    summary="Evaluate baseline forecasts for a symbol",
+    description=(
+        "Fetches configured OHLCV data for one symbol and evaluates deterministic "
+        "baseline forecast models with walk-forward metrics."
+    ),
+    responses=ERROR_RESPONSES,
+)
+async def forecast_evaluate(
+    request: ForecastEvaluateRequest,
+) -> list[ForecastEvaluation]:
+    """Evaluate available deterministic forecast baselines for one symbol."""
+
+    return await build_forecast_evaluations(request)

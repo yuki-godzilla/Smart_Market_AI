@@ -311,6 +311,15 @@ def test_provider_metadata_rows_include_default_provider_details(monkeypatch):
     ]
 
 
+def test_provider_metadata_rows_reports_yahoo_live_adapter_as_implemented():
+    rows = provider_metadata_rows("yahoo")
+
+    assert {"field": "provider", "value": "yahoo"} in rows
+    assert {"field": "implemented", "value": "True"} in rows
+    assert {"field": "live_adapter", "value": "implemented_opt_in"} in rows
+    assert {"field": "requires_external_opt_in", "value": "True"} in rows
+
+
 def test_build_market_data_preview_returns_mock_rows(monkeypatch):
     monkeypatch.delenv("SMAI_CONFIG_FILE", raising=False)
 

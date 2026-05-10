@@ -331,6 +331,7 @@ Scope:
 - Done: baseline model ごとの予測線を終値 chart に重ね、実績は実線、予測は破線で表示する
 - Done: model 別 forecast close と metrics を UI に表示する
 - Done: Market Data tab で `mock` / `yahoo` / `csv` provider を選べるようにする
+- Done: live provider が失敗した場合、UI 上で error code、message、details をすぐ確認できるようにする
 - Done: mock の直近日付 OHLCV を、単調な右肩上がりではなく上下動のあるサンプル系列にする
 - Pending: Forecast result を API / export へ接続する
 

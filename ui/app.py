@@ -233,6 +233,7 @@ def _render_market_data_preview() -> None:
             st.success("Market data fetched.")
         else:
             st.error("Market data fetch failed.")
+            _render_provider_error_summary(preview.error_rows)
 
         st.subheader("Provider")
         _render_table(preview.provider_rows, "No provider metadata.")
@@ -428,6 +429,14 @@ def _render_market_chart(rows: list[dict[str, str]]) -> None:
         .properties(height=360)
     )
     st.altair_chart(chart, use_container_width=True)
+
+
+def _render_provider_error_summary(rows: list[dict[str, str]]) -> None:
+    for row in rows:
+        st.warning(f"{row.get('code', 'ERROR')}: {row.get('message', '')}")
+        details = row.get("details", "")
+        if details:
+            st.code(details, language="json")
 
 
 def market_chart_frame(rows: list[dict[str, str]]) -> pd.DataFrame:

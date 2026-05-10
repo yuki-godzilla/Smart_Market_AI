@@ -396,6 +396,9 @@ def provider_metadata_rows(provider: str) -> list[dict[str, str]]:
 
     details = provider_capability_details(provider)
     details.update(live_provider_adapter_details(provider))
+    if details.get("smoke_check_status") == "implemented_live_opt_in":
+        details["implemented"] = True
+        details["live_adapter"] = "implemented_opt_in"
     return [
         {"field": key, "value": _stringify_metadata_value(value)} for key, value in details.items()
     ]

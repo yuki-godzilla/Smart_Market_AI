@@ -1,5 +1,5 @@
 import asyncio
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
@@ -8,7 +8,7 @@ from zipfile import ZipFile
 import pandas as pd
 import pytest
 
-from backend.core.data_contracts import DailySnapshot, FeatureSnapshot
+from backend.core.data_contracts import Bar, DailySnapshot, FeatureSnapshot, Symbol
 from backend.marketdata.providers import yahoo
 from ui.app import (
     default_as_of_date,
@@ -34,6 +34,7 @@ from ui.rebalance_app import (
     get_rebalance_sample,
     load_rebalance_samples,
     ohlcv_summary_rows,
+    price_chart_rows,
     proposed_trade_rows,
     provider_metadata_rows,
     rebalance_sample_names,
@@ -290,6 +291,44 @@ def test_build_market_data_preview_returns_mock_rows(monkeypatch):
             "provider": "mock",
         }
     ]
+    assert preview.price_chart_rows == [
+        {"ts": "2026-04-07T00:00:00+00:00", "close": "170"},
+        {"ts": "2026-04-08T00:00:00+00:00", "close": "173"},
+        {"ts": "2026-04-09T00:00:00+00:00", "close": "175"},
+    ]
+    assert preview.forecast_chart_rows == [
+        {"ts": "2026-04-07T00:00:00+00:00", "close": "170"},
+        {"ts": "2026-04-08T00:00:00+00:00", "close": "173", "naive": "170"},
+        {"ts": "2026-04-09T00:00:00+00:00", "close": "175", "naive": "173"},
+        {
+            "ts": "2026-04-10T00:00:00+00:00",
+            "close": "",
+            "naive": "175",
+            "moving_average_3": "172.6667",
+        },
+    ]
+    assert preview.forecast_metric_rows == [
+        {
+            "model": "naive",
+            "symbol": "AAPL",
+            "horizon_days": "1",
+            "forecast_close": "175",
+            "mae": "2.5",
+            "rmse": "2.5495",
+            "direction_accuracy": "0.00%",
+            "sample_count": "2",
+        },
+        {
+            "model": "moving_average_3",
+            "symbol": "AAPL",
+            "horizon_days": "1",
+            "forecast_close": "172.6667",
+            "mae": "0",
+            "rmse": "0",
+            "direction_accuracy": "0.00%",
+            "sample_count": "0",
+        },
+    ]
     assert preview.fx_rows[0]["pair"] == "USDJPY"
     assert preview.feature_rows[0]["symbol"] == "AAPL"
     assert preview.feature_rows[0]["provider"] == "mock"
@@ -330,6 +369,9 @@ def test_build_market_data_preview_returns_provider_error(monkeypatch):
     assert preview.status == "ERROR"
     assert preview.quote_rows == []
     assert preview.ohlcv_rows == []
+    assert preview.price_chart_rows == []
+    assert preview.forecast_chart_rows == []
+    assert preview.forecast_metric_rows == []
     assert preview.fx_rows == []
     assert preview.feature_rows == []
     assert preview.screening_rows == []
@@ -356,6 +398,8 @@ def test_build_market_data_preview_returns_yahoo_live_rows(monkeypatch):
     assert preview.status == "OK"
     assert preview.quote_rows[0]["last"] == "175.25"
     assert preview.ohlcv_rows[0]["provider"] == "yahoo"
+    assert preview.forecast_chart_rows[-1]["naive"] == "175.25"
+    assert preview.forecast_metric_rows[0]["model"] == "naive"
     assert preview.fx_rows[0]["rate"] == "150.12"
     assert preview.feature_rows[0]["provider"] == "yahoo"
     assert preview.screening_rows[0]["total_score"] != ""
@@ -364,6 +408,34 @@ def test_build_market_data_preview_returns_yahoo_live_rows(monkeypatch):
 
 def test_ohlcv_summary_rows_returns_empty_rows_for_no_bars():
     assert ohlcv_summary_rows([]) == []
+
+
+def test_price_chart_rows_formats_close_history():
+    rows = price_chart_rows(
+        [
+            _bar("AAPL", "2026-04-09T00:00:00Z", "175"),
+            _bar("AAPL", "2026-04-08T00:00:00Z", "172"),
+        ]
+    )
+
+    assert rows == [
+        {"ts": "2026-04-08T00:00:00+00:00", "close": "172"},
+        {"ts": "2026-04-09T00:00:00+00:00", "close": "175"},
+    ]
+
+
+def _bar(symbol: str, ts: str, close: str) -> Bar:
+    return Bar(
+        symbol=Symbol(raw=symbol, exchange="NASDAQ", code=symbol, currency="USD"),
+        ts=datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone(UTC),
+        open=Decimal(close),
+        high=Decimal(close),
+        low=Decimal(close),
+        close=Decimal(close),
+        volume=Decimal("1000"),
+        interval="1d",
+        provider="test",
+    )
 
 
 def test_feature_snapshot_rows_formats_missing_summary():

@@ -327,15 +327,19 @@ Scope:
 - Done: naive、moving average、momentum baseline を実装する
 - Done: walk-forward 評価を用意する
 - Done: MAE、RMSE、direction accuracy などの metrics を返す
-- Pending: Forecast result を API / UI / export へ接続する
+- Done: 選択銘柄の終値 chart を Streamlit Market Data tab に表示する
+- Done: baseline model ごとの予測線を終値 chart に重ねて表示する
+- Done: model 別 forecast close と metrics を UI に表示する
+- Pending: Forecast result を API / export へ接続する
 
 完了条件:
 
 - Done: 複数 baseline を同じ interface で実行できる
 - Done: data leakage を避ける評価手順がある
-- Pending: forecast result と metrics を保存・表示できる
+- Done: forecast result と metrics を UI で表示できる
+- Pending: forecast result と metrics を保存できる
 
-- Pending: UI 上で forecast horizon、model 別 metrics、評価期間を確認できる
+- Done: UI 上で forecast horizon、model 別 metrics、評価期間を確認できる
 - 外部 provider 由来の時系列を使う場合は、live data 取得結果から forecast までつながることを確認できる
 
 ### Phase 14: Multi-Model Forecasting

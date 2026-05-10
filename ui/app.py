@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import cast
 
+import pandas as pd
 import streamlit as st
 from pydantic import ValidationError
 
@@ -219,6 +220,11 @@ def _render_market_data_preview() -> None:
         st.subheader("OHLCV Summary")
         _render_table(preview.ohlcv_rows, "No OHLCV rows.")
 
+        st.subheader("Price And Forecast")
+        _render_market_chart(preview.forecast_chart_rows)
+        st.subheader("Forecast Metrics")
+        _render_table(preview.forecast_metric_rows, "No forecast metrics.")
+
         st.subheader("FX")
         _render_table(preview.fx_rows, "No FX rows.")
 
@@ -376,6 +382,16 @@ def _render_table(rows: list[dict[str, str]], empty_message: str) -> None:
         st.dataframe(rows, hide_index=True, use_container_width=True)
     else:
         st.info(empty_message)
+
+
+def _render_market_chart(rows: list[dict[str, str]]) -> None:
+    if not rows:
+        st.info("No chart rows.")
+        return
+    frame = pd.DataFrame(rows).set_index("ts")
+    for column in frame.columns:
+        frame[column] = pd.to_numeric(frame[column], errors="coerce")
+    st.line_chart(frame)
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ import csv
 import json
 import os
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from io import BytesIO, StringIO
 from pathlib import Path
@@ -17,6 +17,14 @@ from backend.app.main import RebalanceCheckRequest, create_portfolio_risk_workfl
 from backend.core.config import CONFIG_FILE_ENV, get_settings
 from backend.core.data_contracts import Bar, FeatureSnapshot
 from backend.core.errors import AppError
+from backend.forecast import (
+    ForecastEvaluation,
+    ForecastModel,
+    MomentumForecastModel,
+    MovingAverageForecastModel,
+    NaiveForecastModel,
+    evaluate_models,
+)
 from backend.marketdata import FeatureBuilder, create_market_data_provider_adapter
 from backend.marketdata.live_provider_adapters import live_provider_adapter_details
 from backend.marketdata.provider_registry import provider_capability_details
@@ -27,6 +35,7 @@ from backend.screening import ScreeningScore, ScreeningService
 DEFAULT_ACCOUNT_ID = "acct-1"
 DEFAULT_AS_OF = date(2026, 4, 9)
 DEFAULT_CASH_JPY = Decimal("29000")
+_ONE_DAY = timedelta(days=1)
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SCENARIO_DIR = PROJECT_ROOT / "examples" / "rebalance_scenarios"
 SCENARIO_DIR_ENV = "SMAI_REBALANCE_SCENARIO_DIR"
@@ -142,6 +151,9 @@ class MarketDataPreview:
     provider_rows: list[dict[str, str]]
     quote_rows: list[dict[str, str]]
     ohlcv_rows: list[dict[str, str]]
+    price_chart_rows: list[dict[str, str]]
+    forecast_chart_rows: list[dict[str, str]]
+    forecast_metric_rows: list[dict[str, str]]
     fx_rows: list[dict[str, str]]
     feature_rows: list[dict[str, str]]
     screening_rows: list[dict[str, str]]
@@ -321,6 +333,9 @@ async def build_market_data_preview(
             provider_rows=provider_rows,
             quote_rows=[],
             ohlcv_rows=[],
+            price_chart_rows=[],
+            forecast_chart_rows=[],
+            forecast_metric_rows=[],
             fx_rows=[],
             feature_rows=[],
             screening_rows=[],
@@ -348,6 +363,9 @@ async def build_market_data_preview(
             for quote in quotes
         ],
         ohlcv_rows=ohlcv_summary_rows(bars),
+        price_chart_rows=price_chart_rows(bars),
+        forecast_chart_rows=forecast_chart_rows(bars),
+        forecast_metric_rows=forecast_metric_rows(_available_forecast_evaluations(bars)),
         fx_rows=[
             {
                 "pair": rate.pair,
@@ -392,6 +410,65 @@ def ohlcv_summary_rows(bars: list[Bar]) -> list[dict[str, str]]:
             "total_volume": _format_decimal(volume),
             "provider": last.provider,
         }
+    ]
+
+
+def price_chart_rows(bars: list[Bar]) -> list[dict[str, str]]:
+    """Return close-price rows for Streamlit chart display."""
+
+    return [
+        {
+            "ts": bar.ts.isoformat(),
+            "close": _format_decimal(bar.close),
+        }
+        for bar in sorted(bars, key=lambda row: row.ts)
+    ]
+
+
+def forecast_chart_rows(bars: list[Bar]) -> list[dict[str, str]]:
+    """Return actual close and model forecast rows for chart display."""
+
+    sorted_bars = sorted(bars, key=lambda row: row.ts)
+    if not sorted_bars:
+        return []
+
+    models = _available_forecast_models(sorted_bars)
+    rows_by_ts: dict[str, dict[str, str]] = {
+        bar.ts.isoformat(): {"ts": bar.ts.isoformat(), "close": _format_decimal(bar.close)}
+        for bar in sorted_bars
+    }
+    for model in models:
+        for target_index in range(model.min_history, len(sorted_bars)):
+            history = sorted_bars[:target_index]
+            target_bar = sorted_bars[target_index]
+            forecast = model.predict(history)
+            rows_by_ts[target_bar.ts.isoformat()][model.name] = _format_decimal(
+                forecast.forecast_close
+            )
+
+        latest_forecast = model.predict(sorted_bars)
+        forecast_ts = _next_forecast_ts(sorted_bars[-1])
+        forecast_row = rows_by_ts.setdefault(forecast_ts, {"ts": forecast_ts, "close": ""})
+        forecast_row[model.name] = _format_decimal(latest_forecast.forecast_close)
+
+    return [rows_by_ts[key] for key in sorted(rows_by_ts)]
+
+
+def forecast_metric_rows(evaluations: list[ForecastEvaluation]) -> list[dict[str, str]]:
+    """Return forecast metrics for UI display."""
+
+    return [
+        {
+            "model": evaluation.model_name,
+            "symbol": evaluation.symbol,
+            "horizon_days": str(evaluation.horizon_days),
+            "forecast_close": _format_decimal(evaluation.latest_forecast.forecast_close),
+            "mae": _format_decimal(evaluation.metrics.mae),
+            "rmse": _format_decimal(evaluation.metrics.rmse),
+            "direction_accuracy": _format_optional_percent(evaluation.metrics.direction_accuracy),
+            "sample_count": str(evaluation.metrics.sample_count),
+        }
+        for evaluation in evaluations
     ]
 
 
@@ -939,6 +1016,26 @@ def _quality_reasons(reasons: list[str]) -> str:
     if not reasons:
         return ""
     return ", ".join(reasons)
+
+
+def _available_forecast_evaluations(bars: list[Bar]) -> list[ForecastEvaluation]:
+    models = _available_forecast_models(bars)
+    if not models:
+        return []
+    return evaluate_models(bars, models=models)
+
+
+def _available_forecast_models(bars: list[Bar]) -> list[ForecastModel]:
+    models: list[ForecastModel] = [
+        NaiveForecastModel(),
+        MovingAverageForecastModel(),
+        MomentumForecastModel(),
+    ]
+    return [model for model in models if len(bars) >= model.min_history]
+
+
+def _next_forecast_ts(bar: Bar) -> str:
+    return (bar.ts + _ONE_DAY).isoformat()
 
 
 def _slug(value: str) -> str:

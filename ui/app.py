@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import cast
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 from pydantic import ValidationError
@@ -31,6 +32,8 @@ from ui.rebalance_app import (
     table_csv_download,
     target_allocations_json,
 )
+
+MARKET_DATA_PROVIDER_OPTIONS = ["mock", "yahoo", "csv"]
 
 
 def main() -> None:
@@ -176,9 +179,28 @@ def _render_symbol_reference() -> None:
     st.dataframe(symbol_reference_rows(), hide_index=True, use_container_width=True)
 
 
+def _provider_option_index(provider: str) -> int:
+    try:
+        return MARKET_DATA_PROVIDER_OPTIONS.index(provider)
+    except ValueError:
+        return 0
+
+
 def _render_market_data_preview() -> None:
     st.subheader("Market Data")
-    col_symbol, col_start, col_end = st.columns(3)
+    settings = runtime_settings_summary()
+    default_provider = settings["provider"]
+    col_provider, col_symbol, col_start, col_end = st.columns(4)
+    with col_provider:
+        provider = cast(
+            str,
+            st.selectbox(
+                "Provider",
+                MARKET_DATA_PROVIDER_OPTIONS,
+                index=_provider_option_index(default_provider),
+                key="market_data_provider",
+            ),
+        )
     with col_symbol:
         symbol = st.text_input("Symbol", value="AAPL", key="market_data_symbol")
     with col_start:
@@ -197,6 +219,7 @@ def _render_market_data_preview() -> None:
                     symbol=symbol.strip(),
                     start=_single_date_from_input(start),
                     end=_single_date_from_input(end),
+                    provider_override=provider,
                 )
             )
         except ValueError as exc:
@@ -221,6 +244,9 @@ def _render_market_data_preview() -> None:
         _render_table(preview.ohlcv_rows, "No OHLCV rows.")
 
         st.subheader("Price And Forecast")
+        if preview.provider_rows:
+            provider_name = _metadata_value(preview.provider_rows, "provider")
+            st.caption(f"Data provider: {provider_name}")
         _render_market_chart(preview.forecast_chart_rows)
         st.subheader("Forecast Metrics")
         _render_table(preview.forecast_metric_rows, "No forecast metrics.")
@@ -388,10 +414,45 @@ def _render_market_chart(rows: list[dict[str, str]]) -> None:
     if not rows:
         st.info("No chart rows.")
         return
+    chart_data = market_chart_long_frame(rows)
+    chart = (
+        alt.Chart(chart_data)
+        .mark_line(point=True)
+        .encode(
+            x=alt.X("date:T", title="Date"),
+            y=alt.Y("value:Q", title="Close", scale=alt.Scale(zero=False)),
+            color=alt.Color("series:N", title="Series"),
+            strokeDash=alt.StrokeDash("line_type:N", title="Line"),
+            tooltip=["date:T", "series:N", "value:Q", "line_type:N"],
+        )
+        .properties(height=360)
+    )
+    st.altair_chart(chart, use_container_width=True)
+
+
+def market_chart_frame(rows: list[dict[str, str]]) -> pd.DataFrame:
     frame = pd.DataFrame(rows).set_index("ts")
+    frame.index = pd.to_datetime(frame.index).date
     for column in frame.columns:
         frame[column] = pd.to_numeric(frame[column], errors="coerce")
-    st.line_chart(frame)
+    return frame
+
+
+def market_chart_long_frame(rows: list[dict[str, str]]) -> pd.DataFrame:
+    frame = market_chart_frame(rows).reset_index(names="date")
+    long_frame = frame.melt(id_vars="date", var_name="series", value_name="value")
+    long_frame = long_frame.dropna(subset=["value"])
+    long_frame["line_type"] = long_frame["series"].map(
+        lambda series: "actual" if series == "close" else "forecast"
+    )
+    return long_frame
+
+
+def _metadata_value(rows: list[dict[str, str]], field: str) -> str:
+    for row in rows:
+        if row.get("field") == field:
+            return row.get("value", "")
+    return ""
 
 
 if __name__ == "__main__":

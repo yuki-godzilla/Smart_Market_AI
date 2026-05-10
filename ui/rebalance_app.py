@@ -307,18 +307,28 @@ async def build_market_data_preview(
     symbol: str,
     start: date,
     end: date,
+    provider_override: str | None = None,
     fx_pair: str = "USDJPY",
 ) -> MarketDataPreview:
     """Fetch a small market-data preview for the configured provider."""
 
     settings = get_settings()
-    provider = settings.dataaccess.provider
+    dataaccess_cfg = settings.dataaccess
+    if provider_override:
+        dataaccess_cfg = dataaccess_cfg.model_copy(
+            update={
+                "provider": provider_override,
+                "allow_external_providers": provider_override == "yahoo"
+                or dataaccess_cfg.allow_external_providers,
+            }
+        )
+    provider = dataaccess_cfg.provider
     start_dt = datetime.combine(start, time.min, tzinfo=UTC)
     end_dt = datetime.combine(end, time.max, tzinfo=UTC)
     provider_rows = provider_metadata_rows(provider)
 
     try:
-        adapter = create_market_data_provider_adapter(settings.dataaccess)
+        adapter = create_market_data_provider_adapter(dataaccess_cfg)
         quotes = await adapter.fetch_quotes([symbol], at=end_dt)
         bars = await adapter.fetch_ohlcv([symbol], start=start_dt, end=end_dt)
         fx_rates = await adapter.get_fx_rates([fx_pair], at=end_dt)

@@ -460,20 +460,49 @@ def _rolling_mock_ohlcv(
 
     today = datetime.now(UTC).date()
     start = today - timedelta(days=days - 1)
+    close_offsets = [
+        Decimal("0.0"),
+        Decimal("-1.8"),
+        Decimal("2.4"),
+        Decimal("1.1"),
+        Decimal("4.2"),
+        Decimal("3.0"),
+        Decimal("6.7"),
+        Decimal("5.9"),
+        Decimal("8.4"),
+        Decimal("7.6"),
+    ]
+    volume_offsets = [
+        Decimal("0"),
+        Decimal("1400000"),
+        Decimal("-900000"),
+        Decimal("2200000"),
+        Decimal("600000"),
+        Decimal("3100000"),
+        Decimal("-1200000"),
+        Decimal("1800000"),
+        Decimal("2600000"),
+        Decimal("400000"),
+    ]
     rows: list[MockBarPoint] = []
+    previous_close = base_close
     for offset in range(days):
         ts = datetime.combine(start + timedelta(days=offset), datetime.min.time(), tzinfo=UTC)
-        close = base_close + Decimal(offset)
+        close = base_close + close_offsets[offset % len(close_offsets)]
+        open_price = previous_close + (Decimal("0.4") if offset % 2 == 0 else Decimal("-0.6"))
+        high = max(open_price, close) + Decimal("1.7")
+        low = min(open_price, close) - Decimal("1.9")
         rows.append(
             {
                 "ts": ts,
-                "open": close - Decimal("1"),
-                "high": close + Decimal("1"),
-                "low": close - Decimal("2"),
-                "close": close,
-                "volume": base_volume + (Decimal(offset) * Decimal("100000")),
+                "open": open_price.quantize(Decimal("0.01")),
+                "high": high.quantize(Decimal("0.01")),
+                "low": low.quantize(Decimal("0.01")),
+                "close": close.quantize(Decimal("0.01")),
+                "volume": base_volume + volume_offsets[offset % len(volume_offsets)],
             }
         )
+        previous_close = close
     return rows
 
 

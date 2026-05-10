@@ -43,6 +43,9 @@ def test_fetch_ohlcv_returns_recent_mock_bars_for_current_date_defaults():
     assert bars
     assert bars[-1].ts.date() == today
     assert bars[-1].provider == "mock"
+    close_changes = [bars[index].close - bars[index - 1].close for index in range(1, len(bars))]
+    assert any(change > 0 for change in close_changes)
+    assert any(change < 0 for change in close_changes)
 
 
 def test_fetch_ohlcv_returns_csv_bars():

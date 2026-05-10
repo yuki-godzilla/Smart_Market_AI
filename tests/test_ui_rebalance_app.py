@@ -14,6 +14,8 @@ from ui.app import (
     default_as_of_date,
     default_market_data_end_date,
     default_market_data_start_date,
+    market_chart_frame,
+    market_chart_long_frame,
 )
 from ui.rebalance_app import (
     DEFAULT_ACCOUNT_ID,
@@ -83,6 +85,50 @@ def test_app_date_defaults_use_current_date():
     assert default_as_of_date() == today
     assert default_market_data_end_date() == today
     assert default_market_data_start_date() == today - timedelta(days=7)
+
+
+def test_market_chart_frame_uses_date_index_and_numeric_columns():
+    frame = market_chart_frame(
+        [
+            {
+                "ts": "2026-05-10T00:00:00+00:00",
+                "close": "185",
+                "naive": "",
+            },
+            {
+                "ts": "2026-05-11T00:00:00+00:00",
+                "close": "",
+                "naive": "186.5",
+            },
+        ]
+    )
+
+    assert [value.isoformat() for value in frame.index] == ["2026-05-10", "2026-05-11"]
+    assert frame["close"].iloc[0] == 185
+    assert pd.isna(frame["close"].iloc[1])
+    assert frame["naive"].iloc[1] == 186.5
+
+
+def test_market_chart_long_frame_marks_actual_and_forecast_lines():
+    frame = market_chart_long_frame(
+        [
+            {
+                "ts": "2026-05-10T00:00:00+00:00",
+                "close": "185",
+                "naive": "",
+            },
+            {
+                "ts": "2026-05-11T00:00:00+00:00",
+                "close": "",
+                "naive": "186.5",
+            },
+        ]
+    )
+
+    assert frame[["series", "value", "line_type"]].to_dict("records") == [
+        {"series": "close", "value": 185.0, "line_type": "actual"},
+        {"series": "naive", "value": 186.5, "line_type": "forecast"},
+    ]
 
 
 def test_build_default_rebalance_request_matches_ui_defaults():
@@ -404,6 +450,24 @@ def test_build_market_data_preview_returns_yahoo_live_rows(monkeypatch):
     assert preview.feature_rows[0]["provider"] == "yahoo"
     assert preview.screening_rows[0]["total_score"] != ""
     assert preview.error_rows == []
+
+
+def test_build_market_data_preview_can_override_provider_from_ui(monkeypatch):
+    monkeypatch.delenv("SMAI_CONFIG_FILE", raising=False)
+    monkeypatch.setattr(yahoo, "_load_yfinance", lambda: _FakeYFinance())
+
+    preview = asyncio.run(
+        build_market_data_preview(
+            symbol="AAPL",
+            start=date(2026, 4, 7),
+            end=date(2026, 4, 9),
+            provider_override="yahoo",
+        )
+    )
+
+    assert preview.status == "OK"
+    assert preview.provider_rows[0] == {"field": "provider", "value": "yahoo"}
+    assert preview.ohlcv_rows[0]["provider"] == "yahoo"
 
 
 def test_ohlcv_summary_rows_returns_empty_rows_for_no_bars():

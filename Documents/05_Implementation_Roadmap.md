@@ -328,8 +328,10 @@ Scope:
 - Done: walk-forward 評価を用意する
 - Done: MAE、RMSE、direction accuracy などの metrics を返す
 - Done: 選択銘柄の終値 chart を Streamlit Market Data tab に表示する
-- Done: baseline model ごとの予測線を終値 chart に重ねて表示する
+- Done: baseline model ごとの予測線を終値 chart に重ね、実績は実線、予測は破線で表示する
 - Done: model 別 forecast close と metrics を UI に表示する
+- Done: Market Data tab で `mock` / `yahoo` / `csv` provider を選べるようにする
+- Done: mock の直近日付 OHLCV を、単調な右肩上がりではなく上下動のあるサンプル系列にする
 - Pending: Forecast result を API / export へ接続する
 
 完了条件:

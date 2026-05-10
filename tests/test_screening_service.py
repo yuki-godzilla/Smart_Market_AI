@@ -38,6 +38,10 @@ def test_screening_service_ranks_feature_snapshot_with_breakdown():
     assert [score.rank for score in scores] == [1, 2]
     assert scores[0].total_score > scores[1].total_score
     assert scores[1].data_quality_score == Decimal("60")
+    assert scores[1].summary == (
+        "7203.T は中立寄りの候補です。スコア内訳と注意点を確認してください。"
+    )
+    assert scores[1].reason_labels == ["期待する履歴データのうち 60% 程度しかそろっていません。"]
     assert scores[1].reasons == ["partial_data_completeness:0.60"]
 
 
@@ -57,4 +61,5 @@ def test_screening_service_uses_neutral_momentum_when_missing():
     scores = ScreeningService().score(snapshot)
 
     assert scores[0].momentum_score == Decimal("50.00")
+    assert scores[0].reason_labels[0] == ("5日分の値動きデータが足りないため、勢いは中立評価です。")
     assert "neutral_momentum:missing" in scores[0].reasons

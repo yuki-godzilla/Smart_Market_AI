@@ -436,6 +436,8 @@ def screening_score_rows(scores: list[ScreeningScore]) -> list[dict[str, str]]:
             "risk_score": _format_decimal(score.risk_score),
             "data_quality_score": _format_decimal(score.data_quality_score),
             "data_quality": score.data_quality,
+            "summary": score.summary,
+            "reason_labels": _quality_reasons(score.reason_labels),
             "reasons": _quality_reasons(score.reasons),
         }
         for score in scores
@@ -462,6 +464,8 @@ def screening_score_csv_download(rows: list[dict[str, str]]) -> str:
             "risk_score",
             "data_quality_score",
             "data_quality",
+            "summary",
+            "reason_labels",
             "reasons",
         ],
     )

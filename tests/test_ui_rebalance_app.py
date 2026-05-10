@@ -430,6 +430,8 @@ def test_screening_score_rows_formats_score_breakdown():
                 risk_score=Decimal("90.00"),
                 data_quality_score=Decimal("60.00"),
                 data_quality="WARN",
+                summary="AAPL は中立寄りの候補です。",
+                reason_labels=["期待する履歴データのうち 60% 程度しかそろっていません。"],
                 reasons=["partial_data_completeness:0.60"],
             )
         ]
@@ -445,6 +447,8 @@ def test_screening_score_rows_formats_score_breakdown():
             "risk_score": "90",
             "data_quality_score": "60",
             "data_quality": "WARN",
+            "summary": "AAPL は中立寄りの候補です。",
+            "reason_labels": "期待する履歴データのうち 60% 程度しかそろっていません。",
             "reasons": "partial_data_completeness:0.60",
         }
     ]
@@ -461,6 +465,8 @@ def test_screening_score_downloads_export_ranked_rows():
             "risk_score": "90",
             "data_quality_score": "60",
             "data_quality": "WARN",
+            "summary": "AAPL は中立寄りの候補です。",
+            "reason_labels": "期待する履歴データのうち 60% 程度しかそろっていません。",
             "reasons": "partial_data_completeness:0.60",
         }
     ]
@@ -468,8 +474,10 @@ def test_screening_score_downloads_export_ranked_rows():
     assert '"symbol": "AAPL"' in screening_score_json_download(rows)
     assert screening_score_csv_download(rows) == (
         "rank,symbol,total_score,momentum_score,liquidity_score,risk_score,"
-        "data_quality_score,data_quality,reasons\n"
-        "1,AAPL,81.23,70,100,90,60,WARN,partial_data_completeness:0.60\n"
+        "data_quality_score,data_quality,summary,reason_labels,reasons\n"
+        "1,AAPL,81.23,70,100,90,60,WARN,AAPL は中立寄りの候補です。,"
+        "期待する履歴データのうち 60% 程度しかそろっていません。,"
+        "partial_data_completeness:0.60\n"
     )
 
 

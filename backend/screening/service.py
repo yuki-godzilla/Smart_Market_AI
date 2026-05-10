@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from pydantic import Field
 
@@ -16,6 +16,8 @@ class ScreeningScore(StrictBaseModel):
     risk_score: Decimal = Field(ge=0, le=100)
     data_quality_score: Decimal = Field(ge=0, le=100)
     data_quality: str
+    summary: str = ""
+    reason_labels: list[str] = Field(default_factory=list)
     reasons: list[str] = Field(default_factory=list)
 
 
@@ -41,6 +43,7 @@ def _score_row(row: DailySnapshot) -> ScreeningScore:
         risk_score=risk_score,
         data_quality_score=data_quality_score,
     )
+    reasons = _score_reasons(row)
     return ScreeningScore(
         rank=1,
         symbol=row.symbol,
@@ -50,7 +53,9 @@ def _score_row(row: DailySnapshot) -> ScreeningScore:
         risk_score=risk_score,
         data_quality_score=data_quality_score,
         data_quality=row.data_quality,
-        reasons=_score_reasons(row),
+        summary=_score_summary(row, total_score),
+        reason_labels=[_reason_label(reason) for reason in reasons],
+        reasons=reasons,
     )
 
 
@@ -105,6 +110,48 @@ def _score_reasons(row: DailySnapshot) -> list[str]:
     if row.data_quality != "OK":
         reasons.extend(row.data_quality_reasons)
     return reasons
+
+
+def _score_summary(row: DailySnapshot, total_score: Decimal) -> str:
+    if row.data_quality == "BLOCK":
+        return f"{row.symbol} はデータ不足が大きいため、今回のスコアは参考度が低めです。"
+    if total_score >= Decimal("75"):
+        return (
+            f"{row.symbol} は今回の条件では上位候補です。"
+            "流動性やリスクの見やすさがスコアを支えています。"
+        )
+    if total_score >= Decimal("50"):
+        return f"{row.symbol} は中立寄りの候補です。スコア内訳と注意点を確認してください。"
+    return (
+        f"{row.symbol} は今回の条件では優先度が低めです。"
+        "リスクやデータ品質の注意点を確認してください。"
+    )
+
+
+def _reason_label(reason: str) -> str:
+    static_labels = {
+        "neutral_momentum:missing": "5日分の値動きデータが足りないため、勢いは中立評価です。",
+        "liquidity:missing": "売買代金データが足りないため、流動性を低めに見ています。",
+        "missing:momentum_5d": "5日モメンタムを計算するための履歴データが足りません。",
+        "missing:return_1d": "1日リターンを計算するための履歴データが足りません。",
+        "missing:drawdown_20d": "最大下落率を計算するための履歴データが足りません。",
+        "missing:dividend_yield": "配当利回りデータが取得できていません。",
+        "missing:market_cap_jpy": "時価総額データが取得できていません。",
+    }
+    if reason in static_labels:
+        return static_labels[reason]
+    if reason.startswith("partial_data_completeness:"):
+        return _partial_data_completeness_label(reason)
+    return f"確認が必要なデータ品質メモ: {reason}"
+
+
+def _partial_data_completeness_label(reason: str) -> str:
+    _, _, raw_value = reason.partition(":")
+    try:
+        percent = (Decimal(raw_value) * Decimal("100")).quantize(Decimal("1"))
+    except InvalidOperation:
+        return "期待する履歴データが一部不足しています。"
+    return f"期待する履歴データのうち {percent}% 程度しかそろっていません。"
 
 
 def _clamp_score(value: Decimal) -> Decimal:

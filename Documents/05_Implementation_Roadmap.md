@@ -301,6 +301,7 @@ Scope:
 - Done: `ScreeningScore` と score breakdown を返す
 - Done: Streamlit の Market Data tab から ranking を確認できるようにする
 - Done: API から ranking を確認できるようにする
+- Done: スコアの summary と技術的な理由を初心者向け日本語ラベルとして返す
 
 完了条件:
 
@@ -308,6 +309,7 @@ Scope:
 - Done: score breakdown がテストされている
 - Done: UI / API で順位の理由を確認できる
 - Done: JSON / CSV export で順位の理由を確認できる
+- Done: UI / API / JSON / CSV export で初心者向けの日本語説明を確認できる
 
 - Done: UI 上でランキング、総合 score、sub score、data quality warning を確認できる
 - 外部 provider 由来データを使う場合は、live data 取得結果を元にした score で確認できる

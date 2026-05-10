@@ -137,6 +137,7 @@ Docs:
 - update `PROJECT_CONTEXT.md` only when current state, assumptions, phase, or verification baseline changes
 - use `Documents/98_Codex_Task_Template.md` when a new implementation task needs a reusable prompt shape
 - update `Documents/06_MVP_Operations_Guide.md` for API/UI/CSV/provider/runbook changes
+- use `Documents/07_UI_Wording_Policy.md` when changing user-facing UI/report wording
 - update `Documents/05_Implementation_Roadmap.md` for phase/scope/completion changes
 
 Encoding:
@@ -217,6 +218,9 @@ Read `Documents/05_Implementation_Roadmap.md` when choosing/changing phase work 
 
 Read `Documents/06_MVP_Operations_Guide.md` when changing API behavior, CSV formats, provider setup, Streamlit workflow, exports, or verification commands.
 API、CSV、provider、Streamlit、export、確認コマンドを変える場合に読む。
+
+Read `Documents/07_UI_Wording_Policy.md` when changing labels, chart legends, metric explanations, warnings, summaries, or report wording.
+ラベル、チャート凡例、指標説明、警告、要約、レポート文言を変える場合に読む。
 
 Read component detail docs only when touching that component.
 該当コンポーネントを触る場合だけ個別詳細設計を読む。

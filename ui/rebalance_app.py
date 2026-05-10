@@ -148,6 +148,7 @@ class MarketDataPreview:
     """Market-data provider preview rows used by the Streamlit UI."""
 
     status: str
+    bars: list[Bar]
     provider_rows: list[dict[str, str]]
     quote_rows: list[dict[str, str]]
     ohlcv_rows: list[dict[str, str]]
@@ -344,6 +345,7 @@ async def build_market_data_preview(
     except AppError as exc:
         return MarketDataPreview(
             status="ERROR",
+            bars=[],
             provider_rows=provider_rows,
             quote_rows=[],
             ohlcv_rows=[],
@@ -364,6 +366,7 @@ async def build_market_data_preview(
 
     return MarketDataPreview(
         status="OK",
+        bars=bars,
         provider_rows=provider_rows,
         quote_rows=[
             {
@@ -503,6 +506,21 @@ def forecast_metric_rows(evaluations: list[ForecastEvaluation]) -> list[dict[str
         }
         for evaluation in evaluations
     ]
+
+
+def forecast_metric_rows_for_bars(
+    bars: list[Bar],
+    *,
+    horizon_days: int = 1,
+) -> list[dict[str, str]]:
+    """Return forecast metric rows recalculated from already fetched OHLCV bars."""
+
+    return forecast_metric_rows(
+        _available_forecast_evaluations(
+            bars,
+            horizon_days=horizon_days,
+        )
+    )
 
 
 def feature_snapshot_rows(snapshot: FeatureSnapshot) -> list[dict[str, str]]:

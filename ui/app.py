@@ -13,10 +13,13 @@ from pydantic import ValidationError
 from backend.app.main import RebalanceCheckRequest
 from backend.portfolio.workflow import PortfolioRiskResult
 from ui.rebalance_app import (
+    MarketDataPreview,
     RebalanceScenarioError,
     build_market_data_preview,
     build_rebalance_report_context,
     build_rebalance_request,
+    forecast_chart_rows,
+    forecast_metric_rows_for_bars,
     get_rebalance_sample,
     rebalance_sample_names,
     request_json_download,
@@ -34,6 +37,9 @@ from ui.rebalance_app import (
 )
 
 MARKET_DATA_PROVIDER_OPTIONS = ["mock", "yahoo", "csv"]
+MARKET_DATA_PREVIEW_STATE_KEY = "market_data_preview"
+MARKET_DATA_STATUS_STATE_KEY = "market_data_status_message"
+MARKET_DATA_FORECAST_DAYS_STATE_KEY = "market_data_forecast_horizon_days"
 
 FORECAST_MODEL_LABELS = {
     "close": "実績価格",
@@ -163,6 +169,15 @@ def default_market_data_end_date() -> date:
     return date.today()
 
 
+def default_forecast_horizon_days(start: date, end: date) -> int:
+    """Choose a compact forecast horizon from the displayed chart period."""
+
+    if end < start:
+        raise ValueError("End must be on or after Start")
+    display_days = (end - start).days + 1
+    return max(1, min(30, round(display_days / 10)))
+
+
 def _default_apple_target_weight(targets_json: str) -> int:
     if '"symbol": "AAPL"' not in targets_json:
         return 0
@@ -197,7 +212,7 @@ def _render_market_data_preview() -> None:
     st.subheader("Market Data")
     settings = runtime_settings_summary()
     default_provider = settings["provider"]
-    col_provider, col_symbol, col_start, col_end, col_horizon = st.columns(5)
+    col_provider, col_symbol, col_start, col_end = st.columns(4)
     with col_provider:
         provider = cast(
             str,
@@ -218,25 +233,20 @@ def _render_market_data_preview() -> None:
         )
     with col_end:
         end = st.date_input("End", value=default_market_data_end_date(), key="market_data_end")
-    with col_horizon:
-        forecast_horizon_days = st.number_input(
-            "Forecast days",
-            min_value=1,
-            max_value=30,
-            value=1,
-            step=1,
-            key="market_data_forecast_horizon_days",
-        )
 
     if st.button("Fetch market data", key="fetch_market_data"):
         try:
+            start_date = _single_date_from_input(start)
+            end_date = _single_date_from_input(end)
+            forecast_horizon_days = default_forecast_horizon_days(start_date, end_date)
+            st.session_state[MARKET_DATA_FORECAST_DAYS_STATE_KEY] = forecast_horizon_days
             preview = asyncio.run(
                 build_market_data_preview(
                     symbol=symbol.strip(),
-                    start=_single_date_from_input(start),
-                    end=_single_date_from_input(end),
+                    start=start_date,
+                    end=end_date,
                     provider_override=provider,
-                    forecast_horizon_days=int(forecast_horizon_days),
+                    forecast_horizon_days=forecast_horizon_days,
                 )
             )
         except ValueError as exc:
@@ -246,61 +256,92 @@ def _render_market_data_preview() -> None:
             st.error(str(exc))
             return
 
-        if preview.status == "OK":
-            st.success("Market data fetched.")
-        else:
-            st.error("Market data fetch failed.")
-            _render_provider_error_summary(preview.error_rows)
+        st.session_state[MARKET_DATA_PREVIEW_STATE_KEY] = preview
+        st.session_state[MARKET_DATA_STATUS_STATE_KEY] = preview.status
 
-        st.subheader("Price And Forecast")
-        if preview.provider_rows:
-            provider_name = _metadata_value(preview.provider_rows, "provider")
-            st.caption(f"Data provider: {provider_name}")
-        for message in forecast_metric_summary(preview.forecast_metric_rows):
-            st.info(message)
-        _render_market_chart(preview.forecast_chart_rows)
-        st.subheader("Forecast Metrics")
-        _render_table(
-            forecast_metric_display_rows(preview.forecast_metric_rows), "No forecast metrics."
+    stored_preview = _market_data_preview_from_state()
+    if stored_preview is None:
+        return
+
+    if st.session_state.get(MARKET_DATA_STATUS_STATE_KEY) == "OK":
+        st.success("Market data fetched.")
+    else:
+        st.error("Market data fetch failed.")
+        _render_provider_error_summary(stored_preview.error_rows)
+
+    _render_market_data_preview_result(stored_preview)
+
+
+def _market_data_preview_from_state() -> MarketDataPreview | None:
+    preview = st.session_state.get(MARKET_DATA_PREVIEW_STATE_KEY)
+    if isinstance(preview, MarketDataPreview):
+        return preview
+    return None
+
+
+def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
+    forecast_horizon_days = cast(
+        int,
+        st.number_input(
+            "Forecast days",
+            min_value=1,
+            max_value=30,
+            value=int(st.session_state.get(MARKET_DATA_FORECAST_DAYS_STATE_KEY, 1)),
+            step=1,
+            key=MARKET_DATA_FORECAST_DAYS_STATE_KEY,
+            help="取得済みデータを使ってチャートと指標だけを再計算します。",
+        ),
+    )
+    forecast_rows = forecast_chart_rows(preview.bars, horizon_days=forecast_horizon_days)
+    metric_rows = forecast_metric_rows_for_bars(preview.bars, horizon_days=forecast_horizon_days)
+
+    st.subheader("Price And Forecast")
+    if preview.provider_rows:
+        provider_name = _metadata_value(preview.provider_rows, "provider")
+        st.caption(f"Data provider: {provider_name}")
+    for message in forecast_metric_summary(metric_rows):
+        st.info(message)
+    _render_market_chart(forecast_rows)
+    st.subheader("Forecast Metrics")
+    _render_table(forecast_metric_display_rows(metric_rows), "No forecast metrics.")
+
+    st.subheader("Screening Score")
+    _render_table(preview.screening_rows, "No screening score rows.")
+    if preview.screening_rows:
+        col_json, col_csv = st.columns(2)
+        col_json.download_button(
+            "Download screening JSON",
+            data=screening_score_json_download(preview.screening_rows),
+            file_name="screening_score.json",
+            mime="application/json",
+        )
+        col_csv.download_button(
+            "Download screening CSV",
+            data=screening_score_csv_download(preview.screening_rows),
+            file_name="screening_score.csv",
+            mime="text/csv",
         )
 
-        st.subheader("Screening Score")
-        _render_table(preview.screening_rows, "No screening score rows.")
-        if preview.screening_rows:
-            col_json, col_csv = st.columns(2)
-            col_json.download_button(
-                "Download screening JSON",
-                data=screening_score_json_download(preview.screening_rows),
-                file_name="screening_score.json",
-                mime="application/json",
-            )
-            col_csv.download_button(
-                "Download screening CSV",
-                data=screening_score_csv_download(preview.screening_rows),
-                file_name="screening_score.csv",
-                mime="text/csv",
-            )
+    with st.expander("Provider / Quote / OHLCV"):
+        st.subheader("Provider")
+        _render_table(preview.provider_rows, "No provider metadata.")
 
-        with st.expander("Provider / Quote / OHLCV"):
-            st.subheader("Provider")
-            _render_table(preview.provider_rows, "No provider metadata.")
+        st.subheader("Quote")
+        _render_table(preview.quote_rows, "No quote rows.")
 
-            st.subheader("Quote")
-            _render_table(preview.quote_rows, "No quote rows.")
+        st.subheader("OHLCV Summary")
+        _render_table(preview.ohlcv_rows, "No OHLCV rows.")
 
-            st.subheader("OHLCV Summary")
-            _render_table(preview.ohlcv_rows, "No OHLCV rows.")
+    with st.expander("FX / Feature Snapshot"):
+        st.subheader("FX")
+        _render_table(preview.fx_rows, "No FX rows.")
 
-        with st.expander("FX / Feature Snapshot"):
-            st.subheader("FX")
-            _render_table(preview.fx_rows, "No FX rows.")
+        st.subheader("Feature Snapshot")
+        _render_table(preview.feature_rows, "No feature snapshot rows.")
 
-            st.subheader("Feature Snapshot")
-            _render_table(preview.feature_rows, "No feature snapshot rows.")
-
-        if preview.error_rows:
-            st.subheader("Errors")
-            st.dataframe(preview.error_rows, hide_index=True, use_container_width=True)
+    if preview.error_rows:
+        st.subheader("Errors")
+        st.dataframe(preview.error_rows, hide_index=True, use_container_width=True)
 
 
 def _render_result(result: PortfolioRiskResult, request: RebalanceCheckRequest) -> None:
@@ -446,11 +487,16 @@ def _render_market_chart(rows: list[dict[str, str]]) -> None:
         .encode(
             x=alt.X("date:T", title="Date", axis=alt.Axis(format="%m/%d", labelAngle=0)),
             y=alt.Y("value:Q", title="Close", scale=alt.Scale(zero=False)),
-            color=alt.Color("series_label:N", title="線"),
+            color=alt.Color(
+                "series_label:N",
+                title="価格・モデル",
+                legend=alt.Legend(orient="bottom"),
+            ),
             strokeDash=alt.StrokeDash(
                 "line_label:N",
-                title="種類",
+                title="実績/予測",
                 scale=alt.Scale(domain=["実績", "予測"], range=[[1, 0], [6, 4]]),
+                legend=alt.Legend(orient="bottom"),
             ),
             tooltip=[
                 alt.Tooltip("date:T", title="日付"),
@@ -464,15 +510,10 @@ def _render_market_chart(rows: list[dict[str, str]]) -> None:
     if not boundary_data.empty:
         boundary_rule = (
             alt.Chart(boundary_data)
-            .mark_rule(color="#f59e0b", strokeDash=[4, 4])
-            .encode(x="date:T", tooltip=[alt.Tooltip("label:N", title="目印")])
+            .mark_rule(color="#f59e0b", opacity=0.65, strokeDash=[4, 4])
+            .encode(x="date:T")
         )
-        boundary_label = (
-            alt.Chart(boundary_data)
-            .mark_text(align="left", baseline="top", dx=6, dy=8, color="#f59e0b")
-            .encode(x="date:T", y=alt.value(8), text="label:N")
-        )
-        chart = chart + boundary_rule + boundary_label
+        chart = chart + boundary_rule
     st.altair_chart(chart, use_container_width=True)
 
 
@@ -510,16 +551,9 @@ def forecast_boundary_frame(rows: list[dict[str, str]]) -> pd.DataFrame:
     frame = market_chart_frame(rows).reset_index(names="date")
     actual_rows = frame.dropna(subset=["close"])
     if actual_rows.empty:
-        return pd.DataFrame(columns=["date", "label"])
+        return pd.DataFrame(columns=["date"])
     latest_actual_date = actual_rows["date"].max()
-    return pd.DataFrame(
-        [
-            {
-                "date": latest_actual_date,
-                "label": "ここから先は将来予測",
-            }
-        ]
-    )
+    return pd.DataFrame([{"date": latest_actual_date}])
 
 
 def forecast_metric_display_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -560,7 +594,7 @@ def forecast_metric_summary(rows: list[dict[str, str]]) -> list[str]:
             f"今回の比較では「{best_label}」が RMSE {best_rmse} で最も誤差が小さいです。"
             f"方向一致率は {direction} です。"
         ),
-        "RMSE/MAE は小さいほど良く、方向一致率は高いほど良い指標です。予測は投資判断の補助であり、売買推奨ではありません。",
+        "誤差と方向一致率で、モデルの当たりやすさを比べます。",
     ]
 
 

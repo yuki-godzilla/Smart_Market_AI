@@ -56,6 +56,7 @@ MVP の既定経路は引き続きネットワーク不要の `mock` / `csv` で
 - [プロジェクト現在地](./PROJECT_CONTEXT.md)
 - [実装ロードマップ](./Documents/05_Implementation_Roadmap.md)
 - [MVP 運用ガイド](./Documents/06_MVP_Operations_Guide.md)
+- [UI 文言ポリシー](./Documents/07_UI_Wording_Policy.md)
 - [Codex タスクテンプレート](./Documents/98_Codex_Task_Template.md)
 - [作業ログ](./Documents/99_Work_Log.md)
 

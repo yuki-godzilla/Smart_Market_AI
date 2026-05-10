@@ -269,9 +269,12 @@ Streamlit UI を起動します。
 UI で確認できる主な内容:
 
 - Market Data tab での forecast chart / metrics、screening score、provider metadata、quote、OHLCV summary、FX、feature snapshot、error details
-- Market Data tab の `Forecast days` で 1〜30 日先の forecast horizon を選択
+- Market Data tab では、取得後の chart 付近にある `Forecast days` で 1〜30 日先の forecast horizon を選択
+- `Forecast days` の初期値は表示期間から自動設定され、変更時は取得済みデータから chart / metrics だけを再計算
 - forecast chart では実績価格とモデル別予測線を分け、将来予測の開始位置を確認
 - provider metadata、quote、OHLCV summary、FX、feature snapshot は補助情報として折りたたみ表示
+
+UI のラベル、凡例、指標説明などの文言方針は [07_UI_Wording_Policy.md](./07_UI_Wording_Policy.md) を参照します。
 - runtime settings
 - sample symbol reference
 - `Default rebalance` / `No trades` sample selector

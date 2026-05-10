@@ -1,11 +1,18 @@
 from datetime import date
 
 from ui.app import (
+    default_forecast_horizon_days,
     forecast_boundary_frame,
     forecast_metric_display_rows,
     forecast_metric_summary,
     market_chart_long_frame,
 )
+
+
+def test_default_forecast_horizon_days_uses_chart_period():
+    assert default_forecast_horizon_days(date(2026, 5, 1), date(2026, 5, 7)) == 1
+    assert default_forecast_horizon_days(date(2026, 5, 1), date(2026, 5, 30)) == 3
+    assert default_forecast_horizon_days(date(2026, 1, 1), date(2026, 12, 31)) == 30
 
 
 def test_market_chart_long_frame_adds_beginner_friendly_labels():
@@ -54,12 +61,7 @@ def test_forecast_boundary_frame_marks_latest_actual_date():
         ]
     )
 
-    assert frame.to_dict("records") == [
-        {
-            "date": date(2026, 5, 10),
-            "label": "ここから先は将来予測",
-        }
-    ]
+    assert frame.to_dict("records") == [{"date": date(2026, 5, 10)}]
 
 
 def test_forecast_metric_display_rows_and_summary_are_beginner_friendly():
@@ -98,4 +100,4 @@ def test_forecast_metric_display_rows_and_summary_are_beginner_friendly():
     }
     summary = forecast_metric_summary(rows)
     assert "予測: 直近値維持" in summary[0]
-    assert "売買推奨ではありません" in summary[1]
+    assert summary[1] == "誤差と方向一致率で、モデルの当たりやすさを比べます。"

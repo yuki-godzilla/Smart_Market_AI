@@ -372,7 +372,6 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
                 "Forecast days",
                 min_value=1,
                 max_value=30,
-                value=int(st.session_state.get(MARKET_DATA_FORECAST_DAYS_STATE_KEY, 1)),
                 step=1,
                 key=MARKET_DATA_FORECAST_DAYS_STATE_KEY,
                 help="取得済みデータを使ってチャートと指標だけを再計算します。",

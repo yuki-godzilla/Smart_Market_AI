@@ -666,6 +666,30 @@ def forecast_metric_rows_for_bars(
     )
 
 
+def forecast_metric_json_download(rows: list[dict[str, str]]) -> str:
+    """Return forecast metric rows as stable JSON text."""
+
+    return json.dumps(rows, ensure_ascii=False, indent=2) + "\n"
+
+
+def forecast_metric_csv_download(rows: list[dict[str, str]]) -> str:
+    """Return forecast metric rows as CSV text."""
+
+    return table_csv_download(
+        rows,
+        fieldnames=[
+            "model",
+            "symbol",
+            "horizon_days",
+            "forecast_close",
+            "mae",
+            "rmse",
+            "direction_accuracy",
+            "sample_count",
+        ],
+    )
+
+
 def forecast_reference_period(
     bars: list[Bar],
     *,

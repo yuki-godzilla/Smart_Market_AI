@@ -338,7 +338,7 @@ Scope:
 - Done: chart 上の予測点の日付を、選択した forecast horizon に合わせて表示する
 - Done: Market Data tab を左側に移動し、Forecast chart の凡例クリックで系列表示を切り替えられるようにする
 - Done: Forecast model の参照期間を取得期間と forecast horizon から自動算出し、UI に自然な日本語で表示する
-- Pending: Forecast result を export へ接続する
+- Done: Forecast result を JSON / CSV export へ接続する
 
 完了条件:
 
@@ -347,7 +347,7 @@ Scope:
 - Done: forecast result と metrics を UI で表示できる
 - Done: forecast result と metrics を API で取得できる
 - Done: UI 上で forecast horizon を変更し、model 別 metrics と予測線に反映されたことを確認できる
-- Pending: forecast result と metrics を保存できる
+- Done: forecast result と metrics を保存できる
 
 - Done: UI 上で forecast horizon、model 別 metrics、評価期間を確認できる
 - 外部 provider 由来の時系列を使う場合は、live data 取得結果から forecast までつながることを確認できる

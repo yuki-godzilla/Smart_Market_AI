@@ -15,7 +15,11 @@ from ui.app import (
     merged_symbol_candidate_rows,
     symbol_candidate_labels,
 )
-from ui.rebalance_app import forecast_reference_period
+from ui.rebalance_app import (
+    forecast_metric_csv_download,
+    forecast_metric_json_download,
+    forecast_reference_period,
+)
 
 
 def test_default_forecast_horizon_days_uses_chart_period():
@@ -134,7 +138,7 @@ def test_render_market_chart_uses_currency_axis_title_and_compact_width(monkeypa
 
     spec = captured["spec"]
     chart_spec = spec["hconcat"][0]  # type: ignore[index]
-    assert chart_spec["width"] == 880
+    assert chart_spec["width"] == 1400
     assert chart_spec["layer"][0]["encoding"]["y"]["title"] == "終値 (USD)"
     assert captured["use_container_width"] is True
 
@@ -195,6 +199,40 @@ def test_forecast_metric_display_rows_and_summary_are_beginner_friendly():
     summary = forecast_metric_summary(rows)
     assert "予測: 直近値維持" in summary[0]
     assert summary[1] == "誤差と方向一致率で、モデルの当たりやすさを比べます。"
+
+
+def test_forecast_metric_downloads_are_stable_json_and_csv():
+    rows = [
+        {
+            "model": "naive",
+            "symbol": "AAPL",
+            "horizon_days": "10",
+            "forecast_close": "221.32",
+            "mae": "13.11",
+            "rmse": "13.90",
+            "direction_accuracy": "44.44%",
+            "sample_count": "55",
+        }
+    ]
+
+    assert forecast_metric_json_download(rows) == (
+        "[\n"
+        "  {\n"
+        '    "model": "naive",\n'
+        '    "symbol": "AAPL",\n'
+        '    "horizon_days": "10",\n'
+        '    "forecast_close": "221.32",\n'
+        '    "mae": "13.11",\n'
+        '    "rmse": "13.90",\n'
+        '    "direction_accuracy": "44.44%",\n'
+        '    "sample_count": "55"\n'
+        "  }\n"
+        "]\n"
+    )
+    assert forecast_metric_csv_download(rows) == (
+        "model,symbol,horizon_days,forecast_close,mae,rmse,direction_accuracy,sample_count\n"
+        "naive,AAPL,10,221.32,13.11,13.90,44.44%,55\n"
+    )
 
 
 def _bar(ts: str) -> Bar:

@@ -19,6 +19,8 @@ from ui.rebalance_app import (
     build_rebalance_report_context,
     build_rebalance_request,
     forecast_chart_rows,
+    forecast_metric_csv_download,
+    forecast_metric_json_download,
     forecast_metric_rows_for_bars,
     forecast_reference_period,
     get_rebalance_sample,
@@ -396,6 +398,20 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
     _render_market_chart(forecast_rows, currency=chart_currency)
     st.subheader("Forecast Metrics")
     _render_table(forecast_metric_display_rows(metric_rows), "No forecast metrics.")
+    if metric_rows:
+        col_json, col_csv = st.columns(2)
+        col_json.download_button(
+            "Download forecast JSON",
+            data=forecast_metric_json_download(metric_rows),
+            file_name="forecast_metrics.json",
+            mime="application/json",
+        )
+        col_csv.download_button(
+            "Download forecast CSV",
+            data=forecast_metric_csv_download(metric_rows),
+            file_name="forecast_metrics.csv",
+            mime="text/csv",
+        )
 
     st.subheader("Screening Score")
     _render_table(preview.screening_rows, "No screening score rows.")

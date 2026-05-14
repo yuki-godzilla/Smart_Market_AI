@@ -274,6 +274,7 @@ UI で確認できる主な内容:
 - forecast model の参照期間は取得期間と forecast horizon から自動計算され、UI には `自動計算された参照期間` として表示
 - forecast chart の凡例では、各系列をクリックして表示 / 非表示を切り替え可能
 - forecast chart では実績価格とモデル別予測線を分け、将来予測の開始位置を確認
+- forecast metrics は JSON / CSV として保存できる
 - provider の UI 既定値は `yahoo`
 - symbol は `Symbol search` と `Symbol` プルダウンで指定し、国内・米国の代表候補を ticker / company name の部分一致で検索して選択できる
 - `Symbol search` に入力がある場合は、代表候補に加えて yfinance `Search` の候補も補助的に表示する
@@ -309,6 +310,7 @@ $env:SMAI_REBALANCE_SCENARIO_DIR = ".\my_rebalance_scenarios"
 指定パスが存在しない、またはディレクトリでない場合は、UI に scenario load error が表示されます。
 
 MVP export は JSON、CSV、Markdown、manifest、ZIP までです。
+Market Data tab の forecast metrics と screening score は、それぞれ JSON / CSV として保存できます。
 PDF / Excel は将来の reporting 拡張で扱います。
 
 ## 7. 外部 MarketData provider 準備

@@ -612,7 +612,7 @@ def _render_market_chart(rows: list[dict[str, str]], *, currency: str = "") -> N
             ],
             opacity=alt.condition(disabled_series, alt.value(0.18), alt.value(1.0)),
         )
-        .properties(height=540, width=1500)
+        .properties(height=540, width=1400)
     )
     if not boundary_data.empty:
         boundary_rule = (

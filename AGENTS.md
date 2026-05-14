@@ -144,6 +144,19 @@ Encoding:
 - Markdown files should be UTF-8 without BOM
 - if Japanese looks garbled in terminal output, verify bytes with strict UTF-8 before assuming corruption
 
+## Windows Shell Note
+
+If PowerShell fails with 8009001d:
+- first try a direct Python UTF-8 read, then fallback to cmd.exe
+- avoid relying on PowerShell-only commands
+- prefer:
+  - `python -c "from pathlib import Path; print(Path('AGENTS.md').read_text(encoding='utf-8'))"`
+  - `py -3 -c "from pathlib import Path; print(Path('AGENTS.md').read_text(encoding='utf-8'))"`
+  - `cmd /c type AGENTS.md`
+  - `cmd /c dir`
+  - `cmd /c findstr`
+- Git Bash may not be installed; do not assume `bash` is available
+
 ## Task Checklists / タスク別チェックリスト
 
 API endpoint:

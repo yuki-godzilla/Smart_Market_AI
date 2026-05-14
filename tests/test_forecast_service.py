@@ -9,6 +9,7 @@ from backend.forecast import (
     MovingAverageForecastModel,
     NaiveForecastModel,
     evaluate_models,
+    summarize_forecast_evaluations,
 )
 
 
@@ -57,6 +58,30 @@ def test_evaluate_models_uses_horizon_days_for_walk_forward_target():
     assert evaluations[0].metrics.rmse == Decimal("3.3912")
     assert evaluations[1].metrics.sample_count == 2
     assert evaluations[2].metrics.sample_count == 1
+
+
+def test_summarize_forecast_evaluations_returns_model_agreement():
+    evaluations = evaluate_models(
+        _bars([100, 102, 104, 103, 106, 108]),
+        models=[
+            NaiveForecastModel(),
+            MovingAverageForecastModel(window=3),
+            MomentumForecastModel(lookback=3),
+        ],
+    )
+
+    consensus = summarize_forecast_evaluations(evaluations)
+
+    assert consensus is not None
+    assert consensus.symbol == "AAPL"
+    assert consensus.horizon_days == 1
+    assert consensus.model_count == 3
+    assert consensus.median_forecast_close == Decimal("108.0000")
+    assert consensus.min_forecast_close == Decimal("105.6667")
+    assert consensus.max_forecast_close == Decimal("109.3846")
+    assert consensus.forecast_range == Decimal("3.7179")
+    assert consensus.forecast_range_pct == Decimal("0.0344")
+    assert consensus.agreement == "LOW"
 
 
 def test_moving_average_predict_uses_trailing_window():

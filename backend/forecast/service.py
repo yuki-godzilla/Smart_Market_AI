@@ -41,6 +41,22 @@ class ForecastEvaluation(StrictBaseModel):
     metrics: ForecastMetrics
 
 
+class ForecastConsensus(StrictBaseModel):
+    """Consensus summary across forecast model outputs."""
+
+    model_config = ConfigDict(extra="forbid", protected_namespaces=())
+
+    symbol: str = Field(min_length=1)
+    horizon_days: int = Field(ge=1)
+    model_count: int = Field(ge=0)
+    median_forecast_close: Decimal = Field(ge=0)
+    min_forecast_close: Decimal = Field(ge=0)
+    max_forecast_close: Decimal = Field(ge=0)
+    forecast_range: Decimal = Field(ge=0)
+    forecast_range_pct: Decimal = Field(ge=0)
+    agreement: str = Field(min_length=1)
+
+
 class ForecastModel(Protocol):
     """Small interface shared by deterministic baseline forecast models."""
 
@@ -139,6 +155,39 @@ def evaluate_models(
     ]
 
 
+def summarize_forecast_evaluations(
+    evaluations: list[ForecastEvaluation],
+) -> ForecastConsensus | None:
+    """Summarize model agreement across forecast evaluations."""
+
+    if not evaluations:
+        return None
+
+    forecasts = sorted(evaluation.latest_forecast.forecast_close for evaluation in evaluations)
+    model_count = len(forecasts)
+    median = _median(forecasts)
+    lowest = forecasts[0]
+    highest = forecasts[-1]
+    forecast_range = highest - lowest
+    if median > 0:
+        forecast_range_pct = forecast_range / median
+    else:
+        forecast_range_pct = Decimal("0")
+
+    first = evaluations[0]
+    return ForecastConsensus(
+        symbol=first.symbol,
+        horizon_days=first.horizon_days,
+        model_count=model_count,
+        median_forecast_close=_round_price(median),
+        min_forecast_close=_round_price(lowest),
+        max_forecast_close=_round_price(highest),
+        forecast_range=_round_price(forecast_range),
+        forecast_range_pct=_round_metric(forecast_range_pct),
+        agreement=_agreement_label(forecast_range_pct, model_count),
+    )
+
+
 def _evaluate_model(
     bars: list[Bar],
     model: ForecastModel,
@@ -188,6 +237,25 @@ def _mean(values: list[Decimal]) -> Decimal:
     if not values:
         return Decimal("0")
     return _round_metric(sum(values, Decimal("0")) / Decimal(len(values)))
+
+
+def _median(values: list[Decimal]) -> Decimal:
+    if not values:
+        return Decimal("0")
+    midpoint = len(values) // 2
+    if len(values) % 2 == 1:
+        return values[midpoint]
+    return (values[midpoint - 1] + values[midpoint]) / Decimal("2")
+
+
+def _agreement_label(forecast_range_pct: Decimal, model_count: int) -> str:
+    if model_count < 2:
+        return "UNKNOWN"
+    if forecast_range_pct <= Decimal("0.01"):
+        return "HIGH"
+    if forecast_range_pct <= Decimal("0.03"):
+        return "MEDIUM"
+    return "LOW"
 
 
 def _rmse(squared_errors: list[Decimal]) -> Decimal:

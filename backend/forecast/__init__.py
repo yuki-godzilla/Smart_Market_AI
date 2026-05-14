@@ -1,4 +1,5 @@
 from backend.forecast.service import (
+    ForecastConsensus,
     ForecastEvaluation,
     ForecastMetrics,
     ForecastModel,
@@ -7,9 +8,11 @@ from backend.forecast.service import (
     MovingAverageForecastModel,
     NaiveForecastModel,
     evaluate_models,
+    summarize_forecast_evaluations,
 )
 
 __all__ = [
+    "ForecastConsensus",
     "ForecastEvaluation",
     "ForecastMetrics",
     "ForecastModel",
@@ -18,4 +21,5 @@ __all__ = [
     "MovingAverageForecastModel",
     "NaiveForecastModel",
     "evaluate_models",
+    "summarize_forecast_evaluations",
 ]

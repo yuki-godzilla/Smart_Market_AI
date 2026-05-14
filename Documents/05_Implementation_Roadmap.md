@@ -358,18 +358,20 @@ Scope:
 
 Scope:
 
+- Done: model 別 forecast から median forecast と予測レンジを計算する
+- Done: model agreement / disagreement の最小判定を UI で確認できるようにする
 - model registry lite を追加する
 - horizon、入力特徴量、出力形式を揃える
-- ensemble、median forecast、model agreement / disagreement を計算する
+- ensemble を計算する
 - forecast summary を scoring に接続する
 
 完了条件:
 
-- model ごとの予測結果を比較できる
-- model 間で意見が割れている銘柄を見つけられる
+- Done: model ごとの予測結果を比較できる
+- Done: model 間で意見が割れている銘柄を見つけられる
 - forecast summary が investment score に利用できる
 
-- UI 上で model comparison、agreement / disagreement、forecast summary を確認できる
+- Done: UI 上で model comparison、agreement / disagreement、forecast summary を確認できる
 - live data を入力にした場合も、model 別の出力差分を UI で確認できる
 
 ### Phase 15: Model-Informed Scoring

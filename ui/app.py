@@ -19,6 +19,7 @@ from ui.rebalance_app import (
     build_rebalance_report_context,
     build_rebalance_request,
     forecast_chart_rows,
+    forecast_consensus_rows_for_bars,
     forecast_metric_csv_download,
     forecast_metric_json_download,
     forecast_metric_rows_for_bars,
@@ -378,6 +379,10 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
             ),
         )
     forecast_rows = forecast_chart_rows(preview.bars, horizon_days=forecast_horizon_days)
+    consensus_rows = forecast_consensus_rows_for_bars(
+        preview.bars,
+        horizon_days=forecast_horizon_days,
+    )
     metric_rows = forecast_metric_rows_for_bars(preview.bars, horizon_days=forecast_horizon_days)
     reference_period = forecast_reference_period(
         preview.bars,
@@ -396,6 +401,8 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
             st.caption(message)
     chart_currency = preview.bars[0].symbol.currency if preview.bars else ""
     _render_market_chart(forecast_rows, currency=chart_currency)
+    st.subheader("Forecast Summary")
+    _render_table(forecast_consensus_display_rows(consensus_rows), "No forecast summary.")
     st.subheader("Forecast Metrics")
     _render_table(forecast_metric_display_rows(metric_rows), "No forecast metrics.")
     if metric_rows:
@@ -754,6 +761,23 @@ def forecast_metric_display_rows(rows: list[dict[str, str]]) -> list[dict[str, s
     ]
 
 
+def forecast_consensus_display_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    return [
+        {
+            "銘柄": row.get("symbol", ""),
+            "予測日数": row.get("horizon_days", ""),
+            "モデル数": row.get("model_count", ""),
+            "中央値予測": row.get("median_forecast_close", ""),
+            "予測下限": row.get("min_forecast_close", ""),
+            "予測上限": row.get("max_forecast_close", ""),
+            "予測の開き": row.get("forecast_range", ""),
+            "予測の開き(%)": row.get("forecast_range_pct", ""),
+            "モデル一致度": _forecast_agreement_label(row.get("agreement", "")),
+        }
+        for row in rows
+    ]
+
+
 def forecast_metric_summary(rows: list[dict[str, str]]) -> list[str]:
     candidates: list[tuple[Decimal, dict[str, str]]] = []
     for row in rows:
@@ -790,6 +814,16 @@ def _forecast_series_label(series: str) -> str:
         lookback = series.removeprefix("momentum_")
         return f"予測: {lookback}日モメンタム"
     return series
+
+
+def _forecast_agreement_label(value: str) -> str:
+    labels = {
+        "HIGH": "高い",
+        "MEDIUM": "中くらい",
+        "LOW": "低い",
+        "UNKNOWN": "未判定",
+    }
+    return labels.get(value, value)
 
 
 def _optional_decimal_from_text(value: str) -> Decimal | None:

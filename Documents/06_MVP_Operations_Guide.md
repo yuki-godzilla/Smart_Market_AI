@@ -274,6 +274,7 @@ UI で確認できる主な内容:
 - forecast model の参照期間は取得期間と forecast horizon から自動計算され、UI には `自動計算された参照期間` として表示
 - forecast chart の凡例では、各系列をクリックして表示 / 非表示を切り替え可能
 - forecast chart では実績価格とモデル別予測線を分け、将来予測の開始位置を確認
+- Forecast Summary では median forecast、予測レンジ、model agreement / disagreement を確認できる
 - forecast metrics は JSON / CSV として保存できる
 - provider の UI 既定値は `yahoo`
 - symbol は `Symbol search` と `Symbol` プルダウンで指定し、国内・米国の代表候補を ticker / company name の部分一致で検索して選択できる

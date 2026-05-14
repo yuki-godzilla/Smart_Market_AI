@@ -9,6 +9,7 @@ from ui.app import (
     default_forecast_horizon_days,
     default_market_data_provider,
     forecast_boundary_frame,
+    forecast_consensus_display_rows,
     forecast_metric_display_rows,
     forecast_metric_summary,
     market_chart_long_frame,
@@ -16,6 +17,7 @@ from ui.app import (
     symbol_candidate_labels,
 )
 from ui.rebalance_app import (
+    forecast_consensus_rows_for_bars,
     forecast_metric_csv_download,
     forecast_metric_json_download,
     forecast_reference_period,
@@ -78,6 +80,39 @@ def test_forecast_reference_period_uses_horizon_and_bar_count():
     assert forecast_reference_period(bars, horizon_days=1) == 3
     assert forecast_reference_period(bars, horizon_days=5) == 10
     assert forecast_reference_period(bars[:3], horizon_days=5) == 3
+
+
+def test_forecast_consensus_rows_and_display_are_beginner_friendly():
+    rows = forecast_consensus_rows_for_bars(
+        [_bar(f"2026-05-{day:02d}", close=100 + day) for day in range(1, 8)]
+    )
+
+    assert rows == [
+        {
+            "symbol": "AAPL",
+            "horizon_days": "1",
+            "model_count": "3",
+            "median_forecast_close": "107",
+            "min_forecast_close": "106",
+            "max_forecast_close": "108.0288",
+            "forecast_range": "2.0288",
+            "forecast_range_pct": "1.90%",
+            "agreement": "MEDIUM",
+        }
+    ]
+    assert forecast_consensus_display_rows(rows) == [
+        {
+            "銘柄": "AAPL",
+            "予測日数": "1",
+            "モデル数": "3",
+            "中央値予測": "107",
+            "予測下限": "106",
+            "予測上限": "108.0288",
+            "予測の開き": "2.0288",
+            "予測の開き(%)": "1.90%",
+            "モデル一致度": "中くらい",
+        }
+    ]
 
 
 def test_market_chart_long_frame_adds_beginner_friendly_labels():
@@ -235,14 +270,14 @@ def test_forecast_metric_downloads_are_stable_json_and_csv():
     )
 
 
-def _bar(ts: str) -> Bar:
+def _bar(ts: str, *, close: int = 100) -> Bar:
     return Bar(
         symbol=Symbol(raw="AAPL", exchange="NASDAQ", code="AAPL", currency="USD"),
         ts=datetime.fromisoformat(f"{ts}T00:00:00+00:00").astimezone(UTC),
-        open=Decimal("100"),
-        high=Decimal("100"),
-        low=Decimal("100"),
-        close=Decimal("100"),
+        open=Decimal(str(close)),
+        high=Decimal(str(close)),
+        low=Decimal(str(close)),
+        close=Decimal(str(close)),
         volume=Decimal("1000"),
         interval="1d",
         provider="test",

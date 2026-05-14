@@ -24,6 +24,7 @@ from backend.forecast import (
     MovingAverageForecastModel,
     NaiveForecastModel,
     evaluate_models,
+    summarize_forecast_evaluations,
 )
 from backend.marketdata import FeatureBuilder, create_market_data_provider_adapter
 from backend.marketdata.live_provider_adapters import live_provider_adapter_details
@@ -664,6 +665,36 @@ def forecast_metric_rows_for_bars(
             horizon_days=horizon_days,
         )
     )
+
+
+def forecast_consensus_rows_for_bars(
+    bars: list[Bar],
+    *,
+    horizon_days: int = 1,
+) -> list[dict[str, str]]:
+    """Return forecast consensus rows recalculated from already fetched OHLCV bars."""
+
+    consensus = summarize_forecast_evaluations(
+        _available_forecast_evaluations(
+            bars,
+            horizon_days=horizon_days,
+        )
+    )
+    if consensus is None:
+        return []
+    return [
+        {
+            "symbol": consensus.symbol,
+            "horizon_days": str(consensus.horizon_days),
+            "model_count": str(consensus.model_count),
+            "median_forecast_close": _format_decimal(consensus.median_forecast_close),
+            "min_forecast_close": _format_decimal(consensus.min_forecast_close),
+            "max_forecast_close": _format_decimal(consensus.max_forecast_close),
+            "forecast_range": _format_decimal(consensus.forecast_range),
+            "forecast_range_pct": _format_optional_percent(consensus.forecast_range_pct),
+            "agreement": consensus.agreement,
+        }
+    ]
 
 
 def forecast_metric_json_download(rows: list[dict[str, str]]) -> str:

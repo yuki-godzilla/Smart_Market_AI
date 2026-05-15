@@ -360,7 +360,7 @@ Scope:
 
 - Done: model 別 forecast から median forecast と予測レンジを計算する
 - Done: model agreement / disagreement の最小判定を UI で確認できるようにする
-- model registry lite を追加する
+- Done: model registry lite を追加する
 - horizon、入力特徴量、出力形式を揃える
 - ensemble を計算する
 - forecast summary を scoring に接続する

@@ -11,6 +11,7 @@ import streamlit as st
 from pydantic import ValidationError
 
 from backend.app.main import RebalanceCheckRequest
+from backend.forecast import forecast_model_display_name
 from backend.portfolio.workflow import PortfolioRiskResult
 from ui.rebalance_app import (
     MarketDataPreview,
@@ -48,12 +49,7 @@ MARKET_DATA_STATUS_STATE_KEY = "market_data_status_message"
 MARKET_DATA_FORECAST_DAYS_STATE_KEY = "market_data_forecast_horizon_days"
 MARKET_DATA_TOAST_STATE_KEY = "market_data_toast_message"
 
-FORECAST_MODEL_LABELS = {
-    "close": "実績価格",
-    "naive": "予測: 直近値維持",
-    "moving_average_3": "予測: 3日移動平均",
-    "momentum_3": "予測: 3日モメンタム",
-}
+FORECAST_ACTUAL_LABEL = "実績価格"
 
 
 def main() -> None:
@@ -804,15 +800,9 @@ def forecast_metric_summary(rows: list[dict[str, str]]) -> list[str]:
 
 
 def _forecast_series_label(series: str) -> str:
-    if series in FORECAST_MODEL_LABELS:
-        return FORECAST_MODEL_LABELS[series]
-    if series.startswith("moving_average_"):
-        window = series.removeprefix("moving_average_")
-        return f"予測: {window}日移動平均"
-    if series.startswith("momentum_"):
-        lookback = series.removeprefix("momentum_")
-        return f"予測: {lookback}日モメンタム"
-    return series
+    if series == "close":
+        return FORECAST_ACTUAL_LABEL
+    return forecast_model_display_name(series)
 
 
 def _forecast_agreement_label(value: str) -> str:

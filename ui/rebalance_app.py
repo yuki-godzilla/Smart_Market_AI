@@ -20,9 +20,7 @@ from backend.core.errors import AppError
 from backend.forecast import (
     ForecastEvaluation,
     ForecastModel,
-    MomentumForecastModel,
-    MovingAverageForecastModel,
-    NaiveForecastModel,
+    available_forecast_models,
     evaluate_models,
     summarize_forecast_evaluations,
 )
@@ -1301,12 +1299,7 @@ def _available_forecast_models(
     horizon_days: int = 1,
 ) -> list[ForecastModel]:
     reference_period = forecast_reference_period(bars, horizon_days=horizon_days)
-    models: list[ForecastModel] = [
-        NaiveForecastModel(),
-        MovingAverageForecastModel(window=reference_period),
-        MomentumForecastModel(lookback=reference_period),
-    ]
-    return [model for model in models if len(bars) >= model.min_history]
+    return available_forecast_models(len(bars), reference_period=reference_period)
 
 
 def _next_forecast_ts(bar: Bar, *, horizon_days: int = 1) -> str:

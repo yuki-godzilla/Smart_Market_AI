@@ -12,9 +12,7 @@ from backend.core.errors import AppError, ComputationError
 from backend.forecast import (
     ForecastEvaluation,
     ForecastModel,
-    MomentumForecastModel,
-    MovingAverageForecastModel,
-    NaiveForecastModel,
+    available_forecast_models,
     evaluate_models,
 )
 from backend.marketdata import DataAccess, FeatureBuilder, create_market_data_provider_adapter
@@ -294,12 +292,7 @@ async def build_forecast_evaluations(
 
 
 def _available_forecast_models(bar_count: int) -> list[ForecastModel]:
-    models: list[ForecastModel] = [
-        NaiveForecastModel(),
-        MovingAverageForecastModel(),
-        MomentumForecastModel(),
-    ]
-    return [model for model in models if bar_count >= model.min_history]
+    return available_forecast_models(bar_count)
 
 
 @app.post(

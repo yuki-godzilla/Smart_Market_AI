@@ -278,6 +278,7 @@ UI で確認できる主な内容:
 - forecast chart では実績価格とモデル別予測線を分け、将来予測の開始位置を確認
 - Forecast Summary では ensemble、median forecast、予測レンジ、model agreement / disagreement を確認できる
 - forecast metrics は JSON / CSV として保存できる
+- Screening Score では forecast agreement を補助的な score / reason として確認できる
 - provider の UI 既定値は `yahoo`
 - symbol は `Symbol search` と `Symbol` プルダウンで指定し、国内・米国の代表候補を ticker / company name の部分一致で検索して選択できる
 - `Symbol search` に入力がある場合は、代表候補に加えて yfinance `Search` の候補も補助的に表示する

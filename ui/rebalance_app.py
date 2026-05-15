@@ -483,7 +483,20 @@ async def build_market_data_preview(
             adapter,
             cfg=settings.feature_builder,
         ).build_feature_snapshot([symbol], end)
-        screening_scores = ScreeningService().score(feature_snapshot)
+        forecast_evaluations = _available_forecast_evaluations(
+            bars,
+            horizon_days=forecast_horizon_days,
+        )
+        forecast_consensus = summarize_forecast_evaluations(forecast_evaluations)
+        forecast_consensus_by_symbol = (
+            {forecast_consensus.symbol: forecast_consensus}
+            if forecast_consensus is not None
+            else {}
+        )
+        screening_scores = ScreeningService().score(
+            feature_snapshot,
+            forecast_consensus_by_symbol=forecast_consensus_by_symbol,
+        )
     except AppError as exc:
         return MarketDataPreview(
             status="ERROR",
@@ -527,12 +540,7 @@ async def build_market_data_preview(
             bars,
             horizon_days=forecast_horizon_days,
         ),
-        forecast_metric_rows=forecast_metric_rows(
-            _available_forecast_evaluations(
-                bars,
-                horizon_days=forecast_horizon_days,
-            )
-        ),
+        forecast_metric_rows=forecast_metric_rows(forecast_evaluations),
         fx_rows=[
             {
                 "pair": rate.pair,
@@ -777,8 +785,11 @@ def screening_score_rows(scores: list[ScreeningScore]) -> list[dict[str, str]]:
             "liquidity_score": _format_decimal(score.liquidity_score),
             "risk_score": _format_decimal(score.risk_score),
             "data_quality_score": _format_decimal(score.data_quality_score),
+            "forecast_score": _format_decimal(score.forecast_score),
+            "forecast_agreement": score.forecast_agreement,
             "data_quality": score.data_quality,
             "summary": score.summary,
+            "forecast_reason": score.forecast_reason,
             "reason_labels": _quality_reasons(score.reason_labels),
             "reasons": _quality_reasons(score.reasons),
         }
@@ -805,8 +816,11 @@ def screening_score_csv_download(rows: list[dict[str, str]]) -> str:
             "liquidity_score",
             "risk_score",
             "data_quality_score",
+            "forecast_score",
+            "forecast_agreement",
             "data_quality",
             "summary",
+            "forecast_reason",
             "reason_labels",
             "reasons",
         ],

@@ -363,13 +363,13 @@ Scope:
 - Done: model registry lite を追加する
 - horizon、入力特徴量、出力形式を揃える
 - Done: ensemble を計算する
-- forecast summary を scoring に接続する
+- Done: forecast summary を screening score に接続する
 
 完了条件:
 
 - Done: model ごとの予測結果を比較できる
 - Done: model 間で意見が割れている銘柄を見つけられる
-- forecast summary が investment score に利用できる
+- Done: forecast summary が investment score に利用できる
 
 - Done: UI 上で model comparison、agreement / disagreement、forecast summary を確認できる
 - live data を入力にした場合も、model 別の出力差分を UI で確認できる

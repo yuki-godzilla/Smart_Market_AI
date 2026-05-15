@@ -160,3 +160,4 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Forecast Model Registry Lite を追加し、API / UI の forecast model 選択と表示ラベルを registry 経由に寄せた。
 - Streamlit Market Data tab の各結果 section で、見出しとは別に評価中の symbol / 銘柄名を小さく表示するようにした。
 - Forecast Summary に複数 baseline model の平均予測である ensemble forecast を追加した。
+- Forecast Summary の model agreement を Screening Score の forecast_score / forecast_reason として接続し、Phase 14 の scoring 接続を完了扱いにした。

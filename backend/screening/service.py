@@ -3,6 +3,7 @@ from decimal import Decimal, InvalidOperation
 from pydantic import Field
 
 from backend.core.data_contracts import DailySnapshot, FeatureSnapshot, StrictBaseModel
+from backend.forecast import ForecastConsensus
 
 
 class ScreeningScore(StrictBaseModel):
@@ -15,8 +16,11 @@ class ScreeningScore(StrictBaseModel):
     liquidity_score: Decimal = Field(ge=0, le=100)
     risk_score: Decimal = Field(ge=0, le=100)
     data_quality_score: Decimal = Field(ge=0, le=100)
+    forecast_score: Decimal = Field(default=Decimal("50"), ge=0, le=100)
+    forecast_agreement: str = ""
     data_quality: str
     summary: str = ""
+    forecast_reason: str = ""
     reason_labels: list[str] = Field(default_factory=list)
     reasons: list[str] = Field(default_factory=list)
 
@@ -24,26 +28,36 @@ class ScreeningScore(StrictBaseModel):
 class ScreeningService:
     """Rank symbols using Feature Store Lite snapshots."""
 
-    def score(self, snapshot: FeatureSnapshot) -> list[ScreeningScore]:
+    def score(
+        self,
+        snapshot: FeatureSnapshot,
+        *,
+        forecast_consensus_by_symbol: dict[str, ForecastConsensus] | None = None,
+    ) -> list[ScreeningScore]:
         """Return ranked screening scores for a feature snapshot."""
 
-        scored = [_score_row(row) for row in snapshot.rows]
+        forecasts = forecast_consensus_by_symbol or {}
+        scored = [_score_row(row, forecast=forecasts.get(row.symbol)) for row in snapshot.rows]
         ranked = sorted(scored, key=lambda row: (-row.total_score, row.symbol))
         return [row.model_copy(update={"rank": rank}) for rank, row in enumerate(ranked, start=1)]
 
 
-def _score_row(row: DailySnapshot) -> ScreeningScore:
+def _score_row(row: DailySnapshot, *, forecast: ForecastConsensus | None = None) -> ScreeningScore:
     momentum_score = _momentum_score(row)
     liquidity_score = _liquidity_score(row)
     risk_score = _risk_score(row)
     data_quality_score = _data_quality_score(row)
+    forecast_score = _forecast_score(forecast)
     total_score = _weighted_score(
         momentum_score=momentum_score,
         liquidity_score=liquidity_score,
         risk_score=risk_score,
         data_quality_score=data_quality_score,
+        forecast_score=forecast_score if forecast is not None else None,
     )
     reasons = _score_reasons(row)
+    if forecast is not None:
+        reasons.append(f"forecast_agreement:{forecast.agreement.lower()}")
     return ScreeningScore(
         rank=1,
         symbol=row.symbol,
@@ -52,8 +66,11 @@ def _score_row(row: DailySnapshot) -> ScreeningScore:
         liquidity_score=liquidity_score,
         risk_score=risk_score,
         data_quality_score=data_quality_score,
+        forecast_score=forecast_score,
+        forecast_agreement=forecast.agreement if forecast is not None else "",
         data_quality=row.data_quality,
         summary=_score_summary(row, total_score),
+        forecast_reason=_forecast_reason(forecast),
         reason_labels=[_reason_label(reason) for reason in reasons],
         reasons=reasons,
     )
@@ -85,19 +102,41 @@ def _data_quality_score(row: DailySnapshot) -> Decimal:
     return Decimal("0")
 
 
+def _forecast_score(forecast: ForecastConsensus | None) -> Decimal:
+    if forecast is None:
+        return Decimal("50")
+    scores = {
+        "HIGH": Decimal("90"),
+        "MEDIUM": Decimal("70"),
+        "LOW": Decimal("45"),
+        "UNKNOWN": Decimal("50"),
+    }
+    return scores.get(forecast.agreement, Decimal("50"))
+
+
 def _weighted_score(
     *,
     momentum_score: Decimal,
     liquidity_score: Decimal,
     risk_score: Decimal,
     data_quality_score: Decimal,
+    forecast_score: Decimal | None = None,
 ) -> Decimal:
-    score = (
-        (momentum_score * Decimal("0.30"))
-        + (liquidity_score * Decimal("0.25"))
-        + (risk_score * Decimal("0.25"))
-        + (data_quality_score * Decimal("0.20"))
-    )
+    if forecast_score is None:
+        score = (
+            (momentum_score * Decimal("0.30"))
+            + (liquidity_score * Decimal("0.25"))
+            + (risk_score * Decimal("0.25"))
+            + (data_quality_score * Decimal("0.20"))
+        )
+    else:
+        score = (
+            (momentum_score * Decimal("0.25"))
+            + (liquidity_score * Decimal("0.20"))
+            + (risk_score * Decimal("0.20"))
+            + (data_quality_score * Decimal("0.20"))
+            + (forecast_score * Decimal("0.15"))
+        )
     return _round_score(score)
 
 
@@ -128,6 +167,18 @@ def _score_summary(row: DailySnapshot, total_score: Decimal) -> str:
     )
 
 
+def _forecast_reason(forecast: ForecastConsensus | None) -> str:
+    if forecast is None:
+        return ""
+    labels = {
+        "HIGH": "予測モデル同士の見方は近く、予測のばらつきは小さめです。",
+        "MEDIUM": "予測モデル同士の見方には少し差があります。",
+        "LOW": "予測モデル同士の見方が割れているため、予測は慎重に確認してください。",
+        "UNKNOWN": "予測モデルが少ないため、一致度はまだ判定しにくい状態です。",
+    }
+    return labels.get(forecast.agreement, "予測モデルの一致度を確認してください。")
+
+
 def _reason_label(reason: str) -> str:
     static_labels = {
         "neutral_momentum:missing": "5日分の値動きデータが足りないため、勢いは中立評価です。",
@@ -137,6 +188,10 @@ def _reason_label(reason: str) -> str:
         "missing:drawdown_20d": "最大下落率を計算するための履歴データが足りません。",
         "missing:dividend_yield": "配当利回りデータが取得できていません。",
         "missing:market_cap_jpy": "時価総額データが取得できていません。",
+        "forecast_agreement:high": "予測モデル同士の見方は近い状態です。",
+        "forecast_agreement:medium": "予測モデル同士の見方には少し差があります。",
+        "forecast_agreement:low": "予測モデル同士の見方が割れています。",
+        "forecast_agreement:unknown": "予測モデルが少ないため、一致度は未判定です。",
     }
     if reason in static_labels:
         return static_labels[reason]

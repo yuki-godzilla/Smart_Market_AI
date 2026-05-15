@@ -3,6 +3,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 from backend.core.data_contracts import Bar, Symbol
+from backend.screening import ScreeningScore
 from ui.app import (
     _market_data_preview_symbol_label,
     _name_from_candidate,
@@ -23,6 +24,7 @@ from ui.rebalance_app import (
     forecast_metric_csv_download,
     forecast_metric_json_download,
     forecast_reference_period,
+    screening_score_rows,
 )
 
 
@@ -141,6 +143,48 @@ def test_forecast_consensus_rows_and_display_are_beginner_friendly():
             "予測の開き": "2.0288",
             "予測の開き(%)": "1.90%",
             "モデル一致度": "中くらい",
+        }
+    ]
+
+
+def test_screening_score_rows_include_forecast_signal():
+    rows = screening_score_rows(
+        [
+            ScreeningScore(
+                rank=1,
+                symbol="AAPL",
+                total_score=Decimal("84.35"),
+                momentum_score=Decimal("80"),
+                liquidity_score=Decimal("100"),
+                risk_score=Decimal("88"),
+                data_quality_score=Decimal("100"),
+                forecast_score=Decimal("45"),
+                forecast_agreement="LOW",
+                data_quality="OK",
+                summary="AAPL は今回の条件では上位候補です。",
+                forecast_reason="予測モデル同士の見方が割れています。",
+                reason_labels=["予測モデル同士の見方が割れています。"],
+                reasons=["forecast_agreement:low"],
+            )
+        ]
+    )
+
+    assert rows == [
+        {
+            "rank": "1",
+            "symbol": "AAPL",
+            "total_score": "84.35",
+            "momentum_score": "80",
+            "liquidity_score": "100",
+            "risk_score": "88",
+            "data_quality_score": "100",
+            "forecast_score": "45",
+            "forecast_agreement": "LOW",
+            "data_quality": "OK",
+            "summary": "AAPL は今回の条件では上位候補です。",
+            "forecast_reason": "予測モデル同士の見方が割れています。",
+            "reason_labels": "予測モデル同士の見方が割れています。",
+            "reasons": "forecast_agreement:low",
         }
     ]
 

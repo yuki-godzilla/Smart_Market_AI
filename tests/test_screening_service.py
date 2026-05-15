@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 from backend.core.data_contracts import DailySnapshot, FeatureSnapshot
+from backend.forecast import ForecastConsensus
 from backend.screening import ScreeningService
 
 
@@ -63,3 +64,47 @@ def test_screening_service_uses_neutral_momentum_when_missing():
     assert scores[0].momentum_score == Decimal("50.00")
     assert scores[0].reason_labels[0] == ("5日分の値動きデータが足りないため、勢いは中立評価です。")
     assert "neutral_momentum:missing" in scores[0].reasons
+
+
+def test_screening_service_can_include_forecast_consensus_signal():
+    snapshot = FeatureSnapshot(
+        as_of=date(2026, 5, 10),
+        provider="mock",
+        rows=[
+            DailySnapshot(
+                symbol="AAPL",
+                as_of=date(2026, 5, 10),
+                momentum_5d=Decimal("0.03"),
+                adv_20d=Decimal("12000000000"),
+                vol_20d=Decimal("0.10"),
+                drawdown_20d=Decimal("0.01"),
+                data_quality="OK",
+            )
+        ],
+    )
+    forecast = ForecastConsensus(
+        symbol="AAPL",
+        horizon_days=5,
+        model_count=3,
+        ensemble_forecast_close=Decimal("108"),
+        median_forecast_close=Decimal("107"),
+        min_forecast_close=Decimal("100"),
+        max_forecast_close=Decimal("116"),
+        forecast_range=Decimal("16"),
+        forecast_range_pct=Decimal("0.1495"),
+        agreement="LOW",
+    )
+
+    scores = ScreeningService().score(
+        snapshot,
+        forecast_consensus_by_symbol={"AAPL": forecast},
+    )
+
+    assert scores[0].forecast_score == Decimal("45")
+    assert scores[0].forecast_agreement == "LOW"
+    assert scores[0].forecast_reason == (
+        "予測モデル同士の見方が割れているため、予測は慎重に確認してください。"
+    )
+    assert scores[0].total_score == Decimal("84.35")
+    assert "予測モデル同士の見方が割れています。" in scores[0].reason_labels
+    assert "forecast_agreement:low" in scores[0].reasons

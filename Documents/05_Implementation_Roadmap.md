@@ -354,6 +354,8 @@ Scope:
 
 ### Phase 14: Multi-Model Forecasting
 
+Status: implementation complete; live-provider confirmation remains environment-dependent
+
 目的: 複数モデルの予測結果を並べ、合意度と不確実性を扱えるようにする。
 
 Scope:
@@ -361,7 +363,7 @@ Scope:
 - Done: model 別 forecast から median forecast と予測レンジを計算する
 - Done: model agreement / disagreement の最小判定を UI で確認できるようにする
 - Done: model registry lite を追加する
-- horizon、入力特徴量、出力形式を揃える
+- Done: horizon、入力時系列、出力形式を baseline model 間で揃える
 - Done: ensemble を計算する
 - Done: forecast summary を screening score に接続する
 
@@ -376,14 +378,22 @@ Scope:
 
 ### Phase 15: Model-Informed Scoring
 
+Status: next implementation phase
+
 目的: screening、forecast、risk、data quality を統合した投資判断補助スコアを作る。
 
 Scope:
 
-- investment score contract を定義する
+- Next: investment score contract を定義する
 - score breakdown に加点・減点理由を含める
 - forecast confidence と model disagreement を score に反映する
 - YAML で score weight を調整できるようにする
+
+最初の実装スライス:
+
+- `backend/scoring` を追加し、screening score と forecast agreement signal を受け取る `InvestmentScore` contract を定義する
+- 既存 `ScreeningScore` の互換性を保ち、Phase 15 の総合 score は別 contract として開始する
+- deterministic tests で、data quality warning と model disagreement が理由に出ることを確認する
 
 完了条件:
 

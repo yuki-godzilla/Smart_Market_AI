@@ -161,3 +161,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Streamlit Market Data tab の各結果 section で、見出しとは別に評価中の symbol / 銘柄名を小さく表示するようにした。
 - Forecast Summary に複数 baseline model の平均予測である ensemble forecast を追加した。
 - Forecast Summary の model agreement を Screening Score の forecast_score / forecast_reason として接続し、Phase 14 の scoring 接続を完了扱いにした。
+
+## 2026-05-16
+
+- Phase 14 を implementation complete として整理し、Phase 15 の最初の実装スライスを `backend/scoring` の Investment Score contract と deterministic tests に定義した。

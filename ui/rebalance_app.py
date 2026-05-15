@@ -685,6 +685,7 @@ def forecast_consensus_rows_for_bars(
             "symbol": consensus.symbol,
             "horizon_days": str(consensus.horizon_days),
             "model_count": str(consensus.model_count),
+            "ensemble_forecast_close": _format_decimal(consensus.ensemble_forecast_close),
             "median_forecast_close": _format_decimal(consensus.median_forecast_close),
             "min_forecast_close": _format_decimal(consensus.min_forecast_close),
             "max_forecast_close": _format_decimal(consensus.max_forecast_close),

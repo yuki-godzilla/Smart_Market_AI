@@ -1,8 +1,10 @@
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from types import SimpleNamespace
 
 from backend.core.data_contracts import Bar, Symbol
 from ui.app import (
+    _market_data_preview_symbol_label,
     _name_from_candidate,
     _render_market_chart,
     _symbol_from_candidate,
@@ -42,6 +44,32 @@ def test_symbol_from_candidate_extracts_ticker_or_custom():
 def test_name_from_candidate_extracts_display_name():
     assert _name_from_candidate("9983.T - Fast Retailing") == "Fast Retailing"
     assert _name_from_candidate("AAPL") is None
+
+
+def test_market_data_preview_symbol_label_uses_symbol_and_known_name():
+    preview = SimpleNamespace(
+        bars=[
+            _bar("2026-05-10", symbol="9983.T"),
+        ],
+        screening_rows=[],
+        ohlcv_rows=[],
+        quote_rows=[],
+        feature_rows=[],
+    )
+
+    assert _market_data_preview_symbol_label(preview) == "9983.T - Fast Retailing"
+
+
+def test_market_data_preview_symbol_label_falls_back_to_rows():
+    preview = SimpleNamespace(
+        bars=[],
+        screening_rows=[{"symbol": "CUSTOM"}],
+        ohlcv_rows=[],
+        quote_rows=[],
+        feature_rows=[],
+    )
+
+    assert _market_data_preview_symbol_label(preview) == "CUSTOM"
 
 
 def test_merged_symbol_candidate_rows_deduplicates_representative_first():
@@ -92,6 +120,7 @@ def test_forecast_consensus_rows_and_display_are_beginner_friendly():
             "symbol": "AAPL",
             "horizon_days": "1",
             "model_count": "3",
+            "ensemble_forecast_close": "107.0096",
             "median_forecast_close": "107",
             "min_forecast_close": "106",
             "max_forecast_close": "108.0288",
@@ -105,6 +134,7 @@ def test_forecast_consensus_rows_and_display_are_beginner_friendly():
             "銘柄": "AAPL",
             "予測日数": "1",
             "モデル数": "3",
+            "平均予測": "107.0096",
             "中央値予測": "107",
             "予測下限": "106",
             "予測上限": "108.0288",
@@ -169,10 +199,12 @@ def test_render_market_chart_uses_currency_axis_title_and_compact_width(monkeypa
             },
         ],
         currency="USD",
+        title="Price and forecast",
     )
 
     spec = captured["spec"]
     chart_spec = spec["hconcat"][0]  # type: ignore[index]
+    assert spec["title"] == "Price and forecast"
     assert chart_spec["width"] == 1400
     assert chart_spec["layer"][0]["encoding"]["y"]["title"] == "終値 (USD)"
     assert captured["use_container_width"] is True
@@ -270,9 +302,9 @@ def test_forecast_metric_downloads_are_stable_json_and_csv():
     )
 
 
-def _bar(ts: str, *, close: int = 100) -> Bar:
+def _bar(ts: str, *, close: int = 100, symbol: str = "AAPL") -> Bar:
     return Bar(
-        symbol=Symbol(raw="AAPL", exchange="NASDAQ", code="AAPL", currency="USD"),
+        symbol=Symbol(raw=symbol, exchange="NASDAQ", code=symbol, currency="USD"),
         ts=datetime.fromisoformat(f"{ts}T00:00:00+00:00").astimezone(UTC),
         open=Decimal(str(close)),
         high=Decimal(str(close)),

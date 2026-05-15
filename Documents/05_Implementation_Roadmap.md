@@ -362,7 +362,7 @@ Scope:
 - Done: model agreement / disagreement の最小判定を UI で確認できるようにする
 - Done: model registry lite を追加する
 - horizon、入力特徴量、出力形式を揃える
-- ensemble を計算する
+- Done: ensemble を計算する
 - forecast summary を scoring に接続する
 
 完了条件:

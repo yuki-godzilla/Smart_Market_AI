@@ -76,6 +76,7 @@ def test_summarize_forecast_evaluations_returns_model_agreement():
     assert consensus.symbol == "AAPL"
     assert consensus.horizon_days == 1
     assert consensus.model_count == 3
+    assert consensus.ensemble_forecast_close == Decimal("107.6838")
     assert consensus.median_forecast_close == Decimal("108.0000")
     assert consensus.min_forecast_close == Decimal("105.6667")
     assert consensus.max_forecast_close == Decimal("109.3846")

@@ -49,6 +49,7 @@ class ForecastConsensus(StrictBaseModel):
     symbol: str = Field(min_length=1)
     horizon_days: int = Field(ge=1)
     model_count: int = Field(ge=0)
+    ensemble_forecast_close: Decimal = Field(ge=0)
     median_forecast_close: Decimal = Field(ge=0)
     min_forecast_close: Decimal = Field(ge=0)
     max_forecast_close: Decimal = Field(ge=0)
@@ -165,6 +166,7 @@ def summarize_forecast_evaluations(
 
     forecasts = sorted(evaluation.latest_forecast.forecast_close for evaluation in evaluations)
     model_count = len(forecasts)
+    ensemble = _mean_price(forecasts)
     median = _median(forecasts)
     lowest = forecasts[0]
     highest = forecasts[-1]
@@ -179,6 +181,7 @@ def summarize_forecast_evaluations(
         symbol=first.symbol,
         horizon_days=first.horizon_days,
         model_count=model_count,
+        ensemble_forecast_close=_round_price(ensemble),
         median_forecast_close=_round_price(median),
         min_forecast_close=_round_price(lowest),
         max_forecast_close=_round_price(highest),
@@ -237,6 +240,12 @@ def _mean(values: list[Decimal]) -> Decimal:
     if not values:
         return Decimal("0")
     return _round_metric(sum(values, Decimal("0")) / Decimal(len(values)))
+
+
+def _mean_price(values: list[Decimal]) -> Decimal:
+    if not values:
+        return Decimal("0")
+    return sum(values, Decimal("0")) / Decimal(len(values))
 
 
 def _median(values: list[Decimal]) -> Decimal:

@@ -358,9 +358,11 @@ def _market_data_preview_from_state() -> MarketDataPreview | None:
 
 
 def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
+    symbol_label = _market_data_preview_symbol_label(preview)
     title_col, horizon_col = st.columns([4.0, 1.0])
     with title_col:
         st.subheader("Price And Forecast")
+        _render_target_symbol_caption(symbol_label)
     with horizon_col:
         forecast_horizon_days = cast(
             int,
@@ -395,10 +397,16 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         else:
             st.caption(message)
     chart_currency = preview.bars[0].symbol.currency if preview.bars else ""
-    _render_market_chart(forecast_rows, currency=chart_currency)
+    _render_market_chart(
+        forecast_rows,
+        currency=chart_currency,
+        title="Price and forecast",
+    )
     st.subheader("Forecast Summary")
+    _render_target_symbol_caption(symbol_label)
     _render_table(forecast_consensus_display_rows(consensus_rows), "No forecast summary.")
     st.subheader("Forecast Metrics")
+    _render_target_symbol_caption(symbol_label)
     _render_table(forecast_metric_display_rows(metric_rows), "No forecast metrics.")
     if metric_rows:
         col_json, col_csv = st.columns(2)
@@ -416,6 +424,7 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         )
 
     st.subheader("Screening Score")
+    _render_target_symbol_caption(symbol_label)
     _render_table(preview.screening_rows, "No screening score rows.")
     if preview.screening_rows:
         col_json, col_csv = st.columns(2)
@@ -434,12 +443,15 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
 
     with st.expander("Provider / Quote / OHLCV"):
         st.subheader("Provider")
+        _render_target_symbol_caption(symbol_label)
         _render_table(preview.provider_rows, "No provider metadata.")
 
         st.subheader("Quote")
+        _render_target_symbol_caption(symbol_label)
         _render_table(preview.quote_rows, "No quote rows.")
 
         st.subheader("OHLCV Summary")
+        _render_target_symbol_caption(symbol_label)
         _render_table(preview.ohlcv_rows, "No OHLCV rows.")
 
     with st.expander("FX / Feature Snapshot"):
@@ -447,6 +459,7 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         _render_table(preview.fx_rows, "No FX rows.")
 
         st.subheader("Feature Snapshot")
+        _render_target_symbol_caption(symbol_label)
         _render_table(preview.feature_rows, "No feature snapshot rows.")
 
     if preview.error_rows:
@@ -585,7 +598,12 @@ def _render_table(rows: list[dict[str, str]], empty_message: str) -> None:
         st.info(empty_message)
 
 
-def _render_market_chart(rows: list[dict[str, str]], *, currency: str = "") -> None:
+def _render_market_chart(
+    rows: list[dict[str, str]],
+    *,
+    currency: str = "",
+    title: str = "",
+) -> None:
     if not rows:
         st.info("No chart rows.")
         return
@@ -694,6 +712,7 @@ def _render_market_chart(rows: list[dict[str, str]], *, currency: str = "") -> N
             tickColor="#3b4556",
         )
         .configure_title(color="#e5edf7", fontSize=13, anchor="start", offset=8)
+        .properties(title=title or None)
     )
     st.altair_chart(
         combined_chart,
@@ -762,6 +781,7 @@ def forecast_consensus_display_rows(rows: list[dict[str, str]]) -> list[dict[str
             "銘柄": row.get("symbol", ""),
             "予測日数": row.get("horizon_days", ""),
             "モデル数": row.get("model_count", ""),
+            "平均予測": row.get("ensemble_forecast_close", ""),
             "中央値予測": row.get("median_forecast_close", ""),
             "予測下限": row.get("min_forecast_close", ""),
             "予測上限": row.get("max_forecast_close", ""),
@@ -836,6 +856,36 @@ def _metadata_value(rows: list[dict[str, str]], field: str) -> str:
         if row.get("field") == field:
             return row.get("value", "")
     return ""
+
+
+def _market_data_preview_symbol_label(preview: MarketDataPreview) -> str:
+    symbol = _market_data_preview_symbol(preview)
+    if not symbol:
+        return "selected symbol"
+    name = symbol_name(symbol)
+    if name:
+        return f"{symbol} - {name}"
+    return symbol
+
+
+def _market_data_preview_symbol(preview: MarketDataPreview) -> str:
+    if preview.bars:
+        return preview.bars[0].symbol.raw
+    for rows in (
+        preview.screening_rows,
+        preview.ohlcv_rows,
+        preview.quote_rows,
+        preview.feature_rows,
+    ):
+        for row in rows:
+            symbol = row.get("symbol", "").strip()
+            if symbol:
+                return symbol
+    return ""
+
+
+def _render_target_symbol_caption(symbol_label: str) -> None:
+    st.caption(f"対象: {symbol_label}")
 
 
 if __name__ == "__main__":

@@ -298,7 +298,7 @@ Streamlit UI を起動します。
 
 UI で確認できる主な内容:
 
-- Market Data tab での forecast chart / metrics、screening score、provider metadata、quote、OHLCV summary、FX、feature snapshot、error details
+- Market Data tab での forecast chart / metrics、investment score、screening score、provider metadata、quote、OHLCV summary、FX、feature snapshot、error details
 - Market Data tab では、取得後の chart 付近にある `Forecast days` で 1〜30 日先の forecast horizon を選択
 - `Forecast days` の初期値は表示期間から自動設定され、変更時は取得済みデータから chart / metrics だけを再計算
 - forecast model の参照期間は取得期間と forecast horizon から自動計算され、UI には `自動計算された参照期間` として表示
@@ -306,6 +306,8 @@ UI で確認できる主な内容:
 - forecast chart では実績価格とモデル別予測線を分け、将来予測の開始位置を確認
 - Forecast Summary では ensemble、median forecast、予測レンジ、model agreement / disagreement を確認できる
 - forecast metrics は JSON / CSV として保存できる
+- Investment Score では screening score、forecast agreement、data quality を統合した総合 score と注意点を、横長テーブルではなくメトリクス表示で確認できる
+- Investment Score は売買推奨ではなく、判断材料を整理するための補助表示です
 - Screening Score では forecast agreement を補助的な score / reason として確認できる
 - provider の UI 既定値は `yahoo`
 - symbol は `Symbol search` と `Symbol` プルダウンで指定し、国内・米国の代表候補を ticker / company name の部分一致で検索して選択できる
@@ -342,7 +344,8 @@ $env:SMAI_REBALANCE_SCENARIO_DIR = ".\my_rebalance_scenarios"
 指定パスが存在しない、またはディレクトリでない場合は、UI に scenario load error が表示されます。
 
 MVP export は JSON、CSV、Markdown、manifest、ZIP までです。
-Market Data tab の forecast metrics と screening score は、それぞれ JSON / CSV として保存できます。
+Market Data tab の forecast metrics、investment score、screening score は、それぞれ JSON / CSV として保存できます。
+Rebalance の allocation comparison は current / target / drift を percentage 表示で確認できます。
 PDF / Excel は将来の reporting 拡張で扱います。
 
 ## 7. 外部 MarketData provider 準備

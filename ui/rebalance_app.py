@@ -29,6 +29,7 @@ from backend.marketdata.live_provider_adapters import live_provider_adapter_deta
 from backend.marketdata.provider_registry import provider_capability_details
 from backend.portfolio.service import RebalanceProposal
 from backend.portfolio.workflow import PortfolioRiskResult
+from backend.scoring import InvestmentScore, InvestmentScoringService
 from backend.screening import ScreeningScore, ScreeningService
 
 DEFAULT_ACCOUNT_ID = "acct-1"
@@ -299,6 +300,7 @@ class MarketDataPreview:
     forecast_metric_rows: list[dict[str, str]]
     fx_rows: list[dict[str, str]]
     feature_rows: list[dict[str, str]]
+    investment_score_rows: list[dict[str, str]]
     screening_rows: list[dict[str, str]]
     error_rows: list[dict[str, str]]
 
@@ -497,6 +499,10 @@ async def build_market_data_preview(
             feature_snapshot,
             forecast_consensus_by_symbol=forecast_consensus_by_symbol,
         )
+        investment_scores = InvestmentScoringService().score(
+            screening_scores,
+            forecast_consensus_by_symbol=forecast_consensus_by_symbol,
+        )
     except AppError as exc:
         return MarketDataPreview(
             status="ERROR",
@@ -509,6 +515,7 @@ async def build_market_data_preview(
             forecast_metric_rows=[],
             fx_rows=[],
             feature_rows=[],
+            investment_score_rows=[],
             screening_rows=[],
             error_rows=[
                 {
@@ -551,6 +558,7 @@ async def build_market_data_preview(
             for rate in fx_rates
         ],
         feature_rows=feature_snapshot_rows(feature_snapshot),
+        investment_score_rows=investment_score_rows(investment_scores),
         screening_rows=screening_score_rows(screening_scores),
         error_rows=[],
     )
@@ -797,6 +805,60 @@ def screening_score_rows(scores: list[ScreeningScore]) -> list[dict[str, str]]:
     ]
 
 
+def investment_score_rows(scores: list[InvestmentScore]) -> list[dict[str, str]]:
+    """Return Investment Score rows for UI display."""
+
+    return [
+        {
+            "rank": str(score.rank),
+            "symbol": score.symbol,
+            "total_score": _format_decimal(score.total_score),
+            "score_band": score.score_band,
+            "screening_score": _format_decimal(score.screening_score),
+            "forecast_agreement_score": _format_decimal(score.forecast_agreement_score),
+            "data_quality_score": _format_decimal(score.data_quality_score),
+            "risk_signal_score": _format_optional_decimal(score.risk_signal_score),
+            "forecast_agreement": score.forecast_agreement,
+            "data_quality": score.data_quality,
+            "breakdown": _investment_breakdown_text(score),
+            "warnings": _quality_reasons(score.warnings),
+            "reasons": _quality_reasons(score.reasons),
+            "note": "売買推奨ではなく、判断材料を整理したスコアです。",
+        }
+        for score in scores
+    ]
+
+
+def investment_score_json_download(rows: list[dict[str, str]]) -> str:
+    """Return Investment Score rows as stable JSON text."""
+
+    return json.dumps(rows, ensure_ascii=False, indent=2) + "\n"
+
+
+def investment_score_csv_download(rows: list[dict[str, str]]) -> str:
+    """Return Investment Score rows as CSV text."""
+
+    return table_csv_download(
+        rows,
+        fieldnames=[
+            "rank",
+            "symbol",
+            "total_score",
+            "score_band",
+            "screening_score",
+            "forecast_agreement_score",
+            "data_quality_score",
+            "risk_signal_score",
+            "forecast_agreement",
+            "data_quality",
+            "breakdown",
+            "warnings",
+            "reasons",
+            "note",
+        ],
+    )
+
+
 def screening_score_json_download(rows: list[dict[str, str]]) -> str:
     """Return screening score rows as stable JSON text."""
 
@@ -917,9 +979,9 @@ def allocation_comparison_rows(proposal: RebalanceProposal) -> list[dict[str, st
         rows.append(
             {
                 "symbol": symbol_display_name(symbol),
-                "current_weight": _format_decimal(current_weight),
-                "target_weight": _format_decimal(target_weight),
-                "drift": _format_decimal(target_weight - current_weight),
+                "current_weight": _format_percent(current_weight),
+                "target_weight": _format_percent(target_weight),
+                "drift": _format_percent(target_weight - current_weight),
             }
         )
     return rows
@@ -1269,6 +1331,10 @@ def _format_optional_decimal(value: Decimal | None) -> str:
 def _format_optional_percent(value: Decimal | None) -> str:
     if value is None:
         return ""
+    return _format_percent(value)
+
+
+def _format_percent(value: Decimal) -> str:
     return f"{(value * Decimal('100')).quantize(Decimal('0.01'))}%"
 
 
@@ -1295,6 +1361,17 @@ def _quality_reasons(reasons: list[str]) -> str:
     if not reasons:
         return ""
     return ", ".join(reasons)
+
+
+def _investment_breakdown_text(score: InvestmentScore) -> str:
+    return "; ".join(
+        (
+            f"{component.component}: "
+            f"{_format_decimal(component.input_score)} x {_format_decimal(component.weight)} "
+            f"= {_format_decimal(component.contribution)}"
+        )
+        for component in score.breakdown
+    )
 
 
 def _available_forecast_evaluations(

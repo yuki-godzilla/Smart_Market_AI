@@ -26,6 +26,8 @@ from ui.rebalance_app import (
     forecast_metric_rows_for_bars,
     forecast_reference_period,
     get_rebalance_sample,
+    investment_score_csv_download,
+    investment_score_json_download,
     rebalance_sample_names,
     request_json_download,
     result_json_download,
@@ -423,6 +425,8 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
             mime="text/csv",
         )
 
+    _render_investment_score_section(preview, symbol_label)
+
     st.subheader("Screening Score")
     _render_target_symbol_caption(symbol_label)
     _render_table(preview.screening_rows, "No screening score rows.")
@@ -596,6 +600,46 @@ def _render_table(rows: list[dict[str, str]], empty_message: str) -> None:
         st.dataframe(rows, hide_index=True, use_container_width=True)
     else:
         st.info(empty_message)
+
+
+def _render_investment_score_section(preview: MarketDataPreview, symbol_label: str) -> None:
+    st.subheader("Investment Score")
+    _render_target_symbol_caption(symbol_label)
+    rows = investment_score_display_rows(preview.investment_score_rows)
+    if not rows:
+        st.info("No investment score rows.")
+        return
+
+    row = rows[0]
+    score_col, band_col, forecast_col, quality_col = st.columns(4)
+    score_col.metric("総合スコア", row.get("総合スコア", ""))
+    band_col.metric("見方", row.get("見方", ""))
+    forecast_col.metric("予測一致", row.get("予測一致", ""))
+    quality_col.metric("データ品質", row.get("データ品質", ""))
+
+    warning = row.get("注意点", "")
+    if warning:
+        st.warning(warning)
+    else:
+        st.info("大きな注意点はありません。スコアの内訳も確認してください。")
+    st.caption(row.get("補足", ""))
+
+    with st.expander("Investment Score details"):
+        _render_table(rows, "No investment score rows.")
+
+    col_json, col_csv = st.columns(2)
+    col_json.download_button(
+        "Download investment score JSON",
+        data=investment_score_json_download(preview.investment_score_rows),
+        file_name="investment_score.json",
+        mime="application/json",
+    )
+    col_csv.download_button(
+        "Download investment score CSV",
+        data=investment_score_csv_download(preview.investment_score_rows),
+        file_name="investment_score.csv",
+        mime="text/csv",
+    )
 
 
 def _render_market_chart(
@@ -793,6 +837,24 @@ def forecast_consensus_display_rows(rows: list[dict[str, str]]) -> list[dict[str
     ]
 
 
+def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    return [
+        {
+            "順位": row.get("rank", ""),
+            "銘柄": row.get("symbol", ""),
+            "総合スコア": row.get("total_score", ""),
+            "見方": _investment_score_band_label(row.get("score_band", "")),
+            "Screening": row.get("screening_score", ""),
+            "予測一致": row.get("forecast_agreement_score", ""),
+            "データ品質": row.get("data_quality_score", ""),
+            "Risk": row.get("risk_signal_score", "") or "未接続",
+            "注意点": _investment_warning_label(row.get("warnings", "")),
+            "補足": row.get("note", ""),
+        }
+        for row in rows
+    ]
+
+
 def forecast_metric_summary(rows: list[dict[str, str]]) -> list[str]:
     candidates: list[tuple[Decimal, dict[str, str]]] = []
     for row in rows:
@@ -835,6 +897,28 @@ def _forecast_agreement_label(value: str) -> str:
     return labels.get(value, value)
 
 
+def _investment_score_band_label(value: str) -> str:
+    labels = {
+        "STRONG": "強め",
+        "BALANCED": "バランス型",
+        "CAUTION": "注意して確認",
+        "REVIEW": "要確認",
+    }
+    return labels.get(value, value)
+
+
+def _investment_warning_label(value: str) -> str:
+    if not value:
+        return ""
+    labels = {
+        "data_quality:warn": "データ品質に注意",
+        "data_quality:block": "データ不足が大きい",
+        "model_disagreement:high": "モデルの見方が割れています",
+        "model_count:insufficient": "予測モデル数が少なめです",
+    }
+    return ", ".join(labels.get(item.strip(), item.strip()) for item in value.split(","))
+
+
 def _optional_decimal_from_text(value: str) -> Decimal | None:
     if not value:
         return None
@@ -872,6 +956,7 @@ def _market_data_preview_symbol(preview: MarketDataPreview) -> str:
     if preview.bars:
         return preview.bars[0].symbol.raw
     for rows in (
+        getattr(preview, "investment_score_rows", []),
         preview.screening_rows,
         preview.ohlcv_rows,
         preview.quote_rows,

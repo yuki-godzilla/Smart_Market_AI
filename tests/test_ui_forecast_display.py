@@ -15,6 +15,7 @@ from ui.app import (
     forecast_consensus_display_rows,
     forecast_metric_display_rows,
     forecast_metric_summary,
+    investment_score_display_rows,
     market_chart_long_frame,
     merged_symbol_candidate_rows,
     symbol_candidate_labels,
@@ -143,6 +144,38 @@ def test_forecast_consensus_rows_and_display_are_beginner_friendly():
             "予測の開き": "2.0288",
             "予測の開き(%)": "1.90%",
             "モデル一致度": "中くらい",
+        }
+    ]
+
+
+def test_investment_score_display_rows_are_beginner_friendly():
+    assert investment_score_display_rows(
+        [
+            {
+                "rank": "1",
+                "symbol": "AAPL",
+                "total_score": "73",
+                "score_band": "BALANCED",
+                "screening_score": "80",
+                "forecast_agreement_score": "40",
+                "data_quality_score": "100",
+                "risk_signal_score": "",
+                "warnings": "model_disagreement:high",
+                "note": "売買推奨ではなく、判断材料を整理したスコアです。",
+            }
+        ]
+    ) == [
+        {
+            "順位": "1",
+            "銘柄": "AAPL",
+            "総合スコア": "73",
+            "見方": "バランス型",
+            "Screening": "80",
+            "予測一致": "40",
+            "データ品質": "100",
+            "Risk": "未接続",
+            "注意点": "モデルの見方が割れています",
+            "補足": "売買推奨ではなく、判断材料を整理したスコアです。",
         }
     ]
 

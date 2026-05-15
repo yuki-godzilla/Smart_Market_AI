@@ -164,6 +164,8 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## 2026-05-16
 
+- Polished the Streamlit UI by changing Investment Score from a wide one-row table into compact metrics with details/downloads, and formatting rebalance allocation weights as percentages.
+- Added Market Data tab Investment Score preview rows and JSON / CSV downloads, using the Phase 15 scoring service while keeping the output framed as decision support rather than buy/sell advice.
 - Added `POST /scoring/investment-score` so the Phase 15 Investment Score contract can be used from FastAPI with deterministic API/OpenAPI tests and operations-guide documentation.
 - Added the first Phase 15 backend slice: `backend/scoring` now defines a deterministic Investment Score contract/service that combines Screening Score, forecast agreement, and data quality, with tests for data quality warnings and model disagreement reasons.
 - Phase 14 を implementation complete として整理し、Phase 15 の最初の実装スライスを `backend/scoring` の Investment Score contract と deterministic tests に定義した。

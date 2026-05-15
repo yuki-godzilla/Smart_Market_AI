@@ -37,6 +37,9 @@ from ui.rebalance_app import (
     feature_snapshot_rows,
     forecast_chart_rows,
     get_rebalance_sample,
+    investment_score_csv_download,
+    investment_score_json_download,
+    investment_score_rows,
     load_rebalance_samples,
     ohlcv_summary_rows,
     price_chart_rows,
@@ -433,6 +436,13 @@ def test_build_market_data_preview_returns_mock_rows(monkeypatch):
     assert preview.screening_rows[0]["symbol"] == "AAPL"
     assert preview.screening_rows[0]["total_score"] != ""
     assert preview.screening_rows[0]["data_quality"] == "WARN"
+    assert len(preview.investment_score_rows) == 1
+    assert preview.investment_score_rows[0]["rank"] == "1"
+    assert preview.investment_score_rows[0]["symbol"] == "AAPL"
+    assert preview.investment_score_rows[0]["total_score"] != ""
+    assert preview.investment_score_rows[0]["note"] == (
+        "売買推奨ではなく、判断材料を整理したスコアです。"
+    )
     assert preview.error_rows == []
 
 
@@ -485,6 +495,7 @@ def test_build_market_data_preview_returns_provider_error(monkeypatch):
     assert preview.forecast_metric_rows == []
     assert preview.fx_rows == []
     assert preview.feature_rows == []
+    assert preview.investment_score_rows == []
     assert preview.screening_rows == []
     assert preview.error_rows[0]["code"] == "APP-2000"
     assert preview.error_rows[0]["message"] == "Live market-data provider requires explicit opt-in"
@@ -513,6 +524,7 @@ def test_build_market_data_preview_returns_yahoo_live_rows(monkeypatch):
     assert preview.forecast_metric_rows[0]["model"] == "naive"
     assert preview.fx_rows[0]["rate"] == "150.12"
     assert preview.feature_rows[0]["provider"] == "yahoo"
+    assert preview.investment_score_rows[0]["total_score"] != ""
     assert preview.screening_rows[0]["total_score"] != ""
     assert preview.error_rows == []
 
@@ -677,6 +689,63 @@ def test_screening_score_rows_formats_score_breakdown():
     ]
 
 
+def test_investment_score_rows_formats_score_breakdown():
+    from backend.scoring import InvestmentScore, InvestmentScoreBreakdown
+
+    rows = investment_score_rows(
+        [
+            InvestmentScore(
+                rank=1,
+                symbol="AAPL",
+                total_score=Decimal("73.00"),
+                score_band="BALANCED",
+                screening_score=Decimal("80"),
+                forecast_agreement_score=Decimal("40"),
+                data_quality_score=Decimal("100"),
+                forecast_agreement="LOW",
+                data_quality="OK",
+                breakdown=[
+                    InvestmentScoreBreakdown(
+                        component="screening",
+                        input_score=Decimal("80"),
+                        weight=Decimal("0.50"),
+                        contribution=Decimal("40"),
+                    ),
+                    InvestmentScoreBreakdown(
+                        component="forecast_agreement",
+                        input_score=Decimal("40"),
+                        weight=Decimal("0.20"),
+                        contribution=Decimal("8"),
+                    ),
+                ],
+                warnings=["model_disagreement:high"],
+                reasons=["forecast_agreement:low", "model_disagreement:high"],
+            )
+        ]
+    )
+
+    assert rows == [
+        {
+            "rank": "1",
+            "symbol": "AAPL",
+            "total_score": "73",
+            "score_band": "BALANCED",
+            "screening_score": "80",
+            "forecast_agreement_score": "40",
+            "data_quality_score": "100",
+            "risk_signal_score": "",
+            "forecast_agreement": "LOW",
+            "data_quality": "OK",
+            "breakdown": (
+                "screening: 80 x 0.5 = 40; forecast_agreement: 40 x 0.2 = 8"
+            ),
+            "warnings": "model_disagreement:high",
+            "reasons": "forecast_agreement:low, model_disagreement:high",
+            "note": "売買推奨ではなく、判断材料を整理したスコアです。",
+        }
+    ]
+
+
 def test_screening_score_downloads_export_ranked_rows():
     rows = [
         {
@@ -705,6 +774,37 @@ def test_screening_score_downloads_export_ranked_rows():
         "1,AAPL,81.23,70,100,90,60,,,WARN,AAPL は中立寄りの候補です。,,"
         "期待する履歴データのうち 60% 程度しかそろっていません。,"
         "partial_data_completeness:0.60\n"
+    )
+
+
+def test_investment_score_downloads_export_ranked_rows():
+    rows = [
+        {
+            "rank": "1",
+            "symbol": "AAPL",
+            "total_score": "73",
+            "score_band": "BALANCED",
+            "screening_score": "80",
+            "forecast_agreement_score": "40",
+            "data_quality_score": "100",
+            "risk_signal_score": "",
+            "forecast_agreement": "LOW",
+            "data_quality": "OK",
+            "breakdown": "screening: 80 x 0.5 = 40",
+            "warnings": "model_disagreement:high",
+            "reasons": "forecast_agreement:low, model_disagreement:high",
+            "note": "売買推奨ではなく、判断材料を整理したスコアです。",
+        }
+    ]
+
+    assert '"symbol": "AAPL"' in investment_score_json_download(rows)
+    assert investment_score_csv_download(rows) == (
+        "rank,symbol,total_score,score_band,screening_score,forecast_agreement_score,"
+        "data_quality_score,risk_signal_score,forecast_agreement,data_quality,breakdown,"
+        "warnings,reasons,note\n"
+        "1,AAPL,73,BALANCED,80,40,100,,LOW,OK,screening: 80 x 0.5 = 40,"
+        "model_disagreement:high,\"forecast_agreement:low, model_disagreement:high\","
+        "売買推奨ではなく、判断材料を整理したスコアです。\n"
     )
 
 
@@ -766,15 +866,15 @@ def test_rebalance_result_formatters_create_table_rows():
     assert allocation_comparison_rows(result.proposal) == [
         {
             "symbol": "7203.T (Toyota Motor)",
-            "current_weight": "0.5",
-            "target_weight": "0.5",
-            "drift": "0",
+            "current_weight": "50.00%",
+            "target_weight": "50.00%",
+            "drift": "0.00%",
         },
         {
             "symbol": "AAPL (Apple Inc.)",
-            "current_weight": "0",
-            "target_weight": "0.5",
-            "drift": "0.5",
+            "current_weight": "0.00%",
+            "target_weight": "50.00%",
+            "drift": "50.00%",
         },
     ]
     assert proposed_trade_rows(result.proposal)[0]["side"] == "BUY"

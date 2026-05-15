@@ -378,22 +378,22 @@ Scope:
 
 ### Phase 15: Model-Informed Scoring
 
-Status: next implementation phase
+Status: in progress
 
 目的: screening、forecast、risk、data quality を統合した投資判断補助スコアを作る。
 
 Scope:
 
-- Next: investment score contract を定義する
+- Done: investment score contract を定義する
 - score breakdown に加点・減点理由を含める
 - forecast confidence と model disagreement を score に反映する
 - YAML で score weight を調整できるようにする
 
 最初の実装スライス:
 
-- `backend/scoring` を追加し、screening score と forecast agreement signal を受け取る `InvestmentScore` contract を定義する
-- 既存 `ScreeningScore` の互換性を保ち、Phase 15 の総合 score は別 contract として開始する
-- deterministic tests で、data quality warning と model disagreement が理由に出ることを確認する
+- Done: `backend/scoring` を追加し、screening score と forecast agreement signal を受け取る `InvestmentScore` contract を定義する
+- Done: 既存 `ScreeningScore` の互換性を保ち、Phase 15 の総合 score は別 contract として開始する
+- Done: deterministic tests で、data quality warning と model disagreement が理由に出ることを確認する
 
 完了条件:
 

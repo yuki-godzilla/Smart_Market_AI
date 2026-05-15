@@ -18,6 +18,7 @@ def test_openapi_schema_documents_main_api_contracts():
         "Portfolio",
         "Screening",
         "Forecast",
+        "Scoring",
     ]
 
     paths = schema["paths"]
@@ -26,6 +27,7 @@ def test_openapi_schema_documents_main_api_contracts():
     assert paths["/portfolio/rebalance-check"]["post"]["tags"] == ["Portfolio"]
     assert paths["/screening/score"]["post"]["tags"] == ["Screening"]
     assert paths["/forecast/evaluate"]["post"]["tags"] == ["Forecast"]
+    assert paths["/scoring/investment-score"]["post"]["tags"] == ["Scoring"]
 
     portfolio_operation = paths["/portfolio/rebalance-check"]["post"]
     assert portfolio_operation["summary"] == "Generate a rebalance proposal and check risk"
@@ -42,6 +44,13 @@ def test_openapi_schema_documents_main_api_contracts():
     forecast_operation = paths["/forecast/evaluate"]["post"]
     assert forecast_operation["summary"] == "Evaluate baseline forecasts for a symbol"
     assert "422" in forecast_operation["responses"]
+
+    scoring_operation = paths["/scoring/investment-score"]["post"]
+    assert (
+        scoring_operation["summary"]
+        == "Score symbols with model-informed investment-support signals"
+    )
+    assert "502" in scoring_operation["responses"]
 
 
 def test_openapi_schema_includes_request_examples():
@@ -67,3 +76,7 @@ def test_openapi_schema_includes_request_examples():
     assert forecast_example["symbol"] == "AAPL"
     assert forecast_example["start"] == "2026-04-07"
     assert forecast_example["end"] == "2026-04-09"
+
+    scoring_example = schemas["InvestmentScoreRequest"]["examples"][0]
+    assert scoring_example["symbols"] == ["AAPL", "7203.T"]
+    assert scoring_example["as_of"] == "2026-04-09"

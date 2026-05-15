@@ -387,6 +387,7 @@ Scope:
 - Done: investment score contract を定義する
 - score breakdown に加点・減点理由を含める
 - forecast confidence と model disagreement を score に反映する
+- Done: investment score API を追加する
 - YAML で score weight を調整できるようにする
 
 最初の実装スライス:
@@ -394,6 +395,7 @@ Scope:
 - Done: `backend/scoring` を追加し、screening score と forecast agreement signal を受け取る `InvestmentScore` contract を定義する
 - Done: 既存 `ScreeningScore` の互換性を保ち、Phase 15 の総合 score は別 contract として開始する
 - Done: deterministic tests で、data quality warning と model disagreement が理由に出ることを確認する
+- Done: `POST /scoring/investment-score` で総合 score と内訳を返せる
 
 完了条件:
 

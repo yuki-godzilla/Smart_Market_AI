@@ -61,6 +61,8 @@ http://127.0.0.1:8000/openapi.json
   - 指定した銘柄の Feature Snapshot を作り、ranking と score breakdown を返します。
 - `POST /forecast/evaluate`
   - 指定した銘柄の OHLCV から baseline forecast と walk-forward metrics を返します。
+- `POST /scoring/investment-score`
+  - screening score、forecast agreement、data quality を統合した投資判断補助 score を返します。
 
 エラー応答は JSON です。
 
@@ -171,6 +173,32 @@ Invoke-RestMethod `
 - `metrics.rmse`
 - `metrics.direction_accuracy`
 - `metrics.sample_count`
+
+Investment score:
+
+```powershell
+$body = @{
+  symbols = @("AAPL", "7203.T")
+  as_of = "2026-04-09"
+  horizon_days = 1
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:8000/scoring/investment-score `
+  -ContentType "application/json" `
+  -Body $body
+```
+
+主な確認項目:
+
+- `rank`
+- `total_score`
+- `score_band`
+- `breakdown`
+- `warnings`
+- `reasons`
+- `decision_support_note`
 
 ## 5. CSV MarketData provider
 

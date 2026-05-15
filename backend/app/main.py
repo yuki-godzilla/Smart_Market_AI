@@ -10,10 +10,12 @@ from backend.core.config import get_settings
 from backend.core.data_contracts import Position, StrictBaseModel, TradeIntent
 from backend.core.errors import AppError, ComputationError
 from backend.forecast import (
+    ForecastConsensus,
     ForecastEvaluation,
     ForecastModel,
     available_forecast_models,
     evaluate_models,
+    summarize_forecast_evaluations,
 )
 from backend.marketdata import DataAccess, FeatureBuilder, create_market_data_provider_adapter
 from backend.portfolio import (
@@ -23,6 +25,7 @@ from backend.portfolio import (
     TargetAllocation,
 )
 from backend.risk import RiskDecision, RiskService
+from backend.scoring import InvestmentScore, InvestmentScoringService
 from backend.screening import ScreeningScore, ScreeningService
 
 APP_DESCRIPTION = """
@@ -88,6 +91,10 @@ app = FastAPI(
         {
             "name": "Forecast",
             "description": "Deterministic baseline forecasts and walk-forward metrics.",
+        },
+        {
+            "name": "Scoring",
+            "description": "Model-informed investment-support scores.",
         },
     ],
 )
@@ -207,6 +214,27 @@ class ForecastEvaluateRequest(StrictBaseModel):
     horizon_days: int = Field(default=1, ge=1, le=30)
 
 
+class InvestmentScoreRequest(StrictBaseModel):
+    """Request body for model-informed investment-support scoring."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {
+                    "symbols": ["AAPL", "7203.T"],
+                    "as_of": "2026-04-09",
+                    "horizon_days": 1,
+                }
+            ]
+        },
+    )
+
+    symbols: list[str] = Field(min_length=1)
+    as_of: date
+    horizon_days: int = Field(default=1, ge=1, le=30)
+
+
 @app.exception_handler(AppError)
 async def app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
     """Return domain errors with their configured HTTP status."""
@@ -250,6 +278,12 @@ def create_screening_service() -> ScreeningService:
     return ScreeningService()
 
 
+def create_investment_scoring_service() -> InvestmentScoringService:
+    """Create the default Investment Score service for API requests."""
+
+    return InvestmentScoringService()
+
+
 async def build_screening_scores(request: ScreeningScoreRequest) -> list[ScreeningScore]:
     """Build feature snapshots and rank requested symbols through ScreeningService."""
 
@@ -258,6 +292,28 @@ async def build_screening_scores(request: ScreeningScoreRequest) -> list[Screeni
     feature_builder = FeatureBuilder(adapter, cfg=settings.feature_builder)
     snapshot = await feature_builder.build_feature_snapshot(request.symbols, request.as_of)
     return create_screening_service().score(snapshot)
+
+
+async def build_investment_scores(request: InvestmentScoreRequest) -> list[InvestmentScore]:
+    """Build screening and forecast signals, then return Investment Score rows."""
+
+    settings = get_settings()
+    adapter = create_market_data_provider_adapter(settings.dataaccess)
+    feature_builder = FeatureBuilder(adapter, cfg=settings.feature_builder)
+    snapshot = await feature_builder.build_feature_snapshot(request.symbols, request.as_of)
+    forecast_consensus_by_symbol = await _build_forecast_consensus_by_symbol(
+        request.symbols,
+        request.as_of,
+        request.horizon_days,
+    )
+    screening_scores = create_screening_service().score(
+        snapshot,
+        forecast_consensus_by_symbol=forecast_consensus_by_symbol,
+    )
+    return create_investment_scoring_service().score(
+        screening_scores,
+        forecast_consensus_by_symbol=forecast_consensus_by_symbol,
+    )
 
 
 async def build_forecast_evaluations(
@@ -289,6 +345,31 @@ async def build_forecast_evaluations(
             },
         )
     return evaluate_models(bars, models=models, horizon_days=request.horizon_days)
+
+
+async def _build_forecast_consensus_by_symbol(
+    symbols: list[str],
+    as_of: date,
+    horizon_days: int,
+) -> dict[str, ForecastConsensus]:
+    settings = get_settings()
+    adapter = create_market_data_provider_adapter(settings.dataaccess)
+    consensus_by_symbol: dict[str, ForecastConsensus] = {}
+    for symbol in symbols:
+        bars = await adapter.fetch_ohlcv(
+            [symbol],
+            start=datetime(1900, 1, 1, tzinfo=UTC),
+            end=datetime.combine(as_of, time.max, tzinfo=UTC),
+        )
+        models = _available_forecast_models(len(bars))
+        if not bars or not models:
+            continue
+        consensus = summarize_forecast_evaluations(
+            evaluate_models(bars, models=models, horizon_days=horizon_days)
+        )
+        if consensus is not None:
+            consensus_by_symbol[symbol] = consensus
+    return consensus_by_symbol
 
 
 def _available_forecast_models(bar_count: int) -> list[ForecastModel]:
@@ -374,3 +455,21 @@ async def forecast_evaluate(
     """Evaluate available deterministic forecast baselines for one symbol."""
 
     return await build_forecast_evaluations(request)
+
+
+@app.post(
+    "/scoring/investment-score",
+    response_model=list[InvestmentScore],
+    tags=["Scoring"],
+    summary="Score symbols with model-informed investment-support signals",
+    description=(
+        "Builds deterministic screening and forecast-agreement signals, then returns "
+        "Investment Score rows with score breakdowns, warnings, and reasons. "
+        "The output is decision support, not buy/sell advice."
+    ),
+    responses=ERROR_RESPONSES,
+)
+async def investment_score(request: InvestmentScoreRequest) -> list[InvestmentScore]:
+    """Score requested symbols with the Phase 15 Investment Score contract."""
+
+    return await build_investment_scores(request)

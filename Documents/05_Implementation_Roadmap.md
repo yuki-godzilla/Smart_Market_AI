@@ -39,10 +39,6 @@ Phase 1 から Phase 9 までは、現在の MVP として完了扱いです。
 未実装または今後の範囲:
 
 - `polygon` などの追加 live provider adapter 本体
-- screening score
-- forecast engine
-- multi-model forecasting
-- investment score
 - visualization cockpit
 - decision report
 - broker への live order 送信
@@ -378,7 +374,7 @@ Scope:
 
 ### Phase 15: Model-Informed Scoring
 
-Status: in progress
+Status: implementation complete; live-provider confirmation remains environment-dependent
 
 目的: screening、forecast、risk、data quality を統合した投資判断補助スコアを作る。
 
@@ -389,7 +385,8 @@ Scope:
 - forecast confidence と model disagreement を score に反映する
 - Done: investment score API を追加する
 - Done: Market Data tab に Investment Score preview と JSON / CSV 保存を追加する
-- YAML で score weight を調整できるようにする
+- Done: YAML で score weight を調整できるようにする
+- Done: 既存 screening risk score を risk signal として統合する
 
 最初の実装スライス:
 
@@ -398,15 +395,16 @@ Scope:
 - Done: deterministic tests で、data quality warning と model disagreement が理由に出ることを確認する
 - Done: `POST /scoring/investment-score` で総合 score と内訳を返せる
 - Done: UI 上で selected symbol の総合 score と注意点を確認できる
+- Done: score weight は `scoring.weights` で調整でき、合計 1.0 を検証する
 
 完了条件:
 
-- 銘柄ごとに総合スコアと内訳を返せる
-- データ品質が低い場合や model 不一致が大きい場合に注意表示できる
-- deterministic tests で計算結果を検証できる
+- Done: 銘柄ごとに総合スコアと内訳を返せる
+- Done: データ品質が低い場合や model 不一致が大きい場合に注意表示できる
+- Done: deterministic tests で計算結果を検証できる
 
-- UI 上で screening、forecast、risk、data quality を統合した投資判断補助 score を確認できる
-- live provider 由来データを使った score と、その算出根拠を UI で確認できる
+- Done: UI 上で screening、forecast、risk、data quality を統合した投資判断補助 score を確認できる
+- live provider 由来データを使った score と、その算出根拠の UI 確認は環境依存
 
 ### Phase 16: Visualization Cockpit
 

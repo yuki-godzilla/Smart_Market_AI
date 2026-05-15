@@ -164,6 +164,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## 2026-05-16
 
+- Completed Phase 15 implementation by adding configurable `scoring.weights`, validating weight totals, connecting the existing Screening risk score as the first risk signal, and marking live-provider UI confirmation as environment-dependent.
 - Polished the Streamlit UI by changing Investment Score from a wide one-row table into compact metrics with details/downloads, and formatting rebalance allocation weights as percentages.
 - Added Market Data tab Investment Score preview rows and JSON / CSV downloads, using the Phase 15 scoring service while keeping the output framed as decision support rather than buy/sell advice.
 - Added `POST /scoring/investment-score` so the Phase 15 Investment Score contract can be used from FastAPI with deterministic API/OpenAPI tests and operations-guide documentation.

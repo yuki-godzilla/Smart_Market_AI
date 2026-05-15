@@ -281,7 +281,7 @@ def create_screening_service() -> ScreeningService:
 def create_investment_scoring_service() -> InvestmentScoringService:
     """Create the default Investment Score service for API requests."""
 
-    return InvestmentScoringService()
+    return InvestmentScoringService(weights=get_settings().scoring.weights)
 
 
 async def build_screening_scores(request: ScreeningScoreRequest) -> list[ScreeningScore]:

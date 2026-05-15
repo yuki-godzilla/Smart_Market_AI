@@ -499,7 +499,7 @@ async def build_market_data_preview(
             feature_snapshot,
             forecast_consensus_by_symbol=forecast_consensus_by_symbol,
         )
-        investment_scores = InvestmentScoringService().score(
+        investment_scores = InvestmentScoringService(weights=settings.scoring.weights).score(
             screening_scores,
             forecast_consensus_by_symbol=forecast_consensus_by_symbol,
         )

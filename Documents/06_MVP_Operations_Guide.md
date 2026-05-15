@@ -230,6 +230,18 @@ dataaccess:
   csv_data_dir: data/marketdata
 ```
 
+Investment Score の weight は `scoring.weights` で調整できます。
+4 項目の合計は 1.0 にしてください。
+
+```yaml
+scoring:
+  weights:
+    screening: 0.50
+    forecast_agreement: 0.20
+    data_quality: 0.20
+    risk_signal: 0.10
+```
+
 必要な CSV:
 
 ```text

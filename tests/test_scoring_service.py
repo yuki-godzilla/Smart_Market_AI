@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from backend.core.config import ScoringWeightsConfig
 from backend.forecast import ForecastConsensus
 from backend.scoring import InvestmentScoringService
 from backend.screening import ScreeningScore
@@ -21,12 +22,12 @@ def test_investment_scoring_service_returns_separate_contract_with_breakdown():
     score = scores[0]
     assert score.symbol == "AAPL"
     assert score.rank == 1
-    assert score.total_score == Decimal("83.00")
+    assert score.total_score == Decimal("85.00")
     assert score.score_band == "STRONG"
     assert score.screening_score == Decimal("80")
     assert score.forecast_agreement_score == Decimal("90")
     assert score.data_quality_score == Decimal("100")
-    assert score.risk_signal_score is None
+    assert score.risk_signal_score == Decimal("70")
     assert score.decision_support_note == (
         "Decision-support score only; not a buy/sell recommendation."
     )
@@ -52,7 +53,7 @@ def test_investment_scoring_service_surfaces_data_quality_warning_reason():
     )
 
     score = scores[0]
-    assert score.total_score == Decimal("54.50")
+    assert score.total_score == Decimal("56.50")
     assert score.score_band == "CAUTION"
     assert "data_quality:warn" in score.reasons
     assert "partial_data_completeness:0.60" in score.reasons
@@ -92,13 +93,39 @@ def test_investment_scoring_service_surfaces_model_disagreement_reason():
     score = scores[0]
     assert score.forecast_agreement == "LOW"
     assert score.forecast_agreement_score == Decimal("40")
-    assert score.total_score == Decimal("73.00")
+    assert score.total_score == Decimal("75.00")
     assert score.score_band == "BALANCED"
     assert "forecast_agreement:low" in score.reasons
     assert "model_disagreement:high" in score.reasons
     assert "model_disagreement:high" in score.warnings
     forecast_component = _breakdown(score, "forecast_agreement")
     assert forecast_component.contribution == Decimal("8.00")
+
+
+def test_investment_scoring_service_uses_configurable_weights():
+    scores = InvestmentScoringService(
+        weights=ScoringWeightsConfig(
+            screening=0.40,
+            forecast_agreement=0.30,
+            data_quality=0.20,
+            risk_signal=0.10,
+        )
+    ).score(
+        [
+            _screening_score(
+                symbol="AAPL",
+                total_score=Decimal("80"),
+                data_quality_score=Decimal("100"),
+                data_quality="OK",
+                forecast_agreement="HIGH",
+            )
+        ]
+    )
+
+    score = scores[0]
+    assert score.total_score == Decimal("86.00")
+    assert _breakdown(score, "screening").weight == Decimal("0.4")
+    assert _breakdown(score, "forecast_agreement").contribution == Decimal("27.00")
 
 
 def _breakdown(score, component_name):

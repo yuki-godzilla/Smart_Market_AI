@@ -31,7 +31,7 @@ def test_investment_score_api_returns_breakdown_and_warnings():
         "risk_signal",
     ]
     assert payload[0]["forecast_agreement"] in {"HIGH", "MEDIUM", "LOW", "UNKNOWN"}
-    assert "risk_signal:not_connected" in payload[0]["reasons"]
+    assert "risk_signal:available" in payload[0]["reasons"]
     assert any(reason.startswith("data_quality:") for reason in payload[0]["reasons"])
 
 

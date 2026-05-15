@@ -5,6 +5,7 @@ from typing import Literal
 
 from pydantic import Field
 
+from backend.core.config import ScoringWeightsConfig
 from backend.core.data_contracts import StrictBaseModel
 from backend.forecast import ForecastConsensus
 from backend.screening import ScreeningScore
@@ -56,6 +57,9 @@ class InvestmentScore(StrictBaseModel):
 class InvestmentScoringService:
     """Combine screening, forecast, data quality, and future risk signals."""
 
+    def __init__(self, weights: ScoringWeightsConfig | None = None) -> None:
+        self.weights = weights or ScoringWeightsConfig()
+
     def score(
         self,
         screening_scores: list[ScreeningScore],
@@ -72,8 +76,12 @@ class InvestmentScoringService:
                 InvestmentScoreInput(
                     screening_score=screening_score,
                     forecast_consensus=forecasts.get(screening_score.symbol),
-                    risk_signal_score=risk_scores.get(screening_score.symbol),
-                )
+                    risk_signal_score=risk_scores.get(
+                        screening_score.symbol,
+                        screening_score.risk_score,
+                    ),
+                ),
+                weights=self.weights,
             )
             for screening_score in screening_scores
         ]
@@ -81,7 +89,11 @@ class InvestmentScoringService:
         return [row.model_copy(update={"rank": rank}) for rank, row in enumerate(ranked, start=1)]
 
 
-def _score_input(score_input: InvestmentScoreInput) -> InvestmentScore:
+def _score_input(
+    score_input: InvestmentScoreInput,
+    *,
+    weights: ScoringWeightsConfig,
+) -> InvestmentScore:
     screening = score_input.screening_score
     forecast_agreement = _forecast_agreement(score_input)
     forecast_score = _forecast_agreement_score(forecast_agreement)
@@ -92,25 +104,25 @@ def _score_input(score_input: InvestmentScoreInput) -> InvestmentScore:
         _component(
             "screening",
             screening.total_score,
-            Decimal("0.50"),
+            _weight_decimal(weights.screening),
             _screening_reasons(screening),
         ),
         _component(
             "forecast_agreement",
             forecast_score,
-            Decimal("0.20"),
+            _weight_decimal(weights.forecast_agreement),
             _forecast_reasons(forecast_agreement, score_input.forecast_consensus),
         ),
         _component(
             "data_quality",
             data_quality_score,
-            Decimal("0.20"),
+            _weight_decimal(weights.data_quality),
             _data_quality_reasons(screening),
         ),
         _component(
             "risk_signal",
             risk_signal_score if risk_signal_score is not None else Decimal("50"),
-            Decimal("0.10"),
+            _weight_decimal(weights.risk_signal),
             _risk_reasons(risk_signal_score),
         ),
     ]
@@ -225,6 +237,8 @@ def _score_band(total_score: Decimal, warnings: list[str]) -> InvestmentScoreBan
         return "REVIEW"
     if total_score >= Decimal("75") and not warnings:
         return "STRONG"
+    if warnings and total_score < Decimal("65"):
+        return "CAUTION"
     if total_score >= Decimal("55"):
         return "BALANCED"
     if total_score >= Decimal("40"):
@@ -234,3 +248,7 @@ def _score_band(total_score: Decimal, warnings: list[str]) -> InvestmentScoreBan
 
 def _round_score(value: Decimal) -> Decimal:
     return value.quantize(Decimal("0.01"))
+
+
+def _weight_decimal(value: float) -> Decimal:
+    return Decimal(str(value))

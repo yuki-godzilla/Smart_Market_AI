@@ -109,6 +109,40 @@ For implementation work:
 Diff review and verification are checkpoints, not automatic stopping points. If direction is already approved, continue to the next logical small task unless a new decision or risk needs review.
 差分確認と検証はチェックポイントであり、自動停止地点ではありません。方針承認済みなら、新しい判断やリスク確認が必要な場合を除き、次の自然な小タスクへ進みます。
 
+## Command Hang Policy / コマンド停止時の扱い
+
+If a verification command appears to hang:
+- do not wait indefinitely
+- report the command name and last visible output
+- prefer stopping the command and running a narrower diagnostic
+- never treat a hung command as success
+- if the same command completes manually, trust the manual result and continue with `git status` / `git diff` verification
+
+確認コマンドが停止しているように見える場合:
+- 無期限に待ち続けない
+- コマンド名と最後に見えている出力を報告する
+- 停止して、より小さい確認コマンドに切り替える
+- 停止したコマンドを成功扱いしない
+- 同じコマンドが手動で完了した場合は、手動結果を優先し、`git status` / `git diff` で作業状態を確認する
+
+## Handoff Summary Format / 作業完了サマリ
+
+At handoff, report:
+- changed files
+- purpose of each change
+- commands run and results
+- commands not run and why
+- remaining risks or TODOs
+- suggested commit message
+
+作業完了時は以下を報告します:
+- 変更ファイル
+- 各変更の目的
+- 実行した確認コマンドと結果
+- 実行しなかった確認と理由
+- 残リスク / TODO
+- 推奨コミットメッセージ
+
 ## Implementation Conventions / 実装規約
 
 Python:
@@ -203,6 +237,22 @@ Use the project virtual environment when available.
 
 Do not use direct multi-file `python -m black --check .` as a routine check in this Windows environment; use `tools/run_black_check.py` or `tools/run_local_checks.py` instead.
 この Windows 環境では、通常確認として複数ファイル対象の `python -m black --check .` を直接使わず、`tools/run_black_check.py` または `tools/run_local_checks.py` を使います。
+
+Black hang workaround:
+- Do not run `python -m black ...` directly in this Windows workspace, even for a single file, unless the user explicitly asks for it.
+- Known symptom: the command stops responding after printing little or no output, and child `python.exe` processes may remain active with high CPU.
+- Likely cause: the Black CLI path can leave worker/subprocess state stuck in this local PowerShell/Windows environment; direct CLI behavior is less reliable than the project helper.
+- Preferred check: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py`.
+- If the helper reports `would reformat`, make the small formatting edit manually with `apply_patch`, then rerun the helper.
+- If a direct Black command was accidentally started and appears hung, stop waiting, report the command, inspect lingering Python processes, and ask before stopping any suspected leftover process if it cannot be identified safely.
+
+Black 停止回避:
+- この Windows workspace では、単一ファイルでも `python -m black ...` を直接実行しない。明示依頼がある場合だけ例外。
+- 既知症状: 出力がほぼないまま停止し、子 `python.exe` が高 CPU のまま残ることがある。
+- 推定原因: この local PowerShell / Windows 環境では Black CLI 経路の worker/subprocess 状態が固まることがあり、project helper より不安定。
+- 推奨確認: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py`
+- helper が `would reformat` を出した場合は、`apply_patch` で小さく手動整形してから helper を再実行する。
+- 誤って direct Black を起動して停止した場合は、待ち続けず、実行コマンドを報告し、残存 Python process を確認する。安全に特定できない process 停止はユーザー確認を取る。
 
 Targeted examples:
 

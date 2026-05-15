@@ -55,8 +55,8 @@ Implemented or mostly implemented:
   Streamlit UI ?? rebalance?market data?screening?forecast ?? workflow ????????
 - Reporting/export foundations exist for screening and forecast metrics.
   screening ? forecast metrics ??? reporting/export ??????
-- Phase 15 has started with a deterministic `backend/scoring` Investment Score contract/service, `POST /scoring/investment-score` API, and Market Data tab preview/export that combine screening score, forecast agreement, and data quality without changing `ScreeningScore`.
-  Phase 15 ? deterministic ? `backend/scoring` Investment Score contract/service ? `POST /scoring/investment-score` API ? Market Data tab preview/export ??????`ScreeningScore` ?????????? screening score?forecast agreement?data quality ??????????
+- Phase 15 is implementation-complete with a deterministic `backend/scoring` Investment Score contract/service, `POST /scoring/investment-score` API, configurable `scoring.weights`, screening risk-score integration, and Market Data tab preview/export without changing `ScreeningScore`.
+  Phase 15 ? implementation complete: deterministic ? `backend/scoring` Investment Score contract/service ? `POST /scoring/investment-score` API ? configurable `scoring.weights` ? screening risk-score integration ? Market Data tab preview/export ??????`ScreeningScore` ??????????
 
 Partial or intentionally deferred:
 ??????????????????:
@@ -82,15 +82,15 @@ Phase 11 ? Phase 12 ?????????????? workflow ? UI ????????????
 Phase 14 is implementation-complete: Forecast Summary, ensemble forecast, Model Registry Lite, and forecast-agreement signal are connected into Screening Score.
 Phase 14 ?????????Forecast Summary?ensemble forecast?Model Registry Lite?forecast agreement ? Screening Score ?????????
 
-Phase 15 has started: the first deterministic Investment Score contract, API, and Market Data UI preview/export exist, and the remaining work is configurable weights and richer risk-signal integration.
-Phase 15 ????????: deterministic Investment Score contract/API/Market Data UI preview/export ???????? weight ??????risk signal ?????? ????????
+Phase 15 is implementation-complete: Investment Score combines screening, forecast agreement, screening risk score, and data quality with configurable weights. Live-provider UI confirmation remains environment-dependent.
+Phase 15 ? implementation complete: Investment Score ? screening / forecast agreement / screening risk score / data quality ? configurable weights ????????? live-provider UI confirmation ? environment-dependent.
 
 ## Next Good Targets / ??????
 
 - Improve forecast chart readability with clear actual-vs-forecast styling, labels, and beginner-friendly metrics.
   ?????????????????????????????? forecast chart ??????????
-- Add configurable Investment Score weights while keeping the default deterministic/local path.
-  Investment Score weight ?????????? default deterministic/local path ??????????
+- Start Phase 16 visualization cockpit work after confirming the current Investment Score shape.
+  現在の Investment Score 形を確認後、Phase 16 visualization cockpit に進む。
 - Extend forecast reporting beyond metrics-only export when a richer saved report is needed.
   ????????????????????????? forecast reporting ???????
 - Keep provider selection explicit and make fallback/error messages understandable in the UI.

@@ -13,6 +13,8 @@ def test_settings_defaults_are_local_and_mock_first():
     assert settings.dataaccess.allow_external_providers is False
     assert settings.dataaccess.cache.backend == "memory"
     assert settings.portfolio.solver.backend == "none"
+    assert settings.scoring.weights.screening == 0.5
+    assert settings.scoring.weights.risk_signal == 0.1
 
 
 def test_settings_loads_yaml_overrides(monkeypatch):
@@ -25,6 +27,7 @@ def test_settings_loads_yaml_overrides(monkeypatch):
     assert settings.risk.thresholds.min_dividend_yield == 0.02
     assert settings.portfolio.solver.backend == "none"
     assert settings.portfolio.solver.tolerance == 0.0001
+    assert settings.scoring.weights.forecast_agreement == 0.25
 
 
 def test_settings_loads_csv_example_config(monkeypatch):
@@ -79,3 +82,23 @@ def test_settings_reject_unknown_keys():
         assert exc.errors()[0]["type"] == "extra_forbidden"
     else:
         raise AssertionError("Settings should reject unknown keys")
+
+
+def test_settings_reject_invalid_scoring_weight_total():
+    try:
+        Settings.model_validate(
+            {
+                "scoring": {
+                    "weights": {
+                        "screening": 0.5,
+                        "forecast_agreement": 0.5,
+                        "data_quality": 0.5,
+                        "risk_signal": 0.5,
+                    }
+                }
+            }
+        )
+    except ValidationError as exc:
+        assert "Scoring weights must sum to 1.0" in str(exc)
+    else:
+        raise AssertionError("Scoring weights should sum to 1.0")

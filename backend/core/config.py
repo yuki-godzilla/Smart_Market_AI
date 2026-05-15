@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml  # type: ignore[import-untyped]
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 CONFIG_FILE_ENV = "SMAI_CONFIG_FILE"
 
@@ -85,6 +85,28 @@ class PortfolioConfig(StrictConfigModel):
     solver: PortfolioSolverConfig = Field(default_factory=PortfolioSolverConfig)
 
 
+class ScoringWeightsConfig(StrictConfigModel):
+    """Weights for the deterministic Investment Score."""
+
+    screening: float = Field(default=0.50, ge=0, le=1)
+    forecast_agreement: float = Field(default=0.20, ge=0, le=1)
+    data_quality: float = Field(default=0.20, ge=0, le=1)
+    risk_signal: float = Field(default=0.10, ge=0, le=1)
+
+    @model_validator(mode="after")
+    def validate_total(self) -> "ScoringWeightsConfig":
+        total = self.screening + self.forecast_agreement + self.data_quality + self.risk_signal
+        if abs(total - 1.0) > 0.000001:
+            raise ValueError("Scoring weights must sum to 1.0")
+        return self
+
+
+class ScoringConfig(StrictConfigModel):
+    """Investment scoring configuration."""
+
+    weights: ScoringWeightsConfig = Field(default_factory=ScoringWeightsConfig)
+
+
 class ExecutionWebhookConfig(StrictConfigModel):
     """Webhook settings for future broker execution callbacks."""
 
@@ -113,6 +135,7 @@ class Settings(StrictConfigModel):
     feature_builder: FeatureBuilderConfig = Field(default_factory=FeatureBuilderConfig)
     risk: RiskConfig = Field(default_factory=RiskConfig)
     portfolio: PortfolioConfig = Field(default_factory=PortfolioConfig)
+    scoring: ScoringConfig = Field(default_factory=ScoringConfig)
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
 
 

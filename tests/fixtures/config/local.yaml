@@ -5,3 +5,10 @@ risk:
 portfolio:
   solver:
     tolerance: 0.0001
+
+scoring:
+  weights:
+    screening: 0.45
+    forecast_agreement: 0.25
+    data_quality: 0.20
+    risk_signal: 0.10

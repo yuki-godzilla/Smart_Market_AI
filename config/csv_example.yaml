@@ -20,3 +20,10 @@ portfolio:
   solver:
     backend: none
     tolerance: 0.000001
+
+scoring:
+  weights:
+    screening: 0.50
+    forecast_agreement: 0.20
+    data_quality: 0.20
+    risk_signal: 0.10

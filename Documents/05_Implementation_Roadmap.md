@@ -412,10 +412,12 @@ Status: in progress
 
 目的: Phase 15 までに整えた scoring / forecast / screening / risk の下回りを、ユーザーが一目で判断材料として読める UI にする。
 
+詳細な UI 改善方針は `Documents/08_Phase16_UI_Improvement_Plan.md` を参照する。
+
 Scope:
 
 - Done: Market Data tab を「銘柄コックピット」と「銘柄ランキング」の 2 モードに整理する。
-- Done: 銘柄コックピットでは、現在の 1 銘柄深掘り画面を残しつつ、Investment Score を画面上部の主役にする。
+- Done: 銘柄コックピットでは、現在の 1 銘柄深掘り画面を残しつつ、価格・予測チャートと Investment Score を主役にする。
 - Done: 銘柄ランキングでは、複数銘柄を比較し、ユーザーの重視条件に合わせて候補を並べ替える。
 - In progress: Rebalance tab を Rebalance Cockpit として整理し、JSON 入力中心の見え方を下げて、現在 -> 目標 -> 売買案 -> Risk 判定の流れを見せる。
 - Phase 16 では、将来の report / assistant / model adapter が再利用できる UI context と表示順を固める。
@@ -423,13 +425,15 @@ Scope:
 Market Data / 銘柄コックピット:
 
 - Done: 銘柄名、provider、基準日、as-of を画面上部に表示する。
+- Done: actual vs forecast chart を Investment Score summary より上に置き、まず値動きと予測の見方を確認できるようにする。
 - Done: Investment Score を大きく表示し、見方（強め / バランス型 / 注意）と注意点を近くに置く。
 - Done: Screening / Forecast / Risk / Data Quality の 4 要素を横並び metric または bar chart で可視化する。
 - Done: 「なぜこのスコアか」を初心者向け日本語で 2-3 行に要約する。
-- Done: actual vs forecast chart を Investment Score summary の直下に置く。
+- Done: chart 上部に model agreement、予測の開き、model 数、best RMSE model の読み取り summary を初心者向け日本語で表示する。
 - Done: Forecast Metrics、Screening Score、provider / quote / OHLCV、download は詳細 expander に寄せる。
 - Done: data quality、provider、as-of、取得対象期間は、スコアの信頼度を判断する情報として summary 近くに置く。
-- MAE / RMSE / forecast agreement / risk breach などの専門指標は、上部では読み取り文に翻訳し、詳細では元指標も確認できるようにする。
+- Done: MAE / RMSE / forecast agreement などの専門指標は、上部では読み取り文に翻訳し、詳細では元指標も確認できるようにする。
+- In progress: risk breach などの Rebalance 側の専門指標も、画面上部では読み取り文に翻訳し、詳細では元指標も確認できるようにする。
 
 Market Data / 銘柄ランキング:
 
@@ -457,7 +461,7 @@ Rebalance Cockpit:
 
 - Done: Market Data tab に「銘柄コックピット / 銘柄ランキング」の表示切替を追加する。
 - Done: 既存の 1 銘柄 Market Data 画面を銘柄コックピットとして整理する。
-- Done: Investment Score summary を銘柄コックピット上部へ移動し、4 要素の内訳を可視化する。
+- Done: Investment Score summary を銘柄コックピットの chart 直下へ移動し、4 要素の内訳を可視化する。
 - Done: 銘柄ランキング MVP は sample symbols を既存 scoring service で並べるところから始める。
 - Done: ranking から選んだ銘柄と provider を銘柄コックピットへ引き継ぐ。
 - Done: ranking preset weight で、バランス重視 / 予測一致重視 / データ品質重視 / リスク控えめに並び替える。
@@ -467,7 +471,7 @@ Rebalance Cockpit:
 完了条件:
 
 - Done: ユーザーが ranking から銘柄コックピットへ進める。
-- Done: 予測、Investment Score、スコア理由、注意点を同じ画面の上部で確認できる。
+- Done: 価格・予測チャート、Investment Score、スコア理由、注意点を同じ画面の上部で確認できる。
 - Done: 複数銘柄をユーザーの重視条件に合わせて ranking できる。
 - Done: Screening / Forecast / Risk / Data Quality の内訳が表だけでなく視覚的に確認できる。
 - In progress: Rebalance では現在、目標、売買案、Risk 判定の流れが表を読む前に理解できる。

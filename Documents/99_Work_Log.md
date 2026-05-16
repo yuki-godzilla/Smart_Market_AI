@@ -174,3 +174,5 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Continued Phase 16 by moving Rebalance JSON inputs into advanced input, adding Rebalance Cockpit summary flow, percentage target weights, allocation comparison chart, and beginner-friendly risk breach confirmation points.
 - Connected Phase 16 ranking to the single-symbol cockpit by letting selected ranking symbols pass their symbol/provider into the cockpit state for follow-up review.
 - Added deterministic ranking preference presets for balance, forecast agreement, data quality, and lower-risk emphasis by reweighting existing Investment Score components in the UI.
+- Moved the single-symbol cockpit to a chart-first layout and added beginner-friendly forecast chart summary text for model agreement, forecast spread, compared model count, and the best RMSE model.
+- Documented the agreed Phase 16 UI improvement direction in `Documents/08_Phase16_UI_Improvement_Plan.md`, including chart/score layout, ranking candidate filters, Fetch-before/after condition separation, and staged implementation order.

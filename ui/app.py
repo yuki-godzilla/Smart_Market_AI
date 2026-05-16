@@ -610,12 +610,19 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
 
     st.subheader("価格・予測チャート")
     _render_target_symbol_caption(symbol_label)
+    for index, message in enumerate(forecast_chart_summary(consensus_rows, metric_rows)):
+        if index == 0:
+            st.info(message)
+        else:
+            st.caption(message)
     chart_currency = preview.bars[0].symbol.currency if preview.bars else ""
     _render_market_chart(
         forecast_rows,
         currency=chart_currency,
         title="実績価格と予測",
     )
+    st.caption("縦の点線は、実績価格から予測表示へ切り替わる位置です。")
+    _render_investment_score_section(preview, symbol_label)
 
     with st.expander("Forecast details"):
         for index, message in enumerate(forecast_metric_summary(metric_rows)):
@@ -714,7 +721,6 @@ def _render_market_data_cockpit_header(
             f"対象: {symbol_label} / Provider: {provider_name} / "
             f"基準日: {as_of or '未取得'} / 参照期間: {reference_period}日"
         )
-    _render_investment_score_section(preview, symbol_label)
     return forecast_horizon_days
 
 
@@ -1199,6 +1205,27 @@ def forecast_metric_display_rows(rows: list[dict[str, str]]) -> list[dict[str, s
         }
         for row in rows
     ]
+
+
+def forecast_chart_summary(
+    consensus_rows: list[dict[str, str]],
+    metric_rows: list[dict[str, str]],
+) -> list[str]:
+    if not consensus_rows:
+        return ["予測を表示するには、もう少し価格データが必要です。"]
+
+    row = consensus_rows[0]
+    agreement = _forecast_agreement_label(row.get("agreement", ""))
+    range_pct = row.get("forecast_range_pct") or "未計算"
+    model_count = row.get("model_count") or "0"
+    messages = [
+        f"{model_count} つの予測モデルの見方は「{agreement}」です。予測の開きは {range_pct} です。",
+        "実線はこれまでの価格、点線はモデルごとの予測です。点線同士が近いほど、モデルの見方が近い状態です。",
+    ]
+    metric_messages = forecast_metric_summary(metric_rows)
+    if metric_messages:
+        messages.append(metric_messages[0])
+    return messages
 
 
 def forecast_consensus_display_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:

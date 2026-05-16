@@ -57,7 +57,7 @@ Implemented or mostly implemented:
   screening ? forecast metrics ??? reporting/export ??????
 - Phase 15 is implementation-complete with a deterministic `backend/scoring` Investment Score contract/service, `POST /scoring/investment-score` API, configurable `scoring.weights`, screening risk-score integration, and Market Data tab preview/export without changing `ScreeningScore`.
   Phase 15 ? implementation complete: deterministic ? `backend/scoring` Investment Score contract/service ? `POST /scoring/investment-score` API ? configurable `scoring.weights` ? screening risk-score integration ? Market Data tab preview/export ??????`ScreeningScore` ??????????
-- Phase 16 has started with a Streamlit Market Data mode split for `銘柄コックピット` / `銘柄ランキング`, an Investment Score-first cockpit summary, score breakdown chart, and deterministic ranking MVP for selected symbols.
+- Phase 16 has started with a Streamlit Market Data mode split for `銘柄コックピット` / `銘柄ランキング`, a chart-first cockpit with Investment Score summary below it, score breakdown chart, and deterministic ranking MVP for selected symbols.
 - Ranking results can now pass the selected symbol and provider into the single-symbol cockpit for deep-dive follow-up.
 - Ranking supports deterministic preference presets for balance, forecast agreement, data quality, and lower-risk emphasis.
 - Rebalance Cockpit has started: JSON inputs are folded into advanced input, target allocations are percentage-formatted, allocation comparison has a chart, and risk breaches include beginner-friendly confirmation points.
@@ -89,9 +89,10 @@ Phase 14 ?????????Forecast Summary?ensemble forecast?Model Registry Lite?forecas
 Phase 15 is implementation-complete: Investment Score combines screening, forecast agreement, screening risk score, and data quality with configurable weights. Live-provider UI confirmation remains environment-dependent.
 Phase 15 ? implementation complete: Investment Score ? screening / forecast agreement / screening risk score / data quality ? configurable weights ????????? live-provider UI confirmation ? environment-dependent.
 
-Phase 16 has started: Market Data now separates single-symbol cockpit review from multi-symbol ranking, and the cockpit puts Investment Score, reasons, warnings, provider, as-of, and score breakdown above the forecast chart.
+Phase 16 has started: Market Data now separates single-symbol cockpit review from multi-symbol ranking, and the cockpit puts provider/as-of context and the forecast chart before the Investment Score, reasons, warnings, and score breakdown.
 Ranking now has a basic deep-dive handoff into the cockpit by setting the selected symbol and provider.
 Ranking preference presets now reweight existing Investment Score components without changing provider fetches.
+Forecast chart now shows a beginner-friendly summary for model agreement, forecast spread, compared model count, and the best RMSE model before the chart.
 Rebalance Cockpit has started with summary flow, percentage target weights, allocation comparison chart, and translated risk breach confirmation points.
 
 ## Next Good Targets / ??????

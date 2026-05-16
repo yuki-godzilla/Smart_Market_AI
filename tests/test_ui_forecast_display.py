@@ -14,6 +14,7 @@ from ui.app import (
     default_forecast_horizon_days,
     default_market_data_provider,
     forecast_boundary_frame,
+    forecast_chart_summary,
     forecast_consensus_display_rows,
     forecast_metric_display_rows,
     forecast_metric_summary,
@@ -166,6 +167,39 @@ def test_forecast_consensus_rows_and_display_are_beginner_friendly():
             "モデル一致度": "中くらい",
         }
     ]
+
+
+def test_forecast_chart_summary_explains_agreement_and_range():
+    messages = forecast_chart_summary(
+        [
+            {
+                "symbol": "AAPL",
+                "horizon_days": "1",
+                "model_count": "3",
+                "forecast_range_pct": "1.90%",
+                "agreement": "MEDIUM",
+            }
+        ],
+        [
+            {
+                "model": "naive",
+                "symbol": "AAPL",
+                "horizon_days": "1",
+                "forecast_close": "107",
+                "mae": "1.23",
+                "rmse": "1.50",
+                "direction_accuracy": "50.00%",
+                "sample_count": "6",
+            }
+        ],
+    )
+
+    assert messages[0] == "3 つの予測モデルの見方は「中くらい」です。予測の開きは 1.90% です。"
+    assert messages[1] == (
+        "実線はこれまでの価格、点線はモデルごとの予測です。"
+        "点線同士が近いほど、モデルの見方が近い状態です。"
+    )
+    assert "予測: 直近値維持" in messages[2]
 
 
 def test_investment_score_display_rows_are_beginner_friendly():

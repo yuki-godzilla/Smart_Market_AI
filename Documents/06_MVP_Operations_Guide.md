@@ -311,8 +311,8 @@ Streamlit UI を起動します。
 UI で確認できる主な内容:
 
 - Market Data tab は `銘柄コックピット` と `銘柄ランキング` の 2 モードで確認できます。
-- `銘柄コックピット` では、選択銘柄の Investment Score、見方、注意点、Screening / Forecast / Risk / Data Quality 内訳を上部で確認できます。
-- `銘柄コックピット` では、provider、基準日、参照期間を summary 近くに表示し、actual vs forecast chart をその下で確認できます。
+- `銘柄コックピット` では、provider、基準日、参照期間を上部に表示し、actual vs forecast chart を先に確認できます。
+- `銘柄コックピット` では、選択銘柄の Investment Score、見方、注意点、Screening / Forecast / Risk / Data Quality 内訳を chart 直下で確認できます。
 - `銘柄ランキング` では、複数銘柄を Investment Score 順に並べ、深掘り候補を整理できます。ranking は売買推奨ではありません。
 - `銘柄ランキング` の `重視条件` では、バランス重視、予測一致重視、データ品質重視、リスク控えめの deterministic preset で並び替えできます。
 - `銘柄ランキング` の `銘柄コックピットで確認` から、選んだ銘柄と provider を `銘柄コックピット` に引き継げます。
@@ -320,6 +320,7 @@ UI で確認できる主な内容:
 - Market Data tab では、取得後の chart 付近にある `Forecast days` で 1〜30 日先の forecast horizon を選択
 - `Forecast days` の初期値は表示期間から自動設定され、変更時は取得済みデータから chart / metrics だけを再計算
 - forecast model の参照期間は取得期間と forecast horizon から自動計算され、UI には `自動計算された参照期間` として表示
+- forecast chart の上部では、model agreement、予測の開き、比較 model 数、best RMSE model の読み取り summary を確認できます。
 - forecast chart の凡例では、各系列をクリックして表示 / 非表示を切り替え可能
 - forecast chart では実績価格とモデル別予測線を分け、将来予測の開始位置を確認
 - Forecast Summary では ensemble、median forecast、予測レンジ、model agreement / disagreement を確認できる

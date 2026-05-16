@@ -408,24 +408,70 @@ Scope:
 
 ### Phase 16: Visualization Cockpit
 
-目的: ranking、予測、スコア内訳、モデル比較を UI で確認しやすくする。
+Status: planned
+
+目的: Phase 15 までに整えた scoring / forecast / screening / risk の下回りを、ユーザーが一目で判断材料として読める UI にする。
 
 Scope:
 
-- ranking table
-- score breakdown chart
-- forecast horizon chart
-- model comparison / agreement view
-- risk and data-quality warnings
+- Market Data tab を「銘柄コックピット」と「銘柄ランキング」の 2 モードに整理する。
+- 銘柄コックピットでは、現在の 1 銘柄深掘り画面を残しつつ、Investment Score を画面上部の主役にする。
+- 銘柄ランキングでは、複数銘柄を比較し、ユーザーの重視条件に合わせて候補を並べ替える。
+- Rebalance tab を Rebalance Cockpit として整理し、JSON 入力中心の見え方を下げて、現在 -> 目標 -> 売買案 -> Risk 判定の流れを見せる。
+- Phase 16 では、将来の report / assistant / model adapter が再利用できる UI context と表示順を固める。
+
+Market Data / 銘柄コックピット:
+
+- 銘柄名、provider、基準日、as-of を画面上部に表示する。
+- Investment Score を大きく表示し、見方（強め / バランス型 / 注意）と注意点を近くに置く。
+- Screening / Forecast / Risk / Data Quality の 4 要素を横並び metric または bar chart で可視化する。
+- 「なぜこのスコアか」を初心者向け日本語で 2-3 行に要約する。
+- actual vs forecast chart を Investment Score summary の直下に置く。
+- Forecast Metrics、Screening Score、provider / quote / OHLCV、download は詳細 expander に寄せる。
+- data quality、provider、as-of、取得対象期間は、スコアの信頼度を判断する情報として summary 近くに置く。
+- MAE / RMSE / forecast agreement / risk breach などの専門指標は、上部では読み取り文に翻訳し、詳細では元指標も確認できるようにする。
+
+Market Data / 銘柄ランキング:
+
+- 対象銘柄セットは、まず sample symbols / 手動選択 / 既存 symbol reference から始める。
+- ranking は既存 Investment Score を使い、default deterministic / local path を保つ。
+- ユーザーの重視条件は deterministic preset weight として実装する。
+- 初期 preset 候補: バランス重視、予測一致重視、データ品質重視、リスク控えめ、モメンタム重視。
+- ranking table には score、見方、注意点、Screening / Forecast / Risk / Data Quality 内訳を表示する。
+- ranking から選択した銘柄を銘柄コックピットで深掘りできる導線を用意する。
+- JSON / CSV export は ranking 結果に対して提供する。
+- ranking は「買う銘柄の指示」ではなく、「深掘り候補の整理」として表示する。
+
+Rebalance Cockpit:
+
+- Positions / Targets の JSON 入力は advanced expander に下げる。
+- 上部に「現在資産 -> 目標配分 -> 必要な売買 -> Risk PASS/BLOCK」の流れを表示する。
+- Allocation Comparison を横棒グラフ化し、drift が大きい銘柄を強調する。
+- Target Allocations は `0.5` ではなく `50.00%` のような percentage 表示に統一する。
+- Risk Breaches を内部 code だけでなく、初心者向け日本語の説明に変換して表示する。
+- ranking で見つけた銘柄を将来 target 候補として Rebalance に渡せる導線を想定し、Market Data と Rebalance の役割を分けておく。
+
+最初の実装スライス:
+
+- Market Data tab に「銘柄コックピット / 銘柄ランキング」の表示切替を追加する。
+- 既存の 1 銘柄 Market Data 画面を銘柄コックピットとして整理する。
+- Investment Score summary を銘柄コックピット上部へ移動し、4 要素の内訳を可視化する。
+- 銘柄ランキング MVP は sample symbols を既存 scoring service で並べるところから始める。
+- UI wording は `Documents/07_UI_Wording_Policy.md` に従い、判断補助であって売買推奨ではないことを維持する。
+- Phase 18 の Decision Report に渡せるよう、screen summary / warning / key reasons / provider / as-of の表示項目を揃える。
 
 完了条件:
 
-- ユーザーが ranking から詳細へ進める
-- 予測とスコア理由を同じ画面で確認できる
-- UI は注文送信を行わず、判断補助に限定されている
-
-- 外部 provider 由来の最新に近いデータを使った ranking / forecast / score を UI で確認できる
-- UI 上で provider、as-of、取得時刻、データ品質を確認できる
+- ユーザーが ranking から銘柄コックピットへ進める。
+- 予測、Investment Score、スコア理由、注意点を同じ画面の上部で確認できる。
+- 複数銘柄をユーザーの重視条件に合わせて ranking できる。
+- Screening / Forecast / Risk / Data Quality の内訳が表だけでなく視覚的に確認できる。
+- Rebalance では現在、目標、売買案、Risk 判定の流れが表を読む前に理解できる。
+- ranking -> 銘柄コックピット -> Rebalance という投資判断ワークフローの入口が UI 上で分かる。
+- 専門指標は初心者向けの読み取り文と、検証可能な詳細指標の両方で確認できる。
+- UI は注文送信を行わず、判断補助に限定されている。
+- 外部 provider 由来データを使った ranking / forecast / score の UI 確認は環境依存として扱い、通常確認は deterministic provider で通る。
+- UI 上で provider、as-of、取得時刻、データ品質を確認できる。
 
 ### Phase 17: Research Model Adapters
 
@@ -437,12 +483,16 @@ Scope:
 - model card を用意する
 - heavy dependency は optional に分離する
 - offline fixture で adapter contract をテストする
+- model ごとの得意不得意、入力データ制約、評価期間、data quality 依存を UI / report へ渡せる metadata として持つ
+- 複数 model の一致・不一致を、ユーザーが過信せず読める comparison signal として扱う
 
 完了条件:
 
 - 実験モデルを既定経路から分離して追加できる
 - model ごとの入力、出力、制約、検証結果を追跡できる
 - production-like 経路へ入れる前に評価できる
+- model の追加が Investment Score や ranking の説明可能性を壊さない
+- model comparison が「予測の断定」ではなく「見方の一致・不一致」として表示できる
 
 - UI または research view 上で adapter ごとの予測結果、制約、評価結果を確認できる
 - live data を使う adapter は、取得元と as-of を表示したうえで結果を確認できる
@@ -456,12 +506,18 @@ Scope:
 - score、forecast、risk、data quality を report context にまとめる
 - model 間の一致・不一致と注意点を文章化する
 - Markdown / JSON / CSV / ZIP export を拡張する
+- Phase 16 の銘柄コックピット summary と ranking result を report context として再利用する
+- provider、as-of、取得時刻、対象期間、data quality warning を report 冒頭に含める
+- 「買い / 売り」ではなく、判断材料、注意点、次に確認すべき観点を保存できる形にする
+- 銘柄単体 report と portfolio / rebalance report の両方に拡張できる構造にする
 
 完了条件:
 
 - report だけで主要な判断材料を確認できる
 - 予測の限界と注意点が明記されている
 - 既存の deterministic export 方針を保っている
+- 画面で見た summary、score breakdown、forecast comparison、risk / data quality warning が report に反映される
+- あとから見返しても、どの provider / as-of / weight preset で判断材料を作ったか分かる
 
 - UI から report preview と export を確認できる
 - live provider 由来データを使った report では、provider、as-of、取得時刻、主要な注意点を確認できる
@@ -481,6 +537,9 @@ Scope:
 - ranking、Feature Snapshot、forecast、risk、report への導線を整理する
 - 注意表示は「購入推奨ではなく判断補助」であることを明確にしつつ、画面を邪魔しない配置にする
 - desktop / mobile の主要 viewport で、表・カード・説明文が読める layout にする
+- Phase 16 で作った cockpit / ranking / rebalance の情報設計を、初心者向けの画面名、導線、文言に磨き込む
+- ユーザーの投資スタイル preset（安定重視、成長重視、リスク控えめ、データ品質重視など）を分かりやすい選択肢として整理する
+- 「候補を探す」「理由を見る」「保有に入れた場合を見る」「report に残す」という一連の流れを迷わず進める
 
 完了条件:
 
@@ -489,6 +548,8 @@ Scope:
 - 複数銘柄 ranking では、比較対象、並び順、score 理由、data quality warning が分かる
 - UI 上で総合 score、sub score、data quality warning、主要な理由を日本語で理解できる
 - 銘柄比較から詳細確認、report preview までの導線が分かる
+- Rebalance の risk breach や allocation drift を、内部 code ではなくユーザーが取れる確認行動として読める
+- 判断補助 disclaimer が自然に見え、主要な操作や読み取りを邪魔しない
 - UI に影響する変更はスクリーンショットまたは手動確認観点で検証できる
 - 外部 provider 由来データを使う場合は、provider、as-of、取得時刻、データ品質がユーザーに見える
 
@@ -504,6 +565,8 @@ Scope:
 - AI API を使わない deterministic assistant を既定実装にする
 - 将来 OpenAI API、ローカル LLM、他 provider に差し替えられる adapter 境界を設計する
 - 「購入推奨」ではなく「判断補助」であることを UI と report に明記する
+- Phase 16 の cockpit summary と Phase 18 の report context を入力にし、同じ材料から UI / report / assistant の説明を揃える
+- ユーザーの preset や注目観点に合わせて、ranking 理由と次に見るべき詳細を deterministic に変える
 
 完了条件:
 
@@ -512,6 +575,7 @@ Scope:
 - UI 上で「なぜこの銘柄が上位か」「どこに注意すべきか」を日本語で確認できる
 - report export に assistant summary を含められる
 - LLM を使う場合も optional adapter とし、既定の local checks は外部 API に依存しない
+- assistant の説明が、元の score breakdown、forecast comparison、risk / data quality warning と矛盾しない
 
 ## 6. 検証コマンド
 

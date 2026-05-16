@@ -7,6 +7,7 @@ from backend.screening import ScreeningScore
 from ui.app import (
     _market_data_preview_symbol_label,
     _name_from_candidate,
+    _rank_investment_score_rows,
     _render_market_chart,
     _symbol_from_candidate,
     default_forecast_horizon_days,
@@ -16,8 +17,10 @@ from ui.app import (
     forecast_metric_display_rows,
     forecast_metric_summary,
     investment_score_display_rows,
+    investment_score_summary_lines,
     market_chart_long_frame,
     merged_symbol_candidate_rows,
+    score_component_rows,
     symbol_candidate_labels,
 )
 from ui.rebalance_app import (
@@ -177,6 +180,51 @@ def test_investment_score_display_rows_are_beginner_friendly():
             "注意点": "モデルの見方が割れています",
             "補足": "売買推奨ではなく、判断材料を整理したスコアです。",
         }
+    ]
+
+
+def test_investment_score_summary_lines_explain_score_without_recommendation():
+    lines = investment_score_summary_lines(
+        {
+            "銘柄": "AAPL",
+            "見方": "バランス型",
+            "注意点": "モデルの見方が割れています",
+            "補足": "売買推奨ではなく、判断材料を整理したスコアです。",
+        }
+    )
+
+    assert lines == [
+        "AAPL は「バランス型」として確認できます。",
+        "注意点: モデルの見方が割れています。",
+        "売買推奨ではなく、判断材料を整理したスコアです。",
+    ]
+
+
+def test_score_component_rows_builds_cockpit_breakdown():
+    assert score_component_rows(
+        {
+            "Screening": "80",
+            "予測一致": "40",
+            "Risk": "70",
+            "データ品質": "100",
+        }
+    ) == [
+        {"要素": "Screening", "スコア": "80"},
+        {"要素": "Forecast", "スコア": "40"},
+        {"要素": "Risk", "スコア": "70"},
+        {"要素": "Data Quality", "スコア": "100"},
+    ]
+
+
+def test_rank_investment_score_rows_sorts_and_reassigns_rank():
+    assert _rank_investment_score_rows(
+        [
+            {"rank": "1", "symbol": "LOW", "total_score": "50"},
+            {"rank": "1", "symbol": "HIGH", "total_score": "90"},
+        ]
+    ) == [
+        {"rank": "1", "symbol": "HIGH", "total_score": "90"},
+        {"rank": "2", "symbol": "LOW", "total_score": "50"},
     ]
 
 

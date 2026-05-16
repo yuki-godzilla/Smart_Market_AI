@@ -50,8 +50,16 @@ MARKET_DATA_PREVIEW_STATE_KEY = "market_data_preview"
 MARKET_DATA_STATUS_STATE_KEY = "market_data_status_message"
 MARKET_DATA_FORECAST_DAYS_STATE_KEY = "market_data_forecast_horizon_days"
 MARKET_DATA_TOAST_STATE_KEY = "market_data_toast_message"
+MARKET_DATA_RANKING_STATE_KEY = "market_data_ranking_rows"
+MARKET_DATA_RANKING_ERROR_STATE_KEY = "market_data_ranking_error_rows"
 
 FORECAST_ACTUAL_LABEL = "実績価格"
+MARKET_DATA_MODE_COCKPIT = "cockpit"
+MARKET_DATA_MODE_RANKING = "ranking"
+MARKET_DATA_MODE_LABELS = {
+    MARKET_DATA_MODE_COCKPIT: "銘柄コックピット",
+    MARKET_DATA_MODE_RANKING: "銘柄ランキング",
+}
 
 
 def main() -> None:
@@ -258,6 +266,20 @@ def merged_symbol_candidate_rows(
 
 def _render_market_data_preview() -> None:
     st.subheader("Market Data")
+    mode = cast(
+        str,
+        st.radio(
+            "表示モード",
+            [MARKET_DATA_MODE_COCKPIT, MARKET_DATA_MODE_RANKING],
+            horizontal=True,
+            key="market_data_mode",
+            format_func=lambda value: MARKET_DATA_MODE_LABELS.get(value, value),
+        ),
+    )
+    if mode == MARKET_DATA_MODE_RANKING:
+        _render_market_data_ranking()
+        return
+
     symbol_options = symbol_reference_rows()
     col_provider, col_search, col_symbol, col_name, col_start, col_end = st.columns(
         [1.0, 1.3, 1.7, 1.4, 1.0, 1.0]
@@ -352,6 +374,118 @@ def _render_market_data_preview() -> None:
     _render_market_data_preview_result(stored_preview)
 
 
+def _render_market_data_ranking() -> None:
+    st.subheader("銘柄ランキング")
+    st.caption("複数銘柄を比較し、深掘り候補を整理します。売買推奨ではありません。")
+    symbol_options = symbol_reference_rows()
+    labels = symbol_candidate_labels(symbol_options)
+    default_labels = [
+        label for label in labels if _symbol_from_candidate(label) in {"AAPL", "7203.T"}
+    ][:2]
+    col_provider, col_symbols, col_start, col_end = st.columns([1.0, 2.5, 1.0, 1.0])
+    with col_provider:
+        provider = cast(
+            str,
+            st.selectbox(
+                "Provider",
+                MARKET_DATA_PROVIDER_OPTIONS,
+                index=_provider_option_index(default_market_data_provider()),
+                key="market_data_ranking_provider",
+            ),
+        )
+    with col_symbols:
+        selected_labels = cast(
+            list[str],
+            st.multiselect(
+                "比較する銘柄",
+                labels,
+                default=default_labels,
+                key="market_data_ranking_symbols",
+            ),
+        )
+    with col_start:
+        start = st.date_input(
+            "Start",
+            value=default_market_data_start_date(),
+            key="market_data_ranking_start",
+        )
+    with col_end:
+        end = st.date_input(
+            "End",
+            value=default_market_data_end_date(),
+            key="market_data_ranking_end",
+        )
+
+    if st.button("ランキング作成", key="build_market_data_ranking"):
+        symbols = [_symbol_from_candidate(label) for label in selected_labels]
+        ranking_symbols = [symbol for symbol in symbols if symbol]
+        if not ranking_symbols:
+            st.error("Ranking symbols を1件以上選んでください。")
+            return
+        start_date = _single_date_from_input(start)
+        end_date = _single_date_from_input(end)
+        rows, error_rows = asyncio.run(
+            _build_market_data_ranking_rows(
+                ranking_symbols,
+                start=start_date,
+                end=end_date,
+                provider=provider,
+            )
+        )
+        st.session_state[MARKET_DATA_RANKING_STATE_KEY] = rows
+        st.session_state[MARKET_DATA_RANKING_ERROR_STATE_KEY] = error_rows
+
+    rows = st.session_state.get(MARKET_DATA_RANKING_STATE_KEY, [])
+    error_rows = st.session_state.get(MARKET_DATA_RANKING_ERROR_STATE_KEY, [])
+    if rows:
+        display_rows = investment_score_display_rows(cast(list[dict[str, str]], rows))
+        st.caption("上位の銘柄ほど、今回の条件では深掘り候補として見やすい順です。")
+        _render_table(display_rows, "No ranking rows.")
+        col_json, col_csv = st.columns(2)
+        col_json.download_button(
+            "Download ranking JSON",
+            data=investment_score_json_download(cast(list[dict[str, str]], rows)),
+            file_name="investment_score_ranking.json",
+            mime="application/json",
+        )
+        col_csv.download_button(
+            "Download ranking CSV",
+            data=investment_score_csv_download(cast(list[dict[str, str]], rows)),
+            file_name="investment_score_ranking.csv",
+            mime="text/csv",
+        )
+    else:
+        st.info("銘柄を選んで ranking を作成してください。")
+    if error_rows:
+        with st.expander("取得できなかった銘柄"):
+            _render_table(cast(list[dict[str, str]], error_rows), "No ranking errors.")
+
+
+async def _build_market_data_ranking_rows(
+    symbols: list[str],
+    *,
+    start: date,
+    end: date,
+    provider: str,
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    rows: list[dict[str, str]] = []
+    error_rows: list[dict[str, str]] = []
+    forecast_horizon_days = default_forecast_horizon_days(start, end)
+    for symbol in symbols:
+        preview = await build_market_data_preview(
+            symbol=symbol,
+            start=start,
+            end=end,
+            provider_override=provider,
+            forecast_horizon_days=forecast_horizon_days,
+        )
+        if preview.investment_score_rows:
+            rows.extend(preview.investment_score_rows)
+        for error_row in preview.error_rows:
+            error_rows.append({"symbol": symbol, **error_row})
+    return _rank_investment_score_rows(rows), error_rows
+
+
 def _market_data_preview_from_state() -> MarketDataPreview | None:
     preview = st.session_state.get(MARKET_DATA_PREVIEW_STATE_KEY)
     if isinstance(preview, MarketDataPreview):
@@ -361,89 +495,67 @@ def _market_data_preview_from_state() -> MarketDataPreview | None:
 
 def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
     symbol_label = _market_data_preview_symbol_label(preview)
-    title_col, horizon_col = st.columns([4.0, 1.0])
-    with title_col:
-        st.subheader("Price And Forecast")
-        _render_target_symbol_caption(symbol_label)
-    with horizon_col:
-        forecast_horizon_days = cast(
-            int,
-            st.number_input(
-                "Forecast days",
-                min_value=1,
-                max_value=30,
-                step=1,
-                key=MARKET_DATA_FORECAST_DAYS_STATE_KEY,
-                help="取得済みデータを使ってチャートと指標だけを再計算します。",
-            ),
-        )
+    forecast_horizon_days = _render_market_data_cockpit_header(preview, symbol_label)
     forecast_rows = forecast_chart_rows(preview.bars, horizon_days=forecast_horizon_days)
     consensus_rows = forecast_consensus_rows_for_bars(
         preview.bars,
         horizon_days=forecast_horizon_days,
     )
     metric_rows = forecast_metric_rows_for_bars(preview.bars, horizon_days=forecast_horizon_days)
-    reference_period = forecast_reference_period(
-        preview.bars,
-        horizon_days=forecast_horizon_days,
-    )
 
-    if preview.provider_rows:
-        provider_name = _metadata_value(preview.provider_rows, "provider")
-        st.caption(f"Data provider: {provider_name} / 自動計算された参照期間: {reference_period}日")
-    else:
-        st.caption(f"自動計算された参照期間: {reference_period}日")
-    for index, message in enumerate(forecast_metric_summary(metric_rows)):
-        if index == 0:
-            st.info(message)
-        else:
-            st.caption(message)
+    st.subheader("価格・予測チャート")
+    _render_target_symbol_caption(symbol_label)
     chart_currency = preview.bars[0].symbol.currency if preview.bars else ""
     _render_market_chart(
         forecast_rows,
         currency=chart_currency,
-        title="Price and forecast",
+        title="実績価格と予測",
     )
-    st.subheader("Forecast Summary")
-    _render_target_symbol_caption(symbol_label)
-    _render_table(forecast_consensus_display_rows(consensus_rows), "No forecast summary.")
-    st.subheader("Forecast Metrics")
-    _render_target_symbol_caption(symbol_label)
-    _render_table(forecast_metric_display_rows(metric_rows), "No forecast metrics.")
-    if metric_rows:
-        col_json, col_csv = st.columns(2)
-        col_json.download_button(
-            "Download forecast JSON",
-            data=forecast_metric_json_download(metric_rows),
-            file_name="forecast_metrics.json",
-            mime="application/json",
-        )
-        col_csv.download_button(
-            "Download forecast CSV",
-            data=forecast_metric_csv_download(metric_rows),
-            file_name="forecast_metrics.csv",
-            mime="text/csv",
-        )
 
-    _render_investment_score_section(preview, symbol_label)
+    with st.expander("Forecast details"):
+        for index, message in enumerate(forecast_metric_summary(metric_rows)):
+            if index == 0:
+                st.info(message)
+            else:
+                st.caption(message)
+        st.subheader("Forecast Summary")
+        _render_target_symbol_caption(symbol_label)
+        _render_table(forecast_consensus_display_rows(consensus_rows), "No forecast summary.")
+        st.subheader("Forecast Metrics")
+        _render_target_symbol_caption(symbol_label)
+        _render_table(forecast_metric_display_rows(metric_rows), "No forecast metrics.")
+        if metric_rows:
+            col_json, col_csv = st.columns(2)
+            col_json.download_button(
+                "Download forecast JSON",
+                data=forecast_metric_json_download(metric_rows),
+                file_name="forecast_metrics.json",
+                mime="application/json",
+            )
+            col_csv.download_button(
+                "Download forecast CSV",
+                data=forecast_metric_csv_download(metric_rows),
+                file_name="forecast_metrics.csv",
+                mime="text/csv",
+            )
 
-    st.subheader("Screening Score")
-    _render_target_symbol_caption(symbol_label)
-    _render_table(preview.screening_rows, "No screening score rows.")
-    if preview.screening_rows:
-        col_json, col_csv = st.columns(2)
-        col_json.download_button(
-            "Download screening JSON",
-            data=screening_score_json_download(preview.screening_rows),
-            file_name="screening_score.json",
-            mime="application/json",
-        )
-        col_csv.download_button(
-            "Download screening CSV",
-            data=screening_score_csv_download(preview.screening_rows),
-            file_name="screening_score.csv",
-            mime="text/csv",
-        )
+    with st.expander("Screening Score"):
+        _render_target_symbol_caption(symbol_label)
+        _render_table(preview.screening_rows, "No screening score rows.")
+        if preview.screening_rows:
+            col_json, col_csv = st.columns(2)
+            col_json.download_button(
+                "Download screening JSON",
+                data=screening_score_json_download(preview.screening_rows),
+                file_name="screening_score.json",
+                mime="application/json",
+            )
+            col_csv.download_button(
+                "Download screening CSV",
+                data=screening_score_csv_download(preview.screening_rows),
+                file_name="screening_score.csv",
+                mime="text/csv",
+            )
 
     with st.expander("Provider / Quote / OHLCV"):
         st.subheader("Provider")
@@ -469,6 +581,36 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
     if preview.error_rows:
         st.subheader("Errors")
         st.dataframe(preview.error_rows, hide_index=True, use_container_width=True)
+
+
+def _render_market_data_cockpit_header(
+    preview: MarketDataPreview,
+    symbol_label: str,
+) -> int:
+    st.subheader("銘柄コックピット")
+    metadata_col, horizon_col = st.columns([4.0, 1.0])
+    provider_name = _metadata_value(preview.provider_rows, "provider") or "unknown"
+    as_of = _market_data_as_of(preview)
+    with horizon_col:
+        forecast_horizon_days = cast(
+            int,
+            st.number_input(
+                "Forecast days",
+                min_value=1,
+                max_value=30,
+                step=1,
+                key=MARKET_DATA_FORECAST_DAYS_STATE_KEY,
+                help="取得済みデータを使ってチャートと指標だけを再計算します。",
+            ),
+        )
+    reference_period = forecast_reference_period(preview.bars, horizon_days=forecast_horizon_days)
+    with metadata_col:
+        st.caption(
+            f"対象: {symbol_label} / Provider: {provider_name} / "
+            f"基準日: {as_of or '未取得'} / 参照期間: {reference_period}日"
+        )
+    _render_investment_score_section(preview, symbol_label)
+    return forecast_horizon_days
 
 
 def _render_result(result: PortfolioRiskResult, request: RebalanceCheckRequest) -> None:
@@ -603,43 +745,91 @@ def _render_table(rows: list[dict[str, str]], empty_message: str) -> None:
 
 
 def _render_investment_score_section(preview: MarketDataPreview, symbol_label: str) -> None:
-    st.subheader("Investment Score")
-    _render_target_symbol_caption(symbol_label)
     rows = investment_score_display_rows(preview.investment_score_rows)
     if not rows:
         st.info("No investment score rows.")
         return
 
     row = rows[0]
-    score_col, band_col, forecast_col, quality_col = st.columns(4)
+    score_col, band_col, forecast_col, quality_col, risk_col = st.columns(5)
     score_col.metric("総合スコア", row.get("総合スコア", ""))
     band_col.metric("見方", row.get("見方", ""))
     forecast_col.metric("予測一致", row.get("予測一致", ""))
     quality_col.metric("データ品質", row.get("データ品質", ""))
+    risk_col.metric("Risk", row.get("Risk", ""))
 
     warning = row.get("注意点", "")
     if warning:
         st.warning(warning)
     else:
         st.info("大きな注意点はありません。スコアの内訳も確認してください。")
-    st.caption(row.get("補足", ""))
+    for line in investment_score_summary_lines(row):
+        st.caption(line)
+    _render_score_breakdown_chart(score_component_rows(row))
 
-    with st.expander("Investment Score details"):
+    with st.expander("Investment Score details / downloads"):
+        _render_target_symbol_caption(symbol_label)
         _render_table(rows, "No investment score rows.")
+        col_json, col_csv = st.columns(2)
+        col_json.download_button(
+            "Download investment score JSON",
+            data=investment_score_json_download(preview.investment_score_rows),
+            file_name="investment_score.json",
+            mime="application/json",
+        )
+        col_csv.download_button(
+            "Download investment score CSV",
+            data=investment_score_csv_download(preview.investment_score_rows),
+            file_name="investment_score.csv",
+            mime="text/csv",
+        )
 
-    col_json, col_csv = st.columns(2)
-    col_json.download_button(
-        "Download investment score JSON",
-        data=investment_score_json_download(preview.investment_score_rows),
-        file_name="investment_score.json",
-        mime="application/json",
+
+def investment_score_summary_lines(row: dict[str, str]) -> list[str]:
+    lines = [
+        f"{row.get('銘柄', 'この銘柄')} は「{row.get('見方', '要確認')}」として確認できます。",
+    ]
+    warning = row.get("注意点", "")
+    if warning:
+        lines.append(f"注意点: {warning}。")
+    else:
+        lines.append("大きな注意点はありません。")
+    note = row.get("補足", "")
+    if note:
+        lines.append(note)
+    return lines[:3]
+
+
+def score_component_rows(row: dict[str, str]) -> list[dict[str, str]]:
+    return [
+        {"要素": "Screening", "スコア": row.get("Screening", "")},
+        {"要素": "Forecast", "スコア": row.get("予測一致", "")},
+        {"要素": "Risk", "スコア": row.get("Risk", "")},
+        {"要素": "Data Quality", "スコア": row.get("データ品質", "")},
+    ]
+
+
+def _render_score_breakdown_chart(rows: list[dict[str, str]]) -> None:
+    frame = pd.DataFrame(rows)
+    frame["score"] = pd.to_numeric(frame["スコア"], errors="coerce")
+    frame = frame.dropna(subset=["score"])
+    if frame.empty:
+        return
+    chart = (
+        alt.Chart(frame)
+        .mark_bar(cornerRadius=4)
+        .encode(
+            x=alt.X("score:Q", title="Score", scale=alt.Scale(domain=[0, 100])),
+            y=alt.Y("要素:N", title=None, sort=None),
+            color=alt.Color("要素:N", legend=None),
+            tooltip=[
+                alt.Tooltip("要素:N", title="要素"),
+                alt.Tooltip("score:Q", title="スコア"),
+            ],
+        )
+        .properties(height=150)
     )
-    col_csv.download_button(
-        "Download investment score CSV",
-        data=investment_score_csv_download(preview.investment_score_rows),
-        file_name="investment_score.csv",
-        mime="text/csv",
-    )
+    st.altair_chart(chart, use_container_width=True)
 
 
 def _render_market_chart(
@@ -935,10 +1125,39 @@ def _int_from_text(value: str) -> int:
         return 0
 
 
+def _rank_investment_score_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    ranked = sorted(
+        rows,
+        key=lambda row: _optional_decimal_from_text(row.get("total_score", "")) or Decimal("-1"),
+        reverse=True,
+    )
+    return [
+        {
+            **row,
+            "rank": str(index),
+        }
+        for index, row in enumerate(ranked, start=1)
+    ]
+
+
 def _metadata_value(rows: list[dict[str, str]], field: str) -> str:
     for row in rows:
         if row.get("field") == field:
             return row.get("value", "")
+    return ""
+
+
+def _market_data_as_of(preview: MarketDataPreview) -> str:
+    if preview.bars:
+        return preview.bars[-1].ts.date().isoformat()
+    for row in preview.ohlcv_rows:
+        last_ts = row.get("last_ts", "")
+        if last_ts:
+            return last_ts[:10]
+    for row in preview.quote_rows:
+        ts = row.get("ts", "")
+        if ts:
+            return ts[:10]
     return ""
 
 

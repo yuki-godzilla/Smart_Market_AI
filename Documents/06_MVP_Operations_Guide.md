@@ -310,7 +310,11 @@ Streamlit UI を起動します。
 
 UI で確認できる主な内容:
 
-- Market Data tab での forecast chart / metrics、investment score、screening score、provider metadata、quote、OHLCV summary、FX、feature snapshot、error details
+- Market Data tab は `銘柄コックピット` と `銘柄ランキング` の 2 モードで確認できます。
+- `銘柄コックピット` では、選択銘柄の Investment Score、見方、注意点、Screening / Forecast / Risk / Data Quality 内訳を上部で確認できます。
+- `銘柄コックピット` では、provider、基準日、参照期間を summary 近くに表示し、actual vs forecast chart をその下で確認できます。
+- `銘柄ランキング` では、複数銘柄を Investment Score 順に並べ、深掘り候補を整理できます。ranking は売買推奨ではありません。
+- Forecast details、Screening Score、provider metadata、quote、OHLCV summary、FX、feature snapshot、error details は補助情報として折りたたみ表示します。
 - Market Data tab では、取得後の chart 付近にある `Forecast days` で 1〜30 日先の forecast horizon を選択
 - `Forecast days` の初期値は表示期間から自動設定され、変更時は取得済みデータから chart / metrics だけを再計算
 - forecast model の参照期間は取得期間と forecast horizon から自動計算され、UI には `自動計算された参照期間` として表示
@@ -318,7 +322,7 @@ UI で確認できる主な内容:
 - forecast chart では実績価格とモデル別予測線を分け、将来予測の開始位置を確認
 - Forecast Summary では ensemble、median forecast、予測レンジ、model agreement / disagreement を確認できる
 - forecast metrics は JSON / CSV として保存できる
-- Investment Score では screening score、forecast agreement、data quality を統合した総合 score と注意点を、横長テーブルではなくメトリクス表示で確認できる
+- Investment Score では screening score、forecast agreement、data quality、risk signal を統合した総合 score と注意点を、横長テーブルではなくメトリクスと bar chart で確認できる
 - Investment Score は売買推奨ではなく、判断材料を整理するための補助表示です
 - Screening Score では forecast agreement を補助的な score / reason として確認できる
 - provider の UI 既定値は `yahoo`

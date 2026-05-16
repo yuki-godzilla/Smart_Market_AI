@@ -10,6 +10,7 @@ from ui.app import (
     _rank_investment_score_rows,
     _render_market_chart,
     _symbol_from_candidate,
+    apply_ranking_weight_preset,
     default_forecast_horizon_days,
     default_market_data_provider,
     forecast_boundary_frame,
@@ -20,7 +21,10 @@ from ui.app import (
     investment_score_summary_lines,
     market_chart_long_frame,
     merged_symbol_candidate_rows,
+    ranking_symbol_options,
+    ranking_weight_preset_label,
     score_component_rows,
+    symbol_candidate_label,
     symbol_candidate_labels,
 )
 from ui.rebalance_app import (
@@ -106,6 +110,19 @@ def test_symbol_candidate_labels_filter_by_symbol_or_name():
     assert symbol_candidate_labels(rows, "retail") == ["9983.T - Fast Retailing"]
     assert symbol_candidate_labels(rows, "AAPL") == ["AAPL - Apple Inc."]
     assert symbol_candidate_labels(rows, "missing") == []
+
+
+def test_ranking_symbol_options_and_label_support_deep_dive():
+    rows = [
+        {"symbol": "AAPL", "total_score": "80"},
+        {"symbol": "aapl", "total_score": "70"},
+        {"symbol": "7203.T", "total_score": "60"},
+        {"symbol": "", "total_score": "50"},
+    ]
+
+    assert ranking_symbol_options(rows) == ["AAPL", "7203.T"]
+    assert symbol_candidate_label("AAPL") == "AAPL - Apple Inc."
+    assert symbol_candidate_label("UNKNOWN") == "UNKNOWN"
 
 
 def test_forecast_reference_period_uses_horizon_and_bar_count():
@@ -226,6 +243,46 @@ def test_rank_investment_score_rows_sorts_and_reassigns_rank():
         {"rank": "1", "symbol": "HIGH", "total_score": "90"},
         {"rank": "2", "symbol": "LOW", "total_score": "50"},
     ]
+
+
+def test_apply_ranking_weight_preset_reweights_and_sorts_rows():
+    rows = apply_ranking_weight_preset(
+        [
+            {
+                "rank": "1",
+                "symbol": "QUALITY",
+                "total_score": "70",
+                "score_band": "BALANCED",
+                "screening_score": "60",
+                "forecast_agreement_score": "50",
+                "data_quality_score": "100",
+                "risk_signal_score": "60",
+                "warnings": "",
+            },
+            {
+                "rank": "2",
+                "symbol": "FORECAST",
+                "total_score": "70",
+                "score_band": "BALANCED",
+                "screening_score": "60",
+                "forecast_agreement_score": "100",
+                "data_quality_score": "50",
+                "risk_signal_score": "60",
+                "warnings": "",
+            },
+        ],
+        "forecast",
+    )
+
+    assert rows[0]["symbol"] == "FORECAST"
+    assert rows[0]["rank"] == "1"
+    assert rows[0]["total_score"] == "74.5"
+    assert rows[0]["score_band"] == "BALANCED"
+    assert rows[0]["note"] == (
+        "予測一致重視で並べ替えています。売買推奨ではなく、深掘り候補の整理です。"
+    )
+    assert rows[1]["symbol"] == "QUALITY"
+    assert ranking_weight_preset_label("forecast") == "予測一致重視"
 
 
 def test_screening_score_rows_include_forecast_signal():

@@ -172,3 +172,5 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Phase 14 を implementation complete として整理し、Phase 15 の最初の実装スライスを `backend/scoring` の Investment Score contract と deterministic tests に定義した。
 - Started Phase 16 by splitting the Streamlit Market Data tab into `銘柄コックピット` / `銘柄ランキング`, moving Investment Score into the cockpit summary, adding a score breakdown chart, and adding deterministic selected-symbol ranking.
 - Continued Phase 16 by moving Rebalance JSON inputs into advanced input, adding Rebalance Cockpit summary flow, percentage target weights, allocation comparison chart, and beginner-friendly risk breach confirmation points.
+- Connected Phase 16 ranking to the single-symbol cockpit by letting selected ranking symbols pass their symbol/provider into the cockpit state for follow-up review.
+- Added deterministic ranking preference presets for balance, forecast agreement, data quality, and lower-risk emphasis by reweighting existing Investment Score components in the UI.

@@ -60,6 +60,42 @@ MARKET_DATA_MODE_LABELS = {
     MARKET_DATA_MODE_COCKPIT: "銘柄コックピット",
     MARKET_DATA_MODE_RANKING: "銘柄ランキング",
 }
+RANKING_PRESET_BALANCED = "balanced"
+RANKING_PRESET_FORECAST = "forecast"
+RANKING_PRESET_QUALITY = "quality"
+RANKING_PRESET_RISK = "risk"
+RANKING_WEIGHT_PRESET_LABELS = {
+    RANKING_PRESET_BALANCED: "バランス重視",
+    RANKING_PRESET_FORECAST: "予測一致重視",
+    RANKING_PRESET_QUALITY: "データ品質重視",
+    RANKING_PRESET_RISK: "リスク控えめ",
+}
+RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
+    RANKING_PRESET_BALANCED: {
+        "screening_score": Decimal("0.50"),
+        "forecast_agreement_score": Decimal("0.20"),
+        "data_quality_score": Decimal("0.20"),
+        "risk_signal_score": Decimal("0.10"),
+    },
+    RANKING_PRESET_FORECAST: {
+        "screening_score": Decimal("0.35"),
+        "forecast_agreement_score": Decimal("0.40"),
+        "data_quality_score": Decimal("0.15"),
+        "risk_signal_score": Decimal("0.10"),
+    },
+    RANKING_PRESET_QUALITY: {
+        "screening_score": Decimal("0.35"),
+        "forecast_agreement_score": Decimal("0.15"),
+        "data_quality_score": Decimal("0.40"),
+        "risk_signal_score": Decimal("0.10"),
+    },
+    RANKING_PRESET_RISK: {
+        "screening_score": Decimal("0.35"),
+        "forecast_agreement_score": Decimal("0.15"),
+        "data_quality_score": Decimal("0.20"),
+        "risk_signal_score": Decimal("0.30"),
+    },
+}
 
 
 def main() -> None:
@@ -387,7 +423,9 @@ def _render_market_data_ranking() -> None:
     default_labels = [
         label for label in labels if _symbol_from_candidate(label) in {"AAPL", "7203.T"}
     ][:2]
-    col_provider, col_symbols, col_start, col_end = st.columns([1.0, 2.5, 1.0, 1.0])
+    col_provider, col_preset, col_symbols, col_start, col_end = st.columns(
+        [1.0, 1.2, 2.4, 1.0, 1.0]
+    )
     with col_provider:
         provider = cast(
             str,
@@ -396,6 +434,16 @@ def _render_market_data_ranking() -> None:
                 MARKET_DATA_PROVIDER_OPTIONS,
                 index=_provider_option_index(default_market_data_provider()),
                 key="market_data_ranking_provider",
+            ),
+        )
+    with col_preset:
+        weight_preset = cast(
+            str,
+            st.selectbox(
+                "重視条件",
+                list(RANKING_WEIGHT_PRESETS),
+                key="market_data_ranking_weight_preset",
+                format_func=ranking_weight_preset_label,
             ),
         )
     with col_symbols:
@@ -443,19 +491,43 @@ def _render_market_data_ranking() -> None:
     rows = st.session_state.get(MARKET_DATA_RANKING_STATE_KEY, [])
     error_rows = st.session_state.get(MARKET_DATA_RANKING_ERROR_STATE_KEY, [])
     if rows:
-        display_rows = investment_score_display_rows(cast(list[dict[str, str]], rows))
-        st.caption("上位の銘柄ほど、今回の条件では深掘り候補として見やすい順です。")
+        ranked_rows = apply_ranking_weight_preset(
+            cast(list[dict[str, str]], rows),
+            weight_preset,
+        )
+        display_rows = investment_score_display_rows(ranked_rows)
+        st.caption(
+            f"重視条件: {ranking_weight_preset_label(weight_preset)}。"
+            "上位の銘柄ほど、今回の条件では深掘り候補として見やすい順です。"
+        )
         _render_table(display_rows, "No ranking rows.")
+        deep_dive_symbols = ranking_symbol_options(ranked_rows)
+        if deep_dive_symbols:
+            selected_symbol = cast(
+                str,
+                st.selectbox(
+                    "深掘りする銘柄",
+                    deep_dive_symbols,
+                    format_func=symbol_candidate_label,
+                    key="market_data_ranking_deep_dive_symbol",
+                ),
+            )
+            st.button(
+                "銘柄コックピットで確認",
+                key="market_data_ranking_open_cockpit",
+                on_click=_select_ranking_symbol_for_cockpit,
+                args=(selected_symbol, provider),
+            )
         col_json, col_csv = st.columns(2)
         col_json.download_button(
             "Download ranking JSON",
-            data=investment_score_json_download(cast(list[dict[str, str]], rows)),
+            data=investment_score_json_download(ranked_rows),
             file_name="investment_score_ranking.json",
             mime="application/json",
         )
         col_csv.download_button(
             "Download ranking CSV",
-            data=investment_score_csv_download(cast(list[dict[str, str]], rows)),
+            data=investment_score_csv_download(ranked_rows),
             file_name="investment_score_ranking.csv",
             mime="text/csv",
         )
@@ -489,6 +561,34 @@ async def _build_market_data_ranking_rows(
         for error_row in preview.error_rows:
             error_rows.append({"symbol": symbol, **error_row})
     return _rank_investment_score_rows(rows), error_rows
+
+
+def _select_ranking_symbol_for_cockpit(symbol: str, provider: str) -> None:
+    st.session_state["market_data_mode"] = MARKET_DATA_MODE_COCKPIT
+    st.session_state["market_data_provider"] = provider
+    st.session_state["market_data_symbol_candidate"] = symbol_candidate_label(symbol)
+    st.session_state.pop(MARKET_DATA_PREVIEW_STATE_KEY, None)
+    st.session_state.pop(MARKET_DATA_STATUS_STATE_KEY, None)
+
+
+def ranking_symbol_options(rows: list[dict[str, str]]) -> list[str]:
+    symbols: list[str] = []
+    seen: set[str] = set()
+    for row in rows:
+        symbol = row.get("symbol", "").strip()
+        normalized = symbol.upper()
+        if not symbol or normalized in seen:
+            continue
+        symbols.append(symbol)
+        seen.add(normalized)
+    return symbols
+
+
+def symbol_candidate_label(symbol: str) -> str:
+    name = symbol_name(symbol)
+    if name:
+        return f"{symbol} - {name}"
+    return symbol
 
 
 def _market_data_preview_from_state() -> MarketDataPreview | None:
@@ -1230,6 +1330,54 @@ def _rank_investment_score_rows(rows: list[dict[str, str]]) -> list[dict[str, st
         }
         for index, row in enumerate(ranked, start=1)
     ]
+
+
+def apply_ranking_weight_preset(
+    rows: list[dict[str, str]],
+    preset: str,
+) -> list[dict[str, str]]:
+    weights = RANKING_WEIGHT_PRESETS[preset]
+    preset_label = ranking_weight_preset_label(preset)
+    reweighted_rows: list[dict[str, str]] = []
+    for row in rows:
+        total = Decimal("0")
+        for field, weight in weights.items():
+            component_score = _optional_decimal_from_text(row.get(field, "")) or Decimal("0")
+            total += component_score * weight
+        warnings = row.get("warnings", "")
+        reweighted_rows.append(
+            {
+                **row,
+                "total_score": _format_score(total),
+                "score_band": _score_band_for_total(total, warnings),
+                "note": f"{preset_label}で並べ替えています。売買推奨ではなく、深掘り候補の整理です。",
+            }
+        )
+    return _rank_investment_score_rows(reweighted_rows)
+
+
+def ranking_weight_preset_label(preset: str) -> str:
+    return RANKING_WEIGHT_PRESET_LABELS.get(preset, preset)
+
+
+def _score_band_for_total(total_score: Decimal, warnings: str) -> str:
+    warning_items = {item.strip() for item in warnings.split(",") if item.strip()}
+    if "data_quality:block" in warning_items:
+        return "REVIEW"
+    if total_score >= Decimal("75") and not warning_items:
+        return "STRONG"
+    if warning_items and total_score < Decimal("65"):
+        return "CAUTION"
+    if total_score >= Decimal("55"):
+        return "BALANCED"
+    if total_score >= Decimal("40"):
+        return "CAUTION"
+    return "REVIEW"
+
+
+def _format_score(value: Decimal) -> str:
+    rounded = value.quantize(Decimal("0.01"))
+    return format(rounded.normalize(), "f")
 
 
 def _metadata_value(rows: list[dict[str, str]], field: str) -> str:

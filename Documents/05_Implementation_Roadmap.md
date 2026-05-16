@@ -408,65 +408,69 @@ Scope:
 
 ### Phase 16: Visualization Cockpit
 
-Status: planned
+Status: in progress
 
 目的: Phase 15 までに整えた scoring / forecast / screening / risk の下回りを、ユーザーが一目で判断材料として読める UI にする。
 
 Scope:
 
-- Market Data tab を「銘柄コックピット」と「銘柄ランキング」の 2 モードに整理する。
-- 銘柄コックピットでは、現在の 1 銘柄深掘り画面を残しつつ、Investment Score を画面上部の主役にする。
-- 銘柄ランキングでは、複数銘柄を比較し、ユーザーの重視条件に合わせて候補を並べ替える。
-- Rebalance tab を Rebalance Cockpit として整理し、JSON 入力中心の見え方を下げて、現在 -> 目標 -> 売買案 -> Risk 判定の流れを見せる。
+- Done: Market Data tab を「銘柄コックピット」と「銘柄ランキング」の 2 モードに整理する。
+- Done: 銘柄コックピットでは、現在の 1 銘柄深掘り画面を残しつつ、Investment Score を画面上部の主役にする。
+- Done: 銘柄ランキングでは、複数銘柄を比較し、ユーザーの重視条件に合わせて候補を並べ替える。
+- In progress: Rebalance tab を Rebalance Cockpit として整理し、JSON 入力中心の見え方を下げて、現在 -> 目標 -> 売買案 -> Risk 判定の流れを見せる。
 - Phase 16 では、将来の report / assistant / model adapter が再利用できる UI context と表示順を固める。
 
 Market Data / 銘柄コックピット:
 
-- 銘柄名、provider、基準日、as-of を画面上部に表示する。
-- Investment Score を大きく表示し、見方（強め / バランス型 / 注意）と注意点を近くに置く。
-- Screening / Forecast / Risk / Data Quality の 4 要素を横並び metric または bar chart で可視化する。
-- 「なぜこのスコアか」を初心者向け日本語で 2-3 行に要約する。
-- actual vs forecast chart を Investment Score summary の直下に置く。
-- Forecast Metrics、Screening Score、provider / quote / OHLCV、download は詳細 expander に寄せる。
-- data quality、provider、as-of、取得対象期間は、スコアの信頼度を判断する情報として summary 近くに置く。
+- Done: 銘柄名、provider、基準日、as-of を画面上部に表示する。
+- Done: Investment Score を大きく表示し、見方（強め / バランス型 / 注意）と注意点を近くに置く。
+- Done: Screening / Forecast / Risk / Data Quality の 4 要素を横並び metric または bar chart で可視化する。
+- Done: 「なぜこのスコアか」を初心者向け日本語で 2-3 行に要約する。
+- Done: actual vs forecast chart を Investment Score summary の直下に置く。
+- Done: Forecast Metrics、Screening Score、provider / quote / OHLCV、download は詳細 expander に寄せる。
+- Done: data quality、provider、as-of、取得対象期間は、スコアの信頼度を判断する情報として summary 近くに置く。
 - MAE / RMSE / forecast agreement / risk breach などの専門指標は、上部では読み取り文に翻訳し、詳細では元指標も確認できるようにする。
 
 Market Data / 銘柄ランキング:
 
-- 対象銘柄セットは、まず sample symbols / 手動選択 / 既存 symbol reference から始める。
-- ranking は既存 Investment Score を使い、default deterministic / local path を保つ。
-- ユーザーの重視条件は deterministic preset weight として実装する。
-- 初期 preset 候補: バランス重視、予測一致重視、データ品質重視、リスク控えめ、モメンタム重視。
-- ranking table には score、見方、注意点、Screening / Forecast / Risk / Data Quality 内訳を表示する。
-- ranking から選択した銘柄を銘柄コックピットで深掘りできる導線を用意する。
-- JSON / CSV export は ranking 結果に対して提供する。
-- ranking は「買う銘柄の指示」ではなく、「深掘り候補の整理」として表示する。
+- Done: 対象銘柄セットは、まず sample symbols / 手動選択 / 既存 symbol reference から始める。
+- Done: ranking は既存 Investment Score を使い、default deterministic / local path を保つ。
+- Done: ユーザーの重視条件は deterministic preset weight として実装する。
+- Done: 初期 preset 候補: バランス重視、予測一致重視、データ品質重視、リスク控えめ。
+- Deferred: モメンタム重視 preset は、Investment Score 側で momentum signal を明示的に扱う段階で追加する。
+- Done: ranking table には score、見方、注意点、Screening / Forecast / Risk / Data Quality 内訳を表示する。
+- Done: ranking から選択した銘柄を銘柄コックピットで深掘りできる導線を用意する。
+- Done: JSON / CSV export は ranking 結果に対して提供する。
+- Done: ranking は「買う銘柄の指示」ではなく、「深掘り候補の整理」として表示する。
 
 Rebalance Cockpit:
 
-- Positions / Targets の JSON 入力は advanced expander に下げる。
-- 上部に「現在資産 -> 目標配分 -> 必要な売買 -> Risk PASS/BLOCK」の流れを表示する。
-- Allocation Comparison を横棒グラフ化し、drift が大きい銘柄を強調する。
-- Target Allocations は `0.5` ではなく `50.00%` のような percentage 表示に統一する。
-- Risk Breaches を内部 code だけでなく、初心者向け日本語の説明に変換して表示する。
+- Done: Positions / Targets の JSON 入力は advanced expander に下げる。
+- Done: 上部に「現在資産 -> 目標配分 -> 必要な売買 -> Risk PASS/BLOCK」の流れを表示する。
+- Done: Allocation Comparison を横棒グラフ化する。
+- In progress: drift が大きい銘柄を強調する。
+- Done: Target Allocations は `0.5` ではなく `50.00%` のような percentage 表示に統一する。
+- Done: Risk Breaches を内部 code だけでなく、初心者向け日本語の説明に変換して表示する。
 - ranking で見つけた銘柄を将来 target 候補として Rebalance に渡せる導線を想定し、Market Data と Rebalance の役割を分けておく。
 
 最初の実装スライス:
 
-- Market Data tab に「銘柄コックピット / 銘柄ランキング」の表示切替を追加する。
-- 既存の 1 銘柄 Market Data 画面を銘柄コックピットとして整理する。
-- Investment Score summary を銘柄コックピット上部へ移動し、4 要素の内訳を可視化する。
-- 銘柄ランキング MVP は sample symbols を既存 scoring service で並べるところから始める。
-- UI wording は `Documents/07_UI_Wording_Policy.md` に従い、判断補助であって売買推奨ではないことを維持する。
-- Phase 18 の Decision Report に渡せるよう、screen summary / warning / key reasons / provider / as-of の表示項目を揃える。
+- Done: Market Data tab に「銘柄コックピット / 銘柄ランキング」の表示切替を追加する。
+- Done: 既存の 1 銘柄 Market Data 画面を銘柄コックピットとして整理する。
+- Done: Investment Score summary を銘柄コックピット上部へ移動し、4 要素の内訳を可視化する。
+- Done: 銘柄ランキング MVP は sample symbols を既存 scoring service で並べるところから始める。
+- Done: ranking から選んだ銘柄と provider を銘柄コックピットへ引き継ぐ。
+- Done: ranking preset weight で、バランス重視 / 予測一致重視 / データ品質重視 / リスク控えめに並び替える。
+- Done: UI wording は `Documents/07_UI_Wording_Policy.md` に従い、判断補助であって売買推奨ではないことを維持する。
+- In progress: Phase 18 の Decision Report に渡せるよう、screen summary / warning / key reasons / provider / as-of の表示項目を揃える。
 
 完了条件:
 
-- ユーザーが ranking から銘柄コックピットへ進める。
-- 予測、Investment Score、スコア理由、注意点を同じ画面の上部で確認できる。
-- 複数銘柄をユーザーの重視条件に合わせて ranking できる。
-- Screening / Forecast / Risk / Data Quality の内訳が表だけでなく視覚的に確認できる。
-- Rebalance では現在、目標、売買案、Risk 判定の流れが表を読む前に理解できる。
+- Done: ユーザーが ranking から銘柄コックピットへ進める。
+- Done: 予測、Investment Score、スコア理由、注意点を同じ画面の上部で確認できる。
+- Done: 複数銘柄をユーザーの重視条件に合わせて ranking できる。
+- Done: Screening / Forecast / Risk / Data Quality の内訳が表だけでなく視覚的に確認できる。
+- In progress: Rebalance では現在、目標、売買案、Risk 判定の流れが表を読む前に理解できる。
 - ranking -> 銘柄コックピット -> Rebalance という投資判断ワークフローの入口が UI 上で分かる。
 - 専門指標は初心者向けの読み取り文と、検証可能な詳細指標の両方で確認できる。
 - UI は注文送信を行わず、判断補助に限定されている。

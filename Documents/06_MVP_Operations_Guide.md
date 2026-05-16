@@ -314,6 +314,8 @@ UI で確認できる主な内容:
 - `銘柄コックピット` では、選択銘柄の Investment Score、見方、注意点、Screening / Forecast / Risk / Data Quality 内訳を上部で確認できます。
 - `銘柄コックピット` では、provider、基準日、参照期間を summary 近くに表示し、actual vs forecast chart をその下で確認できます。
 - `銘柄ランキング` では、複数銘柄を Investment Score 順に並べ、深掘り候補を整理できます。ranking は売買推奨ではありません。
+- `銘柄ランキング` の `重視条件` では、バランス重視、予測一致重視、データ品質重視、リスク控えめの deterministic preset で並び替えできます。
+- `銘柄ランキング` の `銘柄コックピットで確認` から、選んだ銘柄と provider を `銘柄コックピット` に引き継げます。
 - Forecast details、Screening Score、provider metadata、quote、OHLCV summary、FX、feature snapshot、error details は補助情報として折りたたみ表示します。
 - Market Data tab では、取得後の chart 付近にある `Forecast days` で 1〜30 日先の forecast horizon を選択
 - `Forecast days` の初期値は表示期間から自動設定され、変更時は取得済みデータから chart / metrics だけを再計算

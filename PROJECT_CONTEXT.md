@@ -58,6 +58,8 @@ Implemented or mostly implemented:
 - Phase 15 is implementation-complete with a deterministic `backend/scoring` Investment Score contract/service, `POST /scoring/investment-score` API, configurable `scoring.weights`, screening risk-score integration, and Market Data tab preview/export without changing `ScreeningScore`.
   Phase 15 ? implementation complete: deterministic ? `backend/scoring` Investment Score contract/service ? `POST /scoring/investment-score` API ? configurable `scoring.weights` ? screening risk-score integration ? Market Data tab preview/export ??????`ScreeningScore` ??????????
 - Phase 16 has started with a Streamlit Market Data mode split for `銘柄コックピット` / `銘柄ランキング`, an Investment Score-first cockpit summary, score breakdown chart, and deterministic ranking MVP for selected symbols.
+- Ranking results can now pass the selected symbol and provider into the single-symbol cockpit for deep-dive follow-up.
+- Ranking supports deterministic preference presets for balance, forecast agreement, data quality, and lower-risk emphasis.
 - Rebalance Cockpit has started: JSON inputs are folded into advanced input, target allocations are percentage-formatted, allocation comparison has a chart, and risk breaches include beginner-friendly confirmation points.
 
 Partial or intentionally deferred:
@@ -88,11 +90,13 @@ Phase 15 is implementation-complete: Investment Score combines screening, foreca
 Phase 15 ? implementation complete: Investment Score ? screening / forecast agreement / screening risk score / data quality ? configurable weights ????????? live-provider UI confirmation ? environment-dependent.
 
 Phase 16 has started: Market Data now separates single-symbol cockpit review from multi-symbol ranking, and the cockpit puts Investment Score, reasons, warnings, provider, as-of, and score breakdown above the forecast chart.
+Ranking now has a basic deep-dive handoff into the cockpit by setting the selected symbol and provider.
+Ranking preference presets now reweight existing Investment Score components without changing provider fetches.
 Rebalance Cockpit has started with summary flow, percentage target weights, allocation comparison chart, and translated risk breach confirmation points.
 
 ## Next Good Targets / ??????
 
-- Continue Phase 16 by tightening the ranking-to-cockpit selection flow and polishing Rebalance Cockpit wording/layout.
+- Continue Phase 16 by polishing Rebalance Cockpit wording/layout and improving forecast chart readability.
 - Improve forecast chart readability within the cockpit with clear actual-vs-forecast styling, labels, and beginner-friendly metrics.
 - Extend forecast reporting beyond metrics-only export when a richer saved report is needed.
   ????????????????????????? forecast reporting ???????

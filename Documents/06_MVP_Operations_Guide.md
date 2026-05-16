@@ -339,12 +339,13 @@ UI のラベル、凡例、指標説明などの文言方針は [07_UI_Wording_P
 - `examples/rebalance_scenarios/` の file-backed sample
 - account、as-of date、cash、positions JSON、target allocations JSON
 - AAPL target-weight slider
-- rebalance summary
+- Rebalance Cockpit summary: 現在資産、現金、必要な売買、Risk 判定
+- Positions / Targets の JSON 入力は advanced input として折りたたみ表示
 - current positions
-- target allocations
-- allocation comparison
+- target allocations は percentage 表示
+- allocation comparison は current / target / drift の percentage 表示と横棒 chart
 - proposed trades
-- risk breaches
+- risk breaches は内部 code と初心者向けの確認ポイントを表示
 - raw JSON result
 - JSON / CSV / Markdown / ZIP download
 - validated request JSON download

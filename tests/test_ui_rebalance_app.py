@@ -13,11 +13,15 @@ import pytest
 from backend.core.data_contracts import Bar, DailySnapshot, FeatureSnapshot, Symbol
 from backend.marketdata.providers import yahoo
 from ui.app import (
+    allocation_chart_frame,
     default_as_of_date,
     default_market_data_end_date,
     default_market_data_start_date,
     market_chart_frame,
     market_chart_long_frame,
+    rebalance_flow_rows,
+    risk_breach_display_rows,
+    risk_breach_message,
 )
 from ui.rebalance_app import (
     DEFAULT_ACCOUNT_ID,
@@ -863,6 +867,7 @@ def test_rebalance_result_formatters_create_table_rows():
 
     assert current_position_rows(result.proposal)[0]["symbol"] == "7203.T (Toyota Motor)"
     assert target_allocation_rows(result.proposal)[1]["symbol"] == "AAPL (Apple Inc.)"
+    assert target_allocation_rows(result.proposal)[1]["target_weight"] == "50.00%"
     assert allocation_comparison_rows(result.proposal) == [
         {
             "symbol": "7203.T (Toyota Motor)",
@@ -881,6 +886,50 @@ def test_rebalance_result_formatters_create_table_rows():
     assert risk_breach_rows(result) == [
         {"breach": "R5:min_dividend_yield:AAPL"},
         {"breach": "R3:max_concentration"},
+    ]
+
+
+def test_rebalance_cockpit_helpers_translate_flow_and_risk_breaches():
+    summary = {
+        "total_value_jpy": "58076",
+        "trade_count": "2",
+        "risk_status": "BLOCK",
+    }
+
+    assert rebalance_flow_rows(summary) == [
+        {"step": "現在", "value": "58076 JPY"},
+        {"step": "目標", "value": "target allocations"},
+        {"step": "売買案", "value": "2 trades"},
+        {"step": "Risk", "value": "BLOCK"},
+    ]
+    assert risk_breach_message("R5:min_dividend_yield:AAPL") == (
+        "AAPL は配当利回りの条件を満たしていない可能性があります。"
+    )
+    assert risk_breach_display_rows(
+        [{"breach": "R3:max_concentration"}]
+    ) == [
+        {
+            "breach": "R3:max_concentration",
+            "確認ポイント": "1銘柄への集中度が高くなっています。目標配分を確認してください。",
+        }
+    ]
+
+
+def test_allocation_chart_frame_converts_percent_rows():
+    frame = allocation_chart_frame(
+        [
+            {
+                "symbol": "AAPL (Apple Inc.)",
+                "current_weight": "0.00%",
+                "target_weight": "50.00%",
+                "drift": "50.00%",
+            }
+        ]
+    )
+
+    assert frame.to_dict("records") == [
+        {"symbol": "AAPL (Apple Inc.)", "type": "現在", "weight": 0.0},
+        {"symbol": "AAPL (Apple Inc.)", "type": "目標", "weight": 50.0},
     ]
 
 

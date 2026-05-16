@@ -952,7 +952,7 @@ def target_allocation_rows(proposal: RebalanceProposal) -> list[dict[str, str]]:
         {
             "symbol": symbol_display_name(target.symbol),
             "currency": target.currency,
-            "target_weight": _format_decimal(target.target_weight),
+            "target_weight": _format_percent(target.target_weight),
         }
         for target in proposal.targets
     ]

@@ -18,6 +18,8 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-05-17: Started Phase 18 by adding `backend/reporting` Decision Report context v1, deterministic Markdown rendering, local export manifest metadata, and tests covering cockpit / ranking / rebalance context composition. / Phase 18 を開始し、`backend/reporting` に Decision Report context v1、deterministic Markdown rendering、local export manifest metadata、cockpit / ranking / rebalance context composition tests を追加した。
+
 - 2026-05-17: Marked Phase 16 as implementation-complete with final Streamlit browser smoke recommended, and added the Phase 16 final UI smoke checklist to the roadmap and operations guide. / Phase 16 を実装完了扱いに更新し、最終 Streamlit browser smoke 推奨として、Phase 16 最終 UI 確認チェックリストをロードマップと運用ガイドへ追加した。
 - 2026-05-17: Documented the current Phase 16 ranking workflow in the operations guide, including `symbol_universe.csv`, the in-page screening condition panel, ranking cache, Yahoo batch OHLCV fetch, progress display, and the ranking-to-cockpit deep-dive flow. / Phase 16 の銘柄ランキング workflow について、`symbol_universe.csv`、画面内スクリーニング条件パネル、ranking cache、Yahoo 一括 OHLCV 取得、進捗表示、銘柄コックピットへの深掘り導線を運用ガイドへ記録した。
 - 2026-05-17: Polished the Phase 16 Market Data ranking UI wording by clarifying that screening conditions filter candidates while acquisition period / weight preset control ranking calculation and display ordering. / Phase 16 Market Data ranking の UI 文言を調整し、スクリーニング条件は候補絞り込み、取得期間と重視条件は ranking 計算・表示順の設定であることを明確化した。

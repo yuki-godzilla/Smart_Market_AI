@@ -23,6 +23,7 @@ Routine development must keep deterministic `mock` / `csv` behavior available wh
 - `backend/forecast`: baseline models, model registry lite, evaluation, forecast consensus
 - `backend/screening`: explainable symbol screening score
 - `backend/scoring`: Investment Score contract/service
+- `backend/reporting`: Decision Report context contracts and deterministic Markdown/manifest helpers
 - `backend/risk`: deterministic pre-trade risk checks
 - `backend/portfolio`: portfolio valuation, no-solver rebalance proposal, portfolio-to-risk workflow
 - `ui`: Streamlit UI for Market Data / Rebalance workflows
@@ -55,6 +56,7 @@ Implemented or mostly implemented:
 - Ranking-to-cockpit handoff for follow-up single-symbol review.
 - Rebalance Cockpit summary flow, percentage target input, allocation comparison chart, and beginner-friendly risk breach confirmation points.
 - JSON / CSV / Markdown / manifest / ZIP exports for implemented workflows.
+- Decision Report context v1 in `backend/reporting` for reusing cockpit / ranking / rebalance outputs in local reports.
 - `tools/run_black_check.py` as the routine Black check path for the Windows environment.
 
 Partial or intentionally deferred:
@@ -63,7 +65,7 @@ Partial or intentionally deferred:
 - `polygon` is reserved in provider metadata but adapter implementation is not complete.
 - Symbol metadata refresh from provider fundamentals is not implemented; current ranking filters rely on curated/static metadata.
 - Research RAG is designed but not implemented.
-- Decision Report is not yet the main report workflow.
+- Decision Report has a first backend context/rendering slice, but is not yet wired into API/UI exports.
 - Execution / broker order submission is intentionally out of the current default path.
 - PDF / Excel export is future scope.
 
@@ -75,11 +77,12 @@ Partial or intentionally deferred:
 - Phase 13〜14: Forecast Lab / Multi-Model Forecasting are implementation-complete with deterministic baseline models and consensus.
 - Phase 15: Model-Informed Scoring is implementation-complete with `backend/scoring`, API, UI preview/export, and configurable weights.
 - Phase 16: Visualization Cockpit / UI improvement is implementation-complete; final Streamlit browser smoke is still recommended.
+- Phase 18: Decision Report is in progress with an initial local-first context contract and deterministic Markdown/manifest helper.
 - Research RAG roadmap: designed and planned, not implemented.
 
 ## Next Good Targets
 
-- Prepare Decision Report context so cockpit / ranking / rebalance outputs can be saved consistently.
+- Wire Decision Report context into cockpit / ranking / rebalance UI/API exports.
 - Add a symbol metadata refresh path for dividend yield, sector/theme, ETF/fund attributes, and metadata freshness tracking.
 - Start Research RAG from local document ingestion, chunk/search, and deterministic Research Summary before optional vector/LLM adapters.
 - Run a final Streamlit Phase 16 smoke when browser access is available: ranking conditions, ranking cache/progress, weight-preset resort, ranking-to-cockpit, and Rebalance wording.

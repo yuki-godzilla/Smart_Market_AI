@@ -449,10 +449,20 @@ Status: planned
 
 ### Phase 18: Decision Report
 
-Status: planned
+Status: in progress
 
 Phase 16 の cockpit summary と ranking result を report context として再利用する。
 初期は Markdown / JSON / CSV / ZIP を優先し、PDF / Excel は後続。
+
+Done:
+
+- `backend/reporting` に Decision Report context v1 と deterministic Markdown / manifest helper を追加。
+- cockpit / ranking / rebalance 由来の summary / table rows / warnings / notes を local-first に束ねる最小 schema を追加。
+
+Next:
+
+- Streamlit の cockpit / ranking / rebalance state から Decision Report context を組み立てる導線を追加。
+- API / export で JSON / Markdown / ZIP として保存できるようにする。
 
 ### Phase 19: UI Design And Beginner Experience
 

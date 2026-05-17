@@ -5,9 +5,7 @@
 ## 1. 目的
 
 この文書は、現在の Smart Market AI MVP をローカルで起動、確認、説明するための運用ガイドです。
-
-以前は API 仕様、CSV 形式、手動確認手順、UI ガイド、外部 MarketData provider 準備を個別ファイルに分けていました。
-内容が細かく分散して視認性が落ちていたため、MVP の運用に必要な情報をこの 1 ファイルへ統合しています。
+API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱いをこの 1 ファイルに集約します。
 
 ## 2. 現在の MVP 範囲
 
@@ -17,22 +15,31 @@
 - `GET /health`
 - `POST /risk/pre-trade-check`
 - `POST /portfolio/rebalance-check`
+- `POST /screening/score`
+- `POST /forecast/evaluate`
+- `POST /scoring/investment-score`
 - deterministic な `mock` / `csv` MarketData provider
+- 明示 opt-in の `yahoo` live provider adapter 経路
+- Feature Snapshot / Screening Score / Forecast Evaluation / Investment Score
 - Portfolio-to-Risk rebalance-check workflow
 - Streamlit UI
-- JSON / CSV / Markdown / manifest / ZIP report export
-- 外部 MarketData provider の opt-in 準備
+  - Market Data: `銘柄コックピット` / `銘柄ランキング`
+  - Rebalance: summary flow / allocation comparison / risk confirmation
+- JSON / CSV / Markdown / manifest / ZIP export
+- file-backed rebalance scenarios
 
 未実装:
 
 - `polygon` などの追加 live provider adapter 本体
+- provider fundamentals からの symbol metadata refresh
+- Research RAG / IR資料検索 / Research Score
+- Decision Report の本格 workflow
 - broker への live order 送信
 - Execution workflow
-- Research RAG / IR資料検索 / Research Score
-- screening / forecasting / multi-model scoring の実装
+- PDF / Excel export
 
 現在の MVP は、ローカル検証と説明用です。
-外部 API へ接続せず、broker や execution provider へ注文を送りません。
+外部 API へ接続する場合は明示 opt-in が必要で、broker や execution provider へ注文を送りません。
 
 ## 3. API 起動と確認
 
@@ -52,18 +59,14 @@ http://127.0.0.1:8000/openapi.json
 
 主な API:
 
-- `GET /health`
-  - API が起動していることを確認します。
-- `POST /risk/pre-trade-check`
-  - trade intent を deterministic な MVP リスクルールで評価します。
-- `POST /portfolio/rebalance-check`
-  - 現在 portfolio と target allocation から rebalance proposal を作り、必要に応じて Risk check へ接続します。
-- `POST /screening/score`
-  - 指定した銘柄の Feature Snapshot を作り、ranking と score breakdown を返します。
-- `POST /forecast/evaluate`
-  - 指定した銘柄の OHLCV から baseline forecast と walk-forward metrics を返します。
-- `POST /scoring/investment-score`
-  - screening score、forecast agreement、data quality を統合した投資判断補助 score を返します。
+| API | 役割 |
+| --- | --- |
+| `GET /health` | API 起動確認 |
+| `POST /risk/pre-trade-check` | trade intent を deterministic risk rule で評価 |
+| `POST /portfolio/rebalance-check` | 現在 portfolio と target allocation から売買案を作り Risk check へ接続 |
+| `POST /screening/score` | Feature Snapshot から Screening Score / ranking / reason を返す |
+| `POST /forecast/evaluate` | OHLCV から baseline forecast と walk-forward metrics を返す |
+| `POST /scoring/investment-score` | Screening / Forecast agreement / Data quality / Risk signal を統合した Investment Score を返す |
 
 エラー応答は JSON です。
 
@@ -110,72 +113,7 @@ Invoke-RestMethod `
   -Body $body
 ```
 
-Health check:
-
-```powershell
-Invoke-RestMethod http://127.0.0.1:8000/health
-```
-
-期待される response:
-
-```json
-{
-  "status": "ok"
-}
-```
-
-Screening score:
-
-```powershell
-$body = @{
-  symbols = @("AAPL", "7203.T")
-  as_of = "2026-04-09"
-} | ConvertTo-Json
-
-Invoke-RestMethod `
-  -Method Post `
-  -Uri http://127.0.0.1:8000/screening/score `
-  -ContentType "application/json" `
-  -Body $body
-```
-
-期待される response:
-
-- `rank`
-- `total_score`
-- `momentum_score`
-- `liquidity_score`
-- `risk_score`
-- `data_quality_score`
-- `reasons`
-
-Forecast evaluate:
-
-```powershell
-$body = @{
-  symbol = "AAPL"
-  start = "2026-04-07"
-  end = "2026-04-09"
-  horizon_days = 1
-} | ConvertTo-Json
-
-Invoke-RestMethod `
-  -Method Post `
-  -Uri http://127.0.0.1:8000/forecast/evaluate `
-  -ContentType "application/json" `
-  -Body $body
-```
-
-期待される response:
-
-- `model_name`
-- `latest_forecast.forecast_close`
-- `metrics.mae`
-- `metrics.rmse`
-- `metrics.direction_accuracy`
-- `metrics.sample_count`
-
-Investment score:
+Investment Score:
 
 ```powershell
 $body = @{
@@ -218,222 +156,110 @@ $env:SMAI_CONFIG_FILE = ".\config\csv_example.yaml"
 .\venv_SMAI\Scripts\python.exe -m uvicorn backend.app.main:app --reload
 ```
 
-```powershell
-$env:SMAI_CONFIG_FILE = ".\config\csv_example.yaml"
-.\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
-```
+CSV sample は `data/marketdata/` 配下にあります。
 
-設定例:
+- `symbols.csv`
+- `ohlcv.csv`
+- `fx_rates.csv`
+- `fundamentals.csv`
 
-```yaml
-dataaccess:
-  provider: csv
-  csv_data_dir: data/marketdata
-```
-
-Investment Score の weight は `scoring.weights` で調整できます。
-4 項目の合計は 1.0 にしてください。
-
-```yaml
-scoring:
-  weights:
-    screening: 0.50
-    forecast_agreement: 0.20
-    data_quality: 0.20
-    risk_signal: 0.10
-```
-
-必要な CSV:
-
-```text
-symbols.csv
-ohlcv.csv
-fx_rates.csv
-fundamentals.csv
-```
-
-サンプル配置:
-
-```text
-config/csv_example.yaml
-data/marketdata/symbols.csv
-data/marketdata/ohlcv.csv
-data/marketdata/fx_rates.csv
-data/marketdata/fundamentals.csv
-```
-
-`symbols.csv`:
-
-```csv
-raw,exchange,code,currency
-AAPL,NASDAQ,AAPL,USD
-7203.T,TSE,7203,JPY
-```
-
-`ohlcv.csv`:
-
-```csv
-symbol,ts,open,high,low,close,volume
-AAPL,2026-04-09T00:00:00+00:00,173.00,176.00,172.00,175.00,62000000
-```
-
-`fx_rates.csv`:
-
-```csv
-pair,rate,ts,source
-USDJPY,150.00,2026-04-09T00:00:00+00:00,csv
-```
-
-`fundamentals.csv`:
-
-```csv
-symbol,as_of,dividend_yield,market_cap_jpy
-AAPL,2026-04-09,0.005,450000000000000
-```
-
-MVP 制約:
-
-- `fx_rates.csv` の対応 pair は現在 `USDJPY` のみ
-- `ohlcv.csv` は日次データを想定
-- `fundamentals.csv` は `as_of` 以前の最新行を使い、`dividend_yield` と `market_cap_jpy` を Feature Snapshot に反映する
-- 必須列がない場合はエラー
-- 余分な列は無視される
+`fx_rates.csv` の対応 pair は現在 `USDJPY` のみです。
 
 ## 6. Streamlit UI
 
-Market Data tab の各結果 section には、見出しとは別に評価中の symbol / 銘柄名が小さく表示されます。
-
-Streamlit UI を起動します。
+起動:
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
 ```
 
-UI で確認できる主な内容:
+### Market Data tab
 
-- Market Data tab は `銘柄コックピット` と `銘柄ランキング` の 2 モードで確認できます。
-- `銘柄コックピット` では、provider、基準日、参照期間を上部に表示し、actual vs forecast chart を先に確認できます。
-- `銘柄コックピット` では、選択銘柄の Investment Score、見方、注意点、Screening / Forecast / Risk / Data Quality 内訳を chart 直下で確認できます。
-- `銘柄ランキング` では、複数銘柄を Investment Score 順に並べ、深掘り候補を整理できます。ranking は売買推奨ではありません。
-- `銘柄ランキング` では、Fetch 前の候補条件として対象市場、銘柄タイプ、通貨、配当カテゴリ、配当利回り(%)以上、時価総額、ETF連動対象、信託報酬(%)以下、テーマ、キーワード、表示件数を選べます。
-- 候補条件は `候補条件を変更` から modal で編集し、画面上には要約だけを表示します。
-- modal 内では現在条件の候補件数と候補例を確認できます。条件適用後は、比較銘柄の選択肢も条件に合わせて更新されます。
-- `銘柄ランキング` の期間は `短期: 1週間`、`中期: 1か月`、`長期: 1年` から選択します。
-- Fetch 前の候補条件は static symbol metadata / curated tags だけを使い、Investment Score、forecast、data quality、risk など取得後に分かる指標は ranking 実行後に評価します。
-- ranking table には ticker と銘柄名を表示します。
-- 高配当候補、配当利回り、時価総額区分、ETF expense ratio などは、現時点では curated metadata として扱います。将来は provider 由来 fundamentals を別コマンドで取得し、差分確認後に symbol metadata を更新する運用にします。
-- `銘柄ランキング` の `重視条件` では、バランス重視、予測一致重視、データ品質重視、リスク控えめの deterministic preset で並び替えできます。
-- `銘柄ランキング` の `銘柄コックピットで確認` から、選んだ銘柄と provider を `銘柄コックピット` に引き継げます。
-- Forecast details、Screening Score、provider metadata、quote、OHLCV summary、FX、feature snapshot、error details は補助情報として折りたたみ表示します。
-- Market Data tab では、取得後の chart 付近にある `Forecast days` で 1〜30 日先の forecast horizon を選択
-- `Forecast days` の初期値は表示期間から自動設定され、変更時は取得済みデータから chart / metrics だけを再計算
-- forecast model の参照期間は取得期間と forecast horizon から自動計算され、UI には `自動計算された参照期間` として表示
-- forecast chart の上部では、model agreement、予測の開き、比較 model 数、best RMSE model の読み取り summary を確認できます。
-- forecast chart の凡例では、各系列をクリックして表示 / 非表示を切り替え可能
-- forecast chart では実績価格とモデル別予測線を分け、将来予測の開始位置を確認
-- Forecast Summary では ensemble、median forecast、予測レンジ、model agreement / disagreement を確認できる
-- forecast metrics は JSON / CSV として保存できる
-- Investment Score では screening score、forecast agreement、data quality、risk signal を統合した総合 score と注意点を、横長テーブルではなくメトリクスと bar chart で確認できる
-- Investment Score は売買推奨ではなく、判断材料を整理するための補助表示です
-- Screening Score では forecast agreement を補助的な score / reason として確認できる
-- provider の UI 既定値は `yahoo`
-- symbol は `Symbol search` と `Symbol` プルダウンで指定し、国内・米国の代表候補を ticker / company name の部分一致で検索して選択できる
-- `Symbol search` に入力がある場合は、代表候補に加えて yfinance `Search` の候補も補助的に表示する
-- yfinance 検索候補はネットワークや Yahoo 側の応答に依存するため、失敗時は代表候補だけで動作する
-- 既知の銘柄は名称を横に表示する
-- provider metadata、quote、OHLCV summary、FX、feature snapshot は補助情報として折りたたみ表示
+Market Data tab は 2 つの mode を持ちます。
 
-UI のラベル、凡例、指標説明などの文言方針は [07_UI_Wording_Policy.md](./07_UI_Wording_Policy.md) を参照します。
-- runtime settings
-- sample symbol reference
-- `Default rebalance` / `No trades` sample selector
-- `examples/rebalance_scenarios/` の file-backed sample
-- account、as-of date、cash、positions JSON、target allocations JSON
-- AAPL target-weight slider
-- Rebalance Cockpit summary: 現在資産、現金、必要な売買、Risk 判定
-- Positions / Targets の JSON 入力は advanced input として折りたたみ表示
+| mode | 役割 |
+| --- | --- |
+| `銘柄コックピット` | 1 銘柄の価格、予測、Investment Score、注意点を深掘りする |
+| `銘柄ランキング` | 複数銘柄を条件で絞り、Investment Score で比較する |
+
+銘柄コックピットで確認できるもの:
+
+- provider / symbol / company name / period
+- 価格・予測チャート
+- forecast agreement、forecast spread、best RMSE model
+- Investment Score summary
+- score breakdown chart
+- warnings / reasons
+- Forecast metrics / Screening Score / provider detail
+- JSON / CSV downloads
+
+銘柄ランキングで確認できるもの:
+
+- provider
+- ranking preset
+  - バランス重視
+  - 予測一致重視
+  - データ品質重視
+  - リスク控えめ
+- 候補条件 modal
+  - period preset
+  - market
+  - asset type
+  - currency
+  - dividend category
+  - minimum dividend yield
+  - market-cap tier
+  - ETF index family
+  - max expense ratio
+  - theme
+  - keyword
+  - display count
+- ranking result with ticker / company name / score / warnings
+- 選択銘柄をコックピットへ渡す deep-dive flow
+
+注意:
+
+- ranking の候補条件は、provider fetch 前に使える static / curated metadata を中心にしています。
+- dividend category や theme は現在 curated metadata です。provider fundamentals からの自動更新は将来拡張です。
+
+### Rebalance tab
+
+Rebalance は `Rebalance Cockpit` として、次の順に確認します。
+
+1. 現在資産
+2. 目標配分
+3. 必要な売買
+4. Risk 判定
+
+確認できるもの:
+
+- summary flow
+- target allocation percentage input
 - current positions
-- target allocations は percentage 表示
-- allocation comparison は current / target / drift の percentage 表示と横棒 chart
+- target allocations
+- allocation comparison chart
 - proposed trades
-- risk breaches は内部 code と初心者向けの確認ポイントを表示
-- raw JSON result
-- JSON / CSV / Markdown / ZIP download
-- validated request JSON download
-- report manifest
+- risk decision
+- beginner-friendly risk breach confirmation points
+- JSON / CSV / Markdown / ZIP export
 
-別ディレクトリの scenario JSON を使う場合:
-
-```powershell
-$env:SMAI_REBALANCE_SCENARIO_DIR = ".\my_rebalance_scenarios"
-.\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
-```
-
-指定パスが存在しない、またはディレクトリでない場合は、UI に scenario load error が表示されます。
-
-MVP export は JSON、CSV、Markdown、manifest、ZIP までです。
-Market Data tab の forecast metrics、investment score、screening score は、それぞれ JSON / CSV として保存できます。
-Rebalance の allocation comparison は current / target / drift を percentage 表示で確認できます。
-PDF / Excel は将来の reporting 拡張で扱います。
-
-## 7. 外部 MarketData provider 準備
+## 7. 外部 MarketData provider
 
 現在使える provider:
 
-| provider | 実装状態 | network | 用途 |
+| provider | 状態 | opt-in | 主な用途 |
 | --- | --- | --- | --- |
 | `mock` | 実装済み | 不要 | 既定の MVP 確認 |
 | `csv` | 実装済み | 不要 | ローカル CSV 確認 |
-| `yahoo` | opt-in live adapter | 必要 | 最初の live provider |
-| `polygon` | 未実装 | 将来必要 | live provider 候補 |
+| `yahoo` | 実装済み経路あり | 必要 | yfinance による live data 確認 |
+| `polygon` | metadata のみ | 将来必要 | live provider 候補 |
 
-live provider を指定するには、設定ファイルで `dataaccess.allow_external_providers: true` を明示する必要があります。
-
-```yaml
-dataaccess:
-  provider: yahoo
-  allow_external_providers: true
-```
-
-`yahoo` は `yfinance` を使う opt-in live adapter として factory から呼ばれます。
-`yfinance` が未インストール、provider が応答しない、または取得データが空の場合は domain error として UI に表示されます。
-Phase 10 の確認では、明示 opt-in した `yahoo` provider から実データを取得し、Streamlit UI 上で取得結果と provider 状態を確認します。
-
-live provider を UI で確認する例:
-
-```powershell
-.\venv_SMAI\Scripts\python.exe -m pip install -r .\setup\requirements.txt
-$env:SMAI_CONFIG_FILE = ".\tests\fixtures\config\live_provider_yahoo_opt_in.yaml"
-$env:SMAI_YFINANCE_CACHE_DIR = ".\.yfinance_cache"
-.\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
-```
-
-Streamlit の `Market Data` tab で `AAPL` などの symbol と date range を指定し、quote、OHLCV summary、USDJPY FX、provider metadata を確認します。
-`unable to open database file` が出る場合は、`SMAI_YFINANCE_CACHE_DIR` に書き込み可能なディレクトリを指定してください。
-
-通常のローカル確認では、次のどちらかを使います。
-
-```yaml
-dataaccess:
-  provider: mock
-  allow_external_providers: false
-```
-
-```yaml
-dataaccess:
-  provider: csv
-  csv_data_dir: data/marketdata
-  allow_external_providers: false
-```
-
-provider capability は `backend/marketdata/provider_registry.py` で管理します。
-将来の live provider adapter の依存や module 予定は `backend/marketdata/live_provider_adapters.py` で管理します。
-provider adapter の共通 interface は `backend/marketdata/provider_adapters.py` の `MarketDataProviderAdapter` protocol です。
-設定から provider adapter を作る入口は `backend/marketdata/provider_factory.py` の `create_market_data_provider_adapter()` です。
+`yahoo` を使う場合は、設定で `allow_external_providers: true` を明示します。
+通常の自動テストと local checks は外部 API に依存させません。
 
 ## 8. ローカル検証
 
-基本確認:
+まとめて確認:
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\run_local_checks.py
@@ -444,10 +270,11 @@ provider adapter の共通 interface は `backend/marketdata/provider_adapters.p
 ```powershell
 .\venv_SMAI\Scripts\python.exe -m pytest tests -q
 .\venv_SMAI\Scripts\python.exe -m ruff check backend ui tests --no-cache
-.\venv_SMAI\Scripts\python.exe -m mypy .
+.\venv_SMAI\Scripts\python.exe -m mypy backend
+.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py
 ```
 
-Markdown の UTF-8 確認:
+Markdown UTF-8 check:
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe -c "from pathlib import Path; [p.read_text(encoding='utf-8') for p in Path('.').rglob('*.md') if '.git' not in p.parts]; print('markdown utf-8 ok')"
@@ -455,19 +282,7 @@ Markdown の UTF-8 確認:
 
 ## 9. 更新ルール
 
-API、CSV provider、manual workflow、UI、外部 provider 準備、検証コマンドが変わる場合は、この文書を更新します。
-実装状態や次の作業方針が変わる場合は、あわせて `PROJECT_CONTEXT.md` と `Documents/05_Implementation_Roadmap.md` も更新します。
-
-
-## Research RAG 予定機能の扱い
-
-Research RAG は、IR資料・有価証券報告書・決算資料・中期経営計画・ニュースなどを検索し、長期企業分析の根拠を表示する将来機能です。
-現時点の通常MVP運用では、Research RAG の ingestion / search / vector index / external source adapter は実装済み前提にしません。
-
-将来の運用方針:
-
-- 既定はローカル資料登録と deterministic keyword search から開始する。
-- 外部ソース取得、embedding、LLM要約は明示 opt-in にする。
-- 通常の `tools/run_local_checks.py` は外部API、外部LLM、live scraping に依存させない。
-- UI / report では、資料名、公開日、ページ、抜粋、資料鮮度、データ品質警告を表示する。
-- Research RAG の出力は売買推奨ではなく、判断材料と注意点の整理として扱う。
+- 実装状態が変わったら README / PROJECT_CONTEXT / Roadmap / Operations Guide を同期する。
+- UI に見える変更は `07_UI_Wording_Policy.md` と `08_Phase16_UI_Improvement_Plan.md` も確認する。
+- 作業履歴は `Documents/99_Work_Log.md` の先頭へ追加する。
+- Research RAG は現時点では planned として扱い、実装済み前提にしない。

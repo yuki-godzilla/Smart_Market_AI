@@ -2,6 +2,18 @@
 
 #### [BACK TO DETAIL DESIGN README](./04_Detail_Design_README.md)
 
+## 0. Current Sync Status
+
+This diagram document is a reference snapshot synced at document level on 2026-05-17.
+The source of truth remains actual code in `backend/`, `ui/`, and `tests/`.
+
+Current implementation notes:
+
+- Core / MarketData / FeatureBuilder / Risk / Portfolio / Screening / Forecast / Scoring are implemented.
+- Research RAG is planned and diagrammed as a future component.
+- Execution is deferred; only config placeholders and `TradeIntent` exist in current code.
+- Portfolio solver is currently `none`; optimizer backends are not implemented.
+
 ## 1. Purpose
 
 このドキュメントは、実装済みまたは直近で実装予定の主要クラスを横断的に整理するためのクラス図集です。
@@ -16,9 +28,14 @@
 
 現在の対象:
 - Core Foundation: 実装済み
-- MarketData MVP: 実装済み（mock provider）
-- Risk MVP: initial `RiskService`, `RiskDecision`, and pre-trade API implemented
-- Portfolio MVP: initial `PortfolioService`, snapshots, no-solver rebalance proposals, and Portfolio-to-Risk workflow implemented
+- MarketData MVP: 実装済み（mock / csv / opt-in yahoo path）
+- Feature Store Lite: 実装済み（Feature Snapshot）
+- Risk MVP: `RiskService`, `RiskDecision`, and pre-trade API implemented
+- Portfolio MVP: `PortfolioService`, snapshots, no-solver rebalance proposals, and Portfolio-to-Risk workflow implemented
+- Forecast: baseline models, model registry lite, evaluation, consensus implemented
+- Screening: `ScreeningService` and reason labels implemented
+- Scoring: `InvestmentScoringService` and `InvestmentScore` contract implemented
+- Streamlit UI: cockpit / ranking / rebalance cockpit helpers implemented
 - Research RAG: planned component for local document ingestion, evidence search, research summary, and optional Research Score
 
 ## 3. Core Foundation Class Diagram
@@ -450,7 +467,58 @@ AssistantService ..> CompanyResearchReport
 @enduml
 ```
 
-## 8. Component-Specific Diagram Links
+
+## 8. Investment Scoring Relationships
+
+`backend.scoring` currently provides a deterministic Investment Score contract that combines Screening Score, forecast agreement, data quality, and a first risk signal.
+
+```plantuml
+@startuml
+top to bottom direction
+skinparam shadowing true
+skinparam roundcorner 8
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+package "backend.scoring" {
+  class InvestmentScoringService {
+    +score(screening_scores, forecast_consensus_by_symbol): list[InvestmentScore]
+  }
+  class InvestmentScore {
+    +rank: int
+    +symbol: str
+    +total_score: Decimal
+    +score_band: InvestmentScoreBand
+    +breakdown: list[InvestmentScoreBreakdown]
+    +warnings: list[str]
+    +reasons: list[str]
+    +decision_support_note: str
+  }
+  class InvestmentScoreBreakdown {
+    +component: str
+    +weight: Decimal
+    +input_score: Decimal
+    +contribution: Decimal
+  }
+}
+
+package "backend.screening" {
+  class ScreeningScore
+}
+
+package "backend.forecast" {
+  class ForecastConsensus
+}
+
+InvestmentScoringService ..> ScreeningScore
+InvestmentScoringService ..> ForecastConsensus
+InvestmentScoringService --> InvestmentScore
+InvestmentScore *-- InvestmentScoreBreakdown
+@enduml
+```
+
+
+## 9. Component-Specific Diagram Links
 
 - MarketData / DataAccess: [04-2_Onepager_marketdata_dataaccess.md](./04-2_Onepager_marketdata_dataaccess.md)
 - Execution: [04-3_Onepager_Execution.md](./04-3_Onepager_Execution.md)

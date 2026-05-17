@@ -1,109 +1,110 @@
-# 04-5\_Onepager\_Feature\_Builder
+# 04-5_Onepager_Feature_Builder
 
-#### [BACK TO README](../../README.md)
+#### [BACK TO DETAIL DESIGN README](./04_Detail_Design_README.md)
+
+## 0) Current Sync Status
+
+この文書は **2026-05-17 時点の実装に同期済み**です。
+FeatureBuilder は `backend/marketdata/feature_builder.py` に実装済みで、Risk / Portfolio / Screening / Investment Score の共通入力です。
 
 ## 1) Purpose & Scope
 
-* **Purpose**: Market Data(DataAccess) から取得した生データを、Risk/Portfolio/Forecast が直接利用できる**派生特徴量**へ変換する。
-* **Scope**: 集計（OHLCV→日次/週次）、指標計算（ADV、実現ボラ、リターン、配当利回り、為替換算済み時価総額等）、欠損ハンドリング、スナップショット生成。
-* **Out of Scope**: 学習用の重い特徴量エンジニアリング（AutoML、複雑なテクニカルの全網羅）。
+MarketData provider から取得した quotes / OHLCV / fundamentals を、下流サービスが使える `DailySnapshot` / `FeatureSnapshot` に変換します。
+現在は軽量な Feature Store Lite として、永続DBではなくリクエスト時に deterministic に構築します。
 
-### 1.1 前提（01の要件反映）
-
-* 対象は JP+US の高配当銘柄ユニバース。ベース通貨は **JPY**。
-* 粒度は 1d を主。検証用途で 1m/5m も最小限サポート。
-
-## 2) Public Interfaces (Python想定)
+## 2) Public Interfaces
 
 ```python
 class FeatureBuilder:
-    def build_daily_snapshot(self, symbols: list[str], as_of: date) -> list[DailySnapshot]:
-        """Risk/Portfolioの即時判定に必要な指標を一括算出"""
-
-    def compute_adv(self, symbol: str, as_of: date, window: int = 20) -> Decimal:
-        ...
-
-    def compute_vol(self, symbol: str, as_of: date, window: int = 20, method: Literal['close2close','parkinson']='close2close') -> Decimal:
-        ...
-
-    def get_dividend_yield(self, symbol: str, as_of: date) -> Decimal | None:
-        ...
-
-    def rolling_returns(self, symbol: str, start: date, end: date, window: int = 20) -> list[ReturnPoint]:
-        ...
+    async def build_daily_snapshot(self, symbols: list[str], as_of: date) -> list[DailySnapshot]: ...
+    async def build_feature_snapshot(self, symbols: list[str], as_of: date) -> FeatureSnapshot: ...
+    async def compute_adv(self, symbol: str, as_of: date, window: int = 20) -> Decimal: ...
+    async def compute_vol(self, symbol: str, as_of: date, window: int = 20, method: str = "close2close") -> Decimal: ...
 ```
 
-* 例外: `DataUnavailableError`, `SchemaValidationError`, `ComputationError`, `TimeoutError`
-* 非機能I/F: `warmup_cache(symbols)`, `healthcheck()`
+## 3) Data Contracts
 
-## 3) Data Contracts (Pydantic)
+Output row: `DailySnapshot`
 
-```python
-class DailySnapshot(BaseModel):
-    symbol: str
-    as_of: date
-    last: Decimal | None
-    close_1d: Decimal | None
-    adv_20d: Decimal | None
-    vol_20d: Decimal | None
-    dividend_yield: Decimal | None
-    market_cap_jpy: Decimal | None
-    missing: dict[str, bool]            # 指標ごとの欠損フラグ
+- price: `last`, `close_1d`
+- returns: `return_1d`, `momentum_5d`
+- liquidity: `adv_20d`
+- risk: `vol_20d`, `drawdown_20d`
+- fundamentals: `dividend_yield`, `market_cap_jpy`
+- quality: `data_completeness`, `missing`, `data_quality`, `data_quality_reasons`
 
-class ReturnPoint(BaseModel):
-    ts: date
-    ret: Decimal
-```
+Grouped output: `FeatureSnapshot`
+
+- `as_of`
+- `provider`
+- `feature_version`
+- `rows`
+- `missing_summary`
+- `quality_summary`
 
 ## 4) Algorithms & Rules
 
-* **基礎集計**:
+Implemented features:
 
-  * `ADV(window)`：`sum(volume[i])/window`（JPY換算は `close[i]*volume[i]` を FXで換算後に平均）
-  * `Vol(window)`：`stdev(log(close_t/close_{t-1})) * sqrt(252)`（`close2close`）。Parkinson法は `sqrt(1/(4 ln2) * mean((ln(high/low))^2))`。
-  * `DividendYield`：`trailing_12m_dividends / price`。T12Mが無い場合は最新配当×頻度で近似（要データ源）
-  * `MarketCapJPY`：`shares_outstanding * last_price * FX(USDJPY)`
-* **欠損/営業日**:
+| Feature | Rule |
+|---|---|
+| `return_1d` | latest close / previous close - 1 |
+| `momentum_5d` | latest close / close 5 bars ago - 1 |
+| `adv_20d` | average close * volume over configured window |
+| `vol_20d` | annualized volatility, `close2close` default, `parkinson` optional |
+| `drawdown_20d` | `(peak high - latest close) / peak high` |
+| `data_completeness` | available bars / expected count, capped at 1 |
 
-  * JP/US の取引カレンダで**営業日**を定義。クローズ価格が無い日は`NA`（埋めない）。
-  * `ADV/Vol`は**実データ日数で割る**（欠損が多い場合、`missing.adv_20d=True` でフラグ）
-* **為替/TZ**:
+Data quality:
 
-  * すべて UTC に正規化。JPY換算は DataAccess の `get_fx_rates(["USDJPY"])`。
+- `BLOCK`: missing blocking features such as `return_1d` or `drawdown_20d`
+- `WARN`: non-blocking missing values or completeness < 0.8
+- `OK`: no major missing signals
 
-## 5) Caching & Performance（03のSLO準拠）
+## 5) Error Handling
 
-* キー：`symbol + as_of + feature_set`。
-* TTL：`daily=24h`、途中日付は `stale-while-revalidate`。P95 レイテンシ `build_daily_snapshot(50 symbols) < 500ms`（キャッシュヒット時 < 80ms）。
+- No bars for ADV -> `DataSourceError`
+- Fewer than 2 bars for volatility -> `DataSourceError`
+- Unsupported volatility method -> `DataSourceError`
 
-## 6) Observability
+Some score inputs tolerate missing values by using neutral or low scores; calculation errors should still surface during feature building.
 
-* ログ：`corr_id, symbol_count, latency_ms, cache_hit_ratio, missing_flags`
-* メトリクス：`feature_compute_latency_ms_pXX`, `feature_missing_ratio{feature}`
-
-## 7) Config Knobs（config.yml）
+## 6) Config Knobs
 
 ```yaml
 feature_builder:
   adv_window: 20
   vol_window: 20
-  vol_method: close2close
-  calendar:
-    jp: JPX
-    us: NYSE
-  cache:
-    backend: redis|memory
-    ttl_daily_sec: 86400
+  vol_method: close2close   # close2close | parkinson
 ```
 
-## 8) Test Plan
+## 7) Test Plan
 
-* **Unit**：ADV/Vol/Returns の計算検証、欠損時の分母調整、JPY換算の正しさ
-* **Goldenテスト**：既知データセットに対する期待値比較
-* **Integration**：DataAccess モック→FeatureBuilder→Risk の一連フロー
+Existing related tests:
 
-## 9) 未決事項（TBD）
+- `tests/test_marketdata_feature_builder.py`
+- `tests/test_screening_service.py`
+- `tests/test_scoring_service.py`
+- `tests/test_risk_service.py`
 
-* 配当データ源（Yahoo/CSV/外部API）と T12M 算出方法
-* US銘柄の `shares_outstanding` 取得ソース
-* Parkinson 法の採用有無（必要なら安定化ガード）
+Recommended targeted check:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe -m pytest tests/test_marketdata_feature_builder.py tests/test_screening_service.py tests/test_scoring_service.py
+```
+
+## 8) Out of Scope / Deferred
+
+- persistent feature store database
+- scheduled backfill
+- advanced technical indicators beyond current MVP
+- feature version migration framework
+- intraday features
+
+## 9) Next Implementation Target
+
+次の改善候補:
+
+1. `FeatureSnapshot` を Decision Report / Research RAG と結合しやすい report context にする。
+2. UIで data quality をより自然な日本語に変換する。
+3. CSV scenario を増やしてランキングの比較体験を安定させる。

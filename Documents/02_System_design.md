@@ -2,6 +2,31 @@
 
 #### [BACK TO README](../README.md)
 
+## 実装状態との同期メモ（2026-05-17）
+
+現在の実装構成は、以下の layered architecture として整理します。
+
+- Presentation: Streamlit `ui/app.py`
+  - Market Data: `銘柄コックピット` / `銘柄ランキング`
+  - Rebalance: `Rebalance Cockpit`
+- Application/API: `backend/app/main.py`
+  - Health / Risk / Portfolio / Screening / Forecast / Scoring endpoints
+- Domain services:
+  - `backend/marketdata`
+  - `backend/forecast`
+  - `backend/screening`
+  - `backend/scoring`
+  - `backend/risk`
+  - `backend/portfolio`
+- Infrastructure-like adapters:
+  - deterministic `mock` / `csv`
+  - explicit opt-in `yahoo` live adapter path
+  - provider registry / factory / capability metadata
+
+Research RAG、Decision Report、Execution は設計上の将来コンポーネントです。
+現時点の通常経路には含めず、planned / optional adapter として扱います。
+
+
 ## 次期アーキテクチャ方針: Multi-Model Investment Intelligence
 
 Phase 9 以降の重点は、Execution よりも、外部データ取得、特徴量管理、複数モデル予測、スコアリング、可視化、判断補助レポートです。

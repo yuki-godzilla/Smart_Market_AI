@@ -18,6 +18,8 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-05-17: Synchronized documentation with the current implementation state after Phase 15 and Phase 16 UI work: refreshed README, PROJECT_CONTEXT, roadmap, operations guide, requirements/design/function docs, UI wording, Phase 16 plan, detail-design index/class diagram, and added an Investment Scoring / UI onepager. / Phase 15 と Phase 16 UI 実装後の現在地に合わせて、README、PROJECT_CONTEXT、ロードマップ、運用ガイド、要件・設計・機能設計、UI文言、Phase 16計画、詳細設計index/クラス図を同期し、Investment Scoring / UI onepager を追加した。
+
 - 2026-05-17: Added Research RAG planning documents and synchronized requirements, architecture, functional design, detailed design index, roadmap, UI wording policy, operations guide, README, AGENTS, and project context for local-first IR evidence search and Research Score integration. / Research RAG の計画文書を追加し、local-first なIR根拠検索と Research Score 統合に向けて要件、アーキテクチャ、機能設計、詳細設計index、ロードマップ、UI文言、運用ガイド、README、AGENTS、現在地文書を同期した。
 
 - 2026-05-10: Added a `Symbol search` text filter to the Streamlit Market Data symbol selector so yfinance-compatible candidate tickers can be narrowed by ticker or company-name partial matches while preserving Custom input. / Streamlit Market Data の symbol selector に `Symbol search` テキスト絞り込みを追加し、yfinance 形式の候補 ticker を ticker / company name の部分一致で絞り込めるようにしつつ Custom 入力を維持した。
@@ -182,3 +184,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Changed ranking candidate filters to open in a modal, broadened curated tags across the current representative symbol DB, and added company names to Investment Score ranking rows.
 - Fixed ranking filter application so the comparison selector resets per condition set, and added modal candidate counts/examples plus Japanese alias keyword matching.
 - Replaced the ranking investment-purpose control with database-style filters for minimum dividend yield, market-cap tier, ETF index family, and max expense ratio, backed by curated symbol metadata.
+
+## 2026-05-17 - Final documentation sync pass
+
+- Synced detail design One-Pagers 04-1 through 04-6 with current implementation status.
+- Marked Execution / broker order sending as deferred and Portfolio optimizer solver as future scope.
+- Updated Detail Design README, AGENTS.md, setup guide, and Codex task template to match Phase 15 complete / Phase 16 UI improving / Research RAG planned status.
+- Added implementation-status note to the class diagram reference and clarified roadmap appendix as future candidates.

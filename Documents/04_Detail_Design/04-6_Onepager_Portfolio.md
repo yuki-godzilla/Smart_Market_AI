@@ -1,120 +1,140 @@
-# 04-6\_Onepager\_Portfolio
+# 04-6_Onepager_Portfolio
 
-#### [BACK TO README](../../README.md)
+#### [BACK TO DETAIL DESIGN README](./04_Detail_Design_README.md)
+
+## 0) Current Sync Status
+
+この文書は **2026-05-17 時点の実装に同期済み**です。
+Portfolio MVP は `backend/portfolio/service.py` と `backend/portfolio/workflow.py` に実装済みです。
+現在の solver backend は **`none` のみ**で、`pulp` / `ortools` による最適化は未実装です。
 
 ## 1) Purpose & Scope
 
-* **Purpose**: 投資家のポートフォリオ全体を管理し、制約（リスク/配当/集中度）を満たすリバランス提案や発注候補を生成する。
-* **Scope**: 制約定義・ソルバ設定・数値安定性ガード、ポートフォリオ状態のスナップショット生成、リバランス案計算、リスク・実行サービスとのI/F。
-* **Out of Scope**: 高度な最適化（CVaR, ESGスコア統合等）、税制や手数料計算の詳細。
+現在保有ポジションと目標配分から、JPY評価額・売買案・Risk判定を作ります。
+目的は「自動最適化」ではなく、まず **透明で説明しやすいリバランス案** を作ることです。
 
-### 1.1 前提（01の要件反映）
-
-* 高配当銘柄（JP+US）を対象。ベース通貨は **JPY**。
-* 分析粒度は 1d が中心。
-* 投資家は個人想定、シンプルな制約セットから開始。
-
-## 2) Public Interfaces (Python想定)
+## 2) Public Interfaces
 
 ```python
 class PortfolioService:
-    def snapshot(self, account_id: str, as_of: date) -> PortfolioSnapshot:
-        """保有状況と評価額のスナップショットを返す"""
+    async def snapshot(
+        self,
+        account_id: str,
+        positions: list[Position],
+        as_of: date,
+        cash_jpy: Decimal = Decimal("0"),
+    ) -> PortfolioSnapshot: ...
 
-    def rebalance(self, target_constraints: ConstraintSet, as_of: date) -> RebalanceProposal:
-        """制約を満たすようにリバランス案を生成"""
+    async def rebalance(
+        self,
+        account_id: str,
+        positions: list[Position],
+        targets: list[TargetAllocation],
+        as_of: date,
+        cash_jpy: Decimal = Decimal("0"),
+    ) -> RebalanceProposal: ...
 
-    def evaluate(self, proposal: RebalanceProposal, as_of: date) -> EvaluationResult:
-        """提案が制約を満たしているか検証"""
+class PortfolioRiskWorkflow:
+    async def propose_and_check(...) -> PortfolioRiskResult: ...
 ```
 
-* 例外: `ConstraintViolationError`, `SolverError`, `DataUnavailableError`
-* 非機能I/F: `healthcheck()`, `metrics()`, `reload_constraints()`
+API:
 
-## 3) Data Contracts (Pydantic)
-
-```python
-class Position(BaseModel):
-    symbol: str
-    qty: Decimal
-    avg_price: Decimal
-    currency: Literal['JPY','USD']
-
-class PortfolioSnapshot(BaseModel):
-    account_id: str
-    as_of: date
-    positions: list[Position]
-    total_value_jpy: Decimal
-    dividend_yield: Decimal | None
-
-class ConstraintSet(BaseModel):
-    max_concentration: Decimal
-    min_dividend_yield: Decimal
-    target_volatility: Decimal | None
-    max_positions: int | None
-
-class RebalanceProposal(BaseModel):
-    as_of: date
-    trades: list[ProposedOrder]
-    expected_yield: Decimal | None
-    expected_vol: Decimal | None
-
-class EvaluationResult(BaseModel):
-    status: Literal['SATISFIED','VIOLATED']
-    violations: list[str]
+```text
+POST /portfolio/rebalance-check
 ```
+
+UI:
+
+- `ui/rebalance_app.py`
+- Rebalance Cockpit in `ui/app.py`
+
+## 3) Data Contracts
+
+Implemented contracts:
+
+- `ValuedPosition`
+- `PortfolioSnapshot`
+- `TargetAllocation`
+- `RebalanceProposal`
+- `PortfolioRiskResult`
+
+Input contracts:
+
+- `Position`
+- `TradeIntent`
 
 ## 4) Algorithms & Rules
 
-* **Snapshot**:
+### Snapshot
 
-  * DataAccess/FeatureBuilder の価格・配当・FXを用いてJPY換算。
-  * `dividend_yield` = Σ(銘柄配当額) / `total_value_jpy`。
-* **Constraints**（初期セット）:
+1. Build daily snapshots for position symbols.
+2. Resolve latest price.
+3. Convert USD positions to JPY through `USDJPY`; JPY positions use rate `1`.
+4. Calculate each `value_jpy` and total portfolio value.
 
-  * `max_concentration`: 1銘柄比率 <= 25%
-  * `min_dividend_yield`: >= 3%
-  * `target_volatility`: <= 0.6（オプション、vol\_20d換算）
-  * `max_positions`: 20（超過した場合は縮小提案）
-* **Rebalance**:
+### Rebalance
 
-  * ソルバ: 線形計画法ベース（例: pulp/ortools）。
-  * 目的関数: `maximize(dividend_yield - λ * volatility)`（λ=調整パラ）。
-  * 数値安定性: Decimal使用、係数は正規化。小数点誤差は閾値以下なら許容。
-* **Evaluate**:
+1. Validate duplicate targets.
+2. Validate target weights sum does not exceed 1.
+3. Build current snapshot.
+4. For each current or target symbol, compute target value minus current value.
+5. Ignore deltas within tolerance.
+6. Convert delta value to `TradeIntent` with quantity quantized to `0.0001`.
+7. Return proposal with `solver_backend="none"`.
 
-  * 提案後に再度制約計算。違反があれば `VIOLATED`。
+### Portfolio-to-Risk
 
-## 5) Observability
+If proposal has trades, send them to `RiskService.pre_trade_check`.
+If no trades are generated, `risk_decision` is `None`.
 
-* ログ: `corr_id, account_id, constraint_id, value, threshold, status`
-* メトリクス: `rebalance_runtime_ms`, `constraint_violation_total`, `proposal_yield_avg`
-* トレース: DataAccess/FeatureBuilder 呼び出し span 化
+## 5) Error Handling
 
-## 6) Config Knobs（config.yml）
+- Unsupported solver backend -> `ComputationError`
+- Target weight sum > 1 -> `ComputationError`
+- Duplicate target symbol -> `ComputationError`
+- Missing or non-positive price -> `ComputationError`
+- Unsupported FX pair / provider issue -> propagated from MarketData
+
+## 6) Config Knobs
 
 ```yaml
 portfolio:
-  constraints:
-    max_concentration: 0.25
-    min_dividend_yield: 0.03
-    target_volatility: 0.6
-    max_positions: 20
   solver:
-    backend: pulp
-    tolerance: 1e-6
+    backend: none       # current only supported value
+    tolerance: 1.0e-6
 ```
+
+Although the config type includes `pulp` / `ortools`, the service currently rejects anything other than `none`.
 
 ## 7) Test Plan
 
-* **Unit**: JPY換算、集中度/利回り計算、制約違反検出
-* **Integration**: DataAccess/FeatureBuilder 経由で snapshot→rebalance→evaluate の一連フロー
-* **Property-based**: ランダムポートフォリオ生成で不変条件（Σweights=1 等）検証
-* **E2E**: サンプル口座でリバランス提案→Execution(ドライラン) まで
+Existing related tests:
 
-## 8) 未決事項（TBD）
+- `tests/test_portfolio_service.py`
+- `tests/test_portfolio_workflow.py`
+- `tests/test_portfolio_api.py`
+- `tests/test_ui_rebalance_app.py`
+- `tests/test_manual_workflow_examples.py`
 
-* ソルバの選定（pulp, ortools, commercial?）
-* リバランスの目的関数調整（単純最大利回り vs リスク調整後）
-* 取引コスト/税制の扱い
-* 制約セットのユーザー編集UI
+Recommended targeted check:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe -m pytest tests/test_portfolio_service.py tests/test_portfolio_workflow.py tests/test_portfolio_api.py tests/test_ui_rebalance_app.py
+```
+
+## 8) Out of Scope / Deferred
+
+- optimizer-based allocation solver
+- tax lots / realized gain optimization
+- NISA枠最適化
+- automatic execution
+- real brokerage account import
+
+## 9) Next Implementation Target
+
+Portfolio の次の改善は、solver 追加よりも先に以下が良いです。
+
+1. Rebalance Cockpit の入力例・説明文言をさらに初心者向けにする。
+2. proposed trades の理由を report context として出せるようにする。
+3. Risk breach の日本語説明を増やす。

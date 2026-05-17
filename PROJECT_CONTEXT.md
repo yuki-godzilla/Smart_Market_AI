@@ -1,148 +1,107 @@
 # PROJECT_CONTEXT.md
 
-## Overview / ??
+## Overview
 
 This file is the compact current-state summary for Smart Market AI.
-??????? Smart Market AI ????????????????????
+Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_Log.md).
 
-For historical work entries, see [Documents/99_Work_Log.md](Documents/99_Work_Log.md).
-???????? [Documents/99_Work_Log.md](Documents/99_Work_Log.md) ???????
+Last updated: 2026-05-17
 
-Last updated: 2026-05-17.
-?????: 2026-05-16?
+## Project Summary
 
-## Project Summary / ????????
+Smart Market AI is a Python-based investment support project that combines market-data ingestion, feature generation, screening, deterministic baseline forecasting, model-informed Investment Score, portfolio/risk checks, Streamlit UI, and planned Research RAG.
 
-Smart Market AI is a Python-based investment support project that combines market-data ingestion, feature generation, screening, forecasting, portfolio checks, planned Research RAG, and a Streamlit UI.
-Smart Market AI ????????????????????????????????????????Streamlit UI ??????? Python ?????????????????
+The product direction is to help users compare symbols, inspect provider-backed data, review model signals, understand warnings, and make better-informed investment decisions without turning the app into automated trading.
 
-The current product direction is to help users compare symbols, inspect provider-backed data, review model signals, and make better-informed investment decisions without turning the app into an automated trading system.
-??????????????????????????????provider ??????????????????????????????????????
+Routine development must keep deterministic `mock` / `csv` behavior available while allowing explicit opt-in use of live providers such as Yahoo/yfinance.
 
-Routine development should keep deterministic `mock` behavior available while allowing explicit opt-in use of live providers such as Yahoo/yfinance.
-?????? deterministic ? `mock` ?????????Yahoo/yfinance ??? live provider ????? opt-in ????????
+## Repository Layout
 
-## Repository Layout / ???????
+- `backend/app`: FastAPI entrypoints and application wiring
+- `backend/core`: shared contracts, settings, and domain errors
+- `backend/marketdata`: providers, provider registry/factory, live adapter metadata, feature snapshots
+- `backend/forecast`: baseline models, model registry lite, evaluation, forecast consensus
+- `backend/screening`: explainable symbol screening score
+- `backend/scoring`: Investment Score contract/service
+- `backend/risk`: deterministic pre-trade risk checks
+- `backend/portfolio`: portfolio valuation, no-solver rebalance proposal, portfolio-to-risk workflow
+- `ui`: Streamlit UI for Market Data / Rebalance workflows
+- `tests`: deterministic regression tests
+- `Documents`: requirements, design, roadmap, operation, UI, and work-log documents
 
-- `backend/app`: FastAPI entrypoints and application wiring / FastAPI ??????????????
-- `backend/core`: shared contracts, settings, and domain errors / ???????????????
-- `backend/marketdata`: market-data providers, feature snapshots, and provider registry / ???????? provider???? snapshot?provider registry
-- `backend/risk`: pre-trade risk checks / ????????
-- `backend/portfolio`: rebalance planning and portfolio-to-risk workflow / ???????? portfolio-to-risk workflow
-- `backend/screening`: scoring for symbol screening / ????????????????
-- `backend/forecast`: baseline forecast models and forecast evaluation / ????????????????
-- `backend/scoring`: model-informed investment-support scoring / Investment Score ?????????
-- `backend/research`: planned Research RAG for IR documents, evidence search, and Research Score / Research RAG ?????
-- `ui`: Streamlit user interface / Streamlit UI
-- `tests`: deterministic regression tests / ???????????
-- `Documents`: human-facing design, roadmap, and operation documents / ??????????????????
-- `Documents/98_Codex_Task_Template.md`: reusable task template for Codex work / Codex ?????????
-- `Documents/99_Work_Log.md`: historical work log / ??????
-
-## Current Implementation Status / ???????
+## Current Implementation Status
 
 Implemented or mostly implemented:
-?????????????????:
 
-- Core contracts, settings, and errors are available in `backend/core`.
-  `backend/core` ? core ???????????????????
-- MarketData supports deterministic `mock` and `csv` providers, plus an explicit Yahoo/yfinance adapter path.
-  MarketData ? deterministic ? `mock` / `csv` provider ???????? Yahoo/yfinance adapter ????????
-- Feature Store Lite builds reusable feature snapshots such as close, returns, momentum, volatility, drawdown, completeness, and missing summaries.
-  Feature Store Lite ? close?return?momentum?volatility?drawdown?completeness?missing summary ?????? snapshot ???????
-- Risk, portfolio rebalance, screening score, and forecast evaluation APIs are wired through FastAPI.
-  risk?portfolio rebalance?screening score?forecast evaluation API ? FastAPI ?????????
-- Streamlit UI exposes rebalance, market data, screening, and forecast-oriented workflows.
-  Streamlit UI ?? rebalance?market data?screening?forecast ?? workflow ????????
-- Reporting/export foundations exist for screening and forecast metrics.
-  screening ? forecast metrics ??? reporting/export ??????
-- Phase 15 is implementation-complete with a deterministic `backend/scoring` Investment Score contract/service, `POST /scoring/investment-score` API, configurable `scoring.weights`, screening risk-score integration, and Market Data tab preview/export without changing `ScreeningScore`.
-  Phase 15 ? implementation complete: deterministic ? `backend/scoring` Investment Score contract/service ? `POST /scoring/investment-score` API ? configurable `scoring.weights` ? screening risk-score integration ? Market Data tab preview/export ??????`ScreeningScore` ??????????
-- Phase 16 has started with a Streamlit Market Data mode split for `銘柄コックピット` / `銘柄ランキング`, a chart-first cockpit with Investment Score summary below it, score breakdown chart, and deterministic ranking MVP for selected symbols.
-- Ranking results can now pass the selected symbol and provider into the single-symbol cockpit for deep-dive follow-up.
-- Ranking supports deterministic preference presets for balance, forecast agreement, data quality, and lower-risk emphasis.
-- Ranking candidate selection now has Fetch-before filters for period preset, market, asset type, currency, dividend category, minimum dividend yield, market-cap tier, ETF index family, max expense ratio, theme, keyword, and display count using static symbol metadata / curated tags.
-- Ranking candidate filters now open in a modal, ranking rows show both ticker and company name, and current representative symbols have broader curated tags for market, asset type, theme, dividend category, and investing purpose.
-- Ranking filter application resets the comparison selector per condition set and the filter modal shows candidate counts/examples with Japanese alias keyword matching for representative Japanese symbols. The former beginner-style investment-purpose control was replaced with database-style conditions such as dividend yield and ETF expense ratio.
-- Rebalance Cockpit has started: JSON inputs are folded into advanced input, target allocations are percentage-formatted, allocation comparison has a chart, and risk breaches include beginner-friendly confirmation points.
+- Core contracts, settings, YAML loading, and domain errors.
+- Deterministic `mock` / `csv` MarketData providers.
+- Explicit opt-in `yahoo` live provider adapter path via `yfinance`.
+- Provider registry / factory and error mapping for unavailable, timeout, rate-limit, and schema mismatch cases.
+- Feature Store Lite style snapshots with last/close, returns, momentum, ADV, volatility, drawdown, missing summary, data quality, and completeness.
+- FastAPI endpoints:
+  - `GET /health`
+  - `POST /risk/pre-trade-check`
+  - `POST /portfolio/rebalance-check`
+  - `POST /screening/score`
+  - `POST /forecast/evaluate`
+  - `POST /scoring/investment-score`
+- Forecast baseline models: naive, moving average, momentum.
+- Forecast consensus / model agreement / forecast range / best RMSE model support.
+- Screening Score with reason labels and forecast agreement integration.
+- Investment Score as a separate contract that combines screening, forecast agreement, data quality, and risk signal with configurable weights.
+- Streamlit Market Data tab split into `銘柄コックピット` and `銘柄ランキング`.
+- Ranking candidate filters using static/curated metadata before provider fetch.
+- Ranking presets for balanced, forecast-agreement, data-quality, and lower-risk emphasis.
+- Ranking-to-cockpit handoff for follow-up single-symbol review.
+- Rebalance Cockpit summary flow, percentage target input, allocation comparison chart, and beginner-friendly risk breach confirmation points.
+- JSON / CSV / Markdown / manifest / ZIP exports for implemented workflows.
+- `tools/run_black_check.py` as the routine Black check path for the Windows environment.
 
 Partial or intentionally deferred:
-??????????????????:
 
-- Live provider verification depends on local environment, installed packages, network availability, and cache/write settings.
-  live provider ???????????????? package?network availability?cache/write ?????????
-- Production-grade scoring, execution/order management, and automated trading are not current defaults.
-  ???? scoring?execution/order management??????????????????????
-- Research RAG, beginner-friendly symbol discovery, ranking UI, richer chart UX, and AI assistant features are roadmap items.
-  ???????????????? UI?????????? UX?AI assistant ??????????????
+- Live provider verification depends on local package, network, and cache/write conditions.
+- `polygon` is reserved in provider metadata but adapter implementation is not complete.
+- Symbol metadata refresh from provider fundamentals is not implemented; current ranking filters rely on curated/static metadata.
+- Research RAG is designed but not implemented.
+- Decision Report is not yet the main report workflow.
+- Execution / broker order submission is intentionally out of the current default path.
+- PDF / Excel export is future scope.
 
-## Likely Current Phase / ??????????
+## Likely Current Phase
 
-The completed roadmap through Phase 9 established the backend and portfolio/risk foundations.
-Phase 9 ??? backend ? portfolio/risk ???????????
+- Phase 1〜9: MVP foundation complete.
+- Phase 10: External data ingestion path is functionally present; live smoke remains environment-dependent.
+- Phase 11〜12: Feature snapshots and Screening Score are implemented.
+- Phase 13〜14: Forecast Lab / Multi-Model Forecasting are implementation-complete with deterministic baseline models and consensus.
+- Phase 15: Model-Informed Scoring is implementation-complete with `backend/scoring`, API, UI preview/export, and configurable weights.
+- Phase 16: Visualization Cockpit / UI improvement is in progress.
+- Research RAG roadmap: designed and planned, not implemented.
 
-Phase 10 external data ingestion is functionally present with deterministic providers and an explicit Yahoo/yfinance path, but live verification can still be environment-dependent.
-Phase 10 ????????? deterministic provider ? Yahoo/yfinance ????????????????live ?????????????
+## Next Good Targets
 
-Phase 11 and Phase 12 introduced feature/screening-oriented workflows and UI visibility.
-Phase 11 ? Phase 12 ?????????????? workflow ? UI ????????????
+- Continue Phase 16 by polishing Rebalance Cockpit wording/layout and ranking-to-cockpit flow.
+- Add a symbol metadata refresh path for dividend yield, sector/theme, ETF/fund attributes, and metadata freshness tracking.
+- Prepare Decision Report context so cockpit / ranking / rebalance outputs can be saved consistently.
+- Start Research RAG from local document ingestion, chunk/search, and deterministic Research Summary before optional vector/LLM adapters.
+- Keep provider selection explicit and error messages understandable in UI.
 
-Phase 14 is implementation-complete: Forecast Summary, ensemble forecast, Model Registry Lite, and forecast-agreement signal are connected into Screening Score.
-Phase 14 ?????????Forecast Summary?ensemble forecast?Model Registry Lite?forecast agreement ? Screening Score ?????????
+## Known Documentation Rules
 
-Phase 15 is implementation-complete: Investment Score combines screening, forecast agreement, screening risk score, and data quality with configurable weights. Live-provider UI confirmation remains environment-dependent.
-Phase 15 ? implementation complete: Investment Score ? screening / forecast agreement / screening risk score / data quality ? configurable weights ????????? live-provider UI confirmation ? environment-dependent.
+- Treat code and tests as the source of truth for current behavior.
+- Keep `PROJECT_CONTEXT.md` compact; put chronological detail in `Documents/99_Work_Log.md`.
+- When implementation changes, update README, roadmap, operation guide, and affected design documents in the same work unit when practical.
 
-Phase 16 has started: Market Data now separates single-symbol cockpit review from multi-symbol ranking, and the cockpit puts provider/as-of context and the forecast chart before the Investment Score, reasons, warnings, and score breakdown.
-Ranking now has a basic deep-dive handoff into the cockpit by setting the selected symbol and provider.
-Ranking preference presets now reweight existing Investment Score components without changing provider fetches.
-Ranking candidate filters now separate Fetch-before static metadata conditions from Fetch-after scoring, forecast, data quality, and risk evaluation.
-Dividend-style categories are currently curated metadata; a future symbol metadata refresh command should fetch provider fundamentals separately, produce a reviewable diff, and update the local DB only after confirmation.
-Forecast chart now shows a beginner-friendly summary for model agreement, forecast spread, compared model count, and the best RMSE model before the chart.
-Rebalance Cockpit has started with summary flow, percentage target weights, allocation comparison chart, and translated risk breach confirmation points.
-
-## Next Good Targets / ??????
-
-- Continue Phase 16 by polishing Rebalance Cockpit wording/layout and improving ranking-to-cockpit flow.
-- Add a symbol metadata refresh path later for dividend yield, sector/theme, ETF/fund attributes, and metadata freshness tracking.
-- Extend forecast reporting beyond metrics-only export when a richer saved report is needed.
-  ????????????????????????? forecast reporting ???????
-- Keep provider selection explicit and make fallback/error messages understandable in the UI.
-  provider ??????????fallback/error message ? UI ????????????
-- Prepare later UI Design work for symbol discovery, ranking, watchlists, and guided investment-support flows.
-- Start Research RAG from `04-8_Onepager_Research_RAG.md`: local document ingestion -> chunk/search -> Research Summary -> optional Research Score integration.
-  ??? UI Design ?????????????watchlist??????? flow ??????
-
-## Known Documentation Mismatches / ???????????
-
-- Some older documents may still describe earlier MVP assumptions that prioritized only local deterministic behavior.
-  ??????????local deterministic behavior ??????????? MVP ?????????????????
-- Current docs should treat live providers as explicit opt-in capabilities, not as the implicit default path.
-  ????????live provider ?????????????????????????????
-- If code and documents disagree, trust the code for current behavior and record the mismatch during the same work unit when practical.
-  ????????????????????????????????????????????????
-
-## Test And Verification Baseline / ?????????
+## Test And Verification Baseline
 
 Use the project virtual environment when available.
-??????????????????????????
 
 ```powershell
-.env_SMAI\Scripts\python.exe .	ools
-un_local_checks.py
-.env_SMAI\Scripts\python.exe -m pytest tests -q
-.env_SMAI\Scripts\python.exe -m ruff check backend ui tests --no-cache
-.env_SMAI\Scripts\python.exe -m mypy backend
-.env_SMAI\Scripts\python.exe -c "from pathlib import Path; [p.read_text(encoding='utf-8') for p in Path('.').rglob('*.md') if '.git' not in p.parts]; print('markdown utf-8 ok')"
+.\venv_SMAI\Scripts\python.exe .\tools\run_local_checks.py
+.\venv_SMAI\Scripts\python.exe -m pytest tests -q
+.\venv_SMAI\Scripts\python.exe -m ruff check backend ui tests --no-cache
+.\venv_SMAI\Scripts\python.exe -m mypy backend
+.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py
+.\venv_SMAI\Scripts\python.exe -c "from pathlib import Path; [p.read_text(encoding='utf-8') for p in Path('.').rglob('*.md') if '.git' not in p.parts]; print('markdown utf-8 ok')"
 ```
 
 For UI-affecting work, also confirm the relevant Streamlit screen manually and report what changed from a user's perspective.
-UI ?????????????? Streamlit ??????????????????????????????
-
-## Work Log Reference / ??????
-
-Append new work-log entries to [Documents/99_Work_Log.md](Documents/99_Work_Log.md), not to this file.
-?????????????????? [Documents/99_Work_Log.md](Documents/99_Work_Log.md) ???????
-
-Update this file only when the current project state, likely phase, assumptions, verification baseline, or next good targets materially change.
-?????????????????????????????????????????????????????

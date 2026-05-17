@@ -2,6 +2,33 @@
 
 #### [BACK TO README](../README.md)
 
+## 実装状態との同期メモ（2026-05-17）
+
+現在の実装は、当初の「高配当株・投信分析ツール」構想から、より汎用的な **Multi-Model Investment Intelligence** へ進んでいます。
+実装済みの中心は、MarketData / Feature Snapshot / Screening / Forecast / Investment Score / Portfolio-Risk / Streamlit UI です。
+
+実装済みとして扱う要件:
+
+- deterministic な `mock` / `csv` provider と、明示 opt-in の `yahoo` provider 経路
+- Feature Snapshot による銘柄別特徴量生成
+- Screening Score と reason label
+- baseline forecast model と Forecast Summary
+- Screening / Forecast agreement / Data Quality / Risk signal を統合する Investment Score
+- 銘柄コックピット、銘柄ランキング、Rebalance Cockpit
+- JSON / CSV / Markdown / ZIP export
+
+未実装または future scope として扱う要件:
+
+- Research RAG の ingestion / retrieval / Research Score
+- provider fundamentals からの symbol metadata refresh
+- Decision Report の本格化
+- broker への注文送信 / Execution workflow
+- PDF / Excel export
+- 高度な ML / LLM adapter
+
+このため、現時点の要件文書では「売買判断を出す」よりも「判断材料を構造化して提示する」ことを優先します。
+
+
 ## 次期重点要件: Multi-Model Investment Intelligence
 
 Phase 9 までの MVP では、Portfolio-to-Risk workflow、local reporting、外部 MarketData provider の opt-in 準備までを整備しました。

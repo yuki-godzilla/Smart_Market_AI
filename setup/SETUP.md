@@ -1,110 +1,189 @@
 # Setup Guide (Python) — Smart Market AI
 
-このドキュメントは **Windows + PowerShell** 前提で、仮想環境名を **`venv_SMAI`** として統一します。
-ワンコマンド実行の **`setup.bat`** にも対応しました。
+このドキュメントは **Windows + PowerShell** 前提です。仮想環境名は **`venv_SMAI`** に統一します。
+2026-05-17 時点の実装では、FastAPI API、Streamlit UI、local check helper、mock / csv market-data provider を利用できます。
 
 ---
 
 ## 0) 事前準備
+
 - Python 3.11 系（推奨）をインストールして PATH に通す
 - リポジトリ直下で以下の操作を行う
+- 通常確認は外部ネットワーク非依存の `mock` / `csv` provider を使う
 
 ---
 
 ## 1) かんたんセットアップ（バッチ推奨）
-1. PowerShell を開き、リポジトリ直下で実行:
-   ```powershell
-   .\setup\setup.bat
-   ```
-2. 正常終了後、仮想環境は `venv_SMAI/` に作成されます。
-3. `BLACK_CACHE_DIR` はリポジトリ直下の `.black_cache/` に設定されます。
 
-> **補足（PowerShell の実行ポリシー）**
-> 実行時に *「スクリプトの実行が無効」* と出る場合:
+PowerShell を開き、リポジトリ直下で実行します。
+
+```powershell
+.\setup\setup.bat
+```
+
+正常終了後、仮想環境は `venv_SMAI/` に作成されます。
+`BLACK_CACHE_DIR` はリポジトリ直下の `.black_cache/` に設定されます。
+
+> 実行時に「スクリプトの実行が無効」と出る場合:
+>
 > ```powershell
 > Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 > ```
-> を実行してからやり直してください。
 
 ---
 
-## 2) 手動セットアップ（バッチが使えない場合）
+## 2) 手動セットアップ
 
-1) 仮想環境の作成
 ```powershell
 python -m venv venv_SMAI
-```
-
-2) 仮想環境の有効化（PowerShell）
-```powershell
 .\venv_SMAI\Scripts\Activate.ps1
-```
-
-3) 依存インストール（本番＋開発）
-```powershell
 python -m pip install --upgrade pip
 pip install -r setup\requirements.txt -r setup\requirements-dev.txt
 ```
 
-4) Black キャッシュ先の設定
+Black キャッシュ先をプロジェクト配下に寄せます。
+
 ```powershell
 $env:BLACK_CACHE_DIR = "$PWD\.black_cache"
 [Environment]::SetEnvironmentVariable("BLACK_CACHE_DIR", "$PWD\.black_cache", "User")
 ```
 
-> Windows 環境では Black の既定キャッシュ先で処理が止まる場合があるため、プロジェクト内の `.black_cache/` を使います。
-> `.black_cache/` は `.gitignore` 済みです。
+ツール確認:
 
-5) 動作確認（主要ツールが表示されればOK）
 ```powershell
 ruff --version
 black --version
 pytest --version
 ```
 
-6) 品質チェック一括（lint/format/check/test）
+---
+
+## 3) FastAPI 起動
+
+```powershell
+.\venv_SMAI\Scripts\python.exe -m uvicorn backend.app.main:app --reload
+```
+
+確認:
+
+```text
+http://127.0.0.1:8000/health
+http://127.0.0.1:8000/docs
+```
+
+主な実装済みAPI:
+
+| API | 用途 |
+|---|---|
+| `GET /health` | 起動確認 |
+| `POST /risk/pre-trade-check` | 売買案のRisk判定 |
+| `POST /portfolio/rebalance-check` | リバランス案 + Risk判定 |
+| `POST /screening/score` | 複数銘柄のScreening Score |
+| `POST /forecast/evaluate` | baseline forecast evaluation |
+| `POST /scoring/investment-score` | Investment Score |
+
+---
+
+## 4) Streamlit UI 起動
+
+メインUI:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe -m streamlit run ui\app.py
+```
+
+Rebalance 専用UI:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe -m streamlit run ui\rebalance_app.py
+```
+
+UIでは、銘柄コックピット、銘柄ランキング、Forecast / Screening / Investment Score、Rebalance Cockpit を確認できます。
+出力は判断補助であり、売買推奨ではありません。
+
+---
+
+## 5) 設定ファイル
+
+未指定の場合はコード内デフォルト設定で起動します。
+YAML設定を使う場合は `SMAI_CONFIG_FILE` を指定します。
+
+```powershell
+$env:SMAI_CONFIG_FILE = ".\config\example.yaml"
+.\venv_SMAI\Scripts\python.exe -m uvicorn backend.app.main:app --reload
+```
+
+CSV provider を使う例:
+
+```powershell
+$env:SMAI_CONFIG_FILE = ".\config\csv_example.yaml"
+.\venv_SMAI\Scripts\python.exe -m streamlit run ui\app.py
+```
+
+`SMAI_CONFIG_FILE` は `backend/core/config.py` の `Settings` モデルに対応します。未知キーは設定ミスとして拒否されます。
+
+---
+
+## 6) 品質チェック
+
+推奨の一括確認:
+
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\run_local_checks.py
 .\venv_SMAI\Scripts\python.exe -m mypy .
 ```
 
----
-
-## 3) プロジェクトの起動確認（任意）
-FastAPI の最小アプリを起動してヘルスチェック:
-```powershell
-uvicorn backend.app.main:app --reload
-```
-ブラウザで `http://127.0.0.1:8000/health` にアクセス → `{"status":"ok"}` が返ればOK。
-
-任意で YAML 設定ファイルを指定できます。未指定の場合はコード内デフォルト設定で起動します。
+対象を絞る例:
 
 ```powershell
-$env:SMAI_CONFIG_FILE = ".\config\example.yaml"
-uvicorn backend.app.main:app --reload
+.\venv_SMAI\Scripts\python.exe -m pytest tests/test_scoring_service.py tests/test_scoring_api.py -q
+.\venv_SMAI\Scripts\python.exe -m pytest tests/test_ui_rebalance_app.py -q
+.\venv_SMAI\Scripts\python.exe -m ruff check backend ui tests --no-cache
 ```
 
-`SMAI_CONFIG_FILE` には、`backend/core/config.py` の `Settings` モデルに対応する YAML ファイルを指定します。
-不明なキーは設定ミスとして拒否されます。
+Black は直接 `python -m black --check .` を使わず、helper を優先します。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py
+```
 
 ---
 
-## 4) よくあるトラブル
-- **python が見つからない**
-  → Python を再インストールし、 *「PATH を追加」* を有効化。新しい PowerShell を開き直す。
-- **依存のビルドに失敗**
-  → `pip install --upgrade pip setuptools wheel` を実行後、再インストール。
-- **仮想環境が有効化できない**
-  → 実行ポリシーを `RemoteSigned` に変更（上記参照）。
-- **black が長時間終わらない**
-  → `black --check .` を直接実行せず、cache-free helper を使います。
-  ```powershell
-  .\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py
-  ```
+## 7) よくあるトラブル
+
+### python が見つからない
+
+Python を再インストールし、「PATH を追加」を有効化してから新しい PowerShell を開き直します。
+
+### 仮想環境が有効化できない
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+### 依存のビルドに失敗
+
+```powershell
+python -m pip install --upgrade pip setuptools wheel
+pip install -r setup\requirements.txt -r setup\requirements-dev.txt
+```
+
+### black が長時間終わらない
+
+直接 Black を叩かず helper を使います。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py
+```
+
+### 外部 provider が使えない
+
+通常は外部 provider を使わない設計です。`allow_external_providers: true` を明示しない限り、live provider は通常経路に入りません。
 
 ---
 
-## 5) 便利コマンド（PowerShell）
+## 8) 便利コマンド
+
 ```powershell
 # venv 有効化
 .\venv_SMAI\Scripts\Activate.ps1
@@ -115,6 +194,12 @@ deactivate
 # 依存を再インストール
 pip install -r setup\requirements.txt -r setup\requirements-dev.txt
 
-# Black 確認
-.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py
+# API 起動
+.\venv_SMAI\Scripts\python.exe -m uvicorn backend.app.main:app --reload
+
+# UI 起動
+.\venv_SMAI\Scripts\python.exe -m streamlit run ui\app.py
+
+# Local checks
+.\venv_SMAI\Scripts\python.exe .\tools\run_local_checks.py
 ```

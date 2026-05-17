@@ -1,164 +1,150 @@
-# 🧭 04-1\_Detailed\_Design\_Policy
+# 🧭 04-1_Detailed_Design_Policy
 
 #### [BACK TO README](../../README.md)
 
-## 0. 目的（Purpose）
+## 0. Current Sync Status
 
-* 01〜03で固めた要件・SLO・非機能を実装可能な粒度に落とし込み、**後戻り最小・スピード最大**で開発を進める。
-* すべてのコンポーネントに厚い詳細設計は行わず、**リスクベース**で深掘り対象を限定する。
+この文書は **2026-05-17 時点の実装状態に同期済み**です。
+現在の詳細設計は「実装済みMVP」と「planned / deferred」を混在させず、以下の扱いで読むこと。
 
-## 1. 適用範囲（Scope）
+| 区分 | 現在の扱い |
+|---|---|
+| Core / Config / Error / Data contracts | implemented |
+| MarketData mock / csv / provider registry / opt-in live adapter foundation | implemented |
+| Feature Store Lite | implemented |
+| Risk pre-trade check | implemented |
+| Portfolio snapshot / no-solver rebalance / Portfolio-to-Risk workflow | implemented |
+| Screening Score | implemented |
+| Forecast baseline / multi-model consensus | implemented |
+| Investment Score | implemented |
+| Streamlit cockpit / ranking / rebalance UI | implemented / improving |
+| Research RAG | designed, not implemented |
+| Execution / broker order sending | deferred, not implemented |
+| optimizer based portfolio solver | deferred, not implemented |
 
-* サービス：Execution / Portfolio / MarketData(DataAccess/FeatureBuilder) / Risk / Forecast / Research RAG / Reporting / UI
-* 共通基盤：スキーマ、例外規約、ログ/メトリクス、設定、CI、テスト戦略
+## 1. Purpose
 
-## 2. 深さの方針（Risk-based Depth）
+01〜03で定義した要件・SLO・非機能を、Codex が実装しやすい粒度に落とし込みます。
+方針は **実装を正にし、ドキュメントは現在地・制約・次の一手を短く示す** ことです。
 
-* **One-Pager 必須（優先度高）**
+## 2. Scope
 
-  * Execution Service（発注・Webhook・冪等化・署名検証）
-  * Portfolio Management（制約定義・ソルバ設定・数値安定性）
-  * Market Data / DataAccess & FeatureBuilder（スキーマ・キャッシュ・欠損/為替処理）
-  * Risk Analysis（事前チェック規則・しきい値・例外パス）
-  * Research RAG（IR資料検索・根拠提示・Research Score・外部ソースopt-in）
-* **簡易設計（優先度中）**
+### 実装済みとして扱う範囲
 
-  * Forecast（モデル入出力・メトリクス・保存形式）
-  * Reporting（テンプレ・チャート仕様）
-  * Streamlit UI（ページ/状態/イベント・UXフロー）
+- `backend/app/main.py`: FastAPI entrypoint and wiring
+- `backend/core`: settings, data contracts, domain errors
+- `backend/marketdata`: mock / csv providers, provider registry, live provider adapter foundation, feature builder
+- `backend/risk`: deterministic pre-trade rules
+- `backend/portfolio`: snapshot, no-solver rebalance, risk workflow
+- `backend/screening`: explainable score ranking
+- `backend/forecast`: deterministic baseline models, evaluation, consensus
+- `backend/scoring`: Investment Score
+- `ui/app.py`: market-data cockpit, ranking, forecast / screening / scoring display
+- `ui/rebalance_app.py`: Rebalance Cockpit
+- `tools`: local check helpers and rebalance demo
 
-## 3. 成果物（Deliverables）
+### 設計済みだが未実装として扱う範囲
 
-* コンポーネント別 **One-Pager**（必要なもののみ）
-* コンポーネント別 **簡易設計ノート**（I/F図・データ契約・主要フローの要点）
-* **共通規約ブック**（data-contracts.md, errors.md, logging.md, config.md, testing.md）
+- `backend/research`: Research RAG / evidence search / Research Score
+- `backend/reporting`: Decision Report dedicated module
+- `backend/execution`: broker order execution / webhook / idempotency
+- optimizer solver backend: `pulp` / `ortools`
 
-## 4. One-Pager テンプレート（共通）
+## 3. Detail Design Depth Policy
 
-1. **Purpose & Scope**：何を／どこまで
+| 対象 | 詳細度 | 理由 |
+|---|---:|---|
+| MarketData / FeatureBuilder | High | すべての分析の入力であり、欠損・通貨・期間の影響が大きい |
+| Risk | High | 判定根拠と BLOCK / REVIEW の説明責任が必要 |
+| Portfolio | High | 金額換算・目標配分・Risk連携の整合性が必要 |
+| Screening / Forecast / Investment Score | High | UIでユーザー判断に直結する |
+| Streamlit UI | Medium | 初心者向け文言・導線・ダウンロードが重要 |
+| Research RAG | High, planned | 長期企業分析の中核候補だが、現時点では未実装 |
+| Execution | Low for now | broker送信は重点外。設計メモとして保持 |
 
-2. **Public Interfaces**：関数/エンドポイント/キュー名、引数・戻り値・例外、HTTP/GRPC仕様
+## 4. One-Pager Template
 
-3. **Data Contracts**：Pydantic/SQLスキーマ、単位、通貨、タイムゾーン、整合性制約
+各 One-Pager は以下を最低限含めます。
 
-4. **Algorithms & Rules**：数式・最適化条件・ビジネスルール・近似と限界
+1. Current Sync Status
+2. Purpose & Scope
+3. Public Interfaces
+4. Data Contracts
+5. Algorithms & Rules
+6. Error Handling
+7. Config Knobs
+8. Test Plan
+9. Out of Scope / Deferred
+10. Next Implementation Target
 
-5. **Error Handling & Retries**：分類（4xx/5xx/外部）、バックオフ、DLQ、ユーザー通知
+## 5. Cross-cutting Standards
 
-6. **Idempotency & Security**：冪等ID、重複検知、署名検証、ロール/権限、監査ログ
+- 通貨・数量・価格は `Decimal` を優先する。
+- 日付は `date`、日時は UTC `datetime` を基本にする。
+- Pydantic v2 の `StrictBaseModel` / `StrictConfigModel` を再利用し、未知フィールドは拒否する。
+- default provider は `mock`。外部 provider は明示 opt-in にする。
+- API の domain error は `AppError` 系から構造化レスポンスに変換する。
+- 投資判断系の出力は「売買推奨ではない」ことを明記する。
+- UI文言は初心者向けに理由・注意点を併記する。
+- 作業履歴は `Documents/99_Work_Log.md` に追記する。
 
-7. **Performance Budget**：レイテンシ/スループット/コスト上限（03のSLOに紐づけ）
+## 6. Repository Layout
 
-8. **Observability**：ログ項目（corr\_id等）、メトリクス、トレース、サンプリング
-
-9. **Config Knobs**：config.yml キー、デフォルト値、動的変更可否
-
-10. **Test Plan**：Unit/Integration/E2E、モック・固定種・再現シード
-
-11. **Migration/Compatibility**：バージョニング、後方互換、移行手順
-
-12. **Open Questions**：未決/TBD、外部合意が必要な点
-
----
-
-## 5. 共通規約（Cross-cutting Standards）
-
-* **データ型/単位**：Decimal(通貨), timezone=UTC, symbolはISO/取引所接頭辞付、量は最小取引単位に正規化
-* **ID/キー**：`corr_id`（全リクエスト必須）、`idempotency_key`（外部副作用API必須）
-* **例外とエラーコード**：アプリ内コード体系（`APP-XXXX`）とHTTPマッピング表を `errors.md` に定義
-* **ログ/メトリクス**：構造化JSONログ、PII除外ルール、主要メトリクス（受注成功率、レイテンシ、欠損率 等）
-* **設定**：`config.yml` 中央集約、必須キー一覧、セキュア値はSecret管理
-* **セキュリティ**：Webhook HMAC、時刻偏差±5分、権限（最小権限/監査）
-
-## 6. レポジトリ構成（提案）
-
-```
+```text
 backend/
-  app/
-    main.py
-  core/
-    data_contracts.py
-    errors.py
-    logging.py
-    config.py
-  marketdata/
-    data_access.py
-    feature_builder.py
-  execution/
-  portfolio/
-  risk/
-  forecast/
-  research/
-  reporting/
-  ui/
-/tests
-  /unit  /integration  /e2e
+  app/main.py
+  core/{config.py,data_contracts.py,errors.py}
+  marketdata/{data_access.py,feature_builder.py,provider_*}
+  risk/service.py
+  portfolio/{service.py,workflow.py}
+  screening/service.py
+  forecast/{service.py,registry.py}
+  scoring/service.py
+ui/
+  app.py
+  rebalance_app.py
+tools/
+  run_local_checks.py
+  run_black_check.py
 Documents/
   04_Detail_Design/
 ```
 
-## 7. 作業順序（Implementation Order）
+Planned / deferred modules may appear in documents, but should not be treated as implemented unless code exists.
 
-1. **共通規約ブック**の初版（data-contracts・errors・logging・config）
-2. **Market Data（DataAccess→FeatureBuilder）** One-Pager & スケルトン
-3. **Execution** One-Pager & Webhook受信器の枠組み（HMAC/冪等）
-4. **Risk** One-Pager & 同期/非同期チェック実装の雛形
-5. **Portfolio** One-Pager & ソルバI/F雛形（数値安定化のガード）
-6. Forecast / Reporting / UI の簡易設計・実装開始
-7. **Research RAG** One-Pager & ローカル資料検索MVP（local-first / deterministic）
+## 7. Implementation Order From Here
 
-## 8. レビューとDoD（Definition of Done）
+現在の次の自然な順序は以下です。
 
-* **レビュー観点**：I/Fの明確性、データ契約の完全性、例外・冪等・観測可能性、SLO整合
-* **DoD**
+1. Phase 16 UI polish: cockpit / ranking / rebalance の文言・導線・確認観点を仕上げる。
+2. Decision Report planning: UIの結果をレポート入力として再利用できる形にする。
+3. Research RAG R1-R3: local document ingestion -> chunk store -> keyword retrieval。
+4. Research Summary / Research Score: evidence based summary and optional Investment Score input。
+5. Optional LLM adapter: deterministic context を作ってから低コストに接続する。
+6. Execution / broker sending: 明示的に再開するまでは保留。
 
-  * One-Pagerがテンプレ全項目を埋め、未決が明記されている
-  * スケルトンコード＋最小ユニットテストが通過
-  * ログ/メトリクス/設定がスタブでも配線済み
+## 8. Definition of Done
 
-## 9. テスト戦略の割当（Mapping）
+ドキュメント更新のDoD:
 
-* Unit：バリデーション、丸め、再試行分岐
-* Integration：モック外部（ブローカ/データ源）でI/F検証、冪等再送確認
-* E2E：サンドボックスで受注〜約定集計、データ欠損〜補間の観測
+- 実装済み / planned / deferred が明確に分かれている。
+- 主要 API / UI / service 名が現在のコードと一致している。
+- Codex が最初に読む資料として矛盾が少ない。
+- 変更した場合は `99_Work_Log.md` に短く追記する。
 
-## 10. リスクと緩和
+実装変更のDoD:
 
-* 外部API制限（429/レート）：指数バックオフ、キュー保留、サーキットブレーカ
-* 数値不安定（最適化）：スケール調整、バウンド、ウォームスタート、検証用固定シード
-* データ品質（欠損/タイムゾーン/為替）：欠損ルール、UTC原則、為替レートソースの優先度
+- contract -> service -> API/UI -> test の縦切りが揃っている。
+- default path は deterministic / local-first。
+- 変更に対応する targeted test がある。
+- UIに出る文言は `07_UI_Wording_Policy.md` と矛盾しない。
 
-## 11. 未決事項（初期）
+## 9. Open Questions
 
-* ブローカ/データ供給元の最終選定
-* ソルバ（商用/OSS）とライセンス条件
-* UIの最小機能セット（MVP）
-
----
-
-### 付録A：サンプル One-Pager（Execution 抜粋）
-
-* I/F
-
-  * `Execution.place_orders(orders: list[Order], idempotency_key: str) -> ExecReceipt`
-  * `Execution.on_fill_webhook(payload: dict, signature: str) -> None`
-  * `Execution.get_status(order_id: str) -> OrderStatus`
-* Data Contracts（抜粋）
-
-  * `Order{ symbol, side:'BUY'|'SELL', qty:int|Decimal, type:'MKT'|'LMT'|'STP'|'IOC', limit_price?:Decimal }`
-  * `Fill{ order_id, qty:Decimal, price:Decimal, ts:datetime }`
-  * `ExecReceipt{ batch_id, broker_order_ids:list[str], accepted_at:datetime }`
-* 主要ルール
-
-  * LMTは`limit_price>0`、数量は最小取引単位へ丸め
-  * IOCは部分約定のみ許容
-* リトライ
-
-  * 429/5xx：指数バックオフ（0.5→1→2s、最大3回）
-* 冪等/セキュリティ
-
-  * 送信ごとに`Idempotency-Key`必須、WebhookはHMAC検証＋±5分時刻許容
-* 観測性
-
-  * 構造化ログ：`corr_id, idempotency_key, broker_order_id, latency_ms, http_status`
-  * メトリクス：受注成功率、部分約定比率、平均レイテンシ
+| 項目 | 現在の扱い |
+|---|---|
+| Research RAG の初期検索方式 | keyword search MVP から開始予定 |
+| vector store / embedding | R5 以降の拡張 |
+| Research Score の Investment Score 統合重み | 未決。まず optional input とする |
+| optimizer solver | deferred。現状は `backend/portfolio/service.py` の no-solver のみ |
+| broker execution | deferred。現在のSMAIは発注しない |

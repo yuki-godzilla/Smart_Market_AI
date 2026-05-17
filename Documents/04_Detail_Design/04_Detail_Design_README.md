@@ -2,27 +2,25 @@
 
 #### [BACK TO README](../../README.md)
 
-本ディレクトリは **Smart Market AI** の詳細設計に関するドキュメントをまとめています。
-各ドキュメントは対象領域ごとに分割されており、個別の設計方針や仕様を記述しています。
+## Current Sync Status
 
----
+この索引は **2026-05-17 時点の実装状態に同期済み**です。
 
-## 📑 ドキュメント一覧
+| Area | Document | Status |
+|---|---|---|
+| 詳細設計方針 | [Detailed Design Policy](./04-1_Detailed_design_policy.md) | synced |
+| MarketData / DataAccess | [Marketdata DataAccess](./04-2_Onepager_marketdata_dataaccess.md) | implemented / synced |
+| Execution | [Execution](./04-3_Onepager_Execution.md) | deferred design note |
+| Risk | [Risk](./04-4_Onepager_Risk.md) | implemented / synced |
+| Feature Builder | [Feature Builder](./04-5_Onepager_Feature_Builder.md) | implemented / synced |
+| Portfolio | [Portfolio](./04-6_Onepager_Portfolio.md) | implemented / synced |
+| Implementation class diagram | [Implementation Class Diagram](./04-7_Implementation_Class_Diagram.md) | mostly synced; diagram reference |
+| Research RAG | [Research RAG](./04-8_Onepager_Research_RAG.md) | designed / planned |
+| Investment Scoring UI | [Investment Scoring UI](./04-9_Onepager_Investment_Scoring_UI.md) | implemented / improving |
 
-| 領域 | ドキュメント |
-|------|--------------|
-| 基本方針 | [Detailed Design Policy](./04-1_Detailed_design_policy.md) |
-| データアクセス | [Marketdata Access](./04-2_Onepager_marketdata_dataaccess.md) |
-| 実行ロジック | [Execution](./04-3_Onepager_Execution.md) |
-| リスク管理 | [Risk](./04-4_Onepager_Risk.md) |
-| 機能ビルダー | [Feature Builder](./04-5_Onepager_Feature_Builder.md) |
-| ポートフォリオ | [Portfolio](./04-6_Onepager_Portfolio.md) |
-| Research RAG | [Research RAG](./04-8_Onepager_Research_RAG.md) |
-| 実装クラス図 | [Implementation Class Diagram](./04-7_Implementation_Class_Diagram.md) |
+## 読み方
 
----
-
-## 📌 補足
-- 各ドキュメントは「Onepager」形式を基本とし、1ファイル1領域で設計を整理。
-- 必要に応じて図表や外部仕様をリンク予定。
-- 将来的にモジュール数が増える場合は、更にサブカテゴリに整理を検討。
+- 実装判断は `README.md`、`PROJECT_CONTEXT.md`、この索引、各One-Pagerの `Current Sync Status` を優先する。
+- `Execution` と `Research RAG` は設計メモを含むが、現在の通常導線では未実装として扱う。
+- `Portfolio` は no-solver が正。optimizer solver は future scope。
+- RAG実装に入る場合は `04-8` と `05_Implementation_Roadmap.md` の Phase R1 以降を使う。

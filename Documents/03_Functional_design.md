@@ -2,6 +2,26 @@
 
 #### [BACK TO README](../README.md)
 
+## 実装状態との同期メモ（2026-05-17）
+
+現在の機能実装は次の状態です。
+
+| 領域 | 実装状態 | メモ |
+| --- | --- | --- |
+| MarketData | 実装済み | `mock` / `csv` / opt-in `yahoo` 経路 |
+| Feature Snapshot | 実装済み | momentum、volatility、drawdown、completeness など |
+| Screening Score | 実装済み | sub-score、reason、forecast agreement 接続 |
+| Forecast | 実装済み | naive / moving average / momentum baseline、consensus |
+| Investment Score | 実装済み | screening / forecast / data quality / risk signal の統合 |
+| Portfolio / Risk | 実装済み | no-solver rebalance proposal と pre-trade risk check |
+| Streamlit UI | 実装中 | 銘柄コックピット、ランキング、Rebalance Cockpit |
+| Research RAG | planned | local document ingestion から開始予定 |
+| Execution | deferred | broker order 送信は現在の重点外 |
+| Decision Report | planned | cockpit / ranking / rebalance context を再利用予定 |
+
+現時点では、UI と API の両方で「投資判断補助」であることを明示し、単独の売買推奨として扱わない方針です。
+
+
 ## 次期機能設計: Multi-Model Investment Intelligence
 
 次期機能は、外部データ、特徴量、スクリーニング、複数モデル予測、投資判断補助スコア、可視化を一つの流れとして扱います。

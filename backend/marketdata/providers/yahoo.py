@@ -30,6 +30,15 @@ class YahooMarketDataProviderAdapter:
         end: datetime,
         interval: Interval = "1d",
     ) -> list[Bar]:
+        if len(symbols) > 1:
+            return await self._download_ohlcv(
+                symbols,
+                start=start,
+                end=end,
+                interval=interval,
+                operation="fetch_ohlcv",
+            )
+
         bars: list[Bar] = []
         for raw_symbol in symbols:
             frame = await self._history(
@@ -41,6 +50,45 @@ class YahooMarketDataProviderAdapter:
             )
             symbol = _normalize_symbol(raw_symbol)
             for ts, row in frame.iterrows():
+                bars.append(
+                    Bar(
+                        symbol=symbol,
+                        ts=_normalize_timestamp(ts),
+                        open=_decimal_cell(row, "Open"),
+                        high=_decimal_cell(row, "High"),
+                        low=_decimal_cell(row, "Low"),
+                        close=_decimal_cell(row, "Close"),
+                        volume=_decimal_cell(row, "Volume"),
+                        interval=interval,
+                        provider="yahoo",
+                    )
+                )
+        return bars
+
+    async def _download_ohlcv(
+        self,
+        symbols: list[str],
+        *,
+        start: datetime,
+        end: datetime,
+        interval: Interval,
+        operation: str,
+    ) -> list[Bar]:
+        frame = await self._download_history(
+            symbols,
+            start=start,
+            end=end,
+            interval=interval,
+            operation=operation,
+        )
+        bars: list[Bar] = []
+        for raw_symbol in symbols:
+            symbol_frame = _download_symbol_frame(frame, raw_symbol)
+            if getattr(symbol_frame, "empty", True):
+                continue
+            _validate_history_columns(symbol_frame, operation=operation, symbol=raw_symbol)
+            symbol = _normalize_symbol(raw_symbol)
+            for ts, row in symbol_frame.iterrows():
                 bars.append(
                     Bar(
                         symbol=symbol,
@@ -217,6 +265,56 @@ class YahooMarketDataProviderAdapter:
         _validate_history_columns(frame, operation=operation, symbol=raw_symbol)
         return frame
 
+    async def _download_history(
+        self,
+        raw_symbols: list[str],
+        *,
+        interval: Interval,
+        operation: str,
+        start: datetime,
+        end: datetime,
+    ) -> Any:
+        yf = _load_yfinance()
+        kwargs: dict[str, object] = {
+            "tickers": " ".join(raw_symbols),
+            "start": _date_arg(start),
+            "end": _exclusive_end_arg(end, interval),
+            "interval": interval,
+            "auto_adjust": False,
+            "actions": False,
+            "threads": True,
+            "group_by": "ticker",
+            "timeout": self.cfg.timeouts_ms.read / 1000,
+            "progress": False,
+        }
+        try:
+            frame = await asyncio.to_thread(yf.download, **kwargs)
+        except Exception as exc:
+            raise ProviderUnavailableError(
+                "Yahoo market-data provider batch request failed",
+                details=self._provider_details(
+                    operation=operation,
+                    symbols=raw_symbols,
+                    interval=interval,
+                    start=start.isoformat(),
+                    end=end.isoformat(),
+                    error=str(exc),
+                ),
+            ) from exc
+
+        if getattr(frame, "empty", True):
+            raise ProviderUnavailableError(
+                "Yahoo market-data provider returned no batch data",
+                details=self._provider_details(
+                    operation=operation,
+                    symbols=raw_symbols,
+                    interval=interval,
+                    start=start.isoformat(),
+                    end=end.isoformat(),
+                ),
+            )
+        return frame
+
     def _provider_details(self, **request_details: object) -> dict[str, object]:
         details = provider_capability_details(self.cfg.provider)
         details.update(live_provider_adapter_details(self.cfg.provider))
@@ -346,6 +444,16 @@ def _market_cap_jpy(info: dict[str, object], raw_symbol: str) -> Decimal | None:
 
 def _last_row(frame: Any) -> tuple[object, Any]:
     return frame.index[-1], frame.iloc[-1]
+
+
+def _download_symbol_frame(frame: Any, raw_symbol: str) -> Any:
+    columns = getattr(frame, "columns", [])
+    if not hasattr(columns, "nlevels") or columns.nlevels < 2:
+        return frame
+    try:
+        return frame[raw_symbol].dropna(how="all")
+    except Exception:
+        return frame.iloc[0:0]
 
 
 def _validate_history_columns(frame: Any, *, operation: str, symbol: str) -> None:

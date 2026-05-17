@@ -101,6 +101,31 @@ def test_yahoo_adapter_fetches_live_contracts_from_yfinance(monkeypatch):
     assert fundamentals[0].market_cap_jpy == Decimal("480000000000000")
 
 
+def test_yahoo_adapter_fetches_multiple_ohlcv_symbols_with_download(monkeypatch):
+    fake_yfinance = _FakeYFinance()
+    monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
+    adapter = create_market_data_provider_adapter(
+        DataAccessConfig(provider="yahoo", allow_external_providers=True)
+    )
+
+    bars = asyncio.run(
+        adapter.fetch_ohlcv(
+            ["AAPL", "MSFT"],
+            start=datetime(2026, 4, 7, tzinfo=UTC),
+            end=datetime(2026, 4, 9, tzinfo=UTC),
+        )
+    )
+
+    assert fake_yfinance.download_calls == 1
+    assert [bar.symbol.raw for bar in bars] == ["AAPL", "AAPL", "MSFT", "MSFT"]
+    assert [bar.close for bar in bars] == [
+        Decimal("170.5"),
+        Decimal("175.25"),
+        Decimal("270.5"),
+        Decimal("275.25"),
+    ]
+
+
 def test_yahoo_adapter_maps_empty_history_to_provider_unavailable(monkeypatch):
     monkeypatch.setattr(yahoo, "_load_yfinance", lambda: _FakeYFinance(empty=True))
     adapter = create_market_data_provider_adapter(
@@ -119,9 +144,38 @@ def test_yahoo_adapter_maps_empty_history_to_provider_unavailable(monkeypatch):
 class _FakeYFinance:
     def __init__(self, *, empty: bool = False) -> None:
         self.empty = empty
+        self.download_calls = 0
 
     def Ticker(self, raw_symbol: str) -> "_FakeTicker":
         return _FakeTicker(raw_symbol, empty=self.empty)
+
+    def download(self, **kwargs: object) -> pd.DataFrame:
+        self.download_calls += 1
+        if self.empty:
+            return pd.DataFrame()
+        tickers = str(kwargs["tickers"]).split()
+        fields = ["Open", "High", "Low", "Close", "Volume"]
+        columns = pd.MultiIndex.from_product([tickers, fields])
+        rows = []
+        for base in [Decimal("170"), Decimal("175")]:
+            row = []
+            for index, _ticker in enumerate(tickers):
+                offset = Decimal(index * 100)
+                row.extend(
+                    [
+                        base - Decimal("1") + offset,
+                        base + Decimal("1") + offset,
+                        base - Decimal("2") + offset,
+                        base + (Decimal("0.25") if base == 175 else Decimal("0.5")) + offset,
+                        Decimal("60000000") + offset,
+                    ]
+                )
+            rows.append(row)
+        return pd.DataFrame(
+            rows,
+            columns=columns,
+            index=pd.to_datetime(["2026-04-08T00:00:00Z", "2026-04-09T00:00:00Z"]),
+        )
 
 
 class _FakeTicker:

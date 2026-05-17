@@ -4,7 +4,14 @@ from math import log, sqrt
 from statistics import pstdev
 
 from backend.core.config import FeatureBuilderConfig
-from backend.core.data_contracts import Bar, DailySnapshot, DataQuality, FeatureSnapshot
+from backend.core.data_contracts import (
+    Bar,
+    DailySnapshot,
+    DataQuality,
+    FeatureSnapshot,
+    FundamentalSnapshot,
+    Quote,
+)
 from backend.core.errors import DataSourceError
 from backend.marketdata.provider_adapters import MarketDataProviderAdapter
 
@@ -25,59 +32,21 @@ class FeatureBuilder:
     async def build_daily_snapshot(self, symbols: list[str], as_of: date) -> list[DailySnapshot]:
         """Build DailySnapshot rows for risk and portfolio MVP workflows."""
 
-        snapshots: list[DailySnapshot] = []
         quotes = await self.data_access.fetch_quotes(symbols, at=_end_of_day_utc(as_of))
-        quotes_by_symbol = {quote.symbol.raw: quote for quote in quotes}
         fundamentals = await self.data_access.fetch_fundamentals(symbols, as_of=as_of)
-        fundamentals_by_symbol = {row.symbol: row for row in fundamentals}
-
-        for symbol in symbols:
-            quote = quotes_by_symbol[symbol]
-            fundamental = fundamentals_by_symbol.get(symbol)
-            bars = await self._window_bars(symbol, as_of)
-            return_1d = _compute_return(bars, 1)
-            momentum_5d = _compute_return(bars, 5)
-            drawdown_20d = _compute_drawdown(bars, 20)
-            data_completeness = _compute_data_completeness(
-                bars,
-                max(self.cfg.adv_window, self.cfg.vol_window + 1, 20),
-            )
-            missing = {
-                "dividend_yield": fundamental is None or fundamental.dividend_yield is None,
-                "market_cap_jpy": fundamental is None or fundamental.market_cap_jpy is None,
-                "return_1d": return_1d is None,
-                "momentum_5d": momentum_5d is None,
-                "drawdown_20d": drawdown_20d is None,
-            }
-            data_quality, data_quality_reasons = _data_quality_for_snapshot(
-                missing,
-                data_completeness,
-            )
-            snapshots.append(
-                DailySnapshot(
-                    symbol=symbol,
-                    as_of=as_of,
-                    last=quote.last,
-                    close_1d=quote.last,
-                    return_1d=return_1d,
-                    momentum_5d=momentum_5d,
-                    adv_20d=_compute_adv_from_bars(bars, self.cfg.adv_window),
-                    vol_20d=_compute_vol_from_bars(
-                        bars,
-                        self.cfg.vol_window,
-                        self.cfg.vol_method,
-                    ),
-                    drawdown_20d=drawdown_20d,
-                    data_completeness=data_completeness,
-                    dividend_yield=fundamental.dividend_yield if fundamental else None,
-                    market_cap_jpy=fundamental.market_cap_jpy if fundamental else None,
-                    missing=missing,
-                    data_quality=data_quality,
-                    data_quality_reasons=data_quality_reasons,
-                )
-            )
-
-        return snapshots
+        bars = await self.data_access.fetch_ohlcv(
+            symbols,
+            start=datetime(1900, 1, 1, tzinfo=UTC),
+            end=_end_of_day_utc(as_of),
+        )
+        return build_daily_snapshots_from_market_data(
+            symbols=symbols,
+            as_of=as_of,
+            quotes=quotes,
+            fundamentals=fundamentals,
+            bars=bars,
+            cfg=self.cfg,
+        )
 
     async def build_feature_snapshot(
         self,
@@ -126,6 +95,75 @@ class FeatureBuilder:
         )
         bars.sort(key=lambda bar: bar.ts)
         return bars
+
+
+def build_daily_snapshots_from_market_data(
+    *,
+    symbols: list[str],
+    as_of: date,
+    quotes: list[Quote],
+    fundamentals: list[FundamentalSnapshot],
+    bars: list[Bar],
+    cfg: FeatureBuilderConfig | None = None,
+) -> list[DailySnapshot]:
+    """Build DailySnapshot rows from already fetched market-data inputs."""
+
+    resolved_cfg = cfg or FeatureBuilderConfig()
+    quotes_by_symbol = {quote.symbol.raw: quote for quote in quotes}
+    fundamentals_by_symbol = {row.symbol: row for row in fundamentals}
+    bars_by_symbol: dict[str, list[Bar]] = {symbol: [] for symbol in symbols}
+    for bar in bars:
+        if bar.symbol.raw in bars_by_symbol:
+            bars_by_symbol[bar.symbol.raw].append(bar)
+
+    snapshots: list[DailySnapshot] = []
+    for symbol in symbols:
+        quote = quotes_by_symbol[symbol]
+        fundamental = fundamentals_by_symbol.get(symbol)
+        symbol_bars = sorted(bars_by_symbol[symbol], key=lambda bar: bar.ts)
+        return_1d = _compute_return(symbol_bars, 1)
+        momentum_5d = _compute_return(symbol_bars, 5)
+        drawdown_20d = _compute_drawdown(symbol_bars, 20)
+        data_completeness = _compute_data_completeness(
+            symbol_bars,
+            max(resolved_cfg.adv_window, resolved_cfg.vol_window + 1, 20),
+        )
+        missing = {
+            "dividend_yield": fundamental is None or fundamental.dividend_yield is None,
+            "market_cap_jpy": fundamental is None or fundamental.market_cap_jpy is None,
+            "return_1d": return_1d is None,
+            "momentum_5d": momentum_5d is None,
+            "drawdown_20d": drawdown_20d is None,
+        }
+        data_quality, data_quality_reasons = _data_quality_for_snapshot(
+            missing,
+            data_completeness,
+        )
+        snapshots.append(
+            DailySnapshot(
+                symbol=symbol,
+                as_of=as_of,
+                last=quote.last,
+                close_1d=quote.last,
+                return_1d=return_1d,
+                momentum_5d=momentum_5d,
+                adv_20d=_compute_adv_from_bars(symbol_bars, resolved_cfg.adv_window),
+                vol_20d=_compute_vol_from_bars(
+                    symbol_bars,
+                    resolved_cfg.vol_window,
+                    resolved_cfg.vol_method,
+                ),
+                drawdown_20d=drawdown_20d,
+                data_completeness=data_completeness,
+                dividend_yield=fundamental.dividend_yield if fundamental else None,
+                market_cap_jpy=fundamental.market_cap_jpy if fundamental else None,
+                missing=missing,
+                data_quality=data_quality,
+                data_quality_reasons=data_quality_reasons,
+            )
+        )
+
+    return snapshots
 
 
 def _end_of_day_utc(value: date) -> datetime:

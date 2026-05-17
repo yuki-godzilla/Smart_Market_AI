@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
-from typing import cast
+from typing import Callable, cast
 
 import altair as alt
 import pandas as pd
@@ -11,11 +11,19 @@ import streamlit as st
 from pydantic import ValidationError
 
 from backend.app.main import RebalanceCheckRequest
-from backend.forecast import forecast_model_display_name
+from backend.core.config import get_settings
+from backend.core.data_contracts import Bar, DailySnapshot, DataQuality, FeatureSnapshot, Quote
+from backend.core.errors import AppError
+from backend.forecast import forecast_model_display_name, summarize_forecast_evaluations
+from backend.marketdata import create_market_data_provider_adapter
+from backend.marketdata.feature_builder import build_daily_snapshots_from_market_data
 from backend.portfolio.workflow import PortfolioRiskResult
+from backend.scoring import InvestmentScoringService
+from backend.screening import ScreeningService
 from ui.rebalance_app import (
     MarketDataPreview,
     RebalanceScenarioError,
+    _available_forecast_evaluations,
     build_market_data_preview,
     build_rebalance_report_context,
     build_rebalance_request,
@@ -28,6 +36,7 @@ from ui.rebalance_app import (
     get_rebalance_sample,
     investment_score_csv_download,
     investment_score_json_download,
+    investment_score_rows,
     rebalance_sample_names,
     request_json_download,
     result_json_download,
@@ -55,8 +64,11 @@ MARKET_DATA_RANKING_STATE_KEY = "market_data_ranking_rows"
 MARKET_DATA_RANKING_ERROR_STATE_KEY = "market_data_ranking_error_rows"
 MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY = "market_data_ranking_selected_labels"
 MARKET_DATA_RANKING_FILTERS_STATE_KEY = "market_data_ranking_filters"
+MARKET_DATA_RANKING_BUILD_CACHE_STATE_KEY = "market_data_ranking_build_cache"
 RANKING_FILTER_DIALOG_STATE_KEY = "market_data_ranking_filter_dialog_open"
 MAX_RANKING_CONCURRENT_FETCHES = 8
+MAX_RANKING_BATCH_FETCH_SYMBOLS = 25
+MAX_RANKING_BUILD_CACHE_ENTRIES = 8
 REBALANCE_RESULT_STATE_KEY = "rebalance_result"
 REBALANCE_REQUEST_STATE_KEY = "rebalance_request"
 
@@ -1492,14 +1504,35 @@ def _render_market_data_ranking() -> None:
         if not ranking_symbols:
             st.error("Ranking symbols を1件以上選んでください。")
             return
-        rows, error_rows = asyncio.run(
-            _build_market_data_ranking_rows(
-                ranking_symbols,
-                start=start_date,
-                end=end_date,
-                provider=provider,
-            )
+        cache_key = ranking_build_cache_key(
+            provider=provider,
+            symbols=ranking_symbols,
+            start=start_date,
+            end=end_date,
         )
+        cached_result = get_cached_ranking_build(cache_key)
+        if cached_result is None:
+            progress_bar = st.progress(0.0)
+            progress_status = st.empty()
+
+            def update_progress(message: str, ratio: float) -> None:
+                progress_status.caption(message)
+                progress_bar.progress(max(0.0, min(1.0, ratio)))
+
+            rows, error_rows = asyncio.run(
+                _build_market_data_ranking_rows(
+                    ranking_symbols,
+                    start=start_date,
+                    end=end_date,
+                    provider=provider,
+                    progress_callback=update_progress,
+                )
+            )
+            update_progress("ランキング作成が完了しました。", 1.0)
+            set_cached_ranking_build(cache_key, rows=rows, error_rows=error_rows)
+        else:
+            rows, error_rows = cached_result
+            st.caption("同じ条件の取得済みデータを再利用しました。")
         st.session_state[MARKET_DATA_RANKING_STATE_KEY] = rows
         st.session_state[MARKET_DATA_RANKING_ERROR_STATE_KEY] = error_rows
 
@@ -1559,11 +1592,251 @@ async def _build_market_data_ranking_rows(
     start: date,
     end: date,
     provider: str,
+    progress_callback: RankingProgressCallback | None = None,
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    try:
+        return await _build_market_data_ranking_rows_fast(
+            symbols,
+            start=start,
+            end=end,
+            provider=provider,
+            progress_callback=progress_callback,
+        )
+    except AppError:
+        return await _build_market_data_ranking_rows_from_previews(
+            symbols,
+            start=start,
+            end=end,
+            provider=provider,
+            progress_callback=progress_callback,
+        )
+
+
+async def _build_market_data_ranking_rows_fast(
+    symbols: list[str],
+    *,
+    start: date,
+    end: date,
+    provider: str,
+    progress_callback: RankingProgressCallback | None = None,
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    _report_ranking_progress(progress_callback, "ランキング用データの準備を開始しています。", 0.05)
+    settings = get_settings()
+    dataaccess_cfg = settings.dataaccess
+    if provider:
+        dataaccess_cfg = dataaccess_cfg.model_copy(
+            update={
+                "provider": provider,
+                "allow_external_providers": provider == "yahoo"
+                or dataaccess_cfg.allow_external_providers,
+            }
+        )
+    adapter = create_market_data_provider_adapter(dataaccess_cfg)
+    start_dt = datetime.combine(start, time.min, tzinfo=UTC)
+    end_dt = datetime.combine(end, time.max, tzinfo=UTC)
+    feature_start = min(start, end - timedelta(days=90))
+    feature_start_dt = datetime.combine(feature_start, time.min, tzinfo=UTC)
+    bars: list[Bar] = []
+    symbol_chunks = _ranking_symbol_chunks(symbols)
+    for index, symbol_chunk in enumerate(symbol_chunks, start=1):
+        _report_ranking_progress(
+            progress_callback,
+            f"価格データをまとめて取得しています ({index}/{len(symbol_chunks)})。",
+            0.1 + (0.35 * (index - 1) / len(symbol_chunks)),
+        )
+        bars.extend(await adapter.fetch_ohlcv(symbol_chunk, start=feature_start_dt, end=end_dt))
+    _report_ranking_progress(progress_callback, "価格データを整理しています。", 0.45)
+    bars_by_symbol = _ranking_bars_by_symbol(symbols, bars)
+
+    available_symbols: list[str] = []
+    quotes: list[Quote] = []
+    error_rows: list[dict[str, str]] = []
+    for symbol in symbols:
+        symbol_bars = bars_by_symbol[symbol]
+        if not symbol_bars:
+            error_rows.append(
+                {
+                    "symbol": symbol,
+                    "code": "RANKING-NO-BARS",
+                    "message": "ランキング計算に使える価格データがありません。",
+                    "details": "{}",
+                }
+            )
+            continue
+        latest = symbol_bars[-1]
+        available_symbols.append(symbol)
+        quotes.append(
+            Quote(
+                symbol=latest.symbol,
+                bid=None,
+                ask=None,
+                last=latest.close,
+                ts=latest.ts,
+            )
+        )
+
+    if not available_symbols:
+        _report_ranking_progress(progress_callback, "ランキング対象の価格データがありません。", 1.0)
+        return [], error_rows
+
+    _report_ranking_progress(progress_callback, "ファンダメンタル情報を取得しています。", 0.55)
+    fundamentals = await adapter.fetch_fundamentals(available_symbols, as_of=end)
+    _report_ranking_progress(progress_callback, "スクリーニング用特徴量を作成しています。", 0.65)
+    feature_rows = build_daily_snapshots_from_market_data(
+        symbols=available_symbols,
+        as_of=end,
+        quotes=quotes,
+        fundamentals=fundamentals,
+        bars=bars,
+        cfg=settings.feature_builder,
+    )
+    feature_snapshot = FeatureSnapshot(
+        as_of=end,
+        provider=adapter.healthcheck().get("provider", provider),
+        rows=feature_rows,
+        missing_summary=_feature_missing_summary(feature_rows),
+        quality_summary=_feature_quality_summary(feature_rows),
+    )
+    forecast_horizon_days = default_forecast_horizon_days(start, end)
+    forecast_consensus_by_symbol = {}
+    for index, symbol in enumerate(available_symbols, start=1):
+        period_bars = [bar for bar in bars_by_symbol[symbol] if start_dt <= bar.ts <= end_dt]
+        forecast_consensus = summarize_forecast_evaluations(
+            _available_forecast_evaluations(
+                period_bars,
+                horizon_days=forecast_horizon_days,
+            )
+        )
+        if forecast_consensus is not None:
+            forecast_consensus_by_symbol[forecast_consensus.symbol] = forecast_consensus
+        progress = 0.65 + (0.2 * index / len(available_symbols))
+        _report_ranking_progress(
+            progress_callback,
+            f"予測一致を計算しています ({index}/{len(available_symbols)})。",
+            progress,
+        )
+
+    _report_ranking_progress(progress_callback, "総合スコアを計算しています。", 0.9)
+    screening_scores = ScreeningService().score(
+        feature_snapshot,
+        forecast_consensus_by_symbol=forecast_consensus_by_symbol,
+    )
+    investment_scores = InvestmentScoringService(weights=settings.scoring.weights).score(
+        screening_scores,
+        forecast_consensus_by_symbol=forecast_consensus_by_symbol,
+    )
+    ranked_rows = _rank_investment_score_rows(investment_score_rows(investment_scores))
+    _report_ranking_progress(progress_callback, "ランキングを並べ替えています。", 0.98)
+    return ranked_rows, error_rows
+
+
+def _ranking_bars_by_symbol(
+    symbols: list[str],
+    bars: list[Bar],
+) -> dict[str, list[Bar]]:
+    grouped: dict[str, list[Bar]] = {symbol: [] for symbol in symbols}
+    for bar in bars:
+        if bar.symbol.raw in grouped:
+            grouped[bar.symbol.raw].append(bar)
+    for symbol_bars in grouped.values():
+        symbol_bars.sort(key=lambda bar: bar.ts)
+    return grouped
+
+
+def _ranking_symbol_chunks(symbols: list[str]) -> list[list[str]]:
+    return [
+        symbols[index : index + MAX_RANKING_BATCH_FETCH_SYMBOLS]
+        for index in range(0, len(symbols), MAX_RANKING_BATCH_FETCH_SYMBOLS)
+    ] or [[]]
+
+
+RankingProgressCallback = Callable[[str, float], None]
+
+
+def _report_ranking_progress(
+    progress_callback: RankingProgressCallback | None,
+    message: str,
+    ratio: float,
+) -> None:
+    if progress_callback is not None:
+        progress_callback(message, ratio)
+
+
+def ranking_build_cache_key(
+    *,
+    provider: str,
+    symbols: list[str],
+    start: date,
+    end: date,
+) -> str:
+    return "|".join([provider, start.isoformat(), end.isoformat(), ",".join(symbols)])
+
+
+def _ranking_build_cache() -> dict[str, dict[str, list[dict[str, str]]]]:
+    cache = st.session_state.setdefault(MARKET_DATA_RANKING_BUILD_CACHE_STATE_KEY, {})
+    if isinstance(cache, dict):
+        return cast(dict[str, dict[str, list[dict[str, str]]]], cache)
+    st.session_state[MARKET_DATA_RANKING_BUILD_CACHE_STATE_KEY] = {}
+    return {}
+
+
+def get_cached_ranking_build(
+    cache_key: str,
+) -> tuple[list[dict[str, str]], list[dict[str, str]]] | None:
+    cached = _ranking_build_cache().get(cache_key)
+    if cached is None:
+        return None
+    return cached.get("rows", []), cached.get("error_rows", [])
+
+
+def set_cached_ranking_build(
+    cache_key: str,
+    *,
+    rows: list[dict[str, str]],
+    error_rows: list[dict[str, str]],
+) -> None:
+    cache = _ranking_build_cache()
+    if cache_key in cache:
+        cache.pop(cache_key)
+    cache[cache_key] = {"rows": rows, "error_rows": error_rows}
+    while len(cache) > MAX_RANKING_BUILD_CACHE_ENTRIES:
+        oldest_key = next(iter(cache))
+        cache.pop(oldest_key)
+
+
+def _feature_missing_summary(rows: list[DailySnapshot]) -> dict[str, int]:
+    summary: dict[str, int] = {}
+    for row in rows:
+        for feature, is_missing in row.missing.items():
+            if is_missing:
+                summary[feature] = summary.get(feature, 0) + 1
+    return summary
+
+
+def _feature_quality_summary(rows: list[DailySnapshot]) -> dict[DataQuality, int]:
+    summary: dict[DataQuality, int] = {}
+    for row in rows:
+        summary[row.data_quality] = summary.get(row.data_quality, 0) + 1
+    return summary
+
+
+async def _build_market_data_ranking_rows_from_previews(
+    symbols: list[str],
+    *,
+    start: date,
+    end: date,
+    provider: str,
+    progress_callback: RankingProgressCallback | None = None,
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
     rows: list[dict[str, str]] = []
     error_rows: list[dict[str, str]] = []
     forecast_horizon_days = default_forecast_horizon_days(start, end)
     semaphore = asyncio.Semaphore(MAX_RANKING_CONCURRENT_FETCHES)
+    _report_ranking_progress(
+        progress_callback,
+        "銘柄別の取得に切り替えてランキングを作成しています。",
+        0.05,
+    )
 
     async def build_symbol_preview(
         symbol: str,
@@ -1580,10 +1853,17 @@ async def _build_market_data_ranking_rows(
             {"symbol": symbol, **error_row} for error_row in preview.error_rows
         ]
 
-    preview_results = await asyncio.gather(*(build_symbol_preview(symbol) for symbol in symbols))
-    for preview_rows, preview_error_rows in preview_results:
+    tasks = [asyncio.create_task(build_symbol_preview(symbol)) for symbol in symbols]
+    for completed_count, task in enumerate(asyncio.as_completed(tasks), start=1):
+        preview_rows, preview_error_rows = await task
         rows.extend(preview_rows)
         error_rows.extend(preview_error_rows)
+        _report_ranking_progress(
+            progress_callback,
+            f"銘柄別に取得しています ({completed_count}/{len(symbols)})。",
+            0.1 + (0.85 * completed_count / len(symbols)),
+        )
+    _report_ranking_progress(progress_callback, "ランキングを並べ替えています。", 0.98)
     return _rank_investment_score_rows(rows), error_rows
 
 

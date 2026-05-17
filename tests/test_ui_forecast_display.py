@@ -3,13 +3,15 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from types import SimpleNamespace
 
-from backend.core.data_contracts import Bar, Symbol
+from backend.core.data_contracts import Bar, FundamentalSnapshot, Symbol
+from backend.core.errors import DataSourceError
 from backend.screening import ScreeningScore
 from ui.app import (
     _build_market_data_ranking_rows,
     _market_data_preview_symbol_label,
     _name_from_candidate,
     _rank_investment_score_rows,
+    _ranking_symbol_chunks,
     _render_market_chart,
     _symbol_from_candidate,
     apply_ranking_filter_state,
@@ -24,6 +26,7 @@ from ui.app import (
     forecast_consensus_display_rows,
     forecast_metric_display_rows,
     forecast_metric_summary,
+    get_cached_ranking_build,
     initial_ranking_selected_labels,
     initial_ranking_selected_labels_for_key,
     investment_score_display_rows,
@@ -31,6 +34,7 @@ from ui.app import (
     market_chart_long_frame,
     merged_symbol_candidate_rows,
     persist_ranking_filter_state,
+    ranking_build_cache_key,
     ranking_filter_signature,
     ranking_period_dates,
     ranking_period_label,
@@ -38,6 +42,7 @@ from ui.app import (
     ranking_symbols_state_key,
     ranking_weight_preset_label,
     score_component_rows,
+    set_cached_ranking_build,
     symbol_candidate_label,
     symbol_candidate_labels,
     symbol_universe_rows,
@@ -415,6 +420,41 @@ def test_ranking_symbols_state_key_uses_filter_signature():
     assert ranking_symbols_state_key(signature) == f"market_data_ranking_symbols_{signature}"
 
 
+def test_ranking_build_cache_key_ignores_weight_preset():
+    first = ranking_build_cache_key(
+        provider="yahoo",
+        symbols=["AAPL", "MSFT"],
+        start=date(2026, 5, 10),
+        end=date(2026, 5, 17),
+    )
+    second = ranking_build_cache_key(
+        provider="yahoo",
+        symbols=["AAPL", "MSFT"],
+        start=date(2026, 5, 10),
+        end=date(2026, 5, 17),
+    )
+
+    assert first == second
+
+
+def test_ranking_build_cache_reuses_rows_for_same_market_data_request(monkeypatch):
+    session_state: dict[str, object] = {}
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    cache_key = ranking_build_cache_key(
+        provider="mock",
+        symbols=["AAPL"],
+        start=date(2026, 5, 10),
+        end=date(2026, 5, 17),
+    )
+    rows = [{"symbol": "AAPL", "total_score": "70"}]
+    error_rows = [{"symbol": "ERR", "message": "failed"}]
+
+    set_cached_ranking_build(cache_key, rows=rows, error_rows=error_rows)
+
+    assert get_cached_ranking_build(cache_key) == (rows, error_rows)
+    assert get_cached_ranking_build("missing") is None
+
+
 def test_ranking_filter_state_persists_modal_values_after_widget_cleanup(monkeypatch):
     session_state: dict[str, object] = {
         "market_data_ranking_min_dividend": "3.0",
@@ -573,8 +613,13 @@ def test_ranking_period_dates_use_beginner_presets():
 
 
 def test_build_market_data_ranking_rows_fetches_symbols_concurrently(monkeypatch):
+    async def fail_fast_path(*args, **kwargs):
+        raise DataSourceError("batch unavailable")
+
     active_count = 0
     max_active_count = 0
+
+    monkeypatch.setattr("ui.app._build_market_data_ranking_rows_fast", fail_fast_path)
 
     async def fake_build_market_data_preview(
         *,
@@ -606,6 +651,7 @@ def test_build_market_data_ranking_rows_fetches_symbols_concurrently(monkeypatch
         "ui.app.build_market_data_preview",
         fake_build_market_data_preview,
     )
+    progress_messages: list[str] = []
 
     rows, error_rows = asyncio.run(
         _build_market_data_ranking_rows(
@@ -613,12 +659,98 @@ def test_build_market_data_ranking_rows_fetches_symbols_concurrently(monkeypatch
             start=date(2026, 5, 10),
             end=date(2026, 5, 17),
             provider="mock",
+            progress_callback=lambda message, _ratio: progress_messages.append(message),
         )
     )
 
     assert [row["symbol"] for row in rows] == ["7203.T", "9983.T", "6758.T"]
     assert error_rows == []
     assert max_active_count > 1
+    assert any("銘柄別に取得しています" in message for message in progress_messages)
+
+
+def test_build_market_data_ranking_rows_uses_batch_fast_path(monkeypatch):
+    class FakeBatchAdapter:
+        def __init__(self) -> None:
+            self.ohlcv_calls = 0
+            self.fundamental_calls = 0
+
+        async def fetch_ohlcv(self, symbols, start, end, interval="1d"):
+            self.ohlcv_calls += 1
+            bars = []
+            for symbol in symbols:
+                contract = Symbol(
+                    raw=symbol,
+                    exchange="NASDAQ",
+                    code=symbol,
+                    currency="USD",
+                )
+                for day in range(30):
+                    close = Decimal("100") + Decimal(day)
+                    bars.append(
+                        Bar(
+                            symbol=contract,
+                            ts=datetime(2026, 4, day + 1, tzinfo=UTC),
+                            open=close,
+                            high=close + Decimal("1"),
+                            low=close - Decimal("1"),
+                            close=close,
+                            volume=Decimal("1000000"),
+                            interval=interval,
+                            provider="fake",
+                        )
+                    )
+            return bars
+
+        async def fetch_fundamentals(self, symbols, as_of):
+            self.fundamental_calls += 1
+            return [
+                FundamentalSnapshot(
+                    symbol=symbol,
+                    as_of=as_of,
+                    provider="fake",
+                    dividend_yield=Decimal("0.03"),
+                    market_cap_jpy=Decimal("1000000000000"),
+                )
+                for symbol in symbols
+            ]
+
+        def healthcheck(self):
+            return {"provider": "fake", "status": "ok"}
+
+    adapter = FakeBatchAdapter()
+
+    async def fail_preview(*args, **kwargs):
+        raise AssertionError("slow preview path should not be used")
+
+    monkeypatch.setattr(
+        "ui.app.create_market_data_provider_adapter",
+        lambda _: adapter,
+    )
+    monkeypatch.setattr("ui.app.build_market_data_preview", fail_preview)
+
+    rows, error_rows = asyncio.run(
+        _build_market_data_ranking_rows(
+            ["AAA", "BBB"],
+            start=date(2026, 4, 20),
+            end=date(2026, 4, 30),
+            provider="mock",
+        )
+    )
+
+    assert adapter.ohlcv_calls == 1
+    assert adapter.fundamental_calls == 1
+    assert [row["symbol"] for row in rows] == ["AAA", "BBB"]
+    assert error_rows == []
+
+
+def test_ranking_symbol_chunks_split_large_builds():
+    symbols = [f"SYM{i}" for i in range(53)]
+
+    chunks = _ranking_symbol_chunks(symbols)
+
+    assert [len(chunk) for chunk in chunks] == [25, 25, 3]
+    assert [symbol for chunk in chunks for symbol in chunk] == symbols
 
 
 def test_ranking_symbol_options_and_label_support_deep_dive():

@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-05-17: Moved the Phase 16 Market Data ranking symbol universe into `data/marketdata/symbol_universe.csv`, added a CSV loader for UI symbol names/metadata, and fixed the candidate-condition modal so applying filters selects the filtered candidates in the comparison list. / Phase 16 Market Data ranking の銘柄候補マスタを `data/marketdata/symbol_universe.csv` に移し、UI の銘柄名・属性を CSV から読む loader を追加。「候補条件」modal の適用時に、絞り込み候補が比較リストへ選択反映されるよう修正した。
 - 2026-05-17: Synchronized documentation with the current implementation state after Phase 15 and Phase 16 UI work: refreshed README, PROJECT_CONTEXT, roadmap, operations guide, requirements/design/function docs, UI wording, Phase 16 plan, detail-design index/class diagram, and added an Investment Scoring / UI onepager. / Phase 15 と Phase 16 UI 実装後の現在地に合わせて、README、PROJECT_CONTEXT、ロードマップ、運用ガイド、要件・設計・機能設計、UI文言、Phase 16計画、詳細設計index/クラス図を同期し、Investment Scoring / UI onepager を追加した。
 
 - 2026-05-17: Added Research RAG planning documents and synchronized requirements, architecture, functional design, detailed design index, roadmap, UI wording policy, operations guide, README, AGENTS, and project context for local-first IR evidence search and Research Score integration. / Research RAG の計画文書を追加し、local-first なIR根拠検索と Research Score 統合に向けて要件、アーキテクチャ、機能設計、詳細設計index、ロードマップ、UI文言、運用ガイド、README、AGENTS、現在地文書を同期した。

@@ -219,8 +219,10 @@ Market Data tab は 2 つの mode を持ちます。
 
 注意:
 
-- ranking の候補条件は、provider fetch 前に使える static / curated metadata を中心にしています。
+- ranking の候補条件は、provider fetch 前に使える `data/marketdata/symbol_universe.csv` の curated metadata を中心にしています。
 - dividend category や theme は現在 curated metadata です。provider fundamentals からの自動更新は将来拡張です。
+- `symbol_universe.csv` は Phase 16 UI 用の銘柄候補マスタです。列は `symbol`, `name`, `market`, `asset_type`, `currency`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases` です。
+- 候補条件 modal の「条件を適用」は、絞り込まれた候補をそのまま「比較する銘柄」の選択状態へ反映します。
 
 ### Rebalance tab
 

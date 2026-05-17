@@ -31,6 +31,12 @@ from backend.portfolio.service import RebalanceProposal
 from backend.portfolio.workflow import PortfolioRiskResult
 from backend.scoring import InvestmentScore, InvestmentScoringService
 from backend.screening import ScreeningScore, ScreeningService
+from ui.symbol_universe import (
+    symbol_name as _symbol_name_from_csv,
+)
+from ui.symbol_universe import (
+    symbol_reference_rows as _symbol_reference_rows_from_csv,
+)
 
 DEFAULT_ACCOUNT_ID = "acct-1"
 DEFAULT_AS_OF = date(2026, 4, 9)
@@ -39,103 +45,6 @@ _ONE_DAY = timedelta(days=1)
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SCENARIO_DIR = PROJECT_ROOT / "examples" / "rebalance_scenarios"
 SCENARIO_DIR_ENV = "SMAI_REBALANCE_SCENARIO_DIR"
-SYMBOL_DISPLAY_NAMES = {
-    "7203.T": "Toyota Motor",
-    "9983.T": "Fast Retailing",
-    "6758.T": "Sony Group",
-    "8306.T": "Mitsubishi UFJ Financial Group",
-    "9432.T": "Nippon Telegraph and Telephone",
-    "6861.T": "Keyence",
-    "8035.T": "Tokyo Electron",
-    "6098.T": "Recruit Holdings",
-    "4063.T": "Shin-Etsu Chemical",
-    "6501.T": "Hitachi",
-    "8058.T": "Mitsubishi Corporation",
-    "8001.T": "Itochu",
-    "8031.T": "Mitsui",
-    "2914.T": "Japan Tobacco",
-    "7974.T": "Nintendo",
-    "4519.T": "Chugai Pharmaceutical",
-    "4568.T": "Daiichi Sankyo",
-    "4502.T": "Takeda Pharmaceutical",
-    "6367.T": "Daikin Industries",
-    "6981.T": "Murata Manufacturing",
-    "7751.T": "Canon",
-    "6902.T": "Denso",
-    "7267.T": "Honda Motor",
-    "8411.T": "Mizuho Financial Group",
-    "8316.T": "Sumitomo Mitsui Financial Group",
-    "8766.T": "Tokio Marine Holdings",
-    "8591.T": "ORIX",
-    "8801.T": "Mitsui Fudosan",
-    "9020.T": "East Japan Railway",
-    "9022.T": "Central Japan Railway",
-    "4661.T": "Oriental Land",
-    "9613.T": "NTT Data Group",
-    "4755.T": "Rakuten Group",
-    "4689.T": "LY Corporation",
-    "6702.T": "Fujitsu",
-    "5401.T": "Nippon Steel",
-    "7011.T": "Mitsubishi Heavy Industries",
-    "1605.T": "Inpex",
-    "5108.T": "Bridgestone",
-    "3382.T": "Seven & i Holdings",
-    "8267.T": "Aeon",
-    "9843.T": "Nitori Holdings",
-    "4452.T": "Kao",
-    "4911.T": "Shiseido",
-    "2502.T": "Asahi Group Holdings",
-    "2802.T": "Ajinomoto",
-    "AAPL": "Apple Inc.",
-    "MSFT": "Microsoft",
-    "NVDA": "NVIDIA",
-    "TSLA": "Tesla",
-    "GOOGL": "Alphabet",
-    "AMZN": "Amazon.com",
-    "META": "Meta Platforms",
-    "NFLX": "Netflix",
-    "AMD": "Advanced Micro Devices",
-    "INTC": "Intel",
-    "AVGO": "Broadcom",
-    "ORCL": "Oracle",
-    "ADBE": "Adobe",
-    "CRM": "Salesforce",
-    "NOW": "ServiceNow",
-    "SHOP": "Shopify",
-    "UBER": "Uber Technologies",
-    "ABNB": "Airbnb",
-    "PYPL": "PayPal Holdings",
-    "JPM": "JPMorgan Chase",
-    "BAC": "Bank of America",
-    "V": "Visa",
-    "MA": "Mastercard",
-    "AXP": "American Express",
-    "BRK-B": "Berkshire Hathaway",
-    "UNH": "UnitedHealth Group",
-    "JNJ": "Johnson & Johnson",
-    "LLY": "Eli Lilly",
-    "MRK": "Merck",
-    "PFE": "Pfizer",
-    "ABBV": "AbbVie",
-    "XOM": "Exxon Mobil",
-    "CVX": "Chevron",
-    "KO": "Coca-Cola",
-    "PEP": "PepsiCo",
-    "PG": "Procter & Gamble",
-    "COST": "Costco Wholesale",
-    "WMT": "Walmart",
-    "HD": "Home Depot",
-    "MCD": "McDonald's",
-    "NKE": "Nike",
-    "DIS": "Walt Disney",
-    "TM": "Toyota Motor ADR",
-    "SONY": "Sony Group ADR",
-    "SPY": "SPDR S&P 500 ETF",
-    "QQQ": "Invesco QQQ Trust",
-    "VTI": "Vanguard Total Stock Market ETF",
-    "VOO": "Vanguard S&P 500 ETF",
-    "IWM": "iShares Russell 2000 ETF",
-}
 DEFAULT_POSITIONS_JSON = """[
   {
     "symbol": "7203.T",
@@ -209,13 +118,13 @@ def symbol_display_name(symbol: str) -> str:
 def symbol_name(symbol: str) -> str | None:
     """Return the known company name for a yfinance-compatible ticker."""
 
-    return SYMBOL_DISPLAY_NAMES.get(symbol.strip().upper())
+    return _symbol_name_from_csv(symbol)
 
 
 def symbol_reference_rows() -> list[dict[str, str]]:
     """Return the MVP sample symbols with human-readable names."""
 
-    return [{"symbol": symbol, "name": name} for symbol, name in SYMBOL_DISPLAY_NAMES.items()]
+    return _symbol_reference_rows_from_csv()
 
 
 def yfinance_search_symbol_rows(query: str, *, max_results: int = 12) -> list[dict[str, str]]:

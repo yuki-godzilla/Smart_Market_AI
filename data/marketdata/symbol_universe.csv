@@ -1,0 +1,96 @@
+symbol,name,market,asset_type,currency,theme,dividend_category,dividend_yield_pct,market_cap_tier,index_family,expense_ratio_pct,complexity,tags,aliases
+7203.T,Toyota Motor,jp,stock,JPY,automotive,dividend,2.6,large,,,standard,"balanced,lower_risk",トヨタ 自動車 toyota
+9983.T,Fast Retailing,jp,stock,JPY,consumer,dividend,0.7,large,,,standard,balanced,ファーストリテイリング ユニクロ
+6758.T,Sony Group,jp,stock,JPY,consumer,dividend,0.8,large,,,standard,balanced,ソニー sony
+8306.T,Mitsubishi UFJ Financial Group,jp,stock,JPY,financial,dividend,3.1,large,,,standard,balanced,三菱UFJ 銀行 金融
+9432.T,Nippon Telegraph and Telephone,jp,stock,JPY,telecom,high_dividend,3.4,large,,,standard,"dividend,lower_risk",NTT 日本電信電話 通信 高配当
+6861.T,Keyence,jp,stock,JPY,technology,dividend,0,large,,,standard,balanced,キーエンス
+8035.T,Tokyo Electron,jp,stock,JPY,semiconductor,dividend,0,large,,,standard,growth,東京エレクトロン 半導体
+6098.T,Recruit Holdings,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,リクルート
+4063.T,Shin-Etsu Chemical,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,信越化学
+6501.T,Hitachi,jp,stock,JPY,technology,dividend,0,mid,,,standard,balanced,日立
+8058.T,Mitsubishi Corporation,jp,stock,JPY,trading,high_dividend,3.2,large,,,standard,dividend,三菱商事 商社 高配当
+8001.T,Itochu,jp,stock,JPY,trading,dividend,2.4,large,,,standard,dividend,伊藤忠 商社
+8031.T,Mitsui,jp,stock,JPY,trading,high_dividend,3.0,mid,,,standard,dividend,三井物産 商社
+2914.T,Japan Tobacco,jp,stock,JPY,consumer,high_dividend,4.5,mid,,,standard,dividend,日本たばこ JT 高配当
+7974.T,Nintendo,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,任天堂
+4519.T,Chugai Pharmaceutical,jp,stock,JPY,healthcare,dividend,0,mid,,,standard,balanced,中外製薬 ヘルスケア
+4568.T,Daiichi Sankyo,jp,stock,JPY,healthcare,dividend,0,mid,,,standard,balanced,第一三共 ヘルスケア
+4502.T,Takeda Pharmaceutical,jp,stock,JPY,healthcare,high_dividend,4.0,mid,,,standard,dividend,武田薬品 ヘルスケア 高配当
+6367.T,Daikin Industries,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,ダイキン
+6981.T,Murata Manufacturing,jp,stock,JPY,semiconductor,dividend,0,mid,,,standard,growth,村田製作所
+7751.T,Canon,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,キヤノン
+6902.T,Denso,jp,stock,JPY,automotive,dividend,0,mid,,,standard,balanced,デンソー
+7267.T,Honda Motor,jp,stock,JPY,automotive,dividend,0,mid,,,standard,balanced,ホンダ 本田
+8411.T,Mizuho Financial Group,jp,stock,JPY,financial,high_dividend,3.4,mid,,,standard,dividend,みずほ 金融
+8316.T,Sumitomo Mitsui Financial Group,jp,stock,JPY,financial,high_dividend,3.2,mid,,,standard,dividend,三井住友 金融
+8766.T,Tokio Marine Holdings,jp,stock,JPY,financial,dividend,0,mid,,,standard,balanced,東京海上
+8591.T,ORIX,jp,stock,JPY,financial,high_dividend,3.2,mid,,,standard,dividend,オリックス 金融 高配当
+8801.T,Mitsui Fudosan,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,三井不動産
+9020.T,East Japan Railway,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,JR東日本
+9022.T,Central Japan Railway,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,JR東海
+4661.T,Oriental Land,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,オリエンタルランド
+9613.T,NTT Data Group,jp,stock,JPY,technology,dividend,0,mid,,,standard,balanced,NTTデータ
+4755.T,Rakuten Group,jp,stock,JPY,technology,dividend,0,mid,,,standard,balanced,楽天
+4689.T,LY Corporation,jp,stock,JPY,technology,dividend,0,mid,,,standard,balanced,LINE Yahoo LY
+6702.T,Fujitsu,jp,stock,JPY,technology,dividend,0,mid,,,standard,balanced,富士通
+5401.T,Nippon Steel,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,日本製鉄
+7011.T,Mitsubishi Heavy Industries,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,三菱重工
+1605.T,Inpex,jp,stock,JPY,energy,high_dividend,3.6,mid,,,standard,dividend,INPEX エネルギー 高配当
+5108.T,Bridgestone,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,ブリヂストン
+3382.T,Seven & i Holdings,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,セブン アイ
+8267.T,Aeon,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,イオン
+9843.T,Nitori Holdings,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,ニトリ
+4452.T,Kao,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,花王
+4911.T,Shiseido,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,資生堂
+2502.T,Asahi Group Holdings,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,アサヒ
+2802.T,Ajinomoto,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,味の素
+AAPL,Apple Inc.,us,stock,USD,technology,dividend,0.5,mega,,,standard,"growth,balanced,dividend",apple
+MSFT,Microsoft,us,stock,USD,technology,dividend,0.7,mega,,,standard,"growth,balanced",microsoft
+NVDA,NVIDIA,us,stock,USD,semiconductor,none,0,mega,,,standard,growth,nvidia
+TSLA,Tesla,us,stock,USD,automotive,none,0,mid,,,standard,growth,tesla
+GOOGL,Alphabet,us,stock,USD,technology,none,0,mega,,,standard,growth,google alphabet
+AMZN,Amazon.com,us,stock,USD,consumer,none,0,mega,,,standard,growth,amazon
+META,Meta Platforms,us,stock,USD,technology,none,0,mega,,,standard,growth,meta facebook
+NFLX,Netflix,us,stock,USD,consumer,none,0,mid,,,standard,growth,netflix
+AMD,Advanced Micro Devices,us,stock,USD,semiconductor,none,0,mid,,,standard,growth,amd
+INTC,Intel,us,stock,USD,semiconductor,dividend,1.2,mid,,,standard,balanced,intel
+AVGO,Broadcom,us,stock,USD,semiconductor,dividend,1.2,mid,,,standard,growth,broadcom
+ORCL,Oracle,us,stock,USD,technology,dividend,1.4,mid,,,standard,balanced,oracle
+ADBE,Adobe,us,stock,USD,technology,none,0,mid,,,standard,growth,adobe
+CRM,Salesforce,us,stock,USD,technology,none,0,mid,,,standard,growth,salesforce
+NOW,ServiceNow,us,stock,USD,technology,none,0,mid,,,standard,growth,servicenow
+SHOP,Shopify,us,stock,USD,technology,none,0,mid,,,standard,growth,shopify
+UBER,Uber Technologies,us,stock,USD,technology,none,0,mid,,,standard,growth,uber
+ABNB,Airbnb,us,stock,USD,technology,none,0,mid,,,standard,growth,airbnb
+PYPL,PayPal Holdings,us,stock,USD,technology,none,0,mid,,,standard,growth,paypal
+JPM,JPMorgan Chase,us,stock,USD,financial,dividend,2.2,large,,,standard,dividend,jpmorgan chase
+BAC,Bank of America,us,stock,USD,financial,dividend,2.5,large,,,standard,dividend,bank of america
+V,Visa,us,stock,USD,financial,dividend,0.8,large,,,standard,balanced,visa
+MA,Mastercard,us,stock,USD,financial,dividend,0.6,large,,,standard,balanced,mastercard
+AXP,American Express,us,stock,USD,financial,dividend,1.1,large,,,standard,balanced,american express
+BRK-B,Berkshire Hathaway,us,stock,USD,financial,none,0.0,mid,,,standard,balanced,berkshire
+UNH,UnitedHealth Group,us,stock,USD,healthcare,dividend,1.4,large,,,standard,balanced,unitedhealth
+JNJ,Johnson & Johnson,us,stock,USD,healthcare,growth_dividend,3.0,large,,,standard,"dividend,lower_risk",johnson
+LLY,Eli Lilly,us,stock,USD,healthcare,dividend,0.7,large,,,standard,balanced,eli lilly
+MRK,Merck,us,stock,USD,healthcare,dividend,3.0,mid,,,standard,dividend,merck
+PFE,Pfizer,us,stock,USD,healthcare,high_dividend,6.0,mid,,,standard,dividend,pfizer
+ABBV,AbbVie,us,stock,USD,healthcare,high_dividend,3.7,mid,,,standard,dividend,abbvie
+XOM,Exxon Mobil,us,stock,USD,energy,high_dividend,3.4,large,,,standard,dividend,exxon
+CVX,Chevron,us,stock,USD,energy,high_dividend,4.0,large,,,standard,dividend,chevron
+KO,Coca-Cola,us,stock,USD,consumer,growth_dividend,3.1,mid,,,standard,"dividend,lower_risk",coca cola
+PEP,PepsiCo,us,stock,USD,consumer,growth_dividend,3.0,mid,,,standard,"dividend,lower_risk",pepsico
+PG,Procter & Gamble,us,stock,USD,consumer,growth_dividend,2.4,mid,,,standard,"dividend,lower_risk",procter gamble
+COST,Costco Wholesale,us,stock,USD,consumer,growth_dividend,0.6,mid,,,standard,"dividend,lower_risk",costco
+WMT,Walmart,us,stock,USD,consumer,growth_dividend,1.0,mid,,,standard,"dividend,lower_risk",walmart
+HD,Home Depot,us,stock,USD,consumer,growth_dividend,2.2,mid,,,standard,dividend,home depot
+MCD,McDonald's,us,stock,USD,consumer,growth_dividend,2.3,mid,,,standard,dividend,mcdonald
+NKE,Nike,us,stock,USD,consumer,dividend,0,mid,,,standard,balanced,nike
+DIS,Walt Disney,us,stock,USD,consumer,dividend,0,mid,,,standard,balanced,disney
+TM,Toyota Motor ADR,us,adr,USD,automotive,dividend,0,mid,,,standard,balanced,toyota adr
+SONY,Sony Group ADR,us,adr,USD,consumer,dividend,0,mid,,,standard,balanced,sony adr
+SPY,SPDR S&P 500 ETF,us,etf,USD,index,none,1.2,mid,sp500,0.09,beginner,"installment,balanced,lower_risk",sp500 s&p500
+QQQ,Invesco QQQ Trust,us,etf,USD,index,none,0.6,mid,nasdaq100,0.20,beginner,"installment,growth",nasdaq100
+VTI,Vanguard Total Stock Market ETF,us,etf,USD,index,none,1.3,mid,total_us,0.03,beginner,"installment,balanced,lower_risk",total market
+VOO,Vanguard S&P 500 ETF,us,etf,USD,index,none,1.2,mid,sp500,0.03,beginner,"installment,balanced,lower_risk",sp500 s&p500
+IWM,iShares Russell 2000 ETF,us,etf,USD,index,none,1.3,mid,small_us,0.19,beginner,installment,russell2000 small cap

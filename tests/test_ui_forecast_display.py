@@ -10,6 +10,7 @@ from ui.app import (
     _rank_investment_score_rows,
     _render_market_chart,
     _symbol_from_candidate,
+    apply_ranking_filter_state,
     apply_ranking_weight_preset,
     default_forecast_horizon_days,
     default_market_data_provider,
@@ -27,11 +28,14 @@ from ui.app import (
     ranking_period_dates,
     ranking_period_label,
     ranking_symbol_options,
+    ranking_symbols_state_key,
     ranking_weight_preset_label,
     score_component_rows,
     symbol_candidate_label,
     symbol_candidate_labels,
     symbol_universe_rows,
+    sync_ranking_selection_state,
+    valid_ranking_selected_labels,
 )
 from ui.rebalance_app import (
     forecast_consensus_rows_for_bars,
@@ -40,6 +44,7 @@ from ui.rebalance_app import (
     forecast_reference_period,
     screening_score_rows,
 )
+from ui.symbol_universe import symbol_universe_csv_rows
 
 
 def test_default_forecast_horizon_days_uses_chart_period():
@@ -131,6 +136,19 @@ def test_symbol_universe_rows_adds_static_selection_metadata():
     assert rows[1]["asset_type"] == "etf"
     assert rows[1]["theme"] == "index"
     assert "installment" in rows[1]["tags"]
+
+
+def test_symbol_universe_csv_rows_provide_extensible_selection_metadata():
+    rows = symbol_universe_rows()
+    row_by_symbol = {row["symbol"]: row for row in rows}
+
+    assert len(symbol_universe_csv_rows()) >= 80
+    assert row_by_symbol["7203.T"]["market"] == "jp"
+    assert row_by_symbol["7203.T"]["currency"] == "JPY"
+    assert row_by_symbol["AAPL"]["theme"] == "technology"
+    assert "growth" in row_by_symbol["AAPL"]["tags"]
+    assert row_by_symbol["SPY"]["asset_type"] == "etf"
+    assert row_by_symbol["SPY"]["index_family"] == "sp500"
 
 
 def test_filter_symbol_universe_rows_uses_fetch_before_conditions():
@@ -283,6 +301,72 @@ def test_ranking_filter_signature_changes_when_conditions_change():
     )
 
     assert base != changed
+
+
+def test_ranking_symbols_state_key_uses_filter_signature():
+    signature = ranking_filter_signature(
+        purpose="all",
+        period_preset="short",
+        market="jp",
+        asset_type="stock",
+        currency="JPY",
+        dividend_category="all",
+        complexity="standard",
+        theme="all",
+        query="toyota",
+        limit=6,
+    )
+
+    assert ranking_symbols_state_key(signature) == f"market_data_ranking_symbols_{signature}"
+
+
+def test_valid_ranking_selected_labels_keeps_only_available_options():
+    assert valid_ranking_selected_labels(
+        ["7203.T - Toyota Motor", "OLD - Removed"],
+        ["7203.T - Toyota Motor", "9983.T - Fast Retailing"],
+    ) == ["7203.T - Toyota Motor"]
+
+
+def test_sync_ranking_selection_state_updates_widget_and_persistent_state(monkeypatch):
+    session_state: dict[str, object] = {}
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+
+    sync_ranking_selection_state(
+        "market_data_ranking_symbols_test",
+        ["7203.T - Toyota Motor"],
+    )
+
+    assert session_state["market_data_ranking_selected_labels"] == ["7203.T - Toyota Motor"]
+    assert session_state["market_data_ranking_symbols_test"] == ["7203.T - Toyota Motor"]
+
+
+def test_apply_ranking_filter_state_selects_filtered_candidates(monkeypatch):
+    session_state = {
+        "market_data_ranking_rows": [{"symbol": "OLD"}],
+        "market_data_ranking_error_rows": [{"symbol": "ERR"}],
+        "market_data_ranking_filter_dialog_open": True,
+    }
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    preview_rows = [
+        {"symbol": "7203.T", "name": "Toyota Motor"},
+        {"symbol": "9983.T", "name": "Fast Retailing"},
+    ]
+    signature = "all|short|jp|stock|JPY|all|0.0|all|all|1.00|standard|all||2"
+
+    apply_ranking_filter_state(preview_rows, signature)
+
+    assert session_state["market_data_ranking_filter_signature"] == signature
+    assert session_state["market_data_ranking_selected_labels"] == [
+        "7203.T - Toyota Motor",
+        "9983.T - Fast Retailing",
+    ]
+    assert session_state[ranking_symbols_state_key(signature)] == [
+        "7203.T - Toyota Motor",
+        "9983.T - Fast Retailing",
+    ]
+    assert "market_data_ranking_rows" not in session_state
+    assert "market_data_ranking_error_rows" not in session_state
+    assert session_state["market_data_ranking_filter_dialog_open"] is False
 
 
 def test_ranking_period_dates_use_beginner_presets():

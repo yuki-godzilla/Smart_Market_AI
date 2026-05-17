@@ -912,8 +912,11 @@ def _render_metric_range_filter(
 
 def _render_ranking_filter_panel() -> None:
     has_ranking_result = bool(st.session_state.get(MARKET_DATA_RANKING_STATE_KEY))
-    with st.expander("スクリーニング条件", expanded=not has_ranking_result):
-        st.caption("条件を見ながら候補数を調整します。売買推奨ではありません。")
+    with st.expander("スクリーニング条件（候補を絞る）", expanded=not has_ranking_result):
+        st.caption(
+            "銘柄マスタの属性で比較候補を絞ります。取得期間と重視条件はランキング計算側の設定です。"
+            "売買推奨ではありません。"
+        )
         col_market, col_type, col_currency = st.columns(3)
         with col_market:
             st.selectbox(
@@ -1544,6 +1547,7 @@ def _render_market_data_ranking() -> None:
             weight_preset,
         )
         display_rows = investment_score_display_rows(ranked_rows)
+        st.markdown("#### ランキング結果")
         st.caption(
             f"重視条件: {ranking_weight_preset_label(weight_preset)}。"
             "上位の銘柄ほど、今回の条件では深掘り候補として見やすい順です。"
@@ -1551,6 +1555,10 @@ def _render_market_data_ranking() -> None:
         _render_table(display_rows, "No ranking rows.")
         deep_dive_symbols = ranking_symbol_options(ranked_rows)
         if deep_dive_symbols:
+            st.markdown("#### 深掘り")
+            st.caption(
+                "気になる銘柄を1つ選び、銘柄コックピットで価格・予測・スコア理由を確認します。"
+            )
             selected_symbol = cast(
                 str,
                 st.selectbox(

@@ -227,6 +227,16 @@ Market Data tab は 2 つの mode を持ちます。
 - `symbol_universe.csv` は Phase 16 UI 用の銘柄候補マスタです。列は `symbol`, `name`, `market`, `asset_type`, `currency`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases`, `per`, `pbr`, `roe_pct`, `sector`, `consensus_rating`, `forecast_agreement`, `data_quality`, `risk_band` です。
 - 常設パネルで条件を変えると、候補数と「比較する銘柄」の選択候補が同じ画面内で確認できます。
 
+Phase 16 ranking implementation notes:
+
+- `data/marketdata/symbol_universe.csv` is the ranking candidate master used before provider fetch. It is intentionally curated/local-first and currently carries display/search/filter metadata such as `symbol`, `name`, `market`, `asset_type`, `currency`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases`, `per`, `pbr`, `roe_pct`, `sector`, `consensus_rating`, `forecast_agreement`, `data_quality`, and `risk_band`.
+- The in-page screening condition panel filters comparison candidates by metadata and metric ranges. `取得期間` and `重視条件` are not screening filters; they control ranking calculation and display ordering.
+- Ranking build uses a fast batch path first: it fetches OHLCV in chunks, builds feature snapshots from already-fetched market data, then reuses existing Screening / Investment Score services. If the batch path fails with a provider/domain error, it falls back to the existing per-symbol preview path.
+- Yahoo OHLCV supports multi-symbol batch fetch through yfinance download when multiple symbols are requested. Single-symbol flows still use the existing `Ticker.history()` path.
+- Ranking rows are cached in Streamlit session state by `provider + symbols + start + end`. Re-running the same request or changing only the ranking weight preset reuses fetched rows and only re-sorts the display.
+- The ranking progress indicator reports batch fetch, feature construction, forecast agreement calculation, and final sorting so large candidate sets do not look frozen.
+- Ranking remains decision support only. Use `深掘りする銘柄` to move one selected symbol into `銘柄コックピット` for detailed price / forecast / score-reason review.
+
 ### Rebalance tab
 
 Rebalance は `Rebalance Cockpit` として、次の順に確認します。

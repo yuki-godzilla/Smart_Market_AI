@@ -54,6 +54,7 @@ MARKET_DATA_TOAST_STATE_KEY = "market_data_toast_message"
 MARKET_DATA_RANKING_STATE_KEY = "market_data_ranking_rows"
 MARKET_DATA_RANKING_ERROR_STATE_KEY = "market_data_ranking_error_rows"
 MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY = "market_data_ranking_selected_labels"
+MARKET_DATA_RANKING_FILTERS_STATE_KEY = "market_data_ranking_filters"
 RANKING_FILTER_DIALOG_STATE_KEY = "market_data_ranking_filter_dialog_open"
 REBALANCE_RESULT_STATE_KEY = "rebalance_result"
 REBALANCE_REQUEST_STATE_KEY = "rebalance_request"
@@ -165,6 +166,20 @@ RANKING_INDEX_FAMILY_LABELS = {
     "nasdaq100": "NASDAQ 100",
     "total_us": "全米",
     "small_us": "米国小型",
+}
+RANKING_FILTER_DEFAULTS = {
+    "market_data_ranking_period": "short",
+    "market_data_ranking_market": "all",
+    "market_data_ranking_asset_type": "all",
+    "market_data_ranking_currency": "all",
+    "market_data_ranking_dividend": "all",
+    "market_data_ranking_min_dividend": "0.0",
+    "market_data_ranking_market_cap": "all",
+    "market_data_ranking_index_family": "all",
+    "market_data_ranking_max_expense": "1.00",
+    "market_data_ranking_complexity": "standard",
+    "market_data_ranking_theme": "all",
+    "market_data_ranking_symbol_query": "",
 }
 
 
@@ -509,7 +524,13 @@ def _symbol_complexity_allowed(symbol_complexity: str, selected_complexity: str)
 
 
 def _ranking_filter_value(key: str, default: str) -> str:
-    value = st.session_state.get(key, default)
+    stored_filters = st.session_state.get(MARKET_DATA_RANKING_FILTERS_STATE_KEY, {})
+    if key in st.session_state:
+        value = st.session_state.get(key, default)
+    elif isinstance(stored_filters, dict) and key in stored_filters:
+        value = stored_filters.get(key, default)
+    else:
+        value = default
     return str(value) if value is not None else default
 
 
@@ -521,6 +542,18 @@ def _ranking_filter_int(key: str, default: int) -> int:
         return int(str(value))
     except ValueError:
         return default
+
+
+def current_ranking_filter_state() -> dict[str, str]:
+    return {
+        key: _ranking_filter_value(key, default) for key, default in RANKING_FILTER_DEFAULTS.items()
+    }
+
+
+def persist_ranking_filter_state() -> dict[str, str]:
+    filters = current_ranking_filter_state()
+    st.session_state[MARKET_DATA_RANKING_FILTERS_STATE_KEY] = filters
+    return filters
 
 
 def ranking_filter_summary() -> str:
@@ -538,11 +571,7 @@ def ranking_filter_summary() -> str:
         "指定なし",
     )
     min_dividend = _ranking_filter_value("market_data_ranking_min_dividend", "0.0")
-    limit = _ranking_filter_int("market_data_ranking_limit", 6)
-    return (
-        f"条件: {period} / {market} / {asset_type} / "
-        f"配当 {min_dividend}% 以上 / {dividend} / 最大 {limit} 件"
-    )
+    return f"条件: {period} / {market} / {asset_type} / " f"配当 {min_dividend}% 以上 / {dividend}"
 
 
 def ranking_filter_signature(
@@ -597,7 +626,7 @@ def _ranking_filter_signature_from_state() -> str:
         complexity=_ranking_filter_value("market_data_ranking_complexity", "standard"),
         theme=_ranking_filter_value("market_data_ranking_theme", "all"),
         query=_ranking_filter_value("market_data_ranking_symbol_query", ""),
-        limit=_ranking_filter_int("market_data_ranking_limit", 6),
+        limit=0,
     )
 
 
@@ -616,9 +645,12 @@ def valid_ranking_selected_labels(
 def sync_ranking_selection_state(
     selection_key: str,
     selected_labels: list[str],
+    *,
+    update_widget_state: bool = False,
 ) -> None:
     st.session_state[MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY] = selected_labels
-    st.session_state[selection_key] = selected_labels
+    if update_widget_state:
+        st.session_state[selection_key] = selected_labels
 
 
 def apply_ranking_filter_state(
@@ -627,7 +659,11 @@ def apply_ranking_filter_state(
 ) -> None:
     selected_labels = symbol_candidate_labels(preview_rows)
     st.session_state["market_data_ranking_filter_signature"] = filter_signature
-    sync_ranking_selection_state(ranking_symbols_state_key(filter_signature), selected_labels)
+    sync_ranking_selection_state(
+        ranking_symbols_state_key(filter_signature),
+        selected_labels,
+        update_widget_state=True,
+    )
     st.session_state.pop(MARKET_DATA_RANKING_STATE_KEY, None)
     st.session_state.pop(MARKET_DATA_RANKING_ERROR_STATE_KEY, None)
     st.session_state[RANKING_FILTER_DIALOG_STATE_KEY] = False
@@ -745,16 +781,9 @@ def _render_ranking_filter_dialog() -> None:
         key="market_data_ranking_symbol_query",
         placeholder="ticker or company name",
     )
-    st.number_input(
-        "表示件数",
-        min_value=1,
-        max_value=20,
-        value=_ranking_filter_int("market_data_ranking_limit", 6),
-        step=1,
-        key="market_data_ranking_limit",
-    )
+    symbol_rows = symbol_universe_rows()
     preview_rows = filter_symbol_universe_rows(
-        symbol_universe_rows(),
+        symbol_rows,
         purpose="all",
         market=_ranking_filter_value("market_data_ranking_market", "all"),
         asset_type=_ranking_filter_value("market_data_ranking_asset_type", "all"),
@@ -767,7 +796,7 @@ def _render_ranking_filter_dialog() -> None:
         complexity=_ranking_filter_value("market_data_ranking_complexity", "standard"),
         theme=_ranking_filter_value("market_data_ranking_theme", "all"),
         query=_ranking_filter_value("market_data_ranking_symbol_query", ""),
-        limit=_ranking_filter_int("market_data_ranking_limit", 6),
+        limit=len(symbol_rows),
     )
     st.caption(f"この条件で {len(preview_rows)} 件が候補になります。")
     if preview_rows:
@@ -776,6 +805,7 @@ def _render_ranking_filter_dialog() -> None:
     else:
         st.warning("この条件に合う候補がありません。条件を少し広げてください。")
     if st.button("条件を適用", key="apply_market_data_ranking_filters"):
+        persist_ranking_filter_state()
         filter_signature = _ranking_filter_signature_from_state()
         apply_ranking_filter_state(preview_rows, filter_signature)
         st.rerun()
@@ -927,7 +957,6 @@ def _render_market_data_ranking() -> None:
     complexity = _ranking_filter_value("market_data_ranking_complexity", "standard")
     theme = _ranking_filter_value("market_data_ranking_theme", "all")
     symbol_query = _ranking_filter_value("market_data_ranking_symbol_query", "")
-    display_limit = _ranking_filter_int("market_data_ranking_limit", 6)
 
     col_provider, col_preset, col_filter = st.columns([1.0, 1.2, 2.8])
     with col_provider:
@@ -970,7 +999,7 @@ def _render_market_data_ranking() -> None:
         complexity=complexity,
         theme=theme,
         query=symbol_query,
-        limit=display_limit,
+        limit=len(symbol_options),
     )
     labels = symbol_candidate_labels(filtered_symbol_rows)
     filter_signature = ranking_filter_signature(
@@ -987,7 +1016,7 @@ def _render_market_data_ranking() -> None:
         complexity=complexity,
         theme=theme,
         query=symbol_query,
-        limit=display_limit,
+        limit=0,
     )
     default_labels = [
         label for label in labels if _symbol_from_candidate(label) in {"AAPL", "7203.T"}
@@ -1002,20 +1031,20 @@ def _render_market_data_ranking() -> None:
         ),
         labels,
     )
-    if selection_key not in st.session_state:
-        st.session_state[selection_key] = stored_selected_labels or default_labels
+    initial_selected_labels = stored_selected_labels or default_labels
     col_symbols, col_period_text = st.columns([2.8, 1.2])
     with col_symbols:
+        multiselect_kwargs: dict[str, object] = {
+            "label": "比較する銘柄",
+            "options": labels,
+            "key": selection_key,
+        }
+        if selection_key not in st.session_state:
+            multiselect_kwargs["default"] = initial_selected_labels
         selected_labels = cast(
             list[str],
-            st.multiselect(
-                "比較する銘柄",
-                labels,
-                default=default_labels,
-                key=selection_key,
-            ),
+            st.multiselect(**multiselect_kwargs),
         )
-    sync_ranking_selection_state(selection_key, selected_labels)
     with col_period_text:
         end_date = default_market_data_end_date()
         start_date, end_date = ranking_period_dates(period_preset, end_date)

@@ -12,6 +12,7 @@ from ui.app import (
     _symbol_from_candidate,
     apply_ranking_filter_state,
     apply_ranking_weight_preset,
+    current_ranking_filter_state,
     default_forecast_horizon_days,
     default_market_data_provider,
     filter_symbol_universe_rows,
@@ -24,6 +25,7 @@ from ui.app import (
     investment_score_summary_lines,
     market_chart_long_frame,
     merged_symbol_candidate_rows,
+    persist_ranking_filter_state,
     ranking_filter_signature,
     ranking_period_dates,
     ranking_period_label,
@@ -320,6 +322,22 @@ def test_ranking_symbols_state_key_uses_filter_signature():
     assert ranking_symbols_state_key(signature) == f"market_data_ranking_symbols_{signature}"
 
 
+def test_ranking_filter_state_persists_modal_values_after_widget_cleanup(monkeypatch):
+    session_state: dict[str, object] = {
+        "market_data_ranking_min_dividend": "3.0",
+        "market_data_ranking_market": "jp",
+    }
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+
+    filters = persist_ranking_filter_state()
+    session_state.pop("market_data_ranking_min_dividend")
+    session_state.pop("market_data_ranking_market")
+
+    assert filters["market_data_ranking_min_dividend"] == "3.0"
+    assert current_ranking_filter_state()["market_data_ranking_min_dividend"] == "3.0"
+    assert current_ranking_filter_state()["market_data_ranking_market"] == "jp"
+
+
 def test_valid_ranking_selected_labels_keeps_only_available_options():
     assert valid_ranking_selected_labels(
         ["7203.T - Toyota Motor", "OLD - Removed"],
@@ -334,10 +352,24 @@ def test_sync_ranking_selection_state_updates_widget_and_persistent_state(monkey
     sync_ranking_selection_state(
         "market_data_ranking_symbols_test",
         ["7203.T - Toyota Motor"],
+        update_widget_state=True,
     )
 
     assert session_state["market_data_ranking_selected_labels"] == ["7203.T - Toyota Motor"]
     assert session_state["market_data_ranking_symbols_test"] == ["7203.T - Toyota Motor"]
+
+
+def test_sync_ranking_selection_state_can_skip_widget_state(monkeypatch):
+    session_state: dict[str, object] = {"market_data_ranking_symbols_test": ["OLD"]}
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+
+    sync_ranking_selection_state(
+        "market_data_ranking_symbols_test",
+        ["7203.T - Toyota Motor"],
+    )
+
+    assert session_state["market_data_ranking_selected_labels"] == ["7203.T - Toyota Motor"]
+    assert session_state["market_data_ranking_symbols_test"] == ["OLD"]
 
 
 def test_apply_ranking_filter_state_selects_filtered_candidates(monkeypatch):

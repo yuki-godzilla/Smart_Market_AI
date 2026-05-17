@@ -56,6 +56,7 @@ MARKET_DATA_RANKING_ERROR_STATE_KEY = "market_data_ranking_error_rows"
 MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY = "market_data_ranking_selected_labels"
 MARKET_DATA_RANKING_FILTERS_STATE_KEY = "market_data_ranking_filters"
 RANKING_FILTER_DIALOG_STATE_KEY = "market_data_ranking_filter_dialog_open"
+MAX_RANKING_CONCURRENT_FETCHES = 8
 REBALANCE_RESULT_STATE_KEY = "rebalance_result"
 REBALANCE_REQUEST_STATE_KEY = "rebalance_request"
 
@@ -168,7 +169,6 @@ RANKING_INDEX_FAMILY_LABELS = {
     "small_us": "米国小型",
 }
 RANKING_FILTER_DEFAULTS: dict[str, str] = {
-    "market_data_ranking_period": "short",
     "market_data_ranking_market": "all",
     "market_data_ranking_asset_type": "all",
     "market_data_ranking_currency": "all",
@@ -644,7 +644,6 @@ def persist_ranking_filter_state() -> dict[str, str]:
 
 
 def ranking_filter_summary() -> str:
-    period = ranking_period_label(_ranking_filter_value("market_data_ranking_period", "short"))
     market = RANKING_MARKET_LABELS.get(
         _ranking_filter_value("market_data_ranking_market", "all"),
         "すべて",
@@ -663,7 +662,7 @@ def ranking_filter_summary() -> str:
         if _ranking_filter_bool("market_data_ranking_dividend_enabled", False)
         else "配当利回り 指定なし"
     )
-    return f"条件: {period} / {market} / {asset_type} / {dividend_text} / {dividend}"
+    return f"条件: {market} / {asset_type} / {dividend_text} / {dividend}"
 
 
 def ranking_filter_signature(
@@ -697,10 +696,10 @@ def ranking_filter_signature(
     consensus_max: str = "5.0",
     limit: int,
 ) -> str:
+    _ = period_preset
     return "|".join(
         [
             purpose,
-            period_preset,
             market,
             asset_type,
             currency,
@@ -783,7 +782,8 @@ def initial_ranking_selected_labels(
     labels: list[str],
     stored_selected_labels: list[str],
 ) -> list[str]:
-    return valid_ranking_selected_labels(stored_selected_labels, labels) or labels
+    selected_labels = valid_ranking_selected_labels(stored_selected_labels, labels)
+    return selected_labels or labels
 
 
 def initial_ranking_selected_labels_for_key(
@@ -902,17 +902,7 @@ def _render_ranking_filter_panel() -> None:
     has_ranking_result = bool(st.session_state.get(MARKET_DATA_RANKING_STATE_KEY))
     with st.expander("スクリーニング条件", expanded=not has_ranking_result):
         st.caption("条件を見ながら候補数を調整します。売買推奨ではありません。")
-        col_period, col_market, col_type, col_currency = st.columns(4)
-        with col_period:
-            st.selectbox(
-                "期間",
-                list(RANKING_PERIOD_PRESETS),
-                index=list(RANKING_PERIOD_PRESETS).index(
-                    _ranking_filter_value("market_data_ranking_period", "short")
-                ),
-                key="market_data_ranking_period",
-                format_func=ranking_period_label,
-            )
+        col_market, col_type, col_currency = st.columns(3)
         with col_market:
             st.selectbox(
                 "対象市場",
@@ -1346,7 +1336,7 @@ def _render_market_data_ranking() -> None:
     symbol_options = symbol_universe_rows()
     purpose = "all"
 
-    col_provider, col_preset = st.columns([1.0, 1.2])
+    col_provider, col_period, col_preset = st.columns([1.0, 1.0, 1.2])
     with col_provider:
         provider = cast(
             str,
@@ -1356,6 +1346,16 @@ def _render_market_data_ranking() -> None:
                 index=_provider_option_index(default_market_data_provider()),
                 key="market_data_ranking_provider",
             ),
+        )
+    with col_period:
+        st.selectbox(
+            "取得期間",
+            list(RANKING_PERIOD_PRESETS),
+            index=list(RANKING_PERIOD_PRESETS).index(
+                _ranking_filter_value("market_data_ranking_period", "short")
+            ),
+            key="market_data_ranking_period",
+            format_func=ranking_period_label,
         )
     with col_preset:
         weight_preset = cast(
@@ -1481,6 +1481,7 @@ def _render_market_data_ranking() -> None:
         start_date, end_date = ranking_period_dates(period_preset, end_date)
         st.caption(f"取得期間: {start_date.isoformat()} 〜 {end_date.isoformat()}")
         st.caption(f"候補数: {len(filtered_symbol_rows)}")
+        st.caption(f"選択数: {len(selected_labels)}")
     if not labels:
         st.warning("この条件に合う候補がありません。候補条件を広げてください。")
 
@@ -1562,18 +1563,27 @@ async def _build_market_data_ranking_rows(
     rows: list[dict[str, str]] = []
     error_rows: list[dict[str, str]] = []
     forecast_horizon_days = default_forecast_horizon_days(start, end)
-    for symbol in symbols:
-        preview = await build_market_data_preview(
-            symbol=symbol,
-            start=start,
-            end=end,
-            provider_override=provider,
-            forecast_horizon_days=forecast_horizon_days,
-        )
-        if preview.investment_score_rows:
-            rows.extend(preview.investment_score_rows)
-        for error_row in preview.error_rows:
-            error_rows.append({"symbol": symbol, **error_row})
+    semaphore = asyncio.Semaphore(MAX_RANKING_CONCURRENT_FETCHES)
+
+    async def build_symbol_preview(
+        symbol: str,
+    ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+        async with semaphore:
+            preview = await build_market_data_preview(
+                symbol=symbol,
+                start=start,
+                end=end,
+                provider_override=provider,
+                forecast_horizon_days=forecast_horizon_days,
+            )
+        return preview.investment_score_rows, [
+            {"symbol": symbol, **error_row} for error_row in preview.error_rows
+        ]
+
+    preview_results = await asyncio.gather(*(build_symbol_preview(symbol) for symbol in symbols))
+    for preview_rows, preview_error_rows in preview_results:
+        rows.extend(preview_rows)
+        error_rows.extend(preview_error_rows)
     return _rank_investment_score_rows(rows), error_rows
 
 

@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from types import SimpleNamespace
@@ -5,6 +6,7 @@ from types import SimpleNamespace
 from backend.core.data_contracts import Bar, Symbol
 from backend.screening import ScreeningScore
 from ui.app import (
+    _build_market_data_ranking_rows,
     _market_data_preview_symbol_label,
     _name_from_candidate,
     _rank_investment_score_rows,
@@ -367,6 +369,35 @@ def test_ranking_filter_signature_changes_when_conditions_change():
     assert base != changed
 
 
+def test_ranking_filter_signature_ignores_period_preset():
+    base = ranking_filter_signature(
+        purpose="dividend",
+        period_preset="short",
+        market="us",
+        asset_type="stock",
+        currency="all",
+        dividend_category="all",
+        complexity="standard",
+        theme="all",
+        query="",
+        limit=6,
+    )
+    changed = ranking_filter_signature(
+        purpose="dividend",
+        period_preset="long",
+        market="us",
+        asset_type="stock",
+        currency="all",
+        dividend_category="all",
+        complexity="standard",
+        theme="all",
+        query="",
+        limit=6,
+    )
+
+    assert base == changed
+
+
 def test_ranking_symbols_state_key_uses_filter_signature():
     signature = ranking_filter_signature(
         purpose="all",
@@ -539,6 +570,55 @@ def test_ranking_period_dates_use_beginner_presets():
     assert ranking_period_dates("short", end) == (date(2026, 5, 10), end)
     assert ranking_period_dates("medium", end) == (date(2026, 4, 17), end)
     assert ranking_period_dates("long", end) == (date(2025, 5, 17), end)
+
+
+def test_build_market_data_ranking_rows_fetches_symbols_concurrently(monkeypatch):
+    active_count = 0
+    max_active_count = 0
+
+    async def fake_build_market_data_preview(
+        *,
+        symbol,
+        start,
+        end,
+        provider_override,
+        forecast_horizon_days,
+    ):
+        nonlocal active_count, max_active_count
+        active_count += 1
+        max_active_count = max(max_active_count, active_count)
+        await asyncio.sleep(0)
+        active_count -= 1
+        return SimpleNamespace(
+            investment_score_rows=[
+                {
+                    "symbol": symbol,
+                    "total_score": "70",
+                    "screening_score": "70",
+                    "forecast_agreement": "70",
+                    "data_quality": "100",
+                }
+            ],
+            error_rows=[],
+        )
+
+    monkeypatch.setattr(
+        "ui.app.build_market_data_preview",
+        fake_build_market_data_preview,
+    )
+
+    rows, error_rows = asyncio.run(
+        _build_market_data_ranking_rows(
+            ["7203.T", "9983.T", "6758.T"],
+            start=date(2026, 5, 10),
+            end=date(2026, 5, 17),
+            provider="mock",
+        )
+    )
+
+    assert [row["symbol"] for row in rows] == ["7203.T", "9983.T", "6758.T"]
+    assert error_rows == []
+    assert max_active_count > 1
 
 
 def test_ranking_symbol_options_and_label_support_deep_dive():

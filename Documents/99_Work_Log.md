@@ -18,6 +18,8 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-05-17: Added Research RAG planning documents and synchronized requirements, architecture, functional design, detailed design index, roadmap, UI wording policy, operations guide, README, AGENTS, and project context for local-first IR evidence search and Research Score integration. / Research RAG の計画文書を追加し、local-first なIR根拠検索と Research Score 統合に向けて要件、アーキテクチャ、機能設計、詳細設計index、ロードマップ、UI文言、運用ガイド、README、AGENTS、現在地文書を同期した。
+
 - 2026-05-10: Added a `Symbol search` text filter to the Streamlit Market Data symbol selector so yfinance-compatible candidate tickers can be narrowed by ticker or company-name partial matches while preserving Custom input. / Streamlit Market Data の symbol selector に `Symbol search` テキスト絞り込みを追加し、yfinance 形式の候補 ticker を ticker / company name の部分一致で絞り込めるようにしつつ Custom 入力を維持した。
 - 2026-05-10: Added a yfinance-compatible representative symbol selector and adjacent company-name display to the Streamlit Market Data form while keeping custom symbol input available. / Streamlit Market Data form に yfinance 形式の代表銘柄候補 selector と横並びの会社名表示を追加しつつ、custom symbol 入力も維持した。
 - 2026-05-10: Improved the Streamlit Forecast / Market Data UI by moving Market Data to the left tab, adding legend-click series visibility for the forecast chart, and deriving forecast reference periods automatically from the fetched period and horizon. / Streamlit Forecast / Market Data UI を改善し、Market Data tab を左側へ移動、forecast chart の凡例クリックによる系列表示切替、取得期間と horizon からの参照期間自動算出を追加した。

@@ -9,7 +9,7 @@
 
 ## 1. 適用範囲（Scope）
 
-* サービス：Execution / Portfolio / MarketData(DataAccess/FeatureBuilder) / Risk / Forecast / Reporting / UI
+* サービス：Execution / Portfolio / MarketData(DataAccess/FeatureBuilder) / Risk / Forecast / Research RAG / Reporting / UI
 * 共通基盤：スキーマ、例外規約、ログ/メトリクス、設定、CI、テスト戦略
 
 ## 2. 深さの方針（Risk-based Depth）
@@ -20,6 +20,7 @@
   * Portfolio Management（制約定義・ソルバ設定・数値安定性）
   * Market Data / DataAccess & FeatureBuilder（スキーマ・キャッシュ・欠損/為替処理）
   * Risk Analysis（事前チェック規則・しきい値・例外パス）
+  * Research RAG（IR資料検索・根拠提示・Research Score・外部ソースopt-in）
 * **簡易設計（優先度中）**
 
   * Forecast（モデル入出力・メトリクス・保存形式）
@@ -87,6 +88,7 @@ backend/
   portfolio/
   risk/
   forecast/
+  research/
   reporting/
   ui/
 /tests
@@ -103,6 +105,7 @@ Documents/
 4. **Risk** One-Pager & 同期/非同期チェック実装の雛形
 5. **Portfolio** One-Pager & ソルバI/F雛形（数値安定化のガード）
 6. Forecast / Reporting / UI の簡易設計・実装開始
+7. **Research RAG** One-Pager & ローカル資料検索MVP（local-first / deterministic）
 
 ## 8. レビューとDoD（Definition of Done）
 

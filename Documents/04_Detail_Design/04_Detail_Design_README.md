@@ -17,6 +17,7 @@
 | リスク管理 | [Risk](./04-4_Onepager_Risk.md) |
 | 機能ビルダー | [Feature Builder](./04-5_Onepager_Feature_Builder.md) |
 | ポートフォリオ | [Portfolio](./04-6_Onepager_Portfolio.md) |
+| Research RAG | [Research RAG](./04-8_Onepager_Research_RAG.md) |
 | 実装クラス図 | [Implementation Class Diagram](./04-7_Implementation_Class_Diagram.md) |
 
 ---

@@ -2,7 +2,7 @@
 ![CI](https://github.com/yuki-godzilla/Smart_Market_AI/actions/workflows/ci.yml/badge.svg)
 
 Smart Market AI（SMAI）は、投資判断に必要な情報を整理・可視化し、
-スクリーニング、予測、リスク分析、ポートフォリオ評価を通じて「投資判断を支援する」ことを目的とした
+スクリーニング、予測、リスク分析、ポートフォリオ評価、将来のResearch RAGによる根拠収集を通じて「投資判断を支援する」ことを目的とした
 ローカルファーストの投資分析プラットフォームです。
 
 SMAI は以下の思想を重視しています。
@@ -39,7 +39,7 @@ SMAI は以下の思想を重視しています。
 
 - `polygon` など追加 live market-data provider
 - Execution / broker への注文送信
-- 高度な forecast workflow、高度な reporting workflow、AI assistant experience
+- 高度な forecast workflow、高度な reporting workflow、Research RAG、AI assistant experience
 - `SMAI_CONFIG_FILE` 以外の環境変数設定
 
 `yahoo` / `polygon` は設定値として予約されています。`yahoo` は `allow_external_providers: true` の明示 opt-in 時だけ `yfinance` 経由の live adapter として利用できます。`polygon` はまだ未実装です。
@@ -48,7 +48,7 @@ MVP の既定経路は引き続きネットワーク不要の `mock` / `csv` で
 ## 次期ロードマップ
 
 次期重点は Multi-Model Investment Intelligence です。
-注文執行の優先度を下げ、外部データ取得、特徴量管理、銘柄スコアリング、複数モデル予測、可視化、判断補助レポートを段階的に整備します。
+注文執行の優先度を下げ、外部データ取得、特徴量管理、銘柄スコアリング、複数モデル予測、Research RAG、可視化、判断補助レポートを段階的に整備します。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント
@@ -57,6 +57,7 @@ MVP の既定経路は引き続きネットワーク不要の `mock` / `csv` で
 - [実装ロードマップ](./Documents/05_Implementation_Roadmap.md)
 - [MVP 運用ガイド](./Documents/06_MVP_Operations_Guide.md)
 - [UI 文言ポリシー](./Documents/07_UI_Wording_Policy.md)
+- [Research RAG 詳細設計](./Documents/04_Detail_Design/04-8_Onepager_Research_RAG.md)
 - [Codex タスクテンプレート](./Documents/98_Codex_Task_Template.md)
 - [作業ログ](./Documents/99_Work_Log.md)
 

@@ -41,6 +41,7 @@ Phase 1 から Phase 9 までは、現在の MVP として完了扱いです。
 - `polygon` などの追加 live provider adapter 本体
 - visualization cockpit
 - decision report
+- research RAG layer（IR資料検索・根拠提示・Research Score）
 - broker への live order 送信
 - Execution workflow
 
@@ -50,7 +51,7 @@ Phase 1 から Phase 9 までは、現在の MVP として完了扱いです。
 - 外部 API は明示 opt-in の場合だけ使う。
 - CI と通常の local checks は外部 API に依存させない。
 - まず軽量な baseline を作り、後から高度なモデルや optional adapter を追加する。
-- ユーザーに見える機能では、最終結果だけでなく理由・内訳・制約を表示する。
+- ユーザーに見える機能では、最終結果だけでなく理由・内訳・制約・根拠資料を表示する。
 - 実装状態が変わったら `PROJECT_CONTEXT.md` と関連ドキュメントを同期する。
 
 ## 4. 完了済みフェーズ
@@ -490,6 +491,166 @@ Rebalance Cockpit:
 - 外部 provider 由来データを使った ranking / forecast / score の UI 確認は環境依存として扱い、通常確認は deterministic provider で通る。
 - UI 上で provider、as-of、取得時刻、データ品質を確認できる。
 
+
+### Research RAG Roadmap: Long-term Company Intelligence
+
+目的: IR資料・有価証券報告書・決算資料・中期経営計画・ニュースなどを検索し、長期企業分析の根拠提示と Research Score 化を行う。
+
+位置づけ:
+
+- 既存の MarketData / Feature Store / Screening / Forecast / Investment Score は価格・特徴量・モデル評価を扱う。
+- Research RAG は、非構造データから成長戦略、株主還元、事業リスク、開示品質などの定性材料を補う。
+- 初期は Investment Score に強く混ぜず、Research Summary / Evidence / optional Research Score として横に表示する。
+- 外部ソース取得、embedding、LLM は optional adapter とし、通常CIとlocal checksは外部APIに依存しない。
+
+#### Phase R0: Research RAG 要件・詳細設計
+
+Status: planned
+
+Scope:
+
+- `Documents/04_Detail_Design/04-8_Onepager_Research_RAG.md` を追加する。
+- `ResearchDocument`, `ResearchChunk`, `ResearchEvidence`, `ResearchScore`, `CompanyResearchReport` を定義する。
+- RAGの責務を、長期企業分析・根拠提示・Research Score・Report/Assistant連携に限定する。
+- RAG単体で売買推奨を行わないことを明記する。
+
+完了条件:
+
+- One-Pager が既存テンプレートに沿って作成されている。
+- MarketData / FeatureBuilder / Screening / Forecast / Scoring との境界が明確である。
+- local-first / deterministic-first と optional adapter 方針が明記されている。
+
+#### Phase R1: Local Document Ingestion MVP
+
+Status: planned
+
+Scope:
+
+- `backend/research/` を追加する。
+- ローカルPDF / Markdown / Text を銘柄に紐づけて登録する。
+- `source_type`, `published_at`, `provider`, `reliability` などのメタデータを保持する。
+- 資料一覧を API / UI / CLI のいずれかで確認できるようにする。
+
+完了条件:
+
+- 外部ネットワークなしで資料を登録・一覧できる。
+- 不正ファイル、未対応形式、重複資料を明示的に扱える。
+- deterministic tests がある。
+
+#### Phase R2: Text Extraction & Chunk Store
+
+Status: planned
+
+Scope:
+
+- PDF / Markdown / Text から本文を抽出する。
+- chunk を生成し、document_id / symbol / page / section / text を保存する。
+- OCRや図表構造化は後回しにする。
+
+完了条件:
+
+- 1資料から複数chunkを生成できる。
+- chunk metadata が検索・根拠表示に必要な情報を持つ。
+- 空本文や壊れたPDFをエラーまたはwarningとして扱える。
+
+#### Phase R3: Keyword Retrieval MVP
+
+Status: planned
+
+Scope:
+
+- 銘柄 + query で関連chunkを検索する。
+- source_type、published_at、reliability による filter を用意する。
+- `ResearchEvidence` を返す。
+- API案: `POST /research/search`。
+
+完了条件:
+
+- 「配当方針」「中期経営計画」「事業リスク」などで検索できる。
+- 検索結果に資料名、公開日、ページ、抜粋が表示される。
+- LLMなしで動作する。
+
+#### Phase R4: Research Summary MVP
+
+Status: planned
+
+Scope:
+
+- evidence を使って `CompanyResearchReport` を生成する。
+- growth / shareholder return / risk の3観点から開始する。
+- UIに Research Summary Card を追加する。
+- API案: `POST /research/analyze`。
+
+完了条件:
+
+- 銘柄ごとの長期分析サマリと根拠が表示される。
+- 情報不足時は「資料不足」として扱える。
+- 外部LLMなしで最低限のテンプレート要約が動作する。
+
+#### Phase R5: Vector Search / Hybrid Search
+
+Status: planned
+
+Scope:
+
+- embedding 生成と vector store を optional に追加する。
+- keyword + vector の hybrid search を実装する。
+- embedding model と index version を保存する。
+
+完了条件:
+
+- 自然文質問や同義語で evidence を検索できる。
+- embedding 未生成時は keyword search に fallback できる。
+- CIは外部APIに依存しない。
+
+#### Phase R6: Research Score MVP
+
+Status: planned
+
+Scope:
+
+- growth、profitability、shareholder return、financial safety、business risk、disclosure quality、freshness を sub score 化する。
+- score breakdown と理由、根拠資料、data quality warning を返す。
+- 初期は deterministic rule/template scoring とする。
+
+完了条件:
+
+- 銘柄ごとに Research Score を返せる。
+- score の理由と evidence が確認できる。
+- Research資料が不足する場合は score を過信させない warning を出せる。
+
+#### Phase R7: Investment Score / Ranking / Report 統合
+
+Status: planned
+
+Scope:
+
+- `research_score` を Investment Score の optional input として接続する。
+- Ranking UI に「長期材料重視」preset を追加する。
+- Decision Report に Research Summary / Evidence / Research Score を含める。
+
+完了条件:
+
+- Research Score が無い銘柄でも既存 ranking が壊れない。
+- Research evidence 付きの Decision Report を出力できる。
+- 「買い/売り」ではなく、長期材料と注意点として表示される。
+
+#### Phase R8: External Source Adapter
+
+Status: planned
+
+Scope:
+
+- `ResearchSourceAdapter` protocol を定義する。
+- EDINET / TDnet / IR RSS / News API などを optional adapter として追加する。
+- rate limit、retry、cache、terms配慮、provider metadata を扱う。
+
+完了条件:
+
+- provider を config で opt-in できる。
+- 外部取得失敗時に理由がUI/APIで分かる。
+- 通常 local checks は外部API非依存のまま維持される。
+
 ### Phase 17: Research Model Adapters
 
 目的: 最新研究や高度なモデルを optional adapter として試せる構造を作る。
@@ -624,6 +785,7 @@ Scope:
 - Forecast Lab Baseline の評価手順を定義する
 - 初心者向け UI Design phase の具体的な画面構成と確認観点を設計する
 - Low-Cost AI Assistant phase のルールベース説明と optional LLM adapter 境界を設計する
+- Research RAG の local document ingestion、evidence search、Research Score 統合の優先順位を決める
 
 # SMAI Future Implementation Roadmap (LLM Integrated)
 

@@ -28,6 +28,7 @@
 - `polygon` などの追加 live provider adapter 本体
 - broker への live order 送信
 - Execution workflow
+- Research RAG / IR資料検索 / Research Score
 - screening / forecasting / multi-model scoring の実装
 
 現在の MVP は、ローカル検証と説明用です。
@@ -456,3 +457,17 @@ Markdown の UTF-8 確認:
 
 API、CSV provider、manual workflow、UI、外部 provider 準備、検証コマンドが変わる場合は、この文書を更新します。
 実装状態や次の作業方針が変わる場合は、あわせて `PROJECT_CONTEXT.md` と `Documents/05_Implementation_Roadmap.md` も更新します。
+
+
+## Research RAG 予定機能の扱い
+
+Research RAG は、IR資料・有価証券報告書・決算資料・中期経営計画・ニュースなどを検索し、長期企業分析の根拠を表示する将来機能です。
+現時点の通常MVP運用では、Research RAG の ingestion / search / vector index / external source adapter は実装済み前提にしません。
+
+将来の運用方針:
+
+- 既定はローカル資料登録と deterministic keyword search から開始する。
+- 外部ソース取得、embedding、LLM要約は明示 opt-in にする。
+- 通常の `tools/run_local_checks.py` は外部API、外部LLM、live scraping に依存させない。
+- UI / report では、資料名、公開日、ページ、抜粋、資料鮮度、データ品質警告を表示する。
+- Research RAG の出力は売買推奨ではなく、判断材料と注意点の整理として扱う。

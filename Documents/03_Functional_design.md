@@ -39,9 +39,19 @@
 - 出力: ensemble forecast、median forecast、model agreement、model disagreement、不確実性。
 - 役割: 単一モデルに依存せず、モデル間の見解差を判断材料として表示する。
 
+
+### Research RAG Service
+
+- 入力: 銘柄、query、資料種別、as-of date、登録済みIR/決算/有報/ニュース資料。
+- 出力: Research Evidence、企業分析サマリ、Research Score、資料鮮度、データ品質警告。
+- 役割: 価格や予測モデルだけでは拾いにくい長期材料、株主還元方針、事業リスク、開示品質を根拠付きで整理する。
+- 初期実装: ローカルPDF/Markdown/Textの登録、chunk化、keyword search、テンプレート要約。
+- 将来拡張: vector / hybrid search、EDINET / TDnet / IR RSS / News adapter、optional LLM summary。
+- 制約: RAG単体で売買推奨を行わず、根拠と注意点を Decision Report / Assistant / Investment Score に渡す。
+
 ### Investment Score Service
 
-- 入力: screening score、forecast summary、risk result、data quality。
+- 入力: screening score、forecast summary、risk result、data quality、optional research score。
 - 出力: 総合 investment score、score breakdown、主な加点・減点理由。
 - 役割: ユーザーが銘柄候補を比較しやすいよう、複数の判断材料を一つの説明可能なスコアへ統合する。
 
@@ -56,7 +66,7 @@
 ### Decision Report
 
 - 出力形式: Markdown、JSON、CSV、ZIP。
-- 内容: 銘柄ランキング、スコア内訳、予測結果、モデル間の一致・不一致、リスク要因、注意点。
+- 内容: 銘柄ランキング、スコア内訳、予測結果、モデル間の一致・不一致、Research Evidence、リスク要因、注意点。
 - 制約: 投資助言ではなく判断補助として記述する。
 
 > 本ドキュメントは「01\_Define\_requirements」および「02\_System\_design」に基づき、要素ごとの具体的な機能仕様を示します。
@@ -121,6 +131,14 @@
 * 短期売買規制（日米）、配当落ち日リスクの事前チェック。
 
 ---
+
+## 7. Research RAG Service
+
+* IR資料、有価証券報告書、決算資料、中期経営計画、統合報告書、ニュース、ユーザーメモを銘柄に紐づけて管理する。
+* 資料本文を chunk 化し、資料名・公開日・ページ番号・資料種別・信頼度を保持する。
+* 銘柄と自然文 query から evidence を検索し、長期成長性、株主還元、財務安全性、事業リスク、開示品質を整理する。
+* Research Score は Investment Score の optional input とし、Research情報が無い場合も既存スコアは動作する。
+* 初期は deterministic な keyword/template ベースで実装し、embedding・LLM・外部取得は opt-in adapter として追加する。
 
 ## 7. Backtesting & Simulation
 

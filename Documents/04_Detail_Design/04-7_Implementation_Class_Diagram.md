@@ -19,6 +19,7 @@
 - MarketData MVP: 実装済み（mock provider）
 - Risk MVP: initial `RiskService`, `RiskDecision`, and pre-trade API implemented
 - Portfolio MVP: initial `PortfolioService`, snapshots, no-solver rebalance proposals, and Portfolio-to-Risk workflow implemented
+- Research RAG: planned component for local document ingestion, evidence search, research summary, and optional Research Score
 
 ## 3. Core Foundation Class Diagram
 
@@ -382,10 +383,78 @@ PortfolioRiskResult o-- RiskDecision
 @enduml
 ```
 
-## 7. Component-Specific Diagram Links
+
+## 7. Research RAG Planned Relationships
+
+`backend.research` は、IR資料やユーザーメモなどの非構造データを扱う planned component として追加する。
+初期実装は local-first / deterministic とし、外部ソース取得、embedding、LLM要約は optional adapter として段階的に追加する。
+
+```plantuml
+@startuml
+top to bottom direction
+skinparam shadowing true
+skinparam roundcorner 8
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+package "backend.research" {
+  class ResearchIngestionService {
+    +register_document(request): ResearchDocument
+    +list_documents(symbol): list[ResearchDocument]
+  }
+
+  class ResearchIndexService {
+    +build_chunks(document_id): list[ResearchChunk]
+    +rebuild_index(symbol): ResearchIndexSummary
+  }
+
+  class ResearchRetrievalService {
+    +search(request): list[ResearchEvidence]
+  }
+
+  class ResearchAnalysisService {
+    +analyze_company(request): CompanyResearchReport
+  }
+
+  class ResearchDocument
+  class ResearchChunk
+  class ResearchEvidence
+  class ResearchScore
+  class CompanyResearchReport
+}
+
+package "backend.scoring" {
+  class InvestmentScoreService
+}
+
+package "backend.reporting" {
+  class DecisionReport
+}
+
+package "backend.assistant" {
+  class AssistantService
+}
+
+ResearchIngestionService ..> ResearchDocument
+ResearchIndexService ..> ResearchDocument
+ResearchIndexService ..> ResearchChunk
+ResearchRetrievalService ..> ResearchChunk
+ResearchRetrievalService ..> ResearchEvidence
+ResearchAnalysisService --> ResearchRetrievalService
+ResearchAnalysisService ..> CompanyResearchReport
+CompanyResearchReport *-- ResearchEvidence
+CompanyResearchReport *-- ResearchScore
+InvestmentScoreService ..> ResearchScore : optional input
+DecisionReport ..> CompanyResearchReport
+AssistantService ..> CompanyResearchReport
+@enduml
+```
+
+## 8. Component-Specific Diagram Links
 
 - MarketData / DataAccess: [04-2_Onepager_marketdata_dataaccess.md](./04-2_Onepager_marketdata_dataaccess.md)
 - Execution: [04-3_Onepager_Execution.md](./04-3_Onepager_Execution.md)
 - Risk: [04-4_Onepager_Risk.md](./04-4_Onepager_Risk.md)
 - Feature Builder: [04-5_Onepager_Feature_Builder.md](./04-5_Onepager_Feature_Builder.md)
 - Portfolio: [04-6_Onepager_Portfolio.md](./04-6_Onepager_Portfolio.md)
+- Research RAG: [04-8_Onepager_Research_RAG.md](./04-8_Onepager_Research_RAG.md)

@@ -44,6 +44,7 @@ Use the smallest context set that can safely solve the task.
 | Streamlit UI change | `ui/app.py` | UI helpers/tests + operations guide | unrelated backend docs |
 | MarketData/provider | `backend/marketdata/` | provider tests + config docs | live network smoke unless requested |
 | Feature/Screening/Forecast | target service | contracts + service tests + roadmap phase | Execution docs |
+| Research RAG | `Documents/04_Detail_Design/04-8_Onepager_Research_RAG.md` | `backend/research` + sample docs/tests + roadmap R phases | live scraping / external LLM unless requested |
 | Docs-only change | target doc | `PROJECT_CONTEXT.md` if status changes | code scan unless needed |
 | New implementation task | `PROJECT_CONTEXT.md` + relevant doc | related service + tests | `Documents/99_Work_Log.md` unless history is needed |
 | New phase work | roadmap current phase + `PROJECT_CONTEXT.md` | related service + tests | broad refactor |
@@ -67,7 +68,8 @@ Follow the Multi-Model Investment Intelligence roadmap unless the user says othe
 Near-term priority:
 1. connect Forecast Lab Baseline results to API / export
 2. keep beginner-friendly UI design as a dedicated phase
-3. build low-cost AI assistant as deterministic rule/template first; optional LLM adapter later
+3. add Research RAG as local-first evidence/search layer before optional external source or LLM adapters
+4. build low-cost AI assistant as deterministic rule/template first; optional LLM adapter later
 
 Execution and broker order sending stay lower priority unless explicitly requested.
 Execution と broker order 送信は、明示依頼がない限り優先度を下げます。
@@ -156,6 +158,7 @@ Architecture:
 - `backend/core`: shared contracts, config, errors
 - `backend/marketdata`: providers, adapters, feature construction
 - `backend/risk`, `backend/portfolio`, `backend/screening`, `backend/forecast`: domain services
+- `backend/research`: future local-first RAG/evidence/search service for IR documents and Research Score
 - future modules should follow roadmap names: `backend/scoring`, `backend/execution`, etc.
 
 Testing:
@@ -172,6 +175,7 @@ Docs:
 - use `Documents/98_Codex_Task_Template.md` when a new implementation task needs a reusable prompt shape
 - update `Documents/06_MVP_Operations_Guide.md` for API/UI/CSV/provider/runbook changes
 - use `Documents/07_UI_Wording_Policy.md` when changing user-facing UI/report wording
+- use `Documents/04_Detail_Design/04-8_Onepager_Research_RAG.md` when adding research/RAG/evidence behavior
 - update `Documents/05_Implementation_Roadmap.md` for phase/scope/completion changes
 
 Encoding:

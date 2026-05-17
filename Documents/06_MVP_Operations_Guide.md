@@ -201,7 +201,7 @@ Market Data tab は 2 つの mode を持ちます。
   - 予測一致重視
   - データ品質重視
   - リスク控えめ
-- 候補条件 modal
+- 基本条件
   - period preset
   - market
   - asset type
@@ -213,7 +213,10 @@ Market Data tab は 2 つの mode を持ちます。
   - max expense ratio
   - theme
   - keyword
-  - display count
+- 常設のスクリーニング条件パネル
+  - PER / PBR / 配当利回り / ROE / コンセンサスの ON/OFF と範囲指定
+  - 条件のクリア
+  - 条件変更後の候補数表示
 - ranking result with ticker / company name / score / warnings
 - 選択銘柄をコックピットへ渡す deep-dive flow
 
@@ -221,8 +224,8 @@ Market Data tab は 2 つの mode を持ちます。
 
 - ranking の候補条件は、provider fetch 前に使える `data/marketdata/symbol_universe.csv` の curated metadata を中心にしています。
 - dividend category や theme は現在 curated metadata です。provider fundamentals からの自動更新は将来拡張です。
-- `symbol_universe.csv` は Phase 16 UI 用の銘柄候補マスタです。列は `symbol`, `name`, `market`, `asset_type`, `currency`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases` です。
-- 候補条件 modal の「条件を適用」は、絞り込まれた候補をそのまま「比較する銘柄」の選択状態へ反映します。
+- `symbol_universe.csv` は Phase 16 UI 用の銘柄候補マスタです。列は `symbol`, `name`, `market`, `asset_type`, `currency`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases`, `per`, `pbr`, `roe_pct`, `sector`, `consensus_rating`, `forecast_agreement`, `data_quality`, `risk_band` です。
+- 常設パネルで条件を変えると、候補数と「比較する銘柄」の選択候補が同じ画面内で確認できます。
 
 ### Rebalance tab
 

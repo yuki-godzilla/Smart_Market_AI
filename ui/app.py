@@ -167,7 +167,7 @@ RANKING_INDEX_FAMILY_LABELS = {
     "total_us": "全米",
     "small_us": "米国小型",
 }
-RANKING_FILTER_DEFAULTS = {
+RANKING_FILTER_DEFAULTS: dict[str, str] = {
     "market_data_ranking_period": "short",
     "market_data_ranking_market": "all",
     "market_data_ranking_asset_type": "all",
@@ -180,6 +180,23 @@ RANKING_FILTER_DEFAULTS = {
     "market_data_ranking_complexity": "standard",
     "market_data_ranking_theme": "all",
     "market_data_ranking_symbol_query": "",
+}
+RANKING_METRIC_FILTER_DEFAULTS: dict[str, str | bool] = {
+    "market_data_ranking_per_enabled": False,
+    "market_data_ranking_per_min": "2.0",
+    "market_data_ranking_per_max": "20.0",
+    "market_data_ranking_pbr_enabled": False,
+    "market_data_ranking_pbr_min": "0.5",
+    "market_data_ranking_pbr_max": "2.0",
+    "market_data_ranking_dividend_enabled": False,
+    "market_data_ranking_dividend_min": "3.0",
+    "market_data_ranking_dividend_max": "10.0",
+    "market_data_ranking_roe_enabled": False,
+    "market_data_ranking_roe_min": "8.0",
+    "market_data_ranking_roe_max": "30.0",
+    "market_data_ranking_consensus_enabled": False,
+    "market_data_ranking_consensus_min": "2.5",
+    "market_data_ranking_consensus_max": "5.0",
 }
 
 
@@ -419,6 +436,20 @@ def filter_symbol_universe_rows(
     complexity: str = "standard",
     theme: str = "all",
     query: str = "",
+    per_enabled: bool = False,
+    per_min: Decimal | str | int = Decimal("2.0"),
+    per_max: Decimal | str | int = Decimal("20.0"),
+    pbr_enabled: bool = False,
+    pbr_min: Decimal | str | int = Decimal("0.5"),
+    pbr_max: Decimal | str | int = Decimal("2.0"),
+    dividend_yield_enabled: bool = False,
+    dividend_yield_max_pct: Decimal | str | int = Decimal("10.0"),
+    roe_enabled: bool = False,
+    roe_min_pct: Decimal | str | int = Decimal("8.0"),
+    roe_max_pct: Decimal | str | int = Decimal("30.0"),
+    consensus_enabled: bool = False,
+    consensus_min: Decimal | str | int = Decimal("2.5"),
+    consensus_max: Decimal | str | int = Decimal("5.0"),
     limit: int = 10,
 ) -> list[dict[str, str]]:
     normalized_query = query.strip().lower()
@@ -455,6 +486,26 @@ def filter_symbol_universe_rows(
             continue
         if theme != "all" and theme not in tags and row.get("theme") != theme:
             continue
+        if per_enabled and not _row_decimal_in_range(row, "per", per_min, per_max):
+            continue
+        if pbr_enabled and not _row_decimal_in_range(row, "pbr", pbr_min, pbr_max):
+            continue
+        if dividend_yield_enabled and not _row_decimal_in_range(
+            row,
+            "dividend_yield_pct",
+            min_dividend,
+            dividend_yield_max_pct,
+        ):
+            continue
+        if roe_enabled and not _row_decimal_in_range(row, "roe_pct", roe_min_pct, roe_max_pct):
+            continue
+        if consensus_enabled and not _row_decimal_in_range(
+            row,
+            "consensus_rating",
+            consensus_min,
+            consensus_max,
+        ):
+            continue
         if normalized_query:
             label = " ".join(
                 [
@@ -470,6 +521,18 @@ def filter_symbol_universe_rows(
                 continue
         filtered.append(row)
     return filtered[: max(limit, 0)]
+
+
+def _row_decimal_in_range(
+    row: dict[str, str],
+    key: str,
+    min_value: Decimal | str | int,
+    max_value: Decimal | str | int,
+) -> bool:
+    value = _decimal_filter_value(row.get(key, ""), Decimal("-999999"))
+    lower = _decimal_filter_value(min_value, Decimal("-999999"))
+    upper = _decimal_filter_value(max_value, Decimal("999999"))
+    return lower <= value <= upper
 
 
 def _decimal_filter_value(value: Decimal | str | int, default: Decimal) -> Decimal:
@@ -505,6 +568,14 @@ def _symbol_universe_row(row: dict[str, str]) -> dict[str, str]:
         or ("beginner" if default_asset_type == "etf" else "standard"),
         "tags": ",".join(sorted(tags)),
         "aliases": row.get("aliases", ""),
+        "per": row.get("per", ""),
+        "pbr": row.get("pbr", ""),
+        "roe_pct": row.get("roe_pct", ""),
+        "sector": row.get("sector", ""),
+        "consensus_rating": row.get("consensus_rating", ""),
+        "forecast_agreement": row.get("forecast_agreement", ""),
+        "data_quality": row.get("data_quality", ""),
+        "risk_band": row.get("risk_band", ""),
     }
     if universe_row["asset_type"] == "etf":
         universe_row["market"] = "us"
@@ -544,10 +615,29 @@ def _ranking_filter_int(key: str, default: int) -> int:
         return default
 
 
+def _ranking_filter_bool(key: str, default: bool) -> bool:
+    stored_filters = st.session_state.get(MARKET_DATA_RANKING_FILTERS_STATE_KEY, {})
+    if key in st.session_state:
+        value = st.session_state.get(key, default)
+    elif isinstance(stored_filters, dict) and key in stored_filters:
+        value = stored_filters.get(key, default)
+    else:
+        value = default
+    if isinstance(value, bool):
+        return value
+    return str(value).lower() in {"1", "true", "yes", "on"}
+
+
 def current_ranking_filter_state() -> dict[str, str]:
-    return {
+    filters = {
         key: _ranking_filter_value(key, default) for key, default in RANKING_FILTER_DEFAULTS.items()
     }
+    for key, default in RANKING_METRIC_FILTER_DEFAULTS.items():
+        if isinstance(default, bool):
+            filters[key] = str(_ranking_filter_bool(key, default))
+        else:
+            filters[key] = _ranking_filter_value(key, default)
+    return filters
 
 
 def persist_ranking_filter_state() -> dict[str, str]:
@@ -589,6 +679,20 @@ def ranking_filter_signature(
     complexity: str,
     theme: str,
     query: str,
+    per_enabled: bool = False,
+    per_min: str = "2.0",
+    per_max: str = "20.0",
+    pbr_enabled: bool = False,
+    pbr_min: str = "0.5",
+    pbr_max: str = "2.0",
+    dividend_yield_enabled: bool = False,
+    dividend_yield_max_pct: str = "10.0",
+    roe_enabled: bool = False,
+    roe_min_pct: str = "8.0",
+    roe_max_pct: str = "30.0",
+    consensus_enabled: bool = False,
+    consensus_min: str = "2.5",
+    consensus_max: str = "5.0",
     limit: int,
 ) -> str:
     return "|".join(
@@ -606,6 +710,20 @@ def ranking_filter_signature(
             complexity,
             theme,
             query.strip().lower(),
+            str(per_enabled),
+            per_min,
+            per_max,
+            str(pbr_enabled),
+            pbr_min,
+            pbr_max,
+            str(dividend_yield_enabled),
+            dividend_yield_max_pct,
+            str(roe_enabled),
+            roe_min_pct,
+            roe_max_pct,
+            str(consensus_enabled),
+            consensus_min,
+            consensus_max,
             str(limit),
         ]
     )
@@ -626,6 +744,23 @@ def _ranking_filter_signature_from_state() -> str:
         complexity=_ranking_filter_value("market_data_ranking_complexity", "standard"),
         theme=_ranking_filter_value("market_data_ranking_theme", "all"),
         query=_ranking_filter_value("market_data_ranking_symbol_query", ""),
+        per_enabled=_ranking_filter_bool("market_data_ranking_per_enabled", False),
+        per_min=_ranking_filter_value("market_data_ranking_per_min", "2.0"),
+        per_max=_ranking_filter_value("market_data_ranking_per_max", "20.0"),
+        pbr_enabled=_ranking_filter_bool("market_data_ranking_pbr_enabled", False),
+        pbr_min=_ranking_filter_value("market_data_ranking_pbr_min", "0.5"),
+        pbr_max=_ranking_filter_value("market_data_ranking_pbr_max", "2.0"),
+        dividend_yield_enabled=_ranking_filter_bool(
+            "market_data_ranking_dividend_enabled",
+            False,
+        ),
+        dividend_yield_max_pct=_ranking_filter_value("market_data_ranking_dividend_max", "10.0"),
+        roe_enabled=_ranking_filter_bool("market_data_ranking_roe_enabled", False),
+        roe_min_pct=_ranking_filter_value("market_data_ranking_roe_min", "8.0"),
+        roe_max_pct=_ranking_filter_value("market_data_ranking_roe_max", "30.0"),
+        consensus_enabled=_ranking_filter_bool("market_data_ranking_consensus_enabled", False),
+        consensus_min=_ranking_filter_value("market_data_ranking_consensus_min", "2.5"),
+        consensus_max=_ranking_filter_value("market_data_ranking_consensus_max", "5.0"),
         limit=0,
     )
 
@@ -667,6 +802,225 @@ def apply_ranking_filter_state(
     st.session_state.pop(MARKET_DATA_RANKING_STATE_KEY, None)
     st.session_state.pop(MARKET_DATA_RANKING_ERROR_STATE_KEY, None)
     st.session_state[RANKING_FILTER_DIALOG_STATE_KEY] = False
+
+
+def clear_ranking_filter_state() -> None:
+    for key, default in {**RANKING_FILTER_DEFAULTS, **RANKING_METRIC_FILTER_DEFAULTS}.items():
+        st.session_state[key] = default
+    st.session_state.pop(MARKET_DATA_RANKING_FILTERS_STATE_KEY, None)
+    st.session_state.pop(MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY, None)
+    st.session_state.pop(MARKET_DATA_RANKING_STATE_KEY, None)
+    st.session_state.pop(MARKET_DATA_RANKING_ERROR_STATE_KEY, None)
+
+
+def _render_metric_range_filter(
+    label: str,
+    *,
+    enabled_key: str,
+    min_key: str,
+    max_key: str,
+    min_default: str,
+    max_default: str,
+    min_value: float = 0.0,
+    max_value: float = 100.0,
+    step: float = 0.1,
+) -> None:
+    enabled = st.checkbox(
+        label,
+        value=_ranking_filter_bool(enabled_key, False),
+        key=enabled_key,
+    )
+    col_min, col_max = st.columns(2)
+    with col_min:
+        st.number_input(
+            "下限",
+            min_value=min_value,
+            max_value=max_value,
+            value=float(_ranking_filter_value(min_key, min_default)),
+            step=step,
+            key=min_key,
+            disabled=not enabled,
+        )
+    with col_max:
+        st.number_input(
+            "上限",
+            min_value=min_value,
+            max_value=max_value,
+            value=float(_ranking_filter_value(max_key, max_default)),
+            step=step,
+            key=max_key,
+            disabled=not enabled,
+        )
+
+
+def _render_ranking_filter_panel() -> None:
+    with st.expander("スクリーニング条件", expanded=True):
+        st.caption("条件を見ながら候補数を調整します。売買推奨ではありません。")
+        col_period, col_market, col_type, col_currency = st.columns(4)
+        with col_period:
+            st.selectbox(
+                "期間",
+                list(RANKING_PERIOD_PRESETS),
+                index=list(RANKING_PERIOD_PRESETS).index(
+                    _ranking_filter_value("market_data_ranking_period", "short")
+                ),
+                key="market_data_ranking_period",
+                format_func=ranking_period_label,
+            )
+        with col_market:
+            st.selectbox(
+                "対象市場",
+                list(RANKING_MARKET_LABELS),
+                index=list(RANKING_MARKET_LABELS).index(
+                    _ranking_filter_value("market_data_ranking_market", "all")
+                ),
+                key="market_data_ranking_market",
+                format_func=lambda value: RANKING_MARKET_LABELS[value],
+            )
+        with col_type:
+            st.selectbox(
+                "銘柄タイプ",
+                list(RANKING_ASSET_TYPE_LABELS),
+                index=list(RANKING_ASSET_TYPE_LABELS).index(
+                    _ranking_filter_value("market_data_ranking_asset_type", "all")
+                ),
+                key="market_data_ranking_asset_type",
+                format_func=lambda value: RANKING_ASSET_TYPE_LABELS[value],
+            )
+        with col_currency:
+            st.selectbox(
+                "通貨",
+                list(RANKING_CURRENCY_LABELS),
+                index=list(RANKING_CURRENCY_LABELS).index(
+                    _ranking_filter_value("market_data_ranking_currency", "all")
+                ),
+                key="market_data_ranking_currency",
+                format_func=lambda value: RANKING_CURRENCY_LABELS[value],
+            )
+
+        col_dividend, col_market_cap, col_theme, col_index = st.columns(4)
+        with col_dividend:
+            st.selectbox(
+                "配当カテゴリ",
+                list(RANKING_DIVIDEND_LABELS),
+                index=list(RANKING_DIVIDEND_LABELS).index(
+                    _ranking_filter_value("market_data_ranking_dividend", "all")
+                ),
+                key="market_data_ranking_dividend",
+                format_func=lambda value: RANKING_DIVIDEND_LABELS[value],
+            )
+        with col_market_cap:
+            st.selectbox(
+                "時価総額",
+                list(RANKING_MARKET_CAP_LABELS),
+                index=list(RANKING_MARKET_CAP_LABELS).index(
+                    _ranking_filter_value("market_data_ranking_market_cap", "all")
+                ),
+                key="market_data_ranking_market_cap",
+                format_func=lambda value: RANKING_MARKET_CAP_LABELS[value],
+            )
+        with col_theme:
+            st.selectbox(
+                "テーマ",
+                list(RANKING_THEME_LABELS),
+                index=list(RANKING_THEME_LABELS).index(
+                    _ranking_filter_value("market_data_ranking_theme", "all")
+                ),
+                key="market_data_ranking_theme",
+                format_func=lambda value: RANKING_THEME_LABELS[value],
+            )
+        with col_index:
+            st.selectbox(
+                "ETF連動対象",
+                list(RANKING_INDEX_FAMILY_LABELS),
+                index=list(RANKING_INDEX_FAMILY_LABELS).index(
+                    _ranking_filter_value("market_data_ranking_index_family", "all")
+                ),
+                key="market_data_ranking_index_family",
+                format_func=lambda value: RANKING_INDEX_FAMILY_LABELS[value],
+            )
+
+        col_per, col_pbr, col_div_yield, col_roe, col_consensus = st.columns(5)
+        with col_per:
+            _render_metric_range_filter(
+                "PER",
+                enabled_key="market_data_ranking_per_enabled",
+                min_key="market_data_ranking_per_min",
+                max_key="market_data_ranking_per_max",
+                min_default="2.0",
+                max_default="20.0",
+                max_value=80.0,
+            )
+        with col_pbr:
+            _render_metric_range_filter(
+                "PBR",
+                enabled_key="market_data_ranking_pbr_enabled",
+                min_key="market_data_ranking_pbr_min",
+                max_key="market_data_ranking_pbr_max",
+                min_default="0.5",
+                max_default="2.0",
+                max_value=20.0,
+            )
+        with col_div_yield:
+            _render_metric_range_filter(
+                "配当利回り(%)",
+                enabled_key="market_data_ranking_dividend_enabled",
+                min_key="market_data_ranking_min_dividend",
+                max_key="market_data_ranking_dividend_max",
+                min_default="3.0",
+                max_default="10.0",
+                max_value=15.0,
+            )
+        with col_roe:
+            _render_metric_range_filter(
+                "ROE(%)",
+                enabled_key="market_data_ranking_roe_enabled",
+                min_key="market_data_ranking_roe_min",
+                max_key="market_data_ranking_roe_max",
+                min_default="8.0",
+                max_default="30.0",
+                max_value=60.0,
+            )
+        with col_consensus:
+            _render_metric_range_filter(
+                "コンセンサス",
+                enabled_key="market_data_ranking_consensus_enabled",
+                min_key="market_data_ranking_consensus_min",
+                max_key="market_data_ranking_consensus_max",
+                min_default="2.5",
+                max_default="5.0",
+                max_value=5.0,
+            )
+
+        col_keyword, col_expense, col_complexity, col_clear = st.columns([2.0, 1.0, 1.0, 0.8])
+        with col_keyword:
+            st.text_input(
+                "キーワード",
+                value=_ranking_filter_value("market_data_ranking_symbol_query", ""),
+                key="market_data_ranking_symbol_query",
+                placeholder="ticker or company name",
+            )
+        with col_expense:
+            st.number_input(
+                "信託報酬(%)以下",
+                min_value=0.0,
+                max_value=2.0,
+                value=float(_ranking_filter_value("market_data_ranking_max_expense", "1.00")),
+                step=0.01,
+                key="market_data_ranking_max_expense",
+            )
+        with col_complexity:
+            st.selectbox(
+                "見やすさ",
+                list(RANKING_COMPLEXITY_LABELS),
+                index=list(RANKING_COMPLEXITY_LABELS).index(
+                    _ranking_filter_value("market_data_ranking_complexity", "standard")
+                ),
+                key="market_data_ranking_complexity",
+                format_func=lambda value: RANKING_COMPLEXITY_LABELS[value],
+            )
+        with col_clear:
+            st.button("クリアする", on_click=clear_ranking_filter_state)
 
 
 @st.dialog("候補条件")
@@ -945,20 +1299,8 @@ def _render_market_data_ranking() -> None:
     st.caption("複数銘柄を比較し、深掘り候補を整理します。売買推奨ではありません。")
     symbol_options = symbol_universe_rows()
     purpose = "all"
-    period_preset = _ranking_filter_value("market_data_ranking_period", "short")
-    market = _ranking_filter_value("market_data_ranking_market", "all")
-    asset_type = _ranking_filter_value("market_data_ranking_asset_type", "all")
-    currency = _ranking_filter_value("market_data_ranking_currency", "all")
-    dividend_category = _ranking_filter_value("market_data_ranking_dividend", "all")
-    min_dividend_yield_pct = _ranking_filter_value("market_data_ranking_min_dividend", "0.0")
-    market_cap_tier = _ranking_filter_value("market_data_ranking_market_cap", "all")
-    index_family = _ranking_filter_value("market_data_ranking_index_family", "all")
-    max_expense_ratio_pct = _ranking_filter_value("market_data_ranking_max_expense", "1.00")
-    complexity = _ranking_filter_value("market_data_ranking_complexity", "standard")
-    theme = _ranking_filter_value("market_data_ranking_theme", "all")
-    symbol_query = _ranking_filter_value("market_data_ranking_symbol_query", "")
 
-    col_provider, col_preset, col_filter = st.columns([1.0, 1.2, 2.8])
+    col_provider, col_preset = st.columns([1.0, 1.2])
     with col_provider:
         provider = cast(
             str,
@@ -979,12 +1321,34 @@ def _render_market_data_ranking() -> None:
                 format_func=ranking_weight_preset_label,
             ),
         )
-    with col_filter:
-        if st.button("候補条件を変更", key="open_market_data_ranking_filters"):
-            st.session_state[RANKING_FILTER_DIALOG_STATE_KEY] = True
-        st.caption(ranking_filter_summary())
-    if st.session_state.get(RANKING_FILTER_DIALOG_STATE_KEY):
-        _render_ranking_filter_dialog()
+    _render_ranking_filter_panel()
+
+    period_preset = _ranking_filter_value("market_data_ranking_period", "short")
+    market = _ranking_filter_value("market_data_ranking_market", "all")
+    asset_type = _ranking_filter_value("market_data_ranking_asset_type", "all")
+    currency = _ranking_filter_value("market_data_ranking_currency", "all")
+    dividend_category = _ranking_filter_value("market_data_ranking_dividend", "all")
+    min_dividend_yield_pct = _ranking_filter_value("market_data_ranking_min_dividend", "0.0")
+    market_cap_tier = _ranking_filter_value("market_data_ranking_market_cap", "all")
+    index_family = _ranking_filter_value("market_data_ranking_index_family", "all")
+    max_expense_ratio_pct = _ranking_filter_value("market_data_ranking_max_expense", "1.00")
+    complexity = _ranking_filter_value("market_data_ranking_complexity", "standard")
+    theme = _ranking_filter_value("market_data_ranking_theme", "all")
+    symbol_query = _ranking_filter_value("market_data_ranking_symbol_query", "")
+    per_enabled = _ranking_filter_bool("market_data_ranking_per_enabled", False)
+    per_min = _ranking_filter_value("market_data_ranking_per_min", "2.0")
+    per_max = _ranking_filter_value("market_data_ranking_per_max", "20.0")
+    pbr_enabled = _ranking_filter_bool("market_data_ranking_pbr_enabled", False)
+    pbr_min = _ranking_filter_value("market_data_ranking_pbr_min", "0.5")
+    pbr_max = _ranking_filter_value("market_data_ranking_pbr_max", "2.0")
+    dividend_yield_enabled = _ranking_filter_bool("market_data_ranking_dividend_enabled", False)
+    dividend_yield_max_pct = _ranking_filter_value("market_data_ranking_dividend_max", "10.0")
+    roe_enabled = _ranking_filter_bool("market_data_ranking_roe_enabled", False)
+    roe_min_pct = _ranking_filter_value("market_data_ranking_roe_min", "8.0")
+    roe_max_pct = _ranking_filter_value("market_data_ranking_roe_max", "30.0")
+    consensus_enabled = _ranking_filter_bool("market_data_ranking_consensus_enabled", False)
+    consensus_min = _ranking_filter_value("market_data_ranking_consensus_min", "2.5")
+    consensus_max = _ranking_filter_value("market_data_ranking_consensus_max", "5.0")
     filtered_symbol_rows = filter_symbol_universe_rows(
         symbol_options,
         purpose=purpose,
@@ -999,6 +1363,20 @@ def _render_market_data_ranking() -> None:
         complexity=complexity,
         theme=theme,
         query=symbol_query,
+        per_enabled=per_enabled,
+        per_min=per_min,
+        per_max=per_max,
+        pbr_enabled=pbr_enabled,
+        pbr_min=pbr_min,
+        pbr_max=pbr_max,
+        dividend_yield_enabled=dividend_yield_enabled,
+        dividend_yield_max_pct=dividend_yield_max_pct,
+        roe_enabled=roe_enabled,
+        roe_min_pct=roe_min_pct,
+        roe_max_pct=roe_max_pct,
+        consensus_enabled=consensus_enabled,
+        consensus_min=consensus_min,
+        consensus_max=consensus_max,
         limit=len(symbol_options),
     )
     labels = symbol_candidate_labels(filtered_symbol_rows)
@@ -1016,6 +1394,20 @@ def _render_market_data_ranking() -> None:
         complexity=complexity,
         theme=theme,
         query=symbol_query,
+        per_enabled=per_enabled,
+        per_min=per_min,
+        per_max=per_max,
+        pbr_enabled=pbr_enabled,
+        pbr_min=pbr_min,
+        pbr_max=pbr_max,
+        dividend_yield_enabled=dividend_yield_enabled,
+        dividend_yield_max_pct=dividend_yield_max_pct,
+        roe_enabled=roe_enabled,
+        roe_min_pct=roe_min_pct,
+        roe_max_pct=roe_max_pct,
+        consensus_enabled=consensus_enabled,
+        consensus_min=consensus_min,
+        consensus_max=consensus_max,
         limit=0,
     )
     default_labels = [
@@ -1034,17 +1426,25 @@ def _render_market_data_ranking() -> None:
     initial_selected_labels = stored_selected_labels or default_labels
     col_symbols, col_period_text = st.columns([2.8, 1.2])
     with col_symbols:
-        multiselect_kwargs: dict[str, object] = {
-            "label": "比較する銘柄",
-            "options": labels,
-            "key": selection_key,
-        }
         if selection_key not in st.session_state:
-            multiselect_kwargs["default"] = initial_selected_labels
-        selected_labels = cast(
-            list[str],
-            st.multiselect(**multiselect_kwargs),
-        )
+            selected_labels = cast(
+                list[str],
+                st.multiselect(
+                    "比較する銘柄",
+                    labels,
+                    default=initial_selected_labels,
+                    key=selection_key,
+                ),
+            )
+        else:
+            selected_labels = cast(
+                list[str],
+                st.multiselect(
+                    "比較する銘柄",
+                    labels,
+                    key=selection_key,
+                ),
+            )
     with col_period_text:
         end_date = default_market_data_end_date()
         start_date, end_date = ranking_period_dates(period_preset, end_date)

@@ -151,6 +151,11 @@ def test_symbol_universe_csv_rows_provide_extensible_selection_metadata():
     assert "growth" in row_by_symbol["AAPL"]["tags"]
     assert row_by_symbol["SPY"]["asset_type"] == "etf"
     assert row_by_symbol["SPY"]["index_family"] == "sp500"
+    assert row_by_symbol["AAPL"]["per"]
+    assert row_by_symbol["AAPL"]["pbr"]
+    assert row_by_symbol["AAPL"]["roe_pct"]
+    assert row_by_symbol["AAPL"]["consensus_rating"]
+    assert row_by_symbol["AAPL"]["risk_band"]
 
 
 def test_filter_symbol_universe_rows_uses_fetch_before_conditions():
@@ -240,6 +245,38 @@ def test_filter_symbol_universe_rows_filters_by_dividend_yield_database_value():
             min_dividend_yield_pct="3.0",
         )
     ] == ["PFE"]
+
+
+def test_filter_symbol_universe_rows_filters_by_metric_ranges():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "7203.T", "name": "Toyota Motor"},
+            {"symbol": "AAPL", "name": "Apple Inc."},
+            {"symbol": "PFE", "name": "Pfizer"},
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            per_enabled=True,
+            per_min="2.0",
+            per_max="20.0",
+            pbr_enabled=True,
+            pbr_min="0.5",
+            pbr_max="3.0",
+            dividend_yield_enabled=True,
+            min_dividend_yield_pct="0.0",
+            dividend_yield_max_pct="10.0",
+            roe_enabled=True,
+            roe_min_pct="8.0",
+            roe_max_pct="30.0",
+            consensus_enabled=True,
+            consensus_min="2.5",
+            consensus_max="5.0",
+        )
+    ] == ["7203.T", "PFE"]
 
 
 def test_filter_symbol_universe_rows_filters_etf_database_values():

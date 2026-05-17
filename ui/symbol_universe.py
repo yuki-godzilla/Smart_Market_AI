@@ -21,6 +21,14 @@ SYMBOL_UNIVERSE_FIELDS = [
     "complexity",
     "tags",
     "aliases",
+    "per",
+    "pbr",
+    "roe_pct",
+    "sector",
+    "consensus_rating",
+    "forecast_agreement",
+    "data_quality",
+    "risk_band",
 ]
 
 

@@ -471,9 +471,6 @@ def filter_symbol_universe_rows(
             continue
         if dividend_category != "all" and row.get("dividend_category") != dividend_category:
             continue
-        dividend_yield = _decimal_filter_value(row.get("dividend_yield_pct", ""), Decimal("0"))
-        if dividend_yield < min_dividend:
-            continue
         if market_cap_tier != "all" and row.get("market_cap_tier") != market_cap_tier:
             continue
         if index_family != "all" and row.get("index_family") != index_family:
@@ -661,7 +658,12 @@ def ranking_filter_summary() -> str:
         "指定なし",
     )
     min_dividend = _ranking_filter_value("market_data_ranking_min_dividend", "0.0")
-    return f"条件: {period} / {market} / {asset_type} / " f"配当 {min_dividend}% 以上 / {dividend}"
+    dividend_text = (
+        f"配当利回り {min_dividend}% 以上"
+        if _ranking_filter_bool("market_data_ranking_dividend_enabled", False)
+        else "配当利回り 指定なし"
+    )
+    return f"条件: {period} / {market} / {asset_type} / {dividend_text} / {dividend}"
 
 
 def ranking_filter_signature(
@@ -777,6 +779,40 @@ def valid_ranking_selected_labels(
     return [label for label in selected_labels if label in available]
 
 
+def initial_ranking_selected_labels(
+    labels: list[str],
+    stored_selected_labels: list[str],
+) -> list[str]:
+    return valid_ranking_selected_labels(stored_selected_labels, labels) or labels
+
+
+def initial_ranking_selected_labels_for_key(
+    *,
+    selection_key: str,
+    labels: list[str],
+    stored_selected_labels: list[str],
+) -> list[str]:
+    if selection_key not in st.session_state:
+        return labels
+    return initial_ranking_selected_labels(labels, stored_selected_labels)
+
+
+def ensure_ranking_selection_widget_state(
+    *,
+    selection_key: str,
+    labels: list[str],
+    stored_selected_labels: list[str],
+) -> None:
+    if selection_key not in st.session_state:
+        selected_labels = initial_ranking_selected_labels_for_key(
+            selection_key=selection_key,
+            labels=labels,
+            stored_selected_labels=stored_selected_labels,
+        )
+        st.session_state[selection_key] = selected_labels
+        st.session_state[MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY] = selected_labels
+
+
 def sync_ranking_selection_state(
     selection_key: str,
     selected_labels: list[str],
@@ -806,7 +842,16 @@ def apply_ranking_filter_state(
 
 def clear_ranking_filter_state() -> None:
     for key, default in {**RANKING_FILTER_DEFAULTS, **RANKING_METRIC_FILTER_DEFAULTS}.items():
-        st.session_state[key] = default
+        if isinstance(default, bool):
+            st.session_state[key] = default
+        elif key.endswith(("_min", "_max")) or key in {
+            "market_data_ranking_min_dividend",
+            "market_data_ranking_dividend_max",
+            "market_data_ranking_max_expense",
+        }:
+            st.session_state[key] = float(default)
+        else:
+            st.session_state[key] = default
     st.session_state.pop(MARKET_DATA_RANKING_FILTERS_STATE_KEY, None)
     st.session_state.pop(MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY, None)
     st.session_state.pop(MARKET_DATA_RANKING_STATE_KEY, None)
@@ -854,7 +899,8 @@ def _render_metric_range_filter(
 
 
 def _render_ranking_filter_panel() -> None:
-    with st.expander("スクリーニング条件", expanded=True):
+    has_ranking_result = bool(st.session_state.get(MARKET_DATA_RANKING_STATE_KEY))
+    with st.expander("スクリーニング条件", expanded=not has_ranking_result):
         st.caption("条件を見ながら候補数を調整します。売買推奨ではありません。")
         col_period, col_market, col_type, col_currency = st.columns(4)
         with col_period:
@@ -1410,41 +1456,26 @@ def _render_market_data_ranking() -> None:
         consensus_max=consensus_max,
         limit=0,
     )
-    default_labels = [
-        label for label in labels if _symbol_from_candidate(label) in {"AAPL", "7203.T"}
-    ][:2]
-    if not default_labels:
-        default_labels = labels[: min(2, len(labels))]
     selection_key = ranking_symbols_state_key(filter_signature)
-    stored_selected_labels = valid_ranking_selected_labels(
-        cast(
-            list[str],
-            st.session_state.get(MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY, []),
-        ),
-        labels,
+    stored_selected_labels = cast(
+        list[str],
+        st.session_state.get(MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY, []),
     )
-    initial_selected_labels = stored_selected_labels or default_labels
+    ensure_ranking_selection_widget_state(
+        selection_key=selection_key,
+        labels=labels,
+        stored_selected_labels=stored_selected_labels,
+    )
     col_symbols, col_period_text = st.columns([2.8, 1.2])
     with col_symbols:
-        if selection_key not in st.session_state:
-            selected_labels = cast(
-                list[str],
-                st.multiselect(
-                    "比較する銘柄",
-                    labels,
-                    default=initial_selected_labels,
-                    key=selection_key,
-                ),
-            )
-        else:
-            selected_labels = cast(
-                list[str],
-                st.multiselect(
-                    "比較する銘柄",
-                    labels,
-                    key=selection_key,
-                ),
-            )
+        selected_labels = cast(
+            list[str],
+            st.multiselect(
+                "比較する銘柄",
+                labels,
+                key=selection_key,
+            ),
+        )
     with col_period_text:
         end_date = default_market_data_end_date()
         start_date, end_date = ranking_period_dates(period_preset, end_date)

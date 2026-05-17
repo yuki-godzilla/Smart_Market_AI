@@ -15,12 +15,15 @@ from ui.app import (
     current_ranking_filter_state,
     default_forecast_horizon_days,
     default_market_data_provider,
+    ensure_ranking_selection_widget_state,
     filter_symbol_universe_rows,
     forecast_boundary_frame,
     forecast_chart_summary,
     forecast_consensus_display_rows,
     forecast_metric_display_rows,
     forecast_metric_summary,
+    initial_ranking_selected_labels,
+    initial_ranking_selected_labels_for_key,
     investment_score_display_rows,
     investment_score_summary_lines,
     market_chart_long_frame,
@@ -242,9 +245,31 @@ def test_filter_symbol_universe_rows_filters_by_dividend_yield_database_value():
             rows,
             market="us",
             asset_type="stock",
+            dividend_yield_enabled=True,
             min_dividend_yield_pct="3.0",
         )
     ] == ["PFE"]
+
+
+def test_filter_symbol_universe_rows_ignores_dividend_range_when_disabled():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "AAPL", "name": "Apple Inc."},
+            {"symbol": "PFE", "name": "Pfizer"},
+            {"symbol": "NVDA", "name": "NVIDIA"},
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            market="us",
+            asset_type="stock",
+            dividend_yield_enabled=False,
+            min_dividend_yield_pct="3.0",
+        )
+    ] == ["AAPL", "PFE", "NVDA"]
 
 
 def test_filter_symbol_universe_rows_filters_by_metric_ranges():
@@ -380,6 +405,75 @@ def test_valid_ranking_selected_labels_keeps_only_available_options():
         ["7203.T - Toyota Motor", "OLD - Removed"],
         ["7203.T - Toyota Motor", "9983.T - Fast Retailing"],
     ) == ["7203.T - Toyota Motor"]
+
+
+def test_initial_ranking_selected_labels_defaults_to_all_matching_candidates():
+    labels = ["7203.T - Toyota Motor", "9983.T - Fast Retailing"]
+
+    assert initial_ranking_selected_labels(labels, []) == labels
+    assert initial_ranking_selected_labels(labels, ["7203.T - Toyota Motor"]) == [
+        "7203.T - Toyota Motor"
+    ]
+
+
+def test_initial_ranking_selected_labels_for_new_filter_key_uses_all_candidates(monkeypatch):
+    session_state: dict[str, object] = {}
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    labels = ["7203.T - Toyota Motor", "9983.T - Fast Retailing"]
+
+    assert (
+        initial_ranking_selected_labels_for_key(
+            selection_key="market_data_ranking_symbols_new",
+            labels=labels,
+            stored_selected_labels=["7203.T - Toyota Motor"],
+        )
+        == labels
+    )
+
+
+def test_initial_ranking_selected_labels_for_existing_key_keeps_user_selection(monkeypatch):
+    session_state: dict[str, object] = {"market_data_ranking_symbols_existing": []}
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    labels = ["7203.T - Toyota Motor", "9983.T - Fast Retailing"]
+
+    assert initial_ranking_selected_labels_for_key(
+        selection_key="market_data_ranking_symbols_existing",
+        labels=labels,
+        stored_selected_labels=["7203.T - Toyota Motor"],
+    ) == ["7203.T - Toyota Motor"]
+
+
+def test_ensure_ranking_selection_widget_state_initializes_new_key_with_all_candidates(
+    monkeypatch,
+):
+    session_state: dict[str, object] = {}
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    labels = ["7203.T - Toyota Motor", "9983.T - Fast Retailing"]
+
+    ensure_ranking_selection_widget_state(
+        selection_key="market_data_ranking_symbols_new",
+        labels=labels,
+        stored_selected_labels=[],
+    )
+
+    assert session_state["market_data_ranking_symbols_new"] == labels
+    assert session_state["market_data_ranking_selected_labels"] == labels
+
+
+def test_ensure_ranking_selection_widget_state_preserves_existing_user_selection(monkeypatch):
+    session_state: dict[str, object] = {
+        "market_data_ranking_symbols_existing": ["7203.T - Toyota Motor"]
+    }
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+
+    ensure_ranking_selection_widget_state(
+        selection_key="market_data_ranking_symbols_existing",
+        labels=["7203.T - Toyota Motor", "9983.T - Fast Retailing"],
+        stored_selected_labels=[],
+    )
+
+    assert session_state["market_data_ranking_symbols_existing"] == ["7203.T - Toyota Motor"]
+    assert "market_data_ranking_selected_labels" not in session_state
 
 
 def test_sync_ranking_selection_state_updates_widget_and_persistent_state(monkeypatch):

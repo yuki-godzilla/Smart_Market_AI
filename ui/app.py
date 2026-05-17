@@ -52,6 +52,7 @@ MARKET_DATA_FORECAST_DAYS_STATE_KEY = "market_data_forecast_horizon_days"
 MARKET_DATA_TOAST_STATE_KEY = "market_data_toast_message"
 MARKET_DATA_RANKING_STATE_KEY = "market_data_ranking_rows"
 MARKET_DATA_RANKING_ERROR_STATE_KEY = "market_data_ranking_error_rows"
+RANKING_FILTER_DIALOG_STATE_KEY = "market_data_ranking_filter_dialog_open"
 
 FORECAST_ACTUAL_LABEL = "実績価格"
 MARKET_DATA_MODE_COCKPIT = "cockpit"
@@ -95,6 +96,359 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
         "data_quality_score": Decimal("0.20"),
         "risk_signal_score": Decimal("0.30"),
     },
+}
+RANKING_PERIOD_PRESETS = {
+    "short": 7,
+    "medium": 30,
+    "long": 365,
+}
+RANKING_PERIOD_LABELS = {
+    "short": "短期: 1週間",
+    "medium": "中期: 1か月",
+    "long": "長期: 1年",
+}
+RANKING_MARKET_LABELS = {
+    "all": "すべて",
+    "jp": "日本株",
+    "us": "米国株",
+    "etf": "ETF",
+}
+RANKING_ASSET_TYPE_LABELS = {
+    "all": "すべて",
+    "stock": "個別株",
+    "etf": "ETF",
+    "adr": "ADR",
+}
+RANKING_CURRENCY_LABELS = {
+    "all": "すべて",
+    "JPY": "JPY",
+    "USD": "USD",
+}
+RANKING_DIVIDEND_LABELS = {
+    "all": "指定なし",
+    "high_dividend": "高配当候補",
+    "dividend": "配当あり",
+    "none": "配当なし",
+    "growth_dividend": "連続増配候補",
+}
+RANKING_COMPLEXITY_LABELS = {
+    "beginner": "初心者向け",
+    "standard": "標準まで",
+    "all": "上級者向けも含める",
+}
+RANKING_THEME_LABELS = {
+    "all": "指定なし",
+    "technology": "テクノロジー",
+    "semiconductor": "半導体",
+    "financial": "金融",
+    "consumer": "消費",
+    "healthcare": "ヘルスケア",
+    "energy": "エネルギー",
+    "automotive": "自動車",
+    "trading": "商社",
+    "index": "インデックス",
+    "dividend": "高配当",
+}
+RANKING_MARKET_CAP_LABELS = {
+    "all": "指定なし",
+    "mega": "超大型",
+    "large": "大型",
+    "mid": "中型",
+}
+RANKING_INDEX_FAMILY_LABELS = {
+    "all": "指定なし",
+    "sp500": "S&P 500",
+    "nasdaq100": "NASDAQ 100",
+    "total_us": "全米",
+    "small_us": "米国小型",
+}
+JP_THEME_BY_SYMBOL = {
+    "7203.T": "automotive",
+    "7267.T": "automotive",
+    "6902.T": "automotive",
+    "8306.T": "financial",
+    "8411.T": "financial",
+    "8316.T": "financial",
+    "8766.T": "financial",
+    "8591.T": "financial",
+    "8058.T": "trading",
+    "8001.T": "trading",
+    "8031.T": "trading",
+    "4519.T": "healthcare",
+    "4568.T": "healthcare",
+    "4502.T": "healthcare",
+    "8035.T": "semiconductor",
+    "6981.T": "semiconductor",
+    "6861.T": "technology",
+    "6501.T": "technology",
+    "9613.T": "technology",
+    "6702.T": "technology",
+    "9432.T": "technology",
+    "4689.T": "technology",
+    "4755.T": "technology",
+    "1605.T": "energy",
+    "6098.T": "consumer",
+    "2914.T": "consumer",
+    "7974.T": "consumer",
+    "8801.T": "consumer",
+    "9020.T": "consumer",
+    "9022.T": "consumer",
+    "4661.T": "consumer",
+    "5108.T": "consumer",
+    "3382.T": "consumer",
+    "8267.T": "consumer",
+    "9843.T": "consumer",
+    "4452.T": "consumer",
+    "4911.T": "consumer",
+    "2502.T": "consumer",
+    "2802.T": "consumer",
+}
+US_THEME_BY_SYMBOL = {
+    "AAPL": "technology",
+    "MSFT": "technology",
+    "GOOGL": "technology",
+    "META": "technology",
+    "ORCL": "technology",
+    "ADBE": "technology",
+    "CRM": "technology",
+    "NOW": "technology",
+    "UBER": "technology",
+    "ABNB": "technology",
+    "PYPL": "technology",
+    "NVDA": "semiconductor",
+    "AMD": "semiconductor",
+    "INTC": "semiconductor",
+    "AVGO": "semiconductor",
+    "TSLA": "automotive",
+    "TM": "automotive",
+    "SONY": "consumer",
+    "AMZN": "consumer",
+    "NFLX": "consumer",
+    "KO": "consumer",
+    "PEP": "consumer",
+    "PG": "consumer",
+    "COST": "consumer",
+    "WMT": "consumer",
+    "HD": "consumer",
+    "MCD": "consumer",
+    "NKE": "consumer",
+    "DIS": "consumer",
+    "JPM": "financial",
+    "BAC": "financial",
+    "V": "financial",
+    "MA": "financial",
+    "AXP": "financial",
+    "BRK-B": "financial",
+    "UNH": "healthcare",
+    "JNJ": "healthcare",
+    "LLY": "healthcare",
+    "MRK": "healthcare",
+    "PFE": "healthcare",
+    "ABBV": "healthcare",
+    "XOM": "energy",
+    "CVX": "energy",
+}
+HIGH_DIVIDEND_SYMBOLS = {
+    "9432.T",
+    "8058.T",
+    "8001.T",
+    "8031.T",
+    "2914.T",
+    "8411.T",
+    "8316.T",
+    "8591.T",
+    "4502.T",
+    "1605.T",
+    "XOM",
+    "CVX",
+    "PFE",
+    "ABBV",
+}
+GROWTH_DIVIDEND_SYMBOLS = {"KO", "PEP", "PG", "JNJ", "MCD", "HD", "WMT", "COST"}
+NO_DIVIDEND_SYMBOLS = {
+    "NVDA",
+    "TSLA",
+    "GOOGL",
+    "AMZN",
+    "META",
+    "NFLX",
+    "AMD",
+    "ADBE",
+    "CRM",
+    "NOW",
+    "SHOP",
+    "UBER",
+    "ABNB",
+    "PYPL",
+}
+LOWER_RISK_SYMBOLS = {
+    "7203.T",
+    "9432.T",
+    "8306.T",
+    "8058.T",
+    "8001.T",
+    "4502.T",
+    "KO",
+    "PEP",
+    "PG",
+    "JNJ",
+    "COST",
+    "WMT",
+    "SPY",
+    "VTI",
+    "VOO",
+}
+INSTALLMENT_SYMBOLS = {"SPY", "QQQ", "VTI", "VOO", "IWM"}
+ETF_SYMBOLS = INSTALLMENT_SYMBOLS
+ADR_SYMBOLS = {"TM", "SONY"}
+DIVIDEND_YIELD_PCT_BY_SYMBOL = {
+    "7203.T": "2.6",
+    "9983.T": "0.7",
+    "6758.T": "0.8",
+    "8306.T": "3.1",
+    "9432.T": "3.4",
+    "8058.T": "3.2",
+    "8001.T": "2.4",
+    "8031.T": "3.0",
+    "2914.T": "4.5",
+    "8411.T": "3.4",
+    "8316.T": "3.2",
+    "8591.T": "3.2",
+    "4502.T": "4.0",
+    "1605.T": "3.6",
+    "AAPL": "0.5",
+    "MSFT": "0.7",
+    "INTC": "1.2",
+    "AVGO": "1.2",
+    "ORCL": "1.4",
+    "JPM": "2.2",
+    "BAC": "2.5",
+    "V": "0.8",
+    "MA": "0.6",
+    "AXP": "1.1",
+    "BRK-B": "0.0",
+    "UNH": "1.4",
+    "JNJ": "3.0",
+    "LLY": "0.7",
+    "MRK": "3.0",
+    "PFE": "6.0",
+    "ABBV": "3.7",
+    "XOM": "3.4",
+    "CVX": "4.0",
+    "KO": "3.1",
+    "PEP": "3.0",
+    "PG": "2.4",
+    "COST": "0.6",
+    "WMT": "1.0",
+    "HD": "2.2",
+    "MCD": "2.3",
+    "SPY": "1.2",
+    "QQQ": "0.6",
+    "VTI": "1.3",
+    "VOO": "1.2",
+    "IWM": "1.3",
+}
+MARKET_CAP_TIER_BY_SYMBOL = {
+    "AAPL": "mega",
+    "MSFT": "mega",
+    "NVDA": "mega",
+    "GOOGL": "mega",
+    "AMZN": "mega",
+    "META": "mega",
+    "7203.T": "large",
+    "9983.T": "large",
+    "6758.T": "large",
+    "8306.T": "large",
+    "9432.T": "large",
+    "6861.T": "large",
+    "8035.T": "large",
+    "8058.T": "large",
+    "8001.T": "large",
+    "JPM": "large",
+    "BAC": "large",
+    "V": "large",
+    "MA": "large",
+    "UNH": "large",
+    "JNJ": "large",
+    "LLY": "large",
+    "XOM": "large",
+    "CVX": "large",
+}
+ETF_INDEX_FAMILY_BY_SYMBOL = {
+    "SPY": "sp500",
+    "VOO": "sp500",
+    "QQQ": "nasdaq100",
+    "VTI": "total_us",
+    "IWM": "small_us",
+}
+ETF_EXPENSE_RATIO_PCT_BY_SYMBOL = {
+    "SPY": "0.09",
+    "QQQ": "0.20",
+    "VTI": "0.03",
+    "VOO": "0.03",
+    "IWM": "0.19",
+}
+JP_SYMBOL_ALIASES = {
+    "7203.T": "トヨタ 自動車",
+    "9983.T": "ファーストリテイリング ユニクロ",
+    "6758.T": "ソニー",
+    "8306.T": "三菱UFJ 銀行 金融",
+    "9432.T": "NTT 日本電信電話 通信 高配当",
+    "6861.T": "キーエンス",
+    "8035.T": "東京エレクトロン 半導体",
+    "6098.T": "リクルート",
+    "4063.T": "信越化学",
+    "6501.T": "日立",
+    "8058.T": "三菱商事 商社 高配当",
+    "8001.T": "伊藤忠 商社",
+    "8031.T": "三井物産 商社",
+    "2914.T": "日本たばこ JT 高配当",
+    "7974.T": "任天堂",
+    "4519.T": "中外製薬 ヘルスケア",
+    "4568.T": "第一三共 ヘルスケア",
+    "4502.T": "武田薬品 ヘルスケア 高配当",
+    "8316.T": "三井住友 金融",
+    "8591.T": "オリックス 金融 高配当",
+}
+SYMBOL_UNIVERSE_OVERRIDES: dict[str, dict[str, str]] = {
+    "7203.T": {"theme": "automotive", "tags": "balanced,lower_risk"},
+    "9432.T": {
+        "theme": "telecom",
+        "dividend_category": "high_dividend",
+        "tags": "dividend,lower_risk",
+    },
+    "8058.T": {"theme": "trading", "dividend_category": "high_dividend", "tags": "dividend"},
+    "8001.T": {"theme": "trading", "dividend_category": "dividend", "tags": "dividend"},
+    "2914.T": {"theme": "consumer", "dividend_category": "high_dividend", "tags": "dividend"},
+    "AAPL": {
+        "theme": "technology",
+        "dividend_category": "dividend",
+        "tags": "growth,balanced",
+    },
+    "MSFT": {
+        "theme": "technology",
+        "dividend_category": "dividend",
+        "tags": "growth,balanced",
+    },
+    "NVDA": {"theme": "semiconductor", "dividend_category": "none", "tags": "growth"},
+    "TSLA": {"theme": "automotive", "dividend_category": "none", "tags": "growth"},
+    "JPM": {"theme": "financial", "dividend_category": "dividend", "tags": "dividend"},
+    "XOM": {"theme": "energy", "dividend_category": "dividend", "tags": "dividend"},
+    "KO": {
+        "theme": "consumer",
+        "dividend_category": "growth_dividend",
+        "tags": "dividend,lower_risk",
+    },
+    "PG": {
+        "theme": "consumer",
+        "dividend_category": "growth_dividend",
+        "tags": "dividend,lower_risk",
+    },
+    "SPY": {"asset_type": "etf", "theme": "index", "tags": "installment,balanced,lower_risk"},
+    "QQQ": {"asset_type": "etf", "theme": "index", "tags": "installment,growth"},
+    "VTI": {"asset_type": "etf", "theme": "index", "tags": "installment,balanced,lower_risk"},
+    "VOO": {"asset_type": "etf", "theme": "index", "tags": "installment,balanced,lower_risk"},
+    "IWM": {"asset_type": "etf", "theme": "index", "tags": "installment"},
 }
 
 
@@ -286,6 +640,412 @@ def symbol_candidate_labels(rows: list[dict[str, str]], query: str = "") -> list
     return labels
 
 
+def ranking_period_label(preset: str) -> str:
+    return RANKING_PERIOD_LABELS.get(preset, preset)
+
+
+def ranking_period_dates(preset: str, end: date) -> tuple[date, date]:
+    days = RANKING_PERIOD_PRESETS.get(preset, RANKING_PERIOD_PRESETS["medium"])
+    return end - timedelta(days=days), end
+
+
+def symbol_universe_rows(reference_rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    return [_symbol_universe_row(row) for row in reference_rows]
+
+
+def filter_symbol_universe_rows(
+    rows: list[dict[str, str]],
+    *,
+    purpose: str = "all",
+    market: str = "all",
+    asset_type: str = "all",
+    currency: str = "all",
+    dividend_category: str = "all",
+    min_dividend_yield_pct: Decimal | str | int = Decimal("0"),
+    market_cap_tier: str = "all",
+    index_family: str = "all",
+    max_expense_ratio_pct: Decimal | str | int = Decimal("1.00"),
+    complexity: str = "standard",
+    theme: str = "all",
+    query: str = "",
+    limit: int = 10,
+) -> list[dict[str, str]]:
+    normalized_query = query.strip().lower()
+    min_dividend = _decimal_filter_value(min_dividend_yield_pct, Decimal("0"))
+    max_expense = _decimal_filter_value(max_expense_ratio_pct, Decimal("1.00"))
+    filtered: list[dict[str, str]] = []
+    for row in rows:
+        tags = _symbol_universe_values(row, "tags")
+        if purpose != "all" and purpose not in tags:
+            continue
+        if market == "etf":
+            if row.get("asset_type") != "etf":
+                continue
+        elif market != "all" and row.get("market") != market:
+            continue
+        if asset_type != "all" and row.get("asset_type") != asset_type:
+            continue
+        if currency != "all" and row.get("currency") != currency:
+            continue
+        if dividend_category != "all" and row.get("dividend_category") != dividend_category:
+            continue
+        dividend_yield = _decimal_filter_value(row.get("dividend_yield_pct", ""), Decimal("0"))
+        if dividend_yield < min_dividend:
+            continue
+        if market_cap_tier != "all" and row.get("market_cap_tier") != market_cap_tier:
+            continue
+        if index_family != "all" and row.get("index_family") != index_family:
+            continue
+        expense_ratio = row.get("expense_ratio_pct", "")
+        if row.get("asset_type") == "etf" and expense_ratio:
+            if _decimal_filter_value(expense_ratio, Decimal("99")) > max_expense:
+                continue
+        if not _symbol_complexity_allowed(row.get("complexity", "standard"), complexity):
+            continue
+        if theme != "all" and theme not in tags and row.get("theme") != theme:
+            continue
+        if normalized_query:
+            label = " ".join(
+                [
+                    row.get("symbol", ""),
+                    row.get("name", ""),
+                    row.get("theme", ""),
+                    row.get("dividend_category", ""),
+                    row.get("tags", ""),
+                    row.get("aliases", ""),
+                ]
+            ).lower()
+            if normalized_query not in label:
+                continue
+        filtered.append(row)
+    return filtered[: max(limit, 0)]
+
+
+def _decimal_filter_value(value: Decimal | str | int, default: Decimal) -> Decimal:
+    if isinstance(value, Decimal):
+        return value
+    try:
+        return Decimal(str(value))
+    except InvalidOperation:
+        return default
+
+
+def _symbol_universe_row(row: dict[str, str]) -> dict[str, str]:
+    symbol = row.get("symbol", "").strip()
+    symbol_upper = symbol.upper()
+    default_market = "jp" if symbol_upper.endswith(".T") else "us"
+    default_currency = "JPY" if default_market == "jp" else "USD"
+    default_asset_type = "adr" if symbol_upper in ADR_SYMBOLS else "stock"
+    if symbol_upper in ETF_SYMBOLS:
+        default_asset_type = "etf"
+    theme = (
+        JP_THEME_BY_SYMBOL.get(symbol_upper)
+        if default_market == "jp"
+        else US_THEME_BY_SYMBOL.get(symbol_upper)
+    ) or "consumer"
+    dividend_category = "dividend"
+    if symbol_upper in HIGH_DIVIDEND_SYMBOLS:
+        dividend_category = "high_dividend"
+    elif symbol_upper in GROWTH_DIVIDEND_SYMBOLS:
+        dividend_category = "growth_dividend"
+    elif symbol_upper in NO_DIVIDEND_SYMBOLS or default_asset_type == "etf":
+        dividend_category = "none"
+    tags = {"balanced"}
+    if symbol_upper in LOWER_RISK_SYMBOLS or default_asset_type == "etf":
+        tags.add("lower_risk")
+    if symbol_upper in INSTALLMENT_SYMBOLS:
+        tags.add("installment")
+    if theme in {"technology", "semiconductor"} and default_asset_type != "etf":
+        tags.add("growth")
+    if dividend_category in {"dividend", "high_dividend", "growth_dividend"}:
+        tags.add("dividend")
+    if dividend_category == "high_dividend":
+        tags.add("dividend")
+    universe_row = {
+        "symbol": symbol,
+        "name": row.get("name", symbol),
+        "market": default_market,
+        "asset_type": default_asset_type,
+        "currency": default_currency,
+        "theme": theme,
+        "dividend_category": dividend_category,
+        "dividend_yield_pct": DIVIDEND_YIELD_PCT_BY_SYMBOL.get(symbol_upper, "0"),
+        "market_cap_tier": MARKET_CAP_TIER_BY_SYMBOL.get(symbol_upper, "mid"),
+        "index_family": ETF_INDEX_FAMILY_BY_SYMBOL.get(symbol_upper, ""),
+        "expense_ratio_pct": ETF_EXPENSE_RATIO_PCT_BY_SYMBOL.get(symbol_upper, ""),
+        "complexity": "beginner" if default_asset_type == "etf" else "standard",
+        "tags": ",".join(sorted(tags)),
+        "aliases": JP_SYMBOL_ALIASES.get(symbol_upper, ""),
+    }
+    overrides = SYMBOL_UNIVERSE_OVERRIDES.get(symbol_upper, {})
+    override_tags = overrides.get("tags", "")
+    universe_row.update(overrides)
+    if override_tags:
+        merged_tags = _symbol_universe_values({"tags": ",".join(sorted(tags))}, "tags")
+        merged_tags.update(_symbol_universe_values({"tags": override_tags}, "tags"))
+        universe_row["tags"] = ",".join(sorted(merged_tags))
+    if universe_row["asset_type"] == "etf":
+        universe_row["market"] = "us"
+    return universe_row
+
+
+def _symbol_universe_values(row: dict[str, str], key: str) -> set[str]:
+    return {value.strip() for value in row.get(key, "").split(",") if value.strip()}
+
+
+def _symbol_complexity_allowed(symbol_complexity: str, selected_complexity: str) -> bool:
+    if selected_complexity == "all":
+        return True
+    if selected_complexity == "standard":
+        return symbol_complexity in {"beginner", "standard"}
+    return symbol_complexity == "beginner"
+
+
+def _ranking_filter_value(key: str, default: str) -> str:
+    value = st.session_state.get(key, default)
+    return str(value) if value is not None else default
+
+
+def _ranking_filter_int(key: str, default: int) -> int:
+    value = st.session_state.get(key, default)
+    if isinstance(value, int):
+        return value
+    try:
+        return int(str(value))
+    except ValueError:
+        return default
+
+
+def ranking_filter_summary() -> str:
+    period = ranking_period_label(_ranking_filter_value("market_data_ranking_period", "short"))
+    market = RANKING_MARKET_LABELS.get(
+        _ranking_filter_value("market_data_ranking_market", "all"),
+        "すべて",
+    )
+    asset_type = RANKING_ASSET_TYPE_LABELS.get(
+        _ranking_filter_value("market_data_ranking_asset_type", "all"),
+        "すべて",
+    )
+    dividend = RANKING_DIVIDEND_LABELS.get(
+        _ranking_filter_value("market_data_ranking_dividend", "all"),
+        "指定なし",
+    )
+    min_dividend = _ranking_filter_value("market_data_ranking_min_dividend", "0.0")
+    limit = _ranking_filter_int("market_data_ranking_limit", 6)
+    return (
+        f"条件: {period} / {market} / {asset_type} / "
+        f"配当 {min_dividend}% 以上 / {dividend} / 最大 {limit} 件"
+    )
+
+
+def ranking_filter_signature(
+    *,
+    purpose: str,
+    period_preset: str,
+    market: str,
+    asset_type: str,
+    currency: str,
+    dividend_category: str,
+    min_dividend_yield_pct: str = "0.0",
+    market_cap_tier: str = "all",
+    index_family: str = "all",
+    max_expense_ratio_pct: str = "1.00",
+    complexity: str,
+    theme: str,
+    query: str,
+    limit: int,
+) -> str:
+    return "|".join(
+        [
+            purpose,
+            period_preset,
+            market,
+            asset_type,
+            currency,
+            dividend_category,
+            min_dividend_yield_pct,
+            market_cap_tier,
+            index_family,
+            max_expense_ratio_pct,
+            complexity,
+            theme,
+            query.strip().lower(),
+            str(limit),
+        ]
+    )
+
+
+def _ranking_filter_signature_from_state() -> str:
+    return ranking_filter_signature(
+        purpose="all",
+        period_preset=_ranking_filter_value("market_data_ranking_period", "short"),
+        market=_ranking_filter_value("market_data_ranking_market", "all"),
+        asset_type=_ranking_filter_value("market_data_ranking_asset_type", "all"),
+        currency=_ranking_filter_value("market_data_ranking_currency", "all"),
+        dividend_category=_ranking_filter_value("market_data_ranking_dividend", "all"),
+        min_dividend_yield_pct=_ranking_filter_value("market_data_ranking_min_dividend", "0.0"),
+        market_cap_tier=_ranking_filter_value("market_data_ranking_market_cap", "all"),
+        index_family=_ranking_filter_value("market_data_ranking_index_family", "all"),
+        max_expense_ratio_pct=_ranking_filter_value("market_data_ranking_max_expense", "1.00"),
+        complexity=_ranking_filter_value("market_data_ranking_complexity", "standard"),
+        theme=_ranking_filter_value("market_data_ranking_theme", "all"),
+        query=_ranking_filter_value("market_data_ranking_symbol_query", ""),
+        limit=_ranking_filter_int("market_data_ranking_limit", 6),
+    )
+
+
+@st.dialog("候補条件")
+def _render_ranking_filter_dialog() -> None:
+    st.caption("銘柄を取得する前に分かる属性だけで候補を絞ります。")
+    col_period, col_min_dividend = st.columns([1.0, 1.0])
+    with col_period:
+        st.selectbox(
+            "期間",
+            list(RANKING_PERIOD_PRESETS),
+            index=list(RANKING_PERIOD_PRESETS).index(
+                _ranking_filter_value("market_data_ranking_period", "short")
+            ),
+            key="market_data_ranking_period",
+            format_func=ranking_period_label,
+        )
+    with col_min_dividend:
+        st.number_input(
+            "配当利回り(%)以上",
+            min_value=0.0,
+            max_value=10.0,
+            value=float(_ranking_filter_value("market_data_ranking_min_dividend", "0.0")),
+            step=0.1,
+            key="market_data_ranking_min_dividend",
+        )
+    col_market, col_type = st.columns(2)
+    with col_market:
+        st.selectbox(
+            "対象市場",
+            list(RANKING_MARKET_LABELS),
+            index=list(RANKING_MARKET_LABELS).index(
+                _ranking_filter_value("market_data_ranking_market", "all")
+            ),
+            key="market_data_ranking_market",
+            format_func=lambda value: RANKING_MARKET_LABELS[value],
+        )
+    with col_type:
+        st.selectbox(
+            "銘柄タイプ",
+            list(RANKING_ASSET_TYPE_LABELS),
+            index=list(RANKING_ASSET_TYPE_LABELS).index(
+                _ranking_filter_value("market_data_ranking_asset_type", "all")
+            ),
+            key="market_data_ranking_asset_type",
+            format_func=lambda value: RANKING_ASSET_TYPE_LABELS[value],
+        )
+    col_currency, col_dividend = st.columns(2)
+    with col_currency:
+        st.selectbox(
+            "通貨",
+            list(RANKING_CURRENCY_LABELS),
+            index=list(RANKING_CURRENCY_LABELS).index(
+                _ranking_filter_value("market_data_ranking_currency", "all")
+            ),
+            key="market_data_ranking_currency",
+            format_func=lambda value: RANKING_CURRENCY_LABELS[value],
+        )
+    with col_dividend:
+        st.selectbox(
+            "配当カテゴリ",
+            list(RANKING_DIVIDEND_LABELS),
+            index=list(RANKING_DIVIDEND_LABELS).index(
+                _ranking_filter_value("market_data_ranking_dividend", "all")
+            ),
+            key="market_data_ranking_dividend",
+            format_func=lambda value: RANKING_DIVIDEND_LABELS[value],
+        )
+    col_market_cap, col_theme = st.columns(2)
+    with col_market_cap:
+        st.selectbox(
+            "時価総額",
+            list(RANKING_MARKET_CAP_LABELS),
+            index=list(RANKING_MARKET_CAP_LABELS).index(
+                _ranking_filter_value("market_data_ranking_market_cap", "all")
+            ),
+            key="market_data_ranking_market_cap",
+            format_func=lambda value: RANKING_MARKET_CAP_LABELS[value],
+        )
+    with col_theme:
+        st.selectbox(
+            "テーマ",
+            list(RANKING_THEME_LABELS),
+            index=list(RANKING_THEME_LABELS).index(
+                _ranking_filter_value("market_data_ranking_theme", "all")
+            ),
+            key="market_data_ranking_theme",
+            format_func=lambda value: RANKING_THEME_LABELS[value],
+        )
+    col_index, col_expense = st.columns(2)
+    with col_index:
+        st.selectbox(
+            "ETF連動対象",
+            list(RANKING_INDEX_FAMILY_LABELS),
+            index=list(RANKING_INDEX_FAMILY_LABELS).index(
+                _ranking_filter_value("market_data_ranking_index_family", "all")
+            ),
+            key="market_data_ranking_index_family",
+            format_func=lambda value: RANKING_INDEX_FAMILY_LABELS[value],
+        )
+    with col_expense:
+        st.number_input(
+            "信託報酬(%)以下",
+            min_value=0.0,
+            max_value=2.0,
+            value=float(_ranking_filter_value("market_data_ranking_max_expense", "1.00")),
+            step=0.01,
+            key="market_data_ranking_max_expense",
+        )
+    st.text_input(
+        "キーワード",
+        value=_ranking_filter_value("market_data_ranking_symbol_query", ""),
+        key="market_data_ranking_symbol_query",
+        placeholder="ticker or company name",
+    )
+    st.number_input(
+        "表示件数",
+        min_value=1,
+        max_value=20,
+        value=_ranking_filter_int("market_data_ranking_limit", 6),
+        step=1,
+        key="market_data_ranking_limit",
+    )
+    preview_rows = filter_symbol_universe_rows(
+        symbol_universe_rows(symbol_reference_rows()),
+        purpose="all",
+        market=_ranking_filter_value("market_data_ranking_market", "all"),
+        asset_type=_ranking_filter_value("market_data_ranking_asset_type", "all"),
+        currency=_ranking_filter_value("market_data_ranking_currency", "all"),
+        dividend_category=_ranking_filter_value("market_data_ranking_dividend", "all"),
+        min_dividend_yield_pct=_ranking_filter_value("market_data_ranking_min_dividend", "0.0"),
+        market_cap_tier=_ranking_filter_value("market_data_ranking_market_cap", "all"),
+        index_family=_ranking_filter_value("market_data_ranking_index_family", "all"),
+        max_expense_ratio_pct=_ranking_filter_value("market_data_ranking_max_expense", "1.00"),
+        complexity=_ranking_filter_value("market_data_ranking_complexity", "standard"),
+        theme=_ranking_filter_value("market_data_ranking_theme", "all"),
+        query=_ranking_filter_value("market_data_ranking_symbol_query", ""),
+        limit=_ranking_filter_int("market_data_ranking_limit", 6),
+    )
+    st.caption(f"この条件で {len(preview_rows)} 件が候補になります。")
+    if preview_rows:
+        preview_labels = symbol_candidate_labels(preview_rows)[:5]
+        st.caption("候補例: " + " / ".join(preview_labels))
+    else:
+        st.warning("この条件に合う候補がありません。条件を少し広げてください。")
+    if st.button("条件を適用", key="apply_market_data_ranking_filters"):
+        st.session_state["market_data_ranking_filter_signature"] = (
+            _ranking_filter_signature_from_state()
+        )
+        st.session_state.pop(MARKET_DATA_RANKING_STATE_KEY, None)
+        st.session_state.pop(MARKET_DATA_RANKING_ERROR_STATE_KEY, None)
+        st.session_state[RANKING_FILTER_DIALOG_STATE_KEY] = False
+        st.rerun()
+
+
 def merged_symbol_candidate_rows(
     reference_rows: list[dict[str, str]],
     live_rows: list[dict[str, str]],
@@ -418,14 +1178,23 @@ def _render_market_data_preview() -> None:
 def _render_market_data_ranking() -> None:
     st.subheader("銘柄ランキング")
     st.caption("複数銘柄を比較し、深掘り候補を整理します。売買推奨ではありません。")
-    symbol_options = symbol_reference_rows()
-    labels = symbol_candidate_labels(symbol_options)
-    default_labels = [
-        label for label in labels if _symbol_from_candidate(label) in {"AAPL", "7203.T"}
-    ][:2]
-    col_provider, col_preset, col_symbols, col_start, col_end = st.columns(
-        [1.0, 1.2, 2.4, 1.0, 1.0]
-    )
+    symbol_options = symbol_universe_rows(symbol_reference_rows())
+    purpose = "all"
+    period_preset = _ranking_filter_value("market_data_ranking_period", "short")
+    market = _ranking_filter_value("market_data_ranking_market", "all")
+    asset_type = _ranking_filter_value("market_data_ranking_asset_type", "all")
+    currency = _ranking_filter_value("market_data_ranking_currency", "all")
+    dividend_category = _ranking_filter_value("market_data_ranking_dividend", "all")
+    min_dividend_yield_pct = _ranking_filter_value("market_data_ranking_min_dividend", "0.0")
+    market_cap_tier = _ranking_filter_value("market_data_ranking_market_cap", "all")
+    index_family = _ranking_filter_value("market_data_ranking_index_family", "all")
+    max_expense_ratio_pct = _ranking_filter_value("market_data_ranking_max_expense", "1.00")
+    complexity = _ranking_filter_value("market_data_ranking_complexity", "standard")
+    theme = _ranking_filter_value("market_data_ranking_theme", "all")
+    symbol_query = _ranking_filter_value("market_data_ranking_symbol_query", "")
+    display_limit = _ranking_filter_int("market_data_ranking_limit", 6)
+
+    col_provider, col_preset, col_filter = st.columns([1.0, 1.2, 2.8])
     with col_provider:
         provider = cast(
             str,
@@ -446,6 +1215,51 @@ def _render_market_data_ranking() -> None:
                 format_func=ranking_weight_preset_label,
             ),
         )
+    with col_filter:
+        if st.button("候補条件を変更", key="open_market_data_ranking_filters"):
+            st.session_state[RANKING_FILTER_DIALOG_STATE_KEY] = True
+        st.caption(ranking_filter_summary())
+    if st.session_state.get(RANKING_FILTER_DIALOG_STATE_KEY):
+        _render_ranking_filter_dialog()
+    filtered_symbol_rows = filter_symbol_universe_rows(
+        symbol_options,
+        purpose=purpose,
+        market=market,
+        asset_type=asset_type,
+        currency=currency,
+        dividend_category=dividend_category,
+        min_dividend_yield_pct=min_dividend_yield_pct,
+        market_cap_tier=market_cap_tier,
+        index_family=index_family,
+        max_expense_ratio_pct=max_expense_ratio_pct,
+        complexity=complexity,
+        theme=theme,
+        query=symbol_query,
+        limit=display_limit,
+    )
+    labels = symbol_candidate_labels(filtered_symbol_rows)
+    filter_signature = ranking_filter_signature(
+        purpose=purpose,
+        period_preset=period_preset,
+        market=market,
+        asset_type=asset_type,
+        currency=currency,
+        dividend_category=dividend_category,
+        min_dividend_yield_pct=min_dividend_yield_pct,
+        market_cap_tier=market_cap_tier,
+        index_family=index_family,
+        max_expense_ratio_pct=max_expense_ratio_pct,
+        complexity=complexity,
+        theme=theme,
+        query=symbol_query,
+        limit=display_limit,
+    )
+    default_labels = [
+        label for label in labels if _symbol_from_candidate(label) in {"AAPL", "7203.T"}
+    ][:2]
+    if not default_labels:
+        default_labels = labels[: min(2, len(labels))]
+    col_symbols, col_period_text = st.columns([2.8, 1.2])
     with col_symbols:
         selected_labels = cast(
             list[str],
@@ -453,21 +1267,16 @@ def _render_market_data_ranking() -> None:
                 "比較する銘柄",
                 labels,
                 default=default_labels,
-                key="market_data_ranking_symbols",
+                key=f"market_data_ranking_symbols_{filter_signature}",
             ),
         )
-    with col_start:
-        start = st.date_input(
-            "Start",
-            value=default_market_data_start_date(),
-            key="market_data_ranking_start",
-        )
-    with col_end:
-        end = st.date_input(
-            "End",
-            value=default_market_data_end_date(),
-            key="market_data_ranking_end",
-        )
+    with col_period_text:
+        end_date = default_market_data_end_date()
+        start_date, end_date = ranking_period_dates(period_preset, end_date)
+        st.caption(f"取得期間: {start_date.isoformat()} 〜 {end_date.isoformat()}")
+        st.caption(f"候補数: {len(filtered_symbol_rows)}")
+    if not labels:
+        st.warning("この条件に合う候補がありません。候補条件を広げてください。")
 
     if st.button("ランキング作成", key="build_market_data_ranking"):
         symbols = [_symbol_from_candidate(label) for label in selected_labels]
@@ -475,8 +1284,6 @@ def _render_market_data_ranking() -> None:
         if not ranking_symbols:
             st.error("Ranking symbols を1件以上選んでください。")
             return
-        start_date = _single_date_from_input(start)
-        end_date = _single_date_from_input(end)
         rows, error_rows = asyncio.run(
             _build_market_data_ranking_rows(
                 ranking_symbols,
@@ -1251,6 +2058,7 @@ def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, 
         {
             "順位": row.get("rank", ""),
             "銘柄": row.get("symbol", ""),
+            "銘柄名": symbol_name(row.get("symbol", "")) or "",
             "総合スコア": row.get("total_score", ""),
             "見方": _investment_score_band_label(row.get("score_band", "")),
             "Screening": row.get("screening_score", ""),

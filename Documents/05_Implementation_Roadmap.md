@@ -441,6 +441,15 @@ Market Data / 銘柄ランキング:
 - Done: ranking は既存 Investment Score を使い、default deterministic / local path を保つ。
 - Done: ユーザーの重視条件は deterministic preset weight として実装する。
 - Done: 初期 preset 候補: バランス重視、予測一致重視、データ品質重視、リスク控えめ。
+- Done: ranking の期間を短期: 1週間 / 中期: 1か月 / 長期: 1年の preset から選べるようにする。
+- Done: Fetch 前に使える候補条件として、対象市場、銘柄タイプ、通貨、配当カテゴリ、配当利回り(%)以上、時価総額、ETF連動対象、信託報酬(%)以下、テーマ、キーワード、表示件数を追加する。
+- Done: 候補条件は常時表示せず、`候補条件を変更` から modal で編集する。
+- Done: modal 内に候補件数と候補例を表示し、条件適用後は比較銘柄 selector が古い選択を引きずらないようにする。
+- Done: 候補条件は static symbol metadata / curated tags だけで判定し、Fetch 後でしか分からない score、forecast、data quality、risk は混ぜない。
+- Done: 現在の representative symbol DB に、market、asset type、currency、theme、dividend category、投資目的 tag を付与する。
+- Done: representative symbol DB に、配当利回り、時価総額区分、ETF の index family / expense ratio を curated metadata として付与する。
+- Done: ranking table に ticker だけでなく銘柄名も表示する。
+- Future: 高配当候補、連続増配候補、ETF / 投信属性などは、手動 curated metadata と provider 由来 fundamentals を分け、明示コマンドで更新・差分確認できる symbol metadata refresh を追加する。
 - Deferred: モメンタム重視 preset は、Investment Score 側で momentum signal を明示的に扱う段階で追加する。
 - Done: ranking table には score、見方、注意点、Screening / Forecast / Risk / Data Quality 内訳を表示する。
 - Done: ranking から選択した銘柄を銘柄コックピットで深掘りできる導線を用意する。

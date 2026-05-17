@@ -13,6 +13,7 @@ from ui.app import (
     apply_ranking_weight_preset,
     default_forecast_horizon_days,
     default_market_data_provider,
+    filter_symbol_universe_rows,
     forecast_boundary_frame,
     forecast_chart_summary,
     forecast_consensus_display_rows,
@@ -22,11 +23,15 @@ from ui.app import (
     investment_score_summary_lines,
     market_chart_long_frame,
     merged_symbol_candidate_rows,
+    ranking_filter_signature,
+    ranking_period_dates,
+    ranking_period_label,
     ranking_symbol_options,
     ranking_weight_preset_label,
     score_component_rows,
     symbol_candidate_label,
     symbol_candidate_labels,
+    symbol_universe_rows,
 )
 from ui.rebalance_app import (
     forecast_consensus_rows_for_bars,
@@ -111,6 +116,182 @@ def test_symbol_candidate_labels_filter_by_symbol_or_name():
     assert symbol_candidate_labels(rows, "retail") == ["9983.T - Fast Retailing"]
     assert symbol_candidate_labels(rows, "AAPL") == ["AAPL - Apple Inc."]
     assert symbol_candidate_labels(rows, "missing") == []
+
+
+def test_symbol_universe_rows_adds_static_selection_metadata():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "7203.T", "name": "Toyota Motor"},
+            {"symbol": "SPY", "name": "SPDR S&P 500 ETF"},
+        ]
+    )
+
+    assert rows[0]["market"] == "jp"
+    assert rows[0]["currency"] == "JPY"
+    assert rows[1]["asset_type"] == "etf"
+    assert rows[1]["theme"] == "index"
+    assert "installment" in rows[1]["tags"]
+
+
+def test_filter_symbol_universe_rows_uses_fetch_before_conditions():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "7203.T", "name": "Toyota Motor"},
+            {"symbol": "AAPL", "name": "Apple Inc."},
+            {"symbol": "SPY", "name": "SPDR S&P 500 ETF"},
+            {"symbol": "NVDA", "name": "NVIDIA"},
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            purpose="installment",
+            market="etf",
+            asset_type="etf",
+            currency="USD",
+            theme="index",
+        )
+    ] == ["SPY"]
+    assert [
+        row["symbol"] for row in filter_symbol_universe_rows(rows, purpose="growth", limit=2)
+    ] == ["AAPL", "NVDA"]
+    assert [row["symbol"] for row in filter_symbol_universe_rows(rows, query="toyota")] == [
+        "7203.T"
+    ]
+
+
+def test_filter_symbol_universe_rows_finds_curated_dividend_candidates():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "9432.T", "name": "Nippon Telegraph and Telephone"},
+            {"symbol": "8058.T", "name": "Mitsubishi Corporation"},
+            {"symbol": "NVDA", "name": "NVIDIA"},
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            purpose="dividend",
+            market="jp",
+            dividend_category="high_dividend",
+        )
+    ] == ["9432.T", "8058.T"]
+
+
+def test_filter_symbol_universe_rows_finds_us_dividend_candidates():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "AAPL", "name": "Apple Inc."},
+            {"symbol": "PFE", "name": "Pfizer"},
+            {"symbol": "NVDA", "name": "NVIDIA"},
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            purpose="dividend",
+            market="us",
+            asset_type="stock",
+        )
+    ] == ["AAPL", "PFE"]
+
+
+def test_filter_symbol_universe_rows_filters_by_dividend_yield_database_value():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "AAPL", "name": "Apple Inc."},
+            {"symbol": "PFE", "name": "Pfizer"},
+            {"symbol": "NVDA", "name": "NVIDIA"},
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            market="us",
+            asset_type="stock",
+            min_dividend_yield_pct="3.0",
+        )
+    ] == ["PFE"]
+
+
+def test_filter_symbol_universe_rows_filters_etf_database_values():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "SPY", "name": "SPDR S&P 500 ETF"},
+            {"symbol": "QQQ", "name": "Invesco QQQ Trust"},
+            {"symbol": "VOO", "name": "Vanguard S&P 500 ETF"},
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            market="etf",
+            asset_type="etf",
+            index_family="sp500",
+            max_expense_ratio_pct="0.05",
+        )
+    ] == ["VOO"]
+
+
+def test_filter_symbol_universe_rows_searches_japanese_aliases():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "7203.T", "name": "Toyota Motor"},
+            {"symbol": "AAPL", "name": "Apple Inc."},
+        ]
+    )
+
+    assert [row["symbol"] for row in filter_symbol_universe_rows(rows, query="トヨタ")] == [
+        "7203.T"
+    ]
+
+
+def test_ranking_filter_signature_changes_when_conditions_change():
+    base = ranking_filter_signature(
+        purpose="dividend",
+        period_preset="short",
+        market="us",
+        asset_type="stock",
+        currency="all",
+        dividend_category="all",
+        complexity="standard",
+        theme="all",
+        query="",
+        limit=6,
+    )
+    changed = ranking_filter_signature(
+        purpose="dividend",
+        period_preset="short",
+        market="jp",
+        asset_type="stock",
+        currency="all",
+        dividend_category="all",
+        complexity="standard",
+        theme="all",
+        query="",
+        limit=6,
+    )
+
+    assert base != changed
+
+
+def test_ranking_period_dates_use_beginner_presets():
+    end = date(2026, 5, 17)
+
+    assert ranking_period_label("short") == "短期: 1週間"
+    assert ranking_period_dates("short", end) == (date(2026, 5, 10), end)
+    assert ranking_period_dates("medium", end) == (date(2026, 4, 17), end)
+    assert ranking_period_dates("long", end) == (date(2025, 5, 17), end)
 
 
 def test_ranking_symbol_options_and_label_support_deep_dive():
@@ -222,6 +403,7 @@ def test_investment_score_display_rows_are_beginner_friendly():
         {
             "順位": "1",
             "銘柄": "AAPL",
+            "銘柄名": "Apple Inc.",
             "総合スコア": "73",
             "見方": "バランス型",
             "Screening": "80",

@@ -314,6 +314,13 @@ UI で確認できる主な内容:
 - `銘柄コックピット` では、provider、基準日、参照期間を上部に表示し、actual vs forecast chart を先に確認できます。
 - `銘柄コックピット` では、選択銘柄の Investment Score、見方、注意点、Screening / Forecast / Risk / Data Quality 内訳を chart 直下で確認できます。
 - `銘柄ランキング` では、複数銘柄を Investment Score 順に並べ、深掘り候補を整理できます。ranking は売買推奨ではありません。
+- `銘柄ランキング` では、Fetch 前の候補条件として対象市場、銘柄タイプ、通貨、配当カテゴリ、配当利回り(%)以上、時価総額、ETF連動対象、信託報酬(%)以下、テーマ、キーワード、表示件数を選べます。
+- 候補条件は `候補条件を変更` から modal で編集し、画面上には要約だけを表示します。
+- modal 内では現在条件の候補件数と候補例を確認できます。条件適用後は、比較銘柄の選択肢も条件に合わせて更新されます。
+- `銘柄ランキング` の期間は `短期: 1週間`、`中期: 1か月`、`長期: 1年` から選択します。
+- Fetch 前の候補条件は static symbol metadata / curated tags だけを使い、Investment Score、forecast、data quality、risk など取得後に分かる指標は ranking 実行後に評価します。
+- ranking table には ticker と銘柄名を表示します。
+- 高配当候補、配当利回り、時価総額区分、ETF expense ratio などは、現時点では curated metadata として扱います。将来は provider 由来 fundamentals を別コマンドで取得し、差分確認後に symbol metadata を更新する運用にします。
 - `銘柄ランキング` の `重視条件` では、バランス重視、予測一致重視、データ品質重視、リスク控えめの deterministic preset で並び替えできます。
 - `銘柄ランキング` の `銘柄コックピットで確認` から、選んだ銘柄と provider を `銘柄コックピット` に引き継げます。
 - Forecast details、Screening Score、provider metadata、quote、OHLCV summary、FX、feature snapshot、error details は補助情報として折りたたみ表示します。

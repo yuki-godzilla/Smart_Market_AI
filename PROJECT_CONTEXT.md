@@ -60,6 +60,9 @@ Implemented or mostly implemented:
 - Phase 16 has started with a Streamlit Market Data mode split for `銘柄コックピット` / `銘柄ランキング`, a chart-first cockpit with Investment Score summary below it, score breakdown chart, and deterministic ranking MVP for selected symbols.
 - Ranking results can now pass the selected symbol and provider into the single-symbol cockpit for deep-dive follow-up.
 - Ranking supports deterministic preference presets for balance, forecast agreement, data quality, and lower-risk emphasis.
+- Ranking candidate selection now has Fetch-before filters for period preset, market, asset type, currency, dividend category, minimum dividend yield, market-cap tier, ETF index family, max expense ratio, theme, keyword, and display count using static symbol metadata / curated tags.
+- Ranking candidate filters now open in a modal, ranking rows show both ticker and company name, and current representative symbols have broader curated tags for market, asset type, theme, dividend category, and investing purpose.
+- Ranking filter application resets the comparison selector per condition set and the filter modal shows candidate counts/examples with Japanese alias keyword matching for representative Japanese symbols. The former beginner-style investment-purpose control was replaced with database-style conditions such as dividend yield and ETF expense ratio.
 - Rebalance Cockpit has started: JSON inputs are folded into advanced input, target allocations are percentage-formatted, allocation comparison has a chart, and risk breaches include beginner-friendly confirmation points.
 
 Partial or intentionally deferred:
@@ -92,13 +95,15 @@ Phase 15 ? implementation complete: Investment Score ? screening / forecast agre
 Phase 16 has started: Market Data now separates single-symbol cockpit review from multi-symbol ranking, and the cockpit puts provider/as-of context and the forecast chart before the Investment Score, reasons, warnings, and score breakdown.
 Ranking now has a basic deep-dive handoff into the cockpit by setting the selected symbol and provider.
 Ranking preference presets now reweight existing Investment Score components without changing provider fetches.
+Ranking candidate filters now separate Fetch-before static metadata conditions from Fetch-after scoring, forecast, data quality, and risk evaluation.
+Dividend-style categories are currently curated metadata; a future symbol metadata refresh command should fetch provider fundamentals separately, produce a reviewable diff, and update the local DB only after confirmation.
 Forecast chart now shows a beginner-friendly summary for model agreement, forecast spread, compared model count, and the best RMSE model before the chart.
 Rebalance Cockpit has started with summary flow, percentage target weights, allocation comparison chart, and translated risk breach confirmation points.
 
 ## Next Good Targets / ??????
 
-- Continue Phase 16 by polishing Rebalance Cockpit wording/layout and improving forecast chart readability.
-- Improve forecast chart readability within the cockpit with clear actual-vs-forecast styling, labels, and beginner-friendly metrics.
+- Continue Phase 16 by polishing Rebalance Cockpit wording/layout and improving ranking-to-cockpit flow.
+- Add a symbol metadata refresh path later for dividend yield, sector/theme, ETF/fund attributes, and metadata freshness tracking.
 - Extend forecast reporting beyond metrics-only export when a richer saved report is needed.
   ????????????????????????? forecast reporting ???????
 - Keep provider selection explicit and make fallback/error messages understandable in the UI.

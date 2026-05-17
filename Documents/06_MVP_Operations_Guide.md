@@ -237,6 +237,15 @@ Phase 16 ranking implementation notes:
 - The ranking progress indicator reports batch fetch, feature construction, forecast agreement calculation, and final sorting so large candidate sets do not look frozen.
 - Ranking remains decision support only. Use `深掘りする銘柄` to move one selected symbol into `銘柄コックピット` for detailed price / forecast / score-reason review.
 
+Phase 16 final UI smoke checklist:
+
+- Change screening conditions and confirm candidate count / comparison symbols update coherently.
+- Build a ranking and confirm progress messages are shown.
+- Run the same ranking again and confirm cached rows are reused.
+- Change only `重視条件` and confirm rows are re-sorted without a provider refetch.
+- Open a selected symbol in `銘柄コックピット` and confirm provider / symbol handoff.
+- Confirm Rebalance labels continue to describe decision support rather than buy/sell advice.
+
 ### Rebalance tab
 
 Rebalance は `Rebalance Cockpit` として、次の順に確認します。

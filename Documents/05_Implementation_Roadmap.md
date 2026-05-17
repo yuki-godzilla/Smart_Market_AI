@@ -17,7 +17,7 @@ API の起動方法、CSV 形式、UI の使い方、手動確認手順は [06_M
 ## 2. 現在地
 
 Phase 1 から Phase 15 までは、現在の実装上は implementation complete 扱いです。
-Phase 16 は UI / Visualization Cockpit 改善中です。
+Phase 16 は UI / Visualization Cockpit 改善の実装完了扱いです。最終 Streamlit browser smoke は推奨確認として残します。
 Research RAG は設計済みですが、実装は planned です。
 
 実装済みの主な範囲:
@@ -354,7 +354,7 @@ Remaining:
 
 ### Phase 16: Visualization Cockpit
 
-Status: in progress
+Status: implementation complete; final Streamlit browser smoke recommended
 
 目的: Phase 15 までに整えた scoring / forecast / screening / risk の下回りを、ユーザーが一目で判断材料として読める UI にする。
 
@@ -365,21 +365,26 @@ Done:
 - Investment Score summary / score breakdown chart
 - Forecast agreement / forecast spread / best RMSE model summary
 - Ranking preset: balance / forecast agreement / data quality / lower risk
-- Ranking candidate filters modal
+- In-page ranking screening condition panel
 - static / curated metadata による fetch-before filtering
 - ticker + company name 表示
 - ranking result から cockpit への handoff
+- ranking result cache / Yahoo batch OHLCV / progress display
+- ranking period separated from screening filters
+- ranking-to-cockpit deep-dive wording polish
 - Rebalance JSON input を advanced input へ移動
 - Rebalance Cockpit summary flow
 - target allocation percentage display/input
 - allocation comparison chart
 - beginner-friendly risk breach confirmation points
 
-In progress:
+Final UI smoke checklist:
 
-- Rebalance Cockpit wording/layout の磨き込み
-- ranking-to-cockpit flow の改善
-- Decision Report に渡せる context の整理
+- ranking conditions update candidate count and comparison list
+- ranking build shows progress and reuses cache on same request
+- weight preset changes resort existing rows without provider refetch
+- selected ranking symbol opens in `銘柄コックピット`
+- Rebalance wording remains consistent with decision-support phrasing
 
 Remaining:
 

@@ -191,3 +191,8 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Marked Execution / broker order sending as deferred and Portfolio optimizer solver as future scope.
 - Updated Detail Design README, AGENTS.md, setup guide, and Codex task template to match Phase 15 complete / Phase 16 UI improving / Research RAG planned status.
 - Added implementation-status note to the class diagram reference and clarified roadmap appendix as future candidates.
+
+## 2026-05-17 - Phase 16 Rebalance Cockpit persistence
+
+- Kept the latest Rebalance Cockpit result in Streamlit session state so the summary, allocation comparison, risk confirmation points, and downloads remain visible across reruns after a successful check.
+- Added deterministic UI helper tests for reading the stored rebalance result/request and ignoring incomplete session state.

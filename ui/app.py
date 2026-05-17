@@ -53,6 +53,8 @@ MARKET_DATA_TOAST_STATE_KEY = "market_data_toast_message"
 MARKET_DATA_RANKING_STATE_KEY = "market_data_ranking_rows"
 MARKET_DATA_RANKING_ERROR_STATE_KEY = "market_data_ranking_error_rows"
 RANKING_FILTER_DIALOG_STATE_KEY = "market_data_ranking_filter_dialog_open"
+REBALANCE_RESULT_STATE_KEY = "rebalance_result"
+REBALANCE_REQUEST_STATE_KEY = "rebalance_request"
 
 FORECAST_ACTUAL_LABEL = "実績価格"
 MARKET_DATA_MODE_COCKPIT = "cockpit"
@@ -535,6 +537,8 @@ def main() -> None:
                     targets_json=targets_json,
                 )
                 result = asyncio.run(run_rebalance_check(request))
+                st.session_state[REBALANCE_RESULT_STATE_KEY] = result
+                st.session_state[REBALANCE_REQUEST_STATE_KEY] = request
             except InvalidOperation:
                 st.error("Cash JPY must be a decimal number.")
                 return
@@ -549,6 +553,9 @@ def main() -> None:
                 st.error(str(exc))
                 return
 
+        stored_rebalance = rebalance_result_from_state()
+        if stored_rebalance is not None:
+            result, request = stored_rebalance
             _render_result(result, request)
 
     with market_data_tab:
@@ -1659,6 +1666,14 @@ def _render_result(result: PortfolioRiskResult, request: RebalanceCheckRequest) 
             file_name="rebalance_risk_breaches.csv",
             mime="text/csv",
         )
+
+
+def rebalance_result_from_state() -> tuple[PortfolioRiskResult, RebalanceCheckRequest] | None:
+    result = st.session_state.get(REBALANCE_RESULT_STATE_KEY)
+    request = st.session_state.get(REBALANCE_REQUEST_STATE_KEY)
+    if isinstance(result, PortfolioRiskResult) and isinstance(request, RebalanceCheckRequest):
+        return result, request
+    return None
 
 
 def _render_table(rows: list[dict[str, str]], empty_message: str) -> None:

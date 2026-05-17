@@ -13,6 +13,8 @@ import pytest
 from backend.core.data_contracts import Bar, DailySnapshot, FeatureSnapshot, Symbol
 from backend.marketdata.providers import yahoo
 from ui.app import (
+    REBALANCE_REQUEST_STATE_KEY,
+    REBALANCE_RESULT_STATE_KEY,
     allocation_chart_frame,
     default_as_of_date,
     default_market_data_end_date,
@@ -20,6 +22,7 @@ from ui.app import (
     market_chart_frame,
     market_chart_long_frame,
     rebalance_flow_rows,
+    rebalance_result_from_state,
     risk_breach_display_rows,
     risk_breach_message,
 )
@@ -945,6 +948,26 @@ def test_build_rebalance_report_context_reuses_result_table_rows():
     assert context.allocation_rows == allocation_comparison_rows(result.proposal)
     assert context.trade_rows == proposed_trade_rows(result.proposal)
     assert context.breach_rows == risk_breach_rows(result)
+
+
+def test_rebalance_result_from_state_returns_stored_result(monkeypatch):
+    request = build_default_rebalance_request()
+    result = asyncio.run(run_rebalance_check(request))
+    monkeypatch.setattr(
+        "ui.app.st.session_state",
+        {
+            REBALANCE_RESULT_STATE_KEY: result,
+            REBALANCE_REQUEST_STATE_KEY: request,
+        },
+    )
+
+    assert rebalance_result_from_state() == (result, request)
+
+
+def test_rebalance_result_from_state_ignores_incomplete_state(monkeypatch):
+    monkeypatch.setattr("ui.app.st.session_state", {REBALANCE_RESULT_STATE_KEY: object()})
+
+    assert rebalance_result_from_state() is None
 
 
 def test_result_json_download_contains_portfolio_risk_result():

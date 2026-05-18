@@ -14,7 +14,7 @@ Smart Market AI is a Python-based investment support project that combines marke
 The product direction is to help users compare symbols, inspect provider-backed data, review model signals, understand warnings, and make better-informed investment decisions without turning the app into automated trading.
 
 Routine development must keep deterministic `mock` / `csv` behavior available while allowing explicit opt-in use of live providers such as Yahoo/yfinance.
-The configured default provider remains `mock`; the Streamlit Market Data provider selector defaults to `yahoo` for manual live-data exploration and applies explicit per-fetch opt-in when selected.
+The configured default provider remains `mock` for local checks and APIs; the Streamlit Market Data provider selector is live-first with `yahoo` as the first/default option and explicit per-fetch opt-in.
 
 ## Repository Layout
 
@@ -51,7 +51,7 @@ Implemented or mostly implemented:
 - Screening Score with reason labels and forecast agreement integration.
 - Investment Score as a separate contract that combines screening, forecast agreement, data quality, and risk signal with configurable weights.
 - Streamlit left side menu for `銘柄コックピット`, `銘柄ランキング`, `リバランス`, and `設定 / データ情報`.
-- Streamlit Market Data provider selector defaults to `yahoo` for manual exploration while API/config defaults remain local-first.
+- Streamlit Market Data provider selector defaults to `yahoo` and shows it first; large live ranking requests warn users instead of hard-blocking them.
 - Ranking candidate filters using static/curated metadata before provider fetch.
 - Ranking presets for balanced, forecast-agreement, data-quality, and lower-risk emphasis.
 - Ranking-to-cockpit handoff for follow-up single-symbol review.

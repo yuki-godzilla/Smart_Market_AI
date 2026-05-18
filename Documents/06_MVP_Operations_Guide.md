@@ -142,7 +142,7 @@ Invoke-RestMethod `
 ## 5. CSV MarketData provider
 
 設定上の既定 provider は deterministic な `mock` です。
-Streamlit の Market Data 画面では provider 選択の初期表示が `yahoo` ですが、画面上で選んだ場合だけ明示 opt-in として扱い、通常の API / local checks は `mock` / `csv` を基準にします。
+Streamlit の Market Data 画面では provider 選択の初期表示と表示順先頭が `yahoo` です。通常の API / local checks は `mock` / `csv` を基準にしつつ、UI では生きた株価データを主導線として扱います。
 ローカル CSV を使う場合は、`SMAI_CONFIG_FILE` で設定ファイルを指定します。
 
 ```powershell
@@ -240,8 +240,8 @@ Phase 16 ranking implementation notes:
 
 - `data/marketdata/symbol_universe.csv` is the ranking candidate master used before provider fetch. It is intentionally curated/local-first and currently carries display/search/filter metadata such as `symbol`, `name`, `market`, `asset_type`, `currency`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases`, `per`, `pbr`, `roe_pct`, `sector`, `consensus_rating`, `forecast_agreement`, `data_quality`, and `risk_band`.
 - The in-page screening condition panel filters comparison candidates by metadata and metric ranges. `取得期間` and `重視条件` are not screening filters; they control ranking calculation and display ordering.
-- Ranking build uses a fast batch path first: it fetches OHLCV in chunks, builds feature snapshots from already-fetched market data, then reuses existing Screening / Investment Score services. If the batch path fails with a provider/domain error, it falls back to the existing per-symbol preview path.
-- Yahoo OHLCV supports multi-symbol batch fetch through yfinance download when multiple symbols are requested. Single-symbol flows still use the existing `Ticker.history()` path.
+- Ranking build uses a fast batch path first: it fetches OHLCV in chunks, builds feature snapshots from already-fetched market data, then reuses existing Screening / Investment Score services. If the batch path fails with a provider/domain error, local/deterministic providers can fall back to the existing per-symbol preview path; live Yahoo failures are reported once without retrying every symbol to avoid repeated network failures.
+- Yahoo OHLCV supports multi-symbol batch fetch through yfinance download when multiple symbols are requested. The single-symbol cockpit still uses the existing `Ticker.history()` path, but it now reuses one fetched OHLCV range for quote display and feature construction instead of fetching the same symbol again. Because live Yahoo requests are network-dependent and can be slow or noisy, Streamlit ranking warns when selected symbols exceed 30, uses smaller non-threaded download chunks, and suppresses yfinance's raw console noise in favor of structured UI error rows.
 - Ranking rows are cached in Streamlit session state by `provider + symbols + start + end`. Re-running the same request or changing only the ranking weight preset reuses fetched rows and only re-sorts the display.
 - The ranking progress indicator reports batch fetch, feature construction, forecast agreement calculation, and final sorting so large candidate sets do not look frozen.
 - Ranking remains decision support only. Use `深掘りする銘柄` to move one selected symbol into `銘柄コックピット` for detailed price / forecast / score-reason review.

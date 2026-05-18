@@ -101,7 +101,7 @@ def test_yahoo_adapter_fetches_live_contracts_from_yfinance(monkeypatch):
     assert fundamentals[0].market_cap_jpy == Decimal("480000000000000")
 
 
-def test_yahoo_adapter_fetches_multiple_ohlcv_symbols_with_download(monkeypatch):
+def test_yahoo_adapter_fetches_multiple_ohlcv_symbols_with_download(monkeypatch, capsys):
     fake_yfinance = _FakeYFinance()
     monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
     adapter = create_market_data_provider_adapter(
@@ -117,6 +117,10 @@ def test_yahoo_adapter_fetches_multiple_ohlcv_symbols_with_download(monkeypatch)
     )
 
     assert fake_yfinance.download_calls == 1
+    assert fake_yfinance.last_download_kwargs["threads"] is False
+    captured = capsys.readouterr()
+    assert "possibly delisted" not in captured.out
+    assert "possibly delisted" not in captured.err
     assert [bar.symbol.raw for bar in bars] == ["AAPL", "AAPL", "MSFT", "MSFT"]
     assert [bar.close for bar in bars] == [
         Decimal("170.5"),
@@ -137,6 +141,8 @@ def test_yahoo_adapter_maps_empty_history_to_provider_unavailable(monkeypatch):
 
     details = exc_info.value.details
     assert details["provider"] == "yahoo"
+    assert details["implemented"] is True
+    assert details["live_adapter"] == "implemented_opt_in"
     assert details["opt_in_status"] == "explicitly_enabled_live"
     assert details["request"]["operation"] == "fetch_quotes"
 
@@ -145,12 +151,15 @@ class _FakeYFinance:
     def __init__(self, *, empty: bool = False) -> None:
         self.empty = empty
         self.download_calls = 0
+        self.last_download_kwargs: dict[str, object] = {}
 
     def Ticker(self, raw_symbol: str) -> "_FakeTicker":
         return _FakeTicker(raw_symbol, empty=self.empty)
 
     def download(self, **kwargs: object) -> pd.DataFrame:
+        print("possibly delisted; no timezone found")
         self.download_calls += 1
+        self.last_download_kwargs = kwargs
         if self.empty:
             return pd.DataFrame()
         tickers = str(kwargs["tickers"]).split()

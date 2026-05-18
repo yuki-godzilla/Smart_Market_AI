@@ -1,4 +1,5 @@
 import asyncio
+import json
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from types import SimpleNamespace
@@ -26,18 +27,22 @@ from ui.app import (
     forecast_consensus_display_rows,
     forecast_metric_display_rows,
     forecast_metric_summary,
+    format_provider_error_details,
     get_cached_ranking_build,
     initial_ranking_selected_labels,
     initial_ranking_selected_labels_for_key,
     investment_score_display_rows,
     investment_score_summary_lines,
+    live_ranking_symbol_warning_message,
     market_chart_long_frame,
     merged_symbol_candidate_rows,
     persist_ranking_filter_state,
+    provider_error_summary_rows,
     ranking_build_cache_key,
     ranking_filter_signature,
     ranking_period_dates,
     ranking_period_label,
+    ranking_provider_error_rows,
     ranking_symbol_options,
     ranking_symbols_state_key,
     ranking_weight_preset_label,
@@ -669,6 +674,52 @@ def test_build_market_data_ranking_rows_fetches_symbols_concurrently(monkeypatch
     assert any("銘柄別に取得しています" in message for message in progress_messages)
 
 
+def test_build_market_data_ranking_rows_does_not_retry_live_batch_failure(monkeypatch):
+    async def fail_fast_path(*args, **kwargs):
+        raise DataSourceError("batch unavailable", details={"provider": "yahoo"})
+
+    async def fail_preview(*args, **kwargs):
+        raise AssertionError("live provider failures should not retry per-symbol previews")
+
+    monkeypatch.setattr("ui.app._build_market_data_ranking_rows_fast", fail_fast_path)
+    monkeypatch.setattr("ui.app.build_market_data_preview", fail_preview)
+    progress_messages: list[str] = []
+
+    rows, error_rows = asyncio.run(
+        _build_market_data_ranking_rows(
+            ["7203.T", "9983.T"],
+            start=date(2026, 5, 10),
+            end=date(2026, 5, 17),
+            provider="yahoo",
+            progress_callback=lambda message, _ratio: progress_messages.append(message),
+        )
+    )
+
+    assert rows == []
+    assert error_rows == [
+        {
+            "symbol": "7203.T, 9983.T",
+            "code": "APP-2000",
+            "message": "batch unavailable",
+            "details": '{"provider": "yahoo", "symbols": ["7203.T", "9983.T"]}',
+        }
+    ]
+    assert progress_messages[-1] == "Yahoo live data の一括取得に失敗しました。"
+
+
+def test_ranking_provider_error_rows_summarizes_many_symbols():
+    rows = ranking_provider_error_rows(
+        "yahoo",
+        [f"SYM{i}" for i in range(10)],
+        DataSourceError("failed", details={"request": {"operation": "fetch_ohlcv"}}),
+    )
+
+    assert rows[0]["symbol"] == "SYM0, SYM1, SYM2, SYM3, SYM4, SYM5, SYM6, SYM7, ... (+2)"
+    details = json.loads(rows[0]["details"])
+    assert details["provider"] == "yahoo"
+    assert details["request"]["operation"] == "fetch_ohlcv"
+
+
 def test_build_market_data_ranking_rows_uses_batch_fast_path(monkeypatch):
     class FakeBatchAdapter:
         def __init__(self) -> None:
@@ -749,8 +800,17 @@ def test_ranking_symbol_chunks_split_large_builds():
 
     chunks = _ranking_symbol_chunks(symbols)
 
-    assert [len(chunk) for chunk in chunks] == [25, 25, 3]
+    assert [len(chunk) for chunk in chunks] == [10, 10, 10, 10, 10, 3]
     assert [symbol for chunk in chunks for symbol in chunk] == symbols
+
+
+def test_live_ranking_symbol_warning_message_only_warns_for_large_live_requests():
+    assert live_ranking_symbol_warning_message("mock", 80) is None
+    assert live_ranking_symbol_warning_message("yahoo", 30) is None
+    assert live_ranking_symbol_warning_message("yahoo", 31) == (
+        "yahoo は外部通信のため、31 銘柄のランキング作成には時間がかかる場合があります。"
+        "通信が不安定な場合は、取得期間を短くするか、比較する銘柄を絞って再実行してください。"
+    )
 
 
 def test_ranking_symbol_options_and_label_support_deep_dive():
@@ -1030,6 +1090,44 @@ def test_market_chart_long_frame_adds_beginner_friendly_labels():
             "series_label": "予測: 直近値維持",
         },
     ]
+
+
+def test_provider_error_summary_rows_explain_yahoo_dns_timeout():
+    row = {
+        "code": "APP-2003",
+        "message": "Yahoo market-data provider request failed",
+        "details": json.dumps(
+            {
+                "provider": "yahoo",
+                "request": {
+                    "error": "Failed to perform, curl: (28) Resolving timed out after 5002 milliseconds.",
+                    "operation": "fetch_quotes",
+                    "symbol": "9983.T",
+                },
+                "requires_external_opt_in": True,
+                "supported_providers": ["mock", "csv"],
+            },
+            ensure_ascii=False,
+        ),
+    }
+
+    assert provider_error_summary_rows([row]) == [
+        {
+            "コード": "APP-2003",
+            "Provider": "yahoo",
+            "Symbol": "9983.T",
+            "内容": "Yahoo market-data provider request failed",
+            "次の確認": (
+                "yahoo への外部通信がタイムアウトしています。"
+                "ネットワーク/DNS を確認し、時間をおいて再実行してください。"
+                "ランキングでは銘柄数や取得期間を絞ると安定しやすくなります。"
+            ),
+        }
+    ]
+
+    details = json.loads(format_provider_error_details(row))
+    assert details["request"]["operation"] == "fetch_quotes"
+    assert details["request"]["symbol"] == "9983.T"
 
 
 def test_render_market_chart_uses_currency_axis_title_and_compact_width(monkeypatch):

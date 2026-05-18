@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Callable, cast
@@ -85,10 +86,14 @@ __all__ = [
     "risk_breach_message",
 ]
 
-MARKET_DATA_PROVIDER_OPTIONS = ["mock", "yahoo", "csv"]
+MARKET_DATA_PROVIDER_OPTIONS = ["yahoo", "csv", "mock"]
 MAX_RANKING_CONCURRENT_FETCHES = 8
-MAX_RANKING_BATCH_FETCH_SYMBOLS = 25
+MAX_RANKING_BATCH_FETCH_SYMBOLS = 10
 MAX_RANKING_BUILD_CACHE_ENTRIES = 8
+LIVE_MARKET_DATA_PROVIDERS = {"yahoo", "polygon"}
+LIVE_RANKING_WARNING_SYMBOL_THRESHOLD = 30
+MARKET_DATA_PROVIDER_WIDGET_KEY = "market_data_provider_live_first"
+MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY = "market_data_ranking_provider_live_first"
 
 FORECAST_ACTUAL_LABEL = "実績価格"
 MARKET_DATA_MODE_COCKPIT = "cockpit"
@@ -1141,9 +1146,11 @@ def _render_market_data_cockpit() -> None:
                 "Provider",
                 MARKET_DATA_PROVIDER_OPTIONS,
                 index=_provider_option_index(default_market_data_provider()),
-                key="market_data_provider",
+                key=MARKET_DATA_PROVIDER_WIDGET_KEY,
             ),
         )
+        if provider in LIVE_MARKET_DATA_PROVIDERS:
+            st.caption("Yahoo live data を取得します。")
     with col_search:
         symbol_query = st.text_input(
             "Symbol search",
@@ -1221,8 +1228,9 @@ def _render_market_data_cockpit() -> None:
         st.toast(str(toast_message), icon="✅")
 
     if st.session_state.get(MARKET_DATA_STATUS_STATE_KEY) != "OK":
-        st.error("Market data fetch failed.")
+        st.error("価格データを取得できませんでした。")
         _render_provider_error_summary(stored_preview.error_rows)
+        return
 
     _render_market_data_preview_result(stored_preview)
 
@@ -1241,9 +1249,11 @@ def _render_market_data_ranking() -> None:
                 "Provider",
                 MARKET_DATA_PROVIDER_OPTIONS,
                 index=_provider_option_index(default_market_data_provider()),
-                key="market_data_ranking_provider",
+                key=MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY,
             ),
         )
+        if provider in LIVE_MARKET_DATA_PROVIDERS:
+            st.caption("Yahoo live data でランキングを作成します。")
     with col_period:
         st.selectbox(
             "取得期間",
@@ -1379,6 +1389,9 @@ def _render_market_data_ranking() -> None:
         st.caption(f"取得期間: {start_date.isoformat()} 〜 {end_date.isoformat()}")
         st.caption(f"候補数: {len(filtered_symbol_rows)}")
         st.caption(f"選択数: {len(selected_labels)}")
+    warning_message = live_ranking_symbol_warning_message(provider, len(selected_labels))
+    if warning_message is not None:
+        st.warning(warning_message)
     if not labels:
         st.warning("この条件に合う候補がありません。候補条件を広げてください。")
 
@@ -1492,7 +1505,14 @@ async def _build_market_data_ranking_rows(
             provider=provider,
             progress_callback=progress_callback,
         )
-    except AppError:
+    except AppError as exc:
+        if provider in LIVE_MARKET_DATA_PROVIDERS:
+            _report_ranking_progress(
+                progress_callback,
+                "Yahoo live data の一括取得に失敗しました。",
+                1.0,
+            )
+            return [], ranking_provider_error_rows(provider, symbols, exc)
         return await _build_market_data_ranking_rows_from_previews(
             symbols,
             start=start,
@@ -1500,6 +1520,30 @@ async def _build_market_data_ranking_rows(
             provider=provider,
             progress_callback=progress_callback,
         )
+
+
+def ranking_provider_error_rows(
+    provider: str,
+    symbols: list[str],
+    exc: AppError,
+) -> list[dict[str, str]]:
+    details = dict(exc.details)
+    details.setdefault("provider", provider)
+    details.setdefault("symbols", symbols)
+    return [
+        {
+            "symbol": _ranking_error_symbol_summary(symbols),
+            "code": exc.code,
+            "message": exc.message,
+            "details": json.dumps(details, ensure_ascii=False, sort_keys=True),
+        }
+    ]
+
+
+def _ranking_error_symbol_summary(symbols: list[str]) -> str:
+    if len(symbols) <= 8:
+        return ", ".join(symbols)
+    return f"{', '.join(symbols[:8])}, ... (+{len(symbols) - 8})"
 
 
 async def _build_market_data_ranking_rows_fast(
@@ -1640,6 +1684,17 @@ def _ranking_symbol_chunks(symbols: list[str]) -> list[list[str]]:
     ] or [[]]
 
 
+def live_ranking_symbol_warning_message(provider: str, symbol_count: int) -> str | None:
+    if provider not in LIVE_MARKET_DATA_PROVIDERS:
+        return None
+    if symbol_count <= LIVE_RANKING_WARNING_SYMBOL_THRESHOLD:
+        return None
+    return (
+        f"{provider} は外部通信のため、{symbol_count} 銘柄のランキング作成には時間がかかる場合があります。"
+        "通信が不安定な場合は、取得期間を短くするか、比較する銘柄を絞って再実行してください。"
+    )
+
+
 RankingProgressCallback = Callable[[str, float], None]
 
 
@@ -1760,7 +1815,7 @@ async def _build_market_data_ranking_rows_from_previews(
 def _select_ranking_symbol_for_cockpit(symbol: str, provider: str) -> None:
     st.session_state["sidemenu_page"] = SIDEMENU_PAGE_COCKPIT
     st.session_state["market_data_mode"] = MARKET_DATA_MODE_COCKPIT
-    st.session_state["market_data_provider"] = provider
+    st.session_state[MARKET_DATA_PROVIDER_WIDGET_KEY] = provider
     st.session_state["market_data_symbol_candidate"] = symbol_candidate_label(symbol)
     st.session_state.pop(MARKET_DATA_PREVIEW_STATE_KEY, None)
     st.session_state.pop(MARKET_DATA_STATUS_STATE_KEY, None)
@@ -2130,11 +2185,94 @@ def _render_market_chart(
 
 
 def _render_provider_error_summary(rows: list[dict[str, str]]) -> None:
-    for row in rows:
-        st.warning(f"{row.get('code', 'ERROR')}: {row.get('message', '')}")
-        details = row.get("details", "")
-        if details:
-            st.code(details, language="json")
+    if not rows:
+        st.warning(
+            "Provider から詳細なエラー情報が返りませんでした。設定、銘柄、取得期間を確認してください。"
+        )
+        return
+
+    for row in provider_error_summary_rows(rows):
+        st.warning(f"{row['コード']}: {row['内容']}")
+        st.caption(row["次の確認"])
+
+    with st.expander("診断情報", expanded=False):
+        st.dataframe(
+            provider_error_summary_rows(rows),
+            hide_index=True,
+            use_container_width=True,
+        )
+        for row in rows:
+            details = format_provider_error_details(row)
+            if details:
+                st.code(details, language="json")
+
+
+def provider_error_summary_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    return [_provider_error_summary_row(row) for row in rows]
+
+
+def _provider_error_summary_row(row: dict[str, str]) -> dict[str, str]:
+    details = _provider_error_details(row)
+    request = _provider_error_request(details)
+    provider = str(details.get("provider") or row.get("provider") or "")
+    symbol = str(request.get("symbol") or row.get("symbol") or "")
+
+    return {
+        "コード": row.get("code", "ERROR"),
+        "Provider": provider or "-",
+        "Symbol": symbol or "-",
+        "内容": row.get("message", "Provider request failed"),
+        "次の確認": _provider_error_next_action(provider, details, request),
+    }
+
+
+def _provider_error_details(row: dict[str, str]) -> dict[str, object]:
+    details = row.get("details", "")
+    if not details:
+        return {}
+    try:
+        parsed = json.loads(details)
+    except json.JSONDecodeError:
+        return {"raw": details}
+    if isinstance(parsed, dict):
+        return parsed
+    return {"raw": parsed}
+
+
+def _provider_error_request(details: dict[str, object]) -> dict[str, object]:
+    request = details.get("request")
+    if isinstance(request, dict):
+        return request
+    return {}
+
+
+def _provider_error_next_action(
+    provider: str,
+    details: dict[str, object],
+    request: dict[str, object],
+) -> str:
+    request_error = str(request.get("error", ""))
+    provider_label = provider or "外部 provider"
+
+    if "curl: (28)" in request_error or "Resolving timed out" in request_error:
+        return (
+            f"{provider_label} への外部通信がタイムアウトしています。"
+            "ネットワーク/DNS を確認し、時間をおいて再実行してください。"
+            "ランキングでは銘柄数や取得期間を絞ると安定しやすくなります。"
+        )
+    if details.get("requires_external_opt_in") or provider in {"yahoo", "polygon"}:
+        return (
+            f"{provider_label} は live provider です。"
+            "銘柄コード、取得期間、Yahoo 側の提供状況を確認し、必要に応じて再実行してください。"
+        )
+    return "Provider 設定、銘柄、取得期間を確認して再実行してください。"
+
+
+def format_provider_error_details(row: dict[str, str]) -> str:
+    details = _provider_error_details(row)
+    if not details:
+        return ""
+    return json.dumps(details, ensure_ascii=False, indent=2, sort_keys=True)
 
 
 def market_chart_frame(rows: list[dict[str, str]]) -> pd.DataFrame:

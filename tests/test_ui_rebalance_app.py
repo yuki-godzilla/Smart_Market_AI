@@ -10,7 +10,14 @@ from zipfile import ZipFile
 import pandas as pd
 import pytest
 
-from backend.core.data_contracts import Bar, DailySnapshot, FeatureSnapshot, Symbol
+from backend.core.data_contracts import (
+    Bar,
+    DailySnapshot,
+    FeatureSnapshot,
+    FundamentalSnapshot,
+    FxRate,
+    Symbol,
+)
 from backend.marketdata.providers import yahoo
 from ui.app import (
     REBALANCE_REQUEST_STATE_KEY,
@@ -453,6 +460,31 @@ def test_build_market_data_preview_returns_mock_rows(monkeypatch):
     assert preview.error_rows == []
 
 
+def test_build_market_data_preview_reuses_ohlcv_for_quote_and_features(monkeypatch):
+    monkeypatch.delenv("SMAI_CONFIG_FILE", raising=False)
+    adapter = _CountingMarketDataPreviewAdapter()
+    monkeypatch.setattr(
+        "ui.rebalance_app.create_market_data_provider_adapter",
+        lambda _: adapter,
+    )
+
+    preview = asyncio.run(
+        build_market_data_preview(
+            symbol="AAPL",
+            start=date(2026, 4, 7),
+            end=date(2026, 4, 9),
+        )
+    )
+
+    assert preview.status == "OK"
+    assert adapter.fetch_ohlcv_calls == 1
+    assert adapter.fetch_quotes_calls == 0
+    assert adapter.fetch_fundamentals_calls == 1
+    assert preview.quote_rows[0]["last"] == "175"
+    assert preview.feature_rows[0]["provider"] == "mock"
+    assert preview.error_rows == []
+
+
 def test_build_market_data_preview_uses_selected_forecast_horizon(monkeypatch):
     monkeypatch.delenv("SMAI_CONFIG_FILE", raising=False)
 
@@ -818,6 +850,65 @@ def test_investment_score_downloads_export_ranked_rows():
 class _FakeYFinance:
     def Ticker(self, raw_symbol: str) -> "_FakeTicker":
         return _FakeTicker(raw_symbol)
+
+
+class _CountingMarketDataPreviewAdapter:
+    def __init__(self) -> None:
+        self.fetch_ohlcv_calls = 0
+        self.fetch_quotes_calls = 0
+        self.fetch_fundamentals_calls = 0
+
+    async def fetch_ohlcv(
+        self,
+        symbols: list[str],
+        start: datetime,
+        end: datetime,
+        interval: str = "1d",
+    ) -> list[Bar]:
+        assert symbols == ["AAPL"]
+        assert start <= datetime(2026, 4, 7, tzinfo=UTC)
+        assert end >= datetime(2026, 4, 9, tzinfo=UTC)
+        assert interval == "1d"
+        self.fetch_ohlcv_calls += 1
+        return [
+            _bar("AAPL", "2026-04-07T00:00:00Z", "170"),
+            _bar("AAPL", "2026-04-08T00:00:00Z", "173"),
+            _bar("AAPL", "2026-04-09T00:00:00Z", "175"),
+        ]
+
+    async def fetch_quotes(self, symbols: list[str], at: datetime | None = None) -> object:
+        self.fetch_quotes_calls += 1
+        raise AssertionError("build_market_data_preview should derive quotes from OHLCV bars")
+
+    async def get_fx_rates(
+        self,
+        pairs: list[str],
+        at: datetime | None = None,
+        method: str = "spot",
+    ) -> list[FxRate]:
+        assert pairs == ["USDJPY"]
+        assert method == "spot"
+        return [FxRate(pair="USDJPY", rate=Decimal("150"), ts=at or datetime.now(UTC))]
+
+    async def fetch_fundamentals(
+        self,
+        symbols: list[str],
+        as_of: date,
+    ) -> list[FundamentalSnapshot]:
+        assert symbols == ["AAPL"]
+        self.fetch_fundamentals_calls += 1
+        return [
+            FundamentalSnapshot(
+                symbol="AAPL",
+                as_of=as_of,
+                provider="mock",
+                dividend_yield=Decimal("0.005"),
+                market_cap_jpy=Decimal("450000000000000"),
+            )
+        ]
+
+    def healthcheck(self) -> dict[str, str]:
+        return {"provider": "mock", "status": "ok"}
 
 
 class _FakeTicker:

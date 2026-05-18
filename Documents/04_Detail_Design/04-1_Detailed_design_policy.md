@@ -82,7 +82,7 @@
 - 通貨・数量・価格は `Decimal` を優先する。
 - 日付は `date`、日時は UTC `datetime` を基本にする。
 - Pydantic v2 の `StrictBaseModel` / `StrictConfigModel` を再利用し、未知フィールドは拒否する。
-- default config provider は `mock`。Streamlit Market Data の provider selector は手動探索用に `yahoo` を初期表示するが、外部 provider は明示 opt-in にする。
+- default config provider は `mock`。Streamlit Market Data の provider selector は投資判断 UI として `yahoo` を初期表示・先頭表示し、外部 provider は画面上での明示 opt-in として扱う。
 - API の domain error は `AppError` 系から構造化レスポンスに変換する。
 - 投資判断系の出力は「売買推奨ではない」ことを明記する。
 - UI文言は初心者向けに理由・注意点を併記する。

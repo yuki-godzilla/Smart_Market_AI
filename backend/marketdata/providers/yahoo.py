@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import os
+from contextlib import redirect_stderr, redirect_stdout
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
+from io import StringIO
 from pathlib import Path
 from typing import Any
 
@@ -157,7 +159,7 @@ class YahooMarketDataProviderAdapter:
         for raw_symbol in symbols:
             ticker = yf.Ticker(raw_symbol)
             try:
-                info = await asyncio.to_thread(_ticker_info, ticker)
+                info = await asyncio.to_thread(_call_yfinance_silently, _ticker_info, ticker)
             except Exception as exc:
                 raise ProviderUnavailableError(
                     "Yahoo fundamentals request failed",
@@ -235,7 +237,7 @@ class YahooMarketDataProviderAdapter:
             kwargs["end"] = _exclusive_end_arg(end, interval)
 
         try:
-            frame = await asyncio.to_thread(ticker.history, **kwargs)
+            frame = await asyncio.to_thread(_call_yfinance_silently, ticker.history, **kwargs)
         except Exception as exc:
             raise ProviderUnavailableError(
                 "Yahoo market-data provider request failed",
@@ -282,13 +284,13 @@ class YahooMarketDataProviderAdapter:
             "interval": interval,
             "auto_adjust": False,
             "actions": False,
-            "threads": True,
+            "threads": False,
             "group_by": "ticker",
             "timeout": self.cfg.timeouts_ms.read / 1000,
             "progress": False,
         }
         try:
-            frame = await asyncio.to_thread(yf.download, **kwargs)
+            frame = await asyncio.to_thread(_call_yfinance_silently, yf.download, **kwargs)
         except Exception as exc:
             raise ProviderUnavailableError(
                 "Yahoo market-data provider batch request failed",
@@ -316,8 +318,7 @@ class YahooMarketDataProviderAdapter:
         return frame
 
     def _provider_details(self, **request_details: object) -> dict[str, object]:
-        details = provider_capability_details(self.cfg.provider)
-        details.update(live_provider_adapter_details(self.cfg.provider))
+        details = _implemented_live_provider_details(self.cfg.provider)
         details.update(
             {
                 "allow_external_providers": self.cfg.allow_external_providers,
@@ -332,8 +333,7 @@ def _load_yfinance() -> Any:
     try:
         import yfinance as yf  # type: ignore[import-untyped]
     except ImportError as exc:
-        details = provider_capability_details("yahoo")
-        details.update(live_provider_adapter_details("yahoo"))
+        details = _implemented_live_provider_details("yahoo")
         details["opt_in_status"] = "missing_optional_dependency"
         raise ProviderUnavailableError(
             "Yahoo market-data provider dependency is not installed",
@@ -349,8 +349,7 @@ def _configure_yfinance_cache(yf: Any) -> None:
         cache_dir.mkdir(parents=True, exist_ok=True)
         yf.set_tz_cache_location(str(cache_dir))
     except OSError as exc:
-        details = provider_capability_details("yahoo")
-        details.update(live_provider_adapter_details("yahoo"))
+        details = _implemented_live_provider_details("yahoo")
         details.update(
             {
                 "opt_in_status": "cache_unavailable",
@@ -364,12 +363,26 @@ def _configure_yfinance_cache(yf: Any) -> None:
         ) from exc
 
 
+def _implemented_live_provider_details(provider: str) -> dict[str, object]:
+    details = provider_capability_details(provider)
+    details.update(live_provider_adapter_details(provider))
+    if details.get("smoke_check_status") == "implemented_live_opt_in":
+        details["implemented"] = True
+        details["live_adapter"] = "implemented_opt_in"
+    return details
+
+
 def _yfinance_available() -> bool:
     try:
         _load_yfinance()
     except ProviderUnavailableError:
         return False
     return True
+
+
+def _call_yfinance_silently(func: Any, *args: object, **kwargs: object) -> Any:
+    with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+        return func(*args, **kwargs)
 
 
 def _normalize_symbol(raw_symbol: str) -> Symbol:

@@ -59,8 +59,7 @@ SMAI は以下の思想を重視しています。
 - AI assistant experience
 - PDF / Excel export
 
-MVP の既定経路は引き続きネットワーク不要の `mock` / `csv` です。`yahoo` は `allow_external_providers: true` の明示 opt-in 時だけ `yfinance` 経由で利用します。
-Streamlit の Market Data 画面では live data を試しやすいよう provider 選択の初期表示を `yahoo` にしていますが、設定上の既定 provider と通常チェックの既定経路は `mock` のままです。
+MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で維持します。一方、Streamlit の Market Data 画面は投資判断 UI として `yahoo` live data を初期表示・先頭表示にし、画面上で明示 opt-in した live provider として `yfinance` 経由で利用します。
 
 ## 現在のロードマップ上の位置
 
@@ -136,7 +135,7 @@ http://127.0.0.1:8000/openapi.json
 ## CSV MarketData で起動
 
 設定上のデフォルト provider は deterministic な `mock` です。
-Streamlit の Market Data 画面では provider 選択の初期表示が `yahoo` ですが、外部 provider は画面上で選んだ場合だけ opt-in され、通常の API / local checks は `mock` / `csv` を基準にします。
+Streamlit の Market Data 画面では provider 選択の初期表示と表示順先頭が `yahoo` です。通常の API / local checks は `mock` / `csv` を基準にしつつ、UI では生きた株価データを主導線として扱います。
 ローカル CSV サンプルデータを使う場合は、次のように設定します。
 
 ```powershell

@@ -65,10 +65,12 @@ MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で
 
 - Phase 1〜15: implementation complete
 - Phase 16: UI / Visualization Cockpit implementation complete、最終 Streamlit browser smoke は推奨確認
-- Research RAG: 設計済み、実装は planned
-- Execution / broker order: 優先度を下げた将来領域
+- Phase 16S: Stabilization / final Streamlit smoke が次の確認ゲート
+- Phase 17: UI Polish / ランキング条件 UI 再設計が次の feature target
+- Phase 18〜24: symbol metadata、Decision Report、Research RAG、Research Score、Assistant、optional adapter、Execution gate の順に整理
+- Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
-次の重点は、Decision Report context の整理、provider fundamentals 由来の symbol metadata refresh 方針、Research RAG の local-first 実装着手です。
+次の重点は、Phase 16S の UI smoke、Phase 17 のランキング条件 UI、Phase 18 の symbol metadata refresh、Phase 19 の Decision Report context です。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント

@@ -76,7 +76,12 @@ Research RAG は設計済みですが、実装は planned です。
 
 ## 4. 完了済みフェーズ
 
-### Phase 1: Core Foundation
+### 4.1 Phase 1〜9: MVP Foundation
+
+Phase 1〜9 は、local-first MVP として必要な backend / API / UI / reporting の土台です。
+詳細な運用手順は [06_MVP_Operations_Guide.md](./06_MVP_Operations_Guide.md) を参照します。
+
+#### Phase 1: Core Foundation
 
 Status: implementation complete
 
@@ -93,7 +98,7 @@ Status: implementation complete
 
 - `.env` や個別環境変数による設定上書き
 
-### Phase 2: MarketData MVP
+#### Phase 2: MarketData MVP
 
 Status: implementation complete
 
@@ -114,7 +119,7 @@ Status: implementation complete
 
 - 配当利回り、発行株式数、営業日 calendar などの正式データ連携の拡充
 
-### Phase 3: Risk MVP
+#### Phase 3: Risk MVP
 
 Status: implementation complete
 
@@ -126,7 +131,7 @@ Status: implementation complete
 - concentration、cash、dividend-yield missing などの MVP risk rule
 - deterministic tests
 
-### Phase 4: Portfolio MVP
+#### Phase 4: Portfolio MVP
 
 Status: implementation complete
 
@@ -143,7 +148,7 @@ Status: implementation complete
 - optimizer library を使った最適化
 - より高度な constraint
 
-### Phase 5: API and UI Integration
+#### Phase 5: API and UI Integration
 
 Status: implementation complete
 
@@ -158,7 +163,7 @@ Status: implementation complete
 - allocation comparison
 - result download
 
-### Phase 6: CSV Data And Scenario Expansion
+#### Phase 6: CSV Data And Scenario Expansion
 
 Status: implementation complete
 
@@ -170,7 +175,7 @@ Status: implementation complete
 - CSV provider smoke check
 - deterministic scenarios
 
-### Phase 7: Config And Scenario Management
+#### Phase 7: Config And Scenario Management
 
 Status: implementation complete
 
@@ -182,7 +187,7 @@ Status: implementation complete
 - invalid scenario/config error handling
 - UI sample selector integration
 
-### Phase 8: Reporting MVP
+#### Phase 8: Reporting MVP
 
 Status: implementation complete
 
@@ -202,7 +207,7 @@ Status: implementation complete
 - PDF / Excel export
 - broader reporting workflow
 
-### Phase 9: External Data Provider Preparation
+#### Phase 9: External Data Provider Preparation
 
 Status: implementation complete
 
@@ -224,246 +229,65 @@ Status: implementation complete
 - additional live provider adapter
 - live provider smoke check 手順の拡充
 
-## 5. 次期ロードマップ
+### 4.2 Phase 10〜16: Investment Intelligence And UI Foundation
 
-次期重点は **Multi-Model Investment Intelligence** です。
+Phase 10〜16 は、外部データ取得、Feature Store Lite、Screening、Forecast、Investment Score、Visualization Cockpit をつなげた投資判断補助の中核です。
 
-注文執行ではなく、外部データ取得、特徴量管理、銘柄スコアリング、複数モデル予測、可視化、判断補助レポートを優先します。
-Execution / broker order 送信は重要な将来領域ですが、今回のロードマップでは優先度を下げます。
+| Phase | Status | 完了済みの主な範囲 | 残り / 後続 |
+| --- | --- | --- | --- |
+| Phase 10: External Data Ingestion MVP | implementation complete; live smoke environment-dependent | `yahoo` live provider adapter、provider metadata / error display、deterministic fallback | live smoke 手順の標準化、追加 provider adapter |
+| Phase 11: Feature Store Lite | implementation complete | close / return / momentum / ADV / volatility / drawdown、missing / quality summary | feature versioning、persistent feature store |
+| Phase 12: Screening Score MVP | implementation complete | `backend/screening`、sub-score、reason labels、Forecast agreement 接続 | watchlist persistence、symbol metadata refresh |
+| Phase 13: Forecast Lab Baseline | implementation complete | naive / moving-average / momentum baseline、walk-forward metrics、Forecast chart preview | advanced model adapter の前提整備 |
+| Phase 14: Multi-Model Forecasting | implementation complete; live-provider confirmation remains environment-dependent | model registry lite、forecast consensus、forecast range、model agreement | model card / evaluation persistence |
+| Phase 15: Model-Informed Scoring | implementation complete; live-provider confirmation remains environment-dependent | `backend/scoring`、Investment Score、configurable weights、API / UI preview / export | Research Score integration、richer risk signal |
+| Phase 16: Visualization Cockpit | implementation complete; final Streamlit browser smoke recommended | `銘柄コックピット` / `銘柄ランキング` / `リバランス`、side menu、ranking cache、Yahoo batch OHLCV、deep-dive handoff、Rebalance summary flow | final UI smoke、Decision Report context |
 
-### UI 確認方針
+## 5. 実装順ロードマップ
 
-Phase 10 以降で UI 上の体験に影響する機能は、バックエンド実装だけでは完了としません。
+ここから先は、過去の番号順ではなく **次に実装する順番** として扱います。
+Phase 1〜16 は完了済みの土台です。以降は、UI の迷いを減らし、データの信頼性を高め、レポート・根拠・対話体験へ広げる順で進めます。
+
+優先順位の考え方:
+
+- まず既存の `銘柄コックピット` / `銘柄ランキング` / `リバランス` を安定させる。
+- 次にランキング条件 UI と symbol universe を整え、ユーザーが対象を迷わず絞れるようにする。
+- その後、cockpit / ranking / rebalance を横断する Decision Report context を作る。
+- Research RAG は local-first の根拠レイヤーとして追加し、Research Score へつなげる。
+- Assistant / LLM / external source / Execution は、判断材料の構造化が安定してから追加する。
+
+### 5.1 UI 確認方針
+
+UI 上の体験に影響する機能は、バックエンド実装だけでは完了としません。
 各フェーズの完了条件には、Streamlit UI または将来の UI 画面で、ユーザーが変更内容を確認できることを含めます。
 ただし、通常の自動テストと local checks は外部 API に依存させず、mock / csv / fixture による deterministic な検証を維持します。
 
-### Phase 10: External Data Ingestion MVP
+### 5.2 Phase 16S: Stabilization And Final UI Smoke
 
-Status: implementation complete; live smoke environment-dependent
+Status: next verification
 
-目的: 外部 MarketData provider から実データを取得し、取得結果と provider 状態を Streamlit UI 上で確認できる最小経路を作る。
+目的: Phase 16 までに実装した主要画面を、次の UI / report / RAG 実装に進める前の安定基準として確認する。
 
-Done:
+Scope:
 
-- provider registry / factory
-- explicit opt-in gate
-- `yahoo` live provider adapter path
-- provider metadata / error display
-- deterministic fallback path
+- `銘柄コックピット` の Yahoo live data 取得、失敗時診断、価格・予測・Investment Score 表示を確認する。
+- `銘柄ランキング` の候補条件、ランキング cache、重視条件での並べ替え、部分失敗時の除外表示、深掘り導線を確認する。
+- `リバランス` の入力、target allocation、allocation comparison、risk breach 表示を確認する。
+- UI 文言が「判断補助」で統一されているか確認する。
+- 新機能は追加せず、必要な不具合修正とドキュメント同期だけ行う。
 
-Remaining:
+Completion criteria:
 
-- live smoke 手順の標準化
-- `polygon` など追加 provider adapter
+- Streamlit browser smoke の確認結果が作業ログまたは引き渡しサマリに残っている。
+- `tools/run_local_checks.py` が通る。
+- provider 失敗時に raw provider noise ではなく SMAI の診断情報として表示される。
+- Rebalance / ranking / cockpit の主要導線が壊れていない。
 
-### Phase 11: Feature Store Lite
+### 5.3 Phase 17: UI Polish And Ranking Condition Redesign
 
-Status: implementation complete
+Status: planned; next feature implementation
 
-目的: provider に依存しない特徴量 snapshot を作る。
-
-Done:
-
-- `FeatureBuilder.build_feature_snapshot`
-- close / return / momentum / ADV / volatility / drawdown
-- missing summary / quality summary / completeness
-- provider and as-of metadata
-
-Remaining:
-
-- feature versioning
-- persistent feature store
-
-### Phase 12: Screening Score MVP
-
-Status: implementation complete
-
-目的: 複数銘柄を説明可能に ranking する。
-
-Done:
-
-- `backend/screening`
-- Screening Score contract
-- sub-scores
-- reason labels
-- Forecast agreement 接続
-- API / UI export helper
-
-Remaining:
-
-- watchlist persistence
-- symbol metadata refresh と universe 管理
-
-### Phase 13: Forecast Lab Baseline
-
-Status: implementation complete
-
-目的: deterministic baseline で forecast を評価できるようにする。
-
-Done:
-
-- `backend/forecast/service.py`
-- naive / moving-average / momentum baseline
-- walk-forward metrics
-- Forecast chart preview
-- Forecast metrics JSON / CSV export
-
-### Phase 14: Multi-Model Forecasting
-
-Status: implementation complete; live-provider confirmation remains environment-dependent
-
-Done:
-
-- Forecast model registry lite
-- model availability by bar count
-- Forecast consensus
-- ensemble / median forecast
-- forecast range
-- model agreement
-- Screening Score への forecast signal 接続
-
-Remaining:
-
-- advanced forecast model adapter
-- model card / model evaluation persistence
-
-### Phase 15: Model-Informed Scoring
-
-Status: implementation complete; live-provider confirmation remains environment-dependent
-
-目的: Screening / Forecast / Risk / Data Quality を統合した投資判断補助 score を作る。
-
-Done:
-
-- `backend/scoring`
-- `InvestmentScore` contract
-- `InvestmentScoringService`
-- configurable `scoring.weights`
-- Screening risk score を初期 risk signal として利用
-- `POST /scoring/investment-score`
-- Market Data tab Investment Score preview
-- JSON / CSV downloads
-- warning / reason / decision-support note
-- `ScreeningScore` との互換性維持
-
-Remaining:
-
-- Research Score integration
-- richer risk signal
-- report context integration
-
-### Phase 16: Visualization Cockpit
-
-Status: implementation complete; final Streamlit browser smoke recommended
-
-目的: Phase 15 までに整えた scoring / forecast / screening / risk の下回りを、ユーザーが一目で判断材料として読める UI にする。
-
-Done:
-
-- Market Data tab を `銘柄コックピット` / `銘柄ランキング` に分割
-- left side menu で `銘柄コックピット` / `銘柄ランキング` / `リバランス` / `設定 / データ情報` を切り替え
-- 銘柄コックピットで価格・予測チャートを主役化
-- Investment Score summary / score breakdown chart
-- Forecast agreement / forecast spread / best RMSE model summary
-- Ranking preset: balance / forecast agreement / data quality / lower risk
-- In-page ranking screening condition panel
-- static / curated metadata による fetch-before filtering
-- ticker + company name 表示
-- ranking result から cockpit への handoff
-- ranking result cache / Yahoo batch OHLCV / progress display
-- ranking period separated from screening filters
-- ranking-to-cockpit deep-dive wording polish
-- Rebalance JSON input を advanced input へ移動
-- Rebalance Cockpit summary flow
-- Rebalance inputs moved from sidebar into the Rebalance screen
-- target allocation percentage display/input
-- allocation comparison chart
-- beginner-friendly risk breach confirmation points
-
-Final UI smoke checklist:
-
-- ranking conditions update candidate count and comparison list
-- ranking build shows progress and reuses cache on same request
-- weight preset changes resort existing rows without provider refetch
-- selected ranking symbol opens in `銘柄コックピット`
-- Rebalance wording remains consistent with decision-support phrasing
-
-Remaining:
-
-- symbol metadata refresh command
-- saved watchlist / ranking scenario
-- cockpit / ranking / rebalance を横断した report context
-
-## 6. Research RAG Roadmap: Long-term Company Intelligence
-
-Research RAG は、価格・テクニカル指標だけでは拾いにくい長期企業分析の根拠を扱う将来領域です。
-現時点では設計済み・実装 planned として扱います。
-
-### Phase R0: Research RAG 要件・詳細設計
-
-Status: design complete
-
-Done:
-
-- `04-8_Onepager_Research_RAG.md`
-- requirements / architecture / functional design / roadmap への反映
-
-### Phase R1: Local Document Ingestion MVP
-
-Status: planned
-
-### Phase R2: Text Extraction & Chunk Store
-
-Status: planned
-
-### Phase R3: Keyword Retrieval MVP
-
-Status: planned
-
-### Phase R4: Research Summary MVP
-
-Status: planned
-
-### Phase R5: Vector Search / Hybrid Search
-
-Status: planned
-
-### Phase R6: Research Score MVP
-
-Status: planned
-
-### Phase R7: Investment Score / Ranking / Report 統合
-
-Status: planned
-
-### Phase R8: External Source Adapter
-
-Status: planned
-
-## 7. Future Phases
-
-### Phase 17: Research Model Adapters
-
-Status: planned
-
-高度な forecast / research model を optional adapter として接続する。
-通常の CI / local checks には重い ML library を必須にしない。
-
-### Phase 18: Decision Report
-
-Status: planned
-
-Phase 16 の cockpit summary と ranking result を report context として再利用する。
-初期は Markdown / JSON / CSV / ZIP を優先し、PDF / Excel は後続。
-
-### Phase 19: UI Polish And Beginner Experience
-
-Status: planned
-
-Phase 16 で作った cockpit / ranking / rebalance の情報設計を、初心者向けの画面名、導線、文言に磨き込む。
-
-UI Polish の最初の重点は、`銘柄ランキング` のランキング作成条件 UI です。
-単なる検索フィルターではなく、SMAI の AI ranking における「投資対象の分類」と「ランキング目的」を先に決め、その後に詳細条件を設定する流れへ整理します。
+目的: `銘柄ランキング` を、単なる検索フィルターではなく、投資対象とランキング目的を先に決めてから詳細条件を設定する UI に整理する。
 
 Planned scope:
 
@@ -509,13 +333,186 @@ Completion criteria:
 - 「おすすめ」ではなく、判断材料を整理する ranking として文言が統一されている。
 - UI helper tests または deterministic filtering tests が追加・更新されている。
 
-### Phase 20: Low-Cost AI Assistant Experience
+### 5.4 Phase 18: Symbol Universe And Metadata Refresh
 
 Status: planned
 
-Phase 16 の cockpit summary と Phase 18 の report context を入力にし、同じ材料から UI / report / assistant の説明を揃える。
+目的: Ranking condition UI の裏側にある銘柄 universe を、固定 CSV だけでなく、鮮度と出所を管理できる metadata layer に拡張する。
 
-## 8. 検証コマンド
+Scope:
+
+- `symbol_universe.csv` の列定義を整理し、地域、商品、業種/セクター、時価総額 tier、配当、PER/PBR/ROE、ETF/投信属性、metadata freshness を明確化する。
+- CSV / fixture を deterministic baseline として維持する。
+- Yahoo fundamentals や将来 provider から metadata を更新する明示 opt-in command を設計する。
+- 更新結果は cache / CSV / manifest として保存し、通常テストは network 非依存にする。
+- 古い metadata、欠損 metadata、future-only metadata を UI で区別する。
+
+Completion criteria:
+
+- ranking filters が参照する metadata schema が文書化されている。
+- metadata freshness / source が内部的に保持できる。
+- 通常 checks は live provider なしで通る。
+- live metadata refresh は明示 opt-in で、失敗しても既存 UI/API を壊さない。
+
+### 5.5 Phase 19: Decision Report Context MVP
+
+Status: planned
+
+目的: `銘柄コックピット`、`銘柄ランキング`、`リバランス` の結果を、同じ context schema で保存・表示・export できるようにする。
+
+Scope:
+
+- cockpit summary / ranking result / ranking error / rebalance result / risk breach を横断する report context contract を定義する。
+- 初期 export は Markdown / JSON / CSV / manifest / ZIP を優先する。
+- PDF / Excel はこのフェーズの必須範囲に含めない。
+- UI / report / future assistant が同じ context を参照できるようにする。
+- 投資助言ではなく、判断材料と制約を整理する report 文言に統一する。
+
+Completion criteria:
+
+- Decision Report context の最小 schema が定義されている。
+- cockpit / ranking / rebalance の既存出力から report context を作れる。
+- deterministic renderer で Markdown / JSON export ができる。
+- report に data quality、provider、対象期間、制約、非推奨文言が含まれる。
+
+### 5.6 Phase 20: Research RAG Evidence Layer
+
+Status: planned
+
+目的: 価格・テクニカル指標だけでは拾いにくい長期企業分析の根拠を、local-first な document evidence layer として追加する。
+
+Implementation order:
+
+- R0: 要件・詳細設計。`04-8_Onepager_Research_RAG.md` は design complete。
+- R1: Local Document Ingestion MVP。
+- R2: Text Extraction & Chunk Store。
+- R3: Keyword Retrieval MVP。
+- R4: Research Summary MVP。
+
+Completion criteria:
+
+- local document / fixture だけで ingestion、chunk、検索、summary が動く。
+- 通常 tests は外部 scraping / external LLM に依存しない。
+- evidence は source、timestamp、section、confidence と紐づく。
+- UI / report では根拠不足を明示できる。
+
+### 5.7 Phase 21: Research Score And Investment Integration
+
+Status: planned
+
+目的: Research RAG の evidence / summary を Investment Score、ranking、Decision Report に接続する。
+
+Implementation order:
+
+- R5: Vector Search / Hybrid Search。optional adapter として扱い、keyword retrieval を baseline に残す。
+- R6: Research Score MVP。
+- R7: Investment Score / Ranking / Report integration。
+- R8: External Source Adapter。live scraping / external source は明示 opt-in とする。
+
+Completion criteria:
+
+- Research Score は evidence と紐づいて説明できる。
+- Investment Score に Research Score を統合する重みが設定で管理できる。
+- evidence 不足時は score 欠損または低信頼として表示される。
+- external source adapter は通常 checks に入れない。
+
+### 5.8 Phase 22: Low-Cost Assistant Experience
+
+Status: planned
+
+目的: Decision Report context と Research Summary を入力にし、初心者向けの質問応答・説明を deterministic template で提供する。
+
+Scope:
+
+- `backend/assistant/` の request / response contract を定義する。
+- template-based response service を default provider として実装する。
+- cockpit / ranking / rebalance / report / research context から assistant context を組み立てる。
+- Streamlit に質問パネルまたは assistant view を追加する。
+- 応答は理由、注意点、次に確認する観点、非助言文言を含める。
+
+Completion criteria:
+
+- LLM なしで assistant API/UI が動作する。
+- 同じ input / context では同じ応答になる。
+- 通常 tests は network 非依存で通る。
+- Assistant の説明は UI / report と同じ指標名・制約を使う。
+
+### 5.9 Phase 23: Optional Adapters And Advanced Intelligence
+
+Status: planned
+
+目的: default path を deterministic に保ったまま、追加 provider、advanced forecast / research model、LLM adapter、news / sentiment を optional layer として追加する。
+
+Scope:
+
+- `polygon` など追加 live provider adapter。
+- advanced forecast model adapter。
+- local LLM / cloud LLM assistant provider。
+- news / sentiment local CSV provider と optional external provider。
+- LLM / news / external provider はすべて明示 opt-in とし、失敗時は deterministic fallback に戻す。
+
+Completion criteria:
+
+- adapter 未設定でも既存機能が壊れない。
+- provider / model / LLM の使用状態と fallback 状態が UI/API で分かる。
+- 通常 tests は network / cloud API / heavy ML library に依存しない。
+- LLM は説明・要約・観点提示に限定し、スコア計算や売買判断の主体にしない。
+
+### 5.10 Phase 24: Advanced Export And Execution Gate
+
+Status: future / low priority
+
+目的: Decision Report が安定した後に、PDF / Excel export や broker execution の再開可否を判断する。
+
+Scope:
+
+- PDF / Excel export。
+- report archive / saved watchlist / ranking scenario。
+- broker 連携の再評価。
+- order sending は、risk / report / audit / user confirmation が揃うまで実装しない。
+
+Completion criteria:
+
+- Execution を再開する場合、注文前の確認、監査ログ、取り消し不能操作の警告、dry-run が必須。
+- 投資判断支援と注文執行の境界が UI / docs / code で明確に分離されている。
+
+## 6. 詳細バックログ
+
+この節は、実装順ロードマップの各 phase に紐づく候補の一覧です。
+ここにある項目は、上の Phase 17〜24 の順序を崩さず、該当 phase の中で必要になった時点で取り込みます。
+詳細な future candidate はここに集約し、本文の実装順と重複する Appendix は置きません。
+
+### 6.1 Research RAG
+
+- Local document ingestion
+- Text extraction and chunk store
+- Keyword retrieval
+- Research summary
+- Vector / hybrid retrieval
+- Research Score
+- Investment Score / ranking / report integration
+- External source adapter
+
+### 6.2 Assistant / LLM / News
+
+- Template assistant MVP
+- News / sentiment local CSV provider
+- Assistant x news integration
+- LLM provider protocol
+- Local LLM / Ollama provider
+- Cloud LLM / OpenAI provider
+- LLM-enhanced report / news explanation
+- Hybrid assistant evaluation
+
+### 6.3 Execution
+
+- Dry-run execution model
+- Broker adapter protocol
+- Pre-submit risk gate
+- User confirmation and audit log
+- Live order sending
+
+## 7. 検証コマンド
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\run_local_checks.py
@@ -531,351 +528,13 @@ Markdown UTF-8 check:
 .\venv_SMAI\Scripts\python.exe -c "from pathlib import Path; [p.read_text(encoding='utf-8') for p in Path('.').rglob('*.md') if '.git' not in p.parts]; print('markdown utf-8 ok')"
 ```
 
-## 9. Open Items
+## 8. Open Items
 
-- provider fundamentals から symbol metadata を更新するコマンドをどの粒度で作るか
-- Research Score を Investment Score に統合する重みと表示順
+- Phase 16S の最終 Streamlit browser smoke をいつ実施するか
+- Ranking condition model をどのファイルに置き、UI 表示名と internal key をどう分けるか
+- provider fundamentals から symbol metadata を更新する command / cache / manifest の粒度
 - Decision Report に含める cockpit / ranking / rebalance context の最小 schema
+- Research Score を Investment Score に統合する重みと表示順
+- Assistant が参照できる context の範囲と privacy boundary
 - PDF / Excel export をいつ入れるか
 - Execution / broker order をどの段階で再開するか
-
----
-
-# Appendix: SMAI Future Implementation Roadmap (LLM Integrated)
-
-この Appendix は future candidate の一覧です。現在の実装済み範囲ではありません。Phase 16 / Research RAG / Decision Report の次に検討する候補として扱います。
-
-## Future Implementation Candidates / 将来実装候補
-
-基本方針:
-- local-first / deterministic-first を既定とする
-- 外部 API・LLM・ニュース取得は明示 opt-in の追加レイヤーとして扱う
-- 投資判断ロジック本体は deterministic に保ち、LLM は説明・要約・対話体験の拡張に使う
-
----
-
-## Phase F1: Chat AI Assistant MVP / チャット AI アシスタント MVP
-
-### Goal
-- MarketData、Feature Store Lite、Screening、Forecast、Risk、Portfolio の結果を、初心者向け日本語で説明できる対話 UI を追加する。
-- 初期実装は LLM 依存ではなく、決定的なルール・テンプレート応答で構成する。
-- 投資判断の最終決定ではなく、指標の意味、注意点、次に確認すべき観点を案内する。
-
-### Scope
-- `backend/assistant/` を追加する
-- assistant request / response contract を定義する
-- 質問種別分類、context 組み立て、template response generation を分離する
-- FastAPI に assistant endpoint を追加する
-- Streamlit にチャット/質問パネルを追加する
-- 応答に根拠、制約、データ品質、不確実性、投資助言ではない旨を含める
-
-### Implementation slices
-- F1-1: request / response contract を追加
-- F1-2: deterministic response service を追加
-- F1-3: Screening / Forecast / Risk / Portfolio から assistant context を組み立てる adapter を追加
-- F1-4: FastAPI endpoint と API test を追加
-- F1-5: Streamlit に質問 UI を追加
-- F1-6: Operations Guide に使い方と制約を追記
-
-### Acceptance criteria
-- network 非依存で通常テストが通る
-- 同じ入力と同じ分析コンテキストでは同じ応答になる
-- 初心者向け日本語で理由・注意点・次の確認観点を説明できる
-- UI/API のどちらでも投資助言ではなく判断補助であることが明示される
-
----
-
-## Phase F2: News & Sentiment Intelligence MVP / ニュース・センチメント分析 MVP
-
-### Goal
-- 銘柄や市場に関連するニュース・イベント・センチメントを、Screening / Forecast / Risk の補助情報として扱えるようにする。
-- 初期実装は local fixture / CSV input を既定にし、外部ニュース provider は明示 opt-in にする。
-- センチメントはスコア単体ではなく、要約、根拠、鮮度、信頼度、データ品質警告と一緒に表示する。
-
-### Scope
-- `backend/news/` を追加する
-- news item contract、provider interface、local CSV provider を定義する
-- baseline sentiment scorer を追加する
-- ticker/news summary endpoint を追加する
-- Screening Score に optional sentiment feature を接続できる設計にする
-- Streamlit にニュース一覧、センチメント要約、注意点を表示する
-
-### Implementation slices
-- F2-1: news item / sentiment summary contract を定義
-- F2-2: local CSV schema と deterministic CSV provider を追加
-- F2-3: rule-based baseline sentiment scorer を追加
-- F2-4: FastAPI endpoint を追加
-- F2-5: Screening / Forecast / Risk への optional context integration を追加
-- F2-6: Streamlit にニュース/センチメント表示を追加
-- F2-7: Operations Guide に CSV 形式と provider opt-in 方針を追記
-
-### Acceptance criteria
-- local CSV/fixture だけで API・service tests が通る
-- 外部 provider 未設定でも既存 default path は変わらない
-- ニュースが古い、少ない、欠損している場合は data quality warning が出る
-- sentiment output は代表ニュースまたは理由と紐づく
-- sentiment 単体で投資判断を出さない
-
----
-
-## Phase F3: Assistant x News Integration / チャット AI とニュース分析の統合
-
-### Goal
-- Chat AI Assistant がニュース・センチメント情報を説明できるようにする。
-- 分析画面で「なぜこの評価なのか」を横断的に確認できるようにする。
-
-### Scope
-- assistant context に news / sentiment summary を追加する
-- Screening / Forecast / Risk の理由表示にニュース由来の補助理由を統合する
-- ニュース関連の質問テンプレートを追加する
-
-### Question templates
-- この銘柄で最近注意する材料は？
-- スコアに影響しそうなニュースは？
-- ニュースの内容はポジティブ？ネガティブ？
-- この評価の不確実性はどこにある？
-
-### Acceptance criteria
-- ニュースなしでも degraded response を返し、欠損理由を説明する
-- ニュースありの場合、鮮度、信頼度、データ品質警告を含める
-- LLM adapter を使わない通常テストで統合挙動を検証できる
-
----
-
-## Phase F4: LLM Adapter Foundation / LLM アダプター基盤
-
-### Goal
-- Chat AI Assistant の応答生成を、template provider から optional LLM provider に差し替え可能にする。
-- ただし default は deterministic template provider のまま維持する。
-- LLM は投資判断ロジックではなく、説明・要約・自然言語化の補助に限定する。
-
-### Scope
-- `backend/assistant/llm/` を追加する
-- `AssistantResponseProvider` protocol を定義する
-- `TemplateAssistantProvider` を default provider として維持する
-- `MockLlmAssistantProvider` を追加し、LLM adapter の contract test を可能にする
-- `OpenAiAssistantProvider` / `OllamaAssistantProvider` の追加口を設計する
-- provider selection を config で切り替え可能にする
-- LLM provider 使用時も、入力 context、参照指標、注意書き、制約を response に含める
-
-### Implementation slices
-- F4-1: assistant response provider protocol を追加する
-- F4-2: 既存 template response service を provider 化する
-- F4-3: mock LLM provider を追加する
-- F4-4: config に `assistant.provider` を追加する
-- F4-5: provider factory を追加する
-- F4-6: OpenAI / Ollama provider の interface stub を追加する
-- F4-7: Operations Guide に provider 切替方針を追記する
-
-### Acceptance criteria
-- default provider は template のまま
-- LLM provider 未設定でも既存 assistant は動作する
-- 通常テストは network 非依存で通る
-- mock LLM provider で adapter contract を検証できる
-- LLM 出力にも投資助言ではない旨が含まれる
-
----
-
-## Phase F5: Local LLM / Ollama Assistant Preview
-
-### Goal
-- ローカル LLM を使い、API 課金なしで assistant 応答の自然さを改善する。
-- 初期対象は Ollama とし、local-first 方針を維持する。
-
-### Scope
-- `OllamaAssistantProvider` を追加する
-- Ollama API endpoint、model name、timeout を config 化する
-- assistant context を prompt に変換する prompt builder を追加する
-- LLM の出力に対して、必須 disclaimer / referenced metrics / data quality warning を後処理で補完する
-- LLM 失敗時は template provider に fallback する
-
-### Implementation slices
-- F5-1: Ollama provider config を追加する
-- F5-2: Ollama API client を追加する
-- F5-3: prompt builder を追加する
-- F5-4: response post-processor を追加する
-- F5-5: fallback to template provider を追加する
-- F5-6: Streamlit UI に provider 表示を追加する
-
-### Acceptance criteria
-- Ollama 未起動でもアプリ全体は壊れない
-- Ollama 使用時は provider、model、fallback 状態が UI/API で分かる
-- LLM が失敗した場合は template response に degraded fallback する
-- 通常 CI は Ollama に依存しない
-
----
-
-## Phase F6: Cloud LLM Assistant Preview / OpenAI Adapter
-
-### Goal
-- OpenAI API などの cloud LLM を optional provider として利用できるようにする。
-- 高精度な説明、銘柄比較、ニュース要約を試せるようにする。
-
-### Scope
-- `OpenAiAssistantProvider` を追加する
-- API key は環境変数または config で明示 opt-in にする
-- token budget、timeout、model name を config 化する
-- LLM への入力は最小限の structured context に限定する
-- 個人情報や不要な portfolio detail を送らない privacy guard を追加する
-- 失敗時は template provider に fallback する
-
-### Implementation slices
-- F6-1: OpenAI provider config を追加する
-- F6-2: OpenAI client adapter を追加する
-- F6-3: prompt/context minimization policy を追加する
-- F6-4: privacy guard を追加する
-- F6-5: error mapping と fallback を追加する
-- F6-6: Operations Guide に API key、コスト、制約を記載する
-
-### Acceptance criteria
-- 明示 opt-in なしでは cloud LLM は呼ばれない
-- API key 未設定でも通常機能は動作する
-- cloud LLM 利用時は provider、model、送信対象 context の概要が分かる
-- 失敗時は deterministic response に fallback する
-- 通常テストは外部 API 非依存で通る
-
----
-
-## Phase F7: LLM-Enhanced News Explanation / LLM によるニュース説明強化
-
-### Goal
-- ニュース・センチメント情報を、LLM で初心者向けに要約・統合説明できるようにする。
-- ただし sentiment score や investment score の計算そのものは deterministic core に残す。
-
-### Scope
-- news summary を assistant context に渡す
-- 複数ニュースの要点統合 prompt を追加する
-- ニュースの鮮度、信頼度、欠損、偏りを説明に含める
-- LLM が根拠のない断定をしないよう、参照可能な news item の範囲だけで説明させる
-- report export に LLM-enhanced summary を optional で含める
-
-### Implementation slices
-- F7-1: news-aware prompt template を追加する
-- F7-2: referenced news item tracking を追加する
-- F7-3: hallucination guard / unsupported claim guard を追加する
-- F7-4: UI に news explanation provider を表示する
-- F7-5: report export に optional LLM summary を追加する
-
-### Acceptance criteria
-- LLM summary は参照した news item と紐づく
-- ニュースが不足している場合は不足を明示する
-- sentiment 単体で売買判断を出さない
-- LLM を使わない場合も template summary が表示される
-
----
-
-## Phase F8: Hybrid Assistant Evaluation / ハイブリッド Assistant 評価
-
-### Goal
-- template response と LLM response の品質、安定性、コスト、説明責任を比較できるようにする。
-- LLM を本格採用する前に、評価可能な状態を作る。
-
-### Scope
-- assistant evaluation dataset を fixture として用意する
-- template / Ollama / OpenAI の response を比較する
-- completeness、clarity、safety、groundedness、cost、latency を評価する
-- 人手確認用の Markdown report を出力する
-- LLM 採用判断の criteria を定義する
-
-### Implementation slices
-- F8-1: evaluation questions fixture を追加する
-- F8-2: expected key points を定義する
-- F8-3: provider 別 response export を追加する
-- F8-4: latency / token / fallback status を記録する
-- F8-5: evaluation report を生成する
-
-### Acceptance criteria
-- provider ごとの応答差分を確認できる
-- LLM の採用メリットとリスクを判断できる
-- template provider が最低限の安全な baseline として維持される
-
----
-
-## Overall Flow
-
-```text
-F1: Template Chat Assistant
-  ↓
-F2: News & Sentiment Intelligence
-  ↓
-F3: Assistant x News Integration
-  ↓
-F4: LLM Adapter Foundation
-  ↓
-F5: Local LLM / Ollama Assistant Preview
-  ↓
-F6: Cloud LLM / OpenAI Adapter
-  ↓
-F7: LLM-Enhanced News Explanation
-  ↓
-F8: Hybrid Assistant Evaluation
-```
-
-## LLM Extension Phases / LLM 活用拡張フェーズ
-
-この節は Chat AI Assistant / News & Sentiment の将来フェーズに対する LLM 活用の実装計画である。
-既定経路は引き続き local-first / deterministic-first とし、LLM は明示 opt-in の adapter として追加する。
-LLM はデータ取得、スコア計算、売買判断、注文実行の主体にしない。既存 backend が生成した構造化コンテキストを、説明・要約・観点提示として自然文に整える補助レイヤーに限定する。
-
-### Phase F4: Optional LLM Adapter / 任意 LLM アダプター
-
-Goal:
-- Deterministic Assistant MVP の説明品質を、明示 opt-in の LLM adapter で拡張する。
-- LLM は分析・取得・売買判断の主体ではなく、既存 backend が生成した構造化コンテキストを自然文に整える補助レイヤーとして扱う。
-- API key、料金、rate limit、provider failure が通常動作や通常テストを壊さない設計にする。
-
-Scope:
-- `backend/assistant/` に LLM provider interface を追加し、default provider は deterministic/template のまま維持する。
-- LLM に渡す context schema を固定し、MarketData、Screening、Forecast、Risk、Portfolio、News/Sentiment の構造化結果だけを入力にする。
-- Prompt builder、response parser、safety validator、fallback handler を分離する。
-- LLM 応答には、参照した指標、データ品質警告、不確実性、投資助言ではない旨を必ず含める。
-- LLM provider は設定ファイルまたは環境変数で明示 opt-in にする。
-
-Non-goals:
-- LLM に MarketData provider、ニュース取得、スコア計算、売買判断、注文実行を直接任せない。
-- LLM が返した数値を根拠なく authoritative な分析結果として保存しない。
-- LLM 必須の UI/API にしない。
-
-Implementation slices:
-- F4-1: assistant provider interface と deterministic provider の明示実装を追加する。
-- F4-2: LLM context schema と prompt builder を追加し、snapshot/fixture test で構造を固定する。
-- F4-3: LLM response parser と safety validator を追加し、禁止表現、助言化、根拠欠落、警告欠落を検出する。
-- F4-4: provider failure、timeout、rate limit、missing API key 時の fallback を実装する。
-- F4-5: FastAPI/Streamlit に provider mode 表示を追加し、既定が local/template であることを明示する。
-- F4-6: Operations Guide に LLM opt-in 手順、API key 管理、料金・失敗時挙動、通常テストでは network 不要であることを記載する。
-
-Acceptance criteria:
-- LLM provider 未設定でも assistant API/UI は deterministic provider で動作する。
-- 通常テストは network 非依存で通る。
-- LLM provider の失敗時は fallback response を返し、ユーザーに失敗理由と制約が表示される。
-- LLM 応答は売買推奨ではなく、説明・要約・観点提示に限定される。
-- テストは LLM の文章完全一致ではなく、context 組み立て、fallback、安全要件、必須フィールドを検証する。
-
-### Phase F5: LLM-assisted Report Generation / LLM 支援レポート生成
-
-Goal:
-- 既存分析結果をもとに、初心者が読みやすい銘柄・ポートフォリオ・市場概況レポートを生成する。
-- Deterministic report template を既定にし、LLM は任意で文章表現や要約品質を高める補助として使う。
-
-Scope:
-- Report contract を定義し、summary、key metrics、positive/negative factors、risks、data quality、next checks、disclaimer を構造化する。
-- Deterministic report renderer を実装し、LLM が使えない場合も同じ情報構造でレポートを出せるようにする。
-- LLM adapter 有効時は、構造化 report draft を入力にして自然文を整える。
-- Export は Markdown/CSV など local-first な形式から始める。
-
-Non-goals:
-- 個別売買指示、目標株価の断定、自動発注、保証表現は扱わない。
-- LLM が独自に未検証データを追加することを許可しない。
-
-Implementation slices:
-- F5-1: report contract と deterministic renderer を追加する。
-- F5-2: Screening/Forecast/Risk/Portfolio/News の結果を report draft に集約する service を追加する。
-- F5-3: Markdown export と API endpoint を追加する。
-- F5-4: Streamlit に report preview/export を追加する。
-- F5-5: LLM adapter 有効時の prose enhancement を追加し、根拠・警告・disclaimer が欠落しない validator を通す。
-
-Acceptance criteria:
-- LLM なしでレポート生成と export が完結する。
-- LLM ありでも、数値・根拠・警告は backend の構造化データからのみ出力される。
-- レポートには判断補助であり投資助言ではない旨が含まれる。
-- fixture-based tests で report draft、deterministic output、LLM fallback、安全要件を検証できる。

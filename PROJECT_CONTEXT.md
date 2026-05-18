@@ -77,16 +77,17 @@ Partial or intentionally deferred:
 - Phase 13〜14: Forecast Lab / Multi-Model Forecasting are implementation-complete with deterministic baseline models and consensus.
 - Phase 15: Model-Informed Scoring is implementation-complete with `backend/scoring`, API, UI preview/export, and configurable weights.
 - Phase 16: Visualization Cockpit / UI improvement is implementation-complete; final Streamlit browser smoke is still recommended.
-- Phase 19: UI Polish is planned; first target is ranking-condition classification by region, product type, ranking purpose, and data-backed detail filters.
-- Research RAG roadmap: designed and planned, not implemented.
+- Phase 16S: Stabilization / final Streamlit smoke is the next verification gate.
+- Phase 17: UI Polish and ranking-condition redesign is the next feature implementation target.
+- Phase 18〜24: metadata refresh, Decision Report, Research RAG, Research Score, assistant, optional adapters, and execution gate are ordered in the implementation roadmap.
 
 ## Next Good Targets
 
-- Prepare Decision Report context so cockpit / ranking / rebalance outputs can be saved consistently.
-- Start Phase 19 UI Polish with ranking condition classification: region, product type, ranking purpose, dynamic detail filters, and clear separation between score presets and candidate filters.
-- Add a symbol metadata refresh path for dividend yield, sector/theme, ETF/fund attributes, and metadata freshness tracking.
-- Start Research RAG from local document ingestion, chunk/search, and deterministic Research Summary before optional vector/LLM adapters.
 - Run a final Streamlit Phase 16 smoke when browser access is available: ranking conditions, ranking cache/progress, weight-preset resort, ranking-to-cockpit, and Rebalance wording.
+- Start Phase 17 UI Polish with ranking condition classification: region, product type, ranking purpose, dynamic detail filters, and clear separation between score presets and candidate filters.
+- Add Phase 18 symbol metadata refresh for dividend yield, sector/theme, ETF/fund attributes, and metadata freshness tracking.
+- Prepare Phase 19 Decision Report context so cockpit / ranking / rebalance outputs can be saved consistently.
+- Start Phase 20 Research RAG from local document ingestion, chunk/search, and deterministic Research Summary before optional vector/LLM adapters.
 - Keep provider selection explicit and error messages understandable in UI.
 
 ## Known Documentation Rules

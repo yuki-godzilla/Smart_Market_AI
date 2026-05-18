@@ -1355,8 +1355,8 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         _render_table(preview.feature_rows, "No feature snapshot rows.")
 
     if preview.error_rows:
-        st.subheader("Errors")
-        st.dataframe(preview.error_rows, hide_index=True, use_container_width=True)
+        st.subheader("補助データの取得警告")
+        _render_provider_error_summary(preview.error_rows)
 
 
 def _render_market_data_cockpit_header(

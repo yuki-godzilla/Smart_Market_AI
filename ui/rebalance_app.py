@@ -16,7 +16,14 @@ from pydantic import ValidationError
 
 from backend.app.main import RebalanceCheckRequest, create_portfolio_risk_workflow
 from backend.core.config import CONFIG_FILE_ENV, get_settings
-from backend.core.data_contracts import Bar, DailySnapshot, DataQuality, FeatureSnapshot, Quote
+from backend.core.data_contracts import (
+    Bar,
+    DailySnapshot,
+    DataQuality,
+    FeatureSnapshot,
+    FundamentalSnapshot,
+    Quote,
+)
 from backend.core.errors import AppError, DataSourceError
 from backend.forecast import (
     ForecastEvaluation,
@@ -29,6 +36,7 @@ from backend.marketdata import create_market_data_provider_adapter
 from backend.marketdata.feature_builder import build_daily_snapshots_from_market_data
 from backend.marketdata.live_provider_adapters import live_provider_adapter_details
 from backend.marketdata.provider_registry import provider_capability_details
+from backend.marketdata.providers.yahoo import shared_yfinance_session
 from backend.portfolio.service import RebalanceProposal
 from backend.portfolio.workflow import PortfolioRiskResult
 from backend.scoring import InvestmentScore, InvestmentScoringService
@@ -157,6 +165,7 @@ def _cached_yfinance_search_symbol_rows(
             include_research=False,
             include_cultural_assets=False,
             enable_fuzzy_query=True,
+            session=shared_yfinance_session(),
             timeout=5,
             raise_errors=False,
         ).quotes
@@ -402,8 +411,23 @@ async def build_market_data_preview(
         feature_bars = await adapter.fetch_ohlcv([symbol], start=feature_start_dt, end=end_dt)
         bars = _bars_in_period(feature_bars, start=start_dt, end=end_dt)
         quotes = _quotes_from_latest_bars([symbol], feature_bars)
-        fx_rates = await adapter.get_fx_rates([fx_pair], at=end_dt)
-        fundamentals = await adapter.fetch_fundamentals([symbol], as_of=end)
+        warning_rows: list[dict[str, str]] = []
+        fx_rates: list[Any] = []
+        if _should_fetch_market_data_preview_fx(provider=provider):
+            try:
+                fx_rates = await adapter.get_fx_rates([fx_pair], at=end_dt)
+            except AppError as exc:
+                warning_rows.append(_market_data_error_row(exc, component="fx"))
+        if _should_fetch_market_data_preview_fundamentals(provider=provider):
+            try:
+                fundamentals = await adapter.fetch_fundamentals([symbol], as_of=end)
+            except AppError as exc:
+                warning_rows.append(_market_data_error_row(exc, component="fundamentals"))
+                fundamentals = [
+                    _fallback_fundamental_snapshot(symbol, as_of=end, provider=provider)
+                ]
+        else:
+            fundamentals = [_fallback_fundamental_snapshot(symbol, as_of=end, provider=provider)]
         feature_rows = build_daily_snapshots_from_market_data(
             symbols=[symbol],
             as_of=end,
@@ -451,13 +475,7 @@ async def build_market_data_preview(
             feature_rows=[],
             investment_score_rows=[],
             screening_rows=[],
-            error_rows=[
-                {
-                    "code": exc.code,
-                    "message": exc.message,
-                    "details": json.dumps(exc.details, ensure_ascii=False, sort_keys=True),
-                }
-            ],
+            error_rows=[_market_data_error_row(exc)],
         )
 
     return MarketDataPreview(
@@ -494,7 +512,30 @@ async def build_market_data_preview(
         feature_rows=feature_snapshot_rows(feature_snapshot),
         investment_score_rows=investment_score_rows(investment_scores),
         screening_rows=screening_score_rows(screening_scores),
-        error_rows=[],
+        error_rows=warning_rows,
+    )
+
+
+def _should_fetch_market_data_preview_fx(*, provider: str) -> bool:
+    return provider != "yahoo"
+
+
+def _should_fetch_market_data_preview_fundamentals(*, provider: str) -> bool:
+    return provider != "yahoo"
+
+
+def _fallback_fundamental_snapshot(
+    symbol: str,
+    *,
+    as_of: date,
+    provider: str,
+) -> FundamentalSnapshot:
+    return FundamentalSnapshot(
+        symbol=symbol,
+        as_of=as_of,
+        provider=provider,
+        dividend_yield=None,
+        market_cap_jpy=None,
     )
 
 
@@ -509,6 +550,17 @@ def provider_metadata_rows(provider: str) -> list[dict[str, str]]:
     return [
         {"field": key, "value": _stringify_metadata_value(value)} for key, value in details.items()
     ]
+
+
+def _market_data_error_row(exc: AppError, *, component: str | None = None) -> dict[str, str]:
+    details = dict(exc.details)
+    if component is not None:
+        details["component"] = component
+    return {
+        "code": exc.code,
+        "message": exc.message,
+        "details": json.dumps(details, ensure_ascii=False, sort_keys=True),
+    }
 
 
 def _bars_in_period(

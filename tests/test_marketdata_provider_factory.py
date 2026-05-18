@@ -75,7 +75,9 @@ def test_yahoo_adapter_reports_missing_optional_dependency(monkeypatch):
 
 
 def test_yahoo_adapter_fetches_live_contracts_from_yfinance(monkeypatch):
-    monkeypatch.setattr(yahoo, "_load_yfinance", lambda: _FakeYFinance())
+    fake_yfinance = _FakeYFinance()
+    monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
+    monkeypatch.setattr(yahoo, "shared_yfinance_session", lambda: "shared-session")
     adapter = create_market_data_provider_adapter(
         DataAccessConfig(provider="yahoo", allow_external_providers=True)
     )
@@ -92,6 +94,9 @@ def test_yahoo_adapter_fetches_live_contracts_from_yfinance(monkeypatch):
     fundamentals = asyncio.run(adapter.fetch_fundamentals(["AAPL"], as_of=date(2026, 4, 9)))
 
     assert [bar.close for bar in bars] == [Decimal("170.5"), Decimal("175.25")]
+    assert fake_yfinance.download_calls == 1
+    assert fake_yfinance.ticker_sessions == ["shared-session", "shared-session", "shared-session"]
+    assert fake_yfinance.last_download_kwargs["session"] == "shared-session"
     assert bars[0].symbol.raw == "AAPL"
     assert bars[0].symbol.exchange == "NASDAQ"
     assert bars[0].provider == "yahoo"
@@ -105,6 +110,7 @@ def test_yahoo_adapter_fetches_live_contracts_from_yfinance(monkeypatch):
 def test_yahoo_adapter_fetches_multiple_ohlcv_symbols_with_download(monkeypatch, capsys, caplog):
     fake_yfinance = _FakeYFinance()
     monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
+    monkeypatch.setattr(yahoo, "shared_yfinance_session", lambda: "shared-session")
     caplog.set_level(logging.WARNING)
     adapter = create_market_data_provider_adapter(
         DataAccessConfig(provider="yahoo", allow_external_providers=True)
@@ -120,6 +126,7 @@ def test_yahoo_adapter_fetches_multiple_ohlcv_symbols_with_download(monkeypatch,
 
     assert fake_yfinance.download_calls == 1
     assert fake_yfinance.last_download_kwargs["threads"] is False
+    assert fake_yfinance.last_download_kwargs["session"] == "shared-session"
     captured = capsys.readouterr()
     assert "possibly delisted" not in captured.out
     assert "possibly delisted" not in captured.err
@@ -133,8 +140,55 @@ def test_yahoo_adapter_fetches_multiple_ohlcv_symbols_with_download(monkeypatch,
     ]
 
 
+def test_yahoo_adapter_retries_empty_download_once(monkeypatch):
+    fake_yfinance = _FakeYFinance(empty_download_attempts=1)
+    monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
+    monkeypatch.setattr(yahoo, "shared_yfinance_session", lambda: "shared-session")
+    monkeypatch.setattr(yahoo, "YAHOO_DOWNLOAD_EMPTY_RETRY_DELAY_SECONDS", 0)
+    adapter = create_market_data_provider_adapter(
+        DataAccessConfig(provider="yahoo", allow_external_providers=True)
+    )
+
+    bars = asyncio.run(
+        adapter.fetch_ohlcv(
+            ["AAPL"],
+            start=datetime(2026, 4, 7, tzinfo=UTC),
+            end=datetime(2026, 4, 9, tzinfo=UTC),
+        )
+    )
+
+    assert fake_yfinance.download_calls == 2
+    assert [bar.close for bar in bars] == [Decimal("170.5"), Decimal("175.25")]
+
+
+def test_yahoo_adapter_reports_empty_download_after_retry(monkeypatch):
+    fake_yfinance = _FakeYFinance(empty=True)
+    monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
+    monkeypatch.setattr(yahoo, "shared_yfinance_session", lambda: "shared-session")
+    monkeypatch.setattr(yahoo, "YAHOO_DOWNLOAD_EMPTY_RETRY_DELAY_SECONDS", 0)
+    adapter = create_market_data_provider_adapter(
+        DataAccessConfig(provider="yahoo", allow_external_providers=True)
+    )
+
+    with pytest.raises(ProviderUnavailableError) as exc_info:
+        asyncio.run(
+            adapter.fetch_ohlcv(
+                ["AAPL"],
+                start=datetime(2026, 4, 7, tzinfo=UTC),
+                end=datetime(2026, 4, 9, tzinfo=UTC),
+            )
+        )
+
+    assert fake_yfinance.download_calls == 2
+    request = exc_info.value.details["request"]
+    assert request["operation"] == "fetch_ohlcv"
+    assert request["attempts"] == 2
+    assert request["retry_reason"] == "empty_batch_data"
+
+
 def test_yahoo_adapter_maps_empty_history_to_provider_unavailable(monkeypatch):
     monkeypatch.setattr(yahoo, "_load_yfinance", lambda: _FakeYFinance(empty=True))
+    monkeypatch.setattr(yahoo, "shared_yfinance_session", lambda: "shared-session")
     adapter = create_market_data_provider_adapter(
         DataAccessConfig(provider="yahoo", allow_external_providers=True)
     )
@@ -151,12 +205,15 @@ def test_yahoo_adapter_maps_empty_history_to_provider_unavailable(monkeypatch):
 
 
 class _FakeYFinance:
-    def __init__(self, *, empty: bool = False) -> None:
+    def __init__(self, *, empty: bool = False, empty_download_attempts: int = 0) -> None:
         self.empty = empty
+        self.empty_download_attempts = empty_download_attempts
         self.download_calls = 0
+        self.ticker_sessions: list[object] = []
         self.last_download_kwargs: dict[str, object] = {}
 
-    def Ticker(self, raw_symbol: str) -> "_FakeTicker":
+    def Ticker(self, raw_symbol: str, session: object | None = None) -> "_FakeTicker":
+        self.ticker_sessions.append(session)
         return _FakeTicker(raw_symbol, empty=self.empty)
 
     def download(self, **kwargs: object) -> pd.DataFrame:
@@ -164,7 +221,7 @@ class _FakeYFinance:
         logging.getLogger("yfinance").warning("possibly delisted; no timezone found")
         self.download_calls += 1
         self.last_download_kwargs = kwargs
-        if self.empty:
+        if self.empty or self.download_calls <= self.empty_download_attempts:
             return pd.DataFrame()
         tickers = str(kwargs["tickers"]).split()
         fields = ["Open", "High", "Low", "Close", "Volume"]

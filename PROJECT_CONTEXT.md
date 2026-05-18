@@ -77,16 +77,15 @@ Partial or intentionally deferred:
 - Phase 11〜12: Feature snapshots and Screening Score are implemented.
 - Phase 13〜14: Forecast Lab / Multi-Model Forecasting are implementation-complete with deterministic baseline models and consensus.
 - Phase 15: Model-Informed Scoring is implementation-complete with `backend/scoring`, API, UI preview/export, and configurable weights.
-- Phase 16: Visualization Cockpit / UI improvement is implementation-complete; final Streamlit browser smoke is still recommended.
-- Phase 16S: Stabilization / final Streamlit smoke is the next verification gate.
-- Phase 17: UI Polish and ranking-condition redesign is in progress; the first Streamlit classification/filter slice is implemented.
+- Phase 16: Visualization Cockpit / UI improvement is implementation-complete; final cross-flow Streamlit browser smoke remains useful before larger backend work.
+- Phase 16S: Stabilization smoke has been partially covered through ranking-condition visual checks; broader cockpit/ranking/rebalance smoke remains optional before handoff.
+- Phase 17: UI Polish and ranking-condition redesign is implementation-complete with user visual confirmation.
 - Phase 18〜24: metadata refresh, Decision Report, Research RAG, Research Score, assistant, optional adapters, and execution gate are ordered in the implementation roadmap.
 
 ## Next Good Targets
 
-- Run a final Streamlit Phase 16 smoke when browser access is available: ranking conditions, ranking cache/progress, weight-preset resort, ranking-to-cockpit, and Rebalance wording.
-- Continue Phase 17 UI Polish with browser smoke and small wording/layout adjustments for ranking condition classification.
-- Add Phase 18 symbol metadata refresh for dividend yield, sector/theme, ETF/fund attributes, and metadata freshness tracking.
+- Start Phase 18 symbol metadata refresh for dividend yield, sector/theme, ETF/fund attributes, metadata freshness, and source tracking.
+- Keep a final cross-flow Streamlit smoke available before handoff when browser access is useful: ranking cache/progress, purpose-based resort, ranking-to-cockpit, and Rebalance wording.
 - Prepare Phase 19 Decision Report context so cockpit / ranking / rebalance outputs can be saved consistently.
 - Start Phase 20 Research RAG from local document ingestion, chunk/search, and deterministic Research Summary before optional vector/LLM adapters.
 - Keep provider selection explicit and error messages understandable in UI.

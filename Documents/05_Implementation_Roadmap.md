@@ -285,7 +285,7 @@ Completion criteria:
 
 ### 5.3 Phase 17: UI Polish And Ranking Condition Redesign
 
-Status: in progress; first UI slice implemented
+Status: implementation complete; Streamlit visual smoke completed
 
 目的: `銘柄ランキング` を、単なる検索フィルターではなく、投資対象とランキング目的を先に決めてから詳細条件を設定する UI に整理する。
 
@@ -337,7 +337,10 @@ Current implementation note:
 
 - `ui/ranking.py` defines region / product / ranking-purpose labels separately from internal keys.
 - `銘柄ランキング` now shows region / product / ranking purpose before provider / period, derives the display weight preset from ranking purpose, and shows dynamic detail filters for the selected category.
+- The detail filter panel is grouped into attribute / numeric / keyword sections, and the comparison-symbol selector stays all-selected by default while its large multiselect tags are kept inside a collapsed expander.
+- Acquisition period, candidate count, selected count, and all/partial selection status are shown as a compact one-line comparison status.
 - Current enforceable filters remain limited to `symbol_universe.csv` metadata. 投信の条件は定義済みだが、候補マスタに投信行がないため Phase 18 metadata refresh で拡張する。
+- Streamlit visual smoke for the Phase 17 ranking-condition UI has been completed by the user.
 
 ### 5.4 Phase 18: Symbol Universe And Metadata Refresh
 

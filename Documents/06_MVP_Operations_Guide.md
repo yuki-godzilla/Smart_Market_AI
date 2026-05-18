@@ -297,6 +297,8 @@ SBI ranking universe policy:
 - 初期除外: FX、CFD、先物・オプション、暗号資産、債券、外貨建MMF、貴金属、レバレッジ、インバース、非tradable、非SBI対応。
 - `symbol_universe.csv` / schema に SBI policy columns を追加済みです。既存127件は conservative default として `broker=sbi_securities`, `tradability=unknown`, `nisa_category=unknown`, `investment_style=unknown`, `is_sbi_supported=true`, `is_active=true`, `is_leveraged=false`, `is_inverse=false` を持ちます。
 - `tradability=unknown` は初期 seed として通し、`not_tradable` だけを除外します。SBI / NISA / 投信の公式 source import は後続範囲です。
+- SBI証券サイトへのログインや画面スクレイピングは通常 workflow に含めません。SBI / JPX / 投信協会 / NISA 一覧などを手動または curated source CSV に整形し、source import command で local master へ反映します。
+- Ranking / Screening は source site を直接参照せず、`symbol_universe.csv` と default policy helper だけを参照します。
 
 Phase 16 ranking implementation notes:
 

@@ -243,3 +243,4 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added the default ranking-universe policy helper and wired it into ranking candidate extraction before provider fetch.
 - Kept `tradability=unknown` eligible for initial ranking while excluding explicit out-of-scope products, not-tradable rows, inactive rows, non-SBI rows, leveraged rows, and inverse rows.
 - Added deterministic tests for the policy helper, schema fields, CSV validation, and ranking candidate filtering.
+- Tuned the SBI symbol master acquisition policy documentation to match the current implementation: local source CSV / master first, no direct SBI scraping, future repository separation only when the existing symbol-universe helpers become too broad.

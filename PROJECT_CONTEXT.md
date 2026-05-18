@@ -53,7 +53,7 @@ Implemented or mostly implemented:
 - Streamlit left side menu for `銘柄コックピット`, `銘柄ランキング`, `リバランス`, and `設定 / データ情報`.
 - Streamlit Market Data provider selector defaults to `yahoo` and shows it first; large live ranking requests warn users instead of hard-blocking them.
 - Ranking candidate filters using static/curated metadata before provider fetch.
-- Symbol universe source import for local curated / JPX seed expansion; current candidate master carries SBI policy columns but is not yet an SBI-verified tradable universe.
+- Symbol universe source import for local curated / JPX seed expansion; current candidate master carries SBI policy columns but is not yet an SBI-verified tradable universe. SBI acquisition policy is local-master first, not direct site scraping.
 - Ranking condition classification first slice: region, product type, ranking purpose, and dynamic detail filters are wired into the Streamlit ranking UI.
 - Ranking presets for balanced, forecast-agreement, data-quality, and lower-risk emphasis.
 - Ranking-to-cockpit handoff for follow-up single-symbol review.
@@ -87,7 +87,7 @@ Partial or intentionally deferred:
 
 ## Next Good Targets
 
-- Continue Phase 18 by expanding official/curated source ingestion: broader JPX domestic stock/ETF coverage, then FSA/IMAJ fund metadata and NISA lists.
+- Continue Phase 18 by expanding official/curated source ingestion: broader JPX domestic stock/ETF coverage, SBI US stock/ETF source CSVs, then FSA/IMAJ fund metadata and NISA lists.
 - Keep a final cross-flow Streamlit smoke available before handoff when browser access is useful: ranking cache/progress, purpose-based resort, ranking-to-cockpit, and Rebalance wording.
 - Prepare Phase 19 Decision Report context so cockpit / ranking / rebalance outputs can be saved consistently.
 - Start Phase 20 Research RAG from local document ingestion, chunk/search, and deterministic Research Summary before optional vector/LLM adapters.

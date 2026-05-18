@@ -43,6 +43,7 @@
 - 初期対象: 国内株式、米国株式、国内ETF、米国ETF/海外ETF、投資信託、REIT。
 - 初期除外: FX、CFD、先物・オプション、暗号資産、債券、外貨建MMF、貴金属、レバレッジ、インバース、非tradable、非SBI対応。
 - 実装状態: `symbol_universe.csv` / `symbol_metadata_schema.py` に broker / tradability / NISA / 積立対応 / leveraged / inverse metadata を追加し、ranking candidate extraction の前に policy helper を適用済み。`tradability=unknown` は初期 seed として通す。
+- 取得方針: SBI / JPX / 投信協会 / NISA 一覧などを local source CSV 化して import する。Ranking / Screening は外部 source を直接参照しない。
 - 制約: SBI証券へのログインやスクレイピングは初期対象外。通常 tests は network 非依存にする。
 
 ### Feature Store Lite

@@ -281,7 +281,7 @@ Symbol universe source import:
 - 既定は dry-run で、`--write` を付けた場合だけ CSV / manifest を更新します。write 前に validation error が残る場合は書き込みを拒否します。
 - 初期 source として `data/marketdata/symbol_universe_sources/jpx_etf_seed.csv` と `data/marketdata/symbol_universe_sources/jpx_stock_seed.csv` を置いています。2026-05-18 時点では国内 ETF 8件、国内株 24件を `symbol_universe.csv` に取り込み済みです。
 - SBI / 投信向け source profile として `sbi_us_stock`, `sbi_us_etf`, `mutual_fund_seed` を追加しています。各 profile は market / asset_type / currency と SBI policy columns を補完します。
-- 追加 seed として `sbi_us_stock_seed.csv`, `sbi_us_etf_seed.csv`, `mutual_fund_seed.csv` を置いています。これらは source seed であり、`--write` を実行するまで `symbol_universe.csv` 本体には反映されません。
+- 追加 seed として `sbi_us_stock_seed.csv`, `sbi_us_etf_seed.csv`, `mutual_fund_seed.csv` を置いています。2026-05-18 時点では、米国株 8件、米国 ETF 7件、投信 4件を `symbol_universe.csv` に取り込み済みです。既存 ETF 3件は SBI ETF profile で更新済みです。
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\import_symbol_universe_source.py --source-csv .\data\marketdata\symbol_universe_sources\jpx_etf_seed.csv --source-name jpx --as-of 2026-05-18 --updated-at 2026-05-18T00:00:00+09:00
@@ -308,6 +308,7 @@ SBI ranking universe policy:
 - SBI証券サイトへのログインや画面スクレイピングは通常 workflow に含めません。SBI / JPX / 投信協会 / NISA 一覧などを手動または curated source CSV に整形し、source import command で local master へ反映します。
 - Ranking / Screening は source site を直接参照せず、`symbol_universe.csv` と default policy helper だけを参照します。
 - 投信向け metadata として `trust_fee_pct`, `aum`, `nisa_tsumitate_eligible`, `nisa_growth_eligible`, `installment_available`, `management_style`, `distribution_policy` を source CSV から取り込めます。
+- 現在の候補マスタは 146件です。内訳は stock 120件、ETF 20件、投信 4件、ADR 2件です。
 
 Phase 16 ranking implementation notes:
 

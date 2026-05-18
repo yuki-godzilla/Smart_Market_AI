@@ -4,3 +4,11 @@ MSFT,Microsoft,technology,technology,microsoft azure,growth_dividend,0.7,mega,"g
 NVDA,NVIDIA,technology,semiconductor,nvidia gpu ai,none,0.0,mega,growth,45.0,42.0,70.0,4.4,HIGH,OK,HIGH
 JNJ,Johnson & Johnson,healthcare,healthcare,johnson dividend,dividend,3.0,mega,"dividend,lower_risk",16.0,5.0,18.0,3.1,MEDIUM,OK,LOW
 V,Visa,financial,financial,visa payments,growth_dividend,0.8,mega,"growth,quality",30.0,14.0,42.0,3.9,HIGH,OK,LOW
+CSCO,Cisco Systems,technology,technology,cisco networking,dividend,2.8,large,"dividend,quality",18.0,4.5,25.0,3.2,MEDIUM,OK,MEDIUM
+IBM,IBM,technology,technology,ibm cloud ai,dividend,3.4,large,dividend,19.0,7.0,30.0,3.0,MEDIUM,OK,MEDIUM
+QCOM,Qualcomm,technology,semiconductor,qualcomm chips,dividend,2.0,large,"dividend,quality",17.0,6.0,32.0,3.4,MEDIUM,OK,MEDIUM
+TXN,Texas Instruments,technology,semiconductor,texas instruments analog,dividend,3.0,large,"dividend,quality",22.0,9.0,45.0,3.1,MEDIUM,OK,LOW
+AMGN,Amgen,healthcare,healthcare,amgen biotech,dividend,3.2,large,"dividend,lower_risk",16.0,18.0,55.0,3.0,MEDIUM,OK,LOW
+TMO,Thermo Fisher Scientific,healthcare,healthcare,thermo fisher life science,none,0.3,large,quality,28.0,4.8,15.0,3.5,MEDIUM,OK,MEDIUM
+DHR,Danaher,healthcare,healthcare,danaher life science,dividend,0.5,large,quality,26.0,3.5,12.0,3.3,MEDIUM,OK,MEDIUM
+CMCSA,Comcast,communication,communication,comcast media broadband,dividend,3.1,large,dividend,11.0,1.8,16.0,2.8,MEDIUM,OK,MEDIUM

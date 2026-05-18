@@ -3,5 +3,9 @@ VOO,Vanguard S&P 500 ETF,sp500,0.03,beginner,"low_cost,installment",growth,both,
 VTI,Vanguard Total Stock Market ETF,total_us,0.03,beginner,"low_cost,installment",growth,both,false,false
 VT,Vanguard Total World Stock ETF,acwi,0.07,beginner,"low_cost,installment",growth,both,false,false
 QQQ,Invesco QQQ Trust,nasdaq100,0.20,standard,growth,growth,both,false,false
+IVV,iShares Core S&P 500 ETF,sp500,0.03,beginner,"low_cost,installment",growth,both,false,false
+SCHD,Schwab U.S. Dividend Equity ETF,,0.06,standard,"dividend,low_cost",growth,both,false,false
+VYM,Vanguard High Dividend Yield ETF,,0.06,standard,"dividend,low_cost",growth,both,false,false
+DIA,SPDR Dow Jones Industrial Average ETF Trust,,0.16,standard,balanced,growth,both,false,false
 TQQQ,ProShares UltraPro QQQ,nasdaq100,0.88,leveraged,growth,none,lump_sum,true,false
 SQQQ,ProShares UltraPro Short QQQ,nasdaq100,0.95,inverse,,none,lump_sum,true,true

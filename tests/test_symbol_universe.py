@@ -31,13 +31,29 @@ def test_symbol_universe_csv_matches_schema():
 def test_symbol_universe_csv_metadata_summary_counts_source_and_freshness():
     summary = symbol_universe_csv_metadata_summary(today=date(2026, 5, 18))
 
-    assert summary["total_rows"] >= 120
+    assert summary["total_rows"] >= 146
     assert summary["source_counts"]["curated_csv"] >= 90
     assert summary["source_counts"]["jpx"] >= 30
+    assert summary["source_counts"]["sbi_us_stock"] >= 8
+    assert summary["source_counts"]["sbi_us_etf"] >= 10
+    assert summary["source_counts"]["mutual_fund_seed"] >= 4
     assert summary["metadata_period"] == "2026-05-18"
     assert summary["missing_metadata_count"] == 0
     assert summary["stale_metadata_count"] == 0
     assert summary["validation_summary"] == "OK"
+
+
+def test_symbol_universe_csv_includes_sbi_etf_and_mutual_fund_expansion():
+    rows = symbol_universe_csv_rows()
+    row_by_symbol = {row["symbol"]: row for row in rows}
+
+    assert row_by_symbol["VT"]["asset_type"] == "etf"
+    assert row_by_symbol["VT"]["tradability"] == "tradable"
+    assert row_by_symbol["TQQQ"]["is_leveraged"] == "true"
+    assert row_by_symbol["SQQQ"]["is_inverse"] == "true"
+    assert row_by_symbol["MF-EMAXIS-ACWI"]["asset_type"] == "mutual_fund"
+    assert row_by_symbol["MF-EMAXIS-ACWI"]["trust_fee_pct"] == "0.05775"
+    assert row_by_symbol["MF-EMAXIS-ACWI"]["nisa_tsumitate_eligible"] == "true"
 
 
 def test_validate_symbol_universe_rows_reports_missing_required_column():

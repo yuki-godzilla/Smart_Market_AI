@@ -34,6 +34,10 @@ SMAI の銘柄ランキング、比較分析、将来の銘柄推薦で使う初
   - `data/marketdata/symbol_universe_sources/sbi_us_stock_seed.csv`
   - `data/marketdata/symbol_universe_sources/sbi_us_etf_seed.csv`
   - `data/marketdata/symbol_universe_sources/mutual_fund_seed.csv`
+- `symbol_universe.csv` への source seed 反映
+  - 米国株 8件を追加
+  - 米国 ETF 7件を追加し、既存 ETF 3件を SBI ETF profile で更新
+  - 投資信託 4件を追加
 - `tools/refresh_symbol_universe_metadata.py` による provider-neutral metadata refresh
 - JPX seed による国内株 / 国内 ETF の候補拡張
 
@@ -104,7 +108,7 @@ metadata_source,metadata_as_of,metadata_updated_at
 
 すべての SBI 取扱商品を一度に完全収録しない。MVP では、ランキング体験に効く範囲から段階的に増やす。
 
-Phase A:
+Phase A: 完了
 
 - 国内株式
 - 米国主要株
@@ -398,6 +402,9 @@ ranking_universe:
 各 profile は `broker=sbi_securities`, `is_sbi_supported=true`, `is_active=true`, `is_leveraged=false`, `is_inverse=false` を補完する。
 source CSV 側に `is_leveraged` / `is_inverse` がある場合は、source 側の値を優先する。
 
+2026-05-18 時点の `symbol_universe.csv` は 146件です。
+内訳は `stock=120`, `etf=20`, `mutual_fund=4`, `adr=2` です。
+
 NG:
 
 - Ranking / Screening が SBI証券サイトを直接参照する。
@@ -445,6 +452,7 @@ Phase 18 の実装順:
 6. `symbol_universe.csv` の既存行へ conservative default metadata を付与する。完了。
 7. SBI / NISA / 投信 metadata source import を追加する。部分完了。
    - `--source-profile` と seed CSV は追加済み。
+   - SBI US stock / ETF / mutual fund seed は `symbol_universe.csv` へ反映済み。
    - SBI公式一覧 / NISA公式一覧 / 投信協会などからの半自動 adapter は未実装。
 
 NISA / 積立 / SBI確認済みなどの UI 表示は、対応する official / curated source metadata が入ってから追加する。

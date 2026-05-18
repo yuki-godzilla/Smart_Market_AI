@@ -64,7 +64,7 @@ Partial or intentionally deferred:
 
 - Live provider verification depends on local package, network, and cache/write conditions.
 - `polygon` is reserved in provider metadata but adapter implementation is not complete.
-- Symbol metadata refresh from provider fundamentals is not implemented; current ranking filters rely on curated/static metadata.
+- Symbol metadata refresh has a provider-neutral command and an opt-in Yahoo adapter; ranking filters still rely on local symbol-universe metadata before provider fetch.
 - Research RAG is designed but not implemented.
 - Decision Report is not yet the main report workflow.
 - Execution / broker order submission is intentionally out of the current default path.
@@ -80,12 +80,12 @@ Partial or intentionally deferred:
 - Phase 16: Visualization Cockpit / UI improvement is implementation-complete; final cross-flow Streamlit browser smoke remains useful before larger backend work.
 - Phase 16S: Stabilization smoke has been partially covered through ranking-condition visual checks; broader cockpit/ranking/rebalance smoke remains optional before handoff.
 - Phase 17: UI Polish and ranking-condition redesign is implementation-complete with user visual confirmation.
-- Phase 18: Symbol universe metadata refresh is in progress. The network-free slices define CSV schema / enum / decimal / duplicate ticker validation, metadata tier/storage/freshness policy, metadata source/as-of/update timestamps in `symbol_universe.csv`, compact metadata status in Settings, and a provider-neutral dry-run/manifest refresh command. Yahoo metadata refresh is implemented behind `--provider yahoo --allow-live`; normal checks remain network-free.
+- Phase 18: Symbol universe metadata refresh is in progress. The network-free slices define CSV schema / enum / decimal / duplicate ticker validation, metadata tier/storage/freshness policy, metadata source/as-of/update timestamps in `symbol_universe.csv`, compact metadata status in Settings, a provider-neutral dry-run/manifest refresh command, and a local source-import command. Yahoo metadata refresh is implemented behind `--provider yahoo --allow-live`; normal checks remain network-free.
 - Phase 19〜24: Decision Report, Research RAG, Research Score, assistant, optional adapters, and execution gate are ordered in the implementation roadmap.
 
 ## Next Good Targets
 
-- Continue Phase 18 by planning official/curated source ingestion for universe expansion: JPX domestic stocks/ETFs first, then FSA/IMAJ fund metadata and NISA lists.
+- Continue Phase 18 by expanding official/curated source ingestion: JPX domestic stock coverage next, then FSA/IMAJ fund metadata and NISA lists.
 - Keep a final cross-flow Streamlit smoke available before handoff when browser access is useful: ranking cache/progress, purpose-based resort, ranking-to-cockpit, and Rebalance wording.
 - Prepare Phase 19 Decision Report context so cockpit / ranking / rebalance outputs can be saved consistently.
 - Start Phase 20 Research RAG from local document ingestion, chunk/search, and deterministic Research Summary before optional vector/LLM adapters.

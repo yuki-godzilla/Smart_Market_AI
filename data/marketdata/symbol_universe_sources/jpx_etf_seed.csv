@@ -1,0 +1,9 @@
+symbol,name,market,asset_type,currency,theme,sector,index_family,expense_ratio_pct,complexity,tags,aliases
+1306.T,NEXT FUNDS TOPIX ETF,jp,etf,JPY,index,index,topix,0.06,beginner,"low_cost,balanced",TOPIX ETF
+1308.T,NEXT FUNDS TOPIX ETF,jp,etf,JPY,index,index,topix,0.09,beginner,"low_cost,balanced",TOPIX ETF
+1321.T,NEXT FUNDS Nikkei 225 ETF,jp,etf,JPY,index,index,nikkei225,0.18,beginner,balanced,Nikkei 225 ETF
+1329.T,iShares Core Nikkei 225 ETF,jp,etf,JPY,index,index,nikkei225,0.11,beginner,"low_cost,balanced",Nikkei 225 ETF
+1343.T,NEXT FUNDS J-REIT ETF,jp,etf,JPY,reit,real_estate,,0.17,standard,balanced,J-REIT ETF
+1475.T,iShares Core TOPIX ETF,jp,etf,JPY,index,index,topix,0.05,beginner,"low_cost,balanced",TOPIX ETF
+1489.T,NEXT FUNDS Nikkei 225 High Dividend Yield ETF,jp,etf,JPY,index,index,nikkei225,0.31,standard,"dividend,balanced",High dividend ETF
+1540.T,Japan Physical Gold ETF,jp,etf,JPY,commodity,index,,0.44,standard,balanced,Gold ETF

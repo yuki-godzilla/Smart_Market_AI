@@ -319,7 +319,22 @@ SYMBOL_METADATA_FIELDS: tuple[MetadataField, ...] = (
         label="metadata出所",
         tier=METADATA_TIER_OPERATIONAL,
         storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
-        allowed_values=frozenset({"curated_csv", "csv", "manual", "polygon", "unknown", "yahoo"}),
+        allowed_values=frozenset(
+            {
+                "curated_csv",
+                "csv",
+                "alpha_vantage",
+                "eodhd",
+                "fmp",
+                "fsa",
+                "imaj",
+                "jpx",
+                "manual",
+                "polygon",
+                "unknown",
+                "yahoo",
+            }
+        ),
     ),
     MetadataField(
         key="metadata_as_of",

@@ -94,3 +94,11 @@ QQQ,Invesco QQQ Trust,us,etf,USD,index,none,0.6,mid,nasdaq100,0.20,beginner,"ins
 VTI,Vanguard Total Stock Market ETF,us,etf,USD,index,none,1.3,mid,total_us,0.03,beginner,"installment,balanced,lower_risk",total market,18.0,2.5,12.0,index,3.4,HIGH,OK,LOW,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
 VOO,Vanguard S&P 500 ETF,us,etf,USD,index,none,1.2,mid,sp500,0.03,beginner,"installment,balanced,lower_risk",sp500 s&p500,18.0,2.5,12.0,index,3.4,HIGH,OK,LOW,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
 IWM,iShares Russell 2000 ETF,us,etf,USD,index,none,1.3,mid,small_us,0.19,beginner,installment,russell2000 small cap,18.0,2.5,12.0,index,3.2,MEDIUM,OK,LOW,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+1306.T,NEXT FUNDS TOPIX ETF,jp,etf,JPY,index,,,,topix,0.06,beginner,"low_cost,balanced",TOPIX ETF,,,,index,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+1308.T,NEXT FUNDS TOPIX ETF,jp,etf,JPY,index,,,,topix,0.09,beginner,"low_cost,balanced",TOPIX ETF,,,,index,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+1321.T,NEXT FUNDS Nikkei 225 ETF,jp,etf,JPY,index,,,,nikkei225,0.18,beginner,balanced,Nikkei 225 ETF,,,,index,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+1329.T,iShares Core Nikkei 225 ETF,jp,etf,JPY,index,,,,nikkei225,0.11,beginner,"low_cost,balanced",Nikkei 225 ETF,,,,index,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+1343.T,NEXT FUNDS J-REIT ETF,jp,etf,JPY,reit,,,,,0.17,standard,balanced,J-REIT ETF,,,,real_estate,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+1475.T,iShares Core TOPIX ETF,jp,etf,JPY,index,,,,topix,0.05,beginner,"low_cost,balanced",TOPIX ETF,,,,index,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+1489.T,NEXT FUNDS Nikkei 225 High Dividend Yield ETF,jp,etf,JPY,index,,,,nikkei225,0.31,standard,"dividend,balanced",High dividend ETF,,,,index,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+1540.T,Japan Physical Gold ETF,jp,etf,JPY,commodity,,,,,0.44,standard,balanced,Gold ETF,,,,index,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00

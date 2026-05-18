@@ -31,7 +31,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 未実装:
 
 - `polygon` などの追加 live provider adapter 本体
-- provider fundamentals からの symbol metadata refresh
+- 追加 provider adapter / fund metadata source
 - Research RAG / IR資料検索 / Research Score
 - Decision Report の本格 workflow
 - broker への live order 送信
@@ -243,7 +243,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 
 - ranking の候補条件は、provider fetch 前に使える `data/marketdata/symbol_universe.csv` の curated metadata を中心にしています。
 - 地域 / 商品は provider fetch 前の候補 universe を絞ります。ランキング目的は Investment Score の表示順の重み付けに使い、候補 universe そのものは絞りません。
-- dividend category や theme は現在 curated metadata です。provider fundamentals からの自動更新は将来拡張です。
+- dividend category や theme は現在 curated metadata / source import / opt-in metadata refresh で管理します。live provider 由来の更新は明示 opt-in です。
 - `symbol_universe.csv` は Phase 16/18 UI 用の銘柄候補マスタです。必須列は `symbol`, `name`, `market`, `asset_type`, `currency`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases`, `per`, `pbr`, `roe_pct`, `sector`, `consensus_rating`, `forecast_agreement`, `data_quality`, `risk_band` です。
 - Phase 18 metadata columns は `metadata_source`, `metadata_as_of`, `metadata_updated_at` です。現在の deterministic baseline では全行 `metadata_source=curated_csv`, `metadata_as_of=2026-05-18`, `metadata_updated_at=2026-05-18T00:00:00+09:00` です。
 - Metadata fields are governed by `backend/marketdata/symbol_metadata_schema.py`.
@@ -271,6 +271,16 @@ Symbol universe metadata refresh:
 
 - `--write` を付けた場合だけ `symbol_universe.csv` と `data/marketdata/symbol_universe_manifest.json` を更新します。write 前に validation error が残る場合は書き込みを拒否します。
 - Yahoo provider は取得できた `sector`, `dividend_yield_pct`, `dividend_category`, `per`, `pbr`, `roe_pct`, `market_cap_tier`, `risk_band`, ETF の `expense_ratio_pct`, and metadata source/as-of/update fields を正規化して返します。失敗銘柄は manifest の `failed_symbols` / `failures` に残します。
+
+Symbol universe source import:
+
+- `tools/import_symbol_universe_source.py` は、JPX などのローカル source CSV を `symbol_universe.csv` 形式へ取り込む command です。
+- 既定は dry-run で、`--write` を付けた場合だけ CSV / manifest を更新します。write 前に validation error が残る場合は書き込みを拒否します。
+- 初期 source として `data/marketdata/symbol_universe_sources/jpx_etf_seed.csv` を置いています。2026-05-18 時点では国内 ETF 8件を `symbol_universe.csv` に取り込み済みです。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\import_symbol_universe_source.py --source-csv .\data\marketdata\symbol_universe_sources\jpx_etf_seed.csv --source-name jpx --as-of 2026-05-18 --updated-at 2026-05-18T00:00:00+09:00
+```
 
 Phase 16 ranking implementation notes:
 

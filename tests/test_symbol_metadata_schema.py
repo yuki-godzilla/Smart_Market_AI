@@ -69,3 +69,12 @@ def test_symbol_metadata_catalog_keeps_fund_metadata_out_of_symbol_universe():
     } <= fund_fields
     assert fund_fields <= future_fund_fields
     assert fund_fields.isdisjoint(symbol_universe_fields)
+
+
+def test_symbol_metadata_catalog_allows_official_source_names():
+    metadata_source = metadata_field_by_key("metadata_source")
+
+    assert metadata_source is not None
+    assert {"jpx", "fsa", "imaj", "yahoo", "fmp", "eodhd", "alpha_vantage"} <= set(
+        metadata_source.allowed_values
+    )

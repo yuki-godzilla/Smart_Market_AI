@@ -374,7 +374,8 @@ Implementation order:
 5. Metadata field catalog / tier / storage / freshness policy. 完了。
 6. Yahoo metadata provider as the first live adapter, behind explicit opt-in. 完了。
 7. `--write` path for CSV/manifest update, with validation before and after write. 完了。Cache output is future scope if needed.
-8. Optional additional provider adapters only when Yahoo coverage or stability is insufficient.
+8. Local source import for JPX / curated universe expansion. 完了。Initial JPX ETF seed imported.
+9. Optional additional provider adapters only when Yahoo coverage or stability is insufficient.
 
 Completion criteria:
 
@@ -393,6 +394,8 @@ Current implementation note:
 - `backend/marketdata/symbol_metadata_refresh.py` defines the provider-neutral refresh contract, deterministic `curated_csv` provider, provider diagnostics, manifest summary, and validation summary.
 - `tools/refresh_symbol_universe_metadata.py` runs dry-run by default and can write CSV / `symbol_universe_manifest.json` only with `--write`; write is refused when post-refresh validation has errors.
 - Yahoo live metadata provider is available through `--provider yahoo --allow-live`; it maps selected ticker metadata into catalog fields and records per-symbol failures in the manifest. Normal checks remain network-free.
+- `backend/marketdata/symbol_universe_import.py` and `tools/import_symbol_universe_source.py` merge local source CSV rows into `symbol_universe.csv` with dry-run, manifest, append-only default, optional existing-row update, and validation-before/write.
+- `data/marketdata/symbol_universe_sources/jpx_etf_seed.csv` is the first source seed. 2026-05-18 時点では国内 ETF 8件を `symbol_universe.csv` に取り込み、candidate master は 103件になっている。
 
 ### 5.5 Phase 19: Decision Report Context MVP
 

@@ -229,3 +229,8 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - Kept the latest Rebalance Cockpit result in Streamlit session state so the summary, allocation comparison, risk confirmation points, and downloads remain visible across reruns after a successful check.
 - Added deterministic UI helper tests for reading the stored rebalance result/request and ignoring incomplete session state.
+
+## 2026-05-18 - Phase 18 Symbol universe source import
+
+- Added a local source-import path for `symbol_universe.csv`, including append-only default merge, optional existing-symbol update, validation-before/write, and manifest output.
+- Added a JPX ETF seed source and imported 8 domestic ETF rows into the ranking candidate master without adding network dependency.

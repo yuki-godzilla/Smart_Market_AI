@@ -1,0 +1,6 @@
+symbol,name,sector,theme,aliases,dividend_category,dividend_yield_pct,market_cap_tier,tags,per,pbr,roe_pct,consensus_rating,forecast_agreement,data_quality,risk_band
+AAPL,Apple Inc.,technology,technology,apple iphone mac,growth_dividend,0.5,mega,"growth,quality",28.0,38.0,145.0,3.8,HIGH,OK,MEDIUM
+MSFT,Microsoft,technology,technology,microsoft azure,growth_dividend,0.7,mega,"growth,quality",32.0,11.0,35.0,4.0,HIGH,OK,LOW
+NVDA,NVIDIA,technology,semiconductor,nvidia gpu ai,none,0.0,mega,growth,45.0,42.0,70.0,4.4,HIGH,OK,HIGH
+JNJ,Johnson & Johnson,healthcare,healthcare,johnson dividend,dividend,3.0,mega,"dividend,lower_risk",16.0,5.0,18.0,3.1,MEDIUM,OK,LOW
+V,Visa,financial,financial,visa payments,growth_dividend,0.8,mega,"growth,quality",30.0,14.0,42.0,3.9,HIGH,OK,LOW

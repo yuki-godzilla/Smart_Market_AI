@@ -87,7 +87,7 @@ Partial or intentionally deferred:
 
 ## Next Good Targets
 
-- Continue Phase 18 by expanding official/curated source ingestion: broader JPX domestic stock/ETF coverage, SBI US stock/ETF source CSVs, then FSA/IMAJ fund metadata and NISA lists.
+- Continue Phase 18 by deciding which SBI US ETF / mutual fund seed rows to write into `symbol_universe.csv`, then expand official/curated source ingestion with broader JPX coverage, FSA/IMAJ fund metadata, and NISA lists.
 - Keep a final cross-flow Streamlit smoke available before handoff when browser access is useful: ranking cache/progress, purpose-based resort, ranking-to-cockpit, and Rebalance wording.
 - Prepare Phase 19 Decision Report context so cockpit / ranking / rebalance outputs can be saved consistently.
 - Start Phase 20 Research RAG from local document ingestion, chunk/search, and deterministic Research Summary before optional vector/LLM adapters.

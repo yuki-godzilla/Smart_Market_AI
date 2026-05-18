@@ -280,6 +280,8 @@ Symbol universe source import:
 - `tools/import_symbol_universe_source.py` は、JPX などのローカル source CSV を `symbol_universe.csv` 形式へ取り込む command です。
 - 既定は dry-run で、`--write` を付けた場合だけ CSV / manifest を更新します。write 前に validation error が残る場合は書き込みを拒否します。
 - 初期 source として `data/marketdata/symbol_universe_sources/jpx_etf_seed.csv` と `data/marketdata/symbol_universe_sources/jpx_stock_seed.csv` を置いています。2026-05-18 時点では国内 ETF 8件、国内株 24件を `symbol_universe.csv` に取り込み済みです。
+- SBI / 投信向け source profile として `sbi_us_stock`, `sbi_us_etf`, `mutual_fund_seed` を追加しています。各 profile は market / asset_type / currency と SBI policy columns を補完します。
+- 追加 seed として `sbi_us_stock_seed.csv`, `sbi_us_etf_seed.csv`, `mutual_fund_seed.csv` を置いています。これらは source seed であり、`--write` を実行するまで `symbol_universe.csv` 本体には反映されません。
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\import_symbol_universe_source.py --source-csv .\data\marketdata\symbol_universe_sources\jpx_etf_seed.csv --source-name jpx --as-of 2026-05-18 --updated-at 2026-05-18T00:00:00+09:00
@@ -291,6 +293,12 @@ JPX のように source 側が4桁コードで、SMAI 側では yfinance-compati
 .\venv_SMAI\Scripts\python.exe .\tools\import_symbol_universe_source.py --source-csv .\data\marketdata\symbol_universe_sources\jpx_stock_seed.csv --source-name jpx --default-market jp --default-asset-type stock --default-currency JPY --symbol-suffix .T --as-of 2026-05-18 --updated-at 2026-05-18T00:00:00+09:00
 ```
 
+SBI profile の dry-run 例:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\import_symbol_universe_source.py --source-csv .\data\marketdata\symbol_universe_sources\sbi_us_etf_seed.csv --source-profile sbi_us_etf --as-of 2026-05-18 --updated-at 2026-05-18T00:00:00+09:00
+```
+
 SBI ranking universe policy:
 
 - 初期対象: 国内株式、米国株式、国内ETF、米国ETF/海外ETF、投資信託、REIT。
@@ -299,6 +307,7 @@ SBI ranking universe policy:
 - `tradability=unknown` は初期 seed として通し、`not_tradable` だけを除外します。SBI / NISA / 投信の公式 source import は後続範囲です。
 - SBI証券サイトへのログインや画面スクレイピングは通常 workflow に含めません。SBI / JPX / 投信協会 / NISA 一覧などを手動または curated source CSV に整形し、source import command で local master へ反映します。
 - Ranking / Screening は source site を直接参照せず、`symbol_universe.csv` と default policy helper だけを参照します。
+- 投信向け metadata として `trust_fee_pct`, `aum`, `nisa_tsumitate_eligible`, `nisa_growth_eligible`, `installment_available`, `management_style`, `distribution_policy` を source CSV から取り込めます。
 
 Phase 16 ranking implementation notes:
 

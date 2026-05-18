@@ -81,7 +81,7 @@ def test_symbol_metadata_catalog_marks_ranking_fields_with_source_policy():
     assert metadata_field_by_key("risk_band").tier == METADATA_TIER_RANKING_FILTER
 
 
-def test_symbol_metadata_catalog_keeps_fund_metadata_out_of_symbol_universe():
+def test_symbol_metadata_catalog_includes_fund_metadata_for_source_import():
     fund_fields = {field.key for field in metadata_fields_by_tier(METADATA_TIER_FUND_EXTENDED)}
     symbol_universe_fields = {
         field.key for field in metadata_fields_by_storage(METADATA_STORAGE_SYMBOL_UNIVERSE)
@@ -99,14 +99,32 @@ def test_symbol_metadata_catalog_keeps_fund_metadata_out_of_symbol_universe():
         "management_style",
         "distribution_policy",
     } <= fund_fields
-    assert fund_fields <= future_fund_fields
-    assert fund_fields.isdisjoint(symbol_universe_fields)
+    assert {
+        "trust_fee_pct",
+        "aum",
+        "nisa_tsumitate_eligible",
+        "nisa_growth_eligible",
+        "installment_available",
+        "management_style",
+        "distribution_policy",
+    } <= symbol_universe_fields
+    assert "installment_source" in future_fund_fields
+    assert {"trust_fee_pct", "aum"} <= set(symbol_universe_decimal_columns())
 
 
 def test_symbol_metadata_catalog_allows_official_source_names():
     metadata_source = metadata_field_by_key("metadata_source")
 
     assert metadata_source is not None
-    assert {"jpx", "fsa", "imaj", "yahoo", "fmp", "eodhd", "alpha_vantage"} <= set(
-        metadata_source.allowed_values
-    )
+    assert {
+        "jpx",
+        "fsa",
+        "imaj",
+        "yahoo",
+        "fmp",
+        "eodhd",
+        "alpha_vantage",
+        "sbi_us_stock",
+        "sbi_us_etf",
+        "mutual_fund_seed",
+    } <= set(metadata_source.allowed_values)

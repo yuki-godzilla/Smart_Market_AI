@@ -26,6 +26,14 @@ SMAI の銘柄ランキング、比較分析、将来の銘柄推薦で使う初
 - `backend/marketdata/ranking_universe_policy.py` による初期 ranking universe policy
 - ranking 候補抽出前の policy enforcement
 - `tools/import_symbol_universe_source.py` による source CSV import
+- import source profile
+  - `sbi_us_stock`
+  - `sbi_us_etf`
+  - `mutual_fund_seed`
+- source seed CSV
+  - `data/marketdata/symbol_universe_sources/sbi_us_stock_seed.csv`
+  - `data/marketdata/symbol_universe_sources/sbi_us_etf_seed.csv`
+  - `data/marketdata/symbol_universe_sources/mutual_fund_seed.csv`
 - `tools/refresh_symbol_universe_metadata.py` による provider-neutral metadata refresh
 - JPX seed による国内株 / 国内 ETF の候補拡張
 
@@ -245,13 +253,20 @@ ETF / 投信 / REIT 向けに将来追加する候補:
 
 - `asset_class`
 - `underlying_index`
-- `aum`
 - `distribution_yield_pct`
 - `tracking_method`
-- `trust_fee_pct`
 - `total_net_assets`
-- `distribution_policy`
 - `property_type`
+
+投信向けに `symbol_universe.csv` へ取り込み可能になった metadata:
+
+- `trust_fee_pct`
+- `aum`
+- `nisa_tsumitate_eligible`
+- `nisa_growth_eligible`
+- `installment_available`
+- `management_style`
+- `distribution_policy`
 
 ## 8. Default ranking universe policy
 
@@ -372,6 +387,17 @@ ranking_universe:
 
 通常テストは network 非依存に保つ。
 
+現在の source profile:
+
+| profile | 用途 | 主な default |
+| --- | --- | --- |
+| `sbi_us_stock` | SBI取扱米国株 seed | `market=us`, `asset_type=stock`, `currency=USD`, `tradability=tradable` |
+| `sbi_us_etf` | SBI取扱米国/海外 ETF seed | `market=us`, `asset_type=etf`, `currency=USD`, `tradability=tradable` |
+| `mutual_fund_seed` | 主要投資信託 seed | `market=jp`, `asset_type=mutual_fund`, `currency=JPY`, `tradability=unknown` |
+
+各 profile は `broker=sbi_securities`, `is_sbi_supported=true`, `is_active=true`, `is_leveraged=false`, `is_inverse=false` を補完する。
+source CSV 側に `is_leveraged` / `is_inverse` がある場合は、source 側の値を優先する。
+
 NG:
 
 - Ranking / Screening が SBI証券サイトを直接参照する。
@@ -417,6 +443,8 @@ Phase 18 の実装順:
 4. `ui/ranking.py` の候補抽出前に policy を適用する。完了。
 5. レバレッジ / インバース / 非SBI / 非tradable の除外テストを追加する。完了。
 6. `symbol_universe.csv` の既存行へ conservative default metadata を付与する。完了。
-7. SBI / NISA / 投信 metadata source import を追加する。
+7. SBI / NISA / 投信 metadata source import を追加する。部分完了。
+   - `--source-profile` と seed CSV は追加済み。
+   - SBI公式一覧 / NISA公式一覧 / 投信協会などからの半自動 adapter は未実装。
 
 NISA / 積立 / SBI確認済みなどの UI 表示は、対応する official / curated source metadata が入ってから追加する。

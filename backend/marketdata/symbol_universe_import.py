@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from backend.marketdata.symbol_metadata_refresh import summarize_validation_issues
 from backend.marketdata.symbol_metadata_schema import (
@@ -16,6 +16,13 @@ SYMBOL_UNIVERSE_SOURCE_ALIASES = {
     "market": ("market", "region"),
     "asset_type": ("asset_type", "product_type"),
     "currency": ("currency",),
+    "trust_fee_pct": ("trust_fee_pct", "trust_fee", "fee_pct"),
+    "aum": ("aum", "total_net_assets", "net_assets"),
+    "nisa_tsumitate_eligible": ("nisa_tsumitate_eligible", "tsumitate_nisa"),
+    "nisa_growth_eligible": ("nisa_growth_eligible", "growth_nisa"),
+    "installment_available": ("installment_available", "recurring_available"),
+    "management_style": ("management_style", "fund_category"),
+    "distribution_policy": ("distribution_policy", "distribution"),
 }
 
 
@@ -45,6 +52,89 @@ class SymbolUniverseImportDefaults:
     asset_type: str = ""
     currency: str = ""
     symbol_suffix: str = ""
+    column_defaults: Mapping[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class SymbolUniverseSourceProfile:
+    """Named import defaults for common local source CSVs."""
+
+    name: str
+    source_name: str
+    defaults: SymbolUniverseImportDefaults
+
+
+SBI_POLICY_COLUMN_DEFAULTS = {
+    "broker": "sbi_securities",
+    "is_sbi_supported": "true",
+    "is_active": "true",
+    "is_leveraged": "false",
+    "is_inverse": "false",
+}
+
+SOURCE_PROFILES: dict[str, SymbolUniverseSourceProfile] = {
+    "sbi_us_stock": SymbolUniverseSourceProfile(
+        name="sbi_us_stock",
+        source_name="sbi_us_stock",
+        defaults=SymbolUniverseImportDefaults(
+            market="us",
+            asset_type="stock",
+            currency="USD",
+            column_defaults={
+                **SBI_POLICY_COLUMN_DEFAULTS,
+                "tradability": "tradable",
+                "nisa_category": "unknown",
+                "investment_style": "lump_sum",
+            },
+        ),
+    ),
+    "sbi_us_etf": SymbolUniverseSourceProfile(
+        name="sbi_us_etf",
+        source_name="sbi_us_etf",
+        defaults=SymbolUniverseImportDefaults(
+            market="us",
+            asset_type="etf",
+            currency="USD",
+            column_defaults={
+                **SBI_POLICY_COLUMN_DEFAULTS,
+                "tradability": "tradable",
+                "nisa_category": "unknown",
+                "investment_style": "both",
+                "theme": "index",
+                "sector": "index",
+                "complexity": "beginner",
+                "tags": "low_cost",
+            },
+        ),
+    ),
+    "mutual_fund_seed": SymbolUniverseSourceProfile(
+        name="mutual_fund_seed",
+        source_name="mutual_fund_seed",
+        defaults=SymbolUniverseImportDefaults(
+            market="jp",
+            asset_type="mutual_fund",
+            currency="JPY",
+            column_defaults={
+                **SBI_POLICY_COLUMN_DEFAULTS,
+                "tradability": "unknown",
+                "nisa_category": "unknown",
+                "investment_style": "recurring",
+                "theme": "index",
+                "sector": "index",
+                "complexity": "standard",
+                "tags": "installment,low_cost",
+            },
+        ),
+    ),
+}
+
+
+def symbol_universe_source_profile_names() -> tuple[str, ...]:
+    return tuple(SOURCE_PROFILES)
+
+
+def symbol_universe_source_profile(name: str) -> SymbolUniverseSourceProfile:
+    return SOURCE_PROFILES[name]
 
 
 def symbol_universe_import_fieldnames() -> list[str]:
@@ -141,6 +231,7 @@ def merge_symbol_universe_source_rows(
             "currency": (defaults.currency if defaults else ""),
             "symbol_suffix": (defaults.symbol_suffix if defaults else ""),
         },
+        "default_columns": dict(defaults.column_defaults) if defaults else {},
         "as_of": as_of.isoformat(),
         "updated_at": updated_at.isoformat(),
         "existing_rows": len(existing_rows),
@@ -245,6 +336,9 @@ def _apply_defaults(row: dict[str, str], defaults: SymbolUniverseImportDefaults)
         row["asset_type"] = defaults.asset_type
     if not row["currency"] and defaults.currency:
         row["currency"] = defaults.currency
+    for column, value in defaults.column_defaults.items():
+        if column in row and not row[column] and value:
+            row[column] = value
 
 
 def _normalize_symbol(symbol: str, *, suffix: str = "") -> str:

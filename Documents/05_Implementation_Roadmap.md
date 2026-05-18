@@ -387,7 +387,7 @@ Implementation order:
 7. `--write` path for CSV/manifest update, with validation before and after write. 完了。Cache output is future scope if needed.
 8. Local source import for JPX / curated universe expansion. 完了。Initial JPX ETF seed and domestic stock seed imported.
 9. SBI ranking universe policy columns and default exclusion helper. 完了。Unknown tradability is allowed by default.
-10. SBI / NISA / 投信 metadata source import. 次の実装候補。まず手動または curated source CSV を取り込み、直接スクレイピングはしない。
+10. SBI / NISA / 投信 metadata source import. 部分完了。`--source-profile`、SBI US stock/ETF seed、mutual fund seed、投信 metadata columns の import path は追加済み。次は公式/curated source の拡張と必要な write 判断。
 11. SecurityMaster repository separation only if symbol master usage spreads beyond current UI / command helpers.
 12. Optional additional provider adapters only when Yahoo coverage or stability is insufficient.
 
@@ -413,6 +413,7 @@ Current implementation note:
 - `data/marketdata/symbol_universe_sources/jpx_etf_seed.csv` and `jpx_stock_seed.csv` are the first source seeds. 2026-05-18 時点では国内 ETF 8件と国内株 24件を `symbol_universe.csv` に取り込み、candidate master は 127件になっている。
 - SBI証券取扱商品を初期 ranking universe の前提にする policy columns / default exclusion helper を追加した。現時点の CSV は SBI取扱確認済み master ではなく local curated / source-import seed として扱うため、`tradability=unknown` は初期 ranking で通す。
 - SBI銘柄マスタ取得方針は、SBI から直接リアルタイム取得するのではなく、SBI / JPX / public source を local source CSV 化して import する。将来 adapter は source import / repository 境界に追加し、ranking logic から分離する。
+- `tools/import_symbol_universe_source.py` supports `--source-profile sbi_us_stock|sbi_us_etf|mutual_fund_seed`, filling market/product/currency and SBI policy defaults. `sbi_us_stock_seed.csv`, `sbi_us_etf_seed.csv`, and `mutual_fund_seed.csv` are available as dry-run source seeds. They are not written into `symbol_universe.csv` until `--write` is used.
 
 ### 5.5 Phase 19: Decision Report Context MVP
 

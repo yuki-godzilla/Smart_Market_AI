@@ -2,11 +2,17 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
+from backend.marketdata.ranking_universe_policy import (
+    symbol_allowed_by_ranking_universe_policy,
+)
 from backend.marketdata.symbol_universe_import import (
     SymbolUniverseImportDefaults,
     merge_symbol_universe_source_rows,
     symbol_universe_import_fieldnames,
+    symbol_universe_source_profile,
+    symbol_universe_source_profile_names,
 )
+from ui.symbol_universe import validate_symbol_universe_rows
 
 
 def test_merge_symbol_universe_source_rows_imports_new_rows_with_inferred_fields():
@@ -66,6 +72,107 @@ def test_merge_symbol_universe_source_rows_normalizes_jpx_numeric_codes_with_def
         "currency": "JPY",
         "symbol_suffix": ".T",
     }
+
+
+def test_source_profiles_expose_expected_names():
+    assert {"sbi_us_stock", "sbi_us_etf", "mutual_fund_seed"} <= set(
+        symbol_universe_source_profile_names()
+    )
+
+
+def test_sbi_us_stock_profile_applies_policy_defaults():
+    profile = symbol_universe_source_profile("sbi_us_stock")
+    result = merge_symbol_universe_source_rows(
+        [],
+        [{"symbol": "V", "name": "Visa", "sector": "financial"}],
+        source_name=profile.source_name,
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+        defaults=profile.defaults,
+    )
+
+    imported_row = result.rows[0]
+    assert imported_row["market"] == "us"
+    assert imported_row["asset_type"] == "stock"
+    assert imported_row["currency"] == "USD"
+    assert imported_row["broker"] == "sbi_securities"
+    assert imported_row["tradability"] == "tradable"
+    assert imported_row["is_sbi_supported"] == "true"
+    assert imported_row["is_active"] == "true"
+    assert imported_row["is_leveraged"] == "false"
+    assert imported_row["is_inverse"] == "false"
+    assert result.manifest["source"] == "sbi_us_stock"
+    assert result.manifest["default_columns"]["broker"] == "sbi_securities"
+
+
+def test_sbi_us_etf_profile_keeps_leveraged_inverse_flags_for_policy_exclusion():
+    profile = symbol_universe_source_profile("sbi_us_etf")
+    result = merge_symbol_universe_source_rows(
+        [],
+        [
+            {"symbol": "VOO", "name": "Vanguard S&P 500 ETF"},
+            {
+                "symbol": "SQQQ",
+                "name": "ProShares UltraPro Short QQQ",
+                "is_leveraged": "true",
+                "is_inverse": "true",
+                "complexity": "inverse",
+            },
+        ],
+        source_name=profile.source_name,
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+        defaults=profile.defaults,
+    )
+
+    row_by_symbol = {row["symbol"]: row for row in result.rows}
+    assert row_by_symbol["VOO"]["asset_type"] == "etf"
+    assert row_by_symbol["VOO"]["theme"] == "index"
+    assert symbol_allowed_by_ranking_universe_policy(row_by_symbol["VOO"])
+    assert not symbol_allowed_by_ranking_universe_policy(row_by_symbol["SQQQ"])
+
+
+def test_mutual_fund_profile_imports_minimum_fund_metadata():
+    profile = symbol_universe_source_profile("mutual_fund_seed")
+    result = merge_symbol_universe_source_rows(
+        [],
+        [
+            {
+                "symbol": "MF-EMAXIS-ACWI",
+                "fund_name": "eMAXIS Slim 全世界株式（オール・カントリー）",
+                "index_family": "acwi",
+                "trust_fee_pct": "0.05775",
+                "aum": "5000000000000",
+                "nisa_tsumitate_eligible": "true",
+                "nisa_growth_eligible": "true",
+                "installment_available": "true",
+                "management_style": "index",
+                "distribution_policy": "none",
+            }
+        ],
+        source_name=profile.source_name,
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+        defaults=profile.defaults,
+    )
+
+    imported_row = result.rows[0]
+    assert imported_row["name"] == "eMAXIS Slim 全世界株式（オール・カントリー）"
+    assert imported_row["asset_type"] == "mutual_fund"
+    assert imported_row["trust_fee_pct"] == "0.05775"
+    assert imported_row["aum"] == "5000000000000"
+    assert imported_row["nisa_tsumitate_eligible"] == "true"
+    assert imported_row["nisa_growth_eligible"] == "true"
+    assert imported_row["installment_available"] == "true"
+    assert imported_row["management_style"] == "index"
+    assert imported_row["distribution_policy"] == "none"
+    assert (
+        validate_symbol_universe_rows(
+            result.rows,
+            fieldnames=symbol_universe_import_fieldnames(),
+        )
+        == []
+    )
 
 
 def test_merge_symbol_universe_source_rows_skips_existing_by_default():

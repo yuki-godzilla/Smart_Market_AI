@@ -144,6 +144,53 @@ def test_import_symbol_universe_source_tool_applies_jpx_defaults(tmp_path, capsy
     assert rows[1]["currency"] == "JPY"
 
 
+def test_import_symbol_universe_source_tool_applies_source_profile(tmp_path, capsys):
+    base_csv = tmp_path / "symbol_universe.csv"
+    source_csv = tmp_path / "sbi_us_stock_seed.csv"
+    manifest_path = tmp_path / "manifest.json"
+    _write_base_rows(base_csv, [{"symbol": "AAPL", "name": "Apple Inc."}])
+    _write_source_rows(
+        source_csv,
+        [
+            {
+                "symbol": "V",
+                "name": "Visa",
+                "sector": "financial",
+            }
+        ],
+    )
+
+    exit_code = main(
+        [
+            "--base-csv",
+            str(base_csv),
+            "--source-csv",
+            str(source_csv),
+            "--source-profile",
+            "sbi_us_stock",
+            "--manifest",
+            str(manifest_path),
+            "--as-of",
+            "2026-05-18",
+            "--updated-at",
+            "2026-05-18T00:00:00+00:00",
+            "--write",
+        ]
+    )
+
+    output = json.loads(capsys.readouterr().out)
+    rows = _read_rows(base_csv)
+    assert exit_code == 0
+    assert output["source"] == "sbi_us_stock"
+    assert rows[1]["market"] == "us"
+    assert rows[1]["asset_type"] == "stock"
+    assert rows[1]["currency"] == "USD"
+    assert rows[1]["broker"] == "sbi_securities"
+    assert rows[1]["tradability"] == "tradable"
+    assert rows[1]["is_sbi_supported"] == "true"
+    assert rows[1]["is_active"] == "true"
+
+
 def test_import_symbol_universe_source_tool_refuses_invalid_write(tmp_path, capsys):
     base_csv = tmp_path / "symbol_universe.csv"
     source_csv = tmp_path / "jpx_seed.csv"
@@ -231,6 +278,12 @@ def _write_source_rows(path, rows):
         "sector",
         "index_family",
         "expense_ratio_pct",
+        "broker",
+        "tradability",
+        "is_sbi_supported",
+        "is_active",
+        "is_leveraged",
+        "is_inverse",
     ]
     with path.open("w", encoding="utf-8", newline="") as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)

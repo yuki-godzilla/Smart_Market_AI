@@ -369,10 +369,10 @@ Implementation order:
 
 1. Network-free schema / validation / Settings status. 完了。
 2. Metadata source / freshness columns and summary. 完了。
-3. Provider-neutral refresh contract and fake/curated provider test.
-4. Dry-run first refresh command with manifest output.
+3. Provider-neutral refresh contract and fake/curated provider test. 完了。
+4. Dry-run first refresh command with manifest output. 完了。
 5. Yahoo metadata provider as the first live adapter, behind explicit opt-in.
-6. `--write` path for CSV/cache/manifest update, with validation before and after write.
+6. `--write` path for CSV/manifest update, with validation before and after write. 完了。Cache output is future scope if needed.
 7. Optional additional provider adapters only when Yahoo coverage or stability is insufficient.
 
 Completion criteria:
@@ -388,7 +388,9 @@ Current implementation note:
 - `ui/symbol_universe.py` defines the current required CSV columns, optional freshness/source columns, enum values, decimal fields, and duplicate ticker validation.
 - `symbol_universe.csv` now stores `metadata_source`, `metadata_as_of`, and `metadata_updated_at`; the current deterministic baseline is marked as `curated_csv` with `2026-05-18` metadata.
 - `設定 / データ情報` shows candidate count, metadata source, metadata period, validation summary, and issue rows for `symbol_universe.csv` without blocking the existing ranking UI.
-- Network-free slices remain complete. Provider-neutral refresh contract, dry-run command, Yahoo live adapter, and CSV/cache/manifest write path are still future tasks in Phase 18.
+- `backend/marketdata/symbol_metadata_refresh.py` defines the provider-neutral refresh contract, deterministic `curated_csv` provider, provider diagnostics, manifest summary, and validation summary.
+- `tools/refresh_symbol_universe_metadata.py` runs dry-run by default and can write CSV / `symbol_universe_manifest.json` only with `--write`; write is refused when post-refresh validation has errors.
+- Yahoo live metadata provider remains the next Phase 18 task and must stay behind explicit opt-in.
 
 ### 5.5 Phase 19: Decision Report Context MVP
 

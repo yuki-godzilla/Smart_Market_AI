@@ -225,12 +225,13 @@ def _render_metric_range_filter(
     max_value: float = 100.0,
     step: float = 0.1,
 ) -> None:
-    enabled = st.checkbox(
-        label,
-        value=_ranking_filter_bool(enabled_key, False),
-        key=enabled_key,
-    )
-    col_min, col_max = st.columns(2)
+    col_enabled, col_min, col_max = st.columns([1.0, 1.0, 1.0])
+    with col_enabled:
+        enabled = st.checkbox(
+            label,
+            value=_ranking_filter_bool(enabled_key, False),
+            key=enabled_key,
+        )
     with col_min:
         st.number_input(
             "下限",
@@ -253,6 +254,35 @@ def _render_metric_range_filter(
         )
 
 
+def _render_detail_selectbox(
+    label: str,
+    *,
+    options: list[str],
+    key: str,
+    format_func: Callable[[str], str],
+) -> None:
+    st.selectbox(
+        label,
+        options,
+        index=_selectbox_index(options, _ranking_filter_value(key, options[0])),
+        key=key,
+        format_func=format_func,
+    )
+
+
+def _render_metric_filter_grid(
+    filters: list[tuple[str, dict[str, object]]],
+    *,
+    columns_per_row: int = 2,
+) -> None:
+    for start_index in range(0, len(filters), columns_per_row):
+        row_filters = filters[start_index : start_index + columns_per_row]
+        columns = st.columns(columns_per_row)
+        for column, (label, kwargs) in zip(columns, row_filters, strict=False):
+            with column:
+                _render_metric_range_filter(label, **kwargs)
+
+
 def _render_ranking_filter_panel() -> None:
     has_ranking_result = bool(st.session_state.get(MARKET_DATA_RANKING_STATE_KEY))
     region = _ranking_filter_value("market_data_ranking_region", "japan")
@@ -267,6 +297,7 @@ def _render_ranking_filter_panel() -> None:
         if product_type == "mutual_fund":
             st.info("投信の条件は定義済みですが、現在の銘柄マスタには投信候補がありません。")
 
+        st.markdown("**分類条件**")
         columns = st.columns(4)
         column_index = 0
 
@@ -278,53 +309,33 @@ def _render_ranking_filter_panel() -> None:
 
         if "industry_or_sector" in detail_filters:
             with next_column():
-                options = list(RANKING_THEME_LABELS)
-                st.selectbox(
+                _render_detail_selectbox(
                     "業種/テーマ",
-                    options,
-                    index=_selectbox_index(
-                        options,
-                        _ranking_filter_value("market_data_ranking_theme", "all"),
-                    ),
+                    options=list(RANKING_THEME_LABELS),
                     key="market_data_ranking_theme",
                     format_func=lambda value: RANKING_THEME_LABELS[value],
                 )
         if "market_cap" in detail_filters:
             with next_column():
-                options = list(RANKING_MARKET_CAP_LABELS)
-                st.selectbox(
+                _render_detail_selectbox(
                     "時価総額",
-                    options,
-                    index=_selectbox_index(
-                        options,
-                        _ranking_filter_value("market_data_ranking_market_cap", "all"),
-                    ),
+                    options=list(RANKING_MARKET_CAP_LABELS),
                     key="market_data_ranking_market_cap",
                     format_func=lambda value: RANKING_MARKET_CAP_LABELS[value],
                 )
         if "risk_band" in detail_filters:
             with next_column():
-                options = list(RANKING_RISK_BAND_LABELS)
-                st.selectbox(
+                _render_detail_selectbox(
                     "リスク",
-                    options,
-                    index=_selectbox_index(
-                        options,
-                        _ranking_filter_value("market_data_ranking_risk_band", "all"),
-                    ),
+                    options=list(RANKING_RISK_BAND_LABELS),
                     key="market_data_ranking_risk_band",
                     format_func=lambda value: RANKING_RISK_BAND_LABELS[value],
                 )
         if "benchmark_index" in detail_filters:
             with next_column():
-                options = list(RANKING_INDEX_FAMILY_LABELS)
-                st.selectbox(
+                _render_detail_selectbox(
                     "連動指数",
-                    options,
-                    index=_selectbox_index(
-                        options,
-                        _ranking_filter_value("market_data_ranking_index_family", "all"),
-                    ),
+                    options=list(RANKING_INDEX_FAMILY_LABELS),
                     key="market_data_ranking_index_family",
                     format_func=lambda value: RANKING_INDEX_FAMILY_LABELS[value],
                 )
@@ -340,94 +351,93 @@ def _render_ranking_filter_panel() -> None:
                 )
         if "complexity" in detail_filters:
             with next_column():
-                options = list(RANKING_COMPLEXITY_LABELS)
-                st.selectbox(
+                _render_detail_selectbox(
                     "複雑さ",
-                    options,
-                    index=_selectbox_index(
-                        options,
-                        _ranking_filter_value("market_data_ranking_complexity", "standard"),
-                    ),
+                    options=list(RANKING_COMPLEXITY_LABELS),
                     key="market_data_ranking_complexity",
                     format_func=lambda value: RANKING_COMPLEXITY_LABELS[value],
                 )
+        if "dividend_yield" in detail_filters:
+            with next_column():
+                _render_detail_selectbox(
+                    "配当カテゴリ",
+                    options=list(RANKING_DIVIDEND_LABELS),
+                    key="market_data_ranking_dividend",
+                    format_func=lambda value: RANKING_DIVIDEND_LABELS[value],
+                )
         with next_column():
-            options = list(RANKING_CURRENCY_LABELS)
-            st.selectbox(
+            _render_detail_selectbox(
                 "通貨",
-                options,
-                index=_selectbox_index(
-                    options,
-                    _ranking_filter_value("market_data_ranking_currency", "all"),
-                ),
+                options=list(RANKING_CURRENCY_LABELS),
                 key="market_data_ranking_currency",
                 format_func=lambda value: RANKING_CURRENCY_LABELS[value],
             )
 
+        metric_filters: list[tuple[str, dict[str, object]]] = []
         if "dividend_yield" in detail_filters:
-            col_dividend, col_min_dividend = st.columns([1.0, 1.0])
-            with col_dividend:
-                options = list(RANKING_DIVIDEND_LABELS)
-                st.selectbox(
-                    "配当カテゴリ",
-                    options,
-                    index=_selectbox_index(
-                        options,
-                        _ranking_filter_value("market_data_ranking_dividend", "all"),
-                    ),
-                    key="market_data_ranking_dividend",
-                    format_func=lambda value: RANKING_DIVIDEND_LABELS[value],
-                )
-            with col_min_dividend:
-                _render_metric_range_filter(
+            metric_filters.append(
+                (
                     "配当利回り(%)",
-                    enabled_key="market_data_ranking_dividend_enabled",
-                    min_key="market_data_ranking_min_dividend",
-                    max_key="market_data_ranking_dividend_max",
-                    min_default="3.0",
-                    max_default="10.0",
-                    max_value=15.0,
+                    {
+                        "enabled_key": "market_data_ranking_dividend_enabled",
+                        "min_key": "market_data_ranking_min_dividend",
+                        "max_key": "market_data_ranking_dividend_max",
+                        "min_default": "3.0",
+                        "max_default": "10.0",
+                        "max_value": 15.0,
+                    },
                 )
-
-        metric_filters = [metric for metric in ("per", "pbr", "roe") if metric in detail_filters]
+            )
+        if "per" in detail_filters:
+            metric_filters.append(
+                (
+                    "PER",
+                    {
+                        "enabled_key": "market_data_ranking_per_enabled",
+                        "min_key": "market_data_ranking_per_min",
+                        "max_key": "market_data_ranking_per_max",
+                        "min_default": "2.0",
+                        "max_default": "20.0",
+                        "max_value": 80.0,
+                    },
+                )
+            )
+        if "pbr" in detail_filters:
+            metric_filters.append(
+                (
+                    "PBR",
+                    {
+                        "enabled_key": "market_data_ranking_pbr_enabled",
+                        "min_key": "market_data_ranking_pbr_min",
+                        "max_key": "market_data_ranking_pbr_max",
+                        "min_default": "0.5",
+                        "max_default": "2.0",
+                        "max_value": 20.0,
+                    },
+                )
+            )
+        if "roe" in detail_filters:
+            metric_filters.append(
+                (
+                    "ROE(%)",
+                    {
+                        "enabled_key": "market_data_ranking_roe_enabled",
+                        "min_key": "market_data_ranking_roe_min",
+                        "max_key": "market_data_ranking_roe_max",
+                        "min_default": "8.0",
+                        "max_default": "30.0",
+                        "max_value": 60.0,
+                    },
+                )
+            )
         if metric_filters:
-            metric_columns = st.columns(len(metric_filters))
-            for metric, column in zip(metric_filters, metric_columns, strict=True):
-                with column:
-                    if metric == "per":
-                        _render_metric_range_filter(
-                            "PER",
-                            enabled_key="market_data_ranking_per_enabled",
-                            min_key="market_data_ranking_per_min",
-                            max_key="market_data_ranking_per_max",
-                            min_default="2.0",
-                            max_default="20.0",
-                            max_value=80.0,
-                        )
-                    elif metric == "pbr":
-                        _render_metric_range_filter(
-                            "PBR",
-                            enabled_key="market_data_ranking_pbr_enabled",
-                            min_key="market_data_ranking_pbr_min",
-                            max_key="market_data_ranking_pbr_max",
-                            min_default="0.5",
-                            max_default="2.0",
-                            max_value=20.0,
-                        )
-                    elif metric == "roe":
-                        _render_metric_range_filter(
-                            "ROE(%)",
-                            enabled_key="market_data_ranking_roe_enabled",
-                            min_key="market_data_ranking_roe_min",
-                            max_key="market_data_ranking_roe_max",
-                            min_default="8.0",
-                            max_default="30.0",
-                            max_value=60.0,
-                        )
+            st.markdown("**数値条件**")
+            _render_metric_filter_grid(metric_filters)
 
         if "management_style" in detail_filters or "nisa_eligibility" in detail_filters:
             st.caption("運用方式 / NISA対応 / 積立可否は Phase 18 のメタデータ拡張で有効化します。")
 
+        st.markdown("**キーワード**")
         col_keyword, col_clear = st.columns([3.0, 0.8])
         with col_keyword:
             st.text_input(

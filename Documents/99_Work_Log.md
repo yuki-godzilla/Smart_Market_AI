@@ -236,3 +236,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added a JPX ETF seed source and imported 8 domestic ETF rows into the ranking candidate master without adding network dependency.
 - Extended source import for JPX-style numeric codes by adding import defaults and `.T` suffix normalization, then imported 24 domestic stock seed rows.
 - Documented the SBI Securities based ranking-universe policy, including initial target products, default exclusions, metadata columns, and the next Phase 18 implementation slice.
+
+## 2026-05-18 - Phase 18 SBI ranking universe policy
+
+- Added SBI policy columns to `symbol_universe.csv` and schema, with conservative defaults for the current 127-row seed universe.
+- Added the default ranking-universe policy helper and wired it into ranking candidate extraction before provider fetch.
+- Kept `tradability=unknown` eligible for initial ranking while excluding explicit out-of-scope products, not-tradable rows, inactive rows, non-SBI rows, leveraged rows, and inverse rows.
+- Added deterministic tests for the policy helper, schema fields, CSV validation, and ranking candidate filtering.

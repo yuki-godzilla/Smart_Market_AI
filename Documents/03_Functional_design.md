@@ -15,7 +15,7 @@
 | Investment Score | 実装済み | screening / forecast / data quality / risk signal の統合 |
 | Portfolio / Risk | 実装済み | no-solver rebalance proposal と pre-trade risk check |
 | Streamlit UI | 実装済み | 銘柄コックピット、ランキング、Rebalance Cockpit。最終 browser smoke は推奨確認 |
-| Symbol Universe | in progress | `symbol_universe.csv`、metadata schema、source import、opt-in refresh。SBI policy enforcement は次 slice |
+| Symbol Universe | in progress | `symbol_universe.csv`、metadata schema、source import、opt-in refresh、SBI policy columns / default exclusion helper |
 | Research RAG | planned | local document ingestion から開始予定 |
 | Execution | deferred | broker order 送信は現在の重点外 |
 | Decision Report | planned | cockpit / ranking / rebalance context を再利用予定 |
@@ -42,7 +42,7 @@
 - 初期前提: SBI証券で取り扱いがあり、現物・NISA・長期投資で検討しやすい商品を優先する。
 - 初期対象: 国内株式、米国株式、国内ETF、米国ETF/海外ETF、投資信託、REIT。
 - 初期除外: FX、CFD、先物・オプション、暗号資産、債券、外貨建MMF、貴金属、レバレッジ、インバース、非tradable、非SBI対応。
-- 実装方針: `symbol_universe.csv` / `symbol_metadata_schema.py` に broker / tradability / NISA / 積立対応 / leveraged / inverse metadata を追加し、ranking candidate extraction の前に policy helper を適用する。
+- 実装状態: `symbol_universe.csv` / `symbol_metadata_schema.py` に broker / tradability / NISA / 積立対応 / leveraged / inverse metadata を追加し、ranking candidate extraction の前に policy helper を適用済み。`tradability=unknown` は初期 seed として通す。
 - 制約: SBI証券へのログインやスクレイピングは初期対象外。通常 tests は network 非依存にする。
 
 ### Feature Store Lite

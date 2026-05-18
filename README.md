@@ -45,7 +45,7 @@ SMAI は以下の思想を重視しています。
   - 銘柄コックピット: 価格・予測チャート、Investment Score、score breakdown、warnings、downloads
   - 銘柄ランキング: curated symbol metadata、候補条件 modal、ランキング preset、コックピットへの深掘り導線
   - Rebalance Cockpit: summary flow、percentage target、allocation comparison chart、risk breach confirmation points
-- symbol universe metadata schema、source import、opt-in metadata refresh
+- symbol universe metadata schema、source import、opt-in metadata refresh、SBI ranking universe policy columns / default exclusion helper
 - JSON / CSV / Markdown / manifest / ZIP export
 - file-backed rebalance scenarios
 - Windows 環境向け single-process Black check helper
@@ -53,7 +53,7 @@ SMAI は以下の思想を重視しています。
 未実装または将来範囲:
 
 - `polygon` など追加 live provider adapter 本体
-- SBI証券取扱商品を前提にした broker / tradability / NISA / 積立対応 metadata と ranking universe policy enforcement
+- SBI / NISA / 投信 metadata の公式 source import
 - Research RAG の ingestion / chunk store / retrieval / Research Score
 - Decision Report の本格化
 - Execution / broker への注文送信
@@ -68,11 +68,11 @@ MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で
 - Phase 16: UI / Visualization Cockpit implementation complete、最終 Streamlit browser smoke は推奨確認
 - Phase 16S: Stabilization / final Streamlit smoke は必要に応じて実施
 - Phase 17: UI Polish / ランキング条件 UI 再設計は implementation complete
-- Phase 18: symbol universe / metadata refresh / source import が進行中。次は SBI ranking universe policy
+- Phase 18: symbol universe / metadata refresh / source import / SBI ranking universe policy が進行中。次は SBI / NISA / 投信 metadata source import
 - Phase 19〜24: Decision Report、Research RAG、Research Score、Assistant、optional adapter、Execution gate の順に整理
 - Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
-次の重点は、Phase 18 の SBI ranking universe policy、Phase 19 の Decision Report context です。
+次の重点は、Phase 18 の SBI / NISA / 投信 metadata source import、Phase 19 の Decision Report context です。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント

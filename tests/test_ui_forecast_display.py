@@ -211,6 +211,45 @@ def test_filter_symbol_universe_rows_uses_fetch_before_conditions():
     ]
 
 
+def test_filter_symbol_universe_rows_applies_ranking_universe_policy():
+    rows = symbol_universe_rows(
+        [
+            {
+                "symbol": "AAPL",
+                "name": "Apple Inc.",
+                "asset_type": "stock",
+                "broker": "sbi_securities",
+                "tradability": "unknown",
+                "is_sbi_supported": "true",
+                "is_active": "true",
+                "is_leveraged": "false",
+                "is_inverse": "false",
+            },
+            {"symbol": "BADFX", "name": "FX Product", "asset_type": "fx"},
+            {
+                "symbol": "LEVER",
+                "name": "Leveraged ETF",
+                "asset_type": "etf",
+                "is_leveraged": "true",
+            },
+            {
+                "symbol": "UNTRAD",
+                "name": "Unavailable Stock",
+                "asset_type": "stock",
+                "tradability": "not_tradable",
+            },
+            {
+                "symbol": "NOSBI",
+                "name": "Unsupported Stock",
+                "asset_type": "stock",
+                "is_sbi_supported": "false",
+            },
+        ]
+    )
+
+    assert [row["symbol"] for row in filter_symbol_universe_rows(rows)] == ["AAPL"]
+
+
 def test_filter_symbol_universe_rows_finds_curated_dividend_candidates():
     rows = symbol_universe_rows(
         [

@@ -5,6 +5,9 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
 from backend.core.errors import AppError
+from backend.marketdata.ranking_universe_policy import (
+    symbol_allowed_by_ranking_universe_policy,
+)
 from ui.symbol_universe import symbol_universe_csv_rows
 
 MAX_RANKING_CONCURRENT_FETCHES = 8
@@ -377,6 +380,8 @@ def filter_symbol_universe_rows(
     _ = ranking_purpose
     for row in rows:
         tags = _symbol_universe_values(row, "tags")
+        if not symbol_allowed_by_ranking_universe_policy(row):
+            continue
         if not _symbol_matches_region(row, region):
             continue
         if not _symbol_matches_product_type(row, product_type):
@@ -729,6 +734,14 @@ def _symbol_universe_row(row: dict[str, str]) -> dict[str, str]:
         "market": default_market,
         "asset_type": default_asset_type,
         "currency": default_currency,
+        "broker": row.get("broker", ""),
+        "tradability": row.get("tradability", ""),
+        "nisa_category": row.get("nisa_category", ""),
+        "investment_style": row.get("investment_style", ""),
+        "is_sbi_supported": row.get("is_sbi_supported", ""),
+        "is_active": row.get("is_active", ""),
+        "is_leveraged": row.get("is_leveraged", ""),
+        "is_inverse": row.get("is_inverse", ""),
         "theme": theme,
         "dividend_category": dividend_category,
         "dividend_yield_pct": row.get("dividend_yield_pct") or "0",

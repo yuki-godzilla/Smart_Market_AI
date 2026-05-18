@@ -22,6 +22,14 @@ def test_symbol_metadata_catalog_defines_core_symbol_universe_fields():
         "market",
         "asset_type",
         "currency",
+        "broker",
+        "tradability",
+        "nisa_category",
+        "investment_style",
+        "is_sbi_supported",
+        "is_active",
+        "is_leveraged",
+        "is_inverse",
         "sector",
         "theme",
     }
@@ -31,6 +39,30 @@ def test_symbol_metadata_catalog_defines_core_symbol_universe_fields():
         "market",
         "asset_type",
         "currency",
+    }
+    assert {"reit", "fx", "cfd", "futures", "option", "crypto", "bond", "mmf"} <= set(
+        metadata_field_by_key("asset_type").allowed_values
+    )
+
+
+def test_symbol_metadata_catalog_defines_sbi_universe_policy_fields():
+    assert set(metadata_field_by_key("tradability").allowed_values) == {
+        "tradable",
+        "not_tradable",
+        "unknown",
+    }
+    assert set(metadata_field_by_key("nisa_category").allowed_values) == {
+        "growth",
+        "tsumitate",
+        "both",
+        "none",
+        "unknown",
+    }
+    assert metadata_field_by_key("is_sbi_supported").value_type == "bool"
+    assert set(metadata_field_by_key("is_leveraged").allowed_values) == {
+        "true",
+        "false",
+        "unknown",
     }
 
 

@@ -18,6 +18,13 @@ def test_symbol_universe_csv_matches_schema():
     assert rows
     assert rows[0]["metadata_source"] == "curated_csv"
     assert rows[0]["metadata_as_of"] == "2026-05-18"
+    assert rows[0]["broker"] == "sbi_securities"
+    assert rows[0]["tradability"] == "unknown"
+    assert rows[0]["nisa_category"] == "unknown"
+    assert rows[0]["is_sbi_supported"] == "true"
+    assert rows[0]["is_active"] == "true"
+    assert rows[0]["is_leveraged"] == "false"
+    assert rows[0]["is_inverse"] == "false"
     assert symbol_universe_csv_validation_issues() == []
 
 

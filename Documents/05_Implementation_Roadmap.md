@@ -56,8 +56,7 @@ Research RAG は設計済みですが、実装は planned です。
 未実装または今後の範囲:
 
 - `polygon` などの追加 live provider adapter 本体
-- SBI ranking-universe policy enforcement
-- 追加 provider / fund metadata source adapter
+- 追加 provider / SBI / NISA / fund metadata source adapter
 - Research RAG layer（IR資料検索・根拠提示・Research Score）
 - Decision Report の本格 workflow
 - broker への live order 送信
@@ -371,9 +370,9 @@ Universe policy:
 
 - 詳細方針は [09_SBI_Symbol_Universe_Policy.md](./09_SBI_Symbol_Universe_Policy.md) を参照する。
 - 初期対象は国内株式、米国株式、国内ETF、米国ETF/海外ETF、投資信託、REIT とする。
-- FX、CFD、先物・オプション、暗号資産、債券、外貨建MMF、貴金属、レバレッジ、インバースは初期 ranking から除外できる設計にする。
-- `broker`, `tradability`, `nisa_category`, `investment_style`, `is_sbi_supported`, `is_active`, `is_leveraged`, `is_inverse` は次の実装 slice で `symbol_universe.csv` / schema に追加する候補とする。
-- 現時点では SBI policy の除外判定は未実装。既存 ranking は `symbol_universe.csv` の現在列で絞り込み、次 slice で policy helper を挟む。
+- FX、CFD、先物・オプション、暗号資産、債券、外貨建MMF、貴金属、レバレッジ、インバースは初期 ranking から除外する。
+- `broker`, `tradability`, `nisa_category`, `investment_style`, `is_sbi_supported`, `is_active`, `is_leveraged`, `is_inverse` は `symbol_universe.csv` / schema に保持する。
+- 既存127件は conservative default として `tradability=unknown` を持つ。SBI取扱確認済み master ではないため、初期 policy では `unknown` を通し、`not_tradable` や明示的な対象外 flag だけを除外する。
 
 Implementation order:
 
@@ -385,8 +384,9 @@ Implementation order:
 6. Yahoo metadata provider as the first live adapter, behind explicit opt-in. 完了。
 7. `--write` path for CSV/manifest update, with validation before and after write. 完了。Cache output is future scope if needed.
 8. Local source import for JPX / curated universe expansion. 完了。Initial JPX ETF seed and domestic stock seed imported.
-9. SBI ranking universe policy columns and default exclusion helper. 次の実装候補。
-10. Optional additional provider adapters only when Yahoo coverage or stability is insufficient.
+9. SBI ranking universe policy columns and default exclusion helper. 完了。Unknown tradability is allowed by default.
+10. SBI / NISA / 投信 metadata source import. 次の実装候補。
+11. Optional additional provider adapters only when Yahoo coverage or stability is insufficient.
 
 Completion criteria:
 
@@ -395,7 +395,7 @@ Completion criteria:
 - metadata refresh の provider contract があり、初期 live provider が Yahoo でも provider 差し替え余地が残っている。
 - 通常 checks は live provider なしで通る。
 - live metadata refresh は明示 opt-in で、失敗しても既存 UI/API を壊さない。
-- SBI前提の ranking universe policy が文書化され、次の実装 slice で schema / tests / ranking 候補抽出へ接続できる。
+- SBI前提の ranking universe policy が文書化され、schema / tests / ranking 候補抽出へ接続されている。
 
 Current implementation note:
 
@@ -408,7 +408,7 @@ Current implementation note:
 - Yahoo live metadata provider is available through `--provider yahoo --allow-live`; it maps selected ticker metadata into catalog fields and records per-symbol failures in the manifest. Normal checks remain network-free.
 - `backend/marketdata/symbol_universe_import.py` and `tools/import_symbol_universe_source.py` merge local source CSV rows into `symbol_universe.csv` with dry-run, manifest, append-only default, optional existing-row update, import defaults, symbol suffix normalization, and validation-before/write.
 - `data/marketdata/symbol_universe_sources/jpx_etf_seed.csv` and `jpx_stock_seed.csv` are the first source seeds. 2026-05-18 時点では国内 ETF 8件と国内株 24件を `symbol_universe.csv` に取り込み、candidate master は 127件になっている。
-- SBI証券取扱商品を初期 ranking universe の前提にする方針を追加した。実装は次 slice で、現時点の CSV は SBI取扱確認済み master ではなく local curated / source-import master として扱う。
+- SBI証券取扱商品を初期 ranking universe の前提にする policy columns / default exclusion helper を追加した。現時点の CSV は SBI取扱確認済み master ではなく local curated / source-import seed として扱うため、`tradability=unknown` は初期 ranking で通す。
 
 ### 5.5 Phase 19: Decision Report Context MVP
 

@@ -53,7 +53,7 @@ Implemented or mostly implemented:
 - Streamlit left side menu for `銘柄コックピット`, `銘柄ランキング`, `リバランス`, and `設定 / データ情報`.
 - Streamlit Market Data provider selector defaults to `yahoo` and shows it first; large live ranking requests warn users instead of hard-blocking them.
 - Ranking candidate filters using static/curated metadata before provider fetch.
-- Symbol universe source import for local curated / JPX seed expansion; current candidate master is not yet an SBI-verified tradable universe.
+- Symbol universe source import for local curated / JPX seed expansion; current candidate master carries SBI policy columns but is not yet an SBI-verified tradable universe.
 - Ranking condition classification first slice: region, product type, ranking purpose, and dynamic detail filters are wired into the Streamlit ranking UI.
 - Ranking presets for balanced, forecast-agreement, data-quality, and lower-risk emphasis.
 - Ranking-to-cockpit handoff for follow-up single-symbol review.
@@ -66,7 +66,7 @@ Partial or intentionally deferred:
 - Live provider verification depends on local package, network, and cache/write conditions.
 - `polygon` is reserved in provider metadata but adapter implementation is not complete.
 - Symbol metadata refresh has a provider-neutral command and an opt-in Yahoo adapter; ranking filters still rely on local symbol-universe metadata before provider fetch.
-- SBI Securities ranking-universe policy is documented but not yet enforced in schema or ranking candidate extraction.
+- SBI Securities ranking-universe policy columns and default exclusion helper are wired into ranking candidate extraction. `tradability=unknown` is allowed for current seed rows; explicit out-of-scope products, not-tradable rows, inactive rows, non-SBI rows, leveraged rows, and inverse rows are excluded.
 - Research RAG is designed but not implemented.
 - Decision Report is not yet the main report workflow.
 - Execution / broker order submission is intentionally out of the current default path.
@@ -82,13 +82,12 @@ Partial or intentionally deferred:
 - Phase 16: Visualization Cockpit / UI improvement is implementation-complete; final cross-flow Streamlit browser smoke remains useful before larger backend work.
 - Phase 16S: Stabilization smoke has been partially covered through ranking-condition visual checks; broader cockpit/ranking/rebalance smoke remains optional before handoff.
 - Phase 17: UI Polish and ranking-condition redesign is implementation-complete with user visual confirmation.
-- Phase 18: Symbol universe metadata refresh is in progress. The network-free slices define CSV schema / enum / decimal / duplicate ticker validation, metadata tier/storage/freshness policy, metadata source/as-of/update timestamps in `symbol_universe.csv`, compact metadata status in Settings, a provider-neutral dry-run/manifest refresh command, and a local source-import command with JPX code normalization. Yahoo metadata refresh is implemented behind `--provider yahoo --allow-live`; normal checks remain network-free. SBI ranking-universe policy is documented as the next schema/policy slice.
+- Phase 18: Symbol universe metadata refresh is in progress. The network-free slices define CSV schema / enum / decimal / duplicate ticker validation, metadata tier/storage/freshness policy, metadata source/as-of/update timestamps in `symbol_universe.csv`, compact metadata status in Settings, a provider-neutral dry-run/manifest refresh command, a local source-import command with JPX code normalization, and SBI ranking-universe policy columns/default exclusion. Yahoo metadata refresh is implemented behind `--provider yahoo --allow-live`; normal checks remain network-free.
 - Phase 19〜24: Decision Report, Research RAG, Research Score, assistant, optional adapters, and execution gate are ordered in the implementation roadmap.
 
 ## Next Good Targets
 
-- Continue Phase 18 by adding SBI policy columns and default ranking-universe exclusion helper before broader source ingestion.
-- After the policy helper, expand official/curated source ingestion: broader JPX domestic stock/ETF coverage, then FSA/IMAJ fund metadata and NISA lists.
+- Continue Phase 18 by expanding official/curated source ingestion: broader JPX domestic stock/ETF coverage, then FSA/IMAJ fund metadata and NISA lists.
 - Keep a final cross-flow Streamlit smoke available before handoff when browser access is useful: ranking cache/progress, purpose-based resort, ranking-to-cockpit, and Rebalance wording.
 - Prepare Phase 19 Decision Report context so cockpit / ranking / rebalance outputs can be saved consistently.
 - Start Phase 20 Research RAG from local document ingestion, chunk/search, and deterministic Research Summary before optional vector/LLM adapters.

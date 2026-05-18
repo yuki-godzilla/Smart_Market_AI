@@ -15,13 +15,13 @@
 - baseline forecast model と Forecast Summary
 - Screening / Forecast agreement / Data Quality / Risk signal を統合する Investment Score
 - 銘柄コックピット、銘柄ランキング、Rebalance Cockpit
-- `symbol_universe.csv` による local-first なランキング候補マスタ、metadata schema、source import、opt-in metadata refresh
+- `symbol_universe.csv` による local-first なランキング候補マスタ、metadata schema、source import、opt-in metadata refresh、SBI ranking universe policy
 - JSON / CSV / Markdown / ZIP export
 
 未実装または future scope として扱う要件:
 
 - Research RAG の ingestion / retrieval / Research Score
-- SBI証券取扱商品を前提にした broker / tradability / NISA / 積立対応 metadata と ranking universe policy enforcement
+- SBI / NISA / 投信 metadata の公式 source import
 - Decision Report の本格化
 - broker への注文送信 / Execution workflow
 - PDF / Excel export

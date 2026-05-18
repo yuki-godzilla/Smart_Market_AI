@@ -1,0 +1,12 @@
+from __future__ import annotations
+
+MARKET_DATA_PREVIEW_STATE_KEY = "market_data_preview"
+MARKET_DATA_STATUS_STATE_KEY = "market_data_status_message"
+MARKET_DATA_FORECAST_DAYS_STATE_KEY = "market_data_forecast_horizon_days"
+MARKET_DATA_TOAST_STATE_KEY = "market_data_toast_message"
+MARKET_DATA_RANKING_STATE_KEY = "market_data_ranking_rows"
+MARKET_DATA_RANKING_ERROR_STATE_KEY = "market_data_ranking_error_rows"
+MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY = "market_data_ranking_selected_labels"
+MARKET_DATA_RANKING_FILTERS_STATE_KEY = "market_data_ranking_filters"
+MARKET_DATA_RANKING_BUILD_CACHE_STATE_KEY = "market_data_ranking_build_cache"
+RANKING_FILTER_DIALOG_STATE_KEY = "market_data_ranking_filter_dialog_open"

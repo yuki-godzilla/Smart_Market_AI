@@ -246,6 +246,10 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - dividend category や theme は現在 curated metadata です。provider fundamentals からの自動更新は将来拡張です。
 - `symbol_universe.csv` は Phase 16/18 UI 用の銘柄候補マスタです。必須列は `symbol`, `name`, `market`, `asset_type`, `currency`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases`, `per`, `pbr`, `roe_pct`, `sector`, `consensus_rating`, `forecast_agreement`, `data_quality`, `risk_band` です。
 - Phase 18 metadata columns は `metadata_source`, `metadata_as_of`, `metadata_updated_at` です。現在の deterministic baseline では全行 `metadata_source=curated_csv`, `metadata_as_of=2026-05-18`, `metadata_updated_at=2026-05-18T00:00:00+09:00` です。
+- Metadata fields are governed by `backend/marketdata/symbol_metadata_schema.py`.
+  - `core`: symbol, name, market, asset type, currency, sector/theme, aliases.
+  - `ranking_filter`: dividend, PER/PBR/ROE, expense ratio, risk, complexity, quality fields. Source/freshness is tracked before live provider updates are trusted.
+  - `fund_extended`: trust fee, AUM, NISA eligibility, installment availability, management style, and distribution policy. These are cataloged for Phase 18 universe expansion but are kept out of `symbol_universe.csv` until a dedicated fund metadata source is added.
 - `設定 / データ情報` の `ランキング銘柄候補` では、候補数、metadata 出所、metadata 基準日、形式確認 status を確認できます。CSV の列形式 / 選択値 / 数値 / 重複 ticker / metadata 欠損に問題がある場合は一覧に表示されます。
 - 常設パネルで条件を変えると、候補数と「比較する銘柄」の選択候補が同じ画面内で確認できます。
 

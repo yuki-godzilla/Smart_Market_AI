@@ -119,6 +119,29 @@ def test_symbol_universe_metadata_summary_counts_stale_rows():
     assert summary["validation_warnings"] == 1
 
 
+def test_validate_symbol_universe_rows_warns_for_stale_ranking_metadata():
+    rows = [
+        {
+            "symbol": "AAPL",
+            "name": "Apple Inc.",
+            "market": "us",
+            "asset_type": "stock",
+            "currency": "USD",
+            "dividend_yield_pct": "0.5",
+            "metadata_source": "curated_csv",
+            "metadata_as_of": "2025-01-01",
+        }
+    ]
+
+    issues = validate_symbol_universe_rows(rows, today=date(2026, 5, 18))
+
+    assert any(
+        issue["code"] == "SYMBOL-UNIVERSE-STALE-METADATA"
+        and issue["column"] == "dividend_yield_pct"
+        for issue in issues
+    )
+
+
 def test_validate_symbol_universe_rows_reports_invalid_values():
     rows = [
         {

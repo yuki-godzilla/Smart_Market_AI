@@ -371,9 +371,10 @@ Implementation order:
 2. Metadata source / freshness columns and summary. 完了。
 3. Provider-neutral refresh contract and fake/curated provider test. 完了。
 4. Dry-run first refresh command with manifest output. 完了。
-5. Yahoo metadata provider as the first live adapter, behind explicit opt-in.
-6. `--write` path for CSV/manifest update, with validation before and after write. 完了。Cache output is future scope if needed.
-7. Optional additional provider adapters only when Yahoo coverage or stability is insufficient.
+5. Metadata field catalog / tier / storage / freshness policy. 完了。
+6. Yahoo metadata provider as the first live adapter, behind explicit opt-in.
+7. `--write` path for CSV/manifest update, with validation before and after write. 完了。Cache output is future scope if needed.
+8. Optional additional provider adapters only when Yahoo coverage or stability is insufficient.
 
 Completion criteria:
 
@@ -386,6 +387,7 @@ Completion criteria:
 Current implementation note:
 
 - `ui/symbol_universe.py` defines the current required CSV columns, optional freshness/source columns, enum values, decimal fields, and duplicate ticker validation.
+- `backend/marketdata/symbol_metadata_schema.py` defines metadata tiers, storage policy, source/freshness requirements, enum values, decimal ranges, and future fund metadata fields.
 - `symbol_universe.csv` now stores `metadata_source`, `metadata_as_of`, and `metadata_updated_at`; the current deterministic baseline is marked as `curated_csv` with `2026-05-18` metadata.
 - `設定 / データ情報` shows candidate count, metadata source, metadata period, validation summary, and issue rows for `symbol_universe.csv` without blocking the existing ranking UI.
 - `backend/marketdata/symbol_metadata_refresh.py` defines the provider-neutral refresh contract, deterministic `curated_csv` provider, provider diagnostics, manifest summary, and validation summary.

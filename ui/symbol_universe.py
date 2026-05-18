@@ -7,148 +7,32 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Sequence
 
+from backend.marketdata.symbol_metadata_schema import (
+    metadata_field_by_key,
+    symbol_universe_allowed_tags,
+    symbol_universe_allowed_values,
+    symbol_universe_decimal_columns,
+    symbol_universe_metadata_value_columns,
+    symbol_universe_optional_columns,
+    symbol_universe_required_columns,
+    symbol_universe_required_value_columns,
+    symbol_universe_source_required_fields,
+)
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SYMBOL_UNIVERSE_CSV = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe.csv"
-SYMBOL_UNIVERSE_REQUIRED_COLUMNS = (
-    "symbol",
-    "name",
-    "market",
-    "asset_type",
-    "currency",
-    "theme",
-    "dividend_category",
-    "dividend_yield_pct",
-    "market_cap_tier",
-    "index_family",
-    "expense_ratio_pct",
-    "complexity",
-    "tags",
-    "aliases",
-    "per",
-    "pbr",
-    "roe_pct",
-    "sector",
-    "consensus_rating",
-    "forecast_agreement",
-    "data_quality",
-    "risk_band",
-)
-SYMBOL_UNIVERSE_OPTIONAL_COLUMNS = (
-    "metadata_source",
-    "metadata_as_of",
-    "metadata_updated_at",
-)
-SYMBOL_UNIVERSE_METADATA_VALUE_COLUMNS = (
-    "metadata_source",
-    "metadata_as_of",
-)
+SYMBOL_UNIVERSE_REQUIRED_COLUMNS = symbol_universe_required_columns()
+SYMBOL_UNIVERSE_OPTIONAL_COLUMNS = symbol_universe_optional_columns()
+SYMBOL_UNIVERSE_METADATA_VALUE_COLUMNS = symbol_universe_metadata_value_columns()
 SYMBOL_UNIVERSE_METADATA_STALE_AFTER_DAYS = 180
 SYMBOL_UNIVERSE_FIELDS = [
     *SYMBOL_UNIVERSE_REQUIRED_COLUMNS,
     *SYMBOL_UNIVERSE_OPTIONAL_COLUMNS,
 ]
-SYMBOL_UNIVERSE_REQUIRED_VALUE_COLUMNS = (
-    "symbol",
-    "name",
-    "market",
-    "asset_type",
-    "currency",
-)
-SYMBOL_UNIVERSE_ALLOWED_VALUES = {
-    "market": {
-        "jp",
-        "us",
-        "developed_ex_us",
-        "emerging",
-        "europe",
-        "china",
-        "india",
-        "global",
-        "other_global",
-    },
-    "asset_type": {"stock", "etf", "adr", "mutual_fund", "fund", "investment_trust"},
-    "currency": {"JPY", "USD", "EUR", "GBP", "CHF", "CAD", "AUD", "HKD", "CNY", "INR"},
-    "theme": {
-        "automotive",
-        "balanced",
-        "bond",
-        "commodity",
-        "communication",
-        "consumer",
-        "energy",
-        "financial",
-        "healthcare",
-        "index",
-        "reit",
-        "semiconductor",
-        "technology",
-        "telecom",
-        "trading",
-    },
-    "dividend_category": {"dividend", "growth_dividend", "high_dividend", "none"},
-    "market_cap_tier": {"mega", "large", "mid", "small", "micro"},
-    "index_family": {
-        "acwi",
-        "msci_world",
-        "nasdaq100",
-        "nikkei225",
-        "small_us",
-        "sp500",
-        "topix",
-        "total_us",
-    },
-    "complexity": {
-        "beginner",
-        "standard",
-        "advanced",
-        "currency_select",
-        "etn",
-        "inverse",
-        "leveraged",
-        "thematic",
-    },
-    "sector": {
-        "communication",
-        "consumer",
-        "energy",
-        "financial",
-        "healthcare",
-        "index",
-        "industrial",
-        "materials",
-        "real_estate",
-        "technology",
-        "utilities",
-    },
-    "forecast_agreement": {"HIGH", "MEDIUM", "LOW"},
-    "data_quality": {"OK", "WARN", "BLOCK"},
-    "risk_band": {"LOW", "MEDIUM", "HIGH"},
-    "metadata_source": {"curated_csv", "csv", "manual", "polygon", "unknown", "yahoo"},
-}
-SYMBOL_UNIVERSE_ALLOWED_TAGS = {
-    "balanced",
-    "dividend",
-    "growth",
-    "installment",
-    "lower_risk",
-    "low_cost",
-    "quality",
-    "value",
-}
-SYMBOL_UNIVERSE_DECIMAL_COLUMNS = (
-    "dividend_yield_pct",
-    "expense_ratio_pct",
-    "per",
-    "pbr",
-    "roe_pct",
-    "consensus_rating",
-)
-SYMBOL_UNIVERSE_NON_NEGATIVE_DECIMAL_COLUMNS = (
-    "dividend_yield_pct",
-    "expense_ratio_pct",
-    "pbr",
-    "consensus_rating",
-)
+SYMBOL_UNIVERSE_REQUIRED_VALUE_COLUMNS = symbol_universe_required_value_columns()
+SYMBOL_UNIVERSE_ALLOWED_VALUES = symbol_universe_allowed_values()
+SYMBOL_UNIVERSE_ALLOWED_TAGS = symbol_universe_allowed_tags()
+SYMBOL_UNIVERSE_DECIMAL_COLUMNS = symbol_universe_decimal_columns()
 
 
 @lru_cache(maxsize=4)
@@ -265,6 +149,7 @@ def validate_symbol_universe_rows(
     rows: Sequence[dict[str | None, Any]],
     *,
     fieldnames: Sequence[str] | None = None,
+    today: date | None = None,
 ) -> list[dict[str, str]]:
     """Validate symbol universe rows without mutating the existing CSV loading path."""
 
@@ -361,6 +246,7 @@ def validate_symbol_universe_rows(
             value = row.get(column, "")
             if not value:
                 continue
+            field = metadata_field_by_key(column)
             decimal_value = _decimal_value(value)
             if decimal_value is None:
                 issues.append(
@@ -373,17 +259,22 @@ def validate_symbol_universe_rows(
                     )
                 )
                 continue
-            if column in SYMBOL_UNIVERSE_NON_NEGATIVE_DECIMAL_COLUMNS and decimal_value < 0:
+            if field and field.minimum is not None and decimal_value < field.minimum:
+                code = "SYMBOL-UNIVERSE-NEGATIVE-DECIMAL"
+                message = f"{column} must not be negative."
+                if field.minimum != 0:
+                    code = "SYMBOL-UNIVERSE-RANGE"
+                    message = f"{column} must be greater than or equal to {field.minimum}."
                 issues.append(
                     _validation_issue(
                         row_number,
                         symbol,
                         column,
-                        "SYMBOL-UNIVERSE-NEGATIVE-DECIMAL",
-                        f"{column} must not be negative.",
+                        code,
+                        message,
                     )
                 )
-            if column == "consensus_rating" and not Decimal("1") <= decimal_value <= Decimal("5"):
+            if field and field.maximum is not None and decimal_value > field.maximum:
                 issues.append(
                     _validation_issue(
                         row_number,
@@ -414,6 +305,8 @@ def validate_symbol_universe_rows(
                     "metadata_updated_at must be an ISO datetime.",
                 )
             )
+        if today is not None:
+            issues.extend(_metadata_freshness_issues(row_number, symbol, row, today))
 
     return issues
 
@@ -471,6 +364,39 @@ def _symbol_universe_header_issues(fieldnames: Sequence[str]) -> list[dict[str, 
                     f"{column} is not part of the symbol universe schema.",
                 )
             )
+    return issues
+
+
+def _metadata_freshness_issues(
+    row_number: int | str,
+    symbol: str,
+    row: dict[str, str],
+    today: date,
+) -> list[dict[str, str]]:
+    metadata_as_of = row.get("metadata_as_of", "").strip()
+    parsed_metadata_as_of = _date_value(metadata_as_of)
+    if parsed_metadata_as_of is None:
+        return []
+
+    issues: list[dict[str, str]] = []
+    metadata_age_days = (today - parsed_metadata_as_of).days
+    for field in symbol_universe_source_required_fields():
+        if not field.freshness_days:
+            continue
+        if not row.get(field.key, "").strip():
+            continue
+        if metadata_age_days <= field.freshness_days:
+            continue
+        issues.append(
+            _validation_issue(
+                row_number,
+                symbol,
+                field.key,
+                "SYMBOL-UNIVERSE-STALE-METADATA",
+                f"{field.key} metadata is older than {field.freshness_days} days.",
+                severity="warning",
+            )
+        )
     return issues
 
 

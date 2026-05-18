@@ -27,6 +27,7 @@ from ui.app import (
     market_chart_long_frame,
     merged_symbol_candidate_rows,
     provider_error_summary_rows,
+    ranking_comparison_summary,
     score_component_rows,
     set_cached_ranking_build,
     symbol_candidate_label,
@@ -512,6 +513,39 @@ def test_ranking_filter_signature_ignores_period_preset():
     )
 
     assert base == changed
+
+
+def test_ranking_comparison_summary_shows_period_and_selection_status():
+    assert ranking_comparison_summary(
+        start=date(2026, 5, 11),
+        end=date(2026, 5, 18),
+        candidate_count=46,
+        selected_count=46,
+    ) == {
+        "period": "2026-05-11 〜 2026-05-18",
+        "candidate": "46件",
+        "selected": "46 / 46件",
+        "status": "全候補を比較",
+        "inline": "取得期間: 2026-05-11 〜 2026-05-18 / 候補: 46件 / 選択: 46 / 46件（全候補を比較）",
+    }
+    assert (
+        ranking_comparison_summary(
+            start=date(2026, 5, 11),
+            end=date(2026, 5, 18),
+            candidate_count=46,
+            selected_count=12,
+        )["status"]
+        == "一部を比較"
+    )
+    assert (
+        ranking_comparison_summary(
+            start=date(2026, 5, 11),
+            end=date(2026, 5, 18),
+            candidate_count=0,
+            selected_count=0,
+        )["status"]
+        == "候補なし"
+    )
 
 
 def test_ranking_symbols_state_key_uses_filter_signature():

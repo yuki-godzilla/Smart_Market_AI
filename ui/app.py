@@ -276,6 +276,37 @@ def _render_metric_filter_grid(
                 _render_metric_range_filter(label, **kwargs)
 
 
+def ranking_comparison_summary(
+    *,
+    start: date,
+    end: date,
+    candidate_count: int,
+    selected_count: int,
+) -> dict[str, str]:
+    if candidate_count <= 0:
+        status = "候補なし"
+        selected = "0件"
+    elif selected_count <= 0:
+        status = "未選択"
+        selected = f"0 / {candidate_count}件"
+    elif selected_count >= candidate_count:
+        status = "全候補を比較"
+        selected = f"{candidate_count} / {candidate_count}件"
+    else:
+        status = "一部を比較"
+        selected = f"{selected_count} / {candidate_count}件"
+    return {
+        "period": f"{start.isoformat()} 〜 {end.isoformat()}",
+        "candidate": f"{max(candidate_count, 0)}件",
+        "selected": selected,
+        "status": status,
+        "inline": (
+            f"取得期間: {start.isoformat()} 〜 {end.isoformat()} / "
+            f"候補: {max(candidate_count, 0)}件 / 選択: {selected}（{status}）"
+        ),
+    }
+
+
 def _render_ranking_filter_panel() -> None:
     has_ranking_result = bool(st.session_state.get(MARKET_DATA_RANKING_STATE_KEY))
     region = _ranking_filter_value("market_data_ranking_region", "japan")
@@ -759,15 +790,16 @@ def _render_market_data_ranking() -> None:
     selected_labels_for_summary = cast(list[str], st.session_state.get(selection_key, []))
     end_date = default_market_data_end_date()
     start_date, end_date = ranking_period_dates(period_preset, end_date)
-    col_period_text, col_candidate_count, col_selected_count = st.columns([2.0, 1.0, 1.0])
-    with col_period_text:
-        st.caption(f"取得期間: {start_date.isoformat()} 〜 {end_date.isoformat()}")
-    with col_candidate_count:
-        st.caption(f"候補数: {len(filtered_symbol_rows)}")
-    with col_selected_count:
-        st.caption(f"選択数: {len(selected_labels_for_summary)}")
+    comparison_summary = ranking_comparison_summary(
+        start=start_date,
+        end=end_date,
+        candidate_count=len(filtered_symbol_rows),
+        selected_count=len(selected_labels_for_summary),
+    )
+    st.caption(comparison_summary["inline"])
 
-    with st.expander("比較する銘柄を確認・変更", expanded=False):
+    expander_label = f"比較する銘柄を確認・変更（{comparison_summary['selected']}）"
+    with st.expander(expander_label, expanded=False):
         st.caption("候補は初期状態ですべて選択されています。変更する場合だけ開いてください。")
         selected_labels = cast(
             list[str],

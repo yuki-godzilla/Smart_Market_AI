@@ -234,6 +234,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
   - 条件変更後の候補数表示
 - 比較する銘柄
   - 初期状態では候補をすべて選択
+  - 取得期間、候補数、選択数は銘柄リストの上に1行で表示
   - 銘柄リストは折りたたみ内で確認・変更
 - ranking result with ticker / company name / score / warnings
 - 選択銘柄をコックピットへ渡す deep-dive flow

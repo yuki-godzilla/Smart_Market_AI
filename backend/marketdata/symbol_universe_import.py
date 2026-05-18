@@ -37,6 +37,16 @@ class SymbolUniverseImportResult:
     manifest: dict[str, object]
 
 
+@dataclass(frozen=True)
+class SymbolUniverseImportDefaults:
+    """Defaults used when source CSVs omit symbol-universe columns."""
+
+    market: str = ""
+    asset_type: str = ""
+    currency: str = ""
+    symbol_suffix: str = ""
+
+
 def symbol_universe_import_fieldnames() -> list[str]:
     """Return the canonical symbol_universe.csv field order."""
 
@@ -53,6 +63,7 @@ def merge_symbol_universe_source_rows(
     source_name: str,
     as_of: date,
     updated_at: datetime,
+    defaults: SymbolUniverseImportDefaults | None = None,
     update_existing: bool = False,
     dry_run: bool = True,
     validation_before: Sequence[dict[str, str]] | None = None,
@@ -81,6 +92,7 @@ def merge_symbol_universe_source_rows(
             source_name=source_name,
             as_of=as_of,
             updated_at=updated_at,
+            defaults=defaults or SymbolUniverseImportDefaults(),
             source_row_number=source_row_number,
         )
         if failure is not None:
@@ -123,6 +135,12 @@ def merge_symbol_universe_source_rows(
         "source": source_name,
         "dry_run": dry_run,
         "update_existing": update_existing,
+        "defaults": {
+            "market": (defaults.market if defaults else ""),
+            "asset_type": (defaults.asset_type if defaults else ""),
+            "currency": (defaults.currency if defaults else ""),
+            "symbol_suffix": (defaults.symbol_suffix if defaults else ""),
+        },
         "as_of": as_of.isoformat(),
         "updated_at": updated_at.isoformat(),
         "existing_rows": len(existing_rows),
@@ -166,10 +184,12 @@ def _source_row_to_symbol_universe_row(
     source_name: str,
     as_of: date,
     updated_at: datetime,
+    defaults: SymbolUniverseImportDefaults,
     source_row_number: int,
 ) -> tuple[dict[str, str], SymbolUniverseImportFailure | None]:
     row = {column: _source_value(source_row, column) for column in fieldnames}
-    symbol = row["symbol"].strip().upper()
+    _apply_defaults(row, defaults)
+    symbol = _normalize_symbol(row["symbol"], suffix=defaults.symbol_suffix)
     name = row["name"].strip()
     if not symbol:
         return row, SymbolUniverseImportFailure(
@@ -210,12 +230,34 @@ def _source_row_to_symbol_universe_row(
 
 def _source_value(source_row: dict[str | None, Any], column: str) -> str:
     value = source_row.get(column)
-    if value is None:
+    if value is None or not str(value).strip():
         for alias in SYMBOL_UNIVERSE_SOURCE_ALIASES.get(column, ()):
             value = source_row.get(alias)
-            if value is not None:
+            if value is not None and str(value).strip():
                 break
     return "" if value is None else str(value).strip()
+
+
+def _apply_defaults(row: dict[str, str], defaults: SymbolUniverseImportDefaults) -> None:
+    if not row["market"] and defaults.market:
+        row["market"] = defaults.market
+    if not row["asset_type"] and defaults.asset_type:
+        row["asset_type"] = defaults.asset_type
+    if not row["currency"] and defaults.currency:
+        row["currency"] = defaults.currency
+
+
+def _normalize_symbol(symbol: str, *, suffix: str = "") -> str:
+    normalized_symbol = symbol.strip().upper()
+    normalized_suffix = suffix.strip().upper()
+    if (
+        normalized_symbol
+        and normalized_suffix
+        and "." not in normalized_symbol
+        and not normalized_symbol.endswith(normalized_suffix)
+    ):
+        return f"{normalized_symbol}{normalized_suffix}"
+    return normalized_symbol
 
 
 def _operational_metadata_columns() -> set[str]:

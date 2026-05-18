@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 
 from backend.marketdata.symbol_universe_import import (
+    SymbolUniverseImportDefaults,
     merge_symbol_universe_source_rows,
     symbol_universe_import_fieldnames,
 )
@@ -37,6 +38,34 @@ def test_merge_symbol_universe_source_rows_imports_new_rows_with_inferred_fields
     assert imported_row["metadata_as_of"] == "2026-05-18"
     assert result.manifest["imported_symbols"] == ["1306.T"]
     assert result.manifest["imported_rows"] == 1
+
+
+def test_merge_symbol_universe_source_rows_normalizes_jpx_numeric_codes_with_defaults():
+    result = merge_symbol_universe_source_rows(
+        [],
+        [{"code": "4689", "security_name": "LY Corporation", "sector": "technology"}],
+        source_name="jpx",
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+        defaults=SymbolUniverseImportDefaults(
+            market="jp",
+            asset_type="stock",
+            currency="JPY",
+            symbol_suffix=".T",
+        ),
+    )
+
+    imported_row = result.rows[0]
+    assert imported_row["symbol"] == "4689.T"
+    assert imported_row["market"] == "jp"
+    assert imported_row["asset_type"] == "stock"
+    assert imported_row["currency"] == "JPY"
+    assert result.manifest["defaults"] == {
+        "market": "jp",
+        "asset_type": "stock",
+        "currency": "JPY",
+        "symbol_suffix": ".T",
+    }
 
 
 def test_merge_symbol_universe_source_rows_skips_existing_by_default():

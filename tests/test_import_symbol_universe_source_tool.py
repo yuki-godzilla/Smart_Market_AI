@@ -93,6 +93,57 @@ def test_import_symbol_universe_source_tool_write_updates_csv_and_manifest(tmp_p
     assert manifest["imported_symbols"] == ["1306.T"]
 
 
+def test_import_symbol_universe_source_tool_applies_jpx_defaults(tmp_path, capsys):
+    base_csv = tmp_path / "symbol_universe.csv"
+    source_csv = tmp_path / "jpx_stock_seed.csv"
+    manifest_path = tmp_path / "manifest.json"
+    _write_base_rows(base_csv, [{"symbol": "AAPL", "name": "Apple Inc."}])
+    _write_source_rows(
+        source_csv,
+        [
+            {
+                "code": "4689",
+                "security_name": "LY Corporation",
+                "sector": "technology",
+            }
+        ],
+    )
+
+    exit_code = main(
+        [
+            "--base-csv",
+            str(base_csv),
+            "--source-csv",
+            str(source_csv),
+            "--source-name",
+            "jpx",
+            "--manifest",
+            str(manifest_path),
+            "--default-market",
+            "jp",
+            "--default-asset-type",
+            "stock",
+            "--default-currency",
+            "JPY",
+            "--symbol-suffix",
+            ".T",
+            "--as-of",
+            "2026-05-18",
+            "--updated-at",
+            "2026-05-18T00:00:00+00:00",
+            "--write",
+        ]
+    )
+
+    output = json.loads(capsys.readouterr().out)
+    rows = _read_rows(base_csv)
+    assert exit_code == 0
+    assert output["imported_symbols"] == ["4689.T"]
+    assert rows[1]["symbol"] == "4689.T"
+    assert rows[1]["market"] == "jp"
+    assert rows[1]["currency"] == "JPY"
+
+
 def test_import_symbol_universe_source_tool_refuses_invalid_write(tmp_path, capsys):
     base_csv = tmp_path / "symbol_universe.csv"
     source_csv = tmp_path / "jpx_seed.csv"
@@ -171,10 +222,13 @@ def _write_base_rows(path, rows):
 def _write_source_rows(path, rows):
     fieldnames = [
         "symbol",
+        "code",
         "name",
+        "security_name",
         "market",
         "asset_type",
         "currency",
+        "sector",
         "index_family",
         "expense_ratio_pct",
     ]

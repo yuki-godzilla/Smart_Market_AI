@@ -24,9 +24,9 @@ def test_symbol_universe_csv_matches_schema():
 def test_symbol_universe_csv_metadata_summary_counts_source_and_freshness():
     summary = symbol_universe_csv_metadata_summary(today=date(2026, 5, 18))
 
-    assert summary["total_rows"] >= 100
+    assert summary["total_rows"] >= 120
     assert summary["source_counts"]["curated_csv"] >= 90
-    assert summary["source_counts"]["jpx"] == 8
+    assert summary["source_counts"]["jpx"] >= 30
     assert summary["metadata_period"] == "2026-05-18"
     assert summary["missing_metadata_count"] == 0
     assert summary["stale_metadata_count"] == 0

@@ -102,3 +102,27 @@ IWM,iShares Russell 2000 ETF,us,etf,USD,index,none,1.3,mid,small_us,0.19,beginne
 1475.T,iShares Core TOPIX ETF,jp,etf,JPY,index,,,,topix,0.05,beginner,"low_cost,balanced",TOPIX ETF,,,,index,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
 1489.T,NEXT FUNDS Nikkei 225 High Dividend Yield ETF,jp,etf,JPY,index,,,,nikkei225,0.31,standard,"dividend,balanced",High dividend ETF,,,,index,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
 1540.T,Japan Physical Gold ETF,jp,etf,JPY,commodity,,,,,0.44,standard,balanced,Gold ETF,,,,index,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+6723.T,Renesas Electronics,jp,stock,JPY,semiconductor,,,,,,standard,growth,renesas semiconductor,,,,technology,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+6146.T,Disco,jp,stock,JPY,semiconductor,,,,,,standard,growth,disco semiconductor,,,,technology,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+6920.T,Lasertec,jp,stock,JPY,semiconductor,,,,,,standard,growth,lasertec semiconductor,,,,technology,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+7735.T,SCREEN Holdings,jp,stock,JPY,semiconductor,,,,,,standard,growth,screen semiconductor,,,,technology,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+6954.T,Fanuc,jp,stock,JPY,technology,,,,,,standard,balanced,fanuc robotics,,,,industrial,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+6273.T,SMC,jp,stock,JPY,balanced,,,,,,standard,quality,smc factory automation,,,,industrial,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+6503.T,Mitsubishi Electric,jp,stock,JPY,balanced,,,,,,standard,balanced,mitsubishi electric,,,,industrial,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+6594.T,Nidec,jp,stock,JPY,technology,,,,,,standard,growth,nidec motor,,,,industrial,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+6971.T,Kyocera,jp,stock,JPY,technology,,,,,,standard,balanced,kyocera electronics,,,,technology,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+6762.T,TDK,jp,stock,JPY,technology,,,,,,standard,growth,tdk electronics,,,,technology,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+4901.T,Fujifilm Holdings,jp,stock,JPY,healthcare,,,,,,standard,quality,fujifilm,,,,healthcare,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+7733.T,Olympus,jp,stock,JPY,healthcare,,,,,,standard,quality,olympus medical,,,,healthcare,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+4523.T,Eisai,jp,stock,JPY,healthcare,,,,,,standard,balanced,eisai pharma,,,,healthcare,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+4503.T,Astellas Pharma,jp,stock,JPY,healthcare,,,,,,standard,dividend,astellas pharma,,,,healthcare,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+7741.T,Hoya,jp,stock,JPY,healthcare,,,,,,standard,quality,hoya,,,,healthcare,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+9433.T,KDDI,jp,stock,JPY,telecom,,,,,,standard,dividend,kddi telecom,,,,communication,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+9434.T,SoftBank Corp,jp,stock,JPY,telecom,,,,,,standard,dividend,softbank telecom,,,,communication,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+8053.T,Sumitomo Corp,jp,stock,JPY,trading,,,,,,standard,dividend,sumitomo trading,,,,industrial,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+7201.T,Nissan Motor,jp,stock,JPY,automotive,,,,,,standard,value,nissan automotive,,,,consumer,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+7269.T,Suzuki Motor,jp,stock,JPY,automotive,,,,,,standard,balanced,suzuki automotive,,,,consumer,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+7270.T,Subaru,jp,stock,JPY,automotive,,,,,,standard,value,subaru automotive,,,,consumer,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+9021.T,West Japan Railway,jp,stock,JPY,balanced,,,,,,standard,balanced,jr west railway,,,,industrial,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+3092.T,ZOZO,jp,stock,JPY,consumer,,,,,,standard,growth,zozo ecommerce,,,,consumer,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00
+4704.T,Trend Micro,jp,stock,JPY,technology,,,,,,standard,quality,trend micro software,,,,technology,,,,,jpx,2026-05-18,2026-05-18T00:00:00+09:00

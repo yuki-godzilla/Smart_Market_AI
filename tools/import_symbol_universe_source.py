@@ -18,6 +18,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from backend.marketdata.symbol_universe_import import (  # noqa: E402
+    SymbolUniverseImportDefaults,
     merge_symbol_universe_source_rows,
     symbol_universe_import_fieldnames,
 )
@@ -31,6 +32,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--base-csv", type=Path, default=DEFAULT_BASE_CSV_PATH)
     parser.add_argument("--source-csv", type=Path, required=True)
     parser.add_argument("--source-name", default="curated_csv")
+    parser.add_argument("--default-market", default="")
+    parser.add_argument("--default-asset-type", default="")
+    parser.add_argument("--default-currency", default="")
+    parser.add_argument("--symbol-suffix", default="")
     parser.add_argument("--as-of", type=_parse_date, default=date.today())
     parser.add_argument(
         "--updated-at",
@@ -64,6 +69,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         source_name=args.source_name,
         as_of=args.as_of,
         updated_at=args.updated_at,
+        defaults=SymbolUniverseImportDefaults(
+            market=args.default_market,
+            asset_type=args.default_asset_type,
+            currency=args.default_currency,
+            symbol_suffix=args.symbol_suffix,
+        ),
         update_existing=args.update_existing,
         dry_run=not args.write,
         validation_before=validation_before,
@@ -78,6 +89,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         source_name=args.source_name,
         as_of=args.as_of,
         updated_at=args.updated_at,
+        defaults=SymbolUniverseImportDefaults(
+            market=args.default_market,
+            asset_type=args.default_asset_type,
+            currency=args.default_currency,
+            symbol_suffix=args.symbol_suffix,
+        ),
         update_existing=args.update_existing,
         dry_run=not args.write,
         validation_before=validation_before,

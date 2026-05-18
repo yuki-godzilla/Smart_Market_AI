@@ -276,10 +276,16 @@ Symbol universe source import:
 
 - `tools/import_symbol_universe_source.py` は、JPX などのローカル source CSV を `symbol_universe.csv` 形式へ取り込む command です。
 - 既定は dry-run で、`--write` を付けた場合だけ CSV / manifest を更新します。write 前に validation error が残る場合は書き込みを拒否します。
-- 初期 source として `data/marketdata/symbol_universe_sources/jpx_etf_seed.csv` を置いています。2026-05-18 時点では国内 ETF 8件を `symbol_universe.csv` に取り込み済みです。
+- 初期 source として `data/marketdata/symbol_universe_sources/jpx_etf_seed.csv` と `data/marketdata/symbol_universe_sources/jpx_stock_seed.csv` を置いています。2026-05-18 時点では国内 ETF 8件、国内株 24件を `symbol_universe.csv` に取り込み済みです。
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\import_symbol_universe_source.py --source-csv .\data\marketdata\symbol_universe_sources\jpx_etf_seed.csv --source-name jpx --as-of 2026-05-18 --updated-at 2026-05-18T00:00:00+09:00
+```
+
+JPX のように source 側が4桁コードで、SMAI 側では yfinance-compatible な `.T` suffix が必要な場合は、import defaults を指定します。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\import_symbol_universe_source.py --source-csv .\data\marketdata\symbol_universe_sources\jpx_stock_seed.csv --source-name jpx --default-market jp --default-asset-type stock --default-currency JPY --symbol-suffix .T --as-of 2026-05-18 --updated-at 2026-05-18T00:00:00+09:00
 ```
 
 Phase 16 ranking implementation notes:

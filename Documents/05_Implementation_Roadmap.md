@@ -456,11 +456,58 @@ Status: planned
 Phase 16 の cockpit summary と ranking result を report context として再利用する。
 初期は Markdown / JSON / CSV / ZIP を優先し、PDF / Excel は後続。
 
-### Phase 19: UI Design And Beginner Experience
+### Phase 19: UI Polish And Beginner Experience
 
 Status: planned
 
 Phase 16 で作った cockpit / ranking / rebalance の情報設計を、初心者向けの画面名、導線、文言に磨き込む。
+
+UI Polish の最初の重点は、`銘柄ランキング` のランキング作成条件 UI です。
+単なる検索フィルターではなく、SMAI の AI ranking における「投資対象の分類」と「ランキング目的」を先に決め、その後に詳細条件を設定する流れへ整理します。
+
+Planned scope:
+
+- Ranking condition model
+  - 地域: `国内` / `米国` / `その他海外` / `全体`
+  - 商品: `株式` / `ETF` / `投信` / `全体`
+  - ランキング目的: `総合評価` / `短期上昇期待` / `中長期成長` / `高配当` / `割安` / `低リスク` / `低コスト`
+  - UI label と internal key を分離した enum / constants / condition object
+- UI structure
+  - ranking screen の上部で地域・商品・ランキング目的を選択
+  - 初期表示は候補が広がりすぎない `国内` + `株式`
+  - 地域 × 商品に応じて詳細条件を動的に切り替え
+  - 候補数を見せてから Yahoo live data ranking を実行
+- Separation of responsibility
+  - ランキング目的は Investment Score の weight preset / sort intent として扱う
+  - 詳細条件は provider fetch 前の candidate filter として扱う
+  - `総合おすすめ` のような推奨に見える表現は避け、投資判断補助として表現する
+- Phase 1 filter coverage
+  - 株式: 地域、業種/セクター、時価総額、配当利回り、PER、PBR、ROE、リスク帯
+  - ETF: 地域、投資対象、連動指数、信託報酬/経費率、分配金利回り、複雑さ
+  - 投信: 商品分類と条件定義を追加し、実データが不足する間は候補なし / future metadata 扱い
+- Future-ready filter definitions
+  - 国内株式: 投資スタイル、業種、時価総額、配当利回り、PER、PBR、ROE、売買代金
+  - 米国株式: 投資スタイル、セクター、時価総額、配当利回り、PER、売上成長率、EPS成長率、Beta、ボラティリティ
+  - 全体 × 株式: 地域、投資スタイル、業種/セクター、時価総額、配当利回り、PER、ROE、リスク
+  - ETF: 投資対象、地域、連動指数、信託報酬/経費率、分配金利回り、純資産総額、流動性、為替ヘッジ、複雑さ
+  - 投信: 運用方式、投資対象、地域、信託報酬、純資産総額、NISA対応、積立可否、分配方針、為替ヘッジ、複雑さ
+
+Implementation rules:
+
+- 既存 `data/marketdata/symbol_universe.csv` で判定できる条件だけを実フィルタとして有効化する。
+- 未取得の `売買代金`、`売上成長率`、`EPS成長率`、`Beta`、`純資産総額`、`NISA対応`、`積立可否` などは、無理に計算せず future metadata として定義・文書化する。
+- `大型株`、`リスク`、`複雑さ` などの曖昧な UI 表現は、内部的に数値しきい値または明示フラグへ変換できる設計にする。
+- ETF と投信は UI / internal model の両方で分離する。
+- docs / tests / UI wording policy と矛盾しないよう、実装時に operations guide と必要な設計文書を同期する。
+
+Completion criteria:
+
+- 地域・商品・ランキング目的の分類が定義されている。
+- 商品・地域に応じて詳細条件が切り替わる。
+- ランキング目的と詳細条件の役割が UI / code / docs で分離されている。
+- Phase 1 で実データに基づき有効な条件と、future metadata 条件が区別されている。
+- 「おすすめ」ではなく、判断材料を整理する ranking として文言が統一されている。
+- UI helper tests または deterministic filtering tests が追加・更新されている。
 
 ### Phase 20: Low-Cost AI Assistant Experience
 

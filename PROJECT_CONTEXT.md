@@ -77,11 +77,13 @@ Partial or intentionally deferred:
 - Phase 13〜14: Forecast Lab / Multi-Model Forecasting are implementation-complete with deterministic baseline models and consensus.
 - Phase 15: Model-Informed Scoring is implementation-complete with `backend/scoring`, API, UI preview/export, and configurable weights.
 - Phase 16: Visualization Cockpit / UI improvement is implementation-complete; final Streamlit browser smoke is still recommended.
+- Phase 19: UI Polish is planned; first target is ranking-condition classification by region, product type, ranking purpose, and data-backed detail filters.
 - Research RAG roadmap: designed and planned, not implemented.
 
 ## Next Good Targets
 
 - Prepare Decision Report context so cockpit / ranking / rebalance outputs can be saved consistently.
+- Start Phase 19 UI Polish with ranking condition classification: region, product type, ranking purpose, dynamic detail filters, and clear separation between score presets and candidate filters.
 - Add a symbol metadata refresh path for dividend yield, sector/theme, ETF/fund attributes, and metadata freshness tracking.
 - Start Research RAG from local document ingestion, chunk/search, and deterministic Research Summary before optional vector/LLM adapters.
 - Run a final Streamlit Phase 16 smoke when browser access is available: ranking conditions, ranking cache/progress, weight-preset resort, ranking-to-cockpit, and Rebalance wording.

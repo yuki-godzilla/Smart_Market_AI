@@ -103,11 +103,33 @@ def test_refresh_symbol_universe_metadata_tool_reports_unimplemented_provider(tm
         ],
     )
 
-    exit_code = main(["--csv", str(csv_path), "--provider", "yahoo"])
+    exit_code = main(["--csv", str(csv_path), "--provider", "fmp", "--allow-live"])
 
     captured = capsys.readouterr()
     assert exit_code == 2
     assert "planned but not implemented" in captured.err
+
+
+def test_refresh_symbol_universe_metadata_tool_requires_live_opt_in(tmp_path, capsys):
+    csv_path = tmp_path / "symbol_universe.csv"
+    _write_rows(
+        csv_path,
+        [
+            {
+                "symbol": "AAPL",
+                "name": "Apple Inc.",
+                "market": "us",
+                "asset_type": "stock",
+                "currency": "USD",
+            }
+        ],
+    )
+
+    exit_code = main(["--csv", str(csv_path), "--provider", "yahoo"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "requires --allow-live" in captured.err
 
 
 def _write_rows(path, rows):

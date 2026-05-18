@@ -256,14 +256,21 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 Symbol universe metadata refresh:
 
 - `tools/refresh_symbol_universe_metadata.py` は provider-neutral な metadata refresh command です。
-- 現在実装済みの provider は network 非依存の `curated_csv` です。Yahoo live adapter は provider contract の後続実装です。
+- 現在実装済みの provider は network 非依存の `curated_csv` と、明示 opt-in の `yahoo` です。
 - 既定は dry-run で、CSV / manifest は書き換えません。
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\refresh_symbol_universe_metadata.py --as-of 2026-05-18 --updated-at 2026-05-18T00:00:00+09:00
 ```
 
+- Yahoo live metadata は外部通信のため `--provider yahoo --allow-live` を明示した場合だけ実行します。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\refresh_symbol_universe_metadata.py --provider yahoo --allow-live --as-of 2026-05-18 --updated-at 2026-05-18T00:00:00+09:00
+```
+
 - `--write` を付けた場合だけ `symbol_universe.csv` と `data/marketdata/symbol_universe_manifest.json` を更新します。write 前に validation error が残る場合は書き込みを拒否します。
+- Yahoo provider は取得できた `sector`, `dividend_yield_pct`, `dividend_category`, `per`, `pbr`, `roe_pct`, `market_cap_tier`, `risk_band`, ETF の `expense_ratio_pct`, and metadata source/as-of/update fields を正規化して返します。失敗銘柄は manifest の `failed_symbols` / `failures` に残します。
 
 Phase 16 ranking implementation notes:
 

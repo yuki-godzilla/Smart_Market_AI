@@ -18,6 +18,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from backend.marketdata.symbol_metadata_refresh import (  # noqa: E402
     METADATA_REFRESH_COLUMNS,
     create_symbol_metadata_provider,
+    metadata_refresh_provider_details,
     refresh_symbol_universe_metadata,
 )
 from ui.symbol_universe import validate_symbol_universe_rows  # noqa: E402
@@ -37,9 +38,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="Write proposed CSV and manifest. Without this flag the command is a dry-run.",
     )
+    parser.add_argument(
+        "--allow-live",
+        action="store_true",
+        help="Allow an external live provider such as yahoo. Never enabled by default.",
+    )
     args = parser.parse_args(argv)
 
     fieldnames, rows = _read_symbol_universe_csv(args.csv)
+    provider_details = metadata_refresh_provider_details(args.provider)
+    if provider_details.get("requires_external_opt_in") and not args.allow_live:
+        print(
+            f"{args.provider} metadata refresh requires --allow-live.",
+            file=sys.stderr,
+        )
+        return 2
     try:
         provider = create_symbol_metadata_provider(args.provider)
     except ValueError as exc:

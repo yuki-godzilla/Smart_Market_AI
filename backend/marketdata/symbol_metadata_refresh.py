@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Protocol, Sequence, runtime_checkable
+from decimal import Decimal, InvalidOperation
+from typing import Callable, Protocol, Sequence, runtime_checkable
 
 METADATA_REFRESH_COLUMNS = (
     "metadata_source",
     "metadata_as_of",
     "metadata_updated_at",
 )
-SUPPORTED_METADATA_REFRESH_PROVIDERS = ("curated_csv",)
+SUPPORTED_METADATA_REFRESH_PROVIDERS = ("curated_csv", "yahoo")
 PLANNED_METADATA_REFRESH_PROVIDERS = (
-    "yahoo",
     "fmp",
     "eodhd",
     "alpha_vantage",
@@ -25,6 +25,15 @@ class SymbolMetadataUpdate:
 
     symbol: str
     values: dict[str, str]
+
+
+@dataclass(frozen=True)
+class SymbolMetadataFailure:
+    """Provider-neutral metadata refresh failure for one symbol."""
+
+    symbol: str
+    code: str
+    message: str
 
 
 @runtime_checkable
@@ -74,6 +83,46 @@ class CuratedSymbolMetadataProvider:
         return updates
 
 
+@dataclass
+class YahooSymbolMetadataProvider:
+    """Opt-in Yahoo metadata provider backed by yfinance ticker info."""
+
+    ticker_info_reader: Callable[[str], dict[str, object]] | None = None
+    name: str = "yahoo"
+    failures: list[SymbolMetadataFailure] = field(default_factory=list, init=False)
+
+    def fetch_metadata(
+        self,
+        rows: Sequence[dict[str, str]],
+        *,
+        as_of: date,
+        updated_at: datetime,
+    ) -> list[SymbolMetadataUpdate]:
+        self.failures.clear()
+        updates: list[SymbolMetadataUpdate] = []
+        ticker_info_reader = self.ticker_info_reader or _read_yahoo_ticker_info
+        for row in rows:
+            symbol = row.get("symbol", "").strip()
+            if not symbol:
+                continue
+            try:
+                info = ticker_info_reader(symbol)
+            except Exception as exc:  # noqa: BLE001 - provider failures are reported per symbol.
+                self.failures.append(
+                    SymbolMetadataFailure(
+                        symbol=symbol,
+                        code="YAHOO-METADATA-FAILED",
+                        message=str(exc),
+                    )
+                )
+                continue
+
+            values = _yahoo_metadata_values(row, info, as_of=as_of, updated_at=updated_at)
+            if values:
+                updates.append(SymbolMetadataUpdate(symbol=symbol, values=values))
+        return updates
+
+
 @dataclass(frozen=True)
 class MetadataRefreshResult:
     """Refresh result with proposed rows and manifest details."""
@@ -87,6 +136,8 @@ def create_symbol_metadata_provider(provider: str) -> SymbolMetadataProvider:
 
     if provider == "curated_csv":
         return CuratedSymbolMetadataProvider()
+    if provider == "yahoo":
+        return YahooSymbolMetadataProvider()
     if provider in PLANNED_METADATA_REFRESH_PROVIDERS:
         raise ValueError(f"{provider} metadata refresh provider is planned but not implemented.")
     raise ValueError(f"{provider} metadata refresh provider is not registered.")
@@ -101,7 +152,7 @@ def metadata_refresh_provider_details(provider: str) -> dict[str, object]:
             "registered": True,
             "implemented": True,
             "deterministic": provider == "curated_csv",
-            "requires_external_opt_in": False,
+            "requires_external_opt_in": provider != "curated_csv",
             "supported_providers": list(SUPPORTED_METADATA_REFRESH_PROVIDERS),
             "planned_live_providers": list(PLANNED_METADATA_REFRESH_PROVIDERS),
         }
@@ -142,6 +193,7 @@ def refresh_symbol_universe_metadata(
         if row.get("symbol", "").strip()
     }
     updates = provider.fetch_metadata(proposed_rows, as_of=as_of, updated_at=updated_at)
+    failures = list(getattr(provider, "failures", []))
 
     changed_symbols: set[str] = set()
     changed_columns: set[str] = set()
@@ -182,6 +234,15 @@ def refresh_symbol_universe_metadata(
         "changed_symbols": sorted(changed_symbols),
         "changed_columns": sorted(changed_columns),
         "unknown_symbols": unknown_symbols,
+        "failed_symbols": [failure.symbol for failure in failures],
+        "failures": [
+            {
+                "symbol": failure.symbol,
+                "code": failure.code,
+                "message": failure.message,
+            }
+            for failure in failures
+        ],
         "validation_before": summarize_validation_issues(validation_before or []),
         "validation_after": summarize_validation_issues(validation_after or []),
     }
@@ -198,3 +259,151 @@ def summarize_validation_issues(issues: Sequence[dict[str, str]]) -> dict[str, i
         "errors": errors,
         "warnings": warnings,
     }
+
+
+def _read_yahoo_ticker_info(symbol: str) -> dict[str, object]:
+    from backend.marketdata.providers.yahoo import (  # noqa: PLC0415
+        _call_yfinance_silently,
+        _load_yfinance,
+        _ticker_info,
+        shared_yfinance_session,
+    )
+
+    yf = _load_yfinance()
+    ticker = yf.Ticker(symbol, session=shared_yfinance_session())
+    return _call_yfinance_silently(_ticker_info, ticker)
+
+
+def _yahoo_metadata_values(
+    row: dict[str, str],
+    info: dict[str, object],
+    *,
+    as_of: date,
+    updated_at: datetime,
+) -> dict[str, str]:
+    values = {
+        "metadata_source": "yahoo",
+        "metadata_as_of": as_of.isoformat(),
+        "metadata_updated_at": updated_at.isoformat(),
+    }
+    sector = _yahoo_sector(info)
+    if sector:
+        values["sector"] = sector
+        values.setdefault("theme", sector)
+
+    dividend_yield = _optional_decimal_info(info, "dividendYield")
+    if dividend_yield is None:
+        dividend_yield = _optional_decimal_info(info, "trailingAnnualDividendYield")
+    if dividend_yield is not None:
+        dividend_yield_pct = _ratio_to_percent(dividend_yield)
+        values["dividend_yield_pct"] = _format_decimal(dividend_yield_pct)
+        values["dividend_category"] = _dividend_category(dividend_yield_pct)
+
+    per = _optional_decimal_info(info, "trailingPE") or _optional_decimal_info(info, "forwardPE")
+    if per is not None:
+        values["per"] = _format_decimal(per)
+
+    pbr = _optional_decimal_info(info, "priceToBook")
+    if pbr is not None:
+        values["pbr"] = _format_decimal(pbr)
+
+    roe = _optional_decimal_info(info, "returnOnEquity")
+    if roe is not None:
+        values["roe_pct"] = _format_decimal(_ratio_to_percent(roe))
+
+    market_cap = _optional_decimal_info(info, "marketCap")
+    if market_cap is not None:
+        values["market_cap_tier"] = _market_cap_tier(
+            market_cap,
+            currency=str(info.get("currency") or row.get("currency") or ""),
+            symbol=row.get("symbol", ""),
+        )
+
+    beta = _optional_decimal_info(info, "beta")
+    if beta is not None:
+        values["risk_band"] = _risk_band(beta)
+
+    expense_ratio = _optional_decimal_info(info, "annualReportExpenseRatio")
+    if expense_ratio is None:
+        expense_ratio = _optional_decimal_info(info, "netExpenseRatio")
+    if row.get("asset_type") == "etf" and expense_ratio is not None:
+        values["expense_ratio_pct"] = _format_decimal(_ratio_to_percent(expense_ratio))
+
+    return values
+
+
+def _optional_decimal_info(info: dict[str, object], key: str) -> Decimal | None:
+    value = info.get(key)
+    if value is None or str(value).lower() == "nan":
+        return None
+    try:
+        return Decimal(str(value))
+    except InvalidOperation:
+        return None
+
+
+def _ratio_to_percent(value: Decimal) -> Decimal:
+    if abs(value) <= Decimal("1"):
+        return value * Decimal("100")
+    return value
+
+
+def _format_decimal(value: Decimal) -> str:
+    normalized = value.quantize(Decimal("0.01")).normalize()
+    return format(normalized, "f")
+
+
+def _yahoo_sector(info: dict[str, object]) -> str | None:
+    raw_sector = str(info.get("sector") or "").strip().lower()
+    return {
+        "basic materials": "materials",
+        "communication services": "communication",
+        "consumer cyclical": "consumer",
+        "consumer defensive": "consumer",
+        "energy": "energy",
+        "financial services": "financial",
+        "healthcare": "healthcare",
+        "industrials": "industrial",
+        "real estate": "real_estate",
+        "technology": "technology",
+        "utilities": "utilities",
+    }.get(raw_sector)
+
+
+def _dividend_category(dividend_yield_pct: Decimal) -> str:
+    if dividend_yield_pct <= 0:
+        return "none"
+    if dividend_yield_pct >= Decimal("3"):
+        return "high_dividend"
+    return "dividend"
+
+
+def _market_cap_tier(market_cap: Decimal, *, currency: str, symbol: str) -> str:
+    if currency == "JPY" or symbol.endswith(".T"):
+        if market_cap >= Decimal("10000000000000"):
+            return "mega"
+        if market_cap >= Decimal("1000000000000"):
+            return "large"
+        if market_cap >= Decimal("100000000000"):
+            return "mid"
+        if market_cap >= Decimal("10000000000"):
+            return "small"
+        return "micro"
+
+    if market_cap >= Decimal("200000000000"):
+        return "mega"
+    if market_cap >= Decimal("10000000000"):
+        return "large"
+    if market_cap >= Decimal("2000000000"):
+        return "mid"
+    if market_cap >= Decimal("300000000"):
+        return "small"
+    return "micro"
+
+
+def _risk_band(beta: Decimal) -> str:
+    if beta < Decimal("0.8"):
+        return "LOW"
+    if beta <= Decimal("1.2"):
+        return "MEDIUM"
+    return "HIGH"

@@ -372,7 +372,7 @@ Implementation order:
 3. Provider-neutral refresh contract and fake/curated provider test. 完了。
 4. Dry-run first refresh command with manifest output. 完了。
 5. Metadata field catalog / tier / storage / freshness policy. 完了。
-6. Yahoo metadata provider as the first live adapter, behind explicit opt-in.
+6. Yahoo metadata provider as the first live adapter, behind explicit opt-in. 完了。
 7. `--write` path for CSV/manifest update, with validation before and after write. 完了。Cache output is future scope if needed.
 8. Optional additional provider adapters only when Yahoo coverage or stability is insufficient.
 
@@ -392,7 +392,7 @@ Current implementation note:
 - `設定 / データ情報` shows candidate count, metadata source, metadata period, validation summary, and issue rows for `symbol_universe.csv` without blocking the existing ranking UI.
 - `backend/marketdata/symbol_metadata_refresh.py` defines the provider-neutral refresh contract, deterministic `curated_csv` provider, provider diagnostics, manifest summary, and validation summary.
 - `tools/refresh_symbol_universe_metadata.py` runs dry-run by default and can write CSV / `symbol_universe_manifest.json` only with `--write`; write is refused when post-refresh validation has errors.
-- Yahoo live metadata provider remains the next Phase 18 task and must stay behind explicit opt-in.
+- Yahoo live metadata provider is available through `--provider yahoo --allow-live`; it maps selected ticker metadata into catalog fields and records per-symbol failures in the manifest. Normal checks remain network-free.
 
 ### 5.5 Phase 19: Decision Report Context MVP
 

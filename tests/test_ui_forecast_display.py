@@ -11,15 +11,10 @@ from ui.app import (
     _build_market_data_ranking_rows,
     _market_data_preview_symbol_label,
     _name_from_candidate,
-    _rank_investment_score_rows,
     _render_market_chart,
     _symbol_from_candidate,
-    apply_ranking_filter_state,
-    apply_ranking_weight_preset,
-    current_ranking_filter_state,
     default_forecast_horizon_days,
     default_market_data_provider,
-    ensure_ranking_selection_widget_state,
     forecast_boundary_frame,
     forecast_chart_summary,
     forecast_consensus_display_rows,
@@ -27,22 +22,21 @@ from ui.app import (
     forecast_metric_summary,
     format_provider_error_details,
     get_cached_ranking_build,
-    initial_ranking_selected_labels_for_key,
     investment_score_display_rows,
     investment_score_summary_lines,
     market_chart_long_frame,
     merged_symbol_candidate_rows,
-    persist_ranking_filter_state,
     provider_error_summary_rows,
     score_component_rows,
     set_cached_ranking_build,
     symbol_candidate_label,
-    sync_ranking_selection_state,
 )
 from ui.ranking import (
+    apply_ranking_weight_preset,
     filter_symbol_universe_rows,
     initial_ranking_selected_labels,
     live_ranking_symbol_warning_message,
+    rank_investment_score_rows,
     ranking_build_cache_key,
     ranking_filter_signature,
     ranking_period_dates,
@@ -55,6 +49,14 @@ from ui.ranking import (
     symbol_candidate_labels,
     symbol_universe_rows,
     valid_ranking_selected_labels,
+)
+from ui.ranking_state import (
+    apply_ranking_filter_state,
+    current_ranking_filter_state,
+    ensure_ranking_selection_widget_state,
+    initial_ranking_selected_labels_for_key,
+    persist_ranking_filter_state,
+    sync_ranking_selection_state,
 )
 from ui.rebalance_app import (
     forecast_consensus_rows_for_bars,
@@ -467,7 +469,7 @@ def test_ranking_filter_state_persists_modal_values_after_widget_cleanup(monkeyp
         "market_data_ranking_min_dividend": "3.0",
         "market_data_ranking_market": "jp",
     }
-    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.ranking_state.st.session_state", session_state)
 
     filters = persist_ranking_filter_state()
     session_state.pop("market_data_ranking_min_dividend")
@@ -496,7 +498,7 @@ def test_initial_ranking_selected_labels_defaults_to_all_matching_candidates():
 
 def test_initial_ranking_selected_labels_for_new_filter_key_uses_all_candidates(monkeypatch):
     session_state: dict[str, object] = {}
-    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.ranking_state.st.session_state", session_state)
     labels = ["7203.T - Toyota Motor", "9983.T - Fast Retailing"]
 
     assert (
@@ -511,7 +513,7 @@ def test_initial_ranking_selected_labels_for_new_filter_key_uses_all_candidates(
 
 def test_initial_ranking_selected_labels_for_existing_key_keeps_user_selection(monkeypatch):
     session_state: dict[str, object] = {"market_data_ranking_symbols_existing": []}
-    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.ranking_state.st.session_state", session_state)
     labels = ["7203.T - Toyota Motor", "9983.T - Fast Retailing"]
 
     assert initial_ranking_selected_labels_for_key(
@@ -525,7 +527,7 @@ def test_ensure_ranking_selection_widget_state_initializes_new_key_with_all_cand
     monkeypatch,
 ):
     session_state: dict[str, object] = {}
-    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.ranking_state.st.session_state", session_state)
     labels = ["7203.T - Toyota Motor", "9983.T - Fast Retailing"]
 
     ensure_ranking_selection_widget_state(
@@ -542,7 +544,7 @@ def test_ensure_ranking_selection_widget_state_preserves_existing_user_selection
     session_state: dict[str, object] = {
         "market_data_ranking_symbols_existing": ["7203.T - Toyota Motor"]
     }
-    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.ranking_state.st.session_state", session_state)
 
     ensure_ranking_selection_widget_state(
         selection_key="market_data_ranking_symbols_existing",
@@ -556,7 +558,7 @@ def test_ensure_ranking_selection_widget_state_preserves_existing_user_selection
 
 def test_sync_ranking_selection_state_updates_widget_and_persistent_state(monkeypatch):
     session_state: dict[str, object] = {}
-    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.ranking_state.st.session_state", session_state)
 
     sync_ranking_selection_state(
         "market_data_ranking_symbols_test",
@@ -570,7 +572,7 @@ def test_sync_ranking_selection_state_updates_widget_and_persistent_state(monkey
 
 def test_sync_ranking_selection_state_can_skip_widget_state(monkeypatch):
     session_state: dict[str, object] = {"market_data_ranking_symbols_test": ["OLD"]}
-    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.ranking_state.st.session_state", session_state)
 
     sync_ranking_selection_state(
         "market_data_ranking_symbols_test",
@@ -587,7 +589,7 @@ def test_apply_ranking_filter_state_selects_filtered_candidates(monkeypatch):
         "market_data_ranking_error_rows": [{"symbol": "ERR"}],
         "market_data_ranking_filter_dialog_open": True,
     }
-    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.ranking_state.st.session_state", session_state)
     preview_rows = [
         {"symbol": "7203.T", "name": "Toyota Motor"},
         {"symbol": "9983.T", "name": "Fast Retailing"},
@@ -971,7 +973,7 @@ def test_score_component_rows_builds_cockpit_breakdown():
 
 
 def test_rank_investment_score_rows_sorts_and_reassigns_rank():
-    assert _rank_investment_score_rows(
+    assert rank_investment_score_rows(
         [
             {"rank": "1", "symbol": "LOW", "total_score": "50"},
             {"rank": "1", "symbol": "HIGH", "total_score": "90"},

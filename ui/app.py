@@ -32,17 +32,16 @@ from ui.ranking import (
     RANKING_COMPLEXITY_LABELS,
     RANKING_CURRENCY_LABELS,
     RANKING_DIVIDEND_LABELS,
-    RANKING_FILTER_DEFAULTS,
     RANKING_INDEX_FAMILY_LABELS,
     RANKING_MARKET_CAP_LABELS,
     RANKING_MARKET_LABELS,
-    RANKING_METRIC_FILTER_DEFAULTS,
     RANKING_PERIOD_PRESETS,
     RANKING_THEME_LABELS,
     RANKING_WEIGHT_PRESETS,
+    apply_ranking_weight_preset,
     filter_symbol_universe_rows,
-    initial_ranking_selected_labels,
     live_ranking_symbol_warning_message,
+    rank_investment_score_rows,
     ranking_build_cache_key,
     ranking_filter_signature,
     ranking_period_dates,
@@ -54,6 +53,22 @@ from ui.ranking import (
     ranking_weight_preset_label,
     symbol_candidate_labels,
     symbol_universe_rows,
+)
+from ui.ranking_state import (
+    apply_ranking_filter_state,
+    clear_ranking_filter_state,
+    ensure_ranking_selection_widget_state,
+    persist_ranking_filter_state,
+    sync_ranking_selection_state,
+)
+from ui.ranking_state import (
+    ranking_filter_bool as _ranking_filter_bool,
+)
+from ui.ranking_state import (
+    ranking_filter_signature_from_state as _ranking_filter_signature_from_state,
+)
+from ui.ranking_state import (
+    ranking_filter_value as _ranking_filter_value,
 )
 from ui.rebalance_app import (
     MarketDataPreview,
@@ -80,12 +95,10 @@ from ui.state import (
     MARKET_DATA_PREVIEW_STATE_KEY,
     MARKET_DATA_RANKING_BUILD_CACHE_STATE_KEY,
     MARKET_DATA_RANKING_ERROR_STATE_KEY,
-    MARKET_DATA_RANKING_FILTERS_STATE_KEY,
     MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY,
     MARKET_DATA_RANKING_STATE_KEY,
     MARKET_DATA_STATUS_STATE_KEY,
     MARKET_DATA_TOAST_STATE_KEY,
-    RANKING_FILTER_DIALOG_STATE_KEY,
 )
 from ui.views.common import (
     _optional_decimal_from_text,
@@ -182,188 +195,6 @@ def _name_from_candidate(label: str) -> str | None:
     if " - " not in label:
         return None
     return label.split(" - ", 1)[1]
-
-
-def _ranking_filter_value(key: str, default: str) -> str:
-    stored_filters = st.session_state.get(MARKET_DATA_RANKING_FILTERS_STATE_KEY, {})
-    if key in st.session_state:
-        value = st.session_state.get(key, default)
-    elif isinstance(stored_filters, dict) and key in stored_filters:
-        value = stored_filters.get(key, default)
-    else:
-        value = default
-    return str(value) if value is not None else default
-
-
-def _ranking_filter_int(key: str, default: int) -> int:
-    value = st.session_state.get(key, default)
-    if isinstance(value, int):
-        return value
-    try:
-        return int(str(value))
-    except ValueError:
-        return default
-
-
-def _ranking_filter_bool(key: str, default: bool) -> bool:
-    stored_filters = st.session_state.get(MARKET_DATA_RANKING_FILTERS_STATE_KEY, {})
-    if key in st.session_state:
-        value = st.session_state.get(key, default)
-    elif isinstance(stored_filters, dict) and key in stored_filters:
-        value = stored_filters.get(key, default)
-    else:
-        value = default
-    if isinstance(value, bool):
-        return value
-    return str(value).lower() in {"1", "true", "yes", "on"}
-
-
-def current_ranking_filter_state() -> dict[str, str]:
-    filters = {
-        key: _ranking_filter_value(key, default) for key, default in RANKING_FILTER_DEFAULTS.items()
-    }
-    for key, default in RANKING_METRIC_FILTER_DEFAULTS.items():
-        if isinstance(default, bool):
-            filters[key] = str(_ranking_filter_bool(key, default))
-        else:
-            filters[key] = _ranking_filter_value(key, default)
-    return filters
-
-
-def persist_ranking_filter_state() -> dict[str, str]:
-    filters = current_ranking_filter_state()
-    st.session_state[MARKET_DATA_RANKING_FILTERS_STATE_KEY] = filters
-    return filters
-
-
-def ranking_filter_summary() -> str:
-    market = RANKING_MARKET_LABELS.get(
-        _ranking_filter_value("market_data_ranking_market", "all"),
-        "すべて",
-    )
-    asset_type = RANKING_ASSET_TYPE_LABELS.get(
-        _ranking_filter_value("market_data_ranking_asset_type", "all"),
-        "すべて",
-    )
-    dividend = RANKING_DIVIDEND_LABELS.get(
-        _ranking_filter_value("market_data_ranking_dividend", "all"),
-        "指定なし",
-    )
-    min_dividend = _ranking_filter_value("market_data_ranking_min_dividend", "0.0")
-    dividend_text = (
-        f"配当利回り {min_dividend}% 以上"
-        if _ranking_filter_bool("market_data_ranking_dividend_enabled", False)
-        else "配当利回り 指定なし"
-    )
-    return f"条件: {market} / {asset_type} / {dividend_text} / {dividend}"
-
-
-def _ranking_filter_signature_from_state() -> str:
-    return ranking_filter_signature(
-        purpose="all",
-        period_preset=_ranking_filter_value("market_data_ranking_period", "short"),
-        market=_ranking_filter_value("market_data_ranking_market", "all"),
-        asset_type=_ranking_filter_value("market_data_ranking_asset_type", "all"),
-        currency=_ranking_filter_value("market_data_ranking_currency", "all"),
-        dividend_category=_ranking_filter_value("market_data_ranking_dividend", "all"),
-        min_dividend_yield_pct=_ranking_filter_value("market_data_ranking_min_dividend", "0.0"),
-        market_cap_tier=_ranking_filter_value("market_data_ranking_market_cap", "all"),
-        index_family=_ranking_filter_value("market_data_ranking_index_family", "all"),
-        max_expense_ratio_pct=_ranking_filter_value("market_data_ranking_max_expense", "1.00"),
-        complexity=_ranking_filter_value("market_data_ranking_complexity", "standard"),
-        theme=_ranking_filter_value("market_data_ranking_theme", "all"),
-        query=_ranking_filter_value("market_data_ranking_symbol_query", ""),
-        per_enabled=_ranking_filter_bool("market_data_ranking_per_enabled", False),
-        per_min=_ranking_filter_value("market_data_ranking_per_min", "2.0"),
-        per_max=_ranking_filter_value("market_data_ranking_per_max", "20.0"),
-        pbr_enabled=_ranking_filter_bool("market_data_ranking_pbr_enabled", False),
-        pbr_min=_ranking_filter_value("market_data_ranking_pbr_min", "0.5"),
-        pbr_max=_ranking_filter_value("market_data_ranking_pbr_max", "2.0"),
-        dividend_yield_enabled=_ranking_filter_bool(
-            "market_data_ranking_dividend_enabled",
-            False,
-        ),
-        dividend_yield_max_pct=_ranking_filter_value("market_data_ranking_dividend_max", "10.0"),
-        roe_enabled=_ranking_filter_bool("market_data_ranking_roe_enabled", False),
-        roe_min_pct=_ranking_filter_value("market_data_ranking_roe_min", "8.0"),
-        roe_max_pct=_ranking_filter_value("market_data_ranking_roe_max", "30.0"),
-        consensus_enabled=_ranking_filter_bool("market_data_ranking_consensus_enabled", False),
-        consensus_min=_ranking_filter_value("market_data_ranking_consensus_min", "2.5"),
-        consensus_max=_ranking_filter_value("market_data_ranking_consensus_max", "5.0"),
-        limit=0,
-    )
-
-
-def initial_ranking_selected_labels_for_key(
-    *,
-    selection_key: str,
-    labels: list[str],
-    stored_selected_labels: list[str],
-) -> list[str]:
-    if selection_key not in st.session_state:
-        return labels
-    return initial_ranking_selected_labels(labels, stored_selected_labels)
-
-
-def ensure_ranking_selection_widget_state(
-    *,
-    selection_key: str,
-    labels: list[str],
-    stored_selected_labels: list[str],
-) -> None:
-    if selection_key not in st.session_state:
-        selected_labels = initial_ranking_selected_labels_for_key(
-            selection_key=selection_key,
-            labels=labels,
-            stored_selected_labels=stored_selected_labels,
-        )
-        st.session_state[selection_key] = selected_labels
-        st.session_state[MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY] = selected_labels
-
-
-def sync_ranking_selection_state(
-    selection_key: str,
-    selected_labels: list[str],
-    *,
-    update_widget_state: bool = False,
-) -> None:
-    st.session_state[MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY] = selected_labels
-    if update_widget_state:
-        st.session_state[selection_key] = selected_labels
-
-
-def apply_ranking_filter_state(
-    preview_rows: list[dict[str, str]],
-    filter_signature: str,
-) -> None:
-    selected_labels = symbol_candidate_labels(preview_rows)
-    st.session_state["market_data_ranking_filter_signature"] = filter_signature
-    sync_ranking_selection_state(
-        ranking_symbols_state_key(filter_signature),
-        selected_labels,
-        update_widget_state=True,
-    )
-    st.session_state.pop(MARKET_DATA_RANKING_STATE_KEY, None)
-    st.session_state.pop(MARKET_DATA_RANKING_ERROR_STATE_KEY, None)
-    st.session_state[RANKING_FILTER_DIALOG_STATE_KEY] = False
-
-
-def clear_ranking_filter_state() -> None:
-    for key, default in {**RANKING_FILTER_DEFAULTS, **RANKING_METRIC_FILTER_DEFAULTS}.items():
-        if isinstance(default, bool):
-            st.session_state[key] = default
-        elif key.endswith(("_min", "_max")) or key in {
-            "market_data_ranking_min_dividend",
-            "market_data_ranking_dividend_max",
-            "market_data_ranking_max_expense",
-        }:
-            st.session_state[key] = float(default)
-        else:
-            st.session_state[key] = default
-    st.session_state.pop(MARKET_DATA_RANKING_FILTERS_STATE_KEY, None)
-    st.session_state.pop(MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY, None)
-    st.session_state.pop(MARKET_DATA_RANKING_STATE_KEY, None)
-    st.session_state.pop(MARKET_DATA_RANKING_ERROR_STATE_KEY, None)
 
 
 def _render_metric_range_filter(
@@ -1238,7 +1069,7 @@ async def _build_market_data_ranking_rows_fast(
         screening_scores,
         forecast_consensus_by_symbol=forecast_consensus_by_symbol,
     )
-    ranked_rows = _rank_investment_score_rows(investment_score_rows(investment_scores))
+    ranked_rows = rank_investment_score_rows(investment_score_rows(investment_scores))
     _report_ranking_progress(progress_callback, "ランキングを並べ替えています。", 0.98)
     return ranked_rows, error_rows
 
@@ -1360,7 +1191,7 @@ async def _build_market_data_ranking_rows_from_previews(
             0.1 + (0.85 * completed_count / len(symbols)),
         )
     _report_ranking_progress(progress_callback, "ランキングを並べ替えています。", 0.98)
-    return _rank_investment_score_rows(rows), error_rows
+    return rank_investment_score_rows(rows), error_rows
 
 
 def _select_ranking_symbol_for_cockpit(symbol: str, provider: str) -> None:
@@ -1987,65 +1818,6 @@ def _int_from_text(value: str) -> int:
         return int(value)
     except ValueError:
         return 0
-
-
-def _rank_investment_score_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
-    ranked = sorted(
-        rows,
-        key=lambda row: _optional_decimal_from_text(row.get("total_score", "")) or Decimal("-1"),
-        reverse=True,
-    )
-    return [
-        {
-            **row,
-            "rank": str(index),
-        }
-        for index, row in enumerate(ranked, start=1)
-    ]
-
-
-def apply_ranking_weight_preset(
-    rows: list[dict[str, str]],
-    preset: str,
-) -> list[dict[str, str]]:
-    weights = RANKING_WEIGHT_PRESETS[preset]
-    preset_label = ranking_weight_preset_label(preset)
-    reweighted_rows: list[dict[str, str]] = []
-    for row in rows:
-        total = Decimal("0")
-        for field, weight in weights.items():
-            component_score = _optional_decimal_from_text(row.get(field, "")) or Decimal("0")
-            total += component_score * weight
-        warnings = row.get("warnings", "")
-        reweighted_rows.append(
-            {
-                **row,
-                "total_score": _format_score(total),
-                "score_band": _score_band_for_total(total, warnings),
-                "note": f"{preset_label}で並べ替えています。売買推奨ではなく、深掘り候補の整理です。",
-            }
-        )
-    return _rank_investment_score_rows(reweighted_rows)
-
-
-def _score_band_for_total(total_score: Decimal, warnings: str) -> str:
-    warning_items = {item.strip() for item in warnings.split(",") if item.strip()}
-    if "data_quality:block" in warning_items:
-        return "REVIEW"
-    if total_score >= Decimal("75") and not warning_items:
-        return "STRONG"
-    if warning_items and total_score < Decimal("65"):
-        return "CAUTION"
-    if total_score >= Decimal("55"):
-        return "BALANCED"
-    if total_score >= Decimal("40"):
-        return "CAUTION"
-    return "REVIEW"
-
-
-def _format_score(value: Decimal) -> str:
-    rounded = value.quantize(Decimal("0.01"))
-    return format(rounded.normalize(), "f")
 
 
 def _metadata_value(rows: list[dict[str, str]], field: str) -> str:

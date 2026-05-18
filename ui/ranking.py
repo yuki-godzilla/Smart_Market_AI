@@ -429,6 +429,45 @@ def ranking_symbol_options(rows: list[dict[str, str]]) -> list[str]:
     return symbols
 
 
+def rank_investment_score_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    ranked = sorted(
+        rows,
+        key=lambda row: _optional_decimal_from_text(row.get("total_score", "")) or Decimal("-1"),
+        reverse=True,
+    )
+    return [
+        {
+            **row,
+            "rank": str(index),
+        }
+        for index, row in enumerate(ranked, start=1)
+    ]
+
+
+def apply_ranking_weight_preset(
+    rows: list[dict[str, str]],
+    preset: str,
+) -> list[dict[str, str]]:
+    weights = RANKING_WEIGHT_PRESETS[preset]
+    preset_label = ranking_weight_preset_label(preset)
+    reweighted_rows: list[dict[str, str]] = []
+    for row in rows:
+        total = Decimal("0")
+        for field, weight in weights.items():
+            component_score = _optional_decimal_from_text(row.get(field, "")) or Decimal("0")
+            total += component_score * weight
+        warnings = row.get("warnings", "")
+        reweighted_rows.append(
+            {
+                **row,
+                "total_score": _format_score(total),
+                "score_band": _score_band_for_total(total, warnings),
+                "note": f"{preset_label}で並べ替えています。売買推奨ではなく、深掘り候補の整理です。",
+            }
+        )
+    return rank_investment_score_rows(reweighted_rows)
+
+
 def _ranking_error_symbol_summary(symbols: list[str]) -> str:
     if len(symbols) <= 8:
         return ", ".join(symbols)
@@ -504,3 +543,32 @@ def _symbol_complexity_allowed(symbol_complexity: str, selected_complexity: str)
     if selected_complexity == "standard":
         return symbol_complexity in {"beginner", "standard"}
     return symbol_complexity == "beginner"
+
+
+def _score_band_for_total(total_score: Decimal, warnings: str) -> str:
+    warning_items = {item.strip() for item in warnings.split(",") if item.strip()}
+    if "data_quality:block" in warning_items:
+        return "REVIEW"
+    if total_score >= Decimal("75") and not warning_items:
+        return "STRONG"
+    if warning_items and total_score < Decimal("65"):
+        return "CAUTION"
+    if total_score >= Decimal("55"):
+        return "BALANCED"
+    if total_score >= Decimal("40"):
+        return "CAUTION"
+    return "REVIEW"
+
+
+def _format_score(value: Decimal) -> str:
+    rounded = value.quantize(Decimal("0.01"))
+    return format(rounded.normalize(), "f")
+
+
+def _optional_decimal_from_text(value: str) -> Decimal | None:
+    if value == "":
+        return None
+    try:
+        return Decimal(value)
+    except InvalidOperation:
+        return None

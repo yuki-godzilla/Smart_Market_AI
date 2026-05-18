@@ -39,6 +39,7 @@ from ui.ranking import (
     rank_investment_score_rows,
     ranking_build_cache_key,
     ranking_deep_dive_default_symbol,
+    ranking_detail_filters_for_category,
     ranking_filter_signature,
     ranking_no_bars_error_row,
     ranking_period_dates,
@@ -47,6 +48,7 @@ from ui.ranking import (
     ranking_symbol_chunks,
     ranking_symbol_options,
     ranking_symbols_state_key,
+    ranking_weight_preset_for_purpose,
     ranking_weight_preset_label,
     symbol_candidate_labels,
     symbol_universe_rows,
@@ -343,6 +345,63 @@ def test_filter_symbol_universe_rows_filters_etf_database_values():
     ] == ["VOO"]
 
 
+def test_filter_symbol_universe_rows_filters_by_region_product_and_risk():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "7203.T", "name": "Toyota Motor"},
+            {"symbol": "AAPL", "name": "Apple Inc."},
+            {"symbol": "TM", "name": "Toyota Motor ADR"},
+            {"symbol": "SPY", "name": "SPDR S&P 500 ETF"},
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="japan",
+            product_type="stock",
+            risk_band="LOW",
+        )
+    ] == ["7203.T"]
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="us",
+            product_type="stock",
+        )
+    ] == ["AAPL", "TM"]
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="us",
+            product_type="etf",
+        )
+    ] == ["SPY"]
+    assert (
+        filter_symbol_universe_rows(
+            rows,
+            region="other_global",
+            product_type="stock",
+        )
+        == []
+    )
+
+
+def test_ranking_detail_filters_change_by_region_and_product():
+    japan_stock = ranking_detail_filters_for_category("japan", "stock")
+    us_stock = ranking_detail_filters_for_category("us", "stock")
+    etf = ranking_detail_filters_for_category("japan", "etf")
+
+    assert "pbr" in japan_stock
+    assert "risk_band" in us_stock
+    assert "benchmark_index" in etf
+    assert "pbr" not in etf
+    assert ranking_weight_preset_for_purpose("low_risk") == "risk"
+
+
 def test_filter_symbol_universe_rows_searches_japanese_aliases():
     rows = symbol_universe_rows(
         [
@@ -358,6 +417,9 @@ def test_filter_symbol_universe_rows_searches_japanese_aliases():
 
 def test_ranking_filter_signature_changes_when_conditions_change():
     base = ranking_filter_signature(
+        region="us",
+        product_type="stock",
+        ranking_purpose="overall",
         purpose="dividend",
         period_preset="short",
         market="us",
@@ -370,10 +432,48 @@ def test_ranking_filter_signature_changes_when_conditions_change():
         limit=6,
     )
     changed = ranking_filter_signature(
+        region="japan",
+        product_type="stock",
+        ranking_purpose="overall",
         purpose="dividend",
         period_preset="short",
         market="jp",
         asset_type="stock",
+        currency="all",
+        dividend_category="all",
+        complexity="standard",
+        theme="all",
+        query="",
+        limit=6,
+    )
+
+    assert base != changed
+
+
+def test_ranking_filter_signature_includes_ranking_classification():
+    base = ranking_filter_signature(
+        region="japan",
+        product_type="stock",
+        ranking_purpose="overall",
+        purpose="all",
+        period_preset="short",
+        market="all",
+        asset_type="all",
+        currency="all",
+        dividend_category="all",
+        complexity="standard",
+        theme="all",
+        query="",
+        limit=6,
+    )
+    changed = ranking_filter_signature(
+        region="japan",
+        product_type="stock",
+        ranking_purpose="high_dividend",
+        purpose="all",
+        period_preset="short",
+        market="all",
+        asset_type="all",
         currency="all",
         dividend_category="all",
         complexity="standard",

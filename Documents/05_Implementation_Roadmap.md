@@ -285,7 +285,7 @@ Completion criteria:
 
 ### 5.3 Phase 17: UI Polish And Ranking Condition Redesign
 
-Status: planned; next feature implementation
+Status: in progress; first UI slice implemented
 
 目的: `銘柄ランキング` を、単なる検索フィルターではなく、投資対象とランキング目的を先に決めてから詳細条件を設定する UI に整理する。
 
@@ -332,6 +332,12 @@ Completion criteria:
 - Phase 1 で実データに基づき有効な条件と、future metadata 条件が区別されている。
 - 「おすすめ」ではなく、判断材料を整理する ranking として文言が統一されている。
 - UI helper tests または deterministic filtering tests が追加・更新されている。
+
+Current implementation note:
+
+- `ui/ranking.py` defines region / product / ranking-purpose labels separately from internal keys.
+- `銘柄ランキング` now shows region / product / ranking purpose before provider / period, derives the display weight preset from ranking purpose, and shows dynamic detail filters for the selected category.
+- Current enforceable filters remain limited to `symbol_universe.csv` metadata. 投信の条件は定義済みだが、候補マスタに投信行がないため Phase 18 metadata refresh で拡張する。
 
 ### 5.4 Phase 18: Symbol Universe And Metadata Refresh
 

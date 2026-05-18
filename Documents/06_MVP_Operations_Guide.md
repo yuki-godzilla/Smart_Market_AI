@@ -205,15 +205,17 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 確認できるもの:
 
 - provider
-- ranking preset
-  - バランス重視
-  - 予測一致重視
-  - データ品質重視
-  - リスク控えめ
+- 地域 / 商品 / ランキング目的
+  - 地域: `国内` / `米国` / `その他海外` / `全体`
+  - 商品: `株式` / `ETF` / `投信` / `全体`
+  - ランキング目的: `総合評価` / `短期上昇期待` / `中長期成長` / `高配当` / `割安` / `低リスク` / `低コスト`
+- ランキング目的に応じた表示順
+  - 総合評価 / 高配当 / 割安: バランス重視
+  - 短期上昇期待 / 中長期成長: 予測一致重視
+  - 低リスク: リスク控えめ
+  - 低コスト: データ品質重視
 - 基本条件
   - period preset
-  - market
-  - asset type
   - currency
   - dividend category
   - minimum dividend yield
@@ -223,7 +225,10 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
   - theme
   - keyword
 - 常設のスクリーニング条件パネル
-  - PER / PBR / 配当利回り / ROE / コンセンサスの ON/OFF と範囲指定
+  - 地域 × 商品に応じて、現在の銘柄マスタで判定できる詳細条件だけを表示
+  - 株式: 業種/テーマ、時価総額、配当利回り、PER、PBR、ROE、リスク
+  - ETF: 連動指数、信託報酬/経費率、分配金利回り、複雑さ
+  - 投信: 条件定義は追加済み。現在の銘柄マスタに候補がないため future metadata 扱い
   - 条件のクリア
   - 条件変更後の候補数表示
 - ranking result with ticker / company name / score / warnings
@@ -232,6 +237,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 注意:
 
 - ranking の候補条件は、provider fetch 前に使える `data/marketdata/symbol_universe.csv` の curated metadata を中心にしています。
+- 地域 / 商品は provider fetch 前の候補 universe を絞ります。ランキング目的は Investment Score の表示順の重み付けに使い、候補 universe そのものは絞りません。
 - dividend category や theme は現在 curated metadata です。provider fundamentals からの自動更新は将来拡張です。
 - `symbol_universe.csv` は Phase 16 UI 用の銘柄候補マスタです。列は `symbol`, `name`, `market`, `asset_type`, `currency`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases`, `per`, `pbr`, `roe_pct`, `sector`, `consensus_rating`, `forecast_agreement`, `data_quality`, `risk_band` です。
 - 常設パネルで条件を変えると、候補数と「比較する銘柄」の選択候補が同じ画面内で確認できます。

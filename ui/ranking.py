@@ -13,6 +13,45 @@ MAX_RANKING_BUILD_CACHE_ENTRIES = 8
 LIVE_MARKET_DATA_PROVIDERS = {"yahoo", "polygon"}
 LIVE_RANKING_WARNING_SYMBOL_THRESHOLD = 30
 
+RANKING_REGION_JAPAN = "japan"
+RANKING_REGION_US = "us"
+RANKING_REGION_OTHER_GLOBAL = "other_global"
+RANKING_REGION_ALL = "all"
+RANKING_REGION_LABELS = {
+    RANKING_REGION_JAPAN: "国内",
+    RANKING_REGION_US: "米国",
+    RANKING_REGION_OTHER_GLOBAL: "その他海外",
+    RANKING_REGION_ALL: "全体",
+}
+
+RANKING_PRODUCT_STOCK = "stock"
+RANKING_PRODUCT_ETF = "etf"
+RANKING_PRODUCT_MUTUAL_FUND = "mutual_fund"
+RANKING_PRODUCT_ALL = "all"
+RANKING_PRODUCT_TYPE_LABELS = {
+    RANKING_PRODUCT_STOCK: "株式",
+    RANKING_PRODUCT_ETF: "ETF",
+    RANKING_PRODUCT_MUTUAL_FUND: "投信",
+    RANKING_PRODUCT_ALL: "全体",
+}
+
+RANKING_PURPOSE_OVERALL = "overall"
+RANKING_PURPOSE_SHORT_TERM_UPSIDE = "short_term_upside"
+RANKING_PURPOSE_LONG_TERM_GROWTH = "long_term_growth"
+RANKING_PURPOSE_HIGH_DIVIDEND = "high_dividend"
+RANKING_PURPOSE_VALUE = "value"
+RANKING_PURPOSE_LOW_RISK = "low_risk"
+RANKING_PURPOSE_LOW_COST = "low_cost"
+RANKING_PURPOSE_LABELS = {
+    RANKING_PURPOSE_OVERALL: "総合評価",
+    RANKING_PURPOSE_SHORT_TERM_UPSIDE: "短期上昇期待",
+    RANKING_PURPOSE_LONG_TERM_GROWTH: "中長期成長",
+    RANKING_PURPOSE_HIGH_DIVIDEND: "高配当",
+    RANKING_PURPOSE_VALUE: "割安",
+    RANKING_PURPOSE_LOW_RISK: "低リスク",
+    RANKING_PURPOSE_LOW_COST: "低コスト",
+}
+
 RANKING_PRESET_BALANCED = "balanced"
 RANKING_PRESET_FORECAST = "forecast"
 RANKING_PRESET_QUALITY = "quality"
@@ -48,6 +87,15 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
         "data_quality_score": Decimal("0.20"),
         "risk_signal_score": Decimal("0.30"),
     },
+}
+RANKING_PURPOSE_WEIGHT_PRESETS = {
+    RANKING_PURPOSE_OVERALL: RANKING_PRESET_BALANCED,
+    RANKING_PURPOSE_SHORT_TERM_UPSIDE: RANKING_PRESET_FORECAST,
+    RANKING_PURPOSE_LONG_TERM_GROWTH: RANKING_PRESET_FORECAST,
+    RANKING_PURPOSE_HIGH_DIVIDEND: RANKING_PRESET_BALANCED,
+    RANKING_PURPOSE_VALUE: RANKING_PRESET_BALANCED,
+    RANKING_PURPOSE_LOW_RISK: RANKING_PRESET_RISK,
+    RANKING_PURPOSE_LOW_COST: RANKING_PRESET_QUALITY,
 }
 RANKING_PERIOD_PRESETS = {
     "short": 7,
@@ -114,7 +162,70 @@ RANKING_INDEX_FAMILY_LABELS = {
     "total_us": "全米",
     "small_us": "米国小型",
 }
+RANKING_RISK_BAND_LABELS = {
+    "all": "指定なし",
+    "LOW": "低",
+    "MEDIUM": "中",
+    "HIGH": "高",
+}
+RANKING_DETAIL_FILTER_LABELS = {
+    "industry_or_sector": "業種/テーマ",
+    "market_cap": "時価総額",
+    "dividend_yield": "配当利回り",
+    "per": "PER",
+    "pbr": "PBR",
+    "roe": "ROE",
+    "risk_band": "リスク",
+    "benchmark_index": "連動指数",
+    "expense_ratio": "信託報酬/経費率",
+    "complexity": "複雑さ",
+    "management_style": "運用方式",
+    "nisa_eligibility": "NISA対応",
+    "installment_available": "積立可否",
+}
+RANKING_DETAIL_FILTERS_BY_CATEGORY = {
+    (RANKING_REGION_JAPAN, RANKING_PRODUCT_STOCK): [
+        "industry_or_sector",
+        "market_cap",
+        "dividend_yield",
+        "per",
+        "pbr",
+        "roe",
+        "risk_band",
+    ],
+    (RANKING_REGION_US, RANKING_PRODUCT_STOCK): [
+        "industry_or_sector",
+        "market_cap",
+        "dividend_yield",
+        "per",
+        "roe",
+        "risk_band",
+    ],
+    (RANKING_REGION_ALL, RANKING_PRODUCT_STOCK): [
+        "industry_or_sector",
+        "market_cap",
+        "dividend_yield",
+        "per",
+        "roe",
+        "risk_band",
+    ],
+    (RANKING_REGION_ALL, RANKING_PRODUCT_ETF): [
+        "benchmark_index",
+        "expense_ratio",
+        "dividend_yield",
+        "complexity",
+    ],
+    (RANKING_REGION_ALL, RANKING_PRODUCT_MUTUAL_FUND): [
+        "management_style",
+        "expense_ratio",
+        "nisa_eligibility",
+        "installment_available",
+    ],
+}
 RANKING_FILTER_DEFAULTS: dict[str, str] = {
+    "market_data_ranking_region": RANKING_REGION_JAPAN,
+    "market_data_ranking_product_type": RANKING_PRODUCT_STOCK,
+    "market_data_ranking_purpose": RANKING_PURPOSE_OVERALL,
     "market_data_ranking_market": "all",
     "market_data_ranking_asset_type": "all",
     "market_data_ranking_currency": "all",
@@ -124,6 +235,7 @@ RANKING_FILTER_DEFAULTS: dict[str, str] = {
     "market_data_ranking_index_family": "all",
     "market_data_ranking_max_expense": "1.00",
     "market_data_ranking_complexity": "standard",
+    "market_data_ranking_risk_band": "all",
     "market_data_ranking_theme": "all",
     "market_data_ranking_symbol_query": "",
 }
@@ -158,6 +270,46 @@ def ranking_period_label(preset: str) -> str:
     return RANKING_PERIOD_LABELS.get(preset, preset)
 
 
+def ranking_region_label(region: str) -> str:
+    return RANKING_REGION_LABELS.get(region, region)
+
+
+def ranking_product_type_label(product_type: str) -> str:
+    return RANKING_PRODUCT_TYPE_LABELS.get(product_type, product_type)
+
+
+def ranking_purpose_label(purpose: str) -> str:
+    return RANKING_PURPOSE_LABELS.get(purpose, purpose)
+
+
+def ranking_weight_preset_for_purpose(purpose: str) -> str:
+    return RANKING_PURPOSE_WEIGHT_PRESETS.get(purpose, RANKING_PRESET_BALANCED)
+
+
+def ranking_detail_filters_for_category(region: str, product_type: str) -> list[str]:
+    if product_type == RANKING_PRODUCT_ETF:
+        return RANKING_DETAIL_FILTERS_BY_CATEGORY[(RANKING_REGION_ALL, RANKING_PRODUCT_ETF)]
+    if product_type == RANKING_PRODUCT_MUTUAL_FUND:
+        return RANKING_DETAIL_FILTERS_BY_CATEGORY[(RANKING_REGION_ALL, RANKING_PRODUCT_MUTUAL_FUND)]
+    if product_type == RANKING_PRODUCT_STOCK:
+        if region == RANKING_REGION_JAPAN:
+            return RANKING_DETAIL_FILTERS_BY_CATEGORY[(RANKING_REGION_JAPAN, RANKING_PRODUCT_STOCK)]
+        if region == RANKING_REGION_US:
+            return RANKING_DETAIL_FILTERS_BY_CATEGORY[(RANKING_REGION_US, RANKING_PRODUCT_STOCK)]
+        return RANKING_DETAIL_FILTERS_BY_CATEGORY[(RANKING_REGION_ALL, RANKING_PRODUCT_STOCK)]
+    return [
+        "industry_or_sector",
+        "market_cap",
+        "dividend_yield",
+        "per",
+        "roe",
+        "risk_band",
+        "benchmark_index",
+        "expense_ratio",
+        "complexity",
+    ]
+
+
 def ranking_period_dates(preset: str, end: date) -> tuple[date, date]:
     days = RANKING_PERIOD_PRESETS.get(preset, RANKING_PERIOD_PRESETS["medium"])
     return end - timedelta(days=days), end
@@ -185,6 +337,9 @@ def symbol_universe_rows(
 def filter_symbol_universe_rows(
     rows: list[dict[str, str]],
     *,
+    region: str = RANKING_REGION_ALL,
+    product_type: str = RANKING_PRODUCT_ALL,
+    ranking_purpose: str = RANKING_PURPOSE_OVERALL,
     purpose: str = "all",
     market: str = "all",
     asset_type: str = "all",
@@ -195,6 +350,7 @@ def filter_symbol_universe_rows(
     index_family: str = "all",
     max_expense_ratio_pct: Decimal | str | int = Decimal("1.00"),
     complexity: str = "standard",
+    risk_band: str = "all",
     theme: str = "all",
     query: str = "",
     per_enabled: bool = False,
@@ -217,8 +373,13 @@ def filter_symbol_universe_rows(
     min_dividend = _decimal_filter_value(min_dividend_yield_pct, Decimal("0"))
     max_expense = _decimal_filter_value(max_expense_ratio_pct, Decimal("1.00"))
     filtered: list[dict[str, str]] = []
+    _ = ranking_purpose
     for row in rows:
         tags = _symbol_universe_values(row, "tags")
+        if not _symbol_matches_region(row, region):
+            continue
+        if not _symbol_matches_product_type(row, product_type):
+            continue
         if purpose != "all" and purpose not in tags:
             continue
         if market == "etf":
@@ -233,6 +394,8 @@ def filter_symbol_universe_rows(
         if dividend_category != "all" and row.get("dividend_category") != dividend_category:
             continue
         if market_cap_tier != "all" and row.get("market_cap_tier") != market_cap_tier:
+            continue
+        if risk_band != "all" and row.get("risk_band") != risk_band:
             continue
         if index_family != "all" and row.get("index_family") != index_family:
             continue
@@ -283,6 +446,9 @@ def filter_symbol_universe_rows(
 
 def ranking_filter_signature(
     *,
+    region: str = RANKING_REGION_ALL,
+    product_type: str = RANKING_PRODUCT_ALL,
+    ranking_purpose: str = RANKING_PURPOSE_OVERALL,
     purpose: str,
     period_preset: str,
     market: str,
@@ -294,6 +460,7 @@ def ranking_filter_signature(
     index_family: str = "all",
     max_expense_ratio_pct: str = "1.00",
     complexity: str,
+    risk_band: str = "all",
     theme: str,
     query: str,
     per_enabled: bool = False,
@@ -315,6 +482,9 @@ def ranking_filter_signature(
     _ = period_preset
     return "|".join(
         [
+            region,
+            product_type,
+            ranking_purpose,
             purpose,
             market,
             asset_type,
@@ -325,6 +495,7 @@ def ranking_filter_signature(
             index_family,
             max_expense_ratio_pct,
             complexity,
+            risk_band,
             theme,
             query.strip().lower(),
             str(per_enabled),
@@ -583,6 +754,32 @@ def _symbol_universe_row(row: dict[str, str]) -> dict[str, str]:
 
 def _symbol_universe_values(row: dict[str, str], key: str) -> set[str]:
     return {value.strip() for value in row.get(key, "").split(",") if value.strip()}
+
+
+def _symbol_matches_region(row: dict[str, str], region: str) -> bool:
+    market = row.get("market", "")
+    if region == RANKING_REGION_ALL:
+        return True
+    if region == RANKING_REGION_JAPAN:
+        return market == "jp"
+    if region == RANKING_REGION_US:
+        return market == "us"
+    if region == RANKING_REGION_OTHER_GLOBAL:
+        return market not in {"jp", "us"}
+    return True
+
+
+def _symbol_matches_product_type(row: dict[str, str], product_type: str) -> bool:
+    asset_type = row.get("asset_type", "")
+    if product_type == RANKING_PRODUCT_ALL:
+        return True
+    if product_type == RANKING_PRODUCT_STOCK:
+        return asset_type in {"stock", "adr"}
+    if product_type == RANKING_PRODUCT_ETF:
+        return asset_type == "etf"
+    if product_type == RANKING_PRODUCT_MUTUAL_FUND:
+        return asset_type in {"mutual_fund", "fund", "investment_trust"}
+    return True
 
 
 def _symbol_complexity_allowed(symbol_complexity: str, selected_complexity: str) -> bool:

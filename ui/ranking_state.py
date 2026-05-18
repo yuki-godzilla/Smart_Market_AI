@@ -8,6 +8,9 @@ from ui.ranking import (
     RANKING_FILTER_DEFAULTS,
     RANKING_MARKET_LABELS,
     RANKING_METRIC_FILTER_DEFAULTS,
+    RANKING_PRODUCT_TYPE_LABELS,
+    RANKING_PURPOSE_LABELS,
+    RANKING_REGION_LABELS,
     initial_ranking_selected_labels,
     ranking_filter_signature,
     ranking_symbols_state_key,
@@ -65,6 +68,18 @@ def persist_ranking_filter_state() -> dict[str, str]:
 
 
 def ranking_filter_summary() -> str:
+    region = RANKING_REGION_LABELS.get(
+        ranking_filter_value("market_data_ranking_region", "japan"),
+        "国内",
+    )
+    product_type = RANKING_PRODUCT_TYPE_LABELS.get(
+        ranking_filter_value("market_data_ranking_product_type", "stock"),
+        "株式",
+    )
+    ranking_purpose = RANKING_PURPOSE_LABELS.get(
+        ranking_filter_value("market_data_ranking_purpose", "overall"),
+        "総合評価",
+    )
     market = RANKING_MARKET_LABELS.get(
         ranking_filter_value("market_data_ranking_market", "all"),
         "すべて",
@@ -83,11 +98,17 @@ def ranking_filter_summary() -> str:
         if ranking_filter_bool("market_data_ranking_dividend_enabled", False)
         else "配当利回り 指定なし"
     )
-    return f"条件: {market} / {asset_type} / {dividend_text} / {dividend}"
+    return (
+        f"条件: {region} / {product_type} / {ranking_purpose} / "
+        f"{market} / {asset_type} / {dividend_text} / {dividend}"
+    )
 
 
 def ranking_filter_signature_from_state() -> str:
     return ranking_filter_signature(
+        region=ranking_filter_value("market_data_ranking_region", "japan"),
+        product_type=ranking_filter_value("market_data_ranking_product_type", "stock"),
+        ranking_purpose=ranking_filter_value("market_data_ranking_purpose", "overall"),
         purpose="all",
         period_preset=ranking_filter_value("market_data_ranking_period", "short"),
         market=ranking_filter_value("market_data_ranking_market", "all"),
@@ -99,6 +120,7 @@ def ranking_filter_signature_from_state() -> str:
         index_family=ranking_filter_value("market_data_ranking_index_family", "all"),
         max_expense_ratio_pct=ranking_filter_value("market_data_ranking_max_expense", "1.00"),
         complexity=ranking_filter_value("market_data_ranking_complexity", "standard"),
+        risk_band=ranking_filter_value("market_data_ranking_risk_band", "all"),
         theme=ranking_filter_value("market_data_ranking_theme", "all"),
         query=ranking_filter_value("market_data_ranking_symbol_query", ""),
         per_enabled=ranking_filter_bool("market_data_ranking_per_enabled", False),

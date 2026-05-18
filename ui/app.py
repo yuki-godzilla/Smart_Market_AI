@@ -28,13 +28,11 @@ from ui.ranking import (
     LIVE_MARKET_DATA_PROVIDERS,
     MAX_RANKING_BUILD_CACHE_ENTRIES,
     MAX_RANKING_CONCURRENT_FETCHES,
-    RANKING_ASSET_TYPE_LABELS,
     RANKING_COMPLEXITY_LABELS,
     RANKING_CURRENCY_LABELS,
     RANKING_DIVIDEND_LABELS,
     RANKING_INDEX_FAMILY_LABELS,
     RANKING_MARKET_CAP_LABELS,
-    RANKING_MARKET_LABELS,
     RANKING_PERIOD_PRESETS,
     RANKING_PRODUCT_TYPE_LABELS,
     RANKING_PURPOSE_LABELS,
@@ -65,17 +63,12 @@ from ui.ranking import (
     symbol_universe_rows,
 )
 from ui.ranking_state import (
-    apply_ranking_filter_state,
     clear_ranking_filter_state,
     ensure_ranking_selection_widget_state,
-    persist_ranking_filter_state,
     sync_ranking_selection_state,
 )
 from ui.ranking_state import (
     ranking_filter_bool as _ranking_filter_bool,
-)
-from ui.ranking_state import (
-    ranking_filter_signature_from_state as _ranking_filter_signature_from_state,
 )
 from ui.ranking_state import (
     ranking_filter_value as _ranking_filter_value,
@@ -288,16 +281,13 @@ def _render_ranking_filter_panel() -> None:
     region = _ranking_filter_value("market_data_ranking_region", "japan")
     product_type = _ranking_filter_value("market_data_ranking_product_type", "stock")
     detail_filters = set(ranking_detail_filters_for_category(region, product_type))
-    with st.expander("詳細条件（候補を絞る）", expanded=not has_ranking_result):
-        st.caption(
-            "選んだ地域・商品に合わせて、取得前に使える条件だけを表示します。"
-            "ランキング目的は表示順の重み付けに使います。"
-        )
+    with st.expander("詳細条件", expanded=not has_ranking_result):
+        st.caption("取得前に使える条件で候補を絞ります。ランキング目的は表示順に使います。")
 
         if product_type == "mutual_fund":
             st.info("投信の条件は定義済みですが、現在の銘柄マスタには投信候補がありません。")
 
-        st.markdown("**分類条件**")
+        st.markdown("**属性条件**")
         columns = st.columns(4)
         column_index = 0
 
@@ -437,7 +427,7 @@ def _render_ranking_filter_panel() -> None:
         if "management_style" in detail_filters or "nisa_eligibility" in detail_filters:
             st.caption("運用方式 / NISA対応 / 積立可否は Phase 18 のメタデータ拡張で有効化します。")
 
-        st.markdown("**キーワード**")
+        st.markdown("**キーワード検索**")
         col_keyword, col_clear = st.columns([3.0, 0.8])
         with col_keyword:
             st.text_input(
@@ -448,152 +438,6 @@ def _render_ranking_filter_panel() -> None:
             )
         with col_clear:
             st.button("クリアする", on_click=clear_ranking_filter_state)
-
-
-@st.dialog("候補条件")
-def _render_ranking_filter_dialog() -> None:
-    st.caption("銘柄を取得する前に分かる属性だけで候補を絞ります。")
-    col_period, col_min_dividend = st.columns([1.0, 1.0])
-    with col_period:
-        st.selectbox(
-            "期間",
-            list(RANKING_PERIOD_PRESETS),
-            index=list(RANKING_PERIOD_PRESETS).index(
-                _ranking_filter_value("market_data_ranking_period", "short")
-            ),
-            key="market_data_ranking_period",
-            format_func=ranking_period_label,
-        )
-    with col_min_dividend:
-        st.number_input(
-            "配当利回り(%)以上",
-            min_value=0.0,
-            max_value=10.0,
-            value=float(_ranking_filter_value("market_data_ranking_min_dividend", "0.0")),
-            step=0.1,
-            key="market_data_ranking_min_dividend",
-        )
-    col_market, col_type = st.columns(2)
-    with col_market:
-        st.selectbox(
-            "対象市場",
-            list(RANKING_MARKET_LABELS),
-            index=list(RANKING_MARKET_LABELS).index(
-                _ranking_filter_value("market_data_ranking_market", "all")
-            ),
-            key="market_data_ranking_market",
-            format_func=lambda value: RANKING_MARKET_LABELS[value],
-        )
-    with col_type:
-        st.selectbox(
-            "銘柄タイプ",
-            list(RANKING_ASSET_TYPE_LABELS),
-            index=list(RANKING_ASSET_TYPE_LABELS).index(
-                _ranking_filter_value("market_data_ranking_asset_type", "all")
-            ),
-            key="market_data_ranking_asset_type",
-            format_func=lambda value: RANKING_ASSET_TYPE_LABELS[value],
-        )
-    col_currency, col_dividend = st.columns(2)
-    with col_currency:
-        st.selectbox(
-            "通貨",
-            list(RANKING_CURRENCY_LABELS),
-            index=list(RANKING_CURRENCY_LABELS).index(
-                _ranking_filter_value("market_data_ranking_currency", "all")
-            ),
-            key="market_data_ranking_currency",
-            format_func=lambda value: RANKING_CURRENCY_LABELS[value],
-        )
-    with col_dividend:
-        st.selectbox(
-            "配当カテゴリ",
-            list(RANKING_DIVIDEND_LABELS),
-            index=list(RANKING_DIVIDEND_LABELS).index(
-                _ranking_filter_value("market_data_ranking_dividend", "all")
-            ),
-            key="market_data_ranking_dividend",
-            format_func=lambda value: RANKING_DIVIDEND_LABELS[value],
-        )
-    col_market_cap, col_theme = st.columns(2)
-    with col_market_cap:
-        st.selectbox(
-            "時価総額",
-            list(RANKING_MARKET_CAP_LABELS),
-            index=list(RANKING_MARKET_CAP_LABELS).index(
-                _ranking_filter_value("market_data_ranking_market_cap", "all")
-            ),
-            key="market_data_ranking_market_cap",
-            format_func=lambda value: RANKING_MARKET_CAP_LABELS[value],
-        )
-    with col_theme:
-        st.selectbox(
-            "テーマ",
-            list(RANKING_THEME_LABELS),
-            index=list(RANKING_THEME_LABELS).index(
-                _ranking_filter_value("market_data_ranking_theme", "all")
-            ),
-            key="market_data_ranking_theme",
-            format_func=lambda value: RANKING_THEME_LABELS[value],
-        )
-    col_index, col_expense = st.columns(2)
-    with col_index:
-        st.selectbox(
-            "ETF連動対象",
-            list(RANKING_INDEX_FAMILY_LABELS),
-            index=list(RANKING_INDEX_FAMILY_LABELS).index(
-                _ranking_filter_value("market_data_ranking_index_family", "all")
-            ),
-            key="market_data_ranking_index_family",
-            format_func=lambda value: RANKING_INDEX_FAMILY_LABELS[value],
-        )
-    with col_expense:
-        st.number_input(
-            "信託報酬(%)以下",
-            min_value=0.0,
-            max_value=2.0,
-            value=float(_ranking_filter_value("market_data_ranking_max_expense", "1.00")),
-            step=0.01,
-            key="market_data_ranking_max_expense",
-        )
-    st.text_input(
-        "キーワード",
-        value=_ranking_filter_value("market_data_ranking_symbol_query", ""),
-        key="market_data_ranking_symbol_query",
-        placeholder="ticker or company name",
-    )
-    symbol_rows = symbol_universe_rows()
-    preview_rows = filter_symbol_universe_rows(
-        symbol_rows,
-        region=_ranking_filter_value("market_data_ranking_region", "japan"),
-        product_type=_ranking_filter_value("market_data_ranking_product_type", "stock"),
-        ranking_purpose=_ranking_filter_value("market_data_ranking_purpose", "overall"),
-        purpose="all",
-        market=_ranking_filter_value("market_data_ranking_market", "all"),
-        asset_type=_ranking_filter_value("market_data_ranking_asset_type", "all"),
-        currency=_ranking_filter_value("market_data_ranking_currency", "all"),
-        dividend_category=_ranking_filter_value("market_data_ranking_dividend", "all"),
-        min_dividend_yield_pct=_ranking_filter_value("market_data_ranking_min_dividend", "0.0"),
-        market_cap_tier=_ranking_filter_value("market_data_ranking_market_cap", "all"),
-        index_family=_ranking_filter_value("market_data_ranking_index_family", "all"),
-        max_expense_ratio_pct=_ranking_filter_value("market_data_ranking_max_expense", "1.00"),
-        complexity=_ranking_filter_value("market_data_ranking_complexity", "standard"),
-        risk_band=_ranking_filter_value("market_data_ranking_risk_band", "all"),
-        theme=_ranking_filter_value("market_data_ranking_theme", "all"),
-        query=_ranking_filter_value("market_data_ranking_symbol_query", ""),
-        limit=len(symbol_rows),
-    )
-    st.caption(f"この条件で {len(preview_rows)} 件が候補になります。")
-    if preview_rows:
-        preview_labels = symbol_candidate_labels(preview_rows)[:5]
-        st.caption("候補例: " + " / ".join(preview_labels))
-    else:
-        st.warning("この条件に合う候補がありません。条件を少し広げてください。")
-    if st.button("条件を適用", key="apply_market_data_ranking_filters"):
-        persist_ranking_filter_state()
-        filter_signature = _ranking_filter_signature_from_state()
-        apply_ranking_filter_state(preview_rows, filter_signature)
-        st.rerun()
 
 
 def merged_symbol_candidate_rows(
@@ -912,8 +756,19 @@ def _render_market_data_ranking() -> None:
         labels=labels,
         stored_selected_labels=stored_selected_labels,
     )
-    col_symbols, col_period_text = st.columns([2.8, 1.2])
-    with col_symbols:
+    selected_labels_for_summary = cast(list[str], st.session_state.get(selection_key, []))
+    end_date = default_market_data_end_date()
+    start_date, end_date = ranking_period_dates(period_preset, end_date)
+    col_period_text, col_candidate_count, col_selected_count = st.columns([2.0, 1.0, 1.0])
+    with col_period_text:
+        st.caption(f"取得期間: {start_date.isoformat()} 〜 {end_date.isoformat()}")
+    with col_candidate_count:
+        st.caption(f"候補数: {len(filtered_symbol_rows)}")
+    with col_selected_count:
+        st.caption(f"選択数: {len(selected_labels_for_summary)}")
+
+    with st.expander("比較する銘柄を確認・変更", expanded=False):
+        st.caption("候補は初期状態ですべて選択されています。変更する場合だけ開いてください。")
         selected_labels = cast(
             list[str],
             st.multiselect(
@@ -922,12 +777,6 @@ def _render_market_data_ranking() -> None:
                 key=selection_key,
             ),
         )
-    with col_period_text:
-        end_date = default_market_data_end_date()
-        start_date, end_date = ranking_period_dates(period_preset, end_date)
-        st.caption(f"取得期間: {start_date.isoformat()} 〜 {end_date.isoformat()}")
-        st.caption(f"候補数: {len(filtered_symbol_rows)}")
-        st.caption(f"選択数: {len(selected_labels)}")
     warning_message = live_ranking_symbol_warning_message(provider, len(selected_labels))
     if warning_message is not None:
         st.warning(warning_message)

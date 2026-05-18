@@ -144,7 +144,7 @@ weight total は config validation で確認します。
 - `decision_support_note` を出力に含める。
 - Ranking は「買う銘柄の確定」ではなく「深掘り候補の整理」として表示する。
 - Fetch-before filters は provider fetch 前に判断できる static / curated metadata だけを使う。
-- provider fundamentals 由来の配当利回り・sector・ETF属性は、将来の metadata refresh command で更新する。
+- provider fundamentals 由来の配当利回り・sector・ETF属性は、既存の opt-in metadata refresh / source import 経路で更新する。次 slice では SBI ranking-universe policy を candidate extraction に接続する。
 - Research Score は optional input として後続統合する。
 
 ## 6) Test Plan

@@ -142,6 +142,7 @@ Recommended checks:
 
 MarketData の次の改善は、Research RAG より前にやるなら以下が自然です。
 
-1. live provider smoke を通常CIから分離したまま整備する。
-2. provider fundamentals 由来の symbol metadata refresh command を設計する。
-3. FeatureSnapshot の品質サマリを UI / report でさらに読みやすく表示する。
+1. SBI ranking-universe policy を `symbol_universe.csv` / schema / ranking candidate extraction に接続する。
+2. live provider smoke を通常CIから分離したまま整備する。
+3. 追加 provider / fund metadata source adapter を、既存の provider-neutral refresh / source import 経路へ接続する。
+4. FeatureSnapshot の品質サマリを UI / report でさらに読みやすく表示する。

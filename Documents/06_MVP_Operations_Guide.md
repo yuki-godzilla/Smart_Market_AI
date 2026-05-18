@@ -244,6 +244,8 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - ranking の候補条件は、provider fetch 前に使える `data/marketdata/symbol_universe.csv` の curated metadata を中心にしています。
 - 地域 / 商品は provider fetch 前の候補 universe を絞ります。ランキング目的は Investment Score の表示順の重み付けに使い、候補 universe そのものは絞りません。
 - dividend category や theme は現在 curated metadata / source import / opt-in metadata refresh で管理します。live provider 由来の更新は明示 opt-in です。
+- ranking universe の将来方針は、SBI証券で取り扱いがあり、現物・NISA・長期投資で検討しやすい商品を初期対象にすることです。詳細は [09_SBI_Symbol_Universe_Policy.md](./09_SBI_Symbol_Universe_Policy.md) を参照してください。
+- 現時点では `broker`, `tradability`, `nisa_category`, `investment_style`, `is_sbi_supported`, `is_leveraged`, `is_inverse` による除外判定は未実装です。既存候補は local curated / source-import master であり、SBI取扱確認済み master ではありません。
 - `symbol_universe.csv` は Phase 16/18 UI 用の銘柄候補マスタです。必須列は `symbol`, `name`, `market`, `asset_type`, `currency`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases`, `per`, `pbr`, `roe_pct`, `sector`, `consensus_rating`, `forecast_agreement`, `data_quality`, `risk_band` です。
 - Phase 18 metadata columns は `metadata_source`, `metadata_as_of`, `metadata_updated_at` です。現在の deterministic baseline では全行 `metadata_source=curated_csv`, `metadata_as_of=2026-05-18`, `metadata_updated_at=2026-05-18T00:00:00+09:00` です。
 - Metadata fields are governed by `backend/marketdata/symbol_metadata_schema.py`.
@@ -287,6 +289,12 @@ JPX のように source 側が4桁コードで、SMAI 側では yfinance-compati
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\import_symbol_universe_source.py --source-csv .\data\marketdata\symbol_universe_sources\jpx_stock_seed.csv --source-name jpx --default-market jp --default-asset-type stock --default-currency JPY --symbol-suffix .T --as-of 2026-05-18 --updated-at 2026-05-18T00:00:00+09:00
 ```
+
+SBI ranking universe policy:
+
+- 初期対象: 国内株式、米国株式、国内ETF、米国ETF/海外ETF、投資信託、REIT。
+- 初期除外: FX、CFD、先物・オプション、暗号資産、債券、外貨建MMF、貴金属、レバレッジ、インバース、非tradable、非SBI対応。
+- 次の実装 slice では、`symbol_universe.csv` / schema に SBI policy columns を追加し、ranking 候補抽出前に default policy を適用します。
 
 Phase 16 ranking implementation notes:
 

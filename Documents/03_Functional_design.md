@@ -2,7 +2,7 @@
 
 #### [BACK TO README](../README.md)
 
-## 実装状態との同期メモ（2026-05-17）
+## 実装状態との同期メモ（2026-05-18）
 
 現在の機能実装は次の状態です。
 
@@ -15,6 +15,7 @@
 | Investment Score | 実装済み | screening / forecast / data quality / risk signal の統合 |
 | Portfolio / Risk | 実装済み | no-solver rebalance proposal と pre-trade risk check |
 | Streamlit UI | 実装済み | 銘柄コックピット、ランキング、Rebalance Cockpit。最終 browser smoke は推奨確認 |
+| Symbol Universe | in progress | `symbol_universe.csv`、metadata schema、source import、opt-in refresh。SBI policy enforcement は次 slice |
 | Research RAG | planned | local document ingestion から開始予定 |
 | Execution | deferred | broker order 送信は現在の重点外 |
 | Decision Report | planned | cockpit / ranking / rebalance context を再利用予定 |
@@ -33,6 +34,16 @@
 - 出力: 既存契約に正規化された `Bar`、`Quote`、`FxRate`。
 - 例外: provider unavailable、timeout、rate limit、schema mismatch。
 - 制約: live provider は明示 opt-in の場合だけ利用する。
+
+### Security Universe / Ranking Universe Policy
+
+- 入力: local curated CSV、JPX / SBI / FSA / IMAJ などの source CSV、明示 opt-in metadata refresh。
+- 出力: ranking 前に使える `symbol_universe.csv` と metadata validation result。
+- 初期前提: SBI証券で取り扱いがあり、現物・NISA・長期投資で検討しやすい商品を優先する。
+- 初期対象: 国内株式、米国株式、国内ETF、米国ETF/海外ETF、投資信託、REIT。
+- 初期除外: FX、CFD、先物・オプション、暗号資産、債券、外貨建MMF、貴金属、レバレッジ、インバース、非tradable、非SBI対応。
+- 実装方針: `symbol_universe.csv` / `symbol_metadata_schema.py` に broker / tradability / NISA / 積立対応 / leveraged / inverse metadata を追加し、ranking candidate extraction の前に policy helper を適用する。
+- 制約: SBI証券へのログインやスクレイピングは初期対象外。通常 tests は network 非依存にする。
 
 ### Feature Store Lite
 
@@ -96,11 +107,11 @@
 
 ## 0. Scope & Assumptions
 
-* 対象市場：日本株・米国株・ETF・高配当銘柄（高配当は日本株に限定しない）、安定成長型投資信託。
+* 対象市場：SBI証券で取り扱いがあることを初期前提にした日本株・米国株・ETF・REIT・安定成長型投資信託。
 * 投資対象は現物中心、信用取引は将来的拡張。
 * 対象機能：銘柄予測、ランキング、市場予測、ポートフォリオ最適化、リスク分析、レポート出力。
 * デプロイはローカル実行（Python + Streamlit）を基本、クラウドやコンテナ実行も可能。
-* 非対象：仮想通貨、先物・オプション、超低レイテンシHFT。
+* 非対象：FX、CFD、仮想通貨、先物・オプション、債券、外貨建MMF、貴金属、レバレッジ・インバース、超低レイテンシHFT。
 
 ---
 

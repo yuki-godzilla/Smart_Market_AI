@@ -235,3 +235,4 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added a local source-import path for `symbol_universe.csv`, including append-only default merge, optional existing-symbol update, validation-before/write, and manifest output.
 - Added a JPX ETF seed source and imported 8 domestic ETF rows into the ranking candidate master without adding network dependency.
 - Extended source import for JPX-style numeric codes by adding import defaults and `.T` suffix normalization, then imported 24 domestic stock seed rows.
+- Documented the SBI Securities based ranking-universe policy, including initial target products, default exclusions, metadata columns, and the next Phase 18 implementation slice.

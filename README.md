@@ -45,6 +45,7 @@ SMAI は以下の思想を重視しています。
   - 銘柄コックピット: 価格・予測チャート、Investment Score、score breakdown、warnings、downloads
   - 銘柄ランキング: curated symbol metadata、候補条件 modal、ランキング preset、コックピットへの深掘り導線
   - Rebalance Cockpit: summary flow、percentage target、allocation comparison chart、risk breach confirmation points
+- symbol universe metadata schema、source import、opt-in metadata refresh
 - JSON / CSV / Markdown / manifest / ZIP export
 - file-backed rebalance scenarios
 - Windows 環境向け single-process Black check helper
@@ -52,7 +53,7 @@ SMAI は以下の思想を重視しています。
 未実装または将来範囲:
 
 - `polygon` など追加 live provider adapter 本体
-- provider 由来 metadata を定期更新する symbol metadata refresh command
+- SBI証券取扱商品を前提にした broker / tradability / NISA / 積立対応 metadata と ranking universe policy enforcement
 - Research RAG の ingestion / chunk store / retrieval / Research Score
 - Decision Report の本格化
 - Execution / broker への注文送信
@@ -65,12 +66,13 @@ MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で
 
 - Phase 1〜15: implementation complete
 - Phase 16: UI / Visualization Cockpit implementation complete、最終 Streamlit browser smoke は推奨確認
-- Phase 16S: Stabilization / final Streamlit smoke が次の確認ゲート
-- Phase 17: UI Polish / ランキング条件 UI 再設計が次の feature target
-- Phase 18〜24: symbol metadata、Decision Report、Research RAG、Research Score、Assistant、optional adapter、Execution gate の順に整理
+- Phase 16S: Stabilization / final Streamlit smoke は必要に応じて実施
+- Phase 17: UI Polish / ランキング条件 UI 再設計は implementation complete
+- Phase 18: symbol universe / metadata refresh / source import が進行中。次は SBI ranking universe policy
+- Phase 19〜24: Decision Report、Research RAG、Research Score、Assistant、optional adapter、Execution gate の順に整理
 - Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
-次の重点は、Phase 16S の UI smoke、Phase 17 のランキング条件 UI、Phase 18 の symbol metadata refresh、Phase 19 の Decision Report context です。
+次の重点は、Phase 18 の SBI ranking universe policy、Phase 19 の Decision Report context です。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント
@@ -80,6 +82,7 @@ MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で
 - [MVP 運用ガイド](./Documents/06_MVP_Operations_Guide.md)
 - [UI 文言ポリシー](./Documents/07_UI_Wording_Policy.md)
 - [Phase 16 UI 改善計画](./Documents/08_Phase16_UI_Improvement_Plan.md)
+- [SBI 銘柄ユニバース方針](./Documents/09_SBI_Symbol_Universe_Policy.md)
 - [Research RAG 詳細設計](./Documents/04_Detail_Design/04-8_Onepager_Research_RAG.md)
 - [Investment Scoring / UI 詳細設計](./Documents/04_Detail_Design/04-9_Onepager_Investment_Scoring_UI.md)
 - [Codex タスクテンプレート](./Documents/98_Codex_Task_Template.md)

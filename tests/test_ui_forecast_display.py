@@ -12,7 +12,6 @@ from ui.app import (
     _market_data_preview_symbol_label,
     _name_from_candidate,
     _rank_investment_score_rows,
-    _ranking_symbol_chunks,
     _render_market_chart,
     _symbol_from_candidate,
     apply_ranking_filter_state,
@@ -21,7 +20,6 @@ from ui.app import (
     default_forecast_horizon_days,
     default_market_data_provider,
     ensure_ranking_selection_widget_state,
-    filter_symbol_universe_rows,
     forecast_boundary_frame,
     forecast_chart_summary,
     forecast_consensus_display_rows,
@@ -29,29 +27,33 @@ from ui.app import (
     forecast_metric_summary,
     format_provider_error_details,
     get_cached_ranking_build,
-    initial_ranking_selected_labels,
     initial_ranking_selected_labels_for_key,
     investment_score_display_rows,
     investment_score_summary_lines,
-    live_ranking_symbol_warning_message,
     market_chart_long_frame,
     merged_symbol_candidate_rows,
     persist_ranking_filter_state,
     provider_error_summary_rows,
+    score_component_rows,
+    set_cached_ranking_build,
+    symbol_candidate_label,
+    sync_ranking_selection_state,
+)
+from ui.ranking import (
+    filter_symbol_universe_rows,
+    initial_ranking_selected_labels,
+    live_ranking_symbol_warning_message,
     ranking_build_cache_key,
     ranking_filter_signature,
     ranking_period_dates,
     ranking_period_label,
     ranking_provider_error_rows,
+    ranking_symbol_chunks,
     ranking_symbol_options,
     ranking_symbols_state_key,
     ranking_weight_preset_label,
-    score_component_rows,
-    set_cached_ranking_build,
-    symbol_candidate_label,
     symbol_candidate_labels,
     symbol_universe_rows,
-    sync_ranking_selection_state,
     valid_ranking_selected_labels,
 )
 from ui.rebalance_app import (
@@ -798,7 +800,7 @@ def test_build_market_data_ranking_rows_uses_batch_fast_path(monkeypatch):
 def test_ranking_symbol_chunks_split_large_builds():
     symbols = [f"SYM{i}" for i in range(53)]
 
-    chunks = _ranking_symbol_chunks(symbols)
+    chunks = ranking_symbol_chunks(symbols)
 
     assert [len(chunk) for chunk in chunks] == [10, 10, 10, 10, 10, 3]
     assert [symbol for chunk in chunks for symbol in chunk] == symbols

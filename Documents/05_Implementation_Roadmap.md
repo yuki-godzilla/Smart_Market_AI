@@ -361,6 +361,7 @@ Status: implementation complete; final Streamlit browser smoke recommended
 Done:
 
 - Market Data tab を `銘柄コックピット` / `銘柄ランキング` に分割
+- left side menu で `銘柄コックピット` / `銘柄ランキング` / `リバランス` / `設定 / データ情報` を切り替え
 - 銘柄コックピットで価格・予測チャートを主役化
 - Investment Score summary / score breakdown chart
 - Forecast agreement / forecast spread / best RMSE model summary
@@ -374,6 +375,7 @@ Done:
 - ranking-to-cockpit deep-dive wording polish
 - Rebalance JSON input を advanced input へ移動
 - Rebalance Cockpit summary flow
+- Rebalance inputs moved from sidebar into the Rebalance screen
 - target allocation percentage display/input
 - allocation comparison chart
 - beginner-friendly risk breach confirmation points

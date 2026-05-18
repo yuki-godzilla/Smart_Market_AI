@@ -20,6 +20,12 @@ from backend.marketdata.feature_builder import build_daily_snapshots_from_market
 from backend.portfolio.workflow import PortfolioRiskResult
 from backend.scoring import InvestmentScoringService
 from backend.screening import ScreeningService
+from ui.components.sidemenu import (
+    SIDEMENU_PAGE_COCKPIT,
+    SIDEMENU_PAGE_RANKING,
+    SIDEMENU_PAGE_REBALANCE,
+    render_sidemenu,
+)
 from ui.rebalance_app import (
     MarketDataPreview,
     RebalanceScenarioError,
@@ -54,6 +60,7 @@ from ui.rebalance_app import (
     yfinance_search_symbol_rows,
 )
 from ui.symbol_universe import symbol_universe_csv_rows
+from ui.views.settings import render_settings_page
 
 MARKET_DATA_PROVIDER_OPTIONS = ["mock", "yahoo", "csv"]
 MARKET_DATA_PREVIEW_STATE_KEY = "market_data_preview"
@@ -216,108 +223,115 @@ def main() -> None:
     st.set_page_config(page_title="Smart Market AI", layout="wide")
     st.title("Smart Market AI")
 
-    market_data_tab, rebalance_tab = st.tabs(["Market Data", "Rebalance"])
+    selected_page = render_sidemenu(runtime_settings_summary())
+    if selected_page == SIDEMENU_PAGE_COCKPIT:
+        _render_market_data_cockpit()
+    elif selected_page == SIDEMENU_PAGE_RANKING:
+        _render_market_data_ranking()
+    elif selected_page == SIDEMENU_PAGE_REBALANCE:
+        _render_rebalance_page()
+    else:
+        render_settings_page()
 
-    with st.sidebar:
-        _render_runtime_settings()
-        _render_symbol_reference()
-        try:
-            sample_names = rebalance_sample_names()
-            sample_name = cast(str, st.selectbox("Sample", sample_names))
-            sample = get_rebalance_sample(sample_name)
-        except RebalanceScenarioError as exc:
-            st.error(str(exc))
-            st.stop()
-        if sample.description:
-            st.caption(sample.description)
 
+def _render_rebalance_page() -> None:
+    st.subheader("Rebalance Cockpit")
+    st.caption("現在の保有、目標配分、必要な売買、Risk 判定を確認します。売買送信は行いません。")
+
+    try:
+        sample_names = rebalance_sample_names()
+        sample_name = cast(str, st.selectbox("Sample", sample_names))
+        sample = get_rebalance_sample(sample_name)
+    except RebalanceScenarioError as exc:
+        st.error(str(exc))
+        st.stop()
+
+    if sample.description:
+        st.caption(sample.description)
+
+    col_account, col_as_of, col_cash = st.columns([1.2, 1.0, 1.0])
+    with col_account:
         account_id = st.text_input(
             "Account",
             value=sample.account_id,
             key=sample_widget_key(sample_name, "account"),
         )
+    with col_as_of:
         as_of = st.date_input(
             "As of",
             value=default_as_of_date(),
             key=sample_widget_key(sample_name, "as_of"),
         )
+    with col_cash:
         cash_jpy_text = st.text_input(
             "Cash JPY",
             value=str(sample.cash_jpy),
             key=sample_widget_key(sample_name, "cash_jpy"),
         )
-        apple_target_weight = cast(
-            int,
-            st.slider(
-                "AAPL target weight",
-                min_value=0,
-                max_value=100,
-                value=_default_apple_target_weight(sample.targets_json),
-                step=5,
-                format="%d%%",
-                key=sample_widget_key(sample_name, "apple_target_weight"),
-            ),
-        )
 
-    with rebalance_tab:
-        st.subheader("Rebalance Cockpit")
-        st.caption(
-            "現在の保有、目標配分、必要な売買、Risk 判定を確認します。売買送信は行いません。"
-        )
-        generated_targets_json = target_allocations_json(
-            toyota_weight=Decimal(100 - apple_target_weight) / Decimal("100"),
-            apple_weight=Decimal(apple_target_weight) / Decimal("100"),
-        )
-        with st.expander("Advanced JSON input"):
-            col_positions, col_targets = st.columns(2)
-            with col_positions:
-                positions_json = st.text_area(
-                    "Positions",
-                    value=sample.positions_json,
-                    height=280,
-                    key=sample_widget_key(sample_name, "positions"),
-                )
-            with col_targets:
-                targets_json = st.text_area(
-                    "Targets",
-                    value=generated_targets_json,
-                    height=280,
-                    key=sample_widget_key(sample_name, "targets"),
-                )
+    apple_target_weight = cast(
+        int,
+        st.slider(
+            "AAPL target weight",
+            min_value=0,
+            max_value=100,
+            value=_default_apple_target_weight(sample.targets_json),
+            step=5,
+            format="%d%%",
+            key=sample_widget_key(sample_name, "apple_target_weight"),
+        ),
+    )
+    generated_targets_json = target_allocations_json(
+        toyota_weight=Decimal(100 - apple_target_weight) / Decimal("100"),
+        apple_weight=Decimal(apple_target_weight) / Decimal("100"),
+    )
+    with st.expander("Advanced JSON input"):
+        col_positions, col_targets = st.columns(2)
+        with col_positions:
+            positions_json = st.text_area(
+                "Positions",
+                value=sample.positions_json,
+                height=280,
+                key=sample_widget_key(sample_name, "positions"),
+            )
+        with col_targets:
+            targets_json = st.text_area(
+                "Targets",
+                value=generated_targets_json,
+                height=280,
+                key=sample_widget_key(sample_name, "targets"),
+            )
 
-        if st.button("Run rebalance check", type="primary"):
-            try:
-                request = build_rebalance_request(
-                    account_id=account_id,
-                    as_of=_single_date_from_input(as_of),
-                    cash_jpy=_decimal_from_text(cash_jpy_text),
-                    positions_json=positions_json,
-                    targets_json=targets_json,
-                )
-                result = asyncio.run(run_rebalance_check(request))
-                st.session_state[REBALANCE_RESULT_STATE_KEY] = result
-                st.session_state[REBALANCE_REQUEST_STATE_KEY] = request
-            except InvalidOperation:
-                st.error("Cash JPY must be a decimal number.")
-                return
-            except ValueError as exc:
-                st.error(str(exc))
-                return
-            except ValidationError as exc:
-                st.error("Request validation failed.")
-                st.json(exc.errors())
-                return
-            except Exception as exc:  # noqa: BLE001
-                st.error(str(exc))
-                return
+    if st.button("Run rebalance check", type="primary"):
+        try:
+            request = build_rebalance_request(
+                account_id=account_id,
+                as_of=_single_date_from_input(as_of),
+                cash_jpy=_decimal_from_text(cash_jpy_text),
+                positions_json=positions_json,
+                targets_json=targets_json,
+            )
+            result = asyncio.run(run_rebalance_check(request))
+            st.session_state[REBALANCE_RESULT_STATE_KEY] = result
+            st.session_state[REBALANCE_REQUEST_STATE_KEY] = request
+        except InvalidOperation:
+            st.error("Cash JPY must be a decimal number.")
+            return
+        except ValueError as exc:
+            st.error(str(exc))
+            return
+        except ValidationError as exc:
+            st.error("Request validation failed.")
+            st.json(exc.errors())
+            return
+        except Exception as exc:  # noqa: BLE001
+            st.error(str(exc))
+            return
 
-        stored_rebalance = rebalance_result_from_state()
-        if stored_rebalance is not None:
-            result, request = stored_rebalance
-            _render_result(result, request)
-
-    with market_data_tab:
-        _render_market_data_preview()
+    stored_rebalance = rebalance_result_from_state()
+    if stored_rebalance is not None:
+        result, request = stored_rebalance
+        _render_result(result, request)
 
 
 def _decimal_from_text(value: str) -> Decimal:
@@ -357,21 +371,6 @@ def _default_apple_target_weight(targets_json: str) -> int:
     if '"target_weight": "0.5"' in targets_json:
         return 50
     return 0
-
-
-def _render_runtime_settings() -> None:
-    settings = runtime_settings_summary()
-    st.caption("Runtime")
-    st.write(f"Provider: `{settings['provider']}`")
-    st.write(f"Config: `{settings['config_file']}`")
-    st.write(f"Scenarios: `{settings['scenario_dir']}`")
-    if settings["provider"] == "csv":
-        st.write(f"CSV data: `{settings['csv_data_dir']}`")
-
-
-def _render_symbol_reference() -> None:
-    st.caption("Sample Symbols")
-    st.dataframe(symbol_reference_rows(), hide_index=True, use_container_width=True)
 
 
 def _provider_option_index(provider: str) -> int:
@@ -1236,21 +1235,12 @@ def merged_symbol_candidate_rows(
 
 
 def _render_market_data_preview() -> None:
-    st.subheader("Market Data")
-    mode = cast(
-        str,
-        st.radio(
-            "表示モード",
-            [MARKET_DATA_MODE_COCKPIT, MARKET_DATA_MODE_RANKING],
-            horizontal=True,
-            key="market_data_mode",
-            format_func=lambda value: MARKET_DATA_MODE_LABELS.get(value, value),
-        ),
-    )
-    if mode == MARKET_DATA_MODE_RANKING:
-        _render_market_data_ranking()
-        return
+    _render_market_data_cockpit()
 
+
+def _render_market_data_cockpit() -> None:
+    st.subheader("銘柄コックピット")
+    st.caption("1銘柄の価格、予測、Investment Score、注意点を確認します。")
     symbol_options = symbol_reference_rows()
     col_provider, col_search, col_symbol, col_name, col_start, col_end = st.columns(
         [1.0, 1.3, 1.7, 1.4, 1.0, 1.0]
@@ -1302,6 +1292,9 @@ def _render_market_data_preview() -> None:
         )
     with col_end:
         end = st.date_input("End", value=default_market_data_end_date(), key="market_data_end")
+
+    with st.expander("銘柄候補", expanded=False):
+        st.dataframe(symbol_options, hide_index=True, use_container_width=True)
 
     if st.button("Fetch market data", key="fetch_market_data"):
         try:
@@ -1876,6 +1869,7 @@ async def _build_market_data_ranking_rows_from_previews(
 
 
 def _select_ranking_symbol_for_cockpit(symbol: str, provider: str) -> None:
+    st.session_state["sidemenu_page"] = SIDEMENU_PAGE_COCKPIT
     st.session_state["market_data_mode"] = MARKET_DATA_MODE_COCKPIT
     st.session_state["market_data_provider"] = provider
     st.session_state["market_data_symbol_candidate"] = symbol_candidate_label(symbol)

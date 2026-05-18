@@ -174,18 +174,24 @@ CSV sample は `data/marketdata/` 配下にあります。
 .\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
 ```
 
-### Market Data tab
+### Side menu
 
-Market Data tab は 2 つの mode を持ちます。
+Streamlit UI は左サイドメニューで画面を切り替えます。
+サイドメニューは画面選択と実行環境の簡易表示だけにし、各 workflow の入力はそれぞれの画面内に置きます。
 
-| mode | 役割 |
+| screen | 役割 |
 | --- | --- |
 | `銘柄コックピット` | 1 銘柄の価格、予測、Investment Score、注意点を深掘りする |
 | `銘柄ランキング` | 複数銘柄を条件で絞り、Investment Score で比較する |
+| `リバランス` | 現在資産、目標配分、必要な売買、Risk 判定を確認する |
+| `設定 / データ情報` | Runtime、config、scenario directory、銘柄候補を確認する |
 
-銘柄コックピットで確認できるもの:
+### 銘柄コックピット
+
+確認できるもの:
 
 - provider / symbol / company name / period
+- collapsed sample symbol reference
 - 価格・予測チャート
 - forecast agreement、forecast spread、best RMSE model
 - Investment Score summary
@@ -194,7 +200,9 @@ Market Data tab は 2 つの mode を持ちます。
 - Forecast metrics / Screening Score / provider detail
 - JSON / CSV downloads
 
-銘柄ランキングで確認できるもの:
+### 銘柄ランキング
+
+確認できるもの:
 
 - provider
 - ranking preset
@@ -247,7 +255,7 @@ Phase 16 final UI smoke checklist:
 - Open a selected symbol in `銘柄コックピット` and confirm provider / symbol handoff.
 - Confirm Rebalance labels continue to describe decision support rather than buy/sell advice.
 
-### Rebalance tab
+### リバランス
 
 Rebalance は `Rebalance Cockpit` として、次の順に確認します。
 
@@ -258,6 +266,7 @@ Rebalance は `Rebalance Cockpit` として、次の順に確認します。
 
 確認できるもの:
 
+- sample / account / as-of / cash / target weight input
 - summary flow
 - target allocation percentage input
 - current positions

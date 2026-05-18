@@ -11,9 +11,11 @@
 
 - `backend/scoring`
 - `POST /scoring/investment-score`
-- Market Data tab の `銘柄コックピット`
-- Market Data tab の `銘柄ランキング`
-- Rebalance tab の `Rebalance Cockpit`
+- left side menu
+- `銘柄コックピット`
+- `銘柄ランキング`
+- `リバランス` / `Rebalance Cockpit`
+- `設定 / データ情報`
 
 対象外:
 
@@ -94,6 +96,16 @@ weight total は config validation で確認します。
 7. Forecast Metrics / Screening Score / provider details
 8. JSON / CSV download
 
+### Side Menu
+
+目的: 画面選択と実行環境の確認だけに絞る。
+
+- `銘柄コックピット`
+- `銘柄ランキング`
+- `リバランス`
+- `設定 / データ情報`
+- Runtime は expander に畳む
+
 ### 銘柄ランキング
 
 目的: 複数銘柄を比較し、深掘り候補を整理する。
@@ -119,6 +131,7 @@ weight total は config validation で確認します。
 現在の実装:
 
 - JSON input を advanced input に移動
+- sample / account / as-of / cash input を Rebalance 画面内に配置
 - summary flow
 - target allocation percentage input
 - allocation comparison chart

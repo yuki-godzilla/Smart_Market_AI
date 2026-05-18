@@ -50,12 +50,12 @@ Implemented or mostly implemented:
 - Forecast consensus / model agreement / forecast range / best RMSE model support.
 - Screening Score with reason labels and forecast agreement integration.
 - Investment Score as a separate contract that combines screening, forecast agreement, data quality, and risk signal with configurable weights.
-- Streamlit Market Data tab split into `銘柄コックピット` and `銘柄ランキング`.
+- Streamlit left side menu for `銘柄コックピット`, `銘柄ランキング`, `リバランス`, and `設定 / データ情報`.
 - Streamlit Market Data provider selector defaults to `yahoo` for manual exploration while API/config defaults remain local-first.
 - Ranking candidate filters using static/curated metadata before provider fetch.
 - Ranking presets for balanced, forecast-agreement, data-quality, and lower-risk emphasis.
 - Ranking-to-cockpit handoff for follow-up single-symbol review.
-- Rebalance Cockpit summary flow, percentage target input, allocation comparison chart, and beginner-friendly risk breach confirmation points.
+- Rebalance Cockpit page with in-page sample/account inputs, percentage target input, allocation comparison chart, result persistence, and beginner-friendly risk breach confirmation points.
 - JSON / CSV / Markdown / manifest / ZIP exports for implemented workflows.
 - `tools/run_black_check.py` as the routine Black check path for the Windows environment.
 

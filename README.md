@@ -41,7 +41,7 @@ SMAI は以下の思想を重視しています。
 - Portfolio 評価と solver なしの rebalance proposal
 - Portfolio-to-Risk workflow
 - Streamlit UI
-  - Market Data tab: `銘柄コックピット` / `銘柄ランキング`
+  - left side menu for `銘柄コックピット` / `銘柄ランキング` / `リバランス` / `設定 / データ情報`
   - 銘柄コックピット: 価格・予測チャート、Investment Score、score breakdown、warnings、downloads
   - 銘柄ランキング: curated symbol metadata、候補条件 modal、ランキング preset、コックピットへの深掘り導線
   - Rebalance Cockpit: summary flow、percentage target、allocation comparison chart、risk breach confirmation points
@@ -128,9 +128,10 @@ http://127.0.0.1:8000/openapi.json
 .\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
 ```
 
-現在の UI は Market Data / Rebalance の 2 tab 構成です。
-Market Data では、1銘柄を深掘りする `銘柄コックピット` と、複数銘柄を比較する `銘柄ランキング` を切り替えます。
-Rebalance では、現在資産、目標配分、必要な売買、Risk 判定を順に確認します。
+現在の UI は左サイドメニューで画面を切り替えます。
+`銘柄コックピット` では 1 銘柄を深掘りし、`銘柄ランキング` では複数銘柄を比較します。
+`リバランス` では、現在資産、目標配分、必要な売買、Risk 判定を順に確認します。
+`設定 / データ情報` では、実行環境とローカルの銘柄候補を確認できます。
 
 ## CSV MarketData で起動
 

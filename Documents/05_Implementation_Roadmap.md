@@ -344,7 +344,7 @@ Current implementation note:
 
 ### 5.4 Phase 18: Symbol Universe And Metadata Refresh
 
-Status: planned
+Status: in progress
 
 目的: Ranking condition UI の裏側にある銘柄 universe を、固定 CSV だけでなく、鮮度と出所を管理できる metadata layer に拡張する。
 
@@ -353,15 +353,42 @@ Scope:
 - `symbol_universe.csv` の列定義を整理し、地域、商品、業種/セクター、時価総額 tier、配当、PER/PBR/ROE、ETF/投信属性、metadata freshness を明確化する。
 - CSV / fixture を deterministic baseline として維持する。
 - Yahoo fundamentals や将来 provider から metadata を更新する明示 opt-in command を設計する。
+- UI / command の初期 default は Yahoo としつつ、内部実装は Yahoo 専用に固定しない。
 - 更新結果は cache / CSV / manifest として保存し、通常テストは network 非依存にする。
 - 古い metadata、欠損 metadata、future-only metadata を UI で区別する。
+
+Provider policy:
+
+- Yahoo first, not Yahoo only. 画面上の既定 provider と metadata refresh の初期 provider は `yahoo` とする。
+- Internal refresh logic は `MetadataProvider` 風の adapter 境界を持たせ、Yahoo 固有の取得・変換・失敗処理を service 本体へ埋め込まない。
+- `metadata_source` / manifest / validation result に provider 名、更新日時、成功/失敗件数、更新対象列を残す。
+- Future provider として FMP / EODHD / Alpha Vantage / Polygon などを追加できる構造にする。初期実装で複数 provider を実装する必要はない。
+- 通常テストと CI は `csv` / fixture / fake provider を使い、live provider smoke は明示 opt-in のまま分離する。
+
+Implementation order:
+
+1. Network-free schema / validation / Settings status. 完了。
+2. Metadata source / freshness columns and summary. 完了。
+3. Provider-neutral refresh contract and fake/curated provider test.
+4. Dry-run first refresh command with manifest output.
+5. Yahoo metadata provider as the first live adapter, behind explicit opt-in.
+6. `--write` path for CSV/cache/manifest update, with validation before and after write.
+7. Optional additional provider adapters only when Yahoo coverage or stability is insufficient.
 
 Completion criteria:
 
 - ranking filters が参照する metadata schema が文書化されている。
 - metadata freshness / source が内部的に保持できる。
+- metadata refresh の provider contract があり、初期 live provider が Yahoo でも provider 差し替え余地が残っている。
 - 通常 checks は live provider なしで通る。
 - live metadata refresh は明示 opt-in で、失敗しても既存 UI/API を壊さない。
+
+Current implementation note:
+
+- `ui/symbol_universe.py` defines the current required CSV columns, optional freshness/source columns, enum values, decimal fields, and duplicate ticker validation.
+- `symbol_universe.csv` now stores `metadata_source`, `metadata_as_of`, and `metadata_updated_at`; the current deterministic baseline is marked as `curated_csv` with `2026-05-18` metadata.
+- `設定 / データ情報` shows candidate count, metadata source, metadata period, validation summary, and issue rows for `symbol_universe.csv` without blocking the existing ranking UI.
+- Network-free slices remain complete. Provider-neutral refresh contract, dry-run command, Yahoo live adapter, and CSV/cache/manifest write path are still future tasks in Phase 18.
 
 ### 5.5 Phase 19: Decision Report Context MVP
 

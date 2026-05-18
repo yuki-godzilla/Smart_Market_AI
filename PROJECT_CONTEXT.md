@@ -80,11 +80,12 @@ Partial or intentionally deferred:
 - Phase 16: Visualization Cockpit / UI improvement is implementation-complete; final cross-flow Streamlit browser smoke remains useful before larger backend work.
 - Phase 16S: Stabilization smoke has been partially covered through ranking-condition visual checks; broader cockpit/ranking/rebalance smoke remains optional before handoff.
 - Phase 17: UI Polish and ranking-condition redesign is implementation-complete with user visual confirmation.
-- Phase 18〜24: metadata refresh, Decision Report, Research RAG, Research Score, assistant, optional adapters, and execution gate are ordered in the implementation roadmap.
+- Phase 18: Symbol universe metadata refresh is in progress. The network-free slices define CSV schema / enum / decimal / duplicate ticker validation, store metadata source/as-of/update timestamps in `symbol_universe.csv`, and expose compact metadata status plus validation issues in Settings. Provider policy is Yahoo first, not Yahoo only.
+- Phase 19〜24: Decision Report, Research RAG, Research Score, assistant, optional adapters, and execution gate are ordered in the implementation roadmap.
 
 ## Next Good Targets
 
-- Start Phase 18 symbol metadata refresh for dividend yield, sector/theme, ETF/fund attributes, metadata freshness, and source tracking.
+- Continue Phase 18 by adding a provider-neutral metadata refresh contract, fake/curated provider tests, dry-run manifest output, then a Yahoo live adapter behind explicit opt-in.
 - Keep a final cross-flow Streamlit smoke available before handoff when browser access is useful: ranking cache/progress, purpose-based resort, ranking-to-cockpit, and Rebalance wording.
 - Prepare Phase 19 Decision Report context so cockpit / ranking / rebalance outputs can be saved consistently.
 - Start Phase 20 Research RAG from local document ingestion, chunk/search, and deterministic Research Summary before optional vector/LLM adapters.

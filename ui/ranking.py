@@ -139,6 +139,7 @@ RANKING_COMPLEXITY_LABELS = {
 RANKING_THEME_LABELS = {
     "all": "指定なし",
     "technology": "テクノロジー",
+    "telecom": "通信",
     "semiconductor": "半導体",
     "financial": "金融",
     "consumer": "消費",

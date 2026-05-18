@@ -1,96 +1,96 @@
-symbol,name,market,asset_type,currency,theme,dividend_category,dividend_yield_pct,market_cap_tier,index_family,expense_ratio_pct,complexity,tags,aliases,per,pbr,roe_pct,sector,consensus_rating,forecast_agreement,data_quality,risk_band
-7203.T,Toyota Motor,jp,stock,JPY,automotive,dividend,2.6,large,,,standard,"balanced,lower_risk",トヨタ 自動車 toyota,12.0,1.1,9.0,consumer,3.4,HIGH,OK,LOW
-9983.T,Fast Retailing,jp,stock,JPY,consumer,dividend,0.7,large,,,standard,balanced,ファーストリテイリング ユニクロ,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-6758.T,Sony Group,jp,stock,JPY,consumer,dividend,0.8,large,,,standard,balanced,ソニー sony,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-8306.T,Mitsubishi UFJ Financial Group,jp,stock,JPY,financial,dividend,3.1,large,,,standard,balanced,三菱UFJ 銀行 金融,11.0,0.9,8.0,financial,3.4,MEDIUM,OK,MEDIUM
-9432.T,Nippon Telegraph and Telephone,jp,stock,JPY,telecom,high_dividend,3.4,large,,,standard,"dividend,lower_risk",NTT 日本電信電話 通信 高配当,11.0,1.4,10.0,communication,3.1,HIGH,OK,LOW
-6861.T,Keyence,jp,stock,JPY,technology,dividend,0,large,,,standard,balanced,キーエンス,28.0,5.0,22.0,technology,3.4,MEDIUM,OK,MEDIUM
-8035.T,Tokyo Electron,jp,stock,JPY,semiconductor,dividend,0,large,,,standard,growth,東京エレクトロン 半導体,24.0,4.0,18.0,technology,4.0,MEDIUM,OK,MEDIUM
-6098.T,Recruit Holdings,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,リクルート,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-4063.T,Shin-Etsu Chemical,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,信越化学,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-6501.T,Hitachi,jp,stock,JPY,technology,dividend,0,mid,,,standard,balanced,日立,28.0,5.0,22.0,technology,3.4,MEDIUM,OK,MEDIUM
-8058.T,Mitsubishi Corporation,jp,stock,JPY,trading,high_dividend,3.2,large,,,standard,dividend,三菱商事 商社 高配当,9.0,0.9,10.0,financial,3.1,MEDIUM,OK,MEDIUM
-8001.T,Itochu,jp,stock,JPY,trading,dividend,2.4,large,,,standard,dividend,伊藤忠 商社,9.0,0.9,10.0,financial,3.1,MEDIUM,OK,MEDIUM
-8031.T,Mitsui,jp,stock,JPY,trading,high_dividend,3.0,mid,,,standard,dividend,三井物産 商社,9.0,0.9,10.0,financial,3.1,MEDIUM,OK,MEDIUM
-2914.T,Japan Tobacco,jp,stock,JPY,consumer,high_dividend,4.5,mid,,,standard,dividend,日本たばこ JT 高配当,19.0,2.2,12.0,consumer,3.1,MEDIUM,OK,MEDIUM
-7974.T,Nintendo,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,任天堂,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-4519.T,Chugai Pharmaceutical,jp,stock,JPY,healthcare,dividend,0,mid,,,standard,balanced,中外製薬 ヘルスケア,18.0,2.8,15.0,healthcare,3.4,MEDIUM,OK,MEDIUM
-4568.T,Daiichi Sankyo,jp,stock,JPY,healthcare,dividend,0,mid,,,standard,balanced,第一三共 ヘルスケア,18.0,2.8,15.0,healthcare,3.4,MEDIUM,OK,MEDIUM
-4502.T,Takeda Pharmaceutical,jp,stock,JPY,healthcare,high_dividend,4.0,mid,,,standard,dividend,武田薬品 ヘルスケア 高配当,18.0,2.8,15.0,healthcare,3.1,MEDIUM,OK,MEDIUM
-6367.T,Daikin Industries,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,ダイキン,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-6981.T,Murata Manufacturing,jp,stock,JPY,semiconductor,dividend,0,mid,,,standard,growth,村田製作所,24.0,4.0,18.0,technology,4.0,MEDIUM,OK,MEDIUM
-7751.T,Canon,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,キヤノン,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-6902.T,Denso,jp,stock,JPY,automotive,dividend,0,mid,,,standard,balanced,デンソー,12.0,1.1,9.0,consumer,3.4,MEDIUM,OK,MEDIUM
-7267.T,Honda Motor,jp,stock,JPY,automotive,dividend,0,mid,,,standard,balanced,ホンダ 本田,12.0,1.1,9.0,consumer,3.4,MEDIUM,OK,MEDIUM
-8411.T,Mizuho Financial Group,jp,stock,JPY,financial,high_dividend,3.4,mid,,,standard,dividend,みずほ 金融,11.0,0.9,8.0,financial,3.1,MEDIUM,OK,MEDIUM
-8316.T,Sumitomo Mitsui Financial Group,jp,stock,JPY,financial,high_dividend,3.2,mid,,,standard,dividend,三井住友 金融,11.0,0.9,8.0,financial,3.1,MEDIUM,OK,MEDIUM
-8766.T,Tokio Marine Holdings,jp,stock,JPY,financial,dividend,0,mid,,,standard,balanced,東京海上,11.0,0.9,8.0,financial,3.4,MEDIUM,OK,MEDIUM
-8591.T,ORIX,jp,stock,JPY,financial,high_dividend,3.2,mid,,,standard,dividend,オリックス 金融 高配当,11.0,0.9,8.0,financial,3.1,MEDIUM,OK,MEDIUM
-8801.T,Mitsui Fudosan,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,三井不動産,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-9020.T,East Japan Railway,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,JR東日本,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-9022.T,Central Japan Railway,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,JR東海,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-4661.T,Oriental Land,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,オリエンタルランド,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-9613.T,NTT Data Group,jp,stock,JPY,technology,dividend,0,mid,,,standard,balanced,NTTデータ,28.0,5.0,22.0,technology,3.4,MEDIUM,OK,MEDIUM
-4755.T,Rakuten Group,jp,stock,JPY,technology,dividend,0,mid,,,standard,balanced,楽天,28.0,5.0,22.0,technology,3.4,MEDIUM,OK,MEDIUM
-4689.T,LY Corporation,jp,stock,JPY,technology,dividend,0,mid,,,standard,balanced,LINE Yahoo LY,28.0,5.0,22.0,technology,3.4,MEDIUM,OK,MEDIUM
-6702.T,Fujitsu,jp,stock,JPY,technology,dividend,0,mid,,,standard,balanced,富士通,28.0,5.0,22.0,technology,3.4,MEDIUM,OK,MEDIUM
-5401.T,Nippon Steel,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,日本製鉄,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-7011.T,Mitsubishi Heavy Industries,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,三菱重工,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-1605.T,Inpex,jp,stock,JPY,energy,high_dividend,3.6,mid,,,standard,dividend,INPEX エネルギー 高配当,10.0,1.2,11.0,energy,3.1,MEDIUM,OK,MEDIUM
-5108.T,Bridgestone,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,ブリヂストン,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-3382.T,Seven & i Holdings,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,セブン アイ,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-8267.T,Aeon,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,イオン,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-9843.T,Nitori Holdings,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,ニトリ,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-4452.T,Kao,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,花王,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-4911.T,Shiseido,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,資生堂,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-2502.T,Asahi Group Holdings,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,アサヒ,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-2802.T,Ajinomoto,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,味の素,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-AAPL,Apple Inc.,us,stock,USD,technology,dividend,0.5,mega,,,standard,"growth,balanced,dividend",apple,28.0,5.0,22.0,technology,4.0,MEDIUM,OK,MEDIUM
-MSFT,Microsoft,us,stock,USD,technology,dividend,0.7,mega,,,standard,"growth,balanced",microsoft,28.0,5.0,22.0,technology,4.0,MEDIUM,OK,MEDIUM
-NVDA,NVIDIA,us,stock,USD,semiconductor,none,0,mega,,,standard,growth,nvidia,24.0,4.0,18.0,technology,4.0,MEDIUM,OK,MEDIUM
-TSLA,Tesla,us,stock,USD,automotive,none,0,mid,,,standard,growth,tesla,12.0,1.1,9.0,consumer,4.0,MEDIUM,OK,MEDIUM
-GOOGL,Alphabet,us,stock,USD,technology,none,0,mega,,,standard,growth,google alphabet,28.0,5.0,22.0,technology,4.0,MEDIUM,OK,MEDIUM
-AMZN,Amazon.com,us,stock,USD,consumer,none,0,mega,,,standard,growth,amazon,19.0,2.2,12.0,consumer,4.0,MEDIUM,OK,MEDIUM
-META,Meta Platforms,us,stock,USD,technology,none,0,mega,,,standard,growth,meta facebook,28.0,5.0,22.0,technology,4.0,MEDIUM,OK,MEDIUM
-NFLX,Netflix,us,stock,USD,consumer,none,0,mid,,,standard,growth,netflix,19.0,2.2,12.0,consumer,4.0,MEDIUM,OK,MEDIUM
-AMD,Advanced Micro Devices,us,stock,USD,semiconductor,none,0,mid,,,standard,growth,amd,24.0,4.0,18.0,technology,4.0,MEDIUM,OK,MEDIUM
-INTC,Intel,us,stock,USD,semiconductor,dividend,1.2,mid,,,standard,balanced,intel,24.0,4.0,18.0,technology,3.4,MEDIUM,OK,MEDIUM
-AVGO,Broadcom,us,stock,USD,semiconductor,dividend,1.2,mid,,,standard,growth,broadcom,24.0,4.0,18.0,technology,4.0,MEDIUM,OK,MEDIUM
-ORCL,Oracle,us,stock,USD,technology,dividend,1.4,mid,,,standard,balanced,oracle,28.0,5.0,22.0,technology,3.4,MEDIUM,OK,MEDIUM
-ADBE,Adobe,us,stock,USD,technology,none,0,mid,,,standard,growth,adobe,28.0,5.0,22.0,technology,4.0,MEDIUM,OK,MEDIUM
-CRM,Salesforce,us,stock,USD,technology,none,0,mid,,,standard,growth,salesforce,28.0,5.0,22.0,technology,4.0,MEDIUM,OK,MEDIUM
-NOW,ServiceNow,us,stock,USD,technology,none,0,mid,,,standard,growth,servicenow,28.0,5.0,22.0,technology,4.0,MEDIUM,OK,MEDIUM
-SHOP,Shopify,us,stock,USD,technology,none,0,mid,,,standard,growth,shopify,28.0,5.0,22.0,technology,4.0,MEDIUM,OK,MEDIUM
-UBER,Uber Technologies,us,stock,USD,technology,none,0,mid,,,standard,growth,uber,28.0,5.0,22.0,technology,4.0,MEDIUM,OK,MEDIUM
-ABNB,Airbnb,us,stock,USD,technology,none,0,mid,,,standard,growth,airbnb,28.0,5.0,22.0,technology,4.0,MEDIUM,OK,MEDIUM
-PYPL,PayPal Holdings,us,stock,USD,technology,none,0,mid,,,standard,growth,paypal,28.0,5.0,22.0,technology,4.0,MEDIUM,OK,MEDIUM
-JPM,JPMorgan Chase,us,stock,USD,financial,dividend,2.2,large,,,standard,dividend,jpmorgan chase,11.0,0.9,8.0,financial,3.1,MEDIUM,OK,MEDIUM
-BAC,Bank of America,us,stock,USD,financial,dividend,2.5,large,,,standard,dividend,bank of america,11.0,0.9,8.0,financial,3.1,MEDIUM,OK,MEDIUM
-V,Visa,us,stock,USD,financial,dividend,0.8,large,,,standard,balanced,visa,11.0,0.9,8.0,financial,3.4,MEDIUM,OK,MEDIUM
-MA,Mastercard,us,stock,USD,financial,dividend,0.6,large,,,standard,balanced,mastercard,11.0,0.9,8.0,financial,3.4,MEDIUM,OK,MEDIUM
-AXP,American Express,us,stock,USD,financial,dividend,1.1,large,,,standard,balanced,american express,11.0,0.9,8.0,financial,3.4,MEDIUM,OK,MEDIUM
-BRK-B,Berkshire Hathaway,us,stock,USD,financial,none,0.0,mid,,,standard,balanced,berkshire,11.0,0.9,8.0,financial,3.4,MEDIUM,OK,MEDIUM
-UNH,UnitedHealth Group,us,stock,USD,healthcare,dividend,1.4,large,,,standard,balanced,unitedhealth,18.0,2.8,15.0,healthcare,3.4,MEDIUM,OK,MEDIUM
-JNJ,Johnson & Johnson,us,stock,USD,healthcare,growth_dividend,3.0,large,,,standard,"dividend,lower_risk",johnson,18.0,2.8,15.0,healthcare,3.1,HIGH,OK,LOW
-LLY,Eli Lilly,us,stock,USD,healthcare,dividend,0.7,large,,,standard,balanced,eli lilly,18.0,2.8,15.0,healthcare,3.4,MEDIUM,OK,MEDIUM
-MRK,Merck,us,stock,USD,healthcare,dividend,3.0,mid,,,standard,dividend,merck,18.0,2.8,15.0,healthcare,3.1,MEDIUM,OK,MEDIUM
-PFE,Pfizer,us,stock,USD,healthcare,high_dividend,6.0,mid,,,standard,dividend,pfizer,18.0,2.8,15.0,healthcare,3.1,MEDIUM,OK,MEDIUM
-ABBV,AbbVie,us,stock,USD,healthcare,high_dividend,3.7,mid,,,standard,dividend,abbvie,18.0,2.8,15.0,healthcare,3.1,MEDIUM,OK,MEDIUM
-XOM,Exxon Mobil,us,stock,USD,energy,high_dividend,3.4,large,,,standard,dividend,exxon,10.0,1.2,11.0,energy,3.1,MEDIUM,OK,MEDIUM
-CVX,Chevron,us,stock,USD,energy,high_dividend,4.0,large,,,standard,dividend,chevron,10.0,1.2,11.0,energy,3.1,MEDIUM,OK,MEDIUM
-KO,Coca-Cola,us,stock,USD,consumer,growth_dividend,3.1,mid,,,standard,"dividend,lower_risk",coca cola,19.0,2.2,12.0,consumer,3.1,HIGH,OK,LOW
-PEP,PepsiCo,us,stock,USD,consumer,growth_dividend,3.0,mid,,,standard,"dividend,lower_risk",pepsico,19.0,2.2,12.0,consumer,3.1,HIGH,OK,LOW
-PG,Procter & Gamble,us,stock,USD,consumer,growth_dividend,2.4,mid,,,standard,"dividend,lower_risk",procter gamble,19.0,2.2,12.0,consumer,3.1,HIGH,OK,LOW
-COST,Costco Wholesale,us,stock,USD,consumer,growth_dividend,0.6,mid,,,standard,"dividend,lower_risk",costco,19.0,2.2,12.0,consumer,3.1,HIGH,OK,LOW
-WMT,Walmart,us,stock,USD,consumer,growth_dividend,1.0,mid,,,standard,"dividend,lower_risk",walmart,19.0,2.2,12.0,consumer,3.1,HIGH,OK,LOW
-HD,Home Depot,us,stock,USD,consumer,growth_dividend,2.2,mid,,,standard,dividend,home depot,19.0,2.2,12.0,consumer,3.1,MEDIUM,OK,MEDIUM
-MCD,McDonald's,us,stock,USD,consumer,growth_dividend,2.3,mid,,,standard,dividend,mcdonald,19.0,2.2,12.0,consumer,3.1,MEDIUM,OK,MEDIUM
-NKE,Nike,us,stock,USD,consumer,dividend,0,mid,,,standard,balanced,nike,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-DIS,Walt Disney,us,stock,USD,consumer,dividend,0,mid,,,standard,balanced,disney,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-TM,Toyota Motor ADR,us,adr,USD,automotive,dividend,0,mid,,,standard,balanced,toyota adr,12.0,1.1,9.0,consumer,3.4,MEDIUM,OK,MEDIUM
-SONY,Sony Group ADR,us,adr,USD,consumer,dividend,0,mid,,,standard,balanced,sony adr,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM
-SPY,SPDR S&P 500 ETF,us,etf,USD,index,none,1.2,mid,sp500,0.09,beginner,"installment,balanced,lower_risk",sp500 s&p500,18.0,2.5,12.0,index,3.4,HIGH,OK,LOW
-QQQ,Invesco QQQ Trust,us,etf,USD,index,none,0.6,mid,nasdaq100,0.20,beginner,"installment,growth",nasdaq100,18.0,2.5,12.0,index,4.0,MEDIUM,OK,LOW
-VTI,Vanguard Total Stock Market ETF,us,etf,USD,index,none,1.3,mid,total_us,0.03,beginner,"installment,balanced,lower_risk",total market,18.0,2.5,12.0,index,3.4,HIGH,OK,LOW
-VOO,Vanguard S&P 500 ETF,us,etf,USD,index,none,1.2,mid,sp500,0.03,beginner,"installment,balanced,lower_risk",sp500 s&p500,18.0,2.5,12.0,index,3.4,HIGH,OK,LOW
-IWM,iShares Russell 2000 ETF,us,etf,USD,index,none,1.3,mid,small_us,0.19,beginner,installment,russell2000 small cap,18.0,2.5,12.0,index,3.2,MEDIUM,OK,LOW
+symbol,name,market,asset_type,currency,theme,dividend_category,dividend_yield_pct,market_cap_tier,index_family,expense_ratio_pct,complexity,tags,aliases,per,pbr,roe_pct,sector,consensus_rating,forecast_agreement,data_quality,risk_band,metadata_source,metadata_as_of,metadata_updated_at
+7203.T,Toyota Motor,jp,stock,JPY,automotive,dividend,2.6,large,,,standard,"balanced,lower_risk",トヨタ 自動車 toyota,12.0,1.1,9.0,consumer,3.4,HIGH,OK,LOW,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+9983.T,Fast Retailing,jp,stock,JPY,consumer,dividend,0.7,large,,,standard,balanced,ファーストリテイリング ユニクロ,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+6758.T,Sony Group,jp,stock,JPY,consumer,dividend,0.8,large,,,standard,balanced,ソニー sony,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+8306.T,Mitsubishi UFJ Financial Group,jp,stock,JPY,financial,dividend,3.1,large,,,standard,balanced,三菱UFJ 銀行 金融,11.0,0.9,8.0,financial,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+9432.T,Nippon Telegraph and Telephone,jp,stock,JPY,telecom,high_dividend,3.4,large,,,standard,"dividend,lower_risk",NTT 日本電信電話 通信 高配当,11.0,1.4,10.0,communication,3.1,HIGH,OK,LOW,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+6861.T,Keyence,jp,stock,JPY,technology,dividend,0,large,,,standard,balanced,キーエンス,28.0,5.0,22.0,technology,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+8035.T,Tokyo Electron,jp,stock,JPY,semiconductor,dividend,0,large,,,standard,growth,東京エレクトロン 半導体,24.0,4.0,18.0,technology,4.0,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+6098.T,Recruit Holdings,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,リクルート,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+4063.T,Shin-Etsu Chemical,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,信越化学,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+6501.T,Hitachi,jp,stock,JPY,technology,dividend,0,mid,,,standard,balanced,日立,28.0,5.0,22.0,technology,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+8058.T,Mitsubishi Corporation,jp,stock,JPY,trading,high_dividend,3.2,large,,,standard,dividend,三菱商事 商社 高配当,9.0,0.9,10.0,financial,3.1,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+8001.T,Itochu,jp,stock,JPY,trading,dividend,2.4,large,,,standard,dividend,伊藤忠 商社,9.0,0.9,10.0,financial,3.1,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+8031.T,Mitsui,jp,stock,JPY,trading,high_dividend,3.0,mid,,,standard,dividend,三井物産 商社,9.0,0.9,10.0,financial,3.1,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+2914.T,Japan Tobacco,jp,stock,JPY,consumer,high_dividend,4.5,mid,,,standard,dividend,日本たばこ JT 高配当,19.0,2.2,12.0,consumer,3.1,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+7974.T,Nintendo,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,任天堂,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+4519.T,Chugai Pharmaceutical,jp,stock,JPY,healthcare,dividend,0,mid,,,standard,balanced,中外製薬 ヘルスケア,18.0,2.8,15.0,healthcare,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+4568.T,Daiichi Sankyo,jp,stock,JPY,healthcare,dividend,0,mid,,,standard,balanced,第一三共 ヘルスケア,18.0,2.8,15.0,healthcare,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+4502.T,Takeda Pharmaceutical,jp,stock,JPY,healthcare,high_dividend,4.0,mid,,,standard,dividend,武田薬品 ヘルスケア 高配当,18.0,2.8,15.0,healthcare,3.1,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+6367.T,Daikin Industries,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,ダイキン,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+6981.T,Murata Manufacturing,jp,stock,JPY,semiconductor,dividend,0,mid,,,standard,growth,村田製作所,24.0,4.0,18.0,technology,4.0,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+7751.T,Canon,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,キヤノン,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+6902.T,Denso,jp,stock,JPY,automotive,dividend,0,mid,,,standard,balanced,デンソー,12.0,1.1,9.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+7267.T,Honda Motor,jp,stock,JPY,automotive,dividend,0,mid,,,standard,balanced,ホンダ 本田,12.0,1.1,9.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+8411.T,Mizuho Financial Group,jp,stock,JPY,financial,high_dividend,3.4,mid,,,standard,dividend,みずほ 金融,11.0,0.9,8.0,financial,3.1,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+8316.T,Sumitomo Mitsui Financial Group,jp,stock,JPY,financial,high_dividend,3.2,mid,,,standard,dividend,三井住友 金融,11.0,0.9,8.0,financial,3.1,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+8766.T,Tokio Marine Holdings,jp,stock,JPY,financial,dividend,0,mid,,,standard,balanced,東京海上,11.0,0.9,8.0,financial,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+8591.T,ORIX,jp,stock,JPY,financial,high_dividend,3.2,mid,,,standard,dividend,オリックス 金融 高配当,11.0,0.9,8.0,financial,3.1,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+8801.T,Mitsui Fudosan,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,三井不動産,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+9020.T,East Japan Railway,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,JR東日本,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+9022.T,Central Japan Railway,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,JR東海,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+4661.T,Oriental Land,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,オリエンタルランド,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+9613.T,NTT Data Group,jp,stock,JPY,technology,dividend,0,mid,,,standard,balanced,NTTデータ,28.0,5.0,22.0,technology,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+4755.T,Rakuten Group,jp,stock,JPY,technology,dividend,0,mid,,,standard,balanced,楽天,28.0,5.0,22.0,technology,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+4689.T,LY Corporation,jp,stock,JPY,technology,dividend,0,mid,,,standard,balanced,LINE Yahoo LY,28.0,5.0,22.0,technology,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+6702.T,Fujitsu,jp,stock,JPY,technology,dividend,0,mid,,,standard,balanced,富士通,28.0,5.0,22.0,technology,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+5401.T,Nippon Steel,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,日本製鉄,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+7011.T,Mitsubishi Heavy Industries,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,三菱重工,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+1605.T,Inpex,jp,stock,JPY,energy,high_dividend,3.6,mid,,,standard,dividend,INPEX エネルギー 高配当,10.0,1.2,11.0,energy,3.1,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+5108.T,Bridgestone,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,ブリヂストン,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+3382.T,Seven & i Holdings,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,セブン アイ,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+8267.T,Aeon,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,イオン,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+9843.T,Nitori Holdings,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,ニトリ,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+4452.T,Kao,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,花王,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+4911.T,Shiseido,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,資生堂,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+2502.T,Asahi Group Holdings,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,アサヒ,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+2802.T,Ajinomoto,jp,stock,JPY,consumer,dividend,0,mid,,,standard,balanced,味の素,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+AAPL,Apple Inc.,us,stock,USD,technology,dividend,0.5,mega,,,standard,"growth,balanced,dividend",apple,28.0,5.0,22.0,technology,4.0,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+MSFT,Microsoft,us,stock,USD,technology,dividend,0.7,mega,,,standard,"growth,balanced",microsoft,28.0,5.0,22.0,technology,4.0,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+NVDA,NVIDIA,us,stock,USD,semiconductor,none,0,mega,,,standard,growth,nvidia,24.0,4.0,18.0,technology,4.0,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+TSLA,Tesla,us,stock,USD,automotive,none,0,mid,,,standard,growth,tesla,12.0,1.1,9.0,consumer,4.0,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+GOOGL,Alphabet,us,stock,USD,technology,none,0,mega,,,standard,growth,google alphabet,28.0,5.0,22.0,technology,4.0,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+AMZN,Amazon.com,us,stock,USD,consumer,none,0,mega,,,standard,growth,amazon,19.0,2.2,12.0,consumer,4.0,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+META,Meta Platforms,us,stock,USD,technology,none,0,mega,,,standard,growth,meta facebook,28.0,5.0,22.0,technology,4.0,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+NFLX,Netflix,us,stock,USD,consumer,none,0,mid,,,standard,growth,netflix,19.0,2.2,12.0,consumer,4.0,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+AMD,Advanced Micro Devices,us,stock,USD,semiconductor,none,0,mid,,,standard,growth,amd,24.0,4.0,18.0,technology,4.0,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+INTC,Intel,us,stock,USD,semiconductor,dividend,1.2,mid,,,standard,balanced,intel,24.0,4.0,18.0,technology,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+AVGO,Broadcom,us,stock,USD,semiconductor,dividend,1.2,mid,,,standard,growth,broadcom,24.0,4.0,18.0,technology,4.0,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+ORCL,Oracle,us,stock,USD,technology,dividend,1.4,mid,,,standard,balanced,oracle,28.0,5.0,22.0,technology,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+ADBE,Adobe,us,stock,USD,technology,none,0,mid,,,standard,growth,adobe,28.0,5.0,22.0,technology,4.0,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+CRM,Salesforce,us,stock,USD,technology,none,0,mid,,,standard,growth,salesforce,28.0,5.0,22.0,technology,4.0,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+NOW,ServiceNow,us,stock,USD,technology,none,0,mid,,,standard,growth,servicenow,28.0,5.0,22.0,technology,4.0,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+SHOP,Shopify,us,stock,USD,technology,none,0,mid,,,standard,growth,shopify,28.0,5.0,22.0,technology,4.0,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+UBER,Uber Technologies,us,stock,USD,technology,none,0,mid,,,standard,growth,uber,28.0,5.0,22.0,technology,4.0,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+ABNB,Airbnb,us,stock,USD,technology,none,0,mid,,,standard,growth,airbnb,28.0,5.0,22.0,technology,4.0,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+PYPL,PayPal Holdings,us,stock,USD,technology,none,0,mid,,,standard,growth,paypal,28.0,5.0,22.0,technology,4.0,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+JPM,JPMorgan Chase,us,stock,USD,financial,dividend,2.2,large,,,standard,dividend,jpmorgan chase,11.0,0.9,8.0,financial,3.1,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+BAC,Bank of America,us,stock,USD,financial,dividend,2.5,large,,,standard,dividend,bank of america,11.0,0.9,8.0,financial,3.1,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+V,Visa,us,stock,USD,financial,dividend,0.8,large,,,standard,balanced,visa,11.0,0.9,8.0,financial,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+MA,Mastercard,us,stock,USD,financial,dividend,0.6,large,,,standard,balanced,mastercard,11.0,0.9,8.0,financial,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+AXP,American Express,us,stock,USD,financial,dividend,1.1,large,,,standard,balanced,american express,11.0,0.9,8.0,financial,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+BRK-B,Berkshire Hathaway,us,stock,USD,financial,none,0.0,mid,,,standard,balanced,berkshire,11.0,0.9,8.0,financial,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+UNH,UnitedHealth Group,us,stock,USD,healthcare,dividend,1.4,large,,,standard,balanced,unitedhealth,18.0,2.8,15.0,healthcare,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+JNJ,Johnson & Johnson,us,stock,USD,healthcare,growth_dividend,3.0,large,,,standard,"dividend,lower_risk",johnson,18.0,2.8,15.0,healthcare,3.1,HIGH,OK,LOW,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+LLY,Eli Lilly,us,stock,USD,healthcare,dividend,0.7,large,,,standard,balanced,eli lilly,18.0,2.8,15.0,healthcare,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+MRK,Merck,us,stock,USD,healthcare,dividend,3.0,mid,,,standard,dividend,merck,18.0,2.8,15.0,healthcare,3.1,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+PFE,Pfizer,us,stock,USD,healthcare,high_dividend,6.0,mid,,,standard,dividend,pfizer,18.0,2.8,15.0,healthcare,3.1,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+ABBV,AbbVie,us,stock,USD,healthcare,high_dividend,3.7,mid,,,standard,dividend,abbvie,18.0,2.8,15.0,healthcare,3.1,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+XOM,Exxon Mobil,us,stock,USD,energy,high_dividend,3.4,large,,,standard,dividend,exxon,10.0,1.2,11.0,energy,3.1,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+CVX,Chevron,us,stock,USD,energy,high_dividend,4.0,large,,,standard,dividend,chevron,10.0,1.2,11.0,energy,3.1,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+KO,Coca-Cola,us,stock,USD,consumer,growth_dividend,3.1,mid,,,standard,"dividend,lower_risk",coca cola,19.0,2.2,12.0,consumer,3.1,HIGH,OK,LOW,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+PEP,PepsiCo,us,stock,USD,consumer,growth_dividend,3.0,mid,,,standard,"dividend,lower_risk",pepsico,19.0,2.2,12.0,consumer,3.1,HIGH,OK,LOW,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+PG,Procter & Gamble,us,stock,USD,consumer,growth_dividend,2.4,mid,,,standard,"dividend,lower_risk",procter gamble,19.0,2.2,12.0,consumer,3.1,HIGH,OK,LOW,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+COST,Costco Wholesale,us,stock,USD,consumer,growth_dividend,0.6,mid,,,standard,"dividend,lower_risk",costco,19.0,2.2,12.0,consumer,3.1,HIGH,OK,LOW,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+WMT,Walmart,us,stock,USD,consumer,growth_dividend,1.0,mid,,,standard,"dividend,lower_risk",walmart,19.0,2.2,12.0,consumer,3.1,HIGH,OK,LOW,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+HD,Home Depot,us,stock,USD,consumer,growth_dividend,2.2,mid,,,standard,dividend,home depot,19.0,2.2,12.0,consumer,3.1,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+MCD,McDonald's,us,stock,USD,consumer,growth_dividend,2.3,mid,,,standard,dividend,mcdonald,19.0,2.2,12.0,consumer,3.1,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+NKE,Nike,us,stock,USD,consumer,dividend,0,mid,,,standard,balanced,nike,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+DIS,Walt Disney,us,stock,USD,consumer,dividend,0,mid,,,standard,balanced,disney,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+TM,Toyota Motor ADR,us,adr,USD,automotive,dividend,0,mid,,,standard,balanced,toyota adr,12.0,1.1,9.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+SONY,Sony Group ADR,us,adr,USD,consumer,dividend,0,mid,,,standard,balanced,sony adr,19.0,2.2,12.0,consumer,3.4,MEDIUM,OK,MEDIUM,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+SPY,SPDR S&P 500 ETF,us,etf,USD,index,none,1.2,mid,sp500,0.09,beginner,"installment,balanced,lower_risk",sp500 s&p500,18.0,2.5,12.0,index,3.4,HIGH,OK,LOW,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+QQQ,Invesco QQQ Trust,us,etf,USD,index,none,0.6,mid,nasdaq100,0.20,beginner,"installment,growth",nasdaq100,18.0,2.5,12.0,index,4.0,MEDIUM,OK,LOW,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+VTI,Vanguard Total Stock Market ETF,us,etf,USD,index,none,1.3,mid,total_us,0.03,beginner,"installment,balanced,lower_risk",total market,18.0,2.5,12.0,index,3.4,HIGH,OK,LOW,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+VOO,Vanguard S&P 500 ETF,us,etf,USD,index,none,1.2,mid,sp500,0.03,beginner,"installment,balanced,lower_risk",sp500 s&p500,18.0,2.5,12.0,index,3.4,HIGH,OK,LOW,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00
+IWM,iShares Russell 2000 ETF,us,etf,USD,index,none,1.3,mid,small_us,0.19,beginner,installment,russell2000 small cap,18.0,2.5,12.0,index,3.2,MEDIUM,OK,LOW,curated_csv,2026-05-18,2026-05-18T00:00:00+09:00

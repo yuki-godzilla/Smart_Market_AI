@@ -25,6 +25,7 @@
 
 Research RAG、Decision Report、Execution は設計上の将来コンポーネントです。
 現時点の通常経路には含めず、planned / optional adapter として扱います。
+後続の旧来アーキテクチャ記述には future scope も含まれるため、現在の実装状態はこの同期メモとコードを優先します。
 
 
 ## 次期アーキテクチャ方針: Multi-Model Investment Intelligence
@@ -184,22 +185,24 @@ scale 950 width
 ### 2.1 Presentation Layer (UI)
 - **Streamlit App**: ダッシュボード、検索・条件入力、結果可視化、レポートDL。
 - **Session State**: ユーザー設定（最低利回り、通貨、リスク許容度等）の保持。
-- **Visualization**: plotly/matplotlib によるチャート。
+- **Visualization**: 現状は Streamlit + Altair。plotly/matplotlib は future optional。
 
 ### 2.2 Application Layer (Services)
 - **Screening Service**
   - 指標（配当利回り、成長率、自己資本比率、PER 等）によるスコアリング。
   - 重み付け変更、フィルタリング、ランキング生成。
 - **Forecast Service**
-  - 価格/配当の回帰・分類推論（scikit-learn / XGBoost / Prophet / PyTorch）。
-  - 不確実性指標（予測区間、信頼度）の出力。
+  - 現状は naive / moving average / momentum baseline と consensus。
+  - scikit-learn / XGBoost / Prophet / PyTorch などは future optional adapter。
 - **Portfolio Service**
-  - PyPortfolioOpt/cvxpy で平均分散最適化、制約（銘柄数、比率上限、通貨）対応。
+  - 現状は JPY valuation と no-solver rebalance proposal。
+  - PyPortfolioOpt/cvxpy での平均分散最適化は future scope。
 - **Risk Service**
   - 経済指標・ニューススコア集計（シンプルなキーワード/辞書→将来はNLP）。
   - リスクヒートマップ生成。
 - **Report Service**
-  - PDF/Excel 出力、テンプレート（会社別/ポートフォリオ別/市場別）。
+  - 現状は Rebalance の JSON / CSV / Markdown / manifest / ZIP export。
+  - PDF/Excel 出力、テンプレート（会社別/ポートフォリオ別/市場別）は future scope。
 - **Research RAG Service**
   - ローカル資料登録、chunk化、keyword/vector検索、企業分析サマリ、Research Score生成。
   - 初期はlocal documentとkeyword searchを優先し、外部ソース・embedding・LLMはoptional adapterとして扱う。
@@ -400,6 +403,6 @@ scale 550 width
 
 ### Appendix: Minimal Tech Choices
 - **DB**: SQLite（→ DuckDB 拡張余地）
-- **ファイル形式**: Parquet（features）, CSV（raw/cache）, XLSX/PDF（reports）
-- **モデリング**: Prophet（指数トレンド）、XGBoost/LightGBM（銘柄）、LR baseline
+- **ファイル形式**: 現状は CSV / JSON / Markdown / ZIP。Parquet、XLSX/PDF は future scope
+- **モデリング**: 現状は deterministic baseline。Prophet、XGBoost/LightGBM、LR baseline は future optional
 - **スケジューラ**: cron/Task Scheduler

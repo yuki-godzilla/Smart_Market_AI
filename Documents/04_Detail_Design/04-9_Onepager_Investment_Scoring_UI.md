@@ -4,7 +4,8 @@
 
 ## 1) Purpose & Scope
 
-この文書は、現在実装済みの Investment Score と、Phase 16 で進行中の Streamlit UI 改善を整理する Onepager です。
+この文書は、現在実装済みの Investment Score と、Phase 16 で実装済みの Streamlit scoring UI を整理する Onepager です。
+最終 Streamlit browser smoke は推奨確認として残します。
 
 対象:
 
@@ -105,10 +106,11 @@ weight total は config validation で確認します。
   - forecast agreement
   - data quality
   - lower risk
-- candidate filter modal
+- in-page screening condition panel and candidate filter controls
 - static / curated metadata による fetch-before filtering
 - ticker / company name 表示
 - selected ranking symbol を cockpit state へ渡す flow
+- ranking cache / progress display
 
 ### Rebalance Cockpit
 
@@ -121,6 +123,7 @@ weight total は config validation で確認します。
 - target allocation percentage input
 - allocation comparison chart
 - risk breach confirmation points
+- latest result persistence in Streamlit session state
 
 ## 5) Rules & Constraints
 

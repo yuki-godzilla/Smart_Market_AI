@@ -2,22 +2,23 @@
 
 #### [BACK TO README](../README.md)
 
-## Purpose / ??
+## Purpose / 目的
 
 This file stores historical work-log entries for Smart Market AI.
-??????? Smart Market AI ??????????????
+このファイルは Smart Market AI の履歴作業ログを保存します。
 
 `PROJECT_CONTEXT.md` should stay compact and focused on the current project state.
-`PROJECT_CONTEXT.md` ???????????????????????????
+`PROJECT_CONTEXT.md` はコンパクトな現在地サマリに保ちます。
 
 Read this file only when historical investigation is needed.
-???????????????????????????
+履歴調査が必要な場合だけ読みます。
 
 When adding a new work-log entry, append it to the top of the Work Log section.
-????????????????Work Log ???????????????
+新しい作業ログは Work Log セクションの先頭に追加します。
 
 ## Work Log / 作業ログ
 
+- 2026-05-18: Synchronized current-state documentation with implementation after a project-wide doc/code consistency review, clarifying Phase 16 completion, Streamlit provider defaults, Yahoo opt-in adapter status, setup Python expectations, and future-scope technology/reporting items. / プロジェクト全体のドキュメントと実装の整合性を確認し、Phase 16 完了扱い、Streamlit provider 初期表示、Yahoo opt-in adapter 状態、setup の Python 前提、future scope の技術・レポート項目を現在実装に合わせて整理した。
 - 2026-05-17: Marked Phase 16 as implementation-complete with final Streamlit browser smoke recommended, and added the Phase 16 final UI smoke checklist to the roadmap and operations guide. / Phase 16 を実装完了扱いに更新し、最終 Streamlit browser smoke 推奨として、Phase 16 最終 UI 確認チェックリストをロードマップと運用ガイドへ追加した。
 - 2026-05-17: Documented the current Phase 16 ranking workflow in the operations guide, including `symbol_universe.csv`, the in-page screening condition panel, ranking cache, Yahoo batch OHLCV fetch, progress display, and the ranking-to-cockpit deep-dive flow. / Phase 16 の銘柄ランキング workflow について、`symbol_universe.csv`、画面内スクリーニング条件パネル、ranking cache、Yahoo 一括 OHLCV 取得、進捗表示、銘柄コックピットへの深掘り導線を運用ガイドへ記録した。
 - 2026-05-17: Polished the Phase 16 Market Data ranking UI wording by clarifying that screening conditions filter candidates while acquisition period / weight preset control ranking calculation and display ordering. / Phase 16 Market Data ranking の UI 文言を調整し、スクリーニング条件は候補絞り込み、取得期間と重視条件は ranking 計算・表示順の設定であることを明確化した。

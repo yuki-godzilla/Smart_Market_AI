@@ -14,12 +14,13 @@
 | Forecast | 実装済み | naive / moving average / momentum baseline、consensus |
 | Investment Score | 実装済み | screening / forecast / data quality / risk signal の統合 |
 | Portfolio / Risk | 実装済み | no-solver rebalance proposal と pre-trade risk check |
-| Streamlit UI | 実装中 | 銘柄コックピット、ランキング、Rebalance Cockpit |
+| Streamlit UI | 実装済み | 銘柄コックピット、ランキング、Rebalance Cockpit。最終 browser smoke は推奨確認 |
 | Research RAG | planned | local document ingestion から開始予定 |
 | Execution | deferred | broker order 送信は現在の重点外 |
 | Decision Report | planned | cockpit / ranking / rebalance context を再利用予定 |
 
 現時点では、UI と API の両方で「投資判断補助」であることを明示し、単独の売買推奨として扱わない方針です。
+以下の旧来構想セクションには future scope も含まれるため、現在の実装状態は上の同期メモとコードを優先します。
 
 
 ## 次期機能設計: Multi-Model Investment Intelligence
@@ -122,7 +123,7 @@
 
 ## 3. Forecast Engine
 
-* 株価・配当の回帰／分類予測（scikit-learn, XGBoost, Prophet, PyTorch）。
+* 株価・配当の回帰／分類予測（現状は deterministic baseline。scikit-learn, XGBoost, Prophet, PyTorch などは future optional adapter）。
 * 不確実性指標（予測区間、信頼度）の出力。
 * 日経平均・TOPIXなどの市場指数予測もサポート。
 
@@ -130,7 +131,7 @@
 
 ## 4. Portfolio Management
 
-* 平均分散最適化（PyPortfolioOpt / cvxpy）、銘柄数・比率・通貨制約対応。
+* 現状は no-solver rebalance proposal。PyPortfolioOpt / cvxpy による平均分散最適化は future scope。
 * 為替建玉（USD/JPY）と現地/円貨評価。
 * 自動リバランス案生成（最小取引単位考慮）。
 
@@ -478,7 +479,7 @@ deactivate Risk
 
 Portfolio -> Report: generateReport(portfolio, forecast)
 activate Report
-Report --> UI: PDF / Excel / Charts
+Report --> UI: Markdown / JSON / CSV / ZIP
 deactivate Report
 deactivate Portfolio
 deactivate UI
@@ -515,7 +516,7 @@ endlegend
 ## 18. Acceptance Criteria
 
 * 戦略設定からランキング生成まで5秒以内（キャッシュ利用）。
-* 市場指数予測を含むレポートをPDF/Excelで出力可能。
+* 初期レポートは Markdown / JSON / CSV / ZIP を優先し、PDF / Excel は future scope。
 * 配当落ち日前営業日に通知が送信される。
 * バックテストで複数市場混在ポートフォリオが配当再投資込みで正しく評価される。
 

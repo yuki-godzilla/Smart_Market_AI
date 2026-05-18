@@ -141,7 +141,8 @@ Invoke-RestMethod `
 
 ## 5. CSV MarketData provider
 
-既定 provider は deterministic な `mock` です。
+設定上の既定 provider は deterministic な `mock` です。
+Streamlit の Market Data 画面では provider 選択の初期表示が `yahoo` ですが、画面上で選んだ場合だけ明示 opt-in として扱い、通常の API / local checks は `mock` / `csv` を基準にします。
 ローカル CSV を使う場合は、`SMAI_CONFIG_FILE` で設定ファイルを指定します。
 
 ```powershell

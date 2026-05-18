@@ -4,8 +4,9 @@
 
 ## 0) Current Sync Status
 
-この文書は **2026-05-17 時点の実装に同期済み**です。
-現在の MarketData は `mock` / `csv` を通常利用し、`yahoo` / `polygon` は provider registry と live adapter foundation で **明示 opt-in の準備段階**です。
+この文書は **2026-05-18 時点の実装に同期済み**です。
+現在の MarketData は `mock` / `csv` を通常利用し、`yahoo` は `yfinance` backed の明示 opt-in live adapter 経路を持ちます。
+`polygon` は provider metadata / adapter boundary のみで、本体実装は未完了です。
 
 | 項目 | 状態 |
 |---|---|
@@ -13,7 +14,8 @@
 | CSV provider | implemented |
 | provider registry | implemented |
 | live provider adapter foundation | implemented |
-| Yahoo provider file | implemented foundation |
+| Yahoo provider file | implemented opt-in adapter |
+| Polygon provider file | not implemented |
 | external provider default enable | disabled |
 | async external API retry/circuit breaker | not implemented |
 | cache backend implementation | config only / not implemented as storage layer |
@@ -61,7 +63,11 @@ class MarketDataProviderAdapter(Protocol):
 
 - default: `mock`
 - `csv`: `config/csv_example.yaml` などで指定
-- live providers: `allow_external_providers: true` が必要
+- `yahoo`: `allow_external_providers: true` または Streamlit provider selector での明示選択が必要
+- `polygon`: metadata のみ。adapter 本体は未実装
+
+補足: `provider_registry.SUPPORTED_PROVIDERS` は `DataAccess` が直接扱う deterministic provider (`mock`, `csv`) の一覧です。
+`yahoo` の実装有無は `live_provider_adapters.py` と provider factory の opt-in 経路で確認します。
 
 ### CSV assumptions
 
@@ -136,6 +142,6 @@ Recommended checks:
 
 MarketData の次の改善は、Research RAG より前にやるなら以下が自然です。
 
-1. CSV scenario examples を増やす。
-2. live provider smoke を通常CIから分離したまま整備する。
+1. live provider smoke を通常CIから分離したまま整備する。
+2. provider fundamentals 由来の symbol metadata refresh command を設計する。
 3. FeatureSnapshot の品質サマリを UI / report でさらに読みやすく表示する。

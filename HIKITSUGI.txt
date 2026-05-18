@@ -1,0 +1,84 @@
+# Smart Market AI 引継ぎ
+
+## 現在の作業状況
+
+Phase 18 の続きとして、投信・ETF候補拡張後のランキングUI整合を実装済み。
+
+今回の主な変更:
+- `symbol_universe.csv` に入った投信 seed metadata をランキングUIの詳細条件へ接続
+- 投信の詳細条件で以下を実フィルタ化
+  - 運用方式
+  - 連動指数
+  - 信託報酬
+  - NISA対応
+  - 積立可否
+- 投信候補はUI上で表示・絞り込み可能
+- ただし現在の投信 symbol は価格 provider 取得用 ticker ではないため、投信が選択に含まれる場合はランキング作成ボタンを無効化
+- ETFのレバレッジ/インバースは master には保持しつつ、ranking universe policy により除外される方針を維持
+
+## 変更ファイル
+
+- `ui/app.py`
+- `ui/ranking.py`
+- `ui/ranking_state.py`
+- `tests/test_ui_forecast_display.py`
+- `Documents/05_Implementation_Roadmap.md`
+- `Documents/06_MVP_Operations_Guide.md`
+- `PROJECT_CONTEXT.md`
+- `Documents/99_Work_Log.md`
+
+## 確認済みコマンド
+
+```powershell
+.\venv_SMAI\Scripts\python.exe -m pytest tests\test_symbol_universe.py tests\test_ranking_universe_policy.py tests\test_ui_forecast_display.py -q
+結果:
+
+80 passed
+powershell
+
+.\venv_SMAI\Scripts\python.exe .\tools\run_local_checks.py
+結果:
+
+284 passed
+powershell
+
+git -c safe.directory=C:/IDE_Workspace/Smart_Market_AI diff --check
+結果:
+
+whitespace error なし
+CRLF warning のみ
+現在の未コミット差分
+以下が modified:
+
+Documents/05_Implementation_Roadmap.md
+Documents/06_MVP_Operations_Guide.md
+Documents/99_Work_Log.md
+PROJECT_CONTEXT.md
+tests/test_ui_forecast_display.py
+ui/app.py
+ui/ranking.py
+ui/ranking_state.py
+未追跡:
+
+HIKITSUGI.txt
+HIKITSUGI.txt は今回触っていない。必要なら中身確認、不要なら放置。
+
+次にやるとよさそうなこと
+Streamlit UIで目視確認
+
+銘柄ランキングを開く
+商品を 投信 に変更
+詳細条件で 運用方式 / 連動指数 / 信託報酬 / NISA対応 / 積立可否 が表示されること
+投信候補が絞り込まれること
+投信選択時にランキング作成が無効化されること
+問題なければコミット
+
+推奨メッセージ:
+Add mutual fund ranking filters and fetch guard
+次の実装候補
+
+投信価格/基準価額の扱い方を設計
+投信 metadata source の拡張
+NISA公式リスト / 投信協会 / FSA系 source import
+SBI取扱確認済み master への段階的移行
+Phase 19 Decision Report Context MVP

@@ -165,12 +165,30 @@ RANKING_INDEX_FAMILY_LABELS = {
     "nasdaq100": "NASDAQ 100",
     "total_us": "全米",
     "small_us": "米国小型",
+    "acwi": "全世界",
 }
 RANKING_RISK_BAND_LABELS = {
     "all": "指定なし",
     "LOW": "低",
     "MEDIUM": "中",
     "HIGH": "高",
+}
+RANKING_MANAGEMENT_STYLE_LABELS = {
+    "all": "指定なし",
+    "index": "インデックス",
+    "active": "アクティブ",
+}
+RANKING_NISA_ELIGIBILITY_LABELS = {
+    "all": "指定なし",
+    "eligible": "NISA対象",
+    "growth": "成長投資枠",
+    "tsumitate": "つみたて投資枠",
+    "both": "両方",
+}
+RANKING_INSTALLMENT_LABELS = {
+    "all": "指定なし",
+    "true": "積立可能",
+    "false": "積立不可",
 }
 RANKING_DETAIL_FILTER_LABELS = {
     "industry_or_sector": "業種/テーマ",
@@ -221,6 +239,7 @@ RANKING_DETAIL_FILTERS_BY_CATEGORY = {
     ],
     (RANKING_REGION_ALL, RANKING_PRODUCT_MUTUAL_FUND): [
         "management_style",
+        "benchmark_index",
         "expense_ratio",
         "nisa_eligibility",
         "installment_available",
@@ -239,6 +258,9 @@ RANKING_FILTER_DEFAULTS: dict[str, str] = {
     "market_data_ranking_index_family": "all",
     "market_data_ranking_max_expense": "1.00",
     "market_data_ranking_complexity": "standard",
+    "market_data_ranking_management_style": "all",
+    "market_data_ranking_nisa_eligibility": "all",
+    "market_data_ranking_installment_available": "all",
     "market_data_ranking_risk_band": "all",
     "market_data_ranking_theme": "all",
     "market_data_ranking_symbol_query": "",
@@ -354,6 +376,9 @@ def filter_symbol_universe_rows(
     index_family: str = "all",
     max_expense_ratio_pct: Decimal | str | int = Decimal("1.00"),
     complexity: str = "standard",
+    management_style: str = "all",
+    nisa_eligibility: str = "all",
+    installment_available: str = "all",
     risk_band: str = "all",
     theme: str = "all",
     query: str = "",
@@ -405,11 +430,20 @@ def filter_symbol_universe_rows(
             continue
         if index_family != "all" and row.get("index_family") != index_family:
             continue
-        expense_ratio = row.get("expense_ratio_pct", "")
-        if row.get("asset_type") == "etf" and expense_ratio:
-            if _decimal_filter_value(expense_ratio, Decimal("99")) > max_expense:
+        cost_ratio = _symbol_cost_ratio(row)
+        if cost_ratio:
+            if _decimal_filter_value(cost_ratio, Decimal("99")) > max_expense:
                 continue
         if not _symbol_complexity_allowed(row.get("complexity", "standard"), complexity):
+            continue
+        if management_style != "all" and row.get("management_style") != management_style:
+            continue
+        if not _symbol_matches_nisa_eligibility(row, nisa_eligibility):
+            continue
+        if (
+            installment_available != "all"
+            and row.get("installment_available") != installment_available
+        ):
             continue
         if theme != "all" and theme not in tags and row.get("theme") != theme:
             continue
@@ -466,6 +500,9 @@ def ranking_filter_signature(
     index_family: str = "all",
     max_expense_ratio_pct: str = "1.00",
     complexity: str,
+    management_style: str = "all",
+    nisa_eligibility: str = "all",
+    installment_available: str = "all",
     risk_band: str = "all",
     theme: str,
     query: str,
@@ -501,6 +538,9 @@ def ranking_filter_signature(
             index_family,
             max_expense_ratio_pct,
             complexity,
+            management_style,
+            nisa_eligibility,
+            installment_available,
             risk_band,
             theme,
             query.strip().lower(),
@@ -637,6 +677,10 @@ def ranking_symbol_options(rows: list[dict[str, str]]) -> list[str]:
     return symbols
 
 
+def ranking_price_fetch_unsupported_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    return [row for row in rows if row.get("asset_type") not in {"adr", "etf", "stock"}]
+
+
 def ranking_deep_dive_default_symbol(
     rows: list[dict[str, str]],
     *,
@@ -748,6 +792,13 @@ def _symbol_universe_row(row: dict[str, str]) -> dict[str, str]:
         "market_cap_tier": row.get("market_cap_tier") or "mid",
         "index_family": row.get("index_family", ""),
         "expense_ratio_pct": row.get("expense_ratio_pct", ""),
+        "trust_fee_pct": row.get("trust_fee_pct", ""),
+        "aum": row.get("aum", ""),
+        "nisa_tsumitate_eligible": row.get("nisa_tsumitate_eligible", ""),
+        "nisa_growth_eligible": row.get("nisa_growth_eligible", ""),
+        "installment_available": row.get("installment_available", ""),
+        "management_style": row.get("management_style", ""),
+        "distribution_policy": row.get("distribution_policy", ""),
         "complexity": row.get("complexity")
         or ("beginner" if default_asset_type == "etf" else "standard"),
         "tags": ",".join(sorted(tags)),
@@ -802,6 +853,35 @@ def _symbol_complexity_allowed(symbol_complexity: str, selected_complexity: str)
     if selected_complexity == "standard":
         return symbol_complexity in {"beginner", "standard"}
     return symbol_complexity == "beginner"
+
+
+def _symbol_cost_ratio(row: dict[str, str]) -> str:
+    asset_type = row.get("asset_type", "")
+    if asset_type in {"mutual_fund", "fund", "investment_trust"}:
+        return row.get("trust_fee_pct", "") or row.get("expense_ratio_pct", "")
+    if asset_type == "etf":
+        return row.get("expense_ratio_pct", "")
+    return ""
+
+
+def _symbol_matches_nisa_eligibility(row: dict[str, str], nisa_eligibility: str) -> bool:
+    if nisa_eligibility == "all":
+        return True
+    nisa_category = row.get("nisa_category", "")
+    growth = row.get("nisa_growth_eligible", "") == "true" or nisa_category in {"both", "growth"}
+    tsumitate = row.get("nisa_tsumitate_eligible", "") == "true" or nisa_category in {
+        "both",
+        "tsumitate",
+    }
+    if nisa_eligibility == "eligible":
+        return growth or tsumitate
+    if nisa_eligibility == "growth":
+        return growth
+    if nisa_eligibility == "tsumitate":
+        return tsumitate
+    if nisa_eligibility == "both":
+        return growth and tsumitate
+    return True
 
 
 def _score_band_for_total(total_score: Decimal, warnings: str) -> str:

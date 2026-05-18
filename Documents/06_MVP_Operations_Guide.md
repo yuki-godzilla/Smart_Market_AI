@@ -229,7 +229,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
   - 地域 × 商品に応じて、現在の銘柄マスタで判定できる詳細条件だけを表示
   - 株式: 業種/テーマ、時価総額、配当利回り、PER、PBR、ROE、リスク
   - ETF: 連動指数、信託報酬/経費率、分配金利回り、複雑さ
-  - 投信: 条件定義は追加済み。現在の銘柄マスタに候補がないため future metadata 扱い
+  - 投信: 運用方式、連動指数、信託報酬、NISA対応、積立可否
   - 条件のクリア
   - 条件変更後の候補数表示
 - 比較する銘柄
@@ -243,16 +243,17 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 
 - ranking の候補条件は、provider fetch 前に使える `data/marketdata/symbol_universe.csv` の curated metadata を中心にしています。
 - 地域 / 商品は provider fetch 前の候補 universe を絞ります。ランキング目的は Investment Score の表示順の重み付けに使い、候補 universe そのものは絞りません。
+- 投信候補は銘柄マスタの metadata で絞り込めます。ただし現在の投信 symbol は価格 provider 取得用 ticker ではないため、価格取得・ランキング計算は後続対応です。投信が選択に含まれる場合、ランキング作成は実行しません。
 - dividend category や theme は現在 curated metadata / source import / opt-in metadata refresh で管理します。live provider 由来の更新は明示 opt-in です。
 - ranking universe の将来方針は、SBI証券で取り扱いがあり、現物・NISA・長期投資で検討しやすい商品を初期対象にすることです。詳細は [09_SBI_Symbol_Universe_Policy.md](./09_SBI_Symbol_Universe_Policy.md) を参照してください。
 - `broker`, `tradability`, `nisa_category`, `investment_style`, `is_sbi_supported`, `is_active`, `is_leveraged`, `is_inverse` は Phase 18 policy columns として `symbol_universe.csv` に保持します。既存候補は local curated / source-import seed であり、SBI取扱確認済み master ではないため、`tradability=unknown` は初期 ranking で通します。
 - ranking 候補抽出前に default SBI ranking universe policy を適用します。FX / CFD / 先物 / option / crypto / bond / MMF / commodity、レバレッジ、インバース、`not_tradable`、`is_sbi_supported=false`、`is_active=false` は初期候補から除外します。
 - `symbol_universe.csv` は Phase 16/18 UI 用の銘柄候補マスタです。必須列は `symbol`, `name`, `market`, `asset_type`, `currency`, `broker`, `tradability`, `nisa_category`, `investment_style`, `is_sbi_supported`, `is_active`, `is_leveraged`, `is_inverse`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases`, `per`, `pbr`, `roe_pct`, `sector`, `consensus_rating`, `forecast_agreement`, `data_quality`, `risk_band` です。
-- Phase 18 metadata columns は `metadata_source`, `metadata_as_of`, `metadata_updated_at` です。現在の deterministic baseline では全行 `metadata_source=curated_csv`, `metadata_as_of=2026-05-18`, `metadata_updated_at=2026-05-18T00:00:00+09:00` です。
+- Phase 18 metadata columns は `metadata_source`, `metadata_as_of`, `metadata_updated_at` です。現在の master は `curated_csv`, `jpx`, `sbi_us_stock`, `sbi_us_etf`, `mutual_fund_seed` などの source を行ごとに保持します。
 - Metadata fields are governed by `backend/marketdata/symbol_metadata_schema.py`.
   - `core`: symbol, name, market, asset type, currency, sector/theme, aliases.
   - `ranking_filter`: dividend, PER/PBR/ROE, expense ratio, risk, complexity, quality fields. Source/freshness is tracked before live provider updates are trusted.
-  - `fund_extended`: trust fee, AUM, NISA eligibility, installment availability, management style, and distribution policy. These are cataloged for Phase 18 universe expansion but are kept out of `symbol_universe.csv` until a dedicated fund metadata source is added.
+  - `fund_extended`: trust fee, AUM, NISA eligibility, installment availability, management style, and distribution policy. Mutual-fund seed/source import rows can store these fields in `symbol_universe.csv`; broader official-source expansion remains future scope.
 - `設定 / データ情報` の `ランキング銘柄候補` では、候補数、metadata 出所、metadata 基準日、形式確認 status を確認できます。CSV の列形式 / 選択値 / 数値 / 重複 ticker / metadata 欠損に問題がある場合は一覧に表示されます。
 - 常設パネルで条件を変えると、候補数と「比較する銘柄」の選択候補が同じ画面内で確認できます。
 

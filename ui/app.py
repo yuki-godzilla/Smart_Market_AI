@@ -32,7 +32,10 @@ from ui.ranking import (
     RANKING_CURRENCY_LABELS,
     RANKING_DIVIDEND_LABELS,
     RANKING_INDEX_FAMILY_LABELS,
+    RANKING_INSTALLMENT_LABELS,
+    RANKING_MANAGEMENT_STYLE_LABELS,
     RANKING_MARKET_CAP_LABELS,
+    RANKING_NISA_ELIGIBILITY_LABELS,
     RANKING_PERIOD_PRESETS,
     RANKING_PRODUCT_TYPE_LABELS,
     RANKING_PURPOSE_LABELS,
@@ -50,6 +53,7 @@ from ui.ranking import (
     ranking_no_bars_error_row,
     ranking_period_dates,
     ranking_period_label,
+    ranking_price_fetch_unsupported_rows,
     ranking_product_type_label,
     ranking_provider_error_rows,
     ranking_purpose_label,
@@ -315,9 +319,6 @@ def _render_ranking_filter_panel() -> None:
     with st.expander("詳細条件", expanded=not has_ranking_result):
         st.caption("取得前に使える条件で候補を絞ります。ランキング目的は表示順に使います。")
 
-        if product_type == "mutual_fund":
-            st.info("投信の条件は定義済みですが、現在の銘柄マスタには投信候補がありません。")
-
         st.markdown("**属性条件**")
         columns = st.columns(4)
         column_index = 0
@@ -377,6 +378,30 @@ def _render_ranking_filter_panel() -> None:
                     options=list(RANKING_COMPLEXITY_LABELS),
                     key="market_data_ranking_complexity",
                     format_func=lambda value: RANKING_COMPLEXITY_LABELS[value],
+                )
+        if "management_style" in detail_filters:
+            with next_column():
+                _render_detail_selectbox(
+                    "運用方式",
+                    options=list(RANKING_MANAGEMENT_STYLE_LABELS),
+                    key="market_data_ranking_management_style",
+                    format_func=lambda value: RANKING_MANAGEMENT_STYLE_LABELS[value],
+                )
+        if "nisa_eligibility" in detail_filters:
+            with next_column():
+                _render_detail_selectbox(
+                    "NISA対応",
+                    options=list(RANKING_NISA_ELIGIBILITY_LABELS),
+                    key="market_data_ranking_nisa_eligibility",
+                    format_func=lambda value: RANKING_NISA_ELIGIBILITY_LABELS[value],
+                )
+        if "installment_available" in detail_filters:
+            with next_column():
+                _render_detail_selectbox(
+                    "積立可否",
+                    options=list(RANKING_INSTALLMENT_LABELS),
+                    key="market_data_ranking_installment_available",
+                    format_func=lambda value: RANKING_INSTALLMENT_LABELS[value],
                 )
         if "dividend_yield" in detail_filters:
             with next_column():
@@ -454,9 +479,6 @@ def _render_ranking_filter_panel() -> None:
         if metric_filters:
             st.markdown("**数値条件**")
             _render_metric_filter_grid(metric_filters)
-
-        if "management_style" in detail_filters or "nisa_eligibility" in detail_filters:
-            st.caption("運用方式 / NISA対応 / 積立可否は Phase 18 のメタデータ拡張で有効化します。")
 
         st.markdown("**キーワード検索**")
         col_keyword, col_clear = st.columns([3.0, 0.8])
@@ -691,6 +713,12 @@ def _render_market_data_ranking() -> None:
     index_family = _ranking_filter_value("market_data_ranking_index_family", "all")
     max_expense_ratio_pct = _ranking_filter_value("market_data_ranking_max_expense", "1.00")
     complexity = _ranking_filter_value("market_data_ranking_complexity", "standard")
+    management_style = _ranking_filter_value("market_data_ranking_management_style", "all")
+    nisa_eligibility = _ranking_filter_value("market_data_ranking_nisa_eligibility", "all")
+    installment_available = _ranking_filter_value(
+        "market_data_ranking_installment_available",
+        "all",
+    )
     risk_band = _ranking_filter_value("market_data_ranking_risk_band", "all")
     theme = _ranking_filter_value("market_data_ranking_theme", "all")
     symbol_query = _ranking_filter_value("market_data_ranking_symbol_query", "")
@@ -723,6 +751,9 @@ def _render_market_data_ranking() -> None:
         index_family=index_family,
         max_expense_ratio_pct=max_expense_ratio_pct,
         complexity=complexity,
+        management_style=management_style,
+        nisa_eligibility=nisa_eligibility,
+        installment_available=installment_available,
         risk_band=risk_band,
         theme=theme,
         query=symbol_query,
@@ -758,6 +789,9 @@ def _render_market_data_ranking() -> None:
         index_family=index_family,
         max_expense_ratio_pct=max_expense_ratio_pct,
         complexity=complexity,
+        management_style=management_style,
+        nisa_eligibility=nisa_eligibility,
+        installment_available=installment_available,
         risk_band=risk_band,
         theme=theme,
         query=symbol_query,
@@ -809,13 +843,32 @@ def _render_market_data_ranking() -> None:
                 key=selection_key,
             ),
         )
+    selected_symbols_for_support = {
+        symbol for label in selected_labels if (symbol := _symbol_from_candidate(label))
+    }
+    selected_rows_for_support = [
+        row for row in filtered_symbol_rows if row.get("symbol") in selected_symbols_for_support
+    ]
+    unsupported_price_rows = ranking_price_fetch_unsupported_rows(selected_rows_for_support)
+    if unsupported_price_rows:
+        unsupported_labels = ", ".join(row.get("symbol", "") for row in unsupported_price_rows[:5])
+        suffix = " など" if len(unsupported_price_rows) > 5 else ""
+        st.info(
+            f"{unsupported_labels}{suffix} は価格取得・ランキング計算の後続対応です。"
+            "比較する銘柄から外すとランキングを作成できます。"
+        )
     warning_message = live_ranking_symbol_warning_message(provider, len(selected_labels))
     if warning_message is not None:
         st.warning(warning_message)
     if not labels:
         st.warning("この条件に合う候補がありません。候補条件を広げてください。")
 
-    if st.button("ランキング作成", key="build_market_data_ranking"):
+    ranking_button_disabled = bool(unsupported_price_rows)
+    if st.button(
+        "ランキング作成",
+        key="build_market_data_ranking",
+        disabled=ranking_button_disabled,
+    ):
         sync_ranking_selection_state(selection_key, selected_labels)
         symbols = [_symbol_from_candidate(label) for label in selected_labels]
         ranking_symbols = [symbol for symbol in symbols if symbol]

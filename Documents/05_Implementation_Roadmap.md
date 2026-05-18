@@ -308,7 +308,7 @@ Planned scope:
 - Phase 1 filter coverage
   - 株式: 地域、業種/セクター、時価総額、配当利回り、PER、PBR、ROE、リスク帯
   - ETF: 地域、投資対象、連動指数、信託報酬/経費率、分配金利回り、複雑さ
-  - 投信: 商品分類と条件定義を追加し、実データが不足する間は候補なし / future metadata 扱い
+  - 投信: 商品分類と条件定義を追加し、source-import seed の運用方式 / 連動指数 / 信託報酬 / NISA対応 / 積立可否で候補を絞る
 - Future-ready filter definitions
   - 国内株式: 投資スタイル、業種、時価総額、配当利回り、PER、PBR、ROE、売買代金
   - 米国株式: 投資スタイル、セクター、時価総額、配当利回り、PER、売上成長率、EPS成長率、Beta、ボラティリティ
@@ -319,7 +319,7 @@ Planned scope:
 Implementation rules:
 
 - 既存 `data/marketdata/symbol_universe.csv` で判定できる条件だけを実フィルタとして有効化する。
-- 未取得の `売買代金`、`売上成長率`、`EPS成長率`、`Beta`、`純資産総額`、`NISA対応`、`積立可否` などは、無理に計算せず future metadata として定義・文書化する。
+- 未取得の `売買代金`、`売上成長率`、`EPS成長率`、`Beta` などは、無理に計算せず future metadata として定義・文書化する。投信の `純資産総額`、`NISA対応`、`積立可否` は source-import seed で保持し、UI で使う範囲を段階的に広げる。
 - `大型株`、`リスク`、`複雑さ` などの曖昧な UI 表現は、内部的に数値しきい値または明示フラグへ変換できる設計にする。
 - ETF と投信は UI / internal model の両方で分離する。
 - docs / tests / UI wording policy と矛盾しないよう、実装時に operations guide と必要な設計文書を同期する。
@@ -339,7 +339,7 @@ Current implementation note:
 - `銘柄ランキング` now shows region / product / ranking purpose before provider / period, derives the display weight preset from ranking purpose, and shows dynamic detail filters for the selected category.
 - The detail filter panel is grouped into attribute / numeric / keyword sections, and the comparison-symbol selector stays all-selected by default while its large multiselect tags are kept inside a collapsed expander.
 - Acquisition period, candidate count, selected count, and all/partial selection status are shown as a compact one-line comparison status.
-- Current enforceable filters remain limited to `symbol_universe.csv` metadata. 投信の条件は定義済みだが、候補マスタに投信行がないため Phase 18 metadata refresh で拡張する。
+- Current enforceable filters remain limited to `symbol_universe.csv` metadata. 投信は seed/source import の `management_style`, `index_family`, `trust_fee_pct`, `nisa_*_eligible`, `installment_available` で候補を絞れる。投信の価格取得・ランキング計算は後続対応として UI で実行をガードする。
 - Streamlit visual smoke for the Phase 17 ranking-condition UI has been completed by the user.
 
 ### 5.4 Phase 18: Symbol Universe And Metadata Refresh
@@ -414,6 +414,7 @@ Current implementation note:
 - SBI証券取扱商品を初期 ranking universe の前提にする policy columns / default exclusion helper を追加した。現時点の CSV は SBI取扱確認済み master ではなく local curated / source-import seed として扱うため、`tradability=unknown` は初期 ranking で通す。
 - SBI銘柄マスタ取得方針は、SBI から直接リアルタイム取得するのではなく、SBI / JPX / public source を local source CSV 化して import する。将来 adapter は source import / repository 境界に追加し、ranking logic から分離する。
 - `tools/import_symbol_universe_source.py` supports `--source-profile sbi_us_stock|sbi_us_etf|mutual_fund_seed`, filling market/product/currency and SBI policy defaults. `sbi_us_stock_seed.csv`, `sbi_us_etf_seed.csv`, and `mutual_fund_seed.csv` are available as source seeds. 2026-05-18 時点で candidate master は 146件になり、stock 120件、ETF 20件、投信 4件、ADR 2件を持つ。
+- Ranking UI now uses mutual-fund metadata filters from `symbol_universe.csv` and prevents mutual-fund placeholder symbols from being sent to price-provider ranking fetch. ETF leveraged/inverse rows remain stored for metadata coverage but are excluded by the ranking-universe policy.
 
 ### 5.5 Phase 19: Decision Report Context MVP
 

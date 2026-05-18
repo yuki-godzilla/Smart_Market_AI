@@ -45,6 +45,7 @@ from ui.ranking import (
     ranking_no_bars_error_row,
     ranking_period_dates,
     ranking_period_label,
+    ranking_price_fetch_unsupported_rows,
     ranking_provider_error_rows,
     ranking_symbol_chunks,
     ranking_symbol_options,
@@ -385,6 +386,42 @@ def test_filter_symbol_universe_rows_filters_etf_database_values():
     ] == ["VOO"]
 
 
+def test_filter_symbol_universe_rows_filters_mutual_fund_metadata():
+    rows = symbol_universe_rows()
+
+    filtered_symbols = [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            product_type="mutual_fund",
+            index_family="sp500",
+            max_expense_ratio_pct="0.09",
+            management_style="index",
+            nisa_eligibility="both",
+            installment_available="true",
+        )
+    ]
+
+    assert filtered_symbols == ["MF-EMAXIS-SP500"]
+
+
+def test_ranking_price_fetch_unsupported_rows_marks_mutual_funds_only():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "AAPL", "name": "Apple Inc."},
+            {"symbol": "VOO", "name": "Vanguard S&P 500 ETF"},
+            {
+                "symbol": "MF-EMAXIS-SP500",
+                "name": "eMAXIS Slim 米国株式（S&P500）",
+            },
+        ]
+    )
+
+    assert [row["symbol"] for row in ranking_price_fetch_unsupported_rows(rows)] == [
+        "MF-EMAXIS-SP500"
+    ]
+
+
 def test_filter_symbol_universe_rows_filters_by_region_product_and_risk():
     rows = symbol_universe_rows(
         [
@@ -434,11 +471,14 @@ def test_ranking_detail_filters_change_by_region_and_product():
     japan_stock = ranking_detail_filters_for_category("japan", "stock")
     us_stock = ranking_detail_filters_for_category("us", "stock")
     etf = ranking_detail_filters_for_category("japan", "etf")
+    mutual_fund = ranking_detail_filters_for_category("japan", "mutual_fund")
 
     assert "pbr" in japan_stock
     assert "risk_band" in us_stock
     assert "benchmark_index" in etf
     assert "pbr" not in etf
+    assert "management_style" in mutual_fund
+    assert "benchmark_index" in mutual_fund
     assert ranking_weight_preset_for_purpose("low_risk") == "risk"
 
 
@@ -519,6 +559,43 @@ def test_ranking_filter_signature_includes_ranking_classification():
         complexity="standard",
         theme="all",
         query="",
+        limit=6,
+    )
+
+    assert base != changed
+
+
+def test_ranking_filter_signature_includes_mutual_fund_filters():
+    base = ranking_filter_signature(
+        product_type="mutual_fund",
+        purpose="all",
+        period_preset="short",
+        market="all",
+        asset_type="all",
+        currency="all",
+        dividend_category="all",
+        complexity="standard",
+        theme="all",
+        query="",
+        management_style="all",
+        nisa_eligibility="all",
+        installment_available="all",
+        limit=6,
+    )
+    changed = ranking_filter_signature(
+        product_type="mutual_fund",
+        purpose="all",
+        period_preset="short",
+        market="all",
+        asset_type="all",
+        currency="all",
+        dividend_category="all",
+        complexity="standard",
+        theme="all",
+        query="",
+        management_style="index",
+        nisa_eligibility="tsumitate",
+        installment_available="true",
         limit=6,
     )
 

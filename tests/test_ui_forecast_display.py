@@ -38,7 +38,9 @@ from ui.ranking import (
     live_ranking_symbol_warning_message,
     rank_investment_score_rows,
     ranking_build_cache_key,
+    ranking_deep_dive_default_symbol,
     ranking_filter_signature,
+    ranking_no_bars_error_row,
     ranking_period_dates,
     ranking_period_label,
     ranking_provider_error_rows,
@@ -799,6 +801,75 @@ def test_build_market_data_ranking_rows_uses_batch_fast_path(monkeypatch):
     assert error_rows == []
 
 
+def test_build_market_data_ranking_rows_reports_no_bars_details(monkeypatch):
+    class FakePartialBatchAdapter:
+        async def fetch_ohlcv(self, symbols, start, end, interval="1d"):
+            bars = []
+            for symbol in symbols:
+                if symbol == "MISSING":
+                    continue
+                contract = Symbol(raw=symbol, exchange="NASDAQ", code=symbol, currency="USD")
+                for day in range(30):
+                    close = Decimal("100") + Decimal(day)
+                    bars.append(
+                        Bar(
+                            symbol=contract,
+                            ts=datetime(2026, 4, day + 1, tzinfo=UTC),
+                            open=close,
+                            high=close + Decimal("1"),
+                            low=close - Decimal("1"),
+                            close=close,
+                            volume=Decimal("1000000"),
+                            interval=interval,
+                            provider="fake",
+                        )
+                    )
+            return bars
+
+        async def fetch_fundamentals(self, symbols, as_of):
+            return [
+                FundamentalSnapshot(
+                    symbol=symbol,
+                    as_of=as_of,
+                    provider="fake",
+                    dividend_yield=Decimal("0.03"),
+                    market_cap_jpy=Decimal("1000000000000"),
+                )
+                for symbol in symbols
+            ]
+
+        def healthcheck(self):
+            return {"provider": "fake", "status": "ok"}
+
+    monkeypatch.setattr(
+        "ui.app.create_market_data_provider_adapter",
+        lambda _: FakePartialBatchAdapter(),
+    )
+
+    rows, error_rows = asyncio.run(
+        _build_market_data_ranking_rows(
+            ["AAA", "MISSING"],
+            start=date(2026, 4, 20),
+            end=date(2026, 4, 30),
+            provider="mock",
+        )
+    )
+
+    assert [row["symbol"] for row in rows] == ["AAA"]
+    assert error_rows[0]["symbol"] == "MISSING"
+    assert error_rows[0]["code"] == "RANKING-NO-BARS"
+    assert error_rows[0]["message"] == (
+        "価格データを取得できなかったため、ランキングから除外しました。"
+    )
+    details = json.loads(error_rows[0]["details"])
+    assert details["provider"] == "mock"
+    assert details["symbol"] == "MISSING"
+    assert details["request"]["display_start"] == "2026-04-20"
+    assert details["request"]["display_end"] == "2026-04-30"
+    assert details["request"]["operation"] == "ranking_fetch_ohlcv"
+    assert details["reason"] == "no_ohlcv_rows"
+
+
 def test_ranking_symbol_chunks_split_large_builds():
     symbols = [f"SYM{i}" for i in range(53)]
 
@@ -828,6 +899,41 @@ def test_ranking_symbol_options_and_label_support_deep_dive():
     assert ranking_symbol_options(rows) == ["AAPL", "7203.T"]
     assert symbol_candidate_label("AAPL") == "AAPL - Apple Inc."
     assert symbol_candidate_label("UNKNOWN") == "UNKNOWN"
+
+
+def test_ranking_deep_dive_default_symbol_resets_for_new_result_source():
+    rows = [
+        {"symbol": "TOP", "total_score": "90"},
+        {"symbol": "OLD", "total_score": "70"},
+    ]
+
+    assert (
+        ranking_deep_dive_default_symbol(
+            rows,
+            current_symbol="OLD",
+            source_key="new-ranking",
+            current_source_key="old-ranking",
+        )
+        == "TOP"
+    )
+    assert (
+        ranking_deep_dive_default_symbol(
+            rows,
+            current_symbol="OLD",
+            source_key="same-ranking",
+            current_source_key="same-ranking",
+        )
+        == "OLD"
+    )
+    assert (
+        ranking_deep_dive_default_symbol(
+            rows,
+            current_symbol="REMOVED",
+            source_key="same-ranking",
+            current_source_key="same-ranking",
+        )
+        == "TOP"
+    )
 
 
 def test_forecast_reference_period_uses_horizon_and_bar_count():
@@ -1132,6 +1238,34 @@ def test_provider_error_summary_rows_explain_yahoo_dns_timeout():
     details = json.loads(format_provider_error_details(row))
     assert details["request"]["operation"] == "fetch_quotes"
     assert details["request"]["symbol"] == "9983.T"
+
+
+def test_provider_error_summary_rows_explain_ranking_no_bars():
+    row = ranking_no_bars_error_row(
+        provider="yahoo",
+        symbol="9613.T",
+        display_start=date(2026, 5, 11),
+        display_end=date(2026, 5, 18),
+        fetch_start=datetime(2026, 2, 17, tzinfo=UTC),
+        fetch_end=datetime(2026, 5, 18, 23, 59, 59, tzinfo=UTC),
+    )
+
+    assert provider_error_summary_rows([row]) == [
+        {
+            "コード": "RANKING-NO-BARS",
+            "Provider": "yahoo",
+            "Symbol": "9613.T",
+            "内容": "価格データを取得できなかったため、ランキングから除外しました。",
+            "次の確認": (
+                "価格データが返っていないため、ランキングから除外しています。"
+                "yahoo 側の提供状況、銘柄コード、取得期間を確認してください。"
+            ),
+        }
+    ]
+
+    details = json.loads(format_provider_error_details(row))
+    assert details["reason"] == "no_ohlcv_rows"
+    assert details["request"]["display_end"] == "2026-05-18"
 
 
 def test_render_market_chart_uses_currency_axis_title_and_compact_width(monkeypatch):

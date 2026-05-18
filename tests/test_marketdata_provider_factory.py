@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
@@ -101,9 +102,10 @@ def test_yahoo_adapter_fetches_live_contracts_from_yfinance(monkeypatch):
     assert fundamentals[0].market_cap_jpy == Decimal("480000000000000")
 
 
-def test_yahoo_adapter_fetches_multiple_ohlcv_symbols_with_download(monkeypatch, capsys):
+def test_yahoo_adapter_fetches_multiple_ohlcv_symbols_with_download(monkeypatch, capsys, caplog):
     fake_yfinance = _FakeYFinance()
     monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
+    caplog.set_level(logging.WARNING)
     adapter = create_market_data_provider_adapter(
         DataAccessConfig(provider="yahoo", allow_external_providers=True)
     )
@@ -121,6 +123,7 @@ def test_yahoo_adapter_fetches_multiple_ohlcv_symbols_with_download(monkeypatch,
     captured = capsys.readouterr()
     assert "possibly delisted" not in captured.out
     assert "possibly delisted" not in captured.err
+    assert "possibly delisted" not in caplog.text
     assert [bar.symbol.raw for bar in bars] == ["AAPL", "AAPL", "MSFT", "MSFT"]
     assert [bar.close for bar in bars] == [
         Decimal("170.5"),
@@ -158,6 +161,7 @@ class _FakeYFinance:
 
     def download(self, **kwargs: object) -> pd.DataFrame:
         print("possibly delisted; no timezone found")
+        logging.getLogger("yfinance").warning("possibly delisted; no timezone found")
         self.download_calls += 1
         self.last_download_kwargs = kwargs
         if self.empty:

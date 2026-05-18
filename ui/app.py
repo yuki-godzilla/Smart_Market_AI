@@ -43,7 +43,9 @@ from ui.ranking import (
     live_ranking_symbol_warning_message,
     rank_investment_score_rows,
     ranking_build_cache_key,
+    ranking_deep_dive_default_symbol,
     ranking_filter_signature,
+    ranking_no_bars_error_row,
     ranking_period_dates,
     ranking_period_label,
     ranking_provider_error_rows,
@@ -94,8 +96,10 @@ from ui.state import (
     MARKET_DATA_FORECAST_DAYS_STATE_KEY,
     MARKET_DATA_PREVIEW_STATE_KEY,
     MARKET_DATA_RANKING_BUILD_CACHE_STATE_KEY,
+    MARKET_DATA_RANKING_DEEP_DIVE_SOURCE_STATE_KEY,
     MARKET_DATA_RANKING_ERROR_STATE_KEY,
     MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY,
+    MARKET_DATA_RANKING_SOURCE_STATE_KEY,
     MARKET_DATA_RANKING_STATE_KEY,
     MARKET_DATA_STATUS_STATE_KEY,
     MARKET_DATA_TOAST_STATE_KEY,
@@ -867,9 +871,11 @@ def _render_market_data_ranking() -> None:
             st.caption("同じ条件の取得済みデータを再利用しました。")
         st.session_state[MARKET_DATA_RANKING_STATE_KEY] = rows
         st.session_state[MARKET_DATA_RANKING_ERROR_STATE_KEY] = error_rows
+        st.session_state[MARKET_DATA_RANKING_SOURCE_STATE_KEY] = cache_key
 
     rows = st.session_state.get(MARKET_DATA_RANKING_STATE_KEY, [])
     error_rows = st.session_state.get(MARKET_DATA_RANKING_ERROR_STATE_KEY, [])
+    ranking_source = str(st.session_state.get(MARKET_DATA_RANKING_SOURCE_STATE_KEY, ""))
     if rows:
         ranked_rows = apply_ranking_weight_preset(
             cast(list[dict[str, str]], rows),
@@ -882,8 +888,25 @@ def _render_market_data_ranking() -> None:
             "上位の銘柄ほど、今回の条件では深掘り候補として見やすい順です。"
         )
         _render_table(display_rows, "No ranking rows.")
+        _render_ranking_error_rows(cast(list[dict[str, str]], error_rows))
         deep_dive_symbols = ranking_symbol_options(ranked_rows)
         if deep_dive_symbols:
+            deep_dive_source = f"{ranking_source}|{weight_preset}"
+            default_deep_dive_symbol = ranking_deep_dive_default_symbol(
+                ranked_rows,
+                current_symbol=cast(
+                    str | None,
+                    st.session_state.get("market_data_ranking_deep_dive_symbol"),
+                ),
+                source_key=deep_dive_source,
+                current_source_key=cast(
+                    str | None,
+                    st.session_state.get(MARKET_DATA_RANKING_DEEP_DIVE_SOURCE_STATE_KEY),
+                ),
+            )
+            if default_deep_dive_symbol is not None:
+                st.session_state["market_data_ranking_deep_dive_symbol"] = default_deep_dive_symbol
+                st.session_state[MARKET_DATA_RANKING_DEEP_DIVE_SOURCE_STATE_KEY] = deep_dive_source
             st.markdown("#### 深掘り")
             st.caption(
                 "気になる銘柄を1つ選び、銘柄コックピットで価格・予測・スコア理由を確認します。"
@@ -916,11 +939,31 @@ def _render_market_data_ranking() -> None:
             file_name="investment_score_ranking.csv",
             mime="text/csv",
         )
+    elif error_rows:
+        st.warning("ランキング対象の価格データを取得できませんでした。")
+        _render_ranking_error_rows(cast(list[dict[str, str]], error_rows))
     else:
         st.info("銘柄を選んで ranking を作成してください。")
-    if error_rows:
-        with st.expander("取得できなかった銘柄"):
-            _render_table(cast(list[dict[str, str]], error_rows), "No ranking errors.")
+
+
+def _render_ranking_error_rows(error_rows: list[dict[str, str]]) -> None:
+    if not error_rows:
+        return
+
+    st.warning(
+        f"{len(error_rows)}件の銘柄は価格データを取得できなかったため、ランキングから除外しました。"
+    )
+    with st.expander("取得できなかった銘柄"):
+        _render_table(provider_error_summary_rows(error_rows), "No ranking errors.")
+        details_rows = [
+            format_provider_error_details(row)
+            for row in error_rows
+            if format_provider_error_details(row)
+        ]
+        if details_rows:
+            st.caption("診断情報")
+            for details in details_rows:
+                st.code(details, language="json")
 
 
 async def _build_market_data_ranking_rows(
@@ -999,12 +1042,14 @@ async def _build_market_data_ranking_rows_fast(
         symbol_bars = bars_by_symbol[symbol]
         if not symbol_bars:
             error_rows.append(
-                {
-                    "symbol": symbol,
-                    "code": "RANKING-NO-BARS",
-                    "message": "ランキング計算に使える価格データがありません。",
-                    "details": "{}",
-                }
+                ranking_no_bars_error_row(
+                    provider=provider,
+                    symbol=symbol,
+                    display_start=start,
+                    display_end=end,
+                    fetch_start=feature_start_dt,
+                    fetch_end=end_dt,
+                )
             )
             continue
         latest = symbol_bars[-1]
@@ -1628,6 +1673,11 @@ def _provider_error_next_action(
             f"{provider_label} への外部通信がタイムアウトしています。"
             "ネットワーク/DNS を確認し、時間をおいて再実行してください。"
             "ランキングでは銘柄数や取得期間を絞ると安定しやすくなります。"
+        )
+    if details.get("reason") == "no_ohlcv_rows":
+        return (
+            "価格データが返っていないため、ランキングから除外しています。"
+            f"{provider_label} 側の提供状況、銘柄コード、取得期間を確認してください。"
         )
     if details.get("requires_external_opt_in") or provider in {"yahoo", "polygon"}:
         return (

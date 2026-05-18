@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
 from backend.core.errors import AppError
@@ -388,6 +388,37 @@ def ranking_provider_error_rows(
     ]
 
 
+def ranking_no_bars_error_row(
+    *,
+    provider: str,
+    symbol: str,
+    display_start: date,
+    display_end: date,
+    fetch_start: datetime,
+    fetch_end: datetime,
+) -> dict[str, str]:
+    details = {
+        "provider": provider,
+        "symbol": symbol,
+        "request": {
+            "operation": "ranking_fetch_ohlcv",
+            "symbol": symbol,
+            "interval": "1d",
+            "display_start": display_start.isoformat(),
+            "display_end": display_end.isoformat(),
+            "fetch_start": fetch_start.isoformat(),
+            "fetch_end": fetch_end.isoformat(),
+        },
+        "reason": "no_ohlcv_rows",
+    }
+    return {
+        "symbol": symbol,
+        "code": "RANKING-NO-BARS",
+        "message": "価格データを取得できなかったため、ランキングから除外しました。",
+        "details": json.dumps(details, ensure_ascii=False, sort_keys=True),
+    }
+
+
 def ranking_symbol_chunks(symbols: list[str]) -> list[list[str]]:
     return [
         symbols[index : index + MAX_RANKING_BATCH_FETCH_SYMBOLS]
@@ -427,6 +458,23 @@ def ranking_symbol_options(rows: list[dict[str, str]]) -> list[str]:
         symbols.append(symbol)
         seen.add(normalized)
     return symbols
+
+
+def ranking_deep_dive_default_symbol(
+    rows: list[dict[str, str]],
+    *,
+    current_symbol: str | None,
+    source_key: str,
+    current_source_key: str | None,
+) -> str | None:
+    options = ranking_symbol_options(rows)
+    if not options:
+        return None
+    if current_source_key != source_key:
+        return options[0]
+    if current_symbol not in options:
+        return options[0]
+    return current_symbol
 
 
 def rank_investment_score_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:

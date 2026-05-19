@@ -279,3 +279,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Expanded local JPX stock / ETF, SBI US stock, and SBI US ETF source seeds and imported them into `symbol_universe.csv`.
 - Increased the local candidate master to 227 rows: stock 172, ETF 49, mutual fund 4, ADR 2.
 - Kept mutual funds as future-extension metadata and kept MVP ranking focused on stock / ETF rows through the existing ranking-universe policy.
+
+## 2026-05-19 - Phase 18 JPX listed stock source builder
+
+- Added `tools/build_symbol_universe_source.py` and a JPX listed-stock builder that converts official raw Excel/CSV rows into SMAI source CSV rows.
+- Added the `jpx_listed_stock` import profile so generated JPX domestic stock sources can be imported with `.T` symbol normalization and conservative SBI policy defaults.
+- Added deterministic tests for JPX listed-stock row mapping, ETF/REIT skip behavior, and the builder CLI dry-run/write paths.

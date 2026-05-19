@@ -26,7 +26,9 @@ SMAI の銘柄ランキング、比較分析、将来の銘柄推薦で使う MV
 - `backend/marketdata/ranking_universe_policy.py` による初期 ranking universe policy
 - ranking 候補抽出前の policy enforcement
 - `tools/import_symbol_universe_source.py` による source CSV import
+- `tools/build_symbol_universe_source.py` による公式 raw file からの source CSV 生成
 - import source profile
+  - `jpx_listed_stock`
   - `sbi_us_stock`
   - `sbi_us_etf`
 - source seed CSV
@@ -414,6 +416,8 @@ ranking_universe:
 source CSV 側に `is_leveraged` / `is_inverse` がある場合は、source 側の値を優先する。
 `nisa_eligibility` は `--update-existing` と組み合わせる前提で、制度 metadata 以外の市場・商品・名称を上書きしない。source に未知の symbol が含まれる場合は、新規追加せず import failure として manifest に残す。
 
+JPX の東証上場銘柄一覧を取り込む場合は、公式 Excel / CSV をまず local raw file として保存し、`tools/build_symbol_universe_source.py --source-kind jpx_listed_stock` で source CSV に変換する。この builder は国内株だけを出力し、ETF / ETN / REIT は別 source として扱う。
+
 2026-05-19 時点の `symbol_universe.csv` は 227件です。
 内訳は `stock=172`, `etf=49`, `mutual_fund=4`, `adr=2` です。MVP ranking universe はこのうち `stock` / `etf` のみを対象にします。
 `nisa_eligibility_seed.csv` から 31件の NISA metadata を反映済みです。これは local seed であり、公式 source の継続更新 adapter は後続範囲です。
@@ -465,6 +469,7 @@ Phase 18 の実装順:
 6. `symbol_universe.csv` の既存行へ conservative default metadata を付与する。完了。
 7. SBI / NISA / future 投信 metadata source import を追加する。部分完了。
    - `--source-profile` と seed CSV は追加済み。
+   - JPX 東証上場銘柄一覧 raw file から国内株 source CSV を作る `jpx_listed_stock` builder / profile は追加済み。
    - JPX stock / ETF profile と NISA eligibility profile は追加済み。
    - JPX stock / ETF、SBI US stock / ETF、mutual fund seed は `symbol_universe.csv` へ反映済み。
    - NISA eligibility seed は 31件を `symbol_universe.csv` へ反映済み。

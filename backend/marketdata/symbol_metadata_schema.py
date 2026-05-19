@@ -413,6 +413,7 @@ SYMBOL_METADATA_FIELDS: tuple[MetadataField, ...] = (
                 "fsa",
                 "imaj",
                 "jpx",
+                "jpx_listed_stock",
                 "manual",
                 "mutual_fund_seed",
                 "polygon",

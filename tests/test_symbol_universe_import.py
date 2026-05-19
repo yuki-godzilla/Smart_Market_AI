@@ -75,10 +75,37 @@ def test_merge_symbol_universe_source_rows_normalizes_jpx_numeric_codes_with_def
 
 
 def test_source_profiles_expose_expected_names():
-    assert {"jpx_stock", "jpx_etf", "sbi_us_stock", "sbi_us_etf", "nisa_eligibility"} <= set(
-        symbol_universe_source_profile_names()
-    )
+    assert {
+        "jpx_listed_stock",
+        "jpx_stock",
+        "jpx_etf",
+        "sbi_us_stock",
+        "sbi_us_etf",
+        "nisa_eligibility",
+    } <= set(symbol_universe_source_profile_names())
     assert "mutual_fund_seed" in symbol_universe_source_profile_names()
+
+
+def test_jpx_listed_stock_profile_applies_local_universe_defaults():
+    profile = symbol_universe_source_profile("jpx_listed_stock")
+    result = merge_symbol_universe_source_rows(
+        [],
+        [{"code": "8058", "security_name": "Mitsubishi Corp", "sector": "industrial"}],
+        source_name=profile.source_name,
+        as_of=date(2026, 5, 19),
+        updated_at=datetime(2026, 5, 19, 0, 0, tzinfo=timezone.utc),
+        defaults=profile.defaults,
+    )
+
+    imported_row = result.rows[0]
+    assert imported_row["symbol"] == "8058.T"
+    assert imported_row["market"] == "jp"
+    assert imported_row["asset_type"] == "stock"
+    assert imported_row["currency"] == "JPY"
+    assert imported_row["broker"] == "sbi_securities"
+    assert imported_row["tradability"] == "unknown"
+    assert imported_row["is_sbi_supported"] == "true"
+    assert result.manifest["source"] == "jpx_listed_stock"
 
 
 def test_jpx_stock_profile_applies_local_universe_defaults():

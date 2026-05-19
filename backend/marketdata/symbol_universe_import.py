@@ -83,6 +83,22 @@ SBI_POLICY_COLUMN_DEFAULTS = {
 }
 
 SOURCE_PROFILES: dict[str, SymbolUniverseSourceProfile] = {
+    "jpx_listed_stock": SymbolUniverseSourceProfile(
+        name="jpx_listed_stock",
+        source_name="jpx_listed_stock",
+        defaults=SymbolUniverseImportDefaults(
+            market="jp",
+            asset_type="stock",
+            currency="JPY",
+            symbol_suffix=".T",
+            column_defaults={
+                **SBI_POLICY_COLUMN_DEFAULTS,
+                "tradability": "unknown",
+                "nisa_category": "unknown",
+                "investment_style": "unknown",
+            },
+        ),
+    ),
     "jpx_stock": SymbolUniverseSourceProfile(
         name="jpx_stock",
         source_name="jpx",

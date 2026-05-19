@@ -75,9 +75,32 @@ def test_merge_symbol_universe_source_rows_normalizes_jpx_numeric_codes_with_def
 
 
 def test_source_profiles_expose_expected_names():
-    assert {"sbi_us_stock", "sbi_us_etf", "mutual_fund_seed"} <= set(
+    assert {"jpx_stock", "jpx_etf", "sbi_us_stock", "sbi_us_etf", "nisa_eligibility"} <= set(
         symbol_universe_source_profile_names()
     )
+    assert "mutual_fund_seed" in symbol_universe_source_profile_names()
+
+
+def test_jpx_stock_profile_applies_local_universe_defaults():
+    profile = symbol_universe_source_profile("jpx_stock")
+    result = merge_symbol_universe_source_rows(
+        [],
+        [{"code": "4689", "security_name": "LY Corporation", "sector": "technology"}],
+        source_name=profile.source_name,
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+        defaults=profile.defaults,
+    )
+
+    imported_row = result.rows[0]
+    assert imported_row["symbol"] == "4689.T"
+    assert imported_row["market"] == "jp"
+    assert imported_row["asset_type"] == "stock"
+    assert imported_row["currency"] == "JPY"
+    assert imported_row["broker"] == "sbi_securities"
+    assert imported_row["tradability"] == "unknown"
+    assert imported_row["is_sbi_supported"] == "true"
+    assert result.manifest["source"] == "jpx"
 
 
 def test_sbi_us_stock_profile_applies_policy_defaults():
@@ -103,6 +126,57 @@ def test_sbi_us_stock_profile_applies_policy_defaults():
     assert imported_row["is_inverse"] == "false"
     assert result.manifest["source"] == "sbi_us_stock"
     assert result.manifest["default_columns"]["broker"] == "sbi_securities"
+
+
+def test_nisa_eligibility_profile_updates_only_nisa_fields():
+    profile = symbol_universe_source_profile("nisa_eligibility")
+    result = merge_symbol_universe_source_rows(
+        [
+            {
+                "symbol": "VOO",
+                "name": "Vanguard S&P 500 ETF",
+                "market": "us",
+                "asset_type": "etf",
+                "currency": "USD",
+                "nisa_category": "unknown",
+                "metadata_source": "sbi_us_etf",
+            }
+        ],
+        [
+            {
+                "symbol": "VOO",
+                "name": "Vanguard S&P 500 ETF source",
+                "market": "jp",
+                "asset_type": "stock",
+                "currency": "JPY",
+                "nisa_type": "growth",
+                "growth_eligible": "true",
+            }
+        ],
+        source_name=profile.source_name,
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+        defaults=profile.defaults,
+        update_existing=True,
+    )
+
+    updated_row = result.rows[0]
+    assert updated_row["name"] == "Vanguard S&P 500 ETF"
+    assert updated_row["market"] == "us"
+    assert updated_row["asset_type"] == "etf"
+    assert updated_row["currency"] == "USD"
+    assert updated_row["nisa_category"] == "growth"
+    assert updated_row["nisa_growth_eligible"] == "true"
+    assert updated_row["metadata_source"] == "fsa"
+    assert result.manifest["updated_symbols"] == ["VOO"]
+    assert result.manifest["update_columns"] == [
+        "metadata_as_of",
+        "metadata_source",
+        "metadata_updated_at",
+        "nisa_category",
+        "nisa_growth_eligible",
+        "nisa_tsumitate_eligible",
+    ]
 
 
 def test_sbi_us_etf_profile_keeps_leveraged_inverse_flags_for_policy_exclusion():

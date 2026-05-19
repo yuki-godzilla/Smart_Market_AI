@@ -152,6 +152,7 @@ def _import_defaults(args, profile) -> SymbolUniverseImportDefaults:
         currency=args.default_currency or profile_defaults.currency,
         symbol_suffix=args.symbol_suffix or profile_defaults.symbol_suffix,
         column_defaults=profile_defaults.column_defaults,
+        update_columns=profile_defaults.update_columns,
     )
 
 

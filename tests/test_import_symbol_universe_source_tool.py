@@ -191,6 +191,71 @@ def test_import_symbol_universe_source_tool_applies_source_profile(tmp_path, cap
     assert rows[1]["is_active"] == "true"
 
 
+def test_import_symbol_universe_source_tool_updates_nisa_profile_only(tmp_path, capsys):
+    base_csv = tmp_path / "symbol_universe.csv"
+    source_csv = tmp_path / "nisa_eligibility_seed.csv"
+    manifest_path = tmp_path / "manifest.json"
+    _write_base_rows(
+        base_csv,
+        [
+            {
+                "symbol": "VOO",
+                "name": "Vanguard S&P 500 ETF",
+                "market": "us",
+                "asset_type": "etf",
+                "currency": "USD",
+                "metadata_source": "sbi_us_etf",
+            }
+        ],
+    )
+    _write_source_rows(
+        source_csv,
+        [
+            {
+                "symbol": "VOO",
+                "name": "Vanguard S&P 500 ETF source",
+                "market": "jp",
+                "asset_type": "stock",
+                "currency": "JPY",
+                "nisa_type": "growth",
+                "growth_eligible": "true",
+            }
+        ],
+    )
+
+    exit_code = main(
+        [
+            "--base-csv",
+            str(base_csv),
+            "--source-csv",
+            str(source_csv),
+            "--source-profile",
+            "nisa_eligibility",
+            "--manifest",
+            str(manifest_path),
+            "--as-of",
+            "2026-05-18",
+            "--updated-at",
+            "2026-05-18T00:00:00+00:00",
+            "--update-existing",
+            "--write",
+        ]
+    )
+
+    output = json.loads(capsys.readouterr().out)
+    rows = _read_rows(base_csv)
+    assert exit_code == 0
+    assert output["source"] == "fsa"
+    assert output["updated_symbols"] == ["VOO"]
+    assert rows[0]["name"] == "Vanguard S&P 500 ETF"
+    assert rows[0]["market"] == "us"
+    assert rows[0]["asset_type"] == "etf"
+    assert rows[0]["currency"] == "USD"
+    assert rows[0]["nisa_category"] == "growth"
+    assert rows[0]["nisa_growth_eligible"] == "true"
+    assert rows[0]["metadata_source"] == "fsa"
+
+
 def test_import_symbol_universe_source_tool_refuses_invalid_write(tmp_path, capsys):
     base_csv = tmp_path / "symbol_universe.csv"
     source_csv = tmp_path / "jpx_seed.csv"
@@ -284,6 +349,12 @@ def _write_source_rows(path, rows):
         "is_active",
         "is_leveraged",
         "is_inverse",
+        "nisa_category",
+        "nisa_type",
+        "nisa_growth_eligible",
+        "growth_eligible",
+        "nisa_tsumitate_eligible",
+        "tsumitate_eligible",
     ]
     with path.open("w", encoding="utf-8", newline="") as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)

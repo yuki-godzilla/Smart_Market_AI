@@ -254,3 +254,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - Fixed ranking candidate normalization so domestic ETF rows keep their `jp` market instead of being forced to `us`.
 - Added a deterministic ranking UI helper test that confirms domestic ETF and US ETF candidates are separated by region.
+
+## 2026-05-19 - Phase 18 source profile expansion
+
+- Added JPX stock / ETF source profiles so local JPX seed import can use named defaults instead of repeated command-line default arguments.
+- Added a NISA eligibility source profile that updates only NISA metadata fields and preserves existing symbol name, market, product type, and currency.
+- Added deterministic tests for JPX profile defaults, NISA-only update behavior, and the import command `--source-profile nisa_eligibility --update-existing` path.

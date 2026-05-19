@@ -16,10 +16,19 @@ SYMBOL_UNIVERSE_SOURCE_ALIASES = {
     "market": ("market", "region"),
     "asset_type": ("asset_type", "product_type"),
     "currency": ("currency",),
+    "nisa_category": ("nisa_category", "nisa_type", "nisa_eligibility"),
     "trust_fee_pct": ("trust_fee_pct", "trust_fee", "fee_pct"),
     "aum": ("aum", "total_net_assets", "net_assets"),
-    "nisa_tsumitate_eligible": ("nisa_tsumitate_eligible", "tsumitate_nisa"),
-    "nisa_growth_eligible": ("nisa_growth_eligible", "growth_nisa"),
+    "nisa_tsumitate_eligible": (
+        "nisa_tsumitate_eligible",
+        "tsumitate_nisa",
+        "tsumitate_eligible",
+    ),
+    "nisa_growth_eligible": (
+        "nisa_growth_eligible",
+        "growth_nisa",
+        "growth_eligible",
+    ),
     "installment_available": ("installment_available", "recurring_available"),
     "management_style": ("management_style", "fund_category"),
     "distribution_policy": ("distribution_policy", "distribution"),
@@ -53,6 +62,7 @@ class SymbolUniverseImportDefaults:
     currency: str = ""
     symbol_suffix: str = ""
     column_defaults: Mapping[str, str] = field(default_factory=dict)
+    update_columns: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -73,6 +83,41 @@ SBI_POLICY_COLUMN_DEFAULTS = {
 }
 
 SOURCE_PROFILES: dict[str, SymbolUniverseSourceProfile] = {
+    "jpx_stock": SymbolUniverseSourceProfile(
+        name="jpx_stock",
+        source_name="jpx",
+        defaults=SymbolUniverseImportDefaults(
+            market="jp",
+            asset_type="stock",
+            currency="JPY",
+            symbol_suffix=".T",
+            column_defaults={
+                **SBI_POLICY_COLUMN_DEFAULTS,
+                "tradability": "unknown",
+                "nisa_category": "unknown",
+                "investment_style": "unknown",
+            },
+        ),
+    ),
+    "jpx_etf": SymbolUniverseSourceProfile(
+        name="jpx_etf",
+        source_name="jpx",
+        defaults=SymbolUniverseImportDefaults(
+            market="jp",
+            asset_type="etf",
+            currency="JPY",
+            column_defaults={
+                **SBI_POLICY_COLUMN_DEFAULTS,
+                "tradability": "unknown",
+                "nisa_category": "unknown",
+                "investment_style": "unknown",
+                "theme": "index",
+                "sector": "index",
+                "complexity": "beginner",
+                "tags": "low_cost",
+            },
+        ),
+    ),
     "sbi_us_stock": SymbolUniverseSourceProfile(
         name="sbi_us_stock",
         source_name="sbi_us_stock",
@@ -105,6 +150,25 @@ SOURCE_PROFILES: dict[str, SymbolUniverseSourceProfile] = {
                 "complexity": "beginner",
                 "tags": "low_cost",
             },
+        ),
+    ),
+    "nisa_eligibility": SymbolUniverseSourceProfile(
+        name="nisa_eligibility",
+        source_name="fsa",
+        defaults=SymbolUniverseImportDefaults(
+            column_defaults={
+                "nisa_category": "unknown",
+            },
+            update_columns=frozenset(
+                {
+                    "nisa_category",
+                    "nisa_tsumitate_eligible",
+                    "nisa_growth_eligible",
+                    "metadata_source",
+                    "metadata_as_of",
+                    "metadata_updated_at",
+                }
+            ),
         ),
     ),
     "mutual_fund_seed": SymbolUniverseSourceProfile(
@@ -210,6 +274,8 @@ def merge_symbol_universe_source_rows(
         for column, value in normalized_row.items():
             if column == "symbol":
                 continue
+            if defaults and defaults.update_columns and column not in defaults.update_columns:
+                continue
             if not value.strip() and column not in _operational_metadata_columns():
                 continue
             if existing_row.get(column, "") == value:
@@ -232,6 +298,7 @@ def merge_symbol_universe_source_rows(
             "symbol_suffix": (defaults.symbol_suffix if defaults else ""),
         },
         "default_columns": dict(defaults.column_defaults) if defaults else {},
+        "update_columns": sorted(defaults.update_columns) if defaults else [],
         "as_of": as_of.isoformat(),
         "updated_at": updated_at.isoformat(),
         "existing_rows": len(existing_rows),

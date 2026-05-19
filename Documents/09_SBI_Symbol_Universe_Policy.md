@@ -402,12 +402,16 @@ ranking_universe:
 
 | profile | 用途 | 主な default |
 | --- | --- | --- |
+| `jpx_stock` | JPX国内株 seed | `market=jp`, `asset_type=stock`, `currency=JPY`, `symbol_suffix=.T`, `tradability=unknown` |
+| `jpx_etf` | JPX国内 ETF seed | `market=jp`, `asset_type=etf`, `currency=JPY`, `tradability=unknown` |
 | `sbi_us_stock` | SBI取扱米国株 seed | `market=us`, `asset_type=stock`, `currency=USD`, `tradability=tradable` |
 | `sbi_us_etf` | SBI取扱米国/海外 ETF seed | `market=us`, `asset_type=etf`, `currency=USD`, `tradability=tradable` |
+| `nisa_eligibility` | NISA制度 metadata 更新 source | 既存銘柄の `nisa_category`, `nisa_growth_eligible`, `nisa_tsumitate_eligible`, metadata fields だけを更新 |
 | `mutual_fund_seed` | Future extension 用の主要投資信託 seed | `market=jp`, `asset_type=mutual_fund`, `currency=JPY`, `tradability=unknown` |
 
-各 profile は `broker=sbi_securities`, `is_sbi_supported=true`, `is_active=true`, `is_leveraged=false`, `is_inverse=false` を補完する。
+`jpx_*`, `sbi_*`, `mutual_fund_seed` は `broker=sbi_securities`, `is_sbi_supported=true`, `is_active=true`, `is_leveraged=false`, `is_inverse=false` を補完する。
 source CSV 側に `is_leveraged` / `is_inverse` がある場合は、source 側の値を優先する。
+`nisa_eligibility` は `--update-existing` と組み合わせる前提で、制度 metadata 以外の市場・商品・名称を上書きしない。
 
 2026-05-18 時点の `symbol_universe.csv` は 146件です。
 内訳は `stock=120`, `etf=20`, `mutual_fund=4`, `adr=2` です。MVP ranking universe はこのうち `stock` / `etf` のみを対象にします。
@@ -459,6 +463,7 @@ Phase 18 の実装順:
 6. `symbol_universe.csv` の既存行へ conservative default metadata を付与する。完了。
 7. SBI / NISA / future 投信 metadata source import を追加する。部分完了。
    - `--source-profile` と seed CSV は追加済み。
+   - JPX stock / ETF profile と NISA eligibility profile は追加済み。
    - SBI US stock / ETF / mutual fund seed は `symbol_universe.csv` へ反映済み。
    - MVP ranking は stock / ETF のみを対象にし、mutual fund seed は Future Phase 用の保持データとする。
    - SBI公式一覧 / NISA公式一覧などからの半自動 adapter は未実装。

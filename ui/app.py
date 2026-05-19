@@ -202,6 +202,45 @@ def _name_from_candidate(label: str) -> str | None:
     return label.split(" - ", 1)[1]
 
 
+def _ranking_symbols_from_selected_labels(selected_labels: list[str]) -> list[str]:
+    return [symbol for label in selected_labels if (symbol := _symbol_from_candidate(label))]
+
+
+def _ranking_source_key_for_selection(
+    *,
+    provider: str,
+    selected_labels: list[str],
+    start: date,
+    end: date,
+) -> str:
+    ranking_symbols = _ranking_symbols_from_selected_labels(selected_labels)
+    if not ranking_symbols:
+        return ""
+    return ranking_build_cache_key(
+        provider=provider,
+        symbols=ranking_symbols,
+        start=start,
+        end=end,
+    )
+
+
+def _ranking_result_matches_current_selection(
+    stored_source: str,
+    *,
+    provider: str,
+    selected_labels: list[str],
+    start: date,
+    end: date,
+) -> bool:
+    current_source = _ranking_source_key_for_selection(
+        provider=provider,
+        selected_labels=selected_labels,
+        start=start,
+        end=end,
+    )
+    return bool(current_source) and stored_source == current_source
+
+
 def _selectbox_index(options: list[str], value: str) -> int:
     return options.index(value) if value in options else 0
 
@@ -818,7 +857,14 @@ def _render_market_data_ranking() -> None:
                 key=selection_key,
             ),
         )
-    warning_message = live_ranking_symbol_warning_message(provider, len(selected_labels))
+    ranking_symbols = _ranking_symbols_from_selected_labels(selected_labels)
+    current_ranking_source = _ranking_source_key_for_selection(
+        provider=provider,
+        selected_labels=selected_labels,
+        start=start_date,
+        end=end_date,
+    )
+    warning_message = live_ranking_symbol_warning_message(provider, len(ranking_symbols))
     if warning_message is not None:
         st.warning(warning_message)
     if not labels:
@@ -829,17 +875,10 @@ def _render_market_data_ranking() -> None:
         key="build_market_data_ranking",
     ):
         sync_ranking_selection_state(selection_key, selected_labels)
-        symbols = [_symbol_from_candidate(label) for label in selected_labels]
-        ranking_symbols = [symbol for symbol in symbols if symbol]
         if not ranking_symbols:
             st.error("Ranking symbols を1件以上選んでください。")
             return
-        cache_key = ranking_build_cache_key(
-            provider=provider,
-            symbols=ranking_symbols,
-            start=start_date,
-            end=end_date,
-        )
+        cache_key = current_ranking_source
         cached_result = get_cached_ranking_build(cache_key)
         if cached_result is None:
             progress_bar = st.progress(0.0)
@@ -870,7 +909,16 @@ def _render_market_data_ranking() -> None:
     rows = st.session_state.get(MARKET_DATA_RANKING_STATE_KEY, [])
     error_rows = st.session_state.get(MARKET_DATA_RANKING_ERROR_STATE_KEY, [])
     ranking_source = str(st.session_state.get(MARKET_DATA_RANKING_SOURCE_STATE_KEY, ""))
-    if rows:
+    is_current_ranking_result = _ranking_result_matches_current_selection(
+        ranking_source,
+        provider=provider,
+        selected_labels=selected_labels,
+        start=start_date,
+        end=end_date,
+    )
+    if (rows or error_rows) and not is_current_ranking_result:
+        st.info("条件が変わりました。ランキング作成で結果を更新してください。")
+    elif rows:
         ranked_rows = apply_ranking_weight_preset(
             cast(list[dict[str, str]], rows),
             weight_preset,

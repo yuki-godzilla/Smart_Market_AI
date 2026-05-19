@@ -310,3 +310,4 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Prevented hidden ETF filters such as benchmark index, expense ratio, and complexity from excluding stock candidates after switching product type.
 - Prevented hidden stock filters such as industry/theme, market cap, PER, PBR, and ROE from excluding ETF candidates after switching product type.
 - Added regression tests for candidate rows and filter signatures with stale product-specific filter state.
+- Pruned stale selection labels against the current candidate list and hid stale ranking results when the visible selection no longer matches the stored result source.

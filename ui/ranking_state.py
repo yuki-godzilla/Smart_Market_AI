@@ -15,6 +15,7 @@ from ui.ranking import (
     ranking_filter_signature,
     ranking_symbols_state_key,
     symbol_candidate_labels,
+    valid_ranking_selected_labels,
 )
 from ui.state import (
     MARKET_DATA_RANKING_ERROR_STATE_KEY,
@@ -170,6 +171,15 @@ def ensure_ranking_selection_widget_state(
         )
         st.session_state[selection_key] = selected_labels
         st.session_state[MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY] = selected_labels
+        return
+    existing_labels = st.session_state.get(selection_key, [])
+    if isinstance(existing_labels, list):
+        valid_labels = valid_ranking_selected_labels(
+            [str(label) for label in existing_labels],
+            labels,
+        )
+        if valid_labels != existing_labels:
+            st.session_state[selection_key] = valid_labels
 
 
 def sync_ranking_selection_state(

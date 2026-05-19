@@ -11,6 +11,9 @@ from ui.app import (
     _build_market_data_ranking_rows,
     _market_data_preview_symbol_label,
     _name_from_candidate,
+    _ranking_result_matches_current_selection,
+    _ranking_source_key_for_selection,
+    _ranking_symbols_from_selected_labels,
     _render_market_chart,
     _symbol_from_candidate,
     default_forecast_horizon_days,
@@ -58,6 +61,7 @@ from ui.ranking import (
 )
 from ui.ranking_state import (
     apply_ranking_filter_state,
+    clear_ranking_filter_state,
     current_ranking_filter_state,
     ensure_ranking_selection_widget_state,
     initial_ranking_selected_labels_for_key,
@@ -87,6 +91,12 @@ def test_market_data_provider_defaults_to_yahoo():
 def test_symbol_from_candidate_extracts_ticker_or_custom():
     assert _symbol_from_candidate("") is None
     assert _symbol_from_candidate("9983.T - Fast Retailing") == "9983.T"
+
+
+def test_ranking_symbols_from_selected_labels_extracts_fetch_symbols():
+    assert _ranking_symbols_from_selected_labels(
+        ["9983.T - Fast Retailing", "", "AAPL - Apple Inc."]
+    ) == ["9983.T", "AAPL"]
 
 
 def test_name_from_candidate_extracts_display_name():
@@ -888,6 +898,62 @@ def test_ranking_build_cache_key_ignores_weight_preset():
     assert first == second
 
 
+def test_ranking_source_key_for_selection_matches_actual_fetch_symbols():
+    source_key = _ranking_source_key_for_selection(
+        provider="yahoo",
+        selected_labels=["AAPL - Apple Inc.", "MSFT - Microsoft"],
+        start=date(2026, 5, 10),
+        end=date(2026, 5, 17),
+    )
+
+    assert source_key == ranking_build_cache_key(
+        provider="yahoo",
+        symbols=["AAPL", "MSFT"],
+        start=date(2026, 5, 10),
+        end=date(2026, 5, 17),
+    )
+    assert (
+        _ranking_source_key_for_selection(
+            provider="yahoo",
+            selected_labels=[],
+            start=date(2026, 5, 10),
+            end=date(2026, 5, 17),
+        )
+        == ""
+    )
+
+
+def test_ranking_result_matches_current_selection_detects_stale_results():
+    stored_source = ranking_build_cache_key(
+        provider="yahoo",
+        symbols=["AAPL"],
+        start=date(2026, 5, 10),
+        end=date(2026, 5, 17),
+    )
+
+    assert _ranking_result_matches_current_selection(
+        stored_source,
+        provider="yahoo",
+        selected_labels=["AAPL - Apple Inc."],
+        start=date(2026, 5, 10),
+        end=date(2026, 5, 17),
+    )
+    assert not _ranking_result_matches_current_selection(
+        stored_source,
+        provider="yahoo",
+        selected_labels=["MSFT - Microsoft"],
+        start=date(2026, 5, 10),
+        end=date(2026, 5, 17),
+    )
+    assert not _ranking_result_matches_current_selection(
+        stored_source,
+        provider="yahoo",
+        selected_labels=[],
+        start=date(2026, 5, 10),
+        end=date(2026, 5, 17),
+    )
+
+
 def test_ranking_build_cache_reuses_rows_for_same_market_data_request(monkeypatch):
     session_state: dict[str, object] = {}
     monkeypatch.setattr("ui.app.st.session_state", session_state)
@@ -920,6 +986,27 @@ def test_ranking_filter_state_persists_modal_values_after_widget_cleanup(monkeyp
     assert filters["market_data_ranking_min_dividend"] == "3.0"
     assert current_ranking_filter_state()["market_data_ranking_min_dividend"] == "3.0"
     assert current_ranking_filter_state()["market_data_ranking_market"] == "jp"
+
+
+def test_clear_ranking_filter_state_resets_visible_filters_and_result_state(monkeypatch):
+    session_state: dict[str, object] = {
+        "market_data_ranking_currency": "USD",
+        "market_data_ranking_nisa": "growth",
+        "market_data_ranking_symbol_query": "toyota",
+        "market_data_ranking_rows": [{"symbol": "AAPL"}],
+        "market_data_ranking_error_rows": [{"symbol": "ERR"}],
+        "market_data_ranking_selected_labels": ["AAPL - Apple Inc."],
+    }
+    monkeypatch.setattr("ui.ranking_state.st.session_state", session_state)
+
+    clear_ranking_filter_state()
+
+    assert session_state["market_data_ranking_currency"] == "all"
+    assert session_state["market_data_ranking_nisa"] == "all"
+    assert session_state["market_data_ranking_symbol_query"] == ""
+    assert "market_data_ranking_rows" not in session_state
+    assert "market_data_ranking_error_rows" not in session_state
+    assert "market_data_ranking_selected_labels" not in session_state
 
 
 def test_valid_ranking_selected_labels_keeps_only_available_options():
@@ -996,6 +1083,24 @@ def test_ensure_ranking_selection_widget_state_preserves_existing_user_selection
 
     assert session_state["market_data_ranking_symbols_existing"] == ["7203.T - Toyota Motor"]
     assert "market_data_ranking_selected_labels" not in session_state
+
+
+def test_ensure_ranking_selection_widget_state_removes_stale_options(monkeypatch):
+    session_state: dict[str, object] = {
+        "market_data_ranking_symbols_existing": [
+            "7203.T - Toyota Motor",
+            "OLD - Removed",
+        ]
+    }
+    monkeypatch.setattr("ui.ranking_state.st.session_state", session_state)
+
+    ensure_ranking_selection_widget_state(
+        selection_key="market_data_ranking_symbols_existing",
+        labels=["7203.T - Toyota Motor", "9983.T - Fast Retailing"],
+        stored_selected_labels=[],
+    )
+
+    assert session_state["market_data_ranking_symbols_existing"] == ["7203.T - Toyota Motor"]
 
 
 def test_sync_ranking_selection_state_updates_widget_and_persistent_state(monkeypatch):

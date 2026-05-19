@@ -53,7 +53,8 @@ SMAI は以下の思想を重視しています。
 未実装または将来範囲:
 
 - `polygon` など追加 live provider adapter 本体
-- SBI / NISA / 投信 metadata の公式 source import
+- SBI / NISA metadata の公式 source import
+- 投信 metadata / 基準価額 / ranking 対応は Future Phase
 - Research RAG の ingestion / chunk store / retrieval / Research Score
 - Decision Report の本格化
 - Execution / broker への注文送信
@@ -68,11 +69,11 @@ MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で
 - Phase 16: UI / Visualization Cockpit implementation complete、最終 Streamlit browser smoke は推奨確認
 - Phase 16S: Stabilization / final Streamlit smoke は必要に応じて実施
 - Phase 17: UI Polish / ランキング条件 UI 再設計は implementation complete
-- Phase 18: symbol universe / metadata refresh / source import / SBI ranking universe policy が進行中。次は SBI / NISA / 投信 metadata source import
+- Phase 18: symbol universe / metadata refresh / source import / SBI ranking universe policy が進行中。次は SBI / NISA / ETF metadata source import
 - Phase 19〜24: Decision Report、Research RAG、Research Score、Assistant、optional adapter、Execution gate の順に整理
 - Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
-次の重点は、Phase 18 の SBI / NISA / 投信 metadata source import、Phase 19 の Decision Report context です。
+次の重点は、Phase 18 の SBI / NISA / ETF metadata source import、Phase 19 の Decision Report context です。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント

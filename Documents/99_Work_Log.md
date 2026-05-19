@@ -303,3 +303,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added a `nisa_eligibility` source builder for local NISA raw CSV/Excel files.
 - Normalized domestic 4-digit codes to `.T` symbols and mapped growth / tsumitate / both / none eligibility into canonical NISA metadata fields.
 - Kept ambiguous generic NISA rows as `unknown` rather than inferring a category that the source did not provide.
+
+## 2026-05-19 - Ranking filter stale state fix
+
+- Scoped ranking candidate filters to the detail conditions visible for the selected product / region.
+- Prevented hidden ETF filters such as benchmark index, expense ratio, and complexity from excluding stock candidates after switching product type.
+- Prevented hidden stock filters such as industry/theme, market cap, PER, PBR, and ROE from excluding ETF candidates after switching product type.
+- Added regression tests for candidate rows and filter signatures with stale product-specific filter state.

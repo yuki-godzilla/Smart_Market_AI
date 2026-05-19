@@ -361,6 +361,7 @@ def ranking_detail_filters_for_category(region: str, product_type: str) -> list[
         "market_cap",
         "dividend_yield",
         "per",
+        "pbr",
         "roe",
         "benchmark_index",
         "expense_ratio",
@@ -434,6 +435,7 @@ def filter_symbol_universe_rows(
     normalized_query = query.strip().lower()
     min_dividend = _decimal_filter_value(min_dividend_yield_pct, Decimal("0"))
     max_expense = _decimal_filter_value(max_expense_ratio_pct, Decimal("1.00"))
+    detail_filters = _active_ranking_detail_filters(region, product_type)
     filtered: list[dict[str, str]] = []
     _ = ranking_purpose
     for row in rows:
@@ -455,49 +457,100 @@ def filter_symbol_universe_rows(
             continue
         if currency != "all" and row.get("currency") != currency:
             continue
-        if dividend_category != "all" and row.get("dividend_category") != dividend_category:
-            continue
-        if market_cap_tier != "all" and row.get("market_cap_tier") != market_cap_tier:
-            continue
-        if risk_band != "all" and row.get("risk_band") != risk_band:
-            continue
-        if index_family != "all" and row.get("index_family") != index_family:
-            continue
-        cost_ratio = _symbol_cost_ratio(row)
-        if cost_ratio:
-            if _decimal_filter_value(cost_ratio, Decimal("99")) > max_expense:
-                continue
-        if not _symbol_complexity_allowed(row.get("complexity", "standard"), complexity):
-            continue
-        if management_style != "all" and row.get("management_style") != management_style:
-            continue
-        if not _symbol_matches_nisa_eligibility(row, nisa_eligibility):
+        if (
+            "dividend_yield" in detail_filters
+            and dividend_category != "all"
+            and row.get("dividend_category") != dividend_category
+        ):
             continue
         if (
-            installment_available != "all"
+            "market_cap" in detail_filters
+            and market_cap_tier != "all"
+            and row.get("market_cap_tier") != market_cap_tier
+        ):
+            continue
+        if (
+            "risk_band" in detail_filters
+            and risk_band != "all"
+            and row.get("risk_band") != risk_band
+        ):
+            continue
+        if (
+            "benchmark_index" in detail_filters
+            and index_family != "all"
+            and row.get("index_family") != index_family
+        ):
+            continue
+        if "expense_ratio" in detail_filters:
+            cost_ratio = _symbol_cost_ratio(row)
+            if cost_ratio and _decimal_filter_value(cost_ratio, Decimal("99")) > max_expense:
+                continue
+        if "complexity" in detail_filters and not _symbol_complexity_allowed(
+            row.get("complexity", "standard"),
+            complexity,
+        ):
+            continue
+        if (
+            "management_style" in detail_filters
+            and management_style != "all"
+            and row.get("management_style") != management_style
+        ):
+            continue
+        if "nisa_eligibility" in detail_filters and not _symbol_matches_nisa_eligibility(
+            row, nisa_eligibility
+        ):
+            continue
+        if (
+            "installment_available" in detail_filters
+            and installment_available != "all"
             and row.get("installment_available") != installment_available
         ):
             continue
-        if theme != "all" and theme not in tags and row.get("theme") != theme:
-            continue
-        if per_enabled and not _row_decimal_in_range(row, "per", per_min, per_max):
-            continue
-        if pbr_enabled and not _row_decimal_in_range(row, "pbr", pbr_min, pbr_max):
-            continue
-        if dividend_yield_enabled and not _row_decimal_in_range(
-            row,
-            "dividend_yield_pct",
-            min_dividend,
-            dividend_yield_max_pct,
+        if (
+            "industry_or_sector" in detail_filters
+            and theme != "all"
+            and theme not in tags
+            and row.get("theme") != theme
         ):
             continue
-        if roe_enabled and not _row_decimal_in_range(row, "roe_pct", roe_min_pct, roe_max_pct):
+        if (
+            "per" in detail_filters
+            and per_enabled
+            and not _row_decimal_in_range(row, "per", per_min, per_max)
+        ):
             continue
-        if consensus_enabled and not _row_decimal_in_range(
-            row,
-            "consensus_rating",
-            consensus_min,
-            consensus_max,
+        if (
+            "pbr" in detail_filters
+            and pbr_enabled
+            and not _row_decimal_in_range(row, "pbr", pbr_min, pbr_max)
+        ):
+            continue
+        if (
+            "dividend_yield" in detail_filters
+            and dividend_yield_enabled
+            and not _row_decimal_in_range(
+                row,
+                "dividend_yield_pct",
+                min_dividend,
+                dividend_yield_max_pct,
+            )
+        ):
+            continue
+        if (
+            "roe" in detail_filters
+            and roe_enabled
+            and not _row_decimal_in_range(row, "roe_pct", roe_min_pct, roe_max_pct)
+        ):
+            continue
+        if (
+            "consensus" in detail_filters
+            and consensus_enabled
+            and not _row_decimal_in_range(
+                row,
+                "consensus_rating",
+                consensus_min,
+                consensus_max,
+            )
         ):
             continue
         if normalized_query:
@@ -556,6 +609,46 @@ def ranking_filter_signature(
     limit: int,
 ) -> str:
     _ = period_preset
+    detail_filters = _active_ranking_detail_filters(region, product_type)
+    if "dividend_yield" not in detail_filters:
+        dividend_category = "all"
+        min_dividend_yield_pct = "0.0"
+        dividend_yield_enabled = False
+        dividend_yield_max_pct = "10.0"
+    if "market_cap" not in detail_filters:
+        market_cap_tier = "all"
+    if "benchmark_index" not in detail_filters:
+        index_family = "all"
+    if "expense_ratio" not in detail_filters:
+        max_expense_ratio_pct = "1.00"
+    if "complexity" not in detail_filters:
+        complexity = "standard"
+    if "management_style" not in detail_filters:
+        management_style = "all"
+    if "nisa_eligibility" not in detail_filters:
+        nisa_eligibility = "all"
+    if "installment_available" not in detail_filters:
+        installment_available = "all"
+    if "risk_band" not in detail_filters:
+        risk_band = "all"
+    if "industry_or_sector" not in detail_filters:
+        theme = "all"
+    if "per" not in detail_filters:
+        per_enabled = False
+        per_min = "2.0"
+        per_max = "20.0"
+    if "pbr" not in detail_filters:
+        pbr_enabled = False
+        pbr_min = "0.5"
+        pbr_max = "2.0"
+    if "roe" not in detail_filters:
+        roe_enabled = False
+        roe_min_pct = "8.0"
+        roe_max_pct = "30.0"
+    if "consensus" not in detail_filters:
+        consensus_enabled = False
+        consensus_min = "2.5"
+        consensus_max = "5.0"
     return "|".join(
         [
             region,
@@ -770,6 +863,10 @@ def _ranking_error_symbol_summary(symbols: list[str]) -> str:
     if len(symbols) <= 8:
         return ", ".join(symbols)
     return f"{', '.join(symbols[:8])}, ... (+{len(symbols) - 8})"
+
+
+def _active_ranking_detail_filters(region: str, product_type: str) -> set[str]:
+    return set(ranking_detail_filters_for_category(region, product_type))
 
 
 def _row_decimal_in_range(

@@ -386,6 +386,56 @@ def test_filter_symbol_universe_rows_filters_etf_database_values():
     ] == ["VOO"]
 
 
+def test_filter_symbol_universe_rows_ignores_hidden_etf_filters_for_stock():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "AAPL", "name": "Apple Inc."},
+            {"symbol": "SPY", "name": "SPDR S&P 500 ETF"},
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="all",
+            product_type="stock",
+            index_family="sp500",
+            max_expense_ratio_pct="0.05",
+            complexity="beginner",
+        )
+    ] == ["AAPL"]
+
+
+def test_filter_symbol_universe_rows_ignores_hidden_stock_filters_for_etf():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "AAPL", "name": "Apple Inc."},
+            {"symbol": "SPY", "name": "SPDR S&P 500 ETF"},
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="all",
+            product_type="etf",
+            theme="technology",
+            market_cap_tier="large",
+            per_enabled=True,
+            per_min="2.0",
+            per_max="3.0",
+            pbr_enabled=True,
+            pbr_min="0.5",
+            pbr_max="0.6",
+            roe_enabled=True,
+            roe_min_pct="20.0",
+            roe_max_pct="30.0",
+        )
+    ] == ["SPY"]
+
+
 def test_filter_symbol_universe_rows_preserves_etf_region():
     rows = symbol_universe_rows(
         [
@@ -655,6 +705,91 @@ def test_ranking_filter_signature_includes_nisa_filter():
     )
 
     assert base != changed
+
+
+def test_ranking_filter_signature_ignores_hidden_etf_filters_for_stock():
+    base = ranking_filter_signature(
+        region="all",
+        product_type="stock",
+        ranking_purpose="dividend",
+        purpose="all",
+        period_preset="short",
+        market="all",
+        asset_type="all",
+        currency="all",
+        dividend_category="all",
+        index_family="all",
+        max_expense_ratio_pct="1.00",
+        complexity="standard",
+        theme="all",
+        query="",
+        limit=0,
+    )
+    changed = ranking_filter_signature(
+        region="all",
+        product_type="stock",
+        ranking_purpose="dividend",
+        purpose="all",
+        period_preset="short",
+        market="all",
+        asset_type="all",
+        currency="all",
+        dividend_category="all",
+        index_family="sp500",
+        max_expense_ratio_pct="0.05",
+        complexity="beginner",
+        theme="all",
+        query="",
+        limit=0,
+    )
+
+    assert base == changed
+
+
+def test_ranking_filter_signature_ignores_hidden_stock_filters_for_etf():
+    base = ranking_filter_signature(
+        region="all",
+        product_type="etf",
+        ranking_purpose="dividend",
+        purpose="all",
+        period_preset="short",
+        market="all",
+        asset_type="all",
+        currency="all",
+        dividend_category="all",
+        market_cap_tier="all",
+        complexity="standard",
+        theme="all",
+        query="",
+        limit=0,
+    )
+    changed = ranking_filter_signature(
+        region="all",
+        product_type="etf",
+        ranking_purpose="dividend",
+        purpose="all",
+        period_preset="short",
+        market="all",
+        asset_type="all",
+        currency="all",
+        dividend_category="all",
+        market_cap_tier="large",
+        complexity="standard",
+        theme="technology",
+        query="",
+        per_enabled=True,
+        per_min="2.0",
+        per_max="3.0",
+        pbr_enabled=True,
+        pbr_min="0.5",
+        pbr_max="0.6",
+        roe_enabled=True,
+        roe_min_pct="20.0",
+        roe_max_pct="30.0",
+        limit=0,
+    )
+
+    assert base == changed
 
 
 def test_ranking_filter_signature_ignores_period_preset():

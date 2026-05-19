@@ -3,9 +3,11 @@ from __future__ import annotations
 from datetime import date
 
 from backend.marketdata.symbol_universe_source_build import (
+    JPX_ETF_SOURCE_FIELDNAMES,
     JPX_LISTED_STOCK_SOURCE_FIELDNAMES,
     SBI_US_ETF_SOURCE_FIELDNAMES,
     SBI_US_STOCK_SOURCE_FIELDNAMES,
+    build_jpx_etf_source_rows,
     build_jpx_listed_stock_source_rows,
     build_sbi_us_etf_source_rows,
     build_sbi_us_stock_source_rows,
@@ -90,6 +92,88 @@ def test_build_jpx_listed_stock_source_rows_skips_out_of_scope_products():
     assert result.rows[0]["theme"] == "consumer"
     assert result.manifest["input_rows"] == 3
     assert result.manifest["output_rows"] == 1
+    assert result.manifest["skipped_rows"] == 2
+
+
+def test_build_jpx_etf_source_rows_maps_etf_and_etn_rows():
+    result = build_jpx_etf_source_rows(
+        [
+            {
+                "コード": "1306",
+                "銘柄名": "NEXT FUNDS TOPIX連動型上場投信",
+                "市場・商品区分": "ETF・ETN",
+                "対象指標": "TOPIX",
+                "信託報酬": "0.06%",
+            },
+            {
+                "コード": "1540",
+                "銘柄名": "純金上場信託",
+                "市場・商品区分": "ETF・ETN",
+                "対象指標": "金地金価格",
+                "信託報酬": "0.44%",
+            },
+            {
+                "コード": "2038",
+                "銘柄名": "NEXT NOTES ドバイ原油先物 ダブル・ブル ETN",
+                "市場・商品区分": "ETF・ETN",
+                "対象指標": "原油先物指数",
+                "信託報酬": "0.80%",
+            },
+            {
+                "コード": "1571",
+                "銘柄名": "NEXT FUNDS 日経平均インバース・インデックス連動型上場投信",
+                "市場・商品区分": "ETF・ETN",
+                "対象指標": "日経平均インバース・インデックス",
+            },
+        ],
+        as_of=date(2026, 5, 19),
+    )
+
+    assert [row["symbol"] for row in result.rows] == ["1306.T", "1540.T", "2038.T", "1571.T"]
+    assert result.rows[0]["theme"] == "index"
+    assert result.rows[0]["sector"] == "index"
+    assert result.rows[0]["index_family"] == "topix"
+    assert result.rows[0]["expense_ratio_pct"] == "0.06"
+    assert result.rows[0]["complexity"] == "beginner"
+    assert result.rows[0]["tags"] == "low_cost,balanced"
+    assert result.rows[0]["is_leveraged"] == "false"
+    assert result.rows[0]["is_inverse"] == "false"
+    assert result.rows[1]["theme"] == "commodity"
+    assert result.rows[1]["tags"] == "balanced"
+    assert result.rows[2]["complexity"] == "etn"
+    assert result.rows[2]["is_leveraged"] == "true"
+    assert result.rows[3]["complexity"] == "inverse"
+    assert result.rows[3]["is_inverse"] == "true"
+    assert result.manifest["source_kind"] == "jpx_etf"
+    assert result.manifest["fieldnames"] == JPX_ETF_SOURCE_FIELDNAMES
+
+
+def test_build_jpx_etf_source_rows_skips_non_etf_products():
+    result = build_jpx_etf_source_rows(
+        [
+            {
+                "コード": "7203",
+                "銘柄名": "トヨタ自動車",
+                "市場・商品区分": "プライム（内国株式）",
+            },
+            {
+                "コード": "8951",
+                "銘柄名": "日本ビルファンド投資法人",
+                "市場・商品区分": "REIT・ベンチャーファンド・カントリーファンド・インフラファンド",
+            },
+            {
+                "コード": "1343",
+                "銘柄名": "NEXT FUNDS 東証REIT指数連動型上場投信",
+                "市場・商品区分": "ETF・ETN",
+                "対象指標": "東証REIT指数",
+            },
+        ],
+        as_of=date(2026, 5, 19),
+    )
+
+    assert [row["symbol"] for row in result.rows] == ["1343.T"]
+    assert result.rows[0]["theme"] == "reit"
+    assert result.rows[0]["sector"] == "real_estate"
     assert result.manifest["skipped_rows"] == 2
 
 

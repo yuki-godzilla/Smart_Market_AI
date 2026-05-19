@@ -19,9 +19,11 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from backend.marketdata.symbol_universe_source_build import (  # noqa: E402
+    JPX_ETF_SOURCE_FIELDNAMES,
     JPX_LISTED_STOCK_SOURCE_FIELDNAMES,
     SBI_US_ETF_SOURCE_FIELDNAMES,
     SBI_US_STOCK_SOURCE_FIELDNAMES,
+    build_jpx_etf_source_rows,
     build_jpx_listed_stock_source_rows,
     build_sbi_us_etf_source_rows,
     build_sbi_us_stock_source_rows,
@@ -31,6 +33,10 @@ SOURCE_BUILDERS = {
     "jpx_listed_stock": (
         build_jpx_listed_stock_source_rows,
         JPX_LISTED_STOCK_SOURCE_FIELDNAMES,
+    ),
+    "jpx_etf": (
+        build_jpx_etf_source_rows,
+        JPX_ETF_SOURCE_FIELDNAMES,
     ),
     "sbi_us_stock": (
         build_sbi_us_stock_source_rows,

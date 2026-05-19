@@ -291,3 +291,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Extended `tools/build_symbol_universe_source.py` with `sbi_us_stock` and `sbi_us_etf` source builders for local SBI raw CSV/Excel files.
 - Added US ticker normalization, stock sector/theme mapping, ETF index-family inference, fee percent normalization, and leveraged/inverse ETF flag detection.
 - Documented the SBI raw-file-to-source workflow while keeping official-site auto-download and scraping outside the normal deterministic path.
+
+## 2026-05-19 - Phase 18 JPX ETF source builder
+
+- Added a `jpx_etf` source builder for local JPX ETF / ETN raw CSV/Excel files.
+- Added ETF/ETN scope detection, `.T` symbol output, index-family inference, trust-fee percent normalization, commodity / REIT theme mapping, and leveraged/inverse/ETN flags.
+- Documented the JPX ETF raw-file-to-source workflow and kept official download automation outside the normal deterministic path.

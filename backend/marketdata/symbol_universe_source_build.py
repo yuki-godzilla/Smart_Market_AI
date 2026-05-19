@@ -21,6 +21,24 @@ JPX_LISTED_STOCK_SOURCE_FIELDNAMES = [
     "source_scale_category",
 ]
 
+JPX_ETF_SOURCE_FIELDNAMES = [
+    "symbol",
+    "name",
+    "market",
+    "asset_type",
+    "currency",
+    "theme",
+    "sector",
+    "index_family",
+    "expense_ratio_pct",
+    "complexity",
+    "tags",
+    "aliases",
+    "is_leveraged",
+    "is_inverse",
+    "source_market_segment",
+]
+
 SBI_US_STOCK_SOURCE_FIELDNAMES = [
     "symbol",
     "name",
@@ -63,6 +81,14 @@ SBI_US_ETF_SOURCE_FIELDNAMES = [
 _JPX_CODE_PATTERN = re.compile(r"^[0-9A-Z]{4}$")
 _US_SYMBOL_PATTERN = re.compile(r"^[A-Z][A-Z0-9-]{0,14}$")
 _JPX_STOCK_MARKET_MARKERS = ("グロース", "スタンダード", "プライム")
+_JPX_ETF_MARKERS = (
+    "ETF",
+    "ETN",
+    "上場投信",
+    "上場信託",
+    "上場投資信託",
+    "上場インデックスファンド",
+)
 _JPX_NON_STOCK_MARKERS = (
     "ETF",
     "ETN",
@@ -134,7 +160,10 @@ _INDEX_FAMILY_ALIASES = (
     "underlying_index",
     "benchmark",
     "benchmark_index",
+    "target_index",
     "連動指数",
+    "連動対象指標",
+    "対象指標",
     "指数",
 )
 _EXPENSE_RATIO_ALIASES = (
@@ -259,6 +288,25 @@ _INVERSE_MARKERS = (
     "ベア",
     "反対",
 )
+_ETN_MARKERS = ("ETN", "エーティーエヌ")
+_COMMODITY_MARKERS = (
+    "GOLD",
+    "SILVER",
+    "PLATINUM",
+    "PALLADIUM",
+    "WTI",
+    "OIL",
+    "純金",
+    "金価格",
+    "金地金",
+    "銀価格",
+    "プラチナ",
+    "パラジウム",
+    "原油",
+    "商品",
+    "コモディティ",
+)
+_REIT_MARKERS = ("REIT", "J-REIT", "リート", "不動産投信")
 
 
 @dataclass(frozen=True)
@@ -331,6 +379,72 @@ def build_jpx_listed_stock_source_rows(
         output_rows=output_rows,
         skipped_rows=skipped_rows,
         fieldnames=JPX_LISTED_STOCK_SOURCE_FIELDNAMES,
+    )
+    return SymbolUniverseSourceBuildResult(rows=output_rows, manifest=manifest)
+
+
+def build_jpx_etf_source_rows(
+    raw_rows: Sequence[Mapping[str, Any]],
+    *,
+    as_of: date,
+) -> SymbolUniverseSourceBuildResult:
+    """Build source-import rows from JPX ETF/ETN raw rows."""
+
+    output_rows: list[dict[str, str]] = []
+    skipped_rows: list[dict[str, str]] = []
+
+    for index, raw_row in enumerate(raw_rows, start=2):
+        code = _normalize_jpx_code(_first_value(raw_row, _CODE_ALIASES))
+        name = _first_value(raw_row, _NAME_ALIASES)
+        market_segment = _first_value(raw_row, _MARKET_SEGMENT_ALIASES)
+        index_raw = _first_value(raw_row, _INDEX_FAMILY_ALIASES)
+
+        if not code or not name:
+            skipped_rows.append(_skipped_row(index, code, "JPX-ETF-MISSING-CODE-OR-NAME"))
+            continue
+        if not _is_jpx_etf_or_etn(code, name, market_segment):
+            skipped_rows.append(_skipped_row(index, code, "JPX-ETF-OUT-OF-SCOPE"))
+            continue
+
+        complexity = _complexity_for_etf(raw_row, name)
+        is_leveraged = _flag_for_etf(
+            raw_row,
+            _IS_LEVERAGED_ALIASES,
+            name,
+            _LEVERAGED_MARKERS,
+        )
+        is_inverse = _flag_for_etf(raw_row, _IS_INVERSE_ALIASES, name, _INVERSE_MARKERS)
+        theme, sector = _theme_sector_for_jpx_etf(name, index_raw)
+        output_rows.append(
+            {
+                "symbol": f"{code}.T",
+                "name": name,
+                "market": "jp",
+                "asset_type": "etf",
+                "currency": "JPY",
+                "theme": theme,
+                "sector": sector,
+                "index_family": _index_family_for_text(index_raw, name),
+                "expense_ratio_pct": _normalize_percent(
+                    _first_value(raw_row, _EXPENSE_RATIO_ALIASES)
+                ),
+                "complexity": complexity,
+                "tags": _first_value(raw_row, _TAGS_ALIASES)
+                or _tags_for_jpx_etf(theme, complexity, name),
+                "aliases": _aliases_for_values(name, market_segment, index_raw),
+                "is_leveraged": is_leveraged,
+                "is_inverse": is_inverse,
+                "source_market_segment": market_segment,
+            }
+        )
+
+    manifest = _source_build_manifest(
+        source_kind="jpx_etf",
+        as_of=as_of,
+        raw_rows=raw_rows,
+        output_rows=output_rows,
+        skipped_rows=skipped_rows,
+        fieldnames=JPX_ETF_SOURCE_FIELDNAMES,
     )
     return SymbolUniverseSourceBuildResult(rows=output_rows, manifest=manifest)
 
@@ -485,11 +599,27 @@ def _is_jpx_listed_stock(code: str, name: str, market_segment: str) -> bool:
     return True
 
 
+def _is_jpx_etf_or_etn(code: str, name: str, market_segment: str) -> bool:
+    if not _JPX_CODE_PATTERN.match(code):
+        return False
+    combined_text = f"{name} {market_segment}".upper()
+    return any(marker.upper() in combined_text for marker in _JPX_ETF_MARKERS)
+
+
 def _theme_sector_for_industry(industry_33: str, industry_17: str) -> tuple[str, str]:
     for industry in (industry_33, industry_17):
         if industry in _INDUSTRY_THEME_SECTOR_MAP:
             return _INDUSTRY_THEME_SECTOR_MAP[industry]
     return "balanced", "industrial"
+
+
+def _theme_sector_for_jpx_etf(name: str, index_text: str) -> tuple[str, str]:
+    combined_text = f"{name} {index_text}".upper()
+    if any(marker in combined_text for marker in _COMMODITY_MARKERS):
+        return "commodity", "index"
+    if any(marker in combined_text for marker in _REIT_MARKERS):
+        return "reit", "real_estate"
+    return "index", "index"
 
 
 def _theme_sector_for_us_sector(sector: str) -> tuple[str, str]:
@@ -530,6 +660,8 @@ def _complexity_for_etf(row: Mapping[str, Any], name: str) -> str:
     if explicit_value:
         return explicit_value
     name_upper = name.upper()
+    if any(marker.upper() in name_upper for marker in _ETN_MARKERS):
+        return "etn"
     if any(marker in name_upper for marker in _INVERSE_MARKERS):
         return "inverse"
     if any(marker in name_upper for marker in _LEVERAGED_MARKERS):
@@ -556,6 +688,18 @@ def _tags_for_etf(complexity: str) -> str:
     if complexity in {"leveraged", "inverse", "etn", "advanced"}:
         return ""
     return "low_cost"
+
+
+def _tags_for_jpx_etf(theme: str, complexity: str, name: str) -> str:
+    if complexity in {"leveraged", "inverse", "etn", "advanced"}:
+        return ""
+    if theme == "commodity":
+        return "balanced"
+    if "高配当" in name or "HIGH DIVIDEND" in name.upper():
+        return "dividend,balanced"
+    if "NASDAQ" in name.upper():
+        return "growth"
+    return "low_cost,balanced"
 
 
 def _aliases_for_jpx_row(

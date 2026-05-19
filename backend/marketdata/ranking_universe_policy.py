@@ -31,6 +31,7 @@ class RankingUniversePolicy:
             "reit",
         }
     )
+    exclude_themes: frozenset[str] = frozenset({"commodity"})
     exclude_leveraged: bool = True
     exclude_inverse: bool = True
     exclude_untradable: bool = True
@@ -53,6 +54,8 @@ def symbol_allowed_by_ranking_universe_policy(
     if asset_type in policy.exclude_asset_types:
         return False
     if policy.include_asset_types and asset_type not in policy.include_asset_types:
+        return False
+    if _normalized(row.get("theme", "")) in policy.exclude_themes:
         return False
 
     broker = _normalized(row.get("broker", ""))

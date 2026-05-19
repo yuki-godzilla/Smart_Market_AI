@@ -14,13 +14,16 @@ from ui.symbol_universe import (
 
 def test_symbol_universe_csv_matches_schema():
     rows = symbol_universe_csv_rows()
+    row_by_symbol = {row["symbol"]: row for row in rows}
 
     assert rows
-    assert rows[0]["metadata_source"] == "curated_csv"
-    assert rows[0]["metadata_as_of"] == "2026-05-18"
+    assert row_by_symbol["6861.T"]["metadata_source"] == "curated_csv"
+    assert row_by_symbol["6861.T"]["metadata_as_of"] == "2026-05-18"
     assert rows[0]["broker"] == "sbi_securities"
     assert rows[0]["tradability"] == "unknown"
-    assert rows[0]["nisa_category"] == "unknown"
+    assert row_by_symbol["7203.T"]["nisa_category"] == "growth"
+    assert row_by_symbol["7203.T"]["nisa_growth_eligible"] == "true"
+    assert row_by_symbol["1540.T"]["nisa_category"] == "none"
     assert rows[0]["is_sbi_supported"] == "true"
     assert rows[0]["is_active"] == "true"
     assert rows[0]["is_leveraged"] == "false"
@@ -29,15 +32,16 @@ def test_symbol_universe_csv_matches_schema():
 
 
 def test_symbol_universe_csv_metadata_summary_counts_source_and_freshness():
-    summary = symbol_universe_csv_metadata_summary(today=date(2026, 5, 18))
+    summary = symbol_universe_csv_metadata_summary(today=date(2026, 5, 19))
 
     assert summary["total_rows"] >= 146
-    assert summary["source_counts"]["curated_csv"] >= 90
-    assert summary["source_counts"]["jpx"] >= 30
+    assert summary["source_counts"]["curated_csv"] >= 70
+    assert summary["source_counts"]["fsa"] >= 30
+    assert summary["source_counts"]["jpx"] >= 20
     assert summary["source_counts"]["sbi_us_stock"] >= 8
-    assert summary["source_counts"]["sbi_us_etf"] >= 10
+    assert summary["source_counts"]["sbi_us_etf"] >= 5
     assert summary["source_counts"]["mutual_fund_seed"] >= 4
-    assert summary["metadata_period"] == "2026-05-18"
+    assert summary["metadata_period"] == "2026-05-18 〜 2026-05-19"
     assert summary["missing_metadata_count"] == 0
     assert summary["stale_metadata_count"] == 0
     assert summary["validation_summary"] == "OK"

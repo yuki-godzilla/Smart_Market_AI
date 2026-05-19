@@ -411,10 +411,11 @@ ranking_universe:
 
 `jpx_*`, `sbi_*`, `mutual_fund_seed` は `broker=sbi_securities`, `is_sbi_supported=true`, `is_active=true`, `is_leveraged=false`, `is_inverse=false` を補完する。
 source CSV 側に `is_leveraged` / `is_inverse` がある場合は、source 側の値を優先する。
-`nisa_eligibility` は `--update-existing` と組み合わせる前提で、制度 metadata 以外の市場・商品・名称を上書きしない。
+`nisa_eligibility` は `--update-existing` と組み合わせる前提で、制度 metadata 以外の市場・商品・名称を上書きしない。source に未知の symbol が含まれる場合は、新規追加せず import failure として manifest に残す。
 
-2026-05-18 時点の `symbol_universe.csv` は 146件です。
+2026-05-19 時点の `symbol_universe.csv` は 146件です。
 内訳は `stock=120`, `etf=20`, `mutual_fund=4`, `adr=2` です。MVP ranking universe はこのうち `stock` / `etf` のみを対象にします。
+`nisa_eligibility_seed.csv` から 31件の NISA metadata を反映済みです。これは local seed であり、公式 source の継続更新 adapter は後続範囲です。
 
 NG:
 
@@ -465,6 +466,7 @@ Phase 18 の実装順:
    - `--source-profile` と seed CSV は追加済み。
    - JPX stock / ETF profile と NISA eligibility profile は追加済み。
    - SBI US stock / ETF / mutual fund seed は `symbol_universe.csv` へ反映済み。
+   - NISA eligibility seed は 31件を `symbol_universe.csv` へ反映済み。
    - MVP ranking は stock / ETF のみを対象にし、mutual fund seed は Future Phase 用の保持データとする。
    - SBI公式一覧 / NISA公式一覧などからの半自動 adapter は未実装。
 

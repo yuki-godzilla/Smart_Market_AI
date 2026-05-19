@@ -225,6 +225,7 @@ def merge_symbol_universe_source_rows(
 ) -> SymbolUniverseImportResult:
     """Merge a local curated source CSV into symbol_universe-shaped rows."""
 
+    effective_defaults = defaults or SymbolUniverseImportDefaults()
     fieldnames = symbol_universe_import_fieldnames()
     proposed_rows = [_complete_existing_row(row, fieldnames) for row in existing_rows]
     row_index_by_symbol = {
@@ -246,7 +247,7 @@ def merge_symbol_universe_source_rows(
             source_name=source_name,
             as_of=as_of,
             updated_at=updated_at,
-            defaults=defaults or SymbolUniverseImportDefaults(),
+            defaults=effective_defaults,
             source_row_number=source_row_number,
         )
         if failure is not None:
@@ -257,6 +258,19 @@ def merge_symbol_universe_source_rows(
         normalized_symbol = symbol.upper()
         existing_index = row_index_by_symbol.get(normalized_symbol)
         if existing_index is None:
+            if effective_defaults.update_columns:
+                failures.append(
+                    SymbolUniverseImportFailure(
+                        source_row=source_row_number,
+                        symbol=symbol,
+                        code="SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
+                        message=(
+                            "symbol is not in the existing symbol universe, "
+                            "so update-only source rows cannot be imported."
+                        ),
+                    )
+                )
+                continue
             proposed_rows.append(normalized_row)
             row_index_by_symbol[normalized_symbol] = len(proposed_rows) - 1
             imported_symbols.append(symbol)
@@ -274,7 +288,10 @@ def merge_symbol_universe_source_rows(
         for column, value in normalized_row.items():
             if column == "symbol":
                 continue
-            if defaults and defaults.update_columns and column not in defaults.update_columns:
+            if (
+                effective_defaults.update_columns
+                and column not in effective_defaults.update_columns
+            ):
                 continue
             if not value.strip() and column not in _operational_metadata_columns():
                 continue
@@ -357,7 +374,7 @@ def _source_row_to_symbol_universe_row(
             message="symbol is required.",
         )
     row["symbol"] = symbol
-    if not name:
+    if not name and not defaults.update_columns:
         return row, SymbolUniverseImportFailure(
             source_row=source_row_number,
             symbol=symbol,

@@ -40,6 +40,15 @@ def test_ranking_universe_policy_excludes_initial_out_of_scope_products():
         assert not symbol_allowed_by_ranking_universe_policy({"asset_type": asset_type})
 
 
+def test_ranking_universe_policy_excludes_commodity_theme_etfs():
+    assert not symbol_allowed_by_ranking_universe_policy(
+        {
+            "asset_type": "etf",
+            "theme": "commodity",
+        }
+    )
+
+
 def test_ranking_universe_policy_excludes_risky_or_unavailable_rows():
     base = {
         "asset_type": "etf",

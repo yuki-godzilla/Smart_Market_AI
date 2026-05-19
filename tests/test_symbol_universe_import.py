@@ -145,7 +145,6 @@ def test_nisa_eligibility_profile_updates_only_nisa_fields():
         [
             {
                 "symbol": "VOO",
-                "name": "Vanguard S&P 500 ETF source",
                 "market": "jp",
                 "asset_type": "stock",
                 "currency": "JPY",
@@ -177,6 +176,29 @@ def test_nisa_eligibility_profile_updates_only_nisa_fields():
         "nisa_growth_eligible",
         "nisa_tsumitate_eligible",
     ]
+
+
+def test_nisa_eligibility_profile_rejects_new_symbols():
+    profile = symbol_universe_source_profile("nisa_eligibility")
+    result = merge_symbol_universe_source_rows(
+        [],
+        [
+            {
+                "symbol": "MISSING",
+                "nisa_type": "growth",
+                "growth_eligible": "true",
+            }
+        ],
+        source_name=profile.source_name,
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+        defaults=profile.defaults,
+        update_existing=True,
+    )
+
+    assert result.rows == []
+    assert result.manifest["failed_rows"] == 1
+    assert result.manifest["failures"][0]["code"] == "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL"
 
 
 def test_sbi_us_etf_profile_keeps_leveraged_inverse_flags_for_policy_exclusion():

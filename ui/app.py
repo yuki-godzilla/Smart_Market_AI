@@ -35,6 +35,7 @@ from ui.ranking import (
     RANKING_MARKET_CAP_LABELS,
     RANKING_MVP_PRODUCT_TYPE_LABELS,
     RANKING_MVP_REGION_LABELS,
+    RANKING_NISA_ELIGIBILITY_LABELS,
     RANKING_PERIOD_PRESETS,
     RANKING_PURPOSE_LABELS,
     RANKING_RISK_BAND_LABELS,
@@ -353,6 +354,14 @@ def _render_ranking_filter_panel() -> None:
                     options=list(RANKING_RISK_BAND_LABELS),
                     key="market_data_ranking_risk_band",
                     format_func=lambda value: RANKING_RISK_BAND_LABELS[value],
+                )
+        if "nisa_eligibility" in detail_filters:
+            with next_column():
+                _render_detail_selectbox(
+                    "NISA",
+                    options=list(RANKING_NISA_ELIGIBILITY_LABELS),
+                    key="market_data_ranking_nisa",
+                    format_func=lambda value: RANKING_NISA_ELIGIBILITY_LABELS[value],
                 )
         if "benchmark_index" in detail_filters:
             with next_column():
@@ -693,6 +702,7 @@ def _render_market_data_ranking() -> None:
     index_family = _ranking_filter_value("market_data_ranking_index_family", "all")
     max_expense_ratio_pct = _ranking_filter_value("market_data_ranking_max_expense", "1.00")
     complexity = _ranking_filter_value("market_data_ranking_complexity", "standard")
+    nisa_eligibility = _ranking_filter_value("market_data_ranking_nisa", "all")
     risk_band = _ranking_filter_value("market_data_ranking_risk_band", "all")
     theme = _ranking_filter_value("market_data_ranking_theme", "all")
     symbol_query = _ranking_filter_value("market_data_ranking_symbol_query", "")
@@ -725,6 +735,7 @@ def _render_market_data_ranking() -> None:
         index_family=index_family,
         max_expense_ratio_pct=max_expense_ratio_pct,
         complexity=complexity,
+        nisa_eligibility=nisa_eligibility,
         risk_band=risk_band,
         theme=theme,
         query=symbol_query,
@@ -760,6 +771,7 @@ def _render_market_data_ranking() -> None:
         index_family=index_family,
         max_expense_ratio_pct=max_expense_ratio_pct,
         complexity=complexity,
+        nisa_eligibility=nisa_eligibility,
         risk_band=risk_band,
         theme=theme,
         query=symbol_query,

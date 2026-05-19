@@ -281,6 +281,7 @@ Symbol universe source import:
 - 初期 source として `data/marketdata/symbol_universe_sources/jpx_etf_seed.csv` と `data/marketdata/symbol_universe_sources/jpx_stock_seed.csv` を置いています。2026-05-18 時点では国内 ETF 8件、国内株 24件を `symbol_universe.csv` に取り込み済みです。
 - MVP 向け source profile として `jpx_stock`, `jpx_etf`, `sbi_us_stock`, `sbi_us_etf`, `nisa_eligibility` を使えます。`mutual_fund_seed` は将来対応用 profile として残します。
 - 追加 seed として `sbi_us_stock_seed.csv`, `sbi_us_etf_seed.csv`, `mutual_fund_seed.csv` を置いています。2026-05-18 時点では、米国株 8件、米国 ETF 7件、投信 4件を `symbol_universe.csv` に取り込み済みです。既存 ETF 3件は SBI ETF profile で更新済みです。投信 4件は default ranking universe から除外されます。
+- `nisa_eligibility_seed.csv` は既存の株式・ETF 31件へ NISA metadata を付与する local seed です。2026-05-19 時点で `symbol_universe.csv` に反映済みです。
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\import_symbol_universe_source.py --source-csv .\data\marketdata\symbol_universe_sources\jpx_etf_seed.csv --source-profile jpx_etf --as-of 2026-05-18 --updated-at 2026-05-18T00:00:00+09:00
@@ -300,12 +301,16 @@ SBI profile の dry-run 例:
 
 NISA eligibility のように既存銘柄の制度 metadata だけを更新する場合は `--source-profile nisa_eligibility --update-existing` を使います。この profile は `nisa_category`, `nisa_growth_eligible`, `nisa_tsumitate_eligible`, metadata source/as-of/update fields だけを更新し、既存の市場や商品分類は上書きしません。
 
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\import_symbol_universe_source.py --source-csv .\data\marketdata\symbol_universe_sources\nisa_eligibility_seed.csv --source-profile nisa_eligibility --as-of 2026-05-19 --updated-at 2026-05-19T00:00:00+09:00 --update-existing
+```
+
 SBI ranking universe policy:
 
 - MVP対象: 国内株式、米国株式、国内ETF、米国ETF/海外ETF。
-- 初期除外: 投資信託、ADR、REIT、FX、CFD、先物・オプション、暗号資産、債券、外貨建MMF、貴金属、レバレッジ、インバース、非tradable、非SBI対応。
+- 初期除外: 投資信託、ADR、REIT、FX、CFD、先物・オプション、暗号資産、債券、外貨建MMF、貴金属・コモディティ系ETF、レバレッジ、インバース、非tradable、非SBI対応。
 - `symbol_universe.csv` / schema に SBI policy columns を追加済みです。既存127件は conservative default として `broker=sbi_securities`, `tradability=unknown`, `nisa_category=unknown`, `investment_style=unknown`, `is_sbi_supported=true`, `is_active=true`, `is_leveraged=false`, `is_inverse=false` を持ちます。
-- `tradability=unknown` は stock / ETF の初期 seed として通し、`not_tradable` だけを除外します。SBI / NISA の source import profile はありますが、公式 source の継続更新は後続範囲です。投信公式 source import は Future Phase です。
+- `tradability=unknown` は stock / ETF の初期 seed として通し、`not_tradable` だけを除外します。NISA seed import はありますが、公式 source の継続更新は後続範囲です。投信公式 source import は Future Phase です。
 - SBI証券サイトへのログインや画面スクレイピングは通常 workflow に含めません。SBI / JPX / NISA 一覧などを手動または curated source CSV に整形し、source import command で local master へ反映します。投信協会 / 投信CSV / 基準価額は Future Phase で扱います。
 - Ranking / Screening は source site を直接参照せず、`symbol_universe.csv` と default policy helper だけを参照します。
 - 投信向け metadata として `trust_fee_pct`, `aum`, `nisa_tsumitate_eligible`, `nisa_growth_eligible`, `installment_available`, `management_style`, `distribution_policy` を source CSV から取り込めます。ただし MVP ではランキング対象外です。
@@ -315,7 +320,7 @@ Phase 16 ranking implementation notes:
 
 - `data/marketdata/symbol_universe.csv` is the ranking candidate master used before provider fetch. It is intentionally curated/local-first and currently carries display/search/filter metadata such as `symbol`, `name`, `market`, `asset_type`, `currency`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases`, `per`, `pbr`, `roe_pct`, `sector`, `consensus_rating`, `forecast_agreement`, `data_quality`, and `risk_band`.
 - The Phase 18 schema helper validates required columns, allowed enum values, decimal fields, duplicate tickers, and metadata freshness/source columns without requiring live provider access.
-- The in-page screening condition panel filters comparison candidates by metadata and metric ranges. `取得期間` and `重視条件` are not screening filters; they control ranking calculation and display ordering.
+- The in-page screening condition panel filters comparison candidates by metadata, NISA eligibility, and metric ranges. `取得期間` and `重視条件` are not screening filters; they control ranking calculation and display ordering.
 - Ranking build uses a fast batch path first: it fetches OHLCV in chunks, builds feature snapshots from already-fetched market data, then reuses existing Screening / Investment Score services. If the batch path fails with a provider/domain error, local/deterministic providers can fall back to the existing per-symbol preview path; live Yahoo failures are reported once without retrying every symbol to avoid repeated network failures.
 - Yahoo OHLCV uses the same non-threaded yfinance download path for single-symbol cockpit and multi-symbol ranking requests. The cockpit reuses one fetched OHLCV range for quote display and feature construction instead of fetching the same symbol again. Yahoo cockpit fetch prioritizes price data: initial fetch skips live FX and fundamentals so price / forecast / score rows can render without waiting on nonessential live requests. SMAI shares one curl_cffi-backed yfinance session across `Search`, `download`, and `Ticker` calls so Yahoo cookie / crumb state stays attached to the same session. If yfinance returns an empty batch response, the provider retries once after a short delay to absorb first-call warm-up / transient empty responses. Because live Yahoo requests are network-dependent and can be slow or noisy, Streamlit ranking warns when selected symbols exceed 30, uses smaller non-threaded download chunks, and suppresses yfinance's raw console noise in favor of structured UI error rows.
 - Ranking rows are cached in Streamlit session state by `provider + symbols + start + end`. Re-running the same request or changing only the ranking weight preset reuses fetched rows and only re-sorts the display.

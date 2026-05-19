@@ -120,6 +120,7 @@ def ranking_filter_signature_from_state() -> str:
         index_family=ranking_filter_value("market_data_ranking_index_family", "all"),
         max_expense_ratio_pct=ranking_filter_value("market_data_ranking_max_expense", "1.00"),
         complexity=ranking_filter_value("market_data_ranking_complexity", "standard"),
+        nisa_eligibility=ranking_filter_value("market_data_ranking_nisa", "all"),
         risk_band=ranking_filter_value("market_data_ranking_risk_band", "all"),
         theme=ranking_filter_value("market_data_ranking_theme", "all"),
         query=ranking_filter_value("market_data_ranking_symbol_query", ""),

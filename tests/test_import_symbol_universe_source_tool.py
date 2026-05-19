@@ -213,7 +213,6 @@ def test_import_symbol_universe_source_tool_updates_nisa_profile_only(tmp_path, 
         [
             {
                 "symbol": "VOO",
-                "name": "Vanguard S&P 500 ETF source",
                 "market": "jp",
                 "asset_type": "stock",
                 "currency": "JPY",

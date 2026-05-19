@@ -412,6 +412,30 @@ def test_filter_symbol_universe_rows_preserves_etf_region():
     ] == ["VOO"]
 
 
+def test_filter_symbol_universe_rows_filters_by_nisa_eligibility():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "7203.T", "name": "Toyota Motor"},
+            {"symbol": "6861.T", "name": "Keyence"},
+            {"symbol": "VOO", "name": "Vanguard S&P 500 ETF"},
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            nisa_eligibility="growth",
+        )
+    ] == ["7203.T", "VOO"]
+
+
+def test_filter_symbol_universe_rows_excludes_commodity_etfs_from_mvp_ranking():
+    rows = symbol_universe_rows([{"symbol": "1540.T", "name": "Japan Physical Gold ETF"}])
+
+    assert filter_symbol_universe_rows(rows, product_type="etf") == []
+
+
 def test_filter_symbol_universe_rows_excludes_mutual_funds_from_mvp_ranking():
     rows = symbol_universe_rows()
 
@@ -593,6 +617,37 @@ def test_ranking_filter_signature_includes_investment_style():
         currency="all",
         dividend_category="all",
         complexity="standard",
+        theme="all",
+        query="",
+        limit=6,
+    )
+
+    assert base != changed
+
+
+def test_ranking_filter_signature_includes_nisa_filter():
+    base = ranking_filter_signature(
+        purpose="dividend",
+        period_preset="short",
+        market="us",
+        asset_type="stock",
+        currency="all",
+        dividend_category="all",
+        complexity="standard",
+        nisa_eligibility="all",
+        theme="all",
+        query="",
+        limit=6,
+    )
+    changed = ranking_filter_signature(
+        purpose="dividend",
+        period_preset="short",
+        market="us",
+        asset_type="stock",
+        currency="all",
+        dividend_category="all",
+        complexity="standard",
+        nisa_eligibility="growth",
         theme="all",
         query="",
         limit=6,

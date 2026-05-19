@@ -242,6 +242,7 @@ RANKING_DETAIL_FILTER_LABELS = {
     "pbr": "PBR",
     "roe": "ROE",
     "risk_band": "リスク",
+    "nisa_eligibility": "NISA",
     "benchmark_index": "連動指数",
     "expense_ratio": "信託報酬/経費率",
     "complexity": "複雑さ",
@@ -255,6 +256,7 @@ RANKING_DETAIL_FILTERS_BY_CATEGORY = {
         "pbr",
         "roe",
         "risk_band",
+        "nisa_eligibility",
     ],
     (RANKING_REGION_US, RANKING_PRODUCT_STOCK): [
         "industry_or_sector",
@@ -263,6 +265,7 @@ RANKING_DETAIL_FILTERS_BY_CATEGORY = {
         "per",
         "roe",
         "risk_band",
+        "nisa_eligibility",
     ],
     (RANKING_REGION_ALL, RANKING_PRODUCT_STOCK): [
         "industry_or_sector",
@@ -271,8 +274,10 @@ RANKING_DETAIL_FILTERS_BY_CATEGORY = {
         "per",
         "roe",
         "risk_band",
+        "nisa_eligibility",
     ],
     (RANKING_REGION_ALL, RANKING_PRODUCT_ETF): [
+        "nisa_eligibility",
         "benchmark_index",
         "expense_ratio",
         "dividend_yield",
@@ -292,6 +297,7 @@ RANKING_FILTER_DEFAULTS: dict[str, str] = {
     "market_data_ranking_index_family": "all",
     "market_data_ranking_max_expense": "1.00",
     "market_data_ranking_complexity": "standard",
+    "market_data_ranking_nisa": "all",
     "market_data_ranking_risk_band": "all",
     "market_data_ranking_theme": "all",
     "market_data_ranking_symbol_query": "",
@@ -364,6 +370,7 @@ def ranking_detail_filters_for_category(region: str, product_type: str) -> list[
         "benchmark_index",
         "expense_ratio",
         "complexity",
+        "nisa_eligibility",
     ]
 
 

@@ -260,3 +260,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added JPX stock / ETF source profiles so local JPX seed import can use named defaults instead of repeated command-line default arguments.
 - Added a NISA eligibility source profile that updates only NISA metadata fields and preserves existing symbol name, market, product type, and currency.
 - Added deterministic tests for JPX profile defaults, NISA-only update behavior, and the import command `--source-profile nisa_eligibility --update-existing` path.
+
+## 2026-05-19 - Phase 18 NISA seed integration
+
+- Added `nisa_eligibility_seed.csv` and imported 31 existing stock / ETF rows into `symbol_universe.csv` with NISA metadata.
+- Added the NISA pre-fetch condition to the ranking detail panel and connected it to ranking filter state/signature.
+- Strengthened update-only source import so NISA metadata sources cannot append unknown symbols as incomplete master rows.
+- Excluded commodity-themed ETF rows from the default MVP ranking universe while keeping them in the local master for metadata coverage.

@@ -297,3 +297,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added a `jpx_etf` source builder for local JPX ETF / ETN raw CSV/Excel files.
 - Added ETF/ETN scope detection, `.T` symbol output, index-family inference, trust-fee percent normalization, commodity / REIT theme mapping, and leveraged/inverse/ETN flags.
 - Documented the JPX ETF raw-file-to-source workflow and kept official download automation outside the normal deterministic path.
+
+## 2026-05-19 - Phase 18 NISA eligibility source builder
+
+- Added a `nisa_eligibility` source builder for local NISA raw CSV/Excel files.
+- Normalized domestic 4-digit codes to `.T` symbols and mapped growth / tsumitate / both / none eligibility into canonical NISA metadata fields.
+- Kept ambiguous generic NISA rows as `unknown` rather than inferring a category that the source did not provide.

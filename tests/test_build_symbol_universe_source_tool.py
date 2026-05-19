@@ -203,6 +203,59 @@ def test_build_symbol_universe_source_tool_writes_sbi_us_etf_source(tmp_path, ca
     assert manifest["source_kind"] == "sbi_us_etf"
 
 
+def test_build_symbol_universe_source_tool_writes_nisa_eligibility_source(tmp_path, capsys):
+    raw_csv = tmp_path / "nisa_raw.csv"
+    output_csv = tmp_path / "nisa_source.csv"
+    manifest_path = tmp_path / "manifest.json"
+    _write_raw_nisa_rows(
+        raw_csv,
+        [
+            {
+                "コード": "7203",
+                "NISA区分": "成長投資枠",
+                "成長投資枠": "",
+                "つみたて投資枠": "",
+            },
+            {
+                "コード": "VOO",
+                "NISA区分": "",
+                "成長投資枠": "対象",
+                "つみたて投資枠": "対象",
+            },
+        ],
+    )
+
+    exit_code = main(
+        [
+            "--source-kind",
+            "nisa_eligibility",
+            "--raw-file",
+            str(raw_csv),
+            "--output-csv",
+            str(output_csv),
+            "--manifest",
+            str(manifest_path),
+            "--as-of",
+            "2026-05-19",
+            "--write",
+        ]
+    )
+
+    output = json.loads(capsys.readouterr().out)
+    rows = _read_rows(output_csv)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert exit_code == 0
+    assert output["output_rows"] == 2
+    assert rows[0]["symbol"] == "7203.T"
+    assert rows[0]["nisa_category"] == "growth"
+    assert rows[0]["nisa_growth_eligible"] == "true"
+    assert rows[0]["nisa_tsumitate_eligible"] == "false"
+    assert rows[1]["symbol"] == "VOO"
+    assert rows[1]["nisa_category"] == "both"
+    assert rows[1]["nisa_tsumitate_eligible"] == "true"
+    assert manifest["source_kind"] == "nisa_eligibility"
+
+
 def _write_raw_jpx_rows(path, rows):
     fieldnames = ["コード", "銘柄名", "市場・商品区分", "33業種区分", "17業種区分", "規模区分"]
     with path.open("w", encoding="utf-8", newline="") as file:
@@ -221,6 +274,14 @@ def _write_raw_jpx_etf_rows(path, rows):
 
 def _write_raw_sbi_us_etf_rows(path, rows):
     fieldnames = ["ticker", "name", "underlying_index", "expense_ratio"]
+    with path.open("w", encoding="utf-8", newline="") as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _write_raw_nisa_rows(path, rows):
+    fieldnames = ["コード", "NISA区分", "成長投資枠", "つみたて投資枠"]
     with path.open("w", encoding="utf-8", newline="") as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)
         writer.writeheader()

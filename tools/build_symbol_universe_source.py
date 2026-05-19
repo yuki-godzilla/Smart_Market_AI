@@ -21,10 +21,12 @@ if str(PROJECT_ROOT) not in sys.path:
 from backend.marketdata.symbol_universe_source_build import (  # noqa: E402
     JPX_ETF_SOURCE_FIELDNAMES,
     JPX_LISTED_STOCK_SOURCE_FIELDNAMES,
+    NISA_ELIGIBILITY_SOURCE_FIELDNAMES,
     SBI_US_ETF_SOURCE_FIELDNAMES,
     SBI_US_STOCK_SOURCE_FIELDNAMES,
     build_jpx_etf_source_rows,
     build_jpx_listed_stock_source_rows,
+    build_nisa_eligibility_source_rows,
     build_sbi_us_etf_source_rows,
     build_sbi_us_stock_source_rows,
 )
@@ -45,6 +47,10 @@ SOURCE_BUILDERS = {
     "sbi_us_etf": (
         build_sbi_us_etf_source_rows,
         SBI_US_ETF_SOURCE_FIELDNAMES,
+    ),
+    "nisa_eligibility": (
+        build_nisa_eligibility_source_rows,
+        NISA_ELIGIBILITY_SOURCE_FIELDNAMES,
     ),
 }
 
@@ -204,6 +210,9 @@ def _header_index(table_rows: Sequence[Sequence[str]]) -> int | None:
             or ({"symbol", "name"} <= normalized_headers)
             or ({"ticker", "name"} <= normalized_headers)
             or ({"ティッカー", "銘柄名"} <= normalized_headers)
+            or ({"symbol", "nisa_category"} <= normalized_headers)
+            or ({"コード", "nisa区分"} <= normalized_headers)
+            or ({"銘柄コード", "nisa区分"} <= normalized_headers)
         ):
             return index
     return None

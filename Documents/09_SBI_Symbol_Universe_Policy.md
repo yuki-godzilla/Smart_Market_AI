@@ -416,6 +416,7 @@ ranking_universe:
 `jpx_*`, `sbi_*`, `mutual_fund_seed` は `broker=sbi_securities`, `is_sbi_supported=true`, `is_active=true`, `is_leveraged=false`, `is_inverse=false` を補完する。
 source CSV 側に `is_leveraged` / `is_inverse` がある場合は、source 側の値を優先する。
 `nisa_eligibility` は `--update-existing` と組み合わせる前提で、制度 metadata 以外の市場・商品・名称を上書きしない。source に未知の symbol が含まれる場合は、新規追加せず import failure として manifest に残す。
+NISA raw file から source CSV を作る場合は、`tools/build_symbol_universe_source.py --source-kind nisa_eligibility` を使う。この builder は4桁国内コードを `.T` 付き symbol に変換し、`成長投資枠` / `つみたて投資枠` / `対象外` を `nisa_category`, `nisa_growth_eligible`, `nisa_tsumitate_eligible` に正規化する。曖昧な `NISA対象` だけの行は `unknown` として保持し、制度区分を過剰に推定しない。
 
 JPX の東証上場銘柄一覧を取り込む場合は、公式 Excel / CSV をまず local raw file として保存し、`tools/build_symbol_universe_source.py --source-kind jpx_listed_stock` で source CSV に変換する。この builder は国内株だけを出力し、ETF / ETN / REIT は別 source として扱う。
 
@@ -477,6 +478,7 @@ Phase 18 の実装順:
    - JPX 東証上場銘柄一覧 raw file から国内株 source CSV を作る `jpx_listed_stock` builder / profile は追加済み。
    - JPX 国内 ETF / ETN raw file から source CSV を作る `jpx_etf` builder は追加済み。
    - SBI米国株 / 米国ETF・海外ETF raw file から source CSV を作る `sbi_us_stock` / `sbi_us_etf` builder は追加済み。
+   - NISA raw file から制度 metadata source CSV を作る `nisa_eligibility` builder は追加済み。
    - JPX stock / ETF profile と NISA eligibility profile は追加済み。
    - JPX stock / ETF、SBI US stock / ETF、mutual fund seed は `symbol_universe.csv` へ反映済み。
    - NISA eligibility seed は 31件を `symbol_universe.csv` へ反映済み。

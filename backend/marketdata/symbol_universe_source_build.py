@@ -78,6 +78,13 @@ SBI_US_ETF_SOURCE_FIELDNAMES = [
     "aliases",
 ]
 
+NISA_ELIGIBILITY_SOURCE_FIELDNAMES = [
+    "symbol",
+    "nisa_category",
+    "nisa_growth_eligible",
+    "nisa_tsumitate_eligible",
+]
+
 _JPX_CODE_PATTERN = re.compile(r"^[0-9A-Z]{4}$")
 _US_SYMBOL_PATTERN = re.compile(r"^[A-Z][A-Z0-9-]{0,14}$")
 _JPX_STOCK_MARKET_MARKERS = ("グロース", "スタンダード", "プライム")
@@ -175,6 +182,23 @@ _EXPENSE_RATIO_ALIASES = (
 )
 _COMPLEXITY_ALIASES = ("complexity", "leverage_type", "複雑さ")
 _NISA_CATEGORY_ALIASES = ("nisa_category", "nisa_type", "NISA区分")
+_NISA_GROWTH_ELIGIBLE_ALIASES = (
+    "nisa_growth_eligible",
+    "growth_nisa",
+    "growth_eligible",
+    "成長投資枠",
+    "成長投資枠対象",
+    "NISA成長投資枠",
+)
+_NISA_TSUMITATE_ELIGIBLE_ALIASES = (
+    "nisa_tsumitate_eligible",
+    "tsumitate_nisa",
+    "tsumitate_eligible",
+    "つみたて投資枠",
+    "つみたて投資枠対象",
+    "積立投資枠",
+    "NISAつみたて投資枠",
+)
 _INVESTMENT_STYLE_ALIASES = ("investment_style", "投資スタイル")
 _IS_LEVERAGED_ALIASES = ("is_leveraged", "leveraged", "レバレッジ")
 _IS_INVERSE_ALIASES = ("is_inverse", "inverse", "インバース")
@@ -562,6 +586,54 @@ def build_sbi_us_etf_source_rows(
     return SymbolUniverseSourceBuildResult(rows=output_rows, manifest=manifest)
 
 
+def build_nisa_eligibility_source_rows(
+    raw_rows: Sequence[Mapping[str, Any]],
+    *,
+    as_of: date,
+) -> SymbolUniverseSourceBuildResult:
+    """Build update-only NISA metadata source rows from local raw rows."""
+
+    output_rows: list[dict[str, str]] = []
+    skipped_rows: list[dict[str, str]] = []
+
+    for index, raw_row in enumerate(raw_rows, start=2):
+        symbol = _normalize_nisa_symbol(_first_value(raw_row, _SYMBOL_ALIASES))
+        category_raw = _first_value(raw_row, _NISA_CATEGORY_ALIASES)
+        growth_raw = _first_value(raw_row, _NISA_GROWTH_ELIGIBLE_ALIASES)
+        tsumitate_raw = _first_value(raw_row, _NISA_TSUMITATE_ELIGIBLE_ALIASES)
+
+        if not symbol:
+            skipped_rows.append(_skipped_row(index, "", "NISA-ELIGIBILITY-MISSING-SYMBOL"))
+            continue
+        if not category_raw and not growth_raw and not tsumitate_raw:
+            skipped_rows.append(_skipped_row(index, symbol, "NISA-ELIGIBILITY-MISSING-FLAGS"))
+            continue
+
+        category, growth_eligible, tsumitate_eligible = _nisa_category_and_flags(
+            category_raw,
+            growth_raw,
+            tsumitate_raw,
+        )
+        output_rows.append(
+            {
+                "symbol": symbol,
+                "nisa_category": category,
+                "nisa_growth_eligible": growth_eligible,
+                "nisa_tsumitate_eligible": tsumitate_eligible,
+            }
+        )
+
+    manifest = _source_build_manifest(
+        source_kind="nisa_eligibility",
+        as_of=as_of,
+        raw_rows=raw_rows,
+        output_rows=output_rows,
+        skipped_rows=skipped_rows,
+        fieldnames=NISA_ELIGIBILITY_SOURCE_FIELDNAMES,
+    )
+    return SymbolUniverseSourceBuildResult(rows=output_rows, manifest=manifest)
+
+
 def _first_value(row: Mapping[str, Any], aliases: Sequence[str]) -> str:
     normalized_by_key = {str(key).strip().lower(): value for key, value in row.items()}
     for alias in aliases:
@@ -586,6 +658,14 @@ def _normalize_us_symbol(value: str) -> str:
     text = text.split()[0]
     text = text.replace(".", "-").replace("/", "-")
     return text if _US_SYMBOL_PATTERN.match(text) else ""
+
+
+def _normalize_nisa_symbol(value: str) -> str:
+    text = value.strip().upper()
+    jpx_code = _normalize_jpx_code(text)
+    if jpx_code and (text.endswith(".T") or any(character.isdigit() for character in jpx_code)):
+        return f"{jpx_code}.T"
+    return _normalize_us_symbol(value)
 
 
 def _is_jpx_listed_stock(code: str, name: str, market_segment: str) -> bool:
@@ -700,6 +780,107 @@ def _tags_for_jpx_etf(theme: str, complexity: str, name: str) -> str:
     if "NASDAQ" in name.upper():
         return "growth"
     return "low_cost,balanced"
+
+
+def _nisa_category_and_flags(
+    category_raw: str,
+    growth_raw: str,
+    tsumitate_raw: str,
+) -> tuple[str, str, str]:
+    category = _normalize_nisa_category(category_raw)
+    growth_eligible = _normalize_nisa_bool(growth_raw)
+    tsumitate_eligible = _normalize_nisa_bool(tsumitate_raw)
+
+    if category and category != "unknown":
+        inferred_growth, inferred_tsumitate = _nisa_flags_from_category(category)
+        if growth_eligible == "unknown":
+            growth_eligible = inferred_growth
+        if tsumitate_eligible == "unknown":
+            tsumitate_eligible = inferred_tsumitate
+
+    if not category:
+        category = _nisa_category_from_flags(growth_eligible, tsumitate_eligible)
+    if not category:
+        category = "unknown"
+    return category, growth_eligible, tsumitate_eligible
+
+
+def _normalize_nisa_category(value: str) -> str:
+    text = _normalized_decision_text(value)
+    if not text:
+        return ""
+    if text in {"unknown", "不明"}:
+        return "unknown"
+    if text in {"none", "対象外", "非対象", "不可", "対象外含む"} or "noteligible" in text:
+        return "none"
+    has_growth = "growth" in text or "成長" in text
+    has_tsumitate = "tsumitate" in text or "つみたて" in text or "積立" in text
+    if "both" in text or (has_growth and has_tsumitate):
+        return "both"
+    if has_growth:
+        return "growth"
+    if has_tsumitate:
+        return "tsumitate"
+    if text in {"nisa対象", "対象", "eligible", "true", "yes", "○", "〇"}:
+        return "unknown"
+    return "unknown"
+
+
+def _normalize_nisa_bool(value: str) -> str:
+    text = _normalized_decision_text(value)
+    if not text:
+        return "unknown"
+    if text in {"true", "1", "yes", "y", "eligible", "対象", "○", "〇", "あり", "有"}:
+        return "true"
+    if text in {"false", "0", "no", "n", "対象外", "非対象", "×", "なし", "無"}:
+        return "false"
+    if text in {"unknown", "不明"}:
+        return "unknown"
+    if "noteligible" in text:
+        return "false"
+    if "対象外" in text or "非対象" in text:
+        return "false"
+    if "対象" in text or "eligible" in text:
+        return "true"
+    return "unknown"
+
+
+def _nisa_flags_from_category(category: str) -> tuple[str, str]:
+    if category == "growth":
+        return "true", "false"
+    if category == "tsumitate":
+        return "false", "true"
+    if category == "both":
+        return "true", "true"
+    if category == "none":
+        return "false", "false"
+    return "unknown", "unknown"
+
+
+def _nisa_category_from_flags(growth_eligible: str, tsumitate_eligible: str) -> str:
+    if growth_eligible == "true" and tsumitate_eligible == "true":
+        return "both"
+    if growth_eligible == "true" and tsumitate_eligible == "false":
+        return "growth"
+    if growth_eligible == "false" and tsumitate_eligible == "true":
+        return "tsumitate"
+    if growth_eligible == "false" and tsumitate_eligible == "false":
+        return "none"
+    return "unknown"
+
+
+def _normalized_decision_text(value: str) -> str:
+    return (
+        value.strip()
+        .lower()
+        .replace(" ", "")
+        .replace("　", "")
+        .replace("/", "")
+        .replace("／", "")
+        .replace("・", "")
+        .replace("-", "")
+        .replace("_", "")
+    )
 
 
 def _aliases_for_jpx_row(

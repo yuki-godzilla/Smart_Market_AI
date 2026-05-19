@@ -5,10 +5,12 @@ from datetime import date
 from backend.marketdata.symbol_universe_source_build import (
     JPX_ETF_SOURCE_FIELDNAMES,
     JPX_LISTED_STOCK_SOURCE_FIELDNAMES,
+    NISA_ELIGIBILITY_SOURCE_FIELDNAMES,
     SBI_US_ETF_SOURCE_FIELDNAMES,
     SBI_US_STOCK_SOURCE_FIELDNAMES,
     build_jpx_etf_source_rows,
     build_jpx_listed_stock_source_rows,
+    build_nisa_eligibility_source_rows,
     build_sbi_us_etf_source_rows,
     build_sbi_us_stock_source_rows,
 )
@@ -267,3 +269,88 @@ def test_build_sbi_us_source_rows_skip_missing_required_values():
     assert stock_result.manifest["skipped_rows"] == 1
     assert [row["symbol"] for row in etf_result.rows] == ["QQQ"]
     assert etf_result.manifest["skipped_rows"] == 1
+
+
+def test_build_nisa_eligibility_source_rows_maps_categories_and_flags():
+    result = build_nisa_eligibility_source_rows(
+        [
+            {
+                "コード": "7203",
+                "NISA区分": "成長投資枠",
+            },
+            {
+                "symbol": "VOO",
+                "nisa_category": "both",
+            },
+            {
+                "symbol": "MSFT",
+                "nisa_category": "growth",
+            },
+            {
+                "ティッカー": "QQQ",
+                "成長投資枠": "対象",
+                "つみたて投資枠": "対象外",
+            },
+            {
+                "コード": "1540",
+                "NISA区分": "対象外",
+            },
+        ],
+        as_of=date(2026, 5, 19),
+    )
+
+    assert result.rows == [
+        {
+            "symbol": "7203.T",
+            "nisa_category": "growth",
+            "nisa_growth_eligible": "true",
+            "nisa_tsumitate_eligible": "false",
+        },
+        {
+            "symbol": "VOO",
+            "nisa_category": "both",
+            "nisa_growth_eligible": "true",
+            "nisa_tsumitate_eligible": "true",
+        },
+        {
+            "symbol": "MSFT",
+            "nisa_category": "growth",
+            "nisa_growth_eligible": "true",
+            "nisa_tsumitate_eligible": "false",
+        },
+        {
+            "symbol": "QQQ",
+            "nisa_category": "growth",
+            "nisa_growth_eligible": "true",
+            "nisa_tsumitate_eligible": "false",
+        },
+        {
+            "symbol": "1540.T",
+            "nisa_category": "none",
+            "nisa_growth_eligible": "false",
+            "nisa_tsumitate_eligible": "false",
+        },
+    ]
+    assert result.manifest["source_kind"] == "nisa_eligibility"
+    assert result.manifest["fieldnames"] == NISA_ELIGIBILITY_SOURCE_FIELDNAMES
+
+
+def test_build_nisa_eligibility_source_rows_skips_rows_without_symbol_or_nisa_signal():
+    result = build_nisa_eligibility_source_rows(
+        [
+            {"コード": "", "NISA区分": "成長投資枠"},
+            {"コード": "6758", "銘柄名": "Sony Group"},
+            {"コード": "6758", "NISA区分": "NISA対象"},
+        ],
+        as_of=date(2026, 5, 19),
+    )
+
+    assert result.rows == [
+        {
+            "symbol": "6758.T",
+            "nisa_category": "unknown",
+            "nisa_growth_eligible": "unknown",
+            "nisa_tsumitate_eligible": "unknown",
+        }
+    ]
+    assert result.manifest["skipped_rows"] == 2

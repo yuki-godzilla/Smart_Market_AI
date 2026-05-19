@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from datetime import date
 
+from backend.marketdata.ranking_universe_policy import (
+    symbol_allowed_by_ranking_universe_policy,
+)
 from ui.symbol_universe import (
     SYMBOL_UNIVERSE_REQUIRED_COLUMNS,
     symbol_universe_csv_metadata_summary,
@@ -34,12 +37,12 @@ def test_symbol_universe_csv_matches_schema():
 def test_symbol_universe_csv_metadata_summary_counts_source_and_freshness():
     summary = symbol_universe_csv_metadata_summary(today=date(2026, 5, 19))
 
-    assert summary["total_rows"] >= 146
+    assert summary["total_rows"] >= 227
     assert summary["source_counts"]["curated_csv"] >= 70
     assert summary["source_counts"]["fsa"] >= 30
-    assert summary["source_counts"]["jpx"] >= 20
-    assert summary["source_counts"]["sbi_us_stock"] >= 8
-    assert summary["source_counts"]["sbi_us_etf"] >= 5
+    assert summary["source_counts"]["jpx"] >= 68
+    assert summary["source_counts"]["sbi_us_stock"] >= 28
+    assert summary["source_counts"]["sbi_us_etf"] >= 22
     assert summary["source_counts"]["mutual_fund_seed"] >= 4
     assert summary["metadata_period"] == "2026-05-18 〜 2026-05-19"
     assert summary["missing_metadata_count"] == 0
@@ -58,6 +61,22 @@ def test_symbol_universe_csv_includes_sbi_etf_and_mutual_fund_expansion():
     assert row_by_symbol["MF-EMAXIS-ACWI"]["asset_type"] == "mutual_fund"
     assert row_by_symbol["MF-EMAXIS-ACWI"]["trust_fee_pct"] == "0.05775"
     assert row_by_symbol["MF-EMAXIS-ACWI"]["nisa_tsumitate_eligible"] == "true"
+
+
+def test_symbol_universe_csv_includes_expanded_stock_and_etf_seeds():
+    rows = symbol_universe_csv_rows()
+    row_by_symbol = {row["symbol"]: row for row in rows}
+
+    assert row_by_symbol["9503.T"]["metadata_source"] == "jpx"
+    assert row_by_symbol["9503.T"]["asset_type"] == "stock"
+    assert row_by_symbol["2558.T"]["asset_type"] == "etf"
+    assert row_by_symbol["2558.T"]["index_family"] == "sp500"
+    assert row_by_symbol["PANW"]["metadata_source"] == "sbi_us_stock"
+    assert row_by_symbol["PANW"]["theme"] == "technology"
+    assert row_by_symbol["QQQM"]["metadata_source"] == "sbi_us_etf"
+    assert row_by_symbol["QQQM"]["index_family"] == "nasdaq100"
+    assert symbol_allowed_by_ranking_universe_policy(row_by_symbol["QQQM"])
+    assert symbol_allowed_by_ranking_universe_policy(row_by_symbol["9503.T"])
 
 
 def test_validate_symbol_universe_rows_reports_missing_required_column():

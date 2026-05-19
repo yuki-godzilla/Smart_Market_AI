@@ -87,7 +87,7 @@ Partial or intentionally deferred:
 
 ## Next Good Targets
 
-- Continue Phase 18 by expanding official/curated source data with broader JPX coverage, SBI stock/ETF lists, and ETF metadata. The current import command has JPX/SBI/NISA profiles, NISA seed metadata has been applied to 31 existing rows, and the candidate master has 146 rows while default ranking only includes stock / ETF rows.
+- Continue Phase 18 by refining metadata quality and source coverage after the first stock / ETF seed expansion. The current import command has JPX/SBI/NISA profiles, NISA seed metadata has been applied to 31 existing rows, and the candidate master has 227 rows while default ranking only includes stock / ETF rows.
 - Keep a final cross-flow Streamlit smoke available before handoff when browser access is useful: ranking cache/progress, purpose-based resort, ranking-to-cockpit, and Rebalance wording.
 - Prepare Phase 19 Decision Report context so cockpit / ranking / rebalance outputs can be saved consistently.
 - Start Phase 20 Research RAG from local document ingestion, chunk/search, and deterministic Research Summary before optional vector/LLM adapters.

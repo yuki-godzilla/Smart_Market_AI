@@ -273,3 +273,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Renamed the ranking purpose control label to `重視して並べ替え` so it is clear that it changes display order, not candidate eligibility.
 - Added short detail-panel caption text to distinguish candidate filters from ranking-order settings.
 - Removed the risk selector from pre-fetch ranking detail conditions because period-based price movement belongs in ranking results and score breakdown after data retrieval.
+
+## 2026-05-19 - Phase 18 stock ETF universe expansion
+
+- Expanded local JPX stock / ETF, SBI US stock, and SBI US ETF source seeds and imported them into `symbol_universe.csv`.
+- Increased the local candidate master to 227 rows: stock 172, ETF 49, mutual fund 4, ADR 2.
+- Kept mutual funds as future-extension metadata and kept MVP ranking focused on stock / ETF rows through the existing ranking-universe policy.

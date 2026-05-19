@@ -9,3 +9,20 @@ VYM,Vanguard High Dividend Yield ETF,,0.06,standard,"dividend,low_cost",growth,b
 DIA,SPDR Dow Jones Industrial Average ETF Trust,,0.16,standard,balanced,growth,both,false,false
 TQQQ,ProShares UltraPro QQQ,nasdaq100,0.88,leveraged,growth,none,lump_sum,true,false
 SQQQ,ProShares UltraPro Short QQQ,nasdaq100,0.95,inverse,,none,lump_sum,true,true
+QQQM,Invesco NASDAQ 100 ETF,nasdaq100,0.15,standard,growth,growth,both,false,false
+SPLG,SPDR Portfolio S&P 500 ETF,sp500,0.02,beginner,"low_cost,balanced",growth,both,false,false
+ITOT,iShares Core S&P Total U.S. Stock Market ETF,total_us,0.03,beginner,"low_cost,balanced",growth,both,false,false
+SCHX,Schwab U.S. Large-Cap ETF,total_us,0.03,beginner,"low_cost,balanced",growth,both,false,false
+VUG,Vanguard Growth ETF,,0.04,beginner,"low_cost,growth",growth,both,false,false
+VTV,Vanguard Value ETF,,0.04,beginner,"low_cost,value",growth,both,false,false
+VIG,Vanguard Dividend Appreciation ETF,,0.05,beginner,"low_cost,dividend",growth,both,false,false
+DGRO,iShares Core Dividend Growth ETF,,0.08,beginner,"low_cost,dividend",growth,both,false,false
+HDV,iShares Core High Dividend ETF,,0.08,standard,"low_cost,dividend",growth,both,false,false
+VXUS,Vanguard Total International Stock ETF,acwi,0.05,beginner,"low_cost,balanced",growth,both,false,false
+VEA,Vanguard FTSE Developed Markets ETF,msci_world,0.05,beginner,"low_cost,balanced",growth,both,false,false
+VWO,Vanguard FTSE Emerging Markets ETF,,0.08,standard,"low_cost,balanced",growth,both,false,false
+EFA,iShares MSCI EAFE ETF,msci_world,0.33,standard,balanced,growth,both,false,false
+IEMG,iShares Core MSCI Emerging Markets ETF,,0.09,standard,"low_cost,balanced",growth,both,false,false
+VB,Vanguard Small-Cap ETF,small_us,0.05,beginner,"low_cost,balanced",growth,both,false,false
+VO,Vanguard Mid-Cap ETF,,0.04,beginner,"low_cost,balanced",growth,both,false,false
+QUAL,iShares MSCI USA Quality Factor ETF,,0.15,standard,quality,growth,both,false,false

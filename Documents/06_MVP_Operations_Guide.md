@@ -279,9 +279,9 @@ Symbol universe source import:
 
 - `tools/import_symbol_universe_source.py` は、JPX などのローカル source CSV を `symbol_universe.csv` 形式へ取り込む command です。
 - 既定は dry-run で、`--write` を付けた場合だけ CSV / manifest を更新します。write 前に validation error が残る場合は書き込みを拒否します。
-- 初期 source として `data/marketdata/symbol_universe_sources/jpx_etf_seed.csv` と `data/marketdata/symbol_universe_sources/jpx_stock_seed.csv` を置いています。2026-05-18 時点では国内 ETF 8件、国内株 24件を `symbol_universe.csv` に取り込み済みです。
+- 初期 source として `data/marketdata/symbol_universe_sources/jpx_etf_seed.csv` と `data/marketdata/symbol_universe_sources/jpx_stock_seed.csv` を置いています。2026-05-19 時点では JPX source として国内株 / 国内ETF 合計 68件を `symbol_universe.csv` に取り込み済みです。
 - MVP 向け source profile として `jpx_stock`, `jpx_etf`, `sbi_us_stock`, `sbi_us_etf`, `nisa_eligibility` を使えます。`mutual_fund_seed` は将来対応用 profile として残します。
-- 追加 seed として `sbi_us_stock_seed.csv`, `sbi_us_etf_seed.csv`, `mutual_fund_seed.csv` を置いています。2026-05-18 時点では、米国株 8件、米国 ETF 7件、投信 4件を `symbol_universe.csv` に取り込み済みです。既存 ETF 3件は SBI ETF profile で更新済みです。投信 4件は default ranking universe から除外されます。
+- 追加 seed として `sbi_us_stock_seed.csv`, `sbi_us_etf_seed.csv`, `mutual_fund_seed.csv` を置いています。2026-05-19 時点では、SBI US stock source 28件、SBI US ETF source 22件、投信 4件を `symbol_universe.csv` に取り込み済みです。投信 4件は default ranking universe から除外されます。
 - `nisa_eligibility_seed.csv` は既存の株式・ETF 31件へ NISA metadata を付与する local seed です。2026-05-19 時点で `symbol_universe.csv` に反映済みです。
 
 ```powershell
@@ -310,12 +310,12 @@ SBI ranking universe policy:
 
 - MVP対象: 国内株式、米国株式、国内ETF、米国ETF/海外ETF。
 - 初期除外: 投資信託、ADR、REIT、FX、CFD、先物・オプション、暗号資産、債券、外貨建MMF、貴金属・コモディティ系ETF、レバレッジ、インバース、非tradable、非SBI対応。
-- `symbol_universe.csv` / schema に SBI policy columns を追加済みです。既存127件は conservative default として `broker=sbi_securities`, `tradability=unknown`, `nisa_category=unknown`, `investment_style=unknown`, `is_sbi_supported=true`, `is_active=true`, `is_leveraged=false`, `is_inverse=false` を持ちます。
+- `symbol_universe.csv` / schema に SBI policy columns を追加済みです。local curated / source-import seed は conservative default として `broker=sbi_securities`, `tradability=unknown`, `nisa_category=unknown`, `investment_style=unknown`, `is_sbi_supported=true`, `is_active=true`, `is_leveraged=false`, `is_inverse=false` を持てます。
 - `tradability=unknown` は stock / ETF の初期 seed として通し、`not_tradable` だけを除外します。NISA seed import はありますが、公式 source の継続更新は後続範囲です。投信公式 source import は Future Phase です。
 - SBI証券サイトへのログインや画面スクレイピングは通常 workflow に含めません。SBI / JPX / NISA 一覧などを手動または curated source CSV に整形し、source import command で local master へ反映します。投信協会 / 投信CSV / 基準価額は Future Phase で扱います。
 - Ranking / Screening は source site を直接参照せず、`symbol_universe.csv` と default policy helper だけを参照します。
 - 投信向け metadata として `trust_fee_pct`, `aum`, `nisa_tsumitate_eligible`, `nisa_growth_eligible`, `installment_available`, `management_style`, `distribution_policy` を source CSV から取り込めます。ただし MVP ではランキング対象外です。
-- 現在の候補マスタは 146件です。内訳は stock 120件、ETF 20件、投信 4件、ADR 2件です。default ranking universe では stock / ETF のみを対象にします。
+- 現在の候補マスタは 227件です。内訳は stock 172件、ETF 49件、投信 4件、ADR 2件です。default ranking universe では stock / ETF のみを対象にします。
 
 Phase 16 ranking implementation notes:
 

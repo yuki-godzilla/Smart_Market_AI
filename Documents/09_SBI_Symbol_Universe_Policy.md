@@ -33,8 +33,9 @@ SMAI の銘柄ランキング、比較分析、将来の銘柄推薦で使う MV
   - `data/marketdata/symbol_universe_sources/sbi_us_stock_seed.csv`
   - `data/marketdata/symbol_universe_sources/sbi_us_etf_seed.csv`
 - `symbol_universe.csv` への source seed 反映
-  - 米国株 8件を追加
-  - 米国 ETF 7件を追加し、既存 ETF 3件を SBI ETF profile で更新
+  - JPX source として国内株 / 国内 ETF 合計 68件を反映
+  - SBI US stock source として 28件を反映
+  - SBI US ETF source として 22件を反映
   - 投資信託 4件を将来対応 seed として追加済み。ただし MVP ranking universe からは除外する
 - `tools/refresh_symbol_universe_metadata.py` による provider-neutral metadata refresh
 - JPX seed による国内株 / 国内 ETF の候補拡張
@@ -413,8 +414,8 @@ ranking_universe:
 source CSV 側に `is_leveraged` / `is_inverse` がある場合は、source 側の値を優先する。
 `nisa_eligibility` は `--update-existing` と組み合わせる前提で、制度 metadata 以外の市場・商品・名称を上書きしない。source に未知の symbol が含まれる場合は、新規追加せず import failure として manifest に残す。
 
-2026-05-19 時点の `symbol_universe.csv` は 146件です。
-内訳は `stock=120`, `etf=20`, `mutual_fund=4`, `adr=2` です。MVP ranking universe はこのうち `stock` / `etf` のみを対象にします。
+2026-05-19 時点の `symbol_universe.csv` は 227件です。
+内訳は `stock=172`, `etf=49`, `mutual_fund=4`, `adr=2` です。MVP ranking universe はこのうち `stock` / `etf` のみを対象にします。
 `nisa_eligibility_seed.csv` から 31件の NISA metadata を反映済みです。これは local seed であり、公式 source の継続更新 adapter は後続範囲です。
 
 NG:
@@ -465,7 +466,7 @@ Phase 18 の実装順:
 7. SBI / NISA / future 投信 metadata source import を追加する。部分完了。
    - `--source-profile` と seed CSV は追加済み。
    - JPX stock / ETF profile と NISA eligibility profile は追加済み。
-   - SBI US stock / ETF / mutual fund seed は `symbol_universe.csv` へ反映済み。
+   - JPX stock / ETF、SBI US stock / ETF、mutual fund seed は `symbol_universe.csv` へ反映済み。
    - NISA eligibility seed は 31件を `symbol_universe.csv` へ反映済み。
    - MVP ranking は stock / ETF のみを対象にし、mutual fund seed は Future Phase 用の保持データとする。
    - SBI公式一覧 / NISA公式一覧などからの半自動 adapter は未実装。

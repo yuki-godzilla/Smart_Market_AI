@@ -7,3 +7,15 @@ symbol,name,market,asset_type,currency,theme,sector,index_family,expense_ratio_p
 1475.T,iShares Core TOPIX ETF,jp,etf,JPY,index,index,topix,0.05,beginner,"low_cost,balanced",TOPIX ETF
 1489.T,NEXT FUNDS Nikkei 225 High Dividend Yield ETF,jp,etf,JPY,index,index,nikkei225,0.31,standard,"dividend,balanced",High dividend ETF
 1540.T,Japan Physical Gold ETF,jp,etf,JPY,commodity,index,,0.44,standard,balanced,Gold ETF
+1547.T,NEXT FUNDS S&P 500 ETF,jp,etf,JPY,index,index,sp500,0.17,standard,balanced,S&P 500 ETF
+1554.T,NEXT FUNDS MSCI ACWI ex Japan ETF,jp,etf,JPY,index,index,acwi,0.26,standard,balanced,ACWI ETF
+1680.T,NEXT FUNDS MSCI Kokusai ETF,jp,etf,JPY,index,index,msci_world,0.26,standard,balanced,MSCI Kokusai ETF
+1681.T,NEXT FUNDS MSCI Emerging Markets ETF,jp,etf,JPY,index,index,,0.26,standard,balanced,Emerging markets ETF
+1655.T,iShares S&P 500 ETF,jp,etf,JPY,index,index,sp500,0.08,beginner,"low_cost,balanced",S&P 500 ETF
+1657.T,iShares Core MSCI Kokusai ETF,jp,etf,JPY,index,index,msci_world,0.19,beginner,"low_cost,balanced",MSCI Kokusai ETF
+2521.T,NEXT FUNDS S&P 500 JPY Hedged ETF,jp,etf,JPY,index,index,sp500,0.17,standard,balanced,S&P 500 currency hedged ETF
+2558.T,MAXIS S&P 500 ETF,jp,etf,JPY,index,index,sp500,0.08,beginner,"low_cost,balanced",S&P 500 ETF
+2559.T,MAXIS All Country Equity ETF,jp,etf,JPY,index,index,acwi,0.08,beginner,"low_cost,balanced",ACWI ETF
+2568.T,NEXT FUNDS NASDAQ-100 ETF,jp,etf,JPY,index,index,nasdaq100,0.20,standard,growth,NASDAQ100 ETF
+2569.T,NEXT FUNDS NASDAQ-100 JPY Hedged ETF,jp,etf,JPY,index,index,nasdaq100,0.20,standard,growth,NASDAQ100 currency hedged ETF
+2631.T,MAXIS NASDAQ100 ETF,jp,etf,JPY,index,index,nasdaq100,0.20,standard,growth,NASDAQ100 ETF

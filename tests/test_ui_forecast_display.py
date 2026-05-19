@@ -386,6 +386,32 @@ def test_filter_symbol_universe_rows_filters_etf_database_values():
     ] == ["VOO"]
 
 
+def test_filter_symbol_universe_rows_preserves_etf_region():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "1306.T", "name": "NEXT FUNDS TOPIX ETF"},
+            {"symbol": "VOO", "name": "Vanguard S&P 500 ETF"},
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="japan",
+            product_type="etf",
+        )
+    ] == ["1306.T"]
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="us",
+            product_type="etf",
+        )
+    ] == ["VOO"]
+
+
 def test_filter_symbol_universe_rows_excludes_mutual_funds_from_mvp_ranking():
     rows = symbol_universe_rows()
 

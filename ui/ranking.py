@@ -839,8 +839,6 @@ def _symbol_universe_row(row: dict[str, str]) -> dict[str, str]:
         "data_quality": row.get("data_quality", ""),
         "risk_band": row.get("risk_band", ""),
     }
-    if universe_row["asset_type"] == "etf":
-        universe_row["market"] = "us"
     return universe_row
 
 

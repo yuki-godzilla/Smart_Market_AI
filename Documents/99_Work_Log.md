@@ -249,3 +249,8 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Connected mutual-fund metadata to the ranking condition UI, using management style, trust fee, NISA eligibility, and installment availability as pre-fetch filters.
 - Added a ranking UI guard so mutual-fund placeholder symbols stay visible as candidates but are not sent to price-provider ranking fetch until fund price/ranking support is implemented.
 - Re-scoped the MVP ranking universe to stock / ETF only, hiding mutual funds from the main ranking UI and keeping mutual-fund seed/profile data as a future extension rather than an MVP dependency.
+
+## 2026-05-19 - Phase 18 ETF region filtering fix
+
+- Fixed ranking candidate normalization so domestic ETF rows keep their `jp` market instead of being forced to `us`.
+- Added a deterministic ranking UI helper test that confirms domestic ETF and US ETF candidates are separated by region.

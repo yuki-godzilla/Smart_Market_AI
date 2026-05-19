@@ -20,8 +20,27 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from backend.marketdata.symbol_universe_source_build import (  # noqa: E402
     JPX_LISTED_STOCK_SOURCE_FIELDNAMES,
+    SBI_US_ETF_SOURCE_FIELDNAMES,
+    SBI_US_STOCK_SOURCE_FIELDNAMES,
     build_jpx_listed_stock_source_rows,
+    build_sbi_us_etf_source_rows,
+    build_sbi_us_stock_source_rows,
 )
+
+SOURCE_BUILDERS = {
+    "jpx_listed_stock": (
+        build_jpx_listed_stock_source_rows,
+        JPX_LISTED_STOCK_SOURCE_FIELDNAMES,
+    ),
+    "sbi_us_stock": (
+        build_sbi_us_stock_source_rows,
+        SBI_US_STOCK_SOURCE_FIELDNAMES,
+    ),
+    "sbi_us_etf": (
+        build_sbi_us_etf_source_rows,
+        SBI_US_ETF_SOURCE_FIELDNAMES,
+    ),
+}
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -30,7 +49,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument(
         "--source-kind",
-        choices=("jpx_listed_stock",),
+        choices=tuple(SOURCE_BUILDERS),
         required=True,
         help="Raw source format to convert.",
     )
@@ -46,10 +65,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     raw_rows = _read_raw_rows(args.raw_file)
-    result = build_jpx_listed_stock_source_rows(raw_rows, as_of=args.as_of)
+    build_source_rows, fieldnames = SOURCE_BUILDERS[args.source_kind]
+    result = build_source_rows(raw_rows, as_of=args.as_of)
 
     if args.write:
-        _write_csv(args.output_csv, result.rows, JPX_LISTED_STOCK_SOURCE_FIELDNAMES)
+        _write_csv(args.output_csv, result.rows, fieldnames)
         _write_manifest(args.manifest, result.manifest)
 
     print(json.dumps(result.manifest, ensure_ascii=False, indent=2, sort_keys=True))
@@ -172,8 +192,12 @@ def _table_rows_to_dicts(table_rows: Sequence[Sequence[str]]) -> list[dict[str, 
 def _header_index(table_rows: Sequence[Sequence[str]]) -> int | None:
     for index, row_values in enumerate(table_rows):
         normalized_headers = {value.strip().lower() for value in row_values}
-        if ({"コード", "銘柄名"} <= normalized_headers) or (
-            {"code", "security_name"} <= normalized_headers
+        if (
+            ({"コード", "銘柄名"} <= normalized_headers)
+            or ({"code", "security_name"} <= normalized_headers)
+            or ({"symbol", "name"} <= normalized_headers)
+            or ({"ticker", "name"} <= normalized_headers)
+            or ({"ティッカー", "銘柄名"} <= normalized_headers)
         ):
             return index
     return None

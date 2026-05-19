@@ -98,8 +98,68 @@ def test_build_symbol_universe_source_tool_dry_run_does_not_write(tmp_path, caps
     assert not output_csv.exists()
 
 
+def test_build_symbol_universe_source_tool_writes_sbi_us_etf_source(tmp_path, capsys):
+    raw_csv = tmp_path / "sbi_us_etf_raw.csv"
+    output_csv = tmp_path / "sbi_us_etf_source.csv"
+    manifest_path = tmp_path / "manifest.json"
+    _write_raw_sbi_us_etf_rows(
+        raw_csv,
+        [
+            {
+                "ticker": "VOO",
+                "name": "Vanguard S&P 500 ETF",
+                "underlying_index": "S&P 500",
+                "expense_ratio": "0.03%",
+            },
+            {
+                "ticker": "SQQQ",
+                "name": "ProShares UltraPro Short QQQ",
+                "underlying_index": "NASDAQ 100",
+                "expense_ratio": "0.95%",
+            },
+        ],
+    )
+
+    exit_code = main(
+        [
+            "--source-kind",
+            "sbi_us_etf",
+            "--raw-file",
+            str(raw_csv),
+            "--output-csv",
+            str(output_csv),
+            "--manifest",
+            str(manifest_path),
+            "--as-of",
+            "2026-05-19",
+            "--write",
+        ]
+    )
+
+    output = json.loads(capsys.readouterr().out)
+    rows = _read_rows(output_csv)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert exit_code == 0
+    assert output["output_rows"] == 2
+    assert rows[0]["symbol"] == "VOO"
+    assert rows[0]["index_family"] == "sp500"
+    assert rows[0]["expense_ratio_pct"] == "0.03"
+    assert rows[1]["symbol"] == "SQQQ"
+    assert rows[1]["complexity"] == "inverse"
+    assert rows[1]["is_inverse"] == "true"
+    assert manifest["source_kind"] == "sbi_us_etf"
+
+
 def _write_raw_jpx_rows(path, rows):
     fieldnames = ["コード", "銘柄名", "市場・商品区分", "33業種区分", "17業種区分", "規模区分"]
+    with path.open("w", encoding="utf-8", newline="") as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _write_raw_sbi_us_etf_rows(path, rows):
+    fieldnames = ["ticker", "name", "underlying_index", "expense_ratio"]
     with path.open("w", encoding="utf-8", newline="") as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)
         writer.writeheader()

@@ -4,7 +4,11 @@ from datetime import date
 
 from backend.marketdata.symbol_universe_source_build import (
     JPX_LISTED_STOCK_SOURCE_FIELDNAMES,
+    SBI_US_ETF_SOURCE_FIELDNAMES,
+    SBI_US_STOCK_SOURCE_FIELDNAMES,
     build_jpx_listed_stock_source_rows,
+    build_sbi_us_etf_source_rows,
+    build_sbi_us_stock_source_rows,
 )
 
 
@@ -87,3 +91,95 @@ def test_build_jpx_listed_stock_source_rows_skips_out_of_scope_products():
     assert result.manifest["input_rows"] == 3
     assert result.manifest["output_rows"] == 1
     assert result.manifest["skipped_rows"] == 2
+
+
+def test_build_sbi_us_stock_source_rows_normalizes_symbols_and_sector():
+    result = build_sbi_us_stock_source_rows(
+        [
+            {
+                "Ticker": "brk.b",
+                "Name": "Berkshire Hathaway",
+                "Sector": "Financials",
+                "dividend_yield": "0.0%",
+                "roe": "12.5%",
+            },
+            {
+                "Ticker": "AAPL",
+                "Name": "Apple Inc.",
+                "Sector": "Information Technology",
+                "tags": "growth,quality",
+            },
+        ],
+        as_of=date(2026, 5, 19),
+    )
+
+    assert [row["symbol"] for row in result.rows] == ["BRK-B", "AAPL"]
+    assert result.rows[0]["market"] == "us"
+    assert result.rows[0]["asset_type"] == "stock"
+    assert result.rows[0]["theme"] == "financial"
+    assert result.rows[0]["sector"] == "financial"
+    assert result.rows[0]["dividend_yield_pct"] == "0.0"
+    assert result.rows[0]["roe_pct"] == "12.5"
+    assert result.rows[1]["theme"] == "technology"
+    assert result.rows[1]["tags"] == "growth,quality"
+    assert result.manifest["source_kind"] == "sbi_us_stock"
+    assert result.manifest["fieldnames"] == SBI_US_STOCK_SOURCE_FIELDNAMES
+
+
+def test_build_sbi_us_etf_source_rows_marks_leveraged_and_inverse_products():
+    result = build_sbi_us_etf_source_rows(
+        [
+            {
+                "ticker": "VOO",
+                "name": "Vanguard S&P 500 ETF",
+                "underlying_index": "S&P 500",
+                "expense_ratio": "0.03%",
+            },
+            {
+                "ticker": "TQQQ",
+                "name": "ProShares UltraPro QQQ",
+                "underlying_index": "NASDAQ 100",
+                "expense_ratio": "0.88%",
+            },
+            {
+                "ticker": "SQQQ",
+                "name": "ProShares UltraPro Short QQQ",
+                "underlying_index": "NASDAQ 100",
+                "expense_ratio": "0.95%",
+            },
+        ],
+        as_of=date(2026, 5, 19),
+    )
+
+    assert [row["symbol"] for row in result.rows] == ["VOO", "TQQQ", "SQQQ"]
+    assert result.rows[0]["index_family"] == "sp500"
+    assert result.rows[0]["expense_ratio_pct"] == "0.03"
+    assert result.rows[0]["complexity"] == "beginner"
+    assert result.rows[0]["is_leveraged"] == "false"
+    assert result.rows[0]["is_inverse"] == "false"
+    assert result.rows[1]["index_family"] == "nasdaq100"
+    assert result.rows[1]["complexity"] == "leveraged"
+    assert result.rows[1]["is_leveraged"] == "true"
+    assert result.rows[1]["is_inverse"] == "false"
+    assert result.rows[1]["investment_style"] == "lump_sum"
+    assert result.rows[2]["complexity"] == "inverse"
+    assert result.rows[2]["is_leveraged"] == "true"
+    assert result.rows[2]["is_inverse"] == "true"
+    assert result.manifest["source_kind"] == "sbi_us_etf"
+    assert result.manifest["fieldnames"] == SBI_US_ETF_SOURCE_FIELDNAMES
+
+
+def test_build_sbi_us_source_rows_skip_missing_required_values():
+    stock_result = build_sbi_us_stock_source_rows(
+        [{"Ticker": "", "Name": "Missing Symbol"}, {"Ticker": "MSFT", "Name": "Microsoft"}],
+        as_of=date(2026, 5, 19),
+    )
+    etf_result = build_sbi_us_etf_source_rows(
+        [{"ticker": "1234", "name": "Not a US ticker"}, {"ticker": "QQQ", "name": "Invesco QQQ"}],
+        as_of=date(2026, 5, 19),
+    )
+
+    assert [row["symbol"] for row in stock_result.rows] == ["MSFT"]
+    assert stock_result.manifest["skipped_rows"] == 1
+    assert [row["symbol"] for row in etf_result.rows] == ["QQQ"]
+    assert etf_result.manifest["skipped_rows"] == 1

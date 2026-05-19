@@ -205,11 +205,11 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 確認できるもの:
 
 - provider
-- 地域 / 商品 / 投資スタイル
+- 地域 / 商品 / 重視して並べ替え
   - 地域: `国内` / `米国` / `全体`
   - 商品: `株式` / `ETF`
-  - 投資スタイル: `配当重視` / `成長重視` / `割安重視` / `安定重視` / `トレンド重視`
-- 投資スタイルに応じた表示順
+  - 重視して並べ替え: `配当重視` / `成長重視` / `割安重視` / `安定重視` / `トレンド重視`
+- `重視して並べ替え` に応じた表示順
   - 配当重視 / 割安重視: バランス重視
   - 成長重視 / トレンド重視: 予測一致重視
   - 安定重視: リスク控えめ
@@ -226,7 +226,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - 常設の詳細条件パネル
   - `属性条件` / `数値条件` / `キーワード検索` に分けて表示
   - 地域 × 商品に応じて、現在の銘柄マスタで判定できる詳細条件だけを表示
-  - 株式: 業種/テーマ、時価総額、配当利回り、PER、PBR、ROE、リスク
+  - 株式: 業種/テーマ、時価総額、配当利回り、PER、PBR、ROE、NISA
   - ETF: 連動指数、信託報酬/経費率、分配金利回り、複雑さ
   - 条件のクリア
   - 条件変更後の候補数表示
@@ -240,7 +240,8 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 注意:
 
 - ranking の候補条件は、provider fetch 前に使える `data/marketdata/symbol_universe.csv` の curated metadata を中心にしています。
-- 地域 / 商品は provider fetch 前の候補 universe を絞ります。投資スタイルは Investment Score の表示順の重み付けに使い、候補 universe そのものは絞りません。
+- 地域 / 商品 / 詳細条件は provider fetch 前の候補 universe を絞ります。`重視して並べ替え` は Investment Score の表示順の重み付けに使い、候補 universe そのものは絞りません。
+- Risk / 値動きの大きさは取得期間の価格データを見た後の確認材料です。詳細条件では絞らず、ranking result / score breakdown 側で確認します。
 - 投資信託は MVP のランキング / スクリーニング / チャート対象外です。source seed や metadata schema は将来対応として残しますが、default ranking universe と UI の主要導線には出しません。
 - dividend category や theme は現在 curated metadata / source import / opt-in metadata refresh で管理します。live provider 由来の更新は明示 opt-in です。
 - ranking universe の MVP 方針は、SBI証券で取り扱いがあり、現物・NISA・長期投資で検討しやすい株式・ETFを初期対象にすることです。詳細は [09_SBI_Symbol_Universe_Policy.md](./09_SBI_Symbol_Universe_Policy.md) を参照してください。
@@ -320,7 +321,7 @@ Phase 16 ranking implementation notes:
 
 - `data/marketdata/symbol_universe.csv` is the ranking candidate master used before provider fetch. It is intentionally curated/local-first and currently carries display/search/filter metadata such as `symbol`, `name`, `market`, `asset_type`, `currency`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases`, `per`, `pbr`, `roe_pct`, `sector`, `consensus_rating`, `forecast_agreement`, `data_quality`, and `risk_band`.
 - The Phase 18 schema helper validates required columns, allowed enum values, decimal fields, duplicate tickers, and metadata freshness/source columns without requiring live provider access.
-- The in-page screening condition panel filters comparison candidates by metadata, NISA eligibility, and metric ranges. `取得期間` and `重視条件` are not screening filters; they control ranking calculation and display ordering.
+- The in-page screening condition panel filters comparison candidates by metadata, NISA eligibility, and metric ranges. `取得期間` and `重視して並べ替え` are not screening filters; they control ranking calculation and display ordering.
 - Ranking build uses a fast batch path first: it fetches OHLCV in chunks, builds feature snapshots from already-fetched market data, then reuses existing Screening / Investment Score services. If the batch path fails with a provider/domain error, local/deterministic providers can fall back to the existing per-symbol preview path; live Yahoo failures are reported once without retrying every symbol to avoid repeated network failures.
 - Yahoo OHLCV uses the same non-threaded yfinance download path for single-symbol cockpit and multi-symbol ranking requests. The cockpit reuses one fetched OHLCV range for quote display and feature construction instead of fetching the same symbol again. Yahoo cockpit fetch prioritizes price data: initial fetch skips live FX and fundamentals so price / forecast / score rows can render without waiting on nonessential live requests. SMAI shares one curl_cffi-backed yfinance session across `Search`, `download`, and `Ticker` calls so Yahoo cookie / crumb state stays attached to the same session. If yfinance returns an empty batch response, the provider retries once after a short delay to absorb first-call warm-up / transient empty responses. Because live Yahoo requests are network-dependent and can be slow or noisy, Streamlit ranking warns when selected symbols exceed 30, uses smaller non-threaded download chunks, and suppresses yfinance's raw console noise in favor of structured UI error rows.
 - Ranking rows are cached in Streamlit session state by `provider + symbols + start + end`. Re-running the same request or changing only the ranking weight preset reuses fetched rows and only re-sorts the display.
@@ -332,7 +333,7 @@ Phase 16 final UI smoke checklist:
 - Change screening conditions and confirm candidate count / comparison symbols update coherently.
 - Build a ranking and confirm progress messages are shown.
 - Run the same ranking again and confirm cached rows are reused.
-- Change only `重視条件` and confirm rows are re-sorted without a provider refetch.
+- Change only `重視して並べ替え` and confirm rows are re-sorted without a provider refetch.
 - Open a selected symbol in `銘柄コックピット` and confirm provider / symbol handoff.
 - Confirm Rebalance labels continue to describe decision support rather than buy/sell advice.
 

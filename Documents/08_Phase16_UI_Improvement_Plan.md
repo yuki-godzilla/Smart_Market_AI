@@ -317,7 +317,7 @@ Fetch 後の条件は、既存の MarketData / Feature Store / Screening / Forec
 
 候補:
 
-- 重視条件: バランス重視、予測一致重視、データ品質重視、リスク控えめ
+- 表示順: バランス重視、予測一致重視、データ品質重視、リスク控えめ
 - Data quality: 注意ありを含める / 除外
 - 予測一致度: 高いものだけ / 中くらい以上 / すべて
 - 最低 Investment Score

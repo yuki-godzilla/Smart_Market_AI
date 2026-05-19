@@ -267,3 +267,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added the NISA pre-fetch condition to the ranking detail panel and connected it to ranking filter state/signature.
 - Strengthened update-only source import so NISA metadata sources cannot append unknown symbols as incomplete master rows.
 - Excluded commodity-themed ETF rows from the default MVP ranking universe while keeping them in the local master for metadata coverage.
+
+## 2026-05-19 - Ranking condition wording polish
+
+- Renamed the ranking purpose control label to `重視して並べ替え` so it is clear that it changes display order, not candidate eligibility.
+- Added short detail-panel caption text to distinguish candidate filters from ranking-order settings.
+- Removed the risk selector from pre-fetch ranking detail conditions because period-based price movement belongs in ranking results and score breakdown after data retrieval.

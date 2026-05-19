@@ -213,9 +213,9 @@ RANKING_INDEX_FAMILY_LABELS = {
 }
 RANKING_RISK_BAND_LABELS = {
     "all": "指定なし",
-    "LOW": "低",
-    "MEDIUM": "中",
-    "HIGH": "高",
+    "LOW": "低め",
+    "MEDIUM": "中くらい",
+    "HIGH": "高め",
 }
 RANKING_MANAGEMENT_STYLE_LABELS = {
     "all": "指定なし",
@@ -241,7 +241,6 @@ RANKING_DETAIL_FILTER_LABELS = {
     "per": "PER",
     "pbr": "PBR",
     "roe": "ROE",
-    "risk_band": "リスク",
     "nisa_eligibility": "NISA",
     "benchmark_index": "連動指数",
     "expense_ratio": "信託報酬/経費率",
@@ -255,7 +254,6 @@ RANKING_DETAIL_FILTERS_BY_CATEGORY = {
         "per",
         "pbr",
         "roe",
-        "risk_band",
         "nisa_eligibility",
     ],
     (RANKING_REGION_US, RANKING_PRODUCT_STOCK): [
@@ -264,7 +262,6 @@ RANKING_DETAIL_FILTERS_BY_CATEGORY = {
         "dividend_yield",
         "per",
         "roe",
-        "risk_band",
         "nisa_eligibility",
     ],
     (RANKING_REGION_ALL, RANKING_PRODUCT_STOCK): [
@@ -273,7 +270,6 @@ RANKING_DETAIL_FILTERS_BY_CATEGORY = {
         "dividend_yield",
         "per",
         "roe",
-        "risk_band",
         "nisa_eligibility",
     ],
     (RANKING_REGION_ALL, RANKING_PRODUCT_ETF): [
@@ -366,7 +362,6 @@ def ranking_detail_filters_for_category(region: str, product_type: str) -> list[
         "dividend_yield",
         "per",
         "roe",
-        "risk_band",
         "benchmark_index",
         "expense_ratio",
         "complexity",

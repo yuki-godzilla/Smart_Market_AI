@@ -271,7 +271,7 @@ Status: next verification
 Scope:
 
 - `銘柄コックピット` の Yahoo live data 取得、失敗時診断、価格・予測・Investment Score 表示を確認する。
-- `銘柄ランキング` の候補条件、ランキング cache、重視条件での並べ替え、部分失敗時の除外表示、深掘り導線を確認する。
+- `銘柄ランキング` の候補条件、ランキング cache、`重視して並べ替え` での表示順変更、部分失敗時の除外表示、深掘り導線を確認する。
 - `リバランス` の入力、target allocation、allocation comparison、risk breach 表示を確認する。
 - UI 文言が「判断補助」で統一されているか確認する。
 - 新機能は追加せず、必要な不具合修正とドキュメント同期だけ行う。
@@ -306,9 +306,10 @@ Planned scope:
   - 詳細条件は provider fetch 前の candidate filter として扱う
   - `総合おすすめ` のような推奨に見える表現は避け、投資判断補助として表現する
 - Phase 1 filter coverage
-  - 株式: 地域、業種/セクター、時価総額、配当利回り、PER、PBR、ROE、リスク帯
+  - 株式: 地域、業種/セクター、時価総額、配当利回り、PER、PBR、ROE、NISA
   - ETF: 地域、投資対象、連動指数、信託報酬/経費率、分配金利回り、複雑さ
   - 投信: MVP 対象外。source seed / metadata schema は future extension として残すが、ranking UI と default universe から除外する
+  - Risk / 値動きの大きさは、取得期間の価格データに依存するため ranking result / score breakdown 側で扱う
 - Future-ready filter definitions
   - 国内株式: 投資スタイル、業種、時価総額、配当利回り、PER、PBR、ROE、売買代金
   - 米国株式: 投資スタイル、セクター、時価総額、配当利回り、PER、売上成長率、EPS成長率、Beta、ボラティリティ

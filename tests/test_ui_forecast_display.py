@@ -449,7 +449,7 @@ def test_filter_symbol_universe_rows_excludes_mutual_funds_from_mvp_ranking():
     assert all(row["asset_type"] != "mutual_fund" for row in filter_symbol_universe_rows(rows))
 
 
-def test_filter_symbol_universe_rows_filters_by_region_product_and_risk():
+def test_filter_symbol_universe_rows_supports_internal_risk_metadata_filter():
     rows = symbol_universe_rows(
         [
             {"symbol": "7203.T", "name": "Toyota Motor"},
@@ -501,7 +501,8 @@ def test_ranking_detail_filters_change_by_region_and_product():
     mutual_fund = ranking_detail_filters_for_category("japan", "mutual_fund")
 
     assert "pbr" in japan_stock
-    assert "risk_band" in us_stock
+    assert "risk_band" not in us_stock
+    assert "nisa_eligibility" in us_stock
     assert "benchmark_index" in etf
     assert "pbr" not in etf
     assert mutual_fund == []

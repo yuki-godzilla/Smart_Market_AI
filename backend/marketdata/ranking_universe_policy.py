@@ -13,27 +13,22 @@ class RankingUniversePolicy:
     """
 
     broker: str = "sbi_securities"
-    include_asset_types: frozenset[str] = frozenset(
-        {
-            "adr",
-            "etf",
-            "fund",
-            "investment_trust",
-            "mutual_fund",
-            "reit",
-            "stock",
-        }
-    )
+    include_asset_types: frozenset[str] = frozenset({"etf", "stock"})
     exclude_asset_types: frozenset[str] = frozenset(
         {
+            "adr",
             "bond",
             "cfd",
             "commodity",
             "crypto",
             "futures",
             "fx",
+            "fund",
+            "investment_trust",
             "mmf",
+            "mutual_fund",
             "option",
+            "reit",
         }
     )
     exclude_leveraged: bool = True

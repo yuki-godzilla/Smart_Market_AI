@@ -33,6 +33,7 @@ from ui.app import (
     symbol_candidate_label,
 )
 from ui.ranking import (
+    RANKING_INVESTMENT_STYLE_METRICS,
     apply_ranking_weight_preset,
     filter_symbol_universe_rows,
     initial_ranking_selected_labels,
@@ -45,7 +46,6 @@ from ui.ranking import (
     ranking_no_bars_error_row,
     ranking_period_dates,
     ranking_period_label,
-    ranking_price_fetch_unsupported_rows,
     ranking_provider_error_rows,
     ranking_symbol_chunks,
     ranking_symbol_options,
@@ -386,40 +386,17 @@ def test_filter_symbol_universe_rows_filters_etf_database_values():
     ] == ["VOO"]
 
 
-def test_filter_symbol_universe_rows_filters_mutual_fund_metadata():
+def test_filter_symbol_universe_rows_excludes_mutual_funds_from_mvp_ranking():
     rows = symbol_universe_rows()
 
-    filtered_symbols = [
+    assert [
         row["symbol"]
         for row in filter_symbol_universe_rows(
             rows,
             product_type="mutual_fund",
-            index_family="sp500",
-            max_expense_ratio_pct="0.09",
-            management_style="index",
-            nisa_eligibility="both",
-            installment_available="true",
         )
-    ]
-
-    assert filtered_symbols == ["MF-EMAXIS-SP500"]
-
-
-def test_ranking_price_fetch_unsupported_rows_marks_mutual_funds_only():
-    rows = symbol_universe_rows(
-        [
-            {"symbol": "AAPL", "name": "Apple Inc."},
-            {"symbol": "VOO", "name": "Vanguard S&P 500 ETF"},
-            {
-                "symbol": "MF-EMAXIS-SP500",
-                "name": "eMAXIS Slim 米国株式（S&P500）",
-            },
-        ]
-    )
-
-    assert [row["symbol"] for row in ranking_price_fetch_unsupported_rows(rows)] == [
-        "MF-EMAXIS-SP500"
-    ]
+    ] == []
+    assert all(row["asset_type"] != "mutual_fund" for row in filter_symbol_universe_rows(rows))
 
 
 def test_filter_symbol_universe_rows_filters_by_region_product_and_risk():
@@ -448,7 +425,7 @@ def test_filter_symbol_universe_rows_filters_by_region_product_and_risk():
             region="us",
             product_type="stock",
         )
-    ] == ["AAPL", "TM"]
+    ] == ["AAPL"]
     assert [
         row["symbol"]
         for row in filter_symbol_universe_rows(
@@ -477,9 +454,9 @@ def test_ranking_detail_filters_change_by_region_and_product():
     assert "risk_band" in us_stock
     assert "benchmark_index" in etf
     assert "pbr" not in etf
-    assert "management_style" in mutual_fund
-    assert "benchmark_index" in mutual_fund
-    assert ranking_weight_preset_for_purpose("low_risk") == "risk"
+    assert mutual_fund == []
+    assert ranking_weight_preset_for_purpose("stability") == "risk"
+    assert "moving_average_signal" in RANKING_INVESTMENT_STYLE_METRICS["trend"]
 
 
 def test_filter_symbol_universe_rows_searches_japanese_aliases():
@@ -499,7 +476,7 @@ def test_ranking_filter_signature_changes_when_conditions_change():
     base = ranking_filter_signature(
         region="us",
         product_type="stock",
-        ranking_purpose="overall",
+        ranking_purpose="dividend",
         purpose="dividend",
         period_preset="short",
         market="us",
@@ -514,7 +491,7 @@ def test_ranking_filter_signature_changes_when_conditions_change():
     changed = ranking_filter_signature(
         region="japan",
         product_type="stock",
-        ranking_purpose="overall",
+        ranking_purpose="dividend",
         purpose="dividend",
         period_preset="short",
         market="jp",
@@ -534,7 +511,7 @@ def test_ranking_filter_signature_includes_ranking_classification():
     base = ranking_filter_signature(
         region="japan",
         product_type="stock",
-        ranking_purpose="overall",
+        ranking_purpose="dividend",
         purpose="all",
         period_preset="short",
         market="all",
@@ -549,7 +526,7 @@ def test_ranking_filter_signature_includes_ranking_classification():
     changed = ranking_filter_signature(
         region="japan",
         product_type="stock",
-        ranking_purpose="high_dividend",
+        ranking_purpose="growth",
         purpose="all",
         period_preset="short",
         market="all",
@@ -565,9 +542,10 @@ def test_ranking_filter_signature_includes_ranking_classification():
     assert base != changed
 
 
-def test_ranking_filter_signature_includes_mutual_fund_filters():
+def test_ranking_filter_signature_includes_investment_style():
     base = ranking_filter_signature(
-        product_type="mutual_fund",
+        product_type="stock",
+        ranking_purpose="dividend",
         purpose="all",
         period_preset="short",
         market="all",
@@ -577,13 +555,11 @@ def test_ranking_filter_signature_includes_mutual_fund_filters():
         complexity="standard",
         theme="all",
         query="",
-        management_style="all",
-        nisa_eligibility="all",
-        installment_available="all",
         limit=6,
     )
     changed = ranking_filter_signature(
-        product_type="mutual_fund",
+        product_type="stock",
+        ranking_purpose="trend",
         purpose="all",
         period_preset="short",
         market="all",
@@ -593,9 +569,6 @@ def test_ranking_filter_signature_includes_mutual_fund_filters():
         complexity="standard",
         theme="all",
         query="",
-        management_style="index",
-        nisa_eligibility="tsumitate",
-        installment_available="true",
         limit=6,
     )
 

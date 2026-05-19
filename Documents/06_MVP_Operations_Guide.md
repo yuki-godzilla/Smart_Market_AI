@@ -205,15 +205,14 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 確認できるもの:
 
 - provider
-- 地域 / 商品 / ランキング目的
-  - 地域: `国内` / `米国` / `その他海外` / `全体`
-  - 商品: `株式` / `ETF` / `投信` / `全体`
-  - ランキング目的: `総合評価` / `短期上昇期待` / `中長期成長` / `高配当` / `割安` / `低リスク` / `低コスト`
-- ランキング目的に応じた表示順
-  - 総合評価 / 高配当 / 割安: バランス重視
-  - 短期上昇期待 / 中長期成長: 予測一致重視
-  - 低リスク: リスク控えめ
-  - 低コスト: データ品質重視
+- 地域 / 商品 / 投資スタイル
+  - 地域: `国内` / `米国` / `全体`
+  - 商品: `株式` / `ETF`
+  - 投資スタイル: `配当重視` / `成長重視` / `割安重視` / `安定重視` / `トレンド重視`
+- 投資スタイルに応じた表示順
+  - 配当重視 / 割安重視: バランス重視
+  - 成長重視 / トレンド重視: 予測一致重視
+  - 安定重視: リスク控えめ
 - 基本条件
   - period preset
   - currency
@@ -229,7 +228,6 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
   - 地域 × 商品に応じて、現在の銘柄マスタで判定できる詳細条件だけを表示
   - 株式: 業種/テーマ、時価総額、配当利回り、PER、PBR、ROE、リスク
   - ETF: 連動指数、信託報酬/経費率、分配金利回り、複雑さ
-  - 投信: 運用方式、連動指数、信託報酬、NISA対応、積立可否
   - 条件のクリア
   - 条件変更後の候補数表示
 - 比較する銘柄
@@ -242,18 +240,18 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 注意:
 
 - ranking の候補条件は、provider fetch 前に使える `data/marketdata/symbol_universe.csv` の curated metadata を中心にしています。
-- 地域 / 商品は provider fetch 前の候補 universe を絞ります。ランキング目的は Investment Score の表示順の重み付けに使い、候補 universe そのものは絞りません。
-- 投信候補は銘柄マスタの metadata で絞り込めます。ただし現在の投信 symbol は価格 provider 取得用 ticker ではないため、価格取得・ランキング計算は後続対応です。投信が選択に含まれる場合、ランキング作成は実行しません。
+- 地域 / 商品は provider fetch 前の候補 universe を絞ります。投資スタイルは Investment Score の表示順の重み付けに使い、候補 universe そのものは絞りません。
+- 投資信託は MVP のランキング / スクリーニング / チャート対象外です。source seed や metadata schema は将来対応として残しますが、default ranking universe と UI の主要導線には出しません。
 - dividend category や theme は現在 curated metadata / source import / opt-in metadata refresh で管理します。live provider 由来の更新は明示 opt-in です。
-- ranking universe の将来方針は、SBI証券で取り扱いがあり、現物・NISA・長期投資で検討しやすい商品を初期対象にすることです。詳細は [09_SBI_Symbol_Universe_Policy.md](./09_SBI_Symbol_Universe_Policy.md) を参照してください。
+- ranking universe の MVP 方針は、SBI証券で取り扱いがあり、現物・NISA・長期投資で検討しやすい株式・ETFを初期対象にすることです。詳細は [09_SBI_Symbol_Universe_Policy.md](./09_SBI_Symbol_Universe_Policy.md) を参照してください。
 - `broker`, `tradability`, `nisa_category`, `investment_style`, `is_sbi_supported`, `is_active`, `is_leveraged`, `is_inverse` は Phase 18 policy columns として `symbol_universe.csv` に保持します。既存候補は local curated / source-import seed であり、SBI取扱確認済み master ではないため、`tradability=unknown` は初期 ranking で通します。
-- ranking 候補抽出前に default SBI ranking universe policy を適用します。FX / CFD / 先物 / option / crypto / bond / MMF / commodity、レバレッジ、インバース、`not_tradable`、`is_sbi_supported=false`、`is_active=false` は初期候補から除外します。
+- ranking 候補抽出前に default SBI ranking universe policy を適用します。MVP の対象は `stock` / `etf` です。`mutual_fund` / `fund` / `investment_trust` / `adr` / `reit` / FX / CFD / 先物 / option / crypto / bond / MMF / commodity、レバレッジ、インバース、`not_tradable`、`is_sbi_supported=false`、`is_active=false` は初期候補から除外します。
 - `symbol_universe.csv` は Phase 16/18 UI 用の銘柄候補マスタです。必須列は `symbol`, `name`, `market`, `asset_type`, `currency`, `broker`, `tradability`, `nisa_category`, `investment_style`, `is_sbi_supported`, `is_active`, `is_leveraged`, `is_inverse`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases`, `per`, `pbr`, `roe_pct`, `sector`, `consensus_rating`, `forecast_agreement`, `data_quality`, `risk_band` です。
 - Phase 18 metadata columns は `metadata_source`, `metadata_as_of`, `metadata_updated_at` です。現在の master は `curated_csv`, `jpx`, `sbi_us_stock`, `sbi_us_etf`, `mutual_fund_seed` などの source を行ごとに保持します。
 - Metadata fields are governed by `backend/marketdata/symbol_metadata_schema.py`.
   - `core`: symbol, name, market, asset type, currency, sector/theme, aliases.
   - `ranking_filter`: dividend, PER/PBR/ROE, expense ratio, risk, complexity, quality fields. Source/freshness is tracked before live provider updates are trusted.
-  - `fund_extended`: trust fee, AUM, NISA eligibility, installment availability, management style, and distribution policy. Mutual-fund seed/source import rows can store these fields in `symbol_universe.csv`; broader official-source expansion remains future scope.
+- `fund_extended`: trust fee, AUM, NISA eligibility, installment availability, management style, and distribution policy. Mutual-fund seed/source import rows can store these fields in `symbol_universe.csv`, but these fields are future extension metadata and are not MVP ranking filters.
 - `設定 / データ情報` の `ランキング銘柄候補` では、候補数、metadata 出所、metadata 基準日、形式確認 status を確認できます。CSV の列形式 / 選択値 / 数値 / 重複 ticker / metadata 欠損に問題がある場合は一覧に表示されます。
 - 常設パネルで条件を変えると、候補数と「比較する銘柄」の選択候補が同じ画面内で確認できます。
 
@@ -281,8 +279,8 @@ Symbol universe source import:
 - `tools/import_symbol_universe_source.py` は、JPX などのローカル source CSV を `symbol_universe.csv` 形式へ取り込む command です。
 - 既定は dry-run で、`--write` を付けた場合だけ CSV / manifest を更新します。write 前に validation error が残る場合は書き込みを拒否します。
 - 初期 source として `data/marketdata/symbol_universe_sources/jpx_etf_seed.csv` と `data/marketdata/symbol_universe_sources/jpx_stock_seed.csv` を置いています。2026-05-18 時点では国内 ETF 8件、国内株 24件を `symbol_universe.csv` に取り込み済みです。
-- SBI / 投信向け source profile として `sbi_us_stock`, `sbi_us_etf`, `mutual_fund_seed` を追加しています。各 profile は market / asset_type / currency と SBI policy columns を補完します。
-- 追加 seed として `sbi_us_stock_seed.csv`, `sbi_us_etf_seed.csv`, `mutual_fund_seed.csv` を置いています。2026-05-18 時点では、米国株 8件、米国 ETF 7件、投信 4件を `symbol_universe.csv` に取り込み済みです。既存 ETF 3件は SBI ETF profile で更新済みです。
+- SBI / ETF 向け source profile として `sbi_us_stock`, `sbi_us_etf` を MVP で使います。`mutual_fund_seed` は将来対応用 profile として残します。
+- 追加 seed として `sbi_us_stock_seed.csv`, `sbi_us_etf_seed.csv`, `mutual_fund_seed.csv` を置いています。2026-05-18 時点では、米国株 8件、米国 ETF 7件、投信 4件を `symbol_universe.csv` に取り込み済みです。既存 ETF 3件は SBI ETF profile で更新済みです。投信 4件は default ranking universe から除外されます。
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\import_symbol_universe_source.py --source-csv .\data\marketdata\symbol_universe_sources\jpx_etf_seed.csv --source-name jpx --as-of 2026-05-18 --updated-at 2026-05-18T00:00:00+09:00
@@ -302,14 +300,14 @@ SBI profile の dry-run 例:
 
 SBI ranking universe policy:
 
-- 初期対象: 国内株式、米国株式、国内ETF、米国ETF/海外ETF、投資信託、REIT。
-- 初期除外: FX、CFD、先物・オプション、暗号資産、債券、外貨建MMF、貴金属、レバレッジ、インバース、非tradable、非SBI対応。
+- MVP対象: 国内株式、米国株式、国内ETF、米国ETF/海外ETF。
+- 初期除外: 投資信託、ADR、REIT、FX、CFD、先物・オプション、暗号資産、債券、外貨建MMF、貴金属、レバレッジ、インバース、非tradable、非SBI対応。
 - `symbol_universe.csv` / schema に SBI policy columns を追加済みです。既存127件は conservative default として `broker=sbi_securities`, `tradability=unknown`, `nisa_category=unknown`, `investment_style=unknown`, `is_sbi_supported=true`, `is_active=true`, `is_leveraged=false`, `is_inverse=false` を持ちます。
-- `tradability=unknown` は初期 seed として通し、`not_tradable` だけを除外します。SBI / NISA / 投信の公式 source import は後続範囲です。
-- SBI証券サイトへのログインや画面スクレイピングは通常 workflow に含めません。SBI / JPX / 投信協会 / NISA 一覧などを手動または curated source CSV に整形し、source import command で local master へ反映します。
+- `tradability=unknown` は stock / ETF の初期 seed として通し、`not_tradable` だけを除外します。SBI / NISA の公式 source import は後続範囲です。投信公式 source import は Future Phase です。
+- SBI証券サイトへのログインや画面スクレイピングは通常 workflow に含めません。SBI / JPX / NISA 一覧などを手動または curated source CSV に整形し、source import command で local master へ反映します。投信協会 / 投信CSV / 基準価額は Future Phase で扱います。
 - Ranking / Screening は source site を直接参照せず、`symbol_universe.csv` と default policy helper だけを参照します。
-- 投信向け metadata として `trust_fee_pct`, `aum`, `nisa_tsumitate_eligible`, `nisa_growth_eligible`, `installment_available`, `management_style`, `distribution_policy` を source CSV から取り込めます。
-- 現在の候補マスタは 146件です。内訳は stock 120件、ETF 20件、投信 4件、ADR 2件です。
+- 投信向け metadata として `trust_fee_pct`, `aum`, `nisa_tsumitate_eligible`, `nisa_growth_eligible`, `installment_available`, `management_style`, `distribution_policy` を source CSV から取り込めます。ただし MVP ではランキング対象外です。
+- 現在の候補マスタは 146件です。内訳は stock 120件、ETF 20件、投信 4件、ADR 2件です。default ranking universe では stock / ETF のみを対象にします。
 
 Phase 16 ranking implementation notes:
 

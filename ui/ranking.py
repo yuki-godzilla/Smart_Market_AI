@@ -26,6 +26,11 @@ RANKING_REGION_LABELS = {
     RANKING_REGION_OTHER_GLOBAL: "その他海外",
     RANKING_REGION_ALL: "全体",
 }
+RANKING_MVP_REGION_LABELS = {
+    RANKING_REGION_JAPAN: RANKING_REGION_LABELS[RANKING_REGION_JAPAN],
+    RANKING_REGION_US: RANKING_REGION_LABELS[RANKING_REGION_US],
+    RANKING_REGION_ALL: RANKING_REGION_LABELS[RANKING_REGION_ALL],
+}
 
 RANKING_PRODUCT_STOCK = "stock"
 RANKING_PRODUCT_ETF = "etf"
@@ -37,22 +42,64 @@ RANKING_PRODUCT_TYPE_LABELS = {
     RANKING_PRODUCT_MUTUAL_FUND: "投信",
     RANKING_PRODUCT_ALL: "全体",
 }
+RANKING_MVP_PRODUCT_TYPE_LABELS = {
+    RANKING_PRODUCT_STOCK: RANKING_PRODUCT_TYPE_LABELS[RANKING_PRODUCT_STOCK],
+    RANKING_PRODUCT_ETF: RANKING_PRODUCT_TYPE_LABELS[RANKING_PRODUCT_ETF],
+}
 
-RANKING_PURPOSE_OVERALL = "overall"
-RANKING_PURPOSE_SHORT_TERM_UPSIDE = "short_term_upside"
-RANKING_PURPOSE_LONG_TERM_GROWTH = "long_term_growth"
-RANKING_PURPOSE_HIGH_DIVIDEND = "high_dividend"
+RANKING_PURPOSE_DIVIDEND = "dividend"
+RANKING_PURPOSE_GROWTH = "growth"
 RANKING_PURPOSE_VALUE = "value"
-RANKING_PURPOSE_LOW_RISK = "low_risk"
-RANKING_PURPOSE_LOW_COST = "low_cost"
+RANKING_PURPOSE_STABILITY = "stability"
+RANKING_PURPOSE_TREND = "trend"
 RANKING_PURPOSE_LABELS = {
-    RANKING_PURPOSE_OVERALL: "総合評価",
-    RANKING_PURPOSE_SHORT_TERM_UPSIDE: "短期上昇期待",
-    RANKING_PURPOSE_LONG_TERM_GROWTH: "中長期成長",
-    RANKING_PURPOSE_HIGH_DIVIDEND: "高配当",
-    RANKING_PURPOSE_VALUE: "割安",
-    RANKING_PURPOSE_LOW_RISK: "低リスク",
-    RANKING_PURPOSE_LOW_COST: "低コスト",
+    RANKING_PURPOSE_DIVIDEND: "配当重視",
+    RANKING_PURPOSE_GROWTH: "成長重視",
+    RANKING_PURPOSE_VALUE: "割安重視",
+    RANKING_PURPOSE_STABILITY: "安定重視",
+    RANKING_PURPOSE_TREND: "トレンド重視",
+}
+RANKING_INVESTMENT_STYLE_METRICS = {
+    RANKING_PURPOSE_DIVIDEND: [
+        "dividend_yield",
+        "dividend_growth",
+        "payout_ratio",
+        "free_cash_flow",
+        "earnings_stability",
+        "volatility",
+    ],
+    RANKING_PURPOSE_GROWTH: [
+        "revenue_growth",
+        "eps_growth",
+        "roe",
+        "operating_margin",
+        "price_momentum",
+        "market_cap",
+    ],
+    RANKING_PURPOSE_VALUE: [
+        "per",
+        "pbr",
+        "psr",
+        "ev_ebitda",
+        "dividend_yield",
+        "historical_valuation_gap",
+    ],
+    RANKING_PURPOSE_STABILITY: [
+        "market_cap",
+        "beta",
+        "volatility",
+        "equity_ratio",
+        "operating_margin",
+        "earnings_stability",
+    ],
+    RANKING_PURPOSE_TREND: [
+        "moving_average_signal",
+        "rsi",
+        "macd",
+        "volume_change",
+        "recent_return",
+        "volatility",
+    ],
 }
 
 RANKING_PRESET_BALANCED = "balanced"
@@ -92,13 +139,11 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     },
 }
 RANKING_PURPOSE_WEIGHT_PRESETS = {
-    RANKING_PURPOSE_OVERALL: RANKING_PRESET_BALANCED,
-    RANKING_PURPOSE_SHORT_TERM_UPSIDE: RANKING_PRESET_FORECAST,
-    RANKING_PURPOSE_LONG_TERM_GROWTH: RANKING_PRESET_FORECAST,
-    RANKING_PURPOSE_HIGH_DIVIDEND: RANKING_PRESET_BALANCED,
+    RANKING_PURPOSE_DIVIDEND: RANKING_PRESET_BALANCED,
+    RANKING_PURPOSE_GROWTH: RANKING_PRESET_FORECAST,
     RANKING_PURPOSE_VALUE: RANKING_PRESET_BALANCED,
-    RANKING_PURPOSE_LOW_RISK: RANKING_PRESET_RISK,
-    RANKING_PURPOSE_LOW_COST: RANKING_PRESET_QUALITY,
+    RANKING_PURPOSE_STABILITY: RANKING_PRESET_RISK,
+    RANKING_PURPOSE_TREND: RANKING_PRESET_FORECAST,
 }
 RANKING_PERIOD_PRESETS = {
     "short": 7,
@@ -120,7 +165,6 @@ RANKING_ASSET_TYPE_LABELS = {
     "all": "すべて",
     "stock": "個別株",
     "etf": "ETF",
-    "adr": "ADR",
 }
 RANKING_CURRENCY_LABELS = {
     "all": "すべて",
@@ -201,9 +245,6 @@ RANKING_DETAIL_FILTER_LABELS = {
     "benchmark_index": "連動指数",
     "expense_ratio": "信託報酬/経費率",
     "complexity": "複雑さ",
-    "management_style": "運用方式",
-    "nisa_eligibility": "NISA対応",
-    "installment_available": "積立可否",
 }
 RANKING_DETAIL_FILTERS_BY_CATEGORY = {
     (RANKING_REGION_JAPAN, RANKING_PRODUCT_STOCK): [
@@ -237,18 +278,11 @@ RANKING_DETAIL_FILTERS_BY_CATEGORY = {
         "dividend_yield",
         "complexity",
     ],
-    (RANKING_REGION_ALL, RANKING_PRODUCT_MUTUAL_FUND): [
-        "management_style",
-        "benchmark_index",
-        "expense_ratio",
-        "nisa_eligibility",
-        "installment_available",
-    ],
 }
 RANKING_FILTER_DEFAULTS: dict[str, str] = {
     "market_data_ranking_region": RANKING_REGION_JAPAN,
     "market_data_ranking_product_type": RANKING_PRODUCT_STOCK,
-    "market_data_ranking_purpose": RANKING_PURPOSE_OVERALL,
+    "market_data_ranking_purpose": RANKING_PURPOSE_DIVIDEND,
     "market_data_ranking_market": "all",
     "market_data_ranking_asset_type": "all",
     "market_data_ranking_currency": "all",
@@ -258,9 +292,6 @@ RANKING_FILTER_DEFAULTS: dict[str, str] = {
     "market_data_ranking_index_family": "all",
     "market_data_ranking_max_expense": "1.00",
     "market_data_ranking_complexity": "standard",
-    "market_data_ranking_management_style": "all",
-    "market_data_ranking_nisa_eligibility": "all",
-    "market_data_ranking_installment_available": "all",
     "market_data_ranking_risk_band": "all",
     "market_data_ranking_theme": "all",
     "market_data_ranking_symbol_query": "",
@@ -316,7 +347,7 @@ def ranking_detail_filters_for_category(region: str, product_type: str) -> list[
     if product_type == RANKING_PRODUCT_ETF:
         return RANKING_DETAIL_FILTERS_BY_CATEGORY[(RANKING_REGION_ALL, RANKING_PRODUCT_ETF)]
     if product_type == RANKING_PRODUCT_MUTUAL_FUND:
-        return RANKING_DETAIL_FILTERS_BY_CATEGORY[(RANKING_REGION_ALL, RANKING_PRODUCT_MUTUAL_FUND)]
+        return []
     if product_type == RANKING_PRODUCT_STOCK:
         if region == RANKING_REGION_JAPAN:
             return RANKING_DETAIL_FILTERS_BY_CATEGORY[(RANKING_REGION_JAPAN, RANKING_PRODUCT_STOCK)]
@@ -365,7 +396,7 @@ def filter_symbol_universe_rows(
     *,
     region: str = RANKING_REGION_ALL,
     product_type: str = RANKING_PRODUCT_ALL,
-    ranking_purpose: str = RANKING_PURPOSE_OVERALL,
+    ranking_purpose: str = RANKING_PURPOSE_DIVIDEND,
     purpose: str = "all",
     market: str = "all",
     asset_type: str = "all",
@@ -488,7 +519,7 @@ def ranking_filter_signature(
     *,
     region: str = RANKING_REGION_ALL,
     product_type: str = RANKING_PRODUCT_ALL,
-    ranking_purpose: str = RANKING_PURPOSE_OVERALL,
+    ranking_purpose: str = RANKING_PURPOSE_DIVIDEND,
     purpose: str,
     period_preset: str,
     market: str,
@@ -677,10 +708,6 @@ def ranking_symbol_options(rows: list[dict[str, str]]) -> list[str]:
     return symbols
 
 
-def ranking_price_fetch_unsupported_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
-    return [row for row in rows if row.get("asset_type") not in {"adr", "etf", "stock"}]
-
-
 def ranking_deep_dive_default_symbol(
     rows: list[dict[str, str]],
     *,
@@ -839,11 +866,11 @@ def _symbol_matches_product_type(row: dict[str, str], product_type: str) -> bool
     if product_type == RANKING_PRODUCT_ALL:
         return True
     if product_type == RANKING_PRODUCT_STOCK:
-        return asset_type in {"stock", "adr"}
+        return asset_type == "stock"
     if product_type == RANKING_PRODUCT_ETF:
         return asset_type == "etf"
     if product_type == RANKING_PRODUCT_MUTUAL_FUND:
-        return asset_type in {"mutual_fund", "fund", "investment_trust"}
+        return False
     return True
 
 

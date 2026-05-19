@@ -22,7 +22,21 @@ def test_ranking_universe_policy_allows_unknown_tradability_seed_rows():
 
 
 def test_ranking_universe_policy_excludes_initial_out_of_scope_products():
-    for asset_type in ["fx", "cfd", "futures", "option", "crypto", "bond", "mmf", "commodity"]:
+    for asset_type in [
+        "adr",
+        "fx",
+        "cfd",
+        "futures",
+        "option",
+        "crypto",
+        "bond",
+        "mmf",
+        "commodity",
+        "fund",
+        "investment_trust",
+        "mutual_fund",
+        "reit",
+    ]:
         assert not symbol_allowed_by_ranking_universe_policy({"asset_type": asset_type})
 
 
@@ -48,10 +62,10 @@ def test_ranking_universe_policy_can_require_nisa_eligible_rows():
     policy = RankingUniversePolicy(include_nisa_only=True)
 
     assert symbol_allowed_by_ranking_universe_policy(
-        {"asset_type": "mutual_fund", "nisa_category": "growth"},
+        {"asset_type": "stock", "nisa_category": "growth"},
         policy=policy,
     )
     assert not symbol_allowed_by_ranking_universe_policy(
-        {"asset_type": "mutual_fund", "nisa_category": "unknown"},
+        {"asset_type": "stock", "nisa_category": "unknown"},
         policy=policy,
     )

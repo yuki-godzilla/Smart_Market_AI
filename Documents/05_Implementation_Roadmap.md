@@ -287,59 +287,59 @@ Completion criteria:
 
 Status: implementation complete; Streamlit visual smoke completed
 
-目的: `銘柄ランキング` を、単なる検索フィルターではなく、投資対象とランキング目的を先に決めてから詳細条件を設定する UI に整理する。
+目的: `銘柄ランキング` を、単なる検索フィルターではなく、投資対象と投資スタイルを先に決めてから詳細条件を設定する UI に整理する。MVP は株式・ETF中心とし、投資信託は将来対応に回す。
 
 Planned scope:
 
 - Ranking condition model
-  - 地域: `国内` / `米国` / `その他海外` / `全体`
-  - 商品: `株式` / `ETF` / `投信` / `全体`
-  - ランキング目的: `総合評価` / `短期上昇期待` / `中長期成長` / `高配当` / `割安` / `低リスク` / `低コスト`
+  - 地域: `国内` / `米国` / `全体`
+  - 商品: `株式` / `ETF`
+  - 投資スタイル: `配当重視` / `成長重視` / `割安重視` / `安定重視` / `トレンド重視`
   - UI label と internal key を分離した enum / constants / condition object
 - UI structure
-  - ranking screen の上部で地域・商品・ランキング目的を選択
+  - ranking screen の上部で地域・商品・投資スタイルを選択
   - 初期表示は候補が広がりすぎない `国内` + `株式`
   - 地域 × 商品に応じて詳細条件を動的に切り替え
   - 候補数を見せてから Yahoo live data ranking を実行
 - Separation of responsibility
-  - ランキング目的は Investment Score の weight preset / sort intent として扱う
+  - 投資スタイルは Investment Score の weight preset / sort intent として扱う
   - 詳細条件は provider fetch 前の candidate filter として扱う
   - `総合おすすめ` のような推奨に見える表現は避け、投資判断補助として表現する
 - Phase 1 filter coverage
   - 株式: 地域、業種/セクター、時価総額、配当利回り、PER、PBR、ROE、リスク帯
   - ETF: 地域、投資対象、連動指数、信託報酬/経費率、分配金利回り、複雑さ
-  - 投信: 商品分類と条件定義を追加し、source-import seed の運用方式 / 連動指数 / 信託報酬 / NISA対応 / 積立可否で候補を絞る
+  - 投信: MVP 対象外。source seed / metadata schema は future extension として残すが、ranking UI と default universe から除外する
 - Future-ready filter definitions
   - 国内株式: 投資スタイル、業種、時価総額、配当利回り、PER、PBR、ROE、売買代金
   - 米国株式: 投資スタイル、セクター、時価総額、配当利回り、PER、売上成長率、EPS成長率、Beta、ボラティリティ
   - 全体 × 株式: 地域、投資スタイル、業種/セクター、時価総額、配当利回り、PER、ROE、リスク
   - ETF: 投資対象、地域、連動指数、信託報酬/経費率、分配金利回り、純資産総額、流動性、為替ヘッジ、複雑さ
-  - 投信: 運用方式、投資対象、地域、信託報酬、純資産総額、NISA対応、積立可否、分配方針、為替ヘッジ、複雑さ
+  - 投信: Future phase で、ウォッチリスト、CSV取込、基準価額チャート、Provider連携、投信ランキングを検討する
 
 Implementation rules:
 
 - 既存 `data/marketdata/symbol_universe.csv` で判定できる条件だけを実フィルタとして有効化する。
-- 未取得の `売買代金`、`売上成長率`、`EPS成長率`、`Beta` などは、無理に計算せず future metadata として定義・文書化する。投信の `純資産総額`、`NISA対応`、`積立可否` は source-import seed で保持し、UI で使う範囲を段階的に広げる。
+- 未取得の `売買代金`、`売上成長率`、`EPS成長率`、`Beta` などは、無理に計算せず future metadata として定義・文書化する。投信の `純資産総額`、`NISA対応`、`積立可否` は source-import seed で保持できるが、MVP UI / ranking では使わない。
 - `大型株`、`リスク`、`複雑さ` などの曖昧な UI 表現は、内部的に数値しきい値または明示フラグへ変換できる設計にする。
-- ETF と投信は UI / internal model の両方で分離する。
+- ETF と投信は internal model で分離する。MVP UI は株式 / ETF のみ表示する。
 - docs / tests / UI wording policy と矛盾しないよう、実装時に operations guide と必要な設計文書を同期する。
 
 Completion criteria:
 
-- 地域・商品・ランキング目的の分類が定義されている。
+- 地域・商品・投資スタイルの分類が定義されている。
 - 商品・地域に応じて詳細条件が切り替わる。
-- ランキング目的と詳細条件の役割が UI / code / docs で分離されている。
+- 投資スタイルと詳細条件の役割が UI / code / docs で分離されている。
 - Phase 1 で実データに基づき有効な条件と、future metadata 条件が区別されている。
 - 「おすすめ」ではなく、判断材料を整理する ranking として文言が統一されている。
 - UI helper tests または deterministic filtering tests が追加・更新されている。
 
 Current implementation note:
 
-- `ui/ranking.py` defines region / product / ranking-purpose labels separately from internal keys.
-- `銘柄ランキング` now shows region / product / ranking purpose before provider / period, derives the display weight preset from ranking purpose, and shows dynamic detail filters for the selected category.
+- `ui/ranking.py` defines region / product / investment-style labels separately from internal keys.
+- `銘柄ランキング` now shows region / product / investment style before provider / period, derives the display weight preset from investment style, and shows dynamic detail filters for stock / ETF categories.
 - The detail filter panel is grouped into attribute / numeric / keyword sections, and the comparison-symbol selector stays all-selected by default while its large multiselect tags are kept inside a collapsed expander.
 - Acquisition period, candidate count, selected count, and all/partial selection status are shown as a compact one-line comparison status.
-- Current enforceable filters remain limited to `symbol_universe.csv` metadata. 投信は seed/source import の `management_style`, `index_family`, `trust_fee_pct`, `nisa_*_eligible`, `installment_available` で候補を絞れる。投信の価格取得・ランキング計算は後続対応として UI で実行をガードする。
+- Current enforceable filters remain limited to `symbol_universe.csv` metadata. Default ranking universe is stock / ETF only. 投信 seed/source import は将来対応 metadata として残すが、MVP ranking UI には表示しない。
 - Streamlit visual smoke for the Phase 17 ranking-condition UI has been completed by the user.
 
 ### 5.4 Phase 18: Symbol Universe And Metadata Refresh
@@ -350,7 +350,7 @@ Status: in progress
 
 Scope:
 
-- `symbol_universe.csv` の列定義を整理し、地域、商品、業種/セクター、時価総額 tier、配当、PER/PBR/ROE、ETF/投信属性、metadata freshness を明確化する。
+- `symbol_universe.csv` の列定義を整理し、地域、商品、業種/セクター、時価総額 tier、配当、PER/PBR/ROE、ETF属性、future 投信属性、metadata freshness を明確化する。
 - ranking universe は、当面 SBI証券で取り扱いがあり、現物・NISA・長期投資で検討しやすい商品を初期前提にする。
 - CSV / fixture を deterministic baseline として維持する。
 - Yahoo fundamentals や将来 provider から metadata を更新する明示 opt-in command を設計する。
@@ -369,11 +369,11 @@ Provider policy:
 Universe policy:
 
 - 詳細方針は [09_SBI_Symbol_Universe_Policy.md](./09_SBI_Symbol_Universe_Policy.md) を参照する。
-- 初期対象は国内株式、米国株式、国内ETF、米国ETF/海外ETF、投資信託、REIT とする。
-- FX、CFD、先物・オプション、暗号資産、債券、外貨建MMF、貴金属、レバレッジ、インバースは初期 ranking から除外する。
+- MVP対象は国内株式、米国株式、国内ETF、米国ETF/海外ETF とする。
+- 投資信託、ADR、REIT、FX、CFD、先物・オプション、暗号資産、債券、外貨建MMF、貴金属、レバレッジ、インバースは初期 ranking から除外する。
 - `broker`, `tradability`, `nisa_category`, `investment_style`, `is_sbi_supported`, `is_active`, `is_leveraged`, `is_inverse` は `symbol_universe.csv` / schema に保持する。
 - 既存127件は conservative default として `tradability=unknown` を持つ。SBI取扱確認済み master ではないため、初期 policy では `unknown` を通し、`not_tradable` や明示的な対象外 flag だけを除外する。
-- SMAI は初期段階で SBI 証券サイトを直接スクレイピングしない。SBI / JPX / 投信協会 / NISA 一覧などを source CSV 化し、local master に取り込む。
+- SMAI は初期段階で SBI 証券サイトを直接スクレイピングしない。SBI / JPX / NISA 一覧などを source CSV 化し、local master に取り込む。投信協会 / 投信CSV / 基準価額は Future Phase とする。
 - 現在の `symbol_universe.csv` は SecurityMaster 相当の local master として扱う。専用 `SecurityMasterRepository` は、API / UI / batch で共通 loader が必要になった段階で `backend/marketdata/security_master/` などへ昇格する。
 
 Implementation order:
@@ -387,7 +387,7 @@ Implementation order:
 7. `--write` path for CSV/manifest update, with validation before and after write. 完了。Cache output is future scope if needed.
 8. Local source import for JPX / curated universe expansion. 完了。Initial JPX ETF seed and domestic stock seed imported.
 9. SBI ranking universe policy columns and default exclusion helper. 完了。Unknown tradability is allowed by default.
-10. SBI / NISA / 投信 metadata source import. 部分完了。`--source-profile`、SBI US stock/ETF seed、mutual fund seed、投信 metadata columns の import path は追加済み。SBI US stock/ETF/mutual fund seed は `symbol_universe.csv` へ反映済み。次は公式/curated source の拡張。
+10. SBI / NISA / future 投信 metadata source import. 部分完了。`--source-profile`、SBI US stock/ETF seed、mutual fund seed、投信 metadata columns の import path は追加済み。MVP ranking は stock / ETF のみ対象にし、mutual fund seed は future extension として保持する。次は公式/curated source の拡張。
 11. SecurityMaster repository separation only if symbol master usage spreads beyond current UI / command helpers.
 12. Optional additional provider adapters only when Yahoo coverage or stability is insufficient.
 
@@ -414,7 +414,7 @@ Current implementation note:
 - SBI証券取扱商品を初期 ranking universe の前提にする policy columns / default exclusion helper を追加した。現時点の CSV は SBI取扱確認済み master ではなく local curated / source-import seed として扱うため、`tradability=unknown` は初期 ranking で通す。
 - SBI銘柄マスタ取得方針は、SBI から直接リアルタイム取得するのではなく、SBI / JPX / public source を local source CSV 化して import する。将来 adapter は source import / repository 境界に追加し、ranking logic から分離する。
 - `tools/import_symbol_universe_source.py` supports `--source-profile sbi_us_stock|sbi_us_etf|mutual_fund_seed`, filling market/product/currency and SBI policy defaults. `sbi_us_stock_seed.csv`, `sbi_us_etf_seed.csv`, and `mutual_fund_seed.csv` are available as source seeds. 2026-05-18 時点で candidate master は 146件になり、stock 120件、ETF 20件、投信 4件、ADR 2件を持つ。
-- Ranking UI now uses mutual-fund metadata filters from `symbol_universe.csv` and prevents mutual-fund placeholder symbols from being sent to price-provider ranking fetch. ETF leveraged/inverse rows remain stored for metadata coverage but are excluded by the ranking-universe policy.
+- Ranking UI and default ranking universe are stock / ETF focused. Mutual-fund rows can remain in the local master as future extension data, but `mutual_fund` / `fund` / `investment_trust` are excluded from MVP ranking candidates. ETF leveraged/inverse rows remain stored for metadata coverage but are excluded by the ranking-universe policy.
 
 ### 5.5 Phase 19: Decision Report Context MVP
 

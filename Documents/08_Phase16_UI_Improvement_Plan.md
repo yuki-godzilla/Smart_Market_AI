@@ -227,14 +227,11 @@ Fetch 前には使わない条件:
 
 - 個別株
 - ETF
-- ADR
-- 投信
-- すべて
 
 注意:
 
-- 投信は provider / data schema が整うまで curated placeholder として扱う。
-- 初期実装は個別株 / ETF / ADR を中心にする。
+- MVP は個別株 / ETF を中心にする。
+- ADR / 投信 / REIT は Future Phase とし、default ranking universe から除外する。
 
 #### 通貨
 
@@ -377,7 +374,7 @@ Fetch 後の条件は、既存の MarketData / Feature Store / Screening / Forec
 
 将来:
 
-1. 投信 data schema を追加する。
+1. 投信 data schema / CSV取込 / 基準価額チャートを追加する。
 2. NISA 適性、信託報酬、最低投資金額、分配金方針を扱う。
 3. 保有 portfolio との相性で候補を絞る。
 4. Assistant / Report で同じ context を自然文にする。

@@ -77,8 +77,8 @@ def ranking_filter_summary() -> str:
         "株式",
     )
     ranking_purpose = RANKING_PURPOSE_LABELS.get(
-        ranking_filter_value("market_data_ranking_purpose", "overall"),
-        "総合評価",
+        ranking_filter_value("market_data_ranking_purpose", "dividend"),
+        "配当重視",
     )
     market = RANKING_MARKET_LABELS.get(
         ranking_filter_value("market_data_ranking_market", "all"),
@@ -108,7 +108,7 @@ def ranking_filter_signature_from_state() -> str:
     return ranking_filter_signature(
         region=ranking_filter_value("market_data_ranking_region", "japan"),
         product_type=ranking_filter_value("market_data_ranking_product_type", "stock"),
-        ranking_purpose=ranking_filter_value("market_data_ranking_purpose", "overall"),
+        ranking_purpose=ranking_filter_value("market_data_ranking_purpose", "dividend"),
         purpose="all",
         period_preset=ranking_filter_value("market_data_ranking_period", "short"),
         market=ranking_filter_value("market_data_ranking_market", "all"),
@@ -120,12 +120,6 @@ def ranking_filter_signature_from_state() -> str:
         index_family=ranking_filter_value("market_data_ranking_index_family", "all"),
         max_expense_ratio_pct=ranking_filter_value("market_data_ranking_max_expense", "1.00"),
         complexity=ranking_filter_value("market_data_ranking_complexity", "standard"),
-        management_style=ranking_filter_value("market_data_ranking_management_style", "all"),
-        nisa_eligibility=ranking_filter_value("market_data_ranking_nisa_eligibility", "all"),
-        installment_available=ranking_filter_value(
-            "market_data_ranking_installment_available",
-            "all",
-        ),
         risk_band=ranking_filter_value("market_data_ranking_risk_band", "all"),
         theme=ranking_filter_value("market_data_ranking_theme", "all"),
         query=ranking_filter_value("market_data_ranking_symbol_query", ""),

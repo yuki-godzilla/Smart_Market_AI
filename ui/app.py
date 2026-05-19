@@ -32,14 +32,11 @@ from ui.ranking import (
     RANKING_CURRENCY_LABELS,
     RANKING_DIVIDEND_LABELS,
     RANKING_INDEX_FAMILY_LABELS,
-    RANKING_INSTALLMENT_LABELS,
-    RANKING_MANAGEMENT_STYLE_LABELS,
     RANKING_MARKET_CAP_LABELS,
-    RANKING_NISA_ELIGIBILITY_LABELS,
+    RANKING_MVP_PRODUCT_TYPE_LABELS,
+    RANKING_MVP_REGION_LABELS,
     RANKING_PERIOD_PRESETS,
-    RANKING_PRODUCT_TYPE_LABELS,
     RANKING_PURPOSE_LABELS,
-    RANKING_REGION_LABELS,
     RANKING_RISK_BAND_LABELS,
     RANKING_THEME_LABELS,
     apply_ranking_weight_preset,
@@ -53,7 +50,6 @@ from ui.ranking import (
     ranking_no_bars_error_row,
     ranking_period_dates,
     ranking_period_label,
-    ranking_price_fetch_unsupported_rows,
     ranking_product_type_label,
     ranking_provider_error_rows,
     ranking_purpose_label,
@@ -210,6 +206,11 @@ def _selectbox_index(options: list[str], value: str) -> int:
     return options.index(value) if value in options else 0
 
 
+def _ensure_selectbox_state_value(key: str, options: list[str]) -> None:
+    if key in st.session_state and st.session_state.get(key) not in options:
+        st.session_state[key] = options[0]
+
+
 def _render_metric_range_filter(
     label: str,
     *,
@@ -317,7 +318,7 @@ def _render_ranking_filter_panel() -> None:
     product_type = _ranking_filter_value("market_data_ranking_product_type", "stock")
     detail_filters = set(ranking_detail_filters_for_category(region, product_type))
     with st.expander("詳細条件", expanded=not has_ranking_result):
-        st.caption("取得前に使える条件で候補を絞ります。ランキング目的は表示順に使います。")
+        st.caption("取得前に使える条件で候補を絞ります。投資スタイルは表示順に使います。")
 
         st.markdown("**属性条件**")
         columns = st.columns(4)
@@ -378,30 +379,6 @@ def _render_ranking_filter_panel() -> None:
                     options=list(RANKING_COMPLEXITY_LABELS),
                     key="market_data_ranking_complexity",
                     format_func=lambda value: RANKING_COMPLEXITY_LABELS[value],
-                )
-        if "management_style" in detail_filters:
-            with next_column():
-                _render_detail_selectbox(
-                    "運用方式",
-                    options=list(RANKING_MANAGEMENT_STYLE_LABELS),
-                    key="market_data_ranking_management_style",
-                    format_func=lambda value: RANKING_MANAGEMENT_STYLE_LABELS[value],
-                )
-        if "nisa_eligibility" in detail_filters:
-            with next_column():
-                _render_detail_selectbox(
-                    "NISA対応",
-                    options=list(RANKING_NISA_ELIGIBILITY_LABELS),
-                    key="market_data_ranking_nisa_eligibility",
-                    format_func=lambda value: RANKING_NISA_ELIGIBILITY_LABELS[value],
-                )
-        if "installment_available" in detail_filters:
-            with next_column():
-                _render_detail_selectbox(
-                    "積立可否",
-                    options=list(RANKING_INSTALLMENT_LABELS),
-                    key="market_data_ranking_installment_available",
-                    format_func=lambda value: RANKING_INSTALLMENT_LABELS[value],
                 )
         if "dividend_yield" in detail_filters:
             with next_column():
@@ -627,7 +604,8 @@ def _render_market_data_ranking() -> None:
 
     col_region, col_product, col_purpose = st.columns(3)
     with col_region:
-        region_options = list(RANKING_REGION_LABELS)
+        region_options = list(RANKING_MVP_REGION_LABELS)
+        _ensure_selectbox_state_value("market_data_ranking_region", region_options)
         region = cast(
             str,
             st.selectbox(
@@ -642,7 +620,8 @@ def _render_market_data_ranking() -> None:
             ),
         )
     with col_product:
-        product_options = list(RANKING_PRODUCT_TYPE_LABELS)
+        product_options = list(RANKING_MVP_PRODUCT_TYPE_LABELS)
+        _ensure_selectbox_state_value("market_data_ranking_product_type", product_options)
         product_type = cast(
             str,
             st.selectbox(
@@ -658,14 +637,15 @@ def _render_market_data_ranking() -> None:
         )
     with col_purpose:
         purpose_options = list(RANKING_PURPOSE_LABELS)
+        _ensure_selectbox_state_value("market_data_ranking_purpose", purpose_options)
         ranking_purpose = cast(
             str,
             st.selectbox(
-                "ランキング目的",
+                "投資スタイル",
                 purpose_options,
                 index=_selectbox_index(
                     purpose_options,
-                    _ranking_filter_value("market_data_ranking_purpose", "overall"),
+                    _ranking_filter_value("market_data_ranking_purpose", "dividend"),
                 ),
                 key="market_data_ranking_purpose",
                 format_func=ranking_purpose_label,
@@ -698,7 +678,7 @@ def _render_market_data_ranking() -> None:
             format_func=ranking_period_label,
         )
     st.caption(
-        f"ランキング目的: {ranking_purpose_label(ranking_purpose)} / "
+        f"投資スタイル: {ranking_purpose_label(ranking_purpose)} / "
         f"表示順: {ranking_weight_preset_label(weight_preset)}"
     )
     _render_ranking_filter_panel()
@@ -713,12 +693,6 @@ def _render_market_data_ranking() -> None:
     index_family = _ranking_filter_value("market_data_ranking_index_family", "all")
     max_expense_ratio_pct = _ranking_filter_value("market_data_ranking_max_expense", "1.00")
     complexity = _ranking_filter_value("market_data_ranking_complexity", "standard")
-    management_style = _ranking_filter_value("market_data_ranking_management_style", "all")
-    nisa_eligibility = _ranking_filter_value("market_data_ranking_nisa_eligibility", "all")
-    installment_available = _ranking_filter_value(
-        "market_data_ranking_installment_available",
-        "all",
-    )
     risk_band = _ranking_filter_value("market_data_ranking_risk_band", "all")
     theme = _ranking_filter_value("market_data_ranking_theme", "all")
     symbol_query = _ranking_filter_value("market_data_ranking_symbol_query", "")
@@ -751,9 +725,6 @@ def _render_market_data_ranking() -> None:
         index_family=index_family,
         max_expense_ratio_pct=max_expense_ratio_pct,
         complexity=complexity,
-        management_style=management_style,
-        nisa_eligibility=nisa_eligibility,
-        installment_available=installment_available,
         risk_band=risk_band,
         theme=theme,
         query=symbol_query,
@@ -789,9 +760,6 @@ def _render_market_data_ranking() -> None:
         index_family=index_family,
         max_expense_ratio_pct=max_expense_ratio_pct,
         complexity=complexity,
-        management_style=management_style,
-        nisa_eligibility=nisa_eligibility,
-        installment_available=installment_available,
         risk_band=risk_band,
         theme=theme,
         query=symbol_query,
@@ -843,31 +811,15 @@ def _render_market_data_ranking() -> None:
                 key=selection_key,
             ),
         )
-    selected_symbols_for_support = {
-        symbol for label in selected_labels if (symbol := _symbol_from_candidate(label))
-    }
-    selected_rows_for_support = [
-        row for row in filtered_symbol_rows if row.get("symbol") in selected_symbols_for_support
-    ]
-    unsupported_price_rows = ranking_price_fetch_unsupported_rows(selected_rows_for_support)
-    if unsupported_price_rows:
-        unsupported_labels = ", ".join(row.get("symbol", "") for row in unsupported_price_rows[:5])
-        suffix = " など" if len(unsupported_price_rows) > 5 else ""
-        st.info(
-            f"{unsupported_labels}{suffix} は価格取得・ランキング計算の後続対応です。"
-            "比較する銘柄から外すとランキングを作成できます。"
-        )
     warning_message = live_ranking_symbol_warning_message(provider, len(selected_labels))
     if warning_message is not None:
         st.warning(warning_message)
     if not labels:
         st.warning("この条件に合う候補がありません。候補条件を広げてください。")
 
-    ranking_button_disabled = bool(unsupported_price_rows)
     if st.button(
         "ランキング作成",
         key="build_market_data_ranking",
-        disabled=ranking_button_disabled,
     ):
         sync_ranking_selection_state(selection_key, selected_labels)
         symbols = [_symbol_from_candidate(label) for label in selected_labels]
@@ -919,7 +871,7 @@ def _render_market_data_ranking() -> None:
         display_rows = investment_score_display_rows(ranked_rows)
         st.markdown("#### ランキング結果")
         st.caption(
-            f"ランキング目的: {ranking_purpose_label(ranking_purpose)} / "
+            f"投資スタイル: {ranking_purpose_label(ranking_purpose)} / "
             f"表示順: {ranking_weight_preset_label(weight_preset)}。"
             "上位の銘柄ほど、今回の条件では深掘り候補として見やすい順です。"
         )

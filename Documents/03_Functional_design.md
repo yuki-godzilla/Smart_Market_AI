@@ -40,10 +40,10 @@
 - 入力: local curated CSV、JPX / SBI / FSA / IMAJ などの source CSV、明示 opt-in metadata refresh。
 - 出力: ranking 前に使える `symbol_universe.csv` と metadata validation result。
 - 初期前提: SBI証券で取り扱いがあり、現物・NISA・長期投資で検討しやすい商品を優先する。
-- 初期対象: 国内株式、米国株式、国内ETF、米国ETF/海外ETF、投資信託、REIT。
-- 初期除外: FX、CFD、先物・オプション、暗号資産、債券、外貨建MMF、貴金属、レバレッジ、インバース、非tradable、非SBI対応。
+- MVP対象: 国内株式、米国株式、国内ETF、米国ETF/海外ETF。
+- MVP除外: 投資信託、ADR、REIT、FX、CFD、先物・オプション、暗号資産、債券、外貨建MMF、貴金属、レバレッジ、インバース、非tradable、非SBI対応。
 - 実装状態: `symbol_universe.csv` / `symbol_metadata_schema.py` に broker / tradability / NISA / 積立対応 / leveraged / inverse metadata を追加し、ranking candidate extraction の前に policy helper を適用済み。`tradability=unknown` は初期 seed として通す。
-- 取得方針: SBI / JPX / 投信協会 / NISA 一覧などを local source CSV 化して import する。Ranking / Screening は外部 source を直接参照しない。
+- 取得方針: SBI / JPX / NISA 一覧などを local source CSV 化して import する。Ranking / Screening は外部 source を直接参照しない。投信協会 / 投信CSV / 基準価額は Future Phase とする。
 - 制約: SBI証券へのログインやスクレイピングは初期対象外。通常 tests は network 非依存にする。
 
 ### Feature Store Lite
@@ -108,7 +108,7 @@
 
 ## 0. Scope & Assumptions
 
-* 対象市場：SBI証券で取り扱いがあることを初期前提にした日本株・米国株・ETF・REIT・安定成長型投資信託。
+* 対象市場：SBI証券で取り扱いがあることを初期前提にした日本株・米国株・ETF。REIT・投資信託は Future Phase。
 * 投資対象は現物中心、信用取引は将来的拡張。
 * 対象機能：銘柄予測、ランキング、市場予測、ポートフォリオ最適化、リスク分析、レポート出力。
 * デプロイはローカル実行（Python + Streamlit）を基本、クラウドやコンテナ実行も可能。
@@ -119,7 +119,7 @@
 ## 1. Market Data Ingestion
 
 * 価格（日足・分足）、配当履歴・増配履歴、ファンダメンタル（EPS、ROE、自己資本比率等）を取得。
-* 対応市場：日本株、米国株、ETF、安定成長型投資信託。
+* 対応市場：日本株、米国株、ETF。投資信託は Future Phase。
 * 欠損値補完、通貨換算、銘柄コード統一。
 * データソース：yfinance、pandas\_datareader、その他低コストAPI。
 
@@ -129,7 +129,7 @@
 
 * 配当利回り、成長率、自己資本比率、PER、リスクスコアなどによるスコアリング。
 * 重み付け変更、フィルタリング、ランキング生成。
-* 対象：高配当株（国内外）と安定成長型投資信託。
+* 対象：国内外の株式・ETF。
 
 ---
 
@@ -517,7 +517,7 @@ endlegend
 | Requirement ID | 要件/根拠        | 対応機能                            |
 | -------------- | ------------ | ------------------------------- |
 | REQ-01         | 高配当投資支援（国内外） | Screening, Forecast, Reporting  |
-| REQ-02         | 安定成長型投信対応    | Screening, Forecast, Portfolio  |
+| REQ-02         | ETF / NISA向け候補整理 | Screening, Forecast, Portfolio  |
 | REQ-03         | 市場予測         | Forecast, Reporting             |
 | REQ-04         | 自動リバランス      | Portfolio, Scheduler, Execution |
 | REQ-05         | リスク分析        | Risk Analysis, Notification     |

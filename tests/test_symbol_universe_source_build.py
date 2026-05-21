@@ -5,11 +5,13 @@ from datetime import date
 from backend.marketdata.symbol_universe_source_build import (
     JPX_ETF_SOURCE_FIELDNAMES,
     JPX_LISTED_STOCK_SOURCE_FIELDNAMES,
+    JPX_REIT_SOURCE_FIELDNAMES,
     NISA_ELIGIBILITY_SOURCE_FIELDNAMES,
     SBI_US_ETF_SOURCE_FIELDNAMES,
     SBI_US_STOCK_SOURCE_FIELDNAMES,
     build_jpx_etf_source_rows,
     build_jpx_listed_stock_source_rows,
+    build_jpx_reit_source_rows,
     build_nisa_eligibility_source_rows,
     build_sbi_us_etf_source_rows,
     build_sbi_us_stock_source_rows,
@@ -201,6 +203,34 @@ def test_build_jpx_etf_source_rows_skips_non_etf_products():
     assert result.manifest["skipped_rows"] == 2
 
 
+def test_build_jpx_reit_source_rows_maps_listed_reits():
+    result = build_jpx_reit_source_rows(
+        [
+            {
+                "上場日": "2025/08/13",
+                "銘柄名": "霞ヶ関ホテルリート投資法人 投資証券",
+                "コード （ISINコード）": "401A （JP3050870009）",
+                "決算期": "1月末 7月末",
+            },
+            {
+                "上場日": "霞ヶ関リートアドバイザーズ（株）",
+                "銘柄名": "-",
+                "コード （ISINコード）": "",
+            },
+        ],
+        as_of=date(2026, 5, 21),
+    )
+
+    assert [row["symbol"] for row in result.rows] == ["401A.T"]
+    assert result.rows[0]["asset_type"] == "reit"
+    assert result.rows[0]["theme"] == "reit"
+    assert result.rows[0]["sector"] == "real_estate"
+    assert result.rows[0]["tags"] == "dividend,balanced"
+    assert result.manifest["source_kind"] == "jpx_reit"
+    assert result.manifest["fieldnames"] == JPX_REIT_SOURCE_FIELDNAMES
+    assert result.manifest["skipped_rows"] == 1
+
+
 def test_build_sbi_us_stock_source_rows_normalizes_symbols_and_sector():
     result = build_sbi_us_stock_source_rows(
         [
@@ -242,6 +272,7 @@ def test_build_sbi_us_etf_source_rows_marks_leveraged_and_inverse_products():
                 "name": "Vanguard S&P 500 ETF",
                 "underlying_index": "S&P 500",
                 "expense_ratio": "0.03%",
+                "NISA 成長投資枠": "〇",
             },
             {
                 "ticker": "TQQQ",
@@ -263,6 +294,7 @@ def test_build_sbi_us_etf_source_rows_marks_leveraged_and_inverse_products():
     assert result.rows[0]["index_family"] == "sp500"
     assert result.rows[0]["expense_ratio_pct"] == "0.03"
     assert result.rows[0]["complexity"] == "beginner"
+    assert result.rows[0]["nisa_category"] == "growth"
     assert result.rows[0]["is_leveraged"] == "false"
     assert result.rows[0]["is_inverse"] == "false"
     assert result.rows[1]["index_family"] == "nasdaq100"
@@ -279,7 +311,11 @@ def test_build_sbi_us_etf_source_rows_marks_leveraged_and_inverse_products():
 
 def test_build_sbi_us_source_rows_skip_missing_required_values():
     stock_result = build_sbi_us_stock_source_rows(
-        [{"Ticker": "", "Name": "Missing Symbol"}, {"Ticker": "MSFT", "Name": "Microsoft"}],
+        [
+            {"Ticker": "", "Name": "Missing Symbol"},
+            {"ティッカー": "DIA", "銘柄（英語）": "SPDR Dow Jones ETF", "事業内容": "NYSE Arca"},
+            {"Ticker": "MSFT", "Name": "Microsoft"},
+        ],
         as_of=date(2026, 5, 19),
     )
     etf_result = build_sbi_us_etf_source_rows(
@@ -288,7 +324,7 @@ def test_build_sbi_us_source_rows_skip_missing_required_values():
     )
 
     assert [row["symbol"] for row in stock_result.rows] == ["MSFT"]
-    assert stock_result.manifest["skipped_rows"] == 1
+    assert stock_result.manifest["skipped_rows"] == 2
     assert [row["symbol"] for row in etf_result.rows] == ["QQQ"]
     assert etf_result.manifest["skipped_rows"] == 1
 

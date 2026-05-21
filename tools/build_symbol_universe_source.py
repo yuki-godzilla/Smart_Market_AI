@@ -22,11 +22,13 @@ if str(PROJECT_ROOT) not in sys.path:
 from backend.marketdata.symbol_universe_source_build import (  # noqa: E402
     JPX_ETF_SOURCE_FIELDNAMES,
     JPX_LISTED_STOCK_SOURCE_FIELDNAMES,
+    JPX_REIT_SOURCE_FIELDNAMES,
     NISA_ELIGIBILITY_SOURCE_FIELDNAMES,
     SBI_US_ETF_SOURCE_FIELDNAMES,
     SBI_US_STOCK_SOURCE_FIELDNAMES,
     build_jpx_etf_source_rows,
     build_jpx_listed_stock_source_rows,
+    build_jpx_reit_source_rows,
     build_nisa_eligibility_source_rows,
     build_sbi_us_etf_source_rows,
     build_sbi_us_stock_source_rows,
@@ -40,6 +42,10 @@ SOURCE_BUILDERS = {
     "jpx_etf": (
         build_jpx_etf_source_rows,
         JPX_ETF_SOURCE_FIELDNAMES,
+    ),
+    "jpx_reit": (
+        build_jpx_reit_source_rows,
+        JPX_REIT_SOURCE_FIELDNAMES,
     ),
     "sbi_us_stock": (
         build_sbi_us_stock_source_rows,
@@ -160,8 +166,17 @@ def _read_xlsx_rows(path: Path) -> list[dict[str, str]]:
 
 def _read_html_rows(path: Path) -> list[dict[str, str]]:
     parser = _HtmlTableParser()
-    parser.feed(path.read_text(encoding="utf-8", errors="ignore"))
+    parser.feed(_read_text_with_encoding_fallback(path))
     return _table_rows_to_dicts(parser.rows)
+
+
+def _read_text_with_encoding_fallback(path: Path) -> str:
+    for encoding in ("utf-8", "cp932", "shift_jis"):
+        try:
+            return path.read_text(encoding=encoding)
+        except UnicodeDecodeError:
+            continue
+    return path.read_text(encoding="utf-8", errors="ignore")
 
 
 class _HtmlTableParser(HTMLParser):
@@ -320,9 +335,18 @@ def _header_index(table_rows: Sequence[Sequence[str]]) -> int | None:
             or ({"symbol", "name"} <= normalized_headers)
             or ({"ticker", "name"} <= normalized_headers)
             or ({"ティッカー", "銘柄名"} <= normalized_headers)
+            or ({"ティッカー", "銘柄（英語）"} <= normalized_headers)
+            or ({"銘柄コード", "名称"} <= normalized_headers)
             or ({"symbol", "nisa_category"} <= normalized_headers)
             or ({"コード", "nisa区分"} <= normalized_headers)
             or ({"銘柄コード", "nisa区分"} <= normalized_headers)
+            or (
+                _header_contains(normalized_headers, "コード")
+                and (
+                    _header_contains(normalized_headers, "銘柄名")
+                    or _header_contains(normalized_headers, "名称")
+                )
+            )
             or (
                 _header_contains(normalized_headers, "銘柄コード")
                 and (

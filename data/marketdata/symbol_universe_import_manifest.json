@@ -18,9 +18,71 @@
     "symbol_suffix": ""
   },
   "dry_run": false,
-  "existing_rows": 4272,
-  "failed_rows": 62,
+  "existing_rows": 9180,
+  "failed_rows": 5,
   "failed_symbols": [
+    "9285.T",
+    "9282.T",
+    "9286.T",
+    "1553.T",
+    "9284.T"
+  ],
+  "failed_symbols_truncated": false,
+  "failures": [
+    {
+      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
+      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
+      "source_row": 48,
+      "symbol": "9285.T"
+    },
+    {
+      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
+      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
+      "source_row": 111,
+      "symbol": "9282.T"
+    },
+    {
+      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
+      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
+      "source_row": 113,
+      "symbol": "9286.T"
+    },
+    {
+      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
+      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
+      "source_row": 215,
+      "symbol": "1553.T"
+    },
+    {
+      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
+      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
+      "source_row": 236,
+      "symbol": "9284.T"
+    }
+  ],
+  "imported_rows": 0,
+  "imported_symbols": [],
+  "imported_symbols_truncated": false,
+  "manifest_symbol_sample_limit": 200,
+  "operation": "symbol_universe_source_import",
+  "skipped_existing_rows": 0,
+  "skipped_existing_symbols": [],
+  "skipped_existing_symbols_truncated": false,
+  "source": "imaj",
+  "source_rows": 294,
+  "total_rows": 9180,
+  "update_columns": [
+    "metadata_as_of",
+    "metadata_source",
+    "metadata_updated_at",
+    "nisa_category",
+    "nisa_growth_eligible",
+    "nisa_tsumitate_eligible"
+  ],
+  "update_existing": true,
+  "updated_at": "2026-05-19T00:00:00+09:00",
+  "updated_rows": 57,
+  "updated_symbols": [
     "3487.T",
     "3281.T",
     "3292.T",
@@ -37,7 +99,6 @@
     "8984.T",
     "3279.T",
     "3282.T",
-    "9285.T",
     "3451.T",
     "3462.T",
     "8977.T",
@@ -52,9 +113,7 @@
     "8961.T",
     "8956.T",
     "8975.T",
-    "9282.T",
     "3463.T",
-    "9286.T",
     "8954.T",
     "8955.T",
     "8968.T",
@@ -75,615 +134,14 @@
     "3234.T",
     "3466.T",
     "3296.T",
-    "1553.T",
     "8972.T",
-    "9284.T",
     "8960.T",
     "3472.T",
     "3492.T",
     "3488.T",
     "2972.T"
   ],
-  "failed_symbols_truncated": false,
-  "failures": [
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 32,
-      "symbol": "3487.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 33,
-      "symbol": "3281.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 34,
-      "symbol": "3292.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 35,
-      "symbol": "3269.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 36,
-      "symbol": "3249.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 37,
-      "symbol": "8953.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 38,
-      "symbol": "2971.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 39,
-      "symbol": "3287.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 40,
-      "symbol": "8958.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 41,
-      "symbol": "8963.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 42,
-      "symbol": "8985.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 43,
-      "symbol": "8952.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 44,
-      "symbol": "3309.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 45,
-      "symbol": "8984.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 46,
-      "symbol": "3279.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 47,
-      "symbol": "3282.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 48,
-      "symbol": "9285.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 49,
-      "symbol": "3451.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 50,
-      "symbol": "3462.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 51,
-      "symbol": "8977.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 52,
-      "symbol": "3295.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 53,
-      "symbol": "3283.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 54,
-      "symbol": "8966.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 55,
-      "symbol": "3455.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 56,
-      "symbol": "3290.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 57,
-      "symbol": "3476.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 58,
-      "symbol": "8967.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 59,
-      "symbol": "3481.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 60,
-      "symbol": "8961.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 109,
-      "symbol": "8956.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 110,
-      "symbol": "8975.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 111,
-      "symbol": "9282.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 112,
-      "symbol": "3463.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 113,
-      "symbol": "9286.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 114,
-      "symbol": "8954.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 115,
-      "symbol": "8955.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 116,
-      "symbol": "8968.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 117,
-      "symbol": "3226.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 118,
-      "symbol": "3459.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 119,
-      "symbol": "8987.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 120,
-      "symbol": "3468.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 121,
-      "symbol": "8979.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 122,
-      "symbol": "2979.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 123,
-      "symbol": "8976.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 124,
-      "symbol": "8986.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 125,
-      "symbol": "2989.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 126,
-      "symbol": "8957.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 127,
-      "symbol": "8951.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 128,
-      "symbol": "3470.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 129,
-      "symbol": "8964.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 130,
-      "symbol": "3471.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 131,
-      "symbol": "3234.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 132,
-      "symbol": "3466.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 176,
-      "symbol": "3296.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 215,
-      "symbol": "1553.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 233,
-      "symbol": "8972.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 236,
-      "symbol": "9284.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 237,
-      "symbol": "8960.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 260,
-      "symbol": "3472.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 293,
-      "symbol": "3492.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 294,
-      "symbol": "3488.T"
-    },
-    {
-      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
-      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
-      "source_row": 295,
-      "symbol": "2972.T"
-    }
-  ],
-  "imported_rows": 0,
-  "imported_symbols": [],
-  "imported_symbols_truncated": false,
-  "manifest_symbol_sample_limit": 200,
-  "operation": "symbol_universe_source_import",
-  "skipped_existing_rows": 0,
-  "skipped_existing_symbols": [],
-  "skipped_existing_symbols_truncated": false,
-  "source": "imaj",
-  "source_rows": 294,
-  "total_rows": 4272,
-  "update_columns": [
-    "metadata_as_of",
-    "metadata_source",
-    "metadata_updated_at",
-    "nisa_category",
-    "nisa_growth_eligible",
-    "nisa_tsumitate_eligible"
-  ],
-  "update_existing": true,
-  "updated_at": "2026-05-19T00:00:00+09:00",
-  "updated_rows": 232,
-  "updated_symbols": [
-    "1498.T",
-    "1484.T",
-    "1474.T",
-    "1493.T",
-    "1494.T",
-    "2556.T",
-    "1473.T",
-    "2553.T",
-    "1369.T",
-    "2845.T",
-    "2634.T",
-    "2633.T",
-    "2515.T",
-    "2514.T",
-    "2513.T",
-    "2512.T",
-    "2511.T",
-    "2510.T",
-    "2520.T",
-    "2519.T",
-    "2846.T",
-    "2860.T",
-    "2245.T",
-    "2648.T",
-    "2647.T",
-    "2554.T",
-    "2859.T",
-    "2557.T",
-    "1397.T",
-    "2642.T",
-    "1599.T",
-    "2841.T",
-    "2840.T",
-    "2248.T",
-    "2247.T",
-    "1305.T",
-    "2625.T",
-    "1651.T",
-    "2528.T",
-    "1488.T",
-    "1320.T",
-    "2624.T",
-    "1309.T",
-    "1560.T",
-    "1591.T",
-    "2518.T",
-    "1545.T",
-    "1699.T",
-    "1306.T",
-    "1621.T",
-    "1628.T",
-    "1618.T",
-    "1624.T",
-    "1328.T",
-    "1631.T",
-    "1632.T",
-    "1619.T",
-    "1630.T",
-    "1622.T",
-    "1629.T",
-    "1626.T",
-    "1617.T",
-    "1620.T",
-    "1559.T",
-    "1546.T",
-    "1623.T",
-    "1625.T",
-    "1627.T",
-    "1343.T",
-    "1615.T",
-    "1321.T",
-    "1489.T",
-    "2529.T",
-    "1480.T",
-    "1577.T",
-    "1633.T",
-    "1325.T",
-    "1398.T",
-    "2252.T",
-    "2636.T",
-    "2848.T",
-    "2244.T",
-    "2867.T",
-    "2847.T",
-    "2253.T",
-    "2254.T",
-    "2854.T",
-    "2243.T",
-    "2644.T",
-    "2646.T",
-    "2645.T",
-    "2864.T",
-    "1311.T",
-    "1319.T",
-    "1364.T",
-    "2851.T",
-    "2250.T",
-    "1478.T",
-    "1477.T",
-    "1655.T",
-    "2563.T",
-    "2522.T",
-    "2853.T",
-    "2852.T",
-    "2857.T",
-    "2620.T",
-    "2621.T",
-    "2856.T",
-    "2649.T",
-    "1659.T",
-    "2622.T",
-    "1496.T",
-    "1497.T",
-    "1476.T",
-    "1658.T",
-    "1657.T",
-    "1475.T",
-    "1329.T",
-    "2561.T",
-    "1656.T",
-    "1482.T",
-    "2080.T",
-    "2081.T",
-    "2082.T",
-    "2526.T",
-    "2567.T",
-    "2524.T",
-    "1596.T",
-    "2527.T",
-    "1595.T",
-    "2525.T",
-    "1678.T",
-    "2084.T",
-    "2083.T",
-    "2089.T",
-    "2087.T",
-    "2088.T",
-    "2086.T",
-    "2091.T",
-    "2092.T",
-    "2090.T",
-    "2627.T",
-    "2849.T",
-    "2564.T",
-    "2236.T",
-    "2855.T",
-    "2640.T",
-    "2626.T",
-    "2639.T",
-    "2836.T",
-    "2565.T",
-    "2638.T",
-    "2530.T",
-    "1485.T",
-    "1593.T",
-    "2517.T",
-    "1597.T",
-    "2241.T",
-    "2242.T",
-    "1550.T",
-    "1348.T",
-    "1346.T",
-    "2560.T",
-    "2085.T",
-    "1660.T",
-    "2559.T",
-    "2631.T",
-    "2632.T",
-    "2558.T",
-    "2630.T",
-    "2839.T",
-    "2838.T",
-    "2095.T",
-    "2096.T",
-    "2098.T",
-    "2097.T",
-    "2623.T",
-    "2011.T",
-    "2013.T",
-    "2012.T",
-    "2014.T",
-    "2259.T",
-    "2255.T",
-    "2256.T",
-    "2257.T",
-    "2258.T",
-    "2637.T",
-    "2641.T",
-    "2837.T",
-    "2016.T",
-    "2015.T",
-    "2017.T",
-    "2018.T",
-    "2019.T",
-    "1671.T",
-    "2555.T",
-    "1563.T",
-    "2516.T",
-    "1551.T",
-    "1679.T"
-  ],
-  "updated_symbols_truncated": true,
+  "updated_symbols_truncated": false,
   "validation_after": {
     "errors": 0,
     "total": 0,

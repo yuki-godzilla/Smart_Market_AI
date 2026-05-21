@@ -168,6 +168,25 @@ SOURCE_PROFILES: dict[str, SymbolUniverseSourceProfile] = {
             ),
         ),
     ),
+    "jpx_reit": SymbolUniverseSourceProfile(
+        name="jpx_reit",
+        source_name="jpx_reit",
+        defaults=SymbolUniverseImportDefaults(
+            market="jp",
+            asset_type="reit",
+            currency="JPY",
+            column_defaults={
+                **SBI_POLICY_COLUMN_DEFAULTS,
+                "tradability": "unknown",
+                "nisa_category": "unknown",
+                "investment_style": "lump_sum",
+                "theme": "reit",
+                "sector": "real_estate",
+                "complexity": "standard",
+                "tags": "dividend,balanced",
+            },
+        ),
+    ),
     "sbi_us_stock": SymbolUniverseSourceProfile(
         name="sbi_us_stock",
         source_name="sbi_us_stock",

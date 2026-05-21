@@ -30,6 +30,7 @@ SMAI の銘柄ランキング、比較分析、将来の銘柄推薦で使う MV
 - import source profile
   - `jpx_listed_stock`
   - `jpx_etf`
+  - `jpx_reit`
   - `sbi_us_stock`
   - `sbi_us_etf`
   - `nisa_eligibility`
@@ -39,8 +40,9 @@ SMAI の銘柄ランキング、比較分析、将来の銘柄推薦で使う MV
 - `symbol_universe.csv` への source seed 反映
   - JPX listed-stock source として国内株 3,645件を追加済み
   - JPX NISA 成長投資枠 ETF/ETN source として 27件を追加/更新済み
-  - SBI US stock source として 28件を反映
-  - SBI US ETF source として 22件を反映
+  - SBI US stock official HTML source として 4,293件を反映
+  - SBI US ETF official HTML source として 607件を反映
+  - JPX REIT official HTML source として 58件を反映。ただし MVP ranking universe からは除外する
   - 投資信託 4件を将来対応 seed として追加済み。ただし MVP ranking universe からは除外する
 - `tools/refresh_symbol_universe_metadata.py` による provider-neutral metadata refresh
 - `ranking_metadata` source profile による既存銘柄のランキング条件列だけの更新
@@ -413,6 +415,7 @@ ranking_universe:
 | `jpx_listed_stock` | JPX東証上場銘柄一覧 raw file から作る国内株 source | `market=jp`, `asset_type=stock`, `currency=JPY`, `symbol_suffix=.T`, `tradability=unknown` |
 | `jpx_stock` | JPX国内株 seed | `market=jp`, `asset_type=stock`, `currency=JPY`, `symbol_suffix=.T`, `tradability=unknown` |
 | `jpx_etf` | JPX国内 ETF seed | `market=jp`, `asset_type=etf`, `currency=JPY`, `tradability=unknown` |
+| `jpx_reit` | JPX listed REIT source | `market=jp`, `asset_type=reit`, `currency=JPY`, `tradability=unknown` |
 | `sbi_us_stock` | SBI取扱米国株 seed | `market=us`, `asset_type=stock`, `currency=USD`, `tradability=tradable` |
 | `sbi_us_etf` | SBI取扱米国/海外 ETF seed | `market=us`, `asset_type=etf`, `currency=USD`, `tradability=tradable` |
 | `nisa_eligibility` | NISA制度 metadata 更新 source | 既存銘柄の `nisa_category`, `nisa_growth_eligible`, `nisa_tsumitate_eligible`, metadata fields だけを更新 |
@@ -430,11 +433,13 @@ JPX の東証上場銘柄一覧を取り込む場合は、公式 Excel (`.xls` /
 
 JPX 国内 ETF / ETN を取り込む場合は、JPX ETF raw file を `tools/build_symbol_universe_source.py --source-kind jpx_etf` で source CSV に変換する。この builder は `.T` 付き symbol、指数 family、信託報酬、商品系 theme、ETN / レバレッジ / インバース判定を保持する。JPX ETF/ETN 公式一覧 HTML も raw file として扱える。JPX / IMAJ の NISA 成長投資枠対象 ETF/ETN Excel は、銘柄追加用の `jpx_etf` source と制度 metadata 更新用の `nisa_eligibility` source に分けて使える。商品系ETF、レバレッジ、インバースは ranking universe policy で除外できる。PDF は通常の source import 対象外とし、必要なら Excel / CSV / source CSV へ整形してから取り込む。
 
-SBI米国株 / 米国ETF・海外ETFの取扱一覧を取り込む場合も、公式または確認済み raw CSV / Excel を local に保存し、`tools/build_symbol_universe_source.py --source-kind sbi_us_stock` / `sbi_us_etf` で source CSV に変換する。ETF builder は、名称や source flag からレバレッジ / インバース判定を保持し、ranking universe policy の除外条件へ渡せる形にする。
+JPX REIT を取り込む場合は、JPX REIT 公式 HTML を `tools/build_symbol_universe_source.py --source-kind jpx_reit` で source CSV に変換する。REIT は候補マスタに保持するが、MVP ranking universe では `reit` を初期対象外にしているため、ランキング候補には出さない。
 
-2026-05-21 時点の `symbol_universe.csv` は 4,272件です。内訳は stock 3,817件、ETF 449件、投信 4件、ADR 2件です。MVP ranking universe はこのうち `stock` / `etf` のみを対象にします。
-`nisa_eligibility_seed.csv` から 31件の NISA metadata を反映済みです。加えて、JPX NISA 成長投資枠 ETF/ETN Excel から 27件、IMAJ NISA 成長投資枠 listed-fund Excel から既存 ETF 232件の NISA metadata を反映済みです。IMAJ source に含まれる REIT / インフラファンド等 62件は現行 MVP の候補マスタには未登録のため、`nisa_eligibility` の update-only failure として manifest に残します。
-`data/marketdata/symbol_universe_metadata_coverage.json` は現在の ranking metadata 充足状況です。JPX listed-stock 追加分は JPX 上場銘柄一覧だけでは `PER` / `PBR` / `ROE` / `配当利回り` が埋まらないため、確認済み source CSV または明示 opt-in metadata refresh で段階的に補完します。ETF は JPX ETF/ETN 公式一覧から `信託報酬/経費率` が 428/449 件、`複雑さ` が 449/449 件まで埋まっています。
+SBI米国株 / 米国ETF・海外ETFの取扱一覧を取り込む場合も、公式または確認済み raw CSV / Excel / HTML を local に保存し、`tools/build_symbol_universe_source.py --source-kind sbi_us_stock` / `sbi_us_etf` で source CSV に変換する。SBI公式HTMLは CP932 を扱える。米国株 builder は米国株ページ内に混在するETF表を stock として取り込まないようにスキップする。ETF builder は、名称や source flag からレバレッジ / インバース判定を保持し、ranking universe policy の除外条件へ渡せる形にする。現時点では米国形式 ticker を取り込み対象にし、香港・韓国・シンガポールなどの数値/市場別コードは symbol suffix 設計後に追加する。
+
+2026-05-21 時点の `symbol_universe.csv` は 9,180件です。内訳は stock 8,082件、ETF 1,034件、REIT 58件、投信 4件、ADR 2件です。MVP ranking universe はこのうち `stock` / `etf` のみを対象にします。
+`nisa_eligibility_seed.csv` から 31件の NISA metadata を反映済みです。加えて、JPX NISA 成長投資枠 ETF/ETN Excel から 27件、IMAJ NISA 成長投資枠 listed-fund Excel から既存 ETF 232件 / REIT 57件の NISA metadata を反映済みです。IMAJ source に含まれるインフラファンド等 5件は現行 MVP の候補マスタには未登録のため、`nisa_eligibility` の update-only failure として manifest に残します。
+`data/marketdata/symbol_universe_metadata_coverage.json` は現在の ranking metadata 充足状況です。JPX/Yahoo-covered stock rows は `PER` / `PBR` / `ROE` / `配当利回り` を持つ一方、SBI公式米国株HTMLから追加した銘柄は分類 metadata 中心で、ランキング指標は確認済み source CSV または明示 opt-in metadata refresh で段階的に補完します。ETF は `信託報酬/経費率` が 1,013/1,034 件、`複雑さ` が 1,034/1,034 件まで埋まっています。
 
 NG:
 

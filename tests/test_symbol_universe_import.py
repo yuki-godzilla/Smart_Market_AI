@@ -100,6 +100,7 @@ def test_source_profiles_expose_expected_names():
         "jpx_listed_stock",
         "jpx_stock",
         "jpx_etf",
+        "jpx_reit",
         "sbi_us_stock",
         "sbi_us_etf",
         "nisa_eligibility",
@@ -198,6 +199,26 @@ def test_jpx_etf_profile_updates_filter_metadata_without_nisa_overwrite():
     assert updated_row["nisa_category"] == "growth"
     assert updated_row["metadata_source"] == "jpx"
     assert result.manifest["updated_rows"] == 1
+
+
+def test_jpx_reit_profile_imports_reits_as_mvp_excluded_rows():
+    profile = symbol_universe_source_profile("jpx_reit")
+    result = merge_symbol_universe_source_rows(
+        [],
+        [{"symbol": "8951.T", "name": "日本ビルファンド投資法人 投資証券"}],
+        source_name=profile.source_name,
+        as_of=date(2026, 5, 21),
+        updated_at=datetime(2026, 5, 21, 0, 0, tzinfo=timezone.utc),
+        defaults=profile.defaults,
+    )
+
+    imported_row = result.rows[0]
+    assert imported_row["symbol"] == "8951.T"
+    assert imported_row["asset_type"] == "reit"
+    assert imported_row["theme"] == "reit"
+    assert imported_row["sector"] == "real_estate"
+    assert imported_row["tradability"] == "unknown"
+    assert imported_row["metadata_source"] == "jpx_reit"
 
 
 def test_sbi_us_stock_profile_applies_policy_defaults():

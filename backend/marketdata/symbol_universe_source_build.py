@@ -40,6 +40,20 @@ JPX_ETF_SOURCE_FIELDNAMES = [
     "source_market_segment",
 ]
 
+JPX_REIT_SOURCE_FIELDNAMES = [
+    "symbol",
+    "name",
+    "market",
+    "asset_type",
+    "currency",
+    "theme",
+    "sector",
+    "tags",
+    "aliases",
+    "source_listing_date",
+    "source_settlement_months",
+]
+
 SBI_US_STOCK_SOURCE_FIELDNAMES = [
     "symbol",
     "name",
@@ -115,6 +129,8 @@ _CODE_ALIASES = (
     "security_code",
     "local_code",
     "コード",
+    "コード （ISINコード）",
+    "コード（ISINコード）",
     "銘柄コード",
     "銘柄コードメイガラ",
 )
@@ -167,6 +183,8 @@ _US_NAME_ALIASES = (
     "company_name",
     "english_name",
     "銘柄名",
+    "銘柄（英語）",
+    "銘柄(英語)",
     "名称",
     "英文名称",
 )
@@ -192,16 +210,24 @@ _INDEX_FAMILY_ALIASES = (
     "連動対象指標",
     "対象指標",
     "指数",
+    "概要",
 )
 _EXPENSE_RATIO_ALIASES = (
     "expense_ratio_pct",
     "expense_ratio",
     "trust_fee_pct",
     "経費率",
+    "経費 率(年)",
+    "経費率(年)",
     "信託報酬",
 )
 _COMPLEXITY_ALIASES = ("complexity", "leverage_type", "複雑さ")
-_NISA_CATEGORY_ALIASES = ("nisa_category", "nisa_type", "NISA区分")
+_NISA_CATEGORY_ALIASES = (
+    "nisa_category",
+    "nisa_type",
+    "NISA区分",
+    "NISA 成長投資枠",
+)
 _NISA_GROWTH_ELIGIBLE_ALIASES = (
     "nisa_growth_eligible",
     "growth_nisa",
@@ -512,6 +538,56 @@ def build_jpx_etf_source_rows(
     return SymbolUniverseSourceBuildResult(rows=output_rows, manifest=manifest)
 
 
+def build_jpx_reit_source_rows(
+    raw_rows: Sequence[Mapping[str, Any]],
+    *,
+    as_of: date,
+) -> SymbolUniverseSourceBuildResult:
+    """Build source-import rows from JPX listed REIT raw rows."""
+
+    output_rows: list[dict[str, str]] = []
+    skipped_rows: list[dict[str, str]] = []
+
+    for index, raw_row in enumerate(raw_rows, start=2):
+        code = _normalize_jpx_code(_first_value(raw_row, _CODE_ALIASES))
+        name = _first_value(raw_row, _NAME_ALIASES)
+        listing_date = _first_value(raw_row, ("上場日",))
+        settlement_months = _first_value(raw_row, ("決算期",))
+
+        if not code or not name:
+            skipped_rows.append(_skipped_row(index, code, "JPX-REIT-MISSING-CODE-OR-NAME"))
+            continue
+        if not _is_jpx_reit_issue(name):
+            skipped_rows.append(_skipped_row(index, code, "JPX-REIT-OUT-OF-SCOPE"))
+            continue
+
+        output_rows.append(
+            {
+                "symbol": f"{code}.T",
+                "name": name,
+                "market": "jp",
+                "asset_type": "reit",
+                "currency": "JPY",
+                "theme": "reit",
+                "sector": "real_estate",
+                "tags": "dividend,balanced",
+                "aliases": _aliases_for_values(name, listing_date, settlement_months),
+                "source_listing_date": listing_date,
+                "source_settlement_months": settlement_months,
+            }
+        )
+
+    manifest = _source_build_manifest(
+        source_kind="jpx_reit",
+        as_of=as_of,
+        raw_rows=raw_rows,
+        output_rows=output_rows,
+        skipped_rows=skipped_rows,
+        fieldnames=JPX_REIT_SOURCE_FIELDNAMES,
+    )
+    return SymbolUniverseSourceBuildResult(rows=output_rows, manifest=manifest)
+
+
 def build_sbi_us_stock_source_rows(
     raw_rows: Sequence[Mapping[str, Any]],
     *,
@@ -526,9 +602,13 @@ def build_sbi_us_stock_source_rows(
         symbol = _normalize_us_symbol(_first_value(raw_row, _SYMBOL_ALIASES))
         name = _first_value(raw_row, _US_NAME_ALIASES)
         sector_raw = _first_value(raw_row, _SECTOR_ALIASES)
+        market_raw = _first_value(raw_row, ("market", "exchange", "市場"))
 
         if not symbol or not name:
             skipped_rows.append(_skipped_row(index, symbol, "SBI-US-STOCK-MISSING-SYMBOL-OR-NAME"))
+            continue
+        if "事業内容" in raw_row and not market_raw:
+            skipped_rows.append(_skipped_row(index, symbol, "SBI-US-STOCK-MALFORMED-OFFICIAL-ROW"))
             continue
 
         theme, sector = _theme_sector_for_us_sector(sector_raw)
@@ -592,6 +672,9 @@ def build_sbi_us_etf_source_rows(
         complexity = _complexity_for_etf(raw_row, name)
         is_leveraged = _flag_for_etf(raw_row, _IS_LEVERAGED_ALIASES, name, _LEVERAGED_MARKERS)
         is_inverse = _flag_for_etf(raw_row, _IS_INVERSE_ALIASES, name, _INVERSE_MARKERS)
+        nisa_category = _nisa_category_for_sbi_growth_column(
+            _first_value(raw_row, _NISA_CATEGORY_ALIASES)
+        )
         output_rows.append(
             {
                 "symbol": symbol,
@@ -605,7 +688,7 @@ def build_sbi_us_etf_source_rows(
                 ),
                 "complexity": complexity,
                 "tags": _first_value(raw_row, _TAGS_ALIASES) or _tags_for_etf(complexity),
-                "nisa_category": _first_value(raw_row, _NISA_CATEGORY_ALIASES),
+                "nisa_category": nisa_category,
                 "investment_style": _first_value(raw_row, _INVESTMENT_STYLE_ALIASES)
                 or ("lump_sum" if is_leveraged == "true" or is_inverse == "true" else "both"),
                 "is_leveraged": is_leveraged,
@@ -695,6 +778,8 @@ def _normalize_jpx_code(value: str) -> str:
     if text.endswith(".0") and text[:-2].isdigit():
         text = text[:-2]
     text = text.replace(".T", "")
+    if not _JPX_CODE_PATTERN.match(text):
+        text = re.split(r"\s|　|（|\(|<", text, maxsplit=1)[0]
     return text if _JPX_CODE_PATTERN.match(text) else ""
 
 
@@ -737,6 +822,10 @@ def _is_jpx_etf_or_etn(code: str, name: str, market_segment: str) -> bool:
 
 def _is_jpx_etf_issue_table_row(row: Mapping[str, Any], index_text: str) -> bool:
     return bool(index_text and _first_value(row, _EXPENSE_RATIO_ALIASES))
+
+
+def _is_jpx_reit_issue(name: str) -> bool:
+    return "投資法人" in name or any(marker in name.upper() for marker in _REIT_MARKERS)
 
 
 def _theme_sector_for_industry(industry_33: str, industry_17: str) -> tuple[str, str]:
@@ -849,6 +938,17 @@ def _tags_for_jpx_etf(theme: str, complexity: str, name: str) -> str:
     if "NASDAQ" in name.upper():
         return "growth"
     return "low_cost,balanced"
+
+
+def _nisa_category_for_sbi_growth_column(value: str) -> str:
+    if not value.strip():
+        return ""
+    growth_eligible = _normalize_nisa_bool(value)
+    if growth_eligible == "true":
+        return "growth"
+    if growth_eligible == "false":
+        return "none"
+    return "unknown"
 
 
 def _nisa_category_and_flags(

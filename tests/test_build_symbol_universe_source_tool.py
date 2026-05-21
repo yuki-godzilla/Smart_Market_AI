@@ -256,6 +256,99 @@ def test_build_symbol_universe_source_tool_reads_jpx_etf_html(tmp_path, capsys):
     assert rows[0]["expense_ratio_pct"] == "0.047"
 
 
+def test_build_symbol_universe_source_tool_reads_jpx_reit_html(tmp_path, capsys):
+    raw_html = tmp_path / "jpx_reit_raw.html"
+    output_csv = tmp_path / "jpx_reit_source.csv"
+    raw_html.write_text(
+        """
+        <html><body>
+          <table>
+            <tr>
+              <th rowspan="2">上場日</th><th>銘柄名</th>
+              <th rowspan="2">コード<br />（ISINコード）</th><th rowspan="2">決算期</th>
+            </tr>
+            <tr><th>運用会社</th></tr>
+            <tr>
+              <td rowspan="2">2025/08/13</td>
+              <td>霞ヶ関ホテルリート投資法人 投資証券</td>
+              <td rowspan="2">401A<br />（JP3050870009）</td>
+              <td rowspan="2">1月末<br />7月末</td>
+            </tr>
+            <tr><td>霞ヶ関リートアドバイザーズ（株）</td></tr>
+          </table>
+        </body></html>
+        """,
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "--source-kind",
+            "jpx_reit",
+            "--raw-file",
+            str(raw_html),
+            "--output-csv",
+            str(output_csv),
+            "--as-of",
+            "2026-05-21",
+            "--write",
+        ]
+    )
+
+    output = json.loads(capsys.readouterr().out)
+    rows = _read_rows(output_csv)
+    assert exit_code == 0
+    assert output["output_rows"] == 1
+    assert rows[0]["symbol"] == "401A.T"
+    assert rows[0]["asset_type"] == "reit"
+    assert rows[0]["theme"] == "reit"
+
+
+def test_build_symbol_universe_source_tool_reads_cp932_sbi_html(tmp_path, capsys):
+    raw_html = tmp_path / "sbi_us_etf_raw.html"
+    output_csv = tmp_path / "sbi_us_etf_source.csv"
+    raw_html.write_text(
+        """
+        <html><body>
+          <table>
+            <tr>
+              <th>銘柄コード</th><th>名称</th><th>概要</th><th>市場</th>
+              <th>経費<br>率(年)</th><th>NISA<br>成長投資枠</th>
+            </tr>
+            <tr>
+              <td>ACWI</td><td>iシェアーズ MSCI ACWI ETF</td>
+              <td>MSCI All Country World Indexの価格と利回りに連動します。</td>
+              <td>NASDAQ</td><td>0.32%</td><td>〇</td>
+            </tr>
+          </table>
+        </body></html>
+        """,
+        encoding="cp932",
+    )
+
+    exit_code = main(
+        [
+            "--source-kind",
+            "sbi_us_etf",
+            "--raw-file",
+            str(raw_html),
+            "--output-csv",
+            str(output_csv),
+            "--as-of",
+            "2026-05-21",
+            "--write",
+        ]
+    )
+
+    output = json.loads(capsys.readouterr().out)
+    rows = _read_rows(output_csv)
+    assert exit_code == 0
+    assert output["output_rows"] == 1
+    assert rows[0]["symbol"] == "ACWI"
+    assert rows[0]["expense_ratio_pct"] == "0.32"
+    assert rows[0]["nisa_category"] == "growth"
+
+
 def test_build_symbol_universe_source_tool_writes_sbi_us_etf_source(tmp_path, capsys):
     raw_csv = tmp_path / "sbi_us_etf_raw.csv"
     output_csv = tmp_path / "sbi_us_etf_source.csv"

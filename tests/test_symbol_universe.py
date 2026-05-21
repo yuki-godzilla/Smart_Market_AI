@@ -41,8 +41,8 @@ def test_symbol_universe_csv_metadata_summary_counts_source_and_freshness():
     assert summary["total_rows"] >= 3872
     assert summary["source_counts"]["curated_csv"] >= 70
     assert summary["source_counts"]["fsa"] >= 30
-    assert summary["source_counts"]["jpx"] >= 68
-    assert summary["source_counts"]["jpx_listed_stock"] >= 3600
+    assert summary["source_counts"]["jpx"] >= 12
+    assert summary["source_counts"]["yahoo"] >= 3700
     assert summary["source_counts"]["sbi_us_stock"] >= 28
     assert summary["source_counts"]["sbi_us_etf"] >= 22
     assert summary["source_counts"]["jpx_nisa_growth"] >= 27
@@ -70,10 +70,11 @@ def test_symbol_universe_csv_includes_expanded_stock_and_etf_seeds():
     rows = symbol_universe_csv_rows()
     row_by_symbol = {row["symbol"]: row for row in rows}
 
-    assert row_by_symbol["1301.T"]["metadata_source"] == "jpx_listed_stock"
+    assert row_by_symbol["1301.T"]["metadata_source"] == "yahoo"
     assert row_by_symbol["1301.T"]["tradability"] == "unknown"
     assert row_by_symbol["1301.T"]["market_cap_tier"] == "small"
-    assert row_by_symbol["9503.T"]["metadata_source"] == "jpx"
+    assert row_by_symbol["1301.T"]["per"]
+    assert row_by_symbol["9503.T"]["metadata_source"] == "yahoo"
     assert row_by_symbol["9503.T"]["asset_type"] == "stock"
     assert row_by_symbol["2558.T"]["asset_type"] == "etf"
     assert row_by_symbol["2558.T"]["index_family"] == "sp500"

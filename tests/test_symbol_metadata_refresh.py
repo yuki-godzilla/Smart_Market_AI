@@ -122,6 +122,25 @@ def test_yahoo_provider_maps_ticker_info_to_catalog_fields_without_network():
     }
 
 
+def test_yahoo_provider_maps_sector_to_allowed_theme_without_network():
+    provider = YahooSymbolMetadataProvider(
+        ticker_info_reader=lambda symbol: {
+            "sector": "Industrials",
+            "marketCap": 120_000_000_000,
+            "currency": "USD",
+        }
+    )
+
+    updates = provider.fetch_metadata(
+        [{"symbol": "CAT", "asset_type": "stock", "currency": "USD"}],
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert updates[0].values["sector"] == "industrial"
+    assert updates[0].values["theme"] == "balanced"
+
+
 def test_yahoo_provider_records_symbol_failures_without_raising():
     provider = YahooSymbolMetadataProvider(
         ticker_info_reader=lambda symbol: (_ for _ in ()).throw(RuntimeError("timeout"))
@@ -136,6 +155,69 @@ def test_yahoo_provider_records_symbol_failures_without_raising():
     assert updates == []
     assert provider.failures[0].symbol == "AAPL"
     assert provider.failures[0].code == "YAHOO-METADATA-FAILED"
+
+
+def test_yahoo_provider_skips_non_finite_numeric_fields_without_raising():
+    provider = YahooSymbolMetadataProvider(
+        ticker_info_reader=lambda symbol: {
+            "trailingPE": "inf",
+            "priceToBook": "-inf",
+            "returnOnEquity": "nan",
+            "marketCap": 250_000_000_000,
+            "currency": "USD",
+        }
+    )
+
+    updates = provider.fetch_metadata(
+        [{"symbol": "AAPL", "asset_type": "stock", "currency": "USD"}],
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert provider.failures == []
+    assert "per" not in updates[0].values
+    assert "pbr" not in updates[0].values
+    assert "roe_pct" not in updates[0].values
+    assert updates[0].values["market_cap_tier"] == "mega"
+
+
+def test_yahoo_provider_skips_invalid_numeric_fields_without_raising():
+    provider = YahooSymbolMetadataProvider(
+        ticker_info_reader=lambda symbol: {
+            "trailingPE": "not-a-number",
+            "marketCap": "also-not-a-number",
+        }
+    )
+
+    updates = provider.fetch_metadata(
+        [{"symbol": "AAPL", "asset_type": "stock", "currency": "USD"}],
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert updates[0].values["metadata_source"] == "yahoo"
+    assert provider.failures == []
+
+
+def test_yahoo_provider_skips_negative_filter_values_without_network():
+    provider = YahooSymbolMetadataProvider(
+        ticker_info_reader=lambda symbol: {
+            "dividendYield": -0.01,
+            "priceToBook": -2.5,
+            "annualReportExpenseRatio": -0.01,
+        }
+    )
+
+    updates = provider.fetch_metadata(
+        [{"symbol": "BAD.T", "asset_type": "etf", "currency": "JPY"}],
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert "dividend_yield_pct" not in updates[0].values
+    assert "dividend_category" not in updates[0].values
+    assert "pbr" not in updates[0].values
+    assert "expense_ratio_pct" not in updates[0].values
 
 
 def test_refresh_manifest_includes_provider_failures():

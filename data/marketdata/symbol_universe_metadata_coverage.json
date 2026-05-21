@@ -193,14 +193,14 @@
           "missing": 3701
         },
         "dividend_category": {
-          "coverage": 0.0304,
-          "filled": 116,
-          "missing": 3701
+          "coverage": 1.0,
+          "filled": 3817,
+          "missing": 0
         },
         "dividend_yield_pct": {
-          "coverage": 0.0304,
-          "filled": 116,
-          "missing": 3701
+          "coverage": 1.0,
+          "filled": 3817,
+          "missing": 0
         },
         "expense_ratio_pct": {
           "coverage": 0.0,
@@ -213,29 +213,29 @@
           "missing": 3817
         },
         "market_cap_tier": {
-          "coverage": 0.4365,
-          "filled": 1666,
-          "missing": 2151
+          "coverage": 0.9997,
+          "filled": 3816,
+          "missing": 1
         },
         "pbr": {
-          "coverage": 0.0304,
-          "filled": 116,
-          "missing": 3701
+          "coverage": 0.9937,
+          "filled": 3793,
+          "missing": 24
         },
         "per": {
-          "coverage": 0.0304,
-          "filled": 116,
-          "missing": 3701
+          "coverage": 0.9167,
+          "filled": 3499,
+          "missing": 318
         },
         "risk_band": {
-          "coverage": 0.0304,
-          "filled": 116,
-          "missing": 3701
+          "coverage": 0.7205,
+          "filled": 2750,
+          "missing": 1067
         },
         "roe_pct": {
-          "coverage": 0.0304,
-          "filled": 116,
-          "missing": 3701
+          "coverage": 0.9526,
+          "filled": 3636,
+          "missing": 181
         }
       },
       "rows": 3817
@@ -775,138 +775,6 @@
         "by_column": {
           "complexity": {
             "coverage": 1.0,
-            "filled": 56,
-            "missing": 0
-          },
-          "consensus_rating": {
-            "coverage": 0.0,
-            "filled": 0,
-            "missing": 56
-          },
-          "dividend_category": {
-            "coverage": 0.0,
-            "filled": 0,
-            "missing": 56
-          },
-          "dividend_yield_pct": {
-            "coverage": 0.0,
-            "filled": 0,
-            "missing": 56
-          },
-          "expense_ratio_pct": {
-            "coverage": 0.0,
-            "filled": 0,
-            "missing": 56
-          },
-          "index_family": {
-            "coverage": 0.0,
-            "filled": 0,
-            "missing": 56
-          },
-          "market_cap_tier": {
-            "coverage": 0.0,
-            "filled": 0,
-            "missing": 56
-          },
-          "pbr": {
-            "coverage": 0.0,
-            "filled": 0,
-            "missing": 56
-          },
-          "per": {
-            "coverage": 0.0,
-            "filled": 0,
-            "missing": 56
-          },
-          "risk_band": {
-            "coverage": 0.0,
-            "filled": 0,
-            "missing": 56
-          },
-          "roe_pct": {
-            "coverage": 0.0,
-            "filled": 0,
-            "missing": 56
-          }
-        },
-        "rows": 56
-      },
-      "group": {
-        "asset_type": "stock",
-        "metadata_source": "jpx"
-      }
-    },
-    {
-      "coverage": {
-        "by_column": {
-          "complexity": {
-            "coverage": 1.0,
-            "filled": 3645,
-            "missing": 0
-          },
-          "consensus_rating": {
-            "coverage": 0.0,
-            "filled": 0,
-            "missing": 3645
-          },
-          "dividend_category": {
-            "coverage": 0.0,
-            "filled": 0,
-            "missing": 3645
-          },
-          "dividend_yield_pct": {
-            "coverage": 0.0,
-            "filled": 0,
-            "missing": 3645
-          },
-          "expense_ratio_pct": {
-            "coverage": 0.0,
-            "filled": 0,
-            "missing": 3645
-          },
-          "index_family": {
-            "coverage": 0.0,
-            "filled": 0,
-            "missing": 3645
-          },
-          "market_cap_tier": {
-            "coverage": 0.4252,
-            "filled": 1550,
-            "missing": 2095
-          },
-          "pbr": {
-            "coverage": 0.0,
-            "filled": 0,
-            "missing": 3645
-          },
-          "per": {
-            "coverage": 0.0,
-            "filled": 0,
-            "missing": 3645
-          },
-          "risk_band": {
-            "coverage": 0.0,
-            "filled": 0,
-            "missing": 3645
-          },
-          "roe_pct": {
-            "coverage": 0.0,
-            "filled": 0,
-            "missing": 3645
-          }
-        },
-        "rows": 3645
-      },
-      "group": {
-        "asset_type": "stock",
-        "metadata_source": "jpx_listed_stock"
-      }
-    },
-    {
-      "coverage": {
-        "by_column": {
-          "complexity": {
-            "coverage": 1.0,
             "filled": 28,
             "missing": 0
           },
@@ -966,6 +834,72 @@
       "group": {
         "asset_type": "stock",
         "metadata_source": "sbi_us_stock"
+      }
+    },
+    {
+      "coverage": {
+        "by_column": {
+          "complexity": {
+            "coverage": 1.0,
+            "filled": 3701,
+            "missing": 0
+          },
+          "consensus_rating": {
+            "coverage": 0.0,
+            "filled": 0,
+            "missing": 3701
+          },
+          "dividend_category": {
+            "coverage": 1.0,
+            "filled": 3701,
+            "missing": 0
+          },
+          "dividend_yield_pct": {
+            "coverage": 1.0,
+            "filled": 3701,
+            "missing": 0
+          },
+          "expense_ratio_pct": {
+            "coverage": 0.0,
+            "filled": 0,
+            "missing": 3701
+          },
+          "index_family": {
+            "coverage": 0.0,
+            "filled": 0,
+            "missing": 3701
+          },
+          "market_cap_tier": {
+            "coverage": 0.9997,
+            "filled": 3700,
+            "missing": 1
+          },
+          "pbr": {
+            "coverage": 0.9935,
+            "filled": 3677,
+            "missing": 24
+          },
+          "per": {
+            "coverage": 0.9141,
+            "filled": 3383,
+            "missing": 318
+          },
+          "risk_band": {
+            "coverage": 0.7117,
+            "filled": 2634,
+            "missing": 1067
+          },
+          "roe_pct": {
+            "coverage": 0.9511,
+            "filled": 3520,
+            "missing": 181
+          }
+        },
+        "rows": 3701
+      },
+      "group": {
+        "asset_type": "stock",
+        "metadata_source": "yahoo"
       }
     }
   ],
@@ -1094,121 +1028,61 @@
       "by_column": {
         "complexity": {
           "coverage": 1.0,
-          "filled": 68,
-          "missing": 0
-        },
-        "consensus_rating": {
-          "coverage": 0.0,
-          "filled": 0,
-          "missing": 68
-        },
-        "dividend_category": {
-          "coverage": 0.0,
-          "filled": 0,
-          "missing": 68
-        },
-        "dividend_yield_pct": {
-          "coverage": 0.0,
-          "filled": 0,
-          "missing": 68
-        },
-        "expense_ratio_pct": {
-          "coverage": 0.1765,
           "filled": 12,
-          "missing": 56
-        },
-        "index_family": {
-          "coverage": 0.1618,
-          "filled": 11,
-          "missing": 57
-        },
-        "market_cap_tier": {
-          "coverage": 0.0,
-          "filled": 0,
-          "missing": 68
-        },
-        "pbr": {
-          "coverage": 0.0,
-          "filled": 0,
-          "missing": 68
-        },
-        "per": {
-          "coverage": 0.0,
-          "filled": 0,
-          "missing": 68
-        },
-        "risk_band": {
-          "coverage": 0.0,
-          "filled": 0,
-          "missing": 68
-        },
-        "roe_pct": {
-          "coverage": 0.0,
-          "filled": 0,
-          "missing": 68
-        }
-      },
-      "rows": 68
-    },
-    "jpx_listed_stock": {
-      "by_column": {
-        "complexity": {
-          "coverage": 1.0,
-          "filled": 3645,
           "missing": 0
         },
         "consensus_rating": {
           "coverage": 0.0,
           "filled": 0,
-          "missing": 3645
+          "missing": 12
         },
         "dividend_category": {
           "coverage": 0.0,
           "filled": 0,
-          "missing": 3645
+          "missing": 12
         },
         "dividend_yield_pct": {
           "coverage": 0.0,
           "filled": 0,
-          "missing": 3645
+          "missing": 12
         },
         "expense_ratio_pct": {
-          "coverage": 0.0,
-          "filled": 0,
-          "missing": 3645
+          "coverage": 1.0,
+          "filled": 12,
+          "missing": 0
         },
         "index_family": {
-          "coverage": 0.0,
-          "filled": 0,
-          "missing": 3645
+          "coverage": 0.9167,
+          "filled": 11,
+          "missing": 1
         },
         "market_cap_tier": {
-          "coverage": 0.4252,
-          "filled": 1550,
-          "missing": 2095
+          "coverage": 0.0,
+          "filled": 0,
+          "missing": 12
         },
         "pbr": {
           "coverage": 0.0,
           "filled": 0,
-          "missing": 3645
+          "missing": 12
         },
         "per": {
           "coverage": 0.0,
           "filled": 0,
-          "missing": 3645
+          "missing": 12
         },
         "risk_band": {
           "coverage": 0.0,
           "filled": 0,
-          "missing": 3645
+          "missing": 12
         },
         "roe_pct": {
           "coverage": 0.0,
           "filled": 0,
-          "missing": 3645
+          "missing": 12
         }
       },
-      "rows": 3645
+      "rows": 12
     },
     "jpx_nisa_growth": {
       "by_column": {
@@ -1449,6 +1323,66 @@
         }
       },
       "rows": 28
+    },
+    "yahoo": {
+      "by_column": {
+        "complexity": {
+          "coverage": 1.0,
+          "filled": 3701,
+          "missing": 0
+        },
+        "consensus_rating": {
+          "coverage": 0.0,
+          "filled": 0,
+          "missing": 3701
+        },
+        "dividend_category": {
+          "coverage": 1.0,
+          "filled": 3701,
+          "missing": 0
+        },
+        "dividend_yield_pct": {
+          "coverage": 1.0,
+          "filled": 3701,
+          "missing": 0
+        },
+        "expense_ratio_pct": {
+          "coverage": 0.0,
+          "filled": 0,
+          "missing": 3701
+        },
+        "index_family": {
+          "coverage": 0.0,
+          "filled": 0,
+          "missing": 3701
+        },
+        "market_cap_tier": {
+          "coverage": 0.9997,
+          "filled": 3700,
+          "missing": 1
+        },
+        "pbr": {
+          "coverage": 0.9935,
+          "filled": 3677,
+          "missing": 24
+        },
+        "per": {
+          "coverage": 0.9141,
+          "filled": 3383,
+          "missing": 318
+        },
+        "risk_band": {
+          "coverage": 0.7117,
+          "filled": 2634,
+          "missing": 1067
+        },
+        "roe_pct": {
+          "coverage": 0.9511,
+          "filled": 3520,
+          "missing": 181
+        }
+      },
+      "rows": 3701
     }
   },
   "checked_at": "2026-05-21T00:00:00+09:00",
@@ -1498,14 +1432,14 @@
         "missing": 3775
       },
       "dividend_category": {
-        "coverage": 0.0316,
-        "filled": 123,
-        "missing": 3775
+        "coverage": 0.981,
+        "filled": 3824,
+        "missing": 74
       },
       "dividend_yield_pct": {
-        "coverage": 0.0316,
-        "filled": 123,
-        "missing": 3775
+        "coverage": 0.981,
+        "filled": 3824,
+        "missing": 74
       },
       "expense_ratio_pct": {
         "coverage": 0.0126,
@@ -1518,29 +1452,29 @@
         "missing": 3857
       },
       "market_cap_tier": {
-        "coverage": 0.4292,
-        "filled": 1673,
-        "missing": 2225
+        "coverage": 0.9808,
+        "filled": 3823,
+        "missing": 75
       },
       "pbr": {
-        "coverage": 0.0316,
-        "filled": 123,
-        "missing": 3775
+        "coverage": 0.9749,
+        "filled": 3800,
+        "missing": 98
       },
       "per": {
-        "coverage": 0.0316,
-        "filled": 123,
-        "missing": 3775
+        "coverage": 0.8994,
+        "filled": 3506,
+        "missing": 392
       },
       "risk_band": {
-        "coverage": 0.0316,
-        "filled": 123,
-        "missing": 3775
+        "coverage": 0.7073,
+        "filled": 2757,
+        "missing": 1141
       },
       "roe_pct": {
-        "coverage": 0.0316,
-        "filled": 123,
-        "missing": 3775
+        "coverage": 0.9346,
+        "filled": 3643,
+        "missing": 255
       }
     },
     "rows": 3898

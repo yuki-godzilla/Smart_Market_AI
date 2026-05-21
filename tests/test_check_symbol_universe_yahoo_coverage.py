@@ -41,6 +41,32 @@ def test_select_rows_filters_added_jpx_stock_rows():
     assert [row["symbol"] for row in selected] == ["1301.T"]
 
 
+def test_select_rows_can_filter_without_metadata_source_after_refresh():
+    rows = [
+        {
+            "symbol": "1301.T",
+            "metadata_source": "yahoo",
+            "asset_type": "stock",
+            "market": "jp",
+        },
+        {
+            "symbol": "AAPL",
+            "metadata_source": "sbi_us_stock",
+            "asset_type": "stock",
+            "market": "us",
+        },
+    ]
+
+    selected = _select_rows(
+        rows,
+        metadata_source="",
+        asset_type="stock",
+        market="jp",
+    )
+
+    assert [row["symbol"] for row in selected] == ["1301.T"]
+
+
 def test_even_sample_spreads_across_symbols():
     symbols = [f"{index}.T" for index in range(10)]
 

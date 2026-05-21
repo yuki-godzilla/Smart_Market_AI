@@ -249,7 +249,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - `broker`, `tradability`, `nisa_category`, `investment_style`, `is_sbi_supported`, `is_active`, `is_leveraged`, `is_inverse` は Phase 18 policy columns として `symbol_universe.csv` に保持します。既存候補は local curated / source-import seed であり、SBI取扱確認済み master ではないため、`tradability=unknown` は初期 ranking で通します。
 - ranking 候補抽出前に default SBI ranking universe policy を適用します。MVP の対象は `stock` / `etf` です。`mutual_fund` / `fund` / `investment_trust` / `adr` / `reit` / FX / CFD / 先物 / option / crypto / bond / MMF / commodity、レバレッジ、インバース、`not_tradable`、`is_sbi_supported=false`、`is_active=false` は初期候補から除外します。
 - `symbol_universe.csv` は Phase 16/18 UI 用の銘柄候補マスタです。必須列は `symbol`, `name`, `market`, `asset_type`, `currency`, `broker`, `tradability`, `nisa_category`, `investment_style`, `is_sbi_supported`, `is_active`, `is_leveraged`, `is_inverse`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases`, `per`, `pbr`, `roe_pct`, `sector`, `consensus_rating`, `forecast_agreement`, `data_quality`, `risk_band` です。
-- Phase 18 metadata columns は `metadata_source`, `metadata_as_of`, `metadata_updated_at` です。現在の master は `curated_csv`, `jpx`, `sbi_us_stock`, `sbi_us_etf`, `mutual_fund_seed` などの source を行ごとに保持します。
+- Phase 18 metadata columns は `metadata_source`, `metadata_as_of`, `metadata_updated_at` です。現在の master は `curated_csv`, `yahoo`, `jpx`, `sbi_us_stock`, `sbi_us_etf`, `mutual_fund_seed` などの metadata source を行ごとに保持します。
 - Metadata fields are governed by `backend/marketdata/symbol_metadata_schema.py`.
   - `core`: symbol, name, market, asset type, currency, sector/theme, aliases.
   - `ranking_filter`: dividend, PER/PBR/ROE, expense ratio, risk, complexity, quality fields. Source/freshness is tracked before live provider updates are trusted.
@@ -274,7 +274,14 @@ Symbol universe metadata refresh:
 ```
 
 - `--write` を付けた場合だけ `symbol_universe.csv` と `data/marketdata/symbol_universe_manifest.json` を更新します。write 前に validation error が残る場合は書き込みを拒否します。
-- Yahoo provider は取得できた `sector`, `dividend_yield_pct`, `dividend_category`, `per`, `pbr`, `roe_pct`, `market_cap_tier`, `risk_band`, ETF の `expense_ratio_pct`, and metadata source/as-of/update fields を正規化して返します。失敗銘柄は manifest の `failed_symbols` / `failures` に残します。
+- Yahoo provider は取得できた `sector`, `dividend_yield_pct`, `dividend_category`, `per`, `pbr`, `roe_pct`, `market_cap_tier`, `risk_band`, ETF の `expense_ratio_pct`, metadata source/as-of/update fields を正規化して返します。非数値、無限大、負の PER/PBR/配当利回り/経費率など schema に入れられない値は空欄のままにします。失敗銘柄は manifest の `failed_symbols` / `failures` に残します。
+- live metadata refresh は対象を絞って実行できます。`--symbols`, `--asset-type`, `--market`, `--metadata-source`, `--missing-any`, `--limit` を使い、いきなり全件取得しない運用を推奨します。manifest の `selection` に対象件数と対象銘柄sampleを残します。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\refresh_symbol_universe_metadata.py --provider yahoo --allow-live --asset-type stock --market jp --metadata-source jpx_listed_stock --missing-any per,pbr,roe_pct,dividend_yield_pct --limit 20 --as-of 2026-05-21 --updated-at 2026-05-21T00:00:00+09:00
+```
+
+- 問題なければ `--write` を付けて同じ条件を反映します。live取得は通信状態やprovider応答に依存するため、失敗銘柄は manifest で確認し、必要に応じて小さい単位で再実行します。
 
 Symbol universe source import:
 
@@ -350,7 +357,7 @@ Ranking metadata のように既存銘柄の条件列だけを更新する場合
 Ranking metadata coverage:
 
 - `tools/check_symbol_universe_metadata_coverage.py` は、`symbol_universe.csv` の ranking filter 用 metadata がどの程度埋まっているかを network なしで集計します。
-- 2026-05-21 時点の出力は `data/marketdata/symbol_universe_metadata_coverage.json` です。現状、JPX listed-stock 追加分は `market_cap_tier` が 1,550 / 3,645件、`PER` / `PBR` / `ROE` / `配当利回り` は 0 / 3,645件です。これらは JPX 上場銘柄一覧に含まれないため、公式・確認済み source CSV または明示 opt-in の metadata refresh で追加します。
+- 2026-05-21 時点の出力は `data/marketdata/symbol_universe_metadata_coverage.json` です。JPX listed-stock 追加分 3,645件と旧 JPX stock seed 56件は、50件 dry-run 確認後に明示 opt-in の Yahoo metadata refresh で補完済みです。株式全体 3,817件では、`配当利回り` 3,817件、`PBR` 3,793件、`ROE` 3,636件、`PER` 3,499件が埋まっています。残る空欄は Yahoo 側で値がない、または schema に入れられない値を空欄として保持したものです。
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\check_symbol_universe_metadata_coverage.py --checked-at 2026-05-21T00:00:00+09:00 --write
@@ -370,11 +377,11 @@ SBI ranking universe policy:
 Yahoo coverage check:
 
 - `tools/check_symbol_universe_yahoo_coverage.py` は、`symbol_universe.csv` の対象行について Yahoo OHLCV（日足価格）を取得できるか確認する live smoke command です。外部通信を使うため、通常の local checks / CI には含めません。
-- JPX 東証上場銘柄一覧から追加した国内株の確認例:
+- 国内株の確認例。metadata refresh 後は `metadata_source` が `yahoo` になるため、通常は `--asset-type stock --market jp` を主条件にします。refresh 前の raw/source 単位で確認する場合だけ `--metadata-source jpx_listed_stock` などを明示します。
 
 ```powershell
-.\venv_SMAI\Scripts\python.exe .\tools\check_symbol_universe_yahoo_coverage.py --metadata-source jpx_listed_stock --asset-type stock --market jp --sample-size 30 --batch-size 10 --timeout-ms 15000 --start 2026-05-12 --end 2026-05-20 --label yahoo_coverage_jpx_listed_stock_sample30_20260520
-.\venv_SMAI\Scripts\python.exe .\tools\check_symbol_universe_yahoo_coverage.py --metadata-source jpx_listed_stock --asset-type stock --market jp --batch-size 25 --timeout-ms 20000 --start 2026-05-12 --end 2026-05-20 --label yahoo_coverage_jpx_listed_stock_full_20260520
+.\venv_SMAI\Scripts\python.exe .\tools\check_symbol_universe_yahoo_coverage.py --asset-type stock --market jp --sample-size 30 --batch-size 10 --timeout-ms 15000 --start 2026-05-12 --end 2026-05-20 --label yahoo_coverage_jp_stock_sample30_20260520
+.\venv_SMAI\Scripts\python.exe .\tools\check_symbol_universe_yahoo_coverage.py --asset-type stock --market jp --batch-size 25 --timeout-ms 20000 --start 2026-05-12 --end 2026-05-20 --label yahoo_coverage_jp_stock_full_20260520
 ```
 
 - 2026-05-21 に実行した JPX 追加国内株の Yahoo coverage check では、サンプル 30件は 30/30 件成功。全数 3,645件は 3,641件成功、4件は短期期間で `YAHOO-NO-BARS` でした。失敗4件の個別再試行では、`9237.T` は同じ短期期間で取得成功し、`2344.T` / `4530.T` / `6565.T` は 2026-04-01 からの長め期間では取得できるものの、2026-05-12 〜 2026-05-20 ではバーがありませんでした。

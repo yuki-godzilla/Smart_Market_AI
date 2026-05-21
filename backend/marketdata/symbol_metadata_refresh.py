@@ -117,7 +117,17 @@ class YahooSymbolMetadataProvider:
                 )
                 continue
 
-            values = _yahoo_metadata_values(row, info, as_of=as_of, updated_at=updated_at)
+            try:
+                values = _yahoo_metadata_values(row, info, as_of=as_of, updated_at=updated_at)
+            except Exception as exc:  # noqa: BLE001 - bad provider fields should not abort a batch.
+                self.failures.append(
+                    SymbolMetadataFailure(
+                        symbol=symbol,
+                        code="YAHOO-METADATA-NORMALIZE-FAILED",
+                        message=str(exc),
+                    )
+                )
+                continue
             if values:
                 updates.append(SymbolMetadataUpdate(symbol=symbol, values=values))
         return updates
@@ -289,12 +299,12 @@ def _yahoo_metadata_values(
     sector = _yahoo_sector(info)
     if sector:
         values["sector"] = sector
-        values.setdefault("theme", sector)
+        values["theme"] = _theme_for_sector(sector)
 
     dividend_yield = _optional_decimal_info(info, "dividendYield")
     if dividend_yield is None:
         dividend_yield = _optional_decimal_info(info, "trailingAnnualDividendYield")
-    if dividend_yield is not None:
+    if dividend_yield is not None and dividend_yield >= 0:
         dividend_yield_pct = _ratio_to_percent(dividend_yield)
         values["dividend_yield_pct"] = _format_decimal(dividend_yield_pct)
         values["dividend_category"] = _dividend_category(dividend_yield_pct)
@@ -304,7 +314,7 @@ def _yahoo_metadata_values(
         values["per"] = _format_decimal(per)
 
     pbr = _optional_decimal_info(info, "priceToBook")
-    if pbr is not None:
+    if pbr is not None and pbr >= 0:
         values["pbr"] = _format_decimal(pbr)
 
     roe = _optional_decimal_info(info, "returnOnEquity")
@@ -326,7 +336,7 @@ def _yahoo_metadata_values(
     expense_ratio = _optional_decimal_info(info, "annualReportExpenseRatio")
     if expense_ratio is None:
         expense_ratio = _optional_decimal_info(info, "netExpenseRatio")
-    if row.get("asset_type") == "etf" and expense_ratio is not None:
+    if row.get("asset_type") == "etf" and expense_ratio is not None and expense_ratio >= 0:
         values["expense_ratio_pct"] = _format_decimal(_ratio_to_percent(expense_ratio))
 
     return values
@@ -337,9 +347,12 @@ def _optional_decimal_info(info: dict[str, object], key: str) -> Decimal | None:
     if value is None or str(value).lower() == "nan":
         return None
     try:
-        return Decimal(str(value))
+        decimal_value = Decimal(str(value))
     except InvalidOperation:
         return None
+    if not decimal_value.is_finite():
+        return None
+    return decimal_value
 
 
 def _ratio_to_percent(value: Decimal) -> Decimal:
@@ -368,6 +381,21 @@ def _yahoo_sector(info: dict[str, object]) -> str | None:
         "technology": "technology",
         "utilities": "utilities",
     }.get(raw_sector)
+
+
+def _theme_for_sector(sector: str) -> str:
+    return {
+        "communication": "communication",
+        "consumer": "consumer",
+        "energy": "energy",
+        "financial": "financial",
+        "healthcare": "healthcare",
+        "industrial": "balanced",
+        "materials": "balanced",
+        "real_estate": "balanced",
+        "technology": "technology",
+        "utilities": "energy",
+    }.get(sector, "balanced")
 
 
 def _dividend_category(dividend_yield_pct: Decimal) -> str:

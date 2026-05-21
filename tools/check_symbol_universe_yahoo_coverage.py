@@ -27,7 +27,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         description="Check Yahoo OHLCV coverage for symbol_universe.csv rows."
     )
     parser.add_argument("--csv", type=Path, default=DEFAULT_SYMBOL_UNIVERSE_CSV)
-    parser.add_argument("--metadata-source", default="jpx_listed_stock")
+    parser.add_argument("--metadata-source", default="")
     parser.add_argument("--asset-type", default="stock")
     parser.add_argument("--market", default="jp")
     parser.add_argument("--sample-size", type=int, default=0)
@@ -103,9 +103,9 @@ def _select_rows(
     return [
         row
         for row in rows
-        if row.get("metadata_source") == metadata_source
-        and row.get("asset_type") == asset_type
-        and row.get("market") == market
+        if (not metadata_source or row.get("metadata_source") == metadata_source)
+        and (not asset_type or row.get("asset_type") == asset_type)
+        and (not market or row.get("market") == market)
         and row.get("symbol")
     ]
 

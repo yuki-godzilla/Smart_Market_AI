@@ -132,6 +132,118 @@ def test_refresh_symbol_universe_metadata_tool_requires_live_opt_in(tmp_path, ca
     assert "requires --allow-live" in captured.err
 
 
+def test_refresh_symbol_universe_metadata_tool_scopes_rows_by_missing_metadata(
+    tmp_path,
+    capsys,
+):
+    csv_path = tmp_path / "symbol_universe.csv"
+    manifest_path = tmp_path / "manifest.json"
+    _write_rows(
+        csv_path,
+        [
+            {
+                "symbol": "AAPL",
+                "name": "Apple Inc.",
+                "market": "us",
+                "asset_type": "stock",
+                "currency": "USD",
+                "per": "",
+            },
+            {
+                "symbol": "MSFT",
+                "name": "Microsoft",
+                "market": "us",
+                "asset_type": "stock",
+                "currency": "USD",
+                "per": "32",
+            },
+        ],
+    )
+
+    exit_code = main(
+        [
+            "--csv",
+            str(csv_path),
+            "--manifest",
+            str(manifest_path),
+            "--asset-type",
+            "stock",
+            "--missing-any",
+            "per,pbr",
+            "--as-of",
+            "2026-05-18",
+            "--updated-at",
+            "2026-05-18T00:00:00+00:00",
+        ]
+    )
+
+    output = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert output["changed_symbols"] == ["AAPL"]
+    assert output["selection"] == {
+        "total_rows": 2,
+        "selected_rows": 1,
+        "filters": {
+            "symbols": [],
+            "asset_type": "stock",
+            "market": "",
+            "metadata_source": "",
+            "missing_any": ["per", "pbr"],
+            "limit": 0,
+        },
+        "selected_symbols": ["AAPL"],
+        "selected_symbols_truncated": False,
+    }
+
+
+def test_refresh_symbol_universe_metadata_tool_limits_selected_rows(tmp_path, capsys):
+    csv_path = tmp_path / "symbol_universe.csv"
+    _write_rows(
+        csv_path,
+        [
+            {
+                "symbol": "AAPL",
+                "name": "Apple Inc.",
+                "market": "us",
+                "asset_type": "stock",
+                "currency": "USD",
+                "per": "",
+            },
+            {
+                "symbol": "MSFT",
+                "name": "Microsoft",
+                "market": "us",
+                "asset_type": "stock",
+                "currency": "USD",
+                "per": "",
+            },
+        ],
+    )
+
+    exit_code = main(
+        [
+            "--csv",
+            str(csv_path),
+            "--asset-type",
+            "stock",
+            "--missing-any",
+            "per",
+            "--limit",
+            "1",
+            "--as-of",
+            "2026-05-18",
+            "--updated-at",
+            "2026-05-18T00:00:00+00:00",
+        ]
+    )
+
+    output = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert output["changed_symbols"] == ["AAPL"]
+    assert output["selection"]["selected_rows"] == 1
+    assert output["selection"]["selected_symbols"] == ["AAPL"]
+
+
 def _write_rows(path, rows):
     fieldnames = list(SYMBOL_UNIVERSE_REQUIRED_COLUMNS)
     defaults = {

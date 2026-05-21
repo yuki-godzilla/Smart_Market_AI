@@ -342,6 +342,19 @@ SBI ranking universe policy:
 - 投信向け metadata として `trust_fee_pct`, `aum`, `nisa_tsumitate_eligible`, `nisa_growth_eligible`, `installment_available`, `management_style`, `distribution_policy` を source CSV から取り込めます。ただし MVP ではランキング対象外です。
 - 現在の候補マスタは 3,872件です。内訳は stock 3,817件、ETF 49件、投信 4件、ADR 2件です。default ranking universe では stock / ETF のみを対象にします。
 
+Yahoo coverage check:
+
+- `tools/check_symbol_universe_yahoo_coverage.py` は、`symbol_universe.csv` の対象行について Yahoo OHLCV（日足価格）を取得できるか確認する live smoke command です。外部通信を使うため、通常の local checks / CI には含めません。
+- JPX 東証上場銘柄一覧から追加した国内株の確認例:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\check_symbol_universe_yahoo_coverage.py --metadata-source jpx_listed_stock --asset-type stock --market jp --sample-size 30 --batch-size 10 --timeout-ms 15000 --start 2026-05-12 --end 2026-05-20 --label yahoo_coverage_jpx_listed_stock_sample30_20260520
+.\venv_SMAI\Scripts\python.exe .\tools\check_symbol_universe_yahoo_coverage.py --metadata-source jpx_listed_stock --asset-type stock --market jp --batch-size 25 --timeout-ms 20000 --start 2026-05-12 --end 2026-05-20 --label yahoo_coverage_jpx_listed_stock_full_20260520
+```
+
+- 2026-05-21 に実行した JPX 追加国内株の Yahoo coverage check では、サンプル 30件は 30/30 件成功。全数 3,645件は 3,641件成功、4件は短期期間で `YAHOO-NO-BARS` でした。失敗4件の個別再試行では、`9237.T` は同じ短期期間で取得成功し、`2344.T` / `4530.T` / `6565.T` は 2026-04-01 からの長め期間では取得できるものの、2026-05-12 〜 2026-05-20 ではバーがありませんでした。
+- 結果は `data/marketdata/live_checks/` に JSON / CSV で保存します。
+
 Phase 16 ranking implementation notes:
 
 - `data/marketdata/symbol_universe.csv` is the ranking candidate master used before provider fetch. It is intentionally curated/local-first and currently carries display/search/filter metadata such as `symbol`, `name`, `market`, `asset_type`, `currency`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases`, `per`, `pbr`, `roe_pct`, `sector`, `consensus_rating`, `forecast_agreement`, `data_quality`, and `risk_band`.

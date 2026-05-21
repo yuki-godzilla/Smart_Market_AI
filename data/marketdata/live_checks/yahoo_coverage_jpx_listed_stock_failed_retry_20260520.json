@@ -1,0 +1,64 @@
+{
+  "long_period": {
+    "end": "2026-05-20",
+    "start": "2026-04-01"
+  },
+  "operation": "symbol_universe_yahoo_failed_retry_check",
+  "outputs": {
+    "manifest": "data\\marketdata\\live_checks\\yahoo_coverage_jpx_listed_stock_failed_retry_20260520.json",
+    "rows": "data\\marketdata\\live_checks\\yahoo_coverage_jpx_listed_stock_failed_retry_20260520.csv"
+  },
+  "provider": "yahoo",
+  "rows": [
+    {
+      "first_available_date": "2026-04-01",
+      "last_available_date": "2026-05-07",
+      "long_period_bars": "23",
+      "long_period_error": "",
+      "name": "平安レイサービス",
+      "short_period_bars": "0",
+      "short_period_error": "ProviderUnavailableError: Yahoo market-data provider returned no batch data",
+      "symbol": "2344.T"
+    },
+    {
+      "first_available_date": "2026-04-01",
+      "last_available_date": "2026-05-11",
+      "long_period_bars": "25",
+      "long_period_error": "",
+      "name": "久光製薬",
+      "short_period_bars": "0",
+      "short_period_error": "ProviderUnavailableError: Yahoo market-data provider returned no batch data",
+      "symbol": "4530.T"
+    },
+    {
+      "first_available_date": "2026-04-01",
+      "last_available_date": "2026-05-01",
+      "long_period_bars": "22",
+      "long_period_error": "",
+      "name": "ＡＢホテル",
+      "short_period_bars": "0",
+      "short_period_error": "ProviderUnavailableError: Yahoo market-data provider returned no batch data",
+      "symbol": "6565.T"
+    },
+    {
+      "first_available_date": "2026-04-01",
+      "last_available_date": "2026-05-20",
+      "long_period_bars": "32",
+      "long_period_error": "",
+      "name": "笑美面",
+      "short_period_bars": "7",
+      "short_period_error": "",
+      "symbol": "9237.T"
+    }
+  ],
+  "short_period": {
+    "end": "2026-05-20",
+    "start": "2026-05-12"
+  },
+  "symbols": [
+    "2344.T",
+    "4530.T",
+    "6565.T",
+    "9237.T"
+  ]
+}

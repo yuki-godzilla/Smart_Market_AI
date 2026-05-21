@@ -5,7 +5,7 @@
 This file is the compact current-state summary for Smart Market AI.
 Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_Log.md).
 
-Last updated: 2026-05-20
+Last updated: 2026-05-21
 
 ## Project Summary
 
@@ -82,7 +82,7 @@ Partial or intentionally deferred:
 - Phase 16: Visualization Cockpit / UI improvement is implementation-complete; final cross-flow Streamlit browser smoke remains useful before larger backend work.
 - Phase 16S: Stabilization smoke has been partially covered through ranking-condition visual checks; broader cockpit/ranking/rebalance smoke remains optional before handoff.
 - Phase 17: UI Polish and ranking-condition redesign is implementation-complete with user visual confirmation.
-- Phase 18: Symbol universe metadata refresh is in progress. The network-free slices define CSV schema / enum / decimal / duplicate ticker validation, metadata tier/storage/freshness policy, metadata source/as-of/update timestamps in `symbol_universe.csv`, compact metadata status in Settings, a provider-neutral dry-run/manifest refresh command, local source-import profiles for JPX/SBI/NISA seed updates, and SBI ranking-universe policy columns/default exclusion. Yahoo metadata refresh is implemented behind `--provider yahoo --allow-live`; normal checks remain network-free. JPX listed-stock `.xls` raw import is supported and the 2026-05-20 JPX listed-stock file has expanded the candidate master to 3,872 rows: stock 3,817, ETF 49, mutual fund 4, ADR 2. MVP ranking/UI is stock / ETF focused, includes a NISA eligibility pre-fetch filter, and excludes leveraged/inverse/commodity-themed ETFs by default. Mutual-fund seed rows can remain as future-extension metadata but are excluded from default ranking candidates.
+- Phase 18: Symbol universe metadata refresh is in progress. The network-free slices define CSV schema / enum / decimal / duplicate ticker validation, metadata tier/storage/freshness policy, metadata source/as-of/update timestamps in `symbol_universe.csv`, compact metadata status in Settings, a provider-neutral dry-run/manifest refresh command, local source-import profiles for JPX/SBI/NISA seed updates, and SBI ranking-universe policy columns/default exclusion. Yahoo metadata refresh is implemented behind `--provider yahoo --allow-live`; normal checks remain network-free. JPX listed-stock `.xls` raw import is supported and the 2026-05-20 JPX listed-stock file has expanded the candidate master to 3,872 rows: stock 3,817, ETF 49, mutual fund 4, ADR 2. `tools/check_symbol_universe_yahoo_coverage.py` can explicitly live-check Yahoo OHLCV coverage; 2026-05-21 full coverage check for 3,645 JPX additions succeeded for 3,641 symbols in the 2026-05-12 to 2026-05-20 period. MVP ranking/UI is stock / ETF focused, includes a NISA eligibility pre-fetch filter, and excludes leveraged/inverse/commodity-themed ETFs by default. Mutual-fund seed rows can remain as future-extension metadata but are excluded from default ranking candidates.
 - Phase 19〜24: Decision Report, Research RAG, Research Score, assistant, optional adapters, and execution gate are ordered in the implementation roadmap.
 
 ## Next Good Targets

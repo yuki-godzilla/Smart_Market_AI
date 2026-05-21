@@ -435,11 +435,11 @@ JPX 国内 ETF / ETN を取り込む場合は、JPX ETF raw file を `tools/buil
 
 JPX REIT を取り込む場合は、JPX REIT 公式 HTML を `tools/build_symbol_universe_source.py --source-kind jpx_reit` で source CSV に変換する。REIT は候補マスタに保持するが、MVP ranking universe では `reit` を初期対象外にしているため、ランキング候補には出さない。
 
-SBI米国株 / 米国ETF・海外ETFの取扱一覧を取り込む場合も、公式または確認済み raw CSV / Excel / HTML を local に保存し、`tools/build_symbol_universe_source.py --source-kind sbi_us_stock` / `sbi_us_etf` で source CSV に変換する。SBI公式HTMLは CP932 を扱える。米国株 builder は米国株ページ内に混在するETF表を stock として取り込まないようにスキップする。ETF builder は、名称や source flag からレバレッジ / インバース判定を保持し、ranking universe policy の除外条件へ渡せる形にする。現時点では米国形式 ticker を取り込み対象にし、香港・韓国・シンガポールなどの数値/市場別コードは symbol suffix 設計後に追加する。
+SBI米国株 / 米国ETF・海外ETFの取扱一覧を取り込む場合も、公式または確認済み raw CSV / Excel / HTML を local に保存し、`tools/build_symbol_universe_source.py --source-kind sbi_us_stock` / `sbi_us_etf` で source CSV に変換する。SBI公式HTMLは CP932 を扱える。米国株 builder は米国株ページ内に混在するETF表を stock として取り込まないようにスキップする。米国株 builder は既知のクラス株式表記として `BRKB` / `UHALB` を Yahoo-compatible な `BRK-B` / `UHAL-B` に正規化する。ETF builder は、名称や source flag からレバレッジ / インバース判定を保持し、ranking universe policy の除外条件へ渡せる形にする。現時点では米国形式 ticker を取り込み対象にし、香港・韓国・シンガポールなどの数値/市場別コードは symbol suffix 設計後に追加する。
 
-2026-05-21 時点の `symbol_universe.csv` は 9,180件です。内訳は stock 8,082件、ETF 1,034件、REIT 58件、投信 4件、ADR 2件です。MVP ranking universe はこのうち `stock` / `etf` のみを対象にします。
+2026-05-21 時点の `symbol_universe.csv` は 9,179件です。内訳は stock 8,081件、ETF 1,034件、REIT 58件、投信 4件、ADR 2件です。MVP ranking universe はこのうち `stock` / `etf` のみを対象にします。
 `nisa_eligibility_seed.csv` から 31件の NISA metadata を反映済みです。加えて、JPX NISA 成長投資枠 ETF/ETN Excel から 27件、IMAJ NISA 成長投資枠 listed-fund Excel から既存 ETF 232件 / REIT 57件の NISA metadata を反映済みです。IMAJ source に含まれるインフラファンド等 5件は現行 MVP の候補マスタには未登録のため、`nisa_eligibility` の update-only failure として manifest に残します。
-`data/marketdata/symbol_universe_metadata_coverage.json` は現在の ranking metadata 充足状況です。JPX/Yahoo-covered stock rows は `PER` / `PBR` / `ROE` / `配当利回り` を持つ一方、SBI公式米国株HTMLから追加した銘柄は分類 metadata 中心で、ランキング指標は確認済み source CSV または明示 opt-in metadata refresh で段階的に補完します。ETF は `信託報酬/経費率` が 1,013/1,034 件、`複雑さ` が 1,034/1,034 件まで埋まっています。
+`data/marketdata/symbol_universe_metadata_coverage.json` は現在の ranking metadata 充足状況です。JPX/Yahoo-covered stock rows と SBI公式米国株HTMLから追加した銘柄は、確認済み source CSV または明示 opt-in metadata refresh で `PER` / `PBR` / `ROE` / `配当利回り` を段階的に補完します。2026-05-21 時点では株式 8,081件のうち、`配当利回り` 8,033件、`PBR` 7,630件、`ROE` 7,466件、`PER` 7,457件が埋まっています。ETF は `信託報酬/経費率` が 1,013/1,034 件、`複雑さ` が 1,034/1,034 件まで埋まっています。
 
 NG:
 

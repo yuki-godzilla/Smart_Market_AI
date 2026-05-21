@@ -43,9 +43,9 @@ def test_symbol_universe_csv_metadata_summary_counts_source_and_freshness():
     assert summary["source_counts"]["fsa"] >= 20
     assert summary["source_counts"]["imaj"] >= 232
     assert summary["source_counts"]["jpx"] >= 160
-    assert summary["source_counts"]["yahoo"] >= 3700
-    assert summary["source_counts"]["sbi_us_stock"] >= 4290
-    assert summary["source_counts"]["sbi_us_etf"] >= 600
+    assert summary["source_counts"]["yahoo"] >= 8500
+    assert summary["source_counts"]["sbi_us_stock"] >= 20
+    assert summary["source_counts"].get("sbi_us_etf", 0) == 0
     assert summary["source_counts"]["jpx_reit"] >= 1
     assert summary["source_counts"]["jpx_nisa_growth"] >= 20
     assert summary["source_counts"]["mutual_fund_seed"] >= 4
@@ -82,11 +82,13 @@ def test_symbol_universe_csv_includes_expanded_stock_and_etf_seeds():
     assert row_by_symbol["2558.T"]["index_family"] == "sp500"
     assert row_by_symbol["PANW"]["metadata_source"] == "sbi_us_stock"
     assert row_by_symbol["PANW"]["theme"] == "technology"
-    assert row_by_symbol["A"]["metadata_source"] == "sbi_us_stock"
+    assert row_by_symbol["A"]["metadata_source"] == "yahoo"
     assert row_by_symbol["A"]["asset_type"] == "stock"
-    assert row_by_symbol["QQQM"]["metadata_source"] == "sbi_us_etf"
+    assert row_by_symbol["A"]["dividend_yield_pct"] == "0.9"
+    assert row_by_symbol["QQQM"]["metadata_source"] == "yahoo"
     assert row_by_symbol["QQQM"]["index_family"] == "nasdaq100"
-    assert row_by_symbol["ACWI"]["metadata_source"] == "sbi_us_etf"
+    assert row_by_symbol["QQQM"]["dividend_yield_pct"] == "0.46"
+    assert row_by_symbol["ACWI"]["metadata_source"] == "yahoo"
     assert row_by_symbol["ACWI"]["nisa_category"] == "growth"
     assert row_by_symbol["DIA"]["asset_type"] == "etf"
     assert row_by_symbol["8951.T"]["asset_type"] == "reit"

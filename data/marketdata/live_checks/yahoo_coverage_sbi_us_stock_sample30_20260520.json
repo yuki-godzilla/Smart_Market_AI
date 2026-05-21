@@ -1,0 +1,21 @@
+{
+  "asset_type": "stock",
+  "batch_size": 10,
+  "checked_at": "2026-05-21T09:07:13.573677+00:00",
+  "checked_symbols": 30,
+  "end": "2026-05-20",
+  "failed_symbol_sample": [],
+  "failed_symbols": 0,
+  "failure_code_counts": {},
+  "limit": 0,
+  "market": "us",
+  "metadata_source": "sbi_us_stock",
+  "ok_symbols": 30,
+  "operation": "symbol_universe_yahoo_coverage_check",
+  "provider": "yahoo",
+  "sample_size": 30,
+  "selected_rows": 4293,
+  "start": "2026-05-12",
+  "success_rate": 1.0,
+  "timeout_ms": 20000
+}

@@ -274,7 +274,7 @@ Symbol universe metadata refresh:
 ```
 
 - `--write` を付けた場合だけ `symbol_universe.csv` と `data/marketdata/symbol_universe_manifest.json` を更新します。write 前に validation error が残る場合は書き込みを拒否します。
-- Yahoo provider は取得できた `sector`, `dividend_yield_pct`, `dividend_category`, `per`, `pbr`, `roe_pct`, `market_cap_tier`, `risk_band`, ETF の `expense_ratio_pct`, metadata source/as-of/update fields を正規化して返します。非数値、無限大、負の PER/PBR/配当利回り/経費率など schema に入れられない値は空欄のままにします。失敗銘柄は manifest の `failed_symbols` / `failures` に残します。
+- Yahoo provider は取得できた `sector`, `dividend_yield_pct`, `dividend_category`, `per`, `pbr`, `roe_pct`, `market_cap_tier`, `risk_band`, ETF の `expense_ratio_pct`, metadata source/as-of/update fields を正規化して返します。`dividendYield` は yfinance が返す percentage value として扱い、`trailingAnnualDividendYield` は ratio から percentage に変換します。非数値、無限大、負の PER/PBR/配当利回り/経費率など schema に入れられない値は空欄のままにします。失敗銘柄は manifest の `failed_symbols` / `failures` に残します。
 - live metadata refresh は対象を絞って実行できます。`--symbols`, `--asset-type`, `--market`, `--metadata-source`, `--missing-any`, `--limit` を使い、いきなり全件取得しない運用を推奨します。manifest の `selection` に対象件数と対象銘柄sampleを残します。
 
 ```powershell
@@ -288,7 +288,7 @@ Symbol universe source import:
 - `tools/build_symbol_universe_source.py` は、公式 raw file を SMAI 用 source CSV へ変換する command です。現在は JPX の東証上場銘柄一覧から国内株 source を作る `--source-kind jpx_listed_stock`、JPX 国内 ETF / ETN source を作る `--source-kind jpx_etf`、JPX listed REIT source を作る `--source-kind jpx_reit`、SBI米国株 / 米国ETF・海外ETF のローカル raw file から source を作る `--source-kind sbi_us_stock` / `sbi_us_etf`、NISA制度 metadata 更新 source を作る `--source-kind nisa_eligibility` に対応しています。raw file は CSV、Excel (`.xls` / `.xlsx`)、JPX ETF/ETN / REIT 公式一覧の HTML、SBI の CP932 HTML を扱えます。PDF は通常 import 対象外です。既定は dry-run で、`--write` を付けた場合だけ source CSV / manifest を書き込みます。
 - `tools/import_symbol_universe_source.py` は、JPX などのローカル source CSV を `symbol_universe.csv` 形式へ取り込む command です。
 - 既定は dry-run で、`--write` を付けた場合だけ CSV / manifest を更新します。write 前に validation error が残る場合は書き込みを拒否します。
-- 初期 source として `data/marketdata/symbol_universe_sources/jpx_etf_seed.csv` と `data/marketdata/symbol_universe_sources/jpx_stock_seed.csv` を置いています。2026-05-20 時点では JPX 東証上場銘柄一覧から国内株 3,645件を追加し、JPX seed と合わせて `symbol_universe.csv` に取り込み済みです。2026-05-20 JPX ETF/ETN 公式一覧 HTML から 399件の source を作成し、国内 ETF 候補を 449件まで拡張済みです。2026-05-21 時点では SBI公式米国株 HTML から 4,293件、SBI公式米国ETF HTML から 607件、JPX REIT HTML から 58件を追加し、candidate master は 9,180件です。JPX NISA 成長投資枠 ETF/ETN Excel から 27件、2026-05-19 IMAJ NISA 成長投資枠 listed-fund Excel から既存 ETF 232件 / REIT 57件の NISA metadata を取り込み済みです。
+- 初期 source として `data/marketdata/symbol_universe_sources/jpx_etf_seed.csv` と `data/marketdata/symbol_universe_sources/jpx_stock_seed.csv` を置いています。2026-05-20 時点では JPX 東証上場銘柄一覧から国内株 3,645件を追加し、JPX seed と合わせて `symbol_universe.csv` に取り込み済みです。2026-05-20 JPX ETF/ETN 公式一覧 HTML から 399件の source を作成し、国内 ETF 候補を 449件まで拡張済みです。2026-05-21 時点では SBI公式米国株 HTML から 4,293件、SBI公式米国ETF HTML から 607件、JPX REIT HTML から 58件を追加し、candidate master は 9,179件です。JPX NISA 成長投資枠 ETF/ETN Excel から 27件、2026-05-19 IMAJ NISA 成長投資枠 listed-fund Excel から既存 ETF 232件 / REIT 57件の NISA metadata を取り込み済みです。
 - MVP 向け source profile として `jpx_listed_stock`, `jpx_stock`, `jpx_etf`, `jpx_reit`, `sbi_us_stock`, `sbi_us_etf`, `nisa_eligibility`, `ranking_metadata` を使えます。`mutual_fund_seed` は将来対応用 profile として残します。
 - 追加 seed として `sbi_us_stock_seed.csv`, `sbi_us_etf_seed.csv`, `mutual_fund_seed.csv` を置いています。SBI US stock / ETF は 2026-05-21 の公式 HTML source に置き換えて拡張済みです。投信 4件は future extension seed として保持し、default ranking universe から除外します。
 - `nisa_eligibility_seed.csv` は既存の株式・ETF 31件へ NISA metadata を付与する local seed です。2026-05-19 時点で `symbol_universe.csv` に反映済みです。
@@ -337,7 +337,7 @@ IMAJ の「NISA成長投資枠対象の対象銘柄（国内ETF、REIT等）」E
 .\venv_SMAI\Scripts\python.exe .\tools\import_symbol_universe_source.py --source-csv .\data\marketdata\symbol_universe_sources\nisa_eligibility_imaj_listed_fund_20260519.csv --source-profile nisa_eligibility --source-name imaj --as-of 2026-05-19 --updated-at 2026-05-19T00:00:00+09:00 --update-existing --write
 ```
 
-SBI米国株 / 米国ETF・海外ETF の取扱一覧を使う場合も、まずローカル raw CSV / Excel / HTML を source CSV に変換します。SBI公式HTMLは CP932 を扱えます。`sbi_us_stock` builder は米国株ページ内に混在するETF表を stock として取り込まないようにスキップします。`sbi_us_etf` builder は、名称や明示フラグからレバレッジ / インバース ETF を判定し、後段の ranking universe policy で除外できるように `is_leveraged` / `is_inverse` を保持します。現時点では米国形式 ticker を取り込み対象にし、香港・韓国・シンガポールなどの数値/市場別コードは symbol suffix 設計後に追加します。
+SBI米国株 / 米国ETF・海外ETF の取扱一覧を使う場合も、まずローカル raw CSV / Excel / HTML を source CSV に変換します。SBI公式HTMLは CP932 を扱えます。`sbi_us_stock` builder は米国株ページ内に混在するETF表を stock として取り込まないようにスキップします。`sbi_us_stock` builder は既知のクラス株式表記として `BRKB` / `UHALB` を Yahoo-compatible な `BRK-B` / `UHAL-B` に正規化します。`sbi_us_etf` builder は、名称や明示フラグからレバレッジ / インバース ETF を判定し、後段の ranking universe policy で除外できるように `is_leveraged` / `is_inverse` を保持します。現在取り込んだ SBI 公式 ETF HTML は米国形式 ticker が中心です。将来 raw に香港・韓国・シンガポールなどの市場別コードが含まれる場合は、Yahoo symbol suffix / 通貨 / exchange mapping を決めてから追加します。
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\build_symbol_universe_source.py --source-kind sbi_us_stock --raw-file .\data\marketdata\raw\sbi_us_stock_2026-05.csv --output-csv .\data\marketdata\symbol_universe_sources\sbi_us_stock_2026-05.csv --as-of 2026-05-19 --write
@@ -378,7 +378,7 @@ Ranking metadata のように既存銘柄の条件列だけを更新する場合
 Ranking metadata coverage:
 
 - `tools/check_symbol_universe_metadata_coverage.py` は、`symbol_universe.csv` の ranking filter 用 metadata がどの程度埋まっているかを network なしで集計します。
-- 2026-05-21 時点の出力は `data/marketdata/symbol_universe_metadata_coverage.json` です。JPX listed-stock 追加分 3,645件と旧 JPX stock seed 56件は、50件 dry-run 確認後に明示 opt-in の Yahoo metadata refresh で補完済みです。SBI公式米国株HTMLから追加した銘柄は分類 metadata 中心で、PER/PBR/ROE/配当利回りは確認済み source または明示 opt-in refresh で補完します。株式全体 8,082件では、`配当利回り` 3,824件、`PBR` 3,800件、`ROE` 3,643件、`PER` 3,506件が埋まっています。ETF全体 1,034件では、`複雑さ` 1,034件、`信託報酬/経費率` 1,013件が埋まっています。残る空欄は source / provider 側で値がない、または schema に入れられない値を空欄として保持したものです。
+- 2026-05-21 時点の出力は `data/marketdata/symbol_universe_metadata_coverage.json` です。JPX listed-stock 追加分、旧 JPX stock seed、SBI 公式米国株、SBI 公式米国ETF は、明示 opt-in の Yahoo metadata refresh で補完済みです。株式全体 8,081件では、`配当利回り` 8,033件、`PBR` 7,630件、`ROE` 7,466件、`PER` 7,457件、`リスク` 6,231件が埋まっています。ETF全体 1,034件では、`配当利回り` 601件、`複雑さ` 1,034件、`信託報酬/経費率` 1,013件が埋まっています。残る空欄は source / provider 側で値がない、または schema に入れられない値を空欄として保持したものです。
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\check_symbol_universe_metadata_coverage.py --checked-at 2026-05-21T00:00:00+09:00 --write
@@ -393,7 +393,7 @@ SBI ranking universe policy:
 - SBI証券サイトへのログインや画面スクレイピングは通常 workflow に含めません。SBI / JPX / NISA 一覧などを手動または curated source CSV に整形し、source import command で local master へ反映します。投信協会 / 投信CSV / 基準価額は Future Phase で扱います。
 - Ranking / Screening は source site を直接参照せず、`symbol_universe.csv` と default policy helper だけを参照します。
 - 投信向け metadata として `trust_fee_pct`, `aum`, `nisa_tsumitate_eligible`, `nisa_growth_eligible`, `installment_available`, `management_style`, `distribution_policy` を source CSV から取り込めます。ただし MVP ではランキング対象外です。
-- 現在の候補マスタは 9,180件です。内訳は stock 8,082件、ETF 1,034件、REIT 58件、投信 4件、ADR 2件です。default ranking universe では stock / ETF のみを対象にします。
+- 現在の候補マスタは 9,179件です。内訳は stock 8,081件、ETF 1,034件、REIT 58件、投信 4件、ADR 2件です。default ranking universe では stock / ETF のみを対象にします。
 
 Yahoo coverage check:
 
@@ -403,9 +403,13 @@ Yahoo coverage check:
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\check_symbol_universe_yahoo_coverage.py --asset-type stock --market jp --sample-size 30 --batch-size 10 --timeout-ms 15000 --start 2026-05-12 --end 2026-05-20 --label yahoo_coverage_jp_stock_sample30_20260520
 .\venv_SMAI\Scripts\python.exe .\tools\check_symbol_universe_yahoo_coverage.py --asset-type stock --market jp --batch-size 25 --timeout-ms 20000 --start 2026-05-12 --end 2026-05-20 --label yahoo_coverage_jp_stock_full_20260520
+.\venv_SMAI\Scripts\python.exe .\tools\check_symbol_universe_yahoo_coverage.py --asset-type stock --market us --metadata-source sbi_us_stock --batch-size 50 --timeout-ms 25000 --start 2026-05-12 --end 2026-05-20 --label yahoo_coverage_sbi_us_stock_full_20260520
+.\venv_SMAI\Scripts\python.exe .\tools\check_symbol_universe_yahoo_coverage.py --asset-type etf --market us --metadata-source sbi_us_etf --batch-size 50 --timeout-ms 25000 --start 2026-05-12 --end 2026-05-20 --label yahoo_coverage_sbi_us_etf_full_20260520
 ```
 
 - 2026-05-21 に実行した JPX 追加国内株の Yahoo coverage check では、サンプル 30件は 30/30 件成功。全数 3,645件は 3,641件成功、4件は短期期間で `YAHOO-NO-BARS` でした。失敗4件の個別再試行では、`9237.T` は同じ短期期間で取得成功し、`2344.T` / `4530.T` / `6565.T` は 2026-04-01 からの長め期間では取得できるものの、2026-05-12 〜 2026-05-20 ではバーがありませんでした。
+- 2026-05-21 に実行した SBI 米国株 / 米国ETF の Yahoo coverage check では、米国株サンプル 30/30、米国株全数 4,240/4,293、米国ETFサンプル 29/30、米国ETF全数 593/607 が成功しました。失敗はすべて短期期間での `YAHOO-NO-BARS` です。クラス株式表記を正規化した `BRK-B` / `UHAL-B` の個別再確認は 2/2 成功しました。
+- `--symbols` を使うと、失敗銘柄や表記修正後の銘柄だけを小さく再確認できます。
 - 結果は `data/marketdata/live_checks/` に JSON / CSV で保存します。
 
 Phase 16 ranking implementation notes:

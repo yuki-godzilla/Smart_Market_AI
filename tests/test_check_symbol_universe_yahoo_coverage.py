@@ -67,6 +67,39 @@ def test_select_rows_can_filter_without_metadata_source_after_refresh():
     assert [row["symbol"] for row in selected] == ["1301.T"]
 
 
+def test_select_rows_can_filter_by_symbol_allowlist():
+    rows = [
+        {
+            "symbol": "BRK-B",
+            "metadata_source": "curated_csv",
+            "asset_type": "stock",
+            "market": "us",
+        },
+        {
+            "symbol": "UHAL-B",
+            "metadata_source": "yahoo",
+            "asset_type": "stock",
+            "market": "us",
+        },
+        {
+            "symbol": "AAPL",
+            "metadata_source": "curated_csv",
+            "asset_type": "stock",
+            "market": "us",
+        },
+    ]
+
+    selected = _select_rows(
+        rows,
+        metadata_source="",
+        asset_type="stock",
+        market="us",
+        symbols=["brk-b", "uhal-b"],
+    )
+
+    assert [row["symbol"] for row in selected] == ["BRK-B", "UHAL-B"]
+
+
 def test_even_sample_spreads_across_symbols():
     symbols = [f"{index}.T" for index in range(10)]
 

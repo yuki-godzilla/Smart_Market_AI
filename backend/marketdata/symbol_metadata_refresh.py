@@ -301,11 +301,8 @@ def _yahoo_metadata_values(
         values["sector"] = sector
         values["theme"] = _theme_for_sector(sector)
 
-    dividend_yield = _optional_decimal_info(info, "dividendYield")
-    if dividend_yield is None:
-        dividend_yield = _optional_decimal_info(info, "trailingAnnualDividendYield")
-    if dividend_yield is not None and dividend_yield >= 0:
-        dividend_yield_pct = _ratio_to_percent(dividend_yield)
+    dividend_yield_pct = _yahoo_dividend_yield_pct(info)
+    if dividend_yield_pct is not None and dividend_yield_pct >= 0:
         values["dividend_yield_pct"] = _format_decimal(dividend_yield_pct)
         values["dividend_category"] = _dividend_category(dividend_yield_pct)
 
@@ -359,6 +356,19 @@ def _ratio_to_percent(value: Decimal) -> Decimal:
     if abs(value) <= Decimal("1"):
         return value * Decimal("100")
     return value
+
+
+def _yahoo_dividend_yield_pct(info: dict[str, object]) -> Decimal | None:
+    dividend_yield = _optional_decimal_info(info, "dividendYield")
+    if dividend_yield is not None:
+        # yfinance exposes dividendYield as a percentage value
+        # (for example, 0.36 means 0.36%). trailingAnnualDividendYield is a ratio.
+        return dividend_yield
+
+    trailing_yield = _optional_decimal_info(info, "trailingAnnualDividendYield")
+    if trailing_yield is None:
+        return None
+    return _ratio_to_percent(trailing_yield)
 
 
 def _format_decimal(value: Decimal) -> str:

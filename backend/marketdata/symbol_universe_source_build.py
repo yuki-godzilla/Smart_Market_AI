@@ -788,6 +788,11 @@ def _normalize_us_symbol(value: str) -> str:
     if not text:
         return ""
     text = text.split()[0]
+    text = {
+        "BRKA": "BRK-A",
+        "BRKB": "BRK-B",
+        "UHALB": "UHAL-B",
+    }.get(text, text)
     text = text.replace(".", "-").replace("/", "-")
     return text if _US_SYMBOL_PATTERN.match(text) else ""
 

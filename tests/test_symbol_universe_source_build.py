@@ -235,7 +235,7 @@ def test_build_sbi_us_stock_source_rows_normalizes_symbols_and_sector():
     result = build_sbi_us_stock_source_rows(
         [
             {
-                "Ticker": "brk.b",
+                "Ticker": "BRKB",
                 "Name": "Berkshire Hathaway",
                 "Sector": "Financials",
                 "dividend_yield": "0.0%",
@@ -247,11 +247,16 @@ def test_build_sbi_us_stock_source_rows_normalizes_symbols_and_sector():
                 "Sector": "Information Technology",
                 "tags": "growth,quality",
             },
+            {
+                "Ticker": "UHALB",
+                "Name": "U-Haul Holding Non-Voting",
+                "Sector": "Industrials",
+            },
         ],
         as_of=date(2026, 5, 19),
     )
 
-    assert [row["symbol"] for row in result.rows] == ["BRK-B", "AAPL"]
+    assert [row["symbol"] for row in result.rows] == ["BRK-B", "AAPL", "UHAL-B"]
     assert result.rows[0]["market"] == "us"
     assert result.rows[0]["asset_type"] == "stock"
     assert result.rows[0]["theme"] == "financial"
@@ -260,6 +265,7 @@ def test_build_sbi_us_stock_source_rows_normalizes_symbols_and_sector():
     assert result.rows[0]["roe_pct"] == "12.5"
     assert result.rows[1]["theme"] == "technology"
     assert result.rows[1]["tags"] == "growth,quality"
+    assert result.rows[2]["sector"] == "industrial"
     assert result.manifest["source_kind"] == "sbi_us_stock"
     assert result.manifest["fieldnames"] == SBI_US_STOCK_SOURCE_FIELDNAMES
 

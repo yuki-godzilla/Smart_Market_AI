@@ -30,6 +30,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--metadata-source", default="")
     parser.add_argument("--asset-type", default="stock")
     parser.add_argument("--market", default="jp")
+    parser.add_argument("--symbols", default="", help="Comma-separated symbol allowlist.")
     parser.add_argument("--sample-size", type=int, default=0)
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--batch-size", type=int, default=20)
@@ -46,6 +47,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         metadata_source=args.metadata_source,
         asset_type=args.asset_type,
         market=args.market,
+        symbols=_parse_symbols(args.symbols),
     )
     symbols = [row["symbol"] for row in selected_rows]
     if args.sample_size > 0:
@@ -99,13 +101,16 @@ def _select_rows(
     metadata_source: str,
     asset_type: str,
     market: str,
+    symbols: Sequence[str] = (),
 ) -> list[dict[str, str]]:
+    symbol_allowlist = {symbol.strip().upper() for symbol in symbols if symbol.strip()}
     return [
         row
         for row in rows
         if (not metadata_source or row.get("metadata_source") == metadata_source)
         and (not asset_type or row.get("asset_type") == asset_type)
         and (not market or row.get("market") == market)
+        and (not symbol_allowlist or row.get("symbol", "").upper() in symbol_allowlist)
         and row.get("symbol")
     ]
 
@@ -292,6 +297,10 @@ def _chunks(symbols: Sequence[str], size: int) -> list[list[str]]:
 
 def _parse_date(value: str) -> date:
     return date.fromisoformat(value)
+
+
+def _parse_symbols(value: str) -> list[str]:
+    return [symbol.strip() for symbol in value.split(",") if symbol.strip()]
 
 
 if __name__ == "__main__":

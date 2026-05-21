@@ -246,9 +246,20 @@ def _header_index(table_rows: Sequence[Sequence[str]]) -> int | None:
             or ({"symbol", "nisa_category"} <= normalized_headers)
             or ({"コード", "nisa区分"} <= normalized_headers)
             or ({"銘柄コード", "nisa区分"} <= normalized_headers)
+            or (
+                _header_contains(normalized_headers, "銘柄コード")
+                and (
+                    _header_contains(normalized_headers, "銘柄名")
+                    or _header_contains(normalized_headers, "銘柄名称")
+                )
+            )
         ):
             return index
     return None
+
+
+def _header_contains(headers: set[str], marker: str) -> bool:
+    return any(marker.lower() in header for header in headers)
 
 
 def _write_csv(

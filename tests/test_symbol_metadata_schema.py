@@ -125,6 +125,7 @@ def test_symbol_metadata_catalog_allows_official_source_names():
         "eodhd",
         "alpha_vantage",
         "jpx_listed_stock",
+        "jpx_nisa_growth",
         "sbi_us_stock",
         "sbi_us_etf",
         "mutual_fund_seed",

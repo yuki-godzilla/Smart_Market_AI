@@ -29,13 +29,16 @@ SMAI の銘柄ランキング、比較分析、将来の銘柄推薦で使う MV
 - `tools/build_symbol_universe_source.py` による公式 raw file からの source CSV 生成
 - import source profile
   - `jpx_listed_stock`
+  - `jpx_etf`
   - `sbi_us_stock`
   - `sbi_us_etf`
+  - `nisa_eligibility`
 - source seed CSV
   - `data/marketdata/symbol_universe_sources/sbi_us_stock_seed.csv`
   - `data/marketdata/symbol_universe_sources/sbi_us_etf_seed.csv`
 - `symbol_universe.csv` への source seed 反映
-  - JPX source として国内株 / 国内 ETF 合計 68件を反映
+  - JPX listed-stock source として国内株 3,645件を追加済み
+  - JPX NISA 成長投資枠 ETF/ETN source として 27件を追加/更新済み
   - SBI US stock source として 28件を反映
   - SBI US ETF source として 22件を反映
   - 投資信託 4件を将来対応 seed として追加済み。ただし MVP ranking universe からは除外する
@@ -416,17 +419,16 @@ ranking_universe:
 `jpx_*`, `sbi_*`, `mutual_fund_seed` は `broker=sbi_securities`, `is_sbi_supported=true`, `is_active=true`, `is_leveraged=false`, `is_inverse=false` を補完する。
 source CSV 側に `is_leveraged` / `is_inverse` がある場合は、source 側の値を優先する。
 `nisa_eligibility` は `--update-existing` と組み合わせる前提で、制度 metadata 以外の市場・商品・名称を上書きしない。source に未知の symbol が含まれる場合は、新規追加せず import failure として manifest に残す。
-NISA raw file から source CSV を作る場合は、`tools/build_symbol_universe_source.py --source-kind nisa_eligibility` を使う。この builder は4桁国内コードを `.T` 付き symbol に変換し、`成長投資枠` / `つみたて投資枠` / `対象外` を `nisa_category`, `nisa_growth_eligible`, `nisa_tsumitate_eligible` に正規化する。曖昧な `NISA対象` だけの行は `unknown` として保持し、制度区分を過剰に推定しない。
+NISA raw file から source CSV を作る場合は、`tools/build_symbol_universe_source.py --source-kind nisa_eligibility` を使う。この builder は4桁国内コードを `.T` 付き symbol に変換し、`成長投資枠` / `つみたて投資枠` / `対象外` を `nisa_category`, `nisa_growth_eligible`, `nisa_tsumitate_eligible` に正規化する。JPX の「NISA 成長投資枠対象銘柄一覧」のように列名にふりがなが付く Excel は、一覧そのものを `growth=true`, `tsumitate=false` として扱う。曖昧な `NISA対象` だけの行は `unknown` として保持し、制度区分を過剰に推定しない。
 
 JPX の東証上場銘柄一覧を取り込む場合は、公式 Excel (`.xls` / `.xlsx`) / CSV をまず local raw file として保存し、`tools/build_symbol_universe_source.py --source-kind jpx_listed_stock` で source CSV に変換する。この builder は国内株だけを出力し、ETF / ETN / REIT は別 source として扱う。
 
-JPX 国内 ETF / ETN を取り込む場合は、同じ raw file または JPX ETF raw file を `tools/build_symbol_universe_source.py --source-kind jpx_etf` で source CSV に変換する。この builder は `.T` 付き symbol、指数 family、信託報酬、商品系 theme、ETN / レバレッジ / インバース判定を保持する。商品系ETF、レバレッジ、インバースは ranking universe policy で除外できる。
+JPX 国内 ETF / ETN を取り込む場合は、同じ raw file または JPX ETF raw file を `tools/build_symbol_universe_source.py --source-kind jpx_etf` で source CSV に変換する。この builder は `.T` 付き symbol、指数 family、信託報酬、商品系 theme、ETN / レバレッジ / インバース判定を保持する。JPX の NISA 成長投資枠対象 ETF/ETN Excel も、銘柄追加用の `jpx_etf` source と制度 metadata 更新用の `nisa_eligibility` source に分けて使える。商品系ETF、レバレッジ、インバースは ranking universe policy で除外できる。PDF は通常の source import 対象外とし、必要なら Excel / CSV / source CSV へ整形してから取り込む。
 
 SBI米国株 / 米国ETF・海外ETFの取扱一覧を取り込む場合も、公式または確認済み raw CSV / Excel を local に保存し、`tools/build_symbol_universe_source.py --source-kind sbi_us_stock` / `sbi_us_etf` で source CSV に変換する。ETF builder は、名称や source flag からレバレッジ / インバース判定を保持し、ranking universe policy の除外条件へ渡せる形にする。
 
-2026-05-20 時点の `symbol_universe.csv` は 3,872件です。内訳は stock 3,817件、ETF 49件、投信 4件、ADR 2件です。
-内訳は `stock=172`, `etf=49`, `mutual_fund=4`, `adr=2` です。MVP ranking universe はこのうち `stock` / `etf` のみを対象にします。
-`nisa_eligibility_seed.csv` から 31件の NISA metadata を反映済みです。これは local seed であり、公式 source の継続更新 adapter は後続範囲です。
+2026-05-21 時点の `symbol_universe.csv` は 3,898件です。内訳は stock 3,817件、ETF 75件、投信 4件、ADR 2件です。MVP ranking universe はこのうち `stock` / `etf` のみを対象にします。
+`nisa_eligibility_seed.csv` から 31件の NISA metadata を反映済みです。加えて、JPX NISA 成長投資枠 ETF/ETN Excel から 27件を `metadata_source=jpx_nisa_growth` として反映済みです。
 
 NG:
 
@@ -482,6 +484,7 @@ Phase 18 の実装順:
    - JPX stock / ETF profile と NISA eligibility profile は追加済み。
    - JPX stock / ETF、SBI US stock / ETF、mutual fund seed は `symbol_universe.csv` へ反映済み。
    - NISA eligibility seed は 31件を `symbol_universe.csv` へ反映済み。
+   - JPX NISA 成長投資枠 ETF/ETN Excel は 27件を `symbol_universe.csv` へ反映済み。
    - MVP ranking は stock / ETF のみを対象にし、mutual fund seed は Future Phase 用の保持データとする。
    - SBI公式一覧 / NISA公式一覧などからの半自動 adapter は未実装。
 

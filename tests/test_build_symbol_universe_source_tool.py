@@ -3,7 +3,9 @@ from __future__ import annotations
 import csv
 import json
 import sys
+from html import escape
 from types import SimpleNamespace
+from zipfile import ZipFile
 
 from tools.build_symbol_universe_source import main
 
@@ -308,6 +310,51 @@ def test_build_symbol_universe_source_tool_writes_nisa_eligibility_source(tmp_pa
     assert manifest["source_kind"] == "nisa_eligibility"
 
 
+def test_build_symbol_universe_source_tool_reads_jpx_growth_nisa_xlsx(tmp_path, capsys):
+    raw_xlsx = tmp_path / "jpx_growth_nisa_raw.xlsx"
+    output_csv = tmp_path / "nisa_source.csv"
+    manifest_path = tmp_path / "manifest.json"
+    _write_minimal_xlsx(
+        raw_xlsx,
+        [
+            ["", "", "特定非課税管理勘定（ＮＩＳＡの成長投資枠）対象銘柄一覧"],
+            [
+                "",
+                "",
+                "銘柄コードメイガラ",
+                "銘柄名称メイガラメイショウ",
+                "管理会社カンリカイシャ",
+            ],
+            ["", "", "1540", "純金上場信託（現物国内保管型）", "三菱UFJ 信託銀行株式会社"],
+        ],
+    )
+
+    exit_code = main(
+        [
+            "--source-kind",
+            "nisa_eligibility",
+            "--raw-file",
+            str(raw_xlsx),
+            "--output-csv",
+            str(output_csv),
+            "--manifest",
+            str(manifest_path),
+            "--as-of",
+            "2026-05-21",
+            "--write",
+        ]
+    )
+
+    output = json.loads(capsys.readouterr().out)
+    rows = _read_rows(output_csv)
+    assert exit_code == 0
+    assert output["output_rows"] == 1
+    assert rows[0]["symbol"] == "1540.T"
+    assert rows[0]["nisa_category"] == "growth"
+    assert rows[0]["nisa_growth_eligible"] == "true"
+    assert rows[0]["nisa_tsumitate_eligible"] == "false"
+
+
 def _write_raw_jpx_rows(path, rows):
     fieldnames = ["コード", "銘柄名", "市場・商品区分", "33業種区分", "17業種区分", "規模区分"]
     with path.open("w", encoding="utf-8", newline="") as file:
@@ -338,6 +385,82 @@ def _write_raw_nisa_rows(path, rows):
         writer = csv.DictWriter(file, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
+
+
+def _write_minimal_xlsx(path, rows):
+    worksheet = "".join(
+        f'<row r="{row_index}">'
+        + "".join(
+            _inline_string_cell(_cell_ref(row_index, column_index), value)
+            for column_index, value in enumerate(row_values, start=1)
+        )
+        + "</row>"
+        for row_index, row_values in enumerate(rows, start=1)
+    )
+    with ZipFile(path, "w") as archive:
+        archive.writestr(
+            "[Content_Types].xml",
+            (
+                '<?xml version="1.0" encoding="UTF-8"?>'
+                '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+                '<Default Extension="xml" ContentType="application/xml"/>'
+                '<Override PartName="/xl/workbook.xml" '
+                'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+                '<Override PartName="/xl/worksheets/sheet1.xml" '
+                'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+                "</Types>"
+            ),
+        )
+        archive.writestr(
+            "_rels/.rels",
+            (
+                '<?xml version="1.0" encoding="UTF-8"?>'
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                '<Relationship Id="rId1" '
+                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" '
+                'Target="xl/workbook.xml"/>'
+                "</Relationships>"
+            ),
+        )
+        archive.writestr(
+            "xl/workbook.xml",
+            (
+                '<?xml version="1.0" encoding="UTF-8"?>'
+                '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+                'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+                '<sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets>'
+                "</workbook>"
+            ),
+        )
+        archive.writestr(
+            "xl/_rels/workbook.xml.rels",
+            (
+                '<?xml version="1.0" encoding="UTF-8"?>'
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                '<Relationship Id="rId1" '
+                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" '
+                'Target="worksheets/sheet1.xml"/>'
+                "</Relationships>"
+            ),
+        )
+        archive.writestr(
+            "xl/worksheets/sheet1.xml",
+            (
+                '<?xml version="1.0" encoding="UTF-8"?>'
+                '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                f"<sheetData>{worksheet}</sheetData>"
+                "</worksheet>"
+            ),
+        )
+
+
+def _inline_string_cell(cell_ref, value):
+    return f'<c r="{cell_ref}" t="inlineStr"><is><t>{escape(value)}</t></is></c>'
+
+
+def _cell_ref(row_index, column_index):
+    return f"{chr(ord('A') + column_index - 1)}{row_index}"
 
 
 def _read_rows(path):

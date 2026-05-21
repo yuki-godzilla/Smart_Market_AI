@@ -90,7 +90,9 @@ _US_SYMBOL_PATTERN = re.compile(r"^[A-Z][A-Z0-9-]{0,14}$")
 _JPX_STOCK_MARKET_MARKERS = ("グロース", "スタンダード", "プライム")
 _JPX_ETF_MARKERS = (
     "ETF",
+    "ＥＴＦ",
     "ETN",
+    "ＥＴＮ",
     "上場投信",
     "上場信託",
     "上場投資信託",
@@ -107,8 +109,23 @@ _JPX_NON_STOCK_MARKERS = (
     "出資証券",
 )
 
-_CODE_ALIASES = ("code", "security_code", "local_code", "コード", "銘柄コード")
-_NAME_ALIASES = ("security_name", "name", "company_name", "銘柄名", "名称")
+_CODE_ALIASES = (
+    "code",
+    "security_code",
+    "local_code",
+    "コード",
+    "銘柄コード",
+    "銘柄コードメイガラ",
+)
+_NAME_ALIASES = (
+    "security_name",
+    "name",
+    "company_name",
+    "銘柄名",
+    "銘柄名称",
+    "銘柄名称メイガラメイショウ",
+    "名称",
+)
 _MARKET_SEGMENT_ALIASES = (
     "market_segment",
     "market_category",
@@ -140,6 +157,7 @@ _SYMBOL_ALIASES = (
     "ティッカー",
     "シンボル",
     "コード",
+    "銘柄コードメイガラ",
 )
 _US_NAME_ALIASES = (
     "name",
@@ -202,6 +220,12 @@ _NISA_TSUMITATE_ELIGIBLE_ALIASES = (
 _INVESTMENT_STYLE_ALIASES = ("investment_style", "投資スタイル")
 _IS_LEVERAGED_ALIASES = ("is_leveraged", "leveraged", "レバレッジ")
 _IS_INVERSE_ALIASES = ("is_inverse", "inverse", "インバース")
+_JPX_NISA_GROWTH_LIST_MARKER_ALIASES = (
+    "管理会社",
+    "管理会社カンリカイシャ",
+    "取扱い開始日",
+    "取扱い開始日ト",
+)
 
 _INDUSTRY_THEME_SECTOR_MAP = {
     "水産・農林業": ("consumer", "consumer"),
@@ -312,7 +336,7 @@ _INVERSE_MARKERS = (
     "ベア",
     "反対",
 )
-_ETN_MARKERS = ("ETN", "エーティーエヌ")
+_ETN_MARKERS = ("ETN", "ＥＴＮ", "エーティーエヌ")
 _COMMODITY_MARKERS = (
     "GOLD",
     "SILVER",
@@ -323,7 +347,10 @@ _COMMODITY_MARKERS = (
     "純金",
     "金価格",
     "金地金",
+    "ゴールド",
     "銀価格",
+    "純銀",
+    "シルバー",
     "プラチナ",
     "パラジウム",
     "原油",
@@ -426,7 +453,9 @@ def build_jpx_etf_source_rows(
         if not code or not name:
             skipped_rows.append(_skipped_row(index, code, "JPX-ETF-MISSING-CODE-OR-NAME"))
             continue
-        if not _is_jpx_etf_or_etn(code, name, market_segment):
+        if not _is_jpx_etf_or_etn(code, name, market_segment) and not _is_jpx_nisa_growth_list_row(
+            raw_row
+        ):
             skipped_rows.append(_skipped_row(index, code, "JPX-ETF-OUT-OF-SCOPE"))
             continue
 
@@ -605,6 +634,13 @@ def build_nisa_eligibility_source_rows(
         if not symbol:
             skipped_rows.append(_skipped_row(index, "", "NISA-ELIGIBILITY-MISSING-SYMBOL"))
             continue
+        if (
+            not category_raw
+            and not growth_raw
+            and not tsumitate_raw
+            and _is_jpx_nisa_growth_list_row(raw_row)
+        ):
+            category_raw = "成長投資枠"
         if not category_raw and not growth_raw and not tsumitate_raw:
             skipped_rows.append(_skipped_row(index, symbol, "NISA-ELIGIBILITY-MISSING-FLAGS"))
             continue
@@ -641,6 +677,12 @@ def _first_value(row: Mapping[str, Any], aliases: Sequence[str]) -> str:
         if value is not None and str(value).strip():
             return str(value).strip()
     return ""
+
+
+def _is_jpx_nisa_growth_list_row(row: Mapping[str, Any]) -> bool:
+    """Detect JPX growth-NISA list rows that imply growth eligibility."""
+
+    return bool(_first_value(row, _JPX_NISA_GROWTH_LIST_MARKER_ALIASES))
 
 
 def _normalize_jpx_code(value: str) -> str:

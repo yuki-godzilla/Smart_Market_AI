@@ -277,10 +277,10 @@ Symbol universe metadata refresh:
 
 Symbol universe source import:
 
-- `tools/build_symbol_universe_source.py` は、公式 raw file を SMAI 用 source CSV へ変換する command です。現在は JPX の東証上場銘柄一覧から国内株 source を作る `--source-kind jpx_listed_stock`、JPX 国内 ETF / ETN source を作る `--source-kind jpx_etf`、SBI米国株 / 米国ETF・海外ETF のローカル raw CSV から source を作る `--source-kind sbi_us_stock` / `sbi_us_etf`、NISA制度 metadata 更新 source を作る `--source-kind nisa_eligibility` に対応しています。raw file は CSV と Excel (`.xls` / `.xlsx`) を扱えます。既定は dry-run で、`--write` を付けた場合だけ source CSV / manifest を書き込みます。
+- `tools/build_symbol_universe_source.py` は、公式 raw file を SMAI 用 source CSV へ変換する command です。現在は JPX の東証上場銘柄一覧から国内株 source を作る `--source-kind jpx_listed_stock`、JPX 国内 ETF / ETN source を作る `--source-kind jpx_etf`、SBI米国株 / 米国ETF・海外ETF のローカル raw CSV から source を作る `--source-kind sbi_us_stock` / `sbi_us_etf`、NISA制度 metadata 更新 source を作る `--source-kind nisa_eligibility` に対応しています。raw file は CSV と Excel (`.xls` / `.xlsx`) を扱えます。PDF は通常 import 対象外です。既定は dry-run で、`--write` を付けた場合だけ source CSV / manifest を書き込みます。
 - `tools/import_symbol_universe_source.py` は、JPX などのローカル source CSV を `symbol_universe.csv` 形式へ取り込む command です。
 - 既定は dry-run で、`--write` を付けた場合だけ CSV / manifest を更新します。write 前に validation error が残る場合は書き込みを拒否します。
-- 初期 source として `data/marketdata/symbol_universe_sources/jpx_etf_seed.csv` と `data/marketdata/symbol_universe_sources/jpx_stock_seed.csv` を置いています。2026-05-20 時点では JPX 東証上場銘柄一覧から国内株 3,645件を追加し、JPX seed と合わせて `symbol_universe.csv` に取り込み済みです。
+- 初期 source として `data/marketdata/symbol_universe_sources/jpx_etf_seed.csv` と `data/marketdata/symbol_universe_sources/jpx_stock_seed.csv` を置いています。2026-05-20 時点では JPX 東証上場銘柄一覧から国内株 3,645件を追加し、JPX seed と合わせて `symbol_universe.csv` に取り込み済みです。2026-05-21 時点では JPX NISA 成長投資枠 ETF/ETN Excel から 27件の ETF/ETN metadata を取り込み済みです。
 - MVP 向け source profile として `jpx_listed_stock`, `jpx_stock`, `jpx_etf`, `sbi_us_stock`, `sbi_us_etf`, `nisa_eligibility` を使えます。`mutual_fund_seed` は将来対応用 profile として残します。
 - 追加 seed として `sbi_us_stock_seed.csv`, `sbi_us_etf_seed.csv`, `mutual_fund_seed.csv` を置いています。2026-05-19 時点では、SBI US stock source 28件、SBI US ETF source 22件、投信 4件を `symbol_universe.csv` に取り込み済みです。投信 4件は default ranking universe から除外されます。
 - `nisa_eligibility_seed.csv` は既存の株式・ETF 31件へ NISA metadata を付与する local seed です。2026-05-19 時点で `symbol_universe.csv` に反映済みです。
@@ -301,6 +301,15 @@ JPX 国内 ETF / ETN を使う場合は、同じ raw file または JPX ETF raw 
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\build_symbol_universe_source.py --source-kind jpx_etf --raw-file .\data\marketdata\raw\jpx_etf_2026-05.xlsx --output-csv .\data\marketdata\symbol_universe_sources\jpx_etf_2026-05.csv --as-of 2026-05-19 --write
 .\venv_SMAI\Scripts\python.exe .\tools\import_symbol_universe_source.py --source-csv .\data\marketdata\symbol_universe_sources\jpx_etf_2026-05.csv --source-profile jpx_etf --as-of 2026-05-19 --updated-at 2026-05-19T00:00:00+09:00 --write
+```
+
+JPX の「NISA 成長投資枠対象銘柄一覧」のように、列名にふりがなが含まれる Excel も `jpx_etf` / `nisa_eligibility` source として扱えます。銘柄本体を追加してから制度 metadata を更新します。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\build_symbol_universe_source.py --source-kind jpx_etf --raw-file .\data\marketdata\raw\jpx_etf_20260521_NISA.xlsx --output-csv .\data\marketdata\symbol_universe_sources\jpx_etf_nisa_growth_20260521.csv --as-of 2026-05-21 --write
+.\venv_SMAI\Scripts\python.exe .\tools\import_symbol_universe_source.py --source-csv .\data\marketdata\symbol_universe_sources\jpx_etf_nisa_growth_20260521.csv --source-profile jpx_etf --source-name jpx_nisa_growth --as-of 2026-05-21 --updated-at 2026-05-21T00:00:00+09:00 --write
+.\venv_SMAI\Scripts\python.exe .\tools\build_symbol_universe_source.py --source-kind nisa_eligibility --raw-file .\data\marketdata\raw\jpx_etf_20260521_NISA.xlsx --output-csv .\data\marketdata\symbol_universe_sources\nisa_eligibility_jpx_etf_20260521.csv --as-of 2026-05-21 --write
+.\venv_SMAI\Scripts\python.exe .\tools\import_symbol_universe_source.py --source-csv .\data\marketdata\symbol_universe_sources\nisa_eligibility_jpx_etf_20260521.csv --source-profile nisa_eligibility --source-name jpx_nisa_growth --as-of 2026-05-21 --updated-at 2026-05-21T00:00:00+09:00 --update-existing --write
 ```
 
 SBI米国株 / 米国ETF・海外ETF の取扱一覧を使う場合も、まずローカル raw CSV / Excel を source CSV に変換します。`sbi_us_etf` builder は、名称や明示フラグからレバレッジ / インバース ETF を判定し、後段の ranking universe policy で除外できるように `is_leveraged` / `is_inverse` を保持します。
@@ -340,7 +349,7 @@ SBI ranking universe policy:
 - SBI証券サイトへのログインや画面スクレイピングは通常 workflow に含めません。SBI / JPX / NISA 一覧などを手動または curated source CSV に整形し、source import command で local master へ反映します。投信協会 / 投信CSV / 基準価額は Future Phase で扱います。
 - Ranking / Screening は source site を直接参照せず、`symbol_universe.csv` と default policy helper だけを参照します。
 - 投信向け metadata として `trust_fee_pct`, `aum`, `nisa_tsumitate_eligible`, `nisa_growth_eligible`, `installment_available`, `management_style`, `distribution_policy` を source CSV から取り込めます。ただし MVP ではランキング対象外です。
-- 現在の候補マスタは 3,872件です。内訳は stock 3,817件、ETF 49件、投信 4件、ADR 2件です。default ranking universe では stock / ETF のみを対象にします。
+- 現在の候補マスタは 3,898件です。内訳は stock 3,817件、ETF 75件、投信 4件、ADR 2件です。default ranking universe では stock / ETF のみを対象にします。
 
 Yahoo coverage check:
 

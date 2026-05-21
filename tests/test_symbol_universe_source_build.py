@@ -122,6 +122,17 @@ def test_build_jpx_etf_source_rows_maps_etf_and_etn_rows():
                 "信託報酬": "0.80%",
             },
             {
+                "コード": "2044",
+                "銘柄名": "NEXT NOTES S&P500 配当貴族（ネットリターン） ＥＴＮ",
+                "市場・商品区分": "",
+                "対象指標": "S&P500 配当貴族指数",
+            },
+            {
+                "コード": "1326",
+                "銘柄名": "ＳＰＤＲゴールド・シェア",
+                "管理会社カンリカイシャ": "ワールド・ゴールド・トラスト・サービシズ・エルエルシー",
+            },
+            {
                 "コード": "1571",
                 "銘柄名": "NEXT FUNDS 日経平均インバース・インデックス連動型上場投信",
                 "市場・商品区分": "ETF・ETN",
@@ -131,7 +142,14 @@ def test_build_jpx_etf_source_rows_maps_etf_and_etn_rows():
         as_of=date(2026, 5, 19),
     )
 
-    assert [row["symbol"] for row in result.rows] == ["1306.T", "1540.T", "2038.T", "1571.T"]
+    assert [row["symbol"] for row in result.rows] == [
+        "1306.T",
+        "1540.T",
+        "2038.T",
+        "2044.T",
+        "1326.T",
+        "1571.T",
+    ]
     assert result.rows[0]["theme"] == "index"
     assert result.rows[0]["sector"] == "index"
     assert result.rows[0]["index_family"] == "topix"
@@ -144,8 +162,10 @@ def test_build_jpx_etf_source_rows_maps_etf_and_etn_rows():
     assert result.rows[1]["tags"] == "balanced"
     assert result.rows[2]["complexity"] == "etn"
     assert result.rows[2]["is_leveraged"] == "true"
-    assert result.rows[3]["complexity"] == "inverse"
-    assert result.rows[3]["is_inverse"] == "true"
+    assert result.rows[3]["complexity"] == "etn"
+    assert result.rows[4]["theme"] == "commodity"
+    assert result.rows[5]["complexity"] == "inverse"
+    assert result.rows[5]["is_inverse"] == "true"
     assert result.manifest["source_kind"] == "jpx_etf"
     assert result.manifest["fieldnames"] == JPX_ETF_SOURCE_FIELDNAMES
 
@@ -333,6 +353,28 @@ def test_build_nisa_eligibility_source_rows_maps_categories_and_flags():
     ]
     assert result.manifest["source_kind"] == "nisa_eligibility"
     assert result.manifest["fieldnames"] == NISA_ELIGIBILITY_SOURCE_FIELDNAMES
+
+
+def test_build_nisa_eligibility_source_rows_maps_jpx_growth_nisa_list_rows():
+    result = build_nisa_eligibility_source_rows(
+        [
+            {
+                "銘柄コードメイガラ": "1540",
+                "銘柄名称メイガラメイショウ": "純金上場信託（現物国内保管型）",
+                "管理会社カンリカイシャ": "三菱UFJ 信託銀行株式会社",
+            }
+        ],
+        as_of=date(2026, 5, 21),
+    )
+
+    assert result.rows == [
+        {
+            "symbol": "1540.T",
+            "nisa_category": "growth",
+            "nisa_growth_eligible": "true",
+            "nisa_tsumitate_eligible": "false",
+        }
+    ]
 
 
 def test_build_nisa_eligibility_source_rows_skips_rows_without_symbol_or_nisa_signal():

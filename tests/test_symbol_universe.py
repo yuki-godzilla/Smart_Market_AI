@@ -26,7 +26,8 @@ def test_symbol_universe_csv_matches_schema():
     assert rows[0]["tradability"] == "unknown"
     assert row_by_symbol["7203.T"]["nisa_category"] == "growth"
     assert row_by_symbol["7203.T"]["nisa_growth_eligible"] == "true"
-    assert row_by_symbol["1540.T"]["nisa_category"] == "none"
+    assert row_by_symbol["1540.T"]["nisa_category"] == "growth"
+    assert row_by_symbol["1540.T"]["nisa_growth_eligible"] == "true"
     assert rows[0]["is_sbi_supported"] == "true"
     assert rows[0]["is_active"] == "true"
     assert rows[0]["is_leveraged"] == "false"
@@ -44,8 +45,9 @@ def test_symbol_universe_csv_metadata_summary_counts_source_and_freshness():
     assert summary["source_counts"]["jpx_listed_stock"] >= 3600
     assert summary["source_counts"]["sbi_us_stock"] >= 28
     assert summary["source_counts"]["sbi_us_etf"] >= 22
+    assert summary["source_counts"]["jpx_nisa_growth"] >= 27
     assert summary["source_counts"]["mutual_fund_seed"] >= 4
-    assert summary["metadata_period"] == "2026-05-18 〜 2026-05-20"
+    assert summary["metadata_period"] == "2026-05-18 〜 2026-05-21"
     assert summary["missing_metadata_count"] == 0
     assert summary["stale_metadata_count"] == 0
     assert summary["validation_summary"] == "OK"

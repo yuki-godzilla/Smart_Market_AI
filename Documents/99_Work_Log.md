@@ -313,3 +313,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Prevented hidden stock filters such as industry/theme, market cap, PER, PBR, and ROE from excluding ETF candidates after switching product type.
 - Added regression tests for candidate rows and filter signatures with stale product-specific filter state.
 - Pruned stale selection labels against the current candidate list and hid stale ranking results when the visible selection no longer matches the stored result source.
+
+## 2026-05-21 - Phase 18 JPX NISA ETF/ETN source import
+
+- Added support for JPX growth-NISA Excel files whose headers include furigana such as `銘柄コードメイガラ`.
+- Extended JPX ETF/ETN detection for full-width `ＥＴＦ` / `ＥＴＮ` and commodity labels such as gold/silver variants.
+- Built `jpx_etf_nisa_growth_20260521.csv` and `nisa_eligibility_jpx_etf_20260521.csv` from `jpx_etf_20260521_NISA.xlsx`.
+- Imported 26 new JPX NISA ETF/ETN rows and updated 27 rows with `metadata_source=jpx_nisa_growth` NISA growth metadata.
+- Increased the candidate master to 3,898 rows: stock 3,817, ETF 75, mutual fund 4, ADR 2.
+- Kept PDF raw files outside the routine import path; use Excel/CSV/source CSV for deterministic imports.

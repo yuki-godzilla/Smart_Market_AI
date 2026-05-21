@@ -6,6 +6,7 @@ import json
 import sys
 import zipfile
 from datetime import date
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Sequence
 from xml.etree import ElementTree
@@ -96,6 +97,8 @@ def _read_raw_rows(path: Path) -> list[dict[str, str]]:
         return _read_xls_rows(path)
     if suffix == ".xlsx":
         return _read_xlsx_rows(path)
+    if suffix in {".html", ".htm"}:
+        return _read_html_rows(path)
     raise ValueError(f"Unsupported raw file type: {path.suffix}")
 
 
@@ -142,14 +145,72 @@ def _xls_cell_text(value: Any) -> str:
 def _read_xlsx_rows(path: Path) -> list[dict[str, str]]:
     with zipfile.ZipFile(path) as archive:
         shared_strings = _xlsx_shared_strings(archive)
-        worksheet_path = _xlsx_first_worksheet_path(archive)
-        worksheet_root = ElementTree.fromstring(archive.read(worksheet_path))
+        worksheet_paths = _xlsx_worksheet_paths(archive)
+        for worksheet_path in worksheet_paths:
+            worksheet_root = ElementTree.fromstring(archive.read(worksheet_path))
+            table_rows = [
+                _xlsx_row_values(row_element, shared_strings)
+                for row_element in worksheet_root.findall(".//{*}sheetData/{*}row")
+            ]
+            rows = _table_rows_to_dicts(table_rows)
+            if rows:
+                return rows
+    return []
 
-    table_rows = [
-        _xlsx_row_values(row_element, shared_strings)
-        for row_element in worksheet_root.findall(".//{*}sheetData/{*}row")
-    ]
-    return _table_rows_to_dicts(table_rows)
+
+def _read_html_rows(path: Path) -> list[dict[str, str]]:
+    parser = _HtmlTableParser()
+    parser.feed(path.read_text(encoding="utf-8", errors="ignore"))
+    return _table_rows_to_dicts(parser.rows)
+
+
+class _HtmlTableParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.rows: list[list[str]] = []
+        self._in_row = False
+        self._in_cell = False
+        self._skip_depth = 0
+        self._row: list[str] = []
+        self._cell_parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attrs_by_name = {name: value or "" for name, value in attrs}
+        if tag == "tr":
+            self._in_row = True
+            self._row = []
+        if self._in_row and tag in {"td", "th"}:
+            self._in_cell = True
+            self._cell_parts = []
+        if self._in_cell and "inav-btn" in attrs_by_name.get("class", ""):
+            self._skip_depth += 1
+
+    def handle_data(self, data: str) -> None:
+        text = data.strip()
+        if self._in_cell and not self._skip_depth and text:
+            self._cell_parts.append(text)
+
+    def handle_endtag(self, tag: str) -> None:
+        if self._skip_depth:
+            self._skip_depth -= 1
+            return
+        if self._in_row and tag in {"td", "th"}:
+            self._row.append(_normalize_html_cell_text(" ".join(self._cell_parts)))
+            self._in_cell = False
+        if tag == "tr" and self._in_row:
+            if self._row:
+                self.rows.append(self._row)
+            self._in_row = False
+
+
+def _normalize_html_cell_text(value: str) -> str:
+    normalized = " ".join(value.split()).strip()
+    return {
+        "信託 報酬": "信託報酬",
+        "連動対象指標": "連動対象指標",
+        "コード": "コード",
+        "名称": "名称",
+    }.get(normalized, normalized)
 
 
 def _xlsx_shared_strings(archive: zipfile.ZipFile) -> list[str]:
@@ -162,23 +223,38 @@ def _xlsx_shared_strings(archive: zipfile.ZipFile) -> list[str]:
     return strings
 
 
-def _xlsx_first_worksheet_path(archive: zipfile.ZipFile) -> str:
+def _xlsx_worksheet_paths(archive: zipfile.ZipFile) -> list[str]:
     workbook_root = ElementTree.fromstring(archive.read("xl/workbook.xml"))
-    first_sheet = workbook_root.find(".//{*}sheet")
-    if first_sheet is None:
+    sheets = workbook_root.findall(".//{*}sheet")
+    if not sheets:
         raise ValueError("XLSX workbook has no sheets.")
-    relationship_id = first_sheet.attrib.get(
-        "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id",
-        "",
-    )
     rels_root = ElementTree.fromstring(archive.read("xl/_rels/workbook.xml.rels"))
-    for relationship in rels_root.findall(".//{*}Relationship"):
-        if relationship.attrib.get("Id") == relationship_id:
-            target = relationship.attrib.get("Target", "")
-            if target.startswith("/"):
-                return target.lstrip("/")
-            return f"xl/{target}" if not target.startswith("xl/") else target
-    raise ValueError("XLSX first worksheet relationship was not found.")
+    paths_by_relationship_id = {
+        relationship.attrib.get("Id", ""): _xlsx_target_path(
+            relationship.attrib.get("Target", ""),
+        )
+        for relationship in rels_root.findall(".//{*}Relationship")
+        if relationship.attrib.get("Target")
+    }
+    worksheet_paths: list[str] = []
+    for sheet in sheets:
+        relationship_id = sheet.attrib.get(
+            "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id",
+            "",
+        )
+        worksheet_path = paths_by_relationship_id.get(relationship_id)
+        if worksheet_path:
+            worksheet_paths.append(worksheet_path)
+    return worksheet_paths
+
+
+def _xlsx_target_path(target: str) -> str:
+    normalized = target.replace("\\", "/")
+    if normalized.startswith("/"):
+        return normalized.lstrip("/")
+    if normalized.startswith("xl/"):
+        return normalized
+    return f"xl/{normalized}"
 
 
 def _xlsx_row_values(row_element: ElementTree.Element, shared_strings: Sequence[str]) -> list[str]:
@@ -239,6 +315,7 @@ def _header_index(table_rows: Sequence[Sequence[str]]) -> int | None:
         normalized_headers = {value.strip().lower() for value in row_values}
         if (
             ({"コード", "銘柄名"} <= normalized_headers)
+            or ({"コード", "名称"} <= normalized_headers)
             or ({"code", "security_name"} <= normalized_headers)
             or ({"symbol", "name"} <= normalized_headers)
             or ({"ticker", "name"} <= normalized_headers)
@@ -251,6 +328,7 @@ def _header_index(table_rows: Sequence[Sequence[str]]) -> int | None:
                 and (
                     _header_contains(normalized_headers, "銘柄名")
                     or _header_contains(normalized_headers, "銘柄名称")
+                    or _header_contains(normalized_headers, "ファンド名称")
                 )
             )
         ):

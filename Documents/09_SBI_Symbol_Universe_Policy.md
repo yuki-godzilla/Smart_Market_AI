@@ -422,19 +422,19 @@ ranking_universe:
 `jpx_*`, `sbi_*`, `mutual_fund_seed` は `broker=sbi_securities`, `is_sbi_supported=true`, `is_active=true`, `is_leveraged=false`, `is_inverse=false` を補完する。
 source CSV 側に `is_leveraged` / `is_inverse` がある場合は、source 側の値を優先する。
 `nisa_eligibility` は `--update-existing` と組み合わせる前提で、制度 metadata 以外の市場・商品・名称を上書きしない。source に未知の symbol が含まれる場合は、新規追加せず import failure として manifest に残す。
-NISA raw file から source CSV を作る場合は、`tools/build_symbol_universe_source.py --source-kind nisa_eligibility` を使う。この builder は4桁国内コードを `.T` 付き symbol に変換し、`成長投資枠` / `つみたて投資枠` / `対象外` を `nisa_category`, `nisa_growth_eligible`, `nisa_tsumitate_eligible` に正規化する。JPX の「NISA 成長投資枠対象銘柄一覧」のように列名にふりがなが付く Excel は、一覧そのものを `growth=true`, `tsumitate=false` として扱う。曖昧な `NISA対象` だけの行は `unknown` として保持し、制度区分を過剰に推定しない。
+NISA raw file から source CSV を作る場合は、`tools/build_symbol_universe_source.py --source-kind nisa_eligibility` を使う。この builder は4桁国内コードを `.T` 付き symbol に変換し、`成長投資枠` / `つみたて投資枠` / `対象外` を `nisa_category`, `nisa_growth_eligible`, `nisa_tsumitate_eligible` に正規化する。IMAJ の listed-fund Excel のように5桁で末尾 `0` が付く国内コードは4桁 `.T` symbol に正規化する。JPX / IMAJ の「NISA 成長投資枠対象銘柄一覧」のように列名にふりがなが付く Excel は、一覧そのものを `growth=true`, `tsumitate=false` として扱う。曖昧な `NISA対象` だけの行は `unknown` として保持し、制度区分を過剰に推定しない。
 
 `ranking_metadata` は `--update-existing` と組み合わせる前提で、既存銘柄のランキング条件列だけを更新する。名称・市場・商品分類は上書きしない。テンプレートは `data/marketdata/symbol_universe_sources/ranking_metadata_template.csv` とする。source CSV には `per` / `pe_ratio`, `pbr` / `price_to_book`, `roe_pct` / `roe`, `dividend_yield_pct` / `dividend_yield`, `market_cap_tier`, `risk_band`, `expense_ratio_pct` などを使える。未確認の PER / PBR / ROE / 配当利回りは空欄のままにし、推定値では埋めない。
 
 JPX の東証上場銘柄一覧を取り込む場合は、公式 Excel (`.xls` / `.xlsx`) / CSV をまず local raw file として保存し、`tools/build_symbol_universe_source.py --source-kind jpx_listed_stock` で source CSV に変換する。この builder は国内株だけを出力し、ETF / ETN / REIT は別 source として扱う。JPX の `規模区分` は `market_cap_tier` に変換し、Core30 / Large70 / Mid400 / Small 1・2 を ranking UI の時価総額条件へつなげる。
 
-JPX 国内 ETF / ETN を取り込む場合は、同じ raw file または JPX ETF raw file を `tools/build_symbol_universe_source.py --source-kind jpx_etf` で source CSV に変換する。この builder は `.T` 付き symbol、指数 family、信託報酬、商品系 theme、ETN / レバレッジ / インバース判定を保持する。JPX の NISA 成長投資枠対象 ETF/ETN Excel も、銘柄追加用の `jpx_etf` source と制度 metadata 更新用の `nisa_eligibility` source に分けて使える。商品系ETF、レバレッジ、インバースは ranking universe policy で除外できる。PDF は通常の source import 対象外とし、必要なら Excel / CSV / source CSV へ整形してから取り込む。
+JPX 国内 ETF / ETN を取り込む場合は、JPX ETF raw file を `tools/build_symbol_universe_source.py --source-kind jpx_etf` で source CSV に変換する。この builder は `.T` 付き symbol、指数 family、信託報酬、商品系 theme、ETN / レバレッジ / インバース判定を保持する。JPX ETF/ETN 公式一覧 HTML も raw file として扱える。JPX / IMAJ の NISA 成長投資枠対象 ETF/ETN Excel は、銘柄追加用の `jpx_etf` source と制度 metadata 更新用の `nisa_eligibility` source に分けて使える。商品系ETF、レバレッジ、インバースは ranking universe policy で除外できる。PDF は通常の source import 対象外とし、必要なら Excel / CSV / source CSV へ整形してから取り込む。
 
 SBI米国株 / 米国ETF・海外ETFの取扱一覧を取り込む場合も、公式または確認済み raw CSV / Excel を local に保存し、`tools/build_symbol_universe_source.py --source-kind sbi_us_stock` / `sbi_us_etf` で source CSV に変換する。ETF builder は、名称や source flag からレバレッジ / インバース判定を保持し、ranking universe policy の除外条件へ渡せる形にする。
 
-2026-05-21 時点の `symbol_universe.csv` は 3,898件です。内訳は stock 3,817件、ETF 75件、投信 4件、ADR 2件です。MVP ranking universe はこのうち `stock` / `etf` のみを対象にします。
-`nisa_eligibility_seed.csv` から 31件の NISA metadata を反映済みです。加えて、JPX NISA 成長投資枠 ETF/ETN Excel から 27件を `metadata_source=jpx_nisa_growth` として反映済みです。
-`data/marketdata/symbol_universe_metadata_coverage.json` は現在の ranking metadata 充足状況です。JPX listed-stock 追加分は JPX 上場銘柄一覧だけでは `PER` / `PBR` / `ROE` / `配当利回り` が埋まらないため、確認済み source CSV または明示 opt-in metadata refresh で段階的に補完します。
+2026-05-21 時点の `symbol_universe.csv` は 4,272件です。内訳は stock 3,817件、ETF 449件、投信 4件、ADR 2件です。MVP ranking universe はこのうち `stock` / `etf` のみを対象にします。
+`nisa_eligibility_seed.csv` から 31件の NISA metadata を反映済みです。加えて、JPX NISA 成長投資枠 ETF/ETN Excel から 27件、IMAJ NISA 成長投資枠 listed-fund Excel から既存 ETF 232件の NISA metadata を反映済みです。IMAJ source に含まれる REIT / インフラファンド等 62件は現行 MVP の候補マスタには未登録のため、`nisa_eligibility` の update-only failure として manifest に残します。
+`data/marketdata/symbol_universe_metadata_coverage.json` は現在の ranking metadata 充足状況です。JPX listed-stock 追加分は JPX 上場銘柄一覧だけでは `PER` / `PBR` / `ROE` / `配当利回り` が埋まらないため、確認済み source CSV または明示 opt-in metadata refresh で段階的に補完します。ETF は JPX ETF/ETN 公式一覧から `信託報酬/経費率` が 428/449 件、`複雑さ` が 449/449 件まで埋まっています。
 
 NG:
 

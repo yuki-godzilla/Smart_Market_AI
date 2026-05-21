@@ -125,6 +125,7 @@ _NAME_ALIASES = (
     "銘柄名",
     "銘柄名称",
     "銘柄名称メイガラメイショウ",
+    "ファンド名称",
     "名称",
 )
 _MARKET_SEGMENT_ALIASES = (
@@ -207,6 +208,8 @@ _NISA_GROWTH_ELIGIBLE_ALIASES = (
     "growth_eligible",
     "成長投資枠",
     "成長投資枠対象",
+    "成長投資枠取扱可能日",
+    "成長投資枠取扱可能日カノウ",
     "NISA成長投資枠",
 )
 _NISA_TSUMITATE_ELIGIBLE_ALIASES = (
@@ -224,8 +227,11 @@ _IS_INVERSE_ALIASES = ("is_inverse", "inverse", "インバース")
 _JPX_NISA_GROWTH_LIST_MARKER_ALIASES = (
     "管理会社",
     "管理会社カンリカイシャ",
+    "運用会社名",
     "取扱い開始日",
     "取扱い開始日ト",
+    "成長投資枠取扱可能日",
+    "成長投資枠取扱可能日カノウ",
 )
 
 _INDUSTRY_THEME_SECTOR_MAP = {
@@ -455,8 +461,10 @@ def build_jpx_etf_source_rows(
         if not code or not name:
             skipped_rows.append(_skipped_row(index, code, "JPX-ETF-MISSING-CODE-OR-NAME"))
             continue
-        if not _is_jpx_etf_or_etn(code, name, market_segment) and not _is_jpx_nisa_growth_list_row(
-            raw_row
+        if (
+            not _is_jpx_etf_or_etn(code, name, market_segment)
+            and not _is_jpx_nisa_growth_list_row(raw_row)
+            and not _is_jpx_etf_issue_table_row(raw_row, index_raw)
         ):
             skipped_rows.append(_skipped_row(index, code, "JPX-ETF-OUT-OF-SCOPE"))
             continue
@@ -636,12 +644,7 @@ def build_nisa_eligibility_source_rows(
         if not symbol:
             skipped_rows.append(_skipped_row(index, "", "NISA-ELIGIBILITY-MISSING-SYMBOL"))
             continue
-        if (
-            not category_raw
-            and not growth_raw
-            and not tsumitate_raw
-            and _is_jpx_nisa_growth_list_row(raw_row)
-        ):
+        if not category_raw and _is_jpx_nisa_growth_list_row(raw_row):
             category_raw = "成長投資枠"
         if not category_raw and not growth_raw and not tsumitate_raw:
             skipped_rows.append(_skipped_row(index, symbol, "NISA-ELIGIBILITY-MISSING-FLAGS"))
@@ -706,6 +709,8 @@ def _normalize_us_symbol(value: str) -> str:
 
 def _normalize_nisa_symbol(value: str) -> str:
     text = value.strip().upper()
+    if text.isdigit() and len(text) == 5 and text.endswith("0"):
+        text = text[:4]
     jpx_code = _normalize_jpx_code(text)
     if jpx_code and (text.endswith(".T") or any(character.isdigit() for character in jpx_code)):
         return f"{jpx_code}.T"
@@ -728,6 +733,10 @@ def _is_jpx_etf_or_etn(code: str, name: str, market_segment: str) -> bool:
         return False
     combined_text = f"{name} {market_segment}".upper()
     return any(marker.upper() in combined_text for marker in _JPX_ETF_MARKERS)
+
+
+def _is_jpx_etf_issue_table_row(row: Mapping[str, Any], index_text: str) -> bool:
+    return bool(index_text and _first_value(row, _EXPENSE_RATIO_ALIASES))
 
 
 def _theme_sector_for_industry(industry_33: str, industry_17: str) -> tuple[str, str]:
@@ -781,6 +790,9 @@ def _market_cap_tier_for_jpx_scale(scale_category: str) -> str:
 
 def _normalize_percent(value: str) -> str:
     text = value.strip().replace("%", "").replace(",", "")
+    match = re.search(r"[0-9]+(?:\.[0-9]+)?", text)
+    if match:
+        return match.group(0)
     return text
 
 

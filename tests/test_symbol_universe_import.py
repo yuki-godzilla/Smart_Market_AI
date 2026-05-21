@@ -152,6 +152,54 @@ def test_jpx_stock_profile_applies_local_universe_defaults():
     assert result.manifest["source"] == "jpx"
 
 
+def test_jpx_etf_profile_updates_filter_metadata_without_nisa_overwrite():
+    profile = symbol_universe_source_profile("jpx_etf")
+    result = merge_symbol_universe_source_rows(
+        [
+            {
+                "symbol": "1308.T",
+                "name": "NEXT FUNDS TOPIX ETF",
+                "market": "jp",
+                "asset_type": "etf",
+                "currency": "JPY",
+                "broker": "sbi_securities",
+                "tradability": "unknown",
+                "nisa_category": "growth",
+                "investment_style": "unknown",
+                "is_sbi_supported": "true",
+                "is_active": "true",
+                "is_leveraged": "false",
+                "is_inverse": "false",
+                "theme": "index",
+                "sector": "index",
+                "expense_ratio_pct": "0.09",
+                "metadata_source": "fsa",
+            }
+        ],
+        [
+            {
+                "symbol": "1308.T",
+                "name": "上場インデックスファンドTOPIX",
+                "index_family": "topix",
+                "expense_ratio_pct": "0.047",
+                "nisa_category": "unknown",
+            }
+        ],
+        source_name=profile.source_name,
+        as_of=date(2026, 5, 20),
+        updated_at=datetime(2026, 5, 20, 0, 0, tzinfo=timezone.utc),
+        defaults=profile.defaults,
+        update_existing=True,
+    )
+
+    updated_row = result.rows[0]
+    assert updated_row["expense_ratio_pct"] == "0.047"
+    assert updated_row["index_family"] == "topix"
+    assert updated_row["nisa_category"] == "growth"
+    assert updated_row["metadata_source"] == "jpx"
+    assert result.manifest["updated_rows"] == 1
+
+
 def test_sbi_us_stock_profile_applies_policy_defaults():
     profile = symbol_universe_source_profile("sbi_us_stock")
     result = merge_symbol_universe_source_rows(

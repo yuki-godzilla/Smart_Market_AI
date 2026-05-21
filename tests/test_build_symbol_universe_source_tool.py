@@ -206,6 +206,56 @@ def test_build_symbol_universe_source_tool_writes_jpx_etf_source(tmp_path, capsy
     assert manifest["source_kind"] == "jpx_etf"
 
 
+def test_build_symbol_universe_source_tool_reads_jpx_etf_html(tmp_path, capsys):
+    raw_html = tmp_path / "jpx_etf_raw.html"
+    output_csv = tmp_path / "jpx_etf_source.csv"
+    raw_html.write_text(
+        """
+        <html><body>
+          <table>
+            <tr>
+              <th>連動対象指標</th><th>コード</th><th>名称</th>
+              <th>管理会社<br>（検索コード）</th><th>信託<br>報酬</th>
+            </tr>
+            <tr>
+              <td>TOPIX</td>
+              <td><a href="/quote?qcode=1308">1308</a></td>
+              <td>上場インデックスファンドTOPIX
+                <a class="inav-btn" href="/inav">iNAV</a>
+              </td>
+              <td>アモーヴァ・アセットマネジメント(13084)</td>
+              <td>0.047%（注10）</td>
+            </tr>
+          </table>
+        </body></html>
+        """,
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "--source-kind",
+            "jpx_etf",
+            "--raw-file",
+            str(raw_html),
+            "--output-csv",
+            str(output_csv),
+            "--as-of",
+            "2026-05-20",
+            "--write",
+        ]
+    )
+
+    output = json.loads(capsys.readouterr().out)
+    rows = _read_rows(output_csv)
+    assert exit_code == 0
+    assert output["output_rows"] == 1
+    assert rows[0]["symbol"] == "1308.T"
+    assert rows[0]["name"] == "上場インデックスファンドTOPIX"
+    assert rows[0]["index_family"] == "topix"
+    assert rows[0]["expense_ratio_pct"] == "0.047"
+
+
 def test_build_symbol_universe_source_tool_writes_sbi_us_etf_source(tmp_path, capsys):
     raw_csv = tmp_path / "sbi_us_etf_raw.csv"
     output_csv = tmp_path / "sbi_us_etf_source.csv"
@@ -356,6 +406,66 @@ def test_build_symbol_universe_source_tool_reads_jpx_growth_nisa_xlsx(tmp_path, 
     assert rows[0]["nisa_tsumitate_eligible"] == "false"
 
 
+def test_build_symbol_universe_source_tool_reads_imaj_nisa_growth_xlsx(tmp_path, capsys):
+    raw_xlsx = tmp_path / "imaj_nisa_growth_raw.xlsx"
+    output_csv = tmp_path / "nisa_source.csv"
+    _write_minimal_xlsx_sheets(
+        raw_xlsx,
+        [
+            [
+                ["NISA成長投資枠対象銘柄一覧"],
+                ["このシートは表紙です"],
+            ],
+            [
+                [
+                    "リスト更新日",
+                    "追加・変更の別",
+                    "上場投信・上場投資法人の別",
+                    "銘柄コード",
+                    "ファンド名称",
+                    "運用会社名",
+                    "設定日・設立日",
+                    "成長投資枠取扱可能日カノウ",
+                ],
+                [
+                    "2026/05/19",
+                    "",
+                    "ETF",
+                    "14980",
+                    "iシェアーズ・コア MSCI 先進国株 ETF",
+                    "ブラックロック・ジャパン株式会社",
+                    "2013/07/17",
+                    "45412",
+                ],
+            ],
+        ],
+    )
+
+    exit_code = main(
+        [
+            "--source-kind",
+            "nisa_eligibility",
+            "--raw-file",
+            str(raw_xlsx),
+            "--output-csv",
+            str(output_csv),
+            "--as-of",
+            "2026-05-19",
+            "--write",
+        ]
+    )
+
+    output = json.loads(capsys.readouterr().out)
+    rows = _read_rows(output_csv)
+    assert exit_code == 0
+    assert output["input_rows"] == 1
+    assert output["output_rows"] == 1
+    assert rows[0]["symbol"] == "1498.T"
+    assert rows[0]["nisa_category"] == "growth"
+    assert rows[0]["nisa_growth_eligible"] == "true"
+    assert rows[0]["nisa_tsumitate_eligible"] == "false"
+
+
 def _write_raw_jpx_rows(path, rows):
     fieldnames = ["コード", "銘柄名", "市場・商品区分", "33業種区分", "17業種区分", "規模区分"]
     with path.open("w", encoding="utf-8", newline="") as file:
@@ -389,16 +499,19 @@ def _write_raw_nisa_rows(path, rows):
 
 
 def _write_minimal_xlsx(path, rows):
-    worksheet = "".join(
-        f'<row r="{row_index}">'
-        + "".join(
-            _inline_string_cell(_cell_ref(row_index, column_index), value)
-            for column_index, value in enumerate(row_values, start=1)
-        )
-        + "</row>"
-        for row_index, row_values in enumerate(rows, start=1)
-    )
+    _write_minimal_xlsx_sheets(path, [rows])
+
+
+def _write_minimal_xlsx_sheets(path, sheets):
     with ZipFile(path, "w") as archive:
+        content_type_overrides = "".join(
+            (
+                f'<Override PartName="/xl/worksheets/sheet{sheet_index}.xml" '
+                'ContentType="application/vnd.openxmlformats-officedocument.'
+                'spreadsheetml.worksheet+xml"/>'
+            )
+            for sheet_index, _sheet_rows in enumerate(sheets, start=1)
+        )
         archive.writestr(
             "[Content_Types].xml",
             (
@@ -408,8 +521,7 @@ def _write_minimal_xlsx(path, rows):
                 '<Default Extension="xml" ContentType="application/xml"/>'
                 '<Override PartName="/xl/workbook.xml" '
                 'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
-                '<Override PartName="/xl/worksheets/sheet1.xml" '
-                'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+                f"{content_type_overrides}"
                 "</Types>"
             ),
         )
@@ -430,7 +542,13 @@ def _write_minimal_xlsx(path, rows):
                 '<?xml version="1.0" encoding="UTF-8"?>'
                 '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
                 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-                '<sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets>'
+                "<sheets>"
+                + "".join(
+                    f'<sheet name="Sheet{sheet_index}" sheetId="{sheet_index}" '
+                    f'r:id="rId{sheet_index}"/>'
+                    for sheet_index, _sheet_rows in enumerate(sheets, start=1)
+                )
+                + "</sheets>"
                 "</workbook>"
             ),
         )
@@ -439,21 +557,34 @@ def _write_minimal_xlsx(path, rows):
             (
                 '<?xml version="1.0" encoding="UTF-8"?>'
                 '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-                '<Relationship Id="rId1" '
-                'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" '
-                'Target="worksheets/sheet1.xml"/>'
-                "</Relationships>"
+                + "".join(
+                    f'<Relationship Id="rId{sheet_index}" '
+                    'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" '
+                    f'Target="worksheets/sheet{sheet_index}.xml"/>'
+                    for sheet_index, _sheet_rows in enumerate(sheets, start=1)
+                )
+                + "</Relationships>"
             ),
         )
-        archive.writestr(
-            "xl/worksheets/sheet1.xml",
-            (
-                '<?xml version="1.0" encoding="UTF-8"?>'
-                '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-                f"<sheetData>{worksheet}</sheetData>"
-                "</worksheet>"
-            ),
-        )
+        for sheet_index, sheet_rows in enumerate(sheets, start=1):
+            worksheet = "".join(
+                f'<row r="{row_index}">'
+                + "".join(
+                    _inline_string_cell(_cell_ref(row_index, column_index), value)
+                    for column_index, value in enumerate(row_values, start=1)
+                )
+                + "</row>"
+                for row_index, row_values in enumerate(sheet_rows, start=1)
+            )
+            archive.writestr(
+                f"xl/worksheets/sheet{sheet_index}.xml",
+                (
+                    '<?xml version="1.0" encoding="UTF-8"?>'
+                    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                    f"<sheetData>{worksheet}</sheetData>"
+                    "</worksheet>"
+                ),
+            )
 
 
 def _inline_string_cell(cell_ref, value):

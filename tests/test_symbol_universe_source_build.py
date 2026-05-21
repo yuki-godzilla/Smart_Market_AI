@@ -364,7 +364,13 @@ def test_build_nisa_eligibility_source_rows_maps_jpx_growth_nisa_list_rows():
                 "銘柄コードメイガラ": "1540",
                 "銘柄名称メイガラメイショウ": "純金上場信託（現物国内保管型）",
                 "管理会社カンリカイシャ": "三菱UFJ 信託銀行株式会社",
-            }
+            },
+            {
+                "銘柄コード": "14980",
+                "ファンド名称": "iシェアーズ・コア MSCI 先進国株 ETF",
+                "運用会社名": "ブラックロック・ジャパン株式会社",
+                "成長投資枠取扱可能日カノウ": "45412",
+            },
         ],
         as_of=date(2026, 5, 21),
     )
@@ -375,7 +381,13 @@ def test_build_nisa_eligibility_source_rows_maps_jpx_growth_nisa_list_rows():
             "nisa_category": "growth",
             "nisa_growth_eligible": "true",
             "nisa_tsumitate_eligible": "false",
-        }
+        },
+        {
+            "symbol": "1498.T",
+            "nisa_category": "growth",
+            "nisa_growth_eligible": "true",
+            "nisa_tsumitate_eligible": "false",
+        },
     ]
 
 

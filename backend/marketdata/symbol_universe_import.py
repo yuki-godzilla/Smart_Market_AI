@@ -150,6 +150,22 @@ SOURCE_PROFILES: dict[str, SymbolUniverseSourceProfile] = {
                 "complexity": "beginner",
                 "tags": "low_cost",
             },
+            update_columns=frozenset(
+                {
+                    "theme",
+                    "sector",
+                    "index_family",
+                    "expense_ratio_pct",
+                    "complexity",
+                    "tags",
+                    "aliases",
+                    "is_leveraged",
+                    "is_inverse",
+                    "metadata_source",
+                    "metadata_as_of",
+                    "metadata_updated_at",
+                }
+            ),
         ),
     ),
     "sbi_us_stock": SymbolUniverseSourceProfile(

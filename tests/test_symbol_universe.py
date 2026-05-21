@@ -38,14 +38,15 @@ def test_symbol_universe_csv_matches_schema():
 def test_symbol_universe_csv_metadata_summary_counts_source_and_freshness():
     summary = symbol_universe_csv_metadata_summary(today=date(2026, 5, 20))
 
-    assert summary["total_rows"] >= 3872
+    assert summary["total_rows"] >= 4272
     assert summary["source_counts"]["curated_csv"] >= 70
-    assert summary["source_counts"]["fsa"] >= 30
-    assert summary["source_counts"]["jpx"] >= 12
+    assert summary["source_counts"]["fsa"] >= 20
+    assert summary["source_counts"]["imaj"] >= 232
+    assert summary["source_counts"]["jpx"] >= 160
     assert summary["source_counts"]["yahoo"] >= 3700
     assert summary["source_counts"]["sbi_us_stock"] >= 28
     assert summary["source_counts"]["sbi_us_etf"] >= 22
-    assert summary["source_counts"]["jpx_nisa_growth"] >= 27
+    assert summary["source_counts"]["jpx_nisa_growth"] >= 20
     assert summary["source_counts"]["mutual_fund_seed"] >= 4
     assert summary["metadata_period"] == "2026-05-18 〜 2026-05-21"
     assert summary["missing_metadata_count"] == 0

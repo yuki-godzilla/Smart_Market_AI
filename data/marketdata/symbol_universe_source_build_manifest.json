@@ -1,25 +1,15 @@
 {
   "as_of": "2026-05-19",
   "fieldnames": [
-    "code",
-    "security_name",
-    "market",
-    "asset_type",
-    "currency",
-    "theme",
-    "sector",
-    "tags",
-    "aliases",
-    "market_cap_tier",
-    "source_market_segment",
-    "source_industry_33",
-    "source_industry_17",
-    "source_scale_category"
+    "symbol",
+    "nisa_category",
+    "nisa_growth_eligible",
+    "nisa_tsumitate_eligible"
   ],
   "input_rows": 1,
   "operation": "symbol_universe_source_build",
   "output_rows": 1,
   "skipped": [],
   "skipped_rows": 0,
-  "source_kind": "jpx_listed_stock"
+  "source_kind": "nisa_eligibility"
 }

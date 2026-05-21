@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import csv
 import json
+import sys
+from types import SimpleNamespace
 
 from tools.build_symbol_universe_source import main
 
@@ -96,6 +98,56 @@ def test_build_symbol_universe_source_tool_dry_run_does_not_write(tmp_path, caps
     assert exit_code == 0
     assert output["output_rows"] == 1
     assert not output_csv.exists()
+
+
+def test_build_symbol_universe_source_tool_reads_jpx_xls_with_xlrd(tmp_path, monkeypatch, capsys):
+    raw_xls = tmp_path / "jpx_listed_stock_raw.xls"
+    output_csv = tmp_path / "jpx_listed_stock_source.csv"
+    raw_xls.write_bytes(b"fake-xls")
+
+    class FakeSheet:
+        nrows = 2
+        ncols = 6
+        rows = [
+            ["コード", "銘柄名", "市場・商品区分", "33業種区分", "17業種区分", "規模区分"],
+            [
+                7203.0,
+                "トヨタ自動車",
+                "プライム（内国株式）",
+                "輸送用機器",
+                "自動車・輸送機",
+                "TOPIX Core30",
+            ],
+        ]
+
+        def cell_value(self, row_index, column_index):
+            return self.rows[row_index][column_index]
+
+    fake_xlrd = SimpleNamespace(
+        open_workbook=lambda _path: SimpleNamespace(sheet_by_index=lambda _index: FakeSheet())
+    )
+    monkeypatch.setitem(sys.modules, "xlrd", fake_xlrd)
+
+    exit_code = main(
+        [
+            "--source-kind",
+            "jpx_listed_stock",
+            "--raw-file",
+            str(raw_xls),
+            "--output-csv",
+            str(output_csv),
+            "--as-of",
+            "2026-05-19",
+            "--write",
+        ]
+    )
+
+    output = json.loads(capsys.readouterr().out)
+    rows = _read_rows(output_csv)
+    assert exit_code == 0
+    assert output["output_rows"] == 1
+    assert rows[0]["code"] == "7203"
+    assert rows[0]["security_name"] == "トヨタ自動車"
 
 
 def test_build_symbol_universe_source_tool_writes_jpx_etf_source(tmp_path, capsys):

@@ -7,7 +7,7 @@ import sys
 import zipfile
 from datetime import date
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 from xml.etree import ElementTree
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -92,6 +92,8 @@ def _read_raw_rows(path: Path) -> list[dict[str, str]]:
     suffix = path.suffix.lower()
     if suffix in {".csv", ".txt"}:
         return _read_csv_rows(path)
+    if suffix == ".xls":
+        return _read_xls_rows(path)
     if suffix == ".xlsx":
         return _read_xlsx_rows(path)
     raise ValueError(f"Unsupported raw file type: {path.suffix}")
@@ -104,6 +106,37 @@ def _read_csv_rows(path: Path) -> list[dict[str, str]]:
             {str(key): "" if value is None else str(value).strip() for key, value in row.items()}
             for row in reader
         ]
+
+
+def _read_xls_rows(path: Path) -> list[dict[str, str]]:
+    try:
+        import xlrd
+    except ImportError as exc:
+        raise ValueError(
+            "Reading .xls raw files requires xlrd. "
+            "Install setup requirements or save the raw file as .xlsx/.csv."
+        ) from exc
+
+    workbook = xlrd.open_workbook(str(path))
+    sheet = workbook.sheet_by_index(0)
+    table_rows = [
+        [
+            _xls_cell_text(sheet.cell_value(row_index, column_index))
+            for column_index in range(sheet.ncols)
+        ]
+        for row_index in range(sheet.nrows)
+    ]
+    return _table_rows_to_dicts(table_rows)
+
+
+def _xls_cell_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, float):
+        if value.is_integer():
+            return str(int(value))
+        return str(value).strip()
+    return str(value).strip()
 
 
 def _read_xlsx_rows(path: Path) -> list[dict[str, str]]:

@@ -6,6 +6,7 @@ from backend.marketdata.ranking_universe_policy import (
     symbol_allowed_by_ranking_universe_policy,
 )
 from backend.marketdata.symbol_universe_import import (
+    MANIFEST_SYMBOL_SAMPLE_LIMIT,
     SymbolUniverseImportDefaults,
     merge_symbol_universe_source_rows,
     symbol_universe_import_fieldnames,
@@ -44,6 +45,26 @@ def test_merge_symbol_universe_source_rows_imports_new_rows_with_inferred_fields
     assert imported_row["metadata_as_of"] == "2026-05-18"
     assert result.manifest["imported_symbols"] == ["1306.T"]
     assert result.manifest["imported_rows"] == 1
+
+
+def test_merge_symbol_universe_source_rows_caps_manifest_symbol_samples():
+    source_rows = [
+        {"symbol": f"JP{index:04d}", "name": f"Imported {index}"}
+        for index in range(MANIFEST_SYMBOL_SAMPLE_LIMIT + 1)
+    ]
+
+    result = merge_symbol_universe_source_rows(
+        [],
+        source_rows,
+        source_name="jpx_listed_stock",
+        as_of=date(2026, 5, 20),
+        updated_at=datetime(2026, 5, 20, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert result.manifest["imported_rows"] == MANIFEST_SYMBOL_SAMPLE_LIMIT + 1
+    assert len(result.manifest["imported_symbols"]) == MANIFEST_SYMBOL_SAMPLE_LIMIT
+    assert result.manifest["imported_symbols_truncated"] is True
+    assert result.manifest["manifest_symbol_sample_limit"] == MANIFEST_SYMBOL_SAMPLE_LIMIT
 
 
 def test_merge_symbol_universe_source_rows_normalizes_jpx_numeric_codes_with_defaults():

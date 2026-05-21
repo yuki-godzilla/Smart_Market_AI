@@ -81,6 +81,7 @@ SBI_POLICY_COLUMN_DEFAULTS = {
     "is_leveraged": "false",
     "is_inverse": "false",
 }
+MANIFEST_SYMBOL_SAMPLE_LIMIT = 200
 
 SOURCE_PROFILES: dict[str, SymbolUniverseSourceProfile] = {
     "jpx_listed_stock": SymbolUniverseSourceProfile(
@@ -341,10 +342,21 @@ def merge_symbol_universe_source_rows(
         "updated_rows": len(updated_symbols),
         "skipped_existing_rows": len(skipped_existing_symbols),
         "failed_rows": len(failures),
-        "imported_symbols": imported_symbols,
-        "updated_symbols": updated_symbols,
-        "skipped_existing_symbols": skipped_existing_symbols,
-        "failed_symbols": [failure.symbol for failure in failures if failure.symbol],
+        "manifest_symbol_sample_limit": MANIFEST_SYMBOL_SAMPLE_LIMIT,
+        "imported_symbols": _manifest_symbol_sample(imported_symbols),
+        "updated_symbols": _manifest_symbol_sample(updated_symbols),
+        "skipped_existing_symbols": _manifest_symbol_sample(skipped_existing_symbols),
+        "failed_symbols": _manifest_symbol_sample(
+            [failure.symbol for failure in failures if failure.symbol]
+        ),
+        "imported_symbols_truncated": _manifest_symbol_list_truncated(imported_symbols),
+        "updated_symbols_truncated": _manifest_symbol_list_truncated(updated_symbols),
+        "skipped_existing_symbols_truncated": _manifest_symbol_list_truncated(
+            skipped_existing_symbols
+        ),
+        "failed_symbols_truncated": _manifest_symbol_list_truncated(
+            [failure.symbol for failure in failures if failure.symbol]
+        ),
         "failures": [
             {
                 "source_row": failure.source_row,
@@ -456,3 +468,11 @@ def _normalize_symbol(symbol: str, *, suffix: str = "") -> str:
 
 def _operational_metadata_columns() -> set[str]:
     return {"metadata_source", "metadata_as_of", "metadata_updated_at"}
+
+
+def _manifest_symbol_sample(symbols: Sequence[str]) -> list[str]:
+    return list(symbols[:MANIFEST_SYMBOL_SAMPLE_LIMIT])
+
+
+def _manifest_symbol_list_truncated(symbols: Sequence[str]) -> bool:
+    return len(symbols) > MANIFEST_SYMBOL_SAMPLE_LIMIT

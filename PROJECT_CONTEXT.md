@@ -5,7 +5,7 @@
 This file is the compact current-state summary for Smart Market AI.
 Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_Log.md).
 
-Last updated: 2026-05-19
+Last updated: 2026-05-20
 
 ## Project Summary
 
@@ -53,7 +53,7 @@ Implemented or mostly implemented:
 - Streamlit left side menu for `銘柄コックピット`, `銘柄ランキング`, `リバランス`, and `設定 / データ情報`.
 - Streamlit Market Data provider selector defaults to `yahoo` and shows it first; large live ranking requests warn users instead of hard-blocking them.
 - Ranking candidate filters using static/curated metadata before provider fetch.
-- Symbol universe source import for local curated / JPX seed expansion; current candidate master carries SBI policy columns but is not yet an SBI-verified tradable universe. SBI acquisition policy is local-master first, not direct site scraping.
+- Symbol universe source import for local curated / JPX expansion; current candidate master carries SBI policy columns but is not yet an SBI-verified tradable universe. SBI acquisition policy is local-master first, not direct site scraping.
 - Ranking condition classification first slice: region, product type, ranking purpose, and dynamic detail filters are wired into the Streamlit ranking UI.
 - Ranking presets for balanced, forecast-agreement, data-quality, and lower-risk emphasis.
 - Ranking-to-cockpit handoff for follow-up single-symbol review.
@@ -82,12 +82,12 @@ Partial or intentionally deferred:
 - Phase 16: Visualization Cockpit / UI improvement is implementation-complete; final cross-flow Streamlit browser smoke remains useful before larger backend work.
 - Phase 16S: Stabilization smoke has been partially covered through ranking-condition visual checks; broader cockpit/ranking/rebalance smoke remains optional before handoff.
 - Phase 17: UI Polish and ranking-condition redesign is implementation-complete with user visual confirmation.
-- Phase 18: Symbol universe metadata refresh is in progress. The network-free slices define CSV schema / enum / decimal / duplicate ticker validation, metadata tier/storage/freshness policy, metadata source/as-of/update timestamps in `symbol_universe.csv`, compact metadata status in Settings, a provider-neutral dry-run/manifest refresh command, local source-import profiles for JPX/SBI/NISA seed updates, and SBI ranking-universe policy columns/default exclusion. Yahoo metadata refresh is implemented behind `--provider yahoo --allow-live`; normal checks remain network-free. MVP ranking/UI is stock / ETF focused, includes a NISA eligibility pre-fetch filter, and excludes leveraged/inverse/commodity-themed ETFs by default. Mutual-fund seed rows can remain as future-extension metadata but are excluded from default ranking candidates.
+- Phase 18: Symbol universe metadata refresh is in progress. The network-free slices define CSV schema / enum / decimal / duplicate ticker validation, metadata tier/storage/freshness policy, metadata source/as-of/update timestamps in `symbol_universe.csv`, compact metadata status in Settings, a provider-neutral dry-run/manifest refresh command, local source-import profiles for JPX/SBI/NISA seed updates, and SBI ranking-universe policy columns/default exclusion. Yahoo metadata refresh is implemented behind `--provider yahoo --allow-live`; normal checks remain network-free. JPX listed-stock `.xls` raw import is supported and the 2026-05-20 JPX listed-stock file has expanded the candidate master to 3,872 rows: stock 3,817, ETF 49, mutual fund 4, ADR 2. MVP ranking/UI is stock / ETF focused, includes a NISA eligibility pre-fetch filter, and excludes leveraged/inverse/commodity-themed ETFs by default. Mutual-fund seed rows can remain as future-extension metadata but are excluded from default ranking candidates.
 - Phase 19〜24: Decision Report, Research RAG, Research Score, assistant, optional adapters, and execution gate are ordered in the implementation roadmap.
 
 ## Next Good Targets
 
-- Continue Phase 18 by refining metadata quality and source coverage after the first stock / ETF seed expansion. The current import command has JPX/SBI/NISA profiles, JPX listed-stock, JPX ETF/ETN, SBI US stock/ETF, and NISA eligibility raw-file builder support, NISA seed metadata applied to 31 existing rows, and 227 candidate-master rows while default ranking only includes stock / ETF rows.
+- Continue Phase 18 by refining metadata quality and source coverage after the first JPX listed-stock expansion. The current import command has JPX/SBI/NISA profiles, JPX listed-stock, JPX ETF/ETN, SBI US stock/ETF, and NISA eligibility raw-file builder support, NISA seed metadata applied to 31 existing rows, and 3,872 candidate-master rows while default ranking only includes stock / ETF rows.
 - Keep a final cross-flow Streamlit smoke available before handoff when browser access is useful: ranking cache/progress, purpose-based resort, ranking-to-cockpit, and Rebalance wording.
 - Prepare Phase 19 Decision Report context so cockpit / ranking / rebalance outputs can be saved consistently.
 - Start Phase 20 Research RAG from local document ingestion, chunk/search, and deterministic Research Summary before optional vector/LLM adapters.

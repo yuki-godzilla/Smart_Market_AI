@@ -35,16 +35,17 @@ def test_symbol_universe_csv_matches_schema():
 
 
 def test_symbol_universe_csv_metadata_summary_counts_source_and_freshness():
-    summary = symbol_universe_csv_metadata_summary(today=date(2026, 5, 19))
+    summary = symbol_universe_csv_metadata_summary(today=date(2026, 5, 20))
 
-    assert summary["total_rows"] >= 227
+    assert summary["total_rows"] >= 3872
     assert summary["source_counts"]["curated_csv"] >= 70
     assert summary["source_counts"]["fsa"] >= 30
     assert summary["source_counts"]["jpx"] >= 68
+    assert summary["source_counts"]["jpx_listed_stock"] >= 3600
     assert summary["source_counts"]["sbi_us_stock"] >= 28
     assert summary["source_counts"]["sbi_us_etf"] >= 22
     assert summary["source_counts"]["mutual_fund_seed"] >= 4
-    assert summary["metadata_period"] == "2026-05-18 〜 2026-05-19"
+    assert summary["metadata_period"] == "2026-05-18 〜 2026-05-20"
     assert summary["missing_metadata_count"] == 0
     assert summary["stale_metadata_count"] == 0
     assert summary["validation_summary"] == "OK"
@@ -67,6 +68,8 @@ def test_symbol_universe_csv_includes_expanded_stock_and_etf_seeds():
     rows = symbol_universe_csv_rows()
     row_by_symbol = {row["symbol"]: row for row in rows}
 
+    assert row_by_symbol["1301.T"]["metadata_source"] == "jpx_listed_stock"
+    assert row_by_symbol["1301.T"]["tradability"] == "unknown"
     assert row_by_symbol["9503.T"]["metadata_source"] == "jpx"
     assert row_by_symbol["9503.T"]["asset_type"] == "stock"
     assert row_by_symbol["2558.T"]["asset_type"] == "etf"
@@ -76,6 +79,7 @@ def test_symbol_universe_csv_includes_expanded_stock_and_etf_seeds():
     assert row_by_symbol["QQQM"]["metadata_source"] == "sbi_us_etf"
     assert row_by_symbol["QQQM"]["index_family"] == "nasdaq100"
     assert symbol_allowed_by_ranking_universe_policy(row_by_symbol["QQQM"])
+    assert symbol_allowed_by_ranking_universe_policy(row_by_symbol["1301.T"])
     assert symbol_allowed_by_ranking_universe_policy(row_by_symbol["9503.T"])
 
 

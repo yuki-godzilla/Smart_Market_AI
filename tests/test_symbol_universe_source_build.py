@@ -50,6 +50,7 @@ def test_build_jpx_listed_stock_source_rows_maps_jpx_raw_stock_rows():
         "sector": "industrial",
         "tags": "balanced",
         "aliases": "トヨタ自動車 プライム（内国株式） 輸送用機器 自動車・輸送機",
+        "market_cap_tier": "large",
         "source_market_segment": "プライム（内国株式）",
         "source_industry_33": "輸送用機器",
         "source_industry_17": "自動車・輸送機",
@@ -57,6 +58,7 @@ def test_build_jpx_listed_stock_source_rows_maps_jpx_raw_stock_rows():
     }
     assert result.rows[1]["theme"] == "technology"
     assert result.rows[1]["tags"] == "growth"
+    assert result.rows[1]["market_cap_tier"] == "mega"
     assert result.manifest["source_kind"] == "jpx_listed_stock"
     assert result.manifest["output_rows"] == 2
     assert result.manifest["fieldnames"] == JPX_LISTED_STOCK_SOURCE_FIELDNAMES

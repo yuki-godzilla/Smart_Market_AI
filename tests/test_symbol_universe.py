@@ -72,6 +72,7 @@ def test_symbol_universe_csv_includes_expanded_stock_and_etf_seeds():
 
     assert row_by_symbol["1301.T"]["metadata_source"] == "jpx_listed_stock"
     assert row_by_symbol["1301.T"]["tradability"] == "unknown"
+    assert row_by_symbol["1301.T"]["market_cap_tier"] == "small"
     assert row_by_symbol["9503.T"]["metadata_source"] == "jpx"
     assert row_by_symbol["9503.T"]["asset_type"] == "stock"
     assert row_by_symbol["2558.T"]["asset_type"] == "etf"

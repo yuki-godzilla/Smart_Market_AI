@@ -185,8 +185,10 @@ RANKING_COMPLEXITY_LABELS = {
 }
 RANKING_THEME_LABELS = {
     "all": "指定なし",
+    "balanced": "バランス",
     "technology": "テクノロジー",
     "telecom": "通信",
+    "communication": "コミュニケーション",
     "semiconductor": "半導体",
     "financial": "金融",
     "consumer": "消費",
@@ -194,7 +196,13 @@ RANKING_THEME_LABELS = {
     "energy": "エネルギー",
     "automotive": "自動車",
     "trading": "商社",
+    "industrial": "資本財/工業",
+    "materials": "素材",
+    "real_estate": "不動産",
+    "utilities": "公益",
     "index": "インデックス",
+    "reit": "REIT",
+    "commodity": "コモディティ",
     "dividend": "高配当",
 }
 RANKING_MARKET_CAP_LABELS = {
@@ -202,6 +210,8 @@ RANKING_MARKET_CAP_LABELS = {
     "mega": "超大型",
     "large": "大型",
     "mid": "中型",
+    "small": "小型",
+    "micro": "超小型",
 }
 RANKING_INDEX_FAMILY_LABELS = {
     "all": "指定なし",
@@ -210,6 +220,9 @@ RANKING_INDEX_FAMILY_LABELS = {
     "total_us": "全米",
     "small_us": "米国小型",
     "acwi": "全世界",
+    "msci_world": "先進国",
+    "topix": "TOPIX",
+    "nikkei225": "日経225",
 }
 RANKING_RISK_BAND_LABELS = {
     "all": "指定なし",
@@ -511,6 +524,7 @@ def filter_symbol_universe_rows(
             and theme != "all"
             and theme not in tags
             and row.get("theme") != theme
+            and row.get("sector") != theme
         ):
             continue
         if (

@@ -63,6 +63,7 @@ def test_build_symbol_universe_source_tool_writes_jpx_listed_stock_source(tmp_pa
     assert rows[0]["theme"] == "trading"
     assert rows[0]["sector"] == "industrial"
     assert rows[0]["tags"] == "dividend"
+    assert rows[0]["market_cap_tier"] == "mega"
     assert manifest["source_kind"] == "jpx_listed_stock"
 
 

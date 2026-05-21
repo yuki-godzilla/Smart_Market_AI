@@ -36,7 +36,10 @@ from ui.app import (
     symbol_candidate_label,
 )
 from ui.ranking import (
+    RANKING_INDEX_FAMILY_LABELS,
     RANKING_INVESTMENT_STYLE_METRICS,
+    RANKING_MARKET_CAP_LABELS,
+    RANKING_THEME_LABELS,
     apply_ranking_weight_preset,
     filter_symbol_universe_rows,
     initial_ranking_selected_labels,
@@ -394,6 +397,45 @@ def test_filter_symbol_universe_rows_filters_etf_database_values():
             max_expense_ratio_pct="0.05",
         )
     ] == ["VOO"]
+
+
+def test_filter_symbol_universe_rows_filters_by_sector_theme_and_jpx_market_cap():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "1301.T", "name": "極洋"},
+            {"symbol": "1332.T", "name": "ニッスイ"},
+            {"symbol": "1414.T", "name": "ショーボンドホールディングス"},
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="japan",
+            product_type="stock",
+            theme="industrial",
+        )
+    ] == ["1414.T"]
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="japan",
+            product_type="stock",
+            market_cap_tier="small",
+        )
+    ] == ["1301.T"]
+    assert "small" in RANKING_MARKET_CAP_LABELS
+    assert "industrial" in RANKING_THEME_LABELS
+
+
+def test_ranking_etf_filter_labels_cover_imported_index_families():
+    assert {
+        "msci_world",
+        "topix",
+        "nikkei225",
+    } <= set(RANKING_INDEX_FAMILY_LABELS)
 
 
 def test_filter_symbol_universe_rows_ignores_hidden_etf_filters_for_stock():

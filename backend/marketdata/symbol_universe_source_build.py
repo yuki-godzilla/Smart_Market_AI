@@ -15,6 +15,7 @@ JPX_LISTED_STOCK_SOURCE_FIELDNAMES = [
     "sector",
     "tags",
     "aliases",
+    "market_cap_tier",
     "source_market_segment",
     "source_industry_33",
     "source_industry_17",
@@ -416,6 +417,7 @@ def build_jpx_listed_stock_source_rows(
                     industry_33,
                     industry_17,
                 ),
+                "market_cap_tier": _market_cap_tier_for_jpx_scale(scale_category),
                 "source_market_segment": market_segment,
                 "source_industry_33": industry_33,
                 "source_industry_17": industry_17,
@@ -762,6 +764,19 @@ def _tag_for_theme_sector(theme: str, sector: str) -> str:
     if sector == "materials":
         return "value"
     return "balanced"
+
+
+def _market_cap_tier_for_jpx_scale(scale_category: str) -> str:
+    normalized_scale = scale_category.strip().lower().replace(" ", "")
+    if "core30" in normalized_scale:
+        return "mega"
+    if "large70" in normalized_scale:
+        return "large"
+    if "mid400" in normalized_scale:
+        return "mid"
+    if "small" in normalized_scale:
+        return "small"
+    return ""
 
 
 def _normalize_percent(value: str) -> str:

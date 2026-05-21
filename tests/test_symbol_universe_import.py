@@ -103,6 +103,7 @@ def test_source_profiles_expose_expected_names():
         "sbi_us_stock",
         "sbi_us_etf",
         "nisa_eligibility",
+        "ranking_metadata",
     } <= set(symbol_universe_source_profile_names())
     assert "mutual_fund_seed" in symbol_universe_source_profile_names()
 
@@ -247,6 +248,71 @@ def test_nisa_eligibility_profile_rejects_new_symbols():
     assert result.rows == []
     assert result.manifest["failed_rows"] == 1
     assert result.manifest["failures"][0]["code"] == "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL"
+
+
+def test_ranking_metadata_profile_updates_only_existing_filter_columns():
+    profile = symbol_universe_source_profile("ranking_metadata")
+    result = merge_symbol_universe_source_rows(
+        [
+            {
+                "symbol": "1301.T",
+                "name": "Kyokuyo",
+                "market": "jp",
+                "asset_type": "stock",
+                "currency": "JPY",
+                "per": "",
+                "pbr": "",
+                "roe_pct": "",
+            }
+        ],
+        [
+            {
+                "symbol": "1301.T",
+                "name": "Should not overwrite",
+                "pe_ratio": "8.5",
+                "price_to_book": "0.9",
+                "roe": "10.2",
+                "dividend_yield": "2.4",
+                "risk": "MEDIUM",
+            }
+        ],
+        source_name=profile.source_name,
+        as_of=date(2026, 5, 21),
+        updated_at=datetime(2026, 5, 21, 0, 0, tzinfo=timezone.utc),
+        defaults=profile.defaults,
+        update_existing=True,
+    )
+
+    updated_row = result.rows[0]
+    assert updated_row["name"] == "Kyokuyo"
+    assert updated_row["per"] == "8.5"
+    assert updated_row["pbr"] == "0.9"
+    assert updated_row["roe_pct"] == "10.2"
+    assert updated_row["dividend_yield_pct"] == "2.4"
+    assert updated_row["risk_band"] == "MEDIUM"
+    assert updated_row["metadata_source"] == "curated_csv"
+    assert result.manifest["update_columns"] == [
+        "aliases",
+        "complexity",
+        "consensus_rating",
+        "data_quality",
+        "dividend_category",
+        "dividend_yield_pct",
+        "expense_ratio_pct",
+        "forecast_agreement",
+        "index_family",
+        "market_cap_tier",
+        "metadata_as_of",
+        "metadata_source",
+        "metadata_updated_at",
+        "pbr",
+        "per",
+        "risk_band",
+        "roe_pct",
+        "sector",
+        "tags",
+        "theme",
+    ]
 
 
 def test_sbi_us_etf_profile_keeps_leveraged_inverse_flags_for_policy_exclusion():

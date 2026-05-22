@@ -173,7 +173,7 @@ def _cached_yfinance_search_symbol_rows(
             raise_errors=False,
         ).quotes
     except Exception:  # noqa: BLE001
-        return []
+        return tuple()
 
     rows: list[dict[str, str]] = []
     for quote in quotes:

@@ -505,11 +505,11 @@ def normalize_dividend_filter_values(
     min_dividend_yield_pct: Decimal | str | int = Decimal("0"),
     dividend_yield_enabled: bool = False,
     dividend_yield_max_pct: Decimal | str | int = Decimal("10.0"),
-) -> tuple[str, Decimal | str | int, bool, Decimal | str | int]:
+) -> tuple[str, str, bool, str]:
     """Keep dividend category and explicit yield range mutually exclusive."""
 
     if dividend_yield_enabled:
-        return "all", min_dividend_yield_pct, True, dividend_yield_max_pct
+        return "all", str(min_dividend_yield_pct), True, str(dividend_yield_max_pct)
     if dividend_category != "all":
         return dividend_category, "0.0", False, "10.0"
     return "all", "0.0", False, "10.0"

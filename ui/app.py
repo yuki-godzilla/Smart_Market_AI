@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import html
 import json
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
@@ -400,6 +401,35 @@ div[data-testid="stDialog"] [data-testid="stMetricValue"] > div {
 div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     min-height: 1.25rem;
 }
+.symbol-detail-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 0.92rem;
+}
+.symbol-detail-table th,
+.symbol-detail-table td {
+    border: 1px solid #263140;
+    padding: 0.7rem 0.8rem;
+    vertical-align: top;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: auto-phrase;
+    line-height: 1.55;
+}
+.symbol-detail-table th {
+    background: #171e2a;
+    color: #cbd5e1;
+    font-weight: 700;
+}
+.symbol-detail-table td {
+    background: #0f141d;
+    color: #eef3fb;
+}
+.symbol-detail-table th:first-child,
+.symbol-detail-table td:first-child {
+    width: 9rem;
+}
 </style>
 """
 
@@ -504,6 +534,10 @@ def _symbol_universe_row_for_symbol(symbol: str) -> dict[str, str] | None:
         if row.get("symbol", "").strip().upper() == normalized_symbol:
             return row
     return None
+
+
+def selected_symbol_has_universe_detail(symbol: str) -> bool:
+    return _symbol_universe_row_for_symbol(symbol) is not None
 
 
 def _symbol_detail_raw_value(row: dict[str, str], column: str) -> str:
@@ -1015,22 +1049,50 @@ def _render_metric_filter_grid(
         columns = st.columns(columns_per_row)
         for column, (label, kwargs) in zip(columns, row_filters, strict=False):
             with column:
-                _render_metric_range_filter(label, **kwargs)
+                _render_metric_range_filter(
+                    label,
+                    enabled_key=cast(str, kwargs["enabled_key"]),
+                    min_key=cast(str, kwargs["min_key"]),
+                    max_key=cast(str, kwargs["max_key"]),
+                    min_default=cast(str, kwargs["min_default"]),
+                    max_default=cast(str, kwargs["max_default"]),
+                    min_value=cast(float, kwargs.get("min_value", 0.0)),
+                    max_value=cast(float, kwargs.get("max_value", 100.0)),
+                    step=cast(float, kwargs.get("step", 0.1)),
+                    help_text=cast(str | None, kwargs.get("help_text")),
+                    disabled=cast(bool, kwargs.get("disabled", False)),
+                )
+
+
+def symbol_detail_table_html(rows: list[dict[str, str]]) -> str:
+    if not rows:
+        return ""
+    columns = list(rows[0].keys())
+    header_cells = "".join(f"<th>{html.escape(column)}</th>" for column in columns)
+    body_rows = []
+    for row in rows:
+        cells = "".join(f"<td>{html.escape(str(row.get(column, '')))}</td>" for column in columns)
+        body_rows.append(f"<tr>{cells}</tr>")
+    return (
+        '<table class="symbol-detail-table">'
+        f"<thead><tr>{header_cells}</tr></thead>"
+        f"<tbody>{''.join(body_rows)}</tbody>"
+        "</table>"
+    )
 
 
 def _render_symbol_detail_table(rows: list[dict[str, str]]) -> None:
     if not rows:
         st.info("この区分に表示できる登録値はありません。")
         return
-    st.dataframe(
-        pd.DataFrame(rows),
-        hide_index=True,
-        use_container_width=True,
-    )
+    st.markdown(symbol_detail_table_html(rows), unsafe_allow_html=True)
 
 
 @st.dialog("銘柄データ", width="large")
-def _render_symbol_universe_detail_dialog(symbol: str) -> None:
+def _render_symbol_universe_detail_dialog(
+    symbol: str,
+    ranking_row: dict[str, str] | None = None,
+) -> None:
     row = _symbol_universe_row_for_symbol(symbol)
     if row is None:
         st.warning("銘柄マスタに該当するデータが見つかりませんでした。")
@@ -1044,21 +1106,30 @@ def _render_symbol_universe_detail_dialog(symbol: str) -> None:
     for column, metric in zip(metric_columns, symbol_universe_key_metric_rows(row), strict=False):
         column.metric(metric["項目"], metric["内容"])
 
+    ranking_detail_rows = ranking_investment_detail_rows(ranking_row, row) if ranking_row else []
     tab_labels = ["概要", "投資指標", "データ情報"]
+    if ranking_detail_rows:
+        tab_labels.insert(0, "判断補助")
     fund_rows = symbol_universe_fund_detail_rows(row)
     if fund_rows:
-        tab_labels.insert(2, "ETF/ファンド")
+        tab_labels.insert(3 if ranking_detail_rows else 2, "ETF/ファンド")
     tabs = st.tabs(tab_labels)
 
-    with tabs[0]:
+    tab_index = 0
+    if ranking_detail_rows:
+        with tabs[tab_index]:
+            _render_symbol_detail_table(ranking_detail_rows)
+        tab_index += 1
+
+    with tabs[tab_index]:
         _render_symbol_detail_table(symbol_universe_overview_rows(row))
-    with tabs[1]:
+    with tabs[tab_index + 1]:
         _render_symbol_detail_table(symbol_universe_investment_metric_rows(row))
-    tab_offset = 2
+    tab_offset = tab_index + 2
     if fund_rows:
-        with tabs[2]:
+        with tabs[tab_offset]:
             _render_symbol_detail_table(fund_rows)
-        tab_offset = 3
+        tab_offset += 1
     with tabs[tab_offset]:
         _render_symbol_detail_table(symbol_universe_data_info_rows(row))
     with st.expander("CSV登録値（確認用）", expanded=False):
@@ -1110,7 +1181,21 @@ def _render_ranking_result_table(
         st.session_state.pop(last_opened_key, None)
     elif symbol_to_open:
         st.session_state[last_opened_key] = detail_event_token
-        _render_symbol_universe_detail_dialog(symbol_to_open)
+        _render_symbol_universe_detail_dialog(
+            symbol_to_open,
+            ranking_row=_ranking_display_row_for_symbol(display_rows, symbol_to_open),
+        )
+
+
+def _ranking_display_row_for_symbol(
+    display_rows: list[dict[str, str]],
+    symbol: str,
+) -> dict[str, str] | None:
+    normalized_symbol = symbol.strip().upper()
+    for row in display_rows:
+        if row.get("銘柄", "").strip().upper() == normalized_symbol:
+            return row
+    return None
 
 
 def ranking_comparison_summary(
@@ -1410,7 +1495,24 @@ def _render_market_data_cockpit() -> None:
             key="market_data_start",
         )
     with col_end:
-        end = st.date_input("End", value=default_market_data_end_date(), key="market_data_end")
+        end = st.date_input(
+            "End",
+            value=default_market_data_end_date(),
+            key="market_data_end",
+        )
+
+    if selected_symbol_has_universe_detail(symbol):
+        if st.button(
+            "銘柄データを見る",
+            key="market_data_open_symbol_detail",
+            help=("ローカル銘柄マスタに登録されている" "選択中の銘柄データを確認します。"),
+        ):
+            _render_symbol_universe_detail_dialog(symbol)
+    else:
+        st.caption(
+            "選択中の銘柄はローカル銘柄マスタに登録されていないため、"
+            "銘柄データは表示できません。"
+        )
 
     with st.expander("銘柄候補", expanded=False):
         st.dataframe(symbol_options, hide_index=True, use_container_width=True)
@@ -2730,6 +2832,161 @@ def forecast_consensus_display_rows(rows: list[dict[str, str]]) -> list[dict[str
     ]
 
 
+def _decimal_from_text(value: object) -> Decimal | None:
+    text = str(value or "").replace("%", "").replace(",", "").strip()
+    if not text or text in {"-", "未接続", "未登録"}:
+        return None
+    try:
+        decimal_value = Decimal(text)
+    except Exception:
+        return None
+    if not decimal_value.is_finite():
+        return None
+    return decimal_value
+
+
+def ranking_investment_note(row: dict[str, str]) -> str:
+    symbol_row = _symbol_universe_row_for_symbol(row.get("symbol", ""))
+    strengths = _ranking_strength_phrases(row, symbol_row)
+    caution = _ranking_primary_caution(row, symbol_row)
+    action = _ranking_next_action(row, symbol_row)
+    strength_text = "と".join(strengths[:2]) if strengths else "総合点"
+    if caution:
+        return f"{strength_text}が強みの候補で、{caution}ため、{action}。"
+    return f"{strength_text}が強みの候補です。{action}。"
+
+
+def _ranking_strength_phrases(
+    row: dict[str, str],
+    symbol_row: dict[str, str] | None,
+) -> list[str]:
+    strengths: list[str] = []
+    if (_decimal_from_text(row.get("forecast_agreement_score")) or Decimal("0")) >= Decimal("85"):
+        strengths.append("予測一致")
+    if (_decimal_from_text(row.get("data_quality_score")) or Decimal("0")) >= Decimal("90"):
+        strengths.append("データ品質")
+    if (_decimal_from_text(row.get("screening_score")) or Decimal("0")) >= Decimal("80"):
+        strengths.append("スクリーニング")
+    if (_decimal_from_text(row.get("risk_signal_score")) or Decimal("0")) >= Decimal("70"):
+        strengths.append("Risk")
+    if symbol_row and (_decimal_from_text(symbol_row.get("roe_pct")) or Decimal("0")) >= Decimal(
+        "20"
+    ):
+        strengths.append("ROE")
+    if symbol_row and (
+        _decimal_from_text(symbol_row.get("dividend_yield_pct")) or Decimal("0")
+    ) >= Decimal("3"):
+        strengths.append("配当利回り")
+    return strengths
+
+
+def _ranking_primary_caution(
+    row: dict[str, str],
+    symbol_row: dict[str, str] | None,
+) -> str:
+    warning = _investment_warning_label(row.get("warnings", ""))
+    if warning:
+        return f"{warning}がある"
+    if (_decimal_from_text(row.get("risk_signal_score")) or Decimal("100")) < Decimal("50"):
+        return "値動きや下落耐性の確認が必要な"
+    if (_decimal_from_text(row.get("data_quality_score")) or Decimal("100")) < Decimal("80"):
+        return "データ品質に確認余地がある"
+    if symbol_row is None:
+        return "銘柄マスタの補足情報が少ない"
+    per = _decimal_from_text(symbol_row.get("per"))
+    pbr = _decimal_from_text(symbol_row.get("pbr"))
+    if (per is not None and per >= Decimal("40")) or (pbr is not None and pbr >= Decimal("10")):
+        return "PER/PBRが高めな"
+    if (_decimal_from_text(symbol_row.get("dividend_yield_pct")) or Decimal("0")) >= Decimal("5"):
+        return "高配当の持続性を確認したい"
+    if symbol_row.get("asset_type") == "etf" and (
+        _decimal_from_text(symbol_row.get("expense_ratio_pct")) or Decimal("0")
+    ) >= Decimal("0.5"):
+        return "経費率が相対的に高めな"
+    return ""
+
+
+def _ranking_next_action(
+    row: dict[str, str],
+    symbol_row: dict[str, str] | None,
+) -> str:
+    if symbol_row and symbol_row.get("asset_type") == "etf":
+        return "連動指数、経費率、分配方針を銘柄データで確認してください"
+    if (_decimal_from_text(row.get("risk_signal_score")) or Decimal("100")) < Decimal("50"):
+        return "ポジションサイズと損切り条件を先に確認してください"
+    if symbol_row and (
+        (_decimal_from_text(symbol_row.get("per")) or Decimal("0")) >= Decimal("40")
+        or (_decimal_from_text(symbol_row.get("pbr")) or Decimal("0")) >= Decimal("10")
+    ):
+        return "成長期待の裏付けと決算材料を確認してください"
+    if symbol_row and (
+        _decimal_from_text(symbol_row.get("dividend_yield_pct")) or Decimal("0")
+    ) >= Decimal("3"):
+        return "配当性向、減配リスク、業績安定性を確認してください"
+    return "銘柄データとコックピットで価格トレンドを確認してください"
+
+
+def _ranking_caution_sentence(caution: str) -> str:
+    if not caution:
+        return ""
+    if caution.endswith("な"):
+        return f"{caution[:-1]}です。"
+    if caution.endswith("ある"):
+        return f"{caution}ため、詳細確認が必要です。"
+    return caution
+
+
+def ranking_investment_detail_rows(
+    ranking_row: dict[str, str],
+    symbol_row: dict[str, str],
+) -> list[dict[str, str]]:
+    note = ranking_row.get("補足", "")
+    warning = ranking_row.get("注意点", "")
+    score_summary = (
+        f"総合{ranking_row.get('総合スコア', '未計算')} / "
+        f"予測{ranking_row.get('予測一致', '未計算')} / "
+        f"品質{ranking_row.get('データ品質', '未計算')} / "
+        f"Risk{ranking_row.get('Risk', '未接続')}"
+    )
+    valuation = (
+        f"PER {symbol_universe_detail_display_value(symbol_row, 'per')}、"
+        f"PBR {symbol_universe_detail_display_value(symbol_row, 'pbr')}、"
+        f"ROE {symbol_universe_detail_display_value(symbol_row, 'roe_pct')}"
+    )
+    income = (
+        f"配当利回り {symbol_universe_detail_display_value(symbol_row, 'dividend_yield_pct')}、"
+        f"分類 {symbol_universe_detail_display_value(symbol_row, 'dividend_category')}"
+    )
+    caution = warning or _ranking_caution_sentence(_ranking_primary_caution({}, symbol_row))
+    return [
+        {
+            "観点": "ランキング上位理由",
+            "内容": note or "今回の条件で相対的に上位に入りました。",
+            "確認ポイント": score_summary,
+        },
+        {
+            "観点": "主な注意点",
+            "内容": caution or "大きな警告はありません。",
+            "確認ポイント": _ranking_next_action({}, symbol_row),
+        },
+        {
+            "観点": "バリュエーション",
+            "内容": valuation,
+            "確認ポイント": "高PER/PBRなら成長期待の裏付け、低PBRなら低評価の理由を確認します。",
+        },
+        {
+            "観点": "インカム",
+            "内容": income,
+            "確認ポイント": "高配当は利回りだけでなく、配当性向・減配リスク・業績安定性を確認します。",
+        },
+        {
+            "観点": "次の行動",
+            "内容": _ranking_next_action(ranking_row, symbol_row),
+            "確認ポイント": "売買推奨ではなく、深掘り順と確認観点の整理です。",
+        },
+    ]
+
+
 def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     return [
         {
@@ -2743,7 +3000,7 @@ def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, 
             "データ品質": row.get("data_quality_score", ""),
             "Risk": row.get("risk_signal_score", "") or "未接続",
             "注意点": _investment_warning_label(row.get("warnings", "")),
-            "補足": row.get("note", ""),
+            "補足": ranking_investment_note(row),
         }
         for row in rows
     ]

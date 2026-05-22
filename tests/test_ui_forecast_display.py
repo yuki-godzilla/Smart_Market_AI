@@ -43,10 +43,14 @@ from ui.app import (
     ranking_detail_event_token_from_aggrid_response,
     ranking_detail_symbol_from_aggrid_response,
     ranking_detail_symbol_to_open,
+    ranking_investment_detail_rows,
+    ranking_investment_note,
     ranking_result_aggrid_options,
     score_component_rows,
+    selected_symbol_has_universe_detail,
     set_cached_ranking_build,
     symbol_candidate_label,
+    symbol_detail_table_html,
     symbol_universe_data_info_rows,
     symbol_universe_detail_display_value,
     symbol_universe_detail_rows,
@@ -121,6 +125,16 @@ def test_market_data_provider_defaults_to_yahoo():
 def test_symbol_from_candidate_extracts_ticker_or_custom():
     assert _symbol_from_candidate("") is None
     assert _symbol_from_candidate("9983.T - Fast Retailing") == "9983.T"
+
+
+def test_selected_symbol_has_universe_detail_uses_local_master(monkeypatch):
+    monkeypatch.setattr(
+        "ui.app.symbol_universe_csv_rows",
+        lambda: [{"symbol": "9983.T", "name": "Fast Retailing"}],
+    )
+
+    assert selected_symbol_has_universe_detail("9983.t")
+    assert not selected_symbol_has_universe_detail("MSFT")
 
 
 def test_ranking_symbols_from_selected_labels_extracts_fetch_symbols():
@@ -339,6 +353,25 @@ def test_symbol_detail_dialog_css_expands_width_and_wraps_metric_values():
     assert "1100px" in SYMBOL_DETAIL_DIALOG_CSS
     assert '[data-testid="stMetricValue"]' in SYMBOL_DETAIL_DIALOG_CSS
     assert "overflow-wrap: anywhere" in SYMBOL_DETAIL_DIALOG_CSS
+    assert ".symbol-detail-table" in SYMBOL_DETAIL_DIALOG_CSS
+    assert "table-layout: fixed" in SYMBOL_DETAIL_DIALOG_CSS
+
+
+def test_symbol_detail_table_html_wraps_and_escapes_long_text():
+    markup = symbol_detail_table_html(
+        [
+            {
+                "観点": "次の行動",
+                "内容": "銘柄データとコックピットで価格トレンドを確認してください",
+                "確認ポイント": "<script>売買推奨ではありません</script>",
+            }
+        ]
+    )
+
+    assert 'class="symbol-detail-table"' in markup
+    assert "銘柄データとコックピット" in markup
+    assert "<script>" not in markup
+    assert "&lt;script&gt;" in markup
 
 
 def test_ranking_result_aggrid_options_enable_single_row_click_selection():
@@ -2072,7 +2105,7 @@ def test_forecast_chart_summary_explains_agreement_and_range():
 
 
 def test_investment_score_display_rows_are_beginner_friendly():
-    assert investment_score_display_rows(
+    rows = investment_score_display_rows(
         [
             {
                 "rank": "1",
@@ -2087,7 +2120,9 @@ def test_investment_score_display_rows_are_beginner_friendly():
                 "note": "売買推奨ではなく、判断材料を整理したスコアです。",
             }
         ]
-    ) == [
+    )
+
+    assert rows == [
         {
             "順位": "1",
             "銘柄": "AAPL",
@@ -2099,9 +2134,67 @@ def test_investment_score_display_rows_are_beginner_friendly():
             "データ品質": "100",
             "Risk": "未接続",
             "注意点": "モデルの見方が割れています",
-            "補足": "売買推奨ではなく、判断材料を整理したスコアです。",
+            "補足": rows[0]["補足"],
         }
     ]
+    assert "モデルの見方が割れています" in rows[0]["補足"]
+
+
+def test_ranking_investment_note_uses_scores_and_symbol_metadata(monkeypatch):
+    monkeypatch.setattr(
+        "ui.app.symbol_universe_csv_rows",
+        lambda: [
+            {
+                "symbol": "6857.T",
+                "asset_type": "stock",
+                "per": "52.42",
+                "pbr": "28.93",
+                "roe_pct": "57.65",
+                "dividend_yield_pct": "0.23",
+            }
+        ],
+    )
+
+    note = ranking_investment_note(
+        {
+            "symbol": "6857.T",
+            "screening_score": "88",
+            "forecast_agreement_score": "90",
+            "data_quality_score": "100",
+            "risk_signal_score": "60",
+            "warnings": "",
+        }
+    )
+
+    assert "予測一致" in note
+    assert "データ品質" in note
+    assert "PER/PBR" in note
+    assert "成長期待" in note
+
+
+def test_ranking_investment_detail_rows_adds_modal_guidance():
+    rows = ranking_investment_detail_rows(
+        {
+            "総合スコア": "84.69",
+            "予測一致": "90",
+            "データ品質": "100",
+            "Risk": "72.44",
+            "注意点": "",
+            "補足": "予測一致とデータ品質が強みの候補です。",
+        },
+        {
+            "asset_type": "stock",
+            "dividend_yield_pct": "0.23",
+            "dividend_category": "dividend",
+            "per": "52.42",
+            "pbr": "28.93",
+            "roe_pct": "57.65",
+        },
+    )
+
+    assert rows[0]["観点"] == "ランキング上位理由"
+    assert any(row["観点"] == "バリュエーション" and "PER" in row["内容"] for row in rows)
+    assert rows[-1]["確認ポイント"] == "売買推奨ではなく、深掘り順と確認観点の整理です。"
 
 
 def test_investment_score_summary_lines_explain_score_without_recommendation():

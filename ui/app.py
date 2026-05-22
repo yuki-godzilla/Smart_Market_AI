@@ -1444,8 +1444,8 @@ def _render_market_data_cockpit() -> None:
     st.subheader("銘柄コックピット")
     st.caption("1銘柄の価格、予測、Investment Score、注意点を確認します。")
     symbol_options = symbol_reference_rows()
-    col_provider, col_search, col_symbol, col_name, col_start, col_end = st.columns(
-        [1.0, 1.3, 1.7, 1.4, 1.0, 1.0]
+    col_provider, col_search, col_symbol, col_detail, col_name = st.columns(
+        [1.0, 1.35, 1.75, 0.95, 1.35]
     )
     with col_provider:
         provider = cast(
@@ -1485,9 +1485,22 @@ def _render_market_data_cockpit() -> None:
             ),
         )
     symbol = _symbol_from_candidate(symbol_candidate) or "AAPL"
+    with col_detail:
+        st.write("")
+        if selected_symbol_has_universe_detail(symbol):
+            if st.button(
+                "銘柄データを見る",
+                key="market_data_open_symbol_detail",
+                help=("ローカル銘柄マスタに登録されている" "選択中の銘柄データを確認します。"),
+                use_container_width=True,
+            ):
+                _render_symbol_universe_detail_dialog(symbol)
+        else:
+            st.caption("銘柄データ未登録")
     with col_name:
         company_name = symbol_name(symbol) or _name_from_candidate(symbol_candidate) or "名称未登録"
         st.text_input("Name", value=company_name, disabled=True, key="market_data_symbol_name")
+    col_start, col_end, _ = st.columns([1.0, 1.0, 4.0])
     with col_start:
         start = st.date_input(
             "Start",
@@ -1499,19 +1512,6 @@ def _render_market_data_cockpit() -> None:
             "End",
             value=default_market_data_end_date(),
             key="market_data_end",
-        )
-
-    if selected_symbol_has_universe_detail(symbol):
-        if st.button(
-            "銘柄データを見る",
-            key="market_data_open_symbol_detail",
-            help=("ローカル銘柄マスタに登録されている" "選択中の銘柄データを確認します。"),
-        ):
-            _render_symbol_universe_detail_dialog(symbol)
-    else:
-        st.caption(
-            "選択中の銘柄はローカル銘柄マスタに登録されていないため、"
-            "銘柄データは表示できません。"
         )
 
     with st.expander("銘柄候補", expanded=False):

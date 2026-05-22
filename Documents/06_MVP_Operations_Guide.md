@@ -389,6 +389,7 @@ Ranking metadata coverage:
 
 - `tools/check_symbol_universe_metadata_coverage.py` は、`symbol_universe.csv` の ranking filter 用 metadata がどの程度埋まっているかを network なしで集計します。
 - 2026-05-22 時点の出力は `data/marketdata/symbol_universe_metadata_coverage.json` です。JPX listed-stock 追加分、旧 JPX stock seed、SBI 公式米国株、SBI 公式米国ETF は、明示 opt-in の Yahoo metadata refresh と deterministic ETF metadata enrichment で補完済みです。株式全体 8,081件では、`配当利回り` 8,033件、`PBR` 7,630件、`ROE` 7,466件、`PER` 7,457件、`リスク` 6,231件が埋まっています。ETF全体 1,034件では、`配当利回り` 601件、`指数` 1,034件、`複雑さ` 1,034件、`信託報酬/経費率` 1,013件が埋まっています。株式の `risk_band` 1,850件、`market_cap_tier` 39件、`配当利回り/配当カテゴリ` 48件は provider/source 欠損のため推定で埋めず、明示 opt-in refresh または確認済み source 追加の対象です。
+- Phase 18 の実装完了後は、NISA / ETF / stock metadata source の継続更新、上記の provider/source 欠損補完、海外ETF `yahoo_symbol` mapping の追加 live smoke は運用タスクとして扱います。これらは通常のリリース完了条件ではなく、確認済み source や network 利用可能時に更新します。
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\enrich_symbol_universe_etf_metadata.py --write

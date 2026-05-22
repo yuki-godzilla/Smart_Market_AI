@@ -15,7 +15,7 @@
 | Investment Score | 実装済み | screening / forecast / data quality / risk signal の統合 |
 | Portfolio / Risk | 実装済み | no-solver rebalance proposal と pre-trade risk check |
 | Streamlit UI | 実装済み | 銘柄コックピット、ランキング、Rebalance Cockpit。最終 browser smoke は推奨確認 |
-| Symbol Universe | in progress | `symbol_universe.csv`、metadata schema、source import、opt-in refresh、SBI policy columns / default exclusion helper |
+| Symbol Universe | implementation complete; source updates are operational maintenance | `symbol_universe.csv`、metadata schema、source import、opt-in refresh、SBI policy columns / default exclusion helper |
 | Research RAG | planned | local document ingestion から開始予定 |
 | Execution | deferred | broker order 送信は現在の重点外 |
 | Decision Report | planned | cockpit / ranking / rebalance context を再利用予定 |

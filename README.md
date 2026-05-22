@@ -69,11 +69,11 @@ MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で
 - Phase 16: UI / Visualization Cockpit implementation complete。銘柄データ modal、コックピット投資判断メモ、ランキング行クリック詳細表示まで実装済み。最終 Streamlit browser smoke は推奨確認
 - Phase 16S: Stabilization / final Streamlit smoke は必要に応じて実施
 - Phase 17: UI Polish / ランキング条件 UI 再設計は implementation complete
-- Phase 18: symbol universe / metadata refresh / source import / SBI ranking universe policy が進行中。Yahoo 配当利回りスケール補正と CI mypy 対象の tools 型整備は反映済み
+- Phase 18: symbol universe / metadata refresh / source import / SBI ranking universe policy は implementation complete。継続的な NISA / ETF / stock metadata source 更新は運用タスクとして扱う
 - Phase 19〜24: Decision Report、Research RAG、Research Score、Assistant、optional adapter、Execution gate の順に整理
 - Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
-次の重点は、Phase 16S の最終 UI smoke、Phase 18 の残り metadata source 補完、Phase 19 の Decision Report context です。
+次の重点は、Phase 16S の最終 UI smoke、Phase 19 の Decision Report context、Phase 20 の Research RAG です。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続します。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント

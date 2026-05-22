@@ -461,3 +461,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Documented the cockpit `銘柄データを見る` placement, wrapped date controls, and post-fetch `投資判断メモ`.
 - Documented the ranking modal performance fix that reuses a symbol lookup map instead of repeatedly scanning the symbol master while building display rows.
 - Updated verification guidance to match CI-style `ruff check .` and `mypy .`.
+
+## 2026-05-23 - Phase 18 completion boundary
+
+- Marked Phase 18 symbol universe / metadata refresh as implementation-complete in roadmap-facing docs.
+- Moved ongoing NISA / ETF / stock metadata source refreshes, remaining provider/source metadata gaps, and additional live `yahoo_symbol` smoke checks into operational maintenance instead of Phase 18 completion blockers.
+- Kept confirmed-source-only metadata updates as the standing rule: blanks remain blank until an explicit opt-in refresh or verified source provides values.

@@ -345,7 +345,7 @@ Current implementation note:
 
 ### 5.4 Phase 18: Symbol Universe And Metadata Refresh
 
-Status: in progress
+Status: implementation complete; ongoing source refresh is operational maintenance
 
 目的: Ranking condition UI の裏側にある銘柄 universe を、固定 CSV だけでなく、鮮度と出所を管理できる metadata layer に拡張する。
 
@@ -388,7 +388,7 @@ Implementation order:
 7. `--write` path for CSV/manifest update, with validation before and after write. 完了。Cache output is future scope if needed.
 8. Local source import for JPX / curated universe expansion. 完了。Initial JPX ETF seed and domestic stock seed imported.
 9. SBI ranking universe policy columns and default exclusion helper. 完了。Unknown tradability is allowed by default.
-10. SBI / NISA / future 投信 metadata source import. 部分完了。`--source-profile`、JPX stock/ETF/REIT profile、SBI US stock/ETF seed、NISA eligibility update profile/seed、ranking metadata update profile、mutual fund seed、投信 metadata columns の import path は追加済み。JPX 東証上場銘柄一覧 raw file から国内株 source CSV を作る `build_symbol_universe_source.py --source-kind jpx_listed_stock`、JPX 国内 ETF / ETN source CSV を作る `--source-kind jpx_etf`、JPX REIT source CSV を作る `--source-kind jpx_reit`、SBI米国株 / 米国ETF・海外ETF raw file から source CSV を作る `--source-kind sbi_us_stock` / `sbi_us_etf`、NISA raw file から制度 metadata source CSV を作る `--source-kind nisa_eligibility` も追加済み。JPX ETF/ETN 公式一覧 HTML は 399件を source CSV 化し、国内 ETF 候補を拡張済み。SBI公式米国株 HTML は 4,293件、SBI公式米国ETF HTML は 607件、JPX REIT HTML は 58件を `symbol_universe.csv` に反映済み。JPX NISA 成長投資枠 ETF/ETN Excel は 27件、IMAJ NISA 成長投資枠 listed-fund Excel は既存 ETF / REIT 289件を `symbol_universe.csv` に反映済み。SBI米国株 / 米国ETF は Yahoo live coverage と opt-in metadata refresh を実行済み。ETF index-family 補完、Yahoo ETF 経費率スケール補正、海外ETF向け `yahoo_symbol` mapping を `tools/enrich_symbol_universe_etf_metadata.py` と override CSV で実行済み。MVP ranking は stock / ETF のみ対象にし、REIT / mutual fund seed は future extension として保持する。次は NISA 一覧の継続更新と、残る ETF index-family 空欄の公式 index / issuer 確認を進める。
+10. SBI / NISA / future 投信 metadata source import. 完了。`--source-profile`、JPX stock/ETF/REIT profile、SBI US stock/ETF seed、NISA eligibility update profile/seed、ranking metadata update profile、mutual fund seed、投信 metadata columns の import path は追加済み。JPX / SBI / NISA / IMAJ / REIT source builders and imports are available, Yahoo live coverage / opt-in metadata refresh has been run for SBI US stock / ETF, and ETF enrichment plus overseas ETF `yahoo_symbol` mapping are implemented. MVP ranking remains stock / ETF only; REIT / mutual fund seed rows are future-extension metadata. Ongoing source refresh and extra live smoke are operational maintenance.
 11. SecurityMaster repository separation only if symbol master usage spreads beyond current UI / command helpers.
 12. Optional additional provider adapters only when Yahoo coverage or stability is insufficient.
 
@@ -400,6 +400,12 @@ Completion criteria:
 - 通常 checks は live provider なしで通る。
 - live metadata refresh は明示 opt-in で、失敗しても既存 UI/API を壊さない。
 - SBI前提の ranking universe policy が文書化され、schema / tests / ranking 候補抽出へ接続されている。
+
+Operational maintenance after completion:
+
+- NISA / ETF / stock metadata source の継続更新は、Phase 18 の未完了実装ではなく運用タスクとして扱う。
+- 残る `risk_band` / `market_cap_tier` / dividend gaps は provider/source 欠損として空欄を許容し、確認済み source または明示 opt-in refresh が得られた時だけ更新する。
+- 11件の海外ETF `yahoo_symbol` mapping live smoke は、network 利用可能時の任意運用確認とする。
 
 Current implementation note:
 
@@ -418,7 +424,7 @@ Current implementation note:
 - SBI証券取扱商品を初期 ranking universe の前提にする policy columns / default exclusion helper を追加した。現時点の CSV は SBI取扱確認済み master ではなく local curated / source-import seed として扱うため、`tradability=unknown` は初期 ranking で通す。
 - SBI銘柄マスタ取得方針は、SBI から直接リアルタイム取得するのではなく、SBI / JPX / public source を local source CSV 化して import する。将来 adapter は source import / repository 境界に追加し、ranking logic から分離する。
 - `tools/import_symbol_universe_source.py` supports `--source-profile jpx_listed_stock|jpx_stock|jpx_etf|jpx_reit|sbi_us_stock|sbi_us_etf|nisa_eligibility|ranking_metadata|mutual_fund_seed`, filling market/product/currency and policy defaults. `nisa_eligibility` updates only NISA metadata columns for existing rows and rejects unknown symbols instead of appending incomplete rows. `ranking_metadata` updates only existing symbols' ranking filter fields such as PER/PBR/ROE/dividend yield, market-cap tier, risk, and ETF expense ratio. `nisa_eligibility_seed.csv` has updated 31 existing rows. `sbi_us_stock_seed.csv`, `sbi_us_etf_seed.csv`, and `mutual_fund_seed.csv` are available as source seeds. 2026-05-21 時点で JPX listed-stock source、JPX ETF/ETN official HTML source、SBI US stock/ETF official HTML source、JPX REIT official HTML source、JPX NISA 成長投資枠 ETF/ETN source、IMAJ NISA 成長投資枠 listed-fund source を取り込み、candidate master は 9,179件になり、stock 8,081件、ETF 1,034件、REIT 58件、投信 4件、ADR 2件を持つ。SBI US stock builder は `BRKB` / `UHALB` を `BRK-B` / `UHAL-B` に正規化する。
-- `tools/check_symbol_universe_metadata_coverage.py` produces `data/marketdata/symbol_universe_metadata_coverage.json` as the current coverage baseline for ranking filter metadata. JPX and SBI stock rows have been supplemented with explicit opt-in Yahoo metadata where available. Current stock coverage is dividend yield 8,033/8,081, PBR 7,630/8,081, ROE 7,466/8,081, and PER 7,457/8,081. ETF coverage is dividend yield 601/1,034, index family 858/1,034, expense ratio 1,013/1,034, and complexity 1,034/1,034.
+- `tools/check_symbol_universe_metadata_coverage.py` produces `data/marketdata/symbol_universe_metadata_coverage.json` as the current coverage baseline for ranking filter metadata. JPX and SBI stock rows have been supplemented with explicit opt-in Yahoo metadata where available. Current stock coverage is dividend yield 8,033/8,081, PBR 7,630/8,081, ROE 7,466/8,081, and PER 7,457/8,081. ETF coverage is dividend yield 601/1,034, index family 1,034/1,034, expense ratio 1,013/1,034, and complexity 1,034/1,034.
 - Yahoo dividend-yield normalization now treats JP stock integer percent values as percent values, preventing over-scaled display such as `23%` when the source value represents `0.23%`.
 - `tools/analyze_yahoo_coverage_failures.py` analyzes saved live Yahoo coverage rows without making new network calls. Current SBI US stock failures are 51 no-bars/Yahoo-unsupported plus 2 resolved aliases; SBI US ETF failures are 3 leveraged exclusions plus 11 rows with curated `yahoo_symbol` mappings.
 - Ranking UI and default ranking universe are stock / ETF focused. REIT and mutual-fund rows can remain in the local master as future extension data, but `reit` / `mutual_fund` / `fund` / `investment_trust` are excluded from MVP ranking candidates. ETF leveraged/inverse rows and commodity-themed ETF rows remain stored for metadata coverage but are excluded by the ranking-universe policy.

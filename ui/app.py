@@ -51,6 +51,7 @@ from ui.ranking import (
     apply_ranking_weight_preset,
     filter_symbol_universe_rows,
     live_ranking_symbol_warning_message,
+    normalize_dividend_filter_values,
     rank_investment_score_rows,
     ranking_build_cache_key,
     ranking_deep_dive_default_symbol,
@@ -261,6 +262,19 @@ def _ensure_selectbox_state_value(key: str, options: list[str]) -> None:
         st.session_state[key] = options[0]
 
 
+def _normalize_dividend_filter_state() -> None:
+    dividend_category = _ranking_filter_value("market_data_ranking_dividend", "all")
+    dividend_range_enabled = _ranking_filter_bool("market_data_ranking_dividend_enabled", False)
+    normalized_category, _, normalized_range_enabled, _ = normalize_dividend_filter_values(
+        dividend_category=dividend_category,
+        dividend_yield_enabled=dividend_range_enabled,
+    )
+    if normalized_category != dividend_category:
+        st.session_state["market_data_ranking_dividend"] = normalized_category
+    if normalized_range_enabled != dividend_range_enabled:
+        st.session_state["market_data_ranking_dividend_enabled"] = normalized_range_enabled
+
+
 def _render_metric_range_filter(
     label: str,
     *,
@@ -273,6 +287,7 @@ def _render_metric_range_filter(
     max_value: float = 100.0,
     step: float = 0.1,
     help_text: str | None = None,
+    disabled: bool = False,
 ) -> None:
     col_enabled, col_min, col_max = st.columns([1.0, 1.0, 1.0])
     with col_enabled:
@@ -281,6 +296,7 @@ def _render_metric_range_filter(
             value=_ranking_filter_bool(enabled_key, False),
             key=enabled_key,
             help=help_text,
+            disabled=disabled,
         )
     with col_min:
         st.number_input(
@@ -290,7 +306,7 @@ def _render_metric_range_filter(
             value=float(_ranking_filter_value(min_key, min_default)),
             step=step,
             key=min_key,
-            disabled=not enabled,
+            disabled=disabled or not enabled,
         )
     with col_max:
         st.number_input(
@@ -300,7 +316,7 @@ def _render_metric_range_filter(
             value=float(_ranking_filter_value(max_key, max_default)),
             step=step,
             key=max_key,
-            disabled=not enabled,
+            disabled=disabled or not enabled,
         )
 
 
@@ -311,6 +327,7 @@ def _render_detail_selectbox(
     key: str,
     format_func: Callable[[str], str],
     help_text: str | None = None,
+    disabled: bool = False,
 ) -> None:
     _ensure_selectbox_state_value(key, options)
     st.selectbox(
@@ -320,6 +337,7 @@ def _render_detail_selectbox(
         key=key,
         format_func=format_func,
         help=help_text,
+        disabled=disabled,
     )
 
 
@@ -372,12 +390,18 @@ def _render_ranking_filter_panel() -> None:
     region = _ranking_filter_value("market_data_ranking_region", "japan")
     product_type = _ranking_filter_value("market_data_ranking_product_type", "stock")
     detail_filters = set(ranking_detail_filters_for_category(region, product_type))
+    if "dividend_yield" in detail_filters:
+        _normalize_dividend_filter_state()
     with st.expander("詳細条件", expanded=not has_ranking_result):
         st.caption("ここは候補を絞る条件です。上の並べ替え設定とは別に使います。")
 
         st.markdown("**属性条件**")
         columns = st.columns(4)
         column_index = 0
+        dividend_category_value = _ranking_filter_value("market_data_ranking_dividend", "all")
+        dividend_range_enabled = _ranking_filter_bool("market_data_ranking_dividend_enabled", False)
+        dividend_category_disabled = dividend_range_enabled
+        dividend_range_disabled = dividend_category_value != "all"
 
         def next_column():
             nonlocal column_index
@@ -458,6 +482,7 @@ def _render_ranking_filter_panel() -> None:
                     key="market_data_ranking_dividend",
                     format_func=lambda value: RANKING_DIVIDEND_LABELS[value],
                     help_text=RANKING_FILTER_HELP_TEXTS["dividend_category"],
+                    disabled=dividend_category_disabled,
                 )
         with next_column():
             _render_detail_selectbox(
@@ -481,6 +506,7 @@ def _render_ranking_filter_panel() -> None:
                         "max_default": "10.0",
                         "max_value": 15.0,
                         "help_text": RANKING_FILTER_HELP_TEXTS["dividend_yield"],
+                        "disabled": dividend_range_disabled,
                     },
                 )
             )

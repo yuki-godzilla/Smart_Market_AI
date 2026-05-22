@@ -229,7 +229,8 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
   - 株式: 業種/テーマ、時価総額、市場感応度（β）、配当利回り、PER、PBR、ROE、NISA
   - ETF: 連動指数、信託報酬/経費率、分配金利回り、複雑さ
   - 時価総額は、日本株では 10兆円 / 1兆円 / 1,000億円 / 100億円、米国株では $200B / $10B / $2B / $300M を目安に表示
-  - 配当カテゴリは、0%、0%超〜3%未満、3%以上の利回り目安を選択肢に表示。ただし連続増配候補は curated metadata 由来
+  - 配当カテゴリは、0%、0%超〜3%未満、3%以上の利回り帯を選択肢に表示。ただし連続増配候補は curated metadata 由来
+  - 配当カテゴリと数値条件の `配当利回り(%)` は同じ軸の条件なので、片方を指定した場合はもう片方を非活性にする
   - 各条件の `?` help で、指標の意味、目安値、注意点を確認可能
   - 条件のクリア
   - 条件変更後の候補数表示
@@ -247,7 +248,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - `市場感応度（β）` は metadata の `risk_band` を使う provider fetch 前の条件です。β 0.8未満を低変動、0.8〜1.2を市場並み、1.2超を高変動として扱います。
 - Ranking result の Risk / リスクスコアは取得期間の価格データを見た後の確認材料です。候補条件の `市場感応度（β）` とは別の指標として確認します。
 - 投資信託は MVP のランキング / スクリーニング / チャート対象外です。source seed や metadata schema は将来対応として残しますが、default ranking universe と UI の主要導線には出しません。
-- dividend category や theme は現在 curated metadata / source import / opt-in metadata refresh で管理します。live provider 由来の更新は明示 opt-in です。
+- dividend category や theme は現在 curated metadata / source import / opt-in metadata refresh で管理します。live provider 由来の更新は明示 opt-in です。配当テーマは業種/テーマの選択肢には出さず、配当カテゴリまたは配当利回り条件で扱います。
 - 株式の `業種/テーマ` は `theme`, `sector`, `tags` を見ます。JPX 東証上場銘柄一覧の `規模区分` は `market_cap_tier` へ変換し、`時価総額` 条件で使います。
 - 株式の `investment_style` は、国内株・米国株とも一括投資向きの候補として `lump_sum` に機械バックフィルしています。ETF の積立可否は source 確認が必要なため、未確認の `investment_style=unknown` は残します。
 - ETF の `nisa_category` は、JPX / IMAJ / SBI のローカル公式 source CSV と照合し、現在の ETF 1,034件では `growth` または `none` に確定済みです。未確認の `unknown` は ETF には残していません。

@@ -18,6 +18,13 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-05-22 - Ranking dividend filter mutual exclusion
+
+- Made ranking dividend category and explicit dividend-yield range mutually exclusive; explicit range wins if both are restored from older saved state.
+- Reworded dividend category labels as numeric yield bands and removed the duplicate high-dividend theme choice from the industry/theme dropdown.
+- Renamed the ETF dividend index family label to `配当系指数` so it is not confused with a yield screening condition.
+- Added regression tests for dividend filter normalization, label wording, and cache-signature normalization.
+
 ## 2026-05-22 - Ranking NISA filter wording
 
 - Simplified the ranking NISA dropdown for the current stock / ETF scope to `指定なし（NISAで絞らない）`, `NISA対象のみ（成長投資枠）`, and `NISA対象外のみ`.

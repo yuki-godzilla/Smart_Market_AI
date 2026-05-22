@@ -12,6 +12,7 @@ from ui.ranking import (
     RANKING_PURPOSE_LABELS,
     RANKING_REGION_LABELS,
     initial_ranking_selected_labels,
+    normalize_dividend_filter_values,
     ranking_filter_signature,
     ranking_symbols_state_key,
     symbol_candidate_labels,
@@ -89,15 +90,15 @@ def ranking_filter_summary() -> str:
         ranking_filter_value("market_data_ranking_asset_type", "all"),
         "すべて",
     )
-    dividend = RANKING_DIVIDEND_LABELS.get(
-        ranking_filter_value("market_data_ranking_dividend", "all"),
-        "指定なし",
+    dividend_category, min_dividend, dividend_enabled, _ = normalize_dividend_filter_values(
+        dividend_category=ranking_filter_value("market_data_ranking_dividend", "all"),
+        min_dividend_yield_pct=ranking_filter_value("market_data_ranking_min_dividend", "0.0"),
+        dividend_yield_enabled=ranking_filter_bool("market_data_ranking_dividend_enabled", False),
+        dividend_yield_max_pct=ranking_filter_value("market_data_ranking_dividend_max", "10.0"),
     )
-    min_dividend = ranking_filter_value("market_data_ranking_min_dividend", "0.0")
+    dividend = RANKING_DIVIDEND_LABELS.get(dividend_category, "指定なし")
     dividend_text = (
-        f"配当利回り {min_dividend}% 以上"
-        if ranking_filter_bool("market_data_ranking_dividend_enabled", False)
-        else "配当利回り 指定なし"
+        f"配当利回り {min_dividend}% 以上" if dividend_enabled else "配当利回り 指定なし"
     )
     return (
         f"条件: {region} / {product_type} / {ranking_purpose} / "

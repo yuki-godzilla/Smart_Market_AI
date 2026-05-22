@@ -173,10 +173,10 @@ RANKING_CURRENCY_LABELS = {
 }
 RANKING_DIVIDEND_LABELS = {
     "all": "指定なし",
-    "high_dividend": "高配当（配当利回り 3%以上）",
-    "dividend": "配当あり（0%超〜3%未満）",
-    "none": "配当なし（0%）",
-    "growth_dividend": "連続増配候補（metadata指定）",
+    "high_dividend": "配当利回り 3%以上",
+    "dividend": "配当利回り 0%超〜3%未満",
+    "none": "配当利回り 0%",
+    "growth_dividend": "連続増配候補（metadata指定・利回り条件なし）",
 }
 RANKING_COMPLEXITY_LABELS = {
     "beginner": "初心者向け",
@@ -204,7 +204,6 @@ RANKING_THEME_LABELS = {
     "bond": "債券",
     "reit": "REIT",
     "commodity": "コモディティ",
-    "dividend": "高配当",
 }
 RANKING_MARKET_CAP_LABELS = {
     "all": "指定なし",
@@ -231,7 +230,7 @@ RANKING_INDEX_FAMILY_LABELS = {
     "india": "インド株",
     "singapore_equity": "シンガポール株",
     "japan_equity": "日本株",
-    "dividend": "高配当/配当",
+    "dividend": "配当系指数",
     "reit": "REIT",
     "bond": "債券",
     "commodity": "コモディティ",
@@ -392,8 +391,9 @@ RANKING_FILTER_HELP_TEXTS = {
         "避けやすくなります。"
     ),
     "dividend_category": (
-        "配当利回り0%は配当なし、0%超〜3%未満は配当あり、3%以上は高配当として扱います。"
-        "連続増配候補は利回りだけではなく、curated metadataで指定された分類です。"
+        "配当利回りの帯で候補を絞ります。0%、0%超〜3%未満、3%以上を選べます。"
+        "下の配当利回り(%)をONにして細かく指定する場合、この分類条件は使いません。"
+        "連続増配候補は利回りではなく、curated metadataで指定された分類です。"
     ),
     "currency": "取引通貨で候補を絞ります。為替の影響も確認したい時に使います。",
     "dividend_yield": (
@@ -494,6 +494,22 @@ def symbol_universe_rows(
     return [_symbol_universe_row(row) for row in rows]
 
 
+def normalize_dividend_filter_values(
+    *,
+    dividend_category: str,
+    min_dividend_yield_pct: Decimal | str | int = Decimal("0"),
+    dividend_yield_enabled: bool = False,
+    dividend_yield_max_pct: Decimal | str | int = Decimal("10.0"),
+) -> tuple[str, Decimal | str | int, bool, Decimal | str | int]:
+    """Keep dividend category and explicit yield range mutually exclusive."""
+
+    if dividend_yield_enabled:
+        return "all", min_dividend_yield_pct, True, dividend_yield_max_pct
+    if dividend_category != "all":
+        return dividend_category, "0.0", False, "10.0"
+    return "all", "0.0", False, "10.0"
+
+
 def filter_symbol_universe_rows(
     rows: list[dict[str, str]],
     *,
@@ -533,6 +549,17 @@ def filter_symbol_universe_rows(
     limit: int = 10,
 ) -> list[dict[str, str]]:
     normalized_query = query.strip().lower()
+    (
+        dividend_category,
+        min_dividend_yield_pct,
+        dividend_yield_enabled,
+        dividend_yield_max_pct,
+    ) = normalize_dividend_filter_values(
+        dividend_category=dividend_category,
+        min_dividend_yield_pct=min_dividend_yield_pct,
+        dividend_yield_enabled=dividend_yield_enabled,
+        dividend_yield_max_pct=dividend_yield_max_pct,
+    )
     min_dividend = _decimal_filter_value(min_dividend_yield_pct, Decimal("0"))
     max_expense = _decimal_filter_value(max_expense_ratio_pct, Decimal("1.00"))
     detail_filters = _active_ranking_detail_filters(region, product_type)
@@ -716,6 +743,18 @@ def ranking_filter_signature(
         min_dividend_yield_pct = "0.0"
         dividend_yield_enabled = False
         dividend_yield_max_pct = "10.0"
+    else:
+        (
+            dividend_category,
+            min_dividend_yield_pct,
+            dividend_yield_enabled,
+            dividend_yield_max_pct,
+        ) = normalize_dividend_filter_values(
+            dividend_category=dividend_category,
+            min_dividend_yield_pct=min_dividend_yield_pct,
+            dividend_yield_enabled=dividend_yield_enabled,
+            dividend_yield_max_pct=dividend_yield_max_pct,
+        )
     if "market_cap" not in detail_filters:
         market_cap_tier = "all"
     if "benchmark_index" not in detail_filters:

@@ -12,6 +12,7 @@ from ui.app import (
     _ensure_selectbox_state_value,
     _market_data_preview_symbol_label,
     _name_from_candidate,
+    _normalize_dividend_filter_state,
     _ranking_result_matches_current_selection,
     _ranking_source_key_for_selection,
     _ranking_symbols_from_selected_labels,
@@ -50,6 +51,7 @@ from ui.ranking import (
     filter_symbol_universe_rows,
     initial_ranking_selected_labels,
     live_ranking_symbol_warning_message,
+    normalize_dividend_filter_values,
     rank_investment_score_rows,
     ranking_build_cache_key,
     ranking_deep_dive_default_symbol,
@@ -331,6 +333,36 @@ def test_filter_symbol_universe_rows_filters_by_dividend_yield_database_value():
     ] == ["PFE"]
 
 
+def test_filter_symbol_universe_rows_uses_explicit_dividend_range_over_category():
+    rows = symbol_universe_rows(
+        [
+            {
+                "symbol": "RANGE",
+                "name": "Range Match",
+                "dividend_category": "dividend",
+                "dividend_yield_pct": "4.0",
+            },
+            {
+                "symbol": "CATEGORY",
+                "name": "Category Only",
+                "dividend_category": "high_dividend",
+                "dividend_yield_pct": "2.5",
+            },
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            dividend_category="high_dividend",
+            dividend_yield_enabled=True,
+            min_dividend_yield_pct="3.0",
+            dividend_yield_max_pct="5.0",
+        )
+    ] == ["RANGE"]
+
+
 def test_filter_symbol_universe_rows_ignores_dividend_range_when_disabled():
     rows = symbol_universe_rows(
         [
@@ -439,11 +471,27 @@ def test_filter_symbol_universe_rows_filters_by_sector_theme_and_jpx_market_cap(
 def test_ranking_filter_labels_show_quantitative_thresholds():
     assert RANKING_MARKET_CAP_LABELS["mega"] == "超大型（JP 10兆円以上 / US $200B以上）"
     assert RANKING_MARKET_CAP_LABELS["small"] == "小型（JP 100億〜1,000億円 / US $300M〜$2B）"
-    assert RANKING_DIVIDEND_LABELS["high_dividend"] == "高配当（配当利回り 3%以上）"
-    assert RANKING_DIVIDEND_LABELS["dividend"] == "配当あり（0%超〜3%未満）"
+    assert RANKING_DIVIDEND_LABELS["high_dividend"] == "配当利回り 3%以上"
+    assert RANKING_DIVIDEND_LABELS["dividend"] == "配当利回り 0%超〜3%未満"
     assert "bond" in RANKING_THEME_LABELS
+    assert "dividend" not in RANKING_THEME_LABELS
     assert "$200B/$10B/$2B/$300M" in RANKING_FILTER_HELP_TEXTS["market_cap"]
     assert "0%超〜3%未満" in RANKING_FILTER_HELP_TEXTS["dividend_category"]
+
+
+def test_normalize_dividend_filter_values_keeps_conditions_mutually_exclusive():
+    assert normalize_dividend_filter_values(
+        dividend_category="high_dividend",
+        dividend_yield_enabled=True,
+        min_dividend_yield_pct="3.2",
+        dividend_yield_max_pct="8.0",
+    ) == ("all", "3.2", True, "8.0")
+    assert normalize_dividend_filter_values(
+        dividend_category="high_dividend",
+        dividend_yield_enabled=False,
+        min_dividend_yield_pct="3.2",
+        dividend_yield_max_pct="8.0",
+    ) == ("high_dividend", "0.0", False, "10.0")
 
 
 def test_ranking_etf_filter_labels_cover_imported_index_families():
@@ -619,6 +667,21 @@ def test_selectbox_state_resets_legacy_nisa_choice_from_saved_filters(monkeypatc
         )
 
         assert session_state["market_data_ranking_nisa"] == "all"
+
+
+def test_dividend_filter_state_prefers_explicit_range_when_both_saved(monkeypatch):
+    session_state = {
+        "market_data_ranking_filters": {
+            "market_data_ranking_dividend": "high_dividend",
+            "market_data_ranking_dividend_enabled": "true",
+        }
+    }
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+
+    _normalize_dividend_filter_state()
+
+    assert session_state["market_data_ranking_dividend"] == "all"
+    assert "market_data_ranking_dividend_enabled" not in session_state
 
 
 def test_filter_symbol_universe_rows_excludes_commodity_etfs_from_mvp_ranking():
@@ -977,6 +1040,48 @@ def test_ranking_filter_signature_ignores_period_preset():
     )
 
     assert base == changed
+
+
+def test_ranking_filter_signature_normalizes_inactive_dividend_side():
+    category_only = ranking_filter_signature(
+        region="japan",
+        product_type="stock",
+        ranking_purpose="dividend",
+        purpose="all",
+        period_preset="short",
+        market="all",
+        asset_type="all",
+        currency="all",
+        dividend_category="high_dividend",
+        min_dividend_yield_pct="3.2",
+        dividend_yield_enabled=False,
+        dividend_yield_max_pct="8.0",
+        complexity="standard",
+        theme="all",
+        query="",
+        limit=0,
+    )
+    explicit_range = ranking_filter_signature(
+        region="japan",
+        product_type="stock",
+        ranking_purpose="dividend",
+        purpose="all",
+        period_preset="short",
+        market="all",
+        asset_type="all",
+        currency="all",
+        dividend_category="high_dividend",
+        min_dividend_yield_pct="3.2",
+        dividend_yield_enabled=True,
+        dividend_yield_max_pct="8.0",
+        complexity="standard",
+        theme="all",
+        query="",
+        limit=0,
+    )
+
+    assert "high_dividend|0.0" in category_only
+    assert "|all|3.2|" in explicit_range
 
 
 def test_ranking_comparison_summary_shows_period_and_selection_status():

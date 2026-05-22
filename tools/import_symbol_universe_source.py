@@ -6,7 +6,7 @@ import json
 import sys
 from datetime import date, datetime
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence, cast
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_BASE_CSV_PATH = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe.csv"
@@ -62,14 +62,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    base_fieldnames, existing_rows = _read_csv(args.base_csv)
+    base_fieldnames, existing_raw_rows = _read_csv(args.base_csv)
+    existing_rows = cast(list[dict[str, str]], existing_raw_rows)
     _, source_rows = _read_csv(args.source_csv)
     write_fieldnames = _write_fieldnames(base_fieldnames)
     profile = symbol_universe_source_profile(args.source_profile) if args.source_profile else None
     defaults = _import_defaults(args, profile)
     source_name = args.source_name or (profile.source_name if profile else "curated_csv")
     validation_before = validate_symbol_universe_rows(
-        existing_rows,
+        cast(Sequence[dict[str | None, Any]], existing_rows),
         fieldnames=write_fieldnames,
     )
 
@@ -85,7 +86,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         validation_before=validation_before,
     )
     validation_after = validate_symbol_universe_rows(
-        preview_result.rows,
+        cast(Sequence[dict[str | None, Any]], preview_result.rows),
         fieldnames=write_fieldnames,
     )
     result = merge_symbol_universe_source_rows(
@@ -101,7 +102,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         validation_after=validation_after,
     )
 
-    if args.write and result.manifest["validation_after"]["errors"]:
+    validation_after_manifest = result.manifest.get("validation_after", {})
+    validation_errors = (
+        validation_after_manifest.get("errors", 0)
+        if isinstance(validation_after_manifest, dict)
+        else 0
+    )
+    if args.write and validation_errors:
         print(json.dumps(result.manifest, ensure_ascii=False, indent=2, sort_keys=True))
         print("Refusing to write because validation_after has errors.", file=sys.stderr)
         return 2

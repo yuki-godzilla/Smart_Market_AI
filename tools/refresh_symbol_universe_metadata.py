@@ -6,7 +6,7 @@ import json
 import sys
 from datetime import date, datetime
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence, cast
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CSV_PATH = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe.csv"
@@ -98,7 +98,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             if row.get("symbol", "").strip()
         },
     )
-    validation_before = validate_symbol_universe_rows(rows, fieldnames=fieldnames)
+    validation_before = validate_symbol_universe_rows(
+        cast(Sequence[dict[str | None, Any]], rows),
+        fieldnames=fieldnames,
+    )
     write_fieldnames = _write_fieldnames(fieldnames, rows)
 
     result = refresh_symbol_universe_metadata(
@@ -109,8 +112,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         dry_run=not args.write,
         validation_before=validation_before,
     )
-    validation_after = validate_symbol_universe_rows(result.rows, fieldnames=write_fieldnames)
-    result.manifest["validation_after"] = summarize_validation_issues(validation_after)
+    validation_after = validate_symbol_universe_rows(
+        cast(Sequence[dict[str | None, Any]], result.rows),
+        fieldnames=write_fieldnames,
+    )
+    validation_after_summary = summarize_validation_issues(validation_after)
+    result.manifest["validation_after"] = validation_after_summary
     result.manifest["selection"] = _selection_manifest(
         rows,
         selected_rows,
@@ -122,7 +129,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         limit=args.limit,
     )
 
-    if args.write and result.manifest["validation_after"]["errors"]:
+    if args.write and validation_after_summary["errors"]:
         print(json.dumps(result.manifest, ensure_ascii=False, indent=2, sort_keys=True))
         print("Refusing to write because validation_after has errors.", file=sys.stderr)
         return 2

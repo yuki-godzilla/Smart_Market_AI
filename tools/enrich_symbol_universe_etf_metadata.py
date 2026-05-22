@@ -311,16 +311,13 @@ def build_manifest(
     csv_path: Path,
     rows: Sequence[dict[str, str]] | None = None,
 ) -> dict[str, object]:
-    changed_fields = Counter(
-        field
-        for change in changes
-        for field in change.get("changed_fields", [])
-        if isinstance(field, str)
-    )
+    changed_fields = Counter(field for change in changes for field in _changed_fields(change))
     index_family_updates = Counter(
-        str(change["after"]["index_family"])
+        str(after["index_family"])
         for change in changes
-        if "index_family" in change.get("changed_fields", [])
+        if "index_family" in _changed_fields(change)
+        for after in [_change_after(change)]
+        if "index_family" in after
     )
     manifest: dict[str, object] = {
         "operation": "symbol_universe_etf_metadata_enrichment",
@@ -335,6 +332,18 @@ def build_manifest(
     if rows is not None:
         manifest["post_update_summary"] = build_post_update_summary(rows)
     return manifest
+
+
+def _changed_fields(change: Mapping[str, object]) -> list[str]:
+    value = change.get("changed_fields", [])
+    if not isinstance(value, list):
+        return []
+    return [field for field in value if isinstance(field, str)]
+
+
+def _change_after(change: Mapping[str, object]) -> Mapping[str, object]:
+    value = change.get("after", {})
+    return value if isinstance(value, Mapping) else {}
 
 
 def build_post_update_summary(rows: Sequence[dict[str, str]]) -> dict[str, object]:

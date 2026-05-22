@@ -1,0 +1,15 @@
+{
+  "as_of": "2026-05-19",
+  "fieldnames": [
+    "symbol",
+    "nisa_category",
+    "nisa_growth_eligible",
+    "nisa_tsumitate_eligible"
+  ],
+  "input_rows": 1,
+  "operation": "symbol_universe_source_build",
+  "output_rows": 1,
+  "skipped": [],
+  "skipped_rows": 0,
+  "source_kind": "nisa_eligibility"
+}

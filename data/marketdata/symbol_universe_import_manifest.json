@@ -1,0 +1,155 @@
+{
+  "as_of": "2026-05-19",
+  "changed_columns": [
+    "metadata_as_of",
+    "metadata_source",
+    "metadata_updated_at",
+    "nisa_category",
+    "nisa_growth_eligible",
+    "nisa_tsumitate_eligible"
+  ],
+  "default_columns": {
+    "nisa_category": "unknown"
+  },
+  "defaults": {
+    "asset_type": "",
+    "currency": "",
+    "market": "",
+    "symbol_suffix": ""
+  },
+  "dry_run": false,
+  "existing_rows": 9180,
+  "failed_rows": 5,
+  "failed_symbols": [
+    "9285.T",
+    "9282.T",
+    "9286.T",
+    "1553.T",
+    "9284.T"
+  ],
+  "failed_symbols_truncated": false,
+  "failures": [
+    {
+      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
+      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
+      "source_row": 48,
+      "symbol": "9285.T"
+    },
+    {
+      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
+      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
+      "source_row": 111,
+      "symbol": "9282.T"
+    },
+    {
+      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
+      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
+      "source_row": 113,
+      "symbol": "9286.T"
+    },
+    {
+      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
+      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
+      "source_row": 215,
+      "symbol": "1553.T"
+    },
+    {
+      "code": "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL",
+      "message": "symbol is not in the existing symbol universe, so update-only source rows cannot be imported.",
+      "source_row": 236,
+      "symbol": "9284.T"
+    }
+  ],
+  "imported_rows": 0,
+  "imported_symbols": [],
+  "imported_symbols_truncated": false,
+  "manifest_symbol_sample_limit": 200,
+  "operation": "symbol_universe_source_import",
+  "skipped_existing_rows": 0,
+  "skipped_existing_symbols": [],
+  "skipped_existing_symbols_truncated": false,
+  "source": "imaj",
+  "source_rows": 294,
+  "total_rows": 9180,
+  "update_columns": [
+    "metadata_as_of",
+    "metadata_source",
+    "metadata_updated_at",
+    "nisa_category",
+    "nisa_growth_eligible",
+    "nisa_tsumitate_eligible"
+  ],
+  "update_existing": true,
+  "updated_at": "2026-05-19T00:00:00+09:00",
+  "updated_rows": 57,
+  "updated_symbols": [
+    "3487.T",
+    "3281.T",
+    "3292.T",
+    "3269.T",
+    "3249.T",
+    "8953.T",
+    "2971.T",
+    "3287.T",
+    "8958.T",
+    "8963.T",
+    "8985.T",
+    "8952.T",
+    "3309.T",
+    "8984.T",
+    "3279.T",
+    "3282.T",
+    "3451.T",
+    "3462.T",
+    "8977.T",
+    "3295.T",
+    "3283.T",
+    "8966.T",
+    "3455.T",
+    "3290.T",
+    "3476.T",
+    "8967.T",
+    "3481.T",
+    "8961.T",
+    "8956.T",
+    "8975.T",
+    "3463.T",
+    "8954.T",
+    "8955.T",
+    "8968.T",
+    "3226.T",
+    "3459.T",
+    "8987.T",
+    "3468.T",
+    "8979.T",
+    "2979.T",
+    "8976.T",
+    "8986.T",
+    "2989.T",
+    "8957.T",
+    "8951.T",
+    "3470.T",
+    "8964.T",
+    "3471.T",
+    "3234.T",
+    "3466.T",
+    "3296.T",
+    "8972.T",
+    "8960.T",
+    "3472.T",
+    "3492.T",
+    "3488.T",
+    "2972.T"
+  ],
+  "updated_symbols_truncated": false,
+  "validation_after": {
+    "errors": 0,
+    "total": 0,
+    "warnings": 0
+  },
+  "validation_before": {
+    "errors": 0,
+    "total": 0,
+    "warnings": 0
+  }
+}

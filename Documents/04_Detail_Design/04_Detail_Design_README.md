@@ -4,7 +4,7 @@
 
 ## Current Sync Status
 
-この索引は **2026-05-17 時点の実装状態に同期済み**です。
+この索引は **2026-05-18 時点の実装状態に同期済み**です。
 
 | Area | Document | Status |
 |---|---|---|
@@ -16,7 +16,7 @@
 | Portfolio | [Portfolio](./04-6_Onepager_Portfolio.md) | implemented / synced |
 | Implementation class diagram | [Implementation Class Diagram](./04-7_Implementation_Class_Diagram.md) | mostly synced; diagram reference |
 | Research RAG | [Research RAG](./04-8_Onepager_Research_RAG.md) | designed / planned |
-| Investment Scoring UI | [Investment Scoring UI](./04-9_Onepager_Investment_Scoring_UI.md) | implemented / improving |
+| Investment Scoring UI | [Investment Scoring UI](./04-9_Onepager_Investment_Scoring_UI.md) | implemented; final smoke recommended |
 
 ## 読み方
 

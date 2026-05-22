@@ -1,0 +1,5 @@
+symbol,name,index_family,trust_fee_pct,aum,nisa_tsumitate_eligible,nisa_growth_eligible,installment_available,management_style,distribution_policy,nisa_category,investment_style,tags
+MF-EMAXIS-ACWI,eMAXIS Slim 全世界株式（オール・カントリー）,acwi,0.05775,5000000000000,true,true,true,index,none,both,recurring,"installment,low_cost"
+MF-EMAXIS-SP500,eMAXIS Slim 米国株式（S&P500）,sp500,0.0814,6000000000000,true,true,true,index,none,both,recurring,"installment,low_cost"
+MF-SBI-V-SP500,SBI・V・S&P500インデックス・ファンド,sp500,0.0938,1500000000000,true,true,true,index,none,both,recurring,"installment,low_cost"
+MF-SBI-V-TOTAL-US,SBI・V・全米株式インデックス・ファンド,total_us,0.0938,500000000000,true,true,true,index,none,both,recurring,"installment,low_cost"

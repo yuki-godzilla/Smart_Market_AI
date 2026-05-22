@@ -1,0 +1,57 @@
+code,security_name,theme,sector,tags,aliases
+6723,Renesas Electronics,semiconductor,technology,growth,renesas semiconductor
+6146,Disco,semiconductor,technology,growth,disco semiconductor
+6920,Lasertec,semiconductor,technology,growth,lasertec semiconductor
+7735,SCREEN Holdings,semiconductor,technology,growth,screen semiconductor
+6954,Fanuc,technology,industrial,balanced,fanuc robotics
+6273,SMC,balanced,industrial,quality,smc factory automation
+6503,Mitsubishi Electric,balanced,industrial,balanced,mitsubishi electric
+6594,Nidec,technology,industrial,growth,nidec motor
+6971,Kyocera,technology,technology,balanced,kyocera electronics
+6762,TDK,technology,technology,growth,tdk electronics
+4901,Fujifilm Holdings,healthcare,healthcare,quality,fujifilm
+7733,Olympus,healthcare,healthcare,quality,olympus medical
+4523,Eisai,healthcare,healthcare,balanced,eisai pharma
+4503,Astellas Pharma,healthcare,healthcare,dividend,astellas pharma
+7741,Hoya,healthcare,healthcare,quality,hoya
+9433,KDDI,telecom,communication,dividend,kddi telecom
+9434,SoftBank Corp,telecom,communication,dividend,softbank telecom
+8053,Sumitomo Corp,trading,industrial,dividend,sumitomo trading
+7201,Nissan Motor,automotive,consumer,value,nissan automotive
+7269,Suzuki Motor,automotive,consumer,balanced,suzuki automotive
+7270,Subaru,automotive,consumer,value,subaru automotive
+9021,West Japan Railway,balanced,industrial,balanced,jr west railway
+3092,ZOZO,consumer,consumer,growth,zozo ecommerce
+4704,Trend Micro,technology,technology,quality,trend micro software
+1801,Taisei,balanced,industrial,balanced,taisei construction
+1802,Obayashi,balanced,industrial,balanced,obayashi construction
+1803,Shimizu,balanced,industrial,balanced,shimizu construction
+1925,Daiwa House Industry,balanced,industrial,balanced,daiwa house housing
+1928,Sekisui House,balanced,consumer,dividend,sekisui house housing
+3402,Toray Industries,balanced,materials,value,toray materials
+3407,Asahi Kasei,balanced,materials,balanced,asahi kasei chemicals
+4005,Sumitomo Chemical,balanced,materials,value,sumitomo chemical
+4183,Mitsui Chemicals,balanced,materials,balanced,mitsui chemicals
+4188,Mitsubishi Chemical Group,balanced,materials,balanced,mitsubishi chemical
+5802,Sumitomo Electric Industries,technology,industrial,quality,sumitomo electric
+6301,Komatsu,balanced,industrial,dividend,komatsu machinery
+6326,Kubota,balanced,industrial,balanced,kubota machinery
+6504,Fuji Electric,balanced,industrial,growth,fuji electric
+6645,Omron,technology,technology,quality,omron automation
+6701,NEC,technology,technology,growth,nec it
+6724,Seiko Epson,technology,technology,value,seiko epson printer
+6752,Panasonic Holdings,consumer,consumer,value,panasonic electronics
+6988,Nitto Denko,technology,materials,quality,nitto denko materials
+7309,Shimano,consumer,consumer,quality,shimano bicycle
+7453,Ryohin Keikaku,consumer,consumer,balanced,muji ryohin
+7532,Pan Pacific International Holdings,consumer,consumer,growth,don quijote retail
+8113,Unicharm,consumer,consumer,quality,unicharm consumer
+8802,Mitsubishi Estate,balanced,real_estate,balanced,mitsubishi estate real estate
+8830,Sumitomo Realty & Development,balanced,real_estate,balanced,sumitomo realty
+9005,Tokyu,balanced,industrial,balanced,tokyu railway
+9007,Odakyu Electric Railway,balanced,industrial,balanced,odakyu railway
+9042,Hankyu Hanshin Holdings,balanced,industrial,balanced,hankyu hanshin railway
+9201,Japan Airlines,balanced,industrial,value,jal airline
+9202,ANA Holdings,balanced,industrial,value,ana airline
+9502,Chubu Electric Power,energy,utilities,dividend,chubu electric utility
+9503,Kansai Electric Power,energy,utilities,dividend,kansai electric utility

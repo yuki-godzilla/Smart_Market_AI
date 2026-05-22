@@ -2,24 +2,115 @@
 
 #### [BACK TO README](../README.md)
 
-## Purpose / ??
+## Purpose / 目的
 
 This file stores historical work-log entries for Smart Market AI.
-??????? Smart Market AI ??????????????
+このファイルは Smart Market AI の履歴作業ログを保存します。
 
 `PROJECT_CONTEXT.md` should stay compact and focused on the current project state.
-`PROJECT_CONTEXT.md` ???????????????????????????
+`PROJECT_CONTEXT.md` はコンパクトな現在地サマリに保ちます。
 
 Read this file only when historical investigation is needed.
-???????????????????????????
+履歴調査が必要な場合だけ読みます。
 
 When adding a new work-log entry, append it to the top of the Work Log section.
-????????????????Work Log ???????????????
+新しい作業ログは Work Log セクションの先頭に追加します。
 
 ## Work Log / 作業ログ
 
-- 2026-05-17: Started Phase 18 by adding `backend/reporting` Decision Report context v1, deterministic Markdown rendering, local export manifest metadata, and tests covering cockpit / ranking / rebalance context composition. / Phase 18 を開始し、`backend/reporting` に Decision Report context v1、deterministic Markdown rendering、local export manifest metadata、cockpit / ranking / rebalance context composition tests を追加した。
+- 2026-05-17: Started Phase 19 by adding `backend/reporting` Decision Report context v1, deterministic Markdown rendering, local export manifest metadata, and tests covering cockpit / ranking / rebalance context composition. / Phase 19 を開始し、`backend/reporting` に Decision Report context v1、deterministic Markdown rendering、local export manifest metadata、cockpit / ranking / rebalance context composition tests を追加した。
 
+## 2026-05-22 - Ranking symbol detail modal readability
+
+- Enlarged the ranking symbol detail modal and reorganized symbol master data into user-facing overview, investment metric, ETF/fund, data-info, and raw registration tabs.
+- Added display-label conversion for internal symbol-universe values such as `sbi_securities`, `yahoo`, NISA categories, market-cap tiers, and risk bands.
+- Added dialog CSS for a wider modal and wrapped metric values to avoid text clipping.
+- Moved raw CSV column/value details into a collapsed confirmation expander with both display values and registered raw values.
+- Added short usage notes to data-info rows so users can see why source, freshness, and provider ticker fields matter.
+
+## 2026-05-22 - Ranking result modal rerun stabilization
+
+- Stabilized the ranking-result AgGrid key so closing a detail modal does not remount/repaint the result table.
+- Changed the modal trigger to process row-click event tokens, preventing the previous click from reopening on modal-close reruns while allowing the same row to be clicked again.
+- Kept the AgGrid update trigger scoped to row-click events.
+
+## 2026-05-22 - Ranking symbol master detail modal
+
+- Added a ranking-result row click flow that opens a modal with the selected symbol's local `symbol_universe.csv` data.
+- Replaced the temporary full-width button rows with an AgGrid ranking result table so row-click detail opening, hover/selection state, horizontal scrolling, sorting, filtering, and column resizing can coexist with a table-like layout.
+- Tuned the AgGrid ranking table dark styling so headers stay readable and the grid surface is visually distinct from the surrounding page.
+- Rendered symbol master fields as `項目 / 列 / 値` rows so UI labels and raw CSV column names can be checked together.
+- Added investment-use help text to the ranking acquisition period selector, explaining short, medium, and long lookback use cases.
+- Added regression tests for AgGrid options, selected-row extraction, stable table keys, and symbol master detail row formatting.
+
+## 2026-05-22 - Ranking dividend filter mutual exclusion
+
+- Made ranking dividend category and explicit dividend-yield range mutually exclusive; explicit range wins if both are restored from older saved state.
+- Reworded dividend category labels as numeric yield bands and removed the duplicate high-dividend theme choice from the industry/theme dropdown.
+- Renamed the ETF dividend index family label to `配当系指数` so it is not confused with a yield screening condition.
+- Added regression tests for dividend filter normalization, label wording, and cache-signature normalization.
+
+## 2026-05-22 - Ranking NISA filter wording
+
+- Simplified the ranking NISA dropdown for the current stock / ETF scope to `指定なし（NISAで絞らない）`, `NISA対象のみ（成長投資枠）`, and `NISA対象外のみ`.
+- Removed confusing visible choices such as `つみたて投資枠` and `両方`; legacy saved values now reset to the safe default.
+- Added `NISA対象外のみ` filtering so ETF candidates can be narrowed by confirmed non-eligible rows.
+- Documented that stock candidates are currently stored as growth-NISA eligible, so the NISA target filter does not reduce domestic or US stock counts.
+
+## 2026-05-22 - NISA and ETF metadata horizontal cleanup
+
+- Backfilled 4,334 US stock rows as NISA growth eligible, matching the stock-level treatment already applied to JP listed stocks.
+- Normalized NISA boolean flags from `nisa_category` so `growth`, `both`, and `none` rows now have consistent `nisa_growth_eligible` / `nisa_tsumitate_eligible` values.
+- Tightened ETF leveraged detection so ordinary names containing `ブルームバーグ`, `サステナブル`, `コンバーチブル`, or `FTSEブルサ` are not misclassified as leveraged products.
+- Reclassified confirmed leveraged / inverse ETFs as NISA `none` where they had remained `unknown`, while leaving ordinary unconfirmed ETF rows for official source review.
+
+## 2026-05-22 - JP stock NISA metadata backfill
+
+- Confirmed the ranking NISA filter was working as designed, but the domestic-stock universe only had 8 JP stock rows marked NISA eligible.
+- Backfilled JP stock rows in `symbol_universe.csv` so 3,747 domestic stock rows now carry `nisa_category=growth`, `nisa_growth_eligible=true`, and `nisa_tsumitate_eligible=false`.
+- Updated the JPX stock import profiles so future JPX listed-stock imports keep domestic listed stocks aligned with the NISA growth-investment default.
+- Added tests covering the JPX profile defaults, the current JP stock NISA coverage floor, and the ranking NISA filter behavior.
+
+## 2026-05-22 - Ranking filter wording and beta risk UI
+
+- Added beginner-friendly help text to the ranking detail filters for sector/theme, market cap, NISA, ETF index, expense ratio, complexity, dividend, currency, PER, PBR, ROE, and keyword search.
+- Expanded/clarified sector/theme labels, including the observed bond category and clearer sector wording for communication, consumer, industrial, and index ETF rows.
+- Reworded market-cap and dividend-category choices with quantitative thresholds, including separate JP/US market-cap cutoffs and dividend-yield bands.
+- Exposed stock `risk_band` as `市場感応度（β）` with threshold-based choices such as `低変動のみ（β < 0.8）`, `標準以下（β <= 1.2）`, and `高変動のみ（β > 1.2）`.
+- Kept legacy `LOW` / `MEDIUM` / `HIGH` filter compatibility while routing the UI through quantitative beta labels.
+- Updated UI wording and operations docs to distinguish pre-fetch beta filtering from post-fetch ranking Risk / risk score checks.
+
+- 2026-05-21: Imported the JPX ETF/ETN official HTML source and IMAJ NISA growth listed-fund Excel into the local symbol universe flow, expanding ETF candidates to 449 and updating 232 existing ETF rows with NISA growth metadata while leaving REIT / infrastructure-fund rows as update-only failures outside the MVP universe. / JPX ETF/ETN 公式 HTML source と IMAJ NISA 成長投資枠 listed-fund Excel を local symbol universe flow に取り込み、ETF 候補を449件へ拡張し、既存 ETF 232件へ NISA 成長投資枠 metadata を反映した。REIT / インフラファンド行は MVP 対象外として update-only failure に残した。
+- 2026-05-21: Added `tools/check_symbol_universe_yahoo_coverage.py` for explicit live Yahoo OHLCV coverage checks, ran sample and full checks for JPX listed-stock additions, and stored JSON/CSV outputs under `data/marketdata/live_checks/`. Sample 30/30 succeeded; full 3,645-symbol check succeeded for 3,641 symbols, with four short-period no-bar symbols investigated separately. / 明示的な live Yahoo OHLCV coverage check 用に `tools/check_symbol_universe_yahoo_coverage.py` を追加し、JPX 東証上場銘柄追加分のサンプル・全数確認を実行して `data/marketdata/live_checks/` に JSON/CSV を保存した。サンプルは 30/30 成功、全数 3,645件は 3,641件成功し、短期期間で no-bar だった4件は個別に確認した。
+- 2026-05-20: Added `.xls` raw-file support to `tools/build_symbol_universe_source.py` via `xlrd`, imported the JPX listed-stock 2026-05-20 raw file into `symbol_universe.csv`, and expanded the local candidate master to 3,872 rows while keeping JPX tradability as `unknown`. / `tools/build_symbol_universe_source.py` に `xlrd` による `.xls` raw file 対応を追加し、2026-05-20 の JPX 東証上場銘柄一覧を `symbol_universe.csv` に取り込み、JPX 由来の tradability は `unknown` のまま local candidate master を 3,872件へ拡張した。
+- 2026-05-18: Added the first live symbol metadata adapter for Yahoo behind explicit `--provider yahoo --allow-live`, mapping selected ticker metadata into the catalog fields and recording per-symbol failures in the refresh manifest while keeping normal checks network-free. / 初の live symbol metadata adapter として Yahoo を `--provider yahoo --allow-live` の明示 opt-in 配下に追加し、取得できた ticker metadata を catalog fields へ正規化。失敗銘柄は refresh manifest に残し、通常 checks は network 非依存のまま維持した。
+- 2026-05-18: Added the Phase 18 symbol metadata catalog to define core / ranking-filter / fund-extended tiers, storage policy, source and freshness requirements, and future fund metadata boundaries before adding live provider updates. / live provider 更新を追加する前に、Phase 18 の symbol metadata catalog を追加し、core / ranking-filter / fund-extended の tier、保存方針、source/freshness 要件、将来の投信 metadata 境界を定義した。
+- 2026-05-18: Implemented the Phase 18 provider-neutral symbol metadata refresh path with a deterministic `curated_csv` provider, dry-run-first CLI, manifest summary, guarded `--write` path, provider diagnostics, and tests for the service and tool. / Phase 18 の provider-neutral な symbol metadata refresh 経路を実装。deterministic な `curated_csv` provider、dry-run first CLI、manifest summary、validation 付き `--write`、provider diagnostics、service/tool test を追加した。
+- 2026-05-18: Updated the Phase 18 roadmap with the provider strategy: Yahoo remains the default live provider, but metadata refresh must be implemented behind a provider-neutral contract with dry-run/manifest first and live adapters kept opt-in. / Phase 18 ロードマップに provider 方針を追記。Yahoo は既定 live provider としつつ、metadata refresh は provider-neutral contract、dry-run/manifest 先行、live adapter 明示 opt-in として進める。
+- 2026-05-18: Continued Phase 18 by adding metadata source/as-of/update columns to `symbol_universe.csv`, summarizing metadata source and freshness in Settings, warning on missing metadata fields, and testing the curated CSV metadata baseline. / Phase 18 を継続し、`symbol_universe.csv` に metadata source/as-of/update 列を追加。Settings で metadata 出所と鮮度を要約表示し、metadata 欠損 warning と curated CSV baseline の test を追加した。
+- 2026-05-18: Started Phase 18 symbol metadata refresh with a network-free schema slice: added `symbol_universe.csv` required/optional column definitions, enum/decimal/duplicate ticker validation, Settings validation display, and tests covering the current curated CSV. / Phase 18 の symbol metadata refresh を network 非依存の schema から開始し、`symbol_universe.csv` の必須/任意列、enum/decimal/重複 ticker validation、Settings での確認表示、現在の curated CSV を検証する test を追加した。
+- 2026-05-18: Marked Phase 17 ranking-condition UI polish as implementation-complete after user visual confirmation, and updated the roadmap/current context so Phase 18 symbol metadata refresh is the next implementation target. / ユーザーの目視確認完了を受けて Phase 17 ranking-condition UI polish を実装完了扱いにし、ロードマップと現在地を更新して Phase 18 symbol metadata refresh を次の実装対象にした。
+- 2026-05-18: Added a compact ranking comparison status line for acquisition period, candidate count, selected count, and all/partial selection status so the collapsed comparison-symbol selector remains understandable without adding a bulky section. / ranking の比較状態を1行で表示し、取得期間・候補数・選択数・全候補/一部選択の状態を、比較銘柄 selector を閉じたままでも分かるようにした。
+- 2026-05-18: Polished the Phase 17 ranking condition layout by shortening detail-filter wording, grouping filters into attribute / numeric / keyword sections, moving the all-selected comparison-symbol multiselect into a collapsed expander, and removing the unused legacy ranking-filter dialog from `ui/app.py`. / Phase 17 ranking 条件 UI を調整し、詳細条件の文言を短くし、属性条件・数値条件・キーワード検索に分け、全件選択の比較銘柄 multiselect は折りたたみへ移動。未使用の旧 ranking filter dialog を `ui/app.py` から削除した。
+- 2026-05-18: Started Phase 17 ranking-condition UI polish by adding region / product type / ranking purpose classification, wiring dynamic detail filters into the Streamlit ranking page, deriving display weight presets from ranking purpose, and keeping only `symbol_universe.csv`-backed filters active while marking mutual-fund metadata as future scope. / Phase 17 の ranking-condition UI polish として、地域・商品・ランキング目的の分類を追加し、Streamlit の銘柄ランキングへ動的な詳細条件を接続。ランキング目的から表示順の重み付けを決めるようにし、実フィルタは `symbol_universe.csv` で判定できる条件に限定しつつ、投信 metadata は将来拡張として扱った。
+- 2026-05-18: Shared one curl_cffi-backed yfinance session across Yahoo `Search`, `download`, and `Ticker` calls to keep cookie / crumb state attached to the same HTTP session and improve first-call live fetch stability. / Yahoo の `Search`、`download`、`Ticker` 呼び出しで curl_cffi backed の yfinance session を共有し、cookie / crumb 状態と HTTP session がズレにくいようにして初回 live fetch の安定性を改善した。
+- 2026-05-18: Added a short one-time retry for empty Yahoo yfinance download batch responses so first-call warm-up or transient empty responses are retried inside the provider instead of requiring the user to press Fetch again. / Yahoo yfinance download の batch response が空だった場合に短い 1 回リトライを追加し、初回 warm-up や一時的な空レスポンスでユーザーが Fetch を押し直さなくても provider 内で吸収できるようにした。
+- 2026-05-18: Made Yahoo cockpit fetch more price-first by skipping live FX and fundamentals during the initial single-symbol fetch, reducing auxiliary Yahoo calls that can add timeout latency while keeping price/forecast/score rendering available. / Yahoo cockpit の初期取得を価格優先にし、単一銘柄 fetch では live FX / fundamentals を取得しないようにして、timeout 待ちになりやすい補助 Yahoo call を減らしつつ価格・予測・score 表示を維持した。
+- 2026-05-18: Hardened Yahoo cockpit fetching by routing single-symbol OHLCV through the same non-threaded yfinance download path as ranking and treating FX/fundamentals as auxiliary data so price/forecast/score can still render with structured warnings when auxiliary live requests fail. / Yahoo cockpit の取得安定性を上げるため、単一銘柄 OHLCV も ranking と同じ非 threaded yfinance download 経路へ寄せ、FX / fundamentals は補助データとして扱い、補助 live request が失敗しても価格・予測・score は表示し structured warning を出すようにした。
+- 2026-05-18: Simplified the roadmap chapter structure by grouping completed work into Phase 1-9 MVP foundation and Phase 10-16 investment/UI foundation, numbering the next implementation sequence as Phase 16S through Phase 24, and consolidating future AI/RAG/execution details into a single backlog section without a duplicated appendix. / ロードマップの章立てを整理し、完了済みを Phase 1-9 MVP foundation と Phase 10-16 investment/UI foundation に分け、次期実装順を Phase 16S から Phase 24 まで番号付きで並べ、重複していた appendix を削って future AI/RAG/execution の詳細を backlog に集約した。
+- 2026-05-18: Reordered the implementation roadmap around the actual next build sequence: Phase 16S stabilization, Phase 17 ranking-condition UI polish, Phase 18 symbol metadata refresh, Phase 19 Decision Report context, Phase 20/21 Research RAG and Research Score, Phase 22 assistant, Phase 23 optional adapters, and Phase 24 export/execution gate. / 実装ロードマップを実際の次期実装順に並び替え、Phase 16S stabilization、Phase 17 ranking-condition UI polish、Phase 18 symbol metadata refresh、Phase 19 Decision Report context、Phase 20/21 Research RAG / Research Score、Phase 22 assistant、Phase 23 optional adapters、Phase 24 export/execution gate として整理した。
+- 2026-05-18: Clarified Market Data ranking partial-failure handling by marking no-price symbols as excluded with provider/request diagnostics and resetting the deep-dive selector to the current top-ranked symbol when the ranking source or weight preset changes. / Market Data ranking の部分失敗時に、価格未取得銘柄をランキング除外として provider/request 診断付きで表示し、ranking source や重視条件が変わった場合は深掘り候補を現在の上位銘柄へ戻すようにした。
+- 2026-05-18: Suppressed yfinance warning/error logger output inside the Yahoo provider call boundary so repeated live-provider failures remain visible as structured SMAI diagnostics instead of raw console spam. / Yahoo provider の呼び出し境界で yfinance の warning/error logger 出力も抑制し、live provider の取得失敗は生ログではなく SMAI の structured diagnostics として見えるようにした。
+- 2026-05-18: Further separated ranking state and scoring helpers by adding `ui/ranking_state.py` for Streamlit session-state handling and moving ranking score reweighting/sorting into `ui/ranking.py`, leaving `ui/app.py` closer to page rendering and provider execution. / ranking の状態管理と score helper をさらに分離し、Streamlit session-state 操作は `ui/ranking_state.py`、ranking score の重み付け・並べ替えは `ui/ranking.py` へ移動。`ui/app.py` は page rendering と provider execution に寄せた。
+- 2026-05-18: Continued the Streamlit lightweight refactor by extracting ranking constants, symbol-universe filtering, ranking filter signatures, chunking, cache keys, live-warning text, and provider error row helpers into `ui/ranking.py` while keeping `ui/app.py` focused on rendering and execution flow. / Streamlit 軽量化リファクタを継続し、ranking 定数、symbol universe filtering、filter signature、chunking、cache key、live warning、provider error row helper を `ui/ranking.py` へ切り出し、`ui/app.py` は表示と実行 flow に寄せた。
+- 2026-05-18: Added the ranking-condition classification work to Phase 19 UI Polish, scoped as region/product/purpose selectors plus data-backed dynamic detail filters, with future-only metadata kept separate from currently enforceable filters. / ランキング作成条件 UI の分類整理を Phase 19 UI Polish に追加し、地域・商品・ランキング目的の選択と、既存データで判定できる動的詳細条件を初期範囲に整理。将来用 metadata 条件は現時点で有効な filter と分けて扱う方針にした。
+- 2026-05-18: Reduced repeated Yahoo fetch failures by reporting live ranking batch errors once, reusing one OHLCV range for single-symbol cockpit quote/features, and suppressing noisy yfinance stdout/stderr messages while keeping structured UI diagnostics. / Yahoo 取得失敗の繰り返しを抑えるため、ranking の live provider batch error は銘柄別再試行せず 1 回の structured error として表示し、単一銘柄 cockpit は 1 回取得した OHLCV を quote/features に再利用し、yfinance の stdout/stderr 生ログは抑制して UI の診断情報に寄せた。
+- 2026-05-18: Reaffirmed Streamlit Market Data as Yahoo live-first by keeping `yahoo` first/default in provider selectors, replacing the temporary 10-symbol Yahoo ranking hard limit with a warning above 30 symbols, while retaining smaller non-threaded Yahoo download chunks and cached yfinance search results. / Streamlit Market Data を Yahoo live-first として整理し、provider selector は `yahoo` を先頭・初期表示に維持。暫定的な Yahoo ranking 10 銘柄 hard limit は撤廃して 30 銘柄超の警告に置き換えつつ、小さめの非 threaded Yahoo download chunk と yfinance 検索 cache は維持した。
+- 2026-05-18: Improved Streamlit Market Data provider error handling so live-provider failures stop before empty cockpit sections, show beginner-friendly next actions, keep raw provider details inside a diagnostics expander, and report the Yahoo opt-in adapter as implemented in Yahoo adapter diagnostics. / Streamlit Market Data の provider エラー表示を改善し、live provider 失敗時は空のコックピット表示へ進まず、次の確認手順を初心者向けに示し、raw provider details は診断情報 expander に畳み、Yahoo adapter の診断情報では opt-in adapter を実装済みとして表示するようにした。
+- 2026-05-18: Started the Streamlit refactor/lightweight pass by extracting Rebalance rendering into `ui/views/rebalance.py`, shared UI helpers into `ui/views/common.py`, and MarketData session-state keys into `ui/state.py` while keeping `ui/app.py` as a compatibility entrypoint for existing tests. / Streamlit のリファクタ・軽量化として、Rebalance 表示を `ui/views/rebalance.py`、共通 UI helper を `ui/views/common.py`、MarketData の session state key を `ui/state.py` へ切り出し、既存テスト互換の入口として `ui/app.py` から再公開する形にした。
+- 2026-05-18: Replaced the Streamlit sidebar radio selector with a button-style side menu panel and moved settings view code out of the reserved `ui/pages` directory to avoid Streamlit native multipage navigation. / Streamlit サイドバーの radio 選択をボタン型のサイドメニューパネルへ変更し、Streamlit の標準マルチページナビが出ないよう設定画面コードを予約ディレクトリ `ui/pages` から移動した。
+- 2026-05-18: Reworked the Streamlit layout from broad top tabs and heavy sidebar controls into a compact `sidemenu.py` driven screen switcher, with Rebalance inputs moved into the Rebalance page and symbol references moved into cockpit/settings views. / Streamlit の画面構成を、上部タブと重いサイドバー入力から、`sidemenu.py` による軽量な画面切り替えへ整理し、Rebalance 入力を Rebalance 画面内へ、銘柄候補をコックピット/設定画面側へ移動した。
+- 2026-05-18: Synchronized current-state documentation with implementation after a project-wide doc/code consistency review, clarifying Phase 16 completion, Streamlit provider defaults, Yahoo opt-in adapter status, setup Python expectations, and future-scope technology/reporting items. / プロジェクト全体のドキュメントと実装の整合性を確認し、Phase 16 完了扱い、Streamlit provider 初期表示、Yahoo opt-in adapter 状態、setup の Python 前提、future scope の技術・レポート項目を現在実装に合わせて整理した。
 - 2026-05-17: Marked Phase 16 as implementation-complete with final Streamlit browser smoke recommended, and added the Phase 16 final UI smoke checklist to the roadmap and operations guide. / Phase 16 を実装完了扱いに更新し、最終 Streamlit browser smoke 推奨として、Phase 16 最終 UI 確認チェックリストをロードマップと運用ガイドへ追加した。
 - 2026-05-17: Documented the current Phase 16 ranking workflow in the operations guide, including `symbol_universe.csv`, the in-page screening condition panel, ranking cache, Yahoo batch OHLCV fetch, progress display, and the ranking-to-cockpit deep-dive flow. / Phase 16 の銘柄ランキング workflow について、`symbol_universe.csv`、画面内スクリーニング条件パネル、ranking cache、Yahoo 一括 OHLCV 取得、進捗表示、銘柄コックピットへの深掘り導線を運用ガイドへ記録した。
 - 2026-05-17: Polished the Phase 16 Market Data ranking UI wording by clarifying that screening conditions filter candidates while acquisition period / weight preset control ranking calculation and display ordering. / Phase 16 Market Data ranking の UI 文言を調整し、スクリーニング条件は候補絞り込み、取得期間と重視条件は ranking 計算・表示順の設定であることを明確化した。
@@ -203,3 +294,163 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - Kept the latest Rebalance Cockpit result in Streamlit session state so the summary, allocation comparison, risk confirmation points, and downloads remain visible across reruns after a successful check.
 - Added deterministic UI helper tests for reading the stored rebalance result/request and ignoring incomplete session state.
+
+## 2026-05-18 - Phase 18 Symbol universe source import
+
+- Added a local source-import path for `symbol_universe.csv`, including append-only default merge, optional existing-symbol update, validation-before/write, and manifest output.
+- Added a JPX ETF seed source and imported 8 domestic ETF rows into the ranking candidate master without adding network dependency.
+- Extended source import for JPX-style numeric codes by adding import defaults and `.T` suffix normalization, then imported 24 domestic stock seed rows.
+- Documented the SBI Securities based ranking-universe policy, including initial target products, default exclusions, metadata columns, and the next Phase 18 implementation slice.
+
+## 2026-05-18 - Phase 18 SBI ranking universe policy
+
+- Added SBI policy columns to `symbol_universe.csv` and schema, with conservative defaults for the current 127-row seed universe.
+- Added the default ranking-universe policy helper and wired it into ranking candidate extraction before provider fetch.
+- Kept `tradability=unknown` eligible for initial ranking while excluding explicit out-of-scope products, not-tradable rows, inactive rows, non-SBI rows, leveraged rows, and inverse rows.
+- Added deterministic tests for the policy helper, schema fields, CSV validation, and ranking candidate filtering.
+- Tuned the SBI symbol master acquisition policy documentation to match the current implementation: local source CSV / master first, no direct SBI scraping, future repository separation only when the existing symbol-universe helpers become too broad.
+- Added source profiles for SBI US stock, SBI US ETF, and mutual fund seeds, plus seed CSV files and import tests for SBI policy defaults, leveraged/inverse ETF flags, and minimal mutual-fund metadata.
+- Wrote the SBI US stock / ETF / mutual fund seeds into `symbol_universe.csv`, increasing the candidate master to 146 rows with stock, ETF, mutual fund, and ADR coverage.
+- Connected mutual-fund metadata to the ranking condition UI, using management style, trust fee, NISA eligibility, and installment availability as pre-fetch filters.
+- Added a ranking UI guard so mutual-fund placeholder symbols stay visible as candidates but are not sent to price-provider ranking fetch until fund price/ranking support is implemented.
+- Re-scoped the MVP ranking universe to stock / ETF only, hiding mutual funds from the main ranking UI and keeping mutual-fund seed/profile data as a future extension rather than an MVP dependency.
+
+## 2026-05-19 - Phase 18 ETF region filtering fix
+
+- Fixed ranking candidate normalization so domestic ETF rows keep their `jp` market instead of being forced to `us`.
+- Added a deterministic ranking UI helper test that confirms domestic ETF and US ETF candidates are separated by region.
+
+## 2026-05-19 - Phase 18 source profile expansion
+
+- Added JPX stock / ETF source profiles so local JPX seed import can use named defaults instead of repeated command-line default arguments.
+- Added a NISA eligibility source profile that updates only NISA metadata fields and preserves existing symbol name, market, product type, and currency.
+- Added deterministic tests for JPX profile defaults, NISA-only update behavior, and the import command `--source-profile nisa_eligibility --update-existing` path.
+
+## 2026-05-19 - Phase 18 NISA seed integration
+
+- Added `nisa_eligibility_seed.csv` and imported 31 existing stock / ETF rows into `symbol_universe.csv` with NISA metadata.
+- Added the NISA pre-fetch condition to the ranking detail panel and connected it to ranking filter state/signature.
+- Strengthened update-only source import so NISA metadata sources cannot append unknown symbols as incomplete master rows.
+- Excluded commodity-themed ETF rows from the default MVP ranking universe while keeping them in the local master for metadata coverage.
+
+## 2026-05-19 - Ranking condition wording polish
+
+- Renamed the ranking purpose control label to `重視して並べ替え` so it is clear that it changes display order, not candidate eligibility.
+- Added short detail-panel caption text to distinguish candidate filters from ranking-order settings.
+- Removed the risk selector from pre-fetch ranking detail conditions because period-based price movement belongs in ranking results and score breakdown after data retrieval.
+
+## 2026-05-19 - Phase 18 stock ETF universe expansion
+
+- Expanded local JPX stock / ETF, SBI US stock, and SBI US ETF source seeds and imported them into `symbol_universe.csv`.
+- Increased the local candidate master to 227 rows: stock 172, ETF 49, mutual fund 4, ADR 2.
+- Kept mutual funds as future-extension metadata and kept MVP ranking focused on stock / ETF rows through the existing ranking-universe policy.
+
+## 2026-05-19 - Phase 18 JPX listed stock source builder
+
+- Added `tools/build_symbol_universe_source.py` and a JPX listed-stock builder that converts official raw Excel/CSV rows into SMAI source CSV rows.
+- Added the `jpx_listed_stock` import profile so generated JPX domestic stock sources can be imported with `.T` symbol normalization and conservative SBI policy defaults.
+- Added deterministic tests for JPX listed-stock row mapping, ETF/REIT skip behavior, and the builder CLI dry-run/write paths.
+
+## 2026-05-19 - Phase 18 SBI US source builders
+
+- Extended `tools/build_symbol_universe_source.py` with `sbi_us_stock` and `sbi_us_etf` source builders for local SBI raw CSV/Excel files.
+- Added US ticker normalization, stock sector/theme mapping, ETF index-family inference, fee percent normalization, and leveraged/inverse ETF flag detection.
+- Documented the SBI raw-file-to-source workflow while keeping official-site auto-download and scraping outside the normal deterministic path.
+
+## 2026-05-19 - Phase 18 JPX ETF source builder
+
+- Added a `jpx_etf` source builder for local JPX ETF / ETN raw CSV/Excel files.
+- Added ETF/ETN scope detection, `.T` symbol output, index-family inference, trust-fee percent normalization, commodity / REIT theme mapping, and leveraged/inverse/ETN flags.
+- Documented the JPX ETF raw-file-to-source workflow and kept official download automation outside the normal deterministic path.
+
+## 2026-05-19 - Phase 18 NISA eligibility source builder
+
+- Added a `nisa_eligibility` source builder for local NISA raw CSV/Excel files.
+- Normalized domestic 4-digit codes to `.T` symbols and mapped growth / tsumitate / both / none eligibility into canonical NISA metadata fields.
+- Kept ambiguous generic NISA rows as `unknown` rather than inferring a category that the source did not provide.
+
+## 2026-05-19 - Ranking filter stale state fix
+
+- Scoped ranking candidate filters to the detail conditions visible for the selected product / region.
+- Prevented hidden ETF filters such as benchmark index, expense ratio, and complexity from excluding stock candidates after switching product type.
+- Prevented hidden stock filters such as industry/theme, market cap, PER, PBR, and ROE from excluding ETF candidates after switching product type.
+- Added regression tests for candidate rows and filter signatures with stale product-specific filter state.
+- Pruned stale selection labels against the current candidate list and hid stale ranking results when the visible selection no longer matches the stored result source.
+
+## 2026-05-21 - Phase 18 JPX NISA ETF/ETN source import
+
+- Added support for JPX growth-NISA Excel files whose headers include furigana such as `銘柄コードメイガラ`.
+- Extended JPX ETF/ETN detection for full-width `ＥＴＦ` / `ＥＴＮ` and commodity labels such as gold/silver variants.
+- Built `jpx_etf_nisa_growth_20260521.csv` and `nisa_eligibility_jpx_etf_20260521.csv` from `jpx_etf_20260521_NISA.xlsx`.
+- Imported 26 new JPX NISA ETF/ETN rows and updated 27 rows with `metadata_source=jpx_nisa_growth` NISA growth metadata.
+- Increased the candidate master to 3,898 rows: stock 3,817, ETF 75, mutual fund 4, ADR 2.
+- Kept PDF raw files outside the routine import path; use Excel/CSV/source CSV for deterministic imports.
+
+## 2026-05-21 - Ranking detail condition coverage
+
+- Extended ranking detail labels so all current `theme`, `sector`, `index_family`, and `market_cap_tier` values in `symbol_universe.csv` have UI choices.
+- Changed the stock `業種/テーマ` condition to match `theme`, `sector`, or `tags`, so JPX-derived sector classifications such as industrial/materials/real estate can be used.
+- Mapped JPX listed-stock `規模区分` into `market_cap_tier` and updated JPX listed-stock rows in `symbol_universe.csv`.
+- Added regression tests for JPX market-cap filtering, sector filtering, and ETF index-family label coverage.
+
+## 2026-05-21 - Ranking metadata coverage and update profile
+
+- Added a `ranking_metadata` source profile for updating existing symbols' ranking filter metadata without changing name, market, or asset type.
+- Added source aliases for data-side ranking metadata such as `pe_ratio`, `price_to_book`, `roe`, `dividend_yield`, and `risk`.
+- Added `ranking_metadata_template.csv` as a safe header-only template for confirmed PER/PBR/ROE/dividend-yield imports.
+- Added `tools/check_symbol_universe_metadata_coverage.py` and generated `data/marketdata/symbol_universe_metadata_coverage.json` as the current coverage baseline.
+- Documented that JPX listed-stock imports provide scale classification for `market_cap_tier`, while PER/PBR/ROE/dividend yield require confirmed supplemental sources or explicit opt-in metadata refresh.
+
+## 2026-05-21 - Scoped metadata refresh
+
+- Added scoped options to `tools/refresh_symbol_universe_metadata.py`: `--symbols`, `--asset-type`, `--market`, `--metadata-source`, `--missing-any`, and `--limit`.
+- Added manifest `selection` details so live metadata refresh runs record which rows were targeted.
+- Avoided double provider calls during metadata refresh validation, which matters for opt-in live providers such as Yahoo.
+
+## 2026-05-21 - Yahoo metadata refresh for JPX stocks
+
+- Ran a 50-row Yahoo metadata refresh dry-run for JPX listed-stock rows, fixed sector/theme normalization, and confirmed validation stays clean before writing.
+- Refreshed JPX listed-stock additions plus the older JPX stock seed rows with explicit `--provider yahoo --allow-live`, applying metadata to 3,701 stock rows without validation errors or per-symbol failures.
+- Hardened Yahoo metadata normalization so non-finite, invalid, or negative numeric values are skipped instead of breaking the full refresh.
+- Changed the Yahoo OHLCV coverage check default to filter by asset type / market instead of the pre-refresh `jpx_listed_stock` metadata source.
+- Regenerated `data/marketdata/symbol_universe_metadata_coverage.json`; stock coverage is now dividend yield 3,817/3,817, PBR 3,793/3,817, ROE 3,636/3,817, and PER 3,499/3,817.
+
+## 2026-05-21 - SBI official HTML and JPX REIT source import
+
+- Added CP932 HTML handling for SBI official US stock / ETF raw pages and a `jpx_reit` source builder/profile for JPX listed REIT HTML.
+- Built `sbi_us_stock_20260521.csv`, `sbi_us_etf_20260521.csv`, and `jpx_reit_20260521.csv` from local official raw files.
+- Imported 4,293 SBI US stock rows, 607 SBI US ETF rows, and 58 JPX REIT rows into `symbol_universe.csv`.
+- Reapplied IMAJ NISA listed-fund metadata after REIT import; 57 REIT rows gained NISA growth metadata, while 5 infrastructure/other rows remain update-only failures.
+- Kept REIT rows and leveraged/inverse ETF rows stored in the local master but excluded from the default MVP ranking universe.
+
+## 2026-05-21 - SBI US coverage and metadata refresh
+
+- Ran live Yahoo OHLCV coverage checks for the SBI official US stock / ETF additions and stored JSON/CSV outputs under `data/marketdata/live_checks/`.
+- Confirmed US stock coverage at 4,240/4,293 and US ETF coverage at 593/607 for the 2026-05-12 to 2026-05-20 period; all failures were short-period `YAHOO-NO-BARS`.
+- Refreshed SBI US stock metadata with explicit `--provider yahoo --allow-live`, applying metadata to 4,265 stock rows after a successful 50-row write check.
+- Refreshed SBI US ETF metadata with explicit `--provider yahoo --allow-live`, applying metadata to 607 ETF rows.
+- Fixed Yahoo metadata dividend-yield normalization so yfinance `dividendYield` is treated as a percentage value, while `trailingAnnualDividendYield` remains ratio-to-percent fallback; re-ran the US stock / ETF refresh after the fix.
+- Normalized SBI source class-share symbols `BRKB` / `UHALB` to Yahoo-compatible `BRK-B` / `UHAL-B`, kept the original source forms as aliases, and confirmed the corrected symbols with a 2/2 Yahoo coverage retry.
+- Regenerated `data/marketdata/symbol_universe_metadata_coverage.json`; stock coverage is now dividend yield 8,033/8,081, PBR 7,630/8,081, ROE 7,466/8,081, and PER 7,457/8,081. ETF dividend-yield coverage is now 601/1,034 and ETF expense-ratio coverage remains 1,013/1,034.
+
+## 2026-05-22 - ETF metadata enrichment and Yahoo failure analysis
+
+- Added deterministic ETF metadata enrichment for index-family inference and existing Yahoo ETF expense-ratio scale correction.
+- Expanded ETF index-family values for Dow Jones, emerging markets, dividend, REIT, bond, commodity, and sector/theme categories.
+- Ran ETF metadata enrichment against `symbol_universe.csv`; ETF index-family coverage improved to 639/1,034 and 594 Yahoo ETF expense-ratio values were corrected from over-scaled values.
+- Added saved Yahoo coverage failure analysis for SBI US stock / ETF checks. Current SBI US stock failures are 51 no-bars/Yahoo-unsupported plus 2 resolved aliases; current SBI US ETF failures are 2 leveraged exclusions plus 12 rows requiring market-specific symbol mapping or a non-Yahoo source.
+
+## 2026-05-22 - ETF override mapping and provider symbol support
+
+- Added `symbol_universe_etf_metadata_overrides.csv` for ETF rows that need issuer/official-source confirmation instead of name-only inference.
+- Added optional `yahoo_symbol` metadata so display/source symbols can stay stable while Yahoo requests use mapped provider tickers.
+- Curated the current failed SBI US ETF coverage set into 3 leveraged default exclusions and 11 Yahoo symbol mappings.
+- Re-ran ETF metadata enrichment and coverage aggregation; ETF index-family coverage is now 858/1,034, with 176 rows left for official index / issuer confirmation.
+- Wired Yahoo provider symbol mapping into ranking and rebalance preview fetch paths, then remapped returned bars/fundamentals back to display symbols for downstream scoring.
+
+## 2026-05-22 - Official-source NISA and ETF index cleanup
+
+- Backfilled stock `investment_style` to `lump_sum` for all 8,081 stock rows and changed JPX stock import defaults to keep future stock imports aligned.
+- Extended ETF enrichment so local JPX / IMAJ / SBI official source CSVs reconcile ETF NISA categories without name-based inference; ETF NISA is now 563 growth / 471 none / 0 unknown.
+- Expanded deterministic ETF index-family inference from official index/name/alias text and brought ETF `index_family` coverage to 1,034/1,034.
+- Regenerated `symbol_universe_metadata_coverage.json`; remaining stock gaps are provider/source-dependent: risk band 1,850, market-cap tier 39, and dividend yield/category 48.

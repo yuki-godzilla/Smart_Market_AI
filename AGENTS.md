@@ -66,7 +66,7 @@ Follow the Multi-Model Investment Intelligence roadmap unless the user says othe
 通常は Multi-Model Investment Intelligence の流れに沿います。
 
 Near-term priority:
-1. finish Phase 16 UI polish for cockpit / ranking / rebalance flows
+1. keep Phase 16 cockpit / ranking / rebalance flows stable and run final Streamlit browser smoke when available
 2. keep Investment Score, Screening, Forecast, Risk, and Portfolio explanations consistent across API/UI/docs
 3. prepare Decision Report context from existing cockpit/ranking/rebalance outputs
 4. add Research RAG as local-first evidence/search layer before optional external source or LLM adapters
@@ -215,7 +215,7 @@ Service logic:
 Streamlit UI:
 - helper logic is testable outside Streamlit when practical
 - user-facing text explains reason/warning, not only raw numbers
-- default provider remains safe/local unless explicit opt-in
+- configured default provider remains safe/local; any UI live-provider selection must opt in explicitly and keep tests deterministic
 - manual UI confirmation point is documented when phase completion depends on UI
 
 Provider/live data:

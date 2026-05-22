@@ -1,0 +1,28 @@
+{
+  "asset_type": "stock",
+  "batch_size": 25,
+  "checked_at": "2026-05-21T01:36:49.467346+00:00",
+  "checked_symbols": 3645,
+  "end": "2026-05-20",
+  "failed_symbol_sample": [
+    "2344.T",
+    "4530.T",
+    "6565.T",
+    "9237.T"
+  ],
+  "failed_symbols": 4,
+  "failure_code_counts": {
+    "YAHOO-NO-BARS": 4
+  },
+  "limit": 0,
+  "market": "jp",
+  "metadata_source": "jpx_listed_stock",
+  "ok_symbols": 3641,
+  "operation": "symbol_universe_yahoo_coverage_check",
+  "provider": "yahoo",
+  "sample_size": 0,
+  "selected_rows": 3645,
+  "start": "2026-05-12",
+  "success_rate": 0.9989,
+  "timeout_ms": 20000
+}

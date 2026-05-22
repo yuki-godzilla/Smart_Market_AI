@@ -1,53 +1,102 @@
 import asyncio
+import json
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from types import SimpleNamespace
+
+import pandas as pd
 
 from backend.core.data_contracts import Bar, FundamentalSnapshot, Symbol
 from backend.core.errors import DataSourceError
 from backend.screening import ScreeningScore
 from ui.app import (
+    RANKING_RESULT_GRID_CUSTOM_CSS,
+    SYMBOL_DETAIL_DIALOG_CSS,
     _build_market_data_ranking_rows,
+    _ensure_selectbox_state_value,
     _market_data_preview_symbol_label,
     _name_from_candidate,
-    _rank_investment_score_rows,
-    _ranking_symbol_chunks,
+    _normalize_dividend_filter_state,
+    _ranking_result_grid_height,
+    _ranking_result_grid_key,
+    _ranking_result_matches_current_selection,
+    _ranking_result_table_base_key,
+    _ranking_source_key_for_selection,
+    _ranking_symbols_from_selected_labels,
     _render_market_chart,
     _symbol_from_candidate,
-    apply_ranking_filter_state,
-    apply_ranking_weight_preset,
-    current_ranking_filter_state,
     default_forecast_horizon_days,
     default_market_data_provider,
-    ensure_ranking_selection_widget_state,
-    filter_symbol_universe_rows,
     forecast_boundary_frame,
     forecast_chart_summary,
     forecast_consensus_display_rows,
     forecast_metric_display_rows,
     forecast_metric_summary,
+    format_provider_error_details,
     get_cached_ranking_build,
-    initial_ranking_selected_labels,
-    initial_ranking_selected_labels_for_key,
     investment_score_display_rows,
     investment_score_summary_lines,
     market_chart_long_frame,
     merged_symbol_candidate_rows,
-    persist_ranking_filter_state,
-    ranking_build_cache_key,
-    ranking_filter_signature,
-    ranking_period_dates,
-    ranking_period_label,
-    ranking_symbol_options,
-    ranking_symbols_state_key,
-    ranking_weight_preset_label,
+    provider_error_summary_rows,
+    ranking_comparison_summary,
+    ranking_detail_event_token_from_aggrid_response,
+    ranking_detail_symbol_from_aggrid_response,
+    ranking_detail_symbol_to_open,
+    ranking_result_aggrid_options,
     score_component_rows,
     set_cached_ranking_build,
     symbol_candidate_label,
+    symbol_universe_data_info_rows,
+    symbol_universe_detail_display_value,
+    symbol_universe_detail_rows,
+    symbol_universe_fund_detail_rows,
+    symbol_universe_investment_metric_rows,
+    symbol_universe_key_metric_rows,
+    symbol_universe_nisa_display,
+    symbol_universe_overview_rows,
+)
+from ui.ranking import (
+    RANKING_BETA_RISK_LABELS,
+    RANKING_BETA_RISK_STANDARD_OR_LOWER,
+    RANKING_DIVIDEND_LABELS,
+    RANKING_FILTER_HELP_TEXTS,
+    RANKING_INDEX_FAMILY_LABELS,
+    RANKING_INVESTMENT_STYLE_METRICS,
+    RANKING_MARKET_CAP_LABELS,
+    RANKING_NISA_ELIGIBILITY_LABELS,
+    RANKING_THEME_LABELS,
+    apply_ranking_weight_preset,
+    filter_symbol_universe_rows,
+    initial_ranking_selected_labels,
+    live_ranking_symbol_warning_message,
+    normalize_dividend_filter_values,
+    rank_investment_score_rows,
+    ranking_build_cache_key,
+    ranking_deep_dive_default_symbol,
+    ranking_detail_filters_for_category,
+    ranking_filter_signature,
+    ranking_no_bars_error_row,
+    ranking_period_dates,
+    ranking_period_label,
+    ranking_provider_error_rows,
+    ranking_symbol_chunks,
+    ranking_symbol_options,
+    ranking_symbols_state_key,
+    ranking_weight_preset_for_purpose,
+    ranking_weight_preset_label,
     symbol_candidate_labels,
     symbol_universe_rows,
-    sync_ranking_selection_state,
     valid_ranking_selected_labels,
+)
+from ui.ranking_state import (
+    apply_ranking_filter_state,
+    clear_ranking_filter_state,
+    current_ranking_filter_state,
+    ensure_ranking_selection_widget_state,
+    initial_ranking_selected_labels_for_key,
+    persist_ranking_filter_state,
+    sync_ranking_selection_state,
 )
 from ui.rebalance_app import (
     forecast_consensus_rows_for_bars,
@@ -72,6 +121,12 @@ def test_market_data_provider_defaults_to_yahoo():
 def test_symbol_from_candidate_extracts_ticker_or_custom():
     assert _symbol_from_candidate("") is None
     assert _symbol_from_candidate("9983.T - Fast Retailing") == "9983.T"
+
+
+def test_ranking_symbols_from_selected_labels_extracts_fetch_symbols():
+    assert _ranking_symbols_from_selected_labels(
+        ["9983.T - Fast Retailing", "", "AAPL - Apple Inc."]
+    ) == ["9983.T", "AAPL"]
 
 
 def test_name_from_candidate_extracts_display_name():
@@ -133,6 +188,246 @@ def test_symbol_candidate_labels_filter_by_symbol_or_name():
     assert symbol_candidate_labels(rows, "retail") == ["9983.T - Fast Retailing"]
     assert symbol_candidate_labels(rows, "AAPL") == ["AAPL - Apple Inc."]
     assert symbol_candidate_labels(rows, "missing") == []
+
+
+def test_symbol_universe_detail_rows_show_column_labels_and_blank_values():
+    assert symbol_universe_detail_rows(
+        {
+            "symbol": "7203.T",
+            "name": "Toyota Motor",
+            "dividend_yield_pct": "",
+            "custom_field": "custom",
+        }
+    ) == [
+        {"項目": "銘柄コード", "表示値": "7203.T", "CSV列": "symbol", "登録値": "7203.T"},
+        {"項目": "銘柄名", "表示値": "Toyota Motor", "CSV列": "name", "登録値": "Toyota Motor"},
+        {
+            "項目": "配当利回り(%)",
+            "表示値": "未登録",
+            "CSV列": "dividend_yield_pct",
+            "登録値": "-",
+        },
+        {"項目": "custom_field", "表示値": "custom", "CSV列": "custom_field", "登録値": "custom"},
+    ]
+
+
+def test_symbol_universe_detail_display_value_translates_internal_codes():
+    row = {
+        "broker": "sbi_securities",
+        "metadata_source": "yahoo",
+        "dividend_yield_pct": "2.840",
+        "market_cap_tier": "large",
+        "risk_band": "LOW",
+        "yahoo_symbol": "",
+    }
+
+    assert symbol_universe_detail_display_value(row, "broker") == "SBI証券"
+    assert symbol_universe_detail_display_value(row, "metadata_source") == "Yahoo Finance"
+    assert symbol_universe_detail_display_value(row, "dividend_yield_pct") == "2.84%"
+    assert symbol_universe_detail_display_value(row, "market_cap_tier").startswith("大型")
+    assert symbol_universe_detail_display_value(row, "risk_band") == "低変動（β < 0.8目安）"
+    assert symbol_universe_detail_display_value(row, "yahoo_symbol") == "表示銘柄と同じ"
+
+
+def test_symbol_universe_overview_rows_use_user_friendly_values():
+    row = {
+        "market": "jp",
+        "asset_type": "stock",
+        "currency": "JPY",
+        "broker": "sbi_securities",
+        "tradability": "unknown",
+        "nisa_category": "growth",
+        "nisa_growth_eligible": "true",
+        "nisa_tsumitate_eligible": "false",
+        "investment_style": "lump_sum",
+        "theme": "financial",
+        "sector": "financial",
+        "is_leveraged": "false",
+        "is_inverse": "false",
+    }
+
+    rows = symbol_universe_overview_rows(row)
+
+    assert {"項目": "取扱元", "内容": "SBI証券"} in rows
+    assert {"項目": "NISA", "内容": "成長投資枠"} in rows
+    assert {"項目": "投資スタイル", "内容": "一括投資向き"} in rows
+    assert {"項目": "レバレッジ/インバース", "内容": "該当なし"} in rows
+
+
+def test_symbol_universe_investment_and_fund_rows_are_sectioned():
+    stock_row = {
+        "dividend_yield_pct": "2.61",
+        "dividend_category": "dividend",
+        "per": "9.05",
+        "pbr": "0.66",
+        "roe_pct": "7.74",
+        "market_cap_tier": "large",
+        "risk_band": "LOW",
+        "data_quality": "OK",
+        "asset_type": "stock",
+        "nisa_growth_eligible": "true",
+    }
+    etf_row = {
+        "asset_type": "etf",
+        "index_family": "sp500",
+        "expense_ratio_pct": "0.09",
+        "complexity": "beginner",
+        "nisa_growth_eligible": "true",
+    }
+
+    assert {"項目": "配当利回り", "内容": "2.61%"} in symbol_universe_investment_metric_rows(
+        stock_row
+    )
+    assert symbol_universe_fund_detail_rows(stock_row) == []
+    assert {"項目": "連動指数", "内容": "S&P 500"} in symbol_universe_fund_detail_rows(etf_row)
+    assert {"項目": "成長投資枠", "内容": "はい"} in symbol_universe_fund_detail_rows(etf_row)
+
+
+def test_symbol_universe_nisa_display_combines_category_and_flags():
+    assert (
+        symbol_universe_nisa_display(
+            {
+                "nisa_category": "unknown",
+                "nisa_growth_eligible": "true",
+                "nisa_tsumitate_eligible": "false",
+            }
+        )
+        == "成長投資枠"
+    )
+
+
+def test_symbol_universe_key_metric_rows_use_compact_values():
+    rows = symbol_universe_key_metric_rows(
+        {
+            "asset_type": "stock",
+            "nisa_category": "both",
+            "dividend_yield_pct": "4.79",
+            "market_cap_tier": "mid",
+            "risk_band": "LOW",
+            "nisa_growth_eligible": "true",
+            "nisa_tsumitate_eligible": "true",
+        }
+    )
+
+    assert {"項目": "NISA", "内容": "両枠"} in rows
+    assert {"項目": "時価総額", "内容": "中型（JP 1,000億〜1兆円 / US $2B〜$10B）"} in rows
+    assert {"項目": "配当利回り", "内容": "4.79%"} in rows
+
+
+def test_symbol_universe_data_info_rows_explain_how_values_are_used():
+    rows = symbol_universe_data_info_rows(
+        {
+            "metadata_source": "yahoo",
+            "metadata_as_of": "2026-05-21",
+            "metadata_updated_at": "2026-05-21T00:00:00+09:00",
+            "yahoo_symbol": "",
+        }
+    )
+
+    assert {
+        "項目": "データ出所",
+        "内容": "Yahoo Finance",
+        "使い道": "指標や分類をどの情報源で補完したかを確認します。",
+    } in rows
+    assert rows[-1]["項目"] == "価格取得用ticker"
+    assert rows[-1]["内容"] == "表示銘柄と同じ"
+    assert "Yahoo取得時" in rows[-1]["使い道"]
+
+
+def test_symbol_detail_dialog_css_expands_width_and_wraps_metric_values():
+    assert "90vw" in SYMBOL_DETAIL_DIALOG_CSS
+    assert "1100px" in SYMBOL_DETAIL_DIALOG_CSS
+    assert '[data-testid="stMetricValue"]' in SYMBOL_DETAIL_DIALOG_CSS
+    assert "overflow-wrap: anywhere" in SYMBOL_DETAIL_DIALOG_CSS
+
+
+def test_ranking_result_aggrid_options_enable_single_row_click_selection():
+    options = ranking_result_aggrid_options(
+        [
+            {
+                "順位": "1",
+                "銘柄": "8174.T",
+                "銘柄名": "日本瓦斯",
+                "総合スコア": "80.1",
+                "補足": "深掘り候補です",
+            }
+        ]
+    )
+
+    assert options["rowSelection"] == "single"
+    assert options["suppressRowClickSelection"] is False
+    assert options["suppressCellFocus"] is True
+    column_defs = {column["field"]: column for column in options["columnDefs"]}
+    assert column_defs["順位"]["pinned"] == "left"
+    assert column_defs["銘柄"]["pinned"] == "left"
+    assert column_defs["補足"]["tooltipField"] == "補足"
+
+
+def test_ranking_result_grid_custom_css_keeps_dark_table_readable():
+    assert RANKING_RESULT_GRID_CUSTOM_CSS[".ag-root-wrapper"]["background-color"] == (
+        "#121821 !important"
+    )
+    assert RANKING_RESULT_GRID_CUSTOM_CSS[".ag-header-cell-text"]["color"] == ("#e5edf7 !important")
+    assert RANKING_RESULT_GRID_CUSTOM_CSS[".ag-row-even"]["background-color"] == (
+        "#151d29 !important"
+    )
+    assert RANKING_RESULT_GRID_CUSTOM_CSS[".ag-row-odd"]["background-color"] == (
+        "#111923 !important"
+    )
+
+
+def test_ranking_detail_symbol_from_aggrid_response_handles_dataframe_and_dict():
+    selected_rows = pd.DataFrame([{"銘柄": "8174.T", "銘柄名": "日本瓦斯"}])
+    response = SimpleNamespace(selected_rows=selected_rows)
+
+    assert ranking_detail_symbol_from_aggrid_response(response) == "8174.T"
+    assert ranking_detail_symbol_from_aggrid_response({"selected_rows": [{"銘柄": "5015.T"}]}) == (
+        "5015.T"
+    )
+    assert (
+        ranking_detail_symbol_from_aggrid_response({"eventData": {"data": {"銘柄": "9502.T"}}})
+        == "9502.T"
+    )
+    assert ranking_detail_symbol_from_aggrid_response(SimpleNamespace(selected_rows=None)) is None
+    assert ranking_detail_symbol_from_aggrid_response({"selected_rows": []}) is None
+
+
+def test_ranking_detail_event_token_tracks_row_clicks():
+    response = {
+        "eventData": {
+            "streamlitRerunEventTriggerName": "rowClicked",
+            "rowIndex": 3,
+            "event": {"timeStamp": 12345},
+        }
+    }
+
+    assert ranking_detail_event_token_from_aggrid_response(response, "8174.T") == (
+        "rowClicked|8174.T|3|12345"
+    )
+    assert ranking_detail_event_token_from_aggrid_response({}, "8174.T") == ("selection|8174.T")
+    assert ranking_detail_event_token_from_aggrid_response(response, None) is None
+
+
+def test_ranking_detail_symbol_to_open_only_changes_on_new_click_event():
+    assert ranking_detail_symbol_to_open("8174.T", "event-1", None) == "8174.T"
+    assert ranking_detail_symbol_to_open("8174.T", "event-1", "event-1") is None
+    assert ranking_detail_symbol_to_open("8174.T", "event-2", "event-1") == "8174.T"
+    assert ranking_detail_symbol_to_open(None, "event-2", "event-1") is None
+
+
+def test_ranking_result_grid_key_and_height_are_stable():
+    assert _ranking_result_grid_key("ranking") == "ranking_grid"
+    assert _ranking_result_grid_height([{"銘柄": "8174.T"}]) == 150
+    assert _ranking_result_grid_height([{"銘柄": str(index)} for index in range(20)]) == 520
+
+
+def test_ranking_result_table_base_key_changes_with_result_source():
+    assert _ranking_result_table_base_key("source-a", "balanced") == (
+        _ranking_result_table_base_key("source-a", "balanced")
+    )
+    assert _ranking_result_table_base_key("source-a", "balanced") != (
+        _ranking_result_table_base_key("source-b", "balanced")
+    )
 
 
 def test_symbol_universe_rows_adds_static_selection_metadata():
@@ -197,6 +492,45 @@ def test_filter_symbol_universe_rows_uses_fetch_before_conditions():
     ]
 
 
+def test_filter_symbol_universe_rows_applies_ranking_universe_policy():
+    rows = symbol_universe_rows(
+        [
+            {
+                "symbol": "AAPL",
+                "name": "Apple Inc.",
+                "asset_type": "stock",
+                "broker": "sbi_securities",
+                "tradability": "unknown",
+                "is_sbi_supported": "true",
+                "is_active": "true",
+                "is_leveraged": "false",
+                "is_inverse": "false",
+            },
+            {"symbol": "BADFX", "name": "FX Product", "asset_type": "fx"},
+            {
+                "symbol": "LEVER",
+                "name": "Leveraged ETF",
+                "asset_type": "etf",
+                "is_leveraged": "true",
+            },
+            {
+                "symbol": "UNTRAD",
+                "name": "Unavailable Stock",
+                "asset_type": "stock",
+                "tradability": "not_tradable",
+            },
+            {
+                "symbol": "NOSBI",
+                "name": "Unsupported Stock",
+                "asset_type": "stock",
+                "is_sbi_supported": "false",
+            },
+        ]
+    )
+
+    assert [row["symbol"] for row in filter_symbol_universe_rows(rows)] == ["AAPL"]
+
+
 def test_filter_symbol_universe_rows_finds_curated_dividend_candidates():
     rows = symbol_universe_rows(
         [
@@ -256,6 +590,36 @@ def test_filter_symbol_universe_rows_filters_by_dividend_yield_database_value():
             min_dividend_yield_pct="3.0",
         )
     ] == ["PFE"]
+
+
+def test_filter_symbol_universe_rows_uses_explicit_dividend_range_over_category():
+    rows = symbol_universe_rows(
+        [
+            {
+                "symbol": "RANGE",
+                "name": "Range Match",
+                "dividend_category": "dividend",
+                "dividend_yield_pct": "4.0",
+            },
+            {
+                "symbol": "CATEGORY",
+                "name": "Category Only",
+                "dividend_category": "high_dividend",
+                "dividend_yield_pct": "2.5",
+            },
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            dividend_category="high_dividend",
+            dividend_yield_enabled=True,
+            min_dividend_yield_pct="3.0",
+            dividend_yield_max_pct="5.0",
+        )
+    ] == ["RANGE"]
 
 
 def test_filter_symbol_universe_rows_ignores_dividend_range_when_disabled():
@@ -332,6 +696,350 @@ def test_filter_symbol_universe_rows_filters_etf_database_values():
     ] == ["VOO"]
 
 
+def test_filter_symbol_universe_rows_filters_by_sector_theme_and_jpx_market_cap():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "1301.T", "name": "極洋"},
+            {"symbol": "1332.T", "name": "ニッスイ"},
+            {"symbol": "1414.T", "name": "ショーボンドホールディングス"},
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="japan",
+            product_type="stock",
+            theme="industrial",
+        )
+    ] == ["1414.T"]
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="japan",
+            product_type="stock",
+            market_cap_tier="small",
+        )
+    ] == ["1301.T"]
+    assert "small" in RANKING_MARKET_CAP_LABELS
+    assert "industrial" in RANKING_THEME_LABELS
+
+
+def test_ranking_filter_labels_show_quantitative_thresholds():
+    assert RANKING_MARKET_CAP_LABELS["mega"] == "超大型（JP 10兆円以上 / US $200B以上）"
+    assert RANKING_MARKET_CAP_LABELS["small"] == "小型（JP 100億〜1,000億円 / US $300M〜$2B）"
+    assert RANKING_DIVIDEND_LABELS["high_dividend"] == "配当利回り 3%以上"
+    assert RANKING_DIVIDEND_LABELS["dividend"] == "配当利回り 0%超〜3%未満"
+    assert "bond" in RANKING_THEME_LABELS
+    assert "dividend" not in RANKING_THEME_LABELS
+    assert "$200B/$10B/$2B/$300M" in RANKING_FILTER_HELP_TEXTS["market_cap"]
+    assert "0%超〜3%未満" in RANKING_FILTER_HELP_TEXTS["dividend_category"]
+
+
+def test_normalize_dividend_filter_values_keeps_conditions_mutually_exclusive():
+    assert normalize_dividend_filter_values(
+        dividend_category="high_dividend",
+        dividend_yield_enabled=True,
+        min_dividend_yield_pct="3.2",
+        dividend_yield_max_pct="8.0",
+    ) == ("all", "3.2", True, "8.0")
+    assert normalize_dividend_filter_values(
+        dividend_category="high_dividend",
+        dividend_yield_enabled=False,
+        min_dividend_yield_pct="3.2",
+        dividend_yield_max_pct="8.0",
+    ) == ("high_dividend", "0.0", False, "10.0")
+
+
+def test_ranking_etf_filter_labels_cover_imported_index_families():
+    assert {
+        "bond",
+        "commodity",
+        "dividend",
+        "dow_jones",
+        "emerging",
+        "msci_world",
+        "reit",
+        "sector",
+        "topix",
+        "nikkei225",
+    } <= set(RANKING_INDEX_FAMILY_LABELS)
+
+
+def test_filter_symbol_universe_rows_ignores_hidden_etf_filters_for_stock():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "AAPL", "name": "Apple Inc."},
+            {"symbol": "SPY", "name": "SPDR S&P 500 ETF"},
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="all",
+            product_type="stock",
+            index_family="sp500",
+            max_expense_ratio_pct="0.05",
+            complexity="beginner",
+        )
+    ] == ["AAPL"]
+
+
+def test_filter_symbol_universe_rows_ignores_hidden_stock_filters_for_etf():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "AAPL", "name": "Apple Inc."},
+            {"symbol": "SPY", "name": "SPDR S&P 500 ETF"},
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="all",
+            product_type="etf",
+            theme="technology",
+            market_cap_tier="large",
+            per_enabled=True,
+            per_min="2.0",
+            per_max="3.0",
+            pbr_enabled=True,
+            pbr_min="0.5",
+            pbr_max="0.6",
+            roe_enabled=True,
+            roe_min_pct="20.0",
+            roe_max_pct="30.0",
+        )
+    ] == ["SPY"]
+
+
+def test_filter_symbol_universe_rows_preserves_etf_region():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "1306.T", "name": "NEXT FUNDS TOPIX ETF"},
+            {"symbol": "VOO", "name": "Vanguard S&P 500 ETF"},
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="japan",
+            product_type="etf",
+        )
+    ] == ["1306.T"]
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="us",
+            product_type="etf",
+        )
+    ] == ["VOO"]
+
+
+def test_filter_symbol_universe_rows_filters_by_nisa_eligibility():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "7203.T", "name": "Toyota Motor"},
+            {"symbol": "6861.T", "name": "Keyence"},
+            {"symbol": "TSLA", "name": "Tesla"},
+            {"symbol": "VOO", "name": "Vanguard S&P 500 ETF"},
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            nisa_eligibility="growth",
+        )
+    ] == ["7203.T", "6861.T", "TSLA", "VOO"]
+
+
+def test_filter_symbol_universe_rows_filters_nisa_non_eligible_etfs():
+    rows = symbol_universe_rows(
+        [
+            {
+                "symbol": "GROWTH",
+                "name": "Growth ETF",
+                "market": "us",
+                "asset_type": "etf",
+                "theme": "index",
+                "nisa_category": "growth",
+                "nisa_growth_eligible": "true",
+                "nisa_tsumitate_eligible": "false",
+            },
+            {
+                "symbol": "OUT",
+                "name": "Non NISA ETF",
+                "market": "us",
+                "asset_type": "etf",
+                "theme": "index",
+                "nisa_category": "none",
+                "nisa_growth_eligible": "false",
+                "nisa_tsumitate_eligible": "false",
+            },
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="us",
+            product_type="etf",
+            nisa_eligibility="none",
+        )
+    ] == ["OUT"]
+
+
+def test_ranking_nisa_labels_match_stock_etf_scope():
+    assert RANKING_NISA_ELIGIBILITY_LABELS == {
+        "all": "指定なし（NISAで絞らない）",
+        "eligible": "NISA対象のみ（成長投資枠）",
+        "none": "NISA対象外のみ",
+    }
+    assert "growth" not in RANKING_NISA_ELIGIBILITY_LABELS
+    assert "tsumitate" not in RANKING_NISA_ELIGIBILITY_LABELS
+    assert "both" not in RANKING_NISA_ELIGIBILITY_LABELS
+
+
+def test_selectbox_state_resets_legacy_nisa_choice_from_saved_filters(monkeypatch):
+    for legacy_value in ("growth", "tsumitate", "both"):
+        session_state = {
+            "market_data_ranking_filters": {
+                "market_data_ranking_nisa": legacy_value,
+            }
+        }
+        monkeypatch.setattr("ui.app.st.session_state", session_state)
+
+        _ensure_selectbox_state_value(
+            "market_data_ranking_nisa",
+            list(RANKING_NISA_ELIGIBILITY_LABELS),
+        )
+
+        assert session_state["market_data_ranking_nisa"] == "all"
+
+
+def test_dividend_filter_state_prefers_explicit_range_when_both_saved(monkeypatch):
+    session_state = {
+        "market_data_ranking_filters": {
+            "market_data_ranking_dividend": "high_dividend",
+            "market_data_ranking_dividend_enabled": "true",
+        }
+    }
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+
+    _normalize_dividend_filter_state()
+
+    assert session_state["market_data_ranking_dividend"] == "all"
+    assert "market_data_ranking_dividend_enabled" not in session_state
+
+
+def test_filter_symbol_universe_rows_excludes_commodity_etfs_from_mvp_ranking():
+    rows = symbol_universe_rows([{"symbol": "1540.T", "name": "Japan Physical Gold ETF"}])
+
+    assert filter_symbol_universe_rows(rows, product_type="etf") == []
+
+
+def test_filter_symbol_universe_rows_excludes_mutual_funds_from_mvp_ranking():
+    rows = symbol_universe_rows()
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            product_type="mutual_fund",
+        )
+    ] == []
+    assert all(row["asset_type"] != "mutual_fund" for row in filter_symbol_universe_rows(rows))
+
+
+def test_filter_symbol_universe_rows_supports_internal_risk_metadata_filter():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "7203.T", "name": "Toyota Motor", "risk_band": "LOW"},
+            {"symbol": "AAPL", "name": "Apple Inc.", "risk_band": "MEDIUM"},
+            {"symbol": "TM", "name": "Toyota Motor ADR"},
+            {"symbol": "NVDA", "name": "NVIDIA", "risk_band": "HIGH"},
+            {"symbol": "SPY", "name": "SPDR S&P 500 ETF", "risk_band": "MEDIUM"},
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="japan",
+            product_type="stock",
+            risk_band="LOW",
+        )
+    ] == ["7203.T"]
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="us",
+            product_type="stock",
+            risk_band=RANKING_BETA_RISK_STANDARD_OR_LOWER,
+        )
+    ] == ["AAPL"]
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="us",
+            product_type="stock",
+        )
+    ] == ["AAPL", "NVDA"]
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="us",
+            product_type="etf",
+        )
+    ] == ["SPY"]
+    assert (
+        filter_symbol_universe_rows(
+            rows,
+            region="other_global",
+            product_type="stock",
+        )
+        == []
+    )
+
+
+def test_ranking_detail_filters_change_by_region_and_product():
+    japan_stock = ranking_detail_filters_for_category("japan", "stock")
+    us_stock = ranking_detail_filters_for_category("us", "stock")
+    etf = ranking_detail_filters_for_category("japan", "etf")
+    mutual_fund = ranking_detail_filters_for_category("japan", "mutual_fund")
+
+    assert "pbr" in japan_stock
+    assert "risk_band" in japan_stock
+    assert "risk_band" in us_stock
+    assert "nisa_eligibility" in us_stock
+    assert "benchmark_index" in etf
+    assert "pbr" not in etf
+    assert mutual_fund == []
+    assert ranking_weight_preset_for_purpose("stability") == "risk"
+    assert "moving_average_signal" in RANKING_INVESTMENT_STYLE_METRICS["trend"]
+
+
+def test_beta_risk_filter_labels_explain_thresholds():
+    assert RANKING_BETA_RISK_LABELS[RANKING_BETA_RISK_STANDARD_OR_LOWER] == ("標準以下（β <= 1.2）")
+    assert "β 0.8未満" in RANKING_FILTER_HELP_TEXTS["risk_band"]
+    assert "1.2超" in RANKING_FILTER_HELP_TEXTS["risk_band"]
+
+
 def test_filter_symbol_universe_rows_searches_japanese_aliases():
     rows = symbol_universe_rows(
         [
@@ -347,6 +1055,9 @@ def test_filter_symbol_universe_rows_searches_japanese_aliases():
 
 def test_ranking_filter_signature_changes_when_conditions_change():
     base = ranking_filter_signature(
+        region="us",
+        product_type="stock",
+        ranking_purpose="dividend",
         purpose="dividend",
         period_preset="short",
         market="us",
@@ -359,6 +1070,9 @@ def test_ranking_filter_signature_changes_when_conditions_change():
         limit=6,
     )
     changed = ranking_filter_signature(
+        region="japan",
+        product_type="stock",
+        ranking_purpose="dividend",
         purpose="dividend",
         period_preset="short",
         market="jp",
@@ -372,6 +1086,190 @@ def test_ranking_filter_signature_changes_when_conditions_change():
     )
 
     assert base != changed
+
+
+def test_ranking_filter_signature_includes_ranking_classification():
+    base = ranking_filter_signature(
+        region="japan",
+        product_type="stock",
+        ranking_purpose="dividend",
+        purpose="all",
+        period_preset="short",
+        market="all",
+        asset_type="all",
+        currency="all",
+        dividend_category="all",
+        complexity="standard",
+        theme="all",
+        query="",
+        limit=6,
+    )
+    changed = ranking_filter_signature(
+        region="japan",
+        product_type="stock",
+        ranking_purpose="growth",
+        purpose="all",
+        period_preset="short",
+        market="all",
+        asset_type="all",
+        currency="all",
+        dividend_category="all",
+        complexity="standard",
+        theme="all",
+        query="",
+        limit=6,
+    )
+
+    assert base != changed
+
+
+def test_ranking_filter_signature_includes_investment_style():
+    base = ranking_filter_signature(
+        product_type="stock",
+        ranking_purpose="dividend",
+        purpose="all",
+        period_preset="short",
+        market="all",
+        asset_type="all",
+        currency="all",
+        dividend_category="all",
+        complexity="standard",
+        theme="all",
+        query="",
+        limit=6,
+    )
+    changed = ranking_filter_signature(
+        product_type="stock",
+        ranking_purpose="trend",
+        purpose="all",
+        period_preset="short",
+        market="all",
+        asset_type="all",
+        currency="all",
+        dividend_category="all",
+        complexity="standard",
+        theme="all",
+        query="",
+        limit=6,
+    )
+
+    assert base != changed
+
+
+def test_ranking_filter_signature_includes_nisa_filter():
+    base = ranking_filter_signature(
+        purpose="dividend",
+        period_preset="short",
+        market="us",
+        asset_type="stock",
+        currency="all",
+        dividend_category="all",
+        complexity="standard",
+        nisa_eligibility="all",
+        theme="all",
+        query="",
+        limit=6,
+    )
+    changed = ranking_filter_signature(
+        purpose="dividend",
+        period_preset="short",
+        market="us",
+        asset_type="stock",
+        currency="all",
+        dividend_category="all",
+        complexity="standard",
+        nisa_eligibility="growth",
+        theme="all",
+        query="",
+        limit=6,
+    )
+
+    assert base != changed
+
+
+def test_ranking_filter_signature_ignores_hidden_etf_filters_for_stock():
+    base = ranking_filter_signature(
+        region="all",
+        product_type="stock",
+        ranking_purpose="dividend",
+        purpose="all",
+        period_preset="short",
+        market="all",
+        asset_type="all",
+        currency="all",
+        dividend_category="all",
+        index_family="all",
+        max_expense_ratio_pct="1.00",
+        complexity="standard",
+        theme="all",
+        query="",
+        limit=0,
+    )
+    changed = ranking_filter_signature(
+        region="all",
+        product_type="stock",
+        ranking_purpose="dividend",
+        purpose="all",
+        period_preset="short",
+        market="all",
+        asset_type="all",
+        currency="all",
+        dividend_category="all",
+        index_family="sp500",
+        max_expense_ratio_pct="0.05",
+        complexity="beginner",
+        theme="all",
+        query="",
+        limit=0,
+    )
+
+    assert base == changed
+
+
+def test_ranking_filter_signature_ignores_hidden_stock_filters_for_etf():
+    base = ranking_filter_signature(
+        region="all",
+        product_type="etf",
+        ranking_purpose="dividend",
+        purpose="all",
+        period_preset="short",
+        market="all",
+        asset_type="all",
+        currency="all",
+        dividend_category="all",
+        market_cap_tier="all",
+        complexity="standard",
+        theme="all",
+        query="",
+        limit=0,
+    )
+    changed = ranking_filter_signature(
+        region="all",
+        product_type="etf",
+        ranking_purpose="dividend",
+        purpose="all",
+        period_preset="short",
+        market="all",
+        asset_type="all",
+        currency="all",
+        dividend_category="all",
+        market_cap_tier="large",
+        complexity="standard",
+        theme="technology",
+        query="",
+        per_enabled=True,
+        per_min="2.0",
+        per_max="3.0",
+        pbr_enabled=True,
+        pbr_min="0.5",
+        pbr_max="0.6",
+        roe_enabled=True,
+        roe_min_pct="20.0",
+        roe_max_pct="30.0",
+        limit=0,
+    )
+
+    assert base == changed
 
 
 def test_ranking_filter_signature_ignores_period_preset():
@@ -401,6 +1299,81 @@ def test_ranking_filter_signature_ignores_period_preset():
     )
 
     assert base == changed
+
+
+def test_ranking_filter_signature_normalizes_inactive_dividend_side():
+    category_only = ranking_filter_signature(
+        region="japan",
+        product_type="stock",
+        ranking_purpose="dividend",
+        purpose="all",
+        period_preset="short",
+        market="all",
+        asset_type="all",
+        currency="all",
+        dividend_category="high_dividend",
+        min_dividend_yield_pct="3.2",
+        dividend_yield_enabled=False,
+        dividend_yield_max_pct="8.0",
+        complexity="standard",
+        theme="all",
+        query="",
+        limit=0,
+    )
+    explicit_range = ranking_filter_signature(
+        region="japan",
+        product_type="stock",
+        ranking_purpose="dividend",
+        purpose="all",
+        period_preset="short",
+        market="all",
+        asset_type="all",
+        currency="all",
+        dividend_category="high_dividend",
+        min_dividend_yield_pct="3.2",
+        dividend_yield_enabled=True,
+        dividend_yield_max_pct="8.0",
+        complexity="standard",
+        theme="all",
+        query="",
+        limit=0,
+    )
+
+    assert "high_dividend|0.0" in category_only
+    assert "|all|3.2|" in explicit_range
+
+
+def test_ranking_comparison_summary_shows_period_and_selection_status():
+    assert ranking_comparison_summary(
+        start=date(2026, 5, 11),
+        end=date(2026, 5, 18),
+        candidate_count=46,
+        selected_count=46,
+    ) == {
+        "period": "2026-05-11 〜 2026-05-18",
+        "candidate": "46件",
+        "selected": "46 / 46件",
+        "status": "全候補を比較",
+        "inline": "取得期間: 2026-05-11 〜 2026-05-18 / 候補: 46件 / 選択: 46 / 46件（全候補を比較）",
+    }
+    assert (
+        ranking_comparison_summary(
+            start=date(2026, 5, 11),
+            end=date(2026, 5, 18),
+            candidate_count=46,
+            selected_count=12,
+        )["status"]
+        == "一部を比較"
+    )
+    assert (
+        ranking_comparison_summary(
+            start=date(2026, 5, 11),
+            end=date(2026, 5, 18),
+            candidate_count=0,
+            selected_count=0,
+        )["status"]
+        == "候補なし"
+    )
 
 
 def test_ranking_symbols_state_key_uses_filter_signature():
@@ -437,6 +1410,62 @@ def test_ranking_build_cache_key_ignores_weight_preset():
     assert first == second
 
 
+def test_ranking_source_key_for_selection_matches_actual_fetch_symbols():
+    source_key = _ranking_source_key_for_selection(
+        provider="yahoo",
+        selected_labels=["AAPL - Apple Inc.", "MSFT - Microsoft"],
+        start=date(2026, 5, 10),
+        end=date(2026, 5, 17),
+    )
+
+    assert source_key == ranking_build_cache_key(
+        provider="yahoo",
+        symbols=["AAPL", "MSFT"],
+        start=date(2026, 5, 10),
+        end=date(2026, 5, 17),
+    )
+    assert (
+        _ranking_source_key_for_selection(
+            provider="yahoo",
+            selected_labels=[],
+            start=date(2026, 5, 10),
+            end=date(2026, 5, 17),
+        )
+        == ""
+    )
+
+
+def test_ranking_result_matches_current_selection_detects_stale_results():
+    stored_source = ranking_build_cache_key(
+        provider="yahoo",
+        symbols=["AAPL"],
+        start=date(2026, 5, 10),
+        end=date(2026, 5, 17),
+    )
+
+    assert _ranking_result_matches_current_selection(
+        stored_source,
+        provider="yahoo",
+        selected_labels=["AAPL - Apple Inc."],
+        start=date(2026, 5, 10),
+        end=date(2026, 5, 17),
+    )
+    assert not _ranking_result_matches_current_selection(
+        stored_source,
+        provider="yahoo",
+        selected_labels=["MSFT - Microsoft"],
+        start=date(2026, 5, 10),
+        end=date(2026, 5, 17),
+    )
+    assert not _ranking_result_matches_current_selection(
+        stored_source,
+        provider="yahoo",
+        selected_labels=[],
+        start=date(2026, 5, 10),
+        end=date(2026, 5, 17),
+    )
+
+
 def test_ranking_build_cache_reuses_rows_for_same_market_data_request(monkeypatch):
     session_state: dict[str, object] = {}
     monkeypatch.setattr("ui.app.st.session_state", session_state)
@@ -460,7 +1489,7 @@ def test_ranking_filter_state_persists_modal_values_after_widget_cleanup(monkeyp
         "market_data_ranking_min_dividend": "3.0",
         "market_data_ranking_market": "jp",
     }
-    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.ranking_state.st.session_state", session_state)
 
     filters = persist_ranking_filter_state()
     session_state.pop("market_data_ranking_min_dividend")
@@ -469,6 +1498,27 @@ def test_ranking_filter_state_persists_modal_values_after_widget_cleanup(monkeyp
     assert filters["market_data_ranking_min_dividend"] == "3.0"
     assert current_ranking_filter_state()["market_data_ranking_min_dividend"] == "3.0"
     assert current_ranking_filter_state()["market_data_ranking_market"] == "jp"
+
+
+def test_clear_ranking_filter_state_resets_visible_filters_and_result_state(monkeypatch):
+    session_state: dict[str, object] = {
+        "market_data_ranking_currency": "USD",
+        "market_data_ranking_nisa": "growth",
+        "market_data_ranking_symbol_query": "toyota",
+        "market_data_ranking_rows": [{"symbol": "AAPL"}],
+        "market_data_ranking_error_rows": [{"symbol": "ERR"}],
+        "market_data_ranking_selected_labels": ["AAPL - Apple Inc."],
+    }
+    monkeypatch.setattr("ui.ranking_state.st.session_state", session_state)
+
+    clear_ranking_filter_state()
+
+    assert session_state["market_data_ranking_currency"] == "all"
+    assert session_state["market_data_ranking_nisa"] == "all"
+    assert session_state["market_data_ranking_symbol_query"] == ""
+    assert "market_data_ranking_rows" not in session_state
+    assert "market_data_ranking_error_rows" not in session_state
+    assert "market_data_ranking_selected_labels" not in session_state
 
 
 def test_valid_ranking_selected_labels_keeps_only_available_options():
@@ -489,7 +1539,7 @@ def test_initial_ranking_selected_labels_defaults_to_all_matching_candidates():
 
 def test_initial_ranking_selected_labels_for_new_filter_key_uses_all_candidates(monkeypatch):
     session_state: dict[str, object] = {}
-    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.ranking_state.st.session_state", session_state)
     labels = ["7203.T - Toyota Motor", "9983.T - Fast Retailing"]
 
     assert (
@@ -504,7 +1554,7 @@ def test_initial_ranking_selected_labels_for_new_filter_key_uses_all_candidates(
 
 def test_initial_ranking_selected_labels_for_existing_key_keeps_user_selection(monkeypatch):
     session_state: dict[str, object] = {"market_data_ranking_symbols_existing": []}
-    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.ranking_state.st.session_state", session_state)
     labels = ["7203.T - Toyota Motor", "9983.T - Fast Retailing"]
 
     assert initial_ranking_selected_labels_for_key(
@@ -518,7 +1568,7 @@ def test_ensure_ranking_selection_widget_state_initializes_new_key_with_all_cand
     monkeypatch,
 ):
     session_state: dict[str, object] = {}
-    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.ranking_state.st.session_state", session_state)
     labels = ["7203.T - Toyota Motor", "9983.T - Fast Retailing"]
 
     ensure_ranking_selection_widget_state(
@@ -535,7 +1585,7 @@ def test_ensure_ranking_selection_widget_state_preserves_existing_user_selection
     session_state: dict[str, object] = {
         "market_data_ranking_symbols_existing": ["7203.T - Toyota Motor"]
     }
-    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.ranking_state.st.session_state", session_state)
 
     ensure_ranking_selection_widget_state(
         selection_key="market_data_ranking_symbols_existing",
@@ -547,9 +1597,27 @@ def test_ensure_ranking_selection_widget_state_preserves_existing_user_selection
     assert "market_data_ranking_selected_labels" not in session_state
 
 
+def test_ensure_ranking_selection_widget_state_removes_stale_options(monkeypatch):
+    session_state: dict[str, object] = {
+        "market_data_ranking_symbols_existing": [
+            "7203.T - Toyota Motor",
+            "OLD - Removed",
+        ]
+    }
+    monkeypatch.setattr("ui.ranking_state.st.session_state", session_state)
+
+    ensure_ranking_selection_widget_state(
+        selection_key="market_data_ranking_symbols_existing",
+        labels=["7203.T - Toyota Motor", "9983.T - Fast Retailing"],
+        stored_selected_labels=[],
+    )
+
+    assert session_state["market_data_ranking_symbols_existing"] == ["7203.T - Toyota Motor"]
+
+
 def test_sync_ranking_selection_state_updates_widget_and_persistent_state(monkeypatch):
     session_state: dict[str, object] = {}
-    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.ranking_state.st.session_state", session_state)
 
     sync_ranking_selection_state(
         "market_data_ranking_symbols_test",
@@ -563,7 +1631,7 @@ def test_sync_ranking_selection_state_updates_widget_and_persistent_state(monkey
 
 def test_sync_ranking_selection_state_can_skip_widget_state(monkeypatch):
     session_state: dict[str, object] = {"market_data_ranking_symbols_test": ["OLD"]}
-    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.ranking_state.st.session_state", session_state)
 
     sync_ranking_selection_state(
         "market_data_ranking_symbols_test",
@@ -580,7 +1648,7 @@ def test_apply_ranking_filter_state_selects_filtered_candidates(monkeypatch):
         "market_data_ranking_error_rows": [{"symbol": "ERR"}],
         "market_data_ranking_filter_dialog_open": True,
     }
-    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.ranking_state.st.session_state", session_state)
     preview_rows = [
         {"symbol": "7203.T", "name": "Toyota Motor"},
         {"symbol": "9983.T", "name": "Fast Retailing"},
@@ -610,6 +1678,8 @@ def test_ranking_period_dates_use_beginner_presets():
     assert ranking_period_dates("short", end) == (date(2026, 5, 10), end)
     assert ranking_period_dates("medium", end) == (date(2026, 4, 17), end)
     assert ranking_period_dates("long", end) == (date(2025, 5, 17), end)
+    assert "短期は直近の値動き" in RANKING_FILTER_HELP_TEXTS["period"]
+    assert "安定性" in RANKING_FILTER_HELP_TEXTS["period"]
 
 
 def test_build_market_data_ranking_rows_fetches_symbols_concurrently(monkeypatch):
@@ -667,6 +1737,52 @@ def test_build_market_data_ranking_rows_fetches_symbols_concurrently(monkeypatch
     assert error_rows == []
     assert max_active_count > 1
     assert any("銘柄別に取得しています" in message for message in progress_messages)
+
+
+def test_build_market_data_ranking_rows_does_not_retry_live_batch_failure(monkeypatch):
+    async def fail_fast_path(*args, **kwargs):
+        raise DataSourceError("batch unavailable", details={"provider": "yahoo"})
+
+    async def fail_preview(*args, **kwargs):
+        raise AssertionError("live provider failures should not retry per-symbol previews")
+
+    monkeypatch.setattr("ui.app._build_market_data_ranking_rows_fast", fail_fast_path)
+    monkeypatch.setattr("ui.app.build_market_data_preview", fail_preview)
+    progress_messages: list[str] = []
+
+    rows, error_rows = asyncio.run(
+        _build_market_data_ranking_rows(
+            ["7203.T", "9983.T"],
+            start=date(2026, 5, 10),
+            end=date(2026, 5, 17),
+            provider="yahoo",
+            progress_callback=lambda message, _ratio: progress_messages.append(message),
+        )
+    )
+
+    assert rows == []
+    assert error_rows == [
+        {
+            "symbol": "7203.T, 9983.T",
+            "code": "APP-2000",
+            "message": "batch unavailable",
+            "details": '{"provider": "yahoo", "symbols": ["7203.T", "9983.T"]}',
+        }
+    ]
+    assert progress_messages[-1] == "Yahoo live data の一括取得に失敗しました。"
+
+
+def test_ranking_provider_error_rows_summarizes_many_symbols():
+    rows = ranking_provider_error_rows(
+        "yahoo",
+        [f"SYM{i}" for i in range(10)],
+        DataSourceError("failed", details={"request": {"operation": "fetch_ohlcv"}}),
+    )
+
+    assert rows[0]["symbol"] == "SYM0, SYM1, SYM2, SYM3, SYM4, SYM5, SYM6, SYM7, ... (+2)"
+    details = json.loads(rows[0]["details"])
+    assert details["provider"] == "yahoo"
+    assert details["request"]["operation"] == "fetch_ohlcv"
 
 
 def test_build_market_data_ranking_rows_uses_batch_fast_path(monkeypatch):
@@ -744,13 +1860,91 @@ def test_build_market_data_ranking_rows_uses_batch_fast_path(monkeypatch):
     assert error_rows == []
 
 
+def test_build_market_data_ranking_rows_reports_no_bars_details(monkeypatch):
+    class FakePartialBatchAdapter:
+        async def fetch_ohlcv(self, symbols, start, end, interval="1d"):
+            bars = []
+            for symbol in symbols:
+                if symbol == "MISSING":
+                    continue
+                contract = Symbol(raw=symbol, exchange="NASDAQ", code=symbol, currency="USD")
+                for day in range(30):
+                    close = Decimal("100") + Decimal(day)
+                    bars.append(
+                        Bar(
+                            symbol=contract,
+                            ts=datetime(2026, 4, day + 1, tzinfo=UTC),
+                            open=close,
+                            high=close + Decimal("1"),
+                            low=close - Decimal("1"),
+                            close=close,
+                            volume=Decimal("1000000"),
+                            interval=interval,
+                            provider="fake",
+                        )
+                    )
+            return bars
+
+        async def fetch_fundamentals(self, symbols, as_of):
+            return [
+                FundamentalSnapshot(
+                    symbol=symbol,
+                    as_of=as_of,
+                    provider="fake",
+                    dividend_yield=Decimal("0.03"),
+                    market_cap_jpy=Decimal("1000000000000"),
+                )
+                for symbol in symbols
+            ]
+
+        def healthcheck(self):
+            return {"provider": "fake", "status": "ok"}
+
+    monkeypatch.setattr(
+        "ui.app.create_market_data_provider_adapter",
+        lambda _: FakePartialBatchAdapter(),
+    )
+
+    rows, error_rows = asyncio.run(
+        _build_market_data_ranking_rows(
+            ["AAA", "MISSING"],
+            start=date(2026, 4, 20),
+            end=date(2026, 4, 30),
+            provider="mock",
+        )
+    )
+
+    assert [row["symbol"] for row in rows] == ["AAA"]
+    assert error_rows[0]["symbol"] == "MISSING"
+    assert error_rows[0]["code"] == "RANKING-NO-BARS"
+    assert error_rows[0]["message"] == (
+        "価格データを取得できなかったため、ランキングから除外しました。"
+    )
+    details = json.loads(error_rows[0]["details"])
+    assert details["provider"] == "mock"
+    assert details["symbol"] == "MISSING"
+    assert details["request"]["display_start"] == "2026-04-20"
+    assert details["request"]["display_end"] == "2026-04-30"
+    assert details["request"]["operation"] == "ranking_fetch_ohlcv"
+    assert details["reason"] == "no_ohlcv_rows"
+
+
 def test_ranking_symbol_chunks_split_large_builds():
     symbols = [f"SYM{i}" for i in range(53)]
 
-    chunks = _ranking_symbol_chunks(symbols)
+    chunks = ranking_symbol_chunks(symbols)
 
-    assert [len(chunk) for chunk in chunks] == [25, 25, 3]
+    assert [len(chunk) for chunk in chunks] == [10, 10, 10, 10, 10, 3]
     assert [symbol for chunk in chunks for symbol in chunk] == symbols
+
+
+def test_live_ranking_symbol_warning_message_only_warns_for_large_live_requests():
+    assert live_ranking_symbol_warning_message("mock", 80) is None
+    assert live_ranking_symbol_warning_message("yahoo", 30) is None
+    assert live_ranking_symbol_warning_message("yahoo", 31) == (
+        "yahoo は外部通信のため、31 銘柄のランキング作成には時間がかかる場合があります。"
+        "通信が不安定な場合は、取得期間を短くするか、比較する銘柄を絞って再実行してください。"
+    )
 
 
 def test_ranking_symbol_options_and_label_support_deep_dive():
@@ -764,6 +1958,41 @@ def test_ranking_symbol_options_and_label_support_deep_dive():
     assert ranking_symbol_options(rows) == ["AAPL", "7203.T"]
     assert symbol_candidate_label("AAPL") == "AAPL - Apple Inc."
     assert symbol_candidate_label("UNKNOWN") == "UNKNOWN"
+
+
+def test_ranking_deep_dive_default_symbol_resets_for_new_result_source():
+    rows = [
+        {"symbol": "TOP", "total_score": "90"},
+        {"symbol": "OLD", "total_score": "70"},
+    ]
+
+    assert (
+        ranking_deep_dive_default_symbol(
+            rows,
+            current_symbol="OLD",
+            source_key="new-ranking",
+            current_source_key="old-ranking",
+        )
+        == "TOP"
+    )
+    assert (
+        ranking_deep_dive_default_symbol(
+            rows,
+            current_symbol="OLD",
+            source_key="same-ranking",
+            current_source_key="same-ranking",
+        )
+        == "OLD"
+    )
+    assert (
+        ranking_deep_dive_default_symbol(
+            rows,
+            current_symbol="REMOVED",
+            source_key="same-ranking",
+            current_source_key="same-ranking",
+        )
+        == "TOP"
+    )
 
 
 def test_forecast_reference_period_uses_horizon_and_bar_count():
@@ -909,7 +2138,7 @@ def test_score_component_rows_builds_cockpit_breakdown():
 
 
 def test_rank_investment_score_rows_sorts_and_reassigns_rank():
-    assert _rank_investment_score_rows(
+    assert rank_investment_score_rows(
         [
             {"rank": "1", "symbol": "LOW", "total_score": "50"},
             {"rank": "1", "symbol": "HIGH", "total_score": "90"},
@@ -1030,6 +2259,72 @@ def test_market_chart_long_frame_adds_beginner_friendly_labels():
             "series_label": "予測: 直近値維持",
         },
     ]
+
+
+def test_provider_error_summary_rows_explain_yahoo_dns_timeout():
+    row = {
+        "code": "APP-2003",
+        "message": "Yahoo market-data provider request failed",
+        "details": json.dumps(
+            {
+                "provider": "yahoo",
+                "request": {
+                    "error": "Failed to perform, curl: (28) Resolving timed out after 5002 milliseconds.",
+                    "operation": "fetch_quotes",
+                    "symbol": "9983.T",
+                },
+                "requires_external_opt_in": True,
+                "supported_providers": ["mock", "csv"],
+            },
+            ensure_ascii=False,
+        ),
+    }
+
+    assert provider_error_summary_rows([row]) == [
+        {
+            "コード": "APP-2003",
+            "Provider": "yahoo",
+            "Symbol": "9983.T",
+            "内容": "Yahoo market-data provider request failed",
+            "次の確認": (
+                "yahoo への外部通信がタイムアウトしています。"
+                "ネットワーク/DNS を確認し、時間をおいて再実行してください。"
+                "ランキングでは銘柄数や取得期間を絞ると安定しやすくなります。"
+            ),
+        }
+    ]
+
+    details = json.loads(format_provider_error_details(row))
+    assert details["request"]["operation"] == "fetch_quotes"
+    assert details["request"]["symbol"] == "9983.T"
+
+
+def test_provider_error_summary_rows_explain_ranking_no_bars():
+    row = ranking_no_bars_error_row(
+        provider="yahoo",
+        symbol="9613.T",
+        display_start=date(2026, 5, 11),
+        display_end=date(2026, 5, 18),
+        fetch_start=datetime(2026, 2, 17, tzinfo=UTC),
+        fetch_end=datetime(2026, 5, 18, 23, 59, 59, tzinfo=UTC),
+    )
+
+    assert provider_error_summary_rows([row]) == [
+        {
+            "コード": "RANKING-NO-BARS",
+            "Provider": "yahoo",
+            "Symbol": "9613.T",
+            "内容": "価格データを取得できなかったため、ランキングから除外しました。",
+            "次の確認": (
+                "価格データが返っていないため、ランキングから除外しています。"
+                "yahoo 側の提供状況、銘柄コード、取得期間を確認してください。"
+            ),
+        }
+    ]
+
+    details = json.loads(format_provider_error_details(row))
+    assert details["reason"] == "no_ohlcv_rows"
+    assert details["request"]["display_end"] == "2026-05-18"
 
 
 def test_render_market_chart_uses_currency_axis_title_and_compact_width(monkeypatch):

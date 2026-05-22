@@ -1,0 +1,15 @@
+symbol,yahoo_symbol,index_family,complexity,is_leveraged,is_inverse,theme,management_style,source_url,source_note
+ARMU,,single_stock,leveraged,true,false,index,,https://www.rexshares.com/wp-content/uploads/2025/11/t-rex-2x-soi_long-arm-_v1.pdf,issuer 2x daily target ETF
+PXIU,,single_stock,leveraged,true,false,index,,https://www.rexshares.com/wp-content/uploads/2025/09/pxiu-factsheet.pdf,issuer 2x daily target ETF
+BULU,,single_stock,leveraged,true,false,index,,https://www.etf.com/BULU,2x daily target ETF
+AMOG,A35.SI,bond,beginner,false,false,bond,index,https://sg.amova-am.com/general/funds/detail/abf-singapore-bond-index-fund,issuer SGX code A35
+CSOP,SRU.SI,reit,beginner,false,false,reit,index,https://sg.finance.yahoo.com/quote/SRU.SI/,Yahoo Singapore symbol
+ICGB,CYC.SI,bond,beginner,false,false,bond,index,https://stockanalysis.com/quote/sgx/CYC/,SGX ticker CYC
+INDI-D,INDI.SI,india,beginner,false,false,index,index,https://www.blackrock.com/sg/en/products/251865/ishares-msci-india-index-etf,issuer Yahoo-compatible symbol INDI.SI
+LIOP,CLR.SI,reit,beginner,false,false,reit,index,https://uk.finance.yahoo.com/quote/CLR.SI/,Yahoo Singapore symbol
+LISC,ESG.SI,sector,beginner,false,false,index,index,https://www.lionglobalinvestors.com/en/fund-lion-ospl-low-carbon-etf.html,issuer SGX code ESG
+AMOL,EVS.SI,china,beginner,false,false,index,index,https://sg.amova-am.com/general/funds/detail/amova-straitstrading-msci-china-electric-vehicles-and-future-mobility-index-etf-sgd-class,issuer SGX code EVS
+AMOT,MBH.SI,bond,beginner,false,false,bond,index,https://tw.stock.yahoo.com/quote/MBH.SI,Yahoo Taiwan symbol
+AMOE,G3B.SI,singapore_equity,beginner,false,false,index,index,https://sg.finance.yahoo.com/quote/G3B.SI/profile/,Yahoo Singapore symbol
+AMON,CFA.SI,reit,beginner,false,false,reit,index,https://sg.amova-am.com/general/funds/detail/amova-straitstrading-asia-ex-japan-reit-index-etf-sgd-class,issuer SGX code CFA
+UOBA,GRN.SI,reit,beginner,false,false,reit,index,https://www.uobam.com.sg/our-funds/highlights/uob-apac-green-reit-etf/index.page,issuer SGX code GRN

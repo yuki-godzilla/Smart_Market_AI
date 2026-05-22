@@ -41,10 +41,11 @@ SMAI は以下の思想を重視しています。
 - Portfolio 評価と solver なしの rebalance proposal
 - Portfolio-to-Risk workflow
 - Streamlit UI
-  - Market Data tab: `銘柄コックピット` / `銘柄ランキング`
+  - left side menu for `銘柄コックピット` / `銘柄ランキング` / `リバランス` / `設定 / データ情報`
   - 銘柄コックピット: 価格・予測チャート、Investment Score、score breakdown、warnings、downloads
   - 銘柄ランキング: curated symbol metadata、候補条件 modal、ランキング preset、コックピットへの深掘り導線
   - Rebalance Cockpit: summary flow、percentage target、allocation comparison chart、risk breach confirmation points
+- symbol universe metadata schema、source import、opt-in metadata refresh、SBI ranking universe policy columns / default exclusion helper
 - JSON / CSV / Markdown / manifest / ZIP export
 - file-backed rebalance scenarios
 - Windows 環境向け single-process Black check helper
@@ -52,23 +53,27 @@ SMAI は以下の思想を重視しています。
 未実装または将来範囲:
 
 - `polygon` など追加 live provider adapter 本体
-- provider 由来 metadata を定期更新する symbol metadata refresh command
+- SBI / NISA metadata の公式 source import（NISA seed import は実装済み）
+- 投信 metadata / 基準価額 / ranking 対応は Future Phase
 - Research RAG の ingestion / chunk store / retrieval / Research Score
 - Decision Report の本格化
 - Execution / broker への注文送信
 - AI assistant experience
 - PDF / Excel export
 
-MVP の既定経路は引き続きネットワーク不要の `mock` / `csv` です。`yahoo` は `allow_external_providers: true` の明示 opt-in 時だけ `yfinance` 経由で利用します。
+MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で維持します。一方、Streamlit の Market Data 画面は投資判断 UI として `yahoo` live data を初期表示・先頭表示にし、画面上で明示 opt-in した live provider として `yfinance` 経由で利用します。
 
 ## 現在のロードマップ上の位置
 
 - Phase 1〜15: implementation complete
-- Phase 16: UI / Visualization Cockpit 改善中
-- Research RAG: 設計済み、実装は planned
-- Execution / broker order: 優先度を下げた将来領域
+- Phase 16: UI / Visualization Cockpit implementation complete、最終 Streamlit browser smoke は推奨確認
+- Phase 16S: Stabilization / final Streamlit smoke は必要に応じて実施
+- Phase 17: UI Polish / ランキング条件 UI 再設計は implementation complete
+- Phase 18: symbol universe / metadata refresh / source import / SBI ranking universe policy が進行中。次は SBI / ETF metadata source の拡張
+- Phase 19〜24: Decision Report、Research RAG、Research Score、Assistant、optional adapter、Execution gate の順に整理
+- Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
-次の重点は、Phase 16 の Rebalance Cockpit / Ranking-to-Cockpit 導線の磨き込みと、Research RAG 実装に入る前の document / roadmap 同期です。
+次の重点は、Phase 18 の SBI / ETF metadata source 拡張、Phase 19 の Decision Report context です。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント
@@ -78,6 +83,7 @@ MVP の既定経路は引き続きネットワーク不要の `mock` / `csv` で
 - [MVP 運用ガイド](./Documents/06_MVP_Operations_Guide.md)
 - [UI 文言ポリシー](./Documents/07_UI_Wording_Policy.md)
 - [Phase 16 UI 改善計画](./Documents/08_Phase16_UI_Improvement_Plan.md)
+- [SBI 銘柄ユニバース方針](./Documents/09_SBI_Symbol_Universe_Policy.md)
 - [Research RAG 詳細設計](./Documents/04_Detail_Design/04-8_Onepager_Research_RAG.md)
 - [Investment Scoring / UI 詳細設計](./Documents/04_Detail_Design/04-9_Onepager_Investment_Scoring_UI.md)
 - [Codex タスクテンプレート](./Documents/98_Codex_Task_Template.md)
@@ -91,6 +97,9 @@ MVP の既定経路は引き続きネットワーク不要の `mock` / `csv` で
 - [詳細設計](./Documents/04_Detail_Design/04_Detail_Design_README.md)
 
 ## セットアップ
+
+`setup\setup.bat` は Python 3.11 を前提に仮想環境を作成します。
+Python 3.12 など 3.11 以外の環境では、下の手動インストール手順で `venv_SMAI` を作成してください。
 
 リポジトリ直下で実行します。
 
@@ -124,13 +133,15 @@ http://127.0.0.1:8000/openapi.json
 .\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
 ```
 
-現在の UI は Market Data / Rebalance の 2 tab 構成です。
-Market Data では、1銘柄を深掘りする `銘柄コックピット` と、複数銘柄を比較する `銘柄ランキング` を切り替えます。
-Rebalance では、現在資産、目標配分、必要な売買、Risk 判定を順に確認します。
+現在の UI は左サイドメニューで画面を切り替えます。
+`銘柄コックピット` では 1 銘柄を深掘りし、`銘柄ランキング` では複数銘柄を比較します。
+`リバランス` では、現在資産、目標配分、必要な売買、Risk 判定を順に確認します。
+`設定 / データ情報` では、実行環境とローカルの銘柄候補を確認できます。
 
 ## CSV MarketData で起動
 
-デフォルト provider は deterministic な `mock` です。
+設定上のデフォルト provider は deterministic な `mock` です。
+Streamlit の Market Data 画面では provider 選択の初期表示と表示順先頭が `yahoo` です。通常の API / local checks は `mock` / `csv` を基準にしつつ、UI では生きた株価データを主導線として扱います。
 ローカル CSV サンプルデータを使う場合は、次のように設定します。
 
 ```powershell

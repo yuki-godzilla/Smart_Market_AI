@@ -1,0 +1,60 @@
+{
+  "as_of": "2026-05-21",
+  "changed_columns": [
+    "dividend_category",
+    "dividend_yield_pct",
+    "market_cap_tier",
+    "metadata_as_of",
+    "metadata_source",
+    "metadata_updated_at",
+    "pbr",
+    "per",
+    "risk_band",
+    "roe_pct"
+  ],
+  "changed_rows": 2,
+  "changed_symbols": [
+    "BRK-B",
+    "UHAL-B"
+  ],
+  "dry_run": false,
+  "failed_symbols": [],
+  "failures": [],
+  "operation": "symbol_universe_metadata_refresh",
+  "provider": "yahoo",
+  "selection": {
+    "filters": {
+      "asset_type": "stock",
+      "limit": 0,
+      "market": "us",
+      "metadata_source": "",
+      "missing_any": [],
+      "symbols": [
+        "BRK-B",
+        "UHAL-B"
+      ]
+    },
+    "selected_rows": 2,
+    "selected_symbols": [
+      "BRK-B",
+      "UHAL-B"
+    ],
+    "selected_symbols_truncated": false,
+    "total_rows": 9179
+  },
+  "total_rows": 9179,
+  "unknown_symbols": [],
+  "updated_at": "2026-05-21T00:00:00+09:00",
+  "updates_applied": 2,
+  "updates_requested": 2,
+  "validation_after": {
+    "errors": 0,
+    "total": 0,
+    "warnings": 0
+  },
+  "validation_before": {
+    "errors": 0,
+    "total": 0,
+    "warnings": 0
+  }
+}

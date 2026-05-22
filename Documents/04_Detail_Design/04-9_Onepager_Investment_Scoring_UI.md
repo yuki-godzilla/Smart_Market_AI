@@ -4,15 +4,18 @@
 
 ## 1) Purpose & Scope
 
-この文書は、現在実装済みの Investment Score と、Phase 16 で進行中の Streamlit UI 改善を整理する Onepager です。
+この文書は、現在実装済みの Investment Score と、Phase 16 で実装済みの Streamlit scoring UI を整理する Onepager です。
+最終 Streamlit browser smoke は推奨確認として残します。
 
 対象:
 
 - `backend/scoring`
 - `POST /scoring/investment-score`
-- Market Data tab の `銘柄コックピット`
-- Market Data tab の `銘柄ランキング`
-- Rebalance tab の `Rebalance Cockpit`
+- left side menu
+- `銘柄コックピット`
+- `銘柄ランキング`
+- `リバランス` / `Rebalance Cockpit`
+- `設定 / データ情報`
 
 対象外:
 
@@ -93,6 +96,16 @@ weight total は config validation で確認します。
 7. Forecast Metrics / Screening Score / provider details
 8. JSON / CSV download
 
+### Side Menu
+
+目的: 画面選択と実行環境の確認だけに絞る。
+
+- `銘柄コックピット`
+- `銘柄ランキング`
+- `リバランス`
+- `設定 / データ情報`
+- Runtime は expander に畳む
+
 ### 銘柄ランキング
 
 目的: 複数銘柄を比較し、深掘り候補を整理する。
@@ -105,10 +118,11 @@ weight total は config validation で確認します。
   - forecast agreement
   - data quality
   - lower risk
-- candidate filter modal
+- in-page screening condition panel and candidate filter controls
 - static / curated metadata による fetch-before filtering
 - ticker / company name 表示
 - selected ranking symbol を cockpit state へ渡す flow
+- ranking cache / progress display
 
 ### Rebalance Cockpit
 
@@ -117,10 +131,12 @@ weight total は config validation で確認します。
 現在の実装:
 
 - JSON input を advanced input に移動
+- sample / account / as-of / cash input を Rebalance 画面内に配置
 - summary flow
 - target allocation percentage input
 - allocation comparison chart
 - risk breach confirmation points
+- latest result persistence in Streamlit session state
 
 ## 5) Rules & Constraints
 
@@ -128,7 +144,7 @@ weight total は config validation で確認します。
 - `decision_support_note` を出力に含める。
 - Ranking は「買う銘柄の確定」ではなく「深掘り候補の整理」として表示する。
 - Fetch-before filters は provider fetch 前に判断できる static / curated metadata だけを使う。
-- provider fundamentals 由来の配当利回り・sector・ETF属性は、将来の metadata refresh command で更新する。
+- provider fundamentals 由来の配当利回り・sector・ETF属性は、既存の opt-in metadata refresh / source import 経路で更新する。次 slice では SBI ranking-universe policy を candidate extraction に接続する。
 - Research Score は optional input として後続統合する。
 
 ## 6) Test Plan

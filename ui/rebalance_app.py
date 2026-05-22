@@ -6,6 +6,7 @@ import os
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
+from functools import lru_cache
 from io import BytesIO, StringIO
 from pathlib import Path
 from typing import Any
@@ -15,8 +16,15 @@ from pydantic import ValidationError
 
 from backend.app.main import RebalanceCheckRequest, create_portfolio_risk_workflow
 from backend.core.config import CONFIG_FILE_ENV, get_settings
-from backend.core.data_contracts import Bar, FeatureSnapshot
-from backend.core.errors import AppError
+from backend.core.data_contracts import (
+    Bar,
+    DailySnapshot,
+    DataQuality,
+    FeatureSnapshot,
+    FundamentalSnapshot,
+    Quote,
+)
+from backend.core.errors import AppError, DataSourceError
 from backend.forecast import (
     ForecastEvaluation,
     ForecastModel,
@@ -24,15 +32,20 @@ from backend.forecast import (
     evaluate_models,
     summarize_forecast_evaluations,
 )
-from backend.marketdata import FeatureBuilder, create_market_data_provider_adapter
+from backend.marketdata import create_market_data_provider_adapter
+from backend.marketdata.feature_builder import build_daily_snapshots_from_market_data
 from backend.marketdata.live_provider_adapters import live_provider_adapter_details
 from backend.marketdata.provider_registry import provider_capability_details
+from backend.marketdata.providers.yahoo import shared_yfinance_session
 from backend.portfolio.service import RebalanceProposal
 from backend.portfolio.workflow import PortfolioRiskResult
 from backend.scoring import InvestmentScore, InvestmentScoringService
 from backend.screening import ScreeningScore, ScreeningService
 from ui.symbol_universe import (
     symbol_name as _symbol_name_from_csv,
+)
+from ui.symbol_universe import (
+    symbol_provider_symbol as _symbol_provider_symbol_from_csv,
 )
 from ui.symbol_universe import (
     symbol_reference_rows as _symbol_reference_rows_from_csv,
@@ -42,6 +55,7 @@ DEFAULT_ACCOUNT_ID = "acct-1"
 DEFAULT_AS_OF = date(2026, 4, 9)
 DEFAULT_CASH_JPY = Decimal("29000")
 _ONE_DAY = timedelta(days=1)
+MARKET_DATA_FEATURE_LOOKBACK_DAYS = 90
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SCENARIO_DIR = PROJECT_ROOT / "examples" / "rebalance_scenarios"
 SCENARIO_DIR_ENV = "SMAI_REBALANCE_SCENARIO_DIR"
@@ -133,7 +147,14 @@ def yfinance_search_symbol_rows(query: str, *, max_results: int = 12) -> list[di
     normalized_query = query.strip()
     if not normalized_query:
         return []
+    return [dict(row) for row in _cached_yfinance_search_symbol_rows(normalized_query, max_results)]
 
+
+@lru_cache(maxsize=64)
+def _cached_yfinance_search_symbol_rows(
+    normalized_query: str,
+    max_results: int,
+) -> tuple[tuple[tuple[str, str], ...], ...]:
     try:
         import yfinance as yf  # type: ignore[import-untyped]
 
@@ -147,6 +168,7 @@ def yfinance_search_symbol_rows(query: str, *, max_results: int = 12) -> list[di
             include_research=False,
             include_cultural_assets=False,
             enable_fuzzy_query=True,
+            session=shared_yfinance_session(),
             timeout=5,
             raise_errors=False,
         ).quotes
@@ -168,7 +190,7 @@ def yfinance_search_symbol_rows(query: str, *, max_results: int = 12) -> list[di
             or symbol
         ).strip()
         rows.append({"symbol": symbol, "name": name})
-    return rows
+    return tuple(tuple(row.items()) for row in rows)
 
 
 @dataclass(frozen=True)
@@ -381,19 +403,62 @@ async def build_market_data_preview(
             }
         )
     provider = dataaccess_cfg.provider
+    provider_symbol = _symbol_provider_symbol_from_csv(symbol, provider)
     start_dt = datetime.combine(start, time.min, tzinfo=UTC)
     end_dt = datetime.combine(end, time.max, tzinfo=UTC)
     provider_rows = provider_metadata_rows(provider)
 
     try:
         adapter = create_market_data_provider_adapter(dataaccess_cfg)
-        quotes = await adapter.fetch_quotes([symbol], at=end_dt)
-        bars = await adapter.fetch_ohlcv([symbol], start=start_dt, end=end_dt)
-        fx_rates = await adapter.get_fx_rates([fx_pair], at=end_dt)
-        feature_snapshot = await FeatureBuilder(
-            adapter,
+        feature_start = min(start, end - timedelta(days=MARKET_DATA_FEATURE_LOOKBACK_DAYS))
+        feature_start_dt = datetime.combine(feature_start, time.min, tzinfo=UTC)
+        provider_bars = await adapter.fetch_ohlcv(
+            [provider_symbol],
+            start=feature_start_dt,
+            end=end_dt,
+        )
+        feature_bars = _bars_with_display_symbol(provider_bars, display_symbol=symbol)
+        bars = _bars_in_period(feature_bars, start=start_dt, end=end_dt)
+        quotes = _quotes_from_latest_bars([symbol], feature_bars)
+        warning_rows: list[dict[str, str]] = []
+        fx_rates: list[Any] = []
+        if _should_fetch_market_data_preview_fx(provider=provider):
+            try:
+                fx_rates = await adapter.get_fx_rates([fx_pair], at=end_dt)
+            except AppError as exc:
+                warning_rows.append(_market_data_error_row(exc, component="fx"))
+        if _should_fetch_market_data_preview_fundamentals(provider=provider):
+            try:
+                provider_fundamentals = await adapter.fetch_fundamentals(
+                    [provider_symbol],
+                    as_of=end,
+                )
+                fundamentals = _fundamentals_with_display_symbol(
+                    provider_fundamentals,
+                    display_symbol=symbol,
+                )
+            except AppError as exc:
+                warning_rows.append(_market_data_error_row(exc, component="fundamentals"))
+                fundamentals = [
+                    _fallback_fundamental_snapshot(symbol, as_of=end, provider=provider)
+                ]
+        else:
+            fundamentals = [_fallback_fundamental_snapshot(symbol, as_of=end, provider=provider)]
+        feature_rows = build_daily_snapshots_from_market_data(
+            symbols=[symbol],
+            as_of=end,
+            quotes=quotes,
+            fundamentals=fundamentals,
+            bars=feature_bars,
             cfg=settings.feature_builder,
-        ).build_feature_snapshot([symbol], end)
+        )
+        feature_snapshot = FeatureSnapshot(
+            as_of=end,
+            provider=adapter.healthcheck().get("provider", provider),
+            rows=feature_rows,
+            missing_summary=_feature_missing_summary(feature_rows),
+            quality_summary=_feature_quality_summary(feature_rows),
+        )
         forecast_evaluations = _available_forecast_evaluations(
             bars,
             horizon_days=forecast_horizon_days,
@@ -426,13 +491,7 @@ async def build_market_data_preview(
             feature_rows=[],
             investment_score_rows=[],
             screening_rows=[],
-            error_rows=[
-                {
-                    "code": exc.code,
-                    "message": exc.message,
-                    "details": json.dumps(exc.details, ensure_ascii=False, sort_keys=True),
-                }
-            ],
+            error_rows=[_market_data_error_row(exc)],
         )
 
     return MarketDataPreview(
@@ -469,7 +528,30 @@ async def build_market_data_preview(
         feature_rows=feature_snapshot_rows(feature_snapshot),
         investment_score_rows=investment_score_rows(investment_scores),
         screening_rows=screening_score_rows(screening_scores),
-        error_rows=[],
+        error_rows=warning_rows,
+    )
+
+
+def _should_fetch_market_data_preview_fx(*, provider: str) -> bool:
+    return provider != "yahoo"
+
+
+def _should_fetch_market_data_preview_fundamentals(*, provider: str) -> bool:
+    return provider != "yahoo"
+
+
+def _fallback_fundamental_snapshot(
+    symbol: str,
+    *,
+    as_of: date,
+    provider: str,
+) -> FundamentalSnapshot:
+    return FundamentalSnapshot(
+        symbol=symbol,
+        as_of=as_of,
+        provider=provider,
+        dividend_yield=None,
+        market_cap_jpy=None,
     )
 
 
@@ -484,6 +566,76 @@ def provider_metadata_rows(provider: str) -> list[dict[str, str]]:
     return [
         {"field": key, "value": _stringify_metadata_value(value)} for key, value in details.items()
     ]
+
+
+def _bars_with_display_symbol(bars: list[Bar], *, display_symbol: str) -> list[Bar]:
+    return [
+        bar.model_copy(
+            update={
+                "symbol": bar.symbol.model_copy(
+                    update={"raw": display_symbol, "code": display_symbol.removesuffix(".T")}
+                )
+            }
+        )
+        for bar in bars
+    ]
+
+
+def _fundamentals_with_display_symbol(
+    fundamentals: list[FundamentalSnapshot],
+    *,
+    display_symbol: str,
+) -> list[FundamentalSnapshot]:
+    return [
+        fundamental.model_copy(update={"symbol": display_symbol}) for fundamental in fundamentals
+    ]
+
+
+def _market_data_error_row(exc: AppError, *, component: str | None = None) -> dict[str, str]:
+    details = dict(exc.details)
+    if component is not None:
+        details["component"] = component
+    return {
+        "code": exc.code,
+        "message": exc.message,
+        "details": json.dumps(details, ensure_ascii=False, sort_keys=True),
+    }
+
+
+def _bars_in_period(
+    bars: list[Bar],
+    *,
+    start: datetime,
+    end: datetime,
+) -> list[Bar]:
+    return sorted((bar for bar in bars if start <= bar.ts <= end), key=lambda row: row.ts)
+
+
+def _quotes_from_latest_bars(symbols: list[str], bars: list[Bar]) -> list[Quote]:
+    bars_by_symbol: dict[str, list[Bar]] = {symbol: [] for symbol in symbols}
+    for bar in bars:
+        if bar.symbol.raw in bars_by_symbol:
+            bars_by_symbol[bar.symbol.raw].append(bar)
+
+    quotes: list[Quote] = []
+    for raw_symbol in symbols:
+        symbol_bars = sorted(bars_by_symbol[raw_symbol], key=lambda row: row.ts)
+        if not symbol_bars:
+            raise DataSourceError(
+                "No market-data bars available for quote",
+                details={"symbol": raw_symbol},
+            )
+        latest = symbol_bars[-1]
+        quotes.append(
+            Quote(
+                symbol=latest.symbol,
+                bid=None,
+                ask=None,
+                last=latest.close,
+                ts=latest.ts,
+            )
+        )
+    return quotes
 
 
 def ohlcv_summary_rows(bars: list[Bar]) -> list[dict[str, str]]:
@@ -1264,6 +1416,22 @@ def _missing_summary_text(summary: dict[str, int]) -> str:
     if not summary:
         return ""
     return ", ".join(f"{feature}: {count}" for feature, count in sorted(summary.items()))
+
+
+def _feature_missing_summary(rows: list[DailySnapshot]) -> dict[str, int]:
+    summary: dict[str, int] = {}
+    for row in rows:
+        for feature, is_missing in row.missing.items():
+            if is_missing:
+                summary[feature] = summary.get(feature, 0) + 1
+    return summary
+
+
+def _feature_quality_summary(rows: list[DailySnapshot]) -> dict[DataQuality, int]:
+    summary: dict[DataQuality, int] = {}
+    for row in rows:
+        summary[row.data_quality] = summary.get(row.data_quality, 0) + 1
+    return summary
 
 
 def _quality_reasons(reasons: list[str]) -> str:

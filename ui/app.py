@@ -1,76 +1,155 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from datetime import UTC, date, datetime, time, timedelta
-from decimal import Decimal, InvalidOperation
-from typing import Callable, cast
+from decimal import Decimal
+from typing import Callable, Iterable, cast
 
 import altair as alt
 import pandas as pd
 import streamlit as st
-from pydantic import ValidationError
+from st_aggrid import AgGrid, DataReturnMode, GridOptionsBuilder
 
-from backend.app.main import RebalanceCheckRequest
 from backend.core.config import get_settings
-from backend.core.data_contracts import Bar, DailySnapshot, DataQuality, FeatureSnapshot, Quote
+from backend.core.data_contracts import (
+    Bar,
+    DailySnapshot,
+    DataQuality,
+    FeatureSnapshot,
+    FundamentalSnapshot,
+    Quote,
+)
 from backend.core.errors import AppError
 from backend.forecast import forecast_model_display_name, summarize_forecast_evaluations
 from backend.marketdata import create_market_data_provider_adapter
 from backend.marketdata.feature_builder import build_daily_snapshots_from_market_data
-from backend.portfolio.workflow import PortfolioRiskResult
 from backend.scoring import InvestmentScoringService
 from backend.screening import ScreeningService
+from ui.components.sidemenu import (
+    SIDEMENU_PAGE_COCKPIT,
+    SIDEMENU_PAGE_RANKING,
+    SIDEMENU_PAGE_REBALANCE,
+    render_sidemenu,
+)
+from ui.ranking import (
+    LIVE_MARKET_DATA_PROVIDERS,
+    MAX_RANKING_BUILD_CACHE_ENTRIES,
+    MAX_RANKING_CONCURRENT_FETCHES,
+    RANKING_BETA_RISK_LABELS,
+    RANKING_COMPLEXITY_LABELS,
+    RANKING_CURRENCY_LABELS,
+    RANKING_DIVIDEND_LABELS,
+    RANKING_FILTER_HELP_TEXTS,
+    RANKING_INDEX_FAMILY_LABELS,
+    RANKING_MARKET_CAP_LABELS,
+    RANKING_MVP_PRODUCT_TYPE_LABELS,
+    RANKING_MVP_REGION_LABELS,
+    RANKING_NISA_ELIGIBILITY_LABELS,
+    RANKING_PERIOD_PRESETS,
+    RANKING_PURPOSE_LABELS,
+    RANKING_THEME_LABELS,
+    apply_ranking_weight_preset,
+    filter_symbol_universe_rows,
+    live_ranking_symbol_warning_message,
+    normalize_dividend_filter_values,
+    rank_investment_score_rows,
+    ranking_build_cache_key,
+    ranking_deep_dive_default_symbol,
+    ranking_detail_filters_for_category,
+    ranking_filter_signature,
+    ranking_no_bars_error_row,
+    ranking_period_dates,
+    ranking_period_label,
+    ranking_product_type_label,
+    ranking_provider_error_rows,
+    ranking_purpose_label,
+    ranking_region_label,
+    ranking_symbol_chunks,
+    ranking_symbol_options,
+    ranking_symbols_state_key,
+    ranking_weight_preset_for_purpose,
+    ranking_weight_preset_label,
+    symbol_candidate_labels,
+    symbol_universe_rows,
+)
+from ui.ranking_state import (
+    clear_ranking_filter_state,
+    ensure_ranking_selection_widget_state,
+    sync_ranking_selection_state,
+)
+from ui.ranking_state import (
+    ranking_filter_bool as _ranking_filter_bool,
+)
+from ui.ranking_state import (
+    ranking_filter_value as _ranking_filter_value,
+)
 from ui.rebalance_app import (
     MarketDataPreview,
-    RebalanceScenarioError,
     _available_forecast_evaluations,
     build_market_data_preview,
-    build_rebalance_report_context,
-    build_rebalance_request,
     forecast_chart_rows,
     forecast_consensus_rows_for_bars,
     forecast_metric_csv_download,
     forecast_metric_json_download,
     forecast_metric_rows_for_bars,
     forecast_reference_period,
-    get_rebalance_sample,
     investment_score_csv_download,
     investment_score_json_download,
     investment_score_rows,
-    rebalance_sample_names,
-    request_json_download,
-    result_json_download,
-    result_markdown_report_download,
-    result_report_zip_download,
-    run_rebalance_check,
     runtime_settings_summary,
-    sample_widget_key,
     screening_score_csv_download,
     screening_score_json_download,
     symbol_name,
     symbol_reference_rows,
-    table_csv_download,
-    target_allocations_json,
     yfinance_search_symbol_rows,
 )
-from ui.symbol_universe import symbol_universe_csv_rows
+from ui.state import (
+    MARKET_DATA_FORECAST_DAYS_STATE_KEY,
+    MARKET_DATA_PREVIEW_STATE_KEY,
+    MARKET_DATA_RANKING_BUILD_CACHE_STATE_KEY,
+    MARKET_DATA_RANKING_DEEP_DIVE_SOURCE_STATE_KEY,
+    MARKET_DATA_RANKING_ERROR_STATE_KEY,
+    MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY,
+    MARKET_DATA_RANKING_SOURCE_STATE_KEY,
+    MARKET_DATA_RANKING_STATE_KEY,
+    MARKET_DATA_STATUS_STATE_KEY,
+    MARKET_DATA_TOAST_STATE_KEY,
+)
+from ui.symbol_universe import symbol_provider_symbol, symbol_universe_csv_rows
+from ui.views.common import (
+    _optional_decimal_from_text,
+    _render_table,
+    _single_date_from_input,
+    default_as_of_date,
+)
+from ui.views.rebalance import (
+    REBALANCE_REQUEST_STATE_KEY,
+    REBALANCE_RESULT_STATE_KEY,
+    allocation_chart_frame,
+    rebalance_flow_rows,
+    rebalance_result_from_state,
+    render_rebalance_page,
+    risk_breach_display_rows,
+    risk_breach_message,
+)
+from ui.views.settings import render_settings_page
 
-MARKET_DATA_PROVIDER_OPTIONS = ["mock", "yahoo", "csv"]
-MARKET_DATA_PREVIEW_STATE_KEY = "market_data_preview"
-MARKET_DATA_STATUS_STATE_KEY = "market_data_status_message"
-MARKET_DATA_FORECAST_DAYS_STATE_KEY = "market_data_forecast_horizon_days"
-MARKET_DATA_TOAST_STATE_KEY = "market_data_toast_message"
-MARKET_DATA_RANKING_STATE_KEY = "market_data_ranking_rows"
-MARKET_DATA_RANKING_ERROR_STATE_KEY = "market_data_ranking_error_rows"
-MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY = "market_data_ranking_selected_labels"
-MARKET_DATA_RANKING_FILTERS_STATE_KEY = "market_data_ranking_filters"
-MARKET_DATA_RANKING_BUILD_CACHE_STATE_KEY = "market_data_ranking_build_cache"
-RANKING_FILTER_DIALOG_STATE_KEY = "market_data_ranking_filter_dialog_open"
-MAX_RANKING_CONCURRENT_FETCHES = 8
-MAX_RANKING_BATCH_FETCH_SYMBOLS = 25
-MAX_RANKING_BUILD_CACHE_ENTRIES = 8
-REBALANCE_RESULT_STATE_KEY = "rebalance_result"
-REBALANCE_REQUEST_STATE_KEY = "rebalance_request"
+__all__ = [
+    "REBALANCE_REQUEST_STATE_KEY",
+    "REBALANCE_RESULT_STATE_KEY",
+    "allocation_chart_frame",
+    "default_as_of_date",
+    "rebalance_flow_rows",
+    "rebalance_result_from_state",
+    "risk_breach_display_rows",
+    "risk_breach_message",
+]
+
+MARKET_DATA_PROVIDER_OPTIONS = ["yahoo", "csv", "mock"]
+MARKET_DATA_PROVIDER_WIDGET_KEY = "market_data_provider_live_first"
+MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY = "market_data_ranking_provider_live_first"
 
 FORECAST_ACTUAL_LABEL = "実績価格"
 MARKET_DATA_MODE_COCKPIT = "cockpit"
@@ -79,259 +158,265 @@ MARKET_DATA_MODE_LABELS = {
     MARKET_DATA_MODE_COCKPIT: "銘柄コックピット",
     MARKET_DATA_MODE_RANKING: "銘柄ランキング",
 }
-RANKING_PRESET_BALANCED = "balanced"
-RANKING_PRESET_FORECAST = "forecast"
-RANKING_PRESET_QUALITY = "quality"
-RANKING_PRESET_RISK = "risk"
-RANKING_WEIGHT_PRESET_LABELS = {
-    RANKING_PRESET_BALANCED: "バランス重視",
-    RANKING_PRESET_FORECAST: "予測一致重視",
-    RANKING_PRESET_QUALITY: "データ品質重視",
-    RANKING_PRESET_RISK: "リスク控えめ",
+SYMBOL_UNIVERSE_DETAIL_LABELS = {
+    "symbol": "銘柄コード",
+    "name": "銘柄名",
+    "market": "市場",
+    "asset_type": "商品分類",
+    "currency": "通貨",
+    "broker": "取扱元",
+    "tradability": "取引可否",
+    "nisa_category": "NISA区分",
+    "nisa_growth_eligible": "成長投資枠",
+    "nisa_tsumitate_eligible": "つみたて投資枠",
+    "investment_style": "投資スタイル",
+    "is_sbi_supported": "SBI対応",
+    "is_active": "有効銘柄",
+    "is_leveraged": "レバレッジ",
+    "is_inverse": "インバース",
+    "theme": "テーマ",
+    "sector": "セクター",
+    "dividend_category": "配当カテゴリ",
+    "dividend_yield_pct": "配当利回り(%)",
+    "market_cap_tier": "時価総額分類",
+    "index_family": "連動指数",
+    "expense_ratio_pct": "信託報酬/経費率(%)",
+    "complexity": "複雑さ",
+    "risk_band": "市場感応度",
+    "per": "PER",
+    "pbr": "PBR",
+    "roe_pct": "ROE(%)",
+    "consensus_rating": "コンセンサス",
+    "forecast_agreement": "予測一致",
+    "data_quality": "データ品質",
+    "tags": "タグ",
+    "aliases": "別名",
+    "yahoo_symbol": "Yahoo取得用symbol",
+    "metadata_source": "metadata source",
+    "metadata_as_of": "metadata as of",
+    "metadata_updated_at": "metadata updated at",
 }
-RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
-    RANKING_PRESET_BALANCED: {
-        "screening_score": Decimal("0.50"),
-        "forecast_agreement_score": Decimal("0.20"),
-        "data_quality_score": Decimal("0.20"),
-        "risk_signal_score": Decimal("0.10"),
+SYMBOL_UNIVERSE_DISPLAY_LABELS = {
+    "market": {
+        "jp": "日本",
+        "us": "米国",
+        "all": "すべて",
     },
-    RANKING_PRESET_FORECAST: {
-        "screening_score": Decimal("0.35"),
-        "forecast_agreement_score": Decimal("0.40"),
-        "data_quality_score": Decimal("0.15"),
-        "risk_signal_score": Decimal("0.10"),
+    "asset_type": {
+        "stock": "個別株",
+        "etf": "ETF",
+        "reit": "REIT",
+        "mutual_fund": "投資信託",
+        "adr": "ADR",
     },
-    RANKING_PRESET_QUALITY: {
-        "screening_score": Decimal("0.35"),
-        "forecast_agreement_score": Decimal("0.15"),
-        "data_quality_score": Decimal("0.40"),
-        "risk_signal_score": Decimal("0.10"),
+    "broker": {
+        "sbi_securities": "SBI証券",
+        "unknown": "未確認",
     },
-    RANKING_PRESET_RISK: {
-        "screening_score": Decimal("0.35"),
-        "forecast_agreement_score": Decimal("0.15"),
-        "data_quality_score": Decimal("0.20"),
-        "risk_signal_score": Decimal("0.30"),
+    "tradability": {
+        "tradable": "取引可能",
+        "not_tradable": "取引対象外",
+        "unknown": "未確認",
+    },
+    "nisa_category": {
+        "growth": "成長投資枠",
+        "tsumitate": "つみたて投資枠",
+        "both": "成長投資枠・つみたて投資枠",
+        "none": "NISA対象外",
+        "unknown": "未確認",
+    },
+    "investment_style": {
+        "lump_sum": "一括投資向き",
+        "recurring": "積立向き",
+        "both": "一括・積立どちらも対象",
+        "unknown": "未確認",
+    },
+    "sector": {
+        "communication": "通信・メディア",
+        "consumer": "消費財・サービス",
+        "energy": "エネルギー",
+        "financial": "金融",
+        "healthcare": "ヘルスケア",
+        "index": "インデックス",
+        "industrial": "工業・資本財",
+        "materials": "素材",
+        "real_estate": "不動産",
+        "technology": "テクノロジー",
+        "utilities": "公益",
+    },
+    "complexity": {
+        "beginner": "初心者向け",
+        "standard": "標準",
+        "advanced": "上級者向け",
+        "currency_select": "通貨選択型",
+        "etn": "ETN",
+        "inverse": "インバース",
+        "leveraged": "レバレッジ",
+        "thematic": "テーマ型",
+    },
+    "risk_band": {
+        "LOW": "低変動（β < 0.8目安）",
+        "MEDIUM": "標準（0.8 <= β <= 1.2目安）",
+        "HIGH": "高変動（β > 1.2目安）",
+    },
+    "forecast_agreement": {
+        "HIGH": "高い",
+        "MEDIUM": "中くらい",
+        "LOW": "低い",
+    },
+    "data_quality": {
+        "OK": "十分",
+        "WARN": "一部不足",
+        "BLOCK": "不足が大きい",
+    },
+    "metadata_source": {
+        "curated_csv": "手動整備CSV",
+        "csv": "ローカルCSV",
+        "fsa": "金融庁/NISA情報",
+        "imaj": "投資信託協会",
+        "jpx": "JPX公式情報",
+        "jpx_listed_stock": "JPX上場銘柄情報",
+        "jpx_nisa_growth": "JPX NISA成長投資枠リスト",
+        "jpx_reit": "JPX REIT情報",
+        "manual": "手動整備",
+        "mutual_fund_seed": "投資信託初期データ",
+        "sbi_us_etf": "SBI証券 米国ETF取扱銘柄",
+        "sbi_us_stock": "SBI証券 米国株取扱銘柄",
+        "yahoo": "Yahoo Finance",
+        "unknown": "未確認",
+    },
+    "management_style": {
+        "index": "インデックス",
+        "active": "アクティブ",
+    },
+    "distribution_policy": {
+        "none": "分配なし",
+        "monthly": "毎月",
+        "quarterly": "四半期",
+        "semiannual": "年2回",
+        "annual": "年1回",
+        "irregular": "不定期",
     },
 }
-RANKING_PERIOD_PRESETS = {
-    "short": 7,
-    "medium": 30,
-    "long": 365,
+RANKING_RESULT_GRID_CUSTOM_CSS = {
+    ".ag-root-wrapper": {
+        "background-color": "#121821 !important",
+        "border": "1px solid #2f3a49",
+        "border-radius": "6px",
+    },
+    ".ag-root-wrapper-body": {
+        "background-color": "#121821 !important",
+    },
+    ".ag-root": {
+        "background-color": "#121821 !important",
+    },
+    ".ag-body": {
+        "background-color": "#121821 !important",
+    },
+    ".ag-body-viewport": {
+        "background-color": "#121821 !important",
+    },
+    ".ag-center-cols-viewport": {
+        "background-color": "#121821 !important",
+    },
+    ".ag-center-cols-container": {
+        "background-color": "#121821 !important",
+    },
+    ".ag-pinned-left-cols-container": {
+        "background-color": "#121821 !important",
+    },
+    ".ag-header": {
+        "background-color": "#202838 !important",
+        "border-bottom": "1px solid #3a4658",
+    },
+    ".ag-header-viewport": {
+        "background-color": "#202838 !important",
+    },
+    ".ag-header-container": {
+        "background-color": "#202838 !important",
+    },
+    ".ag-header-cell": {
+        "background-color": "#202838 !important",
+        "border-right": "1px solid #354153",
+        "color": "#e5edf7 !important",
+    },
+    ".ag-header-cell-label": {
+        "font-weight": "700",
+        "color": "#e5edf7 !important",
+    },
+    ".ag-header-cell-text": {
+        "color": "#e5edf7 !important",
+        "font-weight": "700",
+    },
+    ".ag-icon": {
+        "color": "#aeb9c8 !important",
+    },
+    ".ag-row": {
+        "background-color": "#151d29 !important",
+        "border-bottom": "1px solid #2a3442",
+        "color": "#eef3fb !important",
+        "cursor": "pointer",
+    },
+    ".ag-row-even": {
+        "background-color": "#151d29 !important",
+    },
+    ".ag-row-odd": {
+        "background-color": "#111923 !important",
+    },
+    ".ag-row-hover": {
+        "background-color": "#223145 !important",
+    },
+    ".ag-row-selected": {
+        "background-color": "#283a52 !important",
+    },
+    ".ag-cell": {
+        "border-right": "1px solid #263140",
+        "color": "#eef3fb !important",
+        "font-weight": "600",
+    },
+    ".ag-cell-value": {
+        "color": "#eef3fb !important",
+    },
 }
-RANKING_PERIOD_LABELS = {
-    "short": "短期: 1週間",
-    "medium": "中期: 1か月",
-    "long": "長期: 1年",
+SYMBOL_DETAIL_DIALOG_CSS = """
+<style>
+div[data-testid="stDialog"] div[role="dialog"] {
+    width: min(90vw, 1100px);
+    max-width: min(90vw, 1100px);
 }
-RANKING_MARKET_LABELS = {
-    "all": "すべて",
-    "jp": "日本株",
-    "us": "米国株",
-    "etf": "ETF",
+div[data-testid="stDialog"] [data-testid="stMetricValue"] {
+    font-size: clamp(1.25rem, 1.8vw, 1.75rem);
+    line-height: 1.15;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
 }
-RANKING_ASSET_TYPE_LABELS = {
-    "all": "すべて",
-    "stock": "個別株",
-    "etf": "ETF",
-    "adr": "ADR",
+div[data-testid="stDialog"] [data-testid="stMetricValue"] > div {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
 }
-RANKING_CURRENCY_LABELS = {
-    "all": "すべて",
-    "JPY": "JPY",
-    "USD": "USD",
+div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
+    min-height: 1.25rem;
 }
-RANKING_DIVIDEND_LABELS = {
-    "all": "指定なし",
-    "high_dividend": "高配当候補",
-    "dividend": "配当あり",
-    "none": "配当なし",
-    "growth_dividend": "連続増配候補",
-}
-RANKING_COMPLEXITY_LABELS = {
-    "beginner": "初心者向け",
-    "standard": "標準まで",
-    "all": "上級者向けも含める",
-}
-RANKING_THEME_LABELS = {
-    "all": "指定なし",
-    "technology": "テクノロジー",
-    "semiconductor": "半導体",
-    "financial": "金融",
-    "consumer": "消費",
-    "healthcare": "ヘルスケア",
-    "energy": "エネルギー",
-    "automotive": "自動車",
-    "trading": "商社",
-    "index": "インデックス",
-    "dividend": "高配当",
-}
-RANKING_MARKET_CAP_LABELS = {
-    "all": "指定なし",
-    "mega": "超大型",
-    "large": "大型",
-    "mid": "中型",
-}
-RANKING_INDEX_FAMILY_LABELS = {
-    "all": "指定なし",
-    "sp500": "S&P 500",
-    "nasdaq100": "NASDAQ 100",
-    "total_us": "全米",
-    "small_us": "米国小型",
-}
-RANKING_FILTER_DEFAULTS: dict[str, str] = {
-    "market_data_ranking_market": "all",
-    "market_data_ranking_asset_type": "all",
-    "market_data_ranking_currency": "all",
-    "market_data_ranking_dividend": "all",
-    "market_data_ranking_min_dividend": "0.0",
-    "market_data_ranking_market_cap": "all",
-    "market_data_ranking_index_family": "all",
-    "market_data_ranking_max_expense": "1.00",
-    "market_data_ranking_complexity": "standard",
-    "market_data_ranking_theme": "all",
-    "market_data_ranking_symbol_query": "",
-}
-RANKING_METRIC_FILTER_DEFAULTS: dict[str, str | bool] = {
-    "market_data_ranking_per_enabled": False,
-    "market_data_ranking_per_min": "2.0",
-    "market_data_ranking_per_max": "20.0",
-    "market_data_ranking_pbr_enabled": False,
-    "market_data_ranking_pbr_min": "0.5",
-    "market_data_ranking_pbr_max": "2.0",
-    "market_data_ranking_dividend_enabled": False,
-    "market_data_ranking_dividend_min": "3.0",
-    "market_data_ranking_dividend_max": "10.0",
-    "market_data_ranking_roe_enabled": False,
-    "market_data_ranking_roe_min": "8.0",
-    "market_data_ranking_roe_max": "30.0",
-    "market_data_ranking_consensus_enabled": False,
-    "market_data_ranking_consensus_min": "2.5",
-    "market_data_ranking_consensus_max": "5.0",
-}
+</style>
+"""
 
 
 def main() -> None:
     st.set_page_config(page_title="Smart Market AI", layout="wide")
     st.title("Smart Market AI")
 
-    market_data_tab, rebalance_tab = st.tabs(["Market Data", "Rebalance"])
-
-    with st.sidebar:
-        _render_runtime_settings()
-        _render_symbol_reference()
-        try:
-            sample_names = rebalance_sample_names()
-            sample_name = cast(str, st.selectbox("Sample", sample_names))
-            sample = get_rebalance_sample(sample_name)
-        except RebalanceScenarioError as exc:
-            st.error(str(exc))
-            st.stop()
-        if sample.description:
-            st.caption(sample.description)
-
-        account_id = st.text_input(
-            "Account",
-            value=sample.account_id,
-            key=sample_widget_key(sample_name, "account"),
-        )
-        as_of = st.date_input(
-            "As of",
-            value=default_as_of_date(),
-            key=sample_widget_key(sample_name, "as_of"),
-        )
-        cash_jpy_text = st.text_input(
-            "Cash JPY",
-            value=str(sample.cash_jpy),
-            key=sample_widget_key(sample_name, "cash_jpy"),
-        )
-        apple_target_weight = cast(
-            int,
-            st.slider(
-                "AAPL target weight",
-                min_value=0,
-                max_value=100,
-                value=_default_apple_target_weight(sample.targets_json),
-                step=5,
-                format="%d%%",
-                key=sample_widget_key(sample_name, "apple_target_weight"),
-            ),
-        )
-
-    with rebalance_tab:
-        st.subheader("Rebalance Cockpit")
-        st.caption(
-            "現在の保有、目標配分、必要な売買、Risk 判定を確認します。売買送信は行いません。"
-        )
-        generated_targets_json = target_allocations_json(
-            toyota_weight=Decimal(100 - apple_target_weight) / Decimal("100"),
-            apple_weight=Decimal(apple_target_weight) / Decimal("100"),
-        )
-        with st.expander("Advanced JSON input"):
-            col_positions, col_targets = st.columns(2)
-            with col_positions:
-                positions_json = st.text_area(
-                    "Positions",
-                    value=sample.positions_json,
-                    height=280,
-                    key=sample_widget_key(sample_name, "positions"),
-                )
-            with col_targets:
-                targets_json = st.text_area(
-                    "Targets",
-                    value=generated_targets_json,
-                    height=280,
-                    key=sample_widget_key(sample_name, "targets"),
-                )
-
-        if st.button("Run rebalance check", type="primary"):
-            try:
-                request = build_rebalance_request(
-                    account_id=account_id,
-                    as_of=_single_date_from_input(as_of),
-                    cash_jpy=_decimal_from_text(cash_jpy_text),
-                    positions_json=positions_json,
-                    targets_json=targets_json,
-                )
-                result = asyncio.run(run_rebalance_check(request))
-                st.session_state[REBALANCE_RESULT_STATE_KEY] = result
-                st.session_state[REBALANCE_REQUEST_STATE_KEY] = request
-            except InvalidOperation:
-                st.error("Cash JPY must be a decimal number.")
-                return
-            except ValueError as exc:
-                st.error(str(exc))
-                return
-            except ValidationError as exc:
-                st.error("Request validation failed.")
-                st.json(exc.errors())
-                return
-            except Exception as exc:  # noqa: BLE001
-                st.error(str(exc))
-                return
-
-        stored_rebalance = rebalance_result_from_state()
-        if stored_rebalance is not None:
-            result, request = stored_rebalance
-            _render_result(result, request)
-
-    with market_data_tab:
-        _render_market_data_preview()
-
-
-def _decimal_from_text(value: str) -> Decimal:
-    return Decimal(value.strip())
-
-
-def _single_date_from_input(value: object) -> date:
-    if isinstance(value, date):
-        return value
-    raise ValueError("As of must be a single date.")
-
-
-def default_as_of_date() -> date:
-    return date.today()
+    selected_page = render_sidemenu(runtime_settings_summary())
+    if selected_page == SIDEMENU_PAGE_COCKPIT:
+        _render_market_data_cockpit()
+    elif selected_page == SIDEMENU_PAGE_RANKING:
+        _render_market_data_ranking()
+    elif selected_page == SIDEMENU_PAGE_REBALANCE:
+        render_rebalance_page()
+    else:
+        render_settings_page()
 
 
 def default_market_data_start_date() -> date:
@@ -349,29 +434,6 @@ def default_forecast_horizon_days(start: date, end: date) -> int:
         raise ValueError("End must be on or after Start")
     display_days = (end - start).days + 1
     return max(1, min(30, round(display_days / 10)))
-
-
-def _default_apple_target_weight(targets_json: str) -> int:
-    if '"symbol": "AAPL"' not in targets_json:
-        return 0
-    if '"target_weight": "0.5"' in targets_json:
-        return 50
-    return 0
-
-
-def _render_runtime_settings() -> None:
-    settings = runtime_settings_summary()
-    st.caption("Runtime")
-    st.write(f"Provider: `{settings['provider']}`")
-    st.write(f"Config: `{settings['config_file']}`")
-    st.write(f"Scenarios: `{settings['scenario_dir']}`")
-    if settings["provider"] == "csv":
-        st.write(f"CSV data: `{settings['csv_data_dir']}`")
-
-
-def _render_symbol_reference() -> None:
-    st.caption("Sample Symbols")
-    st.dataframe(symbol_reference_rows(), hide_index=True, use_container_width=True)
 
 
 def _provider_option_index(provider: str) -> int:
@@ -397,477 +459,484 @@ def _name_from_candidate(label: str) -> str | None:
     return label.split(" - ", 1)[1]
 
 
-def symbol_candidate_labels(rows: list[dict[str, str]], query: str = "") -> list[str]:
-    labels = [f"{row['symbol']} - {row['name']}" for row in rows]
-    normalized_query = query.strip().lower()
-    if normalized_query:
-        labels = [label for label in labels if normalized_query in label.lower()]
-    return labels
+def _ranking_symbols_from_selected_labels(selected_labels: list[str]) -> list[str]:
+    return [symbol for label in selected_labels if (symbol := _symbol_from_candidate(label))]
 
 
-def ranking_period_label(preset: str) -> str:
-    return RANKING_PERIOD_LABELS.get(preset, preset)
-
-
-def ranking_period_dates(preset: str, end: date) -> tuple[date, date]:
-    days = RANKING_PERIOD_PRESETS.get(preset, RANKING_PERIOD_PRESETS["medium"])
-    return end - timedelta(days=days), end
-
-
-def symbol_universe_rows(
-    reference_rows: list[dict[str, str]] | None = None,
-) -> list[dict[str, str]]:
-    if reference_rows is None:
-        rows = symbol_universe_csv_rows()
-    else:
-        csv_rows_by_symbol = {
-            row["symbol"].upper(): row for row in symbol_universe_csv_rows() if row.get("symbol")
-        }
-        rows = [
-            {
-                **csv_rows_by_symbol.get(row.get("symbol", "").strip().upper(), {}),
-                **row,
-            }
-            for row in reference_rows
-        ]
-    return [_symbol_universe_row(row) for row in rows]
-
-
-def filter_symbol_universe_rows(
-    rows: list[dict[str, str]],
+def _ranking_source_key_for_selection(
     *,
-    purpose: str = "all",
-    market: str = "all",
-    asset_type: str = "all",
-    currency: str = "all",
-    dividend_category: str = "all",
-    min_dividend_yield_pct: Decimal | str | int = Decimal("0"),
-    market_cap_tier: str = "all",
-    index_family: str = "all",
-    max_expense_ratio_pct: Decimal | str | int = Decimal("1.00"),
-    complexity: str = "standard",
-    theme: str = "all",
-    query: str = "",
-    per_enabled: bool = False,
-    per_min: Decimal | str | int = Decimal("2.0"),
-    per_max: Decimal | str | int = Decimal("20.0"),
-    pbr_enabled: bool = False,
-    pbr_min: Decimal | str | int = Decimal("0.5"),
-    pbr_max: Decimal | str | int = Decimal("2.0"),
-    dividend_yield_enabled: bool = False,
-    dividend_yield_max_pct: Decimal | str | int = Decimal("10.0"),
-    roe_enabled: bool = False,
-    roe_min_pct: Decimal | str | int = Decimal("8.0"),
-    roe_max_pct: Decimal | str | int = Decimal("30.0"),
-    consensus_enabled: bool = False,
-    consensus_min: Decimal | str | int = Decimal("2.5"),
-    consensus_max: Decimal | str | int = Decimal("5.0"),
-    limit: int = 10,
-) -> list[dict[str, str]]:
-    normalized_query = query.strip().lower()
-    min_dividend = _decimal_filter_value(min_dividend_yield_pct, Decimal("0"))
-    max_expense = _decimal_filter_value(max_expense_ratio_pct, Decimal("1.00"))
-    filtered: list[dict[str, str]] = []
-    for row in rows:
-        tags = _symbol_universe_values(row, "tags")
-        if purpose != "all" and purpose not in tags:
-            continue
-        if market == "etf":
-            if row.get("asset_type") != "etf":
-                continue
-        elif market != "all" and row.get("market") != market:
-            continue
-        if asset_type != "all" and row.get("asset_type") != asset_type:
-            continue
-        if currency != "all" and row.get("currency") != currency:
-            continue
-        if dividend_category != "all" and row.get("dividend_category") != dividend_category:
-            continue
-        if market_cap_tier != "all" and row.get("market_cap_tier") != market_cap_tier:
-            continue
-        if index_family != "all" and row.get("index_family") != index_family:
-            continue
-        expense_ratio = row.get("expense_ratio_pct", "")
-        if row.get("asset_type") == "etf" and expense_ratio:
-            if _decimal_filter_value(expense_ratio, Decimal("99")) > max_expense:
-                continue
-        if not _symbol_complexity_allowed(row.get("complexity", "standard"), complexity):
-            continue
-        if theme != "all" and theme not in tags and row.get("theme") != theme:
-            continue
-        if per_enabled and not _row_decimal_in_range(row, "per", per_min, per_max):
-            continue
-        if pbr_enabled and not _row_decimal_in_range(row, "pbr", pbr_min, pbr_max):
-            continue
-        if dividend_yield_enabled and not _row_decimal_in_range(
-            row,
-            "dividend_yield_pct",
-            min_dividend,
-            dividend_yield_max_pct,
-        ):
-            continue
-        if roe_enabled and not _row_decimal_in_range(row, "roe_pct", roe_min_pct, roe_max_pct):
-            continue
-        if consensus_enabled and not _row_decimal_in_range(
-            row,
-            "consensus_rating",
-            consensus_min,
-            consensus_max,
-        ):
-            continue
-        if normalized_query:
-            label = " ".join(
-                [
-                    row.get("symbol", ""),
-                    row.get("name", ""),
-                    row.get("theme", ""),
-                    row.get("dividend_category", ""),
-                    row.get("tags", ""),
-                    row.get("aliases", ""),
-                ]
-            ).lower()
-            if normalized_query not in label:
-                continue
-        filtered.append(row)
-    return filtered[: max(limit, 0)]
-
-
-def _row_decimal_in_range(
-    row: dict[str, str],
-    key: str,
-    min_value: Decimal | str | int,
-    max_value: Decimal | str | int,
-) -> bool:
-    value = _decimal_filter_value(row.get(key, ""), Decimal("-999999"))
-    lower = _decimal_filter_value(min_value, Decimal("-999999"))
-    upper = _decimal_filter_value(max_value, Decimal("999999"))
-    return lower <= value <= upper
-
-
-def _decimal_filter_value(value: Decimal | str | int, default: Decimal) -> Decimal:
-    if isinstance(value, Decimal):
-        return value
-    try:
-        return Decimal(str(value))
-    except InvalidOperation:
-        return default
-
-
-def _symbol_universe_row(row: dict[str, str]) -> dict[str, str]:
-    symbol = row.get("symbol", "").strip()
-    default_market = row.get("market") or ("jp" if symbol.upper().endswith(".T") else "us")
-    default_currency = row.get("currency") or ("JPY" if default_market == "jp" else "USD")
-    default_asset_type = row.get("asset_type") or "stock"
-    theme = row.get("theme") or "consumer"
-    dividend_category = row.get("dividend_category") or "dividend"
-    tags = _symbol_universe_values(row, "tags") or {"balanced"}
-    universe_row = {
-        "symbol": symbol,
-        "name": row.get("name", symbol),
-        "market": default_market,
-        "asset_type": default_asset_type,
-        "currency": default_currency,
-        "theme": theme,
-        "dividend_category": dividend_category,
-        "dividend_yield_pct": row.get("dividend_yield_pct") or "0",
-        "market_cap_tier": row.get("market_cap_tier") or "mid",
-        "index_family": row.get("index_family", ""),
-        "expense_ratio_pct": row.get("expense_ratio_pct", ""),
-        "complexity": row.get("complexity")
-        or ("beginner" if default_asset_type == "etf" else "standard"),
-        "tags": ",".join(sorted(tags)),
-        "aliases": row.get("aliases", ""),
-        "per": row.get("per", ""),
-        "pbr": row.get("pbr", ""),
-        "roe_pct": row.get("roe_pct", ""),
-        "sector": row.get("sector", ""),
-        "consensus_rating": row.get("consensus_rating", ""),
-        "forecast_agreement": row.get("forecast_agreement", ""),
-        "data_quality": row.get("data_quality", ""),
-        "risk_band": row.get("risk_band", ""),
-    }
-    if universe_row["asset_type"] == "etf":
-        universe_row["market"] = "us"
-    return universe_row
-
-
-def _symbol_universe_values(row: dict[str, str], key: str) -> set[str]:
-    return {value.strip() for value in row.get(key, "").split(",") if value.strip()}
-
-
-def _symbol_complexity_allowed(symbol_complexity: str, selected_complexity: str) -> bool:
-    if selected_complexity == "all":
-        return True
-    if selected_complexity == "standard":
-        return symbol_complexity in {"beginner", "standard"}
-    return symbol_complexity == "beginner"
-
-
-def _ranking_filter_value(key: str, default: str) -> str:
-    stored_filters = st.session_state.get(MARKET_DATA_RANKING_FILTERS_STATE_KEY, {})
-    if key in st.session_state:
-        value = st.session_state.get(key, default)
-    elif isinstance(stored_filters, dict) and key in stored_filters:
-        value = stored_filters.get(key, default)
-    else:
-        value = default
-    return str(value) if value is not None else default
-
-
-def _ranking_filter_int(key: str, default: int) -> int:
-    value = st.session_state.get(key, default)
-    if isinstance(value, int):
-        return value
-    try:
-        return int(str(value))
-    except ValueError:
-        return default
-
-
-def _ranking_filter_bool(key: str, default: bool) -> bool:
-    stored_filters = st.session_state.get(MARKET_DATA_RANKING_FILTERS_STATE_KEY, {})
-    if key in st.session_state:
-        value = st.session_state.get(key, default)
-    elif isinstance(stored_filters, dict) and key in stored_filters:
-        value = stored_filters.get(key, default)
-    else:
-        value = default
-    if isinstance(value, bool):
-        return value
-    return str(value).lower() in {"1", "true", "yes", "on"}
-
-
-def current_ranking_filter_state() -> dict[str, str]:
-    filters = {
-        key: _ranking_filter_value(key, default) for key, default in RANKING_FILTER_DEFAULTS.items()
-    }
-    for key, default in RANKING_METRIC_FILTER_DEFAULTS.items():
-        if isinstance(default, bool):
-            filters[key] = str(_ranking_filter_bool(key, default))
-        else:
-            filters[key] = _ranking_filter_value(key, default)
-    return filters
-
-
-def persist_ranking_filter_state() -> dict[str, str]:
-    filters = current_ranking_filter_state()
-    st.session_state[MARKET_DATA_RANKING_FILTERS_STATE_KEY] = filters
-    return filters
-
-
-def ranking_filter_summary() -> str:
-    market = RANKING_MARKET_LABELS.get(
-        _ranking_filter_value("market_data_ranking_market", "all"),
-        "すべて",
-    )
-    asset_type = RANKING_ASSET_TYPE_LABELS.get(
-        _ranking_filter_value("market_data_ranking_asset_type", "all"),
-        "すべて",
-    )
-    dividend = RANKING_DIVIDEND_LABELS.get(
-        _ranking_filter_value("market_data_ranking_dividend", "all"),
-        "指定なし",
-    )
-    min_dividend = _ranking_filter_value("market_data_ranking_min_dividend", "0.0")
-    dividend_text = (
-        f"配当利回り {min_dividend}% 以上"
-        if _ranking_filter_bool("market_data_ranking_dividend_enabled", False)
-        else "配当利回り 指定なし"
-    )
-    return f"条件: {market} / {asset_type} / {dividend_text} / {dividend}"
-
-
-def ranking_filter_signature(
-    *,
-    purpose: str,
-    period_preset: str,
-    market: str,
-    asset_type: str,
-    currency: str,
-    dividend_category: str,
-    min_dividend_yield_pct: str = "0.0",
-    market_cap_tier: str = "all",
-    index_family: str = "all",
-    max_expense_ratio_pct: str = "1.00",
-    complexity: str,
-    theme: str,
-    query: str,
-    per_enabled: bool = False,
-    per_min: str = "2.0",
-    per_max: str = "20.0",
-    pbr_enabled: bool = False,
-    pbr_min: str = "0.5",
-    pbr_max: str = "2.0",
-    dividend_yield_enabled: bool = False,
-    dividend_yield_max_pct: str = "10.0",
-    roe_enabled: bool = False,
-    roe_min_pct: str = "8.0",
-    roe_max_pct: str = "30.0",
-    consensus_enabled: bool = False,
-    consensus_min: str = "2.5",
-    consensus_max: str = "5.0",
-    limit: int,
+    provider: str,
+    selected_labels: list[str],
+    start: date,
+    end: date,
 ) -> str:
-    _ = period_preset
-    return "|".join(
-        [
-            purpose,
-            market,
-            asset_type,
-            currency,
-            dividend_category,
-            min_dividend_yield_pct,
-            market_cap_tier,
-            index_family,
-            max_expense_ratio_pct,
-            complexity,
-            theme,
-            query.strip().lower(),
-            str(per_enabled),
-            per_min,
-            per_max,
-            str(pbr_enabled),
-            pbr_min,
-            pbr_max,
-            str(dividend_yield_enabled),
-            dividend_yield_max_pct,
-            str(roe_enabled),
-            roe_min_pct,
-            roe_max_pct,
-            str(consensus_enabled),
-            consensus_min,
-            consensus_max,
-            str(limit),
-        ]
+    ranking_symbols = _ranking_symbols_from_selected_labels(selected_labels)
+    if not ranking_symbols:
+        return ""
+    return ranking_build_cache_key(
+        provider=provider,
+        symbols=ranking_symbols,
+        start=start,
+        end=end,
     )
 
 
-def _ranking_filter_signature_from_state() -> str:
-    return ranking_filter_signature(
-        purpose="all",
-        period_preset=_ranking_filter_value("market_data_ranking_period", "short"),
-        market=_ranking_filter_value("market_data_ranking_market", "all"),
-        asset_type=_ranking_filter_value("market_data_ranking_asset_type", "all"),
-        currency=_ranking_filter_value("market_data_ranking_currency", "all"),
-        dividend_category=_ranking_filter_value("market_data_ranking_dividend", "all"),
-        min_dividend_yield_pct=_ranking_filter_value("market_data_ranking_min_dividend", "0.0"),
-        market_cap_tier=_ranking_filter_value("market_data_ranking_market_cap", "all"),
-        index_family=_ranking_filter_value("market_data_ranking_index_family", "all"),
-        max_expense_ratio_pct=_ranking_filter_value("market_data_ranking_max_expense", "1.00"),
-        complexity=_ranking_filter_value("market_data_ranking_complexity", "standard"),
-        theme=_ranking_filter_value("market_data_ranking_theme", "all"),
-        query=_ranking_filter_value("market_data_ranking_symbol_query", ""),
-        per_enabled=_ranking_filter_bool("market_data_ranking_per_enabled", False),
-        per_min=_ranking_filter_value("market_data_ranking_per_min", "2.0"),
-        per_max=_ranking_filter_value("market_data_ranking_per_max", "20.0"),
-        pbr_enabled=_ranking_filter_bool("market_data_ranking_pbr_enabled", False),
-        pbr_min=_ranking_filter_value("market_data_ranking_pbr_min", "0.5"),
-        pbr_max=_ranking_filter_value("market_data_ranking_pbr_max", "2.0"),
-        dividend_yield_enabled=_ranking_filter_bool(
-            "market_data_ranking_dividend_enabled",
-            False,
+def _ranking_result_matches_current_selection(
+    stored_source: str,
+    *,
+    provider: str,
+    selected_labels: list[str],
+    start: date,
+    end: date,
+) -> bool:
+    current_source = _ranking_source_key_for_selection(
+        provider=provider,
+        selected_labels=selected_labels,
+        start=start,
+        end=end,
+    )
+    return bool(current_source) and stored_source == current_source
+
+
+def _symbol_universe_row_for_symbol(symbol: str) -> dict[str, str] | None:
+    normalized_symbol = symbol.strip().upper()
+    for row in symbol_universe_csv_rows():
+        if row.get("symbol", "").strip().upper() == normalized_symbol:
+            return row
+    return None
+
+
+def _symbol_detail_raw_value(row: dict[str, str], column: str) -> str:
+    return str(row.get(column, "")).strip()
+
+
+def _symbol_detail_bool_display(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized == "true":
+        return "はい"
+    if normalized == "false":
+        return "いいえ"
+    return "未確認"
+
+
+def _symbol_detail_decimal_display(value: str, *, suffix: str = "") -> str:
+    if not value.strip() or value.strip() == "-":
+        return "未登録"
+    try:
+        decimal_value = Decimal(value)
+    except Exception:
+        return value
+    text = f"{decimal_value:.2f}".rstrip("0").rstrip(".")
+    return f"{text}{suffix}"
+
+
+def _symbol_detail_date_display(value: str) -> str:
+    if not value.strip() or value.strip() == "-":
+        return "未登録"
+    try:
+        if "T" in value:
+            parsed = datetime.fromisoformat(value)
+            return parsed.strftime("%Y-%m-%d %H:%M")
+        return date.fromisoformat(value).isoformat()
+    except ValueError:
+        return value
+
+
+def _symbol_detail_lookup_display(column: str, value: str) -> str:
+    if not value.strip() or value.strip() == "-":
+        return "未登録"
+    if column in {"theme"}:
+        return RANKING_THEME_LABELS.get(value, value)
+    if column == "dividend_category":
+        return RANKING_DIVIDEND_LABELS.get(value, value)
+    if column == "market_cap_tier":
+        return RANKING_MARKET_CAP_LABELS.get(value, value)
+    if column == "index_family":
+        return RANKING_INDEX_FAMILY_LABELS.get(value, value)
+    return SYMBOL_UNIVERSE_DISPLAY_LABELS.get(column, {}).get(value, value)
+
+
+def symbol_universe_detail_display_value(row: dict[str, str], column: str) -> str:
+    value = _symbol_detail_raw_value(row, column)
+    if column in {
+        "is_sbi_supported",
+        "is_active",
+        "is_leveraged",
+        "is_inverse",
+        "nisa_tsumitate_eligible",
+        "nisa_growth_eligible",
+        "installment_available",
+    }:
+        return _symbol_detail_bool_display(value)
+    if column in {"dividend_yield_pct", "expense_ratio_pct", "trust_fee_pct", "roe_pct"}:
+        return _symbol_detail_decimal_display(value, suffix="%")
+    if column in {"per", "pbr", "consensus_rating", "aum"}:
+        return _symbol_detail_decimal_display(value)
+    if column in {"metadata_as_of", "metadata_updated_at"}:
+        return _symbol_detail_date_display(value)
+    if column == "yahoo_symbol":
+        return value or "表示銘柄と同じ"
+    return _symbol_detail_lookup_display(column, value)
+
+
+def symbol_universe_nisa_display(row: dict[str, str]) -> str:
+    nisa_category = _symbol_detail_raw_value(row, "nisa_category")
+    growth = _symbol_detail_raw_value(row, "nisa_growth_eligible").lower() == "true"
+    tsumitate = _symbol_detail_raw_value(row, "nisa_tsumitate_eligible").lower() == "true"
+    if nisa_category in {"growth", "tsumitate", "both", "none"}:
+        return symbol_universe_detail_display_value(row, "nisa_category")
+    if growth and tsumitate:
+        return "成長投資枠・つみたて投資枠"
+    if growth:
+        return "成長投資枠"
+    if tsumitate:
+        return "つみたて投資枠"
+    if nisa_category == "none":
+        return "NISA対象外"
+    return "未確認"
+
+
+def symbol_universe_leverage_display(row: dict[str, str]) -> str:
+    leveraged = _symbol_detail_raw_value(row, "is_leveraged").lower() == "true"
+    inverse = _symbol_detail_raw_value(row, "is_inverse").lower() == "true"
+    if leveraged and inverse:
+        return "レバレッジ・インバース"
+    if leveraged:
+        return "レバレッジ"
+    if inverse:
+        return "インバース"
+    return "該当なし"
+
+
+def _symbol_detail_row(label: str, value: str) -> dict[str, str]:
+    return {"項目": label, "内容": value or "未登録"}
+
+
+def _symbol_data_info_row(label: str, value: str, purpose: str) -> dict[str, str]:
+    return {"項目": label, "内容": value or "未登録", "使い道": purpose}
+
+
+def symbol_universe_overview_rows(row: dict[str, str]) -> list[dict[str, str]]:
+    return [
+        _symbol_detail_row("市場", symbol_universe_detail_display_value(row, "market")),
+        _symbol_detail_row("商品分類", symbol_universe_detail_display_value(row, "asset_type")),
+        _symbol_detail_row("通貨", symbol_universe_detail_display_value(row, "currency")),
+        _symbol_detail_row("取扱元", symbol_universe_detail_display_value(row, "broker")),
+        _symbol_detail_row("取扱状況", symbol_universe_detail_display_value(row, "tradability")),
+        _symbol_detail_row("NISA", symbol_universe_nisa_display(row)),
+        _symbol_detail_row(
+            "投資スタイル",
+            symbol_universe_detail_display_value(row, "investment_style"),
         ),
-        dividend_yield_max_pct=_ranking_filter_value("market_data_ranking_dividend_max", "10.0"),
-        roe_enabled=_ranking_filter_bool("market_data_ranking_roe_enabled", False),
-        roe_min_pct=_ranking_filter_value("market_data_ranking_roe_min", "8.0"),
-        roe_max_pct=_ranking_filter_value("market_data_ranking_roe_max", "30.0"),
-        consensus_enabled=_ranking_filter_bool("market_data_ranking_consensus_enabled", False),
-        consensus_min=_ranking_filter_value("market_data_ranking_consensus_min", "2.5"),
-        consensus_max=_ranking_filter_value("market_data_ranking_consensus_max", "5.0"),
-        limit=0,
-    )
+        _symbol_detail_row("テーマ", symbol_universe_detail_display_value(row, "theme")),
+        _symbol_detail_row("業種/セクター", symbol_universe_detail_display_value(row, "sector")),
+        _symbol_detail_row("レバレッジ/インバース", symbol_universe_leverage_display(row)),
+    ]
 
 
-def ranking_symbols_state_key(filter_signature: str) -> str:
-    return f"market_data_ranking_symbols_{filter_signature}"
+def symbol_universe_investment_metric_rows(row: dict[str, str]) -> list[dict[str, str]]:
+    return [
+        _symbol_detail_row(
+            "配当利回り",
+            symbol_universe_detail_display_value(row, "dividend_yield_pct"),
+        ),
+        _symbol_detail_row(
+            "配当カテゴリ",
+            symbol_universe_detail_display_value(row, "dividend_category"),
+        ),
+        _symbol_detail_row("PER", symbol_universe_detail_display_value(row, "per")),
+        _symbol_detail_row("PBR", symbol_universe_detail_display_value(row, "pbr")),
+        _symbol_detail_row("ROE", symbol_universe_detail_display_value(row, "roe_pct")),
+        _symbol_detail_row(
+            "時価総額",
+            symbol_universe_detail_display_value(row, "market_cap_tier"),
+        ),
+        _symbol_detail_row(
+            "市場感応度",
+            symbol_universe_detail_display_value(row, "risk_band"),
+        ),
+        _symbol_detail_row(
+            "データ品質",
+            symbol_universe_detail_display_value(row, "data_quality"),
+        ),
+    ]
 
 
-def valid_ranking_selected_labels(
-    selected_labels: list[str],
-    available_labels: list[str],
-) -> list[str]:
-    available = set(available_labels)
-    return [label for label in selected_labels if label in available]
+def symbol_universe_fund_detail_rows(row: dict[str, str]) -> list[dict[str, str]]:
+    fund_asset_types = {"etf", "mutual_fund", "reit"}
+    fund_specific_columns = {
+        "index_family",
+        "expense_ratio_pct",
+        "trust_fee_pct",
+        "aum",
+        "complexity",
+        "management_style",
+        "distribution_policy",
+        "installment_available",
+    }
+    if _symbol_detail_raw_value(row, "asset_type") not in fund_asset_types and not any(
+        _symbol_detail_raw_value(row, column) for column in fund_specific_columns
+    ):
+        return []
+    fund_columns = [
+        ("連動指数", "index_family"),
+        ("信託報酬/経費率", "expense_ratio_pct"),
+        ("信託報酬", "trust_fee_pct"),
+        ("純資産総額", "aum"),
+        ("複雑さ", "complexity"),
+        ("運用方式", "management_style"),
+        ("分配方針", "distribution_policy"),
+        ("つみたて投資枠", "nisa_tsumitate_eligible"),
+        ("成長投資枠", "nisa_growth_eligible"),
+        ("積立可否", "installment_available"),
+    ]
+    rows = [
+        _symbol_detail_row(label, symbol_universe_detail_display_value(row, column))
+        for label, column in fund_columns
+        if _symbol_detail_raw_value(row, column)
+    ]
+    return rows
 
 
-def initial_ranking_selected_labels(
-    labels: list[str],
-    stored_selected_labels: list[str],
-) -> list[str]:
-    selected_labels = valid_ranking_selected_labels(stored_selected_labels, labels)
-    return selected_labels or labels
+def symbol_universe_data_info_rows(row: dict[str, str]) -> list[dict[str, str]]:
+    return [
+        _symbol_data_info_row(
+            "データ出所",
+            symbol_universe_detail_display_value(row, "metadata_source"),
+            "指標や分類をどの情報源で補完したかを確認します。",
+        ),
+        _symbol_data_info_row(
+            "データ基準日",
+            symbol_universe_detail_display_value(row, "metadata_as_of"),
+            "指標や分類の鮮度を確認します。",
+        ),
+        _symbol_data_info_row(
+            "最終更新",
+            symbol_universe_detail_display_value(row, "metadata_updated_at"),
+            "ローカル銘柄マスタに反映したタイミングを確認します。",
+        ),
+        _symbol_data_info_row(
+            "価格取得用ticker",
+            symbol_universe_detail_display_value(row, "yahoo_symbol"),
+            "Yahoo取得時に表示用銘柄と別tickerを使う場合に確認します。",
+        ),
+    ]
 
 
-def initial_ranking_selected_labels_for_key(
-    *,
-    selection_key: str,
-    labels: list[str],
-    stored_selected_labels: list[str],
-) -> list[str]:
-    if selection_key not in st.session_state:
-        return labels
-    return initial_ranking_selected_labels(labels, stored_selected_labels)
-
-
-def ensure_ranking_selection_widget_state(
-    *,
-    selection_key: str,
-    labels: list[str],
-    stored_selected_labels: list[str],
-) -> None:
-    if selection_key not in st.session_state:
-        selected_labels = initial_ranking_selected_labels_for_key(
-            selection_key=selection_key,
-            labels=labels,
-            stored_selected_labels=stored_selected_labels,
+def _symbol_universe_key_metric_value(row: dict[str, str], column: str) -> str:
+    if column == "nisa_category":
+        nisa_text = symbol_universe_nisa_display(row)
+        return {
+            "成長投資枠・つみたて投資枠": "両枠",
+            "つみたて投資枠": "つみたて枠",
+        }.get(nisa_text, nisa_text)
+    if column == "risk_band":
+        return {
+            "LOW": "低変動",
+            "MEDIUM": "標準",
+            "HIGH": "高変動",
+        }.get(
+            _symbol_detail_raw_value(row, column), symbol_universe_detail_display_value(row, column)
         )
-        st.session_state[selection_key] = selected_labels
-        st.session_state[MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY] = selected_labels
+    return symbol_universe_detail_display_value(row, column)
 
 
-def sync_ranking_selection_state(
-    selection_key: str,
-    selected_labels: list[str],
-    *,
-    update_widget_state: bool = False,
-) -> None:
-    st.session_state[MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY] = selected_labels
-    if update_widget_state:
-        st.session_state[selection_key] = selected_labels
+def symbol_universe_key_metric_rows(row: dict[str, str]) -> list[dict[str, str]]:
+    return [
+        _symbol_detail_row("商品分類", symbol_universe_detail_display_value(row, "asset_type")),
+        _symbol_detail_row("NISA", _symbol_universe_key_metric_value(row, "nisa_category")),
+        _symbol_detail_row(
+            "配当利回り", symbol_universe_detail_display_value(row, "dividend_yield_pct")
+        ),
+        _symbol_detail_row(
+            "時価総額", symbol_universe_detail_display_value(row, "market_cap_tier")
+        ),
+    ]
 
 
-def apply_ranking_filter_state(
-    preview_rows: list[dict[str, str]],
-    filter_signature: str,
-) -> None:
-    selected_labels = symbol_candidate_labels(preview_rows)
-    st.session_state["market_data_ranking_filter_signature"] = filter_signature
-    sync_ranking_selection_state(
-        ranking_symbols_state_key(filter_signature),
-        selected_labels,
-        update_widget_state=True,
+def symbol_universe_detail_rows(row: dict[str, str]) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for column, value in row.items():
+        label = SYMBOL_UNIVERSE_DETAIL_LABELS.get(column, column)
+        text_value = str(value).strip()
+        rows.append(
+            {
+                "項目": label,
+                "表示値": symbol_universe_detail_display_value(row, column),
+                "CSV列": column,
+                "登録値": text_value or "-",
+            }
+        )
+    return rows
+
+
+def _ranking_result_table_base_key(ranking_source: str, weight_preset: str) -> str:
+    source_hash = hashlib.sha1(
+        f"{ranking_source}|{weight_preset}".encode("utf-8"),
+        usedforsecurity=False,
+    ).hexdigest()[:12]
+    return f"market_data_ranking_result_table_{source_hash}"
+
+
+def _ranking_result_grid_key(base_key: str) -> str:
+    return f"{base_key}_grid"
+
+
+def ranking_result_aggrid_frame(display_rows: list[dict[str, str]]) -> pd.DataFrame:
+    return pd.DataFrame(display_rows)
+
+
+def ranking_result_aggrid_options(display_rows: list[dict[str, str]]) -> dict[str, object]:
+    frame = ranking_result_aggrid_frame(display_rows)
+    builder = GridOptionsBuilder.from_dataframe(frame)
+    builder.configure_default_column(
+        sortable=True,
+        filter=True,
+        resizable=True,
+        wrapText=False,
+        autoHeight=False,
     )
-    st.session_state.pop(MARKET_DATA_RANKING_STATE_KEY, None)
-    st.session_state.pop(MARKET_DATA_RANKING_ERROR_STATE_KEY, None)
-    st.session_state[RANKING_FILTER_DIALOG_STATE_KEY] = False
+    builder.configure_selection(
+        selection_mode="single",
+        use_checkbox=False,
+        suppressRowClickSelection=False,
+        suppressRowDeselection=False,
+    )
+    builder.configure_grid_options(
+        rowHeight=38,
+        headerHeight=38,
+        suppressCellFocus=True,
+        tooltipShowDelay=250,
+        ensureDomOrder=True,
+        enableCellTextSelection=True,
+    )
+    if "順位" in frame.columns:
+        builder.configure_column("順位", width=76, pinned="left", filter=False)
+    if "銘柄" in frame.columns:
+        builder.configure_column("銘柄", width=110, pinned="left")
+    if "銘柄名" in frame.columns:
+        builder.configure_column("銘柄名", minWidth=220, pinned="left")
+    for column in ("総合スコア", "Screening", "予測一致", "データ品質", "Risk"):
+        if column in frame.columns:
+            builder.configure_column(column, width=112, filter=False)
+    if "見方" in frame.columns:
+        builder.configure_column("見方", width=130)
+    if "注意点" in frame.columns:
+        builder.configure_column("注意点", minWidth=220, tooltipField="注意点")
+    if "補足" in frame.columns:
+        builder.configure_column("補足", minWidth=520, flex=2, tooltipField="補足")
+    return cast(dict[str, object], builder.build())
 
 
-def clear_ranking_filter_state() -> None:
-    for key, default in {**RANKING_FILTER_DEFAULTS, **RANKING_METRIC_FILTER_DEFAULTS}.items():
-        if isinstance(default, bool):
-            st.session_state[key] = default
-        elif key.endswith(("_min", "_max")) or key in {
-            "market_data_ranking_min_dividend",
-            "market_data_ranking_dividend_max",
-            "market_data_ranking_max_expense",
-        }:
-            st.session_state[key] = float(default)
-        else:
-            st.session_state[key] = default
-    st.session_state.pop(MARKET_DATA_RANKING_FILTERS_STATE_KEY, None)
-    st.session_state.pop(MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY, None)
-    st.session_state.pop(MARKET_DATA_RANKING_STATE_KEY, None)
-    st.session_state.pop(MARKET_DATA_RANKING_ERROR_STATE_KEY, None)
+def _aggrid_event_data(grid_response: object) -> dict[str, object]:
+    event_data = getattr(grid_response, "event_data", None)
+    if event_data is None and isinstance(grid_response, dict):
+        event_data = grid_response.get("eventData") or grid_response.get("event_data")
+    return cast(dict[str, object], event_data) if isinstance(event_data, dict) else {}
+
+
+def _ranking_symbol_from_row(row: object) -> str | None:
+    if not isinstance(row, dict):
+        return None
+    symbol = str(row.get("銘柄", "")).strip()
+    return symbol or None
+
+
+def ranking_detail_symbol_from_aggrid_response(grid_response: object) -> str | None:
+    event_data = _aggrid_event_data(grid_response)
+    symbol = _ranking_symbol_from_row(event_data.get("data"))
+    if symbol:
+        return symbol
+    node = event_data.get("node")
+    if isinstance(node, dict):
+        symbol = _ranking_symbol_from_row(node.get("data"))
+        if symbol:
+            return symbol
+
+    selected_rows = getattr(grid_response, "selected_rows", None)
+    if selected_rows is None and isinstance(grid_response, dict):
+        selected_rows = grid_response.get("selected_rows")
+    if selected_rows is None:
+        return None
+    if isinstance(selected_rows, pd.DataFrame):
+        if selected_rows.empty:
+            return None
+        row = selected_rows.iloc[0].to_dict()
+    elif isinstance(selected_rows, list):
+        row = selected_rows[0] if selected_rows else None
+    elif isinstance(selected_rows, dict):
+        row = selected_rows
+    else:
+        return None
+    return _ranking_symbol_from_row(row)
+
+
+def ranking_detail_event_token_from_aggrid_response(
+    grid_response: object,
+    selected_symbol: str | None,
+) -> str | None:
+    if not selected_symbol:
+        return None
+    event_data = _aggrid_event_data(grid_response)
+    trigger_name = str(event_data.get("streamlitRerunEventTriggerName") or "").strip()
+    if not trigger_name:
+        return f"selection|{selected_symbol}"
+    node = event_data.get("node")
+    row_index = event_data.get("rowIndex")
+    if row_index is None and isinstance(node, dict):
+        row_index = node.get("rowIndex")
+    mouse_event = event_data.get("event")
+    timestamp = event_data.get("timeStamp")
+    if timestamp is None and isinstance(mouse_event, dict):
+        timestamp = mouse_event.get("timeStamp")
+    row_index_text = "" if row_index is None else str(row_index)
+    timestamp_text = "" if timestamp is None else str(timestamp)
+    return f"{trigger_name}|{selected_symbol}|{row_index_text}|{timestamp_text}"
+
+
+def ranking_detail_symbol_to_open(
+    selected_symbol: str | None,
+    current_event_token: str | None,
+    last_opened_event_token: object,
+) -> str | None:
+    if not selected_symbol or not current_event_token:
+        return None
+    previous_event_token = (
+        str(last_opened_event_token).strip() if last_opened_event_token is not None else ""
+    )
+    if current_event_token == previous_event_token:
+        return None
+    return selected_symbol
+
+
+def _ranking_result_grid_height(display_rows: list[dict[str, str]]) -> int:
+    return min(520, max(150, 44 * len(display_rows) + 48))
+
+
+def _selectbox_index(options: list[str], value: str) -> int:
+    return options.index(value) if value in options else 0
+
+
+def _ensure_selectbox_state_value(key: str, options: list[str]) -> None:
+    value = _ranking_filter_value(key, options[0])
+    if value not in options:
+        st.session_state[key] = options[0]
+
+
+def _normalize_dividend_filter_state() -> None:
+    dividend_category = _ranking_filter_value("market_data_ranking_dividend", "all")
+    dividend_range_enabled = _ranking_filter_bool(
+        "market_data_ranking_dividend_enabled",
+        False,
+    )
+    normalized_category, _, normalized_range_enabled, _ = normalize_dividend_filter_values(
+        dividend_category=dividend_category,
+        dividend_yield_enabled=dividend_range_enabled,
+    )
+    if normalized_category != dividend_category:
+        st.session_state["market_data_ranking_dividend"] = normalized_category
+    if normalized_range_enabled != dividend_range_enabled:
+        st.session_state["market_data_ranking_dividend_enabled"] = normalized_range_enabled
 
 
 def _render_metric_range_filter(
@@ -881,13 +950,18 @@ def _render_metric_range_filter(
     min_value: float = 0.0,
     max_value: float = 100.0,
     step: float = 0.1,
+    help_text: str | None = None,
+    disabled: bool = False,
 ) -> None:
-    enabled = st.checkbox(
-        label,
-        value=_ranking_filter_bool(enabled_key, False),
-        key=enabled_key,
-    )
-    col_min, col_max = st.columns(2)
+    col_enabled, col_min, col_max = st.columns([1.0, 1.0, 1.0])
+    with col_enabled:
+        enabled = st.checkbox(
+            label,
+            value=_ranking_filter_bool(enabled_key, False),
+            key=enabled_key,
+            help=help_text,
+            disabled=disabled,
+        )
     with col_min:
         st.number_input(
             "下限",
@@ -896,7 +970,7 @@ def _render_metric_range_filter(
             value=float(_ranking_filter_value(min_key, min_default)),
             step=step,
             key=min_key,
-            disabled=not enabled,
+            disabled=disabled or not enabled,
         )
     with col_max:
         st.number_input(
@@ -906,314 +980,356 @@ def _render_metric_range_filter(
             value=float(_ranking_filter_value(max_key, max_default)),
             step=step,
             key=max_key,
-            disabled=not enabled,
+            disabled=disabled or not enabled,
         )
+
+
+def _render_detail_selectbox(
+    label: str,
+    *,
+    options: list[str],
+    key: str,
+    format_func: Callable[[str], str],
+    help_text: str | None = None,
+    disabled: bool = False,
+) -> None:
+    _ensure_selectbox_state_value(key, options)
+    st.selectbox(
+        label,
+        options,
+        index=_selectbox_index(options, _ranking_filter_value(key, options[0])),
+        key=key,
+        format_func=format_func,
+        help=help_text,
+        disabled=disabled,
+    )
+
+
+def _render_metric_filter_grid(
+    filters: list[tuple[str, dict[str, object]]],
+    *,
+    columns_per_row: int = 2,
+) -> None:
+    for start_index in range(0, len(filters), columns_per_row):
+        row_filters = filters[start_index : start_index + columns_per_row]
+        columns = st.columns(columns_per_row)
+        for column, (label, kwargs) in zip(columns, row_filters, strict=False):
+            with column:
+                _render_metric_range_filter(label, **kwargs)
+
+
+def _render_symbol_detail_table(rows: list[dict[str, str]]) -> None:
+    if not rows:
+        st.info("この区分に表示できる登録値はありません。")
+        return
+    st.dataframe(
+        pd.DataFrame(rows),
+        hide_index=True,
+        use_container_width=True,
+    )
+
+
+@st.dialog("銘柄データ", width="large")
+def _render_symbol_universe_detail_dialog(symbol: str) -> None:
+    row = _symbol_universe_row_for_symbol(symbol)
+    if row is None:
+        st.warning("銘柄マスタに該当するデータが見つかりませんでした。")
+        return
+    st.markdown(SYMBOL_DETAIL_DIALOG_CSS, unsafe_allow_html=True)
+    display_name = row.get("name") or symbol
+    st.subheader(f"{symbol} - {display_name}")
+    st.caption("ローカル銘柄マスタの登録値を、確認しやすい項目に整理しています。")
+
+    metric_columns = st.columns(4)
+    for column, metric in zip(metric_columns, symbol_universe_key_metric_rows(row), strict=False):
+        column.metric(metric["項目"], metric["内容"])
+
+    tab_labels = ["概要", "投資指標", "データ情報"]
+    fund_rows = symbol_universe_fund_detail_rows(row)
+    if fund_rows:
+        tab_labels.insert(2, "ETF/ファンド")
+    tabs = st.tabs(tab_labels)
+
+    with tabs[0]:
+        _render_symbol_detail_table(symbol_universe_overview_rows(row))
+    with tabs[1]:
+        _render_symbol_detail_table(symbol_universe_investment_metric_rows(row))
+    tab_offset = 2
+    if fund_rows:
+        with tabs[2]:
+            _render_symbol_detail_table(fund_rows)
+        tab_offset = 3
+    with tabs[tab_offset]:
+        _render_symbol_detail_table(symbol_universe_data_info_rows(row))
+    with st.expander("CSV登録値（確認用）", expanded=False):
+        st.caption("CSVの列名、画面表示用の値、登録されているraw値を確認できます。")
+        st.dataframe(
+            symbol_universe_detail_rows(row),
+            hide_index=True,
+            use_container_width=True,
+        )
+
+
+def _render_ranking_result_table(
+    display_rows: list[dict[str, str]],
+    *,
+    ranking_source: str,
+    weight_preset: str,
+) -> None:
+    if not display_rows:
+        st.info("No ranking rows.")
+        return
+    table_base_key = _ranking_result_table_base_key(ranking_source, weight_preset)
+    grid_key = _ranking_result_grid_key(table_base_key)
+    st.caption("銘柄データを見るには、ランキング表の行をクリックしてください。")
+    grid_response = AgGrid(
+        ranking_result_aggrid_frame(display_rows),
+        gridOptions=ranking_result_aggrid_options(display_rows),
+        height=_ranking_result_grid_height(display_rows),
+        update_on=["rowClicked"],
+        data_return_mode=DataReturnMode.AS_INPUT,
+        theme="dark",
+        custom_css=RANKING_RESULT_GRID_CUSTOM_CSS,
+        key=grid_key,
+        show_toolbar=False,
+        show_search=False,
+        show_download_button=False,
+    )
+    selected_symbol = ranking_detail_symbol_from_aggrid_response(grid_response)
+    detail_event_token = ranking_detail_event_token_from_aggrid_response(
+        grid_response,
+        selected_symbol,
+    )
+    last_opened_key = f"{table_base_key}_last_opened_event_token"
+    symbol_to_open = ranking_detail_symbol_to_open(
+        selected_symbol,
+        detail_event_token,
+        st.session_state.get(last_opened_key),
+    )
+    if detail_event_token is None:
+        st.session_state.pop(last_opened_key, None)
+    elif symbol_to_open:
+        st.session_state[last_opened_key] = detail_event_token
+        _render_symbol_universe_detail_dialog(symbol_to_open)
+
+
+def ranking_comparison_summary(
+    *,
+    start: date,
+    end: date,
+    candidate_count: int,
+    selected_count: int,
+) -> dict[str, str]:
+    if candidate_count <= 0:
+        status = "候補なし"
+        selected = "0件"
+    elif selected_count <= 0:
+        status = "未選択"
+        selected = f"0 / {candidate_count}件"
+    elif selected_count >= candidate_count:
+        status = "全候補を比較"
+        selected = f"{candidate_count} / {candidate_count}件"
+    else:
+        status = "一部を比較"
+        selected = f"{selected_count} / {candidate_count}件"
+    return {
+        "period": f"{start.isoformat()} 〜 {end.isoformat()}",
+        "candidate": f"{max(candidate_count, 0)}件",
+        "selected": selected,
+        "status": status,
+        "inline": (
+            f"取得期間: {start.isoformat()} 〜 {end.isoformat()} / "
+            f"候補: {max(candidate_count, 0)}件 / 選択: {selected}（{status}）"
+        ),
+    }
 
 
 def _render_ranking_filter_panel() -> None:
     has_ranking_result = bool(st.session_state.get(MARKET_DATA_RANKING_STATE_KEY))
-    with st.expander("スクリーニング条件（候補を絞る）", expanded=not has_ranking_result):
-        st.caption(
-            "銘柄マスタの属性で比較候補を絞ります。取得期間と重視条件はランキング計算側の設定です。"
-            "売買推奨ではありません。"
-        )
-        col_market, col_type, col_currency = st.columns(3)
-        with col_market:
-            st.selectbox(
-                "対象市場",
-                list(RANKING_MARKET_LABELS),
-                index=list(RANKING_MARKET_LABELS).index(
-                    _ranking_filter_value("market_data_ranking_market", "all")
-                ),
-                key="market_data_ranking_market",
-                format_func=lambda value: RANKING_MARKET_LABELS[value],
-            )
-        with col_type:
-            st.selectbox(
-                "銘柄タイプ",
-                list(RANKING_ASSET_TYPE_LABELS),
-                index=list(RANKING_ASSET_TYPE_LABELS).index(
-                    _ranking_filter_value("market_data_ranking_asset_type", "all")
-                ),
-                key="market_data_ranking_asset_type",
-                format_func=lambda value: RANKING_ASSET_TYPE_LABELS[value],
-            )
-        with col_currency:
-            st.selectbox(
+    region = _ranking_filter_value("market_data_ranking_region", "japan")
+    product_type = _ranking_filter_value("market_data_ranking_product_type", "stock")
+    detail_filters = set(ranking_detail_filters_for_category(region, product_type))
+    if "dividend_yield" in detail_filters:
+        _normalize_dividend_filter_state()
+    with st.expander("詳細条件", expanded=not has_ranking_result):
+        st.caption("ここは候補を絞る条件です。上の並べ替え設定とは別に使います。")
+
+        st.markdown("**属性条件**")
+        columns = st.columns(4)
+        column_index = 0
+        dividend_category_value = _ranking_filter_value("market_data_ranking_dividend", "all")
+        dividend_range_enabled = _ranking_filter_bool("market_data_ranking_dividend_enabled", False)
+        dividend_category_disabled = dividend_range_enabled
+        dividend_range_disabled = dividend_category_value != "all"
+
+        def next_column():
+            nonlocal column_index
+            column = columns[column_index % len(columns)]
+            column_index += 1
+            return column
+
+        if "industry_or_sector" in detail_filters:
+            with next_column():
+                _render_detail_selectbox(
+                    "業種/テーマ",
+                    options=list(RANKING_THEME_LABELS),
+                    key="market_data_ranking_theme",
+                    format_func=lambda value: RANKING_THEME_LABELS[value],
+                    help_text=RANKING_FILTER_HELP_TEXTS["industry_or_sector"],
+                )
+        if "market_cap" in detail_filters:
+            with next_column():
+                _render_detail_selectbox(
+                    "時価総額",
+                    options=list(RANKING_MARKET_CAP_LABELS),
+                    key="market_data_ranking_market_cap",
+                    format_func=lambda value: RANKING_MARKET_CAP_LABELS[value],
+                    help_text=RANKING_FILTER_HELP_TEXTS["market_cap"],
+                )
+        if "risk_band" in detail_filters:
+            with next_column():
+                _render_detail_selectbox(
+                    "市場感応度（β）",
+                    options=list(RANKING_BETA_RISK_LABELS),
+                    key="market_data_ranking_risk_band",
+                    format_func=lambda value: RANKING_BETA_RISK_LABELS[value],
+                    help_text=RANKING_FILTER_HELP_TEXTS["risk_band"],
+                )
+        if "nisa_eligibility" in detail_filters:
+            with next_column():
+                _render_detail_selectbox(
+                    "NISA",
+                    options=list(RANKING_NISA_ELIGIBILITY_LABELS),
+                    key="market_data_ranking_nisa",
+                    format_func=lambda value: RANKING_NISA_ELIGIBILITY_LABELS[value],
+                    help_text=RANKING_FILTER_HELP_TEXTS["nisa_eligibility"],
+                )
+        if "benchmark_index" in detail_filters:
+            with next_column():
+                _render_detail_selectbox(
+                    "連動指数",
+                    options=list(RANKING_INDEX_FAMILY_LABELS),
+                    key="market_data_ranking_index_family",
+                    format_func=lambda value: RANKING_INDEX_FAMILY_LABELS[value],
+                    help_text=RANKING_FILTER_HELP_TEXTS["benchmark_index"],
+                )
+        if "expense_ratio" in detail_filters:
+            with next_column():
+                st.number_input(
+                    "信託報酬/経費率(%)以下",
+                    min_value=0.0,
+                    max_value=2.0,
+                    value=float(_ranking_filter_value("market_data_ranking_max_expense", "1.00")),
+                    step=0.01,
+                    key="market_data_ranking_max_expense",
+                    help=RANKING_FILTER_HELP_TEXTS["expense_ratio"],
+                )
+        if "complexity" in detail_filters:
+            with next_column():
+                _render_detail_selectbox(
+                    "複雑さ",
+                    options=list(RANKING_COMPLEXITY_LABELS),
+                    key="market_data_ranking_complexity",
+                    format_func=lambda value: RANKING_COMPLEXITY_LABELS[value],
+                    help_text=RANKING_FILTER_HELP_TEXTS["complexity"],
+                )
+        if "dividend_yield" in detail_filters:
+            with next_column():
+                _render_detail_selectbox(
+                    "配当カテゴリ",
+                    options=list(RANKING_DIVIDEND_LABELS),
+                    key="market_data_ranking_dividend",
+                    format_func=lambda value: RANKING_DIVIDEND_LABELS[value],
+                    help_text=RANKING_FILTER_HELP_TEXTS["dividend_category"],
+                    disabled=dividend_category_disabled,
+                )
+        with next_column():
+            _render_detail_selectbox(
                 "通貨",
-                list(RANKING_CURRENCY_LABELS),
-                index=list(RANKING_CURRENCY_LABELS).index(
-                    _ranking_filter_value("market_data_ranking_currency", "all")
-                ),
+                options=list(RANKING_CURRENCY_LABELS),
                 key="market_data_ranking_currency",
                 format_func=lambda value: RANKING_CURRENCY_LABELS[value],
+                help_text=RANKING_FILTER_HELP_TEXTS["currency"],
             )
 
-        col_dividend, col_market_cap, col_theme, col_index = st.columns(4)
-        with col_dividend:
-            st.selectbox(
-                "配当カテゴリ",
-                list(RANKING_DIVIDEND_LABELS),
-                index=list(RANKING_DIVIDEND_LABELS).index(
-                    _ranking_filter_value("market_data_ranking_dividend", "all")
-                ),
-                key="market_data_ranking_dividend",
-                format_func=lambda value: RANKING_DIVIDEND_LABELS[value],
+        metric_filters: list[tuple[str, dict[str, object]]] = []
+        if "dividend_yield" in detail_filters:
+            metric_filters.append(
+                (
+                    "配当利回り(%)",
+                    {
+                        "enabled_key": "market_data_ranking_dividend_enabled",
+                        "min_key": "market_data_ranking_min_dividend",
+                        "max_key": "market_data_ranking_dividend_max",
+                        "min_default": "3.0",
+                        "max_default": "10.0",
+                        "max_value": 15.0,
+                        "help_text": RANKING_FILTER_HELP_TEXTS["dividend_yield"],
+                        "disabled": dividend_range_disabled,
+                    },
+                )
             )
-        with col_market_cap:
-            st.selectbox(
-                "時価総額",
-                list(RANKING_MARKET_CAP_LABELS),
-                index=list(RANKING_MARKET_CAP_LABELS).index(
-                    _ranking_filter_value("market_data_ranking_market_cap", "all")
-                ),
-                key="market_data_ranking_market_cap",
-                format_func=lambda value: RANKING_MARKET_CAP_LABELS[value],
+        if "per" in detail_filters:
+            metric_filters.append(
+                (
+                    "PER",
+                    {
+                        "enabled_key": "market_data_ranking_per_enabled",
+                        "min_key": "market_data_ranking_per_min",
+                        "max_key": "market_data_ranking_per_max",
+                        "min_default": "2.0",
+                        "max_default": "20.0",
+                        "max_value": 80.0,
+                        "help_text": RANKING_FILTER_HELP_TEXTS["per"],
+                    },
+                )
             )
-        with col_theme:
-            st.selectbox(
-                "テーマ",
-                list(RANKING_THEME_LABELS),
-                index=list(RANKING_THEME_LABELS).index(
-                    _ranking_filter_value("market_data_ranking_theme", "all")
-                ),
-                key="market_data_ranking_theme",
-                format_func=lambda value: RANKING_THEME_LABELS[value],
+        if "pbr" in detail_filters:
+            metric_filters.append(
+                (
+                    "PBR",
+                    {
+                        "enabled_key": "market_data_ranking_pbr_enabled",
+                        "min_key": "market_data_ranking_pbr_min",
+                        "max_key": "market_data_ranking_pbr_max",
+                        "min_default": "0.5",
+                        "max_default": "2.0",
+                        "max_value": 20.0,
+                        "help_text": RANKING_FILTER_HELP_TEXTS["pbr"],
+                    },
+                )
             )
-        with col_index:
-            st.selectbox(
-                "ETF連動対象",
-                list(RANKING_INDEX_FAMILY_LABELS),
-                index=list(RANKING_INDEX_FAMILY_LABELS).index(
-                    _ranking_filter_value("market_data_ranking_index_family", "all")
-                ),
-                key="market_data_ranking_index_family",
-                format_func=lambda value: RANKING_INDEX_FAMILY_LABELS[value],
+        if "roe" in detail_filters:
+            metric_filters.append(
+                (
+                    "ROE(%)",
+                    {
+                        "enabled_key": "market_data_ranking_roe_enabled",
+                        "min_key": "market_data_ranking_roe_min",
+                        "max_key": "market_data_ranking_roe_max",
+                        "min_default": "8.0",
+                        "max_default": "30.0",
+                        "max_value": 60.0,
+                        "help_text": RANKING_FILTER_HELP_TEXTS["roe"],
+                    },
+                )
             )
+        if metric_filters:
+            st.markdown("**数値条件**")
+            _render_metric_filter_grid(metric_filters)
 
-        col_per, col_pbr, col_div_yield, col_roe, col_consensus = st.columns(5)
-        with col_per:
-            _render_metric_range_filter(
-                "PER",
-                enabled_key="market_data_ranking_per_enabled",
-                min_key="market_data_ranking_per_min",
-                max_key="market_data_ranking_per_max",
-                min_default="2.0",
-                max_default="20.0",
-                max_value=80.0,
-            )
-        with col_pbr:
-            _render_metric_range_filter(
-                "PBR",
-                enabled_key="market_data_ranking_pbr_enabled",
-                min_key="market_data_ranking_pbr_min",
-                max_key="market_data_ranking_pbr_max",
-                min_default="0.5",
-                max_default="2.0",
-                max_value=20.0,
-            )
-        with col_div_yield:
-            _render_metric_range_filter(
-                "配当利回り(%)",
-                enabled_key="market_data_ranking_dividend_enabled",
-                min_key="market_data_ranking_min_dividend",
-                max_key="market_data_ranking_dividend_max",
-                min_default="3.0",
-                max_default="10.0",
-                max_value=15.0,
-            )
-        with col_roe:
-            _render_metric_range_filter(
-                "ROE(%)",
-                enabled_key="market_data_ranking_roe_enabled",
-                min_key="market_data_ranking_roe_min",
-                max_key="market_data_ranking_roe_max",
-                min_default="8.0",
-                max_default="30.0",
-                max_value=60.0,
-            )
-        with col_consensus:
-            _render_metric_range_filter(
-                "コンセンサス",
-                enabled_key="market_data_ranking_consensus_enabled",
-                min_key="market_data_ranking_consensus_min",
-                max_key="market_data_ranking_consensus_max",
-                min_default="2.5",
-                max_default="5.0",
-                max_value=5.0,
-            )
-
-        col_keyword, col_expense, col_complexity, col_clear = st.columns([2.0, 1.0, 1.0, 0.8])
+        st.markdown("**キーワード検索**")
+        col_keyword, col_clear = st.columns([3.0, 0.8])
         with col_keyword:
             st.text_input(
                 "キーワード",
                 value=_ranking_filter_value("market_data_ranking_symbol_query", ""),
                 key="market_data_ranking_symbol_query",
                 placeholder="ticker or company name",
-            )
-        with col_expense:
-            st.number_input(
-                "信託報酬(%)以下",
-                min_value=0.0,
-                max_value=2.0,
-                value=float(_ranking_filter_value("market_data_ranking_max_expense", "1.00")),
-                step=0.01,
-                key="market_data_ranking_max_expense",
-            )
-        with col_complexity:
-            st.selectbox(
-                "見やすさ",
-                list(RANKING_COMPLEXITY_LABELS),
-                index=list(RANKING_COMPLEXITY_LABELS).index(
-                    _ranking_filter_value("market_data_ranking_complexity", "standard")
-                ),
-                key="market_data_ranking_complexity",
-                format_func=lambda value: RANKING_COMPLEXITY_LABELS[value],
+                help=RANKING_FILTER_HELP_TEXTS["keyword"],
             )
         with col_clear:
             st.button("クリアする", on_click=clear_ranking_filter_state)
-
-
-@st.dialog("候補条件")
-def _render_ranking_filter_dialog() -> None:
-    st.caption("銘柄を取得する前に分かる属性だけで候補を絞ります。")
-    col_period, col_min_dividend = st.columns([1.0, 1.0])
-    with col_period:
-        st.selectbox(
-            "期間",
-            list(RANKING_PERIOD_PRESETS),
-            index=list(RANKING_PERIOD_PRESETS).index(
-                _ranking_filter_value("market_data_ranking_period", "short")
-            ),
-            key="market_data_ranking_period",
-            format_func=ranking_period_label,
-        )
-    with col_min_dividend:
-        st.number_input(
-            "配当利回り(%)以上",
-            min_value=0.0,
-            max_value=10.0,
-            value=float(_ranking_filter_value("market_data_ranking_min_dividend", "0.0")),
-            step=0.1,
-            key="market_data_ranking_min_dividend",
-        )
-    col_market, col_type = st.columns(2)
-    with col_market:
-        st.selectbox(
-            "対象市場",
-            list(RANKING_MARKET_LABELS),
-            index=list(RANKING_MARKET_LABELS).index(
-                _ranking_filter_value("market_data_ranking_market", "all")
-            ),
-            key="market_data_ranking_market",
-            format_func=lambda value: RANKING_MARKET_LABELS[value],
-        )
-    with col_type:
-        st.selectbox(
-            "銘柄タイプ",
-            list(RANKING_ASSET_TYPE_LABELS),
-            index=list(RANKING_ASSET_TYPE_LABELS).index(
-                _ranking_filter_value("market_data_ranking_asset_type", "all")
-            ),
-            key="market_data_ranking_asset_type",
-            format_func=lambda value: RANKING_ASSET_TYPE_LABELS[value],
-        )
-    col_currency, col_dividend = st.columns(2)
-    with col_currency:
-        st.selectbox(
-            "通貨",
-            list(RANKING_CURRENCY_LABELS),
-            index=list(RANKING_CURRENCY_LABELS).index(
-                _ranking_filter_value("market_data_ranking_currency", "all")
-            ),
-            key="market_data_ranking_currency",
-            format_func=lambda value: RANKING_CURRENCY_LABELS[value],
-        )
-    with col_dividend:
-        st.selectbox(
-            "配当カテゴリ",
-            list(RANKING_DIVIDEND_LABELS),
-            index=list(RANKING_DIVIDEND_LABELS).index(
-                _ranking_filter_value("market_data_ranking_dividend", "all")
-            ),
-            key="market_data_ranking_dividend",
-            format_func=lambda value: RANKING_DIVIDEND_LABELS[value],
-        )
-    col_market_cap, col_theme = st.columns(2)
-    with col_market_cap:
-        st.selectbox(
-            "時価総額",
-            list(RANKING_MARKET_CAP_LABELS),
-            index=list(RANKING_MARKET_CAP_LABELS).index(
-                _ranking_filter_value("market_data_ranking_market_cap", "all")
-            ),
-            key="market_data_ranking_market_cap",
-            format_func=lambda value: RANKING_MARKET_CAP_LABELS[value],
-        )
-    with col_theme:
-        st.selectbox(
-            "テーマ",
-            list(RANKING_THEME_LABELS),
-            index=list(RANKING_THEME_LABELS).index(
-                _ranking_filter_value("market_data_ranking_theme", "all")
-            ),
-            key="market_data_ranking_theme",
-            format_func=lambda value: RANKING_THEME_LABELS[value],
-        )
-    col_index, col_expense = st.columns(2)
-    with col_index:
-        st.selectbox(
-            "ETF連動対象",
-            list(RANKING_INDEX_FAMILY_LABELS),
-            index=list(RANKING_INDEX_FAMILY_LABELS).index(
-                _ranking_filter_value("market_data_ranking_index_family", "all")
-            ),
-            key="market_data_ranking_index_family",
-            format_func=lambda value: RANKING_INDEX_FAMILY_LABELS[value],
-        )
-    with col_expense:
-        st.number_input(
-            "信託報酬(%)以下",
-            min_value=0.0,
-            max_value=2.0,
-            value=float(_ranking_filter_value("market_data_ranking_max_expense", "1.00")),
-            step=0.01,
-            key="market_data_ranking_max_expense",
-        )
-    st.text_input(
-        "キーワード",
-        value=_ranking_filter_value("market_data_ranking_symbol_query", ""),
-        key="market_data_ranking_symbol_query",
-        placeholder="ticker or company name",
-    )
-    symbol_rows = symbol_universe_rows()
-    preview_rows = filter_symbol_universe_rows(
-        symbol_rows,
-        purpose="all",
-        market=_ranking_filter_value("market_data_ranking_market", "all"),
-        asset_type=_ranking_filter_value("market_data_ranking_asset_type", "all"),
-        currency=_ranking_filter_value("market_data_ranking_currency", "all"),
-        dividend_category=_ranking_filter_value("market_data_ranking_dividend", "all"),
-        min_dividend_yield_pct=_ranking_filter_value("market_data_ranking_min_dividend", "0.0"),
-        market_cap_tier=_ranking_filter_value("market_data_ranking_market_cap", "all"),
-        index_family=_ranking_filter_value("market_data_ranking_index_family", "all"),
-        max_expense_ratio_pct=_ranking_filter_value("market_data_ranking_max_expense", "1.00"),
-        complexity=_ranking_filter_value("market_data_ranking_complexity", "standard"),
-        theme=_ranking_filter_value("market_data_ranking_theme", "all"),
-        query=_ranking_filter_value("market_data_ranking_symbol_query", ""),
-        limit=len(symbol_rows),
-    )
-    st.caption(f"この条件で {len(preview_rows)} 件が候補になります。")
-    if preview_rows:
-        preview_labels = symbol_candidate_labels(preview_rows)[:5]
-        st.caption("候補例: " + " / ".join(preview_labels))
-    else:
-        st.warning("この条件に合う候補がありません。条件を少し広げてください。")
-    if st.button("条件を適用", key="apply_market_data_ranking_filters"):
-        persist_ranking_filter_state()
-        filter_signature = _ranking_filter_signature_from_state()
-        apply_ranking_filter_state(preview_rows, filter_signature)
-        st.rerun()
 
 
 def merged_symbol_candidate_rows(
@@ -1236,21 +1352,12 @@ def merged_symbol_candidate_rows(
 
 
 def _render_market_data_preview() -> None:
-    st.subheader("Market Data")
-    mode = cast(
-        str,
-        st.radio(
-            "表示モード",
-            [MARKET_DATA_MODE_COCKPIT, MARKET_DATA_MODE_RANKING],
-            horizontal=True,
-            key="market_data_mode",
-            format_func=lambda value: MARKET_DATA_MODE_LABELS.get(value, value),
-        ),
-    )
-    if mode == MARKET_DATA_MODE_RANKING:
-        _render_market_data_ranking()
-        return
+    _render_market_data_cockpit()
 
+
+def _render_market_data_cockpit() -> None:
+    st.subheader("銘柄コックピット")
+    st.caption("1銘柄の価格、予測、Investment Score、注意点を確認します。")
     symbol_options = symbol_reference_rows()
     col_provider, col_search, col_symbol, col_name, col_start, col_end = st.columns(
         [1.0, 1.3, 1.7, 1.4, 1.0, 1.0]
@@ -1262,9 +1369,11 @@ def _render_market_data_preview() -> None:
                 "Provider",
                 MARKET_DATA_PROVIDER_OPTIONS,
                 index=_provider_option_index(default_market_data_provider()),
-                key="market_data_provider",
+                key=MARKET_DATA_PROVIDER_WIDGET_KEY,
             ),
         )
+        if provider in LIVE_MARKET_DATA_PROVIDERS:
+            st.caption("Yahoo live data を取得します。")
     with col_search:
         symbol_query = st.text_input(
             "Symbol search",
@@ -1303,6 +1412,9 @@ def _render_market_data_preview() -> None:
     with col_end:
         end = st.date_input("End", value=default_market_data_end_date(), key="market_data_end")
 
+    with st.expander("銘柄候補", expanded=False):
+        st.dataframe(symbol_options, hide_index=True, use_container_width=True)
+
     if st.button("Fetch market data", key="fetch_market_data"):
         try:
             start_date = _single_date_from_input(start)
@@ -1339,8 +1451,9 @@ def _render_market_data_preview() -> None:
         st.toast(str(toast_message), icon="✅")
 
     if st.session_state.get(MARKET_DATA_STATUS_STATE_KEY) != "OK":
-        st.error("Market data fetch failed.")
+        st.error("価格データを取得できませんでした。")
         _render_provider_error_summary(stored_preview.error_rows)
+        return
 
     _render_market_data_preview_result(stored_preview)
 
@@ -1351,7 +1464,61 @@ def _render_market_data_ranking() -> None:
     symbol_options = symbol_universe_rows()
     purpose = "all"
 
-    col_provider, col_period, col_preset = st.columns([1.0, 1.0, 1.2])
+    col_region, col_product, col_purpose = st.columns(3)
+    with col_region:
+        region_options = list(RANKING_MVP_REGION_LABELS)
+        _ensure_selectbox_state_value("market_data_ranking_region", region_options)
+        region = cast(
+            str,
+            st.selectbox(
+                "地域",
+                region_options,
+                index=_selectbox_index(
+                    region_options,
+                    _ranking_filter_value("market_data_ranking_region", "japan"),
+                ),
+                key="market_data_ranking_region",
+                format_func=ranking_region_label,
+            ),
+        )
+    with col_product:
+        product_options = list(RANKING_MVP_PRODUCT_TYPE_LABELS)
+        _ensure_selectbox_state_value("market_data_ranking_product_type", product_options)
+        product_type = cast(
+            str,
+            st.selectbox(
+                "商品",
+                product_options,
+                index=_selectbox_index(
+                    product_options,
+                    _ranking_filter_value("market_data_ranking_product_type", "stock"),
+                ),
+                key="market_data_ranking_product_type",
+                format_func=ranking_product_type_label,
+            ),
+        )
+    with col_purpose:
+        purpose_options = list(RANKING_PURPOSE_LABELS)
+        _ensure_selectbox_state_value("market_data_ranking_purpose", purpose_options)
+        ranking_purpose = cast(
+            str,
+            st.selectbox(
+                "重視して並べ替え",
+                purpose_options,
+                index=_selectbox_index(
+                    purpose_options,
+                    _ranking_filter_value("market_data_ranking_purpose", "dividend"),
+                ),
+                key="market_data_ranking_purpose",
+                format_func=ranking_purpose_label,
+                help="候補は絞らず、スコアの表示順に使います。",
+            ),
+        )
+        st.caption("候補は絞らず、表示順に使います。")
+
+    weight_preset = ranking_weight_preset_for_purpose(ranking_purpose)
+
+    col_provider, col_period = st.columns([1.0, 1.0])
     with col_provider:
         provider = cast(
             str,
@@ -1359,34 +1526,34 @@ def _render_market_data_ranking() -> None:
                 "Provider",
                 MARKET_DATA_PROVIDER_OPTIONS,
                 index=_provider_option_index(default_market_data_provider()),
-                key="market_data_ranking_provider",
+                key=MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY,
             ),
         )
+        if provider in LIVE_MARKET_DATA_PROVIDERS:
+            st.caption("Yahoo live data でランキングを作成します。")
     with col_period:
+        period_options = list(RANKING_PERIOD_PRESETS)
+        _ensure_selectbox_state_value("market_data_ranking_period", period_options)
         st.selectbox(
             "取得期間",
-            list(RANKING_PERIOD_PRESETS),
-            index=list(RANKING_PERIOD_PRESETS).index(
-                _ranking_filter_value("market_data_ranking_period", "short")
+            period_options,
+            index=_selectbox_index(
+                period_options,
+                _ranking_filter_value("market_data_ranking_period", "short"),
             ),
             key="market_data_ranking_period",
             format_func=ranking_period_label,
+            help=RANKING_FILTER_HELP_TEXTS["period"],
         )
-    with col_preset:
-        weight_preset = cast(
-            str,
-            st.selectbox(
-                "重視条件",
-                list(RANKING_WEIGHT_PRESETS),
-                key="market_data_ranking_weight_preset",
-                format_func=ranking_weight_preset_label,
-            ),
-        )
+    st.caption(
+        f"並べ替え: {ranking_purpose_label(ranking_purpose)} / "
+        f"表示順: {ranking_weight_preset_label(weight_preset)}"
+    )
     _render_ranking_filter_panel()
 
     period_preset = _ranking_filter_value("market_data_ranking_period", "short")
-    market = _ranking_filter_value("market_data_ranking_market", "all")
-    asset_type = _ranking_filter_value("market_data_ranking_asset_type", "all")
+    market = "all"
+    asset_type = "all"
     currency = _ranking_filter_value("market_data_ranking_currency", "all")
     dividend_category = _ranking_filter_value("market_data_ranking_dividend", "all")
     min_dividend_yield_pct = _ranking_filter_value("market_data_ranking_min_dividend", "0.0")
@@ -1394,6 +1561,8 @@ def _render_market_data_ranking() -> None:
     index_family = _ranking_filter_value("market_data_ranking_index_family", "all")
     max_expense_ratio_pct = _ranking_filter_value("market_data_ranking_max_expense", "1.00")
     complexity = _ranking_filter_value("market_data_ranking_complexity", "standard")
+    nisa_eligibility = _ranking_filter_value("market_data_ranking_nisa", "all")
+    risk_band = _ranking_filter_value("market_data_ranking_risk_band", "all")
     theme = _ranking_filter_value("market_data_ranking_theme", "all")
     symbol_query = _ranking_filter_value("market_data_ranking_symbol_query", "")
     per_enabled = _ranking_filter_bool("market_data_ranking_per_enabled", False)
@@ -1412,6 +1581,9 @@ def _render_market_data_ranking() -> None:
     consensus_max = _ranking_filter_value("market_data_ranking_consensus_max", "5.0")
     filtered_symbol_rows = filter_symbol_universe_rows(
         symbol_options,
+        region=region,
+        product_type=product_type,
+        ranking_purpose=ranking_purpose,
         purpose=purpose,
         market=market,
         asset_type=asset_type,
@@ -1422,6 +1594,8 @@ def _render_market_data_ranking() -> None:
         index_family=index_family,
         max_expense_ratio_pct=max_expense_ratio_pct,
         complexity=complexity,
+        nisa_eligibility=nisa_eligibility,
+        risk_band=risk_band,
         theme=theme,
         query=symbol_query,
         per_enabled=per_enabled,
@@ -1442,6 +1616,9 @@ def _render_market_data_ranking() -> None:
     )
     labels = symbol_candidate_labels(filtered_symbol_rows)
     filter_signature = ranking_filter_signature(
+        region=region,
+        product_type=product_type,
+        ranking_purpose=ranking_purpose,
         purpose=purpose,
         period_preset=period_preset,
         market=market,
@@ -1453,6 +1630,8 @@ def _render_market_data_ranking() -> None:
         index_family=index_family,
         max_expense_ratio_pct=max_expense_ratio_pct,
         complexity=complexity,
+        nisa_eligibility=nisa_eligibility,
+        risk_band=risk_band,
         theme=theme,
         query=symbol_query,
         per_enabled=per_enabled,
@@ -1481,8 +1660,20 @@ def _render_market_data_ranking() -> None:
         labels=labels,
         stored_selected_labels=stored_selected_labels,
     )
-    col_symbols, col_period_text = st.columns([2.8, 1.2])
-    with col_symbols:
+    selected_labels_for_summary = cast(list[str], st.session_state.get(selection_key, []))
+    end_date = default_market_data_end_date()
+    start_date, end_date = ranking_period_dates(period_preset, end_date)
+    comparison_summary = ranking_comparison_summary(
+        start=start_date,
+        end=end_date,
+        candidate_count=len(filtered_symbol_rows),
+        selected_count=len(selected_labels_for_summary),
+    )
+    st.caption(comparison_summary["inline"])
+
+    expander_label = f"比較する銘柄を確認・変更（{comparison_summary['selected']}）"
+    with st.expander(expander_label, expanded=False):
+        st.caption("候補は初期状態ですべて選択されています。変更する場合だけ開いてください。")
         selected_labels = cast(
             list[str],
             st.multiselect(
@@ -1491,28 +1682,28 @@ def _render_market_data_ranking() -> None:
                 key=selection_key,
             ),
         )
-    with col_period_text:
-        end_date = default_market_data_end_date()
-        start_date, end_date = ranking_period_dates(period_preset, end_date)
-        st.caption(f"取得期間: {start_date.isoformat()} 〜 {end_date.isoformat()}")
-        st.caption(f"候補数: {len(filtered_symbol_rows)}")
-        st.caption(f"選択数: {len(selected_labels)}")
+    ranking_symbols = _ranking_symbols_from_selected_labels(selected_labels)
+    current_ranking_source = _ranking_source_key_for_selection(
+        provider=provider,
+        selected_labels=selected_labels,
+        start=start_date,
+        end=end_date,
+    )
+    warning_message = live_ranking_symbol_warning_message(provider, len(ranking_symbols))
+    if warning_message is not None:
+        st.warning(warning_message)
     if not labels:
         st.warning("この条件に合う候補がありません。候補条件を広げてください。")
 
-    if st.button("ランキング作成", key="build_market_data_ranking"):
+    if st.button(
+        "ランキング作成",
+        key="build_market_data_ranking",
+    ):
         sync_ranking_selection_state(selection_key, selected_labels)
-        symbols = [_symbol_from_candidate(label) for label in selected_labels]
-        ranking_symbols = [symbol for symbol in symbols if symbol]
         if not ranking_symbols:
             st.error("Ranking symbols を1件以上選んでください。")
             return
-        cache_key = ranking_build_cache_key(
-            provider=provider,
-            symbols=ranking_symbols,
-            start=start_date,
-            end=end_date,
-        )
+        cache_key = current_ranking_source
         cached_result = get_cached_ranking_build(cache_key)
         if cached_result is None:
             progress_bar = st.progress(0.0)
@@ -1538,10 +1729,21 @@ def _render_market_data_ranking() -> None:
             st.caption("同じ条件の取得済みデータを再利用しました。")
         st.session_state[MARKET_DATA_RANKING_STATE_KEY] = rows
         st.session_state[MARKET_DATA_RANKING_ERROR_STATE_KEY] = error_rows
+        st.session_state[MARKET_DATA_RANKING_SOURCE_STATE_KEY] = cache_key
 
     rows = st.session_state.get(MARKET_DATA_RANKING_STATE_KEY, [])
     error_rows = st.session_state.get(MARKET_DATA_RANKING_ERROR_STATE_KEY, [])
-    if rows:
+    ranking_source = str(st.session_state.get(MARKET_DATA_RANKING_SOURCE_STATE_KEY, ""))
+    is_current_ranking_result = _ranking_result_matches_current_selection(
+        ranking_source,
+        provider=provider,
+        selected_labels=selected_labels,
+        start=start_date,
+        end=end_date,
+    )
+    if (rows or error_rows) and not is_current_ranking_result:
+        st.info("条件が変わりました。ランキング作成で結果を更新してください。")
+    elif rows:
         ranked_rows = apply_ranking_weight_preset(
             cast(list[dict[str, str]], rows),
             weight_preset,
@@ -1549,12 +1751,34 @@ def _render_market_data_ranking() -> None:
         display_rows = investment_score_display_rows(ranked_rows)
         st.markdown("#### ランキング結果")
         st.caption(
-            f"重視条件: {ranking_weight_preset_label(weight_preset)}。"
+            f"並べ替え: {ranking_purpose_label(ranking_purpose)} / "
+            f"表示順: {ranking_weight_preset_label(weight_preset)}。"
             "上位の銘柄ほど、今回の条件では深掘り候補として見やすい順です。"
         )
-        _render_table(display_rows, "No ranking rows.")
+        _render_ranking_result_table(
+            display_rows,
+            ranking_source=ranking_source,
+            weight_preset=weight_preset,
+        )
+        _render_ranking_error_rows(cast(list[dict[str, str]], error_rows))
         deep_dive_symbols = ranking_symbol_options(ranked_rows)
         if deep_dive_symbols:
+            deep_dive_source = f"{ranking_source}|{weight_preset}"
+            default_deep_dive_symbol = ranking_deep_dive_default_symbol(
+                ranked_rows,
+                current_symbol=cast(
+                    str | None,
+                    st.session_state.get("market_data_ranking_deep_dive_symbol"),
+                ),
+                source_key=deep_dive_source,
+                current_source_key=cast(
+                    str | None,
+                    st.session_state.get(MARKET_DATA_RANKING_DEEP_DIVE_SOURCE_STATE_KEY),
+                ),
+            )
+            if default_deep_dive_symbol is not None:
+                st.session_state["market_data_ranking_deep_dive_symbol"] = default_deep_dive_symbol
+                st.session_state[MARKET_DATA_RANKING_DEEP_DIVE_SOURCE_STATE_KEY] = deep_dive_source
             st.markdown("#### 深掘り")
             st.caption(
                 "気になる銘柄を1つ選び、銘柄コックピットで価格・予測・スコア理由を確認します。"
@@ -1587,11 +1811,31 @@ def _render_market_data_ranking() -> None:
             file_name="investment_score_ranking.csv",
             mime="text/csv",
         )
+    elif error_rows:
+        st.warning("ランキング対象の価格データを取得できませんでした。")
+        _render_ranking_error_rows(cast(list[dict[str, str]], error_rows))
     else:
         st.info("銘柄を選んで ranking を作成してください。")
-    if error_rows:
-        with st.expander("取得できなかった銘柄"):
-            _render_table(cast(list[dict[str, str]], error_rows), "No ranking errors.")
+
+
+def _render_ranking_error_rows(error_rows: list[dict[str, str]]) -> None:
+    if not error_rows:
+        return
+
+    st.warning(
+        f"{len(error_rows)}件の銘柄は価格データを取得できなかったため、ランキングから除外しました。"
+    )
+    with st.expander("取得できなかった銘柄"):
+        _render_table(provider_error_summary_rows(error_rows), "No ranking errors.")
+        details_rows = [
+            format_provider_error_details(row)
+            for row in error_rows
+            if format_provider_error_details(row)
+        ]
+        if details_rows:
+            st.caption("診断情報")
+            for details in details_rows:
+                st.code(details, language="json")
 
 
 async def _build_market_data_ranking_rows(
@@ -1610,7 +1854,14 @@ async def _build_market_data_ranking_rows(
             provider=provider,
             progress_callback=progress_callback,
         )
-    except AppError:
+    except AppError as exc:
+        if provider in LIVE_MARKET_DATA_PROVIDERS:
+            _report_ranking_progress(
+                progress_callback,
+                "Yahoo live data の一括取得に失敗しました。",
+                1.0,
+            )
+            return [], ranking_provider_error_rows(provider, symbols, exc)
         return await _build_market_data_ranking_rows_from_previews(
             symbols,
             start=start,
@@ -1645,7 +1896,9 @@ async def _build_market_data_ranking_rows_fast(
     feature_start = min(start, end - timedelta(days=90))
     feature_start_dt = datetime.combine(feature_start, time.min, tzinfo=UTC)
     bars: list[Bar] = []
-    symbol_chunks = _ranking_symbol_chunks(symbols)
+    provider_symbols_by_symbol = _provider_symbols_by_display_symbol(symbols, provider)
+    fetch_symbols = _unique_provider_symbols(provider_symbols_by_symbol.values())
+    symbol_chunks = ranking_symbol_chunks(fetch_symbols)
     for index, symbol_chunk in enumerate(symbol_chunks, start=1):
         _report_ranking_progress(
             progress_callback,
@@ -1653,6 +1906,10 @@ async def _build_market_data_ranking_rows_fast(
             0.1 + (0.35 * (index - 1) / len(symbol_chunks)),
         )
         bars.extend(await adapter.fetch_ohlcv(symbol_chunk, start=feature_start_dt, end=end_dt))
+    bars = _bars_with_display_symbols(
+        bars,
+        provider_symbols_by_symbol=provider_symbols_by_symbol,
+    )
     _report_ranking_progress(progress_callback, "価格データを整理しています。", 0.45)
     bars_by_symbol = _ranking_bars_by_symbol(symbols, bars)
 
@@ -1663,12 +1920,14 @@ async def _build_market_data_ranking_rows_fast(
         symbol_bars = bars_by_symbol[symbol]
         if not symbol_bars:
             error_rows.append(
-                {
-                    "symbol": symbol,
-                    "code": "RANKING-NO-BARS",
-                    "message": "ランキング計算に使える価格データがありません。",
-                    "details": "{}",
-                }
+                ranking_no_bars_error_row(
+                    provider=provider,
+                    symbol=symbol,
+                    display_start=start,
+                    display_end=end,
+                    fetch_start=feature_start_dt,
+                    fetch_end=end_dt,
+                )
             )
             continue
         latest = symbol_bars[-1]
@@ -1688,7 +1947,16 @@ async def _build_market_data_ranking_rows_fast(
         return [], error_rows
 
     _report_ranking_progress(progress_callback, "ファンダメンタル情報を取得しています。", 0.55)
-    fundamentals = await adapter.fetch_fundamentals(available_symbols, as_of=end)
+    provider_available_symbols = [
+        provider_symbols_by_symbol[symbol] for symbol in available_symbols
+    ]
+    provider_fundamentals = await adapter.fetch_fundamentals(provider_available_symbols, as_of=end)
+    fundamentals = _fundamentals_with_display_symbols(
+        provider_fundamentals,
+        provider_symbols_by_symbol={
+            symbol: provider_symbols_by_symbol[symbol] for symbol in available_symbols
+        },
+    )
     _report_ranking_progress(progress_callback, "スクリーニング用特徴量を作成しています。", 0.65)
     feature_rows = build_daily_snapshots_from_market_data(
         symbols=available_symbols,
@@ -1733,9 +2001,72 @@ async def _build_market_data_ranking_rows_fast(
         screening_scores,
         forecast_consensus_by_symbol=forecast_consensus_by_symbol,
     )
-    ranked_rows = _rank_investment_score_rows(investment_score_rows(investment_scores))
+    ranked_rows = rank_investment_score_rows(investment_score_rows(investment_scores))
     _report_ranking_progress(progress_callback, "ランキングを並べ替えています。", 0.98)
     return ranked_rows, error_rows
+
+
+def _provider_symbols_by_display_symbol(
+    symbols: list[str],
+    provider: str,
+) -> dict[str, str]:
+    return {symbol: symbol_provider_symbol(symbol, provider) for symbol in symbols}
+
+
+def _unique_provider_symbols(symbols: Iterable[str]) -> list[str]:
+    unique_symbols: list[str] = []
+    seen: set[str] = set()
+    for symbol in symbols:
+        if not isinstance(symbol, str):
+            continue
+        if symbol in seen:
+            continue
+        unique_symbols.append(symbol)
+        seen.add(symbol)
+    return unique_symbols
+
+
+def _bars_with_display_symbols(
+    bars: list[Bar],
+    *,
+    provider_symbols_by_symbol: dict[str, str],
+) -> list[Bar]:
+    symbol_by_provider_symbol = {
+        provider_symbol: symbol for symbol, provider_symbol in provider_symbols_by_symbol.items()
+    }
+    return [
+        _bar_with_display_symbol(
+            bar,
+            display_symbol=symbol_by_provider_symbol.get(bar.symbol.raw, bar.symbol.raw),
+        )
+        for bar in bars
+    ]
+
+
+def _bar_with_display_symbol(bar: Bar, *, display_symbol: str) -> Bar:
+    return bar.model_copy(
+        update={
+            "symbol": bar.symbol.model_copy(
+                update={"raw": display_symbol, "code": display_symbol.removesuffix(".T")}
+            )
+        }
+    )
+
+
+def _fundamentals_with_display_symbols(
+    fundamentals: list[FundamentalSnapshot],
+    *,
+    provider_symbols_by_symbol: dict[str, str],
+) -> list[FundamentalSnapshot]:
+    symbol_by_provider_symbol = {
+        provider_symbol: symbol for symbol, provider_symbol in provider_symbols_by_symbol.items()
+    }
+    return [
+        fundamental.model_copy(
+            update={"symbol": symbol_by_provider_symbol.get(fundamental.symbol, fundamental.symbol)}
+        )
+        for fundamental in fundamentals
+    ]
 
 
 def _ranking_bars_by_symbol(
@@ -1751,13 +2082,6 @@ def _ranking_bars_by_symbol(
     return grouped
 
 
-def _ranking_symbol_chunks(symbols: list[str]) -> list[list[str]]:
-    return [
-        symbols[index : index + MAX_RANKING_BATCH_FETCH_SYMBOLS]
-        for index in range(0, len(symbols), MAX_RANKING_BATCH_FETCH_SYMBOLS)
-    ] or [[]]
-
-
 RankingProgressCallback = Callable[[str, float], None]
 
 
@@ -1768,16 +2092,6 @@ def _report_ranking_progress(
 ) -> None:
     if progress_callback is not None:
         progress_callback(message, ratio)
-
-
-def ranking_build_cache_key(
-    *,
-    provider: str,
-    symbols: list[str],
-    start: date,
-    end: date,
-) -> str:
-    return "|".join([provider, start.isoformat(), end.isoformat(), ",".join(symbols)])
 
 
 def _ranking_build_cache() -> dict[str, dict[str, list[dict[str, str]]]]:
@@ -1872,28 +2186,16 @@ async def _build_market_data_ranking_rows_from_previews(
             0.1 + (0.85 * completed_count / len(symbols)),
         )
     _report_ranking_progress(progress_callback, "ランキングを並べ替えています。", 0.98)
-    return _rank_investment_score_rows(rows), error_rows
+    return rank_investment_score_rows(rows), error_rows
 
 
 def _select_ranking_symbol_for_cockpit(symbol: str, provider: str) -> None:
+    st.session_state["sidemenu_page"] = SIDEMENU_PAGE_COCKPIT
     st.session_state["market_data_mode"] = MARKET_DATA_MODE_COCKPIT
-    st.session_state["market_data_provider"] = provider
+    st.session_state[MARKET_DATA_PROVIDER_WIDGET_KEY] = provider
     st.session_state["market_data_symbol_candidate"] = symbol_candidate_label(symbol)
     st.session_state.pop(MARKET_DATA_PREVIEW_STATE_KEY, None)
     st.session_state.pop(MARKET_DATA_STATUS_STATE_KEY, None)
-
-
-def ranking_symbol_options(rows: list[dict[str, str]]) -> list[str]:
-    symbols: list[str] = []
-    seen: set[str] = set()
-    for row in rows:
-        symbol = row.get("symbol", "").strip()
-        normalized = symbol.upper()
-        if not symbol or normalized in seen:
-            continue
-        symbols.append(symbol)
-        seen.add(normalized)
-    return symbols
 
 
 def symbol_candidate_label(symbol: str) -> str:
@@ -2003,8 +2305,8 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         _render_table(preview.feature_rows, "No feature snapshot rows.")
 
     if preview.error_rows:
-        st.subheader("Errors")
-        st.dataframe(preview.error_rows, hide_index=True, use_container_width=True)
+        st.subheader("補助データの取得警告")
+        _render_provider_error_summary(preview.error_rows)
 
 
 def _render_market_data_cockpit_header(
@@ -2034,232 +2336,6 @@ def _render_market_data_cockpit_header(
             f"基準日: {as_of or '未取得'} / 参照期間: {reference_period}日"
         )
     return forecast_horizon_days
-
-
-def _render_result(result: PortfolioRiskResult, request: RebalanceCheckRequest) -> None:
-    context = build_rebalance_report_context(result)
-    summary = context.summary
-    status = summary["risk_status"]
-
-    st.subheader("Summary")
-    col_total, col_cash, col_trades, col_status = st.columns(4)
-    col_total.metric("現在資産", f"{summary['total_value_jpy']} JPY")
-    col_cash.metric("現金", f"{summary['cash_jpy']} JPY")
-    col_trades.metric("必要な売買", summary["trade_count"])
-    col_status.metric("Risk 判定", status)
-    _render_rebalance_flow(summary)
-
-    if status == "ALLOW":
-        st.success("Risk 判定: ALLOW。今回の条件では大きな制約違反はありません。")
-    elif status == "REVIEW":
-        st.warning("Risk 判定: REVIEW。売買案の前提と制約を確認してください。")
-    elif status == "BLOCK":
-        st.error("Risk 判定: BLOCK。主な理由を確認し、目標配分や制約を見直してください。")
-    else:
-        st.info("売買案がないため、Risk 判定は行われていません。")
-
-    current_rows = context.current_rows
-    target_rows = context.target_rows
-    allocation_rows = context.allocation_rows
-    trade_rows = context.trade_rows
-    breach_rows = context.breach_rows
-
-    col_current, col_targets = st.columns(2)
-    with col_current:
-        st.subheader("Current Positions")
-        _render_table(current_rows, "No current positions.")
-    with col_targets:
-        st.subheader("Target Allocations")
-        _render_table(target_rows, "No target allocations.")
-
-    st.subheader("Allocation Comparison")
-    _render_allocation_comparison_chart(allocation_rows)
-    _render_table(
-        allocation_rows,
-        "No allocation comparison is available.",
-    )
-
-    st.subheader("Proposed Trades")
-    _render_table(trade_rows, "No rebalance trades were proposed.")
-
-    if breach_rows:
-        st.subheader("Risk Breaches")
-        st.dataframe(
-            risk_breach_display_rows(breach_rows),
-            hide_index=True,
-            use_container_width=True,
-        )
-
-    with st.expander("Downloads"):
-        st.json(result.model_dump(mode="json"))
-        st.download_button(
-            "Download JSON",
-            data=result_json_download(result),
-            file_name="rebalance_check_result.json",
-            mime="application/json",
-        )
-        st.download_button(
-            "Download request JSON",
-            data=request_json_download(request),
-            file_name="rebalance_request.json",
-            mime="application/json",
-        )
-        st.download_button(
-            "Download report Markdown",
-            data=result_markdown_report_download(result, request=request),
-            file_name="rebalance_report.md",
-            mime="text/markdown",
-        )
-        st.download_button(
-            "Download report ZIP",
-            data=result_report_zip_download(result, request=request),
-            file_name="rebalance_report.zip",
-            mime="application/zip",
-        )
-        st.download_button(
-            "Download summary CSV",
-            data=table_csv_download([summary]),
-            file_name="rebalance_summary.csv",
-            mime="text/csv",
-        )
-        st.download_button(
-            "Download current positions CSV",
-            data=table_csv_download(
-                current_rows,
-                fieldnames=["symbol", "qty", "currency", "last", "fx_rate_jpy", "value_jpy"],
-            ),
-            file_name="rebalance_current_positions.csv",
-            mime="text/csv",
-        )
-        st.download_button(
-            "Download target allocations CSV",
-            data=table_csv_download(
-                target_rows,
-                fieldnames=["symbol", "currency", "target_weight"],
-            ),
-            file_name="rebalance_target_allocations.csv",
-            mime="text/csv",
-        )
-        st.download_button(
-            "Download allocation comparison CSV",
-            data=table_csv_download(
-                allocation_rows,
-                fieldnames=["symbol", "current_weight", "target_weight", "drift"],
-            ),
-            file_name="rebalance_allocation_comparison.csv",
-            mime="text/csv",
-        )
-        st.download_button(
-            "Download proposed trades CSV",
-            data=table_csv_download(
-                trade_rows,
-                fieldnames=["symbol", "side", "qty", "price_hint", "currency"],
-            ),
-            file_name="rebalance_proposed_trades.csv",
-            mime="text/csv",
-        )
-        st.download_button(
-            "Download risk breaches CSV",
-            data=table_csv_download(breach_rows, fieldnames=["breach"]),
-            file_name="rebalance_risk_breaches.csv",
-            mime="text/csv",
-        )
-
-
-def rebalance_result_from_state() -> tuple[PortfolioRiskResult, RebalanceCheckRequest] | None:
-    result = st.session_state.get(REBALANCE_RESULT_STATE_KEY)
-    request = st.session_state.get(REBALANCE_REQUEST_STATE_KEY)
-    if isinstance(result, PortfolioRiskResult) and isinstance(request, RebalanceCheckRequest):
-        return result, request
-    return None
-
-
-def _render_table(rows: list[dict[str, str]], empty_message: str) -> None:
-    if rows:
-        st.dataframe(rows, hide_index=True, use_container_width=True)
-    else:
-        st.info(empty_message)
-
-
-def rebalance_flow_rows(summary: dict[str, str]) -> list[dict[str, str]]:
-    return [
-        {"step": "現在", "value": f"{summary.get('total_value_jpy', '')} JPY"},
-        {"step": "目標", "value": "target allocations"},
-        {"step": "売買案", "value": f"{summary.get('trade_count', '0')} trades"},
-        {"step": "Risk", "value": summary.get("risk_status", "")},
-    ]
-
-
-def _render_rebalance_flow(summary: dict[str, str]) -> None:
-    step_cols = st.columns(4)
-    for col, row in zip(step_cols, rebalance_flow_rows(summary), strict=True):
-        col.caption(row["step"])
-        col.write(row["value"])
-
-
-def allocation_chart_frame(rows: list[dict[str, str]]) -> pd.DataFrame:
-    records: list[dict[str, object]] = []
-    for row in rows:
-        symbol = row.get("symbol", "")
-        for field, label in (
-            ("current_weight", "現在"),
-            ("target_weight", "目標"),
-        ):
-            value = _optional_decimal_from_text(row.get(field, ""))
-            if value is None:
-                continue
-            records.append(
-                {
-                    "symbol": symbol,
-                    "type": label,
-                    "weight": float(value),
-                }
-            )
-    return pd.DataFrame(records)
-
-
-def _render_allocation_comparison_chart(rows: list[dict[str, str]]) -> None:
-    frame = allocation_chart_frame(rows)
-    if frame.empty:
-        return
-    chart = (
-        alt.Chart(frame)
-        .mark_bar(cornerRadius=3)
-        .encode(
-            x=alt.X("weight:Q", title="Weight (%)"),
-            y=alt.Y("symbol:N", title=None, sort=None),
-            color=alt.Color("type:N", title="配分"),
-            yOffset="type:N",
-            tooltip=[
-                alt.Tooltip("symbol:N", title="銘柄"),
-                alt.Tooltip("type:N", title="配分"),
-                alt.Tooltip("weight:Q", title="Weight (%)"),
-            ],
-        )
-        .properties(height=max(120, 54 * len(rows)))
-    )
-    st.altair_chart(chart, use_container_width=True)
-
-
-def risk_breach_display_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
-    return [
-        {
-            "breach": row.get("breach", ""),
-            "確認ポイント": risk_breach_message(row.get("breach", "")),
-        }
-        for row in rows
-    ]
-
-
-def risk_breach_message(breach: str) -> str:
-    if breach.startswith("R5:min_dividend_yield:"):
-        symbol = breach.rsplit(":", maxsplit=1)[-1]
-        return f"{symbol} は配当利回りの条件を満たしていない可能性があります。"
-    if breach == "R3:max_concentration":
-        return "1銘柄への集中度が高くなっています。目標配分を確認してください。"
-    if breach.startswith("R2:cash"):
-        return "現金残高に関する制約を確認してください。"
-    return "Risk ルールに抵触しています。条件と入力を確認してください。"
 
 
 def _render_investment_score_section(preview: MarketDataPreview, symbol_label: str) -> None:
@@ -2473,11 +2549,99 @@ def _render_market_chart(
 
 
 def _render_provider_error_summary(rows: list[dict[str, str]]) -> None:
-    for row in rows:
-        st.warning(f"{row.get('code', 'ERROR')}: {row.get('message', '')}")
-        details = row.get("details", "")
-        if details:
-            st.code(details, language="json")
+    if not rows:
+        st.warning(
+            "Provider から詳細なエラー情報が返りませんでした。設定、銘柄、取得期間を確認してください。"
+        )
+        return
+
+    for row in provider_error_summary_rows(rows):
+        st.warning(f"{row['コード']}: {row['内容']}")
+        st.caption(row["次の確認"])
+
+    with st.expander("診断情報", expanded=False):
+        st.dataframe(
+            provider_error_summary_rows(rows),
+            hide_index=True,
+            use_container_width=True,
+        )
+        for row in rows:
+            details = format_provider_error_details(row)
+            if details:
+                st.code(details, language="json")
+
+
+def provider_error_summary_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    return [_provider_error_summary_row(row) for row in rows]
+
+
+def _provider_error_summary_row(row: dict[str, str]) -> dict[str, str]:
+    details = _provider_error_details(row)
+    request = _provider_error_request(details)
+    provider = str(details.get("provider") or row.get("provider") or "")
+    symbol = str(request.get("symbol") or row.get("symbol") or "")
+
+    return {
+        "コード": row.get("code", "ERROR"),
+        "Provider": provider or "-",
+        "Symbol": symbol or "-",
+        "内容": row.get("message", "Provider request failed"),
+        "次の確認": _provider_error_next_action(provider, details, request),
+    }
+
+
+def _provider_error_details(row: dict[str, str]) -> dict[str, object]:
+    details = row.get("details", "")
+    if not details:
+        return {}
+    try:
+        parsed = json.loads(details)
+    except json.JSONDecodeError:
+        return {"raw": details}
+    if isinstance(parsed, dict):
+        return parsed
+    return {"raw": parsed}
+
+
+def _provider_error_request(details: dict[str, object]) -> dict[str, object]:
+    request = details.get("request")
+    if isinstance(request, dict):
+        return request
+    return {}
+
+
+def _provider_error_next_action(
+    provider: str,
+    details: dict[str, object],
+    request: dict[str, object],
+) -> str:
+    request_error = str(request.get("error", ""))
+    provider_label = provider or "外部 provider"
+
+    if "curl: (28)" in request_error or "Resolving timed out" in request_error:
+        return (
+            f"{provider_label} への外部通信がタイムアウトしています。"
+            "ネットワーク/DNS を確認し、時間をおいて再実行してください。"
+            "ランキングでは銘柄数や取得期間を絞ると安定しやすくなります。"
+        )
+    if details.get("reason") == "no_ohlcv_rows":
+        return (
+            "価格データが返っていないため、ランキングから除外しています。"
+            f"{provider_label} 側の提供状況、銘柄コード、取得期間を確認してください。"
+        )
+    if details.get("requires_external_opt_in") or provider in {"yahoo", "polygon"}:
+        return (
+            f"{provider_label} は live provider です。"
+            "銘柄コード、取得期間、Yahoo 側の提供状況を確認し、必要に応じて再実行してください。"
+        )
+    return "Provider 設定、銘柄、取得期間を確認して再実行してください。"
+
+
+def format_provider_error_details(row: dict[str, str]) -> str:
+    details = _provider_error_details(row)
+    if not details:
+        return ""
+    return json.dumps(details, ensure_ascii=False, indent=2, sort_keys=True)
 
 
 def market_chart_frame(rows: list[dict[str, str]]) -> pd.DataFrame:
@@ -2649,83 +2813,11 @@ def _investment_warning_label(value: str) -> str:
     return ", ".join(labels.get(item.strip(), item.strip()) for item in value.split(","))
 
 
-def _optional_decimal_from_text(value: str) -> Decimal | None:
-    if not value:
-        return None
-    try:
-        return Decimal(value.replace("%", ""))
-    except InvalidOperation:
-        return None
-
-
 def _int_from_text(value: str) -> int:
     try:
         return int(value)
     except ValueError:
         return 0
-
-
-def _rank_investment_score_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
-    ranked = sorted(
-        rows,
-        key=lambda row: _optional_decimal_from_text(row.get("total_score", "")) or Decimal("-1"),
-        reverse=True,
-    )
-    return [
-        {
-            **row,
-            "rank": str(index),
-        }
-        for index, row in enumerate(ranked, start=1)
-    ]
-
-
-def apply_ranking_weight_preset(
-    rows: list[dict[str, str]],
-    preset: str,
-) -> list[dict[str, str]]:
-    weights = RANKING_WEIGHT_PRESETS[preset]
-    preset_label = ranking_weight_preset_label(preset)
-    reweighted_rows: list[dict[str, str]] = []
-    for row in rows:
-        total = Decimal("0")
-        for field, weight in weights.items():
-            component_score = _optional_decimal_from_text(row.get(field, "")) or Decimal("0")
-            total += component_score * weight
-        warnings = row.get("warnings", "")
-        reweighted_rows.append(
-            {
-                **row,
-                "total_score": _format_score(total),
-                "score_band": _score_band_for_total(total, warnings),
-                "note": f"{preset_label}で並べ替えています。売買推奨ではなく、深掘り候補の整理です。",
-            }
-        )
-    return _rank_investment_score_rows(reweighted_rows)
-
-
-def ranking_weight_preset_label(preset: str) -> str:
-    return RANKING_WEIGHT_PRESET_LABELS.get(preset, preset)
-
-
-def _score_band_for_total(total_score: Decimal, warnings: str) -> str:
-    warning_items = {item.strip() for item in warnings.split(",") if item.strip()}
-    if "data_quality:block" in warning_items:
-        return "REVIEW"
-    if total_score >= Decimal("75") and not warning_items:
-        return "STRONG"
-    if warning_items and total_score < Decimal("65"):
-        return "CAUTION"
-    if total_score >= Decimal("55"):
-        return "BALANCED"
-    if total_score >= Decimal("40"):
-        return "CAUTION"
-    return "REVIEW"
-
-
-def _format_score(value: Decimal) -> str:
-    rounded = value.quantize(Decimal("0.01"))
-    return format(rounded.normalize(), "f")
 
 
 def _metadata_value(rows: list[dict[str, str]], field: str) -> str:

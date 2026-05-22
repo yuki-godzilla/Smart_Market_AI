@@ -1,0 +1,38 @@
+{
+  "asset_type": "etf",
+  "batch_size": 50,
+  "checked_at": "2026-05-21T09:30:40.242440+00:00",
+  "checked_symbols": 607,
+  "end": "2026-05-20",
+  "failed_symbol_sample": [
+    "ARMU",
+    "PXIU",
+    "BULU",
+    "AMOG",
+    "CSOP",
+    "ICGB",
+    "INDI-D",
+    "LIOP",
+    "LISC",
+    "AMOL",
+    "AMOT",
+    "AMOE",
+    "AMON",
+    "UOBA"
+  ],
+  "failed_symbols": 14,
+  "failure_code_counts": {
+    "YAHOO-NO-BARS": 14
+  },
+  "limit": 0,
+  "market": "us",
+  "metadata_source": "sbi_us_etf",
+  "ok_symbols": 593,
+  "operation": "symbol_universe_yahoo_coverage_check",
+  "provider": "yahoo",
+  "sample_size": 0,
+  "selected_rows": 607,
+  "start": "2026-05-12",
+  "success_rate": 0.9769,
+  "timeout_ms": 25000
+}

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
+from contextlib import redirect_stderr, redirect_stdout
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
+from io import StringIO
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +18,9 @@ from backend.marketdata.provider_registry import provider_capability_details
 
 YAHOO_FX_TICKERS = {"USDJPY": "JPY=X"}
 YFINANCE_CACHE_DIR_ENV = "SMAI_YFINANCE_CACHE_DIR"
+YAHOO_DOWNLOAD_MAX_ATTEMPTS = 2
+YAHOO_DOWNLOAD_EMPTY_RETRY_DELAY_SECONDS = 0.25
+_YAHOO_SESSION: Any | None = None
 
 
 class YahooMarketDataProviderAdapter:
@@ -30,40 +36,13 @@ class YahooMarketDataProviderAdapter:
         end: datetime,
         interval: Interval = "1d",
     ) -> list[Bar]:
-        if len(symbols) > 1:
-            return await self._download_ohlcv(
-                symbols,
-                start=start,
-                end=end,
-                interval=interval,
-                operation="fetch_ohlcv",
-            )
-
-        bars: list[Bar] = []
-        for raw_symbol in symbols:
-            frame = await self._history(
-                raw_symbol,
-                start=start,
-                end=end,
-                interval=interval,
-                operation="fetch_ohlcv",
-            )
-            symbol = _normalize_symbol(raw_symbol)
-            for ts, row in frame.iterrows():
-                bars.append(
-                    Bar(
-                        symbol=symbol,
-                        ts=_normalize_timestamp(ts),
-                        open=_decimal_cell(row, "Open"),
-                        high=_decimal_cell(row, "High"),
-                        low=_decimal_cell(row, "Low"),
-                        close=_decimal_cell(row, "Close"),
-                        volume=_decimal_cell(row, "Volume"),
-                        interval=interval,
-                        provider="yahoo",
-                    )
-                )
-        return bars
+        return await self._download_ohlcv(
+            symbols,
+            start=start,
+            end=end,
+            interval=interval,
+            operation="fetch_ohlcv",
+        )
 
     async def _download_ohlcv(
         self,
@@ -154,10 +133,11 @@ class YahooMarketDataProviderAdapter:
     ) -> list[FundamentalSnapshot]:
         fundamentals: list[FundamentalSnapshot] = []
         yf = _load_yfinance()
+        session = shared_yfinance_session()
         for raw_symbol in symbols:
-            ticker = yf.Ticker(raw_symbol)
+            ticker = yf.Ticker(raw_symbol, session=session)
             try:
-                info = await asyncio.to_thread(_ticker_info, ticker)
+                info = await asyncio.to_thread(_call_yfinance_silently, _ticker_info, ticker)
             except Exception as exc:
                 raise ProviderUnavailableError(
                     "Yahoo fundamentals request failed",
@@ -219,7 +199,7 @@ class YahooMarketDataProviderAdapter:
         period: str | None = None,
     ) -> Any:
         yf = _load_yfinance()
-        ticker = yf.Ticker(raw_symbol)
+        ticker = yf.Ticker(raw_symbol, session=shared_yfinance_session())
         kwargs: dict[str, object] = {
             "interval": interval,
             "auto_adjust": False,
@@ -235,7 +215,7 @@ class YahooMarketDataProviderAdapter:
             kwargs["end"] = _exclusive_end_arg(end, interval)
 
         try:
-            frame = await asyncio.to_thread(ticker.history, **kwargs)
+            frame = await asyncio.to_thread(_call_yfinance_silently, ticker.history, **kwargs)
         except Exception as exc:
             raise ProviderUnavailableError(
                 "Yahoo market-data provider request failed",
@@ -282,42 +262,50 @@ class YahooMarketDataProviderAdapter:
             "interval": interval,
             "auto_adjust": False,
             "actions": False,
-            "threads": True,
+            "threads": False,
             "group_by": "ticker",
             "timeout": self.cfg.timeouts_ms.read / 1000,
             "progress": False,
+            "session": shared_yfinance_session(),
         }
-        try:
-            frame = await asyncio.to_thread(yf.download, **kwargs)
-        except Exception as exc:
-            raise ProviderUnavailableError(
-                "Yahoo market-data provider batch request failed",
-                details=self._provider_details(
-                    operation=operation,
-                    symbols=raw_symbols,
-                    interval=interval,
-                    start=start.isoformat(),
-                    end=end.isoformat(),
-                    error=str(exc),
-                ),
-            ) from exc
+        for attempt in range(1, YAHOO_DOWNLOAD_MAX_ATTEMPTS + 1):
+            try:
+                frame = await asyncio.to_thread(_call_yfinance_silently, yf.download, **kwargs)
+            except Exception as exc:
+                raise ProviderUnavailableError(
+                    "Yahoo market-data provider batch request failed",
+                    details=self._provider_details(
+                        operation=operation,
+                        symbols=raw_symbols,
+                        interval=interval,
+                        start=start.isoformat(),
+                        end=end.isoformat(),
+                        attempt=attempt,
+                        error=str(exc),
+                    ),
+                ) from exc
 
-        if getattr(frame, "empty", True):
-            raise ProviderUnavailableError(
-                "Yahoo market-data provider returned no batch data",
-                details=self._provider_details(
-                    operation=operation,
-                    symbols=raw_symbols,
-                    interval=interval,
-                    start=start.isoformat(),
-                    end=end.isoformat(),
-                ),
-            )
-        return frame
+            if not getattr(frame, "empty", True):
+                return frame
+
+            if attempt < YAHOO_DOWNLOAD_MAX_ATTEMPTS:
+                await asyncio.sleep(YAHOO_DOWNLOAD_EMPTY_RETRY_DELAY_SECONDS)
+
+        raise ProviderUnavailableError(
+            "Yahoo market-data provider returned no batch data",
+            details=self._provider_details(
+                operation=operation,
+                symbols=raw_symbols,
+                interval=interval,
+                start=start.isoformat(),
+                end=end.isoformat(),
+                attempts=YAHOO_DOWNLOAD_MAX_ATTEMPTS,
+                retry_reason="empty_batch_data",
+            ),
+        )
 
     def _provider_details(self, **request_details: object) -> dict[str, object]:
-        details = provider_capability_details(self.cfg.provider)
-        details.update(live_provider_adapter_details(self.cfg.provider))
+        details = _implemented_live_provider_details(self.cfg.provider)
         details.update(
             {
                 "allow_external_providers": self.cfg.allow_external_providers,
@@ -332,8 +320,7 @@ def _load_yfinance() -> Any:
     try:
         import yfinance as yf  # type: ignore[import-untyped]
     except ImportError as exc:
-        details = provider_capability_details("yahoo")
-        details.update(live_provider_adapter_details("yahoo"))
+        details = _implemented_live_provider_details("yahoo")
         details["opt_in_status"] = "missing_optional_dependency"
         raise ProviderUnavailableError(
             "Yahoo market-data provider dependency is not installed",
@@ -343,14 +330,22 @@ def _load_yfinance() -> Any:
     return yf
 
 
+def shared_yfinance_session() -> Any:
+    global _YAHOO_SESSION
+    if _YAHOO_SESSION is None:
+        from curl_cffi import requests  # type: ignore[import-untyped]
+
+        _YAHOO_SESSION = requests.Session(impersonate="chrome")
+    return _YAHOO_SESSION
+
+
 def _configure_yfinance_cache(yf: Any) -> None:
     cache_dir = Path(os.getenv(YFINANCE_CACHE_DIR_ENV, ".yfinance_cache"))
     try:
         cache_dir.mkdir(parents=True, exist_ok=True)
         yf.set_tz_cache_location(str(cache_dir))
     except OSError as exc:
-        details = provider_capability_details("yahoo")
-        details.update(live_provider_adapter_details("yahoo"))
+        details = _implemented_live_provider_details("yahoo")
         details.update(
             {
                 "opt_in_status": "cache_unavailable",
@@ -364,12 +359,31 @@ def _configure_yfinance_cache(yf: Any) -> None:
         ) from exc
 
 
+def _implemented_live_provider_details(provider: str) -> dict[str, object]:
+    details = provider_capability_details(provider)
+    details.update(live_provider_adapter_details(provider))
+    if details.get("smoke_check_status") == "implemented_live_opt_in":
+        details["implemented"] = True
+        details["live_adapter"] = "implemented_opt_in"
+    return details
+
+
 def _yfinance_available() -> bool:
     try:
         _load_yfinance()
     except ProviderUnavailableError:
         return False
     return True
+
+
+def _call_yfinance_silently(func: Any, *args: object, **kwargs: object) -> Any:
+    previous_logging_disable_level = logging.root.manager.disable
+    logging.disable(logging.CRITICAL)
+    try:
+        with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+            return func(*args, **kwargs)
+    finally:
+        logging.disable(previous_logging_disable_level)
 
 
 def _normalize_symbol(raw_symbol: str) -> Symbol:

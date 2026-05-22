@@ -4,7 +4,7 @@
 
 ## 0. Current Sync Status
 
-この文書は **2026-05-17 時点の実装状態に同期済み**です。
+この文書は **2026-05-18 時点の実装状態に同期済み**です。
 現在の詳細設計は「実装済みMVP」と「planned / deferred」を混在させず、以下の扱いで読むこと。
 
 | 区分 | 現在の扱い |
@@ -17,7 +17,7 @@
 | Screening Score | implemented |
 | Forecast baseline / multi-model consensus | implemented |
 | Investment Score | implemented |
-| Streamlit cockpit / ranking / rebalance UI | implemented / improving |
+| Streamlit cockpit / ranking / rebalance UI | implemented; final browser smoke recommended |
 | Research RAG | designed, not implemented |
 | Execution / broker order sending | deferred, not implemented |
 | optimizer based portfolio solver | deferred, not implemented |
@@ -82,7 +82,7 @@
 - 通貨・数量・価格は `Decimal` を優先する。
 - 日付は `date`、日時は UTC `datetime` を基本にする。
 - Pydantic v2 の `StrictBaseModel` / `StrictConfigModel` を再利用し、未知フィールドは拒否する。
-- default provider は `mock`。外部 provider は明示 opt-in にする。
+- default config provider は `mock`。Streamlit Market Data の provider selector は投資判断 UI として `yahoo` を初期表示・先頭表示し、外部 provider は画面上での明示 opt-in として扱う。
 - API の domain error は `AppError` 系から構造化レスポンスに変換する。
 - 投資判断系の出力は「売買推奨ではない」ことを明記する。
 - UI文言は初心者向けに理由・注意点を併記する。
@@ -116,7 +116,7 @@ Planned / deferred modules may appear in documents, but should not be treated as
 
 現在の次の自然な順序は以下です。
 
-1. Phase 16 UI polish: cockpit / ranking / rebalance の文言・導線・確認観点を仕上げる。
+1. Phase 16 final smoke: ranking 条件、cache/progress、preset resort、cockpit handoff、Rebalance 文言を確認する。
 2. Decision Report planning: UIの結果をレポート入力として再利用できる形にする。
 3. Research RAG R1-R3: local document ingestion -> chunk store -> keyword retrieval。
 4. Research Summary / Research Score: evidence based summary and optional Investment Score input。

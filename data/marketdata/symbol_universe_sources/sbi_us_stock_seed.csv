@@ -1,0 +1,34 @@
+symbol,name,sector,theme,aliases,dividend_category,dividend_yield_pct,market_cap_tier,tags,per,pbr,roe_pct,consensus_rating,forecast_agreement,data_quality,risk_band
+AAPL,Apple Inc.,technology,technology,apple iphone mac,growth_dividend,0.5,mega,"growth,quality",28.0,38.0,145.0,3.8,HIGH,OK,MEDIUM
+MSFT,Microsoft,technology,technology,microsoft azure,growth_dividend,0.7,mega,"growth,quality",32.0,11.0,35.0,4.0,HIGH,OK,LOW
+NVDA,NVIDIA,technology,semiconductor,nvidia gpu ai,none,0.0,mega,growth,45.0,42.0,70.0,4.4,HIGH,OK,HIGH
+JNJ,Johnson & Johnson,healthcare,healthcare,johnson dividend,dividend,3.0,mega,"dividend,lower_risk",16.0,5.0,18.0,3.1,MEDIUM,OK,LOW
+V,Visa,financial,financial,visa payments,growth_dividend,0.8,mega,"growth,quality",30.0,14.0,42.0,3.9,HIGH,OK,LOW
+CSCO,Cisco Systems,technology,technology,cisco networking,dividend,2.8,large,"dividend,quality",18.0,4.5,25.0,3.2,MEDIUM,OK,MEDIUM
+IBM,IBM,technology,technology,ibm cloud ai,dividend,3.4,large,dividend,19.0,7.0,30.0,3.0,MEDIUM,OK,MEDIUM
+QCOM,Qualcomm,technology,semiconductor,qualcomm chips,dividend,2.0,large,"dividend,quality",17.0,6.0,32.0,3.4,MEDIUM,OK,MEDIUM
+TXN,Texas Instruments,technology,semiconductor,texas instruments analog,dividend,3.0,large,"dividend,quality",22.0,9.0,45.0,3.1,MEDIUM,OK,LOW
+AMGN,Amgen,healthcare,healthcare,amgen biotech,dividend,3.2,large,"dividend,lower_risk",16.0,18.0,55.0,3.0,MEDIUM,OK,LOW
+TMO,Thermo Fisher Scientific,healthcare,healthcare,thermo fisher life science,none,0.3,large,quality,28.0,4.8,15.0,3.5,MEDIUM,OK,MEDIUM
+DHR,Danaher,healthcare,healthcare,danaher life science,dividend,0.5,large,quality,26.0,3.5,12.0,3.3,MEDIUM,OK,MEDIUM
+CMCSA,Comcast,communication,communication,comcast media broadband,dividend,3.1,large,dividend,11.0,1.8,16.0,2.8,MEDIUM,OK,MEDIUM
+ACN,Accenture,technology,technology,accenture consulting,growth_dividend,1.4,large,"growth,quality",25.0,7.0,27.0,3.6,MEDIUM,OK,LOW
+LIN,Linde,materials,balanced,linde industrial gas,growth_dividend,1.2,large,quality,30.0,5.0,17.0,3.5,MEDIUM,OK,LOW
+GE,GE Aerospace,industrial,balanced,ge aerospace,growth_dividend,0.6,large,growth,35.0,9.0,25.0,3.7,MEDIUM,OK,MEDIUM
+CAT,Caterpillar,industrial,balanced,caterpillar machinery,dividend,1.6,large,"dividend,quality",16.0,8.0,45.0,3.2,MEDIUM,OK,MEDIUM
+DE,Deere,industrial,balanced,deere agriculture,dividend,1.3,large,quality,18.0,5.5,30.0,3.2,MEDIUM,OK,MEDIUM
+HON,Honeywell International,industrial,balanced,honeywell automation,dividend,2.1,large,"dividend,quality",20.0,7.0,30.0,3.1,MEDIUM,OK,LOW
+RTX,RTX,industrial,balanced,raytheon aerospace defense,dividend,2.0,large,dividend,20.0,2.6,8.0,3.0,MEDIUM,OK,MEDIUM
+LMT,Lockheed Martin,industrial,balanced,lockheed martin defense,dividend,2.7,large,"dividend,lower_risk",18.0,18.0,70.0,3.0,MEDIUM,OK,LOW
+BA,Boeing,industrial,balanced,boeing aerospace,none,0.0,large,value,0.0,0.0,0.0,2.8,LOW,WARN,HIGH
+UPS,United Parcel Service,industrial,balanced,ups logistics,dividend,5.0,large,dividend,15.0,6.0,35.0,2.8,MEDIUM,OK,MEDIUM
+LOW,Lowe's,consumer,consumer,lowes home improvement,dividend,2.0,large,"dividend,quality",20.0,0.0,0.0,3.3,MEDIUM,WARN,MEDIUM
+SBUX,Starbucks,consumer,consumer,starbucks coffee,dividend,2.5,large,dividend,24.0,0.0,0.0,3.0,MEDIUM,WARN,MEDIUM
+TGT,Target,consumer,consumer,target retail,dividend,4.0,large,dividend,14.0,4.0,25.0,2.8,LOW,OK,MEDIUM
+BKNG,Booking Holdings,consumer,consumer,booking travel,none,0.0,large,growth,25.0,0.0,0.0,3.5,MEDIUM,WARN,MEDIUM
+ISRG,Intuitive Surgical,healthcare,healthcare,intuitive surgical robotics,none,0.0,large,growth,50.0,10.0,15.0,3.8,HIGH,OK,MEDIUM
+GILD,Gilead Sciences,healthcare,healthcare,gilead biotech,dividend,3.8,large,dividend,13.0,4.5,25.0,3.1,MEDIUM,OK,LOW
+AMAT,Applied Materials,technology,semiconductor,applied materials chips,dividend,1.0,large,"growth,quality",20.0,8.0,40.0,3.6,HIGH,OK,HIGH
+MU,Micron Technology,technology,semiconductor,micron memory,none,0.5,large,growth,18.0,2.0,12.0,3.5,HIGH,OK,HIGH
+PANW,Palo Alto Networks,technology,technology,palo alto cybersecurity,none,0.0,large,growth,50.0,20.0,25.0,3.9,HIGH,OK,HIGH
+INTU,Intuit,technology,technology,intuit software,dividend,0.6,large,"growth,quality",35.0,9.0,25.0,3.7,HIGH,OK,MEDIUM

@@ -25,6 +25,7 @@ from ui.app import (
     _ranking_symbols_from_selected_labels,
     _render_market_chart,
     _symbol_from_candidate,
+    cockpit_investment_memo_rows,
     default_forecast_horizon_days,
     default_market_data_provider,
     forecast_boundary_frame,
@@ -103,6 +104,7 @@ from ui.ranking_state import (
     sync_ranking_selection_state,
 )
 from ui.rebalance_app import (
+    MarketDataPreview,
     forecast_consensus_rows_for_bars,
     forecast_metric_csv_download,
     forecast_metric_json_download,
@@ -2228,6 +2230,69 @@ def test_score_component_rows_builds_cockpit_breakdown():
         {"要素": "Risk", "スコア": "70"},
         {"要素": "Data Quality", "スコア": "100"},
     ]
+
+
+def test_cockpit_investment_memo_rows_combines_score_master_and_price(monkeypatch):
+    monkeypatch.setattr(
+        "ui.app.symbol_universe_csv_rows",
+        lambda: [
+            {
+                "symbol": "6857.T",
+                "asset_type": "stock",
+                "dividend_yield_pct": "0.23",
+                "dividend_category": "dividend",
+                "per": "52.42",
+                "pbr": "28.93",
+                "roe_pct": "57.65",
+            }
+        ],
+    )
+    preview = MarketDataPreview(
+        status="ok",
+        bars=[
+            _bar("2026-05-01", close=100, symbol="6857.T"),
+            _bar("2026-05-02", close=112, symbol="6857.T"),
+        ],
+        provider_rows=[],
+        quote_rows=[],
+        ohlcv_rows=[],
+        price_chart_rows=[],
+        forecast_chart_rows=[],
+        forecast_metric_rows=[],
+        fx_rows=[],
+        feature_rows=[],
+        investment_score_rows=[],
+        screening_rows=[],
+        error_rows=[],
+    )
+
+    rows = cockpit_investment_memo_rows(
+        preview,
+        {
+            "銘柄": "6857.T",
+            "総合スコア": "84.69",
+            "見方": "強め",
+            "Screening": "78.9",
+            "予測一致": "90",
+            "データ品質": "100",
+            "Risk": "72.44",
+            "注意点": "",
+        },
+    )
+
+    assert [row["観点"] for row in rows] == [
+        "スコア解釈",
+        "主な注意点",
+        "バリュエーション",
+        "インカム",
+        "価格トレンド",
+        "次の確認",
+    ]
+    assert "ROEが高く" in rows[0]["評価"]
+    assert "PER 52.42" in rows[2]["評価"]
+    assert "配当利回り 0.23%" in rows[3]["評価"]
+    assert "高値圏" in rows[4]["評価"]
+    assert rows[0]["確認ポイント"] == "スコアは深掘り順の整理で、売買推奨ではありません。"
 
 
 def test_rank_investment_score_rows_sorts_and_reassigns_rank():

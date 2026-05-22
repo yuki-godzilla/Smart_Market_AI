@@ -2461,6 +2461,13 @@ def _render_investment_score_section(preview: MarketDataPreview, symbol_label: s
         st.info("大きな注意点はありません。スコアの内訳も確認してください。")
     for line in investment_score_summary_lines(row):
         st.caption(line)
+    memo_rows = cockpit_investment_memo_rows(preview, row)
+    if memo_rows:
+        st.subheader("投資判断メモ")
+        st.caption(
+            "銘柄データ、スコア、取得期間の値動きを合わせた深掘り観点です。売買推奨ではありません。"
+        )
+        _render_symbol_detail_table(memo_rows)
     _render_score_breakdown_chart(score_component_rows(row))
 
     with st.expander("Investment Score details / downloads"):
@@ -2503,6 +2510,184 @@ def score_component_rows(row: dict[str, str]) -> list[dict[str, str]]:
         {"要素": "Risk", "スコア": row.get("Risk", "")},
         {"要素": "Data Quality", "スコア": row.get("データ品質", "")},
     ]
+
+
+def cockpit_investment_memo_rows(
+    preview: MarketDataPreview,
+    row: dict[str, str],
+) -> list[dict[str, str]]:
+    symbol = _market_data_preview_symbol(preview) or row.get("銘柄", "")
+    symbol_row = _symbol_universe_row_for_symbol(symbol) if symbol else None
+    return _cockpit_investment_memo_rows(row, symbol_row, preview.bars)
+
+
+def _cockpit_investment_memo_rows(
+    row: dict[str, str],
+    symbol_row: dict[str, str] | None,
+    bars: list[Bar],
+) -> list[dict[str, str]]:
+    strength = _cockpit_score_strength_summary(row, symbol_row)
+    caution = _cockpit_score_caution_summary(row, symbol_row)
+    valuation = _cockpit_valuation_summary(symbol_row)
+    income = _cockpit_income_summary(symbol_row)
+    trend = _cockpit_price_trend_summary(bars)
+    next_action = _cockpit_next_action_summary(row, symbol_row, trend)
+    return [
+        {
+            "観点": "スコア解釈",
+            "評価": strength,
+            "確認ポイント": "スコアは深掘り順の整理で、売買推奨ではありません。",
+        },
+        {
+            "観点": "主な注意点",
+            "評価": caution,
+            "確認ポイント": "警告がない場合も、価格水準と決算材料は個別に確認してください。",
+        },
+        {
+            "観点": "バリュエーション",
+            "評価": valuation,
+            "確認ポイント": "高PER/PBRなら成長期待の裏付け、低PER/PBRなら低評価の理由を確認します。",
+        },
+        {
+            "観点": "インカム",
+            "評価": income,
+            "確認ポイント": "利回りだけでなく、配当性向、減配リスク、業績安定性を合わせて見ます。",
+        },
+        {
+            "観点": "価格トレンド",
+            "評価": trend["summary"],
+            "確認ポイント": trend["check"],
+        },
+        {
+            "観点": "次の確認",
+            "評価": next_action,
+            "確認ポイント": "銘柄データとチャートを往復し、根拠がそろう候補だけを深掘りします。",
+        },
+    ]
+
+
+def _cockpit_score_strength_summary(
+    row: dict[str, str],
+    symbol_row: dict[str, str] | None,
+) -> str:
+    strengths: list[str] = []
+    if (_decimal_from_text(row.get("予測一致")) or Decimal("0")) >= Decimal("85"):
+        strengths.append("予測モデルの方向感がそろっています")
+    if (_decimal_from_text(row.get("データ品質")) or Decimal("0")) >= Decimal("90"):
+        strengths.append("データ品質が高く、比較の土台が安定しています")
+    if (_decimal_from_text(row.get("Screening")) or Decimal("0")) >= Decimal("80"):
+        strengths.append("スクリーニング上位の条件に合っています")
+    if symbol_row and (_decimal_from_text(symbol_row.get("roe_pct")) or Decimal("0")) >= Decimal(
+        "20"
+    ):
+        strengths.append("ROEが高く、資本効率の強さが見えます")
+    if (_decimal_from_text(row.get("Risk")) or Decimal("0")) >= Decimal("70"):
+        strengths.append("短期のリスクシグナルは比較的落ち着いています")
+    if not strengths:
+        return "突出した強みより、各指標のバランスを確認する候補です。"
+    return " / ".join(strengths[:3])
+
+
+def _cockpit_score_caution_summary(
+    row: dict[str, str],
+    symbol_row: dict[str, str] | None,
+) -> str:
+    warning = row.get("注意点", "")
+    if warning:
+        return warning
+    risk_score = _decimal_from_text(row.get("Risk"))
+    if risk_score is not None and risk_score < Decimal("50"):
+        return "値動きや下落耐性の確認を優先したい候補です。"
+    data_quality = _decimal_from_text(row.get("データ品質"))
+    if data_quality is not None and data_quality < Decimal("80"):
+        return "データ品質が低めのため、取得元や期間を変えて再確認したい候補です。"
+    if symbol_row is None:
+        return "銘柄マスタの補足情報が少ないため、財務・分類・配当情報を別途確認してください。"
+    per = _decimal_from_text(symbol_row.get("per"))
+    pbr = _decimal_from_text(symbol_row.get("pbr"))
+    if (per is not None and per >= Decimal("40")) or (pbr is not None and pbr >= Decimal("10")):
+        return "PER/PBRが高めです。成長期待が株価にどこまで織り込まれているか確認してください。"
+    dividend_yield = _decimal_from_text(symbol_row.get("dividend_yield_pct")) or Decimal("0")
+    if dividend_yield >= Decimal("5"):
+        return "配当利回りが高いため、減配リスクや一時要因を確認してください。"
+    return "大きな警告はありません。スコアの内訳とチャートの位置を確認してください。"
+
+
+def _cockpit_valuation_summary(symbol_row: dict[str, str] | None) -> str:
+    if symbol_row is None:
+        return "PER/PBR/ROEは銘柄マスタ未登録です。"
+    return (
+        f"PER {symbol_universe_detail_display_value(symbol_row, 'per')}、"
+        f"PBR {symbol_universe_detail_display_value(symbol_row, 'pbr')}、"
+        f"ROE {symbol_universe_detail_display_value(symbol_row, 'roe_pct')}"
+    )
+
+
+def _cockpit_income_summary(symbol_row: dict[str, str] | None) -> str:
+    if symbol_row is None:
+        return "配当利回りと配当カテゴリは銘柄マスタ未登録です。"
+    return (
+        f"配当利回り {symbol_universe_detail_display_value(symbol_row, 'dividend_yield_pct')}、"
+        f"分類 {symbol_universe_detail_display_value(symbol_row, 'dividend_category')}"
+    )
+
+
+def _cockpit_price_trend_summary(bars: list[Bar]) -> dict[str, str]:
+    closes = [bar.close for bar in bars if bar.close > 0]
+    if len(closes) < 2:
+        return {
+            "summary": "価格トレンドを判断するには取得期間の終値データが不足しています。",
+            "check": "取得期間を広げるか、別providerで再取得してください。",
+        }
+    first_close = closes[0]
+    latest_close = closes[-1]
+    change_pct = ((latest_close - first_close) / first_close * Decimal("100")).quantize(
+        Decimal("0.1")
+    )
+    high = max(closes)
+    low = min(closes)
+    if high == low:
+        range_label = "横ばい圏"
+    else:
+        range_position = (latest_close - low) / (high - low)
+        if range_position >= Decimal("0.8"):
+            range_label = "期間レンジの高値圏"
+        elif range_position <= Decimal("0.2"):
+            range_label = "期間レンジの安値圏"
+        else:
+            range_label = "期間レンジの中間圏"
+    if change_pct >= Decimal("3"):
+        direction = "上昇基調"
+    elif change_pct <= Decimal("-3"):
+        direction = "下落基調"
+    else:
+        direction = "横ばい圏"
+    return {
+        "summary": f"取得期間で{change_pct:+}%。終値は{range_label}、方向感は{direction}です。",
+        "check": "高値圏では追随リスク、安値圏では反転材料と下落継続リスクを確認します。",
+    }
+
+
+def _cockpit_next_action_summary(
+    row: dict[str, str],
+    symbol_row: dict[str, str] | None,
+    trend: dict[str, str],
+) -> str:
+    risk_score = _decimal_from_text(row.get("Risk"))
+    if risk_score is not None and risk_score < Decimal("50"):
+        return "まず下落耐性、損失許容幅、ポジションサイズを確認してください。"
+    if "高値圏" in trend["summary"]:
+        return "高値圏のため、出来高、押し目、決算予定を確認してから深掘りしてください。"
+    if symbol_row and (
+        (_decimal_from_text(symbol_row.get("per")) or Decimal("0")) >= Decimal("40")
+        or (_decimal_from_text(symbol_row.get("pbr")) or Decimal("0")) >= Decimal("10")
+    ):
+        return "高バリュエーションのため、成長率、利益率、決算ガイダンスを確認してください。"
+    if symbol_row and (
+        _decimal_from_text(symbol_row.get("dividend_yield_pct")) or Decimal("0")
+    ) >= Decimal("3"):
+        return "インカム候補として、配当性向、減配履歴、キャッシュフローを確認してください。"
+    return "候補として残し、銘柄データ、チャート、決算材料の順に確認してください。"
 
 
 def _render_score_breakdown_chart(rows: list[dict[str, str]]) -> None:

@@ -18,6 +18,14 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-05-22 - Ranking symbol detail modal readability
+
+- Enlarged the ranking symbol detail modal and reorganized symbol master data into user-facing overview, investment metric, ETF/fund, data-info, and raw registration tabs.
+- Added display-label conversion for internal symbol-universe values such as `sbi_securities`, `yahoo`, NISA categories, market-cap tiers, and risk bands.
+- Added dialog CSS for a wider modal and wrapped metric values to avoid text clipping.
+- Moved raw CSV column/value details into a collapsed confirmation expander with both display values and registered raw values.
+- Added short usage notes to data-info rows so users can see why source, freshness, and provider ticker fields matter.
+
 ## 2026-05-22 - Ranking result modal rerun stabilization
 
 - Stabilized the ranking-result AgGrid key so closing a detail modal does not remount/repaint the result table.

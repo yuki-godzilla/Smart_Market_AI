@@ -11,6 +11,7 @@ from backend.core.errors import DataSourceError
 from backend.screening import ScreeningScore
 from ui.app import (
     RANKING_RESULT_GRID_CUSTOM_CSS,
+    SYMBOL_DETAIL_DIALOG_CSS,
     _build_market_data_ranking_rows,
     _ensure_selectbox_state_value,
     _market_data_preview_symbol_label,
@@ -46,7 +47,14 @@ from ui.app import (
     score_component_rows,
     set_cached_ranking_build,
     symbol_candidate_label,
+    symbol_universe_data_info_rows,
+    symbol_universe_detail_display_value,
     symbol_universe_detail_rows,
+    symbol_universe_fund_detail_rows,
+    symbol_universe_investment_metric_rows,
+    symbol_universe_key_metric_rows,
+    symbol_universe_nisa_display,
+    symbol_universe_overview_rows,
 )
 from ui.ranking import (
     RANKING_BETA_RISK_LABELS,
@@ -191,11 +199,146 @@ def test_symbol_universe_detail_rows_show_column_labels_and_blank_values():
             "custom_field": "custom",
         }
     ) == [
-        {"項目": "銘柄コード", "列": "symbol", "値": "7203.T"},
-        {"項目": "銘柄名", "列": "name", "値": "Toyota Motor"},
-        {"項目": "配当利回り(%)", "列": "dividend_yield_pct", "値": "-"},
-        {"項目": "custom_field", "列": "custom_field", "値": "custom"},
+        {"項目": "銘柄コード", "表示値": "7203.T", "CSV列": "symbol", "登録値": "7203.T"},
+        {"項目": "銘柄名", "表示値": "Toyota Motor", "CSV列": "name", "登録値": "Toyota Motor"},
+        {
+            "項目": "配当利回り(%)",
+            "表示値": "未登録",
+            "CSV列": "dividend_yield_pct",
+            "登録値": "-",
+        },
+        {"項目": "custom_field", "表示値": "custom", "CSV列": "custom_field", "登録値": "custom"},
     ]
+
+
+def test_symbol_universe_detail_display_value_translates_internal_codes():
+    row = {
+        "broker": "sbi_securities",
+        "metadata_source": "yahoo",
+        "dividend_yield_pct": "2.840",
+        "market_cap_tier": "large",
+        "risk_band": "LOW",
+        "yahoo_symbol": "",
+    }
+
+    assert symbol_universe_detail_display_value(row, "broker") == "SBI証券"
+    assert symbol_universe_detail_display_value(row, "metadata_source") == "Yahoo Finance"
+    assert symbol_universe_detail_display_value(row, "dividend_yield_pct") == "2.84%"
+    assert symbol_universe_detail_display_value(row, "market_cap_tier").startswith("大型")
+    assert symbol_universe_detail_display_value(row, "risk_band") == "低変動（β < 0.8目安）"
+    assert symbol_universe_detail_display_value(row, "yahoo_symbol") == "表示銘柄と同じ"
+
+
+def test_symbol_universe_overview_rows_use_user_friendly_values():
+    row = {
+        "market": "jp",
+        "asset_type": "stock",
+        "currency": "JPY",
+        "broker": "sbi_securities",
+        "tradability": "unknown",
+        "nisa_category": "growth",
+        "nisa_growth_eligible": "true",
+        "nisa_tsumitate_eligible": "false",
+        "investment_style": "lump_sum",
+        "theme": "financial",
+        "sector": "financial",
+        "is_leveraged": "false",
+        "is_inverse": "false",
+    }
+
+    rows = symbol_universe_overview_rows(row)
+
+    assert {"項目": "取扱元", "内容": "SBI証券"} in rows
+    assert {"項目": "NISA", "内容": "成長投資枠"} in rows
+    assert {"項目": "投資スタイル", "内容": "一括投資向き"} in rows
+    assert {"項目": "レバレッジ/インバース", "内容": "該当なし"} in rows
+
+
+def test_symbol_universe_investment_and_fund_rows_are_sectioned():
+    stock_row = {
+        "dividend_yield_pct": "2.61",
+        "dividend_category": "dividend",
+        "per": "9.05",
+        "pbr": "0.66",
+        "roe_pct": "7.74",
+        "market_cap_tier": "large",
+        "risk_band": "LOW",
+        "data_quality": "OK",
+        "asset_type": "stock",
+        "nisa_growth_eligible": "true",
+    }
+    etf_row = {
+        "asset_type": "etf",
+        "index_family": "sp500",
+        "expense_ratio_pct": "0.09",
+        "complexity": "beginner",
+        "nisa_growth_eligible": "true",
+    }
+
+    assert {"項目": "配当利回り", "内容": "2.61%"} in symbol_universe_investment_metric_rows(
+        stock_row
+    )
+    assert symbol_universe_fund_detail_rows(stock_row) == []
+    assert {"項目": "連動指数", "内容": "S&P 500"} in symbol_universe_fund_detail_rows(etf_row)
+    assert {"項目": "成長投資枠", "内容": "はい"} in symbol_universe_fund_detail_rows(etf_row)
+
+
+def test_symbol_universe_nisa_display_combines_category_and_flags():
+    assert (
+        symbol_universe_nisa_display(
+            {
+                "nisa_category": "unknown",
+                "nisa_growth_eligible": "true",
+                "nisa_tsumitate_eligible": "false",
+            }
+        )
+        == "成長投資枠"
+    )
+
+
+def test_symbol_universe_key_metric_rows_use_compact_values():
+    rows = symbol_universe_key_metric_rows(
+        {
+            "asset_type": "stock",
+            "nisa_category": "both",
+            "dividend_yield_pct": "4.79",
+            "market_cap_tier": "mid",
+            "risk_band": "LOW",
+            "nisa_growth_eligible": "true",
+            "nisa_tsumitate_eligible": "true",
+        }
+    )
+
+    assert {"項目": "NISA", "内容": "両枠"} in rows
+    assert {"項目": "時価総額", "内容": "中型（JP 1,000億〜1兆円 / US $2B〜$10B）"} in rows
+    assert {"項目": "配当利回り", "内容": "4.79%"} in rows
+
+
+def test_symbol_universe_data_info_rows_explain_how_values_are_used():
+    rows = symbol_universe_data_info_rows(
+        {
+            "metadata_source": "yahoo",
+            "metadata_as_of": "2026-05-21",
+            "metadata_updated_at": "2026-05-21T00:00:00+09:00",
+            "yahoo_symbol": "",
+        }
+    )
+
+    assert {
+        "項目": "データ出所",
+        "内容": "Yahoo Finance",
+        "使い道": "指標や分類をどの情報源で補完したかを確認します。",
+    } in rows
+    assert rows[-1]["項目"] == "価格取得用ticker"
+    assert rows[-1]["内容"] == "表示銘柄と同じ"
+    assert "Yahoo取得時" in rows[-1]["使い道"]
+
+
+def test_symbol_detail_dialog_css_expands_width_and_wraps_metric_values():
+    assert "90vw" in SYMBOL_DETAIL_DIALOG_CSS
+    assert "1100px" in SYMBOL_DETAIL_DIALOG_CSS
+    assert '[data-testid="stMetricValue"]' in SYMBOL_DETAIL_DIALOG_CSS
+    assert "overflow-wrap: anywhere" in SYMBOL_DETAIL_DIALOG_CSS
 
 
 def test_ranking_result_aggrid_options_enable_single_row_click_selection():

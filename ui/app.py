@@ -196,6 +196,108 @@ SYMBOL_UNIVERSE_DETAIL_LABELS = {
     "metadata_as_of": "metadata as of",
     "metadata_updated_at": "metadata updated at",
 }
+SYMBOL_UNIVERSE_DISPLAY_LABELS = {
+    "market": {
+        "jp": "日本",
+        "us": "米国",
+        "all": "すべて",
+    },
+    "asset_type": {
+        "stock": "個別株",
+        "etf": "ETF",
+        "reit": "REIT",
+        "mutual_fund": "投資信託",
+        "adr": "ADR",
+    },
+    "broker": {
+        "sbi_securities": "SBI証券",
+        "unknown": "未確認",
+    },
+    "tradability": {
+        "tradable": "取引可能",
+        "not_tradable": "取引対象外",
+        "unknown": "未確認",
+    },
+    "nisa_category": {
+        "growth": "成長投資枠",
+        "tsumitate": "つみたて投資枠",
+        "both": "成長投資枠・つみたて投資枠",
+        "none": "NISA対象外",
+        "unknown": "未確認",
+    },
+    "investment_style": {
+        "lump_sum": "一括投資向き",
+        "recurring": "積立向き",
+        "both": "一括・積立どちらも対象",
+        "unknown": "未確認",
+    },
+    "sector": {
+        "communication": "通信・メディア",
+        "consumer": "消費財・サービス",
+        "energy": "エネルギー",
+        "financial": "金融",
+        "healthcare": "ヘルスケア",
+        "index": "インデックス",
+        "industrial": "工業・資本財",
+        "materials": "素材",
+        "real_estate": "不動産",
+        "technology": "テクノロジー",
+        "utilities": "公益",
+    },
+    "complexity": {
+        "beginner": "初心者向け",
+        "standard": "標準",
+        "advanced": "上級者向け",
+        "currency_select": "通貨選択型",
+        "etn": "ETN",
+        "inverse": "インバース",
+        "leveraged": "レバレッジ",
+        "thematic": "テーマ型",
+    },
+    "risk_band": {
+        "LOW": "低変動（β < 0.8目安）",
+        "MEDIUM": "標準（0.8 <= β <= 1.2目安）",
+        "HIGH": "高変動（β > 1.2目安）",
+    },
+    "forecast_agreement": {
+        "HIGH": "高い",
+        "MEDIUM": "中くらい",
+        "LOW": "低い",
+    },
+    "data_quality": {
+        "OK": "十分",
+        "WARN": "一部不足",
+        "BLOCK": "不足が大きい",
+    },
+    "metadata_source": {
+        "curated_csv": "手動整備CSV",
+        "csv": "ローカルCSV",
+        "fsa": "金融庁/NISA情報",
+        "imaj": "投資信託協会",
+        "jpx": "JPX公式情報",
+        "jpx_listed_stock": "JPX上場銘柄情報",
+        "jpx_nisa_growth": "JPX NISA成長投資枠リスト",
+        "jpx_reit": "JPX REIT情報",
+        "manual": "手動整備",
+        "mutual_fund_seed": "投資信託初期データ",
+        "sbi_us_etf": "SBI証券 米国ETF取扱銘柄",
+        "sbi_us_stock": "SBI証券 米国株取扱銘柄",
+        "yahoo": "Yahoo Finance",
+        "unknown": "未確認",
+    },
+    "management_style": {
+        "index": "インデックス",
+        "active": "アクティブ",
+    },
+    "distribution_policy": {
+        "none": "分配なし",
+        "monthly": "毎月",
+        "quarterly": "四半期",
+        "semiannual": "年2回",
+        "annual": "年1回",
+        "irregular": "不定期",
+    },
+}
 RANKING_RESULT_GRID_CUSTOM_CSS = {
     ".ag-root-wrapper": {
         "background-color": "#121821 !important",
@@ -276,6 +378,30 @@ RANKING_RESULT_GRID_CUSTOM_CSS = {
         "color": "#eef3fb !important",
     },
 }
+SYMBOL_DETAIL_DIALOG_CSS = """
+<style>
+div[data-testid="stDialog"] div[role="dialog"] {
+    width: min(90vw, 1100px);
+    max-width: min(90vw, 1100px);
+}
+div[data-testid="stDialog"] [data-testid="stMetricValue"] {
+    font-size: clamp(1.25rem, 1.8vw, 1.75rem);
+    line-height: 1.15;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+}
+div[data-testid="stDialog"] [data-testid="stMetricValue"] > div {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+}
+div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
+    min-height: 1.25rem;
+}
+</style>
+"""
 
 
 def main() -> None:
@@ -380,6 +506,254 @@ def _symbol_universe_row_for_symbol(symbol: str) -> dict[str, str] | None:
     return None
 
 
+def _symbol_detail_raw_value(row: dict[str, str], column: str) -> str:
+    return str(row.get(column, "")).strip()
+
+
+def _symbol_detail_bool_display(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized == "true":
+        return "はい"
+    if normalized == "false":
+        return "いいえ"
+    return "未確認"
+
+
+def _symbol_detail_decimal_display(value: str, *, suffix: str = "") -> str:
+    if not value.strip() or value.strip() == "-":
+        return "未登録"
+    try:
+        decimal_value = Decimal(value)
+    except Exception:
+        return value
+    text = f"{decimal_value:.2f}".rstrip("0").rstrip(".")
+    return f"{text}{suffix}"
+
+
+def _symbol_detail_date_display(value: str) -> str:
+    if not value.strip() or value.strip() == "-":
+        return "未登録"
+    try:
+        if "T" in value:
+            parsed = datetime.fromisoformat(value)
+            return parsed.strftime("%Y-%m-%d %H:%M")
+        return date.fromisoformat(value).isoformat()
+    except ValueError:
+        return value
+
+
+def _symbol_detail_lookup_display(column: str, value: str) -> str:
+    if not value.strip() or value.strip() == "-":
+        return "未登録"
+    if column in {"theme"}:
+        return RANKING_THEME_LABELS.get(value, value)
+    if column == "dividend_category":
+        return RANKING_DIVIDEND_LABELS.get(value, value)
+    if column == "market_cap_tier":
+        return RANKING_MARKET_CAP_LABELS.get(value, value)
+    if column == "index_family":
+        return RANKING_INDEX_FAMILY_LABELS.get(value, value)
+    return SYMBOL_UNIVERSE_DISPLAY_LABELS.get(column, {}).get(value, value)
+
+
+def symbol_universe_detail_display_value(row: dict[str, str], column: str) -> str:
+    value = _symbol_detail_raw_value(row, column)
+    if column in {
+        "is_sbi_supported",
+        "is_active",
+        "is_leveraged",
+        "is_inverse",
+        "nisa_tsumitate_eligible",
+        "nisa_growth_eligible",
+        "installment_available",
+    }:
+        return _symbol_detail_bool_display(value)
+    if column in {"dividend_yield_pct", "expense_ratio_pct", "trust_fee_pct", "roe_pct"}:
+        return _symbol_detail_decimal_display(value, suffix="%")
+    if column in {"per", "pbr", "consensus_rating", "aum"}:
+        return _symbol_detail_decimal_display(value)
+    if column in {"metadata_as_of", "metadata_updated_at"}:
+        return _symbol_detail_date_display(value)
+    if column == "yahoo_symbol":
+        return value or "表示銘柄と同じ"
+    return _symbol_detail_lookup_display(column, value)
+
+
+def symbol_universe_nisa_display(row: dict[str, str]) -> str:
+    nisa_category = _symbol_detail_raw_value(row, "nisa_category")
+    growth = _symbol_detail_raw_value(row, "nisa_growth_eligible").lower() == "true"
+    tsumitate = _symbol_detail_raw_value(row, "nisa_tsumitate_eligible").lower() == "true"
+    if nisa_category in {"growth", "tsumitate", "both", "none"}:
+        return symbol_universe_detail_display_value(row, "nisa_category")
+    if growth and tsumitate:
+        return "成長投資枠・つみたて投資枠"
+    if growth:
+        return "成長投資枠"
+    if tsumitate:
+        return "つみたて投資枠"
+    if nisa_category == "none":
+        return "NISA対象外"
+    return "未確認"
+
+
+def symbol_universe_leverage_display(row: dict[str, str]) -> str:
+    leveraged = _symbol_detail_raw_value(row, "is_leveraged").lower() == "true"
+    inverse = _symbol_detail_raw_value(row, "is_inverse").lower() == "true"
+    if leveraged and inverse:
+        return "レバレッジ・インバース"
+    if leveraged:
+        return "レバレッジ"
+    if inverse:
+        return "インバース"
+    return "該当なし"
+
+
+def _symbol_detail_row(label: str, value: str) -> dict[str, str]:
+    return {"項目": label, "内容": value or "未登録"}
+
+
+def _symbol_data_info_row(label: str, value: str, purpose: str) -> dict[str, str]:
+    return {"項目": label, "内容": value or "未登録", "使い道": purpose}
+
+
+def symbol_universe_overview_rows(row: dict[str, str]) -> list[dict[str, str]]:
+    return [
+        _symbol_detail_row("市場", symbol_universe_detail_display_value(row, "market")),
+        _symbol_detail_row("商品分類", symbol_universe_detail_display_value(row, "asset_type")),
+        _symbol_detail_row("通貨", symbol_universe_detail_display_value(row, "currency")),
+        _symbol_detail_row("取扱元", symbol_universe_detail_display_value(row, "broker")),
+        _symbol_detail_row("取扱状況", symbol_universe_detail_display_value(row, "tradability")),
+        _symbol_detail_row("NISA", symbol_universe_nisa_display(row)),
+        _symbol_detail_row(
+            "投資スタイル",
+            symbol_universe_detail_display_value(row, "investment_style"),
+        ),
+        _symbol_detail_row("テーマ", symbol_universe_detail_display_value(row, "theme")),
+        _symbol_detail_row("業種/セクター", symbol_universe_detail_display_value(row, "sector")),
+        _symbol_detail_row("レバレッジ/インバース", symbol_universe_leverage_display(row)),
+    ]
+
+
+def symbol_universe_investment_metric_rows(row: dict[str, str]) -> list[dict[str, str]]:
+    return [
+        _symbol_detail_row(
+            "配当利回り",
+            symbol_universe_detail_display_value(row, "dividend_yield_pct"),
+        ),
+        _symbol_detail_row(
+            "配当カテゴリ",
+            symbol_universe_detail_display_value(row, "dividend_category"),
+        ),
+        _symbol_detail_row("PER", symbol_universe_detail_display_value(row, "per")),
+        _symbol_detail_row("PBR", symbol_universe_detail_display_value(row, "pbr")),
+        _symbol_detail_row("ROE", symbol_universe_detail_display_value(row, "roe_pct")),
+        _symbol_detail_row(
+            "時価総額",
+            symbol_universe_detail_display_value(row, "market_cap_tier"),
+        ),
+        _symbol_detail_row(
+            "市場感応度",
+            symbol_universe_detail_display_value(row, "risk_band"),
+        ),
+        _symbol_detail_row(
+            "データ品質",
+            symbol_universe_detail_display_value(row, "data_quality"),
+        ),
+    ]
+
+
+def symbol_universe_fund_detail_rows(row: dict[str, str]) -> list[dict[str, str]]:
+    fund_asset_types = {"etf", "mutual_fund", "reit"}
+    fund_specific_columns = {
+        "index_family",
+        "expense_ratio_pct",
+        "trust_fee_pct",
+        "aum",
+        "complexity",
+        "management_style",
+        "distribution_policy",
+        "installment_available",
+    }
+    if _symbol_detail_raw_value(row, "asset_type") not in fund_asset_types and not any(
+        _symbol_detail_raw_value(row, column) for column in fund_specific_columns
+    ):
+        return []
+    fund_columns = [
+        ("連動指数", "index_family"),
+        ("信託報酬/経費率", "expense_ratio_pct"),
+        ("信託報酬", "trust_fee_pct"),
+        ("純資産総額", "aum"),
+        ("複雑さ", "complexity"),
+        ("運用方式", "management_style"),
+        ("分配方針", "distribution_policy"),
+        ("つみたて投資枠", "nisa_tsumitate_eligible"),
+        ("成長投資枠", "nisa_growth_eligible"),
+        ("積立可否", "installment_available"),
+    ]
+    rows = [
+        _symbol_detail_row(label, symbol_universe_detail_display_value(row, column))
+        for label, column in fund_columns
+        if _symbol_detail_raw_value(row, column)
+    ]
+    return rows
+
+
+def symbol_universe_data_info_rows(row: dict[str, str]) -> list[dict[str, str]]:
+    return [
+        _symbol_data_info_row(
+            "データ出所",
+            symbol_universe_detail_display_value(row, "metadata_source"),
+            "指標や分類をどの情報源で補完したかを確認します。",
+        ),
+        _symbol_data_info_row(
+            "データ基準日",
+            symbol_universe_detail_display_value(row, "metadata_as_of"),
+            "指標や分類の鮮度を確認します。",
+        ),
+        _symbol_data_info_row(
+            "最終更新",
+            symbol_universe_detail_display_value(row, "metadata_updated_at"),
+            "ローカル銘柄マスタに反映したタイミングを確認します。",
+        ),
+        _symbol_data_info_row(
+            "価格取得用ticker",
+            symbol_universe_detail_display_value(row, "yahoo_symbol"),
+            "Yahoo取得時に表示用銘柄と別tickerを使う場合に確認します。",
+        ),
+    ]
+
+
+def _symbol_universe_key_metric_value(row: dict[str, str], column: str) -> str:
+    if column == "nisa_category":
+        nisa_text = symbol_universe_nisa_display(row)
+        return {
+            "成長投資枠・つみたて投資枠": "両枠",
+            "つみたて投資枠": "つみたて枠",
+        }.get(nisa_text, nisa_text)
+    if column == "risk_band":
+        return {
+            "LOW": "低変動",
+            "MEDIUM": "標準",
+            "HIGH": "高変動",
+        }.get(
+            _symbol_detail_raw_value(row, column), symbol_universe_detail_display_value(row, column)
+        )
+    return symbol_universe_detail_display_value(row, column)
+
+
+def symbol_universe_key_metric_rows(row: dict[str, str]) -> list[dict[str, str]]:
+    return [
+        _symbol_detail_row("商品分類", symbol_universe_detail_display_value(row, "asset_type")),
+        _symbol_detail_row("NISA", _symbol_universe_key_metric_value(row, "nisa_category")),
+        _symbol_detail_row(
+            "配当利回り", symbol_universe_detail_display_value(row, "dividend_yield_pct")
+        ),
+        _symbol_detail_row(
+            "時価総額", symbol_universe_detail_display_value(row, "market_cap_tier")
+        ),
+    ]
+
+
 def symbol_universe_detail_rows(row: dict[str, str]) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     for column, value in row.items():
@@ -388,8 +762,9 @@ def symbol_universe_detail_rows(row: dict[str, str]) -> list[dict[str, str]]:
         rows.append(
             {
                 "項目": label,
-                "列": column,
-                "値": text_value or "-",
+                "表示値": symbol_universe_detail_display_value(row, column),
+                "CSV列": column,
+                "登録値": text_value or "-",
             }
         )
     return rows
@@ -643,20 +1018,56 @@ def _render_metric_filter_grid(
                 _render_metric_range_filter(label, **kwargs)
 
 
-@st.dialog("銘柄データ")
+def _render_symbol_detail_table(rows: list[dict[str, str]]) -> None:
+    if not rows:
+        st.info("この区分に表示できる登録値はありません。")
+        return
+    st.dataframe(
+        pd.DataFrame(rows),
+        hide_index=True,
+        use_container_width=True,
+    )
+
+
+@st.dialog("銘柄データ", width="large")
 def _render_symbol_universe_detail_dialog(symbol: str) -> None:
     row = _symbol_universe_row_for_symbol(symbol)
     if row is None:
         st.warning("銘柄マスタに該当するデータが見つかりませんでした。")
         return
+    st.markdown(SYMBOL_DETAIL_DIALOG_CSS, unsafe_allow_html=True)
     display_name = row.get("name") or symbol
     st.subheader(f"{symbol} - {display_name}")
-    st.caption("ローカル銘柄マスタ `symbol_universe.csv` の登録値です。")
-    st.dataframe(
-        symbol_universe_detail_rows(row),
-        hide_index=True,
-        use_container_width=True,
-    )
+    st.caption("ローカル銘柄マスタの登録値を、確認しやすい項目に整理しています。")
+
+    metric_columns = st.columns(4)
+    for column, metric in zip(metric_columns, symbol_universe_key_metric_rows(row), strict=False):
+        column.metric(metric["項目"], metric["内容"])
+
+    tab_labels = ["概要", "投資指標", "データ情報"]
+    fund_rows = symbol_universe_fund_detail_rows(row)
+    if fund_rows:
+        tab_labels.insert(2, "ETF/ファンド")
+    tabs = st.tabs(tab_labels)
+
+    with tabs[0]:
+        _render_symbol_detail_table(symbol_universe_overview_rows(row))
+    with tabs[1]:
+        _render_symbol_detail_table(symbol_universe_investment_metric_rows(row))
+    tab_offset = 2
+    if fund_rows:
+        with tabs[2]:
+            _render_symbol_detail_table(fund_rows)
+        tab_offset = 3
+    with tabs[tab_offset]:
+        _render_symbol_detail_table(symbol_universe_data_info_rows(row))
+    with st.expander("CSV登録値（確認用）", expanded=False):
+        st.caption("CSVの列名、画面表示用の値、登録されているraw値を確認できます。")
+        st.dataframe(
+            symbol_universe_detail_rows(row),
+            hide_index=True,
+            use_container_width=True,
+        )
 
 
 def _render_ranking_result_table(

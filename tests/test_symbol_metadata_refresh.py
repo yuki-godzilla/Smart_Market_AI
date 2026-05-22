@@ -138,6 +138,23 @@ def test_yahoo_provider_treats_trailing_annual_dividend_yield_as_ratio():
     assert updates[0].values["dividend_yield_pct"] == "0.6"
 
 
+def test_yahoo_provider_scales_jp_stock_integer_dividend_yield_basis_points():
+    provider = YahooSymbolMetadataProvider(
+        ticker_info_reader=lambda symbol: {
+            "dividendYield": 23,
+        }
+    )
+
+    updates = provider.fetch_metadata(
+        [{"symbol": "6857.T", "market": "jp", "asset_type": "stock", "currency": "JPY"}],
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert updates[0].values["dividend_yield_pct"] == "0.23"
+    assert updates[0].values["dividend_category"] == "dividend"
+
+
 def test_yahoo_provider_treats_annual_expense_ratio_as_ratio():
     provider = YahooSymbolMetadataProvider(
         ticker_info_reader=lambda symbol: {

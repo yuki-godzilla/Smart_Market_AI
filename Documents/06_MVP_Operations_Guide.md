@@ -248,7 +248,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - ranking universe の MVP 方針は、SBI証券で取り扱いがあり、現物・NISA・長期投資で検討しやすい株式・ETFを初期対象にすることです。詳細は [09_SBI_Symbol_Universe_Policy.md](./09_SBI_Symbol_Universe_Policy.md) を参照してください。
 - `broker`, `tradability`, `nisa_category`, `investment_style`, `is_sbi_supported`, `is_active`, `is_leveraged`, `is_inverse` は Phase 18 policy columns として `symbol_universe.csv` に保持します。既存候補は local curated / source-import seed であり、SBI取扱確認済み master ではないため、`tradability=unknown` は初期 ranking で通します。
 - ranking 候補抽出前に default SBI ranking universe policy を適用します。MVP の対象は `stock` / `etf` です。`mutual_fund` / `fund` / `investment_trust` / `adr` / `reit` / FX / CFD / 先物 / option / crypto / bond / MMF / commodity、レバレッジ、インバース、`not_tradable`、`is_sbi_supported=false`、`is_active=false` は初期候補から除外します。
-- `symbol_universe.csv` は Phase 16/18 UI 用の銘柄候補マスタです。必須列は `symbol`, `name`, `market`, `asset_type`, `currency`, `broker`, `tradability`, `nisa_category`, `investment_style`, `is_sbi_supported`, `is_active`, `is_leveraged`, `is_inverse`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases`, `per`, `pbr`, `roe_pct`, `sector`, `consensus_rating`, `forecast_agreement`, `data_quality`, `risk_band` です。
+- `symbol_universe.csv` は Phase 16/18 UI 用の銘柄候補マスタです。必須列は `symbol`, `name`, `market`, `asset_type`, `currency`, `broker`, `tradability`, `nisa_category`, `investment_style`, `is_sbi_supported`, `is_active`, `is_leveraged`, `is_inverse`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases`, `per`, `pbr`, `roe_pct`, `sector`, `consensus_rating`, `forecast_agreement`, `data_quality`, `risk_band` です。任意列 `yahoo_symbol` は、表示用 symbol と Yahoo 取得用 symbol が異なる ETF で使います。
 - Phase 18 metadata columns は `metadata_source`, `metadata_as_of`, `metadata_updated_at` です。現在の master は `curated_csv`, `yahoo`, `jpx`, `sbi_us_stock`, `sbi_us_etf`, `mutual_fund_seed` などの metadata source を行ごとに保持します。
 - Metadata fields are governed by `backend/marketdata/symbol_metadata_schema.py`.
   - `core`: symbol, name, market, asset type, currency, sector/theme, aliases.
@@ -274,7 +274,7 @@ Symbol universe metadata refresh:
 ```
 
 - `--write` を付けた場合だけ `symbol_universe.csv` と `data/marketdata/symbol_universe_manifest.json` を更新します。write 前に validation error が残る場合は書き込みを拒否します。
-- Yahoo provider は取得できた `sector`, `dividend_yield_pct`, `dividend_category`, `per`, `pbr`, `roe_pct`, `market_cap_tier`, `risk_band`, ETF の `expense_ratio_pct`, metadata source/as-of/update fields を正規化して返します。`dividendYield` は yfinance が返す percentage value として扱い、`trailingAnnualDividendYield` は ratio から percentage に変換します。非数値、無限大、負の PER/PBR/配当利回り/経費率など schema に入れられない値は空欄のままにします。失敗銘柄は manifest の `failed_symbols` / `failures` に残します。
+- Yahoo provider は取得できた `sector`, `dividend_yield_pct`, `dividend_category`, `per`, `pbr`, `roe_pct`, `market_cap_tier`, `risk_band`, ETF の `expense_ratio_pct`, metadata source/as-of/update fields を正規化して返します。`dividendYield` は yfinance が返す percentage value として扱い、`trailingAnnualDividendYield` は ratio から percentage に変換します。ETFの `annualReportExpenseRatio` は ratio から percentage に変換し、`netExpenseRatio` は percentage value として扱います。非数値、無限大、負の PER/PBR/配当利回り/経費率など schema に入れられない値は空欄のままにします。失敗銘柄は manifest の `failed_symbols` / `failures` に残します。
 - live metadata refresh は対象を絞って実行できます。`--symbols`, `--asset-type`, `--market`, `--metadata-source`, `--missing-any`, `--limit` を使い、いきなり全件取得しない運用を推奨します。manifest の `selection` に対象件数と対象銘柄sampleを残します。
 
 ```powershell
@@ -378,10 +378,11 @@ Ranking metadata のように既存銘柄の条件列だけを更新する場合
 Ranking metadata coverage:
 
 - `tools/check_symbol_universe_metadata_coverage.py` は、`symbol_universe.csv` の ranking filter 用 metadata がどの程度埋まっているかを network なしで集計します。
-- 2026-05-21 時点の出力は `data/marketdata/symbol_universe_metadata_coverage.json` です。JPX listed-stock 追加分、旧 JPX stock seed、SBI 公式米国株、SBI 公式米国ETF は、明示 opt-in の Yahoo metadata refresh で補完済みです。株式全体 8,081件では、`配当利回り` 8,033件、`PBR` 7,630件、`ROE` 7,466件、`PER` 7,457件、`リスク` 6,231件が埋まっています。ETF全体 1,034件では、`配当利回り` 601件、`複雑さ` 1,034件、`信託報酬/経費率` 1,013件が埋まっています。残る空欄は source / provider 側で値がない、または schema に入れられない値を空欄として保持したものです。
+- 2026-05-22 時点の出力は `data/marketdata/symbol_universe_metadata_coverage.json` です。JPX listed-stock 追加分、旧 JPX stock seed、SBI 公式米国株、SBI 公式米国ETF は、明示 opt-in の Yahoo metadata refresh と deterministic ETF metadata enrichment で補完済みです。株式全体 8,081件では、`配当利回り` 8,033件、`PBR` 7,630件、`ROE` 7,466件、`PER` 7,457件、`リスク` 6,231件が埋まっています。ETF全体 1,034件では、`配当利回り` 601件、`指数` 858件、`複雑さ` 1,034件、`信託報酬/経費率` 1,013件が埋まっています。残る 176 件の指数空欄は、名称から安全に推定せず、公式 index / issuer 情報で確認する対象として残しています。
 
 ```powershell
-.\venv_SMAI\Scripts\python.exe .\tools\check_symbol_universe_metadata_coverage.py --checked-at 2026-05-21T00:00:00+09:00 --write
+.\venv_SMAI\Scripts\python.exe .\tools\enrich_symbol_universe_etf_metadata.py --write
+.\venv_SMAI\Scripts\python.exe .\tools\check_symbol_universe_metadata_coverage.py --checked-at 2026-05-22T00:00:00+09:00 --write
 ```
 
 SBI ranking universe policy:
@@ -410,11 +411,12 @@ Yahoo coverage check:
 - 2026-05-21 に実行した JPX 追加国内株の Yahoo coverage check では、サンプル 30件は 30/30 件成功。全数 3,645件は 3,641件成功、4件は短期期間で `YAHOO-NO-BARS` でした。失敗4件の個別再試行では、`9237.T` は同じ短期期間で取得成功し、`2344.T` / `4530.T` / `6565.T` は 2026-04-01 からの長め期間では取得できるものの、2026-05-12 〜 2026-05-20 ではバーがありませんでした。
 - 2026-05-21 に実行した SBI 米国株 / 米国ETF の Yahoo coverage check では、米国株サンプル 30/30、米国株全数 4,240/4,293、米国ETFサンプル 29/30、米国ETF全数 593/607 が成功しました。失敗はすべて短期期間での `YAHOO-NO-BARS` です。クラス株式表記を正規化した `BRK-B` / `UHAL-B` の個別再確認は 2/2 成功しました。
 - `--symbols` を使うと、失敗銘柄や表記修正後の銘柄だけを小さく再確認できます。
+- `tools/analyze_yahoo_coverage_failures.py` は保存済みの coverage CSV を、銘柄マスタと照合して原因別に棚卸しします。2026-05-22 時点では、SBI米国株の失敗53件は `no_bars_short_window_or_yahoo_unsupported` 51件、旧表記 alias 解決済み2件です。SBI米国ETFの失敗14件は、レバレッジ除外3件、`yahoo_symbol` mapping 済み11件です。mapping 済み行は ranking / rebalance の Yahoo 取得時に provider symbol へ変換します。
 - 結果は `data/marketdata/live_checks/` に JSON / CSV で保存します。
 
 Phase 16 ranking implementation notes:
 
-- `data/marketdata/symbol_universe.csv` is the ranking candidate master used before provider fetch. It is intentionally curated/local-first and currently carries display/search/filter metadata such as `symbol`, `name`, `market`, `asset_type`, `currency`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases`, `per`, `pbr`, `roe_pct`, `sector`, `consensus_rating`, `forecast_agreement`, `data_quality`, and `risk_band`.
+- `data/marketdata/symbol_universe.csv` is the ranking candidate master used before provider fetch. It is intentionally curated/local-first and currently carries display/search/filter metadata such as `symbol`, `name`, `market`, `asset_type`, `currency`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases`, `per`, `pbr`, `roe_pct`, `sector`, `consensus_rating`, `forecast_agreement`, `data_quality`, and `risk_band`. Optional `yahoo_symbol` is used only when Yahoo needs a different ticker than the display/source symbol.
 - The Phase 18 schema helper validates required columns, allowed enum values, decimal fields, duplicate tickers, and metadata freshness/source columns without requiring live provider access.
 - The in-page screening condition panel filters comparison candidates by metadata, NISA eligibility, and metric ranges. `取得期間` and `重視して並べ替え` are not screening filters; they control ranking calculation and display ordering.
 - Ranking build uses a fast batch path first: it fetches OHLCV in chunks, builds feature snapshots from already-fetched market data, then reuses existing Screening / Investment Score services. If the batch path fails with a provider/domain error, local/deterministic providers can fall back to the existing per-symbol preview path; live Yahoo failures are reported once without retrying every symbol to avoid repeated network failures.

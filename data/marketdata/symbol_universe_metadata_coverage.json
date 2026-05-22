@@ -88,9 +88,9 @@
           "missing": 21
         },
         "index_family": {
-          "coverage": 0.2002,
-          "filled": 207,
-          "missing": 827
+          "coverage": 0.8298,
+          "filled": 858,
+          "missing": 176
         },
         "market_cap_tier": {
           "coverage": 0.0058,
@@ -463,9 +463,9 @@
             "missing": 0
           },
           "index_family": {
-            "coverage": 0.2672,
-            "filled": 62,
-            "missing": 170
+            "coverage": 0.9871,
+            "filled": 229,
+            "missing": 3
           },
           "market_cap_tier": {
             "coverage": 0.0,
@@ -529,9 +529,9 @@
             "missing": 0
           },
           "index_family": {
-            "coverage": 0.1617,
-            "filled": 27,
-            "missing": 140
+            "coverage": 0.9701,
+            "filled": 162,
+            "missing": 5
           },
           "market_cap_tier": {
             "coverage": 0.0,
@@ -595,9 +595,9 @@
             "missing": 21
           },
           "index_family": {
-            "coverage": 0.0952,
-            "filled": 2,
-            "missing": 19
+            "coverage": 0.7619,
+            "filled": 16,
+            "missing": 5
           },
           "market_cap_tier": {
             "coverage": 0.0,
@@ -661,9 +661,9 @@
             "missing": 0
           },
           "index_family": {
-            "coverage": 0.1796,
-            "filled": 109,
-            "missing": 498
+            "coverage": 0.7315,
+            "filled": 444,
+            "missing": 163
           },
           "market_cap_tier": {
             "coverage": 0.0016,
@@ -1310,9 +1310,9 @@
           "missing": 57
         },
         "index_family": {
-          "coverage": 0.2145,
-          "filled": 62,
-          "missing": 227
+          "coverage": 0.7924,
+          "filled": 229,
+          "missing": 60
         },
         "market_cap_tier": {
           "coverage": 0.0,
@@ -1370,9 +1370,9 @@
           "missing": 0
         },
         "index_family": {
-          "coverage": 0.1617,
-          "filled": 27,
-          "missing": 140
+          "coverage": 0.9701,
+          "filled": 162,
+          "missing": 5
         },
         "market_cap_tier": {
           "coverage": 0.0,
@@ -1430,9 +1430,9 @@
           "missing": 21
         },
         "index_family": {
-          "coverage": 0.0952,
-          "filled": 2,
-          "missing": 19
+          "coverage": 0.7619,
+          "filled": 16,
+          "missing": 5
         },
         "market_cap_tier": {
           "coverage": 0.0,
@@ -1670,9 +1670,9 @@
           "missing": 7966
         },
         "index_family": {
-          "coverage": 0.0127,
-          "filled": 109,
-          "missing": 8464
+          "coverage": 0.0518,
+          "filled": 444,
+          "missing": 8129
         },
         "market_cap_tier": {
           "coverage": 0.9248,
@@ -1703,7 +1703,7 @@
       "rows": 8573
     }
   },
-  "checked_at": "2026-05-21T00:00:00+09:00",
+  "checked_at": "2026-05-22T00:00:00+09:00",
   "column_labels": {
     "complexity": "複雑さ",
     "consensus_rating": "コンセンサス",
@@ -1765,9 +1765,9 @@
         "missing": 8166
       },
       "index_family": {
-        "coverage": 0.023,
-        "filled": 211,
-        "missing": 8968
+        "coverage": 0.0939,
+        "filled": 862,
+        "missing": 8317
       },
       "market_cap_tier": {
         "coverage": 0.877,

@@ -4,14 +4,21 @@ import asyncio
 import json
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
-from typing import Callable, cast
+from typing import Callable, Iterable, cast
 
 import altair as alt
 import pandas as pd
 import streamlit as st
 
 from backend.core.config import get_settings
-from backend.core.data_contracts import Bar, DailySnapshot, DataQuality, FeatureSnapshot, Quote
+from backend.core.data_contracts import (
+    Bar,
+    DailySnapshot,
+    DataQuality,
+    FeatureSnapshot,
+    FundamentalSnapshot,
+    Quote,
+)
 from backend.core.errors import AppError
 from backend.forecast import forecast_model_display_name, summarize_forecast_evaluations
 from backend.marketdata import create_market_data_provider_adapter
@@ -105,6 +112,7 @@ from ui.state import (
     MARKET_DATA_STATUS_STATE_KEY,
     MARKET_DATA_TOAST_STATE_KEY,
 )
+from ui.symbol_universe import symbol_provider_symbol
 from ui.views.common import (
     _optional_decimal_from_text,
     _render_table,
@@ -1067,7 +1075,9 @@ async def _build_market_data_ranking_rows_fast(
     feature_start = min(start, end - timedelta(days=90))
     feature_start_dt = datetime.combine(feature_start, time.min, tzinfo=UTC)
     bars: list[Bar] = []
-    symbol_chunks = ranking_symbol_chunks(symbols)
+    provider_symbols_by_symbol = _provider_symbols_by_display_symbol(symbols, provider)
+    fetch_symbols = _unique_provider_symbols(provider_symbols_by_symbol.values())
+    symbol_chunks = ranking_symbol_chunks(fetch_symbols)
     for index, symbol_chunk in enumerate(symbol_chunks, start=1):
         _report_ranking_progress(
             progress_callback,
@@ -1075,6 +1085,10 @@ async def _build_market_data_ranking_rows_fast(
             0.1 + (0.35 * (index - 1) / len(symbol_chunks)),
         )
         bars.extend(await adapter.fetch_ohlcv(symbol_chunk, start=feature_start_dt, end=end_dt))
+    bars = _bars_with_display_symbols(
+        bars,
+        provider_symbols_by_symbol=provider_symbols_by_symbol,
+    )
     _report_ranking_progress(progress_callback, "価格データを整理しています。", 0.45)
     bars_by_symbol = _ranking_bars_by_symbol(symbols, bars)
 
@@ -1112,7 +1126,16 @@ async def _build_market_data_ranking_rows_fast(
         return [], error_rows
 
     _report_ranking_progress(progress_callback, "ファンダメンタル情報を取得しています。", 0.55)
-    fundamentals = await adapter.fetch_fundamentals(available_symbols, as_of=end)
+    provider_available_symbols = [
+        provider_symbols_by_symbol[symbol] for symbol in available_symbols
+    ]
+    provider_fundamentals = await adapter.fetch_fundamentals(provider_available_symbols, as_of=end)
+    fundamentals = _fundamentals_with_display_symbols(
+        provider_fundamentals,
+        provider_symbols_by_symbol={
+            symbol: provider_symbols_by_symbol[symbol] for symbol in available_symbols
+        },
+    )
     _report_ranking_progress(progress_callback, "スクリーニング用特徴量を作成しています。", 0.65)
     feature_rows = build_daily_snapshots_from_market_data(
         symbols=available_symbols,
@@ -1160,6 +1183,69 @@ async def _build_market_data_ranking_rows_fast(
     ranked_rows = rank_investment_score_rows(investment_score_rows(investment_scores))
     _report_ranking_progress(progress_callback, "ランキングを並べ替えています。", 0.98)
     return ranked_rows, error_rows
+
+
+def _provider_symbols_by_display_symbol(
+    symbols: list[str],
+    provider: str,
+) -> dict[str, str]:
+    return {symbol: symbol_provider_symbol(symbol, provider) for symbol in symbols}
+
+
+def _unique_provider_symbols(symbols: Iterable[str]) -> list[str]:
+    unique_symbols: list[str] = []
+    seen: set[str] = set()
+    for symbol in symbols:
+        if not isinstance(symbol, str):
+            continue
+        if symbol in seen:
+            continue
+        unique_symbols.append(symbol)
+        seen.add(symbol)
+    return unique_symbols
+
+
+def _bars_with_display_symbols(
+    bars: list[Bar],
+    *,
+    provider_symbols_by_symbol: dict[str, str],
+) -> list[Bar]:
+    symbol_by_provider_symbol = {
+        provider_symbol: symbol for symbol, provider_symbol in provider_symbols_by_symbol.items()
+    }
+    return [
+        _bar_with_display_symbol(
+            bar,
+            display_symbol=symbol_by_provider_symbol.get(bar.symbol.raw, bar.symbol.raw),
+        )
+        for bar in bars
+    ]
+
+
+def _bar_with_display_symbol(bar: Bar, *, display_symbol: str) -> Bar:
+    return bar.model_copy(
+        update={
+            "symbol": bar.symbol.model_copy(
+                update={"raw": display_symbol, "code": display_symbol.removesuffix(".T")}
+            )
+        }
+    )
+
+
+def _fundamentals_with_display_symbols(
+    fundamentals: list[FundamentalSnapshot],
+    *,
+    provider_symbols_by_symbol: dict[str, str],
+) -> list[FundamentalSnapshot]:
+    symbol_by_provider_symbol = {
+        provider_symbol: symbol for symbol, provider_symbol in provider_symbols_by_symbol.items()
+    }
+    return [
+        fundamental.model_copy(
+            update={"symbol": symbol_by_provider_symbol.get(fundamental.symbol, fundamental.symbol)}
+        )
+        for fundamental in fundamentals
+    ]
 
 
 def _ranking_bars_by_symbol(

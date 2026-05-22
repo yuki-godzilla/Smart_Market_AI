@@ -33,6 +33,7 @@ def test_symbol_metadata_catalog_defines_core_symbol_universe_fields():
         "sector",
         "theme",
     }
+    assert metadata_field_by_key("yahoo_symbol").required_column is False
     assert {field.key for field in metadata_fields_by_tier(METADATA_TIER_CORE)} >= {
         "symbol",
         "name",

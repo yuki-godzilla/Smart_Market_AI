@@ -432,7 +432,14 @@ def test_filter_symbol_universe_rows_filters_by_sector_theme_and_jpx_market_cap(
 
 def test_ranking_etf_filter_labels_cover_imported_index_families():
     assert {
+        "bond",
+        "commodity",
+        "dividend",
+        "dow_jones",
+        "emerging",
         "msci_world",
+        "reit",
+        "sector",
         "topix",
         "nikkei225",
     } <= set(RANKING_INDEX_FAMILY_LABELS)

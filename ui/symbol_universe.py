@@ -315,9 +315,25 @@ def symbol_reference_rows() -> list[dict[str, str]]:
     """Return ticker/name rows for lightweight UI selectors."""
 
     return [
-        {"symbol": row["symbol"], "name": row["name"] or row["symbol"]}
+        {
+            "symbol": row["symbol"],
+            "name": row["name"] or row["symbol"],
+            "yahoo_symbol": row.get("yahoo_symbol", ""),
+        }
         for row in symbol_universe_csv_rows()
     ]
+
+
+def symbol_provider_symbol(symbol: str, provider: str) -> str:
+    """Return the provider-specific ticker when a curated mapping exists."""
+
+    normalized_symbol = symbol.strip().upper()
+    if provider.strip().lower() != "yahoo":
+        return symbol
+    for row in symbol_universe_csv_rows():
+        if row["symbol"].upper() == normalized_symbol:
+            return row.get("yahoo_symbol", "").strip() or symbol
+    return symbol
 
 
 def symbol_name(symbol: str) -> str | None:

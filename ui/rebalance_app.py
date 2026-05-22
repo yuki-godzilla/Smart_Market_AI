@@ -45,6 +45,9 @@ from ui.symbol_universe import (
     symbol_name as _symbol_name_from_csv,
 )
 from ui.symbol_universe import (
+    symbol_provider_symbol as _symbol_provider_symbol_from_csv,
+)
+from ui.symbol_universe import (
     symbol_reference_rows as _symbol_reference_rows_from_csv,
 )
 
@@ -400,6 +403,7 @@ async def build_market_data_preview(
             }
         )
     provider = dataaccess_cfg.provider
+    provider_symbol = _symbol_provider_symbol_from_csv(symbol, provider)
     start_dt = datetime.combine(start, time.min, tzinfo=UTC)
     end_dt = datetime.combine(end, time.max, tzinfo=UTC)
     provider_rows = provider_metadata_rows(provider)
@@ -408,7 +412,12 @@ async def build_market_data_preview(
         adapter = create_market_data_provider_adapter(dataaccess_cfg)
         feature_start = min(start, end - timedelta(days=MARKET_DATA_FEATURE_LOOKBACK_DAYS))
         feature_start_dt = datetime.combine(feature_start, time.min, tzinfo=UTC)
-        feature_bars = await adapter.fetch_ohlcv([symbol], start=feature_start_dt, end=end_dt)
+        provider_bars = await adapter.fetch_ohlcv(
+            [provider_symbol],
+            start=feature_start_dt,
+            end=end_dt,
+        )
+        feature_bars = _bars_with_display_symbol(provider_bars, display_symbol=symbol)
         bars = _bars_in_period(feature_bars, start=start_dt, end=end_dt)
         quotes = _quotes_from_latest_bars([symbol], feature_bars)
         warning_rows: list[dict[str, str]] = []
@@ -420,7 +429,14 @@ async def build_market_data_preview(
                 warning_rows.append(_market_data_error_row(exc, component="fx"))
         if _should_fetch_market_data_preview_fundamentals(provider=provider):
             try:
-                fundamentals = await adapter.fetch_fundamentals([symbol], as_of=end)
+                provider_fundamentals = await adapter.fetch_fundamentals(
+                    [provider_symbol],
+                    as_of=end,
+                )
+                fundamentals = _fundamentals_with_display_symbol(
+                    provider_fundamentals,
+                    display_symbol=symbol,
+                )
             except AppError as exc:
                 warning_rows.append(_market_data_error_row(exc, component="fundamentals"))
                 fundamentals = [
@@ -549,6 +565,29 @@ def provider_metadata_rows(provider: str) -> list[dict[str, str]]:
         details["live_adapter"] = "implemented_opt_in"
     return [
         {"field": key, "value": _stringify_metadata_value(value)} for key, value in details.items()
+    ]
+
+
+def _bars_with_display_symbol(bars: list[Bar], *, display_symbol: str) -> list[Bar]:
+    return [
+        bar.model_copy(
+            update={
+                "symbol": bar.symbol.model_copy(
+                    update={"raw": display_symbol, "code": display_symbol.removesuffix(".T")}
+                )
+            }
+        )
+        for bar in bars
+    ]
+
+
+def _fundamentals_with_display_symbol(
+    fundamentals: list[FundamentalSnapshot],
+    *,
+    display_symbol: str,
+) -> list[FundamentalSnapshot]:
+    return [
+        fundamental.model_copy(update={"symbol": display_symbol}) for fundamental in fundamentals
     ]
 
 

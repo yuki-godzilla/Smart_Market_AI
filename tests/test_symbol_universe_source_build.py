@@ -15,6 +15,7 @@ from backend.marketdata.symbol_universe_source_build import (
     build_nisa_eligibility_source_rows,
     build_sbi_us_etf_source_rows,
     build_sbi_us_stock_source_rows,
+    infer_index_family_for_text,
 )
 
 
@@ -313,6 +314,18 @@ def test_build_sbi_us_etf_source_rows_marks_leveraged_and_inverse_products():
     assert result.rows[2]["is_inverse"] == "true"
     assert result.manifest["source_kind"] == "sbi_us_etf"
     assert result.manifest["fieldnames"] == SBI_US_ETF_SOURCE_FIELDNAMES
+
+
+def test_index_family_inference_covers_common_etf_categories():
+    assert infer_index_family_for_text("", "SPDR Dow Jones Industrial Average ETF") == "dow_jones"
+    assert infer_index_family_for_text("", "iShares Core MSCI Emerging Markets ETF") == "emerging"
+    assert infer_index_family_for_text("", "NEXT FUNDS 東証REIT指数連動型上場投信") == "reit"
+    assert infer_index_family_for_text("", "iShares 20+ Year Treasury Bond ETF") == "bond"
+    assert infer_index_family_for_text("", "ＭＡＸＩＳ ＪＰＸ日経４００上場投信") == "jpx_nikkei400"
+    assert infer_index_family_for_text("", "iShares MSCI India Climate Transition ETF") == "india"
+    assert (
+        infer_index_family_for_text("", "Direxion デイリー AAPL 株 ベア1倍 ETF") == "single_stock"
+    )
 
 
 def test_build_sbi_us_source_rows_skip_missing_required_values():

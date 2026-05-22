@@ -341,35 +341,6 @@ _US_SECTOR_THEME_SECTOR_MAP = {
     "公益事業": ("energy", "utilities"),
 }
 
-_INDEX_FAMILY_KEYWORDS = {
-    "acwi": ("ACWI", "ALL COUNTRY", "全世界"),
-    "msci_world": ("MSCI WORLD", "DEVELOPED", "先進国"),
-    "nasdaq100": ("NASDAQ 100", "NASDAQ100", "ナスダック100"),
-    "nikkei225": ("NIKKEI 225", "日経225"),
-    "small_us": ("SMALL-CAP", "SMALL CAP", "小型"),
-    "sp500": ("S&P 500", "SP500", "S&P500"),
-    "topix": ("TOPIX",),
-    "total_us": ("TOTAL STOCK MARKET", "TOTAL U.S.", "全米"),
-}
-
-_LEVERAGED_MARKERS = (
-    "2X",
-    "3X",
-    "BULL",
-    "LEVERAGED",
-    "ULTRA",
-    "レバレッジ",
-    "ブル",
-)
-_INVERSE_MARKERS = (
-    "BEAR",
-    "INVERSE",
-    "SHORT",
-    "インバース",
-    "ベア",
-    "反対",
-)
-_ETN_MARKERS = ("ETN", "ＥＴＮ", "エーティーエヌ")
 _COMMODITY_MARKERS = (
     "GOLD",
     "SILVER",
@@ -389,7 +360,171 @@ _COMMODITY_MARKERS = (
     "原油",
     "商品",
     "コモディティ",
+    "金上場",
+    "白金",
+    "銀上場",
+    "天然ガス",
+    "ガソリン",
+    "農産物",
+    "穀物",
+    "ニッケル",
+    "小麦",
+    "とうもろこし",
+    "大豆",
+    "産業用金属",
 )
+
+_INDEX_FAMILY_KEYWORDS = {
+    "sp500": ("S&P 500", "SP500", "S&P500", "Ｓ＆Ｐ５００", "Ｓ＆Ｐ ５００"),
+    "nasdaq100": ("NASDAQ 100", "NASDAQ100", "NASDAQ-100", "ナスダック100", "ナスダック１００"),
+    "total_us": ("TOTAL STOCK MARKET", "TOTAL U.S.", "TOTAL US", "TOTAL MARKET", "全米"),
+    "small_us": ("RUSSELL 2000", "SMALL-CAP", "SMALL CAP", "小型"),
+    "acwi": ("ACWI", "ALL COUNTRY", "TOTAL WORLD", "GLOBAL ALL CAP", "全世界"),
+    "msci_world": (
+        "MSCI WORLD",
+        "MSCI EAFE",
+        "MSCIコクサイ",
+        "MSCI‐KOKUSAI",
+        "KOKUSAI",
+        "FTSE DEVELOPED",
+        "DEVELOPED",
+        "外国株式",
+        "海外株式",
+        "先進国",
+    ),
+    "topix": ("TOPIX",),
+    "nikkei225": ("NIKKEI 225", "日経225", "日経２２５", "日経平均", "インデックスファンド225"),
+    "jpx_nikkei400": ("JPX日経", "ＪＰＸ日経", "JPX-NIKKEI"),
+    "dow_jones": ("DOW JONES", "DOW JONES INDUSTRIAL", "ダウ"),
+    "china": ("MSCI CHINA", "CSI", "中国", "チャイナ", "FTSE中国", "KWEB"),
+    "india": ("MSCI INDIA", "NIFTY", "インディア", "インド株", "INDIA"),
+    "singapore_equity": (
+        "STRAITS TIMES",
+        "SINGAPORE STI",
+        "STI ETF",
+        "シンガポール STI",
+        "シンガポール・低炭素",
+    ),
+    "emerging": (
+        "EMERGING",
+        "MSCI EM",
+        "新興国",
+        "エマージング",
+        "ブラジル",
+        "ボベスパ",
+        "サウジ",
+        "VIETNAM",
+        "ベトナム",
+        "INDONESIA",
+        "インドネシア",
+    ),
+    "reit": ("REIT", "リート"),
+    "bond": (
+        "BOND",
+        "TREASURY",
+        "FIXED INCOME",
+        "PREFERRED",
+        "MBS",
+        "MORTGAGE",
+        "債券",
+        "国債",
+        "社債",
+        "優先証券",
+        "モーゲージ",
+        "ハイイールド",
+    ),
+    "dividend": ("HIGH DIVIDEND", "DIVIDEND", "高配当", "配当貴族", "配当"),
+    "commodity": _COMMODITY_MARKERS,
+    "currency": ("通貨", "米ドル・ブル", "米ドル・ベア", "USD BULL", "USD BEAR"),
+    "single_stock": (
+        "SINGLE STOCK",
+        "DAILY TARGET",
+        "デイリー ETF",
+        "デイリーETF",
+        "株 ベア",
+        "株 ブル",
+        "株ベア",
+        "株ブル",
+    ),
+    "style_factor": (
+        "GROWTH ETF",
+        "VALUE ETF",
+        "QUALITY FACTOR",
+        "MID-CAP",
+        "MID CAP",
+        "MINIMUM VOLATILITY",
+        "LOW VOLATILITY",
+        "均等ウェイト",
+        "高ベータ",
+        "低ベータ",
+        "PBR１倍",
+        "PBR1倍",
+    ),
+    "japan_equity": (
+        "日本株",
+        "JAPAN EQUITY",
+        "東証グロース",
+        "東証スタンダード",
+        "日本経済貢献",
+        "JPX/S&P",
+        "ＪＰＸ／Ｓ＆Ｐ",
+        "設備・人材",
+        "読売３３３",
+        "銀行株",
+    ),
+    "active": ("アクティブ運用型", "ACTIVE ETF"),
+    "sector": (
+        "SELECT SECTOR",
+        "SECTOR",
+        "セクター",
+        "業種別",
+        "半導体",
+        "ロボット",
+        "自動運転",
+        "ビッグデータ",
+        "ウラニウム",
+        "防衛",
+        "メガトレンド",
+        "インバウンド",
+        "テレビ業界",
+        "地銀",
+        "バイオテク",
+        "ブロックチェーン",
+        "サイバーセキュリティ",
+        "クラウド",
+        "eコマース",
+        "クリーンテック",
+        "コッパー",
+        "銅ビジネス",
+        "AI ",
+        "ＡＩ",
+        "EV ETF",
+        "ＥＶ",
+    ),
+}
+
+_LEVERAGED_MARKERS = (
+    "2X",
+    "3X",
+    "BULL",
+    "LEVERAGED",
+    "ULTRA",
+    "2倍",
+    "２倍",
+    "3倍",
+    "３倍",
+    "レバレッジ",
+    "ブル",
+)
+_INVERSE_MARKERS = (
+    "BEAR",
+    "INVERSE",
+    "SHORT",
+    "インバース",
+    "ベア",
+    "反対",
+)
+_ETN_MARKERS = ("ETN", "ＥＴＮ", "エーティーエヌ")
 _REIT_MARKERS = ("REIT", "J-REIT", "リート", "不動産投信")
 
 
@@ -896,6 +1031,12 @@ def _index_family_for_text(index_text: str, name: str) -> str:
         if any(marker in combined_text for marker in markers):
             return index_family
     return ""
+
+
+def infer_index_family_for_text(index_text: str, name: str) -> str:
+    """Infer the ranking UI index family from official index/name text."""
+
+    return _index_family_for_text(index_text, name)
 
 
 def _complexity_for_etf(row: Mapping[str, Any], name: str) -> str:

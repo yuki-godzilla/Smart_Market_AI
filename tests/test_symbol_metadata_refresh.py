@@ -138,6 +138,38 @@ def test_yahoo_provider_treats_trailing_annual_dividend_yield_as_ratio():
     assert updates[0].values["dividend_yield_pct"] == "0.6"
 
 
+def test_yahoo_provider_treats_annual_expense_ratio_as_ratio():
+    provider = YahooSymbolMetadataProvider(
+        ticker_info_reader=lambda symbol: {
+            "annualReportExpenseRatio": 0.0003,
+        }
+    )
+
+    updates = provider.fetch_metadata(
+        [{"symbol": "IVV", "asset_type": "etf", "currency": "USD"}],
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert updates[0].values["expense_ratio_pct"] == "0.03"
+
+
+def test_yahoo_provider_treats_net_expense_ratio_as_percentage():
+    provider = YahooSymbolMetadataProvider(
+        ticker_info_reader=lambda symbol: {
+            "netExpenseRatio": 0.15,
+        }
+    )
+
+    updates = provider.fetch_metadata(
+        [{"symbol": "QQQM", "asset_type": "etf", "currency": "USD"}],
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert updates[0].values["expense_ratio_pct"] == "0.15"
+
+
 def test_yahoo_provider_maps_sector_to_allowed_theme_without_network():
     provider = YahooSymbolMetadataProvider(
         ticker_info_reader=lambda symbol: {

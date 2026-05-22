@@ -7,6 +7,7 @@ from backend.marketdata.ranking_universe_policy import (
 )
 from ui.symbol_universe import (
     SYMBOL_UNIVERSE_REQUIRED_COLUMNS,
+    symbol_provider_symbol,
     symbol_universe_csv_metadata_summary,
     symbol_universe_csv_rows,
     symbol_universe_csv_validation_issues,
@@ -91,12 +92,20 @@ def test_symbol_universe_csv_includes_expanded_stock_and_etf_seeds():
     assert row_by_symbol["ACWI"]["metadata_source"] == "yahoo"
     assert row_by_symbol["ACWI"]["nisa_category"] == "growth"
     assert row_by_symbol["DIA"]["asset_type"] == "etf"
+    assert row_by_symbol["CSOP"]["yahoo_symbol"] == "SRU.SI"
+    assert row_by_symbol["PXIU"]["is_leveraged"] == "true"
     assert row_by_symbol["8951.T"]["asset_type"] == "reit"
     assert row_by_symbol["8951.T"]["nisa_category"] == "growth"
     assert symbol_allowed_by_ranking_universe_policy(row_by_symbol["QQQM"])
     assert symbol_allowed_by_ranking_universe_policy(row_by_symbol["1301.T"])
     assert symbol_allowed_by_ranking_universe_policy(row_by_symbol["9503.T"])
     assert not symbol_allowed_by_ranking_universe_policy(row_by_symbol["8951.T"])
+
+
+def test_symbol_provider_symbol_uses_curated_yahoo_mapping():
+    assert symbol_provider_symbol("CSOP", "yahoo") == "SRU.SI"
+    assert symbol_provider_symbol("AAPL", "yahoo") == "AAPL"
+    assert symbol_provider_symbol("CSOP", "mock") == "CSOP"
 
 
 def test_validate_symbol_universe_rows_reports_missing_required_column():

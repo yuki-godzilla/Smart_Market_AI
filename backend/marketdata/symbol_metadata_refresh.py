@@ -40,7 +40,10 @@ class SymbolMetadataFailure:
 class SymbolMetadataProvider(Protocol):
     """Provider boundary for symbol-universe metadata refresh."""
 
-    name: str
+    @property
+    def name(self) -> str:
+        """Provider name recorded in refresh metadata and manifests."""
+        ...
 
     def fetch_metadata(
         self,
@@ -330,11 +333,9 @@ def _yahoo_metadata_values(
     if beta is not None:
         values["risk_band"] = _risk_band(beta)
 
-    expense_ratio = _optional_decimal_info(info, "annualReportExpenseRatio")
-    if expense_ratio is None:
-        expense_ratio = _optional_decimal_info(info, "netExpenseRatio")
-    if row.get("asset_type") == "etf" and expense_ratio is not None and expense_ratio >= 0:
-        values["expense_ratio_pct"] = _format_decimal(_ratio_to_percent(expense_ratio))
+    expense_ratio_pct = _yahoo_expense_ratio_pct(info)
+    if row.get("asset_type") == "etf" and expense_ratio_pct is not None and expense_ratio_pct >= 0:
+        values["expense_ratio_pct"] = _format_decimal(expense_ratio_pct)
 
     return values
 
@@ -369,6 +370,19 @@ def _yahoo_dividend_yield_pct(info: dict[str, object]) -> Decimal | None:
     if trailing_yield is None:
         return None
     return _ratio_to_percent(trailing_yield)
+
+
+def _yahoo_expense_ratio_pct(info: dict[str, object]) -> Decimal | None:
+    annual_ratio = _optional_decimal_info(info, "annualReportExpenseRatio")
+    if annual_ratio is not None:
+        return _ratio_to_percent(annual_ratio)
+
+    net_expense_ratio = _optional_decimal_info(info, "netExpenseRatio")
+    if net_expense_ratio is None:
+        return None
+    # yfinance commonly exposes netExpenseRatio as a percentage value
+    # (for example, 0.03 means 0.03%).
+    return net_expense_ratio
 
 
 def _format_decimal(value: Decimal) -> str:

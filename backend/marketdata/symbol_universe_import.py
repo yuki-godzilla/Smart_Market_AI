@@ -19,6 +19,7 @@ SYMBOL_UNIVERSE_SOURCE_ALIASES = {
     "theme": ("theme", "investment_theme", "テーマ"),
     "sector": ("sector", "industry", "gics_sector", "業種", "セクター"),
     "aliases": ("aliases", "search_aliases", "検索別名"),
+    "yahoo_symbol": ("yahoo_symbol", "yahoo_ticker", "provider_yahoo_symbol", "Yahoo用銘柄コード"),
     "dividend_category": ("dividend_category", "dividend_type", "配当カテゴリ"),
     "dividend_yield_pct": ("dividend_yield_pct", "dividend_yield", "配当利回り"),
     "market_cap_tier": ("market_cap_tier", "market_cap_size", "時価総額"),

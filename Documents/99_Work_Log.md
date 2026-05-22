@@ -18,6 +18,15 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-05-22 - Ranking symbol master detail modal
+
+- Added a ranking-result row click flow that opens a modal with the selected symbol's local `symbol_universe.csv` data.
+- Replaced the temporary full-width button rows with an AgGrid ranking result table so row-click detail opening, hover/selection state, horizontal scrolling, sorting, filtering, and column resizing can coexist with a table-like layout.
+- Tuned the AgGrid ranking table dark styling so headers stay readable and the grid surface is visually distinct from the surrounding page.
+- Rendered symbol master fields as `項目 / 列 / 値` rows so UI labels and raw CSV column names can be checked together.
+- Added investment-use help text to the ranking acquisition period selector, explaining short, medium, and long lookback use cases.
+- Added regression tests for AgGrid options, selected-row extraction, stable table keys, and symbol master detail row formatting.
+
 ## 2026-05-22 - Ranking dividend filter mutual exclusion
 
 - Made ranking dividend category and explicit dividend-yield range mutually exclusive; explicit range wins if both are restored from older saved state.

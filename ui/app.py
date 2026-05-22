@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
@@ -9,6 +10,7 @@ from typing import Callable, Iterable, cast
 import altair as alt
 import pandas as pd
 import streamlit as st
+from st_aggrid import AgGrid, DataReturnMode, GridOptionsBuilder, GridUpdateMode
 
 from backend.core.config import get_settings
 from backend.core.data_contracts import (
@@ -115,7 +117,7 @@ from ui.state import (
     MARKET_DATA_STATUS_STATE_KEY,
     MARKET_DATA_TOAST_STATE_KEY,
 )
-from ui.symbol_universe import symbol_provider_symbol
+from ui.symbol_universe import symbol_provider_symbol, symbol_universe_csv_rows
 from ui.views.common import (
     _optional_decimal_from_text,
     _render_table,
@@ -155,6 +157,124 @@ MARKET_DATA_MODE_RANKING = "ranking"
 MARKET_DATA_MODE_LABELS = {
     MARKET_DATA_MODE_COCKPIT: "銘柄コックピット",
     MARKET_DATA_MODE_RANKING: "銘柄ランキング",
+}
+SYMBOL_UNIVERSE_DETAIL_LABELS = {
+    "symbol": "銘柄コード",
+    "name": "銘柄名",
+    "market": "市場",
+    "asset_type": "商品分類",
+    "currency": "通貨",
+    "broker": "取扱元",
+    "tradability": "取引可否",
+    "nisa_category": "NISA区分",
+    "nisa_growth_eligible": "成長投資枠",
+    "nisa_tsumitate_eligible": "つみたて投資枠",
+    "investment_style": "投資スタイル",
+    "is_sbi_supported": "SBI対応",
+    "is_active": "有効銘柄",
+    "is_leveraged": "レバレッジ",
+    "is_inverse": "インバース",
+    "theme": "テーマ",
+    "sector": "セクター",
+    "dividend_category": "配当カテゴリ",
+    "dividend_yield_pct": "配当利回り(%)",
+    "market_cap_tier": "時価総額分類",
+    "index_family": "連動指数",
+    "expense_ratio_pct": "信託報酬/経費率(%)",
+    "complexity": "複雑さ",
+    "risk_band": "市場感応度",
+    "per": "PER",
+    "pbr": "PBR",
+    "roe_pct": "ROE(%)",
+    "consensus_rating": "コンセンサス",
+    "forecast_agreement": "予測一致",
+    "data_quality": "データ品質",
+    "tags": "タグ",
+    "aliases": "別名",
+    "yahoo_symbol": "Yahoo取得用symbol",
+    "metadata_source": "metadata source",
+    "metadata_as_of": "metadata as of",
+    "metadata_updated_at": "metadata updated at",
+}
+RANKING_RESULT_GRID_CUSTOM_CSS = {
+    ".ag-root-wrapper": {
+        "background-color": "#121821 !important",
+        "border": "1px solid #2f3a49",
+        "border-radius": "6px",
+    },
+    ".ag-root-wrapper-body": {
+        "background-color": "#121821 !important",
+    },
+    ".ag-root": {
+        "background-color": "#121821 !important",
+    },
+    ".ag-body": {
+        "background-color": "#121821 !important",
+    },
+    ".ag-body-viewport": {
+        "background-color": "#121821 !important",
+    },
+    ".ag-center-cols-viewport": {
+        "background-color": "#121821 !important",
+    },
+    ".ag-center-cols-container": {
+        "background-color": "#121821 !important",
+    },
+    ".ag-pinned-left-cols-container": {
+        "background-color": "#121821 !important",
+    },
+    ".ag-header": {
+        "background-color": "#202838 !important",
+        "border-bottom": "1px solid #3a4658",
+    },
+    ".ag-header-viewport": {
+        "background-color": "#202838 !important",
+    },
+    ".ag-header-container": {
+        "background-color": "#202838 !important",
+    },
+    ".ag-header-cell": {
+        "background-color": "#202838 !important",
+        "border-right": "1px solid #354153",
+        "color": "#e5edf7 !important",
+    },
+    ".ag-header-cell-label": {
+        "font-weight": "700",
+        "color": "#e5edf7 !important",
+    },
+    ".ag-header-cell-text": {
+        "color": "#e5edf7 !important",
+        "font-weight": "700",
+    },
+    ".ag-icon": {
+        "color": "#aeb9c8 !important",
+    },
+    ".ag-row": {
+        "background-color": "#151d29 !important",
+        "border-bottom": "1px solid #2a3442",
+        "color": "#eef3fb !important",
+        "cursor": "pointer",
+    },
+    ".ag-row-even": {
+        "background-color": "#151d29 !important",
+    },
+    ".ag-row-odd": {
+        "background-color": "#111923 !important",
+    },
+    ".ag-row-hover": {
+        "background-color": "#223145 !important",
+    },
+    ".ag-row-selected": {
+        "background-color": "#283a52 !important",
+    },
+    ".ag-cell": {
+        "border-right": "1px solid #263140",
+        "color": "#eef3fb !important",
+        "font-weight": "600",
+    },
+    ".ag-cell-value": {
+        "color": "#eef3fb !important",
+    },
 }
 
 
@@ -250,6 +370,114 @@ def _ranking_result_matches_current_selection(
         end=end,
     )
     return bool(current_source) and stored_source == current_source
+
+
+def _symbol_universe_row_for_symbol(symbol: str) -> dict[str, str] | None:
+    normalized_symbol = symbol.strip().upper()
+    for row in symbol_universe_csv_rows():
+        if row.get("symbol", "").strip().upper() == normalized_symbol:
+            return row
+    return None
+
+
+def symbol_universe_detail_rows(row: dict[str, str]) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for column, value in row.items():
+        label = SYMBOL_UNIVERSE_DETAIL_LABELS.get(column, column)
+        text_value = str(value).strip()
+        rows.append(
+            {
+                "項目": label,
+                "列": column,
+                "値": text_value or "-",
+            }
+        )
+    return rows
+
+
+def _ranking_result_table_base_key(ranking_source: str, weight_preset: str) -> str:
+    source_hash = hashlib.sha1(
+        f"{ranking_source}|{weight_preset}".encode("utf-8"),
+        usedforsecurity=False,
+    ).hexdigest()[:12]
+    return f"market_data_ranking_result_table_{source_hash}"
+
+
+def _ranking_result_grid_key(base_key: str) -> str:
+    nonce = int(st.session_state.get(f"{base_key}_nonce", 0))
+    return f"{base_key}_{nonce}"
+
+
+def ranking_result_aggrid_frame(display_rows: list[dict[str, str]]) -> pd.DataFrame:
+    return pd.DataFrame(display_rows)
+
+
+def ranking_result_aggrid_options(display_rows: list[dict[str, str]]) -> dict[str, object]:
+    frame = ranking_result_aggrid_frame(display_rows)
+    builder = GridOptionsBuilder.from_dataframe(frame)
+    builder.configure_default_column(
+        sortable=True,
+        filter=True,
+        resizable=True,
+        wrapText=False,
+        autoHeight=False,
+    )
+    builder.configure_selection(
+        selection_mode="single",
+        use_checkbox=False,
+        suppressRowClickSelection=False,
+        suppressRowDeselection=False,
+    )
+    builder.configure_grid_options(
+        rowHeight=38,
+        headerHeight=38,
+        suppressCellFocus=True,
+        tooltipShowDelay=250,
+        ensureDomOrder=True,
+        enableCellTextSelection=True,
+    )
+    if "順位" in frame.columns:
+        builder.configure_column("順位", width=76, pinned="left", filter=False)
+    if "銘柄" in frame.columns:
+        builder.configure_column("銘柄", width=110, pinned="left")
+    if "銘柄名" in frame.columns:
+        builder.configure_column("銘柄名", minWidth=220, pinned="left")
+    for column in ("総合スコア", "Screening", "予測一致", "データ品質", "Risk"):
+        if column in frame.columns:
+            builder.configure_column(column, width=112, filter=False)
+    if "見方" in frame.columns:
+        builder.configure_column("見方", width=130)
+    if "注意点" in frame.columns:
+        builder.configure_column("注意点", minWidth=220, tooltipField="注意点")
+    if "補足" in frame.columns:
+        builder.configure_column("補足", minWidth=520, flex=2, tooltipField="補足")
+    return cast(dict[str, object], builder.build())
+
+
+def ranking_detail_symbol_from_aggrid_response(grid_response: object) -> str | None:
+    selected_rows = getattr(grid_response, "selected_rows", None)
+    if selected_rows is None and isinstance(grid_response, dict):
+        selected_rows = grid_response.get("selected_rows")
+    if selected_rows is None:
+        return None
+    if isinstance(selected_rows, pd.DataFrame):
+        if selected_rows.empty:
+            return None
+        row = selected_rows.iloc[0].to_dict()
+    elif isinstance(selected_rows, list):
+        row = selected_rows[0] if selected_rows else None
+    elif isinstance(selected_rows, dict):
+        row = selected_rows
+    else:
+        return None
+    if not isinstance(row, dict):
+        return None
+    symbol = str(row.get("銘柄", "")).strip()
+    return symbol or None
+
+
+def _ranking_result_grid_height(display_rows: list[dict[str, str]]) -> int:
+    return min(520, max(150, 44 * len(display_rows) + 48))
 
 
 def _selectbox_index(options: list[str], value: str) -> int:
@@ -352,6 +580,55 @@ def _render_metric_filter_grid(
         for column, (label, kwargs) in zip(columns, row_filters, strict=False):
             with column:
                 _render_metric_range_filter(label, **kwargs)
+
+
+@st.dialog("銘柄データ")
+def _render_symbol_universe_detail_dialog(symbol: str) -> None:
+    row = _symbol_universe_row_for_symbol(symbol)
+    if row is None:
+        st.warning("銘柄マスタに該当するデータが見つかりませんでした。")
+        return
+    display_name = row.get("name") or symbol
+    st.subheader(f"{symbol} - {display_name}")
+    st.caption("ローカル銘柄マスタ `symbol_universe.csv` の登録値です。")
+    st.dataframe(
+        symbol_universe_detail_rows(row),
+        hide_index=True,
+        use_container_width=True,
+    )
+
+
+def _render_ranking_result_table(
+    display_rows: list[dict[str, str]],
+    *,
+    ranking_source: str,
+    weight_preset: str,
+) -> None:
+    if not display_rows:
+        st.info("No ranking rows.")
+        return
+    table_base_key = _ranking_result_table_base_key(ranking_source, weight_preset)
+    grid_key = _ranking_result_grid_key(table_base_key)
+    st.caption("銘柄データを見るには、ランキング表の行をクリックしてください。")
+    grid_response = AgGrid(
+        ranking_result_aggrid_frame(display_rows),
+        gridOptions=ranking_result_aggrid_options(display_rows),
+        height=_ranking_result_grid_height(display_rows),
+        update_mode=GridUpdateMode.SELECTION_CHANGED,
+        data_return_mode=DataReturnMode.AS_INPUT,
+        theme="dark",
+        custom_css=RANKING_RESULT_GRID_CUSTOM_CSS,
+        key=grid_key,
+        show_toolbar=False,
+        show_search=False,
+        show_download_button=False,
+    )
+    selected_symbol = ranking_detail_symbol_from_aggrid_response(grid_response)
+    if selected_symbol:
+        st.session_state[f"{table_base_key}_nonce"] = (
+            int(st.session_state.get(f"{table_base_key}_nonce", 0)) + 1
+        )
+        _render_symbol_universe_detail_dialog(selected_symbol)
 
 
 def ranking_comparison_summary(
@@ -773,14 +1050,18 @@ def _render_market_data_ranking() -> None:
         if provider in LIVE_MARKET_DATA_PROVIDERS:
             st.caption("Yahoo live data でランキングを作成します。")
     with col_period:
+        period_options = list(RANKING_PERIOD_PRESETS)
+        _ensure_selectbox_state_value("market_data_ranking_period", period_options)
         st.selectbox(
             "取得期間",
-            list(RANKING_PERIOD_PRESETS),
-            index=list(RANKING_PERIOD_PRESETS).index(
-                _ranking_filter_value("market_data_ranking_period", "short")
+            period_options,
+            index=_selectbox_index(
+                period_options,
+                _ranking_filter_value("market_data_ranking_period", "short"),
             ),
             key="market_data_ranking_period",
             format_func=ranking_period_label,
+            help=RANKING_FILTER_HELP_TEXTS["period"],
         )
     st.caption(
         f"並べ替え: {ranking_purpose_label(ranking_purpose)} / "
@@ -992,7 +1273,11 @@ def _render_market_data_ranking() -> None:
             f"表示順: {ranking_weight_preset_label(weight_preset)}。"
             "上位の銘柄ほど、今回の条件では深掘り候補として見やすい順です。"
         )
-        _render_table(display_rows, "No ranking rows.")
+        _render_ranking_result_table(
+            display_rows,
+            ranking_source=ranking_source,
+            weight_preset=weight_preset,
+        )
         _render_ranking_error_rows(cast(list[dict[str, str]], error_rows))
         deep_dive_symbols = ranking_symbol_options(ranked_rows)
         if deep_dive_symbols:

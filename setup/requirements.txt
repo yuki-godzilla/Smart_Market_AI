@@ -11,5 +11,6 @@ pandas==2.2.2
 xlrd==2.0.1
 numpy==2.0.1
 streamlit==1.38.0
+streamlit-aggrid==1.2.1.post2
 altair==5.5.0
 yfinance==1.2.2

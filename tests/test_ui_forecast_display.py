@@ -4,16 +4,22 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from types import SimpleNamespace
 
+import pandas as pd
+
 from backend.core.data_contracts import Bar, FundamentalSnapshot, Symbol
 from backend.core.errors import DataSourceError
 from backend.screening import ScreeningScore
 from ui.app import (
+    RANKING_RESULT_GRID_CUSTOM_CSS,
     _build_market_data_ranking_rows,
     _ensure_selectbox_state_value,
     _market_data_preview_symbol_label,
     _name_from_candidate,
     _normalize_dividend_filter_state,
+    _ranking_result_grid_height,
+    _ranking_result_grid_key,
     _ranking_result_matches_current_selection,
+    _ranking_result_table_base_key,
     _ranking_source_key_for_selection,
     _ranking_symbols_from_selected_labels,
     _render_market_chart,
@@ -33,9 +39,12 @@ from ui.app import (
     merged_symbol_candidate_rows,
     provider_error_summary_rows,
     ranking_comparison_summary,
+    ranking_detail_symbol_from_aggrid_response,
+    ranking_result_aggrid_options,
     score_component_rows,
     set_cached_ranking_build,
     symbol_candidate_label,
+    symbol_universe_detail_rows,
 )
 from ui.ranking import (
     RANKING_BETA_RISK_LABELS,
@@ -169,6 +178,84 @@ def test_symbol_candidate_labels_filter_by_symbol_or_name():
     assert symbol_candidate_labels(rows, "retail") == ["9983.T - Fast Retailing"]
     assert symbol_candidate_labels(rows, "AAPL") == ["AAPL - Apple Inc."]
     assert symbol_candidate_labels(rows, "missing") == []
+
+
+def test_symbol_universe_detail_rows_show_column_labels_and_blank_values():
+    assert symbol_universe_detail_rows(
+        {
+            "symbol": "7203.T",
+            "name": "Toyota Motor",
+            "dividend_yield_pct": "",
+            "custom_field": "custom",
+        }
+    ) == [
+        {"項目": "銘柄コード", "列": "symbol", "値": "7203.T"},
+        {"項目": "銘柄名", "列": "name", "値": "Toyota Motor"},
+        {"項目": "配当利回り(%)", "列": "dividend_yield_pct", "値": "-"},
+        {"項目": "custom_field", "列": "custom_field", "値": "custom"},
+    ]
+
+
+def test_ranking_result_aggrid_options_enable_single_row_click_selection():
+    options = ranking_result_aggrid_options(
+        [
+            {
+                "順位": "1",
+                "銘柄": "8174.T",
+                "銘柄名": "日本瓦斯",
+                "総合スコア": "80.1",
+                "補足": "深掘り候補です",
+            }
+        ]
+    )
+
+    assert options["rowSelection"] == "single"
+    assert options["suppressRowClickSelection"] is False
+    assert options["suppressCellFocus"] is True
+    column_defs = {column["field"]: column for column in options["columnDefs"]}
+    assert column_defs["順位"]["pinned"] == "left"
+    assert column_defs["銘柄"]["pinned"] == "left"
+    assert column_defs["補足"]["tooltipField"] == "補足"
+
+
+def test_ranking_result_grid_custom_css_keeps_dark_table_readable():
+    assert RANKING_RESULT_GRID_CUSTOM_CSS[".ag-root-wrapper"]["background-color"] == (
+        "#121821 !important"
+    )
+    assert RANKING_RESULT_GRID_CUSTOM_CSS[".ag-header-cell-text"]["color"] == ("#e5edf7 !important")
+    assert RANKING_RESULT_GRID_CUSTOM_CSS[".ag-row-even"]["background-color"] == (
+        "#151d29 !important"
+    )
+    assert RANKING_RESULT_GRID_CUSTOM_CSS[".ag-row-odd"]["background-color"] == (
+        "#111923 !important"
+    )
+
+
+def test_ranking_detail_symbol_from_aggrid_response_handles_dataframe_and_dict():
+    selected_rows = pd.DataFrame([{"銘柄": "8174.T", "銘柄名": "日本瓦斯"}])
+    response = SimpleNamespace(selected_rows=selected_rows)
+
+    assert ranking_detail_symbol_from_aggrid_response(response) == "8174.T"
+    assert ranking_detail_symbol_from_aggrid_response({"selected_rows": [{"銘柄": "5015.T"}]}) == (
+        "5015.T"
+    )
+    assert ranking_detail_symbol_from_aggrid_response(SimpleNamespace(selected_rows=None)) is None
+    assert ranking_detail_symbol_from_aggrid_response({"selected_rows": []}) is None
+
+
+def test_ranking_result_grid_key_and_height_are_stable():
+    assert _ranking_result_grid_key("ranking") == "ranking_0"
+    assert _ranking_result_grid_height([{"銘柄": "8174.T"}]) == 150
+    assert _ranking_result_grid_height([{"銘柄": str(index)} for index in range(20)]) == 520
+
+
+def test_ranking_result_table_base_key_changes_with_result_source():
+    assert _ranking_result_table_base_key("source-a", "balanced") == (
+        _ranking_result_table_base_key("source-a", "balanced")
+    )
+    assert _ranking_result_table_base_key("source-a", "balanced") != (
+        _ranking_result_table_base_key("source-b", "balanced")
+    )
 
 
 def test_symbol_universe_rows_adds_static_selection_metadata():
@@ -1419,6 +1506,8 @@ def test_ranking_period_dates_use_beginner_presets():
     assert ranking_period_dates("short", end) == (date(2026, 5, 10), end)
     assert ranking_period_dates("medium", end) == (date(2026, 4, 17), end)
     assert ranking_period_dates("long", end) == (date(2025, 5, 17), end)
+    assert "短期は直近の値動き" in RANKING_FILTER_HELP_TEXTS["period"]
+    assert "安定性" in RANKING_FILTER_HELP_TEXTS["period"]
 
 
 def test_build_market_data_ranking_rows_fetches_symbols_concurrently(monkeypatch):

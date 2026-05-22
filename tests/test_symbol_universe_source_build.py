@@ -15,6 +15,7 @@ from backend.marketdata.symbol_universe_source_build import (
     build_nisa_eligibility_source_rows,
     build_sbi_us_etf_source_rows,
     build_sbi_us_stock_source_rows,
+    infer_etf_leveraged_for_text,
     infer_index_family_for_text,
 )
 
@@ -314,6 +315,18 @@ def test_build_sbi_us_etf_source_rows_marks_leveraged_and_inverse_products():
     assert result.rows[2]["is_inverse"] == "true"
     assert result.manifest["source_kind"] == "sbi_us_etf"
     assert result.manifest["fieldnames"] == SBI_US_ETF_SOURCE_FIELDNAMES
+
+
+def test_etf_leveraged_inference_does_not_match_bloomberg_or_sustainable_text():
+    assert not infer_etf_leveraged_for_text(
+        "NEXT FUNDS ブルームバーグ米国国債（7-10年）インデックス連動型上場投信"
+    )
+    assert not infer_etf_leveraged_for_text("FT ブルームバーグ 人工知能 ETF")
+    assert not infer_etf_leveraged_for_text(
+        "カラモス アデトクンボ グローバル サステナブル エクイティーズ ETF"
+    )
+    assert infer_etf_leveraged_for_text("Direxion デイリー TSLA 株 ブル2倍 ETF")
+    assert infer_etf_leveraged_for_text("NEXT NOTES ドバイ原油先物 ダブル・ブル ETN")
 
 
 def test_index_family_inference_covers_common_etf_categories():

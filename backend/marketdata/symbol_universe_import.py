@@ -113,7 +113,9 @@ SOURCE_PROFILES: dict[str, SymbolUniverseSourceProfile] = {
             column_defaults={
                 **SBI_POLICY_COLUMN_DEFAULTS,
                 "tradability": "unknown",
-                "nisa_category": "unknown",
+                "nisa_category": "growth",
+                "nisa_growth_eligible": "true",
+                "nisa_tsumitate_eligible": "false",
                 "investment_style": "unknown",
             },
         ),
@@ -129,7 +131,9 @@ SOURCE_PROFILES: dict[str, SymbolUniverseSourceProfile] = {
             column_defaults={
                 **SBI_POLICY_COLUMN_DEFAULTS,
                 "tradability": "unknown",
-                "nisa_category": "unknown",
+                "nisa_category": "growth",
+                "nisa_growth_eligible": "true",
+                "nisa_tsumitate_eligible": "false",
                 "investment_style": "unknown",
             },
         ),
@@ -198,7 +202,9 @@ SOURCE_PROFILES: dict[str, SymbolUniverseSourceProfile] = {
             column_defaults={
                 **SBI_POLICY_COLUMN_DEFAULTS,
                 "tradability": "tradable",
-                "nisa_category": "unknown",
+                "nisa_category": "growth",
+                "nisa_growth_eligible": "true",
+                "nisa_tsumitate_eligible": "false",
                 "investment_style": "lump_sum",
             },
         ),

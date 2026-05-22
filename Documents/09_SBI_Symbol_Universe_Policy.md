@@ -17,7 +17,7 @@ SMAI の銘柄ランキング、比較分析、将来の銘柄推薦で使う MV
 - `symbol_universe.csv` の conservative default metadata
   - `broker=sbi_securities`
   - `tradability=unknown`
-  - `nisa_category=unknown`
+  - `nisa_category=unknown`（JPX 国内株 profile では `growth`）
   - `investment_style=unknown`
   - `is_sbi_supported=true`
   - `is_active=true`
@@ -39,6 +39,8 @@ SMAI の銘柄ランキング、比較分析、将来の銘柄推薦で使う MV
   - `data/marketdata/symbol_universe_sources/sbi_us_etf_seed.csv`
 - `symbol_universe.csv` への source seed 反映
   - JPX listed-stock source として国内株 3,645件を追加済み
+  - 国内株 3,747件を NISA 成長投資枠対象として整理済み
+  - 米国株 4,334件を NISA 成長投資枠対象として整理済み
   - JPX NISA 成長投資枠 ETF/ETN source として 27件を追加/更新済み
   - SBI US stock official HTML source として 4,293件を反映
   - SBI US ETF official HTML source として 607件を反映
@@ -151,6 +153,7 @@ Future Phase:
 - まず JPX 上場銘柄一覧をベースにする。
 - SBI証券での厳密な取扱可否は後続拡張として扱う。
 - 初期値は `is_sbi_supported=true`, `tradability=unknown` を許容する。
+- NISA 成長投資枠は原則として上場株式等を対象にするため、JPX 国内株 source profile は `nisa_category=growth`, `nisa_growth_eligible=true`, `nisa_tsumitate_eligible=false` を既定値にする。
 - 監理銘柄、整理銘柄、売買停止銘柄、上場廃止予定銘柄、極端に流動性が低い銘柄は、将来 `is_active=false` や quality warning で扱う。
 
 米国株式:
@@ -158,6 +161,7 @@ Future Phase:
 - SBI証券の米国株式取扱銘柄一覧を手動 CSV 化または source CSV 化して取り込む。
 - Nasdaq / NYSE / AMEX 上場情報や Yahoo などは補助 metadata source として扱う。
 - 初期は主要銘柄から始め、SBI確認済み source が入ったものは `tradability=tradable` へ更新する。
+- SBIのNISA成長投資枠では外国上場株式等も対象に含まれるため、SBI米国株 source profile は `nisa_category=growth`, `nisa_growth_eligible=true`, `nisa_tsumitate_eligible=false` を既定値にする。
 
 国内 ETF / ETN:
 
@@ -417,7 +421,7 @@ ranking_universe:
 | `jpx_stock` | JPX国内株 seed | `market=jp`, `asset_type=stock`, `currency=JPY`, `symbol_suffix=.T`, `tradability=unknown` |
 | `jpx_etf` | JPX国内 ETF seed | `market=jp`, `asset_type=etf`, `currency=JPY`, `tradability=unknown` |
 | `jpx_reit` | JPX listed REIT source | `market=jp`, `asset_type=reit`, `currency=JPY`, `tradability=unknown` |
-| `sbi_us_stock` | SBI取扱米国株 seed | `market=us`, `asset_type=stock`, `currency=USD`, `tradability=tradable` |
+| `sbi_us_stock` | SBI取扱米国株 seed | `market=us`, `asset_type=stock`, `currency=USD`, `tradability=tradable`, `nisa_category=growth` |
 | `sbi_us_etf` | SBI取扱米国/海外 ETF seed | `market=us`, `asset_type=etf`, `currency=USD`, `tradability=tradable` |
 | `nisa_eligibility` | NISA制度 metadata 更新 source | 既存銘柄の `nisa_category`, `nisa_growth_eligible`, `nisa_tsumitate_eligible`, metadata fields だけを更新 |
 | `ranking_metadata` | PER/PBR/ROE/配当利回りなどのランキング条件 metadata 更新 source | 既存銘柄の ranking filter fields と metadata fields だけを更新 |
@@ -436,10 +440,10 @@ JPX 国内 ETF / ETN を取り込む場合は、JPX ETF raw file を `tools/buil
 
 JPX REIT を取り込む場合は、JPX REIT 公式 HTML を `tools/build_symbol_universe_source.py --source-kind jpx_reit` で source CSV に変換する。REIT は候補マスタに保持するが、MVP ranking universe では `reit` を初期対象外にしているため、ランキング候補には出さない。
 
-SBI米国株 / 米国ETF・海外ETFの取扱一覧を取り込む場合も、公式または確認済み raw CSV / Excel / HTML を local に保存し、`tools/build_symbol_universe_source.py --source-kind sbi_us_stock` / `sbi_us_etf` で source CSV に変換する。SBI公式HTMLは CP932 を扱える。米国株 builder は米国株ページ内に混在するETF表を stock として取り込まないようにスキップする。米国株 builder は既知のクラス株式表記として `BRKB` / `UHALB` を Yahoo-compatible な `BRK-B` / `UHAL-B` に正規化する。ETF builder は、名称や source flag からレバレッジ / インバース判定を保持し、ranking universe policy の除外条件へ渡せる形にする。海外取引所上場 ETF で source symbol と Yahoo ticker が異なる場合は、表示用 `symbol` を残しつつ `yahoo_symbol` に provider 用 ticker を持たせる。
+SBI米国株 / 米国ETF・海外ETFの取扱一覧を取り込む場合も、公式または確認済み raw CSV / Excel / HTML を local に保存し、`tools/build_symbol_universe_source.py --source-kind sbi_us_stock` / `sbi_us_etf` で source CSV に変換する。SBI公式HTMLは CP932 を扱える。米国株 builder は米国株ページ内に混在するETF表を stock として取り込まないようにスキップする。米国株 builder は既知のクラス株式表記として `BRKB` / `UHALB` を Yahoo-compatible な `BRK-B` / `UHAL-B` に正規化する。米国株 profile は NISA 成長投資枠を既定で `growth / true / false` にする。ETF builder は、名称や source flag からレバレッジ / インバース判定を保持し、ranking universe policy の除外条件へ渡せる形にする。`ブルームバーグ`、`サステナブル`、`コンバーチブル` などの通常語をレバレッジの `ブル` と誤判定しないよう、2倍/3倍、BULL、LEVERAGED、ULTRA、ダブル・ブルなどの明確な表現だけをレバレッジ判定に使う。海外取引所上場 ETF で source symbol と Yahoo ticker が異なる場合は、表示用 `symbol` を残しつつ `yahoo_symbol` に provider 用 ticker を持たせる。
 
 2026-05-22 時点の `symbol_universe.csv` は 9,179件です。内訳は stock 8,081件、ETF 1,034件、REIT 58件、投信 4件、ADR 2件です。MVP ranking universe はこのうち `stock` / `etf` のみを対象にします。
-`nisa_eligibility_seed.csv` から 31件の NISA metadata を反映済みです。加えて、JPX NISA 成長投資枠 ETF/ETN Excel から 27件、IMAJ NISA 成長投資枠 listed-fund Excel から既存 ETF 232件 / REIT 57件の NISA metadata を反映済みです。IMAJ source に含まれるインフラファンド等 5件は現行 MVP の候補マスタには未登録のため、`nisa_eligibility` の update-only failure として manifest に残します。
+`nisa_eligibility_seed.csv` から 31件の NISA metadata を反映済みです。加えて、国内株 3,747件と米国株 4,334件を成長投資枠対象として backfill し、JPX NISA 成長投資枠 ETF/ETN Excel から 27件、IMAJ NISA 成長投資枠 listed-fund Excel から既存 ETF 232件 / REIT 57件の NISA metadata を反映済みです。レバレッジ / インバース ETF は `nisa_category=none` へ整理します。IMAJ source に含まれるインフラファンド等 5件は現行 MVP の候補マスタには未登録のため、`nisa_eligibility` の update-only failure として manifest に残します。
 `data/marketdata/symbol_universe_metadata_coverage.json` は現在の ranking metadata 充足状況です。JPX/Yahoo-covered stock rows と SBI公式米国株HTMLから追加した銘柄は、確認済み source CSV または明示 opt-in metadata refresh で `PER` / `PBR` / `ROE` / `配当利回り` を段階的に補完します。2026-05-22 時点では株式 8,081件のうち、`配当利回り` 8,033件、`PBR` 7,630件、`ROE` 7,466件、`PER` 7,457件が埋まっています。ETF は `指数` が 858/1,034 件、`信託報酬/経費率` が 1,013/1,034 件、`複雑さ` が 1,034/1,034 件まで埋まっています。残る指数空欄は名称から安全に推定せず、公式 index / issuer 情報で確認して補完します。SBI米国ETFの Yahoo coverage 失敗は `tools/analyze_yahoo_coverage_failures.py` で原因別に保存し、2026-05-22 時点ではレバレッジ除外3件、`yahoo_symbol` mapping 済み11件に整理済みです。
 
 NG:

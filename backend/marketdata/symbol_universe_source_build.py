@@ -509,12 +509,15 @@ _LEVERAGED_MARKERS = (
     "BULL",
     "LEVERAGED",
     "ULTRA",
-    "2倍",
-    "２倍",
-    "3倍",
-    "３倍",
     "レバレッジ",
-    "ブル",
+    "ダブル・ブル",
+    "ダブル ブル",
+    "ダブルブル",
+)
+_LEVERAGED_PATTERNS = (
+    re.compile(r"(?:2|２|3|３)\s*倍"),
+    re.compile(r"ブル\s*(?:2|２|3|３)\s*倍"),
+    re.compile(r"ダブル\s*[・･]?\s*ブル"),
 )
 _INVERSE_MARKERS = (
     "BEAR",
@@ -1044,11 +1047,11 @@ def _complexity_for_etf(row: Mapping[str, Any], name: str) -> str:
     if explicit_value:
         return explicit_value
     name_upper = name.upper()
-    if any(marker.upper() in name_upper for marker in _ETN_MARKERS):
+    if any(marker in name_upper for marker in _ETN_MARKERS):
         return "etn"
-    if any(marker in name_upper for marker in _INVERSE_MARKERS):
+    if _name_has_inverse_marker(name_upper):
         return "inverse"
-    if any(marker in name_upper for marker in _LEVERAGED_MARKERS):
+    if _name_has_leveraged_marker(name_upper):
         return "leveraged"
     return "beginner"
 
@@ -1065,7 +1068,37 @@ def _flag_for_etf(
     if explicit_value in {"false", "0", "no", "n", "なし", "無"}:
         return "false"
     name_upper = name.upper()
-    return "true" if any(marker in name_upper for marker in name_markers) else "false"
+    return "true" if _name_has_any_etf_marker(name_upper, name_markers) else "false"
+
+
+def infer_etf_leveraged_for_text(name: str) -> bool:
+    """Return whether ETF name text indicates a leveraged product."""
+
+    return _name_has_leveraged_marker(name.upper())
+
+
+def infer_etf_inverse_for_text(name: str) -> bool:
+    """Return whether ETF name text indicates an inverse product."""
+
+    return _name_has_inverse_marker(name.upper())
+
+
+def _name_has_any_etf_marker(name_upper: str, markers: Sequence[str]) -> bool:
+    if markers == _LEVERAGED_MARKERS:
+        return _name_has_leveraged_marker(name_upper)
+    if markers == _INVERSE_MARKERS:
+        return _name_has_inverse_marker(name_upper)
+    return any(marker in name_upper for marker in markers)
+
+
+def _name_has_leveraged_marker(name_upper: str) -> bool:
+    return any(marker in name_upper for marker in _LEVERAGED_MARKERS) or any(
+        pattern.search(name_upper) for pattern in _LEVERAGED_PATTERNS
+    )
+
+
+def _name_has_inverse_marker(name_upper: str) -> bool:
+    return any(marker in name_upper for marker in _INVERSE_MARKERS)
 
 
 def _tags_for_etf(complexity: str) -> str:

@@ -27,8 +27,29 @@ def test_symbol_universe_csv_matches_schema():
     assert rows[0]["tradability"] == "unknown"
     assert row_by_symbol["7203.T"]["nisa_category"] == "growth"
     assert row_by_symbol["7203.T"]["nisa_growth_eligible"] == "true"
+    assert row_by_symbol["1301.T"]["nisa_category"] == "growth"
+    assert row_by_symbol["1301.T"]["nisa_growth_eligible"] == "true"
     assert row_by_symbol["1540.T"]["nisa_category"] == "growth"
     assert row_by_symbol["1540.T"]["nisa_growth_eligible"] == "true"
+    assert row_by_symbol["BRK-B"]["nisa_category"] == "growth"
+    assert row_by_symbol["BRK-B"]["nisa_growth_eligible"] == "true"
+    jp_stock_growth_rows = [
+        row
+        for row in rows
+        if row["market"] == "jp"
+        and row["asset_type"] == "stock"
+        and (row["nisa_category"] in {"growth", "both"} or row["nisa_growth_eligible"] == "true")
+    ]
+    us_stock_growth_rows = [
+        row
+        for row in rows
+        if row["market"] == "us"
+        and row["asset_type"] == "stock"
+        and (row["nisa_category"] in {"growth", "both"} or row["nisa_growth_eligible"] == "true")
+    ]
+    assert len(jp_stock_growth_rows) >= 3700
+    assert len(us_stock_growth_rows) >= 4300
+    assert _nisa_flags_match_category(rows)
     assert rows[0]["is_sbi_supported"] == "true"
     assert rows[0]["is_active"] == "true"
     assert rows[0]["is_leveraged"] == "false"
@@ -93,6 +114,10 @@ def test_symbol_universe_csv_includes_expanded_stock_and_etf_seeds():
     assert row_by_symbol["ACWI"]["nisa_category"] == "growth"
     assert row_by_symbol["DIA"]["asset_type"] == "etf"
     assert row_by_symbol["CSOP"]["yahoo_symbol"] == "SRU.SI"
+    assert row_by_symbol["2554.T"]["is_leveraged"] == "false"
+    assert row_by_symbol["FAI"]["is_leveraged"] == "false"
+    assert row_by_symbol["MRAL"]["is_leveraged"] == "true"
+    assert row_by_symbol["MRAL"]["nisa_category"] == "none"
     assert row_by_symbol["PXIU"]["is_leveraged"] == "true"
     assert row_by_symbol["8951.T"]["asset_type"] == "reit"
     assert row_by_symbol["8951.T"]["nisa_category"] == "growth"
@@ -100,6 +125,21 @@ def test_symbol_universe_csv_includes_expanded_stock_and_etf_seeds():
     assert symbol_allowed_by_ranking_universe_policy(row_by_symbol["1301.T"])
     assert symbol_allowed_by_ranking_universe_policy(row_by_symbol["9503.T"])
     assert not symbol_allowed_by_ranking_universe_policy(row_by_symbol["8951.T"])
+
+
+def _nisa_flags_match_category(rows: list[dict[str, str]]) -> bool:
+    expected_flags = {
+        "growth": ("true", "false"),
+        "tsumitate": ("false", "true"),
+        "both": ("true", "true"),
+        "none": ("false", "false"),
+    }
+    return all(
+        (row["nisa_growth_eligible"], row["nisa_tsumitate_eligible"])
+        == expected_flags[row["nisa_category"]]
+        for row in rows
+        if row["nisa_category"] in expected_flags
+    )
 
 
 def test_symbol_provider_symbol_uses_curated_yahoo_mapping():

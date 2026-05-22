@@ -226,8 +226,11 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - 常設の詳細条件パネル
   - `属性条件` / `数値条件` / `キーワード検索` に分けて表示
   - 地域 × 商品に応じて、現在の銘柄マスタで判定できる詳細条件だけを表示
-  - 株式: 業種/テーマ、時価総額、配当利回り、PER、PBR、ROE、NISA
+  - 株式: 業種/テーマ、時価総額、市場感応度（β）、配当利回り、PER、PBR、ROE、NISA
   - ETF: 連動指数、信託報酬/経費率、分配金利回り、複雑さ
+  - 時価総額は、日本株では 10兆円 / 1兆円 / 1,000億円 / 100億円、米国株では $200B / $10B / $2B / $300M を目安に表示
+  - 配当カテゴリは、0%、0%超〜3%未満、3%以上の利回り目安を選択肢に表示。ただし連続増配候補は curated metadata 由来
+  - 各条件の `?` help で、指標の意味、目安値、注意点を確認可能
   - 条件のクリア
   - 条件変更後の候補数表示
 - 比較する銘柄
@@ -241,7 +244,8 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 
 - ranking の候補条件は、provider fetch 前に使える `data/marketdata/symbol_universe.csv` の curated metadata を中心にしています。
 - 地域 / 商品 / 詳細条件は provider fetch 前の候補 universe を絞ります。`重視して並べ替え` は Investment Score の表示順の重み付けに使い、候補 universe そのものは絞りません。
-- Risk / 値動きの大きさは取得期間の価格データを見た後の確認材料です。詳細条件では絞らず、ranking result / score breakdown 側で確認します。
+- `市場感応度（β）` は metadata の `risk_band` を使う provider fetch 前の条件です。β 0.8未満を低変動、0.8〜1.2を市場並み、1.2超を高変動として扱います。
+- Ranking result の Risk / リスクスコアは取得期間の価格データを見た後の確認材料です。候補条件の `市場感応度（β）` とは別の指標として確認します。
 - 投資信託は MVP のランキング / スクリーニング / チャート対象外です。source seed や metadata schema は将来対応として残しますが、default ranking universe と UI の主要導線には出しません。
 - dividend category や theme は現在 curated metadata / source import / opt-in metadata refresh で管理します。live provider 由来の更新は明示 opt-in です。
 - 株式の `業種/テーマ` は `theme`, `sector`, `tags` を見ます。JPX 東証上場銘柄一覧の `規模区分` は `market_cap_tier` へ変換し、`時価総額` 条件で使います。
@@ -288,16 +292,16 @@ Symbol universe source import:
 - `tools/build_symbol_universe_source.py` は、公式 raw file を SMAI 用 source CSV へ変換する command です。現在は JPX の東証上場銘柄一覧から国内株 source を作る `--source-kind jpx_listed_stock`、JPX 国内 ETF / ETN source を作る `--source-kind jpx_etf`、JPX listed REIT source を作る `--source-kind jpx_reit`、SBI米国株 / 米国ETF・海外ETF のローカル raw file から source を作る `--source-kind sbi_us_stock` / `sbi_us_etf`、NISA制度 metadata 更新 source を作る `--source-kind nisa_eligibility` に対応しています。raw file は CSV、Excel (`.xls` / `.xlsx`)、JPX ETF/ETN / REIT 公式一覧の HTML、SBI の CP932 HTML を扱えます。PDF は通常 import 対象外です。既定は dry-run で、`--write` を付けた場合だけ source CSV / manifest を書き込みます。
 - `tools/import_symbol_universe_source.py` は、JPX などのローカル source CSV を `symbol_universe.csv` 形式へ取り込む command です。
 - 既定は dry-run で、`--write` を付けた場合だけ CSV / manifest を更新します。write 前に validation error が残る場合は書き込みを拒否します。
-- 初期 source として `data/marketdata/symbol_universe_sources/jpx_etf_seed.csv` と `data/marketdata/symbol_universe_sources/jpx_stock_seed.csv` を置いています。2026-05-20 時点では JPX 東証上場銘柄一覧から国内株 3,645件を追加し、JPX seed と合わせて `symbol_universe.csv` に取り込み済みです。2026-05-20 JPX ETF/ETN 公式一覧 HTML から 399件の source を作成し、国内 ETF 候補を 449件まで拡張済みです。2026-05-21 時点では SBI公式米国株 HTML から 4,293件、SBI公式米国ETF HTML から 607件、JPX REIT HTML から 58件を追加し、candidate master は 9,179件です。JPX NISA 成長投資枠 ETF/ETN Excel から 27件、2026-05-19 IMAJ NISA 成長投資枠 listed-fund Excel から既存 ETF 232件 / REIT 57件の NISA metadata を取り込み済みです。
+- 初期 source として `data/marketdata/symbol_universe_sources/jpx_etf_seed.csv` と `data/marketdata/symbol_universe_sources/jpx_stock_seed.csv` を置いています。2026-05-20 時点では JPX 東証上場銘柄一覧から国内株 3,645件を追加し、JPX seed と合わせて `symbol_universe.csv` に取り込み済みです。国内株 3,747件と米国株 4,334件は NISA 成長投資枠対象として `nisa_category=growth`, `nisa_growth_eligible=true`, `nisa_tsumitate_eligible=false` に整理済みです。2026-05-20 JPX ETF/ETN 公式一覧 HTML から 399件の source を作成し、国内 ETF 候補を 449件まで拡張済みです。2026-05-21 時点では SBI公式米国株 HTML から 4,293件、SBI公式米国ETF HTML から 607件、JPX REIT HTML から 58件を追加し、candidate master は 9,179件です。JPX NISA 成長投資枠 ETF/ETN Excel から 27件、2026-05-19 IMAJ NISA 成長投資枠 listed-fund Excel から既存 ETF 232件 / REIT 57件の NISA metadata を取り込み済みです。
 - MVP 向け source profile として `jpx_listed_stock`, `jpx_stock`, `jpx_etf`, `jpx_reit`, `sbi_us_stock`, `sbi_us_etf`, `nisa_eligibility`, `ranking_metadata` を使えます。`mutual_fund_seed` は将来対応用 profile として残します。
 - 追加 seed として `sbi_us_stock_seed.csv`, `sbi_us_etf_seed.csv`, `mutual_fund_seed.csv` を置いています。SBI US stock / ETF は 2026-05-21 の公式 HTML source に置き換えて拡張済みです。投信 4件は future extension seed として保持し、default ranking universe から除外します。
-- `nisa_eligibility_seed.csv` は既存の株式・ETF 31件へ NISA metadata を付与する local seed です。2026-05-19 時点で `symbol_universe.csv` に反映済みです。
+- `nisa_eligibility_seed.csv` は既存の株式・ETF 31件へ NISA metadata を付与する local seed です。2026-05-19 時点で `symbol_universe.csv` に反映済みです。国内株と米国株は stock profile 側で成長投資枠対象として扱い、ETF / REIT / 投信など個別判定が必要な商品は `nisa_eligibility` source で更新します。
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\import_symbol_universe_source.py --source-csv .\data\marketdata\symbol_universe_sources\jpx_etf_seed.csv --source-profile jpx_etf --as-of 2026-05-18 --updated-at 2026-05-18T00:00:00+09:00
 ```
 
-JPX 東証上場銘柄一覧を使う場合は、先に公式 Excel (`.xls` / `.xlsx`) / CSV を `data/marketdata/raw/` などに保存し、SMAI 用 source CSV に変換します。ETF / ETN / REIT はこの builder では除外し、国内株だけを `jpx_listed_stock` source として作ります。JPX の `規模区分` は `TOPIX Core30 -> mega`, `TOPIX Large70 -> large`, `TOPIX Mid400 -> mid`, `TOPIX Small 1/2 -> small` として `market_cap_tier` に変換します。
+JPX 東証上場銘柄一覧を使う場合は、先に公式 Excel (`.xls` / `.xlsx`) / CSV を `data/marketdata/raw/` などに保存し、SMAI 用 source CSV に変換します。ETF / ETN / REIT はこの builder では除外し、国内株だけを `jpx_listed_stock` source として作ります。JPX の `規模区分` は `TOPIX Core30 -> mega`, `TOPIX Large70 -> large`, `TOPIX Mid400 -> mid`, `TOPIX Small 1/2 -> small` として `market_cap_tier` に変換します。国内株 import profile は、NISA 成長投資枠が上場株式等を対象にする制度であることを前提に `growth / true / false` を既定値にします。整理・監理銘柄などの例外が確認できた場合は、後続の `nisa_eligibility` source で `none` などへ明示更新します。
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\build_symbol_universe_source.py --source-kind jpx_listed_stock --raw-file .\data\marketdata\raw\jpx_listed_stock_20260520.xls --output-csv .\data\marketdata\symbol_universe_sources\jpx_listed_stock_20260520.csv --as-of 2026-05-20 --write
@@ -337,7 +341,7 @@ IMAJ の「NISA成長投資枠対象の対象銘柄（国内ETF、REIT等）」E
 .\venv_SMAI\Scripts\python.exe .\tools\import_symbol_universe_source.py --source-csv .\data\marketdata\symbol_universe_sources\nisa_eligibility_imaj_listed_fund_20260519.csv --source-profile nisa_eligibility --source-name imaj --as-of 2026-05-19 --updated-at 2026-05-19T00:00:00+09:00 --update-existing --write
 ```
 
-SBI米国株 / 米国ETF・海外ETF の取扱一覧を使う場合も、まずローカル raw CSV / Excel / HTML を source CSV に変換します。SBI公式HTMLは CP932 を扱えます。`sbi_us_stock` builder は米国株ページ内に混在するETF表を stock として取り込まないようにスキップします。`sbi_us_stock` builder は既知のクラス株式表記として `BRKB` / `UHALB` を Yahoo-compatible な `BRK-B` / `UHAL-B` に正規化します。`sbi_us_etf` builder は、名称や明示フラグからレバレッジ / インバース ETF を判定し、後段の ranking universe policy で除外できるように `is_leveraged` / `is_inverse` を保持します。現在取り込んだ SBI 公式 ETF HTML は米国形式 ticker が中心です。将来 raw に香港・韓国・シンガポールなどの市場別コードが含まれる場合は、Yahoo symbol suffix / 通貨 / exchange mapping を決めてから追加します。
+SBI米国株 / 米国ETF・海外ETF の取扱一覧を使う場合も、まずローカル raw CSV / Excel / HTML を source CSV に変換します。SBI公式HTMLは CP932 を扱えます。`sbi_us_stock` builder は米国株ページ内に混在するETF表を stock として取り込まないようにスキップします。`sbi_us_stock` builder は既知のクラス株式表記として `BRKB` / `UHALB` を Yahoo-compatible な `BRK-B` / `UHAL-B` に正規化します。米国株 import profile は NISA 成長投資枠を既定で `growth / true / false` にします。`sbi_us_etf` builder は、名称や明示フラグからレバレッジ / インバース ETF を判定し、後段の ranking universe policy で除外できるように `is_leveraged` / `is_inverse` を保持します。現在取り込んだ SBI 公式 ETF HTML は米国形式 ticker が中心です。将来 raw に香港・韓国・シンガポールなどの市場別コードが含まれる場合は、Yahoo symbol suffix / 通貨 / exchange mapping を決めてから追加します。
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\build_symbol_universe_source.py --source-kind sbi_us_stock --raw-file .\data\marketdata\raw\sbi_us_stock_2026-05.csv --output-csv .\data\marketdata\symbol_universe_sources\sbi_us_stock_2026-05.csv --as-of 2026-05-19 --write
@@ -389,8 +393,8 @@ SBI ranking universe policy:
 
 - MVP対象: 国内株式、米国株式、国内ETF、米国ETF/海外ETF。
 - 初期除外: 投資信託、ADR、REIT、FX、CFD、先物・オプション、暗号資産、債券、外貨建MMF、貴金属・コモディティ系ETF、レバレッジ、インバース、非tradable、非SBI対応。
-- `symbol_universe.csv` / schema に SBI policy columns を追加済みです。local curated / source-import seed は conservative default として `broker=sbi_securities`, `tradability=unknown`, `nisa_category=unknown`, `investment_style=unknown`, `is_sbi_supported=true`, `is_active=true`, `is_leveraged=false`, `is_inverse=false` を持てます。
-- `tradability=unknown` は stock / ETF の初期 seed として通し、`not_tradable` だけを除外します。NISA seed import はありますが、公式 source の継続更新は後続範囲です。投信公式 source import は Future Phase です。
+- `symbol_universe.csv` / schema に SBI policy columns を追加済みです。local curated / source-import seed は conservative default として `broker=sbi_securities`, `tradability=unknown`, `investment_style=unknown`, `is_sbi_supported=true`, `is_active=true`, `is_leveraged=false`, `is_inverse=false` を持てます。JPX 国内株と SBI 米国株 profile は NISA 成長投資枠を既定で `growth` とし、ETF / REIT / 投信など個別判定が必要な商品では `nisa_category=unknown` から source 更新します。
+- `tradability=unknown` は stock / ETF の初期 seed として通し、`not_tradable` だけを除外します。NISA metadata は国内株・米国株の成長投資枠 backfill と ETF / REIT source import まで反映済みです。レバレッジ / インバース ETF は `none` に整理し、未確認 ETF / ファンドの個別例外更新は後続範囲です。投信公式 source import は Future Phase です。
 - SBI証券サイトへのログインや画面スクレイピングは通常 workflow に含めません。SBI / JPX / NISA 一覧などを手動または curated source CSV に整形し、source import command で local master へ反映します。投信協会 / 投信CSV / 基準価額は Future Phase で扱います。
 - Ranking / Screening は source site を直接参照せず、`symbol_universe.csv` と default policy helper だけを参照します。
 - 投信向け metadata として `trust_fee_pct`, `aum`, `nisa_tsumitate_eligible`, `nisa_growth_eligible`, `installment_available`, `management_style`, `distribution_policy` を source CSV から取り込めます。ただし MVP ではランキング対象外です。

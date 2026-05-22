@@ -36,6 +36,10 @@ from ui.app import (
     symbol_candidate_label,
 )
 from ui.ranking import (
+    RANKING_BETA_RISK_LABELS,
+    RANKING_BETA_RISK_STANDARD_OR_LOWER,
+    RANKING_DIVIDEND_LABELS,
+    RANKING_FILTER_HELP_TEXTS,
     RANKING_INDEX_FAMILY_LABELS,
     RANKING_INVESTMENT_STYLE_METRICS,
     RANKING_MARKET_CAP_LABELS,
@@ -430,6 +434,16 @@ def test_filter_symbol_universe_rows_filters_by_sector_theme_and_jpx_market_cap(
     assert "industrial" in RANKING_THEME_LABELS
 
 
+def test_ranking_filter_labels_show_quantitative_thresholds():
+    assert RANKING_MARKET_CAP_LABELS["mega"] == "超大型（JP 10兆円以上 / US $200B以上）"
+    assert RANKING_MARKET_CAP_LABELS["small"] == "小型（JP 100億〜1,000億円 / US $300M〜$2B）"
+    assert RANKING_DIVIDEND_LABELS["high_dividend"] == "高配当（配当利回り 3%以上）"
+    assert RANKING_DIVIDEND_LABELS["dividend"] == "配当あり（0%超〜3%未満）"
+    assert "bond" in RANKING_THEME_LABELS
+    assert "$200B/$10B/$2B/$300M" in RANKING_FILTER_HELP_TEXTS["market_cap"]
+    assert "0%超〜3%未満" in RANKING_FILTER_HELP_TEXTS["dividend_category"]
+
+
 def test_ranking_etf_filter_labels_cover_imported_index_families():
     assert {
         "bond",
@@ -526,6 +540,7 @@ def test_filter_symbol_universe_rows_filters_by_nisa_eligibility():
         [
             {"symbol": "7203.T", "name": "Toyota Motor"},
             {"symbol": "6861.T", "name": "Keyence"},
+            {"symbol": "TSLA", "name": "Tesla"},
             {"symbol": "VOO", "name": "Vanguard S&P 500 ETF"},
         ]
     )
@@ -536,7 +551,7 @@ def test_filter_symbol_universe_rows_filters_by_nisa_eligibility():
             rows,
             nisa_eligibility="growth",
         )
-    ] == ["7203.T", "VOO"]
+    ] == ["7203.T", "6861.T", "TSLA", "VOO"]
 
 
 def test_filter_symbol_universe_rows_excludes_commodity_etfs_from_mvp_ranking():
@@ -561,10 +576,11 @@ def test_filter_symbol_universe_rows_excludes_mutual_funds_from_mvp_ranking():
 def test_filter_symbol_universe_rows_supports_internal_risk_metadata_filter():
     rows = symbol_universe_rows(
         [
-            {"symbol": "7203.T", "name": "Toyota Motor"},
-            {"symbol": "AAPL", "name": "Apple Inc."},
+            {"symbol": "7203.T", "name": "Toyota Motor", "risk_band": "LOW"},
+            {"symbol": "AAPL", "name": "Apple Inc.", "risk_band": "MEDIUM"},
             {"symbol": "TM", "name": "Toyota Motor ADR"},
-            {"symbol": "SPY", "name": "SPDR S&P 500 ETF"},
+            {"symbol": "NVDA", "name": "NVIDIA", "risk_band": "HIGH"},
+            {"symbol": "SPY", "name": "SPDR S&P 500 ETF", "risk_band": "MEDIUM"},
         ]
     )
 
@@ -583,8 +599,17 @@ def test_filter_symbol_universe_rows_supports_internal_risk_metadata_filter():
             rows,
             region="us",
             product_type="stock",
+            risk_band=RANKING_BETA_RISK_STANDARD_OR_LOWER,
         )
     ] == ["AAPL"]
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="us",
+            product_type="stock",
+        )
+    ] == ["AAPL", "NVDA"]
     assert [
         row["symbol"]
         for row in filter_symbol_universe_rows(
@@ -610,13 +635,20 @@ def test_ranking_detail_filters_change_by_region_and_product():
     mutual_fund = ranking_detail_filters_for_category("japan", "mutual_fund")
 
     assert "pbr" in japan_stock
-    assert "risk_band" not in us_stock
+    assert "risk_band" in japan_stock
+    assert "risk_band" in us_stock
     assert "nisa_eligibility" in us_stock
     assert "benchmark_index" in etf
     assert "pbr" not in etf
     assert mutual_fund == []
     assert ranking_weight_preset_for_purpose("stability") == "risk"
     assert "moving_average_signal" in RANKING_INVESTMENT_STYLE_METRICS["trend"]
+
+
+def test_beta_risk_filter_labels_explain_thresholds():
+    assert RANKING_BETA_RISK_LABELS[RANKING_BETA_RISK_STANDARD_OR_LOWER] == ("標準以下（β <= 1.2）")
+    assert "β 0.8未満" in RANKING_FILTER_HELP_TEXTS["risk_band"]
+    assert "1.2超" in RANKING_FILTER_HELP_TEXTS["risk_band"]
 
 
 def test_filter_symbol_universe_rows_searches_japanese_aliases():

@@ -256,7 +256,8 @@ def _selectbox_index(options: list[str], value: str) -> int:
 
 
 def _ensure_selectbox_state_value(key: str, options: list[str]) -> None:
-    if key in st.session_state and st.session_state.get(key) not in options:
+    value = _ranking_filter_value(key, options[0])
+    if value not in options:
         st.session_state[key] = options[0]
 
 

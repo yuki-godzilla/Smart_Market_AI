@@ -251,6 +251,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - 株式の `業種/テーマ` は `theme`, `sector`, `tags` を見ます。JPX 東証上場銘柄一覧の `規模区分` は `market_cap_tier` へ変換し、`時価総額` 条件で使います。
 - 株式の `investment_style` は、国内株・米国株とも一括投資向きの候補として `lump_sum` に機械バックフィルしています。ETF の積立可否は source 確認が必要なため、未確認の `investment_style=unknown` は残します。
 - ETF の `nisa_category` は、JPX / IMAJ / SBI のローカル公式 source CSV と照合し、現在の ETF 1,034件では `growth` または `none` に確定済みです。未確認の `unknown` は ETF には残していません。
+- Ranking UI の NISA 条件は `指定なし（NISAで絞らない）` / `NISA対象のみ（成長投資枠）` / `NISA対象外のみ` です。現在の株式候補は国内株・米国株とも成長投資枠対象として整理済みのため、株式で `NISA対象のみ（成長投資枠）` を選んでも候補数が変わらない場合があります。ETF は対象/対象外が混在するため、この条件で候補数が変わります。
 - ranking universe の MVP 方針は、SBI証券で取り扱いがあり、現物・NISA・長期投資で検討しやすい株式・ETFを初期対象にすることです。詳細は [09_SBI_Symbol_Universe_Policy.md](./09_SBI_Symbol_Universe_Policy.md) を参照してください。
 - `broker`, `tradability`, `nisa_category`, `investment_style`, `is_sbi_supported`, `is_active`, `is_leveraged`, `is_inverse` は Phase 18 policy columns として `symbol_universe.csv` に保持します。既存候補は local curated / source-import seed であり、SBI取扱確認済み master ではないため、`tradability=unknown` は初期 ranking で通します。
 - ranking 候補抽出前に default SBI ranking universe policy を適用します。MVP の対象は `stock` / `etf` です。`mutual_fund` / `fund` / `investment_trust` / `adr` / `reit` / FX / CFD / 先物 / option / crypto / bond / MMF / commodity、レバレッジ、インバース、`not_tradable`、`is_sbi_supported=false`、`is_active=false` は初期候補から除外します。

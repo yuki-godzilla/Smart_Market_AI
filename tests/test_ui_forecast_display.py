@@ -9,6 +9,7 @@ from backend.core.errors import DataSourceError
 from backend.screening import ScreeningScore
 from ui.app import (
     _build_market_data_ranking_rows,
+    _ensure_selectbox_state_value,
     _market_data_preview_symbol_label,
     _name_from_candidate,
     _ranking_result_matches_current_selection,
@@ -43,6 +44,7 @@ from ui.ranking import (
     RANKING_INDEX_FAMILY_LABELS,
     RANKING_INVESTMENT_STYLE_METRICS,
     RANKING_MARKET_CAP_LABELS,
+    RANKING_NISA_ELIGIBILITY_LABELS,
     RANKING_THEME_LABELS,
     apply_ranking_weight_preset,
     filter_symbol_universe_rows,
@@ -552,6 +554,71 @@ def test_filter_symbol_universe_rows_filters_by_nisa_eligibility():
             nisa_eligibility="growth",
         )
     ] == ["7203.T", "6861.T", "TSLA", "VOO"]
+
+
+def test_filter_symbol_universe_rows_filters_nisa_non_eligible_etfs():
+    rows = symbol_universe_rows(
+        [
+            {
+                "symbol": "GROWTH",
+                "name": "Growth ETF",
+                "market": "us",
+                "asset_type": "etf",
+                "theme": "index",
+                "nisa_category": "growth",
+                "nisa_growth_eligible": "true",
+                "nisa_tsumitate_eligible": "false",
+            },
+            {
+                "symbol": "OUT",
+                "name": "Non NISA ETF",
+                "market": "us",
+                "asset_type": "etf",
+                "theme": "index",
+                "nisa_category": "none",
+                "nisa_growth_eligible": "false",
+                "nisa_tsumitate_eligible": "false",
+            },
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="us",
+            product_type="etf",
+            nisa_eligibility="none",
+        )
+    ] == ["OUT"]
+
+
+def test_ranking_nisa_labels_match_stock_etf_scope():
+    assert RANKING_NISA_ELIGIBILITY_LABELS == {
+        "all": "指定なし（NISAで絞らない）",
+        "eligible": "NISA対象のみ（成長投資枠）",
+        "none": "NISA対象外のみ",
+    }
+    assert "growth" not in RANKING_NISA_ELIGIBILITY_LABELS
+    assert "tsumitate" not in RANKING_NISA_ELIGIBILITY_LABELS
+    assert "both" not in RANKING_NISA_ELIGIBILITY_LABELS
+
+
+def test_selectbox_state_resets_legacy_nisa_choice_from_saved_filters(monkeypatch):
+    for legacy_value in ("growth", "tsumitate", "both"):
+        session_state = {
+            "market_data_ranking_filters": {
+                "market_data_ranking_nisa": legacy_value,
+            }
+        }
+        monkeypatch.setattr("ui.app.st.session_state", session_state)
+
+        _ensure_selectbox_state_value(
+            "market_data_ranking_nisa",
+            list(RANKING_NISA_ELIGIBILITY_LABELS),
+        )
+
+        assert session_state["market_data_ranking_nisa"] == "all"
 
 
 def test_filter_symbol_universe_rows_excludes_commodity_etfs_from_mvp_ranking():

@@ -265,11 +265,9 @@ RANKING_MANAGEMENT_STYLE_LABELS = {
     "active": "アクティブ",
 }
 RANKING_NISA_ELIGIBILITY_LABELS = {
-    "all": "指定なし",
-    "eligible": "NISA対象",
-    "growth": "成長投資枠",
-    "tsumitate": "つみたて投資枠",
-    "both": "両方",
+    "all": "指定なし（NISAで絞らない）",
+    "eligible": "NISA対象のみ（成長投資枠）",
+    "none": "NISA対象外のみ",
 }
 RANKING_INSTALLMENT_LABELS = {
     "all": "指定なし",
@@ -377,7 +375,11 @@ RANKING_FILTER_HELP_TEXTS = {
         "SMAIでは主にYahoo metadataのbetaから分類しています。"
         "将来の値動きや損失を保証するものではありません。"
     ),
-    "nisa_eligibility": "NISA枠で買える候補を探すための条件です。",
+    "nisa_eligibility": (
+        "NISA対象/対象外で絞ります。現在のランキング対象は株式・ETF中心です。"
+        "株式候補は成長投資枠対象として整理済みなので、株式でNISA対象のみを"
+        "選んでも件数が変わらない場合があります。ETFは対象/対象外が混在します。"
+    ),
     "benchmark_index": (
         "ETFが主に連動を目指す指数や投資対象です。S&P 500、全世界、債券などの"
         "中身の違いを確認します。"
@@ -1116,6 +1118,11 @@ def _symbol_matches_nisa_eligibility(row: dict[str, str], nisa_eligibility: str)
         return growth or tsumitate
     if nisa_eligibility == "growth":
         return growth
+    if nisa_eligibility == "none":
+        return nisa_category == "none" or (
+            row.get("nisa_growth_eligible", "") == "false"
+            and row.get("nisa_tsumitate_eligible", "") == "false"
+        )
     if nisa_eligibility == "tsumitate":
         return tsumitate
     if nisa_eligibility == "both":

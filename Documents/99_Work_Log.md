@@ -18,6 +18,13 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-05-22 - Ranking NISA filter wording
+
+- Simplified the ranking NISA dropdown for the current stock / ETF scope to `指定なし（NISAで絞らない）`, `NISA対象のみ（成長投資枠）`, and `NISA対象外のみ`.
+- Removed confusing visible choices such as `つみたて投資枠` and `両方`; legacy saved values now reset to the safe default.
+- Added `NISA対象外のみ` filtering so ETF candidates can be narrowed by confirmed non-eligible rows.
+- Documented that stock candidates are currently stored as growth-NISA eligible, so the NISA target filter does not reduce domestic or US stock counts.
+
 ## 2026-05-22 - NISA and ETF metadata horizontal cleanup
 
 - Backfilled 4,334 US stock rows as NISA growth eligible, matching the stock-level treatment already applied to JP listed stocks.

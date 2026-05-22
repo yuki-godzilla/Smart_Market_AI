@@ -39,7 +39,9 @@ from ui.app import (
     merged_symbol_candidate_rows,
     provider_error_summary_rows,
     ranking_comparison_summary,
+    ranking_detail_event_token_from_aggrid_response,
     ranking_detail_symbol_from_aggrid_response,
+    ranking_detail_symbol_to_open,
     ranking_result_aggrid_options,
     score_component_rows,
     set_cached_ranking_build,
@@ -239,12 +241,39 @@ def test_ranking_detail_symbol_from_aggrid_response_handles_dataframe_and_dict()
     assert ranking_detail_symbol_from_aggrid_response({"selected_rows": [{"銘柄": "5015.T"}]}) == (
         "5015.T"
     )
+    assert (
+        ranking_detail_symbol_from_aggrid_response({"eventData": {"data": {"銘柄": "9502.T"}}})
+        == "9502.T"
+    )
     assert ranking_detail_symbol_from_aggrid_response(SimpleNamespace(selected_rows=None)) is None
     assert ranking_detail_symbol_from_aggrid_response({"selected_rows": []}) is None
 
 
+def test_ranking_detail_event_token_tracks_row_clicks():
+    response = {
+        "eventData": {
+            "streamlitRerunEventTriggerName": "rowClicked",
+            "rowIndex": 3,
+            "event": {"timeStamp": 12345},
+        }
+    }
+
+    assert ranking_detail_event_token_from_aggrid_response(response, "8174.T") == (
+        "rowClicked|8174.T|3|12345"
+    )
+    assert ranking_detail_event_token_from_aggrid_response({}, "8174.T") == ("selection|8174.T")
+    assert ranking_detail_event_token_from_aggrid_response(response, None) is None
+
+
+def test_ranking_detail_symbol_to_open_only_changes_on_new_click_event():
+    assert ranking_detail_symbol_to_open("8174.T", "event-1", None) == "8174.T"
+    assert ranking_detail_symbol_to_open("8174.T", "event-1", "event-1") is None
+    assert ranking_detail_symbol_to_open("8174.T", "event-2", "event-1") == "8174.T"
+    assert ranking_detail_symbol_to_open(None, "event-2", "event-1") is None
+
+
 def test_ranking_result_grid_key_and_height_are_stable():
-    assert _ranking_result_grid_key("ranking") == "ranking_0"
+    assert _ranking_result_grid_key("ranking") == "ranking_grid"
     assert _ranking_result_grid_height([{"銘柄": "8174.T"}]) == 150
     assert _ranking_result_grid_height([{"銘柄": str(index)} for index in range(20)]) == 520
 

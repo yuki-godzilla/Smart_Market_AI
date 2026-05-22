@@ -18,6 +18,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-05-22 - Ranking result modal rerun stabilization
+
+- Stabilized the ranking-result AgGrid key so closing a detail modal does not remount/repaint the result table.
+- Changed the modal trigger to process row-click event tokens, preventing the previous click from reopening on modal-close reruns while allowing the same row to be clicked again.
+- Kept the AgGrid update trigger scoped to row-click events.
+
 ## 2026-05-22 - Ranking symbol master detail modal
 
 - Added a ranking-result row click flow that opens a modal with the selected symbol's local `symbol_universe.csv` data.

@@ -10,7 +10,7 @@ from typing import Callable, Iterable, cast
 import altair as alt
 import pandas as pd
 import streamlit as st
-from st_aggrid import AgGrid, DataReturnMode, GridOptionsBuilder, GridUpdateMode
+from st_aggrid import AgGrid, DataReturnMode, GridOptionsBuilder
 
 from backend.core.config import get_settings
 from backend.core.data_contracts import (
@@ -404,8 +404,7 @@ def _ranking_result_table_base_key(ranking_source: str, weight_preset: str) -> s
 
 
 def _ranking_result_grid_key(base_key: str) -> str:
-    nonce = int(st.session_state.get(f"{base_key}_nonce", 0))
-    return f"{base_key}_{nonce}"
+    return f"{base_key}_grid"
 
 
 def ranking_result_aggrid_frame(display_rows: list[dict[str, str]]) -> pd.DataFrame:
@@ -454,7 +453,31 @@ def ranking_result_aggrid_options(display_rows: list[dict[str, str]]) -> dict[st
     return cast(dict[str, object], builder.build())
 
 
+def _aggrid_event_data(grid_response: object) -> dict[str, object]:
+    event_data = getattr(grid_response, "event_data", None)
+    if event_data is None and isinstance(grid_response, dict):
+        event_data = grid_response.get("eventData") or grid_response.get("event_data")
+    return cast(dict[str, object], event_data) if isinstance(event_data, dict) else {}
+
+
+def _ranking_symbol_from_row(row: object) -> str | None:
+    if not isinstance(row, dict):
+        return None
+    symbol = str(row.get("銘柄", "")).strip()
+    return symbol or None
+
+
 def ranking_detail_symbol_from_aggrid_response(grid_response: object) -> str | None:
+    event_data = _aggrid_event_data(grid_response)
+    symbol = _ranking_symbol_from_row(event_data.get("data"))
+    if symbol:
+        return symbol
+    node = event_data.get("node")
+    if isinstance(node, dict):
+        symbol = _ranking_symbol_from_row(node.get("data"))
+        if symbol:
+            return symbol
+
     selected_rows = getattr(grid_response, "selected_rows", None)
     if selected_rows is None and isinstance(grid_response, dict):
         selected_rows = grid_response.get("selected_rows")
@@ -470,10 +493,45 @@ def ranking_detail_symbol_from_aggrid_response(grid_response: object) -> str | N
         row = selected_rows
     else:
         return None
-    if not isinstance(row, dict):
+    return _ranking_symbol_from_row(row)
+
+
+def ranking_detail_event_token_from_aggrid_response(
+    grid_response: object,
+    selected_symbol: str | None,
+) -> str | None:
+    if not selected_symbol:
         return None
-    symbol = str(row.get("銘柄", "")).strip()
-    return symbol or None
+    event_data = _aggrid_event_data(grid_response)
+    trigger_name = str(event_data.get("streamlitRerunEventTriggerName") or "").strip()
+    if not trigger_name:
+        return f"selection|{selected_symbol}"
+    node = event_data.get("node")
+    row_index = event_data.get("rowIndex")
+    if row_index is None and isinstance(node, dict):
+        row_index = node.get("rowIndex")
+    mouse_event = event_data.get("event")
+    timestamp = event_data.get("timeStamp")
+    if timestamp is None and isinstance(mouse_event, dict):
+        timestamp = mouse_event.get("timeStamp")
+    row_index_text = "" if row_index is None else str(row_index)
+    timestamp_text = "" if timestamp is None else str(timestamp)
+    return f"{trigger_name}|{selected_symbol}|{row_index_text}|{timestamp_text}"
+
+
+def ranking_detail_symbol_to_open(
+    selected_symbol: str | None,
+    current_event_token: str | None,
+    last_opened_event_token: object,
+) -> str | None:
+    if not selected_symbol or not current_event_token:
+        return None
+    previous_event_token = (
+        str(last_opened_event_token).strip() if last_opened_event_token is not None else ""
+    )
+    if current_event_token == previous_event_token:
+        return None
+    return selected_symbol
 
 
 def _ranking_result_grid_height(display_rows: list[dict[str, str]]) -> int:
@@ -492,7 +550,10 @@ def _ensure_selectbox_state_value(key: str, options: list[str]) -> None:
 
 def _normalize_dividend_filter_state() -> None:
     dividend_category = _ranking_filter_value("market_data_ranking_dividend", "all")
-    dividend_range_enabled = _ranking_filter_bool("market_data_ranking_dividend_enabled", False)
+    dividend_range_enabled = _ranking_filter_bool(
+        "market_data_ranking_dividend_enabled",
+        False,
+    )
     normalized_category, _, normalized_range_enabled, _ = normalize_dividend_filter_values(
         dividend_category=dividend_category,
         dividend_yield_enabled=dividend_range_enabled,
@@ -614,7 +675,7 @@ def _render_ranking_result_table(
         ranking_result_aggrid_frame(display_rows),
         gridOptions=ranking_result_aggrid_options(display_rows),
         height=_ranking_result_grid_height(display_rows),
-        update_mode=GridUpdateMode.SELECTION_CHANGED,
+        update_on=["rowClicked"],
         data_return_mode=DataReturnMode.AS_INPUT,
         theme="dark",
         custom_css=RANKING_RESULT_GRID_CUSTOM_CSS,
@@ -624,11 +685,21 @@ def _render_ranking_result_table(
         show_download_button=False,
     )
     selected_symbol = ranking_detail_symbol_from_aggrid_response(grid_response)
-    if selected_symbol:
-        st.session_state[f"{table_base_key}_nonce"] = (
-            int(st.session_state.get(f"{table_base_key}_nonce", 0)) + 1
-        )
-        _render_symbol_universe_detail_dialog(selected_symbol)
+    detail_event_token = ranking_detail_event_token_from_aggrid_response(
+        grid_response,
+        selected_symbol,
+    )
+    last_opened_key = f"{table_base_key}_last_opened_event_token"
+    symbol_to_open = ranking_detail_symbol_to_open(
+        selected_symbol,
+        detail_event_token,
+        st.session_state.get(last_opened_key),
+    )
+    if detail_event_token is None:
+        st.session_state.pop(last_opened_key, None)
+    elif symbol_to_open:
+        st.session_state[last_opened_key] = detail_event_token
+        _render_symbol_universe_detail_dialog(symbol_to_open)
 
 
 def ranking_comparison_summary(

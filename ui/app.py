@@ -35,9 +35,11 @@ from ui.ranking import (
     LIVE_MARKET_DATA_PROVIDERS,
     MAX_RANKING_BUILD_CACHE_ENTRIES,
     MAX_RANKING_CONCURRENT_FETCHES,
+    RANKING_BETA_RISK_LABELS,
     RANKING_COMPLEXITY_LABELS,
     RANKING_CURRENCY_LABELS,
     RANKING_DIVIDEND_LABELS,
+    RANKING_FILTER_HELP_TEXTS,
     RANKING_INDEX_FAMILY_LABELS,
     RANKING_MARKET_CAP_LABELS,
     RANKING_MVP_PRODUCT_TYPE_LABELS,
@@ -269,6 +271,7 @@ def _render_metric_range_filter(
     min_value: float = 0.0,
     max_value: float = 100.0,
     step: float = 0.1,
+    help_text: str | None = None,
 ) -> None:
     col_enabled, col_min, col_max = st.columns([1.0, 1.0, 1.0])
     with col_enabled:
@@ -276,6 +279,7 @@ def _render_metric_range_filter(
             label,
             value=_ranking_filter_bool(enabled_key, False),
             key=enabled_key,
+            help=help_text,
         )
     with col_min:
         st.number_input(
@@ -307,6 +311,7 @@ def _render_detail_selectbox(
     format_func: Callable[[str], str],
     help_text: str | None = None,
 ) -> None:
+    _ensure_selectbox_state_value(key, options)
     st.selectbox(
         label,
         options,
@@ -386,6 +391,7 @@ def _render_ranking_filter_panel() -> None:
                     options=list(RANKING_THEME_LABELS),
                     key="market_data_ranking_theme",
                     format_func=lambda value: RANKING_THEME_LABELS[value],
+                    help_text=RANKING_FILTER_HELP_TEXTS["industry_or_sector"],
                 )
         if "market_cap" in detail_filters:
             with next_column():
@@ -394,6 +400,16 @@ def _render_ranking_filter_panel() -> None:
                     options=list(RANKING_MARKET_CAP_LABELS),
                     key="market_data_ranking_market_cap",
                     format_func=lambda value: RANKING_MARKET_CAP_LABELS[value],
+                    help_text=RANKING_FILTER_HELP_TEXTS["market_cap"],
+                )
+        if "risk_band" in detail_filters:
+            with next_column():
+                _render_detail_selectbox(
+                    "市場感応度（β）",
+                    options=list(RANKING_BETA_RISK_LABELS),
+                    key="market_data_ranking_risk_band",
+                    format_func=lambda value: RANKING_BETA_RISK_LABELS[value],
+                    help_text=RANKING_FILTER_HELP_TEXTS["risk_band"],
                 )
         if "nisa_eligibility" in detail_filters:
             with next_column():
@@ -402,6 +418,7 @@ def _render_ranking_filter_panel() -> None:
                     options=list(RANKING_NISA_ELIGIBILITY_LABELS),
                     key="market_data_ranking_nisa",
                     format_func=lambda value: RANKING_NISA_ELIGIBILITY_LABELS[value],
+                    help_text=RANKING_FILTER_HELP_TEXTS["nisa_eligibility"],
                 )
         if "benchmark_index" in detail_filters:
             with next_column():
@@ -410,6 +427,7 @@ def _render_ranking_filter_panel() -> None:
                     options=list(RANKING_INDEX_FAMILY_LABELS),
                     key="market_data_ranking_index_family",
                     format_func=lambda value: RANKING_INDEX_FAMILY_LABELS[value],
+                    help_text=RANKING_FILTER_HELP_TEXTS["benchmark_index"],
                 )
         if "expense_ratio" in detail_filters:
             with next_column():
@@ -420,6 +438,7 @@ def _render_ranking_filter_panel() -> None:
                     value=float(_ranking_filter_value("market_data_ranking_max_expense", "1.00")),
                     step=0.01,
                     key="market_data_ranking_max_expense",
+                    help=RANKING_FILTER_HELP_TEXTS["expense_ratio"],
                 )
         if "complexity" in detail_filters:
             with next_column():
@@ -428,6 +447,7 @@ def _render_ranking_filter_panel() -> None:
                     options=list(RANKING_COMPLEXITY_LABELS),
                     key="market_data_ranking_complexity",
                     format_func=lambda value: RANKING_COMPLEXITY_LABELS[value],
+                    help_text=RANKING_FILTER_HELP_TEXTS["complexity"],
                 )
         if "dividend_yield" in detail_filters:
             with next_column():
@@ -436,6 +456,7 @@ def _render_ranking_filter_panel() -> None:
                     options=list(RANKING_DIVIDEND_LABELS),
                     key="market_data_ranking_dividend",
                     format_func=lambda value: RANKING_DIVIDEND_LABELS[value],
+                    help_text=RANKING_FILTER_HELP_TEXTS["dividend_category"],
                 )
         with next_column():
             _render_detail_selectbox(
@@ -443,6 +464,7 @@ def _render_ranking_filter_panel() -> None:
                 options=list(RANKING_CURRENCY_LABELS),
                 key="market_data_ranking_currency",
                 format_func=lambda value: RANKING_CURRENCY_LABELS[value],
+                help_text=RANKING_FILTER_HELP_TEXTS["currency"],
             )
 
         metric_filters: list[tuple[str, dict[str, object]]] = []
@@ -457,6 +479,7 @@ def _render_ranking_filter_panel() -> None:
                         "min_default": "3.0",
                         "max_default": "10.0",
                         "max_value": 15.0,
+                        "help_text": RANKING_FILTER_HELP_TEXTS["dividend_yield"],
                     },
                 )
             )
@@ -471,6 +494,7 @@ def _render_ranking_filter_panel() -> None:
                         "min_default": "2.0",
                         "max_default": "20.0",
                         "max_value": 80.0,
+                        "help_text": RANKING_FILTER_HELP_TEXTS["per"],
                     },
                 )
             )
@@ -485,6 +509,7 @@ def _render_ranking_filter_panel() -> None:
                         "min_default": "0.5",
                         "max_default": "2.0",
                         "max_value": 20.0,
+                        "help_text": RANKING_FILTER_HELP_TEXTS["pbr"],
                     },
                 )
             )
@@ -499,6 +524,7 @@ def _render_ranking_filter_panel() -> None:
                         "min_default": "8.0",
                         "max_default": "30.0",
                         "max_value": 60.0,
+                        "help_text": RANKING_FILTER_HELP_TEXTS["roe"],
                     },
                 )
             )
@@ -514,6 +540,7 @@ def _render_ranking_filter_panel() -> None:
                 value=_ranking_filter_value("market_data_ranking_symbol_query", ""),
                 key="market_data_ranking_symbol_query",
                 placeholder="ticker or company name",
+                help=RANKING_FILTER_HELP_TEXTS["keyword"],
             )
         with col_clear:
             st.button("クリアする", on_click=clear_ranking_filter_state)
@@ -745,7 +772,7 @@ def _render_market_data_ranking() -> None:
     max_expense_ratio_pct = _ranking_filter_value("market_data_ranking_max_expense", "1.00")
     complexity = _ranking_filter_value("market_data_ranking_complexity", "standard")
     nisa_eligibility = _ranking_filter_value("market_data_ranking_nisa", "all")
-    risk_band = "all"
+    risk_band = _ranking_filter_value("market_data_ranking_risk_band", "all")
     theme = _ranking_filter_value("market_data_ranking_theme", "all")
     symbol_query = _ranking_filter_value("market_data_ranking_symbol_query", "")
     per_enabled = _ranking_filter_bool("market_data_ranking_per_enabled", False)

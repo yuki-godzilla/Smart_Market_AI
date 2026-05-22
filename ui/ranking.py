@@ -173,10 +173,10 @@ RANKING_CURRENCY_LABELS = {
 }
 RANKING_DIVIDEND_LABELS = {
     "all": "指定なし",
-    "high_dividend": "高配当候補",
-    "dividend": "配当あり",
-    "none": "配当なし",
-    "growth_dividend": "連続増配候補",
+    "high_dividend": "高配当（配当利回り 3%以上）",
+    "dividend": "配当あり（0%超〜3%未満）",
+    "none": "配当なし（0%）",
+    "growth_dividend": "連続増配候補（metadata指定）",
 }
 RANKING_COMPLEXITY_LABELS = {
     "beginner": "初心者向け",
@@ -185,33 +185,34 @@ RANKING_COMPLEXITY_LABELS = {
 }
 RANKING_THEME_LABELS = {
     "all": "指定なし",
-    "balanced": "バランス",
+    "balanced": "分散/その他",
     "technology": "テクノロジー",
-    "telecom": "通信",
-    "communication": "コミュニケーション",
+    "telecom": "通信（旧分類）",
+    "communication": "通信・メディア",
     "semiconductor": "半導体",
     "financial": "金融",
-    "consumer": "消費",
+    "consumer": "消費財・サービス",
     "healthcare": "ヘルスケア",
     "energy": "エネルギー",
     "automotive": "自動車",
     "trading": "商社",
-    "industrial": "資本財/工業",
+    "industrial": "工業・資本財",
     "materials": "素材",
     "real_estate": "不動産",
     "utilities": "公益",
-    "index": "インデックス",
+    "index": "インデックスETF",
+    "bond": "債券",
     "reit": "REIT",
     "commodity": "コモディティ",
     "dividend": "高配当",
 }
 RANKING_MARKET_CAP_LABELS = {
     "all": "指定なし",
-    "mega": "超大型",
-    "large": "大型",
-    "mid": "中型",
-    "small": "小型",
-    "micro": "超小型",
+    "mega": "超大型（JP 10兆円以上 / US $200B以上）",
+    "large": "大型（JP 1兆〜10兆円 / US $10B〜$200B）",
+    "mid": "中型（JP 1,000億〜1兆円 / US $2B〜$10B）",
+    "small": "小型（JP 100億〜1,000億円 / US $300M〜$2B）",
+    "micro": "超小型（JP 100億円未満 / US $300M未満）",
 }
 RANKING_INDEX_FAMILY_LABELS = {
     "all": "指定なし",
@@ -246,6 +247,18 @@ RANKING_RISK_BAND_LABELS = {
     "MEDIUM": "中くらい",
     "HIGH": "高め",
 }
+RANKING_BETA_RISK_ALL = "all"
+RANKING_BETA_RISK_LOW = "low"
+RANKING_BETA_RISK_STANDARD_OR_LOWER = "standard_or_lower"
+RANKING_BETA_RISK_STANDARD = "standard"
+RANKING_BETA_RISK_HIGH = "high"
+RANKING_BETA_RISK_LABELS = {
+    RANKING_BETA_RISK_ALL: "指定なし（βで絞らない）",
+    RANKING_BETA_RISK_LOW: "低変動のみ（β < 0.8）",
+    RANKING_BETA_RISK_STANDARD_OR_LOWER: "標準以下（β <= 1.2）",
+    RANKING_BETA_RISK_STANDARD: "標準のみ（0.8 <= β <= 1.2）",
+    RANKING_BETA_RISK_HIGH: "高変動のみ（β > 1.2）",
+}
 RANKING_MANAGEMENT_STYLE_LABELS = {
     "all": "指定なし",
     "index": "インデックス",
@@ -266,6 +279,7 @@ RANKING_INSTALLMENT_LABELS = {
 RANKING_DETAIL_FILTER_LABELS = {
     "industry_or_sector": "業種/テーマ",
     "market_cap": "時価総額",
+    "risk_band": "市場感応度（β）",
     "dividend_yield": "配当利回り",
     "per": "PER",
     "pbr": "PBR",
@@ -279,6 +293,7 @@ RANKING_DETAIL_FILTERS_BY_CATEGORY = {
     (RANKING_REGION_JAPAN, RANKING_PRODUCT_STOCK): [
         "industry_or_sector",
         "market_cap",
+        "risk_band",
         "dividend_yield",
         "per",
         "pbr",
@@ -288,6 +303,7 @@ RANKING_DETAIL_FILTERS_BY_CATEGORY = {
     (RANKING_REGION_US, RANKING_PRODUCT_STOCK): [
         "industry_or_sector",
         "market_cap",
+        "risk_band",
         "dividend_yield",
         "per",
         "roe",
@@ -296,6 +312,7 @@ RANKING_DETAIL_FILTERS_BY_CATEGORY = {
     (RANKING_REGION_ALL, RANKING_PRODUCT_STOCK): [
         "industry_or_sector",
         "market_cap",
+        "risk_band",
         "dividend_yield",
         "per",
         "roe",
@@ -344,6 +361,57 @@ RANKING_METRIC_FILTER_DEFAULTS: dict[str, str | bool] = {
     "market_data_ranking_consensus_min": "2.5",
     "market_data_ranking_consensus_max": "5.0",
 }
+RANKING_FILTER_HELP_TEXTS = {
+    "industry_or_sector": (
+        "業種やテーマで候補を絞ります。株式は主にsector/theme、ETFは指数・投資対象の"
+        "分類を使います。"
+    ),
+    "market_cap": (
+        "会社の規模感です。日本株は10兆円/1兆円/1,000億円/100億円、米国株は"
+        "$200B/$10B/$2B/$300Mを境目に分類します。JPX規模区分由来の行は"
+        "TOPIX Core30/Large70/Mid400/Smallなどを対応させています。"
+    ),
+    "risk_band": (
+        "市場感応度（β）は、市場平均を1.0とした値動きの大きさの目安です。"
+        "β 0.8未満は低変動、0.8〜1.2は市場並み、1.2超は高変動として扱います。"
+        "SMAIでは主にYahoo metadataのbetaから分類しています。"
+        "将来の値動きや損失を保証するものではありません。"
+    ),
+    "nisa_eligibility": "NISA枠で買える候補を探すための条件です。",
+    "benchmark_index": (
+        "ETFが主に連動を目指す指数や投資対象です。S&P 500、全世界、債券などの"
+        "中身の違いを確認します。"
+    ),
+    "expense_ratio": (
+        "ETFや投信の保有コストです。長期保有では低いほど手元に残るリターンに" "効きやすくなります。"
+    ),
+    "complexity": (
+        "商品の分かりやすさの目安です。標準までを選ぶと、レバレッジ型など複雑な商品を"
+        "避けやすくなります。"
+    ),
+    "dividend_category": (
+        "配当利回り0%は配当なし、0%超〜3%未満は配当あり、3%以上は高配当として扱います。"
+        "連続増配候補は利回りだけではなく、curated metadataで指定された分類です。"
+    ),
+    "currency": "取引通貨で候補を絞ります。為替の影響も確認したい時に使います。",
+    "dividend_yield": (
+        "株価に対する年間配当の目安です。高いほど配当収入は大きく見えますが、"
+        "極端に高い場合は減配や株価下落も確認します。"
+    ),
+    "per": (
+        "利益に対して株価が何倍かを示します。低いほど割安に見えますが、"
+        "成長鈍化や一時的な利益変動も確認します。"
+    ),
+    "pbr": (
+        "純資産に対して株価が何倍かを示します。低いほど資産面では割安に見えますが、"
+        "収益力もあわせて確認します。"
+    ),
+    "roe": (
+        "自己資本でどれだけ利益を出しているかを示します。高いほど資本効率が良い目安ですが、"
+        "一時的な上振れもあります。"
+    ),
+    "keyword": "ticker、会社名、テーマ、別名で候補を探します。",
+}
 
 
 def symbol_candidate_labels(rows: list[dict[str, str]], query: str = "") -> list[str]:
@@ -388,6 +456,7 @@ def ranking_detail_filters_for_category(region: str, product_type: str) -> list[
     return [
         "industry_or_sector",
         "market_cap",
+        "risk_band",
         "dividend_yield",
         "per",
         "pbr",
@@ -501,7 +570,7 @@ def filter_symbol_universe_rows(
         if (
             "risk_band" in detail_filters
             and risk_band != "all"
-            and row.get("risk_band") != risk_band
+            and not _symbol_matches_beta_risk(row, risk_band)
         ):
             continue
         if (
@@ -1008,6 +1077,21 @@ def _symbol_complexity_allowed(symbol_complexity: str, selected_complexity: str)
     if selected_complexity == "standard":
         return symbol_complexity in {"beginner", "standard"}
     return symbol_complexity == "beginner"
+
+
+def _symbol_matches_beta_risk(row: dict[str, str], selected_risk: str) -> bool:
+    risk_band = row.get("risk_band", "")
+    if selected_risk in {RANKING_BETA_RISK_ALL, ""}:
+        return True
+    if selected_risk in {RANKING_BETA_RISK_LOW, "LOW"}:
+        return risk_band == "LOW"
+    if selected_risk == RANKING_BETA_RISK_STANDARD_OR_LOWER:
+        return risk_band in {"LOW", "MEDIUM"}
+    if selected_risk in {RANKING_BETA_RISK_STANDARD, "MEDIUM"}:
+        return risk_band == "MEDIUM"
+    if selected_risk in {RANKING_BETA_RISK_HIGH, "HIGH"}:
+        return risk_band == "HIGH"
+    return risk_band == selected_risk
 
 
 def _symbol_cost_ratio(row: dict[str, str]) -> str:

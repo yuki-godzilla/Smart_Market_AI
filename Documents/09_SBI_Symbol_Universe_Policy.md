@@ -17,8 +17,8 @@ SMAI の銘柄ランキング、比較分析、将来の銘柄推薦で使う MV
 - `symbol_universe.csv` の conservative default metadata
   - `broker=sbi_securities`
   - `tradability=unknown`
-  - `nisa_category=unknown`（JPX 国内株 profile では `growth`）
-  - `investment_style=unknown`
+  - `nisa_category=unknown`（JPX / SBI 株式 profile では `growth`）
+  - `investment_style=unknown`（JPX / SBI 株式 profile では `lump_sum`）
   - `is_sbi_supported=true`
   - `is_active=true`
   - `is_leveraged=false`
@@ -39,11 +39,12 @@ SMAI の銘柄ランキング、比較分析、将来の銘柄推薦で使う MV
   - `data/marketdata/symbol_universe_sources/sbi_us_etf_seed.csv`
 - `symbol_universe.csv` への source seed 反映
   - JPX listed-stock source として国内株 3,645件を追加済み
-  - 国内株 3,747件を NISA 成長投資枠対象として整理済み
-  - 米国株 4,334件を NISA 成長投資枠対象として整理済み
+  - 国内株 3,747件を NISA 成長投資枠対象、`investment_style=lump_sum` として整理済み
+  - 米国株 4,334件を NISA 成長投資枠対象、`investment_style=lump_sum` として整理済み
   - JPX NISA 成長投資枠 ETF/ETN source として 27件を追加/更新済み
   - SBI US stock official HTML source として 4,293件を反映
   - SBI US ETF official HTML source として 607件を反映
+  - ETF 1,034件は JPX / IMAJ / SBI source 照合により `nisa_category=unknown` を解消済み
   - JPX REIT official HTML source として 58件を反映。ただし MVP ranking universe からは除外する
   - 投資信託 4件を将来対応 seed として追加済み。ただし MVP ranking universe からは除外する
 - `tools/refresh_symbol_universe_metadata.py` による provider-neutral metadata refresh

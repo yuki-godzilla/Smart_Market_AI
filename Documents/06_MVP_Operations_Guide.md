@@ -249,6 +249,8 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - 投資信託は MVP のランキング / スクリーニング / チャート対象外です。source seed や metadata schema は将来対応として残しますが、default ranking universe と UI の主要導線には出しません。
 - dividend category や theme は現在 curated metadata / source import / opt-in metadata refresh で管理します。live provider 由来の更新は明示 opt-in です。
 - 株式の `業種/テーマ` は `theme`, `sector`, `tags` を見ます。JPX 東証上場銘柄一覧の `規模区分` は `market_cap_tier` へ変換し、`時価総額` 条件で使います。
+- 株式の `investment_style` は、国内株・米国株とも一括投資向きの候補として `lump_sum` に機械バックフィルしています。ETF の積立可否は source 確認が必要なため、未確認の `investment_style=unknown` は残します。
+- ETF の `nisa_category` は、JPX / IMAJ / SBI のローカル公式 source CSV と照合し、現在の ETF 1,034件では `growth` または `none` に確定済みです。未確認の `unknown` は ETF には残していません。
 - ranking universe の MVP 方針は、SBI証券で取り扱いがあり、現物・NISA・長期投資で検討しやすい株式・ETFを初期対象にすることです。詳細は [09_SBI_Symbol_Universe_Policy.md](./09_SBI_Symbol_Universe_Policy.md) を参照してください。
 - `broker`, `tradability`, `nisa_category`, `investment_style`, `is_sbi_supported`, `is_active`, `is_leveraged`, `is_inverse` は Phase 18 policy columns として `symbol_universe.csv` に保持します。既存候補は local curated / source-import seed であり、SBI取扱確認済み master ではないため、`tradability=unknown` は初期 ranking で通します。
 - ranking 候補抽出前に default SBI ranking universe policy を適用します。MVP の対象は `stock` / `etf` です。`mutual_fund` / `fund` / `investment_trust` / `adr` / `reit` / FX / CFD / 先物 / option / crypto / bond / MMF / commodity、レバレッジ、インバース、`not_tradable`、`is_sbi_supported=false`、`is_active=false` は初期候補から除外します。
@@ -382,19 +384,21 @@ Ranking metadata のように既存銘柄の条件列だけを更新する場合
 Ranking metadata coverage:
 
 - `tools/check_symbol_universe_metadata_coverage.py` は、`symbol_universe.csv` の ranking filter 用 metadata がどの程度埋まっているかを network なしで集計します。
-- 2026-05-22 時点の出力は `data/marketdata/symbol_universe_metadata_coverage.json` です。JPX listed-stock 追加分、旧 JPX stock seed、SBI 公式米国株、SBI 公式米国ETF は、明示 opt-in の Yahoo metadata refresh と deterministic ETF metadata enrichment で補完済みです。株式全体 8,081件では、`配当利回り` 8,033件、`PBR` 7,630件、`ROE` 7,466件、`PER` 7,457件、`リスク` 6,231件が埋まっています。ETF全体 1,034件では、`配当利回り` 601件、`指数` 858件、`複雑さ` 1,034件、`信託報酬/経費率` 1,013件が埋まっています。残る 176 件の指数空欄は、名称から安全に推定せず、公式 index / issuer 情報で確認する対象として残しています。
+- 2026-05-22 時点の出力は `data/marketdata/symbol_universe_metadata_coverage.json` です。JPX listed-stock 追加分、旧 JPX stock seed、SBI 公式米国株、SBI 公式米国ETF は、明示 opt-in の Yahoo metadata refresh と deterministic ETF metadata enrichment で補完済みです。株式全体 8,081件では、`配当利回り` 8,033件、`PBR` 7,630件、`ROE` 7,466件、`PER` 7,457件、`リスク` 6,231件が埋まっています。ETF全体 1,034件では、`配当利回り` 601件、`指数` 1,034件、`複雑さ` 1,034件、`信託報酬/経費率` 1,013件が埋まっています。株式の `risk_band` 1,850件、`market_cap_tier` 39件、`配当利回り/配当カテゴリ` 48件は provider/source 欠損のため推定で埋めず、明示 opt-in refresh または確認済み source 追加の対象です。
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\enrich_symbol_universe_etf_metadata.py --write
 .\venv_SMAI\Scripts\python.exe .\tools\check_symbol_universe_metadata_coverage.py --checked-at 2026-05-22T00:00:00+09:00 --write
 ```
 
+- `tools/enrich_symbol_universe_etf_metadata.py` は、ETF の `index_family` 補完に加え、`data/marketdata/symbol_universe_sources/` 配下の JPX / IMAJ / SBI 公式 source CSV を使って ETF の NISA 対象 / 対象外を照合します。名称だけで NISA を推定しません。
+
 SBI ranking universe policy:
 
 - MVP対象: 国内株式、米国株式、国内ETF、米国ETF/海外ETF。
 - 初期除外: 投資信託、ADR、REIT、FX、CFD、先物・オプション、暗号資産、債券、外貨建MMF、貴金属・コモディティ系ETF、レバレッジ、インバース、非tradable、非SBI対応。
-- `symbol_universe.csv` / schema に SBI policy columns を追加済みです。local curated / source-import seed は conservative default として `broker=sbi_securities`, `tradability=unknown`, `investment_style=unknown`, `is_sbi_supported=true`, `is_active=true`, `is_leveraged=false`, `is_inverse=false` を持てます。JPX 国内株と SBI 米国株 profile は NISA 成長投資枠を既定で `growth` とし、ETF / REIT / 投信など個別判定が必要な商品では `nisa_category=unknown` から source 更新します。
-- `tradability=unknown` は stock / ETF の初期 seed として通し、`not_tradable` だけを除外します。NISA metadata は国内株・米国株の成長投資枠 backfill と ETF / REIT source import まで反映済みです。レバレッジ / インバース ETF は `none` に整理し、未確認 ETF / ファンドの個別例外更新は後続範囲です。投信公式 source import は Future Phase です。
+- `symbol_universe.csv` / schema に SBI policy columns を追加済みです。local curated / source-import seed は conservative default として `broker=sbi_securities`, `tradability=unknown`, `is_sbi_supported=true`, `is_active=true`, `is_leveraged=false`, `is_inverse=false` を持てます。JPX 国内株と SBI 米国株 profile は `nisa_category=growth`, `investment_style=lump_sum` を既定値にし、ETF / REIT / 投信など個別判定が必要な商品では source 更新します。
+- `tradability=unknown` は stock / ETF の初期 seed として通し、`not_tradable` だけを除外します。NISA metadata は国内株・米国株の成長投資枠 backfill と ETF / REIT source import まで反映済みです。ETF は公式 source 照合により `nisa_category=unknown` を解消済みです。投信公式 source import は Future Phase です。
 - SBI証券サイトへのログインや画面スクレイピングは通常 workflow に含めません。SBI / JPX / NISA 一覧などを手動または curated source CSV に整形し、source import command で local master へ反映します。投信協会 / 投信CSV / 基準価額は Future Phase で扱います。
 - Ranking / Screening は source site を直接参照せず、`symbol_universe.csv` と default policy helper だけを参照します。
 - 投信向け metadata として `trust_fee_pct`, `aum`, `nisa_tsumitate_eligible`, `nisa_growth_eligible`, `installment_available`, `management_style`, `distribution_policy` を source CSV から取り込めます。ただし MVP ではランキング対象外です。

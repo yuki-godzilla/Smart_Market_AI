@@ -336,6 +336,15 @@ def test_index_family_inference_covers_common_etf_categories():
     assert infer_index_family_for_text("", "iShares 20+ Year Treasury Bond ETF") == "bond"
     assert infer_index_family_for_text("", "ＭＡＸＩＳ ＪＰＸ日経４００上場投信") == "jpx_nikkei400"
     assert infer_index_family_for_text("", "iShares MSCI India Climate Transition ETF") == "india"
+    assert infer_index_family_for_text("", "Bloomberg Commodity Index") == "commodity"
+    assert (
+        infer_index_family_for_text("", "Morningstar US Target Market Exposure Index") == "total_us"
+    )
+    assert (
+        infer_index_family_for_text("", "MSCIジャパンESGセレクト・リーダーズ指数") == "style_factor"
+    )
+    assert infer_index_family_for_text("", "JPXスタートアップ急成長100指数") == "japan_equity"
+    assert infer_index_family_for_text("", "Solactive E-commerce Index") == "sector"
     assert (
         infer_index_family_for_text("", "Direxion デイリー AAPL 株 ベア1倍 ETF") == "single_stock"
     )

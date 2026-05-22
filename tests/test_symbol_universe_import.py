@@ -130,6 +130,7 @@ def test_jpx_listed_stock_profile_applies_local_universe_defaults():
     assert imported_row["nisa_category"] == "growth"
     assert imported_row["nisa_growth_eligible"] == "true"
     assert imported_row["nisa_tsumitate_eligible"] == "false"
+    assert imported_row["investment_style"] == "lump_sum"
     assert imported_row["is_sbi_supported"] == "true"
     assert result.manifest["source"] == "jpx_listed_stock"
 
@@ -155,6 +156,7 @@ def test_jpx_stock_profile_applies_local_universe_defaults():
     assert imported_row["nisa_category"] == "growth"
     assert imported_row["nisa_growth_eligible"] == "true"
     assert imported_row["nisa_tsumitate_eligible"] == "false"
+    assert imported_row["investment_style"] == "lump_sum"
     assert imported_row["is_sbi_supported"] == "true"
     assert result.manifest["source"] == "jpx"
 

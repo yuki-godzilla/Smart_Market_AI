@@ -7,6 +7,7 @@ import csv
 import json
 import sys
 from collections import Counter
+from collections.abc import Mapping
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Sequence
@@ -19,6 +20,7 @@ DEFAULT_MANIFEST_PATH = (
 DEFAULT_OVERRIDE_CSV = (
     PROJECT_ROOT / "data" / "marketdata" / "symbol_universe_etf_metadata_overrides.csv"
 )
+DEFAULT_SOURCE_DIR = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe_sources"
 ENRICHMENT_FIELDNAMES = ("yahoo_symbol",)
 OVERRIDE_COLUMNS = (
     "yahoo_symbol",
@@ -29,6 +31,13 @@ OVERRIDE_COLUMNS = (
     "theme",
     "management_style",
 )
+NISA_FIELDNAMES = (
+    "nisa_category",
+    "nisa_growth_eligible",
+    "nisa_tsumitate_eligible",
+)
+NISA_ELIGIBLE_CATEGORIES = {"growth", "both", "tsumitate"}
+NISA_KNOWN_CATEGORIES = NISA_ELIGIBLE_CATEGORIES | {"none"}
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -45,14 +54,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--csv", type=Path, default=DEFAULT_SYMBOL_UNIVERSE_CSV)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST_PATH)
     parser.add_argument("--overrides", type=Path, default=DEFAULT_OVERRIDE_CSV)
+    parser.add_argument("--source-dir", type=Path, default=DEFAULT_SOURCE_DIR)
     parser.add_argument("--write", action="store_true")
     args = parser.parse_args(argv)
 
     rows, fieldnames = _read_rows(args.csv)
     overrides = _read_overrides(args.overrides)
+    nisa_coverage = build_official_etf_nisa_coverage(args.source_dir)
     fieldnames = _enrichment_fieldnames(fieldnames)
-    result = enrich_etf_metadata(rows, overrides=overrides)
-    manifest = build_manifest(result, csv_path=args.csv)
+    result = enrich_etf_metadata(
+        rows,
+        overrides=overrides,
+        official_nisa_coverage=nisa_coverage,
+    )
+    manifest = build_manifest(result, csv_path=args.csv, rows=rows)
 
     if args.write:
         _write_rows(args.csv, fieldnames, rows)
@@ -113,9 +128,11 @@ def enrich_etf_metadata(
     rows: Sequence[dict[str, str]],
     *,
     overrides: dict[str, dict[str, str]] | None = None,
+    official_nisa_coverage: Mapping[str, str] | None = None,
 ) -> list[dict[str, object]]:
     changes: list[dict[str, object]] = []
     override_rows = overrides or {}
+    nisa_coverage = official_nisa_coverage or {}
     for row in rows:
         if row.get("asset_type") != "etf":
             continue
@@ -134,6 +151,8 @@ def enrich_etf_metadata(
             if inferred_index:
                 row["index_family"] = inferred_index
                 changed_fields.append("index_family")
+
+        changed_fields.extend(apply_official_etf_nisa_coverage(row, coverage=nisa_coverage))
 
         corrected_expense_ratio = corrected_yahoo_expense_ratio_pct(row)
         if corrected_expense_ratio:
@@ -168,6 +187,104 @@ def infer_etf_index_family(row: dict[str, str]) -> str:
     )
 
 
+def build_official_etf_nisa_coverage(source_dir: Path) -> dict[str, str]:
+    """Return ETF NISA categories confirmed by local official source CSVs.
+
+    This intentionally uses only source coverage, not name inference. ETF rows
+    found in a dated JPX/SBI official source but absent from dated NISA growth
+    lists are treated as confirmed `none` for the current source snapshot.
+    """
+
+    coverage: dict[str, str] = {}
+    if not source_dir.exists():
+        return coverage
+
+    for path in sorted(source_dir.glob("jpx_etf_*.csv")):
+        if "seed" in path.name:
+            continue
+        rows, _ = _read_rows(path)
+        if "nisa_growth" in path.name:
+            for row in rows:
+                _set_nisa_coverage_category(coverage, row.get("symbol", ""), "growth")
+        else:
+            for row in rows:
+                _set_nisa_coverage_category(coverage, row.get("symbol", ""), "none")
+
+    for path in sorted(source_dir.glob("nisa_eligibility_*.csv")):
+        if "seed" in path.name:
+            continue
+        rows, _ = _read_rows(path)
+        for row in rows:
+            category = _known_nisa_category(row.get("nisa_category", ""))
+            if category:
+                _set_nisa_coverage_category(coverage, row.get("symbol", ""), category)
+
+    for path in sorted(source_dir.glob("sbi_us_etf_*.csv")):
+        if "seed" in path.name:
+            continue
+        rows, _ = _read_rows(path)
+        for row in rows:
+            category = _known_nisa_category(row.get("nisa_category", ""))
+            _set_nisa_coverage_category(
+                coverage,
+                row.get("symbol", ""),
+                category or "none",
+            )
+
+    return coverage
+
+
+def apply_official_etf_nisa_coverage(
+    row: dict[str, str],
+    *,
+    coverage: Mapping[str, str],
+) -> list[str]:
+    symbol = row.get("symbol", "").strip().upper()
+    target_category = _known_nisa_category(coverage.get(symbol, ""))
+    if not target_category:
+        return []
+
+    changed_fields: list[str] = []
+    updates = {
+        "nisa_category": target_category,
+        **_nisa_flags_for_category(target_category),
+    }
+    for field, value in updates.items():
+        current_value = row.get(field, "").strip()
+        if current_value != value:
+            row[field] = value
+            changed_fields.append(field)
+    return changed_fields
+
+
+def _set_nisa_coverage_category(
+    coverage: dict[str, str],
+    symbol: str,
+    category: str,
+) -> None:
+    resolved_symbol = symbol.strip().upper()
+    resolved_category = _known_nisa_category(category)
+    if not resolved_symbol or not resolved_category:
+        return
+    if resolved_category in NISA_ELIGIBLE_CATEGORIES or resolved_symbol not in coverage:
+        coverage[resolved_symbol] = resolved_category
+
+
+def _known_nisa_category(category: str) -> str:
+    resolved = category.strip().lower()
+    return resolved if resolved in NISA_KNOWN_CATEGORIES else ""
+
+
+def _nisa_flags_for_category(category: str) -> dict[str, str]:
+    if category == "growth":
+        return {"nisa_growth_eligible": "true", "nisa_tsumitate_eligible": "false"}
+    if category == "tsumitate":
+        return {"nisa_growth_eligible": "false", "nisa_tsumitate_eligible": "true"}
+    if category == "both":
+        return {"nisa_growth_eligible": "true", "nisa_tsumitate_eligible": "true"}
+    return {"nisa_growth_eligible": "false", "nisa_tsumitate_eligible": "false"}
+
+
 def corrected_yahoo_expense_ratio_pct(row: dict[str, str]) -> str:
     if row.get("metadata_source") != "yahoo":
         return ""
@@ -192,6 +309,7 @@ def build_manifest(
     changes: Sequence[dict[str, object]],
     *,
     csv_path: Path,
+    rows: Sequence[dict[str, str]] | None = None,
 ) -> dict[str, object]:
     changed_fields = Counter(
         field
@@ -204,14 +322,30 @@ def build_manifest(
         for change in changes
         if "index_family" in change.get("changed_fields", [])
     )
-    return {
+    manifest: dict[str, object] = {
         "operation": "symbol_universe_etf_metadata_enrichment",
         "csv": str(csv_path),
         "changed_rows": len(changes),
         "changed_columns": dict(changed_fields),
         "index_family_updates": dict(index_family_updates),
+        "nisa_category_updates": changed_fields.get("nisa_category", 0),
         "expense_ratio_scale_corrections": changed_fields.get("expense_ratio_pct", 0),
         "changed_symbol_sample": [str(change.get("symbol", "")) for change in changes[:50]],
+    }
+    if rows is not None:
+        manifest["post_update_summary"] = build_post_update_summary(rows)
+    return manifest
+
+
+def build_post_update_summary(rows: Sequence[dict[str, str]]) -> dict[str, object]:
+    etf_rows = [row for row in rows if row.get("asset_type") == "etf"]
+    return {
+        "etf_rows": len(etf_rows),
+        "etf_index_family_missing": sum(1 for row in etf_rows if not row.get("index_family")),
+        "etf_nisa_category_counts": dict(
+            Counter(row.get("nisa_category") or "(blank)" for row in etf_rows)
+        ),
+        "etf_nisa_unknown": sum(1 for row in etf_rows if row.get("nisa_category") == "unknown"),
     }
 
 

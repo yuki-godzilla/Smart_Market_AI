@@ -25,3 +25,9 @@ Thumbs.db
 
 # VSCodeCounter
 .VSCodeCounter/
+
+# MarketData generated/live artifacts
+data/marketdata/live_checks/
+data/marketdata/raw/*.pdf
+data/marketdata/**/*.tmp
+data/marketdata/**/*.bak

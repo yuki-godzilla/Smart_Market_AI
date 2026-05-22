@@ -47,8 +47,13 @@ def test_symbol_universe_csv_matches_schema():
         and row["asset_type"] == "stock"
         and (row["nisa_category"] in {"growth", "both"} or row["nisa_growth_eligible"] == "true")
     ]
+    stock_rows = [row for row in rows if row["asset_type"] == "stock"]
+    etf_rows = [row for row in rows if row["asset_type"] == "etf"]
     assert len(jp_stock_growth_rows) >= 3700
     assert len(us_stock_growth_rows) >= 4300
+    assert all(row["investment_style"] == "lump_sum" for row in stock_rows)
+    assert all(row["nisa_category"] != "unknown" for row in etf_rows)
+    assert all(row["index_family"] for row in etf_rows)
     assert _nisa_flags_match_category(rows)
     assert rows[0]["is_sbi_supported"] == "true"
     assert rows[0]["is_active"] == "true"
@@ -119,6 +124,11 @@ def test_symbol_universe_csv_includes_expanded_stock_and_etf_seeds():
     assert row_by_symbol["MRAL"]["is_leveraged"] == "true"
     assert row_by_symbol["MRAL"]["nisa_category"] == "none"
     assert row_by_symbol["PXIU"]["is_leveraged"] == "true"
+    assert row_by_symbol["526A.T"]["index_family"] == "japan_equity"
+    assert row_by_symbol["1684.T"]["index_family"] == "commodity"
+    assert row_by_symbol["BBUS"]["index_family"] == "total_us"
+    assert row_by_symbol["AVL"]["index_family"] == "single_stock"
+    assert row_by_symbol["SPHY"]["index_family"] == "bond"
     assert row_by_symbol["8951.T"]["asset_type"] == "reit"
     assert row_by_symbol["8951.T"]["nisa_category"] == "growth"
     assert symbol_allowed_by_ranking_universe_policy(row_by_symbol["QQQM"])

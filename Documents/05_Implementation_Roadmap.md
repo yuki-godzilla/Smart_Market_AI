@@ -241,7 +241,7 @@ Phase 10〜16 は、外部データ取得、Feature Store Lite、Screening、For
 | Phase 13: Forecast Lab Baseline | implementation complete | naive / moving-average / momentum baseline、walk-forward metrics、Forecast chart preview | advanced model adapter の前提整備 |
 | Phase 14: Multi-Model Forecasting | implementation complete; live-provider confirmation remains environment-dependent | model registry lite、forecast consensus、forecast range、model agreement | model card / evaluation persistence |
 | Phase 15: Model-Informed Scoring | implementation complete; live-provider confirmation remains environment-dependent | `backend/scoring`、Investment Score、configurable weights、API / UI preview / export | Research Score integration、richer risk signal |
-| Phase 16: Visualization Cockpit | implementation complete; final Streamlit browser smoke recommended | `銘柄コックピット` / `銘柄ランキング` / `リバランス`、side menu、ranking cache、Yahoo batch OHLCV、deep-dive handoff、Rebalance summary flow | final UI smoke、Decision Report context |
+| Phase 16: Visualization Cockpit | implementation complete; final Streamlit browser smoke recommended | `銘柄コックピット` / `銘柄ランキング` / `リバランス`、side menu、ranking cache、Yahoo batch OHLCV、symbol-detail modal、cockpit investment memo、Rebalance summary flow | final UI smoke、Decision Report context |
 
 ## 5. 実装順ロードマップ
 
@@ -404,6 +404,8 @@ Completion criteria:
 Current implementation note:
 
 - `ui/symbol_universe.py` defines the current required CSV columns, optional freshness/source columns, enum values, decimal fields, and duplicate ticker validation.
+- Phase 16 UI now uses the local symbol master in both ranking and cockpit: ranking rows open a shared symbol-detail modal, the cockpit has a `銘柄データを見る` button next to symbol selection, and post-fetch cockpit results include an investment memo built from score, symbol metadata, valuation, income, and price-trend checks.
+- Ranking modal rendering avoids per-row repeated symbol-master scans by reusing a symbol lookup map while building display rows; this keeps long-period ranking result clicks responsive.
 - `backend/marketdata/symbol_metadata_schema.py` defines metadata tiers, storage policy, source/freshness requirements, enum values, decimal ranges, and future fund metadata fields.
 - `symbol_universe.csv` now stores `metadata_source`, `metadata_as_of`, and `metadata_updated_at`; the current deterministic baseline is marked as `curated_csv` with `2026-05-18` metadata.
 - `設定 / データ情報` shows candidate count, metadata source, metadata period, validation summary, and issue rows for `symbol_universe.csv` without blocking the existing ranking UI.
@@ -417,6 +419,7 @@ Current implementation note:
 - SBI銘柄マスタ取得方針は、SBI から直接リアルタイム取得するのではなく、SBI / JPX / public source を local source CSV 化して import する。将来 adapter は source import / repository 境界に追加し、ranking logic から分離する。
 - `tools/import_symbol_universe_source.py` supports `--source-profile jpx_listed_stock|jpx_stock|jpx_etf|jpx_reit|sbi_us_stock|sbi_us_etf|nisa_eligibility|ranking_metadata|mutual_fund_seed`, filling market/product/currency and policy defaults. `nisa_eligibility` updates only NISA metadata columns for existing rows and rejects unknown symbols instead of appending incomplete rows. `ranking_metadata` updates only existing symbols' ranking filter fields such as PER/PBR/ROE/dividend yield, market-cap tier, risk, and ETF expense ratio. `nisa_eligibility_seed.csv` has updated 31 existing rows. `sbi_us_stock_seed.csv`, `sbi_us_etf_seed.csv`, and `mutual_fund_seed.csv` are available as source seeds. 2026-05-21 時点で JPX listed-stock source、JPX ETF/ETN official HTML source、SBI US stock/ETF official HTML source、JPX REIT official HTML source、JPX NISA 成長投資枠 ETF/ETN source、IMAJ NISA 成長投資枠 listed-fund source を取り込み、candidate master は 9,179件になり、stock 8,081件、ETF 1,034件、REIT 58件、投信 4件、ADR 2件を持つ。SBI US stock builder は `BRKB` / `UHALB` を `BRK-B` / `UHAL-B` に正規化する。
 - `tools/check_symbol_universe_metadata_coverage.py` produces `data/marketdata/symbol_universe_metadata_coverage.json` as the current coverage baseline for ranking filter metadata. JPX and SBI stock rows have been supplemented with explicit opt-in Yahoo metadata where available. Current stock coverage is dividend yield 8,033/8,081, PBR 7,630/8,081, ROE 7,466/8,081, and PER 7,457/8,081. ETF coverage is dividend yield 601/1,034, index family 858/1,034, expense ratio 1,013/1,034, and complexity 1,034/1,034.
+- Yahoo dividend-yield normalization now treats JP stock integer percent values as percent values, preventing over-scaled display such as `23%` when the source value represents `0.23%`.
 - `tools/analyze_yahoo_coverage_failures.py` analyzes saved live Yahoo coverage rows without making new network calls. Current SBI US stock failures are 51 no-bars/Yahoo-unsupported plus 2 resolved aliases; SBI US ETF failures are 3 leveraged exclusions plus 11 rows with curated `yahoo_symbol` mappings.
 - Ranking UI and default ranking universe are stock / ETF focused. REIT and mutual-fund rows can remain in the local master as future extension data, but `reit` / `mutual_fund` / `fund` / `investment_trust` are excluded from MVP ranking candidates. ETF leveraged/inverse rows and commodity-themed ETF rows remain stored for metadata coverage but are excluded by the ranking-universe policy.
 
@@ -592,8 +595,8 @@ Completion criteria:
 ```powershell
 .\venv_SMAI\Scripts\python.exe .\tools\run_local_checks.py
 .\venv_SMAI\Scripts\python.exe -m pytest tests -q
-.\venv_SMAI\Scripts\python.exe -m ruff check backend ui tests --no-cache
-.\venv_SMAI\Scripts\python.exe -m mypy backend
+.\venv_SMAI\Scripts\python.exe -m ruff check . --no-cache
+.\venv_SMAI\Scripts\python.exe -m mypy .
 .\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py
 ```
 

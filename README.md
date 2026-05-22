@@ -42,8 +42,8 @@ SMAI は以下の思想を重視しています。
 - Portfolio-to-Risk workflow
 - Streamlit UI
   - left side menu for `銘柄コックピット` / `銘柄ランキング` / `リバランス` / `設定 / データ情報`
-  - 銘柄コックピット: 価格・予測チャート、Investment Score、score breakdown、warnings、downloads
-  - 銘柄ランキング: curated symbol metadata、候補条件 modal、ランキング preset、コックピットへの深掘り導線
+  - 銘柄コックピット: 価格・予測チャート、Investment Score、投資判断メモ、銘柄データ modal、warnings、downloads
+  - 銘柄ランキング: curated symbol metadata、候補条件 modal、ランキング preset、行クリックで開く銘柄データ modal
   - Rebalance Cockpit: summary flow、percentage target、allocation comparison chart、risk breach confirmation points
 - symbol universe metadata schema、source import、opt-in metadata refresh、SBI ranking universe policy columns / default exclusion helper
 - JSON / CSV / Markdown / manifest / ZIP export
@@ -66,14 +66,14 @@ MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で
 ## 現在のロードマップ上の位置
 
 - Phase 1〜15: implementation complete
-- Phase 16: UI / Visualization Cockpit implementation complete、最終 Streamlit browser smoke は推奨確認
+- Phase 16: UI / Visualization Cockpit implementation complete。銘柄データ modal、コックピット投資判断メモ、ランキング行クリック詳細表示まで実装済み。最終 Streamlit browser smoke は推奨確認
 - Phase 16S: Stabilization / final Streamlit smoke は必要に応じて実施
 - Phase 17: UI Polish / ランキング条件 UI 再設計は implementation complete
-- Phase 18: symbol universe / metadata refresh / source import / SBI ranking universe policy が進行中。次は SBI / ETF metadata source の拡張
+- Phase 18: symbol universe / metadata refresh / source import / SBI ranking universe policy が進行中。Yahoo 配当利回りスケール補正と CI mypy 対象の tools 型整備は反映済み
 - Phase 19〜24: Decision Report、Research RAG、Research Score、Assistant、optional adapter、Execution gate の順に整理
 - Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
-次の重点は、Phase 18 の SBI / ETF metadata source 拡張、Phase 19 の Decision Report context です。
+次の重点は、Phase 16S の最終 UI smoke、Phase 18 の残り metadata source 補完、Phase 19 の Decision Report context です。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント
@@ -200,8 +200,8 @@ $env:SMAI_REBALANCE_SCENARIO_DIR = ".\my_rebalance_scenarios"
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe -m pytest tests -q
-.\venv_SMAI\Scripts\python.exe -m ruff check backend ui tests --no-cache
-.\venv_SMAI\Scripts\python.exe -m mypy backend
+.\venv_SMAI\Scripts\python.exe -m ruff check . --no-cache
+.\venv_SMAI\Scripts\python.exe -m mypy .
 .\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py
 ```
 

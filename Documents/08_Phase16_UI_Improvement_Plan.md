@@ -2,6 +2,17 @@
 
 #### [BACK TO README](../README.md)
 
+## Current Sync / 2026-05-23
+
+Phase 16 UI is implementation-complete at the code level. The current Streamlit flows include:
+
+- `銘柄ランキング`: ranking rows open the shared `銘柄データ` modal. The table keeps a short note; the modal carries richer decision-support guidance.
+- `銘柄コックピット`: `銘柄データを見る` is placed beside symbol selection, Start / End inputs wrap to the next row, and fetched results show `投資判断メモ`.
+- `銘柄データ` modal: local symbol-master metrics, ranking context, valuation, income, and next-check wording are shown without buy/sell recommendation language.
+- Performance note: ranking display-row generation reuses a symbol lookup map to avoid repeated symbol-master scans when opening modals from long-period rankings.
+
+Remaining confirmation is browser-level smoke, not a known implementation blocker: ranking cache/progress, ranking row modal, cockpit symbol-detail button, cockpit investment memo, and Rebalance wording.
+
 ## 目的
 
 Phase 16 では、Smart Market AI を「表を読む分析ツール」から、個人投資家が候補を探し、理由を理解し、次に確認する観点を整理できる UI に近づける。

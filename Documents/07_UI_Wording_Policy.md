@@ -2,6 +2,13 @@
 
 #### [BACK TO README](../README.md)
 
+## Current UI Wording Addendum / 2026-05-23
+
+- Ranking tables should keep the supplemental note to a short sentence. Detailed decision-support wording belongs in the shared `銘柄データ` modal.
+- The shared symbol-detail modal may show score interpretation, caution, valuation, income, and next-action rows, but must not present buy/sell advice.
+- Cockpit fetch results may show `投資判断メモ` that combines score, warnings, symbol-master data, and price trend into confirmation points.
+- Avoid table or modal layouts where long guidance text is clipped horizontally.
+
 ## 目的
 
 Smart Market AI の UI、レポート、説明文で使う文言の方針をまとめます。

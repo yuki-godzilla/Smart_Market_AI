@@ -434,8 +434,10 @@ Phase 16 ranking implementation notes:
 - Ranking build uses a fast batch path first: it fetches OHLCV in chunks, builds feature snapshots from already-fetched market data, then reuses existing Screening / Investment Score services. If the batch path fails with a provider/domain error, local/deterministic providers can fall back to the existing per-symbol preview path; live Yahoo failures are reported once without retrying every symbol to avoid repeated network failures.
 - Yahoo OHLCV uses the same non-threaded yfinance download path for single-symbol cockpit and multi-symbol ranking requests. The cockpit reuses one fetched OHLCV range for quote display and feature construction instead of fetching the same symbol again. Yahoo cockpit fetch prioritizes price data: initial fetch skips live FX and fundamentals so price / forecast / score rows can render without waiting on nonessential live requests. SMAI shares one curl_cffi-backed yfinance session across `Search`, `download`, and `Ticker` calls so Yahoo cookie / crumb state stays attached to the same session. If yfinance returns an empty batch response, the provider retries once after a short delay to absorb first-call warm-up / transient empty responses. Because live Yahoo requests are network-dependent and can be slow or noisy, Streamlit ranking warns when selected symbols exceed 30, uses smaller non-threaded download chunks, and suppresses yfinance's raw console noise in favor of structured UI error rows.
 - Ranking rows are cached in Streamlit session state by `provider + symbols + start + end`. Re-running the same request or changing only the ranking weight preset reuses fetched rows and only re-sorts the display.
+- Ranking display rows reuse a single symbol-master lookup map when building notes and modal guidance. This avoids repeated `symbol_universe.csv` scans during long-period ranking reruns and keeps row-click symbol-detail modal opening responsive.
 - The ranking progress indicator reports batch fetch, feature construction, forecast agreement calculation, and final sorting so large candidate sets do not look frozen.
-- Ranking remains decision support only. Use `深掘りする銘柄` to move one selected symbol into `銘柄コックピット` for detailed price / forecast / score-reason review.
+- Ranking remains decision support only. Click a ranking row to open the shared `銘柄データ` modal with short ranking context plus local master details. Use the cockpit for detailed price / forecast / score-reason review.
+- In `銘柄コックピット`, `銘柄データを見る` sits beside symbol selection and opens the same local-master modal for the selected symbol. Start / End inputs wrap to the next row. After fetch, the cockpit shows `投資判断メモ` combining score, warnings, valuation, income, price trend, and next-check wording.
 
 Phase 16 final UI smoke checklist:
 
@@ -443,7 +445,9 @@ Phase 16 final UI smoke checklist:
 - Build a ranking and confirm progress messages are shown.
 - Run the same ranking again and confirm cached rows are reused.
 - Change only `重視して並べ替え` and confirm rows are re-sorted without a provider refetch.
-- Open a selected symbol in `銘柄コックピット` and confirm provider / symbol handoff.
+- Click a ranking row and confirm the symbol-detail modal opens quickly, including `判断補助` guidance when ranking context exists.
+- Open `銘柄データを見る` in `銘柄コックピット` and confirm the selected symbol's local-master data appears in the same modal.
+- Fetch cockpit data and confirm `投資判断メモ` appears without presenting buy/sell advice.
 - Confirm Rebalance labels continue to describe decision support rather than buy/sell advice.
 
 ### リバランス
@@ -494,8 +498,8 @@ Rebalance は `Rebalance Cockpit` として、次の順に確認します。
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe -m pytest tests -q
-.\venv_SMAI\Scripts\python.exe -m ruff check backend ui tests --no-cache
-.\venv_SMAI\Scripts\python.exe -m mypy backend
+.\venv_SMAI\Scripts\python.exe -m ruff check . --no-cache
+.\venv_SMAI\Scripts\python.exe -m mypy .
 .\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py
 ```
 

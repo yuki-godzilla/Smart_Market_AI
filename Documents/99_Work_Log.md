@@ -454,3 +454,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Extended ETF enrichment so local JPX / IMAJ / SBI official source CSVs reconcile ETF NISA categories without name-based inference; ETF NISA is now 563 growth / 471 none / 0 unknown.
 - Expanded deterministic ETF index-family inference from official index/name/alias text and brought ETF `index_family` coverage to 1,034/1,034.
 - Regenerated `symbol_universe_metadata_coverage.json`; remaining stock gaps are provider/source-dependent: risk band 1,850, market-cap tier 39, and dividend yield/category 48.
+
+## 2026-05-23 - Documentation sync for Phase 16 UI and symbol metadata status
+
+- Synchronized `PROJECT_CONTEXT.md`, roadmap, operations guide, UI wording policy, and Phase 16 UI plan with the current ranking/cockpit symbol-detail modal behavior.
+- Documented the cockpit `銘柄データを見る` placement, wrapped date controls, and post-fetch `投資判断メモ`.
+- Documented the ranking modal performance fix that reuses a symbol lookup map instead of repeatedly scanning the symbol master while building display rows.
+- Updated verification guidance to match CI-style `ruff check .` and `mypy .`.

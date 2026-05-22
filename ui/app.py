@@ -530,10 +530,18 @@ def _ranking_result_matches_current_selection(
 
 def _symbol_universe_row_for_symbol(symbol: str) -> dict[str, str] | None:
     normalized_symbol = symbol.strip().upper()
-    for row in symbol_universe_csv_rows():
-        if row.get("symbol", "").strip().upper() == normalized_symbol:
-            return row
-    return None
+    return _symbol_universe_rows_by_symbol().get(normalized_symbol)
+
+
+def _symbol_universe_rows_by_symbol(
+    rows: list[dict[str, str]] | None = None,
+) -> dict[str, dict[str, str]]:
+    source_rows = rows if rows is not None else symbol_universe_csv_rows()
+    return {
+        row.get("symbol", "").strip().upper(): row
+        for row in source_rows
+        if row.get("symbol", "").strip()
+    }
 
 
 def selected_symbol_has_universe_detail(symbol: str) -> bool:
@@ -820,8 +828,14 @@ def ranking_result_aggrid_frame(display_rows: list[dict[str, str]]) -> pd.DataFr
     return pd.DataFrame(display_rows)
 
 
-def ranking_result_aggrid_options(display_rows: list[dict[str, str]]) -> dict[str, object]:
-    frame = ranking_result_aggrid_frame(display_rows)
+def ranking_result_aggrid_options(
+    display_rows: list[dict[str, str]] | pd.DataFrame,
+) -> dict[str, object]:
+    frame = (
+        display_rows
+        if isinstance(display_rows, pd.DataFrame)
+        else ranking_result_aggrid_frame(display_rows)
+    )
     builder = GridOptionsBuilder.from_dataframe(frame)
     builder.configure_default_column(
         sortable=True,
@@ -1153,9 +1167,10 @@ def _render_ranking_result_table(
     table_base_key = _ranking_result_table_base_key(ranking_source, weight_preset)
     grid_key = _ranking_result_grid_key(table_base_key)
     st.caption("銘柄データを見るには、ランキング表の行をクリックしてください。")
+    frame = ranking_result_aggrid_frame(display_rows)
     grid_response = AgGrid(
-        ranking_result_aggrid_frame(display_rows),
-        gridOptions=ranking_result_aggrid_options(display_rows),
+        frame,
+        gridOptions=ranking_result_aggrid_options(frame),
         height=_ranking_result_grid_height(display_rows),
         update_on=["rowClicked"],
         data_return_mode=DataReturnMode.AS_INPUT,
@@ -3030,8 +3045,16 @@ def _decimal_from_text(value: object) -> Decimal | None:
     return decimal_value
 
 
-def ranking_investment_note(row: dict[str, str]) -> str:
-    symbol_row = _symbol_universe_row_for_symbol(row.get("symbol", ""))
+def ranking_investment_note(
+    row: dict[str, str],
+    symbol_rows_by_symbol: dict[str, dict[str, str]] | None = None,
+) -> str:
+    symbol = row.get("symbol", "")
+    symbol_row = (
+        symbol_rows_by_symbol.get(symbol.strip().upper())
+        if symbol_rows_by_symbol is not None
+        else _symbol_universe_row_for_symbol(symbol)
+    )
     strengths = _ranking_strength_phrases(row, symbol_row)
     caution = _ranking_primary_caution(row, symbol_row)
     action = _ranking_next_action(row, symbol_row)
@@ -3173,6 +3196,7 @@ def ranking_investment_detail_rows(
 
 
 def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    symbol_rows_by_symbol = _symbol_universe_rows_by_symbol()
     return [
         {
             "順位": row.get("rank", ""),
@@ -3185,7 +3209,7 @@ def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, 
             "データ品質": row.get("data_quality_score", ""),
             "Risk": row.get("risk_signal_score", "") or "未接続",
             "注意点": _investment_warning_label(row.get("warnings", "")),
-            "補足": ranking_investment_note(row),
+            "補足": ranking_investment_note(row, symbol_rows_by_symbol),
         }
         for row in rows
     ]

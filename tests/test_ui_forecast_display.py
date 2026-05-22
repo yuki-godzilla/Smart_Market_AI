@@ -2142,6 +2142,27 @@ def test_investment_score_display_rows_are_beginner_friendly():
     assert "モデルの見方が割れています" in rows[0]["補足"]
 
 
+def test_investment_score_display_rows_reuses_symbol_universe_lookup(monkeypatch):
+    calls = 0
+
+    def fake_symbol_universe_rows() -> list[dict[str, str]]:
+        nonlocal calls
+        calls += 1
+        return [{"symbol": "6857.T", "asset_type": "stock", "roe_pct": "25"}]
+
+    monkeypatch.setattr("ui.app.symbol_universe_csv_rows", fake_symbol_universe_rows)
+
+    rows = investment_score_display_rows(
+        [
+            {"symbol": "6857.T", "forecast_agreement_score": "90"},
+            {"symbol": "9983.T", "forecast_agreement_score": "90"},
+        ]
+    )
+
+    assert len(rows) == 2
+    assert calls == 1
+
+
 def test_ranking_investment_note_uses_scores_and_symbol_metadata(monkeypatch):
     monkeypatch.setattr(
         "ui.app.symbol_universe_csv_rows",

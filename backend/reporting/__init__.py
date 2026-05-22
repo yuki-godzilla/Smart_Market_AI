@@ -5,9 +5,12 @@ from backend.reporting.service import (
     DecisionReportManifest,
     DecisionReportSection,
     DecisionReportSource,
+    build_data_confidence_section,
+    build_decision_checkpoints_section,
     build_decision_report_context,
     build_decision_report_manifest,
     build_report_section,
+    build_symbol_metadata_section,
     render_decision_report_markdown,
 )
 
@@ -18,8 +21,11 @@ __all__ = [
     "DecisionReportManifest",
     "DecisionReportSection",
     "DecisionReportSource",
+    "build_data_confidence_section",
+    "build_decision_checkpoints_section",
     "build_decision_report_context",
     "build_decision_report_manifest",
     "build_report_section",
+    "build_symbol_metadata_section",
     "render_decision_report_markdown",
 ]

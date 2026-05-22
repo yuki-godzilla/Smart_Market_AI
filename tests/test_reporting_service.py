@@ -6,9 +6,12 @@ from backend.core.errors import ValidationAppError
 from backend.reporting import (
     DECISION_REPORT_SCHEMA_VERSION,
     DECISION_SUPPORT_NOTE,
+    build_data_confidence_section,
+    build_decision_checkpoints_section,
     build_decision_report_context,
     build_decision_report_manifest,
     build_report_section,
+    build_symbol_metadata_section,
     render_decision_report_markdown,
 )
 
@@ -101,6 +104,72 @@ def test_build_decision_report_manifest_describes_local_export_files():
         "decision_report_context.json",
         "decision_report.md",
     }
+
+
+def test_standard_sections_capture_metadata_confidence_and_checkpoints():
+    data_confidence = build_data_confidence_section(
+        provider="yahoo",
+        symbol="6857.T",
+        as_of=date(2026, 5, 22),
+        price_period="2026-05-15 to 2026-05-22",
+        data_quality="100",
+        metadata_source="yahoo",
+        metadata_as_of="2026-05-22",
+        missing_fields=["risk_band"],
+        coverage_rows=[
+            {"field": "dividend_yield_pct", "status": "available", "value": "0.22%"},
+            {"field": "risk_band", "status": "missing", "value": ""},
+        ],
+    )
+    symbol_metadata = build_symbol_metadata_section(
+        symbol="6857.T",
+        name="Advantest",
+        metadata={
+            "asset_type": "stock",
+            "nisa_category": "growth",
+            "market_cap_tier": "large",
+            "per": "52.42",
+            "pbr": "28.93",
+            "roe_pct": "57.65",
+        },
+    )
+    checkpoints = build_decision_checkpoints_section(
+        symbol="6857.T",
+        checkpoints=[
+            {
+                "area": "Valuation",
+                "finding": "PER/PBR are high",
+                "confirmation_point": "Check whether earnings growth supports the valuation.",
+            },
+            {
+                "area": "Income",
+                "finding": "Dividend yield is low",
+                "confirmation_point": "Review dividend policy rather than yield alone.",
+            },
+        ],
+    )
+
+    context = build_decision_report_context(
+        title="Decision support report",
+        sections=[data_confidence, symbol_metadata, checkpoints],
+        created_at=datetime(2026, 5, 22, 15, 30, tzinfo=UTC),
+    )
+    markdown = render_decision_report_markdown(context)
+
+    assert data_confidence.source.kind == "metadata"
+    assert data_confidence.summary["missing_fields"] == "risk_band"
+    assert symbol_metadata.summary["nisa_category"] == "growth"
+    assert "Data coverage and confidence" in markdown
+    assert "Some metadata fields are blank" in markdown
+    assert "Decision checkpoints" in markdown
+    assert "not buy/sell instructions" in markdown
+
+
+def test_build_decision_checkpoints_section_rejects_empty_rows():
+    with pytest.raises(ValidationAppError) as exc_info:
+        build_decision_checkpoints_section(checkpoints=[])
+
+    assert "Decision checkpoints require" in exc_info.value.message
 
 
 def test_build_report_section_rejects_empty_content():

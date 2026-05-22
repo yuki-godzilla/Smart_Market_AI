@@ -441,6 +441,18 @@ Implemented slice:
 
 - `backend/reporting` に Decision Report context v1 と deterministic Markdown / manifest helper を追加。
 - cockpit / ranking / rebalance 由来の summary / table rows / warnings / notes を local-first に束ねる最小 schema を追加。
+- Phase 18 の銘柄 metadata 整備を踏まえ、`Data coverage and confidence`、`Symbol metadata`、`Decision checkpoints` の標準 report section builder を追加。
+
+Report output policy:
+
+- 冒頭では銘柄、作成日時、対象期間、provider、利用元 workflow、非推奨文言を明示する。
+- `Data coverage and confidence` では、価格データ期間、data quality、metadata source/as-of、欠損 field、coverage rows を出す。未確認 metadata は 0 と扱わず、空欄の理由として残す。
+- `Symbol metadata` では、ticker/name、市場、商品分類、NISA、investment style、時価総額 tier、SBI/ranking policy、metadata freshness を出す。
+- `Investment score breakdown` では、Investment Score、Screening、Forecast agreement、Data quality、Risk signal と、その上下要因を出す。
+- `Valuation / income / risk` では、PER/PBR/ROE、配当利回り/配当カテゴリ、ETF expense ratio/index family、risk band、warnings を出す。
+- `Ranking context` では、順位、並べ替え条件、比較対象数、上位理由、同条件での注意点を出す。
+- `Rebalance context` では、risk breach、提案 trade、制約、注文指示ではないことを出す。
+- `Decision checkpoints` では、次に確認する業績、決算、配当方針、ETF 指数/経費率、データ欠損を整理し、売買指示にしない。
 
 Next:
 
@@ -456,6 +468,7 @@ Next:
 Completion criteria:
 
 - Decision Report context の最小 schema が定義されている。
+- Phase 18 metadata を活かした data confidence / symbol metadata / decision checkpoints の標準 section を作れる。
 - cockpit / ranking / rebalance の既存出力から report context を作れる。
 - deterministic renderer で Markdown / JSON export ができる。
 - report に data quality、provider、対象期間、制約、非推奨文言が含まれる。

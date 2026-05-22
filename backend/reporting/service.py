@@ -13,7 +13,7 @@ DECISION_SUPPORT_NOTE = (
     "This report is decision-support material only and is not a buy/sell recommendation."
 )
 
-ReportSourceKind = Literal["cockpit", "ranking", "rebalance", "manual"]
+ReportSourceKind = Literal["cockpit", "ranking", "rebalance", "metadata", "manual"]
 
 
 class DecisionReportSource(StrictBaseModel):
@@ -67,8 +67,8 @@ def build_report_section(
     provider: str | None = None,
     symbol: str | None = None,
     as_of: date | None = None,
-    summary: dict[str, str] | None = None,
-    rows: list[dict[str, str]] | None = None,
+    summary: Mapping[str, object] | None = None,
+    rows: list[Mapping[str, object]] | None = None,
     warnings: list[str] | None = None,
     notes: list[str] | None = None,
     metadata: dict[str, str] | None = None,
@@ -118,6 +118,103 @@ def build_decision_report_context(
         created_at=timestamp,
         sections=sections,
         tags=_normalize_strings(tags or []),
+    )
+
+
+def build_data_confidence_section(
+    *,
+    provider: str | None = None,
+    symbol: str | None = None,
+    as_of: date | None = None,
+    price_period: str | None = None,
+    data_quality: str | None = None,
+    metadata_source: str | None = None,
+    metadata_as_of: str | None = None,
+    missing_fields: list[str] | None = None,
+    coverage_rows: list[Mapping[str, object]] | None = None,
+    warnings: list[str] | None = None,
+    notes: list[str] | None = None,
+) -> DecisionReportSection:
+    """Build the standard report section for data availability and confidence."""
+
+    summary: dict[str, object] = {
+        "provider": provider,
+        "price_period": price_period,
+        "data_quality": data_quality,
+        "metadata_source": metadata_source,
+        "metadata_as_of": metadata_as_of,
+    }
+    normalized_missing = _normalize_strings(missing_fields or [])
+    normalized_warnings = _normalize_strings(warnings or [])
+    if normalized_missing:
+        summary["missing_fields"] = ", ".join(normalized_missing)
+        normalized_warnings.append(
+            "Some metadata fields are blank and should be reviewed as data gaps, not zero values."
+        )
+    normalized_notes = _normalize_strings(notes or [])
+    normalized_notes.append(
+        "Unconfirmed metadata remains blank until a verified source or explicit opt-in refresh provides it."
+    )
+
+    return build_report_section(
+        title="Data coverage and confidence",
+        source_kind="metadata",
+        provider=provider,
+        symbol=symbol,
+        as_of=as_of,
+        summary=summary,
+        rows=[_normalize_mapping(row) for row in coverage_rows or []],
+        warnings=normalized_warnings,
+        notes=normalized_notes,
+    )
+
+
+def build_symbol_metadata_section(
+    *,
+    symbol: str,
+    name: str | None = None,
+    as_of: date | None = None,
+    metadata: Mapping[str, object] | None = None,
+    warnings: list[str] | None = None,
+    notes: list[str] | None = None,
+) -> DecisionReportSection:
+    """Build the standard report section for local symbol-master attributes."""
+
+    summary: dict[str, object] = {"symbol": symbol, "name": name}
+    summary.update(metadata or {})
+    return build_report_section(
+        title="Symbol metadata",
+        source_kind="metadata",
+        symbol=symbol,
+        as_of=as_of,
+        summary=summary,
+        warnings=warnings,
+        notes=notes,
+    )
+
+
+def build_decision_checkpoints_section(
+    *,
+    checkpoints: list[Mapping[str, object]],
+    symbol: str | None = None,
+    as_of: date | None = None,
+    notes: list[str] | None = None,
+) -> DecisionReportSection:
+    """Build the standard section for next checks without turning them into advice."""
+
+    if not checkpoints:
+        raise ValidationAppError("Decision checkpoints require at least one row.")
+    normalized_notes = _normalize_strings(notes or [])
+    normalized_notes.append(
+        "These checkpoints organize review work and are not buy/sell instructions."
+    )
+    return build_report_section(
+        title="Decision checkpoints",
+        source_kind="manual",
+        symbol=symbol,
+        as_of=as_of,
+        rows=[_normalize_mapping(row) for row in checkpoints],
+        notes=normalized_notes,
     )
 
 

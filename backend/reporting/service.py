@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
-from typing import Literal, Mapping
+from typing import Literal, Mapping, Sequence
 
 from pydantic import Field
 
@@ -68,7 +68,7 @@ def build_report_section(
     symbol: str | None = None,
     as_of: date | None = None,
     summary: Mapping[str, object] | None = None,
-    rows: list[Mapping[str, object]] | None = None,
+    rows: Sequence[Mapping[str, object]] | None = None,
     warnings: list[str] | None = None,
     notes: list[str] | None = None,
     metadata: dict[str, str] | None = None,
@@ -131,7 +131,7 @@ def build_data_confidence_section(
     metadata_source: str | None = None,
     metadata_as_of: str | None = None,
     missing_fields: list[str] | None = None,
-    coverage_rows: list[Mapping[str, object]] | None = None,
+    coverage_rows: Sequence[Mapping[str, object]] | None = None,
     warnings: list[str] | None = None,
     notes: list[str] | None = None,
 ) -> DecisionReportSection:
@@ -195,7 +195,7 @@ def build_symbol_metadata_section(
 
 def build_decision_checkpoints_section(
     *,
-    checkpoints: list[Mapping[str, object]],
+    checkpoints: Sequence[Mapping[str, object]],
     symbol: str | None = None,
     as_of: date | None = None,
     notes: list[str] | None = None,

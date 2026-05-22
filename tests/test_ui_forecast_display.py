@@ -25,7 +25,11 @@ from ui.app import (
     _ranking_symbols_from_selected_labels,
     _render_market_chart,
     _symbol_from_candidate,
+    build_cockpit_decision_report_context,
+    build_ranking_decision_report_context,
     cockpit_investment_memo_rows,
+    decision_report_json_download,
+    decision_report_markdown_download,
     default_forecast_horizon_days,
     default_market_data_provider,
     forecast_boundary_frame,
@@ -2314,6 +2318,132 @@ def test_cockpit_investment_memo_rows_combines_score_master_and_price(monkeypatc
     assert "配当利回り 0.23%" in rows[3]["評価"]
     assert "高値圏" in rows[4]["評価"]
     assert rows[0]["確認ポイント"] == "スコアは深掘り順の整理で、売買推奨ではありません。"
+
+
+def test_cockpit_decision_report_context_includes_metadata_confidence(monkeypatch):
+    monkeypatch.setattr(
+        "ui.app.symbol_universe_csv_rows",
+        lambda: [
+            {
+                "symbol": "6857.T",
+                "name": "Advantest",
+                "asset_type": "stock",
+                "market": "jp",
+                "currency": "JPY",
+                "nisa_category": "growth",
+                "investment_style": "lump_sum",
+                "metadata_source": "yahoo",
+                "metadata_as_of": "2026-05-22",
+                "dividend_yield_pct": "0.22",
+                "dividend_category": "low",
+                "per": "52.42",
+                "pbr": "28.93",
+                "roe_pct": "57.65",
+                "market_cap_tier": "mega",
+            }
+        ],
+    )
+    preview = MarketDataPreview(
+        status="ok",
+        bars=[
+            _bar("2026-05-21", close=100, symbol="6857.T"),
+            _bar("2026-05-22", close=101, symbol="6857.T"),
+        ],
+        provider_rows=[{"field": "provider", "value": "yahoo"}],
+        quote_rows=[],
+        ohlcv_rows=[],
+        price_chart_rows=[],
+        forecast_chart_rows=[],
+        forecast_metric_rows=[],
+        fx_rows=[],
+        feature_rows=[],
+        investment_score_rows=[
+            {
+                "symbol": "6857.T",
+                "total_score": "84.69",
+                "score_band": "strong",
+                "screening_score": "78.9",
+                "forecast_agreement_score": "90",
+                "data_quality_score": "100",
+                "risk_signal_score": "72.44",
+            }
+        ],
+        screening_rows=[],
+        error_rows=[],
+    )
+
+    context = build_cockpit_decision_report_context(preview)
+    markdown = decision_report_markdown_download(context)
+    payload = decision_report_json_download(context)
+
+    assert context.title == "Decision Report - 6857.T"
+    assert [section.title for section in context.sections] == [
+        "Data coverage and confidence",
+        "Symbol metadata",
+        "Investment score breakdown",
+        "Valuation / income / risk",
+        "Decision checkpoints",
+    ]
+    assert "risk_band" in context.sections[0].summary["missing_fields"]
+    assert "Data coverage and confidence" in markdown
+    assert '"schema_version": "decision-report-context-v1"' in payload
+
+
+def test_ranking_decision_report_context_limits_rows_and_uses_top_symbol(monkeypatch):
+    monkeypatch.setattr(
+        "ui.app.symbol_universe_csv_rows",
+        lambda: [
+            {
+                "symbol": "AAPL",
+                "name": "Apple Inc.",
+                "asset_type": "stock",
+                "market": "us",
+                "currency": "USD",
+                "nisa_category": "growth",
+                "investment_style": "lump_sum",
+                "metadata_source": "yahoo",
+                "metadata_as_of": "2026-05-22",
+                "dividend_yield_pct": "0.5",
+                "dividend_category": "low",
+                "per": "28",
+                "pbr": "5",
+                "roe_pct": "22",
+                "market_cap_tier": "mega",
+                "risk_band": "standard",
+            }
+        ],
+    )
+    rows = [
+        {
+            "rank": str(index + 1),
+            "symbol": "AAPL" if index == 0 else f"TEST{index}",
+            "total_score": "80",
+            "score_band": "strong",
+            "screening_score": "70",
+            "forecast_agreement_score": "90",
+            "data_quality_score": "100",
+            "risk_signal_score": "60",
+            "note": "review candidate",
+        }
+        for index in range(25)
+    ]
+
+    context = build_ranking_decision_report_context(
+        ranked_rows=rows,
+        provider="yahoo",
+        start=date(2026, 5, 1),
+        end=date(2026, 5, 22),
+        ranking_purpose="成長重視",
+        weight_preset="予測一致重視",
+        comparison_summary="候補: 25件",
+    )
+
+    ranking_section = next(
+        section for section in context.sections if section.title == "Ranking context"
+    )
+    assert ranking_section.summary["reported_rows"] == "20 of 25"
+    assert ranking_section.rows[0]["symbol"] == "AAPL"
+    assert "Ranking result" in context.title
 
 
 def test_rank_investment_score_rows_sorts_and_reassigns_rank():

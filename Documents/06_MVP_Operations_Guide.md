@@ -439,6 +439,7 @@ Phase 16 ranking implementation notes:
 - The ranking progress indicator reports batch fetch, feature construction, forecast agreement calculation, and final sorting so large candidate sets do not look frozen.
 - Ranking remains decision support only. Click a ranking row to open the shared `銘柄データ` modal with short ranking context plus local master details. Use the cockpit for detailed price / forecast / score-reason review.
 - In `銘柄コックピット`, `銘柄データを見る` sits beside symbol selection and opens the same local-master modal for the selected symbol. Start / End inputs wrap to the next row. After fetch, the cockpit shows `投資判断メモ` combining score, warnings, valuation, income, price trend, and next-check wording.
+- In `銘柄コックピット` and `銘柄ランキング`, the result area includes a `Decision Report` expander with Markdown / JSON downloads and a Markdown preview. The report combines data coverage, local symbol metadata, score breakdown, valuation/income/risk context, ranking context where available, and decision checkpoints. It is decision-support material, not a buy/sell recommendation.
 
 Phase 16 final UI smoke checklist:
 

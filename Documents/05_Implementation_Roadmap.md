@@ -442,6 +442,7 @@ Implemented slice:
 - `backend/reporting` に Decision Report context v1 と deterministic Markdown / manifest helper を追加。
 - cockpit / ranking / rebalance 由来の summary / table rows / warnings / notes を local-first に束ねる最小 schema を追加。
 - Phase 18 の銘柄 metadata 整備を踏まえ、`Data coverage and confidence`、`Symbol metadata`、`Decision checkpoints` の標準 report section builder を追加。
+- 銘柄コックピットとランキング結果に `Decision Report` expander を追加し、Markdown / JSON download と Markdown preview を確認できるようにした。
 
 Report output policy:
 
@@ -456,7 +457,7 @@ Report output policy:
 
 Next:
 
-- Streamlit の cockpit / ranking / rebalance state から Decision Report context を組み立てる導線を追加。
+- Rebalance state から Decision Report context を組み立てる導線を追加。
 - API / export で JSON / Markdown / ZIP として保存できるようにする。
 
 - cockpit summary / ranking result / ranking error / rebalance result / risk breach を横断する report context contract を定義する。

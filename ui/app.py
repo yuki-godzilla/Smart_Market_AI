@@ -26,6 +26,17 @@ from backend.core.errors import AppError
 from backend.forecast import forecast_model_display_name, summarize_forecast_evaluations
 from backend.marketdata import create_market_data_provider_adapter
 from backend.marketdata.feature_builder import build_daily_snapshots_from_market_data
+from backend.reporting import (
+    DecisionReportContext,
+    DecisionReportSection,
+    ReportSourceKind,
+    build_data_confidence_section,
+    build_decision_checkpoints_section,
+    build_decision_report_context,
+    build_report_section,
+    build_symbol_metadata_section,
+    render_decision_report_markdown,
+)
 from backend.scoring import InvestmentScoringService
 from backend.screening import ScreeningService
 from ui.components.sidemenu import (
@@ -610,7 +621,12 @@ def symbol_universe_detail_display_value(row: dict[str, str], column: str) -> st
         "installment_available",
     }:
         return _symbol_detail_bool_display(value)
-    if column in {"dividend_yield_pct", "expense_ratio_pct", "trust_fee_pct", "roe_pct"}:
+    if column in {
+        "dividend_yield_pct",
+        "expense_ratio_pct",
+        "trust_fee_pct",
+        "roe_pct",
+    }:
         return _symbol_detail_decimal_display(value, suffix="%")
     if column in {"per", "pbr", "consensus_rating", "aum"}:
         return _symbol_detail_decimal_display(value)
@@ -1928,6 +1944,16 @@ def _render_market_data_ranking() -> None:
             file_name="investment_score_ranking.csv",
             mime="text/csv",
         )
+        _render_ranking_decision_report(
+            ranked_rows=ranked_rows,
+            provider=provider,
+            start=start_date,
+            end=end_date,
+            ranking_purpose=ranking_purpose_label(ranking_purpose),
+            weight_preset=ranking_weight_preset_label(weight_preset),
+            comparison_summary=comparison_summary["inline"],
+            error_rows=cast(list[dict[str, str]], error_rows),
+        )
     elif error_rows:
         st.warning("ランキング対象の価格データを取得できませんでした。")
         _render_ranking_error_rows(cast(list[dict[str, str]], error_rows))
@@ -2424,6 +2450,7 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
     if preview.error_rows:
         st.subheader("補助データの取得警告")
         _render_provider_error_summary(preview.error_rows)
+    _render_cockpit_decision_report(preview)
 
 
 def _render_market_data_cockpit_header(
@@ -2525,6 +2552,499 @@ def score_component_rows(row: dict[str, str]) -> list[dict[str, str]]:
         {"要素": "Risk", "スコア": row.get("Risk", "")},
         {"要素": "Data Quality", "スコア": row.get("データ品質", "")},
     ]
+
+
+def build_cockpit_decision_report_context(
+    preview: MarketDataPreview,
+) -> DecisionReportContext:
+    symbol = _market_data_preview_symbol(preview)
+    symbol_row = _symbol_universe_row_for_symbol(symbol) if symbol else None
+    provider = _metadata_value(preview.provider_rows, "provider") or None
+    as_of = _date_from_iso_text(_market_data_as_of(preview))
+    score_row = preview.investment_score_rows[0] if preview.investment_score_rows else {}
+    sections = [
+        build_data_confidence_section(
+            provider=provider,
+            symbol=symbol or None,
+            as_of=as_of,
+            price_period=_bars_period_label(preview.bars),
+            data_quality=score_row.get("data_quality_score") or score_row.get("data_quality"),
+            metadata_source=_symbol_report_value(symbol_row, "metadata_source"),
+            metadata_as_of=_symbol_report_value(symbol_row, "metadata_as_of"),
+            missing_fields=_missing_symbol_report_fields(symbol_row),
+            coverage_rows=_symbol_report_coverage_rows(symbol_row),
+            warnings=[row.get("message", "") for row in preview.error_rows],
+        )
+    ]
+    if symbol_row is not None:
+        sections.append(
+            build_symbol_metadata_section(
+                symbol=symbol,
+                name=symbol_name(symbol),
+                metadata=_symbol_report_metadata(symbol_row),
+            )
+        )
+    if score_row:
+        sections.append(
+            _investment_score_report_section(
+                score_row,
+                source_kind="cockpit",
+                provider=provider,
+                symbol=symbol,
+                as_of=as_of,
+            )
+        )
+    if symbol_row is not None:
+        sections.append(
+            _valuation_income_risk_report_section(
+                symbol_row,
+                source_kind="cockpit",
+                symbol=symbol,
+                as_of=as_of,
+            )
+        )
+    display_score_rows = investment_score_display_rows(preview.investment_score_rows)
+    if display_score_rows:
+        sections.append(
+            build_decision_checkpoints_section(
+                checkpoints=_cockpit_report_checkpoints(
+                    display_score_rows[0],
+                    symbol_row,
+                    preview.bars,
+                ),
+                symbol=symbol or None,
+                as_of=as_of,
+            )
+        )
+    return build_decision_report_context(
+        title=f"Decision Report - {symbol or 'selected symbol'}",
+        sections=sections,
+        tags=["cockpit", "phase-19", "local-first"],
+    )
+
+
+def build_ranking_decision_report_context(
+    *,
+    ranked_rows: list[dict[str, str]],
+    provider: str,
+    start: date,
+    end: date,
+    ranking_purpose: str,
+    weight_preset: str,
+    comparison_summary: str,
+    error_rows: list[dict[str, str]] | None = None,
+) -> DecisionReportContext:
+    top_rows = ranked_rows[:20]
+    top_symbol = top_rows[0].get("symbol", "") if top_rows else ""
+    top_symbol_row = _symbol_universe_row_for_symbol(top_symbol) if top_symbol else None
+    sections = [
+        build_data_confidence_section(
+            provider=provider,
+            symbol=top_symbol or None,
+            as_of=end,
+            price_period=f"{start.isoformat()} to {end.isoformat()}",
+            data_quality=top_rows[0].get("data_quality_score") if top_rows else None,
+            metadata_source=_symbol_report_value(top_symbol_row, "metadata_source"),
+            metadata_as_of=_symbol_report_value(top_symbol_row, "metadata_as_of"),
+            missing_fields=_missing_symbol_report_fields(top_symbol_row),
+            coverage_rows=_symbol_report_coverage_rows(top_symbol_row),
+            warnings=[row.get("message", "") for row in error_rows or []],
+            notes=[comparison_summary],
+        ),
+        build_report_section(
+            title="Ranking context",
+            source_kind="ranking",
+            provider=provider,
+            as_of=end,
+            summary={
+                "ranking_purpose": ranking_purpose,
+                "display_weight": weight_preset,
+                "comparison": comparison_summary,
+                "reported_rows": f"{len(top_rows)} of {len(ranked_rows)}",
+            },
+            rows=[_ranking_report_row(row) for row in top_rows],
+            notes=[
+                "Ranking rows are ordered for deeper review and are not buy/sell recommendations."
+            ],
+        ),
+    ]
+    if top_symbol_row is not None:
+        sections.append(
+            build_symbol_metadata_section(
+                symbol=top_symbol,
+                name=symbol_name(top_symbol),
+                as_of=end,
+                metadata=_symbol_report_metadata(top_symbol_row),
+            )
+        )
+        sections.append(
+            _valuation_income_risk_report_section(
+                top_symbol_row,
+                source_kind="ranking",
+                symbol=top_symbol,
+                as_of=end,
+            )
+        )
+    if top_rows:
+        sections.append(
+            _investment_score_report_section(
+                top_rows[0],
+                source_kind="ranking",
+                provider=provider,
+                symbol=top_symbol,
+                as_of=end,
+            )
+        )
+        sections.append(
+            build_decision_checkpoints_section(
+                checkpoints=_ranking_report_checkpoints(top_rows[0], top_symbol_row),
+                symbol=top_symbol or None,
+                as_of=end,
+            )
+        )
+    return build_decision_report_context(
+        title="Decision Report - Ranking result",
+        sections=sections,
+        tags=["ranking", "phase-19", "local-first"],
+    )
+
+
+def decision_report_json_download(context: DecisionReportContext) -> str:
+    return context.model_dump_json(indent=2)
+
+
+def decision_report_markdown_download(context: DecisionReportContext) -> str:
+    return render_decision_report_markdown(context)
+
+
+def _render_cockpit_decision_report(preview: MarketDataPreview) -> None:
+    context = build_cockpit_decision_report_context(preview)
+    _render_decision_report_downloads(
+        context,
+        expander_label="Decision Report",
+        json_file_name="decision_report_cockpit.json",
+        markdown_file_name="decision_report_cockpit.md",
+    )
+
+
+def _render_ranking_decision_report(
+    *,
+    ranked_rows: list[dict[str, str]],
+    provider: str,
+    start: date,
+    end: date,
+    ranking_purpose: str,
+    weight_preset: str,
+    comparison_summary: str,
+    error_rows: list[dict[str, str]],
+) -> None:
+    context = build_ranking_decision_report_context(
+        ranked_rows=ranked_rows,
+        provider=provider,
+        start=start,
+        end=end,
+        ranking_purpose=ranking_purpose,
+        weight_preset=weight_preset,
+        comparison_summary=comparison_summary,
+        error_rows=error_rows,
+    )
+    _render_decision_report_downloads(
+        context,
+        expander_label="Decision Report",
+        json_file_name="decision_report_ranking.json",
+        markdown_file_name="decision_report_ranking.md",
+    )
+
+
+def _render_decision_report_downloads(
+    context: DecisionReportContext,
+    *,
+    expander_label: str,
+    json_file_name: str,
+    markdown_file_name: str,
+) -> None:
+    markdown = decision_report_markdown_download(context)
+    with st.expander(expander_label, expanded=False):
+        st.caption(
+            "取得済みデータ、銘柄メタデータ、確認ポイントを同じ形式で整理します。"
+            "売買推奨ではありません。"
+        )
+        st.download_button(
+            "Download report Markdown",
+            data=markdown,
+            file_name=markdown_file_name,
+            mime="text/markdown",
+        )
+        st.download_button(
+            "Download report JSON",
+            data=decision_report_json_download(context),
+            file_name=json_file_name,
+            mime="application/json",
+        )
+        st.code(markdown, language="markdown")
+
+
+def _investment_score_report_section(
+    row: dict[str, str],
+    *,
+    source_kind: ReportSourceKind,
+    provider: str | None = None,
+    symbol: str = "",
+    as_of: date | None = None,
+) -> DecisionReportSection:
+    return build_report_section(
+        title="Investment score breakdown",
+        source_kind=source_kind,
+        provider=provider,
+        symbol=symbol or None,
+        as_of=as_of,
+        summary={
+            "total_score": row.get("total_score", ""),
+            "score_band": row.get("score_band", ""),
+            "screening_score": row.get("screening_score", ""),
+            "forecast_agreement_score": row.get("forecast_agreement_score", ""),
+            "data_quality_score": row.get("data_quality_score", ""),
+            "risk_signal_score": row.get("risk_signal_score", ""),
+            "warnings": row.get("warnings", ""),
+            "reasons": row.get("reasons", ""),
+        },
+        rows=[
+            {"component": "Screening", "score": row.get("screening_score", "")},
+            {
+                "component": "Forecast agreement",
+                "score": row.get("forecast_agreement_score", ""),
+            },
+            {"component": "Data quality", "score": row.get("data_quality_score", "")},
+            {"component": "Risk signal", "score": row.get("risk_signal_score", "")},
+        ],
+    )
+
+
+def _valuation_income_risk_report_section(
+    symbol_row: dict[str, str],
+    *,
+    source_kind: ReportSourceKind,
+    symbol: str,
+    as_of: date | None = None,
+) -> DecisionReportSection:
+    return build_report_section(
+        title="Valuation / income / risk",
+        source_kind=source_kind,
+        symbol=symbol,
+        as_of=as_of,
+        rows=[
+            {
+                "area": "Valuation",
+                "metric": "PER",
+                "value": symbol_universe_detail_display_value(symbol_row, "per"),
+            },
+            {
+                "area": "Valuation",
+                "metric": "PBR",
+                "value": symbol_universe_detail_display_value(symbol_row, "pbr"),
+            },
+            {
+                "area": "Valuation",
+                "metric": "ROE",
+                "value": symbol_universe_detail_display_value(symbol_row, "roe_pct"),
+            },
+            {
+                "area": "Income",
+                "metric": "Dividend yield",
+                "value": symbol_universe_detail_display_value(symbol_row, "dividend_yield_pct"),
+            },
+            {
+                "area": "Income",
+                "metric": "Dividend category",
+                "value": symbol_universe_detail_display_value(symbol_row, "dividend_category"),
+            },
+            {
+                "area": "ETF",
+                "metric": "Expense ratio",
+                "value": symbol_universe_detail_display_value(
+                    symbol_row,
+                    "expense_ratio_pct",
+                ),
+            },
+            {
+                "area": "ETF",
+                "metric": "Index family",
+                "value": symbol_universe_detail_display_value(
+                    symbol_row,
+                    "index_family",
+                ),
+            },
+            {
+                "area": "Risk",
+                "metric": "Risk band",
+                "value": symbol_universe_detail_display_value(symbol_row, "risk_band"),
+            },
+        ],
+    )
+
+
+def _symbol_report_metadata(symbol_row: dict[str, str]) -> dict[str, str]:
+    columns = [
+        "market",
+        "asset_type",
+        "currency",
+        "nisa_category",
+        "investment_style",
+        "market_cap_tier",
+        "broker",
+        "tradability",
+        "is_sbi_supported",
+        "metadata_source",
+        "metadata_as_of",
+        "metadata_updated_at",
+    ]
+    return {column: symbol_universe_detail_display_value(symbol_row, column) for column in columns}
+
+
+def _symbol_report_coverage_rows(symbol_row: dict[str, str] | None) -> list[dict[str, str]]:
+    if symbol_row is None:
+        return [{"field": "symbol_metadata", "status": "missing", "value": ""}]
+    rows = []
+    for column in _symbol_report_fields(symbol_row):
+        raw_value = _symbol_detail_raw_value(symbol_row, column)
+        rows.append(
+            {
+                "field": column,
+                "status": "available" if raw_value else "missing",
+                "value": (
+                    symbol_universe_detail_display_value(symbol_row, column) if raw_value else ""
+                ),
+            }
+        )
+    return rows
+
+
+def _missing_symbol_report_fields(symbol_row: dict[str, str] | None) -> list[str]:
+    if symbol_row is None:
+        return ["symbol_metadata"]
+    return [
+        column
+        for column in _symbol_report_fields(symbol_row)
+        if not _symbol_detail_raw_value(symbol_row, column)
+    ]
+
+
+def _symbol_report_fields(symbol_row: dict[str, str]) -> list[str]:
+    asset_type = _symbol_detail_raw_value(symbol_row, "asset_type")
+    common = ["metadata_source", "metadata_as_of", "nisa_category", "investment_style"]
+    if asset_type == "etf":
+        return common + [
+            "dividend_yield_pct",
+            "index_family",
+            "expense_ratio_pct",
+            "complexity",
+            "risk_band",
+        ]
+    return common + [
+        "dividend_yield_pct",
+        "dividend_category",
+        "per",
+        "pbr",
+        "roe_pct",
+        "market_cap_tier",
+        "risk_band",
+    ]
+
+
+def _symbol_report_value(symbol_row: dict[str, str] | None, column: str) -> str | None:
+    if symbol_row is None:
+        return None
+    value = symbol_universe_detail_display_value(symbol_row, column)
+    return value if value else None
+
+
+def _bars_period_label(bars: list[Bar]) -> str | None:
+    if not bars:
+        return None
+    return f"{bars[0].ts.date().isoformat()} to {bars[-1].ts.date().isoformat()}"
+
+
+def _date_from_iso_text(value: str) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value[:10])
+    except ValueError:
+        return None
+
+
+def _cockpit_report_checkpoints(
+    display_score_row: dict[str, str],
+    symbol_row: dict[str, str] | None,
+    bars: list[Bar],
+) -> list[dict[str, str]]:
+    trend = _cockpit_price_trend_summary(bars)
+    return [
+        {
+            "area": "Score",
+            "finding": _cockpit_score_strength_summary(display_score_row, symbol_row),
+            "confirmation_point": "Review score components before using the result.",
+        },
+        {
+            "area": "Caution",
+            "finding": _cockpit_score_caution_summary(display_score_row, symbol_row),
+            "confirmation_point": "Check warnings and data gaps first.",
+        },
+        {
+            "area": "Valuation",
+            "finding": _cockpit_valuation_summary(symbol_row),
+            "confirmation_point": "Check whether valuation is supported by earnings and growth.",
+        },
+        {
+            "area": "Income",
+            "finding": _cockpit_income_summary(symbol_row),
+            "confirmation_point": "Review dividend policy and stability, not only yield.",
+        },
+        {"area": "Price trend", "finding": trend["summary"], "confirmation_point": trend["check"]},
+    ]
+
+
+def _ranking_report_checkpoints(
+    row: dict[str, str],
+    symbol_row: dict[str, str] | None,
+) -> list[dict[str, str]]:
+    return [
+        {
+            "area": "Ranking",
+            "finding": row.get("note", ""),
+            "confirmation_point": "Open cockpit and confirm price trend and forecast details.",
+        },
+        {
+            "area": "Valuation",
+            "finding": _cockpit_valuation_summary(symbol_row),
+            "confirmation_point": "Check whether valuation is supported by fundamentals.",
+        },
+        {
+            "area": "Income",
+            "finding": _cockpit_income_summary(symbol_row),
+            "confirmation_point": "Review dividend policy and drawdown risk.",
+        },
+        {
+            "area": "Next review",
+            "finding": _ranking_next_action(row, symbol_row),
+            "confirmation_point": "Use this as a review queue, not as an order instruction.",
+        },
+    ]
+
+
+def _ranking_report_row(row: dict[str, str]) -> dict[str, str]:
+    return {
+        "rank": row.get("rank", ""),
+        "symbol": row.get("symbol", ""),
+        "total_score": row.get("total_score", ""),
+        "score_band": row.get("score_band", ""),
+        "screening_score": row.get("screening_score", ""),
+        "forecast_agreement_score": row.get("forecast_agreement_score", ""),
+        "data_quality_score": row.get("data_quality_score", ""),
+        "risk_signal_score": row.get("risk_signal_score", ""),
+        "note": row.get("note", ""),
+        "warnings": row.get("warnings", ""),
+    }
 
 
 def cockpit_investment_memo_rows(

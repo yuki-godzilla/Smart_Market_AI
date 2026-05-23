@@ -86,13 +86,18 @@ from ui.ranking import (
     RANKING_MARKET_CAP_LABELS,
     RANKING_NISA_ELIGIBILITY_LABELS,
     RANKING_PRESET_ETF_CORE_COST,
+    RANKING_PRESET_ETF_INCOME,
+    RANKING_PRESET_MIN_VOLATILITY,
     RANKING_PRESET_QUALITY_GROWTH,
+    RANKING_PRESET_QUALITY_VALUE,
+    RANKING_PRESET_SMALL_GROWTH,
     RANKING_PRESET_SUSTAINABLE_INCOME,
     RANKING_PURPOSE_ETF_CORE_COST,
     RANKING_PURPOSE_MULTI_FACTOR,
     RANKING_PURPOSE_QUALITY_GROWTH,
     RANKING_PURPOSE_SUSTAINABLE_INCOME,
     RANKING_THEME_LABELS,
+    RANKING_WEIGHT_PRESETS,
     apply_ranking_weight_preset,
     filter_symbol_universe_rows,
     initial_ranking_selected_labels,
@@ -2769,6 +2774,176 @@ def test_apply_ranking_weight_preset_reweights_and_sorts_rows():
     )
     assert rows[1]["symbol"] == "QUALITY"
     assert ranking_weight_preset_label("forecast") == "予測一致重視"
+
+
+def _ranking_score_row(symbol: str) -> dict[str, str]:
+    return {
+        "rank": "1",
+        "symbol": symbol,
+        "total_score": "50",
+        "score_band": "BALANCED",
+        "screening_score": "50",
+        "forecast_agreement_score": "50",
+        "data_quality_score": "50",
+        "risk_signal_score": "50",
+        "warnings": "",
+    }
+
+
+def _stock_symbol_metadata(
+    symbol: str,
+    *,
+    dividend_yield_pct: str = "1.0",
+    market_cap_tier: str = "large",
+    per: str = "25",
+    pbr: str = "2.5",
+    roe_pct: str = "8",
+    risk_band: str = "MEDIUM",
+    nisa_category: str = "growth",
+) -> dict[str, str]:
+    return {
+        "symbol": symbol,
+        "metadata_source": "curated_csv",
+        "metadata_as_of": "2026-05-18",
+        "asset_type": "stock",
+        "is_active": "true",
+        "nisa_category": nisa_category,
+        "market_cap_tier": market_cap_tier,
+        "dividend_yield_pct": dividend_yield_pct,
+        "dividend_category": (
+            "high_dividend" if Decimal(dividend_yield_pct) >= Decimal("3") else "dividend"
+        ),
+        "risk_band": risk_band,
+        "per": per,
+        "pbr": pbr,
+        "roe_pct": roe_pct,
+    }
+
+
+def _etf_symbol_metadata(
+    symbol: str,
+    *,
+    dividend_yield_pct: str = "0",
+    expense_ratio_pct: str = "0.50",
+    complexity: str = "standard",
+    index_family: str = "sp500",
+    nisa_category: str = "growth",
+) -> dict[str, str]:
+    return {
+        "symbol": symbol,
+        "metadata_source": "curated_csv",
+        "metadata_as_of": "2026-05-18",
+        "asset_type": "etf",
+        "is_active": "true",
+        "nisa_category": nisa_category,
+        "dividend_yield_pct": dividend_yield_pct,
+        "dividend_category": (
+            "high_dividend" if Decimal(dividend_yield_pct) >= Decimal("3") else "dividend"
+        ),
+        "risk_band": "MEDIUM",
+        "index_family": index_family,
+        "expense_ratio_pct": expense_ratio_pct,
+        "complexity": complexity,
+    }
+
+
+def test_advanced_stock_ranking_profiles_change_order_by_metadata_fit():
+    symbol_rows = {
+        "GROWTH": _stock_symbol_metadata(
+            "GROWTH", roe_pct="24", per="32", pbr="5", risk_band="HIGH"
+        ),
+        "VALUE": _stock_symbol_metadata(
+            "VALUE", market_cap_tier="small", roe_pct="12", per="10", pbr="0.9", risk_band="MEDIUM"
+        ),
+        "INCOME": _stock_symbol_metadata(
+            "INCOME",
+            market_cap_tier="small",
+            dividend_yield_pct="4.0",
+            per="18",
+            pbr="1.1",
+            risk_band="MEDIUM",
+        ),
+        "LOWVOL": _stock_symbol_metadata(
+            "LOWVOL", market_cap_tier="mega", dividend_yield_pct="2.0", risk_band="LOW"
+        ),
+        "SMALL": _stock_symbol_metadata(
+            "SMALL", market_cap_tier="small", roe_pct="18", per="28", risk_band="MEDIUM"
+        ),
+    }
+    rows = [_ranking_score_row(symbol) for symbol in symbol_rows]
+
+    assert (
+        apply_ranking_weight_preset(rows, RANKING_PRESET_QUALITY_GROWTH, symbol_rows)[0]["symbol"]
+        == "GROWTH"
+    )
+    assert (
+        apply_ranking_weight_preset(rows, RANKING_PRESET_QUALITY_VALUE, symbol_rows)[0]["symbol"]
+        == "VALUE"
+    )
+    assert (
+        apply_ranking_weight_preset(rows, RANKING_PRESET_SUSTAINABLE_INCOME, symbol_rows)[0][
+            "symbol"
+        ]
+        == "INCOME"
+    )
+    assert (
+        apply_ranking_weight_preset(rows, RANKING_PRESET_MIN_VOLATILITY, symbol_rows)[0]["symbol"]
+        == "LOWVOL"
+    )
+    assert (
+        apply_ranking_weight_preset(rows, RANKING_PRESET_SMALL_GROWTH, symbol_rows)[0]["symbol"]
+        == "SMALL"
+    )
+
+
+def test_advanced_etf_ranking_profiles_change_order_by_cost_or_income():
+    core_rows = {
+        "CORE": _etf_symbol_metadata(
+            "CORE", expense_ratio_pct="0.03", complexity="beginner", index_family="sp500"
+        ),
+        "COMPLEX": _etf_symbol_metadata(
+            "COMPLEX",
+            expense_ratio_pct="0.95",
+            complexity="advanced",
+            index_family="",
+            nisa_category="none",
+        ),
+    }
+    income_rows = {
+        "ETF_INCOME": _etf_symbol_metadata(
+            "ETF_INCOME", dividend_yield_pct="4.0", expense_ratio_pct="0.30"
+        ),
+        "ETF_WEAK": _etf_symbol_metadata(
+            "ETF_WEAK",
+            dividend_yield_pct="0",
+            expense_ratio_pct="0.90",
+            complexity="advanced",
+            index_family="",
+            nisa_category="none",
+        ),
+    }
+
+    assert (
+        apply_ranking_weight_preset(
+            [_ranking_score_row(symbol) for symbol in core_rows],
+            RANKING_PRESET_ETF_CORE_COST,
+            core_rows,
+        )[0]["symbol"]
+        == "CORE"
+    )
+    assert (
+        apply_ranking_weight_preset(
+            [_ranking_score_row(symbol) for symbol in income_rows],
+            RANKING_PRESET_ETF_INCOME,
+            income_rows,
+        )[0]["symbol"]
+        == "ETF_INCOME"
+    )
+
+
+def test_ranking_weight_presets_are_normalized():
+    for weights in RANKING_WEIGHT_PRESETS.values():
+        assert sum(weights.values(), Decimal("0")) == Decimal("1.00")
 
 
 def test_ranking_database_scores_use_symbol_metadata():

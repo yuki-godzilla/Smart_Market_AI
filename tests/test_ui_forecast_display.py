@@ -17,6 +17,7 @@ from ui.app import (
     SYMBOL_DETAIL_DIALOG_CSS,
     _build_market_data_ranking_rows,
     _coerce_number_input_state,
+    _current_or_default_symbol_labels,
     _ensure_selectbox_state_value,
     _market_data_preview_symbol_label,
     _name_from_candidate,
@@ -310,6 +311,17 @@ def test_coerce_number_input_state_recovers_string_values(monkeypatch):
 
     assert _coerce_number_input_state("market_data_cockpit_per_min", "1.0") == 2.0
     assert session_state["market_data_cockpit_per_min"] == 2.0
+
+
+def test_current_or_default_symbol_labels_preserves_selection_for_empty_filters(monkeypatch):
+    monkeypatch.setattr(
+        "ui.app.st.session_state",
+        {"market_data_symbol_candidate": "7203.T - Toyota Motor"},
+    )
+
+    assert _current_or_default_symbol_labels([{"symbol": "9983.T", "name": "Fast Retailing"}]) == [
+        "7203.T - Toyota Motor"
+    ]
 
 
 def test_symbol_universe_detail_rows_show_column_labels_and_blank_values():

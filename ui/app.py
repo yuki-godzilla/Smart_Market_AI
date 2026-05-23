@@ -1697,7 +1697,10 @@ def _render_cockpit_symbol_filter_panel(
             ]
         )
         filtered_rows = cockpit_filtered_symbol_rows(symbol_options)
-        st.caption(f"現在の候補: {len(filtered_rows)} / {len(symbol_options)}件")
+        if filtered_rows:
+            st.caption(f"現在の候補: {len(filtered_rows)} / {len(symbol_options)}件")
+        else:
+            st.warning("条件に合う銘柄候補がありません。条件を緩めるか、クリアしてください。")
     return filtered_rows
 
 
@@ -1760,6 +1763,14 @@ def _ensure_cockpit_symbol_filter_defaults() -> None:
         st.session_state.setdefault(key, value)
 
 
+def _current_or_default_symbol_labels(symbol_options: list[dict[str, str]]) -> list[str]:
+    current_label = str(st.session_state.get("market_data_symbol_candidate", "")).strip()
+    if current_label:
+        return [current_label]
+    labels = symbol_candidate_labels(symbol_options)
+    return labels[:1] if labels else ["候補なし"]
+
+
 def merged_symbol_candidate_rows(
     reference_rows: list[dict[str, str]],
     live_rows: list[dict[str, str]],
@@ -1817,8 +1828,7 @@ def _render_market_data_cockpit() -> None:
         candidate_rows = merged_symbol_candidate_rows(filtered_symbol_options, live_symbol_options)
         symbol_option_labels = symbol_candidate_labels(candidate_rows, symbol_query)
         if not symbol_option_labels:
-            st.warning("条件に合う銘柄候補がありません。条件を緩めるかクリアしてください。")
-            symbol_option_labels = symbol_candidate_labels(symbol_options)
+            symbol_option_labels = _current_or_default_symbol_labels(symbol_options)
         _ensure_selectbox_state_value("market_data_symbol_candidate", symbol_option_labels)
         symbol_candidate = cast(
             str,
@@ -1904,8 +1914,11 @@ def _render_market_data_cockpit() -> None:
                 key="market_data_end_preview",
             )
 
-    with st.expander("銘柄候補", expanded=False):
-        st.dataframe(symbol_options, hide_index=True, use_container_width=True)
+    with st.expander(f"銘柄候補（{len(filtered_symbol_options)}件）", expanded=False):
+        if filtered_symbol_options:
+            st.dataframe(filtered_symbol_options, hide_index=True, use_container_width=True)
+        else:
+            st.info("条件に合う銘柄候補はありません。上のフィルター条件を調整してください。")
 
     if st.button("Fetch market data", key="fetch_market_data"):
         try:

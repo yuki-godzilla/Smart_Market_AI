@@ -455,6 +455,22 @@ RANKING_PURPOSE_WEIGHT_PRESETS = {
     RANKING_PURPOSE_STABILITY: RANKING_PRESET_STABILITY,
     RANKING_PURPOSE_TREND: RANKING_PRESET_TREND,
 }
+RANKING_FETCH_LIMIT_FAST = "fast_100"
+RANKING_FETCH_LIMIT_BALANCED = "balanced_300"
+RANKING_FETCH_LIMIT_BROAD = "broad_800"
+RANKING_FETCH_LIMIT_ALL = "all"
+RANKING_FETCH_LIMIT_LABELS = {
+    RANKING_FETCH_LIMIT_FAST: "高速: 上位100件",
+    RANKING_FETCH_LIMIT_BALANCED: "標準: 上位300件",
+    RANKING_FETCH_LIMIT_BROAD: "広め: 上位800件",
+    RANKING_FETCH_LIMIT_ALL: "全件取得",
+}
+RANKING_FETCH_LIMIT_VALUES = {
+    RANKING_FETCH_LIMIT_FAST: 100,
+    RANKING_FETCH_LIMIT_BALANCED: 300,
+    RANKING_FETCH_LIMIT_BROAD: 800,
+    RANKING_FETCH_LIMIT_ALL: 0,
+}
 RANKING_PERIOD_PRESETS = {
     "short": 7,
     "medium": 30,
@@ -637,6 +653,7 @@ RANKING_FILTER_DEFAULTS: dict[str, str] = {
     "market_data_ranking_region": RANKING_REGION_JAPAN,
     "market_data_ranking_product_type": RANKING_PRODUCT_STOCK,
     "market_data_ranking_purpose": RANKING_PURPOSE_MULTI_FACTOR,
+    "market_data_ranking_fetch_limit": RANKING_FETCH_LIMIT_BALANCED,
     "market_data_ranking_market": "all",
     "market_data_ranking_asset_type": "all",
     "market_data_ranking_currency": "all",
@@ -807,6 +824,50 @@ def symbol_candidate_labels(rows: list[dict[str, str]], query: str = "") -> list
     if normalized_query:
         labels = [label for label in labels if normalized_query in label.lower()]
     return labels
+
+
+def ranking_fetch_limit_label(limit_key: str) -> str:
+    return RANKING_FETCH_LIMIT_LABELS.get(limit_key, limit_key)
+
+
+def ranking_fetch_limit_value(limit_key: str) -> int:
+    return RANKING_FETCH_LIMIT_VALUES.get(
+        limit_key, RANKING_FETCH_LIMIT_VALUES[RANKING_FETCH_LIMIT_BALANCED]
+    )
+
+
+def limited_ranking_selected_labels(
+    selected_labels: list[str],
+    candidate_rows: list[dict[str, str]],
+    *,
+    preset: str,
+    limit_key: str,
+) -> list[str]:
+    """Limit selected labels by local metadata before expensive provider fetches."""
+
+    limit = ranking_fetch_limit_value(limit_key)
+    if limit <= 0 or len(selected_labels) <= limit:
+        return selected_labels
+
+    selected_label_set = set(selected_labels)
+    scored_labels: list[tuple[Decimal, str, str]] = []
+    seen_labels: set[str] = set()
+    for row in candidate_rows:
+        label = f"{row.get('symbol', '')} - {row.get('name', row.get('symbol', ''))}"
+        if label not in selected_label_set:
+            continue
+        database_fit = ranking_database_fit_score(row, preset)
+        metadata_confidence = ranking_metadata_confidence_score(row)
+        score = (database_fit * Decimal("0.7")) + (metadata_confidence * Decimal("0.3"))
+        scored_labels.append((score, row.get("symbol", ""), label))
+        seen_labels.add(label)
+
+    for label in selected_labels:
+        if label not in seen_labels:
+            scored_labels.append((Decimal("-1"), label, label))
+
+    scored_labels.sort(key=lambda item: (-item[0], item[1]))
+    return [label for _, _, label in scored_labels[:limit]]
 
 
 def ranking_period_label(preset: str) -> str:

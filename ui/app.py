@@ -53,6 +53,7 @@ from ui.ranking import (
     RANKING_COMPLEXITY_LABELS,
     RANKING_CURRENCY_LABELS,
     RANKING_DIVIDEND_LABELS,
+    RANKING_FETCH_LIMIT_LABELS,
     RANKING_FILTER_HELP_TEXTS,
     RANKING_INDEX_FAMILY_LABELS,
     RANKING_MARKET_CAP_LABELS,
@@ -64,12 +65,14 @@ from ui.ranking import (
     RANKING_THEME_LABELS,
     apply_ranking_weight_preset,
     filter_symbol_universe_rows,
+    limited_ranking_selected_labels,
     live_ranking_symbol_warning_message,
     normalize_dividend_filter_values,
     rank_investment_score_rows,
     ranking_build_cache_key,
     ranking_deep_dive_default_symbol,
     ranking_detail_filters_for_category,
+    ranking_fetch_limit_label,
     ranking_filter_signature,
     ranking_no_bars_error_row,
     ranking_period_dates,
@@ -2259,20 +2262,12 @@ def _render_market_data_ranking() -> None:
                 key=selection_key,
             ),
         )
-    ranking_symbols = _ranking_symbols_from_selected_labels(selected_labels)
-    current_ranking_source = _ranking_source_key_for_selection(
-        provider=provider,
-        selected_labels=selected_labels,
-        start=start_date,
-        end=end_date,
-    )
-    warning_message = live_ranking_symbol_warning_message(provider, len(ranking_symbols))
-    if warning_message is not None:
-        st.warning(warning_message)
     if not labels:
         st.warning("この条件に合う候補がありません。候補条件を広げてください。")
 
-    action_sort_col, action_button_col, _action_spacer = st.columns([1.4, 0.7, 2.4])
+    action_sort_col, action_limit_col, action_button_col, _action_spacer = st.columns(
+        [1.35, 1.0, 0.7, 2.2]
+    )
     with action_sort_col:
         purpose_options = list(RANKING_PURPOSE_LABELS)
         _ensure_selectbox_state_value("market_data_ranking_purpose", purpose_options)
@@ -2293,7 +2288,49 @@ def _render_market_data_ranking() -> None:
             ),
         )
     weight_preset = ranking_weight_preset_for_purpose(ranking_purpose)
+    with action_limit_col:
+        fetch_limit_options = list(RANKING_FETCH_LIMIT_LABELS)
+        _ensure_selectbox_state_value("market_data_ranking_fetch_limit", fetch_limit_options)
+        fetch_limit = cast(
+            str,
+            st.selectbox(
+                "作成対象",
+                fetch_limit_options,
+                index=_selectbox_index(
+                    fetch_limit_options,
+                    _ranking_filter_value("market_data_ranking_fetch_limit", "balanced_300"),
+                ),
+                key="market_data_ranking_fetch_limit",
+                format_func=ranking_fetch_limit_label,
+                help=(
+                    "候補が多い場合、外部取得前に銘柄DB適合度とDB信頼度で上位に絞ります。"
+                    "全件取得も選べますが、Yahoo live dataでは時間がかかります。"
+                ),
+            ),
+        )
+    effective_selected_labels = limited_ranking_selected_labels(
+        selected_labels,
+        filtered_symbol_rows,
+        preset=weight_preset,
+        limit_key=fetch_limit,
+    )
+    ranking_symbols = _ranking_symbols_from_selected_labels(effective_selected_labels)
+    current_ranking_source = _ranking_source_key_for_selection(
+        provider=provider,
+        selected_labels=effective_selected_labels,
+        start=start_date,
+        end=end_date,
+    )
     st.caption(ranking_purpose_help(ranking_purpose))
+    if len(effective_selected_labels) < len(selected_labels):
+        st.info(
+            f"候補が多いため、{ranking_fetch_limit_label(fetch_limit)}として"
+            f"{len(effective_selected_labels)}件を取得します。"
+            "銘柄DB適合度とDB信頼度で事前に並べています。"
+        )
+    warning_message = live_ranking_symbol_warning_message(provider, len(ranking_symbols))
+    if warning_message is not None:
+        st.warning(warning_message)
     with action_button_col:
         st.write("")
         build_ranking_clicked = st.button(
@@ -2340,11 +2377,12 @@ def _render_market_data_ranking() -> None:
     is_current_ranking_result = _ranking_result_matches_current_selection(
         ranking_source,
         provider=provider,
-        selected_labels=selected_labels,
+        selected_labels=effective_selected_labels,
         start=start_date,
         end=end_date,
     )
     if (rows or error_rows) and not is_current_ranking_result:
+        _clear_ranking_deep_dive_state()
         st.info("条件が変わりました。ランキング作成で結果を更新してください。")
     elif rows:
         ranked_rows = apply_ranking_weight_preset(
@@ -2426,9 +2464,11 @@ def _render_market_data_ranking() -> None:
             error_rows=cast(list[dict[str, str]], error_rows),
         )
     elif error_rows:
+        _clear_ranking_deep_dive_state()
         st.warning("ランキング対象の価格データを取得できませんでした。")
         _render_ranking_error_rows(cast(list[dict[str, str]], error_rows))
     else:
+        _clear_ranking_deep_dive_state()
         st.info("銘柄を選んで ranking を作成してください。")
 
 
@@ -2810,6 +2850,14 @@ def _select_ranking_symbol_for_cockpit(symbol: str, provider: str) -> None:
     st.session_state["market_data_symbol_candidate"] = symbol_candidate_label(symbol)
     st.session_state.pop(MARKET_DATA_PREVIEW_STATE_KEY, None)
     st.session_state.pop(MARKET_DATA_STATUS_STATE_KEY, None)
+    _clear_ranking_deep_dive_state()
+    st.rerun()
+
+
+def _clear_ranking_deep_dive_state() -> None:
+    st.session_state.pop("market_data_ranking_deep_dive_symbol", None)
+    st.session_state.pop(MARKET_DATA_RANKING_DEEP_DIVE_SOURCE_STATE_KEY, None)
+    st.session_state.pop("market_data_ranking_open_cockpit", None)
 
 
 def symbol_candidate_label(symbol: str) -> str:

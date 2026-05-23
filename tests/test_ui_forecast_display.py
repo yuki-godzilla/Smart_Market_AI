@@ -80,6 +80,8 @@ from ui.ranking import (
     RANKING_BETA_RISK_LABELS,
     RANKING_BETA_RISK_STANDARD_OR_LOWER,
     RANKING_DIVIDEND_LABELS,
+    RANKING_FETCH_LIMIT_BALANCED,
+    RANKING_FETCH_LIMIT_FAST,
     RANKING_FILTER_HELP_TEXTS,
     RANKING_INDEX_FAMILY_LABELS,
     RANKING_INVESTMENT_STYLE_METRICS,
@@ -101,6 +103,7 @@ from ui.ranking import (
     apply_ranking_weight_preset,
     filter_symbol_universe_rows,
     initial_ranking_selected_labels,
+    limited_ranking_selected_labels,
     live_ranking_symbol_warning_message,
     normalize_dividend_filter_values,
     rank_investment_score_rows,
@@ -2944,6 +2947,36 @@ def test_advanced_etf_ranking_profiles_change_order_by_cost_or_income():
 def test_ranking_weight_presets_are_normalized():
     for weights in RANKING_WEIGHT_PRESETS.values():
         assert sum(weights.values(), Decimal("0")) == Decimal("1.00")
+
+
+def test_limited_ranking_selected_labels_prefers_database_fit_before_fetch():
+    low_rows = [
+        _stock_symbol_metadata(f"LOW{index}", roe_pct="4", per="45", pbr="5", risk_band="HIGH")
+        for index in range(100)
+    ]
+    rows = [
+        *low_rows,
+        _stock_symbol_metadata("HIGH", roe_pct="24", per="30", pbr="4", risk_band="MEDIUM"),
+    ]
+    selected_labels = [f"LOW{index} - LOW{index}" for index in range(100)] + ["HIGH - HIGH"]
+
+    limited = limited_ranking_selected_labels(
+        selected_labels,
+        rows,
+        preset=RANKING_PRESET_QUALITY_GROWTH,
+        limit_key=RANKING_FETCH_LIMIT_FAST,
+    )
+    assert len(limited) == 100
+    assert limited[0] == "HIGH - HIGH"
+    assert (
+        limited_ranking_selected_labels(
+            selected_labels,
+            rows,
+            preset=RANKING_PRESET_QUALITY_GROWTH,
+            limit_key=RANKING_FETCH_LIMIT_BALANCED,
+        )
+        == selected_labels
+    )
 
 
 def test_ranking_database_scores_use_symbol_metadata():

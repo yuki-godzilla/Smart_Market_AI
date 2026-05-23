@@ -497,3 +497,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added purpose-specific help text so the ranking UI explains the selected logic, key metrics, and risk checks beside the `ランキング作成` action.
 - Extended local symbol database fit scoring so stock / ETF metadata contributes differently for growth, value, income, low-volatility, NISA, data-confidence, and ETF-specific profiles.
 - Updated operations and UI wording docs to treat `並べ替え条件` as the standard label and describe the new profiles.
+
+## 2026-05-23 - Ranking deep-dive cleanup and build limit
+
+- Added a `作成対象` control to cap expensive provider ranking builds at DB-fit-ranked top 100 / 300 / 800 candidates, with all-candidates still available by explicit selection.
+- Kept ranking fetch cache keys based on the effective candidate list so changing the build limit invalidates stale results correctly.
+- Cleared stale ranking deep-dive widget state when results become stale or unavailable, and rerun immediately after opening a ranking symbol in the cockpit to avoid duplicated navigation buttons.

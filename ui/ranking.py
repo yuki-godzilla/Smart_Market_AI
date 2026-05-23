@@ -106,44 +106,102 @@ RANKING_PRESET_BALANCED = "balanced"
 RANKING_PRESET_FORECAST = "forecast"
 RANKING_PRESET_QUALITY = "quality"
 RANKING_PRESET_RISK = "risk"
+RANKING_PRESET_INCOME = "income"
+RANKING_PRESET_GROWTH = "growth_profile"
+RANKING_PRESET_VALUE = "value_profile"
+RANKING_PRESET_STABILITY = "stability_profile"
+RANKING_PRESET_TREND = "trend_profile"
 RANKING_WEIGHT_PRESET_LABELS = {
-    RANKING_PRESET_BALANCED: "バランス重視",
+    RANKING_PRESET_BALANCED: "総合バランス",
     RANKING_PRESET_FORECAST: "予測一致重視",
     RANKING_PRESET_QUALITY: "データ品質重視",
     RANKING_PRESET_RISK: "リスク控えめ",
+    RANKING_PRESET_INCOME: "配当・インカム重視",
+    RANKING_PRESET_GROWTH: "成長性重視",
+    RANKING_PRESET_VALUE: "割安性重視",
+    RANKING_PRESET_STABILITY: "安定性重視",
+    RANKING_PRESET_TREND: "トレンド重視",
 }
 RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     RANKING_PRESET_BALANCED: {
-        "screening_score": Decimal("0.50"),
-        "forecast_agreement_score": Decimal("0.20"),
-        "data_quality_score": Decimal("0.20"),
-        "risk_signal_score": Decimal("0.10"),
+        "screening_score": Decimal("0.35"),
+        "forecast_agreement_score": Decimal("0.15"),
+        "data_quality_score": Decimal("0.15"),
+        "risk_signal_score": Decimal("0.15"),
+        "database_fit_score": Decimal("0.10"),
+        "metadata_confidence_score": Decimal("0.10"),
     },
     RANKING_PRESET_FORECAST: {
         "screening_score": Decimal("0.35"),
-        "forecast_agreement_score": Decimal("0.40"),
+        "forecast_agreement_score": Decimal("0.35"),
         "data_quality_score": Decimal("0.15"),
-        "risk_signal_score": Decimal("0.10"),
+        "risk_signal_score": Decimal("0.05"),
+        "database_fit_score": Decimal("0.05"),
+        "metadata_confidence_score": Decimal("0.05"),
     },
     RANKING_PRESET_QUALITY: {
-        "screening_score": Decimal("0.35"),
-        "forecast_agreement_score": Decimal("0.15"),
+        "screening_score": Decimal("0.25"),
+        "forecast_agreement_score": Decimal("0.10"),
         "data_quality_score": Decimal("0.40"),
         "risk_signal_score": Decimal("0.10"),
+        "database_fit_score": Decimal("0.05"),
+        "metadata_confidence_score": Decimal("0.10"),
     },
     RANKING_PRESET_RISK: {
-        "screening_score": Decimal("0.35"),
-        "forecast_agreement_score": Decimal("0.15"),
+        "screening_score": Decimal("0.25"),
+        "forecast_agreement_score": Decimal("0.10"),
         "data_quality_score": Decimal("0.20"),
         "risk_signal_score": Decimal("0.30"),
+        "database_fit_score": Decimal("0.05"),
+        "metadata_confidence_score": Decimal("0.10"),
+    },
+    RANKING_PRESET_INCOME: {
+        "screening_score": Decimal("0.25"),
+        "forecast_agreement_score": Decimal("0.10"),
+        "data_quality_score": Decimal("0.15"),
+        "risk_signal_score": Decimal("0.15"),
+        "database_fit_score": Decimal("0.25"),
+        "metadata_confidence_score": Decimal("0.10"),
+    },
+    RANKING_PRESET_GROWTH: {
+        "screening_score": Decimal("0.25"),
+        "forecast_agreement_score": Decimal("0.25"),
+        "data_quality_score": Decimal("0.10"),
+        "risk_signal_score": Decimal("0.10"),
+        "database_fit_score": Decimal("0.20"),
+        "metadata_confidence_score": Decimal("0.10"),
+    },
+    RANKING_PRESET_VALUE: {
+        "screening_score": Decimal("0.25"),
+        "forecast_agreement_score": Decimal("0.10"),
+        "data_quality_score": Decimal("0.15"),
+        "risk_signal_score": Decimal("0.10"),
+        "database_fit_score": Decimal("0.30"),
+        "metadata_confidence_score": Decimal("0.10"),
+    },
+    RANKING_PRESET_STABILITY: {
+        "screening_score": Decimal("0.20"),
+        "forecast_agreement_score": Decimal("0.10"),
+        "data_quality_score": Decimal("0.20"),
+        "risk_signal_score": Decimal("0.25"),
+        "database_fit_score": Decimal("0.15"),
+        "metadata_confidence_score": Decimal("0.10"),
+    },
+    RANKING_PRESET_TREND: {
+        "screening_score": Decimal("0.25"),
+        "forecast_agreement_score": Decimal("0.35"),
+        "data_quality_score": Decimal("0.10"),
+        "risk_signal_score": Decimal("0.15"),
+        "database_fit_score": Decimal("0.05"),
+        "metadata_confidence_score": Decimal("0.10"),
     },
 }
 RANKING_PURPOSE_WEIGHT_PRESETS = {
-    RANKING_PURPOSE_DIVIDEND: RANKING_PRESET_BALANCED,
-    RANKING_PURPOSE_GROWTH: RANKING_PRESET_FORECAST,
-    RANKING_PURPOSE_VALUE: RANKING_PRESET_BALANCED,
-    RANKING_PURPOSE_STABILITY: RANKING_PRESET_RISK,
-    RANKING_PURPOSE_TREND: RANKING_PRESET_FORECAST,
+    RANKING_PURPOSE_DIVIDEND: RANKING_PRESET_INCOME,
+    RANKING_PURPOSE_GROWTH: RANKING_PRESET_GROWTH,
+    RANKING_PURPOSE_VALUE: RANKING_PRESET_VALUE,
+    RANKING_PURPOSE_STABILITY: RANKING_PRESET_STABILITY,
+    RANKING_PURPOSE_TREND: RANKING_PRESET_TREND,
 }
 RANKING_PERIOD_PRESETS = {
     "short": 7,
@@ -983,25 +1041,194 @@ def rank_investment_score_rows(rows: list[dict[str, str]]) -> list[dict[str, str
 def apply_ranking_weight_preset(
     rows: list[dict[str, str]],
     preset: str,
+    symbol_rows_by_symbol: dict[str, dict[str, str]] | None = None,
 ) -> list[dict[str, str]]:
     weights = RANKING_WEIGHT_PRESETS[preset]
     preset_label = ranking_weight_preset_label(preset)
+    symbol_rows = symbol_rows_by_symbol or {
+        row.get("symbol", "").strip().upper(): row
+        for row in symbol_universe_csv_rows()
+        if row.get("symbol", "").strip()
+    }
     reweighted_rows: list[dict[str, str]] = []
     for row in rows:
+        symbol_row = symbol_rows.get(row.get("symbol", "").strip().upper(), {})
+        database_fit_score = ranking_database_fit_score(symbol_row, preset)
+        metadata_confidence_score = ranking_metadata_confidence_score(symbol_row)
+        enriched_row = {
+            **row,
+            "database_fit_score": _format_score(database_fit_score),
+            "metadata_confidence_score": _format_score(metadata_confidence_score),
+        }
         total = Decimal("0")
         for field, weight in weights.items():
-            component_score = _optional_decimal_from_text(row.get(field, "")) or Decimal("0")
+            component_score = _optional_decimal_from_text(enriched_row.get(field, "")) or Decimal(
+                "0"
+            )
             total += component_score * weight
         warnings = row.get("warnings", "")
         reweighted_rows.append(
             {
-                **row,
+                **enriched_row,
                 "total_score": _format_score(total),
                 "score_band": _score_band_for_total(total, warnings),
-                "note": f"{preset_label}で並べ替えています。売買推奨ではなく、深掘り候補の整理です。",
+                "ranking_profile": preset_label,
+                "note": ranking_profile_note(preset, symbol_row, database_fit_score),
             }
         )
     return rank_investment_score_rows(reweighted_rows)
+
+
+def ranking_database_fit_score(
+    symbol_row: dict[str, str],
+    preset: str,
+) -> Decimal:
+    """Score how well the local symbol master matches the selected ranking profile."""
+
+    if not symbol_row:
+        return Decimal("40")
+    score = Decimal("50")
+    asset_type = symbol_row.get("asset_type", "")
+    if symbol_row.get("is_active", "").lower() in {"", "true"}:
+        score += Decimal("5")
+    if _symbol_matches_nisa_eligibility(symbol_row, "eligible"):
+        score += Decimal("5")
+    if asset_type == "etf":
+        score += _etf_database_fit_bonus(symbol_row, preset)
+    else:
+        score += _stock_database_fit_bonus(symbol_row, preset)
+    return max(Decimal("0"), min(Decimal("100"), score))
+
+
+def ranking_metadata_confidence_score(symbol_row: dict[str, str]) -> Decimal:
+    """Prefer rows with a clear source, freshness, and enough ranking metadata."""
+
+    if not symbol_row:
+        return Decimal("30")
+    score = Decimal("35")
+    if symbol_row.get("metadata_source"):
+        score += Decimal("15")
+    if symbol_row.get("metadata_as_of") or symbol_row.get("metadata_updated_at"):
+        score += Decimal("15")
+    common_fields = [
+        "nisa_category",
+        "market_cap_tier",
+        "dividend_yield_pct",
+        "dividend_category",
+        "risk_band",
+    ]
+    stock_fields = ["per", "pbr", "roe_pct"]
+    etf_fields = ["index_family", "expense_ratio_pct", "complexity"]
+    fields = common_fields + (etf_fields if symbol_row.get("asset_type") == "etf" else stock_fields)
+    available = sum(1 for field in fields if str(symbol_row.get(field, "")).strip())
+    score += Decimal(available) * Decimal("5")
+    return max(Decimal("0"), min(Decimal("100"), score))
+
+
+def ranking_profile_note(
+    preset: str,
+    symbol_row: dict[str, str],
+    database_fit_score: Decimal,
+) -> str:
+    profile = ranking_weight_preset_label(preset)
+    if database_fit_score >= Decimal("75"):
+        return f"{profile}の条件に合いやすい候補です。" "売買推奨ではなく、根拠確認の優先順です。"
+    if database_fit_score >= Decimal("55"):
+        return f"{profile}で比較しています。" "銘柄DBの根拠と価格データを合わせて確認してください。"
+    if symbol_row:
+        return (
+            f"{profile}ではDB条件の確認余地があります。"
+            "詳細モーダルで不足項目を確認してください。"
+        )
+    return f"{profile}で比較しています。" "銘柄DB未登録項目があるため詳細確認が必要です。"
+
+
+def _stock_database_fit_bonus(symbol_row: dict[str, str], preset: str) -> Decimal:
+    dividend_yield = _optional_decimal_from_text(
+        symbol_row.get("dividend_yield_pct", "")
+    ) or Decimal("0")
+    per = _optional_decimal_from_text(symbol_row.get("per", ""))
+    pbr = _optional_decimal_from_text(symbol_row.get("pbr", ""))
+    roe = _optional_decimal_from_text(symbol_row.get("roe_pct", "")) or Decimal("0")
+    risk_band = symbol_row.get("risk_band", "")
+    market_cap_tier = symbol_row.get("market_cap_tier", "")
+    bonus = Decimal("0")
+    if preset == RANKING_PRESET_INCOME:
+        if dividend_yield >= Decimal("3"):
+            bonus += Decimal("25")
+        elif dividend_yield > Decimal("0"):
+            bonus += Decimal("10")
+        if pbr is not None and pbr <= Decimal("2"):
+            bonus += Decimal("5")
+        if risk_band in {"LOW", "MEDIUM"}:
+            bonus += Decimal("10")
+    elif preset == RANKING_PRESET_GROWTH:
+        if roe >= Decimal("20"):
+            bonus += Decimal("20")
+        elif roe >= Decimal("10"):
+            bonus += Decimal("10")
+        if per is not None and per <= Decimal("40"):
+            bonus += Decimal("5")
+        if market_cap_tier in {"mega", "large", "mid"}:
+            bonus += Decimal("5")
+    elif preset == RANKING_PRESET_VALUE:
+        if per is not None and per <= Decimal("15"):
+            bonus += Decimal("20")
+        elif per is not None and per <= Decimal("25"):
+            bonus += Decimal("10")
+        if pbr is not None and pbr <= Decimal("1.5"):
+            bonus += Decimal("20")
+        elif pbr is not None and pbr <= Decimal("3"):
+            bonus += Decimal("10")
+        if roe >= Decimal("8"):
+            bonus += Decimal("5")
+    elif preset == RANKING_PRESET_STABILITY:
+        if market_cap_tier in {"mega", "large"}:
+            bonus += Decimal("20")
+        elif market_cap_tier == "mid":
+            bonus += Decimal("10")
+        if risk_band in {"LOW", "MEDIUM"}:
+            bonus += Decimal("20")
+        if Decimal("0") < dividend_yield <= Decimal("5"):
+            bonus += Decimal("5")
+    elif preset == RANKING_PRESET_TREND:
+        if market_cap_tier in {"mega", "large", "mid"}:
+            bonus += Decimal("10")
+        if risk_band != "HIGH":
+            bonus += Decimal("5")
+    else:
+        if roe >= Decimal("8"):
+            bonus += Decimal("10")
+        if risk_band in {"LOW", "MEDIUM"}:
+            bonus += Decimal("10")
+        if market_cap_tier in {"mega", "large", "mid"}:
+            bonus += Decimal("5")
+    return bonus
+
+
+def _etf_database_fit_bonus(symbol_row: dict[str, str], preset: str) -> Decimal:
+    expense_ratio = _optional_decimal_from_text(symbol_row.get("expense_ratio_pct", "")) or Decimal(
+        "99"
+    )
+    dividend_yield = _optional_decimal_from_text(
+        symbol_row.get("dividend_yield_pct", "")
+    ) or Decimal("0")
+    complexity = symbol_row.get("complexity", "")
+    index_family = symbol_row.get("index_family", "")
+    bonus = Decimal("0")
+    if expense_ratio <= Decimal("0.2"):
+        bonus += Decimal("20")
+    elif expense_ratio <= Decimal("0.5"):
+        bonus += Decimal("10")
+    if complexity in {"beginner", "standard"}:
+        bonus += Decimal("10")
+    if index_family:
+        bonus += Decimal("10")
+    if preset == RANKING_PRESET_INCOME and dividend_yield >= Decimal("2"):
+        bonus += Decimal("10")
+    if preset == RANKING_PRESET_STABILITY and complexity == "beginner":
+        bonus += Decimal("5")
+    return bonus
 
 
 def _ranking_error_symbol_summary(symbols: list[str]) -> str:
@@ -1083,6 +1310,9 @@ def _symbol_universe_row(row: dict[str, str]) -> dict[str, str]:
         "forecast_agreement": row.get("forecast_agreement", ""),
         "data_quality": row.get("data_quality", ""),
         "risk_band": row.get("risk_band", ""),
+        "metadata_source": row.get("metadata_source", ""),
+        "metadata_as_of": row.get("metadata_as_of", ""),
+        "metadata_updated_at": row.get("metadata_updated_at", ""),
     }
     return universe_row
 
@@ -1153,7 +1383,10 @@ def _symbol_matches_nisa_eligibility(row: dict[str, str], nisa_eligibility: str)
     if nisa_eligibility == "all":
         return True
     nisa_category = row.get("nisa_category", "")
-    growth = row.get("nisa_growth_eligible", "") == "true" or nisa_category in {"both", "growth"}
+    growth = row.get("nisa_growth_eligible", "") == "true" or nisa_category in {
+        "both",
+        "growth",
+    }
     tsumitate = row.get("nisa_tsumitate_eligible", "") == "true" or nisa_category in {
         "both",
         "tsumitate",

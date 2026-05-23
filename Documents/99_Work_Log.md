@@ -478,3 +478,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Marked Phase 18 symbol universe / metadata refresh as implementation-complete in roadmap-facing docs.
 - Moved ongoing NISA / ETF / stock metadata source refreshes, remaining provider/source metadata gaps, and additional live `yahoo_symbol` smoke checks into operational maintenance instead of Phase 18 completion blockers.
 - Kept confirmed-source-only metadata updates as the standing rule: blanks remain blank until an explicit opt-in refresh or verified source provides values.
+
+## 2026-05-23 - Ranking sort logic uses symbol metadata
+
+- Updated ranking sort profiles so `配当重視` / `成長重視` / `割安重視` / `安定重視` / `トレンド重視` map to purpose-specific evaluation profiles instead of only reweighting the original four score columns.
+- Added `database_fit_score` and `metadata_confidence_score` to ranking reweighting. These use Phase 18 symbol metadata such as NISA, market-cap tier, dividend yield/category, PER/PBR/ROE, risk band, ETF expense ratio, complexity, metadata source, and metadata date.
+- Reorganized the ranking screen header into `比較対象` and `評価条件`, moving the sort condition beside period/provider controls.
+- Added visible `DB適合` and `DB信頼度` columns to ranking results and refreshed ranking notes to explain that the order is a decision-support review priority, not a buy/sell recommendation.

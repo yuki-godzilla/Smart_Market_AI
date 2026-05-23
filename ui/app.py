@@ -2056,7 +2056,8 @@ def _render_market_data_ranking() -> None:
     symbol_options = symbol_universe_rows()
     purpose = "all"
 
-    col_region, col_product, col_purpose = st.columns(3)
+    st.markdown("#### 比較対象")
+    col_region, col_product = st.columns(2)
     with col_region:
         region_options = list(RANKING_MVP_REGION_LABELS)
         _ensure_selectbox_state_value("market_data_ranking_region", region_options)
@@ -2089,13 +2090,15 @@ def _render_market_data_ranking() -> None:
                 format_func=ranking_product_type_label,
             ),
         )
+    st.markdown("#### 評価条件")
+    col_purpose, col_period, col_provider = st.columns([1.2, 1.0, 1.0])
     with col_purpose:
         purpose_options = list(RANKING_PURPOSE_LABELS)
         _ensure_selectbox_state_value("market_data_ranking_purpose", purpose_options)
         ranking_purpose = cast(
             str,
             st.selectbox(
-                "重視して並べ替え",
+                "並べ替え条件",
                 purpose_options,
                 index=_selectbox_index(
                     purpose_options,
@@ -2103,26 +2106,12 @@ def _render_market_data_ranking() -> None:
                 ),
                 key="market_data_ranking_purpose",
                 format_func=ranking_purpose_label,
-                help="候補は絞らず、スコアの表示順に使います。",
+                help=(
+                    "取得後の表示順を決める評価軸です。銘柄DBのPER/PBR/ROE、配当、"
+                    "NISA、時価総額、ETFコスト、metadata信頼度も反映します。"
+                ),
             ),
         )
-        st.caption("候補は絞らず、表示順に使います。")
-
-    weight_preset = ranking_weight_preset_for_purpose(ranking_purpose)
-
-    col_provider, col_period = st.columns([1.0, 1.0])
-    with col_provider:
-        provider = cast(
-            str,
-            st.selectbox(
-                "Provider",
-                MARKET_DATA_PROVIDER_OPTIONS,
-                index=_provider_option_index(default_market_data_provider()),
-                key=MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY,
-            ),
-        )
-        if provider in LIVE_MARKET_DATA_PROVIDERS:
-            st.caption("Yahoo live data でランキングを作成します。")
     with col_period:
         period_options = list(RANKING_PERIOD_PRESETS)
         _ensure_selectbox_state_value("market_data_ranking_period", period_options)
@@ -2137,9 +2126,23 @@ def _render_market_data_ranking() -> None:
             format_func=ranking_period_label,
             help=RANKING_FILTER_HELP_TEXTS["period"],
         )
+    with col_provider:
+        provider = cast(
+            str,
+            st.selectbox(
+                "Provider",
+                MARKET_DATA_PROVIDER_OPTIONS,
+                index=_provider_option_index(default_market_data_provider()),
+                key=MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY,
+            ),
+        )
+        if provider in LIVE_MARKET_DATA_PROVIDERS:
+            st.caption("Yahoo live data でランキングを作成します。")
+    weight_preset = ranking_weight_preset_for_purpose(ranking_purpose)
     st.caption(
-        f"並べ替え: {ranking_purpose_label(ranking_purpose)} / "
-        f"表示順: {ranking_weight_preset_label(weight_preset)}"
+        f"並べ替え条件: {ranking_purpose_label(ranking_purpose)} / "
+        f"評価プロファイル: {ranking_weight_preset_label(weight_preset)}。"
+        "銘柄DB適合度と取得期間の価格評価を合わせて並べ替えます。"
     )
     _render_ranking_filter_panel()
 
@@ -2339,13 +2342,14 @@ def _render_market_data_ranking() -> None:
         ranked_rows = apply_ranking_weight_preset(
             cast(list[dict[str, str]], rows),
             weight_preset,
+            _symbol_universe_rows_by_symbol(),
         )
         display_rows = investment_score_display_rows(ranked_rows)
         st.markdown("#### ランキング結果")
         st.caption(
-            f"並べ替え: {ranking_purpose_label(ranking_purpose)} / "
-            f"表示順: {ranking_weight_preset_label(weight_preset)}。"
-            "上位の銘柄ほど、今回の条件では深掘り候補として見やすい順です。"
+            f"並べ替え条件: {ranking_purpose_label(ranking_purpose)} / "
+            f"評価プロファイル: {ranking_weight_preset_label(weight_preset)}。"
+            "上位の銘柄ほど、銘柄DBの適合度と取得期間の市場評価を合わせて深掘りしやすい順です。"
         )
         _render_ranking_result_table(
             display_rows,
@@ -4338,6 +4342,8 @@ def _ranking_strength_phrases(
         strengths.append("予測一致")
     if (_decimal_from_text(row.get("data_quality_score")) or Decimal("0")) >= Decimal("90"):
         strengths.append("データ品質")
+    if (_decimal_from_text(row.get("database_fit_score")) or Decimal("0")) >= Decimal("75"):
+        strengths.append("銘柄DB適合")
     if (_decimal_from_text(row.get("screening_score")) or Decimal("0")) >= Decimal("80"):
         strengths.append("スクリーニング")
     if (_decimal_from_text(row.get("risk_signal_score")) or Decimal("0")) >= Decimal("70"):
@@ -4469,9 +4475,11 @@ def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, 
             "銘柄名": symbol_name(row.get("symbol", "")) or "",
             "総合スコア": row.get("total_score", ""),
             "見方": _investment_score_band_label(row.get("score_band", "")),
+            "DB適合": row.get("database_fit_score", ""),
             "Screening": row.get("screening_score", ""),
             "予測一致": row.get("forecast_agreement_score", ""),
             "データ品質": row.get("data_quality_score", ""),
+            "DB信頼度": row.get("metadata_confidence_score", ""),
             "Risk": row.get("risk_signal_score", "") or "未接続",
             "注意点": _investment_warning_label(row.get("warnings", "")),
             "補足": ranking_investment_note(row, symbol_rows_by_symbol),

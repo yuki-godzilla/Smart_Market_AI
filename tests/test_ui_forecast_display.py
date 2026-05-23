@@ -93,9 +93,11 @@ from ui.ranking import (
     normalize_dividend_filter_values,
     rank_investment_score_rows,
     ranking_build_cache_key,
+    ranking_database_fit_score,
     ranking_deep_dive_default_symbol,
     ranking_detail_filters_for_category,
     ranking_filter_signature,
+    ranking_metadata_confidence_score,
     ranking_no_bars_error_row,
     ranking_period_dates,
     ranking_period_label,
@@ -1180,7 +1182,7 @@ def test_ranking_detail_filters_change_by_region_and_product():
     assert "benchmark_index" in etf
     assert "pbr" not in etf
     assert mutual_fund == []
-    assert ranking_weight_preset_for_purpose("stability") == "risk"
+    assert ranking_weight_preset_for_purpose("stability") == "stability_profile"
     assert "moving_average_signal" in RANKING_INVESTMENT_STYLE_METRICS["trend"]
 
 
@@ -2246,9 +2248,11 @@ def test_investment_score_display_rows_are_beginner_friendly():
             "銘柄名": "Apple Inc.",
             "総合スコア": "73",
             "見方": "バランス型",
+            "DB適合": "",
             "Screening": "80",
             "予測一致": "40",
             "データ品質": "100",
+            "DB信頼度": "",
             "Risk": "未接続",
             "注意点": "モデルの見方が割れています",
             "補足": rows[0]["補足"],
@@ -2693,17 +2697,70 @@ def test_apply_ranking_weight_preset_reweights_and_sorts_rows():
             },
         ],
         "forecast",
+        {
+            "QUALITY": {
+                "symbol": "QUALITY",
+                "metadata_source": "curated_csv",
+                "metadata_as_of": "2026-05-18",
+                "asset_type": "stock",
+                "nisa_category": "growth",
+                "market_cap_tier": "large",
+                "dividend_yield_pct": "1.2",
+                "dividend_category": "dividend",
+                "risk_band": "MEDIUM",
+                "per": "18",
+                "pbr": "1.4",
+                "roe_pct": "12",
+            },
+            "FORECAST": {
+                "symbol": "FORECAST",
+                "metadata_source": "curated_csv",
+                "metadata_as_of": "2026-05-18",
+                "asset_type": "stock",
+                "nisa_category": "growth",
+                "market_cap_tier": "large",
+                "dividend_yield_pct": "1.2",
+                "dividend_category": "dividend",
+                "risk_band": "MEDIUM",
+                "per": "18",
+                "pbr": "1.4",
+                "roe_pct": "12",
+            },
+        },
     )
 
     assert rows[0]["symbol"] == "FORECAST"
     assert rows[0]["rank"] == "1"
-    assert rows[0]["total_score"] == "74.5"
-    assert rows[0]["score_band"] == "BALANCED"
+    assert rows[0]["total_score"] == "75.75"
+    assert rows[0]["score_band"] == "STRONG"
+    assert rows[0]["database_fit_score"] == "85"
+    assert rows[0]["metadata_confidence_score"] == "100"
     assert rows[0]["note"] == (
-        "予測一致重視で並べ替えています。売買推奨ではなく、深掘り候補の整理です。"
+        "予測一致重視の条件に合いやすい候補です。売買推奨ではなく、根拠確認の優先順です。"
     )
     assert rows[1]["symbol"] == "QUALITY"
     assert ranking_weight_preset_label("forecast") == "予測一致重視"
+
+
+def test_ranking_database_scores_use_symbol_metadata():
+    high_dividend = {
+        "symbol": "9434.T",
+        "asset_type": "stock",
+        "is_active": "true",
+        "nisa_category": "growth",
+        "dividend_yield_pct": "3.8",
+        "pbr": "1.2",
+        "risk_band": "MEDIUM",
+        "metadata_source": "yahoo",
+        "metadata_as_of": "2026-05-22",
+        "market_cap_tier": "large",
+        "dividend_category": "high_dividend",
+        "per": "14",
+        "roe_pct": "12",
+    }
+
+    assert ranking_database_fit_score(high_dividend, "income") == Decimal("100")
+    assert ranking_metadata_confidence_score(high_dividend) == Decimal("100")
 
 
 def test_screening_score_rows_include_forecast_signal():

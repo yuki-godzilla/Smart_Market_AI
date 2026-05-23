@@ -1171,16 +1171,18 @@ def _render_detail_selectbox(
     options: list[str],
     key: str,
     format_func: Callable[[str], str],
+    default_value: str | None = None,
     help_text: str | None = None,
     disabled: bool = False,
 ) -> str:
+    default = default_value if default_value in options else options[0]
     _ensure_selectbox_state_value(key, options)
     return cast(
         str,
         st.selectbox(
             label,
             options,
-            index=_selectbox_index(options, _ranking_filter_value(key, options[0])),
+            index=_selectbox_index(options, _ranking_filter_value(key, default)),
             key=key,
             format_func=format_func,
             help=help_text,
@@ -1571,7 +1573,6 @@ def _render_ranking_filter_panel() -> None:
 def _render_cockpit_symbol_filter_panel(
     symbol_options: list[dict[str, str]],
 ) -> list[dict[str, str]]:
-    _ensure_cockpit_symbol_filter_defaults()
     with st.expander(
         "銘柄候補フィルター",
         expanded=False,
@@ -1586,6 +1587,9 @@ def _render_cockpit_symbol_filter_panel(
                 options=list(RANKING_MVP_REGION_LABELS),
                 key="market_data_cockpit_region",
                 format_func=lambda value: RANKING_MVP_REGION_LABELS[value],
+                default_value=str(
+                    MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_region"]
+                ),
                 help_text="候補に含める市場地域です。国内株、米国株、全体から選びます。",
             )
         with col_product:
@@ -1594,6 +1598,9 @@ def _render_cockpit_symbol_filter_panel(
                 options=list(RANKING_MVP_PRODUCT_TYPE_LABELS),
                 key="market_data_cockpit_product_type",
                 format_func=lambda value: RANKING_MVP_PRODUCT_TYPE_LABELS[value],
+                default_value=str(
+                    MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_product_type"]
+                ),
                 help_text="個別株かETFを中心に候補を絞ります。",
             )
         with col_nisa:
@@ -1602,6 +1609,7 @@ def _render_cockpit_symbol_filter_panel(
                 options=list(RANKING_NISA_ELIGIBILITY_LABELS),
                 key="market_data_cockpit_nisa",
                 format_func=lambda value: RANKING_NISA_ELIGIBILITY_LABELS[value],
+                default_value=str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_nisa"]),
                 help_text=RANKING_FILTER_HELP_TEXTS["nisa_eligibility"],
             )
         with col_clear:
@@ -1616,6 +1624,7 @@ def _render_cockpit_symbol_filter_panel(
                 options=list(RANKING_THEME_LABELS),
                 key="market_data_cockpit_theme",
                 format_func=lambda value: RANKING_THEME_LABELS[value],
+                default_value=str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_theme"]),
                 help_text=RANKING_FILTER_HELP_TEXTS["industry_or_sector"],
             )
         with attr_cols[1]:
@@ -1624,6 +1633,9 @@ def _render_cockpit_symbol_filter_panel(
                 options=list(RANKING_MARKET_CAP_LABELS),
                 key="market_data_cockpit_market_cap",
                 format_func=lambda value: RANKING_MARKET_CAP_LABELS[value],
+                default_value=str(
+                    MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_market_cap"]
+                ),
                 help_text=RANKING_FILTER_HELP_TEXTS["market_cap"],
             )
         with attr_cols[2]:
@@ -1632,6 +1644,9 @@ def _render_cockpit_symbol_filter_panel(
                 options=list(RANKING_BETA_RISK_LABELS),
                 key="market_data_cockpit_risk_band",
                 format_func=lambda value: RANKING_BETA_RISK_LABELS[value],
+                default_value=str(
+                    MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_risk_band"]
+                ),
                 help_text=RANKING_FILTER_HELP_TEXTS["risk_band"],
             )
         with attr_cols[3]:
@@ -1640,6 +1655,9 @@ def _render_cockpit_symbol_filter_panel(
                 options=list(RANKING_DIVIDEND_LABELS),
                 key="market_data_cockpit_dividend",
                 format_func=lambda value: RANKING_DIVIDEND_LABELS[value],
+                default_value=str(
+                    MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_dividend"]
+                ),
                 help_text=RANKING_FILTER_HELP_TEXTS["dividend_category"],
                 disabled=_cockpit_filter_bool("market_data_cockpit_dividend_enabled", False),
             )
@@ -1649,6 +1667,9 @@ def _render_cockpit_symbol_filter_panel(
                 options=list(RANKING_CURRENCY_LABELS),
                 key="market_data_cockpit_currency",
                 format_func=lambda value: RANKING_CURRENCY_LABELS[value],
+                default_value=str(
+                    MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_currency"]
+                ),
                 help_text=RANKING_FILTER_HELP_TEXTS["currency"],
             )
 
@@ -1831,11 +1852,6 @@ def _clear_cockpit_symbol_filter_state() -> None:
     for key in MARKET_DATA_COCKPIT_FILTER_DEFAULTS:
         st.session_state.pop(key, None)
     st.session_state.pop("market_data_symbol_candidate", None)
-
-
-def _ensure_cockpit_symbol_filter_defaults() -> None:
-    for key, value in MARKET_DATA_COCKPIT_FILTER_DEFAULTS.items():
-        st.session_state.setdefault(key, value)
 
 
 def _current_or_default_symbol_labels(symbol_options: list[dict[str, str]]) -> list[str]:

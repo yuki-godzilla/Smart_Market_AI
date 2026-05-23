@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
+from io import BytesIO
 from typing import Literal, Mapping, Sequence
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 from pydantic import Field
 
@@ -267,6 +269,10 @@ def build_decision_report_manifest(context: DecisionReportContext) -> DecisionRe
         sources=[section.source.kind for section in context.sections],
         files=[
             {
+                "filename": "decision_report_manifest.json",
+                "description": "Manifest describing the local Decision Report export package.",
+            },
+            {
                 "filename": "decision_report_context.json",
                 "description": "Structured context used to render the Decision Report.",
             },
@@ -276,6 +282,41 @@ def build_decision_report_manifest(context: DecisionReportContext) -> DecisionRe
             },
         ],
     )
+
+
+def decision_report_json_download(context: DecisionReportContext) -> str:
+    """Serialize the structured Decision Report context for local download."""
+
+    return context.model_dump_json(indent=2)
+
+
+def decision_report_manifest_json_download(context: DecisionReportContext) -> str:
+    """Serialize the deterministic Decision Report export manifest."""
+
+    manifest = build_decision_report_manifest(context)
+    return manifest.model_dump_json(indent=2)
+
+
+def decision_report_export_files(context: DecisionReportContext) -> dict[str, str]:
+    """Return the standard local Decision Report export package."""
+
+    return {
+        "decision_report_context.json": decision_report_json_download(context),
+        "decision_report_manifest.json": decision_report_manifest_json_download(context),
+        "decision_report.md": render_decision_report_markdown(context),
+    }
+
+
+def decision_report_zip_download(context: DecisionReportContext) -> bytes:
+    """Return a deterministic ZIP archive containing the standard report package."""
+
+    buffer = BytesIO()
+    with ZipFile(buffer, mode="w") as archive:
+        for filename, payload in sorted(decision_report_export_files(context).items()):
+            info = ZipInfo(filename, date_time=(2026, 1, 1, 0, 0, 0))
+            info.compress_type = ZIP_DEFLATED
+            archive.writestr(info, payload.encode("utf-8"))
+    return buffer.getvalue()
 
 
 def _normalize_mapping(values: Mapping[str, object]) -> dict[str, str]:

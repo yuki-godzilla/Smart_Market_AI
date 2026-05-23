@@ -35,7 +35,12 @@ from backend.reporting import (
     build_decision_report_context,
     build_report_section,
     build_symbol_metadata_section,
+    decision_report_manifest_json_download,
+    decision_report_zip_download,
     render_decision_report_markdown,
+)
+from backend.reporting import (
+    decision_report_json_download as reporting_decision_report_json_download,
 )
 from backend.scoring import InvestmentScoringService
 from backend.screening import ScreeningService
@@ -3487,7 +3492,7 @@ def build_ranking_decision_report_context(
 
 
 def decision_report_json_download(context: DecisionReportContext) -> str:
-    return context.model_dump_json(indent=2)
+    return reporting_decision_report_json_download(context)
 
 
 def decision_report_markdown_download(context: DecisionReportContext) -> str:
@@ -3557,6 +3562,18 @@ def _render_decision_report_downloads(
             data=decision_report_json_download(context),
             file_name=json_file_name,
             mime="application/json",
+        )
+        st.download_button(
+            "レポートmanifestをダウンロード",
+            data=decision_report_manifest_json_download(context),
+            file_name="decision_report_manifest.json",
+            mime="application/json",
+        )
+        st.download_button(
+            "レポート一式ZIPをダウンロード",
+            data=decision_report_zip_download(context),
+            file_name="decision_report_package.zip",
+            mime="application/zip",
         )
         st.code(markdown, language="markdown")
 

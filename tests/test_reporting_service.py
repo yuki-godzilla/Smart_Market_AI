@@ -1,4 +1,6 @@
 from datetime import UTC, date, datetime
+from io import BytesIO
+from zipfile import ZipFile
 
 import pytest
 
@@ -12,6 +14,10 @@ from backend.reporting import (
     build_decision_report_manifest,
     build_report_section,
     build_symbol_metadata_section,
+    decision_report_export_files,
+    decision_report_json_download,
+    decision_report_manifest_json_download,
+    decision_report_zip_download,
     render_decision_report_markdown,
 )
 
@@ -101,9 +107,40 @@ def test_build_decision_report_manifest_describes_local_export_files():
     assert manifest.sources == ["cockpit"]
     assert manifest.section_count == 1
     assert {file["filename"] for file in manifest.files} == {
+        "decision_report_manifest.json",
         "decision_report_context.json",
         "decision_report.md",
     }
+
+
+def test_decision_report_export_package_contains_context_manifest_and_markdown():
+    context = build_decision_report_context(
+        title="Decision support report",
+        sections=[
+            build_report_section(
+                title="Symbol cockpit",
+                source_kind="cockpit",
+                summary={"symbol": "7203.T"},
+            )
+        ],
+        created_at=datetime(2026, 5, 17, 12, 0, tzinfo=UTC),
+    )
+
+    files = decision_report_export_files(context)
+    archive = decision_report_zip_download(context)
+
+    assert set(files) == {
+        "decision_report_context.json",
+        "decision_report_manifest.json",
+        "decision_report.md",
+    }
+    assert decision_report_json_download(context) == files["decision_report_context.json"]
+    assert decision_report_manifest_json_download(context) == files["decision_report_manifest.json"]
+    with ZipFile(BytesIO(archive)) as zip_file:
+        assert sorted(zip_file.namelist()) == sorted(files)
+        assert zip_file.read("decision_report.md").decode("utf-8") == files["decision_report.md"]
+        manifest = zip_file.read("decision_report_manifest.json").decode("utf-8")
+        assert '"section_count": 1' in manifest
 
 
 def test_standard_sections_capture_metadata_confidence_and_checkpoints():

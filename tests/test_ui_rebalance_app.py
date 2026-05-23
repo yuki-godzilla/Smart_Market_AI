@@ -62,7 +62,9 @@ from ui.rebalance_app import (
     proposed_trade_rows,
     provider_metadata_rows,
     rebalance_decision_report_json_download,
+    rebalance_decision_report_manifest_download,
     rebalance_decision_report_markdown_download,
+    rebalance_decision_report_zip_download,
     rebalance_sample_names,
     rebalance_scenario_dir,
     request_json_download,
@@ -1169,6 +1171,8 @@ def test_build_rebalance_decision_report_context_uses_phase19_schema():
     context = build_rebalance_decision_report_context(result, request=request)
     markdown = rebalance_decision_report_markdown_download(context)
     payload = rebalance_decision_report_json_download(context)
+    manifest = rebalance_decision_report_manifest_download(context)
+    archive = rebalance_decision_report_zip_download(context)
 
     assert context.title == "投資判断レポート - リバランス acct-1"
     assert [section.title for section in context.sections] == [
@@ -1185,6 +1189,8 @@ def test_build_rebalance_decision_report_context_uses_phase19_schema():
     assert "売買推奨ではありません" in markdown
     assert "Risk 判定は BLOCK" in markdown
     assert '"rebalance"' in payload
+    assert '"decision_report.md"' in manifest
+    assert archive.startswith(b"PK")
 
 
 def test_rebalance_result_from_state_returns_stored_result(monkeypatch):

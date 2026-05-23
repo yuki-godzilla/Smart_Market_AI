@@ -12,6 +12,10 @@ from backend.reporting.service import (
     build_decision_report_manifest,
     build_report_section,
     build_symbol_metadata_section,
+    decision_report_export_files,
+    decision_report_json_download,
+    decision_report_manifest_json_download,
+    decision_report_zip_download,
     render_decision_report_markdown,
 )
 
@@ -29,5 +33,9 @@ __all__ = [
     "build_decision_report_manifest",
     "build_report_section",
     "build_symbol_metadata_section",
+    "decision_report_export_files",
+    "decision_report_json_download",
+    "decision_report_manifest_json_download",
+    "decision_report_zip_download",
     "render_decision_report_markdown",
 ]

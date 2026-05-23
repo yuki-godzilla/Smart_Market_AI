@@ -44,7 +44,12 @@ from backend.reporting import (
     build_decision_checkpoints_section,
     build_decision_report_context,
     build_report_section,
+    decision_report_manifest_json_download,
+    decision_report_zip_download,
     render_decision_report_markdown,
+)
+from backend.reporting import (
+    decision_report_json_download as reporting_decision_report_json_download,
 )
 from backend.scoring import InvestmentScore, InvestmentScoringService
 from backend.screening import ScreeningScore, ScreeningService
@@ -1086,11 +1091,19 @@ def build_rebalance_decision_report_context(
 
 
 def rebalance_decision_report_json_download(context: DecisionReportContext) -> str:
-    return context.model_dump_json(indent=2)
+    return reporting_decision_report_json_download(context)
 
 
 def rebalance_decision_report_markdown_download(context: DecisionReportContext) -> str:
     return render_decision_report_markdown(context)
+
+
+def rebalance_decision_report_manifest_download(context: DecisionReportContext) -> str:
+    return decision_report_manifest_json_download(context)
+
+
+def rebalance_decision_report_zip_download(context: DecisionReportContext) -> bytes:
+    return decision_report_zip_download(context)
 
 
 def _rebalance_decision_checkpoints(

@@ -432,7 +432,7 @@ Current implementation note:
 
 ### 5.5 Phase 19: Decision Report Context MVP
 
-Status: in progress
+Status: complete
 
 目的: `銘柄コックピット`、`銘柄ランキング`、`リバランス` の結果を、同じ context schema で保存・表示・export できるようにする。
 
@@ -445,6 +445,7 @@ Implemented slice:
 - Phase 18 の銘柄 metadata 整備を踏まえ、`Data coverage and confidence`、`Symbol metadata`、`Decision checkpoints` の標準 report section builder を追加。
 - 銘柄コックピットとランキング結果に `Decision Report` expander を追加し、Markdown / JSON download と Markdown preview を確認できるようにした。
 - リバランス結果に `投資判断レポート` expander を追加し、現在保有、目標配分、配分差分、売買案、Risk 制約違反、確認ポイントを同じ context schema で Markdown / JSON export できるようにした。
+- cockpit / ranking / rebalance の Decision Report に manifest / ZIP download を追加し、context JSON、manifest JSON、Markdown を同じ export package として保存できるようにした。
 
 Report output policy:
 
@@ -456,11 +457,6 @@ Report output policy:
 - `Ranking context` では、順位、並べ替え条件、比較対象数、上位理由、同条件での注意点を出す。
 - `Rebalance context` では、risk breach、提案 trade、制約、注文指示ではないことを出す。
 - `Decision checkpoints` では、次に確認する業績、決算、配当方針、ETF 指数/経費率、データ欠損を整理し、売買指示にしない。
-
-Next:
-
-- API / export で Decision Report context を JSON / Markdown / ZIP として保存できる導線を整理する。
-- cockpit / ranking / rebalance の report preview と download 文言を横断で最終確認する。
 
 - cockpit summary / ranking result / ranking error / rebalance result / risk breach を横断する report context contract を定義する。
 - 初期 export は Markdown / JSON / CSV / manifest / ZIP を優先する。

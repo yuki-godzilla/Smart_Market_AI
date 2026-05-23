@@ -18,7 +18,9 @@ from ui.rebalance_app import (
     build_rebalance_request,
     get_rebalance_sample,
     rebalance_decision_report_json_download,
+    rebalance_decision_report_manifest_download,
     rebalance_decision_report_markdown_download,
+    rebalance_decision_report_zip_download,
     rebalance_sample_names,
     request_json_download,
     result_json_download,
@@ -306,6 +308,18 @@ def _render_rebalance_decision_report(
             data=rebalance_decision_report_json_download(context),
             file_name="decision_report_rebalance.json",
             mime="application/json",
+        )
+        st.download_button(
+            "レポートmanifestをダウンロード",
+            data=rebalance_decision_report_manifest_download(context),
+            file_name="decision_report_manifest.json",
+            mime="application/json",
+        )
+        st.download_button(
+            "レポート一式ZIPをダウンロード",
+            data=rebalance_decision_report_zip_download(context),
+            file_name="decision_report_rebalance_package.zip",
+            mime="application/zip",
         )
         st.code(markdown, language="markdown")
 

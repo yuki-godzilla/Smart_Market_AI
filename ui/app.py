@@ -186,6 +186,28 @@ MARKET_DATA_PERIOD_HELP_TEXT = {
     "long_5y": "長期の構造変化、最大下落、回復力を確認します。長期保有の候補では必ず確認したい期間です。",
 }
 DEFAULT_MARKET_DATA_PERIOD_PRESET = MARKET_DATA_PERIOD_CUSTOM
+MARKET_DATA_COCKPIT_FILTER_DEFAULTS: dict[str, str | bool] = {
+    "market_data_cockpit_region": "all",
+    "market_data_cockpit_product_type": "all",
+    "market_data_cockpit_theme": "all",
+    "market_data_cockpit_market_cap": "all",
+    "market_data_cockpit_dividend": "all",
+    "market_data_cockpit_currency": "all",
+    "market_data_cockpit_nisa": "all",
+    "market_data_cockpit_risk_band": "all",
+    "market_data_cockpit_dividend_enabled": False,
+    "market_data_cockpit_min_dividend": "0.0",
+    "market_data_cockpit_dividend_max": "10.0",
+    "market_data_cockpit_per_enabled": False,
+    "market_data_cockpit_per_min": "2.0",
+    "market_data_cockpit_per_max": "20.0",
+    "market_data_cockpit_pbr_enabled": False,
+    "market_data_cockpit_pbr_min": "0.5",
+    "market_data_cockpit_pbr_max": "2.0",
+    "market_data_cockpit_roe_enabled": False,
+    "market_data_cockpit_roe_min": "8.0",
+    "market_data_cockpit_roe_max": "30.0",
+}
 
 FORECAST_ACTUAL_LABEL = "実績価格"
 MARKET_DATA_MODE_COCKPIT = "cockpit"
@@ -1523,6 +1545,208 @@ def _render_ranking_filter_panel() -> None:
             st.button("クリアする", on_click=clear_ranking_filter_state)
 
 
+def _render_cockpit_symbol_filter_panel(
+    symbol_options: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    _ensure_cockpit_symbol_filter_defaults()
+    filtered_rows = cockpit_filtered_symbol_rows(symbol_options)
+    with st.expander(
+        f"銘柄候補フィルター（{len(filtered_rows)} / {len(symbol_options)}件）",
+        expanded=False,
+    ):
+        st.caption(
+            "Symbol候補を好みの条件で絞ります。取得期間や予測計算ではなく、候補リストだけに効きます。"
+        )
+        col_region, col_product, col_nisa, col_clear = st.columns([1.0, 1.0, 1.0, 0.8])
+        with col_region:
+            _render_detail_selectbox(
+                "地域",
+                options=list(RANKING_MVP_REGION_LABELS),
+                key="market_data_cockpit_region",
+                format_func=lambda value: RANKING_MVP_REGION_LABELS[value],
+                help_text="候補に含める市場地域です。国内株、米国株、全体から選びます。",
+            )
+        with col_product:
+            _render_detail_selectbox(
+                "商品",
+                options=list(RANKING_MVP_PRODUCT_TYPE_LABELS),
+                key="market_data_cockpit_product_type",
+                format_func=lambda value: RANKING_MVP_PRODUCT_TYPE_LABELS[value],
+                help_text="個別株かETFを中心に候補を絞ります。",
+            )
+        with col_nisa:
+            _render_detail_selectbox(
+                "NISA",
+                options=list(RANKING_NISA_ELIGIBILITY_LABELS),
+                key="market_data_cockpit_nisa",
+                format_func=lambda value: RANKING_NISA_ELIGIBILITY_LABELS[value],
+                help_text=RANKING_FILTER_HELP_TEXTS["nisa_eligibility"],
+            )
+        with col_clear:
+            st.write("")
+            st.button("クリア", on_click=_clear_cockpit_symbol_filter_state)
+
+        st.markdown("**属性条件**")
+        attr_cols = st.columns(5)
+        with attr_cols[0]:
+            _render_detail_selectbox(
+                "業種/テーマ",
+                options=list(RANKING_THEME_LABELS),
+                key="market_data_cockpit_theme",
+                format_func=lambda value: RANKING_THEME_LABELS[value],
+                help_text=RANKING_FILTER_HELP_TEXTS["industry_or_sector"],
+            )
+        with attr_cols[1]:
+            _render_detail_selectbox(
+                "時価総額",
+                options=list(RANKING_MARKET_CAP_LABELS),
+                key="market_data_cockpit_market_cap",
+                format_func=lambda value: RANKING_MARKET_CAP_LABELS[value],
+                help_text=RANKING_FILTER_HELP_TEXTS["market_cap"],
+            )
+        with attr_cols[2]:
+            _render_detail_selectbox(
+                "市場感応度（β）",
+                options=list(RANKING_BETA_RISK_LABELS),
+                key="market_data_cockpit_risk_band",
+                format_func=lambda value: RANKING_BETA_RISK_LABELS[value],
+                help_text=RANKING_FILTER_HELP_TEXTS["risk_band"],
+            )
+        with attr_cols[3]:
+            _render_detail_selectbox(
+                "配当カテゴリ",
+                options=list(RANKING_DIVIDEND_LABELS),
+                key="market_data_cockpit_dividend",
+                format_func=lambda value: RANKING_DIVIDEND_LABELS[value],
+                help_text=RANKING_FILTER_HELP_TEXTS["dividend_category"],
+                disabled=_cockpit_filter_bool("market_data_cockpit_dividend_enabled", False),
+            )
+        with attr_cols[4]:
+            _render_detail_selectbox(
+                "通貨",
+                options=list(RANKING_CURRENCY_LABELS),
+                key="market_data_cockpit_currency",
+                format_func=lambda value: RANKING_CURRENCY_LABELS[value],
+                help_text=RANKING_FILTER_HELP_TEXTS["currency"],
+            )
+
+        st.markdown("**数値条件**")
+        _render_metric_filter_grid(
+            [
+                (
+                    "配当利回り(%)",
+                    {
+                        "enabled_key": "market_data_cockpit_dividend_enabled",
+                        "min_key": "market_data_cockpit_min_dividend",
+                        "max_key": "market_data_cockpit_dividend_max",
+                        "min_default": "0.0",
+                        "max_default": "10.0",
+                        "max_value": 15.0,
+                        "help_text": RANKING_FILTER_HELP_TEXTS["dividend_yield"],
+                        "disabled": _cockpit_filter_value("market_data_cockpit_dividend", "all")
+                        != "all",
+                    },
+                ),
+                (
+                    "PER",
+                    {
+                        "enabled_key": "market_data_cockpit_per_enabled",
+                        "min_key": "market_data_cockpit_per_min",
+                        "max_key": "market_data_cockpit_per_max",
+                        "min_default": "2.0",
+                        "max_default": "20.0",
+                        "max_value": 80.0,
+                        "help_text": RANKING_FILTER_HELP_TEXTS["per"],
+                    },
+                ),
+                (
+                    "PBR",
+                    {
+                        "enabled_key": "market_data_cockpit_pbr_enabled",
+                        "min_key": "market_data_cockpit_pbr_min",
+                        "max_key": "market_data_cockpit_pbr_max",
+                        "min_default": "0.5",
+                        "max_default": "2.0",
+                        "max_value": 20.0,
+                        "help_text": RANKING_FILTER_HELP_TEXTS["pbr"],
+                    },
+                ),
+                (
+                    "ROE(%)",
+                    {
+                        "enabled_key": "market_data_cockpit_roe_enabled",
+                        "min_key": "market_data_cockpit_roe_min",
+                        "max_key": "market_data_cockpit_roe_max",
+                        "min_default": "8.0",
+                        "max_default": "30.0",
+                        "max_value": 60.0,
+                        "help_text": RANKING_FILTER_HELP_TEXTS["roe"],
+                    },
+                ),
+            ]
+        )
+    return filtered_rows
+
+
+def cockpit_filtered_symbol_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    return filter_symbol_universe_rows(
+        rows,
+        region=_cockpit_filter_value("market_data_cockpit_region", "all"),
+        product_type=_cockpit_filter_value("market_data_cockpit_product_type", "all"),
+        currency=_cockpit_filter_value("market_data_cockpit_currency", "all"),
+        dividend_category=_cockpit_filter_value("market_data_cockpit_dividend", "all"),
+        market_cap_tier=_cockpit_filter_value("market_data_cockpit_market_cap", "all"),
+        nisa_eligibility=_cockpit_filter_value("market_data_cockpit_nisa", "all"),
+        risk_band=_cockpit_filter_value("market_data_cockpit_risk_band", "all"),
+        theme=_cockpit_filter_value("market_data_cockpit_theme", "all"),
+        dividend_yield_enabled=_cockpit_filter_bool(
+            "market_data_cockpit_dividend_enabled",
+            False,
+        ),
+        min_dividend_yield_pct=_cockpit_filter_value(
+            "market_data_cockpit_min_dividend",
+            "0.0",
+        ),
+        dividend_yield_max_pct=_cockpit_filter_value(
+            "market_data_cockpit_dividend_max",
+            "10.0",
+        ),
+        per_enabled=_cockpit_filter_bool("market_data_cockpit_per_enabled", False),
+        per_min=_cockpit_filter_value("market_data_cockpit_per_min", "2.0"),
+        per_max=_cockpit_filter_value("market_data_cockpit_per_max", "20.0"),
+        pbr_enabled=_cockpit_filter_bool("market_data_cockpit_pbr_enabled", False),
+        pbr_min=_cockpit_filter_value("market_data_cockpit_pbr_min", "0.5"),
+        pbr_max=_cockpit_filter_value("market_data_cockpit_pbr_max", "2.0"),
+        roe_enabled=_cockpit_filter_bool("market_data_cockpit_roe_enabled", False),
+        roe_min_pct=_cockpit_filter_value("market_data_cockpit_roe_min", "8.0"),
+        roe_max_pct=_cockpit_filter_value("market_data_cockpit_roe_max", "30.0"),
+        limit=len(rows),
+    )
+
+
+def _cockpit_filter_value(key: str, default: str) -> str:
+    value = st.session_state.get(key, MARKET_DATA_COCKPIT_FILTER_DEFAULTS.get(key, default))
+    return str(value) if value is not None else default
+
+
+def _cockpit_filter_bool(key: str, default: bool) -> bool:
+    value = st.session_state.get(key, MARKET_DATA_COCKPIT_FILTER_DEFAULTS.get(key, default))
+    if isinstance(value, bool):
+        return value
+    return str(value).lower() in {"1", "true", "yes", "on"}
+
+
+def _clear_cockpit_symbol_filter_state() -> None:
+    for key in MARKET_DATA_COCKPIT_FILTER_DEFAULTS:
+        st.session_state.pop(key, None)
+    st.session_state.pop("market_data_symbol_candidate", None)
+
+
+def _ensure_cockpit_symbol_filter_defaults() -> None:
+    for key, value in MARKET_DATA_COCKPIT_FILTER_DEFAULTS.items():
+        st.session_state.setdefault(key, value)
+
+
 def merged_symbol_candidate_rows(
     reference_rows: list[dict[str, str]],
     live_rows: list[dict[str, str]],
@@ -1550,6 +1774,7 @@ def _render_market_data_cockpit() -> None:
     st.subheader("銘柄コックピット")
     st.caption("1銘柄の価格、予測、Investment Score、注意点を確認します。")
     symbol_options = symbol_reference_rows()
+    filtered_symbol_options = _render_cockpit_symbol_filter_panel(symbol_options)
     col_provider, col_search, col_symbol, col_detail, col_name = st.columns(
         [1.0, 1.35, 1.75, 0.95, 1.35]
     )
@@ -1576,16 +1801,25 @@ def _render_market_data_cockpit() -> None:
         live_symbol_options = (
             yfinance_search_symbol_rows(symbol_query) if symbol_query.strip() else []
         )
-        candidate_rows = merged_symbol_candidate_rows(symbol_options, live_symbol_options)
+        candidate_rows = merged_symbol_candidate_rows(filtered_symbol_options, live_symbol_options)
         symbol_option_labels = symbol_candidate_labels(candidate_rows, symbol_query)
         if not symbol_option_labels:
+            st.warning("条件に合う銘柄候補がありません。条件を緩めるかクリアしてください。")
             symbol_option_labels = symbol_candidate_labels(symbol_options)
+        _ensure_selectbox_state_value("market_data_symbol_candidate", symbol_option_labels)
         symbol_candidate = cast(
             str,
             st.selectbox(
                 "Symbol",
                 symbol_option_labels,
-                index=min(1, len(symbol_option_labels) - 1),
+                index=_selectbox_index(
+                    symbol_option_labels,
+                    str(
+                        st.session_state.get(
+                            "market_data_symbol_candidate", symbol_option_labels[0]
+                        )
+                    ),
+                ),
                 key="market_data_symbol_candidate",
                 placeholder="ticker or company name",
             ),

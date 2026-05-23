@@ -31,6 +31,7 @@ from ui.app import (
     build_cockpit_decision_report_context,
     build_ranking_decision_report_context,
     cockpit_detail_summary_rows,
+    cockpit_filtered_symbol_rows,
     cockpit_investment_memo_rows,
     cockpit_period_evaluation_rows,
     decision_report_json_download,
@@ -254,6 +255,52 @@ def test_symbol_candidate_labels_filter_by_symbol_or_name():
     assert symbol_candidate_labels(rows, "retail") == ["9983.T - Fast Retailing"]
     assert symbol_candidate_labels(rows, "AAPL") == ["AAPL - Apple Inc."]
     assert symbol_candidate_labels(rows, "missing") == []
+
+
+def test_cockpit_filtered_symbol_rows_applies_preference_filters(monkeypatch):
+    monkeypatch.setattr(
+        "ui.app.st.session_state",
+        {
+            "market_data_cockpit_region": "japan",
+            "market_data_cockpit_product_type": "stock",
+            "market_data_cockpit_market_cap": "large",
+            "market_data_cockpit_nisa": "eligible",
+            "market_data_cockpit_per_enabled": True,
+            "market_data_cockpit_per_min": "10",
+            "market_data_cockpit_per_max": "30",
+        },
+    )
+    rows = [
+        {
+            "symbol": "7203.T",
+            "name": "Toyota",
+            "market": "jp",
+            "asset_type": "stock",
+            "market_cap_tier": "large",
+            "nisa_growth_eligible": "true",
+            "per": "12",
+        },
+        {
+            "symbol": "9983.T",
+            "name": "Fast Retailing",
+            "market": "jp",
+            "asset_type": "stock",
+            "market_cap_tier": "large",
+            "nisa_growth_eligible": "true",
+            "per": "45",
+        },
+        {
+            "symbol": "AAPL",
+            "name": "Apple Inc.",
+            "market": "us",
+            "asset_type": "stock",
+            "market_cap_tier": "mega",
+            "nisa_growth_eligible": "true",
+            "per": "28",
+        },
+    ]
+
+    assert [row["symbol"] for row in cockpit_filtered_symbol_rows(rows)] == ["7203.T"]
 
 
 def test_symbol_universe_detail_rows_show_column_labels_and_blank_values():

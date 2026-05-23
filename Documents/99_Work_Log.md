@@ -26,6 +26,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 2026-05-23: Moved cockpit period `カスタム` to the top of the preset list and made it the default selection.
 - 2026-05-23: Added a cockpit confirmation summary that lifts key closed-detail values into the main result view.
 - 2026-05-23: Added period-aware cockpit evaluation for fetched windows, covering return, range position, drawdown, volatility, and short/mid/long review basis.
+- 2026-05-23: Added a collapsible cockpit symbol preference filter for narrowing Symbol候補 by region, product, metadata attributes, and valuation/income ranges.
 
 - 2026-05-17: Started Phase 19 by adding `backend/reporting` Decision Report context v1, deterministic Markdown rendering, local export manifest metadata, and tests covering cockpit / ranking / rebalance context composition. / Phase 19 を開始し、`backend/reporting` に Decision Report context v1、deterministic Markdown rendering、local export manifest metadata、cockpit / ranking / rebalance context composition tests を追加した。
 

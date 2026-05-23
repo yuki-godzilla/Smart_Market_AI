@@ -460,6 +460,7 @@ Phase 16 ranking implementation notes:
 - Ranking remains decision support only. Click a ranking row to open the shared `銘柄データ` modal with short ranking context plus local master details. Use the cockpit for detailed price / forecast / score-reason review.
 - In `銘柄コックピット`, `銘柄データを見る` sits beside symbol selection and opens the same local-master modal for the selected symbol. Start / End inputs wrap to the next row. After fetch, the cockpit shows `投資判断メモ` combining score, warnings, valuation, income, price trend, and next-check wording.
 - In `銘柄コックピット` and `銘柄ランキング`, the result area includes a `Decision Report` expander with Markdown / JSON downloads and a Markdown preview. The report combines data coverage, local symbol metadata, score breakdown, valuation/income/risk context, ranking context where available, and decision checkpoints. It is decision-support material, not a buy/sell recommendation.
+- In `リバランス`, the result area includes a `投資判断レポート` expander with Markdown / JSON downloads and a Markdown preview. The report organizes current holdings, target allocation, allocation drift, proposed trades, Risk breaches, and confirmation checkpoints. It is a review aid, not an order instruction.
 
 Phase 16 final UI smoke checklist:
 
@@ -492,6 +493,7 @@ Rebalance は `Rebalance Cockpit` として、次の順に確認します。
 - proposed trades
 - risk decision
 - beginner-friendly risk breach confirmation points
+- `投資判断レポート` Markdown / JSON download for current holdings, targets, drift, trades, Risk breaches, and confirmation checkpoints
 - JSON / CSV / Markdown / ZIP export
 
 ## 7. 外部 MarketData provider

@@ -39,6 +39,13 @@ from backend.marketdata.provider_registry import provider_capability_details
 from backend.marketdata.providers.yahoo import shared_yfinance_session
 from backend.portfolio.service import RebalanceProposal
 from backend.portfolio.workflow import PortfolioRiskResult
+from backend.reporting import (
+    DecisionReportContext,
+    build_decision_checkpoints_section,
+    build_decision_report_context,
+    build_report_section,
+    render_decision_report_markdown,
+)
 from backend.scoring import InvestmentScore, InvestmentScoringService
 from backend.screening import ScreeningScore, ScreeningService
 from ui.symbol_universe import (
@@ -991,6 +998,166 @@ def build_rebalance_report_context(result: PortfolioRiskResult) -> RebalanceRepo
         trade_rows=proposed_trade_rows(proposal),
         breach_rows=risk_breach_rows(result),
     )
+
+
+def build_rebalance_decision_report_context(
+    result: PortfolioRiskResult,
+    *,
+    request: RebalanceCheckRequest | None = None,
+) -> DecisionReportContext:
+    """Build the shared Phase 19 Decision Report context for Rebalance Cockpit."""
+
+    context = build_rebalance_report_context(result)
+    summary = context.summary
+    request_summary = {}
+    if request is not None:
+        request_summary = {
+            "positions": str(len(request.positions)),
+            "targets": str(len(request.targets)),
+        }
+    sections = [
+        build_report_section(
+            title="リバランス概要",
+            source_kind="rebalance",
+            as_of=result.proposal.as_of,
+            summary={
+                **summary,
+                **request_summary,
+            },
+            rows=[
+                {"項目": "現在資産", "内容": f"{summary['total_value_jpy']} JPY"},
+                {"項目": "現金", "内容": f"{summary['cash_jpy']} JPY"},
+                {"項目": "必要な売買", "内容": f"{summary['trade_count']}件"},
+                {"項目": "Risk 判定", "内容": summary["risk_status"]},
+            ],
+            notes=["このレポートはリバランス確認の整理であり、売買実行や売買推奨ではありません。"],
+        ),
+        build_report_section(
+            title="現在保有",
+            source_kind="rebalance",
+            as_of=result.proposal.as_of,
+            rows=context.current_rows,
+            notes=["現在の保有数量、通貨、評価額を確認します。"],
+        ),
+        build_report_section(
+            title="目標配分",
+            source_kind="rebalance",
+            as_of=result.proposal.as_of,
+            rows=context.target_rows,
+            notes=["目標配分は入力条件です。投資方針に合っているか確認してください。"],
+        ),
+        build_report_section(
+            title="配分差分",
+            source_kind="rebalance",
+            as_of=result.proposal.as_of,
+            rows=context.allocation_rows,
+            notes=["drift は目標配分と現在配分の差です。大きい行ほど確認優先度が上がります。"],
+        ),
+        build_report_section(
+            title="売買案",
+            source_kind="rebalance",
+            as_of=result.proposal.as_of,
+            rows=context.trade_rows
+            or [{"symbol": "なし", "side": "-", "qty": "0", "price_hint": "-", "currency": "-"}],
+            notes=["売買案は no-solver MVP の計算結果です。実注文は行いません。"],
+        ),
+    ]
+    if context.breach_rows:
+        sections.append(
+            build_report_section(
+                title="Risk 制約違反",
+                source_kind="rebalance",
+                as_of=result.proposal.as_of,
+                rows=context.breach_rows,
+                notes=["Risk 判定が BLOCK / REVIEW の場合は、制約違反の内容を先に確認します。"],
+            )
+        )
+    sections.append(
+        build_decision_checkpoints_section(
+            checkpoints=_rebalance_decision_checkpoints(context),
+            as_of=result.proposal.as_of,
+        )
+    )
+    return build_decision_report_context(
+        title=f"投資判断レポート - リバランス {summary['account_id']}",
+        sections=sections,
+        tags=["rebalance", "phase-19", "local-first"],
+    )
+
+
+def rebalance_decision_report_json_download(context: DecisionReportContext) -> str:
+    return context.model_dump_json(indent=2)
+
+
+def rebalance_decision_report_markdown_download(context: DecisionReportContext) -> str:
+    return render_decision_report_markdown(context)
+
+
+def _rebalance_decision_checkpoints(
+    context: RebalanceReportContext,
+) -> list[dict[str, str]]:
+    summary = context.summary
+    risk_status = summary["risk_status"]
+    trade_count = summary["trade_count"]
+    largest_drift = _largest_abs_percent_row(context.allocation_rows, "drift")
+    checkpoints = [
+        {
+            "area": "Risk",
+            "finding": f"Risk 判定は {risk_status} です",
+            "confirmation_point": "BLOCK / REVIEW の場合は、制約違反と目標配分を先に確認します。",
+        },
+        {
+            "area": "Trades",
+            "finding": f"売買案は {trade_count} 件です",
+            "confirmation_point": "売買案は実注文ではありません。数量、価格前提、通貨を確認します。",
+        },
+    ]
+    if largest_drift:
+        checkpoints.append(
+            {
+                "area": "Allocation",
+                "finding": (
+                    f"最も大きい配分差は {largest_drift.get('symbol', '対象不明')} の "
+                    f"{largest_drift.get('drift', '')} です"
+                ),
+                "confirmation_point": "差分が意図した投資方針や許容リスクに合うか確認します。",
+            }
+        )
+    if context.breach_rows:
+        checkpoints.append(
+            {
+                "area": "Risk Breach",
+                "finding": f"Risk 制約違反が {len(context.breach_rows)} 件あります",
+                "confirmation_point": "制約違反を解消するには、目標配分、対象銘柄、現金比率を見直します。",
+            }
+        )
+    else:
+        checkpoints.append(
+            {
+                "area": "Risk Breach",
+                "finding": "大きなRisk制約違反はありません",
+                "confirmation_point": "制約違反がなくても、集中度や価格前提は確認します。",
+            }
+        )
+    return checkpoints
+
+
+def _largest_abs_percent_row(
+    rows: list[dict[str, str]],
+    field: str,
+) -> dict[str, str] | None:
+    best_row: dict[str, str] | None = None
+    best_value = Decimal("-1")
+    for row in rows:
+        raw_value = row.get(field, "").replace("%", "").strip()
+        try:
+            value = abs(Decimal(raw_value))
+        except Exception:  # noqa: BLE001
+            continue
+        if value > best_value:
+            best_value = value
+            best_row = row
+    return best_row
 
 
 def current_position_rows(proposal: RebalanceProposal) -> list[dict[str, str]]:

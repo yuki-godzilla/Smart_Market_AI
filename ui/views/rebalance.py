@@ -13,9 +13,12 @@ from backend.app.main import RebalanceCheckRequest
 from backend.portfolio.workflow import PortfolioRiskResult
 from ui.rebalance_app import (
     RebalanceScenarioError,
+    build_rebalance_decision_report_context,
     build_rebalance_report_context,
     build_rebalance_request,
     get_rebalance_sample,
+    rebalance_decision_report_json_download,
+    rebalance_decision_report_markdown_download,
     rebalance_sample_names,
     request_json_download,
     result_json_download,
@@ -203,6 +206,8 @@ def _render_result(result: PortfolioRiskResult, request: RebalanceCheckRequest) 
             use_container_width=True,
         )
 
+    _render_rebalance_decision_report(result, request)
+
     with st.expander("Downloads"):
         st.json(result.model_dump(mode="json"))
         st.download_button(
@@ -277,6 +282,32 @@ def _render_result(result: PortfolioRiskResult, request: RebalanceCheckRequest) 
             file_name="rebalance_risk_breaches.csv",
             mime="text/csv",
         )
+
+
+def _render_rebalance_decision_report(
+    result: PortfolioRiskResult,
+    request: RebalanceCheckRequest,
+) -> None:
+    context = build_rebalance_decision_report_context(result, request=request)
+    markdown = rebalance_decision_report_markdown_download(context)
+    with st.expander("投資判断レポート", expanded=False):
+        st.caption(
+            "現在保有、目標配分、売買案、Risk判定、確認ポイントを同じ形式で整理します。"
+            "売買推奨ではありません。"
+        )
+        st.download_button(
+            "レポートMarkdownをダウンロード",
+            data=markdown,
+            file_name="decision_report_rebalance.md",
+            mime="text/markdown",
+        )
+        st.download_button(
+            "レポートJSONをダウンロード",
+            data=rebalance_decision_report_json_download(context),
+            file_name="decision_report_rebalance.json",
+            mime="application/json",
+        )
+        st.code(markdown, language="markdown")
 
 
 def rebalance_result_from_state() -> tuple[PortfolioRiskResult, RebalanceCheckRequest] | None:

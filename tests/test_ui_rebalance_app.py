@@ -46,6 +46,7 @@ from ui.rebalance_app import (
     allocation_comparison_rows,
     build_default_rebalance_request,
     build_market_data_preview,
+    build_rebalance_decision_report_context,
     build_rebalance_report_context,
     build_rebalance_request,
     current_position_rows,
@@ -60,6 +61,8 @@ from ui.rebalance_app import (
     price_chart_rows,
     proposed_trade_rows,
     provider_metadata_rows,
+    rebalance_decision_report_json_download,
+    rebalance_decision_report_markdown_download,
     rebalance_sample_names,
     rebalance_scenario_dir,
     request_json_download,
@@ -1157,6 +1160,31 @@ def test_build_rebalance_report_context_reuses_result_table_rows():
     assert context.allocation_rows == allocation_comparison_rows(result.proposal)
     assert context.trade_rows == proposed_trade_rows(result.proposal)
     assert context.breach_rows == risk_breach_rows(result)
+
+
+def test_build_rebalance_decision_report_context_uses_phase19_schema():
+    request = build_default_rebalance_request()
+    result = asyncio.run(run_rebalance_check(request))
+
+    context = build_rebalance_decision_report_context(result, request=request)
+    markdown = rebalance_decision_report_markdown_download(context)
+    payload = rebalance_decision_report_json_download(context)
+
+    assert context.title == "投資判断レポート - リバランス acct-1"
+    assert [section.title for section in context.sections] == [
+        "リバランス概要",
+        "現在保有",
+        "目標配分",
+        "配分差分",
+        "売買案",
+        "Risk 制約違反",
+        "確認ポイント",
+    ]
+    assert context.sections[0].summary["risk_status"] == "BLOCK"
+    assert context.sections[0].summary["positions"] == "1"
+    assert "売買推奨ではありません" in markdown
+    assert "Risk 判定は BLOCK" in markdown
+    assert '"rebalance"' in payload
 
 
 def test_rebalance_result_from_state_returns_stored_result(monkeypatch):

@@ -444,6 +444,7 @@ Implemented slice:
 - cockpit / ranking / rebalance 由来の summary / table rows / warnings / notes を local-first に束ねる最小 schema を追加。
 - Phase 18 の銘柄 metadata 整備を踏まえ、`Data coverage and confidence`、`Symbol metadata`、`Decision checkpoints` の標準 report section builder を追加。
 - 銘柄コックピットとランキング結果に `Decision Report` expander を追加し、Markdown / JSON download と Markdown preview を確認できるようにした。
+- リバランス結果に `投資判断レポート` expander を追加し、現在保有、目標配分、配分差分、売買案、Risk 制約違反、確認ポイントを同じ context schema で Markdown / JSON export できるようにした。
 
 Report output policy:
 
@@ -458,8 +459,8 @@ Report output policy:
 
 Next:
 
-- Rebalance state から Decision Report context を組み立てる導線を追加。
-- API / export で JSON / Markdown / ZIP として保存できるようにする。
+- API / export で Decision Report context を JSON / Markdown / ZIP として保存できる導線を整理する。
+- cockpit / ranking / rebalance の report preview と download 文言を横断で最終確認する。
 
 - cockpit summary / ranking result / ranking error / rebalance result / risk breach を横断する report context contract を定義する。
 - 初期 export は Markdown / JSON / CSV / manifest / ZIP を優先する。

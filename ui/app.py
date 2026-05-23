@@ -1561,9 +1561,8 @@ def _render_cockpit_symbol_filter_panel(
     symbol_options: list[dict[str, str]],
 ) -> list[dict[str, str]]:
     _ensure_cockpit_symbol_filter_defaults()
-    filtered_rows = cockpit_filtered_symbol_rows(symbol_options)
     with st.expander(
-        f"銘柄候補フィルター（{len(filtered_rows)} / {len(symbol_options)}件）",
+        "銘柄候補フィルター",
         expanded=False,
     ):
         st.caption(
@@ -1697,6 +1696,8 @@ def _render_cockpit_symbol_filter_panel(
                 ),
             ]
         )
+        filtered_rows = cockpit_filtered_symbol_rows(symbol_options)
+        st.caption(f"現在の候補: {len(filtered_rows)} / {len(symbol_options)}件")
     return filtered_rows
 
 

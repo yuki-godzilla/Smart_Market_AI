@@ -77,8 +77,8 @@ def test_render_decision_report_markdown_is_deterministic_and_includes_disclaime
     markdown = render_decision_report_markdown(context)
 
     assert markdown.startswith("# Decision support report\n")
-    assert f"- Note: {DECISION_SUPPORT_NOTE}" in markdown
-    assert "| rank | symbol | memo |" in markdown
+    assert f"- 位置づけ: {DECISION_SUPPORT_NOTE}" in markdown
+    assert "| 順位 | 銘柄 | memo |" in markdown
     assert "| 1 | 7203.T | value \\| checked |" in markdown
 
 
@@ -159,10 +159,10 @@ def test_standard_sections_capture_metadata_confidence_and_checkpoints():
     assert data_confidence.source.kind == "metadata"
     assert data_confidence.summary["missing_fields"] == "risk_band"
     assert symbol_metadata.summary["nisa_category"] == "growth"
-    assert "Data coverage and confidence" in markdown
-    assert "Some metadata fields are blank" in markdown
-    assert "Decision checkpoints" in markdown
-    assert "not buy/sell instructions" in markdown
+    assert "データ取得状況と信頼性" in markdown
+    assert "一部のメタデータは空欄です" in markdown
+    assert "確認ポイント" in markdown
+    assert "売買指示ではありません" in markdown
 
 
 def test_build_decision_checkpoints_section_rejects_empty_rows():

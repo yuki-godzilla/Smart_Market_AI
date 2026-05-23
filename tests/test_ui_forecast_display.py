@@ -2376,16 +2376,16 @@ def test_cockpit_decision_report_context_includes_metadata_confidence(monkeypatc
     markdown = decision_report_markdown_download(context)
     payload = decision_report_json_download(context)
 
-    assert context.title == "Decision Report - 6857.T"
+    assert context.title == "投資判断レポート - 6857.T"
     assert [section.title for section in context.sections] == [
-        "Data coverage and confidence",
-        "Symbol metadata",
-        "Investment score breakdown",
-        "Valuation / income / risk",
-        "Decision checkpoints",
+        "データ取得状況と信頼性",
+        "銘柄メタデータ",
+        "スコア分解",
+        "バリュエーション / インカム / リスク",
+        "確認ポイント",
     ]
     assert "risk_band" in context.sections[0].summary["missing_fields"]
-    assert "Data coverage and confidence" in markdown
+    assert "データ取得状況と信頼性" in markdown
     assert '"schema_version": "decision-report-context-v1"' in payload
 
 
@@ -2439,11 +2439,11 @@ def test_ranking_decision_report_context_limits_rows_and_uses_top_symbol(monkeyp
     )
 
     ranking_section = next(
-        section for section in context.sections if section.title == "Ranking context"
+        section for section in context.sections if section.title == "ランキング文脈"
     )
-    assert ranking_section.summary["reported_rows"] == "20 of 25"
+    assert ranking_section.summary["reported_rows"] == "20 / 25"
     assert ranking_section.rows[0]["symbol"] == "AAPL"
-    assert "Ranking result" in context.title
+    assert "ランキング結果" in context.title
 
 
 def test_rank_investment_score_rows_sorts_and_reassigns_rank():

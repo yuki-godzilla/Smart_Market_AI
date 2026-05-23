@@ -2617,7 +2617,7 @@ def build_cockpit_decision_report_context(
             )
         )
     return build_decision_report_context(
-        title=f"Decision Report - {symbol or 'selected symbol'}",
+        title=f"投資判断レポート - {symbol or '選択銘柄'}",
         sections=sections,
         tags=["cockpit", "phase-19", "local-first"],
     )
@@ -2652,7 +2652,7 @@ def build_ranking_decision_report_context(
             notes=[comparison_summary],
         ),
         build_report_section(
-            title="Ranking context",
+            title="ランキング文脈",
             source_kind="ranking",
             provider=provider,
             as_of=end,
@@ -2660,12 +2660,10 @@ def build_ranking_decision_report_context(
                 "ranking_purpose": ranking_purpose,
                 "display_weight": weight_preset,
                 "comparison": comparison_summary,
-                "reported_rows": f"{len(top_rows)} of {len(ranked_rows)}",
+                "reported_rows": f"{len(top_rows)} / {len(ranked_rows)}",
             },
             rows=[_ranking_report_row(row) for row in top_rows],
-            notes=[
-                "Ranking rows are ordered for deeper review and are not buy/sell recommendations."
-            ],
+            notes=["ランキング行は深掘り候補の整理であり、売買推奨ではありません。"],
         ),
     ]
     if top_symbol_row is not None:
@@ -2703,7 +2701,7 @@ def build_ranking_decision_report_context(
             )
         )
     return build_decision_report_context(
-        title="Decision Report - Ranking result",
+        title="投資判断レポート - ランキング結果",
         sections=sections,
         tags=["ranking", "phase-19", "local-first"],
     )
@@ -2721,7 +2719,7 @@ def _render_cockpit_decision_report(preview: MarketDataPreview) -> None:
     context = build_cockpit_decision_report_context(preview)
     _render_decision_report_downloads(
         context,
-        expander_label="Decision Report",
+        expander_label="投資判断レポート",
         json_file_name="decision_report_cockpit.json",
         markdown_file_name="decision_report_cockpit.md",
     )
@@ -2750,7 +2748,7 @@ def _render_ranking_decision_report(
     )
     _render_decision_report_downloads(
         context,
-        expander_label="Decision Report",
+        expander_label="投資判断レポート",
         json_file_name="decision_report_ranking.json",
         markdown_file_name="decision_report_ranking.md",
     )
@@ -2770,13 +2768,13 @@ def _render_decision_report_downloads(
             "売買推奨ではありません。"
         )
         st.download_button(
-            "Download report Markdown",
+            "レポートMarkdownをダウンロード",
             data=markdown,
             file_name=markdown_file_name,
             mime="text/markdown",
         )
         st.download_button(
-            "Download report JSON",
+            "レポートJSONをダウンロード",
             data=decision_report_json_download(context),
             file_name=json_file_name,
             mime="application/json",
@@ -2793,7 +2791,7 @@ def _investment_score_report_section(
     as_of: date | None = None,
 ) -> DecisionReportSection:
     return build_report_section(
-        title="Investment score breakdown",
+        title="スコア分解",
         source_kind=source_kind,
         provider=provider,
         symbol=symbol or None,
@@ -2811,11 +2809,11 @@ def _investment_score_report_section(
         rows=[
             {"component": "Screening", "score": row.get("screening_score", "")},
             {
-                "component": "Forecast agreement",
+                "component": "予測一致",
                 "score": row.get("forecast_agreement_score", ""),
             },
-            {"component": "Data quality", "score": row.get("data_quality_score", "")},
-            {"component": "Risk signal", "score": row.get("risk_signal_score", "")},
+            {"component": "データ品質", "score": row.get("data_quality_score", "")},
+            {"component": "Risk", "score": row.get("risk_signal_score", "")},
         ],
     )
 
@@ -2828,39 +2826,39 @@ def _valuation_income_risk_report_section(
     as_of: date | None = None,
 ) -> DecisionReportSection:
     return build_report_section(
-        title="Valuation / income / risk",
+        title="バリュエーション / インカム / リスク",
         source_kind=source_kind,
         symbol=symbol,
         as_of=as_of,
         rows=[
             {
-                "area": "Valuation",
+                "area": "バリュエーション",
                 "metric": "PER",
                 "value": symbol_universe_detail_display_value(symbol_row, "per"),
             },
             {
-                "area": "Valuation",
+                "area": "バリュエーション",
                 "metric": "PBR",
                 "value": symbol_universe_detail_display_value(symbol_row, "pbr"),
             },
             {
-                "area": "Valuation",
+                "area": "バリュエーション",
                 "metric": "ROE",
                 "value": symbol_universe_detail_display_value(symbol_row, "roe_pct"),
             },
             {
-                "area": "Income",
-                "metric": "Dividend yield",
+                "area": "インカム",
+                "metric": "配当利回り",
                 "value": symbol_universe_detail_display_value(symbol_row, "dividend_yield_pct"),
             },
             {
-                "area": "Income",
-                "metric": "Dividend category",
+                "area": "インカム",
+                "metric": "配当カテゴリ",
                 "value": symbol_universe_detail_display_value(symbol_row, "dividend_category"),
             },
             {
                 "area": "ETF",
-                "metric": "Expense ratio",
+                "metric": "経費率",
                 "value": symbol_universe_detail_display_value(
                     symbol_row,
                     "expense_ratio_pct",
@@ -2868,7 +2866,7 @@ def _valuation_income_risk_report_section(
             },
             {
                 "area": "ETF",
-                "metric": "Index family",
+                "metric": "連動指数",
                 "value": symbol_universe_detail_display_value(
                     symbol_row,
                     "index_family",
@@ -2876,7 +2874,7 @@ def _valuation_income_risk_report_section(
             },
             {
                 "area": "Risk",
-                "metric": "Risk band",
+                "metric": "リスク帯",
                 "value": symbol_universe_detail_display_value(symbol_row, "risk_band"),
             },
         ],
@@ -2981,26 +2979,26 @@ def _cockpit_report_checkpoints(
     trend = _cockpit_price_trend_summary(bars)
     return [
         {
-            "area": "Score",
+            "area": "スコア",
             "finding": _cockpit_score_strength_summary(display_score_row, symbol_row),
-            "confirmation_point": "Review score components before using the result.",
+            "confirmation_point": "総合スコアだけでなく、構成要素を確認してから判断材料にします。",
         },
         {
-            "area": "Caution",
+            "area": "注意点",
             "finding": _cockpit_score_caution_summary(display_score_row, symbol_row),
-            "confirmation_point": "Check warnings and data gaps first.",
+            "confirmation_point": "警告とデータ欠損を先に確認します。",
         },
         {
-            "area": "Valuation",
+            "area": "バリュエーション",
             "finding": _cockpit_valuation_summary(symbol_row),
-            "confirmation_point": "Check whether valuation is supported by earnings and growth.",
+            "confirmation_point": "利益成長や業績見通しが現在の評価を支えているか確認します。",
         },
         {
-            "area": "Income",
+            "area": "インカム",
             "finding": _cockpit_income_summary(symbol_row),
-            "confirmation_point": "Review dividend policy and stability, not only yield.",
+            "confirmation_point": "利回りだけでなく、配当方針と安定性も確認します。",
         },
-        {"area": "Price trend", "finding": trend["summary"], "confirmation_point": trend["check"]},
+        {"area": "価格トレンド", "finding": trend["summary"], "confirmation_point": trend["check"]},
     ]
 
 
@@ -3010,24 +3008,24 @@ def _ranking_report_checkpoints(
 ) -> list[dict[str, str]]:
     return [
         {
-            "area": "Ranking",
+            "area": "ランキング",
             "finding": row.get("note", ""),
-            "confirmation_point": "Open cockpit and confirm price trend and forecast details.",
+            "confirmation_point": "銘柄コックピットで価格トレンドと予測詳細を確認します。",
         },
         {
-            "area": "Valuation",
+            "area": "バリュエーション",
             "finding": _cockpit_valuation_summary(symbol_row),
-            "confirmation_point": "Check whether valuation is supported by fundamentals.",
+            "confirmation_point": "評価水準が業績や財務指標に支えられているか確認します。",
         },
         {
-            "area": "Income",
+            "area": "インカム",
             "finding": _cockpit_income_summary(symbol_row),
-            "confirmation_point": "Review dividend policy and drawdown risk.",
+            "confirmation_point": "配当方針と下落リスクを確認します。",
         },
         {
-            "area": "Next review",
+            "area": "次の確認",
             "finding": _ranking_next_action(row, symbol_row),
-            "confirmation_point": "Use this as a review queue, not as an order instruction.",
+            "confirmation_point": "確認順の整理として使い、注文指示として扱いません。",
         },
     ]
 

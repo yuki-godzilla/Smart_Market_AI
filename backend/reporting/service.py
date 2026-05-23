@@ -9,9 +9,7 @@ from backend.core.data_contracts import StrictBaseModel
 from backend.core.errors import ValidationAppError
 
 DECISION_REPORT_SCHEMA_VERSION = "decision-report-context-v1"
-DECISION_SUPPORT_NOTE = (
-    "This report is decision-support material only and is not a buy/sell recommendation."
-)
+DECISION_SUPPORT_NOTE = "このレポートは投資判断の補助資料であり、売買推奨ではありません。"
 
 ReportSourceKind = Literal["cockpit", "ranking", "rebalance", "metadata", "manual"]
 
@@ -149,15 +147,15 @@ def build_data_confidence_section(
     if normalized_missing:
         summary["missing_fields"] = ", ".join(normalized_missing)
         normalized_warnings.append(
-            "Some metadata fields are blank and should be reviewed as data gaps, not zero values."
+            "一部のメタデータは空欄です。0として扱わず、未取得の確認項目として見てください。"
         )
     normalized_notes = _normalize_strings(notes or [])
     normalized_notes.append(
-        "Unconfirmed metadata remains blank until a verified source or explicit opt-in refresh provides it."
+        "未確認のメタデータは、確認済み source または明示 opt-in refresh で取得できるまで空欄のまま保持します。"
     )
 
     return build_report_section(
-        title="Data coverage and confidence",
+        title="データ取得状況と信頼性",
         source_kind="metadata",
         provider=provider,
         symbol=symbol,
@@ -183,7 +181,7 @@ def build_symbol_metadata_section(
     summary: dict[str, object] = {"symbol": symbol, "name": name}
     summary.update(metadata or {})
     return build_report_section(
-        title="Symbol metadata",
+        title="銘柄メタデータ",
         source_kind="metadata",
         symbol=symbol,
         as_of=as_of,
@@ -205,11 +203,9 @@ def build_decision_checkpoints_section(
     if not checkpoints:
         raise ValidationAppError("Decision checkpoints require at least one row.")
     normalized_notes = _normalize_strings(notes or [])
-    normalized_notes.append(
-        "These checkpoints organize review work and are not buy/sell instructions."
-    )
+    normalized_notes.append("これらは確認作業を整理するための項目であり、売買指示ではありません。")
     return build_report_section(
-        title="Decision checkpoints",
+        title="確認ポイント",
         source_kind="manual",
         symbol=symbol,
         as_of=as_of,
@@ -224,35 +220,38 @@ def render_decision_report_markdown(context: DecisionReportContext) -> str:
     lines = [
         f"# {context.title}",
         "",
-        f"- Schema: {context.schema_version}",
-        f"- Created at: {context.created_at.isoformat()}",
-        f"- Note: {context.decision_support_note}",
+        f"- スキーマ: {context.schema_version}",
+        f"- 作成日時: {context.created_at.isoformat()}",
+        f"- 位置づけ: {context.decision_support_note}",
     ]
     if context.tags:
-        lines.append(f"- Tags: {', '.join(context.tags)}")
+        lines.append(f"- タグ: {', '.join(context.tags)}")
 
     for section in context.sections:
         lines.extend(["", f"## {section.title}", ""])
-        lines.append(f"- Source: {section.source.kind}")
+        lines.append(f"- 情報元: {_display_value('source_kind', section.source.kind)}")
         if section.source.provider:
-            lines.append(f"- Provider: {section.source.provider}")
+            lines.append(f"- 取得元: {section.source.provider}")
         if section.source.symbol:
-            lines.append(f"- Symbol: {section.source.symbol}")
+            lines.append(f"- 銘柄: {section.source.symbol}")
         if section.source.as_of:
-            lines.append(f"- As of: {section.source.as_of.isoformat()}")
+            lines.append(f"- 基準日: {section.source.as_of.isoformat()}")
         for key, value in section.source.metadata.items():
-            lines.append(f"- {key}: {value}")
+            lines.append(f"- {_display_key(key)}: {_display_value(key, value)}")
         if section.summary:
-            lines.extend(["", "### Summary"])
-            lines.extend(f"- {key}: {value}" for key, value in section.summary.items())
+            lines.extend(["", "### サマリ"])
+            lines.extend(
+                f"- {_display_key(key)}: {_display_value(key, value)}"
+                for key, value in section.summary.items()
+            )
         if section.rows:
-            lines.extend(["", "### Rows"])
+            lines.extend(["", "### 明細"])
             lines.extend(_markdown_table(section.rows))
         if section.warnings:
-            lines.extend(["", "### Warnings"])
+            lines.extend(["", "### 注意点"])
             lines.extend(f"- {warning}" for warning in section.warnings)
         if section.notes:
-            lines.extend(["", "### Notes"])
+            lines.extend(["", "### 補足"])
             lines.extend(f"- {note}" for note in section.notes)
 
     return "\n".join(lines) + "\n"
@@ -299,14 +298,123 @@ def _markdown_table(rows: list[dict[str, str]]) -> list[str]:
                 headers.append(key)
 
     lines = [
-        "| " + " | ".join(headers) + " |",
+        "| " + " | ".join(_display_key(header) for header in headers) + " |",
         "| " + " | ".join("---" for _ in headers) + " |",
     ]
     for row in rows:
-        values = [_escape_table_cell(row.get(header, "")) for header in headers]
+        values = [
+            _escape_table_cell(_display_value(header, row.get(header, ""))) for header in headers
+        ]
         lines.append("| " + " | ".join(values) + " |")
     return lines
 
 
 def _escape_table_cell(value: str) -> str:
     return value.replace("|", "\\|").replace("\n", " ")
+
+
+_DISPLAY_KEY_LABELS = {
+    "provider": "取得元",
+    "price_period": "取得期間",
+    "data_quality": "データ品質",
+    "metadata_source": "メタデータ出所",
+    "metadata_as_of": "メタデータ基準日",
+    "missing_fields": "未取得項目",
+    "symbol": "銘柄",
+    "name": "銘柄名",
+    "market": "市場",
+    "asset_type": "商品分類",
+    "currency": "通貨",
+    "nisa_category": "NISA",
+    "investment_style": "投資スタイル",
+    "market_cap_tier": "時価総額",
+    "broker": "取扱元",
+    "tradability": "取扱状況",
+    "is_sbi_supported": "SBI対応",
+    "metadata_updated_at": "メタデータ更新日時",
+    "dividend_yield_pct": "配当利回り",
+    "dividend_category": "配当カテゴリ",
+    "per": "PER",
+    "pbr": "PBR",
+    "roe_pct": "ROE",
+    "risk_band": "リスク帯",
+    "index_family": "連動指数",
+    "expense_ratio_pct": "経費率",
+    "complexity": "複雑さ",
+    "total_score": "総合スコア",
+    "score_band": "見方",
+    "screening_score": "Screening",
+    "forecast_agreement_score": "予測一致",
+    "risk_signal_score": "Risk",
+    "warnings": "注意点",
+    "reasons": "理由",
+    "field": "項目",
+    "status": "状態",
+    "value": "内容",
+    "component": "要素",
+    "score": "スコア",
+    "area": "観点",
+    "metric": "指標",
+    "finding": "確認内容",
+    "confirmation_point": "確認ポイント",
+    "rank": "順位",
+    "ranking_purpose": "並べ替え方針",
+    "display_weight": "表示重み",
+    "comparison": "比較条件",
+    "reported_rows": "出力行数",
+    "note": "補足",
+}
+
+_DISPLAY_VALUE_LABELS = {
+    "available": "取得あり",
+    "missing": "未取得",
+    "cockpit": "銘柄コックピット",
+    "ranking": "銘柄ランキング",
+    "rebalance": "リバランス",
+    "metadata": "銘柄メタデータ",
+    "manual": "確認メモ",
+}
+
+
+def _display_key(key: str) -> str:
+    return _DISPLAY_KEY_LABELS.get(key, key)
+
+
+def _display_value(key: str, value: str) -> str:
+    if key in {"status", "source_kind"}:
+        return _DISPLAY_VALUE_LABELS.get(value, value)
+    if key == "field":
+        return _display_key(value)
+    if key == "component":
+        return {
+            "Screening": "スクリーニング",
+            "Forecast agreement": "予測一致",
+            "Data quality": "データ品質",
+            "Risk signal": "Risk",
+        }.get(value, value)
+    if key == "score_band":
+        return {
+            "STRONG": "強め",
+            "BALANCED": "バランス型",
+            "CAUTION": "注意",
+            "WEAK": "弱め",
+        }.get(value, value)
+    if key in {"warnings", "reasons"}:
+        return _display_reason_codes(value)
+    return value
+
+
+def _display_reason_codes(value: str) -> str:
+    replacements = {
+        "model_disagreement:high": "モデル見解のばらつき:高",
+        "data_quality:warn": "データ品質:注意",
+        "forecast_agreement:low": "予測一致:低",
+        "risk_signal:caution": "Risk:注意",
+        "screening:neutral": "スクリーニング:中立",
+        "missing:dividend_yield": "未取得:配当利回り",
+        "missing:market_cap_jpy": "未取得:時価総額",
+    }
+    rendered = value
+    for raw, label in replacements.items():
+        rendered = rendered.replace(raw, label)
+    return rendered

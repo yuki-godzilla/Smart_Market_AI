@@ -7,6 +7,7 @@
 - Ranking tables should keep the supplemental note to a short sentence. Detailed decision-support wording belongs in the shared `銘柄データ` modal.
 - The shared symbol-detail modal may show score interpretation, caution, valuation, income, and next-action rows, but must not present buy/sell advice.
 - Cockpit fetch results may show `投資判断メモ` that combines score, warnings, symbol-master data, and price trend into confirmation points.
+- Decision Report Markdown should be Japanese-first: section titles, table headers, notes, and confirmation points should read as a user-facing report, while JSON may keep stable internal schema keys.
 - Avoid table or modal layouts where long guidance text is clipped horizontally.
 
 ## 目的

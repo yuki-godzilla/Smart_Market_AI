@@ -52,7 +52,31 @@ RANKING_PURPOSE_GROWTH = "growth"
 RANKING_PURPOSE_VALUE = "value"
 RANKING_PURPOSE_STABILITY = "stability"
 RANKING_PURPOSE_TREND = "trend"
+RANKING_PURPOSE_MULTI_FACTOR = "multi_factor"
+RANKING_PURPOSE_QUALITY_GROWTH = "quality_growth"
+RANKING_PURPOSE_QUALITY_VALUE = "quality_value"
+RANKING_PURPOSE_SUSTAINABLE_INCOME = "sustainable_income"
+RANKING_PURPOSE_MIN_VOLATILITY = "min_volatility"
+RANKING_PURPOSE_MOMENTUM = "momentum"
+RANKING_PURPOSE_RISK_ADJUSTED = "risk_adjusted"
+RANKING_PURPOSE_SMALL_GROWTH = "small_growth"
+RANKING_PURPOSE_NISA_LONG_TERM = "nisa_long_term"
+RANKING_PURPOSE_DATA_CONFIDENCE = "data_confidence"
+RANKING_PURPOSE_ETF_CORE_COST = "etf_core_cost"
+RANKING_PURPOSE_ETF_INCOME = "etf_income"
 RANKING_PURPOSE_LABELS = {
+    RANKING_PURPOSE_MULTI_FACTOR: "総合マルチファクター",
+    RANKING_PURPOSE_QUALITY_GROWTH: "成長クオリティ",
+    RANKING_PURPOSE_QUALITY_VALUE: "割安クオリティ",
+    RANKING_PURPOSE_SUSTAINABLE_INCOME: "高配当の持続性",
+    RANKING_PURPOSE_MIN_VOLATILITY: "低ボラ・安定",
+    RANKING_PURPOSE_MOMENTUM: "モメンタム・トレンド",
+    RANKING_PURPOSE_RISK_ADJUSTED: "リスク調整パフォーマンス",
+    RANKING_PURPOSE_SMALL_GROWTH: "小型・成長探索",
+    RANKING_PURPOSE_NISA_LONG_TERM: "NISA長期適合",
+    RANKING_PURPOSE_DATA_CONFIDENCE: "データ信頼度優先",
+    RANKING_PURPOSE_ETF_CORE_COST: "ETF低コスト・コア",
+    RANKING_PURPOSE_ETF_INCOME: "ETFインカム・分散",
     RANKING_PURPOSE_DIVIDEND: "配当重視",
     RANKING_PURPOSE_GROWTH: "成長重視",
     RANKING_PURPOSE_VALUE: "割安重視",
@@ -60,6 +84,102 @@ RANKING_PURPOSE_LABELS = {
     RANKING_PURPOSE_TREND: "トレンド重視",
 }
 RANKING_INVESTMENT_STYLE_METRICS = {
+    RANKING_PURPOSE_MULTI_FACTOR: [
+        "screening_score",
+        "forecast_agreement",
+        "data_quality",
+        "risk_signal",
+        "database_fit",
+        "metadata_confidence",
+    ],
+    RANKING_PURPOSE_QUALITY_GROWTH: [
+        "roe",
+        "forecast_agreement",
+        "screening_score",
+        "data_quality",
+        "per_guardrail",
+        "market_cap",
+    ],
+    RANKING_PURPOSE_QUALITY_VALUE: [
+        "per",
+        "pbr",
+        "roe",
+        "data_quality",
+        "risk_signal",
+        "metadata_confidence",
+    ],
+    RANKING_PURPOSE_SUSTAINABLE_INCOME: [
+        "dividend_yield",
+        "dividend_category",
+        "risk_band",
+        "pbr",
+        "data_quality",
+        "metadata_confidence",
+    ],
+    RANKING_PURPOSE_MIN_VOLATILITY: [
+        "risk_band",
+        "risk_signal",
+        "volatility",
+        "drawdown",
+        "market_cap",
+        "data_quality",
+    ],
+    RANKING_PURPOSE_MOMENTUM: [
+        "recent_return",
+        "price_momentum",
+        "forecast_agreement",
+        "risk_signal",
+        "data_quality",
+        "volume_change",
+    ],
+    RANKING_PURPOSE_RISK_ADJUSTED: [
+        "return_per_risk",
+        "risk_signal",
+        "drawdown",
+        "forecast_agreement",
+        "data_quality",
+        "database_fit",
+    ],
+    RANKING_PURPOSE_SMALL_GROWTH: [
+        "market_cap",
+        "roe",
+        "screening_score",
+        "forecast_agreement",
+        "risk_signal",
+        "metadata_confidence",
+    ],
+    RANKING_PURPOSE_NISA_LONG_TERM: [
+        "nisa_eligibility",
+        "investment_style",
+        "risk_band",
+        "roe",
+        "data_quality",
+        "valuation_guardrail",
+    ],
+    RANKING_PURPOSE_DATA_CONFIDENCE: [
+        "metadata_source",
+        "metadata_as_of",
+        "data_quality",
+        "available_fields",
+        "provider_completeness",
+        "missing_warnings",
+    ],
+    RANKING_PURPOSE_ETF_CORE_COST: [
+        "expense_ratio",
+        "benchmark_index",
+        "complexity",
+        "nisa_eligibility",
+        "data_quality",
+        "metadata_confidence",
+    ],
+    RANKING_PURPOSE_ETF_INCOME: [
+        "dividend_yield",
+        "expense_ratio",
+        "benchmark_index",
+        "currency",
+        "complexity",
+        "data_quality",
+    ],
     RANKING_PURPOSE_DIVIDEND: [
         "dividend_yield",
         "dividend_growth",
@@ -111,6 +231,18 @@ RANKING_PRESET_GROWTH = "growth_profile"
 RANKING_PRESET_VALUE = "value_profile"
 RANKING_PRESET_STABILITY = "stability_profile"
 RANKING_PRESET_TREND = "trend_profile"
+RANKING_PRESET_MULTI_FACTOR = "multi_factor_profile"
+RANKING_PRESET_QUALITY_GROWTH = "quality_growth_profile"
+RANKING_PRESET_QUALITY_VALUE = "quality_value_profile"
+RANKING_PRESET_SUSTAINABLE_INCOME = "sustainable_income_profile"
+RANKING_PRESET_MIN_VOLATILITY = "min_volatility_profile"
+RANKING_PRESET_MOMENTUM = "momentum_profile"
+RANKING_PRESET_RISK_ADJUSTED = "risk_adjusted_profile"
+RANKING_PRESET_SMALL_GROWTH = "small_growth_profile"
+RANKING_PRESET_NISA_LONG_TERM = "nisa_long_term_profile"
+RANKING_PRESET_DATA_CONFIDENCE = "data_confidence_profile"
+RANKING_PRESET_ETF_CORE_COST = "etf_core_cost_profile"
+RANKING_PRESET_ETF_INCOME = "etf_income_profile"
 RANKING_WEIGHT_PRESET_LABELS = {
     RANKING_PRESET_BALANCED: "総合バランス",
     RANKING_PRESET_FORECAST: "予測一致重視",
@@ -121,6 +253,18 @@ RANKING_WEIGHT_PRESET_LABELS = {
     RANKING_PRESET_VALUE: "割安性重視",
     RANKING_PRESET_STABILITY: "安定性重視",
     RANKING_PRESET_TREND: "トレンド重視",
+    RANKING_PRESET_MULTI_FACTOR: "総合マルチファクター",
+    RANKING_PRESET_QUALITY_GROWTH: "成長クオリティ",
+    RANKING_PRESET_QUALITY_VALUE: "割安クオリティ",
+    RANKING_PRESET_SUSTAINABLE_INCOME: "高配当の持続性",
+    RANKING_PRESET_MIN_VOLATILITY: "低ボラ・安定",
+    RANKING_PRESET_MOMENTUM: "モメンタム・トレンド",
+    RANKING_PRESET_RISK_ADJUSTED: "リスク調整パフォーマンス",
+    RANKING_PRESET_SMALL_GROWTH: "小型・成長探索",
+    RANKING_PRESET_NISA_LONG_TERM: "NISA長期適合",
+    RANKING_PRESET_DATA_CONFIDENCE: "データ信頼度優先",
+    RANKING_PRESET_ETF_CORE_COST: "ETF低コスト・コア",
+    RANKING_PRESET_ETF_INCOME: "ETFインカム・分散",
 }
 RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     RANKING_PRESET_BALANCED: {
@@ -195,8 +339,116 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
         "database_fit_score": Decimal("0.05"),
         "metadata_confidence_score": Decimal("0.10"),
     },
+    RANKING_PRESET_MULTI_FACTOR: {
+        "screening_score": Decimal("0.25"),
+        "forecast_agreement_score": Decimal("0.20"),
+        "data_quality_score": Decimal("0.15"),
+        "risk_signal_score": Decimal("0.15"),
+        "database_fit_score": Decimal("0.15"),
+        "metadata_confidence_score": Decimal("0.10"),
+    },
+    RANKING_PRESET_QUALITY_GROWTH: {
+        "screening_score": Decimal("0.25"),
+        "forecast_agreement_score": Decimal("0.25"),
+        "data_quality_score": Decimal("0.10"),
+        "risk_signal_score": Decimal("0.10"),
+        "database_fit_score": Decimal("0.20"),
+        "metadata_confidence_score": Decimal("0.10"),
+    },
+    RANKING_PRESET_QUALITY_VALUE: {
+        "screening_score": Decimal("0.20"),
+        "forecast_agreement_score": Decimal("0.10"),
+        "data_quality_score": Decimal("0.15"),
+        "risk_signal_score": Decimal("0.10"),
+        "database_fit_score": Decimal("0.35"),
+        "metadata_confidence_score": Decimal("0.10"),
+    },
+    RANKING_PRESET_SUSTAINABLE_INCOME: {
+        "screening_score": Decimal("0.20"),
+        "forecast_agreement_score": Decimal("0.10"),
+        "data_quality_score": Decimal("0.15"),
+        "risk_signal_score": Decimal("0.20"),
+        "database_fit_score": Decimal("0.25"),
+        "metadata_confidence_score": Decimal("0.10"),
+    },
+    RANKING_PRESET_MIN_VOLATILITY: {
+        "screening_score": Decimal("0.15"),
+        "forecast_agreement_score": Decimal("0.10"),
+        "data_quality_score": Decimal("0.20"),
+        "risk_signal_score": Decimal("0.35"),
+        "database_fit_score": Decimal("0.10"),
+        "metadata_confidence_score": Decimal("0.10"),
+    },
+    RANKING_PRESET_MOMENTUM: {
+        "screening_score": Decimal("0.25"),
+        "forecast_agreement_score": Decimal("0.30"),
+        "data_quality_score": Decimal("0.10"),
+        "risk_signal_score": Decimal("0.15"),
+        "database_fit_score": Decimal("0.10"),
+        "metadata_confidence_score": Decimal("0.10"),
+    },
+    RANKING_PRESET_RISK_ADJUSTED: {
+        "screening_score": Decimal("0.20"),
+        "forecast_agreement_score": Decimal("0.15"),
+        "data_quality_score": Decimal("0.15"),
+        "risk_signal_score": Decimal("0.25"),
+        "database_fit_score": Decimal("0.15"),
+        "metadata_confidence_score": Decimal("0.10"),
+    },
+    RANKING_PRESET_SMALL_GROWTH: {
+        "screening_score": Decimal("0.25"),
+        "forecast_agreement_score": Decimal("0.25"),
+        "data_quality_score": Decimal("0.10"),
+        "risk_signal_score": Decimal("0.10"),
+        "database_fit_score": Decimal("0.20"),
+        "metadata_confidence_score": Decimal("0.10"),
+    },
+    RANKING_PRESET_NISA_LONG_TERM: {
+        "screening_score": Decimal("0.20"),
+        "forecast_agreement_score": Decimal("0.15"),
+        "data_quality_score": Decimal("0.20"),
+        "risk_signal_score": Decimal("0.20"),
+        "database_fit_score": Decimal("0.15"),
+        "metadata_confidence_score": Decimal("0.10"),
+    },
+    RANKING_PRESET_DATA_CONFIDENCE: {
+        "screening_score": Decimal("0.10"),
+        "forecast_agreement_score": Decimal("0.05"),
+        "data_quality_score": Decimal("0.35"),
+        "risk_signal_score": Decimal("0.10"),
+        "database_fit_score": Decimal("0.10"),
+        "metadata_confidence_score": Decimal("0.30"),
+    },
+    RANKING_PRESET_ETF_CORE_COST: {
+        "screening_score": Decimal("0.15"),
+        "forecast_agreement_score": Decimal("0.10"),
+        "data_quality_score": Decimal("0.20"),
+        "risk_signal_score": Decimal("0.15"),
+        "database_fit_score": Decimal("0.30"),
+        "metadata_confidence_score": Decimal("0.10"),
+    },
+    RANKING_PRESET_ETF_INCOME: {
+        "screening_score": Decimal("0.15"),
+        "forecast_agreement_score": Decimal("0.10"),
+        "data_quality_score": Decimal("0.20"),
+        "risk_signal_score": Decimal("0.15"),
+        "database_fit_score": Decimal("0.30"),
+        "metadata_confidence_score": Decimal("0.10"),
+    },
 }
 RANKING_PURPOSE_WEIGHT_PRESETS = {
+    RANKING_PURPOSE_MULTI_FACTOR: RANKING_PRESET_MULTI_FACTOR,
+    RANKING_PURPOSE_QUALITY_GROWTH: RANKING_PRESET_QUALITY_GROWTH,
+    RANKING_PURPOSE_QUALITY_VALUE: RANKING_PRESET_QUALITY_VALUE,
+    RANKING_PURPOSE_SUSTAINABLE_INCOME: RANKING_PRESET_SUSTAINABLE_INCOME,
+    RANKING_PURPOSE_MIN_VOLATILITY: RANKING_PRESET_MIN_VOLATILITY,
+    RANKING_PURPOSE_MOMENTUM: RANKING_PRESET_MOMENTUM,
+    RANKING_PURPOSE_RISK_ADJUSTED: RANKING_PRESET_RISK_ADJUSTED,
+    RANKING_PURPOSE_SMALL_GROWTH: RANKING_PRESET_SMALL_GROWTH,
+    RANKING_PURPOSE_NISA_LONG_TERM: RANKING_PRESET_NISA_LONG_TERM,
+    RANKING_PURPOSE_DATA_CONFIDENCE: RANKING_PRESET_DATA_CONFIDENCE,
+    RANKING_PURPOSE_ETF_CORE_COST: RANKING_PRESET_ETF_CORE_COST,
+    RANKING_PURPOSE_ETF_INCOME: RANKING_PRESET_ETF_INCOME,
     RANKING_PURPOSE_DIVIDEND: RANKING_PRESET_INCOME,
     RANKING_PURPOSE_GROWTH: RANKING_PRESET_GROWTH,
     RANKING_PURPOSE_VALUE: RANKING_PRESET_VALUE,
@@ -384,7 +636,7 @@ RANKING_DETAIL_FILTERS_BY_CATEGORY = {
 RANKING_FILTER_DEFAULTS: dict[str, str] = {
     "market_data_ranking_region": RANKING_REGION_JAPAN,
     "market_data_ranking_product_type": RANKING_PRODUCT_STOCK,
-    "market_data_ranking_purpose": RANKING_PURPOSE_DIVIDEND,
+    "market_data_ranking_purpose": RANKING_PURPOSE_MULTI_FACTOR,
     "market_data_ranking_market": "all",
     "market_data_ranking_asset_type": "all",
     "market_data_ranking_currency": "all",
@@ -477,6 +729,76 @@ RANKING_FILTER_HELP_TEXTS = {
         "候補の絞り込み条件ではなく、スコア・Risk・予測一致の見え方に影響します。"
     ),
 }
+RANKING_PURPOSE_HELP_TEXTS = {
+    RANKING_PURPOSE_MULTI_FACTOR: (
+        "Screening、予測一致、Risk、Data Quality、銘柄DB適合度を均等に近く見ます。"
+        "特定テーマに寄せず、まず深掘り候補を広く並べたい時の基準です。"
+    ),
+    RANKING_PURPOSE_QUALITY_GROWTH: (
+        "ROE、予測一致、Screening、Data Qualityを重視します。"
+        "高PER/PBRは単純減点ではなく、成長期待と価格水準の釣り合いを確認する材料として扱います。"
+    ),
+    RANKING_PURPOSE_QUALITY_VALUE: (
+        "PER/PBRの低さだけでなく、ROE、Data Quality、Riskも合わせて見ます。"
+        "割安に見える理由が業績不安やデータ不足ではないかを確認するための並べ替えです。"
+    ),
+    RANKING_PURPOSE_SUSTAINABLE_INCOME: (
+        "配当利回り、配当カテゴリ、Risk、PBR、Data Qualityを重視します。"
+        "極端な高配当は魅力だけでなく、減配リスクの確認対象として扱います。"
+    ),
+    RANKING_PURPOSE_MIN_VOLATILITY: (
+        "Risk signal、β分類、Data Quality、銘柄規模を重視します。"
+        "上昇率よりも値動きの落ち着きと確認しやすさを優先する基準です。"
+    ),
+    RANKING_PURPOSE_MOMENTUM: (
+        "取得期間の価格評価、予測一致、Screeningを重視します。"
+        "上昇基調でもRiskが強い候補は確認対象として扱い、追随リスクを見落としにくくします。"
+    ),
+    RANKING_PURPOSE_RISK_ADJUSTED: (
+        "リターンだけでなくRisk signal、Data Quality、DB適合度を合わせて見ます。"
+        "同じ上昇でも、値動きの荒さに対して見合うかを確認するための基準です。"
+    ),
+    RANKING_PURPOSE_SMALL_GROWTH: (
+        "小型・中型の成長余地、ROE、Screening、予測一致を重視します。"
+        "変動率や流動性の不確実性が出やすいため、RiskとDB信頼度も確認します。"
+    ),
+    RANKING_PURPOSE_NISA_LONG_TERM: (
+        "NISA適合、投資スタイル、Risk、Data Quality、ROEを重視します。"
+        "長期保有候補として、制度適合と事業品質を一緒に確認する基準です。"
+    ),
+    RANKING_PURPOSE_DATA_CONFIDENCE: (
+        "metadata source、更新日、Data Quality、欠損の少なさを最優先します。"
+        "判断前に、まず根拠がそろった銘柄から確認したい時に使います。"
+    ),
+    RANKING_PURPOSE_ETF_CORE_COST: (
+        "経費率、連動指数、複雑性、NISA適合、DB信頼度を重視します。"
+        "長期保有の土台になりやすいETF候補を整理する基準です。"
+    ),
+    RANKING_PURPOSE_ETF_INCOME: (
+        "ETFの利回り、経費率、指数、通貨、複雑性、Data Qualityを重視します。"
+        "インカム候補でもコストと分散性を同時に確認します。"
+    ),
+    RANKING_PURPOSE_DIVIDEND: (
+        "旧来の配当重視です。配当利回りとDB適合度を中心に比較します。"
+        "新しい配当評価には「高配当の持続性」も使えます。"
+    ),
+    RANKING_PURPOSE_GROWTH: (
+        "旧来の成長重視です。予測一致とROE寄りのDB適合度を中心に比較します。"
+        "より品質を見たい場合は「成長クオリティ」を使います。"
+    ),
+    RANKING_PURPOSE_VALUE: (
+        "旧来の割安重視です。PER/PBR寄りのDB適合度を中心に比較します。"
+        "割安の質まで確認する場合は「割安クオリティ」を使います。"
+    ),
+    RANKING_PURPOSE_STABILITY: (
+        "旧来の安定重視です。RiskとData Qualityを中心に比較します。"
+        "より低変動に寄せる場合は「低ボラ・安定」を使います。"
+    ),
+    RANKING_PURPOSE_TREND: (
+        "旧来のトレンド重視です。予測一致と直近の価格評価を中心に比較します。"
+        "外部ファクターのMomentumに近い見方は「モメンタム・トレンド」を使います。"
+    ),
+}
 
 
 def symbol_candidate_labels(rows: list[dict[str, str]], query: str = "") -> list[str]:
@@ -501,6 +823,13 @@ def ranking_product_type_label(product_type: str) -> str:
 
 def ranking_purpose_label(purpose: str) -> str:
     return RANKING_PURPOSE_LABELS.get(purpose, purpose)
+
+
+def ranking_purpose_help(purpose: str) -> str:
+    return RANKING_PURPOSE_HELP_TEXTS.get(
+        purpose,
+        "取得後の表示順を決める評価軸です。銘柄DBと取得期間の価格評価を合わせて並べ替えます。",
+    )
 
 
 def ranking_weight_preset_for_purpose(purpose: str) -> str:
@@ -1140,7 +1469,7 @@ def ranking_profile_note(
             f"{profile}ではDB条件の確認余地があります。"
             "詳細モーダルで不足項目を確認してください。"
         )
-    return f"{profile}で比較しています。" "銘柄DB未登録項目があるため詳細確認が必要です。"
+    return f"{profile}で比較しています。銘柄DB未登録項目があるため詳細確認が必要です。"
 
 
 def _stock_database_fit_bonus(symbol_row: dict[str, str], preset: str) -> Decimal:
@@ -1153,7 +1482,7 @@ def _stock_database_fit_bonus(symbol_row: dict[str, str], preset: str) -> Decima
     risk_band = symbol_row.get("risk_band", "")
     market_cap_tier = symbol_row.get("market_cap_tier", "")
     bonus = Decimal("0")
-    if preset == RANKING_PRESET_INCOME:
+    if preset in {RANKING_PRESET_INCOME, RANKING_PRESET_SUSTAINABLE_INCOME}:
         if dividend_yield >= Decimal("3"):
             bonus += Decimal("25")
         elif dividend_yield > Decimal("0"):
@@ -1162,7 +1491,9 @@ def _stock_database_fit_bonus(symbol_row: dict[str, str], preset: str) -> Decima
             bonus += Decimal("5")
         if risk_band in {"LOW", "MEDIUM"}:
             bonus += Decimal("10")
-    elif preset == RANKING_PRESET_GROWTH:
+        if preset == RANKING_PRESET_SUSTAINABLE_INCOME and dividend_yield <= Decimal("8"):
+            bonus += Decimal("5")
+    elif preset in {RANKING_PRESET_GROWTH, RANKING_PRESET_QUALITY_GROWTH}:
         if roe >= Decimal("20"):
             bonus += Decimal("20")
         elif roe >= Decimal("10"):
@@ -1171,7 +1502,9 @@ def _stock_database_fit_bonus(symbol_row: dict[str, str], preset: str) -> Decima
             bonus += Decimal("5")
         if market_cap_tier in {"mega", "large", "mid"}:
             bonus += Decimal("5")
-    elif preset == RANKING_PRESET_VALUE:
+        if preset == RANKING_PRESET_QUALITY_GROWTH and risk_band != "HIGH":
+            bonus += Decimal("5")
+    elif preset in {RANKING_PRESET_VALUE, RANKING_PRESET_QUALITY_VALUE}:
         if per is not None and per <= Decimal("15"):
             bonus += Decimal("20")
         elif per is not None and per <= Decimal("25"):
@@ -1182,7 +1515,9 @@ def _stock_database_fit_bonus(symbol_row: dict[str, str], preset: str) -> Decima
             bonus += Decimal("10")
         if roe >= Decimal("8"):
             bonus += Decimal("5")
-    elif preset == RANKING_PRESET_STABILITY:
+        if preset == RANKING_PRESET_QUALITY_VALUE and risk_band in {"LOW", "MEDIUM"}:
+            bonus += Decimal("5")
+    elif preset in {RANKING_PRESET_STABILITY, RANKING_PRESET_MIN_VOLATILITY}:
         if market_cap_tier in {"mega", "large"}:
             bonus += Decimal("20")
         elif market_cap_tier == "mid":
@@ -1191,11 +1526,51 @@ def _stock_database_fit_bonus(symbol_row: dict[str, str], preset: str) -> Decima
             bonus += Decimal("20")
         if Decimal("0") < dividend_yield <= Decimal("5"):
             bonus += Decimal("5")
-    elif preset == RANKING_PRESET_TREND:
+        if preset == RANKING_PRESET_MIN_VOLATILITY and risk_band == "LOW":
+            bonus += Decimal("5")
+    elif preset in {RANKING_PRESET_TREND, RANKING_PRESET_MOMENTUM}:
         if market_cap_tier in {"mega", "large", "mid"}:
             bonus += Decimal("10")
         if risk_band != "HIGH":
             bonus += Decimal("5")
+        if preset == RANKING_PRESET_MOMENTUM and roe >= Decimal("8"):
+            bonus += Decimal("5")
+    elif preset == RANKING_PRESET_RISK_ADJUSTED:
+        if risk_band in {"LOW", "MEDIUM"}:
+            bonus += Decimal("20")
+        if roe >= Decimal("8"):
+            bonus += Decimal("10")
+        if market_cap_tier in {"mega", "large", "mid"}:
+            bonus += Decimal("10")
+    elif preset == RANKING_PRESET_SMALL_GROWTH:
+        if market_cap_tier in {"small", "micro"}:
+            bonus += Decimal("20")
+        elif market_cap_tier == "mid":
+            bonus += Decimal("10")
+        if roe >= Decimal("15"):
+            bonus += Decimal("15")
+        elif roe >= Decimal("8"):
+            bonus += Decimal("8")
+        if risk_band != "HIGH":
+            bonus += Decimal("5")
+    elif preset == RANKING_PRESET_NISA_LONG_TERM:
+        if _symbol_matches_nisa_eligibility(symbol_row, "eligible"):
+            bonus += Decimal("15")
+        if risk_band in {"LOW", "MEDIUM"}:
+            bonus += Decimal("15")
+        if roe >= Decimal("8"):
+            bonus += Decimal("10")
+        if per is None or per <= Decimal("40"):
+            bonus += Decimal("5")
+    elif preset == RANKING_PRESET_DATA_CONFIDENCE:
+        if symbol_row.get("metadata_source"):
+            bonus += Decimal("10")
+        if symbol_row.get("metadata_as_of") or symbol_row.get("metadata_updated_at"):
+            bonus += Decimal("10")
+        if per is not None and pbr is not None and roe > Decimal("0"):
+            bonus += Decimal("15")
+        if risk_band:
+            bonus += Decimal("10")
     else:
         if roe >= Decimal("8"):
             bonus += Decimal("10")
@@ -1224,10 +1599,35 @@ def _etf_database_fit_bonus(symbol_row: dict[str, str], preset: str) -> Decimal:
         bonus += Decimal("10")
     if index_family:
         bonus += Decimal("10")
-    if preset == RANKING_PRESET_INCOME and dividend_yield >= Decimal("2"):
+    if preset in {
+        RANKING_PRESET_INCOME,
+        RANKING_PRESET_SUSTAINABLE_INCOME,
+    } and dividend_yield >= Decimal("2"):
         bonus += Decimal("10")
-    if preset == RANKING_PRESET_STABILITY and complexity == "beginner":
+    if (
+        preset in {RANKING_PRESET_STABILITY, RANKING_PRESET_MIN_VOLATILITY}
+        and complexity == "beginner"
+    ):
         bonus += Decimal("5")
+    if preset == RANKING_PRESET_ETF_CORE_COST:
+        if expense_ratio <= Decimal("0.1"):
+            bonus += Decimal("10")
+        if complexity == "beginner":
+            bonus += Decimal("10")
+        if _symbol_matches_nisa_eligibility(symbol_row, "eligible"):
+            bonus += Decimal("10")
+    if preset == RANKING_PRESET_ETF_INCOME:
+        if dividend_yield >= Decimal("2"):
+            bonus += Decimal("15")
+        if expense_ratio <= Decimal("0.5"):
+            bonus += Decimal("5")
+        if index_family:
+            bonus += Decimal("5")
+    if preset == RANKING_PRESET_DATA_CONFIDENCE:
+        if symbol_row.get("metadata_source"):
+            bonus += Decimal("10")
+        if symbol_row.get("metadata_as_of") or symbol_row.get("metadata_updated_at"):
+            bonus += Decimal("10")
     return bonus
 
 

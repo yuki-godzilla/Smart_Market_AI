@@ -490,3 +490,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - Fixed ranking CSV download after metadata-aware sorting by adding `database_fit_score`, `metadata_confidence_score`, and `ranking_profile` to the stable Investment Score CSV field list.
 - Moved the ranking sort control beside the `ランキング作成` button so the sort profile is chosen at the point where the user runs or re-views the ranking result.
+
+## 2026-05-23 - Advanced ranking purpose profiles
+
+- Added external factor-informed ranking purposes: multi-factor, quality growth, quality value, sustainable income, minimum volatility, momentum, risk-adjusted, small-growth, NISA long-term, data-confidence, ETF core-cost, and ETF income.
+- Added purpose-specific help text so the ranking UI explains the selected logic, key metrics, and risk checks beside the `ランキング作成` action.
+- Extended local symbol database fit scoring so stock / ETF metadata contributes differently for growth, value, income, low-volatility, NISA, data-confidence, and ETF-specific profiles.
+- Updated operations and UI wording docs to treat `並べ替え条件` as the standard label and describe the new profiles.

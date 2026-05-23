@@ -76,6 +76,7 @@ from ui.ranking import (
     ranking_period_label,
     ranking_product_type_label,
     ranking_provider_error_rows,
+    ranking_purpose_help,
     ranking_purpose_label,
     ranking_region_label,
     ranking_symbol_chunks,
@@ -2090,7 +2091,7 @@ def _render_market_data_ranking() -> None:
                 format_func=ranking_product_type_label,
             ),
         )
-    ranking_purpose = _ranking_filter_value("market_data_ranking_purpose", "dividend")
+    ranking_purpose = _ranking_filter_value("market_data_ranking_purpose", "multi_factor")
     st.markdown("#### 取得条件")
     col_period, col_provider = st.columns(2)
     with col_period:
@@ -2282,17 +2283,17 @@ def _render_market_data_ranking() -> None:
                 purpose_options,
                 index=_selectbox_index(
                     purpose_options,
-                    _ranking_filter_value("market_data_ranking_purpose", "dividend"),
+                    _ranking_filter_value("market_data_ranking_purpose", "multi_factor"),
                 ),
                 key="market_data_ranking_purpose",
                 format_func=ranking_purpose_label,
-                help=(
-                    "取得後の表示順を決める評価軸です。銘柄DBのPER/PBR/ROE、配当、"
-                    "NISA、時価総額、ETFコスト、metadata信頼度も反映します。"
+                help=ranking_purpose_help(
+                    _ranking_filter_value("market_data_ranking_purpose", "multi_factor")
                 ),
             ),
         )
     weight_preset = ranking_weight_preset_for_purpose(ranking_purpose)
+    st.caption(ranking_purpose_help(ranking_purpose))
     with action_button_col:
         st.write("")
         build_ranking_clicked = st.button(

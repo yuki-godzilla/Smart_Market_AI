@@ -85,6 +85,13 @@ from ui.ranking import (
     RANKING_INVESTMENT_STYLE_METRICS,
     RANKING_MARKET_CAP_LABELS,
     RANKING_NISA_ELIGIBILITY_LABELS,
+    RANKING_PRESET_ETF_CORE_COST,
+    RANKING_PRESET_QUALITY_GROWTH,
+    RANKING_PRESET_SUSTAINABLE_INCOME,
+    RANKING_PURPOSE_ETF_CORE_COST,
+    RANKING_PURPOSE_MULTI_FACTOR,
+    RANKING_PURPOSE_QUALITY_GROWTH,
+    RANKING_PURPOSE_SUSTAINABLE_INCOME,
     RANKING_THEME_LABELS,
     apply_ranking_weight_preset,
     filter_symbol_universe_rows,
@@ -102,6 +109,7 @@ from ui.ranking import (
     ranking_period_dates,
     ranking_period_label,
     ranking_provider_error_rows,
+    ranking_purpose_help,
     ranking_symbol_chunks,
     ranking_symbol_options,
     ranking_symbols_state_key,
@@ -1185,6 +1193,26 @@ def test_ranking_detail_filters_change_by_region_and_product():
     assert mutual_fund == []
     assert ranking_weight_preset_for_purpose("stability") == "stability_profile"
     assert "moving_average_signal" in RANKING_INVESTMENT_STYLE_METRICS["trend"]
+
+
+def test_advanced_ranking_purposes_have_profiles_and_help_text():
+    assert ranking_weight_preset_for_purpose(RANKING_PURPOSE_MULTI_FACTOR) == (
+        "multi_factor_profile"
+    )
+    assert ranking_weight_preset_for_purpose(RANKING_PURPOSE_QUALITY_GROWTH) == (
+        RANKING_PRESET_QUALITY_GROWTH
+    )
+    assert ranking_weight_preset_for_purpose(RANKING_PURPOSE_ETF_CORE_COST) == (
+        RANKING_PRESET_ETF_CORE_COST
+    )
+    assert ranking_weight_preset_for_purpose(RANKING_PURPOSE_SUSTAINABLE_INCOME) == (
+        RANKING_PRESET_SUSTAINABLE_INCOME
+    )
+    assert "ROE" in ranking_purpose_help(RANKING_PURPOSE_QUALITY_GROWTH)
+    assert "減配リスク" in ranking_purpose_help(RANKING_PURPOSE_SUSTAINABLE_INCOME)
+    assert "経費率" in ranking_purpose_help(RANKING_PURPOSE_ETF_CORE_COST)
+    assert "roe" in RANKING_INVESTMENT_STYLE_METRICS[RANKING_PURPOSE_QUALITY_GROWTH]
+    assert "expense_ratio" in RANKING_INVESTMENT_STYLE_METRICS[RANKING_PURPOSE_ETF_CORE_COST]
 
 
 def test_beta_risk_filter_labels_explain_thresholds():

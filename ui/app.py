@@ -162,6 +162,7 @@ __all__ = [
 MARKET_DATA_PROVIDER_OPTIONS = ["yahoo", "csv", "mock"]
 MARKET_DATA_PROVIDER_WIDGET_KEY = "market_data_provider_live_first"
 MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY = "market_data_ranking_provider_live_first"
+NO_SYMBOL_CANDIDATE_LABEL = "条件に合う候補なし"
 MARKET_DATA_PERIOD_CUSTOM = "custom"
 MARKET_DATA_PERIOD_PRESETS = {
     MARKET_DATA_PERIOD_CUSTOM: "カスタム",
@@ -586,7 +587,7 @@ def default_market_data_provider() -> str:
 
 
 def _symbol_from_candidate(label: str) -> str | None:
-    if not label:
+    if not label or label == NO_SYMBOL_CANDIDATE_LABEL:
         return None
     return label.split(" - ", 1)[0]
 
@@ -1113,7 +1114,7 @@ def _render_metric_range_filter(
     step: float = 0.1,
     help_text: str | None = None,
     disabled: bool = False,
-) -> None:
+) -> tuple[bool, float, float]:
     min_input_value = _coerce_number_input_state(min_key, min_default)
     max_input_value = _coerce_number_input_state(max_key, max_default)
     col_enabled, col_min, col_max = st.columns([1.0, 1.0, 1.0])
@@ -1126,25 +1127,32 @@ def _render_metric_range_filter(
             disabled=disabled,
         )
     with col_min:
-        st.number_input(
-            "下限",
-            min_value=min_value,
-            max_value=max_value,
-            value=min_input_value,
-            step=step,
-            key=min_key,
-            disabled=disabled or not enabled,
+        min_selected = cast(
+            float,
+            st.number_input(
+                "下限",
+                min_value=min_value,
+                max_value=max_value,
+                value=min_input_value,
+                step=step,
+                key=min_key,
+                disabled=disabled or not enabled,
+            ),
         )
     with col_max:
-        st.number_input(
-            "上限",
-            min_value=min_value,
-            max_value=max_value,
-            value=max_input_value,
-            step=step,
-            key=max_key,
-            disabled=disabled or not enabled,
+        max_selected = cast(
+            float,
+            st.number_input(
+                "上限",
+                min_value=min_value,
+                max_value=max_value,
+                value=max_input_value,
+                step=step,
+                key=max_key,
+                disabled=disabled or not enabled,
+            ),
         )
+    return enabled, min_selected, max_selected
 
 
 def _coerce_number_input_state(key: str, default: str) -> float:
@@ -1165,16 +1173,19 @@ def _render_detail_selectbox(
     format_func: Callable[[str], str],
     help_text: str | None = None,
     disabled: bool = False,
-) -> None:
+) -> str:
     _ensure_selectbox_state_value(key, options)
-    st.selectbox(
-        label,
-        options,
-        index=_selectbox_index(options, _ranking_filter_value(key, options[0])),
-        key=key,
-        format_func=format_func,
-        help=help_text,
-        disabled=disabled,
+    return cast(
+        str,
+        st.selectbox(
+            label,
+            options,
+            index=_selectbox_index(options, _ranking_filter_value(key, options[0])),
+            key=key,
+            format_func=format_func,
+            help=help_text,
+            disabled=disabled,
+        ),
     )
 
 
@@ -1570,7 +1581,7 @@ def _render_cockpit_symbol_filter_panel(
         )
         col_region, col_product, col_nisa, col_clear = st.columns([1.0, 1.0, 1.0, 0.8])
         with col_region:
-            _render_detail_selectbox(
+            region = _render_detail_selectbox(
                 "地域",
                 options=list(RANKING_MVP_REGION_LABELS),
                 key="market_data_cockpit_region",
@@ -1578,7 +1589,7 @@ def _render_cockpit_symbol_filter_panel(
                 help_text="候補に含める市場地域です。国内株、米国株、全体から選びます。",
             )
         with col_product:
-            _render_detail_selectbox(
+            product_type = _render_detail_selectbox(
                 "商品",
                 options=list(RANKING_MVP_PRODUCT_TYPE_LABELS),
                 key="market_data_cockpit_product_type",
@@ -1586,7 +1597,7 @@ def _render_cockpit_symbol_filter_panel(
                 help_text="個別株かETFを中心に候補を絞ります。",
             )
         with col_nisa:
-            _render_detail_selectbox(
+            nisa_eligibility = _render_detail_selectbox(
                 "NISA",
                 options=list(RANKING_NISA_ELIGIBILITY_LABELS),
                 key="market_data_cockpit_nisa",
@@ -1600,7 +1611,7 @@ def _render_cockpit_symbol_filter_panel(
         st.markdown("**属性条件**")
         attr_cols = st.columns(5)
         with attr_cols[0]:
-            _render_detail_selectbox(
+            theme = _render_detail_selectbox(
                 "業種/テーマ",
                 options=list(RANKING_THEME_LABELS),
                 key="market_data_cockpit_theme",
@@ -1608,7 +1619,7 @@ def _render_cockpit_symbol_filter_panel(
                 help_text=RANKING_FILTER_HELP_TEXTS["industry_or_sector"],
             )
         with attr_cols[1]:
-            _render_detail_selectbox(
+            market_cap_tier = _render_detail_selectbox(
                 "時価総額",
                 options=list(RANKING_MARKET_CAP_LABELS),
                 key="market_data_cockpit_market_cap",
@@ -1616,7 +1627,7 @@ def _render_cockpit_symbol_filter_panel(
                 help_text=RANKING_FILTER_HELP_TEXTS["market_cap"],
             )
         with attr_cols[2]:
-            _render_detail_selectbox(
+            risk_band = _render_detail_selectbox(
                 "市場感応度（β）",
                 options=list(RANKING_BETA_RISK_LABELS),
                 key="market_data_cockpit_risk_band",
@@ -1624,7 +1635,7 @@ def _render_cockpit_symbol_filter_panel(
                 help_text=RANKING_FILTER_HELP_TEXTS["risk_band"],
             )
         with attr_cols[3]:
-            _render_detail_selectbox(
+            dividend_category = _render_detail_selectbox(
                 "配当カテゴリ",
                 options=list(RANKING_DIVIDEND_LABELS),
                 key="market_data_cockpit_dividend",
@@ -1633,7 +1644,7 @@ def _render_cockpit_symbol_filter_panel(
                 disabled=_cockpit_filter_bool("market_data_cockpit_dividend_enabled", False),
             )
         with attr_cols[4]:
-            _render_detail_selectbox(
+            currency = _render_detail_selectbox(
                 "通貨",
                 options=list(RANKING_CURRENCY_LABELS),
                 key="market_data_cockpit_currency",
@@ -1642,61 +1653,76 @@ def _render_cockpit_symbol_filter_panel(
             )
 
         st.markdown("**数値条件**")
-        _render_metric_filter_grid(
-            [
-                (
-                    "配当利回り(%)",
-                    {
-                        "enabled_key": "market_data_cockpit_dividend_enabled",
-                        "min_key": "market_data_cockpit_min_dividend",
-                        "max_key": "market_data_cockpit_dividend_max",
-                        "min_default": "0.0",
-                        "max_default": "10.0",
-                        "max_value": 15.0,
-                        "help_text": RANKING_FILTER_HELP_TEXTS["dividend_yield"],
-                        "disabled": _cockpit_filter_value("market_data_cockpit_dividend", "all")
-                        != "all",
-                    },
-                ),
-                (
-                    "PER",
-                    {
-                        "enabled_key": "market_data_cockpit_per_enabled",
-                        "min_key": "market_data_cockpit_per_min",
-                        "max_key": "market_data_cockpit_per_max",
-                        "min_default": "2.0",
-                        "max_default": "20.0",
-                        "max_value": 80.0,
-                        "help_text": RANKING_FILTER_HELP_TEXTS["per"],
-                    },
-                ),
-                (
-                    "PBR",
-                    {
-                        "enabled_key": "market_data_cockpit_pbr_enabled",
-                        "min_key": "market_data_cockpit_pbr_min",
-                        "max_key": "market_data_cockpit_pbr_max",
-                        "min_default": "0.5",
-                        "max_default": "2.0",
-                        "max_value": 20.0,
-                        "help_text": RANKING_FILTER_HELP_TEXTS["pbr"],
-                    },
-                ),
-                (
-                    "ROE(%)",
-                    {
-                        "enabled_key": "market_data_cockpit_roe_enabled",
-                        "min_key": "market_data_cockpit_roe_min",
-                        "max_key": "market_data_cockpit_roe_max",
-                        "min_default": "8.0",
-                        "max_default": "30.0",
-                        "max_value": 60.0,
-                        "help_text": RANKING_FILTER_HELP_TEXTS["roe"],
-                    },
-                ),
-            ]
+        metric_cols = st.columns(2)
+        with metric_cols[0]:
+            dividend_enabled, min_dividend, max_dividend = _render_metric_range_filter(
+                "配当利回り(%)",
+                enabled_key="market_data_cockpit_dividend_enabled",
+                min_key="market_data_cockpit_min_dividend",
+                max_key="market_data_cockpit_dividend_max",
+                min_default="0.0",
+                max_default="10.0",
+                max_value=15.0,
+                help_text=RANKING_FILTER_HELP_TEXTS["dividend_yield"],
+                disabled=dividend_category != "all",
+            )
+        with metric_cols[1]:
+            per_enabled, per_min, per_max = _render_metric_range_filter(
+                "PER",
+                enabled_key="market_data_cockpit_per_enabled",
+                min_key="market_data_cockpit_per_min",
+                max_key="market_data_cockpit_per_max",
+                min_default="2.0",
+                max_default="20.0",
+                max_value=80.0,
+                help_text=RANKING_FILTER_HELP_TEXTS["per"],
+            )
+        metric_cols = st.columns(2)
+        with metric_cols[0]:
+            pbr_enabled, pbr_min, pbr_max = _render_metric_range_filter(
+                "PBR",
+                enabled_key="market_data_cockpit_pbr_enabled",
+                min_key="market_data_cockpit_pbr_min",
+                max_key="market_data_cockpit_pbr_max",
+                min_default="0.5",
+                max_default="2.0",
+                max_value=20.0,
+                help_text=RANKING_FILTER_HELP_TEXTS["pbr"],
+            )
+        with metric_cols[1]:
+            roe_enabled, roe_min, roe_max = _render_metric_range_filter(
+                "ROE(%)",
+                enabled_key="market_data_cockpit_roe_enabled",
+                min_key="market_data_cockpit_roe_min",
+                max_key="market_data_cockpit_roe_max",
+                min_default="8.0",
+                max_default="30.0",
+                max_value=60.0,
+                help_text=RANKING_FILTER_HELP_TEXTS["roe"],
+            )
+        filtered_rows = cockpit_filtered_symbol_rows_from_values(
+            symbol_options,
+            region=region,
+            product_type=product_type,
+            currency=currency,
+            dividend_category=dividend_category,
+            market_cap_tier=market_cap_tier,
+            nisa_eligibility=nisa_eligibility,
+            risk_band=risk_band,
+            theme=theme,
+            dividend_yield_enabled=dividend_enabled,
+            min_dividend_yield_pct=min_dividend,
+            dividend_yield_max_pct=max_dividend,
+            per_enabled=per_enabled,
+            per_min=per_min,
+            per_max=per_max,
+            pbr_enabled=pbr_enabled,
+            pbr_min=pbr_min,
+            pbr_max=pbr_max,
+            roe_enabled=roe_enabled,
+            roe_min_pct=roe_min,
+            roe_max_pct=roe_max,
         )
-        filtered_rows = cockpit_filtered_symbol_rows(symbol_options)
         if filtered_rows:
             st.caption(f"現在の候補: {len(filtered_rows)} / {len(symbol_options)}件")
         else:
@@ -1705,7 +1731,7 @@ def _render_cockpit_symbol_filter_panel(
 
 
 def cockpit_filtered_symbol_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
-    return filter_symbol_universe_rows(
+    return cockpit_filtered_symbol_rows_from_values(
         rows,
         region=_cockpit_filter_value("market_data_cockpit_region", "all"),
         product_type=_cockpit_filter_value("market_data_cockpit_product_type", "all"),
@@ -1736,6 +1762,55 @@ def cockpit_filtered_symbol_rows(rows: list[dict[str, str]]) -> list[dict[str, s
         roe_enabled=_cockpit_filter_bool("market_data_cockpit_roe_enabled", False),
         roe_min_pct=_cockpit_filter_value("market_data_cockpit_roe_min", "8.0"),
         roe_max_pct=_cockpit_filter_value("market_data_cockpit_roe_max", "30.0"),
+    )
+
+
+def cockpit_filtered_symbol_rows_from_values(
+    rows: list[dict[str, str]],
+    *,
+    region: str,
+    product_type: str,
+    currency: str,
+    dividend_category: str,
+    market_cap_tier: str,
+    nisa_eligibility: str,
+    risk_band: str,
+    theme: str,
+    dividend_yield_enabled: bool,
+    min_dividend_yield_pct: Decimal | str | int | float,
+    dividend_yield_max_pct: Decimal | str | int | float,
+    per_enabled: bool,
+    per_min: Decimal | str | int | float,
+    per_max: Decimal | str | int | float,
+    pbr_enabled: bool,
+    pbr_min: Decimal | str | int | float,
+    pbr_max: Decimal | str | int | float,
+    roe_enabled: bool,
+    roe_min_pct: Decimal | str | int | float,
+    roe_max_pct: Decimal | str | int | float,
+) -> list[dict[str, str]]:
+    return filter_symbol_universe_rows(
+        rows,
+        region=region,
+        product_type=product_type,
+        currency=currency,
+        dividend_category=dividend_category,
+        market_cap_tier=market_cap_tier,
+        nisa_eligibility=nisa_eligibility,
+        risk_band=risk_band,
+        theme=theme,
+        dividend_yield_enabled=dividend_yield_enabled,
+        min_dividend_yield_pct=str(min_dividend_yield_pct),
+        dividend_yield_max_pct=str(dividend_yield_max_pct),
+        per_enabled=per_enabled,
+        per_min=str(per_min),
+        per_max=str(per_max),
+        pbr_enabled=pbr_enabled,
+        pbr_min=str(pbr_min),
+        pbr_max=str(pbr_max),
+        roe_enabled=roe_enabled,
+        roe_min_pct=str(roe_min_pct),
+        roe_max_pct=str(roe_max_pct),
         limit=len(rows),
     )
 
@@ -1764,11 +1839,8 @@ def _ensure_cockpit_symbol_filter_defaults() -> None:
 
 
 def _current_or_default_symbol_labels(symbol_options: list[dict[str, str]]) -> list[str]:
-    current_label = str(st.session_state.get("market_data_symbol_candidate", "")).strip()
-    if current_label:
-        return [current_label]
     labels = symbol_candidate_labels(symbol_options)
-    return labels[:1] if labels else ["候補なし"]
+    return labels[:1] if labels else [NO_SYMBOL_CANDIDATE_LABEL]
 
 
 def merged_symbol_candidate_rows(
@@ -1828,7 +1900,7 @@ def _render_market_data_cockpit() -> None:
         candidate_rows = merged_symbol_candidate_rows(filtered_symbol_options, live_symbol_options)
         symbol_option_labels = symbol_candidate_labels(candidate_rows, symbol_query)
         if not symbol_option_labels:
-            symbol_option_labels = _current_or_default_symbol_labels(symbol_options)
+            symbol_option_labels = [NO_SYMBOL_CANDIDATE_LABEL]
         _ensure_selectbox_state_value("market_data_symbol_candidate", symbol_option_labels)
         symbol_candidate = cast(
             str,
@@ -1847,7 +1919,7 @@ def _render_market_data_cockpit() -> None:
                 placeholder="ticker or company name",
             ),
         )
-    symbol = _symbol_from_candidate(symbol_candidate) or "AAPL"
+    symbol = _symbol_from_candidate(symbol_candidate) or ""
     with col_detail:
         st.write("")
         if selected_symbol_has_universe_detail(symbol):
@@ -1861,7 +1933,7 @@ def _render_market_data_cockpit() -> None:
         else:
             st.caption("銘柄データ未登録")
     with col_name:
-        company_name = symbol_name(symbol) or _name_from_candidate(symbol_candidate) or "名称未登録"
+        company_name = symbol_name(symbol) or _name_from_candidate(symbol_candidate) or ""
         st.text_input("Name", value=company_name, disabled=True, key="market_data_symbol_name")
     col_period, col_start, col_end, _ = st.columns([1.2, 1.0, 1.0, 3.8])
     with col_period:
@@ -1920,7 +1992,7 @@ def _render_market_data_cockpit() -> None:
         else:
             st.info("条件に合う銘柄候補はありません。上のフィルター条件を調整してください。")
 
-    if st.button("Fetch market data", key="fetch_market_data"):
+    if st.button("Fetch market data", key="fetch_market_data", disabled=not symbol):
         try:
             start_date = _single_date_from_input(start)
             end_date = _single_date_from_input(end)

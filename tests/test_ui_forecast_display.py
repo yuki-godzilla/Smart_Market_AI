@@ -16,6 +16,7 @@ from ui.app import (
     RANKING_RESULT_GRID_CUSTOM_CSS,
     SYMBOL_DETAIL_DIALOG_CSS,
     _build_market_data_ranking_rows,
+    _coerce_number_input_state,
     _ensure_selectbox_state_value,
     _market_data_preview_symbol_label,
     _name_from_candidate,
@@ -301,6 +302,14 @@ def test_cockpit_filtered_symbol_rows_applies_preference_filters(monkeypatch):
     ]
 
     assert [row["symbol"] for row in cockpit_filtered_symbol_rows(rows)] == ["7203.T"]
+
+
+def test_coerce_number_input_state_recovers_string_values(monkeypatch):
+    session_state: dict[str, object] = {"market_data_cockpit_per_min": "2.0"}
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+
+    assert _coerce_number_input_state("market_data_cockpit_per_min", "1.0") == 2.0
+    assert session_state["market_data_cockpit_per_min"] == 2.0
 
 
 def test_symbol_universe_detail_rows_show_column_labels_and_blank_values():

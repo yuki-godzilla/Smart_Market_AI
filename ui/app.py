@@ -1114,6 +1114,8 @@ def _render_metric_range_filter(
     help_text: str | None = None,
     disabled: bool = False,
 ) -> None:
+    min_input_value = _coerce_number_input_state(min_key, min_default)
+    max_input_value = _coerce_number_input_state(max_key, max_default)
     col_enabled, col_min, col_max = st.columns([1.0, 1.0, 1.0])
     with col_enabled:
         enabled = st.checkbox(
@@ -1128,7 +1130,7 @@ def _render_metric_range_filter(
             "下限",
             min_value=min_value,
             max_value=max_value,
-            value=float(_ranking_filter_value(min_key, min_default)),
+            value=min_input_value,
             step=step,
             key=min_key,
             disabled=disabled or not enabled,
@@ -1138,11 +1140,21 @@ def _render_metric_range_filter(
             "上限",
             min_value=min_value,
             max_value=max_value,
-            value=float(_ranking_filter_value(max_key, max_default)),
+            value=max_input_value,
             step=step,
             key=max_key,
             disabled=disabled or not enabled,
         )
+
+
+def _coerce_number_input_state(key: str, default: str) -> float:
+    value = st.session_state.get(key, _ranking_filter_value(key, default))
+    try:
+        numeric_value = float(value)
+    except (TypeError, ValueError):
+        numeric_value = float(default)
+    st.session_state[key] = numeric_value
+    return numeric_value
 
 
 def _render_detail_selectbox(

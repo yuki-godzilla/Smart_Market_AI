@@ -944,7 +944,7 @@ def _ranking_result_table_base_key(ranking_source: str, weight_preset: str) -> s
 
 
 def _ranking_result_grid_key(base_key: str) -> str:
-    return f"{base_key}_grid"
+    return "market_data_ranking_result_grid"
 
 
 def ranking_result_aggrid_frame(display_rows: list[dict[str, str]]) -> pd.DataFrame:
@@ -2410,16 +2410,6 @@ def _render_market_data_ranking() -> None:
             weight_preset=weight_preset,
         )
         _render_ranking_error_rows(cast(list[dict[str, str]], error_rows))
-        _render_ranking_decision_report(
-            ranked_rows=ranked_rows,
-            provider=provider,
-            start=start_date,
-            end=end_date,
-            ranking_purpose=ranking_purpose_label(ranking_purpose),
-            weight_preset=ranking_weight_preset_label(weight_preset),
-            comparison_summary=comparison_summary["inline"],
-            error_rows=cast(list[dict[str, str]], error_rows),
-        )
         deep_dive_symbols = ranking_symbol_options(ranked_rows)
         if deep_dive_symbols:
             deep_dive_source = f"{ranking_source}|{weight_preset}"
@@ -2454,9 +2444,23 @@ def _render_market_data_ranking() -> None:
             st.button(
                 "銘柄コックピットで確認",
                 key="market_data_ranking_open_cockpit",
-                on_click=_select_ranking_symbol_for_cockpit,
-                args=(selected_symbol, provider),
+                on_click=_select_ranking_symbol_for_cockpit_with_period,
+                args=(selected_symbol, provider, start_date, end_date),
             )
+        _render_ranking_decision_report_lazy(
+            ranked_rows=ranked_rows,
+            provider=provider,
+            start=start_date,
+            end=end_date,
+            ranking_purpose=ranking_purpose_label(ranking_purpose),
+            weight_preset=ranking_weight_preset_label(weight_preset),
+            comparison_summary=comparison_summary["inline"],
+            error_rows=cast(list[dict[str, str]], error_rows),
+            report_state_key=_ranking_decision_report_state_key(
+                ranking_source,
+                weight_preset,
+            ),
+        )
         col_json, col_csv = st.columns(2)
         col_json.download_button(
             "Download ranking JSON",
@@ -2858,7 +2862,18 @@ def _select_ranking_symbol_for_cockpit(symbol: str, provider: str) -> None:
     st.session_state.pop(MARKET_DATA_PREVIEW_STATE_KEY, None)
     st.session_state.pop(MARKET_DATA_STATUS_STATE_KEY, None)
     _clear_ranking_deep_dive_state()
-    st.rerun()
+
+
+def _select_ranking_symbol_for_cockpit_with_period(
+    symbol: str,
+    provider: str,
+    start: date,
+    end: date,
+) -> None:
+    _select_ranking_symbol_for_cockpit(symbol, provider)
+    st.session_state["market_data_period_preset"] = MARKET_DATA_PERIOD_CUSTOM
+    st.session_state["market_data_start"] = start
+    st.session_state["market_data_end"] = end
 
 
 def _clear_ranking_deep_dive_state() -> None:
@@ -3528,6 +3543,68 @@ def _render_ranking_decision_report(
         json_file_name="decision_report_ranking.json",
         markdown_file_name="decision_report_ranking.md",
     )
+
+
+def _render_ranking_decision_report_lazy(
+    *,
+    ranked_rows: list[dict[str, str]],
+    provider: str,
+    start: date,
+    end: date,
+    ranking_purpose: str,
+    weight_preset: str,
+    comparison_summary: str,
+    error_rows: list[dict[str, str]],
+    report_state_key: str,
+) -> None:
+    cached_context = st.session_state.get(report_state_key)
+    if not isinstance(cached_context, DecisionReportContext):
+        st.markdown("### 投資判断レポート")
+        st.info(
+            "深掘り操作を先に使えるよう、ランキングの投資判断レポートは必要時に作成します。"
+            "作成後は同じ並べ替え条件の間、ダウンロード用データを再利用します。"
+        )
+        if st.button("投資判断レポートを作成", key=f"{report_state_key}_build"):
+            with st.spinner("ランキングの比較レポートを作成しています。"):
+                cached_context = build_ranking_decision_report_context(
+                    ranked_rows=ranked_rows,
+                    provider=provider,
+                    start=start,
+                    end=end,
+                    ranking_purpose=ranking_purpose,
+                    weight_preset=weight_preset,
+                    comparison_summary=comparison_summary,
+                    error_rows=error_rows,
+                )
+                st.session_state[report_state_key] = cached_context
+
+    if isinstance(cached_context, DecisionReportContext):
+        _render_decision_report_downloads(
+            cached_context,
+            expander_label="投資判断レポート",
+            json_file_name="decision_report_ranking.json",
+            markdown_file_name="decision_report_ranking.md",
+        )
+        if st.button("レポートを更新", key=f"{report_state_key}_refresh"):
+            with st.spinner("ランキングの比較レポートを更新しています。"):
+                st.session_state[report_state_key] = build_ranking_decision_report_context(
+                    ranked_rows=ranked_rows,
+                    provider=provider,
+                    start=start,
+                    end=end,
+                    ranking_purpose=ranking_purpose,
+                    weight_preset=weight_preset,
+                    comparison_summary=comparison_summary,
+                    error_rows=error_rows,
+                )
+
+
+def _ranking_decision_report_state_key(ranking_source: str, weight_preset: str) -> str:
+    source_hash = hashlib.sha1(
+        f"{ranking_source}|{weight_preset}|decision_report".encode("utf-8"),
+        usedforsecurity=False,
+    ).hexdigest()[:12]
+    return f"market_data_ranking_decision_report_{source_hash}"
 
 
 def _render_decision_report_downloads(

@@ -23,6 +23,7 @@ from ui.app import (
     _market_data_preview_symbol_label,
     _name_from_candidate,
     _normalize_dividend_filter_state,
+    _ranking_decision_report_state_key,
     _ranking_result_grid_height,
     _ranking_result_grid_key,
     _ranking_result_matches_current_selection,
@@ -30,6 +31,7 @@ from ui.app import (
     _ranking_source_key_for_selection,
     _ranking_symbols_from_selected_labels,
     _render_market_chart,
+    _select_ranking_symbol_for_cockpit_with_period,
     _symbol_from_candidate,
     build_cockpit_decision_report_context,
     build_ranking_decision_report_context,
@@ -587,7 +589,8 @@ def test_ranking_detail_symbol_to_open_only_changes_on_new_click_event():
 
 
 def test_ranking_result_grid_key_and_height_are_stable():
-    assert _ranking_result_grid_key("ranking") == "ranking_grid"
+    assert _ranking_result_grid_key("ranking") == "market_data_ranking_result_grid"
+    assert _ranking_result_grid_key("ranking|other-weight") == "market_data_ranking_result_grid"
     assert _ranking_result_grid_height([{"銘柄": "8174.T"}]) == 150
     assert _ranking_result_grid_height([{"銘柄": str(index)} for index in range(20)]) == 520
 
@@ -599,6 +602,41 @@ def test_ranking_result_table_base_key_changes_with_result_source():
     assert _ranking_result_table_base_key("source-a", "balanced") != (
         _ranking_result_table_base_key("source-b", "balanced")
     )
+
+
+def test_ranking_decision_report_state_key_changes_with_sort_condition():
+    assert _ranking_decision_report_state_key("source-a", "balanced") == (
+        _ranking_decision_report_state_key("source-a", "balanced")
+    )
+    assert _ranking_decision_report_state_key("source-a", "balanced") != (
+        _ranking_decision_report_state_key("source-a", "growth")
+    )
+
+
+def test_select_ranking_symbol_for_cockpit_with_period_carries_ranking_window(monkeypatch):
+    session_state: dict[str, object] = {
+        "market_data_preview": object(),
+        "market_data_status_message": "ok",
+        "market_data_ranking_deep_dive_symbol": "old",
+    }
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+
+    _select_ranking_symbol_for_cockpit_with_period(
+        "7203.T",
+        "yahoo",
+        date(2026, 5, 17),
+        date(2026, 5, 24),
+    )
+
+    assert session_state["sidemenu_page"] == "cockpit"
+    assert session_state["market_data_provider_live_first"] == "yahoo"
+    assert session_state["market_data_symbol_candidate"] == "7203.T - Toyota Motor"
+    assert session_state["market_data_period_preset"] == MARKET_DATA_PERIOD_CUSTOM
+    assert session_state["market_data_start"] == date(2026, 5, 17)
+    assert session_state["market_data_end"] == date(2026, 5, 24)
+    assert "market_data_preview" not in session_state
+    assert "market_data_status_message" not in session_state
+    assert "market_data_ranking_deep_dive_symbol" not in session_state
 
 
 def test_symbol_universe_rows_adds_static_selection_metadata():

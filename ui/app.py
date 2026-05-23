@@ -164,6 +164,7 @@ MARKET_DATA_PROVIDER_WIDGET_KEY = "market_data_provider_live_first"
 MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY = "market_data_ranking_provider_live_first"
 MARKET_DATA_PERIOD_CUSTOM = "custom"
 MARKET_DATA_PERIOD_PRESETS = {
+    MARKET_DATA_PERIOD_CUSTOM: "カスタム",
     "short_1w": "短期: 1週間",
     "short_1m": "短期: 1か月",
     "medium_3m": "中期: 3か月",
@@ -172,9 +173,9 @@ MARKET_DATA_PERIOD_PRESETS = {
     "long_1y": "長期: 1年",
     "long_3y": "長期: 3年",
     "long_5y": "長期: 5年",
-    MARKET_DATA_PERIOD_CUSTOM: "カスタム",
 }
 MARKET_DATA_PERIOD_HELP_TEXT = {
+    MARKET_DATA_PERIOD_CUSTOM: "検証したい決算日、急落日、投資開始想定日に合わせて任意の期間を設定します。",
     "short_1w": "決算・ニュース・急変後の短期反応を確認します。ノイズが大きいため、売買判断の主根拠にはしません。",
     "short_1m": "直近の需給変化やモメンタムの継続性を確認します。短期材料の賞味期限を見る補助期間です。",
     "medium_3m": "四半期決算や業績修正後の評価変化を確認します。短期ノイズと中期トレンドの切り分けに使います。",
@@ -183,9 +184,8 @@ MARKET_DATA_PERIOD_HELP_TEXT = {
     "long_1y": "直近1年の業績期待、相場循環、リスク耐性を確認します。初期レビューの基準期間として使いやすい設定です。",
     "long_3y": "複数決算期をまたぐ成長持続性と景気感応度を確認します。一時的な上振れや下振れをならして見ます。",
     "long_5y": "長期の構造変化、最大下落、回復力を確認します。長期保有の候補では必ず確認したい期間です。",
-    MARKET_DATA_PERIOD_CUSTOM: "検証したい決算日、急落日、投資開始想定日に合わせて任意の期間を設定します。",
 }
-DEFAULT_MARKET_DATA_PERIOD_PRESET = "long_1y"
+DEFAULT_MARKET_DATA_PERIOD_PRESET = MARKET_DATA_PERIOD_CUSTOM
 
 FORECAST_ACTUAL_LABEL = "実績価格"
 MARKET_DATA_MODE_COCKPIT = "cockpit"

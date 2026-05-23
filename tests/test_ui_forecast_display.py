@@ -10,6 +10,9 @@ from backend.core.data_contracts import Bar, FundamentalSnapshot, Symbol
 from backend.core.errors import DataSourceError
 from backend.screening import ScreeningScore
 from ui.app import (
+    DEFAULT_MARKET_DATA_PERIOD_PRESET,
+    MARKET_DATA_PERIOD_CUSTOM,
+    MARKET_DATA_PERIOD_PRESETS,
     RANKING_RESULT_GRID_CUSTOM_CSS,
     SYMBOL_DETAIL_DIALOG_CSS,
     _build_market_data_ranking_rows,
@@ -129,6 +132,12 @@ def test_default_forecast_horizon_days_uses_chart_period():
 def test_market_data_period_dates_support_decision_review_presets():
     end = date(2026, 5, 23)
 
+    assert DEFAULT_MARKET_DATA_PERIOD_PRESET == MARKET_DATA_PERIOD_CUSTOM
+    assert next(iter(MARKET_DATA_PERIOD_PRESETS)) == MARKET_DATA_PERIOD_CUSTOM
+    assert market_data_period_dates(MARKET_DATA_PERIOD_CUSTOM, end) == (
+        date(2025, 5, 23),
+        end,
+    )
     assert market_data_period_dates("short_1w", end) == (date(2026, 5, 16), end)
     assert market_data_period_dates("short_1m", end) == (date(2026, 4, 23), end)
     assert market_data_period_dates("medium_3m", end) == (date(2026, 2, 23), end)
@@ -153,9 +162,10 @@ def test_market_data_period_dates_clamp_month_end_and_leap_day():
 
 
 def test_market_data_period_help_explains_review_basis():
+    assert "任意の期間" in market_data_period_help(MARKET_DATA_PERIOD_CUSTOM)
     assert "決算" in market_data_period_help("medium_3m")
     assert "長期保有" in market_data_period_help("long_5y")
-    assert "初期レビュー" in market_data_period_help("unknown")
+    assert "任意の期間" in market_data_period_help("unknown")
 
 
 def test_market_data_provider_defaults_to_yahoo():

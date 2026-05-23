@@ -199,6 +199,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - forecast agreement、forecast spread、best RMSE model
 - Investment Score summary
 - score breakdown chart
+- post-fetch confirmation summary lifts key closed-detail items into the main view: latest price, OHLCV period/volume, forecast range, screening components, short-term features, data quality, and forecast evaluation
 - warnings / reasons
 - Forecast metrics / Screening Score / provider detail
 - JSON / CSV downloads

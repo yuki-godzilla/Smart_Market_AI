@@ -2492,6 +2492,11 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
     )
     st.caption("縦の点線は、実績価格から予測表示へ切り替わる位置です。")
     _render_investment_score_section(preview, symbol_label)
+    summary_rows = cockpit_detail_summary_rows(preview, consensus_rows, metric_rows)
+    if summary_rows:
+        st.subheader("確認サマリー")
+        st.caption("閉じている詳細データから、投資判断の前に見ておきたい代表項目を整理しています。")
+        _render_symbol_detail_table(summary_rows)
 
     with st.expander("Forecast details"):
         for index, message in enumerate(forecast_metric_summary(metric_rows)):
@@ -2640,6 +2645,104 @@ def _render_investment_score_section(preview: MarketDataPreview, symbol_label: s
             file_name="investment_score.csv",
             mime="text/csv",
         )
+
+
+def cockpit_detail_summary_rows(
+    preview: MarketDataPreview,
+    consensus_rows: list[dict[str, str]],
+    metric_rows: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    quote_row = preview.quote_rows[0] if preview.quote_rows else {}
+    ohlcv_row = preview.ohlcv_rows[0] if preview.ohlcv_rows else {}
+    feature_row = preview.feature_rows[0] if preview.feature_rows else {}
+    screening_row = preview.screening_rows[0] if preview.screening_rows else {}
+    consensus_row = consensus_rows[0] if consensus_rows else {}
+
+    if quote_row:
+        rows.append(
+            {
+                "観点": "直近価格",
+                "内容": (
+                    f"{quote_row.get('last', '未取得')} / "
+                    f"{quote_row.get('ts', '')[:10] or '日時未取得'}"
+                ),
+                "確認ポイント": "チャート、予測、スコアが参照している最新終値を確認します。",
+            }
+        )
+    if ohlcv_row:
+        rows.append(
+            {
+                "観点": "取得期間",
+                "内容": (
+                    f"{ohlcv_row.get('first_ts', '')[:10]}〜"
+                    f"{ohlcv_row.get('last_ts', '')[:10]} / "
+                    f"{ohlcv_row.get('bars', '0')}本 / 出来高合計 "
+                    f"{ohlcv_row.get('total_volume', '未取得')}"
+                ),
+                "確認ポイント": "本数が少ない場合は、予測一致やRiskの安定性を控えめに見ます。",
+            }
+        )
+    if consensus_row:
+        rows.append(
+            {
+                "観点": "予測レンジ",
+                "内容": (
+                    f"平均 {consensus_row.get('ensemble_forecast_close', '未計算')}、"
+                    f"下限〜上限 {consensus_row.get('min_forecast_close', '未計算')}〜"
+                    f"{consensus_row.get('max_forecast_close', '未計算')}、"
+                    f"開き {consensus_row.get('forecast_range_pct', '未計算')}"
+                ),
+                "確認ポイント": "予測の開きが大きい時は、方向感より不確実性を先に確認します。",
+            }
+        )
+    if screening_row:
+        rows.append(
+            {
+                "観点": "スクリーニング",
+                "内容": (
+                    f"総合 {screening_row.get('total_score', '未計算')}、"
+                    f"モメンタム {screening_row.get('momentum_score', '未計算')}、"
+                    f"流動性 {screening_row.get('liquidity_score', '未計算')}、"
+                    f"リスク {screening_row.get('risk_score', '未計算')}"
+                ),
+                "確認ポイント": screening_row.get("summary", "")
+                or "候補として残った理由を、個別指標に分けて確認します。",
+            }
+        )
+    if feature_row:
+        rows.append(
+            {
+                "観点": "短期特徴量",
+                "内容": (
+                    f"1日 {feature_row.get('return_1d', '未計算')}、"
+                    f"5日 {feature_row.get('momentum_5d', '未計算')}、"
+                    f"20日下落 {feature_row.get('drawdown_20d', '未計算')}、"
+                    f"完全性 {feature_row.get('data_completeness', '未計算')}"
+                ),
+                "確認ポイント": "値動きの勢い、下落幅、欠損の有無を同時に確認します。",
+            }
+        )
+        rows.append(
+            {
+                "観点": "データ品質",
+                "内容": (
+                    f"{feature_row.get('data_quality', '未判定')} / "
+                    f"欠損: {feature_row.get('missing_summary', '未取得')}"
+                ),
+                "確認ポイント": "欠損や品質警告がある場合は、詳細を展開して根拠データを確認します。",
+            }
+        )
+    metric_messages = forecast_metric_summary(metric_rows)
+    if metric_messages:
+        rows.append(
+            {
+                "観点": "予測評価",
+                "内容": metric_messages[0],
+                "確認ポイント": "RMSEと方向一致率は、予測線を読む時の信頼度の補助情報です。",
+            }
+        )
+    return rows
 
 
 def investment_score_summary_lines(row: dict[str, str]) -> list[str]:

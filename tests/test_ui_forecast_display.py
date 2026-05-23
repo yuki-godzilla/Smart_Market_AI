@@ -30,6 +30,7 @@ from ui.app import (
     _symbol_from_candidate,
     build_cockpit_decision_report_context,
     build_ranking_decision_report_context,
+    cockpit_detail_summary_rows,
     cockpit_investment_memo_rows,
     decision_report_json_download,
     decision_report_markdown_download,
@@ -2299,6 +2300,85 @@ def test_score_component_rows_builds_cockpit_breakdown():
         {"要素": "Risk", "スコア": "70"},
         {"要素": "Data Quality", "スコア": "100"},
     ]
+
+
+def test_cockpit_detail_summary_rows_lift_key_closed_details():
+    preview = MarketDataPreview(
+        status="ok",
+        bars=[_bar("2026-05-01", close=100), _bar("2026-05-02", close=105)],
+        provider_rows=[],
+        quote_rows=[
+            {
+                "symbol": "AAPL",
+                "exchange": "NASDAQ",
+                "bid": "-",
+                "ask": "-",
+                "last": "105",
+                "ts": "2026-05-02T00:00:00+00:00",
+            }
+        ],
+        ohlcv_rows=[
+            {
+                "symbol": "AAPL",
+                "bars": "2",
+                "first_ts": "2026-05-01T00:00:00+00:00",
+                "last_ts": "2026-05-02T00:00:00+00:00",
+                "total_volume": "2000",
+            }
+        ],
+        price_chart_rows=[],
+        forecast_chart_rows=[],
+        forecast_metric_rows=[],
+        fx_rows=[],
+        feature_rows=[
+            {
+                "return_1d": "5%",
+                "momentum_5d": "8%",
+                "drawdown_20d": "-3%",
+                "data_completeness": "100%",
+                "data_quality": "OK",
+                "missing_summary": "なし",
+            }
+        ],
+        investment_score_rows=[],
+        screening_rows=[
+            {
+                "total_score": "82",
+                "momentum_score": "75",
+                "liquidity_score": "90",
+                "risk_score": "70",
+                "summary": "モメンタムと流動性が確認できます。",
+            }
+        ],
+        error_rows=[],
+    )
+
+    rows = cockpit_detail_summary_rows(
+        preview,
+        [
+            {
+                "ensemble_forecast_close": "108",
+                "min_forecast_close": "102",
+                "max_forecast_close": "112",
+                "forecast_range_pct": "9.5%",
+            }
+        ],
+        [{"model": "moving_average", "rmse": "1.2", "sample_count": "5"}],
+    )
+
+    assert [row["観点"] for row in rows] == [
+        "直近価格",
+        "取得期間",
+        "予測レンジ",
+        "スクリーニング",
+        "短期特徴量",
+        "データ品質",
+        "予測評価",
+    ]
+    assert "105" in rows[0]["内容"]
+    assert "2本" in rows[1]["内容"]
+    assert "9.5%" in rows[2]["内容"]
+    assert rows[3]["確認ポイント"] == "モメンタムと流動性が確認できます。"
 
 
 def test_cockpit_investment_memo_rows_combines_score_master_and_price(monkeypatch):

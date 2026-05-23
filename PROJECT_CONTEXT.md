@@ -74,7 +74,7 @@ Partial or intentionally deferred:
 - Research RAG is designed but not implemented.
 - Decision Report context/rendering/export is wired into cockpit, ranking, and rebalance UI outputs with Markdown / JSON / manifest / ZIP downloads.
 - Execution / broker order submission is intentionally out of the current default path.
-- PDF / Excel export is future scope.
+- UI-rich PDF / Excel report export is future scope after Phase 19; current report exports remain Markdown / JSON / manifest / ZIP.
 
 ## Likely Current Phase
 

@@ -462,6 +462,7 @@ Phase 16 ranking implementation notes:
 - In `銘柄コックピット`, `銘柄データを見る` sits beside symbol selection and opens the same local-master modal for the selected symbol. Start / End inputs wrap to the next row. After fetch, the cockpit shows `投資判断メモ` combining score, warnings, valuation, income, price trend, and next-check wording.
 - In `銘柄コックピット` and `銘柄ランキング`, the result area shows a prominent `Decision Report` block with Markdown / JSON / manifest / ZIP downloads. Cockpit reports focus on the selected symbol, while ranking reports focus on comparison context, score distribution, factor leaders, and group-level deep-dive checkpoints instead of turning into a single top-symbol report. The Markdown body remains inside `レポート本文を表示`. It is decision-support material, not a buy/sell recommendation.
 - In `リバランス`, the result area shows a prominent `投資判断レポート` block with Markdown / JSON / manifest / ZIP downloads. The report organizes current holdings, target allocation, allocation drift, proposed trades, Risk breaches, and confirmation checkpoints. The Markdown body remains inside `レポート本文を表示`. It is a review aid, not an order instruction.
+- UI リッチな PDF report / Excel report は将来の Advanced Export 範囲です。現行の Decision Report export は Markdown / JSON / manifest / ZIP を正とします。
 
 Phase 16 final UI smoke checklist:
 

@@ -460,7 +460,7 @@ Report output policy:
 
 - cockpit summary / ranking result / ranking error / rebalance result / risk breach を横断する report context contract を定義する。
 - 初期 export は Markdown / JSON / CSV / manifest / ZIP を優先する。
-- PDF / Excel はこのフェーズの必須範囲に含めない。
+- UI リッチな PDF report / Excel report は Phase 19 の完了条件に含めず、将来の Advanced Export として残す。
 - UI / report / future assistant が同じ context を参照できるようにする。
 - 投資助言ではなく、判断材料と制約を整理する report 文言に統一する。
 
@@ -563,7 +563,7 @@ Status: future / low priority
 
 Scope:
 
-- PDF / Excel export。
+- UI リッチな PDF report / Excel report。
 - report archive / saved watchlist / ranking scenario。
 - broker 連携の再評価。
 - order sending は、risk / report / audit / user confirmation が揃うまで実装しない。

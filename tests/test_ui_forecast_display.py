@@ -82,6 +82,7 @@ from ui.ranking import (
     RANKING_DIVIDEND_LABELS,
     RANKING_FETCH_LIMIT_BALANCED,
     RANKING_FETCH_LIMIT_FAST,
+    RANKING_FETCH_LIMIT_PRESET,
     RANKING_FILTER_HELP_TEXTS,
     RANKING_INDEX_FAMILY_LABELS,
     RANKING_INVESTMENT_STYLE_METRICS,
@@ -90,6 +91,7 @@ from ui.ranking import (
     RANKING_PRESET_ETF_CORE_COST,
     RANKING_PRESET_ETF_INCOME,
     RANKING_PRESET_MIN_VOLATILITY,
+    RANKING_PRESET_MULTI_FACTOR,
     RANKING_PRESET_QUALITY_GROWTH,
     RANKING_PRESET_QUALITY_VALUE,
     RANKING_PRESET_SMALL_GROWTH,
@@ -2977,6 +2979,10 @@ def test_limited_ranking_selected_labels_prefers_database_fit_before_fetch():
         )
         == selected_labels
     )
+
+
+def test_ranking_fetch_limit_baseline_is_independent_from_sort_profile():
+    assert RANKING_FETCH_LIMIT_PRESET == RANKING_PRESET_MULTI_FACTOR
 
 
 def test_ranking_database_scores_use_symbol_metadata():

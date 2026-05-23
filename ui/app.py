@@ -54,6 +54,7 @@ from ui.ranking import (
     RANKING_CURRENCY_LABELS,
     RANKING_DIVIDEND_LABELS,
     RANKING_FETCH_LIMIT_LABELS,
+    RANKING_FETCH_LIMIT_PRESET,
     RANKING_FILTER_HELP_TEXTS,
     RANKING_INDEX_FAMILY_LABELS,
     RANKING_MARKET_CAP_LABELS,
@@ -2303,7 +2304,8 @@ def _render_market_data_ranking() -> None:
                 key="market_data_ranking_fetch_limit",
                 format_func=ranking_fetch_limit_label,
                 help=(
-                    "候補が多い場合、外部取得前に銘柄DB適合度とDB信頼度で上位に絞ります。"
+                    "候補が多い場合、外部取得前に総合マルチファクター基準で上位に絞ります。"
+                    "並べ替え条件を変えても、取得済みデータは再利用して再ソートできます。"
                     "全件取得も選べますが、Yahoo live dataでは時間がかかります。"
                 ),
             ),
@@ -2311,7 +2313,7 @@ def _render_market_data_ranking() -> None:
     effective_selected_labels = limited_ranking_selected_labels(
         selected_labels,
         filtered_symbol_rows,
-        preset=weight_preset,
+        preset=RANKING_FETCH_LIMIT_PRESET,
         limit_key=fetch_limit,
     )
     ranking_symbols = _ranking_symbols_from_selected_labels(effective_selected_labels)
@@ -2326,7 +2328,7 @@ def _render_market_data_ranking() -> None:
         st.info(
             f"候補が多いため、{ranking_fetch_limit_label(fetch_limit)}として"
             f"{len(effective_selected_labels)}件を取得します。"
-            "銘柄DB適合度とDB信頼度で事前に並べています。"
+            "総合マルチファクター基準の銘柄DB適合度とDB信頼度で事前に並べています。"
         )
     warning_message = live_ranking_symbol_warning_message(provider, len(ranking_symbols))
     if warning_message is not None:

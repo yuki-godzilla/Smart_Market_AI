@@ -503,3 +503,8 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added a `作成対象` control to cap expensive provider ranking builds at DB-fit-ranked top 100 / 300 / 800 candidates, with all-candidates still available by explicit selection.
 - Kept ranking fetch cache keys based on the effective candidate list so changing the build limit invalidates stale results correctly.
 - Cleared stale ranking deep-dive widget state when results become stale or unavailable, and rerun immediately after opening a ranking symbol in the cockpit to avoid duplicated navigation buttons.
+
+## 2026-05-23 - Ranking sort reuse after build limit
+
+- Changed the pre-fetch `作成対象` candidate limit to use a fixed multi-factor DB-fit baseline instead of the currently selected sort profile.
+- This keeps the fetched symbol set stable when only `並べ替え条件` changes, so cached ranking data can be re-sorted without another provider fetch.

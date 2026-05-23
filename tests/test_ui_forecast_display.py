@@ -43,6 +43,7 @@ from ui.app import (
     investment_score_summary_lines,
     market_chart_long_frame,
     market_data_period_dates,
+    market_data_period_help,
     merged_symbol_candidate_rows,
     provider_error_summary_rows,
     ranking_comparison_summary,
@@ -149,6 +150,12 @@ def test_market_data_period_dates_clamp_month_end_and_leap_day():
         2,
         28,
     )
+
+
+def test_market_data_period_help_explains_review_basis():
+    assert "決算" in market_data_period_help("medium_3m")
+    assert "長期保有" in market_data_period_help("long_5y")
+    assert "初期レビュー" in market_data_period_help("unknown")
 
 
 def test_market_data_provider_defaults_to_yahoo():

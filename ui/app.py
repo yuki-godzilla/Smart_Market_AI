@@ -174,6 +174,17 @@ MARKET_DATA_PERIOD_PRESETS = {
     "long_5y": "長期: 5年",
     MARKET_DATA_PERIOD_CUSTOM: "カスタム",
 }
+MARKET_DATA_PERIOD_HELP_TEXT = {
+    "short_1w": "決算・ニュース・急変後の短期反応を確認します。ノイズが大きいため、売買判断の主根拠にはしません。",
+    "short_1m": "直近の需給変化やモメンタムの継続性を確認します。短期材料の賞味期限を見る補助期間です。",
+    "medium_3m": "四半期決算や業績修正後の評価変化を確認します。短期ノイズと中期トレンドの切り分けに使います。",
+    "medium_6m": "半期程度のトレンド、押し目、下落耐性を確認します。投資テーマが市場に織り込まれているかを見ます。",
+    "ytd": "年初来の市場環境に対する相対感を確認します。同じ年の地合いの中で強弱を比べる時に使います。",
+    "long_1y": "直近1年の業績期待、相場循環、リスク耐性を確認します。初期レビューの基準期間として使いやすい設定です。",
+    "long_3y": "複数決算期をまたぐ成長持続性と景気感応度を確認します。一時的な上振れや下振れをならして見ます。",
+    "long_5y": "長期の構造変化、最大下落、回復力を確認します。長期保有の候補では必ず確認したい期間です。",
+    MARKET_DATA_PERIOD_CUSTOM: "検証したい決算日、急落日、投資開始想定日に合わせて任意の期間を設定します。",
+}
 DEFAULT_MARKET_DATA_PERIOD_PRESET = "long_1y"
 
 FORECAST_ACTUAL_LABEL = "実績価格"
@@ -501,6 +512,13 @@ def market_data_period_dates(preset: str, end: date) -> tuple[date, date]:
     if preset == "long_5y":
         return _shift_years(end, -5), end
     return _shift_years(end, -1), end
+
+
+def market_data_period_help(preset: str) -> str:
+    return MARKET_DATA_PERIOD_HELP_TEXT.get(
+        preset,
+        MARKET_DATA_PERIOD_HELP_TEXT[DEFAULT_MARKET_DATA_PERIOD_PRESET],
+    )
 
 
 def _shift_months(value: date, months: int) -> date:
@@ -1598,8 +1616,13 @@ def _render_market_data_cockpit() -> None:
                 index=list(MARKET_DATA_PERIOD_PRESETS).index(DEFAULT_MARKET_DATA_PERIOD_PRESET),
                 format_func=lambda value: MARKET_DATA_PERIOD_PRESETS[value],
                 key="market_data_period_preset",
+                help=(
+                    "投資判断の補助として、短期は材料反応、中期はトレンド、"
+                    "長期は下落耐性や構造変化を確認します。"
+                ),
             ),
         )
+        st.caption(market_data_period_help(period_preset))
     default_end = default_market_data_end_date()
     preset_start, preset_end = market_data_period_dates(period_preset, default_end)
     is_custom_period = period_preset == MARKET_DATA_PERIOD_CUSTOM

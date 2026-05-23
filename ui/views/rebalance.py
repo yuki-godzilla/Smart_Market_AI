@@ -176,6 +176,8 @@ def _render_result(result: PortfolioRiskResult, request: RebalanceCheckRequest) 
     else:
         st.info("売買案がないため、Risk 判定は行われていません。")
 
+    _render_rebalance_decision_report(result, request)
+
     current_rows = context.current_rows
     target_rows = context.target_rows
     allocation_rows = context.allocation_rows
@@ -207,8 +209,6 @@ def _render_result(result: PortfolioRiskResult, request: RebalanceCheckRequest) 
             hide_index=True,
             use_container_width=True,
         )
-
-    _render_rebalance_decision_report(result, request)
 
     with st.expander("Downloads"):
         st.json(result.model_dump(mode="json"))
@@ -292,35 +292,37 @@ def _render_rebalance_decision_report(
 ) -> None:
     context = build_rebalance_decision_report_context(result, request=request)
     markdown = rebalance_decision_report_markdown_download(context)
-    with st.expander("投資判断レポート", expanded=False):
-        st.caption(
-            "現在保有、目標配分、売買案、Risk判定、確認ポイントを同じ形式で整理します。"
-            "売買推奨ではありません。"
-        )
-        st.download_button(
-            "レポートMarkdownをダウンロード",
-            data=markdown,
-            file_name="decision_report_rebalance.md",
-            mime="text/markdown",
-        )
-        st.download_button(
-            "レポートJSONをダウンロード",
-            data=rebalance_decision_report_json_download(context),
-            file_name="decision_report_rebalance.json",
-            mime="application/json",
-        )
-        st.download_button(
-            "レポートmanifestをダウンロード",
-            data=rebalance_decision_report_manifest_download(context),
-            file_name="decision_report_manifest.json",
-            mime="application/json",
-        )
-        st.download_button(
-            "レポート一式ZIPをダウンロード",
-            data=rebalance_decision_report_zip_download(context),
-            file_name="decision_report_rebalance_package.zip",
-            mime="application/zip",
-        )
+    st.markdown("### 投資判断レポート")
+    st.info(
+        "現在保有、目標配分、売買案、Risk判定、確認ポイントを投資判断レポートとして整理しました。"
+        "売買推奨ではありません。"
+    )
+    col_markdown, col_json, col_manifest, col_zip = st.columns(4)
+    col_markdown.download_button(
+        "Markdown",
+        data=markdown,
+        file_name="decision_report_rebalance.md",
+        mime="text/markdown",
+    )
+    col_json.download_button(
+        "JSON",
+        data=rebalance_decision_report_json_download(context),
+        file_name="decision_report_rebalance.json",
+        mime="application/json",
+    )
+    col_manifest.download_button(
+        "manifest",
+        data=rebalance_decision_report_manifest_download(context),
+        file_name="decision_report_manifest.json",
+        mime="application/json",
+    )
+    col_zip.download_button(
+        "一式ZIP",
+        data=rebalance_decision_report_zip_download(context),
+        file_name="decision_report_rebalance_package.zip",
+        mime="application/zip",
+    )
+    with st.expander("レポート本文を表示", expanded=False):
         st.code(markdown, language="markdown")
 
 

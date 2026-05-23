@@ -2410,6 +2410,16 @@ def _render_market_data_ranking() -> None:
             weight_preset=weight_preset,
         )
         _render_ranking_error_rows(cast(list[dict[str, str]], error_rows))
+        _render_ranking_decision_report(
+            ranked_rows=ranked_rows,
+            provider=provider,
+            start=start_date,
+            end=end_date,
+            ranking_purpose=ranking_purpose_label(ranking_purpose),
+            weight_preset=ranking_weight_preset_label(weight_preset),
+            comparison_summary=comparison_summary["inline"],
+            error_rows=cast(list[dict[str, str]], error_rows),
+        )
         deep_dive_symbols = ranking_symbol_options(ranked_rows)
         if deep_dive_symbols:
             deep_dive_source = f"{ranking_source}|{weight_preset}"
@@ -2459,16 +2469,6 @@ def _render_market_data_ranking() -> None:
             data=investment_score_csv_download(ranked_rows),
             file_name="investment_score_ranking.csv",
             mime="text/csv",
-        )
-        _render_ranking_decision_report(
-            ranked_rows=ranked_rows,
-            provider=provider,
-            start=start_date,
-            end=end_date,
-            ranking_purpose=ranking_purpose_label(ranking_purpose),
-            weight_preset=ranking_weight_preset_label(weight_preset),
-            comparison_summary=comparison_summary["inline"],
-            error_rows=cast(list[dict[str, str]], error_rows),
         )
     elif error_rows:
         _clear_ranking_deep_dive_state()
@@ -2912,6 +2912,8 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         st.caption("閉じている詳細データから、投資判断の前に見ておきたい代表項目を整理しています。")
         _render_symbol_detail_table(summary_rows)
 
+    _render_cockpit_decision_report(preview)
+
     with st.expander("Forecast details"):
         for index, message in enumerate(forecast_metric_summary(metric_rows)):
             if index == 0:
@@ -2981,7 +2983,6 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
     if preview.error_rows:
         st.subheader("補助データの取得警告")
         _render_provider_error_summary(preview.error_rows)
-    _render_cockpit_decision_report(preview)
 
 
 def _render_market_data_cockpit_header(
@@ -3546,35 +3547,37 @@ def _render_decision_report_downloads(
     markdown_file_name: str,
 ) -> None:
     markdown = decision_report_markdown_download(context)
-    with st.expander(expander_label, expanded=False):
-        st.caption(
-            "取得済みデータ、銘柄メタデータ、確認ポイントを同じ形式で整理します。"
-            "売買推奨ではありません。"
-        )
-        st.download_button(
-            "レポートMarkdownをダウンロード",
-            data=markdown,
-            file_name=markdown_file_name,
-            mime="text/markdown",
-        )
-        st.download_button(
-            "レポートJSONをダウンロード",
-            data=decision_report_json_download(context),
-            file_name=json_file_name,
-            mime="application/json",
-        )
-        st.download_button(
-            "レポートmanifestをダウンロード",
-            data=decision_report_manifest_json_download(context),
-            file_name="decision_report_manifest.json",
-            mime="application/json",
-        )
-        st.download_button(
-            "レポート一式ZIPをダウンロード",
-            data=decision_report_zip_download(context),
-            file_name="decision_report_package.zip",
-            mime="application/zip",
-        )
+    st.markdown(f"### {expander_label}")
+    st.info(
+        "取得済みデータ、銘柄メタデータ、スコア、確認ポイントを投資判断レポートとして整理しました。"
+        "売買推奨ではありません。"
+    )
+    col_markdown, col_json, col_manifest, col_zip = st.columns(4)
+    col_markdown.download_button(
+        "Markdown",
+        data=markdown,
+        file_name=markdown_file_name,
+        mime="text/markdown",
+    )
+    col_json.download_button(
+        "JSON",
+        data=decision_report_json_download(context),
+        file_name=json_file_name,
+        mime="application/json",
+    )
+    col_manifest.download_button(
+        "manifest",
+        data=decision_report_manifest_json_download(context),
+        file_name="decision_report_manifest.json",
+        mime="application/json",
+    )
+    col_zip.download_button(
+        "一式ZIP",
+        data=decision_report_zip_download(context),
+        file_name="decision_report_package.zip",
+        mime="application/zip",
+    )
+    with st.expander("レポート本文を表示", expanded=False):
         st.code(markdown, language="markdown")
 
 

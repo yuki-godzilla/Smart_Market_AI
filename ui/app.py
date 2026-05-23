@@ -3414,19 +3414,16 @@ def build_ranking_decision_report_context(
     error_rows: list[dict[str, str]] | None = None,
 ) -> DecisionReportContext:
     top_rows = ranked_rows[:20]
-    top_symbol = top_rows[0].get("symbol", "") if top_rows else ""
-    top_symbol_row = _symbol_universe_row_for_symbol(top_symbol) if top_symbol else None
     sections = [
         build_data_confidence_section(
             provider=provider,
-            symbol=top_symbol or None,
             as_of=end,
             price_period=f"{start.isoformat()} to {end.isoformat()}",
-            data_quality=top_rows[0].get("data_quality_score") if top_rows else None,
-            metadata_source=_symbol_report_value(top_symbol_row, "metadata_source"),
-            metadata_as_of=_symbol_report_value(top_symbol_row, "metadata_as_of"),
-            missing_fields=_missing_symbol_report_fields(top_symbol_row),
-            coverage_rows=_symbol_report_coverage_rows(top_symbol_row),
+            data_quality=_average_ranking_metric(ranked_rows, "data_quality_score"),
+            metadata_source="銘柄マスタ / live provider",
+            metadata_as_of=end.isoformat(),
+            missing_fields=_ranking_missing_metadata_fields(top_rows),
+            coverage_rows=_ranking_metadata_coverage_rows(top_rows),
             warnings=[row.get("message", "") for row in error_rows or []],
             notes=[comparison_summary],
         ),
@@ -3450,38 +3447,32 @@ def build_ranking_decision_report_context(
             ],
             notes=["ランキング行は深掘り候補の整理であり、売買推奨ではありません。"],
         ),
+        build_report_section(
+            title="ランキング分布",
+            source_kind="ranking",
+            provider=provider,
+            as_of=end,
+            summary=_ranking_distribution_summary(ranked_rows),
+            rows=_ranking_distribution_rows(ranked_rows),
+            notes=[
+                "上位だけでなく、スコアの偏り、Risk、データ品質、予測一致の分布を見て候補群を比較します。"
+            ],
+        ),
+        build_report_section(
+            title="ファクター別上位候補",
+            source_kind="ranking",
+            provider=provider,
+            as_of=end,
+            rows=_ranking_factor_leader_rows(ranked_rows),
+            notes=[
+                "総合順位だけでなく、Screening、予測一致、Risk、ROE、配当利回りなど別観点の上位候補を並べます。"
+            ],
+        ),
     ]
-    if top_symbol_row is not None:
-        sections.append(
-            build_symbol_metadata_section(
-                symbol=top_symbol,
-                name=symbol_name(top_symbol),
-                as_of=end,
-                metadata=_symbol_report_metadata(top_symbol_row),
-            )
-        )
-        sections.append(
-            _valuation_income_risk_report_section(
-                top_symbol_row,
-                source_kind="ranking",
-                symbol=top_symbol,
-                as_of=end,
-            )
-        )
     if top_rows:
         sections.append(
-            _investment_score_report_section(
-                top_rows[0],
-                source_kind="ranking",
-                provider=provider,
-                symbol=top_symbol,
-                as_of=end,
-            )
-        )
-        sections.append(
             build_decision_checkpoints_section(
-                checkpoints=_ranking_report_checkpoints(top_rows[0], top_symbol_row),
-                symbol=top_symbol or None,
+                checkpoints=_ranking_group_checkpoints(ranked_rows, ranking_purpose),
                 as_of=end,
             )
         )
@@ -3827,6 +3818,256 @@ def _ranking_report_checkpoints(
             "confirmation_point": "確認順の整理として使い、注文指示として扱いません。",
         },
     ]
+
+
+def _ranking_distribution_summary(rows: list[dict[str, str]]) -> dict[str, str]:
+    top_score = _decimal_from_text(rows[0].get("total_score")) if rows else None
+    twentieth_score = _decimal_from_text(rows[19].get("total_score")) if len(rows) >= 20 else None
+    return {
+        "比較銘柄数": str(len(rows)),
+        "表示上位": str(min(len(rows), 20)),
+        "1位スコア": _format_report_decimal(top_score),
+        "20位スコア": _format_report_decimal(twentieth_score),
+        "上位20件の平均総合スコア": _average_ranking_metric(rows[:20], "total_score"),
+        "平均Screening": _average_ranking_metric(rows, "screening_score"),
+        "平均予測一致": _average_ranking_metric(rows, "forecast_agreement_score"),
+        "平均データ品質": _average_ranking_metric(rows, "data_quality_score"),
+        "平均Risk": _average_ranking_metric(rows, "risk_signal_score"),
+    }
+
+
+def _ranking_distribution_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    return [
+        {
+            "観点": "総合スコア 80以上",
+            "件数": str(_count_rows_at_least(rows, "total_score", Decimal("80"))),
+            "読み方": "上位候補群の厚みを確認します。",
+        },
+        {
+            "観点": "予測一致 85以上",
+            "件数": str(_count_rows_at_least(rows, "forecast_agreement_score", Decimal("85"))),
+            "読み方": "モデル間の方向感がそろう候補の多さを確認します。",
+        },
+        {
+            "観点": "データ品質 90以上",
+            "件数": str(_count_rows_at_least(rows, "data_quality_score", Decimal("90"))),
+            "読み方": "比較に使えるデータが十分な候補の多さを確認します。",
+        },
+        {
+            "観点": "Risk 50未満",
+            "件数": str(_count_rows_below(rows, "risk_signal_score", Decimal("50"))),
+            "読み方": "上位候補内でも先に警戒すべき銘柄数を確認します。",
+        },
+        {
+            "観点": "警告あり",
+            "件数": str(sum(1 for row in rows if str(row.get("warnings", "")).strip())),
+            "読み方": "高スコアでも確認順を下げるべき候補がないか見ます。",
+        },
+    ]
+
+
+def _ranking_factor_leader_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    leaders: list[dict[str, str]] = []
+    for label, metric in [
+        ("総合スコア", "total_score"),
+        ("Screening", "screening_score"),
+        ("予測一致", "forecast_agreement_score"),
+        ("データ品質", "data_quality_score"),
+        ("Risk", "risk_signal_score"),
+    ]:
+        row = _best_ranking_row_by_metric(rows, metric)
+        if row is not None:
+            leaders.append(_ranking_factor_leader_row(label, row, row.get(metric, "")))
+
+    for label, metric, prefer_low in [
+        ("ROE", "roe_pct", False),
+        ("配当利回り", "dividend_yield_pct", False),
+        ("低PER", "per", True),
+        ("低PBR", "pbr", True),
+    ]:
+        row = _best_ranking_row_by_symbol_metric(rows, metric, prefer_low=prefer_low)
+        if row is not None:
+            symbol_row = _symbol_universe_row_for_symbol(row.get("symbol", ""))
+            if symbol_row is not None:
+                leaders.append(
+                    _ranking_factor_leader_row(
+                        label,
+                        row,
+                        symbol_universe_detail_display_value(symbol_row, metric),
+                    )
+                )
+    return leaders
+
+
+def _ranking_factor_leader_row(
+    label: str,
+    row: dict[str, str],
+    metric_value: object,
+) -> dict[str, str]:
+    symbol = row.get("symbol", "")
+    return {
+        "観点": label,
+        "銘柄": symbol,
+        "銘柄名": symbol_name(symbol) or "",
+        "順位": row.get("rank", ""),
+        "指標値": str(metric_value),
+        "確認観点": ranking_investment_note(row, _symbol_universe_rows_by_symbol()),
+    }
+
+
+def _ranking_group_checkpoints(
+    rows: list[dict[str, str]],
+    ranking_purpose: str,
+) -> list[dict[str, str]]:
+    return [
+        {
+            "area": "上位群",
+            "finding": f"{ranking_purpose}の条件で上位20件を比較対象として整理しています。",
+            "confirmation_point": "1位だけでなく、上位候補に共通する強みと弱点を確認します。",
+        },
+        {
+            "area": "分布",
+            "finding": (
+                f"平均予測一致は{_average_ranking_metric(rows, 'forecast_agreement_score')}、"
+                f"平均Riskは{_average_ranking_metric(rows, 'risk_signal_score')}です。"
+            ),
+            "confirmation_point": "スコアの高さが一部要素だけに偏っていないか確認します。",
+        },
+        {
+            "area": "ファクター",
+            "finding": "総合順位とは別に、Screening、予測一致、Risk、ROE、配当利回りの上位候補を抽出しています。",
+            "confirmation_point": "投資目的に近いファクターの候補から深掘り順を決めます。",
+        },
+        {
+            "area": "次の確認",
+            "finding": "ランキングは候補群の優先順位づけであり、個別判断はコックピットで確認します。",
+            "confirmation_point": "銘柄ごとの価格トレンド、決算材料、配当方針、リスクを確認してから判断します。",
+        },
+    ]
+
+
+def _ranking_metadata_coverage_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    fields = [
+        "metadata_source",
+        "metadata_as_of",
+        "nisa_category",
+        "investment_style",
+        "dividend_yield_pct",
+        "per",
+        "pbr",
+        "roe_pct",
+        "market_cap_tier",
+        "risk_band",
+    ]
+    return [
+        {
+            "項目": field,
+            "状態": "取得あり" if available_count == len(rows) else "一部未取得",
+            "内容": f"{available_count}/{len(rows)}件",
+        }
+        for field in fields
+        for available_count in [_ranking_metadata_available_count(rows, field)]
+    ]
+
+
+def _ranking_missing_metadata_fields(rows: list[dict[str, str]]) -> list[str]:
+    return [
+        row["項目"] for row in _ranking_metadata_coverage_rows(rows) if row["状態"] != "取得あり"
+    ]
+
+
+def _ranking_metadata_available_count(rows: list[dict[str, str]], field: str) -> int:
+    count = 0
+    for row in rows:
+        symbol_row = _symbol_universe_row_for_symbol(row.get("symbol", ""))
+        if symbol_row is not None and _symbol_detail_raw_value(symbol_row, field):
+            count += 1
+    return count
+
+
+def _best_ranking_row_by_metric(
+    rows: list[dict[str, str]],
+    metric: str,
+) -> dict[str, str] | None:
+    return _best_row_by_decimal(rows, lambda row: _decimal_from_text(row.get(metric)))
+
+
+def _best_ranking_row_by_symbol_metric(
+    rows: list[dict[str, str]],
+    metric: str,
+    *,
+    prefer_low: bool = False,
+) -> dict[str, str] | None:
+    return _best_row_by_decimal(
+        rows,
+        lambda row: _decimal_from_text(
+            (_symbol_universe_row_for_symbol(row.get("symbol", "")) or {}).get(metric)
+        ),
+        prefer_low=prefer_low,
+    )
+
+
+def _best_row_by_decimal(
+    rows: list[dict[str, str]],
+    value_getter: Callable[[dict[str, str]], Decimal | None],
+    *,
+    prefer_low: bool = False,
+) -> dict[str, str] | None:
+    best_row: dict[str, str] | None = None
+    best_value: Decimal | None = None
+    for row in rows:
+        value = value_getter(row)
+        if value is None:
+            continue
+        if best_value is None:
+            best_row = row
+            best_value = value
+            continue
+        if prefer_low and value < best_value:
+            best_row = row
+            best_value = value
+        elif not prefer_low and value > best_value:
+            best_row = row
+            best_value = value
+    return best_row
+
+
+def _average_ranking_metric(rows: list[dict[str, str]], metric: str) -> str:
+    values = [
+        value
+        for row in rows
+        for value in [_decimal_from_text(row.get(metric))]
+        if value is not None
+    ]
+    if not values:
+        return "未計算"
+    average = sum(values, Decimal("0")) / Decimal(len(values))
+    return _format_report_decimal(average)
+
+
+def _count_rows_at_least(rows: list[dict[str, str]], metric: str, threshold: Decimal) -> int:
+    return sum(
+        1
+        for row in rows
+        for value in [_decimal_from_text(row.get(metric))]
+        if value is not None and value >= threshold
+    )
+
+
+def _count_rows_below(rows: list[dict[str, str]], metric: str, threshold: Decimal) -> int:
+    return sum(
+        1
+        for row in rows
+        for value in [_decimal_from_text(row.get(metric))]
+        if value is not None and value < threshold
+    )
+
+
+def _format_report_decimal(value: Decimal | None) -> str:
+    if value is None:
+        return "未計算"
+    formatted = format(value.quantize(Decimal("0.01")).normalize(), "f")
+    return formatted.rstrip("0").rstrip(".") if "." in formatted else formatted
 
 
 def _ranking_report_row(

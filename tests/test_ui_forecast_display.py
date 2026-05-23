@@ -2690,10 +2690,20 @@ def test_ranking_decision_report_context_limits_rows_and_uses_top_symbol(monkeyp
     ranking_section = next(
         section for section in context.sections if section.title == "ランキング文脈"
     )
+    distribution_section = next(
+        section for section in context.sections if section.title == "ランキング分布"
+    )
+    factor_section = next(
+        section for section in context.sections if section.title == "ファクター別上位候補"
+    )
     assert ranking_section.summary["reported_rows"] == "20 / 25"
     assert ranking_section.rows[0]["symbol"] == "AAPL"
     assert "note" not in ranking_section.rows[0]
     assert ranking_section.rows[0]["review_point"].startswith("スコアとデータ品質")
+    assert distribution_section.summary["比較銘柄数"] == "25"
+    assert factor_section.rows[0]["観点"] == "総合スコア"
+    assert "銘柄メタデータ" not in [section.title for section in context.sections]
+    assert "スコア分解" not in [section.title for section in context.sections]
     assert "ランキング結果" in context.title
 
 

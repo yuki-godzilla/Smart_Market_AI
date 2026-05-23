@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-05-24: Reworked ranking Decision Reports to emphasize ranking-specific comparison value: distribution, factor leaders, and group-level checkpoints instead of top-symbol metadata / valuation / score sections.
 - 2026-05-24: Made the Decision Report UI more prominent by moving cockpit/ranking/rebalance report downloads out of a fully collapsed expander and keeping only the Markdown body preview collapsed.
 - 2026-05-23: Completed Phase 19 by adding the shared Decision Report export package helpers and wiring cockpit / ranking / rebalance report expanders to Markdown, JSON, manifest, and ZIP downloads.
 - 2026-05-23: Wired the Rebalance result screen into Phase 19 Decision Report with Markdown / JSON downloads and a preview covering current holdings, target allocation, allocation drift, proposed trades, Risk breaches, and confirmation checkpoints.

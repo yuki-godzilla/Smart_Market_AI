@@ -191,6 +191,8 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 確認できるもの:
 
 - provider / symbol / company name / period
+- cockpit period preset: `短期: 1週間`, `短期: 1か月`, `中期: 3か月`, `中期: 6か月`, `年初来`, `長期: 1年`, `長期: 3年`, `長期: 5年`, `カスタム`
+- default cockpit period is `長期: 1年`; preset選択時は Start / End を自動表示し、`カスタム` の時だけ手入力する
 - collapsed sample symbol reference
 - 価格・予測チャート
 - forecast agreement、forecast spread、best RMSE model

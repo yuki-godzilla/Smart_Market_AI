@@ -42,6 +42,7 @@ from ui.app import (
     investment_score_display_rows,
     investment_score_summary_lines,
     market_chart_long_frame,
+    market_data_period_dates,
     merged_symbol_candidate_rows,
     provider_error_summary_rows,
     ranking_comparison_summary,
@@ -122,6 +123,32 @@ def test_default_forecast_horizon_days_uses_chart_period():
     assert default_forecast_horizon_days(date(2026, 5, 1), date(2026, 5, 7)) == 1
     assert default_forecast_horizon_days(date(2026, 5, 1), date(2026, 5, 30)) == 3
     assert default_forecast_horizon_days(date(2026, 1, 1), date(2026, 12, 31)) == 30
+
+
+def test_market_data_period_dates_support_decision_review_presets():
+    end = date(2026, 5, 23)
+
+    assert market_data_period_dates("short_1w", end) == (date(2026, 5, 16), end)
+    assert market_data_period_dates("short_1m", end) == (date(2026, 4, 23), end)
+    assert market_data_period_dates("medium_3m", end) == (date(2026, 2, 23), end)
+    assert market_data_period_dates("medium_6m", end) == (date(2025, 11, 23), end)
+    assert market_data_period_dates("ytd", end) == (date(2026, 1, 1), end)
+    assert market_data_period_dates("long_1y", end) == (date(2025, 5, 23), end)
+    assert market_data_period_dates("long_3y", end) == (date(2023, 5, 23), end)
+    assert market_data_period_dates("long_5y", end) == (date(2021, 5, 23), end)
+
+
+def test_market_data_period_dates_clamp_month_end_and_leap_day():
+    assert market_data_period_dates("short_1m", date(2026, 3, 31))[0] == date(
+        2026,
+        2,
+        28,
+    )
+    assert market_data_period_dates("long_1y", date(2024, 2, 29))[0] == date(
+        2023,
+        2,
+        28,
+    )
 
 
 def test_market_data_provider_defaults_to_yahoo():
@@ -2443,6 +2470,8 @@ def test_ranking_decision_report_context_limits_rows_and_uses_top_symbol(monkeyp
     )
     assert ranking_section.summary["reported_rows"] == "20 / 25"
     assert ranking_section.rows[0]["symbol"] == "AAPL"
+    assert "note" not in ranking_section.rows[0]
+    assert ranking_section.rows[0]["review_point"].startswith("スコアとデータ品質")
     assert "ランキング結果" in context.title
 
 

@@ -162,6 +162,19 @@ __all__ = [
 MARKET_DATA_PROVIDER_OPTIONS = ["yahoo", "csv", "mock"]
 MARKET_DATA_PROVIDER_WIDGET_KEY = "market_data_provider_live_first"
 MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY = "market_data_ranking_provider_live_first"
+MARKET_DATA_PERIOD_CUSTOM = "custom"
+MARKET_DATA_PERIOD_PRESETS = {
+    "short_1w": "短期: 1週間",
+    "short_1m": "短期: 1か月",
+    "medium_3m": "中期: 3か月",
+    "medium_6m": "中期: 6か月",
+    "ytd": "年初来",
+    "long_1y": "長期: 1年",
+    "long_3y": "長期: 3年",
+    "long_5y": "長期: 5年",
+    MARKET_DATA_PERIOD_CUSTOM: "カスタム",
+}
+DEFAULT_MARKET_DATA_PERIOD_PRESET = "long_1y"
 
 FORECAST_ACTUAL_LABEL = "実績価格"
 MARKET_DATA_MODE_COCKPIT = "cockpit"
@@ -461,11 +474,55 @@ def main() -> None:
 
 
 def default_market_data_start_date() -> date:
-    return default_market_data_end_date() - timedelta(days=7)
+    start, _ = market_data_period_dates(
+        DEFAULT_MARKET_DATA_PERIOD_PRESET,
+        default_market_data_end_date(),
+    )
+    return start
 
 
 def default_market_data_end_date() -> date:
     return date.today()
+
+
+def market_data_period_dates(preset: str, end: date) -> tuple[date, date]:
+    if preset == "short_1w":
+        return end - timedelta(days=7), end
+    if preset == "short_1m":
+        return _shift_months(end, -1), end
+    if preset == "medium_3m":
+        return _shift_months(end, -3), end
+    if preset == "medium_6m":
+        return _shift_months(end, -6), end
+    if preset == "ytd":
+        return date(end.year, 1, 1), end
+    if preset == "long_3y":
+        return _shift_years(end, -3), end
+    if preset == "long_5y":
+        return _shift_years(end, -5), end
+    return _shift_years(end, -1), end
+
+
+def _shift_months(value: date, months: int) -> date:
+    month_index = value.year * 12 + value.month - 1 + months
+    year = month_index // 12
+    month = month_index % 12 + 1
+    day = min(value.day, _days_in_month(year, month))
+    return date(year, month, day)
+
+
+def _shift_years(value: date, years: int) -> date:
+    year = value.year + years
+    day = min(value.day, _days_in_month(year, value.month))
+    return date(year, value.month, day)
+
+
+def _days_in_month(year: int, month: int) -> int:
+    if month == 12:
+        next_month = date(year + 1, 1, 1)
+    else:
+        next_month = date(year, month + 1, 1)
+    return (next_month - timedelta(days=1)).day
 
 
 def default_forecast_horizon_days(start: date, end: date) -> int:
@@ -1531,19 +1588,51 @@ def _render_market_data_cockpit() -> None:
     with col_name:
         company_name = symbol_name(symbol) or _name_from_candidate(symbol_candidate) or "名称未登録"
         st.text_input("Name", value=company_name, disabled=True, key="market_data_symbol_name")
-    col_start, col_end, _ = st.columns([1.0, 1.0, 4.0])
+    col_period, col_start, col_end, _ = st.columns([1.2, 1.0, 1.0, 3.8])
+    with col_period:
+        period_preset = cast(
+            str,
+            st.selectbox(
+                "取得期間",
+                list(MARKET_DATA_PERIOD_PRESETS),
+                index=list(MARKET_DATA_PERIOD_PRESETS).index(DEFAULT_MARKET_DATA_PERIOD_PRESET),
+                format_func=lambda value: MARKET_DATA_PERIOD_PRESETS[value],
+                key="market_data_period_preset",
+            ),
+        )
+    default_end = default_market_data_end_date()
+    preset_start, preset_end = market_data_period_dates(period_preset, default_end)
+    is_custom_period = period_preset == MARKET_DATA_PERIOD_CUSTOM
     with col_start:
-        start = st.date_input(
-            "Start",
-            value=default_market_data_start_date(),
-            key="market_data_start",
-        )
+        if is_custom_period:
+            start = st.date_input(
+                "Start",
+                value=default_market_data_start_date(),
+                key="market_data_start",
+            )
+        else:
+            start = preset_start
+            st.text_input(
+                "Start",
+                value=preset_start.isoformat(),
+                disabled=True,
+                key="market_data_start_preview",
+            )
     with col_end:
-        end = st.date_input(
-            "End",
-            value=default_market_data_end_date(),
-            key="market_data_end",
-        )
+        if is_custom_period:
+            end = st.date_input(
+                "End",
+                value=default_end,
+                key="market_data_end",
+            )
+        else:
+            end = preset_end
+            st.text_input(
+                "End",
+                value=preset_end.isoformat(),
+                disabled=True,
+                key="market_data_end_preview",
+            )
 
     with st.expander("銘柄候補", expanded=False):
         st.dataframe(symbol_options, hide_index=True, use_container_width=True)
@@ -2662,7 +2751,13 @@ def build_ranking_decision_report_context(
                 "comparison": comparison_summary,
                 "reported_rows": f"{len(top_rows)} / {len(ranked_rows)}",
             },
-            rows=[_ranking_report_row(row) for row in top_rows],
+            rows=[
+                _ranking_report_row(
+                    row,
+                    _symbol_universe_row_for_symbol(row.get("symbol", "")),
+                )
+                for row in top_rows
+            ],
             notes=["ランキング行は深掘り候補の整理であり、売買推奨ではありません。"],
         ),
     ]
@@ -3030,7 +3125,10 @@ def _ranking_report_checkpoints(
     ]
 
 
-def _ranking_report_row(row: dict[str, str]) -> dict[str, str]:
+def _ranking_report_row(
+    row: dict[str, str],
+    symbol_row: dict[str, str] | None = None,
+) -> dict[str, str]:
     return {
         "rank": row.get("rank", ""),
         "symbol": row.get("symbol", ""),
@@ -3040,9 +3138,36 @@ def _ranking_report_row(row: dict[str, str]) -> dict[str, str]:
         "forecast_agreement_score": row.get("forecast_agreement_score", ""),
         "data_quality_score": row.get("data_quality_score", ""),
         "risk_signal_score": row.get("risk_signal_score", ""),
-        "note": row.get("note", ""),
+        "review_point": _ranking_report_review_point(row, symbol_row),
         "warnings": row.get("warnings", ""),
     }
+
+
+def _ranking_report_review_point(
+    row: dict[str, str],
+    symbol_row: dict[str, str] | None,
+) -> str:
+    warning = str(row.get("warnings", "")).strip()
+    if warning:
+        return f"注意点: {warning}。スコアの強さより先に警告内容を確認します。"
+    risk = _decimal_from_text(row.get("risk_signal_score"))
+    if risk is not None and risk < Decimal("50"):
+        return "Risk が低めです。値動き、下落耐性、ポジションサイズを先に確認します。"
+    quality = _decimal_from_text(row.get("data_quality_score"))
+    if quality is not None and quality < Decimal("80"):
+        return "データ品質に確認余地があります。取得期間や欠損項目を確認します。"
+    forecast = _decimal_from_text(row.get("forecast_agreement_score"))
+    if forecast is not None and forecast < Decimal("80"):
+        return "予測モデルの見方が割れています。チャートと予測詳細を確認します。"
+    if symbol_row is not None:
+        per = _decimal_from_text(symbol_row.get("per"))
+        pbr = _decimal_from_text(symbol_row.get("pbr"))
+        if (per is not None and per >= Decimal("40")) or (pbr is not None and pbr >= Decimal("10")):
+            return "バリュエーションが高めです。成長期待と決算材料の裏付けを確認します。"
+        dividend_yield = _decimal_from_text(symbol_row.get("dividend_yield_pct"))
+        if dividend_yield is not None and dividend_yield >= Decimal("3"):
+            return "インカム面が目立ちます。配当方針、減配リスク、業績安定性を確認します。"
+    return "スコアとデータ品質が比較的そろっています。価格トレンドと個別材料を確認します。"
 
 
 def cockpit_investment_memo_rows(

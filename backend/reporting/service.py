@@ -363,6 +363,7 @@ _DISPLAY_KEY_LABELS = {
     "comparison": "比較条件",
     "reported_rows": "出力行数",
     "note": "補足",
+    "review_point": "確認観点",
 }
 
 _DISPLAY_VALUE_LABELS = {

@@ -1,6 +1,6 @@
 import asyncio
 import sys
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
@@ -106,7 +106,7 @@ def test_app_date_defaults_use_current_date():
 
     assert default_as_of_date() == today
     assert default_market_data_end_date() == today
-    assert default_market_data_start_date() == today - timedelta(days=7)
+    assert default_market_data_start_date() == date(today.year - 1, today.month, today.day)
 
 
 def test_market_chart_frame_uses_date_index_and_numeric_columns():

@@ -21,6 +21,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 2026-05-23: Advanced Phase 19 report design by fixing the roadmap output policy around data confidence, symbol metadata, score/valuation/income/risk context, ranking/rebalance context, and decision checkpoints; added standard `backend/reporting` section builders for data confidence, symbol metadata, and decision checkpoints with targeted tests.
 - 2026-05-23: Added cockpit and ranking UI Decision Report expanders with Markdown / JSON downloads and Markdown preview, reusing Phase 19 report context sections.
 - 2026-05-23: Localized Decision Report Markdown output to Japanese-first labels, section titles, notes, table headers, and confirmation wording while keeping JSON schema keys stable.
+- 2026-05-23: Added cockpit period presets for short/mid/long/YTD/custom review windows and replaced repetitive ranking report row notes with per-symbol review points.
 
 - 2026-05-17: Started Phase 19 by adding `backend/reporting` Decision Report context v1, deterministic Markdown rendering, local export manifest metadata, and tests covering cockpit / ranking / rebalance context composition. / Phase 19 を開始し、`backend/reporting` に Decision Report context v1、deterministic Markdown rendering、local export manifest metadata、cockpit / ranking / rebalance context composition tests を追加した。
 

@@ -485,3 +485,8 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added `database_fit_score` and `metadata_confidence_score` to ranking reweighting. These use Phase 18 symbol metadata such as NISA, market-cap tier, dividend yield/category, PER/PBR/ROE, risk band, ETF expense ratio, complexity, metadata source, and metadata date.
 - Reorganized the ranking screen header into `比較対象` and `評価条件`, moving the sort condition beside period/provider controls.
 - Added visible `DB適合` and `DB信頼度` columns to ranking results and refreshed ranking notes to explain that the order is a decision-support review priority, not a buy/sell recommendation.
+
+## 2026-05-23 - Ranking CSV and sort control placement fix
+
+- Fixed ranking CSV download after metadata-aware sorting by adding `database_fit_score`, `metadata_confidence_score`, and `ranking_profile` to the stable Investment Score CSV field list.
+- Moved the ranking sort control beside the `ランキング作成` button so the sort profile is chosen at the point where the user runs or re-views the ranking result.

@@ -126,6 +126,7 @@ from ui.rebalance_app import (
     forecast_metric_csv_download,
     forecast_metric_json_download,
     forecast_reference_period,
+    investment_score_csv_download,
     screening_score_rows,
 )
 from ui.symbol_universe import symbol_universe_csv_rows
@@ -2761,6 +2762,32 @@ def test_ranking_database_scores_use_symbol_metadata():
 
     assert ranking_database_fit_score(high_dividend, "income") == Decimal("100")
     assert ranking_metadata_confidence_score(high_dividend) == Decimal("100")
+
+
+def test_investment_score_csv_download_accepts_ranking_metadata_scores():
+    csv_text = investment_score_csv_download(
+        [
+            {
+                "rank": "1",
+                "symbol": "9434.T",
+                "total_score": "82",
+                "score_band": "STRONG",
+                "screening_score": "75",
+                "forecast_agreement_score": "70",
+                "data_quality_score": "100",
+                "database_fit_score": "95",
+                "metadata_confidence_score": "100",
+                "risk_signal_score": "60",
+                "ranking_profile": "配当・インカム重視",
+                "warnings": "",
+                "note": "売買推奨ではなく、根拠確認の優先順です。",
+            }
+        ]
+    )
+
+    assert "database_fit_score" in csv_text
+    assert "metadata_confidence_score" in csv_text
+    assert "ranking_profile" in csv_text
 
 
 def test_screening_score_rows_include_forecast_signal():

@@ -2090,28 +2090,9 @@ def _render_market_data_ranking() -> None:
                 format_func=ranking_product_type_label,
             ),
         )
-    st.markdown("#### 評価条件")
-    col_purpose, col_period, col_provider = st.columns([1.2, 1.0, 1.0])
-    with col_purpose:
-        purpose_options = list(RANKING_PURPOSE_LABELS)
-        _ensure_selectbox_state_value("market_data_ranking_purpose", purpose_options)
-        ranking_purpose = cast(
-            str,
-            st.selectbox(
-                "並べ替え条件",
-                purpose_options,
-                index=_selectbox_index(
-                    purpose_options,
-                    _ranking_filter_value("market_data_ranking_purpose", "dividend"),
-                ),
-                key="market_data_ranking_purpose",
-                format_func=ranking_purpose_label,
-                help=(
-                    "取得後の表示順を決める評価軸です。銘柄DBのPER/PBR/ROE、配当、"
-                    "NISA、時価総額、ETFコスト、metadata信頼度も反映します。"
-                ),
-            ),
-        )
+    ranking_purpose = _ranking_filter_value("market_data_ranking_purpose", "dividend")
+    st.markdown("#### 取得条件")
+    col_period, col_provider = st.columns(2)
     with col_period:
         period_options = list(RANKING_PERIOD_PRESETS)
         _ensure_selectbox_state_value("market_data_ranking_period", period_options)
@@ -2140,7 +2121,7 @@ def _render_market_data_ranking() -> None:
             st.caption("Yahoo live data でランキングを作成します。")
     weight_preset = ranking_weight_preset_for_purpose(ranking_purpose)
     st.caption(
-        f"並べ替え条件: {ranking_purpose_label(ranking_purpose)} / "
+        f"現在の並べ替え条件: {ranking_purpose_label(ranking_purpose)} / "
         f"評価プロファイル: {ranking_weight_preset_label(weight_preset)}。"
         "銘柄DB適合度と取得期間の価格評価を合わせて並べ替えます。"
     )
@@ -2290,10 +2271,36 @@ def _render_market_data_ranking() -> None:
     if not labels:
         st.warning("この条件に合う候補がありません。候補条件を広げてください。")
 
-    if st.button(
-        "ランキング作成",
-        key="build_market_data_ranking",
-    ):
+    action_sort_col, action_button_col, _action_spacer = st.columns([1.4, 0.7, 2.4])
+    with action_sort_col:
+        purpose_options = list(RANKING_PURPOSE_LABELS)
+        _ensure_selectbox_state_value("market_data_ranking_purpose", purpose_options)
+        ranking_purpose = cast(
+            str,
+            st.selectbox(
+                "並べ替え条件",
+                purpose_options,
+                index=_selectbox_index(
+                    purpose_options,
+                    _ranking_filter_value("market_data_ranking_purpose", "dividend"),
+                ),
+                key="market_data_ranking_purpose",
+                format_func=ranking_purpose_label,
+                help=(
+                    "取得後の表示順を決める評価軸です。銘柄DBのPER/PBR/ROE、配当、"
+                    "NISA、時価総額、ETFコスト、metadata信頼度も反映します。"
+                ),
+            ),
+        )
+    weight_preset = ranking_weight_preset_for_purpose(ranking_purpose)
+    with action_button_col:
+        st.write("")
+        build_ranking_clicked = st.button(
+            "ランキング作成",
+            key="build_market_data_ranking",
+        )
+
+    if build_ranking_clicked:
         sync_ranking_selection_state(selection_key, selected_labels)
         if not ranking_symbols:
             st.error("Ranking symbols を1件以上選んでください。")

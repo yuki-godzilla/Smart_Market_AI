@@ -897,9 +897,9 @@ def test_investment_score_downloads_export_ranked_rows():
     assert '"symbol": "AAPL"' in investment_score_json_download(rows)
     assert investment_score_csv_download(rows) == (
         "rank,symbol,total_score,score_band,screening_score,forecast_agreement_score,"
-        "data_quality_score,risk_signal_score,forecast_agreement,data_quality,breakdown,"
-        "warnings,reasons,note\n"
-        "1,AAPL,73,BALANCED,80,40,100,,LOW,OK,screening: 80 x 0.5 = 40,"
+        "data_quality_score,database_fit_score,metadata_confidence_score,risk_signal_score,"
+        "ranking_profile,forecast_agreement,data_quality,breakdown,warnings,reasons,note\n"
+        "1,AAPL,73,BALANCED,80,40,100,,,,,LOW,OK,screening: 80 x 0.5 = 40,"
         "model_disagreement:high,\"forecast_agreement:low, model_disagreement:high\","
         "売買推奨ではなく、判断材料を整理したスコアです。\n"
     )

@@ -191,7 +191,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 確認できるもの:
 
 - provider / symbol / company name / period
-- collapsible `銘柄候補フィルター` narrows the symbol select list by preference: region, product, NISA, market cap, theme/sector, beta band, dividend/category, currency, PER/PBR/ROE/dividend yield ranges
+- collapsible `銘柄候補フィルター` narrows the Symbol select list by preference: region, product, NISA, market cap, theme/sector, beta band, dividend/category, currency, PER/PBR/ROE/dividend yield ranges. The separate candidate-list expander is intentionally omitted; the filtered count and Symbol select are the source of truth.
 - cockpit period preset: `カスタム`, `短期: 1週間`, `短期: 1か月`, `中期: 3か月`, `中期: 6か月`, `年初来`, `長期: 1年`, `長期: 3年`, `長期: 5年`
 - default cockpit period is `カスタム`; preset選択時は Start / End を自動表示し、`カスタム` の時だけ手入力する
 - period preset help explains the intended review basis: short-term material reaction, medium-term trend, long-term drawdown resilience / structural change, and custom event windows

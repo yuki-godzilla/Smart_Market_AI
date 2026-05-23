@@ -2001,13 +2001,13 @@ def _render_market_data_cockpit() -> None:
                 key="market_data_end_preview",
             )
 
-    with st.expander(f"銘柄候補（{len(filtered_symbol_options)}件）", expanded=False):
-        if filtered_symbol_options:
-            st.dataframe(filtered_symbol_options, hide_index=True, use_container_width=True)
-        else:
-            st.info("条件に合う銘柄候補はありません。上のフィルター条件を調整してください。")
-
-    if st.button("Fetch market data", key="fetch_market_data", disabled=not symbol):
+    if st.button(
+        "選択銘柄の市場データを取得",
+        key="fetch_market_data",
+        disabled=not symbol,
+        type="primary",
+        help="選択した銘柄と取得期間で、価格・予測・Investment Scoreを再計算します。",
+    ):
         try:
             start_date = _single_date_from_input(start)
             end_date = _single_date_from_input(end)

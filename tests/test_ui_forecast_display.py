@@ -32,6 +32,7 @@ from ui.app import (
     build_ranking_decision_report_context,
     cockpit_detail_summary_rows,
     cockpit_investment_memo_rows,
+    cockpit_period_evaluation_rows,
     decision_report_json_download,
     decision_report_markdown_download,
     default_forecast_horizon_days,
@@ -2379,6 +2380,22 @@ def test_cockpit_detail_summary_rows_lift_key_closed_details():
     assert "2本" in rows[1]["内容"]
     assert "9.5%" in rows[2]["内容"]
     assert rows[3]["確認ポイント"] == "モメンタムと流動性が確認できます。"
+
+
+def test_cockpit_period_evaluation_rows_change_by_period_length():
+    short_rows = cockpit_period_evaluation_rows(
+        [_bar("2026-05-01", close=100), _bar("2026-05-08", close=108)]
+    )
+    long_rows = cockpit_period_evaluation_rows(
+        [_bar("2023-05-01", close=100), _bar("2026-05-01", close=130)]
+    )
+
+    assert short_rows[0]["見方"] == "7日間 / 短期反応の確認"
+    assert "ノイズ" in short_rows[0]["確認ポイント"]
+    assert short_rows[1]["見方"] == "+8.0% / 上昇優位"
+    assert short_rows[2]["見方"] == "期間レンジ内 100.0% / 高値圏"
+    assert long_rows[0]["見方"] == "1096日間 / 長期耐性の確認"
+    assert "複数決算期" in long_rows[0]["確認ポイント"]
 
 
 def test_cockpit_investment_memo_rows_combines_score_master_and_price(monkeypatch):

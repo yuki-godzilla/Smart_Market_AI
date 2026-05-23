@@ -2620,6 +2620,11 @@ def _render_investment_score_section(preview: MarketDataPreview, symbol_label: s
         st.info("大きな注意点はありません。スコアの内訳も確認してください。")
     for line in investment_score_summary_lines(row):
         st.caption(line)
+    period_rows = cockpit_period_evaluation_rows(preview.bars)
+    if period_rows:
+        st.subheader("期間別評価")
+        st.caption("取得した期間の長さに合わせて、この銘柄の値動きの見方を整理しています。")
+        _render_symbol_detail_table(period_rows)
     memo_rows = cockpit_investment_memo_rows(preview, row)
     if memo_rows:
         st.subheader("投資判断メモ")
@@ -2743,6 +2748,150 @@ def cockpit_detail_summary_rows(
             }
         )
     return rows
+
+
+def cockpit_period_evaluation_rows(bars: list[Bar]) -> list[dict[str, str]]:
+    closes = [bar.close for bar in bars if bar.close > 0]
+    if len(closes) < 2 or not bars:
+        return [
+            {
+                "評価軸": "期間評価",
+                "見方": "終値データが不足しています。",
+                "確認ポイント": "期間を広げるか、別providerで再取得してから評価します。",
+            }
+        ]
+
+    sorted_bars = sorted(bars, key=lambda row: row.ts)
+    first = sorted_bars[0]
+    last = sorted_bars[-1]
+    period_days = max((last.ts.date() - first.ts.date()).days, 1)
+    first_close = closes[0]
+    latest_close = closes[-1]
+    change_pct = ((latest_close - first_close) / first_close * Decimal("100")).quantize(
+        Decimal("0.1")
+    )
+    high = max(closes)
+    low = min(closes)
+    range_position_pct = _range_position_pct(latest_close, low, high)
+    max_drawdown_pct = _max_drawdown_pct(closes)
+    one_day_moves = [
+        abs((closes[index] - closes[index - 1]) / closes[index - 1] * Decimal("100"))
+        for index in range(1, len(closes))
+        if closes[index - 1] > 0
+    ]
+    avg_abs_move_pct = (
+        (sum(one_day_moves, Decimal("0")) / Decimal(len(one_day_moves))).quantize(Decimal("0.1"))
+        if one_day_moves
+        else Decimal("0")
+    )
+    horizon_label, horizon_check = _cockpit_period_horizon(period_days)
+    position_label = _range_position_label(range_position_pct)
+    momentum_label = _period_momentum_label(change_pct)
+    drawdown_label = _drawdown_label(max_drawdown_pct)
+    volatility_label = _volatility_label(avg_abs_move_pct)
+
+    return [
+        {
+            "評価軸": "取得期間",
+            "見方": f"{period_days}日間 / {horizon_label}",
+            "確認ポイント": horizon_check,
+        },
+        {
+            "評価軸": "期間リターン",
+            "見方": f"{change_pct:+}% / {momentum_label}",
+            "確認ポイント": "上昇率だけでなく、直近が高値圏か下落後の反発かを分けて見ます。",
+        },
+        {
+            "評価軸": "終値の位置",
+            "見方": f"期間レンジ内 {range_position_pct}% / {position_label}",
+            "確認ポイント": "高値圏では追随リスク、安値圏では反転材料と下落継続リスクを確認します。",
+        },
+        {
+            "評価軸": "下落耐性",
+            "見方": f"最大下落 {max_drawdown_pct}% / {drawdown_label}",
+            "確認ポイント": "想定保有期間で許容できる下落幅かを確認します。",
+        },
+        {
+            "評価軸": "値動きの荒さ",
+            "見方": f"平均日次変動 {avg_abs_move_pct}% / {volatility_label}",
+            "確認ポイント": "短期で振れやすい銘柄は、ポジションサイズと確認頻度を控えめにします。",
+        },
+    ]
+
+
+def _range_position_pct(latest_close: Decimal, low: Decimal, high: Decimal) -> Decimal:
+    if high == low:
+        return Decimal("50.0")
+    return ((latest_close - low) / (high - low) * Decimal("100")).quantize(Decimal("0.1"))
+
+
+def _max_drawdown_pct(closes: list[Decimal]) -> Decimal:
+    peak = closes[0]
+    max_drawdown = Decimal("0")
+    for close in closes:
+        peak = max(peak, close)
+        if peak > 0:
+            drawdown = (close - peak) / peak * Decimal("100")
+            max_drawdown = min(max_drawdown, drawdown)
+    return max_drawdown.quantize(Decimal("0.1"))
+
+
+def _cockpit_period_horizon(period_days: int) -> tuple[str, str]:
+    if period_days <= 31:
+        return (
+            "短期反応の確認",
+            "決算、ニュース、需給の反応を見ます。ノイズが大きいため単独判断に使いません。",
+        )
+    if period_days <= 183:
+        return (
+            "中期トレンドの確認",
+            "材料が一過性か、数か月のトレンドとして続いているかを確認します。",
+        )
+    if period_days <= 730:
+        return (
+            "年次トレンドの確認",
+            "業績期待、相場循環、下落耐性をまとめて確認する基準期間です。",
+        )
+    return (
+        "長期耐性の確認",
+        "複数決算期をまたいだ成長持続性、最大下落、回復力を確認します。",
+    )
+
+
+def _period_momentum_label(change_pct: Decimal) -> str:
+    if change_pct >= Decimal("20"):
+        return "強い上昇"
+    if change_pct >= Decimal("5"):
+        return "上昇優位"
+    if change_pct <= Decimal("-20"):
+        return "大きく下落"
+    if change_pct <= Decimal("-5"):
+        return "下落優位"
+    return "横ばい"
+
+
+def _range_position_label(range_position_pct: Decimal) -> str:
+    if range_position_pct >= Decimal("80"):
+        return "高値圏"
+    if range_position_pct <= Decimal("20"):
+        return "安値圏"
+    return "中間圏"
+
+
+def _drawdown_label(max_drawdown_pct: Decimal) -> str:
+    if max_drawdown_pct <= Decimal("-30"):
+        return "下落耐性は要確認"
+    if max_drawdown_pct <= Decimal("-15"):
+        return "下落幅はやや大きい"
+    return "下落幅は限定的"
+
+
+def _volatility_label(avg_abs_move_pct: Decimal) -> str:
+    if avg_abs_move_pct >= Decimal("4"):
+        return "値動きは大きめ"
+    if avg_abs_move_pct >= Decimal("2"):
+        return "値動きは中程度"
+    return "値動きは比較的落ち着いています"
 
 
 def investment_score_summary_lines(row: dict[str, str]) -> list[str]:

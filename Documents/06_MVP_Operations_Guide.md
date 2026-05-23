@@ -200,6 +200,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - Investment Score summary
 - score breakdown chart
 - post-fetch confirmation summary lifts key closed-detail items into the main view: latest price, OHLCV period/volume, forecast range, screening components, short-term features, data quality, and forecast evaluation
+- period-aware evaluation summarizes the fetched window as short-term reaction, medium-term trend, annual trend, or long-term resilience, with return, range position, drawdown, and volatility checks
 - warnings / reasons
 - Forecast metrics / Screening Score / provider detail
 - JSON / CSV downloads

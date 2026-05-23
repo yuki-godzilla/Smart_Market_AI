@@ -114,7 +114,6 @@ from ui.rebalance_app import (
     screening_score_csv_download,
     screening_score_json_download,
     symbol_name,
-    symbol_reference_rows,
     yfinance_search_symbol_rows,
 )
 from ui.state import (
@@ -1885,7 +1884,7 @@ def _render_market_data_preview() -> None:
 def _render_market_data_cockpit() -> None:
     st.subheader("銘柄コックピット")
     st.caption("1銘柄の価格、予測、Investment Score、注意点を確認します。")
-    symbol_options = symbol_reference_rows()
+    symbol_options = symbol_universe_rows()
     filtered_symbol_options = _render_cockpit_symbol_filter_panel(symbol_options)
     col_provider, col_search, col_symbol, col_detail, col_name = st.columns(
         [1.0, 1.35, 1.75, 0.95, 1.35]

@@ -44,7 +44,9 @@ REBALANCE_REQUEST_STATE_KEY = "rebalance_request"
 
 def render_rebalance_page() -> None:
     st.subheader("Rebalance Cockpit")
-    st.caption("現在の保有、目標配分、必要な売買、Risk 判定を確認します。売買送信は行いません。")
+    st.caption(
+        "現在の保有、目標配分、配分見直し候補、Risk 判定を確認します。売買送信は行いません。"
+    )
 
     try:
         sample_names = rebalance_sample_names()
@@ -163,18 +165,18 @@ def _render_result(result: PortfolioRiskResult, request: RebalanceCheckRequest) 
     col_total, col_cash, col_trades, col_status = st.columns(4)
     col_total.metric("現在資産", f"{summary['total_value_jpy']} JPY")
     col_cash.metric("現金", f"{summary['cash_jpy']} JPY")
-    col_trades.metric("必要な売買", summary["trade_count"])
+    col_trades.metric("見直し候補", summary["trade_count"])
     col_status.metric("Risk 判定", status)
     _render_rebalance_flow(summary)
 
     if status == "ALLOW":
         st.success("Risk 判定: ALLOW。今回の条件では大きな制約違反はありません。")
     elif status == "REVIEW":
-        st.warning("Risk 判定: REVIEW。売買案の前提と制約を確認してください。")
+        st.warning("Risk 判定: REVIEW。配分見直し候補の前提と制約を確認してください。")
     elif status == "BLOCK":
         st.error("Risk 判定: BLOCK。主な理由を確認し、目標配分や制約を見直してください。")
     else:
-        st.info("売買案がないため、Risk 判定は行われていません。")
+        st.info("配分見直し候補がないため、Risk 判定は行われていません。")
 
     _render_rebalance_decision_report(result, request)
 
@@ -199,8 +201,8 @@ def _render_result(result: PortfolioRiskResult, request: RebalanceCheckRequest) 
         "No allocation comparison is available.",
     )
 
-    st.subheader("Proposed Trades")
-    _render_table(trade_rows, "No rebalance trades were proposed.")
+    st.subheader("Rebalance Review Candidates")
+    _render_table(trade_rows, "No rebalance review candidates were generated.")
 
     if breach_rows:
         st.subheader("Risk Breaches")
@@ -270,7 +272,7 @@ def _render_result(result: PortfolioRiskResult, request: RebalanceCheckRequest) 
             mime="text/csv",
         )
         st.download_button(
-            "Download proposed trades CSV",
+            "Download review candidates CSV",
             data=table_csv_download(
                 trade_rows,
                 fieldnames=["symbol", "side", "qty", "price_hint", "currency"],
@@ -294,7 +296,7 @@ def _render_rebalance_decision_report(
     markdown = rebalance_decision_report_markdown_download(context)
     st.markdown("### 投資判断レポート")
     st.info(
-        "現在保有、目標配分、売買案、Risk判定、確認ポイントを投資判断レポートとして整理しました。"
+        "現在保有、目標配分、配分見直し候補、Risk判定、確認ポイントを投資判断レポートとして整理しました。"
         "売買推奨ではありません。"
     )
     col_markdown, col_json, col_manifest, col_zip = st.columns(4)
@@ -338,7 +340,7 @@ def rebalance_flow_rows(summary: dict[str, str]) -> list[dict[str, str]]:
     return [
         {"step": "現在", "value": f"{summary.get('total_value_jpy', '')} JPY"},
         {"step": "目標", "value": "target allocations"},
-        {"step": "売買案", "value": f"{summary.get('trade_count', '0')} trades"},
+        {"step": "見直し候補", "value": f"{summary.get('trade_count', '0')} candidates"},
         {"step": "Risk", "value": summary.get("risk_status", "")},
     ]
 

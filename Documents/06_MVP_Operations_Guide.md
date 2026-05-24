@@ -63,7 +63,7 @@ http://127.0.0.1:8000/openapi.json
 | --- | --- |
 | `GET /health` | API 起動確認 |
 | `POST /risk/pre-trade-check` | trade intent を deterministic risk rule で評価 |
-| `POST /portfolio/rebalance-check` | 現在 portfolio と target allocation から売買案を作り Risk check へ接続 |
+| `POST /portfolio/rebalance-check` | 現在 portfolio と target allocation から配分見直し候補を作り Risk check へ接続 |
 | `POST /screening/score` | Feature Snapshot から Screening Score / ranking / reason を返す |
 | `POST /forecast/evaluate` | OHLCV から baseline forecast と walk-forward metrics を返す |
 | `POST /scoring/investment-score` | Screening / Forecast agreement / Data quality / Risk signal を統合した Investment Score を返す |
@@ -183,7 +183,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 | --- | --- |
 | `銘柄コックピット` | 1 銘柄の価格、予測、Investment Score、注意点を深掘りする |
 | `銘柄ランキング` | 複数銘柄を条件で絞り、Investment Score で比較する |
-| `リバランス` | 現在資産、目標配分、必要な売買、Risk 判定を確認する |
+| `リバランス` | 現在資産、目標配分、配分見直し候補、Risk 判定を確認する |
 | `設定 / データ情報` | Runtime、config、scenario directory、銘柄候補を確認する |
 
 ### 銘柄コックピット
@@ -462,7 +462,7 @@ Phase 16 ranking implementation notes:
 - Ranking remains decision support only. Click a ranking row to open the shared `銘柄データ` modal with short ranking context plus local master details. Use the cockpit for detailed price / forecast / score-reason review.
 - In `銘柄コックピット`, `銘柄データを見る` sits beside symbol selection and opens the same local-master modal for the selected symbol. Start / End inputs wrap to the next row. After fetch, the cockpit shows `投資判断メモ` combining score, warnings, valuation, income, price trend, and next-check wording.
 - In `銘柄コックピット` and `銘柄ランキング`, the result area shows a prominent `Decision Report` block with Markdown / JSON / manifest / ZIP downloads. Cockpit reports focus on the selected symbol, while ranking reports focus on comparison context, score distribution, factor leaders, and group-level deep-dive checkpoints instead of turning into a single top-symbol report. The Markdown body remains inside `レポート本文を表示`. It is decision-support material, not a buy/sell recommendation.
-- In `リバランス`, the result area shows a prominent `投資判断レポート` block with Markdown / JSON / manifest / ZIP downloads. The report organizes current holdings, target allocation, allocation drift, proposed trades, Risk breaches, and confirmation checkpoints. The Markdown body remains inside `レポート本文を表示`. It is a review aid, not an order instruction.
+- In `リバランス`, the result area shows a prominent `投資判断レポート` block with Markdown / JSON / manifest / ZIP downloads. The report organizes current holdings, target allocation, allocation drift, rebalance review candidates, Risk breaches, and confirmation checkpoints. The Markdown body remains inside `レポート本文を表示`. It is a review aid, not an order instruction.
 - UI リッチな PDF report / Excel report は将来の Advanced Export 範囲です。現行の Decision Report export は Markdown / JSON / manifest / ZIP を正とします。
 
 Phase 16 final UI smoke checklist:
@@ -482,7 +482,7 @@ Rebalance は `Rebalance Cockpit` として、次の順に確認します。
 
 1. 現在資産
 2. 目標配分
-3. 必要な売買
+3. 配分見直し候補
 4. Risk 判定
 
 確認できるもの:
@@ -493,10 +493,10 @@ Rebalance は `Rebalance Cockpit` として、次の順に確認します。
 - current positions
 - target allocations
 - allocation comparison chart
-- proposed trades
+- rebalance review candidates
 - risk decision
 - beginner-friendly risk breach confirmation points
-- `投資判断レポート` Markdown / JSON / manifest / ZIP download for current holdings, targets, drift, trades, Risk breaches, and confirmation checkpoints
+- `投資判断レポート` Markdown / JSON / manifest / ZIP download for current holdings, targets, drift, rebalance review candidates, Risk breaches, and confirmation checkpoints
 - JSON / CSV / Markdown / ZIP export
 
 ## 7. 外部 MarketData provider

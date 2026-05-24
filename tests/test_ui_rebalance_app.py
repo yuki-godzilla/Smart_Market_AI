@@ -182,7 +182,7 @@ def test_load_rebalance_samples_from_json_files():
 
     assert list(samples) == ["Default rebalance", "No trades"]
     assert samples["Default rebalance"].cash_jpy == Decimal("29000")
-    assert samples["Default rebalance"].description.startswith("AAPL の買い提案")
+    assert samples["Default rebalance"].description.startswith("AAPL の配分見直し候補")
     assert samples["No trades"].cash_jpy == Decimal("0")
 
 
@@ -1116,7 +1116,7 @@ def test_rebalance_cockpit_helpers_translate_flow_and_risk_breaches():
     assert rebalance_flow_rows(summary) == [
         {"step": "現在", "value": "58076 JPY"},
         {"step": "目標", "value": "target allocations"},
-        {"step": "売買案", "value": "2 trades"},
+        {"step": "見直し候補", "value": "2 candidates"},
         {"step": "Risk", "value": "BLOCK"},
     ]
     assert risk_breach_message("R5:min_dividend_yield:AAPL") == (
@@ -1180,7 +1180,7 @@ def test_build_rebalance_decision_report_context_uses_phase19_schema():
         "現在保有",
         "目標配分",
         "配分差分",
-        "売買案",
+        "配分見直し候補",
         "Risk 制約違反",
         "確認ポイント",
     ]
@@ -1250,7 +1250,7 @@ def test_result_markdown_report_download_summarizes_result():
     assert "| symbol | currency | target_weight |" in payload
     assert "## Allocation Comparison" in payload
     assert "| symbol | current_weight | target_weight | drift |" in payload
-    assert "## Proposed Trades" in payload
+    assert "## Rebalance Review Candidates" in payload
     assert "| AAPL (Apple Inc.) | BUY |" in payload
     assert "- R5:min_dividend_yield:AAPL" in payload
 

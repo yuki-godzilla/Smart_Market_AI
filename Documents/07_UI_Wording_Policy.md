@@ -2,6 +2,50 @@
 
 #### [BACK TO README](../README.md)
 
+## Investment-Support Wording Guardrails / 2026-05-24
+
+Smart Market AI の UI、レポート、説明文では、売買を指示する表現を避け、判断補助・確認候補・比較材料として表現します。
+
+Avoid:
+
+- `Buy`
+- `Sell`
+- `Strong Buy`
+- `今すぐ購入`
+- `売却推奨`
+- `買うべき`
+- `売るべき`
+- `この銘柄がおすすめ`
+- `安全な銘柄`
+- `必ず上がる`
+
+Prefer:
+
+- `Candidate`
+- `Watch`
+- `Review`
+- `Attractive`
+- `Caution`
+- `Further review`
+- `確認候補`
+- `比較候補`
+- `深掘り候補`
+- `注意して確認`
+- `判断材料`
+- `配分見直し候補`
+- `review candidate`
+
+Area-specific wording:
+
+- Ranking は「おすすめ」ではなく、「候補探索」「比較」「screening」「深掘り候補の整理」として表現する。
+- Investment Score は「売買判断」ではなく、「複数観点を統合した比較・分析用スコア」として表現する。
+- Database Fit / Metadata Confidence / Data Quality は「投資魅力度」ではなく、「評価に使えるデータの充実度・信頼度」として表現する。
+- Rebalance は「売買」ではなく、「配分見直し」「simulation」「review candidate」として表現する。
+- Decision Report は「投資推奨書」ではなく、「ある時点の判断材料、根拠、不確実性、確認ポイントの保存・説明」として表現する。
+- Research Evidence は「根拠」だが、確定情報や保証ではない。資料名、日付、source type、抜粋、信頼度、根拠不足 warning をできるだけ近くに表示する。
+- Forecast は「将来の保証」ではなく、「baseline model による参考予測、不確実性、モデル間の見方」として表現する。
+- Risk は「安全/危険の絶対判定」ではなく、「価格変動、制約違反、確認ポイント」として表現する。
+
 ## Current UI Wording Addendum / 2026-05-23
 
 - Ranking tables should keep the supplemental note to a short sentence. Detailed decision-support wording belongs in the shared `銘柄データ` modal.

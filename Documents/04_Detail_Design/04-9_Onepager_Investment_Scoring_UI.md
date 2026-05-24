@@ -2,6 +2,23 @@
 
 #### [BACK TO DETAIL DESIGN README](./04_Detail_Design_README.md)
 
+## 0) Maturity Review Note / 2026-05-24
+
+Investment Score UI は売買判断そのものではなく、複数観点を統合した比較・分析用スコアとして扱います。
+
+Score hierarchy:
+
+- `Investment Score`: Screening、Forecast agreement、Risk signal、Data Quality などを統合した比較・分析用スコア。
+- `Screening Score`: Feature Snapshot 由来の候補評価。Investment Score の構成要素のひとつ。
+- `Forecast agreement`: baseline forecast model 間の見方の近さ。将来価格の保証ではない。
+- `Risk signal`: 価格変動や制約違反の確認材料。安全保証ではない。
+- `Data Quality`: 評価に使った market data / feature の充実度。
+- `Database Fit`: 選択した ranking profile に対して、local symbol master の登録情報がどの程度使えるかを示す補助指標。
+- `Metadata Confidence`: metadata source、freshness、coverage に基づく補助指標。投資魅力度ではない。
+- `Research Evidence`: 資料根拠の補足レイヤー。Phase 20 local evidence slice では score の絶対的な正しさを保証しない。
+
+仕様や文言に迷う場合は、実装修正前に [../96_Manual_UX_Review_Checklist.md](../96_Manual_UX_Review_Checklist.md) と [../97_Functional_Spec_Issues.md](../97_Functional_Spec_Issues.md) を確認します。
+
 ## 1) Purpose & Scope
 
 この文書は、現在実装済みの Investment Score と、Phase 16 で実装済みの Streamlit scoring UI を整理する Onepager です。

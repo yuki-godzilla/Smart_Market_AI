@@ -13,6 +13,16 @@ Phase 16 UI is implementation-complete at the code level. The current Streamlit 
 
 Remaining confirmation is browser-level smoke, not a known implementation blocker: ranking cache/progress, ranking row modal, cockpit symbol-detail button, cockpit investment memo, and Rebalance wording.
 
+## Maturity Review Addendum / 2026-05-24
+
+Phase 16 polish の次の焦点は、新機能追加ではなく、既存UIの分かりにくさ、仕様の曖昧さ、投資助言に見えすぎる表現の棚卸しです。
+
+- 手動確認は [96_Manual_UX_Review_Checklist.md](./96_Manual_UX_Review_Checklist.md) を使い、Symbol Cockpit、Ranking、Rebalance Cockpit、Decision Report、Research Summary / Evidence、Forecast、Risk、Market Data freshness、score explanation を横断して確認する。
+- 仕様上の曖昧さは [97_Functional_Spec_Issues.md](./97_Functional_Spec_Issues.md) に記録し、実装修正前に期待方向を整理する。
+- Ranking は候補探索、Symbol Cockpit は1銘柄の深掘り、Rebalance Cockpit は配分見直しシミュレーション、Decision Report は判断材料の保存・説明として扱う。
+- Investment Score、Database Fit、Metadata Confidence、Research Evidence は役割が異なるため、画面やレポートで混同されないかを優先レビューする。
+- Execution / Broker integration、Assistant、Research external adapters、distribution readiness は、仕様・UXレビューが進むまで future scope とする。
+
 ## 目的
 
 Phase 16 では、Smart Market AI を「表を読む分析ツール」から、個人投資家が候補を探し、理由を理解し、次に確認する観点を整理できる UI に近づける。

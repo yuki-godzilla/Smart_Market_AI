@@ -2,6 +2,22 @@
 
 #### [BACK TO README](../README.md)
 
+## Functional Role Clarification / 機能役割の整理
+
+Smart Market AI は投資判断補助ツールであり、売買を指示するアプリではありません。主要機能の役割は以下のように分けます。
+
+| Function | Primary Role | Not Intended To Be |
+| --- | --- | --- |
+| Ranking | 候補探索・スクリーニングのための画面。複数銘柄を条件で絞り、比較対象を見つける入口。 | 上位銘柄の購入推奨、売買判断の確定 |
+| Symbol Cockpit | 1銘柄を深掘りし、価格、特徴量、Forecast、Risk、Investment Score、Research Evidence を確認する画面。 | 単独で売買判断を完結させる画面 |
+| Rebalance Cockpit | 保有資産と目標配分の差分を確認し、配分見直しを支援するシミュレーション画面。 | 実際の売買指示、注文執行 |
+| Decision Report | ある時点の判断材料、スコア、根拠、不確実性、確認ポイントを保存・説明するレポート。 | 投資推奨書、注文指示書 |
+| Research Summary / Research Evidence | 価格データだけでは見えない補足情報を提示する根拠レイヤー。資料名、日付、抜粋、根拠数、信頼度を確認する。 | スコアの絶対的な正しさや将来成果の保証 |
+| Investment Score | Screening、Forecast、Risk、Data Quality など複数観点を統合した比較・分析用スコア。 | Buy / Sell の直接判断 |
+| Data Quality / Database Fit / Metadata Confidence | 評価に使えるデータの充実度・信頼度を示す補助指標。 | 投資魅力度そのもの |
+
+この役割整理に反する表示、導線、文言が見つかった場合は、実装修正の前に [96_Manual_UX_Review_Checklist.md](./96_Manual_UX_Review_Checklist.md) と [97_Functional_Spec_Issues.md](./97_Functional_Spec_Issues.md) に記録します。
+
 ## 実装状態との同期メモ（2026-05-18）
 
 現在の機能実装は次の状態です。

@@ -5,13 +5,15 @@
 This file is the compact current-state summary for Smart Market AI.
 Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_Log.md).
 
-Last updated: 2026-05-23
+Last updated: 2026-05-24
 
 ## Project Summary
 
 Smart Market AI is a Python-based investment support project that combines market-data ingestion, feature generation, screening, deterministic baseline forecasting, model-informed Investment Score, portfolio/risk checks, Streamlit UI, and planned Research RAG.
 
 The product direction is to help users compare symbols, inspect provider-backed data, review model signals, understand warnings, and make better-informed investment decisions without turning the app into automated trading.
+
+Current focus is project maturity improvement rather than feature expansion. Functional spec issues and a manual UX review checklist have been introduced so confusing behavior, unclear role boundaries, and investment-advice-like wording can be reviewed before more advanced features are added.
 
 Routine development must keep deterministic `mock` / `csv` behavior available while allowing explicit opt-in use of live providers such as Yahoo/yfinance.
 The configured default provider remains `mock` for local checks and APIs; the Streamlit Market Data provider selector is live-first with `yahoo` as the first/default option and explicit per-fetch opt-in.
@@ -98,6 +100,8 @@ Partial or intentionally deferred:
 - Phase 20 Research RAG has started with a local evidence slice: `backend/research` local UTF-8 document ingestion, hash dedupe, chunking, keyword evidence search, deterministic Research Summary, data-quality warnings, Settings session-local document upload/registration, explicit cockpit `AIデータ取得` Research Summary display, ranking row-click `銘柄データ` modal `AI Research` tab with `AIで資料を確認`, and Cockpit Decision Report Research Evidence section when documents/evidence exist. Price-data fetch does not automatically run Research RAG. Next connection point is ranking evidence-status display; keep Research Score and Investment Score / ranking integration for Phase 21.
 - Phase 20 seed data includes `data/research_docs/7203_T_yfinance_profile_20260523.md`, fetched from Yahoo Finance via yfinance as a real provider-profile snapshot for local RAG confirmation. Treat it as provider evidence, not an audited filing.
 - Long-term Research RAG storage direction: after external source adapters are stable, `data/research_docs/` should be demoted from the primary manual upload path to cache / audit archive / offline fixture storage. Manual upload remains a fallback for private notes or non-public documents.
+- Project maturity docs are now part of the working baseline: [Documents/96_Manual_UX_Review_Checklist.md](Documents/96_Manual_UX_Review_Checklist.md) tracks manual UX review scenarios, and [Documents/97_Functional_Spec_Issues.md](Documents/97_Functional_Spec_Issues.md) tracks specification ambiguity around Ranking, Cockpit, Rebalance, Decision Report, Research Evidence, Forecast, Risk, and score/confidence hierarchy.
+- Next focus is to review confusing behavior and wording before implementing more advanced features. Research RAG external adapters, Assistant, distribution readiness, and Execution/Broker integration remain planned or future scope unless explicitly assigned.
 - Keep provider selection explicit and error messages understandable in UI.
 
 ## Known Documentation Rules

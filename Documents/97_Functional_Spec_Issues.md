@@ -1,0 +1,42 @@
+# 97_Functional_Spec_Issues
+
+#### [BACK TO README](../README.md)
+
+## Purpose
+
+Smart Market AI の「実装バグではないが、仕様意図が曖昧・重複・誤解されやすい」点を管理する台帳です。
+
+実装修正に入る前に、ここで期待方向を整理し、必要に応じて [96_Manual_UX_Review_Checklist.md](./96_Manual_UX_Review_Checklist.md)、[03_Functional_design.md](./03_Functional_design.md)、[07_UI_Wording_Policy.md](./07_UI_Wording_Policy.md)、[05_Implementation_Roadmap.md](./05_Implementation_Roadmap.md) と同期します。
+
+## Status Values
+
+- `Open`: 仕様整理が必要
+- `Needs decision`: ユーザーまたは設計判断が必要
+- `In review`: 文言・設計レビュー中
+- `Resolved`: 仕様または文言として解決済み
+- `Deferred`: 将来フェーズへ延期
+
+## Functional Spec Issue Register
+
+| ID | Area | Symptom | Current Behavior | Expected Direction | Impact | Priority | Status | Related Docs / Code | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| FS-001 | Investment Score | 高スコアが売買判断そのものに見える | Screening、Forecast、Data Quality、Risk signal を統合した数値として表示される | 「比較・分析用スコア」であり、買い/売りの指示ではないと明示する | 投資助言誤認、過信 | High | Open | `backend/scoring`, `ui/app.py`, `Documents/07_UI_Wording_Policy.md` | スコアの隣に役割説明が必要か検討 |
+| FS-002 | Ranking | 上位銘柄を買うべきと誤解される | 条件に応じて候補を並べ替え、上位を表示する | Ranking は候補探索・比較・screening の入口として定義する | 投資助言誤認 | High | Open | `ui/ranking.py`, `ui/app.py`, `Documents/05_Implementation_Roadmap.md` | 「おすすめ」表現は禁止 |
+| FS-003 | Data Quality / Database Fit / Metadata Confidence | Database Fit / Metadata Confidence が投資魅力度に見える | Ranking sort profile に補助的に反映される | 投資魅力度ではなく、評価に使うデータの充実度・信頼度として扱う | スコア解釈の混乱 | High | Open | `ui/ranking.py`, `Documents/06_MVP_Operations_Guide.md` | UI名と説明の見直し候補 |
+| FS-004 | Rebalance Cockpit | Rebalance結果が売買指示に見える | allocation drift、proposed trades、risk breach を表示する | 配分見直しシミュレーション、review candidate として扱う | 実注文との誤認 | High | Open | `ui/rebalance_app.py`, `backend/portfolio`, `backend/risk` | broker integration は deferred |
+| FS-005 | Decision Report | Report が投資推奨書に見える | Cockpit / Ranking / Rebalance の判断材料をMarkdown/JSON等で保存する | ある時点の判断材料、根拠、不確実性、確認ポイントの保存・説明として定義する | Product safety, compliance risk | High | Open | `backend/reporting`, `ui/app.py`, `Documents/05_Implementation_Roadmap.md` | 冒頭noteとsection名を確認 |
+| FS-006 | Research Summary / Research Evidence | Research Summary の信頼度が分かりにくい | 登録資料から deterministic summary と evidence を表示する | 資料名、資料日、source type、根拠数、data quality warning を明示し、保証ではないと伝える | 根拠の過信 | High | Open | `backend/research`, `ui/research_state.py`, `Documents/04_Detail_Design/04-8_Onepager_Research_RAG.md` | provider snapshot と公式IRを区別 |
+| FS-007 | Forecast | Forecast と Investment Score の関係が曖昧 | Forecast agreement が Investment Score に反映される | Forecast は将来予測の保証ではなく、モデル間の見方や不確実性の一要素として説明する | 予測過信 | High | Open | `backend/forecast`, `backend/scoring`, `ui/app.py` | chart文言とscore内訳を確認 |
+| FS-008 | Ranking criteria | NISA / Dividend / Growth / ETF criteria の使い分けが分かりにくい | ranking purpose と detail filters が複数存在する | 目的別に「候補 universe を絞る条件」と「表示順を変える条件」を分けて説明する | UX confusion | High | Open | `ui/ranking.py`, `Documents/09_SBI_Symbol_Universe_Policy.md` | 投資スタイル別の期待値整理 |
+| FS-009 | Symbol Cockpit | Cockpit が何を深掘りする画面か曖昧 | 価格、特徴量、Forecast、Score、Research、Decision Report が同居する | 1銘柄の確認画面として、価格・特徴量・予測・リスク・スコア・根拠を順に確認する役割を明確化する | 情報過多 | Medium | Open | `ui/app.py`, `Documents/03_Functional_design.md` | 情報階層レビュー対象 |
+| FS-010 | Screening Score | Screening Score と Investment Score の違いが曖昧 | Screening Score はFeature Snapshot由来、Investment Scoreは統合スコア | Screening は候補評価の一部、Investment Score は複数観点の統合値として説明する | Score confusion | Medium | Open | `backend/screening`, `backend/scoring` | UI内訳ラベルの整合 |
+| FS-011 | Risk | Riskが「安全/危険」の絶対判定に見える | risk breach、risk score、volatility/drawdownが表示される | リスクは確認材料であり、安全保証や売買禁止/推奨ではないと説明する | Wording risk | High | Open | `backend/risk`, `ui/rebalance_app.py`, `ui/app.py` | Risk low != safe |
+| FS-012 | Market Data provider | provider差とdata freshnessが見えにくい | mock/csv/yahoo の provider と取得日が画面に出る箇所がある | provider、取得期間、as-of、欠損、部分失敗を一貫して表示する | Data confidence | High | Open | `backend/marketdata`, `ui/app.py`, `Documents/06_MVP_Operations_Guide.md` | live provider opt-inを維持 |
+| FS-013 | Research Score future | Research Score が既存scoreを上書きするように見える | Phase 21 planned。Phase 20はevidence layer | Research Score は optional input とし、資料不足時は欠損/低信頼として扱う | Score hierarchy confusion | Medium | Open | `Documents/05_Implementation_Roadmap.md`, `backend/research` | weight初期値は低め/0を検討 |
+| FS-014 | Assistant future | Assistantが売買助言を返すように見える | Future scope / planned | Assistant は説明・要約・観点提示に限定し、注文や売買指示はしない | Product safety | High | Deferred | `Documents/05_Implementation_Roadmap.md` | 実装前にpolicy必要 |
+| FS-015 | Execution / Broker | Executionの位置づけが曖昧 | broker order sending は deferred | Risk、report、audit、user confirmation が揃うまで実装しない | Safety and compliance | High | Deferred | `backend/execution` future, `Documents/05_Implementation_Roadmap.md` | 明示依頼なしに触らない |
+| FS-016 | Decision Report exports | Markdown/JSON/manifest/ZIPの使い分けが分かりにくい | 複数形式を提供する | Markdownは人間向け、JSON/manifest/ZIPは再現・保存向けとして説明する | UX confusion | Medium | Open | `backend/reporting`, `ui/app.py` | PDF/Excelはfuture |
+| FS-017 | NISA criteria | NISA対象が投資適合性に見える | NISA metadataで候補を絞れる | NISAは制度上の候補条件であり、投資魅力度や安全性ではないと説明する | Wording risk | Medium | Open | `Documents/09_SBI_Symbol_Universe_Policy.md`, `ui/ranking.py` | NISA eligible != recommended |
+| FS-018 | ETF criteria | ETF低コスト/インカム条件が万能評価に見える | expense ratio、index family、dividendなどで比較する | ETF目的別の比較条件であり、商品適合性は別途確認が必要とする | Spec ambiguity | Medium | Open | `ui/ranking.py`, symbol metadata schema | 複雑ETF除外方針と整合 |
+| FS-019 | Dividend criteria | 高配当が良い銘柄に見える | dividend yield/categoryでranking/filter可能 | 配当利回りは確認材料であり、減配リスクや一時要因も見る必要がある | Product safety | Medium | Open | `ui/ranking.py`, `Documents/07_UI_Wording_Policy.md` | 高配当=推奨を避ける |
+| FS-020 | Growth criteria | Growth rankingが成長保証に見える | growth/quality profileで並べ替える | 成長候補の探索条件であり、将来成長の保証ではないと説明する | Wording risk | Medium | Open | `ui/ranking.py`, `backend/scoring` | Forecastとの関係も確認 |

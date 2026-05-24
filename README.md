@@ -67,13 +67,13 @@ MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で
 
 - Phase 1〜15: implementation complete
 - Phase 16: UI / Visualization Cockpit implementation complete。銘柄データ modal、コックピット投資判断メモ、ランキング行クリック詳細表示まで実装済み。最終 Streamlit browser smoke は推奨確認
-- Phase 16S: Stabilization / final Streamlit smoke は必要に応じて実施
+- Phase 16S: Stabilization / final Streamlit smoke に加え、Manual UX Review と Functional Spec Issues による成熟性レビューを実施
 - Phase 17: UI Polish / ランキング条件 UI 再設計は implementation complete
 - Phase 18: symbol universe / metadata refresh / source import / SBI ranking universe policy は implementation complete。継続的な NISA / ETF / stock metadata source 更新は運用タスクとして扱う
 - Phase 19〜24: Decision Report、Research RAG、Research Score、Assistant、optional adapter、Execution gate の順に整理
 - Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
-次の重点は、Phase 16S の最終 UI smoke、Phase 19 の Decision Report context、Phase 20 の Research RAG です。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続します。
+次の重点は、既存機能の分かりにくさ、仕様曖昧さ、投資助言に見えすぎる表現を棚卸しする成熟性レビューです。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、Research RAG external adapters、Assistant、Execution / Broker は明示的に割り当てるまで future scope として扱います。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント
@@ -84,6 +84,8 @@ MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で
 - [UI 文言ポリシー](./Documents/07_UI_Wording_Policy.md)
 - [Phase 16 UI 改善計画](./Documents/08_Phase16_UI_Improvement_Plan.md)
 - [SBI 銘柄ユニバース方針](./Documents/09_SBI_Symbol_Universe_Policy.md)
+- [手動 UX レビューチェックリスト](./Documents/96_Manual_UX_Review_Checklist.md)
+- [機能仕様 issue 台帳](./Documents/97_Functional_Spec_Issues.md)
 - [Research RAG 詳細設計](./Documents/04_Detail_Design/04-8_Onepager_Research_RAG.md)
 - [Investment Scoring / UI 詳細設計](./Documents/04_Detail_Design/04-9_Onepager_Investment_Scoring_UI.md)
 - [Codex タスクテンプレート](./Documents/98_Codex_Task_Template.md)
@@ -135,7 +137,7 @@ http://127.0.0.1:8000/openapi.json
 
 現在の UI は左サイドメニューで画面を切り替えます。
 `銘柄コックピット` では 1 銘柄を深掘りし、`銘柄ランキング` では複数銘柄を比較します。
-`リバランス` では、現在資産、目標配分、必要な売買、Risk 判定を順に確認します。
+`リバランス` では、現在資産、目標配分、配分差分、見直し候補、Risk 判定を順に確認します。
 `設定 / データ情報` では、実行環境とローカルの銘柄候補を確認できます。
 
 ## CSV MarketData で起動

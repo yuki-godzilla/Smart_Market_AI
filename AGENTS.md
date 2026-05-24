@@ -66,11 +66,11 @@ Follow the Multi-Model Investment Intelligence roadmap unless the user says othe
 通常は Multi-Model Investment Intelligence の流れに沿います。
 
 Near-term priority:
-1. keep Phase 16 cockpit / ranking / rebalance flows stable and run final Streamlit browser smoke when available
-2. keep Investment Score, Screening, Forecast, Risk, and Portfolio explanations consistent across API/UI/docs
-3. prepare Decision Report context from existing cockpit/ranking/rebalance outputs
-4. add Research RAG as local-first evidence/search layer before optional external source or LLM adapters
-5. build low-cost AI assistant as deterministic rule/template first; optional LLM adapter later
+1. improve project maturity before feature expansion: clarify specs, UX wording, review checklists, and role boundaries
+2. keep Phase 16 cockpit / ranking / rebalance flows stable and run final Streamlit browser smoke when available
+3. keep Investment Score, Screening, Forecast, Risk, Research Evidence, and Portfolio explanations consistent across API/UI/docs
+4. prepare or maintain Decision Report context from existing cockpit/ranking/rebalance outputs
+5. keep Research RAG external adapters and Assistant as planned/future unless explicitly assigned
 
 Execution and broker order sending stay lower priority unless explicitly requested.
 Execution と broker order 送信は、明示依頼がない限り優先度を下げます。
@@ -86,6 +86,11 @@ Execution と broker order 送信は、明示依頼がない限り優先度を�
 - Append work-log entries to `Documents/99_Work_Log.md`, not to `PROJECT_CONTEXT.md`.
 - Read `Documents/99_Work_Log.md` only when historical investigation is needed.
 - Keep user-facing labels beginner-friendly Japanese when exposing scores, warnings, reasons, or reports.
+- For SMAI maturity work, avoid adding new features unless explicitly requested. Prefer clarifying specs, UX wording, and review checklists before changing implementation behavior.
+- Treat Ranking, Investment Score, Research Evidence, Rebalance, Forecast, Risk, and Decision Report outputs as decision-support information, not investment advice.
+- Before changing behavior that affects Ranking / Cockpit / Rebalance / Decision Report / Research / scoring wording, check `Documents/96_Manual_UX_Review_Checklist.md` and `Documents/97_Functional_Spec_Issues.md`.
+- Keep Execution / Broker integration deferred unless explicitly assigned.
+- Keep Research RAG external adapters and Assistant as planned / future scope unless explicitly assigned.
 
 実装速度の基本:
 - 小さな縦切りで進める: contract -> service -> API/UI -> test -> 必要な文書

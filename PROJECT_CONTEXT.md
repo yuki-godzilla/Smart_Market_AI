@@ -15,6 +15,8 @@ The product direction is to help users compare symbols, inspect provider-backed 
 
 Current focus is project maturity improvement rather than feature expansion. Functional spec issues and a manual UX review checklist have been introduced so confusing behavior, unclear role boundaries, and investment-advice-like wording can be reviewed before more advanced features are added.
 
+Current UI maturity work includes Ranking visualization polish: existing ranking results are being presented as screening / comparison candidates with summary cards, top-candidate cards, score and confidence charts, selected-candidate breakdown, and a detailed table, without changing backend ranking or scoring logic.
+
 Routine development must keep deterministic `mock` / `csv` behavior available while allowing explicit opt-in use of live providers such as Yahoo/yfinance.
 The configured default provider remains `mock` for local checks and APIs; the Streamlit Market Data provider selector is live-first with `yahoo` as the first/default option and explicit per-fetch opt-in.
 
@@ -56,7 +58,7 @@ Implemented or mostly implemented:
 - Streamlit left side menu for `銘柄コックピット`, `銘柄ランキング`, `リバランス`, and `設定 / データ情報`.
 - Streamlit Market Data provider selector defaults to `yahoo` and shows it first; large live ranking requests warn users instead of hard-blocking them.
 - Ranking candidate filters using static/curated metadata before provider fetch.
-- Ranking result rows open the selected symbol's local master data in the same symbol-detail modal. The table keeps a short one-line note; the modal carries deeper decision-support guidance from symbol metadata, score components, valuation, income, and next-check points.
+- Ranking result rows open the selected symbol's local master data in the same symbol-detail modal. The screen now leads with screening summary cards, top-candidate cards, score / confidence charts, and selected-candidate breakdown before the detailed table. The table keeps a short one-line note; the modal carries deeper decision-support guidance from symbol metadata, score components, valuation, income, and next-check points.
 - The single-symbol cockpit has a `銘柄データを見る` control beside symbol selection, with date range controls wrapped onto the next row. After data fetch, the cockpit shows an investment memo combining score interpretation, warnings, valuation, income, price trend, and next confirmation points.
 - Symbol universe source import for local curated / JPX expansion; current candidate master carries SBI policy columns but is not yet an SBI-verified tradable universe. SBI acquisition policy is local-master first, not direct site scraping.
 - Ranking condition classification first slice: region, product type, ranking purpose, and dynamic detail filters are wired into the Streamlit ranking UI.

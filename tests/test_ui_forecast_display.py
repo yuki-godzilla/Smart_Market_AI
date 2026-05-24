@@ -59,6 +59,7 @@ from ui.app import (
     market_data_period_help,
     merged_symbol_candidate_rows,
     provider_error_summary_rows,
+    ranking_candidate_breakdown_rows,
     ranking_comparison_summary,
     ranking_detail_event_token_from_aggrid_response,
     ranking_detail_symbol_from_aggrid_response,
@@ -66,6 +67,10 @@ from ui.app import (
     ranking_investment_detail_rows,
     ranking_investment_note,
     ranking_result_aggrid_options,
+    ranking_score_bar_chart_frame,
+    ranking_score_confidence_frame,
+    ranking_summary_cards,
+    ranking_top_candidate_cards,
     score_component_rows,
     selected_symbol_has_universe_detail,
     set_cached_ranking_build,
@@ -2397,6 +2402,104 @@ def test_investment_score_display_rows_reuses_symbol_universe_lookup(monkeypatch
 
     assert len(rows) == 2
     assert calls == 1
+
+
+def test_ranking_summary_cards_describe_current_screening_scope():
+    rows = [
+        {
+            "銘柄": "7203.T",
+            "総合スコア": "80",
+            "DB信頼度": "90",
+            "DB適合": "88",
+        },
+        {
+            "銘柄": "6758.T",
+            "総合スコア": "70",
+            "DB信頼度": "65",
+            "DB適合": "72",
+        },
+    ]
+
+    cards = ranking_summary_cards(
+        rows,
+        ranking_axis="成長投資枠",
+        weight_preset="バランス",
+        region="日本",
+        product_type="個別株",
+        selected_count=10,
+    )
+
+    assert cards[0]["value"] == "10"
+    assert cards[1]["value"] == "2"
+    assert cards[2]["value"] == "75.0"
+    assert cards[3]["value"] == "1"
+    assert cards[4]["value"] == "成長投資枠"
+    assert cards[5]["value"] == "日本 / 個別株"
+
+
+def test_ranking_visualization_frames_skip_missing_scores():
+    rows = [
+        {
+            "順位": "1",
+            "銘柄": "7203.T",
+            "銘柄名": "Toyota Motor",
+            "総合スコア": "82.5",
+            "DB信頼度": "88",
+            "DB適合": "90",
+            "注意点": "",
+        },
+        {
+            "順位": "2",
+            "銘柄": "MISS",
+            "銘柄名": "Missing Score",
+            "総合スコア": "",
+            "DB信頼度": "91",
+            "DB適合": "91",
+            "注意点": "",
+        },
+    ]
+
+    score_frame = ranking_score_bar_chart_frame(rows)
+    confidence_frame = ranking_score_confidence_frame(rows)
+
+    assert score_frame["symbol"].tolist() == ["7203.T"]
+    assert score_frame["score"].tolist() == [82.5]
+    assert confidence_frame["symbol"].tolist() == ["7203.T"]
+    assert confidence_frame["confidence_band"].tolist() == ["High confidence"]
+
+
+def test_ranking_candidate_cards_and_breakdown_use_existing_display_values():
+    rows = [
+        {
+            "順位": "1",
+            "銘柄": "7203.T",
+            "銘柄名": "Toyota Motor",
+            "総合スコア": "82",
+            "見方": "比較候補",
+            "DB信頼度": "88",
+            "DB適合": "90",
+            "Screening": "79",
+            "予測一致": "70",
+            "Risk": "55",
+            "注意点": "確認材料あり",
+            "補足": "価格と資料を確認します。",
+        }
+    ]
+
+    cards = ranking_top_candidate_cards(rows)
+    breakdown = ranking_candidate_breakdown_rows(rows, "7203.T")
+
+    assert cards[0]["symbol"] == "7203.T"
+    assert cards[0]["score"] == "82"
+    assert cards[0]["confidence"] == "88"
+    assert [row["観点"] for row in breakdown] == [
+        "Investment Score",
+        "Screening",
+        "Forecast",
+        "Data Confidence",
+        "Risk",
+    ]
+    assert breakdown[3]["読み方"] == "評価に使えるデータの信頼度で、投資魅力度ではありません。"
 
 
 def test_ranking_investment_note_uses_scores_and_symbol_metadata(monkeypatch):

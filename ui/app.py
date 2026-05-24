@@ -1347,6 +1347,329 @@ def _render_symbol_universe_detail_dialog(
         )
 
 
+def _ranking_display_decimal(row: dict[str, str], key: str) -> Decimal | None:
+    return _decimal_from_text(row.get(key, ""))
+
+
+def _ranking_display_float(row: dict[str, str], key: str) -> float | None:
+    value = _ranking_display_decimal(row, key)
+    return float(value) if value is not None else None
+
+
+def ranking_summary_cards(
+    display_rows: list[dict[str, str]],
+    *,
+    ranking_axis: str,
+    weight_preset: str,
+    region: str,
+    product_type: str,
+    selected_count: int,
+) -> list[dict[str, str]]:
+    scores = [
+        score
+        for row in display_rows
+        if (score := _ranking_display_decimal(row, "総合スコア")) is not None
+    ]
+    confidence_values = [
+        confidence
+        for row in display_rows
+        if (confidence := _ranking_display_decimal(row, "DB信頼度")) is not None
+    ]
+    average_score = (
+        str((sum(scores, Decimal("0")) / Decimal(len(scores))).quantize(Decimal("0.1")))
+        if scores
+        else "未計算"
+    )
+    high_confidence_count = sum(
+        1 for confidence in confidence_values if confidence >= Decimal("75")
+    )
+    return [
+        {
+            "label": "対象銘柄数",
+            "value": str(selected_count),
+            "help": "現在の条件で取得対象になった銘柄数です。",
+        },
+        {
+            "label": "表示候補数",
+            "value": str(len(display_rows)),
+            "help": "ランキング結果として表示している比較候補数です。",
+        },
+        {
+            "label": "平均 Investment Score",
+            "value": average_score,
+            "help": "表示候補の総合スコア平均です。売買判断そのものではありません。",
+        },
+        {
+            "label": "High Confidence",
+            "value": str(high_confidence_count),
+            "help": "DB信頼度が75以上の候補数です。投資魅力度ではなく評価信頼度です。",
+        },
+        {
+            "label": "ランキング軸",
+            "value": ranking_axis,
+            "help": weight_preset,
+        },
+        {
+            "label": "対象範囲",
+            "value": f"{region} / {product_type}",
+            "help": "取得前フィルターで選んだ地域と商品分類です。",
+        },
+    ]
+
+
+def ranking_top_candidate_cards(
+    display_rows: list[dict[str, str]],
+    *,
+    limit: int = 5,
+) -> list[dict[str, str]]:
+    return [
+        {
+            "rank": row.get("順位", ""),
+            "symbol": row.get("銘柄", ""),
+            "name": row.get("銘柄名", ""),
+            "score": row.get("総合スコア", "未計算"),
+            "confidence": row.get("DB信頼度") or row.get("DB適合") or "未登録",
+            "view": row.get("見方", ""),
+            "caution": row.get("注意点", ""),
+            "note": row.get("補足", ""),
+        }
+        for row in display_rows[:limit]
+    ]
+
+
+def ranking_score_bar_chart_frame(
+    display_rows: list[dict[str, str]],
+    *,
+    limit: int = 10,
+) -> pd.DataFrame:
+    records: list[dict[str, object]] = []
+    for row in display_rows[:limit]:
+        score = _ranking_display_float(row, "総合スコア")
+        if score is None:
+            continue
+        symbol = row.get("銘柄", "")
+        name = row.get("銘柄名", "")
+        label = f"{symbol} {name}".strip()
+        records.append(
+            {
+                "rank": row.get("順位", ""),
+                "symbol": symbol,
+                "name": name,
+                "label": label or symbol,
+                "score": score,
+            }
+        )
+    return pd.DataFrame.from_records(records)
+
+
+def ranking_score_confidence_frame(display_rows: list[dict[str, str]]) -> pd.DataFrame:
+    records: list[dict[str, object]] = []
+    for row in display_rows:
+        score = _ranking_display_float(row, "総合スコア")
+        metadata_confidence = _ranking_display_float(row, "DB信頼度")
+        database_fit = _ranking_display_float(row, "DB適合")
+        confidence = metadata_confidence if metadata_confidence is not None else database_fit
+        if score is None or confidence is None:
+            continue
+        confidence_band = "High confidence" if confidence >= 75 else "Check data"
+        records.append(
+            {
+                "rank": row.get("順位", ""),
+                "symbol": row.get("銘柄", ""),
+                "name": row.get("銘柄名", ""),
+                "score": score,
+                "confidence": confidence,
+                "confidence_band": confidence_band,
+                "database_fit": database_fit,
+                "metadata_confidence": metadata_confidence,
+                "caution": row.get("注意点", ""),
+            }
+        )
+    return pd.DataFrame.from_records(records)
+
+
+def ranking_candidate_breakdown_rows(
+    display_rows: list[dict[str, str]],
+    selected_symbol: str | None,
+) -> list[dict[str, str]]:
+    if not selected_symbol:
+        return []
+    selected_row = next(
+        (row for row in display_rows if row.get("銘柄") == selected_symbol),
+        None,
+    )
+    if selected_row is None:
+        return []
+    return [
+        {
+            "観点": "Investment Score",
+            "値": selected_row.get("総合スコア", "未計算"),
+            "読み方": selected_row.get("見方", ""),
+        },
+        {
+            "観点": "Screening",
+            "値": selected_row.get("Screening", "未計算"),
+            "読み方": "市場データ由来の比較材料です。",
+        },
+        {
+            "観点": "Forecast",
+            "値": selected_row.get("予測一致", "未計算"),
+            "読み方": "予測モデル間の見方の近さです。",
+        },
+        {
+            "観点": "Data Confidence",
+            "値": selected_row.get("DB信頼度") or selected_row.get("DB適合") or "未登録",
+            "読み方": "評価に使えるデータの信頼度で、投資魅力度ではありません。",
+        },
+        {
+            "観点": "Risk",
+            "値": selected_row.get("Risk", "未接続"),
+            "読み方": selected_row.get("注意点", ""),
+        },
+    ]
+
+
+def _render_ranking_summary_cards(cards: list[dict[str, str]]) -> None:
+    if not cards:
+        return
+    columns = st.columns(3)
+    for index, card in enumerate(cards):
+        with columns[index % len(columns)]:
+            st.metric(card["label"], card["value"], help=card.get("help"))
+
+
+def _render_top_screening_candidate_cards(cards: list[dict[str, str]]) -> None:
+    if not cards:
+        st.info("比較候補カードを表示できるランキング結果がありません。")
+        return
+    st.markdown("#### Top Screening Candidates")
+    st.caption(
+        "現在の条件で抽出された深掘り候補です。売買推奨ではなく、比較対象を絞るための入口です。"
+    )
+    columns = st.columns(min(5, len(cards)))
+    for index, card in enumerate(cards):
+        with columns[index % len(columns)]:
+            with st.container(border=True):
+                title = f"#{card['rank']} {card['symbol']}".strip()
+                st.markdown(f"**{title}**")
+                if card["name"]:
+                    st.caption(card["name"])
+                st.metric("Investment Score", card["score"])
+                st.caption(f"Evaluation confidence: {card['confidence']}")
+                if card["caution"]:
+                    st.caption(f"Caution: {card['caution']}")
+                elif card["view"]:
+                    st.caption(card["view"])
+
+
+def _render_ranking_score_bar_chart(display_rows: list[dict[str, str]]) -> None:
+    frame = ranking_score_bar_chart_frame(display_rows)
+    st.markdown("#### Top 10 Score Comparison")
+    st.caption(
+        "現在の条件で抽出された比較候補です。売買推奨ではなく、深掘り対象を絞るための参考情報です。"
+    )
+    if frame.empty:
+        st.info("Investment Score をグラフ化できる候補がありません。")
+        return
+    chart = (
+        alt.Chart(frame)
+        .mark_bar(cornerRadiusEnd=3)
+        .encode(
+            x=alt.X("score:Q", title="Investment Score"),
+            y=alt.Y("label:N", sort="-x", title=None),
+            tooltip=[
+                alt.Tooltip("rank:N", title="Rank"),
+                alt.Tooltip("symbol:N", title="Symbol"),
+                alt.Tooltip("name:N", title="Name"),
+                alt.Tooltip("score:Q", title="Investment Score", format=".1f"),
+            ],
+            color=alt.value("#4f8cff"),
+        )
+        .properties(height=max(260, min(420, 34 * len(frame))))
+    )
+    st.altair_chart(chart, use_container_width=True)
+
+
+def _render_ranking_confidence_scatter(display_rows: list[dict[str, str]]) -> None:
+    frame = ranking_score_confidence_frame(display_rows)
+    st.markdown("#### Score x Evaluation Confidence")
+    st.caption(
+        "Investment Score は比較用スコア、Evaluation Confidence は評価に使えるデータの信頼度です。"
+    )
+    if frame.empty:
+        st.info("スコアと評価信頼度を同時に表示できる候補がありません。")
+        return
+    chart = (
+        alt.Chart(frame)
+        .mark_circle(size=90, opacity=0.78)
+        .encode(
+            x=alt.X("score:Q", title="Investment Score"),
+            y=alt.Y("confidence:Q", title="Evaluation Confidence"),
+            color=alt.Color(
+                "confidence_band:N",
+                title="Data check",
+                scale=alt.Scale(
+                    domain=["High confidence", "Check data"],
+                    range=["#2fbf71", "#f5a623"],
+                ),
+            ),
+            tooltip=[
+                alt.Tooltip("rank:N", title="Rank"),
+                alt.Tooltip("symbol:N", title="Symbol"),
+                alt.Tooltip("name:N", title="Name"),
+                alt.Tooltip("score:Q", title="Investment Score", format=".1f"),
+                alt.Tooltip("confidence:Q", title="Evaluation Confidence", format=".1f"),
+                alt.Tooltip("caution:N", title="Caution"),
+            ],
+        )
+        .properties(height=320)
+    )
+    st.altair_chart(chart, use_container_width=True)
+    st.caption(
+        "High score / High confidence は深掘り優先候補、High score / Low confidence はデータ確認が必要な候補として扱います。"
+    )
+
+
+def _render_selected_ranking_candidate_breakdown(
+    display_rows: list[dict[str, str]],
+    selected_symbol: str | None,
+) -> None:
+    st.markdown("#### Selected Candidate Breakdown")
+    st.caption("選択中の候補について、利用可能な既存スコアを確認します。")
+    rows = ranking_candidate_breakdown_rows(display_rows, selected_symbol)
+    if not rows:
+        st.info("内訳を表示する候補を選択してください。")
+        return
+    st.dataframe(rows, hide_index=True, use_container_width=True)
+    selected_row = next(
+        (row for row in display_rows if row.get("銘柄") == selected_symbol),
+        None,
+    )
+    if selected_row and selected_row.get("補足"):
+        st.caption(selected_row["補足"])
+
+
+def _render_ranking_advanced_insights(display_rows: list[dict[str, str]]) -> None:
+    with st.expander("Advanced Insights", expanded=False):
+        scores = ranking_score_bar_chart_frame(display_rows, limit=len(display_rows))
+        if scores.empty:
+            st.info("補助分析に使えるスコアがありません。")
+            return
+        st.caption("常時表示すると情報が多くなる補助分析です。必要な場合だけ開いて確認します。")
+        histogram = (
+            alt.Chart(scores)
+            .mark_bar()
+            .encode(
+                x=alt.X("score:Q", bin=alt.Bin(maxbins=12), title="Investment Score"),
+                y=alt.Y("count():Q", title="候補数"),
+                tooltip=[alt.Tooltip("count():Q", title="候補数")],
+                color=alt.value("#6c7a89"),
+            )
+            .properties(height=220)
+        )
+        st.altair_chart(histogram, use_container_width=True)
+
+
 def _render_ranking_result_table(
     display_rows: list[dict[str, str]],
     *,
@@ -1358,7 +1681,7 @@ def _render_ranking_result_table(
         return
     table_base_key = _ranking_result_table_base_key(ranking_source, weight_preset)
     grid_key = _ranking_result_grid_key(table_base_key)
-    st.caption("銘柄データを見るには、ランキング表の行をクリックしてください。")
+    st.caption("詳細確認用のテーブルです。銘柄データを見るには行をクリックしてください。")
     frame = ranking_result_aggrid_frame(display_rows)
     grid_response = AgGrid(
         frame,
@@ -2443,19 +2766,30 @@ def _render_market_data_ranking() -> None:
             _symbol_universe_rows_by_symbol(),
         )
         display_rows = investment_score_display_rows(ranked_rows)
-        st.markdown("#### ランキング結果")
+        st.markdown("#### Ranking Screening Dashboard")
         st.caption(
             f"並べ替え条件: {ranking_purpose_label(ranking_purpose)} / "
             f"評価プロファイル: {ranking_weight_preset_label(weight_preset)}。"
-            "上位の銘柄ほど、銘柄DBの適合度と取得期間の市場評価を合わせて深掘りしやすい順です。"
+            "買う銘柄を決める画面ではなく、比較候補と深掘り候補を整理するための画面です。"
         )
-        _render_ranking_result_table(
-            display_rows,
-            ranking_source=ranking_source,
-            weight_preset=weight_preset,
+        _render_ranking_summary_cards(
+            ranking_summary_cards(
+                display_rows,
+                ranking_axis=ranking_purpose_label(ranking_purpose),
+                weight_preset=ranking_weight_preset_label(weight_preset),
+                region=ranking_region_label(region),
+                product_type=ranking_product_type_label(product_type),
+                selected_count=len(effective_selected_labels),
+            )
         )
-        _render_ranking_error_rows(cast(list[dict[str, str]], error_rows))
+        _render_top_screening_candidate_cards(ranking_top_candidate_cards(display_rows))
+        chart_col, confidence_col = st.columns(2)
+        with chart_col:
+            _render_ranking_score_bar_chart(display_rows)
+        with confidence_col:
+            _render_ranking_confidence_scatter(display_rows)
         deep_dive_symbols = ranking_symbol_options(ranked_rows)
+        selected_symbol: str | None = None
         if deep_dive_symbols:
             deep_dive_source = f"{ranking_source}|{weight_preset}"
             default_deep_dive_symbol = ranking_deep_dive_default_symbol(
@@ -2473,7 +2807,7 @@ def _render_market_data_ranking() -> None:
             if default_deep_dive_symbol is not None:
                 st.session_state["market_data_ranking_deep_dive_symbol"] = default_deep_dive_symbol
                 st.session_state[MARKET_DATA_RANKING_DEEP_DIVE_SOURCE_STATE_KEY] = deep_dive_source
-            st.markdown("#### 深掘り")
+            st.markdown("#### 深掘り候補の選択")
             st.caption(
                 "気になる銘柄を1つ選び、銘柄コックピットで価格・予測・スコア理由を確認します。"
             )
@@ -2492,6 +2826,18 @@ def _render_market_data_ranking() -> None:
                 on_click=_select_ranking_symbol_for_cockpit_with_period,
                 args=(selected_symbol, provider, start_date, end_date),
             )
+        _render_selected_ranking_candidate_breakdown(display_rows, selected_symbol)
+        _render_ranking_advanced_insights(display_rows)
+        st.markdown("#### Detailed Ranking Table")
+        st.caption(
+            "カードとグラフで気になる候補を絞ったあと、詳細列を確認するためのテーブルです。行をクリックすると銘柄データを確認できます。"
+        )
+        _render_ranking_result_table(
+            display_rows,
+            ranking_source=ranking_source,
+            weight_preset=weight_preset,
+        )
+        _render_ranking_error_rows(cast(list[dict[str, str]], error_rows))
         _render_ranking_decision_report_lazy(
             ranked_rows=ranked_rows,
             provider=provider,

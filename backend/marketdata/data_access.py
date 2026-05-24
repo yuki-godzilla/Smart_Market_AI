@@ -17,7 +17,6 @@ from backend.core.data_contracts import (
 from backend.core.errors import DataSourceError
 from backend.marketdata.live_provider_adapters import live_provider_adapter_details
 from backend.marketdata.provider_registry import (
-    PLANNED_LIVE_PROVIDERS,
     SUPPORTED_PROVIDERS,
     provider_capability_details,
 )
@@ -398,10 +397,10 @@ def _optional_decimal(value: str) -> Decimal | None:
 def _unsupported_provider_error(
     provider: str, *, allow_external_providers: bool
 ) -> DataSourceError:
-    if provider in PLANNED_LIVE_PROVIDERS:
+    details = provider_capability_details(provider)
+    details.update(live_provider_adapter_details(provider))
+    if details.get("requires_external_opt_in"):
         if not allow_external_providers:
-            details = provider_capability_details(provider)
-            details.update(live_provider_adapter_details(provider))
             details.update(
                 {
                     "allow_external_providers": False,
@@ -412,8 +411,17 @@ def _unsupported_provider_error(
                 "Live market-data provider requires explicit opt-in",
                 details=details,
             )
-        details = provider_capability_details(provider)
-        details.update(live_provider_adapter_details(provider))
+        if details.get("implemented") is True:
+            details.update(
+                {
+                    "allow_external_providers": True,
+                    "opt_in_status": "explicitly_enabled_factory_required",
+                }
+            )
+            return DataSourceError(
+                "Live market-data provider requires the provider factory",
+                details=details,
+            )
         details.update(
             {
                 "allow_external_providers": True,
@@ -424,7 +432,6 @@ def _unsupported_provider_error(
             "Live market-data providers are not implemented yet",
             details=details,
         )
-    details = provider_capability_details(provider)
     details.pop("registered", None)
     return DataSourceError(
         "Unsupported market-data provider",

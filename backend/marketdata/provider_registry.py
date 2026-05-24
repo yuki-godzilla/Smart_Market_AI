@@ -26,7 +26,7 @@ PROVIDER_REGISTRY: dict[str, ProviderSpec] = {
     ),
     "yahoo": ProviderSpec(
         name="yahoo",
-        implemented=False,
+        implemented=True,
         deterministic=False,
         requires_external_opt_in=True,
     ),
@@ -38,7 +38,14 @@ PROVIDER_REGISTRY: dict[str, ProviderSpec] = {
     ),
 }
 
-SUPPORTED_PROVIDERS = tuple(name for name, spec in PROVIDER_REGISTRY.items() if spec.implemented)
+SUPPORTED_PROVIDERS = tuple(
+    name for name, spec in PROVIDER_REGISTRY.items() if spec.implemented and spec.deterministic
+)
+IMPLEMENTED_LIVE_PROVIDERS = tuple(
+    name
+    for name, spec in PROVIDER_REGISTRY.items()
+    if spec.implemented and spec.requires_external_opt_in
+)
 PLANNED_LIVE_PROVIDERS = tuple(
     name
     for name, spec in PROVIDER_REGISTRY.items()
@@ -55,6 +62,8 @@ def provider_capability_details(provider: str) -> dict[str, object]:
             "provider": provider,
             "registered": False,
             "supported_providers": list(SUPPORTED_PROVIDERS),
+            "implemented_live_providers": list(IMPLEMENTED_LIVE_PROVIDERS),
+            "planned_live_providers": list(PLANNED_LIVE_PROVIDERS),
         }
     return {
         "provider": spec.name,
@@ -63,5 +72,6 @@ def provider_capability_details(provider: str) -> dict[str, object]:
         "deterministic": spec.deterministic,
         "requires_external_opt_in": spec.requires_external_opt_in,
         "supported_providers": list(SUPPORTED_PROVIDERS),
+        "implemented_live_providers": list(IMPLEMENTED_LIVE_PROVIDERS),
         "planned_live_providers": list(PLANNED_LIVE_PROVIDERS),
     }

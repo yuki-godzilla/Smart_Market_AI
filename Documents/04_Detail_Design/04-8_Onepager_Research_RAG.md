@@ -75,17 +75,17 @@ Current seed data:
 
 ## 1) Purpose & Scope
 
-* **Purpose**: IR資料・有価証券報告書・決算資料・中期経営計画・統合報告書・ニュース等の非構造データを検索し、長期企業分析、根拠提示、Research Score 化を行う。
-* **Scope**: ローカル資料登録、テキスト抽出、チャンク化、メタデータ管理、キーワード検索、将来のベクトル/ハイブリッド検索、企業分析サマリ、Research Score、Decision Report / Assistant / Investment Score への接続。
+* **Purpose**: IR資料・有価証券報告書・決算資料・中期経営計画・統合報告書・ニュース等の非構造データを検索し、長期企業分析の根拠提示を行う。Research Score 化は Phase 21+ で扱う。
+* **Scope**: ローカル資料登録、テキスト抽出、チャンク化、メタデータ管理、キーワード検索、企業分析サマリ、Decision Report への接続。将来のベクトル/ハイブリッド検索、Research Score、Assistant / Investment Score への接続は Phase 21+。
 * **Out of Scope**: RAG単体での売買推奨、自動売買判断、証券口座ログイン情報の取得、規約違反リスクのある無制限スクレイピング、外部LLM/APIを必須にする実装。
 
 ### 1.1 前提
 
 * 既定経路は **local-first / deterministic-first** とする。
-* 初期MVPは、ローカルPDF/Markdown/Text/CSVなどの手動登録資料を対象にする。
+* Phase 20 MVP は UTF-8 Markdown / Text / CSV の手動登録資料を対象にする。PDF は後続対応候補。
 * 外部取得（EDINET / TDnet / IR RSS / News API 等）は明示 opt-in の adapter として後続フェーズで扱う。
 * RAGの出力は、投資助言ではなく「判断材料・根拠・注意点」の整理に限定する。
-* Research Score は、初期段階では Investment Score への optional input とし、既存スコアを壊さない。
+* Research Score は Phase 21+ の optional input とし、既存スコアを壊さない形で追加検討する。
 
 ## 2) Public Interfaces (Python想定)
 
@@ -110,19 +110,20 @@ class ResearchRetrievalService:
 
 class ResearchAnalysisService:
     def analyze_company(self, request: CompanyResearchRequest) -> CompanyResearchReport:
-        """検索結果を使い、企業の長期評価サマリと Research Score を返す"""
+        """検索結果を使い、企業の長期評価サマリを返す。Research Score は Phase 21+。"""
 ```
 
-* 例外: `ResearchDocumentError`, `ResearchParseError`, `ResearchIndexError`, `ResearchSearchError`, `DataUnavailableError`, `ConfigError`
-* 非機能I/F: `healthcheck()`, `metrics()`, `reload_config()`
+* Phase 20 実装済み例外: `ResearchDocumentError`, `ResearchParseError`, `ResearchSearchError`
+* `healthcheck()`, `metrics()`, `reload_config()` は Phase 21+ の運用拡張候補。
 
-## 3) Data Contracts (Pydantic)
+## 3) Current Phase 20 Data Contracts (Pydantic)
 
 ```python
 class ResearchDocument(BaseModel):
+    schema_version: str = "research-evidence-v1"
     document_id: str
     symbol: str
-    company_name: str | None = None
+    title: str
     source_type: Literal[
         "annual_report",
         "earnings_report",
@@ -133,38 +134,76 @@ class ResearchDocument(BaseModel):
         "news",
         "user_note",
     ]
-    title: str
+    company_name: str | None = None
     published_at: date | None = None
     collected_at: datetime
-    source_url: str | None = None
-    local_path: str | None = None
+    local_path: str
     language: Literal["ja", "en", "unknown"] = "unknown"
     provider: str = "local"
     reliability: Decimal
+    document_hash: str
 
 class ResearchChunk(BaseModel):
+    schema_version: str = "research-evidence-v1"
     chunk_id: str
     document_id: str
     symbol: str
+    title: str
+    source_type: str
+    published_at: date | None = None
     section_title: str | None = None
     text: str
-    page: int | None = None
     chunk_index: int
-    token_count: int
-    embedding_model: str | None = None
+    char_count: int
     metadata: dict[str, str] = {}
 
 class ResearchEvidence(BaseModel):
     symbol: str
     document_id: str
+    chunk_id: str
     title: str
     source_type: str
     published_at: date | None = None
-    page: int | None = None
+    section_title: str | None = None
     excerpt: str
     relevance_score: Decimal
     reliability: Decimal
 
+class ResearchSummaryPoint(BaseModel):
+    category: Literal[
+        "growth",
+        "shareholder_return",
+        "financial_safety",
+        "business_risk",
+        "confirmation_gap",
+    ]
+    label: str
+    summary: str
+    evidence: list[ResearchEvidence]
+
+class ResearchDataQuality(BaseModel):
+    status: Literal["OK", "WARN", "BLOCK"]
+    latest_document_date: date | None
+    document_count: int
+    evidence_count: int
+    warnings: list[str]
+
+class CompanyResearchReport(BaseModel):
+    schema_version: str = "research-evidence-v1"
+    symbol: str
+    as_of: date
+    summary: str
+    points: list[ResearchSummaryPoint]
+    evidence: list[ResearchEvidence]
+    data_quality: ResearchDataQuality
+    decision_support_note: str
+```
+
+### 3.1 Future Phase 21+ Research Score Sketch
+
+Research Score は Phase 20 の出力ではなく、Phase 21 以降で evidence と紐づけて追加する optional input として扱う。
+
+```python
 class ResearchScore(BaseModel):
     symbol: str
     total_score: Decimal
@@ -176,25 +215,8 @@ class ResearchScore(BaseModel):
     disclosure_quality_score: Decimal
     freshness_score: Decimal
     evidence_count: int
+    confidence: Decimal
     summary: str
-
-class ResearchDataQuality(BaseModel):
-    status: Literal["OK", "WARN", "BLOCK"]
-    latest_document_date: date | None
-    document_count: int
-    evidence_count: int
-    warnings: list[str]
-
-class CompanyResearchReport(BaseModel):
-    symbol: str
-    as_of: date
-    summary: str
-    growth_points: list[str]
-    shareholder_return_points: list[str]
-    risk_points: list[str]
-    evidence: list[ResearchEvidence]
-    research_score: ResearchScore
-    data_quality: ResearchDataQuality
 ```
 
 ## 4) Algorithms & Rules
@@ -208,10 +230,10 @@ class CompanyResearchReport(BaseModel):
 
 ### 4.2 Text Extraction / Chunking
 
-* PDF / Markdown / Text を対象に開始する。
+* Phase 20 MVP は UTF-8 Markdown / Text / CSV を対象に開始する。PDF は後続フェーズで扱う。
 * 画像OCR、図表構造化、表の厳密抽出は後続フェーズに回す。
-* chunk は 500〜1000 tokens 程度を目安にする。
-* page、section title、source_type、published_at を必ず保持する。
+* chunk は `DEFAULT_MAX_CHARS` / `DEFAULT_OVERLAP_CHARS` を基準に文字数で分割する。
+* section title、source_type、published_at を保持する。page は PDF 対応時の拡張候補。
 * 本文抽出できない資料は `ResearchParseError` とし、空文字の chunk を作らない。
 
 ### 4.3 Retrieval
@@ -223,7 +245,8 @@ class CompanyResearchReport(BaseModel):
 
 ### 4.4 Research Analysis / Score
 
-* Research Score は以下の観点で構成する。
+* Phase 20 は Research Summary / Research Evidence / Research Data Quality を返す。
+* Phase 21+ の Research Score は以下の観点で構成する。
   * `growth_score`: 成長戦略、海外展開、新規事業、中期目標
   * `profitability_score`: 利益率、ROE、価格転嫁、改善施策
   * `shareholder_return_score`: 配当方針、増配、自社株買い、DOE/配当性向
@@ -236,15 +259,15 @@ class CompanyResearchReport(BaseModel):
 
 ### 4.5 Scoring Integration
 
-* `research_score` は Investment Score に optional input として渡す。
+* Phase 21+ では `research_score` を Investment Score に optional input として渡す。
 * Research Score が無い銘柄でも既存の Screening / Forecast / Risk / Data Quality score は動作する。
 * 初期重みは `research: 0.0` または低めにし、UI上で「研究情報を参考表示」として扱う。
 
 ## 5) Error Handling & Retries
 
 * ローカルファイルが無い/読めない: `ResearchDocumentError`
-* PDF本文抽出不可: `ResearchParseError`
-* chunk生成不可: `ResearchIndexError`
+* PDF本文抽出不可: PDF対応時は `ResearchParseError`
+* chunk生成不可: Phase 20 実装では `ResearchParseError`
 * index未構築: `ResearchSearchError` または空結果 + warning
 * 外部ソース取得失敗: provider error を `details` に保持し、通常CIでは実行しない
 * LLM/embedding adapter失敗: fallbackとして keyword search / template summary に戻す
@@ -260,8 +283,8 @@ class CompanyResearchReport(BaseModel):
 
 ## 7) Performance Budget
 
-* `register_document`: 1資料 P95 < 2s（PDF本文抽出を除く）
-* `build_chunks`: 50ページPDF P95 < 10s（OCRなし）
+* `register_document`: 1資料 P95 < 2s（PDF本文抽出は後続フェーズのため除く）
+* `build_chunks`: Phase 20 の UTF-8 text chunking は通常 UI 操作を妨げない範囲に収める。PDF の P95 は後続対応時に設定する。
 * `search`: keyword search P95 < 500ms、vector search P95 < 1s
 * `analyze_company`: cached evidence 利用時 P95 < 3s
 * 通常UI操作は外部API/LLMに依存しない。
@@ -283,8 +306,8 @@ research:
     - data/research_docs
   allow_external_sources: false
   chunking:
-    max_tokens: 800
-    overlap_tokens: 120
+    max_chars: 1200
+    overlap_chars: 180
   retrieval:
     backend: keyword # keyword|vector|hybrid
     top_k: 8
@@ -294,7 +317,7 @@ research:
     provider: local
     model: null
   scoring:
-    enabled: true
+    enabled: false # Phase 21+
     default_weight_in_investment_score: 0.0
   external_sources:
     edinet: false
@@ -304,10 +327,10 @@ research:
 
 ## 10) Test Plan
 
-* **Unit**: document metadata validation、chunking、重複検知、freshness score、Research Scoreのルール計算
-* **Integration**: sample Markdown/PDF -> chunk -> search -> report の一連フロー
+* **Unit**: document metadata validation、chunking、重複検知、Research Data Quality。Research Scoreのルール計算は Phase 21+。
+* **Integration**: sample Markdown/Text/CSV -> chunk -> search -> report の一連フロー
 * **Golden Test**: 既知のIRサンプルから期待する evidence / summary / warning を返す
-* **Property-based**: chunk token数、chunk順序、空本文の扱い、不変条件検証
+* **Property-based**: chunk文字数、chunk順序、空本文の扱い、不変条件検証
 * **E2E**: Streamlit Research view で銘柄検索 -> Research Summary -> Decision Report export
 * **CI方針**: 外部API、外部LLM、live scrapingに依存しない。外部接続は手動 smoke または opt-in test に分離する。
 

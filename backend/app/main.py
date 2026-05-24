@@ -17,7 +17,7 @@ from backend.forecast import (
     evaluate_models,
     summarize_forecast_evaluations,
 )
-from backend.marketdata import DataAccess, FeatureBuilder, create_market_data_provider_adapter
+from backend.marketdata import FeatureBuilder, create_market_data_provider_adapter
 from backend.portfolio import (
     PortfolioRiskResult,
     PortfolioRiskWorkflow,
@@ -255,8 +255,8 @@ def health():
 def create_risk_service() -> RiskService:
     """Create the default Risk MVP service for API requests."""
     settings = get_settings()
-    data_access = DataAccess(cfg=settings.dataaccess)
-    feature_builder = FeatureBuilder(data_access, cfg=settings.feature_builder)
+    adapter = create_market_data_provider_adapter(settings.dataaccess)
+    feature_builder = FeatureBuilder(adapter, cfg=settings.feature_builder)
     return RiskService(feature_builder, cfg=settings.risk)
 
 
@@ -264,8 +264,8 @@ def create_portfolio_risk_workflow() -> PortfolioRiskWorkflow:
     """Create the default Portfolio-to-Risk workflow for API requests."""
 
     settings = get_settings()
-    data_access = DataAccess(cfg=settings.dataaccess)
-    feature_builder = FeatureBuilder(data_access, cfg=settings.feature_builder)
+    adapter = create_market_data_provider_adapter(settings.dataaccess)
+    feature_builder = FeatureBuilder(adapter, cfg=settings.feature_builder)
     return PortfolioRiskWorkflow(
         PortfolioService(feature_builder, cfg=settings.portfolio),
         RiskService(feature_builder, cfg=settings.risk),

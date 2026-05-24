@@ -524,3 +524,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - Changed the pre-fetch `作成対象` candidate limit to use a fixed multi-factor DB-fit baseline instead of the currently selected sort profile.
 - This keeps the fetched symbol set stable when only `並べ替え条件` changes, so cached ranking data can be re-sorted without another provider fetch.
+
+## 2026-05-25 - Documentation and provider status alignment
+
+- Aligned README, PROJECT_CONTEXT, roadmap, and operations guide with implemented Phase 19 Decision Report and Phase 20 local Research RAG evidence slice.
+- Clarified that Research Score, external RAG adapters, assistant, fund ranking, PDF/Excel, and execution remain future scope.
+- Updated the Research RAG onepager so current Phase 20 contracts are separated from Phase 21+ Research Score sketches.
+- Changed market-data provider diagnostics so Yahoo is reported as an implemented opt-in live adapter, while deterministic supported providers remain `mock` / `csv` and `polygon` remains planned.

@@ -40,12 +40,19 @@ SMAI は以下の思想を重視しています。
 - deterministic な Risk pre-trade check
 - Portfolio 評価と solver なしの rebalance proposal
 - Portfolio-to-Risk workflow
+- Decision Report context v1
+  - cockpit / ranking / rebalance の判断材料を Markdown / JSON / manifest / ZIP として保存
+  - data confidence、symbol metadata、decision checkpoints、Research Evidence section の標準 builder
+- Research RAG Phase 20 local evidence slice
+  - local UTF-8 Markdown / Text / CSV の登録、hash dedupe、chunking、keyword evidence search
+  - deterministic Research Summary、data-quality warning、Cockpit / Ranking modal / Decision Report 連携
 - Streamlit UI
   - left side menu for `銘柄コックピット` / `銘柄ランキング` / `リバランス` / `設定 / データ情報`
-  - 銘柄コックピット: 価格・予測チャート、Investment Score、投資判断メモ、銘柄データ modal、warnings、downloads
-  - 銘柄ランキング: curated symbol metadata、候補条件 modal、ランキング preset、行クリックで開く銘柄データ modal
-  - Rebalance Cockpit: summary flow、percentage target、allocation comparison chart、risk breach confirmation points
+  - 銘柄コックピット: 価格・予測チャート、Investment Score、投資判断メモ、Research Evidence、Decision Report、銘柄データ modal、warnings、downloads
+  - 銘柄ランキング: curated symbol metadata、候補条件 modal、ランキング preset、行クリックで開く銘柄データ modal、AI Research tab、Decision Report
+  - Rebalance Cockpit: summary flow、percentage target、allocation comparison chart、risk breach confirmation points、Decision Report
 - symbol universe metadata schema、source import、opt-in metadata refresh、SBI ranking universe policy columns / default exclusion helper
+- JPX / SBI / NISA / IMAJ / REIT source builders and import profiles
 - JSON / CSV / Markdown / manifest / ZIP export
 - file-backed rebalance scenarios
 - Windows 環境向け single-process Black check helper
@@ -53,12 +60,12 @@ SMAI は以下の思想を重視しています。
 未実装または将来範囲:
 
 - `polygon` など追加 live provider adapter 本体
-- SBI / NISA metadata の公式 source import（NISA seed import は実装済み）
-- 投信 metadata / 基準価額 / ranking 対応は Future Phase
-- Research RAG の ingestion / chunk store / retrieval / Research Score
-- Decision Report の本格化
-- Execution / broker への注文送信
+- 追加 provider / fund metadata source adapter
+- 投信 metadata / 基準価額 / ranking 対応
+- Research RAG external adapters、vector / hybrid search、Research Score
+- Research Score の Investment Score / ranking / report 統合
 - AI assistant experience
+- Execution / broker への注文送信
 - PDF / Excel export
 
 MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で維持します。一方、Streamlit の Market Data 画面は投資判断 UI として `yahoo` live data を初期表示・先頭表示にし、画面上で明示 opt-in した live provider として `yfinance` 経由で利用します。
@@ -70,7 +77,9 @@ MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で
 - Phase 16S: Stabilization / final Streamlit smoke に加え、Manual UX Review と Functional Spec Issues による成熟性レビューを実施
 - Phase 17: UI Polish / ランキング条件 UI 再設計は implementation complete
 - Phase 18: symbol universe / metadata refresh / source import / SBI ranking universe policy は implementation complete。継続的な NISA / ETF / stock metadata source 更新は運用タスクとして扱う
-- Phase 19〜24: Decision Report、Research RAG、Research Score、Assistant、optional adapter、Execution gate の順に整理
+- Phase 19: Decision Report Context MVP は implementation complete
+- Phase 20: Research RAG Evidence Layer は local evidence slice が実装進行中。external adapters と Research Score は後続
+- Phase 21〜24: Research Score、Assistant、optional adapter、Execution gate の順に整理
 - Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
 次の重点は、既存機能の分かりにくさ、仕様曖昧さ、投資助言に見えすぎる表現を棚卸しする成熟性レビューです。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、Research RAG external adapters、Assistant、Execution / Broker は明示的に割り当てるまで future scope として扱います。

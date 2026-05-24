@@ -360,7 +360,8 @@ def test_provider_metadata_rows_include_default_provider_details(monkeypatch):
         {"field": "deterministic", "value": "True"},
         {"field": "requires_external_opt_in", "value": "False"},
         {"field": "supported_providers", "value": "mock, csv"},
-        {"field": "planned_live_providers", "value": "yahoo, polygon"},
+        {"field": "implemented_live_providers", "value": "yahoo"},
+        {"field": "planned_live_providers", "value": "polygon"},
         {"field": "adapter_registered", "value": "False"},
     ]
 

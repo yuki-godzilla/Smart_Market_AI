@@ -22,18 +22,23 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - 明示 opt-in の `yahoo` live provider adapter 経路
 - Feature Snapshot / Screening Score / Forecast Evaluation / Investment Score
 - Portfolio-to-Risk rebalance-check workflow
+- Decision Report context / Markdown / JSON / manifest / ZIP export for cockpit, ranking, and rebalance
+- Research RAG Phase 20 local evidence slice
+  - local UTF-8 document registration, chunking, keyword evidence search, Research Summary
+  - Settings upload, Cockpit `AIデータ取得`, Ranking modal `AI Research`, Cockpit Decision Report Research Evidence
 - Streamlit UI
   - Market Data: `銘柄コックピット` / `銘柄ランキング`
   - Rebalance: summary flow / allocation comparison / risk confirmation
 - JSON / CSV / Markdown / manifest / ZIP export
 - file-backed rebalance scenarios
 
-未実装:
+未実装または将来範囲:
 
 - `polygon` などの追加 live provider adapter 本体
 - 追加 provider adapter / fund metadata source
-- Research RAG / IR資料検索 / Research Score
-- Decision Report の本格 workflow
+- Research RAG external source adapters / vector search / Research Score
+- Research Score の Investment Score / ranking / report 統合
+- Assistant / LLM / news integration
 - broker への live order 送信
 - Execution workflow
 - PDF / Excel export

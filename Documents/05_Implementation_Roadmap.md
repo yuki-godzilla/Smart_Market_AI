@@ -56,12 +56,12 @@ Research RAG は local evidence slice が進行中です。外部 source adapter
 未実装または今後の範囲:
 
 - `polygon` などの追加 live provider adapter 本体
-- 追加 provider / SBI / NISA / fund metadata source adapter
-- Research RAG layer（IR資料検索・根拠提示・Research Score）
-- Decision Report の本格 workflow
+- 追加 provider / fund metadata source adapter
+- Research RAG external source adapters / vector or hybrid search / Research Score
+- Research Score の Investment Score / ranking / report 統合
+- Assistant / LLM / news integration
 - broker への live order 送信
 - Execution workflow
-- AI assistant experience
 - PDF / Excel export
 
 ## 3. 実装方針

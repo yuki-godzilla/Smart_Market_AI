@@ -3,6 +3,7 @@ from __future__ import annotations
 import streamlit as st
 
 from backend.research import CompanyResearchReport
+from ui.styles import badge_html, render_metric_card
 
 
 def _display_value(value: object, fallback: str = "未取得") -> str:
@@ -158,23 +159,33 @@ def research_evidence_summary_items(
 
 
 def render_cockpit_summary_header(items: list[dict[str, str]]) -> None:
-    st.markdown("#### Symbol Cockpit Summary")
+    st.markdown("#### 01 Summary / Symbol Cockpit")
     st.caption(
         "この画面は、選択銘柄の価格・予測・スコア・根拠資料を整理する分析ビューです。表示内容は売買推奨ではありません。"
     )
     columns = st.columns(4)
     for index, item in enumerate(items):
         with columns[index % len(columns)]:
-            st.metric(item["label"], item["value"], help=item.get("help"))
+            render_metric_card(
+                item["label"],
+                item["value"],
+                caption=item.get("help", ""),
+                badges=(_badge_for_summary_item(item),),
+            )
 
 
 def render_cockpit_kpi_cards(cards: list[dict[str, str]]) -> None:
     st.markdown("#### Analysis KPI")
-    st.caption("既存の分析結果を、確認しやすい主要KPIとして整理しています。")
+    st.caption("まず主要KPIで全体感をつかみ、その後に価格チャートと評価内訳を確認します。")
     columns = st.columns(min(5, len(cards)))
     for index, card in enumerate(cards):
         with columns[index % len(columns)]:
-            st.metric(card["label"], card["value"], help=card.get("help"))
+            render_metric_card(
+                card["label"],
+                card["value"],
+                caption=card.get("help", ""),
+                badges=(_badge_for_kpi_card(card),),
+            )
 
 
 def render_research_evidence_summary(report: CompanyResearchReport) -> None:
@@ -186,4 +197,41 @@ def render_research_evidence_summary(report: CompanyResearchReport) -> None:
     columns = st.columns(min(5, len(items)))
     for index, item in enumerate(items):
         with columns[index % len(columns)]:
-            st.metric(item["label"], item["value"], help=item.get("help"))
+            render_metric_card(
+                item["label"],
+                item["value"],
+                caption=item.get("help", ""),
+                badges=(_badge_for_research_item(item),),
+            )
+
+
+def _badge_for_summary_item(item: dict[str, str]) -> str:
+    label = item.get("label", "")
+    value = item.get("value", "")
+    if label in {"Symbol", "Name", "Provider", "Asset / Region"}:
+        return badge_html("Info", "info")
+    if label == "Data Confidence" and value not in {"-", "未計算"}:
+        return badge_html("Data state", "success")
+    if label in {"Risk", "Decision View"}:
+        return badge_html("Review", "caution")
+    return badge_html("Context", "neutral")
+
+
+def _badge_for_kpi_card(card: dict[str, str]) -> str:
+    label = card.get("label", "")
+    value = card.get("value", "")
+    if label == "Data Confidence" and value not in {"-", "未計算"}:
+        return badge_html("Data state", "success")
+    if label in {"Risk", "Decision View"}:
+        return badge_html("Review", "caution")
+    return badge_html("Analysis", "info")
+
+
+def _badge_for_research_item(item: dict[str, str]) -> str:
+    label = item.get("label", "")
+    value = item.get("value", "")
+    if label == "Data Quality Status" and value == "OK":
+        return badge_html("High Confidence", "success")
+    if label == "Warnings" and value not in {"0", "-"}:
+        return badge_html("Check data", "caution")
+    return badge_html("Evidence", "info")

@@ -143,6 +143,13 @@ from ui.state import (
     MARKET_DATA_STATUS_STATE_KEY,
     MARKET_DATA_TOAST_STATE_KEY,
 )
+from ui.styles import (
+    badge_html,
+    render_global_styles,
+    render_metric_card,
+    style_altair_chart,
+    truncate_text,
+)
 from ui.symbol_universe import symbol_provider_symbol, symbol_universe_csv_rows
 from ui.views.cockpit import (
     cockpit_kpi_cards,
@@ -157,6 +164,7 @@ from ui.views.common import (
     _single_date_from_input,
     default_as_of_date,
 )
+from ui.views.ranking_chart_profiles import chart_profile_for_purpose, ranking_chart_frame
 from ui.views.rebalance import (
     REBALANCE_REQUEST_STATE_KEY,
     REBALANCE_RESULT_STATE_KEY,
@@ -553,6 +561,7 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
 
 def main() -> None:
     st.set_page_config(page_title="Smart Market AI", layout="wide")
+    render_global_styles()
     st.title("Smart Market AI")
 
     selected_page = render_sidemenu(runtime_settings_summary())
@@ -998,7 +1007,22 @@ def _ranking_result_grid_key(base_key: str) -> str:
 
 
 def ranking_result_aggrid_frame(display_rows: list[dict[str, str]]) -> pd.DataFrame:
-    return pd.DataFrame(display_rows)
+    rows: list[dict[str, str]] = []
+    for row in display_rows:
+        rows.append(
+            {
+                "順位": row.get("順位", ""),
+                "銘柄": row.get("銘柄", ""),
+                "銘柄名": truncate_text(row.get("銘柄名", ""), max_chars=30),
+                "総合スコア": row.get("総合スコア", ""),
+                "Risk": row.get("Risk", ""),
+                "データ品質": row.get("データ品質", ""),
+                "DB信頼度": row.get("DB信頼度", ""),
+                "見方": row.get("見方", ""),
+                "短い理由": truncate_text(row.get("補足", ""), max_chars=74),
+            }
+        )
+    return pd.DataFrame(rows)
 
 
 def ranking_result_aggrid_options(
@@ -1036,16 +1060,14 @@ def ranking_result_aggrid_options(
     if "銘柄" in frame.columns:
         builder.configure_column("銘柄", width=110, pinned="left")
     if "銘柄名" in frame.columns:
-        builder.configure_column("銘柄名", minWidth=220, pinned="left")
-    for column in ("総合スコア", "Screening", "予測一致", "データ品質", "Risk"):
+        builder.configure_column("銘柄名", minWidth=180, pinned="left", tooltipField="銘柄名")
+    for column in ("総合スコア", "データ品質", "DB信頼度", "Risk"):
         if column in frame.columns:
             builder.configure_column(column, width=112, filter=False)
     if "見方" in frame.columns:
         builder.configure_column("見方", width=130)
-    if "注意点" in frame.columns:
-        builder.configure_column("注意点", minWidth=220, tooltipField="注意点")
-    if "補足" in frame.columns:
-        builder.configure_column("補足", minWidth=520, flex=2, tooltipField="補足")
+    if "短い理由" in frame.columns:
+        builder.configure_column("短い理由", minWidth=260, flex=1, tooltipField="短い理由")
     return cast(dict[str, object], builder.build())
 
 
@@ -1456,13 +1478,12 @@ def ranking_score_bar_chart_frame(
             continue
         symbol = row.get("銘柄", "")
         name = row.get("銘柄名", "")
-        label = f"{symbol} {name}".strip()
         records.append(
             {
                 "rank": row.get("順位", ""),
                 "symbol": symbol,
                 "name": name,
-                "label": label or symbol,
+                "label": symbol or name,
                 "score": score,
             }
         )
@@ -1511,27 +1532,27 @@ def ranking_candidate_breakdown_rows(
         {
             "観点": "Investment Score",
             "値": selected_row.get("総合スコア", "未計算"),
-            "読み方": selected_row.get("見方", ""),
+            "確認ポイント": truncate_text(selected_row.get("見方", ""), max_chars=42),
         },
         {
             "観点": "Screening",
             "値": selected_row.get("Screening", "未計算"),
-            "読み方": "市場データ由来の比較材料です。",
+            "確認ポイント": "市場データ由来の比較材料",
         },
         {
             "観点": "Forecast",
             "値": selected_row.get("予測一致", "未計算"),
-            "読み方": "予測モデル間の見方の近さです。",
+            "確認ポイント": "予測モデル間の見方",
         },
         {
             "観点": "Data Confidence",
             "値": selected_row.get("DB信頼度") or selected_row.get("DB適合") or "未登録",
-            "読み方": "評価に使えるデータの信頼度で、投資魅力度ではありません。",
+            "確認ポイント": "評価に使えるデータの充実度",
         },
         {
             "観点": "Risk",
             "値": selected_row.get("Risk", "未接続"),
-            "読み方": selected_row.get("注意点", ""),
+            "確認ポイント": truncate_text(selected_row.get("注意点", ""), max_chars=42),
         },
     ]
 
@@ -1542,7 +1563,12 @@ def _render_ranking_summary_cards(cards: list[dict[str, str]]) -> None:
     columns = st.columns(3)
     for index, card in enumerate(cards):
         with columns[index % len(columns)]:
-            st.metric(card["label"], card["value"], help=card.get("help"))
+            render_metric_card(
+                card["label"],
+                card["value"],
+                caption=card.get("help", ""),
+                badges=(_metric_badge_for_card(card),) if _metric_badge_for_card(card) else (),
+            )
 
 
 def _render_top_screening_candidate_cards(cards: list[dict[str, str]]) -> None:
@@ -1556,25 +1582,44 @@ def _render_top_screening_candidate_cards(cards: list[dict[str, str]]) -> None:
     columns = st.columns(min(5, len(cards)))
     for index, card in enumerate(cards):
         with columns[index % len(columns)]:
-            with st.container(border=True):
-                title = f"#{card['rank']} {card['symbol']}".strip()
-                st.markdown(f"**{title}**")
-                if card["name"]:
-                    st.caption(card["name"])
-                st.metric("Investment Score", card["score"])
-                st.caption(f"Evaluation confidence: {card['confidence']}")
-                if card["caution"]:
-                    st.caption(f"Caution: {card['caution']}")
-                elif card["view"]:
-                    st.caption(card["view"])
+            title = f"#{card['rank']} {card['symbol']}".strip()
+            caption = card["name"] or card["caution"] or card["note"]
+            badges = (
+                badge_html(card["view"], "info") if card["view"] else "",
+                _confidence_badge(card["confidence"]),
+                badge_html("Caution", "caution") if card["caution"] else "",
+            )
+            render_metric_card(
+                title,
+                card["score"],
+                caption=caption,
+                badges=tuple(badge for badge in badges if badge),
+            )
+
+
+def _metric_badge_for_card(card: dict[str, str]) -> str:
+    label = card.get("label", "")
+    value = card.get("value", "")
+    if "Confidence" in label and value not in {"0", "-", "未計算"}:
+        return badge_html("Data state", "success")
+    if "ランキング" in label or "対象範囲" in label:
+        return badge_html("Context", "info")
+    return ""
+
+
+def _confidence_badge(value: str) -> str:
+    confidence = _decimal_from_text(value)
+    if confidence is not None and confidence >= Decimal("75"):
+        return badge_html("High Confidence", "success")
+    if confidence is not None:
+        return badge_html("Check data", "caution")
+    return badge_html("Data N/A", "neutral")
 
 
 def _render_ranking_score_bar_chart(display_rows: list[dict[str, str]]) -> None:
     frame = ranking_score_bar_chart_frame(display_rows)
     st.markdown("#### Top 10 Score Comparison")
-    st.caption(
-        "現在の条件で抽出された比較候補です。売買推奨ではなく、深掘り対象を絞るための参考情報です。"
-    )
+    st.caption("上位候補のスコア差を確認します。銘柄名はtooltipで確認できます。")
     if frame.empty:
         st.info("Investment Score をグラフ化できる候補がありません。")
         return
@@ -1594,14 +1639,14 @@ def _render_ranking_score_bar_chart(display_rows: list[dict[str, str]]) -> None:
         )
         .properties(height=max(260, min(420, 34 * len(frame))))
     )
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(style_altair_chart(chart), use_container_width=True)
 
 
 def _render_ranking_confidence_scatter(display_rows: list[dict[str, str]]) -> None:
     frame = ranking_score_confidence_frame(display_rows)
     st.markdown("#### Score x Evaluation Confidence")
     st.caption(
-        "Investment Score は比較用スコア、Evaluation Confidence は評価に使えるデータの信頼度です。"
+        "Investment Score は比較用スコア、Evaluation Confidence は評価に使えるデータの充実度です。"
     )
     if frame.empty:
         st.info("スコアと評価信頼度を同時に表示できる候補がありません。")
@@ -1631,10 +1676,54 @@ def _render_ranking_confidence_scatter(display_rows: list[dict[str, str]]) -> No
         )
         .properties(height=320)
     )
-    st.altair_chart(chart, use_container_width=True)
-    st.caption(
-        "High score / High confidence は深掘り優先候補、High score / Low confidence はデータ確認が必要な候補として扱います。"
+    st.altair_chart(style_altair_chart(chart), use_container_width=True)
+    st.caption("Evaluation Confidence は投資魅力度ではなく、データ確認のための補助指標です。")
+
+
+def _render_ranking_profile_chart(
+    display_rows: list[dict[str, str]],
+    ranking_purpose: str,
+) -> None:
+    requested_profile = chart_profile_for_purpose(ranking_purpose)
+    selection = ranking_chart_frame(display_rows, requested_profile)
+    st.markdown(f"#### {selection.profile.title if selection else requested_profile.title}")
+    if selection is None:
+        st.info(
+            "この条件で使える既存列が不足しているため、メインチャートは表示していません。詳細表で候補を確認してください。"
+        )
+        return
+    if selection.used_fallback:
+        st.caption(
+            f"指定条件向けの列が不足しているため、代替チャート `{selection.profile.title}` を表示しています。"
+        )
+    st.caption(selection.profile.description)
+    with st.expander("読み方", expanded=False):
+        for item in selection.profile.how_to_read:
+            st.caption(f"- {item}")
+        st.caption(selection.profile.caution)
+    encoding = {
+        "x": alt.X("x_value:Q", title=selection.x_column),
+        "y": alt.Y("y_value:Q", title=selection.y_column),
+        "tooltip": [
+            alt.Tooltip("rank:N", title="Rank"),
+            alt.Tooltip("symbol:N", title="Symbol"),
+            alt.Tooltip("name:N", title="Name"),
+            alt.Tooltip("x_value:Q", title=selection.x_column, format=".1f"),
+            alt.Tooltip("y_value:Q", title=selection.y_column, format=".1f"),
+            alt.Tooltip("caution:N", title="Caution"),
+        ],
+    }
+    if selection.color_column:
+        encoding["color"] = alt.Color("color_value:N", title=selection.color_column)
+    else:
+        encoding["color"] = alt.value("#4f8cff")
+    chart = (
+        alt.Chart(selection.frame)
+        .mark_circle(size=90, opacity=0.78)
+        .encode(**encoding)
+        .properties(height=320)
     )
+    st.altair_chart(style_altair_chart(chart), use_container_width=True)
 
 
 def _render_selected_ranking_candidate_breakdown(
@@ -1642,7 +1731,7 @@ def _render_selected_ranking_candidate_breakdown(
     selected_symbol: str | None,
 ) -> None:
     st.markdown("#### Selected Candidate Breakdown")
-    st.caption("選択中の候補について、利用可能な既存スコアを確認します。")
+    st.caption("選択中の候補が上位にある理由を、主要スコアで確認します。")
     rows = ranking_candidate_breakdown_rows(display_rows, selected_symbol)
     if not rows:
         st.info("内訳を表示する候補を選択してください。")
@@ -1656,25 +1745,34 @@ def _render_selected_ranking_candidate_breakdown(
         st.caption(selected_row["補足"])
 
 
-def _render_ranking_advanced_insights(display_rows: list[dict[str, str]]) -> None:
+def _render_ranking_advanced_insights(
+    display_rows: list[dict[str, str]],
+    *,
+    include_confidence_map: bool,
+) -> None:
     with st.expander("Advanced Insights", expanded=False):
         scores = ranking_score_bar_chart_frame(display_rows, limit=len(display_rows))
-        if scores.empty:
+        confidence_frame = ranking_score_confidence_frame(display_rows)
+        if scores.empty and (not include_confidence_map or confidence_frame.empty):
             st.info("補助分析に使えるスコアがありません。")
             return
         st.caption("常時表示すると情報が多くなる補助分析です。必要な場合だけ開いて確認します。")
-        histogram = (
-            alt.Chart(scores)
-            .mark_bar()
-            .encode(
-                x=alt.X("score:Q", bin=alt.Bin(maxbins=12), title="Investment Score"),
-                y=alt.Y("count():Q", title="候補数"),
-                tooltip=[alt.Tooltip("count():Q", title="候補数")],
-                color=alt.value("#6c7a89"),
+        if not scores.empty:
+            histogram = (
+                alt.Chart(scores)
+                .mark_bar()
+                .encode(
+                    x=alt.X("score:Q", bin=alt.Bin(maxbins=12), title="Investment Score"),
+                    y=alt.Y("count():Q", title="候補数"),
+                    tooltip=[alt.Tooltip("count():Q", title="候補数")],
+                    color=alt.value("#6c7a89"),
+                )
+                .properties(height=220)
             )
-            .properties(height=220)
-        )
-        st.altair_chart(histogram, use_container_width=True)
+            st.altair_chart(style_altair_chart(histogram), use_container_width=True)
+        if include_confidence_map and not confidence_frame.empty:
+            st.divider()
+            _render_ranking_confidence_scatter(display_rows)
 
 
 def _render_ranking_result_table(
@@ -2794,7 +2892,7 @@ def _render_market_data_ranking() -> None:
         with chart_col:
             _render_ranking_score_bar_chart(display_rows)
         with confidence_col:
-            _render_ranking_confidence_scatter(display_rows)
+            _render_ranking_profile_chart(display_rows, ranking_purpose)
         deep_dive_symbols = ranking_symbol_options(ranked_rows)
         selected_symbol: str | None = None
         if deep_dive_symbols:
@@ -2834,7 +2932,10 @@ def _render_market_data_ranking() -> None:
                 args=(selected_symbol, provider, start_date, end_date),
             )
         _render_selected_ranking_candidate_breakdown(display_rows, selected_symbol)
-        _render_ranking_advanced_insights(display_rows)
+        _render_ranking_advanced_insights(
+            display_rows,
+            include_confidence_map=ranking_purpose != "data_confidence",
+        )
         st.markdown("#### Detailed Ranking Table")
         st.caption(
             "カードとグラフで気になる候補を絞ったあと、詳細列を確認するためのテーブルです。行をクリックすると銘柄データを確認できます。"
@@ -3320,28 +3421,24 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
             symbol_metadata=_symbol_universe_row_for_symbol(symbol) if symbol else None,
         )
     )
-    _render_investment_score_section(preview, symbol_label, rows=score_display_rows)
-
-    st.subheader("価格・予測チャート")
-    _render_target_symbol_caption(symbol_label)
-    st.caption(
-        "価格実績、予測レンジ、モデル間の見方を確認します。予測は将来の保証ではなく、確認材料のひとつです。"
+    score_row = _render_investment_score_section(
+        preview,
+        symbol_label,
+        rows=score_display_rows,
     )
-    for index, message in enumerate(forecast_chart_summary(consensus_rows, metric_rows)):
-        if index == 0:
-            st.info(message)
-        else:
-            st.caption(message)
-    chart_currency = preview.bars[0].symbol.currency if preview.bars else ""
-    _render_market_chart(
+    _render_price_forecast_hero(
+        preview,
+        symbol_label,
         forecast_rows,
-        currency=chart_currency,
-        title="実績価格と予測",
+        consensus_rows,
+        metric_rows,
     )
-    st.caption("縦の点線は、実績価格から予測表示へ切り替わる位置です。")
+    if score_row is not None:
+        _render_score_breakdown_context(preview, symbol_label, score_row, score_display_rows)
+
     summary_rows = cockpit_detail_summary_rows(preview, consensus_rows, metric_rows)
     if summary_rows:
-        st.subheader("確認サマリー")
+        st.subheader("04 Confirmation Summary / 確認サマリー")
         st.caption(
             "詳細データのうち、深掘り前に見ておきたい代表項目を確認観点として整理しています。"
         )
@@ -3350,9 +3447,13 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
     _render_cockpit_research_summary(preview)
     _render_cockpit_decision_report(preview)
 
-    with st.expander("Forecast details / 詳細確認", expanded=False):
+    st.subheader("08 Developer / Data Details")
+    st.caption(
+        "ここから下は、Forecast、Screening、Provider取得値、Feature Snapshot を確認する詳細データです。"
+    )
+    with st.expander("Developer / Data Details - Forecast", expanded=False):
         st.caption(
-            "予測モデルごとの詳細値です。主要判断ではなく、必要に応じて確認する補助データです。"
+            "予測モデルごとの詳細値です。チャートで気になった点を確認するための補助データです。"
         )
         for index, message in enumerate(forecast_metric_summary(metric_rows)):
             if index == 0:
@@ -3380,7 +3481,7 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
                 mime="text/csv",
             )
 
-    with st.expander("Screening Score / 詳細確認", expanded=False):
+    with st.expander("Developer / Data Details - Screening Score", expanded=False):
         st.caption(
             "Screening Score の元データです。主要KPIで気になった点を詳しく見るために使います。"
         )
@@ -3401,7 +3502,7 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
                 mime="text/csv",
             )
 
-    with st.expander("Provider / Quote / OHLCV / 詳細確認", expanded=False):
+    with st.expander("Developer / Data Details - Provider / Quote / OHLCV", expanded=False):
         st.caption(
             "Provider取得値とOHLCVの詳細です。データ鮮度や取得内容を確認したい場合に使います。"
         )
@@ -3417,7 +3518,7 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         _render_target_symbol_caption(symbol_label)
         _render_table(preview.ohlcv_rows, "No OHLCV rows.")
 
-    with st.expander("FX / Feature Snapshot / 詳細確認", expanded=False):
+    with st.expander("Developer / Data Details - FX / Feature Snapshot", expanded=False):
         st.caption(
             "FX換算やFeature Snapshotの詳細です。通常は主要KPIとチャート確認後に参照します。"
         )
@@ -3439,7 +3540,7 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
         return
     header_col, action_col = st.columns([5.0, 1.2])
     with header_col:
-        st.subheader("Research RAG / 根拠資料")
+        st.subheader("05 Research Evidence / 根拠資料")
         st.caption(
             "価格データ取得時にはResearch RAGを自動実行しません。"
             "登録済み資料から根拠を整理したい場合だけ、AIデータ取得を実行してください。"
@@ -3604,25 +3705,61 @@ def _render_market_data_cockpit_header(
     return forecast_horizon_days
 
 
+def _render_price_forecast_hero(
+    preview: MarketDataPreview,
+    symbol_label: str,
+    forecast_rows: list[dict[str, str]],
+    consensus_rows: list[dict[str, str]],
+    metric_rows: list[dict[str, str]],
+) -> None:
+    st.subheader("02 Price & Forecast / 価格・予測")
+    _render_target_symbol_caption(symbol_label)
+    st.caption(
+        "価格の流れと予測レンジを最初に確認します。予測は将来の保証ではなく、比較・確認のための参考情報です。"
+    )
+    for index, message in enumerate(forecast_chart_summary(consensus_rows, metric_rows)):
+        if index == 0:
+            st.info(message)
+        else:
+            st.caption(message)
+    chart_currency = preview.bars[0].symbol.currency if preview.bars else ""
+    _render_market_chart(
+        forecast_rows,
+        currency=chart_currency,
+        title="Price & Forecast",
+    )
+    st.caption("縦の点線は、実績価格から予測表示へ切り替わる位置です。")
+
+
 def _render_investment_score_section(
     preview: MarketDataPreview,
     symbol_label: str,
     *,
     rows: list[dict[str, str]] | None = None,
-) -> None:
+) -> dict[str, str] | None:
+    _ = preview
+    _ = symbol_label
     rows = (
         rows if rows is not None else investment_score_display_rows(preview.investment_score_rows)
     )
     if not rows:
         st.info("No investment score rows.")
-        return
+        return None
 
     row = rows[0]
     render_cockpit_kpi_cards(cockpit_kpi_cards(row))
+    return row
 
-    st.markdown("#### Score Breakdown")
+
+def _render_score_breakdown_context(
+    preview: MarketDataPreview,
+    symbol_label: str,
+    row: dict[str, str],
+    rows: list[dict[str, str]],
+) -> None:
+    st.markdown("#### 03 Score Breakdown / 評価の内訳")
     st.caption(
-        "総合スコアを構成する主な観点です。特定の銘柄の売買判断ではなく、深掘りする観点を整理するために使います。"
+        "チャートを見たあとに、総合スコアを構成する観点を確認します。売買判断ではなく、深掘りする理由を整理するための表示です。"
     )
     _render_score_breakdown_chart(score_component_rows(row))
 
@@ -3635,14 +3772,14 @@ def _render_investment_score_section(
         st.caption(line)
     period_rows = cockpit_period_evaluation_rows(preview.bars)
     if period_rows:
-        st.subheader("期間別評価")
+        st.subheader("Period Review / 期間別評価")
         st.caption(
             "取得した期間の長さに合わせて、値動きの確認観点を整理しています。売買判断ではなく、深掘り前の整理です。"
         )
         _render_symbol_detail_table(period_rows)
     memo_rows = cockpit_investment_memo_rows(preview, row)
     if memo_rows:
-        st.subheader("投資判断メモ")
+        st.subheader("Review Memo / 投資判断メモ")
         st.caption(
             "銘柄データ、スコア、取得期間の値動きを合わせた深掘り観点です。売買推奨ではありません。"
         )
@@ -4241,6 +4378,7 @@ def _render_cockpit_decision_report(preview: MarketDataPreview) -> None:
         expander_label="投資判断レポート",
         json_file_name="decision_report_cockpit.json",
         markdown_file_name="decision_report_cockpit.md",
+        heading_prefix="07",
     )
 
 
@@ -4341,9 +4479,11 @@ def _render_decision_report_downloads(
     expander_label: str,
     json_file_name: str,
     markdown_file_name: str,
+    heading_prefix: str | None = None,
 ) -> None:
     markdown = decision_report_markdown_download(context)
-    st.markdown(f"### {expander_label}")
+    heading = f"{heading_prefix} {expander_label}" if heading_prefix else expander_label
+    st.markdown(f"### {heading}")
     st.info(
         "取得済みデータ、銘柄メタデータ、スコア、根拠、確認ポイントを判断材料として整理しました。"
         "売買推奨ではなく、後から確認できる分析メモとして扱います。"
@@ -4374,7 +4514,12 @@ def _render_decision_report_downloads(
         mime="application/zip",
     )
     with st.expander("レポート本文を表示", expanded=False):
-        st.code(markdown, language="markdown")
+        preview_tab, raw_tab = st.tabs(["Preview", "Raw Markdown"])
+        with preview_tab:
+            with st.container(border=True):
+                st.markdown(markdown)
+        with raw_tab:
+            st.code(markdown, language="markdown")
 
 
 def _investment_score_report_section(

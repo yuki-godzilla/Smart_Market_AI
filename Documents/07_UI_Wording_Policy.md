@@ -51,8 +51,15 @@ Area-specific wording:
 - Ranking tables should keep the supplemental note to a short sentence. Detailed decision-support wording belongs in the shared `銘柄データ` modal.
 - Ranking dashboard labels may use `Screening Candidates`, `Comparison Candidates`, `Further Review Candidates`, `Top 10 Score Comparison`, and `Evaluation Confidence`; avoid labeling top rows as recommended securities.
 - Ranking charts should explain that Investment Score and Evaluation Confidence are different concepts: one is a comparison score, the other is data reliability / coverage.
+- Ranking chart descriptions should state what to compare, how to read quadrants, and what to be careful about, while avoiding buy/sell wording.
+- Evaluation Confidence should be described as evaluation reliability / data coverage, not as a main attractiveness factor.
 - Symbol Cockpit dashboard labels may use `Symbol Cockpit Summary`, `Analysis KPI`, `Score Breakdown`, `Selected Candidate`, and `Research Evidence Summary`; explain these as analysis / confirmation views rather than advice.
 - Cockpit `Decision View` should be treated as a confirmation level, not a buy/sell direction.
+- Cockpit chart copy should frame `Price & Forecast` as the main analysis view, then direct users to Score Breakdown for reasons and Data Details for verification.
+- Overall UI tone should be Professional but Friendly: short labels, calm explanations, restrained dashboard wording, and no advice-like urgency.
+- Badges should clarify state rather than imply action: `Review`, `Check data`, `High Confidence`, `Evidence`, `Context`, and similar neutral labels are preferred.
+- Chart descriptions should help users decide what to inspect next, while keeping the message framed as comparison / confirmation support.
+- UI captions should stay short. Long explanations, quadrant reading guides, raw reasons, and report text should move to help text, tooltip, expander, Preview / Raw tabs, or downloads.
 - The shared symbol-detail modal may show score interpretation, caution, valuation, income, and next-action rows, but must not present buy/sell advice.
 - Cockpit fetch results may show `投資判断メモ` that combines score, warnings, symbol-master data, and price trend into confirmation points.
 - Decision Report Markdown should be Japanese-first: section titles, table headers, notes, and confirmation points should read as a user-facing report, while JSON may keep stable internal schema keys.

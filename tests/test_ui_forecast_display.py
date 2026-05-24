@@ -66,6 +66,7 @@ from ui.app import (
     ranking_detail_symbol_to_open,
     ranking_investment_detail_rows,
     ranking_investment_note,
+    ranking_result_aggrid_frame,
     ranking_result_aggrid_options,
     ranking_score_bar_chart_frame,
     ranking_score_confidence_frame,
@@ -578,7 +579,8 @@ def test_ranking_result_aggrid_options_enable_single_row_click_selection():
     column_defs = {column["field"]: column for column in options["columnDefs"]}
     assert column_defs["順位"]["pinned"] == "left"
     assert column_defs["銘柄"]["pinned"] == "left"
-    assert column_defs["補足"]["tooltipField"] == "補足"
+    assert "短い理由" in column_defs
+    assert column_defs["短い理由"]["tooltipField"] == "短い理由"
 
 
 def test_ranking_result_grid_custom_css_keeps_dark_table_readable():
@@ -2499,7 +2501,39 @@ def test_ranking_candidate_cards_and_breakdown_use_existing_display_values():
         "Data Confidence",
         "Risk",
     ]
-    assert breakdown[3]["読み方"] == "評価に使えるデータの信頼度で、投資魅力度ではありません。"
+    assert breakdown[3]["確認ポイント"] == "評価に使えるデータの充実度"
+
+
+def test_ranking_result_aggrid_frame_keeps_display_table_compact():
+    frame = ranking_result_aggrid_frame(
+        [
+            {
+                "順位": "1",
+                "銘柄": "7203.T",
+                "銘柄名": "Toyota Motor Corporation Long Name",
+                "総合スコア": "82",
+                "Risk": "55",
+                "データ品質": "90",
+                "DB信頼度": "88",
+                "見方": "比較候補",
+                "補足": "長い理由です。" * 20,
+            }
+        ]
+    )
+
+    assert frame.columns.tolist() == [
+        "順位",
+        "銘柄",
+        "銘柄名",
+        "総合スコア",
+        "Risk",
+        "データ品質",
+        "DB信頼度",
+        "見方",
+        "短い理由",
+    ]
+    assert frame.loc[0, "銘柄名"].endswith("…")
+    assert frame.loc[0, "短い理由"].endswith("…")
 
 
 def test_ranking_investment_note_uses_scores_and_symbol_metadata(monkeypatch):

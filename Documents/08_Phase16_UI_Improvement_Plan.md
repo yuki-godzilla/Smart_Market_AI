@@ -34,6 +34,18 @@ Ranking 画面は、既存ランキング結果の「見せ方」を改善し、
 - Score distribution など補助分析は `Advanced Insights` に入れ、初期表示の情報量を抑える。
 - backend ranking logic、score calculation、Investment Score / Database Fit / Metadata Confidence の意味は変更しない。
 
+## Symbol Cockpit UI Maturity Addendum / 2026-05-24
+
+Symbol Cockpit は、既存分析結果を「結論 → 根拠 → 詳細」の順に読みやすくし、1銘柄を深掘りする金融ダッシュボード風の分析ビューとして磨き込む。
+
+- 価格・予測チャートの前に `Symbol Cockpit Summary` を置き、Symbol、Name、Provider、As of、Reference period、Asset / Region、Investment Score、Decision View、Data Confidence、Risk、Forecast horizon を整理する。
+- `Analysis KPI` では Investment Score、Decision View、Forecast Agreement、Data Confidence、Risk を既存表示値からカード化し、Data Confidence を投資魅力度ではなく評価信頼度として説明する。
+- `Score Breakdown` はKPI直下に配置し、総合スコアの構成観点を早い段階で確認できるようにする。
+- 価格・予測チャート、期間別評価、投資判断メモ、確認サマリーには、売買推奨ではなく確認観点であることを短く補足する。
+- `Research Evidence Summary` はResearch RAG実行後に表示し、Document Count、Evidence Count、Latest Source Date、Data Quality Status、Warnings を確認材料として見せる。Research RAGは自動実行しない。
+- Forecast details、Screening Score、Provider / Quote / OHLCV、FX / Feature Snapshot は下部の詳細確認 Expander として維持する。
+- backend logic、Investment Score calculation、Forecast / Research / Decision Report generation logic は変更しない。
+
 ## 目的
 
 Phase 16 では、Smart Market AI を「表を読む分析ツール」から、個人投資家が候補を探し、理由を理解し、次に確認する観点を整理できる UI に近づける。

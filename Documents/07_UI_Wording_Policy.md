@@ -51,6 +51,8 @@ Area-specific wording:
 - Ranking tables should keep the supplemental note to a short sentence. Detailed decision-support wording belongs in the shared `銘柄データ` modal.
 - Ranking dashboard labels may use `Screening Candidates`, `Comparison Candidates`, `Further Review Candidates`, `Top 10 Score Comparison`, and `Evaluation Confidence`; avoid labeling top rows as recommended securities.
 - Ranking charts should explain that Investment Score and Evaluation Confidence are different concepts: one is a comparison score, the other is data reliability / coverage.
+- Symbol Cockpit dashboard labels may use `Symbol Cockpit Summary`, `Analysis KPI`, `Score Breakdown`, `Selected Candidate`, and `Research Evidence Summary`; explain these as analysis / confirmation views rather than advice.
+- Cockpit `Decision View` should be treated as a confirmation level, not a buy/sell direction.
 - The shared symbol-detail modal may show score interpretation, caution, valuation, income, and next-action rows, but must not present buy/sell advice.
 - Cockpit fetch results may show `投資判断メモ` that combines score, warnings, symbol-master data, and price trend into confirmation points.
 - Decision Report Markdown should be Japanese-first: section titles, table headers, notes, and confirmation points should read as a user-facing report, while JSON may keep stable internal schema keys.

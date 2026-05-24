@@ -17,6 +17,8 @@ Current focus is project maturity improvement rather than feature expansion. Fun
 
 Current UI maturity work includes Ranking visualization polish: existing ranking results are being presented as screening / comparison candidates with summary cards, top-candidate cards, score and confidence charts, selected-candidate breakdown, and a detailed table, without changing backend ranking or scoring logic.
 
+Current UI maturity work also includes Symbol Cockpit polish: the cockpit presents existing analysis results as summary header, KPI cards, score breakdown, price/forecast reading guidance, period evaluation, memo, research evidence summary, decision report, and lower-priority detail expanders, without changing backend scoring, forecast, Research RAG, or report generation logic.
+
 Routine development must keep deterministic `mock` / `csv` behavior available while allowing explicit opt-in use of live providers such as Yahoo/yfinance.
 The configured default provider remains `mock` for local checks and APIs; the Streamlit Market Data provider selector is live-first with `yahoo` as the first/default option and explicit per-fetch opt-in.
 
@@ -59,7 +61,7 @@ Implemented or mostly implemented:
 - Streamlit Market Data provider selector defaults to `yahoo` and shows it first; large live ranking requests warn users instead of hard-blocking them.
 - Ranking candidate filters using static/curated metadata before provider fetch.
 - Ranking result rows open the selected symbol's local master data in the same symbol-detail modal. The screen now leads with screening summary cards, top-candidate cards, score / confidence charts, and selected-candidate breakdown before the detailed table. The table keeps a short one-line note; the modal carries deeper decision-support guidance from symbol metadata, score components, valuation, income, and next-check points.
-- The single-symbol cockpit has a `銘柄データを見る` control beside symbol selection, with date range controls wrapped onto the next row. After data fetch, the cockpit shows an investment memo combining score interpretation, warnings, valuation, income, price trend, and next confirmation points.
+- The single-symbol cockpit has a `銘柄データを見る` control beside symbol selection, with date range controls wrapped onto the next row. After data fetch, the cockpit leads with a summary header, KPI cards, Score Breakdown, price/forecast chart guidance, period evaluation, investment memo, confirmation summary, Research Evidence Summary when fetched, Decision Report downloads, and lower-priority detail expanders.
 - Symbol universe source import for local curated / JPX expansion; current candidate master carries SBI policy columns but is not yet an SBI-verified tradable universe. SBI acquisition policy is local-master first, not direct site scraping.
 - Ranking condition classification first slice: region, product type, ranking purpose, and dynamic detail filters are wired into the Streamlit ranking UI.
 - Ranking presets for balanced, forecast-agreement, data-quality, and lower-risk emphasis.

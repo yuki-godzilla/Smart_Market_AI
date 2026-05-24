@@ -13,6 +13,7 @@ from backend.reporting import (
     build_decision_report_context,
     build_decision_report_manifest,
     build_report_section,
+    build_research_evidence_section,
     build_symbol_metadata_section,
     decision_report_export_files,
     decision_report_json_download,
@@ -207,6 +208,52 @@ def test_build_decision_checkpoints_section_rejects_empty_rows():
         build_decision_checkpoints_section(checkpoints=[])
 
     assert "Decision checkpoints require" in exc_info.value.message
+
+
+def test_build_research_evidence_section_adds_summary_evidence_and_warning():
+    section = build_research_evidence_section(
+        symbol="7203.T",
+        as_of=date(2026, 5, 24),
+        summary="2件の根拠から、長期企業分析の確認材料を整理しました。",
+        points=[
+            {
+                "category": "growth",
+                "label": "成長材料",
+                "summary": "海外市場拡大を確認材料として見ます。",
+            }
+        ],
+        evidence_rows=[
+            {
+                "title": "7203 Research Note",
+                "source_type": "user_note",
+                "published_at": "2026-05-01",
+                "section_title": "Growth",
+                "excerpt": "Growth strategy includes market expansion.",
+                "relevance_score": "0.8300",
+                "reliability": "0.80",
+            }
+        ],
+        data_quality={
+            "status": "WARN",
+            "document_count": "1",
+            "latest_document_date": "2026-05-01",
+            "evidence_count": "1",
+            "warnings": "資料が少ないため、Research Summary の信頼度は控えめです。",
+        },
+    )
+    context = build_decision_report_context(
+        title="Decision support report",
+        sections=[section],
+        created_at=datetime(2026, 5, 24, 12, 0, tzinfo=UTC),
+    )
+    markdown = render_decision_report_markdown(context)
+
+    assert section.source.kind == "research"
+    assert section.summary["document_count"] == "1"
+    assert section.rows[0]["row_type"] == "summary_point"
+    assert section.rows[1]["row_type"] == "evidence"
+    assert "Research Evidence" in markdown
+    assert "Research RAG は登録済み資料から確認材料を整理する機能" in markdown
 
 
 def test_build_report_section_rejects_empty_content():

@@ -71,7 +71,7 @@ Partial or intentionally deferred:
 - `polygon` is reserved in provider metadata but adapter implementation is not complete.
 - Symbol metadata refresh has a provider-neutral command and an opt-in Yahoo adapter; ranking filters still rely on local symbol-universe metadata before provider fetch.
 - SBI Securities ranking-universe policy columns and default exclusion helper are wired into ranking candidate extraction. `tradability=unknown` is allowed for current seed rows; explicit out-of-scope products, not-tradable rows, inactive rows, non-SBI rows, leveraged rows, and inverse rows are excluded.
-- Research RAG is designed but not implemented.
+- Research RAG Phase 20 local evidence slice is in progress; external adapters and Research Score integration remain planned.
 - Decision Report context/rendering/export is wired into cockpit, ranking, and rebalance UI outputs with Markdown / JSON / manifest / ZIP downloads.
 - Execution / broker order submission is intentionally out of the current default path.
 - UI-rich PDF / Excel report export is future scope after Phase 19; current report exports remain Markdown / JSON / manifest / ZIP.
@@ -95,7 +95,9 @@ Partial or intentionally deferred:
 
 - Treat NISA / ETF / stock source refreshes, the 11 curated overseas ETF `yahoo_symbol` live-smoke checks, and remaining confirmed-source metadata gaps as operational maintenance after Phase 18 completion.
 - Keep a final cross-flow Streamlit smoke available before handoff when browser access is useful: ranking cache/progress, purpose-based resort, ranking symbol-detail modal, cockpit symbol-detail button, cockpit investment memo, and Rebalance wording.
-- Start Phase 20 Research RAG from local document ingestion, chunk/search, and deterministic Research Summary before optional vector/LLM adapters.
+- Phase 20 Research RAG has started with a local evidence slice: `backend/research` local UTF-8 document ingestion, hash dedupe, chunking, keyword evidence search, deterministic Research Summary, data-quality warnings, Settings session-local document upload/registration, explicit cockpit `AIデータ取得` Research Summary display, ranking row-click `銘柄データ` modal `AI Research` tab with `AIで資料を確認`, and Cockpit Decision Report Research Evidence section when documents/evidence exist. Price-data fetch does not automatically run Research RAG. Next connection point is ranking evidence-status display; keep Research Score and Investment Score / ranking integration for Phase 21.
+- Phase 20 seed data includes `data/research_docs/7203_T_yfinance_profile_20260523.md`, fetched from Yahoo Finance via yfinance as a real provider-profile snapshot for local RAG confirmation. Treat it as provider evidence, not an audited filing.
+- Long-term Research RAG storage direction: after external source adapters are stable, `data/research_docs/` should be demoted from the primary manual upload path to cache / audit archive / offline fixture storage. Manual upload remains a fallback for private notes or non-public documents.
 - Keep provider selection explicit and error messages understandable in UI.
 
 ## Known Documentation Rules

@@ -11,4 +11,6 @@ MARKET_DATA_RANKING_DEEP_DIVE_SOURCE_STATE_KEY = "market_data_ranking_deep_dive_
 MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY = "market_data_ranking_selected_labels"
 MARKET_DATA_RANKING_FILTERS_STATE_KEY = "market_data_ranking_filters"
 MARKET_DATA_RANKING_BUILD_CACHE_STATE_KEY = "market_data_ranking_build_cache"
+MARKET_DATA_RESEARCH_REPORT_STATE_KEY = "market_data_research_report"
+MARKET_DATA_RANKING_RESEARCH_REPORTS_STATE_KEY = "market_data_ranking_research_reports"
 RANKING_FILTER_DIALOG_STATE_KEY = "market_data_ranking_filter_dialog_open"

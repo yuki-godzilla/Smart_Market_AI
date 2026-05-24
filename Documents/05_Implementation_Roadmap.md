@@ -474,7 +474,42 @@ Completion criteria:
 
 ### 5.6 Phase 20: Research RAG Evidence Layer
 
-Status: planned
+Status: in progress; backend local evidence slice started
+
+Current implementation direction:
+
+- Phase 20 は、RAG で銘柄を推奨したりランキング順位を直接変えたりする段階ではなく、既存の `銘柄コックピット` / `銘柄ランキング` / `Decision Report` に資料根拠を添える local-first evidence layer として実装する。
+- 初期 MVP はローカル資料だけを対象にする。外部 scraping、外部 LLM、embedding / vector DB は通常経路に入れず、後続 phase の optional adapter として扱う。
+- 9,179件の銘柄DB全体を一括RAG対象にせず、ランキング後の上位候補、コックピットで選択した銘柄、Decision Report の対象銘柄から段階的に使う。
+- 初期出力は `Research Summary`、`Research Evidence`、`Research Data Quality` を中心にする。資料がない銘柄では「根拠不足」を明示し、推定で埋めない。
+- `Research Score` と Investment Score / ranking への重み統合は Phase 21 に回す。
+
+Recommended MVP slice:
+
+- R0: Research RAG design cleanup。`Documents/04_Detail_Design/04-8_Onepager_Research_RAG.md` の文字化け部分を、Phase 20 方針に沿って読める日本語へ整える。
+- R1: Local Document Ingestion MVP。`backend/research/` に document metadata contract と ingestion service を追加し、`data/research_docs/` 配下の Markdown / Text / CSV fixture を登録できるようにする。
+- R2: Text Extraction & Chunk Store。ローカル資料を source / title / published_at / section / chunk_index / reliability と紐づく検索可能 chunk に分割する。
+- R3: Keyword Retrieval MVP。symbol と query から evidence chunk を返す deterministic keyword search を実装する。top_k、freshness、source_type、reliability を保持する。
+- R4: Research Summary MVP。コックピット向けに、成長材料、株主還元、事業リスク、財務安全性、確認不足を evidence 付きで要約する。LLM は使わず rule / template を既定にする。
+- R4.5: UI / Report integration。銘柄コックピットに Research Summary を追加し、ランキングには「根拠あり / 最新資料が古い / 根拠不足」の状態だけを軽く表示する。Decision Report には Research Evidence section を追加する。
+
+Current implemented slice:
+
+- `backend/research` provides local UTF-8 document ingestion, hash dedupe, chunking, keyword evidence search, deterministic Research Summary, and data-quality warnings.
+- `設定 / データ情報` has a `Research RAG / 根拠資料` expander for session-local Markdown / Text / CSV upload and registration.
+- `銘柄コックピット` shows a `Research RAG / 根拠資料` section with an explicit `AIデータ取得` button beside the section header; price-data fetch does not automatically run Research RAG. The summary shows source document names, dates, evidence counts, and detailed evidence rows inside a collapsed detail expander.
+- `銘柄ランキング` row-click `銘柄データ` modal has an `AI Research` tab with an explicit `AIで資料を確認` button. It reuses the same Research Summary panel for growth, shareholder return, financial safety, business risk, confirmation gaps, source document names, dates, and evidence counts.
+- Cockpit Decision Report includes `Research Evidence` only when `AIデータ取得` has produced a report and registered documents or evidence exist, so existing no-document reports remain unchanged.
+
+Recommended completion criteria:
+
+- local fixture だけで ingestion -> chunk -> keyword search -> Research Summary が動く。
+- 通常 tests は external scraping / external LLM / network に依存しない。
+- evidence は source_type、title、published_at、section/page、excerpt、relevance、reliability と紐づく。
+- コックピットでは選択銘柄の Research Summary と evidence を確認できる。
+- ランキングではRAG結果で順位を直接変えず、選択候補の根拠状態を確認できる。
+- Decision Report では Research Evidence section と根拠不足 warning を表示できる。
+- Research data quality は document_count、latest_document_date、evidence_count、warnings を含む。
 
 目的: 価格・テクニカル指標だけでは拾いにくい長期企業分析の根拠を、local-first な document evidence layer として追加する。
 
@@ -496,6 +531,29 @@ Completion criteria:
 ### 5.7 Phase 21: Research Score And Investment Integration
 
 Status: planned
+
+Current integration direction:
+
+- Phase 21 は、Phase 20 の evidence / summary を、説明可能な Research Score として定量化し、Investment Score、ranking、Decision Report に optional input として接続する。
+- Research Score は evidence と紐づく補助スコアにする。資料不足時は欠損または低信頼として扱い、推定で埋めない。
+- 初期の Investment Score weight は 0.0 または低めの optional weight とし、既存の Screening / Forecast / Risk / Data Quality score を壊さない。
+- Ranking では Research Score を既定の主要ソート条件にせず、深掘り候補の確認材料、または opt-in sort profile として扱う。
+- Decision Report では Research Score の内訳と evidence を同じ section で確認できるようにする。
+
+Recommended integration slice:
+
+- R5: Vector Search / Hybrid Search optional adapter。keyword retrieval を baseline に残し、embedding / vector は optional にする。
+- R6: Research Score MVP。growth、profitability、shareholder_return、financial_safety、business_risk、disclosure_quality、freshness を rule/template で採点し、evidence_count と confidence を保持する。
+- R7: Investment Score / Ranking / Report integration。Research Score を設定で管理できる optional weight として Investment Score に接続し、ranking / cockpit / report に内訳を表示する。
+- R8: External Source Adapter。EDINET / TDnet / IR site / news などは明示 opt-in adapter として扱い、通常 checks には入れない。
+
+Recommended completion criteria:
+
+- Research Score は evidence と紐づいて説明できる。
+- Investment Score に Research Score を統合する重みが設定で管理できる。
+- evidence 不足時は score 欠損または低信頼として表示される。
+- Ranking / Report では Research Score が売買推奨ではなく確認材料として表示される。
+- external source adapter は通常 checks に入れない。
 
 目的: Research RAG の evidence / summary を Investment Score、ranking、Decision Report に接続する。
 
@@ -554,6 +612,13 @@ Completion criteria:
 - provider / model / LLM の使用状態と fallback 状態が UI/API で分かる。
 - 通常 tests は network / cloud API / heavy ML library に依存しない。
 - LLM は説明・要約・観点提示に限定し、スコア計算や売買判断の主体にしない。
+
+Research document storage migration:
+
+- When EDINET / TDnet / IR-site / provider-profile adapters can fetch current documents on explicit user action, `data/research_docs/` should no longer be the primary manual input path.
+- Keep `data/research_docs/` as local cache / audit archive / offline fixture storage while external adapters are optional. Do not delete it until provider manifests, source URLs, fetched_at timestamps, hashes, and reproducible cached payloads are available.
+- After external adapters are stable, deprecate manual `設定 / データ情報` upload as the normal user path and replace it with explicit `外部資料を取得` / `資料キャッシュを更新` actions.
+- Long-term target: `data/research_docs/` becomes generated/cache data or test fixture storage, not hand-maintained business data. User-facing docs should describe it as cache/archive. Manual upload remains an advanced fallback for private notes or documents not available from public sources.
 
 ### 5.10 Phase 24: Advanced Export And Execution Gate
 

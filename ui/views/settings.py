@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+from datetime import date
+
 import streamlit as st
 
+from backend.research import ResearchDocumentError
 from ui.rebalance_app import runtime_settings_summary, symbol_reference_rows
+from ui.research_state import (
+    register_uploaded_research_document,
+    research_document_summary_rows,
+)
 from ui.symbol_universe import (
     symbol_universe_csv_metadata_summary,
     symbol_universe_csv_rows,
@@ -49,3 +56,58 @@ def render_settings_page() -> None:
         else:
             st.caption("銘柄候補CSVの形式確認: OK")
         st.dataframe(symbol_universe_csv_rows(), hide_index=True, use_container_width=True)
+
+    with st.expander("Research RAG / 根拠資料", expanded=False):
+        st.caption(
+            "ローカル資料を登録し、銘柄コックピットとDecision Reportで根拠表示に使います。"
+            "Phase 20ではUTF-8のMarkdown/Text/CSVを対象にします。"
+        )
+        symbol = st.text_input("銘柄コード", key="research_upload_symbol", placeholder="7203.T")
+        title = st.text_input("資料タイトル", key="research_upload_title")
+        source_type = st.selectbox(
+            "資料種別",
+            [
+                "user_note",
+                "earnings_report",
+                "earnings_presentation",
+                "annual_report",
+                "medium_term_plan",
+                "integrated_report",
+                "tdnet",
+                "news",
+            ],
+            key="research_upload_source_type",
+        )
+        published_at = st.date_input(
+            "公開日",
+            value=None,
+            key="research_upload_published_at",
+        )
+        uploaded_file = st.file_uploader(
+            "資料ファイル",
+            type=["md", "txt", "csv"],
+            key="research_upload_file",
+        )
+        if st.button("Research資料を登録", key="research_upload_register"):
+            if not symbol.strip() or not title.strip() or uploaded_file is None:
+                st.warning("銘柄コード、資料タイトル、資料ファイルを指定してください。")
+            else:
+                try:
+                    document_id, chunk_count = register_uploaded_research_document(
+                        symbol=symbol,
+                        title=title,
+                        content=uploaded_file.getvalue(),
+                        file_name=uploaded_file.name,
+                        source_type=source_type,
+                        published_at=published_at if isinstance(published_at, date) else None,
+                    )
+                except (ResearchDocumentError, UnicodeDecodeError) as exc:
+                    st.error(f"Research資料を登録できませんでした: {exc}")
+                else:
+                    st.success(f"登録しました: {document_id} / chunks: {chunk_count}")
+
+        rows = research_document_summary_rows()
+        if rows:
+            st.dataframe(rows, hide_index=True, use_container_width=True)
+        else:
+            st.info("登録済みResearch資料はまだありません。")

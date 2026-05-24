@@ -2,6 +2,77 @@
 
 #### [BACK TO DETAIL DESIGN README](./04_Detail_Design_README.md)
 
+## Phase 20 Implementation Baseline / 実装ベースライン
+
+Phase 20 では、Research RAG を「銘柄を推奨するAI」ではなく、既存の `銘柄コックピット` / `銘柄ランキング` / `Decision Report` に資料根拠を添える local-first evidence layer として実装する。
+
+### Goals
+
+- ローカル資料から、長期企業分析の確認材料を検索できるようにする。
+- 価格、Forecast、Investment Score、銘柄DB metadata だけでは説明しにくい、成長材料、株主還元、財務安全性、事業リスク、確認不足を根拠付きで整理する。
+- 初期段階ではランキング順位や Investment Score を直接変えない。Research Score / score integration は Phase 21 に回す。
+- 通常 checks は network、外部 scraping、外部 LLM、外部 vector DB に依存しない。
+
+### Initial Library Policy
+
+- Runtime dependency は既存の `pydantic` と Python 標準ライブラリを優先する。
+- MVP の保存先は in-memory service / local file manifest から始め、必要になった段階で `sqlite3` などの local store に広げる。
+- MVP 検索は deterministic keyword search とする。日本語形態素解析、embedding、vector DB、LLM は optional future adapter として扱う。
+- PDF 対応が必要になった段階で `pypdf` などを追加検討する。Phase 20 MVP は UTF-8 Markdown / Text / CSV fixture を優先する。
+
+### Implemented Phase 20 Backend Slice
+
+`backend/research` に以下の contract / service を追加する。
+
+- `ResearchDocumentRegisterRequest`: local document 登録 request。
+- `ResearchDocument`: symbol、title、source_type、published_at、local_path、reliability、document_hash を持つ登録済み資料。
+- `ResearchChunk`: document から切り出した検索対象 chunk。source、section、published_at、metadata と紐づく。
+- `ResearchSearchRequest`: symbol / query / top_k / source_type filter を持つ検索 request。
+- `ResearchEvidence`: 検索結果。source_type、title、published_at、section、excerpt、relevance_score、reliability を含む。
+- `ResearchDataQuality`: document_count、latest_document_date、evidence_count、warnings を持つ資料品質。
+- `CompanyResearchReport`: deterministic Research Summary。summary、topic別 points、evidence、data_quality を含む。
+- `ResearchIngestionService`: local UTF-8 document を登録し、hash による重複登録を避ける。
+- `ResearchIndexService`: registered document を Markdown section / paragraph based chunk に分割する。
+- `ResearchRetrievalService`: symbol と query から deterministic keyword scoring で evidence を返す。
+- `ResearchAnalysisService`: growth、shareholder_return、financial_safety、business_risk、confirmation_gap を template summary として返す。
+- `build_research_evidence_section`: Decision Report に Research Summary / Evidence / Data Quality を追加する標準 section builder。
+- `ui.research_state`: Streamlit session-local research store、upload registration、cockpit analysis helper。
+- `tools/fetch_research_yfinance_profile.py`: 明示実行で Yahoo Finance profile を取得し、確認用の実データResearch Markdownを `data/research_docs/` に保存する運用補助 tool。
+
+### User Flow Target
+
+1. `設定 / データ情報` または運用 tool で、銘柄に紐づくローカル資料を登録する。
+2. index rebuild で資料を chunk 化する。
+3. `銘柄ランキング` では、候補銘柄に `根拠あり` / `資料が古い` / `根拠不足` のような軽い状態を表示する。Phase 20 では順位を直接変えない。
+4. `銘柄コックピット` で選択銘柄の `Research Summary` を表示する。
+5. `Decision Report` に `Research Evidence` section と根拠不足 warning を含める。
+
+Current UI status:
+
+- `設定 / データ情報` で Markdown / Text / CSV を session-local に登録できる。
+- `銘柄コックピット` では価格データ取得時にResearch RAGを自動実行しない。`AIデータ取得` ボタンはResearchセクションの見出し横に置き、押した場合だけ選択銘柄の Research Summary を表示する。資料名 / 資料日 / 根拠数を表示し、観点別サマリ / evidence table は `Research RAG 詳細` に折りたたむ。
+- `銘柄ランキング` では、ランキング行クリックで開く `銘柄データ` モーダルに `AI Research` タブを追加する。タブ内の `AIで資料を確認` ボタンを押した場合だけ、選択銘柄の Research Summary、資料名、資料日、根拠数、詳細 evidence を表示する。
+- Cockpit Decision Report は、`AIデータ取得` により取得済みで、登録資料または evidence がある場合だけ `Research Evidence` section を含める。
+- Ranking evidence-status display は follow-up work。
+
+Current seed data:
+
+- `data/research_docs/7203_T_yfinance_profile_20260523.md` は、`7203.T` の Yahoo Finance / yfinance profile から取得した確認用の実データResearch資料。
+- この資料は market-data provider snapshot であり、監査済み開示資料ではない。重要事項は公式IR / 有価証券報告書 / 適時開示で確認する。
+
+### Storage Migration / `data/research_docs` の将来扱い
+
+- 外部 source adapter が安定し、EDINET / TDnet / IR site / provider profile から明示操作で最新資料を取得できるようになったら、`data/research_docs/` は手動登録の主経路ではなくす。
+- ただし完全削除はしない。取得済み資料の cache、監査用 archive、オフライン fixture、private note fallback として残す。
+- 廃止対象は「通常ユーザーが手で資料を置く運用」。長期的には `外部資料を取得` / `資料キャッシュを更新` が主導線になり、`data/research_docs/` は生成物・cacheとして扱う。
+- 削除や格下げの前提は、source URL、provider、fetched_at、document_hash、manifest、再取得/再現手順が揃っていること。
+
+### Guardrails
+
+- RAG output は売買推奨ではなく、判断材料、根拠、注意点の整理に限定する。
+- 資料がない銘柄を不利な投資判断として扱わない。`根拠不足` / `低信頼` として表示する。
+- 外部 source adapter、LLM、embedding、hybrid search は explicit opt-in とし、通常 local checks には入れない。
+
 ## 1) Purpose & Scope
 
 * **Purpose**: IR資料・有価証券報告書・決算資料・中期経営計画・統合報告書・ニュース等の非構造データを検索し、長期企業分析、根拠提示、Research Score 化を行う。

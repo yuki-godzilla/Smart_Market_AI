@@ -18,6 +18,15 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-05-24: Renamed ranking detail modal `Research` tab to `AI Research` and changed the action button to the primary `AIで資料を確認` label so users understand it checks registered materials before investment review.
+- 2026-05-24: Improved Research RAG modal readability by replacing horizontal dataframes with wrapping HTML summary tables and vertical evidence excerpts, and reduced oversized metric text in the symbol-detail modal.
+- 2026-05-24: Added shared Research Summary display for cockpit and ranking detail flows; ranking row-click `銘柄データ` modal now has a `Research` tab with `根拠を見る`, and both flows show source document names, dates, evidence counts, topic summaries, and evidence details.
+- 2026-05-24: Changed cockpit Research RAG to explicit `AIデータ取得` execution beside the Research section header, keeping detailed evidence rows inside a separate expander; price-data fetch does not automatically run Research Summary.
+- 2026-05-24: Documented the future migration path where `data/research_docs/` is demoted from manual primary input to cache / audit archive / offline fixture storage after external Research source adapters become stable.
+- 2026-05-24: Added a yfinance profile fetch helper and saved a real `7203.T` Yahoo Finance provider-profile Markdown under `data/research_docs/` for local Research RAG confirmation.
+- 2026-05-24: Connected Phase 20 Research RAG to the UI/report path with Settings session-local document upload, cockpit Research Summary display, and Cockpit Decision Report Research Evidence sections when documents/evidence exist.
+- 2026-05-24: Started Phase 20 Research RAG backend slice with local UTF-8 document ingestion, hash dedupe, chunking, keyword evidence search, deterministic Research Summary, data-quality warnings, tests, and design-doc baseline.
+- 2026-05-24: Expanded Phase 20 / 21 roadmap direction so Research RAG starts as a local-first evidence layer for cockpit, ranking, and Decision Report, with Research Score and Investment Score / ranking integration deferred to Phase 21.
 - 2026-05-24: Closed Phase 19 scope by keeping UI-rich PDF / Excel reports as future Advanced Export work; current Decision Report exports remain Markdown / JSON / manifest / ZIP.
 - 2026-05-24: Stabilized ranking resort rendering by using a stable AgGrid key, carrying the ranking date window into cockpit handoff, removing callback rerun, moving deep-dive controls above the report, and making ranking report generation lazy/cached by ranking source and sort profile.
 - 2026-05-24: Reworked ranking Decision Reports to emphasize ranking-specific comparison value: distribution, factor leaders, and group-level checkpoints instead of top-symbol metadata / valuation / score sections.

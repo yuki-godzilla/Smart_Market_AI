@@ -13,7 +13,7 @@ from backend.core.errors import ValidationAppError
 DECISION_REPORT_SCHEMA_VERSION = "decision-report-context-v1"
 DECISION_SUPPORT_NOTE = "このレポートは投資判断の補助資料であり、売買推奨ではありません。"
 
-ReportSourceKind = Literal["cockpit", "ranking", "rebalance", "metadata", "manual"]
+ReportSourceKind = Literal["cockpit", "ranking", "rebalance", "metadata", "manual", "research"]
 
 
 class DecisionReportSource(StrictBaseModel):
@@ -216,6 +216,53 @@ def build_decision_checkpoints_section(
     )
 
 
+def build_research_evidence_section(
+    *,
+    symbol: str,
+    as_of: date | None = None,
+    summary: str | None = None,
+    points: Sequence[Mapping[str, object]] | None = None,
+    evidence_rows: Sequence[Mapping[str, object]] | None = None,
+    data_quality: Mapping[str, object] | None = None,
+    warnings: list[str] | None = None,
+    notes: list[str] | None = None,
+) -> DecisionReportSection:
+    """Build a standard Decision Report section for local Research RAG evidence."""
+
+    normalized_summary: dict[str, object] = {
+        "symbol": symbol,
+        "research_summary": summary,
+    }
+    if data_quality:
+        normalized_summary.update(data_quality)
+
+    rows: list[dict[str, object]] = []
+    for point in points or []:
+        rows.append({"row_type": "summary_point", **dict(point)})
+    for evidence in evidence_rows or []:
+        rows.append({"row_type": "evidence", **dict(evidence)})
+
+    normalized_warnings = _normalize_strings(warnings or [])
+    data_quality_warnings = data_quality.get("warnings") if data_quality else None
+    if isinstance(data_quality_warnings, str) and data_quality_warnings:
+        normalized_warnings.append(data_quality_warnings)
+    normalized_notes = _normalize_strings(notes or [])
+    normalized_notes.append(
+        "Research RAG は登録済み資料から確認材料を整理する機能であり、売買推奨ではありません。"
+    )
+
+    return build_report_section(
+        title="Research Evidence",
+        source_kind="research",
+        symbol=symbol,
+        as_of=as_of,
+        summary=normalized_summary,
+        rows=rows,
+        warnings=normalized_warnings,
+        notes=normalized_notes,
+    )
+
+
 def render_decision_report_markdown(context: DecisionReportContext) -> str:
     """Render a deterministic Markdown report from a Decision Report context."""
 
@@ -405,6 +452,21 @@ _DISPLAY_KEY_LABELS = {
     "reported_rows": "出力行数",
     "note": "補足",
     "review_point": "確認観点",
+    "research_summary": "Research Summary",
+    "document_count": "資料数",
+    "latest_document_date": "最新資料日",
+    "evidence_count": "根拠数",
+    "row_type": "行種別",
+    "category": "観点",
+    "label": "項目",
+    "summary": "要約",
+    "title": "資料名",
+    "source_type": "資料種別",
+    "published_at": "公開日",
+    "section_title": "セクション",
+    "excerpt": "抜粋",
+    "relevance_score": "関連度",
+    "reliability": "信頼度",
 }
 
 _DISPLAY_VALUE_LABELS = {
@@ -415,6 +477,9 @@ _DISPLAY_VALUE_LABELS = {
     "rebalance": "リバランス",
     "metadata": "銘柄メタデータ",
     "manual": "確認メモ",
+    "research": "Research RAG",
+    "summary_point": "要約",
+    "evidence": "根拠",
 }
 
 

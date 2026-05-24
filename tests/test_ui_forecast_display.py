@@ -31,6 +31,8 @@ from ui.app import (
     _ranking_source_key_for_selection,
     _ranking_symbols_from_selected_labels,
     _render_market_chart,
+    _research_evidence_cards_html,
+    _research_table_html,
     _select_ranking_symbol_for_cockpit_with_period,
     _symbol_from_candidate,
     build_cockpit_decision_report_context,
@@ -512,6 +514,44 @@ def test_symbol_detail_table_html_wraps_and_escapes_long_text():
     assert "銘柄データとコックピット" in markup
     assert "<script>" not in markup
     assert "&lt;script&gt;" in markup
+
+
+def test_research_table_html_wraps_and_escapes_long_summary_text():
+    markup = _research_table_html(
+        [
+            {
+                "観点": "成長材料",
+                "要約": "長いResearch Summaryをモーダル幅の中で折り返して確認します",
+                "根拠数": "<3>",
+            }
+        ],
+        class_name="research-summary-table",
+    )
+
+    assert "research-summary-table" in markup
+    assert "research-topic" in markup
+    assert "research-count" in markup
+    assert "&lt;3&gt;" in markup
+
+
+def test_research_evidence_cards_html_escapes_excerpt_and_uses_vertical_cards():
+    markup = _research_evidence_cards_html(
+        [
+            {
+                "資料名": "7203 profile",
+                "公開日": "2026-05-23",
+                "セクション": "Business Summary",
+                "抜粋": "<script>not advice</script>",
+                "関連度": "0.50",
+                "信頼度": "0.70",
+            }
+        ]
+    )
+
+    assert "research-evidence-list" in markup
+    assert "Business Summary" in markup
+    assert "<script>" not in markup
+    assert "&lt;script&gt;not advice&lt;/script&gt;" in markup
 
 
 def test_ranking_result_aggrid_options_enable_single_row_click_selection():

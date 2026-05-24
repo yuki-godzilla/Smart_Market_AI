@@ -261,6 +261,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
   - 銘柄リストは折りたたみ内で確認・変更
 - ranking result with ticker / company name / score / warnings
 - ranking result は AgGrid で表示し、銘柄行をクリックするとローカル銘柄マスタ `symbol_universe.csv` の登録値をモーダルで確認できます
+- 銘柄データモーダルの `AI Research` タブでは、`AIで資料を確認` を押した場合だけ登録済みResearch資料を検索し、Research Summary、根拠資料名、資料日、根拠数、詳細 evidence を確認できます
 - 選択銘柄をコックピットへ渡す deep-dive flow
 
 注意:
@@ -540,4 +541,6 @@ Markdown UTF-8 check:
 - 実装状態が変わったら README / PROJECT_CONTEXT / Roadmap / Operations Guide を同期する。
 - UI に見える変更は `07_UI_Wording_Policy.md` と `08_Phase16_UI_Improvement_Plan.md` も確認する。
 - 作業履歴は `Documents/99_Work_Log.md` の先頭へ追加する。
-- Research RAG は現時点では planned として扱い、実装済み前提にしない。
+- Research RAG は Phase 20 local evidence slice を開始済み。現時点では `backend/research` の local UTF-8 document ingestion / chunk / keyword search / deterministic Research Summary、`設定 / データ情報` での session-local資料登録、`銘柄コックピット` の `AIデータ取得` ボタンによる明示的なResearch Summary表示、ランキング行クリック後の `銘柄データ` モーダル `AI Research` タブでの `AIで資料を確認`、Cockpit Decision Report の Research Evidence section が対象。価格データ取得時にはResearch RAGを自動実行しない。Ranking evidence-status display と Research Score 統合は後続作業として扱う。
+- `tools/fetch_research_yfinance_profile.py --symbol 7203.T --write` は、確認用の実データResearch資料を Yahoo Finance / yfinance から取得して `data/research_docs/` に保存する。外部通信を使うため通常 checks には含めない。
+- 将来 EDINET / TDnet / IR site などの外部 source adapter が安定したら、`data/research_docs/` は通常の手動登録先ではなく、取得済み資料 cache / audit archive / offline fixture として扱う。通常導線は `外部資料を取得` / `資料キャッシュを更新` に移行する。

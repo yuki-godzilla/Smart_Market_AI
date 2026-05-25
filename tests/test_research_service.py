@@ -70,6 +70,14 @@ Business risk includes competition, supply constraints, and foreign exchange dem
     assert report.data_quality.status == "OK"
     assert report.data_quality.document_count == 1
     assert any(point.category == "growth" and point.evidence for point in report.points)
+    growth_claim = next(claim for claim in report.extracted_claims if claim.category == "growth")
+    assert growth_claim.supporting_evidence
+    assert growth_claim.confidence > Decimal("0")
+    assert "売買推奨ではありません" in (growth_claim.caution_note or "")
+    assert report.grounded_answer is not None
+    assert report.grounded_answer.provider == "template"
+    assert report.grounded_answer.referenced_evidence
+    assert "売買推奨ではなく" in report.grounded_answer.answer
 
 
 def test_research_ingestion_deduplicates_by_document_hash(tmp_path):
@@ -242,6 +250,64 @@ def test_research_analysis_uses_query_expansion_for_topic_evidence(tmp_path):
     )
 
     assert any(point.category == "growth" and point.evidence for point in report.points)
+    assert any(
+        claim.category == "growth" and claim.supporting_evidence
+        for claim in report.extracted_claims
+    )
+
+
+def test_research_analysis_adds_confirmation_gap_claim_for_missing_topic_evidence(tmp_path):
+    document_path = tmp_path / "shareholder_note.md"
+    document_path.write_text(
+        "Dividend policy and shareholder return remain part of capital allocation.",
+        encoding="utf-8",
+    )
+    store = ResearchInMemoryStore()
+    ingestion = ResearchIngestionService(store, document_dirs=[tmp_path])
+    index = ResearchIndexService(store, max_chars=240)
+    retrieval = ResearchRetrievalService(store)
+
+    ingestion.register_document(
+        ResearchDocumentRegisterRequest(
+            symbol="7203.T",
+            title="Shareholder Note",
+            local_path=str(document_path),
+            source_type="user_note",
+            published_at=date(2026, 5, 1),
+        )
+    )
+    index.rebuild_index(symbol="7203.T")
+
+    report = ResearchAnalysisService(ingestion, retrieval).analyze_company(
+        CompanyResearchRequest(symbol="7203.T", as_of=date(2026, 5, 25))
+    )
+
+    gap_claims = [
+        claim for claim in report.extracted_claims if claim.category == "confirmation_gap"
+    ]
+    assert gap_claims
+    assert any("成長材料" in claim.claim for claim in gap_claims)
+    assert all(not claim.supporting_evidence for claim in gap_claims)
+    assert all(claim.confidence == Decimal("0") for claim in gap_claims)
+    assert report.grounded_answer is not None
+    assert "追加確認が必要" in report.grounded_answer.answer
+
+
+def test_research_grounded_answer_uses_template_without_unsupported_claims():
+    store = ResearchInMemoryStore()
+    ingestion = ResearchIngestionService(store)
+    retrieval = ResearchRetrievalService(store)
+
+    report = ResearchAnalysisService(ingestion, retrieval).analyze_company(
+        CompanyResearchRequest(symbol="MSFT", as_of=date(2026, 5, 24))
+    )
+
+    assert report.grounded_answer is not None
+    assert report.grounded_answer.provider == "template"
+    assert report.grounded_answer.evidence_count == 0
+    assert not report.grounded_answer.referenced_evidence
+    assert "十分な根拠はまだ確認できません" in report.grounded_answer.answer
+    assert "売買推奨ではなく" in report.grounded_answer.answer
 
 
 def test_research_analysis_warns_when_evidence_reliability_is_low(tmp_path):

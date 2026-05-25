@@ -230,16 +230,37 @@ class ResearchEvidence(StrictBaseModel):
 class ResearchSummaryPoint(StrictBaseModel):
     """Human-facing summary row backed by retrieved evidence."""
 
-    category: Literal[
-        "growth",
-        "shareholder_return",
-        "financial_safety",
-        "business_risk",
-        "confirmation_gap",
-    ]
+    category: ResearchTopicCategory
     label: str = Field(min_length=1)
     summary: str = Field(min_length=1)
     evidence: list[ResearchEvidence] = Field(default_factory=list)
+
+
+class ResearchExtractedClaim(StrictBaseModel):
+    """Structured Phase 21 research claim that stays tied to source evidence."""
+
+    schema_version: str = "research-extraction-v1"
+    symbol: str = Field(min_length=1)
+    category: ResearchTopicCategory
+    claim: str = Field(min_length=1)
+    summary: str = Field(min_length=1)
+    supporting_evidence: list[ResearchEvidence] = Field(default_factory=list)
+    confidence: Decimal = Field(ge=0, le=1)
+    missing_information: list[str] = Field(default_factory=list)
+    caution_note: str | None = None
+
+
+class ResearchGroundedAnswer(StrictBaseModel):
+    """Template-generated answer built only from extracted claims and evidence."""
+
+    schema_version: str = "research-grounded-answer-v1"
+    symbol: str = Field(min_length=1)
+    provider: Literal["template"] = "template"
+    answer: str = Field(min_length=1)
+    referenced_evidence: list[ResearchEvidence] = Field(default_factory=list)
+    claim_count: int = Field(ge=0)
+    evidence_count: int = Field(ge=0)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class ResearchDataQuality(StrictBaseModel):
@@ -268,6 +289,8 @@ class CompanyResearchReport(StrictBaseModel):
     as_of: date
     summary: str = Field(min_length=1)
     points: list[ResearchSummaryPoint]
+    extracted_claims: list[ResearchExtractedClaim] = Field(default_factory=list)
+    grounded_answer: ResearchGroundedAnswer | None = None
     evidence: list[ResearchEvidence]
     data_quality: ResearchDataQuality
     decision_support_note: str = "Research evidence is decision support only; not advice."
@@ -519,6 +542,70 @@ class ResearchRetrievalService:
         ]
 
 
+class ResearchGroundedAnswerService:
+    """Build safe template answers without external LLM calls."""
+
+    def generate(
+        self,
+        *,
+        symbol: str,
+        claims: list[ResearchExtractedClaim],
+        data_quality: ResearchDataQuality,
+    ) -> ResearchGroundedAnswer:
+        normalized_symbol = _normalize_symbol(symbol)
+        supported_claims = [
+            claim
+            for claim in claims
+            if claim.category != "confirmation_gap" and claim.supporting_evidence
+        ]
+        gap_claims = [
+            claim
+            for claim in claims
+            if claim.category == "confirmation_gap" or claim.missing_information
+        ]
+        referenced_evidence = _dedupe_evidence(
+            [evidence for claim in supported_claims for evidence in claim.supporting_evidence]
+        )
+
+        sentences: list[str] = []
+        if supported_claims:
+            labels = _category_labels([claim.category for claim in supported_claims])
+            sentences.append(
+                f"登録済み資料から確認できる範囲では、{labels}に関する根拠が確認できます。"
+            )
+            sentences.append(_evidence_reference_sentence(referenced_evidence))
+        else:
+            sentences.append(
+                "登録済み資料から確認できる範囲では、投資判断に関係する十分な根拠はまだ確認できません。"
+            )
+
+        if gap_claims:
+            missing = _category_labels(
+                [claim.category for claim in gap_claims if claim.category != "confirmation_gap"]
+            )
+            if missing:
+                sentences.append(f"一方で、{missing}は根拠が不足しており、追加確認が必要です。")
+            else:
+                sentences.append("一方で、資料不足や根拠不足の注意点があり、追加確認が必要です。")
+
+        sentences.append("これは売買推奨ではなく、登録資料に基づく判断材料の整理です。")
+        warnings = list(data_quality.warnings)
+        warnings.extend(
+            missing
+            for claim in gap_claims
+            for missing in claim.missing_information
+            if missing not in warnings
+        )
+        return ResearchGroundedAnswer(
+            symbol=normalized_symbol,
+            answer="".join(sentences),
+            referenced_evidence=referenced_evidence,
+            claim_count=len(supported_claims),
+            evidence_count=len(referenced_evidence),
+            warnings=warnings,
+        )
+
+
 class ResearchAnalysisService:
     """Create a deterministic evidence-backed company research summary."""
 
@@ -527,10 +614,12 @@ class ResearchAnalysisService:
         ingestion: ResearchIngestionService,
         retrieval: ResearchRetrievalService,
         query_expansion: ResearchQueryExpansionService | None = None,
+        grounded_answer: ResearchGroundedAnswerService | None = None,
     ) -> None:
         self.ingestion = ingestion
         self.retrieval = retrieval
         self.query_expansion = query_expansion or ResearchQueryExpansionService()
+        self.grounded_answer = grounded_answer or ResearchGroundedAnswerService()
 
     def analyze_company(self, request: CompanyResearchRequest) -> CompanyResearchReport:
         as_of = request.as_of or date.today()
@@ -541,6 +630,7 @@ class ResearchAnalysisService:
             ("business_risk", "事業リスク", "risk competition regulation lawsuit supply demand"),
         ]
         points: list[ResearchSummaryPoint] = []
+        extracted_claims: list[ResearchExtractedClaim] = []
         all_evidence: list[ResearchEvidence] = []
         for category, label, query in topics:
             topic_category = cast(ResearchTopicCategory, category)
@@ -556,18 +646,17 @@ class ResearchAnalysisService:
                 )
             )
             all_evidence.extend(evidence)
+            extracted_claims.append(
+                _extracted_claim(
+                    symbol=request.symbol,
+                    category=topic_category,
+                    label=label,
+                    evidence=evidence,
+                )
+            )
             points.append(
                 ResearchSummaryPoint(
-                    category=cast(
-                        Literal[
-                            "growth",
-                            "shareholder_return",
-                            "financial_safety",
-                            "business_risk",
-                            "confirmation_gap",
-                        ],
-                        category,
-                    ),
+                    category=topic_category,
                     label=label,
                     summary=_topic_summary(label, evidence),
                     evidence=evidence,
@@ -578,6 +667,18 @@ class ResearchAnalysisService:
         documents = self.ingestion.list_documents(request.symbol)
         data_quality = _research_data_quality(documents, unique_evidence, as_of=as_of)
         if data_quality.status != "OK":
+            extracted_claims.append(
+                ResearchExtractedClaim(
+                    symbol=_normalize_symbol(request.symbol),
+                    category="confirmation_gap",
+                    claim="Research資料の確認不足があります。",
+                    summary="登録資料、根拠数、鮮度、信頼度のいずれかに注意が必要です。",
+                    supporting_evidence=[],
+                    confidence=Decimal("0"),
+                    missing_information=data_quality.warnings,
+                    caution_note="根拠不足は投資対象の良し悪しではなく、追加確認が必要な状態として扱います。",
+                )
+            )
             points.append(
                 ResearchSummaryPoint(
                     category="confirmation_gap",
@@ -587,11 +688,18 @@ class ResearchAnalysisService:
                 )
             )
 
+        grounded_answer = self.grounded_answer.generate(
+            symbol=request.symbol,
+            claims=extracted_claims,
+            data_quality=data_quality,
+        )
         return CompanyResearchReport(
             symbol=_normalize_symbol(request.symbol),
             as_of=as_of,
             summary=_company_summary(unique_evidence, data_quality),
             points=points,
+            extracted_claims=extracted_claims,
+            grounded_answer=grounded_answer,
             evidence=unique_evidence,
             data_quality=data_quality,
         )
@@ -801,6 +909,72 @@ def _dedupe_evidence(evidence: list[ResearchEvidence]) -> list[ResearchEvidence]
             row.chunk_id,
         ),
     )
+
+
+def _category_labels(categories: Sequence[ResearchTopicCategory]) -> str:
+    labels_by_category: dict[ResearchTopicCategory, str] = {
+        "growth": "成長材料",
+        "shareholder_return": "株主還元",
+        "financial_safety": "財務安全性",
+        "business_risk": "事業リスク",
+        "confirmation_gap": "確認不足",
+    }
+    labels = []
+    for category in categories:
+        label = labels_by_category[category]
+        if label not in labels:
+            labels.append(label)
+    return "、".join(labels)
+
+
+def _evidence_reference_sentence(evidence: list[ResearchEvidence]) -> str:
+    if not evidence:
+        return "根拠資料はまだ紐づいていません。"
+    lead = evidence[0]
+    published = lead.published_at.isoformat() if lead.published_at else "日付未設定"
+    return f"主な根拠は「{lead.title}」（{published}）など{len(evidence)}件です。"
+
+
+def _extracted_claim(
+    *,
+    symbol: str,
+    category: ResearchTopicCategory,
+    label: str,
+    evidence: list[ResearchEvidence],
+) -> ResearchExtractedClaim:
+    normalized_symbol = _normalize_symbol(symbol)
+    if not evidence:
+        return ResearchExtractedClaim(
+            symbol=normalized_symbol,
+            category="confirmation_gap",
+            claim=f"{label}の根拠は不足しています。",
+            summary=f"{label}について、登録資料から十分な根拠を確認できませんでした。",
+            supporting_evidence=[],
+            confidence=Decimal("0"),
+            missing_information=[f"{label}を確認できる資料または記述"],
+            caution_note="根拠不足を低評価や売買判断として扱わず、追加確認の対象にします。",
+        )
+    lead = evidence[0]
+    return ResearchExtractedClaim(
+        symbol=normalized_symbol,
+        category=category,
+        claim=f"{label}に関する確認材料があります。",
+        summary=f"{label}は「{lead.excerpt}」を主な根拠として整理します。",
+        supporting_evidence=evidence,
+        confidence=_claim_confidence(evidence),
+        missing_information=[],
+        caution_note="この抽出結果は登録資料から確認できる判断材料であり、売買推奨ではありません。",
+    )
+
+
+def _claim_confidence(evidence: list[ResearchEvidence]) -> Decimal:
+    if not evidence:
+        return Decimal("0")
+    scores = [
+        (row.relevance_score * Decimal("0.6")) + (row.reliability * Decimal("0.4"))
+        for row in evidence
+    ]
+    return (sum(scores, Decimal("0")) / Decimal(len(scores))).quantize(Decimal("0.0001"))
 
 
 def _topic_summary(label: str, evidence: list[ResearchEvidence]) -> str:

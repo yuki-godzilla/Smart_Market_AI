@@ -549,3 +549,15 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added `config/research_query_terms.yml` as the deterministic category dictionary for growth, shareholder return, financial safety, business risk, and confirmation gap terms.
 - Added `ResearchQueryExpansionService` / `ResearchQueryExpansionResult` and category-aware `ResearchSearchRequest` fields while preserving Phase 20 keyword search behavior by default.
 - Wired `ResearchAnalysisService` topic searches through query expansion and covered config loading, category search expansion, and analysis integration with deterministic tests.
+
+## 2026-05-25 - Phase 21 structured extraction first slice
+
+- Added `ResearchExtractedClaim` and `CompanyResearchReport.extracted_claims` as the first structured evidence extraction contract.
+- Generated non-gap claims only when supporting `ResearchEvidence` exists, and represented missing category evidence as `confirmation_gap` with zero confidence.
+- Kept extracted claims as decision-support context only; scoring, ranking order, and Investment Score integration remain unchanged.
+
+## 2026-05-25 - Phase 21 grounded answer first slice
+
+- Added `ResearchGroundedAnswer` and `ResearchGroundedAnswerService` as the first template-based grounded answer contract/service.
+- Wired `CompanyResearchReport.grounded_answer` so answers are generated only from extracted claims and referenced `ResearchEvidence`, with warnings carried through for confirmation gaps.
+- Kept the answer wording explicitly non-recommendational; no LLM, external API, ranking, or Investment Score behavior was added.

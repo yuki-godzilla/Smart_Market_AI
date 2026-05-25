@@ -2,7 +2,7 @@
 
 #### [BACK TO DETAIL DESIGN README](./04_Detail_Design_README.md)
 
-Status: Phase 20 local evidence slice is implementation complete. Phase 21 covers advanced Research RAG extraction, query expansion, optional vector / hybrid search, and grounded answer generation; deterministic query expansion first slice has started. Research Score, external source adapters, and Assistant integration remain later phases unless explicitly assigned.
+Status: Phase 20 local evidence slice is implementation complete. Phase 21 covers advanced Research RAG extraction, query expansion, optional vector / hybrid search, and grounded answer generation; deterministic query expansion, structured extraction, and template grounded answer first slices have started. Research Score, external source adapters, and Assistant integration remain later phases unless explicitly assigned.
 
 ## Phase 20 Implementation Baseline / 実装ベースライン
 
@@ -158,6 +158,8 @@ class ResearchRetrievalQuality(BaseModel):
     warnings: list[str]
 ```
 
+Current implementation note: `ResearchExtractedClaim` is available as the first structured extraction contract, and `CompanyResearchReport.extracted_claims` carries generated claims. Claims for regular categories are created only when supporting evidence exists; missing topic evidence is represented as `confirmation_gap` so unsupported claims are not mixed into generated summaries.
+
 ### Query Expansion
 
 `config/research_query_terms.yml` を候補に、カテゴリごとの検索語を deterministic に管理する。LLM に依存せず、CI で安定して検証できることを前提にする。
@@ -188,6 +190,8 @@ Default は template-based generation とする。`ResearchGroundedAnswerService
 - 断定しすぎず、資料名、資料日、根拠数を保持する。
 - 売買推奨に見える表現を避ける。
 - Optional LLM adapter を使う場合も、明示 opt-in、通常 CI では disabled、入力は ResearchEvidence に限定、Evidence にない内容を生成しない、buy / sell / hold を出さない、生成結果に evidence reference を残す。
+
+Current implementation note: `ResearchGroundedAnswerService` is available as the first template-based grounded answer service. `CompanyResearchReport.grounded_answer` is generated from `ResearchExtractedClaim` and referenced `ResearchEvidence` only, carries warning text for gaps, and includes an explicit non-recommendation note.
 
 ### UI / Decision Report Direction
 

@@ -111,6 +111,7 @@ class ResearchSearchRequest(StrictBaseModel):
     query: str = ""
     top_k: int = Field(default=8, ge=1, le=50)
     source_types: list[ResearchSourceType] = Field(default_factory=list)
+    as_of: date | None = None
 
 
 class ResearchEvidence(StrictBaseModel):
@@ -348,11 +349,12 @@ class ResearchRetrievalService:
             return []
 
         query_terms = _query_terms(request.query)
-        scored = [
-            (score, chunk)
-            for chunk in chunks
-            if (score := _chunk_relevance_score(chunk, query_terms)) > Decimal("0")
-        ]
+        as_of = request.as_of or date.today()
+        scored = []
+        for chunk in chunks:
+            score = _chunk_relevance_score(chunk, query_terms, as_of=as_of)
+            if score > Decimal("0"):
+                scored.append((score, chunk))
         scored.sort(
             key=lambda row: (
                 -row[0],
@@ -394,6 +396,7 @@ class ResearchAnalysisService:
                     symbol=request.symbol,
                     query=query,
                     top_k=request.top_k_per_topic,
+                    as_of=as_of,
                 )
             )
             all_evidence.extend(evidence)
@@ -548,7 +551,7 @@ def _query_terms(query: str) -> list[str]:
     return sorted(set(terms))
 
 
-def _chunk_relevance_score(chunk: ResearchChunk, query_terms: list[str]) -> Decimal:
+def _chunk_relevance_score(chunk: ResearchChunk, query_terms: list[str], *, as_of: date) -> Decimal:
     document = _score_text(f"{chunk.title} {chunk.section_title or ''}", query_terms)
     body = _score_text(chunk.text, query_terms)
     if not query_terms:
@@ -557,7 +560,23 @@ def _chunk_relevance_score(chunk: ResearchChunk, query_terms: list[str]) -> Deci
     if raw == 0:
         return Decimal("0")
     freshness_bonus = Decimal("0.03") if chunk.published_at else Decimal("0")
-    return min(Decimal("1"), raw + freshness_bonus).quantize(Decimal("0.0001"))
+    score = min(Decimal("1"), raw + freshness_bonus)
+    return (score * _freshness_factor(chunk.published_at, as_of=as_of)).quantize(Decimal("0.0001"))
+
+
+def _freshness_factor(published_at: date | None, *, as_of: date) -> Decimal:
+    if published_at is None:
+        return Decimal("0.85")
+    age_days = (as_of - published_at).days
+    if age_days < 0:
+        return Decimal("1")
+    if age_days <= 365:
+        return Decimal("1")
+    if age_days <= 730:
+        return Decimal("0.90")
+    if age_days <= 1095:
+        return Decimal("0.75")
+    return Decimal("0.60")
 
 
 def _score_text(text: str, query_terms: list[str]) -> Decimal:
@@ -635,6 +654,8 @@ def _research_data_quality(
         warnings.append("登録済みResearch資料がありません。")
     if not evidence:
         warnings.append("検索できたResearch根拠がありません。")
+    if evidence and max(row.reliability for row in evidence) < Decimal("0.50"):
+        warnings.append("検索できたResearch根拠の信頼度が低いため、出所を確認してください。")
     if latest_date and (as_of - latest_date).days > 730:
         warnings.append("最新資料が2年以上前のため、鮮度に注意してください。")
 

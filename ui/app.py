@@ -3909,8 +3909,12 @@ def _render_research_summary_panel(
         f"根拠数: {report.data_quality.evidence_count} / "
         f"最新資料日: {report.data_quality.latest_document_date or '未取得'}"
     )
-    for warning in report.data_quality.warnings:
-        st.caption(f"注意: {warning}")
+    warning_rows = _research_quality_warning_rows(report)
+    if warning_rows:
+        st.markdown(
+            _research_table_html(warning_rows, class_name="research-summary-table"),
+            unsafe_allow_html=True,
+        )
 
     document_rows = _research_document_display_rows(report)
     if document_rows:
@@ -4386,6 +4390,18 @@ def _research_evidence_display_rows(report: CompanyResearchReport) -> list[dict[
             "信頼度": str(evidence.reliability),
         }
         for evidence in report.evidence[:10]
+    ]
+
+
+def _research_quality_warning_rows(report: CompanyResearchReport) -> list[dict[str, str]]:
+    return [
+        {
+            "観点": "Data Quality",
+            "状態": report.data_quality.status,
+            "注意点": warning,
+        }
+        for warning in report.data_quality.warnings
+        if warning.strip()
     ]
 
 

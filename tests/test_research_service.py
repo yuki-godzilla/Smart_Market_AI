@@ -89,6 +89,113 @@ def test_research_ingestion_deduplicates_by_document_hash(tmp_path):
     assert len(ingestion.list_documents("AAPL")) == 1
 
 
+def test_research_search_applies_freshness_and_source_type_filters(tmp_path):
+    old_path = tmp_path / "old_report.md"
+    old_path.write_text(
+        "Growth strategy includes market expansion in the legacy plan.",
+        encoding="utf-8",
+    )
+    new_path = tmp_path / "new_report.md"
+    new_path.write_text(
+        "Growth strategy includes market expansion in the current plan.",
+        encoding="utf-8",
+    )
+    note_path = tmp_path / "user_note.md"
+    note_path.write_text(
+        "Growth strategy includes market expansion in the analyst note.",
+        encoding="utf-8",
+    )
+    store = ResearchInMemoryStore()
+    ingestion = ResearchIngestionService(store, document_dirs=[tmp_path])
+    index = ResearchIndexService(store, max_chars=240)
+    retrieval = ResearchRetrievalService(store)
+
+    ingestion.register_document(
+        ResearchDocumentRegisterRequest(
+            symbol="7203.T",
+            title="Old Annual Report",
+            local_path=str(old_path),
+            source_type="annual_report",
+            published_at=date(2023, 1, 1),
+        )
+    )
+    ingestion.register_document(
+        ResearchDocumentRegisterRequest(
+            symbol="7203.T",
+            title="New Annual Report",
+            local_path=str(new_path),
+            source_type="annual_report",
+            published_at=date(2026, 5, 1),
+        )
+    )
+    ingestion.register_document(
+        ResearchDocumentRegisterRequest(
+            symbol="7203.T",
+            title="User Note",
+            local_path=str(note_path),
+            source_type="user_note",
+            published_at=date(2026, 5, 1),
+        )
+    )
+    index.rebuild_index(symbol="7203.T")
+
+    evidence = retrieval.search(
+        ResearchSearchRequest(
+            symbol="7203.T",
+            query="growth strategy market expansion",
+            top_k=3,
+            as_of=date(2026, 5, 25),
+        )
+    )
+    filtered = retrieval.search(
+        ResearchSearchRequest(
+            symbol="7203.T",
+            query="growth strategy market expansion",
+            top_k=3,
+            source_types=["user_note"],
+            as_of=date(2026, 5, 25),
+        )
+    )
+
+    assert evidence[-1].title == "Old Annual Report"
+    old = next(row for row in evidence if row.title == "Old Annual Report")
+    new = next(row for row in evidence if row.title == "New Annual Report")
+    assert old.relevance_score < new.relevance_score
+    assert [row.source_type for row in filtered] == ["user_note"]
+
+
+def test_research_analysis_warns_when_evidence_reliability_is_low(tmp_path):
+    document_path = tmp_path / "low_reliability_note.md"
+    document_path.write_text(
+        "Growth strategy includes market expansion and shareholder return.",
+        encoding="utf-8",
+    )
+    store = ResearchInMemoryStore()
+    ingestion = ResearchIngestionService(store, document_dirs=[tmp_path])
+    index = ResearchIndexService(store, max_chars=240)
+    retrieval = ResearchRetrievalService(store)
+
+    ingestion.register_document(
+        ResearchDocumentRegisterRequest(
+            symbol="7203.T",
+            title="Low Reliability Note",
+            local_path=str(document_path),
+            source_type="user_note",
+            published_at=date(2026, 5, 1),
+            reliability=Decimal("0.40"),
+        )
+    )
+    index.rebuild_index(symbol="7203.T")
+
+    report = ResearchAnalysisService(ingestion, retrieval).analyze_company(
+        CompanyResearchRequest(symbol="7203.T", as_of=date(2026, 5, 25))
+    )
+
+    assert report.data_quality.status == "WARN"
+    assert report.data_quality.evidence_count > 0
+    assert "信頼度が低い" in " ".join(report.data_quality.warnings)
+
+
 def test_research_ingestion_rejects_path_outside_document_dirs(tmp_path):
     allowed_dir = tmp_path / "allowed"
     allowed_dir.mkdir()

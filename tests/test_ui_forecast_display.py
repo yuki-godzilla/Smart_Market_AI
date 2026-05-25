@@ -34,6 +34,8 @@ from ui.app import (
     _ranking_symbols_from_selected_labels,
     _render_market_chart,
     _research_evidence_cards_html,
+    _research_evidence_report_section,
+    _research_quality_warning_rows,
     _research_table_html,
     _select_ranking_symbol_for_cockpit_with_period,
     _symbol_from_candidate,
@@ -546,6 +548,60 @@ def test_research_table_html_wraps_and_escapes_long_summary_text():
     assert "research-topic" in markup
     assert "research-count" in markup
     assert "&lt;3&gt;" in markup
+
+
+def test_research_quality_warning_rows_feed_escaped_warning_table():
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="Research warning summary",
+        points=[],
+        evidence=[],
+        data_quality=ResearchDataQuality(
+            status="WARN",
+            latest_document_date=date(2026, 5, 1),
+            document_count=1,
+            evidence_count=1,
+            warnings=["信頼度が低い <check source>"],
+        ),
+    )
+
+    rows = _research_quality_warning_rows(report)
+    markup = _research_table_html(rows, class_name="research-summary-table")
+
+    assert rows == [
+        {
+            "観点": "Data Quality",
+            "状態": "WARN",
+            "注意点": "信頼度が低い <check source>",
+        }
+    ]
+    assert "<check source>" not in markup
+    assert "&lt;check source&gt;" in markup
+
+
+def test_research_evidence_report_section_carries_data_quality_warnings():
+    warning = "検索できたResearch根拠の信頼度が低いため、出所を確認してください。"
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="Research warning summary",
+        points=[],
+        evidence=[],
+        data_quality=ResearchDataQuality(
+            status="WARN",
+            latest_document_date=date(2026, 5, 1),
+            document_count=1,
+            evidence_count=1,
+            warnings=[warning],
+        ),
+    )
+
+    section = _research_evidence_report_section(report)
+
+    assert section.source.kind == "research"
+    assert section.summary["warnings"] == warning
+    assert warning in section.warnings
 
 
 def test_research_evidence_cards_html_escapes_excerpt_and_uses_vertical_cards():

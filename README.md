@@ -62,7 +62,7 @@ SMAI は以下の思想を重視しています。
 - `polygon` など追加 live provider adapter 本体
 - 追加 provider / fund metadata source adapter
 - 投信 metadata / 基準価額 / ranking 対応
-- Research RAG external adapters、vector / hybrid search、Research Score
+- Research RAG query expansion、根拠抽出、vector / hybrid search、Research Score
 - Research Score の Investment Score / ranking / report 統合
 - AI assistant experience
 - Execution / broker への注文送信
@@ -79,10 +79,10 @@ MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で
 - Phase 18: symbol universe / metadata refresh / source import / SBI ranking universe policy は implementation complete。継続的な NISA / ETF / stock metadata source 更新は運用タスクとして扱う
 - Phase 19: Decision Report Context MVP は implementation complete
 - Phase 20: Research RAG Evidence Layer は local evidence slice が implementation complete。external adapters と Research Score は後続
-- Phase 21〜24: Research Score、Assistant、optional adapter、Execution gate の順に整理
+- Phase 21〜25: 高度Research RAG、Research Score、Assistant、optional adapter、Execution gate の順に整理
 - Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
-次の重点は、既存機能の分かりにくさ、仕様曖昧さ、投資助言に見えすぎる表現を棚卸しする成熟性レビューです。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、Research Score、Research RAG external adapters、Assistant、Execution / Broker は明示的に割り当てるまで future scope として扱います。
+次の重点は、既存機能の分かりにくさ、仕様曖昧さ、投資助言に見えすぎる表現を棚卸ししつつ、Phase 21 高度Research RAGの設計を進めることです。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、Research Score、Research RAG external adapters、Assistant、Execution / Broker は明示的に割り当てるまで future scope として扱います。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント

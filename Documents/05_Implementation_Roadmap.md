@@ -18,7 +18,7 @@ API の起動方法、CSV 形式、UI の使い方、手動確認手順は [06_M
 
 Phase 1 から Phase 15 までは、現在の実装上は implementation complete 扱いです。
 Phase 16 は UI / Visualization Cockpit 改善の実装完了扱いです。最終 Streamlit browser smoke は推奨確認として残します。
-Research RAG は Phase 20 local evidence slice が implementation complete です。外部 source adapter、Research Score integration、Assistant、distribution readiness は planned / future scope です。
+Research RAG は Phase 20 local evidence slice が implementation complete です。次の planned step は Phase 21 高度Research RAG（根拠抽出・根拠付き回答生成）です。Research Score integration、外部 source adapter、Assistant、distribution readiness は後続 planned / future scope です。
 
 実装済みの主な範囲:
 
@@ -491,7 +491,7 @@ Current implementation direction:
 - 初期 MVP はローカル資料だけを対象にする。外部 scraping、外部 LLM、embedding / vector DB は通常経路に入れず、後続 phase の optional adapter として扱う。
 - 9,179件の銘柄DB全体を一括RAG対象にせず、ランキング後の上位候補、コックピットで選択した銘柄、Decision Report の対象銘柄から段階的に使う。
 - 初期出力は `Research Summary`、`Research Evidence`、`Research Data Quality` を中心にする。資料がない銘柄では「根拠不足」を明示し、推定で埋めない。
-- `Research Score` と Investment Score / ranking への重み統合は Phase 21 に回す。
+- `Research Score` と Investment Score / ranking への重み統合は Phase 22 に回す。
 
 Recommended MVP slice:
 
@@ -538,13 +538,146 @@ Completion criteria:
 - evidence は source、timestamp、section、confidence と紐づく。
 - UI / report では根拠不足を明示できる。
 
-### 5.7 Phase 21: Research Score And Investment Integration
+### 5.7 Phase 21: Advanced Research RAG - Evidence Extraction And Grounded Answers
+
+Status: planned
+
+Purpose:
+
+- Phase 20 の local-first Research Evidence layer を壊さず、登録済み Research 資料から欲しい情報を抽出し、抽出結果と ResearchEvidence を必ず紐づける。
+- 銘柄コックピット、ランキングの `AI Research` tab、Decision Report で、根拠付きの自然な説明文を表示できるようにする。
+- keyword search baseline を維持しながら、query expansion、optional embedding / vector store / hybrid search、evidence reranking を追加できる設計にする。
+- Research Score 統合に向けて、根拠数、鮮度、信頼度、source type、根拠多様性を扱える中間 contract を整える。
+- Phase 21 でも RAG 単体で売買推奨、buy / sell / hold 判断、ランキング順位や Investment Score の直接変更は行わない。
+
+Phase 20 / Phase 21 boundary:
+
+- Phase 20: local document registration, chunking, deterministic keyword search, Research Evidence, Research Summary, Decision Report connection.
+- Phase 21: query expansion, structured evidence extraction, grounded answer generation, optional embedding retrieval, local vector store abstraction, hybrid search, evidence reranking, Research Score integration preparation.
+- Research Score の採点と Investment Score / ranking / report への score 統合は Phase 22 で扱う。
+
+Scope:
+
+- Structured evidence extraction: `growth`, `shareholder_return`, `financial_safety`, `business_risk`, `confirmation_gap` の観点で、ResearchChunk / ResearchEvidence から主張、要約、不足情報、注意点を抽出する。
+- Data contracts: `ResearchExtractedClaim`, `ResearchRetrievalCandidate`, `ResearchRetrievalQuality`, `ResearchEmbedding` などの Pydantic contract 案を整理する。抽出した claim は supporting evidence と切り離さない。
+- Query expansion: `config/research_query_terms.yml` などで、成長戦略、株主還元、財務安全性、事業リスク、確認不足に関する表現ゆれを deterministic に管理する。
+- Optional embeddings: `ResearchEmbeddingService` を候補とし、既定では disabled。local provider / cache を優先し、外部 embedding API は explicit opt-in にする。
+- Local vector store: file-based cache または sqlite-based store を MVP 候補にする。cloud vector DB や heavy dependency は必須にしない。
+- Hybrid retrieval: keyword / vector / freshness / reliability / source priority / diversity を組み合わせる `HybridResearchRetrievalService` を候補にする。vector failure 時は keyword fallback + warning とする。
+- Evidence reranking: `ResearchEvidenceReranker` で relevance、reliability、freshness、official-source priority、diversity、duplicate suppression を扱う。
+- Grounded answer generation: `ResearchGroundedAnswerService` を候補とし、default は template-based generation。LLM generation は optional adapter とし、Evidence にない内容を生成しない。
+- UI / Decision Report: Cockpit、ranking modal、Decision Report に Research Summary、観点別抽出結果、Evidence table、Data Quality、Retrieval Quality、Grounded Answer、根拠不足 warning、非推奨注記を表示する方針を整理する。
+
+Candidate contracts:
+
+```python
+class ResearchExtractedClaim(BaseModel):
+    schema_version: str = "research-extraction-v1"
+    symbol: str
+    category: Literal[
+        "growth",
+        "shareholder_return",
+        "financial_safety",
+        "business_risk",
+        "confirmation_gap",
+    ]
+    claim: str
+    summary: str
+    supporting_evidence: list[ResearchEvidence]
+    confidence: Decimal
+    missing_information: list[str] = []
+    caution_note: str | None = None
+
+class ResearchRetrievalCandidate(BaseModel):
+    symbol: str
+    document_id: str
+    chunk_id: str
+    title: str
+    source_type: str
+    published_at: date | None = None
+    section_title: str | None = None
+    excerpt: str
+    keyword_score: Decimal | None = None
+    vector_score: Decimal | None = None
+    freshness_score: Decimal | None = None
+    reliability: Decimal
+    final_relevance_score: Decimal
+    retrieval_backend: Literal["keyword", "vector", "hybrid"]
+
+class ResearchRetrievalQuality(BaseModel):
+    backend: Literal["keyword", "vector", "hybrid"]
+    query: str
+    expanded_terms: list[str]
+    candidate_count: int
+    evidence_count: int
+    warnings: list[str]
+```
+
+Config direction:
+
+```yaml
+research:
+  retrieval:
+    backend: keyword # keyword|vector|hybrid
+    top_k: 8
+    keyword_weight: 0.45
+    vector_weight: 0.45
+    freshness_weight: 0.05
+    reliability_weight: 0.05
+  embeddings:
+    enabled: false
+    provider: local
+    model: null
+    cache_dir: data/research_embeddings
+  vector_store:
+    enabled: false
+    provider: local
+    path: data/research_vector_store
+  query_expansion:
+    enabled: true
+    dictionary_path: config/research_query_terms.yml
+  grounded_answer:
+    enabled: true
+    provider: template # template|llm
+    allow_llm: false
+  scoring:
+    enabled: false
+    default_weight_in_investment_score: 0.0
+```
+
+Guardrails:
+
+- RAG output は売買推奨ではなく、判断材料、根拠、注意点、確認不足の整理に限定する。
+- Evidence がない主張を生成しない。根拠不足は `confirmation_gap` として明示する。
+- 資料がない銘柄を悪い銘柄として扱わない。
+- 外部 LLM / 外部 embedding API / 外部 vector DB は explicit opt-in とし、通常 CI は network / scraping / external API に依存しない。
+- 公式 IR や開示資料を provider snapshot より優先する。
+- 長文の丸写しを避け、短い引用または要約に留める。
+- Investment Score への統合は Phase 22 以降で、明示的に有効化された場合のみ行う。
+
+Test plan:
+
+- Unit: query expansion、ResearchExtractedClaim validation、embedding cache key generation、vector store disabled mode、hybrid score calculation、evidence reranking、template answer generation、confirmation_gap generation。
+- Integration: sample Markdown/Text/CSV -> chunk -> keyword search -> query expansion -> evidence extraction -> grounded answer -> Decision Report section。
+- Fallback: embedding disabled 時は keyword search のみで動作、vector store failure 時は keyword fallback、LLM disabled 時は template answer、evidence 不足時は confirmation_gap。
+- Golden: 既知の Research fixture から期待するカテゴリ別抽出、warning、根拠のない主張を生成しないことを確認。
+- CI: 外部 API、外部 LLM、live scraping、network に依存しない deterministic fixture を使う。
+
+Acceptance criteria:
+
+- Phase 21 として「高度Research RAG - 根拠抽出・根拠付き回答生成」がロードマップと詳細設計に追加されている。
+- Phase 20 の keyword search baseline と local-first / deterministic-first 方針を壊していない。
+- embedding / vector / hybrid search が optional として整理されている。
+- query expansion、ResearchExtractedClaim、Grounded Answer、Retrieval Quality、UI / Decision Report 反映方針が明記されている。
+- LLM 利用は optional adapter として明記され、通常 CI が外部 API や network に依存しない方針が維持されている。
+
+### 5.8 Phase 22: Research Score And Investment Integration
 
 Status: planned
 
 Current integration direction:
 
-- Phase 21 は、Phase 20 の evidence / summary を、説明可能な Research Score として定量化し、Investment Score、ranking、Decision Report に optional input として接続する。
+- Phase 22 は、Phase 20 / Phase 21 の evidence / extracted claims / grounded answers を、説明可能な Research Score として定量化し、Investment Score、ranking、Decision Report に optional input として接続する。
 - Research Score は evidence と紐づく補助スコアにする。資料不足時は欠損または低信頼として扱い、推定で埋めない。
 - 初期の Investment Score weight は 0.0 または低めの optional weight とし、既存の Screening / Forecast / Risk / Data Quality score を壊さない。
 - Ranking では Research Score を既定の主要ソート条件にせず、深掘り候補の確認材料、または opt-in sort profile として扱う。
@@ -581,7 +714,7 @@ Completion criteria:
 - evidence 不足時は score 欠損または低信頼として表示される。
 - external source adapter は通常 checks に入れない。
 
-### 5.8 Phase 22: Low-Cost Assistant Experience
+### 5.9 Phase 23: Low-Cost Assistant Experience
 
 Status: planned
 
@@ -602,7 +735,7 @@ Completion criteria:
 - 通常 tests は network 非依存で通る。
 - Assistant の説明は UI / report と同じ指標名・制約を使う。
 
-### 5.9 Phase 23: Optional Adapters And Advanced Intelligence
+### 5.10 Phase 24: Optional Adapters And Advanced Intelligence
 
 Status: planned
 
@@ -630,7 +763,7 @@ Research document storage migration:
 - After external adapters are stable, deprecate manual `設定 / データ情報` upload as the normal user path and replace it with explicit `外部資料を取得` / `資料キャッシュを更新` actions.
 - Long-term target: `data/research_docs/` becomes generated/cache data or test fixture storage, not hand-maintained business data. User-facing docs should describe it as cache/archive. Manual upload remains an advanced fallback for private notes or documents not available from public sources.
 
-### 5.10 Phase 24: Advanced Export And Execution Gate
+### 5.11 Phase 25: Advanced Export And Execution Gate
 
 Status: future / low priority
 
@@ -651,7 +784,7 @@ Completion criteria:
 ## 6. 詳細バックログ
 
 この節は、実装順ロードマップの各 phase に紐づく候補の一覧です。
-ここにある項目は、上の Phase 17〜24 の順序を崩さず、該当 phase の中で必要になった時点で取り込みます。
+ここにある項目は、上の Phase 17〜25 の順序を崩さず、該当 phase の中で必要になった時点で取り込みます。
 詳細な future candidate はここに集約し、本文の実装順と重複する Appendix は置きません。
 ### 6.1 Research RAG
 
@@ -659,6 +792,11 @@ Completion criteria:
 - Text extraction and chunk store
 - Keyword retrieval
 - Research summary
+- Query expansion
+- Structured evidence extraction
+- Grounded answer generation
+- Evidence reranking
+- Retrieval Quality
 - Vector / hybrid retrieval
 - Research Score
 - Investment Score / ranking / report integration

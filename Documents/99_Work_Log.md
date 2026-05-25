@@ -561,3 +561,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added `ResearchGroundedAnswer` and `ResearchGroundedAnswerService` as the first template-based grounded answer contract/service.
 - Wired `CompanyResearchReport.grounded_answer` so answers are generated only from extracted claims and referenced `ResearchEvidence`, with warnings carried through for confirmation gaps.
 - Kept the answer wording explicitly non-recommendational; no LLM, external API, ranking, or Investment Score behavior was added.
+
+## 2026-05-25 - Phase 21 retrieval quality first slice
+
+- Added `ResearchRetrievalQuality` and `CompanyResearchReport.retrieval_quality` as the first retrieval transparency contract.
+- Recorded the keyword backend, category query set, expanded terms, retrieved candidate count, deduped evidence count, and warnings for future UI / Decision Report display.
+- Kept vector / hybrid retrieval, external embeddings, ranking, and Investment Score behavior unchanged.

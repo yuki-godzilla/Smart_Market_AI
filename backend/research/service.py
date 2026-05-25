@@ -32,6 +32,7 @@ ResearchTopicCategory = Literal[
     "business_risk",
     "confirmation_gap",
 ]
+ResearchRetrievalBackend = Literal["keyword", "vector", "hybrid"]
 
 RESEARCH_SCHEMA_VERSION = "research-evidence-v1"
 DEFAULT_MAX_CHARS = 1200
@@ -263,6 +264,18 @@ class ResearchGroundedAnswer(StrictBaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class ResearchRetrievalQuality(StrictBaseModel):
+    """Phase 21 retrieval transparency for UI and Decision Report display."""
+
+    schema_version: str = "research-retrieval-quality-v1"
+    backend: ResearchRetrievalBackend = "keyword"
+    query: str = Field(min_length=1)
+    expanded_terms: list[str] = Field(default_factory=list)
+    candidate_count: int = Field(ge=0)
+    evidence_count: int = Field(ge=0)
+    warnings: list[str] = Field(default_factory=list)
+
+
 class ResearchDataQuality(StrictBaseModel):
     """Availability and freshness of local research evidence."""
 
@@ -293,6 +306,7 @@ class CompanyResearchReport(StrictBaseModel):
     grounded_answer: ResearchGroundedAnswer | None = None
     evidence: list[ResearchEvidence]
     data_quality: ResearchDataQuality
+    retrieval_quality: ResearchRetrievalQuality | None = None
     decision_support_note: str = "Research evidence is decision support only; not advice."
 
 
@@ -632,9 +646,13 @@ class ResearchAnalysisService:
         points: list[ResearchSummaryPoint] = []
         extracted_claims: list[ResearchExtractedClaim] = []
         all_evidence: list[ResearchEvidence] = []
+        expanded_terms_by_topic: list[str] = []
+        topic_queries: list[str] = []
         for category, label, query in topics:
             topic_category = cast(ResearchTopicCategory, category)
             expanded = self.query_expansion.expand_query(query, category=topic_category)
+            expanded_terms_by_topic.extend(expanded.expanded_terms)
+            topic_queries.append(f"{topic_category}:{query}")
             evidence = self.retrieval.search(
                 ResearchSearchRequest(
                     symbol=request.symbol,
@@ -666,6 +684,13 @@ class ResearchAnalysisService:
         unique_evidence = _dedupe_evidence(all_evidence)
         documents = self.ingestion.list_documents(request.symbol)
         data_quality = _research_data_quality(documents, unique_evidence, as_of=as_of)
+        retrieval_quality = _retrieval_quality(
+            queries=topic_queries,
+            expanded_terms=expanded_terms_by_topic,
+            candidate_count=len(all_evidence),
+            evidence_count=len(unique_evidence),
+            data_quality=data_quality,
+        )
         if data_quality.status != "OK":
             extracted_claims.append(
                 ResearchExtractedClaim(
@@ -702,6 +727,7 @@ class ResearchAnalysisService:
             grounded_answer=grounded_answer,
             evidence=unique_evidence,
             data_quality=data_quality,
+            retrieval_quality=retrieval_quality,
         )
 
 
@@ -933,6 +959,27 @@ def _evidence_reference_sentence(evidence: list[ResearchEvidence]) -> str:
     lead = evidence[0]
     published = lead.published_at.isoformat() if lead.published_at else "日付未設定"
     return f"主な根拠は「{lead.title}」（{published}）など{len(evidence)}件です。"
+
+
+def _retrieval_quality(
+    *,
+    queries: Sequence[str],
+    expanded_terms: Sequence[str],
+    candidate_count: int,
+    evidence_count: int,
+    data_quality: ResearchDataQuality,
+) -> ResearchRetrievalQuality:
+    warnings = list(data_quality.warnings)
+    if evidence_count == 0 and "検索で根拠候補が見つかりませんでした。" not in warnings:
+        warnings.append("検索で根拠候補が見つかりませんでした。")
+    return ResearchRetrievalQuality(
+        backend="keyword",
+        query=" | ".join(queries),
+        expanded_terms=_normalize_query_terms(expanded_terms),
+        candidate_count=candidate_count,
+        evidence_count=evidence_count,
+        warnings=warnings,
+    )
 
 
 def _extracted_claim(

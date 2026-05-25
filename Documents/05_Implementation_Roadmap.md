@@ -540,7 +540,7 @@ Completion criteria:
 
 ### 5.7 Phase 21: Advanced Research RAG - Evidence Extraction And Grounded Answers
 
-Status: planned; query expansion / structured extraction / grounded answer first slices started
+Status: planned; query expansion / structured extraction / grounded answer / retrieval quality first slices started
 
 Purpose:
 
@@ -573,6 +573,7 @@ Current implemented slice:
 - Deterministic query expansion baseline is implemented in `backend/research` with `ResearchQueryExpansionService`, `ResearchQueryExpansionResult`, category-aware `ResearchSearchRequest`, and `config/research_query_terms.yml`.
 - Structured extraction first slice is implemented with `ResearchExtractedClaim` and `CompanyResearchReport.extracted_claims`. Non-gap claims are generated only from supporting evidence; missing category evidence becomes `confirmation_gap` without changing scoring or ranking.
 - Template grounded answer first slice is implemented with `ResearchGroundedAnswerService` and `CompanyResearchReport.grounded_answer`. It uses only extracted claims and referenced evidence, keeps warnings, and explicitly states that the output is not a buy/sell recommendation.
+- Retrieval quality first slice is implemented with `ResearchRetrievalQuality` and `CompanyResearchReport.retrieval_quality`. It records the keyword backend, category query set, expanded terms, candidate count, evidence count, and retrieval/data-quality warnings for UI and Decision Report display.
 - `ResearchRetrievalService` can expand category queries while preserving Phase 20 keyword search behavior when no category or expanded terms are supplied.
 - `ResearchAnalysisService` uses category-aware expansion for the existing growth / shareholder_return / financial_safety / business_risk topic searches.
 

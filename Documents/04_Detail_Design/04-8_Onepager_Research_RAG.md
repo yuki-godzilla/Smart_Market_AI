@@ -2,7 +2,7 @@
 
 #### [BACK TO DETAIL DESIGN README](./04_Detail_Design_README.md)
 
-Status: Phase 20 local evidence slice is implementation complete. Phase 21 covers advanced Research RAG extraction, query expansion, optional vector / hybrid search, and grounded answer generation; deterministic query expansion, structured extraction, and template grounded answer first slices have started. Research Score, external source adapters, and Assistant integration remain later phases unless explicitly assigned.
+Status: Phase 20 local evidence slice is implementation complete. Phase 21 covers advanced Research RAG extraction, query expansion, optional vector / hybrid search, and grounded answer generation; deterministic query expansion, structured extraction, template grounded answer, and retrieval quality first slices have started. Research Score, external source adapters, and Assistant integration remain later phases unless explicitly assigned.
 
 ## Phase 20 Implementation Baseline / 実装ベースライン
 
@@ -159,6 +159,8 @@ class ResearchRetrievalQuality(BaseModel):
 ```
 
 Current implementation note: `ResearchExtractedClaim` is available as the first structured extraction contract, and `CompanyResearchReport.extracted_claims` carries generated claims. Claims for regular categories are created only when supporting evidence exists; missing topic evidence is represented as `confirmation_gap` so unsupported claims are not mixed into generated summaries.
+
+Current implementation note: `ResearchRetrievalQuality` is available as the first retrieval transparency contract, and `CompanyResearchReport.retrieval_quality` carries the keyword backend, category query set, expanded terms, retrieved candidate count, deduped evidence count, and warnings. Vector / hybrid backend values remain future optional paths.
 
 ### Query Expansion
 

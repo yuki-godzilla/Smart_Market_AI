@@ -78,6 +78,12 @@ Business risk includes competition, supply constraints, and foreign exchange dem
     assert report.grounded_answer.provider == "template"
     assert report.grounded_answer.referenced_evidence
     assert "売買推奨ではなく" in report.grounded_answer.answer
+    assert report.retrieval_quality is not None
+    assert report.retrieval_quality.backend == "keyword"
+    assert report.retrieval_quality.candidate_count >= report.retrieval_quality.evidence_count
+    assert report.retrieval_quality.evidence_count == len(report.evidence)
+    assert "growth" in report.retrieval_quality.query
+    assert "strategy" in report.retrieval_quality.expanded_terms
 
 
 def test_research_ingestion_deduplicates_by_document_hash(tmp_path):
@@ -308,6 +314,9 @@ def test_research_grounded_answer_uses_template_without_unsupported_claims():
     assert not report.grounded_answer.referenced_evidence
     assert "十分な根拠はまだ確認できません" in report.grounded_answer.answer
     assert "売買推奨ではなく" in report.grounded_answer.answer
+    assert report.retrieval_quality is not None
+    assert report.retrieval_quality.evidence_count == 0
+    assert "検索で根拠候補が見つかりませんでした。" in report.retrieval_quality.warnings
 
 
 def test_research_analysis_warns_when_evidence_reliability_is_low(tmp_path):

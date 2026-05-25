@@ -2,7 +2,7 @@
 
 #### [BACK TO DETAIL DESIGN README](./04_Detail_Design_README.md)
 
-Status: Phase 20 local evidence slice is implementation complete. Phase 21 covers advanced Research RAG extraction, query expansion, optional vector / hybrid search, and grounded answer generation. Research Score, external source adapters, and Assistant integration remain later phases unless explicitly assigned.
+Status: Phase 20 local evidence slice is implementation complete. Phase 21 covers advanced Research RAG extraction, query expansion, optional vector / hybrid search, and grounded answer generation; deterministic query expansion first slice has started. Research Score, external source adapters, and Assistant integration remain later phases unless explicitly assigned.
 
 ## Phase 20 Implementation Baseline / 実装ベースライン
 
@@ -167,6 +167,8 @@ class ResearchRetrievalQuality(BaseModel):
 - `financial_safety`: 財務安全性、自己資本比率、キャッシュ、現金同等物、有利子負債、格付け、財務余力。
 - `business_risk`: 事業リスク、為替、原材料、規制、訴訟、地政学、サプライチェーン、依存度。
 - `confirmation_gap`: 根拠不足、確認不足、資料不足、古い資料、公式IR未確認、追加確認。
+
+Current implementation note: `ResearchQueryExpansionService` and `ResearchQueryExpansionResult` provide the deterministic baseline, and `config/research_query_terms.yml` is the initial editable dictionary. `ResearchSearchRequest` supports `query_category` and `expanded_terms`; category-aware search remains optional so Phase 20 keyword behavior is preserved.
 
 ### Optional Embedding / Vector / Hybrid Search
 

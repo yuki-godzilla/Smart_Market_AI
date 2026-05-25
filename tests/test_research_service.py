@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
@@ -11,6 +12,7 @@ from backend.research import (
     ResearchIndexService,
     ResearchIngestionService,
     ResearchInMemoryStore,
+    ResearchQueryExpansionService,
     ResearchRetrievalService,
     ResearchSearchRequest,
 )
@@ -162,6 +164,84 @@ def test_research_search_applies_freshness_and_source_type_filters(tmp_path):
     new = next(row for row in evidence if row.title == "New Annual Report")
     assert old.relevance_score < new.relevance_score
     assert [row.source_type for row in filtered] == ["user_note"]
+
+
+def test_research_query_expansion_loads_config_and_expands_terms():
+    expansion = ResearchQueryExpansionService.from_yaml(Path("config/research_query_terms.yml"))
+
+    result = expansion.expand_query("growth", category="growth")
+
+    assert result.category == "growth"
+    assert "growth" in result.expanded_terms
+    assert "strategy" in result.expanded_terms
+    assert "overseas" in result.expanded_terms
+
+
+def test_research_search_uses_category_query_expansion(tmp_path):
+    document_path = tmp_path / "growth_note.md"
+    document_path.write_text(
+        "The medium-term plan explains overseas expansion and revenue expansion.",
+        encoding="utf-8",
+    )
+    store = ResearchInMemoryStore()
+    ingestion = ResearchIngestionService(store, document_dirs=[tmp_path])
+    index = ResearchIndexService(store, max_chars=240)
+    retrieval = ResearchRetrievalService(store)
+
+    ingestion.register_document(
+        ResearchDocumentRegisterRequest(
+            symbol="7203.T",
+            title="Research Note",
+            local_path=str(document_path),
+            source_type="user_note",
+            published_at=date(2026, 5, 1),
+        )
+    )
+    index.rebuild_index(symbol="7203.T")
+
+    without_expansion = retrieval.search(
+        ResearchSearchRequest(symbol="7203.T", query="growth strategy")
+    )
+    with_expansion = retrieval.search(
+        ResearchSearchRequest(
+            symbol="7203.T",
+            query="growth strategy",
+            query_category="growth",
+        )
+    )
+
+    assert not without_expansion
+    assert with_expansion
+    assert with_expansion[0].title == "Research Note"
+
+
+def test_research_analysis_uses_query_expansion_for_topic_evidence(tmp_path):
+    document_path = tmp_path / "growth_note.md"
+    document_path.write_text(
+        "The medium-term plan explains overseas expansion and revenue expansion.",
+        encoding="utf-8",
+    )
+    store = ResearchInMemoryStore()
+    ingestion = ResearchIngestionService(store, document_dirs=[tmp_path])
+    index = ResearchIndexService(store, max_chars=240)
+    retrieval = ResearchRetrievalService(store)
+
+    ingestion.register_document(
+        ResearchDocumentRegisterRequest(
+            symbol="7203.T",
+            title="Research Note",
+            local_path=str(document_path),
+            source_type="user_note",
+            published_at=date(2026, 5, 1),
+        )
+    )
+    index.rebuild_index(symbol="7203.T")
+
+    report = ResearchAnalysisService(ingestion, retrieval).analyze_company(
+        CompanyResearchRequest(symbol="7203.T", as_of=date(2026, 5, 25))
+    )
+
+    assert any(point.category == "growth" and point.evidence for point in report.points)
 
 
 def test_research_analysis_warns_when_evidence_reliability_is_low(tmp_path):

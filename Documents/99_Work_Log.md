@@ -543,3 +543,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added Phase 21 as `Advanced Research RAG - Evidence Extraction And Grounded Answers`, positioned between the completed Phase 20 local evidence slice and later Research Score integration.
 - Defined Phase 21 scope for structured evidence extraction, deterministic query expansion, optional embedding / vector / hybrid retrieval, evidence reranking, template-based grounded answers, Retrieval Quality, UI / Decision Report display, and safety guardrails.
 - Moved Research Score / Investment Score integration to Phase 22+ in docs so Phase 21 can improve RAG quality without changing ranking order or investment scoring by default.
+
+## 2026-05-25 - Phase 21 Research query expansion first slice
+
+- Added `config/research_query_terms.yml` as the deterministic category dictionary for growth, shareholder return, financial safety, business risk, and confirmation gap terms.
+- Added `ResearchQueryExpansionService` / `ResearchQueryExpansionResult` and category-aware `ResearchSearchRequest` fields while preserving Phase 20 keyword search behavior by default.
+- Wired `ResearchAnalysisService` topic searches through query expansion and covered config loading, category search expansion, and analysis integration with deterministic tests.

@@ -540,7 +540,7 @@ Completion criteria:
 
 ### 5.7 Phase 21: Advanced Research RAG - Evidence Extraction And Grounded Answers
 
-Status: planned
+Status: planned; query expansion first slice started
 
 Purpose:
 
@@ -567,6 +567,12 @@ Scope:
 - Evidence reranking: `ResearchEvidenceReranker` で relevance、reliability、freshness、official-source priority、diversity、duplicate suppression を扱う。
 - Grounded answer generation: `ResearchGroundedAnswerService` を候補とし、default は template-based generation。LLM generation は optional adapter とし、Evidence にない内容を生成しない。
 - UI / Decision Report: Cockpit、ranking modal、Decision Report に Research Summary、観点別抽出結果、Evidence table、Data Quality、Retrieval Quality、Grounded Answer、根拠不足 warning、非推奨注記を表示する方針を整理する。
+
+Current implemented slice:
+
+- Deterministic query expansion baseline is implemented in `backend/research` with `ResearchQueryExpansionService`, `ResearchQueryExpansionResult`, category-aware `ResearchSearchRequest`, and `config/research_query_terms.yml`.
+- `ResearchRetrievalService` can expand category queries while preserving Phase 20 keyword search behavior when no category or expanded terms are supplied.
+- `ResearchAnalysisService` uses category-aware expansion for the existing growth / shareholder_return / financial_safety / business_risk topic searches.
 
 Candidate contracts:
 

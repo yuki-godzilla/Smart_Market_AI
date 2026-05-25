@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Mapping
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Literal, Sequence, cast
 
+import yaml  # type: ignore[import-untyped]
 from pydantic import Field
 
 from backend.core.data_contracts import DataQuality, StrictBaseModel
@@ -23,10 +25,96 @@ ResearchSourceType = Literal[
     "user_note",
 ]
 ResearchLanguage = Literal["ja", "en", "unknown"]
+ResearchTopicCategory = Literal[
+    "growth",
+    "shareholder_return",
+    "financial_safety",
+    "business_risk",
+    "confirmation_gap",
+]
 
 RESEARCH_SCHEMA_VERSION = "research-evidence-v1"
 DEFAULT_MAX_CHARS = 1200
 DEFAULT_OVERLAP_CHARS = 180
+DEFAULT_RESEARCH_QUERY_TERMS: dict[ResearchTopicCategory, tuple[str, ...]] = {
+    "growth": (
+        "growth strategy",
+        "market expansion",
+        "overseas expansion",
+        "new business",
+        "medium-term plan",
+        "investment plan",
+        "revenue expansion",
+        "成長戦略",
+        "海外展開",
+        "新規事業",
+        "中期経営計画",
+        "投資計画",
+        "収益拡大",
+        "事業拡大",
+    ),
+    "shareholder_return": (
+        "shareholder return",
+        "dividend",
+        "dividend policy",
+        "payout ratio",
+        "buyback",
+        "DOE",
+        "株主還元",
+        "配当",
+        "増配",
+        "自社株買い",
+        "配当性向",
+        "利益還元",
+    ),
+    "financial_safety": (
+        "financial safety",
+        "equity ratio",
+        "cash",
+        "cash equivalents",
+        "interest-bearing debt",
+        "credit rating",
+        "liquidity",
+        "財務安全性",
+        "自己資本比率",
+        "キャッシュ",
+        "現金同等物",
+        "有利子負債",
+        "格付け",
+        "財務余力",
+    ),
+    "business_risk": (
+        "business risk",
+        "foreign exchange",
+        "raw material",
+        "regulation",
+        "lawsuit",
+        "geopolitical",
+        "supply chain",
+        "dependency",
+        "事業リスク",
+        "為替",
+        "原材料",
+        "規制",
+        "訴訟",
+        "地政学",
+        "サプライチェーン",
+        "依存度",
+    ),
+    "confirmation_gap": (
+        "missing evidence",
+        "confirmation gap",
+        "stale document",
+        "official IR not confirmed",
+        "additional confirmation",
+        "根拠不足",
+        "確認不足",
+        "資料不足",
+        "古い資料",
+        "公式IR未確認",
+        "追加確認",
+    ),
+}
 
 
 class ResearchDocumentError(AppError):
@@ -112,6 +200,16 @@ class ResearchSearchRequest(StrictBaseModel):
     top_k: int = Field(default=8, ge=1, le=50)
     source_types: list[ResearchSourceType] = Field(default_factory=list)
     as_of: date | None = None
+    query_category: ResearchTopicCategory | None = None
+    expanded_terms: list[str] = Field(default_factory=list)
+
+
+class ResearchQueryExpansionResult(StrictBaseModel):
+    """Deterministic expanded query terms for a research topic."""
+
+    query: str
+    category: ResearchTopicCategory | None = None
+    expanded_terms: list[str] = Field(default_factory=list)
 
 
 class ResearchEvidence(StrictBaseModel):
@@ -334,6 +432,58 @@ class ResearchIndexService:
         )
 
 
+class ResearchQueryExpansionService:
+    """Expand research queries with deterministic topic dictionaries."""
+
+    def __init__(
+        self,
+        terms_by_category: Mapping[ResearchTopicCategory, Sequence[str]] | None = None,
+    ) -> None:
+        configured = terms_by_category or DEFAULT_RESEARCH_QUERY_TERMS
+        self.terms_by_category = {
+            category: tuple(_normalize_query_terms(terms)) for category, terms in configured.items()
+        }
+
+    @classmethod
+    def from_yaml(cls, path: Path) -> ResearchQueryExpansionService:
+        with path.open("r", encoding="utf-8") as file:
+            data = yaml.safe_load(file) or {}
+        if not isinstance(data, dict):
+            raise ResearchSearchError(
+                "Research query expansion config must be a mapping.",
+                details={"path": str(path)},
+            )
+        terms_by_category: dict[ResearchTopicCategory, list[str]] = {}
+        for key, value in data.items():
+            if key not in DEFAULT_RESEARCH_QUERY_TERMS:
+                raise ResearchSearchError(
+                    "Research query expansion config has unknown category.",
+                    details={"path": str(path), "category": str(key)},
+                )
+            if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+                raise ResearchSearchError(
+                    "Research query expansion terms must be a list of strings.",
+                    details={"path": str(path), "category": str(key)},
+                )
+            terms_by_category[cast(ResearchTopicCategory, key)] = value
+        return cls(terms_by_category)
+
+    def expand_query(
+        self,
+        query: str,
+        *,
+        category: ResearchTopicCategory | None = None,
+    ) -> ResearchQueryExpansionResult:
+        terms = list(_query_terms(query))
+        if category is not None:
+            terms.extend(self.terms_by_category.get(category, ()))
+        return ResearchQueryExpansionResult(
+            query=query,
+            category=category,
+            expanded_terms=_normalize_query_terms(terms),
+        )
+
+
 class ResearchRetrievalService:
     """Retrieve local research evidence with deterministic keyword scoring."""
 
@@ -348,7 +498,7 @@ class ResearchRetrievalService:
         if not chunks:
             return []
 
-        query_terms = _query_terms(request.query)
+        query_terms = _expanded_query_terms(request)
         as_of = request.as_of or date.today()
         scored = []
         for chunk in chunks:
@@ -376,9 +526,11 @@ class ResearchAnalysisService:
         self,
         ingestion: ResearchIngestionService,
         retrieval: ResearchRetrievalService,
+        query_expansion: ResearchQueryExpansionService | None = None,
     ) -> None:
         self.ingestion = ingestion
         self.retrieval = retrieval
+        self.query_expansion = query_expansion or ResearchQueryExpansionService()
 
     def analyze_company(self, request: CompanyResearchRequest) -> CompanyResearchReport:
         as_of = request.as_of or date.today()
@@ -391,12 +543,16 @@ class ResearchAnalysisService:
         points: list[ResearchSummaryPoint] = []
         all_evidence: list[ResearchEvidence] = []
         for category, label, query in topics:
+            topic_category = cast(ResearchTopicCategory, category)
+            expanded = self.query_expansion.expand_query(query, category=topic_category)
             evidence = self.retrieval.search(
                 ResearchSearchRequest(
                     symbol=request.symbol,
                     query=query,
                     top_k=request.top_k_per_topic,
                     as_of=as_of,
+                    query_category=topic_category,
+                    expanded_terms=expanded.expanded_terms,
                 )
             )
             all_evidence.extend(evidence)
@@ -549,6 +705,21 @@ def _query_terms(query: str) -> list[str]:
     normalized = query.lower()
     terms = re.findall(r"[a-z0-9_]+|[一-龥ぁ-んァ-ンー]{2,}", normalized)
     return sorted(set(terms))
+
+
+def _expanded_query_terms(request: ResearchSearchRequest) -> list[str]:
+    terms = list(_query_terms(request.query))
+    if request.query_category is not None:
+        terms.extend(DEFAULT_RESEARCH_QUERY_TERMS.get(request.query_category, ()))
+    terms.extend(request.expanded_terms)
+    return _normalize_query_terms(terms)
+
+
+def _normalize_query_terms(terms: Sequence[str]) -> list[str]:
+    normalized: set[str] = set()
+    for term in terms:
+        normalized.update(_query_terms(term))
+    return sorted(normalized)
 
 
 def _chunk_relevance_score(chunk: ResearchChunk, query_terms: list[str], *, as_of: date) -> Decimal:

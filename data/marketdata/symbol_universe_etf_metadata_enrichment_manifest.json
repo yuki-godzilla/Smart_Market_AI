@@ -1,19 +1,35 @@
 {
-  "changed_columns": {},
-  "changed_rows": 0,
-  "changed_symbol_sample": [],
+  "changed_columns": {
+    "nisa_category": 8,
+    "nisa_growth_eligible": 11,
+    "nisa_tsumitate_eligible": 11
+  },
+  "changed_rows": 11,
+  "changed_symbol_sample": [
+    "586A.T",
+    "585A.T",
+    "BGLD",
+    "DRNZ",
+    "ETRL",
+    "FJP",
+    "GPIQ",
+    "SNDU",
+    "ORR",
+    "BULX",
+    "FMTL"
+  ],
   "csv": "C:\\IDE_Workspace\\Smart_Market_AI\\data\\marketdata\\symbol_universe.csv",
   "expense_ratio_scale_corrections": 0,
   "index_family_updates": {},
-  "nisa_category_updates": 0,
+  "nisa_category_updates": 8,
   "operation": "symbol_universe_etf_metadata_enrichment",
   "post_update_summary": {
-    "etf_index_family_missing": 0,
+    "etf_index_family_missing": 2,
     "etf_nisa_category_counts": {
-      "growth": 563,
-      "none": 471
+      "growth": 567,
+      "none": 479
     },
     "etf_nisa_unknown": 0,
-    "etf_rows": 1034
+    "etf_rows": 1046
   }
 }

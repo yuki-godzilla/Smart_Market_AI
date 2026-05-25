@@ -129,6 +129,8 @@ def test_symbol_metadata_catalog_allows_official_source_names():
         "jpx_nisa_growth",
         "jpx_reit",
         "sbi_us_stock",
+        "sbi_us_stock_removed",
         "sbi_us_etf",
+        "sbi_us_etf_removed",
         "mutual_fund_seed",
     } <= set(metadata_source.allowed_values)

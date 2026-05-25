@@ -1,0 +1,17 @@
+symbol,data_quality,complexity
+ASML,WARN,standard
+BRBS,WARN,standard
+FRHC,WARN,standard
+FWDI,WARN,standard
+GMEX,WARN,standard
+GRND,WARN,standard
+KBAB,WARN,leveraged
+KPDD,WARN,leveraged
+KZIA,WARN,standard
+MSGS,WARN,standard
+PAC,WARN,standard
+PL,WARN,standard
+RKLB,WARN,standard
+SATS,WARN,standard
+TLT,WARN,beginner
+USAR,WARN,standard

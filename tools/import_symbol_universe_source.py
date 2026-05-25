@@ -160,6 +160,7 @@ def _import_defaults(args, profile) -> SymbolUniverseImportDefaults:
         symbol_suffix=args.symbol_suffix or profile_defaults.symbol_suffix,
         column_defaults=profile_defaults.column_defaults,
         update_columns=profile_defaults.update_columns,
+        allow_new_with_update_columns=profile_defaults.allow_new_with_update_columns,
     )
 
 

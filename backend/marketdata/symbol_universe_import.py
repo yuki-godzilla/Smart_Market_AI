@@ -81,6 +81,7 @@ class SymbolUniverseImportDefaults:
     symbol_suffix: str = ""
     column_defaults: Mapping[str, str] = field(default_factory=dict)
     update_columns: frozenset[str] = frozenset()
+    allow_new_with_update_columns: bool = False
 
 
 @dataclass(frozen=True)
@@ -171,6 +172,7 @@ SOURCE_PROFILES: dict[str, SymbolUniverseSourceProfile] = {
                     "metadata_updated_at",
                 }
             ),
+            allow_new_with_update_columns=True,
         ),
     ),
     "jpx_reit": SymbolUniverseSourceProfile(
@@ -240,6 +242,35 @@ SOURCE_PROFILES: dict[str, SymbolUniverseSourceProfile] = {
                     "nisa_category",
                     "nisa_tsumitate_eligible",
                     "nisa_growth_eligible",
+                    "metadata_source",
+                    "metadata_as_of",
+                    "metadata_updated_at",
+                }
+            ),
+        ),
+    ),
+    "sbi_availability": SymbolUniverseSourceProfile(
+        name="sbi_availability",
+        source_name="sbi_availability",
+        defaults=SymbolUniverseImportDefaults(
+            update_columns=frozenset(
+                {
+                    "tradability",
+                    "is_sbi_supported",
+                    "metadata_source",
+                    "metadata_as_of",
+                    "metadata_updated_at",
+                }
+            ),
+        ),
+    ),
+    "quality_review": SymbolUniverseSourceProfile(
+        name="quality_review",
+        source_name="manual",
+        defaults=SymbolUniverseImportDefaults(
+            update_columns=frozenset(
+                {
+                    "data_quality",
                     "metadata_source",
                     "metadata_as_of",
                     "metadata_updated_at",
@@ -364,7 +395,10 @@ def merge_symbol_universe_source_rows(
         normalized_symbol = symbol.upper()
         existing_index = row_index_by_symbol.get(normalized_symbol)
         if existing_index is None:
-            if effective_defaults.update_columns:
+            if (
+                effective_defaults.update_columns
+                and not effective_defaults.allow_new_with_update_columns
+            ):
                 failures.append(
                     SymbolUniverseImportFailure(
                         source_row=source_row_number,

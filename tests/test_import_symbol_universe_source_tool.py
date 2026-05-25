@@ -191,6 +191,53 @@ def test_import_symbol_universe_source_tool_applies_source_profile(tmp_path, cap
     assert rows[1]["is_active"] == "true"
 
 
+def test_import_symbol_universe_source_tool_imports_new_jpx_etf_profile_rows(tmp_path, capsys):
+    base_csv = tmp_path / "symbol_universe.csv"
+    source_csv = tmp_path / "jpx_etf_seed.csv"
+    manifest_path = tmp_path / "manifest.json"
+    _write_base_rows(base_csv, [{"symbol": "AAPL", "name": "Apple Inc."}])
+    _write_source_rows(
+        source_csv,
+        [
+            {
+                "symbol": "587A.T",
+                "name": "NEXT FUNDS AI関連株式指数 ETF",
+                "index_family": "active",
+                "expense_ratio_pct": "0.77",
+            }
+        ],
+    )
+
+    exit_code = main(
+        [
+            "--base-csv",
+            str(base_csv),
+            "--source-csv",
+            str(source_csv),
+            "--source-profile",
+            "jpx_etf",
+            "--manifest",
+            str(manifest_path),
+            "--as-of",
+            "2026-05-22",
+            "--updated-at",
+            "2026-05-26T00:00:00+00:00",
+            "--write",
+        ]
+    )
+
+    output = json.loads(capsys.readouterr().out)
+    rows = _read_rows(base_csv)
+    assert exit_code == 0
+    assert output["source"] == "jpx"
+    assert output["imported_symbols"] == ["587A.T"]
+    assert rows[1]["symbol"] == "587A.T"
+    assert rows[1]["market"] == "jp"
+    assert rows[1]["asset_type"] == "etf"
+    assert rows[1]["currency"] == "JPY"
+    assert rows[1]["metadata_source"] == "jpx"
+
+
 def test_import_symbol_universe_source_tool_updates_nisa_profile_only(tmp_path, capsys):
     base_csv = tmp_path / "symbol_universe.csv"
     source_csv = tmp_path / "nisa_eligibility_seed.csv"

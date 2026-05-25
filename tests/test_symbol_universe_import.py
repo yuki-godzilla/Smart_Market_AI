@@ -104,6 +104,8 @@ def test_source_profiles_expose_expected_names():
         "sbi_us_stock",
         "sbi_us_etf",
         "nisa_eligibility",
+        "sbi_availability",
+        "quality_review",
         "ranking_metadata",
     } <= set(symbol_universe_source_profile_names())
     assert "mutual_fund_seed" in symbol_universe_source_profile_names()
@@ -207,6 +209,38 @@ def test_jpx_etf_profile_updates_filter_metadata_without_nisa_overwrite():
     assert updated_row["nisa_category"] == "growth"
     assert updated_row["metadata_source"] == "jpx"
     assert result.manifest["updated_rows"] == 1
+
+
+def test_jpx_etf_profile_imports_new_etfs_despite_update_columns():
+    profile = symbol_universe_source_profile("jpx_etf")
+    result = merge_symbol_universe_source_rows(
+        [],
+        [
+            {
+                "symbol": "587A.T",
+                "name": "NEXT FUNDS AI関連株式指数 ETF",
+                "index_family": "active",
+                "expense_ratio_pct": "0.77",
+            }
+        ],
+        source_name=profile.source_name,
+        as_of=date(2026, 5, 22),
+        updated_at=datetime(2026, 5, 26, 0, 0, tzinfo=timezone.utc),
+        defaults=profile.defaults,
+    )
+
+    imported_row = result.rows[0]
+    assert imported_row["symbol"] == "587A.T"
+    assert imported_row["market"] == "jp"
+    assert imported_row["asset_type"] == "etf"
+    assert imported_row["currency"] == "JPY"
+    assert imported_row["broker"] == "sbi_securities"
+    assert imported_row["tradability"] == "unknown"
+    assert imported_row["index_family"] == "active"
+    assert imported_row["expense_ratio_pct"] == "0.77"
+    assert imported_row["metadata_source"] == "jpx"
+    assert result.manifest["imported_symbols"] == ["587A.T"]
+    assert result.manifest["failed_rows"] == 0
 
 
 def test_jpx_reit_profile_imports_reits_as_mvp_excluded_rows():
@@ -328,6 +362,82 @@ def test_nisa_eligibility_profile_rejects_new_symbols():
     assert result.rows == []
     assert result.manifest["failed_rows"] == 1
     assert result.manifest["failures"][0]["code"] == "SYMBOL-UNIVERSE-IMPORT-UNKNOWN-SYMBOL"
+
+
+def test_sbi_availability_profile_updates_only_broker_availability():
+    profile = symbol_universe_source_profile("sbi_availability")
+    result = merge_symbol_universe_source_rows(
+        [
+            {
+                "symbol": "ACLX",
+                "name": "Arcellx Inc",
+                "market": "us",
+                "asset_type": "stock",
+                "currency": "USD",
+                "tradability": "tradable",
+                "is_sbi_supported": "true",
+                "metadata_source": "curated_csv",
+            }
+        ],
+        [
+            {
+                "symbol": "ACLX",
+                "name": "Should not overwrite",
+                "asset_type": "etf",
+                "tradability": "not_tradable",
+                "is_sbi_supported": "false",
+            }
+        ],
+        source_name="sbi_us_stock_removed",
+        as_of=date(2026, 5, 26),
+        updated_at=datetime(2026, 5, 26, 0, 0, tzinfo=timezone.utc),
+        defaults=profile.defaults,
+        update_existing=True,
+    )
+
+    updated_row = result.rows[0]
+    assert updated_row["name"] == "Arcellx Inc"
+    assert updated_row["asset_type"] == "stock"
+    assert updated_row["tradability"] == "not_tradable"
+    assert updated_row["is_sbi_supported"] == "false"
+    assert updated_row["metadata_source"] == "sbi_us_stock_removed"
+    assert result.manifest["updated_symbols"] == ["ACLX"]
+
+
+def test_quality_review_profile_updates_only_quality_fields():
+    profile = symbol_universe_source_profile("quality_review")
+    result = merge_symbol_universe_source_rows(
+        [
+            {
+                "symbol": "ASML",
+                "name": "ASML Holding NV",
+                "market": "us",
+                "asset_type": "adr",
+                "currency": "USD",
+                "complexity": "standard",
+                "data_quality": "OK",
+                "metadata_source": "yahoo",
+            }
+        ],
+        [
+            {
+                "symbol": "ASML",
+                "complexity": "beginner",
+                "data_quality": "WARN",
+            }
+        ],
+        source_name=profile.source_name,
+        as_of=date(2026, 5, 26),
+        updated_at=datetime(2026, 5, 26, 0, 0, tzinfo=timezone.utc),
+        defaults=profile.defaults,
+        update_existing=True,
+    )
+
+    updated_row = result.rows[0]
+    assert updated_row["complexity"] == "standard"
+    assert updated_row["data_quality"] == "WARN"
+    assert updated_row["metadata_source"] == "manual"
+    assert result.manifest["updated_symbols"] == ["ASML"]
 
 
 def test_ranking_metadata_profile_updates_only_existing_filter_columns():

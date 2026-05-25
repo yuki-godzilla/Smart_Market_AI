@@ -1,0 +1,6 @@
+symbol,tradability,is_sbi_supported
+ARMU,not_tradable,false
+BMAX,not_tradable,false
+BULU,not_tradable,false
+DXJS,not_tradable,false
+PXIU,not_tradable,false

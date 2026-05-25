@@ -180,6 +180,14 @@ SMAI_GLOBAL_CSS = """
     margin: 0 0 1rem;
 }
 
+.smai-page-title--copilot {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 20rem);
+    align-items: center;
+    gap: 1rem;
+    padding-bottom: 1rem;
+}
+
 .smai-page-title-row {
     display: inline-flex;
     align-items: center;
@@ -219,6 +227,110 @@ SMAI_GLOBAL_CSS = """
     object-fit: contain;
     filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.28));
     animation: smai-float 5.4s ease-in-out infinite;
+}
+
+.smai-copilot-panel {
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 5.4rem minmax(0, 1fr);
+    align-items: center;
+    gap: 0.78rem;
+    min-height: 7rem;
+    border: 1px solid rgba(34, 211, 238, 0.22);
+    border-radius: 8px;
+    background:
+        linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(8, 13, 24, 0.96)),
+        rgba(7, 11, 20, 0.82);
+    box-shadow:
+        0 10px 30px rgba(0, 0, 0, 0.28),
+        0 0 24px rgba(34, 211, 238, 0.08);
+    backdrop-filter: blur(8px);
+    padding: 0.72rem 0.82rem;
+}
+
+.smai-copilot-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(circle at 20% 30%, rgba(34, 211, 238, 0.16), transparent 34%),
+        linear-gradient(90deg, rgba(34, 211, 238, 0.08), transparent 64%);
+}
+
+.smai-copilot-figure,
+.smai-insight-avatar {
+    position: relative;
+    display: grid;
+    place-items: center;
+}
+
+.smai-copilot-figure {
+    min-width: 5.4rem;
+    height: 6rem;
+}
+
+.smai-copilot-aura {
+    position: absolute;
+    width: 4.5rem;
+    height: 4.5rem;
+    border-radius: 999px;
+    background: rgba(34, 211, 238, 0.11);
+    filter: blur(12px);
+    animation: smai-soft-glow 4.8s ease-in-out infinite;
+}
+
+.smai-copilot-image {
+    position: relative;
+    z-index: 1;
+    width: 5rem;
+    height: 6rem;
+    object-fit: contain;
+    filter:
+        drop-shadow(0 10px 18px rgba(0, 0, 0, 0.32))
+        drop-shadow(0 0 12px rgba(34, 211, 238, 0.16));
+    animation: smai-copilot-float 4.6s ease-in-out infinite;
+}
+
+.smai-copilot-copy {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+}
+
+.smai-copilot-label {
+    color: #e5e7eb;
+    font-size: 0.9rem;
+    font-weight: 820;
+    line-height: 1.25;
+}
+
+.smai-copilot-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+    margin-top: 0.34rem;
+    color: #94a3b8;
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.smai-copilot-status-dot {
+    width: 0.46rem;
+    height: 0.46rem;
+    border-radius: 999px;
+    background: #34d399;
+    box-shadow: 0 0 12px rgba(52, 211, 153, 0.42);
+    animation: smai-status-breathe 3.8s ease-in-out infinite;
+}
+
+.smai-copilot-message {
+    color: #94a3b8;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    margin: 0.48rem 0 0;
 }
 
 .smai-dashboard-header {
@@ -357,6 +469,68 @@ SMAI_GLOBAL_CSS = """
     background: rgba(8, 13, 24, 0.42);
 }
 
+.smai-insight {
+    --smai-insight-accent: var(--smai-teal);
+    display: grid;
+    grid-template-columns: 3.15rem minmax(0, 1fr);
+    align-items: center;
+    gap: 0.72rem;
+    border: 1px solid rgba(34, 211, 238, 0.18);
+    border-left: 3px solid var(--smai-insight-accent);
+    border-radius: 8px;
+    background:
+        linear-gradient(90deg, rgba(34, 211, 238, 0.1), transparent 56%),
+        rgba(15, 23, 42, 0.72);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
+    padding: 0.65rem 0.76rem;
+    margin: 0.7rem 0 0.85rem;
+}
+
+.smai-insight[data-tone="caution"] {
+    --smai-insight-accent: var(--smai-amber);
+    border-color: rgba(245, 158, 11, 0.22);
+    background:
+        linear-gradient(90deg, rgba(245, 158, 11, 0.09), transparent 56%),
+        rgba(15, 23, 42, 0.72);
+}
+
+.smai-insight-avatar {
+    height: 3.2rem;
+}
+
+.smai-insight-avatar::before {
+    content: "";
+    position: absolute;
+    width: 2.65rem;
+    height: 2.65rem;
+    border-radius: 999px;
+    background: rgba(34, 211, 238, 0.1);
+    filter: blur(9px);
+}
+
+.smai-insight-avatar img {
+    position: relative;
+    width: 2.8rem;
+    height: 3.2rem;
+    object-fit: contain;
+    filter: drop-shadow(0 8px 13px rgba(0, 0, 0, 0.28));
+    animation: smai-copilot-float 5.2s ease-in-out infinite;
+}
+
+.smai-insight-title {
+    color: #e5e7eb;
+    font-size: 0.86rem;
+    font-weight: 780;
+    line-height: 1.3;
+}
+
+.smai-insight-message {
+    color: #b7c3d4;
+    font-size: 0.82rem;
+    line-height: 1.55;
+    margin-top: 0.22rem;
+}
+
 .smai-mascot-title {
     color: #f8fafc;
     font-size: 0.94rem;
@@ -461,6 +635,40 @@ SMAI_GLOBAL_CSS = """
     }
 }
 
+@keyframes smai-copilot-float {
+    0%,
+    100% {
+        transform: translateY(0) scale(1);
+    }
+    50% {
+        transform: translateY(-3px) scale(1.012);
+    }
+}
+
+@keyframes smai-soft-glow {
+    0%,
+    100% {
+        opacity: 0.62;
+        transform: scale(0.96);
+    }
+    50% {
+        opacity: 0.92;
+        transform: scale(1.04);
+    }
+}
+
+@keyframes smai-status-breathe {
+    0%,
+    100% {
+        opacity: 0.76;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.12);
+    }
+}
+
 @keyframes smai-pulse {
     0% {
         transform: scale(0.88);
@@ -487,6 +695,10 @@ SMAI_GLOBAL_CSS = """
 @media (prefers-reduced-motion: reduce) {
     .smai-app-mascot,
     .smai-page-title-image,
+    .smai-copilot-image,
+    .smai-copilot-aura,
+    .smai-copilot-status-dot,
+    .smai-insight-avatar img,
     .smai-mascot-image--loading,
     .smai-loading-pulse,
     .smai-loading-dots span {
@@ -506,6 +718,25 @@ SMAI_GLOBAL_CSS = """
 
     .smai-page-title-row {
         gap: 0.55rem;
+    }
+
+    .smai-page-title--copilot {
+        grid-template-columns: 1fr;
+    }
+
+    .smai-copilot-panel {
+        grid-template-columns: 4.6rem minmax(0, 1fr);
+        min-height: 6.3rem;
+    }
+
+    .smai-copilot-figure {
+        min-width: 4.6rem;
+        height: 5.3rem;
+    }
+
+    .smai-copilot-image {
+        width: 4.3rem;
+        height: 5.3rem;
     }
 
     .smai-page-title-art {

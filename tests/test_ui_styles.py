@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ui.styles import badge_html, compact_display_value, metric_card_html
+from ui.styles import SMAI_GLOBAL_CSS, badge_html, compact_display_value, metric_card_html
 
 
 def test_compact_display_value_formats_numeric_text_without_new_logic():
@@ -33,3 +33,12 @@ def test_metric_card_html_uses_shared_card_classes_and_escapes_text():
     assert "72" in markup
     assert "確認 &lt;材料&gt;" in markup
     assert 'class="smai-badge info"' in markup
+
+
+def test_global_css_defines_copilot_presence_and_insight_motion():
+    assert ".smai-page-title--copilot" in SMAI_GLOBAL_CSS
+    assert ".smai-copilot-panel" in SMAI_GLOBAL_CSS
+    assert ".smai-insight" in SMAI_GLOBAL_CSS
+    assert "@keyframes smai-copilot-float" in SMAI_GLOBAL_CSS
+    assert "translateY(-3px) scale(1.012)" in SMAI_GLOBAL_CSS
+    assert "@media (prefers-reduced-motion: reduce)" in SMAI_GLOBAL_CSS

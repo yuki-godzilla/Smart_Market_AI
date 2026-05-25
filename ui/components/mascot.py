@@ -20,9 +20,11 @@ MascotVariant = Literal[
 MascotLayout = Literal["sidebar", "compact", "panel"]
 MascotTone = Literal["info", "success", "forecast", "caution", "risk"]
 TitleMascot = Literal["cockpit", "ranking", "rebalance"]
+CopilotState = Literal["ready", "analyzing", "updated", "warning"]
 
 MASCOT_ASSET_DIR = Path(__file__).resolve().parents[1] / "assets" / "mascot"
 MASCOT_REFERENCE_ASSET = "smai-mascot-reference.webp"
+MASCOT_CUTOUT_ASSET = "smai-mascot-cutout.png"
 MASCOT_THUMB_ASSET = "smai-mascot-thumb.webp"
 MASCOT_PANEL_ASSET = "smai-mascot-panel.webp"
 MASCOT_LOADING_ASSET = "smai-mascot-loading.webp"
@@ -119,6 +121,51 @@ def mascot_panel_html(
     )
 
 
+def copilot_presence_panel_html(
+    *,
+    status: str = "Market Ready",
+    message: str = "価格・予測・根拠を横で整理します。",
+    state: CopilotState = "ready",
+) -> str:
+    image = _asset_data_uri(MASCOT_CUTOUT_ASSET)
+    return (
+        f'<aside class="smai-copilot-panel" data-state="{html.escape(state)}">'
+        '<div class="smai-copilot-figure" aria-hidden="true">'
+        '<span class="smai-copilot-aura"></span>'
+        f'<img class="smai-copilot-image" src="{image}" alt="" loading="lazy" />'
+        "</div>"
+        '<div class="smai-copilot-copy">'
+        '<div class="smai-copilot-label">SMAI Copilot</div>'
+        '<div class="smai-copilot-status">'
+        '<span class="smai-copilot-status-dot"></span>'
+        f"<span>{html.escape(status)}</span>"
+        "</div>"
+        f'<p class="smai-copilot-message">{html.escape(message)}</p>'
+        "</div>"
+        "</aside>"
+    )
+
+
+def smai_insight_html(
+    message: str,
+    *,
+    title: str = "SMAI Insight",
+    tone: MascotTone = "forecast",
+) -> str:
+    image = _asset_data_uri(MASCOT_CUTOUT_ASSET)
+    return (
+        f'<aside class="smai-insight" data-tone="{html.escape(tone)}">'
+        '<div class="smai-insight-avatar" aria-hidden="true">'
+        f'<img src="{image}" alt="" loading="lazy" />'
+        "</div>"
+        '<div class="smai-insight-copy">'
+        f'<div class="smai-insight-title">{html.escape(title)}</div>'
+        f'<div class="smai-insight-message">{html.escape(message)}</div>'
+        "</div>"
+        "</aside>"
+    )
+
+
 def app_header_html(
     title: str = "Smart Market AI",
     *,
@@ -151,6 +198,14 @@ def page_title_html(
     subtitle: str,
     mascot: TitleMascot,
 ) -> str:
+    if mascot == "cockpit":
+        return (
+            '<section class="smai-page-title smai-page-title--copilot" data-mascot="cockpit">'
+            '<div class="smai-page-title-copy">'
+            f'<h2 class="smai-page-title-heading">{html.escape(title)}</h2>'
+            f'<p class="smai-page-title-subtitle">{html.escape(subtitle)}</p>'
+            "</div>" + copilot_presence_panel_html() + "</section>"
+        )
     image = _asset_data_uri(MASCOT_TITLE_ASSETS[mascot])
     return (
         f'<section class="smai-page-title" data-mascot="{html.escape(mascot)}">'

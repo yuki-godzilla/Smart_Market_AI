@@ -52,6 +52,7 @@ from ui.components.mascot import (
     render_mascot_loading,
     render_mascot_panel,
     render_page_title,
+    smai_insight_html,
 )
 from ui.components.sidemenu import (
     SIDEMENU_PAGE_COCKPIT,
@@ -4070,11 +4071,15 @@ def _render_score_breakdown_context(
     _render_score_breakdown_chart(score_component_rows(row))
 
     warning = row.get("注意点", "")
-    if warning:
-        st.warning(warning)
-    else:
-        st.info("大きな注意点はありません。スコアの内訳も確認してください。")
-    for line in investment_score_summary_lines(row):
+    summary_lines = investment_score_summary_lines(row)
+    st.markdown(
+        smai_insight_html(
+            " ".join(summary_lines[:2]),
+            tone="caution" if warning else "forecast",
+        ),
+        unsafe_allow_html=True,
+    )
+    for line in summary_lines[2:]:
         st.caption(line)
     period_rows = cockpit_period_evaluation_rows(preview.bars)
     if period_rows:

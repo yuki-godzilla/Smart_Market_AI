@@ -73,6 +73,7 @@ def test_page_title_html_uses_screen_specific_mascot_asset_and_escapes_copy():
 
     assert 'class="smai-page-title"' in markup
     assert 'data-mascot="ranking"' in markup
+    assert 'class="smai-page-title-row"' in markup
     assert "銘柄&lt;ランキング&gt;" in markup
     assert "比較 &lt;候補&gt; を整理します。" in markup
     assert "smai-page-title-image" in markup

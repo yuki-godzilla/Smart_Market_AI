@@ -175,13 +175,17 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-page-title {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 1rem;
     border-bottom: 1px solid rgba(148, 163, 184, 0.16);
     padding: 0.05rem 0 0.9rem;
     margin: 0 0 1rem;
+}
+
+.smai-page-title-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.8rem;
+    max-width: 100%;
+    vertical-align: middle;
 }
 
 .smai-page-title-heading {
@@ -201,8 +205,9 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-page-title-art {
-    width: clamp(7.8rem, 14vw, 12.5rem);
-    height: clamp(4.9rem, 8.4vw, 7.4rem);
+    width: clamp(5.2rem, 9vw, 8.2rem);
+    height: clamp(3.2rem, 5.8vw, 5.1rem);
+    flex: 0 0 auto;
     display: grid;
     place-items: center;
     pointer-events: none;
@@ -499,15 +504,13 @@ SMAI_GLOBAL_CSS = """
         width: 4.4rem;
     }
 
-    .smai-page-title {
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 0.7rem;
-        align-items: end;
+    .smai-page-title-row {
+        gap: 0.55rem;
     }
 
     .smai-page-title-art {
-        width: 5.8rem;
-        height: 3.9rem;
+        width: 4.8rem;
+        height: 3.1rem;
     }
 }
 

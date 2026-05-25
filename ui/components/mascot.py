@@ -155,11 +155,13 @@ def page_title_html(
     return (
         f'<section class="smai-page-title" data-mascot="{html.escape(mascot)}">'
         '<div class="smai-page-title-copy">'
+        '<div class="smai-page-title-row">'
         f'<h2 class="smai-page-title-heading">{html.escape(title)}</h2>'
-        f'<p class="smai-page-title-subtitle">{html.escape(subtitle)}</p>'
-        "</div>"
         '<div class="smai-page-title-art" aria-hidden="true">'
         f'<img class="smai-page-title-image" src="{image}" alt="" loading="lazy" />'
+        "</div>"
+        "</div>"
+        f'<p class="smai-page-title-subtitle">{html.escape(subtitle)}</p>'
         "</div>"
         "</section>"
     )

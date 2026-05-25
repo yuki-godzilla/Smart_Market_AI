@@ -18,7 +18,7 @@ API の起動方法、CSV 形式、UI の使い方、手動確認手順は [06_M
 
 Phase 1 から Phase 15 までは、現在の実装上は implementation complete 扱いです。
 Phase 16 は UI / Visualization Cockpit 改善の実装完了扱いです。最終 Streamlit browser smoke は推奨確認として残します。
-Research RAG は local evidence slice が進行中です。外部 source adapter、Research Score integration、Assistant、distribution readiness は planned / future scope です。
+Research RAG は Phase 20 local evidence slice が implementation complete です。外部 source adapter、Research Score integration、Assistant、distribution readiness は planned / future scope です。
 
 実装済みの主な範囲:
 
@@ -483,7 +483,7 @@ Completion criteria:
 
 ### 5.6 Phase 20: Research RAG Evidence Layer
 
-Status: in progress; backend local evidence slice started
+Status: implementation complete; local evidence slice complete
 
 Current implementation direction:
 
@@ -504,9 +504,9 @@ Recommended MVP slice:
 
 Current implemented slice:
 
-- `backend/research` provides local UTF-8 document ingestion, hash dedupe, chunking, keyword evidence search, deterministic Research Summary, and data-quality warnings.
+- `backend/research` provides local UTF-8 document ingestion, hash dedupe, chunking, freshness-aware keyword evidence search, source-type filtering, deterministic Research Summary, and data-quality warnings for missing, stale, and low-reliability evidence.
 - `設定 / データ情報` has a `Research RAG / 根拠資料` expander for session-local Markdown / Text / CSV upload and registration.
-- `銘柄コックピット` shows a `Research RAG / 根拠資料` section with an explicit `AIデータ取得` button beside the section header; price-data fetch does not automatically run Research RAG. The summary shows source document names, dates, evidence counts, and detailed evidence rows inside a collapsed detail expander.
+- `銘柄コックピット` shows a `Research RAG / 根拠資料` section with an explicit `AIデータ取得` button beside the section header; price-data fetch does not automatically run Research RAG. The summary shows source document names, dates, evidence counts, data-quality warning rows, and detailed evidence rows inside a collapsed detail expander.
 - `銘柄ランキング` row-click `銘柄データ` modal has an `AI Research` tab with an explicit `AIで資料を確認` button. It reuses the same Research Summary panel for growth, shareholder return, financial safety, business risk, confirmation gaps, source document names, dates, and evidence counts.
 - `銘柄ランキング` result cards, detailed table, and selected-candidate breakdown show a lightweight Research Evidence status (`根拠あり` / `最新資料が古い` / `根拠不足`) from registered local documents and already fetched Research reports. This does not change ranking order and does not automatically run full Research RAG analysis for every symbol.
 - Cockpit Decision Report includes `Research Evidence` only when `AIデータ取得` has produced a report and registered documents or evidence exist, so existing no-document reports remain unchanged.

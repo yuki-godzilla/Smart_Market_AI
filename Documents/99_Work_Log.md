@@ -531,3 +531,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Clarified that Research Score, external RAG adapters, assistant, fund ranking, PDF/Excel, and execution remain future scope.
 - Updated the Research RAG onepager so current Phase 20 contracts are separated from Phase 21+ Research Score sketches.
 - Changed market-data provider diagnostics so Yahoo is reported as an implemented opt-in live adapter, while deterministic supported providers remain `mock` / `csv` and `polygon` remains planned.
+
+## 2026-05-25 - Phase 20 Research RAG local evidence completion
+
+- Completed the Phase 20 local Research RAG evidence slice boundary: ingestion, hash dedupe, chunking, keyword retrieval, deterministic Research Summary, data-quality warnings, cockpit / ranking modal display, lightweight ranking evidence status, and Cockpit Decision Report Research Evidence export.
+- Added freshness-aware retrieval scoring, source-type filtered search coverage, and low-reliability evidence warnings while keeping Research Score, external adapters, vector / hybrid search, and Assistant integration in Phase 21+ or future scope.
+- Surfaced Research data-quality warnings in the Cockpit Research Summary panel as table rows so missing, stale, or low-reliability evidence remains visible as decision-support context rather than advice.

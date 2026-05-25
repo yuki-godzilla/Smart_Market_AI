@@ -2,7 +2,7 @@
 ![CI](https://github.com/yuki-godzilla/Smart_Market_AI/actions/workflows/ci.yml/badge.svg)
 
 Smart Market AI（SMAI）は、投資判断に必要な情報を整理・可視化し、
-市場データ取得、特徴量生成、スクリーニング、複数モデル予測、Investment Score、ポートフォリオ評価、将来の Research RAG による根拠収集を通じて、
+市場データ取得、特徴量生成、スクリーニング、複数モデル予測、Investment Score、ポートフォリオ評価、Research RAG によるローカル根拠整理を通じて、
 「売買を自動化する」のではなく「判断材料を説明可能にする」ためのローカルファーストな投資分析プラットフォームです。
 
 SMAI は以下の思想を重視しています。
@@ -78,11 +78,11 @@ MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で
 - Phase 17: UI Polish / ランキング条件 UI 再設計は implementation complete
 - Phase 18: symbol universe / metadata refresh / source import / SBI ranking universe policy は implementation complete。継続的な NISA / ETF / stock metadata source 更新は運用タスクとして扱う
 - Phase 19: Decision Report Context MVP は implementation complete
-- Phase 20: Research RAG Evidence Layer は local evidence slice が実装進行中。external adapters と Research Score は後続
+- Phase 20: Research RAG Evidence Layer は local evidence slice が implementation complete。external adapters と Research Score は後続
 - Phase 21〜24: Research Score、Assistant、optional adapter、Execution gate の順に整理
 - Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
-次の重点は、既存機能の分かりにくさ、仕様曖昧さ、投資助言に見えすぎる表現を棚卸しする成熟性レビューです。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、Research RAG external adapters、Assistant、Execution / Broker は明示的に割り当てるまで future scope として扱います。
+次の重点は、既存機能の分かりにくさ、仕様曖昧さ、投資助言に見えすぎる表現を棚卸しする成熟性レビューです。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、Research Score、Research RAG external adapters、Assistant、Execution / Broker は明示的に割り当てるまで future scope として扱います。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント

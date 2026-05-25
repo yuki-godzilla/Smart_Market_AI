@@ -2,6 +2,8 @@
 
 #### [BACK TO DETAIL DESIGN README](./04_Detail_Design_README.md)
 
+Status: Phase 20 local evidence slice is implementation complete. Research Score, vector / hybrid search, external source adapters, and Assistant integration remain Phase 21+ or future scope.
+
 ## Phase 20 Implementation Baseline / 実装ベースライン
 
 Phase 20 では、Research RAG を「銘柄を推奨するAI」ではなく、既存の `銘柄コックピット` / `銘柄ランキング` / `Decision Report` に資料根拠を添える local-first evidence layer として実装する。

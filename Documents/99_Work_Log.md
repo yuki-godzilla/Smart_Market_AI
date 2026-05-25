@@ -567,3 +567,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added `ResearchRetrievalQuality` and `CompanyResearchReport.retrieval_quality` as the first retrieval transparency contract.
 - Recorded the keyword backend, category query set, expanded terms, retrieved candidate count, deduped evidence count, and warnings for future UI / Decision Report display.
 - Kept vector / hybrid retrieval, external embeddings, ranking, and Investment Score behavior unchanged.
+
+## 2026-05-25 - Phase 21 evidence reranker first slice
+
+- Added `ResearchEvidenceReranker` as a deterministic reranker that keeps `ResearchEvidence` output compatible.
+- Wired reranking into keyword retrieval and company-level evidence ordering using relevance, reliability, freshness, source-type priority, and duplicate suppression.
+- Kept vector / hybrid retrieval, scoring, ranking, and Investment Score behavior unchanged.

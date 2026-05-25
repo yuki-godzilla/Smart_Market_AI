@@ -2,7 +2,7 @@
 
 #### [BACK TO DETAIL DESIGN README](./04_Detail_Design_README.md)
 
-Status: Phase 20 local evidence slice is implementation complete. Phase 21 covers advanced Research RAG extraction, query expansion, optional vector / hybrid search, and grounded answer generation; deterministic query expansion, structured extraction, template grounded answer, and retrieval quality first slices have started. Research Score, external source adapters, and Assistant integration remain later phases unless explicitly assigned.
+Status: Phase 20 local evidence slice is implementation complete. Phase 21 covers advanced Research RAG extraction, query expansion, optional vector / hybrid search, and grounded answer generation; deterministic query expansion, structured extraction, template grounded answer, retrieval quality, and evidence reranker first slices have started. Research Score, external source adapters, and Assistant integration remain later phases unless explicitly assigned.
 
 ## Phase 20 Implementation Baseline / 実装ベースライン
 
@@ -182,6 +182,8 @@ Current implementation note: `ResearchQueryExpansionService` and `ResearchQueryE
 - `ResearchVectorStore` は file-based cache または sqlite-based store を MVP 候補とする。FAISS / Chroma / sqlite-vss / cloud vector DB は必須にしない。
 - `HybridResearchRetrievalService` は keyword_score、vector_score、freshness_score、reliability_score、source_type priority、evidence diversity を使う。
 - vector path が使えない場合は keyword fallback + warning とし、通常 CI は network / external API / heavy ML library に依存しない。
+
+Current implementation note: `ResearchEvidenceReranker` is available as the first deterministic evidence reranker. It preserves `ResearchEvidence` output, suppresses duplicate chunks, and orders evidence by relevance, reliability, freshness, and source-type priority. It is wired into keyword retrieval and company-level evidence ordering without changing scoring or ranking behavior.
 
 ### Grounded Answer Generation
 

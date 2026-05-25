@@ -9,6 +9,8 @@ from backend.research import (
     ResearchAnalysisService,
     ResearchDocumentError,
     ResearchDocumentRegisterRequest,
+    ResearchEvidence,
+    ResearchEvidenceReranker,
     ResearchIndexService,
     ResearchIngestionService,
     ResearchInMemoryStore,
@@ -317,6 +319,77 @@ def test_research_grounded_answer_uses_template_without_unsupported_claims():
     assert report.retrieval_quality is not None
     assert report.retrieval_quality.evidence_count == 0
     assert "検索で根拠候補が見つかりませんでした。" in report.retrieval_quality.warnings
+
+
+def test_research_evidence_reranker_prefers_official_sources_when_scores_are_close():
+    reranker = ResearchEvidenceReranker()
+    user_note = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-user",
+        chunk_id="chunk-user",
+        title="User Note",
+        source_type="user_note",
+        published_at=date(2026, 5, 1),
+        excerpt="Growth strategy and overseas expansion.",
+        relevance_score=Decimal("0.80"),
+        reliability=Decimal("0.80"),
+    )
+    annual_report = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-annual",
+        chunk_id="chunk-annual",
+        title="Annual Report",
+        source_type="annual_report",
+        published_at=date(2025, 12, 1),
+        excerpt="Growth strategy and overseas expansion.",
+        relevance_score=Decimal("0.80"),
+        reliability=Decimal("0.80"),
+    )
+
+    reranked = reranker.rerank([user_note, annual_report], as_of=date(2026, 5, 25))
+
+    assert [row.title for row in reranked] == ["Annual Report", "User Note"]
+
+
+def test_research_evidence_reranker_prefers_reliability_and_suppresses_duplicates():
+    reranker = ResearchEvidenceReranker()
+    duplicate_low = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-a",
+        chunk_id="same-chunk",
+        title="Low Duplicate",
+        source_type="annual_report",
+        published_at=date(2026, 5, 1),
+        excerpt="Dividend policy.",
+        relevance_score=Decimal("0.50"),
+        reliability=Decimal("0.90"),
+    )
+    duplicate_high = duplicate_low.model_copy(
+        update={
+            "title": "High Duplicate",
+            "relevance_score": Decimal("0.70"),
+            "reliability": Decimal("0.90"),
+        }
+    )
+    low_reliability = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-b",
+        chunk_id="chunk-b",
+        title="Low Reliability",
+        source_type="annual_report",
+        published_at=date(2026, 5, 1),
+        excerpt="Dividend policy.",
+        relevance_score=Decimal("0.70"),
+        reliability=Decimal("0.30"),
+    )
+
+    reranked = reranker.rerank(
+        [low_reliability, duplicate_low, duplicate_high],
+        as_of=date(2026, 5, 25),
+    )
+
+    assert [row.title for row in reranked] == ["High Duplicate", "Low Reliability"]
+    assert len(reranked) == 2
 
 
 def test_research_analysis_warns_when_evidence_reliability_is_low(tmp_path):

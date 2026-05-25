@@ -521,11 +521,41 @@ class ResearchQueryExpansionService:
         )
 
 
+class ResearchEvidenceReranker:
+    """Deterministically rerank evidence while preserving ResearchEvidence output."""
+
+    def rerank(
+        self,
+        evidence: list[ResearchEvidence],
+        *,
+        as_of: date | None = None,
+    ) -> list[ResearchEvidence]:
+        effective_as_of = as_of or date.today()
+        deduped = _dedupe_evidence(evidence)
+        return sorted(
+            deduped,
+            key=lambda row: (
+                -_evidence_rerank_score(row, as_of=effective_as_of),
+                -row.relevance_score,
+                -row.reliability,
+                -_source_type_priority(row.source_type),
+                -(row.published_at or date.min).toordinal(),
+                row.document_id,
+                row.chunk_id,
+            ),
+        )
+
+
 class ResearchRetrievalService:
     """Retrieve local research evidence with deterministic keyword scoring."""
 
-    def __init__(self, store: ResearchInMemoryStore) -> None:
+    def __init__(
+        self,
+        store: ResearchInMemoryStore,
+        reranker: ResearchEvidenceReranker | None = None,
+    ) -> None:
         self.store = store
+        self.reranker = reranker or ResearchEvidenceReranker()
 
     def search(self, request: ResearchSearchRequest) -> list[ResearchEvidence]:
         chunks = self.store.all_chunks(request.symbol)
@@ -542,18 +572,8 @@ class ResearchRetrievalService:
             score = _chunk_relevance_score(chunk, query_terms, as_of=as_of)
             if score > Decimal("0"):
                 scored.append((score, chunk))
-        scored.sort(
-            key=lambda row: (
-                -row[0],
-                -(row[1].published_at or date.min).toordinal(),
-                row[1].document_id,
-                row[1].chunk_index,
-            )
-        )
-        return [
-            _evidence_from_chunk(chunk, relevance_score=score)
-            for score, chunk in scored[: request.top_k]
-        ]
+        evidence = [_evidence_from_chunk(chunk, relevance_score=score) for score, chunk in scored]
+        return self.reranker.rerank(evidence, as_of=as_of)[: request.top_k]
 
 
 class ResearchGroundedAnswerService:
@@ -629,11 +649,13 @@ class ResearchAnalysisService:
         retrieval: ResearchRetrievalService,
         query_expansion: ResearchQueryExpansionService | None = None,
         grounded_answer: ResearchGroundedAnswerService | None = None,
+        reranker: ResearchEvidenceReranker | None = None,
     ) -> None:
         self.ingestion = ingestion
         self.retrieval = retrieval
         self.query_expansion = query_expansion or ResearchQueryExpansionService()
         self.grounded_answer = grounded_answer or ResearchGroundedAnswerService()
+        self.reranker = reranker or ResearchEvidenceReranker()
 
     def analyze_company(self, request: CompanyResearchRequest) -> CompanyResearchReport:
         as_of = request.as_of or date.today()
@@ -681,7 +703,7 @@ class ResearchAnalysisService:
                 )
             )
 
-        unique_evidence = _dedupe_evidence(all_evidence)
+        unique_evidence = self.reranker.rerank(all_evidence, as_of=as_of)
         documents = self.ingestion.list_documents(request.symbol)
         data_quality = _research_data_quality(documents, unique_evidence, as_of=as_of)
         retrieval_quality = _retrieval_quality(
@@ -935,6 +957,30 @@ def _dedupe_evidence(evidence: list[ResearchEvidence]) -> list[ResearchEvidence]
             row.chunk_id,
         ),
     )
+
+
+def _evidence_rerank_score(row: ResearchEvidence, *, as_of: date) -> Decimal:
+    score = (
+        (row.relevance_score * Decimal("0.55"))
+        + (row.reliability * Decimal("0.25"))
+        + (_freshness_factor(row.published_at, as_of=as_of) * Decimal("0.10"))
+        + (Decimal(str(_source_type_priority(row.source_type))) * Decimal("0.10"))
+    )
+    return score.quantize(Decimal("0.0001"))
+
+
+def _source_type_priority(source_type: ResearchSourceType) -> float:
+    priorities: dict[ResearchSourceType, float] = {
+        "annual_report": 1.0,
+        "earnings_report": 0.95,
+        "earnings_presentation": 0.95,
+        "medium_term_plan": 0.95,
+        "integrated_report": 0.95,
+        "tdnet": 0.90,
+        "user_note": 0.70,
+        "news": 0.60,
+    }
+    return priorities[source_type]
 
 
 def _category_labels(categories: Sequence[ResearchTopicCategory]) -> str:

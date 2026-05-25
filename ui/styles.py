@@ -174,6 +174,48 @@ SMAI_GLOBAL_CSS = """
     animation: smai-float 4.6s ease-in-out infinite;
 }
 
+.smai-page-title {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+    padding: 0.05rem 0 0.9rem;
+    margin: 0 0 1rem;
+}
+
+.smai-page-title-heading {
+    color: #f8fafc;
+    font-size: clamp(1.7rem, 2.3vw, 2.25rem);
+    line-height: 1.16;
+    font-weight: 840;
+    letter-spacing: 0;
+    margin: 0;
+}
+
+.smai-page-title-subtitle {
+    color: #aeb9ca;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    margin: 0.55rem 0 0;
+}
+
+.smai-page-title-art {
+    width: clamp(7.8rem, 14vw, 12.5rem);
+    height: clamp(4.9rem, 8.4vw, 7.4rem);
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+}
+
+.smai-page-title-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.28));
+    animation: smai-float 5.4s ease-in-out infinite;
+}
+
 .smai-dashboard-header {
     position: relative;
     overflow: hidden;
@@ -439,6 +481,7 @@ SMAI_GLOBAL_CSS = """
 
 @media (prefers-reduced-motion: reduce) {
     .smai-app-mascot,
+    .smai-page-title-image,
     .smai-mascot-image--loading,
     .smai-loading-pulse,
     .smai-loading-dots span {
@@ -454,6 +497,17 @@ SMAI_GLOBAL_CSS = """
 
     .smai-app-mascot-wrap {
         width: 4.4rem;
+    }
+
+    .smai-page-title {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.7rem;
+        align-items: end;
+    }
+
+    .smai-page-title-art {
+        width: 5.8rem;
+        height: 3.9rem;
     }
 }
 

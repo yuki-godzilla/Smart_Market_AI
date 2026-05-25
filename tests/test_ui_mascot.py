@@ -3,11 +3,14 @@ from __future__ import annotations
 from ui.components.mascot import (
     MASCOT_ASSET_DIR,
     MASCOT_LOADING_ASSET,
+    MASCOT_REFERENCE_ASSET,
+    MASCOT_TITLE_ASSETS,
     MASCOT_VARIANT_ASSETS,
     MASCOT_VARIANT_DEFAULTS,
     app_header_html,
     mascot_loading_html,
     mascot_panel_html,
+    page_title_html,
 )
 
 
@@ -61,11 +64,32 @@ def test_mascot_loading_html_uses_animation_classes():
     assert "取得中" in markup
 
 
+def test_page_title_html_uses_screen_specific_mascot_asset_and_escapes_copy():
+    markup = page_title_html(
+        "銘柄<ランキング>",
+        "比較 <候補> を整理します。",
+        "ranking",
+    )
+
+    assert 'class="smai-page-title"' in markup
+    assert 'data-mascot="ranking"' in markup
+    assert "銘柄&lt;ランキング&gt;" in markup
+    assert "比較 &lt;候補&gt; を整理します。" in markup
+    assert "smai-page-title-image" in markup
+    assert "data:image/webp;base64," in markup
+
+
 def test_mascot_expression_assets_exist_for_situation_variants():
     assert MASCOT_VARIANT_ASSETS["ranking"] == "smai-mascot-ranking.webp"
     assert MASCOT_VARIANT_ASSETS["caution"] == "smai-mascot-caution.webp"
     assert MASCOT_VARIANT_ASSETS["report"] == "smai-mascot-report.webp"
     assert MASCOT_LOADING_ASSET == "smai-mascot-loading.webp"
+    assert MASCOT_REFERENCE_ASSET == "smai-mascot-reference.webp"
 
-    for filename in {MASCOT_LOADING_ASSET, *MASCOT_VARIANT_ASSETS.values()}:
+    for filename in {
+        MASCOT_REFERENCE_ASSET,
+        MASCOT_LOADING_ASSET,
+        *MASCOT_VARIANT_ASSETS.values(),
+        *MASCOT_TITLE_ASSETS.values(),
+    }:
         assert (MASCOT_ASSET_DIR / filename).is_file()

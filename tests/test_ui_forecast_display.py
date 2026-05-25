@@ -8,6 +8,7 @@ import pandas as pd
 
 from backend.core.data_contracts import Bar, FundamentalSnapshot, Symbol
 from backend.core.errors import DataSourceError
+from backend.research import CompanyResearchReport, ResearchDataQuality, ResearchDocument
 from backend.screening import ScreeningScore
 from ui.app import (
     DEFAULT_MARKET_DATA_PERIOD_PRESET,
@@ -16,6 +17,7 @@ from ui.app import (
     NO_SYMBOL_CANDIDATE_LABEL,
     RANKING_RESULT_GRID_CUSTOM_CSS,
     SYMBOL_DETAIL_DIALOG_CSS,
+    RankingResearchStatus,
     _build_market_data_ranking_rows,
     _coerce_number_input_state,
     _current_or_default_symbol_labels,
@@ -46,6 +48,8 @@ from ui.app import (
     default_forecast_horizon_days,
     default_market_data_provider,
     forecast_boundary_frame,
+    forecast_chart_color_domain,
+    forecast_chart_color_range,
     forecast_chart_summary,
     forecast_consensus_display_rows,
     forecast_metric_display_rows,
@@ -54,6 +58,7 @@ from ui.app import (
     get_cached_ranking_build,
     investment_score_display_rows,
     investment_score_summary_lines,
+    latest_actual_price_frame,
     market_chart_long_frame,
     market_data_period_dates,
     market_data_period_help,
@@ -64,8 +69,11 @@ from ui.app import (
     ranking_detail_event_token_from_aggrid_response,
     ranking_detail_symbol_from_aggrid_response,
     ranking_detail_symbol_to_open,
+    ranking_display_rows_with_research_status,
     ranking_investment_detail_rows,
     ranking_investment_note,
+    ranking_research_status_from_documents,
+    ranking_research_status_from_report,
     ranking_result_aggrid_frame,
     ranking_result_aggrid_options,
     ranking_score_bar_chart_frame,
@@ -2485,6 +2493,9 @@ def test_ranking_candidate_cards_and_breakdown_use_existing_display_values():
             "Risk": "55",
             "注意点": "確認材料あり",
             "補足": "価格と資料を確認します。",
+            "根拠状態": "根拠あり",
+            "根拠トーン": "success",
+            "根拠補足": "AI Researchで3件の根拠を確認済みです。",
         }
     ]
 
@@ -2494,14 +2505,92 @@ def test_ranking_candidate_cards_and_breakdown_use_existing_display_values():
     assert cards[0]["symbol"] == "7203.T"
     assert cards[0]["score"] == "82"
     assert cards[0]["confidence"] == "88"
+    assert cards[0]["research_status"] == "根拠あり"
     assert [row["観点"] for row in breakdown] == [
         "Investment Score",
         "Screening",
         "Forecast",
         "Data Confidence",
         "Risk",
+        "Research Evidence",
     ]
     assert breakdown[3]["確認ポイント"] == "評価に使えるデータの充実度"
+    assert breakdown[5]["値"] == "根拠あり"
+
+
+def test_ranking_display_rows_with_research_status_adds_lightweight_status_columns():
+    rows = [{"銘柄": "7203.T", "銘柄名": "Toyota Motor", "総合スコア": "82"}]
+    enriched = ranking_display_rows_with_research_status(
+        rows,
+        {
+            "7203.T": RankingResearchStatus(
+                label="最新資料が古い",
+                tone="caution",
+                note="最新資料日が2年以上前です。",
+                document_count=1,
+                evidence_count=2,
+                latest_document_date=date(2023, 1, 1),
+            )
+        },
+    )
+
+    assert enriched[0]["根拠状態"] == "最新資料が古い"
+    assert enriched[0]["根拠トーン"] == "caution"
+    assert enriched[0]["根拠資料数"] == "1"
+    assert enriched[0]["根拠数"] == "2"
+    assert enriched[0]["最新資料日"] == "2023-01-01"
+
+
+def test_ranking_research_status_from_documents_marks_ready_old_and_missing():
+    document = ResearchDocument(
+        document_id="research-doc-1",
+        symbol="7203.T",
+        title="7203 Research Note",
+        source_type="user_note",
+        published_at=date(2026, 5, 1),
+        collected_at=datetime(2026, 5, 2, tzinfo=UTC),
+        local_path="data/research_docs/7203_T_note.md",
+        reliability=Decimal("0.80"),
+        document_hash="abc123",
+    )
+
+    ready = ranking_research_status_from_documents(
+        [document],
+        {"research-doc-1": [object()]},
+        as_of=date(2026, 5, 25),
+    )
+    old = ranking_research_status_from_documents(
+        [document.model_copy(update={"published_at": date(2023, 1, 1)})],
+        {"research-doc-1": [object()]},
+        as_of=date(2026, 5, 25),
+    )
+    missing = ranking_research_status_from_documents([], {}, as_of=date(2026, 5, 25))
+
+    assert ready.label == "根拠あり"
+    assert old.label == "最新資料が古い"
+    assert missing.label == "根拠不足"
+
+
+def test_ranking_research_status_from_report_prefers_analyzed_evidence_count():
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="3件の根拠から、長期企業分析の確認材料を整理しました。",
+        points=[],
+        evidence=[],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 1),
+            document_count=1,
+            evidence_count=3,
+        ),
+    )
+
+    status = ranking_research_status_from_report(report)
+
+    assert status.label == "根拠あり"
+    assert status.evidence_count == 3
+    assert "3件" in status.note
 
 
 def test_ranking_result_aggrid_frame_keeps_display_table_compact():
@@ -2515,6 +2604,7 @@ def test_ranking_result_aggrid_frame_keeps_display_table_compact():
                 "Risk": "55",
                 "データ品質": "90",
                 "DB信頼度": "88",
+                "根拠状態": "根拠あり",
                 "見方": "比較候補",
                 "補足": "長い理由です。" * 20,
             }
@@ -2529,6 +2619,7 @@ def test_ranking_result_aggrid_frame_keeps_display_table_compact():
         "Risk",
         "データ品質",
         "DB信頼度",
+        "根拠状態",
         "見方",
         "短い理由",
     ]
@@ -3326,6 +3417,48 @@ def test_market_chart_long_frame_adds_beginner_friendly_labels():
             "line_label": "予測",
             "series_label": "予測: 直近値維持",
         },
+    ]
+
+
+def test_forecast_chart_palette_highlights_actual_price_first():
+    domain = forecast_chart_color_domain(
+        ["予測: 直近値維持", "実績価格", "予測: 30日移動平均", "実績価格"]
+    )
+    color_range = forecast_chart_color_range(domain)
+
+    assert domain == ["実績価格", "予測: 直近値維持", "予測: 30日移動平均"]
+    assert color_range[0] == "#facc15"
+    assert color_range[1:] == ["#2dd4bf", "#60a5fa"]
+
+
+def test_latest_actual_price_frame_marks_current_price_point():
+    frame = latest_actual_price_frame(
+        [
+            {
+                "ts": "2026-05-10T00:00:00+00:00",
+                "close": "185",
+                "naive": "",
+            },
+            {
+                "ts": "2026-05-11T00:00:00+00:00",
+                "close": "188.5",
+                "naive": "186.5",
+            },
+            {
+                "ts": "2026-05-12T00:00:00+00:00",
+                "close": "",
+                "naive": "187",
+            },
+        ]
+    )
+
+    assert frame[["date", "value", "series_label", "marker_label"]].to_dict("records") == [
+        {
+            "date": date(2026, 5, 11),
+            "value": 188.5,
+            "series_label": "実績価格",
+            "marker_label": "現在価格",
+        }
     ]
 
 

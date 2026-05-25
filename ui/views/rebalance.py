@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 from backend.app.main import RebalanceCheckRequest
 from backend.portfolio.workflow import PortfolioRiskResult
+from ui.components.mascot import render_page_title
 from ui.rebalance_app import (
     RebalanceScenarioError,
     build_rebalance_decision_report_context,
@@ -43,9 +44,10 @@ REBALANCE_REQUEST_STATE_KEY = "rebalance_request"
 
 
 def render_rebalance_page() -> None:
-    st.subheader("Rebalance Cockpit")
-    st.caption(
-        "現在の保有、目標配分、配分見直し候補、Risk 判定を確認します。売買送信は行いません。"
+    render_page_title(
+        "Rebalance Cockpit",
+        "現在の保有、目標配分、配分見直し候補、Risk 判定を確認します。売買送信は行いません。",
+        "rebalance",
     )
 
     try:

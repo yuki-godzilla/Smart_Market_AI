@@ -5,7 +5,7 @@
 This file is the compact current-state summary for Smart Market AI.
 Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_Log.md).
 
-Last updated: 2026-05-24
+Last updated: 2026-05-25
 
 ## Project Summary
 
@@ -24,6 +24,7 @@ Ranking UI readability polish keeps the same layout and logic while shortening c
 Current UI maturity work also includes Symbol Cockpit polish: the cockpit presents existing analysis results as summary header, KPI cards, score breakdown, price/forecast reading guidance, period evaluation, memo, research evidence summary, decision report, and lower-priority detail expanders, without changing backend scoring, forecast, Research RAG, or report generation logic.
 
 Current product maturity work includes global UI tone polish: shared dark navy / charcoal styling, consistent cards, badges, compact numeric display, and calmer chart explanations are being applied without changing feature behavior or scoring logic.
+SMAI mascot assets now have a canonical reference image at `ui/assets/mascot/smai-mascot-reference.webp`; new mascot variants should preserve that character identity. Current title illustrations cover Cockpit, Ranking, and Rebalance page headers.
 
 Symbol Cockpit now treats Price & Forecast as the hero chart: Summary and KPI cards come first, then the price/forecast chart, followed by Score Breakdown, review memo, confirmation summary, Research Evidence, Decision Report, and Developer / Data Details.
 
@@ -109,7 +110,7 @@ Partial or intentionally deferred:
 
 - Treat NISA / ETF / stock source refreshes, the 11 curated overseas ETF `yahoo_symbol` live-smoke checks, and remaining confirmed-source metadata gaps as operational maintenance after Phase 18 completion.
 - Keep a final cross-flow Streamlit smoke available before handoff when browser access is useful: ranking cache/progress, purpose-based resort, ranking symbol-detail modal, cockpit symbol-detail button, cockpit investment memo, and Rebalance wording.
-- Phase 20 Research RAG has started with a local evidence slice: `backend/research` local UTF-8 document ingestion, hash dedupe, chunking, keyword evidence search, deterministic Research Summary, data-quality warnings, Settings session-local document upload/registration, explicit cockpit `AIデータ取得` Research Summary display, ranking row-click `銘柄データ` modal `AI Research` tab with `AIで資料を確認`, and Cockpit Decision Report Research Evidence section when documents/evidence exist. Price-data fetch does not automatically run Research RAG. Next connection point is ranking evidence-status display; keep Research Score and Investment Score / ranking integration for Phase 21.
+- Phase 20 Research RAG has started with a local evidence slice: `backend/research` local UTF-8 document ingestion, hash dedupe, chunking, keyword evidence search, deterministic Research Summary, data-quality warnings, Settings session-local document upload/registration, explicit cockpit `AIデータ取得` Research Summary display, ranking row-click `銘柄データ` modal `AI Research` tab with `AIで資料を確認`, lightweight ranking Research Evidence status display, and Cockpit Decision Report Research Evidence section when documents/evidence exist. Price-data fetch and ranking display do not automatically run full Research RAG analysis for every symbol. Keep Research Score and Investment Score / ranking integration for Phase 21.
 - Phase 20 seed data includes `data/research_docs/7203_T_yfinance_profile_20260523.md`, fetched from Yahoo Finance via yfinance as a real provider-profile snapshot for local RAG confirmation. Treat it as provider evidence, not an audited filing.
 - Long-term Research RAG storage direction: after external source adapters are stable, `data/research_docs/` should be demoted from the primary manual upload path to cache / audit archive / offline fixture storage. Manual upload remains a fallback for private notes or non-public documents.
 - Project maturity docs are now part of the working baseline: [Documents/96_Manual_UX_Review_Checklist.md](Documents/96_Manual_UX_Review_Checklist.md) tracks manual UX review scenarios, and [Documents/97_Functional_Spec_Issues.md](Documents/97_Functional_Spec_Issues.md) tracks specification ambiguity around Ranking, Cockpit, Rebalance, Decision Report, Research Evidence, Forecast, Risk, and score/confidence hierarchy.

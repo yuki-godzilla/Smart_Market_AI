@@ -4,9 +4,10 @@ import asyncio
 import hashlib
 import html
 import json
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
-from typing import Callable, Iterable, cast
+from typing import Callable, Iterable, Mapping, Sequence, cast
 
 import altair as alt
 import pandas as pd
@@ -43,10 +44,15 @@ from backend.reporting import (
 from backend.reporting import (
     decision_report_json_download as reporting_decision_report_json_download,
 )
-from backend.research import CompanyResearchReport
+from backend.research import CompanyResearchReport, ResearchDocument
 from backend.scoring import InvestmentScoringService
 from backend.screening import ScreeningService
-from ui.components.mascot import render_app_header, render_mascot_loading, render_mascot_panel
+from ui.components.mascot import (
+    render_app_header,
+    render_mascot_loading,
+    render_mascot_panel,
+    render_page_title,
+)
 from ui.components.sidemenu import (
     SIDEMENU_PAGE_COCKPIT,
     SIDEMENU_PAGE_RANKING,
@@ -129,7 +135,11 @@ from ui.rebalance_app import (
     symbol_name,
     yfinance_search_symbol_rows,
 )
-from ui.research_state import analyze_research_for_symbol
+from ui.research_state import (
+    analyze_research_for_symbol,
+    autoload_local_research_documents,
+    research_store,
+)
 from ui.state import (
     MARKET_DATA_FORECAST_DAYS_STATE_KEY,
     MARKET_DATA_PREVIEW_STATE_KEY,
@@ -196,6 +206,7 @@ MARKET_DATA_PROVIDER_OPTIONS = ["yahoo", "csv", "mock"]
 MARKET_DATA_PROVIDER_WIDGET_KEY = "market_data_provider_live_first"
 MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY = "market_data_ranking_provider_live_first"
 NO_SYMBOL_CANDIDATE_LABEL = "条件に合う候補なし"
+RESEARCH_STALE_DAYS = 730
 MARKET_DATA_PERIOD_CUSTOM = "custom"
 MARKET_DATA_PERIOD_PRESETS = {
     MARKET_DATA_PERIOD_CUSTOM: "カスタム",
@@ -244,12 +255,33 @@ MARKET_DATA_COCKPIT_FILTER_DEFAULTS: dict[str, str | bool] = {
 }
 
 FORECAST_ACTUAL_LABEL = "実績価格"
+FORECAST_ACTUAL_PRICE_COLOR = "#facc15"
+FORECAST_MODEL_COLORS = (
+    "#2dd4bf",
+    "#60a5fa",
+    "#fb7185",
+    "#a78bfa",
+    "#34d399",
+    "#f97316",
+)
 MARKET_DATA_MODE_COCKPIT = "cockpit"
 MARKET_DATA_MODE_RANKING = "ranking"
 MARKET_DATA_MODE_LABELS = {
     MARKET_DATA_MODE_COCKPIT: "銘柄コックピット",
     MARKET_DATA_MODE_RANKING: "銘柄ランキング",
 }
+
+
+@dataclass(frozen=True)
+class RankingResearchStatus:
+    label: str
+    tone: str
+    note: str
+    document_count: int = 0
+    evidence_count: int = 0
+    latest_document_date: date | None = None
+
+
 SYMBOL_UNIVERSE_DETAIL_LABELS = {
     "symbol": "銘柄コード",
     "name": "銘柄名",
@@ -1022,6 +1054,7 @@ def ranking_result_aggrid_frame(display_rows: list[dict[str, str]]) -> pd.DataFr
                 "Risk": row.get("Risk", ""),
                 "データ品質": row.get("データ品質", ""),
                 "DB信頼度": row.get("DB信頼度", ""),
+                "根拠状態": row.get("根拠状態", ""),
                 "見方": row.get("見方", ""),
                 "短い理由": truncate_text(row.get("補足", ""), max_chars=74),
             }
@@ -1068,6 +1101,8 @@ def ranking_result_aggrid_options(
     for column in ("総合スコア", "データ品質", "DB信頼度", "Risk"):
         if column in frame.columns:
             builder.configure_column(column, width=112, filter=False)
+    if "根拠状態" in frame.columns:
+        builder.configure_column("根拠状態", width=138)
     if "見方" in frame.columns:
         builder.configure_column("見方", width=130)
     if "短い理由" in frame.columns:
@@ -1389,6 +1424,142 @@ def _ranking_display_float(row: dict[str, str], key: str) -> float | None:
     return float(value) if value is not None else None
 
 
+def ranking_research_status_from_documents(
+    documents: Sequence[ResearchDocument],
+    chunks_by_document_id: Mapping[str, Sequence[object]],
+    *,
+    as_of: date,
+) -> RankingResearchStatus:
+    latest_document_date = max(
+        (document.published_at for document in documents if document.published_at is not None),
+        default=None,
+    )
+    chunk_count = sum(
+        len(chunks_by_document_id.get(document.document_id, ())) for document in documents
+    )
+    if not documents or chunk_count <= 0:
+        return RankingResearchStatus(
+            label="根拠不足",
+            tone="caution",
+            note="登録済みResearch資料または検索チャンクがないため、資料面の根拠は限られます。",
+            document_count=len(documents),
+            latest_document_date=latest_document_date,
+        )
+    if latest_document_date and (as_of - latest_document_date).days > RESEARCH_STALE_DAYS:
+        return RankingResearchStatus(
+            label="最新資料が古い",
+            tone="caution",
+            note="登録資料はありますが、最新資料日が2年以上前です。新しいIR資料や決算資料を確認してください。",
+            document_count=len(documents),
+            evidence_count=chunk_count,
+            latest_document_date=latest_document_date,
+        )
+    return RankingResearchStatus(
+        label="根拠あり",
+        tone="success",
+        note="登録済みResearch資料があります。詳細モーダルのAI Researchで根拠抜粋を確認できます。",
+        document_count=len(documents),
+        evidence_count=chunk_count,
+        latest_document_date=latest_document_date,
+    )
+
+
+def ranking_research_status_from_report(
+    report: CompanyResearchReport,
+) -> RankingResearchStatus:
+    latest_document_date = report.data_quality.latest_document_date
+    if latest_document_date and (report.as_of - latest_document_date).days > RESEARCH_STALE_DAYS:
+        return RankingResearchStatus(
+            label="最新資料が古い",
+            tone="caution",
+            note="AI Researchで根拠は見つかりましたが、最新資料日が2年以上前です。",
+            document_count=report.data_quality.document_count,
+            evidence_count=report.data_quality.evidence_count,
+            latest_document_date=latest_document_date,
+        )
+    if report.data_quality.document_count <= 0 or report.data_quality.evidence_count <= 0:
+        return RankingResearchStatus(
+            label="根拠不足",
+            tone="caution",
+            note="AI Researchでは十分な根拠を確認できませんでした。資料登録や別資料の確認が必要です。",
+            document_count=report.data_quality.document_count,
+            evidence_count=report.data_quality.evidence_count,
+            latest_document_date=latest_document_date,
+        )
+    return RankingResearchStatus(
+        label="根拠あり",
+        tone="success",
+        note=f"AI Researchで{report.data_quality.evidence_count}件の根拠を確認済みです。",
+        document_count=report.data_quality.document_count,
+        evidence_count=report.data_quality.evidence_count,
+        latest_document_date=latest_document_date,
+    )
+
+
+def ranking_display_rows_with_research_status(
+    display_rows: list[dict[str, str]],
+    statuses_by_symbol: Mapping[str, RankingResearchStatus],
+) -> list[dict[str, str]]:
+    enriched_rows: list[dict[str, str]] = []
+    for row in display_rows:
+        symbol = _normalize_research_symbol(row.get("銘柄", "") or row.get("symbol", ""))
+        status = statuses_by_symbol.get(symbol) or RankingResearchStatus(
+            label="根拠不足",
+            tone="caution",
+            note="登録済みResearch資料がありません。",
+        )
+        latest_date = status.latest_document_date.isoformat() if status.latest_document_date else ""
+        enriched_rows.append(
+            {
+                **row,
+                "根拠状態": status.label,
+                "根拠トーン": status.tone,
+                "根拠補足": status.note,
+                "根拠資料数": str(status.document_count),
+                "根拠数": str(status.evidence_count),
+                "最新資料日": latest_date,
+            }
+        )
+    return enriched_rows
+
+
+def _ranking_research_statuses_for_display_rows(
+    display_rows: list[dict[str, str]],
+    *,
+    as_of: date,
+) -> dict[str, RankingResearchStatus]:
+    symbols = [
+        symbol
+        for row in display_rows
+        if (symbol := _normalize_research_symbol(row.get("銘柄", "") or row.get("symbol", "")))
+    ]
+    if not symbols:
+        return {}
+    autoload_local_research_documents()
+    store = research_store()
+    statuses = {
+        symbol: ranking_research_status_from_documents(
+            store.list_documents(symbol),
+            store.chunks_by_document_id,
+            as_of=as_of,
+        )
+        for symbol in dict.fromkeys(symbols)
+    }
+    reports = st.session_state.get(MARKET_DATA_RANKING_RESEARCH_REPORTS_STATE_KEY)
+    if isinstance(reports, dict):
+        for report in reports.values():
+            if not isinstance(report, CompanyResearchReport):
+                continue
+            normalized_symbol = _normalize_research_symbol(report.symbol)
+            if normalized_symbol in statuses:
+                statuses[normalized_symbol] = ranking_research_status_from_report(report)
+    return statuses
+
+
+def _normalize_research_symbol(symbol: str) -> str:
+    return symbol.strip().upper()
+
+
 def ranking_summary_cards(
     display_rows: list[dict[str, str]],
     *,
@@ -1465,6 +1636,9 @@ def ranking_top_candidate_cards(
             "view": row.get("見方", ""),
             "caution": row.get("注意点", ""),
             "note": row.get("補足", ""),
+            "research_status": row.get("根拠状態", ""),
+            "research_tone": row.get("根拠トーン", "neutral"),
+            "research_note": row.get("根拠補足", ""),
         }
         for row in display_rows[:limit]
     ]
@@ -1558,6 +1732,14 @@ def ranking_candidate_breakdown_rows(
             "値": selected_row.get("Risk", "未接続"),
             "確認ポイント": truncate_text(selected_row.get("注意点", ""), max_chars=42),
         },
+        {
+            "観点": "Research Evidence",
+            "値": selected_row.get("根拠状態", "根拠不足"),
+            "確認ポイント": truncate_text(
+                selected_row.get("根拠補足", "AI Researchで資料根拠を確認します。"),
+                max_chars=42,
+            ),
+        },
     ]
 
 
@@ -1593,6 +1775,7 @@ def _render_top_screening_candidate_cards(cards: list[dict[str, str]]) -> None:
             badges = (
                 badge_html(card["view"], "info") if card["view"] else "",
                 _confidence_badge(card["confidence"]),
+                _research_status_badge(card["research_status"], card["research_tone"]),
                 badge_html("Caution", "caution") if card["caution"] else "",
             )
             render_metric_card(
@@ -1643,6 +1826,12 @@ def _confidence_badge(value: str) -> str:
     if confidence is not None:
         return badge_html("Check data", "caution")
     return badge_html("Data N/A", "neutral")
+
+
+def _research_status_badge(label: str, tone: str) -> str:
+    if not label:
+        return badge_html("根拠未確認", "neutral")
+    return badge_html(label, tone)
 
 
 def _render_ranking_score_bar_chart(display_rows: list[dict[str, str]]) -> None:
@@ -2413,8 +2602,11 @@ def _render_market_data_preview() -> None:
 
 
 def _render_market_data_cockpit() -> None:
-    st.subheader("銘柄コックピット")
-    st.caption("1銘柄の価格、予測、Investment Score、注意点を確認します。")
+    render_page_title(
+        "銘柄コックピット",
+        "1銘柄の価格、予測、Investment Score、注意点を確認します。",
+        "cockpit",
+    )
     symbol_options = symbol_universe_rows()
     filtered_symbol_options = _render_cockpit_symbol_filter_panel(symbol_options)
     col_provider, col_search, col_symbol, col_detail, col_name = st.columns(
@@ -2598,8 +2790,11 @@ def _render_market_data_cockpit() -> None:
 
 
 def _render_market_data_ranking() -> None:
-    st.subheader("銘柄ランキング")
-    st.caption("複数銘柄を比較し、深掘り候補を整理します。売買推奨ではありません。")
+    render_page_title(
+        "銘柄ランキング",
+        "複数銘柄を比較し、深掘り候補を整理します。売買推奨ではありません。",
+        "ranking",
+    )
     symbol_options = symbol_universe_rows()
     purpose = "all"
 
@@ -2951,6 +3146,10 @@ def _render_market_data_ranking() -> None:
             _symbol_universe_rows_by_symbol(),
         )
         display_rows = investment_score_display_rows(ranked_rows)
+        display_rows = ranking_display_rows_with_research_status(
+            display_rows,
+            _ranking_research_statuses_for_display_rows(display_rows, as_of=end_date),
+        )
         render_dashboard_header(
             "Ranking Screening Dashboard",
             "比較候補と深掘り候補を整理するための画面です。買う銘柄を決める画面ではありません。",
@@ -5397,6 +5596,10 @@ def _render_market_chart(
     y_axis_title = f"終値 ({currency})" if currency else "終値"
     chart_data = market_chart_long_frame(rows)
     boundary_data = forecast_boundary_frame(rows)
+    latest_actual_data = latest_actual_price_frame(rows)
+    color_domain = forecast_chart_color_domain(chart_data["series_label"].tolist())
+    color_range = forecast_chart_color_range(color_domain)
+    color_scale = alt.Scale(domain=color_domain, range=color_range)
     legend_data = chart_data[["series_label", "line_label"]].drop_duplicates().copy()
     line_type_legend_data = pd.DataFrame(
         [
@@ -5410,53 +5613,89 @@ def _render_market_chart(
         toggle="true",
         empty=False,
     )
-    chart = (
-        alt.Chart(chart_data)
-        .mark_line(point=True)
-        .encode(
-            x=alt.X("date:T", title="Date", axis=alt.Axis(format="%m/%d", labelAngle=0)),
-            y=alt.Y("value:Q", title=y_axis_title, scale=alt.Scale(zero=False)),
-            color=alt.Color(
-                "series_label:N",
-                title="価格・モデル",
-                legend=None,
-                scale=alt.Scale(
-                    range=[
-                        "#fb7185",
-                        "#38bdf8",
-                        "#2dd4bf",
-                        "#60a5fa",
-                        "#f59e0b",
-                        "#a3e635",
-                    ]
-                ),
-            ),
-            strokeDash=alt.StrokeDash(
-                "line_label:N",
-                title="実績/予測",
-                scale=alt.Scale(domain=["実績", "予測"], range=[[1, 0], [6, 4]]),
-                legend=None,
-            ),
-            tooltip=[
-                alt.Tooltip("date:T", title="日付"),
-                alt.Tooltip("series_label:N", title="価格・モデル"),
-                alt.Tooltip("value:Q", title="終値"),
-                alt.Tooltip("line_label:N", title="実績/予測"),
-            ],
-            opacity=alt.condition(disabled_series, alt.value(0.18), alt.value(1.0)),
+    forecast_data = chart_data[chart_data["series_label"] != FORECAST_ACTUAL_LABEL]
+    actual_data = chart_data[chart_data["series_label"] == FORECAST_ACTUAL_LABEL]
+    base_encoding = {
+        "x": alt.X("date:T", title="Date", axis=alt.Axis(format="%m/%d", labelAngle=0)),
+        "y": alt.Y("value:Q", title=y_axis_title, scale=alt.Scale(zero=False)),
+        "color": alt.Color(
+            "series_label:N",
+            title="価格・モデル",
+            legend=None,
+            scale=color_scale,
+        ),
+        "strokeDash": alt.StrokeDash(
+            "line_label:N",
+            title="実績/予測",
+            scale=alt.Scale(domain=["実績", "予測"], range=[[1, 0], [6, 4]]),
+            legend=None,
+        ),
+        "tooltip": [
+            alt.Tooltip("date:T", title="日付"),
+            alt.Tooltip("series_label:N", title="価格・モデル"),
+            alt.Tooltip("value:Q", title="終値"),
+            alt.Tooltip("line_label:N", title="実績/予測"),
+        ],
+        "opacity": alt.condition(disabled_series, alt.value(0.18), alt.value(1.0)),
+    }
+    forecast_lines = (
+        alt.Chart(forecast_data)
+        .mark_line(
+            point=alt.OverlayMarkDef(filled=True, size=34, opacity=0.92),
+            strokeWidth=1.9,
+            opacity=0.9,
         )
+        .encode(**base_encoding)
         .properties(height=540, width=1400)
     )
+    actual_line = (
+        alt.Chart(actual_data)
+        .mark_line(
+            point=alt.OverlayMarkDef(filled=True, size=60),
+            strokeWidth=3.4,
+        )
+        .encode(**base_encoding)
+        .properties(height=540, width=1400)
+    )
+    chart = forecast_lines + actual_line
+    if not latest_actual_data.empty:
+        latest_marker = (
+            alt.Chart(latest_actual_data)
+            .mark_point(
+                filled=True,
+                shape="diamond",
+                size=180,
+                color=FORECAST_ACTUAL_PRICE_COLOR,
+                stroke="#fff7ed",
+                strokeWidth=1.8,
+            )
+            .encode(
+                x=alt.X("date:T"),
+                y=alt.Y("value:Q"),
+                tooltip=[
+                    alt.Tooltip("date:T", title="日付"),
+                    alt.Tooltip("marker_label:N", title="状態"),
+                    alt.Tooltip("value:Q", title="現在価格"),
+                ],
+                opacity=alt.condition(disabled_series, alt.value(0.18), alt.value(1.0)),
+            )
+        )
+        chart = chart + latest_marker
     if not boundary_data.empty:
         boundary_rule = (
             alt.Chart(boundary_data)
-            .mark_rule(color="#f59e0b", opacity=0.65, strokeDash=[4, 4])
+            .mark_rule(color="#94a3b8", opacity=0.52, strokeDash=[4, 4])
             .encode(x="date:T")
         )
         chart = chart + boundary_rule
     series_legend_base = alt.Chart(legend_data).encode(
         y=alt.Y("series_label:N", title=None, axis=None, sort=None),
-        color=alt.Color("series_label:N", title="価格・モデル", legend=None),
+        color=alt.Color(
+            "series_label:N",
+            title="価格・モデル",
+            legend=None,
+            scale=color_scale,
+        ),
         opacity=alt.condition(disabled_series, alt.value(0.25), alt.value(1.0)),
         tooltip=[
             alt.Tooltip("series_label:N", title="価格・モデル"),
@@ -5633,6 +5872,40 @@ def market_chart_long_frame(rows: list[dict[str, str]]) -> pd.DataFrame:
     )
     long_frame["series_label"] = long_frame["series"].map(_forecast_series_label)
     return long_frame
+
+
+def forecast_chart_color_domain(series_labels: Iterable[str]) -> list[str]:
+    labels = [label for label in dict.fromkeys(series_labels) if label]
+    if FORECAST_ACTUAL_LABEL not in labels:
+        return labels
+    return [FORECAST_ACTUAL_LABEL, *(label for label in labels if label != FORECAST_ACTUAL_LABEL)]
+
+
+def forecast_chart_color_range(domain: Sequence[str]) -> list[str]:
+    colors: list[str] = []
+    model_index = 0
+    for label in domain:
+        if label == FORECAST_ACTUAL_LABEL:
+            colors.append(FORECAST_ACTUAL_PRICE_COLOR)
+            continue
+        colors.append(FORECAST_MODEL_COLORS[model_index % len(FORECAST_MODEL_COLORS)])
+        model_index += 1
+    return colors
+
+
+def latest_actual_price_frame(rows: list[dict[str, str]]) -> pd.DataFrame:
+    frame = market_chart_frame(rows).reset_index(names="date")
+    if "close" not in frame:
+        return pd.DataFrame(columns=["date", "value", "series_label", "line_label", "marker_label"])
+    actual_rows = frame.dropna(subset=["close"])
+    if actual_rows.empty:
+        return pd.DataFrame(columns=["date", "value", "series_label", "line_label", "marker_label"])
+    latest = actual_rows[actual_rows["date"] == actual_rows["date"].max()].tail(1).copy()
+    latest = latest.rename(columns={"close": "value"})
+    latest["series_label"] = FORECAST_ACTUAL_LABEL
+    latest["line_label"] = "実績"
+    latest["marker_label"] = "現在価格"
+    return latest[["date", "value", "series_label", "line_label", "marker_label"]]
 
 
 def forecast_boundary_frame(rows: list[dict[str, str]]) -> pd.DataFrame:

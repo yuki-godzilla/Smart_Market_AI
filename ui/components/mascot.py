@@ -19,11 +19,18 @@ MascotVariant = Literal[
 ]
 MascotLayout = Literal["sidebar", "compact", "panel"]
 MascotTone = Literal["info", "success", "forecast", "caution", "risk"]
+TitleMascot = Literal["cockpit", "ranking", "rebalance"]
 
 MASCOT_ASSET_DIR = Path(__file__).resolve().parents[1] / "assets" / "mascot"
+MASCOT_REFERENCE_ASSET = "smai-mascot-reference.webp"
 MASCOT_THUMB_ASSET = "smai-mascot-thumb.webp"
 MASCOT_PANEL_ASSET = "smai-mascot-panel.webp"
 MASCOT_LOADING_ASSET = "smai-mascot-loading.webp"
+MASCOT_TITLE_ASSETS: dict[TitleMascot, str] = {
+    "cockpit": "smai-title-cockpit.webp",
+    "ranking": "smai-title-ranking.webp",
+    "rebalance": "smai-title-rebalance.webp",
+}
 MASCOT_VARIANT_ASSETS: dict[MascotVariant, str] = {
     "brand": MASCOT_PANEL_ASSET,
     "guide": MASCOT_PANEL_ASSET,
@@ -76,7 +83,7 @@ MASCOT_VARIANT_DEFAULTS: dict[MascotVariant, dict[str, str]] = {
 APP_HEADER_MESSAGE = "SMAIナビが、候補探しと確認ポイントの整理をお手伝いします。"
 
 
-@lru_cache(maxsize=16)
+@lru_cache(maxsize=24)
 def _asset_data_uri(filename: str) -> str:
     path = MASCOT_ASSET_DIR / filename
     data = path.read_bytes()
@@ -137,6 +144,33 @@ def render_app_header(
     message: str = APP_HEADER_MESSAGE,
 ) -> None:
     st.markdown(app_header_html(title, message=message), unsafe_allow_html=True)
+
+
+def page_title_html(
+    title: str,
+    subtitle: str,
+    mascot: TitleMascot,
+) -> str:
+    image = _asset_data_uri(MASCOT_TITLE_ASSETS[mascot])
+    return (
+        f'<section class="smai-page-title" data-mascot="{html.escape(mascot)}">'
+        '<div class="smai-page-title-copy">'
+        f'<h2 class="smai-page-title-heading">{html.escape(title)}</h2>'
+        f'<p class="smai-page-title-subtitle">{html.escape(subtitle)}</p>'
+        "</div>"
+        '<div class="smai-page-title-art" aria-hidden="true">'
+        f'<img class="smai-page-title-image" src="{image}" alt="" loading="lazy" />'
+        "</div>"
+        "</section>"
+    )
+
+
+def render_page_title(
+    title: str,
+    subtitle: str,
+    mascot: TitleMascot,
+) -> None:
+    st.markdown(page_title_html(title, subtitle, mascot), unsafe_allow_html=True)
 
 
 def mascot_loading_html(

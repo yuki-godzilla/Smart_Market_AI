@@ -46,7 +46,7 @@ from backend.reporting import (
 from backend.research import CompanyResearchReport
 from backend.scoring import InvestmentScoringService
 from backend.screening import ScreeningService
-from ui.components.mascot import render_mascot_panel
+from ui.components.mascot import render_app_header, render_mascot_loading, render_mascot_panel
 from ui.components.sidemenu import (
     SIDEMENU_PAGE_COCKPIT,
     SIDEMENU_PAGE_RANKING,
@@ -566,9 +566,9 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
 def main() -> None:
     st.set_page_config(page_title="Smart Market AI", layout="wide")
     render_global_styles()
-    st.title("Smart Market AI")
 
     selected_page = render_sidemenu(runtime_settings_summary())
+    render_app_header()
     if selected_page == SIDEMENU_PAGE_COCKPIT:
         _render_market_data_cockpit()
     elif selected_page == SIDEMENU_PAGE_RANKING:
@@ -2539,11 +2539,19 @@ def _render_market_data_cockpit() -> None:
         type="primary",
         help="選択した銘柄と取得期間で、価格・予測・Investment Scoreを再計算します。",
     ):
+        loading_slot = st.empty()
         try:
             start_date = _single_date_from_input(start)
             end_date = _single_date_from_input(end)
             forecast_horizon_days = default_forecast_horizon_days(start_date, end_date)
             st.session_state[MARKET_DATA_FORECAST_DAYS_STATE_KEY] = forecast_horizon_days
+            with loading_slot.container():
+                render_mascot_loading(
+                    "cockpit",
+                    title="市場データを取得中",
+                    message="価格、予測、スコアの材料をまとめています。少しだけお待ちください。",
+                    tone="forecast",
+                )
             preview = asyncio.run(
                 build_market_data_preview(
                     symbol=symbol.strip(),
@@ -2554,12 +2562,15 @@ def _render_market_data_cockpit() -> None:
                 )
             )
         except ValueError as exc:
+            loading_slot.empty()
             st.error(str(exc))
             return
         except Exception as exc:  # noqa: BLE001
+            loading_slot.empty()
             st.error(str(exc))
             return
 
+        loading_slot.empty()
         st.session_state[MARKET_DATA_PREVIEW_STATE_KEY] = preview
         st.session_state[MARKET_DATA_STATUS_STATE_KEY] = preview.status
         if preview.status == "OK":
@@ -2879,6 +2890,14 @@ def _render_market_data_ranking() -> None:
         cache_key = current_ranking_source
         cached_result = get_cached_ranking_build(cache_key)
         if cached_result is None:
+            loading_slot = st.empty()
+            with loading_slot.container():
+                render_mascot_loading(
+                    "ranking",
+                    title="ランキング作成中",
+                    message="候補ごとの価格データを集めて、深掘り候補を整理しています。",
+                    tone="success",
+                )
             progress_bar = st.progress(0.0)
             progress_status = st.empty()
 
@@ -2886,16 +2905,19 @@ def _render_market_data_ranking() -> None:
                 progress_status.caption(message)
                 progress_bar.progress(max(0.0, min(1.0, ratio)))
 
-            rows, error_rows = asyncio.run(
-                _build_market_data_ranking_rows(
-                    ranking_symbols,
-                    start=start_date,
-                    end=end_date,
-                    provider=provider,
-                    progress_callback=update_progress,
+            try:
+                rows, error_rows = asyncio.run(
+                    _build_market_data_ranking_rows(
+                        ranking_symbols,
+                        start=start_date,
+                        end=end_date,
+                        provider=provider,
+                        progress_callback=update_progress,
+                    )
                 )
-            )
-            update_progress("ランキング作成が完了しました。", 1.0)
+                update_progress("ランキング作成が完了しました。", 1.0)
+            finally:
+                loading_slot.empty()
             set_cached_ranking_build(cache_key, rows=rows, error_rows=error_rows)
         else:
             rows, error_rows = cached_result

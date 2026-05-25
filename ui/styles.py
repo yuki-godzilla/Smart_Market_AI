@@ -126,6 +126,54 @@ SMAI_GLOBAL_CSS = """
     background: rgba(17, 24, 39, 0.42);
 }
 
+.smai-app-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1.2rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    padding: 0.1rem 0 1.05rem;
+    margin: 0 0 1rem;
+}
+
+.smai-app-title {
+    color: #f8fafc;
+    font-size: clamp(2rem, 3vw, 3rem);
+    line-height: 1.12;
+    font-weight: 860;
+    letter-spacing: 0;
+    margin: 0;
+}
+
+.smai-app-message {
+    color: #b7c3d4;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    margin: 0.45rem 0 0;
+}
+
+.smai-app-mascot-wrap {
+    position: relative;
+    width: clamp(4.5rem, 8vw, 6.8rem);
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(56, 189, 248, 0.22);
+    border-radius: 8px;
+    background:
+        linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(45, 212, 191, 0.07)),
+        rgba(8, 13, 24, 0.28);
+}
+
+.smai-app-mascot {
+    width: 82%;
+    height: 82%;
+    object-fit: cover;
+    object-position: center top;
+    border-radius: 8px;
+    animation: smai-float 4.6s ease-in-out infinite;
+}
+
 .smai-dashboard-header {
     position: relative;
     overflow: hidden;
@@ -306,6 +354,107 @@ SMAI_GLOBAL_CSS = """
 .smai-mascot--sidebar .smai-mascot-message {
     font-size: 0.74rem;
     line-height: 1.45;
+}
+
+.smai-mascot--loading {
+    grid-template-columns: auto 1fr;
+    border-color: rgba(45, 212, 191, 0.32);
+}
+
+.smai-loading-image-wrap {
+    position: relative;
+    display: grid;
+    place-items: center;
+}
+
+.smai-mascot-image--loading {
+    animation: smai-float 1.8s ease-in-out infinite;
+}
+
+.smai-loading-pulse {
+    position: absolute;
+    inset: -0.25rem;
+    border: 1px solid var(--smai-mascot-accent);
+    border-radius: 10px;
+    opacity: 0.38;
+    animation: smai-pulse 1.7s ease-out infinite;
+}
+
+.smai-loading-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    margin-top: 0.55rem;
+}
+
+.smai-loading-dots span {
+    width: 0.38rem;
+    height: 0.38rem;
+    border-radius: 999px;
+    background: var(--smai-mascot-accent);
+    opacity: 0.42;
+    animation: smai-dot 1.1s ease-in-out infinite;
+}
+
+.smai-loading-dots span:nth-child(2) {
+    animation-delay: 0.16s;
+}
+
+.smai-loading-dots span:nth-child(3) {
+    animation-delay: 0.32s;
+}
+
+@keyframes smai-float {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-0.28rem);
+    }
+}
+
+@keyframes smai-pulse {
+    0% {
+        transform: scale(0.88);
+        opacity: 0.36;
+    }
+    100% {
+        transform: scale(1.12);
+        opacity: 0;
+    }
+}
+
+@keyframes smai-dot {
+    0%,
+    100% {
+        opacity: 0.34;
+        transform: translateY(0);
+    }
+    50% {
+        opacity: 1;
+        transform: translateY(-0.18rem);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .smai-app-mascot,
+    .smai-mascot-image--loading,
+    .smai-loading-pulse,
+    .smai-loading-dots span {
+        animation: none;
+    }
+}
+
+@media (max-width: 720px) {
+    .smai-app-header {
+        grid-template-columns: 1fr;
+        gap: 0.8rem;
+    }
+
+    .smai-app-mascot-wrap {
+        width: 4.4rem;
+    }
 }
 
 .smai-section-card {

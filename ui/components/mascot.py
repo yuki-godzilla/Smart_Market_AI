@@ -23,6 +23,16 @@ MascotTone = Literal["info", "success", "forecast", "caution", "risk"]
 MASCOT_ASSET_DIR = Path(__file__).resolve().parents[1] / "assets" / "mascot"
 MASCOT_THUMB_ASSET = "smai-mascot-thumb.webp"
 MASCOT_PANEL_ASSET = "smai-mascot-panel.webp"
+MASCOT_LOADING_ASSET = "smai-mascot-loading.webp"
+MASCOT_VARIANT_ASSETS: dict[MascotVariant, str] = {
+    "brand": MASCOT_PANEL_ASSET,
+    "guide": MASCOT_PANEL_ASSET,
+    "cockpit": MASCOT_PANEL_ASSET,
+    "ranking": "smai-mascot-ranking.webp",
+    "empty": MASCOT_PANEL_ASSET,
+    "caution": "smai-mascot-caution.webp",
+    "report": "smai-mascot-report.webp",
+}
 
 MASCOT_VARIANT_DEFAULTS: dict[MascotVariant, dict[str, str]] = {
     "brand": {
@@ -63,7 +73,10 @@ MASCOT_VARIANT_DEFAULTS: dict[MascotVariant, dict[str, str]] = {
 }
 
 
-@lru_cache(maxsize=4)
+APP_HEADER_MESSAGE = "SMAIナビが、候補探しと確認ポイントの整理をお手伝いします。"
+
+
+@lru_cache(maxsize=16)
 def _asset_data_uri(filename: str) -> str:
     path = MASCOT_ASSET_DIR / filename
     data = path.read_bytes()
@@ -85,7 +98,7 @@ def mascot_panel_html(
     display_title = title if title is not None else defaults["title"]
     display_message = message if message is not None else defaults["message"]
     display_tone = tone if tone is not None else defaults["tone"]
-    image_asset = MASCOT_THUMB_ASSET if layout == "sidebar" else MASCOT_PANEL_ASSET
+    image_asset = MASCOT_THUMB_ASSET if layout == "sidebar" else MASCOT_VARIANT_ASSETS[variant]
     image = _asset_data_uri(image_asset)
     return (
         f'<aside class="smai-mascot smai-mascot--{layout}" '
@@ -96,6 +109,77 @@ def mascot_panel_html(
         f'<div class="smai-mascot-message">{html.escape(display_message)}</div>'
         "</div>"
         "</aside>"
+    )
+
+
+def app_header_html(
+    title: str = "Smart Market AI",
+    *,
+    message: str = APP_HEADER_MESSAGE,
+) -> str:
+    image = _asset_data_uri(MASCOT_THUMB_ASSET)
+    return (
+        '<header class="smai-app-header">'
+        '<div class="smai-app-header-copy">'
+        f'<h1 class="smai-app-title">{html.escape(title)}</h1>'
+        f'<p class="smai-app-message">{html.escape(message)}</p>'
+        "</div>"
+        '<div class="smai-app-mascot-wrap" aria-hidden="true">'
+        f'<img class="smai-app-mascot" src="{image}" alt="" loading="lazy" />'
+        "</div>"
+        "</header>"
+    )
+
+
+def render_app_header(
+    title: str = "Smart Market AI",
+    *,
+    message: str = APP_HEADER_MESSAGE,
+) -> None:
+    st.markdown(app_header_html(title, message=message), unsafe_allow_html=True)
+
+
+def mascot_loading_html(
+    variant: MascotVariant,
+    *,
+    title: str | None = None,
+    message: str | None = None,
+    tone: MascotTone | None = None,
+) -> str:
+    defaults = MASCOT_VARIANT_DEFAULTS[variant]
+    display_title = title if title is not None else defaults["title"]
+    display_message = message if message is not None else defaults["message"]
+    display_tone = tone if tone is not None else defaults["tone"]
+    image = _asset_data_uri(MASCOT_LOADING_ASSET)
+    return (
+        f'<aside class="smai-mascot smai-mascot--loading" '
+        f'data-variant="{html.escape(variant)}" data-tone="{html.escape(display_tone)}">'
+        '<div class="smai-loading-image-wrap" aria-hidden="true">'
+        f'<img class="smai-mascot-image smai-mascot-image--loading" '
+        f'src="{image}" alt="" loading="eager" />'
+        '<span class="smai-loading-pulse"></span>'
+        "</div>"
+        '<div class="smai-mascot-copy">'
+        f'<div class="smai-mascot-title">{html.escape(display_title)}</div>'
+        f'<div class="smai-mascot-message">{html.escape(display_message)}</div>'
+        '<div class="smai-loading-dots" aria-hidden="true">'
+        "<span></span><span></span><span></span>"
+        "</div>"
+        "</div>"
+        "</aside>"
+    )
+
+
+def render_mascot_loading(
+    variant: MascotVariant,
+    *,
+    title: str | None = None,
+    message: str | None = None,
+    tone: MascotTone | None = None,
+) -> None:
+    st.markdown(
+        mascot_loading_html(variant, title=title, message=message, tone=tone),
+        unsafe_allow_html=True,
     )
 
 

@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-05-26: Restored the Symbol Cockpit title art alongside the new `SMAI Copilot` panel so the cockpit header keeps its original visual identity while retaining the assistant presence.
 - 2026-05-26: Reworked the Symbol Cockpit mascot from a static header image into a transparent `SMAI Copilot` presence panel with subtle CSS float / glow motion, and connected score commentary to a matching `SMAI Insight` context without changing analysis logic.
 - 2026-05-26: Refreshed `symbol_universe.csv` from JPX ETF/NISA, IMAJ NISA, and SBI US stock/ETF official sources; added 3 JPX ETFs, 6 SBI US stocks, and 9 SBI US ETFs; marked 24 symbols missing from the latest SBI lists as not tradable; rechecked 16 extreme Yahoo metric outliers and flagged them as `data_quality=WARN`.
 - 2026-05-24: Added project maturity documentation: manual UX review checklist, functional spec issue register, feature-role clarification, wording guardrails, score hierarchy notes, and roadmap/context guidance to review confusing behavior before feature expansion.

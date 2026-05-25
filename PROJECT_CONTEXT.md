@@ -24,7 +24,7 @@ Ranking UI readability polish keeps the same layout and logic while shortening c
 Current UI maturity work also includes Symbol Cockpit polish: the cockpit presents existing analysis results as summary header, KPI cards, score breakdown, price/forecast reading guidance, period evaluation, memo, research evidence summary, decision report, and lower-priority detail expanders, without changing backend scoring, forecast, Research RAG, or report generation logic.
 
 Current product maturity work includes global UI tone polish: shared dark navy / charcoal styling, consistent cards, badges, compact numeric display, and calmer chart explanations are being applied without changing feature behavior or scoring logic.
-SMAI mascot assets now have a canonical reference image at `ui/assets/mascot/smai-mascot-reference.webp`; new mascot variants should preserve that character identity. Current title illustrations cover Cockpit, Ranking, and Rebalance page headers, while Symbol Cockpit uses `smai-mascot-cutout.png` as a transparent `SMAI Copilot` / `SMAI Insight` presence asset.
+SMAI mascot assets now have a canonical reference image at `ui/assets/mascot/smai-mascot-reference.webp`; new mascot variants should preserve that character identity. Current title illustrations cover Cockpit, Ranking, and Rebalance page headers, while Symbol Cockpit keeps the cockpit title art and also uses `smai-mascot-cutout.png` as a transparent `SMAI Copilot` / `SMAI Insight` presence asset.
 
 Symbol Cockpit now treats Price & Forecast as the hero chart: Summary and KPI cards come first, then the price/forecast chart, followed by Score Breakdown, review memo, confirmation summary, Research Evidence, Decision Report, and Developer / Data Details.
 

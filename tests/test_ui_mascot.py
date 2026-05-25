@@ -97,7 +97,9 @@ def test_cockpit_page_title_uses_copilot_presence_panel():
     assert "SMAI Copilot" in markup
     assert "Market Ready" in markup
     assert "smai-copilot-panel" in markup
-    assert "smai-page-title-art" not in markup
+    assert "smai-page-title-art" in markup
+    assert "smai-page-title-image" in markup
+    assert "data:image/webp;base64," in markup
     assert "data:image/png;base64," in markup
 
 

@@ -199,10 +199,16 @@ def page_title_html(
     mascot: TitleMascot,
 ) -> str:
     if mascot == "cockpit":
+        title_art = _asset_data_uri(MASCOT_TITLE_ASSETS[mascot])
         return (
             '<section class="smai-page-title smai-page-title--copilot" data-mascot="cockpit">'
             '<div class="smai-page-title-copy">'
+            '<div class="smai-page-title-row">'
             f'<h2 class="smai-page-title-heading">{html.escape(title)}</h2>'
+            '<div class="smai-page-title-art" aria-hidden="true">'
+            f'<img class="smai-page-title-image" src="{title_art}" alt="" loading="lazy" />'
+            "</div>"
+            "</div>"
             f'<p class="smai-page-title-subtitle">{html.escape(subtitle)}</p>'
             "</div>" + copilot_presence_panel_html() + "</section>"
         )

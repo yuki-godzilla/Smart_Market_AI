@@ -4,6 +4,8 @@ from typing import Literal, cast
 
 import streamlit as st
 
+from ui.components.mascot import render_mascot_panel
+
 SideMenuPage = Literal["cockpit", "ranking", "rebalance", "settings"]
 
 SIDEMENU_PAGE_COCKPIT: SideMenuPage = "cockpit"
@@ -39,6 +41,11 @@ def render_sidemenu(runtime_settings: dict[str, str]) -> SideMenuPage:
 
     with st.sidebar:
         st.caption("Smart Market AI")
+        render_mascot_panel(
+            "brand",
+            message=_sidebar_mascot_message(selected_page),
+            layout="sidebar",
+        )
         st.markdown("#### メニュー")
 
         for page_key, label in SIDEMENU_PAGE_LABELS.items():
@@ -61,3 +68,13 @@ def render_sidemenu(runtime_settings: dict[str, str]) -> SideMenuPage:
         st.caption("分析結果は投資判断の補助であり、売買推奨ではありません。")
 
     return _current_sidemenu_page()
+
+
+def _sidebar_mascot_message(page: SideMenuPage) -> str:
+    messages = {
+        SIDEMENU_PAGE_COCKPIT: "1銘柄の確認ポイントを一緒に整理します。",
+        SIDEMENU_PAGE_RANKING: "深掘り候補をスコアとRiskで見比べます。",
+        SIDEMENU_PAGE_REBALANCE: "配分のズレと見直し候補を確認します。",
+        SIDEMENU_PAGE_SETTINGS: "データ設定と取得元を確認します。",
+    }
+    return messages[page]

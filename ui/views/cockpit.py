@@ -3,7 +3,13 @@ from __future__ import annotations
 import streamlit as st
 
 from backend.research import CompanyResearchReport
-from ui.styles import badge_html, render_metric_card
+from ui.styles import (
+    badge_html,
+    metric_progress_from_value,
+    render_dashboard_header,
+    render_metric_card,
+    render_section_heading,
+)
 
 
 def _display_value(value: object, fallback: str = "未取得") -> str:
@@ -159,7 +165,21 @@ def research_evidence_summary_items(
 
 
 def render_cockpit_summary_header(items: list[dict[str, str]]) -> None:
-    st.markdown("#### 01 Summary / Symbol Cockpit")
+    item_by_label = {item["label"]: item for item in items}
+    symbol = _item_value(item_by_label, "Symbol")
+    name = _item_value(item_by_label, "Name")
+    title = symbol if name in {"", "-", "未取得"} else f"{symbol} - {name}"
+    render_dashboard_header(
+        title,
+        "価格・予測・スコア・根拠資料を1画面で確認する分析ビューです。表示内容は売買推奨ではありません。",
+        chips=[
+            ("Provider", _item_value(item_by_label, "Provider")),
+            ("As of", _item_value(item_by_label, "As of")),
+            ("期間", _item_value(item_by_label, "Reference period")),
+            ("見方", _item_value(item_by_label, "Decision View")),
+        ],
+    )
+    render_section_heading("01 Summary / Symbol Cockpit")
     st.caption(
         "この画面は、選択銘柄の価格・予測・スコア・根拠資料を整理する分析ビューです。表示内容は売買推奨ではありません。"
     )
@@ -171,11 +191,13 @@ def render_cockpit_summary_header(items: list[dict[str, str]]) -> None:
                 item["value"],
                 caption=item.get("help", ""),
                 badges=(_badge_for_summary_item(item),),
+                tone=_tone_for_summary_item(item),
+                progress=_progress_for_summary_item(item),
             )
 
 
 def render_cockpit_kpi_cards(cards: list[dict[str, str]]) -> None:
-    st.markdown("#### Analysis KPI")
+    render_section_heading("Analysis KPI")
     st.caption("まず主要KPIで全体感をつかみ、その後に価格チャートと評価内訳を確認します。")
     columns = st.columns(min(5, len(cards)))
     for index, card in enumerate(cards):
@@ -185,6 +207,8 @@ def render_cockpit_kpi_cards(cards: list[dict[str, str]]) -> None:
                 card["value"],
                 caption=card.get("help", ""),
                 badges=(_badge_for_kpi_card(card),),
+                tone=_tone_for_kpi_card(card),
+                progress=_progress_for_kpi_card(card),
             )
 
 
@@ -217,6 +241,29 @@ def _badge_for_summary_item(item: dict[str, str]) -> str:
     return badge_html("Context", "neutral")
 
 
+def _tone_for_summary_item(item: dict[str, str]) -> str:
+    label = item.get("label", "")
+    if label == "Investment Score":
+        return "score"
+    if label == "Data Confidence":
+        return "success"
+    if label == "Risk":
+        return "risk"
+    if label == "Forecast horizon":
+        return "forecast"
+    if label == "Decision View":
+        return "caution"
+    if label in {"Symbol", "Name", "Provider", "Asset / Region"}:
+        return "info"
+    return "neutral"
+
+
+def _progress_for_summary_item(item: dict[str, str]) -> int | None:
+    if item.get("label") in {"Investment Score", "Data Confidence", "Risk"}:
+        return metric_progress_from_value(item.get("value"))
+    return None
+
+
 def _badge_for_kpi_card(card: dict[str, str]) -> str:
     label = card.get("label", "")
     value = card.get("value", "")
@@ -227,6 +274,32 @@ def _badge_for_kpi_card(card: dict[str, str]) -> str:
     return badge_html("Analysis", "info")
 
 
+def _tone_for_kpi_card(card: dict[str, str]) -> str:
+    label = card.get("label", "")
+    if label == "Investment Score":
+        return "score"
+    if label == "Forecast Agreement":
+        return "forecast"
+    if label == "Data Confidence":
+        return "success"
+    if label == "Risk":
+        return "risk"
+    if label == "Decision View":
+        return "caution"
+    return "info"
+
+
+def _progress_for_kpi_card(card: dict[str, str]) -> int | None:
+    if card.get("label") in {
+        "Investment Score",
+        "Forecast Agreement",
+        "Data Confidence",
+        "Risk",
+    }:
+        return metric_progress_from_value(card.get("value"))
+    return None
+
+
 def _badge_for_research_item(item: dict[str, str]) -> str:
     label = item.get("label", "")
     value = item.get("value", "")
@@ -235,3 +308,7 @@ def _badge_for_research_item(item: dict[str, str]) -> str:
     if label == "Warnings" and value not in {"0", "-"}:
         return badge_html("Check data", "caution")
     return badge_html("Evidence", "info")
+
+
+def _item_value(items: dict[str, dict[str, str]], label: str) -> str:
+    return _display_value(items.get(label, {}).get("value"), "-")

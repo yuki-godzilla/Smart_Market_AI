@@ -46,6 +46,7 @@ from backend.reporting import (
 from backend.research import CompanyResearchReport
 from backend.scoring import InvestmentScoringService
 from backend.screening import ScreeningService
+from ui.components.mascot import render_mascot_panel
 from ui.components.sidemenu import (
     SIDEMENU_PAGE_COCKPIT,
     SIDEMENU_PAGE_RANKING,
@@ -145,8 +146,11 @@ from ui.state import (
 )
 from ui.styles import (
     badge_html,
+    metric_progress_from_value,
+    render_dashboard_header,
     render_global_styles,
     render_metric_card,
+    render_section_heading,
     style_altair_chart,
     truncate_text,
 )
@@ -1568,6 +1572,8 @@ def _render_ranking_summary_cards(cards: list[dict[str, str]]) -> None:
                 card["value"],
                 caption=card.get("help", ""),
                 badges=(_metric_badge_for_card(card),) if _metric_badge_for_card(card) else (),
+                tone=_metric_card_tone(card),
+                progress=_metric_card_progress(card),
             )
 
 
@@ -1575,7 +1581,7 @@ def _render_top_screening_candidate_cards(cards: list[dict[str, str]]) -> None:
     if not cards:
         st.info("比較候補カードを表示できるランキング結果がありません。")
         return
-    st.markdown("#### Top Screening Candidates")
+    render_section_heading("Top Screening Candidates")
     st.caption(
         "現在の条件で抽出された深掘り候補です。売買推奨ではなく、比較対象を絞るための入口です。"
     )
@@ -1594,6 +1600,9 @@ def _render_top_screening_candidate_cards(cards: list[dict[str, str]]) -> None:
                 card["score"],
                 caption=caption,
                 badges=tuple(badge for badge in badges if badge),
+                tone="score",
+                emphasis="spotlight" if index == 0 else "normal",
+                progress=metric_progress_from_value(card["score"]),
             )
 
 
@@ -1607,6 +1616,26 @@ def _metric_badge_for_card(card: dict[str, str]) -> str:
     return ""
 
 
+def _metric_card_tone(card: dict[str, str]) -> str:
+    label = card.get("label", "")
+    if "Score" in label:
+        return "score"
+    if "Confidence" in label:
+        return "success"
+    if "ランキング" in label or "対象範囲" in label:
+        return "info"
+    if "候補" in label or "銘柄" in label:
+        return "forecast"
+    return "neutral"
+
+
+def _metric_card_progress(card: dict[str, str]) -> int | None:
+    label = card.get("label", "")
+    if "Score" in label or "Confidence" in label:
+        return metric_progress_from_value(card.get("value"))
+    return None
+
+
 def _confidence_badge(value: str) -> str:
     confidence = _decimal_from_text(value)
     if confidence is not None and confidence >= Decimal("75"):
@@ -1618,7 +1647,7 @@ def _confidence_badge(value: str) -> str:
 
 def _render_ranking_score_bar_chart(display_rows: list[dict[str, str]]) -> None:
     frame = ranking_score_bar_chart_frame(display_rows)
-    st.markdown("#### Top 10 Score Comparison")
+    render_section_heading("Top 10 Score Comparison")
     st.caption("上位候補のスコア差を確認します。銘柄名はtooltipで確認できます。")
     if frame.empty:
         st.info("Investment Score をグラフ化できる候補がありません。")
@@ -1635,7 +1664,14 @@ def _render_ranking_score_bar_chart(display_rows: list[dict[str, str]]) -> None:
                 alt.Tooltip("name:N", title="Name"),
                 alt.Tooltip("score:Q", title="Investment Score", format=".1f"),
             ],
-            color=alt.value("#4f8cff"),
+            color=alt.Color(
+                "score:Q",
+                legend=None,
+                scale=alt.Scale(
+                    domain=[0, 70, 90],
+                    range=["#38bdf8", "#60a5fa", "#22c55e"],
+                ),
+            ),
         )
         .properties(height=max(260, min(420, 34 * len(frame))))
     )
@@ -1644,7 +1680,7 @@ def _render_ranking_score_bar_chart(display_rows: list[dict[str, str]]) -> None:
 
 def _render_ranking_confidence_scatter(display_rows: list[dict[str, str]]) -> None:
     frame = ranking_score_confidence_frame(display_rows)
-    st.markdown("#### Score x Evaluation Confidence")
+    render_section_heading("Score x Evaluation Confidence")
     st.caption(
         "Investment Score は比較用スコア、Evaluation Confidence は評価に使えるデータの充実度です。"
     )
@@ -1662,7 +1698,7 @@ def _render_ranking_confidence_scatter(display_rows: list[dict[str, str]]) -> No
                 title="Data check",
                 scale=alt.Scale(
                     domain=["High confidence", "Check data"],
-                    range=["#2fbf71", "#f5a623"],
+                    range=["#22c55e", "#f59e0b"],
                 ),
             ),
             tooltip=[
@@ -1686,7 +1722,7 @@ def _render_ranking_profile_chart(
 ) -> None:
     requested_profile = chart_profile_for_purpose(ranking_purpose)
     selection = ranking_chart_frame(display_rows, requested_profile)
-    st.markdown(f"#### {selection.profile.title if selection else requested_profile.title}")
+    render_section_heading(selection.profile.title if selection else requested_profile.title)
     if selection is None:
         st.info(
             "この条件で使える既存列が不足しているため、メインチャートは表示していません。詳細表で候補を確認してください。"
@@ -1714,9 +1750,21 @@ def _render_ranking_profile_chart(
         ],
     }
     if selection.color_column:
-        encoding["color"] = alt.Color("color_value:N", title=selection.color_column)
+        encoding["color"] = alt.Color(
+            "color_value:N",
+            title=selection.color_column,
+            scale=alt.Scale(
+                range=[
+                    "#38bdf8",
+                    "#22c55e",
+                    "#f59e0b",
+                    "#fb7185",
+                    "#a3e635",
+                ]
+            ),
+        )
     else:
-        encoding["color"] = alt.value("#4f8cff")
+        encoding["color"] = alt.value("#38bdf8")
     chart = (
         alt.Chart(selection.frame)
         .mark_circle(size=90, opacity=0.78)
@@ -1730,7 +1778,7 @@ def _render_selected_ranking_candidate_breakdown(
     display_rows: list[dict[str, str]],
     selected_symbol: str | None,
 ) -> None:
-    st.markdown("#### Selected Candidate Breakdown")
+    render_section_heading("Selected Candidate Breakdown")
     st.caption("選択中の候補が上位にある理由を、主要スコアで確認します。")
     rows = ranking_candidate_breakdown_rows(display_rows, selected_symbol)
     if not rows:
@@ -2519,6 +2567,11 @@ def _render_market_data_cockpit() -> None:
 
     stored_preview = _market_data_preview_from_state()
     if stored_preview is None:
+        render_mascot_panel(
+            "empty",
+            message="銘柄、取得期間、Providerを選んで市場データを取得すると、確認ポイントをまとめます。",
+            layout="compact",
+        )
         return
 
     toast_message = st.session_state.pop(MARKET_DATA_TOAST_STATE_KEY, None)
@@ -2864,6 +2917,11 @@ def _render_market_data_ranking() -> None:
     if (rows or error_rows) and not is_current_ranking_result:
         _clear_ranking_deep_dive_state()
         st.info("条件が変わりました。ランキング作成で結果を更新してください。")
+        render_mascot_panel(
+            "guide",
+            message="条件を変えた後は、ランキング作成でもう一度候補を整理しましょう。",
+            layout="compact",
+        )
     elif rows:
         ranked_rows = apply_ranking_weight_preset(
             cast(list[dict[str, str]], rows),
@@ -2871,11 +2929,23 @@ def _render_market_data_ranking() -> None:
             _symbol_universe_rows_by_symbol(),
         )
         display_rows = investment_score_display_rows(ranked_rows)
-        st.markdown("#### Ranking Screening Dashboard")
-        st.caption(
-            f"並べ替え条件: {ranking_purpose_label(ranking_purpose)} / "
-            f"評価プロファイル: {ranking_weight_preset_label(weight_preset)}。"
-            "買う銘柄を決める画面ではなく、比較候補と深掘り候補を整理するための画面です。"
+        render_dashboard_header(
+            "Ranking Screening Dashboard",
+            "比較候補と深掘り候補を整理するための画面です。買う銘柄を決める画面ではありません。",
+            chips=[
+                ("並べ替え", ranking_purpose_label(ranking_purpose)),
+                ("評価プロファイル", ranking_weight_preset_label(weight_preset)),
+                (
+                    "対象",
+                    f"{ranking_region_label(region)} / {ranking_product_type_label(product_type)}",
+                ),
+                ("表示", f"{len(display_rows)}件"),
+            ],
+        )
+        render_mascot_panel(
+            "ranking",
+            message="上位候補は深掘りの入口です。総合スコア、Risk、データ品質をセットで見比べます。",
+            layout="compact",
         )
         _render_ranking_summary_cards(
             ranking_summary_cards(
@@ -2980,6 +3050,12 @@ def _render_market_data_ranking() -> None:
     else:
         _clear_ranking_deep_dive_state()
         st.info("銘柄を選んで ranking を作成してください。")
+        render_mascot_panel(
+            "empty",
+            title="ランキング準備",
+            message="比較条件を選んでランキング作成を押すと、SMAIが深掘り候補を整理します。",
+            layout="compact",
+        )
 
 
 def _render_ranking_error_rows(error_rows: list[dict[str, str]]) -> None:
@@ -3420,6 +3496,11 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
             score_row=score_display_rows[0] if score_display_rows else None,
             symbol_metadata=_symbol_universe_row_for_symbol(symbol) if symbol else None,
         )
+    )
+    render_mascot_panel(
+        "cockpit",
+        message="まずKPIで全体感をつかみ、チャート、評価内訳、確認サマリーの順に見ていきます。",
+        layout="compact",
     )
     score_row = _render_investment_score_section(
         preview,
@@ -4426,6 +4507,11 @@ def _render_ranking_decision_report_lazy(
     cached_context = st.session_state.get(report_state_key)
     if not isinstance(cached_context, DecisionReportContext):
         st.markdown("### 投資判断レポート")
+        render_mascot_panel(
+            "report",
+            message="深掘り候補を確認したあと、必要なときだけ分析メモとしてレポート化できます。",
+            layout="compact",
+        )
         st.info(
             "深掘り操作を先に使えるよう、ランキングの投資判断レポートは必要時に作成します。"
             "作成後は同じ並べ替え条件の間、ダウンロード用データを再利用します。"
@@ -5255,7 +5341,18 @@ def _render_score_breakdown_chart(rows: list[dict[str, str]]) -> None:
         .encode(
             x=alt.X("score:Q", title="Score", scale=alt.Scale(domain=[0, 100])),
             y=alt.Y("要素:N", title=None, sort=None),
-            color=alt.Color("要素:N", legend=None),
+            color=alt.Color(
+                "要素:N",
+                legend=None,
+                scale=alt.Scale(
+                    range=[
+                        "#60a5fa",
+                        "#2dd4bf",
+                        "#22c55e",
+                        "#fb7185",
+                    ]
+                ),
+            ),
             tooltip=[
                 alt.Tooltip("要素:N", title="要素"),
                 alt.Tooltip("score:Q", title="スコア"),
@@ -5263,7 +5360,7 @@ def _render_score_breakdown_chart(rows: list[dict[str, str]]) -> None:
         )
         .properties(height=150)
     )
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(style_altair_chart(chart), use_container_width=True)
 
 
 def _render_market_chart(
@@ -5301,6 +5398,16 @@ def _render_market_chart(
                 "series_label:N",
                 title="価格・モデル",
                 legend=None,
+                scale=alt.Scale(
+                    range=[
+                        "#fb7185",
+                        "#38bdf8",
+                        "#2dd4bf",
+                        "#60a5fa",
+                        "#f59e0b",
+                        "#a3e635",
+                    ]
+                ),
             ),
             strokeDash=alt.StrokeDash(
                 "line_label:N",
@@ -5374,7 +5481,7 @@ def _render_market_chart(
         .configure_view(fill="#101722", stroke="#344155")
         .configure_axis(
             domainColor="#3b4556",
-            gridColor="#2b3646",
+            gridColor="rgba(148, 163, 184, 0.14)",
             labelColor="#c9d1dc",
             titleColor="#c9d1dc",
             tickColor="#3b4556",

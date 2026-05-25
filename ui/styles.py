@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 from decimal import Decimal, InvalidOperation
+from typing import Iterable
 
 import altair as alt
 import streamlit as st
@@ -21,6 +22,9 @@ SMAI_GLOBAL_CSS = """
     --smai-accent-soft: rgba(56, 189, 248, 0.12);
     --smai-green: #22c55e;
     --smai-amber: #f59e0b;
+    --smai-rose: #fb7185;
+    --smai-blue: #60a5fa;
+    --smai-teal: #2dd4bf;
     --smai-gray: #64748b;
 }
 
@@ -34,6 +38,59 @@ SMAI_GLOBAL_CSS = """
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg, #0b1020 0%, #111827 100%);
     border-right: 1px solid var(--smai-border);
+}
+
+[data-testid="stAppViewContainer"] .main .block-container {
+    padding-top: 3.1rem;
+}
+
+[data-testid="stButton"] button {
+    min-height: 2.35rem;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.26);
+    background: rgba(17, 24, 39, 0.88);
+    color: #e5edf7;
+    transition:
+        border-color 120ms ease,
+        background 120ms ease,
+        box-shadow 120ms ease,
+        transform 120ms ease;
+}
+
+[data-testid="stButton"] button:hover {
+    border-color: rgba(45, 212, 191, 0.48);
+    background: rgba(20, 184, 166, 0.12);
+    box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.12);
+}
+
+[data-testid="stButton"] button[kind="primary"] {
+    border-color: rgba(45, 212, 191, 0.7);
+    background:
+        linear-gradient(135deg, rgba(14, 165, 233, 0.95), rgba(20, 184, 166, 0.92));
+    color: #07111f;
+    font-weight: 760;
+}
+
+[data-testid="stButton"] button[kind="primary"]:hover {
+    background:
+        linear-gradient(135deg, rgba(56, 189, 248, 1), rgba(45, 212, 191, 0.98));
+    box-shadow: 0 10px 28px rgba(20, 184, 166, 0.18);
+}
+
+[data-baseweb="select"] > div,
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stDateInput"] input {
+    border-color: rgba(148, 163, 184, 0.22);
+    background-color: rgba(17, 24, 39, 0.82);
+}
+
+[data-baseweb="select"] > div:hover,
+[data-testid="stTextInput"] input:focus,
+[data-testid="stNumberInput"] input:focus,
+[data-testid="stDateInput"] input:focus {
+    border-color: rgba(56, 189, 248, 0.55);
+    box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.16);
 }
 
 [data-testid="stSidebar"] [data-testid="stButton"] button {
@@ -69,6 +126,188 @@ SMAI_GLOBAL_CSS = """
     background: rgba(17, 24, 39, 0.42);
 }
 
+.smai-dashboard-header {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(56, 189, 248, 0.24);
+    border-radius: 8px;
+    background:
+        linear-gradient(90deg, rgba(45, 212, 191, 0.13), transparent 42%),
+        linear-gradient(135deg, rgba(251, 113, 133, 0.08), transparent 56%),
+        linear-gradient(135deg, rgba(17, 24, 39, 0.98), rgba(13, 24, 38, 0.96));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 18px 52px rgba(0, 0, 0, 0.22);
+    padding: 1.2rem 1.25rem 1.05rem;
+    margin: 0.35rem 0 1.1rem;
+}
+
+.smai-dashboard-header::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: linear-gradient(180deg, var(--smai-teal), var(--smai-blue), var(--smai-rose));
+}
+
+.smai-dashboard-title {
+    color: #f8fafc;
+    font-size: clamp(1.25rem, 1.5vw, 1.75rem);
+    font-weight: 820;
+    line-height: 1.2;
+    margin: 0;
+}
+
+.smai-dashboard-subtitle {
+    color: #b7c3d4;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    margin: 0.45rem 0 0;
+    max-width: 76rem;
+}
+
+.smai-dashboard-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-top: 0.85rem;
+}
+
+.smai-dashboard-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.32rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 999px;
+    background: rgba(8, 13, 24, 0.55);
+    color: #e2e8f0;
+    font-size: 0.78rem;
+    font-weight: 680;
+    line-height: 1.35;
+    padding: 0.28rem 0.62rem;
+}
+
+.smai-dashboard-chip .smai-chip-label {
+    color: #8ea2ba;
+    font-weight: 640;
+}
+
+.smai-section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: #f8fafc;
+    font-size: 1.05rem;
+    font-weight: 760;
+    line-height: 1.35;
+    margin: 1rem 0 0.25rem;
+}
+
+.smai-section-title::before {
+    content: "";
+    width: 0.45rem;
+    height: 1.4rem;
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--smai-teal), var(--smai-blue));
+    box-shadow: 0 0 20px rgba(45, 212, 191, 0.22);
+}
+
+.smai-mascot {
+    --smai-mascot-accent: var(--smai-accent);
+    --smai-mascot-glow: rgba(56, 189, 248, 0.13);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 0.9rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-left: 3px solid var(--smai-mascot-accent);
+    border-radius: 8px;
+    background:
+        linear-gradient(90deg, var(--smai-mascot-glow), transparent 58%),
+        linear-gradient(135deg, rgba(17, 24, 39, 0.94), rgba(12, 18, 30, 0.92));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.04),
+        0 14px 30px rgba(0, 0, 0, 0.16);
+    padding: 0.78rem 0.9rem;
+    margin: 0.75rem 0 1rem;
+}
+
+.smai-mascot[data-tone="success"] {
+    --smai-mascot-accent: var(--smai-green);
+    --smai-mascot-glow: rgba(34, 197, 94, 0.13);
+}
+
+.smai-mascot[data-tone="forecast"] {
+    --smai-mascot-accent: var(--smai-teal);
+    --smai-mascot-glow: rgba(45, 212, 191, 0.13);
+}
+
+.smai-mascot[data-tone="caution"] {
+    --smai-mascot-accent: var(--smai-amber);
+    --smai-mascot-glow: rgba(245, 158, 11, 0.13);
+}
+
+.smai-mascot[data-tone="risk"] {
+    --smai-mascot-accent: var(--smai-rose);
+    --smai-mascot-glow: rgba(251, 113, 133, 0.13);
+}
+
+.smai-mascot-image {
+    width: 4.4rem;
+    height: 4.4rem;
+    object-fit: cover;
+    object-position: center top;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(8, 13, 24, 0.42);
+}
+
+.smai-mascot-title {
+    color: #f8fafc;
+    font-size: 0.94rem;
+    font-weight: 780;
+    line-height: 1.35;
+}
+
+.smai-mascot-message {
+    color: #b7c3d4;
+    font-size: 0.84rem;
+    line-height: 1.55;
+    margin-top: 0.26rem;
+}
+
+.smai-mascot--compact {
+    grid-template-columns: auto 1fr;
+    padding: 0.66rem 0.78rem;
+    margin: 0.55rem 0 0.85rem;
+}
+
+.smai-mascot--compact .smai-mascot-image {
+    width: 3.45rem;
+    height: 3.45rem;
+}
+
+.smai-mascot--sidebar {
+    grid-template-columns: 3.1rem 1fr;
+    gap: 0.68rem;
+    padding: 0.66rem 0.68rem;
+    margin: 0.2rem 0 0.95rem;
+}
+
+.smai-mascot--sidebar .smai-mascot-image {
+    width: 3.1rem;
+    height: 3.1rem;
+}
+
+.smai-mascot--sidebar .smai-mascot-title {
+    font-size: 0.86rem;
+}
+
+.smai-mascot--sidebar .smai-mascot-message {
+    font-size: 0.74rem;
+    line-height: 1.45;
+}
+
 .smai-section-card {
     border: 1px solid var(--smai-border);
     border-radius: 8px;
@@ -78,11 +317,60 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-metric-card {
+    --smai-card-accent: var(--smai-gray);
+    --smai-card-glow: rgba(100, 116, 139, 0.12);
+    --smai-card-value: #f8fafc;
+    position: relative;
+    overflow: hidden;
     min-height: 9.2rem;
     border: 1px solid var(--smai-border);
+    border-left: 3px solid var(--smai-card-accent);
     border-radius: 8px;
-    background: linear-gradient(180deg, rgba(31, 41, 55, 0.82), rgba(17, 24, 39, 0.86));
+    background:
+        linear-gradient(90deg, var(--smai-card-glow), transparent 58%),
+        linear-gradient(180deg, rgba(31, 41, 55, 0.92), rgba(14, 21, 34, 0.9));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.04),
+        0 12px 26px rgba(0, 0, 0, 0.16);
     padding: 0.88rem 0.95rem;
+}
+
+.smai-metric-card[data-emphasis="spotlight"] {
+    min-height: 10.2rem;
+    border-color: rgba(45, 212, 191, 0.36);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        0 18px 38px rgba(20, 184, 166, 0.12);
+}
+
+.smai-metric-card[data-tone="info"] {
+    --smai-card-accent: var(--smai-accent);
+    --smai-card-glow: rgba(56, 189, 248, 0.16);
+}
+
+.smai-metric-card[data-tone="score"] {
+    --smai-card-accent: var(--smai-blue);
+    --smai-card-glow: rgba(96, 165, 250, 0.18);
+}
+
+.smai-metric-card[data-tone="success"] {
+    --smai-card-accent: var(--smai-green);
+    --smai-card-glow: rgba(34, 197, 94, 0.16);
+}
+
+.smai-metric-card[data-tone="forecast"] {
+    --smai-card-accent: var(--smai-teal);
+    --smai-card-glow: rgba(45, 212, 191, 0.16);
+}
+
+.smai-metric-card[data-tone="caution"] {
+    --smai-card-accent: var(--smai-amber);
+    --smai-card-glow: rgba(245, 158, 11, 0.17);
+}
+
+.smai-metric-card[data-tone="risk"] {
+    --smai-card-accent: var(--smai-rose);
+    --smai-card-glow: rgba(251, 113, 133, 0.16);
 }
 
 .smai-card-label {
@@ -93,7 +381,7 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-card-value {
-    color: var(--smai-text);
+    color: var(--smai-card-value);
     font-size: 1.28rem;
     line-height: 1.25;
     font-weight: 760;
@@ -105,6 +393,22 @@ SMAI_GLOBAL_CSS = """
     font-size: 0.82rem;
     line-height: 1.45;
     margin-top: 0.5rem;
+}
+
+.smai-score-track {
+    height: 0.38rem;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.16);
+    overflow: hidden;
+    margin-top: 0.72rem;
+}
+
+.smai-score-fill {
+    height: 100%;
+    width: var(--smai-score-width);
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--smai-card-accent), var(--smai-teal));
+    box-shadow: 0 0 18px var(--smai-card-glow);
 }
 
 .smai-badge-row {
@@ -127,20 +431,26 @@ SMAI_GLOBAL_CSS = """
 
 .smai-badge.info {
     color: #bae6fd;
-    background: rgba(56, 189, 248, 0.12);
-    border-color: rgba(56, 189, 248, 0.22);
+    background: rgba(56, 189, 248, 0.15);
+    border-color: rgba(56, 189, 248, 0.28);
 }
 
 .smai-badge.success {
     color: #bbf7d0;
-    background: rgba(34, 197, 94, 0.12);
-    border-color: rgba(34, 197, 94, 0.22);
+    background: rgba(34, 197, 94, 0.15);
+    border-color: rgba(34, 197, 94, 0.28);
 }
 
 .smai-badge.caution {
     color: #fde68a;
-    background: rgba(245, 158, 11, 0.12);
-    border-color: rgba(245, 158, 11, 0.24);
+    background: rgba(245, 158, 11, 0.16);
+    border-color: rgba(245, 158, 11, 0.3);
+}
+
+.smai-badge.danger {
+    color: #fecdd3;
+    background: rgba(251, 113, 133, 0.15);
+    border-color: rgba(251, 113, 133, 0.28);
 }
 
 .smai-badge.neutral {
@@ -150,6 +460,9 @@ SMAI_GLOBAL_CSS = """
 }
 </style>
 """
+
+CARD_TONES = {"neutral", "info", "score", "success", "forecast", "caution", "risk"}
+CARD_EMPHASIS = {"normal", "spotlight"}
 
 
 def render_global_styles() -> None:
@@ -185,8 +498,30 @@ def truncate_text(value: object, *, max_chars: int = 48, fallback: str = "-") ->
 
 
 def badge_html(label: str, tone: str = "neutral") -> str:
-    safe_tone = tone if tone in {"info", "success", "caution", "neutral"} else "neutral"
+    safe_tone = tone if tone in {"info", "success", "caution", "danger", "neutral"} else "neutral"
     return f'<span class="smai-badge {safe_tone}">{html.escape(label)}</span>'
+
+
+def _safe_card_tone(tone: str) -> str:
+    return tone if tone in CARD_TONES else "neutral"
+
+
+def _safe_card_emphasis(emphasis: str) -> str:
+    return emphasis if emphasis in CARD_EMPHASIS else "normal"
+
+
+def metric_progress_from_value(value: object) -> int | None:
+    text = str(value or "").strip().removesuffix("%").replace(",", "")
+    if not text:
+        return None
+    try:
+        number = Decimal(text)
+    except InvalidOperation:
+        return None
+    if not number.is_finite():
+        return None
+    clamped = min(Decimal("100"), max(Decimal("0"), number))
+    return int(clamped.to_integral_value(rounding="ROUND_HALF_UP"))
 
 
 def metric_card_html(
@@ -195,10 +530,21 @@ def metric_card_html(
     *,
     caption: str = "",
     badges: tuple[str, ...] = (),
+    tone: str = "neutral",
+    emphasis: str = "normal",
+    progress: int | None = None,
 ) -> str:
     badge_row = ""
     if badges:
         badge_row = f'<div class="smai-badge-row">{"".join(badges)}</div>'
+    progress_bar = ""
+    if progress is not None:
+        safe_progress = min(100, max(0, int(progress)))
+        progress_bar = (
+            '<div class="smai-score-track" aria-hidden="true">'
+            f'<div class="smai-score-fill" style="--smai-score-width: {safe_progress}%"></div>'
+            "</div>"
+        )
     caption_html = (
         f'<div class="smai-card-caption" title="{html.escape(caption)}">'
         f"{html.escape(truncate_text(caption, max_chars=82, fallback=''))}</div>"
@@ -206,9 +552,12 @@ def metric_card_html(
         else ""
     )
     return (
-        '<div class="smai-metric-card">'
+        '<div class="smai-metric-card" '
+        f'data-tone="{_safe_card_tone(tone)}" '
+        f'data-emphasis="{_safe_card_emphasis(emphasis)}">'
         f'<div class="smai-card-label">{html.escape(label)}</div>'
         f'<div class="smai-card-value">{html.escape(compact_display_value(value))}</div>'
+        f"{progress_bar}"
         f"{caption_html}"
         f"{badge_row}"
         "</div>"
@@ -221,11 +570,69 @@ def render_metric_card(
     *,
     caption: str = "",
     badges: tuple[str, ...] = (),
+    tone: str = "neutral",
+    emphasis: str = "normal",
+    progress: int | None = None,
 ) -> None:
     st.markdown(
-        metric_card_html(label, value, caption=caption, badges=badges),
+        metric_card_html(
+            label,
+            value,
+            caption=caption,
+            badges=badges,
+            tone=tone,
+            emphasis=emphasis,
+            progress=progress,
+        ),
         unsafe_allow_html=True,
     )
+
+
+def dashboard_header_html(
+    title: str,
+    subtitle: str = "",
+    *,
+    chips: Iterable[tuple[str, str]] = (),
+) -> str:
+    chip_html = "".join(
+        '<span class="smai-dashboard-chip">'
+        f'<span class="smai-chip-label">{html.escape(label)}</span>'
+        f"<span>{html.escape(value)}</span>"
+        "</span>"
+        for label, value in chips
+        if str(value or "").strip()
+    )
+    chip_row = f'<div class="smai-dashboard-chip-row">{chip_html}</div>' if chip_html else ""
+    subtitle_html = (
+        f'<p class="smai-dashboard-subtitle">{html.escape(subtitle)}</p>' if subtitle else ""
+    )
+    return (
+        '<section class="smai-dashboard-header">'
+        f'<h2 class="smai-dashboard-title">{html.escape(title)}</h2>'
+        f"{subtitle_html}"
+        f"{chip_row}"
+        "</section>"
+    )
+
+
+def render_dashboard_header(
+    title: str,
+    subtitle: str = "",
+    *,
+    chips: Iterable[tuple[str, str]] = (),
+) -> None:
+    st.markdown(
+        dashboard_header_html(title, subtitle, chips=chips),
+        unsafe_allow_html=True,
+    )
+
+
+def section_heading_html(title: str) -> str:
+    return f'<div class="smai-section-title">{html.escape(title)}</div>'
+
+
+def render_section_heading(title: str) -> None:
+    st.markdown(section_heading_html(title), unsafe_allow_html=True)
 
 
 def style_altair_chart(chart: alt.Chart) -> alt.Chart:
@@ -234,7 +641,7 @@ def style_altair_chart(chart: alt.Chart) -> alt.Chart:
         .configure_view(fill="#111827", stroke="rgba(148, 163, 184, 0.22)")
         .configure_axis(
             domainColor="rgba(148, 163, 184, 0.38)",
-            gridColor="rgba(148, 163, 184, 0.14)",
+            gridColor="rgba(148, 163, 184, 0.12)",
             labelColor="#cbd5e1",
             titleColor="#e5e7eb",
             tickColor="rgba(148, 163, 184, 0.38)",

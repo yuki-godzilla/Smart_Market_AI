@@ -236,7 +236,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
   - ETF低コスト・コア: 経費率、連動指数、複雑性、NISA適合、DB信頼度を重視する。
   - ETFインカム・分散: ETFの利回り、経費率、指数、通貨、複雑性、Data Qualityを重視する。
   - 旧来の `配当重視` / `成長重視` / `割安重視` / `安定重視` / `トレンド重視` は後方互換の比較条件として残す。
-- ランキング結果画面では、選択中の `並べ替え条件` に合わせて重視ポイント、メインチャート、上位カードの主指標、詳細テーブルの先頭列、`並べ替え理由` / `確認ポイント` が切り替わる。確認ポイントは単なる定義ではなく、スコア差、Risk、Data Confidence、Research Evidence から次に確認する観点を短く示す。
+- ランキング結果画面では、選択中の `並べ替え条件` に合わせて重視ポイント、メインチャート、上位カードの主指標、詳細テーブルの先頭列、確認メモが切り替わる。詳細テーブルは文字切れを避けるため、データ品質 / 条件適合度 / DB信頼度 / 根拠状態を `信頼度/根拠` にまとめ、長い並べ替え理由と確認ポイントは tooltip / 行クリック後の銘柄データで確認する。
 - `上昇気配` / `下降警戒` は、予測エッジ、モデル別方向エッジ、価格モメンタム、トレンド確認を組み合わせる。予測変化率とモメンタムはボラティリティ調整し、モデル間の開きは直接加点せず、スコアを中立へ寄せる信頼度調整として扱う。ランキングは売買推奨ではなく、深掘り候補の比較優先度として扱う。
 - `作成対象` は、外部 provider 取得前の件数上限です。既定は `標準: 上位300件` で、候補が多い場合は総合マルチファクター基準の条件適合度とDB信頼度で事前に上位候補を選んでから価格データを取得します。`並べ替え条件` の変更は取得対象を変えず、取得済みデータの再ソートとして扱います。全件取得も選べますが、Yahoo live data では時間がかかります。
 - ランキング結果の総合スコアには、取得期間の市場評価に加えて、条件適合度とDB信頼度を反映する。
@@ -470,7 +470,7 @@ Phase 16 ranking implementation notes:
 - Ranking rows are cached in Streamlit session state by `provider + symbols + start + end`. Re-running the same request or changing only the ranking weight preset reuses fetched rows and only re-sorts the display.
 - Ranking display rows reuse a single symbol-master lookup map when building notes and modal guidance. This avoids repeated `symbol_universe.csv` scans during long-period ranking reruns and keeps row-click symbol-detail modal opening responsive.
 - The ranking progress indicator reports batch fetch, feature construction, direction signal calculation, and final sorting so large candidate sets do not look frozen.
-- Ranking deep-dive controls are rendered before the Decision Report block. The ranking Decision Report is generated lazily by `投資判断レポートを作成`, then reused for the same ranking source / sort profile so resorting and cockpit handoff remain responsive.
+- Ranking deep-dive controls are rendered before the Decision Report block. The ranking Decision Report is generated lazily by `投資判断レポートを作成`, then reused for the same ranking source / sort profile so resorting and cockpit handoff remain responsive. Ranking report 明細には symbol と銘柄名を並べて出力する。
 - Ranking remains decision support only. Click a ranking row to open the shared `銘柄データ` modal with short ranking context plus local master details. Use the cockpit for detailed price / forecast / score-reason review.
 - In `銘柄コックピット`, `銘柄データを見る` sits beside symbol selection and opens the same local-master modal for the selected symbol. Start / End inputs wrap to the next row. After fetch, the cockpit shows `投資判断メモ` combining score, warnings, valuation, income, price trend, and next-check wording.
 - In `銘柄コックピット` and `銘柄ランキング`, the result area shows a prominent `Decision Report` block with Markdown / JSON / manifest / ZIP downloads. Cockpit reports focus on the selected symbol, while ranking reports focus on comparison context, score distribution, factor leaders, and group-level deep-dive checkpoints instead of turning into a single top-symbol report. The Markdown body remains inside `レポート本文を表示`. It is decision-support material, not a buy/sell recommendation.

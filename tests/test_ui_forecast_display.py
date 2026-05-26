@@ -656,7 +656,10 @@ def test_ranking_result_aggrid_options_enable_single_row_click_selection():
     column_defs = {column["field"]: column for column in options["columnDefs"]}
     assert column_defs["順位"]["pinned"] == "left"
     assert column_defs["銘柄"]["pinned"] == "left"
+    assert "確認メモ" in column_defs
+    assert column_defs["確認メモ"]["tooltipField"] == "確認メモ"
     assert "並べ替え理由" in column_defs
+    assert column_defs["並べ替え理由"]["hide"] is True
     assert column_defs["並べ替え理由"]["tooltipField"] == "並べ替え理由"
 
 
@@ -2963,15 +2966,18 @@ def test_ranking_result_aggrid_frame_keeps_display_table_compact():
         "Screening",
         "予測変化率",
         "方向一致",
-        "条件適合度",
-        "DB信頼度",
-        "根拠状態",
+        "信頼度/根拠",
         "見方",
+        "確認メモ",
         "並べ替え理由",
         "確認ポイント",
     ]
-    assert frame.loc[0, "銘柄名"].endswith("…")
+    assert frame.loc[0, "銘柄名"] == "Toyota Motor Corporation Long Name"
+    assert "品質90" in frame.loc[0, "信頼度/根拠"]
+    assert "条件86" in frame.loc[0, "信頼度/根拠"]
+    assert "DB88" in frame.loc[0, "信頼度/根拠"]
     assert "総合スコア 82" in frame.loc[0, "並べ替え理由"]
+    assert "総合スコア 82" in frame.loc[0, "確認メモ"]
 
 
 def test_ranking_result_aggrid_frame_prioritizes_upside_columns_for_upside_purpose():
@@ -3393,6 +3399,7 @@ def test_ranking_decision_report_context_limits_rows_and_uses_top_symbol(monkeyp
     )
     assert ranking_section.summary["reported_rows"] == "20 / 25"
     assert ranking_section.rows[0]["symbol"] == "AAPL"
+    assert ranking_section.rows[0]["name"] == "Apple Inc."
     assert "note" not in ranking_section.rows[0]
     assert ranking_section.rows[0]["review_point"].startswith("スコアとデータ品質")
     assert distribution_section.summary["比較銘柄数"] == "25"

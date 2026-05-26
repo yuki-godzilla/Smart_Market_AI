@@ -506,9 +506,14 @@ RANKING_RESULT_GRID_CUSTOM_CSS = {
         "border-right": "1px solid #263140",
         "color": "#eef3fb !important",
         "font-weight": "600",
+        "line-height": "1.35",
+        "overflow-wrap": "anywhere",
+        "white-space": "normal",
     },
     ".ag-cell-value": {
         "color": "#eef3fb !important",
+        "overflow-wrap": "anywhere",
+        "white-space": "normal",
     },
 }
 SYMBOL_DETAIL_DIALOG_CSS = """
@@ -1079,10 +1084,9 @@ def _ranking_result_columns(ranking_purpose: str) -> list[str]:
             "方向一致",
             "Risk",
             "データ品質",
-            "条件適合度",
-            "DB信頼度",
-            "根拠状態",
+            "信頼度/根拠",
             "見方",
+            "確認メモ",
             "並べ替え理由",
             "確認ポイント",
         )
@@ -1195,6 +1199,33 @@ def ranking_purpose_row_checkpoint(row: dict[str, str], ranking_purpose: str) ->
     return "銘柄コックピットで価格・予測・リスクを確認します。"
 
 
+def _ranking_compact_confidence_summary(row: dict[str, str]) -> str:
+    parts: list[str] = []
+    for label, column in (
+        ("品質", "データ品質"),
+        ("条件", "条件適合度"),
+        ("DB", "DB信頼度"),
+    ):
+        value = str(row.get(column, "")).strip()
+        if value:
+            parts.append(f"{label}{value}")
+    research_status = str(row.get("根拠状態", "")).strip()
+    if research_status:
+        parts.append(research_status)
+    return " / ".join(parts)
+
+
+def _ranking_compact_confirmation_note(reason: str, checkpoint: str) -> str:
+    checkpoint = checkpoint.strip()
+    reason = reason.strip()
+    generic_checkpoint = "銘柄コックピットで価格・予測・リスクを確認します。"
+    if checkpoint and checkpoint != generic_checkpoint:
+        if reason and reason != checkpoint:
+            return truncate_text(f"{reason} / {checkpoint}", max_chars=112)
+        return truncate_text(checkpoint, max_chars=112)
+    return truncate_text(reason or checkpoint, max_chars=112)
+
+
 def ranking_result_aggrid_frame(
     display_rows: list[dict[str, str]],
     ranking_purpose: str = "multi_factor",
@@ -1203,10 +1234,17 @@ def ranking_result_aggrid_frame(
     reason_columns = _ranking_reason_columns(display_rows, ranking_purpose)
     direction_limited = _ranking_direction_data_limited(display_rows)
     for row in display_rows:
+        reason = ranking_purpose_row_reason(
+            row,
+            ranking_purpose,
+            focus_columns=reason_columns,
+            direction_limited=direction_limited,
+        )
+        checkpoint = ranking_purpose_row_checkpoint(row, ranking_purpose)
         record = {
             "順位": row.get("順位", ""),
             "銘柄": row.get("銘柄", ""),
-            "銘柄名": truncate_text(row.get("銘柄名", ""), max_chars=30),
+            "銘柄名": truncate_text(row.get("銘柄名", ""), max_chars=56),
             "総合スコア": row.get("総合スコア", ""),
             "Screening": row.get("Screening", ""),
             "上昇気配": row.get("上昇気配", ""),
@@ -1218,6 +1256,7 @@ def ranking_result_aggrid_frame(
             "条件適合度": row.get("条件適合度") or row.get("DB適合", ""),
             "DB信頼度": row.get("DB信頼度", ""),
             "根拠状態": row.get("根拠状態", ""),
+            "信頼度/根拠": _ranking_compact_confidence_summary(row),
             "見方": row.get("見方", ""),
             "PER": row.get("PER", ""),
             "PBR": row.get("PBR", ""),
@@ -1231,19 +1270,9 @@ def ranking_result_aggrid_frame(
             "通貨": row.get("通貨", ""),
             "複雑性": row.get("複雑性", ""),
             "注意点": row.get("注意点", ""),
-            "並べ替え理由": truncate_text(
-                ranking_purpose_row_reason(
-                    row,
-                    ranking_purpose,
-                    focus_columns=reason_columns,
-                    direction_limited=direction_limited,
-                ),
-                max_chars=88,
-            ),
-            "確認ポイント": truncate_text(
-                ranking_purpose_row_checkpoint(row, ranking_purpose),
-                max_chars=72,
-            ),
+            "確認メモ": _ranking_compact_confirmation_note(reason, checkpoint),
+            "並べ替え理由": reason,
+            "確認ポイント": checkpoint,
         }
         rows.append(
             {column: record.get(column, "") for column in _ranking_result_columns(ranking_purpose)}
@@ -1283,11 +1312,18 @@ def ranking_result_aggrid_options(
         enableCellTextSelection=True,
     )
     if "順位" in frame.columns:
-        builder.configure_column("順位", width=76, pinned="left", filter=False)
+        builder.configure_column("順位", width=64, pinned="left", filter=False)
     if "銘柄" in frame.columns:
-        builder.configure_column("銘柄", width=110, pinned="left")
+        builder.configure_column("銘柄", width=96, pinned="left")
     if "銘柄名" in frame.columns:
-        builder.configure_column("銘柄名", minWidth=180, pinned="left", tooltipField="銘柄名")
+        builder.configure_column(
+            "銘柄名",
+            minWidth=220,
+            pinned="left",
+            tooltipField="銘柄名",
+            wrapText=True,
+            autoHeight=True,
+        )
     for column in (
         "総合スコア",
         "Screening",
@@ -1305,20 +1341,30 @@ def ranking_result_aggrid_options(
         "経費率",
     ):
         if column in frame.columns:
-            builder.configure_column(column, width=112, filter=False)
+            builder.configure_column(column, width=104, filter=False)
     if "方向一致" in frame.columns:
-        builder.configure_column("方向一致", width=168)
+        builder.configure_column("方向一致", width=142, headerName="モデル方向")
+    if "信頼度/根拠" in frame.columns:
+        builder.configure_column("信頼度/根拠", width=168, tooltipField="信頼度/根拠")
     if "根拠状態" in frame.columns:
         builder.configure_column("根拠状態", width=138)
     if "見方" in frame.columns:
-        builder.configure_column("見方", width=130)
+        builder.configure_column("見方", width=112)
     for column in ("NISA", "投資スタイル", "時価総額", "連動指数", "通貨", "複雑性"):
         if column in frame.columns:
             builder.configure_column(column, width=130)
-    if "並べ替え理由" in frame.columns:
-        builder.configure_column("並べ替え理由", minWidth=300, flex=1, tooltipField="並べ替え理由")
-    if "確認ポイント" in frame.columns:
-        builder.configure_column("確認ポイント", minWidth=260, flex=1, tooltipField="確認ポイント")
+    if "確認メモ" in frame.columns:
+        builder.configure_column(
+            "確認メモ",
+            minWidth=360,
+            flex=1,
+            tooltipField="確認メモ",
+            wrapText=True,
+            autoHeight=True,
+        )
+    for column in ("並べ替え理由", "確認ポイント"):
+        if column in frame.columns:
+            builder.configure_column(column, hide=True, tooltipField=column)
     return cast(dict[str, object], builder.build())
 
 
@@ -5940,9 +5986,17 @@ def _ranking_report_row(
     row: dict[str, str],
     symbol_row: dict[str, str] | None = None,
 ) -> dict[str, str]:
+    symbol = row.get("symbol", "")
+    name = (
+        row.get("name", "")
+        or (symbol_row.get("name", "") if symbol_row is not None else "")
+        or symbol_name(symbol)
+        or ""
+    )
     return {
         "rank": row.get("rank", ""),
-        "symbol": row.get("symbol", ""),
+        "symbol": symbol,
+        "name": name,
         "total_score": row.get("total_score", ""),
         "score_band": row.get("score_band", ""),
         "screening_score": row.get("screening_score", ""),

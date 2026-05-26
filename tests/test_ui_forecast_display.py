@@ -526,6 +526,8 @@ def test_symbol_detail_dialog_css_expands_width_and_wraps_metric_values():
     assert "overflow-wrap: anywhere" in SYMBOL_DETAIL_DIALOG_CSS
     assert ".symbol-detail-table" in SYMBOL_DETAIL_DIALOG_CSS
     assert "table-layout: fixed" in SYMBOL_DETAIL_DIALOG_CSS
+    assert "font-size: 0.95rem" in SYMBOL_DETAIL_DIALOG_CSS
+    assert "line-height: 1.6" in SYMBOL_DETAIL_DIALOG_CSS
 
 
 def test_symbol_detail_table_html_wraps_and_escapes_long_text():

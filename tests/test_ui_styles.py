@@ -39,6 +39,9 @@ def test_metric_card_html_uses_shared_card_classes_and_escapes_text():
 
 
 def test_global_css_defines_copilot_presence_and_insight_motion():
+    assert "--smai-muted-readable" in SMAI_GLOBAL_CSS
+    assert '[data-testid="stCaptionContainer"]' in SMAI_GLOBAL_CSS
+    assert "font-size: 0.9rem" in SMAI_GLOBAL_CSS
     assert ".smai-page-title--copilot" in SMAI_GLOBAL_CSS
     assert ".smai-copilot-panel" in SMAI_GLOBAL_CSS
     assert ".smai-insight" in SMAI_GLOBAL_CSS

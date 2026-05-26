@@ -542,26 +542,26 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
-    font-size: 0.92rem;
+    font-size: 0.95rem;
 }
 .symbol-detail-table th,
 .symbol-detail-table td {
     border: 1px solid #263140;
-    padding: 0.7rem 0.8rem;
+    padding: 0.72rem 0.82rem;
     vertical-align: top;
     white-space: normal;
     overflow-wrap: anywhere;
     word-break: auto-phrase;
-    line-height: 1.55;
+    line-height: 1.6;
 }
 .symbol-detail-table th {
     background: #171e2a;
-    color: #cbd5e1;
+    color: #e2e8f0;
     font-weight: 700;
 }
 .symbol-detail-table td {
     background: #0f141d;
-    color: #eef3fb;
+    color: #f1f5f9;
 }
 .research-summary-table {
     margin-top: 0.6rem;
@@ -590,9 +590,9 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     padding: 0.75rem 0.85rem;
 }
 .research-evidence-meta {
-    color: #cbd5e1;
-    font-size: 0.82rem;
-    line-height: 1.45;
+    color: #d4deeb;
+    font-size: 0.86rem;
+    line-height: 1.5;
     margin-bottom: 0.4rem;
 }
 .research-evidence-excerpt {
@@ -1615,6 +1615,7 @@ def _render_symbol_detail_table(rows: list[dict[str, str]]) -> None:
     if not rows:
         st.info("この区分に表示できる登録値はありません。")
         return
+    st.markdown(SYMBOL_DETAIL_DIALOG_CSS, unsafe_allow_html=True)
     st.markdown(symbol_detail_table_html(rows), unsafe_allow_html=True)
 
 

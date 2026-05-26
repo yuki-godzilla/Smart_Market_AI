@@ -17,7 +17,9 @@ SMAI_GLOBAL_CSS = """
     --smai-border: rgba(148, 163, 184, 0.18);
     --smai-border-strong: rgba(148, 163, 184, 0.28);
     --smai-text: #e5e7eb;
-    --smai-muted: #9ca3af;
+    --smai-body: #dbe5f1;
+    --smai-muted: #b4c1d2;
+    --smai-muted-readable: #c2cedf;
     --smai-accent: #38bdf8;
     --smai-accent-soft: rgba(56, 189, 248, 0.12);
     --smai-green: #22c55e;
@@ -42,6 +44,29 @@ SMAI_GLOBAL_CSS = """
 
 [data-testid="stAppViewContainer"] .main .block-container {
     padding-top: 3.1rem;
+}
+
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li {
+    color: var(--smai-body);
+    font-size: 0.95rem;
+    font-weight: 500;
+    line-height: 1.65;
+    letter-spacing: 0;
+}
+
+[data-testid="stCaptionContainer"],
+[data-testid="stCaptionContainer"] p {
+    color: var(--smai-muted-readable);
+    font-size: 0.9rem;
+    font-weight: 520;
+    line-height: 1.6;
+    letter-spacing: 0;
+}
+
+[data-testid="stTable"] table,
+[data-testid="stDataFrame"] {
+    font-size: 0.92rem;
 }
 
 [data-testid="stButton"] button {
@@ -146,8 +171,8 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-app-message {
-    color: #b7c3d4;
-    font-size: 0.92rem;
+    color: var(--smai-muted-readable);
+    font-size: 0.95rem;
     line-height: 1.55;
     margin: 0.45rem 0 0;
 }
@@ -206,9 +231,9 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-page-title-subtitle {
-    color: #aeb9ca;
-    font-size: 0.92rem;
-    line-height: 1.55;
+    color: var(--smai-muted-readable);
+    font-size: 0.95rem;
+    line-height: 1.58;
     margin: 0.55rem 0 0;
 }
 
@@ -311,8 +336,8 @@ SMAI_GLOBAL_CSS = """
     align-items: center;
     gap: 0.42rem;
     margin-top: 0.34rem;
-    color: #94a3b8;
-    font-size: 0.78rem;
+    color: var(--smai-muted-readable);
+    font-size: 0.82rem;
     font-weight: 700;
     line-height: 1.35;
 }
@@ -327,9 +352,9 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-copilot-message {
-    color: #94a3b8;
-    font-size: 0.78rem;
-    line-height: 1.5;
+    color: var(--smai-muted-readable);
+    font-size: 0.84rem;
+    line-height: 1.58;
     margin: 0.48rem 0 0;
 }
 
@@ -366,9 +391,9 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-dashboard-subtitle {
-    color: #b7c3d4;
-    font-size: 0.92rem;
-    line-height: 1.55;
+    color: var(--smai-muted-readable);
+    font-size: 0.95rem;
+    line-height: 1.58;
     margin: 0.45rem 0 0;
     max-width: 76rem;
 }
@@ -404,7 +429,7 @@ SMAI_GLOBAL_CSS = """
     align-items: center;
     gap: 0.55rem;
     color: #f8fafc;
-    font-size: 1.05rem;
+    font-size: 1.08rem;
     font-weight: 760;
     line-height: 1.35;
     margin: 1rem 0 0.25rem;
@@ -519,15 +544,16 @@ SMAI_GLOBAL_CSS = """
 
 .smai-insight-title {
     color: #e5e7eb;
-    font-size: 0.86rem;
+    font-size: 0.9rem;
     font-weight: 780;
     line-height: 1.3;
 }
 
 .smai-insight-message {
-    color: #b7c3d4;
-    font-size: 0.82rem;
-    line-height: 1.55;
+    color: var(--smai-body);
+    font-size: 0.9rem;
+    font-weight: 520;
+    line-height: 1.62;
     margin-top: 0.22rem;
 }
 
@@ -539,9 +565,9 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-mascot-message {
-    color: #b7c3d4;
-    font-size: 0.84rem;
-    line-height: 1.55;
+    color: var(--smai-muted-readable);
+    font-size: 0.88rem;
+    line-height: 1.58;
     margin-top: 0.26rem;
 }
 
@@ -573,8 +599,8 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-mascot--sidebar .smai-mascot-message {
-    font-size: 0.74rem;
-    line-height: 1.45;
+    font-size: 0.78rem;
+    line-height: 1.5;
 }
 
 .smai-mascot--loading {
@@ -812,7 +838,7 @@ SMAI_GLOBAL_CSS = """
 
 .smai-card-label {
     color: var(--smai-muted);
-    font-size: 0.78rem;
+    font-size: 0.82rem;
     line-height: 1.3;
     margin-bottom: 0.35rem;
 }
@@ -854,9 +880,9 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-card-caption {
-    color: var(--smai-muted);
-    font-size: 0.82rem;
-    line-height: 1.45;
+    color: var(--smai-muted-readable);
+    font-size: 0.86rem;
+    line-height: 1.52;
     margin-top: 0.5rem;
 }
 
@@ -889,8 +915,8 @@ SMAI_GLOBAL_CSS = """
     align-items: center;
     justify-content: space-between;
     gap: 0.45rem;
-    color: var(--smai-muted);
-    font-size: 0.72rem;
+    color: var(--smai-muted-readable);
+    font-size: 0.76rem;
     font-weight: 700;
     line-height: 1.25;
     margin-bottom: 0.3rem;
@@ -935,9 +961,9 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-ranking-card-caption {
-    color: var(--smai-muted);
-    font-size: 0.78rem;
-    line-height: 1.42;
+    color: var(--smai-muted-readable);
+    font-size: 0.84rem;
+    line-height: 1.5;
     margin-top: 0.55rem;
     overflow-wrap: anywhere;
 }

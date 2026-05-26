@@ -781,6 +781,13 @@ Current implemented slice:
 - `銘柄コックピット` shows a `Recent News / AIニュース深掘り` section under Research Evidence. The dedicated button stores a session-local report and displays title, URL, source, published_at, summary, investment_viewpoint, sentiment_for_investment, and freshness_status.
 - This slice does not change Investment Score, Research Score, Decision Report, or ranking order.
 
+Follow-up child roadmap:
+
+- Phase 21.6: External Research Document Fetch MVP. `外部資料を取得` / `資料キャッシュを更新` actions を追加し、EDINET / TDnet / IR site / provider profile などの資料取得を explicit opt-in adapter として実現する。取得結果は source URL、provider、fetched_at、published_at、document_hash、manifest を保持して `data/research_docs/` または後続の cache/archive に保存する。通常 tests / CI は network 非依存の fixture / fake adapter で確認する。
+- Phase 21.7: External Stock News Fetch MVP. `AIニュース深掘り` から外部ニュース取得を明示 opt-in で実行できる adapter を追加する。対象は選択中の銘柄名 / ticker / related keywords に限定し、取得結果は `StockNewsEvidence` 互換の title / URL / source / published_at / summary / investment_viewpoint / sentiment_for_investment / freshness_status として保存・表示する。source URL がない内容は断定せず、外部 LLM は必須にしない。
+- Phase 21.6 / 21.7 は、Phase 21.5 の local deterministic slice を置き換えず、外部取得に失敗した場合も既存のローカル資料・ローカル news evidence 表示に戻れる設計にする。
+- External fetch child phases remain decision-support only. Investment Score、Research Score、Decision Report 自動反映、ranking order 変更、buy / sell / hold 判断は行わない。
+
 ### 5.8 Phase 22: Research Score And Investment Integration
 
 Status: planned

@@ -399,7 +399,7 @@ SYMBOL_UNIVERSE_DISPLAY_LABELS = {
         "NEUTRAL": "中立",
         "MODERATE_DOWNSIDE": "下降警戒",
         "STRONG_DOWNSIDE": "強い下降警戒",
-        "UNKNOWN": "判定不足",
+        "UNKNOWN": "方向データ不足",
     },
     "data_quality": {
         "OK": "十分",
@@ -1106,10 +1106,84 @@ def _ranking_first_metric(row: dict[str, str], columns: tuple[str, ...]) -> tupl
     return "総合スコア", str(row.get("総合スコア", "未計算"))
 
 
-def ranking_purpose_row_reason(row: dict[str, str], ranking_purpose: str) -> str:
-    columns = ranking_purpose_primary_columns(ranking_purpose)
+def _ranking_distinct_numeric_count(rows: list[dict[str, str]], column: str) -> int:
+    values = {value for row in rows if (value := _decimal_from_text(row.get(column))) is not None}
+    return len(values)
+
+
+def _ranking_direction_data_limited(rows: list[dict[str, str]]) -> bool:
+    if not rows:
+        return False
+    direction_values = [
+        _decimal_from_text(row.get("方向スコア"))
+        for row in rows
+        if _decimal_from_text(row.get("方向スコア")) is not None
+    ]
+    upside_values = [
+        _decimal_from_text(row.get("上昇気配"))
+        for row in rows
+        if _decimal_from_text(row.get("上昇気配")) is not None
+    ]
+    downside_values = [
+        _decimal_from_text(row.get("下降警戒"))
+        for row in rows
+        if _decimal_from_text(row.get("下降警戒")) is not None
+    ]
+    if not direction_values or not upside_values or not downside_values:
+        return False
+    neutral = Decimal("50")
+    scores_are_neutral = all(
+        value == neutral
+        for values in (direction_values, upside_values, downside_values)
+        for value in values
+    )
+    direction_labels = {str(row.get("方向感", "")).strip() for row in rows}
+    no_model_counts = all(
+        str(row.get("方向一致", "")).strip() in {"", "上昇 0 / 下降 0 / 横ばい 0"} for row in rows
+    )
+    return scores_are_neutral and (
+        direction_labels <= {"", "判定不足", "方向データ不足"} or no_model_counts
+    )
+
+
+def _ranking_reason_columns(
+    rows: list[dict[str, str]],
+    ranking_purpose: str,
+) -> tuple[str, ...]:
+    primary_columns = ranking_purpose_primary_columns(ranking_purpose)
+    direction_columns = {"上昇気配", "下降警戒", "下降警戒の低さ", "方向スコア"}
+    if direction_columns.intersection(primary_columns) and _ranking_direction_data_limited(rows):
+        return ("総合スコア", "Risk", "データ品質", "条件適合度")
+    return primary_columns
+
+
+def _ranking_primary_columns_for_cards(
+    rows: list[dict[str, str]],
+    ranking_purpose: str,
+) -> tuple[str, ...]:
+    columns = _ranking_reason_columns(rows, ranking_purpose)
+    informative = tuple(
+        column for column in columns if _ranking_distinct_numeric_count(rows, column) >= 2
+    )
+    return informative or columns
+
+
+def ranking_purpose_row_reason(
+    row: dict[str, str],
+    ranking_purpose: str,
+    *,
+    focus_columns: tuple[str, ...] | None = None,
+    direction_limited: bool = False,
+) -> str:
+    columns = focus_columns or ranking_purpose_primary_columns(ranking_purpose)
     metrics = [metric for column in columns if (metric := _ranking_metric_text(row, column))][:3]
     focus = ranking_purpose_focus_summary(ranking_purpose)
+    if direction_limited:
+        fallback = " / ".join(metrics)
+        return (
+            "方向データが不足しているため、上昇気配・下降警戒は中立値50として扱っています。"
+            f"{fallback}を補助確認してください。"
+        )
     if not metrics:
         return focus
     return f"{' / '.join(metrics)}。{focus}"
@@ -1138,6 +1212,8 @@ def ranking_result_aggrid_frame(
     ranking_purpose: str = "multi_factor",
 ) -> pd.DataFrame:
     rows: list[dict[str, str]] = []
+    reason_columns = _ranking_reason_columns(display_rows, ranking_purpose)
+    direction_limited = _ranking_direction_data_limited(display_rows)
     for row in display_rows:
         record = {
             "順位": row.get("順位", ""),
@@ -1171,7 +1247,12 @@ def ranking_result_aggrid_frame(
             "複雑性": row.get("複雑性", ""),
             "注意点": row.get("注意点", ""),
             "並べ替え理由": truncate_text(
-                ranking_purpose_row_reason(row, ranking_purpose),
+                ranking_purpose_row_reason(
+                    row,
+                    ranking_purpose,
+                    focus_columns=reason_columns,
+                    direction_limited=direction_limited,
+                ),
                 max_chars=88,
             ),
             "確認ポイント": truncate_text(
@@ -1777,7 +1858,8 @@ def ranking_top_candidate_cards(
     limit: int = 5,
 ) -> list[dict[str, str]]:
     cards: list[dict[str, str]] = []
-    focus_columns = ranking_purpose_primary_columns(ranking_purpose)
+    focus_columns = _ranking_primary_columns_for_cards(display_rows, ranking_purpose)
+    direction_limited = _ranking_direction_data_limited(display_rows)
     for row in display_rows[:limit]:
         primary_label, primary_value = _ranking_first_metric(row, focus_columns)
         cards.append(
@@ -1788,7 +1870,12 @@ def ranking_top_candidate_cards(
                 "score": row.get("総合スコア", "未計算"),
                 "primary_label": primary_label,
                 "primary_value": primary_value,
-                "reason": ranking_purpose_row_reason(row, ranking_purpose),
+                "reason": ranking_purpose_row_reason(
+                    row,
+                    ranking_purpose,
+                    focus_columns=focus_columns,
+                    direction_limited=direction_limited,
+                ),
                 "confidence": row.get("DB信頼度") or row.get("条件適合度") or "未登録",
                 "direction": row.get("方向感", ""),
                 "upside": row.get("上昇気配", ""),
@@ -1880,7 +1967,7 @@ def ranking_candidate_breakdown_rows(
         },
         {
             "観点": "Direction Signal",
-            "値": selected_row.get("方向感", "判定不足"),
+            "値": selected_row.get("方向感", "方向データ不足"),
             "確認ポイント": (
                 f"上昇 {selected_row.get('上昇気配', '未計算')} / "
                 f"下降警戒 {selected_row.get('下降警戒', '未計算')}"
@@ -1906,9 +1993,11 @@ def ranking_candidate_breakdown_rows(
         },
     ]
     if ranking_purpose:
+        direction_limited = _ranking_direction_data_limited(display_rows)
+        focus_columns = _ranking_reason_columns(display_rows, ranking_purpose)
         primary_label, primary_value = _ranking_first_metric(
             selected_row,
-            ranking_purpose_primary_columns(ranking_purpose),
+            focus_columns,
         )
         rows.insert(
             0,
@@ -1916,7 +2005,12 @@ def ranking_candidate_breakdown_rows(
                 "観点": ranking_purpose_label(ranking_purpose),
                 "値": f"{primary_label} {primary_value}",
                 "確認ポイント": truncate_text(
-                    ranking_purpose_row_reason(selected_row, ranking_purpose),
+                    ranking_purpose_row_reason(
+                        selected_row,
+                        ranking_purpose,
+                        focus_columns=focus_columns,
+                        direction_limited=direction_limited,
+                    ),
                     max_chars=52,
                 ),
             },
@@ -2054,7 +2148,7 @@ def _direction_badge_tone(label: str) -> str:
         return "success"
     if "下降" in label:
         return "caution"
-    if "判定不足" in label:
+    if "判定不足" in label or "データ不足" in label:
         return "neutral"
     return "info"
 
@@ -2150,7 +2244,8 @@ def _render_ranking_profile_chart(
         return
     if selection.used_fallback:
         st.caption(
-            f"指定条件向けの列が不足しているため、代替チャート `{selection.profile.title}` を表示しています。"
+            "指定条件向けの列が不足している、または同じ値に偏っているため、"
+            f"代替チャート `{selection.profile.title}` を表示しています。"
         )
     st.caption(selection.profile.description)
     with st.expander("読み方", expanded=False):
@@ -3600,7 +3695,6 @@ async def _build_market_data_ranking_rows_fast(
             }
         )
     adapter = create_market_data_provider_adapter(dataaccess_cfg)
-    start_dt = datetime.combine(start, time.min, tzinfo=UTC)
     end_dt = datetime.combine(end, time.max, tzinfo=UTC)
     feature_start = min(start, end - timedelta(days=90))
     feature_start_dt = datetime.combine(feature_start, time.min, tzinfo=UTC)
@@ -3685,13 +3779,13 @@ async def _build_market_data_ranking_rows_fast(
     forecast_horizon_days = default_forecast_horizon_days(start, end)
     forecast_consensus_by_symbol = {}
     for index, symbol in enumerate(available_symbols, start=1):
-        period_bars = [bar for bar in bars_by_symbol[symbol] if start_dt <= bar.ts <= end_dt]
+        forecast_history_bars = bars_by_symbol[symbol]
         forecast_consensus = summarize_forecast_evaluations_for_ui(
             _available_forecast_evaluations(
-                period_bars,
+                forecast_history_bars,
                 horizon_days=forecast_horizon_days,
             ),
-            history=period_bars,
+            history=forecast_history_bars,
         )
         if forecast_consensus is not None:
             forecast_consensus_by_symbol[forecast_consensus.symbol] = forecast_consensus
@@ -6445,7 +6539,7 @@ def ranking_investment_detail_rows(
     warning = ranking_row.get("注意点", "")
     score_summary = (
         f"総合{ranking_row.get('総合スコア', '未計算')} / "
-        f"方向感{ranking_row.get('方向感', '判定不足')} / "
+        f"方向感{ranking_row.get('方向感', '方向データ不足')} / "
         f"上昇{ranking_row.get('上昇気配', '未計算')} / "
         f"下降警戒{ranking_row.get('下降警戒', '未計算')} / "
         f"品質{ranking_row.get('データ品質', '未計算')} / "
@@ -6593,9 +6687,9 @@ def _direction_signal_label(value: str) -> str:
         "NEUTRAL": "中立",
         "MODERATE_DOWNSIDE": "下降警戒",
         "STRONG_DOWNSIDE": "強い下降警戒",
-        "UNKNOWN": "判定不足",
+        "UNKNOWN": "方向データ不足",
     }
-    return labels.get(value, value or "判定不足")
+    return labels.get(value, value or "方向データ不足")
 
 
 def _investment_score_band_label(value: str) -> str:

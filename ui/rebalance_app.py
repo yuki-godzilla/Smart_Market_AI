@@ -491,12 +491,12 @@ async def build_market_data_preview(
             quality_summary=_feature_quality_summary(feature_rows),
         )
         forecast_evaluations = _available_forecast_evaluations(
-            bars,
+            feature_bars,
             horizon_days=forecast_horizon_days,
         )
         forecast_consensus = summarize_forecast_evaluations_for_ui(
             forecast_evaluations,
-            history=bars,
+            history=feature_bars,
         )
         forecast_consensus_by_symbol = (
             {forecast_consensus.symbol: forecast_consensus}

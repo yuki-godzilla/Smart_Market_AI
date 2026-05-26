@@ -2244,6 +2244,66 @@ def test_build_market_data_ranking_rows_uses_batch_fast_path(monkeypatch):
     assert error_rows == []
 
 
+def test_build_market_data_ranking_rows_uses_feature_history_for_direction_signal(monkeypatch):
+    class FakeBatchAdapter:
+        async def fetch_ohlcv(self, symbols, start, end, interval="1d"):
+            bars = []
+            for symbol in symbols:
+                contract = Symbol(raw=symbol, exchange="NASDAQ", code=symbol, currency="USD")
+                for day in range(30):
+                    close = Decimal("100") + Decimal(day)
+                    bars.append(
+                        Bar(
+                            symbol=contract,
+                            ts=datetime(2026, 4, day + 1, tzinfo=UTC),
+                            open=close,
+                            high=close + Decimal("1"),
+                            low=close - Decimal("1"),
+                            close=close,
+                            volume=Decimal("1000000"),
+                            interval=interval,
+                            provider="fake",
+                        )
+                    )
+            return bars
+
+        async def fetch_fundamentals(self, symbols, as_of):
+            return [
+                FundamentalSnapshot(
+                    symbol=symbol,
+                    as_of=as_of,
+                    provider="fake",
+                    dividend_yield=Decimal("0.03"),
+                    market_cap_jpy=Decimal("1000000000000"),
+                )
+                for symbol in symbols
+            ]
+
+        def healthcheck(self):
+            return {"provider": "fake", "status": "ok"}
+
+    monkeypatch.setattr(
+        "ui.app.create_market_data_provider_adapter",
+        lambda _: FakeBatchAdapter(),
+    )
+
+    rows, error_rows = asyncio.run(
+        _build_market_data_ranking_rows(
+            ["AAA"],
+            start=date(2026, 4, 30),
+            end=date(2026, 4, 30),
+            provider="mock",
+        )
+    )
+
+    assert error_rows == []
+    assert rows[0]["direction_signal_label"] != "UNKNOWN"
+    assert rows[0]["upside_signal_score"] != "50"
+    assert rows[0]["downside_signal_score"] != "50"
+    assert rows[0]["up_model_count"] == "1"
+    assert rows[0]["down_model_count"] == "1"
+
+
 def test_build_market_data_ranking_rows_reports_no_bars_details(monkeypatch):
     class FakePartialBatchAdapter:
         async def fetch_ohlcv(self, symbols, start, end, interval="1d"):
@@ -2502,7 +2562,7 @@ def test_investment_score_display_rows_are_beginner_friendly():
     assert rows[0]["銘柄名"] == "Apple Inc."
     assert rows[0]["総合スコア"] == "73"
     assert rows[0]["見方"] == "バランス型"
-    assert rows[0]["方向感"] == "判定不足"
+    assert rows[0]["方向感"] == "方向データ不足"
     assert rows[0]["方向一致"] == "上昇 0 / 下降 0 / 横ばい 0"
     assert rows[0]["モデル一致度"] == "40"
     assert rows[0]["データ品質"] == "100"
@@ -2640,6 +2700,58 @@ def test_ranking_candidate_cards_and_breakdown_use_existing_display_values():
     ]
     assert breakdown[3]["確認ポイント"] == "評価に使えるデータの充実度"
     assert breakdown[5]["値"] == "根拠あり"
+
+
+def test_ranking_candidate_cards_fallback_when_direction_data_is_limited():
+    rows = [
+        {
+            "順位": "1",
+            "銘柄": "7203.T",
+            "銘柄名": "Toyota Motor",
+            "総合スコア": "82",
+            "見方": "比較候補",
+            "DB信頼度": "88",
+            "条件適合度": "90",
+            "Screening": "79",
+            "方向感": "方向データ不足",
+            "上昇気配": "50",
+            "下降警戒": "50",
+            "方向スコア": "50",
+            "方向一致": "上昇 0 / 下降 0 / 横ばい 0",
+            "Risk": "55",
+            "データ品質": "90",
+        },
+        {
+            "順位": "2",
+            "銘柄": "6752.T",
+            "銘柄名": "Panasonic Holdings",
+            "総合スコア": "71",
+            "見方": "バランス型",
+            "DB信頼度": "90",
+            "条件適合度": "85",
+            "Screening": "74",
+            "方向感": "方向データ不足",
+            "上昇気配": "50",
+            "下降警戒": "50",
+            "方向スコア": "50",
+            "方向一致": "上昇 0 / 下降 0 / 横ばい 0",
+            "Risk": "62",
+            "データ品質": "92",
+        },
+    ]
+
+    cards = ranking_top_candidate_cards(rows, ranking_purpose=RANKING_PURPOSE_UPSIDE_SIGNAL)
+    breakdown = ranking_candidate_breakdown_rows(
+        rows,
+        "7203.T",
+        ranking_purpose=RANKING_PURPOSE_UPSIDE_SIGNAL,
+    )
+
+    assert cards[0]["primary_label"] == "総合スコア"
+    assert cards[0]["primary_value"] == "82"
+    assert "方向データが不足" in cards[0]["reason"]
+    assert breakdown[0]["値"] == "総合スコア 82"
+    assert "方向データが不足" in breakdown[0]["確認ポイント"]
 
 
 def test_ranking_display_rows_with_research_status_adds_lightweight_status_columns():

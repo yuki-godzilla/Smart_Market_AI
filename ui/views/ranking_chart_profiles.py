@@ -204,7 +204,7 @@ RANKING_CHART_PROFILES: dict[str, RankingChartProfile] = {
         x_candidates=("上昇気配", "Upside Signal"),
         y_candidates=("下降警戒の低さ", "方向スコア", "下降警戒"),
         color_candidates=("方向感", "見方", "注意点"),
-        fallback_key=PROFILE_SCORE_FORECAST,
+        fallback_key=PROFILE_SCORE_RISK,
         description=(
             "上昇気配重視で見る候補について、上向きシグナルと下降警戒の低さを同時に確認できます。"
         ),
@@ -342,7 +342,7 @@ def _ranking_chart_frame(
             color_column=color_column,
         )
         frame = frame.dropna(subset=["x_value", "y_value"])
-        if len(frame) >= min_rows:
+        if len(frame) >= min_rows and _frame_has_visual_variation(frame):
             return RankingChartSelection(
                 profile=profile,
                 frame=frame,
@@ -361,6 +361,10 @@ def _ranking_chart_frame(
             visited=visited,
         )
     return None
+
+
+def _frame_has_visual_variation(frame: pd.DataFrame) -> bool:
+    return frame["x_value"].nunique(dropna=True) >= 2 or frame["y_value"].nunique(dropna=True) >= 2
 
 
 def _first_numeric_column(

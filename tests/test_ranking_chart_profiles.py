@@ -98,6 +98,26 @@ def test_ranking_chart_frame_uses_upside_downside_profile_for_upside_purpose():
     assert selection.used_fallback is False
 
 
+def test_ranking_chart_frame_falls_back_when_upside_axes_overlap():
+    rows = [
+        {
+            **row,
+            "上昇気配": "50",
+            "下降警戒の低さ": "50",
+            "方向スコア": "50",
+        }
+        for row in _ranking_rows()
+    ]
+
+    selection = ranking_chart_frame(rows, chart_profile_for_purpose("upside_signal"))
+
+    assert selection is not None
+    assert selection.profile.key == PROFILE_SCORE_RISK
+    assert selection.x_column == "総合スコア"
+    assert selection.y_column == "Risk"
+    assert selection.used_fallback is True
+
+
 def test_ranking_chart_frame_returns_none_when_not_enough_rows():
     rows = _ranking_rows()[:2]
 

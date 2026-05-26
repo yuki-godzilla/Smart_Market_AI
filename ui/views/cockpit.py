@@ -344,12 +344,48 @@ def cockpit_direction_signal_summary(
         return "方向シグナルは未計算です。価格チャート、予測レンジ、データ品質を先に確認します。"
 
     gap = upside - downside
-    if upside >= Decimal("65") and downside >= Decimal("65") and abs(gap) < Decimal("12"):
+    counts = _direction_counts(direction_match)
+    direction_split = _direction_counts_are_split(counts)
+    high_forecast_spread = range_value is not None and range_value >= Decimal("10")
+    if _direction_signal_data_is_limited(upside, downside, counts, forecast_return_value):
         return (
-            "上向き材料と下向き材料がどちらも強めです。"
+            "方向シグナルは中立寄りで、モデル方向の材料も不足しています。"
+            "上昇気配・下降警戒だけで判断せず、取得期間、データ品質、価格チャートを先に確認します。"
+        )
+    if upside < Decimal("45") and downside < Decimal("45"):
+        return (
+            f"上昇気配{_format_direction_decimal(upside)}、"
+            f"下降警戒{_format_direction_decimal(downside)}で、どちらの方向材料も控えめです。"
+            f"{_forecast_return_summary_clause(forecast_return, forecast_return_value)}"
+            "強い方向感より、価格レンジとデータ不足の有無を確認します。"
+        )
+    if upside >= Decimal("65") and downside >= Decimal("65"):
+        if gap > 0:
+            lead = "上昇気配がやや優勢"
+        elif gap < 0:
+            lead = "下降警戒がやや優勢"
+        else:
+            lead = "上下はほぼ拮抗"
+        return (
+            f"上向き材料と下向き材料がどちらも強めで、今回は{lead}です。"
             f"上昇気配{_format_direction_decimal(upside)}、"
             f"下降警戒{_format_direction_decimal(downside)}なので、"
             "材料の衝突と予測レンジを分けて確認します。"
+        )
+    if high_forecast_spread and abs(gap) <= Decimal("12"):
+        return (
+            f"予測のばらつきが{forecast_range}と大きめです。"
+            f"上昇気配{_format_direction_decimal(upside)}、"
+            f"下降警戒{_format_direction_decimal(downside)}なので、"
+            "平均予測だけで方向を読まず、上限・下限と実績チャートを分けて確認します。"
+        )
+    if direction_split and abs(gap) <= Decimal("12"):
+        return (
+            "モデル方向が分散していて、上昇・下降の材料が一方向にそろっていません。"
+            f"上昇気配{_format_direction_decimal(upside)}、"
+            f"下降警戒{_format_direction_decimal(downside)}です。"
+            f"{_forecast_return_summary_clause(forecast_return, forecast_return_value)}"
+            "1モデルだけの見方に寄せず、価格チャートと予測レンジを確認します。"
         )
     if downside >= Decimal("65") and gap <= Decimal("-12"):
         return (
@@ -591,6 +627,22 @@ def _direction_counts_are_split(counts: tuple[int, int, int] | None) -> bool:
         return False
     ordered = sorted(counts, reverse=True)
     return ordered[0] == ordered[1] or ordered[0] <= 1
+
+
+def _direction_signal_data_is_limited(
+    upside: Decimal,
+    downside: Decimal,
+    counts: tuple[int, int, int] | None,
+    forecast_return: Decimal | None,
+) -> bool:
+    counts_missing = counts is None or sum(counts) == 0
+    forecast_neutral = forecast_return is None or abs(forecast_return) < Decimal("0.5")
+    return (
+        Decimal("48") <= upside <= Decimal("52")
+        and Decimal("48") <= downside <= Decimal("52")
+        and counts_missing
+        and forecast_neutral
+    )
 
 
 def _agreement_is_low(value: str) -> bool:

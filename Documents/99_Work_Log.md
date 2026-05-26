@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-05-26: Expanded Symbol Cockpit `SMAI Insight` direction wording for upside-dominant, downside-caution, both-high, both-low, model-split, forecast-spread, and data-limited states; further compacted Ranking detailed-table columns by purpose; split Ranking Decision Report rows into candidate memo and score-detail sections.
 - 2026-05-26: Adjusted shared SMAI typography so body copy, captions, insight text, cards, and confirmation tables are slightly larger/brighter with roomier line-height without changing the dense dashboard layout.
 - 2026-05-26: Refined Ranking detailed table readability by combining confidence/source columns into `信頼度/根拠`, wrapping the visible confirmation memo, hiding long reason/checkpoint detail columns, and adding symbol names to Ranking Decision Report rows.
 - 2026-05-26: Updated Ranking acquisition periods to `短期: 1か月`, default `標準: 3か月`, `中期: 6か月`, and `長期: 1年` so direction-signal v2 has enough history for 20日/60日 momentum, volatility, and trend checks.

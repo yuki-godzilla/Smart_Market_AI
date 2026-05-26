@@ -157,6 +157,62 @@ def test_cockpit_direction_signal_summary_handles_split_downside_case():
     assert "下落継続リスクと反転材料" in summary
 
 
+def test_cockpit_direction_signal_summary_splits_high_low_and_missing_patterns():
+    both_high = cockpit_direction_signal_summary(
+        {
+            "上昇気配": "72",
+            "下降警戒": "69",
+            "予測変化率": "+1.2%",
+        },
+        {"forecast_range_pct": "4.0%", "agreement": "70"},
+    )
+    both_low = cockpit_direction_signal_summary(
+        {
+            "上昇気配": "38",
+            "下降警戒": "41",
+            "予測変化率": "0.2%",
+        },
+        {"forecast_range_pct": "3.0%", "agreement": "80"},
+    )
+    missing = cockpit_direction_signal_summary(
+        {
+            "上昇気配": "50",
+            "下降警戒": "50",
+            "予測変化率": "0.0%",
+            "方向一致": "上昇 0 / 下降 0 / 横ばい 0",
+        },
+        {"forecast_range_pct": "未計算", "agreement": "未計算"},
+    )
+
+    assert "どちらも強め" in both_high
+    assert "どちらの方向材料も控えめ" in both_low
+    assert "モデル方向の材料も不足" in missing
+
+
+def test_cockpit_direction_signal_summary_prioritizes_spread_and_model_split():
+    spread = cockpit_direction_signal_summary(
+        {
+            "上昇気配": "58",
+            "下降警戒": "53",
+            "予測変化率": "+0.8%",
+        },
+        {"forecast_range_pct": "14.2%", "agreement": "LOW"},
+    )
+    split = cockpit_direction_signal_summary(
+        {
+            "上昇気配": "56",
+            "下降警戒": "51",
+            "予測変化率": "+0.6%",
+            "方向一致": "上昇 1 / 下降 1 / 横ばい 1",
+        },
+        {"forecast_range_pct": "4.0%", "agreement": "80"},
+    )
+
+    assert "予測のばらつきが14.2%" in spread
+    assert "モデル方向が分散" in split
+    assert "1モデルだけの見方" in split
+
+
 def test_research_evidence_summary_items_explain_report_coverage():
     report = CompanyResearchReport(
         symbol="7203.T",

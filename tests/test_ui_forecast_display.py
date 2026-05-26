@@ -659,7 +659,8 @@ def test_ranking_result_aggrid_options_enable_single_row_click_selection():
     assert column_defs["順位"]["pinned"] == "left"
     assert column_defs["銘柄"]["pinned"] == "left"
     assert "確認メモ" in column_defs
-    assert column_defs["確認メモ"]["tooltipField"] == "確認メモ"
+    assert column_defs["確認メモ"]["tooltipField"] == "確認詳細"
+    assert column_defs["確認詳細"]["hide"] is True
     assert "並べ替え理由" in column_defs
     assert column_defs["並べ替え理由"]["hide"] is True
     assert column_defs["並べ替え理由"]["tooltipField"] == "並べ替え理由"
@@ -2965,12 +2966,10 @@ def test_ranking_result_aggrid_frame_keeps_display_table_compact():
         "下降警戒",
         "Risk",
         "データ品質",
-        "Screening",
-        "予測変化率",
-        "方向一致",
         "信頼度/根拠",
         "見方",
         "確認メモ",
+        "確認詳細",
         "並べ替え理由",
         "確認ポイント",
     ]
@@ -2980,6 +2979,8 @@ def test_ranking_result_aggrid_frame_keeps_display_table_compact():
     assert "DB88" in frame.loc[0, "信頼度/根拠"]
     assert "総合スコア 82" in frame.loc[0, "並べ替え理由"]
     assert "総合スコア 82" in frame.loc[0, "確認メモ"]
+    assert len(frame.loc[0, "確認メモ"]) <= 96
+    assert frame.loc[0, "確認詳細"].startswith("総合スコア 82")
 
 
 def test_ranking_result_aggrid_frame_prioritizes_upside_columns_for_upside_purpose():
@@ -3012,6 +3013,38 @@ def test_ranking_result_aggrid_frame_prioritizes_upside_columns_for_upside_purpo
         "方向一致",
     ]
     assert "上昇気配 78" in frame.loc[0, "並べ替え理由"]
+
+
+def test_ranking_result_aggrid_frame_avoids_duplicate_confidence_for_data_purpose():
+    frame = ranking_result_aggrid_frame(
+        [
+            {
+                "順位": "1",
+                "銘柄": "7203.T",
+                "銘柄名": "Toyota Motor",
+                "総合スコア": "82",
+                "データ品質": "90",
+                "DB信頼度": "88",
+                "条件適合度": "86",
+                "根拠状態": "根拠あり",
+                "注意点": "",
+                "Risk": "55",
+            }
+        ],
+        ranking_purpose=RANKING_PURPOSE_DATA_CONFIDENCE,
+    )
+
+    assert "信頼度/根拠" not in frame.columns
+    assert frame.columns.tolist()[:8] == [
+        "順位",
+        "銘柄",
+        "銘柄名",
+        "データ品質",
+        "DB信頼度",
+        "根拠状態",
+        "条件適合度",
+        "注意点",
+    ]
 
 
 def test_ranking_investment_note_uses_scores_and_symbol_metadata(monkeypatch):
@@ -3399,11 +3432,18 @@ def test_ranking_decision_report_context_limits_rows_and_uses_top_symbol(monkeyp
     factor_section = next(
         section for section in context.sections if section.title == "ファクター別上位候補"
     )
+    detail_section = next(
+        section for section in context.sections if section.title == "上位候補スコア詳細"
+    )
     assert ranking_section.summary["reported_rows"] == "20 / 25"
     assert ranking_section.rows[0]["symbol"] == "AAPL"
     assert ranking_section.rows[0]["name"] == "Apple Inc."
+    assert ranking_section.rows[0]["ranking_purpose"] == "成長重視"
     assert "note" not in ranking_section.rows[0]
+    assert "screening_score" not in ranking_section.rows[0]
     assert ranking_section.rows[0]["review_point"].startswith("スコアとデータ品質")
+    assert detail_section.rows[0]["upside_signal_score"] == "78"
+    assert detail_section.rows[0]["downside_signal_score"] == "34"
     assert distribution_section.summary["比較銘柄数"] == "25"
     assert factor_section.rows[0]["観点"] == "総合スコア"
     assert "銘柄メタデータ" not in [section.title for section in context.sections]

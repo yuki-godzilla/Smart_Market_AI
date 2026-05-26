@@ -1070,6 +1070,10 @@ def _dedupe_columns(columns: tuple[str, ...]) -> list[str]:
 
 def _ranking_result_columns(ranking_purpose: str) -> list[str]:
     focus_columns = ranking_purpose_primary_columns(ranking_purpose)
+    focus_set = set(focus_columns)
+    support_columns: tuple[str, ...] = (
+        () if {"条件適合度", "DB信頼度", "根拠状態"}.intersection(focus_set) else ("信頼度/根拠",)
+    )
     return _dedupe_columns(
         (
             "順位",
@@ -1077,16 +1081,11 @@ def _ranking_result_columns(ranking_purpose: str) -> list[str]:
             "銘柄名",
             *focus_columns,
             "総合スコア",
-            "Screening",
-            "上昇気配",
-            "下降警戒",
-            "予測変化率",
-            "方向一致",
             "Risk",
-            "データ品質",
-            "信頼度/根拠",
+            *support_columns,
             "見方",
             "確認メモ",
+            "確認詳細",
             "並べ替え理由",
             "確認ポイント",
         )
@@ -1216,14 +1215,18 @@ def _ranking_compact_confidence_summary(row: dict[str, str]) -> str:
 
 
 def _ranking_compact_confirmation_note(reason: str, checkpoint: str) -> str:
+    return truncate_text(_ranking_full_confirmation_note(reason, checkpoint), max_chars=96)
+
+
+def _ranking_full_confirmation_note(reason: str, checkpoint: str) -> str:
     checkpoint = checkpoint.strip()
     reason = reason.strip()
     generic_checkpoint = "銘柄コックピットで価格・予測・リスクを確認します。"
     if checkpoint and checkpoint != generic_checkpoint:
         if reason and reason != checkpoint:
-            return truncate_text(f"{reason} / {checkpoint}", max_chars=112)
-        return truncate_text(checkpoint, max_chars=112)
-    return truncate_text(reason or checkpoint, max_chars=112)
+            return f"{reason} / {checkpoint}"
+        return checkpoint
+    return reason or checkpoint
 
 
 def ranking_result_aggrid_frame(
@@ -1271,6 +1274,7 @@ def ranking_result_aggrid_frame(
             "複雑性": row.get("複雑性", ""),
             "注意点": row.get("注意点", ""),
             "確認メモ": _ranking_compact_confirmation_note(reason, checkpoint),
+            "確認詳細": _ranking_full_confirmation_note(reason, checkpoint),
             "並べ替え理由": reason,
             "確認ポイント": checkpoint,
         }
@@ -1358,11 +1362,11 @@ def ranking_result_aggrid_options(
             "確認メモ",
             minWidth=360,
             flex=1,
-            tooltipField="確認メモ",
+            tooltipField="確認詳細",
             wrapText=True,
             autoHeight=True,
         )
-    for column in ("並べ替え理由", "確認ポイント"):
+    for column in ("確認詳細", "並べ替え理由", "確認ポイント"):
         if column in frame.columns:
             builder.configure_column(column, hide=True, tooltipField=column)
     return cast(dict[str, object], builder.build())
@@ -5259,10 +5263,22 @@ def build_ranking_decision_report_context(
                 _ranking_report_row(
                     row,
                     _symbol_universe_row_for_symbol(row.get("symbol", "")),
+                    ranking_purpose=ranking_purpose,
                 )
                 for row in top_rows
             ],
-            notes=["ランキング行は深掘り候補の整理であり、売買推奨ではありません。"],
+            notes=["上位候補メモは比較条件と確認観点の保存であり、売買推奨ではありません。"],
+        ),
+        build_report_section(
+            title="上位候補スコア詳細",
+            source_kind="ranking",
+            provider=provider,
+            as_of=end,
+            rows=[_ranking_report_detail_row(row) for row in top_rows],
+            notes=[
+                "詳細スコアは要約メモと分けて確認します。"
+                "横並びの数値だけでなく、確認観点と一緒に読みます。"
+            ],
         ),
         build_report_section(
             title="ランキング分布",
@@ -5986,6 +6002,8 @@ def _format_report_decimal(value: Decimal | None) -> str:
 def _ranking_report_row(
     row: dict[str, str],
     symbol_row: dict[str, str] | None = None,
+    *,
+    ranking_purpose: str = "",
 ) -> dict[str, str]:
     symbol = row.get("symbol", "")
     name = (
@@ -5998,15 +6016,23 @@ def _ranking_report_row(
         "rank": row.get("rank", ""),
         "symbol": symbol,
         "name": name,
+        "ranking_purpose": ranking_purpose,
         "total_score": row.get("total_score", ""),
         "score_band": row.get("score_band", ""),
+        "review_point": _ranking_report_review_point(row, symbol_row),
+    }
+
+
+def _ranking_report_detail_row(row: dict[str, str]) -> dict[str, str]:
+    return {
+        "rank": row.get("rank", ""),
+        "symbol": row.get("symbol", ""),
         "screening_score": row.get("screening_score", ""),
         "forecast_agreement_score": row.get("forecast_agreement_score", ""),
         "upside_signal_score": row.get("upside_signal_score", ""),
         "downside_signal_score": row.get("downside_signal_score", ""),
         "data_quality_score": row.get("data_quality_score", ""),
         "risk_signal_score": row.get("risk_signal_score", ""),
-        "review_point": _ranking_report_review_point(row, symbol_row),
         "warnings": row.get("warnings", ""),
     }
 

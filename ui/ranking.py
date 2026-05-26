@@ -559,14 +559,17 @@ RANKING_FETCH_LIMIT_VALUES = {
     RANKING_FETCH_LIMIT_BROAD: 800,
     RANKING_FETCH_LIMIT_ALL: 0,
 }
+RANKING_DEFAULT_PERIOD_PRESET = "standard"
 RANKING_PERIOD_PRESETS = {
-    "short": 7,
-    "medium": 30,
+    RANKING_DEFAULT_PERIOD_PRESET: 90,
+    "short": 30,
+    "medium": 180,
     "long": 365,
 }
 RANKING_PERIOD_LABELS = {
-    "short": "短期: 1週間",
-    "medium": "中期: 1か月",
+    RANKING_DEFAULT_PERIOD_PRESET: "標準: 3か月",
+    "short": "短期: 1か月",
+    "medium": "中期: 6か月",
     "long": "長期: 1年",
 }
 RANKING_MARKET_LABELS = {
@@ -829,8 +832,8 @@ RANKING_FILTER_HELP_TEXTS = {
     ),
     "keyword": "ticker、会社名、テーマ、別名で候補を探します。",
     "period": (
-        "ランキング計算に使う価格データの期間です。短期は直近の値動きや材料反応、"
-        "中期は数週間のトレンド、長期は大きな上下動を含めた安定性の確認に使います。"
+        "ランキング計算に使う価格データの期間です。標準は3か月で、20日/60日系の予測材料を見やすくします。"
+        "1か月は直近反応、6か月は中期トレンド、1年は大きな上下動を含めた安定性の確認に使います。"
         "候補の絞り込み条件ではなく、スコア・Risk・上昇気配・下降警戒の見え方に影響します。"
     ),
 }
@@ -1212,7 +1215,10 @@ def ranking_detail_filters_for_category(region: str, product_type: str) -> list[
 
 
 def ranking_period_dates(preset: str, end: date) -> tuple[date, date]:
-    days = RANKING_PERIOD_PRESETS.get(preset, RANKING_PERIOD_PRESETS["medium"])
+    days = RANKING_PERIOD_PRESETS.get(
+        preset,
+        RANKING_PERIOD_PRESETS[RANKING_DEFAULT_PERIOD_PRESET],
+    )
     return end - timedelta(days=days), end
 
 

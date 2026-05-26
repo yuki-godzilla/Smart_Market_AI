@@ -67,6 +67,7 @@ from ui.ranking import (
     RANKING_BETA_RISK_LABELS,
     RANKING_COMPLEXITY_LABELS,
     RANKING_CURRENCY_LABELS,
+    RANKING_DEFAULT_PERIOD_PRESET,
     RANKING_DIVIDEND_LABELS,
     RANKING_FETCH_LIMIT_LABELS,
     RANKING_FETCH_LIMIT_PRESET,
@@ -3286,7 +3287,10 @@ def _render_market_data_ranking() -> None:
             period_options,
             index=_selectbox_index(
                 period_options,
-                _ranking_filter_value("market_data_ranking_period", "short"),
+                _ranking_filter_value(
+                    "market_data_ranking_period",
+                    RANKING_DEFAULT_PERIOD_PRESET,
+                ),
             ),
             key="market_data_ranking_period",
             format_func=ranking_period_label,
@@ -3312,7 +3316,10 @@ def _render_market_data_ranking() -> None:
     )
     _render_ranking_filter_panel()
 
-    period_preset = _ranking_filter_value("market_data_ranking_period", "short")
+    period_preset = _ranking_filter_value(
+        "market_data_ranking_period",
+        RANKING_DEFAULT_PERIOD_PRESET,
+    )
     market = "all"
     asset_type = "all"
     currency = _ranking_filter_value("market_data_ranking_currency", "all")

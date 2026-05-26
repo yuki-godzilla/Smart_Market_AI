@@ -4,6 +4,7 @@ import streamlit as st
 
 from ui.ranking import (
     RANKING_ASSET_TYPE_LABELS,
+    RANKING_DEFAULT_PERIOD_PRESET,
     RANKING_DIVIDEND_LABELS,
     RANKING_FILTER_DEFAULTS,
     RANKING_MARKET_LABELS,
@@ -112,7 +113,10 @@ def ranking_filter_signature_from_state() -> str:
         product_type=ranking_filter_value("market_data_ranking_product_type", "stock"),
         ranking_purpose=ranking_filter_value("market_data_ranking_purpose", "dividend"),
         purpose="all",
-        period_preset=ranking_filter_value("market_data_ranking_period", "short"),
+        period_preset=ranking_filter_value(
+            "market_data_ranking_period",
+            RANKING_DEFAULT_PERIOD_PRESET,
+        ),
         market=ranking_filter_value("market_data_ranking_market", "all"),
         asset_type=ranking_filter_value("market_data_ranking_asset_type", "all"),
         currency=ranking_filter_value("market_data_ranking_currency", "all"),

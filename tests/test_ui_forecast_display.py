@@ -2076,11 +2076,15 @@ def test_apply_ranking_filter_state_selects_filtered_candidates(monkeypatch):
 def test_ranking_period_dates_use_beginner_presets():
     end = date(2026, 5, 17)
 
-    assert ranking_period_label("short") == "短期: 1週間"
-    assert ranking_period_dates("short", end) == (date(2026, 5, 10), end)
-    assert ranking_period_dates("medium", end) == (date(2026, 4, 17), end)
+    assert ranking_period_label("standard") == "標準: 3か月"
+    assert ranking_period_label("short") == "短期: 1か月"
+    assert ranking_period_label("medium") == "中期: 6か月"
+    assert ranking_period_dates("standard", end) == (date(2026, 2, 16), end)
+    assert ranking_period_dates("short", end) == (date(2026, 4, 17), end)
+    assert ranking_period_dates("medium", end) == (date(2025, 11, 18), end)
     assert ranking_period_dates("long", end) == (date(2025, 5, 17), end)
-    assert "短期は直近の値動き" in RANKING_FILTER_HELP_TEXTS["period"]
+    assert "標準は3か月" in RANKING_FILTER_HELP_TEXTS["period"]
+    assert "1か月は直近反応" in RANKING_FILTER_HELP_TEXTS["period"]
     assert "安定性" in RANKING_FILTER_HELP_TEXTS["period"]
 
 

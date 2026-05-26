@@ -2488,9 +2488,9 @@ def test_forecast_consensus_rows_and_display_are_beginner_friendly():
             "flat_model_count": "1",
             "up_direction_ratio": "33.33%",
             "down_direction_ratio": "33.33%",
-            "upside_signal_score": "52.87",
-            "downside_signal_score": "47.77",
-            "direction_net_score": "52.55",
+            "upside_signal_score": "54.65",
+            "downside_signal_score": "49.26",
+            "direction_net_score": "52.7",
             "direction_signal_label": "NEUTRAL",
         }
     ]
@@ -2506,9 +2506,9 @@ def test_forecast_consensus_rows_and_display_are_beginner_friendly():
             "予測の開き": "2.0288",
             "予測の開き(%)": "1.90%",
             "方向感": "中立",
-            "上昇気配": "52.87",
-            "下降警戒": "47.77",
-            "方向スコア": "52.55",
+            "上昇気配": "54.65",
+            "下降警戒": "49.26",
+            "方向スコア": "52.7",
             "予測変化率": "0.01%",
             "方向一致": "上昇 1 / 下降 1 / 横ばい 1",
             "モデル一致度(補助)": "中くらい",
@@ -2525,8 +2525,8 @@ def test_forecast_chart_summary_explains_agreement_and_range():
                 "model_count": "3",
                 "forecast_range_pct": "1.90%",
                 "agreement": "MEDIUM",
-                "upside_signal_score": "52.87",
-                "downside_signal_score": "47.77",
+                "upside_signal_score": "54.65",
+                "downside_signal_score": "49.26",
                 "direction_signal_label": "NEUTRAL",
             }
         ],
@@ -2546,7 +2546,7 @@ def test_forecast_chart_summary_explains_agreement_and_range():
 
     assert messages[0] == (
         "3 つの予測モデルから、方向感は「中立」です。"
-        "上昇気配 52.87 / 下降警戒 47.77、予測の開きは 1.90% です。"
+        "上昇気配 54.65 / 下降警戒 49.26、予測の開きは 1.90% です。"
     )
     assert messages[1] == (
         "実線はこれまでの価格、点線はモデルごとの予測です。"

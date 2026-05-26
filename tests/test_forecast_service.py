@@ -10,9 +10,11 @@ from backend.forecast import (
     NaiveForecastModel,
     calculate_direction_net_score,
     calculate_downside_signal_score,
+    calculate_model_forecast_strength_score,
     calculate_upside_signal_score,
     direction_signal_label,
     evaluate_models,
+    forecast_model_signal_weight,
     summarize_forecast_evaluations,
 )
 
@@ -102,12 +104,13 @@ def test_upside_signal_score_rewards_upside_direction_and_momentum():
         latest_close=Decimal("100"),
         ensemble_forecast_close=Decimal("106"),
         model_forecast_closes=[Decimal("105"), Decimal("106"), Decimal("107")],
+        model_forecast_weights=[Decimal("1"), Decimal("1"), Decimal("1")],
         momentum_5d=Decimal("0.02"),
         momentum_20d=Decimal("0.04"),
         forecast_range_pct=Decimal("0.012"),
     )
 
-    assert score >= Decimal("85")
+    assert score >= Decimal("80")
 
 
 def test_upside_signal_score_stays_limited_for_extreme_single_model_spread():
@@ -115,6 +118,7 @@ def test_upside_signal_score_stays_limited_for_extreme_single_model_spread():
         latest_close=Decimal("100"),
         ensemble_forecast_close=Decimal("104"),
         model_forecast_closes=[Decimal("100"), Decimal("100"), Decimal("112")],
+        model_forecast_weights=[Decimal("1"), Decimal("1"), Decimal("1")],
         momentum_5d=Decimal("0.01"),
         momentum_20d=Decimal("-0.01"),
         forecast_range_pct=Decimal("0.10"),
@@ -128,12 +132,13 @@ def test_downside_signal_score_rewards_decline_direction_and_momentum():
         latest_close=Decimal("100"),
         ensemble_forecast_close=Decimal("94"),
         model_forecast_closes=[Decimal("93"), Decimal("94"), Decimal("96")],
+        model_forecast_weights=[Decimal("1"), Decimal("1"), Decimal("1")],
         momentum_5d=Decimal("-0.02"),
         momentum_20d=Decimal("-0.04"),
         forecast_range_pct=Decimal("0.012"),
     )
 
-    assert score >= Decimal("85")
+    assert score >= Decimal("80")
 
 
 def test_downside_signal_score_stays_limited_for_extreme_single_model_spread():
@@ -141,12 +146,60 @@ def test_downside_signal_score_stays_limited_for_extreme_single_model_spread():
         latest_close=Decimal("100"),
         ensemble_forecast_close=Decimal("96"),
         model_forecast_closes=[Decimal("100"), Decimal("100"), Decimal("88")],
+        model_forecast_weights=[Decimal("1"), Decimal("1"), Decimal("1")],
         momentum_5d=Decimal("-0.01"),
         momentum_20d=Decimal("0.01"),
         forecast_range_pct=Decimal("0.10"),
     )
 
     assert score < Decimal("75")
+
+
+def test_model_forecast_strength_scores_model_return_size_and_weight():
+    weak_upside = calculate_upside_signal_score(
+        latest_close=Decimal("100"),
+        ensemble_forecast_close=Decimal("106"),
+        model_forecast_closes=[Decimal("100"), Decimal("100"), Decimal("104")],
+        model_forecast_weights=[Decimal("1"), Decimal("1"), Decimal("1")],
+        momentum_5d=Decimal("0.01"),
+        momentum_20d=Decimal("0.02"),
+        forecast_range_pct=Decimal("0.02"),
+    )
+    strong_upside = calculate_upside_signal_score(
+        latest_close=Decimal("100"),
+        ensemble_forecast_close=Decimal("106"),
+        model_forecast_closes=[Decimal("100"), Decimal("100"), Decimal("118")],
+        model_forecast_weights=[Decimal("1"), Decimal("1"), Decimal("1")],
+        momentum_5d=Decimal("0.01"),
+        momentum_20d=Decimal("0.02"),
+        forecast_range_pct=Decimal("0.02"),
+    )
+
+    assert strong_upside > weak_upside
+
+    lower_weighted = calculate_model_forecast_strength_score(
+        latest_close=Decimal("100"),
+        model_forecast_closes=[Decimal("100"), Decimal("120")],
+        model_forecast_weights=[Decimal("2"), Decimal("1")],
+        side="upside",
+    )
+    higher_weighted = calculate_model_forecast_strength_score(
+        latest_close=Decimal("100"),
+        model_forecast_closes=[Decimal("100"), Decimal("120")],
+        model_forecast_weights=[Decimal("1"), Decimal("2")],
+        side="upside",
+    )
+
+    assert higher_weighted > lower_weighted
+
+
+def test_forecast_model_signal_weight_blends_accuracy_with_sample_count():
+    evaluations = evaluate_models(
+        _bars([100, 102, 104, 103, 106, 108]),
+        models=[NaiveForecastModel()],
+    )
+
+    assert Decimal("0.80") <= forecast_model_signal_weight(evaluations[0]) <= Decimal("1.20")
 
 
 def test_direction_signal_label_and_net_score_classify_upside_downside_and_unknown():

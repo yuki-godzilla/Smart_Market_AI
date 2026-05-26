@@ -141,6 +141,7 @@ def _consensus_with_direction_fallback(
         latest_close=latest_close,
         ensemble_forecast_close=ensemble,
         model_forecast_closes=forecasts,
+        model_forecast_weights=_fallback_model_signal_weights(evaluations),
         momentum_5d=_history_return(sorted_history, 5),
         momentum_20d=_history_return(sorted_history, 20),
         forecast_range_pct=forecast_range_pct,
@@ -153,6 +154,8 @@ def _consensus_with_direction_fallback(
         "flat_model_count": int(signal["flat_model_count"]),
         "up_direction_ratio": signal["up_direction_ratio"],
         "down_direction_ratio": signal["down_direction_ratio"],
+        "model_upside_strength_score": signal["model_upside_strength_score"],
+        "model_downside_strength_score": signal["model_downside_strength_score"],
         "upside_signal_score": signal["upside_signal_score"],
         "downside_signal_score": signal["downside_signal_score"],
         "direction_net_score": signal["direction_net_score"],
@@ -173,6 +176,7 @@ def _fallback_forecast_direction_signal(
     latest_close: Decimal,
     ensemble_forecast_close: Decimal,
     model_forecast_closes: list[Decimal],
+    model_forecast_weights: list[Decimal] | None,
     momentum_5d: Decimal | None,
     momentum_20d: Decimal | None,
     forecast_range_pct: Decimal,
@@ -182,10 +186,23 @@ def _fallback_forecast_direction_signal(
     up_model_count = sum(1 for close in model_forecast_closes if close > latest_close)
     down_model_count = sum(1 for close in model_forecast_closes if close < latest_close)
     flat_model_count = model_count - up_model_count - down_model_count
+    model_upside_strength_score = _fallback_model_forecast_strength_score(
+        latest_close=latest_close,
+        model_forecast_closes=model_forecast_closes,
+        model_forecast_weights=model_forecast_weights,
+        side="upside",
+    )
+    model_downside_strength_score = _fallback_model_forecast_strength_score(
+        latest_close=latest_close,
+        model_forecast_closes=model_forecast_closes,
+        model_forecast_weights=model_forecast_weights,
+        side="downside",
+    )
     upside_signal_score = _fallback_upside_score(
         latest_close=latest_close,
         ensemble_forecast_close=ensemble_forecast_close,
         model_forecast_closes=model_forecast_closes,
+        model_forecast_weights=model_forecast_weights,
         momentum_5d=momentum_5d,
         momentum_20d=momentum_20d,
         forecast_range_pct=forecast_range_pct,
@@ -194,6 +211,7 @@ def _fallback_forecast_direction_signal(
         latest_close=latest_close,
         ensemble_forecast_close=ensemble_forecast_close,
         model_forecast_closes=model_forecast_closes,
+        model_forecast_weights=model_forecast_weights,
         momentum_5d=momentum_5d,
         momentum_20d=momentum_20d,
         forecast_range_pct=forecast_range_pct,
@@ -211,6 +229,8 @@ def _fallback_forecast_direction_signal(
             Decimal(down_model_count) / Decimal(model_count),
             "0.0001",
         ),
+        "model_upside_strength_score": model_upside_strength_score,
+        "model_downside_strength_score": model_downside_strength_score,
         "upside_signal_score": upside_signal_score,
         "downside_signal_score": downside_signal_score,
         "direction_net_score": _fallback_clamp_score(
@@ -228,6 +248,7 @@ def _fallback_upside_score(
     latest_close: Decimal,
     ensemble_forecast_close: Decimal,
     model_forecast_closes: list[Decimal],
+    model_forecast_weights: list[Decimal] | None,
     momentum_5d: Decimal | None,
     momentum_20d: Decimal | None,
     forecast_range_pct: Decimal,
@@ -239,10 +260,11 @@ def _fallback_upside_score(
         mid=Decimal("0"),
         high=Decimal("0.05"),
     )
-    up_direction_score = (
-        Decimal("100")
-        * Decimal(sum(1 for close in model_forecast_closes if close > latest_close))
-        / Decimal(len(model_forecast_closes))
+    model_strength_score = _fallback_model_forecast_strength_score(
+        latest_close=latest_close,
+        model_forecast_closes=model_forecast_closes,
+        model_forecast_weights=model_forecast_weights,
+        side="upside",
     )
     momentum_score = Decimal("50")
     if momentum_5d is not None and momentum_5d > 0:
@@ -250,8 +272,8 @@ def _fallback_upside_score(
     if momentum_20d is not None and momentum_20d > 0:
         momentum_score += Decimal("25")
     return _fallback_clamp_score(
-        forecast_return_score * Decimal("0.45")
-        + up_direction_score * Decimal("0.25")
+        forecast_return_score * Decimal("0.35")
+        + model_strength_score * Decimal("0.35")
         + momentum_score * Decimal("0.20")
         + _fallback_agreement_confidence(forecast_range_pct) * Decimal("0.10")
     )
@@ -262,6 +284,7 @@ def _fallback_downside_score(
     latest_close: Decimal,
     ensemble_forecast_close: Decimal,
     model_forecast_closes: list[Decimal],
+    model_forecast_weights: list[Decimal] | None,
     momentum_5d: Decimal | None,
     momentum_20d: Decimal | None,
     forecast_range_pct: Decimal,
@@ -273,10 +296,11 @@ def _fallback_downside_score(
         mid=Decimal("0"),
         high=Decimal("0.03"),
     )
-    down_direction_score = (
-        Decimal("100")
-        * Decimal(sum(1 for close in model_forecast_closes if close < latest_close))
-        / Decimal(len(model_forecast_closes))
+    model_strength_score = _fallback_model_forecast_strength_score(
+        latest_close=latest_close,
+        model_forecast_closes=model_forecast_closes,
+        model_forecast_weights=model_forecast_weights,
+        side="downside",
     )
     momentum_score = Decimal("50")
     if momentum_5d is not None and momentum_5d < 0:
@@ -284,11 +308,88 @@ def _fallback_downside_score(
     if momentum_20d is not None and momentum_20d < 0:
         momentum_score += Decimal("25")
     return _fallback_clamp_score(
-        forecast_decline_score * Decimal("0.45")
-        + down_direction_score * Decimal("0.25")
+        forecast_decline_score * Decimal("0.35")
+        + model_strength_score * Decimal("0.35")
         + momentum_score * Decimal("0.20")
         + _fallback_agreement_confidence(forecast_range_pct) * Decimal("0.10")
     )
+
+
+def _fallback_model_forecast_strength_score(
+    *,
+    latest_close: Decimal,
+    model_forecast_closes: list[Decimal],
+    model_forecast_weights: list[Decimal] | None,
+    side: str,
+) -> Decimal:
+    if latest_close <= 0 or not model_forecast_closes:
+        return Decimal("50")
+    weights = _fallback_model_weights_for_closes(
+        model_forecast_closes,
+        model_forecast_weights,
+    )
+    weighted_total = Decimal("0")
+    total_weight = Decimal("0")
+    for forecast_close, weight in zip(model_forecast_closes, weights):
+        forecast_return_pct = (forecast_close / latest_close) - Decimal("1")
+        if side == "upside":
+            model_score = _fallback_linear_score(
+                forecast_return_pct,
+                low=Decimal("-0.02"),
+                mid=Decimal("0"),
+                high=Decimal("0.20"),
+            )
+        else:
+            model_score = Decimal("100") - _fallback_linear_score(
+                forecast_return_pct,
+                low=Decimal("-0.20"),
+                mid=Decimal("0"),
+                high=Decimal("0.02"),
+            )
+        weighted_total += model_score * weight
+        total_weight += weight
+    if total_weight <= 0:
+        return Decimal("50")
+    return _fallback_clamp_score(weighted_total / total_weight)
+
+
+def _fallback_model_signal_weights(evaluations: list[ForecastEvaluation]) -> list[Decimal]:
+    weights: list[Decimal] = []
+    for evaluation in evaluations:
+        sample_count = evaluation.metrics.sample_count
+        if sample_count <= 0:
+            weights.append(Decimal("1"))
+            continue
+        direction_accuracy = min(
+            max(evaluation.metrics.direction_accuracy, Decimal("0")),
+            Decimal("1"),
+        )
+        raw_weight = Decimal("0.80") + (direction_accuracy * Decimal("0.40"))
+        sample_confidence = min(Decimal(sample_count) / Decimal("20"), Decimal("1"))
+        blended_weight = Decimal("1") + ((raw_weight - Decimal("1")) * sample_confidence)
+        weights.append(
+            _round_decimal(
+                min(max(blended_weight, Decimal("0.80")), Decimal("1.20")),
+                "0.0001",
+            )
+        )
+    return weights
+
+
+def _fallback_model_weights_for_closes(
+    model_forecast_closes: list[Decimal],
+    model_forecast_weights: list[Decimal] | None,
+) -> list[Decimal]:
+    model_count = len(model_forecast_closes)
+    if not model_forecast_weights:
+        return [Decimal("1") for _ in model_forecast_closes]
+    normalized = [
+        min(max(weight, Decimal("0.10")), Decimal("3.00"))
+        for weight in model_forecast_weights[:model_count]
+    ]
+    if len(normalized) < model_count:
+        normalized.extend(Decimal("1") for _ in range(model_count - len(normalized)))
+    return normalized
 
 
 def _history_return(history: list[Bar], periods: int) -> Decimal | None:

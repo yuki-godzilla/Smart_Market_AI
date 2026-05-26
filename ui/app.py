@@ -4292,6 +4292,21 @@ def _render_research_summary_panel(
             _research_table_html(document_rows, class_name="research-summary-table"),
             unsafe_allow_html=True,
         )
+    grounded_rows = _research_grounded_answer_rows(report)
+    if grounded_rows:
+        st.markdown(
+            _research_table_html(grounded_rows, class_name="research-summary-table"),
+            unsafe_allow_html=True,
+        )
+    retrieval_quality_rows = _research_retrieval_quality_rows(report)
+    if retrieval_quality_rows:
+        st.markdown(
+            _research_table_html(
+                retrieval_quality_rows,
+                class_name="research-summary-table",
+            ),
+            unsafe_allow_html=True,
+        )
 
     point_rows = [
         {
@@ -4309,6 +4324,12 @@ def _render_research_summary_panel(
         if point_rows:
             st.markdown(
                 _research_table_html(point_rows, class_name="research-summary-table"),
+                unsafe_allow_html=True,
+            )
+        claim_rows = _research_extracted_claim_rows(report)
+        if claim_rows:
+            st.markdown(
+                _research_table_html(claim_rows, class_name="research-summary-table"),
                 unsafe_allow_html=True,
             )
         evidence_rows = _research_evidence_display_rows(report)
@@ -4885,6 +4906,51 @@ def _research_quality_warning_rows(report: CompanyResearchReport) -> list[dict[s
     ]
 
 
+def _research_grounded_answer_rows(report: CompanyResearchReport) -> list[dict[str, str]]:
+    answer = report.grounded_answer
+    if answer is None:
+        return []
+    return [
+        {
+            "観点": "Grounded Answer",
+            "内容": answer.answer,
+            "根拠数": str(answer.evidence_count),
+            "注意点": " / ".join(answer.warnings),
+        }
+    ]
+
+
+def _research_retrieval_quality_rows(report: CompanyResearchReport) -> list[dict[str, str]]:
+    quality = report.retrieval_quality
+    if quality is None:
+        return []
+    return [
+        {
+            "観点": "Retrieval Quality",
+            "検索方式": quality.backend,
+            "検索語": quality.query,
+            "拡張語": " / ".join(quality.expanded_terms),
+            "候補数": str(quality.candidate_count),
+            "根拠数": str(quality.evidence_count),
+            "注意点": " / ".join(quality.warnings),
+        }
+    ]
+
+
+def _research_extracted_claim_rows(report: CompanyResearchReport) -> list[dict[str, str]]:
+    return [
+        {
+            "観点": claim.category,
+            "抽出内容": claim.claim,
+            "要約": claim.summary,
+            "信頼度": str(claim.confidence),
+            "根拠数": str(len(claim.supporting_evidence)),
+            "不足情報": " / ".join(claim.missing_information),
+        }
+        for claim in report.extracted_claims
+    ]
+
+
 def _research_document_display_rows(report: CompanyResearchReport) -> list[dict[str, str]]:
     document_rows: dict[tuple[str, str, str], dict[str, str]] = {}
     for evidence in report.evidence:
@@ -4980,16 +5046,57 @@ def _research_evidence_report_section(report: CompanyResearchReport) -> Decision
             for point in report.points
         ],
         evidence_rows=[
-            {
-                "title": evidence.title,
-                "source_type": evidence.source_type,
-                "published_at": evidence.published_at.isoformat() if evidence.published_at else "",
-                "section_title": evidence.section_title or "",
-                "excerpt": evidence.excerpt,
-                "relevance_score": str(evidence.relevance_score),
-                "reliability": str(evidence.reliability),
-            }
-            for evidence in report.evidence[:20]
+            *[
+                {
+                    "row_type": "grounded_answer",
+                    "provider": answer.provider,
+                    "answer": answer.answer,
+                    "claim_count": str(answer.claim_count),
+                    "evidence_count": str(answer.evidence_count),
+                    "warnings": " / ".join(answer.warnings),
+                }
+                for answer in [report.grounded_answer]
+                if answer is not None
+            ],
+            *[
+                {
+                    "row_type": "retrieval_quality",
+                    "backend": quality.backend,
+                    "query": quality.query,
+                    "expanded_terms": " / ".join(quality.expanded_terms),
+                    "candidate_count": str(quality.candidate_count),
+                    "evidence_count": str(quality.evidence_count),
+                    "warnings": " / ".join(quality.warnings),
+                }
+                for quality in [report.retrieval_quality]
+                if quality is not None
+            ],
+            *[
+                {
+                    "row_type": "extracted_claim",
+                    "category": claim.category,
+                    "claim": claim.claim,
+                    "summary": claim.summary,
+                    "confidence": str(claim.confidence),
+                    "evidence_count": str(len(claim.supporting_evidence)),
+                    "missing_information": " / ".join(claim.missing_information),
+                }
+                for claim in report.extracted_claims
+            ],
+            *[
+                {
+                    "title": evidence.title,
+                    "source_type": evidence.source_type,
+                    "published_at": (
+                        evidence.published_at.isoformat() if evidence.published_at else ""
+                    ),
+                    "section_title": evidence.section_title or "",
+                    "excerpt": evidence.excerpt,
+                    "relevance_score": str(evidence.relevance_score),
+                    "reliability": str(evidence.reliability),
+                }
+                for evidence in report.evidence[:20]
+            ],
         ],
         data_quality={
             "status": report.data_quality.status,
@@ -5001,6 +5108,10 @@ def _research_evidence_report_section(report: CompanyResearchReport) -> Decision
             ),
             "evidence_count": str(report.data_quality.evidence_count),
             "warnings": " / ".join(report.data_quality.warnings),
+            "grounded_answer": report.grounded_answer.answer if report.grounded_answer else "",
+            "retrieval_backend": (
+                report.retrieval_quality.backend if report.retrieval_quality else ""
+            ),
         },
     )
 

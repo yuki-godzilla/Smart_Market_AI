@@ -622,3 +622,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Kept Ranking and Symbol Cockpit primary direction-support UI to the two existing indicators: `上昇気配` and `下降警戒`; older direction net / label fields remain backend compatibility details, not main UI indicators.
 - Changed ranking preset scoring so higher `下降警戒` lowers the ranking contribution internally while the raw warning score remains visible to users.
 - Refreshed UI wording, chart profiles, tests, and current-state docs to avoid adding direction balance / direction score style public indicators.
+
+## 2026-05-26 - Phase 21 Research RAG UI / report display first slice
+
+- Added UI helper rows for Phase 21 Research RAG outputs: grounded answer, retrieval quality, and extracted claims.
+- Displayed grounded answer and retrieval quality in the cockpit / ranking Research Summary panel, and extracted claims inside the Research RAG detail expander.
+- Added grounded answer, retrieval quality, and extracted claim rows to the Cockpit Decision Report Research Evidence section without changing ranking, Investment Score, Research Score, or retrieval behavior.

@@ -2,7 +2,7 @@
 
 #### [BACK TO DETAIL DESIGN README](./04_Detail_Design_README.md)
 
-Status: Phase 20 local evidence slice is implementation complete. Phase 21 covers advanced Research RAG extraction, query expansion, optional vector / hybrid search, and grounded answer generation; deterministic query expansion, structured extraction, template grounded answer, retrieval quality, and evidence reranker first slices have started. Research Score, external source adapters, and Assistant integration remain later phases unless explicitly assigned.
+Status: Phase 20 local evidence slice is implementation complete. Phase 21 covers advanced Research RAG extraction, query expansion, optional vector / hybrid search, and grounded answer generation; deterministic query expansion, structured extraction, template grounded answer, retrieval quality, evidence reranker, and first UI / Decision Report display slices have started. Research Score, external source adapters, and Assistant integration remain later phases unless explicitly assigned.
 
 ## Phase 20 Implementation Baseline / 実装ベースライン
 
@@ -202,6 +202,8 @@ Current implementation note: `ResearchGroundedAnswerService` is available as the
 - Cockpit: Research Summary、観点別抽出ポイント、根拠数、最新資料日、Data Quality、Retrieval Quality、検索方式、Research RAG 詳細を表示する。
 - Ranking modal: `AIで資料を確認` button、根拠付き Research Summary、観点別抽出結果、根拠不足 warning、evidence table、retrieval backend 表示を追加する。
 - Decision Report: Research Evidence section、Grounded Answer section、Data Quality section、Retrieval Quality section、根拠不足 warning、売買推奨ではない旨の注記を追加する。
+
+Current implementation note: cockpit and ranking Research Summary panels display `CompanyResearchReport.grounded_answer` and `CompanyResearchReport.retrieval_quality` summary rows, the Research RAG detail expander displays `ResearchExtractedClaim` rows, and the Cockpit Decision Report Research Evidence section carries grounded answer, retrieval quality, and extracted claim rows. Ranking order, Investment Score, and Research Score integration remain unchanged.
 
 ### Phase 21 Test Plan
 

@@ -8,7 +8,14 @@ import pandas as pd
 
 from backend.core.data_contracts import Bar, FundamentalSnapshot, Symbol
 from backend.core.errors import DataSourceError
-from backend.research import CompanyResearchReport, ResearchDataQuality, ResearchDocument
+from backend.research import (
+    CompanyResearchReport,
+    ResearchDataQuality,
+    ResearchDocument,
+    ResearchExtractedClaim,
+    ResearchGroundedAnswer,
+    ResearchRetrievalQuality,
+)
 from backend.screening import ScreeningScore
 from ui.app import (
     DEFAULT_MARKET_DATA_PERIOD_PRESET,
@@ -36,7 +43,10 @@ from ui.app import (
     _render_market_chart,
     _research_evidence_cards_html,
     _research_evidence_report_section,
+    _research_extracted_claim_rows,
+    _research_grounded_answer_rows,
     _research_quality_warning_rows,
+    _research_retrieval_quality_rows,
     _research_table_html,
     _select_ranking_symbol_for_cockpit_with_period,
     _symbol_from_candidate,
@@ -595,6 +605,60 @@ def test_research_quality_warning_rows_feed_escaped_warning_table():
     assert "&lt;check source&gt;" in markup
 
 
+def test_research_phase21_rows_expose_grounded_answer_retrieval_and_claims():
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="Research summary",
+        points=[],
+        evidence=[],
+        extracted_claims=[
+            ResearchExtractedClaim(
+                symbol="7203.T",
+                category="growth",
+                claim="成長材料に関する確認材料があります。",
+                summary="中期計画の記述を確認材料として整理します。",
+                supporting_evidence=[],
+                confidence=Decimal("0.75"),
+            )
+        ],
+        grounded_answer=ResearchGroundedAnswer(
+            symbol="7203.T",
+            answer="登録済み資料から確認できる範囲の説明です。売買推奨ではありません。",
+            referenced_evidence=[],
+            claim_count=1,
+            evidence_count=0,
+            warnings=["追加確認が必要です。"],
+        ),
+        retrieval_quality=ResearchRetrievalQuality(
+            backend="keyword",
+            query="growth | risk",
+            expanded_terms=["growth", "strategy"],
+            candidate_count=4,
+            evidence_count=2,
+            warnings=[],
+        ),
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 1),
+            document_count=1,
+            evidence_count=2,
+            warnings=[],
+        ),
+    )
+
+    grounded_rows = _research_grounded_answer_rows(report)
+    retrieval_rows = _research_retrieval_quality_rows(report)
+    claim_rows = _research_extracted_claim_rows(report)
+
+    assert grounded_rows[0]["観点"] == "Grounded Answer"
+    assert "売買推奨ではありません" in grounded_rows[0]["内容"]
+    assert retrieval_rows[0]["検索方式"] == "keyword"
+    assert retrieval_rows[0]["拡張語"] == "growth / strategy"
+    assert claim_rows[0]["観点"] == "growth"
+    assert claim_rows[0]["信頼度"] == "0.75"
+
+
 def test_research_evidence_report_section_carries_data_quality_warnings():
     warning = "検索できたResearch根拠の信頼度が低いため、出所を確認してください。"
     report = CompanyResearchReport(
@@ -617,6 +681,58 @@ def test_research_evidence_report_section_carries_data_quality_warnings():
     assert section.source.kind == "research"
     assert section.summary["warnings"] == warning
     assert warning in section.warnings
+
+
+def test_research_evidence_report_section_carries_phase21_rows():
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="Research summary",
+        points=[],
+        evidence=[],
+        extracted_claims=[
+            ResearchExtractedClaim(
+                symbol="7203.T",
+                category="business_risk",
+                claim="事業リスクに関する確認材料があります。",
+                summary="為替影響の記述を確認材料として整理します。",
+                supporting_evidence=[],
+                confidence=Decimal("0.64"),
+            )
+        ],
+        grounded_answer=ResearchGroundedAnswer(
+            symbol="7203.T",
+            answer="根拠付き説明です。売買推奨ではありません。",
+            referenced_evidence=[],
+            claim_count=1,
+            evidence_count=0,
+            warnings=[],
+        ),
+        retrieval_quality=ResearchRetrievalQuality(
+            backend="keyword",
+            query="business risk",
+            expanded_terms=["business", "risk"],
+            candidate_count=2,
+            evidence_count=1,
+            warnings=[],
+        ),
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 1),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    section = _research_evidence_report_section(report)
+
+    assert section.summary["grounded_answer"] == "根拠付き説明です。売買推奨ではありません。"
+    assert section.summary["retrieval_backend"] == "keyword"
+    row_types = [row["row_type"] for row in section.rows]
+    assert "grounded_answer" in row_types
+    assert "retrieval_quality" in row_types
+    assert "extracted_claim" in row_types
 
 
 def test_research_evidence_cards_html_escapes_excerpt_and_uses_vertical_cards():

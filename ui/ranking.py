@@ -8,7 +8,32 @@ from backend.core.errors import AppError
 from backend.marketdata.ranking_universe_policy import (
     symbol_allowed_by_ranking_universe_policy,
 )
+from ui.content import ranking_texts
 from ui.symbol_universe import symbol_universe_csv_rows
+
+RANKING_ASSET_TYPE_LABELS = ranking_texts.RANKING_ASSET_TYPE_LABELS
+RANKING_BETA_RISK_LABELS = ranking_texts.RANKING_BETA_RISK_LABELS
+RANKING_COMPLEXITY_LABELS = ranking_texts.RANKING_COMPLEXITY_LABELS
+RANKING_CURRENCY_LABELS = ranking_texts.RANKING_CURRENCY_LABELS
+RANKING_DETAIL_FILTER_LABELS = ranking_texts.RANKING_DETAIL_FILTER_LABELS
+RANKING_DIVIDEND_LABELS = ranking_texts.RANKING_DIVIDEND_LABELS
+RANKING_FETCH_LIMIT_LABELS = ranking_texts.RANKING_FETCH_LIMIT_LABELS
+RANKING_INDEX_FAMILY_LABELS = ranking_texts.RANKING_INDEX_FAMILY_LABELS
+RANKING_INSTALLMENT_LABELS = ranking_texts.RANKING_INSTALLMENT_LABELS
+RANKING_MANAGEMENT_STYLE_LABELS = ranking_texts.RANKING_MANAGEMENT_STYLE_LABELS
+RANKING_MARKET_CAP_LABELS = ranking_texts.RANKING_MARKET_CAP_LABELS
+RANKING_MARKET_LABELS = ranking_texts.RANKING_MARKET_LABELS
+RANKING_MVP_PRODUCT_TYPE_LABELS = ranking_texts.RANKING_MVP_PRODUCT_TYPE_LABELS
+RANKING_MVP_REGION_LABELS = ranking_texts.RANKING_MVP_REGION_LABELS
+RANKING_NISA_ELIGIBILITY_LABELS = ranking_texts.RANKING_NISA_ELIGIBILITY_LABELS
+RANKING_PERIOD_LABELS = ranking_texts.RANKING_PERIOD_LABELS
+RANKING_PRODUCT_TYPE_LABELS = ranking_texts.RANKING_PRODUCT_TYPE_LABELS
+RANKING_PURPOSE_LABELS = ranking_texts.RANKING_PURPOSE_LABELS
+RANKING_REGION_LABELS = ranking_texts.RANKING_REGION_LABELS
+RANKING_RISK_BAND_LABELS = ranking_texts.RANKING_RISK_BAND_LABELS
+RANKING_SCORE_FIELD_LABELS = ranking_texts.RANKING_SCORE_FIELD_LABELS
+RANKING_THEME_LABELS = ranking_texts.RANKING_THEME_LABELS
+RANKING_WEIGHT_PRESET_LABELS = ranking_texts.RANKING_WEIGHT_PRESET_LABELS
 
 MAX_RANKING_CONCURRENT_FETCHES = 8
 MAX_RANKING_BATCH_FETCH_SYMBOLS = 10
@@ -20,32 +45,11 @@ RANKING_REGION_JAPAN = "japan"
 RANKING_REGION_US = "us"
 RANKING_REGION_OTHER_GLOBAL = "other_global"
 RANKING_REGION_ALL = "all"
-RANKING_REGION_LABELS = {
-    RANKING_REGION_JAPAN: "国内",
-    RANKING_REGION_US: "米国",
-    RANKING_REGION_OTHER_GLOBAL: "その他海外",
-    RANKING_REGION_ALL: "全体",
-}
-RANKING_MVP_REGION_LABELS = {
-    RANKING_REGION_JAPAN: RANKING_REGION_LABELS[RANKING_REGION_JAPAN],
-    RANKING_REGION_US: RANKING_REGION_LABELS[RANKING_REGION_US],
-    RANKING_REGION_ALL: RANKING_REGION_LABELS[RANKING_REGION_ALL],
-}
 
 RANKING_PRODUCT_STOCK = "stock"
 RANKING_PRODUCT_ETF = "etf"
 RANKING_PRODUCT_MUTUAL_FUND = "mutual_fund"
 RANKING_PRODUCT_ALL = "all"
-RANKING_PRODUCT_TYPE_LABELS = {
-    RANKING_PRODUCT_STOCK: "株式",
-    RANKING_PRODUCT_ETF: "ETF",
-    RANKING_PRODUCT_MUTUAL_FUND: "投信",
-    RANKING_PRODUCT_ALL: "全体",
-}
-RANKING_MVP_PRODUCT_TYPE_LABELS = {
-    RANKING_PRODUCT_STOCK: RANKING_PRODUCT_TYPE_LABELS[RANKING_PRODUCT_STOCK],
-    RANKING_PRODUCT_ETF: RANKING_PRODUCT_TYPE_LABELS[RANKING_PRODUCT_ETF],
-}
 
 RANKING_PURPOSE_DIVIDEND = "dividend"
 RANKING_PURPOSE_GROWTH = "growth"
@@ -65,26 +69,6 @@ RANKING_PURPOSE_NISA_LONG_TERM = "nisa_long_term"
 RANKING_PURPOSE_DATA_CONFIDENCE = "data_confidence"
 RANKING_PURPOSE_ETF_CORE_COST = "etf_core_cost"
 RANKING_PURPOSE_ETF_INCOME = "etf_income"
-RANKING_PURPOSE_LABELS = {
-    RANKING_PURPOSE_MULTI_FACTOR: "総合マルチファクター",
-    RANKING_PURPOSE_UPSIDE_SIGNAL: "上昇気配重視",
-    RANKING_PURPOSE_MOMENTUM: "モメンタム・トレンド",
-    RANKING_PURPOSE_QUALITY_GROWTH: "成長クオリティ",
-    RANKING_PURPOSE_QUALITY_VALUE: "割安クオリティ",
-    RANKING_PURPOSE_SUSTAINABLE_INCOME: "高配当の持続性",
-    RANKING_PURPOSE_MIN_VOLATILITY: "低ボラ・安定",
-    RANKING_PURPOSE_RISK_ADJUSTED: "リスク調整パフォーマンス",
-    RANKING_PURPOSE_SMALL_GROWTH: "小型・成長探索",
-    RANKING_PURPOSE_NISA_LONG_TERM: "NISA長期適合",
-    RANKING_PURPOSE_DATA_CONFIDENCE: "データ信頼度優先",
-    RANKING_PURPOSE_ETF_CORE_COST: "ETF低コスト・コア",
-    RANKING_PURPOSE_ETF_INCOME: "ETFインカム・分散",
-    RANKING_PURPOSE_DIVIDEND: "配当重視",
-    RANKING_PURPOSE_GROWTH: "成長重視",
-    RANKING_PURPOSE_VALUE: "割安重視",
-    RANKING_PURPOSE_STABILITY: "安定重視",
-    RANKING_PURPOSE_TREND: "トレンド重視",
-}
 RANKING_PURPOSE_DISPLAY_ORDER = (
     RANKING_PURPOSE_MULTI_FACTOR,
     RANKING_PURPOSE_UPSIDE_SIGNAL,
@@ -298,30 +282,6 @@ RANKING_PRESET_DATA_CONFIDENCE = "data_confidence_profile"
 RANKING_PRESET_ETF_CORE_COST = "etf_core_cost_profile"
 RANKING_PRESET_ETF_INCOME = "etf_income_profile"
 RANKING_FETCH_LIMIT_PRESET = RANKING_PRESET_MULTI_FACTOR
-RANKING_WEIGHT_PRESET_LABELS = {
-    RANKING_PRESET_BALANCED: "総合バランス",
-    RANKING_PRESET_FORECAST: "上昇気配重視",
-    RANKING_PRESET_QUALITY: "データ品質重視",
-    RANKING_PRESET_RISK: "リスク控えめ",
-    RANKING_PRESET_INCOME: "配当・インカム重視",
-    RANKING_PRESET_GROWTH: "成長性重視",
-    RANKING_PRESET_VALUE: "割安性重視",
-    RANKING_PRESET_STABILITY: "安定性重視",
-    RANKING_PRESET_TREND: "トレンド重視",
-    RANKING_PRESET_UPSIDE_SIGNAL: "上昇気配重視",
-    RANKING_PRESET_MULTI_FACTOR: "総合マルチファクター",
-    RANKING_PRESET_QUALITY_GROWTH: "成長クオリティ",
-    RANKING_PRESET_QUALITY_VALUE: "割安クオリティ",
-    RANKING_PRESET_SUSTAINABLE_INCOME: "高配当の持続性",
-    RANKING_PRESET_MIN_VOLATILITY: "低ボラ・安定",
-    RANKING_PRESET_MOMENTUM: "モメンタム・トレンド",
-    RANKING_PRESET_RISK_ADJUSTED: "リスク調整パフォーマンス",
-    RANKING_PRESET_SMALL_GROWTH: "小型・成長探索",
-    RANKING_PRESET_NISA_LONG_TERM: "NISA長期適合",
-    RANKING_PRESET_DATA_CONFIDENCE: "データ信頼度優先",
-    RANKING_PRESET_ETF_CORE_COST: "ETF低コスト・コア",
-    RANKING_PRESET_ETF_INCOME: "ETFインカム・分散",
-}
 RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     RANKING_PRESET_BALANCED: {
         "screening_score": Decimal("0.30"),
@@ -547,12 +507,6 @@ RANKING_FETCH_LIMIT_FAST = "fast_100"
 RANKING_FETCH_LIMIT_BALANCED = "balanced_300"
 RANKING_FETCH_LIMIT_BROAD = "broad_800"
 RANKING_FETCH_LIMIT_ALL = "all"
-RANKING_FETCH_LIMIT_LABELS = {
-    RANKING_FETCH_LIMIT_FAST: "高速: 上位100件",
-    RANKING_FETCH_LIMIT_BALANCED: "標準: 上位300件",
-    RANKING_FETCH_LIMIT_BROAD: "広め: 上位800件",
-    RANKING_FETCH_LIMIT_ALL: "全件取得",
-}
 RANKING_FETCH_LIMIT_VALUES = {
     RANKING_FETCH_LIMIT_FAST: 100,
     RANKING_FETCH_LIMIT_BALANCED: 300,
@@ -566,143 +520,11 @@ RANKING_PERIOD_PRESETS = {
     "medium": 180,
     "long": 365,
 }
-RANKING_PERIOD_LABELS = {
-    "short": "短期: 1か月",
-    RANKING_DEFAULT_PERIOD_PRESET: "標準: 3か月",
-    "medium": "中期: 6か月",
-    "long": "長期: 1年",
-}
-RANKING_MARKET_LABELS = {
-    "all": "すべて",
-    "jp": "日本株",
-    "us": "米国株",
-    "etf": "ETF",
-}
-RANKING_ASSET_TYPE_LABELS = {
-    "all": "すべて",
-    "stock": "個別株",
-    "etf": "ETF",
-}
-RANKING_CURRENCY_LABELS = {
-    "all": "すべて",
-    "JPY": "JPY",
-    "USD": "USD",
-}
-RANKING_DIVIDEND_LABELS = {
-    "all": "指定なし",
-    "high_dividend": "配当利回り 3%以上",
-    "dividend": "配当利回り 0%超〜3%未満",
-    "none": "配当利回り 0%",
-    "growth_dividend": "連続増配候補（metadata指定・利回り条件なし）",
-}
-RANKING_COMPLEXITY_LABELS = {
-    "beginner": "初心者向け",
-    "standard": "標準まで",
-    "all": "上級者向けも含める",
-}
-RANKING_THEME_LABELS = {
-    "all": "指定なし",
-    "balanced": "分散/その他",
-    "technology": "テクノロジー",
-    "telecom": "通信（旧分類）",
-    "communication": "通信・メディア",
-    "semiconductor": "半導体",
-    "financial": "金融",
-    "consumer": "消費財・サービス",
-    "healthcare": "ヘルスケア",
-    "energy": "エネルギー",
-    "automotive": "自動車",
-    "trading": "商社",
-    "industrial": "工業・資本財",
-    "materials": "素材",
-    "real_estate": "不動産",
-    "utilities": "公益",
-    "index": "インデックスETF",
-    "bond": "債券",
-    "reit": "REIT",
-    "commodity": "コモディティ",
-}
-RANKING_MARKET_CAP_LABELS = {
-    "all": "指定なし",
-    "mega": "超大型（JP 10兆円以上 / US $200B以上）",
-    "large": "大型（JP 1兆〜10兆円 / US $10B〜$200B）",
-    "mid": "中型（JP 1,000億〜1兆円 / US $2B〜$10B）",
-    "small": "小型（JP 100億〜1,000億円 / US $300M〜$2B）",
-    "micro": "超小型（JP 100億円未満 / US $300M未満）",
-}
-RANKING_INDEX_FAMILY_LABELS = {
-    "all": "指定なし",
-    "sp500": "S&P 500",
-    "nasdaq100": "NASDAQ 100",
-    "total_us": "全米",
-    "small_us": "米国小型",
-    "acwi": "全世界",
-    "msci_world": "先進国",
-    "topix": "TOPIX",
-    "nikkei225": "日経225",
-    "jpx_nikkei400": "JPX日経400",
-    "dow_jones": "Dow Jones",
-    "emerging": "新興国",
-    "china": "中国株",
-    "india": "インド株",
-    "singapore_equity": "シンガポール株",
-    "japan_equity": "日本株",
-    "dividend": "配当系指数",
-    "reit": "REIT",
-    "bond": "債券",
-    "commodity": "コモディティ",
-    "currency": "通貨",
-    "single_stock": "個別株連動",
-    "style_factor": "スタイル/ファクター",
-    "active": "アクティブ",
-    "sector": "セクター/テーマ",
-}
-RANKING_RISK_BAND_LABELS = {
-    "all": "指定なし",
-    "LOW": "低め",
-    "MEDIUM": "中くらい",
-    "HIGH": "高め",
-}
 RANKING_BETA_RISK_ALL = "all"
 RANKING_BETA_RISK_LOW = "low"
 RANKING_BETA_RISK_STANDARD_OR_LOWER = "standard_or_lower"
 RANKING_BETA_RISK_STANDARD = "standard"
 RANKING_BETA_RISK_HIGH = "high"
-RANKING_BETA_RISK_LABELS = {
-    RANKING_BETA_RISK_ALL: "指定なし（βで絞らない）",
-    RANKING_BETA_RISK_LOW: "低変動のみ（β < 0.8）",
-    RANKING_BETA_RISK_STANDARD_OR_LOWER: "標準以下（β <= 1.2）",
-    RANKING_BETA_RISK_STANDARD: "標準のみ（0.8 <= β <= 1.2）",
-    RANKING_BETA_RISK_HIGH: "高変動のみ（β > 1.2）",
-}
-RANKING_MANAGEMENT_STYLE_LABELS = {
-    "all": "指定なし",
-    "index": "インデックス",
-    "active": "アクティブ",
-}
-RANKING_NISA_ELIGIBILITY_LABELS = {
-    "all": "指定なし（NISAで絞らない）",
-    "eligible": "NISA対象のみ（成長投資枠）",
-    "none": "NISA対象外のみ",
-}
-RANKING_INSTALLMENT_LABELS = {
-    "all": "指定なし",
-    "true": "積立可能",
-    "false": "積立不可",
-}
-RANKING_DETAIL_FILTER_LABELS = {
-    "industry_or_sector": "業種/テーマ",
-    "market_cap": "時価総額",
-    "risk_band": "市場感応度（β）",
-    "dividend_yield": "配当利回り",
-    "per": "PER",
-    "pbr": "PBR",
-    "roe": "ROE",
-    "nisa_eligibility": "NISA",
-    "benchmark_index": "連動指数",
-    "expense_ratio": "信託報酬/経費率",
-    "complexity": "複雑さ",
-}
 RANKING_DETAIL_FILTERS_BY_CATEGORY = {
     (RANKING_REGION_JAPAN, RANKING_PRODUCT_STOCK): [
         "industry_or_sector",
@@ -777,152 +599,8 @@ RANKING_METRIC_FILTER_DEFAULTS: dict[str, str | bool] = {
     "market_data_ranking_consensus_min": "2.5",
     "market_data_ranking_consensus_max": "5.0",
 }
-RANKING_FILTER_HELP_TEXTS = {
-    "industry_or_sector": (
-        "業種やテーマで候補を絞ります。株式は主にsector/theme、ETFは指数・投資対象の"
-        "分類を使います。"
-    ),
-    "market_cap": (
-        "会社の規模感です。日本株は10兆円/1兆円/1,000億円/100億円、米国株は"
-        "$200B/$10B/$2B/$300Mを境目に分類します。JPX規模区分由来の行は"
-        "TOPIX Core30/Large70/Mid400/Smallなどを対応させています。"
-    ),
-    "risk_band": (
-        "市場感応度（β）は、市場平均を1.0とした値動きの大きさの目安です。"
-        "β 0.8未満は低変動、0.8〜1.2は市場並み、1.2超は高変動として扱います。"
-        "SMAIでは主にYahoo metadataのbetaから分類しています。"
-        "将来の値動きや損失を保証するものではありません。"
-    ),
-    "nisa_eligibility": (
-        "NISA対象/対象外で絞ります。現在のランキング対象は株式・ETF中心です。"
-        "株式候補は成長投資枠対象として整理済みなので、株式でNISA対象のみを"
-        "選んでも件数が変わらない場合があります。ETFは対象/対象外が混在します。"
-    ),
-    "benchmark_index": (
-        "ETFが主に連動を目指す指数や投資対象です。S&P 500、全世界、債券などの"
-        "中身の違いを確認します。"
-    ),
-    "expense_ratio": (
-        "ETFや投信の保有コストです。長期保有では低いほど手元に残るリターンに" "効きやすくなります。"
-    ),
-    "complexity": (
-        "商品の分かりやすさの目安です。標準までを選ぶと、レバレッジ型など複雑な商品を"
-        "避けやすくなります。"
-    ),
-    "dividend_category": (
-        "配当利回りの帯で候補を絞ります。0%、0%超〜3%未満、3%以上を選べます。"
-        "下の配当利回り(%)をONにして細かく指定する場合、この分類条件は使いません。"
-        "連続増配候補は利回りではなく、curated metadataで指定された分類です。"
-    ),
-    "currency": "取引通貨で候補を絞ります。為替の影響も確認したい時に使います。",
-    "dividend_yield": (
-        "株価に対する年間配当の目安です。高いほど配当収入は大きく見えますが、"
-        "極端に高い場合は減配や株価下落も確認します。"
-    ),
-    "per": (
-        "利益に対して株価が何倍かを示します。低いほど割安に見えますが、"
-        "成長鈍化や一時的な利益変動も確認します。"
-    ),
-    "pbr": (
-        "純資産に対して株価が何倍かを示します。低いほど資産面では割安に見えますが、"
-        "収益力もあわせて確認します。"
-    ),
-    "roe": (
-        "自己資本でどれだけ利益を出しているかを示します。高いほど資本効率が良い目安ですが、"
-        "一時的な上振れもあります。"
-    ),
-    "keyword": "ticker、会社名、テーマ、別名で候補を探します。",
-    "period": (
-        "ランキング計算に使う価格データの期間です。標準は3か月で、20日/60日系の予測材料を見やすくします。"
-        "1か月は直近反応、6か月は中期トレンド、1年は大きな上下動を含めた安定性の確認に使います。"
-        "候補の絞り込み条件ではなく、スコア・Risk・上昇気配・下降警戒の見え方に影響します。"
-    ),
-}
-RANKING_PURPOSE_HELP_TEXTS = {
-    RANKING_PURPOSE_MULTI_FACTOR: (
-        "Screening、上昇気配・下降警戒、Risk、Data Quality、条件適合度をバランスよく見ます。"
-        "特定テーマに寄せず、まず深掘り候補を広く並べたい時の基準です。"
-    ),
-    RANKING_PURPOSE_QUALITY_GROWTH: (
-        "ROE、上昇気配、Screening、Data Qualityを重視します。"
-        "高PER/PBRは単純減点ではなく、成長期待と価格水準の釣り合いを確認する材料として扱います。"
-    ),
-    RANKING_PURPOSE_QUALITY_VALUE: (
-        "PER/PBRの低さだけでなく、ROE、Data Quality、Riskも合わせて見ます。"
-        "割安に見える理由が業績不安やデータ不足ではないかを確認するための並べ替えです。"
-    ),
-    RANKING_PURPOSE_SUSTAINABLE_INCOME: (
-        "配当利回り、配当カテゴリ、Risk、PBR、Data Qualityを重視します。"
-        "極端な高配当は魅力だけでなく、減配リスクの確認対象として扱います。"
-    ),
-    RANKING_PURPOSE_MIN_VOLATILITY: (
-        "Risk signal、β分類、Data Quality、銘柄規模を重視します。"
-        "上昇率よりも値動きの落ち着きと確認しやすさを優先する基準です。"
-    ),
-    RANKING_PURPOSE_MOMENTUM: (
-        "取得期間の価格評価、上昇気配・下降警戒、Screeningを重視します。"
-        "上昇基調でもRiskが強い候補は確認対象として扱い、追随リスクを見落としにくくします。"
-    ),
-    RANKING_PURPOSE_RISK_ADJUSTED: (
-        "リターンだけでなくRisk signal、Data Quality、条件適合度を合わせて見ます。"
-        "同じ上昇でも、値動きの荒さに対して見合うかを確認するための基準です。"
-    ),
-    RANKING_PURPOSE_SMALL_GROWTH: (
-        "小型・中型の成長余地、ROE、Screening、上昇気配を重視します。"
-        "変動率や流動性の不確実性が出やすいため、RiskとDB信頼度も確認します。"
-    ),
-    RANKING_PURPOSE_NISA_LONG_TERM: (
-        "NISA適合、投資スタイル、Risk、Data Quality、ROEを重視します。"
-        "長期保有候補として、制度適合と事業品質を一緒に確認する基準です。"
-    ),
-    RANKING_PURPOSE_DATA_CONFIDENCE: (
-        "metadata source、更新日、Data Quality、欠損の少なさを最優先します。"
-        "判断前に、まず根拠がそろった銘柄から確認したい時に使います。"
-    ),
-    RANKING_PURPOSE_ETF_CORE_COST: (
-        "経費率、連動指数、複雑性、NISA適合、DB信頼度を重視します。"
-        "長期保有の土台になりやすいETF候補を整理する基準です。"
-    ),
-    RANKING_PURPOSE_ETF_INCOME: (
-        "ETFの利回り、経費率、指数、通貨、複雑性、Data Qualityを重視します。"
-        "インカム候補でもコストと分散性を同時に確認します。"
-    ),
-    RANKING_PURPOSE_DIVIDEND: (
-        "旧来の配当重視です。配当利回りと条件適合度を中心に比較します。"
-        "新しい配当評価には「高配当の持続性」も使えます。"
-    ),
-    RANKING_PURPOSE_GROWTH: (
-        "旧来の成長重視です。上昇気配・下降警戒とROE寄りの条件適合度を中心に比較します。"
-        "より品質を見たい場合は「成長クオリティ」を使います。"
-    ),
-    RANKING_PURPOSE_VALUE: (
-        "旧来の割安重視です。PER/PBR寄りの条件適合度を中心に比較します。"
-        "割安の質まで確認する場合は「割安クオリティ」を使います。"
-    ),
-    RANKING_PURPOSE_STABILITY: (
-        "旧来の安定重視です。RiskとData Qualityを中心に比較します。"
-        "より低変動に寄せる場合は「低ボラ・安定」を使います。"
-    ),
-    RANKING_PURPOSE_TREND: (
-        "旧来のトレンド重視です。上昇気配・下降警戒と直近の価格評価を中心に比較します。"
-        "外部ファクターのMomentumに近い見方は「モメンタム・トレンド」を使います。"
-    ),
-    RANKING_PURPOSE_UPSIDE_SIGNAL: (
-        "上昇気配、下向きシグナルの低さ、Screening、Data Qualityを重視します。"
-        "買い推奨ではなく、短期的に深掘りする候補を整理するための基準です。"
-    ),
-}
-
-RANKING_SCORE_FIELD_LABELS = {
-    "screening_score": "Screening",
-    "upside_signal_score": "上昇気配",
-    "downside_signal_score": "下降警戒控えめ",
-    "data_quality_score": "データ品質",
-    "risk_signal_score": "Risk",
-    "database_fit_score": "条件適合度",
-    "metadata_confidence_score": "DB信頼度",
-    "research_score": "Research",
-}
+RANKING_FILTER_HELP_TEXTS = ranking_texts.RANKING_FILTER_HELP_TEXTS
+RANKING_PURPOSE_HELP_TEXTS = ranking_texts.RANKING_PURPOSE_HELP_TEXTS
 
 RANKING_PURPOSE_PRIMARY_COLUMNS: dict[str, tuple[str, ...]] = {
     RANKING_PURPOSE_MULTI_FACTOR: (

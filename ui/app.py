@@ -60,6 +60,42 @@ from ui.components.sidemenu import (
     SIDEMENU_PAGE_REBALANCE,
     render_sidemenu,
 )
+from ui.content.common_texts import (
+    FORECAST_ACTUAL_LABEL,
+    MARKET_DATA_PERIOD_CUSTOM,
+    MARKET_DATA_PERIOD_HELP_TEXT,
+    MARKET_DATA_PERIOD_PRESETS,
+    NO_SYMBOL_CANDIDATE_LABEL,
+)
+from ui.content.research_texts import (
+    RESEARCH_COCKPIT_INTRO,
+    RESEARCH_COCKPIT_SECTION_TITLE,
+    RESEARCH_DETAIL_EXPANDER_LABEL,
+    RESEARCH_DETAIL_OK_CAPTION,
+    RESEARCH_DOCUMENTS_OR_CHUNKS_MISSING,
+    RESEARCH_EVIDENCE_CHECK_FALLBACK,
+    RESEARCH_FETCH_BUTTON_LABEL,
+    RESEARCH_FETCH_SPINNER,
+    RESEARCH_INSUFFICIENT_REPORT_NOTE,
+    RESEARCH_NO_REGISTERED_DOCUMENTS,
+    RESEARCH_NOT_FETCHED_MESSAGE,
+    RESEARCH_RANKING_FETCH_BUTTON_LABEL,
+    RESEARCH_RANKING_LOOKUP_INTRO,
+    RESEARCH_RANKING_LOOKUP_TITLE,
+    RESEARCH_REGISTERED_EVIDENCE_NOTE,
+    RESEARCH_STALE_DOCUMENT_NOTE,
+    RESEARCH_STALE_REPORT_NOTE,
+    RESEARCH_STATUS_INSUFFICIENT,
+    RESEARCH_STATUS_STALE,
+    RESEARCH_STATUS_WITH_EVIDENCE,
+    research_evidence_confirmed_note,
+)
+from ui.content.symbol_texts import (
+    SYMBOL_UNIVERSE_DETAIL_LABELS,
+    SYMBOL_UNIVERSE_DISPLAY_LABELS,
+    SYMBOL_UNIVERSE_NISA_SHORT_LABELS,
+    SYMBOL_UNIVERSE_RISK_BAND_SHORT_LABELS,
+)
 from ui.ranking import (
     LIVE_MARKET_DATA_PROVIDERS,
     MAX_RANKING_BUILD_CACHE_ENTRIES,
@@ -214,31 +250,7 @@ MARKET_DATA_PROVIDER_OPTIONS = ["yahoo", "csv", "mock"]
 MARKET_DATA_PROVIDER_WIDGET_KEY = "market_data_provider_live_first"
 MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY = "market_data_ranking_provider_live_first"
 RANKING_BUILD_CACHE_VERSION = "signal-v4"
-NO_SYMBOL_CANDIDATE_LABEL = "条件に合う候補なし"
 RESEARCH_STALE_DAYS = 730
-MARKET_DATA_PERIOD_CUSTOM = "custom"
-MARKET_DATA_PERIOD_PRESETS = {
-    MARKET_DATA_PERIOD_CUSTOM: "カスタム",
-    "short_1w": "短期: 1週間",
-    "short_1m": "短期: 1か月",
-    "medium_3m": "中期: 3か月",
-    "medium_6m": "中期: 6か月",
-    "ytd": "年初来",
-    "long_1y": "長期: 1年",
-    "long_3y": "長期: 3年",
-    "long_5y": "長期: 5年",
-}
-MARKET_DATA_PERIOD_HELP_TEXT = {
-    MARKET_DATA_PERIOD_CUSTOM: "検証したい決算日、急落日、投資開始想定日に合わせて任意の期間を設定します。",
-    "short_1w": "決算・ニュース・急変後の短期反応を確認します。ノイズが大きいため、売買判断の主根拠にはしません。",
-    "short_1m": "直近の需給変化やモメンタムの継続性を確認します。短期材料の賞味期限を見る補助期間です。",
-    "medium_3m": "四半期決算や業績修正後の評価変化を確認します。短期ノイズと中期トレンドの切り分けに使います。",
-    "medium_6m": "半期程度のトレンド、押し目、下落耐性を確認します。投資テーマが市場に織り込まれているかを見ます。",
-    "ytd": "年初来の市場環境に対する相対感を確認します。同じ年の地合いの中で強弱を比べる時に使います。",
-    "long_1y": "直近1年の業績期待、相場循環、リスク耐性を確認します。初期レビューの基準期間として使いやすい設定です。",
-    "long_3y": "複数決算期をまたぐ成長持続性と景気感応度を確認します。一時的な上振れや下振れをならして見ます。",
-    "long_5y": "長期の構造変化、最大下落、回復力を確認します。長期保有の候補では必ず確認したい期間です。",
-}
 DEFAULT_MARKET_DATA_PERIOD_PRESET = MARKET_DATA_PERIOD_CUSTOM
 MARKET_DATA_COCKPIT_FILTER_DEFAULTS: dict[str, str | bool] = {
     "market_data_cockpit_region": "all",
@@ -263,7 +275,6 @@ MARKET_DATA_COCKPIT_FILTER_DEFAULTS: dict[str, str | bool] = {
     "market_data_cockpit_roe_max": "30.0",
 }
 
-FORECAST_ACTUAL_LABEL = "実績価格"
 FORECAST_ACTUAL_PRICE_COLOR = "#facc15"
 FORECAST_MODEL_COLORS = (
     "#2dd4bf",
@@ -275,10 +286,6 @@ FORECAST_MODEL_COLORS = (
 )
 MARKET_DATA_MODE_COCKPIT = "cockpit"
 MARKET_DATA_MODE_RANKING = "ranking"
-MARKET_DATA_MODE_LABELS = {
-    MARKET_DATA_MODE_COCKPIT: "銘柄コックピット",
-    MARKET_DATA_MODE_RANKING: "銘柄ランキング",
-}
 
 
 @dataclass(frozen=True)
@@ -291,146 +298,6 @@ class RankingResearchStatus:
     latest_document_date: date | None = None
 
 
-SYMBOL_UNIVERSE_DETAIL_LABELS = {
-    "symbol": "銘柄コード",
-    "name": "銘柄名",
-    "market": "市場",
-    "asset_type": "商品分類",
-    "currency": "通貨",
-    "broker": "取扱元",
-    "tradability": "取引可否",
-    "nisa_category": "NISA区分",
-    "nisa_growth_eligible": "成長投資枠",
-    "nisa_tsumitate_eligible": "つみたて投資枠",
-    "investment_style": "投資スタイル",
-    "is_sbi_supported": "SBI対応",
-    "is_active": "有効銘柄",
-    "is_leveraged": "レバレッジ",
-    "is_inverse": "インバース",
-    "theme": "テーマ",
-    "sector": "セクター",
-    "dividend_category": "配当カテゴリ",
-    "dividend_yield_pct": "配当利回り(%)",
-    "market_cap_tier": "時価総額分類",
-    "index_family": "連動指数",
-    "expense_ratio_pct": "信託報酬/経費率(%)",
-    "complexity": "複雑さ",
-    "risk_band": "市場感応度",
-    "per": "PER",
-    "pbr": "PBR",
-    "roe_pct": "ROE(%)",
-    "consensus_rating": "コンセンサス",
-    "forecast_agreement": "モデル一致度(補助)",
-    "data_quality": "データ品質",
-    "tags": "タグ",
-    "aliases": "別名",
-    "yahoo_symbol": "Yahoo取得用symbol",
-    "metadata_source": "metadata source",
-    "metadata_as_of": "metadata as of",
-    "metadata_updated_at": "metadata updated at",
-}
-SYMBOL_UNIVERSE_DISPLAY_LABELS = {
-    "market": {
-        "jp": "日本",
-        "us": "米国",
-        "all": "すべて",
-    },
-    "asset_type": {
-        "stock": "個別株",
-        "etf": "ETF",
-        "reit": "REIT",
-        "mutual_fund": "投資信託",
-        "adr": "ADR",
-    },
-    "broker": {
-        "sbi_securities": "SBI証券",
-        "unknown": "未確認",
-    },
-    "tradability": {
-        "tradable": "取引可能",
-        "not_tradable": "取引対象外",
-        "unknown": "未確認",
-    },
-    "nisa_category": {
-        "growth": "成長投資枠",
-        "tsumitate": "つみたて投資枠",
-        "both": "成長投資枠・つみたて投資枠",
-        "none": "NISA対象外",
-        "unknown": "未確認",
-    },
-    "investment_style": {
-        "lump_sum": "一括投資向き",
-        "recurring": "積立向き",
-        "both": "一括・積立どちらも対象",
-        "unknown": "未確認",
-    },
-    "sector": {
-        "communication": "通信・メディア",
-        "consumer": "消費財・サービス",
-        "energy": "エネルギー",
-        "financial": "金融",
-        "healthcare": "ヘルスケア",
-        "index": "インデックス",
-        "industrial": "工業・資本財",
-        "materials": "素材",
-        "real_estate": "不動産",
-        "technology": "テクノロジー",
-        "utilities": "公益",
-    },
-    "complexity": {
-        "beginner": "初心者向け",
-        "standard": "標準",
-        "advanced": "上級者向け",
-        "currency_select": "通貨選択型",
-        "etn": "ETN",
-        "inverse": "インバース",
-        "leveraged": "レバレッジ",
-        "thematic": "テーマ型",
-    },
-    "risk_band": {
-        "LOW": "低変動（β < 0.8目安）",
-        "MEDIUM": "標準（0.8 <= β <= 1.2目安）",
-        "HIGH": "高変動（β > 1.2目安）",
-    },
-    "forecast_agreement": {
-        "HIGH": "高い",
-        "MEDIUM": "中くらい",
-        "LOW": "低い",
-    },
-    "data_quality": {
-        "OK": "十分",
-        "WARN": "一部不足",
-        "BLOCK": "不足が大きい",
-    },
-    "metadata_source": {
-        "curated_csv": "手動整備CSV",
-        "csv": "ローカルCSV",
-        "fsa": "金融庁/NISA情報",
-        "imaj": "投資信託協会",
-        "jpx": "JPX公式情報",
-        "jpx_listed_stock": "JPX上場銘柄情報",
-        "jpx_nisa_growth": "JPX NISA成長投資枠リスト",
-        "jpx_reit": "JPX REIT情報",
-        "manual": "手動整備",
-        "mutual_fund_seed": "投資信託初期データ",
-        "sbi_us_etf": "SBI証券 米国ETF取扱銘柄",
-        "sbi_us_stock": "SBI証券 米国株取扱銘柄",
-        "yahoo": "Yahoo Finance",
-        "unknown": "未確認",
-    },
-    "management_style": {
-        "index": "インデックス",
-        "active": "アクティブ",
-    },
-    "distribution_policy": {
-        "none": "分配なし",
-        "monthly": "毎月",
-        "quarterly": "四半期",
-        "semiannual": "年2回",
-        "annual": "年1回",
-        "irregular": "不定期",
-    },
-}
 RANKING_RESULT_GRID_CUSTOM_CSS = {
     ".ag-root-wrapper": {
         "background-color": "#121821 !important",
@@ -861,14 +728,14 @@ def symbol_universe_nisa_display(row: dict[str, str]) -> str:
     if nisa_category in {"growth", "tsumitate", "both", "none"}:
         return symbol_universe_detail_display_value(row, "nisa_category")
     if growth and tsumitate:
-        return "成長投資枠・つみたて投資枠"
+        return SYMBOL_UNIVERSE_DISPLAY_LABELS["nisa_category"]["both"]
     if growth:
-        return "成長投資枠"
+        return SYMBOL_UNIVERSE_DISPLAY_LABELS["nisa_category"]["growth"]
     if tsumitate:
-        return "つみたて投資枠"
+        return SYMBOL_UNIVERSE_DISPLAY_LABELS["nisa_category"]["tsumitate"]
     if nisa_category == "none":
-        return "NISA対象外"
-    return "未確認"
+        return SYMBOL_UNIVERSE_DISPLAY_LABELS["nisa_category"]["none"]
+    return SYMBOL_UNIVERSE_DISPLAY_LABELS["nisa_category"]["unknown"]
 
 
 def symbol_universe_leverage_display(row: dict[str, str]) -> str:
@@ -1001,16 +868,9 @@ def symbol_universe_data_info_rows(row: dict[str, str]) -> list[dict[str, str]]:
 def _symbol_universe_key_metric_value(row: dict[str, str], column: str) -> str:
     if column == "nisa_category":
         nisa_text = symbol_universe_nisa_display(row)
-        return {
-            "成長投資枠・つみたて投資枠": "両枠",
-            "つみたて投資枠": "つみたて枠",
-        }.get(nisa_text, nisa_text)
+        return SYMBOL_UNIVERSE_NISA_SHORT_LABELS.get(nisa_text, nisa_text)
     if column == "risk_band":
-        return {
-            "LOW": "低変動",
-            "MEDIUM": "標準",
-            "HIGH": "高変動",
-        }.get(
+        return SYMBOL_UNIVERSE_RISK_BAND_SHORT_LABELS.get(
             _symbol_detail_raw_value(row, column), symbol_universe_detail_display_value(row, column)
         )
     return symbol_universe_detail_display_value(row, column)
@@ -1702,25 +1562,25 @@ def ranking_research_status_from_documents(
     )
     if not documents or chunk_count <= 0:
         return RankingResearchStatus(
-            label="根拠不足",
+            label=RESEARCH_STATUS_INSUFFICIENT,
             tone="caution",
-            note="登録済みResearch資料または検索チャンクがないため、資料面の根拠は限られます。",
+            note=RESEARCH_DOCUMENTS_OR_CHUNKS_MISSING,
             document_count=len(documents),
             latest_document_date=latest_document_date,
         )
     if latest_document_date and (as_of - latest_document_date).days > RESEARCH_STALE_DAYS:
         return RankingResearchStatus(
-            label="最新資料が古い",
+            label=RESEARCH_STATUS_STALE,
             tone="caution",
-            note="登録資料はありますが、最新資料日が2年以上前です。新しいIR資料や決算資料を確認してください。",
+            note=RESEARCH_STALE_DOCUMENT_NOTE,
             document_count=len(documents),
             evidence_count=chunk_count,
             latest_document_date=latest_document_date,
         )
     return RankingResearchStatus(
-        label="根拠あり",
+        label=RESEARCH_STATUS_WITH_EVIDENCE,
         tone="success",
-        note="登録済みResearch資料があります。詳細モーダルのAI Researchで根拠抜粋を確認できます。",
+        note=RESEARCH_REGISTERED_EVIDENCE_NOTE,
         document_count=len(documents),
         evidence_count=chunk_count,
         latest_document_date=latest_document_date,
@@ -1733,26 +1593,26 @@ def ranking_research_status_from_report(
     latest_document_date = report.data_quality.latest_document_date
     if latest_document_date and (report.as_of - latest_document_date).days > RESEARCH_STALE_DAYS:
         return RankingResearchStatus(
-            label="最新資料が古い",
+            label=RESEARCH_STATUS_STALE,
             tone="caution",
-            note="AI Researchで根拠は見つかりましたが、最新資料日が2年以上前です。",
+            note=RESEARCH_STALE_REPORT_NOTE,
             document_count=report.data_quality.document_count,
             evidence_count=report.data_quality.evidence_count,
             latest_document_date=latest_document_date,
         )
     if report.data_quality.document_count <= 0 or report.data_quality.evidence_count <= 0:
         return RankingResearchStatus(
-            label="根拠不足",
+            label=RESEARCH_STATUS_INSUFFICIENT,
             tone="caution",
-            note="AI Researchでは十分な根拠を確認できませんでした。資料登録や別資料の確認が必要です。",
+            note=RESEARCH_INSUFFICIENT_REPORT_NOTE,
             document_count=report.data_quality.document_count,
             evidence_count=report.data_quality.evidence_count,
             latest_document_date=latest_document_date,
         )
     return RankingResearchStatus(
-        label="根拠あり",
+        label=RESEARCH_STATUS_WITH_EVIDENCE,
         tone="success",
-        note=f"AI Researchで{report.data_quality.evidence_count}件の根拠を確認済みです。",
+        note=research_evidence_confirmed_note(report.data_quality.evidence_count),
         document_count=report.data_quality.document_count,
         evidence_count=report.data_quality.evidence_count,
         latest_document_date=latest_document_date,
@@ -1767,9 +1627,9 @@ def ranking_display_rows_with_research_status(
     for row in display_rows:
         symbol = _normalize_research_symbol(row.get("銘柄", "") or row.get("symbol", ""))
         status = statuses_by_symbol.get(symbol) or RankingResearchStatus(
-            label="根拠不足",
+            label=RESEARCH_STATUS_INSUFFICIENT,
             tone="caution",
-            note="登録済みResearch資料がありません。",
+            note=RESEARCH_NO_REGISTERED_DOCUMENTS,
         )
         latest_date = status.latest_document_date.isoformat() if status.latest_document_date else ""
         enriched_rows.append(
@@ -2089,9 +1949,9 @@ def ranking_candidate_breakdown_rows(
         },
         {
             "観点": "Research Evidence",
-            "値": selected_row.get("根拠状態", "根拠不足"),
+            "値": selected_row.get("根拠状態", RESEARCH_STATUS_INSUFFICIENT),
             "確認ポイント": truncate_text(
-                selected_row.get("根拠補足", "AI Researchで資料根拠を確認します。"),
+                selected_row.get("根拠補足", RESEARCH_EVIDENCE_CHECK_FALLBACK),
                 max_chars=42,
             ),
         },
@@ -4355,14 +4215,11 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
         return
     header_col, action_col = st.columns([5.0, 1.2])
     with header_col:
-        st.subheader("06 Research Evidence / 根拠資料")
-        st.caption(
-            "価格データ取得時にはResearch RAGを自動実行しません。"
-            "登録済み資料から根拠を整理したい場合だけ、AIデータ取得を実行してください。"
-        )
+        st.subheader(RESEARCH_COCKPIT_SECTION_TITLE)
+        st.caption(RESEARCH_COCKPIT_INTRO)
     with action_col:
         fetch_clicked = st.button(
-            "AIデータ取得",
+            RESEARCH_FETCH_BUTTON_LABEL,
             key=f"research_ai_fetch_{symbol}",
             help=(
                 "設定 / データ情報で登録したローカル資料を検索し、"
@@ -4371,23 +4228,23 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
             ),
         )
     if fetch_clicked:
-        with st.spinner("Research資料から根拠を整理しています。"):
+        with st.spinner(RESEARCH_FETCH_SPINNER):
             st.session_state[MARKET_DATA_RESEARCH_REPORT_STATE_KEY] = (
                 _build_cockpit_research_report(preview)
             )
 
     report = _cockpit_research_report_from_state(preview)
     if report is None:
-        st.info("Research RAGは未取得です。必要な場合は「AIデータ取得」を押してください。")
+        st.info(RESEARCH_NOT_FETCHED_MESSAGE)
         return
     _render_research_summary_panel(report, detail_expanded=False)
 
 
 def _render_ranking_symbol_research_lookup(symbol: str) -> None:
-    st.subheader("AI Research / 根拠資料")
-    st.caption("この銘柄の登録資料から、投資判断前に確認したい材料と注意点を整理します。")
+    st.subheader(RESEARCH_RANKING_LOOKUP_TITLE)
+    st.caption(RESEARCH_RANKING_LOOKUP_INTRO)
     fetch_clicked = st.button(
-        "AIで資料を確認",
+        RESEARCH_RANKING_FETCH_BUTTON_LABEL,
         key=f"ranking_research_fetch_{_widget_key_fragment(symbol)}",
         help=(
             "登録資料を検索し、成長材料、株主還元、財務安全性、事業リスク、確認不足を根拠付きで表示します。"
@@ -4396,7 +4253,7 @@ def _render_ranking_symbol_research_lookup(symbol: str) -> None:
         type="primary",
     )
     if fetch_clicked:
-        with st.spinner("Research資料から根拠を整理しています。"):
+        with st.spinner(RESEARCH_FETCH_SPINNER):
             fetched_report = analyze_research_for_symbol(symbol)
             _store_ranking_research_report(fetched_report)
 
@@ -4444,9 +4301,9 @@ def _render_research_summary_panel(
         }
         for point in report.points
     ]
-    with st.expander("Research RAG 詳細", expanded=detail_expanded):
+    with st.expander(RESEARCH_DETAIL_EXPANDER_LABEL, expanded=detail_expanded):
         if report.data_quality.status == "OK":
-            st.caption("登録資料から検索できた根拠と観点別サマリです。")
+            st.caption(RESEARCH_DETAIL_OK_CAPTION)
         else:
             st.caption("登録資料または検索できた根拠が少ないため、詳細は確認材料として扱います。")
         if point_rows:

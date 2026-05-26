@@ -600,3 +600,4 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Fixed ranking / preview direction-signal inputs so forecast consensus uses the fetched feature-history bars instead of only the short display period.
 - This prevents one-week / one-day ranking periods from causing every symbol to fall back to `UNKNOWN` and neutral 50 / 50 direction scores.
 - Clarified UI fallback wording as `方向データ不足` and made overlapping upside/downside charts fall back to a more informative score/risk map.
+- Bumped the ranking build cache key so existing Streamlit sessions recompute ranking rows with the corrected direction-signal inputs.

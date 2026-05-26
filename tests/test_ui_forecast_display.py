@@ -1802,12 +1802,15 @@ def test_ranking_source_key_for_selection_matches_actual_fetch_symbols():
         end=date(2026, 5, 17),
     )
 
-    assert source_key == ranking_build_cache_key(
-        provider="yahoo",
-        symbols=["AAPL", "MSFT"],
-        start=date(2026, 5, 10),
-        end=date(2026, 5, 17),
+    assert source_key.endswith(
+        ranking_build_cache_key(
+            provider="yahoo",
+            symbols=["AAPL", "MSFT"],
+            start=date(2026, 5, 10),
+            end=date(2026, 5, 17),
+        )
     )
+    assert source_key.startswith("direction-history-v2|")
     assert (
         _ranking_source_key_for_selection(
             provider="yahoo",
@@ -1820,15 +1823,28 @@ def test_ranking_source_key_for_selection_matches_actual_fetch_symbols():
 
 
 def test_ranking_result_matches_current_selection_detects_stale_results():
-    stored_source = ranking_build_cache_key(
+    old_unversioned_source = ranking_build_cache_key(
         provider="yahoo",
         symbols=["AAPL"],
+        start=date(2026, 5, 10),
+        end=date(2026, 5, 17),
+    )
+    stored_source = _ranking_source_key_for_selection(
+        provider="yahoo",
+        selected_labels=["AAPL - Apple Inc."],
         start=date(2026, 5, 10),
         end=date(2026, 5, 17),
     )
 
     assert _ranking_result_matches_current_selection(
         stored_source,
+        provider="yahoo",
+        selected_labels=["AAPL - Apple Inc."],
+        start=date(2026, 5, 10),
+        end=date(2026, 5, 17),
+    )
+    assert not _ranking_result_matches_current_selection(
+        old_unversioned_source,
         provider="yahoo",
         selected_labels=["AAPL - Apple Inc."],
         start=date(2026, 5, 10),

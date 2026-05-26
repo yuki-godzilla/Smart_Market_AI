@@ -210,6 +210,7 @@ __all__ = [
 MARKET_DATA_PROVIDER_OPTIONS = ["yahoo", "csv", "mock"]
 MARKET_DATA_PROVIDER_WIDGET_KEY = "market_data_provider_live_first"
 MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY = "market_data_ranking_provider_live_first"
+RANKING_BUILD_CACHE_VERSION = "direction-history-v2"
 NO_SYMBOL_CANDIDATE_LABEL = "条件に合う候補なし"
 RESEARCH_STALE_DAYS = 730
 MARKET_DATA_PERIOD_CUSTOM = "custom"
@@ -729,12 +730,13 @@ def _ranking_source_key_for_selection(
     ranking_symbols = _ranking_symbols_from_selected_labels(selected_labels)
     if not ranking_symbols:
         return ""
-    return ranking_build_cache_key(
+    base_key = ranking_build_cache_key(
         provider=provider,
         symbols=ranking_symbols,
         start=start,
         end=end,
     )
+    return f"{RANKING_BUILD_CACHE_VERSION}|{base_key}"
 
 
 def _ranking_result_matches_current_selection(

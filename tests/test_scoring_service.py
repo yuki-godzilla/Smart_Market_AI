@@ -75,6 +75,17 @@ def test_investment_scoring_service_surfaces_model_disagreement_reason():
         forecast_range=Decimal("16"),
         forecast_range_pct=Decimal("0.1495"),
         agreement="LOW",
+        latest_close=Decimal("100"),
+        forecast_return_pct=Decimal("0.08"),
+        up_model_count=2,
+        down_model_count=1,
+        flat_model_count=0,
+        up_direction_ratio=Decimal("0.6667"),
+        down_direction_ratio=Decimal("0.3333"),
+        upside_signal_score=Decimal("72"),
+        downside_signal_score=Decimal("40"),
+        direction_net_score=Decimal("66"),
+        direction_signal_label="MODERATE_UPSIDE",
     )
 
     scores = InvestmentScoringService().score(
@@ -93,6 +104,12 @@ def test_investment_scoring_service_surfaces_model_disagreement_reason():
     score = scores[0]
     assert score.forecast_agreement == "LOW"
     assert score.forecast_agreement_score == Decimal("40")
+    assert score.upside_signal_score == Decimal("72")
+    assert score.downside_signal_score == Decimal("40")
+    assert score.direction_net_score == Decimal("66")
+    assert score.direction_signal_label == "MODERATE_UPSIDE"
+    assert score.up_model_count == 2
+    assert score.down_model_count == 1
     assert score.total_score == Decimal("75.00")
     assert score.score_band == "BALANCED"
     assert "forecast_agreement:low" in score.reasons

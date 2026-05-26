@@ -2,11 +2,20 @@ from __future__ import annotations
 
 from decimal import Decimal
 from math import sqrt
-from typing import Protocol
+from typing import Literal, Protocol, cast
 
 from pydantic import ConfigDict, Field
 
 from backend.core.data_contracts import Bar, StrictBaseModel
+
+DirectionSignalLabel = Literal[
+    "STRONG_UPSIDE",
+    "MODERATE_UPSIDE",
+    "NEUTRAL",
+    "MODERATE_DOWNSIDE",
+    "STRONG_DOWNSIDE",
+    "UNKNOWN",
+]
 
 
 class ForecastPoint(StrictBaseModel):
@@ -56,6 +65,17 @@ class ForecastConsensus(StrictBaseModel):
     forecast_range: Decimal = Field(ge=0)
     forecast_range_pct: Decimal = Field(ge=0)
     agreement: str = Field(min_length=1)
+    latest_close: Decimal | None = Field(default=None, ge=0)
+    forecast_return_pct: Decimal = Decimal("0")
+    up_model_count: int = Field(default=0, ge=0)
+    down_model_count: int = Field(default=0, ge=0)
+    flat_model_count: int = Field(default=0, ge=0)
+    up_direction_ratio: Decimal = Field(default=Decimal("0"), ge=0, le=1)
+    down_direction_ratio: Decimal = Field(default=Decimal("0"), ge=0, le=1)
+    upside_signal_score: Decimal = Field(default=Decimal("50"), ge=0, le=100)
+    downside_signal_score: Decimal = Field(default=Decimal("50"), ge=0, le=100)
+    direction_net_score: Decimal = Field(default=Decimal("50"), ge=0, le=100)
+    direction_signal_label: DirectionSignalLabel = "NEUTRAL"
 
 
 class ForecastModel(Protocol):
@@ -158,6 +178,11 @@ def evaluate_models(
 
 def summarize_forecast_evaluations(
     evaluations: list[ForecastEvaluation],
+    *,
+    history: list[Bar] | None = None,
+    latest_close: Decimal | None = None,
+    momentum_5d: Decimal | None = None,
+    momentum_20d: Decimal | None = None,
 ) -> ForecastConsensus | None:
     """Summarize model agreement across forecast evaluations."""
 
@@ -175,6 +200,24 @@ def summarize_forecast_evaluations(
         forecast_range_pct = forecast_range / median
     else:
         forecast_range_pct = Decimal("0")
+    resolved_latest_close = latest_close
+    resolved_momentum_5d = momentum_5d
+    resolved_momentum_20d = momentum_20d
+    if history:
+        sorted_history = sorted(history, key=lambda bar: bar.ts)
+        resolved_latest_close = sorted_history[-1].close
+        if resolved_momentum_5d is None:
+            resolved_momentum_5d = _history_return(sorted_history, 5)
+        if resolved_momentum_20d is None:
+            resolved_momentum_20d = _history_return(sorted_history, 20)
+    direction_signal = forecast_direction_signal(
+        latest_close=resolved_latest_close,
+        ensemble_forecast_close=ensemble,
+        model_forecast_closes=forecasts,
+        momentum_5d=resolved_momentum_5d,
+        momentum_20d=resolved_momentum_20d,
+        forecast_range_pct=forecast_range_pct,
+    )
 
     first = evaluations[0]
     return ForecastConsensus(
@@ -188,7 +231,246 @@ def summarize_forecast_evaluations(
         forecast_range=_round_price(forecast_range),
         forecast_range_pct=_round_metric(forecast_range_pct),
         agreement=_agreement_label(forecast_range_pct, model_count),
+        latest_close=(
+            _round_price(resolved_latest_close) if resolved_latest_close is not None else None
+        ),
+        forecast_return_pct=direction_signal["forecast_return_pct"],
+        up_model_count=int(direction_signal["up_model_count"]),
+        down_model_count=int(direction_signal["down_model_count"]),
+        flat_model_count=int(direction_signal["flat_model_count"]),
+        up_direction_ratio=direction_signal["up_direction_ratio"],
+        down_direction_ratio=direction_signal["down_direction_ratio"],
+        upside_signal_score=direction_signal["upside_signal_score"],
+        downside_signal_score=direction_signal["downside_signal_score"],
+        direction_net_score=direction_signal["direction_net_score"],
+        direction_signal_label=cast(
+            DirectionSignalLabel, direction_signal["direction_signal_label"]
+        ),
     )
+
+
+def forecast_direction_signal(
+    *,
+    latest_close: Decimal | None,
+    ensemble_forecast_close: Decimal,
+    model_forecast_closes: list[Decimal],
+    momentum_5d: Decimal | None,
+    momentum_20d: Decimal | None,
+    forecast_range_pct: Decimal,
+) -> dict[str, Decimal | int | DirectionSignalLabel]:
+    """Return upside/downside direction signals for ranking support."""
+
+    model_count = len(model_forecast_closes)
+    if latest_close is None or latest_close <= 0 or model_count < 2:
+        return {
+            "forecast_return_pct": Decimal("0"),
+            "up_model_count": 0,
+            "down_model_count": 0,
+            "flat_model_count": model_count,
+            "up_direction_ratio": Decimal("0"),
+            "down_direction_ratio": Decimal("0"),
+            "upside_signal_score": Decimal("50"),
+            "downside_signal_score": Decimal("50"),
+            "direction_net_score": Decimal("50"),
+            "direction_signal_label": "UNKNOWN",
+        }
+
+    forecast_return_pct = (ensemble_forecast_close / latest_close) - Decimal("1")
+    up_model_count = sum(1 for close in model_forecast_closes if close > latest_close)
+    down_model_count = sum(1 for close in model_forecast_closes if close < latest_close)
+    flat_model_count = model_count - up_model_count - down_model_count
+    up_direction_ratio = Decimal(up_model_count) / Decimal(model_count)
+    down_direction_ratio = Decimal(down_model_count) / Decimal(model_count)
+    upside_signal_score = calculate_upside_signal_score(
+        latest_close=latest_close,
+        ensemble_forecast_close=ensemble_forecast_close,
+        model_forecast_closes=model_forecast_closes,
+        momentum_5d=momentum_5d,
+        momentum_20d=momentum_20d,
+        forecast_range_pct=forecast_range_pct,
+    )
+    downside_signal_score = calculate_downside_signal_score(
+        latest_close=latest_close,
+        ensemble_forecast_close=ensemble_forecast_close,
+        model_forecast_closes=model_forecast_closes,
+        momentum_5d=momentum_5d,
+        momentum_20d=momentum_20d,
+        forecast_range_pct=forecast_range_pct,
+    )
+    direction_net_score = calculate_direction_net_score(
+        upside_signal_score=upside_signal_score,
+        downside_signal_score=downside_signal_score,
+    )
+    return {
+        "forecast_return_pct": _round_metric(forecast_return_pct),
+        "up_model_count": up_model_count,
+        "down_model_count": down_model_count,
+        "flat_model_count": flat_model_count,
+        "up_direction_ratio": _round_metric(up_direction_ratio),
+        "down_direction_ratio": _round_metric(down_direction_ratio),
+        "upside_signal_score": upside_signal_score,
+        "downside_signal_score": downside_signal_score,
+        "direction_net_score": direction_net_score,
+        "direction_signal_label": direction_signal_label(
+            upside_signal_score=upside_signal_score,
+            downside_signal_score=downside_signal_score,
+            data_is_insufficient=False,
+        ),
+    }
+
+
+def calculate_upside_signal_score(
+    *,
+    latest_close: Decimal,
+    ensemble_forecast_close: Decimal,
+    model_forecast_closes: list[Decimal],
+    momentum_5d: Decimal | None,
+    momentum_20d: Decimal | None,
+    forecast_range_pct: Decimal,
+) -> Decimal:
+    """Score upward signal strength without treating it as advice."""
+
+    if latest_close <= 0:
+        return Decimal("50")
+    forecast_return_pct = (ensemble_forecast_close / latest_close) - Decimal("1")
+    forecast_return_score = linear_score(
+        forecast_return_pct,
+        low=Decimal("-0.03"),
+        mid=Decimal("0"),
+        high=Decimal("0.05"),
+    )
+    if model_forecast_closes:
+        up_count = sum(1 for close in model_forecast_closes if close > latest_close)
+        up_direction_score = (
+            Decimal("100") * Decimal(up_count) / Decimal(len(model_forecast_closes))
+        )
+    else:
+        up_direction_score = Decimal("50")
+    upside_momentum_score = Decimal("50")
+    if momentum_5d is not None and momentum_5d > 0:
+        upside_momentum_score += Decimal("25")
+    if momentum_20d is not None and momentum_20d > 0:
+        upside_momentum_score += Decimal("25")
+    score = (
+        forecast_return_score * Decimal("0.45")
+        + up_direction_score * Decimal("0.25")
+        + upside_momentum_score * Decimal("0.20")
+        + agreement_confidence_score(forecast_range_pct) * Decimal("0.10")
+    )
+    return clamp_score(score)
+
+
+def calculate_downside_signal_score(
+    *,
+    latest_close: Decimal,
+    ensemble_forecast_close: Decimal,
+    model_forecast_closes: list[Decimal],
+    momentum_5d: Decimal | None,
+    momentum_20d: Decimal | None,
+    forecast_range_pct: Decimal,
+) -> Decimal:
+    """Score downside warning strength without treating it as advice."""
+
+    if latest_close <= 0:
+        return Decimal("50")
+    forecast_return_pct = (ensemble_forecast_close / latest_close) - Decimal("1")
+    forecast_decline_score = inverse_linear_score(
+        forecast_return_pct,
+        low=Decimal("-0.05"),
+        mid=Decimal("0"),
+        high=Decimal("0.03"),
+    )
+    if model_forecast_closes:
+        down_count = sum(1 for close in model_forecast_closes if close < latest_close)
+        down_direction_score = (
+            Decimal("100") * Decimal(down_count) / Decimal(len(model_forecast_closes))
+        )
+    else:
+        down_direction_score = Decimal("50")
+    downside_momentum_score = Decimal("50")
+    if momentum_5d is not None and momentum_5d < 0:
+        downside_momentum_score += Decimal("25")
+    if momentum_20d is not None and momentum_20d < 0:
+        downside_momentum_score += Decimal("25")
+    score = (
+        forecast_decline_score * Decimal("0.45")
+        + down_direction_score * Decimal("0.25")
+        + downside_momentum_score * Decimal("0.20")
+        + agreement_confidence_score(forecast_range_pct) * Decimal("0.10")
+    )
+    return clamp_score(score)
+
+
+def calculate_direction_net_score(
+    *,
+    upside_signal_score: Decimal,
+    downside_signal_score: Decimal,
+) -> Decimal:
+    """Normalize upside minus downside warning into a 0-100 ranking signal."""
+
+    return clamp_score(Decimal("50") + ((upside_signal_score - downside_signal_score) / 2))
+
+
+def direction_signal_label(
+    *,
+    upside_signal_score: Decimal,
+    downside_signal_score: Decimal,
+    data_is_insufficient: bool,
+) -> DirectionSignalLabel:
+    """Classify direction signals for UI display."""
+
+    if data_is_insufficient:
+        return "UNKNOWN"
+    signal_gap = upside_signal_score - downside_signal_score
+    if upside_signal_score >= Decimal("80") and signal_gap >= Decimal("20"):
+        return "STRONG_UPSIDE"
+    if upside_signal_score >= Decimal("65") and signal_gap >= Decimal("10"):
+        return "MODERATE_UPSIDE"
+    if downside_signal_score >= Decimal("80") and signal_gap <= Decimal("-20"):
+        return "STRONG_DOWNSIDE"
+    if downside_signal_score >= Decimal("65") and signal_gap <= Decimal("-10"):
+        return "MODERATE_DOWNSIDE"
+    return "NEUTRAL"
+
+
+def linear_score(
+    value: Decimal,
+    *,
+    low: Decimal,
+    mid: Decimal,
+    high: Decimal,
+) -> Decimal:
+    """Map low/mid/high thresholds to 0/50/100."""
+
+    if value <= low:
+        return Decimal("0")
+    if value >= high:
+        return Decimal("100")
+    if value <= mid:
+        return clamp_score(Decimal("50") * (value - low) / (mid - low))
+    return clamp_score(Decimal("50") + (Decimal("50") * (value - mid) / (high - mid)))
+
+
+def inverse_linear_score(
+    value: Decimal,
+    *,
+    low: Decimal,
+    mid: Decimal,
+    high: Decimal,
+) -> Decimal:
+    """Map low/mid/high thresholds to 100/50/0."""
+
+    return clamp_score(Decimal("100") - linear_score(value, low=low, mid=mid, high=high))
+
+
+def agreement_confidence_score(forecast_range_pct: Decimal) -> Decimal:
+    """Return confidence that model spread is not excessive."""
+
+    if forecast_range_pct <= Decimal("0.01"):
+        return Decimal("100")
+    if forecast_range_pct <= Decimal("0.03"):
+        return Decimal("70")
+    return Decimal("40")
 
 
 def _evaluate_model(
@@ -288,9 +570,27 @@ def _direction(value: Decimal) -> int:
     return 0
 
 
+def _history_return(history: list[Bar], lookback: int) -> Decimal | None:
+    if len(history) <= lookback:
+        return None
+    previous = history[-(lookback + 1)].close
+    latest = history[-1].close
+    if previous <= 0:
+        return None
+    return (latest / previous) - Decimal("1")
+
+
+def clamp_score(value: Decimal) -> Decimal:
+    return _round_score(min(max(value, Decimal("0")), Decimal("100")))
+
+
 def _round_price(value: Decimal) -> Decimal:
     return value.quantize(Decimal("0.0001"))
 
 
 def _round_metric(value: Decimal) -> Decimal:
     return value.quantize(Decimal("0.0001"))
+
+
+def _round_score(value: Decimal) -> Decimal:
+    return value.quantize(Decimal("0.01"))

@@ -116,10 +116,12 @@ from ui.ranking import (
     RANKING_PRESET_QUALITY_VALUE,
     RANKING_PRESET_SMALL_GROWTH,
     RANKING_PRESET_SUSTAINABLE_INCOME,
+    RANKING_PRESET_UPSIDE_SIGNAL,
     RANKING_PURPOSE_ETF_CORE_COST,
     RANKING_PURPOSE_MULTI_FACTOR,
     RANKING_PURPOSE_QUALITY_GROWTH,
     RANKING_PURPOSE_SUSTAINABLE_INCOME,
+    RANKING_PURPOSE_UPSIDE_SIGNAL,
     RANKING_THEME_LABELS,
     RANKING_WEIGHT_PRESETS,
     apply_ranking_weight_preset,
@@ -1367,9 +1369,13 @@ def test_advanced_ranking_purposes_have_profiles_and_help_text():
     assert ranking_weight_preset_for_purpose(RANKING_PURPOSE_SUSTAINABLE_INCOME) == (
         RANKING_PRESET_SUSTAINABLE_INCOME
     )
+    assert ranking_weight_preset_for_purpose(RANKING_PURPOSE_UPSIDE_SIGNAL) == (
+        RANKING_PRESET_UPSIDE_SIGNAL
+    )
     assert "ROE" in ranking_purpose_help(RANKING_PURPOSE_QUALITY_GROWTH)
     assert "減配リスク" in ranking_purpose_help(RANKING_PURPOSE_SUSTAINABLE_INCOME)
     assert "経費率" in ranking_purpose_help(RANKING_PURPOSE_ETF_CORE_COST)
+    assert "上昇気配" in ranking_purpose_help(RANKING_PURPOSE_UPSIDE_SIGNAL)
     assert "roe" in RANKING_INVESTMENT_STYLE_METRICS[RANKING_PURPOSE_QUALITY_GROWTH]
     assert "expense_ratio" in RANKING_INVESTMENT_STYLE_METRICS[RANKING_PURPOSE_ETF_CORE_COST]
 
@@ -2360,6 +2366,17 @@ def test_forecast_consensus_rows_and_display_are_beginner_friendly():
             "forecast_range": "2.0288",
             "forecast_range_pct": "1.90%",
             "agreement": "MEDIUM",
+            "latest_close": "107",
+            "forecast_return_pct": "0.01%",
+            "up_model_count": "1",
+            "down_model_count": "1",
+            "flat_model_count": "1",
+            "up_direction_ratio": "33.33%",
+            "down_direction_ratio": "33.33%",
+            "upside_signal_score": "52.87",
+            "downside_signal_score": "47.77",
+            "direction_net_score": "52.55",
+            "direction_signal_label": "NEUTRAL",
         }
     ]
     assert forecast_consensus_display_rows(rows) == [
@@ -2373,7 +2390,13 @@ def test_forecast_consensus_rows_and_display_are_beginner_friendly():
             "予測上限": "108.0288",
             "予測の開き": "2.0288",
             "予測の開き(%)": "1.90%",
-            "モデル一致度": "中くらい",
+            "方向感": "中立",
+            "上昇気配": "52.87",
+            "下降警戒": "47.77",
+            "方向スコア": "52.55",
+            "予測変化率": "0.01%",
+            "方向一致": "上昇 1 / 下降 1 / 横ばい 1",
+            "モデル一致度(補助)": "中くらい",
         }
     ]
 
@@ -2387,6 +2410,9 @@ def test_forecast_chart_summary_explains_agreement_and_range():
                 "model_count": "3",
                 "forecast_range_pct": "1.90%",
                 "agreement": "MEDIUM",
+                "upside_signal_score": "52.87",
+                "downside_signal_score": "47.77",
+                "direction_signal_label": "NEUTRAL",
             }
         ],
         [
@@ -2403,10 +2429,13 @@ def test_forecast_chart_summary_explains_agreement_and_range():
         ],
     )
 
-    assert messages[0] == "3 つの予測モデルの見方は「中くらい」です。予測の開きは 1.90% です。"
+    assert messages[0] == (
+        "3 つの予測モデルから、方向感は「中立」です。"
+        "上昇気配 52.87 / 下降警戒 47.77、予測の開きは 1.90% です。"
+    )
     assert messages[1] == (
         "実線はこれまでの価格、点線はモデルごとの予測です。"
-        "点線同士が近いほど、モデルの見方が近い状態です。"
+        "方向感は深掘り候補を整理する補助材料です。"
     )
     assert "予測: 直近値維持" in messages[2]
 
@@ -2421,6 +2450,7 @@ def test_investment_score_display_rows_are_beginner_friendly():
                 "score_band": "BALANCED",
                 "screening_score": "80",
                 "forecast_agreement_score": "40",
+                "direction_signal_label": "UNKNOWN",
                 "data_quality_score": "100",
                 "risk_signal_score": "",
                 "warnings": "model_disagreement:high",
@@ -2436,9 +2466,15 @@ def test_investment_score_display_rows_are_beginner_friendly():
             "銘柄名": "Apple Inc.",
             "総合スコア": "73",
             "見方": "バランス型",
-            "DB適合": "",
+            "条件適合度": "",
             "Screening": "80",
-            "予測一致": "40",
+            "方向感": "判定不足",
+            "上昇気配": "",
+            "下降警戒": "",
+            "方向スコア": "",
+            "予測変化率": "",
+            "方向一致": "上昇 0 / 下降 0 / 横ばい 0",
+            "モデル一致度": "40",
             "データ品質": "100",
             "DB信頼度": "",
             "Risk": "未接続",
@@ -2543,9 +2579,12 @@ def test_ranking_candidate_cards_and_breakdown_use_existing_display_values():
             "総合スコア": "82",
             "見方": "比較候補",
             "DB信頼度": "88",
-            "DB適合": "90",
+            "条件適合度": "90",
             "Screening": "79",
-            "予測一致": "70",
+            "方向感": "上昇気配あり",
+            "上昇気配": "76",
+            "下降警戒": "42",
+            "方向スコア": "67",
             "Risk": "55",
             "注意点": "確認材料あり",
             "補足": "価格と資料を確認します。",
@@ -2565,7 +2604,7 @@ def test_ranking_candidate_cards_and_breakdown_use_existing_display_values():
     assert [row["観点"] for row in breakdown] == [
         "Investment Score",
         "Screening",
-        "Forecast",
+        "Direction Signal",
         "Data Confidence",
         "Risk",
         "Research Evidence",
@@ -2657,8 +2696,12 @@ def test_ranking_result_aggrid_frame_keeps_display_table_compact():
                 "銘柄": "7203.T",
                 "銘柄名": "Toyota Motor Corporation Long Name",
                 "総合スコア": "82",
+                "方向感": "上昇気配あり",
+                "上昇気配": "78",
+                "下降警戒": "42",
                 "Risk": "55",
                 "データ品質": "90",
+                "条件適合度": "86",
                 "DB信頼度": "88",
                 "根拠状態": "根拠あり",
                 "見方": "比較候補",
@@ -2672,8 +2715,12 @@ def test_ranking_result_aggrid_frame_keeps_display_table_compact():
         "銘柄",
         "銘柄名",
         "総合スコア",
+        "方向感",
+        "上昇気配",
+        "下降警戒",
         "Risk",
         "データ品質",
+        "条件適合度",
         "DB信頼度",
         "根拠状態",
         "見方",
@@ -2702,15 +2749,17 @@ def test_ranking_investment_note_uses_scores_and_symbol_metadata(monkeypatch):
         {
             "symbol": "6857.T",
             "screening_score": "88",
-            "forecast_agreement_score": "90",
+            "direction_net_score": "76",
+            "upside_signal_score": "82",
+            "downside_signal_score": "35",
             "data_quality_score": "100",
             "risk_signal_score": "60",
             "warnings": "",
         }
     )
 
-    assert "予測一致" in note
-    assert "データ品質" in note
+    assert "上昇気配" in note
+    assert "方向感" in note
     assert "PER/PBR" in note
     assert "成長期待" in note
 
@@ -2719,11 +2768,14 @@ def test_ranking_investment_detail_rows_adds_modal_guidance():
     rows = ranking_investment_detail_rows(
         {
             "総合スコア": "84.69",
-            "予測一致": "90",
+            "方向感": "上昇気配あり",
+            "上昇気配": "82",
+            "下降警戒": "35",
+            "方向スコア": "76",
             "データ品質": "100",
             "Risk": "72.44",
             "注意点": "",
-            "補足": "予測一致とデータ品質が強みの候補です。",
+            "補足": "上昇気配とデータ品質が強みの候補です。",
         },
         {
             "asset_type": "stock",
@@ -2761,13 +2813,13 @@ def test_score_component_rows_builds_cockpit_breakdown():
     assert score_component_rows(
         {
             "Screening": "80",
-            "予測一致": "40",
+            "方向スコア": "62",
             "Risk": "70",
             "データ品質": "100",
         }
     ) == [
         {"要素": "Screening", "スコア": "80"},
-        {"要素": "Forecast", "スコア": "40"},
+        {"要素": "Direction Signal", "スコア": "62"},
         {"要素": "Risk", "スコア": "70"},
         {"要素": "Data Quality", "スコア": "100"},
     ]
@@ -2909,7 +2961,9 @@ def test_cockpit_investment_memo_rows_combines_score_master_and_price(monkeypatc
             "総合スコア": "84.69",
             "見方": "強め",
             "Screening": "78.9",
-            "予測一致": "90",
+            "方向スコア": "76",
+            "上昇気配": "82",
+            "下降警戒": "35",
             "データ品質": "100",
             "Risk": "72.44",
             "注意点": "",
@@ -2924,7 +2978,7 @@ def test_cockpit_investment_memo_rows_combines_score_master_and_price(monkeypatc
         "価格トレンド",
         "次の確認",
     ]
-    assert "ROEが高く" in rows[0]["評価"]
+    assert "上昇気配が比較的強く" in rows[0]["評価"]
     assert "PER 52.42" in rows[2]["評価"]
     assert "配当利回り 0.23%" in rows[3]["評価"]
     assert "高値圏" in rows[4]["評価"]
@@ -3032,6 +3086,10 @@ def test_ranking_decision_report_context_limits_rows_and_uses_top_symbol(monkeyp
             "score_band": "strong",
             "screening_score": "70",
             "forecast_agreement_score": "90",
+            "direction_net_score": "72",
+            "upside_signal_score": "78",
+            "downside_signal_score": "34",
+            "direction_signal_label": "MODERATE_UPSIDE",
             "data_quality_score": "100",
             "risk_signal_score": "60",
             "note": "review candidate",
@@ -3045,7 +3103,7 @@ def test_ranking_decision_report_context_limits_rows_and_uses_top_symbol(monkeyp
         start=date(2026, 5, 1),
         end=date(2026, 5, 22),
         ranking_purpose="成長重視",
-        weight_preset="予測一致重視",
+        weight_preset="上昇気配重視",
         comparison_summary="候補: 25件",
     )
 
@@ -3091,6 +3149,9 @@ def test_apply_ranking_weight_preset_reweights_and_sorts_rows():
                 "score_band": "BALANCED",
                 "screening_score": "60",
                 "forecast_agreement_score": "50",
+                "direction_net_score": "55",
+                "upside_signal_score": "58",
+                "downside_signal_score": "52",
                 "data_quality_score": "100",
                 "risk_signal_score": "60",
                 "warnings": "",
@@ -3102,6 +3163,9 @@ def test_apply_ranking_weight_preset_reweights_and_sorts_rows():
                 "score_band": "BALANCED",
                 "screening_score": "60",
                 "forecast_agreement_score": "100",
+                "direction_net_score": "90",
+                "upside_signal_score": "85",
+                "downside_signal_score": "35",
                 "data_quality_score": "50",
                 "risk_signal_score": "60",
                 "warnings": "",
@@ -3142,15 +3206,55 @@ def test_apply_ranking_weight_preset_reweights_and_sorts_rows():
 
     assert rows[0]["symbol"] == "FORECAST"
     assert rows[0]["rank"] == "1"
-    assert rows[0]["total_score"] == "75.75"
-    assert rows[0]["score_band"] == "STRONG"
+    assert rows[0]["total_score"] == "74.25"
+    assert rows[0]["score_band"] == "BALANCED"
     assert rows[0]["database_fit_score"] == "85"
     assert rows[0]["metadata_confidence_score"] == "100"
     assert rows[0]["note"] == (
-        "予測一致重視の条件に合いやすい候補です。売買推奨ではなく、根拠確認の優先順です。"
+        "上昇気配重視の条件に合いやすい候補です。売買推奨ではなく、根拠確認の優先順です。"
     )
     assert rows[1]["symbol"] == "QUALITY"
-    assert ranking_weight_preset_label("forecast") == "予測一致重視"
+    assert ranking_weight_preset_label("forecast") == "上昇気配重視"
+    assert ranking_weight_preset_label(RANKING_PRESET_UPSIDE_SIGNAL) == "上昇気配重視"
+
+
+def test_ranking_weight_presets_prefer_direction_signal_over_forecast_agreement():
+    for weights in RANKING_WEIGHT_PRESETS.values():
+        assert "forecast_agreement_score" not in weights
+
+    assert RANKING_WEIGHT_PRESETS[RANKING_PRESET_UPSIDE_SIGNAL]["direction_net_score"] == Decimal(
+        "0.35"
+    )
+    assert RANKING_WEIGHT_PRESETS[RANKING_PRESET_SUSTAINABLE_INCOME][
+        "direction_net_score"
+    ] == Decimal("0.05")
+
+
+def test_upside_signal_profile_keeps_high_downside_warning_from_top_rank():
+    rows = [
+        {
+            **_ranking_score_row("SOLID"),
+            "direction_net_score": "78",
+            "upside_signal_score": "82",
+            "downside_signal_score": "30",
+        },
+        {
+            **_ranking_score_row("CAUTION"),
+            "direction_net_score": "45",
+            "upside_signal_score": "78",
+            "downside_signal_score": "88",
+        },
+    ]
+    symbol_rows = {
+        "SOLID": _stock_symbol_metadata("SOLID"),
+        "CAUTION": _stock_symbol_metadata("CAUTION"),
+    }
+
+    ranked = apply_ranking_weight_preset(rows, RANKING_PRESET_UPSIDE_SIGNAL, symbol_rows)
+
+    assert ranked[0]["symbol"] == "SOLID"
+    assert ranked[1]["symbol"] == "CAUTION"
+    assert ranked[1]["downside_signal_score"] == "88"
 
 
 def _ranking_score_row(symbol: str) -> dict[str, str]:
@@ -3161,6 +3265,10 @@ def _ranking_score_row(symbol: str) -> dict[str, str]:
         "score_band": "BALANCED",
         "screening_score": "50",
         "forecast_agreement_score": "50",
+        "direction_net_score": "50",
+        "upside_signal_score": "50",
+        "downside_signal_score": "50",
+        "direction_signal_label": "NEUTRAL",
         "data_quality_score": "50",
         "risk_signal_score": "50",
         "warnings": "",

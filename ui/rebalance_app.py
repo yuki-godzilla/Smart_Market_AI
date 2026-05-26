@@ -475,7 +475,7 @@ async def build_market_data_preview(
             bars,
             horizon_days=forecast_horizon_days,
         )
-        forecast_consensus = summarize_forecast_evaluations(forecast_evaluations)
+        forecast_consensus = summarize_forecast_evaluations(forecast_evaluations, history=bars)
         forecast_consensus_by_symbol = (
             {forecast_consensus.symbol: forecast_consensus}
             if forecast_consensus is not None
@@ -765,7 +765,8 @@ def forecast_consensus_rows_for_bars(
         _available_forecast_evaluations(
             bars,
             horizon_days=horizon_days,
-        )
+        ),
+        history=bars,
     )
     if consensus is None:
         return []
@@ -781,6 +782,17 @@ def forecast_consensus_rows_for_bars(
             "forecast_range": _format_decimal(consensus.forecast_range),
             "forecast_range_pct": _format_optional_percent(consensus.forecast_range_pct),
             "agreement": consensus.agreement,
+            "latest_close": _format_optional_decimal(consensus.latest_close),
+            "forecast_return_pct": _format_optional_percent(consensus.forecast_return_pct),
+            "up_model_count": str(consensus.up_model_count),
+            "down_model_count": str(consensus.down_model_count),
+            "flat_model_count": str(consensus.flat_model_count),
+            "up_direction_ratio": _format_optional_percent(consensus.up_direction_ratio),
+            "down_direction_ratio": _format_optional_percent(consensus.down_direction_ratio),
+            "upside_signal_score": _format_decimal(consensus.upside_signal_score),
+            "downside_signal_score": _format_decimal(consensus.downside_signal_score),
+            "direction_net_score": _format_decimal(consensus.direction_net_score),
+            "direction_signal_label": consensus.direction_signal_label,
         }
     ]
 
@@ -889,6 +901,14 @@ def investment_score_rows(scores: list[InvestmentScore]) -> list[dict[str, str]]
             "score_band": score.score_band,
             "screening_score": _format_decimal(score.screening_score),
             "forecast_agreement_score": _format_decimal(score.forecast_agreement_score),
+            "upside_signal_score": _format_decimal(score.upside_signal_score),
+            "downside_signal_score": _format_decimal(score.downside_signal_score),
+            "direction_net_score": _format_decimal(score.direction_net_score),
+            "direction_signal_label": score.direction_signal_label,
+            "forecast_return_pct": _format_optional_percent(score.forecast_return_pct),
+            "up_model_count": str(score.up_model_count),
+            "down_model_count": str(score.down_model_count),
+            "flat_model_count": str(score.flat_model_count),
             "data_quality_score": _format_decimal(score.data_quality_score),
             "risk_signal_score": _format_optional_decimal(score.risk_signal_score),
             "forecast_agreement": score.forecast_agreement,
@@ -920,6 +940,14 @@ def investment_score_csv_download(rows: list[dict[str, str]]) -> str:
             "score_band",
             "screening_score",
             "forecast_agreement_score",
+            "upside_signal_score",
+            "downside_signal_score",
+            "direction_net_score",
+            "direction_signal_label",
+            "forecast_return_pct",
+            "up_model_count",
+            "down_model_count",
+            "flat_model_count",
             "data_quality_score",
             "database_fit_score",
             "metadata_confidence_score",

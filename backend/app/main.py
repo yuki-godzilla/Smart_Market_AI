@@ -365,7 +365,8 @@ async def _build_forecast_consensus_by_symbol(
         if not bars or not models:
             continue
         consensus = summarize_forecast_evaluations(
-            evaluate_models(bars, models=models, horizon_days=horizon_days)
+            evaluate_models(bars, models=models, horizon_days=horizon_days),
+            history=bars,
         )
         if consensus is not None:
             consensus_by_symbol[symbol] = consensus

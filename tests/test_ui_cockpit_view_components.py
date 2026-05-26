@@ -43,7 +43,7 @@ def test_cockpit_kpi_cards_do_not_create_new_scores():
         {
             "総合スコア": "72",
             "見方": "比較候補",
-            "予測一致": "64",
+            "方向スコア": "64",
             "データ品質": "95",
             "Risk": "68",
         }
@@ -52,7 +52,7 @@ def test_cockpit_kpi_cards_do_not_create_new_scores():
     assert [card["label"] for card in cards] == [
         "Investment Score",
         "Decision View",
-        "Forecast Agreement",
+        "Direction Signal",
         "Data Confidence",
         "Risk",
     ]

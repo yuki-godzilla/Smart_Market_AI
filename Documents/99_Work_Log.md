@@ -576,3 +576,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added `ResearchEvidenceReranker` as a deterministic reranker that keeps `ResearchEvidence` output compatible.
 - Wired reranking into keyword retrieval and company-level evidence ordering using relevance, reliability, freshness, source-type priority, and duplicate suppression.
 - Kept vector / hybrid retrieval, scoring, ranking, and Investment Score behavior unchanged.
+
+## 2026-05-26 - Ranking direction signal first slice
+
+- Added forecast direction signal fields: `upside_signal_score`, `downside_signal_score`, `direction_net_score`, and `direction_signal_label`, while keeping `forecast_agreement_score` as a compatibility / model-consistency metric.
+- Reweighted ranking presets so direction signal is the main forecast-derived ranking input, added the `上昇気配重視` profile, and kept income / value / low-volatility profiles from over-weighting direction.
+- Updated Ranking / Cockpit UI wording and chart profiles to show `方向感`, `上昇気配`, and `下降警戒` as decision-support signals rather than buy/sell recommendations.

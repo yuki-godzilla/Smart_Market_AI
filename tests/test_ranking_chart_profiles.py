@@ -17,7 +17,7 @@ def _ranking_rows() -> list[dict[str, str]]:
             "銘柄名": "Alpha",
             "総合スコア": "82",
             "Risk": "74",
-            "予測一致": "68",
+            "方向スコア": "68",
             "DB信頼度": "92",
             "見方": "比較候補",
         },
@@ -27,7 +27,7 @@ def _ranking_rows() -> list[dict[str, str]]:
             "銘柄名": "Beta",
             "総合スコア": "76",
             "Risk": "55",
-            "予測一致": "80",
+            "方向スコア": "80",
             "DB信頼度": "90",
             "見方": "比較候補",
         },
@@ -37,7 +37,7 @@ def _ranking_rows() -> list[dict[str, str]]:
             "銘柄名": "Gamma",
             "総合スコア": "61",
             "Risk": "40",
-            "予測一致": "66",
+            "方向スコア": "66",
             "DB信頼度": "88",
             "見方": "確認候補",
         },
@@ -66,7 +66,7 @@ def test_ranking_chart_frame_falls_back_when_profile_columns_are_missing():
     assert selection is not None
     assert selection.profile.key == PROFILE_SCORE_FORECAST
     assert selection.x_column == "総合スコア"
-    assert selection.y_column == "予測一致"
+    assert selection.y_column == "方向スコア"
     assert selection.used_fallback is True
 
 

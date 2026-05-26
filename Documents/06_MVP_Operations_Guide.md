@@ -71,7 +71,7 @@ http://127.0.0.1:8000/openapi.json
 | `POST /portfolio/rebalance-check` | 現在 portfolio と target allocation から配分見直し候補を作り Risk check へ接続 |
 | `POST /screening/score` | Feature Snapshot から Screening Score / ranking / reason を返す |
 | `POST /forecast/evaluate` | OHLCV から baseline forecast と walk-forward metrics を返す |
-| `POST /scoring/investment-score` | Screening / Forecast agreement / Data quality / Risk signal を統合した Investment Score を返す |
+| `POST /scoring/investment-score` | Screening / Direction signal / Forecast agreement compatibility / Data quality / Risk signal を統合した Investment Score を返す |
 
 エラー応答は JSON です。
 
@@ -202,7 +202,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - period preset help explains the intended review basis: short-term material reaction, medium-term trend, long-term drawdown resilience / structural change, and custom event windows
 - collapsed sample symbol reference
 - 価格・予測チャート
-- forecast agreement、forecast spread、best RMSE model
+- direction signal、forecast agreement compatibility、forecast spread、best RMSE model
 - Investment Score summary
 - score breakdown chart
 - post-fetch confirmation summary lifts key closed-detail items into the main view: latest price, OHLCV period/volume, forecast range, screening components, short-term features, data quality, and forecast evaluation
@@ -221,22 +221,23 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
   - 商品: `株式` / `ETF`
   - 並べ替え条件: `総合マルチファクター` / `成長クオリティ` / `割安クオリティ` / `高配当の持続性` / `低ボラ・安定` / `モメンタム・トレンド` / `リスク調整パフォーマンス` / `小型・成長探索` / `NISA長期適合` / `データ信頼度優先` / `ETF低コスト・コア` / `ETFインカム・分散`
 - `並べ替え条件` に応じた評価プロファイル（画面上では `ランキング作成` ボタンの横で選択）
-  - 総合マルチファクター: Screening、予測一致、Risk、Data Quality、銘柄DB適合度、DB信頼度を総合評価する既定条件。
-  - 成長クオリティ: ROE、予測一致、Screening、Data Qualityを重視し、PER/PBRは成長期待との釣り合い確認に使う。
+  - 総合マルチファクター: Screening、方向感、Risk、Data Quality、条件適合度、DB信頼度を総合評価する既定条件。
+  - 上昇気配重視: 方向感、上昇気配、下降警戒の低さ、Screening、Data Qualityを重視する。買い推奨ではなく、短期的な深掘り候補の整理に使う。
+  - 成長クオリティ: ROE、方向感、Screening、Data Qualityを重視し、PER/PBRは成長期待との釣り合い確認に使う。
   - 割安クオリティ: PER/PBRの低さに加え、ROE、Risk、Data Qualityを確認し、割安に見える理由を確認しやすくする。
   - 高配当の持続性: 配当利回り、配当カテゴリ、Risk、PBR、Data Qualityを組み合わせ、極端な高配当は減配リスク確認対象にする。
   - 低ボラ・安定: Risk signal、β分類、Data Quality、銘柄規模を重視し、値動きの落ち着きを優先する。
-  - モメンタム・トレンド: 取得期間の価格評価、予測一致、Screeningを重視し、追随リスクも確認する。
-  - リスク調整パフォーマンス: リターンだけでなくRisk signal、Data Quality、DB適合度を合わせて見る。
-  - 小型・成長探索: 小型/中型、ROE、Screening、予測一致を重視し、RiskとDB信頼度も確認する。
+  - モメンタム・トレンド: 取得期間の価格評価、方向感、Screeningを重視し、追随リスクも確認する。
+  - リスク調整パフォーマンス: リターンだけでなくRisk signal、Data Quality、条件適合度を合わせて見る。
+  - 小型・成長探索: 小型/中型、ROE、Screening、方向感を重視し、RiskとDB信頼度も確認する。
   - NISA長期適合: NISA適合、投資スタイル、Risk、Data Quality、ROEを重視する。
   - データ信頼度優先: metadata source、更新日、Data Quality、欠損の少なさを最優先する。
   - ETF低コスト・コア: 経費率、連動指数、複雑性、NISA適合、DB信頼度を重視する。
   - ETFインカム・分散: ETFの利回り、経費率、指数、通貨、複雑性、Data Qualityを重視する。
   - 旧来の `配当重視` / `成長重視` / `割安重視` / `安定重視` / `トレンド重視` は後方互換の比較条件として残す。
-- `作成対象` は、外部 provider 取得前の件数上限です。既定は `標準: 上位300件` で、候補が多い場合は総合マルチファクター基準の銘柄DB適合度とDB信頼度で事前に上位候補を選んでから価格データを取得します。`並べ替え条件` の変更は取得対象を変えず、取得済みデータの再ソートとして扱います。全件取得も選べますが、Yahoo live data では時間がかかります。
-- ランキング結果の総合スコアには、取得期間の市場評価に加えて、銘柄DB適合度とDB信頼度を反映する。
-  - 銘柄DB適合度: NISA、時価総額、配当、PER/PBR/ROE、ETF経費率、複雑性などを並べ替え条件別に評価する。
+- `作成対象` は、外部 provider 取得前の件数上限です。既定は `標準: 上位300件` で、候補が多い場合は総合マルチファクター基準の条件適合度とDB信頼度で事前に上位候補を選んでから価格データを取得します。`並べ替え条件` の変更は取得対象を変えず、取得済みデータの再ソートとして扱います。全件取得も選べますが、Yahoo live data では時間がかかります。
+- ランキング結果の総合スコアには、取得期間の市場評価に加えて、条件適合度とDB信頼度を反映する。
+  - 条件適合度: NISA、時価総額、配当、PER/PBR/ROE、ETF経費率、複雑性などを並べ替え条件別に評価する。投資魅力度を直接保証するものではありません。
   - DB信頼度: `metadata_source`、`metadata_as_of` / `metadata_updated_at`、ランキング判断に使う主要項目の登録状況を評価する。
 - 基本条件
   - period preset
@@ -465,7 +466,7 @@ Phase 16 ranking implementation notes:
 - Yahoo OHLCV uses the same non-threaded yfinance download path for single-symbol cockpit and multi-symbol ranking requests. The cockpit reuses one fetched OHLCV range for quote display and feature construction instead of fetching the same symbol again. Yahoo cockpit fetch prioritizes price data: initial fetch skips live FX and fundamentals so price / forecast / score rows can render without waiting on nonessential live requests. SMAI shares one curl_cffi-backed yfinance session across `Search`, `download`, and `Ticker` calls so Yahoo cookie / crumb state stays attached to the same session. If yfinance returns an empty batch response, the provider retries once after a short delay to absorb first-call warm-up / transient empty responses. Because live Yahoo requests are network-dependent and can be slow or noisy, Streamlit ranking warns when selected symbols exceed 30, uses smaller non-threaded download chunks, and suppresses yfinance's raw console noise in favor of structured UI error rows.
 - Ranking rows are cached in Streamlit session state by `provider + symbols + start + end`. Re-running the same request or changing only the ranking weight preset reuses fetched rows and only re-sorts the display.
 - Ranking display rows reuse a single symbol-master lookup map when building notes and modal guidance. This avoids repeated `symbol_universe.csv` scans during long-period ranking reruns and keeps row-click symbol-detail modal opening responsive.
-- The ranking progress indicator reports batch fetch, feature construction, forecast agreement calculation, and final sorting so large candidate sets do not look frozen.
+- The ranking progress indicator reports batch fetch, feature construction, direction signal calculation, and final sorting so large candidate sets do not look frozen.
 - Ranking deep-dive controls are rendered before the Decision Report block. The ranking Decision Report is generated lazily by `投資判断レポートを作成`, then reused for the same ranking source / sort profile so resorting and cockpit handoff remain responsive.
 - Ranking remains decision support only. Click a ranking row to open the shared `銘柄データ` modal with short ranking context plus local master details. Use the cockpit for detailed price / forecast / score-reason review.
 - In `銘柄コックピット`, `銘柄データを見る` sits beside symbol selection and opens the same local-master modal for the selected symbol. Start / End inputs wrap to the next row. After fetch, the cockpit shows `投資判断メモ` combining score, warnings, valuation, income, price trend, and next-check wording.

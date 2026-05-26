@@ -7,6 +7,7 @@ from backend.forecast.registry import (
     forecast_model_specs,
 )
 from backend.forecast.service import (
+    DirectionSignalLabel,
     ForecastConsensus,
     ForecastEvaluation,
     ForecastMetrics,
@@ -15,11 +16,17 @@ from backend.forecast.service import (
     MomentumForecastModel,
     MovingAverageForecastModel,
     NaiveForecastModel,
+    calculate_direction_net_score,
+    calculate_downside_signal_score,
+    calculate_upside_signal_score,
+    direction_signal_label,
     evaluate_models,
+    forecast_direction_signal,
     summarize_forecast_evaluations,
 )
 
 __all__ = [
+    "DirectionSignalLabel",
     "ForecastConsensus",
     "ForecastEvaluation",
     "ForecastMetrics",
@@ -30,8 +37,13 @@ __all__ = [
     "MovingAverageForecastModel",
     "NaiveForecastModel",
     "available_forecast_models",
+    "calculate_direction_net_score",
+    "calculate_downside_signal_score",
+    "calculate_upside_signal_score",
+    "direction_signal_label",
     "default_forecast_models",
     "evaluate_models",
+    "forecast_direction_signal",
     "forecast_model_display_name",
     "forecast_model_registry_rows",
     "forecast_model_specs",

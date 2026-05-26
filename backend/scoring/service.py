@@ -44,6 +44,14 @@ class InvestmentScore(StrictBaseModel):
     score_band: InvestmentScoreBand
     screening_score: Decimal = Field(ge=0, le=100)
     forecast_agreement_score: Decimal = Field(ge=0, le=100)
+    upside_signal_score: Decimal = Field(default=Decimal("50"), ge=0, le=100)
+    downside_signal_score: Decimal = Field(default=Decimal("50"), ge=0, le=100)
+    direction_net_score: Decimal = Field(default=Decimal("50"), ge=0, le=100)
+    direction_signal_label: str = "UNKNOWN"
+    forecast_return_pct: Decimal = Decimal("0")
+    up_model_count: int = Field(default=0, ge=0)
+    down_model_count: int = Field(default=0, ge=0)
+    flat_model_count: int = Field(default=0, ge=0)
     data_quality_score: Decimal = Field(ge=0, le=100)
     risk_signal_score: Decimal | None = Field(default=None, ge=0, le=100)
     forecast_agreement: str = ""
@@ -97,6 +105,7 @@ def _score_input(
     screening = score_input.screening_score
     forecast_agreement = _forecast_agreement(score_input)
     forecast_score = _forecast_agreement_score(forecast_agreement)
+    direction_signal = _direction_signal_values(score_input.forecast_consensus)
     data_quality_score = screening.data_quality_score
     risk_signal_score = score_input.risk_signal_score
 
@@ -139,6 +148,14 @@ def _score_input(
         score_band=_score_band(total_score, warnings),
         screening_score=screening.total_score,
         forecast_agreement_score=forecast_score,
+        upside_signal_score=direction_signal["upside_signal_score"],
+        downside_signal_score=direction_signal["downside_signal_score"],
+        direction_net_score=direction_signal["direction_net_score"],
+        direction_signal_label=str(direction_signal["direction_signal_label"]),
+        forecast_return_pct=direction_signal["forecast_return_pct"],
+        up_model_count=int(direction_signal["up_model_count"]),
+        down_model_count=int(direction_signal["down_model_count"]),
+        flat_model_count=int(direction_signal["flat_model_count"]),
         data_quality_score=data_quality_score,
         risk_signal_score=risk_signal_score,
         forecast_agreement=forecast_agreement,
@@ -180,6 +197,32 @@ def _forecast_agreement_score(agreement: str) -> Decimal:
         "UNKNOWN": Decimal("50"),
     }
     return scores.get(agreement, Decimal("50"))
+
+
+def _direction_signal_values(
+    forecast_consensus: ForecastConsensus | None,
+) -> dict[str, Decimal | int | str]:
+    if forecast_consensus is None:
+        return {
+            "upside_signal_score": Decimal("50"),
+            "downside_signal_score": Decimal("50"),
+            "direction_net_score": Decimal("50"),
+            "direction_signal_label": "UNKNOWN",
+            "forecast_return_pct": Decimal("0"),
+            "up_model_count": 0,
+            "down_model_count": 0,
+            "flat_model_count": 0,
+        }
+    return {
+        "upside_signal_score": forecast_consensus.upside_signal_score,
+        "downside_signal_score": forecast_consensus.downside_signal_score,
+        "direction_net_score": forecast_consensus.direction_net_score,
+        "direction_signal_label": forecast_consensus.direction_signal_label,
+        "forecast_return_pct": forecast_consensus.forecast_return_pct,
+        "up_model_count": forecast_consensus.up_model_count,
+        "down_model_count": forecast_consensus.down_model_count,
+        "flat_model_count": forecast_consensus.flat_model_count,
+    }
 
 
 def _screening_reasons(screening: ScreeningScore) -> list[str]:

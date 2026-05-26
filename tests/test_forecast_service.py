@@ -8,6 +8,10 @@ from backend.forecast import (
     MomentumForecastModel,
     MovingAverageForecastModel,
     NaiveForecastModel,
+    calculate_direction_net_score,
+    calculate_downside_signal_score,
+    calculate_upside_signal_score,
+    direction_signal_label,
     evaluate_models,
     summarize_forecast_evaluations,
 )
@@ -70,7 +74,8 @@ def test_summarize_forecast_evaluations_returns_model_agreement():
         ],
     )
 
-    consensus = summarize_forecast_evaluations(evaluations)
+    bars = _bars([100, 102, 104, 103, 106, 108])
+    consensus = summarize_forecast_evaluations(evaluations, history=bars)
 
     assert consensus is not None
     assert consensus.symbol == "AAPL"
@@ -83,6 +88,112 @@ def test_summarize_forecast_evaluations_returns_model_agreement():
     assert consensus.forecast_range == Decimal("3.7179")
     assert consensus.forecast_range_pct == Decimal("0.0344")
     assert consensus.agreement == "LOW"
+    assert consensus.latest_close == Decimal("108.0000")
+    assert consensus.forecast_return_pct == Decimal("-0.0029")
+    assert consensus.up_model_count == 1
+    assert consensus.down_model_count == 1
+    assert consensus.flat_model_count == 1
+    assert consensus.direction_signal_label == "NEUTRAL"
+    assert Decimal("0") <= consensus.direction_net_score <= Decimal("100")
+
+
+def test_upside_signal_score_rewards_upside_direction_and_momentum():
+    score = calculate_upside_signal_score(
+        latest_close=Decimal("100"),
+        ensemble_forecast_close=Decimal("106"),
+        model_forecast_closes=[Decimal("105"), Decimal("106"), Decimal("107")],
+        momentum_5d=Decimal("0.02"),
+        momentum_20d=Decimal("0.04"),
+        forecast_range_pct=Decimal("0.012"),
+    )
+
+    assert score >= Decimal("85")
+
+
+def test_upside_signal_score_stays_limited_for_extreme_single_model_spread():
+    score = calculate_upside_signal_score(
+        latest_close=Decimal("100"),
+        ensemble_forecast_close=Decimal("104"),
+        model_forecast_closes=[Decimal("100"), Decimal("100"), Decimal("112")],
+        momentum_5d=Decimal("0.01"),
+        momentum_20d=Decimal("-0.01"),
+        forecast_range_pct=Decimal("0.10"),
+    )
+
+    assert score < Decimal("75")
+
+
+def test_downside_signal_score_rewards_decline_direction_and_momentum():
+    score = calculate_downside_signal_score(
+        latest_close=Decimal("100"),
+        ensemble_forecast_close=Decimal("94"),
+        model_forecast_closes=[Decimal("93"), Decimal("94"), Decimal("96")],
+        momentum_5d=Decimal("-0.02"),
+        momentum_20d=Decimal("-0.04"),
+        forecast_range_pct=Decimal("0.012"),
+    )
+
+    assert score >= Decimal("85")
+
+
+def test_downside_signal_score_stays_limited_for_extreme_single_model_spread():
+    score = calculate_downside_signal_score(
+        latest_close=Decimal("100"),
+        ensemble_forecast_close=Decimal("96"),
+        model_forecast_closes=[Decimal("100"), Decimal("100"), Decimal("88")],
+        momentum_5d=Decimal("-0.01"),
+        momentum_20d=Decimal("0.01"),
+        forecast_range_pct=Decimal("0.10"),
+    )
+
+    assert score < Decimal("75")
+
+
+def test_direction_signal_label_and_net_score_classify_upside_downside_and_unknown():
+    assert (
+        direction_signal_label(
+            upside_signal_score=Decimal("85"),
+            downside_signal_score=Decimal("40"),
+            data_is_insufficient=False,
+        )
+        == "STRONG_UPSIDE"
+    )
+    assert (
+        direction_signal_label(
+            upside_signal_score=Decimal("40"),
+            downside_signal_score=Decimal("85"),
+            data_is_insufficient=False,
+        )
+        == "STRONG_DOWNSIDE"
+    )
+    assert (
+        direction_signal_label(
+            upside_signal_score=Decimal("58"),
+            downside_signal_score=Decimal("55"),
+            data_is_insufficient=False,
+        )
+        == "NEUTRAL"
+    )
+    assert (
+        direction_signal_label(
+            upside_signal_score=Decimal("50"),
+            downside_signal_score=Decimal("50"),
+            data_is_insufficient=True,
+        )
+        == "UNKNOWN"
+    )
+    assert calculate_direction_net_score(
+        upside_signal_score=Decimal("80"),
+        downside_signal_score=Decimal("30"),
+    ) == Decimal("75.00")
+    assert calculate_direction_net_score(
+        upside_signal_score=Decimal("40"),
+        downside_signal_score=Decimal("80"),
+    ) == Decimal("30.00")
+    assert calculate_direction_net_score(
+        upside_signal_score=Decimal("200"),
+        downside_signal_score=Decimal("0"),
+    ) == Decimal("100.00")
 
 
 def test_moving_average_predict_uses_trailing_window():

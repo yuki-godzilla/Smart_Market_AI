@@ -52,6 +52,7 @@ RANKING_PURPOSE_GROWTH = "growth"
 RANKING_PURPOSE_VALUE = "value"
 RANKING_PURPOSE_STABILITY = "stability"
 RANKING_PURPOSE_TREND = "trend"
+RANKING_PURPOSE_UPSIDE_SIGNAL = "upside_signal"
 RANKING_PURPOSE_MULTI_FACTOR = "multi_factor"
 RANKING_PURPOSE_QUALITY_GROWTH = "quality_growth"
 RANKING_PURPOSE_QUALITY_VALUE = "quality_value"
@@ -82,11 +83,13 @@ RANKING_PURPOSE_LABELS = {
     RANKING_PURPOSE_VALUE: "割安重視",
     RANKING_PURPOSE_STABILITY: "安定重視",
     RANKING_PURPOSE_TREND: "トレンド重視",
+    RANKING_PURPOSE_UPSIDE_SIGNAL: "上昇気配重視",
 }
 RANKING_INVESTMENT_STYLE_METRICS = {
     RANKING_PURPOSE_MULTI_FACTOR: [
         "screening_score",
-        "forecast_agreement",
+        "direction_signal",
+        "downside_warning",
         "data_quality",
         "risk_signal",
         "database_fit",
@@ -94,7 +97,7 @@ RANKING_INVESTMENT_STYLE_METRICS = {
     ],
     RANKING_PURPOSE_QUALITY_GROWTH: [
         "roe",
-        "forecast_agreement",
+        "direction_signal",
         "screening_score",
         "data_quality",
         "per_guardrail",
@@ -127,7 +130,8 @@ RANKING_INVESTMENT_STYLE_METRICS = {
     RANKING_PURPOSE_MOMENTUM: [
         "recent_return",
         "price_momentum",
-        "forecast_agreement",
+        "direction_signal",
+        "upside_signal",
         "risk_signal",
         "data_quality",
         "volume_change",
@@ -136,7 +140,7 @@ RANKING_INVESTMENT_STYLE_METRICS = {
         "return_per_risk",
         "risk_signal",
         "drawdown",
-        "forecast_agreement",
+        "direction_signal",
         "data_quality",
         "database_fit",
     ],
@@ -144,7 +148,7 @@ RANKING_INVESTMENT_STYLE_METRICS = {
         "market_cap",
         "roe",
         "screening_score",
-        "forecast_agreement",
+        "direction_signal",
         "risk_signal",
         "metadata_confidence",
     ],
@@ -216,9 +220,18 @@ RANKING_INVESTMENT_STYLE_METRICS = {
         "moving_average_signal",
         "rsi",
         "macd",
+        "direction_signal",
         "volume_change",
         "recent_return",
         "volatility",
+    ],
+    RANKING_PURPOSE_UPSIDE_SIGNAL: [
+        "direction_signal",
+        "upside_signal",
+        "downside_warning",
+        "screening_score",
+        "risk_signal",
+        "data_quality",
     ],
 }
 
@@ -231,6 +244,7 @@ RANKING_PRESET_GROWTH = "growth_profile"
 RANKING_PRESET_VALUE = "value_profile"
 RANKING_PRESET_STABILITY = "stability_profile"
 RANKING_PRESET_TREND = "trend_profile"
+RANKING_PRESET_UPSIDE_SIGNAL = "upside_signal_profile"
 RANKING_PRESET_MULTI_FACTOR = "multi_factor_profile"
 RANKING_PRESET_QUALITY_GROWTH = "quality_growth_profile"
 RANKING_PRESET_QUALITY_VALUE = "quality_value_profile"
@@ -246,7 +260,7 @@ RANKING_PRESET_ETF_INCOME = "etf_income_profile"
 RANKING_FETCH_LIMIT_PRESET = RANKING_PRESET_MULTI_FACTOR
 RANKING_WEIGHT_PRESET_LABELS = {
     RANKING_PRESET_BALANCED: "総合バランス",
-    RANKING_PRESET_FORECAST: "予測一致重視",
+    RANKING_PRESET_FORECAST: "上昇気配重視",
     RANKING_PRESET_QUALITY: "データ品質重視",
     RANKING_PRESET_RISK: "リスク控えめ",
     RANKING_PRESET_INCOME: "配当・インカム重視",
@@ -254,6 +268,7 @@ RANKING_WEIGHT_PRESET_LABELS = {
     RANKING_PRESET_VALUE: "割安性重視",
     RANKING_PRESET_STABILITY: "安定性重視",
     RANKING_PRESET_TREND: "トレンド重視",
+    RANKING_PRESET_UPSIDE_SIGNAL: "上昇気配重視",
     RANKING_PRESET_MULTI_FACTOR: "総合マルチファクター",
     RANKING_PRESET_QUALITY_GROWTH: "成長クオリティ",
     RANKING_PRESET_QUALITY_VALUE: "割安クオリティ",
@@ -269,24 +284,33 @@ RANKING_WEIGHT_PRESET_LABELS = {
 }
 RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     RANKING_PRESET_BALANCED: {
-        "screening_score": Decimal("0.35"),
-        "forecast_agreement_score": Decimal("0.15"),
+        "screening_score": Decimal("0.30"),
+        "direction_net_score": Decimal("0.15"),
         "data_quality_score": Decimal("0.15"),
         "risk_signal_score": Decimal("0.15"),
         "database_fit_score": Decimal("0.10"),
         "metadata_confidence_score": Decimal("0.10"),
+        "upside_signal_score": Decimal("0.05"),
     },
     RANKING_PRESET_FORECAST: {
-        "screening_score": Decimal("0.35"),
-        "forecast_agreement_score": Decimal("0.35"),
+        "direction_net_score": Decimal("0.35"),
+        "screening_score": Decimal("0.25"),
         "data_quality_score": Decimal("0.15"),
-        "risk_signal_score": Decimal("0.05"),
+        "risk_signal_score": Decimal("0.10"),
         "database_fit_score": Decimal("0.05"),
-        "metadata_confidence_score": Decimal("0.05"),
+        "metadata_confidence_score": Decimal("0.10"),
+    },
+    RANKING_PRESET_UPSIDE_SIGNAL: {
+        "direction_net_score": Decimal("0.35"),
+        "screening_score": Decimal("0.25"),
+        "risk_signal_score": Decimal("0.10"),
+        "data_quality_score": Decimal("0.15"),
+        "database_fit_score": Decimal("0.05"),
+        "metadata_confidence_score": Decimal("0.10"),
     },
     RANKING_PRESET_QUALITY: {
         "screening_score": Decimal("0.25"),
-        "forecast_agreement_score": Decimal("0.10"),
+        "direction_net_score": Decimal("0.10"),
         "data_quality_score": Decimal("0.40"),
         "risk_signal_score": Decimal("0.10"),
         "database_fit_score": Decimal("0.05"),
@@ -294,47 +318,47 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     },
     RANKING_PRESET_RISK: {
         "screening_score": Decimal("0.25"),
-        "forecast_agreement_score": Decimal("0.10"),
+        "direction_net_score": Decimal("0.10"),
         "data_quality_score": Decimal("0.20"),
         "risk_signal_score": Decimal("0.30"),
         "database_fit_score": Decimal("0.05"),
         "metadata_confidence_score": Decimal("0.10"),
     },
     RANKING_PRESET_INCOME: {
-        "screening_score": Decimal("0.25"),
-        "forecast_agreement_score": Decimal("0.10"),
-        "data_quality_score": Decimal("0.15"),
-        "risk_signal_score": Decimal("0.15"),
-        "database_fit_score": Decimal("0.25"),
-        "metadata_confidence_score": Decimal("0.10"),
+        "database_fit_score": Decimal("0.30"),
+        "risk_signal_score": Decimal("0.20"),
+        "data_quality_score": Decimal("0.20"),
+        "metadata_confidence_score": Decimal("0.15"),
+        "screening_score": Decimal("0.10"),
+        "direction_net_score": Decimal("0.05"),
     },
     RANKING_PRESET_GROWTH: {
         "screening_score": Decimal("0.25"),
-        "forecast_agreement_score": Decimal("0.25"),
+        "direction_net_score": Decimal("0.25"),
         "data_quality_score": Decimal("0.10"),
         "risk_signal_score": Decimal("0.10"),
         "database_fit_score": Decimal("0.20"),
         "metadata_confidence_score": Decimal("0.10"),
     },
     RANKING_PRESET_VALUE: {
-        "screening_score": Decimal("0.25"),
-        "forecast_agreement_score": Decimal("0.10"),
-        "data_quality_score": Decimal("0.15"),
-        "risk_signal_score": Decimal("0.10"),
         "database_fit_score": Decimal("0.30"),
+        "screening_score": Decimal("0.20"),
+        "risk_signal_score": Decimal("0.20"),
+        "data_quality_score": Decimal("0.15"),
         "metadata_confidence_score": Decimal("0.10"),
+        "direction_net_score": Decimal("0.05"),
     },
     RANKING_PRESET_STABILITY: {
-        "screening_score": Decimal("0.20"),
-        "forecast_agreement_score": Decimal("0.10"),
+        "risk_signal_score": Decimal("0.30"),
         "data_quality_score": Decimal("0.20"),
-        "risk_signal_score": Decimal("0.25"),
-        "database_fit_score": Decimal("0.15"),
-        "metadata_confidence_score": Decimal("0.10"),
+        "metadata_confidence_score": Decimal("0.15"),
+        "screening_score": Decimal("0.15"),
+        "database_fit_score": Decimal("0.10"),
+        "direction_net_score": Decimal("0.10"),
     },
     RANKING_PRESET_TREND: {
-        "screening_score": Decimal("0.25"),
-        "forecast_agreement_score": Decimal("0.35"),
+        "screening_score": Decimal("0.30"),
+        "direction_net_score": Decimal("0.30"),
         "data_quality_score": Decimal("0.10"),
         "risk_signal_score": Decimal("0.15"),
         "database_fit_score": Decimal("0.05"),
@@ -342,71 +366,72 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     },
     RANKING_PRESET_MULTI_FACTOR: {
         "screening_score": Decimal("0.25"),
-        "forecast_agreement_score": Decimal("0.20"),
+        "direction_net_score": Decimal("0.20"),
         "data_quality_score": Decimal("0.15"),
         "risk_signal_score": Decimal("0.15"),
-        "database_fit_score": Decimal("0.15"),
+        "database_fit_score": Decimal("0.10"),
         "metadata_confidence_score": Decimal("0.10"),
+        "research_score": Decimal("0.05"),
     },
     RANKING_PRESET_QUALITY_GROWTH: {
-        "screening_score": Decimal("0.25"),
-        "forecast_agreement_score": Decimal("0.25"),
-        "data_quality_score": Decimal("0.10"),
+        "database_fit_score": Decimal("0.25"),
+        "direction_net_score": Decimal("0.25"),
+        "screening_score": Decimal("0.20"),
         "risk_signal_score": Decimal("0.10"),
-        "database_fit_score": Decimal("0.20"),
+        "data_quality_score": Decimal("0.10"),
         "metadata_confidence_score": Decimal("0.10"),
     },
     RANKING_PRESET_QUALITY_VALUE: {
+        "database_fit_score": Decimal("0.30"),
         "screening_score": Decimal("0.20"),
-        "forecast_agreement_score": Decimal("0.10"),
+        "risk_signal_score": Decimal("0.20"),
         "data_quality_score": Decimal("0.15"),
-        "risk_signal_score": Decimal("0.10"),
-        "database_fit_score": Decimal("0.35"),
         "metadata_confidence_score": Decimal("0.10"),
+        "direction_net_score": Decimal("0.05"),
     },
     RANKING_PRESET_SUSTAINABLE_INCOME: {
-        "screening_score": Decimal("0.20"),
-        "forecast_agreement_score": Decimal("0.10"),
-        "data_quality_score": Decimal("0.15"),
+        "database_fit_score": Decimal("0.30"),
         "risk_signal_score": Decimal("0.20"),
-        "database_fit_score": Decimal("0.25"),
-        "metadata_confidence_score": Decimal("0.10"),
+        "data_quality_score": Decimal("0.20"),
+        "metadata_confidence_score": Decimal("0.15"),
+        "screening_score": Decimal("0.10"),
+        "direction_net_score": Decimal("0.05"),
     },
     RANKING_PRESET_MIN_VOLATILITY: {
-        "screening_score": Decimal("0.15"),
-        "forecast_agreement_score": Decimal("0.10"),
+        "risk_signal_score": Decimal("0.30"),
         "data_quality_score": Decimal("0.20"),
-        "risk_signal_score": Decimal("0.35"),
+        "metadata_confidence_score": Decimal("0.15"),
+        "screening_score": Decimal("0.15"),
         "database_fit_score": Decimal("0.10"),
-        "metadata_confidence_score": Decimal("0.10"),
+        "direction_net_score": Decimal("0.10"),
     },
     RANKING_PRESET_MOMENTUM: {
-        "screening_score": Decimal("0.25"),
-        "forecast_agreement_score": Decimal("0.30"),
-        "data_quality_score": Decimal("0.10"),
+        "screening_score": Decimal("0.30"),
+        "direction_net_score": Decimal("0.30"),
         "risk_signal_score": Decimal("0.15"),
-        "database_fit_score": Decimal("0.10"),
+        "data_quality_score": Decimal("0.10"),
+        "database_fit_score": Decimal("0.05"),
         "metadata_confidence_score": Decimal("0.10"),
     },
     RANKING_PRESET_RISK_ADJUSTED: {
         "screening_score": Decimal("0.20"),
-        "forecast_agreement_score": Decimal("0.15"),
+        "direction_net_score": Decimal("0.10"),
         "data_quality_score": Decimal("0.15"),
-        "risk_signal_score": Decimal("0.25"),
+        "risk_signal_score": Decimal("0.30"),
         "database_fit_score": Decimal("0.15"),
         "metadata_confidence_score": Decimal("0.10"),
     },
     RANKING_PRESET_SMALL_GROWTH: {
         "screening_score": Decimal("0.25"),
-        "forecast_agreement_score": Decimal("0.25"),
+        "direction_net_score": Decimal("0.25"),
         "data_quality_score": Decimal("0.10"),
         "risk_signal_score": Decimal("0.10"),
-        "database_fit_score": Decimal("0.20"),
-        "metadata_confidence_score": Decimal("0.10"),
+        "database_fit_score": Decimal("0.25"),
+        "metadata_confidence_score": Decimal("0.05"),
     },
     RANKING_PRESET_NISA_LONG_TERM: {
         "screening_score": Decimal("0.20"),
-        "forecast_agreement_score": Decimal("0.15"),
+        "direction_net_score": Decimal("0.15"),
         "data_quality_score": Decimal("0.20"),
         "risk_signal_score": Decimal("0.20"),
         "database_fit_score": Decimal("0.15"),
@@ -414,7 +439,7 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     },
     RANKING_PRESET_DATA_CONFIDENCE: {
         "screening_score": Decimal("0.10"),
-        "forecast_agreement_score": Decimal("0.05"),
+        "direction_net_score": Decimal("0.05"),
         "data_quality_score": Decimal("0.35"),
         "risk_signal_score": Decimal("0.10"),
         "database_fit_score": Decimal("0.10"),
@@ -422,7 +447,7 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     },
     RANKING_PRESET_ETF_CORE_COST: {
         "screening_score": Decimal("0.15"),
-        "forecast_agreement_score": Decimal("0.10"),
+        "direction_net_score": Decimal("0.10"),
         "data_quality_score": Decimal("0.20"),
         "risk_signal_score": Decimal("0.15"),
         "database_fit_score": Decimal("0.30"),
@@ -430,7 +455,7 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     },
     RANKING_PRESET_ETF_INCOME: {
         "screening_score": Decimal("0.15"),
-        "forecast_agreement_score": Decimal("0.10"),
+        "direction_net_score": Decimal("0.10"),
         "data_quality_score": Decimal("0.20"),
         "risk_signal_score": Decimal("0.15"),
         "database_fit_score": Decimal("0.30"),
@@ -455,6 +480,7 @@ RANKING_PURPOSE_WEIGHT_PRESETS = {
     RANKING_PURPOSE_VALUE: RANKING_PRESET_VALUE,
     RANKING_PURPOSE_STABILITY: RANKING_PRESET_STABILITY,
     RANKING_PURPOSE_TREND: RANKING_PRESET_TREND,
+    RANKING_PURPOSE_UPSIDE_SIGNAL: RANKING_PRESET_UPSIDE_SIGNAL,
 }
 RANKING_FETCH_LIMIT_FAST = "fast_100"
 RANKING_FETCH_LIMIT_BALANCED = "balanced_300"
@@ -744,16 +770,16 @@ RANKING_FILTER_HELP_TEXTS = {
     "period": (
         "ランキング計算に使う価格データの期間です。短期は直近の値動きや材料反応、"
         "中期は数週間のトレンド、長期は大きな上下動を含めた安定性の確認に使います。"
-        "候補の絞り込み条件ではなく、スコア・Risk・予測一致の見え方に影響します。"
+        "候補の絞り込み条件ではなく、スコア・Risk・方向感の見え方に影響します。"
     ),
 }
 RANKING_PURPOSE_HELP_TEXTS = {
     RANKING_PURPOSE_MULTI_FACTOR: (
-        "Screening、予測一致、Risk、Data Quality、銘柄DB適合度を均等に近く見ます。"
+        "Screening、方向感、Risk、Data Quality、条件適合度をバランスよく見ます。"
         "特定テーマに寄せず、まず深掘り候補を広く並べたい時の基準です。"
     ),
     RANKING_PURPOSE_QUALITY_GROWTH: (
-        "ROE、予測一致、Screening、Data Qualityを重視します。"
+        "ROE、上昇気配、Screening、Data Qualityを重視します。"
         "高PER/PBRは単純減点ではなく、成長期待と価格水準の釣り合いを確認する材料として扱います。"
     ),
     RANKING_PURPOSE_QUALITY_VALUE: (
@@ -769,15 +795,15 @@ RANKING_PURPOSE_HELP_TEXTS = {
         "上昇率よりも値動きの落ち着きと確認しやすさを優先する基準です。"
     ),
     RANKING_PURPOSE_MOMENTUM: (
-        "取得期間の価格評価、予測一致、Screeningを重視します。"
+        "取得期間の価格評価、方向感、Screeningを重視します。"
         "上昇基調でもRiskが強い候補は確認対象として扱い、追随リスクを見落としにくくします。"
     ),
     RANKING_PURPOSE_RISK_ADJUSTED: (
-        "リターンだけでなくRisk signal、Data Quality、DB適合度を合わせて見ます。"
+        "リターンだけでなくRisk signal、Data Quality、条件適合度を合わせて見ます。"
         "同じ上昇でも、値動きの荒さに対して見合うかを確認するための基準です。"
     ),
     RANKING_PURPOSE_SMALL_GROWTH: (
-        "小型・中型の成長余地、ROE、Screening、予測一致を重視します。"
+        "小型・中型の成長余地、ROE、Screening、上昇気配を重視します。"
         "変動率や流動性の不確実性が出やすいため、RiskとDB信頼度も確認します。"
     ),
     RANKING_PURPOSE_NISA_LONG_TERM: (
@@ -797,15 +823,15 @@ RANKING_PURPOSE_HELP_TEXTS = {
         "インカム候補でもコストと分散性を同時に確認します。"
     ),
     RANKING_PURPOSE_DIVIDEND: (
-        "旧来の配当重視です。配当利回りとDB適合度を中心に比較します。"
+        "旧来の配当重視です。配当利回りと条件適合度を中心に比較します。"
         "新しい配当評価には「高配当の持続性」も使えます。"
     ),
     RANKING_PURPOSE_GROWTH: (
-        "旧来の成長重視です。予測一致とROE寄りのDB適合度を中心に比較します。"
+        "旧来の成長重視です。方向感とROE寄りの条件適合度を中心に比較します。"
         "より品質を見たい場合は「成長クオリティ」を使います。"
     ),
     RANKING_PURPOSE_VALUE: (
-        "旧来の割安重視です。PER/PBR寄りのDB適合度を中心に比較します。"
+        "旧来の割安重視です。PER/PBR寄りの条件適合度を中心に比較します。"
         "割安の質まで確認する場合は「割安クオリティ」を使います。"
     ),
     RANKING_PURPOSE_STABILITY: (
@@ -813,8 +839,12 @@ RANKING_PURPOSE_HELP_TEXTS = {
         "より低変動に寄せる場合は「低ボラ・安定」を使います。"
     ),
     RANKING_PURPOSE_TREND: (
-        "旧来のトレンド重視です。予測一致と直近の価格評価を中心に比較します。"
+        "旧来のトレンド重視です。方向感と直近の価格評価を中心に比較します。"
         "外部ファクターのMomentumに近い見方は「モメンタム・トレンド」を使います。"
+    ),
+    RANKING_PURPOSE_UPSIDE_SIGNAL: (
+        "上昇気配、下向きシグナルの低さ、Screening、Data Qualityを重視します。"
+        "買い推奨ではなく、短期的に深掘りする候補を整理するための基準です。"
     ),
 }
 
@@ -1451,11 +1481,10 @@ def apply_ranking_weight_preset(
             "database_fit_score": _format_score(database_fit_score),
             "metadata_confidence_score": _format_score(metadata_confidence_score),
         }
+        enriched_row = _ensure_ranking_signal_fields(enriched_row)
         total = Decimal("0")
         for field, weight in weights.items():
-            component_score = _optional_decimal_from_text(enriched_row.get(field, "")) or Decimal(
-                "0"
-            )
+            component_score = _ranking_component_score(enriched_row, field)
             total += component_score * weight
         warnings = row.get("warnings", "")
         reweighted_rows.append(
@@ -1468,6 +1497,47 @@ def apply_ranking_weight_preset(
             }
         )
     return rank_investment_score_rows(reweighted_rows)
+
+
+def _ensure_ranking_signal_fields(row: dict[str, str]) -> dict[str, str]:
+    forecast_agreement = _optional_decimal_from_text(row.get("forecast_agreement_score", ""))
+    neutral_direction = forecast_agreement if forecast_agreement is not None else Decimal("50")
+    direction_net = _optional_decimal_from_text(row.get("direction_net_score", ""))
+    upside = _optional_decimal_from_text(row.get("upside_signal_score", ""))
+    downside = _optional_decimal_from_text(row.get("downside_signal_score", ""))
+    enriched = dict(row)
+    if not enriched.get("direction_net_score"):
+        enriched["direction_net_score"] = _format_score(direction_net or neutral_direction)
+    if not enriched.get("upside_signal_score"):
+        enriched["upside_signal_score"] = _format_score(upside or neutral_direction)
+    if not enriched.get("downside_signal_score"):
+        enriched["downside_signal_score"] = _format_score(downside or Decimal("50"))
+    if not enriched.get("direction_signal_label"):
+        enriched["direction_signal_label"] = "UNKNOWN"
+    if not enriched.get("forecast_return_pct"):
+        enriched["forecast_return_pct"] = "0"
+    if not enriched.get("up_model_count"):
+        enriched["up_model_count"] = "0"
+    if not enriched.get("down_model_count"):
+        enriched["down_model_count"] = "0"
+    if not enriched.get("flat_model_count"):
+        enriched["flat_model_count"] = "0"
+    if not enriched.get("research_score"):
+        enriched["research_score"] = "50"
+    return enriched
+
+
+def _ranking_component_score(row: dict[str, str], field: str) -> Decimal:
+    value = _optional_decimal_from_text(row.get(field, ""))
+    if value is not None:
+        return value
+    if field == "research_score":
+        return Decimal("50")
+    if field in {"direction_net_score", "upside_signal_score"}:
+        return _optional_decimal_from_text(row.get("forecast_agreement_score", "")) or Decimal("50")
+    if field == "downside_signal_score":
+        return Decimal("50")
+    return Decimal("0")
 
 
 def ranking_database_fit_score(

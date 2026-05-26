@@ -111,9 +111,9 @@ def cockpit_kpi_cards(score_row: dict[str, str] | None) -> list[dict[str, str]]:
             "help": "確認レベルの目安です。売買指示ではありません。",
         },
         {
-            "label": "Forecast Agreement",
-            "value": _display_value(row.get("予測一致"), "未計算"),
-            "help": "予測モデル間の見方の近さです。",
+            "label": "Direction Signal",
+            "value": _display_value(row.get("方向スコア") or row.get("方向感"), "未計算"),
+            "help": "上昇気配と下降警戒の差分を整理した深掘り用シグナルです。",
         },
         {
             "label": "Data Confidence",
@@ -278,7 +278,7 @@ def _tone_for_kpi_card(card: dict[str, str]) -> str:
     label = card.get("label", "")
     if label == "Investment Score":
         return "score"
-    if label == "Forecast Agreement":
+    if label == "Direction Signal":
         return "forecast"
     if label == "Data Confidence":
         return "success"
@@ -292,7 +292,7 @@ def _tone_for_kpi_card(card: dict[str, str]) -> str:
 def _progress_for_kpi_card(card: dict[str, str]) -> int | None:
     if card.get("label") in {
         "Investment Score",
-        "Forecast Agreement",
+        "Direction Signal",
         "Data Confidence",
         "Risk",
     }:

@@ -432,7 +432,12 @@ _DISPLAY_KEY_LABELS = {
     "total_score": "総合スコア",
     "score_band": "見方",
     "screening_score": "Screening",
-    "forecast_agreement_score": "予測一致",
+    "direction_net_score": "方向スコア",
+    "upside_signal_score": "上昇気配",
+    "downside_signal_score": "下降警戒",
+    "direction_signal_label": "方向感",
+    "forecast_return_pct": "予測変化率",
+    "forecast_agreement_score": "モデル一致度(補助)",
     "risk_signal_score": "Risk",
     "warnings": "注意点",
     "reasons": "理由",
@@ -495,7 +500,8 @@ def _display_value(key: str, value: str) -> str:
     if key == "component":
         return {
             "Screening": "スクリーニング",
-            "Forecast agreement": "予測一致",
+            "Direction Signal": "方向感",
+            "Forecast agreement": "モデル一致度(補助)",
             "Data quality": "データ品質",
             "Risk signal": "Risk",
         }.get(value, value)
@@ -515,7 +521,7 @@ def _display_reason_codes(value: str) -> str:
     replacements = {
         "model_disagreement:high": "モデル見解のばらつき:高",
         "data_quality:warn": "データ品質:注意",
-        "forecast_agreement:low": "予測一致:低",
+        "forecast_agreement:low": "モデル一致度(補助):低",
         "risk_signal:caution": "Risk:注意",
         "screening:neutral": "スクリーニング:中立",
         "missing:dividend_yield": "未取得:配当利回り",

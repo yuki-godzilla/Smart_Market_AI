@@ -943,9 +943,9 @@ def test_investment_score_downloads_export_ranked_rows():
         "rank,symbol,total_score,score_band,screening_score,forecast_agreement_score,"
         "upside_signal_score,downside_signal_score,direction_net_score,direction_signal_label,"
         "forecast_return_pct,up_model_count,down_model_count,flat_model_count,data_quality_score,"
-        "database_fit_score,metadata_confidence_score,risk_signal_score,ranking_profile,"
+        "database_fit_score,metadata_confidence_score,research_score,risk_signal_score,ranking_profile,"
         "forecast_agreement,data_quality,breakdown,warnings,reasons,note\n"
-        "1,AAPL,73,BALANCED,80,40,,,,,,,,,100,,,,,LOW,OK,screening: 80 x 0.5 = 40,"
+        "1,AAPL,73,BALANCED,80,40,,,,,,,,,100,,,,,,LOW,OK,screening: 80 x 0.5 = 40,"
         "model_disagreement:high,\"forecast_agreement:low, model_disagreement:high\","
         "売買推奨ではなく、判断材料を整理したスコアです。\n"
     )

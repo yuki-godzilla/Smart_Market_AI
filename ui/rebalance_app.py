@@ -993,6 +993,7 @@ def investment_score_csv_download(rows: list[dict[str, str]]) -> str:
             "data_quality_score",
             "database_fit_score",
             "metadata_confidence_score",
+            "research_score",
             "risk_signal_score",
             "ranking_profile",
             "forecast_agreement",

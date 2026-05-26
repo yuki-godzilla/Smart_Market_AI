@@ -3523,6 +3523,7 @@ def test_investment_score_csv_download_accepts_ranking_metadata_scores():
                 "data_quality_score": "100",
                 "database_fit_score": "95",
                 "metadata_confidence_score": "100",
+                "research_score": "50",
                 "risk_signal_score": "60",
                 "ranking_profile": "配当・インカム重視",
                 "warnings": "",
@@ -3533,6 +3534,7 @@ def test_investment_score_csv_download_accepts_ranking_metadata_scores():
 
     assert "database_fit_score" in csv_text
     assert "metadata_confidence_score" in csv_text
+    assert "research_score" in csv_text
     assert "ranking_profile" in csv_text
 
 

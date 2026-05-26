@@ -45,6 +45,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 
 現在の MVP は、ローカル検証と説明用です。
 外部 API へ接続する場合は明示 opt-in が必要で、broker や execution provider へ注文を送りません。
+Research RAG / News RAG は通常検証では local-first を維持しますが、実運用では情報鮮度が重要です。外部資料・外部ニュース取得を使う場合は、明示 opt-in、source URL、published_at、fetched_at、cache / manifest、freshness warning を確認します。
 
 ## 3. API 起動と確認
 

@@ -8,6 +8,8 @@ Status: Phase 20 local evidence slice is implementation complete. Phase 21 cover
 
 Phase 20 では、Research RAG を「銘柄を推奨するAI」ではなく、既存の `銘柄コックピット` / `銘柄ランキング` / `Decision Report` に資料根拠を添える local-first evidence layer として実装する。
 
+Research RAG は通常検証を local-first / deterministic-first に保つが、実運用の価値は資料・ニュースの鮮度に大きく依存する。外部取得が明示 assignment された場合は、opt-in adapter、cache / manifest、source URL、published_at、fetched_at、freshness warning を備えた current external evidence を優先する。
+
 ### Goals
 
 - ローカル資料から、長期企業分析の確認材料を検索できるようにする。

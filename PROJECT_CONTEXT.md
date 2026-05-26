@@ -32,6 +32,7 @@ Symbol Cockpit now treats Price & Forecast as the hero chart: Summary and KPI ca
 
 Routine development must keep deterministic `mock` / `csv` behavior available while allowing explicit opt-in use of live providers such as Yahoo/yfinance.
 The configured default provider remains `mock` for local checks and APIs; the Streamlit Market Data provider selector is live-first with `yahoo` as the first/default option and explicit per-fetch opt-in.
+For Research RAG / News RAG, local deterministic checks remain mandatory, but freshness is a product priority: when external RAG fetch work is explicitly assigned, current opt-in external sources should be prioritized with cache / manifest / source URL / published_at / fetched_at.
 
 ## Repository Layout
 

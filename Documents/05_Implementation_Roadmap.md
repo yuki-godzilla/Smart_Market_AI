@@ -485,6 +485,12 @@ Completion criteria:
 
 Status: implementation complete; local evidence slice complete
 
+Research freshness principle:
+
+- SMAI 全体は local-first / deterministic-first を維持するが、Research RAG と News RAG は情報鮮度が価値の中心になる。
+- 通常 tests / CI は network 非依存のままにしつつ、RAG 外部取得が明示 assignment された場合は、外部資料・外部ニュースの current evidence を優先して設計する。
+- 外部 evidence は source URL、provider、published_at、fetched_at、hash / manifest、freshness_status を保持し、古い情報は warning として表示する。
+
 Current implementation direction:
 
 - Phase 20 は、RAG で銘柄を推奨したりランキング順位を直接変えたりする段階ではなく、既存の `銘柄コックピット` / `銘柄ランキング` / `Decision Report` に資料根拠を添える local-first evidence layer として実装する。

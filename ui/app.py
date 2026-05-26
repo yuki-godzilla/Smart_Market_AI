@@ -3798,9 +3798,10 @@ async def _build_market_data_ranking_rows_fast(
         bars=bars,
         cfg=settings.feature_builder,
     )
+    provider_name = adapter.healthcheck().get("provider", provider)
     feature_snapshot = FeatureSnapshot(
         as_of=end,
-        provider=adapter.healthcheck().get("provider", provider),
+        provider=provider_name,
         rows=feature_rows,
         missing_summary=_feature_missing_summary(feature_rows),
         quality_summary=_feature_quality_summary(feature_rows),
@@ -3818,6 +3819,9 @@ async def _build_market_data_ranking_rows_fast(
         )
         if forecast_consensus is not None:
             forecast_consensus_by_symbol[forecast_consensus.symbol] = forecast_consensus
+        should_report_progress = index == 1 or index % 10 == 0 or index == len(available_symbols)
+        if not should_report_progress:
+            continue
         progress = 0.65 + (0.2 * index / len(available_symbols))
         _report_ranking_progress(
             progress_callback,
@@ -4013,6 +4017,11 @@ async def _build_market_data_ranking_rows_from_previews(
         preview_rows, preview_error_rows = await task
         rows.extend(preview_rows)
         error_rows.extend(preview_error_rows)
+        should_report_progress = (
+            completed_count == 1 or completed_count % 10 == 0 or completed_count == len(symbols)
+        )
+        if not should_report_progress:
+            continue
         _report_ranking_progress(
             progress_callback,
             f"銘柄別に取得しています ({completed_count}/{len(symbols)})。",

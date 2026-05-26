@@ -2269,6 +2269,60 @@ def test_build_market_data_ranking_rows_fetches_symbols_concurrently(monkeypatch
     assert any("銘柄別に取得しています" in message for message in progress_messages)
 
 
+def test_build_market_data_ranking_rows_throttles_preview_progress(monkeypatch):
+    async def fail_fast_path(*args, **kwargs):
+        raise DataSourceError("batch unavailable")
+
+    monkeypatch.setattr("ui.app._build_market_data_ranking_rows_fast", fail_fast_path)
+
+    async def fake_build_market_data_preview(
+        *,
+        symbol,
+        start,
+        end,
+        provider_override,
+        forecast_horizon_days,
+    ):
+        await asyncio.sleep(0)
+        return SimpleNamespace(
+            investment_score_rows=[
+                {
+                    "symbol": symbol,
+                    "total_score": "70",
+                    "screening_score": "70",
+                    "forecast_agreement": "70",
+                    "data_quality": "100",
+                }
+            ],
+            error_rows=[],
+        )
+
+    monkeypatch.setattr(
+        "ui.app.build_market_data_preview",
+        fake_build_market_data_preview,
+    )
+    progress_messages: list[str] = []
+    symbols = [f"SYM{i}" for i in range(21)]
+
+    rows, error_rows = asyncio.run(
+        _build_market_data_ranking_rows(
+            symbols,
+            start=date(2026, 5, 10),
+            end=date(2026, 5, 17),
+            provider="mock",
+            progress_callback=lambda message, _ratio: progress_messages.append(message),
+        )
+    )
+
+    assert len(rows) == 21
+    assert error_rows == []
+    assert any("(1/21)" in message for message in progress_messages)
+    assert any("(10/21)" in message for message in progress_messages)
+    assert any("(20/21)" in message for message in progress_messages)
+    assert any("(21/21)" in message for message in progress_messages)
+    assert not any("(2/21)" in message for message in progress_messages)
+
+
 def test_build_market_data_ranking_rows_does_not_retry_live_batch_failure(monkeypatch):
     async def fail_fast_path(*args, **kwargs):
         raise DataSourceError("batch unavailable", details={"provider": "yahoo"})
@@ -2320,6 +2374,7 @@ def test_build_market_data_ranking_rows_uses_batch_fast_path(monkeypatch):
         def __init__(self) -> None:
             self.ohlcv_calls = 0
             self.fundamental_calls = 0
+            self.healthcheck_calls = 0
 
         async def fetch_ohlcv(self, symbols, start, end, interval="1d"):
             self.ohlcv_calls += 1
@@ -2362,6 +2417,7 @@ def test_build_market_data_ranking_rows_uses_batch_fast_path(monkeypatch):
             ]
 
         def healthcheck(self):
+            self.healthcheck_calls += 1
             return {"provider": "fake", "status": "ok"}
 
     adapter = FakeBatchAdapter()
@@ -2386,6 +2442,7 @@ def test_build_market_data_ranking_rows_uses_batch_fast_path(monkeypatch):
 
     assert adapter.ohlcv_calls == 1
     assert adapter.fundamental_calls == 1
+    assert adapter.healthcheck_calls == 1
     assert [row["symbol"] for row in rows] == ["AAA", "BBB"]
     assert error_rows == []
 
@@ -2524,7 +2581,7 @@ def test_ranking_symbol_chunks_split_large_builds():
 
     chunks = ranking_symbol_chunks(symbols)
 
-    assert [len(chunk) for chunk in chunks] == [10, 10, 10, 10, 10, 3]
+    assert [len(chunk) for chunk in chunks] == [25, 25, 3]
     assert [symbol for chunk in chunks for symbol in chunk] == symbols
 
 

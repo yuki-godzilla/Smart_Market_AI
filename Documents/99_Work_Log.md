@@ -628,3 +628,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added UI helper rows for Phase 21 Research RAG outputs: grounded answer, retrieval quality, and extracted claims.
 - Displayed grounded answer and retrieval quality in the cockpit / ranking Research Summary panel, and extracted claims inside the Research RAG detail expander.
 - Added grounded answer, retrieval quality, and extracted claim rows to the Cockpit Decision Report Research Evidence section without changing ranking, Investment Score, Research Score, or retrieval behavior.
+
+## 2026-05-26 - Phase 21 optional vector / hybrid retrieval contract first slice
+
+- Added optional Research RAG vector / hybrid intermediate contracts: `ResearchEmbedding` and `ResearchRetrievalCandidate`.
+- Added `ResearchDisabledVectorStore` so the default vector path is explicit, deterministic, and reports a retrieval-quality warning instead of silently attempting vector search.
+- Added `ResearchHybridScorer` and `ResearchHybridScoreWeights` to combine keyword, vector, freshness, reliability, and source-type priority scores without wiring hybrid retrieval into the default keyword path yet.

@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -7,14 +7,18 @@ import pytest
 from backend.research import (
     CompanyResearchRequest,
     ResearchAnalysisService,
+    ResearchDisabledVectorStore,
     ResearchDocumentError,
     ResearchDocumentRegisterRequest,
+    ResearchEmbedding,
     ResearchEvidence,
     ResearchEvidenceReranker,
+    ResearchHybridScorer,
     ResearchIndexService,
     ResearchIngestionService,
     ResearchInMemoryStore,
     ResearchQueryExpansionService,
+    ResearchRetrievalCandidate,
     ResearchRetrievalService,
     ResearchSearchRequest,
 )
@@ -455,3 +459,59 @@ def test_research_analysis_marks_missing_evidence_as_warning():
     assert report.data_quality.document_count == 0
     assert report.data_quality.evidence_count == 0
     assert any(point.category == "confirmation_gap" for point in report.points)
+
+
+def test_research_disabled_vector_store_returns_empty_candidates_and_quality_warning():
+    vector_store = ResearchDisabledVectorStore()
+    request = ResearchSearchRequest(
+        symbol="7203.T",
+        query="growth strategy",
+        expanded_terms=["growth", "strategy"],
+    )
+
+    candidates = vector_store.search(request)
+    quality = vector_store.retrieval_quality(request)
+
+    assert candidates == []
+    assert quality.backend == "vector"
+    assert quality.candidate_count == 0
+    assert quality.evidence_count == 0
+    assert quality.expanded_terms == ["growth", "strategy"]
+    assert "Vector retrieval is disabled" in quality.warnings[0]
+
+
+def test_research_hybrid_scorer_combines_keyword_vector_freshness_and_reliability():
+    candidate = ResearchRetrievalCandidate(
+        symbol="7203.T",
+        document_id="doc-1",
+        chunk_id="chunk-1",
+        title="Annual Report",
+        source_type="annual_report",
+        published_at=date(2026, 5, 1),
+        section_title="Growth",
+        excerpt="Growth strategy and overseas expansion.",
+        keyword_score=Decimal("0.80"),
+        vector_score=Decimal("0.60"),
+        reliability=Decimal("0.90"),
+    )
+
+    scored = ResearchHybridScorer().score(candidate, as_of=date(2026, 5, 25))
+
+    assert scored.retrieval_backend == "hybrid"
+    assert scored.freshness_score == Decimal("1")
+    assert scored.final_relevance_score == Decimal("0.7700")
+
+
+def test_research_embedding_contract_carries_cache_key_fields():
+    embedding = ResearchEmbedding(
+        chunk_id="chunk-1",
+        symbol="7203.T",
+        embedding_model="local-test",
+        vector=[0.1, 0.2, 0.3],
+        created_at=datetime(2026, 5, 25, tzinfo=UTC),
+        text_hash="abc123",
+    )
+
+    assert embedding.chunk_id == "chunk-1"
+    assert embedding.embedding_model == "local-test"
+    assert embedding.text_hash == "abc123"

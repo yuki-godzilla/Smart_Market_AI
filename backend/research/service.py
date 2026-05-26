@@ -276,6 +276,46 @@ class ResearchRetrievalQuality(StrictBaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class ResearchEmbedding(StrictBaseModel):
+    """Optional embedding payload for future local vector retrieval."""
+
+    chunk_id: str = Field(min_length=1)
+    symbol: str = Field(min_length=1)
+    embedding_model: str = Field(min_length=1)
+    vector: list[float] = Field(default_factory=list)
+    created_at: datetime
+    text_hash: str = Field(min_length=1)
+
+
+class ResearchRetrievalCandidate(StrictBaseModel):
+    """Intermediate row carrying keyword, vector, and hybrid retrieval scores."""
+
+    symbol: str = Field(min_length=1)
+    document_id: str = Field(min_length=1)
+    chunk_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    source_type: ResearchSourceType
+    published_at: date | None = None
+    section_title: str | None = None
+    excerpt: str = Field(min_length=1)
+    keyword_score: Decimal | None = Field(default=None, ge=0, le=1)
+    vector_score: Decimal | None = Field(default=None, ge=0, le=1)
+    freshness_score: Decimal | None = Field(default=None, ge=0, le=1)
+    reliability: Decimal = Field(ge=0, le=1)
+    final_relevance_score: Decimal = Field(default=Decimal("0"), ge=0, le=1)
+    retrieval_backend: ResearchRetrievalBackend = "keyword"
+
+
+class ResearchHybridScoreWeights(StrictBaseModel):
+    """Deterministic score weights for optional hybrid retrieval."""
+
+    keyword_weight: Decimal = Field(default=Decimal("0.40"), ge=0, le=1)
+    vector_weight: Decimal = Field(default=Decimal("0.35"), ge=0, le=1)
+    freshness_weight: Decimal = Field(default=Decimal("0.10"), ge=0, le=1)
+    reliability_weight: Decimal = Field(default=Decimal("0.10"), ge=0, le=1)
+    source_type_weight: Decimal = Field(default=Decimal("0.05"), ge=0, le=1)
+
+
 class ResearchDataQuality(StrictBaseModel):
     """Availability and freshness of local research evidence."""
 
@@ -543,6 +583,67 @@ class ResearchEvidenceReranker:
                 row.document_id,
                 row.chunk_id,
             ),
+        )
+
+
+class ResearchHybridScorer:
+    """Score optional hybrid retrieval candidates without changing keyword retrieval."""
+
+    def __init__(self, weights: ResearchHybridScoreWeights | None = None) -> None:
+        self.weights = weights or ResearchHybridScoreWeights()
+
+    def score(
+        self,
+        candidate: ResearchRetrievalCandidate,
+        *,
+        as_of: date | None = None,
+    ) -> ResearchRetrievalCandidate:
+        effective_as_of = as_of or date.today()
+        freshness_score = candidate.freshness_score or _freshness_factor(
+            candidate.published_at,
+            as_of=effective_as_of,
+        )
+        source_type_score = Decimal(str(_source_type_priority(candidate.source_type)))
+        score = (
+            ((candidate.keyword_score or Decimal("0")) * self.weights.keyword_weight)
+            + ((candidate.vector_score or Decimal("0")) * self.weights.vector_weight)
+            + (freshness_score * self.weights.freshness_weight)
+            + (candidate.reliability * self.weights.reliability_weight)
+            + (source_type_score * self.weights.source_type_weight)
+        )
+        return candidate.model_copy(
+            update={
+                "freshness_score": freshness_score,
+                "final_relevance_score": min(Decimal("1"), score).quantize(Decimal("0.0001")),
+                "retrieval_backend": "hybrid",
+            }
+        )
+
+
+class ResearchDisabledVectorStore:
+    """Explicit disabled vector store used as the default optional-vector fallback."""
+
+    disabled_warning = (
+        "Vector retrieval is disabled; keyword retrieval remains the deterministic default."
+    )
+
+    def search(self, request: ResearchSearchRequest) -> list[ResearchRetrievalCandidate]:
+        return []
+
+    def retrieval_quality(
+        self,
+        request: ResearchSearchRequest,
+        *,
+        expanded_terms: Sequence[str] | None = None,
+    ) -> ResearchRetrievalQuality:
+        query = request.query or request.query_category or "vector search"
+        return ResearchRetrievalQuality(
+            backend="vector",
+            query=query,
+            expanded_terms=_normalize_query_terms(expanded_terms or request.expanded_terms),
+            candidate_count=0,
+            evidence_count=0,
+            warnings=[self.disabled_warning],
         )
 
 

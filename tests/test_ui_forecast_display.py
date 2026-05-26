@@ -2697,6 +2697,15 @@ def test_ranking_score_bar_chart_frame_uses_purpose_metric():
             "下降警戒": "44",
             "方向スコア": "63",
         },
+        {
+            "順位": "3",
+            "銘柄": "CCC",
+            "銘柄名": "Gamma",
+            "総合スコア": "78",
+            "上昇気配": "82",
+            "下降警戒": "30",
+            "方向スコア": "76",
+        },
     ]
 
     frame = ranking_score_bar_chart_frame(
@@ -2705,7 +2714,40 @@ def test_ranking_score_bar_chart_frame_uses_purpose_metric():
     )
 
     assert frame.attrs["metric_column"] == "上昇気配"
-    assert frame["score"].tolist() == [76.0, 70.0]
+    assert frame["symbol"].tolist() == ["CCC", "AAA", "BBB"]
+    assert frame["score"].tolist() == [82.0, 76.0, 70.0]
+
+
+def test_ranking_score_bar_chart_frame_uses_fit_for_etf_core_cost():
+    rows = [
+        {
+            "順位": "1",
+            "銘柄": "HIGHCOST",
+            "銘柄名": "High Cost ETF",
+            "総合スコア": "80",
+            "経費率": "1.20",
+            "条件適合度": "70",
+            "データ品質": "92",
+        },
+        {
+            "順位": "2",
+            "銘柄": "LOWCOST",
+            "銘柄名": "Low Cost ETF",
+            "総合スコア": "78",
+            "経費率": "0.10",
+            "条件適合度": "92",
+            "データ品質": "90",
+        },
+    ]
+
+    frame = ranking_score_bar_chart_frame(
+        rows,
+        ranking_purpose=RANKING_PURPOSE_ETF_CORE_COST,
+    )
+
+    assert frame.attrs["metric_column"] == "条件適合度"
+    assert frame["symbol"].tolist() == ["LOWCOST", "HIGHCOST"]
+    assert frame["score"].tolist() == [92.0, 70.0]
 
 
 def test_ranking_candidate_cards_and_breakdown_use_existing_display_values():

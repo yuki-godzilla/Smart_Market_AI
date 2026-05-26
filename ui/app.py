@@ -1910,7 +1910,7 @@ def ranking_score_bar_chart_frame(
         records.append(
             {
                 "rank": row.get("順位", ""),
-                "rank_order": len(records) + 1,
+                "rank_sort": _ranking_rank_sort_value(row.get("順位")),
                 "symbol": symbol,
                 "name": name,
                 "label": symbol or name,
@@ -1918,9 +1918,26 @@ def ranking_score_bar_chart_frame(
                 "metric": metric_column,
             }
         )
+    records.sort(
+        key=lambda record: (
+            -cast(float, record["score"]),
+            cast(int, record["rank_sort"]),
+            str(record["symbol"]),
+        )
+    )
+    records = records[:limit]
+    for index, record in enumerate(records, start=1):
+        record["bar_order"] = index
     frame = pd.DataFrame.from_records(records)
     frame.attrs["metric_column"] = metric_column
     return frame
+
+
+def _ranking_rank_sort_value(value: object) -> int:
+    rank = _decimal_from_text(value)
+    if rank is None:
+        return 999999
+    return int(rank)
 
 
 def _ranking_bar_chart_metric_column(
@@ -1928,16 +1945,41 @@ def _ranking_bar_chart_metric_column(
     ranking_purpose: str,
 ) -> str:
     direction_columns = {"上昇気配", "下降警戒", "下降警戒の低さ", "方向スコア"}
-    if direction_columns.intersection(ranking_purpose_primary_columns(ranking_purpose)):
+    candidates = _ranking_bar_chart_candidate_columns(ranking_purpose)
+    if direction_columns.intersection(candidates):
         if _ranking_direction_data_limited(display_rows):
             fallback_columns = ("Screening", "Risk", "データ品質", "条件適合度", "総合スコア")
             for column in fallback_columns:
                 if _ranking_distinct_numeric_count(display_rows, column) >= 1:
                     return column
-    for column in ranking_purpose_primary_columns(ranking_purpose):
+    for column in candidates:
         if _ranking_distinct_numeric_count(display_rows, column) >= 1:
             return column
     return "総合スコア"
+
+
+def _ranking_bar_chart_candidate_columns(ranking_purpose: str) -> tuple[str, ...]:
+    purpose_columns: dict[str, tuple[str, ...]] = {
+        "multi_factor": ("総合スコア", "方向スコア", "Risk", "データ品質"),
+        "upside_signal": ("上昇気配", "方向スコア", "下降警戒の低さ"),
+        "momentum": ("Screening", "方向スコア", "上昇気配"),
+        "trend": ("Screening", "方向スコア", "上昇気配"),
+        "quality_growth": ("条件適合度", "ROE", "Screening"),
+        "growth": ("条件適合度", "ROE", "Screening"),
+        "small_growth": ("条件適合度", "上昇気配", "ROE"),
+        "quality_value": ("条件適合度", "Risk", "データ品質"),
+        "value": ("条件適合度", "Risk", "データ品質"),
+        "sustainable_income": ("配当利回り", "条件適合度", "Risk"),
+        "dividend": ("配当利回り", "条件適合度", "Risk"),
+        "min_volatility": ("Risk", "データ品質", "DB信頼度"),
+        "stability": ("Risk", "データ品質", "DB信頼度"),
+        "risk_adjusted": ("Risk", "総合スコア", "Screening"),
+        "nisa_long_term": ("条件適合度", "Risk", "データ品質"),
+        "data_confidence": ("データ品質", "DB信頼度", "条件適合度"),
+        "etf_core_cost": ("条件適合度", "データ品質", "DB信頼度"),
+        "etf_income": ("配当利回り", "条件適合度", "Risk"),
+    }
+    return purpose_columns.get(ranking_purpose, ranking_purpose_primary_columns(ranking_purpose))
 
 
 def ranking_score_confidence_frame(display_rows: list[dict[str, str]]) -> pd.DataFrame:
@@ -2208,10 +2250,10 @@ def _render_ranking_score_bar_chart(
 ) -> None:
     frame = ranking_score_bar_chart_frame(display_rows, ranking_purpose=ranking_purpose)
     metric_column = str(frame.attrs.get("metric_column", "総合スコア"))
-    render_section_heading(f"Top 10 {metric_column} Comparison")
+    render_section_heading(f"Top 10 {metric_column} Leaders")
     st.caption(
-        f"上位候補を、並べ替え条件で重視する「{metric_column}」で比較します。"
-        "棒の並びはランキング順です。銘柄名はtooltipで確認できます。"
+        f"並べ替え条件で重視する「{metric_column}」が高い順に比較します。"
+        "総合順位とは一致しない場合があります。銘柄名はtooltipで確認できます。"
     )
     if frame.empty:
         st.info(f"{metric_column} をグラフ化できる候補がありません。")
@@ -2221,7 +2263,7 @@ def _render_ranking_score_bar_chart(
         .mark_bar(cornerRadiusEnd=3)
         .encode(
             x=alt.X("score:Q", title=metric_column),
-            y=alt.Y("label:N", sort=alt.SortField("rank_order", order="ascending"), title=None),
+            y=alt.Y("label:N", sort=alt.SortField("bar_order", order="ascending"), title=None),
             tooltip=[
                 alt.Tooltip("rank:N", title="Rank"),
                 alt.Tooltip("symbol:N", title="Symbol"),

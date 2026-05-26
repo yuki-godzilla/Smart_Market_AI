@@ -57,7 +57,7 @@ Area-specific wording:
 - Evaluation Confidence should be described as evaluation reliability / data coverage, not as a main attractiveness factor.
 - Symbol Cockpit dashboard labels may use `Symbol Cockpit Summary`, `Analysis KPI`, `Score Breakdown`, `Selected Candidate`, and `Research Evidence Summary`; explain these as analysis / confirmation views rather than advice.
 - Cockpit `Decision View` should be treated as a confirmation level, not a buy/sell direction.
-- Cockpit score cards should combine a short metric meaning with a value-band reading such as `評価: 中立圏` or `評価: 確認優先`, so users can understand both what the metric is and how to read the current value.
+- Cockpit score cards should keep the visible caption focused on the current value reading, such as `今回: 中立圏` or `今回: 確認優先`. Metric definitions and calculation notes should move to a `?` help tooltip beside the card label.
 - Cockpit chart copy should frame `Price & Forecast` as the main analysis view, then direct users to Score Breakdown for reasons and Data Details for verification.
 - Overall UI tone should be Professional but Friendly: short labels, calm explanations, restrained dashboard wording, and no advice-like urgency.
 - Badges should clarify state rather than imply action: `Review`, `Check data`, `High Confidence`, `Evidence`, `Context`, and similar neutral labels are preferred.

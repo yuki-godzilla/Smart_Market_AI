@@ -817,6 +817,34 @@ SMAI_GLOBAL_CSS = """
     margin-bottom: 0.35rem;
 }
 
+.smai-card-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
+    margin-bottom: 0.35rem;
+}
+
+.smai-card-label-row .smai-card-label {
+    margin-bottom: 0;
+}
+
+.smai-card-help {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    color: #cbd5e1;
+    background: rgba(15, 23, 42, 0.58);
+    font-size: 0.68rem;
+    font-weight: 760;
+    line-height: 1;
+}
+
 .smai-card-value {
     color: var(--smai-card-value);
     font-size: 1.28rem;
@@ -1048,6 +1076,7 @@ def metric_card_html(
     value: object,
     *,
     caption: str = "",
+    help_text: str = "",
     badges: tuple[str, ...] = (),
     tone: str = "neutral",
     emphasis: str = "normal",
@@ -1070,11 +1099,22 @@ def metric_card_html(
         if caption
         else ""
     )
+    if help_text:
+        label_html = (
+            '<div class="smai-card-label-row">'
+            f'<div class="smai-card-label">{html.escape(label)}</div>'
+            '<span class="smai-card-help" '
+            f'title="{html.escape(help_text, quote=True)}" '
+            f'aria-label="{html.escape(label, quote=True)} の説明">?</span>'
+            "</div>"
+        )
+    else:
+        label_html = f'<div class="smai-card-label">{html.escape(label)}</div>'
     return (
         '<div class="smai-metric-card" '
         f'data-tone="{_safe_card_tone(tone)}" '
         f'data-emphasis="{_safe_card_emphasis(emphasis)}">'
-        f'<div class="smai-card-label">{html.escape(label)}</div>'
+        f"{label_html}"
         f'<div class="smai-card-value">{html.escape(compact_display_value(value))}</div>'
         f"{progress_bar}"
         f"{caption_html}"
@@ -1088,6 +1128,7 @@ def render_metric_card(
     value: object,
     *,
     caption: str = "",
+    help_text: str = "",
     badges: tuple[str, ...] = (),
     tone: str = "neutral",
     emphasis: str = "normal",
@@ -1098,6 +1139,7 @@ def render_metric_card(
             label,
             value,
             caption=caption,
+            help_text=help_text,
             badges=badges,
             tone=tone,
             emphasis=emphasis,

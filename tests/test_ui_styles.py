@@ -25,6 +25,7 @@ def test_metric_card_html_uses_shared_card_classes_and_escapes_text():
         "Investment <Score>",
         "72.00",
         caption="確認 <材料>",
+        help_text="指標 <説明>",
         badges=(badge_html("Review", "info"),),
     )
 
@@ -32,6 +33,8 @@ def test_metric_card_html_uses_shared_card_classes_and_escapes_text():
     assert "Investment &lt;Score&gt;" in markup
     assert "72" in markup
     assert "確認 &lt;材料&gt;" in markup
+    assert 'class="smai-card-help"' in markup
+    assert "指標 &lt;説明&gt;" in markup
     assert 'class="smai-badge info"' in markup
 
 

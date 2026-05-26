@@ -38,8 +38,8 @@ def test_cockpit_summary_items_use_existing_score_and_metadata_values():
     assert items[1]["value"] == "Toyota Motor"
     assert items[5]["value"] == "stock / japan / Automobiles"
     assert items[6]["value"] == "72"
-    assert "投資魅力度ではなく" in items[8]["help"]
-    assert "評価: 高め" in items[8]["help"]
+    assert "投資魅力度ではなく" in items[8]["help_text"]
+    assert "今回: 高め" in items[8]["caption"]
 
 
 def test_cockpit_kpi_cards_do_not_create_new_scores():
@@ -56,14 +56,14 @@ def test_cockpit_kpi_cards_do_not_create_new_scores():
     assert [card["label"] for card in cards] == [
         "Investment Score",
         "Decision View",
-        "Direction Signal",
+        "方向バランス",
         "Data Confidence",
         "Risk",
     ]
     assert [card["value"] for card in cards] == ["72", "比較候補", "64", "95", "68"]
-    assert "投資魅力度ではなく" in cards[3]["help"]
-    assert "評価: やや上向き" in cards[2]["help"]
-    assert "評価: やや落ち着き" in cards[4]["help"]
+    assert "投資魅力度ではなく" in cards[3]["help_text"]
+    assert "今回: やや上向き" in cards[2]["caption"]
+    assert "今回: やや落ち着き" in cards[4]["caption"]
 
 
 def test_cockpit_direction_signal_cards_use_existing_direction_values():
@@ -83,16 +83,17 @@ def test_cockpit_direction_signal_cards_use_existing_direction_values():
     )
 
     assert [card["label"] for card in cards] == [
-        "方向スコア",
+        "方向バランス",
         "上昇気配",
         "下降警戒",
         "予測変化率",
     ]
     assert [card["value"] for card in cards] == ["72", "78", "34", "+3.2%"]
-    assert "評価: 上向き寄り" in cards[0]["help"]
-    assert "評価: 強め" in cards[1]["help"]
-    assert "評価: 低め" in cards[2]["help"]
-    assert "評価: やや上向き" in cards[3]["help"]
+    assert "今回: 上向き寄り" in cards[0]["caption"]
+    assert "今回: 強め" in cards[1]["caption"]
+    assert "今回: 低め" in cards[2]["caption"]
+    assert "今回: やや上向き" in cards[3]["caption"]
+    assert "50付近は中立" in cards[0]["help_text"]
 
 
 def test_cockpit_direction_signal_detail_rows_explain_balance_and_model_spread():
@@ -112,9 +113,9 @@ def test_cockpit_direction_signal_detail_rows_explain_balance_and_model_spread()
     )
 
     assert rows[0]["観点"] == "方向感"
-    assert rows[0]["内容"] == "上昇気配あり / 方向スコア 72"
+    assert rows[0]["内容"] == "上昇気配あり / 方向バランス 72"
     assert rows[1]["観点"] == "上昇・下降バランス"
-    assert "上昇気配 78 / 下降警戒 34 / 方向スコア 72" in rows[1]["内容"]
+    assert "上昇気配 78 / 下降警戒 34 / 方向バランス 72" in rows[1]["内容"]
     assert rows[3]["内容"] == "上昇 2 / 下降 1 / 横ばい 0"
     assert rows[4]["内容"] == "12.4% / モデル一致度 LOW"
 

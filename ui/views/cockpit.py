@@ -16,8 +16,7 @@ from ui.styles import (
 COCKPIT_CARD_MEANINGS = {
     "Investment Score": "売買判断ではなく、複数観点を統合した比較・分析用スコアです。",
     "Decision View": "売買指示ではなく、スコア帯を確認レベルに置き換えた見方です。",
-    "Direction Signal": "上昇気配と下降警戒の差分を整理した方向シグナルです。",
-    "方向スコア": "上昇気配と下降警戒の差分を0〜100で整理した方向シグナルです。",
+    "方向バランス": "上昇気配と下降警戒の差し引きを0〜100で整理した指標です。50付近は中立、50超は上向き寄り、50未満は下向き注意として見ます。",
     "上昇気配": "予測上昇率、モデル別の上向き強度、直近モメンタムを合わせた指標です。",
     "下降警戒": "予測下落率、モデル別の下向き強度、直近モメンタムを合わせた警戒指標です。",
     "予測変化率": "平均予測価格が直近終値からどの程度離れているかを示します。",
@@ -32,13 +31,7 @@ COCKPIT_SCORE_EVALUATION_TABLE = {
         (Decimal("45"), "中立圏。決め手よりも内訳の偏りを確認します。"),
         (Decimal("0"), "低め。データ不足やリスク要因を先に確認します。"),
     ),
-    "Direction Signal": (
-        (Decimal("65"), "上向き寄り。上昇気配が下降警戒を上回っています。"),
-        (Decimal("55"), "やや上向き。上昇気配と下降警戒の差を確認します。"),
-        (Decimal("45"), "中立圏。上昇・下降の材料が拮抗しています。"),
-        (Decimal("0"), "下向き注意。下降警戒や直近トレンドを先に確認します。"),
-    ),
-    "方向スコア": (
+    "方向バランス": (
         (Decimal("65"), "上向き寄り。上昇気配が下降警戒を上回っています。"),
         (Decimal("55"), "やや上向き。上昇気配と下降警戒の差を確認します。"),
         (Decimal("45"), "中立圏。上昇・下降の材料が拮抗しています。"),
@@ -149,28 +142,30 @@ def cockpit_summary_items(
         {
             "label": "Investment Score",
             "value": _display_value((score_row or {}).get("総合スコア"), "未計算"),
-            "help": _cockpit_card_help(
-                "Investment Score",
-                (score_row or {}).get("総合スコア"),
+            "caption": _cockpit_card_caption(
+                "Investment Score", (score_row or {}).get("総合スコア")
             ),
+            "help_text": _cockpit_metric_help("Investment Score"),
         },
         {
             "label": "Decision View",
             "value": _display_value((score_row or {}).get("見方"), "未判定"),
-            "help": _cockpit_card_help("Decision View", (score_row or {}).get("見方")),
+            "caption": _cockpit_card_caption("Decision View", (score_row or {}).get("見方")),
+            "help_text": _cockpit_metric_help("Decision View"),
         },
         {
             "label": "Data Confidence",
             "value": _display_value((score_row or {}).get("データ品質"), "未計算"),
-            "help": _cockpit_card_help(
-                "Data Confidence",
-                (score_row or {}).get("データ品質"),
+            "caption": _cockpit_card_caption(
+                "Data Confidence", (score_row or {}).get("データ品質")
             ),
+            "help_text": _cockpit_metric_help("Data Confidence"),
         },
         {
             "label": "Risk",
             "value": _display_value((score_row or {}).get("Risk"), "未接続"),
-            "help": _cockpit_card_help("Risk", (score_row or {}).get("Risk")),
+            "caption": _cockpit_card_caption("Risk", (score_row or {}).get("Risk")),
+            "help_text": _cockpit_metric_help("Risk"),
         },
         {
             "label": "Forecast horizon",
@@ -186,27 +181,32 @@ def cockpit_kpi_cards(score_row: dict[str, str] | None) -> list[dict[str, str]]:
         {
             "label": "Investment Score",
             "value": _display_value(row.get("総合スコア"), "未計算"),
-            "help": _cockpit_card_help("Investment Score", row.get("総合スコア")),
+            "caption": _cockpit_card_caption("Investment Score", row.get("総合スコア")),
+            "help_text": _cockpit_metric_help("Investment Score"),
         },
         {
             "label": "Decision View",
             "value": _display_value(row.get("見方"), "未判定"),
-            "help": _cockpit_card_help("Decision View", row.get("見方")),
+            "caption": _cockpit_card_caption("Decision View", row.get("見方")),
+            "help_text": _cockpit_metric_help("Decision View"),
         },
         {
-            "label": "Direction Signal",
+            "label": "方向バランス",
             "value": _display_value(row.get("方向スコア") or row.get("方向感"), "未計算"),
-            "help": _cockpit_card_help("Direction Signal", row.get("方向スコア")),
+            "caption": _cockpit_card_caption("方向バランス", row.get("方向スコア")),
+            "help_text": _cockpit_metric_help("方向バランス"),
         },
         {
             "label": "Data Confidence",
             "value": _display_value(row.get("データ品質"), "未計算"),
-            "help": _cockpit_card_help("Data Confidence", row.get("データ品質")),
+            "caption": _cockpit_card_caption("Data Confidence", row.get("データ品質")),
+            "help_text": _cockpit_metric_help("Data Confidence"),
         },
         {
             "label": "Risk",
             "value": _display_value(row.get("Risk"), "未接続"),
-            "help": _cockpit_card_help("Risk", row.get("Risk")),
+            "caption": _cockpit_card_caption("Risk", row.get("Risk")),
+            "help_text": _cockpit_metric_help("Risk"),
         },
     ]
 
@@ -221,15 +221,16 @@ def cockpit_direction_signal_cards(
     consensus = consensus_row or {}
     return [
         {
-            "label": "方向スコア",
+            "label": "方向バランス",
             "value": _display_value(
                 row.get("方向スコア") or consensus.get("direction_net_score"),
                 "未計算",
             ),
-            "help": _cockpit_card_help(
-                "方向スコア",
+            "caption": _cockpit_card_caption(
+                "方向バランス",
                 row.get("方向スコア") or consensus.get("direction_net_score"),
             ),
+            "help_text": _cockpit_metric_help("方向バランス"),
         },
         {
             "label": "上昇気配",
@@ -237,10 +238,11 @@ def cockpit_direction_signal_cards(
                 row.get("上昇気配") or consensus.get("upside_signal_score"),
                 "未計算",
             ),
-            "help": _cockpit_card_help(
+            "caption": _cockpit_card_caption(
                 "上昇気配",
                 row.get("上昇気配") or consensus.get("upside_signal_score"),
             ),
+            "help_text": _cockpit_metric_help("上昇気配"),
         },
         {
             "label": "下降警戒",
@@ -248,10 +250,11 @@ def cockpit_direction_signal_cards(
                 row.get("下降警戒") or consensus.get("downside_signal_score"),
                 "未計算",
             ),
-            "help": _cockpit_card_help(
+            "caption": _cockpit_card_caption(
                 "下降警戒",
                 row.get("下降警戒") or consensus.get("downside_signal_score"),
             ),
+            "help_text": _cockpit_metric_help("下降警戒"),
         },
         {
             "label": "予測変化率",
@@ -259,10 +262,11 @@ def cockpit_direction_signal_cards(
                 row.get("予測変化率") or consensus.get("forecast_return_pct"),
                 "未計算",
             ),
-            "help": _cockpit_card_help(
+            "caption": _cockpit_card_caption(
                 "予測変化率",
                 row.get("予測変化率") or consensus.get("forecast_return_pct"),
             ),
+            "help_text": _cockpit_metric_help("予測変化率"),
         },
     ]
 
@@ -301,12 +305,12 @@ def cockpit_direction_signal_detail_rows(
     return [
         {
             "観点": "方向感",
-            "内容": f"{direction_label} / 方向スコア {direction_score}",
+            "内容": f"{direction_label} / 方向バランス {direction_score}",
             "確認ポイント": "ランキングと同じ方向分類です。深掘り候補の見方として確認します。",
         },
         {
             "観点": "上昇・下降バランス",
-            "内容": f"上昇気配 {upside} / 下降警戒 {downside} / 方向スコア {direction_score}",
+            "内容": f"上昇気配 {upside} / 下降警戒 {downside} / 方向バランス {direction_score}",
             "確認ポイント": "上昇気配だけでなく、下降警戒との差し引きで深掘り優先度を確認します。",
         },
         {
@@ -322,7 +326,7 @@ def cockpit_direction_signal_detail_rows(
         {
             "観点": "予測のばらつき",
             "内容": f"{forecast_range} / モデル一致度 {agreement}",
-            "確認ポイント": "モデルの開きが大きい場合、方向スコアは中立寄りに扱います。",
+            "確認ポイント": "モデルの開きが大きい場合、方向バランスは中立寄りに扱います。",
         },
     ]
 
@@ -356,11 +360,11 @@ def cockpit_direction_signal_summary(
     ):
         return (
             f"上昇気配が{_format_direction_decimal(upside)}と相対的に強めです。"
-            f"方向スコアと下降警戒を合わせて深掘りします。"
+            f"方向バランスと下降警戒を合わせて深掘りします。"
         )
     if direction is not None and direction <= Decimal("45"):
         return (
-            f"方向スコアが{_format_direction_decimal(direction)}で中立以下です。"
+            f"方向バランスが{_format_direction_decimal(direction)}で中立以下です。"
             "下向き材料と直近トレンドを先に確認します。"
         )
     return "上昇気配と下降警戒が拮抗しています。価格チャート、モデル方向一致、予測のばらつきを合わせて確認します。"
@@ -379,7 +383,8 @@ def render_cockpit_direction_signal_cards(cards: list[dict[str, str]]) -> None:
             render_metric_card(
                 card["label"],
                 card["value"],
-                caption=card.get("help", ""),
+                caption=_card_caption(card),
+                help_text=card.get("help_text", ""),
                 badges=(_badge_for_direction_card(card),),
                 tone=_tone_for_direction_card(card),
                 progress=_progress_for_direction_card(card),
@@ -447,7 +452,8 @@ def render_cockpit_summary_header(items: list[dict[str, str]]) -> None:
             render_metric_card(
                 item["label"],
                 item["value"],
-                caption=item.get("help", ""),
+                caption=_card_caption(item),
+                help_text=item.get("help_text", ""),
                 badges=(_badge_for_summary_item(item),),
                 tone=_tone_for_summary_item(item),
                 progress=_progress_for_summary_item(item),
@@ -463,7 +469,8 @@ def render_cockpit_kpi_cards(cards: list[dict[str, str]]) -> None:
             render_metric_card(
                 card["label"],
                 card["value"],
-                caption=card.get("help", ""),
+                caption=_card_caption(card),
+                help_text=card.get("help_text", ""),
                 badges=(_badge_for_kpi_card(card),),
                 tone=_tone_for_kpi_card(card),
                 progress=_progress_for_kpi_card(card),
@@ -536,7 +543,7 @@ def _tone_for_kpi_card(card: dict[str, str]) -> str:
     label = card.get("label", "")
     if label == "Investment Score":
         return "score"
-    if label == "Direction Signal":
+    if label == "方向バランス":
         return "forecast"
     if label == "Data Confidence":
         return "success"
@@ -550,7 +557,7 @@ def _tone_for_kpi_card(card: dict[str, str]) -> str:
 def _progress_for_kpi_card(card: dict[str, str]) -> int | None:
     if card.get("label") in {
         "Investment Score",
-        "Direction Signal",
+        "方向バランス",
         "Data Confidence",
         "Risk",
     }:
@@ -564,7 +571,7 @@ def _badge_for_direction_card(card: dict[str, str]) -> str:
         return badge_html("Check", "caution")
     if label == "上昇気配":
         return badge_html("Signal", "info")
-    if label == "方向スコア":
+    if label == "方向バランス":
         return badge_html("Balance", "info")
     return badge_html("Forecast", "neutral")
 
@@ -575,13 +582,13 @@ def _tone_for_direction_card(card: dict[str, str]) -> str:
         return "risk"
     if label == "上昇気配":
         return "forecast"
-    if label == "方向スコア":
+    if label == "方向バランス":
         return "score"
     return "info"
 
 
 def _progress_for_direction_card(card: dict[str, str]) -> int | None:
-    if card.get("label") in {"方向スコア", "上昇気配", "下降警戒"}:
+    if card.get("label") in {"方向バランス", "上昇気配", "下降警戒"}:
         return metric_progress_from_value(card.get("value"))
     return None
 
@@ -600,14 +607,19 @@ def _item_value(items: dict[str, dict[str, str]], label: str) -> str:
     return _display_value(items.get(label, {}).get("value"), "-")
 
 
-def _cockpit_card_help(label: str, value: object) -> str:
-    meaning = COCKPIT_CARD_MEANINGS.get(label, "")
+def _card_caption(card: dict[str, str]) -> str:
+    return card.get("caption") or card.get("help", "")
+
+
+def _cockpit_metric_help(label: str) -> str:
+    return COCKPIT_CARD_MEANINGS.get(label, "")
+
+
+def _cockpit_card_caption(label: str, value: object) -> str:
     evaluation = _cockpit_card_evaluation(label, value)
-    if meaning and evaluation:
-        return f"{meaning} 評価: {evaluation}"
-    if meaning:
-        return meaning
-    return evaluation
+    if not evaluation:
+        return ""
+    return f"今回: {evaluation}"
 
 
 def _cockpit_card_evaluation(label: str, value: object) -> str:

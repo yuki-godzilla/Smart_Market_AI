@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from math import sqrt
-from typing import Literal, Protocol, cast
+from typing import Literal, Protocol, TypedDict
 
 from pydantic import ConfigDict, Field
 
@@ -16,6 +16,19 @@ DirectionSignalLabel = Literal[
     "STRONG_DOWNSIDE",
     "UNKNOWN",
 ]
+
+
+class ForecastDirectionSignal(TypedDict):
+    forecast_return_pct: Decimal
+    up_model_count: int
+    down_model_count: int
+    flat_model_count: int
+    up_direction_ratio: Decimal
+    down_direction_ratio: Decimal
+    upside_signal_score: Decimal
+    downside_signal_score: Decimal
+    direction_net_score: Decimal
+    direction_signal_label: DirectionSignalLabel
 
 
 class ForecastPoint(StrictBaseModel):
@@ -243,9 +256,7 @@ def summarize_forecast_evaluations(
         upside_signal_score=direction_signal["upside_signal_score"],
         downside_signal_score=direction_signal["downside_signal_score"],
         direction_net_score=direction_signal["direction_net_score"],
-        direction_signal_label=cast(
-            DirectionSignalLabel, direction_signal["direction_signal_label"]
-        ),
+        direction_signal_label=direction_signal["direction_signal_label"],
     )
 
 
@@ -257,7 +268,7 @@ def forecast_direction_signal(
     momentum_5d: Decimal | None,
     momentum_20d: Decimal | None,
     forecast_range_pct: Decimal,
-) -> dict[str, Decimal | int | DirectionSignalLabel]:
+) -> ForecastDirectionSignal:
     """Return upside/downside direction signals for ranking support."""
 
     model_count = len(model_forecast_closes)

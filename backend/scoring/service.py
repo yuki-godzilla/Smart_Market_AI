@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Literal
+from typing import Literal, TypedDict
 
 from pydantic import Field
 
@@ -11,6 +11,17 @@ from backend.forecast import ForecastConsensus
 from backend.screening import ScreeningScore
 
 InvestmentScoreBand = Literal["STRONG", "BALANCED", "CAUTION", "REVIEW"]
+
+
+class DirectionSignalValues(TypedDict):
+    upside_signal_score: Decimal
+    downside_signal_score: Decimal
+    direction_net_score: Decimal
+    direction_signal_label: str
+    forecast_return_pct: Decimal
+    up_model_count: int
+    down_model_count: int
+    flat_model_count: int
 
 
 class InvestmentScoreBreakdown(StrictBaseModel):
@@ -201,7 +212,7 @@ def _forecast_agreement_score(agreement: str) -> Decimal:
 
 def _direction_signal_values(
     forecast_consensus: ForecastConsensus | None,
-) -> dict[str, Decimal | int | str]:
+) -> DirectionSignalValues:
     if forecast_consensus is None:
         return {
             "upside_signal_score": Decimal("50"),

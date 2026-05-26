@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-05-26: Changed forecast direction scoring so model agreement acts as a neutral confidence adjustment rather than an additive upside/downside bonus, widened ensemble return thresholds, and made the upside ranking watch map use raw `下降警戒` on the y-axis.
 - 2026-05-26: Refined forecast direction scoring so upside / downside signals use weighted model-by-model forecast return strength instead of only counting how many models point up or down.
 - 2026-05-26: Corrected ranking bar charts to sort by the selected metric value instead of overall rank order, and mapped ETF low-cost bars to `条件適合度` so high expense ratios do not look favorable.
 - 2026-05-26: Updated ranking top cards to feature larger company names with wrapping text, and made the top-10 bar chart use the selected ranking purpose metric instead of always showing total Investment Score.

@@ -325,12 +325,11 @@ RANKING_WEIGHT_PRESET_LABELS = {
 RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     RANKING_PRESET_BALANCED: {
         "screening_score": Decimal("0.30"),
-        "direction_net_score": Decimal("0.15"),
+        "direction_net_score": Decimal("0.20"),
         "data_quality_score": Decimal("0.15"),
         "risk_signal_score": Decimal("0.15"),
         "database_fit_score": Decimal("0.10"),
         "metadata_confidence_score": Decimal("0.10"),
-        "upside_signal_score": Decimal("0.05"),
     },
     RANKING_PRESET_FORECAST: {
         "direction_net_score": Decimal("0.35"),

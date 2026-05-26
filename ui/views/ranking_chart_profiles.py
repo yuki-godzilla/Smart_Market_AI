@@ -220,17 +220,17 @@ RANKING_CHART_PROFILES: dict[str, RankingChartProfile] = {
         key=PROFILE_UPSIDE_DOWNSIDE,
         title="Upside x Downside Watch Map",
         x_candidates=("上昇気配", "Upside Signal"),
-        y_candidates=("下降警戒の低さ", "方向スコア", "下降警戒"),
+        y_candidates=("下降警戒", "方向スコア", "下降警戒の低さ"),
         color_candidates=("方向感", "見方", "注意点"),
         fallback_key=PROFILE_SCREENING_RISK,
         description=(
-            "上昇気配重視で見る候補について、上向きシグナルと下降警戒の低さを同時に確認できます。"
+            "上昇気配重視で見る候補について、上向きシグナルと下降警戒を同時に確認できます。"
         ),
         how_to_read=(
-            "High upside / High low-downside: 上向きシグナルが強く、警戒材料が相対的に少ない深掘り候補",
-            "High upside / Low low-downside: 上向き材料はあるが、下降警戒も先に確認",
-            "Low upside / High low-downside: 警戒材料は少なめだが、上向き材料は限定的",
-            "Low upside / Low low-downside: 優先度低め、またはリスク確認候補",
+            "High upside / Low downside: 上向きシグナルが強く、警戒材料が相対的に少ない深掘り候補",
+            "High upside / High downside: 上向き材料はあるが、下降警戒も先に確認",
+            "Low upside / High downside: リスク確認候補",
+            "Low upside / Low downside: 方向感は限定的な比較候補",
         ),
     ),
     PROFILE_FIT_DIRECTION: RankingChartProfile(

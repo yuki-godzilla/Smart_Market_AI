@@ -1961,7 +1961,7 @@ def _ranking_bar_chart_metric_column(
 def _ranking_bar_chart_candidate_columns(ranking_purpose: str) -> tuple[str, ...]:
     purpose_columns: dict[str, tuple[str, ...]] = {
         "multi_factor": ("総合スコア", "方向スコア", "Risk", "データ品質"),
-        "upside_signal": ("上昇気配", "方向スコア", "下降警戒の低さ"),
+        "upside_signal": ("上昇気配", "下降警戒", "方向スコア"),
         "momentum": ("Screening", "方向スコア", "上昇気配"),
         "trend": ("Screening", "方向スコア", "上昇気配"),
         "quality_growth": ("条件適合度", "ROE", "Screening"),

@@ -110,7 +110,7 @@ def test_upside_signal_score_rewards_upside_direction_and_momentum():
         forecast_range_pct=Decimal("0.012"),
     )
 
-    assert score >= Decimal("80")
+    assert score >= Decimal("70")
 
 
 def test_upside_signal_score_stays_limited_for_extreme_single_model_spread():
@@ -127,6 +127,29 @@ def test_upside_signal_score_stays_limited_for_extreme_single_model_spread():
     assert score < Decimal("75")
 
 
+def test_direction_score_uses_agreement_as_neutral_confidence_not_bonus():
+    tight_score = calculate_upside_signal_score(
+        latest_close=Decimal("100"),
+        ensemble_forecast_close=Decimal("106"),
+        model_forecast_closes=[Decimal("105"), Decimal("106"), Decimal("107")],
+        model_forecast_weights=[Decimal("1"), Decimal("1"), Decimal("1")],
+        momentum_5d=Decimal("0.02"),
+        momentum_20d=Decimal("0.04"),
+        forecast_range_pct=Decimal("0.005"),
+    )
+    wide_score = calculate_upside_signal_score(
+        latest_close=Decimal("100"),
+        ensemble_forecast_close=Decimal("106"),
+        model_forecast_closes=[Decimal("105"), Decimal("106"), Decimal("107")],
+        model_forecast_weights=[Decimal("1"), Decimal("1"), Decimal("1")],
+        momentum_5d=Decimal("0.02"),
+        momentum_20d=Decimal("0.04"),
+        forecast_range_pct=Decimal("0.10"),
+    )
+
+    assert Decimal("50") < wide_score < tight_score
+
+
 def test_downside_signal_score_rewards_decline_direction_and_momentum():
     score = calculate_downside_signal_score(
         latest_close=Decimal("100"),
@@ -138,7 +161,7 @@ def test_downside_signal_score_rewards_decline_direction_and_momentum():
         forecast_range_pct=Decimal("0.012"),
     )
 
-    assert score >= Decimal("80")
+    assert score >= Decimal("70")
 
 
 def test_downside_signal_score_stays_limited_for_extreme_single_model_spread():

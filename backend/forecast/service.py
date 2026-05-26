@@ -381,7 +381,7 @@ def calculate_upside_signal_score(
         forecast_return_pct,
         low=Decimal("-0.03"),
         mid=Decimal("0"),
-        high=Decimal("0.05"),
+        high=Decimal("0.10"),
     )
     model_strength_score = calculate_model_forecast_strength_score(
         latest_close=latest_close,
@@ -394,13 +394,12 @@ def calculate_upside_signal_score(
         upside_momentum_score += Decimal("25")
     if momentum_20d is not None and momentum_20d > 0:
         upside_momentum_score += Decimal("25")
-    score = (
-        forecast_return_score * Decimal("0.35")
-        + model_strength_score * Decimal("0.35")
-        + upside_momentum_score * Decimal("0.20")
-        + agreement_confidence_score(forecast_range_pct) * Decimal("0.10")
+    raw_score = (
+        forecast_return_score * Decimal("0.40")
+        + model_strength_score * Decimal("0.45")
+        + upside_momentum_score * Decimal("0.15")
     )
-    return clamp_score(score)
+    return confidence_adjusted_direction_score(raw_score, forecast_range_pct)
 
 
 def calculate_downside_signal_score(
@@ -420,7 +419,7 @@ def calculate_downside_signal_score(
     forecast_return_pct = (ensemble_forecast_close / latest_close) - Decimal("1")
     forecast_decline_score = inverse_linear_score(
         forecast_return_pct,
-        low=Decimal("-0.05"),
+        low=Decimal("-0.10"),
         mid=Decimal("0"),
         high=Decimal("0.03"),
     )
@@ -435,13 +434,12 @@ def calculate_downside_signal_score(
         downside_momentum_score += Decimal("25")
     if momentum_20d is not None and momentum_20d < 0:
         downside_momentum_score += Decimal("25")
-    score = (
-        forecast_decline_score * Decimal("0.35")
-        + model_strength_score * Decimal("0.35")
-        + downside_momentum_score * Decimal("0.20")
-        + agreement_confidence_score(forecast_range_pct) * Decimal("0.10")
+    raw_score = (
+        forecast_decline_score * Decimal("0.40")
+        + model_strength_score * Decimal("0.45")
+        + downside_momentum_score * Decimal("0.15")
     )
-    return clamp_score(score)
+    return confidence_adjusted_direction_score(raw_score, forecast_range_pct)
 
 
 def calculate_model_forecast_strength_score(
@@ -524,6 +522,23 @@ def calculate_direction_net_score(
     """Normalize upside minus downside warning into a 0-100 ranking signal."""
 
     return clamp_score(Decimal("50") + ((upside_signal_score - downside_signal_score) / 2))
+
+
+def confidence_adjusted_direction_score(
+    raw_score: Decimal,
+    forecast_range_pct: Decimal,
+) -> Decimal:
+    """Pull directional scores toward neutral when model spread is wide."""
+
+    factor = direction_confidence_factor(forecast_range_pct)
+    return clamp_score(Decimal("50") + ((raw_score - Decimal("50")) * factor))
+
+
+def direction_confidence_factor(forecast_range_pct: Decimal) -> Decimal:
+    """Return a conservative confidence factor from model spread, not an additive bonus."""
+
+    confidence = agreement_confidence_score(forecast_range_pct) / Decimal("100")
+    return Decimal("0.70") + (confidence * Decimal("0.30"))
 
 
 def direction_signal_label(

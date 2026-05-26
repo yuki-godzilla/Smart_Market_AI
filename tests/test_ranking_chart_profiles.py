@@ -24,6 +24,7 @@ def _ranking_rows() -> list[dict[str, str]]:
             "Risk": "74",
             "方向スコア": "68",
             "上昇気配": "76",
+            "下降警戒": "42",
             "下降警戒の低さ": "58",
             "DB信頼度": "92",
             "データ品質": "90",
@@ -38,6 +39,7 @@ def _ranking_rows() -> list[dict[str, str]]:
             "Risk": "55",
             "方向スコア": "80",
             "上昇気配": "84",
+            "下降警戒": "30",
             "下降警戒の低さ": "70",
             "DB信頼度": "90",
             "データ品質": "95",
@@ -52,6 +54,7 @@ def _ranking_rows() -> list[dict[str, str]]:
             "Risk": "40",
             "方向スコア": "66",
             "上昇気配": "72",
+            "下降警戒": "40",
             "下降警戒の低さ": "60",
             "DB信頼度": "88",
             "データ品質": "92",
@@ -98,7 +101,7 @@ def test_ranking_chart_frame_uses_upside_downside_profile_for_upside_purpose():
     assert selection is not None
     assert selection.profile.key == PROFILE_UPSIDE_DOWNSIDE
     assert selection.x_column == "上昇気配"
-    assert selection.y_column == "下降警戒の低さ"
+    assert selection.y_column == "下降警戒"
     assert selection.used_fallback is False
 
 
@@ -107,6 +110,7 @@ def test_ranking_chart_frame_falls_back_when_upside_axes_overlap():
         {
             **row,
             "上昇気配": "50",
+            "下降警戒": "50",
             "下降警戒の低さ": "50",
             "方向スコア": "50",
         }

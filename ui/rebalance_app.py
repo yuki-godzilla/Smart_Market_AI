@@ -258,7 +258,7 @@ def _fallback_upside_score(
         forecast_return_pct,
         low=Decimal("-0.03"),
         mid=Decimal("0"),
-        high=Decimal("0.05"),
+        high=Decimal("0.10"),
     )
     model_strength_score = _fallback_model_forecast_strength_score(
         latest_close=latest_close,
@@ -271,12 +271,12 @@ def _fallback_upside_score(
         momentum_score += Decimal("25")
     if momentum_20d is not None and momentum_20d > 0:
         momentum_score += Decimal("25")
-    return _fallback_clamp_score(
-        forecast_return_score * Decimal("0.35")
-        + model_strength_score * Decimal("0.35")
-        + momentum_score * Decimal("0.20")
-        + _fallback_agreement_confidence(forecast_range_pct) * Decimal("0.10")
+    raw_score = (
+        forecast_return_score * Decimal("0.40")
+        + model_strength_score * Decimal("0.45")
+        + momentum_score * Decimal("0.15")
     )
+    return _fallback_confidence_adjusted_direction_score(raw_score, forecast_range_pct)
 
 
 def _fallback_downside_score(
@@ -292,7 +292,7 @@ def _fallback_downside_score(
     forecast_return_pct = (ensemble_forecast_close / latest_close) - Decimal("1")
     forecast_decline_score = Decimal("100") - _fallback_linear_score(
         forecast_return_pct,
-        low=Decimal("-0.05"),
+        low=Decimal("-0.10"),
         mid=Decimal("0"),
         high=Decimal("0.03"),
     )
@@ -307,12 +307,12 @@ def _fallback_downside_score(
         momentum_score += Decimal("25")
     if momentum_20d is not None and momentum_20d < 0:
         momentum_score += Decimal("25")
-    return _fallback_clamp_score(
-        forecast_decline_score * Decimal("0.35")
-        + model_strength_score * Decimal("0.35")
-        + momentum_score * Decimal("0.20")
-        + _fallback_agreement_confidence(forecast_range_pct) * Decimal("0.10")
+    raw_score = (
+        forecast_decline_score * Decimal("0.40")
+        + model_strength_score * Decimal("0.45")
+        + momentum_score * Decimal("0.15")
     )
+    return _fallback_confidence_adjusted_direction_score(raw_score, forecast_range_pct)
 
 
 def _fallback_model_forecast_strength_score(
@@ -423,6 +423,15 @@ def _fallback_agreement_confidence(forecast_range_pct: Decimal) -> Decimal:
     if forecast_range_pct <= Decimal("0.03"):
         return Decimal("70")
     return Decimal("40")
+
+
+def _fallback_confidence_adjusted_direction_score(
+    raw_score: Decimal,
+    forecast_range_pct: Decimal,
+) -> Decimal:
+    confidence = _fallback_agreement_confidence(forecast_range_pct) / Decimal("100")
+    factor = Decimal("0.70") + (confidence * Decimal("0.30"))
+    return _fallback_clamp_score(Decimal("50") + ((raw_score - Decimal("50")) * factor))
 
 
 def _fallback_direction_label(upside: Decimal, downside: Decimal) -> str:

@@ -32,6 +32,10 @@ from backend.research.service import (
     ResearchSearchRequest,
     ResearchSummaryPoint,
     ResearchVectorStore,
+    StockNewsAnalysisService,
+    StockNewsEvidence,
+    StockNewsReport,
+    StockNewsRequest,
 )
 
 __all__ = [
@@ -68,4 +72,8 @@ __all__ = [
     "ResearchRetrievalService",
     "ResearchSummaryPoint",
     "ResearchVectorStore",
+    "StockNewsAnalysisService",
+    "StockNewsEvidence",
+    "StockNewsReport",
+    "StockNewsRequest",
 ]

@@ -15,6 +15,8 @@ from backend.research import (
     ResearchExtractedClaim,
     ResearchGroundedAnswer,
     ResearchRetrievalQuality,
+    StockNewsEvidence,
+    StockNewsReport,
 )
 from backend.screening import ScreeningScore
 from ui.app import (
@@ -51,6 +53,7 @@ from ui.app import (
     _research_table_html,
     _research_terms_preview,
     _select_ranking_symbol_for_cockpit_with_period,
+    _stock_news_display_rows,
     _symbol_from_candidate,
     build_cockpit_decision_report_context,
     build_ranking_decision_report_context,
@@ -639,6 +642,45 @@ def test_research_terms_preview_keeps_search_quality_table_compact():
         _research_terms_preview(terms, limit=5)
         == "term0 / term1 / term2 / term3 / term4 / ... (+9)"
     )
+
+
+def test_stock_news_display_rows_keep_traceable_news_fields():
+    report = StockNewsReport(
+        symbol="7203.T",
+        company_name="Toyota",
+        as_of=date(2026, 5, 25),
+        news=[
+            StockNewsEvidence(
+                symbol="7203.T",
+                company_name="Toyota",
+                title="7203 raises guidance",
+                url="https://example.com/7203",
+                source="Example News",
+                published_at=date(2026, 5, 24),
+                summary="Guidance was raised after revenue growth.",
+                investment_viewpoint="earnings",
+                sentiment_for_investment="positive",
+                freshness_status="latest",
+            )
+        ],
+    )
+
+    rows = _stock_news_display_rows(report)
+    markup = _research_table_html(rows, class_name="research-summary-table")
+
+    assert rows == [
+        {
+            "タイトル": "7203 raises guidance",
+            "URL": "https://example.com/7203",
+            "source": "Example News",
+            "published_at": "2026-05-24",
+            "summary": "Guidance was raised after revenue growth.",
+            "investment_viewpoint": "earnings",
+            "sentiment_for_investment": "positive",
+            "freshness_status": "latest",
+        }
+    ]
+    assert "https://example.com/7203" in markup
 
 
 def test_research_phase21_rows_expose_grounded_answer_retrieval_and_claims():

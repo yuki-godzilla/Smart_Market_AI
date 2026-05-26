@@ -25,6 +25,8 @@ from backend.research import (
     ResearchRetrievalService,
     ResearchSearchError,
     ResearchSearchRequest,
+    StockNewsAnalysisService,
+    StockNewsRequest,
 )
 
 
@@ -199,6 +201,82 @@ def test_research_query_expansion_loads_config_and_expands_terms():
     assert "growth" in result.expanded_terms
     assert "strategy" in result.expanded_terms
     assert "overseas" in result.expanded_terms
+
+
+def test_stock_news_analysis_uses_local_news_with_source_url(tmp_path):
+    latest_path = tmp_path / "7203_news_latest.md"
+    latest_path.write_text(
+        """source: Example News
+url: https://example.com/7203-earnings
+summary: 7203 raised guidance after revenue growth and announced a dividend increase.
+""",
+        encoding="utf-8",
+    )
+    stale_path = tmp_path / "7203_news_stale.md"
+    stale_path.write_text(
+        """source: Example News
+url: https://example.com/7203-risk
+summary: 7203 faces regulation risk in an older market update.
+""",
+        encoding="utf-8",
+    )
+    missing_url_path = tmp_path / "7203_news_missing_url.md"
+    missing_url_path.write_text(
+        "summary: 7203 has a news-like note, but no source URL.",
+        encoding="utf-8",
+    )
+    store = ResearchInMemoryStore()
+    ingestion = ResearchIngestionService(store, document_dirs=[tmp_path])
+    ingestion.register_document(
+        ResearchDocumentRegisterRequest(
+            symbol="7203.T",
+            title="7203 Latest Earnings News",
+            local_path=str(latest_path),
+            source_type="news",
+            company_name="Toyota",
+            published_at=date(2026, 5, 24),
+        )
+    )
+    ingestion.register_document(
+        ResearchDocumentRegisterRequest(
+            symbol="7203.T",
+            title="7203 Older Risk News",
+            local_path=str(stale_path),
+            source_type="news",
+            company_name="Toyota",
+            published_at=date(2026, 1, 1),
+        )
+    )
+    ingestion.register_document(
+        ResearchDocumentRegisterRequest(
+            symbol="7203.T",
+            title="7203 Missing URL News",
+            local_path=str(missing_url_path),
+            source_type="news",
+            published_at=date(2026, 5, 24),
+        )
+    )
+
+    report = StockNewsAnalysisService(ingestion).analyze_symbol_news(
+        StockNewsRequest(
+            symbol="7203.T",
+            company_name="Toyota",
+            as_of=date(2026, 5, 25),
+        )
+    )
+
+    assert report.symbol == "7203.T"
+    assert [row.title for row in report.news] == [
+        "7203 Latest Earnings News",
+        "7203 Older Risk News",
+    ]
+    assert report.news[0].url == "https://example.com/7203-earnings"
+    assert report.news[0].source == "Example News"
+    assert report.news[0].investment_viewpoint == "earnings"
+    assert report.news[0].sentiment_for_investment == "positive"
+    assert report.news[0].freshness_status == "latest"
+    assert report.news[1].freshness_status == "stale"
+    assert any("source URL" in warning for warning in report.warnings)
 
 
 def test_research_search_uses_category_query_expansion(tmp_path):

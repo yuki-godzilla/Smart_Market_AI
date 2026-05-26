@@ -44,7 +44,7 @@ from backend.reporting import (
 from backend.reporting import (
     decision_report_json_download as reporting_decision_report_json_download,
 )
-from backend.research import CompanyResearchReport, ResearchDocument
+from backend.research import CompanyResearchReport, ResearchDocument, StockNewsReport
 from backend.scoring import InvestmentScoringService
 from backend.screening import ScreeningService
 from ui.components.mascot import (
@@ -77,6 +77,10 @@ from ui.content.research_texts import (
     RESEARCH_FETCH_BUTTON_LABEL,
     RESEARCH_FETCH_SPINNER,
     RESEARCH_INSUFFICIENT_REPORT_NOTE,
+    RESEARCH_NEWS_BUTTON_LABEL,
+    RESEARCH_NEWS_EMPTY_MESSAGE,
+    RESEARCH_NEWS_NOT_FETCHED_MESSAGE,
+    RESEARCH_NEWS_SPINNER,
     RESEARCH_NO_REGISTERED_DOCUMENTS,
     RESEARCH_NOT_FETCHED_MESSAGE,
     RESEARCH_RANKING_FETCH_BUTTON_LABEL,
@@ -179,6 +183,7 @@ from ui.rebalance_app import (
 )
 from ui.research_state import (
     analyze_research_for_symbol,
+    analyze_stock_news_for_symbol,
     autoload_local_research_documents,
     research_store,
 )
@@ -194,6 +199,7 @@ from ui.state import (
     MARKET_DATA_RANKING_STATE_KEY,
     MARKET_DATA_RESEARCH_REPORT_STATE_KEY,
     MARKET_DATA_STATUS_STATE_KEY,
+    MARKET_DATA_STOCK_NEWS_REPORT_STATE_KEY,
     MARKET_DATA_TOAST_STATE_KEY,
 )
 from ui.styles import (
@@ -4306,8 +4312,9 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
     report = _cockpit_research_report_from_state(preview)
     if report is None:
         st.info(RESEARCH_NOT_FETCHED_MESSAGE)
-        return
-    _render_research_summary_panel(report, detail_expanded=False)
+    else:
+        _render_research_summary_panel(report, detail_expanded=False)
+    _render_cockpit_stock_news_summary(preview)
 
 
 def _render_research_fetch_cta(
@@ -4495,6 +4502,68 @@ def _build_cockpit_research_report(preview: MarketDataPreview) -> CompanyResearc
         return None
     return analyze_research_for_symbol(
         symbol, as_of=_date_from_iso_text(_market_data_as_of(preview))
+    )
+
+
+def _render_cockpit_stock_news_summary(preview: MarketDataPreview) -> None:
+    symbol = _market_data_preview_symbol(preview)
+    if not symbol:
+        return
+    st.markdown("##### Recent News / AIニュース深掘り")
+    st.caption(
+        "登録済み news 資料から、URLで確認できるニュース材料だけを整理します。"
+        "売買判断やスコア変更ではありません。"
+    )
+    fetch_clicked = st.button(
+        RESEARCH_NEWS_BUTTON_LABEL,
+        key=f"stock_news_fetch_{_widget_key_fragment(symbol)}",
+        help=(
+            "選択中の銘柄に関係する登録済みニュース資料を確認します。"
+            "外部ニュースサイトや外部LLMは自動利用しません。"
+        ),
+    )
+    if fetch_clicked:
+        with st.spinner(RESEARCH_NEWS_SPINNER):
+            st.session_state[MARKET_DATA_STOCK_NEWS_REPORT_STATE_KEY] = (
+                _build_cockpit_stock_news_report(preview)
+            )
+
+    report = _cockpit_stock_news_report_from_state(preview)
+    if report is None:
+        st.info(RESEARCH_NEWS_NOT_FETCHED_MESSAGE)
+        return
+    if report.warnings:
+        for warning in report.warnings:
+            st.warning(warning)
+    if not report.news:
+        st.info(RESEARCH_NEWS_EMPTY_MESSAGE)
+        return
+    st.markdown(
+        _research_table_html(_stock_news_display_rows(report), class_name="research-summary-table"),
+        unsafe_allow_html=True,
+    )
+
+
+def _cockpit_stock_news_report_from_state(preview: MarketDataPreview) -> StockNewsReport | None:
+    report = st.session_state.get(MARKET_DATA_STOCK_NEWS_REPORT_STATE_KEY)
+    if not isinstance(report, StockNewsReport):
+        return None
+    if report.symbol != _market_data_preview_symbol(preview):
+        return None
+    return report
+
+
+def _build_cockpit_stock_news_report(preview: MarketDataPreview) -> StockNewsReport | None:
+    symbol = _market_data_preview_symbol(preview)
+    if not symbol:
+        return None
+    company_name = symbol_name(symbol) or None
+    related_keywords = [company_name] if company_name else []
+    return analyze_stock_news_for_symbol(
+        symbol,
+        company_name=company_name,
+        related_keywords=related_keywords,
+        as_of=_date_from_iso_text(_market_data_as_of(preview)),
     )
 
 
@@ -5118,6 +5187,22 @@ def _research_document_display_rows(report: CompanyResearchReport) -> list[dict[
         )
         row["根拠数"] = str(int(row["根拠数"]) + 1)
     return list(document_rows.values())
+
+
+def _stock_news_display_rows(report: StockNewsReport) -> list[dict[str, str]]:
+    return [
+        {
+            "タイトル": row.title,
+            "URL": row.url,
+            "source": row.source or "unknown",
+            "published_at": row.published_at.isoformat() if row.published_at else "unknown",
+            "summary": row.summary,
+            "investment_viewpoint": row.investment_viewpoint,
+            "sentiment_for_investment": row.sentiment_for_investment,
+            "freshness_status": row.freshness_status,
+        }
+        for row in report.news
+    ]
 
 
 def _research_table_html(rows: list[dict[str, str]], *, class_name: str) -> str:

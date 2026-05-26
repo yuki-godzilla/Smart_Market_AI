@@ -688,7 +688,7 @@ Acceptance criteria:
 
 ### 5.7.5 Phase 21.5: Stock News RAG MVP
 
-Status: planned
+Status: first local deterministic slice implemented
 
 Purpose:
 
@@ -772,6 +772,14 @@ Guardrails:
 - 通常 tests / CI は external network、live scraping、external LLM に依存させない。
 - 外部 LLM は必須にせず、template / deterministic fallback を維持する。
 - RAG の出力は投資判断補助であり、最終判断はユーザーが行う。
+
+Current implemented slice:
+
+- `backend/research` has `StockNewsEvidence`, `StockNewsRequest`, `StockNewsReport`, and `StockNewsAnalysisService`.
+- The initial data source is registered local Research documents with `source_type="news"`; no external news site, external LLM, or network call is used in the default path.
+- News documents must contain a `url:` / `source_url:` line or another `https://...` URL. Items without source URL are excluded with a warning rather than summarized as fact.
+- `銘柄コックピット` shows a `Recent News / AIニュース深掘り` section under Research Evidence. The dedicated button stores a session-local report and displays title, URL, source, published_at, summary, investment_viewpoint, sentiment_for_investment, and freshness_status.
+- This slice does not change Investment Score, Research Score, Decision Report, or ranking order.
 
 ### 5.8 Phase 22: Research Score And Investment Integration
 

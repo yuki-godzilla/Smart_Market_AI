@@ -34,6 +34,16 @@ ResearchTopicCategory = Literal[
     "confirmation_gap",
 ]
 ResearchRetrievalBackend = Literal["keyword", "vector", "hybrid"]
+StockNewsInvestmentViewpoint = Literal[
+    "earnings",
+    "growth",
+    "shareholder_return",
+    "risk",
+    "macro",
+    "other",
+]
+StockNewsSentiment = Literal["positive", "negative", "neutral", "mixed", "unknown"]
+StockNewsFreshnessStatus = Literal["latest", "recent", "stale", "unknown"]
 
 RESEARCH_SCHEMA_VERSION = "research-evidence-v1"
 DEFAULT_MAX_CHARS = 1200
@@ -350,6 +360,46 @@ class CompanyResearchReport(StrictBaseModel):
     data_quality: ResearchDataQuality
     retrieval_quality: ResearchRetrievalQuality | None = None
     decision_support_note: str = "Research evidence is decision support only; not advice."
+
+
+class StockNewsEvidence(StrictBaseModel):
+    """Traceable news evidence for one selected symbol."""
+
+    schema_version: str = "stock-news-evidence-v1"
+    symbol: str = Field(min_length=1)
+    company_name: str | None = None
+    title: str = Field(min_length=1)
+    url: str = Field(min_length=1)
+    source: str | None = None
+    published_at: date | None = None
+    summary: str = Field(min_length=1)
+    investment_viewpoint: StockNewsInvestmentViewpoint = "other"
+    sentiment_for_investment: StockNewsSentiment = "unknown"
+    freshness_status: StockNewsFreshnessStatus = "unknown"
+
+
+class StockNewsRequest(StrictBaseModel):
+    """Build a deterministic news evidence view for one selected symbol."""
+
+    symbol: str = Field(min_length=1)
+    company_name: str | None = None
+    related_keywords: list[str] = Field(default_factory=list)
+    as_of: date | None = None
+    top_k: int = Field(default=5, ge=1, le=20)
+
+
+class StockNewsReport(StrictBaseModel):
+    """Deterministic Phase 21.5 selected-symbol news summary."""
+
+    schema_version: str = "stock-news-report-v1"
+    symbol: str = Field(min_length=1)
+    company_name: str | None = None
+    as_of: date
+    news: list[StockNewsEvidence] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    decision_support_note: str = (
+        "News evidence is decision support only; not advice and not a score input."
+    )
 
 
 class ResearchInMemoryStore:
@@ -979,6 +1029,57 @@ class ResearchAnalysisService:
         )
 
 
+class StockNewsAnalysisService:
+    """Create a deterministic selected-symbol news summary from local news documents."""
+
+    def __init__(self, ingestion: ResearchIngestionService) -> None:
+        self.ingestion = ingestion
+
+    def analyze_symbol_news(self, request: StockNewsRequest) -> StockNewsReport:
+        as_of = request.as_of or date.today()
+        normalized_symbol = _normalize_symbol(request.symbol)
+        keywords = _stock_news_keywords(request)
+        candidates = [
+            document
+            for document in self.ingestion.list_documents()
+            if document.source_type == "news"
+        ]
+
+        news: list[StockNewsEvidence] = []
+        warnings: list[str] = []
+        for document in candidates:
+            text = self.ingestion.store.raw_text_by_document_id.get(document.document_id, "")
+            if not _stock_news_matches(document, text, normalized_symbol, keywords):
+                continue
+            url = _stock_news_url(text)
+            if not url:
+                warnings.append(
+                    f"{document.title}: source URL がないためニュース根拠から除外しました。"
+                )
+                continue
+            news.append(_stock_news_evidence(document, text, url=url, as_of=as_of))
+
+        news = sorted(
+            news,
+            key=lambda row: (
+                _stock_news_freshness_rank(row.freshness_status),
+                -(row.published_at or date.min).toordinal(),
+                row.title,
+            ),
+        )[: request.top_k]
+        if not news:
+            warnings.append(
+                "URL付きのニュース根拠が見つかりませんでした。必要な場合は source_type=news の資料に URL を含めて登録してください。"
+            )
+        return StockNewsReport(
+            symbol=normalized_symbol,
+            company_name=request.company_name.strip() if request.company_name else None,
+            as_of=as_of,
+            news=news,
+            warnings=warnings,
+        )
+
+
 def _is_allowed_path(path: Path, allowed_dirs: Sequence[Path]) -> bool:
     return any(path == directory or directory in path.parents for directory in allowed_dirs)
 
@@ -1369,3 +1470,157 @@ def _company_summary(evidence: list[ResearchEvidence], data_quality: ResearchDat
     if data_quality.status != "OK":
         return "登録資料が限られるため、Research Summary は確認材料として控えめに扱います。"
     return f"{len(evidence)}件の根拠から、長期企業分析の確認材料を整理しました。"
+
+
+def _stock_news_keywords(request: StockNewsRequest) -> list[str]:
+    terms = [request.symbol]
+    if request.company_name:
+        terms.append(request.company_name)
+    terms.extend(request.related_keywords)
+    return [term.strip().lower() for term in terms if term.strip()]
+
+
+def _stock_news_matches(
+    document: ResearchDocument,
+    text: str,
+    symbol: str,
+    keywords: Sequence[str],
+) -> bool:
+    if _normalize_symbol(document.symbol) == symbol:
+        return True
+    haystack = f"{document.symbol} {document.company_name or ''} {document.title} {text}".lower()
+    return any(keyword and keyword in haystack for keyword in keywords)
+
+
+def _stock_news_url(text: str) -> str:
+    labeled = re.search(r"(?im)^\s*(?:source_)?url\s*[:：]\s*(https?://\S+)\s*$", text)
+    if labeled:
+        return labeled.group(1).strip().rstrip(".,)")
+    match = re.search(r"https?://\S+", text)
+    if match:
+        return match.group(0).strip().rstrip(".,)")
+    return ""
+
+
+def _stock_news_source(text: str) -> str | None:
+    match = re.search(r"(?im)^\s*source\s*[:：]\s*(.+?)\s*$", text)
+    if not match:
+        return None
+    source = match.group(1).strip()
+    return source or None
+
+
+def _stock_news_summary(text: str) -> str:
+    match = re.search(r"(?im)^\s*(?:short_)?summary\s*[:：]\s*(.+?)\s*$", text)
+    if match:
+        return _excerpt(match.group(1), max_chars=180)
+    lines = [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip()
+        and not re.match(r"(?i)^\s*(?:source_)?url\s*[:：]", line)
+        and not re.match(r"(?i)^\s*source\s*[:：]", line)
+    ]
+    return _excerpt(" ".join(lines), max_chars=180) or "ニュース本文の要約対象が不足しています。"
+
+
+def _stock_news_evidence(
+    document: ResearchDocument,
+    text: str,
+    *,
+    url: str,
+    as_of: date,
+) -> StockNewsEvidence:
+    return StockNewsEvidence(
+        symbol=document.symbol,
+        company_name=document.company_name,
+        title=document.title,
+        url=url,
+        source=_stock_news_source(text),
+        published_at=document.published_at,
+        summary=_stock_news_summary(text),
+        investment_viewpoint=_stock_news_viewpoint(text),
+        sentiment_for_investment=_stock_news_sentiment(text),
+        freshness_status=_stock_news_freshness(document.published_at, as_of=as_of),
+    )
+
+
+def _stock_news_viewpoint(text: str) -> StockNewsInvestmentViewpoint:
+    normalized = text.lower()
+    terms_by_viewpoint: dict[StockNewsInvestmentViewpoint, tuple[str, ...]] = {
+        "earnings": ("earnings", "profit", "revenue", "sales", "guidance", "決算", "業績"),
+        "growth": ("growth", "expansion", "investment", "new business", "成長", "投資"),
+        "shareholder_return": ("dividend", "buyback", "shareholder return", "配当", "自社株"),
+        "risk": ("risk", "lawsuit", "recall", "regulation", "fraud", "リスク", "訴訟"),
+        "macro": ("rate", "inflation", "fx", "yen", "macro", "金利", "為替", "インフレ"),
+        "other": (),
+    }
+    scored = [
+        (sum(1 for term in terms if term in normalized), viewpoint)
+        for viewpoint, terms in terms_by_viewpoint.items()
+        if viewpoint != "other"
+    ]
+    score, viewpoint = max(scored, key=lambda row: (row[0], row[1]))
+    return viewpoint if score > 0 else "other"
+
+
+def _stock_news_sentiment(text: str) -> StockNewsSentiment:
+    normalized = text.lower()
+    positive_terms = (
+        "positive",
+        "beat",
+        "raise",
+        "growth",
+        "increase",
+        "record",
+        "増益",
+        "上方修正",
+        "増配",
+    )
+    negative_terms = (
+        "negative",
+        "miss",
+        "cut",
+        "decline",
+        "risk",
+        "loss",
+        "lawsuit",
+        "減益",
+        "下方修正",
+        "減配",
+    )
+    positive = sum(1 for term in positive_terms if term in normalized)
+    negative = sum(1 for term in negative_terms if term in normalized)
+    if positive and negative:
+        return "mixed"
+    if positive:
+        return "positive"
+    if negative:
+        return "negative"
+    return "neutral" if normalized.strip() else "unknown"
+
+
+def _stock_news_freshness(
+    published_at: date | None,
+    *,
+    as_of: date,
+) -> StockNewsFreshnessStatus:
+    if published_at is None:
+        return "unknown"
+    age_days = (as_of - published_at).days
+    if age_days < 0:
+        return "latest"
+    if age_days <= 7:
+        return "latest"
+    if age_days <= 45:
+        return "recent"
+    return "stale"
+
+
+def _stock_news_freshness_rank(status: StockNewsFreshnessStatus) -> int:
+    return {
+        "latest": 0,
+        "recent": 1,
+        "unknown": 2,
+        "stale": 3,
+    }[status]

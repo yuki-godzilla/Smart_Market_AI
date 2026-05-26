@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from datetime import UTC, date, datetime
 from pathlib import Path
+from typing import Literal
 
 import streamlit as st
 
@@ -15,6 +16,9 @@ from backend.research import (
     ResearchIngestionService,
     ResearchInMemoryStore,
     ResearchRetrievalService,
+    StockNewsAnalysisService,
+    StockNewsReport,
+    StockNewsRequest,
 )
 
 RESEARCH_STORE_STATE_KEY = "research_local_store"
@@ -64,7 +68,7 @@ def autoload_local_research_documents() -> int:
                 symbol=symbol,
                 title=_title_from_research_filename(path),
                 local_path=str(path),
-                source_type="user_note",
+                source_type=_source_type_from_research_filename(path),
                 published_at=_date_from_research_filename(path),
             )
         )
@@ -107,6 +111,27 @@ def analyze_research_for_symbol(symbol: str, *, as_of: date | None = None) -> Co
         ResearchIngestionService(store, document_dirs=research_document_dirs()),
         ResearchRetrievalService(store),
     ).analyze_company(CompanyResearchRequest(symbol=symbol, as_of=as_of))
+
+
+def analyze_stock_news_for_symbol(
+    symbol: str,
+    *,
+    company_name: str | None = None,
+    related_keywords: list[str] | None = None,
+    as_of: date | None = None,
+) -> StockNewsReport:
+    autoload_local_research_documents()
+    store = research_store()
+    return StockNewsAnalysisService(
+        ResearchIngestionService(store, document_dirs=research_document_dirs())
+    ).analyze_symbol_news(
+        StockNewsRequest(
+            symbol=symbol,
+            company_name=company_name,
+            related_keywords=related_keywords or [],
+            as_of=as_of,
+        )
+    )
 
 
 def research_document_summary_rows() -> list[dict[str, str]]:
@@ -154,6 +179,10 @@ def _symbol_from_research_filename(path: Path) -> str:
 
 def _title_from_research_filename(path: Path) -> str:
     return path.stem.replace("_", " ").strip() or path.name
+
+
+def _source_type_from_research_filename(path: Path) -> Literal["news", "user_note"]:
+    return "news" if "news" in path.stem.lower() else "user_note"
 
 
 def _date_from_research_filename(path: Path) -> date | None:

@@ -554,5 +554,6 @@ Markdown UTF-8 check:
 - UI に見える変更は `07_UI_Wording_Policy.md` と `08_Phase16_UI_Improvement_Plan.md` も確認する。
 - 作業履歴は `Documents/99_Work_Log.md` の先頭へ追加する。
 - Research RAG は Phase 20 local evidence slice を開始済み。現時点では `backend/research` の local UTF-8 document ingestion / chunk / keyword search / deterministic Research Summary、`設定 / データ情報` での session-local資料登録、`銘柄コックピット` の `AIデータ取得` ボタンによる明示的なResearch Summary表示、ランキング行クリック後の `銘柄データ` モーダル `AI Research` タブでの `AIで資料を確認`、Cockpit Decision Report の Research Evidence section が対象。価格データ取得時にはResearch RAGを自動実行しない。Ranking evidence-status display と Research Score 統合は後続作業として扱う。
+- Stock News RAG は Phase 21.5 の first local deterministic slice として、`source_type=news` で登録されたローカル資料から URL 付きニュースだけを `銘柄コックピット` の `Recent News / AIニュース深掘り` に表示する。news 資料には `url:` または `source_url:` 行、任意で `source:` / `summary:` 行を含める。外部ニュースサイト、外部LLM、network は通常経路では使わず、Investment Score / ranking order も変更しない。
 - `tools/fetch_research_yfinance_profile.py --symbol 7203.T --write` は、確認用の実データResearch資料を Yahoo Finance / yfinance から取得して `data/research_docs/` に保存する。外部通信を使うため通常 checks には含めない。
 - 将来 EDINET / TDnet / IR site などの外部 source adapter が安定したら、`data/research_docs/` は通常の手動登録先ではなく、取得済み資料 cache / audit archive / offline fixture として扱う。通常導線は `外部資料を取得` / `資料キャッシュを更新` に移行する。

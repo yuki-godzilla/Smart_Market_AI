@@ -588,3 +588,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Reordered ranking purpose options so common choices appear first, with ETF-specific options promoted when ETF is selected.
 - Added a Streamlit UI compatibility wrapper for forecast consensus summarization so a cached older backend module does not crash on the new `history` argument.
 - Kept direction signal fallback values neutral when older cached score / consensus objects do not yet carry the new direction fields.
+
+## 2026-05-26 - Ranking purpose-specific display polish
+
+- Added purpose-specific Ranking Focus summaries, top-weight chips, result-table leading columns, and row-level sorting reasons / checkpoints so the chosen `並べ替え条件` is visible in each result.
+- Added `上昇気配重視` charting as `上昇気配 x 下降警戒の低さ`, plus fit/risk, fit/direction, data-confidence, and ETF-focused chart profiles.
+- Enriched ranking display rows with symbol-master metrics such as PER, PBR, ROE, dividend yield, expense ratio, NISA, investment style, and market-cap tier for purpose-specific tables.

@@ -38,6 +38,11 @@ PROFILE_STABILITY_RISK = "stability_risk"
 PROFILE_MOMENTUM_FORECAST = "momentum_forecast"
 PROFILE_LONG_TERM_CONFIDENCE = "long_term_confidence"
 PROFILE_ETF_COST_SCORE = "etf_cost_score"
+PROFILE_UPSIDE_DOWNSIDE = "upside_downside"
+PROFILE_FIT_DIRECTION = "fit_direction"
+PROFILE_FIT_RISK = "fit_risk"
+PROFILE_CONFIDENCE_QUALITY = "confidence_quality"
+PROFILE_ETF_FIT_CONFIDENCE = "etf_fit_confidence"
 
 RANKING_CHART_PROFILES: dict[str, RankingChartProfile] = {
     PROFILE_SCORE_RISK: RankingChartProfile(
@@ -45,7 +50,7 @@ RANKING_CHART_PROFILES: dict[str, RankingChartProfile] = {
         title="Score x Risk Map",
         x_candidates=("総合スコア", "Investment Score"),
         y_candidates=("Risk",),
-        color_candidates=("見方", "注意点"),
+        color_candidates=("方向感", "見方", "注意点"),
         description=(
             "スコアが高い候補の中で、リスクもあわせて確認できます。"
             "高スコアでもリスクが高い場合は、詳細確認に進むと安心です。"
@@ -62,7 +67,7 @@ RANKING_CHART_PROFILES: dict[str, RankingChartProfile] = {
         title="Score x Direction Map",
         x_candidates=("総合スコア", "Investment Score"),
         y_candidates=("方向スコア", "上昇気配", "Direction Signal", "Upside Signal"),
-        color_candidates=("見方", "注意点"),
+        color_candidates=("下降警戒", "方向感", "見方", "注意点"),
         description="スコアが高い候補について、上昇気配と下降警戒をあわせた方向感を確認できます。",
         how_to_read=(
             "High score / High direction: 上向きシグナルがある深掘り候補",
@@ -76,7 +81,7 @@ RANKING_CHART_PROFILES: dict[str, RankingChartProfile] = {
         title="Score x Evaluation Confidence",
         x_candidates=("総合スコア", "Investment Score"),
         y_candidates=("DB信頼度", "DB適合", "データ品質", "Evaluation Confidence"),
-        color_candidates=("見方", "注意点"),
+        color_candidates=("根拠状態", "見方", "注意点"),
         description="スコアとデータの充実度を分けて確認できます。高スコアでも信頼度が低い場合はデータ確認が先です。",
         how_to_read=(
             "High score / High confidence: 深掘りしやすい候補",
@@ -183,7 +188,7 @@ RANKING_CHART_PROFILES: dict[str, RankingChartProfile] = {
         title="ETF Cost x Score Map",
         x_candidates=("Cost Score", "Expense Ratio", "経費率"),
         y_candidates=("総合スコア", "Investment Score"),
-        color_candidates=("見方", "注意点"),
+        color_candidates=("DB信頼度", "Risk", "見方", "注意点"),
         fallback_key=PROFILE_SCORE_CONFIDENCE,
         description="ETF候補について、コスト観点と総合スコアを分けて確認できます。",
         how_to_read=(
@@ -193,24 +198,103 @@ RANKING_CHART_PROFILES: dict[str, RankingChartProfile] = {
             "High cost / Low score: 優先度低め",
         ),
     ),
+    PROFILE_UPSIDE_DOWNSIDE: RankingChartProfile(
+        key=PROFILE_UPSIDE_DOWNSIDE,
+        title="Upside x Downside Watch Map",
+        x_candidates=("上昇気配", "Upside Signal"),
+        y_candidates=("下降警戒の低さ", "方向スコア", "下降警戒"),
+        color_candidates=("方向感", "見方", "注意点"),
+        fallback_key=PROFILE_SCORE_FORECAST,
+        description=(
+            "上昇気配重視で見る候補について、上向きシグナルと下降警戒の低さを同時に確認できます。"
+        ),
+        how_to_read=(
+            "High upside / High low-downside: 上向きシグナルが強く、警戒材料が相対的に少ない深掘り候補",
+            "High upside / Low low-downside: 上向き材料はあるが、下降警戒も先に確認",
+            "Low upside / High low-downside: 警戒材料は少なめだが、上向き材料は限定的",
+            "Low upside / Low low-downside: 優先度低め、またはリスク確認候補",
+        ),
+    ),
+    PROFILE_FIT_DIRECTION: RankingChartProfile(
+        key=PROFILE_FIT_DIRECTION,
+        title="Fit x Direction Map",
+        x_candidates=("条件適合度", "DB適合"),
+        y_candidates=("方向スコア", "上昇気配"),
+        color_candidates=("Risk", "方向感", "注意点"),
+        fallback_key=PROFILE_SCORE_FORECAST,
+        description="選択中の目的に合う候補について、方向感が伴っているかを確認できます。",
+        how_to_read=(
+            "High fit / High direction: 条件に合い、上向きシグナルもある深掘り候補",
+            "High fit / Low direction: 条件には合うが、方向感や下降警戒を確認",
+            "Low fit / High direction: 上向き材料はあるが、目的適合は低め",
+            "Low fit / Low direction: 優先度低め",
+        ),
+    ),
+    PROFILE_FIT_RISK: RankingChartProfile(
+        key=PROFILE_FIT_RISK,
+        title="Fit x Risk Map",
+        x_candidates=("条件適合度", "DB適合"),
+        y_candidates=("Risk",),
+        color_candidates=("データ品質", "注意点", "見方"),
+        fallback_key=PROFILE_SCORE_RISK,
+        description="条件に合う候補について、Riskとデータ品質をあわせて確認できます。",
+        how_to_read=(
+            "High fit / High risk score: 条件に合い、Risk面も比較しやすい候補",
+            "High fit / Low risk score: 条件には合うが、リスク要因を確認",
+            "Low fit / High risk score: 安定性はあるが、目的適合は低め",
+            "Low fit / Low risk score: 優先度低め",
+        ),
+    ),
+    PROFILE_CONFIDENCE_QUALITY: RankingChartProfile(
+        key=PROFILE_CONFIDENCE_QUALITY,
+        title="Data Quality x Confidence Map",
+        x_candidates=("DB信頼度", "Evaluation Confidence"),
+        y_candidates=("データ品質",),
+        color_candidates=("根拠状態", "注意点", "見方"),
+        fallback_key=PROFILE_SCORE_CONFIDENCE,
+        description="データ信頼度優先で見る候補について、DB信頼度と価格データ品質を分けて確認できます。",
+        how_to_read=(
+            "High confidence / High quality: 根拠と価格データがそろった確認しやすい候補",
+            "High confidence / Low quality: DB情報はあるが、価格データ品質を確認",
+            "Low confidence / High quality: 価格評価はできるが、銘柄DBや根拠を確認",
+            "Low confidence / Low quality: 先にデータ確認が必要",
+        ),
+        caution="Data Quality と DB信頼度は投資魅力度ではなく、評価に使えるデータの充実度です。",
+    ),
+    PROFILE_ETF_FIT_CONFIDENCE: RankingChartProfile(
+        key=PROFILE_ETF_FIT_CONFIDENCE,
+        title="ETF Fit x Confidence Map",
+        x_candidates=("条件適合度", "DB適合"),
+        y_candidates=("DB信頼度", "データ品質"),
+        color_candidates=("経費率", "Risk", "注意点"),
+        fallback_key=PROFILE_SCORE_CONFIDENCE,
+        description="ETF候補について、目的適合とデータ充実度を分けて確認できます。",
+        how_to_read=(
+            "High fit / High confidence: ETF条件に合い、確認材料もそろった候補",
+            "High fit / Low confidence: 条件には合うが、指数・コスト・分配方針を確認",
+            "Low fit / High confidence: データはあるが、選択目的との一致は低め",
+            "Low fit / Low confidence: 先にデータ確認が必要",
+        ),
+    ),
 }
 
 RANKING_PURPOSE_CHART_PROFILE_KEYS: dict[str, str] = {
     "multi_factor": PROFILE_SCORE_RISK,
-    "quality_growth": PROFILE_GROWTH_MOMENTUM,
-    "quality_value": PROFILE_VALUE_RISK,
-    "sustainable_income": PROFILE_DIVIDEND_STABILITY,
+    "upside_signal": PROFILE_UPSIDE_DOWNSIDE,
+    "quality_growth": PROFILE_FIT_DIRECTION,
+    "quality_value": PROFILE_FIT_RISK,
+    "sustainable_income": PROFILE_FIT_RISK,
     "min_volatility": PROFILE_STABILITY_RISK,
     "momentum": PROFILE_MOMENTUM_FORECAST,
-    "risk_adjusted": PROFILE_STABILITY_RISK,
-    "small_growth": PROFILE_GROWTH_MOMENTUM,
+    "risk_adjusted": PROFILE_SCORE_RISK,
+    "small_growth": PROFILE_FIT_DIRECTION,
     "nisa_long_term": PROFILE_LONG_TERM_CONFIDENCE,
-    "data_confidence": PROFILE_SCORE_CONFIDENCE,
+    "data_confidence": PROFILE_CONFIDENCE_QUALITY,
     "etf_core_cost": PROFILE_ETF_COST_SCORE,
-    "etf_income": PROFILE_DIVIDEND_STABILITY,
-    "dividend": PROFILE_DIVIDEND_STABILITY,
-    "growth": PROFILE_GROWTH_MOMENTUM,
-    "value": PROFILE_VALUE_RISK,
+    "etf_income": PROFILE_ETF_FIT_CONFIDENCE,
+    "dividend": PROFILE_FIT_RISK,
+    "growth": PROFILE_FIT_DIRECTION,
+    "value": PROFILE_FIT_RISK,
     "stability": PROFILE_STABILITY_RISK,
     "trend": PROFILE_MOMENTUM_FORECAST,
 }

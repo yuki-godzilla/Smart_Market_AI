@@ -146,8 +146,11 @@ from ui.ranking import (
     ranking_period_dates,
     ranking_period_label,
     ranking_provider_error_rows,
+    ranking_purpose_focus_summary,
     ranking_purpose_help,
     ranking_purpose_options,
+    ranking_purpose_primary_columns,
+    ranking_purpose_weight_summary,
     ranking_symbol_chunks,
     ranking_symbol_options,
     ranking_symbols_state_key,
@@ -651,8 +654,8 @@ def test_ranking_result_aggrid_options_enable_single_row_click_selection():
     column_defs = {column["field"]: column for column in options["columnDefs"]}
     assert column_defs["順位"]["pinned"] == "left"
     assert column_defs["銘柄"]["pinned"] == "left"
-    assert "短い理由" in column_defs
-    assert column_defs["短い理由"]["tooltipField"] == "短い理由"
+    assert "並べ替え理由" in column_defs
+    assert column_defs["並べ替え理由"]["tooltipField"] == "並べ替え理由"
 
 
 def test_ranking_result_grid_custom_css_keeps_dark_table_readable():
@@ -1384,6 +1387,17 @@ def test_advanced_ranking_purposes_have_profiles_and_help_text():
     assert "上昇気配" in ranking_purpose_help(RANKING_PURPOSE_UPSIDE_SIGNAL)
     assert "roe" in RANKING_INVESTMENT_STYLE_METRICS[RANKING_PURPOSE_QUALITY_GROWTH]
     assert "expense_ratio" in RANKING_INVESTMENT_STYLE_METRICS[RANKING_PURPOSE_ETF_CORE_COST]
+    assert ranking_purpose_primary_columns(RANKING_PURPOSE_UPSIDE_SIGNAL)[:3] == (
+        "上昇気配",
+        "下降警戒",
+        "方向スコア",
+    )
+    assert ranking_purpose_primary_columns(RANKING_PURPOSE_ETF_CORE_COST)[:2] == (
+        "経費率",
+        "連動指数",
+    )
+    assert "方向スコア 35%" in ranking_purpose_weight_summary(RANKING_PURPOSE_UPSIDE_SIGNAL)
+    assert "上向きシグナル" in ranking_purpose_focus_summary(RANKING_PURPOSE_UPSIDE_SIGNAL)
 
 
 def test_ranking_purpose_options_put_common_choices_first():
@@ -2483,29 +2497,20 @@ def test_investment_score_display_rows_are_beginner_friendly():
         ]
     )
 
-    assert rows == [
-        {
-            "順位": "1",
-            "銘柄": "AAPL",
-            "銘柄名": "Apple Inc.",
-            "総合スコア": "73",
-            "見方": "バランス型",
-            "条件適合度": "",
-            "Screening": "80",
-            "方向感": "判定不足",
-            "上昇気配": "",
-            "下降警戒": "",
-            "方向スコア": "",
-            "予測変化率": "",
-            "方向一致": "上昇 0 / 下降 0 / 横ばい 0",
-            "モデル一致度": "40",
-            "データ品質": "100",
-            "DB信頼度": "",
-            "Risk": "未接続",
-            "注意点": "モデルの見方が割れています",
-            "補足": rows[0]["補足"],
-        }
-    ]
+    assert rows[0]["順位"] == "1"
+    assert rows[0]["銘柄"] == "AAPL"
+    assert rows[0]["銘柄名"] == "Apple Inc."
+    assert rows[0]["総合スコア"] == "73"
+    assert rows[0]["見方"] == "バランス型"
+    assert rows[0]["方向感"] == "判定不足"
+    assert rows[0]["方向一致"] == "上昇 0 / 下降 0 / 横ばい 0"
+    assert rows[0]["モデル一致度"] == "40"
+    assert rows[0]["データ品質"] == "100"
+    assert rows[0]["Risk"] == "未接続"
+    assert rows[0]["注意点"] == "モデルの見方が割れています"
+    assert "下降警戒の低さ" in rows[0]
+    assert "PER" in rows[0]
+    assert "経費率" in rows[0]
     assert "モデルの見方が割れています" in rows[0]["補足"]
 
 
@@ -2723,9 +2728,11 @@ def test_ranking_result_aggrid_frame_keeps_display_table_compact():
                 "方向感": "上昇気配あり",
                 "上昇気配": "78",
                 "下降警戒": "42",
+                "方向スコア": "68",
                 "Risk": "55",
                 "データ品質": "90",
                 "条件適合度": "86",
+                "Screening": "80",
                 "DB信頼度": "88",
                 "根拠状態": "根拠あり",
                 "見方": "比較候補",
@@ -2739,19 +2746,57 @@ def test_ranking_result_aggrid_frame_keeps_display_table_compact():
         "銘柄",
         "銘柄名",
         "総合スコア",
-        "方向感",
-        "上昇気配",
-        "下降警戒",
+        "方向スコア",
         "Risk",
         "データ品質",
         "条件適合度",
+        "Screening",
+        "方向感",
+        "上昇気配",
+        "下降警戒",
         "DB信頼度",
         "根拠状態",
         "見方",
-        "短い理由",
+        "並べ替え理由",
+        "確認ポイント",
     ]
     assert frame.loc[0, "銘柄名"].endswith("…")
-    assert frame.loc[0, "短い理由"].endswith("…")
+    assert "総合スコア 82" in frame.loc[0, "並べ替え理由"]
+
+
+def test_ranking_result_aggrid_frame_prioritizes_upside_columns_for_upside_purpose():
+    frame = ranking_result_aggrid_frame(
+        [
+            {
+                "順位": "1",
+                "銘柄": "7203.T",
+                "銘柄名": "Toyota Motor",
+                "総合スコア": "82",
+                "Screening": "80",
+                "方向感": "上昇気配あり",
+                "上昇気配": "78",
+                "下降警戒": "42",
+                "方向スコア": "68",
+                "予測変化率": "+3.2%",
+                "方向一致": "上昇 3 / 下降 0 / 横ばい 0",
+                "Risk": "55",
+                "データ品質": "90",
+            }
+        ],
+        ranking_purpose=RANKING_PURPOSE_UPSIDE_SIGNAL,
+    )
+
+    assert frame.columns.tolist()[:8] == [
+        "順位",
+        "銘柄",
+        "銘柄名",
+        "上昇気配",
+        "下降警戒",
+        "方向スコア",
+        "予測変化率",
+        "方向一致",
+    ]
+    assert "上昇気配 78" in frame.loc[0, "並べ替え理由"]
 
 
 def test_ranking_investment_note_uses_scores_and_symbol_metadata(monkeypatch):

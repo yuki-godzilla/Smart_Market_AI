@@ -39,16 +39,27 @@ Ranking 画面は、既存ランキング結果の「見せ方」を改善し、
 Ranking のメインチャートは、並べ替え条件に応じた chart profile で選択する。UI本体に条件分岐を増やしすぎず、`ui/views/ranking_chart_profiles.py` の設定で拡張する。
 
 - `multi_factor` / default: `Score x Risk Map`
-- `dividend` / `sustainable_income` / `etf_income`: `Dividend x Stability Map`、列不足時は `Score x Risk Map`
-- `growth` / `quality_growth` / `small_growth`: `Growth x Momentum Map`、列不足時は `Score x Forecast Map`
-- `value` / `quality_value`: `Valuation x Risk Map`、列不足時は `Score x Risk Map`
+- `upside_signal`: `Upside x Downside Watch Map`。`上昇気配` と `下降警戒の低さ` を主軸にする。
+- `dividend` / `sustainable_income`: `Fit x Risk Map`、列不足時は `Score x Risk Map`
+- `growth` / `quality_growth` / `small_growth`: `Fit x Direction Map`、列不足時は `Score x Direction Map`
+- `value` / `quality_value`: `Fit x Risk Map`、列不足時は `Score x Risk Map`
 - `stability` / `min_volatility` / `risk_adjusted`: `Stability x Risk Map`、列不足時は `Score x Risk Map`
-- `trend` / `momentum`: `Momentum x Forecast Map`、列不足時は `Score x Forecast Map`
+- `trend` / `momentum`: `Momentum x Direction Map`、列不足時は `Score x Direction Map`
 - `nisa_long_term`: `Long-term Fit x Confidence Map`、列不足時は `Score x Risk Map`
 - `etf_core_cost`: `ETF Cost x Score Map`、列不足時は `Score x Evaluation Confidence`
-- `data_confidence`: `Score x Evaluation Confidence`
+- `etf_income`: `ETF Fit x Confidence Map`、列不足時は `Score x Evaluation Confidence`
+- `data_confidence`: `Data Quality x Confidence Map`
 
 Evaluation Confidence は通常の主Factorではなく、評価信頼度・データ充実度を示す補助指標として扱う。`data_confidence` 系の並べ替え条件では主グラフにし、それ以外では `Advanced Insights` の補助分析に置く。
+
+### Ranking purpose display update / 2026-05-26
+
+並べ替え条件ごとに、画面上の「何を見るべきか」を明示する。ランキング順は売買推奨ではなく、比較・深掘り候補の優先度として扱う。
+
+- `Ranking Focus` で選択中条件の重視ポイントと上位 weight を表示する。
+- `Top Screening Candidates` は総合スコア固定ではなく、選択中条件の主指標をカードの値として見せる。
+- `Detailed Ranking Table` は並べ替え条件ごとに先頭列を変え、`並べ替え理由` と `確認ポイント` を表示する。
+- 表示行には `PER`、`PBR`、`ROE`、`配当利回り`、`経費率`、`NISA`、`時価総額` などの銘柄DB由来項目も持たせ、目的別の判断材料を表に出せるようにする。
 
 ### Ranking UI readability polish / 2026-05-24
 
@@ -57,7 +68,7 @@ Ranking 画面は、カードや表の文字切れを避け、重要情報を短
 - Top Screening Candidates は銘柄名や説明文を短縮し、Score、Symbol、badge を優先して見せる。
 - Top 10 Score Comparison はY軸をsymbol中心にし、長いcompany nameはtooltipで確認する。
 - 条件別メインチャートの詳しい読み方は `読み方` expander に逃がし、常時表示の説明文を短くする。
-- Detailed Ranking Table は Rank、Symbol、Name、Score、Risk、Data Confidence、見方、Short Reason を優先表示し、長い理由やraw情報はReport / CSV / download側に残す。
+- Detailed Ranking Table は Rank、Symbol、Name と選択中条件の主指標を優先表示し、`並べ替え理由` と `確認ポイント` を短く出す。
 - Decision Report はPreviewとRaw Markdownを分け、画面上ではレポートとして読みやすく確認できるようにする。
 
 ## Symbol Cockpit UI Maturity Addendum / 2026-05-24

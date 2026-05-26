@@ -17,11 +17,11 @@ Current focus is project maturity improvement rather than feature expansion. Fun
 
 Current UI maturity work includes Ranking visualization polish: existing ranking results are being presented as screening / comparison candidates with summary cards, top-candidate cards, score and confidence charts, selected-candidate breakdown, and a detailed table, without changing backend ranking or scoring logic.
 
-Ranking visualization maturity now uses condition-aware chart profiles: the main scatter chart changes by ranking purpose, falls back to available existing columns, and treats Evaluation Confidence as a data-reliability / coverage support metric except for data-confidence-focused rankings.
+Ranking visualization maturity now uses condition-aware chart profiles, purpose-specific focus summaries, purpose-specific table leading columns, and row-level sorting reasons / checkpoints. The main scatter chart changes by ranking purpose, falls back to available existing columns, and treats Evaluation Confidence as a data-reliability / coverage support metric except for data-confidence-focused rankings.
 
 Ranking logic now uses forecast direction signals as the primary forecast-derived ranking input: `upside_signal_score`, `downside_signal_score`, `direction_net_score`, and `direction_signal_label`. `forecast_agreement_score` remains for compatibility and as a supplementary model-consistency metric, but UI ranking profiles and main cockpit/ranking labels prioritize direction, upside signal, and downside warning wording.
 
-Ranking UI readability polish keeps the same layout and logic while shortening candidate-card text, using symbol-first chart labels, compacting the display table to key columns, and separating Decision Report preview from raw Markdown.
+Ranking UI readability polish keeps the same layout and logic while shortening candidate-card text, using symbol-first chart labels, compacting the display table to purpose-specific key columns, and separating Decision Report preview from raw Markdown.
 
 Current UI maturity work also includes Symbol Cockpit polish: the cockpit presents existing analysis results as summary header, KPI cards, score breakdown, price/forecast reading guidance, period evaluation, memo, research evidence summary, decision report, and lower-priority detail expanders, without changing backend scoring, forecast, Research RAG, or report generation logic.
 

@@ -94,9 +94,12 @@ from ui.ranking import (
     ranking_period_label,
     ranking_product_type_label,
     ranking_provider_error_rows,
+    ranking_purpose_focus_summary,
     ranking_purpose_help,
     ranking_purpose_label,
     ranking_purpose_options,
+    ranking_purpose_primary_columns,
+    ranking_purpose_weight_summary,
     ranking_region_label,
     ranking_symbol_chunks,
     ranking_symbol_options,
@@ -1052,37 +1055,144 @@ def _ranking_result_grid_key(base_key: str) -> str:
     return "market_data_ranking_result_grid"
 
 
-def ranking_result_aggrid_frame(display_rows: list[dict[str, str]]) -> pd.DataFrame:
+def _dedupe_columns(columns: tuple[str, ...]) -> list[str]:
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for column in columns:
+        if column in seen:
+            continue
+        ordered.append(column)
+        seen.add(column)
+    return ordered
+
+
+def _ranking_result_columns(ranking_purpose: str) -> list[str]:
+    focus_columns = ranking_purpose_primary_columns(ranking_purpose)
+    return _dedupe_columns(
+        (
+            "順位",
+            "銘柄",
+            "銘柄名",
+            *focus_columns,
+            "総合スコア",
+            "Screening",
+            "方向感",
+            "上昇気配",
+            "下降警戒",
+            "Risk",
+            "データ品質",
+            "条件適合度",
+            "DB信頼度",
+            "根拠状態",
+            "見方",
+            "並べ替え理由",
+            "確認ポイント",
+        )
+    )
+
+
+def _ranking_metric_text(row: dict[str, str], column: str) -> str:
+    value = str(row.get(column, "")).strip()
+    if not value:
+        return ""
+    return f"{column} {value}"
+
+
+def _ranking_first_metric(row: dict[str, str], columns: tuple[str, ...]) -> tuple[str, str]:
+    for column in columns:
+        value = str(row.get(column, "")).strip()
+        if value and value not in {"未計算", "未登録", "未接続", "-"}:
+            return column, value
+    return "総合スコア", str(row.get("総合スコア", "未計算"))
+
+
+def ranking_purpose_row_reason(row: dict[str, str], ranking_purpose: str) -> str:
+    columns = ranking_purpose_primary_columns(ranking_purpose)
+    metrics = [metric for column in columns if (metric := _ranking_metric_text(row, column))][:3]
+    focus = ranking_purpose_focus_summary(ranking_purpose)
+    if not metrics:
+        return focus
+    return f"{' / '.join(metrics)}。{focus}"
+
+
+def ranking_purpose_row_checkpoint(row: dict[str, str], ranking_purpose: str) -> str:
+    downside = _decimal_from_text(row.get("下降警戒"))
+    risk = _decimal_from_text(row.get("Risk"))
+    data_quality = _decimal_from_text(row.get("データ品質"))
+    caution = str(row.get("注意点", "")).strip()
+    if caution:
+        return caution
+    if downside is not None and downside >= Decimal("65"):
+        return "下降警戒が高めです。上向き材料とあわせて短期リスクを確認します。"
+    if risk is not None and risk < Decimal("50"):
+        return "Riskが低めです。値動きの荒さや下落耐性を確認します。"
+    if data_quality is not None and data_quality < Decimal("80"):
+        return "データ品質に確認余地があります。欠損や取得期間を確認します。"
+    if ranking_purpose in {"etf_core_cost", "etf_income"}:
+        return "連動指数、経費率、分配方針をETF資料で確認します。"
+    return "銘柄コックピットで価格・予測・リスクを確認します。"
+
+
+def ranking_result_aggrid_frame(
+    display_rows: list[dict[str, str]],
+    ranking_purpose: str = "multi_factor",
+) -> pd.DataFrame:
     rows: list[dict[str, str]] = []
     for row in display_rows:
+        record = {
+            "順位": row.get("順位", ""),
+            "銘柄": row.get("銘柄", ""),
+            "銘柄名": truncate_text(row.get("銘柄名", ""), max_chars=30),
+            "総合スコア": row.get("総合スコア", ""),
+            "Screening": row.get("Screening", ""),
+            "方向感": row.get("方向感", ""),
+            "上昇気配": row.get("上昇気配", ""),
+            "下降警戒": row.get("下降警戒", ""),
+            "下降警戒の低さ": row.get("下降警戒の低さ", ""),
+            "方向スコア": row.get("方向スコア", ""),
+            "予測変化率": row.get("予測変化率", ""),
+            "方向一致": row.get("方向一致", ""),
+            "Risk": row.get("Risk", ""),
+            "データ品質": row.get("データ品質", ""),
+            "条件適合度": row.get("条件適合度") or row.get("DB適合", ""),
+            "DB信頼度": row.get("DB信頼度", ""),
+            "根拠状態": row.get("根拠状態", ""),
+            "見方": row.get("見方", ""),
+            "PER": row.get("PER", ""),
+            "PBR": row.get("PBR", ""),
+            "ROE": row.get("ROE", ""),
+            "配当利回り": row.get("配当利回り", ""),
+            "経費率": row.get("経費率", ""),
+            "NISA": row.get("NISA", ""),
+            "投資スタイル": row.get("投資スタイル", ""),
+            "時価総額": row.get("時価総額", ""),
+            "連動指数": row.get("連動指数", ""),
+            "通貨": row.get("通貨", ""),
+            "複雑性": row.get("複雑性", ""),
+            "注意点": row.get("注意点", ""),
+            "並べ替え理由": truncate_text(
+                ranking_purpose_row_reason(row, ranking_purpose),
+                max_chars=88,
+            ),
+            "確認ポイント": truncate_text(
+                ranking_purpose_row_checkpoint(row, ranking_purpose),
+                max_chars=72,
+            ),
+        }
         rows.append(
-            {
-                "順位": row.get("順位", ""),
-                "銘柄": row.get("銘柄", ""),
-                "銘柄名": truncate_text(row.get("銘柄名", ""), max_chars=30),
-                "総合スコア": row.get("総合スコア", ""),
-                "方向感": row.get("方向感", ""),
-                "上昇気配": row.get("上昇気配", ""),
-                "下降警戒": row.get("下降警戒", ""),
-                "Risk": row.get("Risk", ""),
-                "データ品質": row.get("データ品質", ""),
-                "条件適合度": row.get("条件適合度") or row.get("DB適合", ""),
-                "DB信頼度": row.get("DB信頼度", ""),
-                "根拠状態": row.get("根拠状態", ""),
-                "見方": row.get("見方", ""),
-                "短い理由": truncate_text(row.get("補足", ""), max_chars=74),
-            }
+            {column: record.get(column, "") for column in _ranking_result_columns(ranking_purpose)}
         )
     return pd.DataFrame(rows)
 
 
 def ranking_result_aggrid_options(
     display_rows: list[dict[str, str]] | pd.DataFrame,
+    ranking_purpose: str = "multi_factor",
 ) -> dict[str, object]:
     frame = (
         display_rows
         if isinstance(display_rows, pd.DataFrame)
-        else ranking_result_aggrid_frame(display_rows)
+        else ranking_result_aggrid_frame(display_rows, ranking_purpose=ranking_purpose)
     )
     builder = GridOptionsBuilder.from_dataframe(frame)
     builder.configure_default_column(
@@ -1114,21 +1224,38 @@ def ranking_result_aggrid_options(
         builder.configure_column("銘柄名", minWidth=180, pinned="left", tooltipField="銘柄名")
     for column in (
         "総合スコア",
+        "Screening",
+        "方向スコア",
         "方向感",
         "上昇気配",
         "下降警戒",
+        "下降警戒の低さ",
+        "予測変化率",
         "データ品質",
         "条件適合度",
         "Risk",
+        "DB信頼度",
+        "PER",
+        "PBR",
+        "ROE",
+        "配当利回り",
+        "経費率",
     ):
         if column in frame.columns:
             builder.configure_column(column, width=112, filter=False)
+    if "方向一致" in frame.columns:
+        builder.configure_column("方向一致", width=168)
     if "根拠状態" in frame.columns:
         builder.configure_column("根拠状態", width=138)
     if "見方" in frame.columns:
         builder.configure_column("見方", width=130)
-    if "短い理由" in frame.columns:
-        builder.configure_column("短い理由", minWidth=260, flex=1, tooltipField="短い理由")
+    for column in ("NISA", "投資スタイル", "時価総額", "連動指数", "通貨", "複雑性"):
+        if column in frame.columns:
+            builder.configure_column(column, width=130)
+    if "並べ替え理由" in frame.columns:
+        builder.configure_column("並べ替え理由", minWidth=300, flex=1, tooltipField="並べ替え理由")
+    if "確認ポイント" in frame.columns:
+        builder.configure_column("確認ポイント", minWidth=260, flex=1, tooltipField="確認ポイント")
     return cast(dict[str, object], builder.build())
 
 
@@ -1646,27 +1773,35 @@ def ranking_summary_cards(
 def ranking_top_candidate_cards(
     display_rows: list[dict[str, str]],
     *,
+    ranking_purpose: str = "multi_factor",
     limit: int = 5,
 ) -> list[dict[str, str]]:
-    return [
-        {
-            "rank": row.get("順位", ""),
-            "symbol": row.get("銘柄", ""),
-            "name": row.get("銘柄名", ""),
-            "score": row.get("総合スコア", "未計算"),
-            "confidence": row.get("DB信頼度") or row.get("条件適合度") or "未登録",
-            "direction": row.get("方向感", ""),
-            "upside": row.get("上昇気配", ""),
-            "downside": row.get("下降警戒", ""),
-            "view": row.get("見方", ""),
-            "caution": row.get("注意点", ""),
-            "note": row.get("補足", ""),
-            "research_status": row.get("根拠状態", ""),
-            "research_tone": row.get("根拠トーン", "neutral"),
-            "research_note": row.get("根拠補足", ""),
-        }
-        for row in display_rows[:limit]
-    ]
+    cards: list[dict[str, str]] = []
+    focus_columns = ranking_purpose_primary_columns(ranking_purpose)
+    for row in display_rows[:limit]:
+        primary_label, primary_value = _ranking_first_metric(row, focus_columns)
+        cards.append(
+            {
+                "rank": row.get("順位", ""),
+                "symbol": row.get("銘柄", ""),
+                "name": row.get("銘柄名", ""),
+                "score": row.get("総合スコア", "未計算"),
+                "primary_label": primary_label,
+                "primary_value": primary_value,
+                "reason": ranking_purpose_row_reason(row, ranking_purpose),
+                "confidence": row.get("DB信頼度") or row.get("条件適合度") or "未登録",
+                "direction": row.get("方向感", ""),
+                "upside": row.get("上昇気配", ""),
+                "downside": row.get("下降警戒", ""),
+                "view": row.get("見方", ""),
+                "caution": row.get("注意点", ""),
+                "note": row.get("補足", ""),
+                "research_status": row.get("根拠状態", ""),
+                "research_tone": row.get("根拠トーン", "neutral"),
+                "research_note": row.get("根拠補足", ""),
+            }
+        )
+    return cards
 
 
 def ranking_score_bar_chart_frame(
@@ -1722,6 +1857,7 @@ def ranking_score_confidence_frame(display_rows: list[dict[str, str]]) -> pd.Dat
 def ranking_candidate_breakdown_rows(
     display_rows: list[dict[str, str]],
     selected_symbol: str | None,
+    ranking_purpose: str | None = None,
 ) -> list[dict[str, str]]:
     if not selected_symbol:
         return []
@@ -1731,7 +1867,7 @@ def ranking_candidate_breakdown_rows(
     )
     if selected_row is None:
         return []
-    return [
+    rows = [
         {
             "観点": "Investment Score",
             "値": selected_row.get("総合スコア", "未計算"),
@@ -1769,6 +1905,23 @@ def ranking_candidate_breakdown_rows(
             ),
         },
     ]
+    if ranking_purpose:
+        primary_label, primary_value = _ranking_first_metric(
+            selected_row,
+            ranking_purpose_primary_columns(ranking_purpose),
+        )
+        rows.insert(
+            0,
+            {
+                "観点": ranking_purpose_label(ranking_purpose),
+                "値": f"{primary_label} {primary_value}",
+                "確認ポイント": truncate_text(
+                    ranking_purpose_row_reason(selected_row, ranking_purpose),
+                    max_chars=52,
+                ),
+            },
+        )
+    return rows
 
 
 def _render_ranking_summary_cards(cards: list[dict[str, str]]) -> None:
@@ -1787,6 +1940,28 @@ def _render_ranking_summary_cards(cards: list[dict[str, str]]) -> None:
             )
 
 
+def _render_ranking_purpose_context(ranking_purpose: str, weight_preset: str) -> None:
+    render_section_heading("Ranking Focus")
+    st.caption(ranking_purpose_focus_summary(ranking_purpose))
+    weight_items = ranking_purpose_weight_summary(ranking_purpose, limit=4)
+    columns = st.columns(max(1, min(4, len(weight_items))))
+    for index, item in enumerate(weight_items):
+        label, _, value = item.partition(" ")
+        with columns[index % len(columns)]:
+            render_metric_card(
+                label,
+                value or item,
+                caption="この並べ替え条件で重視する指標",
+                badges=(badge_html("Weight", "info"),),
+                tone="info",
+                progress=metric_progress_from_value(value),
+            )
+    st.caption(
+        f"評価プロファイル: {ranking_weight_preset_label(weight_preset)}。"
+        "ランキングは売買推奨ではなく、比較・深掘り候補の優先度です。"
+    )
+
+
 def _render_top_screening_candidate_cards(cards: list[dict[str, str]]) -> None:
     if not cards:
         st.info("比較候補カードを表示できるランキング結果がありません。")
@@ -1799,8 +1974,16 @@ def _render_top_screening_candidate_cards(cards: list[dict[str, str]]) -> None:
     for index, card in enumerate(cards):
         with columns[index % len(columns)]:
             title = f"#{card['rank']} {card['symbol']}".strip()
-            caption = card["name"] or card["caution"] or card["note"]
+            primary_label = card.get("primary_label") or "総合スコア"
+            primary_value = card.get("primary_value") or card["score"]
+            caption_parts = [
+                card["name"],
+                f"総合 {card['score']}" if card.get("score") else "",
+                truncate_text(card.get("reason", ""), max_chars=42),
+            ]
+            caption = " / ".join(part for part in caption_parts if part)
             badges = (
+                badge_html(primary_label, "info") if primary_label else "",
                 badge_html(card["view"], "info") if card["view"] else "",
                 (
                     badge_html(card["direction"], _direction_badge_tone(card["direction"]))
@@ -1818,12 +2001,12 @@ def _render_top_screening_candidate_cards(cards: list[dict[str, str]]) -> None:
             )
             render_metric_card(
                 title,
-                card["score"],
+                primary_value,
                 caption=caption,
                 badges=tuple(badge for badge in badges if badge),
                 tone="score",
                 emphasis="spotlight" if index == 0 else "normal",
-                progress=metric_progress_from_value(card["score"]),
+                progress=metric_progress_from_value(primary_value),
             )
 
 
@@ -2014,10 +2197,15 @@ def _render_ranking_profile_chart(
 def _render_selected_ranking_candidate_breakdown(
     display_rows: list[dict[str, str]],
     selected_symbol: str | None,
+    ranking_purpose: str,
 ) -> None:
     render_section_heading("Selected Candidate Breakdown")
     st.caption("選択中の候補が上位にある理由を、主要スコアで確認します。")
-    rows = ranking_candidate_breakdown_rows(display_rows, selected_symbol)
+    rows = ranking_candidate_breakdown_rows(
+        display_rows,
+        selected_symbol,
+        ranking_purpose=ranking_purpose,
+    )
     if not rows:
         st.info("内訳を表示する候補を選択してください。")
         return
@@ -2065,6 +2253,7 @@ def _render_ranking_result_table(
     *,
     ranking_source: str,
     weight_preset: str,
+    ranking_purpose: str,
 ) -> None:
     if not display_rows:
         st.info("No ranking rows.")
@@ -2072,10 +2261,10 @@ def _render_ranking_result_table(
     table_base_key = _ranking_result_table_base_key(ranking_source, weight_preset)
     grid_key = _ranking_result_grid_key(table_base_key)
     st.caption("詳細確認用のテーブルです。銘柄データを見るには行をクリックしてください。")
-    frame = ranking_result_aggrid_frame(display_rows)
+    frame = ranking_result_aggrid_frame(display_rows, ranking_purpose=ranking_purpose)
     grid_response = AgGrid(
         frame,
-        gridOptions=ranking_result_aggrid_options(frame),
+        gridOptions=ranking_result_aggrid_options(frame, ranking_purpose=ranking_purpose),
         height=_ranking_result_grid_height(display_rows),
         update_on=["rowClicked"],
         data_return_mode=DataReturnMode.AS_INPUT,
@@ -3213,9 +3402,13 @@ def _render_market_data_ranking() -> None:
         )
         render_mascot_panel(
             "ranking",
-            message="上位候補は深掘りの入口です。総合スコア、Risk、データ品質をセットで見比べます。",
+            message=(
+                "上位候補は深掘りの入口です。"
+                f"{ranking_purpose_label(ranking_purpose)}の重視ポイントと注意点をセットで見比べます。"
+            ),
             layout="compact",
         )
+        _render_ranking_purpose_context(ranking_purpose, weight_preset)
         _render_ranking_summary_cards(
             ranking_summary_cards(
                 display_rows,
@@ -3226,7 +3419,9 @@ def _render_market_data_ranking() -> None:
                 selected_count=len(effective_selected_labels),
             )
         )
-        _render_top_screening_candidate_cards(ranking_top_candidate_cards(display_rows))
+        _render_top_screening_candidate_cards(
+            ranking_top_candidate_cards(display_rows, ranking_purpose=ranking_purpose)
+        )
         chart_col, confidence_col = st.columns(2)
         with chart_col:
             _render_ranking_score_bar_chart(display_rows)
@@ -3270,7 +3465,11 @@ def _render_market_data_ranking() -> None:
                 on_click=_select_ranking_symbol_for_cockpit_with_period,
                 args=(selected_symbol, provider, start_date, end_date),
             )
-        _render_selected_ranking_candidate_breakdown(display_rows, selected_symbol)
+        _render_selected_ranking_candidate_breakdown(
+            display_rows,
+            selected_symbol,
+            ranking_purpose,
+        )
         _render_ranking_advanced_insights(
             display_rows,
             include_confidence_map=ranking_purpose != "data_confidence",
@@ -3283,6 +3482,7 @@ def _render_market_data_ranking() -> None:
             display_rows,
             ranking_source=ranking_source,
             weight_preset=weight_preset,
+            ranking_purpose=ranking_purpose,
         )
         _render_ranking_error_rows(cast(list[dict[str, str]], error_rows))
         _render_ranking_decision_report_lazy(
@@ -6111,6 +6311,23 @@ def _decimal_from_text(value: object) -> Decimal | None:
     return decimal_value
 
 
+def _ranking_inverse_score_display(value: object) -> str:
+    decimal_value = _decimal_from_text(value)
+    if decimal_value is None:
+        return ""
+    inverse = max(Decimal("0"), min(Decimal("100"), Decimal("100") - decimal_value))
+    return f"{inverse.quantize(Decimal('0.1'))}".rstrip("0").rstrip(".")
+
+
+def _ranking_symbol_detail_display(
+    symbol_row: dict[str, str] | None,
+    column: str,
+) -> str:
+    if symbol_row is None:
+        return "未登録"
+    return symbol_universe_detail_display_value(symbol_row, column)
+
+
 def ranking_investment_note(
     row: dict[str, str],
     symbol_rows_by_symbol: dict[str, dict[str, str]] | None = None,
@@ -6275,34 +6492,56 @@ def ranking_investment_detail_rows(
 
 def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     symbol_rows_by_symbol = _symbol_universe_rows_by_symbol()
-    return [
-        {
-            "順位": row.get("rank", ""),
-            "銘柄": row.get("symbol", ""),
-            "銘柄名": symbol_name(row.get("symbol", "")) or "",
-            "総合スコア": row.get("total_score", ""),
-            "見方": _investment_score_band_label(row.get("score_band", "")),
-            "条件適合度": row.get("database_fit_score", ""),
-            "Screening": row.get("screening_score", ""),
-            "方向感": _direction_signal_label(row.get("direction_signal_label", "")),
-            "上昇気配": row.get("upside_signal_score", ""),
-            "下降警戒": row.get("downside_signal_score", ""),
-            "方向スコア": row.get("direction_net_score", ""),
-            "予測変化率": row.get("forecast_return_pct", ""),
-            "方向一致": (
-                f"上昇 {row.get('up_model_count', '0')} / "
-                f"下降 {row.get('down_model_count', '0')} / "
-                f"横ばい {row.get('flat_model_count', '0')}"
-            ),
-            "モデル一致度": row.get("forecast_agreement_score", ""),
-            "データ品質": row.get("data_quality_score", ""),
-            "DB信頼度": row.get("metadata_confidence_score", ""),
-            "Risk": row.get("risk_signal_score", "") or "未接続",
-            "注意点": _investment_warning_label(row.get("warnings", "")),
-            "補足": ranking_investment_note(row, symbol_rows_by_symbol),
-        }
-        for row in rows
-    ]
+    display_rows: list[dict[str, str]] = []
+    for row in rows:
+        symbol = row.get("symbol", "")
+        symbol_row = symbol_rows_by_symbol.get(symbol.strip().upper())
+        display_rows.append(
+            {
+                "順位": row.get("rank", ""),
+                "銘柄": symbol,
+                "銘柄名": symbol_name(symbol) or "",
+                "総合スコア": row.get("total_score", ""),
+                "見方": _investment_score_band_label(row.get("score_band", "")),
+                "条件適合度": row.get("database_fit_score", ""),
+                "Screening": row.get("screening_score", ""),
+                "方向感": _direction_signal_label(row.get("direction_signal_label", "")),
+                "上昇気配": row.get("upside_signal_score", ""),
+                "下降警戒": row.get("downside_signal_score", ""),
+                "下降警戒の低さ": _ranking_inverse_score_display(row.get("downside_signal_score")),
+                "方向スコア": row.get("direction_net_score", ""),
+                "予測変化率": row.get("forecast_return_pct", ""),
+                "方向一致": (
+                    f"上昇 {row.get('up_model_count', '0')} / "
+                    f"下降 {row.get('down_model_count', '0')} / "
+                    f"横ばい {row.get('flat_model_count', '0')}"
+                ),
+                "モデル一致度": row.get("forecast_agreement_score", ""),
+                "データ品質": row.get("data_quality_score", ""),
+                "DB信頼度": row.get("metadata_confidence_score", ""),
+                "Risk": row.get("risk_signal_score", "") or "未接続",
+                "注意点": _investment_warning_label(row.get("warnings", "")),
+                "補足": ranking_investment_note(row, symbol_rows_by_symbol),
+                "PER": _ranking_symbol_detail_display(symbol_row, "per"),
+                "PBR": _ranking_symbol_detail_display(symbol_row, "pbr"),
+                "ROE": _ranking_symbol_detail_display(symbol_row, "roe_pct"),
+                "配当利回り": _ranking_symbol_detail_display(
+                    symbol_row,
+                    "dividend_yield_pct",
+                ),
+                "経費率": _ranking_symbol_detail_display(symbol_row, "expense_ratio_pct"),
+                "NISA": symbol_universe_nisa_display(symbol_row) if symbol_row else "未登録",
+                "投資スタイル": _ranking_symbol_detail_display(
+                    symbol_row,
+                    "investment_style",
+                ),
+                "時価総額": _ranking_symbol_detail_display(symbol_row, "market_cap_tier"),
+                "連動指数": _ranking_symbol_detail_display(symbol_row, "benchmark_index"),
+                "通貨": _ranking_symbol_detail_display(symbol_row, "currency"),
+                "複雑性": _ranking_symbol_detail_display(symbol_row, "complexity"),
+            }
+        )
+    return display_rows
 
 
 def forecast_metric_summary(rows: list[dict[str, str]]) -> list[str]:

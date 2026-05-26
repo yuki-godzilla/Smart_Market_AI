@@ -888,6 +888,168 @@ RANKING_PURPOSE_HELP_TEXTS = {
     ),
 }
 
+RANKING_SCORE_FIELD_LABELS = {
+    "screening_score": "Screening",
+    "direction_net_score": "方向スコア",
+    "upside_signal_score": "上昇気配",
+    "downside_signal_score": "下降警戒",
+    "data_quality_score": "データ品質",
+    "risk_signal_score": "Risk",
+    "database_fit_score": "条件適合度",
+    "metadata_confidence_score": "DB信頼度",
+    "research_score": "Research",
+}
+
+RANKING_PURPOSE_PRIMARY_COLUMNS: dict[str, tuple[str, ...]] = {
+    RANKING_PURPOSE_MULTI_FACTOR: (
+        "総合スコア",
+        "方向スコア",
+        "Risk",
+        "データ品質",
+        "条件適合度",
+    ),
+    RANKING_PURPOSE_UPSIDE_SIGNAL: (
+        "上昇気配",
+        "下降警戒",
+        "方向スコア",
+        "予測変化率",
+        "方向一致",
+    ),
+    RANKING_PURPOSE_MOMENTUM: (
+        "Screening",
+        "方向スコア",
+        "上昇気配",
+        "下降警戒",
+        "Risk",
+    ),
+    RANKING_PURPOSE_QUALITY_GROWTH: (
+        "条件適合度",
+        "ROE",
+        "方向スコア",
+        "Screening",
+        "Risk",
+    ),
+    RANKING_PURPOSE_QUALITY_VALUE: (
+        "条件適合度",
+        "PER",
+        "PBR",
+        "ROE",
+        "Risk",
+    ),
+    RANKING_PURPOSE_SUSTAINABLE_INCOME: (
+        "配当利回り",
+        "条件適合度",
+        "Risk",
+        "データ品質",
+        "DB信頼度",
+    ),
+    RANKING_PURPOSE_MIN_VOLATILITY: (
+        "Risk",
+        "下降警戒",
+        "データ品質",
+        "DB信頼度",
+        "時価総額",
+    ),
+    RANKING_PURPOSE_RISK_ADJUSTED: (
+        "Risk",
+        "Screening",
+        "下降警戒",
+        "方向スコア",
+        "データ品質",
+    ),
+    RANKING_PURPOSE_SMALL_GROWTH: (
+        "時価総額",
+        "ROE",
+        "上昇気配",
+        "Screening",
+        "Risk",
+    ),
+    RANKING_PURPOSE_NISA_LONG_TERM: (
+        "NISA",
+        "投資スタイル",
+        "Risk",
+        "データ品質",
+        "条件適合度",
+    ),
+    RANKING_PURPOSE_DATA_CONFIDENCE: (
+        "データ品質",
+        "DB信頼度",
+        "根拠状態",
+        "条件適合度",
+        "注意点",
+    ),
+    RANKING_PURPOSE_ETF_CORE_COST: (
+        "経費率",
+        "連動指数",
+        "条件適合度",
+        "データ品質",
+        "DB信頼度",
+    ),
+    RANKING_PURPOSE_ETF_INCOME: (
+        "配当利回り",
+        "経費率",
+        "連動指数",
+        "条件適合度",
+        "Risk",
+    ),
+    RANKING_PURPOSE_DIVIDEND: (
+        "配当利回り",
+        "条件適合度",
+        "Risk",
+        "データ品質",
+        "DB信頼度",
+    ),
+    RANKING_PURPOSE_GROWTH: (
+        "条件適合度",
+        "ROE",
+        "方向スコア",
+        "Screening",
+        "Risk",
+    ),
+    RANKING_PURPOSE_VALUE: (
+        "条件適合度",
+        "PER",
+        "PBR",
+        "Risk",
+        "データ品質",
+    ),
+    RANKING_PURPOSE_STABILITY: (
+        "Risk",
+        "下降警戒",
+        "データ品質",
+        "DB信頼度",
+        "時価総額",
+    ),
+    RANKING_PURPOSE_TREND: (
+        "Screening",
+        "方向スコア",
+        "上昇気配",
+        "下降警戒",
+        "Risk",
+    ),
+}
+
+RANKING_PURPOSE_FOCUS_SUMMARIES = {
+    RANKING_PURPOSE_MULTI_FACTOR: "総合点だけでなく、方向感・Risk・品質・条件適合度の偏りを確認します。",
+    RANKING_PURPOSE_UPSIDE_SIGNAL: "上向きシグナルが強く、下降警戒が相対的に低い深掘り候補を確認します。",
+    RANKING_PURPOSE_MOMENTUM: "足元の価格評価と方向感がそろっているか、追随リスクも含めて確認します。",
+    RANKING_PURPOSE_QUALITY_GROWTH: "成長条件に合う候補で、方向感と品質が伴っているかを確認します。",
+    RANKING_PURPOSE_QUALITY_VALUE: "割安に見える候補で、Riskやデータ不足が理由になっていないかを確認します。",
+    RANKING_PURPOSE_SUSTAINABLE_INCOME: "配当利回りだけでなく、持続性・Risk・データ品質を確認します。",
+    RANKING_PURPOSE_MIN_VOLATILITY: "値動きの落ち着きとデータ品質を優先し、下降警戒を確認します。",
+    RANKING_PURPOSE_RISK_ADJUSTED: "スコアの高さがRiskに見合うか、下降警戒も含めて確認します。",
+    RANKING_PURPOSE_SMALL_GROWTH: "小型・成長条件に合う候補で、上昇気配とRiskの釣り合いを確認します。",
+    RANKING_PURPOSE_NISA_LONG_TERM: "制度適合、長期確認のしやすさ、Risk、データ品質を確認します。",
+    RANKING_PURPOSE_DATA_CONFIDENCE: "まず根拠やデータがそろった候補から確認します。",
+    RANKING_PURPOSE_ETF_CORE_COST: "ETFのコア候補として、コスト・指数・複雑性・データ品質を確認します。",
+    RANKING_PURPOSE_ETF_INCOME: "ETFのインカム候補として、分配材料・コスト・分散性を確認します。",
+    RANKING_PURPOSE_DIVIDEND: "旧来の配当重視として、配当材料と持続性の確認に寄せて表示します。",
+    RANKING_PURPOSE_GROWTH: "旧来の成長重視として、成長条件と方向感の確認に寄せて表示します。",
+    RANKING_PURPOSE_VALUE: "旧来の割安重視として、割安条件とRiskの確認に寄せて表示します。",
+    RANKING_PURPOSE_STABILITY: "旧来の安定重視として、Riskとデータ品質の確認に寄せて表示します。",
+    RANKING_PURPOSE_TREND: "旧来のトレンド重視として、足元の勢いと方向感の確認に寄せて表示します。",
+}
+
 
 def symbol_candidate_labels(rows: list[dict[str, str]], query: str = "") -> list[str]:
     labels = [f"{row['symbol']} - {row['name']}" for row in rows]
@@ -979,6 +1141,31 @@ def ranking_purpose_help(purpose: str) -> str:
 
 def ranking_weight_preset_for_purpose(purpose: str) -> str:
     return RANKING_PURPOSE_WEIGHT_PRESETS.get(purpose, RANKING_PRESET_BALANCED)
+
+
+def ranking_purpose_primary_columns(purpose: str) -> tuple[str, ...]:
+    return RANKING_PURPOSE_PRIMARY_COLUMNS.get(
+        purpose,
+        RANKING_PURPOSE_PRIMARY_COLUMNS[RANKING_PURPOSE_MULTI_FACTOR],
+    )
+
+
+def ranking_purpose_focus_summary(purpose: str) -> str:
+    return RANKING_PURPOSE_FOCUS_SUMMARIES.get(
+        purpose,
+        "選択中の条件で重みが高い指標を中心に、深掘り候補を比較します。",
+    )
+
+
+def ranking_purpose_weight_summary(purpose: str, *, limit: int = 4) -> tuple[str, ...]:
+    preset = ranking_weight_preset_for_purpose(purpose)
+    weights = RANKING_WEIGHT_PRESETS.get(preset, RANKING_WEIGHT_PRESETS[RANKING_PRESET_BALANCED])
+    ranked_weights = sorted(weights.items(), key=lambda item: (-item[1], item[0]))
+    return tuple(
+        f"{RANKING_SCORE_FIELD_LABELS.get(field, field)} {weight * Decimal('100'):.0f}%"
+        for field, weight in ranked_weights[:limit]
+        if weight > 0
+    )
 
 
 def ranking_detail_filters_for_category(region: str, product_type: str) -> list[str]:

@@ -561,14 +561,14 @@ RANKING_FETCH_LIMIT_VALUES = {
 }
 RANKING_DEFAULT_PERIOD_PRESET = "standard"
 RANKING_PERIOD_PRESETS = {
-    RANKING_DEFAULT_PERIOD_PRESET: 90,
     "short": 30,
+    RANKING_DEFAULT_PERIOD_PRESET: 90,
     "medium": 180,
     "long": 365,
 }
 RANKING_PERIOD_LABELS = {
-    RANKING_DEFAULT_PERIOD_PRESET: "標準: 3か月",
     "short": "短期: 1か月",
+    RANKING_DEFAULT_PERIOD_PRESET: "標準: 3か月",
     "medium": "中期: 6か月",
     "long": "長期: 1年",
 }
@@ -745,6 +745,7 @@ RANKING_FILTER_DEFAULTS: dict[str, str] = {
     "market_data_ranking_product_type": RANKING_PRODUCT_STOCK,
     "market_data_ranking_purpose": RANKING_PURPOSE_MULTI_FACTOR,
     "market_data_ranking_fetch_limit": RANKING_FETCH_LIMIT_BALANCED,
+    "market_data_ranking_period": RANKING_DEFAULT_PERIOD_PRESET,
     "market_data_ranking_market": "all",
     "market_data_ranking_asset_type": "all",
     "market_data_ranking_currency": "all",

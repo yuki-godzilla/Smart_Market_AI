@@ -109,6 +109,7 @@ from ui.ranking import (
     RANKING_INVESTMENT_STYLE_METRICS,
     RANKING_MARKET_CAP_LABELS,
     RANKING_NISA_ELIGIBILITY_LABELS,
+    RANKING_PERIOD_PRESETS,
     RANKING_PRESET_ETF_CORE_COST,
     RANKING_PRESET_ETF_INCOME,
     RANKING_PRESET_MIN_VOLATILITY,
@@ -2076,6 +2077,7 @@ def test_apply_ranking_filter_state_selects_filtered_candidates(monkeypatch):
 def test_ranking_period_dates_use_beginner_presets():
     end = date(2026, 5, 17)
 
+    assert list(RANKING_PERIOD_PRESETS) == ["short", "standard", "medium", "long"]
     assert ranking_period_label("standard") == "標準: 3か月"
     assert ranking_period_label("short") == "短期: 1か月"
     assert ranking_period_label("medium") == "中期: 6か月"

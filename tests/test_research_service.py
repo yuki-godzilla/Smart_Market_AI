@@ -6,6 +6,9 @@ import pytest
 
 from backend.research import (
     CompanyResearchRequest,
+    ExternalResearchFetchRequest,
+    ExternalResearchFetchService,
+    ExternalResearchSourcePayload,
     HybridResearchRetrievalService,
     ResearchAnalysisService,
     ResearchDisabledVectorStore,
@@ -27,7 +30,47 @@ from backend.research import (
     ResearchSearchRequest,
     StockNewsAnalysisService,
     StockNewsRequest,
+    YahooFinanceResearchAdapter,
 )
+
+
+class FakeExternalResearchAdapter:
+    provider = "fake_external"
+    requires_network = False
+
+    def __init__(self, payloads: list[ExternalResearchSourcePayload]) -> None:
+        self.payloads = payloads
+
+    def fetch_sources(
+        self, request: ExternalResearchFetchRequest
+    ) -> list[ExternalResearchSourcePayload]:
+        return self.payloads
+
+
+class NetworkExternalResearchAdapter(FakeExternalResearchAdapter):
+    requires_network = True
+
+
+class FakeYahooTicker:
+    def get_info(self) -> dict[str, object]:
+        return {
+            "longName": "Toyota Motor Corporation",
+            "symbol": "7203.T",
+            "sector": "Consumer Cyclical",
+            "longBusinessSummary": "Toyota sells vehicles globally and invests in growth.",
+        }
+
+    @property
+    def news(self) -> list[dict[str, object]]:
+        return [
+            {
+                "title": "Toyota raises guidance",
+                "link": "https://finance.yahoo.com/news/toyota-guidance",
+                "publisher": "Yahoo Finance",
+                "providerPublishTime": 1779667200,
+                "summary": "Toyota raised guidance after revenue growth.",
+            }
+        ]
 
 
 def test_research_local_document_flow_registers_chunks_searches_and_summarizes(tmp_path):
@@ -277,6 +320,114 @@ summary: 7203 faces regulation risk in an older market update.
     assert report.news[0].freshness_status == "latest"
     assert report.news[1].freshness_status == "stale"
     assert any("source URL" in warning for warning in report.warnings)
+
+
+def test_external_research_fetch_service_caches_registers_and_manifests_sources(tmp_path):
+    fetched_at = datetime(2026, 5, 25, 9, 0, tzinfo=UTC)
+    adapter = FakeExternalResearchAdapter(
+        [
+            ExternalResearchSourcePayload(
+                symbol="7203.T",
+                title="7203 External IR Update",
+                content="Revenue growth and dividend policy are discussed in the latest source.",
+                source_type="provider_profile",
+                source_url="https://example.com/7203-ir",
+                provider="fake_external",
+                company_name="Toyota",
+                published_at=date(2026, 5, 24),
+                fetched_at=fetched_at,
+                reliability=Decimal("0.80"),
+            ),
+            ExternalResearchSourcePayload(
+                symbol="7203.T",
+                title="7203 External News",
+                content="summary: 7203 raised guidance after revenue growth.\nurl: https://example.com/7203-news",
+                source_type="news",
+                source_url="https://example.com/7203-news",
+                provider="fake_external",
+                company_name="Toyota",
+                published_at=date(2026, 5, 25),
+                fetched_at=fetched_at,
+                reliability=Decimal("0.70"),
+            ),
+        ]
+    )
+    store = ResearchInMemoryStore()
+    ingestion = ResearchIngestionService(store, document_dirs=[tmp_path])
+    index = ResearchIndexService(store, max_chars=240)
+
+    result = ExternalResearchFetchService(
+        adapter,
+        ingestion,
+        index,
+        cache_dir=tmp_path,
+    ).fetch_register_sources(
+        ExternalResearchFetchRequest(
+            symbol="7203.T",
+            company_name="Toyota",
+            provider="fake_external",
+            allow_network=False,
+        )
+    )
+
+    assert result.symbol == "7203.T"
+    assert result.provider == "fake_external"
+    assert len(result.entries) == 2
+    assert result.manifest_path is not None
+    assert Path(result.manifest_path).exists()
+    assert {entry.source_type for entry in result.entries} == {"provider_profile", "news"}
+    assert all(entry.source_url.startswith("https://example.com/") for entry in result.entries)
+    assert len(store.list_documents("7203.T")) == 2
+    assert sum(len(chunks) for chunks in store.chunks_by_document_id.values()) >= 2
+
+    news_report = StockNewsAnalysisService(ingestion).analyze_symbol_news(
+        StockNewsRequest(symbol="7203.T", as_of=date(2026, 5, 25))
+    )
+    assert [row.title for row in news_report.news] == ["7203 External News"]
+    assert news_report.news[0].freshness_status == "latest"
+
+
+def test_external_research_fetch_requires_explicit_network_opt_in(tmp_path):
+    adapter = NetworkExternalResearchAdapter([])
+    store = ResearchInMemoryStore()
+    ingestion = ResearchIngestionService(store, document_dirs=[tmp_path])
+    index = ResearchIndexService(store, max_chars=240)
+
+    with pytest.raises(ResearchDocumentError, match="explicit network opt-in"):
+        ExternalResearchFetchService(
+            adapter,
+            ingestion,
+            index,
+            cache_dir=tmp_path,
+        ).fetch_register_sources(
+            ExternalResearchFetchRequest(
+                symbol="7203.T",
+                provider="fake_external",
+                allow_network=False,
+            )
+        )
+
+
+def test_yahoo_finance_research_adapter_builds_profile_and_news_payloads_without_live_call():
+    adapter = YahooFinanceResearchAdapter(ticker_factory=lambda symbol: FakeYahooTicker())
+
+    payloads = adapter.fetch_sources(
+        ExternalResearchFetchRequest(
+            symbol="7203.T",
+            company_name="Toyota",
+            provider="yahoo_finance",
+            as_of=date(2026, 5, 25),
+            allow_network=True,
+        )
+    )
+
+    assert [payload.source_type for payload in payloads] == ["provider_profile", "news"]
+    assert payloads[0].source_url == "https://finance.yahoo.com/quote/7203.T/profile"
+    assert payloads[0].published_at == date(2026, 5, 25)
+    assert "Toyota sells vehicles" in payloads[0].content
+    assert payloads[1].source_url == "https://finance.yahoo.com/news/toyota-guidance"
+    assert payloads[1].published_at == date(2026, 5, 25)
+    assert "revenue growth" in payloads[1].content
 
 
 def test_research_search_uses_category_query_expansion(tmp_path):

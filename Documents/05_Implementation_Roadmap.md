@@ -794,6 +794,14 @@ Follow-up child roadmap:
 - Phase 21.6 / 21.7 は、Phase 21.5 の local deterministic slice を置き換えず、外部取得に失敗した場合も既存のローカル資料・ローカル news evidence 表示に戻れる設計にする。
 - External fetch child phases remain decision-support only. Investment Score、Research Score、Decision Report 自動反映、ranking order 変更、buy / sell / hold 判断は行わない。
 
+Current implemented slice:
+
+- `backend/research` has `ExternalResearchFetchRequest`, `ExternalResearchSourcePayload`, `ExternalResearchFetchService`, manifest entries, and `ExternalResearchSourceAdapter` protocol.
+- `YahooFinanceResearchAdapter` provides the first opt-in live adapter shape for provider profile and recent news payloads. Tests inject a fake ticker factory, so no live Yahoo call is required in normal checks.
+- The service enforces explicit `allow_network=True` before a network-requiring adapter can run, writes fetched URL-backed sources to local cache, registers them through existing Research ingestion, rebuilds chunks, and writes a JSON manifest with source URL, provider, fetched_at, published_at, document_hash, local_path, and document_id.
+- Normal tests use fake adapters only. No live external source, scraping, external LLM, or network call is required for CI.
+- A `source_type="news"` payload becomes available to the existing Stock News RAG cockpit flow after registration; provider profile / IR payloads become normal Research Evidence documents.
+
 ### 5.8 Phase 22: Research Score And Investment Integration
 
 Status: planned

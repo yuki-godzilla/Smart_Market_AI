@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 import re
 from collections.abc import Mapping
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Literal, Protocol, Sequence, cast
+from typing import Any, Callable, Literal, Protocol, Sequence, cast
 
 import yaml  # type: ignore[import-untyped]
 from pydantic import Field
@@ -23,6 +24,7 @@ ResearchSourceType = Literal[
     "integrated_report",
     "tdnet",
     "news",
+    "provider_profile",
     "user_note",
 ]
 ResearchLanguage = Literal["ja", "en", "unknown"]
@@ -48,6 +50,24 @@ StockNewsFreshnessStatus = Literal["latest", "recent", "stale", "unknown"]
 RESEARCH_SCHEMA_VERSION = "research-evidence-v1"
 DEFAULT_MAX_CHARS = 1200
 DEFAULT_OVERLAP_CHARS = 180
+YAHOO_RESEARCH_PROFILE_FIELDS: tuple[tuple[str, str], ...] = (
+    ("longName", "Company Name"),
+    ("symbol", "Provider Symbol"),
+    ("quoteType", "Quote Type"),
+    ("exchange", "Exchange"),
+    ("currency", "Currency"),
+    ("sector", "Sector"),
+    ("industry", "Industry"),
+    ("country", "Country"),
+    ("website", "Website"),
+    ("marketCap", "Market Cap"),
+    ("trailingPE", "Trailing PE"),
+    ("priceToBook", "Price To Book"),
+    ("returnOnEquity", "Return On Equity"),
+    ("dividendYield", "Dividend Yield"),
+    ("payoutRatio", "Payout Ratio"),
+    ("beta", "Beta"),
+)
 DEFAULT_RESEARCH_QUERY_TERMS: dict[ResearchTopicCategory, tuple[str, ...]] = {
     "growth": (
         "growth strategy",
@@ -400,6 +420,69 @@ class StockNewsReport(StrictBaseModel):
     decision_support_note: str = (
         "News evidence is decision support only; not advice and not a score input."
     )
+
+
+class ExternalResearchFetchRequest(StrictBaseModel):
+    """Explicit opt-in request for external research/news source adapters."""
+
+    symbol: str = Field(min_length=1)
+    company_name: str | None = None
+    related_keywords: list[str] = Field(default_factory=list)
+    provider: str = Field(min_length=1)
+    as_of: date | None = None
+    allow_network: bool = False
+
+
+class ExternalResearchSourcePayload(StrictBaseModel):
+    """Fetched external source payload before local cache/registration."""
+
+    symbol: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    content: str = Field(min_length=1)
+    source_type: ResearchSourceType
+    source_url: str = Field(min_length=1)
+    provider: str = Field(min_length=1)
+    company_name: str | None = None
+    published_at: date | None = None
+    fetched_at: datetime
+    reliability: Decimal = Field(default=Decimal("0.70"), ge=0, le=1)
+
+
+class ExternalResearchFetchManifestEntry(StrictBaseModel):
+    """Manifest row for a cached external source."""
+
+    title: str = Field(min_length=1)
+    symbol: str = Field(min_length=1)
+    source_type: ResearchSourceType
+    source_url: str = Field(min_length=1)
+    provider: str = Field(min_length=1)
+    published_at: date | None = None
+    fetched_at: datetime
+    local_path: str = Field(min_length=1)
+    document_hash: str = Field(min_length=1)
+    document_id: str = Field(min_length=1)
+
+
+class ExternalResearchFetchResult(StrictBaseModel):
+    """Result of opt-in external fetch persisted to local cache."""
+
+    symbol: str = Field(min_length=1)
+    provider: str = Field(min_length=1)
+    fetched_at: datetime
+    entries: list[ExternalResearchFetchManifestEntry] = Field(default_factory=list)
+    manifest_path: str | None = None
+    warnings: list[str] = Field(default_factory=list)
+
+
+class ExternalResearchSourceAdapter(Protocol):
+    """Adapter protocol for opt-in external research/news fetches."""
+
+    provider: str
+    requires_network: bool
+
+    def fetch_sources(
+        self, request: ExternalResearchFetchRequest
+    ) -> list[ExternalResearchSourcePayload]: ...
 
 
 class ResearchInMemoryStore:
@@ -1080,6 +1163,162 @@ class StockNewsAnalysisService:
         )
 
 
+class ExternalResearchFetchService:
+    """Persist explicitly fetched external sources into local Research RAG cache."""
+
+    def __init__(
+        self,
+        adapter: ExternalResearchSourceAdapter,
+        ingestion: ResearchIngestionService,
+        index: ResearchIndexService,
+        *,
+        cache_dir: Path,
+    ) -> None:
+        self.adapter = adapter
+        self.ingestion = ingestion
+        self.index = index
+        self.cache_dir = cache_dir
+
+    def fetch_register_sources(
+        self,
+        request: ExternalResearchFetchRequest,
+    ) -> ExternalResearchFetchResult:
+        if self.adapter.requires_network and not request.allow_network:
+            raise ResearchDocumentError(
+                "External research fetch requires explicit network opt-in.",
+                details={"provider": self.adapter.provider, "symbol": request.symbol},
+            )
+
+        fetched_at = datetime.now(UTC)
+        payloads = self.adapter.fetch_sources(request)
+        entries: list[ExternalResearchFetchManifestEntry] = []
+        warnings: list[str] = []
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        for payload in payloads:
+            if not payload.source_url.strip():
+                warnings.append(f"{payload.title}: source URL is missing; skipped.")
+                continue
+            path = self._write_payload(payload)
+            document = self.ingestion.register_document(
+                ResearchDocumentRegisterRequest(
+                    symbol=payload.symbol,
+                    title=payload.title,
+                    local_path=str(path),
+                    source_type=payload.source_type,
+                    company_name=payload.company_name,
+                    published_at=payload.published_at,
+                    reliability=payload.reliability,
+                )
+            )
+            self.index.build_chunks(document.document_id)
+            entries.append(
+                ExternalResearchFetchManifestEntry(
+                    title=document.title,
+                    symbol=document.symbol,
+                    source_type=document.source_type,
+                    source_url=payload.source_url,
+                    provider=payload.provider,
+                    published_at=document.published_at,
+                    fetched_at=payload.fetched_at,
+                    local_path=str(path),
+                    document_hash=document.document_hash,
+                    document_id=document.document_id,
+                )
+            )
+
+        if not entries:
+            warnings.append("External fetch returned no registerable URL-backed sources.")
+        manifest_path = self._write_manifest(
+            request=request,
+            fetched_at=fetched_at,
+            entries=entries,
+            warnings=warnings,
+        )
+        return ExternalResearchFetchResult(
+            symbol=_normalize_symbol(request.symbol),
+            provider=self.adapter.provider,
+            fetched_at=fetched_at,
+            entries=entries,
+            manifest_path=str(manifest_path),
+            warnings=warnings,
+        )
+
+    def _write_payload(self, payload: ExternalResearchSourcePayload) -> Path:
+        markdown = _external_payload_markdown(payload)
+        digest = hashlib.sha256(markdown.encode("utf-8")).hexdigest()[:12]
+        path = self.cache_dir / (
+            f"{_safe_cache_fragment(payload.symbol)}_"
+            f"{payload.source_type}_{_safe_cache_fragment(payload.provider)}_"
+            f"{payload.fetched_at:%Y%m%d%H%M%S}_{digest}.md"
+        )
+        path.write_text(markdown, encoding="utf-8")
+        return path
+
+    def _write_manifest(
+        self,
+        *,
+        request: ExternalResearchFetchRequest,
+        fetched_at: datetime,
+        entries: list[ExternalResearchFetchManifestEntry],
+        warnings: list[str],
+    ) -> Path:
+        manifest = {
+            "schema_version": "external-research-fetch-manifest-v1",
+            "symbol": _normalize_symbol(request.symbol),
+            "provider": self.adapter.provider,
+            "fetched_at": fetched_at.isoformat(),
+            "allow_network": request.allow_network,
+            "entry_count": len(entries),
+            "entries": [entry.model_dump(mode="json") for entry in entries],
+            "warnings": warnings,
+        }
+        path = self.cache_dir / (
+            f"{_safe_cache_fragment(request.symbol)}_"
+            f"{_safe_cache_fragment(self.adapter.provider)}_"
+            f"manifest_{fetched_at:%Y%m%d%H%M%S}.json"
+        )
+        path.write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+        return path
+
+
+class YahooFinanceResearchAdapter:
+    """Opt-in Yahoo Finance adapter for provider profile and recent news payloads."""
+
+    provider = "yahoo_finance"
+    requires_network = True
+
+    def __init__(self, ticker_factory: Callable[[str], Any] | None = None) -> None:
+        self._ticker_factory = ticker_factory
+
+    def fetch_sources(
+        self,
+        request: ExternalResearchFetchRequest,
+    ) -> list[ExternalResearchSourcePayload]:
+        fetched_at = datetime.now(UTC)
+        ticker = self._ticker(request.symbol)
+        payloads: list[ExternalResearchSourcePayload] = []
+        info = _ticker_info(ticker)
+        if info:
+            payloads.append(_yahoo_profile_payload(request, info, fetched_at=fetched_at))
+        payloads.extend(_yahoo_news_payloads(request, _ticker_news(ticker), fetched_at=fetched_at))
+        return payloads
+
+    def _ticker(self, symbol: str) -> Any:
+        if self._ticker_factory is not None:
+            return self._ticker_factory(symbol)
+        try:
+            import yfinance as yf  # type: ignore[import-untyped]
+        except ImportError as exc:
+            raise ResearchDocumentError(
+                "yfinance is required for the Yahoo Finance research adapter.",
+                details={"provider": self.provider},
+            ) from exc
+        return yf.Ticker(symbol)
+
+
 def _is_allowed_path(path: Path, allowed_dirs: Sequence[Path]) -> bool:
     return any(path == directory or directory in path.parents for directory in allowed_dirs)
 
@@ -1092,6 +1331,159 @@ def _stable_id(prefix: str, *parts: str) -> str:
     normalized = "|".join(part.strip().lower() for part in parts)
     digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
     return f"{prefix}-{digest}"
+
+
+def _safe_cache_fragment(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_.-]+", "_", value.strip()).strip("._") or "source"
+
+
+def _external_payload_markdown(payload: ExternalResearchSourcePayload) -> str:
+    lines = [
+        f"# {payload.title}",
+        "",
+        "## Source",
+        "",
+        f"- Provider: {payload.provider}",
+        f"- Source URL: {payload.source_url}",
+        f"- Symbol: {_normalize_symbol(payload.symbol)}",
+        f"- Source type: {payload.source_type}",
+        f"- Fetched at: {payload.fetched_at.isoformat()}",
+    ]
+    if payload.published_at:
+        lines.append(f"- Published at: {payload.published_at.isoformat()}")
+    if payload.company_name:
+        lines.append(f"- Company: {payload.company_name}")
+    lines.extend(
+        [
+            "- Usage: Local Research RAG evidence only; not a buy/sell recommendation.",
+            "",
+            "## Content",
+            "",
+            f"source: {payload.provider}",
+            f"url: {payload.source_url}",
+            f"summary: {_excerpt(payload.content, max_chars=240)}",
+            "",
+            payload.content.strip(),
+        ]
+    )
+    return "\n".join(lines).strip() + "\n"
+
+
+def _ticker_info(ticker: Any) -> dict[str, Any]:
+    getter = getattr(ticker, "get_info", None)
+    try:
+        info = getter() if callable(getter) else getattr(ticker, "info", {})
+    except Exception as exc:  # pragma: no cover - provider-specific failure shape
+        raise ResearchDocumentError(
+            "Yahoo Finance profile fetch failed.",
+            details={"provider": YahooFinanceResearchAdapter.provider},
+        ) from exc
+    return info if isinstance(info, dict) else {}
+
+
+def _ticker_news(ticker: Any) -> list[dict[str, Any]]:
+    try:
+        raw_news = getattr(ticker, "news", [])
+    except Exception:
+        raw_news = []
+    if callable(raw_news):
+        raw_news = raw_news()
+    if not isinstance(raw_news, list):
+        return []
+    return [item for item in raw_news if isinstance(item, dict)]
+
+
+def _yahoo_profile_payload(
+    request: ExternalResearchFetchRequest,
+    info: Mapping[str, Any],
+    *,
+    fetched_at: datetime,
+) -> ExternalResearchSourcePayload:
+    symbol = _normalize_symbol(request.symbol)
+    company_name = _external_text_value(info.get("longName")) or request.company_name or symbol
+    lines = [
+        f"{label}: {_external_text_value(info.get(key))}"
+        for key, label in YAHOO_RESEARCH_PROFILE_FIELDS
+    ]
+    summary = _external_text_value(info.get("longBusinessSummary"))
+    if summary:
+        lines.extend(["", "Business Summary:", summary])
+    lines.extend(
+        [
+            "",
+            "Data Quality Notes:",
+            "This provider profile is a market-data provider snapshot, not an audited filing.",
+            "Confirm important facts against official IR, annual report, or regulatory filings.",
+        ]
+    )
+    return ExternalResearchSourcePayload(
+        symbol=symbol,
+        title=f"{company_name} Yahoo Finance Profile",
+        content="\n".join(line for line in lines if line.strip()),
+        source_type="provider_profile",
+        source_url=f"https://finance.yahoo.com/quote/{symbol}/profile",
+        provider=YahooFinanceResearchAdapter.provider,
+        company_name=company_name,
+        published_at=request.as_of,
+        fetched_at=fetched_at,
+        reliability=Decimal("0.65"),
+    )
+
+
+def _yahoo_news_payloads(
+    request: ExternalResearchFetchRequest,
+    news_items: Sequence[Mapping[str, Any]],
+    *,
+    fetched_at: datetime,
+) -> list[ExternalResearchSourcePayload]:
+    payloads: list[ExternalResearchSourcePayload] = []
+    symbol = _normalize_symbol(request.symbol)
+    for item in news_items:
+        title = _external_text_value(item.get("title"))
+        url = _external_text_value(item.get("link") or item.get("url"))
+        if not title or not url:
+            continue
+        publisher = _external_text_value(item.get("publisher")) or "Yahoo Finance"
+        summary = _external_text_value(item.get("summary") or item.get("content")) or title
+        published_at = _date_from_epoch(item.get("providerPublishTime"))
+        content = "\n".join(
+            [
+                f"source: {publisher}",
+                f"url: {url}",
+                f"summary: {summary}",
+                "",
+                summary,
+            ]
+        )
+        payloads.append(
+            ExternalResearchSourcePayload(
+                symbol=symbol,
+                title=title,
+                content=content,
+                source_type="news",
+                source_url=url,
+                provider=YahooFinanceResearchAdapter.provider,
+                company_name=request.company_name,
+                published_at=published_at,
+                fetched_at=fetched_at,
+                reliability=Decimal("0.60"),
+            )
+        )
+    return payloads
+
+
+def _external_text_value(value: object) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, float):
+        return f"{value:.6g}"
+    return str(value).strip()
+
+
+def _date_from_epoch(value: object) -> date | None:
+    if isinstance(value, int | float):
+        return datetime.fromtimestamp(value, tz=UTC).date()
+    return None
 
 
 def _chunk_document_text(
@@ -1331,6 +1723,7 @@ def _source_type_priority(source_type: ResearchSourceType) -> float:
         "medium_term_plan": 0.95,
         "integrated_report": 0.95,
         "tdnet": 0.90,
+        "provider_profile": 0.65,
         "user_note": 0.70,
         "news": 0.60,
     }

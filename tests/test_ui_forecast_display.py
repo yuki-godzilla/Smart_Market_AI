@@ -117,9 +117,14 @@ from ui.ranking import (
     RANKING_PRESET_SMALL_GROWTH,
     RANKING_PRESET_SUSTAINABLE_INCOME,
     RANKING_PRESET_UPSIDE_SIGNAL,
+    RANKING_PRODUCT_ETF,
+    RANKING_PURPOSE_DATA_CONFIDENCE,
     RANKING_PURPOSE_ETF_CORE_COST,
+    RANKING_PURPOSE_ETF_INCOME,
+    RANKING_PURPOSE_MOMENTUM,
     RANKING_PURPOSE_MULTI_FACTOR,
     RANKING_PURPOSE_QUALITY_GROWTH,
+    RANKING_PURPOSE_QUALITY_VALUE,
     RANKING_PURPOSE_SUSTAINABLE_INCOME,
     RANKING_PURPOSE_UPSIDE_SIGNAL,
     RANKING_THEME_LABELS,
@@ -142,6 +147,7 @@ from ui.ranking import (
     ranking_period_label,
     ranking_provider_error_rows,
     ranking_purpose_help,
+    ranking_purpose_options,
     ranking_symbol_chunks,
     ranking_symbol_options,
     ranking_symbols_state_key,
@@ -1378,6 +1384,24 @@ def test_advanced_ranking_purposes_have_profiles_and_help_text():
     assert "上昇気配" in ranking_purpose_help(RANKING_PURPOSE_UPSIDE_SIGNAL)
     assert "roe" in RANKING_INVESTMENT_STYLE_METRICS[RANKING_PURPOSE_QUALITY_GROWTH]
     assert "expense_ratio" in RANKING_INVESTMENT_STYLE_METRICS[RANKING_PURPOSE_ETF_CORE_COST]
+
+
+def test_ranking_purpose_options_put_common_choices_first():
+    assert ranking_purpose_options()[:5] == [
+        RANKING_PURPOSE_MULTI_FACTOR,
+        RANKING_PURPOSE_UPSIDE_SIGNAL,
+        RANKING_PURPOSE_MOMENTUM,
+        RANKING_PURPOSE_QUALITY_GROWTH,
+        RANKING_PURPOSE_QUALITY_VALUE,
+    ]
+
+    etf_options = ranking_purpose_options(RANKING_PRODUCT_ETF)
+    assert etf_options[:4] == [
+        RANKING_PURPOSE_MULTI_FACTOR,
+        RANKING_PURPOSE_ETF_CORE_COST,
+        RANKING_PURPOSE_ETF_INCOME,
+        RANKING_PURPOSE_DATA_CONFIDENCE,
+    ]
 
 
 def test_beta_risk_filter_labels_explain_thresholds():

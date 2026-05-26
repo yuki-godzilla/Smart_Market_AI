@@ -24,7 +24,7 @@ from backend.core.data_contracts import (
     Quote,
 )
 from backend.core.errors import AppError
-from backend.forecast import forecast_model_display_name, summarize_forecast_evaluations
+from backend.forecast import forecast_model_display_name
 from backend.marketdata import create_market_data_provider_adapter
 from backend.marketdata.feature_builder import build_daily_snapshots_from_market_data
 from backend.reporting import (
@@ -77,7 +77,6 @@ from ui.ranking import (
     RANKING_MVP_REGION_LABELS,
     RANKING_NISA_ELIGIBILITY_LABELS,
     RANKING_PERIOD_PRESETS,
-    RANKING_PURPOSE_LABELS,
     RANKING_THEME_LABELS,
     apply_ranking_weight_preset,
     filter_symbol_universe_rows,
@@ -97,6 +96,7 @@ from ui.ranking import (
     ranking_provider_error_rows,
     ranking_purpose_help,
     ranking_purpose_label,
+    ranking_purpose_options,
     ranking_region_label,
     ranking_symbol_chunks,
     ranking_symbol_options,
@@ -133,6 +133,7 @@ from ui.rebalance_app import (
     runtime_settings_summary,
     screening_score_csv_download,
     screening_score_json_download,
+    summarize_forecast_evaluations_for_ui,
     symbol_name,
     yfinance_search_symbol_rows,
 )
@@ -3054,7 +3055,7 @@ def _render_market_data_ranking() -> None:
         [1.35, 1.0, 0.7, 2.2]
     )
     with action_sort_col:
-        purpose_options = list(RANKING_PURPOSE_LABELS)
+        purpose_options = ranking_purpose_options(product_type)
         _ensure_selectbox_state_value("market_data_ranking_purpose", purpose_options)
         ranking_purpose = cast(
             str,
@@ -3485,7 +3486,7 @@ async def _build_market_data_ranking_rows_fast(
     forecast_consensus_by_symbol = {}
     for index, symbol in enumerate(available_symbols, start=1):
         period_bars = [bar for bar in bars_by_symbol[symbol] if start_dt <= bar.ts <= end_dt]
-        forecast_consensus = summarize_forecast_evaluations(
+        forecast_consensus = summarize_forecast_evaluations_for_ui(
             _available_forecast_evaluations(
                 period_bars,
                 horizon_days=forecast_horizon_days,

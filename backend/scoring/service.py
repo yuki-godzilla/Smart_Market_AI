@@ -214,14 +214,16 @@ def _direction_signal_values(
             "flat_model_count": 0,
         }
     return {
-        "upside_signal_score": forecast_consensus.upside_signal_score,
-        "downside_signal_score": forecast_consensus.downside_signal_score,
-        "direction_net_score": forecast_consensus.direction_net_score,
-        "direction_signal_label": forecast_consensus.direction_signal_label,
-        "forecast_return_pct": forecast_consensus.forecast_return_pct,
-        "up_model_count": forecast_consensus.up_model_count,
-        "down_model_count": forecast_consensus.down_model_count,
-        "flat_model_count": forecast_consensus.flat_model_count,
+        "upside_signal_score": getattr(forecast_consensus, "upside_signal_score", Decimal("50")),
+        "downside_signal_score": getattr(
+            forecast_consensus, "downside_signal_score", Decimal("50")
+        ),
+        "direction_net_score": getattr(forecast_consensus, "direction_net_score", Decimal("50")),
+        "direction_signal_label": getattr(forecast_consensus, "direction_signal_label", "UNKNOWN"),
+        "forecast_return_pct": getattr(forecast_consensus, "forecast_return_pct", Decimal("0")),
+        "up_model_count": getattr(forecast_consensus, "up_model_count", 0),
+        "down_model_count": getattr(forecast_consensus, "down_model_count", 0),
+        "flat_model_count": getattr(forecast_consensus, "flat_model_count", 0),
     }
 
 

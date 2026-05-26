@@ -582,3 +582,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added forecast direction signal fields: `upside_signal_score`, `downside_signal_score`, `direction_net_score`, and `direction_signal_label`, while keeping `forecast_agreement_score` as a compatibility / model-consistency metric.
 - Reweighted ranking presets so direction signal is the main forecast-derived ranking input, added the `上昇気配重視` profile, and kept income / value / low-volatility profiles from over-weighting direction.
 - Updated Ranking / Cockpit UI wording and chart profiles to show `方向感`, `上昇気配`, and `下降警戒` as decision-support signals rather than buy/sell recommendations.
+
+## 2026-05-26 - Ranking purpose order and Streamlit reload guard
+
+- Reordered ranking purpose options so common choices appear first, with ETF-specific options promoted when ETF is selected.
+- Added a Streamlit UI compatibility wrapper for forecast consensus summarization so a cached older backend module does not crash on the new `history` argument.
+- Kept direction signal fallback values neutral when older cached score / consensus objects do not yet carry the new direction fields.

@@ -52,6 +52,7 @@ from ui.rebalance_app import (
     current_position_rows,
     feature_snapshot_rows,
     forecast_chart_rows,
+    forecast_consensus_rows_for_bars,
     get_rebalance_sample,
     investment_score_csv_download,
     investment_score_json_download,
@@ -684,6 +685,35 @@ def test_forecast_chart_rows_places_latest_point_on_selected_horizon():
         "naive": "175",
         "moving_average_3": "172.6667",
     }
+
+
+def test_forecast_consensus_rows_tolerates_cached_old_summarizer(monkeypatch):
+    def old_summarizer(_evaluations: object) -> SimpleNamespace:
+        return SimpleNamespace(
+            symbol="AAPL",
+            horizon_days=1,
+            model_count=3,
+            ensemble_forecast_close=Decimal("175"),
+            median_forecast_close=Decimal("175"),
+            min_forecast_close=Decimal("174"),
+            max_forecast_close=Decimal("176"),
+            forecast_range=Decimal("2"),
+            forecast_range_pct=Decimal("0.0114"),
+            agreement="MEDIUM",
+        )
+
+    monkeypatch.setattr("ui.rebalance_app._summarize_forecast_evaluations", old_summarizer)
+
+    rows = forecast_consensus_rows_for_bars(
+        [
+            _bar("AAPL", "2026-04-07T00:00:00Z", "170"),
+            _bar("AAPL", "2026-04-08T00:00:00Z", "173"),
+            _bar("AAPL", "2026-04-09T00:00:00Z", "175"),
+        ],
+    )
+
+    assert rows[0]["direction_signal_label"] == "UNKNOWN"
+    assert rows[0]["direction_net_score"] == "50"
 
 
 def _bar(symbol: str, ts: str, close: str) -> Bar:

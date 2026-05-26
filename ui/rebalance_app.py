@@ -30,7 +30,9 @@ from backend.forecast import (
     ForecastModel,
     available_forecast_models,
     evaluate_models,
-    summarize_forecast_evaluations,
+)
+from backend.forecast import (
+    summarize_forecast_evaluations as _summarize_forecast_evaluations,
 )
 from backend.marketdata import create_market_data_provider_adapter
 from backend.marketdata.feature_builder import build_daily_snapshots_from_market_data
@@ -92,6 +94,23 @@ DEFAULT_TARGETS_JSON = """[
     "target_weight": "0.5"
   }
 ]"""
+
+
+def summarize_forecast_evaluations_for_ui(
+    evaluations: list[ForecastEvaluation],
+    *,
+    history: list[Bar] | None = None,
+) -> Any | None:
+    """Summarize forecasts while tolerating a stale Streamlit backend module cache."""
+
+    if history is None:
+        return _summarize_forecast_evaluations(evaluations)
+    try:
+        return _summarize_forecast_evaluations(evaluations, history=history)
+    except TypeError as exc:
+        if "history" not in str(exc):
+            raise
+        return _summarize_forecast_evaluations(evaluations)
 
 
 NO_TRADES_POSITIONS_JSON = """[
@@ -475,7 +494,10 @@ async def build_market_data_preview(
             bars,
             horizon_days=forecast_horizon_days,
         )
-        forecast_consensus = summarize_forecast_evaluations(forecast_evaluations, history=bars)
+        forecast_consensus = summarize_forecast_evaluations_for_ui(
+            forecast_evaluations,
+            history=bars,
+        )
         forecast_consensus_by_symbol = (
             {forecast_consensus.symbol: forecast_consensus}
             if forecast_consensus is not None
@@ -761,7 +783,7 @@ def forecast_consensus_rows_for_bars(
 ) -> list[dict[str, str]]:
     """Return forecast consensus rows recalculated from already fetched OHLCV bars."""
 
-    consensus = summarize_forecast_evaluations(
+    consensus = summarize_forecast_evaluations_for_ui(
         _available_forecast_evaluations(
             bars,
             horizon_days=horizon_days,
@@ -782,17 +804,29 @@ def forecast_consensus_rows_for_bars(
             "forecast_range": _format_decimal(consensus.forecast_range),
             "forecast_range_pct": _format_optional_percent(consensus.forecast_range_pct),
             "agreement": consensus.agreement,
-            "latest_close": _format_optional_decimal(consensus.latest_close),
-            "forecast_return_pct": _format_optional_percent(consensus.forecast_return_pct),
-            "up_model_count": str(consensus.up_model_count),
-            "down_model_count": str(consensus.down_model_count),
-            "flat_model_count": str(consensus.flat_model_count),
-            "up_direction_ratio": _format_optional_percent(consensus.up_direction_ratio),
-            "down_direction_ratio": _format_optional_percent(consensus.down_direction_ratio),
-            "upside_signal_score": _format_decimal(consensus.upside_signal_score),
-            "downside_signal_score": _format_decimal(consensus.downside_signal_score),
-            "direction_net_score": _format_decimal(consensus.direction_net_score),
-            "direction_signal_label": consensus.direction_signal_label,
+            "latest_close": _format_optional_decimal(getattr(consensus, "latest_close", None)),
+            "forecast_return_pct": _format_optional_percent(
+                getattr(consensus, "forecast_return_pct", Decimal("0"))
+            ),
+            "up_model_count": str(getattr(consensus, "up_model_count", 0)),
+            "down_model_count": str(getattr(consensus, "down_model_count", 0)),
+            "flat_model_count": str(getattr(consensus, "flat_model_count", 0)),
+            "up_direction_ratio": _format_optional_percent(
+                getattr(consensus, "up_direction_ratio", Decimal("0"))
+            ),
+            "down_direction_ratio": _format_optional_percent(
+                getattr(consensus, "down_direction_ratio", Decimal("0"))
+            ),
+            "upside_signal_score": _format_decimal(
+                getattr(consensus, "upside_signal_score", Decimal("50"))
+            ),
+            "downside_signal_score": _format_decimal(
+                getattr(consensus, "downside_signal_score", Decimal("50"))
+            ),
+            "direction_net_score": _format_decimal(
+                getattr(consensus, "direction_net_score", Decimal("50"))
+            ),
+            "direction_signal_label": str(getattr(consensus, "direction_signal_label", "UNKNOWN")),
         }
     ]
 
@@ -901,14 +935,22 @@ def investment_score_rows(scores: list[InvestmentScore]) -> list[dict[str, str]]
             "score_band": score.score_band,
             "screening_score": _format_decimal(score.screening_score),
             "forecast_agreement_score": _format_decimal(score.forecast_agreement_score),
-            "upside_signal_score": _format_decimal(score.upside_signal_score),
-            "downside_signal_score": _format_decimal(score.downside_signal_score),
-            "direction_net_score": _format_decimal(score.direction_net_score),
-            "direction_signal_label": score.direction_signal_label,
-            "forecast_return_pct": _format_optional_percent(score.forecast_return_pct),
-            "up_model_count": str(score.up_model_count),
-            "down_model_count": str(score.down_model_count),
-            "flat_model_count": str(score.flat_model_count),
+            "upside_signal_score": _format_decimal(
+                getattr(score, "upside_signal_score", Decimal("50"))
+            ),
+            "downside_signal_score": _format_decimal(
+                getattr(score, "downside_signal_score", Decimal("50"))
+            ),
+            "direction_net_score": _format_decimal(
+                getattr(score, "direction_net_score", Decimal("50"))
+            ),
+            "direction_signal_label": str(getattr(score, "direction_signal_label", "UNKNOWN")),
+            "forecast_return_pct": _format_optional_percent(
+                getattr(score, "forecast_return_pct", Decimal("0"))
+            ),
+            "up_model_count": str(getattr(score, "up_model_count", 0)),
+            "down_model_count": str(getattr(score, "down_model_count", 0)),
+            "flat_model_count": str(getattr(score, "flat_model_count", 0)),
             "data_quality_score": _format_decimal(score.data_quality_score),
             "risk_signal_score": _format_optional_decimal(score.risk_signal_score),
             "forecast_agreement": score.forecast_agreement,

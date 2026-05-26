@@ -13,6 +13,81 @@ from ui.styles import (
     render_section_heading,
 )
 
+COCKPIT_CARD_MEANINGS = {
+    "Investment Score": "売買判断ではなく、複数観点を統合した比較・分析用スコアです。",
+    "Decision View": "売買指示ではなく、スコア帯を確認レベルに置き換えた見方です。",
+    "Direction Signal": "上昇気配と下降警戒の差分を整理した方向シグナルです。",
+    "方向スコア": "上昇気配と下降警戒の差分を0〜100で整理した方向シグナルです。",
+    "上昇気配": "予測上昇率、モデル別の上向き強度、直近モメンタムを合わせた指標です。",
+    "下降警戒": "予測下落率、モデル別の下向き強度、直近モメンタムを合わせた警戒指標です。",
+    "予測変化率": "平均予測価格が直近終値からどの程度離れているかを示します。",
+    "Data Confidence": "投資魅力度ではなく、評価に使えるデータの充実度を示します。",
+    "Risk": "取得期間の値動きや警告を整理したリスク確認材料です。",
+}
+
+COCKPIT_SCORE_EVALUATION_TABLE = {
+    "Investment Score": (
+        (Decimal("75"), "高め。比較候補の中で確認優先度が高い状態です。"),
+        (Decimal("65"), "やや高め。内訳とリスクを見ながら深掘りしやすい状態です。"),
+        (Decimal("45"), "中立圏。決め手よりも内訳の偏りを確認します。"),
+        (Decimal("0"), "低め。データ不足やリスク要因を先に確認します。"),
+    ),
+    "Direction Signal": (
+        (Decimal("65"), "上向き寄り。上昇気配が下降警戒を上回っています。"),
+        (Decimal("55"), "やや上向き。上昇気配と下降警戒の差を確認します。"),
+        (Decimal("45"), "中立圏。上昇・下降の材料が拮抗しています。"),
+        (Decimal("0"), "下向き注意。下降警戒や直近トレンドを先に確認します。"),
+    ),
+    "方向スコア": (
+        (Decimal("65"), "上向き寄り。上昇気配が下降警戒を上回っています。"),
+        (Decimal("55"), "やや上向き。上昇気配と下降警戒の差を確認します。"),
+        (Decimal("45"), "中立圏。上昇・下降の材料が拮抗しています。"),
+        (Decimal("0"), "下向き注意。下降警戒や直近トレンドを先に確認します。"),
+    ),
+    "上昇気配": (
+        (Decimal("75"), "強め。上向き材料が比較的そろっています。"),
+        (Decimal("65"), "やや強め。モデル方向と予測変化率を確認します。"),
+        (Decimal("45"), "中立圏。上向き材料は限定的または拮抗しています。"),
+        (Decimal("0"), "弱め。上向き根拠は控えめに見ます。"),
+    ),
+    "下降警戒": (
+        (Decimal("70"), "高め。下向き材料を先に確認します。"),
+        (Decimal("55"), "やや高め。上昇気配とのバランスを確認します。"),
+        (Decimal("50"), "中立圏の上側。下向き材料がやや優勢か確認します。"),
+        (Decimal("45"), "中立圏。上昇・下降の材料が拮抗しています。"),
+        (Decimal("0"), "低め。下降警戒は相対的に抑えめです。"),
+    ),
+    "Data Confidence": (
+        (Decimal("80"), "高め。評価に使える材料は比較的そろっています。"),
+        (Decimal("60"), "標準圏。欠損や鮮度を確認しながら使います。"),
+        (Decimal("40"), "やや不足。足りないデータを先に確認します。"),
+        (Decimal("0"), "不足。スコア解釈はかなり控えめにします。"),
+    ),
+    "Risk": (
+        (Decimal("75"), "落ち着き。今回の期間ではリスク確認材料は比較的安定しています。"),
+        (Decimal("65"), "やや落ち着き。値動きと警告を念のため確認します。"),
+        (Decimal("50"), "標準圏。値動きや警告を合わせて確認します。"),
+        (Decimal("0"), "確認優先。値動きの荒さや下落耐性を先に確認します。"),
+    ),
+}
+
+COCKPIT_FORECAST_RETURN_EVALUATION_TABLE = (
+    (Decimal("5"), "上向き大きめ。予測線と実績価格の距離を確認します。"),
+    (Decimal("1"), "やや上向き。上昇気配との整合を確認します。"),
+    (Decimal("-1"), "ほぼ中立。方向材料は控えめに見ます。"),
+    (Decimal("-5"), "やや下向き。下降警戒との整合を確認します。"),
+    (Decimal("-999"), "下向き大きめ。予測のばらつきと直近トレンドを確認します。"),
+)
+
+COCKPIT_DECISION_VIEW_EVALUATION_TABLE = {
+    "強め": "強め。高スコアでも内訳と警戒材料を確認します。",
+    "バランス型": "バランス型。強みと注意点を並べて確認します。",
+    "比較候補": "比較候補。ほかの候補との差を確認します。",
+    "注意して確認": "注意。Risk、データ品質、方向感を先に確認します。",
+    "要確認": "要確認。データ不足や警告を先に見ます。",
+    "未判定": "未判定。データ取得後に表示します。",
+}
+
 
 def _display_value(value: object, fallback: str = "未取得") -> str:
     text = "" if value is None else str(value).strip()
@@ -74,22 +149,28 @@ def cockpit_summary_items(
         {
             "label": "Investment Score",
             "value": _display_value((score_row or {}).get("総合スコア"), "未計算"),
-            "help": "複数観点を統合した比較・分析用スコアです。",
+            "help": _cockpit_card_help(
+                "Investment Score",
+                (score_row or {}).get("総合スコア"),
+            ),
         },
         {
             "label": "Decision View",
             "value": _display_value((score_row or {}).get("見方"), "未判定"),
-            "help": "売買指示ではなく、確認レベルの目安です。",
+            "help": _cockpit_card_help("Decision View", (score_row or {}).get("見方")),
         },
         {
             "label": "Data Confidence",
             "value": _display_value((score_row or {}).get("データ品質"), "未計算"),
-            "help": "投資魅力度ではなく、評価に使えるデータの充実度です。",
+            "help": _cockpit_card_help(
+                "Data Confidence",
+                (score_row or {}).get("データ品質"),
+            ),
         },
         {
             "label": "Risk",
             "value": _display_value((score_row or {}).get("Risk"), "未接続"),
-            "help": "注意すべきリスク確認材料です。",
+            "help": _cockpit_card_help("Risk", (score_row or {}).get("Risk")),
         },
         {
             "label": "Forecast horizon",
@@ -105,27 +186,27 @@ def cockpit_kpi_cards(score_row: dict[str, str] | None) -> list[dict[str, str]]:
         {
             "label": "Investment Score",
             "value": _display_value(row.get("総合スコア"), "未計算"),
-            "help": "比較・分析用の総合スコアです。売買判断そのものではありません。",
+            "help": _cockpit_card_help("Investment Score", row.get("総合スコア")),
         },
         {
             "label": "Decision View",
             "value": _display_value(row.get("見方"), "未判定"),
-            "help": "確認レベルの目安です。売買指示ではありません。",
+            "help": _cockpit_card_help("Decision View", row.get("見方")),
         },
         {
             "label": "Direction Signal",
             "value": _display_value(row.get("方向スコア") or row.get("方向感"), "未計算"),
-            "help": "上昇気配と下降警戒の差分を整理した深掘り用シグナルです。",
+            "help": _cockpit_card_help("Direction Signal", row.get("方向スコア")),
         },
         {
             "label": "Data Confidence",
             "value": _display_value(row.get("データ品質"), "未計算"),
-            "help": "評価に使えるデータの充実度です。投資魅力度ではありません。",
+            "help": _cockpit_card_help("Data Confidence", row.get("データ品質")),
         },
         {
             "label": "Risk",
             "value": _display_value(row.get("Risk"), "未接続"),
-            "help": "取得期間から見たリスク確認材料です。",
+            "help": _cockpit_card_help("Risk", row.get("Risk")),
         },
     ]
 
@@ -145,7 +226,10 @@ def cockpit_direction_signal_cards(
                 row.get("方向スコア") or consensus.get("direction_net_score"),
                 "未計算",
             ),
-            "help": "上昇気配と下降警戒の差分を0〜100で整理した深掘り用シグナルです。",
+            "help": _cockpit_card_help(
+                "方向スコア",
+                row.get("方向スコア") or consensus.get("direction_net_score"),
+            ),
         },
         {
             "label": "上昇気配",
@@ -153,7 +237,10 @@ def cockpit_direction_signal_cards(
                 row.get("上昇気配") or consensus.get("upside_signal_score"),
                 "未計算",
             ),
-            "help": "予測上昇率、モデル別の上向き強度、直近モメンタムを合わせたスコアです。",
+            "help": _cockpit_card_help(
+                "上昇気配",
+                row.get("上昇気配") or consensus.get("upside_signal_score"),
+            ),
         },
         {
             "label": "下降警戒",
@@ -161,7 +248,10 @@ def cockpit_direction_signal_cards(
                 row.get("下降警戒") or consensus.get("downside_signal_score"),
                 "未計算",
             ),
-            "help": "予測下落率、モデル別の下向き強度、直近モメンタムを合わせた警戒スコアです。",
+            "help": _cockpit_card_help(
+                "下降警戒",
+                row.get("下降警戒") or consensus.get("downside_signal_score"),
+            ),
         },
         {
             "label": "予測変化率",
@@ -169,7 +259,10 @@ def cockpit_direction_signal_cards(
                 row.get("予測変化率") or consensus.get("forecast_return_pct"),
                 "未計算",
             ),
-            "help": "平均予測価格が直近終値からどの程度離れているかを示します。",
+            "help": _cockpit_card_help(
+                "予測変化率",
+                row.get("予測変化率") or consensus.get("forecast_return_pct"),
+            ),
         },
     ]
 
@@ -505,6 +598,41 @@ def _badge_for_research_item(item: dict[str, str]) -> str:
 
 def _item_value(items: dict[str, dict[str, str]], label: str) -> str:
     return _display_value(items.get(label, {}).get("value"), "-")
+
+
+def _cockpit_card_help(label: str, value: object) -> str:
+    meaning = COCKPIT_CARD_MEANINGS.get(label, "")
+    evaluation = _cockpit_card_evaluation(label, value)
+    if meaning and evaluation:
+        return f"{meaning} 評価: {evaluation}"
+    if meaning:
+        return meaning
+    return evaluation
+
+
+def _cockpit_card_evaluation(label: str, value: object) -> str:
+    if label == "Decision View":
+        text = _display_value(value, "未判定")
+        return COCKPIT_DECISION_VIEW_EVALUATION_TABLE.get(
+            text,
+            "確認レベルの目安です。売買指示ではありません。",
+        )
+    score = _decimal_display_value(value)
+    if score is None:
+        return "未計算です。データ取得後に読み取りを確認します。"
+    if label == "予測変化率":
+        return _score_comment(score, COCKPIT_FORECAST_RETURN_EVALUATION_TABLE)
+    return _score_comment(score, COCKPIT_SCORE_EVALUATION_TABLE.get(label, ()))
+
+
+def _score_comment(
+    score: Decimal,
+    table: tuple[tuple[Decimal, str], ...],
+) -> str:
+    for threshold, comment in table:
+        if score >= threshold:
+            return comment
+    return "値の読み取りは詳細表で確認します。"
 
 
 def _direction_count_text(row: dict[str, str]) -> str:

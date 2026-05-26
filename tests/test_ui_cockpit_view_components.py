@@ -38,7 +38,8 @@ def test_cockpit_summary_items_use_existing_score_and_metadata_values():
     assert items[1]["value"] == "Toyota Motor"
     assert items[5]["value"] == "stock / japan / Automobiles"
     assert items[6]["value"] == "72"
-    assert items[8]["help"] == "投資魅力度ではなく、評価に使えるデータの充実度です。"
+    assert "投資魅力度ではなく" in items[8]["help"]
+    assert "評価: 高め" in items[8]["help"]
 
 
 def test_cockpit_kpi_cards_do_not_create_new_scores():
@@ -60,7 +61,9 @@ def test_cockpit_kpi_cards_do_not_create_new_scores():
         "Risk",
     ]
     assert [card["value"] for card in cards] == ["72", "比較候補", "64", "95", "68"]
-    assert "投資魅力度ではありません" in cards[3]["help"]
+    assert "投資魅力度ではなく" in cards[3]["help"]
+    assert "評価: やや上向き" in cards[2]["help"]
+    assert "評価: やや落ち着き" in cards[4]["help"]
 
 
 def test_cockpit_direction_signal_cards_use_existing_direction_values():
@@ -86,6 +89,10 @@ def test_cockpit_direction_signal_cards_use_existing_direction_values():
         "予測変化率",
     ]
     assert [card["value"] for card in cards] == ["72", "78", "34", "+3.2%"]
+    assert "評価: 上向き寄り" in cards[0]["help"]
+    assert "評価: 強め" in cards[1]["help"]
+    assert "評価: 低め" in cards[2]["help"]
+    assert "評価: やや上向き" in cards[3]["help"]
 
 
 def test_cockpit_direction_signal_detail_rows_explain_balance_and_model_spread():

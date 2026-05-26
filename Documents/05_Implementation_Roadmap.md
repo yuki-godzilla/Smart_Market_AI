@@ -554,6 +554,7 @@ Phase 20 / Phase 21 boundary:
 
 - Phase 20: local document registration, chunking, deterministic keyword search, Research Evidence, Research Summary, Decision Report connection.
 - Phase 21: query expansion, structured evidence extraction, grounded answer generation, optional embedding retrieval, local vector store abstraction, hybrid search, evidence reranking, Research Score integration preparation.
+- Phase 21.5: Stock News RAG MVP. Existing Symbol Cockpit に、選択中の銘柄だけを対象にした URL 根拠付き recent news summary を追加する。市場全体ニュース画面、Research Score 化、Investment Score / ranking order への反映は行わない。
 - Research Score の採点と Investment Score / ranking / report への score 統合は Phase 22 で扱う。
 
 Scope:
@@ -685,6 +686,93 @@ Acceptance criteria:
 - query expansion、ResearchExtractedClaim、Grounded Answer、Retrieval Quality、UI / Decision Report 反映方針が明記されている。
 - LLM 利用は optional adapter として明記され、通常 CI が外部 API や network に依存しない方針が維持されている。
 
+### 5.7.5 Phase 21.5: Stock News RAG MVP
+
+Status: planned
+
+Purpose:
+
+- まずは既存の `銘柄コックピット` に、選択中の銘柄だけを対象にした個別銘柄ニュース深掘りを小さく追加する。
+- `AIニュース深掘り` / `Recent News` section を候補とし、AIデータ取得時または専用ボタン押下時に、銘柄名、ticker、related keywords から news evidence を取得・整理する。
+- 根拠 URL 付きの最新ニュース要約、投資観点、材料の方向感、鮮度を表示するところまでを MVP とする。
+- ニュースは投資判断補助情報であり、売買推奨、buy / sell / hold 判断、Investment Score、ranking order の変更には使わない。
+
+Initial display fields:
+
+- `title`
+- `url`
+- `source`
+- `published_at`
+- `summary`
+- `investment_viewpoint`
+- `sentiment_for_investment`
+- `freshness_status`
+
+Initial data contract sketch:
+
+```python
+class StockNewsEvidence:
+    symbol: str
+    company_name: str | None
+    title: str
+    url: str
+    source: str | None
+    published_at: date | None
+    summary: str
+    investment_viewpoint: Literal[
+        "earnings",
+        "growth",
+        "shareholder_return",
+        "risk",
+        "macro",
+        "other",
+    ]
+    sentiment_for_investment: Literal[
+        "positive",
+        "negative",
+        "neutral",
+        "mixed",
+        "unknown",
+    ]
+    freshness_status: Literal[
+        "latest",
+        "recent",
+        "stale",
+        "unknown",
+    ]
+```
+
+Initial classification policy:
+
+- `investment_viewpoint`: `earnings`, `growth`, `shareholder_return`, `risk`, `macro`, `other` に絞り、初期分類を増やしすぎない。
+- `sentiment_for_investment`: `positive`, `negative`, `neutral`, `mixed`, `unknown` とし、buy / sell / hold ではなくニュース材料の方向感として扱う。
+- `freshness_status`: `latest`, `recent`, `stale`, `unknown` とし、古いニュースを最新材料のように扱わない。
+
+Phase 21.5 out of scope:
+
+- 新しい `投資ニュース` 画面の実装
+- 市場全体トピックの自動抽出
+- 注目ジャンル / 業界ランキング
+- 関連銘柄の自動抽出
+- Watchlist 連動
+- Decision Report への自動反映
+- Research Score 化
+- Investment Score への反映
+- ranking order への反映
+- ニュースクラスタリング
+- impact horizon 分類
+- 外部 LLM 必須化
+- CI での外部ネットワーク必須化
+
+Guardrails:
+
+- source URL がない内容を断定しない。
+- 古いニュースは warning または `freshness_status` で明示する。
+- 外部ニュース取得は adapter 化し、明示 opt-in にする。
+- 通常 tests / CI は external network、live scraping、external LLM に依存させない。
+- 外部 LLM は必須にせず、template / deterministic fallback を維持する。
+- RAG の出力は投資判断補助であり、最終判断はユーザーが行う。
+
 ### 5.8 Phase 22: Research Score And Investment Integration
 
 Status: planned
@@ -721,6 +809,13 @@ Implementation order:
 - R7: Investment Score / Ranking / Report integration。
 - R8: External Source Adapter。live scraping / external source は明示 opt-in とする。
 
+Phase 22.x Candidate: Investment News Dashboard
+
+- Phase 22 の既存主目的は Research Score と Investment Score / ranking / report への optional integration として維持する。
+- `投資ニュース` dashboard は Phase 21.5 で Stock News RAG の型が固まった後の候補として整理する。Phase 22 本体を置き換えず、着手する場合は Phase 22.x または Phase 23+ の UI slice として扱う。
+- Dashboard scope: 新画面 `投資ニュース`、今日の注目トピック、注目ジャンル、注目業界、リスクニュース、ニュースカード一覧、source URL / published_at / summary / investment_viewpoint 表示、ポジティブ材料とリスク材料の分離表示、後で銘柄コックピットへ接続できる導線設計。
+- Dashboard non-scope: Research Score の Investment Score 統合、ニュースだけでランキングを変更すること、自動売買判断、buy / sell / hold 判断、高度なクラスタリング、Watchlist 連動、portfolio 連動。
+
 Completion criteria:
 
 - Research Score は evidence と紐づいて説明できる。
@@ -748,6 +843,31 @@ Completion criteria:
 - 同じ input / context では同じ応答になる。
 - 通常 tests は network 非依存で通る。
 - Assistant の説明は UI / report と同じ指標名・制約を使う。
+
+Advanced News Intelligence candidates for Phase 23+:
+
+- 関連銘柄の自動抽出
+- `投資ニュース` 画面から `銘柄コックピット` への遷移
+- Watchlist 銘柄に関連するニュースの優先表示
+- Decision Report へのニュース根拠反映
+- ニュースクラスタリング
+- source reliability 表示
+- impact horizon 分類
+- Research Score / News Score 化
+- Assistant 機能との連携
+- 外部ニュースソース adapter の拡充
+- ニュースの重複除去
+- トピック単位の時系列追跡
+
+News guardrails for Phase 23+:
+
+- ニュース RAG は売買推奨を行わず、buy / sell / hold を直接出さない。
+- ニュースだけで Investment Score や ranking order を変更しない。
+- source URL がない内容を断定しない。
+- 古いニュースは warning または `freshness_status` で明示する。
+- 外部ニュース取得は adapter 化し、明示 opt-in にする。
+- CI / 通常テストは外部ネットワークに依存させない。
+- 外部 LLM は必須にせず、template / deterministic fallback を維持する。
 
 ### 5.10 Phase 24: Optional Adapters And Advanced Intelligence
 
@@ -819,8 +939,11 @@ Completion criteria:
 ### 6.2 Assistant / LLM / News
 
 - Template assistant MVP
+- Stock News RAG MVP for Symbol Cockpit
+- Investment News dashboard
 - News / sentiment local CSV provider
 - Assistant x news integration
+- Advanced News Intelligence
 - LLM provider protocol
 - Local LLM / Ollama provider
 - Cloud LLM / OpenAI provider

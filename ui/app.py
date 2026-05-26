@@ -7,7 +7,7 @@ import json
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
-from typing import Callable, Iterable, Mapping, Sequence, cast
+from typing import Callable, Iterable, Literal, Mapping, Sequence, cast
 
 import altair as alt
 import pandas as pd
@@ -4521,7 +4521,7 @@ def _render_cockpit_direction_signal_section(
     st.caption(
         "Analysis KPI の方向シグナルを、価格チャート後の読み取りとして整理します。売買推奨ではありません。"
     )
-    insight_tone = (
+    insight_tone: Literal["caution", "forecast"] = (
         "caution"
         if (_decimal_from_text(score_row.get("下降警戒")) or Decimal("0")) >= Decimal("65")
         else "forecast"
@@ -4698,7 +4698,7 @@ def cockpit_detail_summary_rows(
 
 
 def _cockpit_ohlcv_check(row: Mapping[str, str]) -> str:
-    bars = _int_from_text(row.get("bars"))
+    bars = _optional_int_from_text(row.get("bars"))
     if bars is None:
         return "取得本数が未確認です。参照期間、provider、欠損の有無を確認します。"
     if bars < 20:
@@ -4759,7 +4759,7 @@ def _cockpit_data_quality_check(row: Mapping[str, str]) -> str:
     return "品質警告がある場合は、詳細を展開して根拠データとproviderを確認します。"
 
 
-def _int_from_text(value: object) -> int | None:
+def _optional_int_from_text(value: object) -> int | None:
     text = str(value or "").replace(",", "").strip()
     if not text:
         return None

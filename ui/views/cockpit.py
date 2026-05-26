@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from decimal import Decimal, InvalidOperation
 
 import streamlit as st
@@ -275,31 +276,44 @@ def cockpit_direction_signal_detail_rows(
     )
     forecast_range = _display_value(consensus.get("forecast_range_pct"), "未計算")
     agreement = _display_value(row.get("モデル一致度") or consensus.get("agreement"), "未計算")
+    overall_label, overall_check = _direction_signal_overall_reading(
+        upside=upside,
+        downside=downside,
+        forecast_return=forecast_return,
+        direction_match=direction_match,
+        forecast_range=forecast_range,
+        agreement=agreement,
+    )
     return [
+        {
+            "観点": "読み取り",
+            "内容": overall_label,
+            "確認ポイント": overall_check,
+        },
         {
             "観点": "上昇気配",
             "内容": upside,
-            "確認ポイント": "予測エッジ、モデル別方向、モメンタム、トレンド確認を合わせた上向き材料です。",
+            "確認ポイント": _direction_score_check("upside", upside, downside),
         },
         {
             "観点": "下降警戒",
             "内容": downside,
-            "確認ポイント": "下向き材料が強い場合は、上昇気配が高くても直近トレンドを確認します。",
+            "確認ポイント": _direction_score_check("downside", downside, upside),
         },
         {
             "観点": "予測変化率",
             "内容": forecast_return,
-            "確認ポイント": "平均予測価格が直近終値より上か下かを確認します。断定ではありません。",
+            "確認ポイント": _forecast_return_check(forecast_return),
         },
         {
             "観点": "モデル方向一致",
             "内容": direction_match,
-            "確認ポイント": "複数モデルが同じ方向を示しているか、割れているかを確認します。",
+            "確認ポイント": _model_direction_check(direction_match),
         },
         {
             "観点": "予測のばらつき",
             "内容": f"{forecast_range} / モデル一致度 {agreement}",
-            "確認ポイント": "モデルの開きが大きい場合、上昇気配・下降警戒は中立寄りに扱います。",
+            "確認ポイント": _forecast_range_check(forecast_range, agreement),
         },
     ]
 
@@ -318,17 +332,273 @@ def cockpit_direction_signal_summary(
         row.get("予測変化率") or consensus.get("forecast_return_pct"),
         "未計算",
     )
-    if downside is not None and downside >= Decimal("70"):
+    forecast_return_value = _decimal_display_value(forecast_return)
+    direction_match = _display_value(
+        row.get("方向一致") or _direction_count_text(consensus),
+        "未計算",
+    )
+    forecast_range = _display_value(consensus.get("forecast_range_pct"), "未計算")
+    range_value = _decimal_display_value(forecast_range)
+    agreement = _display_value(row.get("モデル一致度") or consensus.get("agreement"), "未計算")
+    if upside is None or downside is None:
+        return "方向シグナルは未計算です。価格チャート、予測レンジ、データ品質を先に確認します。"
+
+    gap = upside - downside
+    if upside >= Decimal("65") and downside >= Decimal("65") and abs(gap) < Decimal("12"):
         return (
-            f"下降警戒が{_format_direction_decimal(downside)}と高めです。"
-            f"上昇気配と予測変化率 {forecast_return} を合わせて確認します。"
+            "上向き材料と下向き材料がどちらも強めです。"
+            f"上昇気配{_format_direction_decimal(upside)}、"
+            f"下降警戒{_format_direction_decimal(downside)}なので、"
+            "材料の衝突と予測レンジを分けて確認します。"
         )
-    if upside is not None and upside >= Decimal("70"):
+    if downside >= Decimal("65") and gap <= Decimal("-12"):
         return (
-            f"上昇気配が{_format_direction_decimal(upside)}と相対的に強めです。"
-            "下降警戒と直近トレンドを合わせて深掘りします。"
+            f"下降警戒が{_format_direction_decimal(downside)}と"
+            f"上昇気配{_format_direction_decimal(upside)}を上回っています。"
+            f"{_forecast_return_summary_clause(forecast_return, forecast_return_value)}"
+            f"{_uncertainty_summary_clause(direction_match, forecast_range, range_value, agreement)}"
+            "下落継続リスクと反転材料を分けて確認します。"
         )
-    return "上昇気配と下降警戒が拮抗しています。価格チャート、モデル方向一致、予測のばらつきを合わせて確認します。"
+    if upside >= Decimal("65") and gap >= Decimal("12"):
+        return (
+            f"上昇気配が{_format_direction_decimal(upside)}と"
+            f"下降警戒{_format_direction_decimal(downside)}を上回っています。"
+            f"{_forecast_return_summary_clause(forecast_return, forecast_return_value)}"
+            f"{_uncertainty_summary_clause(direction_match, forecast_range, range_value, agreement)}"
+            "上向き材料が価格チャートでも確認できるかを深掘りします。"
+        )
+    if abs(gap) <= Decimal("8"):
+        return (
+            f"上昇気配{_format_direction_decimal(upside)}、"
+            f"下降警戒{_format_direction_decimal(downside)}で近い水準です。"
+            f"{_forecast_return_summary_clause(forecast_return, forecast_return_value)}"
+            "一方向に決めつけず、モデル方向一致と予測レンジを合わせて確認します。"
+        )
+    if gap > 0:
+        return (
+            f"上昇気配が{_format_direction_decimal(upside)}でやや優勢です。"
+            f"{_forecast_return_summary_clause(forecast_return, forecast_return_value)}"
+            "下降警戒が残っていないか、短期トレンドと予測下限を確認します。"
+        )
+    return (
+        f"下降警戒が{_format_direction_decimal(downside)}でやや優勢です。"
+        f"{_forecast_return_summary_clause(forecast_return, forecast_return_value)}"
+        "上向き材料が残るか、直近トレンドと予測上限を確認します。"
+    )
+
+
+_DIRECTION_COUNT_PATTERN = re.compile(r"(上昇|下降|横ばい)\s*(\d+)")
+
+
+def _direction_signal_overall_reading(
+    *,
+    upside: str,
+    downside: str,
+    forecast_return: str,
+    direction_match: str,
+    forecast_range: str,
+    agreement: str,
+) -> tuple[str, str]:
+    upside_value = _decimal_display_value(upside)
+    downside_value = _decimal_display_value(downside)
+    forecast_value = _decimal_display_value(forecast_return)
+    range_value = _decimal_display_value(forecast_range)
+    if upside_value is None or downside_value is None:
+        return (
+            "未計算",
+            "方向シグナルがそろっていないため、価格チャートとデータ品質を先に確認します。",
+        )
+
+    gap = upside_value - downside_value
+    if upside_value >= Decimal("65") and downside_value >= Decimal("65"):
+        balance = "上下材料が強め"
+        check = "強い材料が同時に出ているため、予測上限・下限と直近トレンドを分けて確認します。"
+    elif gap >= Decimal("12"):
+        balance = "上昇気配優勢"
+        check = (
+            "上向き材料が価格チャート、モデル方向一致、予測レンジでも支えられているか確認します。"
+        )
+    elif gap <= Decimal("-12"):
+        balance = "下降警戒優勢"
+        check = "下落継続リスクと、反転材料がどこにあるかを分けて確認します。"
+    elif abs(gap) <= Decimal("8"):
+        balance = "材料が拮抗"
+        check = "一方向に寄せず、予測レンジとモデル方向一致を見て深掘り順を決めます。"
+    elif gap > 0:
+        balance = "上昇気配やや優勢"
+        check = "上向き材料が残る一方で、下降警戒や予測下限も確認します。"
+    else:
+        balance = "下降警戒やや優勢"
+        check = "下向き材料が残る一方で、予測上限や反転材料も確認します。"
+
+    labels = [
+        balance,
+        _forecast_return_label(forecast_value),
+        _forecast_range_label(range_value, agreement),
+    ]
+    if _direction_counts_are_split(_direction_counts(direction_match)):
+        labels.append("モデル方向は分散")
+    return " / ".join(labels), check
+
+
+def _direction_score_check(kind: str, value: str, counterpart: str) -> str:
+    score = _decimal_display_value(value)
+    other = _decimal_display_value(counterpart)
+    if score is None:
+        return "未計算です。予測レンジ、モデル方向一致、データ品質を先に確認します。"
+    score_text = _format_direction_decimal(score)
+    if kind == "upside":
+        if score >= Decimal("75"):
+            comment = f"{score_text}は強めです。上向き材料が複数要素でそろっているか確認します。"
+        elif score >= Decimal("65"):
+            comment = (
+                f"{score_text}はやや強めです。予測変化率と直近トレンドが同じ向きか確認します。"
+            )
+        elif score >= Decimal("45"):
+            comment = f"{score_text}は中立圏です。決め手よりもモデル方向の割れを確認します。"
+        else:
+            comment = (
+                f"{score_text}は弱めです。上向き材料だけで深掘りせず、反転材料の有無を確認します。"
+            )
+        if other is not None and other - score >= Decimal("12"):
+            comment += " 今回は下降警戒のほうが優勢です。"
+        return comment
+
+    if score >= Decimal("70"):
+        comment = f"{score_text}は高めです。直近安値割れ、下落継続リスク、予測下限を確認します。"
+    elif score >= Decimal("65"):
+        comment = (
+            f"{score_text}はやや高めです。価格トレンドと予測変化率が下向きにそろうか確認します。"
+        )
+    elif score >= Decimal("55"):
+        comment = f"{score_text}は中立圏の上側です。上昇気配とのバランスを確認します。"
+    elif score >= Decimal("45"):
+        comment = f"{score_text}は中立圏です。下向き材料は限定的か、拮抗している状態です。"
+    else:
+        comment = f"{score_text}は低めです。下向き材料は相対的に抑えめです。"
+    if other is not None and other - score >= Decimal("12"):
+        comment += " 今回は上昇気配のほうが優勢です。"
+    return comment
+
+
+def _forecast_return_check(value: str) -> str:
+    forecast_value = _decimal_display_value(value)
+    value_text = _display_value(value, "未計算")
+    if forecast_value is None:
+        return "予測変化率は未計算です。平均予測、上下限、モデル別予測線を確認します。"
+    if forecast_value >= Decimal("3"):
+        return f"{value_text}は上向き大きめです。予測上限だけでなく下限とモデル一致も確認します。"
+    if forecast_value >= Decimal("1"):
+        return f"{value_text}はやや上向きです。上昇気配と価格トレンドがそろうか確認します。"
+    if forecast_value > Decimal("-1"):
+        return f"{value_text}はほぼ中立です。平均値よりも予測レンジとモデル方向一致を見ます。"
+    if forecast_value > Decimal("-3"):
+        return f"{value_text}は平均予測が直近終値を下回る状態です。下降警戒との整合を確認します。"
+    return f"{value_text}は下向き大きめです。予測下限と直近トレンドを慎重に確認します。"
+
+
+def _model_direction_check(value: str) -> str:
+    counts = _direction_counts(value)
+    if counts is None or sum(counts) == 0:
+        return "モデル方向は未計算です。予測評価と価格チャートを優先して確認します。"
+    up, down, flat = counts
+    if _direction_counts_are_split(counts):
+        return "モデル方向は割れています。1モデルだけの方向に寄せず、実績チャートと予測レンジを合わせます。"
+    if up > down and up > flat:
+        return "上向きモデルが多めです。上昇気配、予測変化率、直近トレンドがそろうか確認します。"
+    if down > up and down > flat:
+        return "下向きモデルが多めです。下降警戒、予測変化率、直近トレンドがそろうか確認します。"
+    return "横ばいモデルが多めです。大きな方向より、レンジ内の振れとデータ品質を確認します。"
+
+
+def _forecast_range_check(value: str, agreement: str) -> str:
+    range_value = _decimal_display_value(value)
+    value_text = _display_value(value, "未計算")
+    if range_value is None:
+        return "予測の開きは未計算です。モデル別予測線と評価サンプル数を確認します。"
+    if range_value >= Decimal("10") and _agreement_is_low(agreement):
+        return f"{value_text}は大きめでモデル一致度も低めです。平均値だけでなく上下限と実績チャートを確認します。"
+    if range_value >= Decimal("10"):
+        return (
+            f"{value_text}は大きめです。上昇気配・下降警戒の解釈は控えめにし、上下限を確認します。"
+        )
+    if range_value >= Decimal("5"):
+        return f"{value_text}はやや大きめです。平均予測だけでなくモデルごとの差を確認します。"
+    return f"{value_text}は小さめです。モデル間の見方は比較的近い状態です。"
+
+
+def _forecast_return_summary_clause(value_text: str, value: Decimal | None) -> str:
+    display_text = _display_value(value_text, "未計算")
+    if value is None:
+        return f"予測変化率は{display_text}です。"
+    if value >= Decimal("1"):
+        return f"予測変化率は{display_text}で、平均予測は直近終値を上回っています。"
+    if value <= Decimal("-1"):
+        return f"予測変化率は{display_text}で、平均予測は直近終値を下回っています。"
+    return f"予測変化率は{display_text}で、平均予測は直近終値に近い水準です。"
+
+
+def _uncertainty_summary_clause(
+    direction_match: str,
+    forecast_range: str,
+    range_value: Decimal | None,
+    agreement: str,
+) -> str:
+    counts = _direction_counts(direction_match)
+    direction_split = _direction_counts_are_split(counts)
+    low_agreement = _agreement_is_low(agreement)
+    if range_value is not None and range_value >= Decimal("10") and direction_split:
+        return f"モデル方向は割れていて予測の開きも{forecast_range}と大きめなので、"
+    if range_value is not None and range_value >= Decimal("10"):
+        return f"予測の開きは{forecast_range}と大きめなので、"
+    if direction_split or low_agreement:
+        return "モデル同士の見方にばらつきがあるため、"
+    return ""
+
+
+def _forecast_return_label(value: Decimal | None) -> str:
+    if value is None:
+        return "予測変化率は未計算"
+    if value >= Decimal("1"):
+        return "予測は上向き"
+    if value <= Decimal("-1"):
+        return "予測は下向き"
+    return "予測は中立"
+
+
+def _forecast_range_label(value: Decimal | None, agreement: str) -> str:
+    if value is None:
+        return "ばらつき未計算"
+    if value >= Decimal("10") or _agreement_is_low(agreement):
+        return "ばらつき大きめ"
+    if value >= Decimal("5"):
+        return "ばらつきやや大きめ"
+    return "ばらつき小さめ"
+
+
+def _direction_counts(value: str) -> tuple[int, int, int] | None:
+    matches = _DIRECTION_COUNT_PATTERN.findall(str(value or ""))
+    if not matches:
+        return None
+    counts = {"上昇": 0, "下降": 0, "横ばい": 0}
+    for label, count_text in matches:
+        counts[label] = int(count_text)
+    return counts["上昇"], counts["下降"], counts["横ばい"]
+
+
+def _direction_counts_are_split(counts: tuple[int, int, int] | None) -> bool:
+    if counts is None or sum(counts) == 0:
+        return False
+    ordered = sorted(counts, reverse=True)
+    return ordered[0] == ordered[1] or ordered[0] <= 1
+
+
+def _agreement_is_low(value: str) -> bool:
+    decimal_value = _decimal_display_value(value)
+    if decimal_value is not None:
+        return decimal_value < Decimal("50")
+    text = str(value or "").strip().upper()
+    return text in {"LOW", "低", "低め", "低い", "LOW AGREEMENT"}
 
 
 def render_cockpit_direction_signal_cards(cards: list[dict[str, str]]) -> None:

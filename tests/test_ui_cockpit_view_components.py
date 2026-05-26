@@ -108,12 +108,17 @@ def test_cockpit_direction_signal_detail_rows_explain_balance_and_model_spread()
         },
     )
 
-    assert rows[0]["観点"] == "上昇気配"
-    assert rows[0]["内容"] == "78"
-    assert rows[1]["観点"] == "下降警戒"
-    assert rows[1]["内容"] == "34"
-    assert rows[3]["内容"] == "上昇 2 / 下降 1 / 横ばい 0"
-    assert rows[4]["内容"] == "12.4% / モデル一致度 LOW"
+    assert rows[0]["観点"] == "読み取り"
+    assert rows[0]["内容"] == "上昇気配優勢 / 予測は上向き / ばらつき大きめ"
+    assert "価格チャート" in rows[0]["確認ポイント"]
+    assert rows[1]["観点"] == "上昇気配"
+    assert rows[1]["内容"] == "78"
+    assert rows[2]["観点"] == "下降警戒"
+    assert rows[2]["内容"] == "34"
+    assert "今回は上昇気配のほうが優勢" in rows[2]["確認ポイント"]
+    assert rows[4]["内容"] == "上昇 2 / 下降 1 / 横ばい 0"
+    assert rows[5]["内容"] == "12.4% / モデル一致度 LOW"
+    assert "モデル一致度も低め" in rows[5]["確認ポイント"]
 
 
 def test_cockpit_direction_signal_summary_warns_on_high_downside():
@@ -127,7 +132,29 @@ def test_cockpit_direction_signal_summary_warns_on_high_downside():
     )
 
     assert "下降警戒が72" in summary
-    assert "予測変化率 -2.4%" in summary
+    assert "予測変化率は-2.4%" in summary
+    assert "直近終値を下回っています" in summary
+
+
+def test_cockpit_direction_signal_summary_handles_split_downside_case():
+    summary = cockpit_direction_signal_summary(
+        {
+            "上昇気配": "36.71",
+            "下降警戒": "65.04",
+            "予測変化率": "-2.4%",
+            "方向一致": "上昇 1 / 下降 1 / 横ばい 1",
+        },
+        {
+            "forecast_range_pct": "13.29%",
+            "agreement": "LOW",
+        },
+    )
+
+    assert "下降警戒が65" in summary
+    assert "上昇気配36.7" in summary
+    assert "モデル方向は割れていて" in summary
+    assert "予測の開きも13.29%" in summary
+    assert "下落継続リスクと反転材料" in summary
 
 
 def test_research_evidence_summary_items_explain_report_coverage():

@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-05-26: Reworked Symbol Cockpit `SMAI Insight`, `Signal Reading`, and confirmation-point tables so chart copy avoids duplicate direction-score cards and table rows describe actual value bands, model split, forecast spread, and next verification points.
 - 2026-05-26: Split Symbol Cockpit card wording into visible `今回:` value readings and `?` metric-help tooltips, and renamed the displayed `方向スコア` card to `方向バランス`.
 - 2026-05-26: Added value-band wording tables for Symbol Cockpit cards so KPI and direction-signal descriptions explain both metric meaning and how to read the current score.
 - 2026-05-26: Added a Symbol Cockpit `Direction Signal / 上昇気配・下降警戒` section so single-symbol review shows the same direction label, upside signal, downside warning, forecast return, model direction counts, and forecast spread used by ranking.

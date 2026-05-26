@@ -2523,6 +2523,7 @@ def test_forecast_chart_summary_explains_agreement_and_range():
                 "horizon_days": "1",
                 "model_count": "3",
                 "forecast_range_pct": "1.90%",
+                "forecast_return_pct": "0.01%",
                 "agreement": "MEDIUM",
                 "upside_signal_score": "54.65",
                 "downside_signal_score": "49.26",
@@ -2544,12 +2545,11 @@ def test_forecast_chart_summary_explains_agreement_and_range():
     )
 
     assert messages[0] == (
-        "3 つの予測モデルから、上昇気配は 54.65、"
-        "下降警戒は 49.26 です。予測の開きは 1.90% です。"
+        "3 つの予測モデルを表示しています。" "平均予測の変化率は 0.01%、予測の開きは 1.90% です。"
     )
     assert messages[1] == (
         "実線はこれまでの価格、点線はモデルごとの予測です。"
-        "上昇気配・下降警戒は深掘り候補を整理する補助材料です。"
+        "方向シグナルは深掘り候補を整理する補助材料です。"
     )
     assert "予測: 直近値維持" in messages[2]
 
@@ -2791,7 +2791,9 @@ def test_ranking_candidate_cards_and_breakdown_use_existing_display_values():
         "Research Evidence",
     ]
     assert breakdown[2]["値"] == "上昇気配 76 / 下降警戒 42"
-    assert breakdown[3]["確認ポイント"] == "評価に使えるデータの充実度"
+    assert breakdown[3]["確認ポイント"] == (
+        "銘柄メタデータと価格データの充実度です。低い場合はスコア解釈を控えめにします。"
+    )
     assert breakdown[5]["値"] == "根拠あり"
 
 

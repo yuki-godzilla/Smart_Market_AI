@@ -171,12 +171,10 @@ from ui.styles import (
 )
 from ui.symbol_universe import symbol_provider_symbol, symbol_universe_csv_rows
 from ui.views.cockpit import (
-    cockpit_direction_signal_cards,
     cockpit_direction_signal_detail_rows,
     cockpit_direction_signal_summary,
     cockpit_kpi_cards,
     cockpit_summary_items,
-    render_cockpit_direction_signal_cards,
     render_cockpit_kpi_cards,
     render_cockpit_summary_header,
     render_research_evidence_summary,
@@ -2005,12 +2003,16 @@ def ranking_candidate_breakdown_rows(
         {
             "観点": "Investment Score",
             "値": selected_row.get("総合スコア", "未計算"),
-            "確認ポイント": truncate_text(selected_row.get("見方", ""), max_chars=42),
+            "確認ポイント": truncate_text(
+                selected_row.get("見方", "")
+                or "複数観点を統合した比較用スコアです。内訳と注意点を確認します。",
+                max_chars=56,
+            ),
         },
         {
             "観点": "Screening",
             "値": selected_row.get("Screening", "未計算"),
-            "確認ポイント": "市場データ由来の比較材料",
+            "確認ポイント": "市場データ由来の候補評価です。モメンタム、流動性、Riskの偏りを確認します。",
         },
         {
             "観点": "上昇気配・下降警戒",
@@ -2018,17 +2020,20 @@ def ranking_candidate_breakdown_rows(
                 f"上昇気配 {selected_row.get('上昇気配', '未計算')} / "
                 f"下降警戒 {selected_row.get('下降警戒', '未計算')}"
             ),
-            "確認ポイント": ("ランキングとコックピットで同じ2指標として確認します。"),
+            "確認ポイント": _ranking_direction_check(selected_row),
         },
         {
             "観点": "Data Confidence",
             "値": selected_row.get("DB信頼度") or selected_row.get("条件適合度") or "未登録",
-            "確認ポイント": "評価に使えるデータの充実度",
+            "確認ポイント": "銘柄メタデータと価格データの充実度です。低い場合はスコア解釈を控えめにします。",
         },
         {
             "観点": "Risk",
             "値": selected_row.get("Risk", "未接続"),
-            "確認ポイント": truncate_text(selected_row.get("注意点", ""), max_chars=42),
+            "確認ポイント": truncate_text(
+                selected_row.get("注意点", "") or "価格変動、下落幅、品質警告がないか確認します。",
+                max_chars=56,
+            ),
         },
         {
             "観点": "Research Evidence",
@@ -2063,6 +2068,24 @@ def ranking_candidate_breakdown_rows(
             },
         )
     return rows
+
+
+def _ranking_direction_check(row: Mapping[str, str]) -> str:
+    upside = _decimal_from_text(row.get("上昇気配"))
+    downside = _decimal_from_text(row.get("下降警戒"))
+    forecast_return = _display_table_value(row.get("予測変化率"))
+    if upside is None or downside is None:
+        return "方向シグナルが不足しています。コックピットで価格チャートと予測レンジを確認します。"
+    gap = upside - downside
+    if downside >= Decimal("65") and gap <= Decimal("-10"):
+        return (
+            f"下降警戒が相対的に高めです。予測変化率 {forecast_return} と直近トレンドを確認します。"
+        )
+    if upside >= Decimal("65") and gap >= Decimal("10"):
+        return f"上昇気配が相対的に高めです。予測変化率 {forecast_return} と予測下限を確認します。"
+    if upside >= Decimal("65") and downside >= Decimal("65"):
+        return "上向き・下向き材料が同時に強めです。予測レンジとモデル方向の割れを確認します。"
+    return "ランキングとコックピットで同じ2指標を使い、どちらが優勢かを価格チャートと合わせて確認します。"
 
 
 def _render_ranking_summary_cards(cards: list[dict[str, str]]) -> None:
@@ -4494,8 +4517,10 @@ def _render_cockpit_direction_signal_section(
     consensus_rows: list[dict[str, str]],
 ) -> None:
     consensus_row = consensus_rows[0] if consensus_rows else {}
-    direction_cards = cockpit_direction_signal_cards(score_row, consensus_row)
-    render_cockpit_direction_signal_cards(direction_cards)
+    render_section_heading("03 Signal Reading / シグナル読み取り")
+    st.caption(
+        "Analysis KPI の方向シグナルを、価格チャート後の読み取りとして整理します。売買推奨ではありません。"
+    )
     insight_tone = (
         "caution"
         if (_decimal_from_text(score_row.get("下降警戒")) or Decimal("0")) >= Decimal("65")
@@ -4592,7 +4617,7 @@ def cockpit_detail_summary_rows(
                     f"{quote_row.get('last', '未取得')} / "
                     f"{quote_row.get('ts', '')[:10] or '日時未取得'}"
                 ),
-                "確認ポイント": "チャート、予測、スコアが参照している最新終値を確認します。",
+                "確認ポイント": "以降のチャート、予測、スコアはこの終値を基準にします。基準日が想定より古い場合は再取得します。",
             }
         )
     if ohlcv_row:
@@ -4605,7 +4630,7 @@ def cockpit_detail_summary_rows(
                     f"{ohlcv_row.get('bars', '0')}本 / 出来高合計 "
                     f"{ohlcv_row.get('total_volume', '未取得')}"
                 ),
-                "確認ポイント": "本数が少ない場合は、上昇気配・下降警戒やRiskの安定性を控えめに見ます。",
+                "確認ポイント": _cockpit_ohlcv_check(ohlcv_row),
             }
         )
     if consensus_row:
@@ -4618,7 +4643,9 @@ def cockpit_detail_summary_rows(
                     f"{consensus_row.get('max_forecast_close', '未計算')}、"
                     f"開き {consensus_row.get('forecast_range_pct', '未計算')}"
                 ),
-                "確認ポイント": "予測の開きが大きい時は、上昇気配・下降警戒より不確実性を先に確認します。",
+                "確認ポイント": _cockpit_forecast_range_check(
+                    consensus_row.get("forecast_range_pct")
+                ),
             }
         )
     if screening_row:
@@ -4632,7 +4659,7 @@ def cockpit_detail_summary_rows(
                     f"リスク {screening_row.get('risk_score', '未計算')}"
                 ),
                 "確認ポイント": screening_row.get("summary", "")
-                or "候補として残った理由を、個別指標に分けて確認します。",
+                or _cockpit_screening_check(screening_row),
             }
         )
     if feature_row:
@@ -4645,7 +4672,7 @@ def cockpit_detail_summary_rows(
                     f"20日下落 {feature_row.get('drawdown_20d', '未計算')}、"
                     f"完全性 {feature_row.get('data_completeness', '未計算')}"
                 ),
-                "確認ポイント": "値動きの勢い、下落幅、欠損の有無を同時に確認します。",
+                "確認ポイント": _cockpit_feature_check(feature_row),
             }
         )
         rows.append(
@@ -4655,7 +4682,7 @@ def cockpit_detail_summary_rows(
                     f"{feature_row.get('data_quality', '未判定')} / "
                     f"欠損: {feature_row.get('missing_summary', '未取得')}"
                 ),
-                "確認ポイント": "欠損や品質警告がある場合は、詳細を展開して根拠データを確認します。",
+                "確認ポイント": _cockpit_data_quality_check(feature_row),
             }
         )
     metric_messages = forecast_metric_summary(metric_rows)
@@ -4664,10 +4691,87 @@ def cockpit_detail_summary_rows(
             {
                 "観点": "予測評価",
                 "内容": metric_messages[0],
-                "確認ポイント": "RMSEと方向一致率は、予測線を読む時の信頼度の補助情報です。",
+                "確認ポイント": "RMSEは価格予測の誤差、方向一致率は上下方向の当たり方です。予測線を読む時の信頼度補助として見ます。",
             }
         )
     return rows
+
+
+def _cockpit_ohlcv_check(row: Mapping[str, str]) -> str:
+    bars = _int_from_text(row.get("bars"))
+    if bars is None:
+        return "取得本数が未確認です。参照期間、provider、欠損の有無を確認します。"
+    if bars < 20:
+        return "取得本数が少なめです。短期の値動きに寄りやすいため、期間を広げて再確認します。"
+    if bars < 60:
+        return "短中期の確認には使えます。急変日や欠損が結果を動かしていないか確認します。"
+    return "参照期間は比較的そろっています。直近だけでなく期間全体のトレンドも確認します。"
+
+
+def _cockpit_forecast_range_check(value: object) -> str:
+    range_pct = _decimal_from_text(value)
+    value_text = _display_table_value(value)
+    if range_pct is None:
+        return "予測の開きは未計算です。モデル別予測線と評価サンプル数を確認します。"
+    if range_pct >= Decimal("10"):
+        return f"予測の開きは{value_text}で大きめです。平均予測だけでなく、上下限とモデル別の前提を確認します。"
+    if range_pct >= Decimal("5"):
+        return f"予測の開きは{value_text}でやや大きめです。強い方向材料として読みすぎないようにします。"
+    return f"予測の開きは{value_text}で小さめです。モデル間の見方は比較的近い状態です。"
+
+
+def _cockpit_screening_check(row: Mapping[str, str]) -> str:
+    momentum = _decimal_from_text(row.get("momentum_score"))
+    liquidity = _decimal_from_text(row.get("liquidity_score"))
+    risk = _decimal_from_text(row.get("risk_score"))
+    checks: list[str] = []
+    if momentum is not None and momentum >= Decimal("70"):
+        checks.append("モメンタムは強め")
+    if liquidity is not None and liquidity >= Decimal("70"):
+        checks.append("流動性は確認しやすい")
+    if risk is not None and risk < Decimal("50"):
+        checks.append("Riskは確認優先")
+    if checks:
+        return "、".join(checks) + "です。候補として残った理由と注意点を分けて確認します。"
+    return "候補として残った理由を、モメンタム・流動性・Riskに分けて確認します。"
+
+
+def _cockpit_feature_check(row: Mapping[str, str]) -> str:
+    momentum_5d = _decimal_from_text(row.get("momentum_5d"))
+    drawdown_20d = _decimal_from_text(row.get("drawdown_20d"))
+    if momentum_5d is not None and momentum_5d >= Decimal("5"):
+        return (
+            "5日モメンタムが強めです。短期反発か、継続トレンドかを20日下落幅と合わせて確認します。"
+        )
+    if drawdown_20d is not None and drawdown_20d <= Decimal("-10"):
+        return "20日下落幅が大きめです。反発候補か下落継続かを価格チャートで確認します。"
+    return "1日・5日リターンと20日下落幅を並べて、予測方向が直近の値動きだけに寄っていないか確認します。"
+
+
+def _cockpit_data_quality_check(row: Mapping[str, str]) -> str:
+    quality = str(row.get("data_quality", "")).strip().upper()
+    completeness = _decimal_from_text(row.get("data_completeness"))
+    missing = str(row.get("missing_summary", "")).strip()
+    if quality == "OK" and (completeness is None or completeness >= Decimal("95")):
+        return "欠損は少なめです。スコア解釈では、次に予測評価と直近トレンドを確認します。"
+    if missing and missing not in {"なし", "-", "0"}:
+        return "欠損があります。欠けている項目がForecast、Risk、Data Confidenceに影響していないか確認します。"
+    return "品質警告がある場合は、詳細を展開して根拠データとproviderを確認します。"
+
+
+def _int_from_text(value: object) -> int | None:
+    text = str(value or "").replace(",", "").strip()
+    if not text:
+        return None
+    try:
+        return int(text)
+    except ValueError:
+        return None
+
+
+def _display_table_value(value: object) -> str:
+    text = str(value or "").strip()
+    return text or "未計算"
 
 
 def cockpit_period_evaluation_rows(bars: list[Bar]) -> list[dict[str, str]]:
@@ -6449,16 +6553,15 @@ def forecast_chart_summary(
         return ["予測を表示するには、もう少し価格データが必要です。"]
 
     row = consensus_rows[0]
-    upside_score = row.get("upside_signal_score") or "未計算"
-    downside_score = row.get("downside_signal_score") or "未計算"
     range_pct = row.get("forecast_range_pct") or "未計算"
+    forecast_return = row.get("forecast_return_pct") or "未計算"
     model_count = row.get("model_count") or "0"
     messages = [
         (
-            f"{model_count} つの予測モデルから、上昇気配は {upside_score}、"
-            f"下降警戒は {downside_score} です。予測の開きは {range_pct} です。"
+            f"{model_count} つの予測モデルを表示しています。"
+            f"平均予測の変化率は {forecast_return}、予測の開きは {range_pct} です。"
         ),
-        "実線はこれまでの価格、点線はモデルごとの予測です。上昇気配・下降警戒は深掘り候補を整理する補助材料です。",
+        "実線はこれまでの価格、点線はモデルごとの予測です。方向シグナルは深掘り候補を整理する補助材料です。",
     ]
     metric_messages = forecast_metric_summary(metric_rows)
     if metric_messages:

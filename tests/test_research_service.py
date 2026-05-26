@@ -6,6 +6,7 @@ import pytest
 
 from backend.research import (
     CompanyResearchRequest,
+    HybridResearchRetrievalService,
     ResearchAnalysisService,
     ResearchDisabledVectorStore,
     ResearchDocumentError,
@@ -19,6 +20,7 @@ from backend.research import (
     ResearchInMemoryStore,
     ResearchQueryExpansionService,
     ResearchRetrievalCandidate,
+    ResearchRetrievalQuality,
     ResearchRetrievalService,
     ResearchSearchRequest,
 )
@@ -515,3 +517,95 @@ def test_research_embedding_contract_carries_cache_key_fields():
     assert embedding.chunk_id == "chunk-1"
     assert embedding.embedding_model == "local-test"
     assert embedding.text_hash == "abc123"
+
+
+def test_hybrid_retrieval_falls_back_to_keyword_when_vector_store_is_disabled(tmp_path):
+    document_path = tmp_path / "growth_note.md"
+    document_path.write_text(
+        "Growth strategy includes market expansion and overseas revenue.",
+        encoding="utf-8",
+    )
+    store = ResearchInMemoryStore()
+    ingestion = ResearchIngestionService(store, document_dirs=[tmp_path])
+    ResearchIndexService(store, max_chars=240).rebuild_index(symbol="7203.T")
+    ingestion.register_document(
+        ResearchDocumentRegisterRequest(
+            symbol="7203.T",
+            title="Growth Note",
+            local_path=str(document_path),
+            source_type="user_note",
+            published_at=date(2026, 5, 1),
+        )
+    )
+    ResearchIndexService(store, max_chars=240).rebuild_index(symbol="7203.T")
+    keyword = ResearchRetrievalService(store)
+    hybrid = HybridResearchRetrievalService(keyword)
+    request = ResearchSearchRequest(
+        symbol="7203.T",
+        query="growth strategy market",
+        top_k=2,
+        as_of=date(2026, 5, 25),
+    )
+
+    evidence = hybrid.search(request)
+    quality = hybrid.retrieval_quality(request)
+
+    assert evidence
+    assert evidence[0].title == "Growth Note"
+    assert quality.backend == "hybrid"
+    assert quality.candidate_count == len(evidence)
+    assert "Hybrid retrieval fell back to keyword retrieval." in quality.warnings
+
+
+def test_hybrid_retrieval_scores_vector_candidates_when_available():
+    class FakeVectorStore:
+        def search(self, request: ResearchSearchRequest) -> list[ResearchRetrievalCandidate]:
+            return [
+                ResearchRetrievalCandidate(
+                    symbol=request.symbol,
+                    document_id="doc-vector",
+                    chunk_id="chunk-vector",
+                    title="Vector Report",
+                    source_type="annual_report",
+                    published_at=date(2026, 5, 1),
+                    section_title="Growth",
+                    excerpt="Growth strategy and overseas expansion.",
+                    keyword_score=Decimal("0.50"),
+                    vector_score=Decimal("0.90"),
+                    reliability=Decimal("0.80"),
+                )
+            ]
+
+        def retrieval_quality(
+            self,
+            request: ResearchSearchRequest,
+            *,
+            expanded_terms: list[str] | None = None,
+        ) -> ResearchRetrievalQuality:
+            return ResearchRetrievalQuality(
+                backend="vector",
+                query=request.query,
+                expanded_terms=expanded_terms or request.expanded_terms,
+                candidate_count=1,
+                evidence_count=1,
+                warnings=[],
+            )
+
+    hybrid = HybridResearchRetrievalService(
+        ResearchRetrievalService(ResearchInMemoryStore()),
+        vector_store=FakeVectorStore(),
+    )
+    request = ResearchSearchRequest(
+        symbol="7203.T",
+        query="growth strategy",
+        top_k=1,
+        as_of=date(2026, 5, 25),
+    )
+
+    evidence = hybrid.search(request)
+    quality = hybrid.retrieval_quality(request)
+
+    assert evidence[0].title == "Vector Report"
+    assert evidence[0].relevance_score == Decimal("0.7450")
+    assert quality.backend == "hybrid"
+    assert quality.candidate_count == 1

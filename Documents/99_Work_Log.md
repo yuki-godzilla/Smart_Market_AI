@@ -634,3 +634,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added optional Research RAG vector / hybrid intermediate contracts: `ResearchEmbedding` and `ResearchRetrievalCandidate`.
 - Added `ResearchDisabledVectorStore` so the default vector path is explicit, deterministic, and reports a retrieval-quality warning instead of silently attempting vector search.
 - Added `ResearchHybridScorer` and `ResearchHybridScoreWeights` to combine keyword, vector, freshness, reliability, and source-type priority scores without wiring hybrid retrieval into the default keyword path yet.
+
+## 2026-05-26 - Phase 21 keyword-fallback hybrid retrieval wrapper
+
+- Added `HybridResearchRetrievalService` as an optional wrapper around the existing keyword retrieval service and optional vector store.
+- Converted hybrid-scored vector candidates back to `ResearchEvidence` so downstream Research Summary / Decision Report contracts stay compatible.
+- Kept the default keyword retrieval path unchanged; when vector search is disabled or empty, hybrid retrieval falls back to keyword results and records retrieval-quality warnings.

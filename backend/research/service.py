@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Literal, Sequence, cast
+from typing import Literal, Protocol, Sequence, cast
 
 import yaml  # type: ignore[import-untyped]
 from pydantic import Field
@@ -647,6 +647,61 @@ class ResearchDisabledVectorStore:
         )
 
 
+class ResearchVectorStore(Protocol):
+    """Protocol for optional local vector stores."""
+
+    def search(self, request: ResearchSearchRequest) -> list[ResearchRetrievalCandidate]: ...
+
+    def retrieval_quality(
+        self,
+        request: ResearchSearchRequest,
+        *,
+        expanded_terms: Sequence[str] | None = None,
+    ) -> ResearchRetrievalQuality: ...
+
+
+class HybridResearchRetrievalService:
+    """Optional hybrid retrieval wrapper with deterministic keyword fallback."""
+
+    def __init__(
+        self,
+        keyword_retrieval: ResearchRetrievalService,
+        vector_store: ResearchVectorStore | None = None,
+        scorer: ResearchHybridScorer | None = None,
+        reranker: ResearchEvidenceReranker | None = None,
+    ) -> None:
+        self.keyword_retrieval = keyword_retrieval
+        self.vector_store = vector_store or ResearchDisabledVectorStore()
+        self.scorer = scorer or ResearchHybridScorer()
+        self.reranker = reranker or ResearchEvidenceReranker()
+
+    def search(self, request: ResearchSearchRequest) -> list[ResearchEvidence]:
+        vector_candidates = self.vector_store.search(request)
+        if not vector_candidates:
+            return self.keyword_retrieval.search(request)
+
+        as_of = request.as_of or date.today()
+        scored = [self.scorer.score(candidate, as_of=as_of) for candidate in vector_candidates]
+        evidence = [_evidence_from_candidate(candidate) for candidate in scored]
+        return self.reranker.rerank(evidence, as_of=as_of)[: request.top_k]
+
+    def retrieval_quality(self, request: ResearchSearchRequest) -> ResearchRetrievalQuality:
+        vector_quality = self.vector_store.retrieval_quality(request)
+        if vector_quality.candidate_count > 0:
+            return vector_quality.model_copy(update={"backend": "hybrid"})
+        keyword_evidence = self.keyword_retrieval.search(request)
+        warnings = list(vector_quality.warnings)
+        warnings.append("Hybrid retrieval fell back to keyword retrieval.")
+        return ResearchRetrievalQuality(
+            backend="hybrid",
+            query=vector_quality.query,
+            expanded_terms=vector_quality.expanded_terms,
+            candidate_count=len(keyword_evidence),
+            evidence_count=len(keyword_evidence),
+            warnings=warnings,
+        )
+
+
 class ResearchRetrievalService:
     """Retrieve local research evidence with deterministic keyword scoring."""
 
@@ -1033,6 +1088,21 @@ def _evidence_from_chunk(chunk: ResearchChunk, *, relevance_score: Decimal) -> R
             if "reliability" in chunk.metadata
             else Decimal("0.70")
         ),
+    )
+
+
+def _evidence_from_candidate(candidate: ResearchRetrievalCandidate) -> ResearchEvidence:
+    return ResearchEvidence(
+        symbol=candidate.symbol,
+        document_id=candidate.document_id,
+        chunk_id=candidate.chunk_id,
+        title=candidate.title,
+        source_type=candidate.source_type,
+        published_at=candidate.published_at,
+        section_title=candidate.section_title,
+        excerpt=candidate.excerpt,
+        relevance_score=candidate.final_relevance_score,
+        reliability=candidate.reliability,
     )
 
 

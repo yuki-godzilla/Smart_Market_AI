@@ -1,6 +1,7 @@
 from backend.research.service import (
     CompanyResearchReport,
     CompanyResearchRequest,
+    HybridResearchRetrievalService,
     ResearchAnalysisService,
     ResearchChunk,
     ResearchDataQuality,
@@ -29,11 +30,13 @@ from backend.research.service import (
     ResearchSearchError,
     ResearchSearchRequest,
     ResearchSummaryPoint,
+    ResearchVectorStore,
 )
 
 __all__ = [
     "CompanyResearchRequest",
     "CompanyResearchReport",
+    "HybridResearchRetrievalService",
     "ResearchAnalysisService",
     "ResearchChunk",
     "ResearchDataQuality",
@@ -62,4 +65,5 @@ __all__ = [
     "ResearchSearchRequest",
     "ResearchRetrievalService",
     "ResearchSummaryPoint",
+    "ResearchVectorStore",
 ]

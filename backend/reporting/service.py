@@ -432,10 +432,10 @@ _DISPLAY_KEY_LABELS = {
     "total_score": "総合スコア",
     "score_band": "見方",
     "screening_score": "Screening",
-    "direction_net_score": "方向スコア",
+    "direction_net_score": "互換スコア",
     "upside_signal_score": "上昇気配",
     "downside_signal_score": "下降警戒",
-    "direction_signal_label": "方向感",
+    "direction_signal_label": "互換ラベル",
     "forecast_return_pct": "予測変化率",
     "forecast_agreement_score": "モデル一致度(補助)",
     "risk_signal_score": "Risk",
@@ -500,7 +500,7 @@ def _display_value(key: str, value: str) -> str:
     if key == "component":
         return {
             "Screening": "スクリーニング",
-            "Direction Signal": "方向感",
+            "Direction Signal": "上昇気配・下降警戒",
             "Forecast agreement": "モデル一致度(補助)",
             "Data quality": "データ品質",
             "Risk signal": "Risk",

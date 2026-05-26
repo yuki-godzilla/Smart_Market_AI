@@ -610,3 +610,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - This prevents one-week / one-day ranking periods from causing every symbol to fall back to `UNKNOWN` and neutral 50 / 50 direction scores.
 - Clarified UI fallback wording as `方向データ不足` and made overlapping upside/downside charts fall back to a more informative score/risk map.
 - Bumped the ranking build cache key so existing Streamlit sessions recompute ranking rows with the corrected direction-signal inputs.
+
+## 2026-05-26 - Upside / downside signal v2
+
+- Updated forecast signal scoring to use volatility-adjusted forecast edge, model direction edge, continuous momentum scoring, trend confirmation, and a confidence-factor floor.
+- Kept Ranking and Symbol Cockpit primary direction-support UI to the two existing indicators: `上昇気配` and `下降警戒`; older direction net / label fields remain backend compatibility details, not main UI indicators.
+- Changed ranking preset scoring so higher `下降警戒` lowers the ranking contribution internally while the raw warning score remains visible to users.
+- Refreshed UI wording, chart profiles, tests, and current-state docs to avoid adding direction balance / direction score style public indicators.

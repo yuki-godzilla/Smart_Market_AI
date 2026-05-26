@@ -21,10 +21,8 @@ def _ranking_rows() -> list[dict[str, str]]:
             "総合スコア": "82",
             "Screening": "79",
             "Risk": "74",
-            "方向スコア": "68",
             "上昇気配": "76",
             "下降警戒": "42",
-            "下降警戒の低さ": "58",
             "DB信頼度": "92",
             "データ品質": "90",
             "見方": "比較候補",
@@ -36,10 +34,8 @@ def _ranking_rows() -> list[dict[str, str]]:
             "総合スコア": "76",
             "Screening": "72",
             "Risk": "55",
-            "方向スコア": "80",
             "上昇気配": "84",
             "下降警戒": "30",
-            "下降警戒の低さ": "70",
             "DB信頼度": "90",
             "データ品質": "95",
             "見方": "比較候補",
@@ -51,10 +47,8 @@ def _ranking_rows() -> list[dict[str, str]]:
             "総合スコア": "61",
             "Screening": "64",
             "Risk": "40",
-            "方向スコア": "66",
             "上昇気配": "72",
             "下降警戒": "40",
-            "下降警戒の低さ": "60",
             "DB信頼度": "88",
             "データ品質": "92",
             "見方": "確認候補",
@@ -77,7 +71,7 @@ def test_ranking_chart_frame_uses_available_primary_profile_columns():
     assert selection.profile.key == PROFILE_UPSIDE_DOWNSIDE
     assert selection.x_column == "上昇気配"
     assert selection.y_column == "下降警戒"
-    assert selection.color_column == "方向スコア"
+    assert selection.color_column == "Risk"
     assert selection.used_fallback is False
     assert selection.frame["symbol"].tolist() == ["AAA", "BBB", "CCC"]
 
@@ -88,7 +82,7 @@ def test_ranking_chart_frame_falls_back_when_profile_columns_are_missing():
     assert selection is not None
     assert selection.profile.key == PROFILE_SCORE_FORECAST
     assert selection.x_column == "総合スコア"
-    assert selection.y_column == "方向スコア"
+    assert selection.y_column == "上昇気配"
     assert selection.used_fallback is True
 
 
@@ -102,7 +96,7 @@ def test_ranking_chart_frame_uses_upside_downside_profile_for_upside_purpose():
     assert selection.profile.key == PROFILE_UPSIDE_DOWNSIDE
     assert selection.x_column == "上昇気配"
     assert selection.y_column == "下降警戒"
-    assert selection.color_column == "方向スコア"
+    assert selection.color_column == "Risk"
     assert selection.used_fallback is False
 
 
@@ -112,8 +106,6 @@ def test_ranking_chart_frame_falls_back_when_upside_axes_overlap():
             **row,
             "上昇気配": "50",
             "下降警戒": "50",
-            "下降警戒の低さ": "50",
-            "方向スコア": "50",
         }
         for row in _ranking_rows()
     ]

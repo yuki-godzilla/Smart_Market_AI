@@ -325,14 +325,16 @@ RANKING_WEIGHT_PRESET_LABELS = {
 RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     RANKING_PRESET_BALANCED: {
         "screening_score": Decimal("0.30"),
-        "direction_net_score": Decimal("0.20"),
+        "upside_signal_score": Decimal("0.14"),
+        "downside_signal_score": Decimal("0.06"),
         "data_quality_score": Decimal("0.15"),
         "risk_signal_score": Decimal("0.15"),
         "database_fit_score": Decimal("0.10"),
         "metadata_confidence_score": Decimal("0.10"),
     },
     RANKING_PRESET_FORECAST: {
-        "direction_net_score": Decimal("0.35"),
+        "upside_signal_score": Decimal("0.25"),
+        "downside_signal_score": Decimal("0.10"),
         "screening_score": Decimal("0.25"),
         "data_quality_score": Decimal("0.15"),
         "risk_signal_score": Decimal("0.10"),
@@ -340,7 +342,8 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
         "metadata_confidence_score": Decimal("0.10"),
     },
     RANKING_PRESET_UPSIDE_SIGNAL: {
-        "direction_net_score": Decimal("0.35"),
+        "upside_signal_score": Decimal("0.25"),
+        "downside_signal_score": Decimal("0.10"),
         "screening_score": Decimal("0.25"),
         "risk_signal_score": Decimal("0.10"),
         "data_quality_score": Decimal("0.15"),
@@ -349,7 +352,8 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     },
     RANKING_PRESET_QUALITY: {
         "screening_score": Decimal("0.25"),
-        "direction_net_score": Decimal("0.10"),
+        "upside_signal_score": Decimal("0.07"),
+        "downside_signal_score": Decimal("0.03"),
         "data_quality_score": Decimal("0.40"),
         "risk_signal_score": Decimal("0.10"),
         "database_fit_score": Decimal("0.05"),
@@ -357,7 +361,8 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     },
     RANKING_PRESET_RISK: {
         "screening_score": Decimal("0.25"),
-        "direction_net_score": Decimal("0.10"),
+        "upside_signal_score": Decimal("0.05"),
+        "downside_signal_score": Decimal("0.05"),
         "data_quality_score": Decimal("0.20"),
         "risk_signal_score": Decimal("0.30"),
         "database_fit_score": Decimal("0.05"),
@@ -369,11 +374,13 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
         "data_quality_score": Decimal("0.20"),
         "metadata_confidence_score": Decimal("0.15"),
         "screening_score": Decimal("0.10"),
-        "direction_net_score": Decimal("0.05"),
+        "upside_signal_score": Decimal("0.03"),
+        "downside_signal_score": Decimal("0.02"),
     },
     RANKING_PRESET_GROWTH: {
         "screening_score": Decimal("0.25"),
-        "direction_net_score": Decimal("0.25"),
+        "upside_signal_score": Decimal("0.18"),
+        "downside_signal_score": Decimal("0.07"),
         "data_quality_score": Decimal("0.10"),
         "risk_signal_score": Decimal("0.10"),
         "database_fit_score": Decimal("0.20"),
@@ -385,7 +392,8 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
         "risk_signal_score": Decimal("0.20"),
         "data_quality_score": Decimal("0.15"),
         "metadata_confidence_score": Decimal("0.10"),
-        "direction_net_score": Decimal("0.05"),
+        "upside_signal_score": Decimal("0.03"),
+        "downside_signal_score": Decimal("0.02"),
     },
     RANKING_PRESET_STABILITY: {
         "risk_signal_score": Decimal("0.30"),
@@ -393,11 +401,13 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
         "metadata_confidence_score": Decimal("0.15"),
         "screening_score": Decimal("0.15"),
         "database_fit_score": Decimal("0.10"),
-        "direction_net_score": Decimal("0.10"),
+        "upside_signal_score": Decimal("0.05"),
+        "downside_signal_score": Decimal("0.05"),
     },
     RANKING_PRESET_TREND: {
         "screening_score": Decimal("0.30"),
-        "direction_net_score": Decimal("0.30"),
+        "upside_signal_score": Decimal("0.22"),
+        "downside_signal_score": Decimal("0.08"),
         "data_quality_score": Decimal("0.10"),
         "risk_signal_score": Decimal("0.15"),
         "database_fit_score": Decimal("0.05"),
@@ -405,7 +415,8 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     },
     RANKING_PRESET_MULTI_FACTOR: {
         "screening_score": Decimal("0.25"),
-        "direction_net_score": Decimal("0.20"),
+        "upside_signal_score": Decimal("0.14"),
+        "downside_signal_score": Decimal("0.06"),
         "data_quality_score": Decimal("0.15"),
         "risk_signal_score": Decimal("0.15"),
         "database_fit_score": Decimal("0.10"),
@@ -414,7 +425,8 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     },
     RANKING_PRESET_QUALITY_GROWTH: {
         "database_fit_score": Decimal("0.25"),
-        "direction_net_score": Decimal("0.25"),
+        "upside_signal_score": Decimal("0.18"),
+        "downside_signal_score": Decimal("0.07"),
         "screening_score": Decimal("0.20"),
         "risk_signal_score": Decimal("0.10"),
         "data_quality_score": Decimal("0.10"),
@@ -426,7 +438,8 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
         "risk_signal_score": Decimal("0.20"),
         "data_quality_score": Decimal("0.15"),
         "metadata_confidence_score": Decimal("0.10"),
-        "direction_net_score": Decimal("0.05"),
+        "upside_signal_score": Decimal("0.03"),
+        "downside_signal_score": Decimal("0.02"),
     },
     RANKING_PRESET_SUSTAINABLE_INCOME: {
         "database_fit_score": Decimal("0.30"),
@@ -434,7 +447,8 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
         "data_quality_score": Decimal("0.20"),
         "metadata_confidence_score": Decimal("0.15"),
         "screening_score": Decimal("0.10"),
-        "direction_net_score": Decimal("0.05"),
+        "upside_signal_score": Decimal("0.03"),
+        "downside_signal_score": Decimal("0.02"),
     },
     RANKING_PRESET_MIN_VOLATILITY: {
         "risk_signal_score": Decimal("0.30"),
@@ -442,11 +456,13 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
         "metadata_confidence_score": Decimal("0.15"),
         "screening_score": Decimal("0.15"),
         "database_fit_score": Decimal("0.10"),
-        "direction_net_score": Decimal("0.10"),
+        "upside_signal_score": Decimal("0.05"),
+        "downside_signal_score": Decimal("0.05"),
     },
     RANKING_PRESET_MOMENTUM: {
         "screening_score": Decimal("0.30"),
-        "direction_net_score": Decimal("0.30"),
+        "upside_signal_score": Decimal("0.22"),
+        "downside_signal_score": Decimal("0.08"),
         "risk_signal_score": Decimal("0.15"),
         "data_quality_score": Decimal("0.10"),
         "database_fit_score": Decimal("0.05"),
@@ -454,7 +470,8 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     },
     RANKING_PRESET_RISK_ADJUSTED: {
         "screening_score": Decimal("0.20"),
-        "direction_net_score": Decimal("0.10"),
+        "upside_signal_score": Decimal("0.05"),
+        "downside_signal_score": Decimal("0.05"),
         "data_quality_score": Decimal("0.15"),
         "risk_signal_score": Decimal("0.30"),
         "database_fit_score": Decimal("0.15"),
@@ -462,7 +479,8 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     },
     RANKING_PRESET_SMALL_GROWTH: {
         "screening_score": Decimal("0.25"),
-        "direction_net_score": Decimal("0.25"),
+        "upside_signal_score": Decimal("0.18"),
+        "downside_signal_score": Decimal("0.07"),
         "data_quality_score": Decimal("0.10"),
         "risk_signal_score": Decimal("0.10"),
         "database_fit_score": Decimal("0.25"),
@@ -470,7 +488,8 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     },
     RANKING_PRESET_NISA_LONG_TERM: {
         "screening_score": Decimal("0.20"),
-        "direction_net_score": Decimal("0.15"),
+        "upside_signal_score": Decimal("0.10"),
+        "downside_signal_score": Decimal("0.05"),
         "data_quality_score": Decimal("0.20"),
         "risk_signal_score": Decimal("0.20"),
         "database_fit_score": Decimal("0.15"),
@@ -478,7 +497,8 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     },
     RANKING_PRESET_DATA_CONFIDENCE: {
         "screening_score": Decimal("0.10"),
-        "direction_net_score": Decimal("0.05"),
+        "upside_signal_score": Decimal("0.03"),
+        "downside_signal_score": Decimal("0.02"),
         "data_quality_score": Decimal("0.35"),
         "risk_signal_score": Decimal("0.10"),
         "database_fit_score": Decimal("0.10"),
@@ -486,7 +506,8 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     },
     RANKING_PRESET_ETF_CORE_COST: {
         "screening_score": Decimal("0.15"),
-        "direction_net_score": Decimal("0.10"),
+        "upside_signal_score": Decimal("0.05"),
+        "downside_signal_score": Decimal("0.05"),
         "data_quality_score": Decimal("0.20"),
         "risk_signal_score": Decimal("0.15"),
         "database_fit_score": Decimal("0.30"),
@@ -494,7 +515,8 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     },
     RANKING_PRESET_ETF_INCOME: {
         "screening_score": Decimal("0.15"),
-        "direction_net_score": Decimal("0.10"),
+        "upside_signal_score": Decimal("0.05"),
+        "downside_signal_score": Decimal("0.05"),
         "data_quality_score": Decimal("0.20"),
         "risk_signal_score": Decimal("0.15"),
         "database_fit_score": Decimal("0.30"),
@@ -809,12 +831,12 @@ RANKING_FILTER_HELP_TEXTS = {
     "period": (
         "ランキング計算に使う価格データの期間です。短期は直近の値動きや材料反応、"
         "中期は数週間のトレンド、長期は大きな上下動を含めた安定性の確認に使います。"
-        "候補の絞り込み条件ではなく、スコア・Risk・方向感の見え方に影響します。"
+        "候補の絞り込み条件ではなく、スコア・Risk・上昇気配・下降警戒の見え方に影響します。"
     ),
 }
 RANKING_PURPOSE_HELP_TEXTS = {
     RANKING_PURPOSE_MULTI_FACTOR: (
-        "Screening、方向感、Risk、Data Quality、条件適合度をバランスよく見ます。"
+        "Screening、上昇気配・下降警戒、Risk、Data Quality、条件適合度をバランスよく見ます。"
         "特定テーマに寄せず、まず深掘り候補を広く並べたい時の基準です。"
     ),
     RANKING_PURPOSE_QUALITY_GROWTH: (
@@ -834,7 +856,7 @@ RANKING_PURPOSE_HELP_TEXTS = {
         "上昇率よりも値動きの落ち着きと確認しやすさを優先する基準です。"
     ),
     RANKING_PURPOSE_MOMENTUM: (
-        "取得期間の価格評価、方向感、Screeningを重視します。"
+        "取得期間の価格評価、上昇気配・下降警戒、Screeningを重視します。"
         "上昇基調でもRiskが強い候補は確認対象として扱い、追随リスクを見落としにくくします。"
     ),
     RANKING_PURPOSE_RISK_ADJUSTED: (
@@ -866,7 +888,7 @@ RANKING_PURPOSE_HELP_TEXTS = {
         "新しい配当評価には「高配当の持続性」も使えます。"
     ),
     RANKING_PURPOSE_GROWTH: (
-        "旧来の成長重視です。方向感とROE寄りの条件適合度を中心に比較します。"
+        "旧来の成長重視です。上昇気配・下降警戒とROE寄りの条件適合度を中心に比較します。"
         "より品質を見たい場合は「成長クオリティ」を使います。"
     ),
     RANKING_PURPOSE_VALUE: (
@@ -878,7 +900,7 @@ RANKING_PURPOSE_HELP_TEXTS = {
         "より低変動に寄せる場合は「低ボラ・安定」を使います。"
     ),
     RANKING_PURPOSE_TREND: (
-        "旧来のトレンド重視です。方向感と直近の価格評価を中心に比較します。"
+        "旧来のトレンド重視です。上昇気配・下降警戒と直近の価格評価を中心に比較します。"
         "外部ファクターのMomentumに近い見方は「モメンタム・トレンド」を使います。"
     ),
     RANKING_PURPOSE_UPSIDE_SIGNAL: (
@@ -889,9 +911,8 @@ RANKING_PURPOSE_HELP_TEXTS = {
 
 RANKING_SCORE_FIELD_LABELS = {
     "screening_score": "Screening",
-    "direction_net_score": "方向スコア",
     "upside_signal_score": "上昇気配",
-    "downside_signal_score": "下降警戒",
+    "downside_signal_score": "下降警戒控えめ",
     "data_quality_score": "データ品質",
     "risk_signal_score": "Risk",
     "database_fit_score": "条件適合度",
@@ -902,21 +923,19 @@ RANKING_SCORE_FIELD_LABELS = {
 RANKING_PURPOSE_PRIMARY_COLUMNS: dict[str, tuple[str, ...]] = {
     RANKING_PURPOSE_MULTI_FACTOR: (
         "総合スコア",
-        "方向スコア",
+        "上昇気配",
+        "下降警戒",
         "Risk",
         "データ品質",
-        "条件適合度",
     ),
     RANKING_PURPOSE_UPSIDE_SIGNAL: (
         "上昇気配",
         "下降警戒",
-        "方向スコア",
         "予測変化率",
         "方向一致",
     ),
     RANKING_PURPOSE_MOMENTUM: (
         "Screening",
-        "方向スコア",
         "上昇気配",
         "下降警戒",
         "Risk",
@@ -924,7 +943,7 @@ RANKING_PURPOSE_PRIMARY_COLUMNS: dict[str, tuple[str, ...]] = {
     RANKING_PURPOSE_QUALITY_GROWTH: (
         "条件適合度",
         "ROE",
-        "方向スコア",
+        "上昇気配",
         "Screening",
         "Risk",
     ),
@@ -953,7 +972,7 @@ RANKING_PURPOSE_PRIMARY_COLUMNS: dict[str, tuple[str, ...]] = {
         "Risk",
         "Screening",
         "下降警戒",
-        "方向スコア",
+        "上昇気配",
         "データ品質",
     ),
     RANKING_PURPOSE_SMALL_GROWTH: (
@@ -1001,7 +1020,7 @@ RANKING_PURPOSE_PRIMARY_COLUMNS: dict[str, tuple[str, ...]] = {
     RANKING_PURPOSE_GROWTH: (
         "条件適合度",
         "ROE",
-        "方向スコア",
+        "上昇気配",
         "Screening",
         "Risk",
     ),
@@ -1021,7 +1040,6 @@ RANKING_PURPOSE_PRIMARY_COLUMNS: dict[str, tuple[str, ...]] = {
     ),
     RANKING_PURPOSE_TREND: (
         "Screening",
-        "方向スコア",
         "上昇気配",
         "下降警戒",
         "Risk",
@@ -1029,10 +1047,10 @@ RANKING_PURPOSE_PRIMARY_COLUMNS: dict[str, tuple[str, ...]] = {
 }
 
 RANKING_PURPOSE_FOCUS_SUMMARIES = {
-    RANKING_PURPOSE_MULTI_FACTOR: "総合点だけでなく、方向感・Risk・品質・条件適合度の偏りを確認します。",
+    RANKING_PURPOSE_MULTI_FACTOR: "総合点だけでなく、上昇気配・下降警戒・Risk・品質の偏りを確認します。",
     RANKING_PURPOSE_UPSIDE_SIGNAL: "上向きシグナルが強く、下降警戒が相対的に低い深掘り候補を確認します。",
-    RANKING_PURPOSE_MOMENTUM: "足元の価格評価と方向感がそろっているか、追随リスクも含めて確認します。",
-    RANKING_PURPOSE_QUALITY_GROWTH: "成長条件に合う候補で、方向感と品質が伴っているかを確認します。",
+    RANKING_PURPOSE_MOMENTUM: "足元の価格評価と上昇気配・下降警戒がそろっているか、追随リスクも含めて確認します。",
+    RANKING_PURPOSE_QUALITY_GROWTH: "成長条件に合う候補で、上昇気配と品質が伴っているかを確認します。",
     RANKING_PURPOSE_QUALITY_VALUE: "割安に見える候補で、Riskやデータ不足が理由になっていないかを確認します。",
     RANKING_PURPOSE_SUSTAINABLE_INCOME: "配当利回りだけでなく、持続性・Risk・データ品質を確認します。",
     RANKING_PURPOSE_MIN_VOLATILITY: "値動きの落ち着きとデータ品質を優先し、下降警戒を確認します。",
@@ -1043,10 +1061,10 @@ RANKING_PURPOSE_FOCUS_SUMMARIES = {
     RANKING_PURPOSE_ETF_CORE_COST: "ETFのコア候補として、コスト・指数・複雑性・データ品質を確認します。",
     RANKING_PURPOSE_ETF_INCOME: "ETFのインカム候補として、分配材料・コスト・分散性を確認します。",
     RANKING_PURPOSE_DIVIDEND: "旧来の配当重視として、配当材料と持続性の確認に寄せて表示します。",
-    RANKING_PURPOSE_GROWTH: "旧来の成長重視として、成長条件と方向感の確認に寄せて表示します。",
+    RANKING_PURPOSE_GROWTH: "旧来の成長重視として、成長条件と上昇気配・下降警戒の確認に寄せて表示します。",
     RANKING_PURPOSE_VALUE: "旧来の割安重視として、割安条件とRiskの確認に寄せて表示します。",
     RANKING_PURPOSE_STABILITY: "旧来の安定重視として、Riskとデータ品質の確認に寄せて表示します。",
-    RANKING_PURPOSE_TREND: "旧来のトレンド重視として、足元の勢いと方向感の確認に寄せて表示します。",
+    RANKING_PURPOSE_TREND: "旧来のトレンド重視として、足元の勢いと上昇気配・下降警戒の確認に寄せて表示します。",
 }
 
 
@@ -1741,18 +1759,13 @@ def apply_ranking_weight_preset(
 def _ensure_ranking_signal_fields(row: dict[str, str]) -> dict[str, str]:
     forecast_agreement = _optional_decimal_from_text(row.get("forecast_agreement_score", ""))
     neutral_direction = forecast_agreement if forecast_agreement is not None else Decimal("50")
-    direction_net = _optional_decimal_from_text(row.get("direction_net_score", ""))
     upside = _optional_decimal_from_text(row.get("upside_signal_score", ""))
     downside = _optional_decimal_from_text(row.get("downside_signal_score", ""))
     enriched = dict(row)
-    if not enriched.get("direction_net_score"):
-        enriched["direction_net_score"] = _format_score(direction_net or neutral_direction)
     if not enriched.get("upside_signal_score"):
         enriched["upside_signal_score"] = _format_score(upside or neutral_direction)
     if not enriched.get("downside_signal_score"):
         enriched["downside_signal_score"] = _format_score(downside or Decimal("50"))
-    if not enriched.get("direction_signal_label"):
-        enriched["direction_signal_label"] = "UNKNOWN"
     if not enriched.get("forecast_return_pct"):
         enriched["forecast_return_pct"] = "0"
     if not enriched.get("up_model_count"):
@@ -1768,14 +1781,17 @@ def _ensure_ranking_signal_fields(row: dict[str, str]) -> dict[str, str]:
 
 def _ranking_component_score(row: dict[str, str], field: str) -> Decimal:
     value = _optional_decimal_from_text(row.get(field, ""))
+    if field == "downside_signal_score":
+        # Lower downside warning ranks higher; UI still displays the raw warning score.
+        if value is None:
+            return Decimal("50")
+        return max(Decimal("0"), min(Decimal("100"), Decimal("100") - value))
     if value is not None:
         return value
     if field == "research_score":
         return Decimal("50")
-    if field in {"direction_net_score", "upside_signal_score"}:
+    if field == "upside_signal_score":
         return _optional_decimal_from_text(row.get("forecast_agreement_score", "")) or Decimal("50")
-    if field == "downside_signal_score":
-        return Decimal("50")
     return Decimal("0")
 
 

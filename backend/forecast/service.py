@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from math import sqrt
+from math import sqrt, tanh
 from typing import Literal, Protocol, TypedDict
 
 from pydantic import ConfigDict, Field
@@ -16,6 +16,9 @@ DirectionSignalLabel = Literal[
     "STRONG_DOWNSIDE",
     "UNKNOWN",
 ]
+
+VOLATILITY_FLOOR = Decimal("0.02")
+DIRECTION_EDGE_SCALE = Decimal("1.25")
 
 
 class ForecastDirectionSignal(TypedDict):
@@ -226,6 +229,11 @@ def summarize_forecast_evaluations(
     resolved_latest_close = latest_close
     resolved_momentum_5d = momentum_5d
     resolved_momentum_20d = momentum_20d
+    resolved_volatility_20d: Decimal | None = None
+    resolved_volatility_60d: Decimal | None = None
+    resolved_ma5: Decimal | None = None
+    resolved_ma20: Decimal | None = None
+    resolved_ma20_slope: Decimal | None = None
     if history:
         sorted_history = sorted(history, key=lambda bar: bar.ts)
         resolved_latest_close = sorted_history[-1].close
@@ -233,6 +241,11 @@ def summarize_forecast_evaluations(
             resolved_momentum_5d = _history_return(sorted_history, 5)
         if resolved_momentum_20d is None:
             resolved_momentum_20d = _history_return(sorted_history, 20)
+        resolved_volatility_20d = _history_volatility(sorted_history, 20)
+        resolved_volatility_60d = _history_volatility(sorted_history, 60)
+        resolved_ma5 = _history_moving_average(sorted_history, 5)
+        resolved_ma20 = _history_moving_average(sorted_history, 20)
+        resolved_ma20_slope = _history_moving_average_slope(sorted_history, 20)
     direction_signal = forecast_direction_signal(
         latest_close=resolved_latest_close,
         ensemble_forecast_close=ensemble,
@@ -240,6 +253,11 @@ def summarize_forecast_evaluations(
         model_forecast_weights=model_forecast_weights,
         momentum_5d=resolved_momentum_5d,
         momentum_20d=resolved_momentum_20d,
+        volatility_20d=resolved_volatility_20d,
+        volatility_60d=resolved_volatility_60d,
+        ma5=resolved_ma5,
+        ma20=resolved_ma20,
+        ma20_slope=resolved_ma20_slope,
         forecast_range_pct=forecast_range_pct,
     )
 
@@ -281,12 +299,17 @@ def forecast_direction_signal(
     model_forecast_weights: list[Decimal] | None = None,
     momentum_5d: Decimal | None,
     momentum_20d: Decimal | None,
+    volatility_20d: Decimal | None = None,
+    volatility_60d: Decimal | None = None,
+    ma5: Decimal | None = None,
+    ma20: Decimal | None = None,
+    ma20_slope: Decimal | None = None,
     forecast_range_pct: Decimal,
 ) -> ForecastDirectionSignal:
     """Return upside/downside direction signals for ranking support."""
 
     model_count = len(model_forecast_closes)
-    if latest_close is None or latest_close <= 0 or model_count < 2:
+    if latest_close is None or latest_close <= 0 or model_count < 1:
         return {
             "forecast_return_pct": Decimal("0"),
             "up_model_count": 0,
@@ -312,12 +335,14 @@ def forecast_direction_signal(
         latest_close=latest_close,
         model_forecast_closes=model_forecast_closes,
         model_forecast_weights=model_forecast_weights,
+        volatility_20d=volatility_20d,
         side="upside",
     )
     model_downside_strength_score = calculate_model_forecast_strength_score(
         latest_close=latest_close,
         model_forecast_closes=model_forecast_closes,
         model_forecast_weights=model_forecast_weights,
+        volatility_20d=volatility_20d,
         side="downside",
     )
     upside_signal_score = calculate_upside_signal_score(
@@ -327,6 +352,11 @@ def forecast_direction_signal(
         model_forecast_weights=model_forecast_weights,
         momentum_5d=momentum_5d,
         momentum_20d=momentum_20d,
+        volatility_20d=volatility_20d,
+        volatility_60d=volatility_60d,
+        ma5=ma5,
+        ma20=ma20,
+        ma20_slope=ma20_slope,
         forecast_range_pct=forecast_range_pct,
     )
     downside_signal_score = calculate_downside_signal_score(
@@ -336,6 +366,11 @@ def forecast_direction_signal(
         model_forecast_weights=model_forecast_weights,
         momentum_5d=momentum_5d,
         momentum_20d=momentum_20d,
+        volatility_20d=volatility_20d,
+        volatility_60d=volatility_60d,
+        ma5=ma5,
+        ma20=ma20,
+        ma20_slope=ma20_slope,
         forecast_range_pct=forecast_range_pct,
     )
     direction_net_score = calculate_direction_net_score(
@@ -370,6 +405,11 @@ def calculate_upside_signal_score(
     model_forecast_weights: list[Decimal] | None = None,
     momentum_5d: Decimal | None,
     momentum_20d: Decimal | None,
+    volatility_20d: Decimal | None = None,
+    volatility_60d: Decimal | None = None,
+    ma5: Decimal | None = None,
+    ma20: Decimal | None = None,
+    ma20_slope: Decimal | None = None,
     forecast_range_pct: Decimal,
 ) -> Decimal:
     """Score upward signal strength without treating it as advice."""
@@ -377,27 +417,35 @@ def calculate_upside_signal_score(
     if latest_close <= 0:
         return Decimal("50")
     forecast_return_pct = (ensemble_forecast_close / latest_close) - Decimal("1")
-    forecast_return_score = linear_score(
-        forecast_return_pct,
-        low=Decimal("-0.03"),
-        mid=Decimal("0"),
-        high=Decimal("0.10"),
+    forecast_up_edge_score = edge_to_up_score(
+        volatility_adjusted_edge(forecast_return_pct, volatility_20d)
     )
-    model_strength_score = calculate_model_forecast_strength_score(
+    model_up_edge_score = calculate_model_forecast_strength_score(
         latest_close=latest_close,
         model_forecast_closes=model_forecast_closes,
         model_forecast_weights=model_forecast_weights,
+        volatility_20d=volatility_20d,
         side="upside",
     )
-    upside_momentum_score = Decimal("50")
-    if momentum_5d is not None and momentum_5d > 0:
-        upside_momentum_score += Decimal("25")
-    if momentum_20d is not None and momentum_20d > 0:
-        upside_momentum_score += Decimal("25")
+    momentum_up_score = calculate_momentum_edge_score(
+        momentum_5d=momentum_5d,
+        momentum_20d=momentum_20d,
+        volatility_20d=volatility_20d,
+        volatility_60d=volatility_60d,
+        side="upside",
+    )
+    trend_up_confirmation = calculate_trend_confirmation_score(
+        latest_close=latest_close,
+        ma5=ma5,
+        ma20=ma20,
+        ma20_slope=ma20_slope,
+        side="upside",
+    )
     raw_score = (
-        forecast_return_score * Decimal("0.40")
-        + model_strength_score * Decimal("0.45")
-        + upside_momentum_score * Decimal("0.15")
+        forecast_up_edge_score * Decimal("0.35")
+        + model_up_edge_score * Decimal("0.35")
+        + momentum_up_score * Decimal("0.20")
+        + trend_up_confirmation * Decimal("0.10")
     )
     return confidence_adjusted_direction_score(raw_score, forecast_range_pct)
 
@@ -410,6 +458,11 @@ def calculate_downside_signal_score(
     model_forecast_weights: list[Decimal] | None = None,
     momentum_5d: Decimal | None,
     momentum_20d: Decimal | None,
+    volatility_20d: Decimal | None = None,
+    volatility_60d: Decimal | None = None,
+    ma5: Decimal | None = None,
+    ma20: Decimal | None = None,
+    ma20_slope: Decimal | None = None,
     forecast_range_pct: Decimal,
 ) -> Decimal:
     """Score downside warning strength without treating it as advice."""
@@ -417,27 +470,35 @@ def calculate_downside_signal_score(
     if latest_close <= 0:
         return Decimal("50")
     forecast_return_pct = (ensemble_forecast_close / latest_close) - Decimal("1")
-    forecast_decline_score = inverse_linear_score(
-        forecast_return_pct,
-        low=Decimal("-0.10"),
-        mid=Decimal("0"),
-        high=Decimal("0.03"),
+    forecast_down_edge_score = edge_to_down_score(
+        volatility_adjusted_edge(forecast_return_pct, volatility_20d)
     )
-    model_strength_score = calculate_model_forecast_strength_score(
+    model_down_edge_score = calculate_model_forecast_strength_score(
         latest_close=latest_close,
         model_forecast_closes=model_forecast_closes,
         model_forecast_weights=model_forecast_weights,
+        volatility_20d=volatility_20d,
         side="downside",
     )
-    downside_momentum_score = Decimal("50")
-    if momentum_5d is not None and momentum_5d < 0:
-        downside_momentum_score += Decimal("25")
-    if momentum_20d is not None and momentum_20d < 0:
-        downside_momentum_score += Decimal("25")
+    momentum_down_score = calculate_momentum_edge_score(
+        momentum_5d=momentum_5d,
+        momentum_20d=momentum_20d,
+        volatility_20d=volatility_20d,
+        volatility_60d=volatility_60d,
+        side="downside",
+    )
+    trend_down_confirmation = calculate_trend_confirmation_score(
+        latest_close=latest_close,
+        ma5=ma5,
+        ma20=ma20,
+        ma20_slope=ma20_slope,
+        side="downside",
+    )
     raw_score = (
-        forecast_decline_score * Decimal("0.40")
-        + model_strength_score * Decimal("0.45")
-        + downside_momentum_score * Decimal("0.15")
+        forecast_down_edge_score * Decimal("0.35")
+        + model_down_edge_score * Decimal("0.35")
+        + momentum_down_score * Decimal("0.20")
+        + trend_down_confirmation * Decimal("0.10")
     )
     return confidence_adjusted_direction_score(raw_score, forecast_range_pct)
 
@@ -447,6 +508,7 @@ def calculate_model_forecast_strength_score(
     latest_close: Decimal,
     model_forecast_closes: list[Decimal],
     model_forecast_weights: list[Decimal] | None = None,
+    volatility_20d: Decimal | None = None,
     side: Literal["upside", "downside"],
 ) -> Decimal:
     """Score weighted model-by-model forecast return strength for one side."""
@@ -462,24 +524,124 @@ def calculate_model_forecast_strength_score(
     for forecast_close, weight in zip(model_forecast_closes, weights):
         forecast_return_pct = (forecast_close / latest_close) - Decimal("1")
         if side == "upside":
-            model_score = linear_score(
-                forecast_return_pct,
-                low=Decimal("-0.02"),
-                mid=Decimal("0"),
-                high=Decimal("0.20"),
+            model_score = edge_to_up_score(
+                volatility_adjusted_edge(forecast_return_pct, volatility_20d)
             )
         else:
-            model_score = inverse_linear_score(
-                forecast_return_pct,
-                low=Decimal("-0.20"),
-                mid=Decimal("0"),
-                high=Decimal("0.02"),
+            model_score = edge_to_down_score(
+                volatility_adjusted_edge(forecast_return_pct, volatility_20d)
             )
         weighted_total += model_score * weight
         total_weight += weight
     if total_weight <= 0:
         return Decimal("50")
     return clamp_score(weighted_total / total_weight)
+
+
+def calculate_momentum_edge_score(
+    *,
+    momentum_5d: Decimal | None,
+    momentum_20d: Decimal | None,
+    volatility_20d: Decimal | None = None,
+    volatility_60d: Decimal | None = None,
+    side: Literal["upside", "downside"],
+) -> Decimal:
+    """Score recent price momentum continuously after volatility adjustment."""
+
+    score_func = edge_to_up_score if side == "upside" else edge_to_down_score
+    score_5d = (
+        score_func(volatility_adjusted_edge(momentum_5d, volatility_20d))
+        if momentum_5d is not None
+        else Decimal("50")
+    )
+    score_20d = (
+        score_func(
+            volatility_adjusted_edge(
+                momentum_20d,
+                volatility_60d if volatility_60d is not None else volatility_20d,
+            )
+        )
+        if momentum_20d is not None
+        else Decimal("50")
+    )
+    return clamp_score((score_5d * Decimal("0.40")) + (score_20d * Decimal("0.60")))
+
+
+def calculate_trend_confirmation_score(
+    *,
+    latest_close: Decimal | None,
+    ma5: Decimal | None,
+    ma20: Decimal | None,
+    ma20_slope: Decimal | None,
+    side: Literal["upside", "downside"],
+) -> Decimal:
+    """Score simple MA trend confirmation for upside/downside signals."""
+
+    if latest_close is None or ma5 is None or ma20 is None or ma20_slope is None:
+        return Decimal("50")
+    if side == "upside":
+        matches = sum(
+            [
+                latest_close > ma20,
+                ma5 > ma20,
+                ma20_slope > 0,
+            ]
+        )
+    else:
+        matches = sum(
+            [
+                latest_close < ma20,
+                ma5 < ma20,
+                ma20_slope < 0,
+            ]
+        )
+    scores = {
+        3: Decimal("100"),
+        2: Decimal("75"),
+        1: Decimal("50"),
+        0: Decimal("25"),
+    }
+    return scores[matches]
+
+
+def volatility_adjusted_edge(
+    return_pct: Decimal | None,
+    volatility: Decimal | None,
+) -> Decimal:
+    """Normalize a return by recent volatility with a conservative floor."""
+
+    if return_pct is None:
+        return Decimal("0")
+    return return_pct / safe_signal_volatility(volatility)
+
+
+def edge_to_up_score(
+    edge: Decimal,
+    scale: Decimal = DIRECTION_EDGE_SCALE,
+) -> Decimal:
+    """Convert a volatility-adjusted edge to a bounded 0-100 upside score."""
+
+    if scale <= 0:
+        scale = DIRECTION_EDGE_SCALE
+    tanh_value = Decimal(str(tanh(float(edge / scale))))
+    return clamp_score(Decimal("50") + (Decimal("50") * tanh_value))
+
+
+def edge_to_down_score(
+    edge: Decimal,
+    scale: Decimal = DIRECTION_EDGE_SCALE,
+) -> Decimal:
+    """Convert a volatility-adjusted edge to a bounded 0-100 downside score."""
+
+    return edge_to_up_score(-edge, scale)
+
+
+def safe_signal_volatility(volatility: Decimal | None) -> Decimal:
+    """Return the volatility denominator used by direction-signal v2."""
+
+    if volatility is None or volatility <= 0:
+        return VOLATILITY_FLOOR
+    return max(volatility, VOLATILITY_FLOOR)
 
 
 def forecast_model_signal_weight(evaluation: ForecastEvaluation) -> Decimal:
@@ -492,10 +654,8 @@ def forecast_model_signal_weight(evaluation: ForecastEvaluation) -> Decimal:
         max(evaluation.metrics.direction_accuracy, Decimal("0")),
         Decimal("1"),
     )
-    raw_weight = Decimal("0.80") + (direction_accuracy * Decimal("0.40"))
-    sample_confidence = min(Decimal(sample_count) / Decimal("20"), Decimal("1"))
-    blended_weight = Decimal("1") + ((raw_weight - Decimal("1")) * sample_confidence)
-    return _round_metric(min(max(blended_weight, Decimal("0.80")), Decimal("1.20")))
+    raw_weight = Decimal("1") + (direction_accuracy - Decimal("0.50"))
+    return _round_metric(min(max(raw_weight, Decimal("0.80")), Decimal("1.20")))
 
 
 def _model_signal_weights_for_closes(
@@ -506,7 +666,7 @@ def _model_signal_weights_for_closes(
     if not model_forecast_weights:
         return [Decimal("1") for _ in model_forecast_closes]
     normalized = [
-        min(max(weight, Decimal("0.10")), Decimal("3.00"))
+        min(max(weight, Decimal("0.80")), Decimal("1.20"))
         for weight in model_forecast_weights[:model_count]
     ]
     if len(normalized) < model_count:
@@ -538,7 +698,7 @@ def direction_confidence_factor(forecast_range_pct: Decimal) -> Decimal:
     """Return a conservative confidence factor from model spread, not an additive bonus."""
 
     confidence = agreement_confidence_score(forecast_range_pct) / Decimal("100")
-    return Decimal("0.85") + (confidence * Decimal("0.15"))
+    return max(confidence, Decimal("0.70"))
 
 
 def direction_signal_label(
@@ -708,6 +868,44 @@ def _history_return(history: list[Bar], lookback: int) -> Decimal | None:
     if previous <= 0:
         return None
     return (latest / previous) - Decimal("1")
+
+
+def _history_volatility(history: list[Bar], window: int) -> Decimal | None:
+    if len(history) <= window:
+        return None
+    selected = history[-(window + 1) :]
+    returns: list[Decimal] = []
+    for previous, current in zip(selected, selected[1:]):
+        if previous.close <= 0:
+            continue
+        returns.append((current.close / previous.close) - Decimal("1"))
+    if len(returns) < 2:
+        return None
+    mean_return = sum(returns, Decimal("0")) / Decimal(len(returns))
+    variance = sum(
+        ((value - mean_return) * (value - mean_return) for value in returns),
+        Decimal("0"),
+    ) / Decimal(len(returns))
+    if variance <= 0:
+        return Decimal("0")
+    return _round_metric(Decimal(str(sqrt(float(variance)))))
+
+
+def _history_moving_average(history: list[Bar], window: int) -> Decimal | None:
+    if len(history) < window:
+        return None
+    closes = [bar.close for bar in history[-window:]]
+    return _round_metric(sum(closes, Decimal("0")) / Decimal(window))
+
+
+def _history_moving_average_slope(history: list[Bar], window: int) -> Decimal | None:
+    if len(history) <= window:
+        return None
+    current = _history_moving_average(history, window)
+    previous = _history_moving_average(history[:-1], window)
+    if current is None or previous is None:
+        return None
+    return current - previous
 
 
 def clamp_score(value: Decimal) -> Decimal:

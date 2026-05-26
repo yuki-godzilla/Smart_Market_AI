@@ -67,8 +67,6 @@ Output:
 - `forecast_agreement_score`
 - `upside_signal_score`
 - `downside_signal_score`
-- `direction_net_score`
-- `direction_signal_label`
 - `forecast_return_pct`
 - `model_upside_strength_score`
 - `model_downside_strength_score`
@@ -78,6 +76,11 @@ Output:
 - `warnings`
 - `reasons`
 - `decision_support_note`
+
+UI note:
+
+- Ranking and Symbol Cockpit use `upside_signal_score` / `downside_signal_score` as the main direction-support indicators.
+- Older direction net / label fields may remain in backend contracts for compatibility, but they are not introduced as new public UI indicators.
 
 ### Service
 

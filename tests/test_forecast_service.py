@@ -11,11 +11,18 @@ from backend.forecast import (
     calculate_direction_net_score,
     calculate_downside_signal_score,
     calculate_model_forecast_strength_score,
+    calculate_momentum_edge_score,
+    calculate_trend_confirmation_score,
     calculate_upside_signal_score,
+    direction_confidence_factor,
     direction_signal_label,
+    edge_to_down_score,
+    edge_to_up_score,
     evaluate_models,
     forecast_model_signal_weight,
+    safe_signal_volatility,
     summarize_forecast_evaluations,
+    volatility_adjusted_edge,
 )
 
 
@@ -214,6 +221,74 @@ def test_model_forecast_strength_scores_model_return_size_and_weight():
     )
 
     assert higher_weighted > lower_weighted
+
+
+def test_forecast_edge_scores_are_volatility_adjusted_and_bounded():
+    low_vol_edge = volatility_adjusted_edge(Decimal("0.03"), Decimal("0.02"))
+    high_vol_edge = volatility_adjusted_edge(Decimal("0.03"), Decimal("0.10"))
+
+    assert low_vol_edge > high_vol_edge
+    assert edge_to_up_score(low_vol_edge) > edge_to_up_score(high_vol_edge)
+    assert edge_to_down_score(Decimal("-1.5")) > edge_to_down_score(Decimal("-0.3"))
+    assert safe_signal_volatility(None) == Decimal("0.02")
+    assert safe_signal_volatility(Decimal("0")) == Decimal("0.02")
+    assert edge_to_up_score(Decimal("99")) <= Decimal("100")
+    assert edge_to_down_score(Decimal("-99")) <= Decimal("100")
+
+
+def test_momentum_edge_score_is_continuous_and_missing_data_is_neutral():
+    upside = calculate_momentum_edge_score(
+        momentum_5d=Decimal("0.02"),
+        momentum_20d=Decimal("0.04"),
+        volatility_20d=Decimal("0.02"),
+        volatility_60d=Decimal("0.04"),
+        side="upside",
+    )
+    downside = calculate_momentum_edge_score(
+        momentum_5d=Decimal("-0.02"),
+        momentum_20d=Decimal("-0.04"),
+        volatility_20d=Decimal("0.02"),
+        volatility_60d=Decimal("0.04"),
+        side="downside",
+    )
+    neutral = calculate_momentum_edge_score(
+        momentum_5d=None,
+        momentum_20d=None,
+        side="upside",
+    )
+
+    assert upside > Decimal("50")
+    assert downside > Decimal("50")
+    assert neutral == Decimal("50.00")
+
+
+def test_trend_confirmation_score_counts_ma_conditions_and_handles_missing_data():
+    assert calculate_trend_confirmation_score(
+        latest_close=Decimal("110"),
+        ma5=Decimal("108"),
+        ma20=Decimal("100"),
+        ma20_slope=Decimal("1"),
+        side="upside",
+    ) == Decimal("100")
+    assert calculate_trend_confirmation_score(
+        latest_close=Decimal("90"),
+        ma5=Decimal("95"),
+        ma20=Decimal("100"),
+        ma20_slope=Decimal("-1"),
+        side="downside",
+    ) == Decimal("100")
+    assert calculate_trend_confirmation_score(
+        latest_close=None,
+        ma5=Decimal("95"),
+        ma20=Decimal("100"),
+        ma20_slope=Decimal("-1"),
+        side="downside",
+    ) == Decimal("50")
+
+
+def test_direction_confidence_factor_keeps_wide_spread_from_over_neutralizing():
+    assert direction_confidence_factor(Decimal("0.005")) == Decimal("1")
+    assert direction_confidence_factor(Decimal("0.10")) == Decimal("0.70")
 
 
 def test_forecast_model_signal_weight_blends_accuracy_with_sample_count():

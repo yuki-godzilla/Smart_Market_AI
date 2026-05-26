@@ -214,7 +214,7 @@ __all__ = [
 MARKET_DATA_PROVIDER_OPTIONS = ["yahoo", "csv", "mock"]
 MARKET_DATA_PROVIDER_WIDGET_KEY = "market_data_provider_live_first"
 MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY = "market_data_ranking_provider_live_first"
-RANKING_BUILD_CACHE_VERSION = "direction-history-v3"
+RANKING_BUILD_CACHE_VERSION = "signal-v4"
 NO_SYMBOL_CANDIDATE_LABEL = "条件に合う候補なし"
 RESEARCH_STALE_DAYS = 730
 MARKET_DATA_PERIOD_CUSTOM = "custom"
@@ -397,14 +397,6 @@ SYMBOL_UNIVERSE_DISPLAY_LABELS = {
         "HIGH": "高い",
         "MEDIUM": "中くらい",
         "LOW": "低い",
-    },
-    "direction_signal_label": {
-        "STRONG_UPSIDE": "強い上昇気配",
-        "MODERATE_UPSIDE": "上昇気配あり",
-        "NEUTRAL": "中立",
-        "MODERATE_DOWNSIDE": "下降警戒",
-        "STRONG_DOWNSIDE": "強い下降警戒",
-        "UNKNOWN": "方向データ不足",
     },
     "data_quality": {
         "OK": "十分",
@@ -1082,9 +1074,10 @@ def _ranking_result_columns(ranking_purpose: str) -> list[str]:
             *focus_columns,
             "総合スコア",
             "Screening",
-            "方向感",
             "上昇気配",
             "下降警戒",
+            "予測変化率",
+            "方向一致",
             "Risk",
             "データ品質",
             "条件適合度",
@@ -1120,11 +1113,6 @@ def _ranking_distinct_numeric_count(rows: list[dict[str, str]], column: str) -> 
 def _ranking_direction_data_limited(rows: list[dict[str, str]]) -> bool:
     if not rows:
         return False
-    direction_values = [
-        _decimal_from_text(row.get("方向スコア"))
-        for row in rows
-        if _decimal_from_text(row.get("方向スコア")) is not None
-    ]
     upside_values = [
         _decimal_from_text(row.get("上昇気配"))
         for row in rows
@@ -1135,21 +1123,16 @@ def _ranking_direction_data_limited(rows: list[dict[str, str]]) -> bool:
         for row in rows
         if _decimal_from_text(row.get("下降警戒")) is not None
     ]
-    if not direction_values or not upside_values or not downside_values:
+    if not upside_values or not downside_values:
         return False
     neutral = Decimal("50")
     scores_are_neutral = all(
-        value == neutral
-        for values in (direction_values, upside_values, downside_values)
-        for value in values
+        value == neutral for values in (upside_values, downside_values) for value in values
     )
-    direction_labels = {str(row.get("方向感", "")).strip() for row in rows}
     no_model_counts = all(
         str(row.get("方向一致", "")).strip() in {"", "上昇 0 / 下降 0 / 横ばい 0"} for row in rows
     )
-    return scores_are_neutral and (
-        direction_labels <= {"", "判定不足", "方向データ不足"} or no_model_counts
-    )
+    return scores_are_neutral and no_model_counts
 
 
 def _ranking_reason_columns(
@@ -1157,7 +1140,7 @@ def _ranking_reason_columns(
     ranking_purpose: str,
 ) -> tuple[str, ...]:
     primary_columns = ranking_purpose_primary_columns(ranking_purpose)
-    direction_columns = {"上昇気配", "下降警戒", "下降警戒の低さ", "方向スコア"}
+    direction_columns = {"上昇気配", "下降警戒"}
     if direction_columns.intersection(primary_columns) and _ranking_direction_data_limited(rows):
         return ("総合スコア", "Risk", "データ品質", "条件適合度")
     return primary_columns
@@ -1227,11 +1210,8 @@ def ranking_result_aggrid_frame(
             "銘柄名": truncate_text(row.get("銘柄名", ""), max_chars=30),
             "総合スコア": row.get("総合スコア", ""),
             "Screening": row.get("Screening", ""),
-            "方向感": row.get("方向感", ""),
             "上昇気配": row.get("上昇気配", ""),
             "下降警戒": row.get("下降警戒", ""),
-            "下降警戒の低さ": row.get("下降警戒の低さ", ""),
-            "方向スコア": row.get("方向スコア", ""),
             "予測変化率": row.get("予測変化率", ""),
             "方向一致": row.get("方向一致", ""),
             "Risk": row.get("Risk", ""),
@@ -1312,11 +1292,8 @@ def ranking_result_aggrid_options(
     for column in (
         "総合スコア",
         "Screening",
-        "方向スコア",
-        "方向感",
         "上昇気配",
         "下降警戒",
-        "下降警戒の低さ",
         "予測変化率",
         "データ品質",
         "条件適合度",
@@ -1883,7 +1860,6 @@ def ranking_top_candidate_cards(
                     direction_limited=direction_limited,
                 ),
                 "confidence": row.get("DB信頼度") or row.get("条件適合度") or "未登録",
-                "direction": row.get("方向感", ""),
                 "upside": row.get("上昇気配", ""),
                 "downside": row.get("下降警戒", ""),
                 "view": row.get("見方", ""),
@@ -1948,7 +1924,7 @@ def _ranking_bar_chart_metric_column(
     display_rows: list[dict[str, str]],
     ranking_purpose: str,
 ) -> str:
-    direction_columns = {"上昇気配", "下降警戒", "下降警戒の低さ", "方向スコア"}
+    direction_columns = {"上昇気配", "下降警戒"}
     candidates = _ranking_bar_chart_candidate_columns(ranking_purpose)
     if direction_columns.intersection(candidates):
         if _ranking_direction_data_limited(display_rows):
@@ -1964,10 +1940,10 @@ def _ranking_bar_chart_metric_column(
 
 def _ranking_bar_chart_candidate_columns(ranking_purpose: str) -> tuple[str, ...]:
     purpose_columns: dict[str, tuple[str, ...]] = {
-        "multi_factor": ("総合スコア", "方向スコア", "Risk", "データ品質"),
-        "upside_signal": ("上昇気配", "下降警戒", "方向スコア"),
-        "momentum": ("Screening", "方向スコア", "上昇気配"),
-        "trend": ("Screening", "方向スコア", "上昇気配"),
+        "multi_factor": ("総合スコア", "上昇気配", "下降警戒", "Risk", "データ品質"),
+        "upside_signal": ("上昇気配", "下降警戒"),
+        "momentum": ("Screening", "上昇気配", "下降警戒"),
+        "trend": ("Screening", "上昇気配", "下降警戒"),
         "quality_growth": ("条件適合度", "ROE", "Screening"),
         "growth": ("条件適合度", "ROE", "Screening"),
         "small_growth": ("条件適合度", "上昇気配", "ROE"),
@@ -2037,12 +2013,12 @@ def ranking_candidate_breakdown_rows(
             "確認ポイント": "市場データ由来の比較材料",
         },
         {
-            "観点": "Direction Signal",
-            "値": selected_row.get("方向感", "方向データ不足"),
-            "確認ポイント": (
-                f"上昇 {selected_row.get('上昇気配', '未計算')} / "
+            "観点": "上昇気配・下降警戒",
+            "値": (
+                f"上昇気配 {selected_row.get('上昇気配', '未計算')} / "
                 f"下降警戒 {selected_row.get('下降警戒', '未計算')}"
             ),
+            "確認ポイント": ("ランキングとコックピットで同じ2指標として確認します。"),
         },
         {
             "観点": "Data Confidence",
@@ -2156,11 +2132,6 @@ def _ranking_candidate_card_html(card: dict[str, str], *, index: int) -> str:
     badges = (
         badge_html(primary_label, "info") if primary_label else "",
         badge_html(card["view"], "info") if card["view"] else "",
-        (
-            badge_html(card["direction"], _direction_badge_tone(card["direction"]))
-            if card["direction"]
-            else ""
-        ),
         (
             badge_html("下降警戒", "caution")
             if (_decimal_from_text(card.get("downside")) or Decimal("0")) >= Decimal("65")
@@ -2367,7 +2338,6 @@ def _render_ranking_profile_chart(
     if selection.color_column and color_is_numeric:
         numeric_color_range = ["#22c55e", "#f59e0b", "#fb7185"]
         if selection.color_column in {
-            "方向スコア",
             "上昇気配",
             "Risk",
             "総合スコア",
@@ -4635,7 +4605,7 @@ def cockpit_detail_summary_rows(
                     f"{ohlcv_row.get('bars', '0')}本 / 出来高合計 "
                     f"{ohlcv_row.get('total_volume', '未取得')}"
                 ),
-                "確認ポイント": "本数が少ない場合は、方向感やRiskの安定性を控えめに見ます。",
+                "確認ポイント": "本数が少ない場合は、上昇気配・下降警戒やRiskの安定性を控えめに見ます。",
             }
         )
     if consensus_row:
@@ -4648,7 +4618,7 @@ def cockpit_detail_summary_rows(
                     f"{consensus_row.get('max_forecast_close', '未計算')}、"
                     f"開き {consensus_row.get('forecast_range_pct', '未計算')}"
                 ),
-                "確認ポイント": "予測の開きが大きい時は、方向感より不確実性を先に確認します。",
+                "確認ポイント": "予測の開きが大きい時は、上昇気配・下降警戒より不確実性を先に確認します。",
             }
         )
     if screening_row:
@@ -4862,10 +4832,8 @@ def investment_score_summary_lines(row: dict[str, str]) -> list[str]:
 def score_component_rows(row: dict[str, str]) -> list[dict[str, str]]:
     return [
         {"要素": "Screening", "スコア": row.get("Screening", "")},
-        {
-            "要素": "Direction Signal",
-            "スコア": row.get("方向スコア") or row.get("モデル一致度", ""),
-        },
+        {"要素": "上昇気配", "スコア": row.get("上昇気配", "")},
+        {"要素": "下降警戒", "スコア": row.get("下降警戒", "")},
         {"要素": "Risk", "スコア": row.get("Risk", "")},
         {"要素": "Data Quality", "スコア": row.get("データ品質", "")},
     ]
@@ -5146,7 +5114,7 @@ def build_ranking_decision_report_context(
             summary=_ranking_distribution_summary(ranked_rows),
             rows=_ranking_distribution_rows(ranked_rows),
             notes=[
-                "上位だけでなく、スコアの偏り、Risk、データ品質、方向感の分布を見て候補群を比較します。"
+                "上位だけでなく、スコアの偏り、Risk、データ品質、上昇気配・下降警戒の分布を見て候補群を比較します。"
             ],
         ),
         build_report_section(
@@ -5156,7 +5124,7 @@ def build_ranking_decision_report_context(
             as_of=end,
             rows=_ranking_factor_leader_rows(ranked_rows),
             notes=[
-                "総合順位だけでなく、Screening、方向感、Risk、ROE、配当利回りなど別観点の上位候補を並べます。"
+                "総合順位だけでなく、Screening、上昇気配、Risk、ROE、配当利回りなど別観点の上位候補を並べます。"
             ],
         ),
     ]
@@ -5357,10 +5325,8 @@ def _investment_score_report_section(
             "score_band": row.get("score_band", ""),
             "screening_score": row.get("screening_score", ""),
             "forecast_agreement_score": row.get("forecast_agreement_score", ""),
-            "direction_net_score": row.get("direction_net_score", ""),
             "upside_signal_score": row.get("upside_signal_score", ""),
             "downside_signal_score": row.get("downside_signal_score", ""),
-            "direction_signal_label": row.get("direction_signal_label", ""),
             "forecast_return_pct": row.get("forecast_return_pct", ""),
             "data_quality_score": row.get("data_quality_score", ""),
             "risk_signal_score": row.get("risk_signal_score", ""),
@@ -5369,10 +5335,6 @@ def _investment_score_report_section(
         },
         rows=[
             {"component": "Screening", "score": row.get("screening_score", "")},
-            {
-                "component": "方向感",
-                "score": row.get("direction_net_score", ""),
-            },
             {
                 "component": "上昇気配",
                 "score": row.get("upside_signal_score", ""),
@@ -5609,7 +5571,6 @@ def _ranking_distribution_summary(rows: list[dict[str, str]]) -> dict[str, str]:
         "20位スコア": _format_report_decimal(twentieth_score),
         "上位20件の平均総合スコア": _average_ranking_metric(rows[:20], "total_score"),
         "平均Screening": _average_ranking_metric(rows, "screening_score"),
-        "平均方向スコア": _average_ranking_metric(rows, "direction_net_score"),
         "平均上昇気配": _average_ranking_metric(rows, "upside_signal_score"),
         "平均下降警戒": _average_ranking_metric(rows, "downside_signal_score"),
         "平均データ品質": _average_ranking_metric(rows, "data_quality_score"),
@@ -5654,15 +5615,15 @@ def _ranking_distribution_rows(rows: list[dict[str, str]]) -> list[dict[str, str
 
 def _ranking_factor_leader_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     leaders: list[dict[str, str]] = []
-    for label, metric in [
-        ("総合スコア", "total_score"),
-        ("Screening", "screening_score"),
-        ("方向スコア", "direction_net_score"),
-        ("上昇気配", "upside_signal_score"),
-        ("データ品質", "data_quality_score"),
-        ("Risk", "risk_signal_score"),
+    for label, metric, prefer_low in [
+        ("総合スコア", "total_score", False),
+        ("Screening", "screening_score", False),
+        ("上昇気配", "upside_signal_score", False),
+        ("下降警戒", "downside_signal_score", True),
+        ("データ品質", "data_quality_score", False),
+        ("Risk", "risk_signal_score", False),
     ]:
-        row = _best_ranking_row_by_metric(rows, metric)
+        row = _best_ranking_row_by_metric(rows, metric, prefer_low=prefer_low)
         if row is not None:
             leaders.append(_ranking_factor_leader_row(label, row, row.get(metric, "")))
 
@@ -5715,7 +5676,7 @@ def _ranking_group_checkpoints(
         {
             "area": "分布",
             "finding": (
-                f"平均方向スコアは{_average_ranking_metric(rows, 'direction_net_score')}、"
+                f"平均上昇気配は{_average_ranking_metric(rows, 'upside_signal_score')}、"
                 f"平均下降警戒は{_average_ranking_metric(rows, 'downside_signal_score')}、"
                 f"平均Riskは{_average_ranking_metric(rows, 'risk_signal_score')}です。"
             ),
@@ -5723,7 +5684,7 @@ def _ranking_group_checkpoints(
         },
         {
             "area": "ファクター",
-            "finding": "総合順位とは別に、Screening、方向感、Risk、ROE、配当利回りの上位候補を抽出しています。",
+            "finding": "総合順位とは別に、Screening、上昇気配、Risk、ROE、配当利回りの上位候補を抽出しています。",
             "confirmation_point": "投資目的に近いファクターの候補から深掘り順を決めます。",
         },
         {
@@ -5776,8 +5737,14 @@ def _ranking_metadata_available_count(rows: list[dict[str, str]], field: str) ->
 def _best_ranking_row_by_metric(
     rows: list[dict[str, str]],
     metric: str,
+    *,
+    prefer_low: bool = False,
 ) -> dict[str, str] | None:
-    return _best_row_by_decimal(rows, lambda row: _decimal_from_text(row.get(metric)))
+    return _best_row_by_decimal(
+        rows,
+        lambda row: _decimal_from_text(row.get(metric)),
+        prefer_low=prefer_low,
+    )
 
 
 def _best_ranking_row_by_symbol_metric(
@@ -5869,10 +5836,8 @@ def _ranking_report_row(
         "score_band": row.get("score_band", ""),
         "screening_score": row.get("screening_score", ""),
         "forecast_agreement_score": row.get("forecast_agreement_score", ""),
-        "direction_net_score": row.get("direction_net_score", ""),
         "upside_signal_score": row.get("upside_signal_score", ""),
         "downside_signal_score": row.get("downside_signal_score", ""),
-        "direction_signal_label": row.get("direction_signal_label", ""),
         "data_quality_score": row.get("data_quality_score", ""),
         "risk_signal_score": row.get("risk_signal_score", ""),
         "review_point": _ranking_report_review_point(row, symbol_row),
@@ -5896,9 +5861,6 @@ def _ranking_report_review_point(
     quality = _decimal_from_text(row.get("data_quality_score"))
     if quality is not None and quality < Decimal("80"):
         return "データ品質に確認余地があります。取得期間や欠損項目を確認します。"
-    direction = _decimal_from_text(row.get("direction_net_score"))
-    if direction is not None and direction < Decimal("50"):
-        return "方向感は中立以下です。上昇気配と下降警戒をセットで確認します。"
     if symbol_row is not None:
         per = _decimal_from_text(symbol_row.get("per"))
         pbr = _decimal_from_text(symbol_row.get("pbr"))
@@ -5971,8 +5933,6 @@ def _cockpit_score_strength_summary(
     strengths: list[str] = []
     if (_decimal_from_text(row.get("上昇気配")) or Decimal("0")) >= Decimal("75"):
         strengths.append("上昇気配が比較的強く出ています")
-    if (_decimal_from_text(row.get("方向スコア")) or Decimal("0")) >= Decimal("65"):
-        strengths.append("方向感が上向き寄りです")
     if (_decimal_from_text(row.get("データ品質")) or Decimal("0")) >= Decimal("90"):
         strengths.append("データ品質が高く、比較の土台が安定しています")
     if (_decimal_from_text(row.get("Screening")) or Decimal("0")) >= Decimal("80"):
@@ -6068,7 +6028,7 @@ def _cockpit_price_trend_summary(bars: list[Bar]) -> dict[str, str]:
     else:
         direction = "横ばい圏"
     return {
-        "summary": f"取得期間で{change_pct:+}%。終値は{range_label}、方向感は{direction}です。",
+        "summary": f"取得期間で{change_pct:+}%。終値は{range_label}、価格トレンドは{direction}です。",
         "check": "高値圏では追随リスク、安値圏では反転材料と下落継続リスクを確認します。",
     }
 
@@ -6489,17 +6449,16 @@ def forecast_chart_summary(
         return ["予測を表示するには、もう少し価格データが必要です。"]
 
     row = consensus_rows[0]
-    direction_label = _direction_signal_label(row.get("direction_signal_label", ""))
     upside_score = row.get("upside_signal_score") or "未計算"
     downside_score = row.get("downside_signal_score") or "未計算"
     range_pct = row.get("forecast_range_pct") or "未計算"
     model_count = row.get("model_count") or "0"
     messages = [
         (
-            f"{model_count} つの予測モデルから、方向感は「{direction_label}」です。"
-            f"上昇気配 {upside_score} / 下降警戒 {downside_score}、予測の開きは {range_pct} です。"
+            f"{model_count} つの予測モデルから、上昇気配は {upside_score}、"
+            f"下降警戒は {downside_score} です。予測の開きは {range_pct} です。"
         ),
-        "実線はこれまでの価格、点線はモデルごとの予測です。方向感は深掘り候補を整理する補助材料です。",
+        "実線はこれまでの価格、点線はモデルごとの予測です。上昇気配・下降警戒は深掘り候補を整理する補助材料です。",
     ]
     metric_messages = forecast_metric_summary(metric_rows)
     if metric_messages:
@@ -6519,10 +6478,8 @@ def forecast_consensus_display_rows(rows: list[dict[str, str]]) -> list[dict[str
             "予測上限": row.get("max_forecast_close", ""),
             "予測の開き": row.get("forecast_range", ""),
             "予測の開き(%)": row.get("forecast_range_pct", ""),
-            "方向感": _direction_signal_label(row.get("direction_signal_label", "")),
             "上昇気配": row.get("upside_signal_score", ""),
             "下降警戒": row.get("downside_signal_score", ""),
-            "方向スコア": row.get("direction_net_score", ""),
             "予測変化率": row.get("forecast_return_pct", ""),
             "方向一致": (
                 f"上昇 {row.get('up_model_count', '0')} / "
@@ -6591,8 +6548,6 @@ def _ranking_strength_phrases(
     strengths: list[str] = []
     if (_decimal_from_text(row.get("upside_signal_score")) or Decimal("0")) >= Decimal("75"):
         strengths.append("上昇気配")
-    if (_decimal_from_text(row.get("direction_net_score")) or Decimal("0")) >= Decimal("65"):
-        strengths.append("方向感")
     if (_decimal_from_text(row.get("data_quality_score")) or Decimal("0")) >= Decimal("90"):
         strengths.append("データ品質")
     if (_decimal_from_text(row.get("database_fit_score")) or Decimal("0")) >= Decimal("75"):
@@ -6682,7 +6637,6 @@ def ranking_investment_detail_rows(
     warning = ranking_row.get("注意点", "")
     score_summary = (
         f"総合{ranking_row.get('総合スコア', '未計算')} / "
-        f"方向感{ranking_row.get('方向感', '方向データ不足')} / "
         f"上昇{ranking_row.get('上昇気配', '未計算')} / "
         f"下降警戒{ranking_row.get('下降警戒', '未計算')} / "
         f"品質{ranking_row.get('データ品質', '未計算')} / "
@@ -6742,11 +6696,8 @@ def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, 
                 "見方": _investment_score_band_label(row.get("score_band", "")),
                 "条件適合度": row.get("database_fit_score", ""),
                 "Screening": row.get("screening_score", ""),
-                "方向感": _direction_signal_label(row.get("direction_signal_label", "")),
                 "上昇気配": row.get("upside_signal_score", ""),
                 "下降警戒": row.get("downside_signal_score", ""),
-                "下降警戒の低さ": _ranking_inverse_score_display(row.get("downside_signal_score")),
-                "方向スコア": row.get("direction_net_score", ""),
                 "予測変化率": row.get("forecast_return_pct", ""),
                 "方向一致": (
                     f"上昇 {row.get('up_model_count', '0')} / "
@@ -6821,18 +6772,6 @@ def _forecast_agreement_label(value: str) -> str:
         "UNKNOWN": "未判定",
     }
     return labels.get(value, value)
-
-
-def _direction_signal_label(value: str) -> str:
-    labels = {
-        "STRONG_UPSIDE": "強い上昇気配",
-        "MODERATE_UPSIDE": "上昇気配あり",
-        "NEUTRAL": "中立",
-        "MODERATE_DOWNSIDE": "下降警戒",
-        "STRONG_DOWNSIDE": "強い下降警戒",
-        "UNKNOWN": "方向データ不足",
-    }
-    return labels.get(value, value or "方向データ不足")
 
 
 def _investment_score_band_label(value: str) -> str:

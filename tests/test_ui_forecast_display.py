@@ -46,8 +46,10 @@ from ui.app import (
     _research_extracted_claim_rows,
     _research_grounded_answer_rows,
     _research_quality_warning_rows,
+    _research_result_overview_html,
     _research_retrieval_quality_rows,
     _research_table_html,
+    _research_terms_preview,
     _select_ranking_symbol_for_cockpit_with_period,
     _symbol_from_candidate,
     build_cockpit_decision_report_context,
@@ -596,13 +598,47 @@ def test_research_quality_warning_rows_feed_escaped_warning_table():
 
     assert rows == [
         {
-            "観点": "Data Quality",
+            "確認項目": "資料の状態",
             "状態": "WARN",
             "注意点": "信頼度が低い <check source>",
         }
     ]
     assert "<check source>" not in markup
     assert "&lt;check source&gt;" in markup
+
+
+def test_research_result_overview_html_explains_coverage_and_escapes_summary():
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="資料から確認できる範囲です <script>",
+        points=[],
+        evidence=[],
+        data_quality=ResearchDataQuality(
+            status="WARN",
+            latest_document_date=None,
+            document_count=0,
+            evidence_count=0,
+            warnings=["資料がありません。"],
+        ),
+    )
+
+    markup = _research_result_overview_html(report)
+
+    assert "AI整理メモ" in markup
+    assert "資料 0件 / 根拠 0件" in markup
+    assert "SettingsでResearch資料を登録" in markup
+    assert "<script>" not in markup
+    assert "&lt;script&gt;" in markup
+
+
+def test_research_terms_preview_keeps_search_quality_table_compact():
+    terms = [f"term{i}" for i in range(14)]
+
+    assert (
+        _research_terms_preview(terms, limit=5)
+        == "term0 / term1 / term2 / term3 / term4 / ... (+9)"
+    )
 
 
 def test_research_phase21_rows_expose_grounded_answer_retrieval_and_claims():
@@ -651,10 +687,11 @@ def test_research_phase21_rows_expose_grounded_answer_retrieval_and_claims():
     retrieval_rows = _research_retrieval_quality_rows(report)
     claim_rows = _research_extracted_claim_rows(report)
 
-    assert grounded_rows[0]["観点"] == "Grounded Answer"
-    assert "売買推奨ではありません" in grounded_rows[0]["内容"]
+    assert grounded_rows[0]["確認項目"] == "根拠付き要約"
+    assert "売買推奨ではありません" in grounded_rows[0]["AI整理メモ"]
     assert retrieval_rows[0]["検索方式"] == "keyword"
-    assert retrieval_rows[0]["拡張語"] == "growth / strategy"
+    assert retrieval_rows[0]["確認項目"] == "検索品質"
+    assert retrieval_rows[0]["関連語の一部"] == "growth / strategy"
     assert claim_rows[0]["観点"] == "growth"
     assert claim_rows[0]["信頼度"] == "0.75"
 

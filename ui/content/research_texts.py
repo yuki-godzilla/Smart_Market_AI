@@ -22,8 +22,8 @@ RESEARCH_EVIDENCE_CHECK_FALLBACK = "AI Researchで資料根拠を確認します
 RESEARCH_COCKPIT_SECTION_TITLE = "06 Research Evidence / 根拠資料"
 RESEARCH_RANKING_LOOKUP_TITLE = "AI Research / 根拠資料"
 RESEARCH_COCKPIT_INTRO = (
-    "価格データ取得時にはResearch RAGを自動実行しません。"
-    "登録済み資料から根拠を整理したい場合だけ、AIデータ取得を実行してください。"
+    "価格データ取得とは別に、登録済みのResearch資料から確認材料を整理します。"
+    "資料名・日付・抜粋・注意点を見ながら、根拠の有無を確認してください。"
 )
 RESEARCH_RANKING_LOOKUP_INTRO = (
     "この銘柄の登録資料から、投資判断前に確認したい材料と注意点を整理します。"
@@ -31,9 +31,7 @@ RESEARCH_RANKING_LOOKUP_INTRO = (
 RESEARCH_FETCH_BUTTON_LABEL = "AIデータ取得"
 RESEARCH_RANKING_FETCH_BUTTON_LABEL = "AIで資料を確認"
 RESEARCH_FETCH_SPINNER = "Research資料から根拠を整理しています。"
-RESEARCH_NOT_FETCHED_MESSAGE = (
-    "Research RAGは未取得です。必要な場合は「AIデータ取得」を押してください。"
-)
+RESEARCH_NOT_FETCHED_MESSAGE = "Research Evidence はまだ整理されていません。登録済み資料から根拠と注意点を確認する場合は「AIデータ取得」を実行してください。"
 RESEARCH_DETAIL_EXPANDER_LABEL = "Research RAG 詳細"
 RESEARCH_DETAIL_OK_CAPTION = "登録資料から検索できた根拠と観点別サマリです。"
 

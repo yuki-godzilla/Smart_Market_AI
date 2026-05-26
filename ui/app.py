@@ -445,6 +445,75 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     width: 5rem;
     text-align: right;
 }
+.research-ai-cta {
+    border: 1px solid rgba(125, 211, 252, 0.38);
+    border-radius: 8px;
+    background:
+        linear-gradient(135deg, rgba(14, 116, 144, 0.22), rgba(15, 23, 42, 0.72)),
+        #0f1724;
+    padding: 0.9rem 1rem;
+    margin: 0.45rem 0 0.8rem;
+}
+.research-ai-cta-title {
+    color: #e0f2fe;
+    font-weight: 800;
+    font-size: 1.02rem;
+    margin-bottom: 0.25rem;
+}
+.research-ai-cta-copy {
+    color: #cbd5e1;
+    font-size: 0.9rem;
+    line-height: 1.55;
+}
+.research-result-brief {
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 8px;
+    background: #0f141d;
+    padding: 0.9rem 1rem;
+    margin: 0.75rem 0 0.65rem;
+}
+.research-result-brief-title {
+    color: #e2e8f0;
+    font-weight: 800;
+    margin-bottom: 0.35rem;
+}
+.research-result-brief-summary {
+    color: #f8fafc;
+    line-height: 1.65;
+    margin-bottom: 0.75rem;
+}
+.research-result-brief-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.55rem;
+}
+.research-result-brief-item {
+    border: 1px solid rgba(71, 85, 105, 0.72);
+    border-radius: 6px;
+    padding: 0.62rem 0.7rem;
+    background: #111827;
+}
+.research-result-brief-label {
+    color: #9fb2c8;
+    font-size: 0.78rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+}
+.research-result-brief-value {
+    color: #f8fafc;
+    font-size: 0.92rem;
+    line-height: 1.45;
+}
+@media (max-width: 900px) {
+    .research-result-brief-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (max-width: 560px) {
+    .research-result-brief-grid {
+        grid-template-columns: 1fr;
+    }
+}
 .research-evidence-list {
     display: grid;
     gap: 0.65rem;
@@ -4222,20 +4291,12 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
     symbol = _market_data_preview_symbol(preview)
     if not symbol:
         return
-    header_col, action_col = st.columns([5.0, 1.2])
-    with header_col:
-        st.subheader(RESEARCH_COCKPIT_SECTION_TITLE)
-        st.caption(RESEARCH_COCKPIT_INTRO)
-    with action_col:
-        fetch_clicked = st.button(
-            RESEARCH_FETCH_BUTTON_LABEL,
-            key=f"research_ai_fetch_{symbol}",
-            help=(
-                "設定 / データ情報で登録したローカル資料を検索し、"
-                "成長材料・株主還元・財務安全性・事業リスクの確認材料を整理します。"
-                "外部LLMや外部サイト取得は使いません。"
-            ),
-        )
+    st.subheader(RESEARCH_COCKPIT_SECTION_TITLE)
+    st.caption(RESEARCH_COCKPIT_INTRO)
+    fetch_clicked = _render_research_fetch_cta(
+        button_label=RESEARCH_FETCH_BUTTON_LABEL,
+        button_key=f"research_ai_fetch_{symbol}",
+    )
     if fetch_clicked:
         with st.spinner(RESEARCH_FETCH_SPINNER):
             st.session_state[MARKET_DATA_RESEARCH_REPORT_STATE_KEY] = (
@@ -4247,6 +4308,38 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
         st.info(RESEARCH_NOT_FETCHED_MESSAGE)
         return
     _render_research_summary_panel(report, detail_expanded=False)
+
+
+def _render_research_fetch_cta(
+    *,
+    button_label: str,
+    button_key: str,
+) -> bool:
+    with st.container(border=True):
+        text_col, action_col = st.columns([3.2, 1.1])
+        with text_col:
+            st.markdown(
+                (
+                    '<div class="research-ai-cta">'
+                    '<div class="research-ai-cta-title">AI Research Pipeline</div>'
+                    '<div class="research-ai-cta-copy">'
+                    "登録済みのローカル資料だけを検索し、成長材料・株主還元・財務安全性・"
+                    "事業リスクの確認材料を整理します。外部LLMや外部サイト取得は使いません。"
+                    "</div></div>"
+                ),
+                unsafe_allow_html=True,
+            )
+        with action_col:
+            return st.button(
+                button_label,
+                key=button_key,
+                help=(
+                    "登録済みResearch資料から、投資判断前に確認したい根拠と注意点を整理します。"
+                    "売買判断の代行ではありません。"
+                ),
+                type="primary",
+                use_container_width=True,
+            )
 
 
 def _render_ranking_symbol_research_lookup(symbol: str) -> None:
@@ -4278,10 +4371,9 @@ def _render_research_summary_panel(
     *,
     detail_expanded: bool,
 ) -> None:
-    if report.data_quality.status == "OK":
-        st.success(report.summary)
-    else:
-        st.warning(report.summary)
+    st.markdown(_research_result_overview_html(report), unsafe_allow_html=True)
+    if report.data_quality.status != "OK":
+        st.warning("根拠資料が不足しています。表示内容は確認材料として控えめに扱ってください。")
     render_research_evidence_summary(report)
     st.caption(
         f"資料数: {report.data_quality.document_count} / "
@@ -4344,6 +4436,48 @@ def _render_research_summary_panel(
         evidence_rows = _research_evidence_display_rows(report)
         if evidence_rows:
             st.markdown(_research_evidence_cards_html(evidence_rows), unsafe_allow_html=True)
+
+
+def _research_result_overview_html(report: CompanyResearchReport) -> str:
+    latest_source = (
+        report.data_quality.latest_document_date.isoformat()
+        if report.data_quality.latest_document_date
+        else "未取得"
+    )
+    coverage = (
+        f"資料 {report.data_quality.document_count}件 / 根拠 {report.data_quality.evidence_count}件"
+    )
+    if report.data_quality.document_count <= 0:
+        next_check = "SettingsでResearch資料を登録してから再実行してください。"
+    elif report.data_quality.evidence_count <= 0:
+        next_check = "資料の対象銘柄・日付・キーワードを確認してください。"
+    elif report.data_quality.warnings:
+        next_check = "注意点と根拠カードで資料の鮮度・抜粋元を確認してください。"
+    else:
+        next_check = "根拠カードで資料名・日付・抜粋を確認してください。"
+
+    items = [
+        ("資料カバレッジ", coverage),
+        ("最新資料日", latest_source),
+        ("確認状態", report.data_quality.status),
+        ("次に見るところ", next_check),
+    ]
+    item_markup = "".join(
+        (
+            '<div class="research-result-brief-item">'
+            f'<div class="research-result-brief-label">{html.escape(label)}</div>'
+            f'<div class="research-result-brief-value">{html.escape(value)}</div>'
+            "</div>"
+        )
+        for label, value in items
+    )
+    return (
+        '<section class="research-result-brief">'
+        '<div class="research-result-brief-title">AI整理メモ</div>'
+        f'<div class="research-result-brief-summary">{html.escape(report.summary)}</div>'
+        f'<div class="research-result-brief-grid">{item_markup}</div>'
+        "</section>"
+    )
 
 
 def _cockpit_research_report_from_state(preview: MarketDataPreview) -> CompanyResearchReport | None:
@@ -4906,7 +5040,7 @@ def _research_evidence_display_rows(report: CompanyResearchReport) -> list[dict[
 def _research_quality_warning_rows(report: CompanyResearchReport) -> list[dict[str, str]]:
     return [
         {
-            "観点": "Data Quality",
+            "確認項目": "資料の状態",
             "状態": report.data_quality.status,
             "注意点": warning,
         }
@@ -4921,10 +5055,10 @@ def _research_grounded_answer_rows(report: CompanyResearchReport) -> list[dict[s
         return []
     return [
         {
-            "観点": "Grounded Answer",
-            "内容": answer.answer,
+            "確認項目": "根拠付き要約",
+            "AI整理メモ": answer.answer,
             "根拠数": str(answer.evidence_count),
-            "注意点": " / ".join(answer.warnings),
+            "次の確認": " / ".join(answer.warnings),
         }
     ]
 
@@ -4935,15 +5069,23 @@ def _research_retrieval_quality_rows(report: CompanyResearchReport) -> list[dict
         return []
     return [
         {
-            "観点": "Retrieval Quality",
+            "確認項目": "検索品質",
             "検索方式": quality.backend,
-            "検索語": quality.query,
-            "拡張語": " / ".join(quality.expanded_terms),
+            "検索した観点": quality.query,
+            "関連語の一部": _research_terms_preview(quality.expanded_terms),
             "候補数": str(quality.candidate_count),
             "根拠数": str(quality.evidence_count),
             "注意点": " / ".join(quality.warnings),
         }
     ]
+
+
+def _research_terms_preview(terms: Sequence[str], *, limit: int = 12) -> str:
+    cleaned = [term.strip() for term in terms if term.strip()]
+    if len(cleaned) <= limit:
+        return " / ".join(cleaned)
+    shown = " / ".join(cleaned[:limit])
+    return f"{shown} / ... (+{len(cleaned) - limit})"
 
 
 def _research_extracted_claim_rows(report: CompanyResearchReport) -> list[dict[str, str]]:
@@ -5029,7 +5171,7 @@ def _research_evidence_cards_html(evidence_rows: list[dict[str, str]]) -> str:
 
 
 def _research_column_class(column: str) -> str:
-    if column == "観点":
+    if column in {"観点", "確認項目"}:
         return "research-topic"
     if column == "根拠数":
         return "research-count"

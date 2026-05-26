@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
+
 import streamlit as st
 
 from backend.research import CompanyResearchReport
@@ -13,7 +15,7 @@ from ui.styles import (
 
 
 def _display_value(value: object, fallback: str = "未取得") -> str:
-    text = str(value or "").strip()
+    text = "" if value is None else str(value).strip()
     return text if text else fallback
 
 
@@ -126,6 +128,169 @@ def cockpit_kpi_cards(score_row: dict[str, str] | None) -> list[dict[str, str]]:
             "help": "取得期間から見たリスク確認材料です。",
         },
     ]
+
+
+def cockpit_direction_signal_cards(
+    score_row: dict[str, str] | None,
+    consensus_row: dict[str, str] | None,
+) -> list[dict[str, str]]:
+    """Return cockpit cards for one-symbol direction-signal review."""
+
+    row = score_row or {}
+    consensus = consensus_row or {}
+    return [
+        {
+            "label": "方向スコア",
+            "value": _display_value(
+                row.get("方向スコア") or consensus.get("direction_net_score"),
+                "未計算",
+            ),
+            "help": "上昇気配と下降警戒の差分を0〜100で整理した深掘り用シグナルです。",
+        },
+        {
+            "label": "上昇気配",
+            "value": _display_value(
+                row.get("上昇気配") or consensus.get("upside_signal_score"),
+                "未計算",
+            ),
+            "help": "予測上昇率、モデル別の上向き強度、直近モメンタムを合わせたスコアです。",
+        },
+        {
+            "label": "下降警戒",
+            "value": _display_value(
+                row.get("下降警戒") or consensus.get("downside_signal_score"),
+                "未計算",
+            ),
+            "help": "予測下落率、モデル別の下向き強度、直近モメンタムを合わせた警戒スコアです。",
+        },
+        {
+            "label": "予測変化率",
+            "value": _display_value(
+                row.get("予測変化率") or consensus.get("forecast_return_pct"),
+                "未計算",
+            ),
+            "help": "平均予測価格が直近終値からどの程度離れているかを示します。",
+        },
+    ]
+
+
+def cockpit_direction_signal_detail_rows(
+    score_row: dict[str, str] | None,
+    consensus_row: dict[str, str] | None,
+) -> list[dict[str, str]]:
+    """Return detail rows explaining direction-signal inputs for cockpit."""
+
+    row = score_row or {}
+    consensus = consensus_row or {}
+    upside = _display_value(row.get("上昇気配") or consensus.get("upside_signal_score"), "未計算")
+    downside = _display_value(
+        row.get("下降警戒") or consensus.get("downside_signal_score"),
+        "未計算",
+    )
+    direction_score = _display_value(
+        row.get("方向スコア") or consensus.get("direction_net_score"),
+        "未計算",
+    )
+    direction_label = _display_value(
+        row.get("方向感") or _direction_label_text(consensus.get("direction_signal_label")),
+        "未計算",
+    )
+    forecast_return = _display_value(
+        row.get("予測変化率") or consensus.get("forecast_return_pct"),
+        "未計算",
+    )
+    direction_match = _display_value(
+        row.get("方向一致") or _direction_count_text(consensus),
+        "未計算",
+    )
+    forecast_range = _display_value(consensus.get("forecast_range_pct"), "未計算")
+    agreement = _display_value(row.get("モデル一致度") or consensus.get("agreement"), "未計算")
+    return [
+        {
+            "観点": "方向感",
+            "内容": f"{direction_label} / 方向スコア {direction_score}",
+            "確認ポイント": "ランキングと同じ方向分類です。深掘り候補の見方として確認します。",
+        },
+        {
+            "観点": "上昇・下降バランス",
+            "内容": f"上昇気配 {upside} / 下降警戒 {downside} / 方向スコア {direction_score}",
+            "確認ポイント": "上昇気配だけでなく、下降警戒との差し引きで深掘り優先度を確認します。",
+        },
+        {
+            "観点": "予測変化率",
+            "内容": forecast_return,
+            "確認ポイント": "平均予測価格が直近終値より上か下かを確認します。断定ではありません。",
+        },
+        {
+            "観点": "モデル方向一致",
+            "内容": direction_match,
+            "確認ポイント": "複数モデルが同じ方向を示しているか、割れているかを確認します。",
+        },
+        {
+            "観点": "予測のばらつき",
+            "内容": f"{forecast_range} / モデル一致度 {agreement}",
+            "確認ポイント": "モデルの開きが大きい場合、方向スコアは中立寄りに扱います。",
+        },
+    ]
+
+
+def cockpit_direction_signal_summary(
+    score_row: dict[str, str] | None,
+    consensus_row: dict[str, str] | None,
+) -> str:
+    """Return a short non-advisory direction-signal explanation."""
+
+    row = score_row or {}
+    consensus = consensus_row or {}
+    direction = _decimal_display_value(
+        row.get("方向スコア") or consensus.get("direction_net_score")
+    )
+    upside = _decimal_display_value(row.get("上昇気配") or consensus.get("upside_signal_score"))
+    downside = _decimal_display_value(row.get("下降警戒") or consensus.get("downside_signal_score"))
+    forecast_return = _display_value(
+        row.get("予測変化率") or consensus.get("forecast_return_pct"),
+        "未計算",
+    )
+    if downside is not None and downside >= Decimal("70"):
+        return (
+            f"下降警戒が{_format_direction_decimal(downside)}と高めです。"
+            f"上昇気配と予測変化率 {forecast_return} を合わせて確認します。"
+        )
+    if (
+        upside is not None
+        and upside >= Decimal("70")
+        and (direction is None or direction >= Decimal("55"))
+    ):
+        return (
+            f"上昇気配が{_format_direction_decimal(upside)}と相対的に強めです。"
+            f"方向スコアと下降警戒を合わせて深掘りします。"
+        )
+    if direction is not None and direction <= Decimal("45"):
+        return (
+            f"方向スコアが{_format_direction_decimal(direction)}で中立以下です。"
+            "下向き材料と直近トレンドを先に確認します。"
+        )
+    return "上昇気配と下降警戒が拮抗しています。価格チャート、モデル方向一致、予測のばらつきを合わせて確認します。"
+
+
+def render_cockpit_direction_signal_cards(cards: list[dict[str, str]]) -> None:
+    if not cards:
+        return
+    render_section_heading("03 Direction Signal / 上昇気配・下降警戒")
+    st.caption(
+        "ランキングで使う方向シグナルを、1銘柄の深掘り用に分解して確認します。売買推奨ではありません。"
+    )
+    columns = st.columns(min(4, len(cards)))
+    for index, card in enumerate(cards):
+        with columns[index % len(columns)]:
+            render_metric_card(
+                card["label"],
+                card["value"],
+                caption=card.get("help", ""),
+                badges=(_badge_for_direction_card(card),),
+                tone=_tone_for_direction_card(card),
+                progress=_progress_for_direction_card(card),
+            )
 
 
 def research_evidence_summary_items(
@@ -300,6 +465,34 @@ def _progress_for_kpi_card(card: dict[str, str]) -> int | None:
     return None
 
 
+def _badge_for_direction_card(card: dict[str, str]) -> str:
+    label = card.get("label", "")
+    if label == "下降警戒":
+        return badge_html("Check", "caution")
+    if label == "上昇気配":
+        return badge_html("Signal", "info")
+    if label == "方向スコア":
+        return badge_html("Balance", "info")
+    return badge_html("Forecast", "neutral")
+
+
+def _tone_for_direction_card(card: dict[str, str]) -> str:
+    label = card.get("label", "")
+    if label == "下降警戒":
+        return "risk"
+    if label == "上昇気配":
+        return "forecast"
+    if label == "方向スコア":
+        return "score"
+    return "info"
+
+
+def _progress_for_direction_card(card: dict[str, str]) -> int | None:
+    if card.get("label") in {"方向スコア", "上昇気配", "下降警戒"}:
+        return metric_progress_from_value(card.get("value"))
+    return None
+
+
 def _badge_for_research_item(item: dict[str, str]) -> str:
     label = item.get("label", "")
     value = item.get("value", "")
@@ -312,3 +505,42 @@ def _badge_for_research_item(item: dict[str, str]) -> str:
 
 def _item_value(items: dict[str, dict[str, str]], label: str) -> str:
     return _display_value(items.get(label, {}).get("value"), "-")
+
+
+def _direction_count_text(row: dict[str, str]) -> str:
+    up = row.get("up_model_count", "")
+    down = row.get("down_model_count", "")
+    flat = row.get("flat_model_count", "")
+    if not any([up, down, flat]):
+        return ""
+    return f"上昇 {up or '0'} / 下降 {down or '0'} / 横ばい {flat or '0'}"
+
+
+def _direction_label_text(value: object) -> str:
+    labels = {
+        "STRONG_UPSIDE": "強い上昇気配",
+        "MODERATE_UPSIDE": "上昇気配あり",
+        "NEUTRAL": "中立",
+        "MODERATE_DOWNSIDE": "下降警戒",
+        "STRONG_DOWNSIDE": "強い下降警戒",
+        "UNKNOWN": "方向データ不足",
+    }
+    text = str(value or "").strip()
+    return labels.get(text, text)
+
+
+def _decimal_display_value(value: object) -> Decimal | None:
+    text = "" if value is None else str(value).replace("%", "").replace(",", "").strip()
+    if not text or text in {"-", "未接続", "未登録", "未計算"}:
+        return None
+    try:
+        decimal_value = Decimal(text)
+    except (InvalidOperation, ValueError):
+        return None
+    if not decimal_value.is_finite():
+        return None
+    return decimal_value
+
+
+def _format_direction_decimal(value: Decimal) -> str:
+    return f"{value.quantize(Decimal('0.1'))}".rstrip("0").rstrip(".")

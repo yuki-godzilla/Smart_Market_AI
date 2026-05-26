@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-05-26: Added a Symbol Cockpit `Direction Signal / 上昇気配・下降警戒` section so single-symbol review shows the same direction label, upside signal, downside warning, forecast return, model direction counts, and forecast spread used by ranking.
 - 2026-05-26: Changed the multi-factor / upside ranking scatter chart to `上昇気配 x 下降警戒` with direction-score color, and made scatter axes focus on the visible candidate range so tightly clustered upside scores are easier to compare.
 - 2026-05-26: Changed forecast direction scoring so model agreement acts as a neutral confidence adjustment rather than an additive upside/downside bonus, widened ensemble return thresholds, and made the upside ranking watch map use raw `下降警戒` on the y-axis.
 - 2026-05-26: Refined forecast direction scoring so upside / downside signals use weighted model-by-model forecast return strength instead of only counting how many models point up or down.

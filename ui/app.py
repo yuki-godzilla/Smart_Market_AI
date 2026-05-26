@@ -171,8 +171,12 @@ from ui.styles import (
 )
 from ui.symbol_universe import symbol_provider_symbol, symbol_universe_csv_rows
 from ui.views.cockpit import (
+    cockpit_direction_signal_cards,
+    cockpit_direction_signal_detail_rows,
+    cockpit_direction_signal_summary,
     cockpit_kpi_cards,
     cockpit_summary_items,
+    render_cockpit_direction_signal_cards,
     render_cockpit_kpi_cards,
     render_cockpit_summary_header,
     render_research_evidence_summary,
@@ -4193,11 +4197,12 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         metric_rows,
     )
     if score_row is not None:
+        _render_cockpit_direction_signal_section(score_row, consensus_rows)
         _render_score_breakdown_context(preview, symbol_label, score_row, score_display_rows)
 
     summary_rows = cockpit_detail_summary_rows(preview, consensus_rows, metric_rows)
     if summary_rows:
-        st.subheader("04 Confirmation Summary / 確認サマリー")
+        st.subheader("05 Confirmation Summary / 確認サマリー")
         st.caption(
             "詳細データのうち、深掘り前に見ておきたい代表項目を確認観点として整理しています。"
         )
@@ -4299,7 +4304,7 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
         return
     header_col, action_col = st.columns([5.0, 1.2])
     with header_col:
-        st.subheader("05 Research Evidence / 根拠資料")
+        st.subheader("06 Research Evidence / 根拠資料")
         st.caption(
             "価格データ取得時にはResearch RAGを自動実行しません。"
             "登録済み資料から根拠を整理したい場合だけ、AIデータ取得を実行してください。"
@@ -4514,13 +4519,37 @@ def _render_investment_score_section(
     return row
 
 
+def _render_cockpit_direction_signal_section(
+    score_row: dict[str, str],
+    consensus_rows: list[dict[str, str]],
+) -> None:
+    consensus_row = consensus_rows[0] if consensus_rows else {}
+    direction_cards = cockpit_direction_signal_cards(score_row, consensus_row)
+    render_cockpit_direction_signal_cards(direction_cards)
+    insight_tone = (
+        "caution"
+        if (_decimal_from_text(score_row.get("下降警戒")) or Decimal("0")) >= Decimal("65")
+        else "forecast"
+    )
+    st.markdown(
+        smai_insight_html(
+            cockpit_direction_signal_summary(score_row, consensus_row),
+            tone=insight_tone,
+        ),
+        unsafe_allow_html=True,
+    )
+    detail_rows = cockpit_direction_signal_detail_rows(score_row, consensus_row)
+    if detail_rows:
+        _render_symbol_detail_table(detail_rows)
+
+
 def _render_score_breakdown_context(
     preview: MarketDataPreview,
     symbol_label: str,
     row: dict[str, str],
     rows: list[dict[str, str]],
 ) -> None:
-    st.markdown("#### 03 Score Breakdown / 評価の内訳")
+    st.markdown("#### 04 Score Breakdown / 評価の内訳")
     st.caption(
         "チャートを見たあとに、総合スコアを構成する観点を確認します。売買判断ではなく、深掘りする理由を整理するための表示です。"
     )

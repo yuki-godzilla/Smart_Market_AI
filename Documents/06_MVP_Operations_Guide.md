@@ -202,7 +202,8 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - period preset help explains the intended review basis: short-term material reaction, medium-term trend, long-term drawdown resilience / structural change, and custom event windows
 - collapsed sample symbol reference
 - 価格・予測チャート
-- direction signal、forecast agreement compatibility、forecast spread、best RMSE model
+- `Direction Signal / 上昇気配・下降警戒`: ランキングと同じ方向シグナルを1銘柄の深掘り用に表示し、`方向感`、`方向スコア`、`上昇気配`、`下降警戒`、`予測変化率`、モデル方向一致、予測のばらつきを確認する。売買推奨ではなく比較・確認材料として扱う。
+- forecast agreement compatibility、forecast spread、best RMSE model
 - Investment Score summary
 - score breakdown chart
 - post-fetch confirmation summary lifts key closed-detail items into the main view: latest price, OHLCV period/volume, forecast range, screening components, short-term features, data quality, and forecast evaluation

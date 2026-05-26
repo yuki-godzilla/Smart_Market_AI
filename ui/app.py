@@ -1896,11 +1896,13 @@ def ranking_top_candidate_cards(
 def ranking_score_bar_chart_frame(
     display_rows: list[dict[str, str]],
     *,
+    ranking_purpose: str = "multi_factor",
     limit: int = 10,
 ) -> pd.DataFrame:
     records: list[dict[str, object]] = []
+    metric_column = _ranking_bar_chart_metric_column(display_rows, ranking_purpose)
     for row in display_rows[:limit]:
-        score = _ranking_display_float(row, "総合スコア")
+        score = _ranking_display_float(row, metric_column)
         if score is None:
             continue
         symbol = row.get("銘柄", "")
@@ -1908,13 +1910,34 @@ def ranking_score_bar_chart_frame(
         records.append(
             {
                 "rank": row.get("順位", ""),
+                "rank_order": len(records) + 1,
                 "symbol": symbol,
                 "name": name,
                 "label": symbol or name,
                 "score": score,
+                "metric": metric_column,
             }
         )
-    return pd.DataFrame.from_records(records)
+    frame = pd.DataFrame.from_records(records)
+    frame.attrs["metric_column"] = metric_column
+    return frame
+
+
+def _ranking_bar_chart_metric_column(
+    display_rows: list[dict[str, str]],
+    ranking_purpose: str,
+) -> str:
+    direction_columns = {"上昇気配", "下降警戒", "下降警戒の低さ", "方向スコア"}
+    if direction_columns.intersection(ranking_purpose_primary_columns(ranking_purpose)):
+        if _ranking_direction_data_limited(display_rows):
+            fallback_columns = ("Screening", "Risk", "データ品質", "条件適合度", "総合スコア")
+            for column in fallback_columns:
+                if _ranking_distinct_numeric_count(display_rows, column) >= 1:
+                    return column
+    for column in ranking_purpose_primary_columns(ranking_purpose):
+        if _ranking_distinct_numeric_count(display_rows, column) >= 1:
+            return column
+    return "総合スコア"
 
 
 def ranking_score_confidence_frame(display_rows: list[dict[str, str]]) -> pd.DataFrame:
@@ -2069,41 +2092,59 @@ def _render_top_screening_candidate_cards(cards: list[dict[str, str]]) -> None:
     columns = st.columns(min(5, len(cards)))
     for index, card in enumerate(cards):
         with columns[index % len(columns)]:
-            title = f"#{card['rank']} {card['symbol']}".strip()
-            primary_label = card.get("primary_label") or "総合スコア"
-            primary_value = card.get("primary_value") or card["score"]
-            caption_parts = [
-                card["name"],
-                f"総合 {card['score']}" if card.get("score") else "",
-                truncate_text(card.get("reason", ""), max_chars=42),
-            ]
-            caption = " / ".join(part for part in caption_parts if part)
-            badges = (
-                badge_html(primary_label, "info") if primary_label else "",
-                badge_html(card["view"], "info") if card["view"] else "",
-                (
-                    badge_html(card["direction"], _direction_badge_tone(card["direction"]))
-                    if card["direction"]
-                    else ""
-                ),
-                (
-                    badge_html("下降警戒", "caution")
-                    if (_decimal_from_text(card.get("downside")) or Decimal("0")) >= Decimal("65")
-                    else ""
-                ),
-                _confidence_badge(card["confidence"]),
-                _research_status_badge(card["research_status"], card["research_tone"]),
-                badge_html("Caution", "caution") if card["caution"] else "",
+            st.markdown(
+                _ranking_candidate_card_html(card, index=index),
+                unsafe_allow_html=True,
             )
-            render_metric_card(
-                title,
-                primary_value,
-                caption=caption,
-                badges=tuple(badge for badge in badges if badge),
-                tone="score",
-                emphasis="spotlight" if index == 0 else "normal",
-                progress=metric_progress_from_value(primary_value),
-            )
+
+
+def _ranking_candidate_card_html(card: dict[str, str], *, index: int) -> str:
+    primary_label = card.get("primary_label") or "総合スコア"
+    primary_value = card.get("primary_value") or card["score"]
+    name = card.get("name") or card.get("symbol") or "名称未登録"
+    symbol_line = f"#{card.get('rank', '')} {card.get('symbol', '')}".strip()
+    score_line = f"総合 {card['score']}" if card.get("score") else ""
+    reason = card.get("reason", "")
+    progress = metric_progress_from_value(primary_value)
+    safe_progress = min(100, max(0, int(progress))) if progress is not None else 0
+    badges = (
+        badge_html(primary_label, "info") if primary_label else "",
+        badge_html(card["view"], "info") if card["view"] else "",
+        (
+            badge_html(card["direction"], _direction_badge_tone(card["direction"]))
+            if card["direction"]
+            else ""
+        ),
+        (
+            badge_html("下降警戒", "caution")
+            if (_decimal_from_text(card.get("downside")) or Decimal("0")) >= Decimal("65")
+            else ""
+        ),
+        _confidence_badge(card["confidence"]),
+        _research_status_badge(card["research_status"], card["research_tone"]),
+        badge_html("Caution", "caution") if card["caution"] else "",
+    )
+    badge_row = "".join(badge for badge in badges if badge)
+    caption_parts = [score_line, reason]
+    caption = " / ".join(part for part in caption_parts if part)
+    return (
+        '<div class="smai-ranking-card" '
+        f'data-emphasis="{"spotlight" if index == 0 else "normal"}">'
+        '<div class="smai-ranking-card-header">'
+        f'<span class="smai-ranking-card-symbol">{html.escape(symbol_line)}</span>'
+        "</div>"
+        f'<div class="smai-ranking-card-name">{html.escape(name)}</div>'
+        '<div class="smai-ranking-card-metric">'
+        f'<span class="smai-ranking-card-metric-label">{html.escape(primary_label)}</span>'
+        f'<span class="smai-ranking-card-metric-value">{html.escape(str(primary_value))}</span>'
+        "</div>"
+        '<div class="smai-score-track" aria-hidden="true">'
+        f'<div class="smai-score-fill" style="--smai-score-width: {safe_progress}%"></div>'
+        "</div>"
+        f'<div class="smai-ranking-card-caption">{html.escape(caption)}</div>'
+        f'<div class="smai-badge-row">{badge_row}</div>'
+        "</div>"
+    )
 
 
 def _metric_badge_for_card(card: dict[str, str]) -> str:
@@ -2161,33 +2202,33 @@ def _research_status_badge(label: str, tone: str) -> str:
     return badge_html(label, tone)
 
 
-def _render_ranking_score_bar_chart(display_rows: list[dict[str, str]]) -> None:
-    frame = ranking_score_bar_chart_frame(display_rows)
-    render_section_heading("Top 10 Score Comparison")
-    st.caption("上位候補のスコア差を確認します。銘柄名はtooltipで確認できます。")
+def _render_ranking_score_bar_chart(
+    display_rows: list[dict[str, str]],
+    ranking_purpose: str,
+) -> None:
+    frame = ranking_score_bar_chart_frame(display_rows, ranking_purpose=ranking_purpose)
+    metric_column = str(frame.attrs.get("metric_column", "総合スコア"))
+    render_section_heading(f"Top 10 {metric_column} Comparison")
+    st.caption(
+        f"上位候補を、並べ替え条件で重視する「{metric_column}」で比較します。"
+        "棒の並びはランキング順です。銘柄名はtooltipで確認できます。"
+    )
     if frame.empty:
-        st.info("Investment Score をグラフ化できる候補がありません。")
+        st.info(f"{metric_column} をグラフ化できる候補がありません。")
         return
     chart = (
         alt.Chart(frame)
         .mark_bar(cornerRadiusEnd=3)
         .encode(
-            x=alt.X("score:Q", title="Investment Score"),
-            y=alt.Y("label:N", sort="-x", title=None),
+            x=alt.X("score:Q", title=metric_column),
+            y=alt.Y("label:N", sort=alt.SortField("rank_order", order="ascending"), title=None),
             tooltip=[
                 alt.Tooltip("rank:N", title="Rank"),
                 alt.Tooltip("symbol:N", title="Symbol"),
                 alt.Tooltip("name:N", title="Name"),
-                alt.Tooltip("score:Q", title="Investment Score", format=".1f"),
+                alt.Tooltip("score:Q", title=metric_column, format=".1f"),
             ],
-            color=alt.Color(
-                "score:Q",
-                legend=None,
-                scale=alt.Scale(
-                    domain=[0, 70, 90],
-                    range=["#38bdf8", "#60a5fa", "#22c55e"],
-                ),
-            ),
+            color=alt.value("#22d3ee"),
         )
         .properties(height=max(260, min(420, 34 * len(frame))))
     )
@@ -3521,7 +3562,7 @@ def _render_market_data_ranking() -> None:
         )
         chart_col, confidence_col = st.columns(2)
         with chart_col:
-            _render_ranking_score_bar_chart(display_rows)
+            _render_ranking_score_bar_chart(display_rows, ranking_purpose)
         with confidence_col:
             _render_ranking_profile_chart(display_rows, ranking_purpose)
         deep_dive_symbols = ranking_symbol_options(ranked_rows)

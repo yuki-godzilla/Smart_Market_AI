@@ -25,6 +25,7 @@ from ui.app import (
     _market_data_preview_symbol_label,
     _name_from_candidate,
     _normalize_dividend_filter_state,
+    _ranking_candidate_card_html,
     _ranking_decision_report_state_key,
     _ranking_result_grid_height,
     _ranking_result_grid_key,
@@ -2671,8 +2672,40 @@ def test_ranking_visualization_frames_skip_missing_scores():
 
     assert score_frame["symbol"].tolist() == ["7203.T"]
     assert score_frame["score"].tolist() == [82.5]
+    assert score_frame.attrs["metric_column"] == "総合スコア"
     assert confidence_frame["symbol"].tolist() == ["7203.T"]
     assert confidence_frame["confidence_band"].tolist() == ["High confidence"]
+
+
+def test_ranking_score_bar_chart_frame_uses_purpose_metric():
+    rows = [
+        {
+            "順位": "1",
+            "銘柄": "AAA",
+            "銘柄名": "Alpha",
+            "総合スコア": "82",
+            "上昇気配": "76",
+            "下降警戒": "42",
+            "方向スコア": "67",
+        },
+        {
+            "順位": "2",
+            "銘柄": "BBB",
+            "銘柄名": "Beta",
+            "総合スコア": "80",
+            "上昇気配": "70",
+            "下降警戒": "44",
+            "方向スコア": "63",
+        },
+    ]
+
+    frame = ranking_score_bar_chart_frame(
+        rows,
+        ranking_purpose=RANKING_PURPOSE_UPSIDE_SIGNAL,
+    )
+
+    assert frame.attrs["metric_column"] == "上昇気配"
+    assert frame["score"].tolist() == [76.0, 70.0]
 
 
 def test_ranking_candidate_cards_and_breakdown_use_existing_display_values():
@@ -2703,9 +2736,13 @@ def test_ranking_candidate_cards_and_breakdown_use_existing_display_values():
     breakdown = ranking_candidate_breakdown_rows(rows, "7203.T")
 
     assert cards[0]["symbol"] == "7203.T"
+    assert cards[0]["name"] == "Toyota Motor"
     assert cards[0]["score"] == "82"
     assert cards[0]["confidence"] == "88"
     assert cards[0]["research_status"] == "根拠あり"
+    card_html = _ranking_candidate_card_html(cards[0], index=0)
+    assert "Toyota Motor" in card_html
+    assert "総合スコア 82" in card_html
     assert [row["観点"] for row in breakdown] == [
         "Investment Score",
         "Screening",
@@ -2766,6 +2803,9 @@ def test_ranking_candidate_cards_fallback_when_direction_data_is_limited():
     assert cards[0]["primary_label"] == "総合スコア"
     assert cards[0]["primary_value"] == "82"
     assert "方向データが不足" in cards[0]["reason"]
+    frame = ranking_score_bar_chart_frame(rows, ranking_purpose=RANKING_PURPOSE_UPSIDE_SIGNAL)
+    assert frame.attrs["metric_column"] == "Screening"
+    assert frame["score"].tolist() == [79.0, 74.0]
     assert breakdown[0]["値"] == "総合スコア 82"
     assert "方向データが不足" in breakdown[0]["確認ポイント"]
 

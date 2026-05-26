@@ -832,6 +832,88 @@ SMAI_GLOBAL_CSS = """
     margin-top: 0.5rem;
 }
 
+.smai-ranking-card {
+    --smai-card-accent: var(--smai-teal);
+    --smai-card-glow: rgba(45, 212, 191, 0.16);
+    min-height: 11.8rem;
+    border: 1px solid var(--smai-border);
+    border-left: 3px solid var(--smai-card-accent);
+    border-radius: 8px;
+    background:
+        linear-gradient(90deg, var(--smai-card-glow), transparent 58%),
+        linear-gradient(180deg, rgba(31, 41, 55, 0.92), rgba(14, 21, 34, 0.9));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.04),
+        0 12px 26px rgba(0, 0, 0, 0.16);
+    padding: 0.86rem 0.95rem;
+    overflow-wrap: anywhere;
+}
+
+.smai-ranking-card[data-emphasis="spotlight"] {
+    border-color: rgba(45, 212, 191, 0.36);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        0 18px 38px rgba(20, 184, 166, 0.12);
+}
+
+.smai-ranking-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.45rem;
+    color: var(--smai-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1.25;
+    margin-bottom: 0.3rem;
+}
+
+.smai-ranking-card-symbol {
+    overflow-wrap: anywhere;
+}
+
+.smai-ranking-card-name {
+    color: #f8fafc;
+    font-size: 1rem;
+    line-height: 1.28;
+    font-weight: 780;
+    min-height: 2.55rem;
+    margin-bottom: 0.56rem;
+    overflow-wrap: anywhere;
+}
+
+.smai-ranking-card-metric {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.smai-ranking-card-metric-label {
+    color: #bae6fd;
+    font-size: 0.78rem;
+    line-height: 1.3;
+    font-weight: 720;
+    overflow-wrap: anywhere;
+}
+
+.smai-ranking-card-metric-value {
+    color: #f8fafc;
+    font-size: 1.18rem;
+    line-height: 1.2;
+    font-weight: 800;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+.smai-ranking-card-caption {
+    color: var(--smai-muted);
+    font-size: 0.78rem;
+    line-height: 1.42;
+    margin-top: 0.55rem;
+    overflow-wrap: anywhere;
+}
+
 .smai-score-track {
     height: 0.38rem;
     border-radius: 999px;

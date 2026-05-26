@@ -18,10 +18,12 @@ from backend.research import (
     ResearchIndexService,
     ResearchIngestionService,
     ResearchInMemoryStore,
+    ResearchInMemoryVectorStore,
     ResearchQueryExpansionService,
     ResearchRetrievalCandidate,
     ResearchRetrievalQuality,
     ResearchRetrievalService,
+    ResearchSearchError,
     ResearchSearchRequest,
 )
 
@@ -609,3 +611,101 @@ def test_hybrid_retrieval_scores_vector_candidates_when_available():
     assert evidence[0].relevance_score == Decimal("0.7450")
     assert quality.backend == "hybrid"
     assert quality.candidate_count == 1
+
+
+def test_in_memory_vector_store_searches_by_query_vector_and_filters_symbol():
+    store = ResearchInMemoryVectorStore()
+    toyota_candidate = ResearchRetrievalCandidate(
+        symbol="7203.T",
+        document_id="doc-toyota",
+        chunk_id="chunk-toyota",
+        title="Toyota Vector Note",
+        source_type="annual_report",
+        published_at=date(2026, 5, 1),
+        section_title="Growth",
+        excerpt="Growth strategy and overseas expansion.",
+        keyword_score=Decimal("0.40"),
+        reliability=Decimal("0.90"),
+    )
+    unrelated_candidate = toyota_candidate.model_copy(
+        update={
+            "symbol": "6758.T",
+            "document_id": "doc-sony",
+            "chunk_id": "chunk-sony",
+            "title": "Sony Vector Note",
+        }
+    )
+    store.upsert(
+        toyota_candidate,
+        ResearchEmbedding(
+            chunk_id="chunk-toyota",
+            symbol="7203.T",
+            embedding_model="local-test",
+            vector=[1.0, 0.0],
+            created_at=datetime(2026, 5, 25, tzinfo=UTC),
+            text_hash="hash-toyota",
+        ),
+    )
+    store.upsert(
+        unrelated_candidate,
+        ResearchEmbedding(
+            chunk_id="chunk-sony",
+            symbol="6758.T",
+            embedding_model="local-test",
+            vector=[1.0, 0.0],
+            created_at=datetime(2026, 5, 25, tzinfo=UTC),
+            text_hash="hash-sony",
+        ),
+    )
+    request = ResearchSearchRequest(
+        symbol="7203.T",
+        query="growth",
+        query_vector=[1.0, 0.0],
+    )
+
+    candidates = store.search(request)
+    quality = store.retrieval_quality(request)
+
+    assert [candidate.title for candidate in candidates] == ["Toyota Vector Note"]
+    assert candidates[0].vector_score == Decimal("1.0000")
+    assert quality.backend == "vector"
+    assert quality.candidate_count == 1
+    assert not quality.warnings
+
+
+def test_in_memory_vector_store_empty_query_reports_warning():
+    store = ResearchInMemoryVectorStore()
+    request = ResearchSearchRequest(symbol="7203.T", query="growth")
+
+    assert store.search(request) == []
+    quality = store.retrieval_quality(request)
+
+    assert quality.backend == "vector"
+    assert quality.candidate_count == 0
+    assert "Vector query is empty" in quality.warnings[0]
+
+
+def test_in_memory_vector_store_rejects_mismatched_embedding_chunk_id():
+    store = ResearchInMemoryVectorStore()
+    candidate = ResearchRetrievalCandidate(
+        symbol="7203.T",
+        document_id="doc-1",
+        chunk_id="chunk-candidate",
+        title="Vector Note",
+        source_type="annual_report",
+        excerpt="Growth strategy.",
+        reliability=Decimal("0.90"),
+    )
+
+    with pytest.raises(ResearchSearchError):
+        store.upsert(
+            candidate,
+            ResearchEmbedding(
+                chunk_id="chunk-embedding",
+                symbol="7203.T",
+                embedding_model="local-test",
+                vector=[1.0, 0.0],
+                created_at=datetime(2026, 5, 25, tzinfo=UTC),
+                text_hash="hash",
+            ),
+        )

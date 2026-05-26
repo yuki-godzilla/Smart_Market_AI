@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import re
 from collections.abc import Mapping
 from datetime import UTC, date, datetime
@@ -203,6 +204,7 @@ class ResearchSearchRequest(StrictBaseModel):
     as_of: date | None = None
     query_category: ResearchTopicCategory | None = None
     expanded_terms: list[str] = Field(default_factory=list)
+    query_vector: list[float] = Field(default_factory=list)
 
 
 class ResearchQueryExpansionResult(StrictBaseModel):
@@ -644,6 +646,74 @@ class ResearchDisabledVectorStore:
             candidate_count=0,
             evidence_count=0,
             warnings=[self.disabled_warning],
+        )
+
+
+class ResearchInMemoryVectorStore:
+    """Small deterministic local vector store for optional hybrid retrieval tests."""
+
+    def __init__(self) -> None:
+        self._entries: dict[str, tuple[ResearchRetrievalCandidate, ResearchEmbedding]] = {}
+
+    def upsert(
+        self,
+        candidate: ResearchRetrievalCandidate,
+        embedding: ResearchEmbedding,
+    ) -> None:
+        if candidate.chunk_id != embedding.chunk_id:
+            raise ResearchSearchError(
+                message="Research vector candidate and embedding chunk_id do not match.",
+                details={
+                    "candidate_chunk_id": candidate.chunk_id,
+                    "embedding_chunk_id": embedding.chunk_id,
+                },
+            )
+        self._entries[candidate.chunk_id] = (candidate, embedding)
+
+    def search(self, request: ResearchSearchRequest) -> list[ResearchRetrievalCandidate]:
+        if not request.query_vector:
+            return []
+        source_types = set(request.source_types)
+        scored: list[ResearchRetrievalCandidate] = []
+        for candidate, embedding in self._entries.values():
+            if candidate.symbol != _normalize_symbol(request.symbol):
+                continue
+            if source_types and candidate.source_type not in source_types:
+                continue
+            vector_score = _cosine_similarity(request.query_vector, embedding.vector)
+            if vector_score <= Decimal("0"):
+                continue
+            scored.append(candidate.model_copy(update={"vector_score": vector_score}))
+        return sorted(
+            scored,
+            key=lambda row: (
+                -(row.vector_score or Decimal("0")),
+                -(row.published_at or date.min).toordinal(),
+                row.document_id,
+                row.chunk_id,
+            ),
+        )[: request.top_k]
+
+    def retrieval_quality(
+        self,
+        request: ResearchSearchRequest,
+        *,
+        expanded_terms: Sequence[str] | None = None,
+    ) -> ResearchRetrievalQuality:
+        candidates = self.search(request)
+        warnings: list[str] = []
+        if not request.query_vector:
+            warnings.append("Vector query is empty; vector retrieval was skipped.")
+        elif not candidates:
+            warnings.append("Vector retrieval found no matching candidates.")
+        query = request.query or request.query_category or "vector search"
+        return ResearchRetrievalQuality(
+            backend="vector",
+            query=query,
+            expanded_terms=_normalize_query_terms(expanded_terms or request.expanded_terms),
+            candidate_count=len(candidates),
+            evidence_count=len(candidates),
+            warnings=warnings,
         )
 
 
@@ -1138,6 +1208,18 @@ def _evidence_rerank_score(row: ResearchEvidence, *, as_of: date) -> Decimal:
         + (Decimal(str(_source_type_priority(row.source_type))) * Decimal("0.10"))
     )
     return score.quantize(Decimal("0.0001"))
+
+
+def _cosine_similarity(query_vector: Sequence[float], candidate_vector: Sequence[float]) -> Decimal:
+    if not query_vector or not candidate_vector or len(query_vector) != len(candidate_vector):
+        return Decimal("0")
+    query_norm = math.sqrt(sum(value * value for value in query_vector))
+    candidate_norm = math.sqrt(sum(value * value for value in candidate_vector))
+    if query_norm == 0 or candidate_norm == 0:
+        return Decimal("0")
+    dot = sum(left * right for left, right in zip(query_vector, candidate_vector, strict=True))
+    score = max(0.0, min(1.0, dot / (query_norm * candidate_norm)))
+    return Decimal(str(score)).quantize(Decimal("0.0001"))
 
 
 def _source_type_priority(source_type: ResearchSourceType) -> float:

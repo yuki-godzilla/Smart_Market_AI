@@ -640,3 +640,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added `HybridResearchRetrievalService` as an optional wrapper around the existing keyword retrieval service and optional vector store.
 - Converted hybrid-scored vector candidates back to `ResearchEvidence` so downstream Research Summary / Decision Report contracts stay compatible.
 - Kept the default keyword retrieval path unchanged; when vector search is disabled or empty, hybrid retrieval falls back to keyword results and records retrieval-quality warnings.
+
+## 2026-05-26 - Phase 21 in-memory local vector store first slice
+
+- Added `ResearchInMemoryVectorStore` for deterministic local vector retrieval without external dependencies.
+- Added optional `ResearchSearchRequest.query_vector` and cosine-similarity candidate search over stored `ResearchRetrievalCandidate` + `ResearchEmbedding` pairs.
+- Kept the default keyword retrieval path unchanged; vector search is only used when an explicit query vector and vector store entries are supplied.

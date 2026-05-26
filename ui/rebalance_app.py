@@ -430,7 +430,7 @@ def _fallback_confidence_adjusted_direction_score(
     forecast_range_pct: Decimal,
 ) -> Decimal:
     confidence = _fallback_agreement_confidence(forecast_range_pct) / Decimal("100")
-    factor = Decimal("0.70") + (confidence * Decimal("0.30"))
+    factor = Decimal("0.85") + (confidence * Decimal("0.15"))
     return _fallback_clamp_score(Decimal("50") + ((raw_score - Decimal("50")) * factor))
 
 

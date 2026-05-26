@@ -2337,19 +2337,48 @@ def _render_ranking_profile_chart(
         for item in selection.profile.how_to_read:
             st.caption(f"- {item}")
         st.caption(selection.profile.caution)
-    encoding = {
-        "x": alt.X("x_value:Q", title=selection.x_column),
-        "y": alt.Y("y_value:Q", title=selection.y_column),
-        "tooltip": [
-            alt.Tooltip("rank:N", title="Rank"),
-            alt.Tooltip("symbol:N", title="Symbol"),
-            alt.Tooltip("name:N", title="Name"),
-            alt.Tooltip("x_value:Q", title=selection.x_column, format=".1f"),
-            alt.Tooltip("y_value:Q", title=selection.y_column, format=".1f"),
-            alt.Tooltip("caution:N", title="Caution"),
-        ],
-    }
+    chart_tooltips = [
+        alt.Tooltip("rank:N", title="Rank"),
+        alt.Tooltip("symbol:N", title="Symbol"),
+        alt.Tooltip("name:N", title="Name"),
+        alt.Tooltip("x_value:Q", title=selection.x_column, format=".1f"),
+        alt.Tooltip("y_value:Q", title=selection.y_column, format=".1f"),
+        alt.Tooltip("caution:N", title="Caution"),
+    ]
     if selection.color_column:
+        chart_tooltips.insert(
+            -1,
+            alt.Tooltip("color_value:N", title=selection.color_column),
+        )
+    encoding = {
+        "x": alt.X("x_value:Q", title=selection.x_column, scale=alt.Scale(zero=False)),
+        "y": alt.Y("y_value:Q", title=selection.y_column, scale=alt.Scale(zero=False)),
+        "tooltip": chart_tooltips,
+    }
+    color_is_numeric = (
+        selection.color_column is not None
+        and "color_numeric_value" in selection.frame
+        and selection.frame["color_numeric_value"].notna().any()
+    )
+    if selection.color_column and color_is_numeric:
+        numeric_color_range = ["#22c55e", "#f59e0b", "#fb7185"]
+        if selection.color_column in {
+            "方向スコア",
+            "上昇気配",
+            "Risk",
+            "総合スコア",
+            "Screening",
+            "データ品質",
+            "条件適合度",
+            "DB信頼度",
+        }:
+            numeric_color_range = ["#fb7185", "#f59e0b", "#38bdf8"]
+        encoding["color"] = alt.Color(
+            "color_numeric_value:Q",
+            title=selection.color_column,
+            scale=alt.Scale(domain=[0, 50, 100], range=numeric_color_range),
+        )
+    elif selection.color_column:
         encoding["color"] = alt.Color(
             "color_value:N",
             title=selection.color_column,

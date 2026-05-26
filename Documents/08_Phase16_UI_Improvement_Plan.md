@@ -38,8 +38,8 @@ Ranking 画面は、既存ランキング結果の「見せ方」を改善し、
 
 Ranking のメインチャートは、並べ替え条件に応じた chart profile で選択する。UI本体に条件分岐を増やしすぎず、`ui/views/ranking_chart_profiles.py` の設定で拡張する。
 
-- `multi_factor` / default: `Score x Risk Map`
-- `upside_signal`: `Upside x Downside Watch Map`。`上昇気配` と `下降警戒` を主軸にする。
+- `multi_factor`: `Upside x Downside Watch Map`。棒グラフで総合スコア、散布図で上昇気配と下降警戒を確認する。
+- `upside_signal`: `Upside x Downside Watch Map`。`上昇気配` と `下降警戒` を主軸にし、差し引き後の方向感を色で確認する。
 - `dividend` / `sustainable_income`: `Fit x Risk Map`、列不足時は `Score x Risk Map`
 - `growth` / `quality_growth` / `small_growth`: `Fit x Direction Map`、列不足時は `Score x Direction Map`
 - `value` / `quality_value`: `Fit x Risk Map`、列不足時は `Score x Risk Map`

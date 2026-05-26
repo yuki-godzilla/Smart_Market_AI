@@ -220,12 +220,10 @@ RANKING_CHART_PROFILES: dict[str, RankingChartProfile] = {
         key=PROFILE_UPSIDE_DOWNSIDE,
         title="Upside x Downside Watch Map",
         x_candidates=("上昇気配", "Upside Signal"),
-        y_candidates=("下降警戒", "方向スコア", "下降警戒の低さ"),
-        color_candidates=("方向感", "見方", "注意点"),
+        y_candidates=("下降警戒", "Risk", "方向スコア"),
+        color_candidates=("方向スコア", "方向感", "見方", "注意点"),
         fallback_key=PROFILE_SCREENING_RISK,
-        description=(
-            "上昇気配重視で見る候補について、上向きシグナルと下降警戒を同時に確認できます。"
-        ),
+        description=("上昇気配と下降警戒を分けて見ながら、差し引き後の方向感を色で確認できます。"),
         how_to_read=(
             "High upside / Low downside: 上向きシグナルが強く、警戒材料が相対的に少ない深掘り候補",
             "High upside / High downside: 上向き材料はあるが、下降警戒も先に確認",
@@ -297,7 +295,7 @@ RANKING_CHART_PROFILES: dict[str, RankingChartProfile] = {
 }
 
 RANKING_PURPOSE_CHART_PROFILE_KEYS: dict[str, str] = {
-    "multi_factor": PROFILE_SCORE_RISK,
+    "multi_factor": PROFILE_UPSIDE_DOWNSIDE,
     "upside_signal": PROFILE_UPSIDE_DOWNSIDE,
     "quality_growth": PROFILE_FIT_DIRECTION,
     "quality_value": PROFILE_FIT_RISK,
@@ -360,7 +358,7 @@ def _ranking_chart_frame(
             color_column=color_column,
         )
         frame = frame.dropna(subset=["x_value", "y_value"])
-        if len(frame) >= min_rows and _frame_has_visual_variation(frame):
+        if len(frame) >= min_rows and _frame_has_profile_variation(frame, profile):
             return RankingChartSelection(
                 profile=profile,
                 frame=frame,
@@ -383,6 +381,15 @@ def _ranking_chart_frame(
 
 def _frame_has_visual_variation(frame: pd.DataFrame) -> bool:
     return frame["x_value"].nunique(dropna=True) >= 2 or frame["y_value"].nunique(dropna=True) >= 2
+
+
+def _frame_has_profile_variation(frame: pd.DataFrame, profile: RankingChartProfile) -> bool:
+    if profile.key == PROFILE_UPSIDE_DOWNSIDE:
+        return (
+            frame["x_value"].nunique(dropna=True) >= 2
+            and frame["y_value"].nunique(dropna=True) >= 2
+        )
+    return _frame_has_visual_variation(frame)
 
 
 def _first_numeric_column(
@@ -429,6 +436,9 @@ def _profile_frame(
                 "x_value": x_value,
                 "y_value": y_value,
                 "color_value": row.get(color_column, "") if color_column else "",
+                "color_numeric_value": (
+                    _numeric_value(row.get(color_column, "")) if color_column else None
+                ),
                 "caution": row.get("注意点", ""),
             }
         )

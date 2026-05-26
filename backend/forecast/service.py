@@ -538,7 +538,7 @@ def direction_confidence_factor(forecast_range_pct: Decimal) -> Decimal:
     """Return a conservative confidence factor from model spread, not an additive bonus."""
 
     confidence = agreement_confidence_score(forecast_range_pct) / Decimal("100")
-    return Decimal("0.70") + (confidence * Decimal("0.30"))
+    return Decimal("0.85") + (confidence * Decimal("0.15"))
 
 
 def direction_signal_label(

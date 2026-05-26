@@ -5,7 +5,6 @@ from ui.views.ranking_chart_profiles import (
     PROFILE_ETF_COST_SCORE,
     PROFILE_ETF_FIT_CONFIDENCE,
     PROFILE_SCORE_FORECAST,
-    PROFILE_SCORE_RISK,
     PROFILE_SCREENING_RISK,
     PROFILE_UPSIDE_DOWNSIDE,
     chart_profile_for_purpose,
@@ -65,7 +64,7 @@ def _ranking_rows() -> list[dict[str, str]]:
 
 def test_chart_profile_for_purpose_maps_data_confidence_to_confidence_chart():
     assert chart_profile_for_purpose("data_confidence").key == PROFILE_CONFIDENCE_QUALITY
-    assert chart_profile_for_purpose("multi_factor").key == PROFILE_SCORE_RISK
+    assert chart_profile_for_purpose("multi_factor").key == PROFILE_UPSIDE_DOWNSIDE
     assert chart_profile_for_purpose("upside_signal").key == PROFILE_UPSIDE_DOWNSIDE
     assert chart_profile_for_purpose("etf_core_cost").key == PROFILE_ETF_COST_SCORE
     assert chart_profile_for_purpose("etf_income").key == PROFILE_ETF_FIT_CONFIDENCE
@@ -75,9 +74,10 @@ def test_ranking_chart_frame_uses_available_primary_profile_columns():
     selection = ranking_chart_frame(_ranking_rows(), chart_profile_for_purpose("multi_factor"))
 
     assert selection is not None
-    assert selection.profile.key == PROFILE_SCORE_RISK
-    assert selection.x_column == "総合スコア"
-    assert selection.y_column == "Risk"
+    assert selection.profile.key == PROFILE_UPSIDE_DOWNSIDE
+    assert selection.x_column == "上昇気配"
+    assert selection.y_column == "下降警戒"
+    assert selection.color_column == "方向スコア"
     assert selection.used_fallback is False
     assert selection.frame["symbol"].tolist() == ["AAA", "BBB", "CCC"]
 
@@ -102,6 +102,7 @@ def test_ranking_chart_frame_uses_upside_downside_profile_for_upside_purpose():
     assert selection.profile.key == PROFILE_UPSIDE_DOWNSIDE
     assert selection.x_column == "上昇気配"
     assert selection.y_column == "下降警戒"
+    assert selection.color_column == "方向スコア"
     assert selection.used_fallback is False
 
 

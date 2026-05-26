@@ -1810,7 +1810,7 @@ def test_ranking_source_key_for_selection_matches_actual_fetch_symbols():
             end=date(2026, 5, 17),
         )
     )
-    assert source_key.startswith("direction-history-v2|")
+    assert source_key.startswith("direction-history-v3|")
     assert (
         _ranking_source_key_for_selection(
             provider="yahoo",

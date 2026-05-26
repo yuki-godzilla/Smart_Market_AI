@@ -712,8 +712,11 @@ def test_forecast_consensus_rows_tolerates_cached_old_summarizer(monkeypatch):
         ],
     )
 
-    assert rows[0]["direction_signal_label"] == "UNKNOWN"
-    assert rows[0]["direction_net_score"] == "50"
+    assert rows[0]["direction_signal_label"] == "NEUTRAL"
+    assert rows[0]["latest_close"] == "175"
+    assert rows[0]["up_model_count"] == "0"
+    assert rows[0]["down_model_count"] == "1"
+    assert rows[0]["direction_net_score"] == "39.75"
 
 
 def _bar(symbol: str, ts: str, close: str) -> Bar:

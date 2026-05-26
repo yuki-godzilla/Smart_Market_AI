@@ -29,6 +29,7 @@ class RankingChartSelection:
 
 
 PROFILE_SCORE_RISK = "score_risk"
+PROFILE_SCREENING_RISK = "screening_risk"
 PROFILE_SCORE_FORECAST = "score_forecast"
 PROFILE_SCORE_CONFIDENCE = "score_confidence"
 PROFILE_DIVIDEND_STABILITY = "dividend_stability"
@@ -60,6 +61,23 @@ RANKING_CHART_PROFILES: dict[str, RankingChartProfile] = {
             "High score / High risk: 魅力はあるが注意して確認",
             "Low score / Low risk: 安定だが魅力度は低め",
             "Low score / High risk: 優先度低め",
+        ),
+    ),
+    PROFILE_SCREENING_RISK: RankingChartProfile(
+        key=PROFILE_SCREENING_RISK,
+        title="Screening x Risk Map",
+        x_candidates=("Screening", "screening_score"),
+        y_candidates=("Risk",),
+        color_candidates=("データ品質", "条件適合度", "見方", "注意点"),
+        fallback_key=PROFILE_SCORE_RISK,
+        description=(
+            "方向データが不足する場合でも、価格・出来高・モメンタム由来のScreeningとRiskを分けて確認できます。"
+        ),
+        how_to_read=(
+            "High screening / High risk score: 足元条件が強く、リスク面も比較しやすい候補",
+            "High screening / Low risk score: 足元条件は強いが、値動きや下落耐性を確認",
+            "Low screening / High risk score: 安定性はあるが、足元条件は弱め",
+            "Low screening / Low risk score: 優先度低め、またはデータ確認候補",
         ),
     ),
     PROFILE_SCORE_FORECAST: RankingChartProfile(
@@ -204,7 +222,7 @@ RANKING_CHART_PROFILES: dict[str, RankingChartProfile] = {
         x_candidates=("上昇気配", "Upside Signal"),
         y_candidates=("下降警戒の低さ", "方向スコア", "下降警戒"),
         color_candidates=("方向感", "見方", "注意点"),
-        fallback_key=PROFILE_SCORE_RISK,
+        fallback_key=PROFILE_SCREENING_RISK,
         description=(
             "上昇気配重視で見る候補について、上向きシグナルと下降警戒の低さを同時に確認できます。"
         ),

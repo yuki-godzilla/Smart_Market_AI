@@ -6,6 +6,7 @@ from ui.views.ranking_chart_profiles import (
     PROFILE_ETF_FIT_CONFIDENCE,
     PROFILE_SCORE_FORECAST,
     PROFILE_SCORE_RISK,
+    PROFILE_SCREENING_RISK,
     PROFILE_UPSIDE_DOWNSIDE,
     chart_profile_for_purpose,
     ranking_chart_frame,
@@ -19,6 +20,7 @@ def _ranking_rows() -> list[dict[str, str]]:
             "銘柄": "AAA",
             "銘柄名": "Alpha",
             "総合スコア": "82",
+            "Screening": "79",
             "Risk": "74",
             "方向スコア": "68",
             "上昇気配": "76",
@@ -32,6 +34,7 @@ def _ranking_rows() -> list[dict[str, str]]:
             "銘柄": "BBB",
             "銘柄名": "Beta",
             "総合スコア": "76",
+            "Screening": "72",
             "Risk": "55",
             "方向スコア": "80",
             "上昇気配": "84",
@@ -45,6 +48,7 @@ def _ranking_rows() -> list[dict[str, str]]:
             "銘柄": "CCC",
             "銘柄名": "Gamma",
             "総合スコア": "61",
+            "Screening": "64",
             "Risk": "40",
             "方向スコア": "66",
             "上昇気配": "72",
@@ -112,8 +116,8 @@ def test_ranking_chart_frame_falls_back_when_upside_axes_overlap():
     selection = ranking_chart_frame(rows, chart_profile_for_purpose("upside_signal"))
 
     assert selection is not None
-    assert selection.profile.key == PROFILE_SCORE_RISK
-    assert selection.x_column == "総合スコア"
+    assert selection.profile.key == PROFILE_SCREENING_RISK
+    assert selection.x_column == "Screening"
     assert selection.y_column == "Risk"
     assert selection.used_fallback is True
 

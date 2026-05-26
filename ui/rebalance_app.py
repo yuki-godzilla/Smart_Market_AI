@@ -110,7 +110,239 @@ def summarize_forecast_evaluations_for_ui(
     except TypeError as exc:
         if "history" not in str(exc):
             raise
-        return _summarize_forecast_evaluations(evaluations)
+        consensus = _summarize_forecast_evaluations(evaluations)
+        return _consensus_with_direction_fallback(consensus, evaluations, history)
+
+
+def _consensus_with_direction_fallback(
+    consensus: Any | None,
+    evaluations: list[ForecastEvaluation],
+    history: list[Bar] | None,
+) -> Any | None:
+    """Fill direction fields when Streamlit keeps an older backend module loaded."""
+
+    if consensus is None or not evaluations or not history:
+        return consensus
+    forecasts = sorted(evaluation.latest_forecast.forecast_close for evaluation in evaluations)
+    if len(forecasts) < 2:
+        return consensus
+    sorted_history = sorted(history, key=lambda bar: bar.ts)
+    if not sorted_history:
+        return consensus
+    latest_close = sorted_history[-1].close
+    if latest_close <= 0:
+        return consensus
+    ensemble = sum(forecasts, Decimal("0")) / Decimal(len(forecasts))
+    median = forecasts[len(forecasts) // 2]
+    if len(forecasts) % 2 == 0:
+        median = (forecasts[(len(forecasts) // 2) - 1] + median) / Decimal("2")
+    forecast_range_pct = (forecasts[-1] - forecasts[0]) / median if median > 0 else Decimal("0")
+    signal = _fallback_forecast_direction_signal(
+        latest_close=latest_close,
+        ensemble_forecast_close=ensemble,
+        model_forecast_closes=forecasts,
+        momentum_5d=_history_return(sorted_history, 5),
+        momentum_20d=_history_return(sorted_history, 20),
+        forecast_range_pct=forecast_range_pct,
+    )
+    updates = {
+        "latest_close": _round_decimal(latest_close, "0.0001"),
+        "forecast_return_pct": signal["forecast_return_pct"],
+        "up_model_count": int(signal["up_model_count"]),
+        "down_model_count": int(signal["down_model_count"]),
+        "flat_model_count": int(signal["flat_model_count"]),
+        "up_direction_ratio": signal["up_direction_ratio"],
+        "down_direction_ratio": signal["down_direction_ratio"],
+        "upside_signal_score": signal["upside_signal_score"],
+        "downside_signal_score": signal["downside_signal_score"],
+        "direction_net_score": signal["direction_net_score"],
+        "direction_signal_label": signal["direction_signal_label"],
+    }
+    if hasattr(consensus, "model_copy"):
+        return consensus.model_copy(update=updates)
+    for key, value in updates.items():
+        try:
+            setattr(consensus, key, value)
+        except Exception:  # noqa: BLE001
+            object.__setattr__(consensus, key, value)
+    return consensus
+
+
+def _fallback_forecast_direction_signal(
+    *,
+    latest_close: Decimal,
+    ensemble_forecast_close: Decimal,
+    model_forecast_closes: list[Decimal],
+    momentum_5d: Decimal | None,
+    momentum_20d: Decimal | None,
+    forecast_range_pct: Decimal,
+) -> dict[str, Decimal | int | str]:
+    model_count = len(model_forecast_closes)
+    forecast_return_pct = (ensemble_forecast_close / latest_close) - Decimal("1")
+    up_model_count = sum(1 for close in model_forecast_closes if close > latest_close)
+    down_model_count = sum(1 for close in model_forecast_closes if close < latest_close)
+    flat_model_count = model_count - up_model_count - down_model_count
+    upside_signal_score = _fallback_upside_score(
+        latest_close=latest_close,
+        ensemble_forecast_close=ensemble_forecast_close,
+        model_forecast_closes=model_forecast_closes,
+        momentum_5d=momentum_5d,
+        momentum_20d=momentum_20d,
+        forecast_range_pct=forecast_range_pct,
+    )
+    downside_signal_score = _fallback_downside_score(
+        latest_close=latest_close,
+        ensemble_forecast_close=ensemble_forecast_close,
+        model_forecast_closes=model_forecast_closes,
+        momentum_5d=momentum_5d,
+        momentum_20d=momentum_20d,
+        forecast_range_pct=forecast_range_pct,
+    )
+    return {
+        "forecast_return_pct": _round_decimal(forecast_return_pct, "0.0001"),
+        "up_model_count": up_model_count,
+        "down_model_count": down_model_count,
+        "flat_model_count": flat_model_count,
+        "up_direction_ratio": _round_decimal(
+            Decimal(up_model_count) / Decimal(model_count),
+            "0.0001",
+        ),
+        "down_direction_ratio": _round_decimal(
+            Decimal(down_model_count) / Decimal(model_count),
+            "0.0001",
+        ),
+        "upside_signal_score": upside_signal_score,
+        "downside_signal_score": downside_signal_score,
+        "direction_net_score": _fallback_clamp_score(
+            Decimal("50") + ((upside_signal_score - downside_signal_score) / 2)
+        ),
+        "direction_signal_label": _fallback_direction_label(
+            upside_signal_score,
+            downside_signal_score,
+        ),
+    }
+
+
+def _fallback_upside_score(
+    *,
+    latest_close: Decimal,
+    ensemble_forecast_close: Decimal,
+    model_forecast_closes: list[Decimal],
+    momentum_5d: Decimal | None,
+    momentum_20d: Decimal | None,
+    forecast_range_pct: Decimal,
+) -> Decimal:
+    forecast_return_pct = (ensemble_forecast_close / latest_close) - Decimal("1")
+    forecast_return_score = _fallback_linear_score(
+        forecast_return_pct,
+        low=Decimal("-0.03"),
+        mid=Decimal("0"),
+        high=Decimal("0.05"),
+    )
+    up_direction_score = (
+        Decimal("100")
+        * Decimal(sum(1 for close in model_forecast_closes if close > latest_close))
+        / Decimal(len(model_forecast_closes))
+    )
+    momentum_score = Decimal("50")
+    if momentum_5d is not None and momentum_5d > 0:
+        momentum_score += Decimal("25")
+    if momentum_20d is not None and momentum_20d > 0:
+        momentum_score += Decimal("25")
+    return _fallback_clamp_score(
+        forecast_return_score * Decimal("0.45")
+        + up_direction_score * Decimal("0.25")
+        + momentum_score * Decimal("0.20")
+        + _fallback_agreement_confidence(forecast_range_pct) * Decimal("0.10")
+    )
+
+
+def _fallback_downside_score(
+    *,
+    latest_close: Decimal,
+    ensemble_forecast_close: Decimal,
+    model_forecast_closes: list[Decimal],
+    momentum_5d: Decimal | None,
+    momentum_20d: Decimal | None,
+    forecast_range_pct: Decimal,
+) -> Decimal:
+    forecast_return_pct = (ensemble_forecast_close / latest_close) - Decimal("1")
+    forecast_decline_score = Decimal("100") - _fallback_linear_score(
+        forecast_return_pct,
+        low=Decimal("-0.05"),
+        mid=Decimal("0"),
+        high=Decimal("0.03"),
+    )
+    down_direction_score = (
+        Decimal("100")
+        * Decimal(sum(1 for close in model_forecast_closes if close < latest_close))
+        / Decimal(len(model_forecast_closes))
+    )
+    momentum_score = Decimal("50")
+    if momentum_5d is not None and momentum_5d < 0:
+        momentum_score += Decimal("25")
+    if momentum_20d is not None and momentum_20d < 0:
+        momentum_score += Decimal("25")
+    return _fallback_clamp_score(
+        forecast_decline_score * Decimal("0.45")
+        + down_direction_score * Decimal("0.25")
+        + momentum_score * Decimal("0.20")
+        + _fallback_agreement_confidence(forecast_range_pct) * Decimal("0.10")
+    )
+
+
+def _history_return(history: list[Bar], periods: int) -> Decimal | None:
+    if len(history) <= periods:
+        return None
+    base = history[-(periods + 1)].close
+    if base <= 0:
+        return None
+    return (history[-1].close / base) - Decimal("1")
+
+
+def _fallback_linear_score(
+    value: Decimal,
+    *,
+    low: Decimal,
+    mid: Decimal,
+    high: Decimal,
+) -> Decimal:
+    if value <= low:
+        return Decimal("0")
+    if value >= high:
+        return Decimal("100")
+    if value <= mid:
+        return Decimal("50") * ((value - low) / (mid - low))
+    return Decimal("50") + (Decimal("50") * ((value - mid) / (high - mid)))
+
+
+def _fallback_agreement_confidence(forecast_range_pct: Decimal) -> Decimal:
+    if forecast_range_pct <= Decimal("0.01"):
+        return Decimal("100")
+    if forecast_range_pct <= Decimal("0.03"):
+        return Decimal("70")
+    return Decimal("40")
+
+
+def _fallback_direction_label(upside: Decimal, downside: Decimal) -> str:
+    gap = upside - downside
+    if upside >= Decimal("80") and gap >= Decimal("20"):
+        return "STRONG_UPSIDE"
+    if upside >= Decimal("65") and gap >= Decimal("10"):
+        return "MODERATE_UPSIDE"
+    if downside >= Decimal("80") and gap <= Decimal("-20"):
+        return "STRONG_DOWNSIDE"
+    if downside >= Decimal("65") and gap <= Decimal("-10"):
+        return "MODERATE_DOWNSIDE"
+    return "NEUTRAL"
+
+
+def _fallback_clamp_score(value: Decimal) -> Decimal:
+    return _round_decimal(min(max(value, Decimal("0")), Decimal("100")), "0.01")
+
+
+def _round_decimal(value: Decimal, exponent: str) -> Decimal:
+    return value.quantize(Decimal(exponent))
 
 
 NO_TRADES_POSITIONS_JSON = """[

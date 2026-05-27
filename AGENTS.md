@@ -23,16 +23,16 @@ Smart Market AI は、FastAPI、Streamlit、deterministic MarketData、Feature S
 Default path:
 - local and deterministic
 - no network dependency in normal checks
-- external providers only by explicit opt-in
+- MarketData / broker / execution external providers only by explicit opt-in; Research RAG external source search is a standard AI Research flow but still network-free in normal checks
 - investment outputs are decision support, not buy/sell advice
-- Research RAG is still tested local-first, but freshness matters; when RAG external fetch work is explicitly assigned, prioritize opt-in current external sources as transient live evidence with source URL / provider / published_at / fetched_at, without retaining fetched source text by default.
+- Research RAG / News RAG product behavior prioritizes current external sources because freshness matters; normal checks still use fake/local fixtures and must not depend on network. Treat `AI調査を更新` as the intended standard external-source search action, keep fetched source text transient by default, and require a separate explicit archive/save action for persistence.
 
 既定経路:
 - local / deterministic
 - 通常確認は network 非依存
-- 外部 provider は明示 opt-in のみ
+- MarketData / broker / execution の外部 provider は明示 opt-in のみ。Research RAG の外部 source 探索は AI調査の標準導線だが、通常確認は network 非依存
 - 投資出力は売買推奨ではなく判断補助
-- Research RAG は検証上 local-first を維持するが、鮮度が重要。RAG 外部取得が明示依頼された場合は、source URL / provider / published_at / fetched_at を持つ opt-in の最新外部 source を一時参照として優先し、取得本文は既定では保持しない。
+- Research RAG / News RAG は鮮度が重要なため、プロダクト挙動では最新外部 source を優先する。通常確認は fake/local fixture で network 非依存を維持する。`AI調査を更新` は外部 source 探索の標準導線とし、取得本文は既定では保持せず、永続化は別の明示 archive/save action とする。
 
 ## Fast Start / 最初に見るもの
 
@@ -46,7 +46,7 @@ Use the smallest context set that can safely solve the task.
 | Streamlit UI change | `ui/app.py` | UI helpers/tests + operations guide | unrelated backend docs |
 | MarketData/provider | `backend/marketdata/` | provider tests + config docs | live network smoke unless requested |
 | Feature/Screening/Forecast/Scoring | target service | contracts + service tests + roadmap phase | Execution docs |
-| Research RAG | `Documents/04_Detail_Design/04-8_Onepager_Research_RAG.md` | `backend/research` + sample docs/tests + roadmap R phases | live scraping / external LLM unless requested |
+| Research RAG | `Documents/04_Detail_Design/04-8_Onepager_Research_RAG.md` | `backend/research` + fake adapters / fixtures + roadmap R phases | live scraping / external LLM smoke unless requested |
 | Docs-only change | target doc | `PROJECT_CONTEXT.md` if status changes | code scan unless needed |
 | New implementation task | `PROJECT_CONTEXT.md` + relevant doc | related service + tests | `Documents/99_Work_Log.md` unless history is needed |
 | New phase work | roadmap current phase + `PROJECT_CONTEXT.md` | related service + tests | broad refactor |
@@ -72,7 +72,7 @@ Near-term priority:
 2. keep Phase 16 cockpit / ranking / rebalance flows stable and run final Streamlit browser smoke when available
 3. keep Investment Score, Screening, Forecast, Risk, Research Evidence, and Portfolio explanations consistent across API/UI/docs
 4. prepare or maintain Decision Report context from existing cockpit/ranking/rebalance outputs
-5. keep Research RAG external adapters and Assistant as planned/future unless explicitly assigned
+5. move Research RAG external-source search into the standard AI Research flow while keeping normal checks network-free; keep Assistant as planned/future unless explicitly assigned
 
 Execution and broker order sending stay lower priority unless explicitly requested.
 Execution と broker order 送信は、明示依頼がない限り優先度を下げます。
@@ -92,7 +92,7 @@ Execution と broker order 送信は、明示依頼がない限り優先度を�
 - Treat Ranking, Investment Score, Research Evidence, Rebalance, Forecast, Risk, and Decision Report outputs as decision-support information, not investment advice.
 - Before changing behavior that affects Ranking / Cockpit / Rebalance / Decision Report / Research / scoring wording, check `Documents/96_Manual_UX_Review_Checklist.md` and `Documents/97_Functional_Spec_Issues.md`.
 - Keep Execution / Broker integration deferred unless explicitly assigned.
-- Keep Research RAG external adapters and Assistant as planned / future scope unless explicitly assigned. When external Research RAG fetch is assigned, treat current external evidence freshness as a product priority while preserving network-free normal checks.
+- Treat Research RAG external evidence freshness as a product priority while preserving network-free normal checks. Keep Assistant as planned / future scope unless explicitly assigned.
 
 実装速度の基本:
 - 小さな縦切りで進める: contract -> service -> API/UI -> test -> 必要な文書
@@ -166,7 +166,7 @@ Architecture:
 - `backend/core`: shared contracts, config, errors
 - `backend/marketdata`: providers, adapters, feature construction
 - `backend/risk`, `backend/portfolio`, `backend/screening`, `backend/forecast`, `backend/scoring`: implemented domain services
-- `backend/research`: future local-first RAG/evidence/search service for IR documents and Research Score
+- `backend/research`: Research RAG/evidence/search service for external fresh sources, local fixtures/archives, and Research Score
 - `backend/execution`: deferred future broker execution module; do not assume it exists
 
 Testing:

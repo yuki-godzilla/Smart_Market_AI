@@ -2,7 +2,7 @@
 ![CI](https://github.com/yuki-godzilla/Smart_Market_AI/actions/workflows/ci.yml/badge.svg)
 
 Smart Market AI（SMAI）は、投資判断に必要な情報を整理・可視化し、
-市場データ取得、特徴量生成、スクリーニング、複数モデル予測、Investment Score、ポートフォリオ評価、Research RAG によるローカル根拠整理を通じて、
+市場データ取得、特徴量生成、スクリーニング、複数モデル予測、Investment Score、ポートフォリオ評価、Research RAG による外部最新情報・根拠整理を通じて、
 「売買を自動化する」のではなく「判断材料を説明可能にする」ためのローカルファーストな投資分析プラットフォームです。
 
 SMAI は以下の思想を重視しています。
@@ -43,11 +43,11 @@ SMAI は以下の思想を重視しています。
 - Decision Report context v1
   - cockpit / ranking / rebalance の判断材料を Markdown / JSON / manifest / ZIP として保存
   - data confidence、symbol metadata、decision checkpoints、Research Evidence / Research Score section の標準 builder
-- Research RAG Phase 20 local evidence slice
+- Research RAG Phase 20 local evidence foundation
   - local UTF-8 Markdown / Text / CSV の登録、hash dedupe、chunking、keyword evidence search
   - deterministic Research Summary、data-quality warning、Cockpit / Ranking modal / Decision Report 連携
-- Research RAG external fetch first UI slice
-  - 銘柄コックピットで明示許可した場合だけ Yahoo Finance profile / news を取得
+- Research RAG external fresh-source fetch first UI slice
+  - 現在は Yahoo Finance profile / news の first slice を実装済み。次のUI作業で `AI調査を更新` の標準処理へ統合する
   - 方針として、取得本文は保持せず session-local に一時参照する。画面とDecision Reportには source URL / provider / fetched_at / published_at / freshness warning / 要約を表示する
 - Research Score first slices
   - `ResearchScoreService`、optional Investment Score input、disabled-by-default `scoring.weights.research`
@@ -86,12 +86,12 @@ MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で
 - Phase 17: UI Polish / ランキング条件 UI 再設計は implementation complete
 - Phase 18: symbol universe / metadata refresh / source import / SBI ranking universe policy は implementation complete。継続的な NISA / ETF / stock metadata source 更新は運用タスクとして扱う
 - Phase 19: Decision Report Context MVP は implementation complete
-- Phase 20: Research RAG Evidence Layer は local evidence slice が implementation complete
-- Phase 21: 高度Research RAG / Stock News RAG / opt-in external fetch の first slices は進行中
+- Phase 20: Research RAG Evidence Layer は local evidence foundation が implementation complete
+- Phase 21: 高度Research RAG / Stock News RAG / external fresh-source fetch の first slices は進行中
 - Phase 22〜25: Research Score integration、Assistant、optional adapter、Execution gate の順に整理
 - Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
-次の重点は、既存機能の分かりにくさ、仕様曖昧さ、投資助言に見えすぎる表現を棚卸ししつつ、Phase 21 external fetch maturity と Phase 22 Research Score integration を慎重に進めることです。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、EDINET / TDnet / company IR site などの追加 Research RAG external adapters、Assistant、Execution / Broker は明示的に割り当てるまで future scope として扱います。
+次の重点は、既存機能の分かりにくさ、仕様曖昧さ、投資助言に見えすぎる表現を棚卸ししつつ、`AI調査を更新` を外部最新IR・開示・ニュース・provider evidence 探索の標準導線へ寄せ、Phase 22 Research Score integration を慎重に進めることです。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、EDINET / TDnet / company IR site などの追加 Research RAG external adapters、Assistant、Execution / Broker は段階的に扱います。通常 checks は引き続き fake adapter / fixture で network 非依存を維持します。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント

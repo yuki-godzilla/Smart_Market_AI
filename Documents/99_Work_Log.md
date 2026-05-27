@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-05-27: Added `ResearchEmbeddingService` for deterministic local hash-based Research RAG embeddings; it builds chunk/query vectors, keeps `text_hash` and `embedding_model` cache-key fields, and can explicitly upsert generated embeddings into writable vector stores without external embedding APIs or changing default keyword retrieval.
 - 2026-05-27: Added `ResearchFileVectorStore` as a UTF-8 JSONL-backed optional vector cache; persisted and reloaded `ResearchRetrievalCandidate` + `ResearchEmbedding` pairs across service instances with deterministic tests for persisted search, empty-cache warnings, and invalid-cache errors while keeping default keyword retrieval unchanged.
 - 2026-05-27: Reworked Symbol Cockpit `06 Research Evidence` into an AI調査ステータス operation card with clearer next-step / primary / secondary action hierarchy, decision-oriented summary metrics, vertical evidence/news cards, and collapsed detail-data tables; reworked cockpit `07 投資判断レポート` into a structured judgement card, 3-line summary, evidence block, sectioned detail report, and downloads without showing raw Markdown as the main UI.
 - 2026-05-26: Expanded Symbol Cockpit `SMAI Insight` direction wording for upside-dominant, downside-caution, both-high, both-low, model-split, forecast-spread, and data-limited states; further compacted Ranking detailed-table columns by purpose; split Ranking Decision Report rows into candidate memo and score-detail sections.

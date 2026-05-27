@@ -1,3 +1,4 @@
+import hashlib
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -11,10 +12,12 @@ from backend.research import (
     ExternalResearchSourcePayload,
     HybridResearchRetrievalService,
     ResearchAnalysisService,
+    ResearchChunk,
     ResearchDisabledVectorStore,
     ResearchDocumentError,
     ResearchDocumentRegisterRequest,
     ResearchEmbedding,
+    ResearchEmbeddingService,
     ResearchEvidence,
     ResearchEvidenceReranker,
     ResearchFileVectorStore,
@@ -749,6 +752,89 @@ def test_research_embedding_contract_carries_cache_key_fields():
     assert embedding.chunk_id == "chunk-1"
     assert embedding.embedding_model == "local-test"
     assert embedding.text_hash == "abc123"
+
+
+def test_research_embedding_service_builds_stable_chunk_and_query_vectors():
+    created_at = datetime(2026, 5, 25, tzinfo=UTC)
+    service = ResearchEmbeddingService(dimensions=8, created_at=created_at)
+    chunk = ResearchChunk(
+        document_id="doc-1",
+        chunk_id="chunk-growth",
+        symbol="7203.t",
+        title="Growth Note",
+        source_type="user_note",
+        published_at=date(2026, 5, 1),
+        text="Growth strategy includes market expansion and overseas revenue.",
+        chunk_index=0,
+        char_count=64,
+        metadata={"reliability": "0.80"},
+    )
+
+    first = service.embed_chunk(chunk)
+    second = service.embed_chunk(chunk)
+    query_vector = service.build_query_vector("growth strategy market")
+    candidate = service.candidate_from_chunk(chunk, keyword_score=Decimal("0.25"))
+
+    assert first.schema_version == "research-embedding-v1"
+    assert first.symbol == "7203.T"
+    assert first.embedding_model == "local-hash-v1"
+    assert first.created_at == created_at
+    assert first.text_hash == hashlib.sha256(chunk.text.encode("utf-8")).hexdigest()
+    assert first.vector == second.vector
+    assert len(first.vector) == 8
+    assert len(query_vector) == 8
+    assert any(value != 0 for value in query_vector)
+    assert candidate.reliability == Decimal("0.80")
+    assert candidate.final_relevance_score == Decimal("0.25")
+    assert candidate.retrieval_backend == "vector"
+
+
+def test_research_embedding_service_upserts_chunks_for_vector_search():
+    service = ResearchEmbeddingService(
+        dimensions=16,
+        created_at=datetime(2026, 5, 25, tzinfo=UTC),
+    )
+    vector_store = ResearchInMemoryVectorStore()
+    growth_chunk = ResearchChunk(
+        document_id="doc-growth",
+        chunk_id="chunk-growth",
+        symbol="7203.T",
+        title="Growth Note",
+        source_type="annual_report",
+        published_at=date(2026, 5, 1),
+        text="Growth strategy includes market expansion and overseas revenue.",
+        chunk_index=0,
+        char_count=64,
+        metadata={"reliability": "0.90"},
+    )
+    dividend_chunk = growth_chunk.model_copy(
+        update={
+            "document_id": "doc-dividend",
+            "chunk_id": "chunk-dividend",
+            "title": "Dividend Note",
+            "text": "Shareholder return includes dividend policy and capital allocation.",
+        }
+    )
+    service.upsert_chunks([growth_chunk, dividend_chunk], vector_store)
+    request = ResearchSearchRequest(
+        symbol="7203.T",
+        query="growth strategy market",
+        query_vector=service.build_query_vector("growth strategy market"),
+        top_k=1,
+    )
+
+    candidates = vector_store.search(request)
+    quality = vector_store.retrieval_quality(request)
+
+    assert [candidate.chunk_id for candidate in candidates] == ["chunk-growth"]
+    assert candidates[0].final_relevance_score == candidates[0].vector_score
+    assert quality.backend == "vector"
+    assert quality.candidate_count == 1
+
+
+def test_research_embedding_service_rejects_invalid_dimensions():
+    with pytest.raises(ResearchSearchError):
+        ResearchEmbeddingService(dimensions=1)
 
 
 def test_hybrid_retrieval_falls_back_to_keyword_when_vector_store_is_disabled(tmp_path):

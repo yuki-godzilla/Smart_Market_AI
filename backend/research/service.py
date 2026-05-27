@@ -50,6 +50,8 @@ StockNewsFreshnessStatus = Literal["latest", "recent", "stale", "unknown"]
 RESEARCH_SCHEMA_VERSION = "research-evidence-v1"
 DEFAULT_MAX_CHARS = 1200
 DEFAULT_OVERLAP_CHARS = 180
+DEFAULT_RESEARCH_EMBEDDING_DIMENSIONS = 32
+DEFAULT_RESEARCH_EMBEDDING_MODEL = "local-hash-v1"
 YAHOO_RESEARCH_PROFILE_FIELDS: tuple[tuple[str, str], ...] = (
     ("longName", "Company Name"),
     ("symbol", "Provider Symbol"),
@@ -311,6 +313,7 @@ class ResearchRetrievalQuality(StrictBaseModel):
 class ResearchEmbedding(StrictBaseModel):
     """Optional embedding payload for future local vector retrieval."""
 
+    schema_version: str = "research-embedding-v1"
     chunk_id: str = Field(min_length=1)
     symbol: str = Field(min_length=1)
     embedding_model: str = Field(min_length=1)
@@ -933,6 +936,95 @@ class ResearchVectorStore(Protocol):
         *,
         expanded_terms: Sequence[str] | None = None,
     ) -> ResearchRetrievalQuality: ...
+
+
+class ResearchWritableVectorStore(ResearchVectorStore, Protocol):
+    """Protocol for optional vector stores that accept locally generated embeddings."""
+
+    def upsert(
+        self,
+        candidate: ResearchRetrievalCandidate,
+        embedding: ResearchEmbedding,
+    ) -> None: ...
+
+
+class ResearchEmbeddingService:
+    """Generate deterministic local embeddings for optional vector retrieval."""
+
+    def __init__(
+        self,
+        *,
+        embedding_model: str = DEFAULT_RESEARCH_EMBEDDING_MODEL,
+        dimensions: int = DEFAULT_RESEARCH_EMBEDDING_DIMENSIONS,
+        created_at: datetime | None = None,
+    ) -> None:
+        if dimensions < 2:
+            raise ResearchSearchError(
+                message="Research embedding dimensions must be at least 2.",
+                details={"dimensions": dimensions},
+            )
+        self.embedding_model = embedding_model
+        self.dimensions = dimensions
+        self.created_at = created_at
+
+    def embed_chunk(self, chunk: ResearchChunk) -> ResearchEmbedding:
+        return ResearchEmbedding(
+            chunk_id=chunk.chunk_id,
+            symbol=_normalize_symbol(chunk.symbol),
+            embedding_model=self.embedding_model,
+            vector=_local_embedding_vector(chunk.text, dimensions=self.dimensions),
+            created_at=self.created_at or datetime.now(UTC),
+            text_hash=_text_hash(chunk.text),
+        )
+
+    def build_query_vector(
+        self,
+        query: str,
+        *,
+        expanded_terms: Sequence[str] | None = None,
+    ) -> list[float]:
+        parts = [query, *list(expanded_terms or [])]
+        return _local_embedding_vector(" ".join(parts), dimensions=self.dimensions)
+
+    def candidate_from_chunk(
+        self,
+        chunk: ResearchChunk,
+        *,
+        keyword_score: Decimal | None = None,
+    ) -> ResearchRetrievalCandidate:
+        return ResearchRetrievalCandidate(
+            symbol=_normalize_symbol(chunk.symbol),
+            document_id=chunk.document_id,
+            chunk_id=chunk.chunk_id,
+            title=chunk.title,
+            source_type=chunk.source_type,
+            published_at=chunk.published_at,
+            section_title=chunk.section_title,
+            excerpt=_excerpt(chunk.text),
+            keyword_score=keyword_score,
+            reliability=_chunk_reliability(chunk),
+            final_relevance_score=keyword_score or Decimal("0"),
+            retrieval_backend="vector",
+        )
+
+    def upsert_chunk(
+        self,
+        chunk: ResearchChunk,
+        vector_store: ResearchWritableVectorStore,
+        *,
+        keyword_score: Decimal | None = None,
+    ) -> ResearchEmbedding:
+        candidate = self.candidate_from_chunk(chunk, keyword_score=keyword_score)
+        embedding = self.embed_chunk(chunk)
+        vector_store.upsert(candidate, embedding)
+        return embedding
+
+    def upsert_chunks(
+        self,
+        chunks: Sequence[ResearchChunk],
+        vector_store: ResearchWritableVectorStore,
+    ) -> list[ResearchEmbedding]:
+        return [self.upsert_chunk(chunk, vector_store) for chunk in chunks]
 
 
 class HybridResearchRetrievalService:
@@ -1718,11 +1810,15 @@ def _evidence_from_chunk(chunk: ResearchChunk, *, relevance_score: Decimal) -> R
         section_title=chunk.section_title,
         excerpt=_excerpt(chunk.text),
         relevance_score=relevance_score,
-        reliability=(
-            Decimal(chunk.metadata.get("reliability", "0.70"))
-            if "reliability" in chunk.metadata
-            else Decimal("0.70")
-        ),
+        reliability=_chunk_reliability(chunk),
+    )
+
+
+def _chunk_reliability(chunk: ResearchChunk) -> Decimal:
+    return (
+        Decimal(chunk.metadata.get("reliability", "0.70"))
+        if "reliability" in chunk.metadata
+        else Decimal("0.70")
     )
 
 
@@ -1765,6 +1861,10 @@ def _dedupe_evidence(evidence: list[ResearchEvidence]) -> list[ResearchEvidence]
     )
 
 
+def _text_hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 def _evidence_rerank_score(row: ResearchEvidence, *, as_of: date) -> Decimal:
     score = (
         (row.relevance_score * Decimal("0.55"))
@@ -1791,7 +1891,15 @@ def _search_vector_entries(
         vector_score = _cosine_similarity(request.query_vector, embedding.vector)
         if vector_score <= Decimal("0"):
             continue
-        scored.append(candidate.model_copy(update={"vector_score": vector_score}))
+        scored.append(
+            candidate.model_copy(
+                update={
+                    "vector_score": vector_score,
+                    "final_relevance_score": vector_score,
+                    "retrieval_backend": "vector",
+                }
+            )
+        )
     return sorted(
         scored,
         key=lambda row: (
@@ -1827,6 +1935,22 @@ def _build_vector_retrieval_quality(
         evidence_count=candidate_count,
         warnings=warnings,
     )
+
+
+def _local_embedding_vector(text: str, *, dimensions: int) -> list[float]:
+    terms = _query_terms(text)
+    if not terms:
+        return []
+    buckets = [0.0] * dimensions
+    for term in terms:
+        digest = hashlib.sha256(term.encode("utf-8")).digest()
+        index = int.from_bytes(digest[:4], byteorder="big") % dimensions
+        sign = 1.0 if digest[4] % 2 == 0 else -1.0
+        buckets[index] += sign
+    norm = math.sqrt(sum(value * value for value in buckets))
+    if norm == 0:
+        return []
+    return [round(value / norm, 6) for value in buckets]
 
 
 def _cosine_similarity(query_vector: Sequence[float], candidate_vector: Sequence[float]) -> Decimal:

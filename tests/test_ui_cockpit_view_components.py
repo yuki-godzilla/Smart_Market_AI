@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 
-from backend.research import CompanyResearchReport, ResearchDataQuality
+from backend.research import (
+    CompanyResearchReport,
+    ResearchDataQuality,
+    ResearchEvidence,
+    ResearchSummaryPoint,
+)
 from ui.views.cockpit import (
     cockpit_direction_signal_cards,
     cockpit_direction_signal_detail_rows,
@@ -214,6 +220,39 @@ def test_cockpit_direction_signal_summary_prioritizes_spread_and_model_split():
 
 
 def test_research_evidence_summary_items_explain_report_coverage():
+    growth_evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-growth",
+        chunk_id="chunk-growth",
+        title="Growth note",
+        source_type="user_note",
+        published_at=date(2026, 5, 22),
+        excerpt="Growth strategy.",
+        relevance_score=Decimal("0.80"),
+        reliability=Decimal("0.70"),
+    )
+    risk_evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-risk",
+        chunk_id="chunk-risk",
+        title="Risk note",
+        source_type="user_note",
+        published_at=date(2026, 5, 22),
+        excerpt="Risk factor.",
+        relevance_score=Decimal("0.80"),
+        reliability=Decimal("0.70"),
+    )
+    news_evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-news",
+        chunk_id="chunk-news",
+        title="News note",
+        source_type="news",
+        published_at=date(2026, 5, 23),
+        excerpt="News factor.",
+        relevance_score=Decimal("0.80"),
+        reliability=Decimal("0.70"),
+    )
     report = CompanyResearchReport(
         symbol="7203.T",
         as_of=date(2026, 5, 24),
@@ -225,14 +264,27 @@ def test_research_evidence_summary_items_explain_report_coverage():
             latest_document_date=date(2026, 5, 23),
             warnings=["登録資料が少ない"],
         ),
-        points=[],
-        evidence=[],
+        points=[
+            ResearchSummaryPoint(
+                category="growth",
+                label="成長材料",
+                summary="成長材料を確認しました。",
+                evidence=[growth_evidence],
+            ),
+            ResearchSummaryPoint(
+                category="business_risk",
+                label="事業リスク",
+                summary="リスク材料を確認しました。",
+                evidence=[risk_evidence],
+            ),
+        ],
+        evidence=[news_evidence, growth_evidence, risk_evidence],
     )
 
     items = research_evidence_summary_items(report)
 
-    assert items[0]["value"] == "1"
-    assert items[1]["value"] == "3"
-    assert items[2]["value"] == "2026-05-23"
-    assert items[3]["value"] == "WARN"
-    assert items[4]["value"] == "1"
+    assert items[0]["value"] == "1件"
+    assert items[1]["value"] == "1件"
+    assert items[2]["value"] == "1件"
+    assert items[3]["value"] == "Medium"
+    assert items[4]["value"] == "2026-05-23"

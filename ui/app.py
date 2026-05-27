@@ -452,24 +452,57 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     text-align: right;
 }
 .research-ai-cta {
-    border: 1px solid rgba(125, 211, 252, 0.38);
-    border-radius: 8px;
-    background:
-        linear-gradient(135deg, rgba(14, 116, 144, 0.22), rgba(15, 23, 42, 0.72)),
-        #0f1724;
-    padding: 0.9rem 1rem;
-    margin: 0.45rem 0 0.8rem;
+    padding: 0.2rem 0.1rem;
+    margin: 0.15rem 0 0.2rem;
 }
 .research-ai-cta-title {
     color: #e0f2fe;
     font-weight: 800;
     font-size: 1.02rem;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.45rem;
 }
 .research-ai-cta-copy {
     color: #cbd5e1;
     font-size: 0.9rem;
     line-height: 1.55;
+}
+.research-status-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.42rem;
+    margin-bottom: 0.48rem;
+}
+.research-status-chip {
+    border: 1px solid rgba(125, 211, 252, 0.34);
+    border-radius: 999px;
+    color: #dbeafe;
+    font-size: 0.78rem;
+    font-weight: 750;
+    padding: 0.18rem 0.52rem;
+}
+.research-next-step {
+    border-left: 3px solid #22d3ee;
+    color: #f8fafc;
+    font-weight: 750;
+    margin-top: 0.45rem;
+    padding-left: 0.62rem;
+}
+.research-action-label {
+    color: #93c5fd;
+    font-size: 0.78rem;
+    font-weight: 850;
+    letter-spacing: 0;
+    margin: 0.1rem 0 0.36rem;
+}
+.research-action-label.secondary {
+    color: #9fb2c8;
+    margin-top: 0.78rem;
+}
+.research-action-help {
+    color: #aeb9c8;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    margin-top: 0.34rem;
 }
 .research-result-brief {
     border: 1px solid rgba(148, 163, 184, 0.28);
@@ -531,6 +564,47 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     background: #0f141d;
     padding: 0.75rem 0.85rem;
 }
+.research-evidence-card-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    align-items: center;
+    margin-bottom: 0.55rem;
+}
+.research-evidence-pill {
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 999px;
+    color: #dbeafe;
+    font-size: 0.74rem;
+    font-weight: 800;
+    padding: 0.16rem 0.48rem;
+}
+.research-evidence-pill.positive {
+    border-color: rgba(52, 211, 153, 0.52);
+    color: #bbf7d0;
+}
+.research-evidence-pill.risk {
+    border-color: rgba(251, 191, 36, 0.58);
+    color: #fde68a;
+}
+.research-evidence-title {
+    color: #f8fafc;
+    font-size: 1.02rem;
+    font-weight: 800;
+    line-height: 1.45;
+    margin-bottom: 0.5rem;
+    overflow-wrap: anywhere;
+}
+.research-evidence-body {
+    color: #eef3fb;
+    line-height: 1.6;
+    margin: 0.35rem 0;
+    overflow-wrap: anywhere;
+}
+.research-evidence-label {
+    color: #93c5fd;
+    font-weight: 800;
+}
 .research-evidence-meta {
     color: #d4deeb;
     font-size: 0.86rem;
@@ -542,6 +616,86 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     line-height: 1.65;
     overflow-wrap: anywhere;
     white-space: normal;
+}
+.research-evidence-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.65rem;
+}
+.research-evidence-actions a,
+.research-evidence-action-muted {
+    border: 1px solid rgba(148, 163, 184, 0.36);
+    border-radius: 6px;
+    color: #dbeafe;
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 0.34rem 0.58rem;
+    text-decoration: none;
+}
+.research-point-list {
+    display: grid;
+    gap: 0.55rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    margin: 0.75rem 0 0.65rem;
+}
+.research-point-item {
+    border: 1px solid rgba(71, 85, 105, 0.76);
+    border-radius: 6px;
+    background: #111827;
+    padding: 0.72rem 0.82rem;
+}
+.research-point-label {
+    color: #bfdbfe;
+    font-weight: 800;
+    margin-bottom: 0.32rem;
+}
+.research-point-summary {
+    color: #eef2ff;
+    line-height: 1.55;
+}
+.decision-report-card {
+    border: 1px solid rgba(148, 163, 184, 0.34);
+    border-radius: 8px;
+    background: #0f141d;
+    padding: 1rem 1.1rem;
+    margin: 0.65rem 0 0.85rem;
+}
+.decision-report-title {
+    color: #f8fafc;
+    font-size: 1.12rem;
+    font-weight: 850;
+    margin-bottom: 0.75rem;
+}
+.decision-report-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.58rem;
+}
+.decision-report-field {
+    border: 1px solid rgba(71, 85, 105, 0.72);
+    border-radius: 6px;
+    background: #111827;
+    padding: 0.68rem 0.78rem;
+}
+.decision-report-field-label {
+    color: #9fb2c8;
+    font-size: 0.76rem;
+    font-weight: 800;
+    margin-bottom: 0.25rem;
+}
+.decision-report-field-value {
+    color: #f8fafc;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+.decision-summary-list {
+    margin: 0.6rem 0 0.85rem 1.1rem;
+    color: #eef3fb;
+    line-height: 1.65;
+}
+.decision-summary-list li {
+    margin-bottom: 0.3rem;
 }
 .symbol-detail-table th:first-child,
 .symbol-detail-table td:first-child {
@@ -4299,54 +4453,185 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
         return
     st.subheader(RESEARCH_COCKPIT_SECTION_TITLE)
     st.caption(RESEARCH_COCKPIT_INTRO)
-    fetch_clicked = _render_research_fetch_cta(
-        button_label=RESEARCH_FETCH_BUTTON_LABEL,
-        button_key=f"research_ai_fetch_{symbol}",
+    report = _cockpit_research_report_from_state(preview)
+    news_report = _cockpit_stock_news_report_from_state(preview)
+    detail_state_key = f"research_detail_visible_{_widget_key_fragment(symbol)}"
+    fetch_clicked, news_clicked, detail_clicked = _render_research_operation_card(
+        preview,
+        report=report,
+        news_report=news_report,
+        detail_state_key=detail_state_key,
     )
     if fetch_clicked:
         with st.spinner(RESEARCH_FETCH_SPINNER):
             st.session_state[MARKET_DATA_RESEARCH_REPORT_STATE_KEY] = (
                 _build_cockpit_research_report(preview)
             )
+            st.session_state[MARKET_DATA_STOCK_NEWS_REPORT_STATE_KEY] = (
+                _build_cockpit_stock_news_report(preview)
+            )
+    if news_clicked:
+        with st.spinner(RESEARCH_NEWS_SPINNER):
+            st.session_state[MARKET_DATA_STOCK_NEWS_REPORT_STATE_KEY] = (
+                _build_cockpit_stock_news_report(preview)
+            )
+    if detail_clicked:
+        st.session_state[detail_state_key] = not bool(st.session_state.get(detail_state_key, False))
 
     report = _cockpit_research_report_from_state(preview)
+    news_report = _cockpit_stock_news_report_from_state(preview)
     if report is None:
         st.info(RESEARCH_NOT_FETCHED_MESSAGE)
+        if news_report is not None and news_report.news:
+            _render_stock_news_cards_panel(news_report)
     else:
-        _render_research_summary_panel(report, detail_expanded=False)
-    _render_cockpit_stock_news_summary(preview)
+        _render_research_summary_panel(
+            report,
+            detail_expanded=bool(st.session_state.get(detail_state_key, False)),
+            news_report=news_report,
+        )
 
 
-def _render_research_fetch_cta(
+def _render_research_operation_card(
+    preview: MarketDataPreview,
     *,
-    button_label: str,
-    button_key: str,
-) -> bool:
+    report: CompanyResearchReport | None,
+    news_report: StockNewsReport | None,
+    detail_state_key: str,
+) -> tuple[bool, bool, bool]:
+    symbol = _market_data_preview_symbol(preview)
+    status = _research_operation_status(report, news_report)
     with st.container(border=True):
-        text_col, action_col = st.columns([3.2, 1.1])
+        text_col, action_col = st.columns([1.55, 1.0])
         with text_col:
             st.markdown(
                 (
                     '<div class="research-ai-cta">'
-                    '<div class="research-ai-cta-title">AI Research Pipeline</div>'
+                    '<div class="research-ai-cta-title">AI調査ステータス</div>'
+                    '<div class="research-status-chip-row">'
+                    f'<span class="research-status-chip">状態: {html.escape(status["state"])}</span>'
+                    f'<span class="research-status-chip">最終更新: {html.escape(status["latest"])}</span>'
+                    f'<span class="research-status-chip">情報件数: {html.escape(status["count"])}</span>'
+                    f'<span class="research-status-chip">信頼度: {html.escape(status["confidence"])}</span>'
+                    "</div>"
                     '<div class="research-ai-cta-copy">'
-                    "登録済みのローカル資料だけを検索し、成長材料・株主還元・財務安全性・"
-                    "事業リスクの確認材料を整理します。外部LLMや外部サイト取得は使いません。"
+                    "根拠資料はスコア算出そのものではなく、判断を補助する参考情報です。"
+                    f'<div class="research-next-step">{html.escape(status["next_step"])}</div>'
                     "</div></div>"
                 ),
                 unsafe_allow_html=True,
             )
         with action_col:
-            return st.button(
-                button_label,
-                key=button_key,
+            st.markdown(
+                '<div class="research-action-label">まずここから</div>', unsafe_allow_html=True
+            )
+            fetch_clicked = st.button(
+                RESEARCH_FETCH_BUTTON_LABEL,
+                key=f"research_ai_fetch_{symbol}",
                 help=(
-                    "登録済みResearch資料から、投資判断前に確認したい根拠と注意点を整理します。"
+                    "登録済みResearch資料とニュース資料から、投資判断前に確認したい根拠と注意点を整理します。"
                     "売買判断の代行ではありません。"
                 ),
                 type="primary",
                 use_container_width=True,
             )
+            st.markdown(
+                '<div class="research-action-help">根拠資料とニュースをまとめて更新します。</div>',
+                unsafe_allow_html=True,
+            )
+
+            st.markdown(
+                '<div class="research-action-label secondary">必要なときだけ</div>',
+                unsafe_allow_html=True,
+            )
+            news_col, csv_col, detail_col = st.columns(3)
+            with news_col:
+                news_clicked = st.button(
+                    RESEARCH_NEWS_BUTTON_LABEL,
+                    key=f"stock_news_fetch_{_widget_key_fragment(symbol)}",
+                    help=(
+                        "選択中の銘柄に関係する登録済みニュース資料を確認します。"
+                        "外部ニュースサイトや外部LLMは自動利用しません。"
+                    ),
+                    use_container_width=True,
+                )
+            with csv_col:
+                csv_payload = _research_evidence_csv_download(report, news_report)
+                st.download_button(
+                    "根拠CSV出力",
+                    data=csv_payload,
+                    file_name=f"research_evidence_{_widget_key_fragment(symbol)}.csv",
+                    mime="text/csv",
+                    disabled=not csv_payload.strip(),
+                    use_container_width=True,
+                )
+            with detail_col:
+                detail_visible = bool(st.session_state.get(detail_state_key, False))
+                detail_clicked = st.button(
+                    "詳細を閉じる" if detail_visible else "詳細を開く",
+                    key=f"{detail_state_key}_toggle",
+                    disabled=report is None and news_report is None,
+                    use_container_width=True,
+                )
+            return fetch_clicked, news_clicked, detail_clicked
+
+
+def _research_operation_status(
+    report: CompanyResearchReport | None,
+    news_report: StockNewsReport | None,
+) -> dict[str, str]:
+    evidence_count = report.data_quality.evidence_count if report is not None else 0
+    news_count = len(news_report.news) if news_report is not None else 0
+    latest_candidates = [
+        candidate
+        for candidate in [
+            report.data_quality.latest_document_date if report is not None else None,
+            *([row.published_at for row in news_report.news] if news_report is not None else []),
+        ]
+        if candidate is not None
+    ]
+    latest = max(latest_candidates).isoformat() if latest_candidates else "未取得"
+    if report is not None:
+        state = "取得済み"
+        next_step = "次に見る: 下の根拠カードを確認し、必要なら07 投資判断レポートへ進みます。"
+    elif news_report is not None and news_report.news:
+        state = "ニュース取得済み"
+        next_step = "次にする: AI調査を更新すると、ニュース以外の根拠資料も合わせて整理できます。"
+    else:
+        state = "未取得"
+        next_step = "次にする: AI調査を更新して、根拠カードを作成します。"
+    return {
+        "state": state,
+        "latest": latest,
+        "count": f"{evidence_count + news_count}件",
+        "confidence": _research_confidence_label(report, news_report),
+        "next_step": next_step,
+    }
+
+
+def _research_confidence_label(
+    report: CompanyResearchReport | None,
+    news_report: StockNewsReport | None = None,
+) -> str:
+    if report is None:
+        return "Medium" if news_report is not None and news_report.news else "未取得"
+    if report.data_quality.evidence_count <= 0:
+        return "Low"
+    if report.data_quality.status == "OK" and not report.data_quality.warnings:
+        return "High"
+    if report.data_quality.status == "WARN":
+        return "Medium"
+    return "Low"
+
+
+def _research_evidence_csv_download(
+    report: CompanyResearchReport | None,
+    news_report: StockNewsReport | None,
+) -> str:
+    rows = _research_evidence_card_rows(report, news_report=news_report, limit=None)
+    if not rows:
+        return ""
+    return pd.DataFrame(rows).to_csv(index=False)
 
 
 def _render_ranking_symbol_research_lookup(symbol: str) -> None:
@@ -4377,72 +4662,68 @@ def _render_research_summary_panel(
     report: CompanyResearchReport,
     *,
     detail_expanded: bool,
+    news_report: StockNewsReport | None = None,
 ) -> None:
     st.markdown(_research_result_overview_html(report), unsafe_allow_html=True)
     if report.data_quality.status != "OK":
         st.warning("根拠資料が不足しています。表示内容は確認材料として控えめに扱ってください。")
     render_research_evidence_summary(report)
-    st.caption(
-        f"資料数: {report.data_quality.document_count} / "
-        f"根拠数: {report.data_quality.evidence_count} / "
-        f"最新資料日: {report.data_quality.latest_document_date or '未取得'}"
-    )
-    warning_rows = _research_quality_warning_rows(report)
-    if warning_rows:
-        st.markdown(
-            _research_table_html(warning_rows, class_name="research-summary-table"),
-            unsafe_allow_html=True,
-        )
 
-    document_rows = _research_document_display_rows(report)
-    if document_rows:
-        st.markdown(
-            _research_table_html(document_rows, class_name="research-summary-table"),
-            unsafe_allow_html=True,
-        )
-    grounded_rows = _research_grounded_answer_rows(report)
-    if grounded_rows:
-        st.markdown(
-            _research_table_html(grounded_rows, class_name="research-summary-table"),
-            unsafe_allow_html=True,
-        )
-    retrieval_quality_rows = _research_retrieval_quality_rows(report)
-    if retrieval_quality_rows:
-        st.markdown(
-            _research_table_html(
-                retrieval_quality_rows,
-                class_name="research-summary-table",
-            ),
-            unsafe_allow_html=True,
-        )
+    point_rows = _research_investment_point_rows(report)
+    if point_rows:
+        st.markdown("##### 投資判断に影響しそうな要点")
+        st.markdown(_research_point_cards_html(point_rows), unsafe_allow_html=True)
 
-    point_rows = [
-        {
-            "観点": point.label,
-            "要約": point.summary,
-            "根拠数": str(len(point.evidence)),
-        }
-        for point in report.points
-    ]
+    card_rows = _research_evidence_card_rows(report, news_report=news_report, limit=None)
+    if card_rows:
+        st.markdown("##### 根拠カード")
+        st.caption("初期表示は最大5件です。追加の根拠と検索品質は詳細データで確認できます。")
+        st.markdown(_research_evidence_cards_html(card_rows[:5]), unsafe_allow_html=True)
+        if len(card_rows) > 5:
+            with st.expander(f"追加の根拠カードを表示（{len(card_rows) - 5}件）", expanded=False):
+                st.markdown(_research_evidence_cards_html(card_rows[5:]), unsafe_allow_html=True)
+    else:
+        st.info("根拠カードとして表示できる資料はまだありません。AI調査を更新してください。")
+
+    if news_report is not None and news_report.warnings:
+        for warning in news_report.warnings:
+            st.warning(warning)
+
     with st.expander(RESEARCH_DETAIL_EXPANDER_LABEL, expanded=detail_expanded):
         if report.data_quality.status == "OK":
             st.caption(RESEARCH_DETAIL_OK_CAPTION)
         else:
             st.caption("登録資料または検索できた根拠が少ないため、詳細は確認材料として扱います。")
+        warning_rows = _research_quality_warning_rows(report)
+        if warning_rows:
+            st.markdown("###### Data Quality / 注意点")
+            _render_compact_dataframe(warning_rows)
+        document_rows = _research_document_display_rows(report)
+        if document_rows:
+            st.markdown("###### Provider / Source")
+            _render_compact_dataframe(document_rows)
+        grounded_rows = _research_grounded_answer_rows(report)
+        if grounded_rows:
+            st.markdown("###### Grounded Answer")
+            _render_compact_dataframe(grounded_rows)
+        retrieval_quality_rows = _research_retrieval_quality_rows(report)
+        if retrieval_quality_rows:
+            st.markdown("###### Retrieval Metadata")
+            _render_compact_dataframe(retrieval_quality_rows)
         if point_rows:
-            st.markdown(
-                _research_table_html(point_rows, class_name="research-summary-table"),
-                unsafe_allow_html=True,
-            )
+            st.markdown("###### Topic Summary")
+            _render_compact_dataframe(point_rows)
         claim_rows = _research_extracted_claim_rows(report)
         if claim_rows:
-            st.markdown(
-                _research_table_html(claim_rows, class_name="research-summary-table"),
-                unsafe_allow_html=True,
-            )
-        evidence_rows = _research_evidence_display_rows(report)
-        if evidence_rows:
-            st.markdown(_research_evidence_cards_html(evidence_rows), unsafe_allow_html=True)
+            st.markdown("###### Extracted Claims")
+            _render_compact_dataframe(claim_rows)
+        evidence_detail_rows = _research_evidence_detail_rows(report)
+        if evidence_detail_rows:
+            st.markdown("###### Evidence Raw Table")
+            _render_compact_dataframe(evidence_detail_rows)
+        if news_report is not None and news_report.news:
+            st.markdown("###### Recent News / 関連ニュース")
+            _render_compact_dataframe(_stock_news_detail_rows(news_report))
 
 
 def _research_result_overview_html(report: CompanyResearchReport) -> str:
@@ -4509,11 +4790,8 @@ def _render_cockpit_stock_news_summary(preview: MarketDataPreview) -> None:
     symbol = _market_data_preview_symbol(preview)
     if not symbol:
         return
-    st.markdown("##### Recent News / AIニュース深掘り")
-    st.caption(
-        "登録済み news 資料から、URLで確認できるニュース材料だけを整理します。"
-        "売買判断やスコア変更ではありません。"
-    )
+    st.markdown("##### Recent News / 関連ニュース")
+    st.caption("登録済み news 資料から、URLで確認できるニュース材料だけを簡潔に表示します。")
     fetch_clicked = st.button(
         RESEARCH_NEWS_BUTTON_LABEL,
         key=f"stock_news_fetch_{_widget_key_fragment(symbol)}",
@@ -4538,10 +4816,20 @@ def _render_cockpit_stock_news_summary(preview: MarketDataPreview) -> None:
     if not report.news:
         st.info(RESEARCH_NEWS_EMPTY_MESSAGE)
         return
+    _render_stock_news_cards_panel(report)
+
+
+def _render_stock_news_cards_panel(report: StockNewsReport) -> None:
+    st.markdown("##### Recent News / 関連ニュース")
     st.markdown(
-        _research_table_html(_stock_news_display_rows(report), class_name="research-summary-table"),
-        unsafe_allow_html=True,
+        _research_evidence_cards_html(_stock_news_card_rows(report)[:5]), unsafe_allow_html=True
     )
+    if len(report.news) > 5:
+        with st.expander(f"追加ニュースを表示（{len(report.news) - 5}件）", expanded=False):
+            st.markdown(
+                _research_evidence_cards_html(_stock_news_card_rows(report)[5:]),
+                unsafe_allow_html=True,
+            )
 
 
 def _cockpit_stock_news_report_from_state(preview: MarketDataPreview) -> StockNewsReport | None:
@@ -5091,6 +5379,232 @@ def score_component_rows(row: dict[str, str]) -> list[dict[str, str]]:
     ]
 
 
+def _render_compact_dataframe(rows: list[dict[str, str]]) -> None:
+    if not rows:
+        return
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+
+def _research_investment_point_rows(report: CompanyResearchReport) -> list[dict[str, str]]:
+    return [
+        {
+            "観点": point.label,
+            "分類": _research_topic_category_label(point.category),
+            "要点": point.summary,
+            "根拠数": str(len(point.evidence)),
+            "sentiment": _research_sentiment_for_category(point.category),
+        }
+        for point in report.points
+    ]
+
+
+def _research_point_cards_html(rows: list[dict[str, str]]) -> str:
+    if not rows:
+        return ""
+    items = []
+    for row in rows:
+        sentiment = row.get("sentiment", "Neutral")
+        tone = _research_sentiment_css_class(sentiment)
+        label = row.get("観点", "")
+        category = row.get("分類", "")
+        count = row.get("根拠数", "0")
+        summary = row.get("要点", "")
+        items.append(
+            '<div class="research-point-item">'
+            '<div class="research-evidence-card-header">'
+            f'<span class="research-evidence-pill {tone}">{html.escape(sentiment)}</span>'
+            f'<span class="research-evidence-pill">{html.escape(category)}</span>'
+            f'<span class="research-evidence-pill">根拠 {html.escape(count)}件</span>'
+            "</div>"
+            f'<div class="research-point-label">{html.escape(label)}</div>'
+            f'<div class="research-point-summary">{html.escape(summary)}</div>'
+            "</div>"
+        )
+    return f'<div class="research-point-list">{"".join(items)}</div>'
+
+
+def _research_evidence_card_rows(
+    report: CompanyResearchReport | None,
+    *,
+    news_report: StockNewsReport | None = None,
+    limit: int | None = 5,
+) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    if news_report is not None:
+        rows.extend(_stock_news_card_rows(news_report))
+    if report is not None:
+        category_by_key = _research_category_by_evidence_key(report)
+        for evidence in report.evidence:
+            category = category_by_key.get(
+                (evidence.document_id, evidence.chunk_id),
+                "other",
+            )
+            sentiment = _research_sentiment_for_category(category)
+            rows.append(
+                {
+                    "sentiment": sentiment,
+                    "category": _research_topic_category_label(category),
+                    "title": evidence.title,
+                    "summary": truncate_text(evidence.excerpt, max_chars=150),
+                    "investment_impact": _research_investment_impact(category),
+                    "source": _research_source_type_label(evidence.source_type),
+                    "published_at": (
+                        evidence.published_at.isoformat() if evidence.published_at else "未取得"
+                    ),
+                    "confidence": str(evidence.reliability),
+                    "url": "",
+                    "detail": evidence.section_title or "",
+                }
+            )
+    return rows if limit is None else rows[:limit]
+
+
+def _stock_news_card_rows(report: StockNewsReport) -> list[dict[str, str]]:
+    return [
+        {
+            "sentiment": _stock_news_sentiment_label(row.sentiment_for_investment),
+            "category": _stock_news_viewpoint_label(row.investment_viewpoint),
+            "title": row.title,
+            "summary": truncate_text(row.summary, max_chars=150),
+            "investment_impact": _stock_news_investment_impact(row.sentiment_for_investment),
+            "source": row.source or "News",
+            "published_at": row.published_at.isoformat() if row.published_at else "未取得",
+            "confidence": row.freshness_status,
+            "url": row.url,
+            "detail": row.investment_viewpoint,
+        }
+        for row in report.news
+    ]
+
+
+def _research_evidence_detail_rows(report: CompanyResearchReport) -> list[dict[str, str]]:
+    return [
+        {
+            "sentiment": row.get("sentiment", ""),
+            "category": row.get("category", ""),
+            "title": row.get("title", ""),
+            "source": row.get("source", ""),
+            "published_at": row.get("published_at", ""),
+            "confidence": row.get("confidence", ""),
+        }
+        for row in _research_evidence_card_rows(report, limit=None)
+    ]
+
+
+def _stock_news_detail_rows(report: StockNewsReport) -> list[dict[str, str]]:
+    return [
+        {
+            "sentiment": row.get("sentiment", ""),
+            "category": row.get("category", ""),
+            "title": row.get("title", ""),
+            "source": row.get("source", ""),
+            "published_at": row.get("published_at", ""),
+            "confidence": row.get("confidence", ""),
+        }
+        for row in _stock_news_card_rows(report)
+    ]
+
+
+def _research_category_by_evidence_key(
+    report: CompanyResearchReport,
+) -> dict[tuple[str, str], str]:
+    categories: dict[tuple[str, str], str] = {}
+    for point in report.points:
+        for evidence in point.evidence:
+            categories.setdefault((evidence.document_id, evidence.chunk_id), point.category)
+    for claim in report.extracted_claims:
+        for evidence in claim.supporting_evidence:
+            categories.setdefault((evidence.document_id, evidence.chunk_id), claim.category)
+    return categories
+
+
+def _research_topic_category_label(category: str) -> str:
+    labels = {
+        "growth": "事業成長",
+        "shareholder_return": "株主還元",
+        "financial_safety": "業績・財務",
+        "business_risk": "リスク材料",
+        "confirmation_gap": "確認不足",
+        "other": "その他",
+    }
+    return labels.get(category, "その他")
+
+
+def _research_sentiment_for_category(category: str) -> str:
+    if category in {"growth", "shareholder_return", "financial_safety"}:
+        return "Positive"
+    if category in {"business_risk", "confirmation_gap"}:
+        return "Risk"
+    return "Neutral"
+
+
+def _research_investment_impact(category: str) -> str:
+    impacts = {
+        "growth": "成長余地を確認する材料です。短期判断では価格トレンドと合わせて見ます。",
+        "shareholder_return": "株主還元やインカム面の確認材料です。継続性も合わせて見ます。",
+        "financial_safety": "財務・収益基盤の安定性を確認する材料です。",
+        "business_risk": "外部環境や事業リスクを先に確認する材料です。",
+        "confirmation_gap": "根拠不足の領域です。追加資料を確認してから判断材料にします。",
+    }
+    return impacts.get(category, "補足情報として、他のスコアや価格トレンドと合わせて確認します。")
+
+
+def _research_source_type_label(source_type: str) -> str:
+    labels = {
+        "annual_report": "Annual Report",
+        "earnings_report": "Earnings",
+        "earnings_presentation": "Presentation",
+        "medium_term_plan": "Medium-term Plan",
+        "integrated_report": "Integrated Report",
+        "tdnet": "TDnet",
+        "news": "News",
+        "provider_profile": "Provider Profile",
+        "user_note": "User Note",
+    }
+    return labels.get(source_type, source_type or "unknown")
+
+
+def _stock_news_sentiment_label(sentiment: str) -> str:
+    labels = {
+        "positive": "Positive",
+        "negative": "Risk",
+        "mixed": "Neutral",
+        "neutral": "Neutral",
+        "unknown": "Neutral",
+    }
+    return labels.get(sentiment, "Neutral")
+
+
+def _stock_news_viewpoint_label(viewpoint: str) -> str:
+    labels = {
+        "earnings": "業績",
+        "growth": "事業成長",
+        "shareholder_return": "株主還元",
+        "risk": "リスク材料",
+        "macro": "マクロ環境",
+        "other": "株価材料",
+    }
+    return labels.get(viewpoint, "その他")
+
+
+def _stock_news_investment_impact(sentiment: str) -> str:
+    if sentiment == "positive":
+        return "評価を支える材料として確認します。価格に織り込まれているかも見ます。"
+    if sentiment == "negative":
+        return "短期の注意材料として確認します。業績や需要への影響を見ます。"
+    if sentiment == "mixed":
+        return "ポジティブ材料とリスク材料が混在しています。中身を分けて確認します。"
+    return "補足ニュースとして、価格トレンドやスコアと合わせて確認します。"
+
+
+def _research_sentiment_css_class(sentiment: str) -> str:
+    if sentiment == "Positive":
+        return "positive"
+    if sentiment == "Risk":
+        return "risk"
+    return "neutral"
+
+
 def _research_evidence_display_rows(report: CompanyResearchReport) -> list[dict[str, str]]:
     return [
         {
@@ -5237,19 +5751,51 @@ def _research_evidence_cards_html(evidence_rows: list[dict[str, str]]) -> str:
         return ""
     items = []
     for row in evidence_rows:
+        sentiment = row.get("sentiment") or row.get("Sentiment") or "Neutral"
+        category = row.get("category") or row.get("資料種別") or "その他"
+        title = row.get("title") or row.get("資料名") or "根拠資料"
+        summary = row.get("summary") or row.get("要約") or row.get("抜粋") or ""
+        impact = (
+            row.get("investment_impact")
+            or row.get("投資判断への影響")
+            or "スコアや価格予測と合わせて確認する補足材料です。"
+        )
+        source = row.get("source") or row.get("資料種別") or "unknown"
+        published_at = row.get("published_at") or row.get("公開日") or "未取得"
+        confidence = row.get("confidence") or row.get("信頼度") or ""
+        detail = row.get("detail") or row.get("セクション") or ""
+        url = row.get("url", "").strip()
         meta_parts = [
-            row.get("資料名", ""),
-            row.get("公開日", "") or "公開日未取得",
-            row.get("セクション", ""),
-            f"関連度 {row.get('関連度', '')}".strip(),
-            f"信頼度 {row.get('信頼度', '')}".strip(),
+            f"Source: {source}",
+            f"Date: {published_at}",
+            f"信頼度: {confidence}" if confidence else "",
+            detail,
         ]
         meta = " / ".join(html.escape(part) for part in meta_parts if part)
-        excerpt = html.escape(row.get("抜粋", ""))
+        action_parts = []
+        if url:
+            action_parts.append(
+                f'<a href="{html.escape(url, quote=True)}" target="_blank" rel="noopener">'
+                "記事を開く</a>"
+            )
+        action_parts.append('<span class="research-evidence-action-muted">詳細を見る</span>')
+        actions = "".join(action_parts)
+        tone = _research_sentiment_css_class(sentiment)
         items.append(
             '<div class="research-evidence-item">'
+            '<div class="research-evidence-card-header">'
+            f'<span class="research-evidence-pill {tone}">{html.escape(sentiment)}</span>'
+            f'<span class="research-evidence-pill">{html.escape(category)}</span>'
+            "</div>"
+            f'<div class="research-evidence-title">{html.escape(title)}</div>'
+            '<div class="research-evidence-body">'
+            '<span class="research-evidence-label">要約: </span>'
+            f"{html.escape(summary)}</div>"
+            '<div class="research-evidence-body">'
+            '<span class="research-evidence-label">投資判断への影響: </span>'
+            f"{html.escape(impact)}</div>"
             f'<div class="research-evidence-meta">{meta}</div>'
-            f'<div class="research-evidence-excerpt">{excerpt}</div>'
+            f'<div class="research-evidence-actions">{actions}</div>'
             "</div>"
         )
     return f'<div class="research-evidence-list">{"".join(items)}</div>'
@@ -5528,9 +6074,420 @@ def decision_report_markdown_download(context: DecisionReportContext) -> str:
     return render_decision_report_markdown(context)
 
 
+def cockpit_decision_report_overview(preview: MarketDataPreview) -> dict[str, str]:
+    symbol = _market_data_preview_symbol(preview)
+    symbol_row = _symbol_universe_row_for_symbol(symbol) if symbol else None
+    score_rows = investment_score_display_rows(preview.investment_score_rows)
+    score_row = score_rows[0] if score_rows else {}
+    return {
+        "symbol": symbol or "選択銘柄",
+        "company_name": symbol_name(symbol) or score_row.get("銘柄名", "") or "未取得",
+        "overall_judgement": _cockpit_overall_judgement(score_row),
+        "total_score": _display_report_value(score_row.get("総合スコア"), "未計算"),
+        "confidence": _cockpit_report_confidence(score_row),
+        "investment_stance": _cockpit_investment_stance(score_row, symbol_row, preview.bars),
+        "key_risks": _cockpit_key_risks(score_row, symbol_row),
+    }
+
+
+def cockpit_decision_report_summary_lines(
+    preview: MarketDataPreview,
+    research_report: CompanyResearchReport | None = None,
+) -> list[str]:
+    overview = cockpit_decision_report_overview(preview)
+    symbol = overview["symbol"]
+    trend = _cockpit_price_trend_summary(preview.bars)
+    evidence_line = (
+        f"根拠資料では{research_report.data_quality.evidence_count}件の確認材料があり、"
+        "価格・スコアだけでは見えない背景を補足します。"
+        if research_report is not None and research_report.data_quality.evidence_count > 0
+        else "根拠資料は未取得または不足しています。必要に応じてAI調査を更新してください。"
+    )
+    return [
+        f"{symbol}は総合スコア{overview['total_score']}で、現時点の見方は「{overview['overall_judgement']}」です。",
+        trend["summary"],
+        evidence_line,
+    ]
+
+
+def cockpit_decision_report_evidence_rows(
+    preview: MarketDataPreview,
+    *,
+    research_report: CompanyResearchReport | None,
+    news_report: StockNewsReport | None,
+) -> list[dict[str, str]]:
+    symbol = _market_data_preview_symbol(preview)
+    symbol_row = _symbol_universe_row_for_symbol(symbol) if symbol else None
+    score_rows = investment_score_display_rows(preview.investment_score_rows)
+    score_row = score_rows[0] if score_rows else {}
+    trend = _cockpit_price_trend_summary(preview.bars)
+    news_rows = _stock_news_card_rows(news_report) if news_report is not None else []
+    positive_news = sum(1 for row in news_rows if row.get("sentiment") == "Positive")
+    risk_news = sum(1 for row in news_rows if row.get("sentiment") == "Risk")
+    news_reading = (
+        f"ポジティブ {positive_news}件 / リスク {risk_news}件"
+        if news_rows
+        else "ニュース根拠は未取得です"
+    )
+    research_count = (
+        str(research_report.data_quality.evidence_count) if research_report is not None else "0"
+    )
+    return [
+        {
+            "根拠": "価格トレンド",
+            "読み取り": trend["summary"],
+            "確認ポイント": trend["check"],
+        },
+        {
+            "根拠": "業績・財務",
+            "読み取り": _cockpit_score_strength_summary(score_row, symbol_row),
+            "確認ポイント": "Screening、財務指標、データ品質を合わせて確認します。",
+        },
+        {
+            "根拠": "ニュース",
+            "読み取り": news_reading,
+            "確認ポイント": f"Research Evidence の根拠 {research_count}件と重ねて確認します。",
+        },
+        {
+            "根拠": "リスク",
+            "読み取り": _cockpit_key_risks(score_row, symbol_row),
+            "確認ポイント": "短期の値動き、為替、需要、バリュエーションを分けて確認します。",
+        },
+    ]
+
+
+def _display_report_value(value: object, fallback: str = "未取得") -> str:
+    text = str(value or "").strip()
+    return text if text else fallback
+
+
+def _cockpit_overall_judgement(score_row: dict[str, str]) -> str:
+    score = _decimal_from_text(score_row.get("総合スコア"))
+    downside = _decimal_from_text(score_row.get("下降警戒")) or Decimal("0")
+    if score is None:
+        return "未判定"
+    if score >= Decimal("75") and downside < Decimal("65"):
+        return "前向き確認"
+    if score >= Decimal("60"):
+        return "中立〜やや前向き"
+    if score >= Decimal("45"):
+        return "中立"
+    return "慎重確認"
+
+
+def _cockpit_report_confidence(score_row: dict[str, str]) -> str:
+    data_quality = _decimal_from_text(score_row.get("データ品質"))
+    if data_quality is None:
+        return "Low"
+    if data_quality >= Decimal("90"):
+        return "High"
+    if data_quality >= Decimal("70"):
+        return "Medium"
+    return "Low"
+
+
+def _cockpit_investment_stance(
+    score_row: dict[str, str],
+    symbol_row: dict[str, str] | None,
+    bars: list[Bar],
+) -> str:
+    score = _decimal_from_text(score_row.get("総合スコア"))
+    downside = _decimal_from_text(score_row.get("下降警戒")) or Decimal("0")
+    trend = _cockpit_price_trend_summary(bars)["summary"]
+    if downside >= Decimal("70"):
+        return "慎重確認 / リスク優先"
+    if score is not None and score >= Decimal("70") and "高値圏" not in trend:
+        return "中長期向け / 押し目確認"
+    if symbol_row and (
+        _decimal_from_text(symbol_row.get("dividend_yield_pct")) or Decimal("0")
+    ) >= Decimal("3"):
+        return "インカム候補 / 配当安定性確認"
+    return "様子見 / 追加根拠確認"
+
+
+def _cockpit_key_risks(
+    score_row: dict[str, str],
+    symbol_row: dict[str, str] | None,
+) -> str:
+    risks: list[str] = []
+    warning = score_row.get("注意点", "")
+    if warning:
+        risks.append(warning)
+    downside = _decimal_from_text(score_row.get("下降警戒"))
+    if downside is not None and downside >= Decimal("65"):
+        risks.append("短期の下降警戒")
+    if symbol_row is not None:
+        risk_band = symbol_universe_detail_display_value(symbol_row, "risk_band")
+        if risk_band:
+            risks.append(f"リスク帯: {risk_band}")
+        per = _decimal_from_text(symbol_row.get("per"))
+        pbr = _decimal_from_text(symbol_row.get("pbr"))
+        if (per is not None and per >= Decimal("40")) or (pbr is not None and pbr >= Decimal("10")):
+            risks.append("バリュエーション")
+    if not risks:
+        risks.append("価格トレンド・外部環境")
+    return " / ".join(dict.fromkeys(risks[:4]))
+
+
+def _decision_report_overview_card_html(overview: dict[str, str]) -> str:
+    fields = [
+        ("総合判断", overview.get("overall_judgement", "未判定")),
+        ("スコア", f"{overview.get('total_score', '未計算')} / 100"),
+        ("信頼度", overview.get("confidence", "Low")),
+        ("投資スタンス", overview.get("investment_stance", "様子見 / 追加根拠確認")),
+        ("注意材料", overview.get("key_risks", "価格トレンド・外部環境")),
+    ]
+    field_html = "".join(
+        '<div class="decision-report-field">'
+        f'<div class="decision-report-field-label">{html.escape(label)}</div>'
+        f'<div class="decision-report-field-value">{html.escape(value)}</div>'
+        "</div>"
+        for label, value in fields
+    )
+    title = f"投資判断レポート - {overview.get('symbol', '選択銘柄')}"
+    company_name = overview.get("company_name", "")
+    if company_name and company_name != "未取得":
+        title = f"{title} / {company_name}"
+    return (
+        '<section class="decision-report-card">'
+        f'<div class="decision-report-title">{html.escape(title)}</div>'
+        f'<div class="decision-report-grid">{field_html}</div>'
+        "</section>"
+    )
+
+
+def _decision_summary_list_html(lines: list[str]) -> str:
+    items = "".join(f"<li>{html.escape(line)}</li>" for line in lines[:3])
+    return f'<ol class="decision-summary-list">{items}</ol>'
+
+
+def _render_cockpit_decision_report_sections(
+    preview: MarketDataPreview,
+    *,
+    context: DecisionReportContext,
+    overview: dict[str, str],
+    score_row: dict[str, str],
+    symbol_row: dict[str, str] | None,
+    research_report: CompanyResearchReport | None,
+    news_report: StockNewsReport | None,
+) -> None:
+    st.markdown("#### 詳細レポート")
+    with st.container(border=True):
+        st.markdown("##### 1. Executive Summary")
+        st.markdown(
+            _decision_summary_list_html(
+                cockpit_decision_report_summary_lines(preview, research_report)
+            ),
+            unsafe_allow_html=True,
+        )
+
+    with st.expander("2. 投資判断", expanded=True):
+        _render_symbol_detail_table(
+            [
+                {"項目": "総合判断", "内容": overview.get("overall_judgement", "")},
+                {"項目": "投資スタンス", "内容": overview.get("investment_stance", "")},
+                {"項目": "注意材料", "内容": overview.get("key_risks", "")},
+            ]
+        )
+
+    with st.expander("3. スコア内訳", expanded=True):
+        _render_symbol_detail_table(score_component_rows(score_row))
+
+    with st.expander("4. 価格・予測", expanded=True):
+        trend = _cockpit_price_trend_summary(preview.bars)
+        _render_symbol_detail_table(
+            [
+                {
+                    "観点": "価格トレンド",
+                    "内容": trend["summary"],
+                    "確認ポイント": trend["check"],
+                },
+                {
+                    "観点": "予測変化率",
+                    "内容": _display_report_value(score_row.get("予測変化率"), "未計算"),
+                    "確認ポイント": "強い上昇シグナルか、横ばい圏の参考予測かを確認します。",
+                },
+                {
+                    "観点": "モデル一致度",
+                    "内容": _display_report_value(score_row.get("モデル一致度"), "未計算"),
+                    "確認ポイント": "モデル方向が分散している場合は短期判断を控えめに見ます。",
+                },
+            ]
+        )
+
+    with st.expander("5. ファンダメンタル", expanded=False):
+        _render_symbol_detail_table(_cockpit_fundamental_report_rows(symbol_row))
+
+    with st.expander("6. バリュエーション", expanded=False):
+        _render_symbol_detail_table(_cockpit_valuation_report_rows(symbol_row))
+
+    with st.expander("7. リスク", expanded=True):
+        _render_symbol_detail_table(_cockpit_risk_report_rows(score_row, symbol_row, preview.bars))
+
+    with st.expander("8. Research Evidence / 根拠資料との対応", expanded=False):
+        _render_symbol_detail_table(
+            cockpit_decision_report_evidence_rows(
+                preview,
+                research_report=research_report,
+                news_report=news_report,
+            )
+        )
+        card_rows = _research_evidence_card_rows(
+            research_report,
+            news_report=news_report,
+            limit=3,
+        )
+        if card_rows:
+            st.markdown(_research_evidence_cards_html(card_rows), unsafe_allow_html=True)
+        else:
+            st.info("根拠資料はまだ取得されていません。AI調査を更新すると確認できます。")
+
+    with st.expander("9. 補足", expanded=False):
+        _render_compact_dataframe(_decision_report_context_summary_rows(context))
+
+
+def _cockpit_fundamental_report_rows(
+    symbol_row: dict[str, str] | None,
+) -> list[dict[str, str]]:
+    if symbol_row is None:
+        return [
+            {
+                "観点": "銘柄マスタ",
+                "内容": "未登録",
+                "確認ポイント": "財務・分類情報を確認してください。",
+            }
+        ]
+    return [
+        {
+            "観点": "市場・通貨",
+            "内容": " / ".join(
+                part
+                for part in [
+                    symbol_universe_detail_display_value(symbol_row, "market"),
+                    symbol_universe_detail_display_value(symbol_row, "currency"),
+                ]
+                if part
+            ),
+            "確認ポイント": "為替や市場特性の影響を確認します。",
+        },
+        {
+            "観点": "資産分類",
+            "内容": symbol_universe_detail_display_value(symbol_row, "asset_type") or "未取得",
+            "確認ポイント": "個別株、ETFなど商品特性に合わせて見ます。",
+        },
+        {
+            "観点": "時価総額",
+            "内容": symbol_universe_detail_display_value(symbol_row, "market_cap_tier") or "未取得",
+            "確認ポイント": "大型・中小型で値動きの前提を分けます。",
+        },
+    ]
+
+
+def _cockpit_valuation_report_rows(
+    symbol_row: dict[str, str] | None,
+) -> list[dict[str, str]]:
+    if symbol_row is None:
+        return [
+            {
+                "観点": "バリュエーション",
+                "内容": "未取得",
+                "確認ポイント": "PER/PBR/ROEを確認してください。",
+            }
+        ]
+    return [
+        {
+            "観点": "PER / PBR / ROE",
+            "内容": _cockpit_valuation_summary(symbol_row),
+            "確認ポイント": "割安・割高を断定せず、成長率と利益率を合わせて確認します。",
+        },
+        {
+            "観点": "配当",
+            "内容": _cockpit_income_summary(symbol_row),
+            "確認ポイント": "利回りだけでなく、継続性と減配リスクを確認します。",
+        },
+    ]
+
+
+def _cockpit_risk_report_rows(
+    score_row: dict[str, str],
+    symbol_row: dict[str, str] | None,
+    bars: list[Bar],
+) -> list[dict[str, str]]:
+    trend = _cockpit_price_trend_summary(bars)
+    return [
+        {
+            "観点": "注意材料",
+            "内容": _cockpit_key_risks(score_row, symbol_row),
+            "確認ポイント": "根拠資料やニュースで一時要因か継続要因かを確認します。",
+        },
+        {
+            "観点": "下降警戒",
+            "内容": _display_report_value(score_row.get("下降警戒"), "未計算"),
+            "確認ポイント": "上昇気配と同時に高い場合は、短期判断を慎重にします。",
+        },
+        {
+            "観点": "価格位置",
+            "内容": trend["summary"],
+            "確認ポイント": trend["check"],
+        },
+    ]
+
+
+def _decision_report_context_summary_rows(
+    context: DecisionReportContext,
+) -> list[dict[str, str]]:
+    return [
+        {
+            "セクション": section.title,
+            "情報元": section.source.kind,
+            "サマリ項目": str(len(section.summary)),
+            "明細行": str(len(section.rows)),
+            "注意点": str(len(section.warnings)),
+        }
+        for section in context.sections
+    ]
+
+
 def _render_cockpit_decision_report(preview: MarketDataPreview) -> None:
     context = build_cockpit_decision_report_context(preview)
-    _render_decision_report_downloads(
+    symbol = _market_data_preview_symbol(preview)
+    score_rows = investment_score_display_rows(preview.investment_score_rows)
+    score_row = score_rows[0] if score_rows else {}
+    symbol_row = _symbol_universe_row_for_symbol(symbol) if symbol else None
+    research_report = _cockpit_research_report_from_state(preview)
+    news_report = _cockpit_stock_news_report_from_state(preview)
+    overview = cockpit_decision_report_overview(preview)
+
+    st.markdown("### 07 投資判断レポート")
+    st.info(
+        "取得済みデータ、スコア、価格トレンド、根拠資料を判断材料として整理しました。"
+        "売買推奨ではなく、後から確認できる分析メモとして扱います。"
+    )
+    st.markdown(_decision_report_overview_card_html(overview), unsafe_allow_html=True)
+
+    summary_lines = cockpit_decision_report_summary_lines(preview, research_report)
+    st.markdown("#### AI Summary")
+    st.markdown(_decision_summary_list_html(summary_lines), unsafe_allow_html=True)
+
+    evidence_rows = cockpit_decision_report_evidence_rows(
+        preview,
+        research_report=research_report,
+        news_report=news_report,
+    )
+    st.markdown("#### 判断に使った主な根拠")
+    _render_symbol_detail_table(evidence_rows)
+
+    _render_cockpit_decision_report_sections(
+        preview,
+        context=context,
+        overview=overview,
+        score_row=score_row,
+        symbol_row=symbol_row,
+        research_report=research_report,
+        news_report=news_report,
+    )
+
+    _render_decision_report_download_buttons(
         context,
         expander_label="投資判断レポート",
         json_file_name="decision_report_cockpit.json",
@@ -5650,6 +6607,33 @@ def _render_decision_report_downloads(
         "取得済みデータ、銘柄メタデータ、スコア、根拠、確認ポイントを判断材料として整理しました。"
         "売買推奨ではなく、後から確認できる分析メモとして扱います。"
     )
+    _render_decision_report_download_buttons(
+        context,
+        expander_label=expander_label,
+        json_file_name=json_file_name,
+        markdown_file_name=markdown_file_name,
+        heading_prefix=None,
+    )
+    with st.expander("レポート本文を表示", expanded=False):
+        preview_tab, raw_tab = st.tabs(["Preview", "Raw Markdown"])
+        with preview_tab:
+            with st.container(border=True):
+                st.markdown(markdown)
+        with raw_tab:
+            st.code(markdown, language="markdown")
+
+
+def _render_decision_report_download_buttons(
+    context: DecisionReportContext,
+    *,
+    expander_label: str,
+    json_file_name: str,
+    markdown_file_name: str,
+    heading_prefix: str | None = None,
+) -> None:
+    markdown = decision_report_markdown_download(context)
+    heading = f"{heading_prefix} {expander_label}" if heading_prefix else expander_label
+    st.markdown(f"#### Export / {heading}")
     col_markdown, col_json, col_manifest, col_zip = st.columns(4)
     col_markdown.download_button(
         "Markdown",
@@ -5675,13 +6659,6 @@ def _render_decision_report_downloads(
         file_name="decision_report_package.zip",
         mime="application/zip",
     )
-    with st.expander("レポート本文を表示", expanded=False):
-        preview_tab, raw_tab = st.tabs(["Preview", "Raw Markdown"])
-        with preview_tab:
-            with st.container(border=True):
-                st.markdown(markdown)
-        with raw_tab:
-            st.code(markdown, language="markdown")
 
 
 def _investment_score_report_section(

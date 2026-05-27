@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-05-27: Reworked Symbol Cockpit `06 Research Evidence` into an AI調査ステータス operation card with clearer next-step / primary / secondary action hierarchy, decision-oriented summary metrics, vertical evidence/news cards, and collapsed detail-data tables; reworked cockpit `07 投資判断レポート` into a structured judgement card, 3-line summary, evidence block, sectioned detail report, and downloads without showing raw Markdown as the main UI.
 - 2026-05-26: Expanded Symbol Cockpit `SMAI Insight` direction wording for upside-dominant, downside-caution, both-high, both-low, model-split, forecast-spread, and data-limited states; further compacted Ranking detailed-table columns by purpose; split Ranking Decision Report rows into candidate memo and score-detail sections.
 - 2026-05-26: Adjusted shared SMAI typography so body copy, captions, insight text, cards, and confirmation tables are slightly larger/brighter with roomier line-height without changing the dense dashboard layout.
 - 2026-05-26: Refined Ranking detailed table readability by combining confidence/source columns into `信頼度/根拠`, wrapping the visible confirmation memo, hiding long reason/checkpoint detail columns, and adding symbol names to Ranking Decision Report rows.

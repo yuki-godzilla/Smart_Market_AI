@@ -512,10 +512,10 @@ Current implemented slice:
 
 - `backend/research` provides local UTF-8 document ingestion, hash dedupe, chunking, freshness-aware keyword evidence search, source-type filtering, deterministic Research Summary, and data-quality warnings for missing, stale, and low-reliability evidence.
 - `設定 / データ情報` has a `Research RAG / 根拠資料` expander for session-local Markdown / Text / CSV upload and registration.
-- `銘柄コックピット` shows a `Research RAG / 根拠資料` section with an explicit `AIデータ取得` button beside the section header; price-data fetch does not automatically run Research RAG. The summary shows source document names, dates, evidence counts, data-quality warning rows, and detailed evidence rows inside a collapsed detail expander.
+- `銘柄コックピット` shows a `Research Evidence / 根拠資料` section with an explicit `AI調査を更新` operation card; price-data fetch does not automatically run Research RAG. The summary uses decision-oriented metric cards and vertical evidence cards, while source documents, retrieval quality, and detailed evidence rows stay inside a collapsed detail-data expander.
 - `銘柄ランキング` row-click `銘柄データ` modal has an `AI Research` tab with an explicit `AIで資料を確認` button. It reuses the same Research Summary panel for growth, shareholder return, financial safety, business risk, confirmation gaps, source document names, dates, and evidence counts.
 - `銘柄ランキング` result cards, detailed table, and selected-candidate breakdown show a lightweight Research Evidence status (`根拠あり` / `最新資料が古い` / `根拠不足`) from registered local documents and already fetched Research reports. This does not change ranking order and does not automatically run full Research RAG analysis for every symbol.
-- Cockpit Decision Report includes `Research Evidence` only when `AIデータ取得` has produced a report and registered documents or evidence exist, so existing no-document reports remain unchanged.
+- Cockpit Decision Report includes `Research Evidence` only when `AI調査を更新` has produced a report and registered documents or evidence exist, so existing no-document reports remain unchanged.
 
 Recommended completion criteria:
 
@@ -699,7 +699,7 @@ Status: first local deterministic slice implemented
 Purpose:
 
 - まずは既存の `銘柄コックピット` に、選択中の銘柄だけを対象にした個別銘柄ニュース深掘りを小さく追加する。
-- `AIニュース深掘り` / `Recent News` section を候補とし、AIデータ取得時または専用ボタン押下時に、銘柄名、ticker、related keywords から news evidence を取得・整理する。
+- Research Evidence 内の `ニュースのみ再取得` を候補とし、AI調査更新時または専用ボタン押下時に、銘柄名、ticker、related keywords から news evidence を取得・整理する。
 - 根拠 URL 付きの最新ニュース要約、投資観点、材料の方向感、鮮度を表示するところまでを MVP とする。
 - ニュースは投資判断補助情報であり、売買推奨、buy / sell / hold 判断、Investment Score、ranking order の変更には使わない。
 
@@ -784,13 +784,13 @@ Current implemented slice:
 - `backend/research` has `StockNewsEvidence`, `StockNewsRequest`, `StockNewsReport`, and `StockNewsAnalysisService`.
 - The initial data source is registered local Research documents with `source_type="news"`; no external news site, external LLM, or network call is used in the default path.
 - News documents must contain a `url:` / `source_url:` line or another `https://...` URL. Items without source URL are excluded with a warning rather than summarized as fact.
-- `銘柄コックピット` shows a `Recent News / AIニュース深掘り` section under Research Evidence. The dedicated button stores a session-local report and displays title, URL, source, published_at, summary, investment_viewpoint, sentiment_for_investment, and freshness_status.
+- `銘柄コックピット` integrates Recent News into Research Evidence cards. The dedicated `ニュースのみ再取得` button stores a session-local report and card/detail displays title, URL, source, published_at, summary, investment_viewpoint, sentiment_for_investment, and freshness_status.
 - This slice does not change Investment Score, Research Score, Decision Report, or ranking order.
 
 Follow-up child roadmap:
 
 - Phase 21.6: External Research Document Fetch MVP. `外部資料を取得` / `資料キャッシュを更新` actions を追加し、EDINET / TDnet / IR site / provider profile などの資料取得を explicit opt-in adapter として実現する。取得結果は source URL、provider、fetched_at、published_at、document_hash、manifest を保持して `data/research_docs/` または後続の cache/archive に保存する。通常 tests / CI は network 非依存の fixture / fake adapter で確認する。
-- Phase 21.7: External Stock News Fetch MVP. `AIニュース深掘り` から外部ニュース取得を明示 opt-in で実行できる adapter を追加する。対象は選択中の銘柄名 / ticker / related keywords に限定し、取得結果は `StockNewsEvidence` 互換の title / URL / source / published_at / summary / investment_viewpoint / sentiment_for_investment / freshness_status として保存・表示する。source URL がない内容は断定せず、外部 LLM は必須にしない。
+- Phase 21.7: External Stock News Fetch MVP. `ニュースのみ再取得` から外部ニュース取得を明示 opt-in で実行できる adapter を追加する。対象は選択中の銘柄名 / ticker / related keywords に限定し、取得結果は `StockNewsEvidence` 互換の title / URL / source / published_at / summary / investment_viewpoint / sentiment_for_investment / freshness_status として保存・表示する。source URL がない内容は断定せず、外部 LLM は必須にしない。
 - Phase 21.6 / 21.7 は、Phase 21.5 の local deterministic slice を置き換えず、外部取得に失敗した場合も既存のローカル資料・ローカル news evidence 表示に戻れる設計にする。
 - External fetch child phases remain decision-support only. Investment Score、Research Score、Decision Report 自動反映、ranking order 変更、buy / sell / hold 判断は行わない。
 

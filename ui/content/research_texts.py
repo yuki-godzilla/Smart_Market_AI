@@ -22,18 +22,18 @@ RESEARCH_EVIDENCE_CHECK_FALLBACK = "AI Researchで資料根拠を確認します
 RESEARCH_COCKPIT_SECTION_TITLE = "06 Research Evidence / 根拠資料"
 RESEARCH_RANKING_LOOKUP_TITLE = "AI Research / 根拠資料"
 RESEARCH_COCKPIT_INTRO = (
-    "価格データ取得とは別に、登録済みのResearch資料から確認材料を整理します。"
-    "資料名・日付・抜粋・注意点を見ながら、根拠の有無を確認してください。"
+    "SMAIが銘柄分析時に参照したニュース・外部情報・補足データです。"
+    "投資判断の背景を確認し、価格予測やスコアだけでは見えない材料を把握できます。"
 )
 RESEARCH_RANKING_LOOKUP_INTRO = (
     "この銘柄の登録資料から、投資判断前に確認したい材料と注意点を整理します。"
 )
-RESEARCH_FETCH_BUTTON_LABEL = "AIデータ取得"
-RESEARCH_NEWS_BUTTON_LABEL = "AIニュース深掘り"
+RESEARCH_FETCH_BUTTON_LABEL = "AI調査を更新"
+RESEARCH_NEWS_BUTTON_LABEL = "ニュースのみ再取得"
 RESEARCH_NEWS_SPINNER = "登録済みニュース資料から確認材料を整理しています。"
 RESEARCH_NEWS_NOT_FETCHED_MESSAGE = (
     "Recent News はまだ整理されていません。登録済みの news 資料からURL付きニュースを確認する場合は"
-    "「AIニュース深掘り」を実行してください。"
+    "「ニュースのみ再取得」を実行してください。"
 )
 RESEARCH_NEWS_EMPTY_MESSAGE = (
     "URL付きのニュース根拠は見つかりませんでした。"
@@ -41,8 +41,8 @@ RESEARCH_NEWS_EMPTY_MESSAGE = (
 )
 RESEARCH_RANKING_FETCH_BUTTON_LABEL = "AIで資料を確認"
 RESEARCH_FETCH_SPINNER = "Research資料から根拠を整理しています。"
-RESEARCH_NOT_FETCHED_MESSAGE = "Research Evidence はまだ整理されていません。登録済み資料から根拠と注意点を確認する場合は「AIデータ取得」を実行してください。"
-RESEARCH_DETAIL_EXPANDER_LABEL = "Research RAG 詳細"
+RESEARCH_NOT_FETCHED_MESSAGE = "根拠資料はまだ取得されていません。「AI調査を更新」を押すと、関連ニュースや外部情報を確認できます。"
+RESEARCH_DETAIL_EXPANDER_LABEL = "詳細データを表示"
 RESEARCH_DETAIL_OK_CAPTION = "登録資料から検索できた根拠と観点別サマリです。"
 
 

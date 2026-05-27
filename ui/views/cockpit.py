@@ -623,19 +623,40 @@ def render_cockpit_direction_signal_cards(cards: list[dict[str, str]]) -> None:
 def research_evidence_summary_items(
     report: CompanyResearchReport,
 ) -> list[dict[str, str]]:
+    positive_count = sum(
+        len(point.evidence)
+        for point in report.points
+        if point.category in {"growth", "shareholder_return", "financial_safety"}
+    )
+    risk_count = sum(
+        len(point.evidence)
+        for point in report.points
+        if point.category in {"business_risk", "confirmation_gap"}
+    )
+    news_count = sum(1 for evidence in report.evidence if evidence.source_type == "news")
     return [
         {
-            "label": "Document Count",
-            "value": str(report.data_quality.document_count),
-            "help": "登録資料として参照できた資料数です。",
+            "label": "重要ニュース",
+            "value": f"{news_count}件",
+            "help": "ニュース資料として確認できた根拠数です。",
         },
         {
-            "label": "Evidence Count",
-            "value": str(report.data_quality.evidence_count),
-            "help": "検索で確認できた根拠抜粋数です。",
+            "label": "ポジティブ材料",
+            "value": f"{positive_count}件",
+            "help": "成長、株主還元、財務安全性に関係する確認材料です。",
         },
         {
-            "label": "Latest Source Date",
+            "label": "リスク材料",
+            "value": f"{risk_count}件",
+            "help": "事業リスクや確認不足に関係する材料です。",
+        },
+        {
+            "label": "信頼度",
+            "value": _research_confidence_label(report),
+            "help": "資料数、根拠数、警告から見た確認材料としての信頼度です。",
+        },
+        {
+            "label": "最終更新",
             "value": (
                 report.data_quality.latest_document_date.isoformat()
                 if report.data_quality.latest_document_date
@@ -643,17 +664,17 @@ def research_evidence_summary_items(
             ),
             "help": "参照資料のうち最新の日付です。",
         },
-        {
-            "label": "Data Quality Status",
-            "value": report.data_quality.status,
-            "help": "Research Evidence の確認材料としての状態です。",
-        },
-        {
-            "label": "Warnings",
-            "value": str(len(report.data_quality.warnings)),
-            "help": "根拠不足や資料不足などの注意数です。",
-        },
     ]
+
+
+def _research_confidence_label(report: CompanyResearchReport) -> str:
+    if report.data_quality.evidence_count <= 0:
+        return "Low"
+    if report.data_quality.status == "OK" and not report.data_quality.warnings:
+        return "High"
+    if report.data_quality.status == "WARN":
+        return "Medium"
+    return "Low"
 
 
 def render_cockpit_summary_header(items: list[dict[str, str]]) -> None:
@@ -708,9 +729,7 @@ def render_cockpit_kpi_cards(cards: list[dict[str, str]]) -> None:
 
 def render_research_evidence_summary(report: CompanyResearchReport) -> None:
     st.markdown("##### Research Evidence Summary")
-    st.caption(
-        "Research Evidence は登録資料から検索できた確認材料です。確定情報やスコアの正しさを保証するものではありません。"
-    )
+    st.caption("根拠資料はスコア算出そのものではなく、投資判断を補助する参考情報として扱います。")
     items = research_evidence_summary_items(report)
     columns = st.columns(min(5, len(items)))
     for index, item in enumerate(items):
@@ -824,9 +843,9 @@ def _progress_for_direction_card(card: dict[str, str]) -> int | None:
 def _badge_for_research_item(item: dict[str, str]) -> str:
     label = item.get("label", "")
     value = item.get("value", "")
-    if label == "Data Quality Status" and value == "OK":
+    if label == "信頼度" and value == "High":
         return badge_html("High Confidence", "success")
-    if label == "Warnings" and value not in {"0", "-"}:
+    if label in {"信頼度", "リスク材料"} and value not in {"0件", "-", "High"}:
         return badge_html("Check data", "caution")
     return badge_html("Evidence", "info")
 

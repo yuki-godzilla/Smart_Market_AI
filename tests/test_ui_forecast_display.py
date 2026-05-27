@@ -12,9 +12,11 @@ from backend.research import (
     CompanyResearchReport,
     ResearchDataQuality,
     ResearchDocument,
+    ResearchEvidence,
     ResearchExtractedClaim,
     ResearchGroundedAnswer,
     ResearchRetrievalQuality,
+    ResearchSummaryPoint,
     StockNewsEvidence,
     StockNewsReport,
 )
@@ -43,6 +45,7 @@ from ui.app import (
     _ranking_source_key_for_selection,
     _ranking_symbols_from_selected_labels,
     _render_market_chart,
+    _research_evidence_card_rows,
     _research_evidence_cards_html,
     _research_evidence_report_section,
     _research_extracted_claim_rows,
@@ -57,6 +60,9 @@ from ui.app import (
     _symbol_from_candidate,
     build_cockpit_decision_report_context,
     build_ranking_decision_report_context,
+    cockpit_decision_report_evidence_rows,
+    cockpit_decision_report_overview,
+    cockpit_decision_report_summary_lines,
     cockpit_detail_summary_rows,
     cockpit_filtered_symbol_rows,
     cockpit_investment_memo_rows,
@@ -832,6 +838,69 @@ def test_research_evidence_cards_html_escapes_excerpt_and_uses_vertical_cards():
     assert "Business Summary" in markup
     assert "<script>" not in markup
     assert "&lt;script&gt;not advice&lt;/script&gt;" in markup
+
+
+def test_research_evidence_card_rows_merge_news_and_local_evidence_for_cards():
+    evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-growth",
+        chunk_id="chunk-growth",
+        title="7203 growth profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        excerpt="Toyota expands hybrid and software investment.",
+        relevance_score=Decimal("0.82"),
+        reliability=Decimal("0.74"),
+    )
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="Research summary",
+        points=[
+            ResearchSummaryPoint(
+                category="growth",
+                label="成長材料",
+                summary="成長材料を確認します。",
+                evidence=[evidence],
+            )
+        ],
+        evidence=[evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+    news_report = StockNewsReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        news=[
+            StockNewsEvidence(
+                symbol="7203.T",
+                title="Tariff risk rises",
+                url="https://example.com/risk",
+                source="Example News",
+                published_at=date(2026, 5, 25),
+                summary="Tariff headline adds export uncertainty.",
+                investment_viewpoint="risk",
+                sentiment_for_investment="negative",
+                freshness_status="latest",
+            )
+        ],
+    )
+
+    rows = _research_evidence_card_rows(report, news_report=news_report, limit=None)
+    markup = _research_evidence_cards_html(rows)
+
+    assert rows[0]["sentiment"] == "Risk"
+    assert rows[0]["category"] == "リスク材料"
+    assert rows[0]["url"] == "https://example.com/risk"
+    assert rows[1]["sentiment"] == "Positive"
+    assert rows[1]["category"] == "事業成長"
+    assert "記事を開く" in markup
+    assert "投資判断への影響" in markup
 
 
 def test_ranking_result_aggrid_options_enable_single_row_click_selection():
@@ -3620,6 +3689,61 @@ def test_cockpit_decision_report_context_includes_metadata_confidence(monkeypatc
     assert "risk_band" in context.sections[0].summary["missing_fields"]
     assert "データ取得状況と信頼性" in markdown
     assert '"schema_version": "decision-report-context-v1"' in payload
+
+
+def test_cockpit_decision_report_helpers_build_structured_summary(monkeypatch):
+    monkeypatch.setattr("ui.app.symbol_universe_csv_rows", lambda: [])
+    preview = MarketDataPreview(
+        status="ok",
+        bars=[
+            _bar("2026-05-21", close=100, symbol="6857.T"),
+            _bar("2026-05-22", close=104, symbol="6857.T"),
+        ],
+        provider_rows=[{"field": "provider", "value": "yahoo"}],
+        quote_rows=[],
+        ohlcv_rows=[],
+        price_chart_rows=[],
+        forecast_chart_rows=[],
+        forecast_metric_rows=[],
+        fx_rows=[],
+        feature_rows=[],
+        investment_score_rows=[
+            {
+                "symbol": "6857.T",
+                "total_score": "68.2",
+                "score_band": "watch",
+                "screening_score": "72",
+                "upside_signal_score": "66",
+                "downside_signal_score": "52",
+                "forecast_return_pct": "+1.2%",
+                "forecast_agreement_score": "80",
+                "data_quality_score": "92",
+                "risk_signal_score": "70",
+            }
+        ],
+        screening_rows=[],
+        error_rows=[],
+    )
+
+    overview = cockpit_decision_report_overview(preview)
+    lines = cockpit_decision_report_summary_lines(preview)
+    evidence_rows = cockpit_decision_report_evidence_rows(
+        preview,
+        research_report=None,
+        news_report=None,
+    )
+
+    assert overview["symbol"] == "6857.T"
+    assert overview["overall_judgement"] == "中立〜やや前向き"
+    assert overview["confidence"] == "High"
+    assert len(lines) == 3
+    assert "根拠資料は未取得" in lines[2]
+    assert [row["根拠"] for row in evidence_rows] == [
+        "価格トレンド",
+        "業績・財務",
+        "ニュース",
+        "リスク",
+    ]
 
 
 def test_ranking_decision_report_context_limits_rows_and_uses_top_symbol(monkeypatch):

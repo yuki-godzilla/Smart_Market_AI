@@ -46,6 +46,9 @@ SMAI は以下の思想を重視しています。
 - Research RAG Phase 20 local evidence slice
   - local UTF-8 Markdown / Text / CSV の登録、hash dedupe、chunking、keyword evidence search
   - deterministic Research Summary、data-quality warning、Cockpit / Ranking modal / Decision Report 連携
+- Research RAG external fetch first UI slice
+  - 銘柄コックピットで明示許可した場合だけ Yahoo Finance profile / news を取得
+  - `data/research_docs/external_cache/` に Markdown + manifest JSON を保存し、source URL / provider / fetched_at / 保存先を表示
 - Research Score first slices
   - `ResearchScoreService`、optional Investment Score input、disabled-by-default `scoring.weights.research`
   - Cockpit / Ranking Research Summary の Research Score 参考表示
@@ -67,7 +70,7 @@ SMAI は以下の思想を重視しています。
 - `polygon` など追加 live provider adapter 本体
 - 追加 provider / fund metadata source adapter
 - 投信 metadata / 基準価額 / ranking 対応
-- Research RAG external source adapters / vector search の運用UI
+- EDINET / TDnet / company IR site など追加 Research RAG external source adapters / vector search の運用UI
 - Research Score の ranking order 統合と表示 polish
 - AI assistant experience
 - Execution / broker への注文送信
@@ -84,11 +87,11 @@ MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で
 - Phase 18: symbol universe / metadata refresh / source import / SBI ranking universe policy は implementation complete。継続的な NISA / ETF / stock metadata source 更新は運用タスクとして扱う
 - Phase 19: Decision Report Context MVP は implementation complete
 - Phase 20: Research RAG Evidence Layer は local evidence slice が implementation complete
-- Phase 21: 高度Research RAG / Stock News RAG の first slices は進行中
+- Phase 21: 高度Research RAG / Stock News RAG / opt-in external fetch の first slices は進行中
 - Phase 22〜25: Research Score integration、Assistant、optional adapter、Execution gate の順に整理
 - Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
-次の重点は、既存機能の分かりにくさ、仕様曖昧さ、投資助言に見えすぎる表現を棚卸ししつつ、Phase 22 Research Score integration を慎重に進めることです。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、Research RAG external adapters、Assistant、Execution / Broker は明示的に割り当てるまで future scope として扱います。
+次の重点は、既存機能の分かりにくさ、仕様曖昧さ、投資助言に見えすぎる表現を棚卸ししつつ、Phase 21 external fetch maturity と Phase 22 Research Score integration を慎重に進めることです。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、EDINET / TDnet / company IR site などの追加 Research RAG external adapters、Assistant、Execution / Broker は明示的に割り当てるまで future scope として扱います。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント

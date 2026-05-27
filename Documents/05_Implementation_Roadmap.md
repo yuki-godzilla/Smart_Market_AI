@@ -802,6 +802,8 @@ Current implemented slice:
 - `backend/research` has `ExternalResearchFetchRequest`, `ExternalResearchSourcePayload`, `ExternalResearchFetchService`, manifest entries, and `ExternalResearchSourceAdapter` protocol.
 - `YahooFinanceResearchAdapter` provides the first opt-in live adapter shape for provider profile and recent news payloads. Tests inject a fake ticker factory, so no live Yahoo call is required in normal checks.
 - The service enforces explicit `allow_network=True` before a network-requiring adapter can run, writes fetched URL-backed sources to local cache, registers them through existing Research ingestion, rebuilds chunks, and writes a JSON manifest with source URL, provider, fetched_at, published_at, document_hash, local_path, and document_id.
+- `銘柄コックピット` Research Evidence has a first opt-in `外部資料取得（明示許可）` UI slice. The user must check `外部通信を許可する` before Yahoo Finance profile / news fetch runs. Fetched sources are saved under `data/research_docs/external_cache/`, registered into the session-local Research RAG store, re-chunked, and displayed with provider, fetched_at, source URL, local path, warnings, and manifest path.
+- The RAG index remains session-local in memory. External fetch payload Markdown and manifest JSON are cache / evidence-archive files and can grow with repeated fetches until a future retention / cleanup UI is added.
 - Normal tests use fake adapters only. No live external source, scraping, external LLM, or network call is required for CI.
 - A `source_type="news"` payload becomes available to the existing Stock News RAG cockpit flow after registration; provider profile / IR payloads become normal Research Evidence documents.
 

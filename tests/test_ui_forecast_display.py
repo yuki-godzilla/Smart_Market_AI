@@ -2,6 +2,7 @@ import asyncio
 import json
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from pathlib import Path
 from types import SimpleNamespace
 
 import pandas as pd
@@ -10,6 +11,8 @@ from backend.core.data_contracts import Bar, FundamentalSnapshot, Symbol
 from backend.core.errors import DataSourceError
 from backend.research import (
     CompanyResearchReport,
+    ExternalResearchFetchManifestEntry,
+    ExternalResearchFetchResult,
     ResearchDataQuality,
     ResearchDocument,
     ResearchEvidence,
@@ -34,6 +37,8 @@ from ui.app import (
     _coerce_number_input_state,
     _current_or_default_symbol_labels,
     _ensure_selectbox_state_value,
+    _external_research_fetch_result_rows,
+    _external_research_fetch_summary_rows,
     _market_data_preview_symbol_label,
     _name_from_candidate,
     _normalize_dividend_filter_state,
@@ -206,6 +211,7 @@ from ui.rebalance_app import (
     investment_score_csv_download,
     screening_score_rows,
 )
+from ui.research_state import _source_type_from_research_filename, _symbol_from_research_filename
 from ui.symbol_universe import symbol_universe_csv_rows
 
 
@@ -743,6 +749,67 @@ def test_stock_news_display_rows_keep_traceable_news_fields():
         }
     ]
     assert "https://example.com/7203" in markup
+
+
+def test_external_research_fetch_rows_show_cache_manifest_and_sources():
+    result = ExternalResearchFetchResult(
+        symbol="7203.T",
+        provider="yahoo_finance",
+        fetched_at=datetime(2026, 5, 27, 12, 30, tzinfo=UTC),
+        entries=[
+            ExternalResearchFetchManifestEntry(
+                title="7203.T Yahoo Finance Profile",
+                symbol="7203.T",
+                source_type="provider_profile",
+                source_url="https://finance.yahoo.com/quote/7203.T/profile",
+                provider="yahoo_finance",
+                published_at=None,
+                fetched_at=datetime(2026, 5, 27, 12, 30, tzinfo=UTC),
+                local_path="data/research_docs/external_cache/7203.T_provider_profile.md",
+                document_hash="abc123",
+                document_id="research-doc-abc123",
+            )
+        ],
+        manifest_path="data/research_docs/external_cache/7203.T_manifest.json",
+        warnings=["追加ニュースは見つかりませんでした。"],
+    )
+
+    summary_rows = _external_research_fetch_summary_rows(result)
+    entry_rows = _external_research_fetch_result_rows(result)
+
+    assert summary_rows == [
+        {"項目": "取得元", "内容": "yahoo_finance"},
+        {"項目": "取得日時", "内容": "2026-05-27T12:30+00:00"},
+        {"項目": "登録資料数", "内容": "1件"},
+        {
+            "項目": "manifest",
+            "内容": "data/research_docs/external_cache/7203.T_manifest.json",
+        },
+        {"項目": "注意", "内容": "追加ニュースは見つかりませんでした。"},
+    ]
+    assert entry_rows == [
+        {
+            "資料名": "7203.T Yahoo Finance Profile",
+            "資料種別": "取得元プロフィール",
+            "取得元": "yahoo_finance",
+            "公開日": "未確認",
+            "取得日時": "2026-05-27T12:30+00:00",
+            "URL": "https://finance.yahoo.com/quote/7203.T/profile",
+            "保存先": "data/research_docs/external_cache/7203.T_provider_profile.md",
+        }
+    ]
+
+
+def test_research_state_recognizes_external_cache_symbol_and_source_type():
+    provider_profile_path = Path(
+        "data/research_docs/external_cache/7203.T_provider_profile_yahoo_finance.md"
+    )
+    news_path = Path("data/research_docs/external_cache/AAPL_news_yahoo_finance.md")
+
+    assert _symbol_from_research_filename(provider_profile_path) == "7203.T"
+    assert _source_type_from_research_filename(provider_profile_path) == "provider_profile"
+    assert _symbol_from_research_filename(news_path) == "AAPL"
+    assert _source_type_from_research_filename(news_path) == "news"
 
 
 def test_research_phase21_rows_expose_grounded_answer_retrieval_and_claims():

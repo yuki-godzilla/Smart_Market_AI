@@ -3,28 +3,35 @@ from __future__ import annotations
 import re
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Literal
+from typing import cast
 
 import streamlit as st
 
 from backend.research import (
     CompanyResearchReport,
     CompanyResearchRequest,
+    ExternalResearchFetchRequest,
+    ExternalResearchFetchResult,
+    ExternalResearchFetchService,
+    ExternalResearchSourceAdapter,
     ResearchAnalysisService,
     ResearchDocumentRegisterRequest,
     ResearchIndexService,
     ResearchIngestionService,
     ResearchInMemoryStore,
     ResearchRetrievalService,
+    ResearchSourceType,
     StockNewsAnalysisService,
     StockNewsReport,
     StockNewsRequest,
+    YahooFinanceResearchAdapter,
 )
 
 RESEARCH_STORE_STATE_KEY = "research_local_store"
 RESEARCH_AUTOLOAD_STATE_KEY = "research_local_autoloaded_files"
 RESEARCH_DOC_DIR = Path("data/research_docs")
 RESEARCH_UPLOAD_DIR = RESEARCH_DOC_DIR / "uploads"
+RESEARCH_EXTERNAL_CACHE_DIR = RESEARCH_DOC_DIR / "external_cache"
 
 
 def research_store() -> ResearchInMemoryStore:
@@ -113,6 +120,44 @@ def analyze_research_for_symbol(symbol: str, *, as_of: date | None = None) -> Co
     ).analyze_company(CompanyResearchRequest(symbol=symbol, as_of=as_of))
 
 
+def fetch_external_research_for_symbol(
+    symbol: str,
+    *,
+    company_name: str | None = None,
+    related_keywords: list[str] | None = None,
+    as_of: date | None = None,
+    allow_network: bool,
+    adapter: ExternalResearchSourceAdapter | None = None,
+) -> ExternalResearchFetchResult:
+    """Fetch opt-in external sources and register them in the session-local RAG store."""
+
+    autoload_local_research_documents()
+    store = research_store()
+    ingestion = ResearchIngestionService(store, document_dirs=research_document_dirs())
+    index = ResearchIndexService(store)
+    source_adapter = adapter or YahooFinanceResearchAdapter()
+    result = ExternalResearchFetchService(
+        source_adapter,
+        ingestion,
+        index,
+        cache_dir=RESEARCH_EXTERNAL_CACHE_DIR,
+    ).fetch_register_sources(
+        ExternalResearchFetchRequest(
+            symbol=symbol,
+            company_name=company_name,
+            related_keywords=related_keywords or [],
+            provider=source_adapter.provider,
+            as_of=as_of,
+            allow_network=allow_network,
+        )
+    )
+    loaded_files = st.session_state.get(RESEARCH_AUTOLOAD_STATE_KEY)
+    if isinstance(loaded_files, set):
+        for entry in result.entries:
+            loaded_files.add(str(Path(entry.local_path).resolve()))
+    return result
+
+
 def analyze_stock_news_for_symbol(
     symbol: str,
     *,
@@ -168,7 +213,7 @@ def _safe_filename(value: str) -> str:
 
 def _symbol_from_research_filename(path: Path) -> str:
     stem = path.stem.upper()
-    jp_match = re.match(r"^(\d{4})_T(?:_|$)", stem)
+    jp_match = re.match(r"^(\d{4})(?:[._]T)(?:_|$)", stem)
     if jp_match:
         return f"{jp_match.group(1)}.T"
     us_match = re.match(r"^([A-Z]{1,6})(?:_|$)", stem)
@@ -181,8 +226,21 @@ def _title_from_research_filename(path: Path) -> str:
     return path.stem.replace("_", " ").strip() or path.name
 
 
-def _source_type_from_research_filename(path: Path) -> Literal["news", "user_note"]:
-    return "news" if "news" in path.stem.lower() else "user_note"
+def _source_type_from_research_filename(path: Path) -> ResearchSourceType:
+    stem = path.stem.lower()
+    for source_type in (
+        "annual_report",
+        "earnings_report",
+        "earnings_presentation",
+        "medium_term_plan",
+        "integrated_report",
+        "provider_profile",
+        "tdnet",
+        "news",
+    ):
+        if source_type in stem:
+            return cast(ResearchSourceType, source_type)
+    return "user_note"
 
 
 def _date_from_research_filename(path: Path) -> date | None:

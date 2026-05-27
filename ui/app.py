@@ -47,6 +47,7 @@ from backend.reporting import (
 )
 from backend.research import (
     CompanyResearchReport,
+    ExternalResearchFetchResult,
     ResearchDocument,
     ResearchScore,
     ResearchScoreService,
@@ -194,9 +195,11 @@ from ui.research_state import (
     analyze_research_for_symbol,
     analyze_stock_news_for_symbol,
     autoload_local_research_documents,
+    fetch_external_research_for_symbol,
     research_store,
 )
 from ui.state import (
+    MARKET_DATA_EXTERNAL_RESEARCH_FETCH_STATE_KEY,
     MARKET_DATA_FORECAST_DAYS_STATE_KEY,
     MARKET_DATA_PREVIEW_STATE_KEY,
     MARKET_DATA_RANKING_BUILD_CACHE_STATE_KEY,
@@ -4535,6 +4538,10 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
         news_report=news_report,
         detail_state_key=detail_state_key,
     )
+    _render_external_research_fetch_panel(
+        preview,
+        result=_cockpit_external_research_fetch_result_from_state(preview),
+    )
     if fetch_clicked:
         with st.spinner(RESEARCH_FETCH_SPINNER):
             st.session_state[MARKET_DATA_RESEARCH_REPORT_STATE_KEY] = (
@@ -4563,6 +4570,117 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
             detail_expanded=bool(st.session_state.get(detail_state_key, False)),
             news_report=news_report,
         )
+
+
+def _render_external_research_fetch_panel(
+    preview: MarketDataPreview,
+    *,
+    result: ExternalResearchFetchResult | None,
+) -> None:
+    symbol = _market_data_preview_symbol(preview)
+    if not symbol:
+        return
+    key_fragment = _widget_key_fragment(symbol)
+    with st.expander("外部資料取得（明示許可）", expanded=False):
+        st.caption(
+            "外部通信を許可した場合だけ Yahoo Finance のプロフィールとニュースを取得し、"
+            "ローカルキャッシュに保存してAI調査の根拠に登録します。"
+        )
+        allow_network = st.checkbox(
+            "外部通信を許可する",
+            value=False,
+            key=f"external_research_allow_network_{key_fragment}",
+            help=(
+                "通常チェックでは使いません。押した場合だけ外部取得し、"
+                "取得元URL、取得日時、manifestをローカルに残します。"
+            ),
+        )
+        fetch_clicked = st.button(
+            "外部資料を取得してAI調査に登録",
+            key=f"external_research_fetch_{key_fragment}",
+            disabled=not allow_network,
+            use_container_width=True,
+        )
+        if fetch_clicked:
+            company_name = symbol_name(symbol) or None
+            related_keywords = [company_name] if company_name else []
+            try:
+                with st.spinner("外部資料を取得し、ローカルキャッシュに保存しています。"):
+                    result = fetch_external_research_for_symbol(
+                        symbol,
+                        company_name=company_name,
+                        related_keywords=related_keywords,
+                        as_of=_date_from_iso_text(_market_data_as_of(preview)),
+                        allow_network=allow_network,
+                    )
+                    st.session_state[MARKET_DATA_EXTERNAL_RESEARCH_FETCH_STATE_KEY] = result
+                    st.session_state[MARKET_DATA_RESEARCH_REPORT_STATE_KEY] = (
+                        _build_cockpit_research_report(preview)
+                    )
+                    st.session_state[MARKET_DATA_STOCK_NEWS_REPORT_STATE_KEY] = (
+                        _build_cockpit_stock_news_report(preview)
+                    )
+                if result.entries:
+                    st.success(f"外部資料 {len(result.entries)}件をAI調査に登録しました。")
+                for warning in result.warnings:
+                    st.warning(warning)
+            except AppError as exc:
+                st.error(exc.message)
+                if exc.details:
+                    st.caption(json.dumps(exc.details, ensure_ascii=False, sort_keys=True))
+        if result is None:
+            st.info("外部資料はまだ取得されていません。必要な場合だけ明示許可して取得します。")
+            return
+        _render_compact_dataframe(_external_research_fetch_summary_rows(result))
+        entry_rows = _external_research_fetch_result_rows(result)
+        if entry_rows:
+            st.markdown("##### 取得・登録された資料")
+            _render_compact_dataframe(entry_rows)
+
+
+def _cockpit_external_research_fetch_result_from_state(
+    preview: MarketDataPreview,
+) -> ExternalResearchFetchResult | None:
+    result = st.session_state.get(MARKET_DATA_EXTERNAL_RESEARCH_FETCH_STATE_KEY)
+    if not isinstance(result, ExternalResearchFetchResult):
+        return None
+    if result.symbol.strip().upper() != _market_data_preview_symbol(preview).strip().upper():
+        return None
+    return result
+
+
+def _external_research_fetch_summary_rows(
+    result: ExternalResearchFetchResult,
+) -> list[dict[str, str]]:
+    warnings = " / ".join(result.warnings) if result.warnings else "なし"
+    return [
+        {"項目": "取得元", "内容": result.provider},
+        {"項目": "取得日時", "内容": _datetime_display_text(result.fetched_at)},
+        {"項目": "登録資料数", "内容": f"{len(result.entries)}件"},
+        {"項目": "manifest", "内容": result.manifest_path or "未保存"},
+        {"項目": "注意", "内容": warnings},
+    ]
+
+
+def _external_research_fetch_result_rows(
+    result: ExternalResearchFetchResult,
+) -> list[dict[str, str]]:
+    return [
+        {
+            "資料名": entry.title,
+            "資料種別": _research_source_type_label(entry.source_type),
+            "取得元": entry.provider,
+            "公開日": entry.published_at.isoformat() if entry.published_at else "未確認",
+            "取得日時": _datetime_display_text(entry.fetched_at),
+            "URL": entry.source_url,
+            "保存先": entry.local_path,
+        }
+        for entry in result.entries
+    ]
+
+
+def _datetime_display_text(value: datetime) -> str:
+    return value.isoformat(timespec="minutes")
 
 
 def _render_research_operation_card(

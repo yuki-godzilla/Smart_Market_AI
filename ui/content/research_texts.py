@@ -26,13 +26,13 @@ RESEARCH_COCKPIT_INTRO = (
     "投資判断の背景を確認し、価格予測やスコアだけでは見えない材料を把握できます。"
 )
 RESEARCH_RANKING_LOOKUP_INTRO = (
-    "この銘柄の登録資料から、投資判断前に確認したい材料と注意点を整理します。"
+    "この銘柄の保存済み資料から、投資判断前に確認したい材料と注意点を整理します。"
 )
 RESEARCH_FETCH_BUTTON_LABEL = "AI調査を更新"
 RESEARCH_NEWS_BUTTON_LABEL = "ニュースのみ再取得"
-RESEARCH_NEWS_SPINNER = "登録済みニュース資料から確認材料を整理しています。"
+RESEARCH_NEWS_SPINNER = "ニュース資料から確認材料を整理しています。"
 RESEARCH_NEWS_NOT_FETCHED_MESSAGE = (
-    "関連ニュースはまだ整理されていません。登録済みのニュース資料からURL付きニュースを確認する場合は"
+    "関連ニュースはまだ整理されていません。保存済みのニュース資料からURL付きニュースを確認する場合は"
     "「ニュースのみ再取得」を実行してください。"
 )
 RESEARCH_NEWS_EMPTY_MESSAGE = (
@@ -40,7 +40,7 @@ RESEARCH_NEWS_EMPTY_MESSAGE = (
     "source_type=news の資料に URL を含めて登録してください。"
 )
 RESEARCH_RANKING_FETCH_BUTTON_LABEL = "AIで資料を確認"
-RESEARCH_FETCH_SPINNER = "根拠資料を整理しています。"
+RESEARCH_FETCH_SPINNER = "外部参照ソースと保存済み資料から根拠を整理しています。"
 RESEARCH_NOT_FETCHED_MESSAGE = "根拠資料はまだ取得されていません。「AI調査を更新」を押すと、関連ニュースや外部情報を確認できます。"
 RESEARCH_DETAIL_EXPANDER_LABEL = "詳細データを表示"
 RESEARCH_DETAIL_OK_CAPTION = "登録資料から検索できた根拠と観点別サマリです。"

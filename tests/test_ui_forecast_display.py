@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pandas as pd
+import streamlit as st
 
 from backend.core.data_contracts import Bar, FundamentalSnapshot, Symbol
 from backend.core.errors import DataSourceError
@@ -27,6 +28,7 @@ from backend.research import (
 from backend.screening import ScreeningScore
 from ui.app import (
     DEFAULT_MARKET_DATA_PERIOD_PRESET,
+    MARKET_DATA_EXTERNAL_RESEARCH_FETCH_STATE_KEY,
     MARKET_DATA_PERIOD_CUSTOM,
     MARKET_DATA_PERIOD_PRESETS,
     NO_SYMBOL_CANDIDATE_LABEL,
@@ -39,6 +41,7 @@ from ui.app import (
     _ensure_selectbox_state_value,
     _external_research_fetch_result_rows,
     _external_research_fetch_summary_rows,
+    _fetch_external_research_for_preview,
     _market_data_preview_symbol_label,
     _name_from_candidate,
     _normalize_dividend_filter_state,
@@ -797,6 +800,70 @@ def test_external_research_fetch_rows_show_transient_sources_without_storage_pat
             "要約": "Toyota sells vehicles globally and invests in growth.",
         }
     ]
+
+
+def test_fetch_external_research_for_preview_uses_external_source_and_stores(monkeypatch):
+    captured: dict[str, object] = {}
+    result = ExternalResearchFetchResult(
+        symbol="7203.T",
+        provider="yahoo_finance",
+        fetched_at=datetime(2026, 5, 27, 12, 30, tzinfo=UTC),
+        entries=[],
+        retention_policy="session",
+    )
+
+    def fake_fetch_external_research_for_symbol(
+        symbol: str,
+        *,
+        company_name: str | None,
+        related_keywords: list[str] | None,
+        as_of: date | None,
+        allow_network: bool,
+    ) -> ExternalResearchFetchResult:
+        captured.update(
+            {
+                "symbol": symbol,
+                "company_name": company_name,
+                "related_keywords": related_keywords,
+                "as_of": as_of,
+                "allow_network": allow_network,
+            }
+        )
+        return result
+
+    monkeypatch.setattr("ui.app.symbol_name", lambda _symbol: "Toyota Motor")
+    monkeypatch.setattr(
+        "ui.app.fetch_external_research_for_symbol",
+        fake_fetch_external_research_for_symbol,
+    )
+    st.session_state.clear()
+    preview = MarketDataPreview(
+        status="ok",
+        bars=[_bar("2026-05-22", close=101, symbol="7203.T")],
+        provider_rows=[],
+        quote_rows=[],
+        ohlcv_rows=[],
+        price_chart_rows=[],
+        forecast_chart_rows=[],
+        forecast_metric_rows=[],
+        fx_rows=[],
+        feature_rows=[],
+        investment_score_rows=[],
+        screening_rows=[],
+        error_rows=[],
+    )
+
+    fetched = _fetch_external_research_for_preview(preview)
+
+    assert fetched is result
+    assert captured == {
+        "symbol": "7203.T",
+        "company_name": "Toyota Motor",
+        "related_keywords": ["Toyota Motor"],
+        "as_of": date(2026, 5, 22),
+        "allow_network": True,
+    }
+    assert st.session_state[MARKET_DATA_EXTERNAL_RESEARCH_FETCH_STATE_KEY] is result
 
 
 def test_research_state_recognizes_dotted_symbol_and_source_type():

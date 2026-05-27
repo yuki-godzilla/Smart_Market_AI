@@ -128,7 +128,7 @@ def fetch_external_research_for_symbol(
     allow_network: bool,
     adapter: ExternalResearchSourceAdapter | None = None,
 ) -> ExternalResearchFetchResult:
-    """Fetch opt-in external sources and register them in the session-local RAG store."""
+    """Fetch external sources and register them in the session-local RAG store."""
 
     autoload_local_research_documents()
     store = research_store()

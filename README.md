@@ -47,7 +47,7 @@ SMAI は以下の思想を重視しています。
   - local UTF-8 Markdown / Text / CSV の登録、hash dedupe、chunking、keyword evidence search
   - deterministic Research Summary、data-quality warning、Cockpit / Ranking modal / Decision Report 連携
 - Research RAG external fresh-source fetch first UI slice
-  - 現在は Yahoo Finance profile / news の first slice を実装済み。次のUI作業で `AI調査を更新` の標準処理へ統合する
+  - Yahoo Finance profile / news の first slice を `AI調査を更新` の標準処理へ統合済み
   - 方針として、取得本文は保持せず session-local に一時参照する。画面とDecision Reportには source URL / provider / fetched_at / published_at / freshness warning / 要約を表示する
 - Research Score first slices
   - `ResearchScoreService`、optional Investment Score input、disabled-by-default `scoring.weights.research`

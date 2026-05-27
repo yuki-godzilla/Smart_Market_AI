@@ -55,7 +55,7 @@ Current UI status:
 
 - `設定 / データ情報` で Markdown / Text / CSV を session-local に登録できる。
 - `銘柄コックピット` では価格データ取得時にResearch RAGを自動実行しない。`AI調査を更新` はResearch Evidence冒頭の操作カードに置き、押した場合だけ選択銘柄の Research Evidence を表示する。今後はこの action が外部 source search を含む標準動作になる。初期表示は判断向け summary metrics、観点別要点、根拠カードに絞り、source / retrieval quality / evidence table は `詳細データを表示` に折りたたむ。
-- `銘柄コックピット` には現在 `外部資料取得（明示許可）` の first UI slice が残っている。次のUI実装ではこの独立 panel / checkbox を廃止し、Yahoo Finance provider profile / news 取得を `AI調査を更新` に統合する。取得本文は session-local RAG store に一時登録してその場の summary / score / news 表示に使い、画面には provider、fetched_at、published_at、source URL、freshness_status、warnings、短い要約を表示する。既定では Markdown / manifest JSON を保存しない。
+- `銘柄コックピット` では独立した `外部資料取得（明示許可）` panel / checkbox を廃止し、Yahoo Finance provider profile / news 取得を `AI調査を更新` に統合済み。取得本文は session-local RAG store に一時登録してその場の summary / score / news 表示に使い、画面には provider、fetched_at、published_at、source URL、freshness_status、warnings、短い要約を表示する。既定では Markdown / manifest JSON を保存しない。
 - `銘柄ランキング` では、ランキング行クリックで開く `銘柄データ` モーダルに `AI Research` タブを追加する。タブ内の `AIで資料を確認` ボタンを押した場合だけ、選択銘柄の Research Summary、資料名、資料日、根拠数、詳細 evidence を表示する。
 - Cockpit Decision Report は、`AI調査を更新` により取得済みで、登録資料または evidence がある場合だけ `Research Evidence` section を含める。外部資料取得を実行済みの場合は、取得本文ではなく source URL / provider / fetched_at / published_at / freshness_status / 短い要約 / warnings を `外部参照ソース` section として残す。
 - Ranking evidence-status display は follow-up work。
@@ -115,7 +115,7 @@ Phase 21 は、Phase 20 の deterministic evidence foundation を壊さず、根
 - 外部資料取得・外部ニュース取得は通常ユーザー導線の primary source とし、local deterministic slice は tests / fixture / archive / fallback として残す。失敗時はローカル資料・ローカル news evidence 表示に戻る。
 - これらの child phases でも Investment Score / ranking order を変更せず、buy / sell / hold を出さない。
 
-Current implementation note: `ExternalResearchFetchService` and `YahooFinanceResearchAdapter` are wired to the Cockpit Research Evidence panel as a first UI slice. The current UI still exposes them behind a separate explicit-permission panel, but the intended next implementation is to run external source search from `AI調査を更新`. The flow registers external payload text in the session-local RAG store, rebuilds chunks for the current session, records source trace rows with freshness_status, and does not write fetched payload Markdown or manifest files. Cockpit Decision Report includes an `外部参照ソース` trace section for those rows without retaining fetched source text. A future explicit archive action may opt into persistence separately.
+Current implementation note: `ExternalResearchFetchService` and `YahooFinanceResearchAdapter` are wired to the Cockpit Research Evidence panel as a first UI slice. The UI runs external source search from `AI調査を更新` and no longer exposes a separate explicit-permission panel. The flow registers external payload text in the session-local RAG store, rebuilds chunks for the current session, records source trace rows with freshness_status, and does not write fetched payload Markdown or manifest files. Cockpit Decision Report includes an `外部参照ソース` trace section for those rows without retaining fetched source text. A future explicit archive action may opt into persistence separately.
 
 ### Structured Evidence Extraction
 

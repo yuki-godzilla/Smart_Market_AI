@@ -4539,12 +4539,23 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
         news_report=news_report,
         detail_state_key=detail_state_key,
     )
-    _render_external_research_fetch_panel(
-        preview,
-        result=_cockpit_external_research_fetch_result_from_state(preview),
-    )
     if fetch_clicked:
         with st.spinner(RESEARCH_FETCH_SPINNER):
+            try:
+                external_result = _fetch_external_research_for_preview(preview)
+                if external_result.entries:
+                    st.success(
+                        f"外部参照ソース {len(external_result.entries)}件をAI調査に反映しました。"
+                    )
+                for warning in external_result.warnings:
+                    st.warning(warning)
+            except AppError as exc:
+                st.warning(
+                    "外部参照ソースを取得できませんでした。保存済み資料と既存データでAI調査を続行します。"
+                )
+                st.caption(exc.message)
+                if exc.details:
+                    st.caption(json.dumps(exc.details, ensure_ascii=False, sort_keys=True))
             st.session_state[MARKET_DATA_RESEARCH_REPORT_STATE_KEY] = (
                 _build_cockpit_research_report(preview)
             )
@@ -4570,75 +4581,27 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
             report,
             detail_expanded=bool(st.session_state.get(detail_state_key, False)),
             news_report=news_report,
+            external_research_result=_cockpit_external_research_fetch_result_from_state(preview),
         )
 
 
-def _render_external_research_fetch_panel(
+def _fetch_external_research_for_preview(
     preview: MarketDataPreview,
-    *,
-    result: ExternalResearchFetchResult | None,
-) -> None:
+) -> ExternalResearchFetchResult:
     symbol = _market_data_preview_symbol(preview)
     if not symbol:
-        return
-    key_fragment = _widget_key_fragment(symbol)
-    with st.expander("外部資料取得（明示許可）", expanded=False):
-        st.caption(
-            "外部通信を許可した場合だけ Yahoo Finance のプロフィールとニュースを取得し、"
-            "このセッションのAI調査で一時的に参照します。取得本文は既定では保存しません。"
-        )
-        allow_network = st.checkbox(
-            "外部通信を許可する",
-            value=False,
-            key=f"external_research_allow_network_{key_fragment}",
-            help=(
-                "通常チェックでは使いません。押した場合だけ外部取得し、"
-                "取得元URL、取得日時、公開日、注意点を表示します。"
-            ),
-        )
-        fetch_clicked = st.button(
-            "外部資料を取得してAI調査に反映",
-            key=f"external_research_fetch_{key_fragment}",
-            disabled=not allow_network,
-            use_container_width=True,
-        )
-        if fetch_clicked:
-            company_name = symbol_name(symbol) or None
-            related_keywords = [company_name] if company_name else []
-            try:
-                with st.spinner("外部資料を取得し、このセッションのAI調査に反映しています。"):
-                    result = fetch_external_research_for_symbol(
-                        symbol,
-                        company_name=company_name,
-                        related_keywords=related_keywords,
-                        as_of=_date_from_iso_text(_market_data_as_of(preview)),
-                        allow_network=allow_network,
-                    )
-                    st.session_state[MARKET_DATA_EXTERNAL_RESEARCH_FETCH_STATE_KEY] = result
-                    st.session_state[MARKET_DATA_RESEARCH_REPORT_STATE_KEY] = (
-                        _build_cockpit_research_report(preview)
-                    )
-                    st.session_state[MARKET_DATA_STOCK_NEWS_REPORT_STATE_KEY] = (
-                        _build_cockpit_stock_news_report(preview)
-                    )
-                if result.entries:
-                    st.success(
-                        f"外部資料 {len(result.entries)}件をこのセッションのAI調査に反映しました。"
-                    )
-                for warning in result.warnings:
-                    st.warning(warning)
-            except AppError as exc:
-                st.error(exc.message)
-                if exc.details:
-                    st.caption(json.dumps(exc.details, ensure_ascii=False, sort_keys=True))
-        if result is None:
-            st.info("外部資料はまだ取得されていません。必要な場合だけ明示許可して取得します。")
-            return
-        _render_compact_dataframe(_external_research_fetch_summary_rows(result))
-        entry_rows = _external_research_fetch_result_rows(result)
-        if entry_rows:
-            st.markdown("##### 取得した参照元")
-            _render_compact_dataframe(entry_rows)
+        raise AppError("AI調査の対象銘柄が選択されていません。")
+    company_name = symbol_name(symbol) or None
+    related_keywords = [company_name] if company_name else []
+    result = fetch_external_research_for_symbol(
+        symbol,
+        company_name=company_name,
+        related_keywords=related_keywords,
+        as_of=_date_from_iso_text(_market_data_as_of(preview)),
+        allow_network=True,
+    )
+    st.session_state[MARKET_DATA_EXTERNAL_RESEARCH_FETCH_STATE_KEY] = result
+    return result
 
 
 def _cockpit_external_research_fetch_result_from_state(
@@ -4727,7 +4690,7 @@ def _render_research_operation_card(
                 RESEARCH_FETCH_BUTTON_LABEL,
                 key=f"research_ai_fetch_{symbol}",
                 help=(
-                    "登録済みResearch資料とニュース資料から、投資判断前に確認したい根拠と注意点を整理します。"
+                    "外部参照ソースと保存済み資料から、投資判断前に確認したい根拠と注意点を整理します。"
                     "売買判断の代行ではありません。"
                 ),
                 type="primary",
@@ -4749,7 +4712,7 @@ def _render_research_operation_card(
                     key=f"stock_news_fetch_{_widget_key_fragment(symbol)}",
                     help=(
                         "選択中の銘柄に関係する登録済みニュース資料を確認します。"
-                        "外部ニュースサイトや外部LLMは自動利用しません。"
+                        "最新外部ソースの取得はAI調査を更新でまとめて行います。"
                     ),
                     use_container_width=True,
                 )
@@ -4839,8 +4802,8 @@ def _render_ranking_symbol_research_lookup(symbol: str) -> None:
         RESEARCH_RANKING_FETCH_BUTTON_LABEL,
         key=f"ranking_research_fetch_{_widget_key_fragment(symbol)}",
         help=(
-            "登録資料を検索し、成長材料、株主還元、財務安全性、事業リスク、確認不足を根拠付きで表示します。"
-            "外部LLMや外部サイト取得は使いません。"
+            "保存済み資料から、成長材料、株主還元、財務安全性、事業リスク、確認不足を根拠付きで表示します。"
+            "ランキング詳細では外部取得を自動実行しません。"
         ),
         type="primary",
     )
@@ -4861,6 +4824,7 @@ def _render_research_summary_panel(
     *,
     detail_expanded: bool,
     news_report: StockNewsReport | None = None,
+    external_research_result: ExternalResearchFetchResult | None = None,
 ) -> None:
     st.markdown(_research_result_overview_html(report), unsafe_allow_html=True)
     if report.data_quality.status != "OK":
@@ -4878,20 +4842,41 @@ def _render_research_summary_panel(
         st.markdown("##### 投資判断に影響しそうな要点")
         st.markdown(_research_point_cards_html(point_rows), unsafe_allow_html=True)
 
-    card_rows = _research_evidence_card_rows(report, news_report=news_report, limit=None)
+    card_rows = _research_evidence_card_rows(
+        report,
+        news_report=news_report,
+        limit=None,
+    )
     if card_rows:
         st.markdown("##### 根拠カード")
         st.caption("初期表示は最大5件です。追加の根拠と検索品質は詳細データで確認できます。")
-        st.markdown(_research_evidence_cards_html(card_rows[:5]), unsafe_allow_html=True)
+        st.markdown(
+            _research_evidence_cards_html(card_rows[:5]),
+            unsafe_allow_html=True,
+        )
         if len(card_rows) > 5:
-            with st.expander(f"追加の根拠カードを表示（{len(card_rows) - 5}件）", expanded=False):
-                st.markdown(_research_evidence_cards_html(card_rows[5:]), unsafe_allow_html=True)
+            with st.expander(
+                f"追加の根拠カードを表示（{len(card_rows) - 5}件）",
+                expanded=False,
+            ):
+                st.markdown(
+                    _research_evidence_cards_html(card_rows[5:]),
+                    unsafe_allow_html=True,
+                )
     else:
         st.info("根拠カードとして表示できる資料はまだありません。AI調査を更新してください。")
 
     if news_report is not None and news_report.warnings:
         for warning in news_report.warnings:
             st.warning(warning)
+
+    if external_research_result is not None and external_research_result.entries:
+        st.markdown("##### 外部参照ソース")
+        st.caption(
+            "AI調査で一時参照した外部ソースです。"
+            "取得本文は保存せず、URL・公開日・取得日時を確認材料として残します。"
+        )
+        _render_compact_dataframe(_external_research_fetch_result_rows(external_research_result))
 
     with st.expander(RESEARCH_DETAIL_EXPANDER_LABEL, expanded=detail_expanded):
         if report.data_quality.status == "OK":
@@ -4936,6 +4921,11 @@ def _render_research_summary_panel(
         if news_report is not None and news_report.news:
             st.markdown("###### 関連ニュース")
             _render_compact_dataframe(_stock_news_detail_rows(news_report))
+        if external_research_result is not None:
+            st.markdown("###### 外部参照ソース取得状況")
+            _render_compact_dataframe(
+                _external_research_fetch_summary_rows(external_research_result)
+            )
 
 
 def _research_result_overview_html(report: CompanyResearchReport) -> str:
@@ -5003,13 +4993,13 @@ def _render_cockpit_stock_news_summary(preview: MarketDataPreview) -> None:
     if not symbol:
         return
     st.markdown("##### 関連ニュース")
-    st.caption("登録済みニュース資料から、URLで確認できる材料だけを簡潔に表示します。")
+    st.caption("保存済みニュース資料から、URLで確認できる材料だけを簡潔に表示します。")
     fetch_clicked = st.button(
         RESEARCH_NEWS_BUTTON_LABEL,
         key=f"stock_news_fetch_{_widget_key_fragment(symbol)}",
         help=(
             "選択中の銘柄に関係する登録済みニュース資料を確認します。"
-            "外部ニュースサイトや外部LLMは自動利用しません。"
+            "最新外部ソースの取得はAI調査を更新でまとめて行います。"
         ),
     )
     if fetch_clicked:

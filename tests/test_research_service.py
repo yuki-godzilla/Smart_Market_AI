@@ -32,6 +32,7 @@ from backend.research import (
     ResearchRetrievalService,
     ResearchSearchError,
     ResearchSearchRequest,
+    ResearchVectorIndexService,
     StockNewsAnalysisService,
     StockNewsRequest,
     YahooFinanceResearchAdapter,
@@ -835,6 +836,70 @@ def test_research_embedding_service_upserts_chunks_for_vector_search():
 def test_research_embedding_service_rejects_invalid_dimensions():
     with pytest.raises(ResearchSearchError):
         ResearchEmbeddingService(dimensions=1)
+
+
+def test_research_vector_index_service_rebuilds_file_cache_from_chunks(tmp_path):
+    document_path = tmp_path / "vector_note.md"
+    document_path.write_text(
+        "Growth strategy includes market expansion and overseas revenue.",
+        encoding="utf-8",
+    )
+    store = ResearchInMemoryStore()
+    ingestion = ResearchIngestionService(store, document_dirs=[tmp_path])
+    ingestion.register_document(
+        ResearchDocumentRegisterRequest(
+            symbol="7203.T",
+            title="Vector Note",
+            local_path=str(document_path),
+            source_type="annual_report",
+            published_at=date(2026, 5, 1),
+            reliability=Decimal("0.90"),
+        )
+    )
+    text_summary = ResearchIndexService(store, max_chars=240).rebuild_index(symbol="7203.T")
+    cache_path = tmp_path / "vectors.jsonl"
+    embedding_service = ResearchEmbeddingService(
+        dimensions=16,
+        created_at=datetime(2026, 5, 25, tzinfo=UTC),
+    )
+    vector_index = ResearchVectorIndexService(
+        store,
+        ResearchFileVectorStore(cache_path),
+        embedding_service,
+    )
+
+    summary = vector_index.rebuild_index(symbol="7203.T")
+    reloaded = ResearchFileVectorStore(cache_path)
+    request = ResearchSearchRequest(
+        symbol="7203.T",
+        query="growth strategy market",
+        query_vector=embedding_service.build_query_vector("growth strategy market"),
+    )
+    candidates = reloaded.search(request)
+
+    assert summary.schema_version == "research-vector-index-v1"
+    assert summary.embedding_model == "local-hash-v1"
+    assert summary.dimensions == 16
+    assert summary.chunk_count == text_summary.chunk_count
+    assert summary.embedded_count == text_summary.chunk_count
+    assert summary.symbols == ["7203.T"]
+    assert not summary.warnings
+    assert cache_path.exists()
+    assert candidates
+    assert candidates[0].title == "Vector Note"
+    assert candidates[0].retrieval_backend == "vector"
+
+
+def test_research_vector_index_service_warns_when_text_index_is_missing():
+    summary = ResearchVectorIndexService(
+        ResearchInMemoryStore(),
+        ResearchInMemoryVectorStore(),
+    ).rebuild_index(symbol="7203.T")
+
+    assert summary.chunk_count == 0
+    assert summary.embedded_count == 0
+    assert summary.symbols == []
+    assert "rebuild the text index first" in summary.warnings[0]
 
 
 def test_hybrid_retrieval_falls_back_to_keyword_when_vector_store_is_disabled(tmp_path):

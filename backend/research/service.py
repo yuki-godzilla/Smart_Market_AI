@@ -226,6 +226,18 @@ class ResearchIndexSummary(StrictBaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class ResearchVectorIndexSummary(StrictBaseModel):
+    """Result of rebuilding an optional local research vector index."""
+
+    schema_version: str = "research-vector-index-v1"
+    embedding_model: str = Field(min_length=1)
+    dimensions: int = Field(ge=2)
+    chunk_count: int = Field(ge=0)
+    embedded_count: int = Field(ge=0)
+    symbols: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
 class ResearchSearchRequest(StrictBaseModel):
     """Keyword research search request."""
 
@@ -1025,6 +1037,41 @@ class ResearchEmbeddingService:
         vector_store: ResearchWritableVectorStore,
     ) -> list[ResearchEmbedding]:
         return [self.upsert_chunk(chunk, vector_store) for chunk in chunks]
+
+
+class ResearchVectorIndexService:
+    """Build an optional local vector index from already chunked research documents."""
+
+    def __init__(
+        self,
+        store: ResearchInMemoryStore,
+        vector_store: ResearchWritableVectorStore,
+        embedding_service: ResearchEmbeddingService | None = None,
+    ) -> None:
+        self.store = store
+        self.vector_store = vector_store
+        self.embedding_service = embedding_service or ResearchEmbeddingService()
+
+    def rebuild_index(self, symbol: str | None = None) -> ResearchVectorIndexSummary:
+        chunks = self.store.all_chunks(symbol)
+        warnings: list[str] = []
+        embedded_count = 0
+        for chunk in chunks:
+            try:
+                self.embedding_service.upsert_chunk(chunk, self.vector_store)
+                embedded_count += 1
+            except AppError as exc:
+                warnings.append(f"{chunk.chunk_id}: {exc.message}")
+        if not chunks:
+            warnings.append("No research chunks available; rebuild the text index first.")
+        return ResearchVectorIndexSummary(
+            embedding_model=self.embedding_service.embedding_model,
+            dimensions=self.embedding_service.dimensions,
+            chunk_count=len(chunks),
+            embedded_count=embedded_count,
+            symbols=sorted({_normalize_symbol(chunk.symbol) for chunk in chunks}),
+            warnings=warnings,
+        )
 
 
 class HybridResearchRetrievalService:

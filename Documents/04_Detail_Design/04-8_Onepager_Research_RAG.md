@@ -2,7 +2,7 @@
 
 #### [BACK TO DETAIL DESIGN README](./04_Detail_Design_README.md)
 
-Status: Phase 20 local evidence slice is implementation complete. Phase 21 covers advanced Research RAG extraction, query expansion, optional vector / hybrid search, and grounded answer generation; deterministic query expansion, structured extraction, template grounded answer, retrieval quality, evidence reranker, first UI / Decision Report display, optional vector / hybrid contract/scoring, keyword-fallback hybrid retrieval wrapper, local embedding generation, in-memory local vector store, and file-backed vector cache slices have started. Research Score, external source adapters, and Assistant integration remain later phases unless explicitly assigned.
+Status: Phase 20 local evidence slice is implementation complete. Phase 21 covers advanced Research RAG extraction, query expansion, optional vector / hybrid search, and grounded answer generation; deterministic query expansion, structured extraction, template grounded answer, retrieval quality, evidence reranker, first UI / Decision Report display, optional vector / hybrid contract/scoring, keyword-fallback hybrid retrieval wrapper, local embedding generation, optional vector-index build workflow, in-memory local vector store, and file-backed vector cache slices have started. Research Score, external source adapters, and Assistant integration remain later phases unless explicitly assigned.
 
 ## Phase 20 Implementation Baseline / 実装ベースライン
 
@@ -208,6 +208,8 @@ Current implementation note: `ResearchEvidenceReranker` is available as the firs
 Current implementation note: `ResearchEmbedding` and `ResearchRetrievalCandidate` are available as optional vector / hybrid intermediate contracts. `ResearchDisabledVectorStore` is the default disabled vector-store fallback and reports a retrieval-quality warning instead of performing vector search. `ResearchHybridScorer` deterministically combines keyword, vector, freshness, reliability, and source-type priority scores, but it is not wired into the default keyword retrieval path yet.
 
 Current implementation note: `ResearchEmbeddingService` is available as the first local embedding generator. It creates deterministic hash-based vectors for chunk text and query text, keeps `chunk_id` / `text_hash` / `embedding_model` cache-key fields, and can explicitly upsert generated embeddings into writable vector stores. It has no external embedding API, LLM, vector DB, or network dependency.
+
+Current implementation note: `ResearchVectorIndexService` and `ResearchVectorIndexSummary` are available as the first optional vector-index build workflow. They rebuild a writable vector store from already chunked local Research documents, report chunk / embedded counts and missing text-index warnings, and keep vector indexing explicit rather than part of the default keyword path.
 
 Current implementation note: `HybridResearchRetrievalService` is available as an optional wrapper. It uses vector candidates when a vector store provides them, converts hybrid-scored candidates back to `ResearchEvidence`, and falls back to the existing keyword retrieval with retrieval-quality warnings when vector search is disabled or empty. The default `ResearchRetrievalService` keyword path remains unchanged.
 

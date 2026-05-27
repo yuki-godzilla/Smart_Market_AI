@@ -254,6 +254,22 @@ SMAI_GLOBAL_CSS = """
     color: var(--text-primary);
 }
 
+.stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"],
+[data-testid="stAppViewContainer"] .main {
+    min-height: 100vh;
+}
+
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"],
+[data-testid="stAppViewContainer"] .main {
+    background:
+        linear-gradient(90deg, rgba(30, 42, 62, 0.14) 1px, transparent 1px),
+        linear-gradient(180deg, var(--bg-app) 0%, var(--bg-surface) 42%, var(--bg-surface) 100%);
+    background-size: 56px 56px, auto;
+}
+
 .stApp::before {
     content: "";
     position: fixed;
@@ -282,6 +298,8 @@ SMAI_GLOBAL_CSS = """
 }
 
 [data-testid="stAppViewContainer"] .main .block-container {
+    width: 100%;
+    max-width: none;
     padding-top: 2.2rem;
     padding-bottom: 3.8rem;
 }
@@ -378,7 +396,11 @@ SMAI_GLOBAL_CSS = """
     background:
         linear-gradient(180deg, rgba(23, 35, 56, 0.88), rgba(17, 28, 46, 0.88));
     color: var(--text-value);
-    font-weight: 720;
+    font-family: "Inter", "Noto Sans JP", "BIZ UDPGothic", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.92rem;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: 0.01em;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
     text-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
     transition:
@@ -386,7 +408,8 @@ SMAI_GLOBAL_CSS = """
         background 120ms ease,
         background-position 240ms ease,
         box-shadow 120ms ease,
-    transform 120ms ease;
+        color 120ms ease,
+        transform 120ms ease;
 }
 
 [data-testid="stButton"] button * {
@@ -395,8 +418,11 @@ SMAI_GLOBAL_CSS = """
 
 [data-testid="stButton"] button [data-testid="stMarkdownContainer"] p {
     color: inherit;
+    font-family: inherit;
+    font-size: inherit;
     font-weight: inherit;
-    line-height: 1.2;
+    letter-spacing: inherit;
+    line-height: inherit;
 }
 
 [data-testid="stButton"] button:hover {
@@ -414,12 +440,12 @@ SMAI_GLOBAL_CSS = """
             rgba(14, 165, 233, 0.98) 0%,
             rgba(34, 211, 238, 0.96) 48%,
             rgba(20, 184, 166, 0.94) 100%
-        );
+    );
     background-size: 180% 180%;
     background-position: 0% 50%;
-    color: #04111F;
-    font-weight: 820;
-    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.22);
+    color: #05283A;
+    font-weight: 700;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.28);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.14),
         0 12px 26px rgba(20, 184, 166, 0.18),
@@ -433,11 +459,11 @@ SMAI_GLOBAL_CSS = """
             rgba(56, 189, 248, 1) 0%,
             rgba(34, 211, 238, 0.98) 45%,
             rgba(45, 212, 191, 0.98) 100%
-        );
+    );
     background-size: 180% 180%;
     background-position: 100% 50%;
-    color: #04111F;
-    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.24);
+    color: #032133;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.18),
         0 14px 34px rgba(20, 184, 166, 0.24),

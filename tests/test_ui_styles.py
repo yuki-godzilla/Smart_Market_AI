@@ -72,12 +72,15 @@ def test_global_theme_tokens_define_dark_financial_ai_palette():
     assert "--bg-app: #020510;" in SMAI_GLOBAL_CSS
     assert ".smai-ai-card" in SMAI_GLOBAL_CSS
     assert "--text-value: #F1F5F9;" in SMAI_GLOBAL_CSS
+    assert '[data-testid="stAppViewContainer"]' in SMAI_GLOBAL_CSS
+    assert "max-width: none;" in SMAI_GLOBAL_CSS
     assert '[data-testid="stButton"] button [data-testid="stMarkdownContainer"] p' in (
         SMAI_GLOBAL_CSS
     )
     assert '[data-testid="stButton"] button *' in SMAI_GLOBAL_CSS
-    assert "color: #04111F;" in SMAI_GLOBAL_CSS
-    assert "text-shadow: 0 1px 0 rgba(255, 255, 255, 0.22);" in SMAI_GLOBAL_CSS
+    assert '"Inter", "Noto Sans JP", "BIZ UDPGothic"' in SMAI_GLOBAL_CSS
+    assert "color: #05283A;" in SMAI_GLOBAL_CSS
+    assert "text-shadow: 0 1px 0 rgba(255, 255, 255, 0.28);" in SMAI_GLOBAL_CSS
     assert "rgba(14, 165, 233, 0.98)" in SMAI_GLOBAL_CSS
     assert "rgba(45, 212, 191, 0.98)" in SMAI_GLOBAL_CSS
     assert "background-position: 100% 50%;" in SMAI_GLOBAL_CSS

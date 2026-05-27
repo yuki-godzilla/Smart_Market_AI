@@ -709,3 +709,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Forced button descendants to inherit the button text color so Streamlit Markdown text rules cannot wash out labels.
 - Tuned secondary, primary, hover, and disabled button label colors / text shadows for readable contrast on both dark and cyan-green backgrounds.
 - Kept the change CSS-only with no workflow or logic changes.
+
+## 2026-05-28 - Button typography and background continuity polish
+
+- Refined Streamlit button typography with a tighter button-only font stack, calmer weight, inherited Markdown label styling, and less black-looking primary button text.
+- Extended the shared navy background treatment to the main Streamlit container and full-width block area so the page no longer looks visually cut off outside the content band.
+- Kept the change CSS-only with no workflow, data, forecast, scoring, ranking, Research RAG, or report behavior changes.

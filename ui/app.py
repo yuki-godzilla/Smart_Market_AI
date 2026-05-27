@@ -130,6 +130,8 @@ from ui.ranking import (
     RANKING_MVP_REGION_LABELS,
     RANKING_NISA_ELIGIBILITY_LABELS,
     RANKING_PERIOD_PRESETS,
+    RANKING_PRODUCT_ALL,
+    RANKING_PRODUCT_ETF,
     RANKING_THEME_LABELS,
     apply_ranking_weight_preset,
     filter_symbol_universe_rows,
@@ -294,6 +296,18 @@ MARKET_DATA_COCKPIT_FILTER_DEFAULTS: dict[str, str | bool] = {
     "market_data_cockpit_roe_min": "8.0",
     "market_data_cockpit_roe_max": "30.0",
 }
+MARKET_DATA_COCKPIT_DETAIL_FILTERS = frozenset(
+    {
+        "industry_or_sector",
+        "market_cap",
+        "risk_band",
+        "dividend_yield",
+        "per",
+        "pbr",
+        "roe",
+        "nisa_eligibility",
+    }
+)
 
 FORECAST_ACTUAL_PRICE_COLOR = "#facc15"
 FORECAST_MODEL_COLORS = (
@@ -2756,6 +2770,30 @@ def ranking_comparison_summary(
     }
 
 
+def _income_distribution_label(product_type: str) -> str:
+    if product_type == RANKING_PRODUCT_ETF:
+        return "分配金"
+    if product_type == RANKING_PRODUCT_ALL:
+        return "配当/分配金"
+    return "配当"
+
+
+def _dividend_category_filter_label(product_type: str) -> str:
+    return f"{_income_distribution_label(product_type)}カテゴリ"
+
+
+def _dividend_yield_filter_label(product_type: str) -> str:
+    return f"{_income_distribution_label(product_type)}利回り(%)"
+
+
+def _dividend_filter_help_text(help_text: str, product_type: str) -> str:
+    return help_text.replace("配当", _income_distribution_label(product_type))
+
+
+def _dividend_category_option_label(value: str, product_type: str) -> str:
+    return _dividend_filter_help_text(RANKING_DIVIDEND_LABELS[value], product_type)
+
+
 def _render_ranking_filter_panel() -> None:
     has_ranking_result = bool(st.session_state.get(MARKET_DATA_RANKING_STATE_KEY))
     region = _ranking_filter_value("market_data_ranking_region", "japan")
@@ -2848,11 +2886,17 @@ def _render_ranking_filter_panel() -> None:
         if "dividend_yield" in detail_filters:
             with next_column():
                 _render_detail_selectbox(
-                    "配当カテゴリ",
+                    _dividend_category_filter_label(product_type),
                     options=list(RANKING_DIVIDEND_LABELS),
                     key="market_data_ranking_dividend",
-                    format_func=lambda value: RANKING_DIVIDEND_LABELS[value],
-                    help_text=RANKING_FILTER_HELP_TEXTS["dividend_category"],
+                    format_func=lambda value: _dividend_category_option_label(
+                        value,
+                        product_type,
+                    ),
+                    help_text=_dividend_filter_help_text(
+                        RANKING_FILTER_HELP_TEXTS["dividend_category"],
+                        product_type,
+                    ),
                     disabled=dividend_category_disabled,
                 )
         with next_column():
@@ -2868,7 +2912,7 @@ def _render_ranking_filter_panel() -> None:
         if "dividend_yield" in detail_filters:
             metric_filters.append(
                 (
-                    "配当利回り(%)",
+                    _dividend_yield_filter_label(product_type),
                     {
                         "enabled_key": "market_data_ranking_dividend_enabled",
                         "min_key": "market_data_ranking_min_dividend",
@@ -2876,7 +2920,10 @@ def _render_ranking_filter_panel() -> None:
                         "min_default": "3.0",
                         "max_default": "10.0",
                         "max_value": 15.0,
-                        "help_text": RANKING_FILTER_HELP_TEXTS["dividend_yield"],
+                        "help_text": _dividend_filter_help_text(
+                            RANKING_FILTER_HELP_TEXTS["dividend_yield"],
+                            product_type,
+                        ),
                         "disabled": dividend_range_disabled,
                     },
                 )
@@ -2975,7 +3022,7 @@ def _render_cockpit_symbol_filter_panel(
                 default_value=str(
                     MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_product_type"]
                 ),
-                help_text="個別株かETFを中心に候補を絞ります。",
+                help_text="指定なしなら商品では絞らず、個別株かETFを選ぶと候補を絞ります。",
             )
         with col_nisa:
             nisa_eligibility = _render_detail_selectbox(
@@ -3025,14 +3072,17 @@ def _render_cockpit_symbol_filter_panel(
             )
         with attr_cols[3]:
             dividend_category = _render_detail_selectbox(
-                "配当カテゴリ",
+                _dividend_category_filter_label(product_type),
                 options=list(RANKING_DIVIDEND_LABELS),
                 key="market_data_cockpit_dividend",
-                format_func=lambda value: RANKING_DIVIDEND_LABELS[value],
+                format_func=lambda value: _dividend_category_option_label(value, product_type),
                 default_value=str(
                     MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_dividend"]
                 ),
-                help_text=RANKING_FILTER_HELP_TEXTS["dividend_category"],
+                help_text=_dividend_filter_help_text(
+                    RANKING_FILTER_HELP_TEXTS["dividend_category"],
+                    product_type,
+                ),
                 disabled=_cockpit_filter_bool("market_data_cockpit_dividend_enabled", False),
             )
         with attr_cols[4]:
@@ -3051,14 +3101,17 @@ def _render_cockpit_symbol_filter_panel(
         metric_cols = st.columns(2)
         with metric_cols[0]:
             dividend_enabled, min_dividend, max_dividend = _render_metric_range_filter(
-                "配当利回り(%)",
+                _dividend_yield_filter_label(product_type),
                 enabled_key="market_data_cockpit_dividend_enabled",
                 min_key="market_data_cockpit_min_dividend",
                 max_key="market_data_cockpit_dividend_max",
                 min_default="0.0",
                 max_default="10.0",
                 max_value=15.0,
-                help_text=RANKING_FILTER_HELP_TEXTS["dividend_yield"],
+                help_text=_dividend_filter_help_text(
+                    RANKING_FILTER_HELP_TEXTS["dividend_yield"],
+                    product_type,
+                ),
                 disabled=dividend_category != "all",
             )
         with metric_cols[1]:
@@ -3207,6 +3260,8 @@ def cockpit_filtered_symbol_rows_from_values(
         roe_min_pct=str(roe_min_pct),
         roe_max_pct=str(roe_max_pct),
         limit=len(rows),
+        apply_universe_policy=False,
+        active_detail_filters=MARKET_DATA_COCKPIT_DETAIL_FILTERS,
     )
 
 

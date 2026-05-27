@@ -302,7 +302,7 @@ Planned scope:
 
 - Ranking condition model
   - 地域: `国内` / `米国` / `全体`
-  - 商品: `株式` / `ETF`
+  - 商品: `株式` / `ETF` / `指定なし`
   - 投資スタイル: `配当重視` / `成長重視` / `割安重視` / `安定重視` / `トレンド重視`
   - UI label と internal key を分離した enum / constants / condition object
 - UI structure
@@ -346,7 +346,7 @@ Completion criteria:
 Current implementation note:
 
 - `ui/ranking.py` defines region / product / investment-style labels separately from internal keys.
-- `銘柄ランキング` now shows region / product / investment style before provider / period, derives the display weight preset from investment style, and shows dynamic detail filters for stock / ETF categories.
+- `銘柄ランキング` now shows region / product / investment style before provider / period, derives the display weight preset from investment style, and shows dynamic detail filters for `指定なし` / stock / ETF categories.
 - The detail filter panel is grouped into attribute / numeric / keyword sections, and the comparison-symbol selector stays all-selected by default while its large multiselect tags are kept inside a collapsed expander.
 - Acquisition period, candidate count, selected count, and all/partial selection status are shown as a compact one-line comparison status.
 - Current enforceable filters remain limited to `symbol_universe.csv` metadata. Default ranking universe is stock / ETF only. 投信 seed/source import は将来対応 metadata として残すが、MVP ranking UI には表示しない。
@@ -462,7 +462,7 @@ Report output policy:
 - `Data coverage and confidence` では、価格データ期間、data quality、metadata source/as-of、欠損 field、coverage rows を出す。未確認 metadata は 0 と扱わず、空欄の理由として残す。
 - `Symbol metadata` では、ticker/name、市場、商品分類、NISA、investment style、時価総額 tier、SBI/ranking policy、metadata freshness を出す。
 - `Investment score breakdown` では、Investment Score、Screening、Forecast agreement、Data quality、Risk signal と、その上下要因を出す。
-- `Valuation / income / risk` では、PER/PBR/ROE、配当利回り/配当カテゴリ、ETF expense ratio/index family、risk band、warnings を出す。
+- `Valuation / income / risk` では、PER/PBR/ROE、配当/分配金利回り・カテゴリ、ETF expense ratio/index family、risk band、warnings を出す。
 - `Ranking context` では、順位、並べ替え条件、比較対象数、上位理由、同条件での注意点を出す。
 - `Rebalance context` では、risk breach、提案 trade、制約、注文指示ではないことを出す。
 - `Decision checkpoints` では、次に確認する業績、決算、配当方針、ETF 指数/経費率、データ欠損を整理し、売買指示にしない。

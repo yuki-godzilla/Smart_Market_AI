@@ -28,6 +28,7 @@ from backend.research import (
 from backend.screening import ScreeningScore
 from ui.app import (
     DEFAULT_MARKET_DATA_PERIOD_PRESET,
+    MARKET_DATA_COCKPIT_FILTER_DEFAULTS,
     MARKET_DATA_EXTERNAL_RESEARCH_FETCH_STATE_KEY,
     MARKET_DATA_PERIOD_CUSTOM,
     MARKET_DATA_PERIOD_PRESETS,
@@ -38,6 +39,10 @@ from ui.app import (
     _build_market_data_ranking_rows,
     _coerce_number_input_state,
     _current_or_default_symbol_labels,
+    _dividend_category_filter_label,
+    _dividend_category_option_label,
+    _dividend_filter_help_text,
+    _dividend_yield_filter_label,
     _ensure_selectbox_state_value,
     _external_research_fetch_overview_html,
     _external_research_fetch_result_rows,
@@ -144,6 +149,7 @@ from ui.ranking import (
     RANKING_INDEX_FAMILY_LABELS,
     RANKING_INVESTMENT_STYLE_METRICS,
     RANKING_MARKET_CAP_LABELS,
+    RANKING_MVP_PRODUCT_TYPE_LABELS,
     RANKING_NISA_ELIGIBILITY_LABELS,
     RANKING_PERIOD_PRESETS,
     RANKING_PRESET_ETF_CORE_COST,
@@ -183,6 +189,7 @@ from ui.ranking import (
     ranking_no_bars_error_row,
     ranking_period_dates,
     ranking_period_label,
+    ranking_product_type_label,
     ranking_provider_error_rows,
     ranking_purpose_focus_summary,
     ranking_purpose_help,
@@ -395,6 +402,45 @@ def test_cockpit_filtered_symbol_rows_applies_preference_filters(monkeypatch):
     ]
 
     assert [row["symbol"] for row in cockpit_filtered_symbol_rows(rows)] == ["7203.T"]
+
+
+def test_cockpit_filtered_symbol_rows_default_keeps_full_candidate_master(monkeypatch):
+    monkeypatch.setattr("ui.app.st.session_state", {})
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "AAPL", "name": "Apple Inc.", "asset_type": "stock"},
+            {
+                "symbol": "SQQQ",
+                "name": "ProShares UltraPro Short QQQ",
+                "asset_type": "etf",
+                "is_inverse": "true",
+            },
+            {
+                "symbol": "GLD",
+                "name": "Gold ETF",
+                "asset_type": "etf",
+                "theme": "commodity",
+            },
+            {
+                "symbol": "ADV",
+                "name": "Advanced ETF",
+                "asset_type": "etf",
+                "complexity": "advanced",
+                "expense_ratio_pct": "1.50",
+            },
+            {"symbol": "8951.T", "name": "Nippon Building Fund", "asset_type": "reit"},
+            {"symbol": "MF-ACWI", "name": "Mutual Fund", "asset_type": "mutual_fund"},
+        ]
+    )
+
+    assert [row["symbol"] for row in cockpit_filtered_symbol_rows(rows)] == [
+        "AAPL",
+        "SQQQ",
+        "GLD",
+        "ADV",
+        "8951.T",
+        "MF-ACWI",
+    ]
 
 
 def test_coerce_number_input_state_recovers_string_values(monkeypatch):
@@ -1629,6 +1675,28 @@ def test_ranking_filter_labels_show_quantitative_thresholds():
     assert "0%超〜3%未満" in RANKING_FILTER_HELP_TEXTS["dividend_category"]
 
 
+def test_product_filter_options_include_unspecified_default_for_cockpit():
+    assert list(RANKING_MVP_PRODUCT_TYPE_LABELS) == ["stock", "etf", "all"]
+    assert RANKING_MVP_PRODUCT_TYPE_LABELS["all"] == "指定なし"
+    assert ranking_product_type_label("all") == "指定なし"
+    assert MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_product_type"] == "all"
+
+
+def test_dividend_filter_labels_adapt_to_product_type():
+    assert _dividend_category_filter_label("stock") == "配当カテゴリ"
+    assert _dividend_yield_filter_label("stock") == "配当利回り(%)"
+    assert _dividend_category_filter_label("etf") == "分配金カテゴリ"
+    assert _dividend_yield_filter_label("etf") == "分配金利回り(%)"
+    assert _dividend_category_filter_label("all") == "配当/分配金カテゴリ"
+    assert _dividend_yield_filter_label("all") == "配当/分配金利回り(%)"
+    assert _dividend_category_option_label("high_dividend", "etf") == "分配金利回り 3%以上"
+    assert _dividend_category_option_label("high_dividend", "all") == "配当/分配金利回り 3%以上"
+    assert "年間分配金" in _dividend_filter_help_text(
+        RANKING_FILTER_HELP_TEXTS["dividend_yield"],
+        "etf",
+    )
+
+
 def test_normalize_dividend_filter_values_keeps_conditions_mutually_exclusive():
     assert normalize_dividend_filter_values(
         dividend_category="high_dividend",
@@ -1707,6 +1775,24 @@ def test_filter_symbol_universe_rows_ignores_hidden_stock_filters_for_etf():
             roe_max_pct="30.0",
         )
     ] == ["SPY"]
+
+
+def test_filter_symbol_universe_rows_product_all_keeps_stocks_and_etfs():
+    rows = symbol_universe_rows(
+        [
+            {"symbol": "AAPL", "name": "Apple Inc.", "asset_type": "stock"},
+            {"symbol": "SPY", "name": "SPDR S&P 500 ETF", "asset_type": "etf"},
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="all",
+            product_type="all",
+        )
+    ] == ["AAPL", "SPY"]
 
 
 def test_filter_symbol_universe_rows_preserves_etf_region():
@@ -1912,14 +1998,21 @@ def test_ranking_detail_filters_change_by_region_and_product():
     japan_stock = ranking_detail_filters_for_category("japan", "stock")
     us_stock = ranking_detail_filters_for_category("us", "stock")
     etf = ranking_detail_filters_for_category("japan", "etf")
+    all_product = ranking_detail_filters_for_category("japan", "all")
     mutual_fund = ranking_detail_filters_for_category("japan", "mutual_fund")
 
     assert "pbr" in japan_stock
     assert "risk_band" in japan_stock
+    assert "benchmark_index" not in japan_stock
+    assert "expense_ratio" not in japan_stock
     assert "risk_band" in us_stock
     assert "nisa_eligibility" in us_stock
     assert "benchmark_index" in etf
+    assert "expense_ratio" in etf
+    assert "per" not in etf
     assert "pbr" not in etf
+    assert set(japan_stock) < set(all_product)
+    assert set(etf) < set(all_product)
     assert mutual_fund == []
     assert ranking_weight_preset_for_purpose("stability") == "stability_profile"
     assert "moving_average_signal" in RANKING_INVESTMENT_STYLE_METRICS["trend"]

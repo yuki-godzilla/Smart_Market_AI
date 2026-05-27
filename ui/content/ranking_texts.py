@@ -25,12 +25,13 @@ RANKING_MVP_REGION_LABELS = {
 RANKING_PRODUCT_TYPE_LABELS = {
     "stock": "株式",
     "etf": "ETF",
+    "all": "指定なし",
     "mutual_fund": "投信",
-    "all": "全体",
 }
 RANKING_MVP_PRODUCT_TYPE_LABELS = {
     "stock": RANKING_PRODUCT_TYPE_LABELS["stock"],
     "etf": RANKING_PRODUCT_TYPE_LABELS["etf"],
+    "all": RANKING_PRODUCT_TYPE_LABELS["all"],
 }
 
 RANKING_PURPOSE_LABELS = {

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Collection
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
@@ -973,6 +974,8 @@ def filter_symbol_universe_rows(
     consensus_min: Decimal | str | int = Decimal("2.5"),
     consensus_max: Decimal | str | int = Decimal("5.0"),
     limit: int = 10,
+    apply_universe_policy: bool = True,
+    active_detail_filters: Collection[str] | None = None,
 ) -> list[dict[str, str]]:
     normalized_query = query.strip().lower()
     (
@@ -988,12 +991,16 @@ def filter_symbol_universe_rows(
     )
     min_dividend = _decimal_filter_value(min_dividend_yield_pct, Decimal("0"))
     max_expense = _decimal_filter_value(max_expense_ratio_pct, Decimal("1.00"))
-    detail_filters = _active_ranking_detail_filters(region, product_type)
+    detail_filters = (
+        set(active_detail_filters)
+        if active_detail_filters is not None
+        else _active_ranking_detail_filters(region, product_type)
+    )
     filtered: list[dict[str, str]] = []
     _ = ranking_purpose
     for row in rows:
         tags = _symbol_universe_values(row, "tags")
-        if not symbol_allowed_by_ranking_universe_policy(row):
+        if apply_universe_policy and not symbol_allowed_by_ranking_universe_policy(row):
             continue
         if not _symbol_matches_region(row, region):
             continue

@@ -807,6 +807,17 @@ Current implemented slice:
 - Normal tests use fake adapters only. No live external source, scraping, external LLM, or network call is required for CI.
 - A `source_type="news"` payload becomes available to the existing Stock News RAG cockpit flow after registration; provider profile / IR payloads become normal Research Evidence documents.
 
+Next local readability slice:
+
+- R9: ResearchBrief / Local Research Memo. Add a display-only `ResearchBrief` / `ResearchMetric` layer that converts `CompanyResearchReport`, evidence, provider profile, news, and TDnet traces into a readable local investment research memo without external LLMs.
+- R9 should separate quantitative metrics from qualitative topics. First metrics are revenue, operating income, net income, EPS, dividend, PER, PBR, ROE, and market capitalization. Missing important metrics should be shown as `missing_metrics`.
+- R9 should compress provider profile into company overview / business content and hide raw provider fields from the normal view. Provider Symbol, Quote Type, Exchange, Currency, raw Sector / Industry, and provider field dumps belong in detail data only.
+- R9 should classify topics with local keyword rules into growth, performance, shareholder return, risk, positive candidate, caution candidate, and missing evidence. Labels must stay as candidates / confirmation points, not buy/sell conclusions.
+- R9 should show source confidence as information-source confidence only: official IR / TDnet / EDINET / company IR = high, Yahoo Finance / provider profile / news = medium, keyword-only extraction = low.
+- Cockpit Research Summary order should become: AI整理メモ -> 定量評価サマリー -> 企業概要・事業内容 -> 良材料候補 -> 注意材料候補 -> 未確認・不足根拠 -> 次に確認すべき資料 -> 出典カード -> 詳細データ.
+- Research Score should move after the AI整理メモ or into detail/context so the first read is a memo, not a score table.
+- Tests should remain deterministic: fake reports / fake source traces, regex metric extraction fixtures, no live network, no external LLM.
+
 ### 5.8 Phase 22: Research Score And Investment Integration
 
 Status: first backend slice started

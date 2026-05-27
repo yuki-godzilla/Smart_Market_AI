@@ -90,6 +90,7 @@ Execution と broker order 送信は、明示依頼がない限り優先度を�
 - Keep user-facing labels beginner-friendly Japanese when exposing scores, warnings, reasons, or reports.
 - For SMAI maturity work, avoid adding new features unless explicitly requested. Prefer clarifying specs, UX wording, and review checklists before changing implementation behavior.
 - Treat Ranking, Investment Score, Research Evidence, Rebalance, Forecast, Risk, and Decision Report outputs as decision-support information, not investment advice.
+- For Research Summary maturity work, prefer local rule-based `ResearchBrief` / readable memo shaping before external LLM integration; keep provider raw fields out of the normal UI and reserve them for detail data.
 - Before changing behavior that affects Ranking / Cockpit / Rebalance / Decision Report / Research / scoring wording, check `Documents/96_Manual_UX_Review_Checklist.md` and `Documents/97_Functional_Spec_Issues.md`.
 - Keep Execution / Broker integration deferred unless explicitly assigned.
 - Treat Research RAG external evidence freshness as a product priority while preserving network-free normal checks. Keep Assistant as planned / future scope unless explicitly assigned.

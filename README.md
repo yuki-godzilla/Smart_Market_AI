@@ -49,6 +49,9 @@ SMAI は以下の思想を重視しています。
 - Research RAG external fresh-source fetch first UI slice
   - TDnet 適時開示 + Yahoo Finance profile / news の first slice を `AI調査を更新` の標準処理へ統合済み
   - 方針として、取得本文は保持せず session-local に一時参照する。画面とDecision Reportには source URL / provider / fetched_at / published_at / freshness warning / 要約を表示する
+- Research Summary local readability direction
+  - 外部LLMはいったん使わず、RAG evidence / provider profile / news / TDnet trace を表示専用 `ResearchBrief` に変換する方針
+  - AI整理メモ、定量評価サマリー、企業概要、良材料候補、注意材料候補、不足根拠、次に確認すべき資料、出典カードの順に読める調査メモへ整理する
 - Research Score first slices
   - `ResearchScoreService`、optional Investment Score input、disabled-by-default `scoring.weights.research`
   - Cockpit / Ranking Research Summary の Research Score 参考表示

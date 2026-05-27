@@ -220,6 +220,50 @@ Research RAG では、外部の最新IR・開示・ニュース・provider evide
 - 情報の鮮度
 - Research data quality warning
 
+### ResearchBrief / ローカルAI整理メモ
+
+Research Summary は、生データ一覧ではなく「読める投資調査メモ」として表示します。外部LLMを使わない段階では、local rule-based `ResearchBrief` に変換してから UI に出します。
+
+表示順の推奨:
+
+1. `AI整理メモ`
+2. `定量評価サマリー`
+3. `企業概要・事業内容`
+4. `良材料候補`
+5. `注意材料候補`
+6. `未確認・不足している根拠`
+7. `次に確認すべき資料`
+8. `出典カード`
+9. `詳細データ`
+
+推奨表現:
+
+- `現時点で確認できた情報`
+- `良材料候補`
+- `注意材料候補`
+- `公式資料による裏取りが必要です。`
+- `この指標は外部プロバイダー由来の補助情報です。`
+- `この confidence は情報源の信頼度であり、投資判断の正しさではありません。`
+
+避ける表現:
+
+- `買い材料です`
+- `割安です`
+- `成長確定です`
+- `リスクはありません`
+- `AIが投資判断しました`
+
+通常表示で避ける provider raw fields:
+
+- `Provider Symbol`
+- `Quote Type`
+- `Exchange`
+- `Currency`
+- raw `Sector` / `Industry`
+- provider field dump
+
+これらは必要な場合だけ `詳細データ` に残します。
+
 
 ## 現在の主要 UI ラベル（2026-05-19）
 

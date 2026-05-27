@@ -49,6 +49,7 @@ SMAI は以下の思想を重視しています。
 - Research Score first slices
   - `ResearchScoreService`、optional Investment Score input、disabled-by-default `scoring.weights.research`
   - Cockpit / Ranking Research Summary の Research Score 参考表示
+  - Ranking selected-candidate breakdown の Research Score 確認材料表示
   - Cockpit Decision Report の Research Score section
 - Streamlit UI
   - left side menu for `銘柄コックピット` / `銘柄ランキング` / `リバランス` / `設定 / データ情報`

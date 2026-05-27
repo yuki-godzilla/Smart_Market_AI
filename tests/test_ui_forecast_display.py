@@ -3206,6 +3206,10 @@ def test_ranking_candidate_cards_and_breakdown_use_existing_display_values():
             "根拠状態": "根拠あり",
             "根拠トーン": "success",
             "根拠補足": "AI Researchで3件の根拠を確認済みです。",
+            "根拠数": "3",
+            "根拠スコア": "72.00",
+            "根拠信頼度": "0.6400",
+            "根拠スコア注意": "1",
         }
     ]
 
@@ -3227,12 +3231,15 @@ def test_ranking_candidate_cards_and_breakdown_use_existing_display_values():
         "データ信頼度",
         "リスク確認",
         "根拠資料",
+        "根拠スコア",
     ]
     assert breakdown[2]["値"] == "上昇気配 76 / 下降警戒 42"
     assert breakdown[3]["確認ポイント"] == (
         "銘柄メタデータと価格データの充実度です。低い場合はスコア解釈を控えめにします。"
     )
     assert breakdown[5]["値"] == "根拠あり"
+    assert breakdown[6]["値"] == "72.00"
+    assert "注意点" in breakdown[6]["確認ポイント"]
 
 
 def test_ranking_candidate_cards_fallback_when_direction_data_is_limited():
@@ -3298,6 +3305,9 @@ def test_ranking_display_rows_with_research_status_adds_lightweight_status_colum
                 document_count=1,
                 evidence_count=2,
                 latest_document_date=date(2023, 1, 1),
+                research_score=Decimal("55.25"),
+                research_confidence=Decimal("0.4200"),
+                research_score_warning_count=1,
             )
         },
     )
@@ -3307,6 +3317,9 @@ def test_ranking_display_rows_with_research_status_adds_lightweight_status_colum
     assert enriched[0]["根拠資料数"] == "1"
     assert enriched[0]["根拠数"] == "2"
     assert enriched[0]["最新資料日"] == "2023-01-01"
+    assert enriched[0]["根拠スコア"] == "55.25"
+    assert enriched[0]["根拠信頼度"] == "0.4200"
+    assert enriched[0]["根拠スコア注意"] == "1"
 
 
 def test_ranking_research_status_from_documents_marks_ready_old_and_missing():
@@ -3358,6 +3371,9 @@ def test_ranking_research_status_from_report_prefers_analyzed_evidence_count():
 
     assert status.label == "根拠あり"
     assert status.evidence_count == 3
+    assert status.research_score == Decimal("14.29")
+    assert status.research_confidence == Decimal("0")
+    assert status.research_score_warning_count >= 1
     assert "3件" in status.note
 
 

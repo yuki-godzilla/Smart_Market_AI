@@ -311,6 +311,9 @@ class RankingResearchStatus:
     document_count: int = 0
     evidence_count: int = 0
     latest_document_date: date | None = None
+    research_score: Decimal | None = None
+    research_confidence: Decimal | None = None
+    research_score_warning_count: int = 0
 
 
 RANKING_RESULT_GRID_CUSTOM_CSS = {
@@ -1840,6 +1843,7 @@ def ranking_research_status_from_report(
     report: CompanyResearchReport,
 ) -> RankingResearchStatus:
     latest_document_date = report.data_quality.latest_document_date
+    research_score = ResearchScoreService().score_report(report)
     if latest_document_date and (report.as_of - latest_document_date).days > RESEARCH_STALE_DAYS:
         return RankingResearchStatus(
             label=RESEARCH_STATUS_STALE,
@@ -1848,6 +1852,9 @@ def ranking_research_status_from_report(
             document_count=report.data_quality.document_count,
             evidence_count=report.data_quality.evidence_count,
             latest_document_date=latest_document_date,
+            research_score=research_score.total_score,
+            research_confidence=research_score.confidence,
+            research_score_warning_count=len(research_score.warnings),
         )
     if report.data_quality.document_count <= 0 or report.data_quality.evidence_count <= 0:
         return RankingResearchStatus(
@@ -1857,6 +1864,9 @@ def ranking_research_status_from_report(
             document_count=report.data_quality.document_count,
             evidence_count=report.data_quality.evidence_count,
             latest_document_date=latest_document_date,
+            research_score=research_score.total_score,
+            research_confidence=research_score.confidence,
+            research_score_warning_count=len(research_score.warnings),
         )
     return RankingResearchStatus(
         label=RESEARCH_STATUS_WITH_EVIDENCE,
@@ -1865,6 +1875,9 @@ def ranking_research_status_from_report(
         document_count=report.data_quality.document_count,
         evidence_count=report.data_quality.evidence_count,
         latest_document_date=latest_document_date,
+        research_score=research_score.total_score,
+        research_confidence=research_score.confidence,
+        research_score_warning_count=len(research_score.warnings),
     )
 
 
@@ -1881,6 +1894,13 @@ def ranking_display_rows_with_research_status(
             note=RESEARCH_NO_REGISTERED_DOCUMENTS,
         )
         latest_date = status.latest_document_date.isoformat() if status.latest_document_date else ""
+        research_score = str(status.research_score) if status.research_score is not None else ""
+        research_confidence = (
+            str(status.research_confidence) if status.research_confidence is not None else ""
+        )
+        score_warning_count = (
+            str(status.research_score_warning_count) if status.research_score is not None else ""
+        )
         enriched_rows.append(
             {
                 **row,
@@ -1890,6 +1910,9 @@ def ranking_display_rows_with_research_status(
                 "根拠資料数": str(status.document_count),
                 "根拠数": str(status.evidence_count),
                 "最新資料日": latest_date,
+                "根拠スコア": research_score,
+                "根拠信頼度": research_confidence,
+                "根拠スコア注意": score_warning_count,
             }
         )
     return enriched_rows
@@ -2205,6 +2228,15 @@ def ranking_candidate_breakdown_rows(
             ),
         },
     ]
+    research_score = selected_row.get("根拠スコア", "").strip()
+    if research_score:
+        rows.append(
+            {
+                "観点": "根拠スコア",
+                "値": research_score,
+                "確認ポイント": _ranking_research_score_check(selected_row),
+            }
+        )
     if ranking_purpose:
         direction_limited = _ranking_direction_data_limited(display_rows)
         focus_columns = _ranking_reason_columns(display_rows, ranking_purpose)
@@ -2229,6 +2261,22 @@ def ranking_candidate_breakdown_rows(
             },
         )
     return rows
+
+
+def _ranking_research_score_check(row: Mapping[str, str]) -> str:
+    confidence = row.get("根拠信頼度", "").strip()
+    warning_count = _int_from_text(row.get("根拠スコア注意", ""))
+    if not row.get("根拠数", "").strip() or row.get("根拠数") == "0":
+        return "資料不足の参考値です。AI Researchで根拠カードと不足観点を確認します。"
+    if warning_count > 0:
+        return truncate_text(
+            f"confidence {confidence or '未計算'}。注意点があるため、根拠カードと内訳を確認します。",
+            max_chars=56,
+        )
+    return truncate_text(
+        f"confidence {confidence or '未計算'}。売買推奨ではなく、資料の充実度確認です。",
+        max_chars=56,
+    )
 
 
 def _ranking_direction_check(row: Mapping[str, str]) -> str:

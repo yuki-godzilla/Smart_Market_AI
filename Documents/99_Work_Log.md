@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-05-27: Added report-derived Research Score context to ranking selected-candidate breakdown and ranking research-status rows; it remains confirmation-only and does not change ranking order or default Investment Score behavior.
 - 2026-05-27: Added Research Score reference rows to the shared Cockpit / Ranking Research Summary panel, including summary, component, and warning rows, while preserving unchanged ranking order and default Investment Score behavior.
 - 2026-05-27: Added a Cockpit Decision Report Research Score section: reports with Research evidence now export Research Score components, confidence, supporting evidence, warnings, and non-advice notes alongside Research Evidence without changing default ranking order or Investment Score behavior.
 - 2026-05-27: Connected Research Score to Investment Score as an optional disabled-by-default backend input: `research_scores_by_symbol` can carry precomputed Research Score values, `scoring.weights.research` defaults to 0.0, and default totals / bands / breakdowns / ranking order remain unchanged.

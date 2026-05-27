@@ -2,7 +2,7 @@
 
 #### [BACK TO DETAIL DESIGN README](./04_Detail_Design_README.md)
 
-Status: Phase 20 local evidence slice is implementation complete. Phase 21 covers advanced Research RAG extraction, query expansion, optional vector / hybrid search, and grounded answer generation; deterministic query expansion, structured extraction, template grounded answer, retrieval quality, evidence reranker, first UI / Decision Report display, optional vector / hybrid contract/scoring, keyword-fallback hybrid retrieval wrapper, local embedding generation, optional vector-index build workflow, in-memory local vector store, and file-backed vector cache slices have started. Phase 22 Research Score has a deterministic service slice, disabled-by-default Investment Score input slice, Cockpit / Ranking Research Summary display slice, and Cockpit Decision Report section slice. Ranking order integration, external source adapters, and Assistant integration remain later phases unless explicitly assigned.
+Status: Phase 20 local evidence slice is implementation complete. Phase 21 covers advanced Research RAG extraction, query expansion, optional vector / hybrid search, and grounded answer generation; deterministic query expansion, structured extraction, template grounded answer, retrieval quality, evidence reranker, first UI / Decision Report display, optional vector / hybrid contract/scoring, keyword-fallback hybrid retrieval wrapper, local embedding generation, optional vector-index build workflow, in-memory local vector store, and file-backed vector cache slices have started. Phase 22 Research Score has a deterministic service slice, disabled-by-default Investment Score input slice, Cockpit / Ranking Research Summary display slice, selected-candidate breakdown context, and Cockpit Decision Report section slice. Ranking order integration, external source adapters, and Assistant integration remain later phases unless explicitly assigned.
 
 ## Phase 20 Implementation Baseline / 実装ベースライン
 
@@ -235,7 +235,7 @@ Current implementation note: `ResearchGroundedAnswerService` is available as the
 - Ranking modal: `AIで資料を確認` button、根拠付き Research Summary、観点別抽出結果、根拠不足 warning、evidence table、retrieval backend 表示を追加する。
 - Decision Report: Research Evidence section、Grounded Answer section、Data Quality section、Retrieval Quality section、根拠不足 warning、売買推奨ではない旨の注記を追加する。
 
-Current implementation note: cockpit and ranking Research Summary panels display `CompanyResearchReport.grounded_answer`, `CompanyResearchReport.retrieval_quality`, and Research Score summary/component/warning rows, the Research RAG detail expander displays `ResearchExtractedClaim` rows, and the Cockpit Decision Report carries both `Research Evidence` and `Research Score` sections when a Research report has documents or evidence. Ranking order and default Investment Score behavior remain unchanged.
+Current implementation note: cockpit and ranking Research Summary panels display `CompanyResearchReport.grounded_answer`, `CompanyResearchReport.retrieval_quality`, and Research Score summary/component/warning rows, the Research RAG detail expander displays `ResearchExtractedClaim` rows, Ranking selected-candidate breakdown can show report-derived Research Score context, and the Cockpit Decision Report carries both `Research Evidence` and `Research Score` sections when a Research report has documents or evidence. Ranking order and default Investment Score behavior remain unchanged.
 
 ### Phase 21 Test Plan
 

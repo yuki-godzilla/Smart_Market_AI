@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from ui.components.mascot import (
+    APP_LOGO_ASSET,
+    BRAND_ASSET_DIR,
     MASCOT_ASSET_DIR,
     MASCOT_CUTOUT_ASSET,
     MASCOT_LOADING_ASSET,
@@ -46,10 +48,18 @@ def test_app_header_html_embeds_small_mascot_and_escapes_message():
     markup = app_header_html("Smart <Market>", message="SMAI <ナビ>")
 
     assert 'class="smai-app-header"' in markup
-    assert "Smart &lt;Market&gt;" in markup
+    assert '<h1 class="smai-app-title"' not in markup
+    assert 'class="smai-app-logo"' in markup
+    assert 'alt="Smart &lt;Market&gt;"' in markup
     assert "SMAI &lt;ナビ&gt;" in markup
     assert 'class="smai-app-mascot"' in markup
+    assert "data:image/png;base64," in markup
     assert "data:image/webp;base64," in markup
+
+
+def test_brand_logo_asset_exists_for_app_header():
+    assert APP_LOGO_ASSET == "smai-logo.png"
+    assert (BRAND_ASSET_DIR / APP_LOGO_ASSET).is_file()
 
 
 def test_mascot_loading_html_uses_animation_classes():

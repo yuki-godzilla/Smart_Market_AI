@@ -802,6 +802,18 @@ SMAI_GLOBAL_CSS = """
     text-shadow: 0 12px 28px rgba(96, 165, 250, 0.14);
 }
 
+.smai-app-logo {
+    display: block;
+    width: min(31rem, 54vw);
+    max-width: 100%;
+    max-height: 6.4rem;
+    object-fit: contain;
+    object-position: left center;
+    filter:
+        drop-shadow(0 10px 22px rgba(0, 0, 0, 0.22))
+        drop-shadow(0 0 12px rgba(34, 211, 238, 0.12));
+}
+
 .smai-app-message {
     color: var(--text-secondary);
     font-size: 0.95rem;
@@ -1403,6 +1415,11 @@ SMAI_GLOBAL_CSS = """
 
     .smai-app-mascot-wrap {
         width: 4.4rem;
+    }
+
+    .smai-app-logo {
+        width: min(100%, 24rem);
+        max-height: 5.1rem;
     }
 
     .smai-page-title-row {

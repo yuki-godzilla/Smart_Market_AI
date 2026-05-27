@@ -22,7 +22,10 @@ MascotTone = Literal["info", "success", "forecast", "caution", "risk"]
 TitleMascot = Literal["cockpit", "ranking", "rebalance"]
 CopilotState = Literal["ready", "analyzing", "updated", "warning"]
 
-MASCOT_ASSET_DIR = Path(__file__).resolve().parents[1] / "assets" / "mascot"
+ASSET_DIR = Path(__file__).resolve().parents[1] / "assets"
+BRAND_ASSET_DIR = ASSET_DIR / "brand"
+MASCOT_ASSET_DIR = ASSET_DIR / "mascot"
+APP_LOGO_ASSET = "smai-logo.png"
 MASCOT_REFERENCE_ASSET = "smai-mascot-reference.webp"
 MASCOT_CUTOUT_ASSET = "smai-mascot-cutout.png"
 MASCOT_THUMB_ASSET = "smai-mascot-thumb.webp"
@@ -85,9 +88,9 @@ MASCOT_VARIANT_DEFAULTS: dict[MascotVariant, dict[str, str]] = {
 APP_HEADER_MESSAGE = "SMAIナビが、候補探しと確認ポイントの整理をお手伝いします。"
 
 
-@lru_cache(maxsize=24)
-def _asset_data_uri(filename: str) -> str:
-    path = MASCOT_ASSET_DIR / filename
+@lru_cache(maxsize=32)
+def _asset_data_uri(filename: str, asset_dir: Path = MASCOT_ASSET_DIR) -> str:
+    path = asset_dir / filename
     data = path.read_bytes()
     encoded = base64.b64encode(data).decode("ascii")
     suffix = path.suffix.lower()
@@ -172,10 +175,12 @@ def app_header_html(
     message: str = APP_HEADER_MESSAGE,
 ) -> str:
     image = _asset_data_uri(MASCOT_THUMB_ASSET)
+    logo = _asset_data_uri(APP_LOGO_ASSET, BRAND_ASSET_DIR)
     return (
         '<header class="smai-app-header">'
         '<div class="smai-app-header-copy">'
-        f'<h1 class="smai-app-title">{html.escape(title)}</h1>'
+        f'<img class="smai-app-logo" src="{logo}" '
+        f'alt="{html.escape(title)}" loading="eager" />'
         f'<p class="smai-app-message">{html.escape(message)}</p>'
         "</div>"
         '<div class="smai-app-mascot-wrap" aria-hidden="true">'

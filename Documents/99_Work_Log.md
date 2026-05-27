@@ -727,3 +727,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Removed the extra main-content background layer so the Streamlit content area blends back into the app-level dark navy background instead of reading as a separate panel.
 - Softened the app header and page-title band borders / fills so they keep structure without visually separating from the surrounding background.
 - Kept the change CSS-only with no workflow, data, forecast, scoring, ranking, Research RAG, or report behavior changes.
+
+## 2026-05-28 - App header logo asset
+
+- Added a transparent, cropped SMAI brand logo asset under `ui/assets/brand/` for the Streamlit app header.
+- Replaced the visible `Smart Market AI` text heading with the logo image while keeping accessible alt text and the existing header guidance message.
+- Tuned the logo sizing and drop shadow so it sits naturally on the dark navy header without adding a separate card or background.

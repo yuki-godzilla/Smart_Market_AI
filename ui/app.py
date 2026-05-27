@@ -36,6 +36,7 @@ from backend.reporting import (
     build_decision_report_context,
     build_report_section,
     build_research_evidence_section,
+    build_research_score_section,
     build_symbol_metadata_section,
     decision_report_manifest_json_download,
     decision_report_zip_download,
@@ -44,7 +45,13 @@ from backend.reporting import (
 from backend.reporting import (
     decision_report_json_download as reporting_decision_report_json_download,
 )
-from backend.research import CompanyResearchReport, ResearchDocument, StockNewsReport
+from backend.research import (
+    CompanyResearchReport,
+    ResearchDocument,
+    ResearchScore,
+    ResearchScoreService,
+    StockNewsReport,
+)
 from backend.scoring import InvestmentScoringService
 from backend.screening import ScreeningService
 from ui.components.mascot import (
@@ -5920,6 +5927,45 @@ def _research_evidence_report_section(report: CompanyResearchReport) -> Decision
     )
 
 
+def _research_score_report_section(report: CompanyResearchReport) -> DecisionReportSection:
+    score = ResearchScoreService().score_report(report)
+    return build_research_score_section(
+        symbol=score.symbol,
+        as_of=score.as_of,
+        total_score=str(score.total_score),
+        confidence=str(score.confidence),
+        evidence_count=str(score.evidence_count),
+        summary=score.summary,
+        component_scores={
+            "growth_score": str(score.growth_score),
+            "profitability_score": str(score.profitability_score),
+            "shareholder_return_score": str(score.shareholder_return_score),
+            "financial_safety_score": str(score.financial_safety_score),
+            "business_risk_score": str(score.business_risk_score),
+            "disclosure_quality_score": str(score.disclosure_quality_score),
+            "freshness_score": str(score.freshness_score),
+        },
+        supporting_evidence_rows=_research_score_evidence_rows(score),
+        warnings=score.warnings,
+        notes=[score.decision_support_note],
+    )
+
+
+def _research_score_evidence_rows(score: ResearchScore) -> list[dict[str, str]]:
+    return [
+        {
+            "title": evidence.title,
+            "source_type": evidence.source_type,
+            "published_at": evidence.published_at.isoformat() if evidence.published_at else "",
+            "section_title": evidence.section_title or "",
+            "excerpt": evidence.excerpt,
+            "relevance_score": str(evidence.relevance_score),
+            "reliability": str(evidence.reliability),
+        }
+        for evidence in score.supporting_evidence[:20]
+    ]
+
+
 def build_cockpit_decision_report_context(
     preview: MarketDataPreview,
 ) -> DecisionReportContext:
@@ -5988,6 +6034,7 @@ def build_cockpit_decision_report_context(
         or research_report.data_quality.evidence_count > 0
     ):
         sections.append(_research_evidence_report_section(research_report))
+        sections.append(_research_score_report_section(research_report))
     return build_decision_report_context(
         title=f"投資判断レポート - {symbol or '選択銘柄'}",
         sections=sections,

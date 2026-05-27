@@ -25,7 +25,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - Decision Report context / Markdown / JSON / manifest / ZIP export for cockpit, ranking, and rebalance
 - Research RAG Phase 20 local evidence slice
   - local UTF-8 document registration, chunking, keyword evidence search, Research Summary
-  - Settings upload, Cockpit `AI調査を更新`, Ranking modal `AI Research`, Cockpit Decision Report Research Evidence
+  - Settings upload, Cockpit `AI調査を更新`, Ranking modal `AI Research`, Cockpit Decision Report Research Evidence / Research Score
 - Streamlit UI
   - Market Data: `銘柄コックピット` / `銘柄ランキング`
   - Rebalance: summary flow / allocation comparison / risk confirmation
@@ -37,7 +37,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - `polygon` などの追加 live provider adapter 本体
 - 追加 provider adapter / fund metadata source
 - Research RAG external source adapters / vector search の運用UI
-- Research Score の ranking / report 統合。Investment Score は optional numeric input と disabled-by-default weight だけ対応済み
+- Research Score の ranking 統合と cockpit / report 表示 polish。Investment Score は optional numeric input と disabled-by-default weight に対応済み
 - Assistant / LLM / news integration
 - broker への live order 送信
 - Execution workflow
@@ -477,7 +477,7 @@ Phase 16 ranking implementation notes:
 - Ranking deep-dive controls are rendered before the Decision Report block. The ranking Decision Report is generated lazily by `投資判断レポートを作成`, then reused for the same ranking source / sort profile so resorting and cockpit handoff remain responsive. Ranking report は上位候補メモとスコア詳細を分け、明細には symbol、銘柄名、並べ替え条件、確認観点を並べて出力する。
 - Ranking remains decision support only. Click a ranking row to open the shared `銘柄データ` modal with short ranking context plus local master details. Use the cockpit for detailed price / forecast / score-reason review.
 - In `銘柄コックピット`, `銘柄データを見る` sits beside symbol selection and opens the same local-master modal for the selected symbol. Start / End inputs wrap to the next row. After fetch, the cockpit shows `投資判断メモ` combining score, warnings, valuation, income, price trend, and next-check wording. Research Evidence is grouped into an `AI調査ステータス` operation card, decision-oriented summary cards, evidence cards, and a collapsed detail-data expander.
-- In `銘柄コックピット` and `銘柄ランキング`, the result area shows a prominent `Decision Report` block with Markdown / JSON / manifest / ZIP downloads. Cockpit reports render as a structured UI first: overall judgement card, 3-line summary, main evidence block, and sectioned detail expanders. Ranking reports focus on comparison context, score distribution, factor leaders, and group-level deep-dive checkpoints instead of turning into a single top-symbol report. Ranking Markdown body remains inside `レポート本文を表示`. It is decision-support material, not a buy/sell recommendation.
+- In `銘柄コックピット` and `銘柄ランキング`, the result area shows a prominent `Decision Report` block with Markdown / JSON / manifest / ZIP downloads. Cockpit reports render as a structured UI first: overall judgement card, 3-line summary, main evidence block, and sectioned detail expanders. When Cockpit `AI調査を更新` has produced a Research report with documents or evidence, the exported context includes both `Research Evidence` and `Research Score` sections with component rows, confidence, supporting evidence, warnings, and non-advice notes. Ranking reports focus on comparison context, score distribution, factor leaders, and group-level deep-dive checkpoints instead of turning into a single top-symbol report. Ranking Markdown body remains inside `レポート本文を表示`. It is decision-support material, not a buy/sell recommendation.
 - In `リバランス`, the result area shows a prominent `投資判断レポート` block with Markdown / JSON / manifest / ZIP downloads. The report organizes current holdings, target allocation, allocation drift, rebalance review candidates, Risk breaches, and confirmation checkpoints. The Markdown body remains inside `レポート本文を表示`. It is a review aid, not an order instruction.
 - UI リッチな PDF report / Excel report は将来の Advanced Export 範囲です。現行の Decision Report export は Markdown / JSON / manifest / ZIP を正とします。
 
@@ -557,7 +557,7 @@ Markdown UTF-8 check:
 - 実装状態が変わったら README / PROJECT_CONTEXT / Roadmap / Operations Guide を同期する。
 - UI に見える変更は `07_UI_Wording_Policy.md` と `08_Phase16_UI_Improvement_Plan.md` も確認する。
 - 作業履歴は `Documents/99_Work_Log.md` の先頭へ追加する。
-- Research RAG は Phase 20 local evidence slice を開始済み。現時点では `backend/research` の local UTF-8 document ingestion / chunk / keyword search / deterministic Research Summary、`設定 / データ情報` での session-local資料登録、`銘柄コックピット` の `AI調査を更新` ボタンによる明示的なResearch Evidence表示、ランキング行クリック後の `銘柄データ` モーダル `AI Research` タブでの `AIで資料を確認`、Cockpit Decision Report の Research Evidence section が対象。価格データ取得時にはResearch RAGを自動実行しない。Ranking evidence-status display と Research Score 統合は後続作業として扱う。
+- Research RAG は Phase 20 local evidence slice を開始済み。現時点では `backend/research` の local UTF-8 document ingestion / chunk / keyword search / deterministic Research Summary、`設定 / データ情報` での session-local資料登録、`銘柄コックピット` の `AI調査を更新` ボタンによる明示的なResearch Evidence表示、ランキング行クリック後の `銘柄データ` モーダル `AI Research` タブでの `AIで資料を確認`、Cockpit Decision Report の Research Evidence / Research Score section が対象。価格データ取得時にはResearch RAGを自動実行しない。Ranking evidence-status display は軽量表示に留め、Research Score による ranking order 変更は後続作業として扱う。
 - Stock News RAG は Phase 21.5 の first local deterministic slice として、`source_type=news` で登録されたローカル資料から URL 付きニュースだけを `銘柄コックピット` の Research Evidence card に統合表示する。news 資料には `url:` または `source_url:` 行、任意で `source:` / `summary:` 行を含める。外部ニュースサイト、外部LLM、network は通常経路では使わず、Investment Score / ranking order も変更しない。
 - External Research / News fetch は Phase 21.6 / 21.7 の backend first slice として、`ExternalResearchSourceAdapter` protocol、明示 `allow_network` gate、local cache 書き込み、Research ingestion 登録、chunk rebuild、JSON manifest 出力を持つ。`YahooFinanceResearchAdapter` は provider profile / recent news payload の最初の opt-in live adapter shape として追加済み。通常 checks は fake adapter / fixture を使い、live source adapter は明示 opt-in の後続導線で扱う。
 - `tools/fetch_research_yfinance_profile.py --symbol 7203.T --write` は、確認用の実データResearch資料を Yahoo Finance / yfinance から取得して `data/research_docs/` に保存する。外部通信を使うため通常 checks には含めない。

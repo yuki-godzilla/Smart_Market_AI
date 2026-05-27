@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-05-27: Added a Cockpit Decision Report Research Score section: reports with Research evidence now export Research Score components, confidence, supporting evidence, warnings, and non-advice notes alongside Research Evidence without changing default ranking order or Investment Score behavior.
 - 2026-05-27: Connected Research Score to Investment Score as an optional disabled-by-default backend input: `research_scores_by_symbol` can carry precomputed Research Score values, `scoring.weights.research` defaults to 0.0, and default totals / bands / breakdowns / ranking order remain unchanged.
 - 2026-05-27: Added the first backend-only Research Score MVP slice with `ResearchScore` and `ResearchScoreService`; it scores evidence coverage, freshness, disclosure quality, confidence, warnings, and supporting evidence from `CompanyResearchReport` without changing Investment Score, ranking order, or UI defaults.
 - 2026-05-27: Added `ResearchVectorIndexService` and `ResearchVectorIndexSummary` as an explicit optional vector-index build workflow; it rebuilds writable vector stores from already chunked Research documents, reports chunk / embedded counts and missing text-index warnings, and keeps default keyword retrieval unchanged.

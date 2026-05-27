@@ -42,10 +42,13 @@ SMAI は以下の思想を重視しています。
 - Portfolio-to-Risk workflow
 - Decision Report context v1
   - cockpit / ranking / rebalance の判断材料を Markdown / JSON / manifest / ZIP として保存
-  - data confidence、symbol metadata、decision checkpoints、Research Evidence section の標準 builder
+  - data confidence、symbol metadata、decision checkpoints、Research Evidence / Research Score section の標準 builder
 - Research RAG Phase 20 local evidence slice
   - local UTF-8 Markdown / Text / CSV の登録、hash dedupe、chunking、keyword evidence search
   - deterministic Research Summary、data-quality warning、Cockpit / Ranking modal / Decision Report 連携
+- Research Score first slices
+  - `ResearchScoreService`、optional Investment Score input、disabled-by-default `scoring.weights.research`
+  - Cockpit Decision Report の Research Score section
 - Streamlit UI
   - left side menu for `銘柄コックピット` / `銘柄ランキング` / `リバランス` / `設定 / データ情報`
   - 銘柄コックピット: 価格・予測チャート、Investment Score、投資判断メモ、Research Evidence、Decision Report、銘柄データ modal、warnings、downloads
@@ -62,8 +65,8 @@ SMAI は以下の思想を重視しています。
 - `polygon` など追加 live provider adapter 本体
 - 追加 provider / fund metadata source adapter
 - 投信 metadata / 基準価額 / ranking 対応
-- Research RAG query expansion、根拠抽出、vector / hybrid search、Research Score
-- Research Score の Investment Score / ranking / report 統合
+- Research RAG external source adapters / vector search の運用UI
+- Research Score の ranking 統合と cockpit / report 表示 polish
 - AI assistant experience
 - Execution / broker への注文送信
 - PDF / Excel export
@@ -78,11 +81,12 @@ MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で
 - Phase 17: UI Polish / ランキング条件 UI 再設計は implementation complete
 - Phase 18: symbol universe / metadata refresh / source import / SBI ranking universe policy は implementation complete。継続的な NISA / ETF / stock metadata source 更新は運用タスクとして扱う
 - Phase 19: Decision Report Context MVP は implementation complete
-- Phase 20: Research RAG Evidence Layer は local evidence slice が implementation complete。external adapters と Research Score は後続
-- Phase 21〜25: 高度Research RAG、Research Score、Assistant、optional adapter、Execution gate の順に整理
+- Phase 20: Research RAG Evidence Layer は local evidence slice が implementation complete
+- Phase 21: 高度Research RAG / Stock News RAG の first slices は進行中
+- Phase 22〜25: Research Score integration、Assistant、optional adapter、Execution gate の順に整理
 - Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
-次の重点は、既存機能の分かりにくさ、仕様曖昧さ、投資助言に見えすぎる表現を棚卸ししつつ、Phase 21 高度Research RAGの設計を進めることです。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、Research Score、Research RAG external adapters、Assistant、Execution / Broker は明示的に割り当てるまで future scope として扱います。
+次の重点は、既存機能の分かりにくさ、仕様曖昧さ、投資助言に見えすぎる表現を棚卸ししつつ、Phase 22 Research Score integration を慎重に進めることです。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、Research RAG external adapters、Assistant、Execution / Broker は明示的に割り当てるまで future scope として扱います。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント

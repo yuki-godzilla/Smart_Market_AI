@@ -263,6 +263,103 @@ def build_research_evidence_section(
     )
 
 
+_RESEARCH_SCORE_COMPONENTS = (
+    (
+        "growth_score",
+        "成長材料",
+        "成長戦略や事業拡大の根拠資料がどの程度確認できるかを見ます。",
+    ),
+    (
+        "profitability_score",
+        "収益性",
+        "利益率、営業利益、ROEなど収益性に関する記述の充実度を見ます。",
+    ),
+    (
+        "shareholder_return_score",
+        "株主還元",
+        "配当方針や自社株買いなど、株主還元に関する根拠を見ます。",
+    ),
+    (
+        "financial_safety_score",
+        "財務安全性",
+        "自己資本、現金、流動性など財務余力に関する根拠を見ます。",
+    ),
+    (
+        "business_risk_score",
+        "事業リスク確認",
+        "為替、規制、競争、供給網などリスク記述が確認できるかを見ます。",
+    ),
+    (
+        "disclosure_quality_score",
+        "根拠の充実度",
+        "資料数、根拠数、資料種別、信頼度を合わせて見ます。",
+    ),
+    (
+        "freshness_score",
+        "情報の鮮度",
+        "公開日が古すぎないか、現在の確認材料として扱えるかを見ます。",
+    ),
+)
+
+
+def build_research_score_section(
+    *,
+    symbol: str,
+    as_of: date | None = None,
+    total_score: object,
+    confidence: object,
+    evidence_count: object,
+    summary: str | None = None,
+    component_scores: Mapping[str, object] | None = None,
+    supporting_evidence_rows: Sequence[Mapping[str, object]] | None = None,
+    warnings: list[str] | None = None,
+    notes: list[str] | None = None,
+) -> DecisionReportSection:
+    """Build a Decision Report section for optional evidence-backed Research Score."""
+
+    normalized_summary: dict[str, object] = {
+        "symbol": symbol,
+        "total_score": total_score,
+        "confidence": confidence,
+        "evidence_count": evidence_count,
+        "research_score_summary": summary,
+    }
+
+    rows: list[dict[str, object]] = []
+    scores = component_scores or {}
+    for key, label, review_point in _RESEARCH_SCORE_COMPONENTS:
+        if key in scores:
+            rows.append(
+                {
+                    "row_type": "research_score_component",
+                    "component": label,
+                    "score": scores[key],
+                    "review_point": review_point,
+                }
+            )
+    for evidence in supporting_evidence_rows or []:
+        rows.append({"row_type": "research_score_evidence", **dict(evidence)})
+
+    normalized_notes = _normalize_strings(notes or [])
+    normalized_notes.append(
+        "Research Score は根拠資料の充実度・鮮度・信頼度を整理する参考スコアであり、売買推奨ではありません。"
+    )
+    normalized_notes.append(
+        "資料不足による低スコアは確認不足の警告であり、銘柄評価そのものではありません。"
+    )
+
+    return build_report_section(
+        title="Research Score",
+        source_kind="research",
+        symbol=symbol,
+        as_of=as_of,
+        summary=normalized_summary,
+        rows=rows,
+        warnings=warnings,
+        notes=normalized_notes,
+    )
+
+
 def render_decision_report_markdown(context: DecisionReportContext) -> str:
     """Render a deterministic Markdown report from a Decision Report context."""
 
@@ -472,6 +569,8 @@ _DISPLAY_KEY_LABELS = {
     "excerpt": "抜粋",
     "relevance_score": "関連度",
     "reliability": "信頼度",
+    "research_score_summary": "Research Score メモ",
+    "confidence": "信頼度",
 }
 
 _DISPLAY_VALUE_LABELS = {
@@ -485,6 +584,11 @@ _DISPLAY_VALUE_LABELS = {
     "research": "Research RAG",
     "summary_point": "要約",
     "evidence": "根拠",
+    "grounded_answer": "根拠付き説明",
+    "retrieval_quality": "検索品質",
+    "extracted_claim": "抽出論点",
+    "research_score_component": "Research Score 内訳",
+    "research_score_evidence": "Research Score 根拠",
 }
 
 
@@ -493,7 +597,7 @@ def _display_key(key: str) -> str:
 
 
 def _display_value(key: str, value: str) -> str:
-    if key in {"status", "source_kind"}:
+    if key in {"status", "source_kind", "row_type"}:
         return _DISPLAY_VALUE_LABELS.get(value, value)
     if key == "field":
         return _display_key(value)

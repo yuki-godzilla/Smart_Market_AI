@@ -14,6 +14,7 @@ from backend.reporting import (
     build_decision_report_manifest,
     build_report_section,
     build_research_evidence_section,
+    build_research_score_section,
     build_symbol_metadata_section,
     decision_report_export_files,
     decision_report_json_download,
@@ -254,6 +255,53 @@ def test_build_research_evidence_section_adds_summary_evidence_and_warning():
     assert section.rows[1]["row_type"] == "evidence"
     assert "Research Evidence" in markdown
     assert "Research RAG は登録済み資料から確認材料を整理する機能" in markdown
+
+
+def test_build_research_score_section_adds_components_evidence_and_notes():
+    section = build_research_score_section(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        total_score="73.20",
+        confidence="0.64",
+        evidence_count="2",
+        summary="Research Score は根拠の充実度を整理する参考スコアです。",
+        component_scores={
+            "growth_score": "80.00",
+            "profitability_score": "75.00",
+            "shareholder_return_score": "70.00",
+            "financial_safety_score": "68.00",
+            "business_risk_score": "66.00",
+            "disclosure_quality_score": "72.00",
+            "freshness_score": "100.00",
+        },
+        supporting_evidence_rows=[
+            {
+                "title": "7203 Research Note",
+                "source_type": "annual_report",
+                "published_at": "2026-05-01",
+                "section_title": "Growth",
+                "excerpt": "Growth strategy includes market expansion.",
+                "relevance_score": "0.8300",
+                "reliability": "0.90",
+            }
+        ],
+        warnings=["資料が少ないため、Research Score の信頼度は控えめです。"],
+    )
+    context = build_decision_report_context(
+        title="Decision support report",
+        sections=[section],
+        created_at=datetime(2026, 5, 25, 12, 0, tzinfo=UTC),
+    )
+    markdown = render_decision_report_markdown(context)
+
+    assert section.source.kind == "research"
+    assert section.summary["total_score"] == "73.20"
+    assert section.summary["confidence"] == "0.64"
+    assert section.rows[0]["row_type"] == "research_score_component"
+    assert section.rows[-1]["row_type"] == "research_score_evidence"
+    assert "Research Score" in markdown
+    assert "Research Score 内訳" in markdown
+    assert "売買推奨ではありません" in markdown
 
 
 def test_build_report_section_rejects_empty_content():

@@ -53,6 +53,7 @@ from ui.app import (
     _research_quality_warning_rows,
     _research_result_overview_html,
     _research_retrieval_quality_rows,
+    _research_score_report_section,
     _research_table_html,
     _research_terms_preview,
     _select_ranking_symbol_for_cockpit_with_period,
@@ -818,6 +819,55 @@ def test_research_evidence_report_section_carries_phase21_rows():
     assert "grounded_answer" in row_types
     assert "retrieval_quality" in row_types
     assert "extracted_claim" in row_types
+
+
+def test_research_score_report_section_carries_components_evidence_and_note():
+    evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-1",
+        chunk_id="chunk-1",
+        title="7203 Integrated Report",
+        source_type="annual_report",
+        published_at=date(2026, 5, 1),
+        section_title="Growth",
+        excerpt=(
+            "Growth strategy, profitability margin, dividend policy, cash, "
+            "and regulation risk are discussed."
+        ),
+        relevance_score=Decimal("0.84"),
+        reliability=Decimal("0.90"),
+    )
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="Research summary",
+        points=[
+            ResearchSummaryPoint(
+                category="growth",
+                label="成長材料",
+                summary="成長戦略を確認材料として整理します。",
+                evidence=[evidence],
+            )
+        ],
+        evidence=[evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 1),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    section = _research_score_report_section(report)
+
+    assert section.title == "Research Score"
+    assert section.summary["symbol"] == "7203.T"
+    assert section.summary["evidence_count"] == "1"
+    row_types = [row["row_type"] for row in section.rows]
+    assert "research_score_component" in row_types
+    assert "research_score_evidence" in row_types
+    assert any("売買推奨ではありません" in note for note in section.notes)
 
 
 def test_research_evidence_cards_html_escapes_excerpt_and_uses_vertical_cards():
@@ -3689,6 +3739,83 @@ def test_cockpit_decision_report_context_includes_metadata_confidence(monkeypatc
     assert "risk_band" in context.sections[0].summary["missing_fields"]
     assert "データ取得状況と信頼性" in markdown
     assert '"schema_version": "decision-report-context-v1"' in payload
+
+
+def test_cockpit_decision_report_context_adds_research_score_section(monkeypatch):
+    monkeypatch.setattr("ui.app.symbol_universe_csv_rows", lambda: [])
+    evidence = ResearchEvidence(
+        symbol="6857.T",
+        document_id="doc-1",
+        chunk_id="chunk-1",
+        title="6857 Research Note",
+        source_type="annual_report",
+        published_at=date(2026, 5, 1),
+        section_title="Business",
+        excerpt=("Growth strategy, profitability margin, cash, " "and business risk are covered."),
+        relevance_score=Decimal("0.82"),
+        reliability=Decimal("0.88"),
+    )
+    research_report = CompanyResearchReport(
+        symbol="6857.T",
+        as_of=date(2026, 5, 25),
+        summary="Research summary",
+        points=[
+            ResearchSummaryPoint(
+                category="growth",
+                label="成長材料",
+                summary="成長戦略を確認材料として整理します。",
+                evidence=[evidence],
+            )
+        ],
+        evidence=[evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 1),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+    monkeypatch.setattr(
+        "ui.app._cockpit_research_report_from_state",
+        lambda _preview: research_report,
+    )
+    preview = MarketDataPreview(
+        status="ok",
+        bars=[_bar("2026-05-22", close=101, symbol="6857.T")],
+        provider_rows=[{"field": "provider", "value": "yahoo"}],
+        quote_rows=[],
+        ohlcv_rows=[],
+        price_chart_rows=[],
+        forecast_chart_rows=[],
+        forecast_metric_rows=[],
+        fx_rows=[],
+        feature_rows=[],
+        investment_score_rows=[
+            {
+                "symbol": "6857.T",
+                "total_score": "72.00",
+                "score_band": "balanced",
+                "screening_score": "70",
+                "forecast_agreement_score": "80",
+                "data_quality_score": "100",
+                "risk_signal_score": "65",
+            }
+        ],
+        screening_rows=[],
+        error_rows=[],
+    )
+
+    context = build_cockpit_decision_report_context(preview)
+    section_titles = [section.title for section in context.sections]
+    score_section = next(
+        section for section in context.sections if section.title == "Research Score"
+    )
+
+    assert "Research Evidence" in section_titles
+    assert "Research Score" in section_titles
+    assert score_section.summary["evidence_count"] == "1"
+    assert any(row["row_type"] == "research_score_component" for row in score_section.rows)
 
 
 def test_cockpit_decision_report_helpers_build_structured_summary(monkeypatch):

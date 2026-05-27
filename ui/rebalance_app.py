@@ -55,6 +55,7 @@ from backend.reporting import (
 )
 from backend.scoring import InvestmentScore, InvestmentScoringService
 from backend.screening import ScreeningScore, ScreeningService
+from ui.content.common_texts import user_facing_column_label
 from ui.symbol_universe import (
     symbol_name as _symbol_name_from_csv,
 )
@@ -1446,7 +1447,7 @@ def build_rebalance_decision_report_context(
                 {"項目": "現在資産", "内容": f"{summary['total_value_jpy']} JPY"},
                 {"項目": "現金", "内容": f"{summary['cash_jpy']} JPY"},
                 {"項目": "配分見直し候補", "内容": f"{summary['trade_count']}件"},
-                {"項目": "Risk 判定", "内容": summary["risk_status"]},
+                {"項目": "リスク判定", "内容": summary["risk_status"]},
             ],
             notes=["このレポートはリバランス確認の整理であり、売買実行や売買推奨ではありません。"],
         ),
@@ -1483,11 +1484,11 @@ def build_rebalance_decision_report_context(
     if context.breach_rows:
         sections.append(
             build_report_section(
-                title="Risk 制約違反",
+                title="リスク制約違反",
                 source_kind="rebalance",
                 as_of=result.proposal.as_of,
                 rows=context.breach_rows,
-                notes=["Risk 判定が BLOCK / REVIEW の場合は、制約違反の内容を先に確認します。"],
+                notes=["リスク判定が BLOCK / REVIEW の場合は、制約違反の内容を先に確認します。"],
             )
         )
     sections.append(
@@ -1528,12 +1529,12 @@ def _rebalance_decision_checkpoints(
     largest_drift = _largest_abs_percent_row(context.allocation_rows, "drift")
     checkpoints = [
         {
-            "area": "Risk",
-            "finding": f"Risk 判定は {risk_status} です",
+            "area": "リスク判定",
+            "finding": f"リスク判定は {risk_status} です",
             "confirmation_point": "BLOCK / REVIEW の場合は、制約違反と目標配分を先に確認します。",
         },
         {
-            "area": "Trades",
+            "area": "配分見直し候補",
             "finding": f"配分見直し候補は {trade_count} 件です",
             "confirmation_point": "配分見直し候補は実注文ではありません。数量、価格前提、通貨を確認します。",
         },
@@ -1552,16 +1553,16 @@ def _rebalance_decision_checkpoints(
     if context.breach_rows:
         checkpoints.append(
             {
-                "area": "Risk Breach",
-                "finding": f"Risk 制約違反が {len(context.breach_rows)} 件あります",
+                "area": "リスク制約違反",
+                "finding": f"リスク制約違反が {len(context.breach_rows)} 件あります",
                 "confirmation_point": "制約違反を解消するには、目標配分、対象銘柄、現金比率を見直します。",
             }
         )
     else:
         checkpoints.append(
             {
-                "area": "Risk Breach",
-                "finding": "大きなRisk制約違反はありません",
+                "area": "リスク制約違反",
+                "finding": "大きなリスク制約違反はありません",
                 "confirmation_point": "制約違反がなくても、集中度や価格前提は確認します。",
             }
         )
@@ -1689,60 +1690,60 @@ def result_markdown_report_download(
     context = build_rebalance_report_context(result)
     summary = context.summary
     lines = [
-        "# Rebalance Check Report",
+        "# リバランス確認レポート",
         "",
-        "## Summary",
+        "## サマリー",
         "",
-        f"- Account: {summary['account_id']}",
-        f"- As of: {summary['as_of']}",
-        f"- Total value JPY: {summary['total_value_jpy']}",
-        f"- Cash JPY: {summary['cash_jpy']}",
-        f"- Proposed trades: {summary['trade_count']}",
-        f"- Risk status: {summary['risk_status']}",
+        f"- 口座ID: {summary['account_id']}",
+        f"- 基準日: {summary['as_of']}",
+        f"- 現在資産(円): {summary['total_value_jpy']}",
+        f"- 現金(円): {summary['cash_jpy']}",
+        f"- 配分見直し候補: {summary['trade_count']}",
+        f"- リスク判定: {summary['risk_status']}",
     ]
     if request is not None:
         lines.extend(
             [
                 "",
-                "## Request",
+                "## 入力条件",
                 "",
-                f"- Positions: {len(request.positions)}",
-                f"- Targets: {len(request.targets)}",
+                f"- 現在保有: {len(request.positions)}件",
+                f"- 目標配分: {len(request.targets)}件",
             ]
         )
 
     lines.extend(
         [
             "",
-            "## Current Positions",
+            "## 現在の保有",
             "",
             _markdown_table(
                 context.current_rows,
                 ["symbol", "qty", "currency", "last", "fx_rate_jpy", "value_jpy"],
-                empty_message="No current positions.",
+                empty_message="現在の保有データはまだありません。",
             ),
             "",
-            "## Target Allocations",
+            "## 目標配分",
             "",
             _markdown_table(
                 context.target_rows,
                 ["symbol", "currency", "target_weight"],
-                empty_message="No target allocations.",
+                empty_message="目標配分はまだありません。",
             ),
             "",
-            "## Allocation Comparison",
+            "## 配分比較",
             "",
             _markdown_table(
                 context.allocation_rows,
                 ["symbol", "current_weight", "target_weight", "drift"],
             ),
             "",
-            "## Rebalance Review Candidates",
+            "## 配分見直し候補",
             "",
             _markdown_table(
                 context.trade_rows,
                 ["symbol", "side", "qty", "price_hint", "currency"],
-                empty_message="No rebalance review candidates were generated.",
+                empty_message="配分見直し候補はありません。",
             ),
         ]
     )
@@ -1750,14 +1751,14 @@ def result_markdown_report_download(
     lines.extend(
         [
             "",
-            "## Risk Breaches",
+            "## リスク確認事項",
             "",
         ]
     )
     if context.breach_rows:
         lines.extend(f"- {row['breach']}" for row in context.breach_rows)
     else:
-        lines.append("- None")
+        lines.append("- なし")
     return "\n".join(lines) + "\n"
 
 
@@ -1906,11 +1907,11 @@ def _markdown_table(
     rows: list[dict[str, str]],
     fieldnames: list[str],
     *,
-    empty_message: str = "No rows.",
+    empty_message: str = "表示できる行はありません。",
 ) -> str:
     if not rows:
         return empty_message
-    header = "| " + " | ".join(fieldnames) + " |"
+    header = "| " + " | ".join(user_facing_column_label(field) for field in fieldnames) + " |"
     separator = "| " + " | ".join("---" for _ in fieldnames) + " |"
     body = [
         "| " + " | ".join(_markdown_cell(row.get(field, "")) for field in fieldnames) + " |"
@@ -1924,14 +1925,18 @@ def _markdown_cell(value: str) -> str:
 
 
 def _load_json_list(value: str, field_name: str) -> list[dict[str, Any]]:
+    field_label = {
+        "positions": "現在保有",
+        "targets": "目標配分",
+    }.get(field_name, field_name)
     try:
         data = json.loads(value)
     except json.JSONDecodeError as exc:
-        raise ValueError(f"{field_name} must be valid JSON") from exc
+        raise ValueError(f"{field_label}は有効なJSONで入力してください。") from exc
     if not isinstance(data, list):
-        raise ValueError(f"{field_name} must be a JSON array")
+        raise ValueError(f"{field_label}はJSON配列で入力してください。")
     if not all(isinstance(item, dict) for item in data):
-        raise ValueError(f"{field_name} must contain JSON objects")
+        raise ValueError(f"{field_label}はJSONオブジェクトの配列で入力してください。")
     return data
 
 

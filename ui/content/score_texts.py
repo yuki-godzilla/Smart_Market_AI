@@ -12,13 +12,13 @@ class ScoreText:
 
 SCORE_TEXTS = {
     "investment_score": ScoreText(
-        label="Investment Score",
+        label="投資スコア",
         short_label="総合スコア",
         description="複数観点を統合した比較・分析用スコアです。",
     ),
     "decision_view": ScoreText(
-        label="Decision View",
-        short_label="見方",
+        label="総合評価",
+        short_label="評価",
         description="スコア帯を確認レベルに置き換えた見方です。",
     ),
     "upside_signal_score": ScoreText(
@@ -36,17 +36,28 @@ SCORE_TEXTS = {
         description="平均予測価格が直近終値からどの程度離れているかを示します。",
     ),
     "data_confidence": ScoreText(
-        label="Data Confidence",
-        short_label="データ品質",
+        label="データ信頼度",
+        short_label="データ信頼度",
         description="投資魅力度ではなく、評価に使えるデータの充実度を示します。",
     ),
     "risk": ScoreText(
-        label="Risk",
+        label="リスク確認",
         description="取得期間の値動きや警告を整理したリスク確認材料です。",
     ),
 }
 
-SCORE_LABEL_TO_KEY = {text.label: key for key, text in SCORE_TEXTS.items()}
+SCORE_LABEL_ALIASES = {
+    "Investment Score": "investment_score",
+    "Decision View": "decision_view",
+    "Data Confidence": "data_confidence",
+    "Data Quality": "data_confidence",
+    "Risk": "risk",
+    "見方": "decision_view",
+}
+SCORE_LABEL_TO_KEY = {
+    **{text.label: key for key, text in SCORE_TEXTS.items()},
+    **SCORE_LABEL_ALIASES,
+}
 SCORE_LABELS = {key: text.label for key, text in SCORE_TEXTS.items()}
 
 

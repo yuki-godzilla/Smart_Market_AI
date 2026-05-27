@@ -59,11 +59,11 @@ def render_sidemenu(runtime_settings: dict[str, str]) -> SideMenuPage:
             )
 
         with st.expander("実行環境", expanded=False):
-            st.write(f"Provider: `{runtime_settings['provider']}`")
-            st.write(f"Config: `{runtime_settings['config_file']}`")
-            st.write(f"Scenarios: `{runtime_settings['scenario_dir']}`")
+            st.write(f"データ取得元: `{runtime_settings['provider']}`")
+            st.write(f"設定ファイル: `{runtime_settings['config_file']}`")
+            st.write(f"シナリオ保存先: `{runtime_settings['scenario_dir']}`")
             if runtime_settings["provider"] == "csv":
-                st.write(f"CSV data: `{runtime_settings['csv_data_dir']}`")
+                st.write(f"CSVデータ: `{runtime_settings['csv_data_dir']}`")
 
         st.caption("分析結果は投資判断の補助であり、売買推奨ではありません。")
 
@@ -73,7 +73,7 @@ def render_sidemenu(runtime_settings: dict[str, str]) -> SideMenuPage:
 def _sidebar_mascot_message(page: SideMenuPage) -> str:
     messages = {
         SIDEMENU_PAGE_COCKPIT: "1銘柄の確認ポイントを一緒に整理します。",
-        SIDEMENU_PAGE_RANKING: "深掘り候補をスコアとRiskで見比べます。",
+        SIDEMENU_PAGE_RANKING: "深掘り候補をスコアとリスク確認で見比べます。",
         SIDEMENU_PAGE_REBALANCE: "配分のズレと見直し候補を確認します。",
         SIDEMENU_PAGE_SETTINGS: "データ設定と取得元を確認します。",
     }

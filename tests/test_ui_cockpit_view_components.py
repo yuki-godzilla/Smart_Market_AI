@@ -61,11 +61,11 @@ def test_cockpit_kpi_cards_do_not_create_new_scores():
     )
 
     assert [card["label"] for card in cards] == [
-        "Investment Score",
+        "投資スコア",
         "上昇気配",
         "下降警戒",
-        "Data Confidence",
-        "Risk",
+        "データ信頼度",
+        "リスク確認",
     ]
     assert [card["value"] for card in cards] == ["72", "76", "38", "95", "68"]
     assert "投資魅力度ではなく" in cards[3]["help_text"]
@@ -286,5 +286,5 @@ def test_research_evidence_summary_items_explain_report_coverage():
     assert items[0]["value"] == "1件"
     assert items[1]["value"] == "1件"
     assert items[2]["value"] == "1件"
-    assert items[3]["value"] == "Medium"
+    assert items[3]["value"] == "中くらい"
     assert items[4]["value"] == "2026-05-23"

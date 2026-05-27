@@ -323,7 +323,7 @@ def test_build_rebalance_request_rejects_invalid_positions_json():
             targets_json=DEFAULT_TARGETS_JSON,
         )
 
-    assert str(exc_info.value) == "positions must be valid JSON"
+    assert str(exc_info.value) == "現在保有は有効なJSONで入力してください。"
 
 
 def test_build_rebalance_request_rejects_non_array_targets_json():
@@ -336,7 +336,7 @@ def test_build_rebalance_request_rejects_non_array_targets_json():
             targets_json='{"symbol": "AAPL"}',
         )
 
-    assert str(exc_info.value) == "targets must be a JSON array"
+    assert str(exc_info.value) == "目標配分はJSON配列で入力してください。"
 
 
 def test_runtime_settings_summary_reports_default_provider(monkeypatch):
@@ -1159,9 +1159,9 @@ def test_rebalance_cockpit_helpers_translate_flow_and_risk_breaches():
 
     assert rebalance_flow_rows(summary) == [
         {"step": "現在", "value": "58076 JPY"},
-        {"step": "目標", "value": "target allocations"},
-        {"step": "見直し候補", "value": "2 candidates"},
-        {"step": "Risk", "value": "BLOCK"},
+        {"step": "目標", "value": "目標配分"},
+        {"step": "見直し候補", "value": "2件"},
+        {"step": "リスク判定", "value": "見直し優先"},
     ]
     assert risk_breach_message("R5:min_dividend_yield:AAPL") == (
         "AAPL は配当利回りの条件を満たしていない可能性があります。"
@@ -1170,7 +1170,7 @@ def test_rebalance_cockpit_helpers_translate_flow_and_risk_breaches():
         [{"breach": "R3:max_concentration"}]
     ) == [
         {
-            "breach": "R3:max_concentration",
+            "確認事項": "R3:max_concentration",
             "確認ポイント": "1銘柄への集中度が高くなっています。目標配分を確認してください。",
         }
     ]
@@ -1225,13 +1225,13 @@ def test_build_rebalance_decision_report_context_uses_phase19_schema():
         "目標配分",
         "配分差分",
         "配分見直し候補",
-        "Risk 制約違反",
+        "リスク制約違反",
         "確認ポイント",
     ]
     assert context.sections[0].summary["risk_status"] == "BLOCK"
     assert context.sections[0].summary["positions"] == "1"
     assert "売買推奨ではありません" in markdown
-    assert "Risk 判定は BLOCK" in markdown
+    assert "リスク判定は BLOCK" in markdown
     assert '"rebalance"' in payload
     assert '"decision_report.md"' in manifest
     assert archive.startswith(b"PK")
@@ -1284,17 +1284,17 @@ def test_result_markdown_report_download_summarizes_result():
 
     payload = result_markdown_report_download(result, request=request)
 
-    assert payload.startswith("# Rebalance Check Report\n")
-    assert "- Account: acct-1" in payload
-    assert "- Risk status: BLOCK" in payload
-    assert "- Positions: 1" in payload
-    assert "## Current Positions" in payload
-    assert "| symbol | qty | currency | last | fx_rate_jpy | value_jpy |" in payload
-    assert "## Target Allocations" in payload
-    assert "| symbol | currency | target_weight |" in payload
-    assert "## Allocation Comparison" in payload
-    assert "| symbol | current_weight | target_weight | drift |" in payload
-    assert "## Rebalance Review Candidates" in payload
+    assert payload.startswith("# リバランス確認レポート\n")
+    assert "- 口座ID: acct-1" in payload
+    assert "- リスク判定: BLOCK" in payload
+    assert "- 現在保有: 1件" in payload
+    assert "## 現在の保有" in payload
+    assert "| 銘柄コード | 数量 | 通貨 | 現在値 | 為替レート(円) | 評価額(円) |" in payload
+    assert "## 目標配分" in payload
+    assert "| 銘柄コード | 通貨 | 目標比率 |" in payload
+    assert "## 配分比較" in payload
+    assert "| 銘柄コード | 現在比率 | 目標比率 | 差分 |" in payload
+    assert "## 配分見直し候補" in payload
     assert "| AAPL (Apple Inc.) | BUY |" in payload
     assert "- R5:min_dividend_yield:AAPL" in payload
 
@@ -1338,8 +1338,8 @@ def test_result_report_zip_download_contains_json_and_csv_files():
         assert '"status": "BLOCK"' in archive.read("rebalance_check_result.json").decode("utf-8")
         assert '"account_id": "acct-1"' in archive.read("rebalance_request.json").decode("utf-8")
         report_md = archive.read("rebalance_report.md").decode("utf-8")
-        assert "# Rebalance Check Report" in report_md
-        assert "- Risk status: BLOCK" in report_md
+        assert "# リバランス確認レポート" in report_md
+        assert "- リスク判定: BLOCK" in report_md
         manifest = archive.read("rebalance_report_manifest.json").decode("utf-8")
         assert '"schema_version": "rebalance-report-v1"' in manifest
         assert '"risk_status": "BLOCK"' in manifest

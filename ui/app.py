@@ -61,11 +61,13 @@ from ui.components.sidemenu import (
     render_sidemenu,
 )
 from ui.content.common_texts import (
+    EMPTY_STATE_MESSAGES,
     FORECAST_ACTUAL_LABEL,
     MARKET_DATA_PERIOD_CUSTOM,
     MARKET_DATA_PERIOD_HELP_TEXT,
     MARKET_DATA_PERIOD_PRESETS,
     NO_SYMBOL_CANDIDATE_LABEL,
+    user_facing_table_rows,
 )
 from ui.content.research_texts import (
     RESEARCH_COCKPIT_INTRO,
@@ -1185,15 +1187,22 @@ def _ranking_metric_text(row: dict[str, str], column: str) -> str:
     value = str(row.get(column, "")).strip()
     if not value:
         return ""
-    return f"{column} {value}"
+    return f"{_ranking_display_column_label(column)} {value}"
 
 
 def _ranking_first_metric(row: dict[str, str], columns: tuple[str, ...]) -> tuple[str, str]:
     for column in columns:
         value = str(row.get(column, "")).strip()
         if value and value not in {"未計算", "未登録", "未接続", "-"}:
-            return column, value
+            return _ranking_display_column_label(column), value
     return "総合スコア", str(row.get("総合スコア", "未計算"))
+
+
+def _ranking_display_column_label(column: str) -> str:
+    return {
+        "Screening": "スクリーニング",
+        "Risk": "リスク確認",
+    }.get(column, column)
 
 
 def _ranking_distinct_numeric_count(rows: list[dict[str, str]], column: str) -> int:
@@ -1279,7 +1288,7 @@ def ranking_purpose_row_checkpoint(row: dict[str, str], ranking_purpose: str) ->
     if downside is not None and downside >= Decimal("65"):
         return "下降警戒が高めです。上向き材料とあわせて短期リスクを確認します。"
     if risk is not None and risk < Decimal("50"):
-        return "Riskが低めです。値動きの荒さや下落耐性を確認します。"
+        return "リスク確認が低めです。値動きの荒さや下落耐性を確認します。"
     if data_quality is not None and data_quality < Decimal("80"):
         return "データ品質に確認余地があります。欠損や取得期間を確認します。"
     if ranking_purpose in {"etf_core_cost", "etf_income"}:
@@ -1434,7 +1443,11 @@ def ranking_result_aggrid_options(
         "経費率",
     ):
         if column in frame.columns:
-            builder.configure_column(column, width=104, filter=False)
+            header_name = {
+                "Screening": "スクリーニング",
+                "Risk": "リスク確認",
+            }.get(column, column)
+            builder.configure_column(column, width=104, filter=False, headerName=header_name)
     if "方向一致" in frame.columns:
         builder.configure_column("方向一致", width=142, headerName="モデル方向")
     if "信頼度/根拠" in frame.columns:
@@ -1758,8 +1771,8 @@ def _render_symbol_universe_detail_dialog(
         _render_symbol_detail_table(symbol_universe_data_info_rows(row))
     with tabs[tab_offset + 1]:
         _render_ranking_symbol_research_lookup(symbol)
-    with st.expander("CSV登録値（確認用）", expanded=False):
-        st.caption("CSVの列名、画面表示用の値、登録されているraw値を確認できます。")
+    with st.expander("CSV登録値を確認", expanded=False):
+        st.caption("CSVの列名、画面表示用の値、登録されている元データを確認できます。")
         st.dataframe(
             symbol_universe_detail_rows(row),
             hide_index=True,
@@ -1951,12 +1964,12 @@ def ranking_summary_cards(
             "help": "ランキング結果として表示している比較候補数です。",
         },
         {
-            "label": "平均 Investment Score",
+            "label": "平均投資スコア",
             "value": average_score,
             "help": "表示候補の総合スコア平均です。売買判断そのものではありません。",
         },
         {
-            "label": "High Confidence",
+            "label": "データ信頼度高め",
             "value": str(high_confidence_count),
             "help": "DB信頼度が75以上の候補数です。投資魅力度ではなく評価信頼度です。",
         },
@@ -2110,7 +2123,7 @@ def ranking_score_confidence_frame(display_rows: list[dict[str, str]]) -> pd.Dat
         confidence = metadata_confidence if metadata_confidence is not None else database_fit
         if score is None or confidence is None:
             continue
-        confidence_band = "High confidence" if confidence >= 75 else "Check data"
+        confidence_band = "信頼度高め" if confidence >= 75 else "データ確認"
         records.append(
             {
                 "rank": row.get("順位", ""),
@@ -2142,7 +2155,7 @@ def ranking_candidate_breakdown_rows(
         return []
     rows = [
         {
-            "観点": "Investment Score",
+            "観点": "投資スコア",
             "値": selected_row.get("総合スコア", "未計算"),
             "確認ポイント": truncate_text(
                 selected_row.get("見方", "")
@@ -2151,9 +2164,9 @@ def ranking_candidate_breakdown_rows(
             ),
         },
         {
-            "観点": "Screening",
+            "観点": "スクリーニング",
             "値": selected_row.get("Screening", "未計算"),
-            "確認ポイント": "市場データ由来の候補評価です。モメンタム、流動性、Riskの偏りを確認します。",
+            "確認ポイント": "市場データ由来の候補評価です。モメンタム、流動性、リスク確認の偏りを確認します。",
         },
         {
             "観点": "上昇気配・下降警戒",
@@ -2164,12 +2177,12 @@ def ranking_candidate_breakdown_rows(
             "確認ポイント": _ranking_direction_check(selected_row),
         },
         {
-            "観点": "Data Confidence",
+            "観点": "データ信頼度",
             "値": selected_row.get("DB信頼度") or selected_row.get("条件適合度") or "未登録",
             "確認ポイント": "銘柄メタデータと価格データの充実度です。低い場合はスコア解釈を控えめにします。",
         },
         {
-            "観点": "Risk",
+            "観点": "リスク確認",
             "値": selected_row.get("Risk", "未接続"),
             "確認ポイント": truncate_text(
                 selected_row.get("注意点", "") or "価格変動、下落幅、品質警告がないか確認します。",
@@ -2177,7 +2190,7 @@ def ranking_candidate_breakdown_rows(
             ),
         },
         {
-            "観点": "Research Evidence",
+            "観点": "根拠資料",
             "値": selected_row.get("根拠状態", RESEARCH_STATUS_INSUFFICIENT),
             "確認ポイント": truncate_text(
                 selected_row.get("根拠補足", RESEARCH_EVIDENCE_CHECK_FALLBACK),
@@ -2246,7 +2259,7 @@ def _render_ranking_summary_cards(cards: list[dict[str, str]]) -> None:
 
 
 def _render_ranking_purpose_context(ranking_purpose: str, weight_preset: str) -> None:
-    render_section_heading("Ranking Focus")
+    render_section_heading("ランキングの見方")
     st.caption(ranking_purpose_focus_summary(ranking_purpose))
     weight_items = ranking_purpose_weight_summary(ranking_purpose, limit=4)
     columns = st.columns(max(1, min(4, len(weight_items))))
@@ -2257,7 +2270,7 @@ def _render_ranking_purpose_context(ranking_purpose: str, weight_preset: str) ->
                 label,
                 value or item,
                 caption="この並べ替え条件で重視する指標",
-                badges=(badge_html("Weight", "info"),),
+                badges=(badge_html("重み", "info"),),
                 tone="info",
                 progress=metric_progress_from_value(value),
             )
@@ -2271,7 +2284,7 @@ def _render_top_screening_candidate_cards(cards: list[dict[str, str]]) -> None:
     if not cards:
         st.info("比較候補カードを表示できるランキング結果がありません。")
         return
-    render_section_heading("Top Screening Candidates")
+    render_section_heading("注目候補")
     st.caption(
         "現在の条件で抽出された深掘り候補です。売買推奨ではなく、比較対象を絞るための入口です。"
     )
@@ -2303,7 +2316,7 @@ def _ranking_candidate_card_html(card: dict[str, str], *, index: int) -> str:
         ),
         _confidence_badge(card["confidence"]),
         _research_status_badge(card["research_status"], card["research_tone"]),
-        badge_html("Caution", "caution") if card["caution"] else "",
+        badge_html("要確認", "caution") if card["caution"] else "",
     )
     badge_row = "".join(badge for badge in badges if badge)
     caption_parts = [score_line, reason]
@@ -2331,18 +2344,18 @@ def _ranking_candidate_card_html(card: dict[str, str], *, index: int) -> str:
 def _metric_badge_for_card(card: dict[str, str]) -> str:
     label = card.get("label", "")
     value = card.get("value", "")
-    if "Confidence" in label and value not in {"0", "-", "未計算"}:
-        return badge_html("Data state", "success")
+    if "信頼度" in label and value not in {"0", "-", "未計算"}:
+        return badge_html("データ", "success")
     if "ランキング" in label or "対象範囲" in label:
-        return badge_html("Context", "info")
+        return badge_html("条件", "info")
     return ""
 
 
 def _metric_card_tone(card: dict[str, str]) -> str:
     label = card.get("label", "")
-    if "Score" in label:
+    if "スコア" in label:
         return "score"
-    if "Confidence" in label:
+    if "信頼度" in label:
         return "success"
     if "ランキング" in label or "対象範囲" in label:
         return "info"
@@ -2353,7 +2366,7 @@ def _metric_card_tone(card: dict[str, str]) -> str:
 
 def _metric_card_progress(card: dict[str, str]) -> int | None:
     label = card.get("label", "")
-    if "Score" in label or "Confidence" in label:
+    if "スコア" in label or "信頼度" in label:
         return metric_progress_from_value(card.get("value"))
     return None
 
@@ -2361,10 +2374,10 @@ def _metric_card_progress(card: dict[str, str]) -> int | None:
 def _confidence_badge(value: str) -> str:
     confidence = _decimal_from_text(value)
     if confidence is not None and confidence >= Decimal("75"):
-        return badge_html("High Confidence", "success")
+        return badge_html("信頼度高め", "success")
     if confidence is not None:
-        return badge_html("Check data", "caution")
-    return badge_html("Data N/A", "neutral")
+        return badge_html("データ確認", "caution")
+    return badge_html("データ不足", "neutral")
 
 
 def _direction_badge_tone(label: str) -> str:
@@ -2389,10 +2402,10 @@ def _render_ranking_score_bar_chart(
 ) -> None:
     frame = ranking_score_bar_chart_frame(display_rows, ranking_purpose=ranking_purpose)
     metric_column = str(frame.attrs.get("metric_column", "総合スコア"))
-    render_section_heading(f"Top 10 {metric_column} Leaders")
+    render_section_heading(f"上位10件: {metric_column}")
     st.caption(
         f"並べ替え条件で重視する「{metric_column}」が高い順に比較します。"
-        "総合順位とは一致しない場合があります。銘柄名はtooltipで確認できます。"
+        "総合順位とは一致しない場合があります。銘柄名はグラフ上の補足で確認できます。"
     )
     if frame.empty:
         st.info(f"{metric_column} をグラフ化できる候補がありません。")
@@ -2404,9 +2417,9 @@ def _render_ranking_score_bar_chart(
             x=alt.X("score:Q", title=metric_column),
             y=alt.Y("label:N", sort=alt.SortField("bar_order", order="ascending"), title=None),
             tooltip=[
-                alt.Tooltip("rank:N", title="Rank"),
-                alt.Tooltip("symbol:N", title="Symbol"),
-                alt.Tooltip("name:N", title="Name"),
+                alt.Tooltip("rank:N", title="順位"),
+                alt.Tooltip("symbol:N", title="銘柄コード"),
+                alt.Tooltip("name:N", title="銘柄名"),
                 alt.Tooltip("score:Q", title=metric_column, format=".1f"),
             ],
             color=alt.value("#22d3ee"),
@@ -2418,10 +2431,8 @@ def _render_ranking_score_bar_chart(
 
 def _render_ranking_confidence_scatter(display_rows: list[dict[str, str]]) -> None:
     frame = ranking_score_confidence_frame(display_rows)
-    render_section_heading("Score x Evaluation Confidence")
-    st.caption(
-        "Investment Score は比較用スコア、Evaluation Confidence は評価に使えるデータの充実度です。"
-    )
+    render_section_heading("スコア x データ信頼度")
+    st.caption("投資スコアは比較用スコア、データ信頼度は評価に使えるデータの充実度です。")
     if frame.empty:
         st.info("スコアと評価信頼度を同時に表示できる候補がありません。")
         return
@@ -2429,29 +2440,29 @@ def _render_ranking_confidence_scatter(display_rows: list[dict[str, str]]) -> No
         alt.Chart(frame)
         .mark_circle(size=90, opacity=0.78)
         .encode(
-            x=alt.X("score:Q", title="Investment Score"),
-            y=alt.Y("confidence:Q", title="Evaluation Confidence"),
+            x=alt.X("score:Q", title="投資スコア"),
+            y=alt.Y("confidence:Q", title="データ信頼度"),
             color=alt.Color(
                 "confidence_band:N",
-                title="Data check",
+                title="データ確認",
                 scale=alt.Scale(
-                    domain=["High confidence", "Check data"],
+                    domain=["信頼度高め", "データ確認"],
                     range=["#22c55e", "#f59e0b"],
                 ),
             ),
             tooltip=[
-                alt.Tooltip("rank:N", title="Rank"),
-                alt.Tooltip("symbol:N", title="Symbol"),
-                alt.Tooltip("name:N", title="Name"),
-                alt.Tooltip("score:Q", title="Investment Score", format=".1f"),
-                alt.Tooltip("confidence:Q", title="Evaluation Confidence", format=".1f"),
-                alt.Tooltip("caution:N", title="Caution"),
+                alt.Tooltip("rank:N", title="順位"),
+                alt.Tooltip("symbol:N", title="銘柄コード"),
+                alt.Tooltip("name:N", title="銘柄名"),
+                alt.Tooltip("score:Q", title="投資スコア", format=".1f"),
+                alt.Tooltip("confidence:Q", title="データ信頼度", format=".1f"),
+                alt.Tooltip("caution:N", title="注意点"),
             ],
         )
         .properties(height=320)
     )
     st.altair_chart(style_altair_chart(chart), use_container_width=True)
-    st.caption("Evaluation Confidence は投資魅力度ではなく、データ確認のための補助指標です。")
+    st.caption("データ信頼度は投資魅力度ではなく、評価に使えるデータの充実度を示す補助指標です。")
 
 
 def _render_ranking_profile_chart(
@@ -2477,12 +2488,12 @@ def _render_ranking_profile_chart(
             st.caption(f"- {item}")
         st.caption(selection.profile.caution)
     chart_tooltips = [
-        alt.Tooltip("rank:N", title="Rank"),
-        alt.Tooltip("symbol:N", title="Symbol"),
-        alt.Tooltip("name:N", title="Name"),
+        alt.Tooltip("rank:N", title="順位"),
+        alt.Tooltip("symbol:N", title="銘柄コード"),
+        alt.Tooltip("name:N", title="銘柄名"),
         alt.Tooltip("x_value:Q", title=selection.x_column, format=".1f"),
         alt.Tooltip("y_value:Q", title=selection.y_column, format=".1f"),
-        alt.Tooltip("caution:N", title="Caution"),
+        alt.Tooltip("caution:N", title="注意点"),
     ]
     if selection.color_column:
         chart_tooltips.insert(
@@ -2570,7 +2581,7 @@ def _render_ranking_advanced_insights(
     *,
     include_confidence_map: bool,
 ) -> None:
-    with st.expander("Advanced Insights", expanded=False):
+    with st.expander("補助分析を表示", expanded=False):
         scores = ranking_score_bar_chart_frame(display_rows, limit=len(display_rows))
         confidence_frame = ranking_score_confidence_frame(display_rows)
         if scores.empty and (not include_confidence_map or confidence_frame.empty):
@@ -2582,7 +2593,7 @@ def _render_ranking_advanced_insights(
                 alt.Chart(scores)
                 .mark_bar()
                 .encode(
-                    x=alt.X("score:Q", bin=alt.Bin(maxbins=12), title="Investment Score"),
+                    x=alt.X("score:Q", bin=alt.Bin(maxbins=12), title="投資スコア"),
                     y=alt.Y("count():Q", title="候補数"),
                     tooltip=[alt.Tooltip("count():Q", title="候補数")],
                     color=alt.value("#6c7a89"),
@@ -2603,7 +2614,7 @@ def _render_ranking_result_table(
     ranking_purpose: str,
 ) -> None:
     if not display_rows:
-        st.info("No ranking rows.")
+        st.info(EMPTY_STATE_MESSAGES["ranking_rows"])
         return
     table_base_key = _ranking_result_table_base_key(ranking_source, weight_preset)
     grid_key = _ranking_result_grid_key(table_base_key)
@@ -2866,7 +2877,7 @@ def _render_ranking_filter_panel() -> None:
                 "キーワード",
                 value=_ranking_filter_value("market_data_ranking_symbol_query", ""),
                 key="market_data_ranking_symbol_query",
-                placeholder="ticker or company name",
+                placeholder="銘柄コード、会社名、テーマ",
                 help=RANKING_FILTER_HELP_TEXTS["keyword"],
             )
         with col_clear:
@@ -2881,7 +2892,7 @@ def _render_cockpit_symbol_filter_panel(
         expanded=False,
     ):
         st.caption(
-            "Symbol候補を好みの条件で絞ります。取得期間や予測計算ではなく、候補リストだけに効きます。"
+            "銘柄候補を好みの条件で絞ります。取得期間や予測計算ではなく、候補リストだけに効きます。"
         )
         col_region, col_product, col_nisa, col_clear = st.columns([1.0, 1.0, 1.0, 0.8])
         with col_region:
@@ -3188,7 +3199,7 @@ def _render_market_data_preview() -> None:
 def _render_market_data_cockpit() -> None:
     render_page_title(
         "銘柄コックピット",
-        "1銘柄の価格、予測、Investment Score、注意点を確認します。",
+        "1銘柄の価格、予測、投資スコア、注意点を確認します。",
         "cockpit",
     )
     symbol_options = symbol_universe_rows()
@@ -3200,20 +3211,20 @@ def _render_market_data_cockpit() -> None:
         provider = cast(
             str,
             st.selectbox(
-                "Provider",
+                "データ取得元",
                 MARKET_DATA_PROVIDER_OPTIONS,
                 index=_provider_option_index(default_market_data_provider()),
                 key=MARKET_DATA_PROVIDER_WIDGET_KEY,
             ),
         )
         if provider in LIVE_MARKET_DATA_PROVIDERS:
-            st.caption("Yahoo live data を取得します。")
+            st.caption("Yahooからライブデータを取得します。")
     with col_search:
         symbol_query = st.text_input(
-            "Symbol search",
+            "銘柄検索",
             value="",
             key="market_data_symbol_search",
-            placeholder="ticker or company name",
+            placeholder="銘柄コードまたは会社名",
         )
     with col_symbol:
         live_symbol_options = (
@@ -3227,7 +3238,7 @@ def _render_market_data_cockpit() -> None:
         symbol_candidate = cast(
             str,
             st.selectbox(
-                "Symbol",
+                "銘柄",
                 symbol_option_labels,
                 index=_selectbox_index(
                     symbol_option_labels,
@@ -3238,7 +3249,7 @@ def _render_market_data_cockpit() -> None:
                     ),
                 ),
                 key="market_data_symbol_candidate",
-                placeholder="ticker or company name",
+                placeholder="銘柄コードまたは会社名",
             ),
         )
     symbol = _symbol_from_candidate(symbol_candidate) or ""
@@ -3256,7 +3267,7 @@ def _render_market_data_cockpit() -> None:
             st.caption("銘柄データ未登録")
     with col_name:
         company_name = symbol_name(symbol) or _name_from_candidate(symbol_candidate) or ""
-        st.text_input("Name", value=company_name, disabled=True, key="market_data_symbol_name")
+        st.text_input("銘柄名", value=company_name, disabled=True, key="market_data_symbol_name")
     col_period, col_start, col_end, _ = st.columns([1.2, 1.0, 1.0, 3.8])
     with col_period:
         period_preset = cast(
@@ -3280,14 +3291,14 @@ def _render_market_data_cockpit() -> None:
     with col_start:
         if is_custom_period:
             start = st.date_input(
-                "Start",
+                "開始日",
                 value=default_market_data_start_date(),
                 key="market_data_start",
             )
         else:
             start = preset_start
             st.text_input(
-                "Start",
+                "開始日",
                 value=preset_start.isoformat(),
                 disabled=True,
                 key="market_data_start_preview",
@@ -3295,25 +3306,25 @@ def _render_market_data_cockpit() -> None:
     with col_end:
         if is_custom_period:
             end = st.date_input(
-                "End",
+                "終了日",
                 value=default_end,
                 key="market_data_end",
             )
         else:
             end = preset_end
             st.text_input(
-                "End",
+                "終了日",
                 value=preset_end.isoformat(),
                 disabled=True,
                 key="market_data_end_preview",
             )
 
     if st.button(
-        "選択銘柄の市場データを取得",
+        "データを取得",
         key="fetch_market_data",
         disabled=not symbol,
         type="primary",
-        help="選択した銘柄と取得期間で、価格・予測・Investment Scoreを再計算します。",
+        help="選択した銘柄と取得期間で、価格・予測・投資スコアを再計算します。",
     ):
         loading_slot = st.empty()
         try:
@@ -3356,7 +3367,7 @@ def _render_market_data_cockpit() -> None:
     if stored_preview is None:
         render_mascot_panel(
             "empty",
-            message="銘柄、取得期間、Providerを選んで市場データを取得すると、確認ポイントをまとめます。",
+            message="銘柄、取得期間、データ取得元を選んでデータを取得すると、確認ポイントをまとめます。",
             layout="compact",
         )
         return
@@ -3440,14 +3451,14 @@ def _render_market_data_ranking() -> None:
         provider = cast(
             str,
             st.selectbox(
-                "Provider",
+                "データ取得元",
                 MARKET_DATA_PROVIDER_OPTIONS,
                 index=_provider_option_index(default_market_data_provider()),
                 key=MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY,
             ),
         )
         if provider in LIVE_MARKET_DATA_PROVIDERS:
-            st.caption("Yahoo live data でランキングを作成します。")
+            st.caption("Yahooからライブデータを取得してランキングを作成します。")
     weight_preset = ranking_weight_preset_for_purpose(ranking_purpose)
     st.caption(
         f"現在の並べ替え条件: {ranking_purpose_label(ranking_purpose)} / "
@@ -3633,7 +3644,7 @@ def _render_market_data_ranking() -> None:
                 help=(
                     "候補が多い場合、外部取得前に総合マルチファクター基準で上位に絞ります。"
                     "並べ替え条件を変えても、取得済みデータは再利用して再ソートできます。"
-                    "全件取得も選べますが、Yahoo live dataでは時間がかかります。"
+                    "全件取得も選べますが、Yahooライブデータでは時間がかかります。"
                 ),
             ),
         )
@@ -3663,14 +3674,15 @@ def _render_market_data_ranking() -> None:
     with action_button_col:
         st.write("")
         build_ranking_clicked = st.button(
-            "ランキング作成",
+            "ランキングを作成",
             key="build_market_data_ranking",
+            type="primary",
         )
 
     if build_ranking_clicked:
         sync_ranking_selection_state(selection_key, selected_labels)
         if not ranking_symbols:
-            st.error("Ranking symbols を1件以上選んでください。")
+            st.error("対象の銘柄を1件以上選んでください。")
             return
         cache_key = current_ranking_source
         cached_result = get_cached_ranking_build(cache_key)
@@ -3741,7 +3753,7 @@ def _render_market_data_ranking() -> None:
             _ranking_research_statuses_for_display_rows(display_rows, as_of=end_date),
         )
         render_dashboard_header(
-            "Ranking Screening Dashboard",
+            "ランキング候補ダッシュボード",
             "比較候補と深掘り候補を整理するための画面です。買う銘柄を決める画面ではありません。",
             chips=[
                 ("並べ替え", ranking_purpose_label(ranking_purpose)),
@@ -3827,7 +3839,7 @@ def _render_market_data_ranking() -> None:
             display_rows,
             include_confidence_map=ranking_purpose != "data_confidence",
         )
-        st.markdown("#### Detailed Ranking Table")
+        st.markdown("#### 詳細テーブル")
         st.caption(
             "カードとグラフで気になる候補を絞ったあと、詳細列を確認するためのテーブルです。行をクリックすると銘柄データを確認できます。"
         )
@@ -3854,13 +3866,13 @@ def _render_market_data_ranking() -> None:
         )
         col_json, col_csv = st.columns(2)
         col_json.download_button(
-            "Download ranking JSON",
+            "ランキングJSONをダウンロード",
             data=investment_score_json_download(ranked_rows),
             file_name="investment_score_ranking.json",
             mime="application/json",
         )
         col_csv.download_button(
-            "Download ranking CSV",
+            "ランキングCSVをダウンロード",
             data=investment_score_csv_download(ranked_rows),
             file_name="investment_score_ranking.csv",
             mime="text/csv",
@@ -3871,7 +3883,7 @@ def _render_market_data_ranking() -> None:
         _render_ranking_error_rows(cast(list[dict[str, str]], error_rows))
     else:
         _clear_ranking_deep_dive_state()
-        st.info("銘柄を選んで ranking を作成してください。")
+        st.info("銘柄を選んでランキングを作成してください。")
         render_mascot_panel(
             "empty",
             title="ランキング準備",
@@ -3888,7 +3900,9 @@ def _render_ranking_error_rows(error_rows: list[dict[str, str]]) -> None:
         f"{len(error_rows)}件の銘柄は価格データを取得できなかったため、ランキングから除外しました。"
     )
     with st.expander("取得できなかった銘柄"):
-        _render_table(provider_error_summary_rows(error_rows), "No ranking errors.")
+        _render_table(
+            provider_error_summary_rows(error_rows), EMPTY_STATE_MESSAGES["ranking_errors"]
+        )
         details_rows = [
             format_provider_error_details(row)
             for row in error_rows
@@ -4351,7 +4365,7 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
 
     summary_rows = cockpit_detail_summary_rows(preview, consensus_rows, metric_rows)
     if summary_rows:
-        st.subheader("05 Confirmation Summary / 確認サマリー")
+        st.subheader("05 確認サマリー")
         st.caption(
             "詳細データのうち、深掘り前に見ておきたい代表項目を確認観点として整理しています。"
         )
@@ -4360,11 +4374,11 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
     _render_cockpit_research_summary(preview)
     _render_cockpit_decision_report(preview)
 
-    st.subheader("08 Developer / Data Details")
+    st.subheader("08 詳細データ")
     st.caption(
-        "ここから下は、Forecast、Screening、Provider取得値、Feature Snapshot を確認する詳細データです。"
+        "取得元データや計算に使った詳細情報です。通常の投資判断では、必要な場合のみ確認してください。"
     )
-    with st.expander("Developer / Data Details - Forecast", expanded=False):
+    with st.expander("予測の詳細データを表示", expanded=False):
         st.caption(
             "予測モデルごとの詳細値です。チャートで気になった点を確認するための補助データです。"
         )
@@ -4373,74 +4387,78 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
                 st.info(message)
             else:
                 st.caption(message)
-        st.subheader("Forecast Summary")
+        st.subheader("予測サマリー")
         _render_target_symbol_caption(symbol_label)
-        _render_table(forecast_consensus_display_rows(consensus_rows), "No forecast summary.")
-        st.subheader("Forecast Metrics")
+        _render_table(
+            forecast_consensus_display_rows(consensus_rows),
+            EMPTY_STATE_MESSAGES["forecast_summary"],
+        )
+        st.subheader("予測精度")
         _render_target_symbol_caption(symbol_label)
-        _render_table(forecast_metric_display_rows(metric_rows), "No forecast metrics.")
+        _render_table(
+            forecast_metric_display_rows(metric_rows),
+            EMPTY_STATE_MESSAGES["forecast_metrics"],
+        )
         if metric_rows:
             col_json, col_csv = st.columns(2)
             col_json.download_button(
-                "Download forecast JSON",
+                "予測JSONをダウンロード",
                 data=forecast_metric_json_download(metric_rows),
                 file_name="forecast_metrics.json",
                 mime="application/json",
             )
             col_csv.download_button(
-                "Download forecast CSV",
+                "予測CSVをダウンロード",
                 data=forecast_metric_csv_download(metric_rows),
                 file_name="forecast_metrics.csv",
                 mime="text/csv",
             )
 
-    with st.expander("Developer / Data Details - Screening Score", expanded=False):
+    with st.expander("スクリーニングの詳細データを表示", expanded=False):
         st.caption(
-            "Screening Score の元データです。主要KPIで気になった点を詳しく見るために使います。"
+            "スクリーニングスコアの元データです。主要KPIで気になった点を詳しく見るために使います。"
         )
         _render_target_symbol_caption(symbol_label)
-        _render_table(preview.screening_rows, "No screening score rows.")
+        _render_table(preview.screening_rows, EMPTY_STATE_MESSAGES["screening_score_rows"])
         if preview.screening_rows:
             col_json, col_csv = st.columns(2)
             col_json.download_button(
-                "Download screening JSON",
+                "スクリーニングJSONをダウンロード",
                 data=screening_score_json_download(preview.screening_rows),
                 file_name="screening_score.json",
                 mime="application/json",
             )
             col_csv.download_button(
-                "Download screening CSV",
+                "スクリーニングCSVをダウンロード",
                 data=screening_score_csv_download(preview.screening_rows),
                 file_name="screening_score.csv",
                 mime="text/csv",
             )
 
-    with st.expander("Developer / Data Details - Provider / Quote / OHLCV", expanded=False):
+    with st.expander("取得元データを表示", expanded=False):
         st.caption(
-            "Provider取得値とOHLCVの詳細です。データ鮮度や取得内容を確認したい場合に使います。"
+            "データ取得元、現在値、価格データの詳細です。データ鮮度や取得内容を確認したい場合に使います。"
         )
-        st.subheader("Provider")
+        st.subheader("データ取得元")
         _render_target_symbol_caption(symbol_label)
-        _render_table(preview.provider_rows, "No provider metadata.")
+        _render_table(preview.provider_rows, EMPTY_STATE_MESSAGES["provider_metadata"])
 
-        st.subheader("Quote")
+        st.subheader("現在値")
         _render_target_symbol_caption(symbol_label)
-        _render_table(preview.quote_rows, "No quote rows.")
+        _render_table(preview.quote_rows, EMPTY_STATE_MESSAGES["quote_rows"])
 
-        st.subheader("OHLCV Summary")
+        st.subheader("価格データ概要")
         _render_target_symbol_caption(symbol_label)
-        _render_table(preview.ohlcv_rows, "No OHLCV rows.")
+        _render_table(preview.ohlcv_rows, EMPTY_STATE_MESSAGES["ohlcv_rows"])
 
-    with st.expander("Developer / Data Details - FX / Feature Snapshot", expanded=False):
-        st.caption(
-            "FX換算やFeature Snapshotの詳細です。通常は主要KPIとチャート確認後に参照します。"
-        )
-        st.subheader("FX")
-        _render_table(preview.fx_rows, "No FX rows.")
+    with st.expander("為替・特徴量データを表示", expanded=False):
+        st.caption("為替換算や特徴量データの詳細です。通常は主要KPIとチャート確認後に参照します。")
+        st.subheader("為替")
+        _render_table(preview.fx_rows, EMPTY_STATE_MESSAGES["fx_rows"])
 
-        st.subheader("Feature Snapshot")
+        st.subheader("特徴量データ")
         _render_target_symbol_caption(symbol_label)
-        _render_table(preview.feature_rows, "No feature snapshot rows.")
+        _render_table(preview.feature_rows, EMPTY_STATE_MESSAGES["feature_snapshot_rows"])
 
     if preview.error_rows:
         st.subheader("補助データの取得警告")
@@ -4614,14 +4632,14 @@ def _research_confidence_label(
     news_report: StockNewsReport | None = None,
 ) -> str:
     if report is None:
-        return "Medium" if news_report is not None and news_report.news else "未取得"
+        return "中くらい" if news_report is not None and news_report.news else "未取得"
     if report.data_quality.evidence_count <= 0:
-        return "Low"
+        return "低め"
     if report.data_quality.status == "OK" and not report.data_quality.warnings:
-        return "High"
+        return "高め"
     if report.data_quality.status == "WARN":
-        return "Medium"
-    return "Low"
+        return "中くらい"
+    return "低め"
 
 
 def _research_evidence_csv_download(
@@ -4696,33 +4714,33 @@ def _render_research_summary_panel(
             st.caption("登録資料または検索できた根拠が少ないため、詳細は確認材料として扱います。")
         warning_rows = _research_quality_warning_rows(report)
         if warning_rows:
-            st.markdown("###### Data Quality / 注意点")
+            st.markdown("###### データ品質・注意点")
             _render_compact_dataframe(warning_rows)
         document_rows = _research_document_display_rows(report)
         if document_rows:
-            st.markdown("###### Provider / Source")
+            st.markdown("###### データ取得元・出典")
             _render_compact_dataframe(document_rows)
         grounded_rows = _research_grounded_answer_rows(report)
         if grounded_rows:
-            st.markdown("###### Grounded Answer")
+            st.markdown("###### 根拠付き回答")
             _render_compact_dataframe(grounded_rows)
         retrieval_quality_rows = _research_retrieval_quality_rows(report)
         if retrieval_quality_rows:
-            st.markdown("###### Retrieval Metadata")
+            st.markdown("###### 検索品質")
             _render_compact_dataframe(retrieval_quality_rows)
         if point_rows:
-            st.markdown("###### Topic Summary")
+            st.markdown("###### 要点サマリー")
             _render_compact_dataframe(point_rows)
         claim_rows = _research_extracted_claim_rows(report)
         if claim_rows:
-            st.markdown("###### Extracted Claims")
+            st.markdown("###### 抽出した主張")
             _render_compact_dataframe(claim_rows)
         evidence_detail_rows = _research_evidence_detail_rows(report)
         if evidence_detail_rows:
-            st.markdown("###### Evidence Raw Table")
+            st.markdown("###### 根拠資料の詳細")
             _render_compact_dataframe(evidence_detail_rows)
         if news_report is not None and news_report.news:
-            st.markdown("###### Recent News / 関連ニュース")
+            st.markdown("###### 関連ニュース")
             _render_compact_dataframe(_stock_news_detail_rows(news_report))
 
 
@@ -4790,8 +4808,8 @@ def _render_cockpit_stock_news_summary(preview: MarketDataPreview) -> None:
     symbol = _market_data_preview_symbol(preview)
     if not symbol:
         return
-    st.markdown("##### Recent News / 関連ニュース")
-    st.caption("登録済み news 資料から、URLで確認できるニュース材料だけを簡潔に表示します。")
+    st.markdown("##### 関連ニュース")
+    st.caption("登録済みニュース資料から、URLで確認できる材料だけを簡潔に表示します。")
     fetch_clicked = st.button(
         RESEARCH_NEWS_BUTTON_LABEL,
         key=f"stock_news_fetch_{_widget_key_fragment(symbol)}",
@@ -4820,7 +4838,7 @@ def _render_cockpit_stock_news_summary(preview: MarketDataPreview) -> None:
 
 
 def _render_stock_news_cards_panel(report: StockNewsReport) -> None:
-    st.markdown("##### Recent News / 関連ニュース")
+    st.markdown("##### 関連ニュース")
     st.markdown(
         _research_evidence_cards_html(_stock_news_card_rows(report)[:5]), unsafe_allow_html=True
     )
@@ -4896,7 +4914,7 @@ def _render_market_data_cockpit_header(
     reference_period = forecast_reference_period(preview.bars, horizon_days=forecast_horizon_days)
     with metadata_col:
         st.caption(
-            f"対象: {symbol_label} / Provider: {provider_name} / "
+            f"対象: {symbol_label} / データ取得元: {provider_name} / "
             f"基準日: {as_of or '未取得'} / 参照期間: {reference_period}日"
         )
     return forecast_horizon_days
@@ -4909,7 +4927,7 @@ def _render_price_forecast_hero(
     consensus_rows: list[dict[str, str]],
     metric_rows: list[dict[str, str]],
 ) -> None:
-    st.subheader("02 Price & Forecast / 価格・予測")
+    st.subheader("02 価格・予測")
     _render_target_symbol_caption(symbol_label)
     st.caption(
         "価格の流れと予測レンジを最初に確認します。予測は将来の保証ではなく、比較・確認のための参考情報です。"
@@ -4923,7 +4941,7 @@ def _render_price_forecast_hero(
     _render_market_chart(
         forecast_rows,
         currency=chart_currency,
-        title="Price & Forecast",
+        title="価格・予測",
     )
     st.caption("縦の点線は、実績価格から予測表示へ切り替わる位置です。")
 
@@ -4940,7 +4958,7 @@ def _render_investment_score_section(
         rows if rows is not None else investment_score_display_rows(preview.investment_score_rows)
     )
     if not rows:
-        st.info("No investment score rows.")
+        st.info(EMPTY_STATE_MESSAGES["investment_score_rows"])
         return None
 
     row = rows[0]
@@ -4953,9 +4971,9 @@ def _render_cockpit_direction_signal_section(
     consensus_rows: list[dict[str, str]],
 ) -> None:
     consensus_row = consensus_rows[0] if consensus_rows else {}
-    render_section_heading("03 Signal Reading / シグナル読み取り")
+    render_section_heading("03 シグナル読み取り")
     st.caption(
-        "Analysis KPI の方向シグナルを、価格チャート後の読み取りとして整理します。売買推奨ではありません。"
+        "主要KPIの方向シグナルを、価格チャート後の読み取りとして整理します。売買推奨ではありません。"
     )
     insight_tone: Literal["caution", "forecast"] = (
         "caution"
@@ -4980,7 +4998,7 @@ def _render_score_breakdown_context(
     row: dict[str, str],
     rows: list[dict[str, str]],
 ) -> None:
-    st.markdown("#### 04 Score Breakdown / 評価の内訳")
+    st.markdown("#### 04 評価の内訳")
     st.caption(
         "チャートを見たあとに、総合スコアを構成する観点を確認します。売買判断ではなく、深掘りする理由を整理するための表示です。"
     )
@@ -4999,34 +5017,34 @@ def _render_score_breakdown_context(
         st.caption(line)
     period_rows = cockpit_period_evaluation_rows(preview.bars)
     if period_rows:
-        st.subheader("Period Review / 期間別評価")
+        st.subheader("期間別評価")
         st.caption(
             "取得した期間の長さに合わせて、値動きの確認観点を整理しています。売買判断ではなく、深掘り前の整理です。"
         )
         _render_symbol_detail_table(period_rows)
     memo_rows = cockpit_investment_memo_rows(preview, row)
     if memo_rows:
-        st.subheader("Review Memo / 投資判断メモ")
+        st.subheader("投資判断メモ")
         st.caption(
             "銘柄データ、スコア、取得期間の値動きを合わせた深掘り観点です。売買推奨ではありません。"
         )
         _render_symbol_detail_table(memo_rows)
 
-    with st.expander("Investment Score details / downloads"):
+    with st.expander("投資スコアの詳細・ダウンロード"):
         st.caption(
-            "Investment Score の表示値とダウンロードです。スコア計算ロジックは既存の結果をそのまま使っています。"
+            "投資スコアの表示値とダウンロードです。スコア計算ロジックは既存の結果をそのまま使っています。"
         )
         _render_target_symbol_caption(symbol_label)
-        _render_table(rows, "No investment score rows.")
+        _render_table(rows, EMPTY_STATE_MESSAGES["investment_score_rows"])
         col_json, col_csv = st.columns(2)
         col_json.download_button(
-            "Download investment score JSON",
+            "投資スコアJSONをダウンロード",
             data=investment_score_json_download(preview.investment_score_rows),
             file_name="investment_score.json",
             mime="application/json",
         )
         col_csv.download_button(
-            "Download investment score CSV",
+            "投資スコアCSVをダウンロード",
             data=investment_score_csv_download(preview.investment_score_rows),
             file_name="investment_score.csv",
             mime="text/csv",
@@ -5166,10 +5184,10 @@ def _cockpit_screening_check(row: Mapping[str, str]) -> str:
     if liquidity is not None and liquidity >= Decimal("70"):
         checks.append("流動性は確認しやすい")
     if risk is not None and risk < Decimal("50"):
-        checks.append("Riskは確認優先")
+        checks.append("リスク確認は優先")
     if checks:
         return "、".join(checks) + "です。候補として残った理由と注意点を分けて確認します。"
-    return "候補として残った理由を、モメンタム・流動性・Riskに分けて確認します。"
+    return "候補として残った理由を、モメンタム・流動性・リスク確認に分けて確認します。"
 
 
 def _cockpit_feature_check(row: Mapping[str, str]) -> str:
@@ -5191,7 +5209,7 @@ def _cockpit_data_quality_check(row: Mapping[str, str]) -> str:
     if quality == "OK" and (completeness is None or completeness >= Decimal("95")):
         return "欠損は少なめです。スコア解釈では、次に予測評価と直近トレンドを確認します。"
     if missing and missing not in {"なし", "-", "0"}:
-        return "欠損があります。欠けている項目がForecast、Risk、Data Confidenceに影響していないか確認します。"
+        return "欠損があります。欠けている項目が予測、リスク確認、データ信頼度に影響していないか確認します。"
     return "品質警告がある場合は、詳細を展開して根拠データとproviderを確認します。"
 
 
@@ -5371,18 +5389,22 @@ def investment_score_summary_lines(row: dict[str, str]) -> list[str]:
 
 def score_component_rows(row: dict[str, str]) -> list[dict[str, str]]:
     return [
-        {"要素": "Screening", "スコア": row.get("Screening", "")},
+        {"要素": "スクリーニング", "スコア": row.get("Screening", "")},
         {"要素": "上昇気配", "スコア": row.get("上昇気配", "")},
         {"要素": "下降警戒", "スコア": row.get("下降警戒", "")},
-        {"要素": "Risk", "スコア": row.get("Risk", "")},
-        {"要素": "Data Quality", "スコア": row.get("データ品質", "")},
+        {"要素": "リスク確認", "スコア": row.get("Risk", "")},
+        {"要素": "データ品質", "スコア": row.get("データ品質", "")},
     ]
 
 
 def _render_compact_dataframe(rows: list[dict[str, str]]) -> None:
     if not rows:
         return
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    st.dataframe(
+        pd.DataFrame(user_facing_table_rows(rows)),
+        use_container_width=True,
+        hide_index=True,
+    )
 
 
 def _research_investment_point_rows(report: CompanyResearchReport) -> list[dict[str, str]]:
@@ -5403,7 +5425,7 @@ def _research_point_cards_html(rows: list[dict[str, str]]) -> str:
         return ""
     items = []
     for row in rows:
-        sentiment = row.get("sentiment", "Neutral")
+        sentiment = row.get("sentiment", "中立材料")
         tone = _research_sentiment_css_class(sentiment)
         label = row.get("観点", "")
         category = row.get("分類", "")
@@ -5467,7 +5489,7 @@ def _stock_news_card_rows(report: StockNewsReport) -> list[dict[str, str]]:
             "title": row.title,
             "summary": truncate_text(row.summary, max_chars=150),
             "investment_impact": _stock_news_investment_impact(row.sentiment_for_investment),
-            "source": row.source or "News",
+            "source": row.source or "ニュース",
             "published_at": row.published_at.isoformat() if row.published_at else "未取得",
             "confidence": row.freshness_status,
             "url": row.url,
@@ -5532,10 +5554,10 @@ def _research_topic_category_label(category: str) -> str:
 
 def _research_sentiment_for_category(category: str) -> str:
     if category in {"growth", "shareholder_return", "financial_safety"}:
-        return "Positive"
+        return "ポジティブ材料"
     if category in {"business_risk", "confirmation_gap"}:
-        return "Risk"
-    return "Neutral"
+        return "リスク材料"
+    return "中立材料"
 
 
 def _research_investment_impact(category: str) -> str:
@@ -5551,28 +5573,28 @@ def _research_investment_impact(category: str) -> str:
 
 def _research_source_type_label(source_type: str) -> str:
     labels = {
-        "annual_report": "Annual Report",
-        "earnings_report": "Earnings",
-        "earnings_presentation": "Presentation",
-        "medium_term_plan": "Medium-term Plan",
-        "integrated_report": "Integrated Report",
+        "annual_report": "有価証券報告書",
+        "earnings_report": "決算短信",
+        "earnings_presentation": "決算説明資料",
+        "medium_term_plan": "中期経営計画",
+        "integrated_report": "統合報告書",
         "tdnet": "TDnet",
-        "news": "News",
-        "provider_profile": "Provider Profile",
-        "user_note": "User Note",
+        "news": "ニュース",
+        "provider_profile": "取得元プロフィール",
+        "user_note": "ユーザーメモ",
     }
-    return labels.get(source_type, source_type or "unknown")
+    return labels.get(source_type, source_type or "未確認")
 
 
 def _stock_news_sentiment_label(sentiment: str) -> str:
     labels = {
-        "positive": "Positive",
-        "negative": "Risk",
-        "mixed": "Neutral",
-        "neutral": "Neutral",
-        "unknown": "Neutral",
+        "positive": "ポジティブ材料",
+        "negative": "リスク材料",
+        "mixed": "中立材料",
+        "neutral": "中立材料",
+        "unknown": "中立材料",
     }
-    return labels.get(sentiment, "Neutral")
+    return labels.get(sentiment, "中立材料")
 
 
 def _stock_news_viewpoint_label(viewpoint: str) -> str:
@@ -5598,9 +5620,9 @@ def _stock_news_investment_impact(sentiment: str) -> str:
 
 
 def _research_sentiment_css_class(sentiment: str) -> str:
-    if sentiment == "Positive":
+    if sentiment in {"Positive", "ポジティブ材料"}:
         return "positive"
-    if sentiment == "Risk":
+    if sentiment in {"Risk", "リスク材料"}:
         return "risk"
     return "neutral"
 
@@ -5609,7 +5631,7 @@ def _research_evidence_display_rows(report: CompanyResearchReport) -> list[dict[
     return [
         {
             "資料名": evidence.title,
-            "資料種別": evidence.source_type,
+            "資料種別": _research_source_type_label(evidence.source_type),
             "公開日": evidence.published_at.isoformat() if evidence.published_at else "",
             "セクション": evidence.section_title or "",
             "抜粋": evidence.excerpt,
@@ -5694,7 +5716,7 @@ def _research_document_display_rows(report: CompanyResearchReport) -> list[dict[
             key,
             {
                 "根拠資料名": evidence.title,
-                "資料種別": evidence.source_type,
+                "資料種別": _research_source_type_label(evidence.source_type),
                 "資料日": published_at,
                 "根拠数": "0",
             },
@@ -5708,12 +5730,12 @@ def _stock_news_display_rows(report: StockNewsReport) -> list[dict[str, str]]:
         {
             "タイトル": row.title,
             "URL": row.url,
-            "source": row.source or "unknown",
-            "published_at": row.published_at.isoformat() if row.published_at else "unknown",
-            "summary": row.summary,
-            "investment_viewpoint": row.investment_viewpoint,
-            "sentiment_for_investment": row.sentiment_for_investment,
-            "freshness_status": row.freshness_status,
+            "出典": row.source or "未確認",
+            "公開日": row.published_at.isoformat() if row.published_at else "未確認",
+            "要約": row.summary,
+            "確認観点": _stock_news_viewpoint_label(row.investment_viewpoint),
+            "材料分類": _stock_news_sentiment_label(row.sentiment_for_investment),
+            "鮮度": row.freshness_status,
         }
         for row in report.news
     ]
@@ -5751,7 +5773,7 @@ def _research_evidence_cards_html(evidence_rows: list[dict[str, str]]) -> str:
         return ""
     items = []
     for row in evidence_rows:
-        sentiment = row.get("sentiment") or row.get("Sentiment") or "Neutral"
+        sentiment = row.get("sentiment") or row.get("Sentiment") or "中立材料"
         category = row.get("category") or row.get("資料種別") or "その他"
         title = row.get("title") or row.get("資料名") or "根拠資料"
         summary = row.get("summary") or row.get("要約") or row.get("抜粋") or ""
@@ -5760,14 +5782,14 @@ def _research_evidence_cards_html(evidence_rows: list[dict[str, str]]) -> str:
             or row.get("投資判断への影響")
             or "スコアや価格予測と合わせて確認する補足材料です。"
         )
-        source = row.get("source") or row.get("資料種別") or "unknown"
+        source = row.get("source") or row.get("資料種別") or "未確認"
         published_at = row.get("published_at") or row.get("公開日") or "未取得"
         confidence = row.get("confidence") or row.get("信頼度") or ""
         detail = row.get("detail") or row.get("セクション") or ""
         url = row.get("url", "").strip()
         meta_parts = [
-            f"Source: {source}",
-            f"Date: {published_at}",
+            f"出典: {source}",
+            f"公開日: {published_at}",
             f"信頼度: {confidence}" if confidence else "",
             detail,
         ]
@@ -6038,7 +6060,7 @@ def build_ranking_decision_report_context(
             summary=_ranking_distribution_summary(ranked_rows),
             rows=_ranking_distribution_rows(ranked_rows),
             notes=[
-                "上位だけでなく、スコアの偏り、Risk、データ品質、上昇気配・下降警戒の分布を見て候補群を比較します。"
+                "上位だけでなく、スコアの偏り、リスク確認、データ品質、上昇気配・下降警戒の分布を見て候補群を比較します。"
             ],
         ),
         build_report_section(
@@ -6048,7 +6070,7 @@ def build_ranking_decision_report_context(
             as_of=end,
             rows=_ranking_factor_leader_rows(ranked_rows),
             notes=[
-                "総合順位だけでなく、Screening、上昇気配、Risk、ROE、配当利回りなど別観点の上位候補を並べます。"
+                "総合順位だけでなく、スクリーニング、上昇気配、リスク確認、ROE、配当利回りなど別観点の上位候補を並べます。"
             ],
         ),
     ]
@@ -6141,12 +6163,12 @@ def cockpit_decision_report_evidence_rows(
         {
             "根拠": "業績・財務",
             "読み取り": _cockpit_score_strength_summary(score_row, symbol_row),
-            "確認ポイント": "Screening、財務指標、データ品質を合わせて確認します。",
+            "確認ポイント": "スクリーニング、財務指標、データ品質を合わせて確認します。",
         },
         {
             "根拠": "ニュース",
             "読み取り": news_reading,
-            "確認ポイント": f"Research Evidence の根拠 {research_count}件と重ねて確認します。",
+            "確認ポイント": f"根拠資料 {research_count}件と重ねて確認します。",
         },
         {
             "根拠": "リスク",
@@ -6178,12 +6200,12 @@ def _cockpit_overall_judgement(score_row: dict[str, str]) -> str:
 def _cockpit_report_confidence(score_row: dict[str, str]) -> str:
     data_quality = _decimal_from_text(score_row.get("データ品質"))
     if data_quality is None:
-        return "Low"
+        return "低め"
     if data_quality >= Decimal("90"):
-        return "High"
+        return "高め"
     if data_quality >= Decimal("70"):
-        return "Medium"
-    return "Low"
+        return "中くらい"
+    return "低め"
 
 
 def _cockpit_investment_stance(
@@ -6233,7 +6255,7 @@ def _decision_report_overview_card_html(overview: dict[str, str]) -> str:
     fields = [
         ("総合判断", overview.get("overall_judgement", "未判定")),
         ("スコア", f"{overview.get('total_score', '未計算')} / 100"),
-        ("信頼度", overview.get("confidence", "Low")),
+        ("信頼度", overview.get("confidence", "低め")),
         ("投資スタンス", overview.get("investment_stance", "様子見 / 追加根拠確認")),
         ("注意材料", overview.get("key_risks", "価格トレンド・外部環境")),
     ]
@@ -6273,7 +6295,7 @@ def _render_cockpit_decision_report_sections(
 ) -> None:
     st.markdown("#### 詳細レポート")
     with st.container(border=True):
-        st.markdown("##### 1. Executive Summary")
+        st.markdown("##### 1. 要約")
         st.markdown(
             _decision_summary_list_html(
                 cockpit_decision_report_summary_lines(preview, research_report)
@@ -6324,7 +6346,7 @@ def _render_cockpit_decision_report_sections(
     with st.expander("7. リスク", expanded=True):
         _render_symbol_detail_table(_cockpit_risk_report_rows(score_row, symbol_row, preview.bars))
 
-    with st.expander("8. Research Evidence / 根拠資料との対応", expanded=False):
+    with st.expander("8. 根拠資料との対応", expanded=False):
         _render_symbol_detail_table(
             cockpit_decision_report_evidence_rows(
                 preview,
@@ -6466,7 +6488,7 @@ def _render_cockpit_decision_report(preview: MarketDataPreview) -> None:
     st.markdown(_decision_report_overview_card_html(overview), unsafe_allow_html=True)
 
     summary_lines = cockpit_decision_report_summary_lines(preview, research_report)
-    st.markdown("#### AI Summary")
+    st.markdown("#### AI要約")
     st.markdown(_decision_summary_list_html(summary_lines), unsafe_allow_html=True)
 
     evidence_rows = cockpit_decision_report_evidence_rows(
@@ -6615,7 +6637,7 @@ def _render_decision_report_downloads(
         heading_prefix=None,
     )
     with st.expander("レポート本文を表示", expanded=False):
-        preview_tab, raw_tab = st.tabs(["Preview", "Raw Markdown"])
+        preview_tab, raw_tab = st.tabs(["読みやすい表示", "Markdown本文"])
         with preview_tab:
             with st.container(border=True):
                 st.markdown(markdown)
@@ -6633,22 +6655,22 @@ def _render_decision_report_download_buttons(
 ) -> None:
     markdown = decision_report_markdown_download(context)
     heading = f"{heading_prefix} {expander_label}" if heading_prefix else expander_label
-    st.markdown(f"#### Export / {heading}")
+    st.markdown(f"#### ダウンロード / {heading}")
     col_markdown, col_json, col_manifest, col_zip = st.columns(4)
     col_markdown.download_button(
-        "Markdown",
+        "Markdownをダウンロード",
         data=markdown,
         file_name=markdown_file_name,
         mime="text/markdown",
     )
     col_json.download_button(
-        "JSON",
+        "JSONをダウンロード",
         data=decision_report_json_download(context),
         file_name=json_file_name,
         mime="application/json",
     )
     col_manifest.download_button(
-        "manifest",
+        "manifestをダウンロード",
         data=decision_report_manifest_json_download(context),
         file_name="decision_report_manifest.json",
         mime="application/json",
@@ -6689,7 +6711,7 @@ def _investment_score_report_section(
             "reasons": row.get("reasons", ""),
         },
         rows=[
-            {"component": "Screening", "score": row.get("screening_score", "")},
+            {"component": "スクリーニング", "score": row.get("screening_score", "")},
             {
                 "component": "上昇気配",
                 "score": row.get("upside_signal_score", ""),
@@ -6699,7 +6721,7 @@ def _investment_score_report_section(
                 "score": row.get("downside_signal_score", ""),
             },
             {"component": "データ品質", "score": row.get("data_quality_score", "")},
-            {"component": "Risk", "score": row.get("risk_signal_score", "")},
+            {"component": "リスク確認", "score": row.get("risk_signal_score", "")},
         ],
     )
 
@@ -6925,11 +6947,11 @@ def _ranking_distribution_summary(rows: list[dict[str, str]]) -> dict[str, str]:
         "1位スコア": _format_report_decimal(top_score),
         "20位スコア": _format_report_decimal(twentieth_score),
         "上位20件の平均総合スコア": _average_ranking_metric(rows[:20], "total_score"),
-        "平均Screening": _average_ranking_metric(rows, "screening_score"),
+        "平均スクリーニング": _average_ranking_metric(rows, "screening_score"),
         "平均上昇気配": _average_ranking_metric(rows, "upside_signal_score"),
         "平均下降警戒": _average_ranking_metric(rows, "downside_signal_score"),
         "平均データ品質": _average_ranking_metric(rows, "data_quality_score"),
-        "平均Risk": _average_ranking_metric(rows, "risk_signal_score"),
+        "平均リスク確認": _average_ranking_metric(rows, "risk_signal_score"),
     }
 
 
@@ -6956,7 +6978,7 @@ def _ranking_distribution_rows(rows: list[dict[str, str]]) -> list[dict[str, str
             "読み方": "比較に使えるデータが十分な候補の多さを確認します。",
         },
         {
-            "観点": "Risk 50未満",
+            "観点": "リスク確認 50未満",
             "件数": str(_count_rows_below(rows, "risk_signal_score", Decimal("50"))),
             "読み方": "上位候補内でも先に警戒すべき銘柄数を確認します。",
         },
@@ -6972,11 +6994,11 @@ def _ranking_factor_leader_rows(rows: list[dict[str, str]]) -> list[dict[str, st
     leaders: list[dict[str, str]] = []
     for label, metric, prefer_low in [
         ("総合スコア", "total_score", False),
-        ("Screening", "screening_score", False),
+        ("スクリーニング", "screening_score", False),
         ("上昇気配", "upside_signal_score", False),
         ("下降警戒", "downside_signal_score", True),
         ("データ品質", "data_quality_score", False),
-        ("Risk", "risk_signal_score", False),
+        ("リスク確認", "risk_signal_score", False),
     ]:
         row = _best_ranking_row_by_metric(rows, metric, prefer_low=prefer_low)
         if row is not None:
@@ -7033,13 +7055,13 @@ def _ranking_group_checkpoints(
             "finding": (
                 f"平均上昇気配は{_average_ranking_metric(rows, 'upside_signal_score')}、"
                 f"平均下降警戒は{_average_ranking_metric(rows, 'downside_signal_score')}、"
-                f"平均Riskは{_average_ranking_metric(rows, 'risk_signal_score')}です。"
+                f"平均リスク確認は{_average_ranking_metric(rows, 'risk_signal_score')}です。"
             ),
             "confirmation_point": "スコアの高さが一部要素だけに偏っていないか確認します。",
         },
         {
             "area": "ファクター",
-            "finding": "総合順位とは別に、Screening、上昇気配、Risk、ROE、配当利回りの上位候補を抽出しています。",
+            "finding": "総合順位とは別に、スクリーニング、上昇気配、リスク確認、ROE、配当利回りの上位候補を抽出しています。",
             "confirmation_point": "投資目的に近いファクターの候補から深掘り順を決めます。",
         },
         {
@@ -7227,7 +7249,7 @@ def _ranking_report_review_point(
         return f"注意点: {warning}。スコアの強さより先に警告内容を確認します。"
     risk = _decimal_from_text(row.get("risk_signal_score"))
     if risk is not None and risk < Decimal("50"):
-        return "Risk が低めです。値動き、下落耐性、ポジションサイズを先に確認します。"
+        return "リスク確認が低めです。値動き、下落耐性、ポジションサイズを先に確認します。"
     downside = _decimal_from_text(row.get("downside_signal_score"))
     if downside is not None and downside >= Decimal("65"):
         return "下降警戒が強めです。下向きシグナルと直近トレンドを先に確認します。"
@@ -7472,7 +7494,7 @@ def _render_market_chart(
     title: str = "",
 ) -> None:
     if not rows:
-        st.info("No chart rows.")
+        st.info(EMPTY_STATE_MESSAGES["chart_rows"])
         return
     y_axis_title = f"終値 ({currency})" if currency else "終値"
     chart_data = market_chart_long_frame(rows)
@@ -7640,7 +7662,7 @@ def _render_market_chart(
 def _render_provider_error_summary(rows: list[dict[str, str]]) -> None:
     if not rows:
         st.warning(
-            "Provider から詳細なエラー情報が返りませんでした。設定、銘柄、取得期間を確認してください。"
+            "データ取得元から詳細なエラー情報が返りませんでした。設定、銘柄、取得期間を確認してください。"
         )
         return
 
@@ -7672,9 +7694,9 @@ def _provider_error_summary_row(row: dict[str, str]) -> dict[str, str]:
 
     return {
         "コード": row.get("code", "ERROR"),
-        "Provider": provider or "-",
-        "Symbol": symbol or "-",
-        "内容": row.get("message", "Provider request failed"),
+        "データ取得元": provider or "-",
+        "銘柄コード": symbol or "-",
+        "内容": row.get("message", "データ取得に失敗しました。"),
         "次の確認": _provider_error_next_action(provider, details, request),
     }
 
@@ -7705,7 +7727,7 @@ def _provider_error_next_action(
     request: dict[str, object],
 ) -> str:
     request_error = str(request.get("error", ""))
-    provider_label = provider or "外部 provider"
+    provider_label = provider or "外部データ取得元"
 
     if "curl: (28)" in request_error or "Resolving timed out" in request_error:
         return (
@@ -7720,10 +7742,10 @@ def _provider_error_next_action(
         )
     if details.get("requires_external_opt_in") or provider in {"yahoo", "polygon"}:
         return (
-            f"{provider_label} は live provider です。"
+            f"{provider_label} はライブ取得元です。"
             "銘柄コード、取得期間、Yahoo 側の提供状況を確認し、必要に応じて再実行してください。"
         )
-    return "Provider 設定、銘柄、取得期間を確認して再実行してください。"
+    return "データ取得元の設定、銘柄、取得期間を確認して再実行してください。"
 
 
 def format_provider_error_details(row: dict[str, str]) -> str:
@@ -7927,7 +7949,7 @@ def _ranking_strength_phrases(
     if (_decimal_from_text(row.get("screening_score")) or Decimal("0")) >= Decimal("80"):
         strengths.append("スクリーニング")
     if (_decimal_from_text(row.get("risk_signal_score")) or Decimal("0")) >= Decimal("70"):
-        strengths.append("Risk")
+        strengths.append("リスク確認")
     if symbol_row and (_decimal_from_text(symbol_row.get("roe_pct")) or Decimal("0")) >= Decimal(
         "20"
     ):
@@ -8012,7 +8034,7 @@ def ranking_investment_detail_rows(
         f"上昇{ranking_row.get('上昇気配', '未計算')} / "
         f"下降警戒{ranking_row.get('下降警戒', '未計算')} / "
         f"品質{ranking_row.get('データ品質', '未計算')} / "
-        f"Risk{ranking_row.get('Risk', '未接続')}"
+        f"リスク確認{ranking_row.get('Risk', '未接続')}"
     )
     valuation = (
         f"PER {symbol_universe_detail_display_value(symbol_row, 'per')}、"

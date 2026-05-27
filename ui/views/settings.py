@@ -5,6 +5,7 @@ from datetime import date
 import streamlit as st
 
 from backend.research import ResearchDocumentError
+from ui.content.common_texts import user_facing_table_rows
 from ui.rebalance_app import runtime_settings_summary, symbol_reference_rows
 from ui.research_state import (
     register_uploaded_research_document,
@@ -16,6 +17,17 @@ from ui.symbol_universe import (
     symbol_universe_csv_validation_issues,
 )
 
+RESEARCH_SOURCE_TYPE_LABELS = {
+    "user_note": "ユーザーメモ",
+    "earnings_report": "決算短信",
+    "earnings_presentation": "決算説明資料",
+    "annual_report": "有価証券報告書",
+    "medium_term_plan": "中期経営計画",
+    "integrated_report": "統合報告書",
+    "tdnet": "TDnet",
+    "news": "ニュース",
+}
+
 
 def render_settings_page() -> None:
     """Render runtime and local data reference information."""
@@ -25,17 +37,21 @@ def render_settings_page() -> None:
 
     settings = runtime_settings_summary()
     col_provider, col_config, col_scenarios = st.columns([1.0, 1.2, 2.0])
-    col_provider.metric("Provider", settings["provider"])
-    col_config.write("Config")
+    col_provider.metric("データ取得元", settings["provider"])
+    col_config.write("設定ファイル")
     col_config.code(settings["config_file"], language=None)
-    col_scenarios.write("Scenario directory")
+    col_scenarios.write("シナリオ保存先")
     col_scenarios.code(settings["scenario_dir"], language=None)
     if settings["provider"] == "csv":
-        st.write("CSV data")
+        st.write("CSVデータ")
         st.code(settings["csv_data_dir"], language=None)
 
     with st.expander("サンプル銘柄", expanded=True):
-        st.dataframe(symbol_reference_rows(), hide_index=True, use_container_width=True)
+        st.dataframe(
+            user_facing_table_rows(symbol_reference_rows()),
+            hide_index=True,
+            use_container_width=True,
+        )
 
     with st.expander("ランキング銘柄候補", expanded=False):
         metadata_summary = symbol_universe_csv_metadata_summary()
@@ -46,36 +62,36 @@ def render_settings_page() -> None:
         col_period.metric("基準日", metadata_summary["metadata_period"])
         col_status.metric("形式確認", metadata_summary["validation_summary"])
         st.caption(
-            "metadata未設定: "
+            "取得元情報未設定: "
             f"{metadata_summary['missing_metadata_count']}件 / "
-            f"古いmetadata: {metadata_summary['stale_metadata_count']}件"
+            f"古い取得元情報: {metadata_summary['stale_metadata_count']}件"
         )
         if validation_issues:
             st.warning("銘柄候補CSVに確認が必要な行があります。")
-            st.dataframe(validation_issues, hide_index=True, use_container_width=True)
+            st.dataframe(
+                user_facing_table_rows(validation_issues),
+                hide_index=True,
+                use_container_width=True,
+            )
         else:
             st.caption("銘柄候補CSVの形式確認: OK")
-        st.dataframe(symbol_universe_csv_rows(), hide_index=True, use_container_width=True)
+        st.dataframe(
+            user_facing_table_rows(symbol_universe_csv_rows()),
+            hide_index=True,
+            use_container_width=True,
+        )
 
-    with st.expander("Research RAG / 根拠資料", expanded=False):
+    with st.expander("AI調査 / 根拠資料", expanded=False):
         st.caption(
-            "ローカル資料を登録し、銘柄コックピットとDecision Reportで根拠表示に使います。"
+            "ローカル資料を登録し、銘柄コックピットと投資判断レポートで根拠表示に使います。"
             "Phase 20ではUTF-8のMarkdown/Text/CSVを対象にします。"
         )
         symbol = st.text_input("銘柄コード", key="research_upload_symbol", placeholder="7203.T")
         title = st.text_input("資料タイトル", key="research_upload_title")
         source_type = st.selectbox(
             "資料種別",
-            [
-                "user_note",
-                "earnings_report",
-                "earnings_presentation",
-                "annual_report",
-                "medium_term_plan",
-                "integrated_report",
-                "tdnet",
-                "news",
-            ],
+            list(RESEARCH_SOURCE_TYPE_LABELS),
+            format_func=lambda value: RESEARCH_SOURCE_TYPE_LABELS.get(value, value),
             key="research_upload_source_type",
         )
         published_at = st.date_input(
@@ -88,7 +104,7 @@ def render_settings_page() -> None:
             type=["md", "txt", "csv"],
             key="research_upload_file",
         )
-        if st.button("Research資料を登録", key="research_upload_register"):
+        if st.button("根拠資料を登録", key="research_upload_register", type="primary"):
             if not symbol.strip() or not title.strip() or uploaded_file is None:
                 st.warning("銘柄コード、資料タイトル、資料ファイルを指定してください。")
             else:
@@ -102,12 +118,16 @@ def render_settings_page() -> None:
                         published_at=published_at if isinstance(published_at, date) else None,
                     )
                 except (ResearchDocumentError, UnicodeDecodeError) as exc:
-                    st.error(f"Research資料を登録できませんでした: {exc}")
+                    st.error(f"根拠資料を登録できませんでした: {exc}")
                 else:
-                    st.success(f"登録しました: {document_id} / chunks: {chunk_count}")
+                    st.success(f"登録しました: {document_id} / チャンク数: {chunk_count}")
 
         rows = research_document_summary_rows()
         if rows:
-            st.dataframe(rows, hide_index=True, use_container_width=True)
+            st.dataframe(
+                user_facing_table_rows(rows),
+                hide_index=True,
+                use_container_width=True,
+            )
         else:
-            st.info("登録済みResearch資料はまだありません。")
+            st.info("登録済みの根拠資料はまだありません。")

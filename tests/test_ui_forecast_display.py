@@ -678,12 +678,12 @@ def test_stock_news_display_rows_keep_traceable_news_fields():
         {
             "タイトル": "7203 raises guidance",
             "URL": "https://example.com/7203",
-            "source": "Example News",
-            "published_at": "2026-05-24",
-            "summary": "Guidance was raised after revenue growth.",
-            "investment_viewpoint": "earnings",
-            "sentiment_for_investment": "positive",
-            "freshness_status": "latest",
+            "出典": "Example News",
+            "公開日": "2026-05-24",
+            "要約": "Guidance was raised after revenue growth.",
+            "確認観点": "業績",
+            "材料分類": "ポジティブ材料",
+            "鮮度": "latest",
         }
     ]
     assert "https://example.com/7203" in markup
@@ -894,10 +894,10 @@ def test_research_evidence_card_rows_merge_news_and_local_evidence_for_cards():
     rows = _research_evidence_card_rows(report, news_report=news_report, limit=None)
     markup = _research_evidence_cards_html(rows)
 
-    assert rows[0]["sentiment"] == "Risk"
+    assert rows[0]["sentiment"] == "リスク材料"
     assert rows[0]["category"] == "リスク材料"
     assert rows[0]["url"] == "https://example.com/risk"
-    assert rows[1]["sentiment"] == "Positive"
+    assert rows[1]["sentiment"] == "ポジティブ材料"
     assert rows[1]["category"] == "事業成長"
     assert "記事を開く" in markup
     assert "投資判断への影響" in markup
@@ -3009,7 +3009,7 @@ def test_ranking_visualization_frames_skip_missing_scores():
     assert score_frame["score"].tolist() == [82.5]
     assert score_frame.attrs["metric_column"] == "総合スコア"
     assert confidence_frame["symbol"].tolist() == ["7203.T"]
-    assert confidence_frame["confidence_band"].tolist() == ["High confidence"]
+    assert confidence_frame["confidence_band"].tolist() == ["信頼度高め"]
 
 
 def test_ranking_score_bar_chart_frame_uses_purpose_metric():
@@ -3116,12 +3116,12 @@ def test_ranking_candidate_cards_and_breakdown_use_existing_display_values():
     assert "Toyota Motor" in card_html
     assert "総合スコア 82" in card_html
     assert [row["観点"] for row in breakdown] == [
-        "Investment Score",
-        "Screening",
+        "投資スコア",
+        "スクリーニング",
         "上昇気配・下降警戒",
-        "Data Confidence",
-        "Risk",
-        "Research Evidence",
+        "データ信頼度",
+        "リスク確認",
+        "根拠資料",
     ]
     assert breakdown[2]["値"] == "上昇気配 76 / 下降警戒 42"
     assert breakdown[3]["確認ポイント"] == (
@@ -3455,11 +3455,11 @@ def test_score_component_rows_builds_cockpit_breakdown():
             "データ品質": "100",
         }
     ) == [
-        {"要素": "Screening", "スコア": "80"},
+        {"要素": "スクリーニング", "スコア": "80"},
         {"要素": "上昇気配", "スコア": "68"},
         {"要素": "下降警戒", "スコア": "42"},
-        {"要素": "Risk", "スコア": "70"},
-        {"要素": "Data Quality", "スコア": "100"},
+        {"要素": "リスク確認", "スコア": "70"},
+        {"要素": "データ品質", "スコア": "100"},
     ]
 
 
@@ -3735,7 +3735,7 @@ def test_cockpit_decision_report_helpers_build_structured_summary(monkeypatch):
 
     assert overview["symbol"] == "6857.T"
     assert overview["overall_judgement"] == "中立〜やや前向き"
-    assert overview["confidence"] == "High"
+    assert overview["confidence"] == "高め"
     assert len(lines) == 3
     assert "根拠資料は未取得" in lines[2]
     assert [row["根拠"] for row in evidence_rows] == [
@@ -4354,8 +4354,8 @@ def test_provider_error_summary_rows_explain_yahoo_dns_timeout():
     assert provider_error_summary_rows([row]) == [
         {
             "コード": "APP-2003",
-            "Provider": "yahoo",
-            "Symbol": "9983.T",
+            "データ取得元": "yahoo",
+            "銘柄コード": "9983.T",
             "内容": "Yahoo market-data provider request failed",
             "次の確認": (
                 "yahoo への外部通信がタイムアウトしています。"
@@ -4383,8 +4383,8 @@ def test_provider_error_summary_rows_explain_ranking_no_bars():
     assert provider_error_summary_rows([row]) == [
         {
             "コード": "RANKING-NO-BARS",
-            "Provider": "yahoo",
-            "Symbol": "9613.T",
+            "データ取得元": "yahoo",
+            "銘柄コード": "9613.T",
             "内容": "価格データを取得できなかったため、ランキングから除外しました。",
             "次の確認": (
                 "価格データが返っていないため、ランキングから除外しています。"

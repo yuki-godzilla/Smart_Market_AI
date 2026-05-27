@@ -5,6 +5,8 @@ from decimal import Decimal, InvalidOperation
 
 import streamlit as st
 
+from ui.content.common_texts import user_facing_table_rows
+
 
 def _single_date_from_input(value: object) -> date:
     if isinstance(value, date):
@@ -27,6 +29,6 @@ def _optional_decimal_from_text(value: str) -> Decimal | None:
 
 def _render_table(rows: list[dict[str, str]], empty_message: str) -> None:
     if rows:
-        st.dataframe(rows, hide_index=True, use_container_width=True)
+        st.dataframe(user_facing_table_rows(rows), hide_index=True, use_container_width=True)
     else:
         st.info(empty_message)

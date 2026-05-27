@@ -34,9 +34,9 @@ SYMBOL_UNIVERSE_DETAIL_LABELS = {
     "tags": "タグ",
     "aliases": "別名",
     "yahoo_symbol": "Yahoo取得用symbol",
-    "metadata_source": "metadata source",
-    "metadata_as_of": "metadata as of",
-    "metadata_updated_at": "metadata updated at",
+    "metadata_source": "取得元情報",
+    "metadata_as_of": "取得元情報の基準日",
+    "metadata_updated_at": "取得元情報の更新日時",
 }
 
 SYMBOL_UNIVERSE_DISPLAY_LABELS = {

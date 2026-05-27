@@ -203,14 +203,14 @@ RANKING_DETAIL_FILTER_LABELS = {
     "complexity": "複雑さ",
 }
 RANKING_SCORE_FIELD_LABELS = {
-    "screening_score": "Screening",
+    "screening_score": "スクリーニング",
     "upside_signal_score": "上昇気配",
     "downside_signal_score": "下降警戒控えめ",
     "data_quality_score": "データ品質",
-    "risk_signal_score": "Risk",
+    "risk_signal_score": "リスク確認",
     "database_fit_score": "条件適合度",
     "metadata_confidence_score": "DB信頼度",
-    "research_score": "Research",
+    "research_score": "根拠資料",
 }
 
 RANKING_FILTER_HELP_TEXTS = {
@@ -271,49 +271,49 @@ RANKING_FILTER_HELP_TEXTS = {
     "period": (
         "ランキング計算に使う価格データの期間です。標準は3か月で、20日/60日系の予測材料を見やすくします。"
         "1か月は直近反応、6か月は中期トレンド、1年は大きな上下動を含めた安定性の確認に使います。"
-        "候補の絞り込み条件ではなく、スコア・Risk・上昇気配・下降警戒の見え方に影響します。"
+        "候補の絞り込み条件ではなく、スコア・リスク確認・上昇気配・下降警戒の見え方に影響します。"
     ),
 }
 
 RANKING_PURPOSE_HELP_TEXTS = {
     "multi_factor": (
-        "Screening、上昇気配・下降警戒、Risk、Data Quality、条件適合度をバランスよく見ます。"
+        "スクリーニング、上昇気配・下降警戒、リスク確認、データ品質、条件適合度をバランスよく見ます。"
         "特定テーマに寄せず、まず深掘り候補を広く並べたい時の基準です。"
     ),
     "quality_growth": (
-        "ROE、上昇気配、Screening、Data Qualityを重視します。"
+        "ROE、上昇気配、スクリーニング、データ品質を重視します。"
         "高PER/PBRは単純減点ではなく、成長期待と価格水準の釣り合いを確認する材料として扱います。"
     ),
     "quality_value": (
-        "PER/PBRの低さだけでなく、ROE、Data Quality、Riskも合わせて見ます。"
+        "PER/PBRの低さだけでなく、ROE、データ品質、リスク確認も合わせて見ます。"
         "割安に見える理由が業績不安やデータ不足ではないかを確認するための並べ替えです。"
     ),
     "sustainable_income": (
-        "配当利回り、配当カテゴリ、Risk、PBR、Data Qualityを重視します。"
+        "配当利回り、配当カテゴリ、リスク確認、PBR、データ品質を重視します。"
         "極端な高配当は魅力だけでなく、減配リスクの確認対象として扱います。"
     ),
     "min_volatility": (
-        "Risk signal、β分類、Data Quality、銘柄規模を重視します。"
+        "リスク確認、β分類、データ品質、銘柄規模を重視します。"
         "上昇率よりも値動きの落ち着きと確認しやすさを優先する基準です。"
     ),
     "momentum": (
-        "取得期間の価格評価、上昇気配・下降警戒、Screeningを重視します。"
-        "上昇基調でもRiskが強い候補は確認対象として扱い、追随リスクを見落としにくくします。"
+        "取得期間の価格評価、上昇気配・下降警戒、スクリーニングを重視します。"
+        "上昇基調でもリスク確認が強い候補は確認対象として扱い、追随リスクを見落としにくくします。"
     ),
     "risk_adjusted": (
-        "リターンだけでなくRisk signal、Data Quality、条件適合度を合わせて見ます。"
+        "リターンだけでなくリスク確認、データ品質、条件適合度を合わせて見ます。"
         "同じ上昇でも、値動きの荒さに対して見合うかを確認するための基準です。"
     ),
     "small_growth": (
-        "小型・中型の成長余地、ROE、Screening、上昇気配を重視します。"
-        "変動率や流動性の不確実性が出やすいため、RiskとDB信頼度も確認します。"
+        "小型・中型の成長余地、ROE、スクリーニング、上昇気配を重視します。"
+        "変動率や流動性の不確実性が出やすいため、リスク確認とDB信頼度も確認します。"
     ),
     "nisa_long_term": (
-        "NISA適合、投資スタイル、Risk、Data Quality、ROEを重視します。"
+        "NISA適合、投資スタイル、リスク確認、データ品質、ROEを重視します。"
         "長期保有候補として、制度適合と事業品質を一緒に確認する基準です。"
     ),
     "data_confidence": (
-        "metadata source、更新日、Data Quality、欠損の少なさを最優先します。"
+        "取得元情報、更新日、データ品質、欠損の少なさを最優先します。"
         "判断前に、まず根拠がそろった銘柄から確認したい時に使います。"
     ),
     "etf_core_cost": (
@@ -321,7 +321,7 @@ RANKING_PURPOSE_HELP_TEXTS = {
         "長期保有の土台になりやすいETF候補を整理する基準です。"
     ),
     "etf_income": (
-        "ETFの利回り、経費率、指数、通貨、複雑性、Data Qualityを重視します。"
+        "ETFの利回り、経費率、指数、通貨、複雑性、データ品質を重視します。"
         "インカム候補でもコストと分散性を同時に確認します。"
     ),
     "dividend": (
@@ -337,7 +337,7 @@ RANKING_PURPOSE_HELP_TEXTS = {
         "割安の質まで確認する場合は「割安クオリティ」を使います。"
     ),
     "stability": (
-        "旧来の安定重視です。RiskとData Qualityを中心に比較します。"
+        "旧来の安定重視です。リスク確認とデータ品質を中心に比較します。"
         "より低変動に寄せる場合は「低ボラ・安定」を使います。"
     ),
     "trend": (
@@ -345,7 +345,7 @@ RANKING_PURPOSE_HELP_TEXTS = {
         "外部ファクターのMomentumに近い見方は「モメンタム・トレンド」を使います。"
     ),
     "upside_signal": (
-        "上昇気配、下向きシグナルの低さ、Screening、Data Qualityを重視します。"
+        "上昇気配、下向きシグナルの低さ、スクリーニング、データ品質を重視します。"
         "売買の指示ではなく、短期的に深掘りする候補を整理するための基準です。"
     ),
 }
@@ -353,167 +353,166 @@ RANKING_PURPOSE_HELP_TEXTS = {
 
 RANKING_CHART_PROFILE_TEXTS: dict[str, RankingChartProfileText] = {
     "score_risk": {
-        "title": "Score x Risk Map",
+        "title": "スコア x リスク確認",
         "description": "スコアが高い候補の中で、リスクもあわせて確認できます。高スコアでもリスクが高い場合は、詳細確認に進むと安心です。",
         "how_to_read": (
-            "High score / Low risk: 深掘り優先候補",
-            "High score / High risk: 魅力はあるが注意して確認",
-            "Low score / Low risk: 安定だが魅力度は低め",
-            "Low score / High risk: 優先度低め",
+            "スコア高め / リスク低め: 深掘り優先候補",
+            "スコア高め / リスク高め: 強みはあるが注意して確認",
+            "スコア低め / リスク低め: 安定性中心で確認",
+            "スコア低め / リスク高め: 優先度低め",
         ),
     },
     "screening_risk": {
-        "title": "Screening x Risk Map",
-        "description": "方向データが不足する場合でも、価格・出来高・モメンタム由来のScreeningとRiskを分けて確認できます。",
+        "title": "スクリーニング x リスク確認",
+        "description": "方向データが不足する場合でも、価格・出来高・モメンタム由来のスクリーニングとリスク確認を分けて確認できます。",
         "how_to_read": (
-            "High screening / High risk score: " "足元条件が強く、リスク面も比較しやすい候補",
-            "High screening / Low risk score: 足元条件は強いが、値動きや下落耐性を確認",
-            "Low screening / High risk score: 安定性はあるが、足元条件は弱め",
-            "Low screening / Low risk score: 優先度低め、またはデータ確認候補",
+            "スクリーニング高め / リスク確認高め: 足元条件が強く、リスク面も比較しやすい候補",
+            "スクリーニング高め / リスク確認低め: 足元条件は強いが、値動きや下落耐性を確認",
+            "スクリーニング低め / リスク確認高め: 安定性はあるが、足元条件は弱め",
+            "スクリーニング低め / リスク確認低め: 優先度低め、またはデータ確認候補",
         ),
     },
     "score_forecast": {
-        "title": "Score x Upside Signal Map",
+        "title": "スコア x 上昇気配",
         "description": "スコアが高い候補について、上昇気配と下降警戒を分けて確認できます。",
         "how_to_read": (
-            "High score / High upside: 上向きシグナルがある深掘り候補",
-            "High score / Low upside: 下降警戒や上向き材料の弱さを確認",
-            "Low score / High upside: 上向き材料はあるが総合点は低め",
-            "Low score / Low upside: 優先度低め",
+            "スコア高め / 上昇気配高め: 上向きシグナルがある深掘り候補",
+            "スコア高め / 上昇気配低め: 下降警戒や上向き材料の弱さを確認",
+            "スコア低め / 上昇気配高め: 上向き材料はあるが総合点は低め",
+            "スコア低め / 上昇気配低め: 優先度低め",
         ),
     },
     "score_confidence": {
-        "title": "Score x Evaluation Confidence",
+        "title": "スコア x データ信頼度",
         "description": "スコアとデータの充実度を分けて確認できます。高スコアでも信頼度が低い場合はデータ確認が先です。",
         "how_to_read": (
-            "High score / High confidence: 深掘りしやすい候補",
-            "High score / Low confidence: データ確認が必要な候補",
-            "Low score / High confidence: 評価は安定しているが総合点は低め",
-            "Low score / Low confidence: 優先度低め",
+            "スコア高め / 信頼度高め: 深掘りしやすい候補",
+            "スコア高め / 信頼度低め: データ確認が必要な候補",
+            "スコア低め / 信頼度高め: 評価は安定しているが総合点は低め",
+            "スコア低め / 信頼度低め: 優先度低め",
         ),
-        "caution": "Evaluation Confidence "
-        "は投資魅力度ではなく、評価に使えるデータの充実度を示す補助指標です。",
+        "caution": "データ信頼度は投資魅力度ではなく、評価に使えるデータの充実度を示す補助指標です。",
     },
     "dividend_stability": {
-        "title": "Dividend x Stability Map",
+        "title": "配当 x 安定性",
         "description": "配当観点の候補について、安定性もあわせて確認できます。",
         "how_to_read": (
-            "High dividend / High stability: 配当観点で深掘りしやすい候補",
-            "High dividend / Low stability: 配当の持続性を確認",
-            "Low dividend / High stability: 安定性中心で確認",
-            "Low dividend / Low stability: 優先度低め",
+            "配当高め / 安定性高め: 配当観点で深掘りしやすい候補",
+            "配当高め / 安定性低め: 配当の持続性を確認",
+            "配当低め / 安定性高め: 安定性中心で確認",
+            "配当低め / 安定性低め: 優先度低め",
         ),
     },
     "growth_momentum": {
-        "title": "Growth x Momentum Map",
+        "title": "成長性 x モメンタム",
         "description": "成長観点の候補について、足元の勢いもあわせて確認できます。",
         "how_to_read": (
-            "High growth / High momentum: 成長観点で深掘りしやすい候補",
-            "High growth / Low momentum: 直近トレンドを確認",
-            "Low growth / High momentum: 短期材料を確認",
-            "Low growth / Low momentum: 優先度低め",
+            "成長性高め / モメンタム高め: 成長観点で深掘りしやすい候補",
+            "成長性高め / モメンタム低め: 直近トレンドを確認",
+            "成長性低め / モメンタム高め: 短期材料を確認",
+            "成長性低め / モメンタム低め: 優先度低め",
         ),
     },
     "value_risk": {
-        "title": "Valuation x Risk Map",
+        "title": "割安性 x リスク確認",
         "description": "割安に見える候補について、リスクもあわせて確認できます。",
         "how_to_read": (
-            "High valuation / Low risk: 割安観点で深掘りしやすい候補",
-            "High valuation / High risk: 割安理由とリスクを確認",
-            "Low valuation / Low risk: 安定性中心で確認",
-            "Low valuation / High risk: 優先度低め",
+            "割安性高め / リスク低め: 割安観点で深掘りしやすい候補",
+            "割安性高め / リスク高め: 割安理由とリスクを確認",
+            "割安性低め / リスク低め: 安定性中心で確認",
+            "割安性低め / リスク高め: 優先度低め",
         ),
     },
     "stability_risk": {
-        "title": "Stability x Risk Map",
+        "title": "安定性 x リスク確認",
         "description": "安定性を重視する候補について、リスクの強さもあわせて確認できます。",
         "how_to_read": (
-            "High stability / Low risk: 安定観点で深掘りしやすい候補",
-            "High stability / High risk: リスク要因を確認",
-            "Low stability / Low risk: データや事業特性を確認",
-            "Low stability / High risk: 優先度低め",
+            "安定性高め / リスク低め: 安定観点で深掘りしやすい候補",
+            "安定性高め / リスク高め: リスク要因を確認",
+            "安定性低め / リスク低め: データや事業特性を確認",
+            "安定性低め / リスク高め: 優先度低め",
         ),
     },
     "momentum_forecast": {
-        "title": "Momentum x Upside Signal Map",
+        "title": "モメンタム x 上昇気配",
         "description": "足元の勢いがある候補について、上昇気配と下降警戒もあわせて確認できます。",
         "how_to_read": (
-            "High momentum / High upside: トレンド観点で深掘りしやすい候補",
-            "High momentum / Low upside: 上昇気配と下降警戒を確認",
-            "Low momentum / High upside: 上向き材料はあるが足元の勢いは弱め",
-            "Low momentum / Low upside: 優先度低め",
+            "モメンタム高め / 上昇気配高め: トレンド観点で深掘りしやすい候補",
+            "モメンタム高め / 上昇気配低め: 上昇気配と下降警戒を確認",
+            "モメンタム低め / 上昇気配高め: 上向き材料はあるが足元の勢いは弱め",
+            "モメンタム低め / 上昇気配低め: 優先度低め",
         ),
     },
     "long_term_confidence": {
-        "title": "Long-term Fit x Confidence Map",
+        "title": "長期適合 x データ信頼度",
         "description": "長期で確認したい候補について、安定性とデータ充実度を分けて確認できます。",
         "how_to_read": (
-            "High fit / High confidence: 長期観点で深掘りしやすい候補",
-            "High fit / Low confidence: データ充実度を確認",
-            "Low fit / High confidence: 評価は安定しているが適合度は低め",
-            "Low fit / Low confidence: 優先度低め",
+            "適合度高め / 信頼度高め: 長期観点で深掘りしやすい候補",
+            "適合度高め / 信頼度低め: データ充実度を確認",
+            "適合度低め / 信頼度高め: 評価は安定しているが適合度は低め",
+            "適合度低め / 信頼度低め: 優先度低め",
         ),
     },
     "etf_cost_score": {
-        "title": "ETF Cost x Score Map",
+        "title": "ETFコスト x スコア",
         "description": "ETF候補について、コスト観点と総合スコアを分けて確認できます。",
         "how_to_read": (
-            "Low cost / High score: コア候補として深掘りしやすい候補",
-            "Low cost / Low score: コスト以外の観点を確認",
-            "High cost / High score: コストに見合う理由を確認",
-            "High cost / Low score: 優先度低め",
+            "コスト低め / スコア高め: コア候補として深掘りしやすい候補",
+            "コスト低め / スコア低め: コスト以外の観点を確認",
+            "コスト高め / スコア高め: コストに見合う理由を確認",
+            "コスト高め / スコア低め: 優先度低め",
         ),
     },
     "upside_downside": {
-        "title": "Upside x Downside Watch Map",
+        "title": "上昇気配 x 下降警戒",
         "description": "上昇気配と下降警戒を分けて確認できます。",
         "how_to_read": (
-            "High upside / Low downside: "
+            "上昇気配高め / 下降警戒低め: "
             "上向きシグナルが強く、警戒材料が相対的に少ない深掘り候補",
-            "High upside / High downside: 上向き材料はあるが、下降警戒も先に確認",
-            "Low upside / High downside: リスク確認候補",
-            "Low upside / Low downside: 方向材料は限定的な比較候補",
+            "上昇気配高め / 下降警戒高め: 上向き材料はあるが、下降警戒も先に確認",
+            "上昇気配低め / 下降警戒高め: リスク確認候補",
+            "上昇気配低め / 下降警戒低め: 方向材料は限定的な比較候補",
         ),
     },
     "fit_direction": {
-        "title": "Fit x Upside Signal Map",
+        "title": "条件適合 x 上昇気配",
         "description": "選択中の目的に合う候補について、上昇気配と下降警戒を確認できます。",
         "how_to_read": (
-            "High fit / High upside: 条件に合い、上向きシグナルもある深掘り候補",
-            "High fit / Low upside: 条件には合うが、上昇気配や下降警戒を確認",
-            "Low fit / High upside: 上向き材料はあるが、目的適合は低め",
-            "Low fit / Low upside: 優先度低め",
+            "適合度高め / 上昇気配高め: 条件に合い、上向きシグナルもある深掘り候補",
+            "適合度高め / 上昇気配低め: 条件には合うが、上昇気配や下降警戒を確認",
+            "適合度低め / 上昇気配高め: 上向き材料はあるが、目的適合は低め",
+            "適合度低め / 上昇気配低め: 優先度低め",
         ),
     },
     "fit_risk": {
-        "title": "Fit x Risk Map",
-        "description": "条件に合う候補について、Riskとデータ品質をあわせて確認できます。",
+        "title": "条件適合 x リスク確認",
+        "description": "条件に合う候補について、リスク確認とデータ品質をあわせて確認できます。",
         "how_to_read": (
-            "High fit / High risk score: 条件に合い、Risk面も比較しやすい候補",
-            "High fit / Low risk score: 条件には合うが、リスク要因を確認",
-            "Low fit / High risk score: 安定性はあるが、目的適合は低め",
-            "Low fit / Low risk score: 優先度低め",
+            "適合度高め / リスク確認高め: 条件に合い、リスク面も比較しやすい候補",
+            "適合度高め / リスク確認低め: 条件には合うが、リスク要因を確認",
+            "適合度低め / リスク確認高め: 安定性はあるが、目的適合は低め",
+            "適合度低め / リスク確認低め: 優先度低め",
         ),
     },
     "confidence_quality": {
-        "title": "Data Quality x Confidence Map",
+        "title": "データ品質 x データ信頼度",
         "description": "データ信頼度優先で見る候補について、DB信頼度と価格データ品質を分けて確認できます。",
         "how_to_read": (
-            "High confidence / High quality: " "根拠と価格データがそろった確認しやすい候補",
-            "High confidence / Low quality: " "DB情報はあるが、価格データ品質を確認",
-            "Low confidence / High quality: " "価格評価はできるが、銘柄DBや根拠を確認",
-            "Low confidence / Low quality: 先にデータ確認が必要",
+            "信頼度高め / 品質高め: 根拠と価格データがそろった確認しやすい候補",
+            "信頼度高め / 品質低め: DB情報はあるが、価格データ品質を確認",
+            "信頼度低め / 品質高め: 価格評価はできるが、銘柄DBや根拠を確認",
+            "信頼度低め / 品質低め: 先にデータ確認が必要",
         ),
-        "caution": "Data Quality と DB信頼度は投資魅力度ではなく、評価に使えるデータの充実度です。",
+        "caution": "データ品質とDB信頼度は投資魅力度ではなく、評価に使えるデータの充実度です。",
     },
     "etf_fit_confidence": {
-        "title": "ETF Fit x Confidence Map",
+        "title": "ETF条件適合 x データ信頼度",
         "description": "ETF候補について、目的適合とデータ充実度を分けて確認できます。",
         "how_to_read": (
-            "High fit / High confidence: ETF条件に合い、確認材料もそろった候補",
-            "High fit / Low confidence: 条件には合うが、指数・コスト・分配方針を確認",
-            "Low fit / High confidence: データはあるが、選択目的との一致は低め",
-            "Low fit / Low confidence: 先にデータ確認が必要",
+            "適合度高め / 信頼度高め: ETF条件に合い、確認材料もそろった候補",
+            "適合度高め / 信頼度低め: 条件には合うが、指数・コスト・分配方針を確認",
+            "適合度低め / 信頼度高め: データはあるが、選択目的との一致は低め",
+            "適合度低め / 信頼度低め: 先にデータ確認が必要",
         ),
     },
 }

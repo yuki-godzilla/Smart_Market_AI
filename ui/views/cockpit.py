@@ -41,32 +41,32 @@ def cockpit_summary_items(
     metadata = symbol_metadata or {}
     return [
         {
-            "label": "Symbol",
+            "label": "銘柄コード",
             "value": _display_value(symbol),
             "help": "分析対象の銘柄コードです。",
         },
         {
-            "label": "Name",
+            "label": "銘柄名",
             "value": _display_value(name),
             "help": "銘柄マスタに登録されている名称です。",
         },
         {
-            "label": "Provider",
+            "label": "データ取得元",
             "value": _display_value(provider, "unknown"),
             "help": "今回の価格データ取得元です。",
         },
         {
-            "label": "As of",
+            "label": "基準日",
             "value": _display_value(as_of),
             "help": "表示データの基準日です。",
         },
         {
-            "label": "Reference period",
+            "label": "参照期間",
             "value": f"{reference_period_days}日",
             "help": "今回のチャートと評価に使っている参照期間です。",
         },
         {
-            "label": "Asset / Region",
+            "label": "商品/地域",
             "value": " / ".join(
                 part
                 for part in [
@@ -80,35 +80,31 @@ def cockpit_summary_items(
             "help": "銘柄マスタ由来の分類情報です。",
         },
         {
-            "label": "Investment Score",
+            "label": "投資スコア",
             "value": _display_value((score_row or {}).get("総合スコア"), "未計算"),
-            "caption": _cockpit_card_caption(
-                "Investment Score", (score_row or {}).get("総合スコア")
-            ),
-            "help_text": _cockpit_metric_help("Investment Score"),
+            "caption": _cockpit_card_caption("投資スコア", (score_row or {}).get("総合スコア")),
+            "help_text": _cockpit_metric_help("投資スコア"),
         },
         {
-            "label": "Decision View",
+            "label": "総合評価",
             "value": _display_value((score_row or {}).get("見方"), "未判定"),
-            "caption": _cockpit_card_caption("Decision View", (score_row or {}).get("見方")),
-            "help_text": _cockpit_metric_help("Decision View"),
+            "caption": _cockpit_card_caption("総合評価", (score_row or {}).get("見方")),
+            "help_text": _cockpit_metric_help("総合評価"),
         },
         {
-            "label": "Data Confidence",
+            "label": "データ信頼度",
             "value": _display_value((score_row or {}).get("データ品質"), "未計算"),
-            "caption": _cockpit_card_caption(
-                "Data Confidence", (score_row or {}).get("データ品質")
-            ),
-            "help_text": _cockpit_metric_help("Data Confidence"),
+            "caption": _cockpit_card_caption("データ信頼度", (score_row or {}).get("データ品質")),
+            "help_text": _cockpit_metric_help("データ信頼度"),
         },
         {
-            "label": "Risk",
+            "label": "リスク確認",
             "value": _display_value((score_row or {}).get("Risk"), "未接続"),
-            "caption": _cockpit_card_caption("Risk", (score_row or {}).get("Risk")),
-            "help_text": _cockpit_metric_help("Risk"),
+            "caption": _cockpit_card_caption("リスク確認", (score_row or {}).get("Risk")),
+            "help_text": _cockpit_metric_help("リスク確認"),
         },
         {
-            "label": "Forecast horizon",
+            "label": "予測期間",
             "value": f"{forecast_horizon_days}日",
             "help": "チャート上に表示する予測日数です。",
         },
@@ -119,10 +115,10 @@ def cockpit_kpi_cards(score_row: dict[str, str] | None) -> list[dict[str, str]]:
     row = score_row or {}
     return [
         {
-            "label": "Investment Score",
+            "label": "投資スコア",
             "value": _display_value(row.get("総合スコア"), "未計算"),
-            "caption": _cockpit_card_caption("Investment Score", row.get("総合スコア")),
-            "help_text": _cockpit_metric_help("Investment Score"),
+            "caption": _cockpit_card_caption("投資スコア", row.get("総合スコア")),
+            "help_text": _cockpit_metric_help("投資スコア"),
         },
         {
             "label": "上昇気配",
@@ -137,16 +133,16 @@ def cockpit_kpi_cards(score_row: dict[str, str] | None) -> list[dict[str, str]]:
             "help_text": _cockpit_metric_help("下降警戒"),
         },
         {
-            "label": "Data Confidence",
+            "label": "データ信頼度",
             "value": _display_value(row.get("データ品質"), "未計算"),
-            "caption": _cockpit_card_caption("Data Confidence", row.get("データ品質")),
-            "help_text": _cockpit_metric_help("Data Confidence"),
+            "caption": _cockpit_card_caption("データ信頼度", row.get("データ品質")),
+            "help_text": _cockpit_metric_help("データ信頼度"),
         },
         {
-            "label": "Risk",
+            "label": "リスク確認",
             "value": _display_value(row.get("Risk"), "未接続"),
-            "caption": _cockpit_card_caption("Risk", row.get("Risk")),
-            "help_text": _cockpit_metric_help("Risk"),
+            "caption": _cockpit_card_caption("リスク確認", row.get("Risk")),
+            "help_text": _cockpit_metric_help("リスク確認"),
         },
     ]
 
@@ -669,30 +665,30 @@ def research_evidence_summary_items(
 
 def _research_confidence_label(report: CompanyResearchReport) -> str:
     if report.data_quality.evidence_count <= 0:
-        return "Low"
+        return "低め"
     if report.data_quality.status == "OK" and not report.data_quality.warnings:
-        return "High"
+        return "高め"
     if report.data_quality.status == "WARN":
-        return "Medium"
-    return "Low"
+        return "中くらい"
+    return "低め"
 
 
 def render_cockpit_summary_header(items: list[dict[str, str]]) -> None:
     item_by_label = {item["label"]: item for item in items}
-    symbol = _item_value(item_by_label, "Symbol")
-    name = _item_value(item_by_label, "Name")
+    symbol = _item_value(item_by_label, "銘柄コード")
+    name = _item_value(item_by_label, "銘柄名")
     title = symbol if name in {"", "-", "未取得"} else f"{symbol} - {name}"
     render_dashboard_header(
         title,
         "価格・予測・スコア・根拠資料を1画面で確認する分析ビューです。表示内容は売買推奨ではありません。",
         chips=[
-            ("Provider", _item_value(item_by_label, "Provider")),
-            ("As of", _item_value(item_by_label, "As of")),
-            ("期間", _item_value(item_by_label, "Reference period")),
-            ("見方", _item_value(item_by_label, "Decision View")),
+            ("データ取得元", _item_value(item_by_label, "データ取得元")),
+            ("基準日", _item_value(item_by_label, "基準日")),
+            ("期間", _item_value(item_by_label, "参照期間")),
+            ("総合評価", _item_value(item_by_label, "総合評価")),
         ],
     )
-    render_section_heading("01 Summary / Symbol Cockpit")
+    render_section_heading("01 サマリー / 銘柄コックピット")
     st.caption(
         "この画面は、選択銘柄の価格・予測・スコア・根拠資料を整理する分析ビューです。表示内容は売買推奨ではありません。"
     )
@@ -711,7 +707,7 @@ def render_cockpit_summary_header(items: list[dict[str, str]]) -> None:
 
 
 def render_cockpit_kpi_cards(cards: list[dict[str, str]]) -> None:
-    render_section_heading("Analysis KPI")
+    render_section_heading("主要KPI")
     st.caption("まず主要KPIで全体感をつかみ、その後に価格チャートと評価内訳を確認します。")
     columns = st.columns(min(5, len(cards)))
     for index, card in enumerate(cards):
@@ -728,7 +724,7 @@ def render_cockpit_kpi_cards(cards: list[dict[str, str]]) -> None:
 
 
 def render_research_evidence_summary(report: CompanyResearchReport) -> None:
-    st.markdown("##### Research Evidence Summary")
+    st.markdown("##### 根拠資料サマリー")
     st.caption("根拠資料はスコア算出そのものではなく、投資判断を補助する参考情報として扱います。")
     items = research_evidence_summary_items(report)
     columns = st.columns(min(5, len(items)))
@@ -745,34 +741,34 @@ def render_research_evidence_summary(report: CompanyResearchReport) -> None:
 def _badge_for_summary_item(item: dict[str, str]) -> str:
     label = item.get("label", "")
     value = item.get("value", "")
-    if label in {"Symbol", "Name", "Provider", "Asset / Region"}:
-        return badge_html("Info", "info")
-    if label == "Data Confidence" and value not in {"-", "未計算"}:
-        return badge_html("Data state", "success")
-    if label in {"Risk", "Decision View"}:
-        return badge_html("Review", "caution")
-    return badge_html("Context", "neutral")
+    if label in {"銘柄コード", "銘柄名", "データ取得元", "商品/地域"}:
+        return badge_html("情報", "info")
+    if label == "データ信頼度" and value not in {"-", "未計算"}:
+        return badge_html("データ", "success")
+    if label in {"リスク確認", "総合評価"}:
+        return badge_html("確認", "caution")
+    return badge_html("補足", "neutral")
 
 
 def _tone_for_summary_item(item: dict[str, str]) -> str:
     label = item.get("label", "")
-    if label == "Investment Score":
+    if label == "投資スコア":
         return "score"
-    if label == "Data Confidence":
+    if label == "データ信頼度":
         return "success"
-    if label == "Risk":
+    if label == "リスク確認":
         return "risk"
-    if label == "Forecast horizon":
+    if label == "予測期間":
         return "forecast"
-    if label == "Decision View":
+    if label == "総合評価":
         return "caution"
-    if label in {"Symbol", "Name", "Provider", "Asset / Region"}:
+    if label in {"銘柄コード", "銘柄名", "データ取得元", "商品/地域"}:
         return "info"
     return "neutral"
 
 
 def _progress_for_summary_item(item: dict[str, str]) -> int | None:
-    if item.get("label") in {"Investment Score", "Data Confidence", "Risk"}:
+    if item.get("label") in {"投資スコア", "データ信頼度", "リスク確認"}:
         return metric_progress_from_value(item.get("value"))
     return None
 
@@ -780,37 +776,37 @@ def _progress_for_summary_item(item: dict[str, str]) -> int | None:
 def _badge_for_kpi_card(card: dict[str, str]) -> str:
     label = card.get("label", "")
     value = card.get("value", "")
-    if label == "Data Confidence" and value not in {"-", "未計算"}:
-        return badge_html("Data state", "success")
-    if label in {"Risk", "Decision View"}:
-        return badge_html("Review", "caution")
-    return badge_html("Analysis", "info")
+    if label == "データ信頼度" and value not in {"-", "未計算"}:
+        return badge_html("データ", "success")
+    if label in {"リスク確認", "総合評価"}:
+        return badge_html("確認", "caution")
+    return badge_html("分析", "info")
 
 
 def _tone_for_kpi_card(card: dict[str, str]) -> str:
     label = card.get("label", "")
-    if label == "Investment Score":
+    if label == "投資スコア":
         return "score"
     if label == "上昇気配":
         return "forecast"
     if label == "下降警戒":
         return "risk"
-    if label == "Data Confidence":
+    if label == "データ信頼度":
         return "success"
-    if label == "Risk":
+    if label == "リスク確認":
         return "risk"
-    if label == "Decision View":
+    if label == "総合評価":
         return "caution"
     return "info"
 
 
 def _progress_for_kpi_card(card: dict[str, str]) -> int | None:
     if card.get("label") in {
-        "Investment Score",
+        "投資スコア",
         "上昇気配",
         "下降警戒",
-        "Data Confidence",
-        "Risk",
+        "データ信頼度",
+        "リスク確認",
     }:
         return metric_progress_from_value(card.get("value"))
     return None
@@ -819,10 +815,10 @@ def _progress_for_kpi_card(card: dict[str, str]) -> int | None:
 def _badge_for_direction_card(card: dict[str, str]) -> str:
     label = card.get("label", "")
     if label == "下降警戒":
-        return badge_html("Check", "caution")
+        return badge_html("確認", "caution")
     if label == "上昇気配":
-        return badge_html("Signal", "info")
-    return badge_html("Forecast", "neutral")
+        return badge_html("シグナル", "info")
+    return badge_html("予測", "neutral")
 
 
 def _tone_for_direction_card(card: dict[str, str]) -> str:
@@ -843,11 +839,11 @@ def _progress_for_direction_card(card: dict[str, str]) -> int | None:
 def _badge_for_research_item(item: dict[str, str]) -> str:
     label = item.get("label", "")
     value = item.get("value", "")
-    if label == "信頼度" and value == "High":
-        return badge_html("High Confidence", "success")
-    if label in {"信頼度", "リスク材料"} and value not in {"0件", "-", "High"}:
-        return badge_html("Check data", "caution")
-    return badge_html("Evidence", "info")
+    if label == "信頼度" and value in {"高め", "High"}:
+        return badge_html("信頼度高め", "success")
+    if label in {"信頼度", "リスク材料"} and value not in {"0件", "-", "高め", "High"}:
+        return badge_html("要確認", "caution")
+    return badge_html("根拠", "info")
 
 
 def _item_value(items: dict[str, dict[str, str]], label: str) -> str:
@@ -870,7 +866,7 @@ def _cockpit_card_caption(label: str, value: object) -> str:
 
 
 def _cockpit_card_evaluation(label: str, value: object) -> str:
-    if label == "Decision View":
+    if label in {"総合評価", "Decision View"}:
         text = _display_value(value, "未判定")
         return COCKPIT_DECISION_VIEW_EVALUATION_TABLE.get(
             text,

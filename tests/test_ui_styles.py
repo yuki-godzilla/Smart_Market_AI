@@ -59,16 +59,16 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
 
 
 def test_global_theme_tokens_define_dark_financial_ai_palette():
-    assert THEME_COLORS["bg_app"] == "#050812"
-    assert THEME_COLORS["bg_card"] == "#101A2B"
+    assert THEME_COLORS["bg_app"] == "#020510"
+    assert THEME_COLORS["bg_card"] == "#111F35"
     assert THEME_COLORS["ai_cyan"] == "#22D3EE"
     assert THEME_COLORS["signal_buy"] == "#34D399"
     assert CHART_COLORS["prediction"] == THEME_COLORS["chart_prediction"]
 
-    assert "--bg-app: #050812;" in SMAI_GLOBAL_CSS
+    assert "--bg-app: #020510;" in SMAI_GLOBAL_CSS
     assert ".smai-ai-card" in SMAI_GLOBAL_CSS
     assert ".smai-investment-signal-badge.buy" in SMAI_GLOBAL_CSS
     assert '[data-testid="stVerticalBlockBorderWrapper"]' in SMAI_GLOBAL_CSS
     assert ".smai-page-title::before" in SMAI_GLOBAL_CSS
     assert ".smai-metric-card:hover" in SMAI_GLOBAL_CSS
-    assert RANKING_GRID_CUSTOM_CSS[".ag-header"]["background-color"].startswith("#111C2E")
+    assert RANKING_GRID_CUSTOM_CSS[".ag-header"]["background-color"].startswith("#122038")

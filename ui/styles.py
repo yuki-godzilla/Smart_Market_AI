@@ -8,19 +8,19 @@ import altair as alt
 import streamlit as st
 
 THEME_COLORS = {
-    "bg_app": "#050812",
-    "bg_surface": "#0B1220",
-    "bg_card": "#101A2B",
-    "bg_card_hover": "#142238",
-    "bg_elevated": "#172338",
-    "text_title": "#F3F7FF",
-    "text_primary": "#DDE7F3",
-    "text_secondary": "#A8B4C7",
-    "text_muted": "#748199",
-    "text_disabled": "#566276",
-    "border_subtle": "#1E2A3E",
-    "border_default": "#223047",
-    "border_strong": "#2C3B55",
+    "bg_app": "#020510",
+    "bg_surface": "#070D19",
+    "bg_card": "#111F35",
+    "bg_card_hover": "#17283F",
+    "bg_elevated": "#1A2B45",
+    "text_title": "#F8FBFF",
+    "text_primary": "#E8F0FA",
+    "text_secondary": "#B9C7DA",
+    "text_muted": "#8A97AD",
+    "text_disabled": "#637086",
+    "border_subtle": "#25344D",
+    "border_default": "#31425F",
+    "border_strong": "#49607F",
     "ai_cyan": "#22D3EE",
     "ai_blue": "#60A5FA",
     "ai_purple": "#A78BFA",
@@ -38,9 +38,9 @@ THEME_COLORS = {
     "chart_negative": "#F87171",
     "chart_volume": "#64748B",
     "chart_grid": "#1E2A3E",
-    "table_header_bg": "#111C2E",
-    "table_row_bg": "#0B1220",
-    "table_row_hover": "#142238",
+    "table_header_bg": "#122038",
+    "table_row_bg": "#070D19",
+    "table_row_hover": "#17283F",
     "button_primary_bg": "#0891B2",
     "button_primary_hover": "#06B6D4",
     "button_secondary_bg": "#111C2E",
@@ -137,23 +137,23 @@ SMAI_GLOBAL_CSS = """
 <style>
 :root {
     /* Background */
-    --bg-app: #050812;
-    --bg-surface: #0B1220;
-    --bg-card: #101A2B;
-    --bg-card-hover: #142238;
-    --bg-elevated: #172338;
+    --bg-app: #020510;
+    --bg-surface: #070D19;
+    --bg-card: #111F35;
+    --bg-card-hover: #17283F;
+    --bg-elevated: #1A2B45;
 
     /* Text */
-    --text-title: #F3F7FF;
-    --text-primary: #DDE7F3;
-    --text-secondary: #A8B4C7;
-    --text-muted: #748199;
-    --text-disabled: #566276;
+    --text-title: #F8FBFF;
+    --text-primary: #E8F0FA;
+    --text-secondary: #B9C7DA;
+    --text-muted: #8A97AD;
+    --text-disabled: #637086;
 
     /* Border */
-    --border-subtle: #1E2A3E;
-    --border-default: #223047;
-    --border-strong: #2C3B55;
+    --border-subtle: #25344D;
+    --border-default: #31425F;
+    --border-strong: #49607F;
 
     /* AI Accent */
     --ai-cyan: #22D3EE;
@@ -179,9 +179,9 @@ SMAI_GLOBAL_CSS = """
     --chart-grid: #1E2A3E;
 
     /* Table */
-    --table-header-bg: #111C2E;
-    --table-row-bg: #0B1220;
-    --table-row-hover: #142238;
+    --table-header-bg: #122038;
+    --table-row-bg: #070D19;
+    --table-row-hover: #17283F;
 
     /* Button */
     --button-primary-bg: #0891B2;
@@ -200,7 +200,7 @@ SMAI_GLOBAL_CSS = """
     --smai-panel: var(--bg-surface);
     --smai-card: var(--bg-card);
     --smai-card-soft: var(--bg-elevated);
-    --smai-border: rgba(30, 42, 62, 0.92);
+    --smai-border: rgba(49, 66, 95, 0.92);
     --smai-border-strong: var(--border-strong);
     --smai-text: var(--text-title);
     --smai-body: var(--text-primary);
@@ -702,10 +702,10 @@ SMAI_GLOBAL_CSS = """
 
 .smai-page-title {
     position: relative;
-    border-top: 1px solid rgba(30, 42, 62, 0.7);
+    border-top: 1px solid rgba(49, 66, 95, 0.74);
     border-bottom: 1px solid var(--border-subtle);
-    background: linear-gradient(90deg, rgba(16, 26, 43, 0.68), rgba(11, 18, 32, 0.2) 62%, transparent);
-    padding: 1.05rem 0 1rem;
+    background: linear-gradient(90deg, rgba(17, 31, 53, 0.82), rgba(7, 13, 25, 0.36) 62%, transparent);
+    padding: 1.05rem 1.1rem 1rem 1.35rem;
     margin: 0 0 1rem;
 }
 
@@ -719,15 +719,20 @@ SMAI_GLOBAL_CSS = """
 
 .smai-page-title--copilot {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(15rem, 20rem);
+    grid-template-columns: minmax(24rem, 1fr) minmax(16rem, 20rem);
     align-items: center;
     gap: 1rem;
     padding-bottom: 1rem;
 }
 
+.smai-page-title-copy {
+    min-width: 0;
+}
+
 .smai-page-title-row {
     display: inline-flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 0.8rem;
     max-width: 100%;
     vertical-align: middle;

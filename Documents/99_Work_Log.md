@@ -679,3 +679,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Refined the shared Streamlit CSS for a denser financial cockpit feel: subtle navy grid background, stronger header/page-title bands, raised input/expander/container surfaces, premium button treatment, and more polished metric/ranking cards.
 - Adjusted Copilot / Insight accents to use controlled linear AI treatments instead of broad glow-heavy decoration.
 - Kept the change display-only; data fetch, forecast, scoring, ranking, Research RAG, and report behavior remain unchanged.
+
+## 2026-05-28 - UI contrast and cockpit title spacing fix
+
+- Increased contrast in the shared palette by darkening app / surface backgrounds and brightening title / primary / secondary text tokens.
+- Added left padding and safer wrapping to the page-title band so the cockpit title no longer collides with the accent line or title art.
+- Kept this as CSS / token-only polish with no workflow or investment logic changes.

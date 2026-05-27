@@ -34,6 +34,7 @@ from backend.reporting import (
     build_data_confidence_section,
     build_decision_checkpoints_section,
     build_decision_report_context,
+    build_external_research_trace_section,
     build_report_section,
     build_research_evidence_section,
     build_research_score_section,
@@ -6222,6 +6223,31 @@ def _research_score_evidence_rows(score: ResearchScore) -> list[dict[str, str]]:
     ]
 
 
+def _external_research_trace_report_section(
+    result: ExternalResearchFetchResult,
+) -> DecisionReportSection:
+    return build_external_research_trace_section(
+        symbol=result.symbol,
+        provider=result.provider,
+        fetched_at=result.fetched_at,
+        retention_policy=result.retention_policy,
+        entries=[
+            {
+                "title": entry.title,
+                "source_type": entry.source_type,
+                "source_url": entry.source_url,
+                "provider": entry.provider,
+                "published_at": entry.published_at.isoformat() if entry.published_at else "",
+                "fetched_at": _datetime_display_text(entry.fetched_at),
+                "freshness_status": entry.freshness_status,
+                "content_summary": entry.content_summary,
+            }
+            for entry in result.entries[:20]
+        ],
+        warnings=result.warnings,
+    )
+
+
 def build_cockpit_decision_report_context(
     preview: MarketDataPreview,
 ) -> DecisionReportContext:
@@ -6290,6 +6316,13 @@ def build_cockpit_decision_report_context(
         or research_report.data_quality.evidence_count > 0
     ):
         sections.append(_research_evidence_report_section(research_report))
+    external_research_result = _cockpit_external_research_fetch_result_from_state(preview)
+    if external_research_result is not None and external_research_result.entries:
+        sections.append(_external_research_trace_report_section(external_research_result))
+    if research_report is not None and (
+        research_report.data_quality.document_count > 0
+        or research_report.data_quality.evidence_count > 0
+    ):
         sections.append(_research_score_report_section(research_report))
     return build_decision_report_context(
         title=f"投資判断レポート - {symbol or '選択銘柄'}",

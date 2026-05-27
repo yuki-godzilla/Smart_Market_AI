@@ -12,6 +12,7 @@ from backend.reporting import (
     build_decision_checkpoints_section,
     build_decision_report_context,
     build_decision_report_manifest,
+    build_external_research_trace_section,
     build_report_section,
     build_research_evidence_section,
     build_research_score_section,
@@ -302,6 +303,46 @@ def test_build_research_score_section_adds_components_evidence_and_notes():
     assert "Research Score" in markdown
     assert "Research Score 内訳" in markdown
     assert "売買推奨ではありません" in markdown
+
+
+def test_build_external_research_trace_section_records_transient_source_trace():
+    section = build_external_research_trace_section(
+        symbol="7203.T",
+        provider="yahoo_finance",
+        fetched_at=datetime(2026, 5, 27, 12, 30, tzinfo=UTC),
+        retention_policy="session",
+        entries=[
+            {
+                "title": "7203.T Yahoo Finance Profile",
+                "source_type": "provider_profile",
+                "source_url": "https://finance.yahoo.com/quote/7203.T/profile",
+                "provider": "yahoo_finance",
+                "published_at": "",
+                "fetched_at": "2026-05-27T12:30+00:00",
+                "freshness_status": "unknown",
+                "content_summary": "Toyota sells vehicles globally.",
+            }
+        ],
+        warnings=["追加ニュースは見つかりませんでした。"],
+    )
+    context = build_decision_report_context(
+        title="Decision support report",
+        sections=[section],
+        created_at=datetime(2026, 5, 27, 12, 35, tzinfo=UTC),
+    )
+    markdown = render_decision_report_markdown(context)
+    payload = decision_report_json_download(context)
+
+    assert section.title == "外部参照ソース"
+    assert section.source.kind == "research"
+    assert section.source.metadata["retention_policy"] == "session"
+    assert section.summary["retention_policy"] == "session"
+    assert section.rows[0]["row_type"] == "external_research_source"
+    assert "外部参照ソース" in markdown
+    assert "このセッションのみ" in markdown
+    assert "https://finance.yahoo.com/quote/7203.T/profile" in markdown
+    assert "取得本文は既定では保存せず" in markdown
+    assert '"content_summary": "Toyota sells vehicles globally."' in payload
 
 
 def test_build_report_section_rejects_empty_content():

@@ -3953,6 +3953,74 @@ def test_cockpit_decision_report_context_adds_research_score_section(monkeypatch
     assert any(row["row_type"] == "research_score_component" for row in score_section.rows)
 
 
+def test_cockpit_decision_report_context_adds_external_research_trace(monkeypatch):
+    monkeypatch.setattr("ui.app.symbol_universe_csv_rows", lambda: [])
+    monkeypatch.setattr("ui.app._cockpit_research_report_from_state", lambda _preview: None)
+    fetch_result = ExternalResearchFetchResult(
+        symbol="6857.T",
+        provider="yahoo_finance",
+        fetched_at=datetime(2026, 5, 27, 12, 30, tzinfo=UTC),
+        entries=[
+            ExternalResearchFetchManifestEntry(
+                title="6857.T Yahoo Finance Profile",
+                symbol="6857.T",
+                source_type="provider_profile",
+                source_url="https://finance.yahoo.com/quote/6857.T/profile",
+                provider="yahoo_finance",
+                published_at=None,
+                fetched_at=datetime(2026, 5, 27, 12, 30, tzinfo=UTC),
+                freshness_status="unknown",
+                document_id="research-doc-6857",
+                retention_policy="session",
+                content_summary="Advantest provider profile snapshot.",
+            )
+        ],
+        retention_policy="session",
+        warnings=["追加ニュースは見つかりませんでした。"],
+    )
+    monkeypatch.setattr(
+        "ui.app._cockpit_external_research_fetch_result_from_state",
+        lambda _preview: fetch_result,
+    )
+    preview = MarketDataPreview(
+        status="ok",
+        bars=[_bar("2026-05-22", close=101, symbol="6857.T")],
+        provider_rows=[{"field": "provider", "value": "yahoo"}],
+        quote_rows=[],
+        ohlcv_rows=[],
+        price_chart_rows=[],
+        forecast_chart_rows=[],
+        forecast_metric_rows=[],
+        fx_rows=[],
+        feature_rows=[],
+        investment_score_rows=[
+            {
+                "symbol": "6857.T",
+                "total_score": "72.00",
+                "score_band": "balanced",
+                "screening_score": "70",
+                "forecast_agreement_score": "80",
+                "data_quality_score": "100",
+                "risk_signal_score": "65",
+            }
+        ],
+        screening_rows=[],
+        error_rows=[],
+    )
+
+    context = build_cockpit_decision_report_context(preview)
+    section = next(section for section in context.sections if section.title == "外部参照ソース")
+    markdown = decision_report_markdown_download(context)
+    payload = decision_report_json_download(context)
+
+    assert section.summary["retention_policy"] == "session"
+    assert section.rows[0]["row_type"] == "external_research_source"
+    assert section.rows[0]["source_url"] == "https://finance.yahoo.com/quote/6857.T/profile"
+    assert "外部参照ソース" in markdown
+    assert "このセッションのみ" in markdown
+    assert '"freshness_status": "unknown"' in payload
+
+
 def test_cockpit_decision_report_helpers_build_structured_summary(monkeypatch):
     monkeypatch.setattr("ui.app.symbol_universe_csv_rows", lambda: [])
     preview = MarketDataPreview(

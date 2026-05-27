@@ -263,6 +263,48 @@ def build_research_evidence_section(
     )
 
 
+def build_external_research_trace_section(
+    *,
+    symbol: str,
+    provider: str,
+    fetched_at: datetime,
+    retention_policy: str,
+    entries: Sequence[Mapping[str, object]],
+    as_of: date | None = None,
+    warnings: list[str] | None = None,
+    notes: list[str] | None = None,
+) -> DecisionReportSection:
+    """Build a trace section for opt-in transient external Research / News sources."""
+
+    rows = [{**dict(entry), "row_type": "external_research_source"} for entry in entries]
+    normalized_notes = _normalize_strings(notes or [])
+    normalized_notes.append(
+        "外部参照ソースはこのセッションの確認材料として一時参照した情報であり、売買推奨ではありません。"
+    )
+    normalized_notes.append(
+        "取得本文は既定では保存せず、Report にはURL、取得元、公開日、取得日時、鮮度、短い要約だけを残します。"
+    )
+
+    return build_report_section(
+        title="外部参照ソース",
+        source_kind="research",
+        provider=provider,
+        symbol=symbol,
+        as_of=as_of,
+        summary={
+            "symbol": symbol,
+            "provider": provider,
+            "fetched_at": fetched_at.isoformat(),
+            "retention_policy": retention_policy,
+            "entry_count": str(len(rows)),
+        },
+        rows=rows,
+        warnings=warnings,
+        notes=normalized_notes,
+        metadata={"retention_policy": retention_policy},
+    )
+
+
 _RESEARCH_SCORE_COMPONENTS = (
     (
         "growth_score",
@@ -571,6 +613,12 @@ _DISPLAY_KEY_LABELS = {
     "reliability": "信頼度",
     "research_score_summary": "Research Score メモ",
     "confidence": "信頼度",
+    "fetched_at": "取得日時",
+    "retention_policy": "保持方針",
+    "entry_count": "参照元数",
+    "source_url": "URL",
+    "freshness_status": "鮮度",
+    "content_summary": "短い要約",
 }
 
 _DISPLAY_VALUE_LABELS = {
@@ -589,6 +637,22 @@ _DISPLAY_VALUE_LABELS = {
     "extracted_claim": "抽出論点",
     "research_score_component": "Research Score 内訳",
     "research_score_evidence": "Research Score 根拠",
+    "external_research_source": "外部参照元",
+    "session": "このセッションのみ",
+    "archive": "保存済み",
+    "latest": "最新",
+    "recent": "最近",
+    "stale": "古め",
+    "unknown": "未確認",
+    "annual_report": "有価証券報告書",
+    "earnings_report": "決算短信",
+    "earnings_presentation": "決算説明資料",
+    "medium_term_plan": "中期経営計画",
+    "integrated_report": "統合報告書",
+    "tdnet": "TDnet",
+    "news": "ニュース",
+    "provider_profile": "取得元プロフィール",
+    "user_note": "ユーザーメモ",
 }
 
 
@@ -598,6 +662,8 @@ def _display_key(key: str) -> str:
 
 def _display_value(key: str, value: str) -> str:
     if key in {"status", "source_kind", "row_type"}:
+        return _DISPLAY_VALUE_LABELS.get(value, value)
+    if key in {"retention_policy", "freshness_status", "source_type"}:
         return _DISPLAY_VALUE_LABELS.get(value, value)
     if key == "field":
         return _display_key(value)

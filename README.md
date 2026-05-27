@@ -48,7 +48,7 @@ SMAI は以下の思想を重視しています。
   - deterministic Research Summary、data-quality warning、Cockpit / Ranking modal / Decision Report 連携
 - Research RAG external fetch first UI slice
   - 銘柄コックピットで明示許可した場合だけ Yahoo Finance profile / news を取得
-  - 方針として、取得本文は保持せず session-local に一時参照する。画面には source URL / provider / fetched_at / published_at / freshness warning / 要約を表示する
+  - 方針として、取得本文は保持せず session-local に一時参照する。画面とDecision Reportには source URL / provider / fetched_at / published_at / freshness warning / 要約を表示する
 - Research Score first slices
   - `ResearchScoreService`、optional Investment Score input、disabled-by-default `scoring.weights.research`
   - Cockpit / Ranking Research Summary の Research Score 参考表示

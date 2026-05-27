@@ -7,6 +7,7 @@ import pytest
 
 from backend.research import (
     CompanyResearchRequest,
+    CompositeExternalResearchAdapter,
     ExternalResearchFetchRequest,
     ExternalResearchFetchService,
     ExternalResearchSourcePayload,
@@ -36,6 +37,7 @@ from backend.research import (
     ResearchVectorIndexService,
     StockNewsAnalysisService,
     StockNewsRequest,
+    TDnetResearchAdapter,
     YahooFinanceResearchAdapter,
 )
 
@@ -55,6 +57,15 @@ class FakeExternalResearchAdapter:
 
 class NetworkExternalResearchAdapter(FakeExternalResearchAdapter):
     requires_network = True
+
+
+class FailingExternalResearchAdapter(FakeExternalResearchAdapter):
+    provider = "failing_external"
+
+    def fetch_sources(
+        self, request: ExternalResearchFetchRequest
+    ) -> list[ExternalResearchSourcePayload]:
+        raise ResearchDocumentError("provider failed")
 
 
 class FakeYahooTicker:
@@ -79,7 +90,9 @@ class FakeYahooTicker:
         ]
 
 
-def test_research_local_document_flow_registers_chunks_searches_and_summarizes(tmp_path):
+def test_research_local_document_flow_registers_chunks_searches_and_summarizes(
+    tmp_path,
+):
     document_path = tmp_path / "7203_research.md"
     document_path.write_text(
         """# 7203 Research Note
@@ -408,7 +421,9 @@ summary: 7203 faces regulation risk in an older market update.
     assert any("source URL" in warning for warning in report.warnings)
 
 
-def test_external_research_fetch_service_registers_sources_without_persisting_payloads(tmp_path):
+def test_external_research_fetch_service_registers_sources_without_persisting_payloads(
+    tmp_path,
+):
     fetched_at = datetime(2026, 5, 25, 9, 0, tzinfo=UTC)
     adapter = FakeExternalResearchAdapter(
         [
@@ -462,7 +477,10 @@ def test_external_research_fetch_service_registers_sources_without_persisting_pa
     assert result.retention_policy == "session"
     assert len(result.entries) == 2
     assert result.manifest_path is None
-    assert {entry.source_type for entry in result.entries} == {"provider_profile", "news"}
+    assert {entry.source_type for entry in result.entries} == {
+        "provider_profile",
+        "news",
+    }
     assert all(entry.source_url.startswith("https://example.com/") for entry in result.entries)
     assert {entry.retention_policy for entry in result.entries} == {"session"}
     assert all(entry.local_path is None for entry in result.entries)
@@ -563,6 +581,168 @@ def test_yahoo_finance_research_adapter_builds_profile_and_news_payloads_without
     assert "revenue growth" in payloads[1].content
 
 
+def test_tdnet_research_adapter_builds_disclosure_payloads_without_live_call():
+    requested_urls: list[str] = []
+
+    def fake_http_get(url: str) -> str:
+        requested_urls.append(url)
+        return """
+        <html><body><table>
+          <tr>
+            <td>15:00</td><td>7203</td><td>トヨタ自動車</td>
+            <td><a href="./140120260525000001.pdf">2026年3月期 決算短信</a></td>
+          </tr>
+          <tr>
+            <td>15:10</td><td>6758</td><td>ソニーグループ</td>
+            <td><a href="./140120260525000002.pdf">別会社の開示</a></td>
+          </tr>
+        </table></body></html>
+        """
+
+    adapter = TDnetResearchAdapter(
+        http_get=fake_http_get,
+        lookback_days=1,
+        max_pages_per_day=1,
+    )
+
+    payloads = adapter.fetch_sources(
+        ExternalResearchFetchRequest(
+            symbol="7203.T",
+            company_name="Toyota",
+            provider="tdnet",
+            as_of=date(2026, 5, 25),
+            allow_network=True,
+        )
+    )
+
+    assert requested_urls == ["https://www.release.tdnet.info/inbs/I_list_001_20260525.html"]
+    assert len(payloads) == 1
+    assert payloads[0].source_type == "tdnet"
+    assert payloads[0].source_url == ("https://www.release.tdnet.info/inbs/140120260525000001.pdf")
+    assert payloads[0].published_at == date(2026, 5, 25)
+    assert payloads[0].reliability == Decimal("0.85")
+    assert "TDnet timely disclosure" in payloads[0].content
+    assert "決算短信" in payloads[0].content
+
+
+def test_tdnet_research_adapter_continues_after_page_fetch_failure():
+    def fake_http_get(url: str) -> str:
+        if "I_list_001" in url:
+            raise ResearchDocumentError("temporary tdnet page failure")
+        return """
+        <tr>
+          <td>16:00</td><td>7203</td><td>Toyota</td>
+          <td><a href="./140120260525000003.pdf">Notice of dividend policy</a></td>
+        </tr>
+        """
+
+    adapter = TDnetResearchAdapter(
+        http_get=fake_http_get,
+        lookback_days=1,
+        max_pages_per_day=2,
+    )
+
+    payloads = adapter.fetch_sources(
+        ExternalResearchFetchRequest(
+            symbol="7203.T",
+            company_name="Toyota",
+            provider="tdnet",
+            as_of=date(2026, 5, 25),
+            allow_network=True,
+        )
+    )
+
+    assert len(payloads) == 1
+    assert payloads[0].source_url == ("https://www.release.tdnet.info/inbs/140120260525000003.pdf")
+
+
+def test_composite_external_research_adapter_combines_sources_without_live_call():
+    fetched_at = datetime(2026, 5, 25, 9, 0, tzinfo=UTC)
+    first = FakeExternalResearchAdapter(
+        [
+            ExternalResearchSourcePayload(
+                symbol="7203.T",
+                title="7203 TDnet Disclosure",
+                content="Latest official disclosure.",
+                source_type="tdnet",
+                source_url="https://example.com/tdnet.pdf",
+                provider="tdnet",
+                company_name="Toyota",
+                published_at=date(2026, 5, 25),
+                fetched_at=fetched_at,
+                reliability=Decimal("0.85"),
+            )
+        ]
+    )
+    second = FakeExternalResearchAdapter(
+        [
+            ExternalResearchSourcePayload(
+                symbol="7203.T",
+                title="7203 Provider Profile",
+                content="Provider profile snapshot.",
+                source_type="provider_profile",
+                source_url="https://example.com/profile",
+                provider="yahoo_finance",
+                company_name="Toyota",
+                published_at=date(2026, 5, 25),
+                fetched_at=fetched_at,
+                reliability=Decimal("0.65"),
+            )
+        ]
+    )
+    adapter = CompositeExternalResearchAdapter([first, second])
+
+    payloads = adapter.fetch_sources(
+        ExternalResearchFetchRequest(
+            symbol="7203.T",
+            company_name="Toyota",
+            provider=adapter.provider,
+            as_of=date(2026, 5, 25),
+            allow_network=True,
+        )
+    )
+
+    assert adapter.provider == "tdnet_yahoo_finance"
+    assert [payload.provider for payload in payloads] == ["tdnet", "yahoo_finance"]
+    assert [payload.source_type for payload in payloads] == [
+        "tdnet",
+        "provider_profile",
+    ]
+
+
+def test_composite_external_research_adapter_continues_after_source_failure():
+    fetched_at = datetime(2026, 5, 25, 9, 0, tzinfo=UTC)
+    fallback = FakeExternalResearchAdapter(
+        [
+            ExternalResearchSourcePayload(
+                symbol="7203.T",
+                title="7203 Provider Profile",
+                content="Provider profile snapshot.",
+                source_type="provider_profile",
+                source_url="https://example.com/profile",
+                provider="yahoo_finance",
+                company_name="Toyota",
+                published_at=date(2026, 5, 25),
+                fetched_at=fetched_at,
+                reliability=Decimal("0.65"),
+            )
+        ]
+    )
+    adapter = CompositeExternalResearchAdapter([FailingExternalResearchAdapter([]), fallback])
+
+    payloads = adapter.fetch_sources(
+        ExternalResearchFetchRequest(
+            symbol="7203.T",
+            company_name="Toyota",
+            provider=adapter.provider,
+            as_of=date(2026, 5, 25),
+            allow_network=True,
+        )
+    )
+
+    assert [payload.provider for payload in payloads] == ["yahoo_finance"]
+
+
 def test_research_search_uses_category_query_expansion(tmp_path):
     document_path = tmp_path / "growth_note.md"
     document_path.write_text(
@@ -634,7 +814,9 @@ def test_research_analysis_uses_query_expansion_for_topic_evidence(tmp_path):
     )
 
 
-def test_research_analysis_adds_confirmation_gap_claim_for_missing_topic_evidence(tmp_path):
+def test_research_analysis_adds_confirmation_gap_claim_for_missing_topic_evidence(
+    tmp_path,
+):
     document_path = tmp_path / "shareholder_note.md"
     document_path.write_text(
         "Dividend policy and shareholder return remain part of capital allocation.",

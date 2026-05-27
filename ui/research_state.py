@@ -10,6 +10,7 @@ import streamlit as st
 from backend.research import (
     CompanyResearchReport,
     CompanyResearchRequest,
+    DefaultExternalResearchAdapter,
     ExternalResearchFetchRequest,
     ExternalResearchFetchResult,
     ExternalResearchFetchService,
@@ -24,7 +25,6 @@ from backend.research import (
     StockNewsAnalysisService,
     StockNewsReport,
     StockNewsRequest,
-    YahooFinanceResearchAdapter,
 )
 
 RESEARCH_STORE_STATE_KEY = "research_local_store"
@@ -134,7 +134,7 @@ def fetch_external_research_for_symbol(
     store = research_store()
     ingestion = ResearchIngestionService(store, document_dirs=research_document_dirs())
     index = ResearchIndexService(store)
-    source_adapter = adapter or YahooFinanceResearchAdapter()
+    source_adapter = adapter or DefaultExternalResearchAdapter()
     result = ExternalResearchFetchService(
         source_adapter,
         ingestion,

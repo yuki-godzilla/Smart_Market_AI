@@ -1,6 +1,8 @@
 from backend.research.service import (
     CompanyResearchReport,
     CompanyResearchRequest,
+    CompositeExternalResearchAdapter,
+    DefaultExternalResearchAdapter,
     ExternalResearchFetchManifestEntry,
     ExternalResearchFetchRequest,
     ExternalResearchFetchResult,
@@ -50,12 +52,15 @@ from backend.research.service import (
     StockNewsEvidence,
     StockNewsReport,
     StockNewsRequest,
+    TDnetResearchAdapter,
     YahooFinanceResearchAdapter,
 )
 
 __all__ = [
     "CompanyResearchRequest",
     "CompanyResearchReport",
+    "CompositeExternalResearchAdapter",
+    "DefaultExternalResearchAdapter",
     "ExternalResearchFetchManifestEntry",
     "ExternalResearchFetchRequest",
     "ExternalResearchFetchResult",
@@ -105,5 +110,6 @@ __all__ = [
     "StockNewsEvidence",
     "StockNewsReport",
     "StockNewsRequest",
+    "TDnetResearchAdapter",
     "YahooFinanceResearchAdapter",
 ]

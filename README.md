@@ -47,7 +47,7 @@ SMAI は以下の思想を重視しています。
   - local UTF-8 Markdown / Text / CSV の登録、hash dedupe、chunking、keyword evidence search
   - deterministic Research Summary、data-quality warning、Cockpit / Ranking modal / Decision Report 連携
 - Research RAG external fresh-source fetch first UI slice
-  - Yahoo Finance profile / news の first slice を `AI調査を更新` の標準処理へ統合済み
+  - TDnet 適時開示 + Yahoo Finance profile / news の first slice を `AI調査を更新` の標準処理へ統合済み
   - 方針として、取得本文は保持せず session-local に一時参照する。画面とDecision Reportには source URL / provider / fetched_at / published_at / freshness warning / 要約を表示する
 - Research Score first slices
   - `ResearchScoreService`、optional Investment Score input、disabled-by-default `scoring.weights.research`
@@ -70,7 +70,7 @@ SMAI は以下の思想を重視しています。
 - `polygon` など追加 live provider adapter 本体
 - 追加 provider / fund metadata source adapter
 - 投信 metadata / 基準価額 / ranking 対応
-- EDINET / TDnet / company IR site など追加 Research RAG external source adapters / vector search の運用UI
+- EDINET / company IR site など追加 Research RAG external source adapters / vector search の運用UI
 - Research Score の ranking order 統合と表示 polish
 - AI assistant experience
 - Execution / broker への注文送信
@@ -91,7 +91,7 @@ MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で
 - Phase 22〜25: Research Score integration、Assistant、optional adapter、Execution gate の順に整理
 - Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
-次の重点は、既存機能の分かりにくさ、仕様曖昧さ、投資助言に見えすぎる表現を棚卸ししつつ、`AI調査を更新` を外部最新IR・開示・ニュース・provider evidence 探索の標準導線へ寄せ、Phase 22 Research Score integration を慎重に進めることです。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、EDINET / TDnet / company IR site などの追加 Research RAG external adapters、Assistant、Execution / Broker は段階的に扱います。通常 checks は引き続き fake adapter / fixture で network 非依存を維持します。
+次の重点は、既存機能の分かりにくさ、仕様曖昧さ、投資助言に見えすぎる表現を棚卸ししつつ、`AI調査を更新` を外部最新IR・開示・ニュース・provider evidence 探索の標準導線へ寄せ、Phase 22 Research Score integration を慎重に進めることです。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、EDINET / company IR site などの追加 Research RAG external adapters、Assistant、Execution / Broker は段階的に扱います。通常 checks は引き続き fake adapter / fixture で network 非依存を維持します。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント

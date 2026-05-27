@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import math
 import re
@@ -9,6 +10,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Callable, Literal, Protocol, Sequence, cast
+from urllib.parse import urljoin
 
 import yaml  # type: ignore[import-untyped]
 from pydantic import Field, ValidationError
@@ -70,6 +72,8 @@ YAHOO_RESEARCH_PROFILE_FIELDS: tuple[tuple[str, str], ...] = (
     ("payoutRatio", "Payout Ratio"),
     ("beta", "Beta"),
 )
+TDNET_BASE_URL = "https://www.release.tdnet.info/inbs/"
+TDNET_LIST_URL_TEMPLATE = TDNET_BASE_URL + "I_list_{page:03d}_{yyyymmdd}.html"
 DEFAULT_RESEARCH_QUERY_TERMS: dict[ResearchTopicCategory, tuple[str, ...]] = {
     "growth": (
         "growth strategy",
@@ -1510,7 +1514,7 @@ class StockNewsAnalysisService:
 
 
 class ExternalResearchFetchService:
-    """Fetch explicitly approved external sources into the session-local Research RAG store."""
+    """Fetch external sources into the session-local Research RAG store."""
 
     def __init__(
         self,
@@ -1710,6 +1714,132 @@ class YahooFinanceResearchAdapter:
         return yf.Ticker(symbol)
 
 
+class TDnetResearchAdapter:
+    """TDnet timely-disclosure adapter for current Japanese IR source links."""
+
+    provider = "tdnet"
+    requires_network = True
+
+    def __init__(
+        self,
+        *,
+        http_get: Callable[[str], str] | None = None,
+        lookback_days: int = 7,
+        max_pages_per_day: int = 3,
+        max_results: int = 5,
+    ) -> None:
+        self._http_get = http_get
+        self.lookback_days = max(1, lookback_days)
+        self.max_pages_per_day = max(1, max_pages_per_day)
+        self.max_results = max(1, max_results)
+
+    def fetch_sources(
+        self,
+        request: ExternalResearchFetchRequest,
+    ) -> list[ExternalResearchSourcePayload]:
+        symbol_code = _tdnet_symbol_code(request.symbol)
+        if not symbol_code:
+            return []
+        fetched_at = datetime.now(UTC)
+        as_of = request.as_of or fetched_at.date()
+        payloads: list[ExternalResearchSourcePayload] = []
+        seen_urls: set[str] = set()
+        for offset in range(self.lookback_days):
+            published_at = date.fromordinal(as_of.toordinal() - offset)
+            yyyymmdd = published_at.strftime("%Y%m%d")
+            for page in range(1, self.max_pages_per_day + 1):
+                list_url = TDNET_LIST_URL_TEMPLATE.format(page=page, yyyymmdd=yyyymmdd)
+                try:
+                    html_text = self._get_text(list_url)
+                except ResearchDocumentError:
+                    continue
+                if not html_text.strip():
+                    continue
+                for payload in _tdnet_payloads_from_html(
+                    request,
+                    html_text,
+                    list_url=list_url,
+                    fetched_at=fetched_at,
+                    published_at=published_at,
+                ):
+                    if payload.source_url in seen_urls:
+                        continue
+                    seen_urls.add(payload.source_url)
+                    payloads.append(payload)
+                    if len(payloads) >= self.max_results:
+                        return payloads
+        return payloads
+
+    def _get_text(self, url: str) -> str:
+        if self._http_get is not None:
+            return self._http_get(url)
+        try:
+            import httpx
+        except ImportError as exc:  # pragma: no cover - dependency is pinned for runtime
+            raise ResearchDocumentError(
+                "httpx is required for the TDnet research adapter.",
+                details={"provider": self.provider},
+            ) from exc
+        try:
+            with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+                response = client.get(url)
+                response.raise_for_status()
+                response.encoding = response.encoding or "utf-8"
+                return response.text
+        except Exception as exc:  # pragma: no cover - provider-specific network failure
+            raise ResearchDocumentError(
+                "TDnet disclosure list fetch failed.",
+                details={"provider": self.provider, "url": url},
+            ) from exc
+
+
+class CompositeExternalResearchAdapter:
+    """Run multiple external source adapters as one UI-facing provider."""
+
+    provider = "tdnet_yahoo_finance"
+    requires_network = True
+
+    def __init__(
+        self,
+        adapters: Sequence[ExternalResearchSourceAdapter],
+        *,
+        provider: str | None = None,
+    ) -> None:
+        self.adapters = list(adapters)
+        if provider is not None:
+            self.provider = provider
+        self.requires_network = any(adapter.requires_network for adapter in self.adapters)
+
+    def fetch_sources(
+        self,
+        request: ExternalResearchFetchRequest,
+    ) -> list[ExternalResearchSourcePayload]:
+        payloads: list[ExternalResearchSourcePayload] = []
+        first_error: ResearchDocumentError | None = None
+        for adapter in self.adapters:
+            adapter_request = request.model_copy(update={"provider": adapter.provider})
+            try:
+                payloads.extend(adapter.fetch_sources(adapter_request))
+            except ResearchDocumentError as exc:
+                first_error = first_error or exc
+                continue
+        if not payloads and first_error is not None:
+            raise first_error
+        return payloads
+
+
+class DefaultExternalResearchAdapter(CompositeExternalResearchAdapter):
+    """Default live research source set for the Cockpit AI refresh flow."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            [
+                TDnetResearchAdapter(),
+                YahooFinanceResearchAdapter(),
+            ]
+        )
+
+
 def _is_allowed_path(path: Path, allowed_dirs: Sequence[Path]) -> bool:
     return any(path == directory or directory in path.parents for directory in allowed_dirs)
 
@@ -1861,6 +1991,119 @@ def _yahoo_news_payloads(
             )
         )
     return payloads
+
+
+def _tdnet_symbol_code(symbol: str) -> str:
+    match = re.match(r"^\s*(\d{4})", symbol)
+    return match.group(1) if match else ""
+
+
+def _tdnet_payloads_from_html(
+    request: ExternalResearchFetchRequest,
+    html_text: str,
+    *,
+    list_url: str,
+    fetched_at: datetime,
+    published_at: date,
+) -> list[ExternalResearchSourcePayload]:
+    symbol_code = _tdnet_symbol_code(request.symbol)
+    if not symbol_code:
+        return []
+    rows = re.findall(r"<tr\b[^>]*>.*?</tr>", html_text, flags=re.IGNORECASE | re.DOTALL)
+    if not rows:
+        rows = html_text.splitlines()
+    payloads: list[ExternalResearchSourcePayload] = []
+    for row in rows:
+        row_text = _clean_html_text(row)
+        if symbol_code not in row_text:
+            continue
+        href = _first_href(row)
+        if not href:
+            continue
+        title = _tdnet_row_title(row) or row_text
+        source_url = urljoin(list_url, html.unescape(href))
+        company_name = request.company_name or _tdnet_company_name(row_text, symbol_code)
+        payloads.append(
+            ExternalResearchSourcePayload(
+                symbol=_normalize_symbol(request.symbol),
+                title=f"{symbol_code} TDnet {title}",
+                content=_tdnet_payload_content(
+                    title=title,
+                    row_text=row_text,
+                    source_url=source_url,
+                    company_name=company_name,
+                    published_at=published_at,
+                ),
+                source_type="tdnet",
+                source_url=source_url,
+                provider=TDnetResearchAdapter.provider,
+                company_name=company_name,
+                published_at=published_at,
+                fetched_at=fetched_at,
+                reliability=Decimal("0.85"),
+            )
+        )
+    return payloads
+
+
+def _first_href(row_html: str) -> str | None:
+    match = re.search(r"""href\s*=\s*["']([^"']+)["']""", row_html, flags=re.IGNORECASE)
+    return match.group(1).strip() if match else None
+
+
+def _tdnet_row_title(row_html: str) -> str:
+    anchor_match = re.search(
+        r"<a\b[^>]*>(.*?)</a>",
+        row_html,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if anchor_match:
+        return _clean_html_text(anchor_match.group(1))
+    return ""
+
+
+def _clean_html_text(value: str) -> str:
+    without_tags = re.sub(r"<[^>]+>", " ", value)
+    return re.sub(r"\s+", " ", html.unescape(without_tags)).strip()
+
+
+def _tdnet_company_name(row_text: str, symbol_code: str) -> str | None:
+    after_code = row_text.split(symbol_code, 1)[-1].strip()
+    if not after_code:
+        return None
+    parts = re.split(r"\s{2,}| 適時開示 | 決算短信 | Notice | Summary ", after_code, maxsplit=1)
+    company = parts[0].strip(" -")
+    return company or None
+
+
+def _tdnet_payload_content(
+    *,
+    title: str,
+    row_text: str,
+    source_url: str,
+    company_name: str | None,
+    published_at: date,
+) -> str:
+    lines = [
+        f"title: {title}",
+        f"url: {source_url}",
+        f"published_at: {published_at.isoformat()}",
+        "source: TDnet timely disclosure",
+    ]
+    if company_name:
+        lines.append(f"company: {company_name}")
+    lines.extend(
+        [
+            "",
+            "Disclosure summary:",
+            row_text,
+            "",
+            "Data Quality Notes:",
+            "TDnet is an official timely-disclosure source for Japanese listed companies.",
+            "Confirm PDF details before using the information in an investment decision.",
+        ]
+    )
+    return "\n".join(lines)
 
 
 def _external_text_value(value: object) -> str:

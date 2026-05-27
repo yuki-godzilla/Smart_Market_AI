@@ -799,8 +799,8 @@ Follow-up child roadmap:
 
 Current implemented slice:
 
-- `backend/research` has `ExternalResearchFetchRequest`, `ExternalResearchSourcePayload`, `ExternalResearchFetchService`, source trace entries with freshness_status, and `ExternalResearchSourceAdapter` protocol.
-- `YahooFinanceResearchAdapter` provides the first live adapter shape for provider profile and recent news payloads. Tests inject a fake ticker factory, so no live Yahoo call is required in normal checks.
+- `backend/research` has `ExternalResearchFetchRequest`, `ExternalResearchSourcePayload`, `ExternalResearchFetchService`, source trace entries with freshness_status, `ExternalResearchSourceAdapter` protocol, and a default composite adapter.
+- `TDnetResearchAdapter` provides the first official timely-disclosure source slice for Japanese listed-company IR links. `YahooFinanceResearchAdapter` continues to provide provider profile and recent news payloads. Tests inject fake HTTP / ticker factories, so no live TDnet or Yahoo call is required in normal checks.
 - The current implementation keeps an explicit `allow_network=True` backend safety gate, removes the separate Cockpit `外部資料取得（明示許可）` UI, and makes `AI調査を更新` the standard external source search action while retaining fake-adapter tests and backend safety boundaries.
 - External RAG fetch is transient-by-default. Fetched source text is registered into the session-local Research RAG store only for the current analysis / score / display pass, while persistent document payloads, converted Markdown, local paths, document hashes, and manifests are not produced unless the user explicitly chooses a future `資料を保存する` / archive action.
 - UI/report display focuses on provider, fetched_at, published_at, source URL, freshness_status / freshness warnings, and generated summary/evidence snippets. Cockpit Decision Report includes an `外部参照ソース` section for these trace rows without including fetched source text, local paths, document hashes, or manifests. It should not imply that the app is building a permanent local document repository from live sources.
@@ -824,7 +824,7 @@ Recommended integration slice:
 - R5: Vector Search / Hybrid Search optional adapter。keyword retrieval を baseline に残し、embedding / vector は optional にする。
 - R6: Research Score MVP。growth、profitability、shareholder_return、financial_safety、business_risk、disclosure_quality、freshness を rule/template で採点し、evidence_count と confidence を保持する。Backend first slice は `ResearchScore` / `ResearchScoreService` として実装済み。
 - R7: Investment Score / Ranking / Report integration。Research Score を設定で管理できる optional weight として Investment Score に接続し、ranking / cockpit / report に内訳を表示する。Investment Score first slice は `research_scores_by_symbol` と `scoring.weights.research` default 0.0 として実装済みで、default ranking order は変更しない。Display first slice は Cockpit / Ranking の共通 Research Summary panel に Research Score summary / component / warning rows を出し、AI Research report 由来の score を selected-candidate breakdown に確認材料として出す形で実装済み。Report first slice は Cockpit Decision Report の `Research Score` section として実装済みで、内訳、supporting evidence、confidence、warnings、非推奨注記を Research Evidence と並べて保存する。
-- R8: External Source Adapter。EDINET / TDnet / IR site / news などを `AI調査を更新` の標準 source adapter として扱い、通常 checks は fake adapter / fixture で network 非依存にする。
+- R8: External Source Adapter。TDnet は first slice 実装済み。EDINET / IR site / news などを `AI調査を更新` の標準 source adapter として広げ、通常 checks は fake adapter / fixture で network 非依存にする。
 
 Recommended completion criteria:
 

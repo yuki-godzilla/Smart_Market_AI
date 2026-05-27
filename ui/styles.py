@@ -14,10 +14,22 @@ THEME_COLORS = {
     "bg_card_hover": "#17283F",
     "bg_elevated": "#1A2B45",
     "text_title": "#F8FBFF",
-    "text_primary": "#E8F0FA",
-    "text_secondary": "#B9C7DA",
-    "text_muted": "#8A97AD",
-    "text_disabled": "#637086",
+    "text_heading": "#EAF1FB",
+    "text_primary": "#D7E2F0",
+    "text_secondary": "#AEBBD0",
+    "text_muted": "#7F8DA3",
+    "text_disabled": "#596579",
+    "text_value": "#F1F5F9",
+    "text_label": "#91A3BA",
+    "text_caption": "#8492A8",
+    "text_ai_title": "#67E8F9",
+    "text_ai_primary": "#D8F3FF",
+    "text_ai_muted": "#9ACFE0",
+    "text_positive": "#6EE7B7",
+    "text_negative": "#FDA4AF",
+    "text_warning": "#FCD34D",
+    "text_info": "#93C5FD",
+    "text_neutral": "#CBD5E1",
     "border_subtle": "#25344D",
     "border_default": "#31425F",
     "border_strong": "#49607F",
@@ -97,21 +109,21 @@ RANKING_GRID_CUSTOM_CSS = {
     ".ag-header-cell": {
         "background-color": f"{THEME_COLORS['table_header_bg']} !important",
         "border-right": f"1px solid {THEME_COLORS['border_default']}",
-        "color": f"{THEME_COLORS['text_secondary']} !important",
+        "color": f"{THEME_COLORS['text_heading']} !important",
     },
     ".ag-header-cell-label": {
         "font-weight": "720",
-        "color": f"{THEME_COLORS['text_secondary']} !important",
+        "color": f"{THEME_COLORS['text_heading']} !important",
     },
     ".ag-header-cell-text": {
-        "color": f"{THEME_COLORS['text_secondary']} !important",
+        "color": f"{THEME_COLORS['text_heading']} !important",
         "font-weight": "720",
     },
     ".ag-icon": {"color": f"{THEME_COLORS['text_muted']} !important"},
     ".ag-row": {
         "background-color": f"{THEME_COLORS['table_row_bg']} !important",
         "border-bottom": f"1px solid {THEME_COLORS['border_subtle']}",
-        "color": f"{THEME_COLORS['text_primary']} !important",
+        "color": f"{THEME_COLORS['text_value']} !important",
         "cursor": "pointer",
     },
     ".ag-row-even": {"background-color": f"{THEME_COLORS['table_row_bg']} !important"},
@@ -120,14 +132,14 @@ RANKING_GRID_CUSTOM_CSS = {
     ".ag-row-selected": {"background-color": f"{THEME_COLORS['bg_elevated']} !important"},
     ".ag-cell": {
         "border-right": f"1px solid {THEME_COLORS['border_subtle']}",
-        "color": f"{THEME_COLORS['text_primary']} !important",
+        "color": f"{THEME_COLORS['text_value']} !important",
         "font-weight": "600",
         "line-height": "1.35",
         "overflow-wrap": "anywhere",
         "white-space": "normal",
     },
     ".ag-cell-value": {
-        "color": f"{THEME_COLORS['text_primary']} !important",
+        "color": f"{THEME_COLORS['text_value']} !important",
         "overflow-wrap": "anywhere",
         "white-space": "normal",
     },
@@ -145,10 +157,28 @@ SMAI_GLOBAL_CSS = """
 
     /* Text */
     --text-title: #F8FBFF;
-    --text-primary: #E8F0FA;
-    --text-secondary: #B9C7DA;
-    --text-muted: #8A97AD;
-    --text-disabled: #637086;
+    --text-heading: #EAF1FB;
+    --text-primary: #D7E2F0;
+    --text-secondary: #AEBBD0;
+    --text-muted: #7F8DA3;
+    --text-disabled: #596579;
+
+    /* Text hierarchy */
+    --text-value: #F1F5F9;
+    --text-label: #91A3BA;
+    --text-caption: #8492A8;
+
+    /* AI Text */
+    --text-ai-title: #67E8F9;
+    --text-ai-primary: #D8F3FF;
+    --text-ai-muted: #9ACFE0;
+
+    /* Financial Semantic Text */
+    --text-positive: #6EE7B7;
+    --text-negative: #FDA4AF;
+    --text-warning: #FCD34D;
+    --text-info: #93C5FD;
+    --text-neutral: #CBD5E1;
 
     /* Border */
     --border-subtle: #25344D;
@@ -258,7 +288,7 @@ SMAI_GLOBAL_CSS = """
 
 [data-testid="stMarkdownContainer"] p,
 [data-testid="stMarkdownContainer"] li {
-    color: var(--text-primary);
+    color: var(--text-secondary);
     font-size: 0.95rem;
     font-weight: 500;
     line-height: 1.65;
@@ -266,16 +296,27 @@ SMAI_GLOBAL_CSS = """
 }
 
 [data-testid="stMarkdownContainer"] h1,
-[data-testid="stMarkdownContainer"] h2,
-[data-testid="stMarkdownContainer"] h3,
-[data-testid="stMarkdownContainer"] h4 {
+[data-testid="stMarkdownContainer"] h2 {
     color: var(--text-title);
     letter-spacing: 0;
 }
 
+[data-testid="stMarkdownContainer"] h3,
+[data-testid="stMarkdownContainer"] h4 {
+    color: var(--text-heading);
+    letter-spacing: 0;
+}
+
 [data-testid="stMarkdownContainer"] a {
-    color: var(--ai-blue);
+    color: #7DD3FC;
     text-decoration-color: rgba(96, 165, 250, 0.42);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.16rem;
+}
+
+[data-testid="stMarkdownContainer"] a:hover {
+    color: #BAE6FD;
+    text-decoration: underline;
 }
 
 [data-testid="stMarkdownContainer"] hr {
@@ -284,7 +325,7 @@ SMAI_GLOBAL_CSS = """
 
 [data-testid="stCaptionContainer"],
 [data-testid="stCaptionContainer"] p {
-    color: var(--text-muted);
+    color: var(--text-caption);
     font-size: 0.9rem;
     font-weight: 520;
     line-height: 1.6;
@@ -309,14 +350,21 @@ SMAI_GLOBAL_CSS = """
 [data-testid="stTable"] thead tr,
 [data-testid="stTable"] thead th {
     background: var(--table-header-bg);
-    color: var(--text-secondary);
+    color: var(--text-heading);
+    font-weight: 700;
 }
 
 [data-testid="stTable"] tbody tr,
 [data-testid="stTable"] tbody td {
     background: var(--table-row-bg);
     border-color: var(--border-subtle);
-    color: var(--text-primary);
+    color: var(--text-value);
+    font-weight: 560;
+}
+
+[data-testid="stTable"] tbody td:first-child {
+    color: var(--text-label);
+    font-weight: 620;
 }
 
 [data-testid="stTable"] tbody tr:hover td {
@@ -388,7 +436,7 @@ SMAI_GLOBAL_CSS = """
 [data-testid="stDateInput"] input:disabled,
 [data-testid="stNumberInput"] input:disabled {
     background-color: rgba(16, 26, 43, 0.64);
-    color: var(--text-muted);
+    color: var(--text-disabled);
     opacity: 1;
 }
 
@@ -397,7 +445,7 @@ SMAI_GLOBAL_CSS = """
 [data-testid="stNumberInput"] label,
 [data-testid="stDateInput"] label,
 [data-testid="stCheckbox"] label {
-    color: var(--text-secondary);
+    color: var(--text-label);
     font-weight: 720;
     letter-spacing: 0;
 }
@@ -422,12 +470,13 @@ SMAI_GLOBAL_CSS = """
 }
 
 [data-testid="stMetricLabel"] {
-    color: var(--text-muted);
+    color: var(--text-label);
 }
 
 [data-testid="stMetricValue"] {
-    color: var(--text-title);
+    color: var(--text-value);
     letter-spacing: 0;
+    font-weight: 720;
 }
 
 [data-testid="stExpander"] {
@@ -440,7 +489,7 @@ SMAI_GLOBAL_CSS = """
 }
 
 [data-testid="stExpander"] details summary {
-    color: var(--text-secondary);
+    color: var(--text-heading);
     min-height: 2.75rem;
     font-weight: 780;
 }
@@ -456,11 +505,11 @@ SMAI_GLOBAL_CSS = """
 }
 
 [data-testid="stTabs"] button {
-    color: var(--text-muted);
+    color: var(--text-label);
 }
 
 [data-testid="stTabs"] button[aria-selected="true"] {
-    color: var(--text-title);
+    color: var(--text-ai-title);
     border-color: var(--ai-cyan);
 }
 
@@ -472,7 +521,7 @@ SMAI_GLOBAL_CSS = """
 }
 
 [data-testid="stAlert"] [data-testid="stMarkdownContainer"] p {
-    color: var(--text-primary);
+    color: var(--text-secondary);
 }
 
 .smai-card,
@@ -503,21 +552,21 @@ SMAI_GLOBAL_CSS = """
 .smai-news-insight-card {
     border-color: var(--ai-border);
     background: linear-gradient(180deg, rgba(8, 27, 42, 0.94), rgba(11, 18, 32, 0.94));
-    color: var(--ai-text);
+    color: var(--text-ai-primary);
     box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.04);
 }
 
 .smai-ai-card-title,
 .smai-ai-summary-title,
 .smai-news-insight-title {
-    color: var(--text-title);
+    color: var(--text-ai-title);
     font-weight: 820;
 }
 
 .smai-ai-card-body,
 .smai-ai-summary-body,
 .smai-news-insight-body {
-    color: var(--ai-text);
+    color: var(--text-ai-primary);
     line-height: 1.62;
 }
 
@@ -527,7 +576,7 @@ SMAI_GLOBAL_CSS = """
     border-radius: 999px;
     border: 1px solid var(--border-default);
     background: rgba(96, 165, 250, 0.12);
-    color: var(--signal-info);
+    color: var(--text-info);
     font-size: 0.74rem;
     font-weight: 760;
     line-height: 1.3;
@@ -538,14 +587,14 @@ SMAI_GLOBAL_CSS = """
 .smai-investment-signal-badge.positive {
     border-color: rgba(52, 211, 153, 0.34);
     background: rgba(52, 211, 153, 0.12);
-    color: var(--signal-buy);
+    color: var(--text-positive);
 }
 
 .smai-investment-signal-badge.hold,
 .smai-investment-signal-badge.neutral {
     border-color: rgba(251, 191, 36, 0.34);
     background: rgba(251, 191, 36, 0.12);
-    color: var(--signal-hold);
+    color: var(--text-warning);
 }
 
 .smai-investment-signal-badge.sell,
@@ -553,13 +602,13 @@ SMAI_GLOBAL_CSS = """
 .smai-investment-signal-badge.risk {
     border-color: rgba(248, 113, 113, 0.34);
     background: rgba(248, 113, 113, 0.12);
-    color: var(--signal-sell);
+    color: var(--text-negative);
 }
 
 .smai-risk-alert-box {
     border-color: rgba(251, 113, 133, 0.32);
     background: rgba(42, 14, 28, 0.72);
-    color: var(--text-primary);
+    color: var(--text-negative);
     padding: 0.8rem 0.9rem;
 }
 
@@ -569,7 +618,7 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-source-link-list a {
-    color: var(--ai-blue);
+    color: #7DD3FC;
 }
 
 .smai-confidence-meter {
@@ -601,18 +650,35 @@ SMAI_GLOBAL_CSS = """
 
 .smai-score-breakdown-table th {
     background: var(--table-header-bg);
-    color: var(--text-secondary);
+    color: var(--text-heading);
 }
 
 .smai-score-breakdown-table td {
     background: var(--table-row-bg);
     border-top: 1px solid var(--border-subtle);
-    color: var(--text-primary);
+    color: var(--text-value);
 }
 
 .smai-state-box {
     padding: 0.82rem 0.92rem;
     color: var(--text-secondary);
+}
+
+.smai-state-box.loading,
+.smai-state-box.info {
+    color: var(--text-info);
+}
+
+.smai-state-box.success {
+    color: var(--text-positive);
+}
+
+.smai-state-box.warning {
+    color: var(--text-warning);
+}
+
+.smai-state-box.error {
+    color: var(--text-negative);
 }
 
 .smai-state-box.loading,
@@ -853,7 +919,7 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-copilot-label {
-    color: var(--text-primary);
+    color: var(--text-ai-title);
     font-size: 0.9rem;
     font-weight: 820;
     line-height: 1.25;
@@ -864,7 +930,7 @@ SMAI_GLOBAL_CSS = """
     align-items: center;
     gap: 0.42rem;
     margin-top: 0.34rem;
-    color: var(--smai-muted-readable);
+    color: var(--text-ai-muted);
     font-size: 0.82rem;
     font-weight: 700;
     line-height: 1.35;
@@ -880,7 +946,7 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-copilot-message {
-    color: var(--smai-muted-readable);
+    color: var(--text-ai-primary);
     font-size: 0.84rem;
     line-height: 1.58;
     margin: 0.48rem 0 0;
@@ -918,7 +984,7 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-dashboard-subtitle {
-    color: var(--smai-muted-readable);
+    color: var(--text-secondary);
     font-size: 0.95rem;
     line-height: 1.58;
     margin: 0.45rem 0 0;
@@ -939,7 +1005,7 @@ SMAI_GLOBAL_CSS = """
     border: 1px solid rgba(96, 165, 250, 0.22);
     border-radius: 999px;
     background: rgba(8, 27, 42, 0.58);
-    color: var(--text-secondary);
+    color: var(--text-value);
     font-size: 0.78rem;
     font-weight: 680;
     line-height: 1.35;
@@ -947,7 +1013,7 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-dashboard-chip .smai-chip-label {
-    color: var(--text-muted);
+    color: var(--text-label);
     font-weight: 640;
 }
 
@@ -955,7 +1021,7 @@ SMAI_GLOBAL_CSS = """
     display: flex;
     align-items: center;
     gap: 0.55rem;
-    color: var(--text-title);
+    color: var(--text-heading);
     font-size: 1.08rem;
     font-weight: 760;
     line-height: 1.35;
@@ -1071,14 +1137,14 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-insight-title {
-    color: var(--text-primary);
+    color: var(--text-ai-title);
     font-size: 0.9rem;
     font-weight: 780;
     line-height: 1.3;
 }
 
 .smai-insight-message {
-    color: var(--smai-body);
+    color: var(--text-ai-primary);
     font-size: 0.9rem;
     font-weight: 520;
     line-height: 1.62;
@@ -1086,14 +1152,14 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-mascot-title {
-    color: var(--text-title);
+    color: var(--text-heading);
     font-size: 0.94rem;
     font-weight: 780;
     line-height: 1.35;
 }
 
 .smai-mascot-message {
-    color: var(--smai-muted-readable);
+    color: var(--text-secondary);
     font-size: 0.88rem;
     line-height: 1.58;
     margin-top: 0.26rem;
@@ -1390,8 +1456,9 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-card-label {
-    color: var(--text-muted);
+    color: var(--text-label);
     font-size: 0.82rem;
+    font-weight: 620;
     line-height: 1.3;
     margin-bottom: 0.35rem;
 }
@@ -1417,7 +1484,7 @@ SMAI_GLOBAL_CSS = """
     flex: 0 0 auto;
     border-radius: 999px;
     border: 1px solid rgba(148, 163, 184, 0.28);
-    color: var(--text-secondary);
+    color: var(--text-caption);
     background: rgba(15, 23, 42, 0.58);
     font-size: 0.68rem;
     font-weight: 760;
@@ -1425,15 +1492,15 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-card-value {
-    color: var(--smai-card-value);
+    color: var(--text-value);
     font-size: 1.32rem;
     line-height: 1.25;
-    font-weight: 760;
+    font-weight: 780;
     overflow-wrap: anywhere;
 }
 
 .smai-card-caption {
-    color: var(--text-secondary);
+    color: var(--text-caption);
     font-size: 0.86rem;
     line-height: 1.52;
     margin-top: 0.5rem;
@@ -1494,7 +1561,7 @@ SMAI_GLOBAL_CSS = """
     align-items: center;
     justify-content: space-between;
     gap: 0.45rem;
-    color: var(--text-secondary);
+    color: var(--text-label);
     font-size: 0.76rem;
     font-weight: 700;
     line-height: 1.25;
@@ -1506,7 +1573,7 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-ranking-card-name {
-    color: var(--text-title);
+    color: var(--text-heading);
     font-size: 1rem;
     line-height: 1.28;
     font-weight: 780;
@@ -1523,7 +1590,7 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-ranking-card-metric-label {
-    color: var(--ai-text);
+    color: var(--text-label);
     font-size: 0.78rem;
     line-height: 1.3;
     font-weight: 720;
@@ -1531,7 +1598,7 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-ranking-card-metric-value {
-    color: var(--text-title);
+    color: var(--text-value);
     font-size: 1.18rem;
     line-height: 1.2;
     font-weight: 800;
@@ -1540,7 +1607,7 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-ranking-card-caption {
-    color: var(--text-secondary);
+    color: var(--text-caption);
     font-size: 0.84rem;
     line-height: 1.5;
     margin-top: 0.55rem;
@@ -1582,33 +1649,162 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-badge.info {
-    color: var(--signal-info);
+    color: var(--text-info);
     background: rgba(56, 189, 248, 0.15);
     border-color: rgba(56, 189, 248, 0.28);
 }
 
 .smai-badge.success {
-    color: var(--signal-buy);
+    color: var(--text-positive);
     background: rgba(34, 197, 94, 0.15);
     border-color: rgba(34, 197, 94, 0.28);
 }
 
 .smai-badge.caution {
-    color: var(--signal-hold);
+    color: var(--text-warning);
     background: rgba(245, 158, 11, 0.16);
     border-color: rgba(245, 158, 11, 0.3);
 }
 
 .smai-badge.danger {
-    color: var(--signal-risk);
+    color: var(--text-negative);
     background: rgba(251, 113, 133, 0.15);
     border-color: rgba(251, 113, 133, 0.28);
 }
 
 .smai-badge.neutral {
-    color: var(--text-secondary);
+    color: var(--text-neutral);
     background: rgba(100, 116, 139, 0.14);
     border-color: rgba(148, 163, 184, 0.18);
+}
+
+.text-title,
+.smai-text-title {
+    color: var(--text-title);
+    font-weight: 720;
+}
+
+.text-heading,
+.smai-text-heading {
+    color: var(--text-heading);
+    font-weight: 700;
+}
+
+.text-value,
+.smai-text-value {
+    color: var(--text-value);
+    font-weight: 700;
+}
+
+.text-label,
+.smai-text-label {
+    color: var(--text-label);
+    font-weight: 560;
+}
+
+.text-caption,
+.smai-text-caption {
+    color: var(--text-caption);
+}
+
+.ai-title,
+.smai-ai-title {
+    color: var(--text-ai-title);
+    font-weight: 720;
+}
+
+.ai-body,
+.smai-ai-body {
+    color: var(--text-ai-primary);
+}
+
+.ai-muted,
+.smai-ai-muted {
+    color: var(--text-ai-muted);
+}
+
+.positive,
+.smai-text-positive {
+    color: var(--text-positive);
+}
+
+.negative,
+.smai-text-negative {
+    color: var(--text-negative);
+}
+
+.warning,
+.smai-text-warning {
+    color: var(--text-warning);
+}
+
+.info,
+.smai-text-info {
+    color: var(--text-info);
+}
+
+.neutral,
+.smai-text-neutral {
+    color: var(--text-neutral);
+}
+
+.link,
+.smai-link {
+    color: #7DD3FC;
+    text-decoration: none;
+}
+
+.link:hover,
+.smai-link:hover {
+    color: #BAE6FD;
+    text-decoration: underline;
+}
+
+.table-header {
+    background: var(--table-header-bg);
+    color: var(--text-heading);
+    font-weight: 700;
+}
+
+.table-label {
+    color: var(--text-label);
+    font-weight: 560;
+}
+
+.table-value {
+    color: var(--text-value);
+    font-weight: 620;
+}
+
+.table-comment {
+    color: var(--text-secondary);
+}
+
+.table-muted {
+    color: var(--text-muted);
+}
+
+.card-title {
+    color: var(--text-heading);
+    font-weight: 700;
+}
+
+.card-label {
+    color: var(--text-label);
+    font-size: 0.85rem;
+}
+
+.card-value {
+    color: var(--text-value);
+    font-weight: 700;
+}
+
+.card-description {
+    color: var(--text-secondary);
+}
+
+.card-meta {
+    color: var(--text-muted);
 }
 </style>
 """
@@ -1808,16 +2004,16 @@ def style_altair_chart(chart: alt.Chart) -> alt.Chart:
         .configure_axis(
             domainColor=THEME_COLORS["border_strong"],
             gridColor=THEME_COLORS["chart_grid"],
-            labelColor=THEME_COLORS["text_secondary"],
-            titleColor=THEME_COLORS["text_primary"],
+            labelColor=THEME_COLORS["text_caption"],
+            titleColor=THEME_COLORS["text_label"],
             tickColor=THEME_COLORS["border_strong"],
         )
         .configure_legend(
             labelColor=THEME_COLORS["text_secondary"],
-            titleColor=THEME_COLORS["text_primary"],
+            titleColor=THEME_COLORS["text_heading"],
         )
         .configure_title(
-            color=THEME_COLORS["text_primary"],
+            color=THEME_COLORS["text_heading"],
             fontSize=13,
             anchor="start",
             offset=8,

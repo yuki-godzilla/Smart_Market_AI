@@ -187,7 +187,7 @@ CSV sample は `data/marketdata/` 配下にあります。
 
 Streamlit UI は左サイドメニューで画面を切り替えます。
 サイドメニューは画面選択と実行環境の簡易表示だけにし、各 workflow の入力はそれぞれの画面内に置きます。
-配色・カード・テーブル・ボタン・チャートの共通テーマは `ui/styles.py` の `THEME_COLORS` / CSS custom properties を正とします。AI分析、Research Summary、Decision Report などの生成・整理結果は cyan / blue 系の AI accent、投資判断やリスクは buy / hold / sell / risk の signal token を使います。
+配色・文字階層・カード・テーブル・ボタン・チャートの共通テーマは `ui/styles.py` の `THEME_COLORS` / CSS custom properties を正とします。AI分析、Research Summary、Decision Report などの生成・整理結果は cyan / blue 系の AI text / accent、投資判断やリスクは positive / warning / negative / info / neutral の semantic text / signal token を使います。
 
 | screen | 役割 |
 | --- | --- |

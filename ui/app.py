@@ -372,12 +372,16 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
 }
 .symbol-detail-table th {
     background: var(--table-header-bg);
-    color: var(--text-secondary);
+    color: var(--text-label);
     font-weight: 700;
 }
 .symbol-detail-table td {
     background: var(--table-row-bg);
-    color: var(--text-primary);
+    color: var(--text-value);
+}
+.symbol-detail-table td:first-child {
+    color: var(--text-label);
+    font-weight: 700;
 }
 .research-summary-table {
     margin-top: 0.6rem;
@@ -399,13 +403,13 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     margin: 0.15rem 0 0.2rem;
 }
 .research-ai-cta-title {
-    color: var(--ai-text);
+    color: var(--text-ai-title);
     font-weight: 800;
     font-size: 1.02rem;
     margin-bottom: 0.45rem;
 }
 .research-ai-cta-copy {
-    color: var(--text-secondary);
+    color: var(--text-ai-primary);
     font-size: 0.9rem;
     line-height: 1.55;
 }
@@ -418,31 +422,31 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
 .research-status-chip {
     border: 1px solid rgba(34, 211, 238, 0.34);
     border-radius: 999px;
-    color: var(--ai-text);
+    color: var(--text-ai-muted);
     font-size: 0.78rem;
     font-weight: 750;
     padding: 0.18rem 0.52rem;
 }
 .research-next-step {
     border-left: 3px solid var(--ai-cyan);
-    color: var(--text-title);
+    color: var(--text-ai-primary);
     font-weight: 750;
     margin-top: 0.45rem;
     padding-left: 0.62rem;
 }
 .research-action-label {
-    color: var(--ai-blue);
+    color: var(--text-ai-title);
     font-size: 0.78rem;
     font-weight: 850;
     letter-spacing: 0;
     margin: 0.1rem 0 0.36rem;
 }
 .research-action-label.secondary {
-    color: var(--text-muted);
+    color: var(--text-caption);
     margin-top: 0.78rem;
 }
 .research-action-help {
-    color: var(--text-secondary);
+    color: var(--text-ai-muted);
     font-size: 0.8rem;
     line-height: 1.45;
     margin-top: 0.34rem;
@@ -455,12 +459,12 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     margin: 0.75rem 0 0.65rem;
 }
 .research-result-brief-title {
-    color: var(--text-title);
+    color: var(--text-ai-title);
     font-weight: 800;
     margin-bottom: 0.35rem;
 }
 .research-result-brief-summary {
-    color: var(--ai-text);
+    color: var(--text-ai-primary);
     line-height: 1.65;
     margin-bottom: 0.75rem;
 }
@@ -476,13 +480,13 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     background: var(--bg-card);
 }
 .research-result-brief-label {
-    color: var(--text-muted);
+    color: var(--text-label);
     font-size: 0.78rem;
     font-weight: 700;
     margin-bottom: 0.25rem;
 }
 .research-result-brief-value {
-    color: var(--text-primary);
+    color: var(--text-value);
     font-size: 0.92rem;
     line-height: 1.45;
 }
@@ -517,21 +521,21 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
 .research-evidence-pill {
     border: 1px solid var(--border-default);
     border-radius: 999px;
-    color: var(--ai-text);
+    color: var(--text-ai-muted);
     font-size: 0.74rem;
     font-weight: 800;
     padding: 0.16rem 0.48rem;
 }
 .research-evidence-pill.positive {
     border-color: rgba(52, 211, 153, 0.52);
-    color: var(--signal-buy);
+    color: var(--text-positive);
 }
 .research-evidence-pill.risk {
     border-color: rgba(251, 191, 36, 0.58);
-    color: var(--signal-hold);
+    color: var(--text-warning);
 }
 .research-evidence-title {
-    color: var(--text-title);
+    color: var(--text-heading);
     font-size: 1.02rem;
     font-weight: 800;
     line-height: 1.45;
@@ -539,23 +543,23 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     overflow-wrap: anywhere;
 }
 .research-evidence-body {
-    color: var(--text-primary);
+    color: var(--text-secondary);
     line-height: 1.6;
     margin: 0.35rem 0;
     overflow-wrap: anywhere;
 }
 .research-evidence-label {
-    color: var(--ai-blue);
+    color: var(--text-ai-title);
     font-weight: 800;
 }
 .research-evidence-meta {
-    color: var(--text-secondary);
+    color: var(--text-caption);
     font-size: 0.86rem;
     line-height: 1.5;
     margin-bottom: 0.4rem;
 }
 .research-evidence-excerpt {
-    color: var(--text-primary);
+    color: var(--text-secondary);
     line-height: 1.65;
     overflow-wrap: anywhere;
     white-space: normal;
@@ -570,7 +574,7 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
 .research-evidence-action-muted {
     border: 1px solid var(--border-default);
     border-radius: 6px;
-    color: var(--ai-text);
+    color: var(--text-ai-muted);
     font-size: 0.82rem;
     font-weight: 700;
     padding: 0.34rem 0.58rem;
@@ -589,12 +593,12 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     padding: 0.72rem 0.82rem;
 }
 .research-point-label {
-    color: var(--ai-blue);
+    color: var(--text-ai-title);
     font-weight: 800;
     margin-bottom: 0.32rem;
 }
 .research-point-summary {
-    color: var(--text-primary);
+    color: var(--text-ai-primary);
     line-height: 1.55;
 }
 .decision-report-card {
@@ -605,7 +609,7 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     margin: 0.65rem 0 0.85rem;
 }
 .decision-report-title {
-    color: var(--text-title);
+    color: var(--text-heading);
     font-size: 1.12rem;
     font-weight: 850;
     margin-bottom: 0.75rem;
@@ -622,19 +626,19 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     padding: 0.68rem 0.78rem;
 }
 .decision-report-field-label {
-    color: var(--text-muted);
+    color: var(--text-label);
     font-size: 0.76rem;
     font-weight: 800;
     margin-bottom: 0.25rem;
 }
 .decision-report-field-value {
-    color: var(--text-primary);
+    color: var(--text-value);
     line-height: 1.45;
     overflow-wrap: anywhere;
 }
 .decision-summary-list {
     margin: 0.6rem 0 0.85rem 1.1rem;
-    color: var(--text-primary);
+    color: var(--text-secondary);
     line-height: 1.65;
 }
 .decision-summary-list li {
@@ -8046,11 +8050,11 @@ def _render_market_chart(
         .configure_axis(
             domainColor=THEME_COLORS["border_strong"],
             gridColor="rgba(148, 163, 184, 0.14)",
-            labelColor=THEME_COLORS["text_secondary"],
-            titleColor=THEME_COLORS["text_secondary"],
+            labelColor=THEME_COLORS["text_caption"],
+            titleColor=THEME_COLORS["text_label"],
             tickColor=THEME_COLORS["border_strong"],
         )
-        .configure_title(color=THEME_COLORS["text_title"], fontSize=13, anchor="start", offset=8)
+        .configure_title(color=THEME_COLORS["text_heading"], fontSize=13, anchor="start", offset=8)
         .properties(title=title or None)
     )
     st.altair_chart(

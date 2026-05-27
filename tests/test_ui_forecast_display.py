@@ -1270,7 +1270,7 @@ def test_ranking_result_grid_custom_css_keeps_dark_table_readable():
         f"{THEME_COLORS['bg_surface']} !important"
     )
     assert RANKING_RESULT_GRID_CUSTOM_CSS[".ag-header-cell-text"]["color"] == (
-        f"{THEME_COLORS['text_secondary']} !important"
+        f"{THEME_COLORS['text_heading']} !important"
     )
     assert RANKING_RESULT_GRID_CUSTOM_CSS[".ag-row-even"]["background-color"] == (
         f"{THEME_COLORS['table_row_bg']} !important"

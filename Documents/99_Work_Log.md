@@ -685,3 +685,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Increased contrast in the shared palette by darkening app / surface backgrounds and brightening title / primary / secondary text tokens.
 - Added left padding and safer wrapping to the page-title band so the cockpit title no longer collides with the accent line or title art.
 - Kept this as CSS / token-only polish with no workflow or investment logic changes.
+
+## 2026-05-28 - UI text hierarchy polish
+
+- Added role-based text tokens for heading, value, label, caption, AI title/body/muted, and financial semantic positive / negative / warning / info / neutral colors.
+- Applied the text hierarchy to global Markdown, captions, forms, tables, metrics, cards, AI / Research surfaces, Decision Report snippets, badges, and chart labels.
+- Kept the work display-only; forecast, scoring, ranking, Research RAG, provider, and report logic remain unchanged.

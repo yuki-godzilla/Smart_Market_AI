@@ -61,12 +61,20 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
 def test_global_theme_tokens_define_dark_financial_ai_palette():
     assert THEME_COLORS["bg_app"] == "#020510"
     assert THEME_COLORS["bg_card"] == "#111F35"
+    assert THEME_COLORS["text_heading"] == "#EAF1FB"
+    assert THEME_COLORS["text_value"] == "#F1F5F9"
+    assert THEME_COLORS["text_ai_title"] == "#67E8F9"
+    assert THEME_COLORS["text_positive"] == "#6EE7B7"
     assert THEME_COLORS["ai_cyan"] == "#22D3EE"
     assert THEME_COLORS["signal_buy"] == "#34D399"
     assert CHART_COLORS["prediction"] == THEME_COLORS["chart_prediction"]
 
     assert "--bg-app: #020510;" in SMAI_GLOBAL_CSS
     assert ".smai-ai-card" in SMAI_GLOBAL_CSS
+    assert "--text-value: #F1F5F9;" in SMAI_GLOBAL_CSS
+    assert ".ai-title" in SMAI_GLOBAL_CSS
+    assert ".table-value" in SMAI_GLOBAL_CSS
+    assert ".card-meta" in SMAI_GLOBAL_CSS
     assert ".smai-investment-signal-badge.buy" in SMAI_GLOBAL_CSS
     assert '[data-testid="stVerticalBlockBorderWrapper"]' in SMAI_GLOBAL_CSS
     assert ".smai-page-title::before" in SMAI_GLOBAL_CSS

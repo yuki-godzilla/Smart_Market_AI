@@ -386,6 +386,12 @@ SMAI_GLOBAL_CSS = """
         transform 120ms ease;
 }
 
+[data-testid="stButton"] button [data-testid="stMarkdownContainer"] p {
+    color: inherit;
+    font-weight: inherit;
+    line-height: 1.2;
+}
+
 [data-testid="stButton"] button:hover {
     border-color: var(--ai-border);
     background: var(--bg-card-hover);
@@ -397,8 +403,8 @@ SMAI_GLOBAL_CSS = """
     border-color: rgba(34, 211, 238, 0.74);
     background:
         linear-gradient(180deg, var(--button-primary-hover), var(--button-primary-bg));
-    color: var(--text-title);
-    font-weight: 760;
+    color: #04111F;
+    font-weight: 820;
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.14),
         0 12px 26px rgba(8, 145, 178, 0.18);
@@ -407,6 +413,7 @@ SMAI_GLOBAL_CSS = """
 [data-testid="stButton"] button[kind="primary"]:hover {
     background:
         linear-gradient(180deg, var(--ai-cyan), var(--button-primary-hover));
+    color: #04111F;
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.18),
         0 14px 34px rgba(34, 211, 238, 0.18);

@@ -72,6 +72,10 @@ def test_global_theme_tokens_define_dark_financial_ai_palette():
     assert "--bg-app: #020510;" in SMAI_GLOBAL_CSS
     assert ".smai-ai-card" in SMAI_GLOBAL_CSS
     assert "--text-value: #F1F5F9;" in SMAI_GLOBAL_CSS
+    assert '[data-testid="stButton"] button [data-testid="stMarkdownContainer"] p' in (
+        SMAI_GLOBAL_CSS
+    )
+    assert "color: #04111F;" in SMAI_GLOBAL_CSS
     assert ".ai-title" in SMAI_GLOBAL_CSS
     assert ".table-value" in SMAI_GLOBAL_CSS
     assert ".card-meta" in SMAI_GLOBAL_CSS

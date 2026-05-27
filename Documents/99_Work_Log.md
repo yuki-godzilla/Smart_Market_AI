@@ -691,3 +691,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added role-based text tokens for heading, value, label, caption, AI title/body/muted, and financial semantic positive / negative / warning / info / neutral colors.
 - Applied the text hierarchy to global Markdown, captions, forms, tables, metrics, cards, AI / Research surfaces, Decision Report snippets, badges, and chart labels.
 - Kept the work display-only; forecast, scoring, ranking, Research RAG, provider, and report logic remain unchanged.
+
+## 2026-05-28 - Primary button contrast restore
+
+- Restored primary button readability by preventing global Markdown text rules from overriding button labels.
+- Switched primary button text back to dark navy on cyan so action buttons keep the clearer previous contrast.
+- Kept the change CSS-only with no workflow or logic changes.

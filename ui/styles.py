@@ -264,10 +264,7 @@ SMAI_GLOBAL_CSS = """
 [data-testid="stAppViewContainer"],
 [data-testid="stMain"],
 [data-testid="stAppViewContainer"] .main {
-    background:
-        linear-gradient(90deg, rgba(30, 42, 62, 0.14) 1px, transparent 1px),
-        linear-gradient(180deg, var(--bg-app) 0%, var(--bg-surface) 42%, var(--bg-surface) 100%);
-    background-size: 56px 56px, auto;
+    background: transparent !important;
 }
 
 .stApp::before {
@@ -288,7 +285,7 @@ SMAI_GLOBAL_CSS = """
 }
 
 [data-testid="stHeader"] {
-    background: rgba(5, 8, 18, 0.72);
+    background: linear-gradient(180deg, rgba(2, 5, 16, 0.94), rgba(2, 5, 16, 0.72));
     backdrop-filter: blur(10px);
 }
 
@@ -780,7 +777,7 @@ SMAI_GLOBAL_CSS = """
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 1.2rem;
-    border-bottom: 1px solid var(--border-subtle);
+    border-bottom: 1px solid rgba(37, 52, 77, 0.72);
     padding: 0.25rem 0 1.05rem;
     margin: 0 0 1.05rem;
 }
@@ -840,9 +837,9 @@ SMAI_GLOBAL_CSS = """
 
 .smai-page-title {
     position: relative;
-    border-top: 1px solid rgba(49, 66, 95, 0.74);
-    border-bottom: 1px solid var(--border-subtle);
-    background: linear-gradient(90deg, rgba(17, 31, 53, 0.82), rgba(7, 13, 25, 0.36) 62%, transparent);
+    border-top: 1px solid rgba(49, 66, 95, 0.46);
+    border-bottom: 1px solid rgba(37, 52, 77, 0.58);
+    background: linear-gradient(90deg, rgba(17, 31, 53, 0.46), rgba(7, 13, 25, 0.16) 62%, transparent);
     padding: 1.05rem 1.1rem 1rem 1.35rem;
     margin: 0 0 1rem;
 }

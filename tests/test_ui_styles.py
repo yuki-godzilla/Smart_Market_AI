@@ -73,6 +73,7 @@ def test_global_theme_tokens_define_dark_financial_ai_palette():
     assert ".smai-ai-card" in SMAI_GLOBAL_CSS
     assert "--text-value: #F1F5F9;" in SMAI_GLOBAL_CSS
     assert '[data-testid="stAppViewContainer"]' in SMAI_GLOBAL_CSS
+    assert "background: transparent !important;" in SMAI_GLOBAL_CSS
     assert "max-width: none;" in SMAI_GLOBAL_CSS
     assert '[data-testid="stButton"] button [data-testid="stMarkdownContainer"] p' in (
         SMAI_GLOBAL_CSS
@@ -90,5 +91,6 @@ def test_global_theme_tokens_define_dark_financial_ai_palette():
     assert ".smai-investment-signal-badge.buy" in SMAI_GLOBAL_CSS
     assert '[data-testid="stVerticalBlockBorderWrapper"]' in SMAI_GLOBAL_CSS
     assert ".smai-page-title::before" in SMAI_GLOBAL_CSS
+    assert "rgba(17, 31, 53, 0.46)" in SMAI_GLOBAL_CSS
     assert ".smai-metric-card:hover" in SMAI_GLOBAL_CSS
     assert RANKING_GRID_CUSTOM_CSS[".ag-header"]["background-color"].startswith("#122038")

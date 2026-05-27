@@ -721,3 +721,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Changed primary action buttons to a deeper AI blue / teal hybrid gradient with off-white text and subtle cyan glow instead of dark navy text.
 - Kept hover motion as a blue-green background-position shift with stronger but restrained cyan / teal elevation.
 - Kept the change CSS-only with no workflow, data, forecast, scoring, ranking, Research RAG, or report behavior changes.
+
+## 2026-05-28 - Main background blending fix
+
+- Removed the extra main-content background layer so the Streamlit content area blends back into the app-level dark navy background instead of reading as a separate panel.
+- Softened the app header and page-title band borders / fills so they keep structure without visually separating from the surrounding background.
+- Kept the change CSS-only with no workflow, data, forecast, scoring, ranking, Research RAG, or report behavior changes.

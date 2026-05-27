@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Callable, Literal, Protocol, Sequence, cast
 
 import yaml  # type: ignore[import-untyped]
-from pydantic import Field
+from pydantic import Field, ValidationError
 
 from backend.core.data_contracts import DataQuality, StrictBaseModel
 from backend.core.errors import AppError, ValidationAppError
@@ -804,28 +804,7 @@ class ResearchInMemoryVectorStore:
         self._entries[candidate.chunk_id] = (candidate, embedding)
 
     def search(self, request: ResearchSearchRequest) -> list[ResearchRetrievalCandidate]:
-        if not request.query_vector:
-            return []
-        source_types = set(request.source_types)
-        scored: list[ResearchRetrievalCandidate] = []
-        for candidate, embedding in self._entries.values():
-            if candidate.symbol != _normalize_symbol(request.symbol):
-                continue
-            if source_types and candidate.source_type not in source_types:
-                continue
-            vector_score = _cosine_similarity(request.query_vector, embedding.vector)
-            if vector_score <= Decimal("0"):
-                continue
-            scored.append(candidate.model_copy(update={"vector_score": vector_score}))
-        return sorted(
-            scored,
-            key=lambda row: (
-                -(row.vector_score or Decimal("0")),
-                -(row.published_at or date.min).toordinal(),
-                row.document_id,
-                row.chunk_id,
-            ),
-        )[: request.top_k]
+        return _search_vector_entries(self._entries, request)
 
     def retrieval_quality(
         self,
@@ -834,20 +813,113 @@ class ResearchInMemoryVectorStore:
         expanded_terms: Sequence[str] | None = None,
     ) -> ResearchRetrievalQuality:
         candidates = self.search(request)
-        warnings: list[str] = []
-        if not request.query_vector:
-            warnings.append("Vector query is empty; vector retrieval was skipped.")
-        elif not candidates:
-            warnings.append("Vector retrieval found no matching candidates.")
-        query = request.query or request.query_category or "vector search"
-        return ResearchRetrievalQuality(
-            backend="vector",
-            query=query,
-            expanded_terms=_normalize_query_terms(expanded_terms or request.expanded_terms),
+        return _build_vector_retrieval_quality(
+            request,
             candidate_count=len(candidates),
-            evidence_count=len(candidates),
-            warnings=warnings,
+            entry_count=len(self._entries),
+            expanded_terms=expanded_terms,
         )
+
+
+class ResearchFileVectorStore:
+    """JSONL-backed local vector cache for optional deterministic vector retrieval."""
+
+    def __init__(self, cache_path: str | Path) -> None:
+        self.cache_path = Path(cache_path)
+        self._entries = self._load_entries()
+
+    def upsert(
+        self,
+        candidate: ResearchRetrievalCandidate,
+        embedding: ResearchEmbedding,
+    ) -> None:
+        if candidate.chunk_id != embedding.chunk_id:
+            raise ResearchSearchError(
+                message="Research vector candidate and embedding chunk_id do not match.",
+                details={
+                    "candidate_chunk_id": candidate.chunk_id,
+                    "embedding_chunk_id": embedding.chunk_id,
+                    "cache_path": str(self.cache_path),
+                },
+            )
+        self._entries[candidate.chunk_id] = (candidate, embedding)
+        self._write_entries()
+
+    def search(self, request: ResearchSearchRequest) -> list[ResearchRetrievalCandidate]:
+        return _search_vector_entries(self._entries, request)
+
+    def retrieval_quality(
+        self,
+        request: ResearchSearchRequest,
+        *,
+        expanded_terms: Sequence[str] | None = None,
+    ) -> ResearchRetrievalQuality:
+        candidates = self.search(request)
+        return _build_vector_retrieval_quality(
+            request,
+            candidate_count=len(candidates),
+            entry_count=len(self._entries),
+            expanded_terms=expanded_terms,
+            empty_cache_warning="Vector cache is empty; no file-backed candidates are available.",
+        )
+
+    def _load_entries(
+        self,
+    ) -> dict[str, tuple[ResearchRetrievalCandidate, ResearchEmbedding]]:
+        if not self.cache_path.exists():
+            return {}
+        entries: dict[str, tuple[ResearchRetrievalCandidate, ResearchEmbedding]] = {}
+        try:
+            for line_number, line in enumerate(
+                self.cache_path.read_text(encoding="utf-8").splitlines(),
+                start=1,
+            ):
+                if not line.strip():
+                    continue
+                payload: Any = json.loads(line)
+                if not isinstance(payload, Mapping):
+                    raise ValueError(f"cache line {line_number} is not a JSON object")
+                candidate = ResearchRetrievalCandidate.model_validate(payload.get("candidate"))
+                embedding = ResearchEmbedding.model_validate(payload.get("embedding"))
+                if candidate.chunk_id != embedding.chunk_id:
+                    raise ValueError(
+                        "candidate and embedding chunk_id mismatch "
+                        f"on line {line_number}: "
+                        f"{candidate.chunk_id} != {embedding.chunk_id}"
+                    )
+                entries[candidate.chunk_id] = (candidate, embedding)
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            raise ResearchSearchError(
+                message="Research vector cache could not be loaded.",
+                details={"cache_path": str(self.cache_path), "error": str(exc)},
+            ) from exc
+        return entries
+
+    def _write_entries(self) -> None:
+        rows = [
+            json.dumps(
+                {
+                    "candidate": candidate.model_dump(mode="json"),
+                    "embedding": embedding.model_dump(mode="json"),
+                },
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+            for _, (candidate, embedding) in sorted(self._entries.items())
+        ]
+        try:
+            self.cache_path.parent.mkdir(parents=True, exist_ok=True)
+            tmp_path = self.cache_path.with_name(f".{self.cache_path.name}.tmp")
+            tmp_path.write_text(
+                "\n".join(rows) + ("\n" if rows else ""),
+                encoding="utf-8",
+            )
+            tmp_path.replace(self.cache_path)
+        except OSError as exc:
+            raise ResearchSearchError(
+                message="Research vector cache could not be written.",
+                details={"cache_path": str(self.cache_path), "error": str(exc)},
+            ) from exc
 
 
 class ResearchVectorStore(Protocol):
@@ -1701,6 +1773,60 @@ def _evidence_rerank_score(row: ResearchEvidence, *, as_of: date) -> Decimal:
         + (Decimal(str(_source_type_priority(row.source_type))) * Decimal("0.10"))
     )
     return score.quantize(Decimal("0.0001"))
+
+
+def _search_vector_entries(
+    entries: Mapping[str, tuple[ResearchRetrievalCandidate, ResearchEmbedding]],
+    request: ResearchSearchRequest,
+) -> list[ResearchRetrievalCandidate]:
+    if not request.query_vector:
+        return []
+    source_types = set(request.source_types)
+    scored: list[ResearchRetrievalCandidate] = []
+    for candidate, embedding in entries.values():
+        if candidate.symbol != _normalize_symbol(request.symbol):
+            continue
+        if source_types and candidate.source_type not in source_types:
+            continue
+        vector_score = _cosine_similarity(request.query_vector, embedding.vector)
+        if vector_score <= Decimal("0"):
+            continue
+        scored.append(candidate.model_copy(update={"vector_score": vector_score}))
+    return sorted(
+        scored,
+        key=lambda row: (
+            -(row.vector_score or Decimal("0")),
+            -(row.published_at or date.min).toordinal(),
+            row.document_id,
+            row.chunk_id,
+        ),
+    )[: request.top_k]
+
+
+def _build_vector_retrieval_quality(
+    request: ResearchSearchRequest,
+    *,
+    candidate_count: int,
+    entry_count: int,
+    expanded_terms: Sequence[str] | None,
+    empty_cache_warning: str | None = None,
+) -> ResearchRetrievalQuality:
+    warnings: list[str] = []
+    if not request.query_vector:
+        warnings.append("Vector query is empty; vector retrieval was skipped.")
+    elif candidate_count == 0:
+        if entry_count == 0 and empty_cache_warning:
+            warnings.append(empty_cache_warning)
+        warnings.append("Vector retrieval found no matching candidates.")
+    query = request.query or request.query_category or "vector search"
+    return ResearchRetrievalQuality(
+        backend="vector",
+        query=query,
+        expanded_terms=_normalize_query_terms(expanded_terms or request.expanded_terms),
+        candidate_count=candidate_count,
+        evidence_count=candidate_count,
+        warnings=warnings,
+    )
 
 
 def _cosine_similarity(query_vector: Sequence[float], candidate_vector: Sequence[float]) -> Decimal:

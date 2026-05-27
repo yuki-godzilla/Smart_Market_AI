@@ -18,7 +18,7 @@ API の起動方法、CSV 形式、UI の使い方、手動確認手順は [06_M
 
 Phase 1 から Phase 15 までは、現在の実装上は implementation complete 扱いです。
 Phase 16 は UI / Visualization Cockpit 改善の実装完了扱いです。最終 Streamlit browser smoke は推奨確認として残します。
-Research RAG は Phase 20 local evidence slice が implementation complete です。Phase 21 高度Research RAG（根拠抽出・根拠付き回答生成）は query expansion、structured extraction、grounded answer、retrieval quality、evidence reranker、UI / Decision Report 表示、optional vector / hybrid contract と scoring、keyword-fallback hybrid retrieval wrapper、in-memory local vector store の first slice が進行中です。Research Score integration、外部 source adapter、Assistant、distribution readiness は後続 planned / future scope です。
+Research RAG は Phase 20 local evidence slice が implementation complete です。Phase 21 高度Research RAG（根拠抽出・根拠付き回答生成）は query expansion、structured extraction、grounded answer、retrieval quality、evidence reranker、UI / Decision Report 表示、optional vector / hybrid contract と scoring、keyword-fallback hybrid retrieval wrapper、in-memory local vector store、file-backed vector cache の first slice が進行中です。Research Score integration、外部 source adapter、Assistant、distribution readiness は後続 planned / future scope です。
 
 実装済みの主な範囲:
 
@@ -586,6 +586,7 @@ Current implemented slice:
 - Optional vector / hybrid retrieval first slice is implemented with `ResearchEmbedding`, `ResearchRetrievalCandidate`, `ResearchDisabledVectorStore`, `ResearchHybridScoreWeights`, and `ResearchHybridScorer`. The default vector store remains disabled and returns a retrieval-quality warning; hybrid scoring is deterministic and not wired into the default keyword search path yet.
 - Keyword-fallback hybrid retrieval wrapper first slice is implemented with `HybridResearchRetrievalService`. When vector candidates are available it converts hybrid-scored candidates back to `ResearchEvidence`; when vector search is disabled or empty it falls back to the existing keyword retrieval and records fallback warnings in retrieval quality.
 - In-memory local vector store first slice is implemented with `ResearchInMemoryVectorStore`. It stores `ResearchRetrievalCandidate` + `ResearchEmbedding` pairs, searches by optional `ResearchSearchRequest.query_vector` with deterministic cosine similarity, filters by symbol/source type, and reports vector retrieval quality without external dependencies.
+- File-backed vector cache first slice is implemented with `ResearchFileVectorStore`. It persists the same vector candidate / embedding pairs as UTF-8 JSONL, reloads them across service instances, reports empty or invalid cache conditions through Research search errors / retrieval-quality warnings, and keeps the default keyword retrieval path unchanged.
 - `ResearchRetrievalService` can expand category queries while preserving Phase 20 keyword search behavior when no category or expanded terms are supplied.
 - `ResearchAnalysisService` uses category-aware expansion for the existing growth / shareholder_return / financial_safety / business_risk topic searches.
 

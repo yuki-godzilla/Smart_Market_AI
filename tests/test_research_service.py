@@ -17,6 +17,7 @@ from backend.research import (
     ResearchEmbedding,
     ResearchEvidence,
     ResearchEvidenceReranker,
+    ResearchFileVectorStore,
     ResearchHybridScorer,
     ResearchIndexService,
     ResearchIngestionService,
@@ -938,3 +939,71 @@ def test_in_memory_vector_store_rejects_mismatched_embedding_chunk_id():
                 text_hash="hash",
             ),
         )
+
+
+def test_file_vector_store_persists_entries_and_searches_after_reload(tmp_path):
+    cache_path = tmp_path / "research_vectors.jsonl"
+    store = ResearchFileVectorStore(cache_path)
+    candidate = ResearchRetrievalCandidate(
+        symbol="7203.T",
+        document_id="doc-toyota",
+        chunk_id="chunk-toyota",
+        title="Toyota File Vector Note",
+        source_type="annual_report",
+        published_at=date(2026, 5, 1),
+        section_title="Growth",
+        excerpt="Growth strategy and overseas expansion.",
+        keyword_score=Decimal("0.40"),
+        reliability=Decimal("0.90"),
+    )
+    store.upsert(
+        candidate,
+        ResearchEmbedding(
+            chunk_id="chunk-toyota",
+            symbol="7203.T",
+            embedding_model="local-test",
+            vector=[1.0, 0.0],
+            created_at=datetime(2026, 5, 25, tzinfo=UTC),
+            text_hash="hash-toyota",
+        ),
+    )
+
+    reloaded = ResearchFileVectorStore(cache_path)
+    request = ResearchSearchRequest(
+        symbol="7203.T",
+        query="growth",
+        query_vector=[1.0, 0.0],
+    )
+    candidates = reloaded.search(request)
+    quality = reloaded.retrieval_quality(request)
+
+    assert cache_path.exists()
+    assert [candidate.title for candidate in candidates] == ["Toyota File Vector Note"]
+    assert candidates[0].vector_score == Decimal("1.0000")
+    assert quality.backend == "vector"
+    assert quality.candidate_count == 1
+    assert not quality.warnings
+
+
+def test_file_vector_store_reports_empty_cache_warning(tmp_path):
+    store = ResearchFileVectorStore(tmp_path / "missing_vectors.jsonl")
+    request = ResearchSearchRequest(
+        symbol="7203.T",
+        query="growth",
+        query_vector=[1.0, 0.0],
+    )
+
+    assert store.search(request) == []
+    quality = store.retrieval_quality(request)
+
+    assert quality.candidate_count == 0
+    assert "Vector cache is empty" in quality.warnings[0]
+    assert "Vector retrieval found no matching candidates." in quality.warnings
+
+
+def test_file_vector_store_rejects_invalid_cache(tmp_path):
+    cache_path = tmp_path / "research_vectors.jsonl"
+    cache_path.write_text("{not json}\n", encoding="utf-8")
+
+    with pytest.raises(ResearchSearchError):
+        ResearchFileVectorStore(cache_path)

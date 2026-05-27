@@ -489,7 +489,7 @@ Research freshness principle:
 
 - SMAI 全体は local-first / deterministic-first を維持するが、Research RAG と News RAG は情報鮮度が価値の中心になる。
 - 通常 tests / CI は network 非依存のままにしつつ、RAG 外部取得が明示 assignment された場合は、外部資料・外部ニュースの current evidence を優先して設計する。
-- 外部 evidence は source URL、provider、published_at、fetched_at、hash / manifest、freshness_status を保持し、古い情報は warning として表示する。
+- 外部 evidence は既定では取得時の一時参照として扱う。RAG summary / Research Score / News 表示には使うが、取得本文・変換Markdown・manifestを自動保存しない。画面やReportには source URL、provider、published_at、fetched_at、freshness_status、短い要約/引用範囲だけを残し、古い情報は warning として表示する。
 
 Current implementation direction:
 
@@ -792,8 +792,8 @@ Current implemented slice:
 
 Follow-up child roadmap:
 
-- Phase 21.6: External Research Document Fetch MVP. `外部資料を取得` / `資料キャッシュを更新` actions を追加し、EDINET / TDnet / IR site / provider profile などの資料取得を explicit opt-in adapter として実現する。取得結果は source URL、provider、fetched_at、published_at、document_hash、manifest を保持して `data/research_docs/` または後続の cache/archive に保存する。通常 tests / CI は network 非依存の fixture / fake adapter で確認する。
-- Phase 21.7: External Stock News Fetch MVP. `ニュースのみ再取得` から外部ニュース取得を明示 opt-in で実行できる adapter を追加する。対象は選択中の銘柄名 / ticker / related keywords に限定し、取得結果は `StockNewsEvidence` 互換の title / URL / source / published_at / summary / investment_viewpoint / sentiment_for_investment / freshness_status として保存・表示する。source URL がない内容は断定せず、外部 LLM は必須にしない。
+- Phase 21.6: External Research Document Fetch MVP. `外部資料を取得` action を追加し、EDINET / TDnet / IR site / provider profile などの資料取得を explicit opt-in adapter として実現する。取得本文は session-local RAG store で一時参照し、既定では `data/research_docs/` や cache/archive に保存しない。表示・Report には source URL、provider、fetched_at、published_at、freshness_status、短い要約/引用範囲を残す。通常 tests / CI は network 非依存の fixture / fake adapter で確認する。
+- Phase 21.7: External Stock News Fetch MVP. `ニュースのみ再取得` から外部ニュース取得を明示 opt-in で実行できる adapter を追加する。対象は選択中の銘柄名 / ticker / related keywords に限定し、取得結果は `StockNewsEvidence` 互換の title / URL / source / published_at / summary / investment_viewpoint / sentiment_for_investment / freshness_status として一時表示する。既定ではニュース本文を保持せず、source URL がない内容は断定せず、外部 LLM は必須にしない。
 - Phase 21.6 / 21.7 は、Phase 21.5 の local deterministic slice を置き換えず、外部取得に失敗した場合も既存のローカル資料・ローカル news evidence 表示に戻れる設計にする。
 - External fetch child phases remain decision-support only. Investment Score、Research Score、Decision Report 自動反映、ranking order 変更、buy / sell / hold 判断は行わない。
 
@@ -801,9 +801,9 @@ Current implemented slice:
 
 - `backend/research` has `ExternalResearchFetchRequest`, `ExternalResearchSourcePayload`, `ExternalResearchFetchService`, manifest entries, and `ExternalResearchSourceAdapter` protocol.
 - `YahooFinanceResearchAdapter` provides the first opt-in live adapter shape for provider profile and recent news payloads. Tests inject a fake ticker factory, so no live Yahoo call is required in normal checks.
-- The service enforces explicit `allow_network=True` before a network-requiring adapter can run, writes fetched URL-backed sources to local cache, registers them through existing Research ingestion, rebuilds chunks, and writes a JSON manifest with source URL, provider, fetched_at, published_at, document_hash, local_path, and document_id.
-- `銘柄コックピット` Research Evidence has a first opt-in `外部資料取得（明示許可）` UI slice. The user must check `外部通信を許可する` before Yahoo Finance profile / news fetch runs. Fetched sources are saved under `data/research_docs/external_cache/`, registered into the session-local Research RAG store, re-chunked, and displayed with provider, fetched_at, source URL, local path, warnings, and manifest path.
-- The RAG index remains session-local in memory. External fetch payload Markdown and manifest JSON are cache / evidence-archive files and can grow with repeated fetches until a future retention / cleanup UI is added.
+- The current first implementation enforces explicit `allow_network=True` before a network-requiring adapter can run and wires Yahoo Finance profile / news fetch to Cockpit. It still writes fetched URL-backed sources to `data/research_docs/external_cache/` and manifest JSON as an implementation debt from the first slice.
+- Revised product policy: external RAG fetch should be transient-by-default. Fetched source text should be registered into the session-local Research RAG store only for the current analysis / score / display pass, while persistent document payloads, converted Markdown, local paths, document hashes, and manifests should not be produced unless the user explicitly chooses a future `資料を保存する` / archive action.
+- UI/report display should focus on provider, fetched_at, published_at, source URL, freshness warnings, and generated summary/evidence snippets. It should not imply that the app is building a permanent local document repository from live sources.
 - Normal tests use fake adapters only. No live external source, scraping, external LLM, or network call is required for CI.
 - A `source_type="news"` payload becomes available to the existing Stock News RAG cockpit flow after registration; provider profile / IR payloads become normal Research Evidence documents.
 
@@ -926,10 +926,10 @@ Completion criteria:
 
 Research document storage migration:
 
-- When EDINET / TDnet / IR-site / provider-profile adapters can fetch current documents on explicit user action, `data/research_docs/` should no longer be the primary manual input path.
-- Keep `data/research_docs/` as local cache / audit archive / offline fixture storage while external adapters are optional. Do not delete it until provider manifests, source URLs, fetched_at timestamps, hashes, and reproducible cached payloads are available.
-- After external adapters are stable, deprecate manual `設定 / データ情報` upload as the normal user path and replace it with explicit `外部資料を取得` / `資料キャッシュを更新` actions.
-- Long-term target: `data/research_docs/` becomes generated/cache data or test fixture storage, not hand-maintained business data. User-facing docs should describe it as cache/archive. Manual upload remains an advanced fallback for private notes or documents not available from public sources.
+- `data/research_docs/` remains the local manual / fixture path for user-provided notes, private documents, and deterministic tests.
+- External live fetch is not a replacement for local storage and should not auto-populate `data/research_docs/` by default.
+- If users need persistence later, add an explicit `資料を保存する` / archive action with clear retention wording, source attribution, and cleanup behavior. This must be separate from the default live reference flow.
+- Long-term target: external source adapters provide fresh, on-demand evidence for the selected symbol; local storage remains user-controlled rather than a growing implicit cache of fetched documents.
 
 ### 5.11 Phase 25: Advanced Export And Execution Gate
 

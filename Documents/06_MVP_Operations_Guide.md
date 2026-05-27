@@ -45,7 +45,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 
 現在の MVP は、ローカル検証と説明用です。
 外部 API へ接続する場合は明示 opt-in が必要で、broker や execution provider へ注文を送りません。
-Research RAG / News RAG は通常検証では local-first を維持しますが、実運用では情報鮮度が重要です。外部資料・外部ニュース取得を使う場合は、明示 opt-in、source URL、published_at、fetched_at、cache / manifest、freshness warning を確認します。
+Research RAG / News RAG は通常検証では local-first を維持しますが、実運用では情報鮮度が重要です。外部資料・外部ニュース取得を使う場合は、明示 opt-in、source URL、provider、published_at、fetched_at、freshness warning を確認します。取得本文は既定では保持せず、session-local の一時参照として扱います。
 
 ## 3. API 起動と確認
 
@@ -559,6 +559,6 @@ Markdown UTF-8 check:
 - 作業履歴は `Documents/99_Work_Log.md` の先頭へ追加する。
 - Research RAG は Phase 20 local evidence slice を開始済み。現時点では `backend/research` の local UTF-8 document ingestion / chunk / keyword search / deterministic Research Summary、`設定 / データ情報` での session-local資料登録、`銘柄コックピット` の `AI調査を更新` ボタンによる明示的なResearch Evidence / Research Score表示、ランキング行クリック後の `銘柄データ` モーダル `AI Research` タブでの `AIで資料を確認` と Research Score表示、Cockpit Decision Report の Research Evidence / Research Score section が対象。価格データ取得時にはResearch RAGを自動実行しない。Ranking evidence-status display は軽量表示に留め、Research Score による ranking order 変更は後続作業として扱う。
 - Stock News RAG は Phase 21.5 の first local deterministic slice として、`source_type=news` で登録されたローカル資料から URL 付きニュースだけを `銘柄コックピット` の Research Evidence card に統合表示する。news 資料には `url:` または `source_url:` 行、任意で `source:` / `summary:` 行を含める。外部ニュースサイト、外部LLM、network は通常経路では使わず、Investment Score / ranking order も変更しない。
-- External Research / News fetch は Phase 21.6 / 21.7 の first UI slice として、`ExternalResearchSourceAdapter` protocol、明示 `allow_network` gate、local cache 書き込み、Research ingestion 登録、chunk rebuild、JSON manifest 出力を持つ。`銘柄コックピット` の `外部資料取得（明示許可）` で `外部通信を許可する` を選んだ場合だけ `YahooFinanceResearchAdapter` が provider profile / recent news payload を取得する。取得結果は `data/research_docs/external_cache/` に Markdown + manifest JSON として残り、画面上に provider / fetched_at / source URL / local path / warnings / manifest path を表示する。RAG index は session-local memory で、保存ファイルは cache / evidence archive として扱う。通常 checks は fake adapter / fixture を使い、live fetch は手動 opt-in smoke に分離する。
+- External Research / News fetch は Phase 21.6 / 21.7 の first UI slice として、`ExternalResearchSourceAdapter` protocol と明示 `allow_network` gate を持つ。`銘柄コックピット` の `外部資料取得（明示許可）` で `外部通信を許可する` を選んだ場合だけ live adapter を実行する。プロダクト方針として、取得本文・変換Markdown・manifest JSON は既定では保持しない。取得結果は session-local RAG store でその場の summary / Research Score / News 表示に一時参照し、画面やReportには provider / fetched_at / published_at / source URL / freshness warning / 短い要約だけを残す。現在の first UI implementation は `data/research_docs/external_cache/` に payload / manifest を保存するため、次のコード修正で transient-by-default に戻す。通常 checks は fake adapter / fixture を使い、live fetch は手動 opt-in smoke に分離する。
 - `tools/fetch_research_yfinance_profile.py --symbol 7203.T --write` は、確認用の実データResearch資料を Yahoo Finance / yfinance から取得して `data/research_docs/` に保存する。外部通信を使うため通常 checks には含めない。
-- 将来 EDINET / TDnet / IR site などの外部 source adapter が安定したら、`data/research_docs/` は通常の手動登録先ではなく、取得済み資料 cache / audit archive / offline fixture として扱う。通常導線は `外部資料を取得` / `資料キャッシュを更新` に移行する。
+- 将来 EDINET / TDnet / IR site などの外部 source adapter が安定しても、外部取得本文を自動保存しない。`data/research_docs/` は手動登録、private note、開発 fixture、またはユーザーが明示保存した資料の fallback として扱う。永続化が必要な場合は、既定取得とは別の `資料を保存する` / archive action として実装する。

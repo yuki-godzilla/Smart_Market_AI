@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-05-27: Updated Research RAG external-fetch documentation to set transient-by-default live evidence as the product policy: external source text should be used for the current summary / score / display pass without default document or manifest retention; the existing `external_cache` persistence path is now documented as implementation debt for the next code slice.
 - 2026-05-27: Added a first opt-in Cockpit UI slice for external Research / News fetch: users must allow external communication before Yahoo Finance profile/news fetch runs, fetched Markdown + manifest JSON are saved under `data/research_docs/external_cache/`, the session-local Research RAG store is updated/re-chunked, and source URL / provider / fetched_at / local path / manifest rows are visible without changing ranking order or default scoring.
 - 2026-05-27: Added report-derived Research Score context to ranking selected-candidate breakdown and ranking research-status rows; it remains confirmation-only and does not change ranking order or default Investment Score behavior.
 - 2026-05-27: Added Research Score reference rows to the shared Cockpit / Ranking Research Summary panel, including summary, component, and warning rows, while preserving unchanged ranking order and default Investment Score behavior.

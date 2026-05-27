@@ -25,14 +25,14 @@ Default path:
 - no network dependency in normal checks
 - external providers only by explicit opt-in
 - investment outputs are decision support, not buy/sell advice
-- Research RAG is still tested local-first, but freshness matters; when RAG external fetch work is explicitly assigned, prioritize opt-in current external sources with cache / manifest / source URL / fetched_at.
+- Research RAG is still tested local-first, but freshness matters; when RAG external fetch work is explicitly assigned, prioritize opt-in current external sources as transient live evidence with source URL / provider / published_at / fetched_at, without retaining fetched source text by default.
 
 既定経路:
 - local / deterministic
 - 通常確認は network 非依存
 - 外部 provider は明示 opt-in のみ
 - 投資出力は売買推奨ではなく判断補助
-- Research RAG は検証上 local-first を維持するが、鮮度が重要。RAG 外部取得が明示依頼された場合は、cache / manifest / source URL / fetched_at を残す opt-in の最新外部 source を優先する。
+- Research RAG は検証上 local-first を維持するが、鮮度が重要。RAG 外部取得が明示依頼された場合は、source URL / provider / published_at / fetched_at を持つ opt-in の最新外部 source を一時参照として優先し、取得本文は既定では保持しない。
 
 ## Fast Start / 最初に見るもの
 

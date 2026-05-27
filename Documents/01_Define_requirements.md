@@ -17,10 +17,11 @@
 - 銘柄コックピット、銘柄ランキング、Rebalance Cockpit
 - `symbol_universe.csv` による local-first なランキング候補マスタ、metadata schema、source import、opt-in metadata refresh、SBI ranking universe policy
 - JSON / CSV / Markdown / ZIP export
+- Research RAG のローカル根拠基盤、外部最新 source 取得の初期 slice、Research Score 初期 slice、ResearchBrief による読みやすさ改善方針
 
 未実装または future scope として扱う要件:
 
-- Research RAG の ingestion / retrieval / Research Score
+- Research RAG の EDINET / company IR site 追加 adapter、ResearchBrief 実装、ranking order 統合
 - SBI / NISA metadata の公式 source import
 - Decision Report の本格化
 - broker への注文送信 / Execution workflow

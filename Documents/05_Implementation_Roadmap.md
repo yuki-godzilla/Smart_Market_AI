@@ -18,7 +18,7 @@ API の起動方法、CSV 形式、UI の使い方、手動確認手順は [06_M
 
 Phase 1 から Phase 15 までは、現在の実装上は implementation complete 扱いです。
 Phase 16 は UI / Visualization Cockpit 改善の実装完了扱いです。最終 Streamlit browser smoke は推奨確認として残します。
-Research RAG は Phase 20 local evidence slice が deterministic foundation として implementation complete です。今後の product direction は、local 登録資料を主データ源にするのではなく、`AI調査を更新` で外部の最新IR・開示・ニュース・provider evidence を取得/参照し、session-local に一時分析する流れを基本にします。local 登録資料は通常 tests / demo seed / archive / fallback の位置づけです。Phase 21 高度Research RAG（根拠抽出・根拠付き回答生成）は query expansion、structured extraction、grounded answer、retrieval quality、evidence reranker、UI / Decision Report 表示、optional vector / hybrid contract と scoring、keyword-fallback hybrid retrieval wrapper、local embedding generation、optional vector-index build workflow、in-memory local vector store、file-backed vector cache の first slice が進行中です。Phase 22 Research Score は backend deterministic service、disabled-by-default Investment Score optional input、Cockpit / Ranking Research Summary display、selected-candidate breakdown context、Cockpit Decision Report section の first slice が開始済みです。Ranking order integration、EDINET / TDnet / company IR site adapters、Assistant、distribution readiness は後続 planned / future scope です。
+Research RAG は Phase 20 local evidence slice が deterministic foundation として実装完了です。今後の product direction は、local 登録資料を主データ源にするのではなく、`AI調査を更新` で外部の最新IR・開示・ニュース・provider 情報を取得/参照し、session-local に一時分析する流れを基本にします。local 登録資料は通常 tests / demo seed / archive / fallback の位置づけです。Phase 21 高度Research RAG（根拠抽出・根拠付き回答生成）は query expansion、structured extraction、grounded answer、retrieval quality、evidence reranker、UI / Decision Report 表示、optional vector / hybrid contract と scoring、keyword-fallback hybrid retrieval wrapper、local embedding generation、optional vector-index build workflow、in-memory local vector store、file-backed vector cache の初期 slice が進行中です。TDnet + Yahoo Finance の外部取得初期 slice は実装済みです。Phase 22 Research Score は backend deterministic service、disabled-by-default Investment Score optional input、Cockpit / Ranking Research Summary display、selected-candidate breakdown context、Cockpit Decision Report section の初期 slice が開始済みです。Ranking order 統合、EDINET / 企業IR site adapter、Assistant、distribution readiness は後続 planned / future scope です。
 
 実装済みの主な範囲:
 
@@ -494,7 +494,7 @@ Research freshness principle:
 Current implementation direction:
 
 - Phase 20 は、RAG で銘柄を推奨したりランキング順位を直接変えたりする段階ではなく、既存の `銘柄コックピット` / `銘柄ランキング` / `Decision Report` に資料根拠を添える evidence layer として実装する。
-- Phase 20 の local document ingestion は deterministic foundation / fixture path として残す。今後の通常ユーザー導線では、source adapter 経由で公式IR、EDINET / TDnet、company IR site、provider profile、news などを取得/参照する。
+- Phase 20 の local document ingestion は deterministic foundation / fixture path として残す。今後の通常ユーザー導線では、source adapter 経由で公式IR、TDnet（初期 slice 実装済み）、EDINET / 企業IR site、provider profile、news などを取得/参照する。
 - 9,179件の銘柄DB全体を一括RAG対象にせず、ランキング後の上位候補、コックピットで選択した銘柄、Decision Report の対象銘柄から段階的に使う。
 - 初期出力は `Research Summary`、`Research Evidence`、`Research Data Quality` を中心にする。資料がない銘柄では「根拠不足」を明示し、推定で埋めない。
 - `Research Score` と Investment Score / ranking への重み統合は Phase 22 に回す。
@@ -520,7 +520,7 @@ Current implemented slice:
 Recommended completion criteria:
 
 - fake external adapter / local fixture だけで ingestion -> chunk -> keyword search -> Research Summary が動く。
-- 通常 tests は external scraping / external LLM / network に依存しない。
+- 通常 tests は外部 scraping / 外部LLM / network に依存しない。
 - evidence は source_type、title、published_at、section/page、excerpt、relevance、reliability と紐づく。
 - コックピットでは選択銘柄の Research Summary と evidence を確認できる。
 - ランキングではRAG結果で順位を直接変えず、選択候補の根拠状態を確認できる。
@@ -540,7 +540,7 @@ Implementation order:
 Completion criteria:
 
 - local document / fixture だけで ingestion、chunk、検索、summary が動く。
-- 通常 tests は外部 scraping / external LLM に依存しない。
+- 通常 tests は外部 scraping / 外部LLM に依存しない。
 - evidence は source、timestamp、section、confidence と紐づく。
 - UI / report では根拠不足を明示できる。
 
@@ -778,7 +778,7 @@ Guardrails:
 - source URL がない内容を断定しない。
 - 古いニュースは warning または `freshness_status` で明示する。
 - 外部ニュース取得は adapter 化し、`AI調査を更新` / news refresh の標準 source として扱う。
-- 通常 tests / CI は external network、live scraping、external LLM に依存させない。
+- 通常 tests / CI は外部 network、live scraping、外部LLM に依存させない。
 - 外部 LLM は必須にせず、template / deterministic fallback を維持する。
 - RAG の出力は投資判断補助であり、最終判断はユーザーが行う。
 
@@ -792,7 +792,7 @@ Current implemented slice:
 
 Follow-up child roadmap:
 
-- Phase 21.6: External Research Document Fetch MVP. `AI調査を更新` の標準動作として、EDINET / TDnet / IR site / provider profile などの資料取得/参照 adapter を使う。取得本文は session-local RAG store で一時参照し、既定では `data/research_docs/` や cache/archive に保存しない。表示・Report には source URL、provider、fetched_at、published_at、freshness_status、短い要約/引用範囲を残す。通常 tests / CI は network 非依存の fixture / fake adapter で確認する。
+- Phase 21.6: External Research Document Fetch MVP。`AI調査を更新` の標準動作として、TDnet（初期 slice 実装済み）、EDINET / IR site / provider profile などの資料取得/参照 adapter を使う。取得本文は session-local RAG store で一時参照し、既定では `data/research_docs/` や cache/archive に保存しない。表示・Report には source URL、provider、fetched_at、published_at、freshness_status、短い要約/引用範囲を残す。通常 tests / CI は network 非依存の fixture / fake adapter で確認する。
 - Phase 21.7: External Stock News Fetch MVP. `AI調査を更新` または news refresh から、選択中の銘柄名 / ticker / related keywords に限定した外部ニュース取得 adapter を使う。取得結果は `StockNewsEvidence` 互換の title / URL / source / published_at / summary / investment_viewpoint / sentiment_for_investment / freshness_status として一時表示する。既定ではニュース本文を保持せず、source URL がない内容は断定せず、外部 LLM は必須にしない。
 - Phase 21.6 / 21.7 は、Phase 21.5 の local deterministic slice を test/fallback として残しつつ、通常ユーザー導線では外部最新情報を優先する。外部取得に失敗した場合はローカル fixture / saved archive / fallback evidence 表示に戻れる設計にする。
 - External fetch child phases remain decision-support only. Investment Score、Research Score、Decision Report 自動反映、ranking order 変更、buy / sell / hold 判断は行わない。
@@ -804,19 +804,19 @@ Current implemented slice:
 - The current implementation keeps an explicit `allow_network=True` backend safety gate, removes the separate Cockpit `外部資料取得（明示許可）` UI, and makes `AI調査を更新` the standard external source search action while retaining fake-adapter tests and backend safety boundaries.
 - External RAG fetch is transient-by-default. Fetched source text is registered into the session-local Research RAG store only for the current analysis / score / display pass, while persistent document payloads, converted Markdown, local paths, document hashes, and manifests are not produced unless the user explicitly chooses a future `資料を保存する` / archive action.
 - UI/report display focuses on provider, fetched_at, published_at, source URL, freshness_status / freshness warnings, and generated summary/evidence snippets. Cockpit Decision Report includes an `外部参照ソース` section for these trace rows without including fetched source text, local paths, document hashes, or manifests. It should not imply that the app is building a permanent local document repository from live sources.
-- Normal tests use fake adapters only. No live external source, scraping, external LLM, or network call is required for CI.
+- 通常 tests は fake adapter のみを使い、CI では live external source、scraping、外部LLM、network call を不要にする。
 - A `source_type="news"` payload becomes available to the existing Stock News RAG cockpit flow after registration; provider profile / IR payloads become normal Research Evidence documents.
 
-Next local readability slice:
+次のローカル読みやすさ改善 slice:
 
-- R9: ResearchBrief / Local Research Memo. Add a display-only `ResearchBrief` / `ResearchMetric` layer that converts `CompanyResearchReport`, evidence, provider profile, news, and TDnet traces into a readable local investment research memo without external LLMs.
-- R9 should separate quantitative metrics from qualitative topics. First metrics are revenue, operating income, net income, EPS, dividend, PER, PBR, ROE, and market capitalization. Missing important metrics should be shown as `missing_metrics`.
-- R9 should compress provider profile into company overview / business content and hide raw provider fields from the normal view. Provider Symbol, Quote Type, Exchange, Currency, raw Sector / Industry, and provider field dumps belong in detail data only.
-- R9 should classify topics with local keyword rules into growth, performance, shareholder return, risk, positive candidate, caution candidate, and missing evidence. Labels must stay as candidates / confirmation points, not buy/sell conclusions.
-- R9 should show source confidence as information-source confidence only: official IR / TDnet / EDINET / company IR = high, Yahoo Finance / provider profile / news = medium, keyword-only extraction = low.
-- Cockpit Research Summary order should become: AI整理メモ -> 定量評価サマリー -> 企業概要・事業内容 -> 良材料候補 -> 注意材料候補 -> 未確認・不足根拠 -> 次に確認すべき資料 -> 出典カード -> 詳細データ.
-- Research Score should move after the AI整理メモ or into detail/context so the first read is a memo, not a score table.
-- Tests should remain deterministic: fake reports / fake source traces, regex metric extraction fixtures, no live network, no external LLM.
+- R9: ResearchBrief / Local Research Memo。表示専用の `ResearchBrief` / `ResearchMetric` 層を追加し、`CompanyResearchReport`、evidence、provider profile、news、TDnet trace を、外部LLMなしで読めるローカル投資調査メモへ変換する。
+- R9 では定量指標と定性トピックを分離する。初期指標は売上高、営業利益、純利益、EPS、配当、PER、PBR、ROE、時価総額とし、取得できない重要指標は `missing_metrics` に出す。
+- R9 では provider profile を企業概要 / 事業内容に圧縮し、通常表示では raw provider field を隠す。Provider Symbol、Quote Type、Exchange、Currency、raw Sector / Industry、provider field dump は詳細データのみに残す。
+- R9 では local keyword rule で成長材料、業績材料、株主還元、リスク、良材料候補、注意材料候補、不足根拠に分類する。文言は買い/売り結論ではなく、候補 / 確認ポイントとして扱う。
+- R9 の source confidence は情報源の信頼度だけを示す。official IR / TDnet / EDINET / company IR = high、Yahoo Finance / provider profile / news = medium、keyword-only extraction = low とする。
+- Cockpit Research Summary の表示順は、AI整理メモ -> 定量評価サマリー -> 企業概要・事業内容 -> 良材料候補 -> 注意材料候補 -> 未確認・不足根拠 -> 次に確認すべき資料 -> 出典カード -> 詳細データ とする。
+- Research Score は AI整理メモの後、または detail / context に寄せ、最初に読む内容が score table ではなく調査メモになるようにする。
+- Tests は deterministic を維持する。fake report / fake source trace、regex metric extraction fixture を使い、live network と外部LLMに依存しない。
 
 ### 5.8 Phase 22: Research Score And Investment Integration
 
@@ -833,9 +833,9 @@ Current integration direction:
 Recommended integration slice:
 
 - R5: Vector Search / Hybrid Search optional adapter。keyword retrieval を baseline に残し、embedding / vector は optional にする。
-- R6: Research Score MVP。growth、profitability、shareholder_return、financial_safety、business_risk、disclosure_quality、freshness を rule/template で採点し、evidence_count と confidence を保持する。Backend first slice は `ResearchScore` / `ResearchScoreService` として実装済み。
-- R7: Investment Score / Ranking / Report integration。Research Score を設定で管理できる optional weight として Investment Score に接続し、ranking / cockpit / report に内訳を表示する。Investment Score first slice は `research_scores_by_symbol` と `scoring.weights.research` default 0.0 として実装済みで、default ranking order は変更しない。Display first slice は Cockpit / Ranking の共通 Research Summary panel に Research Score summary / component / warning rows を出し、AI Research report 由来の score を selected-candidate breakdown に確認材料として出す形で実装済み。Report first slice は Cockpit Decision Report の `Research Score` section として実装済みで、内訳、supporting evidence、confidence、warnings、非推奨注記を Research Evidence と並べて保存する。
-- R8: External Source Adapter。TDnet は first slice 実装済み。EDINET / IR site / news などを `AI調査を更新` の標準 source adapter として広げ、通常 checks は fake adapter / fixture で network 非依存にする。
+- R6: Research Score MVP。growth、profitability、shareholder_return、financial_safety、business_risk、disclosure_quality、freshness を rule/template で採点し、evidence_count と confidence を保持する。Backend 初期 slice は `ResearchScore` / `ResearchScoreService` として実装済み。
+- R7: Investment Score / Ranking / Report integration。Research Score を設定で管理できる optional weight として Investment Score に接続し、ranking / cockpit / report に内訳を表示する。Investment Score 初期 slice は `research_scores_by_symbol` と `scoring.weights.research` default 0.0 として実装済みで、default ranking order は変更しない。Display 初期 slice は Cockpit / Ranking の共通 Research Summary panel に Research Score summary / component / warning rows を出し、AI Research report 由来の score を selected-candidate breakdown に確認材料として出す形で実装済み。Report 初期 slice は Cockpit Decision Report の `Research Score` section として実装済みで、内訳、supporting evidence、confidence、warnings、非推奨注記を Research Evidence と並べて保存する。
+- R8: External Source Adapter。TDnet は初期 slice 実装済み。EDINET / IR site / news などを `AI調査を更新` の標準 source adapter として広げ、通常 checks は fake adapter / fixture で network 非依存にする。
 
 Recommended completion criteria:
 

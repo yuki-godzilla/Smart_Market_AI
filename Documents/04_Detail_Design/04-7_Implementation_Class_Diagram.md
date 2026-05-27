@@ -4,13 +4,14 @@
 
 ## 0. Current Sync Status
 
-This diagram document is a reference snapshot synced at document level on 2026-05-17.
+This diagram document is a reference snapshot synced at document level on 2026-05-28.
 The source of truth remains actual code in `backend/`, `ui/`, and `tests/`.
 
 Current implementation notes:
 
 - Core / MarketData / FeatureBuilder / Risk / Portfolio / Screening / Forecast / Scoring are implemented.
-- Research RAG is planned and diagrammed as a future component.
+- Research RAG local evidence foundation, advanced extraction, Research Score first slice, and TDnet / Yahoo Finance external fetch first slice are implemented.
+- ResearchBriefBuilder, EDINET / company IR adapters, ranking-order integration, and Assistant integration are future/planned unless explicitly assigned.
 - Execution is deferred; only config placeholders and `TradeIntent` exist in current code.
 - Portfolio solver is currently `none`; optimizer backends are not implemented.
 
@@ -36,7 +37,7 @@ Current implementation notes:
 - Screening: `ScreeningService` and reason labels implemented
 - Scoring: `InvestmentScoringService` and `InvestmentScore` contract implemented
 - Streamlit UI: cockpit / ranking / rebalance cockpit helpers implemented
-- Research RAG: planned component for local document ingestion, evidence search, research summary, and optional Research Score
+- Research RAG: local document ingestion, evidence search, grounded summary, optional vector/hybrid foundation, Research Score, Stock News RAG, and TDnet / Yahoo Finance external fetch first slice implemented
 
 ## 3. Core Foundation Class Diagram
 
@@ -401,10 +402,12 @@ PortfolioRiskResult o-- RiskDecision
 ```
 
 
-## 7. Research RAG Planned Relationships
+## 7. Research RAG Current / Planned Relationships
 
-`backend.research` は、IR資料やユーザーメモなどの非構造データを扱う planned component として追加する。
-初期実装は local-first / deterministic とし、外部ソース取得、embedding、LLM要約は optional adapter として段階的に追加する。
+現在方針: local ingestion は fixture / archive / fallback として維持し、通常の AI Research 導線では adapter 経由の外部最新 source を優先する。次の表示層追加は local rule-based `ResearchBriefBuilder` とし、外部LLM要約は future / optional とする。
+
+`backend.research` は、IR資料、ユーザーメモ、外部取得 source payload などの非構造データを扱う実装済み component です。ResearchBriefBuilder、EDINET / 企業IR adapter、Assistant 接続は後続 planned として扱う。
+ローカル資料 ingestion は deterministic fixture / archive / fallback として維持し、通常ユーザー導線では外部 source adapter から最新情報を一時取得/参照する。embedding と LLM要約は optional adapter として段階的に追加する。
 
 ```plantuml
 @startuml
@@ -415,6 +418,8 @@ skinparam classAttributeIconSize 0
 skinparam linetype ortho
 
 package "backend.research" {
+  class ResearchInMemoryStore
+
   class ResearchIngestionService {
     +register_document(request): ResearchDocument
     +list_documents(symbol): list[ResearchDocument]
@@ -429,41 +434,123 @@ package "backend.research" {
     +search(request): list[ResearchEvidence]
   }
 
+  class ResearchQueryExpansionService
+  class ResearchEvidenceReranker
+  class ResearchGroundedAnswerService
+  class ResearchEmbeddingService
+  class ResearchVectorIndexService
+  class ResearchHybridScorer
+  class HybridResearchRetrievalService
+  class ResearchDisabledVectorStore
+  class ResearchInMemoryVectorStore
+  class ResearchFileVectorStore
+  class ResearchScoreService {
+    +score_report(report): ResearchScore
+  }
+
+  class ExternalResearchFetchService {
+    +fetch_and_register(request): ExternalResearchFetchResult
+  }
+
+  interface ExternalResearchSourceAdapter
+  class TDnetResearchAdapter
+  class YahooFinanceResearchAdapter
+  class CompositeExternalResearchAdapter
+  class DefaultExternalResearchAdapter
+
   class ResearchAnalysisService {
     +analyze_company(request): CompanyResearchReport
+  }
+
+  class StockNewsAnalysisService {
+    +analyze_symbol_news(request): StockNewsReport
   }
 
   class ResearchDocument
   class ResearchChunk
   class ResearchEvidence
+  class ResearchIndexSummary
+  class ResearchVectorIndexSummary
+  class ResearchExtractedClaim
+  class ResearchGroundedAnswer
+  class ResearchRetrievalQuality
+  class ResearchEmbedding
+  class ResearchRetrievalCandidate
+  class ResearchDataQuality
+  class StockNewsEvidence
+  class StockNewsReport
+  class ExternalResearchFetchRequest
+  class ExternalResearchFetchResult
+  class ExternalResearchFetchManifestEntry
+  class ExternalResearchSourcePayload
   class ResearchScore
   class CompanyResearchReport
 }
 
 package "backend.scoring" {
-  class InvestmentScoreService
+  class InvestmentScoringService
 }
 
 package "backend.reporting" {
-  class DecisionReport
+  class DecisionReportContext
+  class DecisionReportSection
 }
 
-package "backend.assistant" {
-  class AssistantService
+package "backend.assistant (future)" {
+  class AssistantService <<future>>
 }
 
+ResearchInMemoryStore o-- ResearchDocument
+ResearchInMemoryStore o-- ResearchChunk
+ResearchIngestionService --> ResearchInMemoryStore
 ResearchIngestionService ..> ResearchDocument
+ResearchIndexService --> ResearchInMemoryStore
 ResearchIndexService ..> ResearchDocument
 ResearchIndexService ..> ResearchChunk
+ResearchIndexService ..> ResearchIndexSummary
+ResearchRetrievalService --> ResearchInMemoryStore
+ResearchRetrievalService --> ResearchEvidenceReranker
 ResearchRetrievalService ..> ResearchChunk
 ResearchRetrievalService ..> ResearchEvidence
+ResearchAnalysisService --> ResearchIngestionService
 ResearchAnalysisService --> ResearchRetrievalService
+ResearchAnalysisService --> ResearchQueryExpansionService
+ResearchAnalysisService --> ResearchGroundedAnswerService
+ResearchAnalysisService --> ResearchEvidenceReranker
 ResearchAnalysisService ..> CompanyResearchReport
+StockNewsAnalysisService --> ResearchInMemoryStore
+StockNewsAnalysisService ..> StockNewsReport
+StockNewsReport *-- StockNewsEvidence
 CompanyResearchReport *-- ResearchEvidence
-CompanyResearchReport *-- ResearchScore
-InvestmentScoreService ..> ResearchScore : optional input
-DecisionReport ..> CompanyResearchReport
-AssistantService ..> CompanyResearchReport
+CompanyResearchReport *-- ResearchExtractedClaim
+CompanyResearchReport *-- ResearchGroundedAnswer
+CompanyResearchReport *-- ResearchRetrievalQuality
+CompanyResearchReport *-- ResearchDataQuality
+ResearchEmbeddingService ..> ResearchEmbedding
+ResearchVectorIndexService --> ResearchEmbeddingService
+ResearchVectorIndexService ..> ResearchVectorIndexSummary
+ResearchHybridScorer ..> ResearchRetrievalCandidate
+HybridResearchRetrievalService --> ResearchRetrievalService
+HybridResearchRetrievalService --> ResearchHybridScorer
+ResearchDisabledVectorStore ..> ResearchRetrievalCandidate
+ResearchInMemoryVectorStore o-- ResearchRetrievalCandidate
+ResearchFileVectorStore o-- ResearchRetrievalCandidate
+ResearchScoreService ..> CompanyResearchReport
+ResearchScoreService --> ResearchScore
+ExternalResearchFetchService --> ResearchIngestionService
+ExternalResearchFetchService --> ExternalResearchSourceAdapter
+ExternalResearchFetchService ..> ExternalResearchFetchRequest
+ExternalResearchFetchService ..> ExternalResearchFetchResult
+ExternalResearchFetchResult *-- ExternalResearchFetchManifestEntry
+ExternalResearchSourceAdapter ..> ExternalResearchSourcePayload
+ExternalResearchSourceAdapter <|.. TDnetResearchAdapter
+ExternalResearchSourceAdapter <|.. YahooFinanceResearchAdapter
+ExternalResearchSourceAdapter <|.. CompositeExternalResearchAdapter
+CompositeExternalResearchAdapter <|-- DefaultExternalResearchAdapter
+InvestmentScoringService ..> ResearchScore : optional input
+DecisionReportContext ..> CompanyResearchReport
+DecisionReportContext *-- DecisionReportSection
+AssistantService ..> CompanyResearchReport : future
 @enduml
 ```
 

@@ -673,3 +673,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Centralized the dark navy financial SaaS palette, AI accent colors, investment signal colors, chart colors, and ranking grid theme tokens in `ui/styles.py`.
 - Updated global Streamlit surfaces, tables, cards, buttons, alerts, AI / Research / Decision Report components, and key chart colors to use the shared theme without changing scoring, ranking, forecast, Research RAG, or provider behavior.
 - Documented the UI theme source of truth and added a regression test for the reusable theme tokens.
+
+## 2026-05-28 - Global UI visual depth pass
+
+- Refined the shared Streamlit CSS for a denser financial cockpit feel: subtle navy grid background, stronger header/page-title bands, raised input/expander/container surfaces, premium button treatment, and more polished metric/ranking cards.
+- Adjusted Copilot / Insight accents to use controlled linear AI treatments instead of broad glow-heavy decoration.
+- Kept the change display-only; data fetch, forecast, scoring, ranking, Research RAG, and report behavior remain unchanged.

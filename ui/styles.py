@@ -189,6 +189,12 @@ SMAI_GLOBAL_CSS = """
     --button-secondary-bg: #111C2E;
     --button-secondary-border: #2C3B55;
 
+    /* Surface treatment */
+    --surface-glass: rgba(16, 26, 43, 0.78);
+    --surface-raised: rgba(23, 35, 56, 0.82);
+    --shadow-soft: 0 18px 46px rgba(0, 0, 0, 0.24);
+    --shadow-subtle: 0 10px 26px rgba(0, 0, 0, 0.16);
+
     /* Backwards-compatible aliases for existing components. */
     --smai-bg: var(--bg-app);
     --smai-panel: var(--bg-surface);
@@ -211,8 +217,33 @@ SMAI_GLOBAL_CSS = """
 }
 
 .stApp {
-    background: linear-gradient(180deg, var(--bg-app) 0%, var(--bg-surface) 100%);
+    background:
+        linear-gradient(90deg, rgba(30, 42, 62, 0.18) 1px, transparent 1px),
+        linear-gradient(180deg, var(--bg-app) 0%, var(--bg-surface) 100%);
+    background-size: 56px 56px, auto;
     color: var(--text-primary);
+}
+
+.stApp::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+        linear-gradient(180deg, rgba(5, 8, 18, 0.05), rgba(5, 8, 18, 0.42)),
+        repeating-linear-gradient(
+            0deg,
+            rgba(96, 165, 250, 0.045) 0,
+            rgba(96, 165, 250, 0.045) 1px,
+            transparent 1px,
+            transparent 72px
+        );
+    opacity: 0.46;
+}
+
+[data-testid="stHeader"] {
+    background: rgba(5, 8, 18, 0.72);
+    backdrop-filter: blur(10px);
 }
 
 [data-testid="stSidebar"] {
@@ -221,7 +252,8 @@ SMAI_GLOBAL_CSS = """
 }
 
 [data-testid="stAppViewContainer"] .main .block-container {
-    padding-top: 3.1rem;
+    padding-top: 2.2rem;
+    padding-bottom: 3.8rem;
 }
 
 [data-testid="stMarkdownContainer"] p,
@@ -295,8 +327,10 @@ SMAI_GLOBAL_CSS = """
     min-height: 2.35rem;
     border-radius: 8px;
     border: 1px solid var(--button-secondary-border);
-    background: var(--button-secondary-bg);
+    background:
+        linear-gradient(180deg, rgba(23, 35, 56, 0.88), rgba(17, 28, 46, 0.88));
     color: var(--text-primary);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
     transition:
         border-color 120ms ease,
         background 120ms ease,
@@ -308,18 +342,26 @@ SMAI_GLOBAL_CSS = """
     border-color: var(--ai-border);
     background: var(--bg-card-hover);
     box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.12);
+    transform: translateY(-1px);
 }
 
 [data-testid="stButton"] button[kind="primary"] {
     border-color: rgba(34, 211, 238, 0.74);
-    background: var(--button-primary-bg);
+    background:
+        linear-gradient(180deg, var(--button-primary-hover), var(--button-primary-bg));
     color: var(--text-title);
     font-weight: 760;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        0 12px 26px rgba(8, 145, 178, 0.18);
 }
 
 [data-testid="stButton"] button[kind="primary"]:hover {
-    background: var(--button-primary-hover);
-    box-shadow: 0 10px 28px rgba(34, 211, 238, 0.14);
+    background:
+        linear-gradient(180deg, var(--ai-cyan), var(--button-primary-hover));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        0 14px 34px rgba(34, 211, 238, 0.18);
 }
 
 [data-baseweb="select"] > div,
@@ -327,8 +369,11 @@ SMAI_GLOBAL_CSS = """
 [data-testid="stNumberInput"] input,
 [data-testid="stDateInput"] input {
     border-color: var(--border-default);
-    background-color: var(--bg-card);
+    background-color: rgba(16, 26, 43, 0.92);
     color: var(--text-primary);
+    border-radius: 8px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    min-height: 2.35rem;
 }
 
 [data-baseweb="select"] > div:hover,
@@ -339,12 +384,22 @@ SMAI_GLOBAL_CSS = """
     box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.16);
 }
 
+[data-testid="stTextInput"] input:disabled,
+[data-testid="stDateInput"] input:disabled,
+[data-testid="stNumberInput"] input:disabled {
+    background-color: rgba(16, 26, 43, 0.64);
+    color: var(--text-muted);
+    opacity: 1;
+}
+
 [data-baseweb="select"] span,
 [data-testid="stTextInput"] label,
 [data-testid="stNumberInput"] label,
 [data-testid="stDateInput"] label,
 [data-testid="stCheckbox"] label {
     color: var(--text-secondary);
+    font-weight: 720;
+    letter-spacing: 0;
 }
 
 [data-testid="stSidebar"] [data-testid="stButton"] button {
@@ -376,12 +431,28 @@ SMAI_GLOBAL_CSS = """
 }
 
 [data-testid="stExpander"] {
-    border-color: var(--border-subtle);
-    background: rgba(11, 18, 32, 0.58);
+    border: 1px solid var(--border-default);
+    border-radius: 8px;
+    background:
+        linear-gradient(180deg, rgba(16, 26, 43, 0.74), rgba(11, 18, 32, 0.72));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+    margin: 0.65rem 0 1rem;
 }
 
 [data-testid="stExpander"] details summary {
     color: var(--text-secondary);
+    min-height: 2.75rem;
+    font-weight: 780;
+}
+
+[data-testid="stVerticalBlockBorderWrapper"] {
+    border-color: var(--border-default);
+    border-radius: 8px;
+    background:
+        linear-gradient(180deg, rgba(16, 26, 43, 0.88), rgba(11, 18, 32, 0.86));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.035),
+        var(--shadow-subtle);
 }
 
 [data-testid="stTabs"] button {
@@ -566,27 +637,40 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-app-header {
+    position: relative;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 1.2rem;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-    padding: 0.1rem 0 1.05rem;
-    margin: 0 0 1rem;
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 0.25rem 0 1.05rem;
+    margin: 0 0 1.05rem;
+}
+
+.smai-app-header::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -1px;
+    width: min(22rem, 42vw);
+    height: 1px;
+    background: linear-gradient(90deg, var(--ai-cyan), rgba(96, 165, 250, 0.42), transparent);
 }
 
 .smai-app-title {
     color: var(--text-title);
-    font-size: clamp(2rem, 3vw, 3rem);
+    font-size: clamp(2rem, 2.8vw, 2.85rem);
     line-height: 1.12;
     font-weight: 860;
     letter-spacing: 0;
     margin: 0;
+    text-shadow: 0 12px 28px rgba(96, 165, 250, 0.14);
 }
 
 .smai-app-message {
-    color: var(--smai-muted-readable);
+    color: var(--text-secondary);
     font-size: 0.95rem;
+    font-weight: 650;
     line-height: 1.55;
     margin: 0.45rem 0 0;
 }
@@ -597,11 +681,14 @@ SMAI_GLOBAL_CSS = """
     aspect-ratio: 1;
     display: grid;
     place-items: center;
-    border: 1px solid rgba(56, 189, 248, 0.22);
+    border: 1px solid rgba(34, 211, 238, 0.28);
     border-radius: 8px;
     background:
-        linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(45, 212, 191, 0.07)),
+        linear-gradient(180deg, rgba(8, 27, 42, 0.9), rgba(11, 18, 32, 0.92)),
         rgba(8, 13, 24, 0.28);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 16px 36px rgba(0, 0, 0, 0.22);
 }
 
 .smai-app-mascot {
@@ -614,9 +701,20 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-page-title {
-    border-bottom: 1px solid rgba(148, 163, 184, 0.16);
-    padding: 0.05rem 0 0.9rem;
+    position: relative;
+    border-top: 1px solid rgba(30, 42, 62, 0.7);
+    border-bottom: 1px solid var(--border-subtle);
+    background: linear-gradient(90deg, rgba(16, 26, 43, 0.68), rgba(11, 18, 32, 0.2) 62%, transparent);
+    padding: 1.05rem 0 1rem;
     margin: 0 0 1rem;
+}
+
+.smai-page-title::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: linear-gradient(180deg, var(--ai-cyan), var(--ai-blue));
 }
 
 .smai-page-title--copilot {
@@ -637,7 +735,7 @@ SMAI_GLOBAL_CSS = """
 
 .smai-page-title-heading {
     color: var(--text-title);
-    font-size: clamp(1.7rem, 2.3vw, 2.25rem);
+    font-size: clamp(1.7rem, 2.15vw, 2.2rem);
     line-height: 1.16;
     font-weight: 840;
     letter-spacing: 0;
@@ -645,8 +743,9 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-page-title-subtitle {
-    color: var(--smai-muted-readable);
+    color: var(--text-secondary);
     font-size: 0.95rem;
+    font-weight: 620;
     line-height: 1.58;
     margin: 0.55rem 0 0;
 }
@@ -679,11 +778,12 @@ SMAI_GLOBAL_CSS = """
     border: 1px solid rgba(34, 211, 238, 0.22);
     border-radius: 8px;
     background:
-        linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(8, 13, 24, 0.96)),
-        rgba(7, 11, 20, 0.82);
+        linear-gradient(90deg, rgba(8, 27, 42, 0.84), rgba(16, 26, 43, 0.94)),
+        var(--ai-bg);
     box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.045),
         0 10px 30px rgba(0, 0, 0, 0.28),
-        0 0 24px rgba(34, 211, 238, 0.08);
+        0 0 0 1px rgba(34, 211, 238, 0.035);
     backdrop-filter: blur(8px);
     padding: 0.72rem 0.82rem;
 }
@@ -694,8 +794,15 @@ SMAI_GLOBAL_CSS = """
     inset: 0;
     pointer-events: none;
     background:
-        radial-gradient(circle at 20% 30%, rgba(34, 211, 238, 0.16), transparent 34%),
+        repeating-linear-gradient(
+            90deg,
+            rgba(34, 211, 238, 0.06) 0,
+            rgba(34, 211, 238, 0.06) 1px,
+            transparent 1px,
+            transparent 38px
+        ),
         linear-gradient(90deg, rgba(34, 211, 238, 0.08), transparent 64%);
+    opacity: 0.72;
 }
 
 .smai-copilot-figure,
@@ -714,9 +821,11 @@ SMAI_GLOBAL_CSS = """
     position: absolute;
     width: 4.5rem;
     height: 4.5rem;
-    border-radius: 999px;
-    background: rgba(34, 211, 238, 0.11);
-    filter: blur(12px);
+    border: 1px solid rgba(34, 211, 238, 0.18);
+    border-radius: 8px;
+    background:
+        linear-gradient(180deg, rgba(34, 211, 238, 0.1), rgba(96, 165, 250, 0.045)),
+        rgba(8, 27, 42, 0.42);
     animation: smai-soft-glow 4.8s ease-in-out infinite;
 }
 
@@ -775,15 +884,14 @@ SMAI_GLOBAL_CSS = """
 .smai-dashboard-header {
     position: relative;
     overflow: hidden;
-    border: 1px solid rgba(56, 189, 248, 0.24);
+    border: 1px solid rgba(34, 211, 238, 0.26);
     border-radius: 8px;
     background:
-        linear-gradient(90deg, rgba(45, 212, 191, 0.13), transparent 42%),
-        linear-gradient(135deg, rgba(251, 113, 133, 0.08), transparent 56%),
-        linear-gradient(135deg, rgba(17, 24, 39, 0.98), rgba(13, 24, 38, 0.96));
+        linear-gradient(90deg, rgba(34, 211, 238, 0.11), transparent 48%),
+        linear-gradient(180deg, rgba(23, 35, 56, 0.98), rgba(11, 18, 32, 0.96));
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.05),
-        0 18px 52px rgba(0, 0, 0, 0.22);
+        var(--shadow-soft);
     padding: 1.2rem 1.25rem 1.05rem;
     margin: 0.35rem 0 1.1rem;
 }
@@ -823,9 +931,9 @@ SMAI_GLOBAL_CSS = """
     display: inline-flex;
     align-items: center;
     gap: 0.32rem;
-    border: 1px solid rgba(148, 163, 184, 0.2);
+    border: 1px solid rgba(96, 165, 250, 0.22);
     border-radius: 999px;
-    background: rgba(8, 13, 24, 0.55);
+    background: rgba(8, 27, 42, 0.58);
     color: var(--text-secondary);
     font-size: 0.78rem;
     font-weight: 680;
@@ -846,7 +954,9 @@ SMAI_GLOBAL_CSS = """
     font-size: 1.08rem;
     font-weight: 760;
     line-height: 1.35;
-    margin: 1rem 0 0.25rem;
+    margin: 1.2rem 0 0.32rem;
+    padding-bottom: 0.28rem;
+    border-bottom: 1px solid rgba(30, 42, 62, 0.56);
 }
 
 .smai-section-title::before {
@@ -870,7 +980,7 @@ SMAI_GLOBAL_CSS = """
     border-radius: 8px;
     background:
         linear-gradient(90deg, var(--smai-mascot-glow), transparent 58%),
-        linear-gradient(135deg, rgba(17, 24, 39, 0.94), rgba(12, 18, 30, 0.92));
+        linear-gradient(180deg, rgba(16, 26, 43, 0.94), rgba(11, 18, 32, 0.92));
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.04),
         0 14px 30px rgba(0, 0, 0, 0.16);
@@ -918,8 +1028,8 @@ SMAI_GLOBAL_CSS = """
     border-left: 3px solid var(--smai-insight-accent);
     border-radius: 8px;
     background:
-        linear-gradient(90deg, rgba(34, 211, 238, 0.1), transparent 56%),
-        rgba(15, 23, 42, 0.72);
+        linear-gradient(90deg, rgba(34, 211, 238, 0.12), transparent 58%),
+        rgba(8, 27, 42, 0.78);
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
     padding: 0.65rem 0.76rem;
     margin: 0.7rem 0 0.85rem;
@@ -942,9 +1052,8 @@ SMAI_GLOBAL_CSS = """
     position: absolute;
     width: 2.65rem;
     height: 2.65rem;
-    border-radius: 999px;
+    border-radius: 8px;
     background: rgba(34, 211, 238, 0.1);
-    filter: blur(9px);
 }
 
 .smai-insight-avatar img {
@@ -1188,7 +1297,7 @@ SMAI_GLOBAL_CSS = """
 .smai-section-card {
     border: 1px solid var(--smai-border);
     border-radius: 8px;
-    background: linear-gradient(180deg, rgba(31, 41, 55, 0.72), rgba(17, 24, 39, 0.72));
+    background: linear-gradient(180deg, rgba(23, 35, 56, 0.76), rgba(11, 18, 32, 0.76));
     padding: 0.95rem 1rem;
     margin: 0.35rem 0 0.7rem 0;
 }
@@ -1204,12 +1313,37 @@ SMAI_GLOBAL_CSS = """
     border-left: 3px solid var(--smai-card-accent);
     border-radius: 8px;
     background:
-        linear-gradient(90deg, var(--smai-card-glow), transparent 58%),
-        linear-gradient(180deg, rgba(31, 41, 55, 0.92), rgba(14, 21, 34, 0.9));
+        linear-gradient(90deg, var(--smai-card-glow), transparent 62%),
+        linear-gradient(180deg, rgba(23, 35, 56, 0.94), rgba(11, 18, 32, 0.93));
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.04),
-        0 12px 26px rgba(0, 0, 0, 0.16);
+        var(--shadow-subtle);
     padding: 0.88rem 0.95rem;
+    transition:
+        border-color 140ms ease,
+        background 140ms ease,
+        transform 140ms ease,
+        box-shadow 140ms ease;
+}
+
+.smai-metric-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(90deg, var(--smai-card-accent), rgba(255, 255, 255, 0.08), transparent);
+    opacity: 0.72;
+}
+
+.smai-metric-card:hover {
+    border-color: var(--border-strong);
+    background:
+        linear-gradient(90deg, var(--smai-card-glow), transparent 62%),
+        linear-gradient(180deg, rgba(23, 35, 56, 1), rgba(16, 26, 43, 0.96));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        var(--shadow-soft);
+    transform: translateY(-1px);
 }
 
 .smai-metric-card[data-emphasis="spotlight"] {
@@ -1251,7 +1385,7 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-card-label {
-    color: var(--smai-muted);
+    color: var(--text-muted);
     font-size: 0.82rem;
     line-height: 1.3;
     margin-bottom: 0.35rem;
@@ -1287,14 +1421,14 @@ SMAI_GLOBAL_CSS = """
 
 .smai-card-value {
     color: var(--smai-card-value);
-    font-size: 1.28rem;
+    font-size: 1.32rem;
     line-height: 1.25;
     font-weight: 760;
     overflow-wrap: anywhere;
 }
 
 .smai-card-caption {
-    color: var(--smai-muted-readable);
+    color: var(--text-secondary);
     font-size: 0.86rem;
     line-height: 1.52;
     margin-top: 0.5rem;
@@ -1303,18 +1437,44 @@ SMAI_GLOBAL_CSS = """
 .smai-ranking-card {
     --smai-card-accent: var(--smai-teal);
     --smai-card-glow: rgba(45, 212, 191, 0.16);
+    position: relative;
     min-height: 11.8rem;
     border: 1px solid var(--smai-border);
     border-left: 3px solid var(--smai-card-accent);
     border-radius: 8px;
     background:
-        linear-gradient(90deg, var(--smai-card-glow), transparent 58%),
-        linear-gradient(180deg, rgba(31, 41, 55, 0.92), rgba(14, 21, 34, 0.9));
+        linear-gradient(90deg, var(--smai-card-glow), transparent 62%),
+        linear-gradient(180deg, rgba(23, 35, 56, 0.94), rgba(11, 18, 32, 0.93));
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.04),
-        0 12px 26px rgba(0, 0, 0, 0.16);
+        var(--shadow-subtle);
     padding: 0.86rem 0.95rem;
     overflow-wrap: anywhere;
+    transition:
+        border-color 140ms ease,
+        background 140ms ease,
+        transform 140ms ease,
+        box-shadow 140ms ease;
+}
+
+.smai-ranking-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(90deg, var(--smai-card-accent), rgba(255, 255, 255, 0.08), transparent);
+    opacity: 0.72;
+}
+
+.smai-ranking-card:hover {
+    border-color: var(--border-strong);
+    background:
+        linear-gradient(90deg, var(--smai-card-glow), transparent 62%),
+        linear-gradient(180deg, rgba(23, 35, 56, 1), rgba(16, 26, 43, 0.96));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        var(--shadow-soft);
+    transform: translateY(-1px);
 }
 
 .smai-ranking-card[data-emphasis="spotlight"] {
@@ -1329,7 +1489,7 @@ SMAI_GLOBAL_CSS = """
     align-items: center;
     justify-content: space-between;
     gap: 0.45rem;
-    color: var(--smai-muted-readable);
+    color: var(--text-secondary);
     font-size: 0.76rem;
     font-weight: 700;
     line-height: 1.25;
@@ -1375,7 +1535,7 @@ SMAI_GLOBAL_CSS = """
 }
 
 .smai-ranking-card-caption {
-    color: var(--smai-muted-readable);
+    color: var(--text-secondary);
     font-size: 0.84rem;
     line-height: 1.5;
     margin-top: 0.55rem;

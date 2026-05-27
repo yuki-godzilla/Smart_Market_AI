@@ -48,6 +48,7 @@ from backend.reporting import (
 )
 from backend.research import (
     CompanyResearchReport,
+    ExternalResearchFetchManifestEntry,
     ExternalResearchFetchResult,
     ResearchDocument,
     ResearchScore,
@@ -4631,6 +4632,76 @@ def _external_research_fetch_summary_rows(
     ]
 
 
+def _external_research_fetch_overview_html(result: ExternalResearchFetchResult) -> str:
+    latest_dates = [entry.published_at for entry in result.entries if entry.published_at]
+    latest_text = max(latest_dates).isoformat() if latest_dates else "未確認"
+    official_count = sum(1 for entry in result.entries if entry.source_type == "tdnet")
+    stale_count = sum(1 for entry in result.entries if entry.freshness_status == "stale")
+    source_types = sorted(
+        {_research_source_type_label(entry.source_type) for entry in result.entries}
+    )
+    summary = (
+        "外部から取得した根拠候補です。公式開示を優先して確認し、"
+        "provider profile やニュースは補助情報として扱ってください。"
+    )
+    items = [
+        ("取得元", _external_research_provider_label(result.provider)),
+        ("取得件数", f"{len(result.entries)}件"),
+        ("最新公開日", latest_text),
+        ("公式開示", f"{official_count}件"),
+        ("資料種別", " / ".join(source_types) if source_types else "未確認"),
+        ("注意", f"古い可能性 {stale_count}件" if stale_count else "鮮度警告なし"),
+    ]
+    item_markup = "".join(
+        '<div class="research-result-brief-item">'
+        f'<div class="research-result-brief-label">{html.escape(label)}</div>'
+        f'<div class="research-result-brief-value">{html.escape(value)}</div>'
+        "</div>"
+        for label, value in items
+    )
+    return (
+        '<section class="research-result-brief">'
+        '<div class="research-result-brief-title">外部参照ソースの確認メモ</div>'
+        f'<div class="research-result-brief-summary">{html.escape(summary)}</div>'
+        f'<div class="research-result-brief-grid">{item_markup}</div>'
+        "</section>"
+    )
+
+
+def _external_research_source_cards_html(result: ExternalResearchFetchResult) -> str:
+    if not result.entries:
+        return ""
+    items: list[str] = []
+    for entry in result.entries:
+        provider = _external_research_provider_label(entry.provider)
+        source_type = _research_source_type_label(entry.source_type)
+        freshness = _research_freshness_status_label(entry.freshness_status)
+        published_at = entry.published_at.isoformat() if entry.published_at else "未確認"
+        note = _external_research_entry_check_note(entry)
+        summary = entry.content_summary or "要約はありません。リンク先で本文を確認してください。"
+        items.append(
+            '<article class="research-evidence-item">'
+            '<div class="research-evidence-card-header">'
+            f'<span class="research-evidence-pill positive">{html.escape(source_type)}</span>'
+            f'<span class="research-evidence-pill">{html.escape(provider)}</span>'
+            f'<span class="research-evidence-pill">鮮度: {html.escape(freshness)}</span>'
+            "</div>"
+            f'<div class="research-evidence-title">{html.escape(entry.title)}</div>'
+            f'<div class="research-evidence-meta">公開日: {html.escape(published_at)} / '
+            f"取得: {html.escape(_datetime_display_text(entry.fetched_at))}</div>"
+            '<div class="research-evidence-body">'
+            f'<span class="research-evidence-label">まず確認:</span> {html.escape(note)}'
+            "</div>"
+            f'<div class="research-evidence-excerpt">{html.escape(summary)}</div>'
+            '<div class="research-evidence-actions">'
+            f'<a href="{html.escape(entry.source_url)}" target="_blank" rel="noopener noreferrer">'
+            "出典を開く</a>"
+            "</div>"
+            "</article>"
+        )
+    return f'<div class="research-evidence-list">{"".join(items)}</div>'
+
+
 def _external_research_fetch_result_rows(
     result: ExternalResearchFetchResult,
 ) -> list[dict[str, str]]:
@@ -4647,6 +4718,25 @@ def _external_research_fetch_result_rows(
         }
         for entry in result.entries
     ]
+
+
+def _external_research_provider_label(provider: str) -> str:
+    labels = {
+        "tdnet": "TDnet（適時開示）",
+        "yahoo_finance": "Yahoo Finance",
+        "tdnet_yahoo_finance": "TDnet / Yahoo Finance",
+    }
+    return labels.get(provider, provider)
+
+
+def _external_research_entry_check_note(entry: ExternalResearchFetchManifestEntry) -> str:
+    if entry.source_type == "tdnet":
+        return "公式開示です。PDF本文で対象期間、数値、会社発表の前提を確認してください。"
+    if entry.source_type == "provider_profile":
+        return "provider情報です。事業内容や指標は公式IR・決算資料と照合してください。"
+    if entry.source_type == "news":
+        return "ニュースです。一次情報ではないため、会社発表や開示資料で裏取りしてください。"
+    return "出典URL、公開日、本文の該当箇所を確認してください。"
 
 
 def _datetime_display_text(value: datetime) -> str:
@@ -4876,7 +4966,14 @@ def _render_research_summary_panel(
             "AI調査で一時参照した外部ソースです。"
             "取得本文は保存せず、URL・公開日・取得日時を確認材料として残します。"
         )
-        _render_compact_dataframe(_external_research_fetch_result_rows(external_research_result))
+        st.markdown(
+            _external_research_fetch_overview_html(external_research_result),
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            _external_research_source_cards_html(external_research_result),
+            unsafe_allow_html=True,
+        )
 
     with st.expander(RESEARCH_DETAIL_EXPANDER_LABEL, expanded=detail_expanded):
         if report.data_quality.status == "OK":

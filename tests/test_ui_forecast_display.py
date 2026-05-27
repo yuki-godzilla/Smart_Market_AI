@@ -39,8 +39,10 @@ from ui.app import (
     _coerce_number_input_state,
     _current_or_default_symbol_labels,
     _ensure_selectbox_state_value,
+    _external_research_fetch_overview_html,
     _external_research_fetch_result_rows,
     _external_research_fetch_summary_rows,
+    _external_research_source_cards_html,
     _fetch_external_research_for_preview,
     _market_data_preview_symbol_label,
     _name_from_candidate,
@@ -800,6 +802,56 @@ def test_external_research_fetch_rows_show_transient_sources_without_storage_pat
             "要約": "Toyota sells vehicles globally and invests in growth.",
         }
     ]
+
+
+def test_external_research_source_cards_explain_how_to_read_each_source():
+    result = ExternalResearchFetchResult(
+        symbol="7203.T",
+        provider="tdnet_yahoo_finance",
+        fetched_at=datetime(2026, 5, 27, 12, 30, tzinfo=UTC),
+        entries=[
+            ExternalResearchFetchManifestEntry(
+                title="7203 TDnet 決算短信",
+                symbol="7203.T",
+                source_type="tdnet",
+                source_url="https://www.release.tdnet.info/inbs/example.pdf",
+                provider="tdnet",
+                published_at=date(2026, 5, 27),
+                fetched_at=datetime(2026, 5, 27, 12, 30, tzinfo=UTC),
+                freshness_status="latest",
+                document_id="research-doc-tdnet",
+                retention_policy="session",
+                content_summary="2026年3月期の決算短信です。",
+            ),
+            ExternalResearchFetchManifestEntry(
+                title="7203 Yahoo Finance Profile",
+                symbol="7203.T",
+                source_type="provider_profile",
+                source_url="https://finance.yahoo.com/quote/7203.T/profile",
+                provider="yahoo_finance",
+                published_at=None,
+                fetched_at=datetime(2026, 5, 27, 12, 30, tzinfo=UTC),
+                freshness_status="unknown",
+                document_id="research-doc-profile",
+                retention_policy="session",
+                content_summary="Toyota sells vehicles globally.",
+            ),
+        ],
+        retention_policy="session",
+    )
+
+    overview = _external_research_fetch_overview_html(result)
+    cards = _external_research_source_cards_html(result)
+
+    assert "外部参照ソースの確認メモ" in overview
+    assert "TDnet / Yahoo Finance" in overview
+    assert "公式開示" in overview
+    assert "2件" in overview
+    assert "TDnet（適時開示）" in cards
+    assert "PDF本文で対象期間" in cards
+    assert "provider情報" in cards
+    assert "出典を開く" in cards
+    assert "external://" not in cards
 
 
 def test_fetch_external_research_for_preview_uses_external_source_and_stores(monkeypatch):

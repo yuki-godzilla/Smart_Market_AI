@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-05-27: Added the first backend-only Research Score MVP slice with `ResearchScore` and `ResearchScoreService`; it scores evidence coverage, freshness, disclosure quality, confidence, warnings, and supporting evidence from `CompanyResearchReport` without changing Investment Score, ranking order, or UI defaults.
 - 2026-05-27: Added `ResearchVectorIndexService` and `ResearchVectorIndexSummary` as an explicit optional vector-index build workflow; it rebuilds writable vector stores from already chunked Research documents, reports chunk / embedded counts and missing text-index warnings, and keeps default keyword retrieval unchanged.
 - 2026-05-27: Added `ResearchEmbeddingService` for deterministic local hash-based Research RAG embeddings; it builds chunk/query vectors, keeps `text_hash` and `embedding_model` cache-key fields, and can explicitly upsert generated embeddings into writable vector stores without external embedding APIs or changing default keyword retrieval.
 - 2026-05-27: Added `ResearchFileVectorStore` as a UTF-8 JSONL-backed optional vector cache; persisted and reloaded `ResearchRetrievalCandidate` + `ResearchEmbedding` pairs across service instances with deterministic tests for persisted search, empty-cache warnings, and invalid-cache errors while keeping default keyword retrieval unchanged.

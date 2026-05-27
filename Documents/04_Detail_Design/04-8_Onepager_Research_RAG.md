@@ -2,7 +2,7 @@
 
 #### [BACK TO DETAIL DESIGN README](./04_Detail_Design_README.md)
 
-Status: Phase 20 local evidence slice is implementation complete. Phase 21 covers advanced Research RAG extraction, query expansion, optional vector / hybrid search, and grounded answer generation; deterministic query expansion, structured extraction, template grounded answer, retrieval quality, evidence reranker, first UI / Decision Report display, optional vector / hybrid contract/scoring, keyword-fallback hybrid retrieval wrapper, local embedding generation, optional vector-index build workflow, in-memory local vector store, and file-backed vector cache slices have started. Research Score, external source adapters, and Assistant integration remain later phases unless explicitly assigned.
+Status: Phase 20 local evidence slice is implementation complete. Phase 21 covers advanced Research RAG extraction, query expansion, optional vector / hybrid search, and grounded answer generation; deterministic query expansion, structured extraction, template grounded answer, retrieval quality, evidence reranker, first UI / Decision Report display, optional vector / hybrid contract/scoring, keyword-fallback hybrid retrieval wrapper, local embedding generation, optional vector-index build workflow, in-memory local vector store, and file-backed vector cache slices have started. Phase 22 Research Score has a first backend-only deterministic service slice. Investment Score / ranking integration, external source adapters, and Assistant integration remain later phases unless explicitly assigned.
 
 ## Phase 20 Implementation Baseline / 実装ベースライン
 
@@ -390,6 +390,8 @@ class ResearchScore(BaseModel):
     confidence: Decimal
     summary: str
 ```
+
+Current implementation note: `ResearchScore` and `ResearchScoreService` are available as the first backend-only Research Score MVP slice. The service scores evidence coverage for growth, profitability, shareholder return, financial safety, business risk disclosure, disclosure quality, and freshness from `CompanyResearchReport`, keeps supporting evidence, confidence, warnings, and a non-advice summary, and does not change Investment Score, ranking order, or UI by default.
 
 ## 4) Algorithms & Rules
 

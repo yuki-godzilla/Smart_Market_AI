@@ -397,6 +397,30 @@ class CompanyResearchReport(StrictBaseModel):
     decision_support_note: str = "Research evidence is decision support only; not advice."
 
 
+class ResearchScore(StrictBaseModel):
+    """Optional evidence-backed Research Score for Phase 22 preparation."""
+
+    schema_version: str = "research-score-v1"
+    symbol: str = Field(min_length=1)
+    as_of: date
+    total_score: Decimal = Field(ge=0, le=100)
+    growth_score: Decimal = Field(ge=0, le=100)
+    profitability_score: Decimal = Field(ge=0, le=100)
+    shareholder_return_score: Decimal = Field(ge=0, le=100)
+    financial_safety_score: Decimal = Field(ge=0, le=100)
+    business_risk_score: Decimal = Field(ge=0, le=100)
+    disclosure_quality_score: Decimal = Field(ge=0, le=100)
+    freshness_score: Decimal = Field(ge=0, le=100)
+    evidence_count: int = Field(ge=0)
+    confidence: Decimal = Field(ge=0, le=1)
+    supporting_evidence: list[ResearchEvidence] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    summary: str = Field(min_length=1)
+    decision_support_note: str = (
+        "Research Score is an evidence-coverage signal for decision support; not advice."
+    )
+
+
 class StockNewsEvidence(StrictBaseModel):
     """Traceable news evidence for one selected symbol."""
 
@@ -1323,6 +1347,69 @@ class ResearchAnalysisService:
         )
 
 
+class ResearchScoreService:
+    """Score Research RAG evidence coverage without changing Investment Score."""
+
+    def score_report(self, report: CompanyResearchReport) -> ResearchScore:
+        as_of = report.as_of
+        growth_score = _score_report_category(report, "growth", as_of=as_of)
+        shareholder_return_score = _score_report_category(report, "shareholder_return", as_of=as_of)
+        financial_safety_score = _score_report_category(report, "financial_safety", as_of=as_of)
+        business_risk_score = _score_report_category(report, "business_risk", as_of=as_of)
+        profitability_score = _score_research_terms(
+            report.evidence,
+            (
+                "profit",
+                "profitability",
+                "margin",
+                "operating income",
+                "roe",
+                "価格転嫁",
+                "利益率",
+                "営業利益",
+                "収益性",
+            ),
+            as_of=as_of,
+        )
+        disclosure_quality_score = _score_disclosure_quality(report, as_of=as_of)
+        freshness_score = _score_research_freshness(report, as_of=as_of)
+        component_scores = [
+            growth_score,
+            profitability_score,
+            shareholder_return_score,
+            financial_safety_score,
+            business_risk_score,
+            disclosure_quality_score,
+            freshness_score,
+        ]
+        warnings = _research_score_warnings(report, component_scores)
+        confidence = _research_score_confidence(report)
+        total_score = _score_100(
+            sum(component_scores, Decimal("0")) / Decimal(len(component_scores))
+        )
+        return ResearchScore(
+            symbol=report.symbol,
+            as_of=as_of,
+            total_score=total_score,
+            growth_score=growth_score,
+            profitability_score=profitability_score,
+            shareholder_return_score=shareholder_return_score,
+            financial_safety_score=financial_safety_score,
+            business_risk_score=business_risk_score,
+            disclosure_quality_score=disclosure_quality_score,
+            freshness_score=freshness_score,
+            evidence_count=len(report.evidence),
+            confidence=confidence,
+            supporting_evidence=report.evidence,
+            warnings=warnings,
+            summary=_research_score_summary(
+                report,
+                total_score=total_score,
+                confidence=confidence,
+            ),
+        )
+
+
 class StockNewsAnalysisService:
     """Create a deterministic selected-symbol news summary from local news documents."""
 
@@ -2112,6 +2199,144 @@ def _claim_confidence(evidence: list[ResearchEvidence]) -> Decimal:
         for row in evidence
     ]
     return (sum(scores, Decimal("0")) / Decimal(len(scores))).quantize(Decimal("0.0001"))
+
+
+def _score_report_category(
+    report: CompanyResearchReport,
+    category: ResearchTopicCategory,
+    *,
+    as_of: date,
+) -> Decimal:
+    evidence = [
+        evidence
+        for point in report.points
+        if point.category == category
+        for evidence in point.evidence
+    ]
+    return _score_evidence_strength(_dedupe_evidence(evidence), as_of=as_of)
+
+
+def _score_research_terms(
+    evidence: Sequence[ResearchEvidence],
+    terms: Sequence[str],
+    *,
+    as_of: date,
+) -> Decimal:
+    query_terms = _normalize_query_terms(terms)
+    matched = [
+        row
+        for row in evidence
+        if (
+            _score_text(f"{row.title} {row.section_title or ''} {row.excerpt}", query_terms)
+            > Decimal("0")
+        )
+    ]
+    return _score_evidence_strength(_dedupe_evidence(matched), as_of=as_of)
+
+
+def _score_evidence_strength(evidence: list[ResearchEvidence], *, as_of: date) -> Decimal:
+    if not evidence:
+        return Decimal("0")
+    scores = [
+        (
+            (row.relevance_score * Decimal("0.45"))
+            + (row.reliability * Decimal("0.35"))
+            + (_freshness_factor(row.published_at, as_of=as_of) * Decimal("0.20"))
+        )
+        * Decimal("100")
+        for row in evidence
+    ]
+    return _score_100(sum(scores, Decimal("0")) / Decimal(len(scores)))
+
+
+def _score_disclosure_quality(report: CompanyResearchReport, *, as_of: date) -> Decimal:
+    if not report.evidence:
+        return Decimal("0")
+    evidence_count_score = min(Decimal("100"), Decimal(len(report.evidence)) * Decimal("20"))
+    reliability_score = sum(
+        (row.reliability * Decimal("100") for row in report.evidence), Decimal("0")
+    ) / Decimal(len(report.evidence))
+    source_score = sum(
+        (
+            Decimal(str(_source_type_priority(row.source_type))) * Decimal("100")
+            for row in report.evidence
+        ),
+        Decimal("0"),
+    ) / Decimal(len(report.evidence))
+    status_factor = _data_quality_status_factor(report.data_quality.status)
+    score = (
+        (evidence_count_score * Decimal("0.35"))
+        + (reliability_score * Decimal("0.35"))
+        + (source_score * Decimal("0.30"))
+    ) * status_factor
+    return _score_100(score)
+
+
+def _score_research_freshness(report: CompanyResearchReport, *, as_of: date) -> Decimal:
+    if report.data_quality.latest_document_date is None:
+        return Decimal("0")
+    return _score_100(
+        _freshness_factor(report.data_quality.latest_document_date, as_of=as_of) * Decimal("100")
+    )
+
+
+def _research_score_confidence(report: CompanyResearchReport) -> Decimal:
+    if not report.evidence:
+        return Decimal("0")
+    average_reliability = sum((row.reliability for row in report.evidence), Decimal("0")) / Decimal(
+        len(report.evidence)
+    )
+    coverage = min(Decimal("1"), Decimal(len(report.evidence)) / Decimal("6"))
+    status_factor = _data_quality_status_factor(report.data_quality.status)
+    confidence = (
+        (average_reliability * Decimal("0.50"))
+        + (coverage * Decimal("0.30"))
+        + (status_factor * Decimal("0.20"))
+    )
+    return min(Decimal("1"), confidence).quantize(Decimal("0.0001"))
+
+
+def _research_score_warnings(
+    report: CompanyResearchReport,
+    component_scores: Sequence[Decimal],
+) -> list[str]:
+    warnings = list(report.data_quality.warnings)
+    if not report.evidence:
+        warnings.append("Research Score は根拠不足のため参考表示に留めます。")
+    if any(score == Decimal("0") for score in component_scores[:5]):
+        warnings.append("一部のResearch観点は根拠が不足しており、推定で補完していません。")
+    return list(dict.fromkeys(warnings))
+
+
+def _research_score_summary(
+    report: CompanyResearchReport,
+    *,
+    total_score: Decimal,
+    confidence: Decimal,
+) -> str:
+    if not report.evidence:
+        return (
+            "Research Scoreは、登録資料から確認できる根拠が不足しているため、"
+            "未確認状態として扱います。これは銘柄評価や売買判断ではありません。"
+        )
+    return (
+        f"Research Score {total_score} は、登録資料の根拠数、鮮度、信頼度、"
+        f"開示の確認しやすさを整理した補助スコアです。confidence={confidence}。"
+        "売買推奨ではなく、追加確認の優先度を考えるための材料です。"
+    )
+
+
+def _data_quality_status_factor(status: DataQuality) -> Decimal:
+    factors: dict[DataQuality, Decimal] = {
+        "OK": Decimal("1"),
+        "WARN": Decimal("0.75"),
+        "BLOCK": Decimal("0.40"),
+    }
+    return factors[status]
+
+
+def _score_100(value: Decimal) -> Decimal:
+    return min(Decimal("100"), max(Decimal("0"), value)).quantize(Decimal("0.01"))
 
 
 def _topic_summary(label: str, evidence: list[ResearchEvidence]) -> str:

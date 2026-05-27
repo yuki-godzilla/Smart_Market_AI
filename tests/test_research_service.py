@@ -30,6 +30,7 @@ from backend.research import (
     ResearchRetrievalCandidate,
     ResearchRetrievalQuality,
     ResearchRetrievalService,
+    ResearchScoreService,
     ResearchSearchError,
     ResearchSearchRequest,
     ResearchVectorIndexService,
@@ -144,6 +145,86 @@ Business risk includes competition, supply constraints, and foreign exchange dem
     assert report.retrieval_quality.evidence_count == len(report.evidence)
     assert "growth" in report.retrieval_quality.query
     assert "strategy" in report.retrieval_quality.expanded_terms
+
+
+def test_research_score_service_scores_evidence_backed_report(tmp_path):
+    document_path = tmp_path / "7203_score_note.md"
+    document_path.write_text(
+        """# 7203 Research Score Note
+
+## Growth
+
+Growth strategy includes market expansion, software revenue, profitability margin,
+operating income improvement, and ROE improvement.
+
+## Shareholder Return
+
+Shareholder return includes dividend policy and buyback capacity.
+
+## Financial Safety
+
+Financial safety includes cash, equity capital, liquidity, and balance sheet strength.
+
+## Business Risk
+
+Business risk includes competition, regulation, supply chain, and foreign exchange.
+""",
+        encoding="utf-8",
+    )
+    store = ResearchInMemoryStore()
+    ingestion = ResearchIngestionService(store, document_dirs=[tmp_path])
+    ResearchIndexService(store, max_chars=260).rebuild_index(symbol="7203.T")
+    ingestion.register_document(
+        ResearchDocumentRegisterRequest(
+            symbol="7203.T",
+            title="7203 Research Score Note",
+            local_path=str(document_path),
+            source_type="annual_report",
+            published_at=date(2026, 5, 1),
+            reliability=Decimal("0.90"),
+        )
+    )
+    ResearchIndexService(store, max_chars=260).rebuild_index(symbol="7203.T")
+    report = ResearchAnalysisService(
+        ingestion,
+        ResearchRetrievalService(store),
+    ).analyze_company(CompanyResearchRequest(symbol="7203.T", as_of=date(2026, 5, 25)))
+
+    score = ResearchScoreService().score_report(report)
+
+    assert score.schema_version == "research-score-v1"
+    assert score.symbol == "7203.T"
+    assert score.total_score > Decimal("0")
+    assert score.growth_score > Decimal("0")
+    assert score.profitability_score > Decimal("0")
+    assert score.shareholder_return_score > Decimal("0")
+    assert score.financial_safety_score > Decimal("0")
+    assert score.business_risk_score > Decimal("0")
+    assert score.disclosure_quality_score > Decimal("0")
+    assert score.freshness_score == Decimal("100.00")
+    assert score.evidence_count == len(report.evidence)
+    assert score.confidence > Decimal("0")
+    assert score.supporting_evidence
+    assert "売買推奨ではなく" in score.summary
+    assert "not advice" in score.decision_support_note
+
+
+def test_research_score_service_marks_missing_evidence_low_confidence():
+    store = ResearchInMemoryStore()
+    ingestion = ResearchIngestionService(store)
+    report = ResearchAnalysisService(
+        ingestion,
+        ResearchRetrievalService(store),
+    ).analyze_company(CompanyResearchRequest(symbol="MSFT", as_of=date(2026, 5, 24)))
+
+    score = ResearchScoreService().score_report(report)
+
+    assert score.total_score == Decimal("0.00")
+    assert score.confidence == Decimal("0")
+    assert score.evidence_count == 0
+    assert score.supporting_evidence == []
+    assert any("根拠不足" in warning for warning in score.warnings)
+    assert "売買判断ではありません" in score.summary
 
 
 def test_research_ingestion_deduplicates_by_document_hash(tmp_path):

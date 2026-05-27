@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-05-27: Added freshness_status trace rows to opt-in external Research / News fetch, with stale-source warnings and Cockpit result-table freshness labels while keeping fetched payload text transient-by-default.
 - 2026-05-27: Changed opt-in external Research / News fetch to transient-by-default implementation: fetched Yahoo Finance profile/news text is registered into the session-local RAG store for the current analysis pass without writing payload Markdown or manifest files, and the Cockpit UI now shows provider / fetched_at / source URL / summary instead of local storage paths.
 - 2026-05-27: Updated Research RAG external-fetch documentation to set transient-by-default live evidence as the product policy: external source text should be used for the current summary / score / display pass without default document or manifest retention; the existing `external_cache` persistence path is now documented as implementation debt for the next code slice.
 - 2026-05-27: Added a first opt-in Cockpit UI slice for external Research / News fetch: users must allow external communication before Yahoo Finance profile/news fetch runs, fetched Markdown + manifest JSON are saved under `data/research_docs/external_cache/`, the session-local Research RAG store is updated/re-chunked, and source URL / provider / fetched_at / local path / manifest rows are visible without changing ranking order or default scoring.

@@ -497,6 +497,7 @@ class ExternalResearchFetchManifestEntry(StrictBaseModel):
     provider: str = Field(min_length=1)
     published_at: date | None = None
     fetched_at: datetime
+    freshness_status: StockNewsFreshnessStatus = "unknown"
     document_id: str = Field(min_length=1)
     retention_policy: Literal["session", "archive"] = "session"
     content_summary: str = ""
@@ -1537,6 +1538,7 @@ class ExternalResearchFetchService:
             )
 
         fetched_at = datetime.now(UTC)
+        as_of = request.as_of or fetched_at.date()
         payloads = self.adapter.fetch_sources(request)
         entries: list[ExternalResearchFetchManifestEntry] = []
         warnings: list[str] = []
@@ -1579,6 +1581,11 @@ class ExternalResearchFetchService:
                     reliability=payload.reliability,
                 )
             self.index.build_chunks(document.document_id)
+            freshness_status = _stock_news_freshness(document.published_at, as_of=as_of)
+            if freshness_status == "stale":
+                warnings.append(
+                    f"{document.title}: 公開日が古いため、最新資料と合わせて確認してください。"
+                )
             entries.append(
                 ExternalResearchFetchManifestEntry(
                     title=document.title,
@@ -1588,6 +1595,7 @@ class ExternalResearchFetchService:
                     provider=payload.provider,
                     published_at=document.published_at,
                     fetched_at=payload.fetched_at,
+                    freshness_status=freshness_status,
                     document_id=document.document_id,
                     retention_policy="archive" if self.persist_payloads else "session",
                     content_summary=_excerpt(payload.content, max_chars=180),

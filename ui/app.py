@@ -4676,6 +4676,7 @@ def _external_research_fetch_result_rows(
             "資料種別": _research_source_type_label(entry.source_type),
             "取得元": entry.provider,
             "公開日": entry.published_at.isoformat() if entry.published_at else "未確認",
+            "鮮度": _research_freshness_status_label(entry.freshness_status),
             "取得日時": _datetime_display_text(entry.fetched_at),
             "URL": entry.source_url,
             "要約": entry.content_summary,
@@ -5836,6 +5837,16 @@ def _research_source_type_label(source_type: str) -> str:
         "user_note": "ユーザーメモ",
     }
     return labels.get(source_type, source_type or "未確認")
+
+
+def _research_freshness_status_label(status: str) -> str:
+    labels = {
+        "latest": "最新",
+        "recent": "最近",
+        "stale": "古め",
+        "unknown": "未確認",
+    }
+    return labels.get(status, "未確認")
 
 
 def _stock_news_sentiment_label(sentiment: str) -> str:

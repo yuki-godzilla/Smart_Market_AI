@@ -452,6 +452,7 @@ def test_external_research_fetch_service_registers_sources_without_persisting_pa
             symbol="7203.T",
             company_name="Toyota",
             provider="fake_external",
+            as_of=date(2026, 5, 25),
             allow_network=False,
         )
     )
@@ -466,6 +467,7 @@ def test_external_research_fetch_service_registers_sources_without_persisting_pa
     assert {entry.retention_policy for entry in result.entries} == {"session"}
     assert all(entry.local_path is None for entry in result.entries)
     assert all(entry.document_hash is None for entry in result.entries)
+    assert {entry.freshness_status for entry in result.entries} == {"latest"}
     assert any("Revenue growth" in entry.content_summary for entry in result.entries)
     assert list(tmp_path.iterdir()) == []
     assert len(store.list_documents("7203.T")) == 2
@@ -479,6 +481,43 @@ def test_external_research_fetch_service_registers_sources_without_persisting_pa
     )
     assert [row.title for row in news_report.news] == ["7203 External News"]
     assert news_report.news[0].freshness_status == "latest"
+
+
+def test_external_research_fetch_service_warns_about_stale_sources(tmp_path):
+    fetched_at = datetime(2026, 5, 25, 9, 0, tzinfo=UTC)
+    adapter = FakeExternalResearchAdapter(
+        [
+            ExternalResearchSourcePayload(
+                symbol="7203.T",
+                title="7203 Old External News",
+                content="summary: Older update that should not be treated as current.",
+                source_type="news",
+                source_url="https://example.com/7203-old-news",
+                provider="fake_external",
+                company_name="Toyota",
+                published_at=date(2026, 1, 10),
+                fetched_at=fetched_at,
+                reliability=Decimal("0.70"),
+            ),
+        ]
+    )
+    store = ResearchInMemoryStore()
+    ingestion = ResearchIngestionService(store, document_dirs=[tmp_path])
+    index = ResearchIndexService(store, max_chars=240)
+
+    result = ExternalResearchFetchService(adapter, ingestion, index).fetch_register_sources(
+        ExternalResearchFetchRequest(
+            symbol="7203.T",
+            company_name="Toyota",
+            provider="fake_external",
+            as_of=date(2026, 5, 25),
+            allow_network=False,
+        )
+    )
+
+    assert len(result.entries) == 1
+    assert result.entries[0].freshness_status == "stale"
+    assert any("公開日が古い" in warning for warning in result.warnings)
 
 
 def test_external_research_fetch_requires_explicit_network_opt_in(tmp_path):

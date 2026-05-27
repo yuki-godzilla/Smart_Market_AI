@@ -799,11 +799,11 @@ Follow-up child roadmap:
 
 Current implemented slice:
 
-- `backend/research` has `ExternalResearchFetchRequest`, `ExternalResearchSourcePayload`, `ExternalResearchFetchService`, source trace entries, and `ExternalResearchSourceAdapter` protocol.
+- `backend/research` has `ExternalResearchFetchRequest`, `ExternalResearchSourcePayload`, `ExternalResearchFetchService`, source trace entries with freshness_status, and `ExternalResearchSourceAdapter` protocol.
 - `YahooFinanceResearchAdapter` provides the first opt-in live adapter shape for provider profile and recent news payloads. Tests inject a fake ticker factory, so no live Yahoo call is required in normal checks.
 - The current implementation enforces explicit `allow_network=True` before a network-requiring adapter can run and wires Yahoo Finance profile / news fetch to Cockpit.
 - External RAG fetch is transient-by-default. Fetched source text is registered into the session-local Research RAG store only for the current analysis / score / display pass, while persistent document payloads, converted Markdown, local paths, document hashes, and manifests are not produced unless the user explicitly chooses a future `資料を保存する` / archive action.
-- UI/report display should focus on provider, fetched_at, published_at, source URL, freshness warnings, and generated summary/evidence snippets. It should not imply that the app is building a permanent local document repository from live sources.
+- UI/report display should focus on provider, fetched_at, published_at, source URL, freshness_status / freshness warnings, and generated summary/evidence snippets. It should not imply that the app is building a permanent local document repository from live sources.
 - Normal tests use fake adapters only. No live external source, scraping, external LLM, or network call is required for CI.
 - A `source_type="news"` payload becomes available to the existing Stock News RAG cockpit flow after registration; provider profile / IR payloads become normal Research Evidence documents.
 

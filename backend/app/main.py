@@ -225,6 +225,7 @@ class InvestmentScoreRequest(StrictBaseModel):
                     "symbols": ["AAPL", "7203.T"],
                     "as_of": "2026-04-09",
                     "horizon_days": 1,
+                    "research_scores_by_symbol": {"AAPL": "60"},
                 }
             ]
         },
@@ -233,6 +234,7 @@ class InvestmentScoreRequest(StrictBaseModel):
     symbols: list[str] = Field(min_length=1)
     as_of: date
     horizon_days: int = Field(default=1, ge=1, le=30)
+    research_scores_by_symbol: dict[str, Decimal] = Field(default_factory=dict)
 
 
 @app.exception_handler(AppError)
@@ -313,6 +315,7 @@ async def build_investment_scores(request: InvestmentScoreRequest) -> list[Inves
     return create_investment_scoring_service().score(
         screening_scores,
         forecast_consensus_by_symbol=forecast_consensus_by_symbol,
+        research_score_by_symbol=request.research_scores_by_symbol,
     )
 
 

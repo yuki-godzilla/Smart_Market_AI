@@ -26,4 +26,5 @@ scoring:
     screening: 0.50
     forecast_agreement: 0.20
     data_quality: 0.20
+    research: 0.00
     risk_signal: 0.10

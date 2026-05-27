@@ -877,6 +877,7 @@ def test_investment_score_rows_formats_score_breakdown():
             "down_model_count": "0",
             "flat_model_count": "0",
             "data_quality_score": "100",
+            "research_score": "",
             "risk_signal_score": "",
             "forecast_agreement": "LOW",
             "data_quality": "OK",

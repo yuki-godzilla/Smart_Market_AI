@@ -18,7 +18,7 @@ API の起動方法、CSV 形式、UI の使い方、手動確認手順は [06_M
 
 Phase 1 から Phase 15 までは、現在の実装上は implementation complete 扱いです。
 Phase 16 は UI / Visualization Cockpit 改善の実装完了扱いです。最終 Streamlit browser smoke は推奨確認として残します。
-Research RAG は Phase 20 local evidence slice が implementation complete です。Phase 21 高度Research RAG（根拠抽出・根拠付き回答生成）は query expansion、structured extraction、grounded answer、retrieval quality、evidence reranker、UI / Decision Report 表示、optional vector / hybrid contract と scoring、keyword-fallback hybrid retrieval wrapper、local embedding generation、optional vector-index build workflow、in-memory local vector store、file-backed vector cache の first slice が進行中です。Phase 22 Research Score は backend-only deterministic service の first slice が開始済みです。Investment Score / ranking integration、外部 source adapter、Assistant、distribution readiness は後続 planned / future scope です。
+Research RAG は Phase 20 local evidence slice が implementation complete です。Phase 21 高度Research RAG（根拠抽出・根拠付き回答生成）は query expansion、structured extraction、grounded answer、retrieval quality、evidence reranker、UI / Decision Report 表示、optional vector / hybrid contract と scoring、keyword-fallback hybrid retrieval wrapper、local embedding generation、optional vector-index build workflow、in-memory local vector store、file-backed vector cache の first slice が進行中です。Phase 22 Research Score は backend deterministic service と disabled-by-default Investment Score optional input の first slice が開始済みです。Ranking / report integration、外部 source adapter、Assistant、distribution readiness は後続 planned / future scope です。
 
 実装済みの主な範囲:
 
@@ -820,8 +820,8 @@ Current integration direction:
 Recommended integration slice:
 
 - R5: Vector Search / Hybrid Search optional adapter。keyword retrieval を baseline に残し、embedding / vector は optional にする。
-- R6: Research Score MVP。growth、profitability、shareholder_return、financial_safety、business_risk、disclosure_quality、freshness を rule/template で採点し、evidence_count と confidence を保持する。Backend first slice は `ResearchScore` / `ResearchScoreService` として実装済み。Investment Score / ranking にはまだ接続していない。
-- R7: Investment Score / Ranking / Report integration。Research Score を設定で管理できる optional weight として Investment Score に接続し、ranking / cockpit / report に内訳を表示する。
+- R6: Research Score MVP。growth、profitability、shareholder_return、financial_safety、business_risk、disclosure_quality、freshness を rule/template で採点し、evidence_count と confidence を保持する。Backend first slice は `ResearchScore` / `ResearchScoreService` として実装済み。
+- R7: Investment Score / Ranking / Report integration。Research Score を設定で管理できる optional weight として Investment Score に接続し、ranking / cockpit / report に内訳を表示する。Investment Score first slice は `research_scores_by_symbol` と `scoring.weights.research` default 0.0 として実装済みで、default ranking order は変更しない。
 - R8: External Source Adapter。EDINET / TDnet / IR site / news などは明示 opt-in adapter として扱い、通常 checks には入れない。
 
 Recommended completion criteria:

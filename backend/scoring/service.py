@@ -39,6 +39,7 @@ class InvestmentScoreInput(StrictBaseModel):
 
     screening_score: ScreeningScore
     forecast_consensus: ForecastConsensus | None = None
+    research_score: Decimal | None = Field(default=None, ge=0, le=100)
     risk_signal_score: Decimal | None = Field(default=None, ge=0, le=100)
 
 
@@ -64,6 +65,7 @@ class InvestmentScore(StrictBaseModel):
     down_model_count: int = Field(default=0, ge=0)
     flat_model_count: int = Field(default=0, ge=0)
     data_quality_score: Decimal = Field(ge=0, le=100)
+    research_score: Decimal | None = Field(default=None, ge=0, le=100)
     risk_signal_score: Decimal | None = Field(default=None, ge=0, le=100)
     forecast_agreement: str = ""
     data_quality: str = Field(min_length=1)
@@ -84,17 +86,20 @@ class InvestmentScoringService:
         screening_scores: list[ScreeningScore],
         *,
         forecast_consensus_by_symbol: dict[str, ForecastConsensus] | None = None,
+        research_score_by_symbol: dict[str, Decimal] | None = None,
         risk_signal_score_by_symbol: dict[str, Decimal] | None = None,
     ) -> list[InvestmentScore]:
         """Return ranked investment-support scores without changing ScreeningScore."""
 
         forecasts = forecast_consensus_by_symbol or {}
+        research_scores = research_score_by_symbol or {}
         risk_scores = risk_signal_score_by_symbol or {}
         scored = [
             _score_input(
                 InvestmentScoreInput(
                     screening_score=screening_score,
                     forecast_consensus=forecasts.get(screening_score.symbol),
+                    research_score=research_scores.get(screening_score.symbol),
                     risk_signal_score=risk_scores.get(
                         screening_score.symbol,
                         screening_score.risk_score,
@@ -118,6 +123,7 @@ def _score_input(
     forecast_score = _forecast_agreement_score(forecast_agreement)
     direction_signal = _direction_signal_values(score_input.forecast_consensus)
     data_quality_score = screening.data_quality_score
+    research_score = score_input.research_score
     risk_signal_score = score_input.risk_signal_score
 
     components = [
@@ -139,13 +145,24 @@ def _score_input(
             _weight_decimal(weights.data_quality),
             _data_quality_reasons(screening),
         ),
+    ]
+    if _weight_decimal(weights.research) > Decimal("0"):
+        components.append(
+            _component(
+                "research",
+                research_score if research_score is not None else Decimal("50"),
+                _weight_decimal(weights.research),
+                _research_reasons(research_score),
+            )
+        )
+    components.append(
         _component(
             "risk_signal",
             risk_signal_score if risk_signal_score is not None else Decimal("50"),
             _weight_decimal(weights.risk_signal),
             _risk_reasons(risk_signal_score),
-        ),
-    ]
+        )
+    )
     total_score = _round_score(
         sum((component.contribution for component in components), Decimal("0"))
     )
@@ -168,6 +185,7 @@ def _score_input(
         down_model_count=int(direction_signal["down_model_count"]),
         flat_model_count=int(direction_signal["flat_model_count"]),
         data_quality_score=data_quality_score,
+        research_score=research_score,
         risk_signal_score=risk_signal_score,
         forecast_agreement=forecast_agreement,
         data_quality=screening.data_quality,
@@ -278,12 +296,22 @@ def _risk_reasons(risk_signal_score: Decimal | None) -> list[str]:
     return ["risk_signal:available"]
 
 
+def _research_reasons(research_score: Decimal | None) -> list[str]:
+    if research_score is None:
+        return ["research_score:not_available"]
+    if research_score < Decimal("40"):
+        return ["research_score:evidence_limited"]
+    return ["research_score:available"]
+
+
 def _warnings(reasons: list[str]) -> list[str]:
     warning_prefixes = (
         "data_quality:warn",
         "data_quality:block",
         "model_disagreement:",
         "model_count:insufficient",
+        "research_score:not_available",
+        "research_score:evidence_limited",
     )
     return [reason for reason in reasons if reason.startswith(warning_prefixes)]
 

@@ -437,6 +437,8 @@ Current implementation note: `ResearchScore` and `ResearchScoreService` are avai
 * Research Score が無い銘柄でも既存の Screening / Forecast / Risk / Data Quality score は動作する。
 * 初期重みは `research: 0.0` または低めにし、UI上で「研究情報を参考表示」として扱う。
 
+Current implementation note: Investment Score accepts optional `research_scores_by_symbol` input and `scoring.weights.research` with default `0.0`. When the weight remains `0.0`, Research Score is carried as optional context but does not change total score, score band, breakdown, or ranking order. When explicitly weighted, missing Research Score uses a neutral 50 input with a warning rather than treating missing evidence as a bad security.
+
 ## 5) Error Handling & Retries
 
 * ローカルファイルが無い/読めない: `ResearchDocumentError`

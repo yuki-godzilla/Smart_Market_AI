@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
@@ -45,3 +47,25 @@ def test_investment_score_api_rejects_empty_symbols():
     )
 
     assert response.status_code == 422
+
+
+def test_investment_score_api_accepts_optional_research_scores_without_default_reweight():
+    response = client.post(
+        "/scoring/investment-score",
+        json={
+            "symbols": ["AAPL"],
+            "as_of": "2026-04-09",
+            "horizon_days": 1,
+            "research_scores_by_symbol": {"AAPL": "60"},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert Decimal(str(payload[0]["research_score"])) == Decimal("60")
+    assert [component["component"] for component in payload[0]["breakdown"]] == [
+        "screening",
+        "forecast_agreement",
+        "data_quality",
+        "risk_signal",
+    ]

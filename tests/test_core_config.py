@@ -14,6 +14,7 @@ def test_settings_defaults_are_local_and_mock_first():
     assert settings.dataaccess.cache.backend == "memory"
     assert settings.portfolio.solver.backend == "none"
     assert settings.scoring.weights.screening == 0.5
+    assert settings.scoring.weights.research == 0.0
     assert settings.scoring.weights.risk_signal == 0.1
 
 
@@ -102,3 +103,21 @@ def test_settings_reject_invalid_scoring_weight_total():
         assert "Scoring weights must sum to 1.0" in str(exc)
     else:
         raise AssertionError("Scoring weights should sum to 1.0")
+
+
+def test_settings_accepts_disabled_by_default_research_scoring_weight():
+    settings = Settings.model_validate(
+        {
+            "scoring": {
+                "weights": {
+                    "screening": 0.40,
+                    "forecast_agreement": 0.20,
+                    "data_quality": 0.20,
+                    "research": 0.10,
+                    "risk_signal": 0.10,
+                }
+            }
+        }
+    )
+
+    assert settings.scoring.weights.research == 0.10

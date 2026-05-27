@@ -36,8 +36,8 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 
 - `polygon` などの追加 live provider adapter 本体
 - 追加 provider adapter / fund metadata source
-- Research RAG external source adapters / vector search / Research Score
-- Research Score の Investment Score / ranking / report 統合
+- Research RAG external source adapters / vector search の運用UI
+- Research Score の ranking / report 統合。Investment Score は optional numeric input と disabled-by-default weight だけ対応済み
 - Assistant / LLM / news integration
 - broker への live order 送信
 - Execution workflow
@@ -72,7 +72,7 @@ http://127.0.0.1:8000/openapi.json
 | `POST /portfolio/rebalance-check` | 現在 portfolio と target allocation から配分見直し候補を作り Risk check へ接続 |
 | `POST /screening/score` | Feature Snapshot から Screening Score / ranking / reason を返す |
 | `POST /forecast/evaluate` | OHLCV から baseline forecast と walk-forward metrics を返す |
-| `POST /scoring/investment-score` | Screening / Direction signal / Forecast agreement compatibility / Data quality / Risk signal を統合した Investment Score を返す |
+| `POST /scoring/investment-score` | Screening / Direction signal / Forecast agreement compatibility / Data quality / Risk signal を統合した Investment Score を返す。`research_scores_by_symbol` は任意入力で、既定 weight は 0.0 |
 
 エラー応答は JSON です。
 
@@ -126,6 +126,8 @@ $body = @{
   symbols = @("AAPL", "7203.T")
   as_of = "2026-04-09"
   horizon_days = 1
+  # 任意: Research Score を既に別経路で計算済みの場合だけ渡す。既定 weight は 0.0。
+  research_scores_by_symbol = @{ AAPL = "60" }
 } | ConvertTo-Json
 
 Invoke-RestMethod `
@@ -141,6 +143,7 @@ Invoke-RestMethod `
 - `total_score`
 - `score_band`
 - `breakdown`
+- `research_score` は任意入力の保持値です。既定設定では総合点や順位には寄与しません。
 - `warnings`
 - `reasons`
 - `decision_support_note`

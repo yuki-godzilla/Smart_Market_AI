@@ -1295,6 +1295,7 @@ def investment_score_rows(scores: list[InvestmentScore]) -> list[dict[str, str]]
             "down_model_count": str(getattr(score, "down_model_count", 0)),
             "flat_model_count": str(getattr(score, "flat_model_count", 0)),
             "data_quality_score": _format_decimal(score.data_quality_score),
+            "research_score": _format_optional_decimal(getattr(score, "research_score", None)),
             "risk_signal_score": _format_optional_decimal(score.risk_signal_score),
             "forecast_agreement": score.forecast_agreement,
             "data_quality": score.data_quality,

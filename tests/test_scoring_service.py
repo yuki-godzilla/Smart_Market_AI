@@ -27,6 +27,7 @@ def test_investment_scoring_service_returns_separate_contract_with_breakdown():
     assert score.screening_score == Decimal("80")
     assert score.forecast_agreement_score == Decimal("90")
     assert score.data_quality_score == Decimal("100")
+    assert score.research_score is None
     assert score.risk_signal_score == Decimal("70")
     assert score.decision_support_note == (
         "Decision-support score only; not a buy/sell recommendation."
@@ -143,6 +144,93 @@ def test_investment_scoring_service_uses_configurable_weights():
     assert score.total_score == Decimal("86.00")
     assert _breakdown(score, "screening").weight == Decimal("0.4")
     assert _breakdown(score, "forecast_agreement").contribution == Decimal("27.00")
+
+
+def test_investment_scoring_service_accepts_research_score_without_default_weight_change():
+    scores = InvestmentScoringService().score(
+        [
+            _screening_score(
+                symbol="AAPL",
+                total_score=Decimal("80"),
+                data_quality_score=Decimal("100"),
+                data_quality="OK",
+                forecast_agreement="HIGH",
+            )
+        ],
+        research_score_by_symbol={"AAPL": Decimal("30")},
+    )
+
+    score = scores[0]
+    assert score.total_score == Decimal("85.00")
+    assert score.score_band == "STRONG"
+    assert score.research_score == Decimal("30")
+    assert [component.component for component in score.breakdown] == [
+        "screening",
+        "forecast_agreement",
+        "data_quality",
+        "risk_signal",
+    ]
+    assert "research_score:evidence_limited" not in score.warnings
+
+
+def test_investment_scoring_service_uses_opt_in_research_weight():
+    scores = InvestmentScoringService(
+        weights=ScoringWeightsConfig(
+            screening=0.40,
+            forecast_agreement=0.20,
+            data_quality=0.20,
+            research=0.10,
+            risk_signal=0.10,
+        )
+    ).score(
+        [
+            _screening_score(
+                symbol="AAPL",
+                total_score=Decimal("80"),
+                data_quality_score=Decimal("100"),
+                data_quality="OK",
+                forecast_agreement="HIGH",
+            )
+        ],
+        research_score_by_symbol={"AAPL": Decimal("60")},
+    )
+
+    score = scores[0]
+    assert score.total_score == Decimal("83.00")
+    assert score.research_score == Decimal("60")
+    research = _breakdown(score, "research")
+    assert research.weight == Decimal("0.1")
+    assert research.contribution == Decimal("6.00")
+
+
+def test_investment_scoring_service_keeps_missing_research_score_neutral_when_weight_enabled():
+    scores = InvestmentScoringService(
+        weights=ScoringWeightsConfig(
+            screening=0.40,
+            forecast_agreement=0.20,
+            data_quality=0.20,
+            research=0.10,
+            risk_signal=0.10,
+        )
+    ).score(
+        [
+            _screening_score(
+                symbol="AAPL",
+                total_score=Decimal("80"),
+                data_quality_score=Decimal("100"),
+                data_quality="OK",
+                forecast_agreement="HIGH",
+            )
+        ]
+    )
+
+    score = scores[0]
+    assert score.total_score == Decimal("82.00")
+    assert score.research_score is None
+    research = _breakdown(score, "research")
+    assert research.input_score == Decimal("50.00")
+    assert research.contribution == Decimal("5.00")
+    assert "research_score:not_available" in score.warnings
 
 
 def _breakdown(score, component_name):

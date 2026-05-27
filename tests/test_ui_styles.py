@@ -1,6 +1,14 @@
 from __future__ import annotations
 
-from ui.styles import SMAI_GLOBAL_CSS, badge_html, compact_display_value, metric_card_html
+from ui.styles import (
+    CHART_COLORS,
+    RANKING_GRID_CUSTOM_CSS,
+    SMAI_GLOBAL_CSS,
+    THEME_COLORS,
+    badge_html,
+    compact_display_value,
+    metric_card_html,
+)
 
 
 def test_compact_display_value_formats_numeric_text_without_new_logic():
@@ -48,3 +56,16 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert "@keyframes smai-copilot-float" in SMAI_GLOBAL_CSS
     assert "translateY(-3px) scale(1.012)" in SMAI_GLOBAL_CSS
     assert "@media (prefers-reduced-motion: reduce)" in SMAI_GLOBAL_CSS
+
+
+def test_global_theme_tokens_define_dark_financial_ai_palette():
+    assert THEME_COLORS["bg_app"] == "#050812"
+    assert THEME_COLORS["bg_card"] == "#101A2B"
+    assert THEME_COLORS["ai_cyan"] == "#22D3EE"
+    assert THEME_COLORS["signal_buy"] == "#34D399"
+    assert CHART_COLORS["prediction"] == THEME_COLORS["chart_prediction"]
+
+    assert "--bg-app: #050812;" in SMAI_GLOBAL_CSS
+    assert ".smai-ai-card" in SMAI_GLOBAL_CSS
+    assert ".smai-investment-signal-badge.buy" in SMAI_GLOBAL_CSS
+    assert RANKING_GRID_CUSTOM_CSS[".ag-header"]["background-color"].startswith("#111C2E")

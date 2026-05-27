@@ -667,3 +667,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added `ResearchInMemoryVectorStore` for deterministic local vector retrieval without external dependencies.
 - Added optional `ResearchSearchRequest.query_vector` and cosine-similarity candidate search over stored `ResearchRetrievalCandidate` + `ResearchEmbedding` pairs.
 - Kept the default keyword retrieval path unchanged; vector search is only used when an explicit query vector and vector store entries are supplied.
+
+## 2026-05-28 - Global UI theme token foundation
+
+- Centralized the dark navy financial SaaS palette, AI accent colors, investment signal colors, chart colors, and ranking grid theme tokens in `ui/styles.py`.
+- Updated global Streamlit surfaces, tables, cards, buttons, alerts, AI / Research / Decision Report components, and key chart colors to use the shared theme without changing scoring, ranking, forecast, Research RAG, or provider behavior.
+- Documented the UI theme source of truth and added a regression test for the reusable theme tokens.

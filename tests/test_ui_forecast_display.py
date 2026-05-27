@@ -224,6 +224,7 @@ from ui.rebalance_app import (
     screening_score_rows,
 )
 from ui.research_state import _source_type_from_research_filename, _symbol_from_research_filename
+from ui.styles import FORECAST_ACTUAL_PRICE_COLOR, FORECAST_MODEL_COLORS, THEME_COLORS
 from ui.symbol_universe import symbol_universe_csv_rows
 
 
@@ -1266,14 +1267,16 @@ def test_ranking_result_aggrid_options_enable_single_row_click_selection():
 
 def test_ranking_result_grid_custom_css_keeps_dark_table_readable():
     assert RANKING_RESULT_GRID_CUSTOM_CSS[".ag-root-wrapper"]["background-color"] == (
-        "#121821 !important"
+        f"{THEME_COLORS['bg_surface']} !important"
     )
-    assert RANKING_RESULT_GRID_CUSTOM_CSS[".ag-header-cell-text"]["color"] == ("#e5edf7 !important")
+    assert RANKING_RESULT_GRID_CUSTOM_CSS[".ag-header-cell-text"]["color"] == (
+        f"{THEME_COLORS['text_secondary']} !important"
+    )
     assert RANKING_RESULT_GRID_CUSTOM_CSS[".ag-row-even"]["background-color"] == (
-        "#151d29 !important"
+        f"{THEME_COLORS['table_row_bg']} !important"
     )
     assert RANKING_RESULT_GRID_CUSTOM_CSS[".ag-row-odd"]["background-color"] == (
-        "#111923 !important"
+        f"{THEME_COLORS['bg_card']} !important"
     )
 
 
@@ -4839,8 +4842,8 @@ def test_forecast_chart_palette_highlights_actual_price_first():
     color_range = forecast_chart_color_range(domain)
 
     assert domain == ["実績価格", "予測: 直近値維持", "予測: 30日移動平均"]
-    assert color_range[0] == "#facc15"
-    assert color_range[1:] == ["#2dd4bf", "#60a5fa"]
+    assert color_range[0] == FORECAST_ACTUAL_PRICE_COLOR
+    assert color_range[1:] == list(FORECAST_MODEL_COLORS[:2])
 
 
 def test_latest_actual_price_frame_marks_current_price_point():

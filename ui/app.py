@@ -219,6 +219,11 @@ from ui.state import (
     MARKET_DATA_TOAST_STATE_KEY,
 )
 from ui.styles import (
+    CHART_COLORS,
+    FORECAST_ACTUAL_PRICE_COLOR,
+    FORECAST_MODEL_COLORS,
+    RANKING_GRID_CUSTOM_CSS,
+    THEME_COLORS,
     badge_html,
     metric_progress_from_value,
     render_dashboard_header,
@@ -309,15 +314,6 @@ MARKET_DATA_COCKPIT_DETAIL_FILTERS = frozenset(
     }
 )
 
-FORECAST_ACTUAL_PRICE_COLOR = "#facc15"
-FORECAST_MODEL_COLORS = (
-    "#2dd4bf",
-    "#60a5fa",
-    "#fb7185",
-    "#a78bfa",
-    "#34d399",
-    "#f97316",
-)
 MARKET_DATA_MODE_COCKPIT = "cockpit"
 MARKET_DATA_MODE_RANKING = "ranking"
 
@@ -335,91 +331,7 @@ class RankingResearchStatus:
     research_score_warning_count: int = 0
 
 
-RANKING_RESULT_GRID_CUSTOM_CSS = {
-    ".ag-root-wrapper": {
-        "background-color": "#121821 !important",
-        "border": "1px solid #2f3a49",
-        "border-radius": "6px",
-    },
-    ".ag-root-wrapper-body": {
-        "background-color": "#121821 !important",
-    },
-    ".ag-root": {
-        "background-color": "#121821 !important",
-    },
-    ".ag-body": {
-        "background-color": "#121821 !important",
-    },
-    ".ag-body-viewport": {
-        "background-color": "#121821 !important",
-    },
-    ".ag-center-cols-viewport": {
-        "background-color": "#121821 !important",
-    },
-    ".ag-center-cols-container": {
-        "background-color": "#121821 !important",
-    },
-    ".ag-pinned-left-cols-container": {
-        "background-color": "#121821 !important",
-    },
-    ".ag-header": {
-        "background-color": "#202838 !important",
-        "border-bottom": "1px solid #3a4658",
-    },
-    ".ag-header-viewport": {
-        "background-color": "#202838 !important",
-    },
-    ".ag-header-container": {
-        "background-color": "#202838 !important",
-    },
-    ".ag-header-cell": {
-        "background-color": "#202838 !important",
-        "border-right": "1px solid #354153",
-        "color": "#e5edf7 !important",
-    },
-    ".ag-header-cell-label": {
-        "font-weight": "700",
-        "color": "#e5edf7 !important",
-    },
-    ".ag-header-cell-text": {
-        "color": "#e5edf7 !important",
-        "font-weight": "700",
-    },
-    ".ag-icon": {
-        "color": "#aeb9c8 !important",
-    },
-    ".ag-row": {
-        "background-color": "#151d29 !important",
-        "border-bottom": "1px solid #2a3442",
-        "color": "#eef3fb !important",
-        "cursor": "pointer",
-    },
-    ".ag-row-even": {
-        "background-color": "#151d29 !important",
-    },
-    ".ag-row-odd": {
-        "background-color": "#111923 !important",
-    },
-    ".ag-row-hover": {
-        "background-color": "#223145 !important",
-    },
-    ".ag-row-selected": {
-        "background-color": "#283a52 !important",
-    },
-    ".ag-cell": {
-        "border-right": "1px solid #263140",
-        "color": "#eef3fb !important",
-        "font-weight": "600",
-        "line-height": "1.35",
-        "overflow-wrap": "anywhere",
-        "white-space": "normal",
-    },
-    ".ag-cell-value": {
-        "color": "#eef3fb !important",
-        "overflow-wrap": "anywhere",
-        "white-space": "normal",
-    },
-}
+RANKING_RESULT_GRID_CUSTOM_CSS = RANKING_GRID_CUSTOM_CSS
 SYMBOL_DETAIL_DIALOG_CSS = """
 <style>
 div[data-testid="stDialog"] div[role="dialog"] {
@@ -450,7 +362,7 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
 }
 .symbol-detail-table th,
 .symbol-detail-table td {
-    border: 1px solid #263140;
+    border: 1px solid var(--border-default);
     padding: 0.72rem 0.82rem;
     vertical-align: top;
     white-space: normal;
@@ -459,13 +371,13 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     line-height: 1.6;
 }
 .symbol-detail-table th {
-    background: #171e2a;
-    color: #e2e8f0;
+    background: var(--table-header-bg);
+    color: var(--text-secondary);
     font-weight: 700;
 }
 .symbol-detail-table td {
-    background: #0f141d;
-    color: #f1f5f9;
+    background: var(--table-row-bg);
+    color: var(--text-primary);
 }
 .research-summary-table {
     margin-top: 0.6rem;
@@ -487,13 +399,13 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     margin: 0.15rem 0 0.2rem;
 }
 .research-ai-cta-title {
-    color: #e0f2fe;
+    color: var(--ai-text);
     font-weight: 800;
     font-size: 1.02rem;
     margin-bottom: 0.45rem;
 }
 .research-ai-cta-copy {
-    color: #cbd5e1;
+    color: var(--text-secondary);
     font-size: 0.9rem;
     line-height: 1.55;
 }
@@ -504,51 +416,51 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     margin-bottom: 0.48rem;
 }
 .research-status-chip {
-    border: 1px solid rgba(125, 211, 252, 0.34);
+    border: 1px solid rgba(34, 211, 238, 0.34);
     border-radius: 999px;
-    color: #dbeafe;
+    color: var(--ai-text);
     font-size: 0.78rem;
     font-weight: 750;
     padding: 0.18rem 0.52rem;
 }
 .research-next-step {
-    border-left: 3px solid #22d3ee;
-    color: #f8fafc;
+    border-left: 3px solid var(--ai-cyan);
+    color: var(--text-title);
     font-weight: 750;
     margin-top: 0.45rem;
     padding-left: 0.62rem;
 }
 .research-action-label {
-    color: #93c5fd;
+    color: var(--ai-blue);
     font-size: 0.78rem;
     font-weight: 850;
     letter-spacing: 0;
     margin: 0.1rem 0 0.36rem;
 }
 .research-action-label.secondary {
-    color: #9fb2c8;
+    color: var(--text-muted);
     margin-top: 0.78rem;
 }
 .research-action-help {
-    color: #aeb9c8;
+    color: var(--text-secondary);
     font-size: 0.8rem;
     line-height: 1.45;
     margin-top: 0.34rem;
 }
 .research-result-brief {
-    border: 1px solid rgba(148, 163, 184, 0.28);
+    border: 1px solid var(--ai-border);
     border-radius: 8px;
-    background: #0f141d;
+    background: var(--ai-bg);
     padding: 0.9rem 1rem;
     margin: 0.75rem 0 0.65rem;
 }
 .research-result-brief-title {
-    color: #e2e8f0;
+    color: var(--text-title);
     font-weight: 800;
     margin-bottom: 0.35rem;
 }
 .research-result-brief-summary {
-    color: #f8fafc;
+    color: var(--ai-text);
     line-height: 1.65;
     margin-bottom: 0.75rem;
 }
@@ -558,19 +470,19 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     gap: 0.55rem;
 }
 .research-result-brief-item {
-    border: 1px solid rgba(71, 85, 105, 0.72);
+    border: 1px solid var(--border-default);
     border-radius: 6px;
     padding: 0.62rem 0.7rem;
-    background: #111827;
+    background: var(--bg-card);
 }
 .research-result-brief-label {
-    color: #9fb2c8;
+    color: var(--text-muted);
     font-size: 0.78rem;
     font-weight: 700;
     margin-bottom: 0.25rem;
 }
 .research-result-brief-value {
-    color: #f8fafc;
+    color: var(--text-primary);
     font-size: 0.92rem;
     line-height: 1.45;
 }
@@ -590,9 +502,9 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     margin-top: 0.75rem;
 }
 .research-evidence-item {
-    border: 1px solid #263140;
+    border: 1px solid var(--border-default);
     border-radius: 6px;
-    background: #0f141d;
+    background: var(--bg-card);
     padding: 0.75rem 0.85rem;
 }
 .research-evidence-card-header {
@@ -603,23 +515,23 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     margin-bottom: 0.55rem;
 }
 .research-evidence-pill {
-    border: 1px solid rgba(148, 163, 184, 0.35);
+    border: 1px solid var(--border-default);
     border-radius: 999px;
-    color: #dbeafe;
+    color: var(--ai-text);
     font-size: 0.74rem;
     font-weight: 800;
     padding: 0.16rem 0.48rem;
 }
 .research-evidence-pill.positive {
     border-color: rgba(52, 211, 153, 0.52);
-    color: #bbf7d0;
+    color: var(--signal-buy);
 }
 .research-evidence-pill.risk {
     border-color: rgba(251, 191, 36, 0.58);
-    color: #fde68a;
+    color: var(--signal-hold);
 }
 .research-evidence-title {
-    color: #f8fafc;
+    color: var(--text-title);
     font-size: 1.02rem;
     font-weight: 800;
     line-height: 1.45;
@@ -627,23 +539,23 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     overflow-wrap: anywhere;
 }
 .research-evidence-body {
-    color: #eef3fb;
+    color: var(--text-primary);
     line-height: 1.6;
     margin: 0.35rem 0;
     overflow-wrap: anywhere;
 }
 .research-evidence-label {
-    color: #93c5fd;
+    color: var(--ai-blue);
     font-weight: 800;
 }
 .research-evidence-meta {
-    color: #d4deeb;
+    color: var(--text-secondary);
     font-size: 0.86rem;
     line-height: 1.5;
     margin-bottom: 0.4rem;
 }
 .research-evidence-excerpt {
-    color: #eef3fb;
+    color: var(--text-primary);
     line-height: 1.65;
     overflow-wrap: anywhere;
     white-space: normal;
@@ -656,9 +568,9 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
 }
 .research-evidence-actions a,
 .research-evidence-action-muted {
-    border: 1px solid rgba(148, 163, 184, 0.36);
+    border: 1px solid var(--border-default);
     border-radius: 6px;
-    color: #dbeafe;
+    color: var(--ai-text);
     font-size: 0.82rem;
     font-weight: 700;
     padding: 0.34rem 0.58rem;
@@ -671,29 +583,29 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     margin: 0.75rem 0 0.65rem;
 }
 .research-point-item {
-    border: 1px solid rgba(71, 85, 105, 0.76);
+    border: 1px solid var(--border-default);
     border-radius: 6px;
-    background: #111827;
+    background: var(--bg-card);
     padding: 0.72rem 0.82rem;
 }
 .research-point-label {
-    color: #bfdbfe;
+    color: var(--ai-blue);
     font-weight: 800;
     margin-bottom: 0.32rem;
 }
 .research-point-summary {
-    color: #eef2ff;
+    color: var(--text-primary);
     line-height: 1.55;
 }
 .decision-report-card {
-    border: 1px solid rgba(148, 163, 184, 0.34);
+    border: 1px solid var(--border-default);
     border-radius: 8px;
-    background: #0f141d;
+    background: var(--bg-card);
     padding: 1rem 1.1rem;
     margin: 0.65rem 0 0.85rem;
 }
 .decision-report-title {
-    color: #f8fafc;
+    color: var(--text-title);
     font-size: 1.12rem;
     font-weight: 850;
     margin-bottom: 0.75rem;
@@ -704,25 +616,25 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     gap: 0.58rem;
 }
 .decision-report-field {
-    border: 1px solid rgba(71, 85, 105, 0.72);
+    border: 1px solid var(--border-default);
     border-radius: 6px;
-    background: #111827;
+    background: var(--bg-surface);
     padding: 0.68rem 0.78rem;
 }
 .decision-report-field-label {
-    color: #9fb2c8;
+    color: var(--text-muted);
     font-size: 0.76rem;
     font-weight: 800;
     margin-bottom: 0.25rem;
 }
 .decision-report-field-value {
-    color: #f8fafc;
+    color: var(--text-primary);
     line-height: 1.45;
     overflow-wrap: anywhere;
 }
 .decision-summary-list {
     margin: 0.6rem 0 0.85rem 1.1rem;
-    color: #eef3fb;
+    color: var(--text-primary);
     line-height: 1.65;
 }
 .decision-summary-list li {
@@ -2496,7 +2408,7 @@ def _render_ranking_score_bar_chart(
                 alt.Tooltip("name:N", title="銘柄名"),
                 alt.Tooltip("score:Q", title=metric_column, format=".1f"),
             ],
-            color=alt.value("#22d3ee"),
+            color=alt.value(CHART_COLORS["ai"]),
         )
         .properties(height=max(260, min(420, 34 * len(frame))))
     )
@@ -2521,7 +2433,7 @@ def _render_ranking_confidence_scatter(display_rows: list[dict[str, str]]) -> No
                 title="データ確認",
                 scale=alt.Scale(
                     domain=["信頼度高め", "データ確認"],
-                    range=["#22c55e", "#f59e0b"],
+                    range=[THEME_COLORS["signal_buy"], THEME_COLORS["signal_hold"]],
                 ),
             ),
             tooltip=[
@@ -2585,7 +2497,11 @@ def _render_ranking_profile_chart(
         and selection.frame["color_numeric_value"].notna().any()
     )
     if selection.color_column and color_is_numeric:
-        numeric_color_range = ["#22c55e", "#f59e0b", "#fb7185"]
+        numeric_color_range = [
+            THEME_COLORS["signal_buy"],
+            THEME_COLORS["signal_hold"],
+            THEME_COLORS["signal_risk"],
+        ]
         if selection.color_column in {
             "上昇気配",
             "Risk",
@@ -2595,7 +2511,11 @@ def _render_ranking_profile_chart(
             "条件適合度",
             "DB信頼度",
         }:
-            numeric_color_range = ["#fb7185", "#f59e0b", "#38bdf8"]
+            numeric_color_range = [
+                THEME_COLORS["signal_risk"],
+                THEME_COLORS["signal_hold"],
+                THEME_COLORS["ai_cyan"],
+            ]
         encoding["color"] = alt.Color(
             "color_numeric_value:Q",
             title=selection.color_column,
@@ -2607,16 +2527,16 @@ def _render_ranking_profile_chart(
             title=selection.color_column,
             scale=alt.Scale(
                 range=[
-                    "#38bdf8",
-                    "#22c55e",
-                    "#f59e0b",
-                    "#fb7185",
-                    "#a3e635",
+                    THEME_COLORS["ai_cyan"],
+                    THEME_COLORS["signal_buy"],
+                    THEME_COLORS["signal_hold"],
+                    THEME_COLORS["signal_risk"],
+                    THEME_COLORS["ai_purple"],
                 ]
             ),
         )
     else:
-        encoding["color"] = alt.value("#38bdf8")
+        encoding["color"] = alt.value(CHART_COLORS["ai"])
     chart = (
         alt.Chart(selection.frame)
         .mark_circle(size=90, opacity=0.78)
@@ -2670,7 +2590,7 @@ def _render_ranking_advanced_insights(
                     x=alt.X("score:Q", bin=alt.Bin(maxbins=12), title="投資スコア"),
                     y=alt.Y("count():Q", title="候補数"),
                     tooltip=[alt.Tooltip("count():Q", title="候補数")],
-                    color=alt.value("#6c7a89"),
+                    color=alt.value(CHART_COLORS["volume"]),
                 )
                 .properties(height=220)
             )
@@ -7948,10 +7868,10 @@ def _render_score_breakdown_chart(rows: list[dict[str, str]]) -> None:
                 legend=None,
                 scale=alt.Scale(
                     range=[
-                        "#60a5fa",
-                        "#2dd4bf",
-                        "#22c55e",
-                        "#fb7185",
+                        CHART_COLORS["price"],
+                        CHART_COLORS["prediction"],
+                        THEME_COLORS["signal_buy"],
+                        THEME_COLORS["signal_risk"],
                     ]
                 ),
             ),
@@ -8047,7 +7967,7 @@ def _render_market_chart(
                 shape="diamond",
                 size=180,
                 color=FORECAST_ACTUAL_PRICE_COLOR,
-                stroke="#fff7ed",
+                stroke=THEME_COLORS["text_title"],
                 strokeWidth=1.8,
             )
             .encode(
@@ -8065,7 +7985,7 @@ def _render_market_chart(
     if not boundary_data.empty:
         boundary_rule = (
             alt.Chart(boundary_data)
-            .mark_rule(color="#94a3b8", opacity=0.52, strokeDash=[4, 4])
+            .mark_rule(color=THEME_COLORS["text_muted"], opacity=0.52, strokeDash=[4, 4])
             .encode(x="date:T")
         )
         chart = chart + boundary_rule
@@ -8097,7 +8017,9 @@ def _render_market_chart(
             legend=None,
         ),
     )
-    line_type_legend = line_type_legend_base.mark_rule(color="#c9d1dc", strokeWidth=2).encode(
+    line_type_legend = line_type_legend_base.mark_rule(
+        color=THEME_COLORS["text_secondary"], strokeWidth=2
+    ).encode(
         x=alt.value(12),
         x2=alt.value(46),
     ) + line_type_legend_base.mark_text(
@@ -8105,7 +8027,7 @@ def _render_market_chart(
         baseline="middle",
         dx=52,
         fontSize=12,
-        color="#c9d1dc",
+        color=THEME_COLORS["text_secondary"],
     ).encode(
         x=alt.value(12),
         text="description:N",
@@ -8119,16 +8041,16 @@ def _render_market_chart(
         alt.hconcat(chart, legend, spacing=10)
         .add_params(disabled_series)
         .resolve_scale(color="shared")
-        .configure(background="#090d14")
-        .configure_view(fill="#101722", stroke="#344155")
+        .configure(background=THEME_COLORS["bg_surface"])
+        .configure_view(fill=THEME_COLORS["bg_card"], stroke=THEME_COLORS["border_strong"])
         .configure_axis(
-            domainColor="#3b4556",
+            domainColor=THEME_COLORS["border_strong"],
             gridColor="rgba(148, 163, 184, 0.14)",
-            labelColor="#c9d1dc",
-            titleColor="#c9d1dc",
-            tickColor="#3b4556",
+            labelColor=THEME_COLORS["text_secondary"],
+            titleColor=THEME_COLORS["text_secondary"],
+            tickColor=THEME_COLORS["border_strong"],
         )
-        .configure_title(color="#e5edf7", fontSize=13, anchor="start", offset=8)
+        .configure_title(color=THEME_COLORS["text_title"], fontSize=13, anchor="start", offset=8)
         .properties(title=title or None)
     )
     st.altair_chart(

@@ -5,7 +5,7 @@
 This file is the compact current-state summary for Smart Market AI.
 Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_Log.md).
 
-Last updated: 2026-05-27
+Last updated: 2026-05-28
 
 ## Project Summary
 
@@ -25,7 +25,7 @@ Ranking UI readability polish keeps the same layout and logic while shortening c
 
 Current UI maturity work also includes Symbol Cockpit polish: the cockpit presents existing analysis results as summary header, KPI cards, price/forecast reading guidance, direction signal cards/details, score breakdown, period evaluation, memo, Research Evidence operation/status + evidence cards, structured Decision Report UI, and lower-priority detail expanders, without changing backend scoring, forecast, Research RAG, or report generation logic.
 
-Current product maturity work includes global UI tone polish: shared dark navy / charcoal styling, consistent cards, badges, compact numeric display, and calmer chart explanations are being applied without changing feature behavior or scoring logic.
+Current product maturity work includes global UI tone polish: shared dark navy financial SaaS theme tokens in `ui/styles.py`, consistent cards, badges, tables, buttons, AI accent surfaces, compact numeric display, and calmer chart explanations are being applied without changing feature behavior or scoring logic.
 SMAI mascot assets now have a canonical reference image at `ui/assets/mascot/smai-mascot-reference.webp`; new mascot variants should preserve that character identity. Current title illustrations cover Cockpit, Ranking, and Rebalance page headers, while Symbol Cockpit keeps the cockpit title art and also uses `smai-mascot-cutout.png` as a transparent `SMAI Copilot` / `SMAI Insight` presence asset.
 
 Symbol Cockpit now treats Price & Forecast as the hero chart: Summary and KPI cards come first, then the price/forecast chart, followed by an `上昇気配` / `下降警戒` section, Score Breakdown, review memo, confirmation summary, Research Evidence cards, structured Decision Report, and Developer / Data Details.

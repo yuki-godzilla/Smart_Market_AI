@@ -16,6 +16,7 @@ from backend.research import (
     ResearchExtractedClaim,
     ResearchGroundedAnswer,
     ResearchRetrievalQuality,
+    ResearchScoreService,
     ResearchSummaryPoint,
     StockNewsEvidence,
     StockNewsReport,
@@ -53,7 +54,10 @@ from ui.app import (
     _research_quality_warning_rows,
     _research_result_overview_html,
     _research_retrieval_quality_rows,
+    _research_score_component_rows,
     _research_score_report_section,
+    _research_score_summary_rows,
+    _research_score_warning_rows,
     _research_table_html,
     _research_terms_preview,
     _select_ranking_symbol_for_cockpit_with_period,
@@ -640,6 +644,57 @@ def test_research_result_overview_html_explains_coverage_and_escapes_summary():
     assert "SettingsでResearch資料を登録" in markup
     assert "<script>" not in markup
     assert "&lt;script&gt;" in markup
+
+
+def test_research_score_rows_explain_optional_context_without_advice():
+    evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-1",
+        chunk_id="chunk-1",
+        title="7203 Research Note",
+        source_type="annual_report",
+        published_at=date(2026, 5, 1),
+        section_title="Growth",
+        excerpt=(
+            "Growth strategy, profitability margin, dividend policy, cash, "
+            "and regulation risk are discussed."
+        ),
+        relevance_score=Decimal("0.82"),
+        reliability=Decimal("0.88"),
+    )
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="Research summary",
+        points=[
+            ResearchSummaryPoint(
+                category="growth",
+                label="成長材料",
+                summary="成長戦略を確認材料として整理します。",
+                evidence=[evidence],
+            )
+        ],
+        evidence=[evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 1),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+    score = ResearchScoreService().score_report(report)
+
+    summary_rows = _research_score_summary_rows(score)
+    component_rows = _research_score_component_rows(score)
+    warning_rows = _research_score_warning_rows(score)
+
+    assert summary_rows[0]["確認項目"] == "Research Score"
+    assert "売買推奨ではありません" in summary_rows[0]["確認ポイント"]
+    assert summary_rows[2]["内容"] == "1件"
+    assert component_rows[0]["観点"] == "成長材料"
+    assert component_rows[-1]["観点"] == "情報の鮮度"
+    assert any("根拠が不足" in row["注意点"] for row in warning_rows)
 
 
 def test_research_terms_preview_keeps_search_quality_table_compact():

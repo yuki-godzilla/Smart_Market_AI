@@ -2,7 +2,7 @@
 
 #### [BACK TO DETAIL DESIGN README](./04_Detail_Design_README.md)
 
-Status: Phase 20 local evidence slice is implementation complete. Phase 21 covers advanced Research RAG extraction, query expansion, optional vector / hybrid search, and grounded answer generation; deterministic query expansion, structured extraction, template grounded answer, retrieval quality, evidence reranker, first UI / Decision Report display, optional vector / hybrid contract/scoring, keyword-fallback hybrid retrieval wrapper, local embedding generation, optional vector-index build workflow, in-memory local vector store, and file-backed vector cache slices have started. Phase 22 Research Score has a deterministic service slice, disabled-by-default Investment Score input slice, and Cockpit Decision Report section slice. Ranking integration, external source adapters, and Assistant integration remain later phases unless explicitly assigned.
+Status: Phase 20 local evidence slice is implementation complete. Phase 21 covers advanced Research RAG extraction, query expansion, optional vector / hybrid search, and grounded answer generation; deterministic query expansion, structured extraction, template grounded answer, retrieval quality, evidence reranker, first UI / Decision Report display, optional vector / hybrid contract/scoring, keyword-fallback hybrid retrieval wrapper, local embedding generation, optional vector-index build workflow, in-memory local vector store, and file-backed vector cache slices have started. Phase 22 Research Score has a deterministic service slice, disabled-by-default Investment Score input slice, Cockpit / Ranking Research Summary display slice, and Cockpit Decision Report section slice. Ranking order integration, external source adapters, and Assistant integration remain later phases unless explicitly assigned.
 
 ## Phase 20 Implementation Baseline / 実装ベースライン
 
@@ -235,7 +235,7 @@ Current implementation note: `ResearchGroundedAnswerService` is available as the
 - Ranking modal: `AIで資料を確認` button、根拠付き Research Summary、観点別抽出結果、根拠不足 warning、evidence table、retrieval backend 表示を追加する。
 - Decision Report: Research Evidence section、Grounded Answer section、Data Quality section、Retrieval Quality section、根拠不足 warning、売買推奨ではない旨の注記を追加する。
 
-Current implementation note: cockpit and ranking Research Summary panels display `CompanyResearchReport.grounded_answer` and `CompanyResearchReport.retrieval_quality` summary rows, the Research RAG detail expander displays `ResearchExtractedClaim` rows, and the Cockpit Decision Report carries both `Research Evidence` and `Research Score` sections when a Research report has documents or evidence. Ranking order and default Investment Score behavior remain unchanged.
+Current implementation note: cockpit and ranking Research Summary panels display `CompanyResearchReport.grounded_answer`, `CompanyResearchReport.retrieval_quality`, and Research Score summary/component/warning rows, the Research RAG detail expander displays `ResearchExtractedClaim` rows, and the Cockpit Decision Report carries both `Research Evidence` and `Research Score` sections when a Research report has documents or evidence. Ranking order and default Investment Score behavior remain unchanged.
 
 ### Phase 21 Test Plan
 
@@ -391,7 +391,7 @@ class ResearchScore(BaseModel):
     summary: str
 ```
 
-Current implementation note: `ResearchScore` and `ResearchScoreService` are available as the first Research Score MVP slice. The service scores evidence coverage for growth, profitability, shareholder return, financial safety, business risk disclosure, disclosure quality, and freshness from `CompanyResearchReport`, keeps supporting evidence, confidence, warnings, and a non-advice summary, and does not change Investment Score or ranking order by default. Cockpit Decision Report now adds a `Research Score` section when a Research report with documents or evidence is present.
+Current implementation note: `ResearchScore` and `ResearchScoreService` are available as the first Research Score MVP slice. The service scores evidence coverage for growth, profitability, shareholder return, financial safety, business risk disclosure, disclosure quality, and freshness from `CompanyResearchReport`, keeps supporting evidence, confidence, warnings, and a non-advice summary, and does not change Investment Score or ranking order by default. Cockpit / Ranking Research Summary panels show Research Score as reference context, and Cockpit Decision Report adds a `Research Score` section when a Research report with documents or evidence is present.
 
 ## 4) Algorithms & Rules
 
@@ -437,7 +437,7 @@ Current implementation note: `ResearchScore` and `ResearchScoreService` are avai
 * Research Score が無い銘柄でも既存の Screening / Forecast / Risk / Data Quality score は動作する。
 * 初期重みは `research: 0.0` または低めにし、UI上で「研究情報を参考表示」として扱う。
 
-Current implementation note: Investment Score accepts optional `research_scores_by_symbol` input and `scoring.weights.research` with default `0.0`. When the weight remains `0.0`, Research Score is carried as optional context but does not change total score, score band, breakdown, or ranking order. When explicitly weighted, missing Research Score uses a neutral 50 input with a warning rather than treating missing evidence as a bad security. Decision Report can display Research Score as reference context with component rows, confidence, supporting evidence, and non-advice notes.
+Current implementation note: Investment Score accepts optional `research_scores_by_symbol` input and `scoring.weights.research` with default `0.0`. When the weight remains `0.0`, Research Score is carried as optional context but does not change total score, score band, breakdown, or ranking order. When explicitly weighted, missing Research Score uses a neutral 50 input with a warning rather than treating missing evidence as a bad security. Research Summary panels and Decision Report can display Research Score as reference context with component rows, confidence, supporting evidence, warnings, and non-advice notes.
 
 ## 5) Error Handling & Retries
 

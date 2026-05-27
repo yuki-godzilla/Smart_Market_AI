@@ -4694,6 +4694,12 @@ def _render_research_summary_panel(
         st.warning("根拠資料が不足しています。表示内容は確認材料として控えめに扱ってください。")
     render_research_evidence_summary(report)
 
+    research_score = ResearchScoreService().score_report(report)
+    score_rows = _research_score_summary_rows(research_score)
+    if score_rows:
+        st.markdown("##### Research Score")
+        _render_compact_dataframe(score_rows)
+
     point_rows = _research_investment_point_rows(report)
     if point_rows:
         st.markdown("##### 投資判断に影響しそうな要点")
@@ -4735,6 +4741,14 @@ def _render_research_summary_panel(
         if retrieval_quality_rows:
             st.markdown("###### 検索品質")
             _render_compact_dataframe(retrieval_quality_rows)
+        score_component_rows = _research_score_component_rows(research_score)
+        if score_component_rows:
+            st.markdown("###### Research Score内訳")
+            _render_compact_dataframe(score_component_rows)
+        score_warning_rows = _research_score_warning_rows(research_score)
+        if score_warning_rows:
+            st.markdown("###### Research Score注意点")
+            _render_compact_dataframe(score_warning_rows)
         if point_rows:
             st.markdown("###### 要点サマリー")
             _render_compact_dataframe(point_rows)
@@ -5425,6 +5439,66 @@ def _research_investment_point_rows(report: CompanyResearchReport) -> list[dict[
         }
         for point in report.points
     ]
+
+
+_RESEARCH_SCORE_UI_COMPONENTS = (
+    ("成長材料", "growth_score", "成長戦略や事業拡大の根拠を確認します。"),
+    ("収益性", "profitability_score", "利益率、営業利益、ROEなどの根拠を確認します。"),
+    ("株主還元", "shareholder_return_score", "配当方針や自社株買いの根拠を確認します。"),
+    ("財務安全性", "financial_safety_score", "自己資本、現金、流動性の根拠を確認します。"),
+    ("事業リスク確認", "business_risk_score", "リスク記述が確認できるかを見ます。"),
+    ("根拠の充実度", "disclosure_quality_score", "資料数、根拠数、資料種別、信頼度を見ます。"),
+    ("情報の鮮度", "freshness_score", "公開日が古すぎないかを見ます。"),
+)
+
+
+def _research_score_summary_rows(score: ResearchScore) -> list[dict[str, str]]:
+    return [
+        {
+            "確認項目": "Research Score",
+            "内容": str(score.total_score),
+            "確認ポイント": "根拠資料の充実度・鮮度・信頼度を整理する参考スコアです。売買推奨ではありません。",
+        },
+        {
+            "確認項目": "信頼度",
+            "内容": str(score.confidence),
+            "確認ポイント": "資料数、根拠数、資料の信頼度を踏まえて控えめに読みます。",
+        },
+        {
+            "確認項目": "根拠数",
+            "内容": f"{score.evidence_count}件",
+            "確認ポイント": _research_score_next_check(score),
+        },
+    ]
+
+
+def _research_score_component_rows(score: ResearchScore) -> list[dict[str, str]]:
+    return [
+        {
+            "観点": label,
+            "スコア": str(getattr(score, field_name)),
+            "確認ポイント": review_point,
+        }
+        for label, field_name, review_point in _RESEARCH_SCORE_UI_COMPONENTS
+    ]
+
+
+def _research_score_warning_rows(score: ResearchScore) -> list[dict[str, str]]:
+    return [
+        {
+            "確認項目": "Research Score",
+            "注意点": warning,
+        }
+        for warning in score.warnings
+    ]
+
+
+def _research_score_next_check(score: ResearchScore) -> str:
+    if score.evidence_count <= 0:
+        return "資料が不足しています。対象銘柄のIR資料やニュース資料を追加確認します。"
+    if score.warnings:
+        return "注意点と内訳を見て、根拠が薄い観点を追加確認します。"
+    return "内訳と根拠カードを見て、どの観点の資料が支えているか確認します。"
 
 
 def _research_point_cards_html(rows: list[dict[str, str]]) -> str:

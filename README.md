@@ -48,6 +48,7 @@ SMAI は以下の思想を重視しています。
   - deterministic Research Summary、data-quality warning、Cockpit / Ranking modal / Decision Report 連携
 - Research Score first slices
   - `ResearchScoreService`、optional Investment Score input、disabled-by-default `scoring.weights.research`
+  - Cockpit / Ranking Research Summary の Research Score 参考表示
   - Cockpit Decision Report の Research Score section
 - Streamlit UI
   - left side menu for `銘柄コックピット` / `銘柄ランキング` / `リバランス` / `設定 / データ情報`
@@ -66,7 +67,7 @@ SMAI は以下の思想を重視しています。
 - 追加 provider / fund metadata source adapter
 - 投信 metadata / 基準価額 / ranking 対応
 - Research RAG external source adapters / vector search の運用UI
-- Research Score の ranking 統合と cockpit / report 表示 polish
+- Research Score の ranking order 統合と表示 polish
 - AI assistant experience
 - Execution / broker への注文送信
 - PDF / Excel export

@@ -75,7 +75,9 @@ def test_global_theme_tokens_define_dark_financial_ai_palette():
     assert '[data-testid="stButton"] button [data-testid="stMarkdownContainer"] p' in (
         SMAI_GLOBAL_CSS
     )
+    assert '[data-testid="stButton"] button *' in SMAI_GLOBAL_CSS
     assert "color: #04111F;" in SMAI_GLOBAL_CSS
+    assert "text-shadow: 0 1px 0 rgba(255, 255, 255, 0.22);" in SMAI_GLOBAL_CSS
     assert "rgba(14, 165, 233, 0.98)" in SMAI_GLOBAL_CSS
     assert "rgba(45, 212, 191, 0.98)" in SMAI_GLOBAL_CSS
     assert "background-position: 100% 50%;" in SMAI_GLOBAL_CSS

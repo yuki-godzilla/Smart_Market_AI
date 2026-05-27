@@ -377,14 +377,20 @@ SMAI_GLOBAL_CSS = """
     border: 1px solid var(--button-secondary-border);
     background:
         linear-gradient(180deg, rgba(23, 35, 56, 0.88), rgba(17, 28, 46, 0.88));
-    color: var(--text-primary);
+    color: var(--text-value);
+    font-weight: 720;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
     transition:
         border-color 120ms ease,
         background 120ms ease,
         background-position 240ms ease,
         box-shadow 120ms ease,
-        transform 120ms ease;
+    transform 120ms ease;
+}
+
+[data-testid="stButton"] button * {
+    color: inherit !important;
 }
 
 [data-testid="stButton"] button [data-testid="stMarkdownContainer"] p {
@@ -413,6 +419,7 @@ SMAI_GLOBAL_CSS = """
     background-position: 0% 50%;
     color: #04111F;
     font-weight: 820;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.22);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.14),
         0 12px 26px rgba(20, 184, 166, 0.18),
@@ -430,10 +437,20 @@ SMAI_GLOBAL_CSS = """
     background-size: 180% 180%;
     background-position: 100% 50%;
     color: #04111F;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.24);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.18),
         0 14px 34px rgba(20, 184, 166, 0.24),
         0 0 0 1px rgba(34, 211, 238, 0.18);
+}
+
+[data-testid="stButton"] button:disabled,
+[data-testid="stButton"] button[disabled] {
+    color: var(--text-disabled);
+    background: rgba(16, 26, 43, 0.56);
+    box-shadow: none;
+    text-shadow: none;
+    transform: none;
 }
 
 [data-baseweb="select"] > div,

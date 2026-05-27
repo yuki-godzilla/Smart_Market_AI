@@ -703,3 +703,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Restored the brighter blue-to-green primary button gradient with a hover background-position shift and slightly stronger cyan / teal glow.
 - Kept dark navy button text from the contrast fix so primary actions remain readable.
 - Kept the change CSS-only with no workflow or logic changes.
+
+## 2026-05-28 - Button label readability polish
+
+- Forced button descendants to inherit the button text color so Streamlit Markdown text rules cannot wash out labels.
+- Tuned secondary, primary, hover, and disabled button label colors / text shadows for readable contrast on both dark and cyan-green backgrounds.
+- Kept the change CSS-only with no workflow or logic changes.

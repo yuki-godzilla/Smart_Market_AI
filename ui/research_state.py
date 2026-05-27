@@ -31,7 +31,6 @@ RESEARCH_STORE_STATE_KEY = "research_local_store"
 RESEARCH_AUTOLOAD_STATE_KEY = "research_local_autoloaded_files"
 RESEARCH_DOC_DIR = Path("data/research_docs")
 RESEARCH_UPLOAD_DIR = RESEARCH_DOC_DIR / "uploads"
-RESEARCH_EXTERNAL_CACHE_DIR = RESEARCH_DOC_DIR / "external_cache"
 
 
 def research_store() -> ResearchInMemoryStore:
@@ -140,7 +139,6 @@ def fetch_external_research_for_symbol(
         source_adapter,
         ingestion,
         index,
-        cache_dir=RESEARCH_EXTERNAL_CACHE_DIR,
     ).fetch_register_sources(
         ExternalResearchFetchRequest(
             symbol=symbol,
@@ -151,10 +149,6 @@ def fetch_external_research_for_symbol(
             allow_network=allow_network,
         )
     )
-    loaded_files = st.session_state.get(RESEARCH_AUTOLOAD_STATE_KEY)
-    if isinstance(loaded_files, set):
-        for entry in result.entries:
-            loaded_files.add(str(Path(entry.local_path).resolve()))
     return result
 
 

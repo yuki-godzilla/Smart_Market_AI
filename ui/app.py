@@ -4584,7 +4584,7 @@ def _render_external_research_fetch_panel(
     with st.expander("外部資料取得（明示許可）", expanded=False):
         st.caption(
             "外部通信を許可した場合だけ Yahoo Finance のプロフィールとニュースを取得し、"
-            "ローカルキャッシュに保存してAI調査の根拠に登録します。"
+            "このセッションのAI調査で一時的に参照します。取得本文は既定では保存しません。"
         )
         allow_network = st.checkbox(
             "外部通信を許可する",
@@ -4592,11 +4592,11 @@ def _render_external_research_fetch_panel(
             key=f"external_research_allow_network_{key_fragment}",
             help=(
                 "通常チェックでは使いません。押した場合だけ外部取得し、"
-                "取得元URL、取得日時、manifestをローカルに残します。"
+                "取得元URL、取得日時、公開日、注意点を表示します。"
             ),
         )
         fetch_clicked = st.button(
-            "外部資料を取得してAI調査に登録",
+            "外部資料を取得してAI調査に反映",
             key=f"external_research_fetch_{key_fragment}",
             disabled=not allow_network,
             use_container_width=True,
@@ -4605,7 +4605,7 @@ def _render_external_research_fetch_panel(
             company_name = symbol_name(symbol) or None
             related_keywords = [company_name] if company_name else []
             try:
-                with st.spinner("外部資料を取得し、ローカルキャッシュに保存しています。"):
+                with st.spinner("外部資料を取得し、このセッションのAI調査に反映しています。"):
                     result = fetch_external_research_for_symbol(
                         symbol,
                         company_name=company_name,
@@ -4621,7 +4621,9 @@ def _render_external_research_fetch_panel(
                         _build_cockpit_stock_news_report(preview)
                     )
                 if result.entries:
-                    st.success(f"外部資料 {len(result.entries)}件をAI調査に登録しました。")
+                    st.success(
+                        f"外部資料 {len(result.entries)}件をこのセッションのAI調査に反映しました。"
+                    )
                 for warning in result.warnings:
                     st.warning(warning)
             except AppError as exc:
@@ -4634,7 +4636,7 @@ def _render_external_research_fetch_panel(
         _render_compact_dataframe(_external_research_fetch_summary_rows(result))
         entry_rows = _external_research_fetch_result_rows(result)
         if entry_rows:
-            st.markdown("##### 取得・登録された資料")
+            st.markdown("##### 取得した参照元")
             _render_compact_dataframe(entry_rows)
 
 
@@ -4657,7 +4659,10 @@ def _external_research_fetch_summary_rows(
         {"項目": "取得元", "内容": result.provider},
         {"項目": "取得日時", "内容": _datetime_display_text(result.fetched_at)},
         {"項目": "登録資料数", "内容": f"{len(result.entries)}件"},
-        {"項目": "manifest", "内容": result.manifest_path or "未保存"},
+        {
+            "項目": "保持方針",
+            "内容": "このセッションのみ" if result.retention_policy == "session" else "保存済み",
+        },
         {"項目": "注意", "内容": warnings},
     ]
 
@@ -4673,7 +4678,7 @@ def _external_research_fetch_result_rows(
             "公開日": entry.published_at.isoformat() if entry.published_at else "未確認",
             "取得日時": _datetime_display_text(entry.fetched_at),
             "URL": entry.source_url,
-            "保存先": entry.local_path,
+            "要約": entry.content_summary,
         }
         for entry in result.entries
     ]

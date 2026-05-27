@@ -408,7 +408,7 @@ summary: 7203 faces regulation risk in an older market update.
     assert any("source URL" in warning for warning in report.warnings)
 
 
-def test_external_research_fetch_service_caches_registers_and_manifests_sources(tmp_path):
+def test_external_research_fetch_service_registers_sources_without_persisting_payloads(tmp_path):
     fetched_at = datetime(2026, 5, 25, 9, 0, tzinfo=UTC)
     adapter = FakeExternalResearchAdapter(
         [
@@ -458,13 +458,21 @@ def test_external_research_fetch_service_caches_registers_and_manifests_sources(
 
     assert result.symbol == "7203.T"
     assert result.provider == "fake_external"
+    assert result.retention_policy == "session"
     assert len(result.entries) == 2
-    assert result.manifest_path is not None
-    assert Path(result.manifest_path).exists()
+    assert result.manifest_path is None
     assert {entry.source_type for entry in result.entries} == {"provider_profile", "news"}
     assert all(entry.source_url.startswith("https://example.com/") for entry in result.entries)
+    assert {entry.retention_policy for entry in result.entries} == {"session"}
+    assert all(entry.local_path is None for entry in result.entries)
+    assert all(entry.document_hash is None for entry in result.entries)
+    assert any("Revenue growth" in entry.content_summary for entry in result.entries)
+    assert list(tmp_path.iterdir()) == []
     assert len(store.list_documents("7203.T")) == 2
     assert sum(len(chunks) for chunks in store.chunks_by_document_id.values()) >= 2
+    assert all(
+        document.local_path.startswith("external://") for document in store.list_documents("7203.T")
+    )
 
     news_report = StockNewsAnalysisService(ingestion).analyze_symbol_news(
         StockNewsRequest(symbol="7203.T", as_of=date(2026, 5, 25))

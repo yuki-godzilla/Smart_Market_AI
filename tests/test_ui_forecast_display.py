@@ -751,7 +751,7 @@ def test_stock_news_display_rows_keep_traceable_news_fields():
     assert "https://example.com/7203" in markup
 
 
-def test_external_research_fetch_rows_show_cache_manifest_and_sources():
+def test_external_research_fetch_rows_show_transient_sources_without_storage_paths():
     result = ExternalResearchFetchResult(
         symbol="7203.T",
         provider="yahoo_finance",
@@ -765,12 +765,12 @@ def test_external_research_fetch_rows_show_cache_manifest_and_sources():
                 provider="yahoo_finance",
                 published_at=None,
                 fetched_at=datetime(2026, 5, 27, 12, 30, tzinfo=UTC),
-                local_path="data/research_docs/external_cache/7203.T_provider_profile.md",
-                document_hash="abc123",
                 document_id="research-doc-abc123",
+                retention_policy="session",
+                content_summary="Toyota sells vehicles globally and invests in growth.",
             )
         ],
-        manifest_path="data/research_docs/external_cache/7203.T_manifest.json",
+        retention_policy="session",
         warnings=["追加ニュースは見つかりませんでした。"],
     )
 
@@ -781,10 +781,7 @@ def test_external_research_fetch_rows_show_cache_manifest_and_sources():
         {"項目": "取得元", "内容": "yahoo_finance"},
         {"項目": "取得日時", "内容": "2026-05-27T12:30+00:00"},
         {"項目": "登録資料数", "内容": "1件"},
-        {
-            "項目": "manifest",
-            "内容": "data/research_docs/external_cache/7203.T_manifest.json",
-        },
+        {"項目": "保持方針", "内容": "このセッションのみ"},
         {"項目": "注意", "内容": "追加ニュースは見つかりませんでした。"},
     ]
     assert entry_rows == [
@@ -795,16 +792,14 @@ def test_external_research_fetch_rows_show_cache_manifest_and_sources():
             "公開日": "未確認",
             "取得日時": "2026-05-27T12:30+00:00",
             "URL": "https://finance.yahoo.com/quote/7203.T/profile",
-            "保存先": "data/research_docs/external_cache/7203.T_provider_profile.md",
+            "要約": "Toyota sells vehicles globally and invests in growth.",
         }
     ]
 
 
-def test_research_state_recognizes_external_cache_symbol_and_source_type():
-    provider_profile_path = Path(
-        "data/research_docs/external_cache/7203.T_provider_profile_yahoo_finance.md"
-    )
-    news_path = Path("data/research_docs/external_cache/AAPL_news_yahoo_finance.md")
+def test_research_state_recognizes_dotted_symbol_and_source_type():
+    provider_profile_path = Path("data/research_docs/7203.T_provider_profile_yahoo_finance.md")
+    news_path = Path("data/research_docs/AAPL_news_yahoo_finance.md")
 
     assert _symbol_from_research_filename(provider_profile_path) == "7203.T"
     assert _source_type_from_research_filename(provider_profile_path) == "provider_profile"

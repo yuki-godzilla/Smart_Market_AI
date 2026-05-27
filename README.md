@@ -49,7 +49,6 @@ SMAI は以下の思想を重視しています。
 - Research RAG external fetch first UI slice
   - 銘柄コックピットで明示許可した場合だけ Yahoo Finance profile / news を取得
   - 方針として、取得本文は保持せず session-local に一時参照する。画面には source URL / provider / fetched_at / published_at / freshness warning / 要約を表示する
-  - 現在の first UI implementation は `data/research_docs/external_cache/` へ保存するため、次の修正で transient-by-default に戻す
 - Research Score first slices
   - `ResearchScoreService`、optional Investment Score input、disabled-by-default `scoring.weights.research`
   - Cockpit / Ranking Research Summary の Research Score 参考表示

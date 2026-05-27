@@ -488,7 +488,7 @@ class ExternalResearchSourcePayload(StrictBaseModel):
 
 
 class ExternalResearchFetchManifestEntry(StrictBaseModel):
-    """Manifest row for a cached external source."""
+    """Trace row for an explicitly fetched external source."""
 
     title: str = Field(min_length=1)
     symbol: str = Field(min_length=1)
@@ -497,18 +497,21 @@ class ExternalResearchFetchManifestEntry(StrictBaseModel):
     provider: str = Field(min_length=1)
     published_at: date | None = None
     fetched_at: datetime
-    local_path: str = Field(min_length=1)
-    document_hash: str = Field(min_length=1)
     document_id: str = Field(min_length=1)
+    retention_policy: Literal["session", "archive"] = "session"
+    content_summary: str = ""
+    local_path: str | None = None
+    document_hash: str | None = None
 
 
 class ExternalResearchFetchResult(StrictBaseModel):
-    """Result of opt-in external fetch persisted to local cache."""
+    """Result of opt-in external fetch registered for the current analysis session."""
 
     symbol: str = Field(min_length=1)
     provider: str = Field(min_length=1)
     fetched_at: datetime
     entries: list[ExternalResearchFetchManifestEntry] = Field(default_factory=list)
+    retention_policy: Literal["session", "archive"] = "session"
     manifest_path: str | None = None
     warnings: list[str] = Field(default_factory=list)
 
@@ -630,6 +633,50 @@ class ResearchIngestionService:
             local_path=str(path),
             language=request.language,
             reliability=request.reliability,
+            document_hash=document_hash,
+        )
+        return self.store.upsert_document(document, stripped_text)
+
+    def register_text_document(
+        self,
+        *,
+        symbol: str,
+        title: str,
+        text: str,
+        source_type: ResearchSourceType,
+        source_url: str,
+        provider: str,
+        company_name: str | None = None,
+        published_at: date | None = None,
+        language: ResearchLanguage = "unknown",
+        reliability: Decimal = Decimal("0.70"),
+    ) -> ResearchDocument:
+        """Register fetched text in memory without creating a local source file."""
+
+        stripped_text = text.strip()
+        if not stripped_text:
+            raise ResearchDocumentError(
+                "Research document text is empty.",
+                details={"symbol": symbol, "title": title, "provider": provider},
+            )
+        document_hash = hashlib.sha256(stripped_text.encode("utf-8")).hexdigest()
+        document_id = _stable_id("research-doc", symbol, provider, source_url, document_hash[:16])
+        document = ResearchDocument(
+            document_id=document_id,
+            symbol=_normalize_symbol(symbol),
+            title=title.strip(),
+            source_type=source_type,
+            company_name=company_name.strip() if company_name else None,
+            published_at=published_at,
+            collected_at=datetime.now(UTC),
+            local_path=(
+                f"external://{_safe_cache_fragment(provider)}/"
+                f"{_safe_cache_fragment(_normalize_symbol(symbol))}/"
+                f"{document_hash[:16]}"
+            ),
+            language=language,
+            provider=provider.strip() or "external",
+            reliability=reliability,
             document_hash=document_hash,
         )
         return self.store.upsert_document(document, stripped_text)
@@ -1462,7 +1509,7 @@ class StockNewsAnalysisService:
 
 
 class ExternalResearchFetchService:
-    """Persist explicitly fetched external sources into local Research RAG cache."""
+    """Fetch explicitly approved external sources into the session-local Research RAG store."""
 
     def __init__(
         self,
@@ -1470,12 +1517,14 @@ class ExternalResearchFetchService:
         ingestion: ResearchIngestionService,
         index: ResearchIndexService,
         *,
-        cache_dir: Path,
+        cache_dir: Path | None = None,
+        persist_payloads: bool = False,
     ) -> None:
         self.adapter = adapter
         self.ingestion = ingestion
         self.index = index
         self.cache_dir = cache_dir
+        self.persist_payloads = persist_payloads
 
     def fetch_register_sources(
         self,
@@ -1491,23 +1540,44 @@ class ExternalResearchFetchService:
         payloads = self.adapter.fetch_sources(request)
         entries: list[ExternalResearchFetchManifestEntry] = []
         warnings: list[str] = []
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        if self.persist_payloads:
+            if self.cache_dir is None:
+                raise ResearchDocumentError(
+                    "External research archive requires a cache directory.",
+                    details={"provider": self.adapter.provider, "symbol": request.symbol},
+                )
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
         for payload in payloads:
             if not payload.source_url.strip():
                 warnings.append(f"{payload.title}: source URL is missing; skipped.")
                 continue
-            path = self._write_payload(payload)
-            document = self.ingestion.register_document(
-                ResearchDocumentRegisterRequest(
+            markdown = _external_payload_markdown(payload)
+            path: Path | None = None
+            if self.persist_payloads:
+                path = self._write_payload(payload)
+                document = self.ingestion.register_document(
+                    ResearchDocumentRegisterRequest(
+                        symbol=payload.symbol,
+                        title=payload.title,
+                        local_path=str(path),
+                        source_type=payload.source_type,
+                        company_name=payload.company_name,
+                        published_at=payload.published_at,
+                        reliability=payload.reliability,
+                    )
+                )
+            else:
+                document = self.ingestion.register_text_document(
                     symbol=payload.symbol,
                     title=payload.title,
-                    local_path=str(path),
+                    text=markdown,
                     source_type=payload.source_type,
+                    source_url=payload.source_url,
+                    provider=payload.provider,
                     company_name=payload.company_name,
                     published_at=payload.published_at,
                     reliability=payload.reliability,
                 )
-            )
             self.index.build_chunks(document.document_id)
             entries.append(
                 ExternalResearchFetchManifestEntry(
@@ -1518,30 +1588,40 @@ class ExternalResearchFetchService:
                     provider=payload.provider,
                     published_at=document.published_at,
                     fetched_at=payload.fetched_at,
-                    local_path=str(path),
-                    document_hash=document.document_hash,
                     document_id=document.document_id,
+                    retention_policy="archive" if self.persist_payloads else "session",
+                    content_summary=_excerpt(payload.content, max_chars=180),
+                    local_path=str(path) if path is not None else None,
+                    document_hash=document.document_hash if self.persist_payloads else None,
                 )
             )
 
         if not entries:
             warnings.append("External fetch returned no registerable URL-backed sources.")
-        manifest_path = self._write_manifest(
-            request=request,
-            fetched_at=fetched_at,
-            entries=entries,
-            warnings=warnings,
-        )
+        manifest_path: Path | None = None
+        if self.persist_payloads:
+            manifest_path = self._write_manifest(
+                request=request,
+                fetched_at=fetched_at,
+                entries=entries,
+                warnings=warnings,
+            )
         return ExternalResearchFetchResult(
             symbol=_normalize_symbol(request.symbol),
             provider=self.adapter.provider,
             fetched_at=fetched_at,
             entries=entries,
-            manifest_path=str(manifest_path),
+            retention_policy="archive" if self.persist_payloads else "session",
+            manifest_path=str(manifest_path) if manifest_path is not None else None,
             warnings=warnings,
         )
 
     def _write_payload(self, payload: ExternalResearchSourcePayload) -> Path:
+        if self.cache_dir is None:
+            raise ResearchDocumentError(
+                "External research archive requires a cache directory.",
+                details={"provider": self.adapter.provider, "symbol": payload.symbol},
+            )
         markdown = _external_payload_markdown(payload)
         digest = hashlib.sha256(markdown.encode("utf-8")).hexdigest()[:12]
         path = self.cache_dir / (
@@ -1560,6 +1640,11 @@ class ExternalResearchFetchService:
         entries: list[ExternalResearchFetchManifestEntry],
         warnings: list[str],
     ) -> Path:
+        if self.cache_dir is None:
+            raise ResearchDocumentError(
+                "External research archive requires a cache directory.",
+                details={"provider": self.adapter.provider, "symbol": request.symbol},
+            )
         manifest = {
             "schema_version": "external-research-fetch-manifest-v1",
             "symbol": _normalize_symbol(request.symbol),

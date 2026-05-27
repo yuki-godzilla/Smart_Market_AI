@@ -76,6 +76,9 @@ def test_global_theme_tokens_define_dark_financial_ai_palette():
         SMAI_GLOBAL_CSS
     )
     assert "color: #04111F;" in SMAI_GLOBAL_CSS
+    assert "rgba(14, 165, 233, 0.98)" in SMAI_GLOBAL_CSS
+    assert "rgba(45, 212, 191, 0.98)" in SMAI_GLOBAL_CSS
+    assert "background-position: 100% 50%;" in SMAI_GLOBAL_CSS
     assert ".ai-title" in SMAI_GLOBAL_CSS
     assert ".table-value" in SMAI_GLOBAL_CSS
     assert ".card-meta" in SMAI_GLOBAL_CSS

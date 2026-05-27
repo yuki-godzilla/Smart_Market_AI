@@ -697,3 +697,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Restored primary button readability by preventing global Markdown text rules from overriding button labels.
 - Switched primary button text back to dark navy on cyan so action buttons keep the clearer previous contrast.
 - Kept the change CSS-only with no workflow or logic changes.
+
+## 2026-05-28 - Primary button blue-green glow restore
+
+- Restored the brighter blue-to-green primary button gradient with a hover background-position shift and slightly stronger cyan / teal glow.
+- Kept dark navy button text from the contrast fix so primary actions remain readable.
+- Kept the change CSS-only with no workflow or logic changes.

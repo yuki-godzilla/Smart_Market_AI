@@ -715,3 +715,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Refined Streamlit button typography with a tighter button-only font stack, calmer weight, inherited Markdown label styling, and less black-looking primary button text.
 - Extended the shared navy background treatment to the main Streamlit container and full-width block area so the page no longer looks visually cut off outside the content band.
 - Kept the change CSS-only with no workflow, data, forecast, scoring, ranking, Research RAG, or report behavior changes.
+
+## 2026-05-28 - Primary button B+C hybrid style
+
+- Changed primary action buttons to a deeper AI blue / teal hybrid gradient with off-white text and subtle cyan glow instead of dark navy text.
+- Kept hover motion as a blue-green background-position shift with stronger but restrained cyan / teal elevation.
+- Kept the change CSS-only with no workflow, data, forecast, scoring, ranking, Research RAG, or report behavior changes.

@@ -433,41 +433,46 @@ SMAI_GLOBAL_CSS = """
 }
 
 [data-testid="stButton"] button[kind="primary"] {
-    border-color: rgba(45, 212, 191, 0.72);
+    border-color: rgba(125, 211, 252, 0.62);
     background:
         linear-gradient(
             135deg,
-            rgba(14, 165, 233, 0.98) 0%,
-            rgba(34, 211, 238, 0.96) 48%,
-            rgba(20, 184, 166, 0.94) 100%
-    );
+            rgba(11, 58, 102, 0.98) 0%,
+            rgba(8, 145, 178, 0.98) 44%,
+            rgba(20, 184, 166, 0.96) 100%
+        );
     background-size: 180% 180%;
     background-position: 0% 50%;
-    color: #05283A;
+    color: #F8FDFF;
     font-weight: 700;
-    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.28);
+    text-shadow:
+        0 1px 1px rgba(3, 7, 18, 0.42),
+        0 0 12px rgba(34, 211, 238, 0.32);
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.14),
-        0 12px 26px rgba(20, 184, 166, 0.18),
-        0 0 0 1px rgba(34, 211, 238, 0.1);
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        0 12px 28px rgba(34, 211, 238, 0.2),
+        0 0 0 1px rgba(103, 232, 249, 0.16);
 }
 
 [data-testid="stButton"] button[kind="primary"]:hover {
+    border-color: rgba(186, 230, 253, 0.78);
     background:
         linear-gradient(
             135deg,
             rgba(56, 189, 248, 1) 0%,
             rgba(34, 211, 238, 0.98) 45%,
             rgba(45, 212, 191, 0.98) 100%
-    );
+        );
     background-size: 180% 180%;
     background-position: 100% 50%;
-    color: #032133;
-    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
+    color: #F8FDFF;
+    text-shadow:
+        0 1px 1px rgba(3, 7, 18, 0.42),
+        0 0 14px rgba(186, 230, 253, 0.42);
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.18),
-        0 14px 34px rgba(20, 184, 166, 0.24),
-        0 0 0 1px rgba(34, 211, 238, 0.18);
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        0 16px 36px rgba(20, 184, 166, 0.28),
+        0 0 0 1px rgba(103, 232, 249, 0.22);
 }
 
 [data-testid="stButton"] button:disabled,

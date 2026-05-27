@@ -79,9 +79,9 @@ def test_global_theme_tokens_define_dark_financial_ai_palette():
     )
     assert '[data-testid="stButton"] button *' in SMAI_GLOBAL_CSS
     assert '"Inter", "Noto Sans JP", "BIZ UDPGothic"' in SMAI_GLOBAL_CSS
-    assert "color: #05283A;" in SMAI_GLOBAL_CSS
-    assert "text-shadow: 0 1px 0 rgba(255, 255, 255, 0.28);" in SMAI_GLOBAL_CSS
-    assert "rgba(14, 165, 233, 0.98)" in SMAI_GLOBAL_CSS
+    assert "color: #F8FDFF;" in SMAI_GLOBAL_CSS
+    assert "rgba(11, 58, 102, 0.98)" in SMAI_GLOBAL_CSS
+    assert "0 0 12px rgba(34, 211, 238, 0.32)" in SMAI_GLOBAL_CSS
     assert "rgba(45, 212, 191, 0.98)" in SMAI_GLOBAL_CSS
     assert "background-position: 100% 50%;" in SMAI_GLOBAL_CSS
     assert ".ai-title" in SMAI_GLOBAL_CSS

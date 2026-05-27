@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-05-27: Aligned Research Score maturity docs with the current implementation: FS-013 now reflects the implemented optional disabled-by-default Research Score integration, UX review rows cover evidence-backed and missing-evidence Research Score cases, and the UI wording policy clarifies that Research Score is evidence coverage / freshness / reliability context, not a buy/sell signal or default ranking input.
 - 2026-05-27: Added Cockpit Decision Report external source trace support: opt-in external Research / News fetch results now render an `外部参照ソース` section with provider / fetched_at / published_at / source URL / freshness_status / short summary / warnings, while still excluding fetched source text, local paths, document hashes, and manifests.
 - 2026-05-27: Added freshness_status trace rows to opt-in external Research / News fetch, with stale-source warnings and Cockpit result-table freshness labels while keeping fetched payload text transient-by-default.
 - 2026-05-27: Changed opt-in external Research / News fetch to transient-by-default implementation: fetched Yahoo Finance profile/news text is registered into the session-local RAG store for the current analysis pass without writing payload Markdown or manifest files, and the Cockpit UI now shows provider / fetched_at / source URL / summary instead of local storage paths.

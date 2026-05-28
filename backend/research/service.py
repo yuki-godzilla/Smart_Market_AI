@@ -3316,7 +3316,7 @@ def _research_brief_readable_business_overview(text: str) -> str:
         return domain_sentence
     if _looks_mostly_english(readable):
         return (
-            "provider情報から事業概要を取得しました。初期表示では断定せず、"
+            "外部データから事業概要を取得しました。初期表示では断定せず、"
             "公式IRで事業内容、主要セグメント、地域別構成を確認してください。"
         )
     return _clip_text(readable, max_chars=220)
@@ -3368,7 +3368,7 @@ def _research_brief_business_domain_sentence(text: str) -> str:
         return ""
     unique_domains = list(dict.fromkeys(domains))[:3]
     return (
-        "provider情報では、"
+        "外部データでは、"
         f"{'、'.join(unique_domains)}が確認できます。"
         "公式IRで事業セグメント、主要市場、収益源を確認してください。"
     )
@@ -3548,7 +3548,7 @@ def _research_fact_source_note(source_type: ResearchSourceType) -> str:
     if source_type in _RESEARCH_BRIEF_HIGH_CONFIDENCE_SOURCES:
         return "公式資料・開示由来の確認材料です。"
     if source_type == "provider_profile":
-        return "外部プロバイダー情報です。公式資料で裏取りしてください。"
+        return "外部データ由来の補助情報です。公式資料で裏取りしてください。"
     if source_type == "news":
         return "ニュース由来の補助情報です。公式発表と合わせて確認してください。"
     return "確認材料として扱い、必要に応じて一次情報で裏取りしてください。"
@@ -3797,7 +3797,7 @@ def _research_brief_next_actions(
     if not any(
         row.source_type in _RESEARCH_BRIEF_HIGH_CONFIDENCE_SOURCES for row in report.evidence
     ):
-        actions.append("公式資料やTDnet開示で、外部provider情報とニュースの裏取りをします。")
+        actions.append("公式資料やTDnet開示で、外部データとニュースの裏取りをします。")
     if any("鮮度" in warning or "2年以上" in warning for warning in report.data_quality.warnings):
         actions.append("最新の決算資料、適時開示、ニュースで情報の鮮度を確認します。")
     if external_research_result is not None and external_research_result.warnings:
@@ -3894,7 +3894,7 @@ def _research_brief_memo(
         source_context = (
             "公式資料を含む根拠から整理しています。"
             if high_source_count
-            else "外部provider・ニュース中心のため、公式資料で裏取りしてください。"
+            else "外部データ・ニュース中心のため、公式資料で裏取りしてください。"
         )
     if overview_summary:
         return (

@@ -4803,7 +4803,7 @@ def _external_research_fetch_overview_html(result: ExternalResearchFetchResult) 
     )
     summary = (
         "外部から取得した根拠候補です。公式開示を優先して確認し、"
-        "provider profile やニュースは補助情報として扱ってください。"
+        "外部データやニュースは補助情報として扱ってください。"
     )
     items = [
         ("取得元", _external_research_provider_label(result.provider)),
@@ -4894,7 +4894,7 @@ def _external_research_entry_check_note(entry: ExternalResearchFetchManifestEntr
     if entry.source_type == "tdnet":
         return "公式開示です。PDF本文で対象期間、数値、会社発表の前提を確認してください。"
     if entry.source_type == "provider_profile":
-        return "provider情報です。事業内容や指標は公式IR・決算資料と照合してください。"
+        return "外部データです。事業内容や指標は公式IR・決算資料と照合してください。"
     if entry.source_type == "news":
         return "ニュースです。一次情報ではないため、会社発表や開示資料で裏取りしてください。"
     return "出典URL、公開日、本文の該当箇所を確認してください。"
@@ -4966,7 +4966,7 @@ def _research_operation_insight(
                     "AI調査を更新すると、事業概要やIR情報もまとめて整理します。"
                 ),
                 "source_summary": source_summary,
-                "next_step": "AI調査を更新して、IR・開示・provider情報も合わせて確認します。",
+                "next_step": "次に見る: AI調査を更新して、IR・開示・外部データも合わせて確認します。",
             }
         return {
             "title": "AI調査でわかったこと",
@@ -4974,8 +4974,8 @@ def _research_operation_insight(
                 "まだ事業概要やIR情報は整理されていません。"
                 "AI調査を更新すると、外部情報・ニュース・保存済み資料をまとめて確認します。"
             ),
-            "source_summary": "確認した資料: 未取得",
-            "next_step": "まずAI調査を更新して、根拠資料を整理します。",
+            "source_summary": "確認済み: 未取得",
+            "next_step": "次に見る: AI調査を更新して、根拠資料を整理します。",
         }
 
     brief = ResearchBriefBuilder().build(report, news_report=news_report)
@@ -4992,36 +4992,22 @@ def _research_operation_fact_summary(brief: ResearchBrief) -> str:
     if fact_summary is None:
         business_overview = _research_brief_ui_text(brief.business_overview, max_chars=118)
         material_summary = _research_operation_material_summary(brief)
-        return f"事業概要: {business_overview} {material_summary}"
+        return f"事業: {business_overview} {material_summary}"
 
     parts: list[str] = []
     if fact_summary.business_overview:
-        overview = _research_brief_ui_text(fact_summary.business_overview[0].value, max_chars=118)
-        parts.append(f"事業概要: {overview}")
-    if fact_summary.financial_snapshot:
-        metrics = "、".join(
-            f"{item.label} {item.value}" for item in fact_summary.financial_snapshot[:3]
+        overview = _research_brief_ui_text(fact_summary.business_overview[0].value, max_chars=92)
+        parts.append(f"事業: {overview}")
+    business_context = [
+        *fact_summary.business_regions[:1],
+        *fact_summary.revenue_drivers[:1],
+        *fact_summary.business_segments[:1],
+    ]
+    if business_context:
+        context = " / ".join(
+            _research_brief_ui_text(item.value, max_chars=32) for item in business_context[:2]
         )
-        if len(fact_summary.financial_snapshot) > 3:
-            metrics += f" ほか{len(fact_summary.financial_snapshot) - 3}指標"
-        parts.append(f"確認できた数値: {metrics}")
-    elif fact_summary.missing_items:
-        missing = _research_brief_ui_text(fact_summary.missing_items[0].reason, max_chars=70)
-        parts.append(f"未確認の数値: {missing}")
-    if fact_summary.earnings_outlook:
-        outlook = _research_brief_ui_text(fact_summary.earnings_outlook[0].value, max_chars=70)
-        parts.append(f"業績見通し: {outlook}")
-    if fact_summary.shareholder_return_policy:
-        policy = _research_brief_ui_text(
-            fact_summary.shareholder_return_policy[0].value,
-            max_chars=70,
-        )
-        parts.append(f"株主還元: {policy}")
-    if fact_summary.recent_events:
-        event = fact_summary.recent_events[0]
-        event_date = event.published_at.isoformat() if event.published_at else "日付未設定"
-        title = _research_brief_ui_text(event.source_title, max_chars=42)
-        parts.append(f"直近確認: {event.label}「{title}」（{event_date}）")
+        parts.append(f"補足: {context}")
     if not parts:
         return _research_operation_material_summary(brief)
     return " ".join(parts)
@@ -5029,16 +5015,28 @@ def _research_operation_fact_summary(brief: ResearchBrief) -> str:
 
 def _research_operation_source_summary(brief: ResearchBrief) -> str:
     labels: list[str] = []
+    has_official = False
+    has_supporting = False
     for card in brief.source_cards:
         label = _research_source_type_label(card.source_type)
         if label not in labels:
             labels.append(label)
+        if card.source_confidence == "high":
+            has_official = True
+        elif card.source_confidence in {"medium", "low", "unknown"}:
+            has_supporting = True
     if not labels:
-        return "確認した資料: 根拠資料はまだ少なめです。"
+        return "確認済み: 根拠資料はまだ少なめです。"
     source_text = " / ".join(labels[:4])
     if len(labels) > 4:
         source_text += f" ほか{len(labels) - 4}種"
-    return f"確認した資料: {source_text}。"
+    if has_official:
+        prefix = "確認済み: 公式資料を含みます"
+    elif has_supporting:
+        prefix = "確認済み: 外部データ中心。公式IRは未確認です"
+    else:
+        prefix = "確認済み: 資料の信頼度は未確認です"
+    return f"{prefix}。資料: {source_text}。"
 
 
 def _research_operation_news_source_summary(news_report: StockNewsReport) -> str:
@@ -5048,26 +5046,33 @@ def _research_operation_news_source_summary(news_report: StockNewsReport) -> str
         if source not in source_names:
             source_names.append(source)
     if not source_names:
-        return "確認した資料: ニュース"
+        return "確認済み: ニュース"
     source_text = " / ".join(source_names[:3])
     if len(source_names) > 3:
         source_text += f" ほか{len(source_names) - 3}件"
-    return f"確認した資料: {source_text}"
+    return f"確認済み: {source_text}"
 
 
 def _research_operation_material_summary(brief: ResearchBrief) -> str:
-    positive_count = len(brief.positive_materials or brief.positive_candidates)
-    caution_count = len(brief.caution_materials or brief.caution_candidates)
-    parts: list[str] = []
-    if positive_count:
-        parts.append(f"良材料候補{positive_count}件")
-    if caution_count:
-        parts.append(f"注意材料候補{caution_count}件")
+    positive_materials = brief.positive_materials or brief.positive_candidates
+    caution_materials = brief.caution_materials or brief.caution_candidates
+    if positive_materials:
+        material = (
+            positive_materials[0].summary
+            if isinstance(positive_materials[0], ResearchBriefMaterial)
+            else positive_materials[0]
+        )
+        return f"確認材料: {_research_brief_ui_text(material, max_chars=70)}"
+    if caution_materials:
+        material = (
+            caution_materials[0].summary
+            if isinstance(caution_materials[0], ResearchBriefMaterial)
+            else caution_materials[0]
+        )
+        return f"確認材料: {_research_brief_ui_text(material, max_chars=70)}"
     if brief.metrics:
-        parts.append(f"定量指標{len(brief.metrics)}件")
-    if not parts:
-        return "主な材料はまだ整理できていません。"
-    return f"{'、'.join(parts)}を整理しました。"
+        return "補足: 主要数値は下の定量指標で確認できます。"
+    return "主な材料はまだ整理できていません。"
 
 
 def _research_operation_next_step(brief: ResearchBrief) -> str:
@@ -5075,10 +5080,10 @@ def _research_operation_next_step(brief: ResearchBrief) -> str:
         missing = "、".join(brief.missing_metrics[:5])
         if len(brief.missing_metrics) > 5:
             missing += f" ほか{len(brief.missing_metrics) - 5}件"
-        return f"まだ確認が必要な数値: {missing}。公式資料で追加確認してください。"
+        return f"次に見る: 決算短信・有価証券報告書で {missing} を確認します。"
     if brief.confirmation_gaps:
-        return _research_brief_gap_display_text(brief.confirmation_gaps[0])
-    return "まず読み方サマリーで全体像を確認し、必要なら出典カードで根拠を確認してください。"
+        return f"次に見る: {_research_brief_gap_display_text(brief.confirmation_gaps[0])}"
+    return "次に見る: 出典カードで資料名、公開日、URLを確認します。"
 
 
 def _render_ranking_symbol_research_lookup(symbol: str) -> None:
@@ -5240,28 +5245,17 @@ def _render_research_brief_sections(brief: ResearchBrief) -> None:
 
 
 def _research_brief_overview_html(brief: ResearchBrief) -> str:
-    items = [
-        ("抽出指標", f"{len(brief.metrics)}件"),
-        ("不足指標", f"{len(brief.missing_metrics)}件"),
-        ("出典カード", f"{len(brief.source_cards)}件"),
-        ("確認日", brief.as_of.isoformat()),
-    ]
-    item_markup = "".join(
-        (
-            '<div class="research-result-brief-item">'
-            f'<div class="research-result-brief-label">{html.escape(label)}</div>'
-            f'<div class="research-result-brief-value">{html.escape(value)}</div>'
-            "</div>"
-        )
-        for label, value in items
-    )
     badge_markup = _research_brief_status_badges_html(brief)
+    detail_hint = (
+        "指標件数、出典カード、Research Score は下の折りたたみで確認できます。"
+        "ここでは最初に読む要点だけを表示します。"
+    )
     return (
         '<section class="research-result-brief hero">'
         '<div class="research-result-brief-title">AI整理メモ</div>'
         f"{badge_markup}"
         f'<div class="research-result-brief-summary">{html.escape(brief.memo)}</div>'
-        f'<div class="research-result-brief-grid">{item_markup}</div>'
+        f'<div class="research-result-brief-note">{html.escape(detail_hint)}</div>'
         "</section>"
     )
 
@@ -5287,17 +5281,23 @@ def _research_brief_reading_guide_rows(brief: ResearchBrief) -> list[dict[str, s
     else:
         confirmed_parts: list[str] = []
         if source_count:
-            prefix = "公式資料を含む" if high_source_count else "外部provider・ニュース中心の"
-            confirmed_parts.append(f"{prefix}出典{source_count}件")
-        if positive_count:
-            confirmed_parts.append(f"良材料候補{positive_count}件")
-        if brief.metrics:
-            confirmed_parts.append(f"定量指標{len(brief.metrics)}件")
-        if confirmed_parts:
-            confirmed = (
-                "、".join(confirmed_parts)
-                + "を確認しました。判断材料の整理で、売買推奨ではありません。"
+            source_phrase = (
+                "公式資料を含む資料で確認しました"
+                if high_source_count
+                else "外部データ・ニュース中心に確認しました"
             )
+            confirmed_parts.append(source_phrase)
+        if positive_count:
+            material = (
+                brief.positive_materials[0].summary
+                if brief.positive_materials
+                else brief.positive_candidates[0]
+            )
+            confirmed_parts.append(_research_brief_ui_text(material, max_chars=72))
+        if brief.metrics:
+            confirmed_parts.append("主要数値も一部確認しました")
+        if confirmed_parts:
+            confirmed = "。".join(confirmed_parts) + "。判断材料の整理で、売買推奨ではありません。"
         else:
             confirmed = "確認済みの根拠はまだ少なめです。まず資料登録やAI調査の更新を確認します。"
 
@@ -5306,12 +5306,17 @@ def _research_brief_reading_guide_rows(brief: ResearchBrief) -> list[dict[str, s
         caution = (
             f"{caution_item.label}: "
             f"{_research_brief_ui_text(caution_item.value, max_chars=86)}"
-            " ニュースや外部provider由来の材料は、公式資料で裏取りして読みます。"
+            " ニュースや外部データ由来の材料は、公式資料で裏取りして読みます。"
         )
     elif caution_count:
+        caution_source = (
+            brief.caution_materials[0].summary
+            if brief.caution_materials
+            else brief.caution_candidates[0]
+        )
         caution = (
-            f"注意材料候補{caution_count}件があります。"
-            "ニュースや外部provider由来の材料は、公式資料で裏取りして読みます。"
+            f"{_research_brief_ui_text(caution_source, max_chars=86)} "
+            "ニュースや外部データ由来の材料は、公式資料で裏取りして読みます。"
         )
     elif brief.confirmation_gaps:
         caution = (
@@ -5369,110 +5374,89 @@ def _research_brief_reading_guide_html(brief: ResearchBrief) -> str:
 def _research_brief_focus_html(brief: ResearchBrief) -> str:
     cards = [
         _research_brief_focus_card_html(
-            "事業概要",
-            [_research_brief_ui_text(brief.business_overview, max_chars=170)],
-        )
+            "会社概要",
+            _research_brief_company_profile_items(brief),
+            limit=4,
+        ),
+        _research_brief_focus_card_html(
+            "確認できた事実",
+            _research_brief_confirmed_fact_items(brief),
+            limit=5,
+        ),
+        _research_brief_focus_card_html(
+            "公式資料で未確認",
+            _research_brief_unconfirmed_items(brief),
+            limit=4,
+        ),
     ]
-    if brief.fact_summary is not None and brief.fact_summary.financial_snapshot:
-        cards.append(
-            _research_brief_fact_items_card_html(
-                "確認できた主要数値",
-                brief.fact_summary.financial_snapshot,
-                limit=4,
-            )
-        )
-    if brief.fact_summary is not None:
-        business_context = [
-            *brief.fact_summary.business_regions,
-            *brief.fact_summary.revenue_drivers,
-        ]
-        if business_context:
-            cards.append(
-                _research_brief_fact_items_card_html(
-                    "地域・収益源",
-                    business_context,
-                    limit=3,
-                )
-            )
-    if brief.fact_summary is not None and brief.fact_summary.earnings_outlook:
-        cards.append(
-            _research_brief_fact_items_card_html(
-                "業績見通し",
-                brief.fact_summary.earnings_outlook,
-                limit=2,
-            )
-        )
-    if brief.fact_summary is not None and brief.fact_summary.shareholder_return_policy:
-        cards.append(
-            _research_brief_fact_items_card_html(
-                "配当・株主還元方針",
-                brief.fact_summary.shareholder_return_policy,
-                limit=2,
-            )
-        )
-    if brief.fact_summary is not None and brief.fact_summary.recent_events:
-        cards.append(
-            _research_brief_fact_items_card_html(
-                "直近イベント",
-                brief.fact_summary.recent_events,
-                limit=2,
-            )
-        )
-    if brief.fact_summary is not None and brief.fact_summary.business_segments:
-        cards.append(
-            _research_brief_fact_items_card_html(
-                "主要事業",
-                brief.fact_summary.business_segments,
-                limit=2,
-            )
-        )
-    if brief.fact_summary is not None and brief.fact_summary.missing_items:
-        missing_items = [
-            f"{item.label}: {item.reason}。{item.next_source_hint}で確認します。"
-            for item in brief.fact_summary.missing_items[:2]
-        ]
-        cards.append(
-            _research_brief_focus_card_html(
-                "未確認項目",
-                missing_items,
-                limit=2,
-            )
-        )
-    if brief.positive_materials:
-        cards.append(
-            _research_brief_materials_card_html(
-                "良材料候補",
-                brief.positive_materials,
-                fallback_items=brief.positive_candidates,
-                limit=2,
-            )
-        )
-    elif brief.positive_candidates:
-        cards.append(
-            _research_brief_focus_card_html(
-                "良材料候補",
-                brief.positive_candidates,
-                limit=2,
-            )
-        )
-    if brief.caution_materials:
-        cards.append(
-            _research_brief_materials_card_html(
-                "注意材料候補",
-                brief.caution_materials,
-                fallback_items=brief.caution_candidates,
-                limit=2,
-            )
-        )
-    elif brief.caution_candidates:
-        cards.append(
-            _research_brief_focus_card_html(
-                "注意材料候補",
-                brief.caution_candidates,
-                limit=2,
-            )
-        )
     return f'<div class="research-brief-focus-grid">{"".join(cards)}</div>'
+
+
+def _research_brief_company_profile_items(brief: ResearchBrief) -> list[str]:
+    items = [_research_brief_ui_text(brief.business_overview, max_chars=170)]
+    fact_summary = brief.fact_summary
+    if fact_summary is None:
+        return items
+    if fact_summary.business_segments:
+        items.append(f"主要事業: {fact_summary.business_segments[0].value}")
+    if fact_summary.business_regions:
+        items.append(f"地域: {fact_summary.business_regions[0].value}")
+    if fact_summary.revenue_drivers:
+        items.append(f"収益源: {fact_summary.revenue_drivers[0].value}")
+    return _unique_text_items(items)
+
+
+def _research_brief_confirmed_fact_items(brief: ResearchBrief) -> list[str]:
+    fact_summary = brief.fact_summary
+    items: list[str] = []
+    if fact_summary is not None:
+        if fact_summary.financial_snapshot:
+            metrics = "、".join(
+                f"{item.label} {item.value}" for item in fact_summary.financial_snapshot[:3]
+            )
+            if len(fact_summary.financial_snapshot) > 3:
+                metrics += f" ほか{len(fact_summary.financial_snapshot) - 3}指標"
+            items.append(f"主要数値: {metrics}")
+        if fact_summary.earnings_outlook:
+            items.append(f"業績見通し: {fact_summary.earnings_outlook[0].value}")
+        if fact_summary.shareholder_return_policy:
+            items.append(f"配当・株主還元: {fact_summary.shareholder_return_policy[0].value}")
+        if fact_summary.recent_events:
+            event = fact_summary.recent_events[0]
+            title = _research_brief_ui_text(event.source_title, max_chars=56)
+            items.append(f"直近資料: {event.label}「{title}」")
+    if not items:
+        items.extend(brief.positive_candidates[:2])
+    return _unique_text_items(items) or ["確認済みの事実はまだ少なめです。"]
+
+
+def _research_brief_unconfirmed_items(brief: ResearchBrief) -> list[str]:
+    fact_summary = brief.fact_summary
+    items: list[str] = []
+    if fact_summary is not None:
+        items.extend(
+            f"{item.label}: {item.reason}。{item.next_source_hint}で確認します。"
+            for item in fact_summary.missing_items[:3]
+        )
+    if brief.missing_metrics:
+        missing = "、".join(brief.missing_metrics[:5])
+        if len(brief.missing_metrics) > 5:
+            missing += f" ほか{len(brief.missing_metrics) - 5}件"
+        items.append(f"主要数値: {missing} は公式資料で確認します。")
+    if not items and brief.confirmation_gaps:
+        items.append(_research_brief_gap_display_text(brief.confirmation_gaps[0]))
+    return _unique_text_items(items) or [
+        "大きな未確認項目はありません。出典カードで日付とURLを確認します。"
+    ]
+
+
+def _unique_text_items(items: Sequence[str]) -> list[str]:
+    unique: list[str] = []
+    for item in items:
+        cleaned = _research_brief_ui_text(item, max_chars=180)
+        if cleaned and cleaned not in unique:
+            unique.append(cleaned)
+    return unique
 
 
 def _research_brief_fact_confirmed_text(fact_summary: ResearchFactSummary) -> str:
@@ -5833,7 +5817,7 @@ def _research_brief_items_html(items: Sequence[str], *, tone: str) -> str:
 def _research_source_confidence_label(confidence: str) -> str:
     labels = {
         "high": "高: 公式資料・開示中心",
-        "medium": "中: provider / news 由来",
+        "medium": "中: 外部データ / ニュース由来",
         "low": "低: user note / keyword 抽出",
         "unknown": "未確認",
     }
@@ -5842,12 +5826,12 @@ def _research_source_confidence_label(confidence: str) -> str:
 
 def _research_source_confidence_short_label(confidence: str) -> str:
     labels = {
-        "high": "情報源信頼度: 高",
-        "medium": "情報源信頼度: 中",
-        "low": "情報源信頼度: 低",
-        "unknown": "情報源信頼度: 未確認",
+        "high": "公式資料で確認",
+        "medium": "補助情報として確認",
+        "low": "メモ由来",
+        "unknown": "出典未確認",
     }
-    return labels.get(confidence, "情報源信頼度: 未確認")
+    return labels.get(confidence, "出典未確認")
 
 
 def _research_source_confidence_tone(confidence: str) -> str:
@@ -6768,7 +6752,7 @@ def _research_source_rank_label(source_type: str) -> str:
     }:
         return "公式資料"
     if source_type == "provider_profile":
-        return "外部provider"
+        return "外部データ"
     if source_type == "news":
         return "ニュース"
     if source_type == "user_note":

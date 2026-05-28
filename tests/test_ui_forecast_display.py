@@ -853,7 +853,8 @@ def test_research_brief_helpers_render_readable_rows_and_escape_markup():
     assert "research-result-brief hero" in markup
     assert "売買推奨ではありません" in markup
     assert "追加確認 1指標" in markup
-    assert "抽出指標" in markup
+    assert "抽出指標" not in markup
+    assert "指標件数、出典カード、Research Score" in markup
     assert "<script>" not in markup
     assert "&lt;script&gt;" in markup
     assert "research-brief-reading-grid" in reading_markup
@@ -863,26 +864,24 @@ def test_research_brief_helpers_render_readable_rows_and_escape_markup():
     assert "次にやること" in reading_markup
     assert "業績見通し" in reading_markup
     assert "配当・株主還元" in reading_markup
-    assert "注意材料候補1件" in reading_markup
+    assert "注意材料候補1件" not in reading_markup
     assert "まだ確認できていない数値: EPS" in reading_markup
     assert reading_rows[0]["label"] == "確認できたこと"
     assert reading_rows[2]["body"].startswith("まだ確認できていない数値")
     assert "research-brief-focus-grid" in focus_markup
-    assert "事業概要" in focus_markup
-    assert "地域・収益源" in focus_markup
+    assert "会社概要" in focus_markup
+    assert "確認できた事実" in focus_markup
+    assert "公式資料で未確認" in focus_markup
     assert "日本、北米、欧州" in focus_markup
     assert "業績見通し" in focus_markup
     assert "通期予想は売上高46兆円" in focus_markup
-    assert "配当・株主還元方針" in focus_markup
+    assert "配当・株主還元" in focus_markup
     assert "Provider Symbol" not in focus_markup
     assert "Toyota sells vehicles" in focus_markup
-    assert "良材料候補" in focus_markup
-    assert "注意材料候補" in focus_markup
-    assert "公式資料" in focus_markup
-    assert "情報源信頼度: 高" in focus_markup
-    assert "ニュース" in focus_markup
-    assert "情報源信頼度: 中" in focus_markup
-    assert "主な出典" in focus_markup
+    assert "良材料候補" not in focus_markup
+    assert "注意材料候補" not in focus_markup
+    assert "情報源信頼度" not in focus_markup
+    assert "主な出典" not in focus_markup
     assert "research-brief-metric-grid" in metric_markup
     assert "45兆円" in metric_markup
     assert "confidence-high" in metric_markup
@@ -1020,13 +1019,15 @@ def test_research_operation_card_keeps_single_primary_action(monkeypatch):
     assert button_calls[0][1]["type"] == "primary"
     assert button_calls[0][1]["use_container_width"] is True
     assert "AI調査でわかったこと" in markup
-    assert "事業概要:" in markup
-    assert "確認できた数値:" in markup
-    assert "売上高 45兆円" in markup
-    assert "業績見通し:" in markup
-    assert "株主還元:" in markup
-    assert "直近確認:" in markup
-    assert "確認した資料:" in markup
+    assert "事業:" in markup
+    assert "補足:" in markup
+    assert "確認済み:" in markup
+    assert "次に見る:" in markup
+    assert "確認できた数値:" not in markup
+    assert "業績見通し:" not in markup
+    assert "株主還元:" not in markup
+    assert "直近確認:" not in markup
+    assert "確認した資料:" not in markup
     assert "決算短信" in markup
     assert "良材料候補1件" not in markup
     assert "注意材料候補1件" not in markup
@@ -1226,7 +1227,7 @@ def test_external_research_source_cards_explain_how_to_read_each_source():
     assert "2件" in overview
     assert "TDnet（適時開示）" in cards
     assert "PDF本文で対象期間" in cards
-    assert "provider情報" in cards
+    assert "外部データ" in cards
     assert "出典を開く" in cards
     assert "external://" not in cards
 

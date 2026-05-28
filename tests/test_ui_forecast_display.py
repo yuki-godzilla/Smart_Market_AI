@@ -74,6 +74,8 @@ from ui.app import (
     _research_brief_next_action_rows,
     _research_brief_next_actions_html,
     _research_brief_overview_html,
+    _research_brief_reading_guide_html,
+    _research_brief_reading_guide_rows,
     _research_brief_source_card_rows,
     _research_evidence_card_rows,
     _research_evidence_cards_html,
@@ -786,6 +788,8 @@ def test_research_brief_helpers_render_readable_rows_and_escape_markup():
     )
 
     markup = _research_brief_overview_html(brief)
+    reading_markup = _research_brief_reading_guide_html(brief)
+    reading_rows = _research_brief_reading_guide_rows(brief)
     focus_markup = _research_brief_focus_html(brief)
     metric_markup = _research_brief_metric_cards_html(brief)
     metric_rows = _research_brief_metric_rows(brief)
@@ -804,6 +808,17 @@ def test_research_brief_helpers_render_readable_rows_and_escape_markup():
     assert "抽出指標" in markup
     assert "<script>" not in markup
     assert "&lt;script&gt;" in markup
+    assert "research-brief-reading-grid" in reading_markup
+    assert "確認できたこと" in reading_markup
+    assert "注意して見ること" in reading_markup
+    assert "まだ足りないこと" in reading_markup
+    assert "次にやること" in reading_markup
+    assert "公式資料を含む出典2件" in reading_markup
+    assert "良材料候補1件" in reading_markup
+    assert "注意材料候補1件" in reading_markup
+    assert "まだ確認できていない数値: EPS" in reading_markup
+    assert reading_rows[0]["label"] == "確認できたこと"
+    assert reading_rows[2]["body"].startswith("まだ確認できていない数値")
     assert "research-brief-focus-grid" in focus_markup
     assert "事業概要" in focus_markup
     assert "Provider Symbol" not in focus_markup

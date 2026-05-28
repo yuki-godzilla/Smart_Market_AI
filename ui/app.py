@@ -481,6 +481,40 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     line-height: 1.65;
     margin-bottom: 0.75rem;
 }
+.research-brief-reading-grid {
+    display: grid;
+    gap: 0.58rem;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    margin: 0.68rem 0 0.7rem;
+}
+.research-brief-reading-item {
+    border: 1px solid var(--border-default);
+    border-left: 3px solid var(--ai-cyan);
+    border-radius: 6px;
+    background: var(--bg-card);
+    padding: 0.68rem 0.78rem;
+}
+.research-brief-reading-item.tone-positive {
+    border-left-color: var(--text-positive);
+}
+.research-brief-reading-item.tone-warning {
+    border-left-color: var(--text-warning);
+}
+.research-brief-reading-item.tone-neutral {
+    border-left-color: var(--text-neutral);
+}
+.research-brief-reading-label {
+    color: var(--text-ai-title);
+    font-size: 0.8rem;
+    font-weight: 850;
+    margin-bottom: 0.26rem;
+}
+.research-brief-reading-body {
+    color: var(--text-secondary);
+    font-size: 0.84rem;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+}
 .research-brief-badge-row {
     display: flex;
     flex-wrap: wrap;
@@ -5061,6 +5095,8 @@ def _render_research_summary_panel(
         external_research_result=external_research_result,
     )
     st.markdown(_research_brief_overview_html(brief), unsafe_allow_html=True)
+    st.markdown("##### 読み方サマリー")
+    st.markdown(_research_brief_reading_guide_html(brief), unsafe_allow_html=True)
     if report.data_quality.status != "OK":
         st.warning("根拠資料が不足しています。表示内容は確認材料として控えめに扱ってください。")
     _render_research_brief_sections(brief)
@@ -5214,6 +5250,80 @@ def _research_brief_business_html(brief: ResearchBrief) -> str:
         f"{html.escape(_research_brief_ui_text(brief.business_overview, max_chars=220))}</div>"
         "</section>"
     )
+
+
+def _research_brief_reading_guide_rows(brief: ResearchBrief) -> list[dict[str, str]]:
+    positive_count = len(brief.positive_materials or brief.positive_candidates)
+    caution_count = len(brief.caution_materials or brief.caution_candidates)
+    high_source_count = sum(1 for card in brief.source_cards if card.source_confidence == "high")
+    source_count = len(brief.source_cards)
+
+    confirmed_parts: list[str] = []
+    if source_count:
+        prefix = "公式資料を含む" if high_source_count else "外部provider・ニュース中心の"
+        confirmed_parts.append(f"{prefix}出典{source_count}件")
+    if positive_count:
+        confirmed_parts.append(f"良材料候補{positive_count}件")
+    if brief.metrics:
+        confirmed_parts.append(f"定量指標{len(brief.metrics)}件")
+    if confirmed_parts:
+        confirmed = (
+            "、".join(confirmed_parts)
+            + "を確認しました。判断材料の整理で、売買推奨ではありません。"
+        )
+    else:
+        confirmed = "確認済みの根拠はまだ少なめです。まず資料登録やAI調査の更新を確認します。"
+
+    if caution_count:
+        caution = (
+            f"注意材料候補{caution_count}件があります。"
+            "ニュースや外部provider由来の材料は、公式資料で裏取りして読みます。"
+        )
+    elif brief.confirmation_gaps:
+        caution = (
+            "注意材料よりも確認不足が中心です。根拠不足を悪材料と混同せず、追加資料で確認します。"
+        )
+    else:
+        caution = "目立つ注意材料は未確認です。価格、業績、出典日付を合わせて確認します。"
+
+    if brief.missing_metrics:
+        missing = "、".join(brief.missing_metrics[:5])
+        if len(brief.missing_metrics) > 5:
+            missing += f" ほか{len(brief.missing_metrics) - 5}件"
+        gap = (
+            f"まだ確認できていない数値: {missing}。悪材料ではなく、公式資料で追加確認する項目です。"
+        )
+    elif brief.confirmation_gaps:
+        gap = _research_brief_gap_display_text(brief.confirmation_gaps[0])
+    else:
+        gap = "大きな確認不足はありません。出典カードで資料名、公開日、URLを念のため確認します。"
+
+    next_action = (
+        _research_brief_ui_text(brief.next_actions[0], max_chars=96)
+        if brief.next_actions
+        else "出典カードで資料名、公開日、URL、情報源信頼度を確認します。"
+    )
+
+    return [
+        {"label": "確認できたこと", "body": confirmed, "tone": "positive"},
+        {"label": "注意して見ること", "body": caution, "tone": "warning"},
+        {"label": "まだ足りないこと", "body": gap, "tone": "warning"},
+        {"label": "次にやること", "body": next_action, "tone": "neutral"},
+    ]
+
+
+def _research_brief_reading_guide_html(brief: ResearchBrief) -> str:
+    item_markup = "".join(
+        (
+            f'<div class="research-brief-reading-item tone-{html.escape(row["tone"])}">'
+            f'<div class="research-brief-reading-label">{html.escape(row["label"])}</div>'
+            '<div class="research-brief-reading-body">'
+            f'{html.escape(_research_brief_ui_text(row["body"], max_chars=128))}</div>'
+            "</div>"
+        )
+        for row in _research_brief_reading_guide_rows(brief)
+    )
+    return f'<div class="research-brief-reading-grid">{item_markup}</div>'
 
 
 def _research_brief_focus_html(brief: ResearchBrief) -> str:

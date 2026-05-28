@@ -564,6 +564,7 @@ Markdown UTF-8 check:
 - `tools/fetch_research_yfinance_profile.py --symbol 7203.T --write` は、確認用の実データResearch資料を Yahoo Finance / yfinance から取得して `data/research_docs/` に保存する。外部通信を使うため通常 checks には含めない。
 - 将来 EDINET / IR site などの外部 source adapter が安定しても、外部取得本文を自動保存しない。`data/research_docs/` は開発 fixture、demo seed、private note、ユーザーが明示保存した資料、または fallback として扱う。永続化が必要な場合は、既定取得とは別の `資料を保存する` / archive action として実装する。
 - Research Summary は、外部LLMを使わず、local rule-based `ResearchBrief` へ変換してから表示する。通常表示では provider profile の生フィールド羅列を出さず、AI整理メモ、読み方サマリー、確認ポイント、定量指標、確認不足、次に確認すべき資料へ整理する。AI整理メモは目立つカードとして表示し、`売買推奨ではありません`、出典信頼度、不足指標のバッジを近くに置く。読み方サマリーは `確認できたこと`、`注意して見ること`、`まだ足りないこと`、`次にやること` の4観点に絞る。出典カード、Research Score、外部参照ソース、詳細表は初期表示から下げ、必要なときに展開して確認する。
+- 次の Research Summary maturity slice では、`ResearchBrief` の前段に `ResearchFactSummary` を追加する。運用上の表示目標は、取得状態や件数ではなく、事業概要、主要事業、確認済みのIR / 公式資料 / TDnet / ニュース、主要定量指標、直近イベント、良材料候補、注意材料候補、未確認項目を source-backed fact として提示すること。provider-only の情報は公式資料と同列に扱わず、`外部プロバイダー情報では` と明示する。
 - ResearchBrief の確認ポイントは、provider profile や検索根拠の英語断片をそのまま出さず、事業領域、確認した材料、主な出典、未確認項目に言い換える。良材料候補 / 注意材料候補には `公式資料` / `外部provider` / `ニュース` などの出典ランクと `情報源信頼度: 高/中/低/未確認` を添える。ニュース取得警告などの「根拠不足」は注意材料ではなく確認不足として扱う。
 - `ResearchBrief` の定量評価では、取得できた PER / PBR / ROE / 売上高 / 営業利益 / 純利益 / EPS / 配当 / 時価総額などを source type と confidence 付きの小カードで表示する。取得できない主要指標は missing metrics として警告パネルに明示する。
 - `ResearchBrief` の確認不足は、`未確認の定量指標` のような内部表現をそのまま見せず、`まだ確認できていない数値` として表示する。これは悪材料ではなく、公式資料で追加確認する項目であることを併記する。

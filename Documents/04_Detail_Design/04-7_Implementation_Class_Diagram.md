@@ -11,7 +11,7 @@ Current implementation notes:
 
 - Core / MarketData / FeatureBuilder / Risk / Portfolio / Screening / Forecast / Scoring are implemented.
 - Research RAG local evidence foundation, advanced extraction, Research Score first slice, and TDnet / Yahoo Finance external fetch first slice are implemented.
-- ResearchBriefBuilder, EDINET / company IR adapters, ranking-order integration, and Assistant integration are future/planned unless explicitly assigned.
+- ResearchBriefBuilder is implemented as the first readability layer. ResearchFactSummary, EDINET / company IR adapters, ranking-order integration, and Assistant integration are future/planned unless explicitly assigned.
 - Execution is deferred; only config placeholders and `TradeIntent` exist in current code.
 - Portfolio solver is currently `none`; optimizer backends are not implemented.
 
@@ -404,9 +404,9 @@ PortfolioRiskResult o-- RiskDecision
 
 ## 7. Research RAG Current / Planned Relationships
 
-現在方針: local ingestion は fixture / archive / fallback として維持し、通常の AI Research 導線では adapter 経由の外部最新 source を優先する。次の表示層追加は local rule-based `ResearchBriefBuilder` とし、外部LLM要約は future / optional とする。
+現在方針: local ingestion は fixture / archive / fallback として維持し、通常の AI Research 導線では adapter 経由の外部最新 source を優先する。実装済みの local rule-based `ResearchBriefBuilder` を土台に、次の表示層追加は `ResearchFactSummary` とする。外部LLM要約は future / optional とする。
 
-`backend.research` は、IR資料、ユーザーメモ、外部取得 source payload などの非構造データを扱う実装済み component です。ResearchBriefBuilder、EDINET / 企業IR adapter、Assistant 接続は後続 planned として扱う。
+`backend.research` は、IR資料、ユーザーメモ、外部取得 source payload などの非構造データを扱う実装済み component です。ResearchFactSummary、EDINET / 企業IR adapter、Assistant 接続は後続 planned として扱う。
 ローカル資料 ingestion は deterministic fixture / archive / fallback として維持し、通常ユーザー導線では外部 source adapter から最新情報を一時取得/参照する。embedding と LLM要約は optional adapter として段階的に追加する。
 
 ```plantuml
@@ -447,6 +447,9 @@ package "backend.research" {
   class ResearchScoreService {
     +score_report(report): ResearchScore
   }
+  class ResearchBriefBuilder {
+    +build(report, news_report): ResearchBrief
+  }
 
   class ExternalResearchFetchService {
     +fetch_and_register(request): ExternalResearchFetchResult
@@ -484,6 +487,10 @@ package "backend.research" {
   class ExternalResearchFetchManifestEntry
   class ExternalResearchSourcePayload
   class ResearchScore
+  class ResearchBrief
+  class ResearchMetric
+  class ResearchFactSummary <<planned>>
+  class ResearchFactItem <<planned>>
   class CompanyResearchReport
 }
 
@@ -537,6 +544,12 @@ ResearchInMemoryVectorStore o-- ResearchRetrievalCandidate
 ResearchFileVectorStore o-- ResearchRetrievalCandidate
 ResearchScoreService ..> CompanyResearchReport
 ResearchScoreService --> ResearchScore
+ResearchBriefBuilder ..> CompanyResearchReport
+ResearchBriefBuilder ..> StockNewsReport
+ResearchBriefBuilder --> ResearchBrief
+ResearchBrief *-- ResearchMetric
+ResearchFactSummary *-- ResearchFactItem
+ResearchBriefBuilder ..> ResearchFactSummary : planned input
 ExternalResearchFetchService --> ResearchIngestionService
 ExternalResearchFetchService --> ExternalResearchSourceAdapter
 ExternalResearchFetchService ..> ExternalResearchFetchRequest

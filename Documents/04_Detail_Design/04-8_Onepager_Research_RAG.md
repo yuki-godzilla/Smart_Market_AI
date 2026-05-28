@@ -121,6 +121,60 @@ Current implementation note: `ExternalResearchFetchService`, `TDnetResearchAdapt
 
 Research Summary 改善では、`CompanyResearchReport` / evidence と Streamlit UI の間に、表示専用の `ResearchBrief` 層を置く。provider dump や raw evidence を主表示に出すのではなく、deterministic なローカルルールで読める投資調査メモへ変換する。外部LLM / OpenAI API 連携は後続に回し、通常 checks は network / LLM 非依存を維持する。
 
+次の読みやすさ改善 slice では、`ResearchBrief` の前段に `ResearchFactSummary` を置く。これは取得件数や出典カード数ではなく、ユーザーが最初に知りたい「この会社は何をしているか」「どの公式資料・IR・ニュースで何を確認できたか」「主要な数値は確認できたか」「良材料候補・注意材料候補・未確認項目は何か」を source-backed fact として整理する層である。
+
+推奨 pipeline:
+
+1. `CompanyResearchReport` / `StockNewsReport` / `ExternalResearchFetchResult` / provider profile から候補事実を集める。
+2. local rule-based extractor で `ResearchFactSummary` を作る。
+3. `ResearchBriefBuilder` は `ResearchFactSummary` を優先入力として、AI整理メモ、読み方サマリー、確認ポイント、UI card を組み立てる。
+4. source card、Research Score、raw evidence は確認用 detail に下げる。
+
+`ResearchFactSummary` の候補 contract:
+
+```python
+class ResearchFactSummary(BaseModel):
+    business_overview: list[ResearchFactItem]
+    business_segments: list[ResearchFactItem]
+    financial_snapshot: list[ResearchFactItem]
+    recent_events: list[ResearchFactItem]
+    positive_materials: list[ResearchFactItem]
+    caution_materials: list[ResearchFactItem]
+    missing_items: list[ResearchMissingItem]
+
+
+class ResearchFactItem(BaseModel):
+    label: str
+    value: str
+    source_title: str
+    source_type: Literal["official", "tdnet", "edinet", "company_ir", "provider", "news", "user_note"]
+    published_at: date | None
+    confidence: Literal["high", "medium", "low", "unknown"]
+
+
+class ResearchMissingItem(BaseModel):
+    label: str
+    reason: str
+    next_source_hint: str
+```
+
+初期抽出対象:
+
+- 事業概要: 何をしている会社か、主要事業、収益源、地域、セグメント。
+- IR / 公式確認: 決算短信、有価証券報告書、適時開示、会社IR、EDINET、公式ニュース。
+- 定量情報: 売上高、営業利益、純利益、EPS、配当、PER、PBR、ROE、時価総額。
+- 直近イベント: 決算発表、業績修正、配当変更、自社株買い、重要ニュース。
+- 良材料候補: 成長、収益性、株主還元、財務安全性など、根拠付きで確認できたもの。
+- 注意材料候補: 事業リスク、業績悪化、財務負担、鮮度不足、ニュース由来の確認事項。
+- 未確認項目: 公式資料でまだ裏取りできていない主要指標や一次情報。
+
+表示ルール:
+
+- 主表示では source-backed fact だけを断定的に扱う。provider-only の場合は `外部プロバイダー情報では` と書き、公式IRと同じ重みで見せない。
+- `資料n件`、`出典カードn件`、`Research Score` は補助情報であり、主表示の結論にしない。
+- 未確認項目は悪材料ではなく、追加で確認する項目として扱う。
+- 外部LLM / local lightweight LLM を使う場合も、入力は抽出済み fact に限定し、出力は validated JSON として `ResearchFactSummary` に戻す。失敗時は deterministic rule-based summary に戻る。
+
 実装 contract の要点:
 
 ```python

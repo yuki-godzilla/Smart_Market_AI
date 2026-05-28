@@ -22,6 +22,8 @@ from backend.research import (
     ResearchDocument,
     ResearchEvidence,
     ResearchExtractedClaim,
+    ResearchFactItem,
+    ResearchFactSummary,
     ResearchGroundedAnswer,
     ResearchMetric,
     ResearchRetrievalQuality,
@@ -787,6 +789,50 @@ def test_research_brief_helpers_render_readable_rows_and_escape_markup():
                 note="AI調査で一時参照した外部ソースです。",
             ),
         ],
+        fact_summary=ResearchFactSummary(
+            symbol="7203.T",
+            as_of=date(2026, 5, 25),
+            business_regions=[
+                ResearchFactItem(
+                    label="地域展開",
+                    value="日本、北米、欧州",
+                    source_title="7203 決算短信",
+                    source_type="earnings_report",
+                    source_confidence="high",
+                    published_at=date(2026, 5, 20),
+                )
+            ],
+            revenue_drivers=[
+                ResearchFactItem(
+                    label="収益源",
+                    value="製品・車両販売、ソフトウェア・サービス",
+                    source_title="7203 決算短信",
+                    source_type="earnings_report",
+                    source_confidence="high",
+                    published_at=date(2026, 5, 20),
+                )
+            ],
+            earnings_outlook=[
+                ResearchFactItem(
+                    label="業績見通し",
+                    value="通期予想は売上高46兆円です。",
+                    source_title="7203 決算短信",
+                    source_type="earnings_report",
+                    source_confidence="high",
+                    published_at=date(2026, 5, 20),
+                )
+            ],
+            shareholder_return_policy=[
+                ResearchFactItem(
+                    label="配当・株主還元方針",
+                    value="配当方針は安定配当を重視します。",
+                    source_title="7203 決算短信",
+                    source_type="earnings_report",
+                    source_confidence="high",
+                    published_at=date(2026, 5, 20),
+                )
+            ],
+        ),
     )
 
     markup = _research_brief_overview_html(brief)
@@ -815,14 +861,19 @@ def test_research_brief_helpers_render_readable_rows_and_escape_markup():
     assert "注意して見ること" in reading_markup
     assert "まだ足りないこと" in reading_markup
     assert "次にやること" in reading_markup
-    assert "公式資料を含む出典2件" in reading_markup
-    assert "良材料候補1件" in reading_markup
+    assert "業績見通し" in reading_markup
+    assert "配当・株主還元" in reading_markup
     assert "注意材料候補1件" in reading_markup
     assert "まだ確認できていない数値: EPS" in reading_markup
     assert reading_rows[0]["label"] == "確認できたこと"
     assert reading_rows[2]["body"].startswith("まだ確認できていない数値")
     assert "research-brief-focus-grid" in focus_markup
     assert "事業概要" in focus_markup
+    assert "地域・収益源" in focus_markup
+    assert "日本、北米、欧州" in focus_markup
+    assert "業績見通し" in focus_markup
+    assert "通期予想は売上高46兆円" in focus_markup
+    assert "配当・株主還元方針" in focus_markup
     assert "Provider Symbol" not in focus_markup
     assert "Toyota sells vehicles" in focus_markup
     assert "良材料候補" in focus_markup
@@ -879,7 +930,12 @@ def test_research_operation_card_keeps_single_primary_action(monkeypatch):
         source_type="earnings_report",
         published_at=date(2026, 5, 20),
         section_title="業績",
-        excerpt="売上高 45兆円。成長戦略と株主還元を説明しています。",
+        excerpt=(
+            "売上高 45兆円。通期予想は売上高46兆円です。"
+            "配当方針は安定配当を重視します。"
+            "日本、北米、欧州で車両販売を展開しています。"
+            "成長戦略と株主還元を説明しています。"
+        ),
         relevance_score=Decimal("0.88"),
         reliability=Decimal("0.94"),
     )
@@ -967,6 +1023,8 @@ def test_research_operation_card_keeps_single_primary_action(monkeypatch):
     assert "事業概要:" in markup
     assert "確認できた数値:" in markup
     assert "売上高 45兆円" in markup
+    assert "業績見通し:" in markup
+    assert "株主還元:" in markup
     assert "直近確認:" in markup
     assert "確認した資料:" in markup
     assert "決算短信" in markup

@@ -280,7 +280,10 @@ def test_research_brief_builder_shapes_readable_local_memo():
         section_title="業績",
         excerpt=(
             "売上高 45兆円、営業利益 5兆円、純利益 4兆円、"
-            "EPS 320円、配当 75円。成長戦略と株主還元を説明しています。"
+            "EPS 320円、配当 75円。通期予想は売上高46兆円、営業利益5.2兆円です。"
+            "配当方針は安定配当と増配を重視します。"
+            "日本、北米、欧州で車両販売とソフトウェアサービスを展開しています。"
+            "成長戦略と株主還元を説明しています。"
         ),
         relevance_score=Decimal("0.88"),
         reliability=Decimal("0.94"),
@@ -410,8 +413,12 @@ def test_research_brief_builder_shapes_readable_local_memo():
     assert brief.fact_summary.business_overview
     assert brief.fact_summary.business_segments[0].label == "主要事業"
     assert "自動車・モビリティ" in brief.fact_summary.business_segments[0].value
+    assert any("北米" in item.value for item in brief.fact_summary.business_regions)
+    assert any("製品・車両販売" in item.value for item in brief.fact_summary.revenue_drivers)
     financial_labels = {item.label for item in brief.fact_summary.financial_snapshot}
     assert {"売上高", "営業利益", "純利益", "EPS", "配当"} <= financial_labels
+    assert any("通期予想" in item.value for item in brief.fact_summary.earnings_outlook)
+    assert any("配当方針" in item.value for item in brief.fact_summary.shareholder_return_policy)
     assert any(item.label == "決算短信" for item in brief.fact_summary.recent_events)
     assert any(item.label == "適時開示" for item in brief.fact_summary.recent_events)
     assert any(item.label == "成長材料" for item in brief.fact_summary.positive_materials)

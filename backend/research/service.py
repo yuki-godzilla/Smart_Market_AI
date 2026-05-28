@@ -610,7 +610,11 @@ class ResearchFactSummary(StrictBaseModel):
     as_of: date
     business_overview: list[ResearchFactItem] = Field(default_factory=list)
     business_segments: list[ResearchFactItem] = Field(default_factory=list)
+    business_regions: list[ResearchFactItem] = Field(default_factory=list)
+    revenue_drivers: list[ResearchFactItem] = Field(default_factory=list)
     financial_snapshot: list[ResearchFactItem] = Field(default_factory=list)
+    earnings_outlook: list[ResearchFactItem] = Field(default_factory=list)
+    shareholder_return_policy: list[ResearchFactItem] = Field(default_factory=list)
     recent_events: list[ResearchFactItem] = Field(default_factory=list)
     positive_materials: list[ResearchFactItem] = Field(default_factory=list)
     caution_materials: list[ResearchFactItem] = Field(default_factory=list)
@@ -2960,7 +2964,11 @@ def _research_fact_summary(
         as_of=report.as_of,
         business_overview=business_overview[:2],
         business_segments=_research_fact_business_segment_items(business_overview),
+        business_regions=_research_fact_business_region_items(report, business_overview),
+        revenue_drivers=_research_fact_revenue_driver_items(report, business_overview),
         financial_snapshot=_research_fact_financial_items(metrics),
+        earnings_outlook=_research_fact_earnings_outlook_items(report),
+        shareholder_return_policy=_research_fact_shareholder_return_items(report),
         recent_events=_research_fact_recent_event_items(
             report,
             news_report=news_report,
@@ -3023,6 +3031,30 @@ def _research_fact_business_segment_items(
     return _unique_research_fact_items(items)[:2]
 
 
+def _research_fact_business_region_items(
+    report: CompanyResearchReport,
+    overview_items: Sequence[ResearchFactItem],
+) -> list[ResearchFactItem]:
+    return _research_fact_label_items_from_sources(
+        label="地域展開",
+        report=report,
+        overview_items=overview_items,
+        extractor=_research_fact_region_labels,
+    )[:3]
+
+
+def _research_fact_revenue_driver_items(
+    report: CompanyResearchReport,
+    overview_items: Sequence[ResearchFactItem],
+) -> list[ResearchFactItem]:
+    return _research_fact_label_items_from_sources(
+        label="収益源",
+        report=report,
+        overview_items=overview_items,
+        extractor=_research_fact_revenue_driver_labels,
+    )[:3]
+
+
 def _research_fact_financial_items(
     metrics: Sequence[ResearchMetric],
 ) -> list[ResearchFactItem]:
@@ -3037,6 +3069,54 @@ def _research_fact_financial_items(
         )
         for metric in metrics
     ]
+
+
+def _research_fact_earnings_outlook_items(
+    report: CompanyResearchReport,
+) -> list[ResearchFactItem]:
+    return _research_fact_sentence_items(
+        report,
+        label="業績見通し",
+        keywords=(
+            "通期予想",
+            "業績予想",
+            "業績見通し",
+            "業績修正",
+            "上方修正",
+            "下方修正",
+            "guidance",
+            "outlook",
+            "forecast",
+            "revised",
+            "raised guidance",
+            "lowered guidance",
+        ),
+        source_note="業績予想・業績修正に関する確認材料です。",
+    )[:3]
+
+
+def _research_fact_shareholder_return_items(
+    report: CompanyResearchReport,
+) -> list[ResearchFactItem]:
+    return _research_fact_sentence_items(
+        report,
+        label="配当・株主還元方針",
+        keywords=(
+            "配当方針",
+            "配当",
+            "増配",
+            "減配",
+            "自社株買い",
+            "株主還元",
+            "配当性向",
+            "dividend policy",
+            "dividend",
+            "shareholder return",
+            "buyback",
+            "payout",
+        ),
+        source_note="配当・株主還元に関する確認材料です。",
+    )[:3]
 
 
 def _research_fact_recent_event_items(
@@ -3309,6 +3389,154 @@ def _research_fact_segment_labels(text: str) -> list[str]:
         if any(keyword.lower() in lowered for keyword in keywords):
             segments.append(label)
     return list(dict.fromkeys(segments))
+
+
+def _research_fact_region_labels(text: str) -> list[str]:
+    region_specs = (
+        ("日本", ("日本", "国内", "japan", "jp")),
+        (
+            "北米",
+            ("北米", "米国", "アメリカ", "north america", "united states", "u.s.", "us"),
+        ),
+        ("欧州", ("欧州", "ヨーロッパ", "europe", "eu")),
+        ("中国", ("中国", "china")),
+        ("アジア", ("アジア", "asia", "asean", "インド", "india")),
+        ("海外", ("海外", "グローバル", "global", "overseas", "international")),
+    )
+    return _research_fact_labels_from_keywords(text, region_specs)
+
+
+def _research_fact_revenue_driver_labels(text: str) -> list[str]:
+    driver_specs = (
+        (
+            "製品・車両販売",
+            ("販売", "売上", "車両", "vehicle sales", "sells vehicles", "product sales"),
+        ),
+        (
+            "ソフトウェア・サービス",
+            ("ソフトウェア", "サービス", "software", "services", "subscription"),
+        ),
+        ("金融サービス", ("金融", "リース", "financial services", "leasing", "finance")),
+        ("部品・保守", ("部品", "保守", "parts", "maintenance", "aftermarket")),
+        ("海外売上", ("海外売上", "overseas sales", "international sales", "global sales")),
+    )
+    return _research_fact_labels_from_keywords(text, driver_specs)
+
+
+def _research_fact_labels_from_keywords(
+    text: str,
+    specs: Sequence[tuple[str, Sequence[str]]],
+) -> list[str]:
+    lowered = text.lower()
+    labels: list[str] = []
+    for label, keywords in specs:
+        if any(keyword.lower() in lowered for keyword in keywords):
+            labels.append(label)
+    return list(dict.fromkeys(labels))
+
+
+def _research_fact_label_items_from_sources(
+    *,
+    label: str,
+    report: CompanyResearchReport,
+    overview_items: Sequence[ResearchFactItem],
+    extractor: Callable[[str], list[str]],
+) -> list[ResearchFactItem]:
+    items: list[ResearchFactItem] = []
+    for item in overview_items:
+        labels = extractor(item.value)
+        if labels:
+            items.append(
+                ResearchFactItem(
+                    label=label,
+                    value="、".join(labels[:4]),
+                    source_title=item.source_title,
+                    source_type=item.source_type,
+                    source_confidence=item.source_confidence,
+                    published_at=item.published_at,
+                    note=item.note,
+                )
+            )
+    for row in _research_brief_prioritized_business_evidence(report):
+        labels = extractor(_research_brief_evidence_text(row))
+        if not labels:
+            continue
+        items.append(
+            ResearchFactItem(
+                label=label,
+                value="、".join(labels[:4]),
+                source_title=row.title,
+                source_type=row.source_type,
+                source_confidence=_research_brief_source_confidence(row.source_type),
+                published_at=row.published_at,
+                note=_research_fact_source_note(row.source_type),
+            )
+        )
+    return _unique_research_fact_items(items)
+
+
+def _research_fact_sentence_items(
+    report: CompanyResearchReport,
+    *,
+    label: str,
+    keywords: Sequence[str],
+    source_note: str,
+) -> list[ResearchFactItem]:
+    items: list[ResearchFactItem] = []
+    for row in _research_brief_prioritized_fact_evidence(report):
+        sentence = _research_fact_sentence_for_keywords(
+            _research_brief_evidence_text(row),
+            keywords,
+        )
+        if not sentence:
+            continue
+        items.append(
+            ResearchFactItem(
+                label=label,
+                value=sentence,
+                source_title=row.title,
+                source_type=row.source_type,
+                source_confidence=_research_brief_source_confidence(row.source_type),
+                published_at=row.published_at,
+                note=source_note,
+            )
+        )
+    return _unique_research_fact_items(items)
+
+
+def _research_fact_sentence_for_keywords(
+    text: str,
+    keywords: Sequence[str],
+) -> str:
+    normalized = re.sub(r"\s+", " ", text).strip()
+    if not normalized:
+        return ""
+    chunks = [
+        chunk.strip(" 　・-")
+        for chunk in re.split(r"(?<=[。.!?])\s+|[。\n\r;；]", normalized)
+        if chunk.strip()
+    ]
+    lowered_chunks = [(chunk, chunk.lower()) for chunk in (chunks or [normalized])]
+    for keyword in (keyword.lower() for keyword in keywords):
+        for chunk, lowered in lowered_chunks:
+            if keyword in lowered:
+                return _clip_text(chunk, max_chars=130)
+    return ""
+
+
+def _research_brief_prioritized_fact_evidence(
+    report: CompanyResearchReport,
+) -> list[ResearchEvidence]:
+    return [
+        *[
+            row
+            for row in report.evidence
+            if row.source_type in _RESEARCH_BRIEF_HIGH_CONFIDENCE_SOURCES
+        ],
+        *[row for row in report.evidence if row.source_type == "provider_profile"],
+        *[row for row in report.evidence if row.source_type == "news"],
+        *report.evidence,
+    ]
 
 
 def _research_fact_event_value(title: str, source_type: ResearchSourceType) -> str:

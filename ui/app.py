@@ -5008,6 +5008,15 @@ def _research_operation_fact_summary(brief: ResearchBrief) -> str:
     elif fact_summary.missing_items:
         missing = _research_brief_ui_text(fact_summary.missing_items[0].reason, max_chars=70)
         parts.append(f"未確認の数値: {missing}")
+    if fact_summary.earnings_outlook:
+        outlook = _research_brief_ui_text(fact_summary.earnings_outlook[0].value, max_chars=70)
+        parts.append(f"業績見通し: {outlook}")
+    if fact_summary.shareholder_return_policy:
+        policy = _research_brief_ui_text(
+            fact_summary.shareholder_return_policy[0].value,
+            max_chars=70,
+        )
+        parts.append(f"株主還元: {policy}")
     if fact_summary.recent_events:
         event = fact_summary.recent_events[0]
         event_date = event.published_at.isoformat() if event.published_at else "日付未設定"
@@ -5372,6 +5381,35 @@ def _research_brief_focus_html(brief: ResearchBrief) -> str:
                 limit=4,
             )
         )
+    if brief.fact_summary is not None:
+        business_context = [
+            *brief.fact_summary.business_regions,
+            *brief.fact_summary.revenue_drivers,
+        ]
+        if business_context:
+            cards.append(
+                _research_brief_fact_items_card_html(
+                    "地域・収益源",
+                    business_context,
+                    limit=3,
+                )
+            )
+    if brief.fact_summary is not None and brief.fact_summary.earnings_outlook:
+        cards.append(
+            _research_brief_fact_items_card_html(
+                "業績見通し",
+                brief.fact_summary.earnings_outlook,
+                limit=2,
+            )
+        )
+    if brief.fact_summary is not None and brief.fact_summary.shareholder_return_policy:
+        cards.append(
+            _research_brief_fact_items_card_html(
+                "配当・株主還元方針",
+                brief.fact_summary.shareholder_return_policy,
+                limit=2,
+            )
+        )
     if brief.fact_summary is not None and brief.fact_summary.recent_events:
         cards.append(
             _research_brief_fact_items_card_html(
@@ -5449,6 +5487,19 @@ def _research_brief_fact_confirmed_text(fact_summary: ResearchFactSummary) -> st
             f"{item.label} {item.value}" for item in fact_summary.financial_snapshot[:3]
         )
         parts.append(f"主要数値: {metrics}")
+    if fact_summary.earnings_outlook:
+        parts.append(
+            "業績見通し: "
+            + _research_brief_ui_text(fact_summary.earnings_outlook[0].value, max_chars=72)
+        )
+    if fact_summary.shareholder_return_policy:
+        parts.append(
+            "配当・株主還元: "
+            + _research_brief_ui_text(
+                fact_summary.shareholder_return_policy[0].value,
+                max_chars=72,
+            )
+        )
     if fact_summary.recent_events:
         event = fact_summary.recent_events[0]
         title = _research_brief_ui_text(event.source_title, max_chars=44)

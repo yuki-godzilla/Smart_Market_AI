@@ -564,5 +564,6 @@ Markdown UTF-8 check:
 - `tools/fetch_research_yfinance_profile.py --symbol 7203.T --write` は、確認用の実データResearch資料を Yahoo Finance / yfinance から取得して `data/research_docs/` に保存する。外部通信を使うため通常 checks には含めない。
 - 将来 EDINET / IR site などの外部 source adapter が安定しても、外部取得本文を自動保存しない。`data/research_docs/` は開発 fixture、demo seed、private note、ユーザーが明示保存した資料、または fallback として扱う。永続化が必要な場合は、既定取得とは別の `資料を保存する` / archive action として実装する。
 - Research Summary は、外部LLMを使わず、local rule-based `ResearchBrief` へ変換してから表示する。通常表示では provider profile の生フィールド羅列を出さず、AI整理メモ、確認ポイント、定量指標、確認不足、次に確認すべき資料へ整理する。AI整理メモは目立つカードとして表示し、`売買推奨ではありません`、出典信頼度、不足指標のバッジを近くに置く。出典カード、Research Score、外部参照ソース、詳細表は初期表示から下げ、必要なときに展開して確認する。
+- ResearchBrief の確認ポイントは、provider profile や検索根拠の英語断片をそのまま出さず、事業領域、確認した材料、主な出典、未確認項目に言い換える。ニュース取得警告などの「根拠不足」は注意材料ではなく確認不足として扱う。
 - `ResearchBrief` の定量評価では、取得できた PER / PBR / ROE / 売上高 / 営業利益 / 純利益 / EPS / 配当 / 時価総額などを source type と confidence 付きの小カードで表示する。取得できない主要指標は missing metrics として警告パネルに明示する。
 - `ResearchBrief` の confidence は情報源の信頼度であり、投資判断の正しさではない。公式IR / TDnet / EDINET / 企業IRは high、Yahoo Finance / provider profile / news は medium、キーワード抽出のみは low として説明する。Research Score は調査メモの後ろに表示し、ranking order は既定では変更しない。

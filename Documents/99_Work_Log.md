@@ -759,3 +759,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Enlarged and centered the Smart Market AI logo in the main app header so the brand reads as the primary first-viewport element.
 - Added a stronger header band, centered accent line, and larger logo glow while keeping the mascot as a right-side supporting element.
 - Kept the change CSS-only with no workflow, data, forecast, scoring, ranking, Research RAG, or report behavior changes.
+
+## 2026-05-28 - ResearchBrief readable copy shaping
+
+- Changed ResearchBrief business overview and material candidates to explain the confirmed topic, source count, and lead source instead of showing raw provider snippets.
+- Added rule-based business-domain wording for provider profile text so vehicle/software/etc. descriptions become Japanese confirmation text in the primary view.
+- Moved news/source retrieval warnings out of caution-material candidates and into confirmation gaps so they read as missing evidence, not investment risk.

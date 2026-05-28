@@ -379,13 +379,18 @@ def test_research_brief_builder_shapes_readable_local_memo():
         "時価総額",
     } <= metric_labels
     assert brief.missing_metrics == []
-    assert "Toyota sells vehicles" in brief.business_overview
+    assert "自動車・モビリティ関連事業" in brief.business_overview
+    assert "公式IR" in brief.business_overview
+    assert "Toyota sells vehicles" not in brief.business_overview
     assert "Provider Symbol" not in brief.business_overview
     assert "Quote Type" not in brief.business_overview
     assert "売買推奨ではありません" in brief.memo
     assert any("成長材料" in candidate for candidate in brief.positive_candidates)
     assert any("Toyota raises guidance" in candidate for candidate in brief.positive_candidates)
     assert any("供給制約" in candidate for candidate in brief.caution_candidates)
+    assert not any(
+        "主な確認材料として見ます" in candidate for candidate in brief.positive_candidates
+    )
     assert any(card.source_confidence == "high" for card in brief.source_cards)
     assert any(card.source_confidence == "medium" for card in brief.source_cards)
     assert any(card.source_url == "https://example.com/tdnet/7203" for card in brief.source_cards)

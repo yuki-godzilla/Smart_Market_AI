@@ -1534,7 +1534,11 @@ class ResearchBriefBuilder:
         missing_metrics = _research_brief_missing_metric_labels(metrics)
         positive_candidates = _research_brief_positive_candidates(report, news_report)
         caution_candidates = _research_brief_caution_candidates(report, news_report)
-        confirmation_gaps = _research_brief_confirmation_gaps(report, missing_metrics)
+        confirmation_gaps = _research_brief_confirmation_gaps(
+            report,
+            missing_metrics,
+            news_report=news_report,
+        )
         next_actions = _research_brief_next_actions(
             report,
             missing_metrics,
@@ -2775,12 +2779,21 @@ _RESEARCH_BRIEF_METRIC_SPECS: tuple[
     ("market_cap", "時価総額", (r"時価総額", r"market cap(?:italization)?")),
 )
 _RESEARCH_BRIEF_RAW_PROVIDER_LABELS = (
+    "Company Name",
     "Provider Symbol",
     "Quote Type",
     "Exchange",
     "Currency",
     "Sector",
     "Industry",
+    "Market Cap",
+    "PER",
+    "PBR",
+    "ROE",
+    "Trailing PE",
+    "Forward PE",
+    "Price To Book",
+    "Dividend Rate",
 )
 _RESEARCH_BRIEF_HIGH_CONFIDENCE_SOURCES: set[ResearchSourceType] = {
     "annual_report",
@@ -2856,29 +2869,115 @@ def _research_brief_business_overview(report: CompanyResearchReport) -> str:
     for row in prioritized:
         cleaned = _research_brief_clean_provider_text(row.excerpt)
         if cleaned:
-            return _clip_text(cleaned, max_chars=260)
+            return _research_brief_readable_business_overview(cleaned)
     return report.summary
 
 
 def _research_brief_clean_provider_text(text: str) -> str:
     lines = [line.strip() for line in re.split(r"[\r\n]+", text) if line.strip()]
-    filtered = [
-        line
-        for line in lines
+    cleaned = " ".join(lines)
+    cleaned = re.sub(r"\bCompany Name\s*[:：]\s*", "", cleaned, flags=re.IGNORECASE)
+    for label in (
+        "Provider Symbol",
+        "Quote Type",
+        "Exchange",
+        "Currency",
+        "Market Cap",
+        "PER",
+        "PBR",
+        "ROE",
+        "Trailing PE",
+        "Forward PE",
+        "Price To Book",
+        "Dividend Rate",
+    ):
+        cleaned = re.sub(rf"\b{re.escape(label)}\s*[:：]\s*\S+", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(
+        r"\bSector\s*[:：]\s*[^:。.\n\r]+?(?=\s+Industry\s*[:：]|[。.\n\r]|$)",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"\bIndustry\s*[:：]\s*[^:。.\n\r]+?(?=[。.\n\r]|$)",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def _research_brief_readable_business_overview(text: str) -> str:
+    readable = _research_brief_plain_sentences(text)
+    domain_sentence = _research_brief_business_domain_sentence(readable)
+    if domain_sentence:
+        return domain_sentence
+    if _looks_mostly_english(readable):
+        return (
+            "provider情報から事業概要を取得しました。初期表示では断定せず、"
+            "公式IRで事業内容、主要セグメント、地域別構成を確認してください。"
+        )
+    return _clip_text(readable, max_chars=220)
+
+
+def _research_brief_plain_sentences(text: str) -> str:
+    chunks = [
+        chunk.strip(" ・-") for chunk in re.split(r"(?<=[。.!?])\s+|[\r\n]+", text) if chunk.strip()
+    ]
+    useful_chunks = [
+        chunk
+        for chunk in chunks
         if not any(
-            re.match(rf"^{re.escape(label)}\s*[:：]", line, flags=re.IGNORECASE)
+            re.search(rf"\b{re.escape(label)}\s*[:：]", chunk, flags=re.IGNORECASE)
             for label in _RESEARCH_BRIEF_RAW_PROVIDER_LABELS
         )
     ]
-    cleaned = " ".join(filtered)
-    for label in _RESEARCH_BRIEF_RAW_PROVIDER_LABELS:
-        cleaned = re.sub(
-            rf"{re.escape(label)}\s*[:：]\s*[^。.\n\r]+[。. ]?",
-            "",
-            cleaned,
-            flags=re.IGNORECASE,
+    return re.sub(r"\s+", " ", " ".join(useful_chunks or chunks)).strip()
+
+
+def _research_brief_business_domain_sentence(text: str) -> str:
+    lowered = text.lower()
+    domains: list[str] = []
+    if any(
+        keyword in lowered
+        for keyword in (
+            "vehicle",
+            "vehicles",
+            "automotive",
+            "automobile",
+            "passenger car",
+            "commercial vehicle",
         )
-    return re.sub(r"\s+", " ", cleaned).strip()
+    ):
+        domains.append("自動車・モビリティ関連事業（車両の設計・製造・販売）")
+    if any(keyword in lowered for keyword in ("software", "connected", "mobility service")):
+        domains.append("ソフトウェアやモビリティサービスへの取り組み")
+    if any(keyword in lowered for keyword in ("semiconductor", "chip", "foundry")):
+        domains.append("半導体・電子部品関連事業")
+    if any(keyword in lowered for keyword in ("cloud", "saas", "platform")):
+        domains.append("ソフトウェア・クラウド関連事業")
+    if any(keyword in lowered for keyword in ("bank", "insurance", "financial services")):
+        domains.append("金融サービス関連事業")
+    if any(keyword in lowered for keyword in ("pharmaceutical", "drug", "medical")):
+        domains.append("医薬品・ヘルスケア関連事業")
+    if any(keyword in lowered for keyword in ("retail", "store", "e-commerce")):
+        domains.append("小売・EC関連事業")
+    if not domains:
+        return ""
+    unique_domains = list(dict.fromkeys(domains))[:3]
+    return (
+        "provider情報では、"
+        f"{'、'.join(unique_domains)}が確認できます。"
+        "公式IRで事業セグメント、主要市場、収益源を確認してください。"
+    )
+
+
+def _looks_mostly_english(text: str) -> bool:
+    letters = sum(1 for char in text if char.isascii() and char.isalpha())
+    japanese = sum(
+        1 for char in text if "\u3040" <= char <= "\u30ff" or "\u4e00" <= char <= "\u9fff"
+    )
+    return letters > japanese * 2 and letters > 20
 
 
 def _research_brief_positive_candidates(
@@ -2886,7 +2985,7 @@ def _research_brief_positive_candidates(
     news_report: StockNewsReport | None,
 ) -> list[str]:
     candidates = [
-        f"{point.label}: {_clip_text(point.summary, max_chars=140)}"
+        _research_brief_point_candidate(point)
         for point in report.points
         if point.category in {"growth", "shareholder_return", "financial_safety"} and point.evidence
     ]
@@ -2905,11 +3004,10 @@ def _research_brief_caution_candidates(
     news_report: StockNewsReport | None,
 ) -> list[str]:
     candidates = [
-        f"{point.label}: {_clip_text(point.summary, max_chars=140)}"
+        _research_brief_point_candidate(point)
         for point in report.points
         if point.category in {"business_risk", "confirmation_gap"}
     ]
-    candidates.extend(report.data_quality.warnings)
     if news_report is not None:
         candidates.extend(
             f"ニュース: {_clip_text(row.title, max_chars=60)} - "
@@ -2917,18 +3015,101 @@ def _research_brief_caution_candidates(
             for row in news_report.news
             if row.sentiment_for_investment in {"negative", "mixed", "unknown"}
         )
-        candidates.extend(news_report.warnings)
     return _unique_text(candidates)[:6]
+
+
+def _research_brief_point_candidate(point: ResearchSummaryPoint) -> str:
+    evidence = _dedupe_evidence(point.evidence)
+    if not evidence:
+        return f"{point.label}: まだ十分な根拠がありません。追加資料で確認してください。"
+    lead = evidence[0]
+    themes = _research_brief_topic_terms(point.category, lead.excerpt)
+    theme_text = "、".join(themes[:3]) if themes else _research_brief_topic_focus(point.category)
+    published = lead.published_at.isoformat() if lead.published_at else "日付未設定"
+    source_type = _research_brief_source_type_label(lead.source_type)
+    return (
+        f"{point.label}: {theme_text}に関する記述を{len(evidence)}件確認しました。"
+        f"主な出典は{source_type}「{lead.title}」（{published}）です。"
+    )
+
+
+def _research_brief_topic_terms(
+    category: ResearchTopicCategory,
+    text: str,
+) -> list[str]:
+    lowered = text.lower()
+    term_specs: dict[ResearchTopicCategory, tuple[tuple[str, tuple[str, ...]], ...]] = {
+        "growth": (
+            ("成長戦略", ("成長戦略", "growth strategy", "growth")),
+            ("売上・収益拡大", ("売上", "収益", "revenue", "sales")),
+            ("新規事業", ("新規事業", "new business", "software", "service")),
+        ),
+        "shareholder_return": (
+            ("配当", ("配当", "dividend")),
+            ("自社株買い", ("自社株買い", "buyback")),
+            ("株主還元方針", ("株主還元", "shareholder return", "payout")),
+        ),
+        "financial_safety": (
+            ("現金・流動性", ("cash", "liquidity", "キャッシュ", "現金")),
+            ("負債・資本構成", ("debt", "equity", "有利子負債", "自己資本")),
+            ("財務安全性", ("財務安全性", "balance sheet")),
+        ),
+        "business_risk": (
+            ("供給制約", ("供給制約", "supply", "supply chain")),
+            ("為替変動", ("為替", "foreign exchange")),
+            ("規制・競争環境", ("regulation", "competition", "規制", "競争")),
+        ),
+        "confirmation_gap": (
+            ("確認不足", ("確認不足", "根拠不足", "missing")),
+            ("資料鮮度", ("鮮度", "stale")),
+            ("追加確認", ("追加確認", "additional confirmation")),
+        ),
+    }
+    terms: list[str] = []
+    for label, keywords in term_specs.get(category, ()):
+        if any(keyword.lower() in lowered for keyword in keywords):
+            terms.append(label)
+    return terms
+
+
+def _research_brief_topic_focus(category: ResearchTopicCategory) -> str:
+    labels: dict[ResearchTopicCategory, str] = {
+        "growth": "成長・収益拡大",
+        "shareholder_return": "配当・株主還元",
+        "financial_safety": "財務安全性",
+        "business_risk": "事業リスク",
+        "confirmation_gap": "資料面の確認不足",
+    }
+    return labels.get(category, "確認材料")
+
+
+def _research_brief_source_type_label(source_type: ResearchSourceType) -> str:
+    labels: dict[ResearchSourceType, str] = {
+        "annual_report": "有価証券報告書",
+        "earnings_report": "決算短信",
+        "earnings_presentation": "決算説明資料",
+        "medium_term_plan": "中期経営計画",
+        "integrated_report": "統合報告書",
+        "tdnet": "適時開示",
+        "provider_profile": "取得元プロフィール",
+        "news": "ニュース",
+        "user_note": "ユーザーメモ",
+    }
+    return labels[source_type]
 
 
 def _research_brief_confirmation_gaps(
     report: CompanyResearchReport,
     missing_metrics: Sequence[str],
+    *,
+    news_report: StockNewsReport | None,
 ) -> list[str]:
     gaps = list(report.data_quality.warnings)
     gaps.extend(
         missing for claim in report.extracted_claims for missing in claim.missing_information
     )
+    if news_report is not None:
+        gaps.extend(f"ニュース確認: {warning}" for warning in news_report.warnings)
     if missing_metrics:
         gaps.append(f"未確認の定量指標: {'、'.join(missing_metrics[:8])}")
     return _unique_text(gaps)[:8]
@@ -3031,10 +3212,15 @@ def _research_brief_memo(
     caution = (
         "注意点があります。" if report.data_quality.warnings else "大きな資料警告はありません。"
     )
+    if not metrics:
+        metric_summary = (
+            "売上高や利益などの主要な定量指標はまだ抽出できていません。"
+            "まず公式資料で数値を確認してください。"
+        )
     return (
-        f"現時点で確認できた情報を、{source_summary}から整理しました。"
+        f"{source_summary}から、事業概要・材料候補・確認不足を整理しました。"
         f"{metric_summary}{caution}"
-        "このメモは確認観点の整理であり、売買推奨ではありません。"
+        "売買推奨ではありません。"
     )
 
 

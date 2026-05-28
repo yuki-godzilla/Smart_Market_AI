@@ -69,6 +69,7 @@ from ui.app import (
     _research_brief_metric_rows,
     _research_brief_next_action_rows,
     _research_brief_overview_html,
+    _research_brief_source_card_rows,
     _research_evidence_card_rows,
     _research_evidence_cards_html,
     _research_evidence_report_section,
@@ -739,7 +740,18 @@ def test_research_brief_helpers_render_readable_rows_and_escape_markup():
                 source_type="earnings_report",
                 published_at=date(2026, 5, 20),
                 source_confidence="high",
-            )
+            ),
+            ResearchBriefSourceCard(
+                title="TDnet 7203",
+                source_type="tdnet",
+                provider="tdnet",
+                source_url="https://example.com/tdnet",
+                published_at=date(2026, 5, 22),
+                fetched_at=datetime(2026, 5, 25, tzinfo=UTC),
+                freshness_status="latest",
+                source_confidence="high",
+                note="AI調査で一時参照した外部ソースです。",
+            ),
         ],
     )
 
@@ -747,6 +759,8 @@ def test_research_brief_helpers_render_readable_rows_and_escape_markup():
     metric_rows = _research_brief_metric_rows(brief)
     gap_rows = _research_brief_gap_rows(brief)
     action_rows = _research_brief_next_action_rows(brief)
+    source_rows = _research_brief_source_card_rows(brief)
+    source_markup = _research_evidence_cards_html(source_rows)
     item_markup = _research_brief_items_html(["<growth>"], tone="positive")
 
     assert "AI整理メモ" in markup
@@ -757,6 +771,10 @@ def test_research_brief_helpers_render_readable_rows_and_escape_markup():
     assert metric_rows[0]["情報源信頼度"].startswith("高")
     assert gap_rows[0]["確認項目"] == "不足根拠"
     assert action_rows[0]["扱い"] == "確認材料"
+    assert source_rows[0]["category"] == "決算短信"
+    assert source_rows[1]["url"] == "https://example.com/tdnet"
+    assert "出典を開く" in source_markup
+    assert "情報源の信頼度" in source_markup
     assert "<growth>" not in item_markup
     assert "&lt;growth&gt;" in item_markup
 

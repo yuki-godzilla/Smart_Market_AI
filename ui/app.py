@@ -52,6 +52,7 @@ from backend.research import (
     ExternalResearchFetchResult,
     ResearchBrief,
     ResearchBriefBuilder,
+    ResearchBriefSourceCard,
     ResearchDocument,
     ResearchScore,
     ResearchScoreService,
@@ -4910,11 +4911,7 @@ def _render_research_summary_panel(
     research_score = ResearchScoreService().score_report(report)
     point_rows = _research_investment_point_rows(report)
 
-    card_rows = _research_evidence_card_rows(
-        report,
-        news_report=news_report,
-        limit=None,
-    )
+    card_rows = _research_brief_source_card_rows(brief)
     render_research_evidence_summary(report)
     if card_rows:
         st.markdown("##### 出典カード")
@@ -5109,6 +5106,37 @@ def _research_brief_next_action_rows(brief: ResearchBrief) -> list[dict[str, str
         }
         for action in brief.next_actions
     ]
+
+
+def _research_brief_source_card_rows(brief: ResearchBrief) -> list[dict[str, str]]:
+    return [
+        {
+            "sentiment": "確認材料",
+            "category": _research_source_type_label(card.source_type),
+            "title": card.title,
+            "summary": card.note or "出典、公開日、URL、情報源信頼度を確認する資料です。",
+            "investment_impact": (
+                "情報源の信頼度や鮮度を確認し、スコアや価格予測とは分けて読みます。"
+            ),
+            "source": card.provider or _research_source_type_label(card.source_type),
+            "published_at": card.published_at.isoformat() if card.published_at else "未取得",
+            "confidence": _research_source_confidence_label(card.source_confidence),
+            "url": card.source_url or "",
+            "detail": _research_brief_source_card_detail(card),
+            "action_label": "出典を開く",
+        }
+        for card in brief.source_cards
+    ]
+
+
+def _research_brief_source_card_detail(card: ResearchBriefSourceCard) -> str:
+    fetched_at = card.fetched_at
+    freshness_status = card.freshness_status
+    details = [
+        f"取得日時: {fetched_at.isoformat()}" if fetched_at is not None else "",
+        f"鮮度: {freshness_status}" if freshness_status and freshness_status != "unknown" else "",
+    ]
+    return " / ".join(detail for detail in details if detail)
 
 
 def _research_brief_items_html(items: Sequence[str], *, tone: str) -> str:
@@ -6262,9 +6290,10 @@ def _research_evidence_cards_html(evidence_rows: list[dict[str, str]]) -> str:
         meta = " / ".join(html.escape(part) for part in meta_parts if part)
         action_parts = []
         if url:
+            action_label = row.get("action_label") or "記事を開く"
             action_parts.append(
                 f'<a href="{html.escape(url, quote=True)}" target="_blank" rel="noopener">'
-                "記事を開く</a>"
+                f"{html.escape(action_label)}</a>"
             )
         action_parts.append('<span class="research-evidence-action-muted">詳細を見る</span>')
         actions = "".join(action_parts)

@@ -461,15 +461,107 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     padding: 0.9rem 1rem;
     margin: 0.75rem 0 0.65rem;
 }
+.research-result-brief.hero {
+    border-color: rgba(34, 211, 238, 0.58);
+    background:
+        linear-gradient(135deg, rgba(8, 27, 42, 0.98), rgba(17, 31, 53, 0.94));
+    box-shadow: 0 18px 42px rgba(2, 8, 23, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
 .research-result-brief-title {
     color: var(--text-ai-title);
+    font-size: 1.12rem;
     font-weight: 800;
     margin-bottom: 0.35rem;
 }
 .research-result-brief-summary {
     color: var(--text-ai-primary);
+    font-size: 0.98rem;
     line-height: 1.65;
     margin-bottom: 0.75rem;
+}
+.research-brief-badge-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-bottom: 0.7rem;
+}
+.research-brief-badge {
+    border: 1px solid var(--border-default);
+    border-radius: 999px;
+    color: var(--text-neutral);
+    font-size: 0.76rem;
+    font-weight: 820;
+    padding: 0.18rem 0.55rem;
+}
+.research-brief-badge.info,
+.research-evidence-pill.confidence-high {
+    border-color: rgba(34, 211, 238, 0.56);
+    color: var(--text-ai-title);
+}
+.research-brief-badge.neutral,
+.research-evidence-pill.confidence-unknown {
+    border-color: var(--border-default);
+    color: var(--text-neutral);
+}
+.research-brief-badge.warning,
+.research-evidence-pill.confidence-medium {
+    border-color: rgba(251, 191, 36, 0.58);
+    color: var(--text-warning);
+}
+.research-brief-badge.low,
+.research-evidence-pill.confidence-low {
+    border-color: rgba(251, 113, 133, 0.56);
+    color: var(--text-negative);
+}
+.research-brief-metric-grid {
+    display: grid;
+    gap: 0.62rem;
+    grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+    margin: 0.75rem 0 0.65rem;
+}
+.research-brief-metric-card {
+    border: 1px solid var(--border-default);
+    border-radius: 6px;
+    background: var(--bg-card);
+    padding: 0.72rem 0.82rem;
+}
+.research-brief-metric-label {
+    color: var(--text-label);
+    font-size: 0.78rem;
+    font-weight: 760;
+    margin-bottom: 0.24rem;
+}
+.research-brief-metric-value {
+    color: var(--text-value);
+    font-size: 1.02rem;
+    font-weight: 850;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+.research-brief-metric-source {
+    color: var(--text-caption);
+    font-size: 0.78rem;
+    line-height: 1.45;
+    margin-top: 0.38rem;
+    overflow-wrap: anywhere;
+}
+.research-brief-gap-panel {
+    border: 1px solid rgba(251, 191, 36, 0.5);
+    border-radius: 8px;
+    background: rgba(251, 191, 36, 0.08);
+    color: var(--text-warning);
+    margin: 0.75rem 0 0.65rem;
+    padding: 0.82rem 0.95rem;
+}
+.research-brief-gap-title {
+    color: var(--text-warning);
+    font-weight: 840;
+    margin-bottom: 0.36rem;
+}
+.research-brief-gap-item {
+    color: var(--text-secondary);
+    line-height: 1.55;
+    margin-top: 0.24rem;
 }
 .research-result-brief-grid {
     display: grid;
@@ -5007,10 +5099,10 @@ def _render_research_summary_panel(
 
 
 def _render_research_brief_sections(brief: ResearchBrief) -> None:
-    metric_rows = _research_brief_metric_rows(brief)
     st.markdown("##### 定量評価サマリー")
-    if metric_rows:
-        _render_compact_dataframe(metric_rows)
+    metric_markup = _research_brief_metric_cards_html(brief)
+    if metric_markup:
+        st.markdown(metric_markup, unsafe_allow_html=True)
     else:
         st.info("定量指標はまだ十分に抽出できていません。公式資料で確認してください。")
 
@@ -5030,10 +5122,10 @@ def _render_research_brief_sections(brief: ResearchBrief) -> None:
             unsafe_allow_html=True,
         )
 
-    gap_rows = _research_brief_gap_rows(brief)
-    if gap_rows:
+    gap_markup = _research_brief_gap_panel_html(brief)
+    if gap_markup:
         st.markdown("##### 未確認・不足している根拠")
-        _render_compact_dataframe(gap_rows)
+        st.markdown(gap_markup, unsafe_allow_html=True)
 
     action_rows = _research_brief_next_action_rows(brief)
     if action_rows:
@@ -5057,9 +5149,11 @@ def _research_brief_overview_html(brief: ResearchBrief) -> str:
         )
         for label, value in items
     )
+    badge_markup = _research_brief_status_badges_html(brief)
     return (
-        '<section class="research-result-brief">'
+        '<section class="research-result-brief hero">'
         '<div class="research-result-brief-title">AI整理メモ</div>'
+        f"{badge_markup}"
         f'<div class="research-result-brief-summary">{html.escape(brief.memo)}</div>'
         f'<div class="research-result-brief-grid">{item_markup}</div>'
         "</section>"
@@ -5087,6 +5181,30 @@ def _research_brief_metric_rows(brief: ResearchBrief) -> list[dict[str, str]]:
     ]
 
 
+def _research_brief_metric_cards_html(brief: ResearchBrief) -> str:
+    if not brief.metrics:
+        return ""
+    cards = []
+    for metric in brief.metrics:
+        source_type = _research_source_type_label(metric.source_type)
+        confidence = _research_source_confidence_label(metric.source_confidence)
+        confidence_tone = _research_source_confidence_tone(metric.source_confidence)
+        cards.append(
+            '<div class="research-brief-metric-card">'
+            '<div class="research-evidence-card-header">'
+            f'<span class="research-evidence-pill">{html.escape(source_type)}</span>'
+            f'<span class="research-evidence-pill confidence-{html.escape(confidence_tone)}">'
+            f"{html.escape(confidence)}</span>"
+            "</div>"
+            f'<div class="research-brief-metric-label">{html.escape(metric.label)}</div>'
+            f'<div class="research-brief-metric-value">{html.escape(metric.value)}</div>'
+            '<div class="research-brief-metric-source">'
+            f"出典: {html.escape(metric.source_title)}</div>"
+            "</div>"
+        )
+    return f'<div class="research-brief-metric-grid">{"".join(cards)}</div>'
+
+
 def _research_brief_gap_rows(brief: ResearchBrief) -> list[dict[str, str]]:
     return [
         {
@@ -5096,6 +5214,30 @@ def _research_brief_gap_rows(brief: ResearchBrief) -> list[dict[str, str]]:
         }
         for gap in brief.confirmation_gaps
     ]
+
+
+def _research_brief_gap_panel_html(brief: ResearchBrief) -> str:
+    if not brief.missing_metrics and not brief.confirmation_gaps:
+        return ""
+    items = []
+    has_metric_gap = any(
+        gap.strip().startswith("未確認の定量指標") for gap in brief.confirmation_gaps
+    )
+    if brief.missing_metrics and not has_metric_gap:
+        missing = " / ".join(brief.missing_metrics)
+        items.append(f"未確認の定量指標: {missing}")
+    items.extend(brief.confirmation_gaps)
+    item_markup = "".join(
+        f'<div class="research-brief-gap-item">{html.escape(item)}</div>'
+        for item in items
+        if item.strip()
+    )
+    return (
+        '<section class="research-brief-gap-panel">'
+        '<div class="research-brief-gap-title">追加確認が必要な根拠</div>'
+        f"{item_markup}"
+        "</section>"
+    )
 
 
 def _research_brief_next_action_rows(brief: ResearchBrief) -> list[dict[str, str]]:
@@ -5121,6 +5263,7 @@ def _research_brief_source_card_rows(brief: ResearchBrief) -> list[dict[str, str
             "source": card.provider or _research_source_type_label(card.source_type),
             "published_at": card.published_at.isoformat() if card.published_at else "未取得",
             "confidence": _research_source_confidence_label(card.source_confidence),
+            "confidence_tone": _research_source_confidence_tone(card.source_confidence),
             "url": card.source_url or "",
             "detail": _research_brief_source_card_detail(card),
             "action_label": "出典を開く",
@@ -5166,6 +5309,44 @@ def _research_source_confidence_label(confidence: str) -> str:
         "unknown": "未確認",
     }
     return labels.get(confidence, "未確認")
+
+
+def _research_source_confidence_tone(confidence: str) -> str:
+    tones = {
+        "high": "high",
+        "medium": "medium",
+        "low": "low",
+        "unknown": "unknown",
+    }
+    return tones.get(confidence, "unknown")
+
+
+def _research_brief_status_badges_html(brief: ResearchBrief) -> str:
+    high_count = sum(1 for card in brief.source_cards if card.source_confidence == "high")
+    medium_count = sum(1 for card in brief.source_cards if card.source_confidence == "medium")
+    low_count = sum(1 for card in brief.source_cards if card.source_confidence == "low")
+    unknown_count = sum(
+        1 for card in brief.source_cards if card.source_confidence not in {"high", "medium", "low"}
+    )
+    badges = [
+        ("AI整理済み", "info"),
+        ("売買推奨ではありません", "neutral"),
+    ]
+    if high_count:
+        badges.append((f"高信頼の出典 {high_count}件", "info"))
+    if medium_count:
+        badges.append((f"中信頼の出典 {medium_count}件", "warning"))
+    if low_count:
+        badges.append((f"低信頼の出典 {low_count}件", "low"))
+    if unknown_count:
+        badges.append((f"信頼度未確認 {unknown_count}件", "neutral"))
+    if brief.missing_metrics:
+        badges.append((f"追加確認 {len(brief.missing_metrics)}指標", "warning"))
+    badge_markup = "".join(
+        f'<span class="research-brief-badge {css_class}">{html.escape(label)}</span>'
+        for label, css_class in badges
+    )
+    return f'<div class="research-brief-badge-row">{badge_markup}</div>'
 
 
 def _research_result_overview_html(report: CompanyResearchReport) -> str:
@@ -6279,6 +6460,9 @@ def _research_evidence_cards_html(evidence_rows: list[dict[str, str]]) -> str:
         source = row.get("source") or row.get("資料種別") or "未確認"
         published_at = row.get("published_at") or row.get("公開日") or "未取得"
         confidence = row.get("confidence") or row.get("信頼度") or ""
+        confidence_tone = row.get("confidence_tone", "").strip()
+        if confidence_tone not in {"high", "medium", "low", "unknown"}:
+            confidence_tone = ""
         detail = row.get("detail") or row.get("セクション") or ""
         url = row.get("url", "").strip()
         meta_parts = [
@@ -6298,11 +6482,18 @@ def _research_evidence_cards_html(evidence_rows: list[dict[str, str]]) -> str:
         action_parts.append('<span class="research-evidence-action-muted">詳細を見る</span>')
         actions = "".join(action_parts)
         tone = _research_sentiment_css_class(sentiment)
+        confidence_pill = (
+            f'<span class="research-evidence-pill confidence-{html.escape(confidence_tone)}">'
+            f"{html.escape(confidence)}</span>"
+            if confidence and confidence_tone
+            else ""
+        )
         items.append(
             '<div class="research-evidence-item">'
             '<div class="research-evidence-card-header">'
             f'<span class="research-evidence-pill {tone}">{html.escape(sentiment)}</span>'
             f'<span class="research-evidence-pill">{html.escape(category)}</span>'
+            f"{confidence_pill}"
             "</div>"
             f'<div class="research-evidence-title">{html.escape(title)}</div>'
             '<div class="research-evidence-body">'

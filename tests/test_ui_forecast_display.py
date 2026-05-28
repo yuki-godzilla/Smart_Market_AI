@@ -64,8 +64,10 @@ from ui.app import (
     _ranking_source_key_for_selection,
     _ranking_symbols_from_selected_labels,
     _render_market_chart,
+    _research_brief_gap_panel_html,
     _research_brief_gap_rows,
     _research_brief_items_html,
+    _research_brief_metric_cards_html,
     _research_brief_metric_rows,
     _research_brief_next_action_rows,
     _research_brief_overview_html,
@@ -756,7 +758,9 @@ def test_research_brief_helpers_render_readable_rows_and_escape_markup():
     )
 
     markup = _research_brief_overview_html(brief)
+    metric_markup = _research_brief_metric_cards_html(brief)
     metric_rows = _research_brief_metric_rows(brief)
+    gap_markup = _research_brief_gap_panel_html(brief)
     gap_rows = _research_brief_gap_rows(brief)
     action_rows = _research_brief_next_action_rows(brief)
     source_rows = _research_brief_source_card_rows(brief)
@@ -764,17 +768,27 @@ def test_research_brief_helpers_render_readable_rows_and_escape_markup():
     item_markup = _research_brief_items_html(["<growth>"], tone="positive")
 
     assert "AI整理メモ" in markup
+    assert "research-result-brief hero" in markup
+    assert "売買推奨ではありません" in markup
+    assert "追加確認 1指標" in markup
     assert "抽出指標" in markup
     assert "<script>" not in markup
     assert "&lt;script&gt;" in markup
+    assert "research-brief-metric-grid" in metric_markup
+    assert "45兆円" in metric_markup
+    assert "confidence-high" in metric_markup
+    assert "research-brief-gap-panel" in gap_markup
+    assert "未確認の定量指標: EPS" in gap_markup
     assert metric_rows[0]["指標"] == "売上高"
     assert metric_rows[0]["情報源信頼度"].startswith("高")
     assert gap_rows[0]["確認項目"] == "不足根拠"
     assert action_rows[0]["扱い"] == "確認材料"
     assert source_rows[0]["category"] == "決算短信"
+    assert source_rows[0]["confidence_tone"] == "high"
     assert source_rows[1]["url"] == "https://example.com/tdnet"
     assert "出典を開く" in source_markup
     assert "情報源の信頼度" in source_markup
+    assert "confidence-high" in source_markup
     assert "<growth>" not in item_markup
     assert "&lt;growth&gt;" in item_markup
 

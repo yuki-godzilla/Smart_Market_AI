@@ -741,3 +741,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added a shared `--bg-page` base color and applied the same dark navy grid / gradient treatment to body, root, Streamlit app, and main containers.
 - Reduced the visual mismatch where content margins looked nearly black beside the central navy content area.
 - Kept the change CSS-only with no workflow, data, forecast, scoring, ranking, Research RAG, or report behavior changes.
+
+## 2026-05-28 - ResearchBrief visible UI polish
+
+- Made the Research Summary `AI整理メモ` visually prominent with non-advice, source-confidence, and missing-metric badges.
+- Replaced the normal ResearchBrief metric table in the primary view with compact metric cards and moved missing metrics into a warning-style confirmation panel.
+- Added source-confidence badges to ResearchBrief source cards while keeping Research Score and ranking order behavior unchanged.

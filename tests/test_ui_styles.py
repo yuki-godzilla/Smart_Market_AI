@@ -71,11 +71,12 @@ def test_global_theme_tokens_define_dark_financial_ai_palette():
     assert THEME_COLORS["signal_buy"] == "#34D399"
     assert CHART_COLORS["prediction"] == THEME_COLORS["chart_prediction"]
 
+    assert "--bg-page: #070D19;" in SMAI_GLOBAL_CSS
     assert "--bg-app: #020510;" in SMAI_GLOBAL_CSS
     assert ".smai-ai-card" in SMAI_GLOBAL_CSS
     assert "--text-value: #F1F5F9;" in SMAI_GLOBAL_CSS
     assert '[data-testid="stAppViewContainer"]' in SMAI_GLOBAL_CSS
-    assert "background: transparent !important;" in SMAI_GLOBAL_CSS
+    assert "background-color: var(--bg-page) !important;" in SMAI_GLOBAL_CSS
     assert "max-width: none;" in SMAI_GLOBAL_CSS
     assert '[data-testid="stButton"] button [data-testid="stMarkdownContainer"] p' in (
         SMAI_GLOBAL_CSS

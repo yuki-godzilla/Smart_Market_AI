@@ -149,6 +149,7 @@ SMAI_GLOBAL_CSS = """
 <style>
 :root {
     /* Background */
+    --bg-page: #070D19;
     --bg-app: #020510;
     --bg-surface: #070D19;
     --bg-card: #111F35;
@@ -246,11 +247,21 @@ SMAI_GLOBAL_CSS = """
     --smai-gray: var(--chart-volume);
 }
 
-.stApp {
+html,
+body,
+#root,
+.stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"],
+[data-testid="stAppViewContainer"] .main {
     background:
         linear-gradient(90deg, rgba(30, 42, 62, 0.18) 1px, transparent 1px),
-        linear-gradient(180deg, var(--bg-app) 0%, var(--bg-surface) 100%);
+        linear-gradient(180deg, var(--bg-page) 0%, var(--bg-surface) 100%);
     background-size: 56px 56px, auto;
+    background-color: var(--bg-page);
+}
+
+.stApp {
     color: var(--text-primary);
 }
 
@@ -264,7 +275,11 @@ SMAI_GLOBAL_CSS = """
 [data-testid="stAppViewContainer"],
 [data-testid="stMain"],
 [data-testid="stAppViewContainer"] .main {
-    background: transparent !important;
+    background:
+        linear-gradient(90deg, rgba(30, 42, 62, 0.18) 1px, transparent 1px),
+        linear-gradient(180deg, var(--bg-page) 0%, var(--bg-surface) 100%) !important;
+    background-size: 56px 56px, auto !important;
+    background-color: var(--bg-page) !important;
 }
 
 .stApp::before {

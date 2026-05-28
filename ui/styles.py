@@ -789,22 +789,40 @@ body,
 .smai-app-header {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: 1fr;
     align-items: center;
-    gap: 1.2rem;
-    border-bottom: 1px solid rgba(37, 52, 77, 0.72);
-    padding: 0.25rem 0 1.05rem;
-    margin: 0 0 1.05rem;
+    justify-items: center;
+    overflow: hidden;
+    border-top: 1px solid rgba(34, 211, 238, 0.22);
+    border-bottom: 1px solid rgba(34, 211, 238, 0.42);
+    background:
+        linear-gradient(90deg, rgba(6, 18, 34, 0.52), rgba(17, 31, 53, 0.88) 50%, rgba(6, 18, 34, 0.52)),
+        linear-gradient(180deg, rgba(34, 211, 238, 0.08), rgba(2, 5, 16, 0));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.04),
+        0 18px 38px rgba(2, 8, 23, 0.24);
+    padding: 1.05rem 7.2rem 1.15rem;
+    margin: 0 0 1.2rem;
+    text-align: center;
 }
 
 .smai-app-header::after {
     content: "";
     position: absolute;
-    left: 0;
+    left: 50%;
     bottom: -1px;
-    width: min(22rem, 42vw);
+    width: min(34rem, 54vw);
     height: 1px;
-    background: linear-gradient(90deg, var(--ai-cyan), rgba(96, 165, 250, 0.42), transparent);
+    background: linear-gradient(90deg, transparent, var(--ai-cyan), rgba(45, 212, 191, 0.66), transparent);
+    transform: translateX(-50%);
+}
+
+.smai-app-header-copy {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    justify-items: center;
+    width: min(58rem, 100%);
 }
 
 .smai-app-title {
@@ -819,14 +837,14 @@ body,
 
 .smai-app-logo {
     display: block;
-    width: min(31rem, 54vw);
+    width: min(43rem, 72vw);
     max-width: 100%;
-    max-height: 6.4rem;
+    max-height: 8.6rem;
     object-fit: contain;
-    object-position: left center;
+    object-position: center center;
     filter:
-        drop-shadow(0 10px 22px rgba(0, 0, 0, 0.22))
-        drop-shadow(0 0 12px rgba(34, 211, 238, 0.12));
+        drop-shadow(0 14px 28px rgba(0, 0, 0, 0.28))
+        drop-shadow(0 0 18px rgba(34, 211, 238, 0.16));
 }
 
 .smai-app-message {
@@ -834,15 +852,19 @@ body,
     font-size: 0.95rem;
     font-weight: 650;
     line-height: 1.55;
-    margin: 0.45rem 0 0;
+    margin: 0.55rem 0 0;
+    max-width: 44rem;
 }
 
 .smai-app-mascot-wrap {
-    position: relative;
-    width: clamp(4.5rem, 8vw, 6.8rem);
+    position: absolute;
+    top: 50%;
+    right: 1.2rem;
+    width: clamp(4.6rem, 6.2vw, 6.4rem);
     aspect-ratio: 1;
     display: grid;
     place-items: center;
+    transform: translateY(-50%);
     border: 1px solid rgba(34, 211, 238, 0.28);
     border-radius: 8px;
     background:
@@ -1426,15 +1448,20 @@ body,
     .smai-app-header {
         grid-template-columns: 1fr;
         gap: 0.8rem;
+        padding: 0.95rem 1rem 1rem;
     }
 
     .smai-app-mascot-wrap {
+        position: relative;
+        top: auto;
+        right: auto;
         width: 4.4rem;
+        transform: none;
     }
 
     .smai-app-logo {
-        width: min(100%, 24rem);
-        max-height: 5.1rem;
+        width: min(100%, 30rem);
+        max-height: 6.2rem;
     }
 
     .smai-page-title-row {

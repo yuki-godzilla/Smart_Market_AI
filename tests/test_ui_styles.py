@@ -56,6 +56,9 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert "@keyframes smai-copilot-float" in SMAI_GLOBAL_CSS
     assert "translateY(-3px) scale(1.012)" in SMAI_GLOBAL_CSS
     assert ".smai-app-logo" in SMAI_GLOBAL_CSS
+    assert "justify-items: center;" in SMAI_GLOBAL_CSS
+    assert "width: min(43rem, 72vw);" in SMAI_GLOBAL_CSS
+    assert "object-position: center center;" in SMAI_GLOBAL_CSS
     assert "object-fit: contain;" in SMAI_GLOBAL_CSS
     assert "@media (prefers-reduced-motion: reduce)" in SMAI_GLOBAL_CSS
 

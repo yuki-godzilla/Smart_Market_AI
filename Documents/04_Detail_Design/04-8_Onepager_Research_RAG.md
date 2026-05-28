@@ -105,12 +105,12 @@ Phase 21 は、Phase 20 の deterministic evidence foundation を壊さず、根
 - `investment_viewpoint` は `earnings`, `growth`, `shareholder_return`, `risk`, `macro`, `other` から開始する。
 - `sentiment_for_investment` は `positive`, `negative`, `neutral`, `mixed`, `unknown` とし、buy / sell / hold ではなくニュース材料の方向感として扱う。
 - `freshness_status` は `latest`, `recent`, `stale`, `unknown` とし、古いニュースを最新材料のように扱わない。
-- 外部ニュース取得は backend の network gate を通す adapter とし、通常ユーザー導線では `AI調査を更新` / news refresh に統合する。通常 checks / CI は fake adapter / fixture を使い、network、live scraping、外部LLMに依存させない。
+- 外部ニュース取得は backend の network gate を通す adapter とし、通常ユーザー導線では `AI調査を更新` に統合する。通常 checks / CI は fake adapter / fixture を使い、network、live scraping、外部LLMに依存させない。
 
 ### Phase 21.6 / 21.7 External Fetch Boundary
 
 - Phase 21.6 は `AI調査を更新` の標準処理として、TDnet + Yahoo Finance 初期 slice 実装済み。次は EDINET / 企業IR site / provider profile 拡張などの外部資料取得 adapter を追加する候補とする。
-- Phase 21.7 は `AI調査を更新` または news refresh から選択銘柄に限定した外部ニュース取得 adapter を使う候補とする。
+- Phase 21.7 は `AI調査を更新` から選択銘柄に限定した外部ニュース取得 adapter を使う候補とする。
 - 外部取得結果は既定では source URL、provider、fetched_at、published_at、freshness_status、短い要約/引用範囲だけを表示・Report context に渡す。取得本文・document_hash・manifest は自動保持しない。通常 tests / CI では fake adapter / fixture を使う。
 - 外部資料取得・外部ニュース取得は通常ユーザー導線の primary source とし、local deterministic slice は tests / fixture / archive / fallback として残す。失敗時はローカル資料・ローカル news evidence 表示に戻る。
 - これらの child phases でも Investment Score / ranking order を変更せず、buy / sell / hold を出さない。

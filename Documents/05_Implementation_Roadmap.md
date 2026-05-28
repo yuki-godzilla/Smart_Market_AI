@@ -702,7 +702,7 @@ Status: first local deterministic slice implemented
 Purpose:
 
 - まずは既存の `銘柄コックピット` に、選択中の銘柄だけを対象にした個別銘柄ニュース深掘りを小さく追加する。
-- Research Evidence 内の `ニュースのみ再取得` を候補とし、AI調査更新時または専用ボタン押下時に、銘柄名、ticker、related keywords から news evidence を取得・整理する。
+- Research Evidence 内の標準導線は `AI調査を更新` に集約し、AI調査更新時に銘柄名、ticker、related keywords から news evidence も取得・整理する。
 - 根拠 URL 付きの最新ニュース要約、投資観点、材料の方向感、鮮度を表示するところまでを MVP とする。
 - ニュースは投資判断補助情報であり、売買推奨、buy / sell / hold 判断、Investment Score、ranking order の変更には使わない。
 
@@ -777,7 +777,7 @@ Guardrails:
 
 - source URL がない内容を断定しない。
 - 古いニュースは warning または `freshness_status` で明示する。
-- 外部ニュース取得は adapter 化し、`AI調査を更新` / news refresh の標準 source として扱う。
+- 外部ニュース取得は adapter 化し、`AI調査を更新` の標準 source として扱う。
 - 通常 tests / CI は外部 network、live scraping、外部LLM に依存させない。
 - 外部 LLM は必須にせず、template / deterministic fallback を維持する。
 - RAG の出力は投資判断補助であり、最終判断はユーザーが行う。
@@ -787,13 +787,13 @@ Current implemented slice:
 - `backend/research` has `StockNewsEvidence`, `StockNewsRequest`, `StockNewsReport`, and `StockNewsAnalysisService`.
 - The first deterministic test source is registered local Research documents with `source_type="news"`; product direction is to replace the normal user-facing path with external fresh news/source adapters while keeping tests network-free.
 - News documents must contain a `url:` / `source_url:` line or another `https://...` URL. Items without source URL are excluded with a warning rather than summarized as fact.
-- `銘柄コックピット` integrates Recent News into Research Evidence cards. The dedicated `ニュースのみ再取得` button stores a session-local report and card/detail displays title, URL, source, published_at, summary, investment_viewpoint, sentiment_for_investment, and freshness_status.
+- `銘柄コックピット` integrates Recent News into Research Evidence cards through the standard `AI調査を更新` action. Card/detail displays title, URL, source, published_at, summary, investment_viewpoint, sentiment_for_investment, and freshness_status without exposing a separate news-only button in the main operation card.
 - This slice does not change Investment Score, Research Score, Decision Report, or ranking order.
 
 Follow-up child roadmap:
 
 - Phase 21.6: External Research Document Fetch MVP。`AI調査を更新` の標準動作として、TDnet（初期 slice 実装済み）、EDINET / IR site / provider profile などの資料取得/参照 adapter を使う。取得本文は session-local RAG store で一時参照し、既定では `data/research_docs/` や cache/archive に保存しない。表示・Report には source URL、provider、fetched_at、published_at、freshness_status、短い要約/引用範囲を残す。通常 tests / CI は network 非依存の fixture / fake adapter で確認する。
-- Phase 21.7: External Stock News Fetch MVP. `AI調査を更新` または news refresh から、選択中の銘柄名 / ticker / related keywords に限定した外部ニュース取得 adapter を使う。取得結果は `StockNewsEvidence` 互換の title / URL / source / published_at / summary / investment_viewpoint / sentiment_for_investment / freshness_status として一時表示する。既定ではニュース本文を保持せず、source URL がない内容は断定せず、外部 LLM は必須にしない。
+- Phase 21.7: External Stock News Fetch MVP. `AI調査を更新` から、選択中の銘柄名 / ticker / related keywords に限定した外部ニュース取得 adapter を使う。取得結果は `StockNewsEvidence` 互換の title / URL / source / published_at / summary / investment_viewpoint / sentiment_for_investment / freshness_status として一時表示する。既定ではニュース本文を保持せず、source URL がない内容は断定せず、外部 LLM は必須にしない。
 - Phase 21.6 / 21.7 は、Phase 21.5 の local deterministic slice を test/fallback として残しつつ、通常ユーザー導線では外部最新情報を優先する。外部取得に失敗した場合はローカル fixture / saved archive / fallback evidence 表示に戻れる設計にする。
 - External fetch child phases remain decision-support only. Investment Score、Research Score、Decision Report 自動反映、ranking order 変更、buy / sell / hold 判断は行わない。
 
@@ -910,7 +910,7 @@ News guardrails for Phase 23+:
 - ニュースだけで Investment Score や ranking order を変更しない。
 - source URL がない内容を断定しない。
 - 古いニュースは warning または `freshness_status` で明示する。
-- 外部ニュース取得は adapter 化し、`AI調査を更新` / news refresh の標準 source として扱う。
+- 外部ニュース取得は adapter 化し、`AI調査を更新` の標準 source として扱う。
 - CI / 通常テストは外部ネットワークに依存させない。
 - 外部 LLM は必須にせず、template / deterministic fallback を維持する。
 

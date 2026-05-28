@@ -718,6 +718,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Extended the shared navy background treatment to the main Streamlit container and full-width block area so the page no longer looks visually cut off outside the content band.
 - Kept the change CSS-only with no workflow, data, forecast, scoring, ranking, Research RAG, or report behavior changes.
 
+## 2026-05-28 - Research operation card single action
+
+- Simplified the Cockpit Research operation card so `AI調査を更新` is the only always-visible action.
+- Removed the news-only refresh, evidence CSV export, and detail-toggle controls from the main Research operation card to reduce decision noise.
+- Updated Research RAG docs and UI wording policy so external news remains part of the standard AI調査 flow instead of a separate primary user action.
+
 ## 2026-05-28 - Primary button B+C hybrid style
 
 - Changed primary action buttons to a deeper AI blue / teal hybrid gradient with off-white text and subtle cyan glow instead of dark navy text.

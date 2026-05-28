@@ -1,5 +1,6 @@
 import asyncio
 import json
+from contextlib import nullcontext
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -65,6 +66,7 @@ from ui.app import (
     _ranking_source_key_for_selection,
     _ranking_symbols_from_selected_labels,
     _render_market_chart,
+    _render_research_operation_card,
     _research_brief_focus_html,
     _research_brief_gap_panel_html,
     _research_brief_gap_rows,
@@ -851,6 +853,45 @@ def test_research_brief_helpers_render_readable_rows_and_escape_markup():
     assert "confidence-high" in source_markup
     assert "<growth>" not in item_markup
     assert "&lt;growth&gt;" in item_markup
+
+
+def test_research_operation_card_keeps_single_primary_action(monkeypatch):
+    preview = MarketDataPreview(
+        status="ok",
+        bars=[],
+        provider_rows=[],
+        quote_rows=[],
+        ohlcv_rows=[],
+        price_chart_rows=[],
+        forecast_chart_rows=[],
+        forecast_metric_rows=[],
+        fx_rows=[],
+        feature_rows=[],
+        investment_score_rows=[],
+        screening_rows=[{"symbol": "7203.T"}],
+        error_rows=[],
+    )
+    button_calls: list[tuple[str, dict[str, object]]] = []
+
+    def fake_button(label: str, **kwargs: object) -> bool:
+        button_calls.append((label, kwargs))
+        return label == "AI調査を更新"
+
+    def fake_download_button(*args: object, **kwargs: object) -> None:
+        raise AssertionError("Research operation card should not show CSV export.")
+
+    monkeypatch.setattr("ui.app.st.container", lambda **kwargs: nullcontext())
+    monkeypatch.setattr("ui.app.st.columns", lambda spec: [nullcontext() for _ in spec])
+    monkeypatch.setattr("ui.app.st.markdown", lambda *args, **kwargs: None)
+    monkeypatch.setattr("ui.app.st.button", fake_button)
+    monkeypatch.setattr("ui.app.st.download_button", fake_download_button)
+
+    clicked = _render_research_operation_card(preview, report=None, news_report=None)
+
+    assert clicked is True
+    assert [label for label, _ in button_calls] == ["AI調査を更新"]
+    assert button_calls[0][1]["type"] == "primary"
+    assert button_calls[0][1]["use_container_width"] is True
 
 
 def test_research_score_rows_explain_optional_context_without_advice():

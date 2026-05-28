@@ -94,10 +94,6 @@ from ui.content.research_texts import (
     RESEARCH_FETCH_BUTTON_LABEL,
     RESEARCH_FETCH_SPINNER,
     RESEARCH_INSUFFICIENT_REPORT_NOTE,
-    RESEARCH_NEWS_BUTTON_LABEL,
-    RESEARCH_NEWS_EMPTY_MESSAGE,
-    RESEARCH_NEWS_NOT_FETCHED_MESSAGE,
-    RESEARCH_NEWS_SPINNER,
     RESEARCH_NO_REGISTERED_DOCUMENTS,
     RESEARCH_NOT_FETCHED_MESSAGE,
     RESEARCH_RANKING_FETCH_BUTTON_LABEL,
@@ -4706,12 +4702,10 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
     st.caption(RESEARCH_COCKPIT_INTRO)
     report = _cockpit_research_report_from_state(preview)
     news_report = _cockpit_stock_news_report_from_state(preview)
-    detail_state_key = f"research_detail_visible_{_widget_key_fragment(symbol)}"
-    fetch_clicked, news_clicked, detail_clicked = _render_research_operation_card(
+    fetch_clicked = _render_research_operation_card(
         preview,
         report=report,
         news_report=news_report,
-        detail_state_key=detail_state_key,
     )
     if fetch_clicked:
         with st.spinner(RESEARCH_FETCH_SPINNER):
@@ -4736,13 +4730,6 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
             st.session_state[MARKET_DATA_STOCK_NEWS_REPORT_STATE_KEY] = (
                 _build_cockpit_stock_news_report(preview)
             )
-    if news_clicked:
-        with st.spinner(RESEARCH_NEWS_SPINNER):
-            st.session_state[MARKET_DATA_STOCK_NEWS_REPORT_STATE_KEY] = (
-                _build_cockpit_stock_news_report(preview)
-            )
-    if detail_clicked:
-        st.session_state[detail_state_key] = not bool(st.session_state.get(detail_state_key, False))
 
     report = _cockpit_research_report_from_state(preview)
     news_report = _cockpit_stock_news_report_from_state(preview)
@@ -4753,7 +4740,7 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
     else:
         _render_research_summary_panel(
             report,
-            detail_expanded=bool(st.session_state.get(detail_state_key, False)),
+            detail_expanded=False,
             news_report=news_report,
             external_research_result=_cockpit_external_research_fetch_result_from_state(preview),
         )
@@ -4921,8 +4908,7 @@ def _render_research_operation_card(
     *,
     report: CompanyResearchReport | None,
     news_report: StockNewsReport | None,
-    detail_state_key: str,
-) -> tuple[bool, bool, bool]:
+) -> bool:
     symbol = _market_data_preview_symbol(preview)
     status = _research_operation_status(report, news_report)
     with st.container(border=True):
@@ -4963,41 +4949,7 @@ def _render_research_operation_card(
                 '<div class="research-action-help">根拠資料とニュースをまとめて更新します。</div>',
                 unsafe_allow_html=True,
             )
-
-            st.markdown(
-                '<div class="research-action-label secondary">必要なときだけ</div>',
-                unsafe_allow_html=True,
-            )
-            news_col, csv_col, detail_col = st.columns(3)
-            with news_col:
-                news_clicked = st.button(
-                    RESEARCH_NEWS_BUTTON_LABEL,
-                    key=f"stock_news_fetch_{_widget_key_fragment(symbol)}",
-                    help=(
-                        "選択中の銘柄に関係する登録済みニュース資料を確認します。"
-                        "最新外部ソースの取得はAI調査を更新でまとめて行います。"
-                    ),
-                    use_container_width=True,
-                )
-            with csv_col:
-                csv_payload = _research_evidence_csv_download(report, news_report)
-                st.download_button(
-                    "根拠CSV出力",
-                    data=csv_payload,
-                    file_name=f"research_evidence_{_widget_key_fragment(symbol)}.csv",
-                    mime="text/csv",
-                    disabled=not csv_payload.strip(),
-                    use_container_width=True,
-                )
-            with detail_col:
-                detail_visible = bool(st.session_state.get(detail_state_key, False))
-                detail_clicked = st.button(
-                    "詳細を閉じる" if detail_visible else "詳細を開く",
-                    key=f"{detail_state_key}_toggle",
-                    disabled=report is None and news_report is None,
-                    use_container_width=True,
-                )
-            return fetch_clicked, news_clicked, detail_clicked
+            return fetch_clicked
 
 
 def _research_operation_status(
@@ -5046,16 +4998,6 @@ def _research_confidence_label(
     if report.data_quality.status == "WARN":
         return "中くらい"
     return "低め"
-
-
-def _research_evidence_csv_download(
-    report: CompanyResearchReport | None,
-    news_report: StockNewsReport | None,
-) -> str:
-    rows = _research_evidence_card_rows(report, news_report=news_report, limit=None)
-    if not rows:
-        return ""
-    return pd.DataFrame(rows).to_csv(index=False)
 
 
 def _render_ranking_symbol_research_lookup(symbol: str) -> None:
@@ -5760,39 +5702,6 @@ def _build_cockpit_research_report(preview: MarketDataPreview) -> CompanyResearc
     return analyze_research_for_symbol(
         symbol, as_of=_date_from_iso_text(_market_data_as_of(preview))
     )
-
-
-def _render_cockpit_stock_news_summary(preview: MarketDataPreview) -> None:
-    symbol = _market_data_preview_symbol(preview)
-    if not symbol:
-        return
-    st.markdown("##### 関連ニュース")
-    st.caption("保存済みニュース資料から、URLで確認できる材料だけを簡潔に表示します。")
-    fetch_clicked = st.button(
-        RESEARCH_NEWS_BUTTON_LABEL,
-        key=f"stock_news_fetch_{_widget_key_fragment(symbol)}",
-        help=(
-            "選択中の銘柄に関係する登録済みニュース資料を確認します。"
-            "最新外部ソースの取得はAI調査を更新でまとめて行います。"
-        ),
-    )
-    if fetch_clicked:
-        with st.spinner(RESEARCH_NEWS_SPINNER):
-            st.session_state[MARKET_DATA_STOCK_NEWS_REPORT_STATE_KEY] = (
-                _build_cockpit_stock_news_report(preview)
-            )
-
-    report = _cockpit_stock_news_report_from_state(preview)
-    if report is None:
-        st.info(RESEARCH_NEWS_NOT_FETCHED_MESSAGE)
-        return
-    if report.warnings:
-        for warning in report.warnings:
-            st.warning(warning)
-    if not report.news:
-        st.info(RESEARCH_NEWS_EMPTY_MESSAGE)
-        return
-    _render_stock_news_cards_panel(report)
 
 
 def _render_stock_news_cards_panel(report: StockNewsReport) -> None:

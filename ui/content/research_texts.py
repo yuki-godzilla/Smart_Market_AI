@@ -29,16 +29,6 @@ RESEARCH_RANKING_LOOKUP_INTRO = (
     "この銘柄の保存済み資料から、投資判断前に確認したい材料と注意点を整理します。"
 )
 RESEARCH_FETCH_BUTTON_LABEL = "AI調査を更新"
-RESEARCH_NEWS_BUTTON_LABEL = "ニュースのみ再取得"
-RESEARCH_NEWS_SPINNER = "ニュース資料から確認材料を整理しています。"
-RESEARCH_NEWS_NOT_FETCHED_MESSAGE = (
-    "関連ニュースはまだ整理されていません。保存済みのニュース資料からURL付きニュースを確認する場合は"
-    "「ニュースのみ再取得」を実行してください。"
-)
-RESEARCH_NEWS_EMPTY_MESSAGE = (
-    "URL付きのニュース根拠は見つかりませんでした。"
-    "source_type=news の資料に URL を含めて登録してください。"
-)
 RESEARCH_RANKING_FETCH_BUTTON_LABEL = "AIで資料を確認"
 RESEARCH_FETCH_SPINNER = "外部参照ソースと保存済み資料から根拠を整理しています。"
 RESEARCH_NOT_FETCHED_MESSAGE = "根拠資料はまだ取得されていません。「AI調査を更新」を押すと、関連ニュースや外部情報を確認できます。"

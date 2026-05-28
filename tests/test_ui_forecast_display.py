@@ -64,12 +64,14 @@ from ui.app import (
     _ranking_source_key_for_selection,
     _ranking_symbols_from_selected_labels,
     _render_market_chart,
+    _research_brief_focus_html,
     _research_brief_gap_panel_html,
     _research_brief_gap_rows,
     _research_brief_items_html,
     _research_brief_metric_cards_html,
     _research_brief_metric_rows,
     _research_brief_next_action_rows,
+    _research_brief_next_actions_html,
     _research_brief_overview_html,
     _research_brief_source_card_rows,
     _research_evidence_card_rows,
@@ -731,7 +733,10 @@ def test_research_brief_helpers_render_readable_rows_and_escape_markup():
             )
         ],
         missing_metrics=["EPS"],
-        business_overview="Toyota sells vehicles globally.",
+        business_overview=(
+            "Company Name: Toyota Motor Corporation Provider Symbol: 7203.T "
+            "Quote Type: EQUITY Toyota sells vehicles globally."
+        ),
         positive_candidates=["成長材料: software revenue"],
         caution_candidates=["注意材料: supply constraint"],
         confirmation_gaps=["未確認の定量指標: EPS"],
@@ -758,10 +763,12 @@ def test_research_brief_helpers_render_readable_rows_and_escape_markup():
     )
 
     markup = _research_brief_overview_html(brief)
+    focus_markup = _research_brief_focus_html(brief)
     metric_markup = _research_brief_metric_cards_html(brief)
     metric_rows = _research_brief_metric_rows(brief)
     gap_markup = _research_brief_gap_panel_html(brief)
     gap_rows = _research_brief_gap_rows(brief)
+    next_action_markup = _research_brief_next_actions_html(brief)
     action_rows = _research_brief_next_action_rows(brief)
     source_rows = _research_brief_source_card_rows(brief)
     source_markup = _research_evidence_cards_html(source_rows)
@@ -774,11 +781,19 @@ def test_research_brief_helpers_render_readable_rows_and_escape_markup():
     assert "抽出指標" in markup
     assert "<script>" not in markup
     assert "&lt;script&gt;" in markup
+    assert "research-brief-focus-grid" in focus_markup
+    assert "事業概要" in focus_markup
+    assert "Provider Symbol" not in focus_markup
+    assert "Toyota sells vehicles" in focus_markup
+    assert "良材料候補" in focus_markup
+    assert "注意材料候補" in focus_markup
     assert "research-brief-metric-grid" in metric_markup
     assert "45兆円" in metric_markup
     assert "confidence-high" in metric_markup
     assert "research-brief-gap-panel" in gap_markup
     assert "未確認の定量指標: EPS" in gap_markup
+    assert "research-brief-next-list" in next_action_markup
+    assert "公式資料でEPSを確認" in next_action_markup
     assert metric_rows[0]["指標"] == "売上高"
     assert metric_rows[0]["情報源信頼度"].startswith("高")
     assert gap_rows[0]["確認項目"] == "不足根拠"

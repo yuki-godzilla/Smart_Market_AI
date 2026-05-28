@@ -747,3 +747,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Made the Research Summary `AI整理メモ` visually prominent with non-advice, source-confidence, and missing-metric badges.
 - Replaced the normal ResearchBrief metric table in the primary view with compact metric cards and moved missing metrics into a warning-style confirmation panel.
 - Added source-confidence badges to ResearchBrief source cards while keeping Research Score and ranking order behavior unchanged.
+
+## 2026-05-28 - ResearchBrief information density reduction
+
+- Reduced the Research Summary first view to AI整理メモ, focused confirmation-point cards, optional metric cards, confirmation gaps, and next actions.
+- Moved source cards, Research Score rows, external source trace cards, and detailed evidence summary into expanders so they remain available without dominating the main reading path.
+- Trimmed provider-style raw labels from primary ResearchBrief text while keeping detailed source data available behind the detail controls.

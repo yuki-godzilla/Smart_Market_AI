@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import html
 import json
+import re
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
@@ -563,6 +564,53 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     line-height: 1.55;
     margin-top: 0.24rem;
 }
+.research-brief-focus-grid {
+    display: grid;
+    gap: 0.65rem;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    margin: 0.75rem 0 0.65rem;
+}
+.research-brief-focus-card {
+    border: 1px solid var(--border-default);
+    border-radius: 6px;
+    background: var(--bg-card);
+    padding: 0.78rem 0.86rem;
+    min-height: 108px;
+}
+.research-brief-focus-title {
+    color: var(--text-ai-title);
+    font-size: 0.82rem;
+    font-weight: 850;
+    margin-bottom: 0.4rem;
+}
+.research-brief-focus-body {
+    color: var(--text-secondary);
+    font-size: 0.86rem;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+}
+.research-brief-focus-list {
+    display: grid;
+    gap: 0.38rem;
+}
+.research-brief-focus-more {
+    color: var(--text-caption);
+    font-size: 0.78rem;
+    margin-top: 0.38rem;
+}
+.research-brief-next-list {
+    border: 1px solid var(--border-default);
+    border-radius: 6px;
+    background: var(--bg-card);
+    display: grid;
+    gap: 0.4rem;
+    margin: 0.65rem 0 0.55rem;
+    padding: 0.74rem 0.86rem;
+}
+.research-brief-next-item {
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
 .research-result-brief-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -588,6 +636,9 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
 @media (max-width: 900px) {
     .research-result-brief-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .research-brief-focus-grid {
+        grid-template-columns: 1fr;
     }
 }
 @media (max-width: 560px) {
@@ -5001,58 +5052,54 @@ def _render_research_summary_panel(
     _render_research_brief_sections(brief)
 
     research_score = ResearchScoreService().score_report(report)
-    point_rows = _research_investment_point_rows(report)
 
     card_rows = _research_brief_source_card_rows(brief)
-    render_research_evidence_summary(report)
     if card_rows:
-        st.markdown("##### 出典カード")
-        st.caption("初期表示は最大5件です。追加の根拠と検索品質は詳細データで確認できます。")
-        st.markdown(
-            _research_evidence_cards_html(card_rows[:5]),
-            unsafe_allow_html=True,
-        )
-        if len(card_rows) > 5:
-            with st.expander(
-                f"追加の根拠カードを表示（{len(card_rows) - 5}件）",
-                expanded=False,
-            ):
-                st.markdown(
-                    _research_evidence_cards_html(card_rows[5:]),
-                    unsafe_allow_html=True,
-                )
+        with st.expander(f"出典カードを表示（{len(card_rows)}件）", expanded=detail_expanded):
+            st.caption("出典、公開日、URL、情報源信頼度を確認できます。")
+            st.markdown(
+                _research_evidence_cards_html(card_rows),
+                unsafe_allow_html=True,
+            )
     else:
         st.info("根拠カードとして表示できる資料はまだありません。AI調査を更新してください。")
 
     score_rows = _research_score_summary_rows(research_score)
     if score_rows:
-        st.markdown("##### Research Score")
-        _render_compact_dataframe(score_rows)
+        with st.expander("Research Score（参考）を表示", expanded=False):
+            st.caption(
+                "根拠資料の充実度・鮮度・信頼度を整理する参考スコアです。売買推奨ではありません。"
+            )
+            _render_compact_dataframe(score_rows)
 
     if news_report is not None and news_report.warnings:
         for warning in news_report.warnings:
             st.warning(warning)
 
     if external_research_result is not None and external_research_result.entries:
-        st.markdown("##### 外部参照ソース")
-        st.caption(
-            "AI調査で一時参照した外部ソースです。"
-            "取得本文は保存せず、URL・公開日・取得日時を確認材料として残します。"
-        )
-        st.markdown(
-            _external_research_fetch_overview_html(external_research_result),
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            _external_research_source_cards_html(external_research_result),
-            unsafe_allow_html=True,
-        )
+        with st.expander(
+            f"外部参照ソースを表示（{len(external_research_result.entries)}件）",
+            expanded=False,
+        ):
+            st.caption(
+                "AI調査で一時参照した外部ソースです。"
+                "取得本文は保存せず、URL・公開日・取得日時を確認材料として残します。"
+            )
+            st.markdown(
+                _external_research_fetch_overview_html(external_research_result),
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                _external_research_source_cards_html(external_research_result),
+                unsafe_allow_html=True,
+            )
 
     with st.expander(RESEARCH_DETAIL_EXPANDER_LABEL, expanded=detail_expanded):
         if report.data_quality.status == "OK":
             st.caption(RESEARCH_DETAIL_OK_CAPTION)
         else:
             st.caption("登録資料または検索できた根拠が少ないため、詳細は確認材料として扱います。")
+        render_research_evidence_summary(report)
         warning_rows = _research_quality_warning_rows(report)
         if warning_rows:
             st.markdown("###### データ品質・注意点")
@@ -5077,6 +5124,7 @@ def _render_research_summary_panel(
         if score_warning_rows:
             st.markdown("###### Research Score注意点")
             _render_compact_dataframe(score_warning_rows)
+        point_rows = _research_investment_point_rows(report)
         if point_rows:
             st.markdown("###### 要点サマリー")
             _render_compact_dataframe(point_rows)
@@ -5099,38 +5147,23 @@ def _render_research_summary_panel(
 
 
 def _render_research_brief_sections(brief: ResearchBrief) -> None:
-    st.markdown("##### 定量評価サマリー")
+    st.markdown("##### 確認ポイント")
+    st.markdown(_research_brief_focus_html(brief), unsafe_allow_html=True)
+
     metric_markup = _research_brief_metric_cards_html(brief)
     if metric_markup:
+        st.markdown("##### 定量指標")
         st.markdown(metric_markup, unsafe_allow_html=True)
-    else:
-        st.info("定量指標はまだ十分に抽出できていません。公式資料で確認してください。")
-
-    st.markdown("##### 企業概要・事業内容")
-    st.markdown(_research_brief_business_html(brief), unsafe_allow_html=True)
-
-    if brief.positive_candidates:
-        st.markdown("##### 良材料候補")
-        st.markdown(
-            _research_brief_items_html(brief.positive_candidates, tone="positive"),
-            unsafe_allow_html=True,
-        )
-    if brief.caution_candidates:
-        st.markdown("##### 注意材料候補")
-        st.markdown(
-            _research_brief_items_html(brief.caution_candidates, tone="risk"),
-            unsafe_allow_html=True,
-        )
 
     gap_markup = _research_brief_gap_panel_html(brief)
     if gap_markup:
-        st.markdown("##### 未確認・不足している根拠")
+        st.markdown("##### 確認不足")
         st.markdown(gap_markup, unsafe_allow_html=True)
 
-    action_rows = _research_brief_next_action_rows(brief)
-    if action_rows:
+    action_markup = _research_brief_next_actions_html(brief)
+    if action_markup:
         st.markdown("##### 次に確認すべき資料")
-        _render_compact_dataframe(action_rows)
+        st.markdown(action_markup, unsafe_allow_html=True)
 
 
 def _research_brief_overview_html(brief: ResearchBrief) -> str:
@@ -5163,9 +5196,85 @@ def _research_brief_overview_html(brief: ResearchBrief) -> str:
 def _research_brief_business_html(brief: ResearchBrief) -> str:
     return (
         '<section class="research-result-brief">'
-        f'<div class="research-result-brief-summary">{html.escape(brief.business_overview)}</div>'
+        '<div class="research-result-brief-summary">'
+        f"{html.escape(_research_brief_ui_text(brief.business_overview, max_chars=220))}</div>"
         "</section>"
     )
+
+
+def _research_brief_focus_html(brief: ResearchBrief) -> str:
+    cards = [
+        _research_brief_focus_card_html(
+            "事業概要",
+            [_research_brief_ui_text(brief.business_overview, max_chars=170)],
+        )
+    ]
+    if brief.positive_candidates:
+        cards.append(
+            _research_brief_focus_card_html(
+                "良材料候補",
+                brief.positive_candidates,
+                limit=2,
+            )
+        )
+    if brief.caution_candidates:
+        cards.append(
+            _research_brief_focus_card_html(
+                "注意材料候補",
+                brief.caution_candidates,
+                limit=2,
+            )
+        )
+    return f'<div class="research-brief-focus-grid">{"".join(cards)}</div>'
+
+
+def _research_brief_focus_card_html(
+    title: str,
+    items: Sequence[str],
+    *,
+    limit: int = 1,
+) -> str:
+    visible_items = [
+        _research_brief_ui_text(item, max_chars=130) for item in items[:limit] if item.strip()
+    ]
+    body = "".join(
+        f'<div class="research-brief-focus-body">{html.escape(item)}</div>'
+        for item in visible_items
+    )
+    if len(items) > limit:
+        body += (
+            '<div class="research-brief-focus-more">'
+            f"ほか {len(items) - limit}件は詳細データで確認できます。</div>"
+        )
+    if not body:
+        body = '<div class="research-brief-focus-body">現時点では目立つ材料は未確認です。</div>'
+    return (
+        '<section class="research-brief-focus-card">'
+        f'<div class="research-brief-focus-title">{html.escape(title)}</div>'
+        f'<div class="research-brief-focus-list">{body}</div>'
+        "</section>"
+    )
+
+
+def _research_brief_ui_text(text: str, *, max_chars: int) -> str:
+    cleaned = " ".join(text.split())
+    cleaned = re.sub(r"\bCompany Name:\s*", "", cleaned, flags=re.IGNORECASE)
+    for label in ("Provider Symbol", "Quote Type", "Exchange", "Currency"):
+        cleaned = re.sub(rf"\b{label}:\s*\S+", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(
+        r"\bSector:\s*[^:]+?(?=\s+(?:Industry|Business Summary|Summary):|$)",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"\bIndustry:\s*[^:]+?(?=\s+(?:Business Summary|Summary):|$)",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return truncate_text(cleaned.strip(), max_chars=max_chars)
 
 
 def _research_brief_metric_rows(brief: ResearchBrief) -> list[dict[str, str]]:
@@ -5248,6 +5357,22 @@ def _research_brief_next_action_rows(brief: ResearchBrief) -> list[dict[str, str
         }
         for action in brief.next_actions
     ]
+
+
+def _research_brief_next_actions_html(brief: ResearchBrief) -> str:
+    if not brief.next_actions:
+        return ""
+    items = "".join(
+        '<div class="research-brief-next-item">'
+        f"{html.escape(_research_brief_ui_text(action, max_chars=120))}</div>"
+        for action in brief.next_actions[:3]
+    )
+    if len(brief.next_actions) > 3:
+        items += (
+            '<div class="research-brief-focus-more">'
+            f"ほか {len(brief.next_actions) - 3}件は詳細データで確認できます。</div>"
+        )
+    return f'<div class="research-brief-next-list">{items}</div>'
 
 
 def _research_brief_source_card_rows(brief: ResearchBrief) -> list[dict[str, str]]:

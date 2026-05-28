@@ -6,14 +6,19 @@ from pathlib import Path
 import pytest
 
 from backend.research import (
+    CompanyResearchReport,
     CompanyResearchRequest,
     CompositeExternalResearchAdapter,
+    ExternalResearchFetchManifestEntry,
     ExternalResearchFetchRequest,
+    ExternalResearchFetchResult,
     ExternalResearchFetchService,
     ExternalResearchSourcePayload,
     HybridResearchRetrievalService,
     ResearchAnalysisService,
+    ResearchBriefBuilder,
     ResearchChunk,
+    ResearchDataQuality,
     ResearchDisabledVectorStore,
     ResearchDocumentError,
     ResearchDocumentRegisterRequest,
@@ -34,8 +39,11 @@ from backend.research import (
     ResearchScoreService,
     ResearchSearchError,
     ResearchSearchRequest,
+    ResearchSummaryPoint,
     ResearchVectorIndexService,
     StockNewsAnalysisService,
+    StockNewsEvidence,
+    StockNewsReport,
     StockNewsRequest,
     TDnetResearchAdapter,
     YahooFinanceResearchAdapter,
@@ -238,6 +246,175 @@ def test_research_score_service_marks_missing_evidence_low_confidence():
     assert score.supporting_evidence == []
     assert any("根拠不足" in warning for warning in score.warnings)
     assert "売買判断ではありません" in score.summary
+
+
+def test_research_brief_builder_shapes_readable_local_memo():
+    provider_evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-profile",
+        chunk_id="chunk-profile",
+        title="Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Provider Symbol: 7203.T\n"
+            "Quote Type: EQUITY\n"
+            "Currency: JPY\n"
+            "Toyota sells vehicles globally and invests in software services.\n"
+            "Market Cap: 35,000,000,000,000 JPY\n"
+            "PER: 12.5倍\n"
+            "PBR: 1.1倍\n"
+            "ROE: 9.8%"
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    official_evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-ir",
+        chunk_id="chunk-ir",
+        title="7203 決算短信",
+        source_type="earnings_report",
+        published_at=date(2026, 5, 20),
+        section_title="業績",
+        excerpt=(
+            "売上高 45兆円、営業利益 5兆円、純利益 4兆円、"
+            "EPS 320円、配当 75円。成長戦略と株主還元を説明しています。"
+        ),
+        relevance_score=Decimal("0.88"),
+        reliability=Decimal("0.94"),
+    )
+    risk_evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-risk",
+        chunk_id="chunk-risk",
+        title="TDnet 適時開示",
+        source_type="tdnet",
+        published_at=date(2026, 5, 22),
+        section_title="Risk",
+        excerpt="供給制約と為替変動が事業リスクとして説明されています。",
+        relevance_score=Decimal("0.80"),
+        reliability=Decimal("0.90"),
+    )
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="3件の根拠から確認材料を整理しました。",
+        points=[
+            ResearchSummaryPoint(
+                category="growth",
+                label="成長材料",
+                summary="成長戦略は決算短信を主な確認材料として見ます。",
+                evidence=[official_evidence],
+            ),
+            ResearchSummaryPoint(
+                category="business_risk",
+                label="事業リスク",
+                summary="供給制約と為替変動を注意材料候補として見ます。",
+                evidence=[risk_evidence],
+            ),
+        ],
+        evidence=[official_evidence, provider_evidence, risk_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=3,
+            evidence_count=3,
+            warnings=[],
+        ),
+    )
+    news_report = StockNewsReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        news=[
+            StockNewsEvidence(
+                symbol="7203.T",
+                title="Toyota raises guidance",
+                url="https://example.com/toyota-guidance",
+                source="Example News",
+                published_at=date(2026, 5, 24),
+                summary="Guidance was raised after revenue growth.",
+                investment_viewpoint="growth",
+                sentiment_for_investment="positive",
+                freshness_status="latest",
+            )
+        ],
+    )
+    external_result = ExternalResearchFetchResult(
+        symbol="7203.T",
+        provider="fake_external",
+        fetched_at=datetime(2026, 5, 25, tzinfo=UTC),
+        entries=[
+            ExternalResearchFetchManifestEntry(
+                title="TDnet 7203",
+                symbol="7203.T",
+                source_type="tdnet",
+                source_url="https://example.com/tdnet/7203",
+                provider="tdnet",
+                published_at=date(2026, 5, 22),
+                fetched_at=datetime(2026, 5, 25, tzinfo=UTC),
+                freshness_status="latest",
+                document_id="external-tdnet",
+            )
+        ],
+    )
+
+    brief = ResearchBriefBuilder().build(
+        report,
+        news_report=news_report,
+        external_research_result=external_result,
+    )
+
+    metric_labels = {metric.label for metric in brief.metrics}
+    assert {
+        "売上高",
+        "営業利益",
+        "純利益",
+        "EPS",
+        "配当",
+        "PER",
+        "PBR",
+        "ROE",
+        "時価総額",
+    } <= metric_labels
+    assert brief.missing_metrics == []
+    assert "Toyota sells vehicles" in brief.business_overview
+    assert "Provider Symbol" not in brief.business_overview
+    assert "Quote Type" not in brief.business_overview
+    assert "売買推奨ではありません" in brief.memo
+    assert any("成長材料" in candidate for candidate in brief.positive_candidates)
+    assert any("Toyota raises guidance" in candidate for candidate in brief.positive_candidates)
+    assert any("供給制約" in candidate for candidate in brief.caution_candidates)
+    assert any(card.source_confidence == "high" for card in brief.source_cards)
+    assert any(card.source_confidence == "medium" for card in brief.source_cards)
+    assert any(card.source_url == "https://example.com/tdnet/7203" for card in brief.source_cards)
+
+
+def test_research_brief_builder_marks_missing_metrics_as_confirmation_gaps():
+    report = CompanyResearchReport(
+        symbol="MSFT",
+        as_of=date(2026, 5, 25),
+        summary="登録資料が限られます。",
+        points=[],
+        evidence=[],
+        data_quality=ResearchDataQuality(
+            status="WARN",
+            latest_document_date=None,
+            document_count=0,
+            evidence_count=0,
+            warnings=["登録済みResearch資料がありません。"],
+        ),
+    )
+
+    brief = ResearchBriefBuilder().build(report)
+
+    assert brief.metrics == []
+    assert "売上高" in brief.missing_metrics
+    assert any("未確認の定量指標" in gap for gap in brief.confirmation_gaps)
+    assert any("公式資料" in action for action in brief.next_actions)
+    assert "未確認メモ" in brief.memo
+    assert "not advice" in brief.decision_support_note
 
 
 def test_research_ingestion_deduplicates_by_document_hash(tmp_path):

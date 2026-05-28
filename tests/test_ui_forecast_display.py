@@ -14,11 +14,14 @@ from backend.research import (
     CompanyResearchReport,
     ExternalResearchFetchManifestEntry,
     ExternalResearchFetchResult,
+    ResearchBrief,
+    ResearchBriefSourceCard,
     ResearchDataQuality,
     ResearchDocument,
     ResearchEvidence,
     ResearchExtractedClaim,
     ResearchGroundedAnswer,
+    ResearchMetric,
     ResearchRetrievalQuality,
     ResearchScoreService,
     ResearchSummaryPoint,
@@ -61,6 +64,11 @@ from ui.app import (
     _ranking_source_key_for_selection,
     _ranking_symbols_from_selected_labels,
     _render_market_chart,
+    _research_brief_gap_rows,
+    _research_brief_items_html,
+    _research_brief_metric_rows,
+    _research_brief_next_action_rows,
+    _research_brief_overview_html,
     _research_evidence_card_rows,
     _research_evidence_cards_html,
     _research_evidence_report_section,
@@ -702,6 +710,55 @@ def test_research_result_overview_html_explains_coverage_and_escapes_summary():
     assert "SettingsでResearch資料を登録" in markup
     assert "<script>" not in markup
     assert "&lt;script&gt;" in markup
+
+
+def test_research_brief_helpers_render_readable_rows_and_escape_markup():
+    brief = ResearchBrief(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        memo="確認できた情報です <script>",
+        metrics=[
+            ResearchMetric(
+                key="revenue",
+                label="売上高",
+                value="45兆円",
+                source_title="7203 決算短信",
+                source_type="earnings_report",
+                source_confidence="high",
+            )
+        ],
+        missing_metrics=["EPS"],
+        business_overview="Toyota sells vehicles globally.",
+        positive_candidates=["成長材料: software revenue"],
+        caution_candidates=["注意材料: supply constraint"],
+        confirmation_gaps=["未確認の定量指標: EPS"],
+        next_actions=["公式資料でEPSを確認します。"],
+        source_cards=[
+            ResearchBriefSourceCard(
+                title="7203 決算短信",
+                source_type="earnings_report",
+                published_at=date(2026, 5, 20),
+                source_confidence="high",
+            )
+        ],
+    )
+
+    markup = _research_brief_overview_html(brief)
+    metric_rows = _research_brief_metric_rows(brief)
+    gap_rows = _research_brief_gap_rows(brief)
+    action_rows = _research_brief_next_action_rows(brief)
+    item_markup = _research_brief_items_html(["<growth>"], tone="positive")
+
+    assert "AI整理メモ" in markup
+    assert "抽出指標" in markup
+    assert "<script>" not in markup
+    assert "&lt;script&gt;" in markup
+    assert metric_rows[0]["指標"] == "売上高"
+    assert metric_rows[0]["情報源信頼度"].startswith("高")
+    assert gap_rows[0]["確認項目"] == "不足根拠"
+    assert action_rows[0]["扱い"] == "確認材料"
+    assert "<growth>" not in item_markup
+    assert "&lt;growth&gt;" in item_markup
 
 
 def test_research_score_rows_explain_optional_context_without_advice():

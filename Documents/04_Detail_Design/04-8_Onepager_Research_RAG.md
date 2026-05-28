@@ -2,7 +2,7 @@
 
 #### [BACK TO DETAIL DESIGN README](./04_Detail_Design_README.md)
 
-Status: Phase 20 local evidence slice is implementation complete as the deterministic foundation. Product direction now prioritizes external fresh evidence for Research RAG / News RAG: `AI調査を更新` should become the standard action that fetches or references current IR, disclosure, company-site, provider-profile, and news sources for the selected symbol. Local registered documents remain for tests, demo seeds, user-saved archives, private notes, and fallback. Phase 21 covers advanced Research RAG extraction, query expansion, optional vector / hybrid search, grounded answer generation, Stock News RAG, and external fetch integration; deterministic query expansion, structured extraction, template grounded answer, retrieval quality, evidence reranker, first UI / Decision Report display, optional vector / hybrid contract/scoring, keyword-fallback hybrid retrieval wrapper, local embedding generation, optional vector-index build workflow, in-memory local vector store, file-backed vector cache, and a first Cockpit external fetch UI slice have started. TDnet timely disclosure + Yahoo Finance profile/news are wired as the default first live source set. Phase 22 Research Score has a deterministic service slice, disabled-by-default Investment Score input slice, Cockpit / Ranking Research Summary display slice, selected-candidate breakdown context, and Cockpit Decision Report section slice. Ranking order integration, EDINET / company IR site adapters, and Assistant integration remain later phases unless explicitly assigned.
+Status: Phase 20 local evidence slice is implementation complete as the deterministic foundation. Product direction now prioritizes external fresh evidence for Research RAG / News RAG: `AI調査を更新` should become the standard action that fetches or references current IR, disclosure, company-site, provider-profile, and news sources for the selected symbol. Local registered documents remain for tests, demo seeds, user-saved archives, private notes, and fallback. Phase 21 covers advanced Research RAG extraction, query expansion, optional vector / hybrid search, grounded answer generation, Stock News RAG, external fetch integration, and local ResearchBrief readability; deterministic query expansion, structured extraction, template grounded answer, retrieval quality, evidence reranker, first UI / Decision Report display, optional vector / hybrid contract/scoring, keyword-fallback hybrid retrieval wrapper, local embedding generation, optional vector-index build workflow, in-memory local vector store, file-backed vector cache, first Cockpit external fetch UI slice, and first local `ResearchBriefBuilder` slice have started. TDnet timely disclosure + Yahoo Finance profile/news are wired as the default first live source set. Phase 22 Research Score has a deterministic service slice, disabled-by-default Investment Score input slice, Cockpit / Ranking Research Summary display slice, selected-candidate breakdown context, and Cockpit Decision Report section slice. Ranking order integration, EDINET / company IR site adapters, and Assistant integration remain later phases unless explicitly assigned.
 
 ## Phase 20 Implementation Baseline / 実装ベースライン
 
@@ -96,7 +96,7 @@ Phase 21 は、Phase 20 の deterministic evidence foundation を壊さず、根
 - Phase 20: local document registration, chunking, deterministic keyword search, Research Evidence, Research Summary, Decision Report connection.
 - Phase 21: query expansion, structured evidence extraction, grounded answer generation, optional embedding retrieval, local vector store abstraction, hybrid search, evidence reranking, Research Score integration preparation.
 - Phase 21.5: Stock News RAG MVP. `銘柄コックピット` の選択銘柄だけを対象に、URL 根拠付き recent news summary、investment_viewpoint、sentiment_for_investment、freshness_status を表示する。Investment Score / ranking order は変更しない。
-- Phase 22+: Research Score の ranking integration、ResearchBrief の読みやすさ改善、外部 source adapter 追加、Assistant。
+- Phase 22+: Research Score の ranking integration、ResearchBrief 表示 polish、外部 source adapter 追加、Assistant。
 
 ### Phase 21.5 News RAG Boundary
 
@@ -119,41 +119,29 @@ Current implementation note: `ExternalResearchFetchService`, `TDnetResearchAdapt
 
 ### ResearchBrief ローカル調査メモ化方針
 
-次の Research Summary 改善では、`CompanyResearchReport` / evidence と Streamlit UI の間に、表示専用の `ResearchBrief` 層を追加する。provider dump や raw evidence を主表示に出すのではなく、deterministic なローカルルールで読める投資調査メモへ変換する。外部LLM / OpenAI API 連携は後続に回し、通常 checks は network / LLM 非依存を維持する。
+Research Summary 改善では、`CompanyResearchReport` / evidence と Streamlit UI の間に、表示専用の `ResearchBrief` 層を置く。provider dump や raw evidence を主表示に出すのではなく、deterministic なローカルルールで読める投資調査メモへ変換する。外部LLM / OpenAI API 連携は後続に回し、通常 checks は network / LLM 非依存を維持する。
 
-候補 contract:
+実装 contract の要点:
 
 ```python
 class ResearchBrief(BaseModel):
-    headline: str
-    summary_text: str
-    research_status: str
-    source_coverage: list[str]
-    quantitative_metrics: list[ResearchMetric]
+    memo: str
+    metrics: list[ResearchMetric]
     missing_metrics: list[str]
-    business_overview: str | None
-    business_segments: list[str]
-    growth_topics: list[str]
-    performance_topics: list[str]
-    shareholder_return_topics: list[str]
-    risk_topics: list[str]
-    positive_points: list[str]
-    caution_points: list[str]
-    missing_points: list[str]
+    business_overview: str
+    positive_candidates: list[str]
+    caution_candidates: list[str]
+    confirmation_gaps: list[str]
     next_actions: list[str]
-    source_cards: list[ResearchSourceCard]
-    detail_rows: list[dict[str, str]]
+    source_cards: list[ResearchBriefSourceCard]
 
 
 class ResearchMetric(BaseModel):
-    name: str
+    label: str
     value: str
-    unit: str | None
-    period: str | None
     source_type: str
-    source_name: str
-    confidence: Literal["high", "medium", "low"]
-    note: str
+    source_title: str
+    source_confidence: Literal["high", "medium", "low", "unknown"]
 ```
 
 `ResearchBriefBuilder` の責務:
@@ -178,9 +166,10 @@ Cockpit Research Summary の推奨表示順:
 6. 未確認・不足している根拠
 7. 次に確認すべき資料
 8. 出典カード
-9. 詳細データ
+9. Research Score
+10. 詳細データ
 
-Research Score は先頭ブロックに置かない。local AI整理メモの後、または detail / context 内で、根拠の充足度、鮮度、信頼度を確認する参考スコアとして表示する。
+Research Score は先頭ブロックに置かない。local AI整理メモと出典カードの後、または detail / context 内で、根拠の充足度、鮮度、信頼度を確認する参考スコアとして表示する。
 
 ローカルAI整理メモのテンプレート例:
 
@@ -312,7 +301,7 @@ Current implementation note: `ResearchGroundedAnswerService` is available as the
 - Ranking modal: `AIで資料を確認` button、根拠付き Research Summary、観点別抽出結果、根拠不足 warning、evidence table、retrieval backend 表示を追加する。
 - Decision Report: Research Evidence section、Grounded Answer section、Data Quality section、Retrieval Quality section、根拠不足 warning、売買推奨ではない旨の注記を追加する。
 
-Current implementation note: cockpit and ranking Research Summary panels display `CompanyResearchReport.grounded_answer`, `CompanyResearchReport.retrieval_quality`, and Research Score summary/component/warning rows, the Research RAG detail expander displays `ResearchExtractedClaim` rows, Ranking selected-candidate breakdown can show report-derived Research Score context, the Cockpit Research Evidence panel can explicitly fetch Yahoo Finance external profile/news, and the Cockpit Decision Report carries both `Research Evidence` and `Research Score` sections when a Research report has documents or evidence. External live fetch should be transient by default; ranking order and default Investment Score behavior remain unchanged.
+Current implementation note: cockpit and ranking Research Summary panels now build a local `ResearchBrief` first, then show Research Score summary/component/warning rows and detailed `CompanyResearchReport.grounded_answer`, `CompanyResearchReport.retrieval_quality`, and `ResearchExtractedClaim` rows. Ranking selected-candidate breakdown can show report-derived Research Score context, the Cockpit Research Evidence panel can explicitly fetch TDnet + Yahoo Finance external profile/news, and the Cockpit Decision Report carries both `Research Evidence` and `Research Score` sections when a Research report has documents or evidence. External live fetch should be transient by default; ranking order and default Investment Score behavior remain unchanged.
 
 ### Phase 21 Test Plan
 
@@ -324,8 +313,8 @@ Current implementation note: cockpit and ranking Research Summary panels display
 
 ## 1) Purpose & Scope
 
-* **Purpose**: IR資料・有価証券報告書・決算資料・中期経営計画・統合報告書・ニュース等の非構造データを検索し、長期企業分析の根拠提示を行う。高度RAG抽出、根拠付き回答生成、Research Score 初期 slice は実装済みで、次は ResearchBrief の読みやすさ改善と追加 source adapter を扱う。
-* **Scope**: ローカル資料登録、テキスト抽出、チャンク化、メタデータ管理、キーワード検索、企業分析サマリ、Decision Report への接続。ベクトル/ハイブリッド検索と根拠付き回答生成の初期 slice、Research Score 初期 slice は実装済み。Assistant / ranking order への接続は後続。
+* **Purpose**: IR資料・有価証券報告書・決算資料・中期経営計画・統合報告書・ニュース等の非構造データを検索し、長期企業分析の根拠提示を行う。高度RAG抽出、根拠付き回答生成、Research Score 初期 slice、ResearchBrief 初期 slice は実装済みで、次は表示 polish と追加 source adapter を扱う。
+* **Scope**: ローカル資料登録、テキスト抽出、チャンク化、メタデータ管理、キーワード検索、企業分析サマリ、ResearchBrief、Decision Report への接続。ベクトル/ハイブリッド検索と根拠付き回答生成の初期 slice、Research Score 初期 slice は実装済み。Assistant / ranking order への接続は後続。
 * **Out of Scope**: RAG単体での売買推奨、自動売買判断、証券口座ログイン情報の取得、規約違反リスクのある無制限スクレイピング、外部LLM/APIを必須にする実装。
 
 ### 1.1 前提

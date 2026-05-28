@@ -18,7 +18,7 @@ API の起動方法、CSV 形式、UI の使い方、手動確認手順は [06_M
 
 Phase 1 から Phase 15 までは、現在の実装上は implementation complete 扱いです。
 Phase 16 は UI / Visualization Cockpit 改善の実装完了扱いです。最終 Streamlit browser smoke は推奨確認として残します。
-Research RAG は Phase 20 local evidence slice が deterministic foundation として実装完了です。今後の product direction は、local 登録資料を主データ源にするのではなく、`AI調査を更新` で外部の最新IR・開示・ニュース・provider 情報を取得/参照し、session-local に一時分析する流れを基本にします。local 登録資料は通常 tests / demo seed / archive / fallback の位置づけです。Phase 21 高度Research RAG（根拠抽出・根拠付き回答生成）は query expansion、structured extraction、grounded answer、retrieval quality、evidence reranker、UI / Decision Report 表示、optional vector / hybrid contract と scoring、keyword-fallback hybrid retrieval wrapper、local embedding generation、optional vector-index build workflow、in-memory local vector store、file-backed vector cache の初期 slice が進行中です。TDnet + Yahoo Finance の外部取得初期 slice は実装済みです。Phase 22 Research Score は backend deterministic service、disabled-by-default Investment Score optional input、Cockpit / Ranking Research Summary display、selected-candidate breakdown context、Cockpit Decision Report section の初期 slice が開始済みです。Ranking order 統合、EDINET / 企業IR site adapter、Assistant、distribution readiness は後続 planned / future scope です。
+Research RAG は Phase 20 local evidence slice が deterministic foundation として実装完了です。今後の product direction は、local 登録資料を主データ源にするのではなく、`AI調査を更新` で外部の最新IR・開示・ニュース・provider 情報を取得/参照し、session-local に一時分析する流れを基本にします。local 登録資料は通常 tests / demo seed / archive / fallback の位置づけです。Phase 21 高度Research RAG（根拠抽出・根拠付き回答生成）は query expansion、structured extraction、grounded answer、retrieval quality、evidence reranker、UI / Decision Report 表示、optional vector / hybrid contract と scoring、keyword-fallback hybrid retrieval wrapper、local embedding generation、optional vector-index build workflow、in-memory local vector store、file-backed vector cache、local `ResearchBriefBuilder` readability layer の初期 slice が進行中です。TDnet + Yahoo Finance の外部取得初期 slice は実装済みです。Phase 22 Research Score は backend deterministic service、disabled-by-default Investment Score optional input、Cockpit / Ranking Research Summary display、selected-candidate breakdown context、Cockpit Decision Report section の初期 slice が開始済みです。Ranking order 統合、EDINET / 企業IR site adapter、Assistant、distribution readiness は後続 planned / future scope です。
 
 実装済みの主な範囲:
 
@@ -807,15 +807,15 @@ Current implemented slice:
 - 通常 tests は fake adapter のみを使い、CI では live external source、scraping、外部LLM、network call を不要にする。
 - A `source_type="news"` payload becomes available to the existing Stock News RAG cockpit flow after registration; provider profile / IR payloads become normal Research Evidence documents.
 
-次のローカル読みやすさ改善 slice:
+ローカル読みやすさ改善 slice:
 
-- R9: ResearchBrief / Local Research Memo。表示専用の `ResearchBrief` / `ResearchMetric` 層を追加し、`CompanyResearchReport`、evidence、provider profile、news、TDnet trace を、外部LLMなしで読めるローカル投資調査メモへ変換する。
+- R9: ResearchBrief / Local Research Memo。表示専用の `ResearchBrief` / `ResearchMetric` 層を追加し、`CompanyResearchReport`、evidence、provider profile、news、TDnet trace を、外部LLMなしで読めるローカル投資調査メモへ変換する初期 slice は実装済み。
 - R9 では定量指標と定性トピックを分離する。初期指標は売上高、営業利益、純利益、EPS、配当、PER、PBR、ROE、時価総額とし、取得できない重要指標は `missing_metrics` に出す。
 - R9 では provider profile を企業概要 / 事業内容に圧縮し、通常表示では raw provider field を隠す。Provider Symbol、Quote Type、Exchange、Currency、raw Sector / Industry、provider field dump は詳細データのみに残す。
 - R9 では local keyword rule で成長材料、業績材料、株主還元、リスク、良材料候補、注意材料候補、不足根拠に分類する。文言は買い/売り結論ではなく、候補 / 確認ポイントとして扱う。
 - R9 の source confidence は情報源の信頼度だけを示す。official IR / TDnet / EDINET / company IR = high、Yahoo Finance / provider profile / news = medium、keyword-only extraction = low とする。
-- Cockpit Research Summary の表示順は、AI整理メモ -> 定量評価サマリー -> 企業概要・事業内容 -> 良材料候補 -> 注意材料候補 -> 未確認・不足根拠 -> 次に確認すべき資料 -> 出典カード -> 詳細データ とする。
-- Research Score は AI整理メモの後、または detail / context に寄せ、最初に読む内容が score table ではなく調査メモになるようにする。
+- Cockpit Research Summary の表示順は、AI整理メモ -> 定量評価サマリー -> 企業概要・事業内容 -> 良材料候補 -> 注意材料候補 -> 未確認・不足根拠 -> 次に確認すべき資料 -> 出典カード -> Research Score -> 詳細データ とする。
+- Research Score は AI整理メモや調査メモの後ろへ寄せ、最初に読む内容が score table ではなく調査メモになるようにする。
 - Tests は deterministic を維持する。fake report / fake source trace、regex metric extraction fixture を使い、live network と外部LLMに依存しない。
 
 ### 5.8 Phase 22: Research Score And Investment Integration

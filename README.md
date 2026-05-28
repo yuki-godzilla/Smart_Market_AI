@@ -49,8 +49,8 @@ SMAI は以下の思想を重視しています。
 - Research RAG external fresh-source fetch first UI slice
   - TDnet 適時開示 + Yahoo Finance profile / news の first slice を `AI調査を更新` の標準処理へ統合済み
   - 方針として、取得本文は保持せず session-local に一時参照する。画面とDecision Reportには source URL / provider / fetched_at / published_at / freshness warning / 要約を表示する
-- Research Summary local readability direction
-  - 外部LLMはいったん使わず、RAG evidence / provider profile / news / TDnet trace を表示専用 `ResearchBrief` に変換する方針
+- Research Summary local readability first slice
+  - 外部LLMはいったん使わず、RAG evidence / provider profile / news / TDnet trace を表示専用 `ResearchBrief` に変換する
   - AI整理メモ、定量評価サマリー、企業概要、良材料候補、注意材料候補、不足根拠、次に確認すべき資料、出典カードの順に読める調査メモへ整理する
 - Research Score first slices
   - `ResearchScoreService`、optional Investment Score input、disabled-by-default `scoring.weights.research`
@@ -94,7 +94,7 @@ MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で
 - Phase 22〜25: Research Score integration、Assistant、optional adapter、Execution gate の順に整理
 - Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
-次の重点は、既存機能の分かりにくさ、仕様曖昧さ、投資助言に見えすぎる表現を棚卸ししつつ、`AI調査を更新` を外部最新IR・開示・ニュース・provider evidence 探索の標準導線へ寄せ、Phase 22 Research Score integration を慎重に進めることです。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、EDINET / company IR site などの追加 Research RAG external adapters、Assistant、Execution / Broker は段階的に扱います。通常 checks は引き続き fake adapter / fixture で network 非依存を維持します。
+次の重点は、既存機能の分かりにくさ、仕様曖昧さ、投資助言に見えすぎる表現を棚卸ししつつ、`AI調査を更新` と ResearchBrief 表示を実画面で確認し、外部最新IR・開示・ニュース・provider evidence 探索を広げることです。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、EDINET / company IR site などの追加 Research RAG external adapters、Assistant、Execution / Broker は段階的に扱います。通常 checks は引き続き fake adapter / fixture で network 非依存を維持します。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント

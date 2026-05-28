@@ -50,6 +50,8 @@ from backend.research import (
     CompanyResearchReport,
     ExternalResearchFetchManifestEntry,
     ExternalResearchFetchResult,
+    ResearchBrief,
+    ResearchBriefBuilder,
     ResearchDocument,
     ResearchScore,
     ResearchScoreService,
@@ -4895,29 +4897,27 @@ def _render_research_summary_panel(
     news_report: StockNewsReport | None = None,
     external_research_result: ExternalResearchFetchResult | None = None,
 ) -> None:
-    st.markdown(_research_result_overview_html(report), unsafe_allow_html=True)
+    brief = ResearchBriefBuilder().build(
+        report,
+        news_report=news_report,
+        external_research_result=external_research_result,
+    )
+    st.markdown(_research_brief_overview_html(brief), unsafe_allow_html=True)
     if report.data_quality.status != "OK":
         st.warning("根拠資料が不足しています。表示内容は確認材料として控えめに扱ってください。")
-    render_research_evidence_summary(report)
+    _render_research_brief_sections(brief)
 
     research_score = ResearchScoreService().score_report(report)
-    score_rows = _research_score_summary_rows(research_score)
-    if score_rows:
-        st.markdown("##### Research Score")
-        _render_compact_dataframe(score_rows)
-
     point_rows = _research_investment_point_rows(report)
-    if point_rows:
-        st.markdown("##### 投資判断に影響しそうな要点")
-        st.markdown(_research_point_cards_html(point_rows), unsafe_allow_html=True)
 
     card_rows = _research_evidence_card_rows(
         report,
         news_report=news_report,
         limit=None,
     )
+    render_research_evidence_summary(report)
     if card_rows:
-        st.markdown("##### 根拠カード")
+        st.markdown("##### 出典カード")
         st.caption("初期表示は最大5件です。追加の根拠と検索品質は詳細データで確認できます。")
         st.markdown(
             _research_evidence_cards_html(card_rows[:5]),
@@ -4934,6 +4934,11 @@ def _render_research_summary_panel(
                 )
     else:
         st.info("根拠カードとして表示できる資料はまだありません。AI調査を更新してください。")
+
+    score_rows = _research_score_summary_rows(research_score)
+    if score_rows:
+        st.markdown("##### Research Score")
+        _render_compact_dataframe(score_rows)
 
     if news_report is not None and news_report.warnings:
         for warning in news_report.warnings:
@@ -5002,6 +5007,137 @@ def _render_research_summary_panel(
             _render_compact_dataframe(
                 _external_research_fetch_summary_rows(external_research_result)
             )
+
+
+def _render_research_brief_sections(brief: ResearchBrief) -> None:
+    metric_rows = _research_brief_metric_rows(brief)
+    st.markdown("##### 定量評価サマリー")
+    if metric_rows:
+        _render_compact_dataframe(metric_rows)
+    else:
+        st.info("定量指標はまだ十分に抽出できていません。公式資料で確認してください。")
+
+    st.markdown("##### 企業概要・事業内容")
+    st.markdown(_research_brief_business_html(brief), unsafe_allow_html=True)
+
+    if brief.positive_candidates:
+        st.markdown("##### 良材料候補")
+        st.markdown(
+            _research_brief_items_html(brief.positive_candidates, tone="positive"),
+            unsafe_allow_html=True,
+        )
+    if brief.caution_candidates:
+        st.markdown("##### 注意材料候補")
+        st.markdown(
+            _research_brief_items_html(brief.caution_candidates, tone="risk"),
+            unsafe_allow_html=True,
+        )
+
+    gap_rows = _research_brief_gap_rows(brief)
+    if gap_rows:
+        st.markdown("##### 未確認・不足している根拠")
+        _render_compact_dataframe(gap_rows)
+
+    action_rows = _research_brief_next_action_rows(brief)
+    if action_rows:
+        st.markdown("##### 次に確認すべき資料")
+        _render_compact_dataframe(action_rows)
+
+
+def _research_brief_overview_html(brief: ResearchBrief) -> str:
+    items = [
+        ("抽出指標", f"{len(brief.metrics)}件"),
+        ("不足指標", f"{len(brief.missing_metrics)}件"),
+        ("出典カード", f"{len(brief.source_cards)}件"),
+        ("確認日", brief.as_of.isoformat()),
+    ]
+    item_markup = "".join(
+        (
+            '<div class="research-result-brief-item">'
+            f'<div class="research-result-brief-label">{html.escape(label)}</div>'
+            f'<div class="research-result-brief-value">{html.escape(value)}</div>'
+            "</div>"
+        )
+        for label, value in items
+    )
+    return (
+        '<section class="research-result-brief">'
+        '<div class="research-result-brief-title">AI整理メモ</div>'
+        f'<div class="research-result-brief-summary">{html.escape(brief.memo)}</div>'
+        f'<div class="research-result-brief-grid">{item_markup}</div>'
+        "</section>"
+    )
+
+
+def _research_brief_business_html(brief: ResearchBrief) -> str:
+    return (
+        '<section class="research-result-brief">'
+        f'<div class="research-result-brief-summary">{html.escape(brief.business_overview)}</div>'
+        "</section>"
+    )
+
+
+def _research_brief_metric_rows(brief: ResearchBrief) -> list[dict[str, str]]:
+    return [
+        {
+            "指標": metric.label,
+            "値": metric.value,
+            "出典": metric.source_title,
+            "資料種別": _research_source_type_label(metric.source_type),
+            "情報源信頼度": _research_source_confidence_label(metric.source_confidence),
+        }
+        for metric in brief.metrics
+    ]
+
+
+def _research_brief_gap_rows(brief: ResearchBrief) -> list[dict[str, str]]:
+    return [
+        {
+            "確認項目": "不足根拠",
+            "内容": gap,
+            "確認ポイント": "未確認は低評価ではなく、追加確認が必要な状態として扱います。",
+        }
+        for gap in brief.confirmation_gaps
+    ]
+
+
+def _research_brief_next_action_rows(brief: ResearchBrief) -> list[dict[str, str]]:
+    return [
+        {
+            "次に確認する資料": action,
+            "扱い": "確認材料",
+        }
+        for action in brief.next_actions
+    ]
+
+
+def _research_brief_items_html(items: Sequence[str], *, tone: str) -> str:
+    if not items:
+        return ""
+    badge_label = "良材料候補" if tone == "positive" else "注意材料候補"
+    item_markup = "".join(
+        (
+            '<div class="research-point-item">'
+            '<div class="research-evidence-card-header">'
+            f'<span class="research-evidence-pill {html.escape(tone)}">'
+            f"{html.escape(badge_label)}</span>"
+            "</div>"
+            f'<div class="research-point-summary">{html.escape(item)}</div>'
+            "</div>"
+        )
+        for item in items
+    )
+    return f'<div class="research-point-list">{item_markup}</div>'
+
+
+def _research_source_confidence_label(confidence: str) -> str:
+    labels = {
+        "high": "高: 公式資料・開示中心",
+        "medium": "中: provider / news 由来",
+        "low": "低: user note / keyword 抽出",
+        "unknown": "未確認",
+    }
+    return labels.get(confidence, "未確認")
 
 
 def _research_result_overview_html(report: CompanyResearchReport) -> str:

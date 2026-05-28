@@ -48,6 +48,18 @@ StockNewsInvestmentViewpoint = Literal[
 ]
 StockNewsSentiment = Literal["positive", "negative", "neutral", "mixed", "unknown"]
 StockNewsFreshnessStatus = Literal["latest", "recent", "stale", "unknown"]
+ResearchSourceConfidence = Literal["high", "medium", "low", "unknown"]
+ResearchMetricKey = Literal[
+    "revenue",
+    "operating_income",
+    "net_income",
+    "eps",
+    "dividend",
+    "per",
+    "pbr",
+    "roe",
+    "market_cap",
+]
 
 RESEARCH_SCHEMA_VERSION = "research-evidence-v1"
 DEFAULT_MAX_CHARS = 1200
@@ -519,6 +531,52 @@ class ExternalResearchFetchResult(StrictBaseModel):
     retention_policy: Literal["session", "archive"] = "session"
     manifest_path: str | None = None
     warnings: list[str] = Field(default_factory=list)
+
+
+class ResearchMetric(StrictBaseModel):
+    """Display-only metric extracted from research evidence by local rules."""
+
+    schema_version: str = "research-metric-v1"
+    key: ResearchMetricKey
+    label: str = Field(min_length=1)
+    value: str = Field(min_length=1)
+    source_title: str = Field(min_length=1)
+    source_type: ResearchSourceType
+    source_confidence: ResearchSourceConfidence = "unknown"
+
+
+class ResearchBriefSourceCard(StrictBaseModel):
+    """Readable source card for the local ResearchBrief UI layer."""
+
+    title: str = Field(min_length=1)
+    source_type: ResearchSourceType
+    provider: str | None = None
+    source_url: str | None = None
+    published_at: date | None = None
+    fetched_at: datetime | None = None
+    freshness_status: StockNewsFreshnessStatus = "unknown"
+    source_confidence: ResearchSourceConfidence = "unknown"
+    note: str = ""
+
+
+class ResearchBrief(StrictBaseModel):
+    """Local rule-based research memo for display; it does not change scores."""
+
+    schema_version: str = "research-brief-v1"
+    symbol: str = Field(min_length=1)
+    as_of: date
+    memo: str = Field(min_length=1)
+    metrics: list[ResearchMetric] = Field(default_factory=list)
+    missing_metrics: list[str] = Field(default_factory=list)
+    business_overview: str = Field(min_length=1)
+    positive_candidates: list[str] = Field(default_factory=list)
+    caution_candidates: list[str] = Field(default_factory=list)
+    confirmation_gaps: list[str] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+    source_cards: list[ResearchBriefSourceCard] = Field(default_factory=list)
+    decision_support_note: str = (
+        "ResearchBrief is a local evidence memo for decision support; not advice."
+    )
 
 
 class ExternalResearchSourceAdapter(Protocol):
@@ -1459,6 +1517,46 @@ class ResearchScoreService:
                 total_score=total_score,
                 confidence=confidence,
             ),
+        )
+
+
+class ResearchBriefBuilder:
+    """Build a readable local Research memo without external LLM calls."""
+
+    def build(
+        self,
+        report: CompanyResearchReport,
+        *,
+        news_report: StockNewsReport | None = None,
+        external_research_result: ExternalResearchFetchResult | None = None,
+    ) -> ResearchBrief:
+        metrics = _research_brief_metrics(report.evidence)
+        missing_metrics = _research_brief_missing_metric_labels(metrics)
+        positive_candidates = _research_brief_positive_candidates(report, news_report)
+        caution_candidates = _research_brief_caution_candidates(report, news_report)
+        confirmation_gaps = _research_brief_confirmation_gaps(report, missing_metrics)
+        next_actions = _research_brief_next_actions(
+            report,
+            missing_metrics,
+            external_research_result=external_research_result,
+        )
+        source_cards = _research_brief_source_cards(
+            report,
+            news_report=news_report,
+            external_research_result=external_research_result,
+        )
+        return ResearchBrief(
+            symbol=report.symbol,
+            as_of=report.as_of,
+            memo=_research_brief_memo(report, metrics, source_cards),
+            metrics=metrics,
+            missing_metrics=missing_metrics,
+            business_overview=_research_brief_business_overview(report),
+            positive_candidates=positive_candidates,
+            caution_candidates=caution_candidates,
+            confirmation_gaps=confirmation_gaps,
+            next_actions=next_actions,
+            source_cards=source_cards,
         )
 
 
@@ -2660,6 +2758,318 @@ def _research_score_summary(
         f"開示の確認しやすさを整理した補助スコアです。confidence={confidence}。"
         "売買推奨ではなく、追加確認の優先度を考えるための材料です。"
     )
+
+
+_RESEARCH_BRIEF_METRIC_SPECS: tuple[
+    tuple[ResearchMetricKey, str, tuple[str, ...]],
+    ...,
+] = (
+    ("revenue", "売上高", (r"売上(?:高|収益)?", r"revenue", r"sales")),
+    ("operating_income", "営業利益", (r"営業利益", r"operating income")),
+    ("net_income", "純利益", (r"純利益", r"当期利益", r"net income", r"net profit")),
+    ("eps", "EPS", (r"EPS", r"1株当たり(?:利益|当期利益)", r"earnings per share")),
+    ("dividend", "配当", (r"配当(?:金)?", r"dividend(?: per share)?")),
+    ("per", "PER", (r"PER", r"price[- ]earnings ratio")),
+    ("pbr", "PBR", (r"PBR", r"price[- ]to[- ]book")),
+    ("roe", "ROE", (r"ROE", r"return on equity")),
+    ("market_cap", "時価総額", (r"時価総額", r"market cap(?:italization)?")),
+)
+_RESEARCH_BRIEF_RAW_PROVIDER_LABELS = (
+    "Provider Symbol",
+    "Quote Type",
+    "Exchange",
+    "Currency",
+    "Sector",
+    "Industry",
+)
+_RESEARCH_BRIEF_HIGH_CONFIDENCE_SOURCES: set[ResearchSourceType] = {
+    "annual_report",
+    "earnings_report",
+    "earnings_presentation",
+    "medium_term_plan",
+    "integrated_report",
+    "tdnet",
+}
+_RESEARCH_BRIEF_MEDIUM_CONFIDENCE_SOURCES: set[ResearchSourceType] = {
+    "provider_profile",
+    "news",
+}
+
+
+def _research_brief_metrics(evidence: Sequence[ResearchEvidence]) -> list[ResearchMetric]:
+    metrics_by_key: dict[ResearchMetricKey, ResearchMetric] = {}
+    for row in evidence:
+        text = _research_brief_evidence_text(row)
+        for key, label, patterns in _RESEARCH_BRIEF_METRIC_SPECS:
+            if key in metrics_by_key:
+                continue
+            value = _research_brief_metric_value(text, patterns)
+            if value is None:
+                continue
+            metrics_by_key[key] = ResearchMetric(
+                key=key,
+                label=label,
+                value=value,
+                source_title=row.title,
+                source_type=row.source_type,
+                source_confidence=_research_brief_source_confidence(row.source_type),
+            )
+    return [
+        metrics_by_key[key] for key, _, _ in _RESEARCH_BRIEF_METRIC_SPECS if key in metrics_by_key
+    ]
+
+
+def _research_brief_metric_value(text: str, patterns: Sequence[str]) -> str | None:
+    unit_pattern = (
+        r"(?:兆円|億円|百万円|万円|円|％|%|倍|株|"
+        r"trillion yen|billion yen|million yen|yen|JPY|USD|per share|x)?"
+    )
+    for pattern in patterns:
+        match = re.search(
+            rf"(?:{pattern})\s*(?:[:：=は])?\s*" rf"([+-]?\d[\d,]*(?:\.\d+)?\s*{unit_pattern})",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if match is None:
+            continue
+        value = re.sub(r"\s+", " ", match.group(1)).strip(" .。、、")
+        if value:
+            return value
+    return None
+
+
+def _research_brief_missing_metric_labels(metrics: Sequence[ResearchMetric]) -> list[str]:
+    found = {metric.key for metric in metrics}
+    return [label for key, label, _ in _RESEARCH_BRIEF_METRIC_SPECS if key not in found]
+
+
+def _research_brief_business_overview(report: CompanyResearchReport) -> str:
+    prioritized = [
+        *[row for row in report.evidence if row.source_type == "provider_profile"],
+        *[
+            row
+            for row in report.evidence
+            if row.source_type in _RESEARCH_BRIEF_HIGH_CONFIDENCE_SOURCES
+        ],
+        *report.evidence,
+    ]
+    for row in prioritized:
+        cleaned = _research_brief_clean_provider_text(row.excerpt)
+        if cleaned:
+            return _clip_text(cleaned, max_chars=260)
+    return report.summary
+
+
+def _research_brief_clean_provider_text(text: str) -> str:
+    lines = [line.strip() for line in re.split(r"[\r\n]+", text) if line.strip()]
+    filtered = [
+        line
+        for line in lines
+        if not any(
+            re.match(rf"^{re.escape(label)}\s*[:：]", line, flags=re.IGNORECASE)
+            for label in _RESEARCH_BRIEF_RAW_PROVIDER_LABELS
+        )
+    ]
+    cleaned = " ".join(filtered)
+    for label in _RESEARCH_BRIEF_RAW_PROVIDER_LABELS:
+        cleaned = re.sub(
+            rf"{re.escape(label)}\s*[:：]\s*[^。.\n\r]+[。. ]?",
+            "",
+            cleaned,
+            flags=re.IGNORECASE,
+        )
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def _research_brief_positive_candidates(
+    report: CompanyResearchReport,
+    news_report: StockNewsReport | None,
+) -> list[str]:
+    candidates = [
+        f"{point.label}: {_clip_text(point.summary, max_chars=140)}"
+        for point in report.points
+        if point.category in {"growth", "shareholder_return", "financial_safety"} and point.evidence
+    ]
+    if news_report is not None:
+        candidates.extend(
+            f"ニュース: {_clip_text(row.title, max_chars=60)} - "
+            f"{_clip_text(row.summary, max_chars=100)}"
+            for row in news_report.news
+            if row.sentiment_for_investment == "positive"
+        )
+    return _unique_text(candidates)[:5]
+
+
+def _research_brief_caution_candidates(
+    report: CompanyResearchReport,
+    news_report: StockNewsReport | None,
+) -> list[str]:
+    candidates = [
+        f"{point.label}: {_clip_text(point.summary, max_chars=140)}"
+        for point in report.points
+        if point.category in {"business_risk", "confirmation_gap"}
+    ]
+    candidates.extend(report.data_quality.warnings)
+    if news_report is not None:
+        candidates.extend(
+            f"ニュース: {_clip_text(row.title, max_chars=60)} - "
+            f"{_clip_text(row.summary, max_chars=100)}"
+            for row in news_report.news
+            if row.sentiment_for_investment in {"negative", "mixed", "unknown"}
+        )
+        candidates.extend(news_report.warnings)
+    return _unique_text(candidates)[:6]
+
+
+def _research_brief_confirmation_gaps(
+    report: CompanyResearchReport,
+    missing_metrics: Sequence[str],
+) -> list[str]:
+    gaps = list(report.data_quality.warnings)
+    gaps.extend(
+        missing for claim in report.extracted_claims for missing in claim.missing_information
+    )
+    if missing_metrics:
+        gaps.append(f"未確認の定量指標: {'、'.join(missing_metrics[:8])}")
+    return _unique_text(gaps)[:8]
+
+
+def _research_brief_next_actions(
+    report: CompanyResearchReport,
+    missing_metrics: Sequence[str],
+    *,
+    external_research_result: ExternalResearchFetchResult | None,
+) -> list[str]:
+    actions: list[str] = []
+    if missing_metrics:
+        actions.append("決算短信・有価証券報告書・公式IRで未確認の定量指標を確認します。")
+    if not any(
+        row.source_type in _RESEARCH_BRIEF_HIGH_CONFIDENCE_SOURCES for row in report.evidence
+    ):
+        actions.append("公式資料やTDnet開示で、provider情報とニュースの裏取りをします。")
+    if any("鮮度" in warning or "2年以上" in warning for warning in report.data_quality.warnings):
+        actions.append("最新の決算資料、適時開示、ニュースで情報の鮮度を確認します。")
+    if external_research_result is not None and external_research_result.warnings:
+        actions.append("外部取得の警告を確認し、取得できなかった資料を個別に確認します。")
+    actions.append("出典カードの資料名、公開日、URL、confidenceを確認します。")
+    return _unique_text(actions)[:5]
+
+
+def _research_brief_source_cards(
+    report: CompanyResearchReport,
+    *,
+    news_report: StockNewsReport | None,
+    external_research_result: ExternalResearchFetchResult | None,
+) -> list[ResearchBriefSourceCard]:
+    cards: dict[tuple[str, str, str], ResearchBriefSourceCard] = {}
+    for row in report.evidence:
+        published_at = row.published_at.isoformat() if row.published_at else ""
+        key = (row.title, row.source_type, published_at)
+        cards.setdefault(
+            key,
+            ResearchBriefSourceCard(
+                title=row.title,
+                source_type=row.source_type,
+                published_at=row.published_at,
+                source_confidence=_research_brief_source_confidence(row.source_type),
+                note="検索で確認した根拠資料です。",
+            ),
+        )
+
+    if news_report is not None:
+        for row in news_report.news:
+            key = (row.title, "news", row.url)
+            cards.setdefault(
+                key,
+                ResearchBriefSourceCard(
+                    title=row.title,
+                    source_type="news",
+                    provider=row.source,
+                    source_url=row.url,
+                    published_at=row.published_at,
+                    freshness_status=row.freshness_status,
+                    source_confidence=_research_brief_source_confidence("news"),
+                    note="URL付きニュースとして確認した材料です。",
+                ),
+            )
+
+    if external_research_result is not None:
+        for row in external_research_result.entries:
+            key = (row.title, row.source_type, row.source_url)
+            cards.setdefault(
+                key,
+                ResearchBriefSourceCard(
+                    title=row.title,
+                    source_type=row.source_type,
+                    provider=row.provider,
+                    source_url=row.source_url,
+                    published_at=row.published_at,
+                    fetched_at=row.fetched_at,
+                    freshness_status=row.freshness_status,
+                    source_confidence=_research_brief_source_confidence(row.source_type),
+                    note="AI調査で一時参照した外部ソースです。",
+                ),
+            )
+    return list(cards.values())
+
+
+def _research_brief_memo(
+    report: CompanyResearchReport,
+    metrics: Sequence[ResearchMetric],
+    source_cards: Sequence[ResearchBriefSourceCard],
+) -> str:
+    if report.data_quality.evidence_count <= 0:
+        return (
+            "現時点で確認できた根拠資料が少ないため、Research Summary は未確認メモとして"
+            "扱います。売買推奨ではなく、追加で確認する資料を整理するための表示です。"
+        )
+    source_summary = (
+        f"資料{report.data_quality.document_count}件、根拠{report.data_quality.evidence_count}件、"
+        f"出典カード{len(source_cards)}件"
+    )
+    metric_summary = f"定量指標は{len(metrics)}件をローカルルールで抽出しました。"
+    caution = (
+        "注意点があります。" if report.data_quality.warnings else "大きな資料警告はありません。"
+    )
+    return (
+        f"現時点で確認できた情報を、{source_summary}から整理しました。"
+        f"{metric_summary}{caution}"
+        "このメモは確認観点の整理であり、売買推奨ではありません。"
+    )
+
+
+def _research_brief_evidence_text(row: ResearchEvidence) -> str:
+    return " ".join(
+        part for part in (row.title, row.section_title or "", row.excerpt) if part.strip()
+    )
+
+
+def _research_brief_source_confidence(
+    source_type: ResearchSourceType,
+) -> ResearchSourceConfidence:
+    if source_type in _RESEARCH_BRIEF_HIGH_CONFIDENCE_SOURCES:
+        return "high"
+    if source_type in _RESEARCH_BRIEF_MEDIUM_CONFIDENCE_SOURCES:
+        return "medium"
+    if source_type == "user_note":
+        return "low"
+    return "unknown"
+
+
+def _unique_text(values: Sequence[str]) -> list[str]:
+    unique: list[str] = []
+    for value in values:
+        cleaned = re.sub(r"\s+", " ", value).strip()
+        if cleaned and cleaned not in unique:
+            unique.append(cleaned)
+    return unique
+
+
+def _clip_text(text: str, *, max_chars: int) -> str:
+    cleaned = re.sub(r"\s+", " ", text).strip()
+    if len(cleaned) <= max_chars:
+        return cleaned
+    return f"{cleaned[: max_chars - 1].rstrip()}…"
 
 
 def _data_quality_status_factor(status: DataQuality) -> Decimal:

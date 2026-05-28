@@ -414,19 +414,18 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     font-size: 0.9rem;
     line-height: 1.55;
 }
-.research-status-chip-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.42rem;
-    margin-bottom: 0.48rem;
-}
-.research-status-chip {
-    border: 1px solid rgba(34, 211, 238, 0.34);
-    border-radius: 999px;
+.research-ai-cta-source {
     color: var(--text-ai-muted);
+    font-size: 0.82rem;
+    line-height: 1.45;
+    margin-top: 0.42rem;
+    overflow-wrap: anywhere;
+}
+.research-ai-cta-note {
+    color: var(--text-caption);
     font-size: 0.78rem;
-    font-weight: 750;
-    padding: 0.18rem 0.52rem;
+    line-height: 1.45;
+    margin-top: 0.34rem;
 }
 .research-next-step {
     border-left: 3px solid var(--ai-cyan);
@@ -4910,24 +4909,22 @@ def _render_research_operation_card(
     news_report: StockNewsReport | None,
 ) -> bool:
     symbol = _market_data_preview_symbol(preview)
-    status = _research_operation_status(report, news_report)
+    insight = _research_operation_insight(report, news_report)
     with st.container(border=True):
         text_col, action_col = st.columns([1.55, 1.0])
         with text_col:
             st.markdown(
                 (
                     '<div class="research-ai-cta">'
-                    '<div class="research-ai-cta-title">AI調査ステータス</div>'
-                    '<div class="research-status-chip-row">'
-                    f'<span class="research-status-chip">状態: {html.escape(status["state"])}</span>'
-                    f'<span class="research-status-chip">最終更新: {html.escape(status["latest"])}</span>'
-                    f'<span class="research-status-chip">情報件数: {html.escape(status["count"])}</span>'
-                    f'<span class="research-status-chip">信頼度: {html.escape(status["confidence"])}</span>'
-                    "</div>"
+                    f'<div class="research-ai-cta-title">{html.escape(insight["title"])}</div>'
                     '<div class="research-ai-cta-copy">'
-                    "根拠資料はスコア算出そのものではなく、判断を補助する参考情報です。"
-                    f'<div class="research-next-step">{html.escape(status["next_step"])}</div>'
-                    "</div></div>"
+                    f'{html.escape(insight["summary"])}</div>'
+                    '<div class="research-ai-cta-source">'
+                    f'{html.escape(insight["source_summary"])}</div>'
+                    f'<div class="research-next-step">{html.escape(insight["next_step"])}</div>'
+                    '<div class="research-ai-cta-note">'
+                    "売買推奨ではなく、判断材料の整理です。</div>"
+                    "</div>"
                 ),
                 unsafe_allow_html=True,
             )
@@ -4952,52 +4949,96 @@ def _render_research_operation_card(
             return fetch_clicked
 
 
-def _research_operation_status(
+def _research_operation_insight(
     report: CompanyResearchReport | None,
     news_report: StockNewsReport | None,
 ) -> dict[str, str]:
-    evidence_count = report.data_quality.evidence_count if report is not None else 0
-    news_count = len(news_report.news) if news_report is not None else 0
-    latest_candidates = [
-        candidate
-        for candidate in [
-            report.data_quality.latest_document_date if report is not None else None,
-            *([row.published_at for row in news_report.news] if news_report is not None else []),
-        ]
-        if candidate is not None
-    ]
-    latest = max(latest_candidates).isoformat() if latest_candidates else "未取得"
-    if report is not None:
-        state = "取得済み"
-        next_step = "次に見る: 下の根拠カードを確認し、必要なら07 投資判断レポートへ進みます。"
-    elif news_report is not None and news_report.news:
-        state = "ニュース取得済み"
-        next_step = "次にする: AI調査を更新すると、ニュース以外の根拠資料も合わせて整理できます。"
-    else:
-        state = "未取得"
-        next_step = "次にする: AI調査を更新して、根拠カードを作成します。"
+    if report is None:
+        if news_report is not None and news_report.news:
+            news_count = len(news_report.news)
+            source_summary = _research_operation_news_source_summary(news_report)
+            return {
+                "title": "AI調査でわかったこと",
+                "summary": (
+                    f"関連ニュース{news_count}件は確認済みです。"
+                    "AI調査を更新すると、事業概要やIR情報もまとめて整理します。"
+                ),
+                "source_summary": source_summary,
+                "next_step": "AI調査を更新して、IR・開示・provider情報も合わせて確認します。",
+            }
+        return {
+            "title": "AI調査でわかったこと",
+            "summary": (
+                "まだ事業概要やIR情報は整理されていません。"
+                "AI調査を更新すると、外部情報・ニュース・保存済み資料をまとめて確認します。"
+            ),
+            "source_summary": "確認した資料: 未取得",
+            "next_step": "まずAI調査を更新して、根拠資料を整理します。",
+        }
+
+    brief = ResearchBriefBuilder().build(report, news_report=news_report)
+    business_overview = _research_brief_ui_text(brief.business_overview, max_chars=118)
+    material_summary = _research_operation_material_summary(brief)
     return {
-        "state": state,
-        "latest": latest,
-        "count": f"{evidence_count + news_count}件",
-        "confidence": _research_confidence_label(report, news_report),
-        "next_step": next_step,
+        "title": "AI調査でわかったこと",
+        "summary": f"事業概要: {business_overview} {material_summary}",
+        "source_summary": _research_operation_source_summary(brief),
+        "next_step": _research_operation_next_step(brief),
     }
 
 
-def _research_confidence_label(
-    report: CompanyResearchReport | None,
-    news_report: StockNewsReport | None = None,
-) -> str:
-    if report is None:
-        return "中くらい" if news_report is not None and news_report.news else "未取得"
-    if report.data_quality.evidence_count <= 0:
-        return "低め"
-    if report.data_quality.status == "OK" and not report.data_quality.warnings:
-        return "高め"
-    if report.data_quality.status == "WARN":
-        return "中くらい"
-    return "低め"
+def _research_operation_source_summary(brief: ResearchBrief) -> str:
+    labels: list[str] = []
+    for card in brief.source_cards:
+        label = _research_source_type_label(card.source_type)
+        if label not in labels:
+            labels.append(label)
+    if not labels:
+        return "確認した資料: 根拠資料はまだ少なめです。"
+    source_text = " / ".join(labels[:4])
+    if len(labels) > 4:
+        source_text += f" ほか{len(labels) - 4}種"
+    return f"確認した資料: {source_text}（出典カード{len(brief.source_cards)}件）。"
+
+
+def _research_operation_news_source_summary(news_report: StockNewsReport) -> str:
+    source_names: list[str] = []
+    for news in news_report.news:
+        source = news.source or "ニュース"
+        if source not in source_names:
+            source_names.append(source)
+    if not source_names:
+        return "確認した資料: ニュース"
+    source_text = " / ".join(source_names[:3])
+    if len(source_names) > 3:
+        source_text += f" ほか{len(source_names) - 3}件"
+    return f"確認した資料: {source_text}"
+
+
+def _research_operation_material_summary(brief: ResearchBrief) -> str:
+    positive_count = len(brief.positive_materials or brief.positive_candidates)
+    caution_count = len(brief.caution_materials or brief.caution_candidates)
+    parts: list[str] = []
+    if positive_count:
+        parts.append(f"良材料候補{positive_count}件")
+    if caution_count:
+        parts.append(f"注意材料候補{caution_count}件")
+    if brief.metrics:
+        parts.append(f"定量指標{len(brief.metrics)}件")
+    if not parts:
+        return "主な材料はまだ整理できていません。"
+    return f"{'、'.join(parts)}を整理しました。"
+
+
+def _research_operation_next_step(brief: ResearchBrief) -> str:
+    if brief.missing_metrics:
+        missing = "、".join(brief.missing_metrics[:5])
+        if len(brief.missing_metrics) > 5:
+            missing += f" ほか{len(brief.missing_metrics) - 5}件"
+        return f"まだ確認が必要な数値: {missing}。公式資料で追加確認してください。"
+    if brief.confirmation_gaps:
+        return _research_brief_gap_display_text(brief.confirmation_gaps[0])
+    return "まず読み方サマリーで全体像を確認し、必要なら出典カードで根拠を確認してください。"
 
 
 def _render_ranking_symbol_research_lookup(symbol: str) -> None:

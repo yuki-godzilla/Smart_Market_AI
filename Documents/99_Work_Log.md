@@ -718,6 +718,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Extended the shared navy background treatment to the main Streamlit container and full-width block area so the page no longer looks visually cut off outside the content band.
 - Kept the change CSS-only with no workflow, data, forecast, scoring, ranking, Research RAG, or report behavior changes.
 
+## 2026-05-28 - Research operation insight summary
+
+- Replaced the Cockpit Research operation card's status chips with an `AI調査でわかったこと` summary.
+- The card now summarizes business overview, checked source types, good / caution material counts, and next confirmation from existing `ResearchBrief` data before the primary AI refresh action.
+- Kept the implementation local rule-based and deterministic; local lightweight LLM summarization remains a later option if rule-based shaping is not enough.
+
 ## 2026-05-28 - Research operation card single action
 
 - Simplified the Cockpit Research operation card so `AI調査を更新` is the only always-visible action.

@@ -856,6 +856,72 @@ def test_research_brief_helpers_render_readable_rows_and_escape_markup():
 
 
 def test_research_operation_card_keeps_single_primary_action(monkeypatch):
+    provider_evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-profile",
+        chunk_id="chunk-profile",
+        title="Toyota Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Toyota Motor Corporation Provider Symbol: 7203.T "
+            "Toyota sells vehicles globally and invests in software services."
+        ),
+        relevance_score=Decimal("0.70"),
+        reliability=Decimal("0.70"),
+    )
+    official_evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-ir",
+        chunk_id="chunk-ir",
+        title="7203 決算短信",
+        source_type="earnings_report",
+        published_at=date(2026, 5, 20),
+        section_title="業績",
+        excerpt="売上高 45兆円。成長戦略と株主還元を説明しています。",
+        relevance_score=Decimal("0.88"),
+        reliability=Decimal("0.94"),
+    )
+    risk_evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-risk",
+        chunk_id="chunk-risk",
+        title="TDnet 適時開示",
+        source_type="tdnet",
+        published_at=date(2026, 5, 22),
+        section_title="Risk",
+        excerpt="供給制約と為替変動が事業リスクとして説明されています。",
+        relevance_score=Decimal("0.80"),
+        reliability=Decimal("0.90"),
+    )
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="3件の根拠から確認材料を整理しました。",
+        points=[
+            ResearchSummaryPoint(
+                category="growth",
+                label="成長材料",
+                summary="成長戦略を確認材料として整理します。",
+                evidence=[official_evidence],
+            ),
+            ResearchSummaryPoint(
+                category="business_risk",
+                label="事業リスク",
+                summary="供給制約と為替変動を注意材料候補として見ます。",
+                evidence=[risk_evidence],
+            ),
+        ],
+        evidence=[official_evidence, provider_evidence, risk_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=3,
+            evidence_count=3,
+            warnings=[],
+        ),
+    )
     preview = MarketDataPreview(
         status="ok",
         bars=[],
@@ -872,6 +938,7 @@ def test_research_operation_card_keeps_single_primary_action(monkeypatch):
         error_rows=[],
     )
     button_calls: list[tuple[str, dict[str, object]]] = []
+    markdown_calls: list[str] = []
 
     def fake_button(label: str, **kwargs: object) -> bool:
         button_calls.append((label, kwargs))
@@ -882,16 +949,28 @@ def test_research_operation_card_keeps_single_primary_action(monkeypatch):
 
     monkeypatch.setattr("ui.app.st.container", lambda **kwargs: nullcontext())
     monkeypatch.setattr("ui.app.st.columns", lambda spec: [nullcontext() for _ in spec])
-    monkeypatch.setattr("ui.app.st.markdown", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "ui.app.st.markdown",
+        lambda body, *args, **kwargs: markdown_calls.append(str(body)),
+    )
     monkeypatch.setattr("ui.app.st.button", fake_button)
     monkeypatch.setattr("ui.app.st.download_button", fake_download_button)
 
-    clicked = _render_research_operation_card(preview, report=None, news_report=None)
+    clicked = _render_research_operation_card(preview, report=report, news_report=None)
+    markup = "\n".join(markdown_calls)
 
     assert clicked is True
     assert [label for label, _ in button_calls] == ["AI調査を更新"]
     assert button_calls[0][1]["type"] == "primary"
     assert button_calls[0][1]["use_container_width"] is True
+    assert "AI調査でわかったこと" in markup
+    assert "事業概要:" in markup
+    assert "確認した資料:" in markup
+    assert "決算短信" in markup
+    assert "良材料候補1件" in markup
+    assert "注意材料候補1件" in markup
+    assert "状態:" not in markup
+    assert "最終更新:" not in markup
 
 
 def test_research_score_rows_explain_optional_context_without_advice():

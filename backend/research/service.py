@@ -2962,51 +2962,51 @@ def _research_brief_source_cards(
     external_research_result: ExternalResearchFetchResult | None,
 ) -> list[ResearchBriefSourceCard]:
     cards: dict[tuple[str, str, str], ResearchBriefSourceCard] = {}
-    for row in report.evidence:
-        published_at = row.published_at.isoformat() if row.published_at else ""
-        key = (row.title, row.source_type, published_at)
+    for evidence in report.evidence:
+        published_at = evidence.published_at.isoformat() if evidence.published_at else ""
+        key = (evidence.title, evidence.source_type, published_at)
         cards.setdefault(
             key,
             ResearchBriefSourceCard(
-                title=row.title,
-                source_type=row.source_type,
-                published_at=row.published_at,
-                source_confidence=_research_brief_source_confidence(row.source_type),
+                title=evidence.title,
+                source_type=evidence.source_type,
+                published_at=evidence.published_at,
+                source_confidence=_research_brief_source_confidence(evidence.source_type),
                 note="検索で確認した根拠資料です。",
             ),
         )
 
     if news_report is not None:
-        for row in news_report.news:
-            key = (row.title, "news", row.url)
+        for news in news_report.news:
+            key = (news.title, "news", news.url)
             cards.setdefault(
                 key,
                 ResearchBriefSourceCard(
-                    title=row.title,
+                    title=news.title,
                     source_type="news",
-                    provider=row.source,
-                    source_url=row.url,
-                    published_at=row.published_at,
-                    freshness_status=row.freshness_status,
+                    provider=news.source,
+                    source_url=news.url,
+                    published_at=news.published_at,
+                    freshness_status=news.freshness_status,
                     source_confidence=_research_brief_source_confidence("news"),
                     note="URL付きニュースとして確認した材料です。",
                 ),
             )
 
     if external_research_result is not None:
-        for row in external_research_result.entries:
-            key = (row.title, row.source_type, row.source_url)
+        for entry in external_research_result.entries:
+            key = (entry.title, entry.source_type, entry.source_url)
             cards.setdefault(
                 key,
                 ResearchBriefSourceCard(
-                    title=row.title,
-                    source_type=row.source_type,
-                    provider=row.provider,
-                    source_url=row.source_url,
-                    published_at=row.published_at,
-                    fetched_at=row.fetched_at,
-                    freshness_status=row.freshness_status,
-                    source_confidence=_research_brief_source_confidence(row.source_type),
+                    title=entry.title,
+                    source_type=entry.source_type,
+                    provider=entry.provider,
+                    source_url=entry.source_url,
+                    published_at=entry.published_at,
+                    fetched_at=entry.fetched_at,
+                    freshness_status=entry.freshness_status,
+                    source_confidence=_research_brief_source_confidence(entry.source_type),
                     note="AI調査で一時参照した外部ソースです。",
                 ),
             )

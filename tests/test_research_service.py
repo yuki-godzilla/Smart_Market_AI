@@ -406,6 +406,17 @@ def test_research_brief_builder_shapes_readable_local_memo():
     assert any(card.source_confidence == "high" for card in brief.source_cards)
     assert any(card.source_confidence == "medium" for card in brief.source_cards)
     assert any(card.source_url == "https://example.com/tdnet/7203" for card in brief.source_cards)
+    assert brief.fact_summary is not None
+    assert brief.fact_summary.business_overview
+    assert brief.fact_summary.business_segments[0].label == "主要事業"
+    assert "自動車・モビリティ" in brief.fact_summary.business_segments[0].value
+    financial_labels = {item.label for item in brief.fact_summary.financial_snapshot}
+    assert {"売上高", "営業利益", "純利益", "EPS", "配当"} <= financial_labels
+    assert any(item.label == "決算短信" for item in brief.fact_summary.recent_events)
+    assert any(item.label == "適時開示" for item in brief.fact_summary.recent_events)
+    assert any(item.label == "成長材料" for item in brief.fact_summary.positive_materials)
+    assert any(item.label == "事業リスク" for item in brief.fact_summary.caution_materials)
+    assert brief.fact_summary.missing_items == []
 
 
 def test_research_brief_builder_marks_missing_metrics_as_confirmation_gaps():
@@ -432,6 +443,12 @@ def test_research_brief_builder_marks_missing_metrics_as_confirmation_gaps():
     assert any("公式資料" in action for action in brief.next_actions)
     assert "未確認メモ" in brief.memo
     assert "not advice" in brief.decision_support_note
+    assert brief.fact_summary is not None
+    assert any(
+        item.category == "financial_metric" and "売上高" in item.reason
+        for item in brief.fact_summary.missing_items
+    )
+    assert any(item.category == "official_source" for item in brief.fact_summary.missing_items)
 
 
 def test_research_ingestion_deduplicates_by_document_hash(tmp_path):

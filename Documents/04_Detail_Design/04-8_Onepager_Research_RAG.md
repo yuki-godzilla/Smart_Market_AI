@@ -121,7 +121,7 @@ Current implementation note: `ExternalResearchFetchService`, `TDnetResearchAdapt
 
 Research Summary 改善では、`CompanyResearchReport` / evidence と Streamlit UI の間に、表示専用の `ResearchBrief` 層を置く。provider dump や raw evidence を主表示に出すのではなく、deterministic なローカルルールで読める投資調査メモへ変換する。外部LLM / OpenAI API 連携は後続に回し、通常 checks は network / LLM 非依存を維持する。
 
-次の読みやすさ改善 slice では、`ResearchBrief` の前段に `ResearchFactSummary` を置く。これは取得件数や出典カード数ではなく、ユーザーが最初に知りたい「この会社は何をしているか」「どの公式資料・IR・ニュースで何を確認できたか」「主要な数値は確認できたか」「良材料候補・注意材料候補・未確認項目は何か」を source-backed fact として整理する層である。
+現行の読みやすさ改善 slice では、`ResearchBrief` の前段に `ResearchFactSummary` を置く。これは取得件数や出典カード数ではなく、ユーザーが最初に知りたい「この会社は何をしているか」「どの公式資料・IR・ニュースで何を確認できたか」「主要な数値は確認できたか」「良材料候補・注意材料候補・未確認項目は何か」を source-backed fact として整理する層である。
 
 推奨 pipeline:
 

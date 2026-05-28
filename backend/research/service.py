@@ -49,6 +49,13 @@ StockNewsInvestmentViewpoint = Literal[
 StockNewsSentiment = Literal["positive", "negative", "neutral", "mixed", "unknown"]
 StockNewsFreshnessStatus = Literal["latest", "recent", "stale", "unknown"]
 ResearchSourceConfidence = Literal["high", "medium", "low", "unknown"]
+ResearchMissingItemCategory = Literal[
+    "official_source",
+    "financial_metric",
+    "source_freshness",
+    "news",
+    "other",
+]
 ResearchMetricKey = Literal[
     "revenue",
     "operating_income",
@@ -572,6 +579,47 @@ class ResearchBriefMaterial(StrictBaseModel):
     published_at: date | None = None
 
 
+class ResearchFactItem(StrictBaseModel):
+    """Source-backed fact extracted for the user-facing Research Summary."""
+
+    schema_version: str = "research-fact-item-v1"
+    label: str = Field(min_length=1)
+    value: str = Field(min_length=1)
+    source_title: str = Field(min_length=1)
+    source_type: ResearchSourceType
+    source_confidence: ResearchSourceConfidence = "unknown"
+    published_at: date | None = None
+    note: str = ""
+
+
+class ResearchMissingItem(StrictBaseModel):
+    """Missing fact that should be checked in official sources."""
+
+    schema_version: str = "research-missing-item-v1"
+    category: ResearchMissingItemCategory = "other"
+    label: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    next_source_hint: str = Field(min_length=1)
+
+
+class ResearchFactSummary(StrictBaseModel):
+    """Structured user-facing facts that feed ResearchBrief/UI wording."""
+
+    schema_version: str = "research-fact-summary-v1"
+    symbol: str = Field(min_length=1)
+    as_of: date
+    business_overview: list[ResearchFactItem] = Field(default_factory=list)
+    business_segments: list[ResearchFactItem] = Field(default_factory=list)
+    financial_snapshot: list[ResearchFactItem] = Field(default_factory=list)
+    recent_events: list[ResearchFactItem] = Field(default_factory=list)
+    positive_materials: list[ResearchFactItem] = Field(default_factory=list)
+    caution_materials: list[ResearchFactItem] = Field(default_factory=list)
+    missing_items: list[ResearchMissingItem] = Field(default_factory=list)
+    decision_support_note: str = (
+        "ResearchFactSummary contains source-backed facts for decision support; not advice."
+    )
+
+
 class ResearchBrief(StrictBaseModel):
     """Local rule-based research memo for display; it does not change scores."""
 
@@ -589,6 +637,7 @@ class ResearchBrief(StrictBaseModel):
     confirmation_gaps: list[str] = Field(default_factory=list)
     next_actions: list[str] = Field(default_factory=list)
     source_cards: list[ResearchBriefSourceCard] = Field(default_factory=list)
+    fact_summary: ResearchFactSummary | None = None
     decision_support_note: str = (
         "ResearchBrief is a local evidence memo for decision support; not advice."
     )
@@ -1566,13 +1615,30 @@ class ResearchBriefBuilder:
             news_report=news_report,
             external_research_result=external_research_result,
         )
+        fact_summary = _research_fact_summary(
+            report,
+            metrics=metrics,
+            positive_materials=positive_materials,
+            caution_materials=caution_materials,
+            missing_metrics=missing_metrics,
+            news_report=news_report,
+            external_research_result=external_research_result,
+        )
         return ResearchBrief(
             symbol=report.symbol,
             as_of=report.as_of,
-            memo=_research_brief_memo(report, metrics, source_cards),
+            memo=_research_brief_memo(
+                report,
+                metrics,
+                source_cards,
+                fact_summary=fact_summary,
+            ),
             metrics=metrics,
             missing_metrics=missing_metrics,
-            business_overview=_research_brief_business_overview(report),
+            business_overview=_research_brief_business_overview(
+                report,
+                fact_summary=fact_summary,
+            ),
             positive_candidates=positive_candidates,
             caution_candidates=caution_candidates,
             positive_materials=positive_materials,
@@ -1580,6 +1646,7 @@ class ResearchBriefBuilder:
             confirmation_gaps=confirmation_gaps,
             next_actions=next_actions,
             source_cards=source_cards,
+            fact_summary=fact_summary,
         )
 
 
@@ -2875,8 +2942,249 @@ def _research_brief_missing_metric_labels(metrics: Sequence[ResearchMetric]) -> 
     return [label for key, label, _ in _RESEARCH_BRIEF_METRIC_SPECS if key not in found]
 
 
-def _research_brief_business_overview(report: CompanyResearchReport) -> str:
-    prioritized = [
+def _research_fact_summary(
+    report: CompanyResearchReport,
+    *,
+    metrics: Sequence[ResearchMetric],
+    positive_materials: Sequence[ResearchBriefMaterial],
+    caution_materials: Sequence[ResearchBriefMaterial],
+    missing_metrics: Sequence[str],
+    news_report: StockNewsReport | None,
+    external_research_result: ExternalResearchFetchResult | None,
+) -> ResearchFactSummary:
+    """Extract source-backed facts before shaping the readable brief."""
+
+    business_overview = _research_fact_business_overview_items(report)
+    return ResearchFactSummary(
+        symbol=report.symbol,
+        as_of=report.as_of,
+        business_overview=business_overview[:2],
+        business_segments=_research_fact_business_segment_items(business_overview),
+        financial_snapshot=_research_fact_financial_items(metrics),
+        recent_events=_research_fact_recent_event_items(
+            report,
+            news_report=news_report,
+            external_research_result=external_research_result,
+        ),
+        positive_materials=_research_fact_material_items(positive_materials),
+        caution_materials=_research_fact_material_items(caution_materials),
+        missing_items=_research_fact_missing_items(
+            report,
+            missing_metrics=missing_metrics,
+            news_report=news_report,
+        ),
+    )
+
+
+def _research_fact_business_overview_items(
+    report: CompanyResearchReport,
+) -> list[ResearchFactItem]:
+    items: list[ResearchFactItem] = []
+    for row in _research_brief_prioritized_business_evidence(report):
+        cleaned = _research_brief_clean_provider_text(row.excerpt)
+        if not cleaned:
+            continue
+        value = _research_brief_readable_business_overview(cleaned)
+        if not value:
+            continue
+        items.append(
+            ResearchFactItem(
+                label="事業概要",
+                value=value,
+                source_title=row.title,
+                source_type=row.source_type,
+                source_confidence=_research_brief_source_confidence(row.source_type),
+                published_at=row.published_at,
+                note=_research_fact_source_note(row.source_type),
+            )
+        )
+    return _unique_research_fact_items(items)[:3]
+
+
+def _research_fact_business_segment_items(
+    overview_items: Sequence[ResearchFactItem],
+) -> list[ResearchFactItem]:
+    items: list[ResearchFactItem] = []
+    for item in overview_items:
+        segments = _research_fact_segment_labels(item.value)
+        if not segments:
+            continue
+        items.append(
+            ResearchFactItem(
+                label="主要事業",
+                value="、".join(segments[:3]),
+                source_title=item.source_title,
+                source_type=item.source_type,
+                source_confidence=item.source_confidence,
+                published_at=item.published_at,
+                note=item.note,
+            )
+        )
+    return _unique_research_fact_items(items)[:2]
+
+
+def _research_fact_financial_items(
+    metrics: Sequence[ResearchMetric],
+) -> list[ResearchFactItem]:
+    return [
+        ResearchFactItem(
+            label=metric.label,
+            value=metric.value,
+            source_title=metric.source_title,
+            source_type=metric.source_type,
+            source_confidence=metric.source_confidence,
+            note="抽出済みの定量指標です。公式資料で最終確認してください。",
+        )
+        for metric in metrics
+    ]
+
+
+def _research_fact_recent_event_items(
+    report: CompanyResearchReport,
+    *,
+    news_report: StockNewsReport | None,
+    external_research_result: ExternalResearchFetchResult | None,
+) -> list[ResearchFactItem]:
+    items: list[ResearchFactItem] = []
+    event_source_types: set[ResearchSourceType] = {
+        "tdnet",
+        "earnings_report",
+        "earnings_presentation",
+        "news",
+    }
+    for row in report.evidence:
+        if row.source_type not in event_source_types:
+            continue
+        items.append(
+            ResearchFactItem(
+                label=_research_brief_source_type_label(row.source_type),
+                value=_research_fact_event_value(row.title, row.source_type),
+                source_title=row.title,
+                source_type=row.source_type,
+                source_confidence=_research_brief_source_confidence(row.source_type),
+                published_at=row.published_at,
+                note=_research_fact_source_note(row.source_type),
+            )
+        )
+    if news_report is not None:
+        for news in news_report.news:
+            items.append(
+                ResearchFactItem(
+                    label="ニュース",
+                    value=_clip_text(news.summary or news.title, max_chars=120),
+                    source_title=news.title,
+                    source_type="news",
+                    source_confidence=_research_brief_source_confidence("news"),
+                    published_at=news.published_at,
+                    note="URL付きニュースとして確認した補助情報です。",
+                )
+            )
+    if external_research_result is not None:
+        for entry in external_research_result.entries:
+            if entry.source_type not in event_source_types:
+                continue
+            items.append(
+                ResearchFactItem(
+                    label=_research_brief_source_type_label(entry.source_type),
+                    value=_research_fact_event_value(entry.title, entry.source_type),
+                    source_title=entry.title,
+                    source_type=entry.source_type,
+                    source_confidence=_research_brief_source_confidence(entry.source_type),
+                    published_at=entry.published_at,
+                    note="AI調査で一時参照した外部ソースです。",
+                )
+            )
+    return _unique_research_fact_items(items)[:6]
+
+
+def _research_fact_material_items(
+    materials: Sequence[ResearchBriefMaterial],
+) -> list[ResearchFactItem]:
+    return _unique_research_fact_items(
+        [
+            ResearchFactItem(
+                label=material.label,
+                value=material.summary,
+                source_title=material.source_title,
+                source_type=material.source_type,
+                source_confidence=material.source_confidence,
+                published_at=material.published_at,
+                note=_research_fact_source_note(material.source_type),
+            )
+            for material in materials
+        ]
+    )
+
+
+def _research_fact_missing_items(
+    report: CompanyResearchReport,
+    *,
+    missing_metrics: Sequence[str],
+    news_report: StockNewsReport | None,
+) -> list[ResearchMissingItem]:
+    items: list[ResearchMissingItem] = []
+    if missing_metrics:
+        items.append(
+            ResearchMissingItem(
+                category="financial_metric",
+                label="未確認の主要指標",
+                reason="、".join(missing_metrics[:8]),
+                next_source_hint="決算短信、有価証券報告書、公式IR資料",
+            )
+        )
+    if not any(
+        row.source_type in _RESEARCH_BRIEF_HIGH_CONFIDENCE_SOURCES for row in report.evidence
+    ):
+        items.append(
+            ResearchMissingItem(
+                category="official_source",
+                label="公式資料の裏取り",
+                reason="公式IR、TDnet、EDINETなどの一次情報がまだ十分ではありません。",
+                next_source_hint="TDnet、EDINET、企業IRサイト",
+            )
+        )
+    if news_report is not None and news_report.warnings:
+        items.append(
+            ResearchMissingItem(
+                category="news",
+                label="ニュース取得の確認",
+                reason=" / ".join(news_report.warnings[:3]),
+                next_source_hint="URL付きニュース、公式発表、TDnet",
+            )
+        )
+    for warning in report.data_quality.warnings:
+        category: ResearchMissingItemCategory = (
+            "source_freshness" if "鮮度" in warning or "2年以上" in warning else "other"
+        )
+        items.append(
+            ResearchMissingItem(
+                category=category,
+                label="根拠資料の確認",
+                reason=warning,
+                next_source_hint="最新の公式資料または保存済み資料",
+            )
+        )
+    return _unique_research_missing_items(items)[:8]
+
+
+def _research_brief_business_overview(
+    report: CompanyResearchReport,
+    *,
+    fact_summary: ResearchFactSummary | None = None,
+) -> str:
+    if fact_summary is not None and fact_summary.business_overview:
+        return fact_summary.business_overview[0].value
+    for row in _research_brief_prioritized_business_evidence(report):
+        cleaned = _research_brief_clean_provider_text(row.excerpt)
+        if cleaned:
+            return _research_brief_readable_business_overview(cleaned)
+    return report.summary
+
+
+def _research_brief_prioritized_business_evidence(
+    report: CompanyResearchReport,
+) -> list[ResearchEvidence]:
+    return [
         *[row for row in report.evidence if row.source_type == "provider_profile"],
         *[
             row
@@ -2885,11 +3193,6 @@ def _research_brief_business_overview(report: CompanyResearchReport) -> str:
         ],
         *report.evidence,
     ]
-    for row in prioritized:
-        cleaned = _research_brief_clean_provider_text(row.excerpt)
-        if cleaned:
-            return _research_brief_readable_business_overview(cleaned)
-    return report.summary
 
 
 def _research_brief_clean_provider_text(text: str) -> str:
@@ -2989,6 +3292,66 @@ def _research_brief_business_domain_sentence(text: str) -> str:
         f"{'、'.join(unique_domains)}が確認できます。"
         "公式IRで事業セグメント、主要市場、収益源を確認してください。"
     )
+
+
+def _research_fact_segment_labels(text: str) -> list[str]:
+    segment_specs = (
+        ("自動車・モビリティ", ("自動車", "モビリティ", "車両", "automotive", "vehicle")),
+        ("ソフトウェア・サービス", ("ソフトウェア", "サービス", "software", "service")),
+        ("半導体・電子部品", ("半導体", "電子部品", "semiconductor", "chip")),
+        ("金融サービス", ("金融", "bank", "insurance", "financial services")),
+        ("医薬品・ヘルスケア", ("医薬品", "ヘルスケア", "pharmaceutical", "medical")),
+        ("小売・EC", ("小売", "EC", "retail", "e-commerce")),
+    )
+    lowered = text.lower()
+    segments: list[str] = []
+    for label, keywords in segment_specs:
+        if any(keyword.lower() in lowered for keyword in keywords):
+            segments.append(label)
+    return list(dict.fromkeys(segments))
+
+
+def _research_fact_event_value(title: str, source_type: ResearchSourceType) -> str:
+    source_label = _research_brief_source_type_label(source_type)
+    return f"{source_label}「{_clip_text(title, max_chars=72)}」を確認しました。"
+
+
+def _research_fact_source_note(source_type: ResearchSourceType) -> str:
+    if source_type in _RESEARCH_BRIEF_HIGH_CONFIDENCE_SOURCES:
+        return "公式資料・開示由来の確認材料です。"
+    if source_type == "provider_profile":
+        return "外部プロバイダー情報です。公式資料で裏取りしてください。"
+    if source_type == "news":
+        return "ニュース由来の補助情報です。公式発表と合わせて確認してください。"
+    return "確認材料として扱い、必要に応じて一次情報で裏取りしてください。"
+
+
+def _unique_research_fact_items(
+    items: Sequence[ResearchFactItem],
+) -> list[ResearchFactItem]:
+    unique: list[ResearchFactItem] = []
+    seen: set[tuple[str, str, str, str]] = set()
+    for item in items:
+        key = (item.label, item.value, item.source_title, item.source_type)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+    return unique
+
+
+def _unique_research_missing_items(
+    items: Sequence[ResearchMissingItem],
+) -> list[ResearchMissingItem]:
+    unique: list[ResearchMissingItem] = []
+    seen: set[tuple[str, str, str]] = set()
+    for item in items:
+        key = (item.category, item.label, item.reason)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+    return unique
 
 
 def _looks_mostly_english(text: str) -> bool:
@@ -3277,28 +3640,42 @@ def _research_brief_memo(
     report: CompanyResearchReport,
     metrics: Sequence[ResearchMetric],
     source_cards: Sequence[ResearchBriefSourceCard],
+    *,
+    fact_summary: ResearchFactSummary | None = None,
 ) -> str:
     if report.data_quality.evidence_count <= 0:
         return (
             "現時点で確認できた根拠資料が少ないため、Research Summary は未確認メモとして"
             "扱います。売買推奨ではなく、追加で確認する資料を整理するための表示です。"
         )
-    source_summary = (
-        f"資料{report.data_quality.document_count}件、根拠{report.data_quality.evidence_count}件、"
-        f"出典カード{len(source_cards)}件"
-    )
-    metric_summary = f"定量指標は{len(metrics)}件をローカルルールで抽出しました。"
+    overview_summary = ""
+    if fact_summary is not None and fact_summary.business_overview:
+        overview_summary = _clip_text(fact_summary.business_overview[0].value, max_chars=86)
+    metric_summary = "主要な定量指標はまだ抽出できていません。"
+    if metrics:
+        metric_pairs = [f"{metric.label} {metric.value}" for metric in metrics[:4]]
+        metric_summary = f"確認できた主な数値は{'、'.join(metric_pairs)}です。"
+        if len(metrics) > 4:
+            metric_summary += f"ほか{len(metrics) - 4}指標は定量指標カードで確認できます。"
     caution = (
         "注意点があります。" if report.data_quality.warnings else "大きな資料警告はありません。"
     )
-    if not metrics:
-        metric_summary = (
-            "売上高や利益などの主要な定量指標はまだ抽出できていません。"
-            "まず公式資料で数値を確認してください。"
+    source_context = ""
+    if source_cards:
+        high_source_count = sum(1 for card in source_cards if card.source_confidence == "high")
+        source_context = (
+            "公式資料を含む根拠から整理しています。"
+            if high_source_count
+            else "外部provider・ニュース中心のため、公式資料で裏取りしてください。"
+        )
+    if overview_summary:
+        return (
+            f"{overview_summary} {metric_summary}{caution}{source_context}"
+            "売買推奨ではありません。"
         )
     return (
-        f"{source_summary}から、事業概要・材料候補・確認不足を整理しました。"
-        f"{metric_summary}{caution}"
+        f"事業概要・主要数値・材料候補・確認不足を整理しました。{metric_summary}{caution}"
+        f"{source_context}"
         "売買推奨ではありません。"
     )
 

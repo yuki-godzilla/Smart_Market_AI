@@ -965,10 +965,13 @@ def test_research_operation_card_keeps_single_primary_action(monkeypatch):
     assert button_calls[0][1]["use_container_width"] is True
     assert "AI調査でわかったこと" in markup
     assert "事業概要:" in markup
+    assert "確認できた数値:" in markup
+    assert "売上高 45兆円" in markup
+    assert "直近確認:" in markup
     assert "確認した資料:" in markup
     assert "決算短信" in markup
-    assert "良材料候補1件" in markup
-    assert "注意材料候補1件" in markup
+    assert "良材料候補1件" not in markup
+    assert "注意材料候補1件" not in markup
     assert "状態:" not in markup
     assert "最終更新:" not in markup
 

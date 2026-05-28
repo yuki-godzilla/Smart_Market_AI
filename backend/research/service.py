@@ -49,6 +49,29 @@ StockNewsInvestmentViewpoint = Literal[
 StockNewsSentiment = Literal["positive", "negative", "neutral", "mixed", "unknown"]
 StockNewsFreshnessStatus = Literal["latest", "recent", "stale", "unknown"]
 ResearchSourceConfidence = Literal["high", "medium", "low", "unknown"]
+InvestmentSignal = Literal[
+    "positive",
+    "negative",
+    "neutral",
+    "mixed",
+    "unknown",
+]
+InvestmentActionHint = Literal[
+    "watch",
+    "review",
+    "wait_for_confirmation",
+    "check_official_materials",
+    "insufficient_evidence",
+]
+InvestmentViewStatus = Literal[
+    "追加確認が必要",
+    "監視向き",
+    "材料混在",
+    "判断材料不足",
+    "公式資料確認待ち",
+    "ニュース先行",
+    "定量指標不足",
+]
 ResearchMissingItemCategory = Literal[
     "official_source",
     "financial_metric",
@@ -644,6 +667,41 @@ class ResearchBrief(StrictBaseModel):
     fact_summary: ResearchFactSummary | None = None
     decision_support_note: str = (
         "ResearchBrief is a local evidence memo for decision support; not advice."
+    )
+
+
+class InvestmentInsightItem(StrictBaseModel):
+    """Source-backed point for the UI-only InvestmentInsight layer."""
+
+    label: str = Field(min_length=1)
+    summary: str = Field(min_length=1)
+    signal: InvestmentSignal
+    source_title: str = Field(min_length=1)
+    source_type: ResearchSourceType
+    source_confidence: ResearchSourceConfidence = "unknown"
+    published_at: date | None = None
+    reason: str = ""
+
+
+class InvestmentInsight(StrictBaseModel):
+    """UI-only investment review memo; it never changes scores or ranking order."""
+
+    schema_version: str = "investment-insight-v1"
+    symbol: str = Field(min_length=1)
+    as_of: date
+    headline: str = Field(min_length=1)
+    short_summary: str = Field(min_length=1)
+    status_label: InvestmentViewStatus = "判断材料不足"
+    confidence_label: str = "低"
+    primary_action_label: str = "資料追加が必要"
+    positive_points: list[InvestmentInsightItem] = Field(default_factory=list)
+    negative_points: list[InvestmentInsightItem] = Field(default_factory=list)
+    neutral_points: list[InvestmentInsightItem] = Field(default_factory=list)
+    confirmation_gaps: list[str] = Field(default_factory=list)
+    action_hints: list[InvestmentActionHint] = Field(default_factory=list)
+    confidence: ResearchSourceConfidence = "unknown"
+    decision_support_note: str = (
+        "InvestmentInsight is for decision support only; not a buy/sell recommendation."
     )
 
 
@@ -1651,6 +1709,102 @@ class ResearchBriefBuilder:
             next_actions=next_actions,
             source_cards=source_cards,
             fact_summary=fact_summary,
+        )
+
+
+class InvestmentInsightBuilder:
+    """Build a source-backed investment review memo without external LLM calls."""
+
+    def build(
+        self,
+        report: CompanyResearchReport,
+        *,
+        news_report: StockNewsReport | None = None,
+        external_research_result: ExternalResearchFetchResult | None = None,
+        brief: ResearchBrief | None = None,
+    ) -> InvestmentInsight:
+        prepared_brief = brief or ResearchBriefBuilder().build(
+            report,
+            news_report=news_report,
+            external_research_result=external_research_result,
+        )
+        positive_points = _investment_insight_positive_points(
+            report,
+            prepared_brief,
+            news_report=news_report,
+            external_research_result=external_research_result,
+        )
+        negative_points = _investment_insight_negative_points(
+            report,
+            prepared_brief,
+            news_report=news_report,
+            external_research_result=external_research_result,
+        )
+        neutral_points = _investment_insight_neutral_points(
+            report,
+            prepared_brief,
+            external_research_result=external_research_result,
+        )
+        confirmation_gaps = _investment_insight_confirmation_gaps(
+            report,
+            prepared_brief,
+            news_report=news_report,
+        )
+        action_hints = _investment_insight_action_hints(
+            report,
+            prepared_brief,
+            positive_points=positive_points,
+            negative_points=negative_points,
+            confirmation_gaps=confirmation_gaps,
+            news_report=news_report,
+        )
+        confidence = _investment_insight_confidence(
+            report,
+            prepared_brief,
+            news_report=news_report,
+            external_research_result=external_research_result,
+        )
+        status_label = _investment_insight_status_label(
+            report,
+            prepared_brief,
+            positive_points=positive_points,
+            negative_points=negative_points,
+            news_report=news_report,
+        )
+        confidence_label = _investment_insight_confidence_label(status_label, confidence)
+        primary_action_label = _investment_insight_primary_action_label(status_label)
+        display_positive_points = positive_points[:3]
+        display_negative_points = negative_points[:3]
+        display_confirmation_gaps = confirmation_gaps[:3]
+        return InvestmentInsight(
+            symbol=report.symbol,
+            as_of=report.as_of,
+            headline=_investment_insight_headline(
+                positive_points=positive_points,
+                negative_points=negative_points,
+                neutral_points=neutral_points,
+                confirmation_gaps=confirmation_gaps,
+            ),
+            short_summary=_investment_insight_short_summary(
+                report,
+                prepared_brief,
+                positive_points=positive_points,
+                negative_points=negative_points,
+                neutral_points=neutral_points,
+                confirmation_gaps=confirmation_gaps,
+                action_hints=action_hints,
+                confidence=confidence,
+                status_label=status_label,
+            ),
+            status_label=status_label,
+            confidence_label=confidence_label,
+            primary_action_label=primary_action_label,
+            positive_points=display_positive_points,
+            negative_points=display_negative_points,
+            neutral_points=neutral_points,
+            confirmation_gaps=display_confirmation_gaps,
+            action_hints=action_hints,
+            confidence=confidence,
         )
 
 
@@ -3316,8 +3470,8 @@ def _research_brief_readable_business_overview(text: str) -> str:
         return domain_sentence
     if _looks_mostly_english(readable):
         return (
-            "外部データから事業概要を取得しました。初期表示では断定せず、"
-            "公式IRで事業内容、主要セグメント、地域別構成を確認してください。"
+            "外部データから確認できる範囲では、事業概要の材料は限定的です。"
+            "公式IRで事業内容、主要セグメント、地域別構成を追加確認してください。"
         )
     return _clip_text(readable, max_chars=220)
 
@@ -3906,6 +4060,712 @@ def _research_brief_memo(
         f"{source_context}"
         "売買推奨ではありません。"
     )
+
+
+_INVESTMENT_INSIGHT_POSITIVE_KEYWORDS: tuple[tuple[str, tuple[str, ...], str], ...] = (
+    (
+        "業績改善",
+        ("増収", "増益", "利益改善", "revenue growth", "profit growth"),
+        "業績改善に関係する表現を確認したため。",
+    ),
+    (
+        "上方修正",
+        ("上方修正", "raised guidance", "raises guidance", "raise guidance"),
+        "業績予想の上方修正に関係する表現を確認したため。",
+    ),
+    (
+        "株主還元",
+        ("増配", "自社株買い", "株主還元", "dividend increase", "buyback"),
+        "配当や自社株買いなど株主還元に関係する表現を確認したため。",
+    ),
+    (
+        "成長材料",
+        (
+            "成長",
+            "成長戦略",
+            "受注増",
+            "新製品",
+            "市場拡大",
+            "中期経営計画",
+            "growth",
+            "market expansion",
+            "new product",
+            "order growth",
+        ),
+        "成長領域や事業拡大に関係する表現を確認したため。",
+    ),
+)
+_INVESTMENT_INSIGHT_NEGATIVE_KEYWORDS: tuple[tuple[str, tuple[str, ...], str], ...] = (
+    (
+        "業績悪化",
+        ("減収", "減益", "利益率悪化", "decline", "decrease", "margin pressure"),
+        "業績悪化や利益率低下に関係する表現を確認したため。",
+    ),
+    (
+        "下方修正",
+        ("下方修正", "lowered guidance", "lower guidance", "cut guidance"),
+        "業績予想の下方修正に関係する表現を確認したため。",
+    ),
+    (
+        "株主還元の注意",
+        ("減配", "dividend cut", "reduced dividend"),
+        "配当や株主還元の後退に関係する表現を確認したため。",
+    ),
+    (
+        "事業リスク",
+        (
+            "訴訟",
+            "不祥事",
+            "需要減",
+            "コスト増",
+            "為替リスク",
+            "地政学リスク",
+            "供給制約",
+            "リスク",
+            "lawsuit",
+            "scandal",
+            "demand decline",
+            "cost increase",
+            "foreign exchange risk",
+            "geopolitical risk",
+            "supply constraint",
+        ),
+        "事業リスクや外部環境の注意点に関係する表現を確認したため。",
+    ),
+)
+_INVESTMENT_INSIGHT_NEUTRAL_SOURCE_TYPES: set[ResearchSourceType] = {
+    "provider_profile",
+    "user_note",
+}
+
+
+def _investment_insight_positive_points(
+    report: CompanyResearchReport,
+    brief: ResearchBrief,
+    *,
+    news_report: StockNewsReport | None,
+    external_research_result: ExternalResearchFetchResult | None,
+) -> list[InvestmentInsightItem]:
+    items: list[InvestmentInsightItem] = []
+    items.extend(
+        _investment_insight_item_from_material(
+            material,
+            signal="positive",
+            reason="ResearchBriefで良材料候補として分類したため。",
+        )
+        for material in brief.positive_materials
+        if material.source_type != "provider_profile"
+    )
+    items.extend(
+        item
+        for row in report.evidence
+        if row.source_type != "provider_profile"
+        for item in [
+            _investment_insight_item_from_evidence(
+                row,
+                signal="positive",
+                keyword_specs=_INVESTMENT_INSIGHT_POSITIVE_KEYWORDS,
+            )
+        ]
+        if item is not None
+    )
+    if news_report is not None:
+        items.extend(
+            _investment_insight_item_from_news(row, signal="positive")
+            for row in news_report.news
+            if row.sentiment_for_investment == "positive"
+        )
+    if external_research_result is not None:
+        items.extend(
+            item
+            for entry in external_research_result.entries
+            if entry.source_type != "provider_profile"
+            for item in [
+                _investment_insight_item_from_external_entry(
+                    entry,
+                    signal="positive",
+                    keyword_specs=_INVESTMENT_INSIGHT_POSITIVE_KEYWORDS,
+                )
+            ]
+            if item is not None
+        )
+    return _unique_investment_insight_items(items)[:6]
+
+
+def _investment_insight_negative_points(
+    report: CompanyResearchReport,
+    brief: ResearchBrief,
+    *,
+    news_report: StockNewsReport | None,
+    external_research_result: ExternalResearchFetchResult | None,
+) -> list[InvestmentInsightItem]:
+    items: list[InvestmentInsightItem] = []
+    items.extend(
+        _investment_insight_item_from_material(
+            material,
+            signal="negative",
+            reason="ResearchBriefで注意材料候補として分類したため。",
+        )
+        for material in brief.caution_materials
+        if material.source_type != "provider_profile"
+    )
+    items.extend(
+        item
+        for row in report.evidence
+        if row.source_type != "provider_profile"
+        for item in [
+            _investment_insight_item_from_evidence(
+                row,
+                signal="negative",
+                keyword_specs=_INVESTMENT_INSIGHT_NEGATIVE_KEYWORDS,
+            )
+        ]
+        if item is not None
+    )
+    if news_report is not None:
+        items.extend(
+            _investment_insight_item_from_news(row, signal="negative")
+            for row in news_report.news
+            if row.sentiment_for_investment in {"negative", "mixed"}
+        )
+        if news_report.news and not _investment_insight_has_official_source(report, brief):
+            lead = news_report.news[0]
+            items.append(
+                InvestmentInsightItem(
+                    label="公式資料の裏取り不足",
+                    summary=(
+                        "ニュース由来の材料は確認できますが、公式IRでの裏取りが不足しています。"
+                    ),
+                    signal="negative",
+                    source_title=lead.title,
+                    source_type="news",
+                    source_confidence=_research_brief_source_confidence("news"),
+                    published_at=lead.published_at,
+                    reason="ニュースはありますが、公式資料を含む根拠が不足しているため。",
+                )
+            )
+    if external_research_result is not None:
+        items.extend(
+            item
+            for entry in external_research_result.entries
+            if entry.source_type != "provider_profile"
+            for item in [
+                _investment_insight_item_from_external_entry(
+                    entry,
+                    signal="negative",
+                    keyword_specs=_INVESTMENT_INSIGHT_NEGATIVE_KEYWORDS,
+                )
+            ]
+            if item is not None
+        )
+    return _unique_investment_insight_items(items)[:6]
+
+
+def _investment_insight_neutral_points(
+    report: CompanyResearchReport,
+    brief: ResearchBrief,
+    *,
+    external_research_result: ExternalResearchFetchResult | None,
+) -> list[InvestmentInsightItem]:
+    items: list[InvestmentInsightItem] = []
+    fact_summary = brief.fact_summary
+    if fact_summary is not None:
+        fact_items = [
+            *fact_summary.business_overview,
+            *fact_summary.business_segments,
+            *fact_summary.business_regions,
+            *fact_summary.revenue_drivers,
+        ]
+        items.extend(
+            InvestmentInsightItem(
+                label=item.label,
+                summary=item.value,
+                signal="neutral",
+                source_title=item.source_title,
+                source_type=item.source_type,
+                source_confidence=item.source_confidence,
+                published_at=item.published_at,
+                reason="会社概要や事業構造として有用ですが、方向感は断定していません。",
+            )
+            for item in fact_items
+        )
+    for row in report.evidence:
+        if row.source_type not in _INVESTMENT_INSIGHT_NEUTRAL_SOURCE_TYPES:
+            continue
+        items.append(
+            InvestmentInsightItem(
+                label=_research_brief_source_type_label(row.source_type),
+                summary=_investment_insight_neutral_summary(row),
+                signal="neutral",
+                source_title=row.title,
+                source_type=row.source_type,
+                source_confidence=_research_brief_source_confidence(row.source_type),
+                published_at=row.published_at,
+                reason="補助情報として確認できる内容で、良悪どちらにも寄せていません。",
+            )
+        )
+    if external_research_result is not None:
+        for entry in external_research_result.entries:
+            if entry.source_type != "provider_profile":
+                continue
+            summary = entry.content_summary or "外部プロフィール情報を確認しています。"
+            items.append(
+                InvestmentInsightItem(
+                    label="会社概要",
+                    summary=_clip_text(summary, max_chars=150),
+                    signal="neutral",
+                    source_title=entry.title,
+                    source_type=entry.source_type,
+                    source_confidence=_research_brief_source_confidence(entry.source_type),
+                    published_at=entry.published_at,
+                    reason="外部プロフィール情報は補助材料として扱うため。",
+                )
+            )
+    if not items and report.evidence:
+        lead = report.evidence[0]
+        items.append(
+            InvestmentInsightItem(
+                label="確認済み資料",
+                summary=_investment_insight_neutral_summary(lead),
+                signal="neutral",
+                source_title=lead.title,
+                source_type=lead.source_type,
+                source_confidence=_research_brief_source_confidence(lead.source_type),
+                published_at=lead.published_at,
+                reason="出典はありますが、方向感は追加確認が必要なため。",
+            )
+        )
+    return _unique_investment_insight_items(items)[:5]
+
+
+def _investment_insight_item_from_material(
+    material: ResearchBriefMaterial,
+    *,
+    signal: InvestmentSignal,
+    reason: str,
+) -> InvestmentInsightItem:
+    return InvestmentInsightItem(
+        label=material.label,
+        summary=material.summary,
+        signal=signal,
+        source_title=material.source_title,
+        source_type=material.source_type,
+        source_confidence=material.source_confidence,
+        published_at=material.published_at,
+        reason=reason,
+    )
+
+
+def _investment_insight_item_from_news(
+    row: StockNewsEvidence,
+    *,
+    signal: InvestmentSignal,
+) -> InvestmentInsightItem:
+    summary = _clip_text(
+        f"ニュースでは「{row.summary}」と確認できます。",
+        max_chars=160,
+    )
+    return InvestmentInsightItem(
+        label=_investment_insight_news_label(row),
+        summary=summary,
+        signal=signal,
+        source_title=row.title,
+        source_type="news",
+        source_confidence=_research_brief_source_confidence("news"),
+        published_at=row.published_at,
+        reason="URL付きニュースの投資観点分類を確認材料として使ったため。",
+    )
+
+
+def _investment_insight_item_from_evidence(
+    row: ResearchEvidence,
+    *,
+    signal: InvestmentSignal,
+    keyword_specs: Sequence[tuple[str, tuple[str, ...], str]],
+) -> InvestmentInsightItem | None:
+    match = _investment_insight_keyword_match(_research_brief_evidence_text(row), keyword_specs)
+    if match is None:
+        return None
+    label, keywords, reason = match
+    snippet = _investment_insight_keyword_snippet(_research_brief_evidence_text(row), keywords)
+    return InvestmentInsightItem(
+        label=label,
+        summary=f"出典では、{label}に関係する記述（{snippet}）を確認できます。",
+        signal=signal,
+        source_title=row.title,
+        source_type=row.source_type,
+        source_confidence=_research_brief_source_confidence(row.source_type),
+        published_at=row.published_at,
+        reason=reason,
+    )
+
+
+def _investment_insight_item_from_external_entry(
+    entry: ExternalResearchFetchManifestEntry,
+    *,
+    signal: InvestmentSignal,
+    keyword_specs: Sequence[tuple[str, tuple[str, ...], str]],
+) -> InvestmentInsightItem | None:
+    text = " ".join(part for part in (entry.title, entry.content_summary) if part.strip())
+    match = _investment_insight_keyword_match(text, keyword_specs)
+    if match is None:
+        return None
+    label, keywords, reason = match
+    snippet = _investment_insight_keyword_snippet(text, keywords)
+    return InvestmentInsightItem(
+        label=label,
+        summary=f"外部参照ソースでは、{label}に関係する記述（{snippet}）を確認できます。",
+        signal=signal,
+        source_title=entry.title,
+        source_type=entry.source_type,
+        source_confidence=_research_brief_source_confidence(entry.source_type),
+        published_at=entry.published_at,
+        reason=reason,
+    )
+
+
+def _investment_insight_keyword_match(
+    text: str,
+    keyword_specs: Sequence[tuple[str, tuple[str, ...], str]],
+) -> tuple[str, tuple[str, ...], str] | None:
+    lowered = text.lower()
+    for label, keywords, reason in keyword_specs:
+        if any(keyword.lower() in lowered for keyword in keywords):
+            return label, keywords, reason
+    return None
+
+
+def _investment_insight_keyword_snippet(text: str, keywords: Sequence[str]) -> str:
+    sentences = [
+        sentence.strip(" ・-")
+        for sentence in re.split(r"(?<=[。.!?])\s+|[\r\n]+", text)
+        if sentence.strip()
+    ]
+    lowered_keywords = tuple(keyword.lower() for keyword in keywords)
+    for sentence in sentences or [text]:
+        lowered = sentence.lower()
+        if any(keyword in lowered for keyword in lowered_keywords):
+            return f"「{_clip_text(sentence, max_chars=82)}」"
+    return f"「{_clip_text(text, max_chars=82)}」"
+
+
+def _investment_insight_news_label(row: StockNewsEvidence) -> str:
+    labels: dict[StockNewsInvestmentViewpoint, str] = {
+        "earnings": "業績ニュース",
+        "growth": "成長ニュース",
+        "shareholder_return": "株主還元ニュース",
+        "risk": "リスクニュース",
+        "macro": "外部環境ニュース",
+        "other": "ニュース材料",
+    }
+    return labels.get(row.investment_viewpoint, "ニュース材料")
+
+
+def _investment_insight_neutral_summary(row: ResearchEvidence) -> str:
+    cleaned = _research_brief_clean_provider_text(row.excerpt)
+    if row.source_type == "provider_profile":
+        readable = _research_brief_readable_business_overview(cleaned)
+        return _clip_text(readable, max_chars=160)
+    source_type = _research_brief_source_type_label(row.source_type)
+    return _clip_text(f"{source_type}から確認できる補助情報です。{cleaned}", max_chars=160)
+
+
+def _investment_insight_confirmation_gaps(
+    report: CompanyResearchReport,
+    brief: ResearchBrief,
+    *,
+    news_report: StockNewsReport | None,
+) -> list[str]:
+    gaps: list[str] = []
+    missing_metrics = set(brief.missing_metrics)
+    has_news = news_report is not None and bool(news_report.news)
+    has_official = _investment_insight_has_official_source(report, brief)
+    if has_news and not has_official:
+        gaps.append("ニュースはありますが、公式IRで裏取りできていません。")
+    if not has_official:
+        gaps.append("決算短信・有価証券報告書・決算説明資料などの公式資料が不足しています。")
+    earnings_missing = [
+        metric for metric in ("売上高", "営業利益", "純利益", "EPS") if metric in missing_metrics
+    ]
+    if earnings_missing:
+        if "売上高" in earnings_missing:
+            rest = [metric for metric in earnings_missing if metric != "売上高"]
+            suffix = f"{'・'.join(rest)}も確認してください。" if rest else ""
+            gaps.append(f"売上高が未確認です。{suffix}")
+        else:
+            gaps.append(f"{'・'.join(earnings_missing)}が未確認です。")
+    valuation_missing = [metric for metric in ("PER", "PBR", "ROE") if metric in missing_metrics]
+    if valuation_missing:
+        gaps.append(f"{'/'.join(valuation_missing)}が未確認です。")
+    if "配当" in missing_metrics:
+        gaps.append("配当方針・配当実績が未確認です。")
+    fact_summary = brief.fact_summary
+    if fact_summary is not None:
+        gaps.extend(
+            f"{item.label}: {item.reason}。{item.next_source_hint}で確認してください。"
+            for item in fact_summary.missing_items
+        )
+    gaps.extend(_investment_insight_gap_display_text(gap) for gap in brief.confirmation_gaps)
+    if not report.evidence:
+        gaps.append("source-backed な判断材料が不足しています。")
+    return _unique_text(gaps)[:10]
+
+
+def _investment_insight_gap_display_text(gap: str) -> str:
+    cleaned = " ".join(gap.split())
+    if cleaned.startswith("未確認の定量指標:"):
+        metrics = cleaned.split(":", 1)[1].strip()
+        return f"主要な定量指標（{metrics}）が未確認です。"
+    if cleaned.startswith("ニュース確認:"):
+        warning = cleaned.split(":", 1)[1].strip()
+        return f"ニュース根拠の確認が必要です: {warning}"
+    if "登録済みResearch資料がありません" in cleaned:
+        return "保存済みResearch資料が不足しています。公式IRや決算資料を確認してください。"
+    if "検索できたResearch根拠がありません" in cleaned:
+        return "関連する根拠資料をまだ見つけられていません。"
+    return cleaned
+
+
+def _investment_insight_action_hints(
+    report: CompanyResearchReport,
+    brief: ResearchBrief,
+    *,
+    positive_points: Sequence[InvestmentInsightItem],
+    negative_points: Sequence[InvestmentInsightItem],
+    confirmation_gaps: Sequence[str],
+    news_report: StockNewsReport | None,
+) -> list[InvestmentActionHint]:
+    hints: list[InvestmentActionHint] = []
+    has_sources = bool(
+        report.evidence or brief.source_cards or (news_report is not None and news_report.news)
+    )
+    has_official = _investment_insight_has_official_source(report, brief)
+    if not has_sources or report.data_quality.evidence_count <= 0:
+        hints.append("insufficient_evidence")
+    if not has_official:
+        hints.append("check_official_materials")
+    if news_report is not None and news_report.news and (brief.missing_metrics or not has_official):
+        hints.append("wait_for_confirmation")
+    if positive_points and negative_points:
+        hints.append("review")
+    if has_sources and "insufficient_evidence" not in hints:
+        hints.append("watch")
+    if not hints and confirmation_gaps:
+        hints.append("watch")
+    return list(dict.fromkeys(hints))[:5]
+
+
+def _investment_insight_confidence(
+    report: CompanyResearchReport,
+    brief: ResearchBrief,
+    *,
+    news_report: StockNewsReport | None,
+    external_research_result: ExternalResearchFetchResult | None,
+) -> ResearchSourceConfidence:
+    source_cards = list(brief.source_cards)
+    if external_research_result is not None:
+        source_cards.extend(
+            ResearchBriefSourceCard(
+                title=entry.title,
+                source_type=entry.source_type,
+                provider=entry.provider,
+                source_url=entry.source_url,
+                published_at=entry.published_at,
+                fetched_at=entry.fetched_at,
+                freshness_status=entry.freshness_status,
+                source_confidence=_research_brief_source_confidence(entry.source_type),
+            )
+            for entry in external_research_result.entries
+        )
+    if news_report is not None:
+        source_cards.extend(
+            ResearchBriefSourceCard(
+                title=row.title,
+                source_type="news",
+                provider=row.source,
+                source_url=row.url,
+                published_at=row.published_at,
+                freshness_status=row.freshness_status,
+                source_confidence=_research_brief_source_confidence("news"),
+            )
+            for row in news_report.news
+        )
+    if not source_cards and not report.evidence:
+        return "unknown"
+    high_count = sum(1 for card in source_cards if card.source_confidence == "high")
+    medium_count = sum(1 for card in source_cards if card.source_confidence == "medium")
+    low_count = sum(1 for card in source_cards if card.source_confidence == "low")
+    if high_count and report.data_quality.status == "OK" and len(brief.metrics) >= 4:
+        return "high"
+    if high_count or medium_count:
+        return "medium"
+    if low_count:
+        return "low"
+    return "unknown"
+
+
+def _investment_insight_headline(
+    *,
+    positive_points: Sequence[InvestmentInsightItem],
+    negative_points: Sequence[InvestmentInsightItem],
+    neutral_points: Sequence[InvestmentInsightItem],
+    confirmation_gaps: Sequence[str],
+) -> str:
+    if positive_points and negative_points:
+        return "良い材料と注意材料が混在しており、追加確認が必要です。"
+    if positive_points:
+        return "良い材料候補はありますが、主要指標と公式資料の確認が必要です。"
+    if negative_points:
+        return "注意材料を優先して確認する状態です。"
+    if neutral_points:
+        return "会社概要など補助情報が中心で、方向感はまだ限定的です。"
+    if confirmation_gaps:
+        return "根拠が不足しており、判断前の資料確認が必要です。"
+    return "現時点で投資判断向けに整理できる材料は限定的です。"
+
+
+def _investment_insight_status_label(
+    report: CompanyResearchReport,
+    brief: ResearchBrief,
+    *,
+    positive_points: Sequence[InvestmentInsightItem],
+    negative_points: Sequence[InvestmentInsightItem],
+    news_report: StockNewsReport | None,
+) -> InvestmentViewStatus:
+    has_news = news_report is not None and bool(news_report.news)
+    has_evidence = bool(report.evidence or brief.source_cards)
+    has_official = _investment_insight_has_official_source(report, brief)
+    if not has_evidence and not has_news:
+        return "判断材料不足"
+    if has_news and not report.evidence and not has_official:
+        return "ニュース先行"
+    if positive_points and negative_points:
+        return "材料混在"
+    if not has_official:
+        return "公式資料確認待ち"
+    if _investment_insight_has_major_metric_gap(brief):
+        return "定量指標不足"
+    return "監視向き"
+
+
+def _investment_insight_confidence_label(
+    status_label: InvestmentViewStatus,
+    confidence: ResearchSourceConfidence,
+) -> str:
+    if status_label in {"判断材料不足", "公式資料確認待ち", "ニュース先行"}:
+        return "低"
+    if status_label == "定量指標不足":
+        return "低〜中"
+    if status_label == "材料混在":
+        return "中"
+    labels: dict[ResearchSourceConfidence, str] = {
+        "high": "中〜高",
+        "medium": "中",
+        "low": "低",
+        "unknown": "低",
+    }
+    return labels[confidence]
+
+
+def _investment_insight_primary_action_label(status_label: InvestmentViewStatus) -> str:
+    labels: dict[InvestmentViewStatus, str] = {
+        "追加確認が必要": "確認資料を追加",
+        "監視向き": "継続して材料を確認",
+        "材料混在": "良悪材料を比較",
+        "判断材料不足": "資料追加が必要",
+        "公式資料確認待ち": "決算資料を確認",
+        "ニュース先行": "公式IRで裏取り",
+        "定量指標不足": "PER/PBR/ROEを確認",
+    }
+    return labels[status_label]
+
+
+def _investment_insight_has_major_metric_gap(brief: ResearchBrief) -> bool:
+    missing = set(brief.missing_metrics)
+    return bool(missing.intersection({"売上高", "営業利益", "純利益", "EPS", "PER", "PBR", "ROE"}))
+
+
+def _investment_insight_short_summary(
+    report: CompanyResearchReport,
+    brief: ResearchBrief,
+    *,
+    positive_points: Sequence[InvestmentInsightItem],
+    negative_points: Sequence[InvestmentInsightItem],
+    neutral_points: Sequence[InvestmentInsightItem],
+    confirmation_gaps: Sequence[str],
+    action_hints: Sequence[InvestmentActionHint],
+    confidence: ResearchSourceConfidence,
+    status_label: InvestmentViewStatus,
+) -> str:
+    if _investment_insight_has_official_source(report, brief):
+        source_phrase = "公式資料を含む根拠から、この企業を見る材料を確認できます。"
+    elif positive_points or negative_points:
+        source_phrase = "外部ニュースや補助データから、一部の判断材料を確認できます。"
+    elif neutral_points:
+        source_phrase = "会社概要や外部プロフィールなど、基本情報を整理しています。"
+    else:
+        source_phrase = "現時点で確認できた根拠はまだ限られています。"
+
+    if confirmation_gaps:
+        gap_phrase = "一方で、公式IR・決算資料・主要財務指標の裏取りがまだ必要です。"
+    elif negative_points:
+        gap_phrase = "一方で、注意材料の前提や公開日を確認してから読み比べる必要があります。"
+    else:
+        gap_phrase = "一方で、出典の公開日と対象期間は念のため確認してください。"
+
+    if status_label == "材料混在" or "review" in action_hints:
+        action_phrase = "現時点では、良い材料と注意材料を比較して見る状態です。"
+    elif status_label == "判断材料不足" or "insufficient_evidence" in action_hints:
+        action_phrase = "現時点では、結論を急がず資料追加を優先する状態です。"
+    elif status_label in {"公式資料確認待ち", "ニュース先行", "定量指標不足"}:
+        action_phrase = "現時点では、売買判断ではなく「監視・追加確認」向きです。"
+    else:
+        confidence_text = _investment_insight_confidence_phrase(confidence)
+        action_phrase = f"現時点では、情報源の信頼度は{confidence_text}で、継続確認向きです。"
+    return " ".join((source_phrase, gap_phrase, action_phrase))
+
+
+def _investment_insight_confidence_phrase(confidence: ResearchSourceConfidence) -> str:
+    labels: dict[ResearchSourceConfidence, str] = {
+        "high": "公式資料を含む高め",
+        "medium": "外部データ・ニュースを含む中程度",
+        "low": "メモ・低信頼資料中心",
+        "unknown": "未確認",
+    }
+    return labels[confidence]
+
+
+def _investment_insight_has_official_source(
+    report: CompanyResearchReport,
+    brief: ResearchBrief,
+) -> bool:
+    return any(
+        row.source_type in _RESEARCH_BRIEF_HIGH_CONFIDENCE_SOURCES for row in report.evidence
+    ) or any(card.source_confidence == "high" for card in brief.source_cards)
+
+
+def _unique_investment_insight_items(
+    items: Sequence[InvestmentInsightItem],
+) -> list[InvestmentInsightItem]:
+    unique: list[InvestmentInsightItem] = []
+    seen: set[tuple[str, str, str, str]] = set()
+    for item in items:
+        summary = re.sub(r"\s+", " ", item.summary).strip()
+        if not summary:
+            continue
+        key = (item.label, summary, item.source_title, item.source_type)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(
+            item.model_copy(
+                update={
+                    "summary": summary,
+                    "reason": re.sub(r"\s+", " ", item.reason).strip(),
+                }
+            )
+        )
+    return unique
 
 
 def _research_brief_evidence_text(row: ResearchEvidence) -> str:

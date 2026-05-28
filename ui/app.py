@@ -51,6 +51,10 @@ from backend.research import (
     CompanyResearchReport,
     ExternalResearchFetchManifestEntry,
     ExternalResearchFetchResult,
+    InvestmentActionHint,
+    InvestmentInsight,
+    InvestmentInsightBuilder,
+    InvestmentInsightItem,
     ResearchBrief,
     ResearchBriefBuilder,
     ResearchBriefMaterial,
@@ -96,6 +100,12 @@ from ui.content.research_texts import (
     RESEARCH_FETCH_BUTTON_LABEL,
     RESEARCH_FETCH_SPINNER,
     RESEARCH_INSUFFICIENT_REPORT_NOTE,
+    RESEARCH_INVESTMENT_INSIGHT_GAPS_LABEL,
+    RESEARCH_INVESTMENT_INSIGHT_NEGATIVE_LABEL,
+    RESEARCH_INVESTMENT_INSIGHT_NOTE,
+    RESEARCH_INVESTMENT_INSIGHT_POSITIVE_LABEL,
+    RESEARCH_INVESTMENT_INSIGHT_SUMMARY_LABEL,
+    RESEARCH_INVESTMENT_INSIGHT_TITLE,
     RESEARCH_NO_REGISTERED_DOCUMENTS,
     RESEARCH_NOT_FETCHED_MESSAGE,
     RESEARCH_RANKING_FETCH_BUTTON_LABEL,
@@ -477,6 +487,22 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     font-size: 0.98rem;
     line-height: 1.65;
     margin-bottom: 0.75rem;
+}
+.research-summary-next-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin: 0.28rem 0 0.72rem;
+}
+.research-summary-next-chip {
+    border: 1px solid rgba(34, 211, 238, 0.42);
+    border-radius: 999px;
+    background: rgba(34, 211, 238, 0.08);
+    color: var(--text-ai-primary);
+    font-size: 0.8rem;
+    font-weight: 780;
+    line-height: 1.35;
+    padding: 0.22rem 0.58rem;
 }
 .research-brief-reading-grid {
     display: grid;
@@ -4960,27 +4986,27 @@ def _research_operation_insight(
             news_count = len(news_report.news)
             source_summary = _research_operation_news_source_summary(news_report)
             return {
-                "title": "AI調査でわかったこと",
+                "title": "AI調査で確認すること",
                 "summary": (
                     f"関連ニュース{news_count}件は確認済みです。"
-                    "AI調査を更新すると、事業概要やIR情報もまとめて整理します。"
+                    "AI調査を更新すると、事業概要やIR情報も判断材料として整理します。"
                 ),
                 "source_summary": source_summary,
-                "next_step": "次に見る: AI調査を更新して、IR・開示・外部データも合わせて確認します。",
+                "next_step": "判断前に確認: AI調査を更新して、IR・開示・外部データを合わせて確認します。",
             }
         return {
-            "title": "AI調査でわかったこと",
+            "title": "AI調査で確認すること",
             "summary": (
-                "まだ事業概要やIR情報は整理されていません。"
-                "AI調査を更新すると、外部情報・ニュース・保存済み資料をまとめて確認します。"
+                "まだ投資判断メモは整理されていません。"
+                "AI調査を更新すると、外部情報・ニュース・保存済み資料を確認材料に変換します。"
             ),
             "source_summary": "確認済み: 未取得",
-            "next_step": "次に見る: AI調査を更新して、根拠資料を整理します。",
+            "next_step": "判断前に確認: AI調査を更新して、根拠資料を整理します。",
         }
 
     brief = ResearchBriefBuilder().build(report, news_report=news_report)
     return {
-        "title": "AI調査でわかったこと",
+        "title": "判断材料に変換しました",
         "summary": _research_operation_fact_summary(brief),
         "source_summary": _research_operation_source_summary(brief),
         "next_step": _research_operation_next_step(brief),
@@ -5080,10 +5106,10 @@ def _research_operation_next_step(brief: ResearchBrief) -> str:
         missing = "、".join(brief.missing_metrics[:5])
         if len(brief.missing_metrics) > 5:
             missing += f" ほか{len(brief.missing_metrics) - 5}件"
-        return f"次に見る: 決算短信・有価証券報告書で {missing} を確認します。"
+        return f"判断前に確認: 決算短信・有価証券報告書で {missing} を確認します。"
     if brief.confirmation_gaps:
-        return f"次に見る: {_research_brief_gap_display_text(brief.confirmation_gaps[0])}"
-    return "次に見る: 出典カードで資料名、公開日、URLを確認します。"
+        return f"判断前に確認: {_research_brief_gap_display_text(brief.confirmation_gaps[0])}"
+    return "判断前に確認: 出典カードで資料名、公開日、URLを確認します。"
 
 
 def _render_ranking_symbol_research_lookup(symbol: str) -> None:
@@ -5122,12 +5148,20 @@ def _render_research_summary_panel(
         news_report=news_report,
         external_research_result=external_research_result,
     )
-    st.markdown(_research_brief_overview_html(brief), unsafe_allow_html=True)
-    st.markdown("##### 読み方サマリー")
-    st.markdown(_research_brief_reading_guide_html(brief), unsafe_allow_html=True)
-    if report.data_quality.status != "OK":
-        st.warning("根拠資料が不足しています。表示内容は確認材料として控えめに扱ってください。")
-    _render_research_brief_sections(brief)
+    insight = InvestmentInsightBuilder().build(
+        report,
+        news_report=news_report,
+        external_research_result=external_research_result,
+        brief=brief,
+    )
+    _render_investment_insight_panel(insight)
+    with st.expander("根拠確認（会社概要・確認できた事実）を表示", expanded=detail_expanded):
+        st.markdown(_research_brief_overview_html(brief), unsafe_allow_html=True)
+        st.markdown("##### 読み方サマリー")
+        st.markdown(_research_brief_reading_guide_html(brief), unsafe_allow_html=True)
+        if report.data_quality.status != "OK":
+            st.warning("根拠資料が不足しています。表示内容は確認材料として控えめに扱ってください。")
+        _render_research_brief_sections(brief)
 
     research_score = ResearchScoreService().score_report(report)
 
@@ -5224,6 +5258,264 @@ def _render_research_summary_panel(
             )
 
 
+def _render_investment_insight_panel(insight: InvestmentInsight) -> None:
+    st.markdown(_investment_insight_panel_html(insight), unsafe_allow_html=True)
+
+
+def _investment_insight_panel_html(insight: InvestmentInsight) -> str:
+    status_label = _investment_insight_status_label(insight)
+    confidence_label = _investment_insight_confidence_label(insight, status_label)
+    primary_action_label = _investment_insight_primary_action_label(insight, status_label)
+    badges = [
+        (f"ステータス: {status_label}", _investment_status_tone(status_label)),
+        (
+            f"信頼度: {confidence_label}",
+            _investment_confidence_label_tone(confidence_label, status_label),
+        ),
+        (f"次のアクション: {primary_action_label}", "info"),
+    ]
+    badge_markup = "".join(
+        f'<span class="research-brief-badge {html.escape(tone)}">{html.escape(label)}</span>'
+        for label, tone in badges
+    )
+    next_materials = _investment_insight_next_materials(insight)
+    next_material_markup = "".join(
+        f'<span class="research-summary-next-chip">{html.escape(item)}</span>'
+        for item in next_materials
+    )
+    hero = (
+        '<section class="research-result-brief hero">'
+        f'<div class="research-result-brief-title">{html.escape(RESEARCH_INVESTMENT_INSIGHT_TITLE)}</div>'
+        f'<div class="research-brief-badge-row">{badge_markup}</div>'
+        f'<div class="research-result-brief-label">{html.escape(RESEARCH_INVESTMENT_INSIGHT_SUMMARY_LABEL)}</div>'
+        f'<div class="research-result-brief-summary">{html.escape(insight.short_summary)}</div>'
+        '<div class="research-result-brief-label">次に見るべきもの</div>'
+        f'<div class="research-summary-next-list">{next_material_markup}</div>'
+        f'<div class="research-result-brief-note">{html.escape(RESEARCH_INVESTMENT_INSIGHT_NOTE)}</div>'
+        "</section>"
+    )
+    cards = [
+        _investment_insight_items_card_html(
+            RESEARCH_INVESTMENT_INSIGHT_POSITIVE_LABEL,
+            _investment_insight_positive_display_items(insight),
+            fallback="良い材料候補はまだ確認できていません。公式資料とニュースを追加確認します。",
+            limit=3,
+        ),
+        _investment_insight_items_card_html(
+            RESEARCH_INVESTMENT_INSIGHT_NEGATIVE_LABEL,
+            getattr(insight, "negative_points", []),
+            fallback="目立つ注意材料は未確認です。根拠不足や公式資料不足は別枠で確認します。",
+            limit=3,
+        ),
+        _investment_insight_gap_card_html(getattr(insight, "confirmation_gaps", [])),
+    ]
+    return f'{hero}<div class="research-brief-focus-grid">{"".join(cards)}</div>'
+
+
+def _investment_insight_positive_display_items(
+    insight: InvestmentInsight,
+) -> Sequence[InvestmentInsightItem]:
+    positive_points = getattr(insight, "positive_points", [])
+    if positive_points:
+        return positive_points
+    return getattr(insight, "neutral_points", [])[:3]
+
+
+def _investment_insight_next_materials(insight: InvestmentInsight) -> list[str]:
+    gap_text = " ".join(getattr(insight, "confirmation_gaps", []))
+    materials: list[str] = []
+    if "決算" in gap_text or "公式" in gap_text:
+        materials.extend(["決算短信", "有価証券報告書", "決算説明資料"])
+    if any(keyword in gap_text for keyword in ("PER", "PBR", "ROE")):
+        materials.append("PER / PBR / ROE")
+    if "EPS" in gap_text:
+        materials.append("EPS")
+    if "配当" in gap_text:
+        materials.append("配当方針")
+    if not materials:
+        materials.extend(["出典カード", "公開日", "対象期間"])
+    return list(dict.fromkeys(materials))[:6]
+
+
+def _investment_insight_status_label(insight: InvestmentInsight) -> str:
+    status_label = getattr(insight, "status_label", "")
+    if status_label:
+        return str(status_label)
+    positive_points = getattr(insight, "positive_points", [])
+    negative_points = getattr(insight, "negative_points", [])
+    action_hints = set(getattr(insight, "action_hints", []))
+    gap_text = " ".join(getattr(insight, "confirmation_gaps", []))
+    if "insufficient_evidence" in action_hints:
+        return "判断材料不足"
+    if positive_points and negative_points:
+        return "材料混在"
+    if "ニュース" in gap_text and ("公式IR" in gap_text or "裏取り" in gap_text):
+        return "ニュース先行"
+    if any(keyword in gap_text for keyword in ("PER", "PBR", "ROE", "EPS")):
+        return "定量指標不足"
+    if "公式" in gap_text or "決算" in gap_text:
+        return "公式資料確認待ち"
+    return "監視向き"
+
+
+def _investment_insight_confidence_label(
+    insight: InvestmentInsight,
+    status_label: str,
+) -> str:
+    confidence_label = getattr(insight, "confidence_label", "")
+    if confidence_label:
+        return str(confidence_label)
+    if status_label in {"判断材料不足", "公式資料確認待ち", "ニュース先行"}:
+        return "低"
+    if status_label == "定量指標不足":
+        return "低〜中"
+    if status_label == "材料混在":
+        return "中"
+    confidence = getattr(insight, "confidence", "unknown")
+    labels = {
+        "high": "中〜高",
+        "medium": "中",
+        "low": "低",
+        "unknown": "低",
+    }
+    return labels.get(str(confidence), "低")
+
+
+def _investment_insight_primary_action_label(
+    insight: InvestmentInsight,
+    status_label: str,
+) -> str:
+    primary_action_label = getattr(insight, "primary_action_label", "")
+    if primary_action_label:
+        return str(primary_action_label)
+    labels = {
+        "監視向き": "継続して材料を確認",
+        "材料混在": "良悪材料を比較",
+        "判断材料不足": "資料追加が必要",
+        "公式資料確認待ち": "決算資料を確認",
+        "ニュース先行": "公式IRで裏取り",
+        "定量指標不足": "PER/PBR/ROEを確認",
+    }
+    return labels.get(status_label, "確認資料を追加")
+
+
+def _investment_status_tone(status_label: str) -> str:
+    warning_statuses = {"公式資料確認待ち", "ニュース先行", "定量指標不足", "材料混在"}
+    low_statuses = {"判断材料不足"}
+    if status_label in warning_statuses:
+        return "warning"
+    if status_label in low_statuses:
+        return "low"
+    return "info"
+
+
+def _investment_confidence_label_tone(confidence_label: str, status_label: str) -> str:
+    if "低" in confidence_label and "中" not in confidence_label:
+        return "low"
+    if "低" in confidence_label or status_label in {"材料混在", "定量指標不足"}:
+        return "warning"
+    return "info"
+
+
+def _investment_insight_items_card_html(
+    title: str,
+    items: Sequence[InvestmentInsightItem],
+    *,
+    fallback: str,
+    limit: int,
+) -> str:
+    visible_items = [item for item in items[:limit] if item.summary.strip()]
+    body = "".join(_investment_insight_item_html(item) for item in visible_items)
+    if len(items) > limit:
+        body += (
+            '<div class="research-brief-focus-more">'
+            f"ほか {len(items) - limit}件は詳細データで確認できます。</div>"
+        )
+    if not body:
+        body = f'<div class="research-brief-focus-body">{html.escape(fallback)}</div>'
+    return (
+        '<section class="research-brief-focus-card">'
+        f'<div class="research-brief-focus-title">{html.escape(title)}</div>'
+        f'<div class="research-brief-focus-list">{body}</div>'
+        "</section>"
+    )
+
+
+def _investment_insight_item_html(item: InvestmentInsightItem) -> str:
+    confidence = _research_source_confidence_short_label(item.source_confidence)
+    confidence_tone = _research_source_confidence_tone(item.source_confidence)
+    source_type = _research_source_type_label(item.source_type)
+    published = item.published_at.isoformat() if item.published_at else "日付未設定"
+    summary = _research_brief_ui_text(item.summary, max_chars=138)
+    source_title = _research_brief_ui_text(item.source_title, max_chars=72)
+    reason = _research_brief_ui_text(item.reason, max_chars=92) if item.reason else ""
+    reason_markup = (
+        f'<div class="research-brief-focus-meta">理由: {html.escape(reason)}</div>'
+        if reason
+        else ""
+    )
+    return (
+        '<div class="research-brief-focus-material">'
+        '<div class="research-brief-focus-badge-row">'
+        f'<span class="research-evidence-pill">{html.escape(source_type)}</span>'
+        f'<span class="research-evidence-pill confidence-{html.escape(confidence_tone)}">'
+        f"{html.escape(confidence)}</span>"
+        "</div>"
+        f'<div class="research-brief-focus-body">{html.escape(summary)}</div>'
+        '<div class="research-brief-focus-meta">'
+        f"出典: {html.escape(source_title)} / {html.escape(published)}</div>"
+        f"{reason_markup}"
+        "</div>"
+    )
+
+
+def _investment_insight_gap_card_html(gaps: Sequence[str]) -> str:
+    visible_gaps = [_research_brief_ui_text(gap, max_chars=132) for gap in gaps[:5]]
+    body = "".join(
+        f'<div class="research-brief-focus-body">{html.escape(gap)}</div>'
+        for gap in visible_gaps
+        if gap.strip()
+    )
+    if len(gaps) > 5:
+        body += (
+            '<div class="research-brief-focus-more">'
+            f"ほか {len(gaps) - 5}件は詳細データで確認できます。</div>"
+        )
+    if not body:
+        body = (
+            '<div class="research-brief-focus-body">'
+            "大きな確認不足は未検出です。出典カードで資料名、公開日、URLを確認します。</div>"
+        )
+    return (
+        '<section class="research-brief-focus-card">'
+        f'<div class="research-brief-focus-title">{html.escape(RESEARCH_INVESTMENT_INSIGHT_GAPS_LABEL)}</div>'
+        f'<div class="research-brief-focus-list">{body}</div>'
+        "</section>"
+    )
+
+
+def _investment_action_hint_label(hint: InvestmentActionHint) -> str:
+    labels: dict[InvestmentActionHint, str] = {
+        "watch": "監視・追加確認",
+        "review": "材料を読み比べる",
+        "wait_for_confirmation": "定量指標待ち",
+        "check_official_materials": "公式資料確認",
+        "insufficient_evidence": "根拠不足",
+    }
+    return labels.get(hint, "確認材料")
+
+
+def _investment_action_hint_tone(hint: InvestmentActionHint) -> str:
+    tones: dict[InvestmentActionHint, str] = {
+        "watch": "info",
+        "review": "warning",
+        "wait_for_confirmation": "warning",
+        "check_official_materials": "warning",
+        "insufficient_evidence": "low",
+    }
+    return tones.get(hint, "neutral")
+
+
 def _render_research_brief_sections(brief: ResearchBrief) -> None:
     st.markdown("##### 確認ポイント")
     st.markdown(_research_brief_focus_html(brief), unsafe_allow_html=True)
@@ -5235,12 +5527,12 @@ def _render_research_brief_sections(brief: ResearchBrief) -> None:
 
     gap_markup = _research_brief_gap_panel_html(brief)
     if gap_markup:
-        st.markdown("##### 確認不足")
+        st.markdown("##### まだ判断に足りない情報")
         st.markdown(gap_markup, unsafe_allow_html=True)
 
     action_markup = _research_brief_next_actions_html(brief)
     if action_markup:
-        st.markdown("##### 次に確認すべき資料")
+        st.markdown("##### 判断前に確認する資料")
         st.markdown(action_markup, unsafe_allow_html=True)
 
 
@@ -5248,7 +5540,7 @@ def _research_brief_overview_html(brief: ResearchBrief) -> str:
     badge_markup = _research_brief_status_badges_html(brief)
     detail_hint = (
         "指標件数、出典カード、Research Score は下の折りたたみで確認できます。"
-        "ここでは最初に読む要点だけを表示します。"
+        "ここでは根拠確認の要点だけを表示します。"
     )
     return (
         '<section class="research-result-brief hero">'
@@ -5707,7 +5999,7 @@ def _research_brief_gap_panel_html(brief: ResearchBrief) -> str:
     )
     return (
         '<section class="research-brief-gap-panel">'
-        '<div class="research-brief-gap-title">追加確認が必要な根拠</div>'
+        '<div class="research-brief-gap-title">まだ判断に足りない情報</div>'
         f"{item_markup}"
         "</section>"
     )

@@ -56,6 +56,7 @@ from ui.app import (
     _external_research_fetch_summary_rows,
     _external_research_source_cards_html,
     _fetch_external_research_for_preview,
+    _investment_insight_panel_html,
     _market_data_preview_symbol_label,
     _name_from_candidate,
     _normalize_dividend_filter_state,
@@ -1018,11 +1019,11 @@ def test_research_operation_card_keeps_single_primary_action(monkeypatch):
     assert [label for label, _ in button_calls] == ["AI調査を更新"]
     assert button_calls[0][1]["type"] == "primary"
     assert button_calls[0][1]["use_container_width"] is True
-    assert "AI調査でわかったこと" in markup
+    assert "判断材料に変換しました" in markup
     assert "事業:" in markup
     assert "補足:" in markup
     assert "確認済み:" in markup
-    assert "次に見る:" in markup
+    assert "判断前に確認:" in markup
     assert "確認できた数値:" not in markup
     assert "業績見通し:" not in markup
     assert "株主還元:" not in markup
@@ -1033,6 +1034,29 @@ def test_research_operation_card_keeps_single_primary_action(monkeypatch):
     assert "注意材料候補1件" not in markup
     assert "状態:" not in markup
     assert "最終更新:" not in markup
+
+
+def test_investment_insight_panel_html_accepts_cached_legacy_insight():
+    legacy_insight = SimpleNamespace(
+        short_summary=(
+            "外部ニュースや補助データから、一部の判断材料を確認できます。"
+            "一方で、公式IRで裏取りできていません。"
+            "現時点では、売買判断ではなく追加確認向きです。"
+        ),
+        positive_points=[],
+        negative_points=[],
+        neutral_points=[],
+        confirmation_gaps=["ニュースはありますが、公式IRで裏取りできていません。"],
+        action_hints=["wait_for_confirmation"],
+        confidence="medium",
+    )
+
+    markup = _investment_insight_panel_html(legacy_insight)
+
+    assert "SMAI 投資判断サマリー" in markup
+    assert "ステータス: ニュース先行" in markup
+    assert "信頼度: 低" in markup
+    assert "次のアクション: 公式IRで裏取り" in markup
 
 
 def test_research_score_rows_explain_optional_context_without_advice():

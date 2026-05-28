@@ -793,3 +793,15 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Changed ResearchBrief business overview and material candidates to explain the confirmed topic, source count, and lead source instead of showing raw provider snippets.
 - Added rule-based business-domain wording for provider profile text so vehicle/software/etc. descriptions become Japanese confirmation text in the primary view.
 - Moved news/source retrieval warnings out of caution-material candidates and into confirmation gaps so they read as missing evidence, not investment risk.
+
+## 2026-05-29 - InvestmentInsight decision memo layer
+
+- Added display-only `InvestmentInsight` models and a deterministic `InvestmentInsightBuilder` for Research RAG outputs.
+- The builder reclassifies existing Research evidence, stock news, external fetch traces, and ResearchBrief facts into good materials, caution materials, neutral context, confirmation gaps, action hints, and source confidence without changing scores or ranking order.
+- Added the Cockpit / Ranking Research Summary `SMAI 投資判断メモ` panel above AI整理メモ and updated AI調査 wording toward `判断材料に変換しました` / `判断前に確認`.
+
+## 2026-05-29 - InvestmentInsight summary hierarchy polish
+
+- Promoted the Research Summary top block to `SMAI 投資判断サマリー` with status, confidence, primary action, and a short current-view summary.
+- Reorganized the initial view into 3 columns: good materials, caution materials, and still-missing information, each capped at 3 visible items.
+- Moved AI整理メモ / ResearchBrief confirmation cards into a folded `根拠確認` layer so source cards, Research Score, external traces, and detail tables stay secondary.

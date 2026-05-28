@@ -22,16 +22,24 @@ RESEARCH_EVIDENCE_CHECK_FALLBACK = "AI Researchで資料根拠を確認します
 RESEARCH_COCKPIT_SECTION_TITLE = "06 根拠資料"
 RESEARCH_RANKING_LOOKUP_TITLE = "AI調査 / 根拠資料"
 RESEARCH_COCKPIT_INTRO = (
-    "SMAIが銘柄分析時に参照したニュース・外部情報・補足データです。"
-    "投資判断の背景を確認し、価格予測やスコアだけでは見えない材料を把握できます。"
+    "SMAIがニュース・外部情報・補足データを、投資判断前に見る材料へ整理します。"
+    "価格予測やスコアだけでは見えない良い材料、注意材料、確認不足を確認できます。"
 )
 RESEARCH_RANKING_LOOKUP_INTRO = (
     "この銘柄の保存済み資料から、投資判断前に確認したい材料と注意点を整理します。"
 )
 RESEARCH_FETCH_BUTTON_LABEL = "AI調査を更新"
 RESEARCH_RANKING_FETCH_BUTTON_LABEL = "AIで資料を確認"
-RESEARCH_FETCH_SPINNER = "外部参照ソースと保存済み資料から根拠を整理しています。"
-RESEARCH_NOT_FETCHED_MESSAGE = "根拠資料はまだ取得されていません。「AI調査を更新」を押すと、関連ニュースや外部情報を確認できます。"
+RESEARCH_FETCH_SPINNER = "外部参照ソースと保存済み資料を、投資判断前の確認メモに整理しています。"
+RESEARCH_NOT_FETCHED_MESSAGE = "投資判断メモはまだ作成されていません。「AI調査を更新」を押すと、関連ニュースや外部情報を確認材料に変換できます。"
+RESEARCH_INVESTMENT_INSIGHT_TITLE = "SMAI 投資判断サマリー"
+RESEARCH_INVESTMENT_INSIGHT_SUMMARY_LABEL = "現在の見立て"
+RESEARCH_INVESTMENT_INSIGHT_POSITIVE_LABEL = "良い材料"
+RESEARCH_INVESTMENT_INSIGHT_NEGATIVE_LABEL = "注意材料"
+RESEARCH_INVESTMENT_INSIGHT_GAPS_LABEL = "まだ判断に足りない情報"
+RESEARCH_INVESTMENT_INSIGHT_NOTE = (
+    "売買の指示ではなく、source-backed な判断材料と確認不足の整理です。"
+)
 RESEARCH_DETAIL_EXPANDER_LABEL = "詳細データを表示"
 RESEARCH_DETAIL_OK_CAPTION = "登録資料から検索できた根拠と観点別サマリです。"
 

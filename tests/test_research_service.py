@@ -15,6 +15,7 @@ from backend.research import (
     ExternalResearchFetchService,
     ExternalResearchSourcePayload,
     HybridResearchRetrievalService,
+    InvestmentInsightBuilder,
     ResearchAnalysisService,
     ResearchBriefBuilder,
     ResearchChunk,
@@ -48,6 +49,15 @@ from backend.research import (
     TDnetResearchAdapter,
     YahooFinanceResearchAdapter,
 )
+
+FORBIDDEN_RECOMMENDATION_WORDS = [
+    "買い推奨",
+    "購入推奨",
+    "売り推奨",
+    "売却推奨",
+    "今すぐ買う",
+    "今すぐ売る",
+]
 
 
 class FakeExternalResearchAdapter:
@@ -456,6 +466,278 @@ def test_research_brief_builder_marks_missing_metrics_as_confirmation_gaps():
         for item in brief.fact_summary.missing_items
     )
     assert any(item.category == "official_source" for item in brief.fact_summary.missing_items)
+
+
+def test_investment_insight_builder_keeps_provider_profile_neutral_and_marks_gaps():
+    provider_evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-profile",
+        chunk_id="chunk-profile",
+        title="Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Toyota sells vehicles globally and invests in growth areas. "
+            "Provider Symbol: 7203.T Quote Type: EQUITY"
+        ),
+        relevance_score=Decimal("0.70"),
+        reliability=Decimal("0.68"),
+    )
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="Provider profile only.",
+        points=[],
+        evidence=[provider_evidence],
+        data_quality=ResearchDataQuality(
+            status="WARN",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    insight = InvestmentInsightBuilder().build(report)
+
+    assert insight.schema_version == "investment-insight-v1"
+    assert insight.positive_points == []
+    assert insight.negative_points == []
+    assert insight.neutral_points
+    assert insight.neutral_points[0].source_type == "provider_profile"
+    assert insight.confidence != "high"
+    assert insight.status_label == "公式資料確認待ち"
+    assert insight.confidence_label == "低"
+    assert insight.primary_action_label == "決算資料を確認"
+    assert any("売上高が未確認" in gap for gap in insight.confirmation_gaps)
+    assert any("PER/PBR/ROEが未確認" in gap for gap in insight.confirmation_gaps)
+    assert any("公式資料" in gap for gap in insight.confirmation_gaps)
+    assert "check_official_materials" in insight.action_hints
+
+
+def test_investment_insight_builder_keeps_news_only_confidence_below_high():
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="No official evidence.",
+        points=[],
+        evidence=[],
+        data_quality=ResearchDataQuality(
+            status="WARN",
+            latest_document_date=None,
+            document_count=0,
+            evidence_count=0,
+            warnings=["登録済みResearch資料がありません。"],
+        ),
+    )
+    news_report = StockNewsReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        news=[
+            StockNewsEvidence(
+                symbol="7203.T",
+                title="Toyota raises guidance",
+                url="https://example.com/toyota-guidance",
+                source="Example News",
+                published_at=date(2026, 5, 24),
+                summary="Guidance was raised after revenue growth.",
+                investment_viewpoint="growth",
+                sentiment_for_investment="positive",
+                freshness_status="latest",
+            )
+        ],
+    )
+
+    insight = InvestmentInsightBuilder().build(report, news_report=news_report)
+
+    assert insight.confidence != "high"
+    assert insight.status_label == "ニュース先行"
+    assert insight.confidence_label == "低"
+    assert insight.primary_action_label == "公式IRで裏取り"
+    assert any(point.source_type == "news" for point in insight.positive_points)
+    assert any("公式IR" in gap for gap in insight.confirmation_gaps)
+    assert "wait_for_confirmation" in insight.action_hints
+    assert "insufficient_evidence" in insight.action_hints
+
+
+def test_investment_insight_builder_marks_empty_research_as_insufficient():
+    report = CompanyResearchReport(
+        symbol="MSFT",
+        as_of=date(2026, 5, 25),
+        summary="No source-backed evidence.",
+        points=[],
+        evidence=[],
+        data_quality=ResearchDataQuality(
+            status="WARN",
+            latest_document_date=None,
+            document_count=0,
+            evidence_count=0,
+            warnings=["登録済みResearch資料がありません。"],
+        ),
+    )
+
+    insight = InvestmentInsightBuilder().build(report)
+
+    assert insight.status_label == "判断材料不足"
+    assert insight.confidence_label == "低"
+    assert insight.primary_action_label == "資料追加が必要"
+    assert insight.primary_action_label
+    assert "insufficient_evidence" in insight.action_hints
+
+
+def test_investment_insight_builder_classifies_positive_negative_and_avoids_advice_terms():
+    positive_evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-ir",
+        chunk_id="chunk-ir",
+        title="7203 決算短信",
+        source_type="earnings_report",
+        published_at=date(2026, 5, 20),
+        section_title="業績",
+        excerpt=(
+            "売上高 45兆円、営業利益 5兆円、純利益 4兆円、EPS 320円、"
+            "PER 12倍、PBR 1.1倍、ROE 9.8%、配当 75円。"
+            "上方修正と増配、成長セグメントの拡大を発表しました。"
+        ),
+        relevance_score=Decimal("0.90"),
+        reliability=Decimal("0.95"),
+    )
+    negative_evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-risk",
+        chunk_id="chunk-risk",
+        title="TDnet リスク開示",
+        source_type="tdnet",
+        published_at=date(2026, 5, 21),
+        section_title="注意点",
+        excerpt="一部地域で減益、コスト増、為替リスクが注意点として説明されています。",
+        relevance_score=Decimal("0.86"),
+        reliability=Decimal("0.92"),
+    )
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="Official evidence exists.",
+        points=[],
+        evidence=[positive_evidence, negative_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 21),
+            document_count=2,
+            evidence_count=2,
+            warnings=[],
+        ),
+    )
+
+    insight = InvestmentInsightBuilder().build(report)
+
+    positive_text = " ".join(point.summary for point in insight.positive_points)
+    negative_text = " ".join(point.summary for point in insight.negative_points)
+    dumped = str(insight.model_dump(mode="json"))
+
+    assert "上方修正" in positive_text or "増配" in positive_text
+    assert "減益" in negative_text or "コスト増" in negative_text
+    assert insight.status_label == "材料混在"
+    assert insight.confidence_label == "中"
+    assert insight.primary_action_label == "良悪材料を比較"
+    assert "review" in insight.action_hints
+    assert not any(term in dumped for term in FORBIDDEN_RECOMMENDATION_WORDS)
+    assert not any(term in insight.short_summary for term in FORBIDDEN_RECOMMENDATION_WORDS)
+    assert len(insight.short_summary.split("。")) <= 4
+
+
+def test_investment_insight_builder_marks_metric_shortage_and_limits_initial_points():
+    evidence_rows = [
+        ResearchEvidence(
+            symbol="7203.T",
+            document_id=f"doc-positive-{index}",
+            chunk_id=f"chunk-positive-{index}",
+            title=f"7203 決算短信 positive {index}",
+            source_type="earnings_report",
+            published_at=date(2026, 5, 20),
+            section_title="良材料",
+            excerpt=f"成長戦略と上方修正、増配に関する材料 {index} を確認しました。",
+            relevance_score=Decimal("0.82"),
+            reliability=Decimal("0.90"),
+        )
+        for index in range(4)
+    ]
+    evidence_rows.extend(
+        ResearchEvidence(
+            symbol="7203.T",
+            document_id=f"doc-risk-{index}",
+            chunk_id=f"chunk-risk-{index}",
+            title=f"TDnet risk {index}",
+            source_type="tdnet",
+            published_at=date(2026, 5, 21),
+            section_title="注意点",
+            excerpt=f"為替リスクとコスト増に関する注意材料 {index} を確認しました。",
+            relevance_score=Decimal("0.80"),
+            reliability=Decimal("0.88"),
+        )
+        for index in range(4)
+    )
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="Official evidence exists with missing metrics.",
+        points=[],
+        evidence=evidence_rows,
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 21),
+            document_count=len(evidence_rows),
+            evidence_count=len(evidence_rows),
+            warnings=[],
+        ),
+    )
+
+    insight = InvestmentInsightBuilder().build(report)
+
+    assert insight.status_label == "材料混在"
+    assert insight.primary_action_label
+    assert len(insight.positive_points) == 3
+    assert len(insight.negative_points) == 3
+    assert len(insight.confirmation_gaps) <= 3
+    assert any("PER/PBR/ROE" in gap for gap in insight.confirmation_gaps)
+    assert not any(term in insight.short_summary for term in FORBIDDEN_RECOMMENDATION_WORDS)
+
+
+def test_investment_insight_builder_marks_quantitative_metric_shortage_status():
+    official_evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-ir",
+        chunk_id="chunk-ir",
+        title="7203 決算短信",
+        source_type="earnings_report",
+        published_at=date(2026, 5, 20),
+        section_title="会社概要",
+        excerpt="会社概要と事業セグメントを説明しています。売上高 45兆円。",
+        relevance_score=Decimal("0.80"),
+        reliability=Decimal("0.92"),
+    )
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="Official evidence exists but metrics are limited.",
+        points=[],
+        evidence=[official_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 20),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    insight = InvestmentInsightBuilder().build(report)
+
+    assert insight.status_label == "定量指標不足"
+    assert insight.confidence_label == "低〜中"
+    assert insight.primary_action_label == "PER/PBR/ROEを確認"
+    assert any("PER/PBR/ROE" in gap for gap in insight.confirmation_gaps)
 
 
 def test_research_ingestion_deduplicates_by_document_hash(tmp_path):

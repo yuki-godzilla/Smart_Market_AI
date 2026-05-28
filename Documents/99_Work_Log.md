@@ -730,6 +730,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Softened the app header and page-title band borders / fills so they keep structure without visually separating from the surrounding background.
 - Kept the change CSS-only with no workflow, data, forecast, scoring, ranking, Research RAG, or report behavior changes.
 
+## 2026-05-28 - ResearchBrief source-rank focus cards
+
+- Added structured ResearchBrief material candidates so good / caution materials keep source type, source confidence, source count, and published date alongside the readable summary.
+- Updated the Research Summary confirmation-point cards to show `公式資料` / `ニュース` style source-rank badges and short `情報源信頼度` labels near each material.
+- Reworded ResearchBrief confirmation gaps so missing metrics read as `まだ確認できていない数値` and are framed as additional confirmation items, not bad news.
+
 ## 2026-05-28 - App header logo asset
 
 - Added a transparent, cropped SMAI brand logo asset under `ui/assets/brand/` for the Streamlit app header.

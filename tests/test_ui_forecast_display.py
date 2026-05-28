@@ -15,6 +15,7 @@ from backend.research import (
     ExternalResearchFetchManifestEntry,
     ExternalResearchFetchResult,
     ResearchBrief,
+    ResearchBriefMaterial,
     ResearchBriefSourceCard,
     ResearchDataQuality,
     ResearchDocument,
@@ -739,6 +740,28 @@ def test_research_brief_helpers_render_readable_rows_and_escape_markup():
         ),
         positive_candidates=["成長材料: software revenue"],
         caution_candidates=["注意材料: supply constraint"],
+        positive_materials=[
+            ResearchBriefMaterial(
+                label="成長材料",
+                summary="成長材料: software revenueに関する記述を1件確認しました。",
+                source_title="7203 決算短信",
+                source_type="earnings_report",
+                source_confidence="high",
+                source_count=1,
+                published_at=date(2026, 5, 20),
+            )
+        ],
+        caution_materials=[
+            ResearchBriefMaterial(
+                label="ニュース",
+                summary="ニュース: 「Supply constraint」を確認しました。要約: 部品供給に注意。",
+                source_title="Supply constraint",
+                source_type="news",
+                source_confidence="medium",
+                source_count=1,
+                published_at=date(2026, 5, 22),
+            )
+        ],
         confirmation_gaps=["未確認の定量指標: EPS"],
         next_actions=["公式資料でEPSを確認します。"],
         source_cards=[
@@ -787,16 +810,23 @@ def test_research_brief_helpers_render_readable_rows_and_escape_markup():
     assert "Toyota sells vehicles" in focus_markup
     assert "良材料候補" in focus_markup
     assert "注意材料候補" in focus_markup
+    assert "公式資料" in focus_markup
+    assert "情報源信頼度: 高" in focus_markup
+    assert "ニュース" in focus_markup
+    assert "情報源信頼度: 中" in focus_markup
+    assert "主な出典" in focus_markup
     assert "research-brief-metric-grid" in metric_markup
     assert "45兆円" in metric_markup
     assert "confidence-high" in metric_markup
     assert "research-brief-gap-panel" in gap_markup
-    assert "未確認の定量指標: EPS" in gap_markup
+    assert "まだ確認できていない数値: EPS" in gap_markup
+    assert "悪材料ではなく" in gap_markup
     assert "research-brief-next-list" in next_action_markup
     assert "公式資料でEPSを確認" in next_action_markup
     assert metric_rows[0]["指標"] == "売上高"
     assert metric_rows[0]["情報源信頼度"].startswith("高")
     assert gap_rows[0]["確認項目"] == "不足根拠"
+    assert gap_rows[0]["内容"].startswith("まだ確認できていない数値")
     assert action_rows[0]["扱い"] == "確認材料"
     assert source_rows[0]["category"] == "決算短信"
     assert source_rows[0]["confidence_tone"] == "high"

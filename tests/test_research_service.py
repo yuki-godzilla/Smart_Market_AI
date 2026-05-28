@@ -388,6 +388,18 @@ def test_research_brief_builder_shapes_readable_local_memo():
     assert any("成長材料" in candidate for candidate in brief.positive_candidates)
     assert any("Toyota raises guidance" in candidate for candidate in brief.positive_candidates)
     assert any("供給制約" in candidate for candidate in brief.caution_candidates)
+    assert any(
+        material.source_type == "earnings_report" and material.source_confidence == "high"
+        for material in brief.positive_materials
+    )
+    assert any(
+        material.source_type == "news" and material.source_confidence == "medium"
+        for material in brief.positive_materials
+    )
+    assert any(
+        material.source_type == "tdnet" and material.source_confidence == "high"
+        for material in brief.caution_materials
+    )
     assert not any(
         "主な確認材料として見ます" in candidate for candidate in brief.positive_candidates
     )

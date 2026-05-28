@@ -559,6 +559,19 @@ class ResearchBriefSourceCard(StrictBaseModel):
     note: str = ""
 
 
+class ResearchBriefMaterial(StrictBaseModel):
+    """Readable material candidate with source quality for the ResearchBrief UI."""
+
+    schema_version: str = "research-brief-material-v1"
+    label: str = Field(min_length=1)
+    summary: str = Field(min_length=1)
+    source_title: str = Field(min_length=1)
+    source_type: ResearchSourceType
+    source_confidence: ResearchSourceConfidence = "unknown"
+    source_count: int = Field(ge=1)
+    published_at: date | None = None
+
+
 class ResearchBrief(StrictBaseModel):
     """Local rule-based research memo for display; it does not change scores."""
 
@@ -571,6 +584,8 @@ class ResearchBrief(StrictBaseModel):
     business_overview: str = Field(min_length=1)
     positive_candidates: list[str] = Field(default_factory=list)
     caution_candidates: list[str] = Field(default_factory=list)
+    positive_materials: list[ResearchBriefMaterial] = Field(default_factory=list)
+    caution_materials: list[ResearchBriefMaterial] = Field(default_factory=list)
     confirmation_gaps: list[str] = Field(default_factory=list)
     next_actions: list[str] = Field(default_factory=list)
     source_cards: list[ResearchBriefSourceCard] = Field(default_factory=list)
@@ -1532,8 +1547,10 @@ class ResearchBriefBuilder:
     ) -> ResearchBrief:
         metrics = _research_brief_metrics(report.evidence)
         missing_metrics = _research_brief_missing_metric_labels(metrics)
-        positive_candidates = _research_brief_positive_candidates(report, news_report)
-        caution_candidates = _research_brief_caution_candidates(report, news_report)
+        positive_materials = _research_brief_positive_materials(report, news_report)
+        caution_materials = _research_brief_caution_materials(report, news_report)
+        positive_candidates = [material.summary for material in positive_materials]
+        caution_candidates = [material.summary for material in caution_materials]
         confirmation_gaps = _research_brief_confirmation_gaps(
             report,
             missing_metrics,
@@ -1558,6 +1575,8 @@ class ResearchBriefBuilder:
             business_overview=_research_brief_business_overview(report),
             positive_candidates=positive_candidates,
             caution_candidates=caution_candidates,
+            positive_materials=positive_materials,
+            caution_materials=caution_materials,
             confirmation_gaps=confirmation_gaps,
             next_actions=next_actions,
             source_cards=source_cards,
@@ -2984,38 +3003,98 @@ def _research_brief_positive_candidates(
     report: CompanyResearchReport,
     news_report: StockNewsReport | None,
 ) -> list[str]:
-    candidates = [
-        _research_brief_point_candidate(point)
+    return [
+        material.summary for material in _research_brief_positive_materials(report, news_report)
+    ]
+
+
+def _research_brief_positive_materials(
+    report: CompanyResearchReport,
+    news_report: StockNewsReport | None,
+) -> list[ResearchBriefMaterial]:
+    materials = [
+        _research_brief_material_from_point(point)
         for point in report.points
         if point.category in {"growth", "shareholder_return", "financial_safety"} and point.evidence
     ]
     if news_report is not None:
-        candidates.extend(
-            f"ニュース: {_clip_text(row.title, max_chars=60)} - "
-            f"{_clip_text(row.summary, max_chars=100)}"
+        materials.extend(
+            _research_brief_material_from_news(row, label="ニュース")
             for row in news_report.news
             if row.sentiment_for_investment == "positive"
         )
-    return _unique_text(candidates)[:5]
+    return _unique_research_brief_materials(materials)[:5]
 
 
 def _research_brief_caution_candidates(
     report: CompanyResearchReport,
     news_report: StockNewsReport | None,
 ) -> list[str]:
-    candidates = [
-        _research_brief_point_candidate(point)
+    return [material.summary for material in _research_brief_caution_materials(report, news_report)]
+
+
+def _research_brief_caution_materials(
+    report: CompanyResearchReport,
+    news_report: StockNewsReport | None,
+) -> list[ResearchBriefMaterial]:
+    materials = [
+        _research_brief_material_from_point(point)
         for point in report.points
-        if point.category in {"business_risk", "confirmation_gap"}
+        if point.category == "business_risk" and point.evidence
     ]
     if news_report is not None:
-        candidates.extend(
-            f"ニュース: {_clip_text(row.title, max_chars=60)} - "
-            f"{_clip_text(row.summary, max_chars=100)}"
+        materials.extend(
+            _research_brief_material_from_news(row, label="ニュース")
             for row in news_report.news
             if row.sentiment_for_investment in {"negative", "mixed", "unknown"}
         )
-    return _unique_text(candidates)[:6]
+    return _unique_research_brief_materials(materials)[:6]
+
+
+def _research_brief_material_from_point(point: ResearchSummaryPoint) -> ResearchBriefMaterial:
+    evidence = _dedupe_evidence(point.evidence)
+    lead = evidence[0]
+    return ResearchBriefMaterial(
+        label=point.label,
+        summary=_research_brief_point_candidate(point),
+        source_title=lead.title,
+        source_type=lead.source_type,
+        source_confidence=_research_brief_source_confidence(lead.source_type),
+        source_count=len(evidence),
+        published_at=lead.published_at,
+    )
+
+
+def _research_brief_material_from_news(
+    row: StockNewsEvidence,
+    *,
+    label: str,
+) -> ResearchBriefMaterial:
+    title = _clip_text(row.title, max_chars=60)
+    summary = _clip_text(row.summary, max_chars=100)
+    return ResearchBriefMaterial(
+        label=label,
+        summary=f"ニュース: 「{title}」を確認しました。要約: {summary}",
+        source_title=row.title,
+        source_type="news",
+        source_confidence=_research_brief_source_confidence("news"),
+        source_count=1,
+        published_at=row.published_at,
+    )
+
+
+def _unique_research_brief_materials(
+    materials: Sequence[ResearchBriefMaterial],
+) -> list[ResearchBriefMaterial]:
+    unique: list[ResearchBriefMaterial] = []
+    seen: set[tuple[str, str, str]] = set()
+    for material in materials:
+        key = (material.summary, material.source_title, material.source_type)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(material)
+    return unique
 
 
 def _research_brief_point_candidate(point: ResearchSummaryPoint) -> str:
@@ -3127,12 +3206,12 @@ def _research_brief_next_actions(
     if not any(
         row.source_type in _RESEARCH_BRIEF_HIGH_CONFIDENCE_SOURCES for row in report.evidence
     ):
-        actions.append("公式資料やTDnet開示で、provider情報とニュースの裏取りをします。")
+        actions.append("公式資料やTDnet開示で、外部provider情報とニュースの裏取りをします。")
     if any("鮮度" in warning or "2年以上" in warning for warning in report.data_quality.warnings):
         actions.append("最新の決算資料、適時開示、ニュースで情報の鮮度を確認します。")
     if external_research_result is not None and external_research_result.warnings:
         actions.append("外部取得の警告を確認し、取得できなかった資料を個別に確認します。")
-    actions.append("出典カードの資料名、公開日、URL、confidenceを確認します。")
+    actions.append("出典カードの資料名、公開日、URL、情報源信頼度を確認します。")
     return _unique_text(actions)[:5]
 
 

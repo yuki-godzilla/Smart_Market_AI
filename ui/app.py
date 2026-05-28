@@ -53,6 +53,7 @@ from backend.research import (
     ExternalResearchFetchResult,
     ResearchBrief,
     ResearchBriefBuilder,
+    ResearchBriefMaterial,
     ResearchBriefSourceCard,
     ResearchDocument,
     ResearchScore,
@@ -587,6 +588,19 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     color: var(--text-secondary);
     font-size: 0.86rem;
     line-height: 1.55;
+    overflow-wrap: anywhere;
+}
+.research-brief-focus-badge-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin: 0.08rem 0 0.34rem;
+}
+.research-brief-focus-meta {
+    color: var(--text-caption);
+    font-size: 0.76rem;
+    line-height: 1.45;
+    margin-top: 0.22rem;
     overflow-wrap: anywhere;
 }
 .research-brief-focus-list {
@@ -5209,7 +5223,16 @@ def _research_brief_focus_html(brief: ResearchBrief) -> str:
             [_research_brief_ui_text(brief.business_overview, max_chars=170)],
         )
     ]
-    if brief.positive_candidates:
+    if brief.positive_materials:
+        cards.append(
+            _research_brief_materials_card_html(
+                "良材料候補",
+                brief.positive_materials,
+                fallback_items=brief.positive_candidates,
+                limit=2,
+            )
+        )
+    elif brief.positive_candidates:
         cards.append(
             _research_brief_focus_card_html(
                 "良材料候補",
@@ -5217,7 +5240,16 @@ def _research_brief_focus_html(brief: ResearchBrief) -> str:
                 limit=2,
             )
         )
-    if brief.caution_candidates:
+    if brief.caution_materials:
+        cards.append(
+            _research_brief_materials_card_html(
+                "注意材料候補",
+                brief.caution_materials,
+                fallback_items=brief.caution_candidates,
+                limit=2,
+            )
+        )
+    elif brief.caution_candidates:
         cards.append(
             _research_brief_focus_card_html(
                 "注意材料候補",
@@ -5226,6 +5258,57 @@ def _research_brief_focus_html(brief: ResearchBrief) -> str:
             )
         )
     return f'<div class="research-brief-focus-grid">{"".join(cards)}</div>'
+
+
+def _research_brief_materials_card_html(
+    title: str,
+    materials: Sequence[ResearchBriefMaterial],
+    *,
+    fallback_items: Sequence[str],
+    limit: int = 2,
+) -> str:
+    if not materials:
+        return _research_brief_focus_card_html(title, fallback_items, limit=limit)
+
+    visible_materials = [material for material in materials[:limit] if material.summary.strip()]
+    body = "".join(_research_brief_material_item_html(material) for material in visible_materials)
+    if len(materials) > limit:
+        body += (
+            '<div class="research-brief-focus-more">'
+            f"ほか {len(materials) - limit}件は詳細データで確認できます。</div>"
+        )
+    if not body:
+        body = '<div class="research-brief-focus-body">現時点では目立つ材料は未確認です。</div>'
+    return (
+        '<section class="research-brief-focus-card">'
+        f'<div class="research-brief-focus-title">{html.escape(title)}</div>'
+        f'<div class="research-brief-focus-list">{body}</div>'
+        "</section>"
+    )
+
+
+def _research_brief_material_item_html(material: ResearchBriefMaterial) -> str:
+    source_rank = _research_source_rank_label(material.source_type)
+    confidence = _research_source_confidence_short_label(material.source_confidence)
+    confidence_tone = _research_source_confidence_tone(material.source_confidence)
+    source_type = _research_source_type_label(material.source_type)
+    published = material.published_at.isoformat() if material.published_at else "日付未設定"
+    source_title = _research_brief_ui_text(material.source_title, max_chars=72)
+    summary = _research_brief_ui_text(material.summary, max_chars=138)
+    return (
+        '<div class="research-brief-focus-material">'
+        '<div class="research-brief-focus-badge-row">'
+        f'<span class="research-evidence-pill">{html.escape(source_rank)}</span>'
+        f'<span class="research-evidence-pill confidence-{html.escape(confidence_tone)}">'
+        f"{html.escape(confidence)}</span>"
+        "</div>"
+        f'<div class="research-brief-focus-body">{html.escape(summary)}</div>'
+        '<div class="research-brief-focus-meta">'
+        f"主な出典: {html.escape(source_title)} / {html.escape(source_type)} / "
+        f"{html.escape(published)} / 根拠 {material.source_count}件"
+        "</div>"
+        "</div>"
+    )
 
 
 def _research_brief_focus_card_html(
@@ -5318,7 +5401,7 @@ def _research_brief_gap_rows(brief: ResearchBrief) -> list[dict[str, str]]:
     return [
         {
             "確認項目": "不足根拠",
-            "内容": gap,
+            "内容": _research_brief_gap_display_text(gap),
             "確認ポイント": "未確認は低評価ではなく、追加確認が必要な状態として扱います。",
         }
         for gap in brief.confirmation_gaps
@@ -5337,7 +5420,8 @@ def _research_brief_gap_panel_html(brief: ResearchBrief) -> str:
         items.append(f"未確認の定量指標: {missing}")
     items.extend(brief.confirmation_gaps)
     item_markup = "".join(
-        f'<div class="research-brief-gap-item">{html.escape(item)}</div>'
+        '<div class="research-brief-gap-item">'
+        f"{html.escape(_research_brief_gap_display_text(item))}</div>"
         for item in items
         if item.strip()
     )
@@ -5347,6 +5431,30 @@ def _research_brief_gap_panel_html(brief: ResearchBrief) -> str:
         f"{item_markup}"
         "</section>"
     )
+
+
+def _research_brief_gap_display_text(gap: str) -> str:
+    cleaned = " ".join(gap.split())
+    if cleaned.startswith("未確認の定量指標:"):
+        metrics = cleaned.split(":", 1)[1].strip()
+        return (
+            f"まだ確認できていない数値: {metrics}。"
+            "悪材料ではなく、公式資料で追加確認する項目です。"
+        )
+    if cleaned.startswith("ニュース確認:"):
+        warning = cleaned.split(":", 1)[1].strip()
+        return f"ニュース根拠の確認: {warning}"
+    if "登録済みResearch資料がありません" in cleaned:
+        return (
+            "保存済みのResearch資料がまだありません。必要なら公式IRや決算資料を登録してください。"
+        )
+    if "検索できたResearch根拠がありません" in cleaned:
+        return (
+            "関連する根拠資料をまだ見つけられていません。検索語や資料の登録状況を確認してください。"
+        )
+    if "信頼度が低" in cleaned:
+        return "見つかった根拠の信頼度が低めです。出典元と公開日を確認してください。"
+    return cleaned
 
 
 def _research_brief_next_action_rows(brief: ResearchBrief) -> list[dict[str, str]]:
@@ -5434,6 +5542,16 @@ def _research_source_confidence_label(confidence: str) -> str:
         "unknown": "未確認",
     }
     return labels.get(confidence, "未確認")
+
+
+def _research_source_confidence_short_label(confidence: str) -> str:
+    labels = {
+        "high": "情報源信頼度: 高",
+        "medium": "情報源信頼度: 中",
+        "low": "情報源信頼度: 低",
+        "unknown": "情報源信頼度: 未確認",
+    }
+    return labels.get(confidence, "情報源信頼度: 未確認")
 
 
 def _research_source_confidence_tone(confidence: str) -> str:
@@ -6374,6 +6492,25 @@ def _research_source_type_label(source_type: str) -> str:
         "user_note": "ユーザーメモ",
     }
     return labels.get(source_type, source_type or "未確認")
+
+
+def _research_source_rank_label(source_type: str) -> str:
+    if source_type in {
+        "annual_report",
+        "earnings_report",
+        "earnings_presentation",
+        "medium_term_plan",
+        "integrated_report",
+        "tdnet",
+    }:
+        return "公式資料"
+    if source_type == "provider_profile":
+        return "外部provider"
+    if source_type == "news":
+        return "ニュース"
+    if source_type == "user_note":
+        return "ユーザーメモ"
+    return "確認資料"
 
 
 def _research_freshness_status_label(status: str) -> str:

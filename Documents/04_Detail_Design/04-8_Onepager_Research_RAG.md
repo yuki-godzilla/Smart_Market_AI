@@ -122,6 +122,7 @@ Current implementation note: `ExternalResearchFetchService`, `TDnetResearchAdapt
 Research Summary 改善では、`CompanyResearchReport` / evidence と Streamlit UI の間に、表示専用の `CompanyResearchSummary` と `ResearchBrief` 層を置く。provider dump や raw evidence を主表示に出すのではなく、deterministic なローカルルールで、企業概要、事業内容、規模感、定量情報、IR情報、最新ニュースを読める企業リサーチレポートへ変換する。投資判断メモは主役ではなく、企業理解のための AI読み取りメモ / 確認ポイントとして後段に置く。外部LLM / OpenAI API 連携は後続に回し、通常 checks は network / LLM 非依存を維持する。
 
 現行の読みやすさ改善 slice では、`ResearchBrief` の前段に `ResearchFactSummary` を置き、さらに UI の主表示として `CompanyResearchSummary` を作る。これは取得件数や出典カード数ではなく、ユーザーが最初に知りたい「この会社は何をしているか」「どの事業で稼いでいるか」「規模感はどれくらいか」「主要指標やIR資料は確認できたか」「直近ニュースは何か」を source-backed fact として整理する層である。
+銘柄タイプ別の表示切替もこの読みやすさ改善 slice に含める。`SecurityResearchTypeDetector` は provider metadata / quoteType / exchange / symbol suffix から domestic stock、foreign stock、ETF / fund、unknown を判定し、`ResearchPageViewModelBuilder` は個別株を `CompanyResearchSummary`、ETF / fund を `ETFResearchSummary` に振り分ける。ETF / fund では企業概要・売上・営業利益・決算短信・有価証券報告書ではなく、ファンド概要、投資対象、対象地域、ベンチマーク、純資産総額、NAV、経費率、分配金利回り、上位保有銘柄、運用会社資料の確認ポイントを主表示にする。foreign stock は企業リサーチ構成を維持しつつ、TDnet / EDINET / 決算短信ではなく Annual Report、10-K / 10-Q、Earnings Release、Investor Presentation、SEC Filing の確認文言を使う。
 
 推奨 pipeline:
 

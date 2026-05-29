@@ -51,7 +51,7 @@ from backend.reporting import (
 from backend.research import (
     CompanyResearchReport,
     CompanyResearchSummary,
-    CompanyResearchSummaryBuilder,
+    ETFResearchSummary,
     ExternalResearchFetchManifestEntry,
     ExternalResearchFetchResult,
     InvestmentActionHint,
@@ -60,7 +60,6 @@ from backend.research import (
     InvestmentInsightItem,
     InvestmentQuestionAnswer,
     InvestmentQuestionSummary,
-    InvestmentQuestionSummaryBuilder,
     IRSummaryItem,
     NewsSummaryItem,
     QuantitativeSummary,
@@ -71,8 +70,10 @@ from backend.research import (
     ResearchDocument,
     ResearchFactItem,
     ResearchFactSummary,
+    ResearchPageViewModelBuilder,
     ResearchScore,
     ResearchScoreService,
+    SecurityResearchType,
     StockNewsReport,
 )
 from backend.scoring import InvestmentScoringService
@@ -339,8 +340,10 @@ MARKET_DATA_COCKPIT_FILTER_DEFAULTS: dict[str, str | bool] = {
 class ResearchSummaryBundle:
     brief: ResearchBrief
     insight: InvestmentInsight
-    company_summary: CompanyResearchSummary
-    question_summary: InvestmentQuestionSummary
+    security_type: SecurityResearchType
+    company_summary: CompanyResearchSummary | None
+    etf_summary: ETFResearchSummary | None
+    question_summary: InvestmentQuestionSummary | None
     research_score: ResearchScore
 
 
@@ -5197,15 +5200,25 @@ def _render_research_summary_panel(
     brief = summary_bundle.brief
     insight = summary_bundle.insight
     company_summary = summary_bundle.company_summary
+    etf_summary = summary_bundle.etf_summary
     question_summary = summary_bundle.question_summary
+    security_type = summary_bundle.security_type
     research_score = summary_bundle.research_score
-    _render_company_research_summary_panel(company_summary)
-    _render_quantitative_summary_panel(company_summary.quantitative)
-    _render_ir_summary_panel(company_summary.ir_items)
-    _render_news_summary_panel(company_summary.news_items)
-    _render_investment_question_summary_panel(question_summary)
+    if security_type in {"etf", "fund"} and etf_summary is not None:
+        _render_etf_research_summary_panel(etf_summary)
+        _render_etf_metric_summary_panel(etf_summary)
+        _render_etf_holdings_panel(etf_summary)
+        _render_etf_distribution_cost_panel(etf_summary)
+        _render_news_summary_panel(etf_summary.news_items, security_type=security_type)
+        _render_etf_question_summary_panel(etf_summary)
+    elif company_summary is not None and question_summary is not None:
+        _render_company_research_summary_panel(company_summary)
+        _render_quantitative_summary_panel(company_summary.quantitative)
+        _render_ir_summary_panel(company_summary.ir_items, security_type=security_type)
+        _render_news_summary_panel(company_summary.news_items, security_type=security_type)
+        _render_investment_question_summary_panel(question_summary, security_type=security_type)
     with st.expander("AI読み取りメモを表示", expanded=False):
-        if company_summary.ai_reading_notes:
+        if company_summary is not None and company_summary.ai_reading_notes:
             st.markdown(
                 _company_research_ai_notes_html(company_summary.ai_reading_notes),
                 unsafe_allow_html=True,
@@ -5340,14 +5353,7 @@ def _research_summary_bundle(
         external_research_result=external_research_result,
         brief=brief,
     )
-    company_summary = CompanyResearchSummaryBuilder().build(
-        report,
-        news_report=news_report,
-        external_research_result=external_research_result,
-        brief=brief,
-        insight=insight,
-    )
-    question_summary = InvestmentQuestionSummaryBuilder().build(
+    page_model = ResearchPageViewModelBuilder().build(
         report,
         news_report=news_report,
         external_research_result=external_research_result,
@@ -5357,8 +5363,10 @@ def _research_summary_bundle(
     bundle = ResearchSummaryBundle(
         brief=brief,
         insight=insight,
-        company_summary=company_summary,
-        question_summary=question_summary,
+        security_type=page_model.security_type,
+        company_summary=page_model.company_summary,
+        etf_summary=page_model.etf_summary,
+        question_summary=page_model.question_summary,
         research_score=ResearchScoreService().score_report(report),
     )
     st.session_state[RESEARCH_SUMMARY_BUILD_CACHE_STATE_KEY] = {
@@ -5375,7 +5383,7 @@ def _research_summary_cache_key(
     external_research_result: ExternalResearchFetchResult | None,
 ) -> str:
     payload = {
-        "version": "research-summary-build-v1",
+        "version": "research-summary-build-v2-security-type",
         "report": report.model_dump(mode="json"),
         "news_report": news_report.model_dump(mode="json") if news_report is not None else None,
         "external_research_result": (
@@ -5399,16 +5407,159 @@ def _render_company_research_summary_panel(summary: CompanyResearchSummary) -> N
     st.markdown(_company_research_summary_html(summary), unsafe_allow_html=True)
 
 
+def _render_etf_research_summary_panel(summary: ETFResearchSummary) -> None:
+    st.markdown(_etf_research_summary_html(summary), unsafe_allow_html=True)
+
+
+def _render_etf_metric_summary_panel(summary: ETFResearchSummary) -> None:
+    st.markdown(_etf_metric_summary_html(summary), unsafe_allow_html=True)
+
+
+def _render_etf_holdings_panel(summary: ETFResearchSummary) -> None:
+    st.markdown(_etf_holdings_html(summary), unsafe_allow_html=True)
+
+
+def _render_etf_distribution_cost_panel(summary: ETFResearchSummary) -> None:
+    st.markdown(_etf_distribution_cost_html(summary), unsafe_allow_html=True)
+
+
 def _render_quantitative_summary_panel(summary: QuantitativeSummary) -> None:
     st.markdown(_quantitative_summary_html(summary), unsafe_allow_html=True)
 
 
-def _render_ir_summary_panel(items: Sequence[IRSummaryItem]) -> None:
-    st.markdown(_ir_summary_html(items), unsafe_allow_html=True)
+def _render_ir_summary_panel(
+    items: Sequence[IRSummaryItem],
+    *,
+    security_type: SecurityResearchType = "domestic_stock",
+) -> None:
+    st.markdown(_ir_summary_html(items, security_type=security_type), unsafe_allow_html=True)
 
 
-def _render_news_summary_panel(items: Sequence[NewsSummaryItem]) -> None:
-    st.markdown(_news_summary_html(items), unsafe_allow_html=True)
+def _render_news_summary_panel(
+    items: Sequence[NewsSummaryItem],
+    *,
+    security_type: SecurityResearchType = "domestic_stock",
+) -> None:
+    st.markdown(_news_summary_html(items, security_type=security_type), unsafe_allow_html=True)
+
+
+def _etf_research_summary_html(summary: ETFResearchSummary) -> str:
+    badges = [
+        (
+            f"根拠: {_research_evidence_level_label(getattr(summary, 'evidence_level', 'missing'))}",
+            "info",
+        ),
+        (f"銘柄: {getattr(summary, 'symbol', '')}", "info"),
+    ]
+    if summary.provider_name:
+        badges.append((f"運用会社: {summary.provider_name}", "neutral"))
+    badge_markup = "".join(
+        f'<span class="research-brief-badge {html.escape(tone)}">{html.escape(label)}</span>'
+        for label, tone in badges
+        if label.strip()
+    )
+    rows = [
+        ("ファンド概要", summary.fund_overview),
+        ("投資対象", summary.investment_target),
+        ("対象資産", summary.asset_class or ""),
+        ("対象地域", summary.region_focus or ""),
+        ("対象セクター", summary.sector_focus or ""),
+        ("ベンチマーク指数", summary.benchmark_index or ""),
+    ]
+    row_markup = "".join(
+        '<div class="research-result-brief-item">'
+        f'<div class="research-result-brief-label">{html.escape(label)}</div>'
+        f'<div class="research-result-brief-value">{html.escape(value or "未取得")}</div>'
+        "</div>"
+        for label, value in rows
+    )
+    missing_markup = "".join(
+        f'<span class="research-summary-next-chip">{html.escape(str(item))}</span>'
+        for item in summary.missing_items[:6]
+        if str(item).strip()
+    )
+    missing_block = (
+        '<div class="research-result-brief-label">追加確認が必要なETF情報</div>'
+        f'<div class="research-summary-next-list">{missing_markup}</div>'
+        if missing_markup
+        else ""
+    )
+    return (
+        '<section class="research-result-brief hero">'
+        '<div class="research-result-brief-title">ETFリサーチサマリー</div>'
+        f'<div class="research-brief-badge-row">{badge_markup}</div>'
+        '<div class="research-result-brief-summary">'
+        "外部情報から、ETFの投資対象、対象地域、費用、分配金、構成情報を整理します。"
+        "</div>"
+        f'<div class="research-result-brief-grid">{row_markup}</div>'
+        f"{missing_block}"
+        "</section>"
+    )
+
+
+def _etf_metric_summary_html(summary: ETFResearchSummary) -> str:
+    metric_rows = [
+        ("純資産総額", summary.aum),
+        ("基準価額 / NAV", summary.nav),
+        ("経費率", summary.expense_ratio),
+        ("分配金利回り", summary.dividend_yield),
+        ("PER", summary.per),
+        ("PBR", summary.pbr),
+    ]
+    metric_markup = "".join(
+        '<section class="research-brief-metric-card">'
+        f'<div class="research-brief-metric-label">{html.escape(label)}</div>'
+        f'<div class="research-brief-metric-value">{html.escape(value or "未取得")}</div>'
+        "</section>"
+        for label, value in metric_rows
+    )
+    return (
+        '<section class="research-result-brief">'
+        '<div class="research-result-brief-title">ファンド指標サマリー</div>'
+        f'<div class="research-brief-metric-grid">{metric_markup}</div>'
+        "</section>"
+    )
+
+
+def _etf_holdings_html(summary: ETFResearchSummary) -> str:
+    holdings = summary.top_holdings[:8]
+    if holdings:
+        holdings_markup = "".join(
+            f'<span class="research-summary-next-chip">{html.escape(item)}</span>'
+            for item in holdings
+        )
+    else:
+        holdings_markup = (
+            '<div class="research-brief-focus-body">'
+            "上位保有銘柄は未取得です。運用会社ページ、月次レポート、構成銘柄データで確認してください。"
+            "</div>"
+        )
+    return (
+        '<section class="research-result-brief">'
+        '<div class="research-result-brief-title">構成銘柄・投資対象</div>'
+        f'<div class="research-summary-next-list">{holdings_markup}</div>'
+        "</section>"
+    )
+
+
+def _etf_distribution_cost_html(summary: ETFResearchSummary) -> str:
+    notes = summary.risk_notes or [
+        "経費率、分配金利回り、ベンチマーク、構成銘柄の更新日を運用会社資料で確認してください。"
+    ]
+    note_markup = "".join(
+        f'<div class="research-brief-next-item">{html.escape(_research_brief_ui_text(note, max_chars=120))}</div>'
+        for note in notes[:4]
+    )
+    return (
+        '<section class="research-result-brief">'
+        '<div class="research-result-brief-title">分配金・コスト</div>'
+        '<div class="research-result-brief-summary">'
+        f"経費率: {html.escape(summary.expense_ratio or '未取得')} / "
+        f"分配金利回り: {html.escape(summary.dividend_yield or '未取得')}"
+        "</div>"
+        f'<div class="research-brief-next-list">{note_markup}</div>'
+        "</section>"
+    )
 
 
 def _company_research_summary_html(summary: CompanyResearchSummary) -> str:
@@ -5540,37 +5691,57 @@ def _quantitative_summary_html(summary: QuantitativeSummary) -> str:
     )
 
 
-def _ir_summary_html(items: Sequence[IRSummaryItem]) -> str:
-    cards = "".join(_ir_summary_item_html(item) for item in items)
+def _ir_summary_html(
+    items: Sequence[IRSummaryItem],
+    *,
+    security_type: SecurityResearchType = "domestic_stock",
+) -> str:
+    cards = "".join(_ir_summary_item_html(item, security_type=security_type) for item in items)
     if not cards:
         cards = (
             '<section class="research-brief-focus-card">'
             '<div class="research-brief-focus-body">IR資料の取得状況はまだ整理できていません。</div>'
             "</section>"
         )
+    title = "海外IR情報サマリー" if security_type == "foreign_stock" else RESEARCH_IR_SUMMARY_TITLE
+    summary_text = (
+        "Earnings Release、Annual Report、10-K / 10-Q、Investor Presentation、SEC Filingの取得状況を整理します。"
+        if security_type == "foreign_stock"
+        else "決算資料、適時開示、中期計画、株主還元情報の取得状況を整理します。"
+    )
     return (
         '<section class="research-result-brief">'
-        f'<div class="research-result-brief-title">{html.escape(RESEARCH_IR_SUMMARY_TITLE)}</div>'
-        '<div class="research-result-brief-summary">'
-        "決算資料、適時開示、中期計画、株主還元情報の取得状況を整理します。"
-        "</div>"
+        f'<div class="research-result-brief-title">{html.escape(title)}</div>'
+        f'<div class="research-result-brief-summary">{html.escape(summary_text)}</div>'
         f'<div class="research-brief-focus-grid">{cards}</div>'
         "</section>"
     )
 
 
-def _ir_summary_item_html(item: IRSummaryItem) -> str:
+def _ir_summary_item_html(
+    item: IRSummaryItem,
+    *,
+    security_type: SecurityResearchType = "domestic_stock",
+) -> str:
     information_status = getattr(item, "information_status", "missing")
     status_label = _information_status_label(information_status)
     tone = _information_status_tone(information_status)
-    document_type = getattr(item, "document_type", "")
+    document_type = _ir_document_type_display_label(
+        getattr(item, "document_type", ""),
+        security_type=security_type,
+    )
     title = getattr(item, "title", "")
     key_points = "".join(
         f'<div class="research-brief-focus-body">- {html.escape(_research_brief_ui_text(point, max_chars=92))}</div>'
         for point in item.key_points[:2]
     )
     if not key_points:
-        key_points = f'<div class="research-brief-focus-body">{html.escape(item.summary or "追加確認が必要です。")}</div>'
+        summary_text = _ir_item_summary_display_text(
+            item,
+            document_type=document_type,
+            security_type=security_type,
+        )
+        key_points = f'<div class="research-brief-focus-body">{html.escape(summary_text)}</div>'
     source = item.source_title or ""
     source_markup = (
         '<div class="research-brief-focus-meta">'
@@ -5596,14 +5767,60 @@ def _ir_summary_item_html(item: IRSummaryItem) -> str:
     )
 
 
-def _news_summary_html(items: Sequence[NewsSummaryItem]) -> str:
+def _ir_document_type_display_label(
+    document_type: str,
+    *,
+    security_type: SecurityResearchType,
+) -> str:
+    if security_type != "foreign_stock":
+        return document_type
+    labels = {
+        "決算短信": "Earnings Release",
+        "決算説明資料": "Investor Presentation",
+        "有価証券報告書": "Annual Report / 10-K",
+        "適時開示": "SEC Filing / Company Release",
+        "中期経営計画": "Investor Presentation",
+        "配当・自社株買い": "Dividend / Buyback Policy",
+        "業績予想修正": "Guidance / Forecast Update",
+    }
+    return labels.get(document_type, document_type)
+
+
+def _ir_item_summary_display_text(
+    item: IRSummaryItem,
+    *,
+    document_type: str,
+    security_type: SecurityResearchType,
+) -> str:
+    if security_type == "foreign_stock":
+        if getattr(item, "information_status", "missing") == "missing":
+            return (
+                f"{document_type}は未取得です。公式IR、Annual Report、10-K / 10-Q、"
+                "Earnings Release、SEC Filingで確認してください。"
+            )
+        if getattr(item, "information_status", "missing") == "unparsed":
+            return "資料タイトルまたはURLは取得済みですが、本文は未解析です。詳細は公式IRまたはSEC Filingで確認してください。"
+        return item.summary or f"{document_type}から確認できる要点があります。"
+    return item.summary or "追加確認が必要です。"
+
+
+def _news_summary_html(
+    items: Sequence[NewsSummaryItem],
+    *,
+    security_type: SecurityResearchType = "domestic_stock",
+) -> str:
     if not items:
-        body = (
-            '<div class="research-brief-focus-body">'
-            "ニュース・適時開示は取得できていません。必要に応じて外部ニュースや公式IRを追加確認してください。</div>"
+        missing_text = (
+            "ニュース・開示は取得できていません。必要に応じて外部ニュース、公式IR、SEC Filingを追加確認してください。"
+            if security_type == "foreign_stock"
+            else "ニュース・適時開示は取得できていません。必要に応じて外部ニュースや公式IRを追加確認してください。"
         )
+        body = '<div class="research-brief-focus-body">' f"{html.escape(missing_text)}</div>"
     else:
-        body = "".join(_news_summary_item_html(index, item) for index, item in enumerate(items, 1))
+        body = "".join(
+            _news_summary_item_html(index, item, security_type=security_type)
+            for index, item in enumerate(items, 1)
+        )
     return (
         '<section class="research-result-brief">'
         f'<div class="research-result-brief-title">{html.escape(RESEARCH_NEWS_SUMMARY_TITLE)}</div>'
@@ -5612,15 +5829,22 @@ def _news_summary_html(items: Sequence[NewsSummaryItem]) -> str:
     )
 
 
-def _news_summary_item_html(index: int, item: NewsSummaryItem) -> str:
+def _news_summary_item_html(
+    index: int,
+    item: NewsSummaryItem,
+    *,
+    security_type: SecurityResearchType = "domestic_stock",
+) -> str:
     published = item.published_at.isoformat() if item.published_at else "日付未設定"
     impact = _news_impact_hint_label(item.impact_hint)
-    topic_type = _latest_topic_type_label(getattr(item, "topic_type", "news"))
-    source = _latest_topic_source_label(item)
-    confirmation_label = (
-        "未確認（公式IR確認が必要）"
-        if getattr(item, "official_confirmation_required", True)
-        else "公式開示資料"
+    topic_type = _latest_topic_type_label(
+        getattr(item, "topic_type", "news"),
+        security_type=security_type,
+    )
+    source = _latest_topic_source_label(item, security_type=security_type)
+    confirmation_label = _latest_topic_confirmation_label(
+        item,
+        security_type=security_type,
     )
     status_label = _information_status_label(getattr(item, "information_status", "unverified"))
     status_tone = _information_status_tone(getattr(item, "information_status", "unverified"))
@@ -5646,7 +5870,25 @@ def _news_summary_item_html(index: int, item: NewsSummaryItem) -> str:
     )
 
 
-def _latest_topic_type_label(topic_type: str) -> str:
+def _latest_topic_type_label(
+    topic_type: str,
+    *,
+    security_type: SecurityResearchType = "domestic_stock",
+) -> str:
+    if security_type == "foreign_stock":
+        labels = {
+            "news": "ニュース",
+            "tdnet": "Company Release",
+            "ir_disclosure": "Company Release",
+            "earnings": "Earnings",
+            "forecast_revision": "Guidance Update",
+            "shareholder_return": "Dividend / Buyback",
+            "business_reorganization": "Business Reorganization",
+            "product": "Product / Service",
+            "governance": "Governance",
+            "unknown": "トピック",
+        }
+        return labels.get(topic_type, "トピック")
     labels = {
         "news": "ニュース",
         "tdnet": "TDnet",
@@ -5662,8 +5904,32 @@ def _latest_topic_type_label(topic_type: str) -> str:
     return labels.get(topic_type, "トピック")
 
 
-def _latest_topic_source_label(item: NewsSummaryItem) -> str:
+def _latest_topic_confirmation_label(
+    item: NewsSummaryItem,
+    *,
+    security_type: SecurityResearchType,
+) -> str:
+    if not getattr(item, "official_confirmation_required", True):
+        return "公式開示資料"
+    if security_type == "foreign_stock":
+        return "未確認（公式IR・SEC Filing確認が必要）"
+    return "未確認（公式IR確認が必要）"
+
+
+def _latest_topic_source_label(
+    item: NewsSummaryItem,
+    *,
+    security_type: SecurityResearchType = "domestic_stock",
+) -> str:
     topic_type = getattr(item, "topic_type", "news")
+    if security_type == "foreign_stock" and topic_type in {
+        "tdnet",
+        "ir_disclosure",
+        "earnings",
+        "forecast_revision",
+        "shareholder_return",
+    }:
+        return item.source_title or "公式IR・SEC Filing"
     if topic_type in {
         "tdnet",
         "ir_disclosure",
@@ -5856,11 +6122,18 @@ def _investment_insight_materials_html(insight: InvestmentInsight) -> str:
     return f'<div class="research-brief-focus-grid">{"".join(cards)}</div>'
 
 
-def _render_investment_question_summary_panel(summary: InvestmentQuestionSummary) -> None:
-    st.markdown(_investment_question_summary_intro_html(summary), unsafe_allow_html=True)
+def _render_investment_question_summary_panel(
+    summary: InvestmentQuestionSummary,
+    *,
+    security_type: SecurityResearchType = "domestic_stock",
+) -> None:
+    st.markdown(
+        _investment_question_summary_intro_html(summary, security_type=security_type),
+        unsafe_allow_html=True,
+    )
     primary_answers = _investment_question_primary_answers(summary)
     st.markdown(
-        _investment_question_answers_html(primary_answers),
+        _investment_question_answers_html(primary_answers, security_type=security_type),
         unsafe_allow_html=True,
     )
     secondary_answers = [
@@ -5869,16 +6142,22 @@ def _render_investment_question_summary_panel(summary: InvestmentQuestionSummary
     if secondary_answers:
         with st.expander(RESEARCH_INVESTMENT_QUESTION_MORE_LABEL, expanded=False):
             st.markdown(
-                _investment_question_answers_html(secondary_answers),
+                _investment_question_answers_html(secondary_answers, security_type=security_type),
                 unsafe_allow_html=True,
             )
 
 
-def _investment_question_summary_intro_html(summary: InvestmentQuestionSummary) -> str:
+def _investment_question_summary_intro_html(
+    summary: InvestmentQuestionSummary,
+    *,
+    security_type: SecurityResearchType = "domestic_stock",
+) -> str:
     top_takeaway = _research_brief_ui_text(getattr(summary, "top_takeaway", ""), max_chars=170)
+    top_takeaway = _security_specific_research_text(top_takeaway, security_type=security_type)
     missing_items = getattr(summary, "missing_critical_items", [])[:4]
     missing_markup = "".join(
-        f'<span class="research-summary-next-chip">{html.escape(str(item))}</span>'
+        f'<span class="research-summary-next-chip">'
+        f"{html.escape(_security_specific_research_text(str(item), security_type=security_type))}</span>"
         for item in missing_items
         if str(item).strip()
     )
@@ -5922,8 +6201,13 @@ def _investment_question_primary_answers(
 
 def _investment_question_answers_html(
     answers: Sequence[InvestmentQuestionAnswer],
+    *,
+    security_type: SecurityResearchType = "domestic_stock",
 ) -> str:
-    cards = "".join(_investment_question_answer_card_html(answer) for answer in answers)
+    cards = "".join(
+        _investment_question_answer_card_html(answer, security_type=security_type)
+        for answer in answers
+    )
     if not cards:
         cards = (
             '<section class="research-brief-focus-card">'
@@ -5933,7 +6217,11 @@ def _investment_question_answers_html(
     return f'<div class="research-brief-focus-grid">{cards}</div>'
 
 
-def _investment_question_answer_card_html(answer: InvestmentQuestionAnswer) -> str:
+def _investment_question_answer_card_html(
+    answer: InvestmentQuestionAnswer,
+    *,
+    security_type: SecurityResearchType = "domestic_stock",
+) -> str:
     evidence_label = _investment_question_evidence_label(
         getattr(answer, "evidence_level", "missing")
     )
@@ -5949,9 +6237,16 @@ def _investment_question_answer_card_html(answer: InvestmentQuestionAnswer) -> s
         if source_titles
         else ""
     )
-    missing_reason = _research_brief_ui_text(
-        getattr(answer, "missing_reason", ""),
-        max_chars=82,
+    answer_text = _security_specific_research_text(
+        str(answer.answer),
+        security_type=security_type,
+    )
+    missing_reason = _security_specific_research_text(
+        _research_brief_ui_text(
+            getattr(answer, "missing_reason", ""),
+            max_chars=82,
+        ),
+        security_type=security_type,
     )
     missing_markup = (
         '<div class="research-brief-focus-meta">' f"不足: {html.escape(missing_reason)}</div>"
@@ -5965,7 +6260,7 @@ def _investment_question_answer_card_html(answer: InvestmentQuestionAnswer) -> s
         f"根拠: {html.escape(evidence_label)}</span>"
         "</div>"
         f'<div class="research-brief-focus-title">Q. {html.escape(str(answer.question))}</div>'
-        f'<div class="research-brief-focus-body">A. {html.escape(str(answer.answer))}</div>'
+        f'<div class="research-brief-focus-body">A. {html.escape(answer_text)}</div>'
         f"{source_markup}{missing_markup}"
         "</section>"
     )
@@ -5989,6 +6284,127 @@ def _investment_question_evidence_tone(level: str) -> str:
         "missing": "unknown",
     }
     return tones.get(level, "unknown")
+
+
+def _render_etf_question_summary_panel(summary: ETFResearchSummary) -> None:
+    st.markdown(_etf_question_summary_html(summary), unsafe_allow_html=True)
+
+
+def _etf_question_summary_html(summary: ETFResearchSummary) -> str:
+    cards = "".join(
+        _etf_question_card_html(question, answer)
+        for question, answer in [
+            (
+                "このETFは何に投資している？",
+                summary.investment_target
+                or "投資対象は未取得です。運用会社ページ、目論見書、月次レポートで確認してください。",
+            ),
+            (
+                "対象地域・対象資産は何か？",
+                _etf_question_region_asset_answer(summary),
+            ),
+            (
+                "上位保有銘柄は何か？",
+                (
+                    "上位保有銘柄は"
+                    + "、".join(summary.top_holdings[:5])
+                    + "です。構成比率と更新日は運用会社資料で確認してください。"
+                    if summary.top_holdings
+                    else "上位保有銘柄は未取得です。構成銘柄データまたは月次レポートで確認してください。"
+                ),
+            ),
+            (
+                "経費率や分配金はどうか？",
+                (
+                    f"経費率は{summary.expense_ratio or '未取得'}、分配金利回りは"
+                    f"{summary.dividend_yield or '未取得'}です。未取得項目は運用会社ページで確認してください。"
+                ),
+            ),
+            (
+                "このETFを見るうえで一番重要な論点は何か？",
+                _etf_question_key_takeaway(summary),
+            ),
+        ]
+    )
+    missing_markup = "".join(
+        f'<span class="research-summary-next-chip">{html.escape(item)}</span>'
+        for item in summary.missing_items[:5]
+    )
+    missing_block = (
+        '<div class="research-result-brief-label">優先して確認</div>'
+        f'<div class="research-summary-next-list">{missing_markup}</div>'
+        if missing_markup
+        else ""
+    )
+    return (
+        '<section class="research-result-brief">'
+        '<div class="research-result-brief-title">ETF理解の確認ポイント</div>'
+        '<div class="research-result-brief-summary">'
+        "ETFは企業の売上や利益ではなく、投資対象、構成銘柄、費用、分配金、ベンチマークを中心に確認します。"
+        "</div>"
+        f"{missing_block}"
+        f'<div class="research-brief-focus-grid">{cards}</div>'
+        "</section>"
+    )
+
+
+def _etf_question_card_html(question: str, answer: str) -> str:
+    return (
+        '<section class="research-brief-focus-card">'
+        '<div class="research-brief-focus-badge-row">'
+        '<span class="research-evidence-pill confidence-medium">根拠: 確認材料</span>'
+        "</div>"
+        f'<div class="research-brief-focus-title">Q. {html.escape(question)}</div>'
+        f'<div class="research-brief-focus-body">A. {html.escape(answer)}</div>'
+        "</section>"
+    )
+
+
+def _etf_question_region_asset_answer(summary: ETFResearchSummary) -> str:
+    parts = []
+    if summary.region_focus:
+        parts.append(f"対象地域は{summary.region_focus}")
+    if summary.asset_class:
+        parts.append(f"対象資産は{summary.asset_class}")
+    if summary.sector_focus:
+        parts.append(f"対象セクターは{summary.sector_focus}")
+    if parts:
+        return "、".join(parts) + "として整理できます。正確な投資方針は目論見書で確認してください。"
+    return (
+        "対象地域・対象資産は未取得です。目論見書、月次レポート、ETF情報サイトで確認してください。"
+    )
+
+
+def _etf_question_key_takeaway(summary: ETFResearchSummary) -> str:
+    if summary.missing_items:
+        return (
+            "現時点では、"
+            + "、".join(summary.missing_items[:4])
+            + "を確認することが最優先です。企業IRではなく、運用会社資料とETF情報サイトで確認してください。"
+        )
+    return "投資対象、費用、分配金、構成銘柄、ベンチマークの整合性を確認することが重要です。"
+
+
+def _security_specific_research_text(
+    text: str,
+    *,
+    security_type: SecurityResearchType,
+) -> str:
+    if security_type != "foreign_stock":
+        return text
+    replacements = {
+        "決算短信・有価証券報告書・決算説明資料": "Earnings Release、Annual Report、10-K / 10-Q、Investor Presentation",
+        "決算短信": "Earnings Release",
+        "有価証券報告書": "Annual Report / 10-K",
+        "決算説明資料": "Investor Presentation",
+        "適時開示": "Company Release",
+        "TDnet": "公式IR",
+        "EDINET": "SEC Filing",
+    }
+    converted = text
+    for source, target in replacements.items():
+        converted = converted.replace(source, target)
+    return converted
 
 
 def _investment_insight_positive_display_items(

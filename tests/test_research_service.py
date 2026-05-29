@@ -10,6 +10,7 @@ from backend.research import (
     CompanyResearchRequest,
     CompanyResearchSummaryBuilder,
     CompositeExternalResearchAdapter,
+    ETFResearchSummaryBuilder,
     ExternalResearchFetchManifestEntry,
     ExternalResearchFetchRequest,
     ExternalResearchFetchResult,
@@ -35,6 +36,7 @@ from backend.research import (
     ResearchIngestionService,
     ResearchInMemoryStore,
     ResearchInMemoryVectorStore,
+    ResearchPageViewModelBuilder,
     ResearchQueryExpansionService,
     ResearchRetrievalCandidate,
     ResearchRetrievalQuality,
@@ -44,6 +46,7 @@ from backend.research import (
     ResearchSearchRequest,
     ResearchSummaryPoint,
     ResearchVectorIndexService,
+    SecurityResearchTypeDetector,
     StockNewsAnalysisService,
     StockNewsEvidence,
     StockNewsReport,
@@ -603,6 +606,177 @@ def test_company_research_summary_builder_keeps_missing_items_explicit():
     assert summary.news_items == []
     assert "直近ニュース・開示" in summary.missing_critical_items
     assert "外部プロフィールから一部情報は確認できます" in summary.overview.business_overview
+
+
+def test_security_research_type_detector_classifies_stock_and_etf_types():
+    detector = SecurityResearchTypeDetector()
+
+    etf_report = CompanyResearchReport(
+        symbol="SPY",
+        as_of=date(2026, 5, 25),
+        summary="ETF profile.",
+        points=[],
+        evidence=[
+            ResearchEvidence(
+                symbol="SPY",
+                document_id="doc-etf",
+                chunk_id="chunk-etf",
+                title="SPY Provider Profile",
+                source_type="provider_profile",
+                published_at=date(2026, 5, 24),
+                section_title="Profile",
+                excerpt="Quote Type: ETF\nExchange: NYSEARCA\nFund Name: SPDR S&P 500 ETF Trust",
+                relevance_score=Decimal("0.72"),
+                reliability=Decimal("0.68"),
+            )
+        ],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+    domestic_report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="Domestic equity profile.",
+        points=[],
+        evidence=[
+            ResearchEvidence(
+                symbol="7203.T",
+                document_id="doc-equity-jp",
+                chunk_id="chunk-equity-jp",
+                title="Toyota Provider Profile",
+                source_type="provider_profile",
+                published_at=date(2026, 5, 24),
+                section_title="Profile",
+                excerpt="Quote Type: EQUITY\nExchange: TSE",
+                relevance_score=Decimal("0.72"),
+                reliability=Decimal("0.68"),
+            )
+        ],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+    foreign_report = CompanyResearchReport(
+        symbol="MSFT",
+        as_of=date(2026, 5, 25),
+        summary="Foreign equity profile.",
+        points=[],
+        evidence=[
+            ResearchEvidence(
+                symbol="MSFT",
+                document_id="doc-equity-us",
+                chunk_id="chunk-equity-us",
+                title="Microsoft Provider Profile",
+                source_type="provider_profile",
+                published_at=date(2026, 5, 24),
+                section_title="Profile",
+                excerpt="Quote Type: EQUITY\nExchange: NASDAQ",
+                relevance_score=Decimal("0.72"),
+                reliability=Decimal("0.68"),
+            )
+        ],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+    unknown_report = CompanyResearchReport(
+        symbol="12345",
+        as_of=date(2026, 5, 25),
+        summary="No type metadata.",
+        points=[],
+        evidence=[],
+        data_quality=ResearchDataQuality(
+            status="WARN",
+            latest_document_date=None,
+            document_count=0,
+            evidence_count=0,
+            warnings=[],
+        ),
+    )
+
+    assert detector.detect(etf_report) == "etf"
+    assert detector.detect(domestic_report) == "domestic_stock"
+    assert detector.detect(foreign_report) == "foreign_stock"
+    assert detector.detect(unknown_report) == "unknown"
+
+
+def test_etf_research_summary_builder_maps_fund_fields_without_company_ir_requirements():
+    provider_evidence = ResearchEvidence(
+        symbol="SPY",
+        document_id="doc-etf",
+        chunk_id="chunk-etf",
+        title="SPY Provider Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Quote Type: ETF\n"
+            "Fund Name: SPDR S&P 500 ETF Trust\n"
+            "Fund Family: State Street\n"
+            "Currency: USD\n"
+            "Benchmark: S&P 500\n"
+            "Asset Category: ETF\n"
+            "Expense Ratio: 0.09%\n"
+            "Dividend Yield: 1.2%\n"
+            "AUM: 500,000,000,000 USD\n"
+            "NAV: 540.25 USD\n"
+            "PER: 22.5\n"
+            "PBR: 4.1\n"
+            "Top Holdings: Apple, Microsoft, NVIDIA, Amazon\n"
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    report = CompanyResearchReport(
+        symbol="SPY",
+        as_of=date(2026, 5, 25),
+        summary="ETF profile.",
+        points=[],
+        evidence=[provider_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    summary = ETFResearchSummaryBuilder().build(report)
+    page_model = ResearchPageViewModelBuilder().build(report)
+
+    assert page_model.security_type == "etf"
+    assert page_model.etf_summary is not None
+    assert page_model.company_summary is None
+    assert page_model.question_summary is None
+    assert summary.fund_name == "SPDR S&P 500 ETF Trust"
+    assert summary.provider_name == "State Street"
+    assert summary.benchmark_index == "S&P 500"
+    assert summary.expense_ratio == "0.09%"
+    assert summary.dividend_yield == "1.2%"
+    assert summary.aum == "500,000,000,000 USD"
+    assert summary.nav == "540.25 USD"
+    assert summary.per == "22.5倍"
+    assert summary.pbr == "4.1倍"
+    assert summary.top_holdings[:3] == ["Apple", "Microsoft", "NVIDIA"]
+    assert "経費率" not in summary.missing_items
+    assert "上位保有銘柄" not in summary.missing_items
+    dumped = str(summary.model_dump(mode="json"))
+    assert "決算短信" not in dumped
+    assert "有価証券報告書" not in dumped
 
 
 def test_company_research_summary_builder_maps_provider_quantitative_fields():

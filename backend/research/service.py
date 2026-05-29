@@ -51,6 +51,13 @@ StockNewsSentiment = Literal["positive", "negative", "neutral", "mixed", "unknow
 StockNewsFreshnessStatus = Literal["latest", "recent", "stale", "unknown"]
 ResearchSourceConfidence = Literal["high", "medium", "low", "unknown"]
 ResearchEvidenceLevel = Literal["high", "medium", "low", "missing"]
+SecurityResearchType = Literal[
+    "domestic_stock",
+    "foreign_stock",
+    "etf",
+    "fund",
+    "unknown",
+]
 ResearchEvidenceKind = Literal[
     "company_profile",
     "business_description",
@@ -871,6 +878,33 @@ class NewsSummaryItem(LatestTopicItem):
     """Backward-compatible name for latest news / disclosure rows."""
 
 
+class ETFResearchSummary(StrictBaseModel):
+    """ETF / fund-understanding report assembled from Research RAG outputs."""
+
+    schema_version: str = "etf-research-summary-v1"
+    symbol: str = Field(min_length=1)
+    fund_name: str = ""
+    provider_name: str | None = None
+    fund_overview: str = ""
+    investment_target: str = ""
+    asset_class: str | None = None
+    region_focus: str | None = None
+    sector_focus: str | None = None
+    expense_ratio: str | None = None
+    dividend_yield: str | None = None
+    aum: str | None = None
+    nav: str | None = None
+    per: str | None = None
+    pbr: str | None = None
+    top_holdings: list[str] = Field(default_factory=list)
+    benchmark_index: str | None = None
+    risk_notes: list[str] = Field(default_factory=list)
+    news_items: list[NewsSummaryItem] = Field(default_factory=list)
+    source_titles: list[str] = Field(default_factory=list)
+    missing_items: list[str] = Field(default_factory=list)
+    evidence_level: ResearchEvidenceLevel = "missing"
+
+
 class CompanyResearchSummary(StrictBaseModel):
     """Company-understanding report assembled from Research RAG outputs."""
 
@@ -939,6 +973,17 @@ class InvestmentQuestionSummary(StrictBaseModel):
     answers: list[InvestmentQuestionAnswer] = Field(default_factory=list)
     top_takeaway: str = ""
     missing_critical_items: list[str] = Field(default_factory=list)
+
+
+class ResearchPageViewModel(StrictBaseModel):
+    """Display-oriented summary bundle selected by security type."""
+
+    schema_version: str = "research-page-view-model-v1"
+    symbol: str = Field(min_length=1)
+    security_type: SecurityResearchType = "unknown"
+    company_summary: CompanyResearchSummary | None = None
+    etf_summary: ETFResearchSummary | None = None
+    question_summary: InvestmentQuestionSummary | None = None
 
 
 class ExternalResearchSourceAdapter(Protocol):
@@ -1948,6 +1993,185 @@ class ResearchBriefBuilder:
         )
 
 
+class SecurityResearchTypeDetector:
+    """Detect the research display type from provider metadata and symbol shape."""
+
+    def detect(
+        self,
+        report: CompanyResearchReport,
+        *,
+        external_research_result: ExternalResearchFetchResult | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> SecurityResearchType:
+        symbol = report.symbol.strip()
+        text = _security_research_detection_text(
+            report,
+            external_research_result=external_research_result,
+            metadata=metadata,
+        )
+        quote_type = _security_research_metadata_value(text, "quoteType", "Quote Type")
+        explicit_type = _security_research_metadata_value(
+            text,
+            "security_type",
+            "Security Type",
+            "product_type",
+            "Product Type",
+            "asset_category",
+            "Asset Category",
+        )
+        combined_type = f"{quote_type} {explicit_type}".lower()
+        if any(keyword in combined_type for keyword in ("etf", "exchange traded fund")):
+            return "etf"
+        if any(keyword in combined_type for keyword in ("fund", "mutual fund", "investment trust")):
+            return "fund"
+
+        exchange = _security_research_metadata_value(
+            text, "exchange", "Exchange", "market", "Market"
+        )
+        if "equity" in combined_type or not combined_type.strip():
+            if symbol.upper().endswith(".T") or _security_research_exchange_is_domestic(exchange):
+                return "domestic_stock"
+            if _security_research_exchange_is_foreign(exchange):
+                return "foreign_stock"
+            if re.fullmatch(r"[A-Z]{1,5}(?:[-.][A-Z])?", symbol.upper()):
+                return "foreign_stock"
+        return "unknown"
+
+
+class ETFResearchSummaryBuilder:
+    """Build an ETF / fund-understanding report without treating it as a company."""
+
+    def build(
+        self,
+        report: CompanyResearchReport,
+        *,
+        news_report: StockNewsReport | None = None,
+        external_research_result: ExternalResearchFetchResult | None = None,
+        brief: ResearchBrief | None = None,
+    ) -> ETFResearchSummary:
+        prepared_brief = brief or ResearchBriefBuilder().build(
+            report,
+            news_report=news_report,
+            external_research_result=external_research_result,
+        )
+        normalized_evidence = _company_research_normalized_evidence(
+            report,
+            prepared_brief,
+            news_report=news_report,
+            external_research_result=external_research_result,
+        )
+        text = _etf_research_source_text(report, external_research_result=external_research_result)
+        fund_name = (
+            _security_research_metadata_value(
+                text,
+                "longName",
+                "Company Name",
+                "Fund Name",
+                "Name",
+                "shortName",
+            )
+            or report.symbol
+        )
+        provider_name = _security_research_metadata_value(
+            text,
+            "fundFamily",
+            "Fund Family",
+            "provider",
+            "Provider",
+            "issuer",
+            "Issuer",
+        )
+        investment_target = _etf_research_investment_target(text)
+        asset_class = _etf_research_asset_class(text)
+        region_focus = _etf_research_region_focus(text)
+        sector_focus = _etf_research_sector_focus(text)
+        top_holdings = _etf_research_top_holdings(text)
+        benchmark_index = _etf_research_benchmark_index(text)
+        expense_ratio = _etf_research_metric_value(
+            "expense_ratio",
+            text,
+            (r"expense ratio", r"expenseRatio", r"net expense ratio", r"経費率"),
+        )
+        dividend_yield = _etf_research_metric_value(
+            "dividend_yield",
+            text,
+            (r"dividend yield", r"dividendYield", r"分配金利回り", r"配当利回り"),
+        )
+        aum = _etf_research_metric_value(
+            "aum",
+            text,
+            (r"total assets", r"totalAssets", r"AUM", r"net assets", r"純資産総額"),
+        )
+        nav = _etf_research_metric_value(
+            "nav",
+            text,
+            (r"NAV", r"nav price", r"navPrice", r"基準価額"),
+        )
+        per = _etf_research_metric_value("per", text, (r"PER", r"trailingPE", r"forwardPE"))
+        pbr = _etf_research_metric_value("pbr", text, (r"PBR", r"priceToBook"))
+        source_titles = _unique_text(
+            [
+                *[row.title for row in report.evidence if row.source_type == "provider_profile"],
+                *[
+                    entry.title
+                    for entry in (
+                        external_research_result.entries if external_research_result else []
+                    )
+                    if entry.source_type in {"provider_profile", "news", "tdnet"}
+                ],
+            ]
+        )[:5]
+        missing_items = _etf_research_missing_items(
+            expense_ratio=expense_ratio,
+            dividend_yield=dividend_yield,
+            aum=aum,
+            nav=nav,
+            top_holdings=top_holdings,
+            benchmark_index=benchmark_index,
+        )
+        news_items = _company_research_news_items(
+            prepared_brief,
+            normalized_evidence=normalized_evidence,
+            news_report=news_report,
+            external_research_result=external_research_result,
+        )
+        return ETFResearchSummary(
+            symbol=report.symbol,
+            fund_name=fund_name,
+            provider_name=provider_name or None,
+            fund_overview=_etf_research_fund_overview(
+                fund_name=fund_name,
+                investment_target=investment_target,
+                asset_class=asset_class,
+                region_focus=region_focus,
+                benchmark_index=benchmark_index,
+            ),
+            investment_target=investment_target,
+            asset_class=asset_class,
+            region_focus=region_focus,
+            sector_focus=sector_focus,
+            expense_ratio=expense_ratio,
+            dividend_yield=dividend_yield,
+            aum=aum,
+            nav=nav,
+            per=per,
+            pbr=pbr,
+            top_holdings=top_holdings,
+            benchmark_index=benchmark_index,
+            risk_notes=_etf_research_risk_notes(
+                top_holdings=top_holdings,
+                benchmark_index=benchmark_index,
+                region_focus=region_focus,
+            ),
+            news_items=news_items,
+            source_titles=source_titles,
+            missing_items=missing_items,
+            evidence_level=_company_research_evidence_level_from_source_types(
+                [row.source_type for row in report.evidence]
+            ),
+        )
+
+
 class CompanyResearchSummaryBuilder:
     """Build a company-understanding report from existing Research RAG outputs."""
 
@@ -2168,6 +2392,66 @@ class InvestmentQuestionSummaryBuilder:
             missing_critical_items=_investment_question_missing_critical_items(
                 prepared_brief,
                 answers,
+            ),
+        )
+
+
+class ResearchPageViewModelBuilder:
+    """Build the top-level Research page model for company, foreign stock, or ETF views."""
+
+    def build(
+        self,
+        report: CompanyResearchReport,
+        *,
+        news_report: StockNewsReport | None = None,
+        external_research_result: ExternalResearchFetchResult | None = None,
+        brief: ResearchBrief | None = None,
+        insight: InvestmentInsight | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> ResearchPageViewModel:
+        prepared_brief = brief or ResearchBriefBuilder().build(
+            report,
+            news_report=news_report,
+            external_research_result=external_research_result,
+        )
+        prepared_insight = insight or InvestmentInsightBuilder().build(
+            report,
+            news_report=news_report,
+            external_research_result=external_research_result,
+            brief=prepared_brief,
+        )
+        security_type = SecurityResearchTypeDetector().detect(
+            report,
+            external_research_result=external_research_result,
+            metadata=metadata,
+        )
+        if security_type in {"etf", "fund"}:
+            return ResearchPageViewModel(
+                symbol=report.symbol,
+                security_type=security_type,
+                etf_summary=ETFResearchSummaryBuilder().build(
+                    report,
+                    news_report=news_report,
+                    external_research_result=external_research_result,
+                    brief=prepared_brief,
+                ),
+            )
+        return ResearchPageViewModel(
+            symbol=report.symbol,
+            security_type=security_type,
+            company_summary=CompanyResearchSummaryBuilder().build(
+                report,
+                news_report=news_report,
+                external_research_result=external_research_result,
+                brief=prepared_brief,
+                insight=prepared_insight,
+            ),
+            question_summary=InvestmentQuestionSummaryBuilder().build(
+                report,
+                news_report=news_report,
+                external_research_result=external_research_result,
+                brief=prepared_brief,
+                insight=prepared_insight,
             ),
         )
 
@@ -5400,6 +5684,253 @@ def _company_research_missing_critical_items(
     items.extend(quantitative.missing_items[:8])
     items.extend(item.document_type for item in ir_items if item.availability != "found")
     return _unique_text(items)[:12]
+
+
+def _security_research_detection_text(
+    report: CompanyResearchReport,
+    *,
+    external_research_result: ExternalResearchFetchResult | None,
+    metadata: Mapping[str, Any] | None,
+) -> str:
+    parts: list[str] = [report.symbol]
+    if metadata:
+        parts.extend(f"{key}: {value}" for key, value in metadata.items())
+    parts.extend(_research_brief_evidence_text(row) for row in report.evidence)
+    if external_research_result is not None:
+        parts.extend(
+            f"{entry.title}\nsource_type: {entry.source_type}\nprovider: {entry.provider}\n{entry.content_summary}"
+            for entry in external_research_result.entries
+        )
+    return "\n".join(part for part in parts if str(part).strip())
+
+
+def _security_research_metadata_value(text: str, *field_names: str) -> str:
+    for field_name in field_names:
+        escaped = re.escape(field_name)
+        match = re.search(
+            rf"(?:^|\n|\b){escaped}\s*[:：]\s*([^\n\r,;]+)",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if match:
+            value = re.sub(r"\s+", " ", match.group(1)).strip(" .。")
+            if value:
+                return value
+    return ""
+
+
+def _security_research_exchange_is_domestic(exchange: str) -> bool:
+    return exchange.upper() in {"TSE", "TYO", "JPX", "TOKYO"}
+
+
+def _security_research_exchange_is_foreign(exchange: str) -> bool:
+    return exchange.upper() in {
+        "NYSE",
+        "NASDAQ",
+        "AMEX",
+        "NYSEARCA",
+        "ARCA",
+        "NMS",
+        "NYQ",
+        "NGM",
+        "ASE",
+        "PCX",
+    }
+
+
+def _etf_research_source_text(
+    report: CompanyResearchReport,
+    *,
+    external_research_result: ExternalResearchFetchResult | None,
+) -> str:
+    parts = [_research_brief_evidence_text(row) for row in report.evidence]
+    if external_research_result is not None:
+        parts.extend(
+            f"{entry.title}\nprovider: {entry.provider}\n{entry.content_summary}"
+            for entry in external_research_result.entries
+        )
+    return "\n".join(part for part in parts if part.strip())
+
+
+def _etf_research_investment_target(text: str) -> str:
+    lowered = text.lower()
+    if "s&p 500" in lowered or "sp500" in lowered:
+        return "S&P 500などの米国大型株指数に連動する投資対象です。"
+    if "nasdaq" in lowered:
+        return "NASDAQ関連の成長株・テクノロジー銘柄を中心とする投資対象です。"
+    if "topix" in lowered:
+        return "TOPIXなど日本株指数への連動を目指す投資対象です。"
+    if "nikkei" in lowered or "日経" in lowered:
+        return "日経平均など日本株指数への連動を目指す投資対象です。"
+    if any(keyword in lowered for keyword in ("bond", "treasury", "債券")):
+        return "債券を主な投資対象とするETFです。"
+    if any(keyword in lowered for keyword in ("reit", "real estate", "不動産")):
+        return "REIT・不動産関連資産を主な投資対象とするETFです。"
+    if any(keyword in lowered for keyword in ("commodity", "gold", "原油", "金 ")):
+        return "コモディティ関連資産を主な投資対象とするETFです。"
+    summary = _security_research_metadata_value(
+        text,
+        "Business Summary",
+        "Long Business Summary",
+        "Description",
+        "Fund Objective",
+    )
+    if summary:
+        return _clip_text(_research_user_facing_text(summary), max_chars=120)
+    return "投資対象は外部プロフィールから一部確認できますが、正確な対象指数や構成銘柄は運用会社資料で確認してください。"
+
+
+def _etf_research_asset_class(text: str) -> str | None:
+    lowered = text.lower()
+    if any(keyword in lowered for keyword in ("bond", "treasury", "債券")):
+        return "債券"
+    if any(keyword in lowered for keyword in ("reit", "real estate", "不動産")):
+        return "REIT・不動産"
+    if any(keyword in lowered for keyword in ("commodity", "gold", "原油", "金 ")):
+        return "コモディティ"
+    if any(keyword in lowered for keyword in ("equity", "stock", "株式")):
+        return "株式"
+    return None
+
+
+def _etf_research_region_focus(text: str) -> str | None:
+    lowered = text.lower()
+    if any(keyword in lowered for keyword in ("global", "world", "全世界")):
+        return "グローバル"
+    if any(
+        keyword in lowered
+        for keyword in ("united states", "u.s.", "us ", "米国", "s&p 500", "nasdaq")
+    ):
+        return "米国"
+    if any(keyword in lowered for keyword in ("japan", "topix", "nikkei", "日本")):
+        return "日本"
+    if any(keyword in lowered for keyword in ("emerging", "新興国")):
+        return "新興国"
+    return None
+
+
+def _etf_research_sector_focus(text: str) -> str | None:
+    lowered = text.lower()
+    if any(keyword in lowered for keyword in ("technology", "tech", "テクノロジー", "半導体")):
+        return "テクノロジー"
+    if any(keyword in lowered for keyword in ("healthcare", "ヘルスケア")):
+        return "ヘルスケア"
+    if any(keyword in lowered for keyword in ("financial", "金融")):
+        return "金融"
+    if any(keyword in lowered for keyword in ("energy", "エネルギー")):
+        return "エネルギー"
+    return None
+
+
+def _etf_research_benchmark_index(text: str) -> str | None:
+    explicit = _security_research_metadata_value(text, "benchmark", "Benchmark", "index", "Index")
+    if explicit:
+        return _clip_text(_research_user_facing_text(explicit), max_chars=80)
+    lowered = text.lower()
+    if "s&p 500" in lowered:
+        return "S&P 500"
+    if "nasdaq-100" in lowered or "nasdaq 100" in lowered:
+        return "NASDAQ-100"
+    if "topix" in lowered:
+        return "TOPIX"
+    if "nikkei" in lowered:
+        return "日経平均"
+    return None
+
+
+def _etf_research_top_holdings(text: str) -> list[str]:
+    holdings_text = ""
+    for field_name in ("Top Holdings", "Holdings", "TopHolding", "構成銘柄", "上位保有銘柄"):
+        match = re.search(
+            rf"(?:^|\n){re.escape(field_name)}\s*[:：]\s*([^\n\r]+)",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if match:
+            holdings_text = match.group(1)
+            break
+    if not holdings_text:
+        return []
+    parts = re.split(r"[,、;/|]", holdings_text)
+    return _unique_text([_clip_text(part.strip(), max_chars=42) for part in parts if part.strip()])[
+        :8
+    ]
+
+
+def _etf_research_metric_value(field_key: str, text: str, patterns: Sequence[str]) -> str | None:
+    value = _company_research_metric_text_value(text, patterns)
+    if not value:
+        return None
+    if field_key in {"expense_ratio", "dividend_yield"}:
+        return _company_research_format_percentage_text(value)
+    if field_key in {"aum", "nav"}:
+        return _company_research_format_money_text(value, context=text)
+    if field_key in {"per", "pbr"}:
+        return _company_research_format_ratio_text(value, suffix="倍")
+    return value
+
+
+def _etf_research_fund_overview(
+    *,
+    fund_name: str,
+    investment_target: str,
+    asset_class: str | None,
+    region_focus: str | None,
+    benchmark_index: str | None,
+) -> str:
+    target_parts = [part for part in (region_focus, asset_class, benchmark_index) if part]
+    if target_parts:
+        return (
+            f"外部プロフィールから、{fund_name}は{'・'.join(target_parts)}を確認対象とするETFとして整理できます。"
+            "ただし、正確な対象指数、構成銘柄、費用は運用会社資料で追加確認してください。"
+        )
+    return (
+        f"外部プロフィールから、{fund_name}はETFまたはファンドとして確認できます。"
+        f"{investment_target} 運用会社ページ、目論見書、月次レポートで詳細を確認してください。"
+    )
+
+
+def _etf_research_risk_notes(
+    *,
+    top_holdings: Sequence[str],
+    benchmark_index: str | None,
+    region_focus: str | None,
+) -> list[str]:
+    notes = []
+    if not top_holdings:
+        notes.append("上位保有銘柄が未取得のため、集中度や構成の偏りは確認が必要です。")
+    if not benchmark_index:
+        notes.append(
+            "ベンチマーク指数が未取得のため、何に連動するETFか運用会社資料で確認してください。"
+        )
+    if region_focus and region_focus != "日本":
+        notes.append("海外資産を含む場合は、為替影響と対象市場の偏りを確認してください。")
+    return notes[:4]
+
+
+def _etf_research_missing_items(
+    *,
+    expense_ratio: str | None,
+    dividend_yield: str | None,
+    aum: str | None,
+    nav: str | None,
+    top_holdings: Sequence[str],
+    benchmark_index: str | None,
+) -> list[str]:
+    items: list[str] = []
+    if expense_ratio is None:
+        items.append("経費率")
+    if dividend_yield is None:
+        items.append("分配金利回り")
+    if aum is None:
+        items.append("純資産総額")
+    if nav is None:
+        items.append("基準価額 / NAV")
+    if not top_holdings:
+        items.append("上位保有銘柄")
+    if benchmark_index is None:
+        items.append("ベンチマーク指数")
+    return items
 
 
 def _company_research_scale_summary(brief: ResearchBrief) -> str:

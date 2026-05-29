@@ -16,6 +16,7 @@ from backend.research import (
     CompanyOverviewSummary,
     CompanyResearchReport,
     CompanyResearchSummary,
+    ETFResearchSummary,
     ExternalResearchFetchManifestEntry,
     ExternalResearchFetchRequest,
     ExternalResearchFetchResult,
@@ -62,6 +63,8 @@ from ui.app import (
     _dividend_filter_help_text,
     _dividend_yield_filter_label,
     _ensure_selectbox_state_value,
+    _etf_question_summary_html,
+    _etf_research_summary_html,
     _external_research_fetch_overview_html,
     _external_research_fetch_result_rows,
     _external_research_fetch_summary_rows,
@@ -1193,6 +1196,104 @@ def test_company_research_summary_panel_hides_ai_reading_notes_initially(monkeyp
     assert "企業リサーチサマリー" in markup
     assert "AI読み取りメモ" not in markup
     assert "AI内部メモです。" not in markup
+
+
+def test_etf_research_summary_html_uses_fund_sections_and_avoids_company_ir_terms():
+    summary = ETFResearchSummary(
+        symbol="SPY",
+        fund_name="SPDR S&P 500 ETF Trust",
+        provider_name="State Street",
+        fund_overview=(
+            "外部プロフィールから、SPDR S&P 500 ETF Trustは米国・株式・S&P 500を"
+            "確認対象とするETFとして整理できます。"
+        ),
+        investment_target="S&P 500などの米国大型株指数に連動する投資対象です。",
+        asset_class="株式",
+        region_focus="米国",
+        expense_ratio="0.09%",
+        dividend_yield="1.2%",
+        aum="500,000,000,000 USD",
+        nav="540.25 USD",
+        top_holdings=["Apple", "Microsoft", "NVIDIA"],
+        benchmark_index="S&P 500",
+        missing_items=["月次レポート"],
+        evidence_level="medium",
+    )
+
+    markup = _etf_research_summary_html(summary) + _etf_question_summary_html(summary)
+
+    assert "ETFリサーチサマリー" in markup
+    assert "ファンド概要" in markup
+    assert "ETF理解の確認ポイント" in markup
+    assert "経費率" in markup
+    assert "分配金利回り" in markup
+    assert "上位保有銘柄" in markup
+    assert "企業リサーチサマリー" not in markup
+    assert "決算短信" not in markup
+    assert "有価証券報告書" not in markup
+
+
+def test_foreign_stock_ir_and_questions_avoid_domestic_disclosure_terms():
+    items = [
+        IRSummaryItem(
+            document_type="決算短信",
+            title="未取得",
+            availability="missing",
+            information_status="missing",
+            summary="決算短信は未取得です。公式IR、TDnet、EDINETで追加確認してください。",
+            evidence_level="missing",
+        ),
+        IRSummaryItem(
+            document_type="有価証券報告書",
+            title="未取得",
+            availability="missing",
+            information_status="missing",
+            summary="有価証券報告書は未取得です。公式IR、TDnet、EDINETで追加確認してください。",
+            evidence_level="missing",
+        ),
+    ]
+    summary = InvestmentQuestionSummary(
+        symbol="MSFT",
+        answers=[
+            InvestmentQuestionAnswer(
+                category="key_takeaway",
+                question="この銘柄を見るうえで一番重要な論点は何か？",
+                answer="決算短信・有価証券報告書・決算説明資料を確認してください。TDnetとEDINETも確認します。",
+                evidence_level="missing",
+                missing_reason="決算短信が未取得です。",
+            )
+        ],
+        top_takeaway="決算短信と有価証券報告書が未取得です。",
+        missing_critical_items=["決算短信"],
+    )
+
+    markup = _ir_summary_html(items, security_type="foreign_stock")
+    markup += _news_summary_html(
+        [
+            NewsSummaryItem(
+                topic_type="tdnet",
+                title="Company release",
+                summary="Official company release.",
+                source_title="Company IR",
+                official_confirmation_required=False,
+                information_status="unparsed",
+            )
+        ],
+        security_type="foreign_stock",
+    )
+    markup += _investment_question_summary_intro_html(summary, security_type="foreign_stock")
+    markup += _investment_question_answers_html(summary.answers, security_type="foreign_stock")
+
+    assert "海外IR情報サマリー" in markup
+    assert "Earnings Release" in markup
+    assert "Annual Report / 10-K" in markup
+    assert "10-K / 10-Q" in markup
+    assert "SEC Filing" in markup
+    assert "Company Release" in markup
+    assert "TDnet" not in markup
+    assert "EDINET" not in markup
+    assert "決算短信" not in markup
+    assert "有価証券報告書" not in markup
 
 
 def test_investment_question_summary_html_prioritizes_initial_questions():

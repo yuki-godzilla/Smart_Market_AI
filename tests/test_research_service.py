@@ -669,6 +669,76 @@ def test_company_research_summary_builder_maps_provider_quantitative_fields():
     assert "Toyota Yahoo Finance Profile" in summary.quantitative.source_titles
 
 
+def test_company_research_summary_builder_maps_provider_camel_case_quantitative_fields():
+    provider_evidence = ResearchEvidence(
+        symbol="6758.T",
+        document_id="doc-profile",
+        chunk_id="chunk-profile",
+        title="Sony Provider Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Sony Group Corporation\n"
+            "Currency: JPY\n"
+            "marketCap: 16,200,000,000,000\n"
+            "enterpriseValue: 17,500,000,000,000\n"
+            "totalRevenue: 12,000,000,000,000\n"
+            "operatingIncome: 1,200,000,000,000\n"
+            "netIncome: 970,000,000,000\n"
+            "trailingEps: 156.3\n"
+            "trailingPE: 18.4\n"
+            "priceToBook: 2.1\n"
+            "returnOnEquity: 0.124\n"
+            "dividendYield: 0.012\n"
+            "fullTimeEmployees: 113000\n"
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    report = CompanyResearchReport(
+        symbol="6758.T",
+        as_of=date(2026, 5, 25),
+        summary="Research summary.",
+        points=[],
+        evidence=[provider_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    summary = CompanyResearchSummaryBuilder().build(report)
+
+    assert summary.quantitative.market_cap == "16.2兆円"
+    assert summary.quantitative.enterprise_value == "17.5兆円"
+    assert summary.quantitative.revenue == "12兆円"
+    assert summary.quantitative.operating_profit == "1.2兆円"
+    assert summary.quantitative.net_income == "9,700億円"
+    assert summary.quantitative.eps == "156.3円"
+    assert summary.quantitative.per == "18.4倍"
+    assert summary.quantitative.pbr == "2.1倍"
+    assert summary.quantitative.roe == "12.4%"
+    assert summary.quantitative.dividend_yield == "1.2%"
+    assert summary.quantitative.employee_count == "113,000人"
+    assert not {
+        "時価総額",
+        "企業価値",
+        "売上高",
+        "営業利益",
+        "純利益",
+        "EPS",
+        "PER",
+        "PBR",
+        "ROE",
+        "配当利回り",
+        "従業員数",
+    }.intersection(summary.quantitative.missing_items)
+
+
 def test_company_research_summary_builder_keeps_zero_metrics_and_ignores_empty_values():
     provider_evidence = ResearchEvidence(
         symbol="ZERO",

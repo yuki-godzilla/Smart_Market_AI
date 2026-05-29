@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-05-29: Refined Research quantitative provider mapping so camelCase raw provider fields populate `QuantitativeSummary`, `Currency: JPY` context formats money / EPS in yen, and TDnet title/URL-only latest disclosure rows avoid weak content memos while preserving official disclosure / unparsed status.
 - 2026-05-29: Improved the Research Summary extraction layer for the company research report: added `CompanyResearchEvidence` normalization, structured business profile fields, employee count / missing metric status, IR document type classification with found / missing / unparsed status, news official-confirmation status, and moved AI読み取りメモ out of the initial view into a folded detail memo.
 - 2026-05-29: Refocused the Cockpit / Ranking Research Summary from an investment-decision memo into a company research report: added `CompanyResearchSummary` models and builder, moved `企業リサーチサマリー` / `定量情報サマリー` / `IR情報サマリー` / `最新ニュースサマリー` to the top of the UI, and kept AI読み取りメモ, confirmation points, source cards, Research Score, and detail data as secondary company-understanding context.
 - 2026-05-28: Reworked the Research Summary primary UI hierarchy: the operation card now reads as `事業` / `確認済み` / `次に見る`, the main confirmation area is reduced to `会社概要` / `確認できた事実` / `公式資料で未確認`, provider wording is softened to `外部データ`, and source counts / Research Score / confidence labels are pushed toward detail views.

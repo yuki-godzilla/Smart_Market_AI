@@ -2946,9 +2946,9 @@ def _format_external_money(value: Decimal, *, currency: str) -> str:
         if abs_value >= Decimal("1000000000000"):
             return f"{_format_external_decimal(value / Decimal('1000000000000'))}兆円"
         if abs_value >= Decimal("100000000"):
-            return f"{_format_external_decimal(value / Decimal('100000000'))}億円"
+            return f"{_format_external_decimal(value / Decimal('100000000'), thousands=True)}億円"
         if abs_value >= Decimal("10000"):
-            return f"{_format_external_decimal(value / Decimal('10000'))}万円"
+            return f"{_format_external_decimal(value / Decimal('10000'), thousands=True)}万円"
         return f"{_format_external_decimal(value)}円"
     formatted = _format_external_decimal(value, thousands=True)
     return f"{formatted} {cleaned_currency}".strip()
@@ -3547,9 +3547,20 @@ _RESEARCH_BRIEF_METRIC_SPECS: tuple[
         ),
     ),
     ("dividend", "配当", (r"配当(?:金|利回り)?", r"dividend(?: yield| per share)?")),
-    ("per", "PER", (r"PER", r"trailing PE", r"forward PE", r"price[- ]earnings ratio")),
-    ("pbr", "PBR", (r"PBR", r"price[- ]to[- ]book")),
-    ("roe", "ROE", (r"ROE", r"return on equity")),
+    (
+        "per",
+        "PER",
+        (
+            r"PER",
+            r"trailing PE",
+            r"forward PE",
+            r"trailingPE",
+            r"forwardPE",
+            r"price[- ]earnings ratio",
+        ),
+    ),
+    ("pbr", "PBR", (r"PBR", r"price[- ]to[- ]book", r"priceToBook")),
+    ("roe", "ROE", (r"ROE", r"return on equity", r"returnOnEquity")),
     ("market_cap", "時価総額", (r"時価総額", r"market cap(?:italization)?", r"marketCap")),
 )
 _RESEARCH_BRIEF_RAW_PROVIDER_LABELS = (
@@ -4977,9 +4988,9 @@ def _company_research_quantitative_summary(
                 r"earnings per share",
             ),
         ),
-        ("per", "PER", "per", (r"PER", r"trailing PE", r"forward PE")),
-        ("pbr", "PBR", "pbr", (r"PBR", r"price[- ]to[- ]book")),
-        ("roe", "ROE", "roe", (r"ROE", r"return on equity")),
+        ("per", "PER", "per", (r"PER", r"trailing PE", r"forward PE", r"trailingPE", r"forwardPE")),
+        ("pbr", "PBR", "pbr", (r"PBR", r"price[- ]to[- ]book", r"priceToBook")),
+        ("roe", "ROE", "roe", (r"ROE", r"return on equity", r"returnOnEquity")),
         (
             "dividend_yield",
             "配当利回り",
@@ -5201,11 +5212,7 @@ def _company_research_news_items(
                 entry.source_type,
                 f"{entry.title} {entry.content_summary}",
             )
-            default_summary = (
-                "TDnet適時開示のタイトルとURLを取得しています。本文の詳細はリンク先で確認してください。"
-                if is_tdnet
-                else "外部ニュースを確認しています。"
-            )
+            default_summary = "" if is_tdnet else "外部ニュースを確認しています。"
             items.append(
                 NewsSummaryItem(
                     topic_type=topic_type,
@@ -5245,8 +5252,7 @@ def _company_research_news_items(
                     summary=_company_research_latest_topic_summary(
                         source_type=evidence.source_type,
                         title=evidence.title,
-                        raw_summary=evidence.body
-                        or ("TDnet適時開示のタイトルとURLを取得しています。" if is_tdnet else ""),
+                        raw_summary=evidence.body if evidence.body or not is_tdnet else "",
                         information_status=(
                             evidence.information_status if is_tdnet else "unverified"
                         ),
@@ -5444,8 +5450,13 @@ def _company_research_quantitative_field_value(
     if metric_key is not None:
         metric = metrics.get(metric_key)
         if metric is not None:
+            context = _company_research_metric_context(metric, evidence)
             return (
-                _company_research_format_quantitative_value(field_key, metric.value),
+                _company_research_format_quantitative_value(
+                    field_key,
+                    metric.value,
+                    context=context,
+                ),
                 [metric.source_title],
                 [metric.source_type],
             )
@@ -5455,19 +5466,38 @@ def _company_research_quantitative_field_value(
         value = _company_research_metric_text_value(item.body, patterns)
         if value:
             return (
-                _company_research_format_quantitative_value(field_key, value),
+                _company_research_format_quantitative_value(field_key, value, context=item.body),
                 [item.source_title or item.title],
                 [item.source_type],
             )
     return None, [], []
 
 
-def _company_research_format_quantitative_value(field_key: str, value: str) -> str:
+def _company_research_metric_context(
+    metric: ResearchMetric,
+    evidence: Sequence[CompanyResearchEvidence],
+) -> str:
+    for item in evidence:
+        if item.source_title == metric.source_title and item.source_type == metric.source_type:
+            return item.body
+        if item.title == metric.source_title and item.source_type == metric.source_type:
+            return item.body
+    return ""
+
+
+def _company_research_format_quantitative_value(
+    field_key: str,
+    value: str,
+    *,
+    context: str = "",
+) -> str:
     cleaned = re.sub(r"\s+", " ", value).strip(" .。、、")
     if not cleaned:
         return ""
     if field_key in {"market_cap", "enterprise_value", "revenue", "operating_profit", "net_income"}:
-        return _company_research_format_money_text(cleaned)
+        return _company_research_format_money_text(cleaned, context=context)
+    if field_key == "eps":
+        return _company_research_format_eps_text(cleaned, context=context)
     if field_key == "employee_count":
         return _company_research_format_employee_count_text(cleaned)
     if field_key in {"per", "pbr"}:
@@ -5477,7 +5507,7 @@ def _company_research_format_quantitative_value(field_key: str, value: str) -> s
     return cleaned
 
 
-def _company_research_format_money_text(value: str) -> str:
+def _company_research_format_money_text(value: str, *, context: str = "") -> str:
     if any(unit in value for unit in ("兆円", "億円", "百万円", "万円", "円")):
         return value
     match = re.search(r"([+-]?\d[\d,]*(?:\.\d+)?)\s*(JPY|USD)?", value, flags=re.IGNORECASE)
@@ -5487,9 +5517,33 @@ def _company_research_format_money_text(value: str) -> str:
     if amount is None:
         return value
     currency = (match.group(2) or "").upper()
+    if not currency and _company_research_context_currency(context) == "JPY":
+        currency = "JPY"
     if currency == "JPY":
         return _format_external_money(amount, currency="JPY")
     return f"{_format_external_decimal(amount, thousands=True)} {currency}".strip()
+
+
+def _company_research_format_eps_text(value: str, *, context: str = "") -> str:
+    if "円" in value or "JPY" in value.upper() or "USD" in value.upper():
+        amount = _external_decimal_value(re.sub(r"\b(?:JPY|USD)\b", "", value, flags=re.IGNORECASE))
+        if amount is not None and ("円" in value or "JPY" in value.upper()):
+            return f"{_format_external_decimal(amount)}円"
+        return value
+    amount = _external_decimal_value(value)
+    if amount is None:
+        return value
+    if _company_research_context_currency(context) == "JPY":
+        return f"{_format_external_decimal(amount)}円"
+    return _format_external_decimal(amount)
+
+
+def _company_research_context_currency(text: str) -> str:
+    if re.search(r"\b(?:Currency|通貨)\s*[:：]\s*JPY\b", text, flags=re.IGNORECASE):
+        return "JPY"
+    if re.search(r"\b(?:Currency|通貨)\s*[:：]\s*USD\b", text, flags=re.IGNORECASE):
+        return "USD"
+    return ""
 
 
 def _company_research_format_employee_count_text(value: str) -> str:

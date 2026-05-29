@@ -837,3 +837,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added session-level TTL caching for repeated external research fetches and a small timing trace caption for the AI調査 refresh path.
 - Parallelized the composite TDnet / Yahoo Finance adapter and avoided re-registering / re-chunking identical external payload content in the session-local Research store.
 - Cached the rendered research summary bundle for unchanged report/news/external-source inputs so Streamlit reruns do not rebuild every summary layer.
+
+## 2026-05-29 - Company research summary wording and topic quality
+
+- Reworked company overview wording so provider-profile summaries lead with the company name and confirmed business context before listing missing segment / profit-composition checks.
+- Improved latest news / disclosure summaries into an `概要 / 企業理解上の意味 / 追加確認` shape, avoiding title-only repetition for TDnet rows.
+- Expanded latest-topic classification for forecast revisions, shareholder returns, business reorganizations, governance, and product/service topics while deduping repeated disclosure rows.

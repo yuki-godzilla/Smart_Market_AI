@@ -4903,7 +4903,10 @@ def _company_research_business_profile(
         sector=_company_research_profile_field(profile_text, "Sector"),
         business_summary=_company_research_natural_business_summary(
             business_summary,
+            company_name=company_name or report.symbol,
             main_businesses=main_businesses,
+            supporting_businesses=supporting_businesses,
+            products_services=products_services,
             regions=regions,
             evidence_level=evidence_level,
         ),
@@ -5134,29 +5137,30 @@ def _company_research_news_items(
 ) -> list[NewsSummaryItem]:
     items: list[NewsSummaryItem] = []
     if news_report is not None:
-        items.extend(
-            NewsSummaryItem(
-                topic_type="news",
-                title=news.title,
-                summary=_company_research_latest_topic_summary(
-                    source_type="news",
+        for news in news_report.news:
+            topic_text = f"{news.title} {news.summary}"
+            items.append(
+                NewsSummaryItem(
+                    topic_type=_company_research_latest_topic_type("news", topic_text),
                     title=news.title,
-                    raw_summary=news.summary,
+                    summary=_company_research_latest_topic_summary(
+                        source_type="news",
+                        title=news.title,
+                        raw_summary=news.summary,
+                        information_status="unverified",
+                    ),
+                    published_at=news.published_at,
+                    source_title=news.source or news.title,
+                    source_url=news.url,
+                    impact_hint=_company_research_news_impact_hint(
+                        news.investment_viewpoint,
+                        topic_text,
+                    ),
+                    official_confirmation_required=True,
                     information_status="unverified",
-                ),
-                published_at=news.published_at,
-                source_title=news.source or news.title,
-                source_url=news.url,
-                impact_hint=_company_research_news_impact_hint(
-                    news.investment_viewpoint,
-                    f"{news.title} {news.summary}",
-                ),
-                official_confirmation_required=True,
-                information_status="unverified",
-                evidence_level="low",
+                    evidence_level="low",
+                )
             )
-            for news in news_report.news
-        )
     if brief.fact_summary is not None:
         for item in brief.fact_summary.recent_events:
             if item.source_type not in {"news", "tdnet"}:
@@ -5272,28 +5276,73 @@ def _company_research_latest_topic_summary(
 ) -> str:
     cleaned = _research_user_facing_text(raw_summary)
     title_cleaned = _research_user_facing_text(title)
+    detail = _company_research_non_repeating_topic_detail(
+        title=title_cleaned,
+        summary=cleaned,
+    )
+    topic_type = _company_research_latest_topic_type(source_type, f"{title} {raw_summary}")
+    meaning = _company_research_latest_topic_meaning(topic_type)
     if source_type == "tdnet":
-        if information_status == "unparsed":
-            return (
-                "会社発表ベースの開示資料です。現時点では本文未解析のため、"
-                "詳細はリンク先で確認してください。"
-            )
-        if cleaned and cleaned != title_cleaned:
-            return _clip_text(
-                f"会社発表ベースの開示資料です。{cleaned} 詳細はリンク先で確認してください。",
-                max_chars=160,
-            )
-        return "会社発表ベースの開示資料です。詳細はリンク先で確認してください。"
+        detail_phrase = f" 内容メモ: {detail}" if detail else ""
+        parse_note = (
+            "本文未解析のため、詳細はリンク先で確認してください。"
+            if information_status == "unparsed"
+            else "詳細はリンク先で確認してください。"
+        )
+        return _clip_text(
+            "概要: 公式開示として取得済みです。会社発表ベースの開示資料です。"
+            f"{detail_phrase} 企業理解上の意味: {meaning} "
+            f"追加確認: {parse_note}",
+            max_chars=220,
+        )
     if source_type == "news":
-        if cleaned and cleaned != title_cleaned:
-            return _clip_text(
-                f"外部ニュースとして取得されています。{cleaned} 業績影響の有無は公式IRで確認が必要です。",
-                max_chars=170,
-            )
-        return "外部ニュースとして取得されています。業績影響の有無は公式IRで確認が必要です。"
+        detail_phrase = f" 内容メモ: {detail}" if detail else ""
+        return _clip_text(
+            "概要: 外部ニュースとして取得されています。"
+            f"{detail_phrase} 企業理解上の意味: {meaning} "
+            "追加確認: 業績影響や公式発表との整合性は、IR資料で確認してください。"
+            "公式IRで確認が必要です。",
+            max_chars=240,
+        )
+    if detail:
+        return _clip_text(
+            f"概要: 外部情報として取得されています。内容メモ: {detail} "
+            f"企業理解上の意味: {meaning} 追加確認: 詳細は出典リンクで確認してください。",
+            max_chars=220,
+        )
     if cleaned:
-        return _clip_text(cleaned, max_chars=160)
+        return _clip_text(cleaned, max_chars=180)
     return "外部情報として取得されています。詳細は出典リンクで確認してください。"
+
+
+def _company_research_non_repeating_topic_detail(*, title: str, summary: str) -> str:
+    cleaned = re.sub(r"\bsummary\s*[:：]\s*", "", summary, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\burl\s*[:：]\s*\S+", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" .。")
+    title_cleaned = re.sub(r"\s+", " ", title).strip(" .。")
+    if not cleaned or cleaned == title_cleaned:
+        return ""
+    if title_cleaned and cleaned.replace(title_cleaned, "").strip(" .。、「」『』") == "":
+        return ""
+    if title_cleaned and title_cleaned in cleaned and len(cleaned) <= len(title_cleaned) + 32:
+        return ""
+    return _clip_text(cleaned, max_chars=92)
+
+
+def _company_research_latest_topic_meaning(topic_type: LatestTopicType) -> str:
+    labels = {
+        "earnings": "決算・業績確認に関する情報です。",
+        "forecast_revision": "業績予想の修正や会社計画に関する情報です。",
+        "shareholder_return": "配当・自己株式取得など株主還元に関する情報です。",
+        "business_reorganization": "事業再編、M&A、会社分割など事業構造に関する情報です。",
+        "product": "製品・サービスや事業展開に関する情報です。",
+        "governance": "ガバナンス、監査、訴訟、規制対応などに関する情報です。",
+        "tdnet": "会社発表ベースの適時開示です。",
+        "ir_disclosure": "公式IR・開示資料として確認する情報です。",
+        "news": "市場材料または事業トピックとして確認する情報です。",
+        "unknown": "企業理解の補助情報として確認するトピックです。",
+    }
+    return labels.get(topic_type, labels["unknown"])
 
 
 def _company_research_ai_reading_notes(
@@ -5595,7 +5644,10 @@ def _company_research_business_summary_from_text(text: str) -> str:
 def _company_research_natural_business_summary(
     summary: str,
     *,
+    company_name: str,
     main_businesses: Sequence[str],
+    supporting_businesses: Sequence[str],
+    products_services: Sequence[str],
     regions: Sequence[str],
     evidence_level: ResearchEvidenceLevel,
 ) -> str:
@@ -5605,22 +5657,39 @@ def _company_research_natural_business_summary(
         or _looks_mostly_english(cleaned)
         or any(label in cleaned for label in _RESEARCH_BRIEF_RAW_PROVIDER_LABELS)
     )
-    if needs_rewrite and main_businesses:
+    business_terms = _unique_text([*main_businesses, *supporting_businesses])[:4]
+    product_terms = [
+        item.replace("（補完候補）", "")
+        for item in products_services
+        if item and "補完候補" not in item
+    ][:3]
+    if business_terms and (needs_rewrite or not cleaned or evidence_level != "high"):
+        target_name = company_name.strip() or "この企業"
+        business_phrase = "、".join(business_terms[:4])
+        product_phrase = (
+            f"主な製品・サービスとして{'、'.join(product_terms)}も確認できます。"
+            if product_terms
+            else ""
+        )
         region_phrase = f"地域は{'、'.join(regions[:3])}などで展開しています。" if regions else ""
         confirmation = (
-            "詳細な事業セグメントや地域別構成は、公式資料で追加確認が必要です。"
+            "ただし、事業別売上や利益構成は未取得のため、公式資料で追加確認が必要です。"
             if evidence_level != "high"
-            else "セグメント別売上や地域別構成は、決算資料で続けて確認してください。"
+            else "事業別売上、利益構成、地域別構成は決算資料で続けて確認してください。"
         )
         return _clip_text(
-            "外部データから確認できる範囲では、"
-            f"{'、'.join(main_businesses[:3])}を中心に事業を展開する企業です。"
-            f"{region_phrase}{confirmation}",
-            max_chars=240,
+            f"外部プロフィールから、{target_name}は{business_phrase}を展開する企業として確認できます。"
+            f"{product_phrase}{region_phrase}{confirmation}",
+            max_chars=280,
         )
     if not cleaned:
         return "外部プロフィールから一部情報は確認できますが、公式資料での裏取りが必要です。"
-    return _clip_text(cleaned, max_chars=240)
+    if main_businesses and "公式資料" not in cleaned:
+        return _clip_text(
+            f"{cleaned} ただし、事業別売上や利益構成は公式資料で追加確認が必要です。",
+            max_chars=280,
+        )
+    return _clip_text(cleaned, max_chars=280)
 
 
 def _company_research_business_terms(text: str) -> list[str]:
@@ -5983,8 +6052,6 @@ def _company_research_latest_topic_type(
     text: str,
 ) -> LatestTopicType:
     lowered_text = text.lower()
-    if source_type == "news":
-        return "news"
     if any(keyword in lowered_text for keyword in ("業績予想修正", "forecast revision")):
         return "forecast_revision"
     if any(keyword in lowered_text for keyword in ("決算", "earnings", "financial results")):
@@ -6005,14 +6072,31 @@ def _company_research_latest_topic_type(
             "合併",
             "買収",
             "会社分割",
+            "事業譲渡",
             "事業再編",
         )
     ):
         return "business_reorganization"
-    if any(keyword in lowered_text for keyword in ("governance", "不祥事", "訴訟", "規制")):
+    if any(
+        keyword in lowered_text
+        for keyword in ("governance", "audit", "lawsuit", "不祥事", "訴訟", "監査", "規制")
+    ):
         return "governance"
-    if any(keyword in lowered_text for keyword in ("product", "製品", "新製品", "service")):
+    if any(
+        keyword in lowered_text
+        for keyword in (
+            "product",
+            "new product",
+            "service launch",
+            "services",
+            "製品",
+            "新製品",
+            "サービス開始",
+        )
+    ):
         return "product"
+    if source_type == "news":
+        return "news"
     if source_type == "tdnet":
         return "tdnet"
     if source_type in _RESEARCH_BRIEF_HIGH_CONFIDENCE_SOURCES:
@@ -6056,13 +6140,28 @@ def _company_research_news_impact_hint(
             "合併",
             "買収",
             "会社分割",
+            "事業譲渡",
             "事業再編",
         )
     ):
         return "business"
-    if any(keyword in lowered_text for keyword in ("governance", "不祥事", "訴訟", "規制")):
+    if any(
+        keyword in lowered_text
+        for keyword in ("governance", "audit", "lawsuit", "不祥事", "訴訟", "監査", "規制")
+    ):
         return "governance"
-    if any(keyword in lowered_text for keyword in ("product", "製品", "新製品", "service")):
+    if any(
+        keyword in lowered_text
+        for keyword in (
+            "product",
+            "new product",
+            "service launch",
+            "services",
+            "製品",
+            "新製品",
+            "サービス開始",
+        )
+    ):
         return "product"
     if source_type == "tdnet":
         return "ir"
@@ -6114,15 +6213,16 @@ def _company_research_evidence_level_from_source_types(
 def _unique_company_news_items(
     items: Sequence[NewsSummaryItem],
 ) -> list[NewsSummaryItem]:
-    unique: list[NewsSummaryItem] = []
-    seen: set[tuple[str, str, str | None]] = set()
+    unique_by_key: dict[tuple[str, LatestTopicType], NewsSummaryItem] = {}
     for item in items:
-        key = (item.title, item.summary, item.source_url)
-        if key in seen:
+        key = (item.title, item.topic_type)
+        existing = unique_by_key.get(key)
+        if existing is None:
+            unique_by_key[key] = item
             continue
-        seen.add(key)
-        unique.append(item)
-    return unique
+        if not existing.source_url and item.source_url:
+            unique_by_key[key] = item
+    return list(unique_by_key.values())
 
 
 _INVESTMENT_INSIGHT_POSITIVE_KEYWORDS: tuple[tuple[str, tuple[str, ...], str], ...] = (

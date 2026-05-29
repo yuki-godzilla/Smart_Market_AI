@@ -569,7 +569,7 @@ def test_company_research_summary_builder_splits_overview_metrics_ir_and_news():
     assert summary.quantitative.market_cap == "35兆円"
     assert ir_by_type["決算短信"].availability == "found"
     assert ir_by_type["適時開示"].source_url == "https://example.com/tdnet/7203"
-    assert summary.news_items[0].topic_type == "news"
+    assert summary.news_items[0].topic_type == "product"
     assert summary.news_items[0].impact_hint == "product"
     assert summary.news_items[0].official_confirmation_required is True
     assert summary.news_items[0].information_status == "unverified"
@@ -807,6 +807,8 @@ def test_company_research_summary_builder_normalizes_business_profile_without_ne
     assert "フリート顧客" in profile.customer_segments
     assert summary.quantitative.employee_count == "380,000人"
     assert "Toyota launches battery product" not in profile.business_summary
+    assert profile.business_summary.startswith("外部プロフィールから、Toyota Motor Corporationは")
+    assert "事業別売上や利益構成" in profile.business_summary
 
 
 def test_company_research_summary_builder_adds_safe_product_candidates_when_missing():
@@ -901,6 +903,53 @@ def test_company_research_summary_builder_hides_provider_raw_labels_from_overvie
     assert "Technology Industry" not in summary.overview.business_overview
 
 
+def test_company_research_summary_builder_leads_with_understood_business_context():
+    provider_evidence = ResearchEvidence(
+        symbol="6758.T",
+        document_id="doc-profile",
+        chunk_id="chunk-profile",
+        title="Sony Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Sony Group Corporation\n"
+            "Sector: Technology\n"
+            "Industry: Consumer Electronics\n"
+            "Business Summary: Sony operates game, music, movie, semiconductor, "
+            "consumer electronics, and financial services businesses globally."
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    report = CompanyResearchReport(
+        symbol="6758.T",
+        as_of=date(2026, 5, 25),
+        summary="Research summary.",
+        points=[],
+        evidence=[provider_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    summary = CompanyResearchSummaryBuilder().build(report)
+
+    assert summary.overview.company_name == "Sony Group Corporation"
+    assert summary.overview.business_overview.startswith(
+        "外部プロフィールから、Sony Group Corporationは"
+    )
+    assert "ゲーム・エンタメ" in summary.overview.business_overview
+    assert "金融サービス" in summary.overview.business_overview
+    assert "ただし、事業別売上や利益構成" in summary.overview.business_overview
+    assert "Business Summary" not in summary.overview.business_overview
+    assert "Provider Symbol" not in summary.overview.business_overview
+
+
 def test_company_research_summary_builder_distinguishes_ir_statuses_and_types():
     report = CompanyResearchReport(
         symbol="7203.T",
@@ -979,13 +1028,24 @@ def test_company_research_summary_builder_distinguishes_ir_statuses_and_types():
     assert any(
         item.title == "2026年3月期 業績予想修正に関するお知らせ"
         and item.topic_type == "forecast_revision"
+        and "公式開示として取得済み" in item.summary
         and "会社発表ベースの開示資料" in item.summary
+        and "企業理解上の意味" in item.summary
         and "本文未解析" in item.summary
         and item.impact_hint == "financial"
         and item.official_confirmation_required is False
         and item.information_status == "unparsed"
         and item.status == "unparsed"
         for item in summary.news_items
+    )
+    forecast_topics = [
+        item
+        for item in summary.news_items
+        if item.title == "2026年3月期 業績予想修正に関するお知らせ"
+    ]
+    assert len(forecast_topics) == 1
+    assert "適時開示「2026年3月期 業績予想修正に関するお知らせ」を確認しました" not in (
+        forecast_topics[0].summary
     )
     assert any(
         item.title == "定款一部変更に関するお知らせ"
@@ -1032,9 +1092,10 @@ def test_company_research_summary_builder_shapes_news_topic_confirmation_text():
 
     summary = CompanyResearchSummaryBuilder().build(report, news_report=news_report)
 
-    assert summary.news_items[0].topic_type == "news"
+    assert summary.news_items[0].topic_type == "product"
     assert summary.news_items[0].official_confirmation_required is True
     assert "外部ニュースとして取得" in summary.news_items[0].summary
+    assert "企業理解上の意味" in summary.news_items[0].summary
     assert "公式IRで確認が必要" in summary.news_items[0].summary
 
 

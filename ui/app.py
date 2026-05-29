@@ -5594,7 +5594,7 @@ def _information_status_label(status: str) -> str:
     labels = {
         "found": "取得済み",
         "missing": "未取得",
-        "unparsed": "未解析",
+        "unparsed": "取得済み・本文未解析",
         "unverified": "公式未確認",
         "not_applicable": "対象外",
     }
@@ -5619,6 +5619,7 @@ def _news_impact_hint_label(impact: str) -> str:
         "market": "市場材料",
         "governance": "ガバナンス",
         "product": "製品・サービス",
+        "ir": "IR・適時開示",
         "unknown": "不明",
     }
     return labels.get(impact, "不明")

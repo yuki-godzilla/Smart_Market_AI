@@ -813,3 +813,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added rule-based `InvestmentQuestionSummary` / `InvestmentQuestionSummaryBuilder` to map existing Research RAG facts, provider data, news, and InvestmentInsight into 10 fixed investment-review questions.
 - Added the `投資判断で知りたいこと` UI section between `SMAI 投資判断サマリー` and the 3-column material cards, showing the first five questions up front and the remaining questions in an expander.
 - Each answer now carries a root evidence label (`高` / `中` / `低` / `不足`) and explicitly says `未取得` / `判断できません` when core information is missing, without changing scores or ranking order.
+
+## 2026-05-29 - CompanyResearchSummary mapping precision
+
+- Expanded Yahoo Finance provider-profile field mapping so market cap, revenue, operating income, net income, EPS, PER/PBR/ROE, dividend yield, and employee count can populate `QuantitativeSummary` instead of staying `未取得` when present.
+- Improved business-profile extraction for main businesses, products/services, regions, and customer segments while keeping news titles out of business-profile evidence.
+- Reflected TDnet entries in both IR summary and latest-news/disclosure summary, distinguishing `取得済み・本文未解析` title/URL evidence from missing or unverified information.

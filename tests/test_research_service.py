@@ -95,7 +95,20 @@ class FakeYahooTicker:
         return {
             "longName": "Toyota Motor Corporation",
             "symbol": "7203.T",
+            "currency": "JPY",
             "sector": "Consumer Cyclical",
+            "industry": "Auto Manufacturers",
+            "marketCap": 35_000_000_000_000,
+            "totalRevenue": 45_000_000_000_000,
+            "operatingIncome": 5_000_000_000_000,
+            "netIncomeToCommon": 4_000_000_000_000,
+            "trailingEps": 320.12,
+            "forwardPE": 10.4,
+            "trailingPE": 12.5,
+            "priceToBook": 1.2,
+            "returnOnEquity": 0.124,
+            "dividendYield": 0.021,
+            "fullTimeEmployees": 380_000,
             "longBusinessSummary": "Toyota sells vehicles globally and invests in growth.",
         }
 
@@ -590,6 +603,67 @@ def test_company_research_summary_builder_keeps_missing_items_explicit():
     assert "企業概要は外部プロフィールから一部確認できます" in summary.overview.business_overview
 
 
+def test_company_research_summary_builder_maps_provider_quantitative_fields():
+    provider_evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-profile",
+        chunk_id="chunk-profile",
+        title="Toyota Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Toyota Motor Corporation\n"
+            "Market Cap: 35,000,000,000,000 JPY\n"
+            "Total Revenue: 45,000,000,000,000 JPY\n"
+            "Operating Income: 5,000,000,000,000 JPY\n"
+            "Net Income To Common: 4,000,000,000,000 JPY\n"
+            "Trailing EPS: 320.12\n"
+            "Forward PE: 10.4\n"
+            "Price To Book: 1.2\n"
+            "Return On Equity: 12.4%\n"
+            "Dividend Yield: 2.1%\n"
+            "Full Time Employees: 380,000 人\n"
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="Research summary.",
+        points=[],
+        evidence=[provider_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    summary = CompanyResearchSummaryBuilder().build(report)
+
+    assert summary.quantitative.market_cap == "35,000,000,000,000 JPY"
+    assert summary.quantitative.revenue == "45,000,000,000,000 JPY"
+    assert summary.quantitative.operating_profit == "5,000,000,000,000 JPY"
+    assert summary.quantitative.net_income == "4,000,000,000,000 JPY"
+    assert summary.quantitative.eps == "320.12"
+    assert summary.quantitative.per == "10.4"
+    assert summary.quantitative.pbr == "1.2"
+    assert summary.quantitative.roe == "12.4%"
+    assert summary.quantitative.dividend_yield == "2.1%"
+    assert summary.quantitative.employee_count == "380,000 人"
+    assert "売上高" not in summary.quantitative.missing_items
+    assert "PER" not in summary.quantitative.missing_items
+    assert "PBR" not in summary.quantitative.missing_items
+    assert "ROE" not in summary.quantitative.missing_items
+    assert "配当利回り" not in summary.quantitative.missing_items
+    assert "従業員数" not in summary.quantitative.missing_items
+    assert "Toyota Yahoo Finance Profile" in summary.quantitative.source_titles
+
+
 def test_company_research_summary_builder_normalizes_business_profile_without_news_mix():
     provider_evidence = ResearchEvidence(
         symbol="7203.T",
@@ -603,8 +677,10 @@ def test_company_research_summary_builder_normalizes_business_profile_without_ne
             "Company Name: Toyota Motor Corporation\n"
             "Sector: Consumer Cyclical\n"
             "Industry: Auto Manufacturers\n"
-            "Toyota manufactures vehicles and provides financial services globally. "
-            "It operates in Japan, North America, Europe, and Asia. Employees: 380,000"
+            "Toyota manufactures automobiles, commercial vehicles, and vehicle parts. "
+            "It provides maintenance, leasing, financial services, and mobility services globally. "
+            "It serves dealers, fleet customers, and consumers in Japan, North America, Europe, "
+            "and Asia. Employees: 380,000"
         ),
         relevance_score=Decimal("0.72"),
         reliability=Decimal("0.68"),
@@ -650,11 +726,19 @@ def test_company_research_summary_builder_normalizes_business_profile_without_ne
     assert profile.sector == "Consumer Cyclical"
     assert profile.industry == "Auto Manufacturers"
     assert profile.information_status == "found"
-    assert "自動車・車両販売" in profile.main_businesses
+    assert "自動車事業" in profile.main_businesses
     assert "金融サービス" in profile.main_businesses
+    assert profile.main_businesses != profile.products_services
+    assert "自動車" in profile.products_services
+    assert "商用車" in profile.products_services
     assert "車両" in profile.products_services
+    assert "部品" in profile.products_services
+    assert "保守・整備" in profile.products_services
+    assert "リース" in profile.products_services
+    assert "モビリティサービス" in profile.products_services
     assert "日本" in profile.regions
     assert "北米" in profile.regions
+    assert "フリート顧客" in profile.customer_segments
     assert summary.quantitative.employee_count == "380,000"
     assert "Toyota launches battery product" not in profile.business_summary
 
@@ -703,6 +787,18 @@ def test_company_research_summary_builder_distinguishes_ir_statuses_and_types():
                 document_id="external-return",
                 content_summary="",
             ),
+            ExternalResearchFetchManifestEntry(
+                title="定款一部変更に関するお知らせ",
+                symbol="7203.T",
+                source_type="tdnet",
+                source_url="https://example.com/tdnet/articles",
+                provider="tdnet",
+                published_at=date(2026, 5, 22),
+                fetched_at=datetime(2026, 5, 25, tzinfo=UTC),
+                freshness_status="latest",
+                document_id="external-articles",
+                content_summary="",
+            ),
         ],
     )
 
@@ -720,6 +816,20 @@ def test_company_research_summary_builder_distinguishes_ir_statuses_and_types():
     assert ir_by_type["shareholder_return"].information_status == "unparsed"
     assert ir_by_type["earnings_summary"].information_status == "missing"
     assert any(item.information_status == "missing" for item in summary.ir_items)
+    assert summary.news_items
+    assert any(
+        item.title == "2026年3月期 業績予想修正に関するお知らせ"
+        and item.impact_hint == "financial"
+        and item.official_confirmation_required is False
+        and item.information_status == "unparsed"
+        for item in summary.news_items
+    )
+    assert any(
+        item.title == "定款一部変更に関するお知らせ"
+        and item.impact_hint == "ir"
+        and item.official_confirmation_required is False
+        for item in summary.news_items
+    )
 
 
 def test_research_brief_builder_marks_missing_metrics_as_confirmation_gaps():
@@ -1457,6 +1567,14 @@ def test_yahoo_finance_research_adapter_builds_profile_and_news_payloads_without
     assert [payload.source_type for payload in payloads] == ["provider_profile", "news"]
     assert payloads[0].source_url == "https://finance.yahoo.com/quote/7203.T/profile"
     assert payloads[0].published_at == date(2026, 5, 25)
+    assert "Market Cap: 35,000,000,000,000 JPY" in payloads[0].content
+    assert "Total Revenue: 45,000,000,000,000 JPY" in payloads[0].content
+    assert "Operating Income: 5,000,000,000,000 JPY" in payloads[0].content
+    assert "Trailing EPS: 320.12" in payloads[0].content
+    assert "Forward PE: 10.4" in payloads[0].content
+    assert "Return On Equity: 12.4%" in payloads[0].content
+    assert "Dividend Yield: 2.1%" in payloads[0].content
+    assert "Full Time Employees: 380,000 人" in payloads[0].content
     assert "Toyota sells vehicles" in payloads[0].content
     assert payloads[1].source_url == "https://finance.yahoo.com/news/toyota-guidance"
     assert payloads[1].published_at == date(2026, 5, 25)

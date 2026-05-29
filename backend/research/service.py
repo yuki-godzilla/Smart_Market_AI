@@ -7,7 +7,7 @@ import math
 import re
 from collections.abc import Iterable, Mapping
 from datetime import UTC, date, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Callable, Literal, Protocol, Sequence, cast
 from urllib.parse import urljoin
@@ -90,6 +90,7 @@ NewsImpactHint = Literal[
     "market",
     "governance",
     "product",
+    "ir",
     "unknown",
 ]
 InvestmentSignal = Literal[
@@ -163,10 +164,17 @@ YAHOO_RESEARCH_PROFILE_FIELDS: tuple[tuple[str, str], ...] = (
     ("country", "Country"),
     ("website", "Website"),
     ("marketCap", "Market Cap"),
+    ("totalRevenue", "Total Revenue"),
+    ("operatingIncome", "Operating Income"),
+    ("netIncomeToCommon", "Net Income To Common"),
+    ("trailingEps", "Trailing EPS"),
+    ("forwardEps", "Forward EPS"),
     ("trailingPE", "Trailing PE"),
+    ("forwardPE", "Forward PE"),
     ("priceToBook", "Price To Book"),
     ("returnOnEquity", "Return On Equity"),
     ("dividendYield", "Dividend Yield"),
+    ("fullTimeEmployees", "Full Time Employees"),
     ("payoutRatio", "Payout Ratio"),
     ("beta", "Beta"),
 )
@@ -2590,8 +2598,9 @@ def _yahoo_profile_payload(
 ) -> ExternalResearchSourcePayload:
     symbol = _normalize_symbol(request.symbol)
     company_name = _external_text_value(info.get("longName")) or request.company_name or symbol
+    currency = _external_text_value(info.get("currency"))
     lines = [
-        f"{label}: {_external_text_value(info.get(key))}"
+        f"{label}: {_external_profile_field_value(key, info.get(key), currency=currency)}"
         for key, label in YAHOO_RESEARCH_PROFILE_FIELDS
     ]
     summary = _external_text_value(info.get("longBusinessSummary"))
@@ -2780,6 +2789,49 @@ def _external_text_value(value: object) -> str:
     if isinstance(value, float):
         return f"{value:.6g}"
     return str(value).strip()
+
+
+def _external_profile_field_value(key: str, value: object, *, currency: str) -> str:
+    numeric_value = _external_decimal_value(value)
+    if numeric_value is None:
+        return _external_text_value(value)
+    if key in {"marketCap", "totalRevenue", "operatingIncome", "netIncomeToCommon"}:
+        formatted = _format_external_decimal(numeric_value, thousands=True)
+        return f"{formatted} {currency}".strip()
+    if key == "fullTimeEmployees":
+        return f"{_format_external_decimal(numeric_value, thousands=True)} 人"
+    if key in {"returnOnEquity", "dividendYield", "payoutRatio"}:
+        percentage = numeric_value * Decimal("100") if abs(numeric_value) <= 1 else numeric_value
+        return f"{_format_external_decimal(percentage)}%"
+    return _format_external_decimal(numeric_value)
+
+
+def _external_decimal_value(value: object) -> Decimal | None:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, Decimal):
+        return value
+    if isinstance(value, int | float):
+        return Decimal(str(value))
+    text = str(value).replace(",", "").strip()
+    if not text:
+        return None
+    try:
+        return Decimal(text)
+    except InvalidOperation:
+        return None
+
+
+def _format_external_decimal(
+    value: Decimal,
+    *,
+    thousands: bool = False,
+    decimal_places: int = 2,
+) -> str:
+    if value == value.to_integral_value():
+        return f"{int(value):,}" if thousands else str(int(value))
+    template = f"{{:,.{decimal_places}f}}" if thousands else f"{{:.{decimal_places}f}}"
+    return template.format(float(value)).rstrip("0").rstrip(".")
 
 
 def _date_from_epoch(value: object) -> date | None:
@@ -3334,15 +3386,42 @@ _RESEARCH_BRIEF_METRIC_SPECS: tuple[
     tuple[ResearchMetricKey, str, tuple[str, ...]],
     ...,
 ] = (
-    ("revenue", "売上高", (r"売上(?:高|収益)?", r"revenue", r"sales")),
-    ("operating_income", "営業利益", (r"営業利益", r"operating income")),
-    ("net_income", "純利益", (r"純利益", r"当期利益", r"net income", r"net profit")),
-    ("eps", "EPS", (r"EPS", r"1株当たり(?:利益|当期利益)", r"earnings per share")),
+    (
+        "revenue",
+        "売上高",
+        (r"売上(?:高|収益)?", r"total revenue", r"totalRevenue", r"revenue", r"sales"),
+    ),
+    ("operating_income", "営業利益", (r"営業利益", r"operating income", r"operatingIncome")),
+    (
+        "net_income",
+        "純利益",
+        (
+            r"純利益",
+            r"当期利益",
+            r"net income to common",
+            r"netIncomeToCommon",
+            r"net income",
+            r"net profit",
+        ),
+    ),
+    (
+        "eps",
+        "EPS",
+        (
+            r"EPS",
+            r"trailing eps",
+            r"forward eps",
+            r"trailingEps",
+            r"forwardEps",
+            r"1株当たり(?:利益|当期利益)",
+            r"earnings per share",
+        ),
+    ),
     ("dividend", "配当", (r"配当(?:金|利回り)?", r"dividend(?: yield| per share)?")),
     ("per", "PER", (r"PER", r"trailing PE", r"forward PE", r"price[- ]earnings ratio")),
     ("pbr", "PBR", (r"PBR", r"price[- ]to[- ]book")),
     ("roe", "ROE", (r"ROE", r"return on equity")),
-    ("market_cap", "時価総額", (r"時価総額", r"market cap(?:italization)?")),
+    ("market_cap", "時価総額", (r"時価総額", r"market cap(?:italization)?", r"marketCap")),
 )
 _RESEARCH_BRIEF_RAW_PROVIDER_LABELS = (
     "Company Name",
@@ -3352,14 +3431,26 @@ _RESEARCH_BRIEF_RAW_PROVIDER_LABELS = (
     "Currency",
     "Sector",
     "Industry",
+    "Country",
+    "Website",
     "Market Cap",
+    "Total Revenue",
+    "Operating Income",
+    "Net Income To Common",
+    "Trailing EPS",
+    "Forward EPS",
     "PER",
     "PBR",
     "ROE",
     "Trailing PE",
     "Forward PE",
     "Price To Book",
+    "Return On Equity",
     "Dividend Rate",
+    "Dividend Yield",
+    "Full Time Employees",
+    "Payout Ratio",
+    "Beta",
 )
 _RESEARCH_BRIEF_HIGH_CONFIDENCE_SOURCES: set[ResearchSourceType] = {
     "annual_report",
@@ -4638,52 +4729,89 @@ def _company_research_quantitative_summary(
     normalized_evidence: Sequence[CompanyResearchEvidence],
 ) -> QuantitativeSummary:
     metrics = {metric.key: metric for metric in brief.metrics}
-    employee_count = _company_research_metric_from_evidence(
-        normalized_evidence,
-        (r"従業員数", r"employees", r"full time employees", r"fullTimeEmployees"),
+    field_specs: tuple[
+        tuple[str, str, ResearchMetricKey | None, tuple[str, ...]],
+        ...,
+    ] = (
+        (
+            "revenue",
+            "売上高",
+            "revenue",
+            (r"売上(?:高|収益)?", r"total revenue", r"totalRevenue", r"revenue", r"sales"),
+        ),
+        (
+            "operating_profit",
+            "営業利益",
+            "operating_income",
+            (r"営業利益", r"operating income", r"operatingIncome"),
+        ),
+        (
+            "net_income",
+            "純利益",
+            "net_income",
+            (
+                r"純利益",
+                r"当期利益",
+                r"net income to common",
+                r"netIncomeToCommon",
+                r"net income",
+                r"net profit",
+            ),
+        ),
+        (
+            "eps",
+            "EPS",
+            "eps",
+            (
+                r"EPS",
+                r"trailing eps",
+                r"forward eps",
+                r"trailingEps",
+                r"forwardEps",
+                r"1株当たり(?:利益|当期利益)",
+                r"earnings per share",
+            ),
+        ),
+        ("per", "PER", "per", (r"PER", r"trailing PE", r"forward PE")),
+        ("pbr", "PBR", "pbr", (r"PBR", r"price[- ]to[- ]book")),
+        ("roe", "ROE", "roe", (r"ROE", r"return on equity")),
+        (
+            "dividend_yield",
+            "配当利回り",
+            "dividend",
+            (r"配当(?:金|利回り)?", r"dividend yield", r"dividendYield"),
+        ),
+        (
+            "market_cap",
+            "時価総額",
+            "market_cap",
+            (r"時価総額", r"market cap(?:italization)?", r"marketCap"),
+        ),
+        (
+            "employee_count",
+            "従業員数",
+            None,
+            (r"従業員数", r"employees", r"full time employees", r"fullTimeEmployees"),
+        ),
     )
-    values = {
-        "revenue": _company_research_metric_value(metrics, "revenue"),
-        "operating_profit": _company_research_metric_value(metrics, "operating_income"),
-        "net_income": _company_research_metric_value(metrics, "net_income"),
-        "eps": _company_research_metric_value(metrics, "eps"),
-        "per": _company_research_metric_value(metrics, "per"),
-        "pbr": _company_research_metric_value(metrics, "pbr"),
-        "roe": _company_research_metric_value(metrics, "roe"),
-        "dividend_yield": _company_research_metric_value(metrics, "dividend"),
-        "market_cap": _company_research_metric_value(metrics, "market_cap"),
-        "employee_count": employee_count,
-    }
-    missing_items = [
-        label
-        for key, label in (
-            ("revenue", "売上高"),
-            ("operating_profit", "営業利益"),
-            ("net_income", "純利益"),
-            ("eps", "EPS"),
-            ("per", "PER"),
-            ("pbr", "PBR"),
-            ("roe", "ROE"),
-            ("dividend_yield", "配当利回り"),
-            ("market_cap", "時価総額"),
-            ("employee_count", "従業員数"),
+    values: dict[str, str | None] = {}
+    source_titles: list[str] = []
+    source_types: list[str] = []
+    for key, _label, metric_key, patterns in field_specs:
+        value, titles, types = _company_research_quantitative_field_value(
+            metrics,
+            metric_key,
+            normalized_evidence,
+            patterns,
         )
-        if not values[key]
-    ]
+        values[key] = value
+        source_titles.extend(titles)
+        source_types.extend(types)
+
+    missing_items = [label for key, label, _metric_key, _patterns in field_specs if not values[key]]
     found_items = [
         f"{label} {values[key]}"
-        for key, label in (
-            ("revenue", "売上高"),
-            ("operating_profit", "営業利益"),
-            ("net_income", "純利益"),
-            ("eps", "EPS"),
-            ("per", "PER"),
-            ("pbr", "PBR"),
-            ("roe", "ROE"),
-            ("dividend_yield", "配当"),
-            ("market_cap", "時価総額"),
-            ("employee_count", "従業員数"),
-        )
+        for key, label, _metric_key, _patterns in field_specs
         if values[key]
     ]
     if found_items:
@@ -4707,10 +4835,8 @@ def _company_research_quantitative_summary(
         missing_items=missing_items,
         item_statuses={key: "found" if value else "missing" for key, value in values.items()},
         information_status="found" if found_items else "missing",
-        evidence_level=_company_research_evidence_level_from_source_types(
-            [metric.source_type for metric in metrics.values()]
-        ),
-        source_titles=_unique_text([metric.source_title for metric in metrics.values()])[:5],
+        evidence_level=_company_research_evidence_level_from_source_types(source_types),
+        source_titles=_unique_text(source_titles)[:5],
     )
 
 
@@ -4817,57 +4943,83 @@ def _company_research_news_items(
         )
     if brief.fact_summary is not None:
         for item in brief.fact_summary.recent_events:
-            if item.source_type != "news":
+            if item.source_type not in {"news", "tdnet"}:
                 continue
+            is_tdnet = item.source_type == "tdnet"
             items.append(
                 NewsSummaryItem(
                     title=item.source_title,
                     summary=_clip_text(item.value, max_chars=150),
                     published_at=item.published_at,
                     source_title=item.source_title,
-                    impact_hint="unknown",
-                    official_confirmation_required=True,
-                    information_status="unverified",
-                    evidence_level="low",
+                    impact_hint=_company_research_news_impact_hint(
+                        "other",
+                        f"{item.source_title} {item.value}",
+                        source_type=item.source_type,
+                    ),
+                    official_confirmation_required=not is_tdnet,
+                    information_status="unparsed" if is_tdnet else "unverified",
+                    evidence_level="high" if is_tdnet else "low",
                 )
             )
     if external_research_result is not None:
         for entry in external_research_result.entries:
-            if entry.source_type != "news":
+            if entry.source_type not in {"news", "tdnet"}:
                 continue
+            is_tdnet = entry.source_type == "tdnet"
+            default_summary = (
+                "TDnet適時開示のタイトルとURLを取得しています。本文の詳細はリンク先で確認してください。"
+                if is_tdnet
+                else "外部ニュースを確認しています。"
+            )
             items.append(
                 NewsSummaryItem(
                     title=entry.title,
                     summary=_clip_text(
-                        entry.content_summary or "外部ニュースを確認しています。",
+                        entry.content_summary or default_summary,
                         max_chars=150,
                     ),
                     published_at=entry.published_at,
                     source_title=entry.provider,
                     source_url=entry.source_url,
-                    impact_hint=_company_research_news_impact_hint("other", entry.title),
-                    official_confirmation_required=True,
-                    information_status="unverified",
-                    evidence_level="low",
+                    impact_hint=_company_research_news_impact_hint(
+                        "other",
+                        f"{entry.title} {entry.content_summary}",
+                        source_type=entry.source_type,
+                    ),
+                    official_confirmation_required=not is_tdnet,
+                    information_status="unparsed" if is_tdnet else "unverified",
+                    evidence_level="high" if is_tdnet else "low",
                 )
             )
     if not items:
         for evidence in normalized_evidence:
-            if evidence.kind != "news":
+            if evidence.kind not in {"news", "tdnet_disclosure"}:
                 continue
+            is_tdnet = evidence.source_type == "tdnet"
             items.append(
                 NewsSummaryItem(
                     title=evidence.title,
                     summary=_clip_text(
-                        evidence.body or "ニュース本文は未解析です。", max_chars=150
+                        evidence.body
+                        or (
+                            "TDnet適時開示のタイトルとURLを取得しています。"
+                            if is_tdnet
+                            else "ニュース本文は未解析です。"
+                        ),
+                        max_chars=150,
                     ),
                     published_at=evidence.published_at,
                     source_title=evidence.source_title,
                     source_url=evidence.source_url,
-                    impact_hint=_company_research_news_impact_hint("other", evidence.title),
-                    official_confirmation_required=True,
-                    information_status="unverified",
-                    evidence_level="low",
+                    impact_hint=_company_research_news_impact_hint(
+                        "other",
+                        f"{evidence.title} {evidence.body}",
+                        source_type=evidence.source_type,
+                    ),
+                    official_confirmation_required=not is_tdnet,
+                    information_status=(evidence.information_status if is_tdnet else "unverified"),
+                    evidence_level="high" if is_tdnet else "low",
                 )
             )
     return _unique_company_news_items(items)[:5]
@@ -4958,6 +5110,25 @@ def _company_research_metric_value(
     return metric.value if metric is not None else None
 
 
+def _company_research_quantitative_field_value(
+    metrics: Mapping[ResearchMetricKey, ResearchMetric],
+    metric_key: ResearchMetricKey | None,
+    evidence: Sequence[CompanyResearchEvidence],
+    patterns: Sequence[str],
+) -> tuple[str | None, list[str], list[str]]:
+    if metric_key is not None:
+        metric = metrics.get(metric_key)
+        if metric is not None:
+            return metric.value, [metric.source_title], [metric.source_type]
+    for item in evidence:
+        if item.reliability == "news" or not item.body.strip():
+            continue
+        value = _company_research_metric_text_value(item.body, patterns)
+        if value:
+            return value, [item.source_title or item.title], [item.source_type]
+    return None, [], []
+
+
 def _company_research_evidence_kind(
     source_type: ResearchSourceType,
     title: str,
@@ -5010,6 +5181,8 @@ def _company_research_external_information_status(
 ) -> InformationStatus:
     if source_type == "news":
         return "unverified"
+    if source_type == "tdnet":
+        return "unparsed"
     if body.strip():
         return "found"
     return "unparsed"
@@ -5076,9 +5249,9 @@ def _company_research_business_summary_from_text(text: str) -> str:
 def _company_research_business_terms(text: str) -> list[str]:
     lowered = text.lower()
     specs = (
-        ("自動車・車両販売", ("自動車", "車両", "vehicle", "vehicles", "automotive", "motor")),
+        ("自動車事業", ("自動車", "車両", "vehicle", "vehicles", "automotive", "motor")),
         ("金融サービス", ("金融サービス", "financial services", "finance")),
-        ("モビリティ関連", ("モビリティ", "mobility")),
+        ("モビリティ事業", ("モビリティ", "mobility")),
         ("ソフトウェア・サービス", ("software services", "software", "ソフトウェア")),
         ("部品・アフターサービス", ("parts", "部品", "保守", "maintenance")),
     )
@@ -5088,10 +5261,14 @@ def _company_research_business_terms(text: str) -> list[str]:
 def _company_research_products_services(text: str) -> list[str]:
     lowered = text.lower()
     specs = (
-        ("車両", ("vehicle", "vehicles", "自動車", "車両")),
+        ("自動車", ("automobile", "automotive", "自動車")),
+        ("商用車", ("commercial vehicle", "commercial vehicles", "商用車")),
+        ("車両", ("vehicle", "vehicles", "車両")),
         ("部品", ("parts", "components", "部品")),
-        ("保守・サービス", ("maintenance", "repair", "保守", "整備")),
+        ("保守・整備", ("maintenance", "repair", "after-sales", "aftersales", "保守", "整備")),
         ("金融サービス", ("financial services", "金融")),
+        ("リース", ("lease", "leasing", "リース")),
+        ("モビリティサービス", ("mobility service", "mobility services", "モビリティサービス")),
         ("ソフトウェアサービス", ("software", "ソフトウェア")),
     )
     return [label for label, keywords in specs if any(keyword in lowered for keyword in keywords)]
@@ -5115,6 +5292,8 @@ def _company_research_customer_segments(text: str) -> list[str]:
         ("個人顧客", ("consumer", "retail", "個人")),
         ("法人顧客", ("corporate", "enterprise", "business customers", "法人")),
         ("販売店・ディーラー", ("dealer", "dealership", "販売店", "ディーラー")),
+        ("フリート顧客", ("fleet", "フリート")),
+        ("金融サービス利用者", ("financial services customers", "金融サービス利用者")),
     )
     return [label for label, keywords in specs if any(keyword in lowered for keyword in keywords)]
 
@@ -5296,12 +5475,49 @@ def _company_research_ir_summary(
 def _company_research_news_impact_hint(
     viewpoint: StockNewsInvestmentViewpoint,
     text: str = "",
+    *,
+    source_type: ResearchSourceType | str = "",
 ) -> NewsImpactHint:
     lowered_text = text.lower()
-    if any(keyword in lowered_text for keyword in ("product", "製品", "新製品", "service")):
-        return "product"
+    if any(
+        keyword in lowered_text
+        for keyword in (
+            "決算",
+            "業績予想",
+            "上方修正",
+            "下方修正",
+            "配当",
+            "自己株式",
+            "自社株買い",
+            "earnings",
+            "forecast",
+            "guidance",
+            "dividend",
+            "buyback",
+        )
+    ):
+        return "financial"
+    if any(
+        keyword in lowered_text
+        for keyword in (
+            "m&a",
+            "merger",
+            "acquisition",
+            "spin-off",
+            "restructuring",
+            "合併",
+            "買収",
+            "会社分割",
+            "事業再編",
+        )
+    ):
+        return "business"
     if any(keyword in lowered_text for keyword in ("governance", "不祥事", "訴訟", "規制")):
         return "governance"
+    if any(keyword in lowered_text for keyword in ("product", "製品", "新製品", "service")):
+        return "product"
+    if source_type == "tdnet":
+        return "ir"
     labels: dict[
         StockNewsInvestmentViewpoint,
         NewsImpactHint,

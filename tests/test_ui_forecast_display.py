@@ -1212,7 +1212,7 @@ def test_etf_research_summary_html_uses_fund_sections_and_avoids_company_ir_term
         region_focus="米国",
         expense_ratio="0.09%",
         dividend_yield="1.2%",
-        aum="500,000,000,000 USD",
+        aum="500B USD",
         nav="540.25 USD",
         top_holdings=["Apple", "Microsoft", "NVIDIA"],
         benchmark_index="S&P 500",

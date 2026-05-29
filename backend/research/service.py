@@ -3341,6 +3341,15 @@ def _format_external_money(value: Decimal, *, currency: str) -> str:
         if abs_value >= Decimal("10000"):
             return f"{_format_external_decimal(value / Decimal('10000'), thousands=True)}万円"
         return f"{_format_external_decimal(value)}円"
+    abs_value = abs(value)
+    for divisor, suffix in (
+        (Decimal("1000000000000"), "T"),
+        (Decimal("1000000000"), "B"),
+        (Decimal("1000000"), "M"),
+    ):
+        if abs_value >= divisor:
+            formatted = _format_external_decimal(value / divisor)
+            return f"{formatted}{suffix} {cleaned_currency}".strip()
     formatted = _format_external_decimal(value, thousands=True)
     return f"{formatted} {cleaned_currency}".strip()
 
@@ -6239,8 +6248,10 @@ def _company_research_format_money_text(value: str, *, context: str = "") -> str
     currency = (match.group(2) or "").upper()
     if not currency and _company_research_context_currency(context) == "JPY":
         currency = "JPY"
-    if currency == "JPY":
-        return _format_external_money(amount, currency="JPY")
+    if not currency and _company_research_context_currency(context) == "USD":
+        currency = "USD"
+    if currency:
+        return _format_external_money(amount, currency=currency)
     return f"{_format_external_decimal(amount, thousands=True)} {currency}".strip()
 
 

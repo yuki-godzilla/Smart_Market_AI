@@ -769,7 +769,7 @@ def test_etf_research_summary_builder_maps_fund_fields_without_company_ir_requir
     assert summary.benchmark_index == "S&P 500"
     assert summary.expense_ratio == "0.09%"
     assert summary.dividend_yield == "1.2%"
-    assert summary.aum == "500,000,000,000 USD"
+    assert summary.aum == "500B USD"
     assert summary.nav == "540.25 USD"
     assert summary.per == "22.5倍"
     assert summary.pbr == "4.1倍"
@@ -830,7 +830,7 @@ def test_etf_research_summary_builder_maps_extended_provider_fields_and_non_equi
     assert summary.provider_name == "iShares"
     assert summary.asset_class == "債券"
     assert summary.expense_ratio == "0.15%"
-    assert summary.aum == "48,000,000,000 USD"
+    assert summary.aum == "48B USD"
     assert summary.nav == "90.25 USD"
     assert summary.dividend_yield == "4.5%"
     assert summary.per is None
@@ -903,6 +903,49 @@ def test_company_research_summary_builder_maps_provider_quantitative_fields():
     assert "従業員数" not in summary.quantitative.missing_items
     assert "企業価値" not in summary.quantitative.missing_items
     assert "Toyota Yahoo Finance Profile" in summary.quantitative.source_titles
+
+
+def test_company_research_summary_builder_compacts_large_usd_quantitative_fields():
+    provider_evidence = ResearchEvidence(
+        symbol="MSFT",
+        document_id="doc-profile-usd",
+        chunk_id="chunk-profile-usd",
+        title="Microsoft Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Microsoft Corporation\n"
+            "Currency: USD\n"
+            "Market Cap: 1,660,405,547,008\n"
+            "Enterprise Value: 1,632,438,567,424\n"
+            "Total Revenue: 97,878,999,040\n"
+            "Net Income To Common: 3,862,000,128\n"
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    report = CompanyResearchReport(
+        symbol="MSFT",
+        as_of=date(2026, 5, 25),
+        summary="Research summary.",
+        points=[],
+        evidence=[provider_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    summary = CompanyResearchSummaryBuilder().build(report)
+
+    assert summary.quantitative.market_cap == "1.66T USD"
+    assert summary.quantitative.enterprise_value == "1.63T USD"
+    assert summary.quantitative.revenue == "97.88B USD"
+    assert summary.quantitative.net_income == "3.86B USD"
 
 
 def test_company_research_summary_builder_maps_provider_camel_case_quantitative_fields():
@@ -2617,7 +2660,7 @@ def test_yahoo_finance_research_adapter_exports_etf_metric_candidates():
     assert "Category: Long Government" in content
     assert "Expense Ratio: 0.15%" in content
     assert "Annual Report Expense Ratio: 0.14%" in content
-    assert "Net Assets: 48,000,000,000 USD" in content
+    assert "Net Assets: 48B USD" in content
     assert "NAV Price: 90.25 USD" in content
     assert "Regular Market Price: 91.1 USD" in content
     assert "Yield: 4.5%" in content

@@ -49,6 +49,8 @@ from backend.reporting import (
 )
 from backend.research import (
     CompanyResearchReport,
+    CompanyResearchSummary,
+    CompanyResearchSummaryBuilder,
     ExternalResearchFetchManifestEntry,
     ExternalResearchFetchResult,
     InvestmentActionHint,
@@ -58,6 +60,9 @@ from backend.research import (
     InvestmentQuestionAnswer,
     InvestmentQuestionSummary,
     InvestmentQuestionSummaryBuilder,
+    IRSummaryItem,
+    NewsSummaryItem,
+    QuantitativeSummary,
     ResearchBrief,
     ResearchBriefBuilder,
     ResearchBriefMaterial,
@@ -94,8 +99,10 @@ from ui.content.common_texts import (
     user_facing_table_rows,
 )
 from ui.content.research_texts import (
+    RESEARCH_AI_READING_MEMO_TITLE,
     RESEARCH_COCKPIT_INTRO,
     RESEARCH_COCKPIT_SECTION_TITLE,
+    RESEARCH_COMPANY_RESEARCH_TITLE,
     RESEARCH_DETAIL_EXPANDER_LABEL,
     RESEARCH_DETAIL_OK_CAPTION,
     RESEARCH_DOCUMENTS_OR_CHUNKS_MISSING,
@@ -111,8 +118,11 @@ from ui.content.research_texts import (
     RESEARCH_INVESTMENT_INSIGHT_TITLE,
     RESEARCH_INVESTMENT_QUESTION_MORE_LABEL,
     RESEARCH_INVESTMENT_QUESTION_SUMMARY_TITLE,
+    RESEARCH_IR_SUMMARY_TITLE,
+    RESEARCH_NEWS_SUMMARY_TITLE,
     RESEARCH_NO_REGISTERED_DOCUMENTS,
     RESEARCH_NOT_FETCHED_MESSAGE,
+    RESEARCH_QUANTITATIVE_SUMMARY_TITLE,
     RESEARCH_RANKING_FETCH_BUTTON_LABEL,
     RESEARCH_RANKING_LOOKUP_INTRO,
     RESEARCH_RANKING_LOOKUP_TITLE,
@@ -4956,7 +4966,7 @@ def _render_research_operation_card(
                     f'{html.escape(insight["source_summary"])}</div>'
                     f'<div class="research-next-step">{html.escape(insight["next_step"])}</div>'
                     '<div class="research-ai-cta-note">'
-                    "売買推奨ではなく、判断材料の整理です。</div>"
+                    "売買推奨ではなく、企業理解のための外部情報整理です。</div>"
                     "</div>"
                 ),
                 unsafe_allow_html=True,
@@ -4969,7 +4979,7 @@ def _render_research_operation_card(
                 RESEARCH_FETCH_BUTTON_LABEL,
                 key=f"research_ai_fetch_{symbol}",
                 help=(
-                    "外部参照ソースと保存済み資料から、投資判断前に確認したい根拠と注意点を整理します。"
+                    "外部参照ソースと保存済み資料から、企業概要、事業内容、定量情報、IR、ニュースを整理します。"
                     "売買判断の代行ではありません。"
                 ),
                 type="primary",
@@ -4994,24 +5004,24 @@ def _research_operation_insight(
                 "title": "AI調査で確認すること",
                 "summary": (
                     f"関連ニュース{news_count}件は確認済みです。"
-                    "AI調査を更新すると、事業概要やIR情報も判断材料として整理します。"
+                    "AI調査を更新すると、事業概要、定量情報、IR情報も企業リサーチとして整理します。"
                 ),
                 "source_summary": source_summary,
-                "next_step": "判断前に確認: AI調査を更新して、IR・開示・外部データを合わせて確認します。",
+                "next_step": "追加確認: AI調査を更新して、IR・開示・外部データを合わせて確認します。",
             }
         return {
             "title": "AI調査で確認すること",
             "summary": (
-                "まだ投資判断メモは整理されていません。"
-                "AI調査を更新すると、外部情報・ニュース・保存済み資料を確認材料に変換します。"
+                "まだ企業リサーチレポートは整理されていません。"
+                "AI調査を更新すると、外部情報・ニュース・保存済み資料を企業理解の材料に変換します。"
             ),
             "source_summary": "確認済み: 未取得",
-            "next_step": "判断前に確認: AI調査を更新して、根拠資料を整理します。",
+            "next_step": "追加確認: AI調査を更新して、根拠資料を整理します。",
         }
 
     brief = ResearchBriefBuilder().build(report, news_report=news_report)
     return {
-        "title": "判断材料に変換しました",
+        "title": "企業リサーチレポートを更新しました",
         "summary": _research_operation_fact_summary(brief),
         "source_summary": _research_operation_source_summary(brief),
         "next_step": _research_operation_next_step(brief),
@@ -5111,10 +5121,10 @@ def _research_operation_next_step(brief: ResearchBrief) -> str:
         missing = "、".join(brief.missing_metrics[:5])
         if len(brief.missing_metrics) > 5:
             missing += f" ほか{len(brief.missing_metrics) - 5}件"
-        return f"判断前に確認: 決算短信・有価証券報告書で {missing} を確認します。"
+        return f"追加確認: 決算短信・有価証券報告書で {missing} を確認します。"
     if brief.confirmation_gaps:
-        return f"判断前に確認: {_research_brief_gap_display_text(brief.confirmation_gaps[0])}"
-    return "判断前に確認: 出典カードで資料名、公開日、URLを確認します。"
+        return f"追加確認: {_research_brief_gap_display_text(brief.confirmation_gaps[0])}"
+    return "追加確認: 出典カードで資料名、公開日、URLを確認します。"
 
 
 def _render_ranking_symbol_research_lookup(symbol: str) -> None:
@@ -5159,6 +5169,13 @@ def _render_research_summary_panel(
         external_research_result=external_research_result,
         brief=brief,
     )
+    company_summary = CompanyResearchSummaryBuilder().build(
+        report,
+        news_report=news_report,
+        external_research_result=external_research_result,
+        brief=brief,
+        insight=insight,
+    )
     question_summary = InvestmentQuestionSummaryBuilder().build(
         report,
         news_report=news_report,
@@ -5166,6 +5183,10 @@ def _render_research_summary_panel(
         brief=brief,
         insight=insight,
     )
+    _render_company_research_summary_panel(company_summary)
+    _render_quantitative_summary_panel(company_summary.quantitative)
+    _render_ir_summary_panel(company_summary.ir_items)
+    _render_news_summary_panel(company_summary.news_items)
     _render_investment_insight_summary_panel(insight)
     _render_investment_question_summary_panel(question_summary)
     _render_investment_insight_materials_panel(insight)
@@ -5272,6 +5293,271 @@ def _render_research_summary_panel(
             )
 
 
+def _render_company_research_summary_panel(summary: CompanyResearchSummary) -> None:
+    st.markdown(_company_research_summary_html(summary), unsafe_allow_html=True)
+    notes = getattr(summary, "ai_reading_notes", [])
+    if notes:
+        st.markdown(_company_research_ai_notes_html(notes), unsafe_allow_html=True)
+
+
+def _render_quantitative_summary_panel(summary: QuantitativeSummary) -> None:
+    st.markdown(_quantitative_summary_html(summary), unsafe_allow_html=True)
+
+
+def _render_ir_summary_panel(items: Sequence[IRSummaryItem]) -> None:
+    st.markdown(_ir_summary_html(items), unsafe_allow_html=True)
+
+
+def _render_news_summary_panel(items: Sequence[NewsSummaryItem]) -> None:
+    st.markdown(_news_summary_html(items), unsafe_allow_html=True)
+
+
+def _company_research_summary_html(summary: CompanyResearchSummary) -> str:
+    overview = summary.overview
+    badges = [
+        (
+            f"根拠: {_research_evidence_level_label(getattr(overview, 'evidence_level', 'missing'))}",
+            _research_evidence_level_tone(getattr(overview, "evidence_level", "missing")),
+        ),
+        (f"銘柄: {getattr(summary, 'symbol', '')}", "info"),
+    ]
+    if getattr(overview, "company_name", ""):
+        badges.append((f"会社名: {overview.company_name}", "neutral"))
+    badge_markup = "".join(
+        f'<span class="research-brief-badge {html.escape(tone)}">{html.escape(label)}</span>'
+        for label, tone in badges
+        if label.strip()
+    )
+    rows = [
+        ("企業概要", getattr(overview, "business_overview", "")),
+        ("事業内容", _company_research_join_values(getattr(overview, "business_segments", []))),
+        ("地域展開", _company_research_join_values(getattr(overview, "regions", []))),
+        ("規模感", getattr(overview, "scale_summary", "")),
+        ("直近の注目ポイント", getattr(overview, "recent_focus", "")),
+    ]
+    row_markup = "".join(
+        '<div class="research-result-brief-item">'
+        f'<div class="research-result-brief-label">{html.escape(label)}</div>'
+        f'<div class="research-result-brief-value">{html.escape(value or "未取得")}</div>'
+        "</div>"
+        for label, value in rows
+    )
+    missing_items = getattr(summary, "missing_critical_items", [])[:5]
+    missing_markup = "".join(
+        f'<span class="research-summary-next-chip">{html.escape(str(item))}</span>'
+        for item in missing_items
+        if str(item).strip()
+    )
+    missing_block = (
+        '<div class="research-result-brief-label">追加確認が必要な情報</div>'
+        f'<div class="research-summary-next-list">{missing_markup}</div>'
+        if missing_markup
+        else ""
+    )
+    return (
+        '<section class="research-result-brief hero">'
+        f'<div class="research-result-brief-title">{html.escape(RESEARCH_COMPANY_RESEARCH_TITLE)}</div>'
+        f'<div class="research-brief-badge-row">{badge_markup}</div>'
+        '<div class="research-result-brief-summary">'
+        "外部情報・ニュース・保存済み資料から、企業概要、事業内容、規模感、直近情報を整理します。"
+        "</div>"
+        f'<div class="research-result-brief-grid">{row_markup}</div>'
+        f"{missing_block}"
+        "</section>"
+    )
+
+
+def _quantitative_summary_html(summary: QuantitativeSummary) -> str:
+    metric_rows = [
+        ("売上高", summary.revenue),
+        ("営業利益", summary.operating_profit),
+        ("純利益", summary.net_income),
+        ("EPS", summary.eps),
+        ("PER", summary.per),
+        ("PBR", summary.pbr),
+        ("ROE", summary.roe),
+        ("配当利回り", summary.dividend_yield),
+        ("時価総額", summary.market_cap),
+    ]
+    metric_markup = "".join(
+        '<section class="research-brief-metric-card">'
+        f'<div class="research-brief-metric-label">{html.escape(label)}</div>'
+        f'<div class="research-brief-metric-value">{html.escape(value or "未取得")}</div>'
+        "</section>"
+        for label, value in metric_rows
+    )
+    source_markup = _research_evidence_badge_markup(summary.evidence_level)
+    return (
+        '<section class="research-result-brief">'
+        f'<div class="research-result-brief-title">{html.escape(RESEARCH_QUANTITATIVE_SUMMARY_TITLE)}</div>'
+        f'<div class="research-brief-badge-row">{source_markup}</div>'
+        f'<div class="research-brief-metric-grid">{metric_markup}</div>'
+        '<div class="research-result-brief-label">AIメモ</div>'
+        f'<div class="research-result-brief-summary">{html.escape(summary.summary)}</div>'
+        "</section>"
+    )
+
+
+def _ir_summary_html(items: Sequence[IRSummaryItem]) -> str:
+    cards = "".join(_ir_summary_item_html(item) for item in items)
+    if not cards:
+        cards = (
+            '<section class="research-brief-focus-card">'
+            '<div class="research-brief-focus-body">IR資料の取得状況はまだ整理できていません。</div>'
+            "</section>"
+        )
+    return (
+        '<section class="research-result-brief">'
+        f'<div class="research-result-brief-title">{html.escape(RESEARCH_IR_SUMMARY_TITLE)}</div>'
+        '<div class="research-result-brief-summary">'
+        "決算資料、適時開示、中期計画、株主還元情報の取得状況を整理します。"
+        "</div>"
+        f'<div class="research-brief-focus-grid">{cards}</div>'
+        "</section>"
+    )
+
+
+def _ir_summary_item_html(item: IRSummaryItem) -> str:
+    status_label = "取得済み" if item.availability == "found" else "未取得"
+    tone = _research_evidence_level_confidence_tone(item.evidence_level)
+    key_points = "".join(
+        f'<div class="research-brief-focus-body">- {html.escape(_research_brief_ui_text(point, max_chars=92))}</div>'
+        for point in item.key_points[:2]
+    )
+    if not key_points:
+        key_points = f'<div class="research-brief-focus-body">{html.escape(item.summary or "追加確認が必要です。")}</div>'
+    source = item.source_title or ""
+    source_markup = (
+        '<div class="research-brief-focus-meta">'
+        f"出典: {html.escape(_research_brief_ui_text(source, max_chars=62))}</div>"
+        if source
+        else ""
+    )
+    url_markup = (
+        '<div class="research-brief-focus-meta">'
+        f"URL: {html.escape(_research_brief_ui_text(item.source_url or '', max_chars=80))}</div>"
+        if item.source_url
+        else ""
+    )
+    return (
+        '<section class="research-brief-focus-card">'
+        '<div class="research-brief-focus-badge-row">'
+        f'<span class="research-evidence-pill confidence-{html.escape(tone)}">{html.escape(status_label)}</span>'
+        "</div>"
+        f'<div class="research-brief-focus-title">{html.escape(item.document_type)}</div>'
+        f"{key_points}{source_markup}{url_markup}"
+        "</section>"
+    )
+
+
+def _news_summary_html(items: Sequence[NewsSummaryItem]) -> str:
+    if not items:
+        body = (
+            '<div class="research-brief-focus-body">'
+            "業績や事業に直接影響しそうなニュースは確認できていません。</div>"
+        )
+    else:
+        body = "".join(_news_summary_item_html(index, item) for index, item in enumerate(items, 1))
+    return (
+        '<section class="research-result-brief">'
+        f'<div class="research-result-brief-title">{html.escape(RESEARCH_NEWS_SUMMARY_TITLE)}</div>'
+        f'<div class="research-evidence-list">{body}</div>'
+        "</section>"
+    )
+
+
+def _news_summary_item_html(index: int, item: NewsSummaryItem) -> str:
+    published = item.published_at.isoformat() if item.published_at else "日付未設定"
+    impact = _news_impact_hint_label(item.impact_hint)
+    source = item.source_title or "ニュース"
+    url_markup = (
+        '<div class="research-evidence-meta">'
+        f"URL: {html.escape(_research_brief_ui_text(item.source_url or '', max_chars=96))}</div>"
+        if item.source_url
+        else ""
+    )
+    return (
+        '<article class="research-evidence-item">'
+        '<div class="research-evidence-card-header">'
+        f'<span class="research-evidence-pill">ニュース {index}</span>'
+        f'<span class="research-evidence-pill">業績影響: {html.escape(impact)}</span>'
+        '<span class="research-evidence-pill confidence-low">公式IR確認: 必要</span>'
+        "</div>"
+        f'<div class="research-evidence-title">{html.escape(item.title)}</div>'
+        f'<div class="research-evidence-body">{html.escape(item.summary)}</div>'
+        f'<div class="research-evidence-meta">出典: {html.escape(source)} / {html.escape(published)}</div>'
+        f"{url_markup}"
+        "</article>"
+    )
+
+
+def _company_research_ai_notes_html(notes: Sequence[str]) -> str:
+    body = "".join(
+        f'<div class="research-brief-next-item">{html.escape(_research_brief_ui_text(note, max_chars=150))}</div>'
+        for note in notes[:6]
+    )
+    return (
+        '<section class="research-result-brief">'
+        f'<div class="research-result-brief-title">{html.escape(RESEARCH_AI_READING_MEMO_TITLE)}</div>'
+        f'<div class="research-brief-next-list">{body}</div>'
+        "</section>"
+    )
+
+
+def _company_research_join_values(values: Sequence[str]) -> str:
+    return "、".join(str(value) for value in values if str(value).strip())
+
+
+def _research_evidence_badge_markup(level: str) -> str:
+    label = _research_evidence_level_label(level)
+    tone = _research_evidence_level_tone(level)
+    return (
+        f'<span class="research-brief-badge {html.escape(tone)}">'
+        f"根拠: {html.escape(label)}</span>"
+    )
+
+
+def _research_evidence_level_label(level: str) -> str:
+    labels = {
+        "high": "高",
+        "medium": "中",
+        "low": "低",
+        "missing": "不足",
+    }
+    return labels.get(level, "不足")
+
+
+def _research_evidence_level_tone(level: str) -> str:
+    tones = {
+        "high": "info",
+        "medium": "warning",
+        "low": "low",
+        "missing": "neutral",
+    }
+    return tones.get(level, "neutral")
+
+
+def _research_evidence_level_confidence_tone(level: str) -> str:
+    tones = {
+        "high": "high",
+        "medium": "medium",
+        "low": "low",
+        "missing": "unknown",
+    }
+    return tones.get(level, "unknown")
+
+
+def _news_impact_hint_label(impact: str) -> str:
+    labels = {
+        "business": "事業影響あり",
+        "financial": "財務影響あり",
+        "market": "市場材料",
+        "governance": "ガバナンス",
+        "unknown": "不明",
+    }
+    return labels.get(impact, "不明")
+
+
 def _render_investment_insight_panel(insight: InvestmentInsight) -> None:
     st.markdown(_investment_insight_panel_html(insight), unsafe_allow_html=True)
 
@@ -5317,7 +5603,7 @@ def _investment_insight_summary_html(insight: InvestmentInsight) -> str:
         f'<div class="research-brief-badge-row">{badge_markup}</div>'
         f'<div class="research-result-brief-label">{html.escape(RESEARCH_INVESTMENT_INSIGHT_SUMMARY_LABEL)}</div>'
         f'<div class="research-result-brief-summary">{html.escape(insight.short_summary)}</div>'
-        '<div class="research-result-brief-label">次に見るべきもの</div>'
+        '<div class="research-result-brief-label">追加確認する資料・指標</div>'
         f'<div class="research-summary-next-list">{next_material_markup}</div>'
         f'<div class="research-result-brief-note">{html.escape(RESEARCH_INVESTMENT_INSIGHT_NOTE)}</div>'
         "</section>"
@@ -5330,13 +5616,13 @@ def _investment_insight_materials_html(insight: InvestmentInsight) -> str:
         _investment_insight_items_card_html(
             RESEARCH_INVESTMENT_INSIGHT_POSITIVE_LABEL,
             _investment_insight_positive_display_items(insight),
-            fallback="良い材料候補はまだ確認できていません。公式資料とニュースを追加確認します。",
+            fallback="確認できた情報はまだ限定的です。公式資料とニュースを追加確認します。",
             limit=3,
         ),
         _investment_insight_items_card_html(
             RESEARCH_INVESTMENT_INSIGHT_NEGATIVE_LABEL,
             getattr(insight, "negative_points", []),
-            fallback="目立つ注意材料は未確認です。根拠不足や公式資料不足は別枠で確認します。",
+            fallback="注意して読む情報は未確認です。根拠不足や公式資料不足は別枠で確認します。",
             limit=3,
         ),
         _investment_insight_gap_card_html(getattr(insight, "confirmation_gaps", [])),
@@ -5377,7 +5663,7 @@ def _investment_question_summary_intro_html(summary: InvestmentQuestionSummary) 
         else ""
     )
     summary_body = (
-        top_takeaway or "投資判断に必要な確認ポイントを、取得できた根拠ごとに整理します。"
+        top_takeaway or "企業理解に必要な確認ポイントを、取得できた根拠ごとに整理します。"
     )
     return (
         '<section class="research-result-brief">'
@@ -5651,7 +5937,7 @@ def _investment_insight_gap_card_html(gaps: Sequence[str]) -> str:
     if not body:
         body = (
             '<div class="research-brief-focus-body">'
-            "大きな確認不足は未検出です。出典カードで資料名、公開日、URLを確認します。</div>"
+            "不足している情報は未検出です。出典カードで資料名、公開日、URLを確認します。</div>"
         )
     return (
         '<section class="research-brief-focus-card">'
@@ -5694,12 +5980,12 @@ def _render_research_brief_sections(brief: ResearchBrief) -> None:
 
     gap_markup = _research_brief_gap_panel_html(brief)
     if gap_markup:
-        st.markdown("##### まだ判断に足りない情報")
+        st.markdown("##### 不足している情報")
         st.markdown(gap_markup, unsafe_allow_html=True)
 
     action_markup = _research_brief_next_actions_html(brief)
     if action_markup:
-        st.markdown("##### 判断前に確認する資料")
+        st.markdown("##### 追加確認する資料・指標")
         st.markdown(action_markup, unsafe_allow_html=True)
 
 
@@ -5756,7 +6042,9 @@ def _research_brief_reading_guide_rows(brief: ResearchBrief) -> list[dict[str, s
         if brief.metrics:
             confirmed_parts.append("主要数値も一部確認しました")
         if confirmed_parts:
-            confirmed = "。".join(confirmed_parts) + "。判断材料の整理で、売買推奨ではありません。"
+            confirmed = (
+                "。".join(confirmed_parts) + "。企業理解のための整理で、売買推奨ではありません。"
+            )
         else:
             confirmed = "確認済みの根拠はまだ少なめです。まず資料登録やAI調査の更新を確認します。"
 
@@ -5779,10 +6067,10 @@ def _research_brief_reading_guide_rows(brief: ResearchBrief) -> list[dict[str, s
         )
     elif brief.confirmation_gaps:
         caution = (
-            "注意材料よりも確認不足が中心です。根拠不足を悪材料と混同せず、追加資料で確認します。"
+            "注意点よりも確認不足が中心です。根拠不足を悪材料と混同せず、追加資料で確認します。"
         )
     else:
-        caution = "目立つ注意材料は未確認です。価格、業績、出典日付を合わせて確認します。"
+        caution = "目立つ注意点は未確認です。価格、業績、出典日付を合わせて確認します。"
 
     if fact_summary is not None and fact_summary.missing_items:
         missing_item = fact_summary.missing_items[0]

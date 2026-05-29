@@ -8,6 +8,7 @@ import pytest
 from backend.research import (
     CompanyResearchReport,
     CompanyResearchRequest,
+    CompanyResearchSummaryBuilder,
     CompositeExternalResearchAdapter,
     ExternalResearchFetchManifestEntry,
     ExternalResearchFetchRequest,
@@ -437,6 +438,154 @@ def test_research_brief_builder_shapes_readable_local_memo():
     assert any(item.label == "成長材料" for item in brief.fact_summary.positive_materials)
     assert any(item.label == "事業リスク" for item in brief.fact_summary.caution_materials)
     assert brief.fact_summary.missing_items == []
+
+
+def test_company_research_summary_builder_splits_overview_metrics_ir_and_news():
+    provider_evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-profile",
+        chunk_id="chunk-profile",
+        title="Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Toyota sells vehicles globally and provides financial services. "
+            "Market Cap: 35,000,000,000,000 JPY PER: 12.5倍 PBR: 1.1倍 ROE: 9.8%"
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    official_evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-ir",
+        chunk_id="chunk-ir",
+        title="7203 決算短信",
+        source_type="earnings_report",
+        published_at=date(2026, 5, 20),
+        section_title="業績",
+        excerpt=(
+            "売上高 45兆円、営業利益 5兆円、純利益 4兆円、EPS 320円、配当 75円。"
+            "通期予想は売上高46兆円、営業利益5.2兆円です。"
+            "日本、北米、欧州で車両販売と金融サービスを展開しています。"
+        ),
+        relevance_score=Decimal("0.88"),
+        reliability=Decimal("0.94"),
+    )
+    tdnet_evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-tdnet",
+        chunk_id="chunk-tdnet",
+        title="TDnet 7203 適時開示",
+        source_type="tdnet",
+        published_at=date(2026, 5, 22),
+        section_title="開示",
+        excerpt="適時開示で自社株買いと株主還元方針を説明しています。",
+        relevance_score=Decimal("0.82"),
+        reliability=Decimal("0.90"),
+    )
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="Research summary.",
+        points=[],
+        evidence=[provider_evidence, official_evidence, tdnet_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=3,
+            evidence_count=3,
+            warnings=[],
+        ),
+    )
+    news_report = StockNewsReport(
+        symbol="7203.T",
+        company_name="Toyota Motor Corporation",
+        as_of=date(2026, 5, 25),
+        news=[
+            StockNewsEvidence(
+                symbol="7203.T",
+                title="Toyota expands software services",
+                url="https://example.com/toyota-software",
+                source="Example News",
+                published_at=date(2026, 5, 24),
+                summary="Toyota expanded software services in global markets.",
+                investment_viewpoint="growth",
+                sentiment_for_investment="positive",
+                freshness_status="latest",
+            )
+        ],
+    )
+    external_result = ExternalResearchFetchResult(
+        symbol="7203.T",
+        provider="fake_external",
+        fetched_at=datetime(2026, 5, 25, tzinfo=UTC),
+        entries=[
+            ExternalResearchFetchManifestEntry(
+                title="TDnet 7203 適時開示",
+                symbol="7203.T",
+                source_type="tdnet",
+                source_url="https://example.com/tdnet/7203",
+                provider="tdnet",
+                published_at=date(2026, 5, 22),
+                fetched_at=datetime(2026, 5, 25, tzinfo=UTC),
+                freshness_status="latest",
+                document_id="external-tdnet",
+                content_summary="自社株買いと株主還元方針を説明しています。",
+            )
+        ],
+    )
+
+    summary = CompanyResearchSummaryBuilder().build(
+        report,
+        news_report=news_report,
+        external_research_result=external_result,
+    )
+
+    ir_by_type = {item.document_type: item for item in summary.ir_items}
+    dumped = str(summary.model_dump(mode="json"))
+
+    assert summary.schema_version == "company-research-summary-v1"
+    assert summary.overview.company_name == "Toyota Motor Corporation"
+    assert "自動車" in summary.overview.business_overview
+    assert "日本" in summary.overview.regions
+    assert summary.quantitative.revenue == "45兆円"
+    assert summary.quantitative.operating_profit == "5兆円"
+    assert summary.quantitative.per == "12.5倍"
+    assert summary.quantitative.market_cap == "35,000,000,000,000 JPY"
+    assert ir_by_type["決算短信"].availability == "found"
+    assert ir_by_type["適時開示"].source_url == "https://example.com/tdnet/7203"
+    assert summary.news_items[0].impact_hint == "business"
+    assert summary.ai_reading_notes
+    assert not any(term in dumped for term in FORBIDDEN_RECOMMENDATION_WORDS)
+
+
+def test_company_research_summary_builder_keeps_missing_items_explicit():
+    report = CompanyResearchReport(
+        symbol="MSFT",
+        as_of=date(2026, 5, 25),
+        summary="No source-backed evidence.",
+        points=[],
+        evidence=[],
+        data_quality=ResearchDataQuality(
+            status="WARN",
+            latest_document_date=None,
+            document_count=0,
+            evidence_count=0,
+            warnings=["登録済みResearch資料がありません。"],
+        ),
+    )
+
+    summary = CompanyResearchSummaryBuilder().build(report)
+
+    assert summary.overview.evidence_level == "missing"
+    assert summary.quantitative.evidence_level == "missing"
+    assert summary.quantitative.revenue is None
+    assert "売上高" in summary.quantitative.missing_items
+    assert all(item.availability == "missing" for item in summary.ir_items)
+    assert summary.news_items == []
+    assert "直近ニュース" in summary.missing_critical_items
+    assert "企業概要は外部プロフィールから一部確認できます" in summary.overview.business_overview
 
 
 def test_research_brief_builder_marks_missing_metrics_as_confirmation_gaps():

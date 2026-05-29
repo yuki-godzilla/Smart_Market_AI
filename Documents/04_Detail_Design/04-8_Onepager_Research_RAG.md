@@ -85,7 +85,7 @@ Phase 21 は、Phase 20 の deterministic evidence foundation を壊さず、根
 
 ### Phase 21 Goals
 
-- 登録済み Research 資料から、投資判断に関係する情報を抽出する。
+- 登録済み Research 資料から、企業理解と判断補助に関係する情報を抽出する。
 - 抽出した主張、要点、不足情報を必ず `ResearchEvidence` と紐づける。
 - 銘柄コックピット、ランキングモーダル、Decision Report で自然な説明文を表示できるようにする。
 - keyword search baseline を維持しながら、query expansion、optional embedding / vector store / hybrid search、evidence reranking を追加できる設計にする。
@@ -117,18 +117,19 @@ Phase 21 は、Phase 20 の deterministic evidence foundation を壊さず、根
 
 Current implementation note: `ExternalResearchFetchService`, `TDnetResearchAdapter`, `YahooFinanceResearchAdapter`, and `DefaultExternalResearchAdapter` are wired to the Cockpit Research Evidence panel as a first UI slice. The UI runs external source search from `AI調査を更新` and no longer exposes a separate explicit-permission panel. The flow registers external payload text in the session-local RAG store, rebuilds chunks for the current session, records source trace rows with freshness_status, and does not write fetched payload Markdown or manifest files. Cockpit Decision Report includes an `外部参照ソース` trace section for those rows without retaining fetched source text. A future explicit archive action may opt into persistence separately.
 
-### ResearchBrief ローカル調査メモ化方針
+### CompanyResearchSummary / ResearchBrief ローカル企業リサーチレポート化方針
 
-Research Summary 改善では、`CompanyResearchReport` / evidence と Streamlit UI の間に、表示専用の `ResearchBrief` 層を置く。provider dump や raw evidence を主表示に出すのではなく、deterministic なローカルルールで読める投資調査メモへ変換する。外部LLM / OpenAI API 連携は後続に回し、通常 checks は network / LLM 非依存を維持する。
+Research Summary 改善では、`CompanyResearchReport` / evidence と Streamlit UI の間に、表示専用の `CompanyResearchSummary` と `ResearchBrief` 層を置く。provider dump や raw evidence を主表示に出すのではなく、deterministic なローカルルールで、企業概要、事業内容、規模感、定量情報、IR情報、最新ニュースを読める企業リサーチレポートへ変換する。投資判断メモは主役ではなく、企業理解のための AI読み取りメモ / 確認ポイントとして後段に置く。外部LLM / OpenAI API 連携は後続に回し、通常 checks は network / LLM 非依存を維持する。
 
-現行の読みやすさ改善 slice では、`ResearchBrief` の前段に `ResearchFactSummary` を置く。これは取得件数や出典カード数ではなく、ユーザーが最初に知りたい「この会社は何をしているか」「どの公式資料・IR・ニュースで何を確認できたか」「主要な数値は確認できたか」「良材料候補・注意材料候補・未確認項目は何か」を source-backed fact として整理する層である。
+現行の読みやすさ改善 slice では、`ResearchBrief` の前段に `ResearchFactSummary` を置き、さらに UI の主表示として `CompanyResearchSummary` を作る。これは取得件数や出典カード数ではなく、ユーザーが最初に知りたい「この会社は何をしているか」「どの事業で稼いでいるか」「規模感はどれくらいか」「主要指標やIR資料は確認できたか」「直近ニュースは何か」を source-backed fact として整理する層である。
 
 推奨 pipeline:
 
 1. `CompanyResearchReport` / `StockNewsReport` / `ExternalResearchFetchResult` / provider profile から候補事実を集める。
 2. local rule-based extractor で `ResearchFactSummary` を作る。
-3. `ResearchBriefBuilder` は `ResearchFactSummary` を優先入力として、AI整理メモ、読み方サマリー、確認ポイント、UI card を組み立てる。
-4. source card、Research Score、raw evidence は確認用 detail に下げる。
+3. `CompanyResearchSummaryBuilder` は `ResearchBrief` / `ResearchFactSummary` / external trace を使い、企業概要、定量情報、IR資料、最新ニュース、AI読み取りメモを組み立てる。
+4. `ResearchBriefBuilder` / `InvestmentInsightBuilder` / `InvestmentQuestionSummaryBuilder` は、後段の確認メモ、読み方サマリー、企業理解の確認ポイント、UI card を組み立てる。
+5. source card、Research Score、raw evidence は確認用 detail に下げる。
 
 `ResearchFactSummary` の候補 contract:
 
@@ -172,7 +173,7 @@ class ResearchMissingItem(BaseModel):
 
 表示ルール:
 
-- 主表示では source-backed fact だけを断定的に扱う。provider-only の場合は `外部プロバイダー情報では` と書き、公式IRと同じ重みで見せない。
+- 主表示では企業リサーチサマリーを先頭に置き、source-backed fact だけを断定的に扱う。provider-only の場合は `外部プロバイダー情報では` と書き、公式IRと同じ重みで見せない。
 - `資料n件`、`出典カードn件`、`Research Score` は補助情報であり、主表示の結論にしない。
 - 未確認項目は悪材料ではなく、追加で確認する項目として扱う。
 - 外部LLM / local lightweight LLM を使う場合も、入力は抽出済み fact に限定し、出力は validated JSON として `ResearchFactSummary` に戻す。失敗時は deterministic rule-based summary に戻る。
@@ -180,6 +181,16 @@ class ResearchMissingItem(BaseModel):
 実装 contract の要点:
 
 ```python
+class CompanyResearchSummary(BaseModel):
+    symbol: str
+    overview: CompanyOverviewSummary
+    quantitative: QuantitativeSummary
+    ir_items: list[IRSummaryItem]
+    news_items: list[NewsSummaryItem]
+    ai_reading_notes: list[str]
+    missing_critical_items: list[str]
+
+
 class ResearchBrief(BaseModel):
     memo: str
     metrics: list[ResearchMetric]
@@ -214,13 +225,13 @@ class ResearchMetric(BaseModel):
 
 Cockpit Research Summary の推奨表示順:
 
-1. AI整理メモ
-2. 定量評価サマリー
-3. 企業概要・事業内容
-4. 良材料候補
-5. 注意材料候補
-6. 未確認・不足している根拠
-7. 次に確認すべき資料
+1. 企業リサーチサマリー
+2. 定量情報サマリー
+3. IR情報サマリー
+4. 最新ニュースサマリー
+5. AI読み取りメモ
+6. 企業理解の確認ポイント
+7. 確認できた情報 / 注意して読む情報 / 不足している情報
 8. 出典カード
 9. Research Score
 10. 詳細データ
@@ -229,11 +240,11 @@ Research Score は先頭ブロックに置かない。local AI整理メモと出
 
 ローカルAI整理メモのテンプレート例:
 
-- provider profile のみ: `現時点では、会社概要などの補助情報は確認できていますが、公式IR・決算資料などの一次情報は不足しています。投資判断前には、公式資料による裏取りが必要です。`
-- 公式開示あり: `公式開示情報が確認できています。決算内容、業績修正、配当方針などの一次情報を優先して確認してください。`
-- 根拠が少ない場合: `現時点では、確認できた根拠が限られています。最新決算、配当方針、リスク要因を公式資料で確認してください。`
+- provider profile のみ: `外部データから企業概要の一部は確認できますが、主力事業、収益構造、主要指標は公式IR・決算資料で追加確認が必要です。`
+- 公式開示あり: `公式開示情報が確認できています。決算内容、業績修正、配当方針などの一次情報を優先して企業像を確認してください。`
+- 根拠が少ない場合: `現時点では、確認できた企業情報が限られています。最新決算、事業セグメント、配当方針、リスク要因を公式資料で確認してください。`
 
-この slice の追加テストでは、provider profile の圧縮、通常表示で provider raw field を隠すこと、公式 source coverage、provider のみの場合の注意表示、metric extraction / missing metrics、source type 別 confidence label、keyword-based topic classification、source card の確認目的、UI表示順を確認する。
+この slice の追加テストでは、`CompanyResearchSummaryBuilder` が企業概要、定量情報、IR資料、最新ニュースを分けること、provider profile の圧縮、通常表示で provider raw field を隠すこと、公式 source coverage、provider のみの場合の注意表示、metric extraction / missing metrics、source type 別 evidence label、keyword-based topic classification、source card の確認目的、UI表示順を確認する。
 
 ### Structured Evidence Extraction
 
@@ -357,7 +368,7 @@ Current implementation note: `ResearchGroundedAnswerService` is available as the
 - Ranking modal: `AIで資料を確認` button、根拠付き Research Summary、観点別抽出結果、根拠不足 warning、evidence table、retrieval backend 表示を追加する。
 - Decision Report: Research Evidence section、Grounded Answer section、Data Quality section、Retrieval Quality section、根拠不足 warning、売買推奨ではない旨の注記を追加する。
 
-Current implementation note: cockpit and ranking Research Summary panels now build a local `ResearchBrief` first, then show Research Score summary/component/warning rows and detailed `CompanyResearchReport.grounded_answer`, `CompanyResearchReport.retrieval_quality`, and `ResearchExtractedClaim` rows. Ranking selected-candidate breakdown can show report-derived Research Score context, the Cockpit Research Evidence panel can explicitly fetch TDnet + Yahoo Finance external profile/news, and the Cockpit Decision Report carries both `Research Evidence` and `Research Score` sections when a Research report has documents or evidence. External live fetch should be transient by default; ranking order and default Investment Score behavior remain unchanged.
+Current implementation note: cockpit and ranking Research Summary panels now build a local `CompanyResearchSummary` as the primary company-understanding report, then show `ResearchBrief`, AI reading notes, confirmation-point cards, Research Score summary/component/warning rows, and detailed `CompanyResearchReport.grounded_answer`, `CompanyResearchReport.retrieval_quality`, and `ResearchExtractedClaim` rows behind secondary sections. Ranking selected-candidate breakdown can show report-derived Research Score context, the Cockpit Research Evidence panel can explicitly fetch TDnet + Yahoo Finance external profile/news, and the Cockpit Decision Report carries both `Research Evidence` and `Research Score` sections when a Research report has documents or evidence. External live fetch should be transient by default; ranking order and default Investment Score behavior remain unchanged.
 
 ### Phase 21 Test Plan
 
@@ -369,8 +380,8 @@ Current implementation note: cockpit and ranking Research Summary panels now bui
 
 ## 1) Purpose & Scope
 
-* **Purpose**: IR資料・有価証券報告書・決算資料・中期経営計画・統合報告書・ニュース等の非構造データを検索し、長期企業分析の根拠提示を行う。高度RAG抽出、根拠付き回答生成、Research Score 初期 slice、ResearchBrief 初期 slice は実装済みで、次は表示 polish と追加 source adapter を扱う。
-* **Scope**: ローカル資料登録、テキスト抽出、チャンク化、メタデータ管理、キーワード検索、企業分析サマリ、ResearchBrief、Decision Report への接続。ベクトル/ハイブリッド検索と根拠付き回答生成の初期 slice、Research Score 初期 slice は実装済み。Assistant / ranking order への接続は後続。
+* **Purpose**: IR資料・有価証券報告書・決算資料・中期経営計画・統合報告書・ニュース等の非構造データを検索し、長期企業分析の根拠提示を行う。高度RAG抽出、根拠付き回答生成、Research Score 初期 slice、CompanyResearchSummary / ResearchBrief 初期 slice は実装済みで、次は表示 polish と追加 source adapter を扱う。
+* **Scope**: ローカル資料登録、テキスト抽出、チャンク化、メタデータ管理、キーワード検索、企業リサーチサマリ、ResearchBrief、Decision Report への接続。ベクトル/ハイブリッド検索と根拠付き回答生成の初期 slice、Research Score 初期 slice は実装済み。Assistant / ranking order への接続は後続。
 * **Out of Scope**: RAG単体での売買推奨、自動売買判断、証券口座ログイン情報の取得、規約違反リスクのある無制限スクレイピング、外部LLM/APIを必須にする実装。
 
 ### 1.1 前提

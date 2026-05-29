@@ -12,11 +12,16 @@ import streamlit as st
 from backend.core.data_contracts import Bar, FundamentalSnapshot, Symbol
 from backend.core.errors import DataSourceError
 from backend.research import (
+    CompanyOverviewSummary,
     CompanyResearchReport,
+    CompanyResearchSummary,
     ExternalResearchFetchManifestEntry,
     ExternalResearchFetchResult,
     InvestmentQuestionAnswer,
     InvestmentQuestionSummary,
+    IRSummaryItem,
+    NewsSummaryItem,
+    QuantitativeSummary,
     ResearchBrief,
     ResearchBriefMaterial,
     ResearchBriefSourceCard,
@@ -47,6 +52,7 @@ from ui.app import (
     RankingResearchStatus,
     _build_market_data_ranking_rows,
     _coerce_number_input_state,
+    _company_research_summary_html,
     _current_or_default_symbol_labels,
     _dividend_category_filter_label,
     _dividend_category_option_label,
@@ -62,9 +68,12 @@ from ui.app import (
     _investment_question_answers_html,
     _investment_question_primary_answers,
     _investment_question_summary_intro_html,
+    _ir_summary_html,
     _market_data_preview_symbol_label,
     _name_from_candidate,
+    _news_summary_html,
     _normalize_dividend_filter_state,
+    _quantitative_summary_html,
     _ranking_candidate_card_html,
     _ranking_decision_report_state_key,
     _ranking_result_grid_height,
@@ -1024,11 +1033,11 @@ def test_research_operation_card_keeps_single_primary_action(monkeypatch):
     assert [label for label, _ in button_calls] == ["AI調査を更新"]
     assert button_calls[0][1]["type"] == "primary"
     assert button_calls[0][1]["use_container_width"] is True
-    assert "判断材料に変換しました" in markup
+    assert "企業リサーチレポートを更新しました" in markup
     assert "事業:" in markup
     assert "補足:" in markup
     assert "確認済み:" in markup
-    assert "判断前に確認:" in markup
+    assert "追加確認:" in markup
     assert "確認できた数値:" not in markup
     assert "業績見通し:" not in markup
     assert "株主還元:" not in markup
@@ -1058,10 +1067,80 @@ def test_investment_insight_panel_html_accepts_cached_legacy_insight():
 
     markup = _investment_insight_panel_html(legacy_insight)
 
-    assert "SMAI 投資判断サマリー" in markup
+    assert "AI読み取りメモ" in markup
     assert "ステータス: ニュース先行" in markup
     assert "信頼度: 低" in markup
     assert "次のアクション: 公式IRで裏取り" in markup
+
+
+def test_company_research_summary_html_prioritizes_company_understanding():
+    summary = CompanyResearchSummary(
+        symbol="7203.T",
+        overview=CompanyOverviewSummary(
+            company_name="Toyota Motor Corporation",
+            symbol="7203.T",
+            business_overview="自動車の製造・販売を中心とするグローバル企業です。",
+            business_segments=["自動車", "金融サービス"],
+            regions=["日本", "北米"],
+            scale_summary="売上高 45兆円、時価総額 35兆円を確認できます。",
+            recent_focus="直近ニュースからソフトウェア領域の材料を確認しています。",
+            evidence_level="medium",
+            source_titles=["Yahoo Finance Profile"],
+        ),
+        quantitative=QuantitativeSummary(
+            revenue="45兆円",
+            operating_profit="5兆円",
+            net_income="4兆円",
+            eps="320円",
+            per="12.5倍",
+            pbr="1.1倍",
+            roe="9.8%",
+            dividend_yield=None,
+            market_cap="35兆円",
+            summary="確認できた主要指標があります。",
+            missing_items=["配当利回り"],
+            evidence_level="high",
+            source_titles=["7203 決算短信"],
+        ),
+        ir_items=[
+            IRSummaryItem(
+                document_type="決算短信",
+                title="取得済み",
+                availability="found",
+                summary="決算短信から確認できる要点があります。",
+                key_points=["通期予想を確認できます。"],
+                source_title="7203 決算短信",
+                evidence_level="high",
+            )
+        ],
+        news_items=[
+            NewsSummaryItem(
+                title="Toyota expands software services",
+                summary="ソフトウェア領域のニュースです。",
+                source_title="Example News",
+                source_url="https://example.com/news",
+                impact_hint="business",
+                evidence_level="low",
+            )
+        ],
+        ai_reading_notes=["確認できたこと: 事業概要を確認できます。"],
+        missing_critical_items=["配当利回り"],
+    )
+
+    markup = _company_research_summary_html(summary)
+    markup += _quantitative_summary_html(summary.quantitative)
+    markup += _ir_summary_html(summary.ir_items)
+    markup += _news_summary_html(summary.news_items)
+
+    assert "企業リサーチサマリー" in markup
+    assert "企業概要" in markup
+    assert "事業内容" in markup
+    assert "定量情報サマリー" in markup
+    assert "売上高" in markup
+    assert "IR情報サマリー" in markup
+    assert "最新ニュースサマリー" in markup
+    assert "業績影響: 事業影響あり" in markup
+    assert "SMAI 投資判断サマリー" not in markup
 
 
 def test_investment_question_summary_html_prioritizes_initial_questions():
@@ -1119,7 +1198,7 @@ def test_investment_question_summary_html_prioritizes_initial_questions():
         "growth_driver",
         "key_takeaway",
     ]
-    assert "投資判断で知りたいこと" in markup
+    assert "企業理解の確認ポイント" in markup
     assert "Q. この会社は何で稼いでいるか？" in markup
     assert "根拠: 中" in markup
     assert "根拠: 不足" in markup

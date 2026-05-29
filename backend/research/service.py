@@ -49,6 +49,7 @@ StockNewsInvestmentViewpoint = Literal[
 StockNewsSentiment = Literal["positive", "negative", "neutral", "mixed", "unknown"]
 StockNewsFreshnessStatus = Literal["latest", "recent", "stale", "unknown"]
 ResearchSourceConfidence = Literal["high", "medium", "low", "unknown"]
+ResearchEvidenceLevel = Literal["high", "medium", "low", "missing"]
 InvestmentSignal = Literal[
     "positive",
     "negative",
@@ -84,7 +85,7 @@ InvestmentQuestionCategory = Literal[
     "recent_news_impact",
     "key_takeaway",
 ]
-InvestmentQuestionEvidenceLevel = Literal["high", "medium", "low", "missing"]
+InvestmentQuestionEvidenceLevel = ResearchEvidenceLevel
 ResearchMissingItemCategory = Literal[
     "official_source",
     "financial_metric",
@@ -681,6 +682,76 @@ class ResearchBrief(StrictBaseModel):
     decision_support_note: str = (
         "ResearchBrief is a local evidence memo for decision support; not advice."
     )
+
+
+class CompanyOverviewSummary(StrictBaseModel):
+    """Company-understanding overview for the Research report UI."""
+
+    company_name: str = ""
+    symbol: str = Field(min_length=1)
+    business_overview: str = ""
+    business_segments: list[str] = Field(default_factory=list)
+    regions: list[str] = Field(default_factory=list)
+    scale_summary: str = ""
+    recent_focus: str = ""
+    evidence_level: ResearchEvidenceLevel = "missing"
+    source_titles: list[str] = Field(default_factory=list)
+
+
+class QuantitativeSummary(StrictBaseModel):
+    """Major quantitative fields available from Research evidence."""
+
+    revenue: str | None = None
+    operating_profit: str | None = None
+    net_income: str | None = None
+    eps: str | None = None
+    per: str | None = None
+    pbr: str | None = None
+    roe: str | None = None
+    dividend_yield: str | None = None
+    market_cap: str | None = None
+    summary: str = ""
+    missing_items: list[str] = Field(default_factory=list)
+    evidence_level: ResearchEvidenceLevel = "missing"
+    source_titles: list[str] = Field(default_factory=list)
+
+
+class IRSummaryItem(StrictBaseModel):
+    """Availability and short summary for one IR / disclosure document type."""
+
+    document_type: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    availability: Literal["found", "missing", "unknown"]
+    summary: str = ""
+    key_points: list[str] = Field(default_factory=list)
+    source_title: str | None = None
+    source_url: str | None = None
+    evidence_level: ResearchEvidenceLevel = "missing"
+
+
+class NewsSummaryItem(StrictBaseModel):
+    """Readable recent-news row for the company research report."""
+
+    title: str = Field(min_length=1)
+    summary: str = Field(min_length=1)
+    published_at: date | None = None
+    source_title: str = ""
+    source_url: str | None = None
+    impact_hint: Literal["business", "financial", "market", "governance", "unknown"] = "unknown"
+    evidence_level: ResearchEvidenceLevel = "low"
+
+
+class CompanyResearchSummary(StrictBaseModel):
+    """Company-understanding report assembled from Research RAG outputs."""
+
+    schema_version: str = "company-research-summary-v1"
+    symbol: str = Field(min_length=1)
+    overview: CompanyOverviewSummary
+    quantitative: QuantitativeSummary
+    ir_items: list[IRSummaryItem] = Field(default_factory=list)
+    news_items: list[NewsSummaryItem] = Field(default_factory=list)
+    ai_reading_notes: list[str] = Field(default_factory=list)
+    missing_critical_items: list[str] = Field(default_factory=list)
 
 
 class InvestmentInsightItem(StrictBaseModel):
@@ -1743,6 +1814,68 @@ class ResearchBriefBuilder:
             next_actions=next_actions,
             source_cards=source_cards,
             fact_summary=fact_summary,
+        )
+
+
+class CompanyResearchSummaryBuilder:
+    """Build a company-understanding report from existing Research RAG outputs."""
+
+    def build(
+        self,
+        report: CompanyResearchReport,
+        *,
+        news_report: StockNewsReport | None = None,
+        external_research_result: ExternalResearchFetchResult | None = None,
+        brief: ResearchBrief | None = None,
+        insight: InvestmentInsight | None = None,
+    ) -> CompanyResearchSummary:
+        prepared_brief = brief or ResearchBriefBuilder().build(
+            report,
+            news_report=news_report,
+            external_research_result=external_research_result,
+        )
+        prepared_insight = insight or InvestmentInsightBuilder().build(
+            report,
+            news_report=news_report,
+            external_research_result=external_research_result,
+            brief=prepared_brief,
+        )
+        overview = _company_research_overview_summary(
+            report,
+            prepared_brief,
+            news_report=news_report,
+        )
+        quantitative = _company_research_quantitative_summary(prepared_brief)
+        ir_items = _company_research_ir_items(
+            report,
+            prepared_brief,
+            external_research_result=external_research_result,
+        )
+        news_items = _company_research_news_items(
+            prepared_brief,
+            news_report=news_report,
+            external_research_result=external_research_result,
+        )
+        ai_notes = _company_research_ai_reading_notes(
+            prepared_brief,
+            prepared_insight,
+            quantitative=quantitative,
+            ir_items=ir_items,
+            news_items=news_items,
+        )
+        return CompanyResearchSummary(
+            symbol=report.symbol,
+            overview=overview,
+            quantitative=quantitative,
+            ir_items=ir_items,
+            news_items=news_items,
+            ai_reading_notes=ai_notes,
+            missing_critical_items=_company_research_missing_critical_items(
+                overview,
+                quantitative,
+                ir_items,
+                news_items,
+            ),
         )
 
 
@@ -4149,6 +4282,469 @@ def _research_brief_memo(
     )
 
 
+def _company_research_overview_summary(
+    report: CompanyResearchReport,
+    brief: ResearchBrief,
+    *,
+    news_report: StockNewsReport | None,
+) -> CompanyOverviewSummary:
+    fact_summary = brief.fact_summary
+    overview_items = list(fact_summary.business_overview if fact_summary else [])
+    segment_items = list(fact_summary.business_segments if fact_summary else [])
+    region_items = list(fact_summary.business_regions if fact_summary else [])
+    revenue_items = list(fact_summary.revenue_drivers if fact_summary else [])
+    recent_items = list(fact_summary.recent_events if fact_summary else [])
+    company_name = news_report.company_name if news_report is not None else ""
+    business_overview = (
+        overview_items[0].value
+        if overview_items
+        else (
+            "企業概要は外部プロフィールから一部確認できますが、主力事業や収益構造は"
+            "公式資料で追加確認が必要です。"
+        )
+    )
+    business_segments = _company_research_values(segment_items or revenue_items, limit=4)
+    regions = _company_research_values(region_items, limit=4)
+    scale_summary = _company_research_scale_summary(brief)
+    recent_focus = _company_research_recent_focus(recent_items, news_report=news_report)
+    source_items = [
+        *overview_items,
+        *segment_items,
+        *region_items,
+        *revenue_items,
+        *recent_items,
+    ]
+    source_types = [item.source_type for item in source_items]
+    source_types.extend(row.source_type for row in report.evidence[:3])
+    return CompanyOverviewSummary(
+        company_name=company_name or "",
+        symbol=report.symbol,
+        business_overview=_clip_text(business_overview, max_chars=220),
+        business_segments=business_segments,
+        regions=regions,
+        scale_summary=scale_summary,
+        recent_focus=recent_focus,
+        evidence_level=_company_research_evidence_level_from_source_types(source_types),
+        source_titles=_unique_text(
+            [item.source_title for item in source_items if item.source_title.strip()]
+            + [row.title for row in report.evidence[:3]]
+        )[:5],
+    )
+
+
+def _company_research_quantitative_summary(brief: ResearchBrief) -> QuantitativeSummary:
+    metrics = {metric.key: metric for metric in brief.metrics}
+    values = {
+        "revenue": _company_research_metric_value(metrics, "revenue"),
+        "operating_profit": _company_research_metric_value(metrics, "operating_income"),
+        "net_income": _company_research_metric_value(metrics, "net_income"),
+        "eps": _company_research_metric_value(metrics, "eps"),
+        "per": _company_research_metric_value(metrics, "per"),
+        "pbr": _company_research_metric_value(metrics, "pbr"),
+        "roe": _company_research_metric_value(metrics, "roe"),
+        "dividend_yield": _company_research_metric_value(metrics, "dividend"),
+        "market_cap": _company_research_metric_value(metrics, "market_cap"),
+    }
+    missing_items = [
+        label
+        for key, label in (
+            ("revenue", "売上高"),
+            ("operating_profit", "営業利益"),
+            ("net_income", "純利益"),
+            ("eps", "EPS"),
+            ("per", "PER"),
+            ("pbr", "PBR"),
+            ("roe", "ROE"),
+            ("dividend_yield", "配当利回り"),
+            ("market_cap", "時価総額"),
+        )
+        if not values[key]
+    ]
+    found_items = [
+        f"{label} {values[key]}"
+        for key, label in (
+            ("revenue", "売上高"),
+            ("operating_profit", "営業利益"),
+            ("net_income", "純利益"),
+            ("eps", "EPS"),
+            ("per", "PER"),
+            ("pbr", "PBR"),
+            ("roe", "ROE"),
+            ("dividend_yield", "配当"),
+            ("market_cap", "時価総額"),
+        )
+        if values[key]
+    ]
+    if found_items:
+        summary = f"確認できた主要指標は{'、'.join(found_items[:5])}です。"
+        if missing_items:
+            summary += f"{'、'.join(missing_items[:5])}は追加確認が必要です。"
+    else:
+        summary = "主要な財務指標が未取得のため、業績トレンドや規模感の把握には追加確認が必要です。"
+    return QuantitativeSummary(
+        revenue=values["revenue"],
+        operating_profit=values["operating_profit"],
+        net_income=values["net_income"],
+        eps=values["eps"],
+        per=values["per"],
+        pbr=values["pbr"],
+        roe=values["roe"],
+        dividend_yield=values["dividend_yield"],
+        market_cap=values["market_cap"],
+        summary=summary,
+        missing_items=missing_items,
+        evidence_level=_company_research_evidence_level_from_source_types(
+            [metric.source_type for metric in metrics.values()]
+        ),
+        source_titles=_unique_text([metric.source_title for metric in metrics.values()])[:5],
+    )
+
+
+def _company_research_ir_items(
+    report: CompanyResearchReport,
+    brief: ResearchBrief,
+    *,
+    external_research_result: ExternalResearchFetchResult | None,
+) -> list[IRSummaryItem]:
+    specs: tuple[tuple[str, tuple[ResearchSourceType, ...], tuple[str, ...]], ...] = (
+        ("決算短信", ("earnings_report",), ("決算短信", "earnings")),
+        ("決算説明資料", ("earnings_presentation",), ("決算説明", "presentation")),
+        (
+            "有価証券報告書",
+            ("annual_report", "integrated_report"),
+            ("有価証券報告書", "annual report"),
+        ),
+        ("適時開示", ("tdnet",), ("適時開示", "TDnet", "timely disclosure")),
+        ("中期経営計画", ("medium_term_plan",), ("中期経営計画", "medium-term")),
+        (
+            "配当・自社株買い",
+            ("earnings_report", "tdnet"),
+            ("配当", "自社株買い", "株主還元", "dividend", "buyback"),
+        ),
+    )
+    cards = list(brief.source_cards)
+    if external_research_result is not None:
+        cards.extend(
+            ResearchBriefSourceCard(
+                title=entry.title,
+                source_type=entry.source_type,
+                provider=entry.provider,
+                source_url=entry.source_url,
+                published_at=entry.published_at,
+                fetched_at=entry.fetched_at,
+                freshness_status=entry.freshness_status,
+                source_confidence=_research_brief_source_confidence(entry.source_type),
+                note=entry.content_summary,
+            )
+            for entry in external_research_result.entries
+        )
+    return [
+        _company_research_ir_item_for_spec(
+            document_type=document_type,
+            source_types=source_types,
+            keywords=keywords,
+            report=report,
+            brief=brief,
+            cards=cards,
+        )
+        for document_type, source_types, keywords in specs
+    ]
+
+
+def _company_research_news_items(
+    brief: ResearchBrief,
+    *,
+    news_report: StockNewsReport | None,
+    external_research_result: ExternalResearchFetchResult | None,
+) -> list[NewsSummaryItem]:
+    items: list[NewsSummaryItem] = []
+    if news_report is not None:
+        items.extend(
+            NewsSummaryItem(
+                title=news.title,
+                summary=_clip_text(news.summary, max_chars=150),
+                published_at=news.published_at,
+                source_title=news.source or news.title,
+                source_url=news.url,
+                impact_hint=_company_research_news_impact_hint(news.investment_viewpoint),
+                evidence_level="low",
+            )
+            for news in news_report.news
+        )
+    if brief.fact_summary is not None:
+        for item in brief.fact_summary.recent_events:
+            if item.source_type != "news":
+                continue
+            items.append(
+                NewsSummaryItem(
+                    title=item.source_title,
+                    summary=_clip_text(item.value, max_chars=150),
+                    published_at=item.published_at,
+                    source_title=item.source_title,
+                    impact_hint="unknown",
+                    evidence_level="low",
+                )
+            )
+    if external_research_result is not None:
+        for entry in external_research_result.entries:
+            if entry.source_type != "news":
+                continue
+            items.append(
+                NewsSummaryItem(
+                    title=entry.title,
+                    summary=_clip_text(
+                        entry.content_summary or "外部ニュースを確認しています。",
+                        max_chars=150,
+                    ),
+                    published_at=entry.published_at,
+                    source_title=entry.provider,
+                    source_url=entry.source_url,
+                    impact_hint="unknown",
+                    evidence_level="low",
+                )
+            )
+    return _unique_company_news_items(items)[:5]
+
+
+def _company_research_ai_reading_notes(
+    brief: ResearchBrief,
+    insight: InvestmentInsight,
+    *,
+    quantitative: QuantitativeSummary,
+    ir_items: Sequence[IRSummaryItem],
+    news_items: Sequence[NewsSummaryItem],
+) -> list[str]:
+    notes: list[str] = []
+    if brief.business_overview:
+        notes.append(f"確認できたこと: {_clip_text(brief.business_overview, max_chars=110)}")
+    if quantitative.missing_items:
+        notes.append(
+            "不足している情報: "
+            f"{'、'.join(quantitative.missing_items[:6])}は追加確認が必要です。"
+        )
+    missing_ir = [item.document_type for item in ir_items if item.availability != "found"]
+    if missing_ir:
+        notes.append(
+            "追加確認する資料: "
+            f"{'、'.join(missing_ir[:5])}を公式IRまたはTDnetで確認してください。"
+        )
+    if news_items:
+        notes.append("最新ニュース: ニュースは事業・業績への影響を公式IRと合わせて確認します。")
+    elif not news_items:
+        notes.append("最新ニュース: 業績や事業に直接影響しそうなニュースは確認できていません。")
+    for gap in insight.confirmation_gaps[:2]:
+        notes.append(f"注意して読む情報: {_clip_text(gap, max_chars=110)}")
+    return _unique_text(notes)[:6]
+
+
+def _company_research_missing_critical_items(
+    overview: CompanyOverviewSummary,
+    quantitative: QuantitativeSummary,
+    ir_items: Sequence[IRSummaryItem],
+    news_items: Sequence[NewsSummaryItem],
+) -> list[str]:
+    items: list[str] = []
+    if overview.evidence_level == "missing":
+        items.append("企業概要")
+    if not news_items:
+        items.append("直近ニュース")
+    items.extend(quantitative.missing_items[:8])
+    items.extend(item.document_type for item in ir_items if item.availability != "found")
+    return _unique_text(items)[:12]
+
+
+def _company_research_scale_summary(brief: ResearchBrief) -> str:
+    metrics = {metric.key: metric for metric in brief.metrics}
+    scale_parts = []
+    if "market_cap" in metrics:
+        scale_parts.append(f"時価総額 {metrics['market_cap'].value}")
+    if "revenue" in metrics:
+        scale_parts.append(f"売上高 {metrics['revenue'].value}")
+    if "operating_income" in metrics:
+        scale_parts.append(f"営業利益 {metrics['operating_income'].value}")
+    if scale_parts:
+        return f"確認できた規模情報は{'、'.join(scale_parts)}です。"
+    return "売上高・利益・時価総額などの規模情報が不足しているため、定量的な把握には追加確認が必要です。"
+
+
+def _company_research_recent_focus(
+    recent_items: Sequence[ResearchFactItem],
+    *,
+    news_report: StockNewsReport | None,
+) -> str:
+    if news_report is not None and news_report.news:
+        lead = news_report.news[0]
+        return (
+            f"直近ニュースとして「{_clip_text(lead.title, max_chars=72)}」を確認しています。"
+            "業績影響は公式IRで裏取りしてください。"
+        )
+    if recent_items:
+        return _clip_text(recent_items[0].value, max_chars=150)
+    return "直近ニュースやTDnet情報から確認できる注目点はまだ限定的です。"
+
+
+def _company_research_metric_value(
+    metrics: Mapping[ResearchMetricKey, ResearchMetric],
+    key: ResearchMetricKey,
+) -> str | None:
+    metric = metrics.get(key)
+    return metric.value if metric is not None else None
+
+
+def _company_research_ir_item_for_spec(
+    *,
+    document_type: str,
+    source_types: Sequence[ResearchSourceType],
+    keywords: Sequence[str],
+    report: CompanyResearchReport,
+    brief: ResearchBrief,
+    cards: Sequence[ResearchBriefSourceCard],
+) -> IRSummaryItem:
+    matched_cards = [
+        card
+        for card in cards
+        if card.source_type in source_types
+        or _company_research_keyword_match(card.title, keywords)
+        or _company_research_keyword_match(card.note, keywords)
+    ]
+    matched_card = next(
+        (card for card in matched_cards if card.source_url),
+        matched_cards[0] if matched_cards else None,
+    )
+    matched_evidence = next(
+        (
+            row
+            for row in report.evidence
+            if row.source_type in source_types
+            or _company_research_keyword_match(_research_brief_evidence_text(row), keywords)
+        ),
+        None,
+    )
+    key_points = _company_research_ir_key_points(document_type, brief)
+    if matched_card is not None:
+        return IRSummaryItem(
+            document_type=document_type,
+            title="取得済み",
+            availability="found",
+            summary=_company_research_ir_summary(document_type, key_points),
+            key_points=key_points,
+            source_title=matched_card.title,
+            source_url=matched_card.source_url,
+            evidence_level=_company_research_evidence_level_from_source_types(
+                [matched_card.source_type]
+            ),
+        )
+    if matched_evidence is not None:
+        return IRSummaryItem(
+            document_type=document_type,
+            title="取得済み",
+            availability="found",
+            summary=_company_research_ir_summary(document_type, key_points),
+            key_points=key_points,
+            source_title=matched_evidence.title,
+            evidence_level=_company_research_evidence_level_from_source_types(
+                [matched_evidence.source_type]
+            ),
+        )
+    return IRSummaryItem(
+        document_type=document_type,
+        title="未取得",
+        availability="missing",
+        summary=f"{document_type}は未取得です。公式IR、TDnet、EDINETで追加確認してください。",
+        key_points=[],
+        evidence_level="missing",
+    )
+
+
+def _company_research_ir_key_points(
+    document_type: str,
+    brief: ResearchBrief,
+) -> list[str]:
+    fact_summary = brief.fact_summary
+    if fact_summary is None:
+        return []
+    if document_type in {"決算短信", "決算説明資料"}:
+        return [item.value for item in fact_summary.earnings_outlook[:3]]
+    if document_type == "配当・自社株買い":
+        return [item.value for item in fact_summary.shareholder_return_policy[:3]]
+    if document_type == "適時開示":
+        return [item.value for item in fact_summary.recent_events if item.source_type == "tdnet"][
+            :3
+        ]
+    return []
+
+
+def _company_research_ir_summary(
+    document_type: str,
+    key_points: Sequence[str],
+) -> str:
+    if key_points:
+        return f"{document_type}から確認できる要点があります。"
+    return f"{document_type}の出典は確認できています。詳細は出典カードで確認してください。"
+
+
+def _company_research_news_impact_hint(
+    viewpoint: StockNewsInvestmentViewpoint,
+) -> Literal["business", "financial", "market", "governance", "unknown"]:
+    labels: dict[
+        StockNewsInvestmentViewpoint,
+        Literal["business", "financial", "market", "governance", "unknown"],
+    ] = {
+        "earnings": "financial",
+        "growth": "business",
+        "shareholder_return": "financial",
+        "risk": "business",
+        "macro": "market",
+        "other": "unknown",
+    }
+    return labels.get(viewpoint, "unknown")
+
+
+def _company_research_values(
+    items: Sequence[ResearchFactItem],
+    *,
+    limit: int,
+) -> list[str]:
+    values: list[str] = []
+    for item in items:
+        values.extend(part.strip() for part in item.value.split("、") if part.strip())
+    return _unique_text(values)[:limit]
+
+
+def _company_research_keyword_match(text: str, keywords: Sequence[str]) -> bool:
+    lowered = text.lower()
+    return any(keyword.lower() in lowered for keyword in keywords)
+
+
+def _company_research_evidence_level_from_source_types(
+    source_types: Sequence[ResearchSourceType | str],
+) -> ResearchEvidenceLevel:
+    cleaned = [str(source_type) for source_type in source_types if str(source_type).strip()]
+    if not cleaned:
+        return "missing"
+    if any(source_type in _RESEARCH_BRIEF_HIGH_CONFIDENCE_SOURCES for source_type in cleaned):
+        return "high"
+    if any(source_type == "provider_profile" for source_type in cleaned):
+        return "medium"
+    if any(source_type in {"news", "user_note"} for source_type in cleaned):
+        return "low"
+    return "low"
+
+
+def _unique_company_news_items(
+    items: Sequence[NewsSummaryItem],
+) -> list[NewsSummaryItem]:
+    unique: list[NewsSummaryItem] = []
+    seen: set[tuple[str, str, str | None]] = set()
+    for item in items:
+        key = (item.title, item.summary, item.source_url)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+    return unique
+
+
 _INVESTMENT_INSIGHT_POSITIVE_KEYWORDS: tuple[tuple[str, tuple[str, ...], str], ...] = (
     (
         "業績改善",
@@ -5334,8 +5930,8 @@ def _investment_question_key_takeaway(
         source_titles.extend(entry.title for entry in external_research_result.entries[:2])
 
     key_gap = _investment_question_key_gap(brief, insight)
-    status = insight.status_label
-    action = insight.primary_action_label
+    status = getattr(insight, "status_label", "判断材料不足")
+    action = getattr(insight, "primary_action_label", "資料追加が必要")
     if source_types:
         answer = (
             f"現時点では、{key_gap}を優先して確認することが最重要です。"

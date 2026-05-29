@@ -84,6 +84,7 @@ Implemented or mostly implemented:
 - JSON / CSV / Markdown / manifest / ZIP exports for implemented workflows.
 - Decision Report context v1 in `backend/reporting` for reusing cockpit / ranking / rebalance outputs in local reports.
 - `tools/run_black_check.py` as the routine Black check path for the Windows environment.
+- Windows pre-release EXE packaging slice: PyInstaller `onedir` launcher/spec/build script, `README_PRE_RELEASE.txt`, whitelist-based bundled data, and `%LOCALAPPDATA%\SmartMarketAI` runtime cache / outputs / logs / user config.
 
 Partial or intentionally deferred:
 

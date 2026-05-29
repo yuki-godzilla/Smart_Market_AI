@@ -1,0 +1,2 @@
+# === build-only ===
+pyinstaller==6.20.0

@@ -183,6 +183,25 @@ CSV sample は `data/marketdata/` 配下にあります。
 .\venv_SMAI\Scripts\python.exe -m streamlit run .\ui\app.py
 ```
 
+### プレ配布EXE
+
+Windows向けプレ配布は PyInstaller の `onedir` 形式で作成します。
+開発環境がないPCでの起動確認用であり、onefile化、インストーラー化、署名、自動アップデートは対象外です。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe -m pip install -r setup\requirements-build.txt
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\build_exe.ps1
+```
+
+成果物:
+
+```text
+dist\SMAI\SMAI.exe
+dist\SMAI\README_PRE_RELEASE.txt
+```
+
+`SMAI.exe` は `ui/app.py` を Streamlit headless で起動し、実行時キャッシュ、出力、ログ、ユーザー設定を `%LOCALAPPDATA%\SmartMarketAI` に保存します。配布物には `backend/`, `ui/`, `config/`, 必要最小限の `data/marketdata/`, `data/research_docs/`, `examples/rebalance_scenarios/` を同梱し、`.git/`, `venv_SMAI/`, cache、`outputs/`, live/raw取得物、秘密情報は含めません。
+
 ### Side menu
 
 Streamlit UI は左サイドメニューで画面を切り替えます。

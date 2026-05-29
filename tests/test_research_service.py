@@ -841,6 +841,53 @@ def test_etf_research_summary_builder_maps_extended_provider_fields_and_non_equi
     assert "基準価額 / NAV" not in summary.missing_items
 
 
+def test_etf_research_summary_builder_adds_asset_specific_missing_guidance():
+    provider_evidence = ResearchEvidence(
+        symbol="BND",
+        document_id="doc-etf-bond-missing",
+        chunk_id="chunk-etf-bond-missing",
+        title="BND Provider Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Vanguard Total Bond Market Index Fund\n"
+            "Quote Type: ETF\n"
+            "Category: Total Bond Market\n"
+            "Asset Category: Bond\n"
+            "Dividend Yield: 3.9%\n"
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    report = CompanyResearchReport(
+        symbol="BND",
+        as_of=date(2026, 5, 25),
+        summary="ETF profile.",
+        points=[],
+        evidence=[provider_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    summary = ETFResearchSummaryBuilder().build(report)
+
+    assert summary.asset_class == "債券"
+    assert "経費率" in summary.missing_items
+    assert "上位保有銘柄" in summary.missing_items
+    assert any("債券ETFとして" in note for note in summary.risk_notes)
+    assert any("経費率は未取得" in note for note in summary.risk_notes)
+    assert any("上位保有銘柄は未取得" in note for note in summary.risk_notes)
+    dumped = str(summary.model_dump(mode="json"))
+    assert "決算短信" not in dumped
+    assert "有価証券報告書" not in dumped
+
+
 def test_company_research_summary_builder_maps_provider_quantitative_fields():
     provider_evidence = ResearchEvidence(
         symbol="7203.T",
@@ -927,6 +974,49 @@ def test_company_research_summary_builder_compacts_large_usd_quantitative_fields
     )
     report = CompanyResearchReport(
         symbol="MSFT",
+        as_of=date(2026, 5, 25),
+        summary="Research summary.",
+        points=[],
+        evidence=[provider_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    summary = CompanyResearchSummaryBuilder().build(report)
+
+    assert summary.quantitative.market_cap == "1.66T USD"
+    assert summary.quantitative.enterprise_value == "1.63T USD"
+    assert summary.quantitative.revenue == "97.88B USD"
+    assert summary.quantitative.net_income == "3.86B USD"
+
+
+def test_company_research_summary_builder_preserves_compact_usd_metric_suffixes():
+    provider_evidence = ResearchEvidence(
+        symbol="TSLA",
+        document_id="doc-profile-compact-usd",
+        chunk_id="chunk-profile-compact-usd",
+        title="Tesla Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Tesla, Inc\n"
+            "Currency: USD\n"
+            "Market Cap: 1.66T USD\n"
+            "Enterprise Value: 1.63T USD\n"
+            "Total Revenue: 97.88B USD\n"
+            "Net Income To Common: 3.86B USD\n"
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    report = CompanyResearchReport(
+        symbol="TSLA",
         as_of=date(2026, 5, 25),
         summary="Research summary.",
         points=[],
@@ -1363,6 +1453,186 @@ def test_company_research_summary_builder_prioritizes_financial_sector_over_soft
     assert "ソフトウェア・クラウド" not in profile.main_businesses
     assert "銀行サービス" in profile.products_services
     assert "融資・クレジット" in profile.products_services
+
+
+def test_company_research_summary_builder_weights_auto_retail_and_payment_contexts():
+    tesla_evidence = ResearchEvidence(
+        symbol="TSLA",
+        document_id="doc-tesla",
+        chunk_id="chunk-tesla",
+        title="Tesla Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Tesla, Inc\n"
+            "Sector: Consumer Cyclical\n"
+            "Industry: Auto Manufacturers\n"
+            "Business Summary: Tesla designs electric vehicles, energy generation "
+            "and storage systems, charging services, vehicle software, leasing, "
+            "insurance, and financing services."
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    retail_evidence = ResearchEvidence(
+        symbol="9983.T",
+        document_id="doc-retail",
+        chunk_id="chunk-retail",
+        title="Fast Retailing Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Fast Retailing Co., Ltd\n"
+            "Sector: Consumer Cyclical\n"
+            "Industry: Apparel Retail\n"
+            "Business Summary: Fast Retailing operates apparel brands, clothing "
+            "retail stores, e-commerce, online sales, and global brand operations."
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    payment_evidence = ResearchEvidence(
+        symbol="V",
+        document_id="doc-visa",
+        chunk_id="chunk-visa",
+        title="Visa Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Visa Inc\n"
+            "Sector: Financial Services\n"
+            "Industry: Credit Services\n"
+            "Business Summary: Visa operates a global card network for payments, "
+            "digital payment transactions, merchant services, settlement, and fraud detection."
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+
+    tesla = CompanyResearchSummaryBuilder().build(
+        CompanyResearchReport(
+            symbol="TSLA",
+            as_of=date(2026, 5, 25),
+            summary="Research summary.",
+            points=[],
+            evidence=[tesla_evidence],
+            data_quality=ResearchDataQuality(
+                status="OK",
+                latest_document_date=date(2026, 5, 24),
+                document_count=1,
+                evidence_count=1,
+                warnings=[],
+            ),
+        )
+    )
+    retail = CompanyResearchSummaryBuilder().build(
+        CompanyResearchReport(
+            symbol="9983.T",
+            as_of=date(2026, 5, 25),
+            summary="Research summary.",
+            points=[],
+            evidence=[retail_evidence],
+            data_quality=ResearchDataQuality(
+                status="OK",
+                latest_document_date=date(2026, 5, 24),
+                document_count=1,
+                evidence_count=1,
+                warnings=[],
+            ),
+        )
+    )
+    payment = CompanyResearchSummaryBuilder().build(
+        CompanyResearchReport(
+            symbol="V",
+            as_of=date(2026, 5, 25),
+            summary="Research summary.",
+            points=[],
+            evidence=[payment_evidence],
+            data_quality=ResearchDataQuality(
+                status="OK",
+                latest_document_date=date(2026, 5, 24),
+                document_count=1,
+                evidence_count=1,
+                warnings=[],
+            ),
+        )
+    )
+
+    tesla_profile = tesla.overview.business_profile
+    retail_profile = retail.overview.business_profile
+    payment_profile = payment.overview.business_profile
+
+    assert tesla_profile is not None
+    assert "自動車事業" in tesla_profile.main_businesses
+    assert "銀行・金融サービス" not in tesla_profile.main_businesses
+    assert "リース" in tesla_profile.supporting_businesses
+    assert "保険" in tesla_profile.supporting_businesses
+    assert "電気自動車" in tesla_profile.products_services
+    assert "蓄電池" in tesla_profile.products_services
+    assert "リース" not in tesla_profile.products_services
+    assert "保険" not in tesla_profile.products_services
+
+    assert retail_profile is not None
+    assert "アパレル小売" in retail_profile.main_businesses
+    assert "小売・EC" in retail_profile.main_businesses
+    assert "ソフトウェア・クラウド" not in retail_profile.main_businesses
+    assert "金融サービス" not in retail_profile.supporting_businesses
+    assert "衣料品" in retail_profile.products_services
+    assert "店舗販売" in retail_profile.products_services
+    assert "オンライン販売" in retail_profile.products_services
+
+    assert payment_profile is not None
+    assert "決済ネットワーク" in payment_profile.main_businesses
+    assert "銀行・金融サービス" not in payment_profile.main_businesses
+    assert "カード決済" in payment_profile.products_services
+    assert "デジタル決済" in payment_profile.products_services
+    assert "加盟店サービス" in payment_profile.products_services
+
+
+def test_company_research_summary_builder_avoids_payment_noise_for_trading_company():
+    provider_evidence = ResearchEvidence(
+        symbol="8058.T",
+        document_id="doc-trading",
+        chunk_id="chunk-trading",
+        title="Mitsubishi Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Mitsubishi Corporation\n"
+            "Sector: Industrials\n"
+            "Industry: Conglomerates\n"
+            "Business Summary: Mitsubishi is a general trading company with energy, "
+            "metals, food, logistics, infrastructure, and transaction-related services."
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    report = CompanyResearchReport(
+        symbol="8058.T",
+        as_of=date(2026, 5, 25),
+        summary="Research summary.",
+        points=[],
+        evidence=[provider_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    summary = CompanyResearchSummaryBuilder().build(report)
+    profile = summary.overview.business_profile
+
+    assert profile is not None
+    assert "総合商社・事業投資" in profile.main_businesses
+    assert "決済ネットワーク" not in profile.main_businesses
+    assert "決済ネットワーク" not in profile.products_services
 
 
 def test_company_research_summary_builder_prioritizes_healthcare_and_energy_sectors():

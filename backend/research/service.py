@@ -2215,6 +2215,10 @@ class ETFResearchSummaryBuilder:
                 top_holdings=top_holdings,
                 benchmark_index=benchmark_index,
                 region_focus=region_focus,
+                asset_class=asset_class,
+                expense_ratio=expense_ratio,
+                aum=aum,
+                nav=nav,
             ),
             news_items=news_items,
             source_titles=source_titles,
@@ -6086,10 +6090,40 @@ def _etf_research_risk_notes(
     top_holdings: Sequence[str],
     benchmark_index: str | None,
     region_focus: str | None,
+    asset_class: str | None,
+    expense_ratio: str | None,
+    aum: str | None,
+    nav: str | None,
 ) -> list[str]:
     notes = []
+    if asset_class == "債券":
+        notes.append(
+            "債券ETFとして、デュレーション、信用格付け、金利感応度、分配金利回りを確認してください。"
+        )
+    elif asset_class == "コモディティ":
+        notes.append(
+            "商品ETFとして、連動対象、裏付け資産、価格変動要因、為替影響を確認してください。"
+        )
+    elif asset_class == "REIT・不動産":
+        notes.append(
+            "REIT ETFとして、対象地域、不動産セクター、分配金、金利影響を確認してください。"
+        )
+    elif asset_class == "株式":
+        notes.append(
+            "株式ETFとして、対象指数、上位保有銘柄、セクター集中度、地域分散、経費率を確認してください。"
+        )
+    if expense_ratio is None:
+        notes.append(
+            "経費率は未取得です。運用会社ページ、目論見書、ETF情報サイトで確認してください。"
+        )
+    if aum is None or nav is None:
+        notes.append(
+            "純資産総額またはNAVは未取得です。運用会社ページまたはETF情報サイトで確認してください。"
+        )
     if not top_holdings:
-        notes.append("上位保有銘柄が未取得のため、集中度や構成の偏りは確認が必要です。")
+        notes.append(
+            "上位保有銘柄は未取得です。運用会社の月次レポートや構成銘柄ページで確認してください。"
+        )
     if not benchmark_index:
         notes.append(
             "ベンチマーク指数が未取得のため、何に連動するETFか運用会社資料で確認してください。"
@@ -6239,13 +6273,24 @@ def _company_research_format_quantitative_value(
 def _company_research_format_money_text(value: str, *, context: str = "") -> str:
     if any(unit in value for unit in ("兆円", "億円", "百万円", "万円", "円")):
         return value
-    match = re.search(r"([+-]?\d[\d,]*(?:\.\d+)?)\s*(JPY|USD)?", value, flags=re.IGNORECASE)
+    match = re.search(
+        r"([+-]?\d[\d,]*(?:\.\d+)?)\s*([TBM])?\s*(JPY|USD)?",
+        value,
+        flags=re.IGNORECASE,
+    )
     if match is None:
         return value
     amount = _external_decimal_value(match.group(1))
     if amount is None:
         return value
-    currency = (match.group(2) or "").upper()
+    suffix = (match.group(2) or "").upper()
+    if suffix == "T":
+        amount *= Decimal("1000000000000")
+    elif suffix == "B":
+        amount *= Decimal("1000000000")
+    elif suffix == "M":
+        amount *= Decimal("1000000")
+    currency = (match.group(3) or "").upper()
     if not currency and _company_research_context_currency(context) == "JPY":
         currency = "JPY"
     if not currency and _company_research_context_currency(context) == "USD":
@@ -6442,7 +6487,8 @@ def _company_research_natural_business_summary(
         or _looks_mostly_english(cleaned)
         or any(label in cleaned for label in _RESEARCH_BRIEF_RAW_PROVIDER_LABELS)
     )
-    business_terms = _unique_text([*main_businesses, *supporting_businesses])[:4]
+    business_terms = _unique_text(main_businesses or supporting_businesses)[:4]
+    support_terms = [item for item in supporting_businesses if item not in business_terms][:3]
     product_terms = [
         item.replace("（補完候補）", "")
         for item in products_services
@@ -6456,6 +6502,9 @@ def _company_research_natural_business_summary(
             if product_terms
             else ""
         )
+        support_phrase = (
+            f"関連事業として{'、'.join(support_terms)}も確認できます。" if support_terms else ""
+        )
         region_phrase = f"地域は{'、'.join(regions[:3])}などで展開しています。" if regions else ""
         confirmation = (
             "ただし、事業別売上や利益構成は未取得のため、公式資料で追加確認が必要です。"
@@ -6464,7 +6513,7 @@ def _company_research_natural_business_summary(
         )
         return _clip_text(
             f"外部プロフィールから、{target_name}は{business_phrase}を展開する企業として確認できます。"
-            f"{product_phrase}{region_phrase}{confirmation}",
+            f"{support_phrase}{product_phrase}{region_phrase}{confirmation}",
             max_chars=280,
         )
     if not cleaned:
@@ -6482,7 +6531,15 @@ def _company_research_business_terms(text: str) -> list[str]:
     specs = (
         (
             "自動車事業",
-            ("自動車", "車両", "vehicle", "vehicles", "automotive", "auto manufacturers", "motor"),
+            (
+                "自動車",
+                "車両",
+                "vehicle",
+                "vehicles",
+                "automotive",
+                "auto manufacturers",
+                "motor",
+            ),
         ),
         (
             "半導体・GPU",
@@ -6537,6 +6594,19 @@ def _company_research_business_terms(text: str) -> list[str]:
                 "enterprise services",
                 "ソフトウェア",
                 "クラウド",
+            ),
+        ),
+        (
+            "決済ネットワーク",
+            (
+                "payment",
+                "payments",
+                "card network",
+                "transaction",
+                "merchant",
+                "fintech",
+                "digital payment",
+                "settlement",
             ),
         ),
         (
@@ -6598,6 +6668,46 @@ def _company_research_business_terms(text: str) -> list[str]:
             ),
         ),
         (
+            "人材・HRサービス",
+            (
+                "human resources",
+                "staffing",
+                "recruitment",
+                "recruiting",
+                "employment",
+                "job matching",
+                "hr technology",
+                "人材",
+                "採用",
+                "求人",
+            ),
+        ),
+        (
+            "総合商社・事業投資",
+            (
+                "trading company",
+                "general trading",
+                "sogo shosha",
+                "conglomerate",
+                "industrial finance",
+                "事業投資",
+                "総合商社",
+            ),
+        ),
+        (
+            "アパレル小売",
+            (
+                "apparel",
+                "fashion",
+                "clothing",
+                "brand",
+                "private label",
+                "SPA",
+                "衣料",
+                "アパレル",
+            ),
+        ),
+        (
             "小売・EC",
             ("retail", "e-commerce", "marketplace", "store", "apparel", "小売", "EC"),
         ),
@@ -6632,6 +6742,14 @@ def _company_research_filter_main_businesses(
     auto_manufacturer_context = _company_research_is_auto_manufacturer_context(lowered)
     software_cloud_context = _company_research_is_software_cloud_context(lowered)
     retail_main_context = _company_research_is_retail_main_context(lowered)
+    payment_context = _company_research_is_payment_context(lowered)
+    hr_context = _company_research_is_hr_services_context(lowered)
+    trading_context = _company_research_is_trading_company_context(lowered)
+    cloud_infra_context = _company_research_is_cloud_infrastructure_context(lowered)
+    bank_context = any(
+        keyword in lowered
+        for keyword in ("bank", "banking", "banks -", "commercial banking", "investment banking")
+    )
     healthcare_context = _company_research_is_healthcare_context(lowered)
     energy_context = _company_research_is_energy_context(lowered)
     telecom_context = _company_research_is_telecom_context(lowered)
@@ -6642,9 +6760,21 @@ def _company_research_filter_main_businesses(
         item
         for item in businesses
         if not (item == "金融サービス" and not finance_main_context)
+        and not (payment_context and not bank_context and item == "金融サービス")
+        and not (item == "銀行・金融サービス" and not finance_main_context)
+        and not (payment_context and not bank_context and item == "銀行・金融サービス")
         and not (not auto_manufacturer_context and item in auto_related_main)
+        and not (auto_manufacturer_context and item == "小売・EC")
+        and not (auto_manufacturer_context and item == "決済ネットワーク")
         and not (item == "小売・EC" and software_cloud_context and not retail_main_context)
+        and not (retail_main_context and item in software_related_main and not cloud_infra_context)
+        and not (retail_main_context and item == "通信サービス")
         and not (finance_main_context and item == "小売・EC")
+        and not (payment_context and not bank_context and item == "銀行・金融サービス")
+        and not (hr_context and item == "通信サービス")
+        and not (
+            trading_context and item in software_related_main | {"小売・EC", "決済ネットワーク"}
+        )
         and not (not healthcare_context and item == "医薬品・ヘルスケア")
         and not (not energy_context and item == "エネルギー")
         and not (not telecom_context and item == "通信サービス")
@@ -6659,6 +6789,8 @@ def _company_research_filter_main_businesses(
     ]
     if "銀行・金融サービス" in filtered:
         filtered = [item for item in filtered if item != "金融サービス"]
+    elif bank_context and finance_main_context:
+        filtered.insert(0, "銀行・金融サービス")
     if "ソフトウェア・クラウド" in filtered:
         filtered = [item for item in filtered if item != "ソフトウェア・サービス"]
     return _unique_text(filtered)[:5]
@@ -6706,11 +6838,93 @@ def _company_research_is_software_cloud_context(lowered_text: str) -> bool:
     )
 
 
+def _company_research_is_cloud_infrastructure_context(lowered_text: str) -> bool:
+    return any(
+        keyword in lowered_text
+        for keyword in (
+            "cloud computing",
+            "cloud infrastructure",
+            "cloud services",
+            "aws",
+            "amazon web services",
+            "azure",
+            "google cloud",
+        )
+    )
+
+
+def _company_research_is_payment_context(lowered_text: str) -> bool:
+    strong_keywords = (
+        "industry: credit services",
+        "card network",
+        "payment network",
+        "payments network",
+        "transaction processing",
+        "merchant services",
+        "digital payment",
+        "settlement network",
+    )
+    if any(keyword in lowered_text for keyword in strong_keywords):
+        return True
+    return "sector: financial" in lowered_text and any(
+        keyword in lowered_text for keyword in ("payment", "payments", "transaction", "merchant")
+    )
+
+
+def _company_research_is_hr_services_context(lowered_text: str) -> bool:
+    return any(
+        keyword in lowered_text
+        for keyword in (
+            "human resources",
+            "staffing",
+            "recruitment",
+            "recruiting",
+            "employment",
+            "job matching",
+            "hr technology",
+            "人材",
+            "採用",
+            "求人",
+        )
+    )
+
+
+def _company_research_is_trading_company_context(lowered_text: str) -> bool:
+    return any(
+        keyword in lowered_text
+        for keyword in (
+            "trading company",
+            "general trading",
+            "sogo shosha",
+            "conglomerate",
+            "事業投資",
+            "総合商社",
+        )
+    )
+
+
+def _company_research_is_apparel_retail_context(lowered_text: str) -> bool:
+    return any(
+        keyword in lowered_text
+        for keyword in (
+            "apparel",
+            "fashion",
+            "clothing",
+            "private label",
+            "specialty retail",
+            "衣料",
+            "アパレル",
+        )
+    )
+
+
 def _company_research_is_retail_main_context(lowered_text: str) -> bool:
     return any(
         keyword in lowered_text
         for keyword in (
             "industry: internet retail",
+            "industry: apparel retail",
+            "industry: specialty retail",
             "sector: consumer cyclical",
             "retail trade",
             "retailer",
@@ -6801,7 +7015,18 @@ def _company_research_filter_supporting_businesses(
         or "銀行" in lowered
         or "証券" in lowered
     )
+    auto_manufacturer_context = _company_research_is_auto_manufacturer_context(lowered)
+    retail_main_context = _company_research_is_retail_main_context(lowered)
+    cloud_infra_context = _company_research_is_cloud_infrastructure_context(lowered)
     filtered = list(businesses)
+    if auto_manufacturer_context:
+        filtered = [item for item in filtered if item != "資産運用"]
+    if retail_main_context and not cloud_infra_context and not auto_manufacturer_context:
+        filtered = [
+            item
+            for item in filtered
+            if item not in {"金融サービス", "リース", "保険", "資産運用", "ソフトウェア"}
+        ]
     if _company_research_is_healthcare_context(lowered):
         filtered = [
             item
@@ -6816,12 +7041,18 @@ def _company_research_filter_supporting_businesses(
         ]
     if _company_research_is_telecom_context(lowered):
         filtered = [item for item in filtered if item not in {"金融サービス", "保険", "資産運用"}]
-    if _company_research_is_software_cloud_context(lowered) and not finance_main_context:
+    if (
+        _company_research_is_software_cloud_context(lowered)
+        and not finance_main_context
+        and not auto_manufacturer_context
+    ):
         filtered = [
             item
             for item in filtered
             if item not in {"金融サービス", "保険", "資産運用", "リース", "ソフトウェア"}
         ]
+    if "決済ネットワーク" in main_set:
+        filtered = [item for item in filtered if item not in {"金融サービス", "資産運用"}]
     if "銀行・金融サービス" in main_set or "金融サービス" in main_set:
         filtered = [item for item in filtered if item != "ソフトウェア"]
     return _unique_text(filtered)[:5]
@@ -6830,17 +7061,43 @@ def _company_research_filter_supporting_businesses(
 def _company_research_products_services(text: str) -> list[str]:
     lowered = text.lower()
     specs = (
+        ("電気自動車", ("electric vehicle", "electric vehicles", "evs", "EV", "電気自動車")),
         ("自動車", ("automobile", "automotive", "自動車")),
         ("商用車", ("commercial vehicle", "commercial vehicles", "商用車")),
         ("車両", ("vehicle", "vehicles", "車両")),
+        ("蓄電池", ("battery", "batteries", "energy storage", "storage systems", "蓄電池")),
+        ("充電サービス", ("charging", "supercharger", "充電")),
+        (
+            "車載ソフトウェア",
+            ("autopilot", "full self-driving", "vehicle software", "車載ソフトウェア"),
+        ),
         ("部品", ("parts", "components", "部品")),
         ("保守・整備", ("maintenance", "repair", "after-sales", "aftersales", "保守", "整備")),
         ("金融サービス", ("financial services", "金融")),
         ("リース", ("lease", "leasing", "リース")),
         ("モビリティサービス", ("mobility service", "mobility services", "モビリティサービス")),
         ("ソフトウェアサービス", ("software", "ソフトウェア")),
+        (
+            "クラウドサービス",
+            ("cloud service", "cloud services", "cloud computing", "aws", "azure"),
+        ),
+        (
+            "求人・採用サービス",
+            ("recruitment", "recruiting", "employment", "job matching", "求人", "採用"),
+        ),
+        ("HRプラットフォーム", ("human resources", "hr technology", "staffing", "HR", "人材")),
+        ("衣料品", ("apparel", "fashion", "clothing", "garment", "衣料", "アパレル")),
+        ("店舗販売", ("store", "stores", "retail store", "店舗")),
+        ("オンライン販売", ("e-commerce", "online sales", "online store", "EC")),
+        ("ブランド運営", ("brand", "brands", "private label", "ブランド")),
+        ("マーケットプレイスサービス", ("marketplace", "マーケットプレイス")),
         ("金融商品", ("financial products", "金融商品")),
         ("決済", ("payment", "payments", "決済")),
+        ("カード決済", ("card payment", "card payments", "card network")),
+        ("デジタル決済", ("digital payment", "digital payments")),
+        ("決済ネットワーク", ("card network", "transaction", "merchant", "settlement")),
+        ("加盟店サービス", ("merchant services", "加盟店")),
+        ("不正検知", ("fraud", "fraud detection", "不正検知")),
         ("保険", ("insurance", "保険")),
         ("資産運用", ("asset management", "資産運用")),
         ("銀行サービス", ("banking", "commercial bank", "銀行")),
@@ -6871,7 +7128,53 @@ def _company_research_products_services(text: str) -> list[str]:
     if _company_research_is_semiconductor_context(
         lowered
     ) and not _company_research_is_auto_manufacturer_context(lowered):
-        products = [item for item in products if item not in {"自動車", "商用車", "車両"}]
+        products = [
+            item for item in products if item not in {"電気自動車", "自動車", "商用車", "車両"}
+        ]
+    if _company_research_is_auto_manufacturer_context(lowered) and any(
+        keyword in lowered for keyword in ("electric vehicle", "electric vehicles", "evs")
+    ):
+        products = [
+            item
+            for item in products
+            if item not in {"金融サービス", "金融商品", "リース", "保険", "融資・クレジット"}
+        ]
+    if (
+        _company_research_is_retail_main_context(lowered)
+        and not _company_research_is_cloud_infrastructure_context(lowered)
+        and not _company_research_is_auto_manufacturer_context(lowered)
+    ):
+        products = [
+            item
+            for item in products
+            if item
+            not in {
+                "金融サービス",
+                "金融商品",
+                "リース",
+                "保険",
+                "資産運用",
+                "通信サービス",
+                "ブロードバンド",
+            }
+        ]
+    if _company_research_is_payment_context(lowered) and not any(
+        keyword in lowered for keyword in ("bank", "banking", "banks -")
+    ):
+        products = [
+            item
+            for item in products
+            if item
+            not in {
+                "金融サービス",
+                "金融商品",
+                "オンライン販売",
+                "融資・クレジット",
+                "資産運用",
+            }
+        ]
+    if _company_research_is_trading_company_context(lowered):
+        products = [item for item in products if item not in {"決済", "決済ネットワーク"}]
     if _company_research_is_healthcare_context(lowered):
         products = [
             item
@@ -6930,6 +7233,10 @@ def _company_research_inferred_products_services(
             ("自動車", "商用車", "部品", "金融サービス", "モビリティ関連サービス"),
         ),
         (
+            ("electric vehicle", "energy storage", "charging", "auto manufacturers"),
+            ("電気自動車", "蓄電池", "充電サービス", "車載ソフトウェア"),
+        ),
+        (
             (
                 "healthcare",
                 "pharmaceutical",
@@ -6947,6 +7254,22 @@ def _company_research_inferred_products_services(
         (
             ("telecom", "telecommunications", "wireless", "broadband", "通信サービス"),
             ("通信サービス", "ブロードバンド"),
+        ),
+        (
+            ("payment", "payments", "card network", "transaction", "merchant", "決済ネットワーク"),
+            ("カード決済", "デジタル決済", "決済ネットワーク", "加盟店サービス", "不正検知"),
+        ),
+        (
+            ("human resources", "staffing", "recruitment", "employment", "人材・HRサービス"),
+            ("求人・採用サービス", "人材紹介", "HRプラットフォーム"),
+        ),
+        (
+            ("apparel", "fashion", "clothing", "retail", "アパレル小売", "小売・EC"),
+            ("衣料品", "店舗販売", "オンライン販売", "ブランド運営"),
+        ),
+        (
+            ("trading company", "general trading", "sogo shosha", "総合商社・事業投資"),
+            ("資源・エネルギー", "金属", "食品", "物流", "インフラ事業"),
         ),
         (
             ("software", "cloud", "saas", "platform", "ソフトウェア・クラウド"),
@@ -7027,7 +7350,7 @@ def _company_research_metric_from_evidence(
 
 
 def _company_research_metric_text_value(text: str, patterns: Sequence[str]) -> str | None:
-    unit_pattern = r"(?:兆円|億円|百万円|万円|円|人|名|employees|JPY|USD|%|％|倍)?"
+    unit_pattern = r"(?:(?:[TBM]\s*)?(?:JPY|USD)|兆円|億円|百万円|万円|円|人|名|employees|%|％|倍)?"
     for pattern in patterns:
         match = re.search(
             rf"(?:{pattern})\s*(?:[:：=は])?\s*([+-]?\d[\d,]*(?:\.\d+)?\s*{unit_pattern})",

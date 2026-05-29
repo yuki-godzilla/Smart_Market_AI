@@ -20,6 +20,7 @@ from backend.research import (
     InvestmentInsightBuilder,
     InvestmentQuestionSummaryBuilder,
     ResearchAnalysisService,
+    ResearchBrief,
     ResearchBriefBuilder,
     ResearchChunk,
     ResearchDataQuality,
@@ -36,6 +37,7 @@ from backend.research import (
     ResearchIngestionService,
     ResearchInMemoryStore,
     ResearchInMemoryVectorStore,
+    ResearchMetric,
     ResearchPageViewModelBuilder,
     ResearchQueryExpansionService,
     ResearchRetrievalCandidate,
@@ -723,8 +725,8 @@ def test_etf_research_summary_builder_maps_fund_fields_without_company_ir_requir
         published_at=date(2026, 5, 24),
         section_title="Profile",
         excerpt=(
-            "Quote Type: ETF\n"
-            "Fund Name: SPDR S&P 500 ETF Trust\n"
+            "Company Name: SPDR S&P 500 ETF Trust Provider Symbol: SPY "
+            "Quote Type: ETF Exchange: PCX Currency: USD Website: https://example.com\n"
             "Fund Family: State Street\n"
             "Currency: USD\n"
             "Benchmark: S&P 500\n"
@@ -733,8 +735,8 @@ def test_etf_research_summary_builder_maps_fund_fields_without_company_ir_requir
             "Dividend Yield: 1.2%\n"
             "AUM: 500,000,000,000 USD\n"
             "NAV: 540.25 USD\n"
-            "PER: 22.5\n"
-            "PBR: 4.1\n"
+            "Trailing PE: 22.5\n"
+            "Price To Book: 4.1\n"
             "Top Holdings: Apple, Microsoft, NVIDIA, Amazon\n"
         ),
         relevance_score=Decimal("0.72"),
@@ -772,6 +774,9 @@ def test_etf_research_summary_builder_maps_fund_fields_without_company_ir_requir
     assert summary.per == "22.5倍"
     assert summary.pbr == "4.1倍"
     assert summary.top_holdings[:3] == ["Apple", "Microsoft", "NVIDIA"]
+    assert "Provider Symbol" not in summary.fund_name
+    assert "Quote Type" not in summary.fund_overview
+    assert "Website:" not in summary.fund_overview
     assert "経費率" not in summary.missing_items
     assert "上位保有銘柄" not in summary.missing_items
     dumped = str(summary.model_dump(mode="json"))
@@ -911,6 +916,75 @@ def test_company_research_summary_builder_maps_provider_camel_case_quantitative_
         "配当利回り",
         "従業員数",
     }.intersection(summary.quantitative.missing_items)
+
+
+def test_company_research_summary_builder_prefers_context_metric_value_over_truncated_metric():
+    provider_evidence = ResearchEvidence(
+        symbol="6758.T",
+        document_id="doc-profile",
+        chunk_id="chunk-profile",
+        title="Sony Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Sony Group Corporation Currency: JPY "
+            "Market Cap: 20.25兆円 Enterprise Value: 20.24兆円 "
+            "Total Revenue: 12.48兆円 Net Income To Common: 1.03兆円 "
+            "Trailing EPS: 171.51円 Trailing PE: 19.99倍 "
+            "Price To Book: 2.49倍 Return On Equity: 12.37% "
+            "Dividend Yield: 1.01% Full Time Employees: 113,000 人"
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    report = CompanyResearchReport(
+        symbol="6758.T",
+        as_of=date(2026, 5, 25),
+        summary="Research summary.",
+        points=[],
+        evidence=[provider_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+    brief = ResearchBrief(
+        symbol="6758.T",
+        as_of=date(2026, 5, 25),
+        memo="Provider metrics.",
+        metrics=[
+            ResearchMetric(
+                key="market_cap",
+                label="時価総額",
+                value="20",
+                source_title="Sony Yahoo Finance Profile",
+                source_type="provider_profile",
+            ),
+            ResearchMetric(
+                key="per",
+                label="PER",
+                value="19",
+                source_title="Sony Yahoo Finance Profile",
+                source_type="provider_profile",
+            ),
+        ],
+        missing_metrics=[],
+        business_overview="Sony provider profile.",
+    )
+
+    summary = CompanyResearchSummaryBuilder().build(report, brief=brief)
+
+    assert summary.quantitative.market_cap == "20.25兆円"
+    assert summary.quantitative.per == "19.99倍"
+    assert summary.quantitative.pbr == "2.49倍"
+    assert summary.quantitative.roe == "12.37%"
+    assert summary.quantitative.dividend_yield == "1.01%"
+    assert "時価総額" not in summary.quantitative.missing_items
+    assert "PER" not in summary.quantitative.missing_items
 
 
 def test_company_research_summary_builder_keeps_zero_metrics_and_ignores_empty_values():
@@ -1053,6 +1127,98 @@ def test_company_research_summary_builder_normalizes_business_profile_without_ne
     assert "Toyota launches battery product" not in profile.business_summary
     assert profile.business_summary.startswith("外部プロフィールから、Toyota Motor Corporationは")
     assert "事業別売上や利益構成" in profile.business_summary
+
+
+def test_company_research_summary_builder_prioritizes_semiconductor_business_context():
+    provider_evidence = ResearchEvidence(
+        symbol="NVDA",
+        document_id="doc-profile",
+        chunk_id="chunk-profile",
+        title="NVIDIA Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: NVIDIA Corporation\n"
+            "Sector: Technology\n"
+            "Industry: Semiconductors\n"
+            "Business Summary: NVIDIA operates as a data center scale AI infrastructure "
+            "company. It provides GPUs, accelerated computing platforms, networking "
+            "products, gaming graphics, and automotive platforms worldwide."
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    report = CompanyResearchReport(
+        symbol="NVDA",
+        as_of=date(2026, 5, 25),
+        summary="Research summary.",
+        points=[],
+        evidence=[provider_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    summary = CompanyResearchSummaryBuilder().build(report)
+    profile = summary.overview.business_profile
+
+    assert profile is not None
+    assert "半導体・GPU" in profile.main_businesses
+    assert "AI・データセンター" in profile.main_businesses
+    assert "自動車事業" not in profile.main_businesses
+    assert "モビリティ事業" not in profile.main_businesses
+    assert "GPU" in profile.products_services
+    assert "AIインフラ" in profile.products_services
+    assert "半導体・GPU" in summary.overview.business_overview
+
+
+def test_company_research_summary_builder_prioritizes_software_cloud_over_retail_noise():
+    provider_evidence = ResearchEvidence(
+        symbol="MSFT",
+        document_id="doc-profile",
+        chunk_id="chunk-profile",
+        title="Microsoft Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Microsoft Corporation\n"
+            "Sector: Technology\n"
+            "Industry: Software - Infrastructure\n"
+            "Business Summary: Microsoft develops software, cloud platforms, Azure, "
+            "productivity services, devices, and retail customer solutions worldwide."
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    report = CompanyResearchReport(
+        symbol="MSFT",
+        as_of=date(2026, 5, 25),
+        summary="Research summary.",
+        points=[],
+        evidence=[provider_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    summary = CompanyResearchSummaryBuilder().build(report)
+    profile = summary.overview.business_profile
+
+    assert profile is not None
+    assert "ソフトウェア・クラウド" in profile.main_businesses
+    assert "小売・EC" not in profile.main_businesses
+    assert "ソフトウェアサービス" in profile.products_services
+    assert "ソフトウェア・クラウド" in summary.overview.business_overview
 
 
 def test_company_research_summary_builder_adds_safe_product_candidates_when_missing():
@@ -2183,6 +2349,39 @@ def test_yahoo_finance_research_adapter_builds_profile_and_news_payloads_without
     assert payloads[1].source_url == "https://finance.yahoo.com/news/toyota-guidance"
     assert payloads[1].published_at == date(2026, 5, 25)
     assert "revenue growth" in payloads[1].content
+
+
+def test_yahoo_finance_research_adapter_keeps_percent_style_dividend_yield_readable():
+    class PercentDividendTicker:
+        def get_info(self) -> dict[str, object]:
+            return {
+                "longName": "Microsoft Corporation",
+                "symbol": "MSFT",
+                "quoteType": "EQUITY",
+                "exchange": "NMS",
+                "currency": "USD",
+                "dividendYield": 0.85,
+                "longBusinessSummary": "Microsoft provides software and cloud services.",
+            }
+
+        @property
+        def news(self) -> list[dict[str, object]]:
+            return []
+
+    adapter = YahooFinanceResearchAdapter(ticker_factory=lambda symbol: PercentDividendTicker())
+
+    payloads = adapter.fetch_sources(
+        ExternalResearchFetchRequest(
+            symbol="MSFT",
+            provider="yahoo_finance",
+            as_of=date(2026, 5, 25),
+            allow_network=True,
+        )
+    )
+
+    assert [payload.source_type for payload in payloads] == ["provider_profile"]
+    assert "Dividend Yield: 0.85%" in payloads[0].content
+    assert "Dividend Yield: 85%" not in payloads[0].content
 
 
 def test_tdnet_research_adapter_builds_disclosure_payloads_without_live_call():

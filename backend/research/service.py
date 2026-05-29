@@ -2107,8 +2107,16 @@ class ETFResearchSummaryBuilder:
             text,
             (r"NAV", r"nav price", r"navPrice", r"基準価額"),
         )
-        per = _etf_research_metric_value("per", text, (r"PER", r"trailingPE", r"forwardPE"))
-        pbr = _etf_research_metric_value("pbr", text, (r"PBR", r"priceToBook"))
+        per = _etf_research_metric_value(
+            "per",
+            text,
+            (r"PER", r"trailing PE", r"forward PE", r"trailingPE", r"forwardPE"),
+        )
+        pbr = _etf_research_metric_value(
+            "pbr",
+            text,
+            (r"PBR", r"price[- ]to[- ]book", r"priceToBook"),
+        )
         source_titles = _unique_text(
             [
                 *[row.title for row in report.evidence if row.source_type == "provider_profile"],
@@ -2604,7 +2612,7 @@ class ExternalResearchFetchService:
                     freshness_status=freshness_status,
                     document_id=document.document_id,
                     retention_policy="archive" if self.persist_payloads else "session",
-                    content_summary=_excerpt(payload.content, max_chars=180),
+                    content_summary=_external_research_content_summary(payload),
                     local_path=str(path) if path is not None else None,
                     document_hash=document.document_hash if self.persist_payloads else None,
                 )
@@ -2939,6 +2947,11 @@ def _external_payload_content_digest(payload: ExternalResearchSourcePayload) -> 
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:16]
 
 
+def _external_research_content_summary(payload: ExternalResearchSourcePayload) -> str:
+    max_chars = 1800 if payload.source_type == "provider_profile" else 360
+    return _excerpt(payload.content, max_chars=max_chars)
+
+
 def _ticker_info(ticker: Any) -> dict[str, Any]:
     getter = getattr(ticker, "get_info", None)
     try:
@@ -3187,7 +3200,14 @@ def _external_profile_field_value(key: str, value: object, *, currency: str) -> 
         return _format_external_per_share(numeric_value, currency=currency)
     if key in {"trailingPE", "forwardPE", "priceToBook"}:
         return f"{_format_external_decimal(numeric_value)}倍"
-    if key in {"returnOnEquity", "dividendYield", "payoutRatio"}:
+    if key == "dividendYield":
+        percentage = (
+            numeric_value * Decimal("100")
+            if abs(numeric_value) <= Decimal("0.2")
+            else numeric_value
+        )
+        return f"{_format_external_decimal(percentage)}%"
+    if key in {"returnOnEquity", "payoutRatio"}:
         percentage = numeric_value * Decimal("100") if abs(numeric_value) <= 1 else numeric_value
         return f"{_format_external_decimal(percentage)}%"
     return _format_external_decimal(numeric_value)
@@ -5705,18 +5725,63 @@ def _security_research_detection_text(
 
 
 def _security_research_metadata_value(text: str, *field_names: str) -> str:
+    stop_labels = "|".join(
+        re.escape(label)
+        for label in (
+            *_RESEARCH_BRIEF_RAW_PROVIDER_LABELS,
+            "Fund Name",
+            "Fund Family",
+            "Asset Category",
+            "Benchmark",
+            "Expense Ratio",
+            "AUM",
+            "NAV",
+            "Top Holdings",
+            "Holdings",
+            "Description",
+            "Fund Objective",
+        )
+    )
     for field_name in field_names:
         escaped = re.escape(field_name)
+        pattern = (
+            rf"(?:^|\n|\b){escaped}\s*[:：]\s*" rf"(.*?)(?=\s+(?:{stop_labels})\s*[:：]|[\n\r,;]|$)"
+        )
         match = re.search(
-            rf"(?:^|\n|\b){escaped}\s*[:：]\s*([^\n\r,;]+)",
+            pattern,
             text,
             flags=re.IGNORECASE,
         )
         if match:
-            value = re.sub(r"\s+", " ", match.group(1)).strip(" .。")
+            value = _security_research_clean_metadata_value(match.group(1))
             if value:
                 return value
     return ""
+
+
+def _security_research_clean_metadata_value(value: str) -> str:
+    cleaned = re.sub(r"\s+", " ", value).strip(" .。")
+    for label in (
+        *_RESEARCH_BRIEF_RAW_PROVIDER_LABELS,
+        "Fund Name",
+        "Fund Family",
+        "Asset Category",
+        "Benchmark",
+        "Expense Ratio",
+        "AUM",
+        "NAV",
+        "Top Holdings",
+        "Holdings",
+        "Description",
+        "Fund Objective",
+    ):
+        cleaned = re.sub(
+            rf"\s*\b{re.escape(label)}\s*[:：].*$",
+            "",
+            cleaned,
+            flags=re.IGNORECASE,
+        ).strip(" .。")
+    return _clip_text(_research_user_facing_text(cleaned), max_chars=120)
 
 
 def _security_research_exchange_is_domestic(exchange: str) -> bool:
@@ -5982,10 +6047,14 @@ def _company_research_quantitative_field_value(
         metric = metrics.get(metric_key)
         if metric is not None:
             context = _company_research_metric_context(metric, evidence)
+            context_value = (
+                _company_research_metric_text_value(context, patterns) if context else None
+            )
+            raw_value = context_value or metric.value
             return (
                 _company_research_format_quantitative_value(
                     field_key,
-                    metric.value,
+                    raw_value,
                     context=context,
                 ),
                 [metric.source_title],
@@ -6008,12 +6077,15 @@ def _company_research_metric_context(
     metric: ResearchMetric,
     evidence: Sequence[CompanyResearchEvidence],
 ) -> str:
+    candidates: list[str] = []
     for item in evidence:
         if item.source_title == metric.source_title and item.source_type == metric.source_type:
-            return item.body
+            candidates.append(item.body)
         if item.title == metric.source_title and item.source_type == metric.source_type:
-            return item.body
-    return ""
+            candidates.append(item.body)
+    if not candidates:
+        return ""
+    return max(candidates, key=len)
 
 
 def _company_research_format_quantitative_value(
@@ -6285,6 +6357,27 @@ def _company_research_business_terms(text: str) -> list[str]:
             ("自動車", "車両", "vehicle", "vehicles", "automotive", "auto manufacturers", "motor"),
         ),
         (
+            "半導体・GPU",
+            (
+                "semiconductor",
+                "semiconductors",
+                "gpu",
+                "graphics processing unit",
+                "accelerated computing",
+                "半導体",
+            ),
+        ),
+        (
+            "AI・データセンター",
+            (
+                "artificial intelligence",
+                "ai infrastructure",
+                "data center",
+                "datacenter",
+                "データセンター",
+            ),
+        ),
+        (
             "半導体製造装置",
             ("semiconductor equipment", "半導体製造装置", "wafer", "lithography"),
         ),
@@ -6304,6 +6397,19 @@ def _company_research_business_terms(text: str) -> list[str]:
         (
             "ゲーム・エンタメ",
             ("game", "gaming", "music", "movie", "entertainment", "ゲーム", "音楽", "映画"),
+        ),
+        (
+            "ソフトウェア・クラウド",
+            (
+                "software",
+                "cloud",
+                "saas",
+                "platform",
+                "azure",
+                "enterprise services",
+                "ソフトウェア",
+                "クラウド",
+            ),
         ),
     )
     labels = [label for label, keywords in specs if any(keyword in lowered for keyword in keywords)]
@@ -6333,13 +6439,74 @@ def _company_research_filter_main_businesses(
         or "銀行" in lowered
         or "証券" in lowered
     )
+    auto_manufacturer_context = _company_research_is_auto_manufacturer_context(lowered)
+    software_cloud_context = _company_research_is_software_cloud_context(lowered)
+    retail_main_context = _company_research_is_retail_main_context(lowered)
+    auto_related_main = {"自動車事業", "モビリティ事業", "自動車・モビリティ"}
     filtered = [
         item
         for item in businesses
         if not (item == "金融サービス" and not finance_main_context)
+        and not (not auto_manufacturer_context and item in auto_related_main)
+        and not (item == "小売・EC" and software_cloud_context and not retail_main_context)
         and item not in {"部品・アフターサービス", "リース", "ソフトウェア"}
     ]
     return _unique_text(filtered)[:5]
+
+
+def _company_research_is_semiconductor_context(lowered_text: str) -> bool:
+    return any(
+        keyword in lowered_text
+        for keyword in (
+            "industry: semiconductors",
+            "semiconductor",
+            "semiconductors",
+            "gpu",
+            "accelerated computing",
+            "ai infrastructure",
+            "data center",
+            "datacenter",
+        )
+    )
+
+
+def _company_research_is_auto_manufacturer_context(lowered_text: str) -> bool:
+    return any(
+        keyword in lowered_text
+        for keyword in (
+            "industry: auto manufacturers",
+            "auto manufacturers",
+            "automobile manufacturer",
+            "motor corporation",
+        )
+    )
+
+
+def _company_research_is_software_cloud_context(lowered_text: str) -> bool:
+    return any(
+        keyword in lowered_text
+        for keyword in (
+            "software",
+            "cloud",
+            "saas",
+            "platform",
+            "azure",
+            "enterprise services",
+        )
+    )
+
+
+def _company_research_is_retail_main_context(lowered_text: str) -> bool:
+    return any(
+        keyword in lowered_text
+        for keyword in (
+            "industry: internet retail",
+            "sector: consumer cyclical",
+            "retail trade",
+            "retailer",
+            "e-commerce company",
+        )
+    )
 
 
 def _company_research_supporting_business_terms(
@@ -6384,6 +6551,10 @@ def _company_research_products_services(text: str) -> list[str]:
         ("保険", ("insurance", "保険")),
         ("資産運用", ("asset management", "資産運用")),
         ("センサー", ("sensor", "sensors", "センサー")),
+        ("GPU", ("gpu", "graphics processing unit")),
+        ("AIインフラ", ("artificial intelligence", "ai infrastructure", "accelerated computing")),
+        ("データセンター向け製品", ("data center", "datacenter")),
+        ("半導体", ("semiconductor", "semiconductors", "半導体")),
         ("測定器", ("measuring instruments", "measurement", "測定器", "計測器")),
         ("制御機器", ("control equipment", "制御機器")),
         ("検査装置", ("inspection equipment", "検査装置")),
@@ -6391,7 +6562,14 @@ def _company_research_products_services(text: str) -> list[str]:
         ("音楽", ("music", "音楽")),
         ("映画", ("movie", "film", "映画")),
     )
-    return [label for label, keywords in specs if any(keyword in lowered for keyword in keywords)]
+    products = [
+        label for label, keywords in specs if any(keyword in lowered for keyword in keywords)
+    ]
+    if _company_research_is_semiconductor_context(
+        lowered
+    ) and not _company_research_is_auto_manufacturer_context(lowered):
+        products = [item for item in products if item not in {"自動車", "商用車", "車両"}]
+    return products
 
 
 def _company_research_inferred_products_services(
@@ -6425,6 +6603,18 @@ def _company_research_inferred_products_services(
                 "FAセンサー",
             ),
             ("センサー", "測定器", "制御機器", "検査装置"),
+        ),
+        (
+            (
+                "semiconductor",
+                "gpu",
+                "ai infrastructure",
+                "accelerated computing",
+                "data center",
+                "半導体・GPU",
+                "AI・データセンター",
+            ),
+            ("GPU", "AIインフラ", "データセンター向け製品", "半導体"),
         ),
     )
     for keywords, candidates in inference_specs:

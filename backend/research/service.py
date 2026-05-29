@@ -197,6 +197,18 @@ YAHOO_RESEARCH_PROFILE_FIELDS: tuple[tuple[str, str], ...] = (
     ("priceToBook", "Price To Book"),
     ("returnOnEquity", "Return On Equity"),
     ("dividendYield", "Dividend Yield"),
+    ("yield", "Yield"),
+    ("trailingAnnualDividendYield", "Trailing Annual Dividend Yield"),
+    ("expenseRatio", "Expense Ratio"),
+    ("annualReportExpenseRatio", "Annual Report Expense Ratio"),
+    ("netAssets", "Net Assets"),
+    ("totalAssets", "Total Assets"),
+    ("navPrice", "NAV Price"),
+    ("regularMarketPrice", "Regular Market Price"),
+    ("fundFamily", "Fund Family"),
+    ("category", "Category"),
+    ("topHoldings", "Top Holdings"),
+    ("holdings", "Holdings"),
     ("fullTimeEmployees", "Full Time Employees"),
     ("payoutRatio", "Payout Ratio"),
     ("beta", "Beta"),
@@ -2090,22 +2102,52 @@ class ETFResearchSummaryBuilder:
         expense_ratio = _etf_research_metric_value(
             "expense_ratio",
             text,
-            (r"expense ratio", r"expenseRatio", r"net expense ratio", r"経費率"),
+            (
+                r"annual report expense ratio",
+                r"annualReportExpenseRatio",
+                r"expense ratio",
+                r"expenseRatio",
+                r"net expense ratio",
+                r"経費率",
+            ),
         )
         dividend_yield = _etf_research_metric_value(
             "dividend_yield",
             text,
-            (r"dividend yield", r"dividendYield", r"分配金利回り", r"配当利回り"),
+            (
+                r"trailing annual dividend yield",
+                r"trailingAnnualDividendYield",
+                r"dividend yield",
+                r"dividendYield",
+                r"\byield\b",
+                r"分配金利回り",
+                r"配当利回り",
+            ),
         )
         aum = _etf_research_metric_value(
             "aum",
             text,
-            (r"total assets", r"totalAssets", r"AUM", r"net assets", r"純資産総額"),
+            (
+                r"net assets",
+                r"netAssets",
+                r"total assets",
+                r"totalAssets",
+                r"AUM",
+                r"純資産総額",
+            ),
         )
         nav = _etf_research_metric_value(
             "nav",
             text,
-            (r"NAV", r"nav price", r"navPrice", r"基準価額"),
+            (
+                r"NAV",
+                r"nav price",
+                r"navPrice",
+                r"regular market price",
+                r"regularMarketPrice",
+                r"market price",
+                r"基準価額",
+            ),
         )
         per = _etf_research_metric_value(
             "per",
@@ -2117,6 +2159,9 @@ class ETFResearchSummaryBuilder:
             text,
             (r"PBR", r"price[- ]to[- ]book", r"priceToBook"),
         )
+        if asset_class and asset_class != "株式":
+            per = None
+            pbr = None
         source_titles = _unique_text(
             [
                 *[row.title for row in report.evidence if row.source_type == "provider_profile"],
@@ -3181,6 +3226,8 @@ def _external_text_value(value: object) -> str:
 
 
 def _external_profile_field_value(key: str, value: object, *, currency: str) -> str:
+    if key in {"holdings", "topHoldings"}:
+        return _external_profile_holdings_text(value)
     numeric_value = _external_decimal_value(value)
     if numeric_value is None:
         return _external_text_value(value)
@@ -3192,25 +3239,65 @@ def _external_profile_field_value(key: str, value: object, *, currency: str) -> 
         "operatingIncome",
         "netIncomeToCommon",
         "netIncome",
+        "netAssets",
+        "totalAssets",
     }:
         return _format_external_money(numeric_value, currency=currency)
     if key == "fullTimeEmployees":
         return f"{_format_external_decimal(numeric_value, thousands=True)} 人"
-    if key in {"trailingEps", "forwardEps"}:
+    if key in {"trailingEps", "forwardEps", "navPrice", "regularMarketPrice"}:
         return _format_external_per_share(numeric_value, currency=currency)
     if key in {"trailingPE", "forwardPE", "priceToBook"}:
         return f"{_format_external_decimal(numeric_value)}倍"
-    if key == "dividendYield":
-        percentage = (
-            numeric_value * Decimal("100")
-            if abs(numeric_value) <= Decimal("0.2")
-            else numeric_value
-        )
-        return f"{_format_external_decimal(percentage)}%"
+    if key in {
+        "dividendYield",
+        "yield",
+        "trailingAnnualDividendYield",
+        "expenseRatio",
+        "annualReportExpenseRatio",
+    }:
+        return _external_profile_percentage_text(numeric_value, ratio_threshold=Decimal("0.2"))
     if key in {"returnOnEquity", "payoutRatio"}:
-        percentage = numeric_value * Decimal("100") if abs(numeric_value) <= 1 else numeric_value
-        return f"{_format_external_decimal(percentage)}%"
+        return _external_profile_percentage_text(numeric_value, ratio_threshold=Decimal("1"))
     return _format_external_decimal(numeric_value)
+
+
+def _external_profile_percentage_text(
+    numeric_value: Decimal,
+    *,
+    ratio_threshold: Decimal,
+) -> str:
+    percentage = (
+        numeric_value * Decimal("100") if abs(numeric_value) <= ratio_threshold else numeric_value
+    )
+    return f"{_format_external_decimal(percentage)}%"
+
+
+def _external_profile_holdings_text(value: object) -> str:
+    if not value:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, Mapping):
+        iterable: Iterable[object] = value.values()
+    elif isinstance(value, Sequence) and not isinstance(value, bytes | bytearray):
+        iterable = value
+    else:
+        return _external_text_value(value)
+    holdings: list[str] = []
+    for item in iterable:
+        if isinstance(item, Mapping):
+            name = _external_text_value(
+                item.get("symbol")
+                or item.get("holdingName")
+                or item.get("name")
+                or item.get("shortName")
+            )
+        else:
+            name = _external_text_value(item)
+        if name:
+            holdings.append(name)
+    return ", ".join(_unique_text(holdings)[:12])
 
 
 def _external_decimal_value(value: object) -> Decimal | None:
@@ -3877,6 +3964,11 @@ _RESEARCH_BRIEF_RAW_PROVIDER_LABELS = (
     "Industry",
     "Country",
     "Website",
+    "Fund Name",
+    "Fund Family",
+    "Asset Category",
+    "Category",
+    "Benchmark",
     "Market Cap",
     "Enterprise Value",
     "Total Revenue",
@@ -3895,6 +3987,18 @@ _RESEARCH_BRIEF_RAW_PROVIDER_LABELS = (
     "Return On Equity",
     "Dividend Rate",
     "Dividend Yield",
+    "Yield",
+    "Trailing Annual Dividend Yield",
+    "Expense Ratio",
+    "Annual Report Expense Ratio",
+    "Net Assets",
+    "Total Assets",
+    "NAV",
+    "NAV Price",
+    "Regular Market Price",
+    "Market Price",
+    "Top Holdings",
+    "Holdings",
     "Full Time Employees",
     "Payout Ratio",
     "Beta",
@@ -5191,6 +5295,11 @@ def _company_research_business_profile(
         profile_text,
         main_businesses=main_businesses,
     )
+    supporting_businesses = _company_research_filter_supporting_businesses(
+        profile_text,
+        supporting_businesses,
+        main_businesses=main_businesses,
+    )
     products_services = _company_research_products_services(profile_raw_text or profile_text)
     products_services_status: InformationStatus = "found" if products_services else "missing"
     if not products_services:
@@ -5905,7 +6014,15 @@ def _etf_research_benchmark_index(text: str) -> str | None:
 
 def _etf_research_top_holdings(text: str) -> list[str]:
     holdings_text = ""
-    for field_name in ("Top Holdings", "Holdings", "TopHolding", "構成銘柄", "上位保有銘柄"):
+    for field_name in (
+        "Top Holdings",
+        "topHoldings",
+        "Holdings",
+        "holdings",
+        "TopHolding",
+        "構成銘柄",
+        "上位保有銘柄",
+    ):
         match = re.search(
             rf"(?:^|\n){re.escape(field_name)}\s*[:：]\s*([^\n\r]+)",
             text,
@@ -6411,6 +6528,68 @@ def _company_research_business_terms(text: str) -> list[str]:
                 "クラウド",
             ),
         ),
+        (
+            "銀行・金融サービス",
+            (
+                "sector: financial services",
+                "banks -",
+                "banking",
+                "commercial banking",
+                "investment banking",
+                "asset management",
+                "credit",
+                "loan",
+                "securities",
+                "銀行",
+                "証券",
+            ),
+        ),
+        (
+            "医薬品・ヘルスケア",
+            (
+                "sector: healthcare",
+                "pharmaceutical",
+                "healthcare",
+                "medical device",
+                "medicine",
+                "biotech",
+                "drug",
+                "therapy",
+                "diagnostics",
+                "医薬品",
+                "医療機器",
+            ),
+        ),
+        (
+            "エネルギー",
+            (
+                "sector: energy",
+                "oil & gas",
+                "oil and gas",
+                "refining",
+                "exploration",
+                "production",
+                "renewable",
+                "石油",
+                "ガス",
+                "エネルギー",
+            ),
+        ),
+        (
+            "通信サービス",
+            (
+                "sector: communication services",
+                "telecom services",
+                "telecommunications",
+                "wireless",
+                "broadband",
+                "通信",
+            ),
+        ),
+        (
+            "小売・EC",
+            ("retail", "e-commerce", "marketplace", "store", "apparel", "小売", "EC"),
+        ),
     )
     labels = [label for label, keywords in specs if any(keyword in lowered for keyword in keywords)]
     finance_main_context = (
@@ -6421,7 +6600,7 @@ def _company_research_business_terms(text: str) -> list[str]:
         or "銀行" in lowered
         or "証券" in lowered
     )
-    if finance_main_context and "金融サービス" not in labels:
+    if finance_main_context and "金融サービス" not in labels and "銀行・金融サービス" not in labels:
         labels.append("金融サービス")
     return labels
 
@@ -6442,15 +6621,35 @@ def _company_research_filter_main_businesses(
     auto_manufacturer_context = _company_research_is_auto_manufacturer_context(lowered)
     software_cloud_context = _company_research_is_software_cloud_context(lowered)
     retail_main_context = _company_research_is_retail_main_context(lowered)
+    healthcare_context = _company_research_is_healthcare_context(lowered)
+    energy_context = _company_research_is_energy_context(lowered)
+    telecom_context = _company_research_is_telecom_context(lowered)
     auto_related_main = {"自動車事業", "モビリティ事業", "自動車・モビリティ"}
+    software_related_main = {"ソフトウェア・クラウド", "ソフトウェア・サービス"}
+    finance_related_main = {"金融サービス", "銀行・金融サービス"}
     filtered = [
         item
         for item in businesses
         if not (item == "金融サービス" and not finance_main_context)
         and not (not auto_manufacturer_context and item in auto_related_main)
         and not (item == "小売・EC" and software_cloud_context and not retail_main_context)
+        and not (finance_main_context and item == "小売・EC")
+        and not (not healthcare_context and item == "医薬品・ヘルスケア")
+        and not (not energy_context and item == "エネルギー")
+        and not (not telecom_context and item == "通信サービス")
+        and not (finance_main_context and item in software_related_main)
+        and not (healthcare_context and item in finance_related_main | software_related_main)
+        and not (
+            energy_context
+            and item in finance_related_main | software_related_main | {"AI・データセンター"}
+        )
+        and not (telecom_context and item in finance_related_main)
         and item not in {"部品・アフターサービス", "リース", "ソフトウェア"}
     ]
+    if "銀行・金融サービス" in filtered:
+        filtered = [item for item in filtered if item != "金融サービス"]
+    if "ソフトウェア・クラウド" in filtered:
+        filtered = [item for item in filtered if item != "ソフトウェア・サービス"]
     return _unique_text(filtered)[:5]
 
 
@@ -6509,6 +6708,47 @@ def _company_research_is_retail_main_context(lowered_text: str) -> bool:
     )
 
 
+def _company_research_is_healthcare_context(lowered_text: str) -> bool:
+    return any(
+        keyword in lowered_text
+        for keyword in (
+            "sector: healthcare",
+            "industry: healthcare",
+            "industry: pharmaceutical",
+            "medical device",
+            "drug manufacturers",
+            "biotech",
+        )
+    )
+
+
+def _company_research_is_energy_context(lowered_text: str) -> bool:
+    return any(
+        keyword in lowered_text
+        for keyword in (
+            "sector: energy",
+            "oil & gas",
+            "oil and gas",
+            "refining",
+            "exploration",
+            "production",
+        )
+    )
+
+
+def _company_research_is_telecom_context(lowered_text: str) -> bool:
+    return any(
+        keyword in lowered_text
+        for keyword in (
+            "sector: communication services",
+            "telecom services",
+            "telecommunications",
+            "wireless",
+            "broadband",
+        )
+    )
+
+
 def _company_research_supporting_business_terms(
     text: str,
     *,
@@ -6534,6 +6774,48 @@ def _company_research_supporting_business_terms(
     ]
 
 
+def _company_research_filter_supporting_businesses(
+    text: str,
+    businesses: Sequence[str],
+    *,
+    main_businesses: Sequence[str],
+) -> list[str]:
+    lowered = text.lower()
+    main_set = set(main_businesses)
+    finance_main_context = (
+        "sector: financial" in lowered
+        or "financial sector" in lowered
+        or "banking" in lowered
+        or "asset management" in lowered
+        or "銀行" in lowered
+        or "証券" in lowered
+    )
+    filtered = list(businesses)
+    if _company_research_is_healthcare_context(lowered):
+        filtered = [
+            item
+            for item in filtered
+            if item not in {"金融サービス", "リース", "保険", "資産運用", "ソフトウェア"}
+        ]
+    if _company_research_is_energy_context(lowered):
+        filtered = [
+            item
+            for item in filtered
+            if item not in {"金融サービス", "保険", "資産運用", "ソフトウェア"}
+        ]
+    if _company_research_is_telecom_context(lowered):
+        filtered = [item for item in filtered if item not in {"金融サービス", "保険", "資産運用"}]
+    if _company_research_is_software_cloud_context(lowered) and not finance_main_context:
+        filtered = [
+            item
+            for item in filtered
+            if item not in {"金融サービス", "保険", "資産運用", "リース", "ソフトウェア"}
+        ]
+    if "銀行・金融サービス" in main_set or "金融サービス" in main_set:
+        filtered = [item for item in filtered if item != "ソフトウェア"]
+    return _unique_text(filtered)[:5]
+
+
 def _company_research_products_services(text: str) -> list[str]:
     lowered = text.lower()
     specs = (
@@ -6550,11 +6832,21 @@ def _company_research_products_services(text: str) -> list[str]:
         ("決済", ("payment", "payments", "決済")),
         ("保険", ("insurance", "保険")),
         ("資産運用", ("asset management", "資産運用")),
+        ("銀行サービス", ("banking", "commercial bank", "銀行")),
+        ("融資・クレジット", ("loan", "credit", "lending", "融資", "ローン")),
         ("センサー", ("sensor", "sensors", "センサー")),
         ("GPU", ("gpu", "graphics processing unit")),
         ("AIインフラ", ("artificial intelligence", "ai infrastructure", "accelerated computing")),
         ("データセンター向け製品", ("data center", "datacenter")),
         ("半導体", ("semiconductor", "semiconductors", "半導体")),
+        ("医薬品", ("pharmaceutical", "medicine", "drug", "therapy", "医薬品", "治療薬")),
+        ("医療機器", ("medical device", "medical devices", "医療機器")),
+        ("診断・検査", ("diagnostics", "diagnostic", "診断", "検査")),
+        ("石油・ガス", ("oil & gas", "oil and gas", "natural gas", "石油", "ガス")),
+        ("精製・販売", ("refining", "refinery", "販売")),
+        ("エネルギー開発", ("exploration", "production", "renewable", "エネルギー")),
+        ("通信サービス", ("telecom", "telecommunications", "wireless", "通信")),
+        ("ブロードバンド", ("broadband", "fiber optic", "optical fiber", "光回線")),
         ("測定器", ("measuring instruments", "measurement", "測定器", "計測器")),
         ("制御機器", ("control equipment", "制御機器")),
         ("検査装置", ("inspection equipment", "検査装置")),
@@ -6569,6 +6861,47 @@ def _company_research_products_services(text: str) -> list[str]:
         lowered
     ) and not _company_research_is_auto_manufacturer_context(lowered):
         products = [item for item in products if item not in {"自動車", "商用車", "車両"}]
+    if _company_research_is_healthcare_context(lowered):
+        products = [
+            item
+            for item in products
+            if item
+            not in {
+                "金融サービス",
+                "金融商品",
+                "決済",
+                "リース",
+                "保険",
+                "資産運用",
+                "石油・ガス",
+                "精製・販売",
+                "エネルギー開発",
+                "通信サービス",
+                "ブロードバンド",
+            }
+        ]
+    if _company_research_is_energy_context(lowered):
+        products = [
+            item
+            for item in products
+            if item
+            not in {
+                "金融サービス",
+                "金融商品",
+                "決済",
+                "リース",
+                "保険",
+                "資産運用",
+                "AIインフラ",
+                "データセンター向け製品",
+            }
+        ]
+    if _company_research_is_telecom_context(lowered):
+        products = [
+            item
+            for item in products
+            if item not in {"金融サービス", "金融商品", "決済", "保険", "資産運用"}
+        ]
     return products
 
 
@@ -6586,8 +6919,31 @@ def _company_research_inferred_products_services(
             ("自動車", "商用車", "部品", "金融サービス", "モビリティ関連サービス"),
         ),
         (
+            (
+                "healthcare",
+                "pharmaceutical",
+                "drug",
+                "medicine",
+                "medical device",
+                "医薬品・ヘルスケア",
+            ),
+            ("医薬品", "医療機器", "診断・検査"),
+        ),
+        (
+            ("energy", "oil & gas", "oil and gas", "refining", "exploration", "エネルギー"),
+            ("石油・ガス", "エネルギー開発", "精製・販売"),
+        ),
+        (
+            ("telecom", "telecommunications", "wireless", "broadband", "通信サービス"),
+            ("通信サービス", "ブロードバンド"),
+        ),
+        (
+            ("software", "cloud", "saas", "platform", "ソフトウェア・クラウド"),
+            ("ソフトウェアサービス", "クラウドサービス", "法人向けサービス"),
+        ),
+        (
             ("金融", "financial", "banking", "insurance", "asset management", "金融サービス"),
-            ("金融商品", "決済", "リース", "保険", "資産運用"),
+            ("銀行サービス", "金融商品", "決済", "融資・クレジット", "保険", "資産運用"),
         ),
         (
             ("electronics", "consumer electronics", "エレクトロニクス", "game", "entertainment"),

@@ -784,6 +784,63 @@ def test_etf_research_summary_builder_maps_fund_fields_without_company_ir_requir
     assert "有価証券報告書" not in dumped
 
 
+def test_etf_research_summary_builder_maps_extended_provider_fields_and_non_equity_ratios():
+    provider_evidence = ResearchEvidence(
+        symbol="TLT",
+        document_id="doc-etf-bond",
+        chunk_id="chunk-etf-bond",
+        title="TLT Provider Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: iShares 20+ Year Treasury Bond ETF\n"
+            "Quote Type: ETF\n"
+            "Fund Family: iShares\n"
+            "Category: Long Government\n"
+            "Asset Category: Bond\n"
+            "Annual Report Expense Ratio: 0.15%\n"
+            "Net Assets: 48,000,000,000 USD\n"
+            "NAV Price: 90.25 USD\n"
+            "Trailing Annual Dividend Yield: 4.5%\n"
+            "Trailing PE: -4287\n"
+            "Price To Book: 0.58\n"
+            "Top Holdings: U.S. Treasury 4.0%, U.S. Treasury 3.5%\n"
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    report = CompanyResearchReport(
+        symbol="TLT",
+        as_of=date(2026, 5, 25),
+        summary="ETF profile.",
+        points=[],
+        evidence=[provider_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    summary = ETFResearchSummaryBuilder().build(report)
+
+    assert summary.provider_name == "iShares"
+    assert summary.asset_class == "債券"
+    assert summary.expense_ratio == "0.15%"
+    assert summary.aum == "48,000,000,000 USD"
+    assert summary.nav == "90.25 USD"
+    assert summary.dividend_yield == "4.5%"
+    assert summary.per is None
+    assert summary.pbr is None
+    assert summary.top_holdings[:2] == ["U.S. Treasury 4.0%", "U.S. Treasury 3.5%"]
+    assert "経費率" not in summary.missing_items
+    assert "純資産総額" not in summary.missing_items
+    assert "基準価額 / NAV" not in summary.missing_items
+
+
 def test_company_research_summary_builder_maps_provider_quantitative_fields():
     provider_evidence = ResearchEvidence(
         symbol="7203.T",
@@ -1219,6 +1276,137 @@ def test_company_research_summary_builder_prioritizes_software_cloud_over_retail
     assert "小売・EC" not in profile.main_businesses
     assert "ソフトウェアサービス" in profile.products_services
     assert "ソフトウェア・クラウド" in summary.overview.business_overview
+
+
+def test_company_research_summary_builder_prioritizes_financial_sector_over_software_noise():
+    provider_evidence = ResearchEvidence(
+        symbol="JPM",
+        document_id="doc-profile",
+        chunk_id="chunk-profile",
+        title="JPMorgan Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: JPMorgan Chase & Co.\n"
+            "Sector: Financial Services\n"
+            "Industry: Banks - Diversified\n"
+            "Business Summary: JPMorgan provides investment banking, commercial banking, "
+            "asset management, credit, loan, payment, and digital platform services."
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    report = CompanyResearchReport(
+        symbol="JPM",
+        as_of=date(2026, 5, 25),
+        summary="Research summary.",
+        points=[],
+        evidence=[provider_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    summary = CompanyResearchSummaryBuilder().build(report)
+    profile = summary.overview.business_profile
+
+    assert profile is not None
+    assert "銀行・金融サービス" in profile.main_businesses
+    assert "ソフトウェア・クラウド" not in profile.main_businesses
+    assert "銀行サービス" in profile.products_services
+    assert "融資・クレジット" in profile.products_services
+
+
+def test_company_research_summary_builder_prioritizes_healthcare_and_energy_sectors():
+    healthcare_evidence = ResearchEvidence(
+        symbol="4502.T",
+        document_id="doc-healthcare",
+        chunk_id="chunk-healthcare",
+        title="Takeda Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Takeda Pharmaceutical Company Limited\n"
+            "Sector: Healthcare\n"
+            "Industry: Drug Manufacturers - Specialty & Generic\n"
+            "Business Summary: Takeda researches pharmaceutical medicine, therapy, "
+            "biotech, diagnostics, and healthcare products. Financial information is "
+            "available from company filings."
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    energy_evidence = ResearchEvidence(
+        symbol="XOM",
+        document_id="doc-energy",
+        chunk_id="chunk-energy",
+        title="Exxon Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Exxon Mobil Corporation\n"
+            "Sector: Energy\n"
+            "Industry: Oil & Gas Integrated\n"
+            "Business Summary: Exxon explores, produces, refines, and sells oil and gas "
+            "products. The company also uses data platforms in operations."
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+
+    healthcare = CompanyResearchSummaryBuilder().build(
+        CompanyResearchReport(
+            symbol="4502.T",
+            as_of=date(2026, 5, 25),
+            summary="Research summary.",
+            points=[],
+            evidence=[healthcare_evidence],
+            data_quality=ResearchDataQuality(
+                status="OK",
+                latest_document_date=date(2026, 5, 24),
+                document_count=1,
+                evidence_count=1,
+                warnings=[],
+            ),
+        )
+    )
+    energy = CompanyResearchSummaryBuilder().build(
+        CompanyResearchReport(
+            symbol="XOM",
+            as_of=date(2026, 5, 25),
+            summary="Research summary.",
+            points=[],
+            evidence=[energy_evidence],
+            data_quality=ResearchDataQuality(
+                status="OK",
+                latest_document_date=date(2026, 5, 24),
+                document_count=1,
+                evidence_count=1,
+                warnings=[],
+            ),
+        )
+    )
+
+    healthcare_profile = healthcare.overview.business_profile
+    energy_profile = energy.overview.business_profile
+
+    assert healthcare_profile is not None
+    assert "医薬品・ヘルスケア" in healthcare_profile.main_businesses
+    assert "金融サービス" not in healthcare_profile.supporting_businesses
+    assert "金融商品" not in healthcare_profile.products_services
+    assert "医薬品" in healthcare_profile.products_services
+    assert energy_profile is not None
+    assert "エネルギー" in energy_profile.main_businesses
+    assert "AI・データセンター" not in energy_profile.main_businesses
+    assert "データセンター向け製品" not in energy_profile.products_services
+    assert "石油・ガス" in energy_profile.products_services
 
 
 def test_company_research_summary_builder_adds_safe_product_candidates_when_missing():
@@ -2382,6 +2570,59 @@ def test_yahoo_finance_research_adapter_keeps_percent_style_dividend_yield_reada
     assert [payload.source_type for payload in payloads] == ["provider_profile"]
     assert "Dividend Yield: 0.85%" in payloads[0].content
     assert "Dividend Yield: 85%" not in payloads[0].content
+
+
+def test_yahoo_finance_research_adapter_exports_etf_metric_candidates():
+    class ETFMetricsTicker:
+        def get_info(self) -> dict[str, object]:
+            return {
+                "longName": "Example Treasury ETF",
+                "symbol": "TLT",
+                "quoteType": "ETF",
+                "exchange": "NASDAQ",
+                "currency": "USD",
+                "fundFamily": "Example Funds",
+                "category": "Long Government",
+                "expenseRatio": 0.0015,
+                "annualReportExpenseRatio": 0.0014,
+                "netAssets": 48_000_000_000,
+                "navPrice": 90.25,
+                "regularMarketPrice": 91.1,
+                "yield": 0.045,
+                "trailingAnnualDividendYield": 0.044,
+                "topHoldings": [
+                    {"symbol": "US912810TT51", "holdingName": "U.S. Treasury 4.0%"},
+                    {"symbol": "US912810TW80", "holdingName": "U.S. Treasury 3.5%"},
+                ],
+                "longBusinessSummary": "The fund invests in long-term U.S. Treasury bonds.",
+            }
+
+        @property
+        def news(self) -> list[dict[str, object]]:
+            return []
+
+    adapter = YahooFinanceResearchAdapter(ticker_factory=lambda symbol: ETFMetricsTicker())
+
+    payloads = adapter.fetch_sources(
+        ExternalResearchFetchRequest(
+            symbol="TLT",
+            provider="yahoo_finance",
+            as_of=date(2026, 5, 25),
+            allow_network=True,
+        )
+    )
+
+    content = payloads[0].content
+    assert "Fund Family: Example Funds" in content
+    assert "Category: Long Government" in content
+    assert "Expense Ratio: 0.15%" in content
+    assert "Annual Report Expense Ratio: 0.14%" in content
+    assert "Net Assets: 48,000,000,000 USD" in content
+    assert "NAV Price: 90.25 USD" in content
+    assert "Regular Market Price: 91.1 USD" in content
+    assert "Yield: 4.5%" in content
+    assert "Trailing Annual Dividend Yield: 4.4%" in content
+    assert "Top Holdings: US912810TT51" in content
 
 
 def test_tdnet_research_adapter_builds_disclosure_payloads_without_live_call():

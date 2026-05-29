@@ -819,3 +819,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Expanded Yahoo Finance provider-profile field mapping so market cap, revenue, operating income, net income, EPS, PER/PBR/ROE, dividend yield, and employee count can populate `QuantitativeSummary` instead of staying `未取得` when present.
 - Improved business-profile extraction for main businesses, products/services, regions, and customer segments while keeping news titles out of business-profile evidence.
 - Reflected TDnet entries in both IR summary and latest-news/disclosure summary, distinguishing `取得済み・本文未解析` title/URL evidence from missing or unverified information.
+
+## 2026-05-29 - CompanyResearchSummary classification refinement
+
+- Split business-profile mapping into main businesses, supporting businesses, products/services, regions, and customer segments, with conservative `補完候補` product labels when provider profiles lack explicit product/service details.
+- Added enterprise value and improved provider metric formatting for JPY scale, PER/PBR, ROE/dividend yield, employee count, zero values, and empty / None / NaN-like missing values.
+- Renamed the visible news section to `最新ニュース・開示サマリー` and added latest-topic classification so TDnet, forecast revisions, shareholder returns, governance topics, products, and ordinary news keep distinct status and confirmation flags.

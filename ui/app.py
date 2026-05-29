@@ -5341,6 +5341,10 @@ def _company_research_summary_html(summary: CompanyResearchSummary) -> str:
             ),
         ),
         (
+            "補助事業・関連事業",
+            _company_research_join_values(getattr(overview, "supporting_businesses", [])),
+        ),
+        (
             "製品・サービス",
             _company_research_join_values(getattr(overview, "products_services", [])),
         ),
@@ -5402,6 +5406,7 @@ def _quantitative_summary_html(summary: QuantitativeSummary) -> str:
         ("ROE", summary.roe),
         ("配当利回り", summary.dividend_yield),
         ("時価総額", summary.market_cap),
+        ("企業価値", getattr(summary, "enterprise_value", None)),
         ("従業員数", getattr(summary, "employee_count", None)),
     ]
     metric_markup = "".join(
@@ -5493,7 +5498,7 @@ def _news_summary_html(items: Sequence[NewsSummaryItem]) -> str:
     if not items:
         body = (
             '<div class="research-brief-focus-body">'
-            "ニュースは取得できていません。必要に応じて外部ニュースや公式IRを追加確認してください。</div>"
+            "ニュース・適時開示は取得できていません。必要に応じて外部ニュースや公式IRを追加確認してください。</div>"
         )
     else:
         body = "".join(_news_summary_item_html(index, item) for index, item in enumerate(items, 1))
@@ -5508,6 +5513,7 @@ def _news_summary_html(items: Sequence[NewsSummaryItem]) -> str:
 def _news_summary_item_html(index: int, item: NewsSummaryItem) -> str:
     published = item.published_at.isoformat() if item.published_at else "日付未設定"
     impact = _news_impact_hint_label(item.impact_hint)
+    topic_type = _latest_topic_type_label(getattr(item, "topic_type", "news"))
     source = item.source_title or "ニュース"
     confirmation_label = "必要" if getattr(item, "official_confirmation_required", True) else "不要"
     status_label = _information_status_label(getattr(item, "information_status", "unverified"))
@@ -5521,7 +5527,7 @@ def _news_summary_item_html(index: int, item: NewsSummaryItem) -> str:
     return (
         '<article class="research-evidence-item">'
         '<div class="research-evidence-card-header">'
-        f'<span class="research-evidence-pill">ニュース {index}</span>'
+        f'<span class="research-evidence-pill">{html.escape(topic_type)} {index}</span>'
         f'<span class="research-evidence-pill">影響カテゴリ: {html.escape(impact)}</span>'
         f'<span class="research-evidence-pill confidence-low">公式IR確認: {html.escape(confirmation_label)}</span>'
         f'<span class="research-evidence-pill confidence-{html.escape(status_tone)}">状態: {html.escape(status_label)}</span>'
@@ -5532,6 +5538,22 @@ def _news_summary_item_html(index: int, item: NewsSummaryItem) -> str:
         f"{url_markup}"
         "</article>"
     )
+
+
+def _latest_topic_type_label(topic_type: str) -> str:
+    labels = {
+        "news": "ニュース",
+        "tdnet": "TDnet",
+        "ir_disclosure": "適時開示",
+        "earnings": "決算",
+        "forecast_revision": "業績予想修正",
+        "shareholder_return": "株主還元",
+        "business_reorganization": "事業再編",
+        "product": "製品・サービス",
+        "governance": "ガバナンス",
+        "unknown": "トピック",
+    }
+    return labels.get(topic_type, "トピック")
 
 
 def _company_research_ai_notes_html(notes: Sequence[str]) -> str:
@@ -5592,7 +5614,7 @@ def _research_evidence_level_confidence_tone(level: str) -> str:
 
 def _information_status_label(status: str) -> str:
     labels = {
-        "found": "取得済み",
+        "found": "取得済み・要約済み",
         "missing": "未取得",
         "unparsed": "取得済み・本文未解析",
         "unverified": "公式未確認",

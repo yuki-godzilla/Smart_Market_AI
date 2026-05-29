@@ -93,6 +93,18 @@ NewsImpactHint = Literal[
     "ir",
     "unknown",
 ]
+LatestTopicType = Literal[
+    "news",
+    "tdnet",
+    "ir_disclosure",
+    "earnings",
+    "forecast_revision",
+    "shareholder_return",
+    "business_reorganization",
+    "product",
+    "governance",
+    "unknown",
+]
 InvestmentSignal = Literal[
     "positive",
     "negative",
@@ -164,9 +176,12 @@ YAHOO_RESEARCH_PROFILE_FIELDS: tuple[tuple[str, str], ...] = (
     ("country", "Country"),
     ("website", "Website"),
     ("marketCap", "Market Cap"),
+    ("enterpriseValue", "Enterprise Value"),
     ("totalRevenue", "Total Revenue"),
+    ("revenue", "Revenue"),
     ("operatingIncome", "Operating Income"),
     ("netIncomeToCommon", "Net Income To Common"),
+    ("netIncome", "Net Income"),
     ("trailingEps", "Trailing EPS"),
     ("forwardEps", "Forward EPS"),
     ("trailingPE", "Trailing PE"),
@@ -758,7 +773,9 @@ class CompanyBusinessProfile(StrictBaseModel):
     sector: str | None = None
     business_summary: str = ""
     main_businesses: list[str] = Field(default_factory=list)
+    supporting_businesses: list[str] = Field(default_factory=list)
     products_services: list[str] = Field(default_factory=list)
+    products_services_status: InformationStatus = "missing"
     regions: list[str] = Field(default_factory=list)
     customer_segments: list[str] = Field(default_factory=list)
     information_status: InformationStatus = "missing"
@@ -777,7 +794,9 @@ class CompanyOverviewSummary(StrictBaseModel):
     business_overview: str = ""
     main_businesses: list[str] = Field(default_factory=list)
     business_segments: list[str] = Field(default_factory=list)
+    supporting_businesses: list[str] = Field(default_factory=list)
     products_services: list[str] = Field(default_factory=list)
+    products_services_status: InformationStatus = "missing"
     regions: list[str] = Field(default_factory=list)
     customer_segments: list[str] = Field(default_factory=list)
     scale_summary: str = ""
@@ -799,6 +818,7 @@ class QuantitativeSummary(StrictBaseModel):
     roe: str | None = None
     dividend_yield: str | None = None
     market_cap: str | None = None
+    enterprise_value: str | None = None
     employee_count: str | None = None
     summary: str = ""
     missing_items: list[str] = Field(default_factory=list)
@@ -822,10 +842,15 @@ class IRSummaryItem(StrictBaseModel):
     source_url: str | None = None
     evidence_level: ResearchEvidenceLevel = "missing"
 
+    @property
+    def status(self) -> InformationStatus:
+        return self.information_status
 
-class NewsSummaryItem(StrictBaseModel):
-    """Readable recent-news row for the company research report."""
 
+class LatestTopicItem(StrictBaseModel):
+    """Readable recent topic / disclosure row for the company research report."""
+
+    topic_type: LatestTopicType = "news"
     title: str = Field(min_length=1)
     summary: str = Field(min_length=1)
     published_at: date | None = None
@@ -835,6 +860,14 @@ class NewsSummaryItem(StrictBaseModel):
     official_confirmation_required: bool = True
     information_status: InformationStatus = "unverified"
     evidence_level: ResearchEvidenceLevel = "low"
+
+    @property
+    def status(self) -> InformationStatus:
+        return self.information_status
+
+
+class NewsSummaryItem(LatestTopicItem):
+    """Backward-compatible name for latest news / disclosure rows."""
 
 
 class CompanyResearchSummary(StrictBaseModel):
@@ -2787,19 +2820,33 @@ def _external_text_value(value: object) -> str:
     if value is None:
         return ""
     if isinstance(value, float):
+        if math.isnan(value) or math.isinf(value):
+            return ""
         return f"{value:.6g}"
-    return str(value).strip()
+    text = str(value).strip()
+    return "" if text.lower() in {"nan", "none", "null"} else text
 
 
 def _external_profile_field_value(key: str, value: object, *, currency: str) -> str:
     numeric_value = _external_decimal_value(value)
     if numeric_value is None:
         return _external_text_value(value)
-    if key in {"marketCap", "totalRevenue", "operatingIncome", "netIncomeToCommon"}:
-        formatted = _format_external_decimal(numeric_value, thousands=True)
-        return f"{formatted} {currency}".strip()
+    if key in {
+        "marketCap",
+        "enterpriseValue",
+        "totalRevenue",
+        "revenue",
+        "operatingIncome",
+        "netIncomeToCommon",
+        "netIncome",
+    }:
+        return _format_external_money(numeric_value, currency=currency)
     if key == "fullTimeEmployees":
         return f"{_format_external_decimal(numeric_value, thousands=True)} 人"
+    if key in {"trailingEps", "forwardEps"}:
+        return _format_external_per_share(numeric_value, currency=currency)
+    if key in {"trailingPE", "forwardPE", "priceToBook"}:
+        return f"{_format_external_decimal(numeric_value)}倍"
     if key in {"returnOnEquity", "dividendYield", "payoutRatio"}:
         percentage = numeric_value * Decimal("100") if abs(numeric_value) <= 1 else numeric_value
         return f"{_format_external_decimal(percentage)}%"
@@ -2810,16 +2857,18 @@ def _external_decimal_value(value: object) -> Decimal | None:
     if value is None or isinstance(value, bool):
         return None
     if isinstance(value, Decimal):
-        return value
+        return value if value.is_finite() else None
     if isinstance(value, int | float):
-        return Decimal(str(value))
+        parsed = Decimal(str(value))
+        return parsed if parsed.is_finite() else None
     text = str(value).replace(",", "").strip()
-    if not text:
+    if not text or text.lower() in {"nan", "none", "null"}:
         return None
     try:
-        return Decimal(text)
+        parsed = Decimal(text)
     except InvalidOperation:
         return None
+    return parsed if parsed.is_finite() else None
 
 
 def _format_external_decimal(
@@ -2832,6 +2881,29 @@ def _format_external_decimal(
         return f"{int(value):,}" if thousands else str(int(value))
     template = f"{{:,.{decimal_places}f}}" if thousands else f"{{:.{decimal_places}f}}"
     return template.format(float(value)).rstrip("0").rstrip(".")
+
+
+def _format_external_money(value: Decimal, *, currency: str) -> str:
+    cleaned_currency = currency.strip().upper()
+    if cleaned_currency == "JPY":
+        abs_value = abs(value)
+        if abs_value >= Decimal("1000000000000"):
+            return f"{_format_external_decimal(value / Decimal('1000000000000'))}兆円"
+        if abs_value >= Decimal("100000000"):
+            return f"{_format_external_decimal(value / Decimal('100000000'))}億円"
+        if abs_value >= Decimal("10000"):
+            return f"{_format_external_decimal(value / Decimal('10000'))}万円"
+        return f"{_format_external_decimal(value)}円"
+    formatted = _format_external_decimal(value, thousands=True)
+    return f"{formatted} {cleaned_currency}".strip()
+
+
+def _format_external_per_share(value: Decimal, *, currency: str) -> str:
+    cleaned_currency = currency.strip().upper()
+    if cleaned_currency == "JPY":
+        return f"{_format_external_decimal(value)}円"
+    formatted = _format_external_decimal(value)
+    return f"{formatted} {cleaned_currency}".strip()
 
 
 def _date_from_epoch(value: object) -> date | None:
@@ -3400,6 +3472,7 @@ _RESEARCH_BRIEF_METRIC_SPECS: tuple[
             r"当期利益",
             r"net income to common",
             r"netIncomeToCommon",
+            r"netIncome",
             r"net income",
             r"net profit",
         ),
@@ -3434,9 +3507,12 @@ _RESEARCH_BRIEF_RAW_PROVIDER_LABELS = (
     "Country",
     "Website",
     "Market Cap",
+    "Enterprise Value",
     "Total Revenue",
+    "Revenue",
     "Operating Income",
     "Net Income To Common",
+    "Net Income",
     "Trailing EPS",
     "Forward EPS",
     "PER",
@@ -4609,7 +4685,9 @@ def _company_research_overview_summary(
         business_overview=_clip_text(business_overview, max_chars=220),
         main_businesses=business_segments,
         business_segments=business_segments,
+        supporting_businesses=business_profile.supporting_businesses,
         products_services=business_profile.products_services,
+        products_services_status=business_profile.products_services_status,
         regions=regions,
         customer_segments=business_profile.customer_segments,
         scale_summary=scale_summary,
@@ -4673,6 +4751,7 @@ def _company_research_business_profile(
             *[item.body for item in profile_evidence],
         ]
     )
+    profile_raw_text = "\n".join(item.body for item in profile_evidence)
     business_summary = (
         overview_items[0].value
         if overview_items
@@ -4691,7 +4770,20 @@ def _company_research_business_profile(
             *_company_research_values(segment_items or revenue_items, limit=6),
         ]
     )[:5]
-    products_services = _company_research_products_services(profile_text)
+    main_businesses = _company_research_filter_main_businesses(profile_text, main_businesses)
+    supporting_businesses = _company_research_supporting_business_terms(
+        profile_text,
+        main_businesses=main_businesses,
+    )
+    products_services = _company_research_products_services(profile_raw_text or profile_text)
+    products_services_status: InformationStatus = "found" if products_services else "missing"
+    if not products_services:
+        products_services = _company_research_inferred_products_services(
+            profile_text,
+            main_businesses=main_businesses,
+            supporting_businesses=supporting_businesses,
+        )
+        products_services_status = "unverified" if products_services else "missing"
     regions = _unique_text(
         [
             *_company_research_values(region_items, limit=6),
@@ -4709,7 +4801,9 @@ def _company_research_business_profile(
         sector=_company_research_profile_field(profile_text, "Sector"),
         business_summary=_clip_text(business_summary, max_chars=240),
         main_businesses=main_businesses,
+        supporting_businesses=supporting_businesses,
         products_services=products_services,
+        products_services_status=products_services_status,
         regions=regions,
         customer_segments=customer_segments,
         information_status=information_status,
@@ -4754,6 +4848,7 @@ def _company_research_quantitative_summary(
                 r"当期利益",
                 r"net income to common",
                 r"netIncomeToCommon",
+                r"netIncome",
                 r"net income",
                 r"net profit",
             ),
@@ -4788,6 +4883,12 @@ def _company_research_quantitative_summary(
             (r"時価総額", r"market cap(?:italization)?", r"marketCap"),
         ),
         (
+            "enterprise_value",
+            "企業価値",
+            None,
+            (r"企業価値", r"enterprise value", r"enterpriseValue"),
+        ),
+        (
             "employee_count",
             "従業員数",
             None,
@@ -4799,6 +4900,7 @@ def _company_research_quantitative_summary(
     source_types: list[str] = []
     for key, _label, metric_key, patterns in field_specs:
         value, titles, types = _company_research_quantitative_field_value(
+            key,
             metrics,
             metric_key,
             normalized_evidence,
@@ -4830,6 +4932,7 @@ def _company_research_quantitative_summary(
         roe=values["roe"],
         dividend_yield=values["dividend_yield"],
         market_cap=values["market_cap"],
+        enterprise_value=values["enterprise_value"],
         employee_count=values["employee_count"],
         summary=summary,
         missing_items=missing_items,
@@ -4926,6 +5029,7 @@ def _company_research_news_items(
     if news_report is not None:
         items.extend(
             NewsSummaryItem(
+                topic_type="news",
                 title=news.title,
                 summary=_clip_text(news.summary, max_chars=150),
                 published_at=news.published_at,
@@ -4946,8 +5050,13 @@ def _company_research_news_items(
             if item.source_type not in {"news", "tdnet"}:
                 continue
             is_tdnet = item.source_type == "tdnet"
+            topic_type = _company_research_latest_topic_type(
+                item.source_type,
+                f"{item.source_title} {item.value}",
+            )
             items.append(
                 NewsSummaryItem(
+                    topic_type=topic_type,
                     title=item.source_title,
                     summary=_clip_text(item.value, max_chars=150),
                     published_at=item.published_at,
@@ -4967,6 +5076,10 @@ def _company_research_news_items(
             if entry.source_type not in {"news", "tdnet"}:
                 continue
             is_tdnet = entry.source_type == "tdnet"
+            topic_type = _company_research_latest_topic_type(
+                entry.source_type,
+                f"{entry.title} {entry.content_summary}",
+            )
             default_summary = (
                 "TDnet適時開示のタイトルとURLを取得しています。本文の詳細はリンク先で確認してください。"
                 if is_tdnet
@@ -4974,6 +5087,7 @@ def _company_research_news_items(
             )
             items.append(
                 NewsSummaryItem(
+                    topic_type=topic_type,
                     title=entry.title,
                     summary=_clip_text(
                         entry.content_summary or default_summary,
@@ -4997,8 +5111,13 @@ def _company_research_news_items(
             if evidence.kind not in {"news", "tdnet_disclosure"}:
                 continue
             is_tdnet = evidence.source_type == "tdnet"
+            topic_type = _company_research_latest_topic_type(
+                evidence.source_type,
+                f"{evidence.title} {evidence.body}",
+            )
             items.append(
                 NewsSummaryItem(
+                    topic_type=topic_type,
                     title=evidence.title,
                     summary=_clip_text(
                         evidence.body
@@ -5048,9 +5167,13 @@ def _company_research_ai_reading_notes(
             f"{'、'.join(missing_ir[:5])}を公式IRまたはTDnetで確認してください。"
         )
     if news_items:
-        notes.append("最新ニュース: ニュースは事業・業績への影響を公式IRと合わせて確認します。")
+        notes.append(
+            "最新ニュース・開示: ニュースや適時開示は事業・業績への影響を公式IRと合わせて確認します。"
+        )
     elif not news_items:
-        notes.append("最新ニュース: 業績や事業に直接影響しそうなニュースは確認できていません。")
+        notes.append(
+            "最新ニュース・開示: 業績や事業に直接影響しそうなニュース・開示は確認できていません。"
+        )
     for gap in insight.confirmation_gaps[:2]:
         notes.append(f"注意して読む情報: {_clip_text(gap, max_chars=110)}")
     return _unique_text(notes)[:6]
@@ -5066,7 +5189,7 @@ def _company_research_missing_critical_items(
     if overview.evidence_level == "missing":
         items.append("企業概要")
     if not news_items:
-        items.append("直近ニュース")
+        items.append("直近ニュース・開示")
     items.extend(quantitative.missing_items[:8])
     items.extend(item.document_type for item in ir_items if item.availability != "found")
     return _unique_text(items)[:12]
@@ -5111,6 +5234,7 @@ def _company_research_metric_value(
 
 
 def _company_research_quantitative_field_value(
+    field_key: str,
     metrics: Mapping[ResearchMetricKey, ResearchMetric],
     metric_key: ResearchMetricKey | None,
     evidence: Sequence[CompanyResearchEvidence],
@@ -5119,14 +5243,83 @@ def _company_research_quantitative_field_value(
     if metric_key is not None:
         metric = metrics.get(metric_key)
         if metric is not None:
-            return metric.value, [metric.source_title], [metric.source_type]
+            return (
+                _company_research_format_quantitative_value(field_key, metric.value),
+                [metric.source_title],
+                [metric.source_type],
+            )
     for item in evidence:
         if item.reliability == "news" or not item.body.strip():
             continue
         value = _company_research_metric_text_value(item.body, patterns)
         if value:
-            return value, [item.source_title or item.title], [item.source_type]
+            return (
+                _company_research_format_quantitative_value(field_key, value),
+                [item.source_title or item.title],
+                [item.source_type],
+            )
     return None, [], []
+
+
+def _company_research_format_quantitative_value(field_key: str, value: str) -> str:
+    cleaned = re.sub(r"\s+", " ", value).strip(" .。、、")
+    if not cleaned:
+        return ""
+    if field_key in {"market_cap", "enterprise_value", "revenue", "operating_profit", "net_income"}:
+        return _company_research_format_money_text(cleaned)
+    if field_key == "employee_count":
+        return _company_research_format_employee_count_text(cleaned)
+    if field_key in {"per", "pbr"}:
+        return _company_research_format_ratio_text(cleaned, suffix="倍")
+    if field_key in {"roe", "dividend_yield"}:
+        return _company_research_format_percentage_text(cleaned)
+    return cleaned
+
+
+def _company_research_format_money_text(value: str) -> str:
+    if any(unit in value for unit in ("兆円", "億円", "百万円", "万円", "円")):
+        return value
+    match = re.search(r"([+-]?\d[\d,]*(?:\.\d+)?)\s*(JPY|USD)?", value, flags=re.IGNORECASE)
+    if match is None:
+        return value
+    amount = _external_decimal_value(match.group(1))
+    if amount is None:
+        return value
+    currency = (match.group(2) or "").upper()
+    if currency == "JPY":
+        return _format_external_money(amount, currency="JPY")
+    return f"{_format_external_decimal(amount, thousands=True)} {currency}".strip()
+
+
+def _company_research_format_employee_count_text(value: str) -> str:
+    if "人" in value or "名" in value:
+        return value
+    match = re.search(r"([+-]?\d[\d,]*(?:\.\d+)?)", value)
+    if match is None:
+        return value
+    amount = _external_decimal_value(match.group(1))
+    if amount is None:
+        return value
+    return f"{_format_external_decimal(amount, thousands=True)}人"
+
+
+def _company_research_format_ratio_text(value: str, *, suffix: str) -> str:
+    if suffix in value:
+        return value
+    amount = _external_decimal_value(value)
+    if amount is None:
+        return value
+    return f"{_format_external_decimal(amount)}{suffix}"
+
+
+def _company_research_format_percentage_text(value: str) -> str:
+    if "%" in value or "％" in value:
+        return value.replace("％", "%")
+    amount = _external_decimal_value(value)
+    if amount is None:
+        return value
+    percentage = amount * Decimal("100") if abs(amount) <= 1 else amount
+    return f"{_format_external_decimal(percentage)}%"
 
 
 def _company_research_evidence_kind(
@@ -5249,13 +5442,91 @@ def _company_research_business_summary_from_text(text: str) -> str:
 def _company_research_business_terms(text: str) -> list[str]:
     lowered = text.lower()
     specs = (
-        ("自動車事業", ("自動車", "車両", "vehicle", "vehicles", "automotive", "motor")),
-        ("金融サービス", ("金融サービス", "financial services", "finance")),
+        (
+            "自動車事業",
+            ("自動車", "車両", "vehicle", "vehicles", "automotive", "auto manufacturers", "motor"),
+        ),
+        (
+            "半導体製造装置",
+            ("semiconductor equipment", "半導体製造装置", "wafer", "lithography"),
+        ),
+        (
+            "FAセンサー・制御機器",
+            ("fa sensor", "factory automation", "control equipment", "制御機器"),
+        ),
+        (
+            "科学・計測機器",
+            ("scientific instrument", "measurement", "measuring", "sensor", "測定器", "計測"),
+        ),
         ("モビリティ事業", ("モビリティ", "mobility")),
-        ("ソフトウェア・サービス", ("software services", "software", "ソフトウェア")),
-        ("部品・アフターサービス", ("parts", "部品", "保守", "maintenance")),
+        (
+            "エレクトロニクス",
+            ("electronics", "consumer electronics", "家電", "映像機器", "音響機器"),
+        ),
+        (
+            "ゲーム・エンタメ",
+            ("game", "gaming", "music", "movie", "entertainment", "ゲーム", "音楽", "映画"),
+        ),
     )
-    return [label for label, keywords in specs if any(keyword in lowered for keyword in keywords)]
+    labels = [label for label, keywords in specs if any(keyword in lowered for keyword in keywords)]
+    finance_main_context = (
+        "sector: financial" in lowered
+        or "financial sector" in lowered
+        or "banking" in lowered
+        or "asset management" in lowered
+        or "銀行" in lowered
+        or "証券" in lowered
+    )
+    if finance_main_context and "金融サービス" not in labels:
+        labels.append("金融サービス")
+    return labels
+
+
+def _company_research_filter_main_businesses(
+    text: str,
+    businesses: Sequence[str],
+) -> list[str]:
+    lowered = text.lower()
+    finance_main_context = (
+        "sector: financial" in lowered
+        or "financial sector" in lowered
+        or "banking" in lowered
+        or "asset management" in lowered
+        or "銀行" in lowered
+        or "証券" in lowered
+    )
+    filtered = [
+        item
+        for item in businesses
+        if not (item == "金融サービス" and not finance_main_context)
+        and item not in {"部品・アフターサービス", "リース", "ソフトウェア"}
+    ]
+    return _unique_text(filtered)[:5]
+
+
+def _company_research_supporting_business_terms(
+    text: str,
+    *,
+    main_businesses: Sequence[str],
+) -> list[str]:
+    lowered = text.lower()
+    specs = (
+        ("金融サービス", ("financial services", "金融")),
+        ("リース", ("lease", "leasing", "リース")),
+        (
+            "部品・アフターサービス",
+            ("parts", "components", "maintenance", "repair", "部品", "保守", "整備"),
+        ),
+        ("ソフトウェア", ("software", "ソフトウェア")),
+        ("保険", ("insurance", "保険")),
+        ("資産運用", ("asset management", "資産運用")),
+    )
+    main_set = set(main_businesses)
+    return [
+        label
+        for label, keywords in specs
+        if label not in main_set and any(keyword in lowered for keyword in keywords)
+    ]
 
 
 def _company_research_products_services(text: str) -> list[str]:
@@ -5270,8 +5541,58 @@ def _company_research_products_services(text: str) -> list[str]:
         ("リース", ("lease", "leasing", "リース")),
         ("モビリティサービス", ("mobility service", "mobility services", "モビリティサービス")),
         ("ソフトウェアサービス", ("software", "ソフトウェア")),
+        ("金融商品", ("financial products", "金融商品")),
+        ("決済", ("payment", "payments", "決済")),
+        ("保険", ("insurance", "保険")),
+        ("資産運用", ("asset management", "資産運用")),
+        ("センサー", ("sensor", "sensors", "センサー")),
+        ("測定器", ("measuring instruments", "measurement", "測定器", "計測器")),
+        ("制御機器", ("control equipment", "制御機器")),
+        ("検査装置", ("inspection equipment", "検査装置")),
+        ("ゲーム", ("game", "gaming", "ゲーム")),
+        ("音楽", ("music", "音楽")),
+        ("映画", ("movie", "film", "映画")),
     )
     return [label for label, keywords in specs if any(keyword in lowered for keyword in keywords)]
+
+
+def _company_research_inferred_products_services(
+    text: str,
+    *,
+    main_businesses: Sequence[str],
+    supporting_businesses: Sequence[str],
+) -> list[str]:
+    lowered = text.lower()
+    context = " ".join([lowered, *main_businesses, *supporting_businesses])
+    inference_specs = (
+        (
+            ("自動車", "automotive", "vehicle", "mobility", "自動車事業", "モビリティ事業"),
+            ("自動車", "商用車", "部品", "金融サービス", "モビリティ関連サービス"),
+        ),
+        (
+            ("金融", "financial", "banking", "insurance", "asset management", "金融サービス"),
+            ("金融商品", "決済", "リース", "保険", "資産運用"),
+        ),
+        (
+            ("electronics", "consumer electronics", "エレクトロニクス", "game", "entertainment"),
+            ("家電", "映像機器", "音響機器", "ゲーム", "エンタメ関連サービス"),
+        ),
+        (
+            (
+                "scientific",
+                "measurement",
+                "sensor",
+                "control equipment",
+                "科学・計測機器",
+                "FAセンサー",
+            ),
+            ("センサー", "測定器", "制御機器", "検査装置"),
+        ),
+    )
+    for keywords, candidates in inference_specs:
+        if any(keyword.lower() in context for keyword in keywords):
+            return [f"{candidate}（補完候補）" for candidate in candidates]
+    return []
 
 
 def _company_research_regions_from_text(text: str) -> list[str]:
@@ -5291,6 +5612,7 @@ def _company_research_customer_segments(text: str) -> list[str]:
     specs = (
         ("個人顧客", ("consumer", "retail", "個人")),
         ("法人顧客", ("corporate", "enterprise", "business customers", "法人")),
+        ("製造業", ("manufacturing", "manufacturers", "factory", "industrial", "製造業")),
         ("販売店・ディーラー", ("dealer", "dealership", "販売店", "ディーラー")),
         ("フリート顧客", ("fleet", "フリート")),
         ("金融サービス利用者", ("financial services customers", "金融サービス利用者")),
@@ -5470,6 +5792,48 @@ def _company_research_ir_summary(
     if information_status == "unparsed":
         return "資料タイトルは取得済みですが、本文は未解析です。詳細はリンク先で確認してください。"
     return f"{document_type}の出典は確認できています。詳細は出典カードで確認してください。"
+
+
+def _company_research_latest_topic_type(
+    source_type: ResearchSourceType | str,
+    text: str,
+) -> LatestTopicType:
+    lowered_text = text.lower()
+    if source_type == "news":
+        return "news"
+    if any(keyword in lowered_text for keyword in ("業績予想修正", "forecast revision")):
+        return "forecast_revision"
+    if any(keyword in lowered_text for keyword in ("決算", "earnings", "financial results")):
+        return "earnings"
+    if any(
+        keyword in lowered_text
+        for keyword in ("配当", "自己株式", "自社株買い", "株主還元", "dividend", "buyback")
+    ):
+        return "shareholder_return"
+    if any(
+        keyword in lowered_text
+        for keyword in (
+            "m&a",
+            "merger",
+            "acquisition",
+            "spin-off",
+            "restructuring",
+            "合併",
+            "買収",
+            "会社分割",
+            "事業再編",
+        )
+    ):
+        return "business_reorganization"
+    if any(keyword in lowered_text for keyword in ("governance", "不祥事", "訴訟", "規制")):
+        return "governance"
+    if any(keyword in lowered_text for keyword in ("product", "製品", "新製品", "service")):
+        return "product"
+    if source_type == "tdnet":
+        return "tdnet"
+    if source_type in _RESEARCH_BRIEF_HIGH_CONFIDENCE_SOURCES:
+        return "ir_disclosure"
+    return "unknown"
 
 
 def _company_research_news_impact_hint(

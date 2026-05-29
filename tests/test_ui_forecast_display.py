@@ -1139,7 +1139,7 @@ def test_company_research_summary_html_prioritizes_company_understanding():
     assert "定量情報サマリー" in markup
     assert "売上高" in markup
     assert "IR情報サマリー" in markup
-    assert "最新ニュースサマリー" in markup
+    assert "最新ニュース・開示サマリー" in markup
     assert "影響カテゴリ: 事業影響あり" in markup
     assert "SMAI 投資判断サマリー" not in markup
 

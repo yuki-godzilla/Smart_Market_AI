@@ -99,6 +99,7 @@ class FakeYahooTicker:
             "sector": "Consumer Cyclical",
             "industry": "Auto Manufacturers",
             "marketCap": 35_000_000_000_000,
+            "enterpriseValue": 37_000_000_000_000,
             "totalRevenue": 45_000_000_000_000,
             "operatingIncome": 5_000_000_000_000,
             "netIncomeToCommon": 4_000_000_000_000,
@@ -565,9 +566,10 @@ def test_company_research_summary_builder_splits_overview_metrics_ir_and_news():
     assert summary.quantitative.revenue == "45兆円"
     assert summary.quantitative.operating_profit == "5兆円"
     assert summary.quantitative.per == "12.5倍"
-    assert summary.quantitative.market_cap == "35,000,000,000,000 JPY"
+    assert summary.quantitative.market_cap == "35兆円"
     assert ir_by_type["決算短信"].availability == "found"
     assert ir_by_type["適時開示"].source_url == "https://example.com/tdnet/7203"
+    assert summary.news_items[0].topic_type == "news"
     assert summary.news_items[0].impact_hint == "product"
     assert summary.news_items[0].official_confirmation_required is True
     assert summary.news_items[0].information_status == "unverified"
@@ -599,7 +601,7 @@ def test_company_research_summary_builder_keeps_missing_items_explicit():
     assert "売上高" in summary.quantitative.missing_items
     assert all(item.availability == "missing" for item in summary.ir_items)
     assert summary.news_items == []
-    assert "直近ニュース" in summary.missing_critical_items
+    assert "直近ニュース・開示" in summary.missing_critical_items
     assert "企業概要は外部プロフィールから一部確認できます" in summary.overview.business_overview
 
 
@@ -615,6 +617,7 @@ def test_company_research_summary_builder_maps_provider_quantitative_fields():
         excerpt=(
             "Company Name: Toyota Motor Corporation\n"
             "Market Cap: 35,000,000,000,000 JPY\n"
+            "Enterprise Value: 37,000,000,000,000 JPY\n"
             "Total Revenue: 45,000,000,000,000 JPY\n"
             "Operating Income: 5,000,000,000,000 JPY\n"
             "Net Income To Common: 4,000,000,000,000 JPY\n"
@@ -645,13 +648,14 @@ def test_company_research_summary_builder_maps_provider_quantitative_fields():
 
     summary = CompanyResearchSummaryBuilder().build(report)
 
-    assert summary.quantitative.market_cap == "35,000,000,000,000 JPY"
-    assert summary.quantitative.revenue == "45,000,000,000,000 JPY"
-    assert summary.quantitative.operating_profit == "5,000,000,000,000 JPY"
-    assert summary.quantitative.net_income == "4,000,000,000,000 JPY"
+    assert summary.quantitative.market_cap == "35兆円"
+    assert summary.quantitative.enterprise_value == "37兆円"
+    assert summary.quantitative.revenue == "45兆円"
+    assert summary.quantitative.operating_profit == "5兆円"
+    assert summary.quantitative.net_income == "4兆円"
     assert summary.quantitative.eps == "320.12"
-    assert summary.quantitative.per == "10.4"
-    assert summary.quantitative.pbr == "1.2"
+    assert summary.quantitative.per == "10.4倍"
+    assert summary.quantitative.pbr == "1.2倍"
     assert summary.quantitative.roe == "12.4%"
     assert summary.quantitative.dividend_yield == "2.1%"
     assert summary.quantitative.employee_count == "380,000 人"
@@ -661,7 +665,68 @@ def test_company_research_summary_builder_maps_provider_quantitative_fields():
     assert "ROE" not in summary.quantitative.missing_items
     assert "配当利回り" not in summary.quantitative.missing_items
     assert "従業員数" not in summary.quantitative.missing_items
+    assert "企業価値" not in summary.quantitative.missing_items
     assert "Toyota Yahoo Finance Profile" in summary.quantitative.source_titles
+
+
+def test_company_research_summary_builder_keeps_zero_metrics_and_ignores_empty_values():
+    provider_evidence = ResearchEvidence(
+        symbol="ZERO",
+        document_id="doc-profile",
+        chunk_id="chunk-profile",
+        title="Zero Metrics Provider Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Zero Metrics Inc.\n"
+            "Market Cap: 0 JPY\n"
+            "Enterprise Value: NaN\n"
+            "Total Revenue: \n"
+            "Operating Income: None\n"
+            "Net Income: null\n"
+            "Trailing EPS: 0\n"
+            "Trailing PE: 0\n"
+            "Price To Book: 0\n"
+            "Return On Equity: 0\n"
+            "Dividend Yield: 0\n"
+            "Full Time Employees: 0\n"
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    report = CompanyResearchReport(
+        symbol="ZERO",
+        as_of=date(2026, 5, 25),
+        summary="Research summary.",
+        points=[],
+        evidence=[provider_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    summary = CompanyResearchSummaryBuilder().build(report)
+
+    assert summary.quantitative.market_cap == "0円"
+    assert summary.quantitative.eps == "0"
+    assert summary.quantitative.per == "0倍"
+    assert summary.quantitative.pbr == "0倍"
+    assert summary.quantitative.roe == "0%"
+    assert summary.quantitative.dividend_yield == "0%"
+    assert summary.quantitative.employee_count == "0人"
+    assert "時価総額" not in summary.quantitative.missing_items
+    assert "PER" not in summary.quantitative.missing_items
+    assert "PBR" not in summary.quantitative.missing_items
+    assert "ROE" not in summary.quantitative.missing_items
+    assert "配当利回り" not in summary.quantitative.missing_items
+    assert "従業員数" not in summary.quantitative.missing_items
+    assert "売上高" in summary.quantitative.missing_items
+    assert "企業価値" in summary.quantitative.missing_items
 
 
 def test_company_research_summary_builder_normalizes_business_profile_without_news_mix():
@@ -727,7 +792,8 @@ def test_company_research_summary_builder_normalizes_business_profile_without_ne
     assert profile.industry == "Auto Manufacturers"
     assert profile.information_status == "found"
     assert "自動車事業" in profile.main_businesses
-    assert "金融サービス" in profile.main_businesses
+    assert "金融サービス" in profile.supporting_businesses
+    assert "リース" in profile.supporting_businesses
     assert profile.main_businesses != profile.products_services
     assert "自動車" in profile.products_services
     assert "商用車" in profile.products_services
@@ -739,8 +805,51 @@ def test_company_research_summary_builder_normalizes_business_profile_without_ne
     assert "日本" in profile.regions
     assert "北米" in profile.regions
     assert "フリート顧客" in profile.customer_segments
-    assert summary.quantitative.employee_count == "380,000"
+    assert summary.quantitative.employee_count == "380,000人"
     assert "Toyota launches battery product" not in profile.business_summary
+
+
+def test_company_research_summary_builder_adds_safe_product_candidates_when_missing():
+    provider_evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-profile",
+        chunk_id="chunk-profile",
+        title="Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Toyota Motor Corporation\n"
+            "Sector: Consumer Cyclical\n"
+            "Industry: Auto Manufacturers\n"
+            "Toyota has global operations."
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="Research summary.",
+        points=[],
+        evidence=[provider_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    summary = CompanyResearchSummaryBuilder().build(report)
+    profile = summary.overview.business_profile
+
+    assert profile is not None
+    assert profile.products_services_status == "unverified"
+    assert "自動車（補完候補）" in profile.products_services
+    assert all("補完候補" in item for item in profile.products_services)
+    assert summary.overview.products_services_status == "unverified"
 
 
 def test_company_research_summary_builder_distinguishes_ir_statuses_and_types():
@@ -810,6 +919,7 @@ def test_company_research_summary_builder_distinguishes_ir_statuses_and_types():
 
     assert ir_by_type["forecast_revision"].availability == "found"
     assert ir_by_type["forecast_revision"].information_status == "unparsed"
+    assert ir_by_type["forecast_revision"].status == "unparsed"
     assert ir_by_type["forecast_revision"].source_url == "https://example.com/tdnet/forecast"
     assert "本文は未解析" in ir_by_type["forecast_revision"].summary
     assert ir_by_type["shareholder_return"].availability == "found"
@@ -819,13 +929,16 @@ def test_company_research_summary_builder_distinguishes_ir_statuses_and_types():
     assert summary.news_items
     assert any(
         item.title == "2026年3月期 業績予想修正に関するお知らせ"
+        and item.topic_type == "forecast_revision"
         and item.impact_hint == "financial"
         and item.official_confirmation_required is False
         and item.information_status == "unparsed"
+        and item.status == "unparsed"
         for item in summary.news_items
     )
     assert any(
         item.title == "定款一部変更に関するお知らせ"
+        and item.topic_type == "tdnet"
         and item.impact_hint == "ir"
         and item.official_confirmation_required is False
         for item in summary.news_items
@@ -1567,11 +1680,12 @@ def test_yahoo_finance_research_adapter_builds_profile_and_news_payloads_without
     assert [payload.source_type for payload in payloads] == ["provider_profile", "news"]
     assert payloads[0].source_url == "https://finance.yahoo.com/quote/7203.T/profile"
     assert payloads[0].published_at == date(2026, 5, 25)
-    assert "Market Cap: 35,000,000,000,000 JPY" in payloads[0].content
-    assert "Total Revenue: 45,000,000,000,000 JPY" in payloads[0].content
-    assert "Operating Income: 5,000,000,000,000 JPY" in payloads[0].content
-    assert "Trailing EPS: 320.12" in payloads[0].content
-    assert "Forward PE: 10.4" in payloads[0].content
+    assert "Market Cap: 35兆円" in payloads[0].content
+    assert "Enterprise Value: 37兆円" in payloads[0].content
+    assert "Total Revenue: 45兆円" in payloads[0].content
+    assert "Operating Income: 5兆円" in payloads[0].content
+    assert "Trailing EPS: 320.12円" in payloads[0].content
+    assert "Forward PE: 10.4倍" in payloads[0].content
     assert "Return On Equity: 12.4%" in payloads[0].content
     assert "Dividend Yield: 2.1%" in payloads[0].content
     assert "Full Time Employees: 380,000 人" in payloads[0].content

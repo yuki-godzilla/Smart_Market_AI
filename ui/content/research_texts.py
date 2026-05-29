@@ -40,6 +40,8 @@ RESEARCH_INVESTMENT_INSIGHT_GAPS_LABEL = "まだ判断に足りない情報"
 RESEARCH_INVESTMENT_INSIGHT_NOTE = (
     "売買の指示ではなく、source-backed な判断材料と確認不足の整理です。"
 )
+RESEARCH_INVESTMENT_QUESTION_SUMMARY_TITLE = "投資判断で知りたいこと"
+RESEARCH_INVESTMENT_QUESTION_MORE_LABEL = "その他の確認ポイントを見る"
 RESEARCH_DETAIL_EXPANDER_LABEL = "詳細データを表示"
 RESEARCH_DETAIL_OK_CAPTION = "登録資料から検索できた根拠と観点別サマリです。"
 

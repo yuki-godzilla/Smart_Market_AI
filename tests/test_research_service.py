@@ -16,6 +16,7 @@ from backend.research import (
     ExternalResearchSourcePayload,
     HybridResearchRetrievalService,
     InvestmentInsightBuilder,
+    InvestmentQuestionSummaryBuilder,
     ResearchAnalysisService,
     ResearchBriefBuilder,
     ResearchChunk,
@@ -57,6 +58,8 @@ FORBIDDEN_RECOMMENDATION_WORDS = [
     "売却推奨",
     "今すぐ買う",
     "今すぐ売る",
+    "割安です",
+    "割高です",
 ]
 
 
@@ -738,6 +741,102 @@ def test_investment_insight_builder_marks_quantitative_metric_shortage_status():
     assert insight.confidence_label == "低〜中"
     assert insight.primary_action_label == "PER/PBR/ROEを確認"
     assert any("PER/PBR/ROE" in gap for gap in insight.confirmation_gaps)
+
+
+def test_investment_question_summary_builder_always_generates_fixed_questions():
+    report = CompanyResearchReport(
+        symbol="MSFT",
+        as_of=date(2026, 5, 25),
+        summary="No source-backed evidence.",
+        points=[],
+        evidence=[],
+        data_quality=ResearchDataQuality(
+            status="WARN",
+            latest_document_date=None,
+            document_count=0,
+            evidence_count=0,
+            warnings=["登録済みResearch資料がありません。"],
+        ),
+    )
+
+    summary = InvestmentQuestionSummaryBuilder().build(report)
+
+    categories = {answer.category for answer in summary.answers}
+    dumped = str(summary.model_dump(mode="json"))
+
+    assert summary.schema_version == "investment-question-summary-v1"
+    assert len(summary.answers) == 10
+    assert {"business_model", "financial_trend", "valuation"} <= categories
+    assert all(answer.question for answer in summary.answers)
+    assert all(answer.answer for answer in summary.answers)
+    assert any(answer.evidence_level == "missing" for answer in summary.answers)
+    assert "PER・PBR・ROE・配当利回りが未取得" in next(
+        answer.answer for answer in summary.answers if answer.category == "valuation"
+    )
+    assert "株主還元は判断できません" in next(
+        answer.answer for answer in summary.answers if answer.category == "shareholder_return"
+    )
+    assert not any(term in dumped for term in FORBIDDEN_RECOMMENDATION_WORDS)
+
+
+def test_investment_question_summary_builder_maps_sources_to_answers():
+    provider_evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-profile",
+        chunk_id="chunk-profile",
+        title="Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Toyota sells vehicles globally and invests in software services. "
+            "PER 12.5倍 PBR 1.1倍 ROE 9.8% Dividend 75円"
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    official_evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-ir",
+        chunk_id="chunk-ir",
+        title="7203 決算短信",
+        source_type="earnings_report",
+        published_at=date(2026, 5, 20),
+        section_title="業績",
+        excerpt=(
+            "売上高 45兆円、営業利益 5兆円、純利益 4兆円、EPS 320円。"
+            "通期予想は売上高46兆円、営業利益5.2兆円です。"
+            "成長戦略と株主還元を確認できます。"
+        ),
+        relevance_score=Decimal("0.88"),
+        reliability=Decimal("0.94"),
+    )
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="Source-backed evidence exists.",
+        points=[],
+        evidence=[provider_evidence, official_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=2,
+            evidence_count=2,
+            warnings=[],
+        ),
+    )
+
+    summary = InvestmentQuestionSummaryBuilder().build(report)
+    answers = {answer.category: answer for answer in summary.answers}
+
+    assert answers["business_model"].source_titles
+    assert "Yahoo Finance Profile" in answers["business_model"].source_titles
+    assert answers["business_model"].evidence_level in {"medium", "high"}
+    assert answers["financial_trend"].evidence_level == "high"
+    assert "売上高 45兆円" in answers["financial_trend"].answer
+    assert answers["valuation"].source_titles
+    assert "PER" in answers["valuation"].answer
+    assert answers["key_takeaway"].answer
 
 
 def test_research_ingestion_deduplicates_by_document_hash(tmp_path):

@@ -15,6 +15,8 @@ from backend.research import (
     CompanyResearchReport,
     ExternalResearchFetchManifestEntry,
     ExternalResearchFetchResult,
+    InvestmentQuestionAnswer,
+    InvestmentQuestionSummary,
     ResearchBrief,
     ResearchBriefMaterial,
     ResearchBriefSourceCard,
@@ -57,6 +59,9 @@ from ui.app import (
     _external_research_source_cards_html,
     _fetch_external_research_for_preview,
     _investment_insight_panel_html,
+    _investment_question_answers_html,
+    _investment_question_primary_answers,
+    _investment_question_summary_intro_html,
     _market_data_preview_symbol_label,
     _name_from_candidate,
     _normalize_dividend_filter_state,
@@ -1057,6 +1062,68 @@ def test_investment_insight_panel_html_accepts_cached_legacy_insight():
     assert "ステータス: ニュース先行" in markup
     assert "信頼度: 低" in markup
     assert "次のアクション: 公式IRで裏取り" in markup
+
+
+def test_investment_question_summary_html_prioritizes_initial_questions():
+    categories = [
+        ("business_model", "この会社は何で稼いでいるか？", "事業概要を確認できます。", "medium"),
+        (
+            "financial_trend",
+            "売上・利益は伸びているか？",
+            "業績トレンドは追加確認が必要です。",
+            "missing",
+        ),
+        ("profitability", "利益率は良いか？", "収益性は判断できません。", "missing"),
+        ("forecast", "今期見通しは強いか？", "通期予想は未取得です。", "missing"),
+        ("growth_driver", "成長ドライバーは何か？", "成長材料は追加確認が必要です。", "low"),
+        ("risk", "注意すべきリスクは何か？", "リスク情報は未取得です。", "missing"),
+        ("shareholder_return", "株主還元はどうか？", "配当方針は未取得です。", "missing"),
+        ("valuation", "割高・割安感はあるか？", "PER/PBR/ROEは未取得です。", "missing"),
+        (
+            "recent_news_impact",
+            "直近ニュースは業績に影響しそうか？",
+            "ニュースは未取得です。",
+            "missing",
+        ),
+        (
+            "key_takeaway",
+            "この銘柄を見るうえで一番重要な論点は何か？",
+            "主要な定量情報を確認することが最重要です。",
+            "missing",
+        ),
+    ]
+    summary = InvestmentQuestionSummary(
+        symbol="7203.T",
+        answers=[
+            InvestmentQuestionAnswer(
+                category=category,
+                question=question,
+                answer=answer,
+                evidence_level=evidence_level,
+                source_titles=["Yahoo Finance Profile"] if category == "business_model" else [],
+            )
+            for category, question, answer, evidence_level in categories
+        ],
+        top_takeaway="主要な定量情報を確認することが最重要です。",
+        missing_critical_items=["売上高", "PER / PBR / ROE"],
+    )
+
+    primary_answers = _investment_question_primary_answers(summary)
+    markup = _investment_question_summary_intro_html(summary)
+    markup += _investment_question_answers_html(primary_answers)
+
+    assert [answer.category for answer in primary_answers] == [
+        "business_model",
+        "financial_trend",
+        "forecast",
+        "growth_driver",
+        "key_takeaway",
+    ]
+    assert "投資判断で知りたいこと" in markup
+    assert "Q. この会社は何で稼いでいるか？" in markup
+    assert "根拠: 中" in markup
+    assert "根拠: 不足" in markup
+    assert "利益率は良いか？" not in markup
 
 
 def test_research_score_rows_explain_optional_context_without_advice():

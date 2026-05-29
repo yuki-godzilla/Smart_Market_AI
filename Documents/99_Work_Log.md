@@ -805,3 +805,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Promoted the Research Summary top block to `SMAI 投資判断サマリー` with status, confidence, primary action, and a short current-view summary.
 - Reorganized the initial view into 3 columns: good materials, caution materials, and still-missing information, each capped at 3 visible items.
 - Moved AI整理メモ / ResearchBrief confirmation cards into a folded `根拠確認` layer so source cards, Research Score, external traces, and detail tables stay secondary.
+
+## 2026-05-29 - InvestmentQuestionSummary review questions
+
+- Added rule-based `InvestmentQuestionSummary` / `InvestmentQuestionSummaryBuilder` to map existing Research RAG facts, provider data, news, and InvestmentInsight into 10 fixed investment-review questions.
+- Added the `投資判断で知りたいこと` UI section between `SMAI 投資判断サマリー` and the 3-column material cards, showing the first five questions up front and the remaining questions in an expander.
+- Each answer now carries a root evidence label (`高` / `中` / `低` / `不足`) and explicitly says `未取得` / `判断できません` when core information is missing, without changing scores or ranking order.

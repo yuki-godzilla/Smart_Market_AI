@@ -55,6 +55,9 @@ from backend.research import (
     InvestmentInsight,
     InvestmentInsightBuilder,
     InvestmentInsightItem,
+    InvestmentQuestionAnswer,
+    InvestmentQuestionSummary,
+    InvestmentQuestionSummaryBuilder,
     ResearchBrief,
     ResearchBriefBuilder,
     ResearchBriefMaterial,
@@ -106,6 +109,8 @@ from ui.content.research_texts import (
     RESEARCH_INVESTMENT_INSIGHT_POSITIVE_LABEL,
     RESEARCH_INVESTMENT_INSIGHT_SUMMARY_LABEL,
     RESEARCH_INVESTMENT_INSIGHT_TITLE,
+    RESEARCH_INVESTMENT_QUESTION_MORE_LABEL,
+    RESEARCH_INVESTMENT_QUESTION_SUMMARY_TITLE,
     RESEARCH_NO_REGISTERED_DOCUMENTS,
     RESEARCH_NOT_FETCHED_MESSAGE,
     RESEARCH_RANKING_FETCH_BUTTON_LABEL,
@@ -5154,7 +5159,16 @@ def _render_research_summary_panel(
         external_research_result=external_research_result,
         brief=brief,
     )
-    _render_investment_insight_panel(insight)
+    question_summary = InvestmentQuestionSummaryBuilder().build(
+        report,
+        news_report=news_report,
+        external_research_result=external_research_result,
+        brief=brief,
+        insight=insight,
+    )
+    _render_investment_insight_summary_panel(insight)
+    _render_investment_question_summary_panel(question_summary)
+    _render_investment_insight_materials_panel(insight)
     with st.expander("根拠確認（会社概要・確認できた事実）を表示", expanded=detail_expanded):
         st.markdown(_research_brief_overview_html(brief), unsafe_allow_html=True)
         st.markdown("##### 読み方サマリー")
@@ -5262,7 +5276,21 @@ def _render_investment_insight_panel(insight: InvestmentInsight) -> None:
     st.markdown(_investment_insight_panel_html(insight), unsafe_allow_html=True)
 
 
+def _render_investment_insight_summary_panel(insight: InvestmentInsight) -> None:
+    st.markdown(_investment_insight_summary_html(insight), unsafe_allow_html=True)
+
+
+def _render_investment_insight_materials_panel(insight: InvestmentInsight) -> None:
+    st.markdown(_investment_insight_materials_html(insight), unsafe_allow_html=True)
+
+
 def _investment_insight_panel_html(insight: InvestmentInsight) -> str:
+    return (
+        f"{_investment_insight_summary_html(insight)}{_investment_insight_materials_html(insight)}"
+    )
+
+
+def _investment_insight_summary_html(insight: InvestmentInsight) -> str:
     status_label = _investment_insight_status_label(insight)
     confidence_label = _investment_insight_confidence_label(insight, status_label)
     primary_action_label = _investment_insight_primary_action_label(insight, status_label)
@@ -5294,6 +5322,10 @@ def _investment_insight_panel_html(insight: InvestmentInsight) -> str:
         f'<div class="research-result-brief-note">{html.escape(RESEARCH_INVESTMENT_INSIGHT_NOTE)}</div>'
         "</section>"
     )
+    return hero
+
+
+def _investment_insight_materials_html(insight: InvestmentInsight) -> str:
     cards = [
         _investment_insight_items_card_html(
             RESEARCH_INVESTMENT_INSIGHT_POSITIVE_LABEL,
@@ -5309,7 +5341,142 @@ def _investment_insight_panel_html(insight: InvestmentInsight) -> str:
         ),
         _investment_insight_gap_card_html(getattr(insight, "confirmation_gaps", [])),
     ]
-    return f'{hero}<div class="research-brief-focus-grid">{"".join(cards)}</div>'
+    return f'<div class="research-brief-focus-grid">{"".join(cards)}</div>'
+
+
+def _render_investment_question_summary_panel(summary: InvestmentQuestionSummary) -> None:
+    st.markdown(_investment_question_summary_intro_html(summary), unsafe_allow_html=True)
+    primary_answers = _investment_question_primary_answers(summary)
+    st.markdown(
+        _investment_question_answers_html(primary_answers),
+        unsafe_allow_html=True,
+    )
+    secondary_answers = [
+        answer for answer in getattr(summary, "answers", []) if answer not in primary_answers
+    ]
+    if secondary_answers:
+        with st.expander(RESEARCH_INVESTMENT_QUESTION_MORE_LABEL, expanded=False):
+            st.markdown(
+                _investment_question_answers_html(secondary_answers),
+                unsafe_allow_html=True,
+            )
+
+
+def _investment_question_summary_intro_html(summary: InvestmentQuestionSummary) -> str:
+    top_takeaway = _research_brief_ui_text(getattr(summary, "top_takeaway", ""), max_chars=170)
+    missing_items = getattr(summary, "missing_critical_items", [])[:4]
+    missing_markup = "".join(
+        f'<span class="research-summary-next-chip">{html.escape(str(item))}</span>'
+        for item in missing_items
+        if str(item).strip()
+    )
+    missing_block = (
+        '<div class="research-result-brief-label">優先して確認</div>'
+        f'<div class="research-summary-next-list">{missing_markup}</div>'
+        if missing_markup
+        else ""
+    )
+    summary_body = (
+        top_takeaway or "投資判断に必要な確認ポイントを、取得できた根拠ごとに整理します。"
+    )
+    return (
+        '<section class="research-result-brief">'
+        f'<div class="research-result-brief-title">{html.escape(RESEARCH_INVESTMENT_QUESTION_SUMMARY_TITLE)}</div>'
+        f'<div class="research-result-brief-summary">{html.escape(summary_body)}</div>'
+        f"{missing_block}"
+        "</section>"
+    )
+
+
+def _investment_question_primary_answers(
+    summary: InvestmentQuestionSummary,
+) -> list[InvestmentQuestionAnswer]:
+    primary_categories = (
+        "business_model",
+        "financial_trend",
+        "forecast",
+        "growth_driver",
+        "key_takeaway",
+    )
+    answers_by_category = {
+        getattr(answer, "category", ""): answer for answer in getattr(summary, "answers", [])
+    }
+    return [
+        answers_by_category[category]
+        for category in primary_categories
+        if category in answers_by_category
+    ]
+
+
+def _investment_question_answers_html(
+    answers: Sequence[InvestmentQuestionAnswer],
+) -> str:
+    cards = "".join(_investment_question_answer_card_html(answer) for answer in answers)
+    if not cards:
+        cards = (
+            '<section class="research-brief-focus-card">'
+            '<div class="research-brief-focus-body">確認ポイントはまだ作成されていません。</div>'
+            "</section>"
+        )
+    return f'<div class="research-brief-focus-grid">{cards}</div>'
+
+
+def _investment_question_answer_card_html(answer: InvestmentQuestionAnswer) -> str:
+    evidence_label = _investment_question_evidence_label(
+        getattr(answer, "evidence_level", "missing")
+    )
+    evidence_tone = _investment_question_evidence_tone(getattr(answer, "evidence_level", "missing"))
+    source_titles = [
+        _research_brief_ui_text(str(title), max_chars=46)
+        for title in getattr(answer, "source_titles", [])[:2]
+        if str(title).strip()
+    ]
+    source_markup = (
+        '<div class="research-brief-focus-meta">'
+        f"出典: {html.escape(' / '.join(source_titles))}</div>"
+        if source_titles
+        else ""
+    )
+    missing_reason = _research_brief_ui_text(
+        getattr(answer, "missing_reason", ""),
+        max_chars=82,
+    )
+    missing_markup = (
+        '<div class="research-brief-focus-meta">' f"不足: {html.escape(missing_reason)}</div>"
+        if missing_reason
+        else ""
+    )
+    return (
+        '<section class="research-brief-focus-card">'
+        '<div class="research-brief-focus-badge-row">'
+        f'<span class="research-evidence-pill confidence-{html.escape(evidence_tone)}">'
+        f"根拠: {html.escape(evidence_label)}</span>"
+        "</div>"
+        f'<div class="research-brief-focus-title">Q. {html.escape(str(answer.question))}</div>'
+        f'<div class="research-brief-focus-body">A. {html.escape(str(answer.answer))}</div>'
+        f"{source_markup}{missing_markup}"
+        "</section>"
+    )
+
+
+def _investment_question_evidence_label(level: str) -> str:
+    labels = {
+        "high": "高",
+        "medium": "中",
+        "low": "低",
+        "missing": "不足",
+    }
+    return labels.get(level, "不足")
+
+
+def _investment_question_evidence_tone(level: str) -> str:
+    tones = {
+        "high": "high",
+        "medium": "medium",
+        "low": "low",
+        "missing": "unknown",
+    }
+    return tones.get(level, "unknown")
 
 
 def _investment_insight_positive_display_items(

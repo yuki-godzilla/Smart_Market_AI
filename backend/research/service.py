@@ -72,6 +72,19 @@ InvestmentViewStatus = Literal[
     "ニュース先行",
     "定量指標不足",
 ]
+InvestmentQuestionCategory = Literal[
+    "business_model",
+    "financial_trend",
+    "profitability",
+    "forecast",
+    "growth_driver",
+    "risk",
+    "shareholder_return",
+    "valuation",
+    "recent_news_impact",
+    "key_takeaway",
+]
+InvestmentQuestionEvidenceLevel = Literal["high", "medium", "low", "missing"]
 ResearchMissingItemCategory = Literal[
     "official_source",
     "financial_metric",
@@ -703,6 +716,27 @@ class InvestmentInsight(StrictBaseModel):
     decision_support_note: str = (
         "InvestmentInsight is for decision support only; not a buy/sell recommendation."
     )
+
+
+class InvestmentQuestionAnswer(StrictBaseModel):
+    """Answer to a fixed investment-review question, backed by available sources."""
+
+    category: InvestmentQuestionCategory
+    question: str = Field(min_length=1)
+    answer: str = Field(min_length=1)
+    evidence_level: InvestmentQuestionEvidenceLevel = "missing"
+    source_titles: list[str] = Field(default_factory=list)
+    missing_reason: str = ""
+
+
+class InvestmentQuestionSummary(StrictBaseModel):
+    """Fixed question set that turns RAG facts into investor-facing review points."""
+
+    schema_version: str = "investment-question-summary-v1"
+    symbol: str = Field(min_length=1)
+    answers: list[InvestmentQuestionAnswer] = Field(default_factory=list)
+    top_takeaway: str = ""
+    missing_critical_items: list[str] = Field(default_factory=list)
 
 
 class ExternalResearchSourceAdapter(Protocol):
@@ -1805,6 +1839,59 @@ class InvestmentInsightBuilder:
             confirmation_gaps=display_confirmation_gaps,
             action_hints=action_hints,
             confidence=confidence,
+        )
+
+
+class InvestmentQuestionSummaryBuilder:
+    """Build fixed investor questions from source-backed Research facts."""
+
+    def build(
+        self,
+        report: CompanyResearchReport,
+        *,
+        news_report: StockNewsReport | None = None,
+        external_research_result: ExternalResearchFetchResult | None = None,
+        brief: ResearchBrief | None = None,
+        insight: InvestmentInsight | None = None,
+    ) -> InvestmentQuestionSummary:
+        prepared_brief = brief or ResearchBriefBuilder().build(
+            report,
+            news_report=news_report,
+            external_research_result=external_research_result,
+        )
+        prepared_insight = insight or InvestmentInsightBuilder().build(
+            report,
+            news_report=news_report,
+            external_research_result=external_research_result,
+            brief=prepared_brief,
+        )
+        answers = [
+            _investment_question_answer(
+                category,
+                report,
+                prepared_brief,
+                prepared_insight,
+                news_report=news_report,
+                external_research_result=external_research_result,
+            )
+            for category, _ in _INVESTMENT_QUESTION_SPECS
+        ]
+        top_takeaway = next(
+            (
+                answer.answer
+                for answer in answers
+                if answer.category == "key_takeaway" and answer.answer.strip()
+            ),
+            "",
+        )
+        return InvestmentQuestionSummary(
+            symbol=report.symbol,
+            answers=answers,
+            top_takeaway=top_takeaway,
+            missing_critical_items=_investment_question_missing_critical_items(
+                prepared_brief,
+                answers,
+            ),
         )
 
 
@@ -4723,6 +4810,767 @@ def _investment_insight_short_summary(
         confidence_text = _investment_insight_confidence_phrase(confidence)
         action_phrase = f"現時点では、情報源の信頼度は{confidence_text}で、継続確認向きです。"
     return " ".join((source_phrase, gap_phrase, action_phrase))
+
+
+_INVESTMENT_QUESTION_SPECS: tuple[tuple[InvestmentQuestionCategory, str], ...] = (
+    ("business_model", "この会社は何で稼いでいるか？"),
+    ("financial_trend", "売上・利益は伸びているか？"),
+    ("profitability", "利益率は良いか？"),
+    ("forecast", "今期見通しは強いか？"),
+    ("growth_driver", "成長ドライバーは何か？"),
+    ("risk", "注意すべきリスクは何か？"),
+    ("shareholder_return", "株主還元はどうか？"),
+    ("valuation", "割高・割安感はあるか？"),
+    ("recent_news_impact", "直近ニュースは業績に影響しそうか？"),
+    ("key_takeaway", "この銘柄を見るうえで一番重要な論点は何か？"),
+)
+_INVESTMENT_QUESTION_MISSING_ITEM_LABELS: dict[InvestmentQuestionCategory, str] = {
+    "business_model": "主力事業・収益構造",
+    "financial_trend": "売上高・営業利益・純利益の推移",
+    "profitability": "営業利益率・純利益率",
+    "forecast": "通期業績予想・会社計画",
+    "growth_driver": "成長ドライバー",
+    "risk": "事業等のリスク",
+    "shareholder_return": "配当方針・株主還元",
+    "valuation": "PER / PBR / ROE / 配当利回り",
+    "recent_news_impact": "直近ニュースの業績影響",
+    "key_takeaway": "最優先で確認する論点",
+}
+_INVESTMENT_QUESTION_FORBIDDEN_REPLACEMENTS: tuple[tuple[str, str], ...] = (
+    ("買い推奨", "確認候補"),
+    ("購入推奨", "確認候補"),
+    ("売り推奨", "注意して確認"),
+    ("売却推奨", "注意して確認"),
+    ("今すぐ買う", "追加確認する"),
+    ("今すぐ売る", "追加確認する"),
+    ("買いです", "確認材料があります"),
+    ("売りです", "注意材料があります"),
+    ("割安です", "割安とは断定できません"),
+    ("割高です", "割高とは断定できません"),
+    ("投資妙味があります", "比較材料があります"),
+    ("成長が期待されます", "成長に関する記述があります"),
+)
+
+
+def _investment_question_answer(
+    category: InvestmentQuestionCategory,
+    report: CompanyResearchReport,
+    brief: ResearchBrief,
+    insight: InvestmentInsight,
+    *,
+    news_report: StockNewsReport | None,
+    external_research_result: ExternalResearchFetchResult | None,
+) -> InvestmentQuestionAnswer:
+    if category == "business_model":
+        return _investment_question_business_model(category, brief)
+    if category == "financial_trend":
+        return _investment_question_financial_trend(category, brief)
+    if category == "profitability":
+        return _investment_question_profitability(category, brief)
+    if category == "forecast":
+        return _investment_question_forecast(category, brief, insight)
+    if category == "growth_driver":
+        return _investment_question_growth_driver(category, brief, insight)
+    if category == "risk":
+        return _investment_question_risk(category, brief, insight)
+    if category == "shareholder_return":
+        return _investment_question_shareholder_return(category, brief, insight)
+    if category == "valuation":
+        return _investment_question_valuation(category, brief)
+    if category == "recent_news_impact":
+        return _investment_question_recent_news_impact(
+            category,
+            brief,
+            news_report=news_report,
+        )
+    return _investment_question_key_takeaway(
+        category,
+        report,
+        brief,
+        insight,
+        news_report=news_report,
+        external_research_result=external_research_result,
+    )
+
+
+def _investment_question_business_model(
+    category: InvestmentQuestionCategory,
+    brief: ResearchBrief,
+) -> InvestmentQuestionAnswer:
+    fact_summary = brief.fact_summary
+    if fact_summary is None:
+        return _investment_question_missing_answer(
+            category,
+            "事業概要を判断できる資料が未取得です。主力事業、主要セグメント、地域、収益源を公式資料で追加確認してください。",
+            "事業概要・セグメント情報が未取得です。",
+        )
+    items = [
+        *fact_summary.business_overview,
+        *fact_summary.business_segments,
+        *fact_summary.business_regions,
+        *fact_summary.revenue_drivers,
+    ]
+    if not items:
+        return _investment_question_missing_answer(
+            category,
+            "外部データから事業概要は一部確認できますが、主力セグメントや収益構造は公式資料で追加確認が必要です。",
+            "事業概要・セグメント情報が未取得です。",
+        )
+
+    overview = fact_summary.business_overview[0].value if fact_summary.business_overview else ""
+    segments = _investment_question_values(fact_summary.business_segments, limit=2)
+    regions = _investment_question_values(fact_summary.business_regions, limit=2)
+    drivers = _investment_question_values(fact_summary.revenue_drivers, limit=2)
+    level = _investment_question_evidence_level_for_fact_items(items)
+    source_phrase = "公式資料から" if level == "high" else "外部データから"
+    sentences: list[str] = []
+    if overview:
+        sentences.append(f"{source_phrase}、{_clip_text(overview, max_chars=120)}")
+    detail_parts: list[str] = []
+    if segments:
+        detail_parts.append(f"主要事業は{'、'.join(segments)}")
+    if drivers:
+        detail_parts.append(f"収益源は{'、'.join(drivers)}")
+    if regions:
+        detail_parts.append(f"地域展開は{'、'.join(regions)}")
+    if detail_parts:
+        sentences.append(f"確認できる範囲では、{'、'.join(detail_parts)}です。")
+    if level != "high":
+        sentences.append("主力セグメントや収益構造は公式資料で追加確認が必要です。")
+    else:
+        sentences.append("セグメント別売上や収益構造は決算資料で続けて確認してください。")
+    return _investment_question_build_answer(
+        category,
+        " ".join(sentences),
+        evidence_level=level,
+        source_titles=_investment_question_titles_from_fact_items(items),
+    )
+
+
+def _investment_question_financial_trend(
+    category: InvestmentQuestionCategory,
+    brief: ResearchBrief,
+) -> InvestmentQuestionAnswer:
+    metrics = _investment_question_metrics_by_key(brief)
+    metric_rows = _investment_question_metric_texts(
+        metrics,
+        ("revenue", "operating_income", "net_income", "eps"),
+    )
+    trend_items = _investment_question_fact_items_by_keywords(
+        _investment_question_fact_items(brief),
+        (
+            "増収",
+            "増益",
+            "減収",
+            "減益",
+            "前年比",
+            "revenue growth",
+            "profit growth",
+            "decline",
+        ),
+    )
+    source_types = [metric.source_type for metric in metrics.values()]
+    source_types.extend(item.source_type for item in trend_items)
+    if not metric_rows and not trend_items:
+        return _investment_question_missing_answer(
+            category,
+            "売上高・営業利益・純利益の推移が未取得のため、業績トレンドは判断できません。",
+            "売上高・営業利益・純利益・EPSの推移が未取得です。",
+        )
+
+    sentences: list[str] = []
+    if metric_rows:
+        sentences.append(f"{'、'.join(metric_rows[:4])}を確認できます。")
+    if trend_items:
+        sentences.append(
+            f"業績変化に関する記述として、{_clip_text(trend_items[0].value, max_chars=100)}を確認できます。"
+        )
+    sentences.append("前年同期比や複数期の推移は、決算短信・有価証券報告書で追加確認してください。")
+    return _investment_question_build_answer(
+        category,
+        " ".join(sentences),
+        evidence_level=_investment_question_evidence_level_from_source_types(source_types),
+        source_titles=[
+            *_investment_question_titles_from_metrics(metrics.values()),
+            *_investment_question_titles_from_fact_items(trend_items),
+        ],
+        missing_reason=_investment_question_missing_metrics_reason(
+            brief,
+            ("売上高", "営業利益", "純利益", "EPS"),
+        ),
+    )
+
+
+def _investment_question_profitability(
+    category: InvestmentQuestionCategory,
+    brief: ResearchBrief,
+) -> InvestmentQuestionAnswer:
+    metrics = _investment_question_metrics_by_key(brief)
+    metric_rows = _investment_question_metric_texts(
+        metrics,
+        ("operating_income", "net_income", "roe"),
+    )
+    profitability_items = _investment_question_fact_items_by_keywords(
+        _investment_question_fact_items(brief),
+        (
+            "利益率",
+            "収益性",
+            "価格転嫁",
+            "コスト増",
+            "margin",
+            "profitability",
+            "roe",
+        ),
+    )
+    if not metric_rows and not profitability_items:
+        return _investment_question_missing_answer(
+            category,
+            "営業利益率・純利益率が未取得のため、収益性は判断できません。",
+            "営業利益率・純利益率・収益性に関する情報が未取得です。",
+        )
+
+    source_types = [metric.source_type for metric in metrics.values()]
+    source_types.extend(item.source_type for item in profitability_items)
+    sentences: list[str] = []
+    if metric_rows:
+        sentences.append(f"{'、'.join(metric_rows[:3])}を確認できます。")
+    if profitability_items:
+        sentences.append(
+            f"収益性に関する記述として、{_clip_text(profitability_items[0].value, max_chars=96)}を確認できます。"
+        )
+    sentences.append("営業利益率・純利益率、コスト要因、価格転嫁は公式資料で追加確認が必要です。")
+    return _investment_question_build_answer(
+        category,
+        " ".join(sentences),
+        evidence_level=_investment_question_evidence_level_from_source_types(source_types),
+        source_titles=[
+            *_investment_question_titles_from_metrics(metrics.values()),
+            *_investment_question_titles_from_fact_items(profitability_items),
+        ],
+        missing_reason=_investment_question_missing_metrics_reason(
+            brief,
+            ("営業利益", "純利益", "ROE"),
+        ),
+    )
+
+
+def _investment_question_forecast(
+    category: InvestmentQuestionCategory,
+    brief: ResearchBrief,
+    insight: InvestmentInsight,
+) -> InvestmentQuestionAnswer:
+    outlook_items = list(brief.fact_summary.earnings_outlook if brief.fact_summary else [])
+    revision_points = _investment_question_insight_points_by_keywords(
+        [*insight.positive_points, *insight.negative_points],
+        ("上方修正", "下方修正", "通期予想", "業績予想", "guidance", "forecast"),
+    )
+    if not outlook_items and not revision_points:
+        return _investment_question_missing_answer(
+            category,
+            "通期業績予想や会社計画が未取得のため、今期見通しは判断できません。",
+            "通期業績予想、会社計画、業績修正に関する情報が未取得です。",
+        )
+
+    source_types = [item.source_type for item in outlook_items]
+    source_types.extend(point.source_type for point in revision_points)
+    lead_text = (
+        outlook_items[0].value
+        if outlook_items
+        else revision_points[0].summary if revision_points else ""
+    )
+    answer = (
+        f"今期見通しに関する材料として、{_clip_text(lead_text, max_chars=110)}を確認できます。"
+        "会社計画の前提、上方修正・下方修正の有無、市場コンセンサスとの差は公式IRで追加確認してください。"
+    )
+    return _investment_question_build_answer(
+        category,
+        answer,
+        evidence_level=_investment_question_evidence_level_from_source_types(source_types),
+        source_titles=[
+            *_investment_question_titles_from_fact_items(outlook_items),
+            *_investment_question_titles_from_insight_points(revision_points),
+        ],
+    )
+
+
+def _investment_question_growth_driver(
+    category: InvestmentQuestionCategory,
+    brief: ResearchBrief,
+    insight: InvestmentInsight,
+) -> InvestmentQuestionAnswer:
+    fact_summary = brief.fact_summary
+    revenue_driver_items = list(fact_summary.revenue_drivers if fact_summary else [])
+    growth_items = _investment_question_fact_items_by_keywords(
+        list(fact_summary.positive_materials if fact_summary else []),
+        (
+            "成長",
+            "成長戦略",
+            "市場拡大",
+            "新製品",
+            "受注増",
+            "中期経営計画",
+            "growth",
+            "market expansion",
+            "new product",
+        ),
+    )
+    growth_points = _investment_question_insight_points_by_keywords(
+        insight.positive_points,
+        (
+            "成長",
+            "成長戦略",
+            "市場拡大",
+            "新製品",
+            "受注増",
+            "growth",
+            "market expansion",
+        ),
+    )
+    if not growth_items and not growth_points and not revenue_driver_items:
+        return _investment_question_missing_answer(
+            category,
+            "成長ドライバーを判断できる公式資料・ニュースが不足しています。",
+            "成長セグメント、新製品、市場拡大、受注増などの情報が未取得です。",
+        )
+
+    source_types = [item.source_type for item in [*growth_items, *revenue_driver_items]]
+    source_types.extend(point.source_type for point in growth_points)
+    lead_text = _investment_question_lead_text(
+        fact_items=[*growth_items, *revenue_driver_items],
+        insight_points=growth_points,
+    )
+    answer = (
+        f"成長ドライバー候補として、{_clip_text(lead_text, max_chars=110)}を確認できます。"
+        "売上・利益への効き方や継続性は、決算説明資料や中期経営計画で追加確認してください。"
+    )
+    return _investment_question_build_answer(
+        category,
+        answer,
+        evidence_level=_investment_question_evidence_level_from_source_types(source_types),
+        source_titles=[
+            *_investment_question_titles_from_fact_items([*growth_items, *revenue_driver_items]),
+            *_investment_question_titles_from_insight_points(growth_points),
+        ],
+    )
+
+
+def _investment_question_risk(
+    category: InvestmentQuestionCategory,
+    brief: ResearchBrief,
+    insight: InvestmentInsight,
+) -> InvestmentQuestionAnswer:
+    caution_items = list(brief.fact_summary.caution_materials if brief.fact_summary else [])
+    risk_points = list(insight.negative_points)
+    if not caution_items and not risk_points:
+        return _investment_question_missing_answer(
+            category,
+            "明確なリスク情報は取得できていません。ただし、公式資料の事業等のリスクを確認する必要があります。",
+            "事業リスク、コスト増、為替、規制、訴訟などの情報が未取得です。",
+        )
+
+    source_types = [item.source_type for item in caution_items]
+    source_types.extend(point.source_type for point in risk_points)
+    lead_text = _investment_question_lead_text(
+        fact_items=caution_items,
+        insight_points=risk_points,
+    )
+    answer = (
+        f"注意材料として、{_clip_text(lead_text, max_chars=112)}を確認できます。"
+        "一時的なニュースか、業績に継続して効くリスクかを公式IRで裏取りしてください。"
+    )
+    return _investment_question_build_answer(
+        category,
+        answer,
+        evidence_level=_investment_question_evidence_level_from_source_types(source_types),
+        source_titles=[
+            *_investment_question_titles_from_fact_items(caution_items),
+            *_investment_question_titles_from_insight_points(risk_points),
+        ],
+    )
+
+
+def _investment_question_shareholder_return(
+    category: InvestmentQuestionCategory,
+    brief: ResearchBrief,
+    insight: InvestmentInsight,
+) -> InvestmentQuestionAnswer:
+    metrics = _investment_question_metrics_by_key(brief)
+    dividend_metric = metrics.get("dividend")
+    return_items = list(brief.fact_summary.shareholder_return_policy if brief.fact_summary else [])
+    return_points = _investment_question_insight_points_by_keywords(
+        [*insight.positive_points, *insight.negative_points],
+        ("配当", "増配", "減配", "自社株買い", "株主還元", "dividend", "buyback"),
+    )
+    if dividend_metric is None and not return_items and not return_points:
+        return _investment_question_missing_answer(
+            category,
+            "配当方針・配当実績・自社株買い情報が未取得のため、株主還元は判断できません。",
+            "配当方針、配当実績、自社株買い、配当性向が未取得です。",
+        )
+
+    source_types = [item.source_type for item in return_items]
+    source_types.extend(point.source_type for point in return_points)
+    if dividend_metric is not None:
+        source_types.append(dividend_metric.source_type)
+    sentences: list[str] = []
+    if dividend_metric is not None:
+        sentences.append(f"{dividend_metric.label} {dividend_metric.value}を確認できます。")
+    if return_items or return_points:
+        lead_text = _investment_question_lead_text(
+            fact_items=return_items,
+            insight_points=return_points,
+        )
+        sentences.append(
+            f"株主還元に関する記述として、{_clip_text(lead_text, max_chars=100)}を確認できます。"
+        )
+    sentences.append("配当方針、配当性向、自社株買いの継続性は公式資料で追加確認してください。")
+    return _investment_question_build_answer(
+        category,
+        " ".join(sentences),
+        evidence_level=_investment_question_evidence_level_from_source_types(source_types),
+        source_titles=[
+            *_investment_question_titles_from_metrics(
+                [dividend_metric] if dividend_metric is not None else []
+            ),
+            *_investment_question_titles_from_fact_items(return_items),
+            *_investment_question_titles_from_insight_points(return_points),
+        ],
+    )
+
+
+def _investment_question_valuation(
+    category: InvestmentQuestionCategory,
+    brief: ResearchBrief,
+) -> InvestmentQuestionAnswer:
+    metrics = _investment_question_metrics_by_key(brief)
+    valuation_metrics = {key: metrics[key] for key in ("per", "pbr", "roe") if key in metrics}
+    if not valuation_metrics:
+        return _investment_question_missing_answer(
+            category,
+            "PER・PBR・ROE・配当利回りが未取得のため、割高・割安感は判断できません。",
+            "PER、PBR、ROE、配当利回りが未取得です。",
+        )
+
+    metric_rows = _investment_question_metric_texts(metrics, ("per", "pbr", "roe", "dividend"))
+    missing = [
+        label
+        for key, label in (("per", "PER"), ("pbr", "PBR"), ("roe", "ROE"))
+        if key not in metrics
+    ]
+    missing_text = f"不足指標は{'、'.join(missing)}です。" if missing else ""
+    answer = (
+        f"{'、'.join(metric_rows)}を確認できます。{missing_text}"
+        "同業比較、過去レンジ、配当利回りが未取得のため、割高・割安感は断定せず追加確認してください。"
+    )
+    return _investment_question_build_answer(
+        category,
+        answer,
+        evidence_level=_investment_question_evidence_level_from_source_types(
+            [metric.source_type for metric in valuation_metrics.values()]
+        ),
+        source_titles=_investment_question_titles_from_metrics(valuation_metrics.values()),
+        missing_reason=_investment_question_missing_metrics_reason(
+            brief,
+            ("PER", "PBR", "ROE"),
+        ),
+    )
+
+
+def _investment_question_recent_news_impact(
+    category: InvestmentQuestionCategory,
+    brief: ResearchBrief,
+    *,
+    news_report: StockNewsReport | None,
+) -> InvestmentQuestionAnswer:
+    if news_report is not None and news_report.news:
+        lead = news_report.news[0]
+        answer = (
+            f"直近ニュースでは「{_clip_text(lead.title, max_chars=70)}」を確認できます。"
+            f"{_investment_question_news_impact_phrase(lead)}"
+            "業績への影響は、売上・利益への具体的な反映と公式IRでの確認が必要です。"
+        )
+        return _investment_question_build_answer(
+            category,
+            answer,
+            evidence_level="low",
+            source_titles=[lead.title],
+        )
+
+    recent_events = list(brief.fact_summary.recent_events if brief.fact_summary else [])
+    if recent_events:
+        answer = (
+            f"直近イベントとして、{_clip_text(recent_events[0].value, max_chars=104)}"
+            "業績への直接影響は、数値と公式IRで追加確認してください。"
+        )
+        return _investment_question_build_answer(
+            category,
+            answer,
+            evidence_level=_investment_question_evidence_level_for_fact_items(recent_events),
+            source_titles=_investment_question_titles_from_fact_items(recent_events),
+        )
+    return _investment_question_missing_answer(
+        category,
+        "業績に直接影響しそうなニュースは確認できていません。",
+        "直近ニュースまたは業績影響を判断できる開示が未取得です。",
+    )
+
+
+def _investment_question_key_takeaway(
+    category: InvestmentQuestionCategory,
+    report: CompanyResearchReport,
+    brief: ResearchBrief,
+    insight: InvestmentInsight,
+    *,
+    news_report: StockNewsReport | None,
+    external_research_result: ExternalResearchFetchResult | None,
+) -> InvestmentQuestionAnswer:
+    source_types = [row.source_type for row in report.evidence]
+    source_titles = [row.title for row in report.evidence[:3]]
+    if news_report is not None:
+        source_types.extend("news" for _ in news_report.news)
+        source_titles.extend(row.title for row in news_report.news[:2])
+    if external_research_result is not None:
+        source_types.extend(entry.source_type for entry in external_research_result.entries)
+        source_titles.extend(entry.title for entry in external_research_result.entries[:2])
+
+    key_gap = _investment_question_key_gap(brief, insight)
+    status = insight.status_label
+    action = insight.primary_action_label
+    if source_types:
+        answer = (
+            f"現時点では、{key_gap}を優先して確認することが最重要です。"
+            f"現在の状態は「{status}」で、次の確認アクションは「{action}」です。"
+            "売買判断ではなく、確認材料として扱ってください。"
+        )
+    else:
+        answer = (
+            "現時点では、事業概要やニュースよりも、公式IR・決算資料・売上高・営業利益・EPS・"
+            "PER/PBR/ROEなどの定量情報をそろえることが最重要です。"
+        )
+    return _investment_question_build_answer(
+        category,
+        answer,
+        evidence_level=_investment_question_evidence_level_from_source_types(source_types),
+        source_titles=source_titles,
+        missing_reason=" / ".join(brief.confirmation_gaps[:2]),
+    )
+
+
+def _investment_question_missing_answer(
+    category: InvestmentQuestionCategory,
+    answer: str,
+    missing_reason: str,
+) -> InvestmentQuestionAnswer:
+    return _investment_question_build_answer(
+        category,
+        answer,
+        evidence_level="missing",
+        source_titles=[],
+        missing_reason=missing_reason,
+    )
+
+
+def _investment_question_build_answer(
+    category: InvestmentQuestionCategory,
+    answer: str,
+    *,
+    evidence_level: InvestmentQuestionEvidenceLevel,
+    source_titles: Sequence[str],
+    missing_reason: str = "",
+) -> InvestmentQuestionAnswer:
+    questions = dict(_INVESTMENT_QUESTION_SPECS)
+    return InvestmentQuestionAnswer(
+        category=category,
+        question=questions[category],
+        answer=_investment_question_clean_answer(answer),
+        evidence_level=evidence_level,
+        source_titles=_unique_text(list(source_titles))[:5],
+        missing_reason=re.sub(r"\s+", " ", missing_reason).strip(),
+    )
+
+
+def _investment_question_clean_answer(text: str) -> str:
+    cleaned = re.sub(r"\s+", " ", text).strip()
+    for forbidden, replacement in _INVESTMENT_QUESTION_FORBIDDEN_REPLACEMENTS:
+        cleaned = cleaned.replace(forbidden, replacement)
+    return _clip_text(cleaned, max_chars=260)
+
+
+def _investment_question_metrics_by_key(
+    brief: ResearchBrief,
+) -> dict[ResearchMetricKey, ResearchMetric]:
+    return {metric.key: metric for metric in brief.metrics}
+
+
+def _investment_question_metric_texts(
+    metrics: Mapping[ResearchMetricKey, ResearchMetric],
+    keys: Sequence[ResearchMetricKey],
+) -> list[str]:
+    return [f"{metrics[key].label} {metrics[key].value}" for key in keys if key in metrics]
+
+
+def _investment_question_fact_items(brief: ResearchBrief) -> list[ResearchFactItem]:
+    fact_summary = brief.fact_summary
+    if fact_summary is None:
+        return []
+    return [
+        *fact_summary.business_overview,
+        *fact_summary.business_segments,
+        *fact_summary.business_regions,
+        *fact_summary.revenue_drivers,
+        *fact_summary.financial_snapshot,
+        *fact_summary.earnings_outlook,
+        *fact_summary.shareholder_return_policy,
+        *fact_summary.recent_events,
+        *fact_summary.positive_materials,
+        *fact_summary.caution_materials,
+    ]
+
+
+def _investment_question_fact_items_by_keywords(
+    items: Sequence[ResearchFactItem],
+    keywords: Sequence[str],
+) -> list[ResearchFactItem]:
+    lowered_keywords = tuple(keyword.lower() for keyword in keywords)
+    return [
+        item
+        for item in items
+        if any(keyword in f"{item.label} {item.value}".lower() for keyword in lowered_keywords)
+    ]
+
+
+def _investment_question_insight_points_by_keywords(
+    items: Sequence[InvestmentInsightItem],
+    keywords: Sequence[str],
+) -> list[InvestmentInsightItem]:
+    lowered_keywords = tuple(keyword.lower() for keyword in keywords)
+    return [
+        item
+        for item in items
+        if any(
+            keyword in f"{item.label} {item.summary} {item.reason}".lower()
+            for keyword in lowered_keywords
+        )
+    ]
+
+
+def _investment_question_values(
+    items: Sequence[ResearchFactItem],
+    *,
+    limit: int,
+) -> list[str]:
+    return [_clip_text(item.value, max_chars=38) for item in items[:limit] if item.value.strip()]
+
+
+def _investment_question_titles_from_fact_items(
+    items: Sequence[ResearchFactItem],
+) -> list[str]:
+    return [item.source_title for item in items if item.source_title.strip()]
+
+
+def _investment_question_titles_from_metrics(
+    metrics: Sequence[ResearchMetric],
+) -> list[str]:
+    return [metric.source_title for metric in metrics if metric.source_title.strip()]
+
+
+def _investment_question_titles_from_insight_points(
+    items: Sequence[InvestmentInsightItem],
+) -> list[str]:
+    return [item.source_title for item in items if item.source_title.strip()]
+
+
+def _investment_question_lead_text(
+    *,
+    fact_items: Sequence[ResearchFactItem],
+    insight_points: Sequence[InvestmentInsightItem],
+) -> str:
+    if fact_items:
+        return fact_items[0].value
+    if insight_points:
+        return insight_points[0].summary
+    return ""
+
+
+def _investment_question_evidence_level_for_fact_items(
+    items: Sequence[ResearchFactItem],
+) -> InvestmentQuestionEvidenceLevel:
+    return _investment_question_evidence_level_from_source_types(
+        [item.source_type for item in items]
+    )
+
+
+def _investment_question_evidence_level_from_source_types(
+    source_types: Sequence[ResearchSourceType | str],
+) -> InvestmentQuestionEvidenceLevel:
+    cleaned = [str(source_type) for source_type in source_types if str(source_type).strip()]
+    if not cleaned:
+        return "missing"
+    if any(source_type in _RESEARCH_BRIEF_HIGH_CONFIDENCE_SOURCES for source_type in cleaned):
+        return "high"
+    if any(source_type == "provider_profile" for source_type in cleaned):
+        return "medium"
+    if any(source_type in {"news", "user_note"} for source_type in cleaned):
+        return "low"
+    return "low"
+
+
+def _investment_question_missing_metrics_reason(
+    brief: ResearchBrief,
+    labels: Sequence[str],
+) -> str:
+    missing = [label for label in labels if label in set(brief.missing_metrics)]
+    if not missing:
+        return ""
+    return f"未取得: {'、'.join(missing)}"
+
+
+def _investment_question_news_impact_phrase(row: StockNewsEvidence) -> str:
+    labels: dict[StockNewsInvestmentViewpoint, str] = {
+        "earnings": "業績に関係するニュースです。",
+        "growth": "売上や成長テーマに関係する可能性があるニュースです。",
+        "shareholder_return": "株主還元に関係するニュースです。",
+        "risk": "注意材料として確認するニュースです。",
+        "macro": "外部環境に関係するニュースです。",
+        "other": "業績への直接影響はまだ読み取りにくいニュースです。",
+    }
+    return labels.get(row.investment_viewpoint, labels["other"])
+
+
+def _investment_question_key_gap(
+    brief: ResearchBrief,
+    insight: InvestmentInsight,
+) -> str:
+    missing_metrics = [
+        metric
+        for metric in ("売上高", "営業利益", "EPS", "PER", "PBR", "ROE")
+        if metric in brief.missing_metrics
+    ]
+    if missing_metrics:
+        return f"{'・'.join(missing_metrics[:4])}などの定量情報"
+    if insight.confirmation_gaps:
+        return _clip_text(insight.confirmation_gaps[0], max_chars=80)
+    if insight.positive_points and insight.negative_points:
+        return "良い材料と注意材料の前提を同じ資料で比較すること"
+    if insight.positive_points:
+        return "確認できた良い材料が業績数値にどう反映されるか"
+    if insight.negative_points:
+        return "注意材料が一時的か継続的か"
+    return "公式IR・決算資料・主要財務指標"
+
+
+def _investment_question_missing_critical_items(
+    brief: ResearchBrief,
+    answers: Sequence[InvestmentQuestionAnswer],
+) -> list[str]:
+    items: list[str] = []
+    items.extend(brief.missing_metrics)
+    items.extend(
+        _INVESTMENT_QUESTION_MISSING_ITEM_LABELS[answer.category]
+        for answer in answers
+        if answer.evidence_level == "missing"
+    )
+    return _unique_text(items)[:10]
 
 
 def _investment_insight_confidence_phrase(confidence: ResearchSourceConfidence) -> str:

@@ -6,6 +6,7 @@ import json
 import math
 import re
 from collections.abc import Iterable, Mapping
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -2268,7 +2269,14 @@ class ExternalResearchFetchService:
                 continue
             markdown = _external_payload_markdown(payload)
             path: Path | None = None
-            if self.persist_payloads:
+            existing_document = (
+                None
+                if self.persist_payloads
+                else _external_research_registered_document(self.ingestion, payload)
+            )
+            if existing_document is not None:
+                document = existing_document
+            elif self.persist_payloads:
                 path = self._write_payload(payload)
                 document = self.ingestion.register_document(
                     ResearchDocumentRegisterRequest(
@@ -2293,7 +2301,8 @@ class ExternalResearchFetchService:
                     published_at=payload.published_at,
                     reliability=payload.reliability,
                 )
-            self.index.build_chunks(document.document_id)
+            if document.document_id not in self.index.store.chunks_by_document_id:
+                self.index.build_chunks(document.document_id)
             freshness_status = _stock_news_freshness(document.published_at, as_of=as_of)
             if freshness_status == "stale":
                 warnings.append(
@@ -2523,18 +2532,48 @@ class CompositeExternalResearchAdapter:
         self,
         request: ExternalResearchFetchRequest,
     ) -> list[ExternalResearchSourcePayload]:
+        if not self.adapters:
+            return []
+        payloads_by_index: dict[int, list[ExternalResearchSourcePayload]] = {}
+        errors_by_index: dict[int, ResearchDocumentError] = {}
+        with ThreadPoolExecutor(max_workers=len(self.adapters)) as executor:
+            futures = {}
+            for index, adapter in enumerate(self.adapters):
+                adapter_request = request.model_copy(update={"provider": adapter.provider})
+                future = executor.submit(adapter.fetch_sources, adapter_request)
+                futures[future] = index
+            for future in as_completed(futures):
+                index = futures[future]
+                try:
+                    payloads_by_index[index] = future.result()
+                except ResearchDocumentError as exc:
+                    errors_by_index[index] = exc
         payloads: list[ExternalResearchSourcePayload] = []
-        first_error: ResearchDocumentError | None = None
-        for adapter in self.adapters:
-            adapter_request = request.model_copy(update={"provider": adapter.provider})
-            try:
-                payloads.extend(adapter.fetch_sources(adapter_request))
-            except ResearchDocumentError as exc:
-                first_error = first_error or exc
-                continue
-        if not payloads and first_error is not None:
-            raise first_error
+        for index in range(len(self.adapters)):
+            payloads.extend(payloads_by_index.get(index, []))
+        if not payloads and errors_by_index:
+            raise errors_by_index[min(errors_by_index)]
         return payloads
+
+
+def _external_research_registered_document(
+    ingestion: ResearchIngestionService,
+    payload: ExternalResearchSourcePayload,
+) -> ResearchDocument | None:
+    """Find an already registered session document for the same fetched source content."""
+
+    source_url = payload.source_url.strip()
+    if not source_url:
+        return None
+    digest_marker = f"- Content digest: {_external_payload_content_digest(payload)}"
+    source_markers = (f"- Source URL: {source_url}", f"url: {source_url}")
+    for document in ingestion.list_documents(payload.symbol):
+        if document.provider != payload.provider or document.source_type != payload.source_type:
+            continue
+        text = ingestion.store.raw_text_by_document_id.get(document.document_id, "")
+        if digest_marker in text and any(marker in text for marker in source_markers):
+            return document
+    return None
 
 
 class DefaultExternalResearchAdapter(CompositeExternalResearchAdapter):
@@ -2578,6 +2617,7 @@ def _external_payload_markdown(payload: ExternalResearchSourcePayload) -> str:
         f"- Symbol: {_normalize_symbol(payload.symbol)}",
         f"- Source type: {payload.source_type}",
         f"- Fetched at: {payload.fetched_at.isoformat()}",
+        f"- Content digest: {_external_payload_content_digest(payload)}",
     ]
     if payload.published_at:
         lines.append(f"- Published at: {payload.published_at.isoformat()}")
@@ -2597,6 +2637,22 @@ def _external_payload_markdown(payload: ExternalResearchSourcePayload) -> str:
         ]
     )
     return "\n".join(lines).strip() + "\n"
+
+
+def _external_payload_content_digest(payload: ExternalResearchSourcePayload) -> str:
+    stable_payload = {
+        "symbol": _normalize_symbol(payload.symbol),
+        "title": payload.title.strip(),
+        "content": payload.content.strip(),
+        "source_type": payload.source_type,
+        "source_url": payload.source_url.strip(),
+        "provider": payload.provider.strip(),
+        "company_name": (payload.company_name or "").strip(),
+        "published_at": payload.published_at.isoformat() if payload.published_at else "",
+        "reliability": str(payload.reliability),
+    }
+    serialized = json.dumps(stable_payload, ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:16]
 
 
 def _ticker_info(ticker: Any) -> dict[str, Any]:

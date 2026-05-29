@@ -831,3 +831,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Tightened provider-profile cleanup so `Provider Symbol`, `Quote Type`, `Website`, raw `Industry:` / `Country:` style fields, and internal source identifiers do not leak into company summaries or fixed-question answers.
 - Improved latest news / disclosure summaries so TDnet rows read as official disclosures with body-unparsed status, while news rows clearly state that official IR confirmation is still needed.
 - Added Japanese display labels for common sector / industry values in the company summary UI and regression tests for raw-provider cleanup, Q&A wording, and news/disclosure confirmation text.
+
+## 2026-05-29 - AI research refresh performance pass
+
+- Added session-level TTL caching for repeated external research fetches and a small timing trace caption for the AI調査 refresh path.
+- Parallelized the composite TDnet / Yahoo Finance adapter and avoided re-registering / re-chunking identical external payload content in the session-local Research store.
+- Cached the rendered research summary bundle for unchanged report/news/external-source inputs so Streamlit reruns do not rebuild every summary layer.

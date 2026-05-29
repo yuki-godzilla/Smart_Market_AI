@@ -5,6 +5,7 @@ import hashlib
 import html
 import json
 import re
+import time as perf_time
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
@@ -227,6 +228,7 @@ from ui.research_state import (
     analyze_research_for_symbol,
     analyze_stock_news_for_symbol,
     autoload_local_research_documents,
+    external_research_fetch_cache_info,
     fetch_external_research_for_symbol,
     research_store,
 )
@@ -305,6 +307,8 @@ MARKET_DATA_PROVIDER_OPTIONS = ["yahoo", "csv", "mock"]
 MARKET_DATA_PROVIDER_WIDGET_KEY = "market_data_provider_live_first"
 MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY = "market_data_ranking_provider_live_first"
 RANKING_BUILD_CACHE_VERSION = "signal-v4"
+RESEARCH_SUMMARY_BUILD_CACHE_STATE_KEY = "market_data_research_summary_build_cache_v1"
+RESEARCH_REFRESH_TRACE_STATE_KEY = "market_data_research_refresh_trace_v1"
 RESEARCH_STALE_DAYS = 730
 DEFAULT_MARKET_DATA_PERIOD_PRESET = MARKET_DATA_PERIOD_CUSTOM
 MARKET_DATA_COCKPIT_FILTER_DEFAULTS: dict[str, str | bool] = {
@@ -329,6 +333,17 @@ MARKET_DATA_COCKPIT_FILTER_DEFAULTS: dict[str, str | bool] = {
     "market_data_cockpit_roe_min": "8.0",
     "market_data_cockpit_roe_max": "30.0",
 }
+
+
+@dataclass(frozen=True)
+class ResearchSummaryBundle:
+    brief: ResearchBrief
+    insight: InvestmentInsight
+    company_summary: CompanyResearchSummary
+    question_summary: InvestmentQuestionSummary
+    research_score: ResearchScore
+
+
 MARKET_DATA_COCKPIT_DETAIL_FILTERS = frozenset(
     {
         "industry_or_sector",
@@ -4751,11 +4766,20 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
     )
     if fetch_clicked:
         with st.spinner(RESEARCH_FETCH_SPINNER):
+            refresh_started = perf_time.perf_counter()
+            trace_rows: list[tuple[str, float]] = []
             try:
+                step_started = perf_time.perf_counter()
                 external_result = _fetch_external_research_for_preview(preview)
+                trace_rows.append(("外部取得", perf_time.perf_counter() - step_started))
                 if external_result.entries:
                     st.success(
                         f"外部参照ソース {len(external_result.entries)}件をAI調査に反映しました。"
+                    )
+                cache_info = external_research_fetch_cache_info()
+                if cache_info.get("cache_hit") is True:
+                    st.info(
+                        "直近の外部参照ソースを再利用しました。表示内容は同じ品質で更新します。"
                     )
                 for warning in external_result.warnings:
                     st.warning(warning)
@@ -4766,12 +4790,19 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
                 st.caption(exc.message)
                 if exc.details:
                     st.caption(json.dumps(exc.details, ensure_ascii=False, sort_keys=True))
+            step_started = perf_time.perf_counter()
             st.session_state[MARKET_DATA_RESEARCH_REPORT_STATE_KEY] = (
                 _build_cockpit_research_report(preview)
             )
+            trace_rows.append(("企業レポート生成", perf_time.perf_counter() - step_started))
+            step_started = perf_time.perf_counter()
             st.session_state[MARKET_DATA_STOCK_NEWS_REPORT_STATE_KEY] = (
                 _build_cockpit_stock_news_report(preview)
             )
+            trace_rows.append(("ニュース整理", perf_time.perf_counter() - step_started))
+            trace_rows.append(("合計", perf_time.perf_counter() - refresh_started))
+            st.session_state[RESEARCH_REFRESH_TRACE_STATE_KEY] = trace_rows
+            st.caption(_research_refresh_trace_caption(trace_rows))
 
     report = _cockpit_research_report_from_state(preview)
     news_report = _cockpit_stock_news_report_from_state(preview)
@@ -5158,31 +5189,16 @@ def _render_research_summary_panel(
     news_report: StockNewsReport | None = None,
     external_research_result: ExternalResearchFetchResult | None = None,
 ) -> None:
-    brief = ResearchBriefBuilder().build(
+    summary_bundle = _research_summary_bundle(
         report,
         news_report=news_report,
         external_research_result=external_research_result,
     )
-    insight = InvestmentInsightBuilder().build(
-        report,
-        news_report=news_report,
-        external_research_result=external_research_result,
-        brief=brief,
-    )
-    company_summary = CompanyResearchSummaryBuilder().build(
-        report,
-        news_report=news_report,
-        external_research_result=external_research_result,
-        brief=brief,
-        insight=insight,
-    )
-    question_summary = InvestmentQuestionSummaryBuilder().build(
-        report,
-        news_report=news_report,
-        external_research_result=external_research_result,
-        brief=brief,
-        insight=insight,
-    )
+    brief = summary_bundle.brief
+    insight = summary_bundle.insight
+    company_summary = summary_bundle.company_summary
+    question_summary = summary_bundle.question_summary
+    research_score = summary_bundle.research_score
     _render_company_research_summary_panel(company_summary)
     _render_quantitative_summary_panel(company_summary.quantitative)
     _render_ir_summary_panel(company_summary.ir_items)
@@ -5202,8 +5218,6 @@ def _render_research_summary_panel(
         if report.data_quality.status != "OK":
             st.warning("根拠資料が不足しています。表示内容は確認材料として控えめに扱ってください。")
         _render_research_brief_sections(brief)
-
-    research_score = ResearchScoreService().score_report(report)
 
     card_rows = _research_brief_source_card_rows(brief)
     if card_rows:
@@ -5296,6 +5310,89 @@ def _render_research_summary_panel(
             _render_compact_dataframe(
                 _external_research_fetch_summary_rows(external_research_result)
             )
+
+
+def _research_summary_bundle(
+    report: CompanyResearchReport,
+    *,
+    news_report: StockNewsReport | None,
+    external_research_result: ExternalResearchFetchResult | None,
+) -> ResearchSummaryBundle:
+    cache_key = _research_summary_cache_key(
+        report,
+        news_report=news_report,
+        external_research_result=external_research_result,
+    )
+    cached = st.session_state.get(RESEARCH_SUMMARY_BUILD_CACHE_STATE_KEY)
+    if isinstance(cached, dict):
+        cached_bundle = cached.get("bundle")
+        if cached.get("key") == cache_key and isinstance(cached_bundle, ResearchSummaryBundle):
+            return cached_bundle
+
+    brief = ResearchBriefBuilder().build(
+        report,
+        news_report=news_report,
+        external_research_result=external_research_result,
+    )
+    insight = InvestmentInsightBuilder().build(
+        report,
+        news_report=news_report,
+        external_research_result=external_research_result,
+        brief=brief,
+    )
+    company_summary = CompanyResearchSummaryBuilder().build(
+        report,
+        news_report=news_report,
+        external_research_result=external_research_result,
+        brief=brief,
+        insight=insight,
+    )
+    question_summary = InvestmentQuestionSummaryBuilder().build(
+        report,
+        news_report=news_report,
+        external_research_result=external_research_result,
+        brief=brief,
+        insight=insight,
+    )
+    bundle = ResearchSummaryBundle(
+        brief=brief,
+        insight=insight,
+        company_summary=company_summary,
+        question_summary=question_summary,
+        research_score=ResearchScoreService().score_report(report),
+    )
+    st.session_state[RESEARCH_SUMMARY_BUILD_CACHE_STATE_KEY] = {
+        "key": cache_key,
+        "bundle": bundle,
+    }
+    return bundle
+
+
+def _research_summary_cache_key(
+    report: CompanyResearchReport,
+    *,
+    news_report: StockNewsReport | None,
+    external_research_result: ExternalResearchFetchResult | None,
+) -> str:
+    payload = {
+        "version": "research-summary-build-v1",
+        "report": report.model_dump(mode="json"),
+        "news_report": news_report.model_dump(mode="json") if news_report is not None else None,
+        "external_research_result": (
+            external_research_result.model_dump(mode="json")
+            if external_research_result is not None
+            else None
+        ),
+    }
+    serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _research_refresh_trace_caption(trace_rows: list[tuple[str, float]]) -> str:
+    if not trace_rows:
+        return ""
+    parts = [f"{label}: {elapsed:.2f}秒" for label, elapsed in trace_rows]
+    return "AI調査の処理時間: " + " / ".join(parts)
 
 
 def _render_company_research_summary_panel(summary: CompanyResearchSummary) -> None:

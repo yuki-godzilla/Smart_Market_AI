@@ -17,7 +17,9 @@ from backend.research import (
     CompanyResearchReport,
     CompanyResearchSummary,
     ExternalResearchFetchManifestEntry,
+    ExternalResearchFetchRequest,
     ExternalResearchFetchResult,
+    ExternalResearchSourcePayload,
     InvestmentQuestionAnswer,
     InvestmentQuestionSummary,
     IRSummaryItem,
@@ -260,7 +262,12 @@ from ui.rebalance_app import (
     investment_score_csv_download,
     screening_score_rows,
 )
-from ui.research_state import _source_type_from_research_filename, _symbol_from_research_filename
+from ui.research_state import (
+    _source_type_from_research_filename,
+    _symbol_from_research_filename,
+    external_research_fetch_cache_info,
+    fetch_external_research_for_symbol,
+)
 from ui.styles import FORECAST_ACTUAL_PRICE_COLOR, FORECAST_MODEL_COLORS, THEME_COLORS
 from ui.symbol_universe import symbol_universe_csv_rows
 
@@ -1509,6 +1516,64 @@ def test_fetch_external_research_for_preview_uses_external_source_and_stores(mon
         "allow_network": True,
     }
     assert st.session_state[MARKET_DATA_EXTERNAL_RESEARCH_FETCH_STATE_KEY] is result
+
+
+def test_fetch_external_research_for_symbol_reuses_session_ttl_cache(monkeypatch, tmp_path):
+    class CountingResearchAdapter:
+        provider = "fake_external"
+        requires_network = False
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def fetch_sources(
+            self, request: ExternalResearchFetchRequest
+        ) -> list[ExternalResearchSourcePayload]:
+            self.calls += 1
+            return [
+                ExternalResearchSourcePayload(
+                    symbol=request.symbol,
+                    title="7203 Cached Profile",
+                    content="Company profile content.",
+                    source_type="provider_profile",
+                    source_url="https://example.com/profile",
+                    provider=self.provider,
+                    company_name=request.company_name,
+                    published_at=request.as_of,
+                    fetched_at=datetime(2026, 5, 27, 12, self.calls, tzinfo=UTC),
+                    reliability=Decimal("0.65"),
+                )
+            ]
+
+    session_state: dict[str, object] = {}
+    monkeypatch.setattr("ui.research_state.st.session_state", session_state)
+    monkeypatch.setattr("ui.research_state.autoload_local_research_documents", lambda: 0)
+    monkeypatch.setattr("ui.research_state.research_document_dirs", lambda: [tmp_path])
+    adapter = CountingResearchAdapter()
+
+    first = fetch_external_research_for_symbol(
+        "7203.T",
+        company_name="Toyota",
+        related_keywords=["Toyota"],
+        as_of=date(2026, 5, 27),
+        allow_network=False,
+        adapter=adapter,
+    )
+    assert adapter.calls == 1
+    assert external_research_fetch_cache_info()["cache_hit"] is False
+
+    second = fetch_external_research_for_symbol(
+        "7203.T",
+        company_name="Toyota",
+        related_keywords=["Toyota"],
+        as_of=date(2026, 5, 27),
+        allow_network=False,
+        adapter=adapter,
+    )
+
+    assert adapter.calls == 1
+    assert second is first
+    assert external_research_fetch_cache_info()["cache_hit"] is True
 
 
 def test_research_state_recognizes_dotted_symbol_and_source_type():

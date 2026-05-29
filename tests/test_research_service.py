@@ -1777,6 +1777,57 @@ def test_external_research_fetch_service_warns_about_stale_sources(tmp_path):
     assert any("公開日が古い" in warning for warning in result.warnings)
 
 
+def test_external_research_fetch_service_reuses_registered_source_by_url(tmp_path):
+    class RefreshingExternalResearchAdapter:
+        provider = "fake_external"
+        requires_network = False
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def fetch_sources(
+            self, request: ExternalResearchFetchRequest
+        ) -> list[ExternalResearchSourcePayload]:
+            self.calls += 1
+            fetched_at = datetime(2026, 5, 25, 9, self.calls, tzinfo=UTC)
+            return [
+                ExternalResearchSourcePayload(
+                    symbol=request.symbol,
+                    title="7203 External News",
+                    content="summary: Same URL content should not be re-registered.",
+                    source_type="news",
+                    source_url="https://example.com/7203-news",
+                    provider=self.provider,
+                    company_name=request.company_name,
+                    published_at=date(2026, 5, 25),
+                    fetched_at=fetched_at,
+                    reliability=Decimal("0.70"),
+                )
+            ]
+
+    adapter = RefreshingExternalResearchAdapter()
+    store = ResearchInMemoryStore()
+    ingestion = ResearchIngestionService(store, document_dirs=[tmp_path])
+    index = ResearchIndexService(store, max_chars=240)
+    service = ExternalResearchFetchService(adapter, ingestion, index)
+    request = ExternalResearchFetchRequest(
+        symbol="7203.T",
+        company_name="Toyota",
+        provider="fake_external",
+        as_of=date(2026, 5, 25),
+        allow_network=False,
+    )
+
+    first = service.fetch_register_sources(request)
+    second = service.fetch_register_sources(request)
+
+    assert adapter.calls == 2
+    assert len(store.list_documents("7203.T")) == 1
+    assert len(store.all_chunks("7203.T")) >= 1
+    assert first.entries[0].document_id == second.entries[0].document_id
+    assert first.entries[0].fetched_at != second.entries[0].fetched_at
+
+
 def test_external_research_fetch_requires_explicit_network_opt_in(tmp_path):
     adapter = NetworkExternalResearchAdapter([])
     store = ResearchInMemoryStore()

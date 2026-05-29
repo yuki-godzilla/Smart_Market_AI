@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import re
+import time as perf_time
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import cast
@@ -29,6 +32,9 @@ from backend.research import (
 
 RESEARCH_STORE_STATE_KEY = "research_local_store"
 RESEARCH_AUTOLOAD_STATE_KEY = "research_local_autoloaded_files"
+RESEARCH_EXTERNAL_FETCH_CACHE_STATE_KEY = "research_external_fetch_cache_v1"
+RESEARCH_EXTERNAL_FETCH_CACHE_INFO_STATE_KEY = "research_external_fetch_cache_info_v1"
+RESEARCH_EXTERNAL_FETCH_CACHE_TTL_SECONDS = 900
 RESEARCH_DOC_DIR = Path("data/research_docs")
 RESEARCH_UPLOAD_DIR = RESEARCH_DOC_DIR / "uploads"
 
@@ -127,6 +133,7 @@ def fetch_external_research_for_symbol(
     as_of: date | None = None,
     allow_network: bool,
     adapter: ExternalResearchSourceAdapter | None = None,
+    ttl_seconds: int = RESEARCH_EXTERNAL_FETCH_CACHE_TTL_SECONDS,
 ) -> ExternalResearchFetchResult:
     """Fetch external sources and register them in the session-local RAG store."""
 
@@ -135,6 +142,24 @@ def fetch_external_research_for_symbol(
     ingestion = ResearchIngestionService(store, document_dirs=research_document_dirs())
     index = ResearchIndexService(store)
     source_adapter = adapter or DefaultExternalResearchAdapter()
+    cache_key = _external_fetch_cache_key(
+        symbol=symbol,
+        company_name=company_name,
+        related_keywords=related_keywords or [],
+        as_of=as_of,
+        provider=source_adapter.provider,
+        allow_network=allow_network,
+    )
+    cached_result = _external_fetch_cache_get(cache_key, ttl_seconds=ttl_seconds)
+    if cached_result is not None:
+        st.session_state[RESEARCH_EXTERNAL_FETCH_CACHE_INFO_STATE_KEY] = {
+            "cache_hit": True,
+            "provider": source_adapter.provider,
+            "symbol": symbol.strip().upper(),
+            "ttl_seconds": ttl_seconds,
+        }
+        return cached_result
+
     result = ExternalResearchFetchService(
         source_adapter,
         ingestion,
@@ -149,7 +174,19 @@ def fetch_external_research_for_symbol(
             allow_network=allow_network,
         )
     )
+    _external_fetch_cache_set(cache_key, result)
+    st.session_state[RESEARCH_EXTERNAL_FETCH_CACHE_INFO_STATE_KEY] = {
+        "cache_hit": False,
+        "provider": source_adapter.provider,
+        "symbol": symbol.strip().upper(),
+        "ttl_seconds": ttl_seconds,
+    }
     return result
+
+
+def external_research_fetch_cache_info() -> dict[str, object]:
+    info = st.session_state.get(RESEARCH_EXTERNAL_FETCH_CACHE_INFO_STATE_KEY)
+    return dict(info) if isinstance(info, dict) else {}
 
 
 def analyze_stock_news_for_symbol(
@@ -203,6 +240,62 @@ def _uploaded_document_path(*, symbol: str, title: str, file_name: str) -> Path:
 def _safe_filename(value: str) -> str:
     normalized = re.sub(r"[^A-Za-z0-9_.-]+", "_", value.strip())
     return normalized.strip("._") or "research_doc"
+
+
+def _external_fetch_cache_key(
+    *,
+    symbol: str,
+    company_name: str | None,
+    related_keywords: list[str],
+    as_of: date | None,
+    provider: str,
+    allow_network: bool,
+) -> str:
+    payload = {
+        "symbol": symbol.strip().upper(),
+        "company_name": (company_name or "").strip(),
+        "related_keywords": [keyword.strip() for keyword in related_keywords if keyword.strip()],
+        "as_of": as_of.isoformat() if as_of else "",
+        "provider": provider,
+        "allow_network": allow_network,
+    }
+    serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    digest = hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:24]
+    return f"external-fetch:{digest}"
+
+
+def _external_fetch_cache_get(
+    cache_key: str,
+    *,
+    ttl_seconds: int,
+) -> ExternalResearchFetchResult | None:
+    if ttl_seconds <= 0:
+        return None
+    cache = st.session_state.get(RESEARCH_EXTERNAL_FETCH_CACHE_STATE_KEY)
+    if not isinstance(cache, dict):
+        return None
+    record = cache.get(cache_key)
+    if not isinstance(record, dict):
+        return None
+    stored_at = record.get("stored_at_monotonic")
+    result = record.get("result")
+    if not isinstance(stored_at, float) or not isinstance(result, ExternalResearchFetchResult):
+        return None
+    if perf_time.monotonic() - stored_at > ttl_seconds:
+        cache.pop(cache_key, None)
+        return None
+    return result
+
+
+def _external_fetch_cache_set(cache_key: str, result: ExternalResearchFetchResult) -> None:
+    cache = st.session_state.get(RESEARCH_EXTERNAL_FETCH_CACHE_STATE_KEY)
+    if not isinstance(cache, dict):
+        cache = {}
+        st.session_state[RESEARCH_EXTERNAL_FETCH_CACHE_STATE_KEY] = cache
+    cache[cache_key] = {
+        "stored_at_monotonic": perf_time.monotonic(),
+        "result": result,
+    }
 
 
 def _symbol_from_research_filename(path: Path) -> str:

@@ -555,7 +555,9 @@ def test_company_research_summary_builder_splits_overview_metrics_ir_and_news():
     assert summary.quantitative.market_cap == "35,000,000,000,000 JPY"
     assert ir_by_type["決算短信"].availability == "found"
     assert ir_by_type["適時開示"].source_url == "https://example.com/tdnet/7203"
-    assert summary.news_items[0].impact_hint == "business"
+    assert summary.news_items[0].impact_hint == "product"
+    assert summary.news_items[0].official_confirmation_required is True
+    assert summary.news_items[0].information_status == "unverified"
     assert summary.ai_reading_notes
     assert not any(term in dumped for term in FORBIDDEN_RECOMMENDATION_WORDS)
 
@@ -586,6 +588,138 @@ def test_company_research_summary_builder_keeps_missing_items_explicit():
     assert summary.news_items == []
     assert "直近ニュース" in summary.missing_critical_items
     assert "企業概要は外部プロフィールから一部確認できます" in summary.overview.business_overview
+
+
+def test_company_research_summary_builder_normalizes_business_profile_without_news_mix():
+    provider_evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-profile",
+        chunk_id="chunk-profile",
+        title="Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Toyota Motor Corporation\n"
+            "Sector: Consumer Cyclical\n"
+            "Industry: Auto Manufacturers\n"
+            "Toyota manufactures vehicles and provides financial services globally. "
+            "It operates in Japan, North America, Europe, and Asia. Employees: 380,000"
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="Research summary.",
+        points=[],
+        evidence=[provider_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+    news_report = StockNewsReport(
+        symbol="7203.T",
+        company_name="Toyota Motor Corporation",
+        as_of=date(2026, 5, 25),
+        news=[
+            StockNewsEvidence(
+                symbol="7203.T",
+                title="Toyota launches battery product",
+                url="https://example.com/toyota-battery",
+                source="Example News",
+                published_at=date(2026, 5, 24),
+                summary="Toyota launched a battery product.",
+                investment_viewpoint="growth",
+                sentiment_for_investment="positive",
+                freshness_status="latest",
+            )
+        ],
+    )
+
+    summary = CompanyResearchSummaryBuilder().build(report, news_report=news_report)
+    profile = summary.overview.business_profile
+
+    assert profile is not None
+    assert profile.company_name == "Toyota Motor Corporation"
+    assert profile.sector == "Consumer Cyclical"
+    assert profile.industry == "Auto Manufacturers"
+    assert profile.information_status == "found"
+    assert "自動車・車両販売" in profile.main_businesses
+    assert "金融サービス" in profile.main_businesses
+    assert "車両" in profile.products_services
+    assert "日本" in profile.regions
+    assert "北米" in profile.regions
+    assert summary.quantitative.employee_count == "380,000"
+    assert "Toyota launches battery product" not in profile.business_summary
+
+
+def test_company_research_summary_builder_distinguishes_ir_statuses_and_types():
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="Research summary.",
+        points=[],
+        evidence=[],
+        data_quality=ResearchDataQuality(
+            status="WARN",
+            latest_document_date=None,
+            document_count=0,
+            evidence_count=0,
+            warnings=[],
+        ),
+    )
+    external_result = ExternalResearchFetchResult(
+        symbol="7203.T",
+        provider="fake_tdnet",
+        fetched_at=datetime(2026, 5, 25, tzinfo=UTC),
+        entries=[
+            ExternalResearchFetchManifestEntry(
+                title="2026年3月期 業績予想修正に関するお知らせ",
+                symbol="7203.T",
+                source_type="tdnet",
+                source_url="https://example.com/tdnet/forecast",
+                provider="tdnet",
+                published_at=date(2026, 5, 20),
+                fetched_at=datetime(2026, 5, 25, tzinfo=UTC),
+                freshness_status="latest",
+                document_id="external-forecast",
+                content_summary="",
+            ),
+            ExternalResearchFetchManifestEntry(
+                title="配当予想の修正および自己株式取得に関するお知らせ",
+                symbol="7203.T",
+                source_type="tdnet",
+                source_url="https://example.com/tdnet/shareholder-return",
+                provider="tdnet",
+                published_at=date(2026, 5, 21),
+                fetched_at=datetime(2026, 5, 25, tzinfo=UTC),
+                freshness_status="latest",
+                document_id="external-return",
+                content_summary="",
+            ),
+        ],
+    )
+
+    summary = CompanyResearchSummaryBuilder().build(
+        report,
+        external_research_result=external_result,
+    )
+    ir_by_type = {item.ir_document_type: item for item in summary.ir_items}
+
+    assert ir_by_type["forecast_revision"].availability == "found"
+    assert ir_by_type["forecast_revision"].information_status == "unparsed"
+    assert ir_by_type["forecast_revision"].source_url == "https://example.com/tdnet/forecast"
+    assert "本文は未解析" in ir_by_type["forecast_revision"].summary
+    assert ir_by_type["shareholder_return"].availability == "found"
+    assert ir_by_type["shareholder_return"].information_status == "unparsed"
+    assert ir_by_type["earnings_summary"].information_status == "missing"
+    assert any(item.information_status == "missing" for item in summary.ir_items)
 
 
 def test_research_brief_builder_marks_missing_metrics_as_confirmation_gaps():

@@ -82,6 +82,7 @@ from ui.app import (
     _ranking_result_table_base_key,
     _ranking_source_key_for_selection,
     _ranking_symbols_from_selected_labels,
+    _render_company_research_summary_panel,
     _render_market_chart,
     _render_research_operation_card,
     _research_brief_focus_html,
@@ -1139,8 +1140,40 @@ def test_company_research_summary_html_prioritizes_company_understanding():
     assert "売上高" in markup
     assert "IR情報サマリー" in markup
     assert "最新ニュースサマリー" in markup
-    assert "業績影響: 事業影響あり" in markup
+    assert "影響カテゴリ: 事業影響あり" in markup
     assert "SMAI 投資判断サマリー" not in markup
+
+
+def test_company_research_summary_panel_hides_ai_reading_notes_initially(monkeypatch):
+    summary = CompanyResearchSummary(
+        symbol="7203.T",
+        overview=CompanyOverviewSummary(
+            company_name="Toyota Motor Corporation",
+            symbol="7203.T",
+            business_overview="自動車の製造・販売を中心とする企業です。",
+            business_segments=["自動車"],
+            regions=["日本"],
+            scale_summary="規模情報は追加確認が必要です。",
+            recent_focus="直近ニュースは未取得です。",
+            evidence_level="medium",
+        ),
+        quantitative=QuantitativeSummary(),
+        ai_reading_notes=["AI内部メモです。"],
+    )
+    markdown_calls: list[str] = []
+
+    monkeypatch.setattr(
+        st,
+        "markdown",
+        lambda body, **_: markdown_calls.append(str(body)),
+    )
+
+    _render_company_research_summary_panel(summary)
+
+    markup = "".join(markdown_calls)
+    assert "企業リサーチサマリー" in markup
+    assert "AI読み取りメモ" not in markup
+    assert "AI内部メモです。" not in markup
 
 
 def test_investment_question_summary_html_prioritizes_initial_questions():

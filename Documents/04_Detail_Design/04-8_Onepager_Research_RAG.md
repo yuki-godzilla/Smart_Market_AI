@@ -127,9 +127,10 @@ Research Summary 改善では、`CompanyResearchReport` / evidence と Streamlit
 
 1. `CompanyResearchReport` / `StockNewsReport` / `ExternalResearchFetchResult` / provider profile から候補事実を集める。
 2. local rule-based extractor で `ResearchFactSummary` を作る。
-3. `CompanyResearchSummaryBuilder` は `ResearchBrief` / `ResearchFactSummary` / external trace を使い、企業概要、定量情報、IR資料、最新ニュース、AI読み取りメモを組み立てる。
-4. `ResearchBriefBuilder` / `InvestmentInsightBuilder` / `InvestmentQuestionSummaryBuilder` は、後段の確認メモ、読み方サマリー、企業理解の確認ポイント、UI card を組み立てる。
-5. source card、Research Score、raw evidence は確認用 detail に下げる。
+3. `CompanyResearchSummaryBuilder` は `CompanyResearchEvidence` の正規化層を通して、source type ごとにプロフィール、IR、TDnet、ニュース、定量情報の役割を分ける。
+4. `CompanyResearchSummaryBuilder` は正規化済み evidence と `ResearchBrief` / `ResearchFactSummary` / external trace を使い、企業概要、主な事業、製品・サービス、地域、規模感、定量情報、IR資料、最新ニュースを組み立てる。
+5. `ResearchBriefBuilder` / `InvestmentInsightBuilder` / `InvestmentQuestionSummaryBuilder` は、後段の確認メモ、読み方サマリー、企業理解の確認ポイント、UI card を組み立てる。
+6. AI読み取りメモ、source card、Research Score、raw evidence は確認用 detail に下げる。
 
 `ResearchFactSummary` の候補 contract:
 
@@ -189,6 +190,16 @@ class CompanyResearchSummary(BaseModel):
     news_items: list[NewsSummaryItem]
     ai_reading_notes: list[str]
     missing_critical_items: list[str]
+    normalized_evidence: list[CompanyResearchEvidence]
+
+
+class CompanyResearchEvidence(BaseModel):
+    kind: Literal["company_profile", "business_description", "financial_metric", "ir_document", "tdnet_disclosure", "news", "market_data", "unknown"]
+    title: str
+    body: str
+    source_type: str
+    reliability: Literal["official", "semi_official", "market_provider", "news", "unknown"]
+    information_status: Literal["found", "missing", "unparsed", "unverified", "not_applicable"]
 
 
 class ResearchBrief(BaseModel):
@@ -229,12 +240,11 @@ Cockpit Research Summary の推奨表示順:
 2. 定量情報サマリー
 3. IR情報サマリー
 4. 最新ニュースサマリー
-5. AI読み取りメモ
-6. 企業理解の確認ポイント
-7. 確認できた情報 / 注意して読む情報 / 不足している情報
-8. 出典カード
-9. Research Score
-10. 詳細データ
+5. 企業理解の確認ポイント
+6. AI読み取りメモ / 確認できた情報 / 注意して読む情報 / 不足している情報は折りたたみ
+7. 出典カード
+8. Research Score
+9. 詳細データ
 
 Research Score は先頭ブロックに置かない。local AI整理メモと出典カードの後、または detail / context 内で、根拠の充足度、鮮度、信頼度を確認する参考スコアとして表示する。
 
@@ -244,7 +254,7 @@ Research Score は先頭ブロックに置かない。local AI整理メモと出
 - 公式開示あり: `公式開示情報が確認できています。決算内容、業績修正、配当方針などの一次情報を優先して企業像を確認してください。`
 - 根拠が少ない場合: `現時点では、確認できた企業情報が限られています。最新決算、事業セグメント、配当方針、リスク要因を公式資料で確認してください。`
 
-この slice の追加テストでは、`CompanyResearchSummaryBuilder` が企業概要、定量情報、IR資料、最新ニュースを分けること、provider profile の圧縮、通常表示で provider raw field を隠すこと、公式 source coverage、provider のみの場合の注意表示、metric extraction / missing metrics、source type 別 evidence label、keyword-based topic classification、source card の確認目的、UI表示順を確認する。
+この slice の追加テストでは、`CompanyResearchSummaryBuilder` が企業概要、定量情報、IR資料、最新ニュースを分けること、`CompanyResearchEvidence` で source type ごとの役割を正規化すること、provider profile から主な事業 / 製品サービス / 地域を分けること、ニュースタイトルを事業内容に混ぜないこと、IR document type と found / missing / unparsed / unverified を区別すること、provider raw field を通常表示で隠すこと、metric extraction / missing metrics、source type 別 evidence label、keyword-based topic classification、source card の確認目的、UI表示順を確認する。
 
 ### Structured Evidence Extraction
 

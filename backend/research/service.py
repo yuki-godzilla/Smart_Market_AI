@@ -50,6 +50,48 @@ StockNewsSentiment = Literal["positive", "negative", "neutral", "mixed", "unknow
 StockNewsFreshnessStatus = Literal["latest", "recent", "stale", "unknown"]
 ResearchSourceConfidence = Literal["high", "medium", "low", "unknown"]
 ResearchEvidenceLevel = Literal["high", "medium", "low", "missing"]
+ResearchEvidenceKind = Literal[
+    "company_profile",
+    "business_description",
+    "financial_metric",
+    "ir_document",
+    "tdnet_disclosure",
+    "news",
+    "market_data",
+    "unknown",
+]
+ResearchEvidenceReliability = Literal[
+    "official",
+    "semi_official",
+    "market_provider",
+    "news",
+    "unknown",
+]
+InformationStatus = Literal[
+    "found",
+    "missing",
+    "unparsed",
+    "unverified",
+    "not_applicable",
+]
+IRDocumentType = Literal[
+    "earnings_summary",
+    "earnings_presentation",
+    "annual_report",
+    "timely_disclosure",
+    "medium_term_plan",
+    "shareholder_return",
+    "forecast_revision",
+    "other",
+]
+NewsImpactHint = Literal[
+    "business",
+    "financial",
+    "market",
+    "governance",
+    "product",
+    "unknown",
+]
 InvestmentSignal = Literal[
     "positive",
     "negative",
@@ -684,16 +726,55 @@ class ResearchBrief(StrictBaseModel):
     )
 
 
+class CompanyResearchEvidence(StrictBaseModel):
+    """Normalized source row before company-understanding summary mapping."""
+
+    kind: ResearchEvidenceKind
+    title: str = Field(min_length=1)
+    body: str = ""
+    source_type: str = ""
+    source_title: str = ""
+    source_url: str | None = None
+    reliability: ResearchEvidenceReliability = "unknown"
+    information_status: InformationStatus = "found"
+    published_at: date | None = None
+    extracted_keywords: list[str] = Field(default_factory=list)
+
+
+class CompanyBusinessProfile(StrictBaseModel):
+    """Structured business profile extracted mainly from profile / official sources."""
+
+    company_name: str = ""
+    symbol: str = ""
+    industry: str | None = None
+    sector: str | None = None
+    business_summary: str = ""
+    main_businesses: list[str] = Field(default_factory=list)
+    products_services: list[str] = Field(default_factory=list)
+    regions: list[str] = Field(default_factory=list)
+    customer_segments: list[str] = Field(default_factory=list)
+    information_status: InformationStatus = "missing"
+    evidence_level: ResearchEvidenceLevel = "missing"
+    source_titles: list[str] = Field(default_factory=list)
+
+
 class CompanyOverviewSummary(StrictBaseModel):
     """Company-understanding overview for the Research report UI."""
 
     company_name: str = ""
     symbol: str = Field(min_length=1)
+    business_profile: CompanyBusinessProfile | None = None
+    industry: str | None = None
+    sector: str | None = None
     business_overview: str = ""
+    main_businesses: list[str] = Field(default_factory=list)
     business_segments: list[str] = Field(default_factory=list)
+    products_services: list[str] = Field(default_factory=list)
     regions: list[str] = Field(default_factory=list)
+    customer_segments: list[str] = Field(default_factory=list)
     scale_summary: str = ""
     recent_focus: str = ""
+    information_status: InformationStatus = "missing"
     evidence_level: ResearchEvidenceLevel = "missing"
     source_titles: list[str] = Field(default_factory=list)
 
@@ -710,8 +791,11 @@ class QuantitativeSummary(StrictBaseModel):
     roe: str | None = None
     dividend_yield: str | None = None
     market_cap: str | None = None
+    employee_count: str | None = None
     summary: str = ""
     missing_items: list[str] = Field(default_factory=list)
+    item_statuses: dict[str, InformationStatus] = Field(default_factory=dict)
+    information_status: InformationStatus = "missing"
     evidence_level: ResearchEvidenceLevel = "missing"
     source_titles: list[str] = Field(default_factory=list)
 
@@ -720,8 +804,10 @@ class IRSummaryItem(StrictBaseModel):
     """Availability and short summary for one IR / disclosure document type."""
 
     document_type: str = Field(min_length=1)
+    ir_document_type: IRDocumentType = "other"
     title: str = Field(min_length=1)
     availability: Literal["found", "missing", "unknown"]
+    information_status: InformationStatus = "missing"
     summary: str = ""
     key_points: list[str] = Field(default_factory=list)
     source_title: str | None = None
@@ -737,7 +823,9 @@ class NewsSummaryItem(StrictBaseModel):
     published_at: date | None = None
     source_title: str = ""
     source_url: str | None = None
-    impact_hint: Literal["business", "financial", "market", "governance", "unknown"] = "unknown"
+    impact_hint: NewsImpactHint = "unknown"
+    official_confirmation_required: bool = True
+    information_status: InformationStatus = "unverified"
     evidence_level: ResearchEvidenceLevel = "low"
 
 
@@ -752,6 +840,7 @@ class CompanyResearchSummary(StrictBaseModel):
     news_items: list[NewsSummaryItem] = Field(default_factory=list)
     ai_reading_notes: list[str] = Field(default_factory=list)
     missing_critical_items: list[str] = Field(default_factory=list)
+    normalized_evidence: list[CompanyResearchEvidence] = Field(default_factory=list)
 
 
 class InvestmentInsightItem(StrictBaseModel):
@@ -1840,19 +1929,31 @@ class CompanyResearchSummaryBuilder:
             external_research_result=external_research_result,
             brief=prepared_brief,
         )
-        overview = _company_research_overview_summary(
+        normalized_evidence = _company_research_normalized_evidence(
             report,
             prepared_brief,
             news_report=news_report,
+            external_research_result=external_research_result,
         )
-        quantitative = _company_research_quantitative_summary(prepared_brief)
+        overview = _company_research_overview_summary(
+            report,
+            prepared_brief,
+            normalized_evidence=normalized_evidence,
+            news_report=news_report,
+        )
+        quantitative = _company_research_quantitative_summary(
+            prepared_brief,
+            normalized_evidence=normalized_evidence,
+        )
         ir_items = _company_research_ir_items(
             report,
             prepared_brief,
+            normalized_evidence=normalized_evidence,
             external_research_result=external_research_result,
         )
         news_items = _company_research_news_items(
             prepared_brief,
+            normalized_evidence=normalized_evidence,
             news_report=news_report,
             external_research_result=external_research_result,
         )
@@ -1876,6 +1977,7 @@ class CompanyResearchSummaryBuilder:
                 ir_items,
                 news_items,
             ),
+            normalized_evidence=normalized_evidence,
         )
 
 
@@ -3236,8 +3338,8 @@ _RESEARCH_BRIEF_METRIC_SPECS: tuple[
     ("operating_income", "営業利益", (r"営業利益", r"operating income")),
     ("net_income", "純利益", (r"純利益", r"当期利益", r"net income", r"net profit")),
     ("eps", "EPS", (r"EPS", r"1株当たり(?:利益|当期利益)", r"earnings per share")),
-    ("dividend", "配当", (r"配当(?:金)?", r"dividend(?: per share)?")),
-    ("per", "PER", (r"PER", r"price[- ]earnings ratio")),
+    ("dividend", "配当", (r"配当(?:金|利回り)?", r"dividend(?: yield| per share)?")),
+    ("per", "PER", (r"PER", r"trailing PE", r"forward PE", r"price[- ]earnings ratio")),
     ("pbr", "PBR", (r"PBR", r"price[- ]to[- ]book")),
     ("roe", "ROE", (r"ROE", r"return on equity")),
     ("market_cap", "時価総額", (r"時価総額", r"market cap(?:italization)?")),
@@ -4282,20 +4384,108 @@ def _research_brief_memo(
     )
 
 
-def _company_research_overview_summary(
+def _company_research_normalized_evidence(
     report: CompanyResearchReport,
     brief: ResearchBrief,
     *,
     news_report: StockNewsReport | None,
+    external_research_result: ExternalResearchFetchResult | None,
+) -> list[CompanyResearchEvidence]:
+    evidence: list[CompanyResearchEvidence] = []
+    for row in report.evidence:
+        body = _research_brief_evidence_text(row)
+        evidence.append(
+            CompanyResearchEvidence(
+                kind=_company_research_evidence_kind(row.source_type, row.title, body),
+                title=row.title,
+                body=body,
+                source_type=row.source_type,
+                source_title=row.title,
+                reliability=_company_research_reliability(row.source_type),
+                information_status="found",
+                published_at=row.published_at,
+                extracted_keywords=_company_research_extracted_keywords(body),
+            )
+        )
+    for metric in brief.metrics:
+        evidence.append(
+            CompanyResearchEvidence(
+                kind="financial_metric",
+                title=metric.label,
+                body=f"{metric.label}: {metric.value}",
+                source_type=metric.source_type,
+                source_title=metric.source_title,
+                reliability=_company_research_reliability(metric.source_type),
+                information_status="found",
+                extracted_keywords=[metric.label],
+            )
+        )
+    if news_report is not None:
+        for news in news_report.news:
+            evidence.append(
+                CompanyResearchEvidence(
+                    kind="news",
+                    title=news.title,
+                    body=news.summary,
+                    source_type="news",
+                    source_title=news.source or news.title,
+                    source_url=news.url,
+                    reliability="news",
+                    information_status="unverified",
+                    published_at=news.published_at,
+                    extracted_keywords=_company_research_extracted_keywords(
+                        f"{news.title} {news.summary}"
+                    ),
+                )
+            )
+    if external_research_result is not None:
+        for entry in external_research_result.entries:
+            body = entry.content_summary.strip()
+            evidence.append(
+                CompanyResearchEvidence(
+                    kind=_company_research_evidence_kind(entry.source_type, entry.title, body),
+                    title=entry.title,
+                    body=body,
+                    source_type=entry.source_type,
+                    source_title=entry.provider,
+                    source_url=entry.source_url,
+                    reliability=_company_research_reliability(entry.source_type),
+                    information_status=_company_research_external_information_status(
+                        entry.source_type,
+                        body,
+                    ),
+                    published_at=entry.published_at,
+                    extracted_keywords=_company_research_extracted_keywords(
+                        f"{entry.title} {body}"
+                    ),
+                )
+            )
+    return _unique_company_research_evidence(evidence)
+
+
+def _company_research_overview_summary(
+    report: CompanyResearchReport,
+    brief: ResearchBrief,
+    *,
+    normalized_evidence: Sequence[CompanyResearchEvidence],
+    news_report: StockNewsReport | None,
 ) -> CompanyOverviewSummary:
     fact_summary = brief.fact_summary
+    business_profile = _company_research_business_profile(
+        report,
+        brief,
+        normalized_evidence=normalized_evidence,
+        news_report=news_report,
+    )
     overview_items = list(fact_summary.business_overview if fact_summary else [])
     segment_items = list(fact_summary.business_segments if fact_summary else [])
     region_items = list(fact_summary.business_regions if fact_summary else [])
     revenue_items = list(fact_summary.revenue_drivers if fact_summary else [])
     recent_items = list(fact_summary.recent_events if fact_summary else [])
-    company_name = news_report.company_name if news_report is not None else ""
-    business_overview = (
+    company_name = business_profile.company_name or (
+        news_report.company_name if news_report is not None and news_report.company_name else ""
+    )
+    business_overview = business_profile.business_summary or (
         overview_items[0].value
         if overview_items
         else (
@@ -4303,8 +4493,11 @@ def _company_research_overview_summary(
             "公式資料で追加確認が必要です。"
         )
     )
-    business_segments = _company_research_values(segment_items or revenue_items, limit=4)
-    regions = _company_research_values(region_items, limit=4)
+    business_segments = business_profile.main_businesses or _company_research_values(
+        segment_items or revenue_items,
+        limit=4,
+    )
+    regions = business_profile.regions or _company_research_values(region_items, limit=4)
     scale_summary = _company_research_scale_summary(brief)
     recent_focus = _company_research_recent_focus(recent_items, news_report=news_report)
     source_items = [
@@ -4319,21 +4512,136 @@ def _company_research_overview_summary(
     return CompanyOverviewSummary(
         company_name=company_name or "",
         symbol=report.symbol,
+        business_profile=business_profile,
+        industry=business_profile.industry,
+        sector=business_profile.sector,
         business_overview=_clip_text(business_overview, max_chars=220),
+        main_businesses=business_segments,
         business_segments=business_segments,
+        products_services=business_profile.products_services,
         regions=regions,
+        customer_segments=business_profile.customer_segments,
         scale_summary=scale_summary,
         recent_focus=recent_focus,
-        evidence_level=_company_research_evidence_level_from_source_types(source_types),
+        information_status=business_profile.information_status,
+        evidence_level=(
+            business_profile.evidence_level
+            if business_profile.evidence_level != "missing"
+            else _company_research_evidence_level_from_source_types(source_types)
+        ),
         source_titles=_unique_text(
-            [item.source_title for item in source_items if item.source_title.strip()]
-            + [row.title for row in report.evidence[:3]]
+            [
+                *business_profile.source_titles,
+                *[item.source_title for item in source_items if item.source_title.strip()],
+                *[row.title for row in report.evidence[:3]],
+            ]
         )[:5],
     )
 
 
-def _company_research_quantitative_summary(brief: ResearchBrief) -> QuantitativeSummary:
+def _company_research_business_profile(
+    report: CompanyResearchReport,
+    brief: ResearchBrief,
+    *,
+    normalized_evidence: Sequence[CompanyResearchEvidence],
+    news_report: StockNewsReport | None,
+) -> CompanyBusinessProfile:
+    fact_summary = brief.fact_summary
+    overview_items = [
+        item
+        for item in list(fact_summary.business_overview if fact_summary else [])
+        if item.source_type != "news"
+    ]
+    segment_items = [
+        item
+        for item in list(fact_summary.business_segments if fact_summary else [])
+        if item.source_type != "news"
+    ]
+    region_items = [
+        item
+        for item in list(fact_summary.business_regions if fact_summary else [])
+        if item.source_type != "news"
+    ]
+    revenue_items = [
+        item
+        for item in list(fact_summary.revenue_drivers if fact_summary else [])
+        if item.source_type != "news"
+    ]
+    profile_evidence = [
+        item
+        for item in normalized_evidence
+        if item.kind in {"company_profile", "business_description"}
+        and item.reliability != "news"
+        and item.body.strip()
+    ]
+    profile_text = "\n".join(
+        [
+            *[item.value for item in overview_items],
+            *[item.value for item in segment_items],
+            *[item.value for item in revenue_items],
+            *[item.body for item in profile_evidence],
+        ]
+    )
+    business_summary = (
+        overview_items[0].value
+        if overview_items
+        else _company_research_business_summary_from_text(profile_text)
+    )
+    source_types: list[str] = [
+        item.source_type for item in overview_items + segment_items + revenue_items
+    ]
+    source_types.extend(item.source_type for item in profile_evidence)
+    company_name = _company_research_profile_field(profile_text, "Company Name") or (
+        news_report.company_name if news_report is not None and news_report.company_name else ""
+    )
+    main_businesses = _unique_text(
+        [
+            *_company_research_business_terms(profile_text),
+            *_company_research_values(segment_items or revenue_items, limit=6),
+        ]
+    )[:5]
+    products_services = _company_research_products_services(profile_text)
+    regions = _unique_text(
+        [
+            *_company_research_values(region_items, limit=6),
+            *_company_research_regions_from_text(profile_text),
+        ]
+    )[:6]
+    customer_segments = _company_research_customer_segments(profile_text)
+    information_status: InformationStatus = (
+        "found" if business_summary or main_businesses else "missing"
+    )
+    return CompanyBusinessProfile(
+        company_name=company_name or "",
+        symbol=report.symbol,
+        industry=_company_research_profile_field(profile_text, "Industry"),
+        sector=_company_research_profile_field(profile_text, "Sector"),
+        business_summary=_clip_text(business_summary, max_chars=240),
+        main_businesses=main_businesses,
+        products_services=products_services,
+        regions=regions,
+        customer_segments=customer_segments,
+        information_status=information_status,
+        evidence_level=_company_research_evidence_level_from_source_types(source_types),
+        source_titles=_unique_text(
+            [
+                *[item.source_title for item in overview_items + segment_items + revenue_items],
+                *[item.title for item in profile_evidence],
+            ]
+        )[:5],
+    )
+
+
+def _company_research_quantitative_summary(
+    brief: ResearchBrief,
+    *,
+    normalized_evidence: Sequence[CompanyResearchEvidence],
+) -> QuantitativeSummary:
     metrics = {metric.key: metric for metric in brief.metrics}
+    employee_count = _company_research_metric_from_evidence(
+        normalized_evidence,
+        (r"従業員数", r"employees", r"full time employees", r"fullTimeEmployees"),
+    )
     values = {
         "revenue": _company_research_metric_value(metrics, "revenue"),
         "operating_profit": _company_research_metric_value(metrics, "operating_income"),
@@ -4344,6 +4652,7 @@ def _company_research_quantitative_summary(brief: ResearchBrief) -> Quantitative
         "roe": _company_research_metric_value(metrics, "roe"),
         "dividend_yield": _company_research_metric_value(metrics, "dividend"),
         "market_cap": _company_research_metric_value(metrics, "market_cap"),
+        "employee_count": employee_count,
     }
     missing_items = [
         label
@@ -4357,6 +4666,7 @@ def _company_research_quantitative_summary(brief: ResearchBrief) -> Quantitative
             ("roe", "ROE"),
             ("dividend_yield", "配当利回り"),
             ("market_cap", "時価総額"),
+            ("employee_count", "従業員数"),
         )
         if not values[key]
     ]
@@ -4372,6 +4682,7 @@ def _company_research_quantitative_summary(brief: ResearchBrief) -> Quantitative
             ("roe", "ROE"),
             ("dividend_yield", "配当"),
             ("market_cap", "時価総額"),
+            ("employee_count", "従業員数"),
         )
         if values[key]
     ]
@@ -4391,8 +4702,11 @@ def _company_research_quantitative_summary(brief: ResearchBrief) -> Quantitative
         roe=values["roe"],
         dividend_yield=values["dividend_yield"],
         market_cap=values["market_cap"],
+        employee_count=values["employee_count"],
         summary=summary,
         missing_items=missing_items,
+        item_statuses={key: "found" if value else "missing" for key, value in values.items()},
+        information_status="found" if found_items else "missing",
         evidence_level=_company_research_evidence_level_from_source_types(
             [metric.source_type for metric in metrics.values()]
         ),
@@ -4404,22 +4718,44 @@ def _company_research_ir_items(
     report: CompanyResearchReport,
     brief: ResearchBrief,
     *,
+    normalized_evidence: Sequence[CompanyResearchEvidence],
     external_research_result: ExternalResearchFetchResult | None,
 ) -> list[IRSummaryItem]:
-    specs: tuple[tuple[str, tuple[ResearchSourceType, ...], tuple[str, ...]], ...] = (
-        ("決算短信", ("earnings_report",), ("決算短信", "earnings")),
-        ("決算説明資料", ("earnings_presentation",), ("決算説明", "presentation")),
+    specs: tuple[
+        tuple[str, IRDocumentType, tuple[ResearchSourceType, ...], tuple[str, ...]],
+        ...,
+    ] = (
+        ("決算短信", "earnings_summary", ("earnings_report",), ("決算短信", "financial results")),
+        (
+            "決算説明資料",
+            "earnings_presentation",
+            ("earnings_presentation",),
+            ("決算説明", "presentation", "briefing"),
+        ),
         (
             "有価証券報告書",
+            "annual_report",
             ("annual_report", "integrated_report"),
-            ("有価証券報告書", "annual report"),
+            ("有価証券報告書", "annual securities report", "annual report"),
         ),
-        ("適時開示", ("tdnet",), ("適時開示", "TDnet", "timely disclosure")),
-        ("中期経営計画", ("medium_term_plan",), ("中期経営計画", "medium-term")),
+        ("適時開示", "timely_disclosure", ("tdnet",), ("適時開示", "TDnet", "timely disclosure")),
+        (
+            "中期経営計画",
+            "medium_term_plan",
+            ("medium_term_plan",),
+            ("中期経営計画", "medium-term"),
+        ),
         (
             "配当・自社株買い",
+            "shareholder_return",
             ("earnings_report", "tdnet"),
-            ("配当", "自社株買い", "株主還元", "dividend", "buyback"),
+            ("配当", "自己株式", "自社株買い", "株主還元", "dividend", "buyback"),
+        ),
+        (
+            "業績予想修正",
+            "forecast_revision",
+            ("tdnet", "earnings_report"),
+            ("業績予想修正", "上方修正", "下方修正", "forecast revision"),
         ),
     )
     cards = list(brief.source_cards)
@@ -4441,19 +4777,22 @@ def _company_research_ir_items(
     return [
         _company_research_ir_item_for_spec(
             document_type=document_type,
+            ir_document_type=ir_document_type,
             source_types=source_types,
             keywords=keywords,
             report=report,
             brief=brief,
             cards=cards,
+            normalized_evidence=normalized_evidence,
         )
-        for document_type, source_types, keywords in specs
+        for document_type, ir_document_type, source_types, keywords in specs
     ]
 
 
 def _company_research_news_items(
     brief: ResearchBrief,
     *,
+    normalized_evidence: Sequence[CompanyResearchEvidence],
     news_report: StockNewsReport | None,
     external_research_result: ExternalResearchFetchResult | None,
 ) -> list[NewsSummaryItem]:
@@ -4466,7 +4805,12 @@ def _company_research_news_items(
                 published_at=news.published_at,
                 source_title=news.source or news.title,
                 source_url=news.url,
-                impact_hint=_company_research_news_impact_hint(news.investment_viewpoint),
+                impact_hint=_company_research_news_impact_hint(
+                    news.investment_viewpoint,
+                    f"{news.title} {news.summary}",
+                ),
+                official_confirmation_required=True,
+                information_status="unverified",
                 evidence_level="low",
             )
             for news in news_report.news
@@ -4482,6 +4826,8 @@ def _company_research_news_items(
                     published_at=item.published_at,
                     source_title=item.source_title,
                     impact_hint="unknown",
+                    official_confirmation_required=True,
+                    information_status="unverified",
                     evidence_level="low",
                 )
             )
@@ -4499,7 +4845,28 @@ def _company_research_news_items(
                     published_at=entry.published_at,
                     source_title=entry.provider,
                     source_url=entry.source_url,
-                    impact_hint="unknown",
+                    impact_hint=_company_research_news_impact_hint("other", entry.title),
+                    official_confirmation_required=True,
+                    information_status="unverified",
+                    evidence_level="low",
+                )
+            )
+    if not items:
+        for evidence in normalized_evidence:
+            if evidence.kind != "news":
+                continue
+            items.append(
+                NewsSummaryItem(
+                    title=evidence.title,
+                    summary=_clip_text(
+                        evidence.body or "ニュース本文は未解析です。", max_chars=150
+                    ),
+                    published_at=evidence.published_at,
+                    source_title=evidence.source_title,
+                    source_url=evidence.source_url,
+                    impact_hint=_company_research_news_impact_hint("other", evidence.title),
+                    official_confirmation_required=True,
+                    information_status="unverified",
                     evidence_level="low",
                 )
             )
@@ -4591,14 +4958,204 @@ def _company_research_metric_value(
     return metric.value if metric is not None else None
 
 
+def _company_research_evidence_kind(
+    source_type: ResearchSourceType,
+    title: str,
+    body: str,
+) -> ResearchEvidenceKind:
+    text = f"{title} {body}".lower()
+    if source_type == "provider_profile":
+        return "company_profile"
+    if source_type == "news":
+        return "news"
+    if source_type == "tdnet":
+        return "tdnet_disclosure"
+    if source_type in {
+        "annual_report",
+        "earnings_report",
+        "earnings_presentation",
+        "medium_term_plan",
+        "integrated_report",
+    }:
+        return "ir_document"
+    if any(keyword in text for keyword in ("market cap", "per", "pbr", "roe", "dividend")):
+        return "market_data"
+    return "unknown"
+
+
+def _company_research_reliability(
+    source_type: ResearchSourceType | str,
+) -> ResearchEvidenceReliability:
+    if source_type in {
+        "annual_report",
+        "earnings_report",
+        "earnings_presentation",
+        "medium_term_plan",
+        "integrated_report",
+        "tdnet",
+    }:
+        return "official"
+    if source_type == "provider_profile":
+        return "market_provider"
+    if source_type == "news":
+        return "news"
+    if source_type == "user_note":
+        return "semi_official"
+    return "unknown"
+
+
+def _company_research_external_information_status(
+    source_type: ResearchSourceType,
+    body: str,
+) -> InformationStatus:
+    if source_type == "news":
+        return "unverified"
+    if body.strip():
+        return "found"
+    return "unparsed"
+
+
+def _company_research_extracted_keywords(text: str) -> list[str]:
+    keyword_specs = (
+        ("自動車", ("自動車", "車両", "vehicle", "automotive", "motor")),
+        ("金融サービス", ("金融", "financial services")),
+        ("ソフトウェア", ("software", "ソフトウェア")),
+        ("配当", ("配当", "dividend")),
+        ("自社株買い", ("自社株買い", "自己株式", "buyback")),
+        ("業績予想", ("業績予想", "forecast", "guidance")),
+        ("中期経営計画", ("中期経営計画", "medium-term")),
+        ("地域展開", ("日本", "北米", "欧州", "アジア", "global", "north america", "europe")),
+    )
+    lowered = text.lower()
+    return [
+        label
+        for label, keywords in keyword_specs
+        if any(keyword.lower() in lowered for keyword in keywords)
+    ]
+
+
+def _unique_company_research_evidence(
+    evidence: Sequence[CompanyResearchEvidence],
+) -> list[CompanyResearchEvidence]:
+    unique: list[CompanyResearchEvidence] = []
+    seen: set[tuple[str, str, str, str | None]] = set()
+    for item in evidence:
+        key = (item.kind, item.title, item.body, item.source_url)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+    return unique
+
+
+def _company_research_profile_field(text: str, label: str) -> str | None:
+    match = re.search(rf"{re.escape(label)}\s*[:：]\s*([^\n。]+)", text, flags=re.IGNORECASE)
+    if match is None:
+        return None
+    value = _clip_text(match.group(1).strip(" .、"), max_chars=80)
+    return value or None
+
+
+def _company_research_business_summary_from_text(text: str) -> str:
+    cleaned = re.sub(r"\s+", " ", text).strip()
+    if not cleaned:
+        return ""
+    for raw_label in _RESEARCH_BRIEF_RAW_PROVIDER_LABELS:
+        cleaned = re.sub(
+            rf"\b{re.escape(raw_label)}\s*[:：]\s*[^\n。]+",
+            "",
+            cleaned,
+            flags=re.IGNORECASE,
+        )
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" .。")
+    if not cleaned:
+        return ""
+    return _clip_text(cleaned, max_chars=220)
+
+
+def _company_research_business_terms(text: str) -> list[str]:
+    lowered = text.lower()
+    specs = (
+        ("自動車・車両販売", ("自動車", "車両", "vehicle", "vehicles", "automotive", "motor")),
+        ("金融サービス", ("金融サービス", "financial services", "finance")),
+        ("モビリティ関連", ("モビリティ", "mobility")),
+        ("ソフトウェア・サービス", ("software services", "software", "ソフトウェア")),
+        ("部品・アフターサービス", ("parts", "部品", "保守", "maintenance")),
+    )
+    return [label for label, keywords in specs if any(keyword in lowered for keyword in keywords)]
+
+
+def _company_research_products_services(text: str) -> list[str]:
+    lowered = text.lower()
+    specs = (
+        ("車両", ("vehicle", "vehicles", "自動車", "車両")),
+        ("部品", ("parts", "components", "部品")),
+        ("保守・サービス", ("maintenance", "repair", "保守", "整備")),
+        ("金融サービス", ("financial services", "金融")),
+        ("ソフトウェアサービス", ("software", "ソフトウェア")),
+    )
+    return [label for label, keywords in specs if any(keyword in lowered for keyword in keywords)]
+
+
+def _company_research_regions_from_text(text: str) -> list[str]:
+    lowered = text.lower()
+    specs = (
+        ("日本", ("日本", "japan")),
+        ("北米", ("北米", "north america", "u.s.", "united states")),
+        ("欧州", ("欧州", "europe")),
+        ("アジア", ("アジア", "asia")),
+        ("グローバル", ("global", "worldwide", "世界")),
+    )
+    return [label for label, keywords in specs if any(keyword in lowered for keyword in keywords)]
+
+
+def _company_research_customer_segments(text: str) -> list[str]:
+    lowered = text.lower()
+    specs = (
+        ("個人顧客", ("consumer", "retail", "個人")),
+        ("法人顧客", ("corporate", "enterprise", "business customers", "法人")),
+        ("販売店・ディーラー", ("dealer", "dealership", "販売店", "ディーラー")),
+    )
+    return [label for label, keywords in specs if any(keyword in lowered for keyword in keywords)]
+
+
+def _company_research_metric_from_evidence(
+    evidence: Sequence[CompanyResearchEvidence],
+    patterns: Sequence[str],
+) -> str | None:
+    for item in evidence:
+        value = _company_research_metric_text_value(item.body, patterns)
+        if value:
+            return value
+    return None
+
+
+def _company_research_metric_text_value(text: str, patterns: Sequence[str]) -> str | None:
+    unit_pattern = r"(?:兆円|億円|百万円|万円|円|人|名|employees|JPY|USD|%|％|倍)?"
+    for pattern in patterns:
+        match = re.search(
+            rf"(?:{pattern})\s*(?:[:：=は])?\s*([+-]?\d[\d,]*(?:\.\d+)?\s*{unit_pattern})",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if match is None:
+            continue
+        value = re.sub(r"\s+", " ", match.group(1)).strip(" .。、、")
+        if value:
+            return value
+    return None
+
+
 def _company_research_ir_item_for_spec(
     *,
     document_type: str,
+    ir_document_type: IRDocumentType,
     source_types: Sequence[ResearchSourceType],
     keywords: Sequence[str],
     report: CompanyResearchReport,
     brief: ResearchBrief,
     cards: Sequence[ResearchBriefSourceCard],
+    normalized_evidence: Sequence[CompanyResearchEvidence],
 ) -> IRSummaryItem:
     matched_cards = [
         card
@@ -4620,13 +5177,31 @@ def _company_research_ir_item_for_spec(
         ),
         None,
     )
+    matched_normalized = next(
+        (
+            item
+            for item in normalized_evidence
+            if item.kind in {"ir_document", "tdnet_disclosure"}
+            and (
+                item.source_type in source_types
+                or _company_research_keyword_match(item.title, keywords)
+                or _company_research_keyword_match(item.body, keywords)
+            )
+        ),
+        None,
+    )
     key_points = _company_research_ir_key_points(document_type, brief)
+    if not key_points and matched_evidence is not None:
+        key_points = [_clip_text(matched_evidence.excerpt, max_chars=120)]
+    information_status: InformationStatus = "found" if key_points else "unparsed"
     if matched_card is not None:
         return IRSummaryItem(
             document_type=document_type,
-            title="取得済み",
+            ir_document_type=ir_document_type,
+            title=matched_card.title,
             availability="found",
-            summary=_company_research_ir_summary(document_type, key_points),
+            information_status=information_status,
+            summary=_company_research_ir_summary(document_type, key_points, information_status),
             key_points=key_points,
             source_title=matched_card.title,
             source_url=matched_card.source_url,
@@ -4637,19 +5212,42 @@ def _company_research_ir_item_for_spec(
     if matched_evidence is not None:
         return IRSummaryItem(
             document_type=document_type,
-            title="取得済み",
+            ir_document_type=ir_document_type,
+            title=matched_evidence.title,
             availability="found",
-            summary=_company_research_ir_summary(document_type, key_points),
+            information_status=information_status,
+            summary=_company_research_ir_summary(document_type, key_points, information_status),
             key_points=key_points,
             source_title=matched_evidence.title,
             evidence_level=_company_research_evidence_level_from_source_types(
                 [matched_evidence.source_type]
             ),
         )
+    if matched_normalized is not None:
+        return IRSummaryItem(
+            document_type=document_type,
+            ir_document_type=ir_document_type,
+            title=matched_normalized.title,
+            availability="found",
+            information_status=matched_normalized.information_status,
+            summary=_company_research_ir_summary(
+                document_type,
+                [],
+                matched_normalized.information_status,
+            ),
+            key_points=[],
+            source_title=matched_normalized.source_title or matched_normalized.title,
+            source_url=matched_normalized.source_url,
+            evidence_level=_company_research_evidence_level_from_source_types(
+                [matched_normalized.source_type]
+            ),
+        )
     return IRSummaryItem(
         document_type=document_type,
+        ir_document_type=ir_document_type,
         title="未取得",
         availability="missing",
+        information_status="missing",
         summary=f"{document_type}は未取得です。公式IR、TDnet、EDINETで追加確認してください。",
         key_points=[],
         evidence_level="missing",
@@ -4671,24 +5269,42 @@ def _company_research_ir_key_points(
         return [item.value for item in fact_summary.recent_events if item.source_type == "tdnet"][
             :3
         ]
+    if document_type == "業績予想修正":
+        return [
+            item.value
+            for item in fact_summary.earnings_outlook
+            if _company_research_keyword_match(
+                item.value,
+                ("業績予想修正", "上方修正", "下方修正", "forecast revision"),
+            )
+        ][:3]
     return []
 
 
 def _company_research_ir_summary(
     document_type: str,
     key_points: Sequence[str],
+    information_status: InformationStatus,
 ) -> str:
     if key_points:
         return f"{document_type}から確認できる要点があります。"
+    if information_status == "unparsed":
+        return "資料タイトルは取得済みですが、本文は未解析です。詳細はリンク先で確認してください。"
     return f"{document_type}の出典は確認できています。詳細は出典カードで確認してください。"
 
 
 def _company_research_news_impact_hint(
     viewpoint: StockNewsInvestmentViewpoint,
-) -> Literal["business", "financial", "market", "governance", "unknown"]:
+    text: str = "",
+) -> NewsImpactHint:
+    lowered_text = text.lower()
+    if any(keyword in lowered_text for keyword in ("product", "製品", "新製品", "service")):
+        return "product"
+    if any(keyword in lowered_text for keyword in ("governance", "不祥事", "訴訟", "規制")):
+        return "governance"
     labels: dict[
         StockNewsInvestmentViewpoint,
-        Literal["business", "financial", "market", "governance", "unknown"],
+        NewsImpactHint,
     ] = {
         "earnings": "financial",
         "growth": "business",

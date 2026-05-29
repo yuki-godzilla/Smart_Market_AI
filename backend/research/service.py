@@ -5,7 +5,7 @@ import html
 import json
 import math
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -5839,7 +5839,8 @@ def _investment_question_valuation(
     brief: ResearchBrief,
 ) -> InvestmentQuestionAnswer:
     metrics = _investment_question_metrics_by_key(brief)
-    valuation_metrics = {key: metrics[key] for key in ("per", "pbr", "roe") if key in metrics}
+    valuation_keys: tuple[ResearchMetricKey, ...] = ("per", "pbr", "roe")
+    valuation_metrics = {key: metrics[key] for key in valuation_keys if key in metrics}
     if not valuation_metrics:
         return _investment_question_missing_answer(
             category,
@@ -6065,7 +6066,7 @@ def _investment_question_titles_from_fact_items(
 
 
 def _investment_question_titles_from_metrics(
-    metrics: Sequence[ResearchMetric],
+    metrics: Iterable[ResearchMetric],
 ) -> list[str]:
     return [metric.source_title for metric in metrics if metric.source_title.strip()]
 

@@ -3927,14 +3927,29 @@ def _research_brief_clean_provider_text(text: str) -> str:
         "Quote Type",
         "Exchange",
         "Currency",
+        "Country",
+        "Website",
         "Market Cap",
+        "Enterprise Value",
+        "Total Revenue",
+        "Revenue",
+        "Operating Income",
+        "Net Income To Common",
+        "Net Income",
+        "Trailing EPS",
+        "Forward EPS",
         "PER",
         "PBR",
         "ROE",
         "Trailing PE",
         "Forward PE",
         "Price To Book",
+        "Return On Equity",
         "Dividend Rate",
+        "Dividend Yield",
+        "Full Time Employees",
+        "Payout Ratio",
+        "Beta",
     ):
         cleaned = re.sub(rf"\b{re.escape(label)}\s*[:：]\s*\S+", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(
@@ -3949,7 +3964,37 @@ def _research_brief_clean_provider_text(text: str) -> str:
         cleaned,
         flags=re.IGNORECASE,
     )
-    return re.sub(r"\s+", " ", cleaned).strip()
+    return _research_user_facing_text(cleaned)
+
+
+def _research_brief_raw_label_pattern() -> str:
+    return "|".join(
+        re.escape(label) for label in (*_RESEARCH_BRIEF_RAW_PROVIDER_LABELS, "Business Summary")
+    )
+
+
+def _research_user_facing_text(text: str) -> str:
+    cleaned = re.sub(r"\s+", " ", text).strip()
+    replacements = (
+        (r"\bsource_type\s*=\s*news\b", "外部ニュース"),
+        (r"\bsource_type\s*=\s*tdnet\b", "TDnet適時開示"),
+        (r"\bsource_type\s*=\s*provider_profile\b", "企業プロフィール"),
+        (r"\bprovider_profile\b", "企業プロフィール"),
+        (r"\bExternalResearchFetchResult\b", "外部取得結果"),
+        (r"\bsource_ynews\b", "外部ニュース"),
+    )
+    for pattern, replacement in replacements:
+        cleaned = re.sub(pattern, replacement, cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bBusiness Summary\s*[:：]\s*", "", cleaned, flags=re.IGNORECASE)
+    for raw_label in _RESEARCH_BRIEF_RAW_PROVIDER_LABELS:
+        cleaned = re.sub(
+            rf"\b{re.escape(raw_label)}\s*[:：]\s*.*?(?=\s+(?:{_research_brief_raw_label_pattern()})\s*[:：]|[。.\n\r]|$)",
+            "",
+            cleaned,
+            flags=re.IGNORECASE,
+        )
+        cleaned = re.sub(rf"\b{re.escape(raw_label)}\s*[:：]", "", cleaned, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", cleaned).strip(" .。")
 
 
 def _research_brief_readable_business_overview(text: str) -> str:
@@ -4794,12 +4839,18 @@ def _company_research_business_profile(
     information_status: InformationStatus = (
         "found" if business_summary or main_businesses else "missing"
     )
+    evidence_level = _company_research_evidence_level_from_source_types(source_types)
     return CompanyBusinessProfile(
         company_name=company_name or "",
         symbol=report.symbol,
         industry=_company_research_profile_field(profile_text, "Industry"),
         sector=_company_research_profile_field(profile_text, "Sector"),
-        business_summary=_clip_text(business_summary, max_chars=240),
+        business_summary=_company_research_natural_business_summary(
+            business_summary,
+            main_businesses=main_businesses,
+            regions=regions,
+            evidence_level=evidence_level,
+        ),
         main_businesses=main_businesses,
         supporting_businesses=supporting_businesses,
         products_services=products_services,
@@ -4807,7 +4858,7 @@ def _company_research_business_profile(
         regions=regions,
         customer_segments=customer_segments,
         information_status=information_status,
-        evidence_level=_company_research_evidence_level_from_source_types(source_types),
+        evidence_level=evidence_level,
         source_titles=_unique_text(
             [
                 *[item.source_title for item in overview_items + segment_items + revenue_items],
@@ -5031,7 +5082,12 @@ def _company_research_news_items(
             NewsSummaryItem(
                 topic_type="news",
                 title=news.title,
-                summary=_clip_text(news.summary, max_chars=150),
+                summary=_company_research_latest_topic_summary(
+                    source_type="news",
+                    title=news.title,
+                    raw_summary=news.summary,
+                    information_status="unverified",
+                ),
                 published_at=news.published_at,
                 source_title=news.source or news.title,
                 source_url=news.url,
@@ -5058,7 +5114,12 @@ def _company_research_news_items(
                 NewsSummaryItem(
                     topic_type=topic_type,
                     title=item.source_title,
-                    summary=_clip_text(item.value, max_chars=150),
+                    summary=_company_research_latest_topic_summary(
+                        source_type=item.source_type,
+                        title=item.source_title,
+                        raw_summary=item.value,
+                        information_status="unparsed" if is_tdnet else "unverified",
+                    ),
                     published_at=item.published_at,
                     source_title=item.source_title,
                     impact_hint=_company_research_news_impact_hint(
@@ -5089,9 +5150,11 @@ def _company_research_news_items(
                 NewsSummaryItem(
                     topic_type=topic_type,
                     title=entry.title,
-                    summary=_clip_text(
-                        entry.content_summary or default_summary,
-                        max_chars=150,
+                    summary=_company_research_latest_topic_summary(
+                        source_type=entry.source_type,
+                        title=entry.title,
+                        raw_summary=entry.content_summary or default_summary,
+                        information_status="unparsed" if is_tdnet else "unverified",
                     ),
                     published_at=entry.published_at,
                     source_title=entry.provider,
@@ -5119,14 +5182,14 @@ def _company_research_news_items(
                 NewsSummaryItem(
                     topic_type=topic_type,
                     title=evidence.title,
-                    summary=_clip_text(
-                        evidence.body
-                        or (
-                            "TDnet適時開示のタイトルとURLを取得しています。"
-                            if is_tdnet
-                            else "ニュース本文は未解析です。"
+                    summary=_company_research_latest_topic_summary(
+                        source_type=evidence.source_type,
+                        title=evidence.title,
+                        raw_summary=evidence.body
+                        or ("TDnet適時開示のタイトルとURLを取得しています。" if is_tdnet else ""),
+                        information_status=(
+                            evidence.information_status if is_tdnet else "unverified"
                         ),
-                        max_chars=150,
                     ),
                     published_at=evidence.published_at,
                     source_title=evidence.source_title,
@@ -5142,6 +5205,39 @@ def _company_research_news_items(
                 )
             )
     return _unique_company_news_items(items)[:5]
+
+
+def _company_research_latest_topic_summary(
+    *,
+    source_type: ResearchSourceType | str,
+    title: str,
+    raw_summary: str,
+    information_status: InformationStatus,
+) -> str:
+    cleaned = _research_user_facing_text(raw_summary)
+    title_cleaned = _research_user_facing_text(title)
+    if source_type == "tdnet":
+        if information_status == "unparsed":
+            return (
+                "会社発表ベースの開示資料です。現時点では本文未解析のため、"
+                "詳細はリンク先で確認してください。"
+            )
+        if cleaned and cleaned != title_cleaned:
+            return _clip_text(
+                f"会社発表ベースの開示資料です。{cleaned} 詳細はリンク先で確認してください。",
+                max_chars=160,
+            )
+        return "会社発表ベースの開示資料です。詳細はリンク先で確認してください。"
+    if source_type == "news":
+        if cleaned and cleaned != title_cleaned:
+            return _clip_text(
+                f"外部ニュースとして取得されています。{cleaned} 業績影響の有無は公式IRで確認が必要です。",
+                max_chars=170,
+            )
+        return "外部ニュースとして取得されています。業績影響の有無は公式IRで確認が必要です。"
+    if cleaned:
+        return _clip_text(cleaned, max_chars=160)
+    return "外部情報として取得されています。詳細は出典リンクで確認してください。"
 
 
 def _company_research_ai_reading_notes(
@@ -5415,7 +5511,11 @@ def _unique_company_research_evidence(
 
 
 def _company_research_profile_field(text: str, label: str) -> str | None:
-    match = re.search(rf"{re.escape(label)}\s*[:：]\s*([^\n。]+)", text, flags=re.IGNORECASE)
+    match = re.search(
+        rf"{re.escape(label)}\s*[:：]\s*(.*?)(?=\s+(?:{_research_brief_raw_label_pattern()})\s*[:：]|[。\n\r]|$)",
+        text,
+        flags=re.IGNORECASE,
+    )
     if match is None:
         return None
     value = _clip_text(match.group(1).strip(" .、"), max_chars=80)
@@ -5423,20 +5523,48 @@ def _company_research_profile_field(text: str, label: str) -> str | None:
 
 
 def _company_research_business_summary_from_text(text: str) -> str:
-    cleaned = re.sub(r"\s+", " ", text).strip()
+    cleaned = _research_user_facing_text(_research_brief_clean_provider_text(text))
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
     if not cleaned:
         return ""
     for raw_label in _RESEARCH_BRIEF_RAW_PROVIDER_LABELS:
-        cleaned = re.sub(
-            rf"\b{re.escape(raw_label)}\s*[:：]\s*[^\n。]+",
-            "",
-            cleaned,
-            flags=re.IGNORECASE,
-        )
+        cleaned = re.sub(rf"\b{re.escape(raw_label)}\s*[:：]?", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\s+", " ", cleaned).strip(" .。")
     if not cleaned:
         return ""
-    return _clip_text(cleaned, max_chars=220)
+    readable = _research_brief_readable_business_overview(cleaned)
+    return _clip_text(_research_user_facing_text(readable), max_chars=220)
+
+
+def _company_research_natural_business_summary(
+    summary: str,
+    *,
+    main_businesses: Sequence[str],
+    regions: Sequence[str],
+    evidence_level: ResearchEvidenceLevel,
+) -> str:
+    cleaned = _research_user_facing_text(summary)
+    needs_rewrite = (
+        not cleaned
+        or _looks_mostly_english(cleaned)
+        or any(label in cleaned for label in _RESEARCH_BRIEF_RAW_PROVIDER_LABELS)
+    )
+    if needs_rewrite and main_businesses:
+        region_phrase = f"地域は{'、'.join(regions[:3])}などで展開しています。" if regions else ""
+        confirmation = (
+            "詳細な事業セグメントや地域別構成は、公式資料で追加確認が必要です。"
+            if evidence_level != "high"
+            else "セグメント別売上や地域別構成は、決算資料で続けて確認してください。"
+        )
+        return _clip_text(
+            "外部データから確認できる範囲では、"
+            f"{'、'.join(main_businesses[:3])}を中心に事業を展開する企業です。"
+            f"{region_phrase}{confirmation}",
+            max_chars=240,
+        )
+    if not cleaned:
+        return "外部プロフィールから一部情報は確認できますが、公式資料での裏取りが必要です。"
+    return _clip_text(cleaned, max_chars=240)
 
 
 def _company_research_business_terms(text: str) -> list[str]:
@@ -7183,7 +7311,7 @@ def _investment_question_build_answer(
 
 
 def _investment_question_clean_answer(text: str) -> str:
-    cleaned = re.sub(r"\s+", " ", text).strip()
+    cleaned = _research_user_facing_text(re.sub(r"\s+", " ", text).strip())
     for forbidden, replacement in _INVESTMENT_QUESTION_FORBIDDEN_REPLACEMENTS:
         cleaned = cleaned.replace(forbidden, replacement)
     return _clip_text(cleaned, max_chars=260)

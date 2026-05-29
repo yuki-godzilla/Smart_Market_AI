@@ -12,6 +12,7 @@ import streamlit as st
 from backend.core.data_contracts import Bar, FundamentalSnapshot, Symbol
 from backend.core.errors import DataSourceError
 from backend.research import (
+    CompanyBusinessProfile,
     CompanyOverviewSummary,
     CompanyResearchReport,
     CompanyResearchSummary,
@@ -1080,6 +1081,12 @@ def test_company_research_summary_html_prioritizes_company_understanding():
         overview=CompanyOverviewSummary(
             company_name="Toyota Motor Corporation",
             symbol="7203.T",
+            business_profile=CompanyBusinessProfile(
+                company_name="Toyota Motor Corporation",
+                symbol="7203.T",
+                sector="Consumer Cyclical",
+                industry="Auto Manufacturers",
+            ),
             business_overview="自動車の製造・販売を中心とするグローバル企業です。",
             business_segments=["自動車", "金融サービス"],
             regions=["日本", "北米"],
@@ -1136,11 +1143,16 @@ def test_company_research_summary_html_prioritizes_company_understanding():
     assert "企業リサーチサマリー" in markup
     assert "企業概要" in markup
     assert "事業内容" in markup
+    assert "セクター: 一般消費財" in markup
+    assert "業種: 自動車メーカー" in markup
+    assert "Consumer Cyclical" not in markup
+    assert "Auto Manufacturers" not in markup
     assert "定量情報サマリー" in markup
     assert "売上高" in markup
     assert "IR情報サマリー" in markup
     assert "最新ニュース・開示サマリー" in markup
     assert "影響カテゴリ: 事業影響あり" in markup
+    assert "公式確認: 未確認（公式IR確認が必要）" in markup
     assert "SMAI 投資判断サマリー" not in markup
 
 

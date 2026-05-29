@@ -825,3 +825,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Split business-profile mapping into main businesses, supporting businesses, products/services, regions, and customer segments, with conservative `補完候補` product labels when provider profiles lack explicit product/service details.
 - Added enterprise value and improved provider metric formatting for JPY scale, PER/PBR, ROE/dividend yield, employee count, zero values, and empty / None / NaN-like missing values.
 - Renamed the visible news section to `最新ニュース・開示サマリー` and added latest-topic classification so TDnet, forecast revisions, shareholder returns, governance topics, products, and ordinary news keep distinct status and confirmation flags.
+
+## 2026-05-29 - Research summary wording and raw-provider cleanup
+
+- Tightened provider-profile cleanup so `Provider Symbol`, `Quote Type`, `Website`, raw `Industry:` / `Country:` style fields, and internal source identifiers do not leak into company summaries or fixed-question answers.
+- Improved latest news / disclosure summaries so TDnet rows read as official disclosures with body-unparsed status, while news rows clearly state that official IR confirmation is still needed.
+- Added Japanese display labels for common sector / industry values in the company summary UI and regression tests for raw-provider cleanup, Q&A wording, and news/disclosure confirmation text.

@@ -5356,11 +5356,16 @@ def _company_research_summary_html(summary: CompanyResearchSummary) -> str:
         industry = getattr(profile, "industry", None)
         sector = getattr(profile, "sector", None)
         if industry or sector:
+            profile_labels = []
+            if sector:
+                profile_labels.append(f"セクター: {_company_research_profile_label(sector)}")
+            if industry:
+                profile_labels.append(f"業種: {_company_research_profile_label(industry)}")
             rows.insert(
                 1,
                 (
                     "業種・セクター",
-                    _company_research_join_values([value for value in (sector, industry) if value]),
+                    _company_research_join_values(profile_labels),
                 ),
             )
     row_markup = "".join(
@@ -5514,8 +5519,12 @@ def _news_summary_item_html(index: int, item: NewsSummaryItem) -> str:
     published = item.published_at.isoformat() if item.published_at else "日付未設定"
     impact = _news_impact_hint_label(item.impact_hint)
     topic_type = _latest_topic_type_label(getattr(item, "topic_type", "news"))
-    source = item.source_title or "ニュース"
-    confirmation_label = "必要" if getattr(item, "official_confirmation_required", True) else "不要"
+    source = _latest_topic_source_label(item)
+    confirmation_label = (
+        "未確認（公式IR確認が必要）"
+        if getattr(item, "official_confirmation_required", True)
+        else "公式開示資料"
+    )
     status_label = _information_status_label(getattr(item, "information_status", "unverified"))
     status_tone = _information_status_tone(getattr(item, "information_status", "unverified"))
     url_markup = (
@@ -5529,7 +5538,7 @@ def _news_summary_item_html(index: int, item: NewsSummaryItem) -> str:
         '<div class="research-evidence-card-header">'
         f'<span class="research-evidence-pill">{html.escape(topic_type)} {index}</span>'
         f'<span class="research-evidence-pill">影響カテゴリ: {html.escape(impact)}</span>'
-        f'<span class="research-evidence-pill confidence-low">公式IR確認: {html.escape(confirmation_label)}</span>'
+        f'<span class="research-evidence-pill confidence-low">公式確認: {html.escape(confirmation_label)}</span>'
         f'<span class="research-evidence-pill confidence-{html.escape(status_tone)}">状態: {html.escape(status_label)}</span>'
         "</div>"
         f'<div class="research-evidence-title">{html.escape(item.title)}</div>'
@@ -5554,6 +5563,37 @@ def _latest_topic_type_label(topic_type: str) -> str:
         "unknown": "トピック",
     }
     return labels.get(topic_type, "トピック")
+
+
+def _latest_topic_source_label(item: NewsSummaryItem) -> str:
+    topic_type = getattr(item, "topic_type", "news")
+    if topic_type in {
+        "tdnet",
+        "ir_disclosure",
+        "earnings",
+        "forecast_revision",
+        "shareholder_return",
+    }:
+        return "TDnet適時開示"
+    if getattr(item, "official_confirmation_required", True):
+        return item.source_title or "外部ニュース"
+    return item.source_title or "公式開示"
+
+
+def _company_research_profile_label(value: str) -> str:
+    labels = {
+        "Consumer Cyclical": "一般消費財",
+        "Technology": "テクノロジー",
+        "Financial Services": "金融サービス",
+        "Healthcare": "ヘルスケア",
+        "Industrials": "資本財・サービス",
+        "Communication Services": "通信サービス",
+        "Auto Manufacturers": "自動車メーカー",
+        "Semiconductor Equipment & Materials": "半導体製造装置・材料",
+        "Scientific & Technical Instruments": "科学・計測機器",
+        "Consumer Electronics": "民生用電機",
+    }
+    return labels.get(value, value)
 
 
 def _company_research_ai_notes_html(notes: Sequence[str]) -> str:

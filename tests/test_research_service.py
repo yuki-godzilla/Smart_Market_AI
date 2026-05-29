@@ -602,7 +602,7 @@ def test_company_research_summary_builder_keeps_missing_items_explicit():
     assert all(item.availability == "missing" for item in summary.ir_items)
     assert summary.news_items == []
     assert "直近ニュース・開示" in summary.missing_critical_items
-    assert "企業概要は外部プロフィールから一部確認できます" in summary.overview.business_overview
+    assert "外部プロフィールから一部情報は確認できます" in summary.overview.business_overview
 
 
 def test_company_research_summary_builder_maps_provider_quantitative_fields():
@@ -852,6 +852,55 @@ def test_company_research_summary_builder_adds_safe_product_candidates_when_miss
     assert summary.overview.products_services_status == "unverified"
 
 
+def test_company_research_summary_builder_hides_provider_raw_labels_from_overview():
+    provider_evidence = ResearchEvidence(
+        symbol="ACME",
+        document_id="doc-profile",
+        chunk_id="chunk-profile",
+        title="Provider Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Acme Corporation Provider Symbol: ACME Quote Type: EQUITY "
+            "Sector: Technology Industry: Software - Application Country: Japan "
+            "Website: https://example.com Business Summary: Acme provides cloud platform services."
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    report = CompanyResearchReport(
+        symbol="ACME",
+        as_of=date(2026, 5, 25),
+        summary="Research summary.",
+        points=[],
+        evidence=[provider_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    summary = CompanyResearchSummaryBuilder().build(report)
+    assert summary.overview.business_overview
+    visible_text = " ".join(
+        [
+            summary.overview.company_name,
+            summary.overview.business_overview,
+            summary.overview.industry or "",
+            summary.overview.sector or "",
+        ]
+    )
+    assert "Provider Symbol" not in visible_text
+    assert "Quote Type" not in visible_text
+    assert "Website:" not in visible_text
+    assert "https://example.com" not in summary.overview.business_overview
+    assert "Technology Industry" not in summary.overview.business_overview
+
+
 def test_company_research_summary_builder_distinguishes_ir_statuses_and_types():
     report = CompanyResearchReport(
         symbol="7203.T",
@@ -930,6 +979,8 @@ def test_company_research_summary_builder_distinguishes_ir_statuses_and_types():
     assert any(
         item.title == "2026年3月期 業績予想修正に関するお知らせ"
         and item.topic_type == "forecast_revision"
+        and "会社発表ベースの開示資料" in item.summary
+        and "本文未解析" in item.summary
         and item.impact_hint == "financial"
         and item.official_confirmation_required is False
         and item.information_status == "unparsed"
@@ -943,6 +994,48 @@ def test_company_research_summary_builder_distinguishes_ir_statuses_and_types():
         and item.official_confirmation_required is False
         for item in summary.news_items
     )
+
+
+def test_company_research_summary_builder_shapes_news_topic_confirmation_text():
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="Research summary.",
+        points=[],
+        evidence=[],
+        data_quality=ResearchDataQuality(
+            status="WARN",
+            latest_document_date=None,
+            document_count=0,
+            evidence_count=0,
+            warnings=[],
+        ),
+    )
+    news_report = StockNewsReport(
+        symbol="7203.T",
+        company_name="Toyota Motor Corporation",
+        as_of=date(2026, 5, 25),
+        news=[
+            StockNewsEvidence(
+                symbol="7203.T",
+                title="Toyota expands software services",
+                url="https://example.com/news",
+                source="Example News",
+                published_at=date(2026, 5, 24),
+                summary="Software services expanded in overseas markets.",
+                investment_viewpoint="growth",
+                sentiment_for_investment="positive",
+                freshness_status="latest",
+            )
+        ],
+    )
+
+    summary = CompanyResearchSummaryBuilder().build(report, news_report=news_report)
+
+    assert summary.news_items[0].topic_type == "news"
+    assert summary.news_items[0].official_confirmation_required is True
+    assert "外部ニュースとして取得" in summary.news_items[0].summary
+    assert "公式IRで確認が必要" in summary.news_items[0].summary
 
 
 def test_research_brief_builder_marks_missing_metrics_as_confirmation_gaps():
@@ -1343,6 +1436,47 @@ def test_investment_question_summary_builder_maps_sources_to_answers():
     assert answers["valuation"].source_titles
     assert "PER" in answers["valuation"].answer
     assert answers["key_takeaway"].answer
+
+
+def test_investment_question_summary_builder_hides_internal_source_names():
+    provider_evidence = ResearchEvidence(
+        symbol="ACME",
+        document_id="doc-profile",
+        chunk_id="chunk-profile",
+        title="Provider Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Acme Corporation Provider Symbol: ACME Quote Type: EQUITY "
+            "Business Summary: source_type=news provider_profile ExternalResearchFetchResult "
+            "source_ynews cloud platform services."
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    report = CompanyResearchReport(
+        symbol="ACME",
+        as_of=date(2026, 5, 25),
+        summary="Source-backed evidence exists.",
+        points=[],
+        evidence=[provider_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 24),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    summary = InvestmentQuestionSummaryBuilder().build(report)
+    dumped = str(summary.model_dump(mode="json"))
+
+    assert "source_type" not in dumped
+    assert "provider_profile" not in dumped
+    assert "ExternalResearchFetchResult" not in dumped
+    assert "source_ynews" not in dumped
 
 
 def test_research_ingestion_deduplicates_by_document_hash(tmp_path):

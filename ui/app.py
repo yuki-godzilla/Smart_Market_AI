@@ -5212,7 +5212,10 @@ def _render_research_summary_panel(
         _render_news_summary_panel(etf_summary.news_items, security_type=security_type)
         _render_etf_question_summary_panel(etf_summary)
     elif company_summary is not None and question_summary is not None:
-        _render_company_research_summary_panel(company_summary)
+        _render_company_research_summary_panel(
+            company_summary,
+            security_type=security_type,
+        )
         _render_quantitative_summary_panel(company_summary.quantitative)
         _render_ir_summary_panel(company_summary.ir_items, security_type=security_type)
         _render_news_summary_panel(company_summary.news_items, security_type=security_type)
@@ -5406,8 +5409,15 @@ def _research_refresh_trace_caption(trace_rows: list[tuple[str, float]]) -> str:
     return "AI調査の処理時間: " + " / ".join(parts)
 
 
-def _render_company_research_summary_panel(summary: CompanyResearchSummary) -> None:
-    st.markdown(_company_research_summary_html(summary), unsafe_allow_html=True)
+def _render_company_research_summary_panel(
+    summary: CompanyResearchSummary,
+    *,
+    security_type: SecurityResearchType = "domestic_stock",
+) -> None:
+    st.markdown(
+        _company_research_summary_html(summary, security_type=security_type),
+        unsafe_allow_html=True,
+    )
 
 
 def _render_etf_research_summary_panel(summary: ETFResearchSummary) -> None:
@@ -5565,7 +5575,11 @@ def _etf_distribution_cost_html(summary: ETFResearchSummary) -> str:
     )
 
 
-def _company_research_summary_html(summary: CompanyResearchSummary) -> str:
+def _company_research_summary_html(
+    summary: CompanyResearchSummary,
+    *,
+    security_type: SecurityResearchType = "domestic_stock",
+) -> str:
     overview = summary.overview
     profile = getattr(overview, "business_profile", None)
     badges = [
@@ -5583,7 +5597,13 @@ def _company_research_summary_html(summary: CompanyResearchSummary) -> str:
         if label.strip()
     )
     rows = [
-        ("企業概要", getattr(overview, "business_overview", "")),
+        (
+            "企業概要",
+            _security_specific_research_text(
+                getattr(overview, "business_overview", ""),
+                security_type=security_type,
+            ),
+        ),
         (
             "主な事業",
             _company_research_join_values(
@@ -5593,15 +5613,39 @@ def _company_research_summary_html(summary: CompanyResearchSummary) -> str:
         ),
         (
             "補助事業・関連事業",
-            _company_research_join_values(getattr(overview, "supporting_businesses", [])),
+            _security_specific_research_text(
+                _company_research_join_values(getattr(overview, "supporting_businesses", [])),
+                security_type=security_type,
+            ),
         ),
         (
             "製品・サービス",
-            _company_research_join_values(getattr(overview, "products_services", [])),
+            _security_specific_research_text(
+                _company_research_join_values(getattr(overview, "products_services", [])),
+                security_type=security_type,
+            ),
         ),
-        ("地域展開", _company_research_join_values(getattr(overview, "regions", []))),
-        ("規模感", getattr(overview, "scale_summary", "")),
-        ("直近の注目ポイント", getattr(overview, "recent_focus", "")),
+        (
+            "地域展開",
+            _security_specific_research_text(
+                _company_research_join_values(getattr(overview, "regions", [])),
+                security_type=security_type,
+            ),
+        ),
+        (
+            "規模感",
+            _security_specific_research_text(
+                getattr(overview, "scale_summary", ""),
+                security_type=security_type,
+            ),
+        ),
+        (
+            "直近の注目ポイント",
+            _security_specific_research_text(
+                getattr(overview, "recent_focus", ""),
+                security_type=security_type,
+            ),
+        ),
     ]
     if profile is not None:
         industry = getattr(profile, "industry", None)
@@ -5628,7 +5672,8 @@ def _company_research_summary_html(summary: CompanyResearchSummary) -> str:
     )
     missing_items = getattr(summary, "missing_critical_items", [])[:5]
     missing_markup = "".join(
-        f'<span class="research-summary-next-chip">{html.escape(str(item))}</span>'
+        '<span class="research-summary-next-chip">'
+        f"{html.escape(_security_specific_research_text(str(item), security_type=security_type))}</span>"
         for item in missing_items
         if str(item).strip()
     )
@@ -5752,10 +5797,10 @@ def _ir_summary_item_html(
         if source
         else ""
     )
+    source_url = _research_brief_ui_text(str(item.source_url or ""), max_chars=80)
     url_markup = (
-        '<div class="research-brief-focus-meta">'
-        f"URL: {html.escape(_research_brief_ui_text(item.source_url or '', max_chars=80))}</div>"
-        if item.source_url
+        '<div class="research-brief-focus-meta">' f"URL: {html.escape(source_url)}</div>"
+        if source_url
         else ""
     )
     return (
@@ -7018,6 +7063,8 @@ def _research_brief_focus_card_html(
 
 def _research_brief_ui_text(text: str, *, max_chars: int) -> str:
     cleaned = " ".join(text.split())
+    if cleaned.lower() in {"nan", "none", "null", "raw"}:
+        return ""
     cleaned = re.sub(r"\bCompany Name:\s*", "", cleaned, flags=re.IGNORECASE)
     for label in ("Provider Symbol", "Quote Type", "Exchange", "Currency"):
         cleaned = re.sub(rf"\b{label}:\s*\S+", "", cleaned, flags=re.IGNORECASE)
@@ -7034,6 +7081,8 @@ def _research_brief_ui_text(text: str, *, max_chars: int) -> str:
         flags=re.IGNORECASE,
     )
     cleaned = re.sub(r"\s+", " ", cleaned)
+    if cleaned.strip().lower() in {"nan", "none", "null", "raw"}:
+        return ""
     return truncate_text(cleaned.strip(), max_chars=max_chars)
 
 

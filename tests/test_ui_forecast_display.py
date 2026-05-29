@@ -1315,6 +1315,50 @@ def test_foreign_stock_ai_notes_avoid_domestic_disclosure_terms():
     assert "有価証券報告書" not in markup
 
 
+def test_foreign_stock_company_summary_avoids_domestic_terms_and_nan_url():
+    company_summary = CompanyResearchSummary(
+        symbol="TSLA",
+        overview=CompanyOverviewSummary(
+            symbol="TSLA",
+            company_name="Tesla, Inc.",
+            business_overview="外部プロフィールから自動車事業を確認できます。",
+            main_businesses=["自動車事業"],
+            recent_focus="直近ニュースやTDnet情報から確認できる注目点はまだ限定的です。",
+        ),
+        quantitative=QuantitativeSummary(),
+        ir_items=[],
+        news_items=[],
+        missing_critical_items=["決算短信", "適時開示"],
+    )
+    ir_markup = _ir_summary_html(
+        [
+            IRSummaryItem(
+                document_type="有価証券報告書",
+                title="Tesla Yahoo Finance Profile",
+                availability="found",
+                information_status="unparsed",
+                source_url="nan",
+            )
+        ],
+        security_type="foreign_stock",
+    )
+
+    markup = _company_research_summary_html(
+        company_summary,
+        security_type="foreign_stock",
+    )
+    markup += ir_markup
+
+    assert "公式IR情報" in markup
+    assert "Earnings Release" in markup
+    assert "Company Release" in markup
+    assert "URL:" not in markup
+    assert ">nan<" not in markup
+    assert "TDnet" not in markup
+    assert "決算短信" not in markup
+    assert "適時開示" not in markup
+
+
 def test_investment_question_summary_html_prioritizes_initial_questions():
     categories = [
         ("business_model", "この会社は何で稼いでいるか？", "事業概要を確認できます。", "medium"),

@@ -6588,13 +6588,21 @@ def _company_research_business_terms(text: str) -> list[str]:
             (
                 "software",
                 "cloud",
+                "cloud computing",
+                "cloud services",
                 "saas",
                 "platform",
+                "aws",
+                "amazon web services",
                 "azure",
                 "enterprise services",
                 "ソフトウェア",
                 "クラウド",
             ),
+        ),
+        (
+            "広告・マーケティング",
+            ("advertising", "advertisement", "ads", "marketing services", "広告"),
         ),
         (
             "決済ネットワーク",
@@ -6659,7 +6667,6 @@ def _company_research_business_terms(text: str) -> list[str]:
         (
             "通信サービス",
             (
-                "sector: communication services",
                 "telecom services",
                 "telecommunications",
                 "wireless",
@@ -6771,6 +6778,7 @@ def _company_research_filter_main_businesses(
         and not (retail_main_context and item == "通信サービス")
         and not (finance_main_context and item == "小売・EC")
         and not (payment_context and not bank_context and item == "銀行・金融サービス")
+        and not (payment_context and item == "広告・マーケティング")
         and not (hr_context and item == "通信サービス")
         and not (
             trading_context and item in software_related_main | {"小売・EC", "決済ネットワーク"}
@@ -6793,6 +6801,17 @@ def _company_research_filter_main_businesses(
         filtered.insert(0, "銀行・金融サービス")
     if "ソフトウェア・クラウド" in filtered:
         filtered = [item for item in filtered if item != "ソフトウェア・サービス"]
+    if retail_main_context and cloud_infra_context:
+        priority = [
+            "小売・EC",
+            "ソフトウェア・クラウド",
+            "広告・マーケティング",
+            "AI・データセンター",
+            "ゲーム・エンタメ",
+        ]
+        filtered = [item for item in priority if item in filtered] + [
+            item for item in filtered if item not in priority
+        ]
     return _unique_text(filtered)[:5]
 
 
@@ -6965,11 +6984,13 @@ def _company_research_is_telecom_context(lowered_text: str) -> bool:
     return any(
         keyword in lowered_text
         for keyword in (
-            "sector: communication services",
             "telecom services",
             "telecommunications",
             "wireless",
             "broadband",
+            "mobile network",
+            "fixed-line",
+            "fiber optic",
         )
     )
 
@@ -7052,7 +7073,9 @@ def _company_research_filter_supporting_businesses(
             if item not in {"金融サービス", "保険", "資産運用", "リース", "ソフトウェア"}
         ]
     if "決済ネットワーク" in main_set:
-        filtered = [item for item in filtered if item not in {"金融サービス", "資産運用"}]
+        filtered = [
+            item for item in filtered if item not in {"金融サービス", "資産運用", "ソフトウェア"}
+        ]
     if "銀行・金融サービス" in main_set or "金融サービス" in main_set:
         filtered = [item for item in filtered if item != "ソフトウェア"]
     return _unique_text(filtered)[:5]
@@ -7098,6 +7121,7 @@ def _company_research_products_services(text: str) -> list[str]:
         ("決済ネットワーク", ("card network", "transaction", "merchant", "settlement")),
         ("加盟店サービス", ("merchant services", "加盟店")),
         ("不正検知", ("fraud", "fraud detection", "不正検知")),
+        ("広告サービス", ("advertising", "advertisement", "ads", "marketing services", "広告")),
         ("保険", ("insurance", "保険")),
         ("資産運用", ("asset management", "資産運用")),
         ("銀行サービス", ("banking", "commercial bank", "銀行")),
@@ -7171,6 +7195,7 @@ def _company_research_products_services(text: str) -> list[str]:
                 "オンライン販売",
                 "融資・クレジット",
                 "資産運用",
+                "広告サービス",
             }
         ]
     if _company_research_is_trading_company_context(lowered):

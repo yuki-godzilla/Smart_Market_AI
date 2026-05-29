@@ -5220,7 +5220,10 @@ def _render_research_summary_panel(
     with st.expander("AI読み取りメモを表示", expanded=False):
         if company_summary is not None and company_summary.ai_reading_notes:
             st.markdown(
-                _company_research_ai_notes_html(company_summary.ai_reading_notes),
+                _company_research_ai_notes_html(
+                    company_summary.ai_reading_notes,
+                    security_type=security_type,
+                ),
                 unsafe_allow_html=True,
             )
         st.markdown(_investment_insight_panel_html(insight), unsafe_allow_html=True)
@@ -5959,9 +5962,14 @@ def _company_research_profile_label(value: str) -> str:
     return labels.get(value, value)
 
 
-def _company_research_ai_notes_html(notes: Sequence[str]) -> str:
+def _company_research_ai_notes_html(
+    notes: Sequence[str],
+    *,
+    security_type: SecurityResearchType = "domestic_stock",
+) -> str:
     body = "".join(
-        f'<div class="research-brief-next-item">{html.escape(_research_brief_ui_text(note, max_chars=150))}</div>'
+        '<div class="research-brief-next-item">'
+        f"{html.escape(_research_brief_ui_text(_security_specific_research_text(note, security_type=security_type), max_chars=150))}</div>"
         for note in notes[:6]
     )
     return (

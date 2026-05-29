@@ -56,6 +56,7 @@ from ui.app import (
     RankingResearchStatus,
     _build_market_data_ranking_rows,
     _coerce_number_input_state,
+    _company_research_ai_notes_html,
     _company_research_summary_html,
     _current_or_default_symbol_labels,
     _dividend_category_filter_label,
@@ -1292,6 +1293,24 @@ def test_foreign_stock_ir_and_questions_avoid_domestic_disclosure_terms():
     assert "Company Release" in markup
     assert "TDnet" not in markup
     assert "EDINET" not in markup
+    assert "決算短信" not in markup
+    assert "有価証券報告書" not in markup
+
+
+def test_foreign_stock_ai_notes_avoid_domestic_disclosure_terms():
+    markup = _company_research_ai_notes_html(
+        [
+            "追加確認する資料: 決算短信、有価証券報告書、決算説明資料を公式IRまたはTDnetで確認してください。",
+            "不足している情報: 売上高、営業利益は追加確認が必要です。",
+        ],
+        security_type="foreign_stock",
+    )
+
+    assert "Earnings Release" in markup
+    assert "Annual Report" in markup
+    assert "Investor Presentation" in markup
+    assert "公式IR" in markup
+    assert "TDnet" not in markup
     assert "決算短信" not in markup
     assert "有価証券報告書" not in markup
 

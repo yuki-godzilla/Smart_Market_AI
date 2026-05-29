@@ -1506,7 +1506,8 @@ def test_company_research_summary_builder_weights_auto_retail_and_payment_contex
             "Sector: Financial Services\n"
             "Industry: Credit Services\n"
             "Business Summary: Visa operates a global card network for payments, "
-            "digital payment transactions, merchant services, settlement, and fraud detection."
+            "digital payment transactions, merchant services, settlement, fraud detection, "
+            "and marketing services for clients."
         ),
         relevance_score=Decimal("0.72"),
         reliability=Decimal("0.68"),
@@ -1587,9 +1588,103 @@ def test_company_research_summary_builder_weights_auto_retail_and_payment_contex
     assert payment_profile is not None
     assert "決済ネットワーク" in payment_profile.main_businesses
     assert "銀行・金融サービス" not in payment_profile.main_businesses
+    assert "広告・マーケティング" not in payment_profile.main_businesses
+    assert "ソフトウェア" not in payment_profile.supporting_businesses
     assert "カード決済" in payment_profile.products_services
     assert "デジタル決済" in payment_profile.products_services
     assert "加盟店サービス" in payment_profile.products_services
+    assert "広告サービス" not in payment_profile.products_services
+
+
+def test_company_research_summary_builder_avoids_telecom_noise_and_maps_amazon_style_mix():
+    nintendo_evidence = ResearchEvidence(
+        symbol="7974.T",
+        document_id="doc-nintendo",
+        chunk_id="chunk-nintendo",
+        title="Nintendo Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Nintendo Co., Ltd\n"
+            "Sector: Communication Services\n"
+            "Industry: Electronic Gaming & Multimedia\n"
+            "Business Summary: Nintendo develops video game platforms, game software, "
+            "entertainment content, consoles, and network services."
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    amazon_evidence = ResearchEvidence(
+        symbol="AMZN",
+        document_id="doc-amazon",
+        chunk_id="chunk-amazon",
+        title="Amazon Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 5, 24),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Amazon.com, Inc\n"
+            "Sector: Consumer Cyclical\n"
+            "Industry: Internet Retail\n"
+            "Business Summary: Amazon operates an e-commerce marketplace, online stores, "
+            "AWS cloud computing services, advertising services, subscription services, "
+            "devices, logistics, and digital content."
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+
+    nintendo = CompanyResearchSummaryBuilder().build(
+        CompanyResearchReport(
+            symbol="7974.T",
+            as_of=date(2026, 5, 25),
+            summary="Research summary.",
+            points=[],
+            evidence=[nintendo_evidence],
+            data_quality=ResearchDataQuality(
+                status="OK",
+                latest_document_date=date(2026, 5, 24),
+                document_count=1,
+                evidence_count=1,
+                warnings=[],
+            ),
+        )
+    )
+    amazon = CompanyResearchSummaryBuilder().build(
+        CompanyResearchReport(
+            symbol="AMZN",
+            as_of=date(2026, 5, 25),
+            summary="Research summary.",
+            points=[],
+            evidence=[amazon_evidence],
+            data_quality=ResearchDataQuality(
+                status="OK",
+                latest_document_date=date(2026, 5, 24),
+                document_count=1,
+                evidence_count=1,
+                warnings=[],
+            ),
+        )
+    )
+
+    nintendo_profile = nintendo.overview.business_profile
+    amazon_profile = amazon.overview.business_profile
+
+    assert nintendo_profile is not None
+    assert "ゲーム・エンタメ" in nintendo_profile.main_businesses
+    assert "通信サービス" not in nintendo_profile.main_businesses
+    assert "ゲーム" in nintendo_profile.products_services
+
+    assert amazon_profile is not None
+    assert amazon_profile.main_businesses[:3] == [
+        "小売・EC",
+        "ソフトウェア・クラウド",
+        "広告・マーケティング",
+    ]
+    assert "クラウドサービス" in amazon_profile.products_services
+    assert "広告サービス" in amazon_profile.products_services
+    assert "マーケットプレイスサービス" in amazon_profile.products_services
 
 
 def test_company_research_summary_builder_avoids_payment_noise_for_trading_company():

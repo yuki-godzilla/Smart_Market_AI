@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-05-30: Added manual coverage for Ranking sort-condition usage and symbol-detail entry points from both Ranking and Cockpit, with live UI screenshots for sort controls, ranking row-click detail, and cockpit `銘柄データを見る`.
 - 2026-05-30: Expanded the root-level SMAI user manual with external Yahoo live-data screenshots for ranking results, cockpit chart/data retrieval, AI Research refresh, Decision Report reading, and report downloads; added bordered/responsive screenshot presentation and per-image viewing points.
 - 2026-05-30: Added a root-level `manual/` user guide for the main SMAI flow, covering `銘柄ランキング` candidate narrowing and `銘柄コックピット` deep-dive usage with actual Streamlit screenshots captured via local Edge headless automation.
 - 2026-05-29: Added the Windows pre-release EXE packaging slice for Smart Market AI: PyInstaller `onedir` launcher/spec/build script, pre-release README, build-only dependency pin, `build/` / `dist/` gitignore entries, operations-guide build notes, and smoke-checked the generated `dist/SMAI/SMAI.exe` through Streamlit startup, cockpit/ranking/rebalance/settings rendering, cockpit `06 根拠資料`, Decision Report downloads, sample rebalance, and live Yahoo / AI調査更新 paths.

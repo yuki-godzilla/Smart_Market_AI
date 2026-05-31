@@ -1598,7 +1598,11 @@ def test_external_research_source_cards_explain_how_to_read_each_source():
                 freshness_status="unknown",
                 document_id="research-doc-profile",
                 retention_policy="session",
-                content_summary="Toyota sells vehicles globally.",
+                content_summary=(
+                    "Company Name: Toyota Motor Corporation Provider Symbol: 7203.T "
+                    "Quote Type: EQUITY Website: https://example.com "
+                    "Business Summary: Toyota sells vehicles globally."
+                ),
             ),
         ],
         retention_policy="session",
@@ -1614,8 +1618,49 @@ def test_external_research_source_cards_explain_how_to_read_each_source():
     assert "TDnet（適時開示）" in cards
     assert "PDF本文で対象期間" in cards
     assert "外部データ" in cards
+    assert "Toyota sells vehicles globally" in cards
+    assert "Provider Symbol" not in cards
+    assert "Quote Type" not in cards
+    assert "Website:" not in cards
+    assert "https://example.com" not in cards
     assert "出典を開く" in cards
     assert "external://" not in cards
+
+
+def test_external_research_fetch_result_rows_clean_provider_raw_summary():
+    result = ExternalResearchFetchResult(
+        symbol="ACME",
+        provider="yahoo_finance",
+        fetched_at=datetime(2026, 6, 1, 12, 30, tzinfo=UTC),
+        entries=[
+            ExternalResearchFetchManifestEntry(
+                title="ACME Yahoo Finance Profile",
+                symbol="ACME",
+                source_type="provider_profile",
+                source_url="https://finance.yahoo.com/quote/ACME/profile",
+                provider="yahoo_finance",
+                published_at=date(2026, 6, 1),
+                fetched_at=datetime(2026, 6, 1, 12, 30, tzinfo=UTC),
+                freshness_status="latest",
+                document_id="research-doc-profile",
+                retention_policy="session",
+                content_summary=(
+                    "Company Name: Acme Corporation Provider Symbol: ACME Quote Type: EQUITY "
+                    "Exchange: NMS Currency: USD Website: https://example.com "
+                    "Business Summary: Acme provides cloud platform services."
+                ),
+            )
+        ],
+        retention_policy="session",
+    )
+
+    rows = _external_research_fetch_result_rows(result)
+
+    assert rows[0]["要約"] == "Acme provides cloud platform services."
+    assert "Provider Symbol" not in rows[0]["要約"]
+    assert "Quote Type" not in rows[0]["要約"]
+    assert "Website:" not in rows[0]["要約"]
+    assert "https://example.com" not in rows[0]["要約"]
 
 
 def test_fetch_external_research_for_preview_uses_external_source_and_stores(monkeypatch):

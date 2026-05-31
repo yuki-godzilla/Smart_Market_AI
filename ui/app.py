@@ -4914,7 +4914,7 @@ def _external_research_source_cards_html(result: ExternalResearchFetchResult) ->
         freshness = _research_freshness_status_label(entry.freshness_status)
         published_at = entry.published_at.isoformat() if entry.published_at else "未確認"
         note = _external_research_entry_check_note(entry)
-        summary = entry.content_summary or "要約はありません。リンク先で本文を確認してください。"
+        summary = _external_research_entry_summary_display_text(entry)
         items.append(
             '<article class="research-evidence-item">'
             '<div class="research-evidence-card-header">'
@@ -4950,10 +4950,76 @@ def _external_research_fetch_result_rows(
             "鮮度": _research_freshness_status_label(entry.freshness_status),
             "取得日時": _datetime_display_text(entry.fetched_at),
             "URL": entry.source_url,
-            "要約": entry.content_summary,
+            "要約": _external_research_entry_summary_display_text(entry),
         }
         for entry in result.entries
     ]
+
+
+def _external_research_entry_summary_display_text(
+    entry: ExternalResearchFetchManifestEntry,
+) -> str:
+    summary = entry.content_summary or "要約はありません。リンク先で本文を確認してください。"
+    if entry.source_type != "provider_profile":
+        return (
+            _research_brief_ui_text(summary, max_chars=360) or "リンク先で本文を確認してください。"
+        )
+
+    cleaned = _external_research_provider_profile_display_text(summary)
+    return (
+        _research_brief_ui_text(cleaned, max_chars=520)
+        or "外部データの企業プロフィールを取得しました。重要事項は公式IRで確認してください。"
+    )
+
+
+def _external_research_provider_profile_display_text(text: str) -> str:
+    cleaned = re.sub(r"\s+", " ", text).strip()
+    raw_labels = (
+        "Company Name",
+        "Provider Symbol",
+        "Quote Type",
+        "Exchange",
+        "Currency",
+        "Sector",
+        "Industry",
+        "Country",
+        "Website",
+        "Market Cap",
+        "Enterprise Value",
+        "Total Revenue",
+        "Revenue",
+        "Operating Income",
+        "Net Income To Common",
+        "Net Income",
+        "Trailing EPS",
+        "Forward EPS",
+        "PER",
+        "PBR",
+        "ROE",
+        "Trailing PE",
+        "Forward PE",
+        "Price To Book",
+        "Return On Equity",
+        "Dividend Rate",
+        "Dividend Yield",
+        "Yield",
+        "Trailing Annual Dividend Yield",
+        "Full Time Employees",
+        "Payout Ratio",
+        "Beta",
+        "Data Quality Notes",
+    )
+    stop_labels = "|".join(re.escape(label) for label in (*raw_labels, "Business Summary"))
+    for label in raw_labels:
+        cleaned = re.sub(
+            rf"\b{re.escape(label)}\s*[:：]\s*.*?(?=\s+(?:{stop_labels})\s*[:：]|$)",
+            "",
+            cleaned,
+            flags=re.IGNORECASE,
+        )
+    cleaned = re.sub(r"\bBusiness Summary\s*[:：]\s*", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\bhttps?://\S+", "", cleaned, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", cleaned).strip()
 
 
 def _external_research_provider_label(provider: str) -> str:
@@ -5999,7 +6065,9 @@ def _company_research_profile_label(value: str) -> str:
         "Healthcare": "ヘルスケア",
         "Industrials": "資本財・サービス",
         "Communication Services": "通信サービス",
+        "Utilities": "公益・インフラ",
         "Auto Manufacturers": "自動車メーカー",
+        "Utilities - Regulated Gas": "ガス・公益インフラ",
         "Semiconductor Equipment & Materials": "半導体製造装置・材料",
         "Scientific & Technical Instruments": "科学・計測機器",
         "Consumer Electronics": "民生用電機",
@@ -8617,7 +8685,7 @@ def _external_research_trace_report_section(
                 "published_at": entry.published_at.isoformat() if entry.published_at else "",
                 "fetched_at": _datetime_display_text(entry.fetched_at),
                 "freshness_status": entry.freshness_status,
-                "content_summary": entry.content_summary,
+                "content_summary": _external_research_entry_summary_display_text(entry),
             }
             for entry in result.entries[:20]
         ],

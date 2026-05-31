@@ -6665,6 +6665,40 @@ def _company_research_business_terms(text: str) -> list[str]:
             ),
         ),
         (
+            "ガス・エネルギーインフラ",
+            (
+                "sector: utilities",
+                "industry: utilities",
+                "utilities - regulated gas",
+                "gas utilities",
+                "natural gas distribution",
+                "city gas",
+                "town gas",
+                "gas distribution",
+                "gas supply",
+                "gas pipeline",
+                "都市ガス",
+                "ガス供給",
+                "エネルギー供給",
+                "公益",
+                "インフラ",
+            ),
+        ),
+        (
+            "電力・エネルギー供給",
+            (
+                "electric power",
+                "electricity",
+                "power generation",
+                "power supply",
+                "domestic energy",
+                "international energy",
+                "電力",
+                "発電",
+                "エネルギー供給",
+            ),
+        ),
+        (
             "通信サービス",
             (
                 "telecom services",
@@ -6759,10 +6793,12 @@ def _company_research_filter_main_businesses(
     )
     healthcare_context = _company_research_is_healthcare_context(lowered)
     energy_context = _company_research_is_energy_context(lowered)
+    utility_energy_context = _company_research_is_utility_energy_context(lowered)
     telecom_context = _company_research_is_telecom_context(lowered)
     auto_related_main = {"自動車事業", "モビリティ事業", "自動車・モビリティ"}
     software_related_main = {"ソフトウェア・クラウド", "ソフトウェア・サービス"}
     finance_related_main = {"金融サービス", "銀行・金融サービス"}
+    utility_related_main = {"ガス・エネルギーインフラ", "電力・エネルギー供給"}
     filtered = [
         item
         for item in businesses
@@ -6771,30 +6807,61 @@ def _company_research_filter_main_businesses(
         and not (item == "銀行・金融サービス" and not finance_main_context)
         and not (payment_context and not bank_context and item == "銀行・金融サービス")
         and not (not auto_manufacturer_context and item in auto_related_main)
-        and not (auto_manufacturer_context and item == "小売・EC")
+        and not (auto_manufacturer_context and item in {"小売・EC", "アパレル小売"})
         and not (auto_manufacturer_context and item == "決済ネットワーク")
         and not (item == "小売・EC" and software_cloud_context and not retail_main_context)
+        and not (item == "アパレル小売" and not retail_main_context)
         and not (retail_main_context and item in software_related_main and not cloud_infra_context)
         and not (retail_main_context and item == "通信サービス")
         and not (finance_main_context and item == "小売・EC")
+        and not (bank_context and item == "決済ネットワーク")
         and not (payment_context and not bank_context and item == "銀行・金融サービス")
         and not (payment_context and item == "広告・マーケティング")
         and not (hr_context and item == "通信サービス")
         and not (
-            trading_context and item in software_related_main | {"小売・EC", "決済ネットワーク"}
+            trading_context
+            and item
+            in (
+                software_related_main
+                | utility_related_main
+                | {"小売・EC", "アパレル小売", "決済ネットワーク", "エネルギー"}
+            )
         )
         and not (not healthcare_context and item == "医薬品・ヘルスケア")
         and not (not energy_context and item == "エネルギー")
         and not (not telecom_context and item == "通信サービス")
         and not (finance_main_context and item in software_related_main)
         and not (healthcare_context and item in finance_related_main | software_related_main)
+        and not (healthcare_context and item in {"小売・EC", "アパレル小売"})
         and not (
             energy_context
             and item in finance_related_main | software_related_main | {"AI・データセンター"}
         )
-        and not (telecom_context and item in finance_related_main)
+        and not (
+            utility_energy_context
+            and item
+            in (
+                finance_related_main
+                | software_related_main
+                | {
+                    "自動車事業",
+                    "モビリティ事業",
+                    "小売・EC",
+                    "通信サービス",
+                    "AI・データセンター",
+                }
+            )
+        )
+        and not (telecom_context and item in finance_related_main | software_related_main)
         and item not in {"部品・アフターサービス", "リース", "ソフトウェア"}
     ]
+    if utility_energy_context and any(item in filtered for item in utility_related_main):
+        priority = ["ガス・エネルギーインフラ", "電力・エネルギー供給", "エネルギー"]
+        filtered = [item for item in priority if item in filtered] + [
+            item for item in filtered if item not in priority
+        ]
+        if "ガス・エネルギーインフラ" in filtered:
+            filtered = [item for item in filtered if item != "エネルギー"]
     if "銀行・金融サービス" in filtered:
         filtered = [item for item in filtered if item != "金融サービス"]
     elif bank_context and finance_main_context:
@@ -6967,7 +7034,7 @@ def _company_research_is_healthcare_context(lowered_text: str) -> bool:
 
 
 def _company_research_is_energy_context(lowered_text: str) -> bool:
-    return any(
+    return _company_research_is_utility_energy_context(lowered_text) or any(
         keyword in lowered_text
         for keyword in (
             "sector: energy",
@@ -6976,6 +7043,36 @@ def _company_research_is_energy_context(lowered_text: str) -> bool:
             "refining",
             "exploration",
             "production",
+        )
+    )
+
+
+def _company_research_is_utility_energy_context(lowered_text: str) -> bool:
+    return any(
+        keyword in lowered_text
+        for keyword in (
+            "sector: utilities",
+            "industry: utilities",
+            "utilities - regulated gas",
+            "gas utilities",
+            "natural gas distribution",
+            "city gas",
+            "town gas",
+            "gas distribution",
+            "gas supply",
+            "gas pipeline",
+            "electric power",
+            "electricity",
+            "power generation",
+            "domestic energy",
+            "international energy",
+            "都市ガス",
+            "ガス供給",
+            "電力",
+            "発電",
+            "エネルギー供給",
+            "公益",
+            "インフラ",
         )
     )
 
@@ -7011,6 +7108,23 @@ def _company_research_supporting_business_terms(
         ("ソフトウェア", ("software", "ソフトウェア")),
         ("保険", ("insurance", "保険")),
         ("資産運用", ("asset management", "資産運用")),
+        (
+            "海外エネルギー",
+            ("international energy", "overseas energy", "海外エネルギー"),
+        ),
+        (
+            "ライフサービス",
+            ("life & business solutions", "life services", "lifestyle", "生活", "ライフサービス"),
+        ),
+        ("不動産", ("real estate", "property", "不動産")),
+        (
+            "情報ソリューション",
+            ("information solutions", "information service", "it services", "情報ソリューション"),
+        ),
+        (
+            "材料・化学",
+            ("fine materials", "carbon material", "materials", "chemicals", "材料", "化学"),
+        ),
     )
     main_set = set(main_businesses)
     return [
@@ -7059,6 +7173,20 @@ def _company_research_filter_supporting_businesses(
             item
             for item in filtered
             if item not in {"金融サービス", "保険", "資産運用", "ソフトウェア"}
+        ]
+    if _company_research_is_utility_energy_context(lowered):
+        filtered = [
+            item
+            for item in filtered
+            if item
+            not in {
+                "金融サービス",
+                "リース",
+                "部品・アフターサービス",
+                "ソフトウェア",
+                "保険",
+                "資産運用",
+            }
         ]
     if _company_research_is_telecom_context(lowered):
         filtered = [item for item in filtered if item not in {"金融サービス", "保険", "資産運用"}]
@@ -7135,6 +7263,32 @@ def _company_research_products_services(text: str) -> list[str]:
         ("医療機器", ("medical device", "medical devices", "医療機器")),
         ("診断・検査", ("diagnostics", "diagnostic", "診断", "検査")),
         ("石油・ガス", ("oil & gas", "oil and gas", "natural gas", "石油", "ガス")),
+        ("都市ガス", ("city gas", "town gas", "都市ガス", "gas supply", "gas distribution")),
+        (
+            "電力",
+            ("electric power", "electricity", "power generation", "power supply", "電力", "発電"),
+        ),
+        ("LNG", ("lng", "liquefied natural gas")),
+        ("LPG", ("lpg", "liquefied petroleum gas")),
+        (
+            "エネルギーサービス",
+            ("energy services", "energy service", "energy solution", "エネルギーサービス"),
+        ),
+        ("ガス機器", ("gas appliances", "gas equipment", "ガス機器")),
+        ("エネルギーインフラ", ("gas pipeline", "infrastructure", "インフラ", "パイプライン")),
+        (
+            "生活関連サービス",
+            ("life services", "life & business solutions", "生活", "ライフサービス"),
+        ),
+        (
+            "情報ソリューション",
+            ("information solutions", "information service", "it services", "情報ソリューション"),
+        ),
+        ("不動産サービス", ("real estate", "property", "不動産")),
+        (
+            "材料・化学製品",
+            ("fine materials", "carbon material", "materials", "chemicals", "材料", "化学"),
+        ),
         ("精製・販売", ("refining", "refinery", "販売")),
         ("エネルギー開発", ("exploration", "production", "renewable", "エネルギー")),
         ("通信サービス", ("telecom", "telecommunications", "wireless", "通信")),
@@ -7200,6 +7354,24 @@ def _company_research_products_services(text: str) -> list[str]:
         ]
     if _company_research_is_trading_company_context(lowered):
         products = [item for item in products if item not in {"決済", "決済ネットワーク"}]
+    if (
+        not _company_research_is_auto_manufacturer_context(lowered)
+        and "sector: financial" not in lowered
+        and "banking" not in lowered
+    ):
+        products = [item for item in products if item != "リース"]
+    if any(
+        keyword in lowered
+        for keyword in (
+            "scientific & technical instruments",
+            "measurement",
+            "measuring",
+            "sensor",
+            "測定器",
+            "計測",
+        )
+    ) and not _company_research_is_telecom_context(lowered):
+        products = [item for item in products if item not in {"通信サービス", "ブロードバンド"}]
     if _company_research_is_healthcare_context(lowered):
         products = [
             item
@@ -7217,6 +7389,27 @@ def _company_research_products_services(text: str) -> list[str]:
                 "エネルギー開発",
                 "通信サービス",
                 "ブロードバンド",
+                "店舗販売",
+                "オンライン販売",
+                "ブランド運営",
+                "不動産サービス",
+            }
+        ]
+    if _company_research_is_software_cloud_context(lowered) and not (
+        _company_research_is_retail_main_context(lowered)
+        or _company_research_is_auto_manufacturer_context(lowered)
+    ):
+        products = [
+            item
+            for item in products
+            if item
+            not in {
+                "店舗販売",
+                "オンライン販売",
+                "ブランド運営",
+                "衣料品",
+                "エネルギーインフラ",
+                "不動産サービス",
             }
         ]
     if _company_research_is_energy_context(lowered):
@@ -7235,11 +7428,68 @@ def _company_research_products_services(text: str) -> list[str]:
                 "データセンター向け製品",
             }
         ]
+    if _company_research_is_trading_company_context(lowered):
+        products = [
+            item
+            for item in products
+            if item
+            not in {
+                "都市ガス",
+                "電力",
+                "LNG",
+                "LPG",
+                "エネルギーサービス",
+                "ガス機器",
+                "エネルギーインフラ",
+                "決済",
+                "決済ネットワーク",
+            }
+        ]
+    if _company_research_is_utility_energy_context(lowered):
+        products = [
+            item
+            for item in products
+            if item
+            not in {
+                "金融サービス",
+                "金融商品",
+                "決済",
+                "リース",
+                "保険",
+                "資産運用",
+                "保守・整備",
+                "ソフトウェアサービス",
+                "AIインフラ",
+                "データセンター向け製品",
+                "通信サービス",
+                "ブロードバンド",
+                "精製・販売",
+            }
+        ]
     if _company_research_is_telecom_context(lowered):
         products = [
             item
             for item in products
             if item not in {"金融サービス", "金融商品", "決済", "保険", "資産運用"}
+        ]
+    if _company_research_is_utility_energy_context(lowered):
+        priority = [
+            "都市ガス",
+            "電力",
+            "LNG",
+            "LPG",
+            "エネルギーサービス",
+            "ガス機器",
+            "エネルギーインフラ",
+            "生活関連サービス",
+            "情報ソリューション",
+            "不動産サービス",
+            "材料・化学製品",
+            "石油・ガス",
+            "エネルギー開発",
+        ]
+        products = [item for item in priority if item in products] + [
+            item for item in products if item not in priority
         ]
     return products
 
@@ -7275,6 +7525,22 @@ def _company_research_inferred_products_services(
         (
             ("energy", "oil & gas", "oil and gas", "refining", "exploration", "エネルギー"),
             ("石油・ガス", "エネルギー開発", "精製・販売"),
+        ),
+        (
+            (
+                "utilities",
+                "regulated gas",
+                "city gas",
+                "town gas",
+                "natural gas distribution",
+                "domestic energy",
+                "international energy",
+                "gas supply",
+                "gas distribution",
+                "ガス・エネルギーインフラ",
+                "電力・エネルギー供給",
+            ),
+            ("都市ガス", "電力", "LNG", "エネルギーサービス", "ガス機器"),
         ),
         (
             ("telecom", "telecommunications", "wireless", "broadband", "通信サービス"),
@@ -7405,8 +7671,13 @@ def _company_research_ir_item_for_spec(
         card
         for card in cards
         if card.source_type in source_types
-        or _company_research_keyword_match(card.title, keywords)
-        or _company_research_keyword_match(card.note, keywords)
+        or (
+            _company_research_is_ir_evidence_source(card.source_type)
+            and (
+                _company_research_keyword_match(card.title, keywords)
+                or _company_research_keyword_match(card.note, keywords)
+            )
+        )
     ]
     matched_card = next(
         (card for card in matched_cards if card.source_url),
@@ -7417,7 +7688,10 @@ def _company_research_ir_item_for_spec(
             row
             for row in report.evidence
             if row.source_type in source_types
-            or _company_research_keyword_match(_research_brief_evidence_text(row), keywords)
+            or (
+                _company_research_is_ir_evidence_source(row.source_type)
+                and _company_research_keyword_match(_research_brief_evidence_text(row), keywords)
+            )
         ),
         None,
     )
@@ -7496,6 +7770,10 @@ def _company_research_ir_item_for_spec(
         key_points=[],
         evidence_level="missing",
     )
+
+
+def _company_research_is_ir_evidence_source(source_type: ResearchSourceType | str) -> bool:
+    return source_type in _RESEARCH_BRIEF_HIGH_CONFIDENCE_SOURCES
 
 
 def _company_research_ir_key_points(

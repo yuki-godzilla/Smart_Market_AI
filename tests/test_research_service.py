@@ -1450,6 +1450,7 @@ def test_company_research_summary_builder_prioritizes_financial_sector_over_soft
 
     assert profile is not None
     assert "銀行・金融サービス" in profile.main_businesses
+    assert "決済ネットワーク" not in profile.main_businesses
     assert "ソフトウェア・クラウド" not in profile.main_businesses
     assert "銀行サービス" in profile.products_services
     assert "融資・クレジット" in profile.products_services
@@ -1701,7 +1702,8 @@ def test_company_research_summary_builder_avoids_payment_noise_for_trading_compa
             "Sector: Industrials\n"
             "Industry: Conglomerates\n"
             "Business Summary: Mitsubishi is a general trading company with energy, "
-            "metals, food, logistics, infrastructure, and transaction-related services."
+            "LNG, electric power, metals, food, logistics, infrastructure, "
+            "and transaction-related services."
         ),
         relevance_score=Decimal("0.72"),
         reliability=Decimal("0.68"),
@@ -1726,8 +1728,12 @@ def test_company_research_summary_builder_avoids_payment_noise_for_trading_compa
 
     assert profile is not None
     assert "総合商社・事業投資" in profile.main_businesses
+    assert "ガス・エネルギーインフラ" not in profile.main_businesses
+    assert "電力・エネルギー供給" not in profile.main_businesses
     assert "決済ネットワーク" not in profile.main_businesses
     assert "決済ネットワーク" not in profile.products_services
+    assert "都市ガス" not in profile.products_services
+    assert "電力" not in profile.products_services
 
 
 def test_company_research_summary_builder_prioritizes_healthcare_and_energy_sectors():
@@ -1807,14 +1813,81 @@ def test_company_research_summary_builder_prioritizes_healthcare_and_energy_sect
 
     assert healthcare_profile is not None
     assert "医薬品・ヘルスケア" in healthcare_profile.main_businesses
+    assert "アパレル小売" not in healthcare_profile.main_businesses
     assert "金融サービス" not in healthcare_profile.supporting_businesses
     assert "金融商品" not in healthcare_profile.products_services
+    assert "ブランド運営" not in healthcare_profile.products_services
     assert "医薬品" in healthcare_profile.products_services
     assert energy_profile is not None
     assert "エネルギー" in energy_profile.main_businesses
     assert "AI・データセンター" not in energy_profile.main_businesses
     assert "データセンター向け製品" not in energy_profile.products_services
     assert "石油・ガス" in energy_profile.products_services
+
+
+def test_company_research_summary_builder_prioritizes_gas_utility_context():
+    provider_evidence = ResearchEvidence(
+        symbol="9532.T",
+        document_id="doc-osaka-gas",
+        chunk_id="chunk-osaka-gas",
+        title="Osaka Gas Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 6, 1),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Osaka Gas Co., Ltd\n"
+            "Sector: Utilities\n"
+            "Industry: Utilities - Regulated Gas\n"
+            "Business Summary: Osaka Gas produces, supplies, and sells city gas, "
+            "electricity, LNG, LPG, energy services, and gas appliances. "
+            "It operates Domestic Energy, International Energy, and Life & Business "
+            "Solutions segments, including real estate, software and information "
+            "solutions, fine materials, carbon material products, and maintenance services."
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    report = CompanyResearchReport(
+        symbol="9532.T",
+        as_of=date(2026, 6, 1),
+        summary="Research summary.",
+        points=[],
+        evidence=[provider_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 6, 1),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    summary = CompanyResearchSummaryBuilder().build(report)
+    profile = summary.overview.business_profile
+
+    assert profile is not None
+    assert "ガス・エネルギーインフラ" in profile.main_businesses
+    assert "電力・エネルギー供給" in profile.main_businesses
+    assert "ソフトウェア・クラウド" not in profile.main_businesses
+    assert "小売・EC" not in profile.main_businesses
+    assert "金融サービス" not in profile.main_businesses
+    assert "海外エネルギー" in profile.supporting_businesses
+    assert "ライフサービス" in profile.supporting_businesses
+    assert "不動産" in profile.supporting_businesses
+    assert "情報ソリューション" in profile.supporting_businesses
+    assert "材料・化学" in profile.supporting_businesses
+    assert "ソフトウェア" not in profile.supporting_businesses
+    assert "部品・アフターサービス" not in profile.supporting_businesses
+    assert "都市ガス" in profile.products_services
+    assert "電力" in profile.products_services
+    assert "LNG" in profile.products_services
+    assert "LPG" in profile.products_services
+    assert "エネルギーサービス" in profile.products_services
+    assert "ガス機器" in profile.products_services
+    assert "生活関連サービス" in profile.products_services
+    assert "ソフトウェアサービス" not in profile.products_services
+    assert "保守・整備" not in profile.products_services
+    assert "ソフトウェア・クラウド" not in summary.overview.business_overview
 
 
 def test_company_research_summary_builder_adds_safe_product_candidates_when_missing():
@@ -2060,6 +2133,47 @@ def test_company_research_summary_builder_distinguishes_ir_statuses_and_types():
         and item.official_confirmation_required is False
         for item in summary.news_items
     )
+
+
+def test_company_research_summary_builder_does_not_treat_provider_profile_as_ir_document():
+    provider_evidence = ResearchEvidence(
+        symbol="9532.T",
+        document_id="doc-provider-only",
+        chunk_id="chunk-provider-only",
+        title="Osaka Gas Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 6, 1),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Osaka Gas Co., Ltd Provider Symbol: 9532.T Quote Type: EQUITY "
+            "Sector: Utilities Industry: Utilities - Regulated Gas "
+            "Trailing Annual Dividend Yield: 2.4% "
+            "Data Quality Notes: Confirm important facts against official IR, annual report, "
+            "or regulatory filings."
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    report = CompanyResearchReport(
+        symbol="9532.T",
+        as_of=date(2026, 6, 1),
+        summary="Provider only.",
+        points=[],
+        evidence=[provider_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 6, 1),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    summary = CompanyResearchSummaryBuilder().build(report)
+    ir_by_type = {item.ir_document_type: item for item in summary.ir_items}
+
+    assert ir_by_type["annual_report"].availability == "missing"
+    assert ir_by_type["shareholder_return"].availability == "missing"
 
 
 def test_company_research_summary_builder_shapes_news_topic_confirmation_text():

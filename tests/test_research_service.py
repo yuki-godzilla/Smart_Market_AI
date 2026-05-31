@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from backend.research import (
+    CompanyBusinessProfile,
     CompanyResearchReport,
     CompanyResearchRequest,
     CompanyResearchSummaryBuilder,
@@ -1701,8 +1702,10 @@ def test_company_research_summary_builder_avoids_payment_noise_for_trading_compa
             "Company Name: Mitsubishi Corporation\n"
             "Sector: Industrials\n"
             "Industry: Conglomerates\n"
-            "Business Summary: Mitsubishi is a general trading company with energy, "
-            "LNG, electric power, metals, food, logistics, infrastructure, "
+            "Business Summary: Mitsubishi operates natural gas, industrial materials, "
+            "petroleum and chemicals solution, mineral resources, industrial infrastructure, "
+            "automotive and mobility, food industry, consumer industry, power solution, "
+            "urban development, logistics, infrastructure, "
             "and transaction-related services."
         ),
         relevance_score=Decimal("0.72"),
@@ -1734,6 +1737,158 @@ def test_company_research_summary_builder_avoids_payment_noise_for_trading_compa
     assert "決済ネットワーク" not in profile.products_services
     assert "都市ガス" not in profile.products_services
     assert "電力" not in profile.products_services
+
+
+def test_company_research_summary_builder_keeps_consumer_electronics_finance_related():
+    provider_evidence = ResearchEvidence(
+        symbol="6758.T",
+        document_id="doc-sony",
+        chunk_id="chunk-sony",
+        title="Sony Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 6, 1),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Sony Group Corporation\n"
+            "Sector: Technology\n"
+            "Industry: Consumer Electronics\n"
+            "Business Summary: Sony operates electronics, game, music, pictures, "
+            "imaging products, financial services, banking, leasing, and insurance businesses."
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    report = CompanyResearchReport(
+        symbol="6758.T",
+        as_of=date(2026, 6, 1),
+        summary="Research summary.",
+        points=[],
+        evidence=[provider_evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 6, 1),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+
+    summary = CompanyResearchSummaryBuilder().build(report)
+    profile = summary.overview.business_profile
+
+    assert profile is not None
+    assert "エレクトロニクス" in profile.main_businesses
+    assert "ゲーム・エンタメ" in profile.main_businesses
+    assert "銀行・金融サービス" not in profile.main_businesses
+    assert "金融サービス" not in profile.main_businesses
+    assert "銀行サービス" not in profile.products_services
+    assert "リース" not in profile.products_services
+    assert "保険" not in profile.products_services
+
+
+def test_company_research_summary_builder_handles_industrial_conglomerate_railroad_and_heavy_machinery():
+    hitachi_evidence = ResearchEvidence(
+        symbol="6501.T",
+        document_id="doc-hitachi",
+        chunk_id="chunk-hitachi",
+        title="Hitachi Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 6, 1),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Hitachi, Ltd.\n"
+            "Sector: Industrials\n"
+            "Industry: Conglomerates\n"
+            "Business Summary: Hitachi operates Digital Systems and Services, "
+            "Green Energy and Mobility, and Connective Industries, including "
+            "power grids, industrial systems, IT services, and healthcare systems."
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    railroad_evidence = ResearchEvidence(
+        symbol="9020.T",
+        document_id="doc-railroad",
+        chunk_id="chunk-railroad",
+        title="JR East Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 6, 1),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: East Japan Railway Company\n"
+            "Sector: Industrials\n"
+            "Industry: Railroads\n"
+            "Business Summary: JR East operates passenger railway, rail stations, "
+            "transportation infrastructure, real estate, retail stores, and station services."
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+    machinery_evidence = ResearchEvidence(
+        symbol="CAT",
+        document_id="doc-cat",
+        chunk_id="chunk-cat",
+        title="Caterpillar Yahoo Finance Profile",
+        source_type="provider_profile",
+        published_at=date(2026, 6, 1),
+        section_title="Profile",
+        excerpt=(
+            "Company Name: Caterpillar Inc.\n"
+            "Sector: Industrials\n"
+            "Industry: Farm & Heavy Construction Machinery\n"
+            "Business Summary: Caterpillar manufactures construction machinery, "
+            "heavy equipment, engines, turbines, parts, and maintenance services "
+            "for mining, energy, and construction customers."
+        ),
+        relevance_score=Decimal("0.72"),
+        reliability=Decimal("0.68"),
+    )
+
+    def build_profile(symbol: str, evidence: ResearchEvidence) -> CompanyBusinessProfile:
+        summary = CompanyResearchSummaryBuilder().build(
+            CompanyResearchReport(
+                symbol=symbol,
+                as_of=date(2026, 6, 1),
+                summary="Research summary.",
+                points=[],
+                evidence=[evidence],
+                data_quality=ResearchDataQuality(
+                    status="OK",
+                    latest_document_date=date(2026, 6, 1),
+                    document_count=1,
+                    evidence_count=1,
+                    warnings=[],
+                ),
+            )
+        )
+        profile = summary.overview.business_profile
+        assert profile is not None
+        return profile
+
+    hitachi_profile = build_profile("6501.T", hitachi_evidence)
+    railroad_profile = build_profile("9020.T", railroad_evidence)
+    machinery_profile = build_profile("CAT", machinery_evidence)
+
+    assert hitachi_profile.main_businesses == ["産業インフラ・デジタル"]
+    assert "医薬品・ヘルスケア" not in hitachi_profile.main_businesses
+    assert "自動車・モビリティ" not in hitachi_profile.main_businesses
+    assert "材料・化学" not in hitachi_profile.supporting_businesses
+    assert "デジタルシステム" in hitachi_profile.products_services
+    assert "産業インフラ" in hitachi_profile.products_services
+
+    assert railroad_profile.main_businesses == ["鉄道・交通インフラ"]
+    assert "広告・マーケティング" not in railroad_profile.main_businesses
+    assert "小売・EC" not in railroad_profile.main_businesses
+    assert "医薬品" not in railroad_profile.products_services
+    assert "鉄道サービス" in railroad_profile.products_services
+    assert "交通インフラ" in railroad_profile.products_services
+
+    assert machinery_profile.main_businesses == ["産業機械・建設機械"]
+    assert "エレクトロニクス" not in machinery_profile.main_businesses
+    assert "ソフトウェア・クラウド" not in machinery_profile.main_businesses
+    assert "建設機械" in machinery_profile.products_services
+    assert "産業機械" in machinery_profile.products_services
+    assert "エンジン" in machinery_profile.products_services
 
 
 def test_company_research_summary_builder_prioritizes_healthcare_and_energy_sectors():

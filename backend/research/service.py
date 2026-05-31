@@ -1042,7 +1042,8 @@ class ResearchInMemoryStore:
             normalized = _normalize_symbol(symbol)
             documents = [doc for doc in documents if _normalize_symbol(doc.symbol) == normalized]
         return sorted(
-            documents, key=lambda doc: (doc.symbol, doc.published_at or date.min, doc.title)
+            documents,
+            key=lambda doc: (doc.symbol, doc.published_at or date.min, doc.title),
         )
 
     def replace_chunks(self, document_id: str, chunks: list[ResearchChunk]) -> None:
@@ -1054,7 +1055,8 @@ class ResearchInMemoryStore:
             normalized = _normalize_symbol(symbol)
             chunks = [chunk for chunk in chunks if _normalize_symbol(chunk.symbol) == normalized]
         return sorted(
-            chunks, key=lambda chunk: (chunk.symbol, chunk.document_id, chunk.chunk_index)
+            chunks,
+            key=lambda chunk: (chunk.symbol, chunk.document_id, chunk.chunk_index),
         )
 
 
@@ -1783,10 +1785,26 @@ class ResearchAnalysisService:
     def analyze_company(self, request: CompanyResearchRequest) -> CompanyResearchReport:
         as_of = request.as_of or date.today()
         topics = [
-            ("growth", "成長材料", "growth strategy revenue sales market expansion new business"),
-            ("shareholder_return", "株主還元", "dividend payout buyback shareholder return"),
-            ("financial_safety", "財務安全性", "cash debt equity capital liquidity balance sheet"),
-            ("business_risk", "事業リスク", "risk competition regulation lawsuit supply demand"),
+            (
+                "growth",
+                "成長材料",
+                "growth strategy revenue sales market expansion new business",
+            ),
+            (
+                "shareholder_return",
+                "株主還元",
+                "dividend payout buyback shareholder return",
+            ),
+            (
+                "financial_safety",
+                "財務安全性",
+                "cash debt equity capital liquidity balance sheet",
+            ),
+            (
+                "business_risk",
+                "事業リスク",
+                "risk competition regulation lawsuit supply demand",
+            ),
         ]
         points: list[ResearchSummaryPoint] = []
         extracted_claims: list[ResearchExtractedClaim] = []
@@ -2601,7 +2619,10 @@ class ExternalResearchFetchService:
             if self.cache_dir is None:
                 raise ResearchDocumentError(
                     "External research archive requires a cache directory.",
-                    details={"provider": self.adapter.provider, "symbol": request.symbol},
+                    details={
+                        "provider": self.adapter.provider,
+                        "symbol": request.symbol,
+                    },
                 )
             self.cache_dir.mkdir(parents=True, exist_ok=True)
         for payload in payloads:
@@ -2663,7 +2684,7 @@ class ExternalResearchFetchService:
                     retention_policy="archive" if self.persist_payloads else "session",
                     content_summary=_external_research_content_summary(payload),
                     local_path=str(path) if path is not None else None,
-                    document_hash=document.document_hash if self.persist_payloads else None,
+                    document_hash=(document.document_hash if self.persist_payloads else None),
                 )
             )
 
@@ -2989,7 +3010,7 @@ def _external_payload_content_digest(payload: ExternalResearchSourcePayload) -> 
         "source_url": payload.source_url.strip(),
         "provider": payload.provider.strip(),
         "company_name": (payload.company_name or "").strip(),
-        "published_at": payload.published_at.isoformat() if payload.published_at else "",
+        "published_at": (payload.published_at.isoformat() if payload.published_at else ""),
         "reliability": str(payload.reliability),
     }
     serialized = json.dumps(stable_payload, ensure_ascii=False, sort_keys=True)
@@ -3923,7 +3944,11 @@ _RESEARCH_BRIEF_METRIC_SPECS: tuple[
         "売上高",
         (r"売上(?:高|収益)?", r"total revenue", r"totalRevenue", r"revenue", r"sales"),
     ),
-    ("operating_income", "営業利益", (r"営業利益", r"operating income", r"operatingIncome")),
+    (
+        "operating_income",
+        "営業利益",
+        (r"営業利益", r"operating income", r"operatingIncome"),
+    ),
     (
         "net_income",
         "純利益",
@@ -3965,7 +3990,11 @@ _RESEARCH_BRIEF_METRIC_SPECS: tuple[
     ),
     ("pbr", "PBR", (r"PBR", r"price[- ]to[- ]book", r"priceToBook")),
     ("roe", "ROE", (r"ROE", r"return on equity", r"returnOnEquity")),
-    ("market_cap", "時価総額", (r"時価総額", r"market cap(?:italization)?", r"marketCap")),
+    (
+        "market_cap",
+        "時価総額",
+        (r"時価総額", r"market cap(?:italization)?", r"marketCap"),
+    ),
 )
 _RESEARCH_BRIEF_RAW_PROVIDER_LABELS = (
     "Company Name",
@@ -4030,7 +4059,9 @@ _RESEARCH_BRIEF_MEDIUM_CONFIDENCE_SOURCES: set[ResearchSourceType] = {
 }
 
 
-def _research_brief_metrics(evidence: Sequence[ResearchEvidence]) -> list[ResearchMetric]:
+def _research_brief_metrics(
+    evidence: Sequence[ResearchEvidence],
+) -> list[ResearchMetric]:
     metrics_by_key: dict[ResearchMetricKey, ResearchMetric] = {}
     for row in evidence:
         text = _research_brief_evidence_text(row)
@@ -4072,7 +4103,9 @@ def _research_brief_metric_value(text: str, patterns: Sequence[str]) -> str | No
     return None
 
 
-def _research_brief_missing_metric_labels(metrics: Sequence[ResearchMetric]) -> list[str]:
+def _research_brief_missing_metric_labels(
+    metrics: Sequence[ResearchMetric],
+) -> list[str]:
     found = {metric.key for metric in metrics}
     return [label for key, label, _ in _RESEARCH_BRIEF_METRIC_SPECS if key not in found]
 
@@ -4552,7 +4585,10 @@ def _research_brief_business_domain_sentence(text: str) -> str:
 
 def _research_fact_segment_labels(text: str) -> list[str]:
     segment_specs = (
-        ("自動車・モビリティ", ("自動車", "モビリティ", "車両", "automotive", "vehicle")),
+        (
+            "自動車・モビリティ",
+            ("自動車", "モビリティ", "車両", "automotive", "vehicle"),
+        ),
         ("ソフトウェア・サービス", ("ソフトウェア", "サービス", "software", "service")),
         ("半導体・電子部品", ("半導体", "電子部品", "semiconductor", "chip")),
         ("金融サービス", ("金融", "bank", "insurance", "financial services")),
@@ -4572,7 +4608,15 @@ def _research_fact_region_labels(text: str) -> list[str]:
         ("日本", ("日本", "国内", "japan", "jp")),
         (
             "北米",
-            ("北米", "米国", "アメリカ", "north america", "united states", "u.s.", "us"),
+            (
+                "北米",
+                "米国",
+                "アメリカ",
+                "north america",
+                "united states",
+                "u.s.",
+                "us",
+            ),
         ),
         ("欧州", ("欧州", "ヨーロッパ", "europe", "eu")),
         ("中国", ("中国", "china")),
@@ -4586,15 +4630,28 @@ def _research_fact_revenue_driver_labels(text: str) -> list[str]:
     driver_specs = (
         (
             "製品・車両販売",
-            ("販売", "売上", "車両", "vehicle sales", "sells vehicles", "product sales"),
+            (
+                "販売",
+                "売上",
+                "車両",
+                "vehicle sales",
+                "sells vehicles",
+                "product sales",
+            ),
         ),
         (
             "ソフトウェア・サービス",
             ("ソフトウェア", "サービス", "software", "services", "subscription"),
         ),
-        ("金融サービス", ("金融", "リース", "financial services", "leasing", "finance")),
+        (
+            "金融サービス",
+            ("金融", "リース", "financial services", "leasing", "finance"),
+        ),
         ("部品・保守", ("部品", "保守", "parts", "maintenance", "aftermarket")),
-        ("海外売上", ("海外売上", "overseas sales", "international sales", "global sales")),
+        (
+            "海外売上",
+            ("海外売上", "overseas sales", "international sales", "global sales"),
+        ),
     )
     return _research_fact_labels_from_keywords(text, driver_specs)
 
@@ -4818,7 +4875,9 @@ def _research_brief_caution_materials(
     return _unique_research_brief_materials(materials)[:6]
 
 
-def _research_brief_material_from_point(point: ResearchSummaryPoint) -> ResearchBriefMaterial:
+def _research_brief_material_from_point(
+    point: ResearchSummaryPoint,
+) -> ResearchBriefMaterial:
     evidence = _dedupe_evidence(point.evidence)
     lead = evidence[0]
     return ResearchBriefMaterial(
@@ -5378,7 +5437,13 @@ def _company_research_quantitative_summary(
             "revenue",
             "売上高",
             "revenue",
-            (r"売上(?:高|収益)?", r"total revenue", r"totalRevenue", r"revenue", r"sales"),
+            (
+                r"売上(?:高|収益)?",
+                r"total revenue",
+                r"totalRevenue",
+                r"revenue",
+                r"sales",
+            ),
         ),
         (
             "operating_profit",
@@ -5414,7 +5479,12 @@ def _company_research_quantitative_summary(
                 r"earnings per share",
             ),
         ),
-        ("per", "PER", "per", (r"PER", r"trailing PE", r"forward PE", r"trailingPE", r"forwardPE")),
+        (
+            "per",
+            "PER",
+            "per",
+            (r"PER", r"trailing PE", r"forward PE", r"trailingPE", r"forwardPE"),
+        ),
         ("pbr", "PBR", "pbr", (r"PBR", r"price[- ]to[- ]book", r"priceToBook")),
         ("roe", "ROE", "roe", (r"ROE", r"return on equity", r"returnOnEquity")),
         (
@@ -5501,7 +5571,12 @@ def _company_research_ir_items(
         tuple[str, IRDocumentType, tuple[ResearchSourceType, ...], tuple[str, ...]],
         ...,
     ] = (
-        ("決算短信", "earnings_summary", ("earnings_report",), ("決算短信", "financial results")),
+        (
+            "決算短信",
+            "earnings_summary",
+            ("earnings_report",),
+            ("決算短信", "financial results"),
+        ),
         (
             "決算説明資料",
             "earnings_presentation",
@@ -5514,7 +5589,12 @@ def _company_research_ir_items(
             ("annual_report", "integrated_report"),
             ("有価証券報告書", "annual securities report", "annual report"),
         ),
-        ("適時開示", "timely_disclosure", ("tdnet",), ("適時開示", "TDnet", "timely disclosure")),
+        (
+            "適時開示",
+            "timely_disclosure",
+            ("tdnet",),
+            ("適時開示", "TDnet", "timely disclosure"),
+        ),
         (
             "中期経営計画",
             "medium_term_plan",
@@ -5678,7 +5758,7 @@ def _company_research_news_items(
                     summary=_company_research_latest_topic_summary(
                         source_type=evidence.source_type,
                         title=evidence.title,
-                        raw_summary=evidence.body if evidence.body or not is_tdnet else "",
+                        raw_summary=(evidence.body if evidence.body or not is_tdnet else ""),
                         information_status=(
                             evidence.information_status if is_tdnet else "unverified"
                         ),
@@ -6257,7 +6337,13 @@ def _company_research_format_quantitative_value(
     cleaned = re.sub(r"\s+", " ", value).strip(" .。、、")
     if not cleaned:
         return ""
-    if field_key in {"market_cap", "enterprise_value", "revenue", "operating_profit", "net_income"}:
+    if field_key in {
+        "market_cap",
+        "enterprise_value",
+        "revenue",
+        "operating_profit",
+        "net_income",
+    }:
         return _company_research_format_money_text(cleaned, context=context)
     if field_key == "eps":
         return _company_research_format_eps_text(cleaned, context=context)
@@ -6421,7 +6507,10 @@ def _company_research_extracted_keywords(text: str) -> list[str]:
         ("自社株買い", ("自社株買い", "自己株式", "buyback")),
         ("業績予想", ("業績予想", "forecast", "guidance")),
         ("中期経営計画", ("中期経営計画", "medium-term")),
-        ("地域展開", ("日本", "北米", "欧州", "アジア", "global", "north america", "europe")),
+        (
+            "地域展開",
+            ("日本", "北米", "欧州", "アジア", "global", "north america", "europe"),
+        ),
     )
     lowered = text.lower()
     return [
@@ -6572,7 +6661,52 @@ def _company_research_business_terms(text: str) -> list[str]:
         ),
         (
             "科学・計測機器",
-            ("scientific instrument", "measurement", "measuring", "sensor", "測定器", "計測"),
+            (
+                "scientific instrument",
+                "measurement",
+                "measuring",
+                "sensor",
+                "測定器",
+                "計測",
+            ),
+        ),
+        (
+            "産業インフラ・デジタル",
+            (
+                "industry: conglomerates",
+                "industrial conglomerate",
+                "digital systems and services",
+                "green energy and mobility",
+                "connective industries",
+                "industrial systems",
+                "power grids",
+                "産業インフラ",
+            ),
+        ),
+        (
+            "産業機械・建設機械",
+            (
+                "farm & heavy construction machinery",
+                "construction machinery",
+                "heavy machinery",
+                "heavy equipment",
+                "earthmoving",
+                "industrial machinery",
+                "建設機械",
+                "産業機械",
+            ),
+        ),
+        (
+            "鉄道・交通インフラ",
+            (
+                "industry: railroads",
+                "railroad",
+                "railway",
+                "rail transport",
+                "passenger railway",
+                "鉄道",
+                "交通インフラ",
+            ),
         ),
         ("モビリティ事業", ("モビリティ", "mobility")),
         (
@@ -6581,7 +6715,16 @@ def _company_research_business_terms(text: str) -> list[str]:
         ),
         (
             "ゲーム・エンタメ",
-            ("game", "gaming", "music", "movie", "entertainment", "ゲーム", "音楽", "映画"),
+            (
+                "game",
+                "gaming",
+                "music",
+                "movie",
+                "entertainment",
+                "ゲーム",
+                "音楽",
+                "映画",
+            ),
         ),
         (
             "ソフトウェア・クラウド",
@@ -6729,7 +6872,6 @@ def _company_research_business_terms(text: str) -> list[str]:
                 "trading company",
                 "general trading",
                 "sogo shosha",
-                "conglomerate",
                 "industrial finance",
                 "事業投資",
                 "総合商社",
@@ -6789,16 +6931,31 @@ def _company_research_filter_main_businesses(
     cloud_infra_context = _company_research_is_cloud_infrastructure_context(lowered)
     bank_context = any(
         keyword in lowered
-        for keyword in ("bank", "banking", "banks -", "commercial banking", "investment banking")
+        for keyword in (
+            "bank",
+            "banking",
+            "banks -",
+            "commercial banking",
+            "investment banking",
+        )
     )
     healthcare_context = _company_research_is_healthcare_context(lowered)
     energy_context = _company_research_is_energy_context(lowered)
     utility_energy_context = _company_research_is_utility_energy_context(lowered)
     telecom_context = _company_research_is_telecom_context(lowered)
+    consumer_electronics_context = _company_research_is_consumer_electronics_context(lowered)
+    industrial_conglomerate_context = _company_research_is_industrial_conglomerate_context(lowered)
+    heavy_machinery_context = _company_research_is_heavy_machinery_context(lowered)
+    railroad_context = _company_research_is_railroad_context(lowered)
     auto_related_main = {"自動車事業", "モビリティ事業", "自動車・モビリティ"}
     software_related_main = {"ソフトウェア・クラウド", "ソフトウェア・サービス"}
     finance_related_main = {"金融サービス", "銀行・金融サービス"}
     utility_related_main = {"ガス・エネルギーインフラ", "電力・エネルギー供給"}
+    industrial_related_main = {
+        "産業インフラ・デジタル",
+        "産業機械・建設機械",
+        "鉄道・交通インフラ",
+    }
     filtered = [
         item
         for item in businesses
@@ -6823,6 +6980,7 @@ def _company_research_filter_main_businesses(
             and item
             in (
                 software_related_main
+                | industrial_related_main
                 | utility_related_main
                 | {"小売・EC", "アパレル小売", "決済ネットワーク", "エネルギー"}
             )
@@ -6830,6 +6988,9 @@ def _company_research_filter_main_businesses(
         and not (not healthcare_context and item == "医薬品・ヘルスケア")
         and not (not energy_context and item == "エネルギー")
         and not (not telecom_context and item == "通信サービス")
+        and not (not industrial_conglomerate_context and item == "産業インフラ・デジタル")
+        and not (not heavy_machinery_context and item == "産業機械・建設機械")
+        and not (not railroad_context and item == "鉄道・交通インフラ")
         and not (finance_main_context and item in software_related_main)
         and not (healthcare_context and item in finance_related_main | software_related_main)
         and not (healthcare_context and item in {"小売・EC", "アパレル小売"})
@@ -6853,8 +7014,79 @@ def _company_research_filter_main_businesses(
             )
         )
         and not (telecom_context and item in finance_related_main | software_related_main)
-        and item not in {"部品・アフターサービス", "リース", "ソフトウェア"}
+        and not (consumer_electronics_context and item in finance_related_main)
+        and not (
+            industrial_conglomerate_context
+            and item
+            in (
+                auto_related_main
+                | finance_related_main
+                | software_related_main
+                | {
+                    "医薬品・ヘルスケア",
+                    "広告・マーケティング",
+                    "小売・EC",
+                    "アパレル小売",
+                    "部品・保守",
+                }
+            )
+        )
+        and not (
+            heavy_machinery_context
+            and item
+            in (
+                finance_related_main
+                | software_related_main
+                | {"エレクトロニクス", "医薬品・ヘルスケア", "広告・マーケティング"}
+            )
+        )
+        and not (
+            railroad_context
+            and item
+            in (
+                auto_related_main
+                | finance_related_main
+                | software_related_main
+                | utility_related_main
+                | {
+                    "医薬品・ヘルスケア",
+                    "広告・マーケティング",
+                    "エレクトロニクス",
+                    "小売・EC",
+                    "エネルギー",
+                    "部品・保守",
+                }
+            )
+        )
+        and not (
+            item == "総合商社・事業投資" and industrial_conglomerate_context and not trading_context
+        )
+        and item not in {"部品・アフターサービス", "部品・保守", "リース", "ソフトウェア"}
     ]
+    if trading_context:
+        filtered = ["総合商社・事業投資"] + [
+            item
+            for item in filtered
+            if item
+            not in (
+                industrial_related_main | utility_related_main | {"エネルギー", "決済ネットワーク"}
+            )
+        ]
+    if railroad_context and "鉄道・交通インフラ" in filtered:
+        priority = ["鉄道・交通インフラ"]
+        filtered = [item for item in priority if item in filtered] + [
+            item for item in filtered if item not in priority
+        ]
+    if heavy_machinery_context and "産業機械・建設機械" in filtered:
+        priority = ["産業機械・建設機械"]
+        filtered = [item for item in priority if item in filtered] + [
+            item for item in filtered if item not in priority
+        ]
+    if industrial_conglomerate_context and "産業インフラ・デジタル" in filtered:
+        priority = ["産業インフラ・デジタル", "エネルギー"]
+        filtered = [item for item in priority if item in filtered] + [
+            item for item in filtered if item not in priority
+        ]
     if utility_energy_context and any(item in filtered for item in utility_related_main):
         priority = ["ガス・エネルギーインフラ", "電力・エネルギー供給", "エネルギー"]
         filtered = [item for item in priority if item in filtered] + [
@@ -6864,7 +7096,7 @@ def _company_research_filter_main_businesses(
             filtered = [item for item in filtered if item != "エネルギー"]
     if "銀行・金融サービス" in filtered:
         filtered = [item for item in filtered if item != "金融サービス"]
-    elif bank_context and finance_main_context:
+    elif bank_context and finance_main_context and not consumer_electronics_context:
         filtered.insert(0, "銀行・金融サービス")
     if "ソフトウェア・クラウド" in filtered:
         filtered = [item for item in filtered if item != "ソフトウェア・サービス"]
@@ -6976,15 +7208,109 @@ def _company_research_is_hr_services_context(lowered_text: str) -> bool:
 
 
 def _company_research_is_trading_company_context(lowered_text: str) -> bool:
-    return any(
+    if any(
         keyword in lowered_text
         for keyword in (
             "trading company",
             "general trading",
             "sogo shosha",
-            "conglomerate",
             "事業投資",
             "総合商社",
+        )
+    ):
+        return True
+    if "sector: industrials" not in lowered_text or "industry: conglomerates" not in lowered_text:
+        return False
+    diversified_trading_terms = (
+        "natural gas",
+        "industrial materials",
+        "petroleum",
+        "chemicals solution",
+        "mineral resources",
+        "industrial infrastructure",
+        "automotive & mobility",
+        "food industry",
+        "consumer industry",
+        "power solution",
+        "urban development",
+    )
+    return sum(term in lowered_text for term in diversified_trading_terms) >= 4
+
+
+def _company_research_is_industrial_conglomerate_context(lowered_text: str) -> bool:
+    if _company_research_is_trading_company_context(lowered_text):
+        return False
+    return (
+        "sector: industrials" in lowered_text
+        and ("industry: conglomerates" in lowered_text or "industrial conglomerate" in lowered_text)
+    ) or any(
+        keyword in lowered_text
+        for keyword in (
+            "digital systems and services",
+            "green energy and mobility",
+            "connective industries",
+            "industrial systems",
+            "power grids",
+        )
+    )
+
+
+def _company_research_is_heavy_machinery_context(lowered_text: str) -> bool:
+    return any(
+        keyword in lowered_text
+        for keyword in (
+            "industry: farm & heavy construction machinery",
+            "construction machinery",
+            "heavy construction machinery",
+            "heavy machinery",
+            "heavy equipment",
+            "earthmoving",
+            "industrial machinery",
+        )
+    )
+
+
+def _company_research_is_consumer_electronics_context(lowered_text: str) -> bool:
+    return any(
+        keyword in lowered_text
+        for keyword in (
+            "industry: consumer electronics",
+            "consumer electronics",
+            "electronic gaming & multimedia",
+        )
+    )
+
+
+def _company_research_is_railroad_context(lowered_text: str) -> bool:
+    return any(
+        keyword in lowered_text
+        for keyword in (
+            "industry: railroads",
+            "railroad",
+            "railway",
+            "rail transport",
+            "passenger railway",
+            "rail station",
+        )
+    )
+
+
+def _company_research_is_materials_chemical_context(lowered_text: str) -> bool:
+    return any(
+        keyword in lowered_text
+        for keyword in (
+            "industry: chemicals",
+            "specialty chemicals",
+            "chemical manufacturing",
+            "chemical products",
+            "fine materials",
+            "carbon material",
+            "materials segment",
+            "materials business",
+            "material products",
+            "材料事業",
+            "材料製品",
+            "化学",
         )
     )
 
@@ -7114,16 +7440,38 @@ def _company_research_supporting_business_terms(
         ),
         (
             "ライフサービス",
-            ("life & business solutions", "life services", "lifestyle", "生活", "ライフサービス"),
+            (
+                "life & business solutions",
+                "life services",
+                "lifestyle",
+                "生活",
+                "ライフサービス",
+            ),
         ),
         ("不動産", ("real estate", "property", "不動産")),
         (
             "情報ソリューション",
-            ("information solutions", "information service", "it services", "情報ソリューション"),
+            (
+                "information solutions",
+                "information service",
+                "it services",
+                "情報ソリューション",
+            ),
         ),
         (
             "材料・化学",
-            ("fine materials", "carbon material", "materials", "chemicals", "材料", "化学"),
+            (
+                "fine materials",
+                "carbon material",
+                "chemical products",
+                "chemicals",
+                "materials segment",
+                "materials business",
+                "material products",
+                "材料事業",
+                "材料製品",
+                "化学",
+            ),
         ),
     )
     main_set = set(main_businesses)
@@ -7154,8 +7502,31 @@ def _company_research_filter_supporting_businesses(
     retail_main_context = _company_research_is_retail_main_context(lowered)
     cloud_infra_context = _company_research_is_cloud_infrastructure_context(lowered)
     filtered = list(businesses)
+    if not (
+        _company_research_is_materials_chemical_context(lowered)
+        or _company_research_is_trading_company_context(lowered)
+        or _company_research_is_energy_context(lowered)
+        or _company_research_is_utility_energy_context(lowered)
+    ):
+        filtered = [item for item in filtered if item != "材料・化学"]
     if auto_manufacturer_context:
         filtered = [item for item in filtered if item != "資産運用"]
+    if _company_research_is_industrial_conglomerate_context(lowered):
+        filtered = [
+            item
+            for item in filtered
+            if item not in {"金融サービス", "リース", "保険", "資産運用", "ソフトウェア"}
+        ]
+    if _company_research_is_railroad_context(lowered):
+        filtered = [
+            item
+            for item in filtered
+            if item not in {"金融サービス", "リース", "保険", "資産運用", "ソフトウェア"}
+        ]
+    if _company_research_is_heavy_machinery_context(lowered):
+        filtered = [item for item in filtered if item not in {"ソフトウェア", "資産運用"}]
+    if _company_research_is_consumer_electronics_context(lowered):
+        filtered = [item for item in filtered if item not in {"リース", "保険", "資産運用"}]
     if retail_main_context and not cloud_infra_context and not auto_manufacturer_context:
         filtered = [
             item
@@ -7212,21 +7583,78 @@ def _company_research_filter_supporting_businesses(
 def _company_research_products_services(text: str) -> list[str]:
     lowered = text.lower()
     specs = (
-        ("電気自動車", ("electric vehicle", "electric vehicles", "evs", "EV", "電気自動車")),
+        (
+            "電気自動車",
+            ("electric vehicle", "electric vehicles", "evs", "EV", "電気自動車"),
+        ),
         ("自動車", ("automobile", "automotive", "自動車")),
         ("商用車", ("commercial vehicle", "commercial vehicles", "商用車")),
         ("車両", ("vehicle", "vehicles", "車両")),
-        ("蓄電池", ("battery", "batteries", "energy storage", "storage systems", "蓄電池")),
+        (
+            "蓄電池",
+            ("battery", "batteries", "energy storage", "storage systems", "蓄電池"),
+        ),
         ("充電サービス", ("charging", "supercharger", "充電")),
         (
             "車載ソフトウェア",
             ("autopilot", "full self-driving", "vehicle software", "車載ソフトウェア"),
         ),
         ("部品", ("parts", "components", "部品")),
-        ("保守・整備", ("maintenance", "repair", "after-sales", "aftersales", "保守", "整備")),
+        (
+            "保守・整備",
+            ("maintenance", "repair", "after-sales", "aftersales", "保守", "整備"),
+        ),
+        (
+            "建設機械",
+            (
+                "construction machinery",
+                "heavy construction machinery",
+                "construction equipment",
+                "建設機械",
+            ),
+        ),
+        (
+            "産業機械",
+            ("industrial machinery", "heavy machinery", "heavy equipment", "産業機械"),
+        ),
+        ("エンジン", ("engine", "engines", "turbine", "turbines", "エンジン")),
+        (
+            "鉄道サービス",
+            ("railroad", "railway", "rail transport", "passenger railway", "鉄道"),
+        ),
+        (
+            "交通インフラ",
+            (
+                "transportation infrastructure",
+                "rail station",
+                "station",
+                "交通インフラ",
+            ),
+        ),
+        (
+            "デジタルシステム",
+            (
+                "digital systems",
+                "it services",
+                "information technology",
+                "デジタルシステム",
+            ),
+        ),
+        (
+            "産業インフラ",
+            (
+                "industrial systems",
+                "power grids",
+                "connective industries",
+                "産業インフラ",
+            ),
+        ),
         ("金融サービス", ("financial services", "金融")),
         ("リース", ("lease", "leasing", "リース")),
-        ("モビリティサービス", ("mobility service", "mobility services", "モビリティサービス")),
+        (
+            "モビリティサービス",
+            ("mobility service", "mobility services", "モビリティサービス"),
+        ),
         ("ソフトウェアサービス", ("software", "ソフトウェア")),
         (
             "クラウドサービス",
@@ -7236,7 +7664,10 @@ def _company_research_products_services(text: str) -> list[str]:
             "求人・採用サービス",
             ("recruitment", "recruiting", "employment", "job matching", "求人", "採用"),
         ),
-        ("HRプラットフォーム", ("human resources", "hr technology", "staffing", "HR", "人材")),
+        (
+            "HRプラットフォーム",
+            ("human resources", "hr technology", "staffing", "HR", "人材"),
+        ),
         ("衣料品", ("apparel", "fashion", "clothing", "garment", "衣料", "アパレル")),
         ("店舗販売", ("store", "stores", "retail store", "店舗")),
         ("オンライン販売", ("e-commerce", "online sales", "online store", "EC")),
@@ -7249,45 +7680,88 @@ def _company_research_products_services(text: str) -> list[str]:
         ("決済ネットワーク", ("card network", "transaction", "merchant", "settlement")),
         ("加盟店サービス", ("merchant services", "加盟店")),
         ("不正検知", ("fraud", "fraud detection", "不正検知")),
-        ("広告サービス", ("advertising", "advertisement", "ads", "marketing services", "広告")),
+        (
+            "広告サービス",
+            ("advertising", "advertisement", "ads", "marketing services", "広告"),
+        ),
         ("保険", ("insurance", "保険")),
         ("資産運用", ("asset management", "資産運用")),
         ("銀行サービス", ("banking", "commercial bank", "銀行")),
         ("融資・クレジット", ("loan", "credit", "lending", "融資", "ローン")),
         ("センサー", ("sensor", "sensors", "センサー")),
         ("GPU", ("gpu", "graphics processing unit")),
-        ("AIインフラ", ("artificial intelligence", "ai infrastructure", "accelerated computing")),
+        (
+            "AIインフラ",
+            ("artificial intelligence", "ai infrastructure", "accelerated computing"),
+        ),
         ("データセンター向け製品", ("data center", "datacenter")),
         ("半導体", ("semiconductor", "semiconductors", "半導体")),
-        ("医薬品", ("pharmaceutical", "medicine", "drug", "therapy", "医薬品", "治療薬")),
+        (
+            "医薬品",
+            ("pharmaceutical", "medicine", "drug", "therapy", "医薬品", "治療薬"),
+        ),
         ("医療機器", ("medical device", "medical devices", "医療機器")),
         ("診断・検査", ("diagnostics", "diagnostic", "診断", "検査")),
         ("石油・ガス", ("oil & gas", "oil and gas", "natural gas", "石油", "ガス")),
-        ("都市ガス", ("city gas", "town gas", "都市ガス", "gas supply", "gas distribution")),
+        (
+            "都市ガス",
+            ("city gas", "town gas", "都市ガス", "gas supply", "gas distribution"),
+        ),
         (
             "電力",
-            ("electric power", "electricity", "power generation", "power supply", "電力", "発電"),
+            (
+                "electric power",
+                "electricity",
+                "power generation",
+                "power supply",
+                "電力",
+                "発電",
+            ),
         ),
         ("LNG", ("lng", "liquefied natural gas")),
         ("LPG", ("lpg", "liquefied petroleum gas")),
         (
             "エネルギーサービス",
-            ("energy services", "energy service", "energy solution", "エネルギーサービス"),
+            (
+                "energy services",
+                "energy service",
+                "energy solution",
+                "エネルギーサービス",
+            ),
         ),
         ("ガス機器", ("gas appliances", "gas equipment", "ガス機器")),
-        ("エネルギーインフラ", ("gas pipeline", "infrastructure", "インフラ", "パイプライン")),
+        (
+            "エネルギーインフラ",
+            ("gas pipeline", "energy infrastructure", "パイプライン"),
+        ),
         (
             "生活関連サービス",
             ("life services", "life & business solutions", "生活", "ライフサービス"),
         ),
         (
             "情報ソリューション",
-            ("information solutions", "information service", "it services", "情報ソリューション"),
+            (
+                "information solutions",
+                "information service",
+                "it services",
+                "情報ソリューション",
+            ),
         ),
         ("不動産サービス", ("real estate", "property", "不動産")),
         (
             "材料・化学製品",
-            ("fine materials", "carbon material", "materials", "chemicals", "材料", "化学"),
+            (
+                "fine materials",
+                "carbon material",
+                "chemical products",
+                "chemicals",
+                "materials segment",
+                "materials business",
+                "material products",
+                "材料事業",
+                "材料製品",
+                "化学",
+            ),
         ),
         ("精製・販売", ("refining", "refinery", "販売")),
         ("エネルギー開発", ("exploration", "production", "renewable", "エネルギー")),
@@ -7395,6 +7869,90 @@ def _company_research_products_services(text: str) -> list[str]:
                 "不動産サービス",
             }
         ]
+    if _company_research_is_industrial_conglomerate_context(lowered):
+        products = [
+            item
+            for item in products
+            if item
+            not in {
+                "自動車",
+                "商用車",
+                "車両",
+                "金融サービス",
+                "金融商品",
+                "決済",
+                "リース",
+                "保険",
+                "資産運用",
+                "医薬品",
+                "医療機器",
+                "診断・検査",
+                "広告サービス",
+                "ブランド運営",
+                "通信サービス",
+                "ブロードバンド",
+                "エンジン",
+            }
+        ]
+    if _company_research_is_railroad_context(lowered):
+        products = [
+            item
+            for item in products
+            if item
+            not in {
+                "自動車",
+                "商用車",
+                "車両",
+                "蓄電池",
+                "金融サービス",
+                "金融商品",
+                "決済",
+                "リース",
+                "保険",
+                "資産運用",
+                "医薬品",
+                "医療機器",
+                "診断・検査",
+                "広告サービス",
+                "通信サービス",
+                "ブロードバンド",
+                "材料・化学製品",
+                "電力",
+                "エンジン",
+            }
+        ]
+    if _company_research_is_heavy_machinery_context(lowered):
+        products = [
+            item
+            for item in products
+            if item
+            not in {
+                "ソフトウェアサービス",
+                "クラウドサービス",
+                "広告サービス",
+                "ブランド運営",
+                "医薬品",
+                "医療機器",
+                "診断・検査",
+                "通信サービス",
+                "ブロードバンド",
+            }
+        ]
+    if _company_research_is_consumer_electronics_context(lowered):
+        products = [
+            item
+            for item in products
+            if item
+            not in {
+                "金融サービス",
+                "金融商品",
+                "リース",
+                "保険",
+                "資産運用",
+                "銀行サービス",
+                "融資・クレジット",
+            }
+        ]
     if _company_research_is_software_cloud_context(lowered) and not (
         _company_research_is_retail_main_context(lowered)
         or _company_research_is_auto_manufacturer_context(lowered)
@@ -7472,6 +8030,13 @@ def _company_research_products_services(text: str) -> list[str]:
             for item in products
             if item not in {"金融サービス", "金融商品", "決済", "保険", "資産運用"}
         ]
+    if not (
+        _company_research_is_materials_chemical_context(lowered)
+        or _company_research_is_trading_company_context(lowered)
+        or _company_research_is_energy_context(lowered)
+        or _company_research_is_utility_energy_context(lowered)
+    ):
+        products = [item for item in products if item != "材料・化学製品"]
     if _company_research_is_utility_energy_context(lowered):
         priority = [
             "都市ガス",
@@ -7504,7 +8069,41 @@ def _company_research_inferred_products_services(
     context = " ".join([lowered, *main_businesses, *supporting_businesses])
     inference_specs = (
         (
-            ("自動車", "automotive", "vehicle", "mobility", "自動車事業", "モビリティ事業"),
+            (
+                "railroad",
+                "railway",
+                "rail transport",
+                "鉄道・交通インフラ",
+            ),
+            ("鉄道サービス", "交通インフラ", "不動産サービス"),
+        ),
+        (
+            (
+                "construction machinery",
+                "heavy machinery",
+                "heavy equipment",
+                "産業機械・建設機械",
+            ),
+            ("建設機械", "産業機械", "エンジン", "部品", "保守・整備"),
+        ),
+        (
+            (
+                "digital systems and services",
+                "green energy and mobility",
+                "connective industries",
+                "産業インフラ・デジタル",
+            ),
+            ("デジタルシステム", "産業インフラ", "エネルギー開発"),
+        ),
+        (
+            (
+                "自動車",
+                "automotive",
+                "vehicle",
+                "mobility",
+                "自動車事業",
+                "モビリティ事業",
+            ),
             ("自動車", "商用車", "部品", "金融サービス", "モビリティ関連サービス"),
         ),
         (
@@ -7523,7 +8122,14 @@ def _company_research_inferred_products_services(
             ("医薬品", "医療機器", "診断・検査"),
         ),
         (
-            ("energy", "oil & gas", "oil and gas", "refining", "exploration", "エネルギー"),
+            (
+                "energy",
+                "oil & gas",
+                "oil and gas",
+                "refining",
+                "exploration",
+                "エネルギー",
+            ),
             ("石油・ガス", "エネルギー開発", "精製・販売"),
         ),
         (
@@ -7547,11 +8153,30 @@ def _company_research_inferred_products_services(
             ("通信サービス", "ブロードバンド"),
         ),
         (
-            ("payment", "payments", "card network", "transaction", "merchant", "決済ネットワーク"),
-            ("カード決済", "デジタル決済", "決済ネットワーク", "加盟店サービス", "不正検知"),
+            (
+                "payment",
+                "payments",
+                "card network",
+                "transaction",
+                "merchant",
+                "決済ネットワーク",
+            ),
+            (
+                "カード決済",
+                "デジタル決済",
+                "決済ネットワーク",
+                "加盟店サービス",
+                "不正検知",
+            ),
         ),
         (
-            ("human resources", "staffing", "recruitment", "employment", "人材・HRサービス"),
+            (
+                "human resources",
+                "staffing",
+                "recruitment",
+                "employment",
+                "人材・HRサービス",
+            ),
             ("求人・採用サービス", "人材紹介", "HRプラットフォーム"),
         ),
         (
@@ -7567,11 +8192,31 @@ def _company_research_inferred_products_services(
             ("ソフトウェアサービス", "クラウドサービス", "法人向けサービス"),
         ),
         (
-            ("金融", "financial", "banking", "insurance", "asset management", "金融サービス"),
-            ("銀行サービス", "金融商品", "決済", "融資・クレジット", "保険", "資産運用"),
+            (
+                "金融",
+                "financial",
+                "banking",
+                "insurance",
+                "asset management",
+                "金融サービス",
+            ),
+            (
+                "銀行サービス",
+                "金融商品",
+                "決済",
+                "融資・クレジット",
+                "保険",
+                "資産運用",
+            ),
         ),
         (
-            ("electronics", "consumer electronics", "エレクトロニクス", "game", "entertainment"),
+            (
+                "electronics",
+                "consumer electronics",
+                "エレクトロニクス",
+                "game",
+                "entertainment",
+            ),
             ("家電", "映像機器", "音響機器", "ゲーム", "エンタメ関連サービス"),
         ),
         (
@@ -7621,7 +8266,10 @@ def _company_research_customer_segments(text: str) -> list[str]:
     specs = (
         ("個人顧客", ("consumer", "retail", "個人")),
         ("法人顧客", ("corporate", "enterprise", "business customers", "法人")),
-        ("製造業", ("manufacturing", "manufacturers", "factory", "industrial", "製造業")),
+        (
+            "製造業",
+            ("manufacturing", "manufacturers", "factory", "industrial", "製造業"),
+        ),
         ("販売店・ディーラー", ("dealer", "dealership", "販売店", "ディーラー")),
         ("フリート顧客", ("fleet", "フリート")),
         ("金融サービス利用者", ("financial services customers", "金融サービス利用者")),
@@ -7772,7 +8420,9 @@ def _company_research_ir_item_for_spec(
     )
 
 
-def _company_research_is_ir_evidence_source(source_type: ResearchSourceType | str) -> bool:
+def _company_research_is_ir_evidence_source(
+    source_type: ResearchSourceType | str,
+) -> bool:
     return source_type in _RESEARCH_BRIEF_HIGH_CONFIDENCE_SOURCES
 
 
@@ -7826,7 +8476,14 @@ def _company_research_latest_topic_type(
         return "earnings"
     if any(
         keyword in lowered_text
-        for keyword in ("配当", "自己株式", "自社株買い", "株主還元", "dividend", "buyback")
+        for keyword in (
+            "配当",
+            "自己株式",
+            "自社株買い",
+            "株主還元",
+            "dividend",
+            "buyback",
+        )
     ):
         return "shareholder_return"
     if any(
@@ -7847,7 +8504,15 @@ def _company_research_latest_topic_type(
         return "business_reorganization"
     if any(
         keyword in lowered_text
-        for keyword in ("governance", "audit", "lawsuit", "不祥事", "訴訟", "監査", "規制")
+        for keyword in (
+            "governance",
+            "audit",
+            "lawsuit",
+            "不祥事",
+            "訴訟",
+            "監査",
+            "規制",
+        )
     ):
         return "governance"
     if any(
@@ -7915,7 +8580,15 @@ def _company_research_news_impact_hint(
         return "business"
     if any(
         keyword in lowered_text
-        for keyword in ("governance", "audit", "lawsuit", "不祥事", "訴訟", "監査", "規制")
+        for keyword in (
+            "governance",
+            "audit",
+            "lawsuit",
+            "不祥事",
+            "訴訟",
+            "監査",
+            "規制",
+        )
     ):
         return "governance"
     if any(
@@ -9632,11 +10305,34 @@ def _stock_news_evidence(
 def _stock_news_viewpoint(text: str) -> StockNewsInvestmentViewpoint:
     normalized = text.lower()
     terms_by_viewpoint: dict[StockNewsInvestmentViewpoint, tuple[str, ...]] = {
-        "earnings": ("earnings", "profit", "revenue", "sales", "guidance", "決算", "業績"),
+        "earnings": (
+            "earnings",
+            "profit",
+            "revenue",
+            "sales",
+            "guidance",
+            "決算",
+            "業績",
+        ),
         "growth": ("growth", "expansion", "investment", "new business", "成長", "投資"),
-        "shareholder_return": ("dividend", "buyback", "shareholder return", "配当", "自社株"),
+        "shareholder_return": (
+            "dividend",
+            "buyback",
+            "shareholder return",
+            "配当",
+            "自社株",
+        ),
         "risk": ("risk", "lawsuit", "recall", "regulation", "fraud", "リスク", "訴訟"),
-        "macro": ("rate", "inflation", "fx", "yen", "macro", "金利", "為替", "インフレ"),
+        "macro": (
+            "rate",
+            "inflation",
+            "fx",
+            "yen",
+            "macro",
+            "金利",
+            "為替",
+            "インフレ",
+        ),
         "other": (),
     }
     scored = [

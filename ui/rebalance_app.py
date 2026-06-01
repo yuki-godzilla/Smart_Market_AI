@@ -1888,7 +1888,10 @@ def table_csv_download(
     buffer = StringIO(newline="")
     writer = csv.DictWriter(buffer, fieldnames=resolved_fieldnames, lineterminator="\n")
     writer.writeheader()
-    writer.writerows(rows)
+    filtered_rows = (
+        {fieldname: row.get(fieldname, "") for fieldname in resolved_fieldnames} for row in rows
+    )
+    writer.writerows(filtered_rows)
     return buffer.getvalue()
 
 

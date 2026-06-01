@@ -1317,6 +1317,22 @@ def test_table_csv_download_can_write_header_for_empty_rows():
     assert payload == "symbol,qty\n"
 
 
+def test_table_csv_download_ignores_extra_fields_for_stable_header():
+    payload = table_csv_download(
+        [
+            {
+                "symbol": "9434.T",
+                "qty": "10",
+                "current_price": "188",
+                "missing_items": "roe_pct",
+            },
+        ],
+        fieldnames=["symbol", "qty"],
+    )
+
+    assert payload == "symbol,qty\n9434.T,10\n"
+
+
 def test_result_report_zip_download_contains_json_and_csv_files():
     request = build_default_rebalance_request()
     result = asyncio.run(run_rebalance_check(request))

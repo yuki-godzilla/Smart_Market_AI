@@ -35,6 +35,16 @@ RANKING_MVP_PRODUCT_TYPE_LABELS = {
 }
 
 RANKING_PURPOSE_LABELS = {
+    "sort_total_score": "総合スコア順",
+    "sort_dividend_yield": "配当利回り順",
+    "sort_per": "PER低い順",
+    "sort_pbr": "PBR低い順",
+    "sort_roe": "ROE高い順",
+    "sort_market_cap": "時価総額大きい順",
+    "sort_volume": "出来高多い順",
+    "sort_volatility": "値動き小さい順",
+    "sort_risk": "リスク確認しやすい順",
+    "sort_data_quality": "データ品質順",
     "multi_factor": "総合マルチファクター",
     "upside_signal": "上昇気配重視",
     "momentum": "モメンタム・トレンド",
@@ -56,6 +66,16 @@ RANKING_PURPOSE_LABELS = {
 }
 
 RANKING_WEIGHT_PRESET_LABELS = {
+    "sort_total_score": "総合スコア順",
+    "sort_dividend_yield": "配当利回り順",
+    "sort_per": "PER低い順",
+    "sort_pbr": "PBR低い順",
+    "sort_roe": "ROE高い順",
+    "sort_market_cap": "時価総額大きい順",
+    "sort_volume": "出来高多い順",
+    "sort_volatility": "値動き小さい順",
+    "sort_risk": "リスク確認しやすい順",
+    "sort_data_quality": "データ品質順",
     "balanced": "総合バランス",
     "forecast": "上昇気配重視",
     "quality": "データ品質重視",
@@ -277,6 +297,46 @@ RANKING_FILTER_HELP_TEXTS = {
 }
 
 RANKING_PURPOSE_HELP_TEXTS = {
+    "sort_total_score": (
+        "総合スコアが高い順に表示します。割安性・収益性・配当魅力・成長性・"
+        "リスク確認・データ品質などを統合した比較用スコアで、売買推奨ではありません。"
+    ),
+    "sort_dividend_yield": (
+        "配当利回りが高い順に表示します。高配当でも、業績・財務・減配リスクを"
+        "あわせて確認してください。"
+    ),
+    "sort_per": (
+        "PERが低い順に表示します。低PERは割安に見える一方、業績悪化や一時要因を"
+        "反映している場合があります。"
+    ),
+    "sort_pbr": (
+        "PBRが低い順に表示します。低PBRは資産面で割安に見える一方、収益性の低さや"
+        "市場評価の低さを反映している場合があります。"
+    ),
+    "sort_roe": (
+        "ROEが高い順に表示します。資本効率の高さを示しますが、一時利益や"
+        "財務レバレッジの影響も確認してください。"
+    ),
+    "sort_market_cap": (
+        "時価総額が大きい順に表示します。企業規模や流動性の確認に使いますが、"
+        "成長余地や割安性とは別観点です。"
+    ),
+    "sort_volume": (
+        "出来高が多い順に表示します。取引の活発さを確認する指標で、短期的な注目度や"
+        "流動性の参考になります。"
+    ),
+    "sort_volatility": (
+        "値動きが小さい順に表示します。安定性の確認に使えますが、値動きが小さいことが"
+        "必ずしも高リターンを意味するわけではありません。"
+    ),
+    "sort_risk": (
+        "リスク確認スコアが高い順に表示します。安定性を確認しやすい候補の"
+        "参考指標で、安全を保証するものではありません。"
+    ),
+    "sort_data_quality": (
+        "データ品質が高い順に表示します。欠損が少なく、取得状態が安定している候補を"
+        "優先して確認できます。"
+    ),
     "multi_factor": (
         "スクリーニング、上昇気配・下降警戒、リスク確認、データ品質、条件適合度をバランスよく見ます。"
         "特定テーマに寄せず、まず深掘り候補を広く並べたい時の基準です。"

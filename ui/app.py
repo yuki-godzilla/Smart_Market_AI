@@ -162,6 +162,7 @@ from ui.ranking import (
     RANKING_PERIOD_PRESETS,
     RANKING_PRODUCT_ALL,
     RANKING_PRODUCT_ETF,
+    RANKING_PURPOSE_MULTI_FACTOR,
     RANKING_THEME_LABELS,
     apply_ranking_weight_preset,
     filter_symbol_universe_rows,
@@ -177,12 +178,14 @@ from ui.ranking import (
     ranking_no_bars_error_row,
     ranking_period_dates,
     ranking_period_label,
+    ranking_policy_for_purpose,
+    ranking_policy_label,
+    ranking_policy_options,
     ranking_product_type_label,
     ranking_provider_error_rows,
     ranking_purpose_focus_summary,
     ranking_purpose_help,
     ranking_purpose_label,
-    ranking_purpose_options,
     ranking_purpose_primary_columns,
     ranking_purpose_weight_summary,
     ranking_region_label,
@@ -393,6 +396,9 @@ RANKING_TABLE_BASE_COLUMNS = (
 )
 RANKING_NUMERIC_SORT_DIRECTIONS = {
     "総合スコア": "desc",
+    "Screening": "desc",
+    "上昇気配": "desc",
+    "下降警戒": "asc",
     "配当利回り": "desc",
     "PER": "asc",
     "PBR": "asc",
@@ -406,7 +412,15 @@ RANKING_NUMERIC_SORT_DIRECTIONS = {
     "売上成長率": "desc",
     "Risk": "asc",
     "データ品質": "desc",
+    "経費率": "asc",
 }
+RANKING_TABLE_SORT_GUIDANCE = (
+    "詳細テーブルでは、列名をクリックして各指標順に並べ替えできます。"
+    "総合スコア・配当利回り・ROE・時価総額・出来高・データ品質・スクリーニング・上昇気配は高い順、"
+    "PER・PBR・ボラティリティ・リスク・下降警戒は低い順から確認します。"
+    "N/Aは末尾に置きます。"
+)
+RANKING_LOW_VALUE_BETTER_COLUMNS = {"PER", "PBR", "ボラティリティ", "Risk", "下降警戒"}
 RANKING_NUMERIC_SORT_COMPARATOR = JsCode(
     """
 function(valueA, valueB, nodeA, nodeB, isDescending) {
@@ -1717,7 +1731,7 @@ def ranking_result_aggrid_options(
         if column in frame.columns:
             header_name = {
                 "Screening": "スクリーニング",
-                "Risk": "リスク確認",
+                "Risk": "リスク",
             }.get(column, column)
             sort_direction = RANKING_NUMERIC_SORT_DIRECTIONS.get(column, "desc")
             sorting_order = (
@@ -1851,6 +1865,19 @@ def _ensure_selectbox_state_value(key: str, options: list[str]) -> None:
     value = _ranking_filter_value(key, options[0])
     if value not in options:
         st.session_state[key] = options[0]
+
+
+def _sync_ranking_policy_state(product_type: str) -> None:
+    policy_options = ranking_policy_options(product_type)
+    policy_value = _ranking_filter_value("market_data_ranking_policy", "")
+    if policy_value not in policy_options:
+        legacy_purpose = _ranking_filter_value(
+            "market_data_ranking_purpose",
+            RANKING_PURPOSE_MULTI_FACTOR,
+        )
+        st.session_state["market_data_ranking_policy"] = ranking_policy_for_purpose(legacy_purpose)
+    if st.session_state.get("market_data_ranking_policy") not in policy_options:
+        st.session_state["market_data_ranking_policy"] = RANKING_PURPOSE_MULTI_FACTOR
 
 
 def _normalize_dividend_filter_state() -> None:
@@ -2337,6 +2364,7 @@ def ranking_score_bar_chart_frame(
 ) -> pd.DataFrame:
     records: list[dict[str, object]] = []
     metric_column = _ranking_bar_chart_metric_column(display_rows, ranking_purpose)
+    sort_direction = _ranking_bar_chart_sort_direction(metric_column)
     for row in display_rows[:limit]:
         score = _ranking_display_float(row, metric_column)
         if score is None:
@@ -2354,19 +2382,43 @@ def ranking_score_bar_chart_frame(
                 "metric": metric_column,
             }
         )
-    records.sort(
-        key=lambda record: (
-            -cast(float, record["score"]),
-            cast(int, record["rank_sort"]),
-            str(record["symbol"]),
-        )
-    )
+    records.sort(key=lambda record: _ranking_bar_chart_sort_key(record, sort_direction))
     records = records[:limit]
     for index, record in enumerate(records, start=1):
         record["bar_order"] = index
     frame = pd.DataFrame.from_records(records)
     frame.attrs["metric_column"] = metric_column
+    frame.attrs["sort_direction"] = sort_direction
     return frame
+
+
+def _ranking_bar_chart_sort_direction(metric_column: str) -> str:
+    return "asc" if metric_column in RANKING_LOW_VALUE_BETTER_COLUMNS else "desc"
+
+
+def _ranking_bar_chart_sort_key(
+    record: dict[str, object],
+    sort_direction: str,
+) -> tuple[float, int, str]:
+    score = cast(float, record["score"])
+    metric_key = score if sort_direction == "asc" else -score
+    return (metric_key, cast(int, record["rank_sort"]), str(record["symbol"]))
+
+
+def ranking_score_bar_chart_caption(
+    ranking_purpose: str,
+    metric_column: str,
+    sort_direction: str = "desc",
+) -> str:
+    order_text = "低い順" if sort_direction == "asc" else "高い順"
+    policy_label = ranking_policy_label(ranking_purpose)
+    focus_summary = ranking_purpose_focus_summary(ranking_purpose)
+    return (
+        f"{policy_label}の評価方針に基づく上位候補です。"
+        f"代表指標「{metric_column}」は{order_text}に表示します。"
+        f"{focus_summary}"
+        "詳細テーブルの列ヘッダーで行を並べ替えても、グラフ指標は自動では切り替わりません。"
+    )
 
 
 def _ranking_rank_sort_value(value: object) -> int:
@@ -2396,6 +2448,16 @@ def _ranking_bar_chart_metric_column(
 
 def _ranking_bar_chart_candidate_columns(ranking_purpose: str) -> tuple[str, ...]:
     purpose_columns: dict[str, tuple[str, ...]] = {
+        "sort_total_score": ("総合スコア",),
+        "sort_dividend_yield": ("配当利回り",),
+        "sort_per": ("PER",),
+        "sort_pbr": ("PBR",),
+        "sort_roe": ("ROE",),
+        "sort_market_cap": ("時価総額",),
+        "sort_volume": ("出来高",),
+        "sort_volatility": ("ボラティリティ",),
+        "sort_risk": ("Risk",),
+        "sort_data_quality": ("データ品質",),
         "multi_factor": ("総合スコア", "上昇気配", "下降警戒", "Risk", "データ品質"),
         "upside_signal": ("上昇気配", "下降警戒"),
         "momentum": ("Screening", "上昇気配", "下降警戒"),
@@ -2598,14 +2660,14 @@ def _render_ranking_purpose_context(ranking_purpose: str, weight_preset: str) ->
             render_metric_card(
                 label,
                 value or item,
-                caption="この並べ替え条件で重視する指標",
+                caption="この評価方針で重視する指標",
                 badges=(badge_html("重み", "info"),),
                 tone="info",
                 progress=metric_progress_from_value(value),
             )
     st.caption(
         f"評価プロファイル: {ranking_weight_preset_label(weight_preset)}。"
-        "ランキングは売買推奨ではなく、比較・深掘り候補の優先度です。"
+        "評価方針は売買推奨ではなく、比較・深掘り候補の採点軸です。"
     )
 
 
@@ -2731,11 +2793,9 @@ def _render_ranking_score_bar_chart(
 ) -> None:
     frame = ranking_score_bar_chart_frame(display_rows, ranking_purpose=ranking_purpose)
     metric_column = str(frame.attrs.get("metric_column", "総合スコア"))
-    render_section_heading(f"上位10件: {metric_column}")
-    st.caption(
-        f"並べ替え条件で重視する「{metric_column}」が高い順に比較します。"
-        "総合順位とは一致しない場合があります。銘柄名はグラフ上の補足で確認できます。"
-    )
+    sort_direction = str(frame.attrs.get("sort_direction", "desc"))
+    render_section_heading(f"上位10件: {ranking_policy_label(ranking_purpose)}")
+    st.caption(ranking_score_bar_chart_caption(ranking_purpose, metric_column, sort_direction))
     if frame.empty:
         st.info(f"{metric_column} をグラフ化できる候補がありません。")
         return
@@ -2811,6 +2871,7 @@ def _render_ranking_profile_chart(
             "指定条件向けの列が不足している、または同じ値に偏っているため、"
             f"代替チャート `{selection.profile.title}` を表示しています。"
         )
+    st.caption("選択中の評価方針とは別に、候補の期待・警戒バランスを確認する補助グラフです。")
     st.caption(selection.profile.description)
     with st.expander("読み方", expanded=False):
         for item in selection.profile.how_to_read:
@@ -3029,6 +3090,7 @@ def _render_ranking_result_table(
     table_base_key = _ranking_result_table_base_key(ranking_source, weight_preset)
     grid_key = _ranking_result_grid_key(table_base_key)
     st.caption("詳細確認用のテーブルです。銘柄データを見るには行をクリックしてください。")
+    st.caption(RANKING_TABLE_SORT_GUIDANCE)
     frame = ranking_result_aggrid_frame(display_rows, ranking_purpose=ranking_purpose)
     grid_response = AgGrid(
         frame,
@@ -3879,7 +3941,11 @@ def _render_market_data_ranking() -> None:
                 format_func=ranking_product_type_label,
             ),
         )
-    ranking_purpose = _ranking_filter_value("market_data_ranking_purpose", "multi_factor")
+    _sync_ranking_policy_state(product_type)
+    ranking_policy = _ranking_filter_value(
+        "market_data_ranking_policy",
+        RANKING_PURPOSE_MULTI_FACTOR,
+    )
     st.markdown("#### 取得条件")
     col_period, col_provider = st.columns(2)
     with col_period:
@@ -3911,11 +3977,11 @@ def _render_market_data_ranking() -> None:
         )
         if provider in LIVE_MARKET_DATA_PROVIDERS:
             st.caption("Yahooからライブデータを取得してランキングを作成します。")
-    weight_preset = ranking_weight_preset_for_purpose(ranking_purpose)
+    policy_preset = ranking_weight_preset_for_purpose(ranking_policy)
     st.caption(
-        f"現在の並べ替え条件: {ranking_purpose_label(ranking_purpose)} / "
-        f"評価プロファイル: {ranking_weight_preset_label(weight_preset)}。"
-        "条件適合度と取得期間の価格評価を合わせて並べ替えます。"
+        f"評価方針: {ranking_policy_label(ranking_policy)} / "
+        f"評価プロファイル: {ranking_weight_preset_label(policy_preset)}。"
+        "候補は選択中の評価方針スコア順に表示されます。"
     )
     _render_ranking_filter_panel()
 
@@ -3954,7 +4020,7 @@ def _render_market_data_ranking() -> None:
         symbol_options,
         region=region,
         product_type=product_type,
-        ranking_purpose=ranking_purpose,
+        ranking_purpose=RANKING_PURPOSE_MULTI_FACTOR,
         purpose=purpose,
         market=market,
         asset_type=asset_type,
@@ -3989,7 +4055,7 @@ def _render_market_data_ranking() -> None:
     filter_signature = ranking_filter_signature(
         region=region,
         product_type=product_type,
-        ranking_purpose=ranking_purpose,
+        ranking_purpose=RANKING_PURPOSE_MULTI_FACTOR,
         purpose=purpose,
         period_preset=period_preset,
         market=market,
@@ -4056,29 +4122,33 @@ def _render_market_data_ranking() -> None:
     if not labels:
         st.warning("この条件に合う候補がありません。候補条件を広げてください。")
 
-    action_sort_col, action_limit_col, action_button_col, _action_spacer = st.columns(
-        [1.35, 1.0, 0.7, 2.2]
+    action_policy_col, action_limit_col, action_button_col, _action_spacer = st.columns(
+        [1.55, 1.0, 0.75, 1.9]
     )
-    with action_sort_col:
-        purpose_options = ranking_purpose_options(product_type)
-        _ensure_selectbox_state_value("market_data_ranking_purpose", purpose_options)
-        ranking_purpose = cast(
+    with action_policy_col:
+        policy_options = ranking_policy_options(product_type)
+        _ensure_selectbox_state_value("market_data_ranking_policy", policy_options)
+        ranking_policy = cast(
             str,
             st.selectbox(
-                "並べ替え条件",
-                purpose_options,
+                "評価方針",
+                policy_options,
                 index=_selectbox_index(
-                    purpose_options,
-                    _ranking_filter_value("market_data_ranking_purpose", "multi_factor"),
+                    policy_options,
+                    _ranking_filter_value(
+                        "market_data_ranking_policy",
+                        RANKING_PURPOSE_MULTI_FACTOR,
+                    ),
                 ),
-                key="market_data_ranking_purpose",
-                format_func=ranking_purpose_label,
-                help=ranking_purpose_help(
-                    _ranking_filter_value("market_data_ranking_purpose", "multi_factor")
+                key="market_data_ranking_policy",
+                format_func=ranking_policy_label,
+                help=(
+                    "どの観点で候補を評価するかを選びます。"
+                    "上位候補・グラフ・確認メモは、この評価方針に基づいて表示されます。"
                 ),
             ),
         )
-    weight_preset = ranking_weight_preset_for_purpose(ranking_purpose)
+    policy_preset = ranking_weight_preset_for_purpose(ranking_policy)
     with action_limit_col:
         fetch_limit_options = list(RANKING_FETCH_LIMIT_LABELS)
         _ensure_selectbox_state_value("market_data_ranking_fetch_limit", fetch_limit_options)
@@ -4095,7 +4165,7 @@ def _render_market_data_ranking() -> None:
                 format_func=ranking_fetch_limit_label,
                 help=(
                     "候補が多い場合、外部取得前に総合マルチファクター基準で上位に絞ります。"
-                    "並べ替え条件を変えても、取得済みデータは再利用して再ソートできます。"
+                    "評価方針を変えても、取得済みデータは再利用して再評価できます。"
                     "全件取得も選べますが、Yahooライブデータでは時間がかかります。"
                 ),
             ),
@@ -4113,7 +4183,12 @@ def _render_market_data_ranking() -> None:
         start=start_date,
         end=end_date,
     )
-    st.caption(ranking_purpose_help(ranking_purpose))
+    st.caption(
+        "評価方針: どの観点で候補を評価するかを選びます。"
+        "候補は選択中の評価方針スコア順に表示されます。"
+        "配当利回り、PER、PBR、ROEなどで並べ替えたい場合は、詳細テーブルの列名をクリックしてください。"
+        f" {ranking_policy_label(ranking_policy)}は{ranking_purpose_help(ranking_policy)}"
+    )
     if len(effective_selected_labels) < len(selected_labels):
         st.info(
             f"候補が多いため、{ranking_fetch_limit_label(fetch_limit)}として"
@@ -4194,7 +4269,7 @@ def _render_market_data_ranking() -> None:
     elif rows:
         ranked_rows = apply_ranking_weight_preset(
             cast(list[dict[str, str]], rows),
-            weight_preset,
+            policy_preset,
             _symbol_universe_rows_by_symbol(),
         )
         display_rows = investment_score_display_rows(ranked_rows)
@@ -4206,8 +4281,8 @@ def _render_market_data_ranking() -> None:
             "ランキング候補ダッシュボード",
             "比較候補と深掘り候補を整理するための画面です。買う銘柄を決める画面ではありません。",
             chips=[
-                ("並べ替え", ranking_purpose_label(ranking_purpose)),
-                ("評価プロファイル", ranking_weight_preset_label(weight_preset)),
+                ("評価方針", ranking_policy_label(ranking_policy)),
+                ("評価プロファイル", ranking_weight_preset_label(policy_preset)),
                 (
                     "対象",
                     f"{ranking_region_label(region)} / {ranking_product_type_label(product_type)}",
@@ -4219,11 +4294,11 @@ def _render_market_data_ranking() -> None:
             "ranking",
             message=(
                 "上位候補は深掘りの入口です。"
-                f"{ranking_purpose_label(ranking_purpose)}の重視ポイントと注意点をセットで見比べます。"
+                f"{ranking_policy_label(ranking_policy)}の重視ポイントと注意点をセットで見比べます。"
             ),
             layout="compact",
         )
-        _render_ranking_purpose_context(ranking_purpose, weight_preset)
+        _render_ranking_purpose_context(ranking_policy, policy_preset)
         _render_ranking_data_state(
             provider=provider,
             display_rows=display_rows,
@@ -4233,25 +4308,25 @@ def _render_market_data_ranking() -> None:
         _render_ranking_summary_cards(
             ranking_summary_cards(
                 display_rows,
-                ranking_axis=ranking_purpose_label(ranking_purpose),
-                weight_preset=ranking_weight_preset_label(weight_preset),
+                ranking_axis=ranking_policy_label(ranking_policy),
+                weight_preset=ranking_weight_preset_label(policy_preset),
                 region=ranking_region_label(region),
                 product_type=ranking_product_type_label(product_type),
                 selected_count=len(effective_selected_labels),
             )
         )
         _render_top_screening_candidate_cards(
-            ranking_top_candidate_cards(display_rows, ranking_purpose=ranking_purpose)
+            ranking_top_candidate_cards(display_rows, ranking_purpose=ranking_policy)
         )
         chart_col, confidence_col = st.columns(2)
         with chart_col:
-            _render_ranking_score_bar_chart(display_rows, ranking_purpose)
+            _render_ranking_score_bar_chart(display_rows, ranking_policy)
         with confidence_col:
-            _render_ranking_profile_chart(display_rows, ranking_purpose)
+            _render_ranking_profile_chart(display_rows, ranking_policy)
         deep_dive_symbols = ranking_symbol_options(ranked_rows)
         selected_symbol: str | None = None
         if deep_dive_symbols:
-            deep_dive_source = f"{ranking_source}|{weight_preset}"
+            deep_dive_source = f"{ranking_source}|{policy_preset}"
             default_deep_dive_symbol = ranking_deep_dive_default_symbol(
                 ranked_rows,
                 current_symbol=cast(
@@ -4289,11 +4364,11 @@ def _render_market_data_ranking() -> None:
         _render_selected_ranking_candidate_breakdown(
             display_rows,
             selected_symbol,
-            ranking_purpose,
+            ranking_policy,
         )
         _render_ranking_advanced_insights(
             display_rows,
-            include_confidence_map=ranking_purpose != "data_confidence",
+            include_confidence_map=ranking_policy != "data_confidence",
         )
         st.markdown("#### 詳細テーブル")
         st.caption(
@@ -4302,8 +4377,8 @@ def _render_market_data_ranking() -> None:
         _render_ranking_result_table(
             display_rows,
             ranking_source=ranking_source,
-            weight_preset=weight_preset,
-            ranking_purpose=ranking_purpose,
+            weight_preset=policy_preset,
+            ranking_purpose=ranking_policy,
         )
         _render_ranking_error_rows(cast(list[dict[str, str]], error_rows))
         _render_ranking_decision_report_lazy(
@@ -4311,13 +4386,13 @@ def _render_market_data_ranking() -> None:
             provider=provider,
             start=start_date,
             end=end_date,
-            ranking_purpose=ranking_purpose_label(ranking_purpose),
-            weight_preset=ranking_weight_preset_label(weight_preset),
+            ranking_purpose=ranking_policy_label(ranking_policy),
+            weight_preset=ranking_weight_preset_label(policy_preset),
             comparison_summary=comparison_summary["inline"],
             error_rows=cast(list[dict[str, str]], error_rows),
             report_state_key=_ranking_decision_report_state_key(
                 ranking_source,
-                weight_preset,
+                policy_preset,
             ),
         )
         col_json, col_csv = st.columns(2)
@@ -9624,7 +9699,7 @@ def _render_ranking_decision_report_lazy(
         )
         st.info(
             "深掘り操作を先に使えるよう、ランキングの投資判断レポートは必要時に作成します。"
-            "作成後は同じ並べ替え条件の間、ダウンロード用データを再利用します。"
+            "作成後は同じ評価方針の間、ダウンロード用データを再利用します。"
         )
         if st.button("投資判断レポートを作成", key=f"{report_state_key}_build"):
             with st.spinner("ランキングの比較レポートを作成しています。"):

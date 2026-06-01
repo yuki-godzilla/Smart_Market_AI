@@ -241,30 +241,30 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 確認できるもの:
 
 - provider
-- 地域 / 商品 / 並べ替え条件
+- 地域 / 商品 / 評価方針
   - 地域: `国内` / `米国` / `全体`
   - 商品: `株式` / `ETF` / `指定なし`
-  - 並べ替え条件: `総合マルチファクター` / `成長クオリティ` / `割安クオリティ` / `高配当の持続性` / `低ボラ・安定` / `モメンタム・トレンド` / `リスク調整パフォーマンス` / `小型・成長探索` / `NISA長期適合` / `データ信頼度優先` / `ETF低コスト・コア` / `ETFインカム・分散`
-- `並べ替え条件` に応じた評価プロファイル（画面上では `最新データを取得して更新` ボタンの横で選択）
-  - 総合マルチファクター: Screening、上昇気配・下降警戒、Risk、Data Quality、条件適合度、DB信頼度を総合評価する既定条件。
+  - 評価方針: `AI総合` / `上昇気配重視` / `モメンタム・トレンド` / `成長クオリティ` / `割安クオリティ` / `高配当の持続性` / `低ボラ・安定` / `リスク調整パフォーマンス` / `小型・成長探索` / `NISA長期適合` / `データ信頼度優先` / `ETF低コスト・コア` / `ETFインカム・分散`
+- `評価方針` はSMAIの複合評価プロファイルを選ぶ主導線です（画面上では `最新データを取得して更新` ボタンの横で選択）。
+  - AI総合: `総合マルチファクター`。Screening、上昇気配・下降警戒、Risk、Data Quality、条件適合度、DB信頼度を総合評価する既定条件。
   - 上昇気配重視: 上昇気配と下降警戒の差し引き、Screening、Data Qualityを重視する。買い推奨ではなく、短期的な深掘り候補の整理に使う。
+  - モメンタム・トレンド: 取得期間の価格評価、上昇気配・下降警戒、Screeningを重視し、追随リスクも確認する。
   - 成長クオリティ: ROE、上昇気配、Screening、Data Qualityを重視し、PER/PBRは成長期待との釣り合い確認に使う。
   - 割安クオリティ: PER/PBRの低さに加え、ROE、Risk、Data Qualityを確認し、割安に見える理由を確認しやすくする。
   - 高配当の持続性: 配当利回り、配当カテゴリ、Risk、PBR、Data Qualityを組み合わせ、極端な高配当は減配リスク確認対象にする。
   - 低ボラ・安定: Risk signal、β分類、Data Quality、銘柄規模を重視し、値動きの落ち着きを優先する。
-  - モメンタム・トレンド: 取得期間の価格評価、上昇気配・下降警戒、Screeningを重視し、追随リスクも確認する。
   - リスク調整パフォーマンス: リターンだけでなくRisk signal、Data Quality、条件適合度を合わせて見る。
   - 小型・成長探索: 小型/中型、ROE、Screening、上昇気配を重視し、RiskとDB信頼度も確認する。
   - NISA長期適合: NISA適合、投資スタイル、Risk、Data Quality、ROEを重視する。
   - データ信頼度優先: metadata source、更新日、Data Quality、欠損の少なさを最優先する。
   - ETF低コスト・コア: 経費率、連動指数、複雑性、NISA適合、DB信頼度を重視する。
   - ETFインカム・分散: ETFの利回り、経費率、指数、通貨、複雑性、Data Qualityを重視する。
-  - 旧来の `配当重視` / `成長重視` / `割安重視` / `安定重視` / `トレンド重視` は後方互換の比較条件として残す。
-- ランキング結果画面では、選択中の `並べ替え条件` に合わせて重視ポイント、メインチャート、上位カードの主指標、確認メモが切り替わる。詳細テーブルは `順位` / `銘柄` / `銘柄名` / `総合スコア` / `配当利回り` / `PER` / `PBR` / `ROE` / `見方` を常時表示し、列ヘッダーのクリックで表示中データをローカルに並べ替える。欠損値は `N/A` として表示し、ソート時は末尾に置く。データ品質 / 条件適合度 / DB信頼度 / 根拠状態は必要に応じて `信頼度/根拠` にまとめる。長い並べ替え理由、確認ポイント、スコア内訳、取得状態は tooltip / 行クリック後の銘柄データで確認する。
+  - 旧来の `配当重視` / `成長重視` / `割安重視` / `安定重視` / `トレンド重視` は内部互換として残すが、上部UIでは代表プロファイルへ統合して重複表示しない。
+- ランキング結果画面では、`評価方針` で候補を採点し、そのスコア順に上位カード / Top 10棒グラフ / 確認メモを表示する。単一指標ソートは上部ドロップダウンには置かず、詳細テーブルの列ヘッダークリックで表示中データをローカルに並べ替える。詳細テーブルは `順位` / `銘柄` / `銘柄名` / `総合スコア` / `配当利回り` / `PER` / `PBR` / `ROE` / `見方` を常時表示する。`総合スコア` / `配当利回り` / `ROE` / `時価総額` / `出来高` / `データ品質` / `スクリーニング` / `上昇気配` は高い順、`PER` / `PBR` / `ボラティリティ` / `リスク` / `下降警戒` は低い順を最初に確認する。メインチャートは選択中の `評価方針` で使う代表指標の比較であり、詳細テーブルの列ソートでは自動切替しない。欠損値は `N/A` として表示し、ソート時は末尾に置く。データ品質 / 条件適合度 / DB信頼度 / 根拠状態は必要に応じて `信頼度/根拠` にまとめる。長い評価理由、確認ポイント、スコア内訳、取得状態は tooltip / 行クリック後の銘柄データで確認する。
 - `上昇気配` / `下降警戒` は、予測エッジ、モデル別方向エッジ、価格モメンタム、トレンド確認を組み合わせる。予測変化率とモメンタムはボラティリティ調整し、モデル間の開きは直接加点せず、スコアを中立へ寄せる信頼度調整として扱う。ランキングは売買推奨ではなく、深掘り候補の比較優先度として扱う。
-- `作成対象` は、外部 provider 取得前の件数上限です。既定は `標準: 上位300件` で、候補が多い場合は総合マルチファクター基準の条件適合度とDB信頼度で事前に上位候補を選んでから価格データを取得します。`並べ替え条件` の変更、詳細テーブルの列ソート、検索、絞り込みは取得対象を変えず、取得済みデータの再ソートとして扱います。外部取得は `最新データを取得して更新` を押した場合のみ実行します。全件取得も選べますが、Yahoo live data では時間がかかります。
+- `作成対象` は、外部 provider 取得前の件数上限です。既定は `標準: 上位300件` で、候補が多い場合は総合マルチファクター基準の条件適合度とDB信頼度で事前に上位候補を選んでから価格データを取得します。`評価方針` の変更、詳細テーブルの列ソート、検索、絞り込みは取得対象を変えず、取得済みデータの再評価・再ソートとして扱います。外部取得は `最新データを取得して更新` を押した場合のみ実行します。全件取得も選べますが、Yahoo live data では時間がかかります。
 - ランキング結果の総合スコアには、取得期間の市場評価に加えて、条件適合度とDB信頼度を反映する。
-  - 条件適合度: NISA、時価総額、配当、PER/PBR/ROE、ETF経費率、複雑性などを並べ替え条件別に評価する。投資魅力度を直接保証するものではありません。
+  - 条件適合度: NISA、時価総額、配当、PER/PBR/ROE、ETF経費率、複雑性などを評価方針別に評価する。投資魅力度を直接保証するものではありません。
   - DB信頼度: `metadata_source`、`metadata_as_of` / `metadata_updated_at`、ランキング判断に使う主要項目の登録状況を評価する。
 - 基本条件
   - period preset: `短期: 1か月` / `標準: 3か月` / `中期: 6か月` / `長期: 1年`
@@ -494,7 +494,7 @@ Phase 16 ranking implementation notes:
 - Ranking rows are cached in Streamlit session state by `provider + symbols + start + end`. Re-running the same request or changing only the ranking weight preset reuses fetched rows and only re-sorts the display.
 - Ranking display rows reuse a single symbol-master lookup map when building notes and modal guidance. This avoids repeated `symbol_universe.csv` scans during long-period ranking reruns and keeps row-click symbol-detail modal opening responsive.
 - The ranking progress indicator reports batch fetch, feature construction, direction signal calculation, and final sorting so large candidate sets do not look frozen.
-- Ranking deep-dive controls are rendered before the Decision Report block. The ranking Decision Report is generated lazily by `投資判断レポートを作成`, then reused for the same ranking source / sort profile so resorting and cockpit handoff remain responsive. Ranking report は上位候補メモとスコア詳細を分け、明細には symbol、銘柄名、並べ替え条件、確認観点を並べて出力する。
+- Ranking deep-dive controls are rendered before the Decision Report block. The ranking Decision Report is generated lazily by `投資判断レポートを作成`, then reused for the same ranking source / evaluation policy so resorting and cockpit handoff remain responsive. Ranking report は上位候補メモとスコア詳細を分け、明細には symbol、銘柄名、評価方針、確認観点を並べて出力する。
 - Ranking remains decision support only. Click a ranking row to open the shared `銘柄データ` modal with short ranking context plus local master details. Use the cockpit for detailed price / forecast / score-reason review.
 - In `銘柄コックピット`, `銘柄データを見る` sits beside symbol selection and opens the same local-master modal for the selected symbol. Start / End inputs wrap to the next row. After fetch, the cockpit shows `投資判断メモ` combining score, warnings, valuation, income, price trend, and next-check wording. Research Evidence starts with an operation card that says `AI調査で確認すること` before fetch and `企業リサーチレポートを更新しました` after fetch. When AI Research has a report, the result panel begins with `企業リサーチサマリー`, followed by `定量情報サマリー`, `IR情報サマリー`, and `最新ニュースサマリー`. These sections explain the company overview, main businesses, products/services, regions, scale, key metrics, IR availability, news, and missing critical items as a company-understanding report. AI読み取りメモ and the 3 columns for confirmed information / caution information / missing information are folded into a secondary expander; `企業理解の確認ポイント` and detailed source cards remain below.
 - In `銘柄コックピット` and `銘柄ランキング`, the result area shows a prominent `Decision Report` block with Markdown / JSON / manifest / ZIP downloads. Cockpit reports render as a structured UI first: overall judgement card, 3-line summary, main evidence block, and sectioned detail expanders. Cockpit / Ranking Research Summary panels display Research Score summary, component, and warning rows as reference context when AI Research has produced a report. Ranking selected-candidate breakdown can show report-derived Research Score / confidence as a confirmation material, but it does not change ranking order. When Cockpit `AI調査を更新` has produced a Research report with documents or evidence, the exported context includes both `Research Evidence` and `Research Score` sections with component rows, confidence, supporting evidence, warnings, and non-advice notes. Ranking reports focus on comparison context, score distribution, factor leaders, and group-level deep-dive checkpoints instead of turning into a single top-symbol report. Ranking Markdown body remains inside `レポート本文を表示`. It is decision-support material, not a buy/sell recommendation.

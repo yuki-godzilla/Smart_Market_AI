@@ -861,3 +861,29 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added always-visible ranking detail columns for `配当利回り`, `PER`, `PBR`, and `ROE`, with missing values displayed as `N/A` instead of zero-like placeholders.
 - Added local AgGrid numeric sort settings for total score, dividend yield, PER, PBR, ROE, and related detail metrics, keeping missing values at the end for both ascending and descending sorts.
 - Added ranking data-state and score-explanation expanders, refreshed ranking via the explicit `最新データを取得して更新` action, and moved score/detail/fetch context into row-click detail rows.
+
+## 2026-06-01 - Ranking rich sort regression check
+
+- Added short UI guidance that explains table column sort directions, including low-value checks for `PER`, `PBR`, `Risk`, and `ボラティリティ`, while keeping missing `N/A` values at the end.
+- Clarified that the top-10 chart compares the representative metric for the selected ranking condition and does not automatically switch when the detail table is locally re-sorted.
+- Added regression tests for required metric sort directions, chart/table context wording, and missing-value guidance.
+
+## 2026-06-01 - Ranking all-sort regression sprint
+
+- Added simple single-metric ranking conditions for `総合スコア`, `配当利回り`, `PER`, `PBR`, `ROE`, `時価総額`, `出来高`, `ボラティリティ`, `低リスク候補`, and `データ品質` without adding an advanced condition builder.
+- Aligned top candidate cards, the Top 10 bar chart, row reasons, and the detailed table with the selected single-metric sort; low-better metrics use low-first ordering and missing values remain at the end.
+- Clarified the scatter chart as a supplementary risk/expectation view and added regression coverage for all required sort conditions.
+
+## 2026-06-01 - Ranking sort information architecture cleanup
+
+- Split the top Ranking UI into `評価方針` and `並び替え`, so composite evaluation profiles and single-metric sort conditions are no longer mixed in one large dropdown.
+- Reduced visible evaluation policies to beginner-facing options (`AI総合`, `高配当`, `割安`, `成長`, `安定`, `NISA長期`, `ETF`) and mapped legacy / detailed profiles to representative composite profiles.
+- Limited the top-level single-metric sort to `総合スコア順`, `配当利回り順`, `PER低い順`, `PBR低い順`, and `ROE高い順`; kept `時価総額`, `出来高`, `ボラティリティ`, `Risk`, and `データ品質` available through detailed-table column sort.
+- Renamed the `risk_signal_score` high-first sort wording from low-risk language to `リスク確認しやすい順` / 安定性確認 wording to avoid implying guaranteed low risk.
+
+## 2026-06-01 - Ranking composite policy path restore
+
+- Removed the top-level single-metric `並び替え` selectbox from the Ranking main flow and moved single-metric sorting fully into detailed-table column sorting.
+- Restored SMAI composite evaluation profiles in `評価方針`, including `上昇気配重視`, `モメンタム・トレンド`, `成長クオリティ`, `割安クオリティ`, `高配当の持続性`, `低ボラ・安定`, `リスク調整パフォーマンス`, `小型・成長探索`, `データ信頼度優先`, and ETF profiles.
+- Re-aligned top candidate cards, the Top 10 chart, selected-candidate breakdown, and Decision Report context with the selected evaluation policy instead of a single metric sort.
+- Expanded detailed-table sort guidance to cover Screening, upside/downside signals, risk, and missing-value handling.

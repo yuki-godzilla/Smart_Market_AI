@@ -52,6 +52,7 @@ from ui.app import (
     MARKET_DATA_PERIOD_PRESETS,
     NO_SYMBOL_CANDIDATE_LABEL,
     RANKING_RESULT_GRID_CUSTOM_CSS,
+    RANKING_TABLE_SORT_GUIDANCE,
     SYMBOL_DETAIL_DIALOG_CSS,
     RankingResearchStatus,
     _build_market_data_ranking_rows,
@@ -164,6 +165,7 @@ from ui.app import (
     ranking_research_status_from_report,
     ranking_result_aggrid_frame,
     ranking_result_aggrid_options,
+    ranking_score_bar_chart_caption,
     ranking_score_bar_chart_frame,
     ranking_score_confidence_frame,
     ranking_score_detail_rows,
@@ -208,14 +210,33 @@ from ui.ranking import (
     RANKING_PRESET_UPSIDE_SIGNAL,
     RANKING_PRODUCT_ETF,
     RANKING_PURPOSE_DATA_CONFIDENCE,
+    RANKING_PURPOSE_DIVIDEND,
     RANKING_PURPOSE_ETF_CORE_COST,
     RANKING_PURPOSE_ETF_INCOME,
+    RANKING_PURPOSE_GROWTH,
+    RANKING_PURPOSE_MIN_VOLATILITY,
     RANKING_PURPOSE_MOMENTUM,
     RANKING_PURPOSE_MULTI_FACTOR,
+    RANKING_PURPOSE_NISA_LONG_TERM,
     RANKING_PURPOSE_QUALITY_GROWTH,
     RANKING_PURPOSE_QUALITY_VALUE,
+    RANKING_PURPOSE_RISK_ADJUSTED,
+    RANKING_PURPOSE_SMALL_GROWTH,
+    RANKING_PURPOSE_SORT_DATA_QUALITY,
+    RANKING_PURPOSE_SORT_DIVIDEND_YIELD,
+    RANKING_PURPOSE_SORT_MARKET_CAP,
+    RANKING_PURPOSE_SORT_PBR,
+    RANKING_PURPOSE_SORT_PER,
+    RANKING_PURPOSE_SORT_RISK,
+    RANKING_PURPOSE_SORT_ROE,
+    RANKING_PURPOSE_SORT_TOTAL_SCORE,
+    RANKING_PURPOSE_SORT_VOLATILITY,
+    RANKING_PURPOSE_SORT_VOLUME,
+    RANKING_PURPOSE_STABILITY,
     RANKING_PURPOSE_SUSTAINABLE_INCOME,
+    RANKING_PURPOSE_TREND,
     RANKING_PURPOSE_UPSIDE_SIGNAL,
+    RANKING_PURPOSE_VALUE,
     RANKING_THEME_LABELS,
     RANKING_WEIGHT_PRESETS,
     apply_ranking_weight_preset,
@@ -234,6 +255,9 @@ from ui.ranking import (
     ranking_no_bars_error_row,
     ranking_period_dates,
     ranking_period_label,
+    ranking_policy_for_purpose,
+    ranking_policy_label,
+    ranking_policy_options,
     ranking_product_type_label,
     ranking_provider_error_rows,
     ranking_purpose_focus_summary,
@@ -2094,6 +2118,62 @@ def test_ranking_result_aggrid_options_enable_single_row_click_selection():
     assert column_defs["並べ替え理由"]["tooltipField"] == "並べ替え理由"
 
 
+def test_ranking_result_aggrid_options_assigns_metric_sort_directions():
+    frame = pd.DataFrame(
+        [
+            {
+                "総合スコア": "80.1",
+                "Screening": "75",
+                "上昇気配": "68",
+                "下降警戒": "32",
+                "配当利回り": "3.2%",
+                "PER": "12.4",
+                "PBR": "1.1",
+                "ROE": "14.0%",
+                "時価総額": "1,000,000",
+                "出来高": "120,000",
+                "ボラティリティ": "18.5%",
+                "Risk": "42",
+                "データ品質": "88",
+            }
+        ]
+    )
+
+    options = ranking_result_aggrid_options(frame)
+    column_defs = {column["field"]: column for column in options["columnDefs"]}
+    expected_sorting_orders = {
+        "総合スコア": ["desc", "asc", None],
+        "Screening": ["desc", "asc", None],
+        "上昇気配": ["desc", "asc", None],
+        "下降警戒": ["asc", "desc", None],
+        "配当利回り": ["desc", "asc", None],
+        "PER": ["asc", "desc", None],
+        "PBR": ["asc", "desc", None],
+        "ROE": ["desc", "asc", None],
+        "時価総額": ["desc", "asc", None],
+        "出来高": ["desc", "asc", None],
+        "ボラティリティ": ["asc", "desc", None],
+        "Risk": ["asc", "desc", None],
+        "データ品質": ["desc", "asc", None],
+    }
+
+    for column, sorting_order in expected_sorting_orders.items():
+        assert column_defs[column]["sortingOrder"] == sorting_order
+        assert column_defs[column]["unSortIcon"] is True
+        assert "comparator" in column_defs[column]
+    assert column_defs["Screening"]["headerName"] == "スクリーニング"
+    assert column_defs["Risk"]["headerName"] == "リスク"
+
+
+def test_ranking_table_sort_guidance_explains_low_sort_and_missing_values():
+    assert "詳細テーブルでは、列名をクリックして各指標順に並べ替えできます" in (
+        RANKING_TABLE_SORT_GUIDANCE
+    )
+    assert "スクリーニング・上昇気配は高い順" in RANKING_TABLE_SORT_GUIDANCE
+    assert "PER・PBR・ボラティリティ・リスク・下降警戒は低い順" in (RANKING_TABLE_SORT_GUIDANCE)
+    assert "N/Aは末尾" in RANKING_TABLE_SORT_GUIDANCE
+
+
 def test_ranking_result_grid_custom_css_keeps_dark_table_readable():
     assert RANKING_RESULT_GRID_CUSTOM_CSS[".ag-root-wrapper"]["background-color"] == (
         f"{THEME_COLORS['bg_surface']} !important"
@@ -2867,6 +2947,8 @@ def test_advanced_ranking_purposes_have_profiles_and_help_text():
         RANKING_PRESET_UPSIDE_SIGNAL
     )
     assert "ROE" in ranking_purpose_help(RANKING_PURPOSE_QUALITY_GROWTH)
+    assert "PERが低い順" in ranking_purpose_help(RANKING_PURPOSE_SORT_PER)
+    assert "安全を保証" in ranking_purpose_help(RANKING_PURPOSE_SORT_RISK)
     assert "減配リスク" in ranking_purpose_help(RANKING_PURPOSE_SUSTAINABLE_INCOME)
     assert "経費率" in ranking_purpose_help(RANKING_PURPOSE_ETF_CORE_COST)
     assert "上昇気配" in ranking_purpose_help(RANKING_PURPOSE_UPSIDE_SIGNAL)
@@ -2883,25 +2965,67 @@ def test_advanced_ranking_purposes_have_profiles_and_help_text():
     )
     assert "上昇気配 25%" in ranking_purpose_weight_summary(RANKING_PURPOSE_UPSIDE_SIGNAL)
     assert "下降警戒控えめ 10%" in ranking_purpose_weight_summary(RANKING_PURPOSE_UPSIDE_SIGNAL)
+    assert ranking_purpose_weight_summary(RANKING_PURPOSE_SORT_PER) == (
+        "PER低い順 100%",
+        "N/A 末尾",
+        "同値は総合スコア補助",
+    )
     assert "上向きシグナル" in ranking_purpose_focus_summary(RANKING_PURPOSE_UPSIDE_SIGNAL)
+    assert "低い順" in ranking_purpose_focus_summary(RANKING_PURPOSE_SORT_PER)
 
 
-def test_ranking_purpose_options_put_common_choices_first():
-    assert ranking_purpose_options()[:5] == [
+def test_ranking_policy_options_restore_composite_profiles_without_metric_sorts():
+    assert ranking_policy_options() == [
         RANKING_PURPOSE_MULTI_FACTOR,
         RANKING_PURPOSE_UPSIDE_SIGNAL,
         RANKING_PURPOSE_MOMENTUM,
         RANKING_PURPOSE_QUALITY_GROWTH,
         RANKING_PURPOSE_QUALITY_VALUE,
-    ]
-
-    etf_options = ranking_purpose_options(RANKING_PRODUCT_ETF)
-    assert etf_options[:4] == [
-        RANKING_PURPOSE_MULTI_FACTOR,
+        RANKING_PURPOSE_SUSTAINABLE_INCOME,
+        RANKING_PURPOSE_MIN_VOLATILITY,
+        RANKING_PURPOSE_RISK_ADJUSTED,
+        RANKING_PURPOSE_SMALL_GROWTH,
+        RANKING_PURPOSE_NISA_LONG_TERM,
+        RANKING_PURPOSE_DATA_CONFIDENCE,
         RANKING_PURPOSE_ETF_CORE_COST,
         RANKING_PURPOSE_ETF_INCOME,
-        RANKING_PURPOSE_DATA_CONFIDENCE,
     ]
+    assert [ranking_policy_label(option) for option in ranking_policy_options()] == [
+        "AI総合",
+        "上昇気配重視",
+        "モメンタム・トレンド",
+        "成長クオリティ",
+        "割安クオリティ",
+        "高配当の持続性",
+        "低ボラ・安定",
+        "リスク調整パフォーマンス",
+        "小型・成長探索",
+        "NISA長期適合",
+        "データ信頼度優先",
+        "ETF低コスト・コア",
+        "ETFインカム・分散",
+    ]
+    assert ranking_purpose_options() == ranking_policy_options()
+
+    etf_options = ranking_purpose_options(RANKING_PRODUCT_ETF)
+    assert etf_options == ranking_policy_options()
+    assert RANKING_PURPOSE_SORT_TOTAL_SCORE not in ranking_policy_options()
+    assert RANKING_PURPOSE_SORT_DIVIDEND_YIELD not in ranking_policy_options()
+    assert RANKING_PURPOSE_SORT_PER not in ranking_policy_options()
+    assert RANKING_PURPOSE_SORT_PBR not in ranking_policy_options()
+    assert RANKING_PURPOSE_SORT_ROE not in ranking_policy_options()
+    assert RANKING_PURPOSE_SORT_MARKET_CAP not in ranking_policy_options()
+    assert RANKING_PURPOSE_SORT_VOLUME not in ranking_policy_options()
+    assert RANKING_PURPOSE_SORT_VOLATILITY not in ranking_policy_options()
+    assert RANKING_PURPOSE_SORT_RISK not in ranking_policy_options()
+    assert RANKING_PURPOSE_SORT_DATA_QUALITY not in ranking_policy_options()
+    assert ranking_policy_for_purpose(RANKING_PURPOSE_DIVIDEND) == (
+        RANKING_PURPOSE_SUSTAINABLE_INCOME
+    )
+    assert ranking_policy_for_purpose(RANKING_PURPOSE_GROWTH) == RANKING_PURPOSE_QUALITY_GROWTH
+    assert ranking_policy_for_purpose(RANKING_PURPOSE_VALUE) == RANKING_PURPOSE_QUALITY_VALUE
+    assert ranking_policy_for_purpose(RANKING_PURPOSE_STABILITY) == (RANKING_PURPOSE_MIN_VOLATILITY)
+    assert ranking_policy_for_purpose(RANKING_PURPOSE_TREND) == RANKING_PURPOSE_MOMENTUM
 
 
 def test_beta_risk_filter_labels_explain_thresholds():
@@ -4315,6 +4439,84 @@ def test_ranking_score_bar_chart_frame_uses_fit_for_etf_core_cost():
     assert frame["score"].tolist() == [92.0, 70.0]
 
 
+def test_ranking_score_bar_chart_frame_matches_required_single_metric_sort_order():
+    rows = [
+        {
+            "順位": "1",
+            "銘柄": "AAA",
+            "銘柄名": "Alpha",
+            "総合スコア": "80",
+            "配当利回り": "1.0%",
+            "PER": "18",
+            "PBR": "2.0",
+            "ROE": "10%",
+            "時価総額": "1000",
+            "出来高": "100",
+            "ボラティリティ": "20%",
+            "Risk": "80",
+            "データ品質": "70",
+        },
+        {
+            "順位": "2",
+            "銘柄": "BBB",
+            "銘柄名": "Beta",
+            "総合スコア": "70",
+            "配当利回り": "4.0%",
+            "PER": "8",
+            "PBR": "1.0",
+            "ROE": "15%",
+            "時価総額": "5000",
+            "出来高": "900",
+            "ボラティリティ": "10%",
+            "Risk": "60",
+            "データ品質": "90",
+        },
+        {
+            "順位": "3",
+            "銘柄": "MISS",
+            "銘柄名": "Missing",
+            "総合スコア": "90",
+            "配当利回り": "N/A",
+            "PER": "N/A",
+            "PBR": "N/A",
+            "ROE": "N/A",
+            "時価総額": "N/A",
+            "出来高": "N/A",
+            "ボラティリティ": "N/A",
+            "Risk": "40",
+            "データ品質": "50",
+        },
+    ]
+    expectations = {
+        RANKING_PURPOSE_SORT_TOTAL_SCORE: ("総合スコア", "desc", ["MISS", "AAA", "BBB"]),
+        RANKING_PURPOSE_SORT_DIVIDEND_YIELD: ("配当利回り", "desc", ["BBB", "AAA"]),
+        RANKING_PURPOSE_SORT_PER: ("PER", "asc", ["BBB", "AAA"]),
+        RANKING_PURPOSE_SORT_PBR: ("PBR", "asc", ["BBB", "AAA"]),
+        RANKING_PURPOSE_SORT_ROE: ("ROE", "desc", ["BBB", "AAA"]),
+        RANKING_PURPOSE_SORT_MARKET_CAP: ("時価総額", "desc", ["BBB", "AAA"]),
+        RANKING_PURPOSE_SORT_VOLUME: ("出来高", "desc", ["BBB", "AAA"]),
+        RANKING_PURPOSE_SORT_VOLATILITY: ("ボラティリティ", "asc", ["BBB", "AAA"]),
+        RANKING_PURPOSE_SORT_RISK: ("Risk", "asc", ["MISS", "BBB", "AAA"]),
+        RANKING_PURPOSE_SORT_DATA_QUALITY: ("データ品質", "desc", ["BBB", "AAA", "MISS"]),
+    }
+
+    for purpose, (metric_column, sort_direction, expected_symbols) in expectations.items():
+        frame = ranking_score_bar_chart_frame(rows, ranking_purpose=purpose)
+        assert frame.attrs["metric_column"] == metric_column
+        assert frame.attrs["sort_direction"] == sort_direction
+        assert frame["symbol"].tolist() == expected_symbols
+
+
+def test_ranking_score_bar_chart_caption_separates_chart_metric_from_table_sort():
+    caption = ranking_score_bar_chart_caption(RANKING_PURPOSE_QUALITY_VALUE, "PER", "asc")
+
+    assert "割安クオリティの評価方針" in caption
+    assert "代表指標「PER」" in caption
+    assert "低い順" in caption
+    assert "詳細テーブルの列ヘッダー" in caption
+    assert "自動では切り替わりません" in caption
+
+
 def test_ranking_candidate_cards_and_breakdown_use_existing_display_values():
     rows = [
         {
@@ -5380,6 +5582,68 @@ def test_apply_ranking_weight_preset_reweights_and_sorts_rows():
     assert rows[1]["symbol"] == "QUALITY"
     assert ranking_weight_preset_label("forecast") == "上昇気配重視"
     assert ranking_weight_preset_label(RANKING_PRESET_UPSIDE_SIGNAL) == "上昇気配重視"
+
+
+def test_apply_ranking_weight_preset_supports_required_single_metric_sorts():
+    rows = [
+        {
+            **_ranking_score_row("AAA"),
+            "total_score": "80",
+            "dividend_yield_pct": "1.0",
+            "per": "18",
+            "pbr": "2.0",
+            "roe_pct": "10",
+            "market_cap": "1000",
+            "volume": "100",
+            "volatility": "20%",
+            "risk_signal_score": "80",
+            "data_quality_score": "70",
+        },
+        {
+            **_ranking_score_row("BBB"),
+            "total_score": "70",
+            "dividend_yield_pct": "4.0",
+            "per": "8",
+            "pbr": "1.0",
+            "roe_pct": "15",
+            "market_cap": "5000",
+            "volume": "900",
+            "volatility": "10%",
+            "risk_signal_score": "60",
+            "data_quality_score": "90",
+        },
+        {
+            **_ranking_score_row("MISS"),
+            "total_score": "90",
+            "dividend_yield_pct": "",
+            "per": "",
+            "pbr": "",
+            "roe_pct": "",
+            "market_cap": "",
+            "volume": "",
+            "volatility": "",
+            "risk_signal_score": "40",
+            "data_quality_score": "50",
+        },
+    ]
+    expectations = {
+        RANKING_PURPOSE_SORT_TOTAL_SCORE: ["MISS", "AAA", "BBB"],
+        RANKING_PURPOSE_SORT_DIVIDEND_YIELD: ["BBB", "AAA", "MISS"],
+        RANKING_PURPOSE_SORT_PER: ["BBB", "AAA", "MISS"],
+        RANKING_PURPOSE_SORT_PBR: ["BBB", "AAA", "MISS"],
+        RANKING_PURPOSE_SORT_ROE: ["BBB", "AAA", "MISS"],
+        RANKING_PURPOSE_SORT_MARKET_CAP: ["BBB", "AAA", "MISS"],
+        RANKING_PURPOSE_SORT_VOLUME: ["BBB", "AAA", "MISS"],
+        RANKING_PURPOSE_SORT_VOLATILITY: ["BBB", "AAA", "MISS"],
+        RANKING_PURPOSE_SORT_RISK: ["AAA", "BBB", "MISS"],
+        RANKING_PURPOSE_SORT_DATA_QUALITY: ["BBB", "AAA", "MISS"],
+    }
+
+    for purpose, expected_symbols in expectations.items():
+        preset = ranking_weight_preset_for_purpose(purpose)
+        ranked = apply_ranking_weight_preset(rows, preset, {})
+        assert [row["symbol"] for row in ranked] == expected_symbols
+        assert [row["rank"] for row in ranked] == ["1", "2", "3"]
 
 
 def test_ranking_weight_presets_prefer_direction_signal_over_forecast_agreement():

@@ -10,11 +10,12 @@ from ui.ranking import (
     RANKING_MARKET_LABELS,
     RANKING_METRIC_FILTER_DEFAULTS,
     RANKING_PRODUCT_TYPE_LABELS,
-    RANKING_PURPOSE_LABELS,
+    RANKING_PURPOSE_MULTI_FACTOR,
     RANKING_REGION_LABELS,
     initial_ranking_selected_labels,
     normalize_dividend_filter_values,
     ranking_filter_signature,
+    ranking_policy_label,
     ranking_symbols_state_key,
     symbol_candidate_labels,
     valid_ranking_selected_labels,
@@ -80,9 +81,8 @@ def ranking_filter_summary() -> str:
         ranking_filter_value("market_data_ranking_product_type", "stock"),
         "株式",
     )
-    ranking_purpose = RANKING_PURPOSE_LABELS.get(
-        ranking_filter_value("market_data_ranking_purpose", "dividend"),
-        "配当重視",
+    ranking_policy = ranking_policy_label(
+        ranking_filter_value("market_data_ranking_policy", RANKING_PURPOSE_MULTI_FACTOR)
     )
     market = RANKING_MARKET_LABELS.get(
         ranking_filter_value("market_data_ranking_market", "all"),
@@ -103,7 +103,7 @@ def ranking_filter_summary() -> str:
         f"配当利回り {min_dividend}% 以上" if dividend_enabled else "配当利回り 指定なし"
     )
     return (
-        f"条件: {region} / {product_type} / {ranking_purpose} / "
+        f"条件: {region} / {product_type} / 評価方針: {ranking_policy} / "
         f"{market} / {asset_type} / {dividend_text} / {dividend}"
     )
 
@@ -112,7 +112,7 @@ def ranking_filter_signature_from_state() -> str:
     return ranking_filter_signature(
         region=ranking_filter_value("market_data_ranking_region", "japan"),
         product_type=ranking_filter_value("market_data_ranking_product_type", "stock"),
-        ranking_purpose=ranking_filter_value("market_data_ranking_purpose", "dividend"),
+        ranking_purpose=RANKING_PURPOSE_MULTI_FACTOR,
         purpose="all",
         period_preset=ranking_filter_value(
             "market_data_ranking_period",

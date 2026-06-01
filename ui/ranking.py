@@ -58,6 +58,16 @@ RANKING_PURPOSE_VALUE = "value"
 RANKING_PURPOSE_STABILITY = "stability"
 RANKING_PURPOSE_TREND = "trend"
 RANKING_PURPOSE_UPSIDE_SIGNAL = "upside_signal"
+RANKING_PURPOSE_SORT_TOTAL_SCORE = "sort_total_score"
+RANKING_PURPOSE_SORT_DIVIDEND_YIELD = "sort_dividend_yield"
+RANKING_PURPOSE_SORT_PER = "sort_per"
+RANKING_PURPOSE_SORT_PBR = "sort_pbr"
+RANKING_PURPOSE_SORT_ROE = "sort_roe"
+RANKING_PURPOSE_SORT_MARKET_CAP = "sort_market_cap"
+RANKING_PURPOSE_SORT_VOLUME = "sort_volume"
+RANKING_PURPOSE_SORT_VOLATILITY = "sort_volatility"
+RANKING_PURPOSE_SORT_RISK = "sort_risk"
+RANKING_PURPOSE_SORT_DATA_QUALITY = "sort_data_quality"
 RANKING_PURPOSE_MULTI_FACTOR = "multi_factor"
 RANKING_PURPOSE_QUALITY_GROWTH = "quality_growth"
 RANKING_PURPOSE_QUALITY_VALUE = "quality_value"
@@ -70,6 +80,50 @@ RANKING_PURPOSE_NISA_LONG_TERM = "nisa_long_term"
 RANKING_PURPOSE_DATA_CONFIDENCE = "data_confidence"
 RANKING_PURPOSE_ETF_CORE_COST = "etf_core_cost"
 RANKING_PURPOSE_ETF_INCOME = "etf_income"
+RANKING_PURPOSE_SIMPLE_SORT_ORDER = (
+    RANKING_PURPOSE_SORT_TOTAL_SCORE,
+    RANKING_PURPOSE_SORT_DIVIDEND_YIELD,
+    RANKING_PURPOSE_SORT_PER,
+    RANKING_PURPOSE_SORT_PBR,
+    RANKING_PURPOSE_SORT_ROE,
+    RANKING_PURPOSE_SORT_MARKET_CAP,
+    RANKING_PURPOSE_SORT_VOLUME,
+    RANKING_PURPOSE_SORT_VOLATILITY,
+    RANKING_PURPOSE_SORT_RISK,
+    RANKING_PURPOSE_SORT_DATA_QUALITY,
+)
+RANKING_SORT_DISPLAY_ORDER = (
+    RANKING_PURPOSE_SORT_TOTAL_SCORE,
+    RANKING_PURPOSE_SORT_DIVIDEND_YIELD,
+    RANKING_PURPOSE_SORT_PER,
+    RANKING_PURPOSE_SORT_PBR,
+    RANKING_PURPOSE_SORT_ROE,
+)
+RANKING_POLICY_DISPLAY_ORDER = (
+    RANKING_PURPOSE_MULTI_FACTOR,
+    RANKING_PURPOSE_UPSIDE_SIGNAL,
+    RANKING_PURPOSE_MOMENTUM,
+    RANKING_PURPOSE_QUALITY_GROWTH,
+    RANKING_PURPOSE_QUALITY_VALUE,
+    RANKING_PURPOSE_SUSTAINABLE_INCOME,
+    RANKING_PURPOSE_MIN_VOLATILITY,
+    RANKING_PURPOSE_RISK_ADJUSTED,
+    RANKING_PURPOSE_SMALL_GROWTH,
+    RANKING_PURPOSE_NISA_LONG_TERM,
+    RANKING_PURPOSE_DATA_CONFIDENCE,
+    RANKING_PURPOSE_ETF_CORE_COST,
+    RANKING_PURPOSE_ETF_INCOME,
+)
+RANKING_POLICY_LABELS = {
+    RANKING_PURPOSE_MULTI_FACTOR: "AI総合",
+}
+RANKING_POLICY_PURPOSE_ALIASES = {
+    RANKING_PURPOSE_DIVIDEND: RANKING_PURPOSE_SUSTAINABLE_INCOME,
+    RANKING_PURPOSE_GROWTH: RANKING_PURPOSE_QUALITY_GROWTH,
+    RANKING_PURPOSE_VALUE: RANKING_PURPOSE_QUALITY_VALUE,
+    RANKING_PURPOSE_STABILITY: RANKING_PURPOSE_MIN_VOLATILITY,
+    RANKING_PURPOSE_TREND: RANKING_PURPOSE_MOMENTUM,
+}
 RANKING_PURPOSE_DISPLAY_ORDER = (
     RANKING_PURPOSE_MULTI_FACTOR,
     RANKING_PURPOSE_UPSIDE_SIGNAL,
@@ -282,7 +336,30 @@ RANKING_PRESET_NISA_LONG_TERM = "nisa_long_term_profile"
 RANKING_PRESET_DATA_CONFIDENCE = "data_confidence_profile"
 RANKING_PRESET_ETF_CORE_COST = "etf_core_cost_profile"
 RANKING_PRESET_ETF_INCOME = "etf_income_profile"
+RANKING_PRESET_SORT_TOTAL_SCORE = "sort_total_score"
+RANKING_PRESET_SORT_DIVIDEND_YIELD = "sort_dividend_yield"
+RANKING_PRESET_SORT_PER = "sort_per"
+RANKING_PRESET_SORT_PBR = "sort_pbr"
+RANKING_PRESET_SORT_ROE = "sort_roe"
+RANKING_PRESET_SORT_MARKET_CAP = "sort_market_cap"
+RANKING_PRESET_SORT_VOLUME = "sort_volume"
+RANKING_PRESET_SORT_VOLATILITY = "sort_volatility"
+RANKING_PRESET_SORT_RISK = "sort_risk"
+RANKING_PRESET_SORT_DATA_QUALITY = "sort_data_quality"
 RANKING_FETCH_LIMIT_PRESET = RANKING_PRESET_MULTI_FACTOR
+RANKING_METRIC_SORT_PRESETS: dict[str, tuple[str, str]] = {
+    RANKING_PRESET_SORT_TOTAL_SCORE: ("total_score", "desc"),
+    RANKING_PRESET_SORT_DIVIDEND_YIELD: ("dividend_yield_pct", "desc"),
+    RANKING_PRESET_SORT_PER: ("per", "asc"),
+    RANKING_PRESET_SORT_PBR: ("pbr", "asc"),
+    RANKING_PRESET_SORT_ROE: ("roe_pct", "desc"),
+    RANKING_PRESET_SORT_MARKET_CAP: ("market_cap", "desc"),
+    RANKING_PRESET_SORT_VOLUME: ("volume", "desc"),
+    RANKING_PRESET_SORT_VOLATILITY: ("volatility", "asc"),
+    # risk_signal_score is a "risk confirmation" score: higher means easier to confirm.
+    RANKING_PRESET_SORT_RISK: ("risk_signal_score", "desc"),
+    RANKING_PRESET_SORT_DATA_QUALITY: ("data_quality_score", "desc"),
+}
 RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     RANKING_PRESET_BALANCED: {
         "screening_score": Decimal("0.30"),
@@ -485,6 +562,16 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     },
 }
 RANKING_PURPOSE_WEIGHT_PRESETS = {
+    RANKING_PURPOSE_SORT_TOTAL_SCORE: RANKING_PRESET_SORT_TOTAL_SCORE,
+    RANKING_PURPOSE_SORT_DIVIDEND_YIELD: RANKING_PRESET_SORT_DIVIDEND_YIELD,
+    RANKING_PURPOSE_SORT_PER: RANKING_PRESET_SORT_PER,
+    RANKING_PURPOSE_SORT_PBR: RANKING_PRESET_SORT_PBR,
+    RANKING_PURPOSE_SORT_ROE: RANKING_PRESET_SORT_ROE,
+    RANKING_PURPOSE_SORT_MARKET_CAP: RANKING_PRESET_SORT_MARKET_CAP,
+    RANKING_PURPOSE_SORT_VOLUME: RANKING_PRESET_SORT_VOLUME,
+    RANKING_PURPOSE_SORT_VOLATILITY: RANKING_PRESET_SORT_VOLATILITY,
+    RANKING_PURPOSE_SORT_RISK: RANKING_PRESET_SORT_RISK,
+    RANKING_PURPOSE_SORT_DATA_QUALITY: RANKING_PRESET_SORT_DATA_QUALITY,
     RANKING_PURPOSE_MULTI_FACTOR: RANKING_PRESET_MULTI_FACTOR,
     RANKING_PURPOSE_QUALITY_GROWTH: RANKING_PRESET_QUALITY_GROWTH,
     RANKING_PURPOSE_QUALITY_VALUE: RANKING_PRESET_QUALITY_VALUE,
@@ -566,6 +653,7 @@ RANKING_DETAIL_FILTERS_BY_CATEGORY = {
 RANKING_FILTER_DEFAULTS: dict[str, str] = {
     "market_data_ranking_region": RANKING_REGION_JAPAN,
     "market_data_ranking_product_type": RANKING_PRODUCT_STOCK,
+    "market_data_ranking_policy": RANKING_PURPOSE_MULTI_FACTOR,
     "market_data_ranking_purpose": RANKING_PURPOSE_MULTI_FACTOR,
     "market_data_ranking_fetch_limit": RANKING_FETCH_LIMIT_BALANCED,
     "market_data_ranking_period": RANKING_DEFAULT_PERIOD_PRESET,
@@ -604,6 +692,69 @@ RANKING_FILTER_HELP_TEXTS = ranking_texts.RANKING_FILTER_HELP_TEXTS
 RANKING_PURPOSE_HELP_TEXTS = ranking_texts.RANKING_PURPOSE_HELP_TEXTS
 
 RANKING_PURPOSE_PRIMARY_COLUMNS: dict[str, tuple[str, ...]] = {
+    RANKING_PURPOSE_SORT_TOTAL_SCORE: (
+        "総合スコア",
+        "Screening",
+        "Risk",
+        "データ品質",
+    ),
+    RANKING_PURPOSE_SORT_DIVIDEND_YIELD: (
+        "配当利回り",
+        "Risk",
+        "データ品質",
+        "総合スコア",
+    ),
+    RANKING_PURPOSE_SORT_PER: (
+        "PER",
+        "PBR",
+        "ROE",
+        "Risk",
+        "データ品質",
+    ),
+    RANKING_PURPOSE_SORT_PBR: (
+        "PBR",
+        "PER",
+        "ROE",
+        "Risk",
+        "データ品質",
+    ),
+    RANKING_PURPOSE_SORT_ROE: (
+        "ROE",
+        "PER",
+        "PBR",
+        "データ品質",
+        "Risk",
+    ),
+    RANKING_PURPOSE_SORT_MARKET_CAP: (
+        "時価総額",
+        "出来高",
+        "データ品質",
+        "総合スコア",
+    ),
+    RANKING_PURPOSE_SORT_VOLUME: (
+        "出来高",
+        "時価総額",
+        "ボラティリティ",
+        "総合スコア",
+    ),
+    RANKING_PURPOSE_SORT_VOLATILITY: (
+        "ボラティリティ",
+        "Risk",
+        "データ品質",
+        "総合スコア",
+    ),
+    RANKING_PURPOSE_SORT_RISK: (
+        "Risk",
+        "ボラティリティ",
+        "下降警戒",
+        "データ品質",
+    ),
+    RANKING_PURPOSE_SORT_DATA_QUALITY: (
+        "データ品質",
+        "DB信頼度",
+        "根拠状態",
+        "総合スコア",
+    ),
     RANKING_PURPOSE_MULTI_FACTOR: (
         "総合スコア",
         "上昇気配",
@@ -730,6 +881,34 @@ RANKING_PURPOSE_PRIMARY_COLUMNS: dict[str, tuple[str, ...]] = {
 }
 
 RANKING_PURPOSE_FOCUS_SUMMARIES = {
+    RANKING_PURPOSE_SORT_TOTAL_SCORE: (
+        "総合スコアが高い順です。複数材料の比較用スコアで、売買推奨ではありません。"
+    ),
+    RANKING_PURPOSE_SORT_DIVIDEND_YIELD: (
+        "配当利回りが高い順です。高配当でも、業績・財務・減配リスクを確認します。"
+    ),
+    RANKING_PURPOSE_SORT_PER: (
+        "PERが低い順です。割安に見える理由が業績悪化や一時要因ではないか確認します。"
+    ),
+    RANKING_PURPOSE_SORT_PBR: (
+        "PBRが低い順です。資産面の割安さと収益性・市場評価の低さを合わせて確認します。"
+    ),
+    RANKING_PURPOSE_SORT_ROE: (
+        "ROEが高い順です。資本効率の高さに加え、一時利益や財務レバレッジを確認します。"
+    ),
+    RANKING_PURPOSE_SORT_MARKET_CAP: (
+        "時価総額が大きい順です。企業規模や流動性を見ますが、成長余地とは別観点です。"
+    ),
+    RANKING_PURPOSE_SORT_VOLUME: ("出来高が多い順です。取引の活発さや短期的な注目度を確認します。"),
+    RANKING_PURPOSE_SORT_VOLATILITY: (
+        "値動きが小さい順です。安定性の確認に使いますが、高リターンを意味するものではありません。"
+    ),
+    RANKING_PURPOSE_SORT_RISK: (
+        "リスク確認スコアが高い順です。安定性を確認しやすい候補の参考で、安全保証ではありません。"
+    ),
+    RANKING_PURPOSE_SORT_DATA_QUALITY: (
+        "データ品質が高い順です。欠損が少なく、取得状態が安定した候補から確認します。"
+    ),
     RANKING_PURPOSE_MULTI_FACTOR: "総合点だけでなく、上昇気配・下降警戒・Risk・品質の偏りを確認します。",
     RANKING_PURPOSE_UPSIDE_SIGNAL: "上向きシグナルが強く、下降警戒が相対的に低い深掘り候補を確認します。",
     RANKING_PURPOSE_MOMENTUM: "足元の価格評価と上昇気配・下降警戒がそろっているか、追随リスクも含めて確認します。",
@@ -819,17 +998,42 @@ def ranking_purpose_label(purpose: str) -> str:
     return RANKING_PURPOSE_LABELS.get(purpose, purpose)
 
 
-def ranking_purpose_options(product_type: str = RANKING_PRODUCT_STOCK) -> list[str]:
-    """Return purpose options in the order users are most likely to scan."""
+def ranking_policy_label(purpose: str) -> str:
+    return RANKING_POLICY_LABELS.get(purpose, ranking_purpose_label(purpose))
 
-    preferred_order = (
-        RANKING_PURPOSE_ETF_DISPLAY_ORDER
-        if product_type == RANKING_PRODUCT_ETF
-        else RANKING_PURPOSE_DISPLAY_ORDER
-    )
-    ordered = [purpose for purpose in preferred_order if purpose in RANKING_PURPOSE_LABELS]
-    ordered.extend(purpose for purpose in RANKING_PURPOSE_LABELS if purpose not in ordered)
-    return ordered
+
+def ranking_sort_label(purpose: str) -> str:
+    return ranking_purpose_label(purpose)
+
+
+def ranking_policy_for_purpose(purpose: str) -> str:
+    if purpose in RANKING_POLICY_DISPLAY_ORDER:
+        return purpose
+    return RANKING_POLICY_PURPOSE_ALIASES.get(purpose, RANKING_PURPOSE_MULTI_FACTOR)
+
+
+def ranking_policy_options(product_type: str = RANKING_PRODUCT_STOCK) -> list[str]:
+    """Return beginner-facing evaluation policies, not every internal profile."""
+
+    _ = product_type
+    return list(RANKING_POLICY_DISPLAY_ORDER)
+
+
+def ranking_sort_options(product_type: str = RANKING_PRODUCT_STOCK) -> list[str]:
+    """Return the compact top-level metric sort choices."""
+
+    _ = product_type
+    return list(RANKING_SORT_DISPLAY_ORDER)
+
+
+def ranking_sort_help(purpose: str) -> str:
+    return ranking_purpose_help(purpose)
+
+
+def ranking_purpose_options(product_type: str = RANKING_PRODUCT_STOCK) -> list[str]:
+    """Return top-level evaluation policy options for the Ranking UI."""
+
+    return ranking_policy_options(product_type)
 
 
 def ranking_purpose_help(purpose: str) -> str:
@@ -859,6 +1063,9 @@ def ranking_purpose_focus_summary(purpose: str) -> str:
 
 def ranking_purpose_weight_summary(purpose: str, *, limit: int = 4) -> tuple[str, ...]:
     preset = ranking_weight_preset_for_purpose(purpose)
+    if preset in RANKING_METRIC_SORT_PRESETS:
+        label = ranking_purpose_label(purpose)
+        return (f"{label} 100%", "N/A 末尾", "同値は総合スコア補助")[:limit]
     weights = RANKING_WEIGHT_PRESETS.get(preset, RANKING_WEIGHT_PRESETS[RANKING_PRESET_BALANCED])
     ranked_weights = sorted(weights.items(), key=lambda item: (-item[1], item[0]))
     return tuple(
@@ -1413,6 +1620,8 @@ def apply_ranking_weight_preset(
     preset: str,
     symbol_rows_by_symbol: dict[str, dict[str, str]] | None = None,
 ) -> list[dict[str, str]]:
+    if preset in RANKING_METRIC_SORT_PRESETS:
+        return apply_ranking_metric_sort_preset(rows, preset, symbol_rows_by_symbol)
     weights = RANKING_WEIGHT_PRESETS[preset]
     preset_label = ranking_weight_preset_label(preset)
     symbol_rows = symbol_rows_by_symbol or {
@@ -1451,6 +1660,77 @@ def apply_ranking_weight_preset(
             }
         )
     return rank_investment_score_rows(reweighted_rows)
+
+
+def apply_ranking_metric_sort_preset(
+    rows: list[dict[str, str]],
+    preset: str,
+    symbol_rows_by_symbol: dict[str, dict[str, str]] | None = None,
+) -> list[dict[str, str]]:
+    field, direction = RANKING_METRIC_SORT_PRESETS[preset]
+    preset_label = ranking_weight_preset_label(preset)
+    symbol_rows = symbol_rows_by_symbol or {
+        row.get("symbol", "").strip().upper(): row
+        for row in symbol_universe_csv_rows()
+        if row.get("symbol", "").strip()
+    }
+    enriched_rows: list[tuple[Decimal | None, dict[str, str]]] = []
+    for row in rows:
+        symbol_row = symbol_rows.get(row.get("symbol", "").strip().upper(), {})
+        database_fit_score = ranking_database_fit_score(symbol_row, preset)
+        metadata_confidence_score = ranking_metadata_confidence_score(symbol_row)
+        enriched_row = {
+            **row,
+            "dividend_yield_pct": row.get("dividend_yield_pct", "")
+            or symbol_row.get("dividend_yield_pct", ""),
+            "per": row.get("per", "") or symbol_row.get("per", ""),
+            "pbr": row.get("pbr", "") or symbol_row.get("pbr", ""),
+            "roe_pct": row.get("roe_pct", "") or symbol_row.get("roe_pct", ""),
+            "database_fit_score": row.get("database_fit_score", "")
+            or _format_score(database_fit_score),
+            "metadata_confidence_score": row.get("metadata_confidence_score", "")
+            or _format_score(metadata_confidence_score),
+            "ranking_profile": row.get("ranking_profile", "") or preset_label,
+            "note": row.get("note", "") or ranking_metric_sort_note(preset),
+        }
+        enriched_row = _ensure_ranking_signal_fields(enriched_row)
+        enriched_rows.append((_ranking_metric_sort_value(enriched_row, field), enriched_row))
+    reverse_metric = direction == "desc"
+
+    def sort_key(item: tuple[Decimal | None, dict[str, str]]) -> tuple[object, ...]:
+        metric_value, row = item
+        total_score = _ranking_sort_decimal_from_text(row.get("total_score", ""))
+        symbol = row.get("symbol", "")
+        if metric_value is None:
+            metric_key = Decimal("0")
+        else:
+            metric_key = -metric_value if reverse_metric else metric_value
+        total_key = -(total_score or Decimal("-1"))
+        return (metric_value is None, metric_key, total_key, symbol)
+
+    ranked = [row for _, row in sorted(enriched_rows, key=sort_key)]
+    return [{**row, "rank": str(index)} for index, row in enumerate(ranked, start=1)]
+
+
+def ranking_metric_sort_note(preset: str) -> str:
+    return {
+        RANKING_PRESET_SORT_TOTAL_SCORE: "総合スコア順です。比較候補を絞る参考順で、売買推奨ではありません。",
+        RANKING_PRESET_SORT_DIVIDEND_YIELD: "配当利回り順です。減配リスクや業績の安定性を合わせて確認します。",
+        RANKING_PRESET_SORT_PER: "PER低い順です。低評価の理由が一時要因か業績不安かを確認します。",
+        RANKING_PRESET_SORT_PBR: "PBR低い順です。資産面の割安さと収益性を合わせて確認します。",
+        RANKING_PRESET_SORT_ROE: "ROE高い順です。一時利益や財務レバレッジも確認します。",
+        RANKING_PRESET_SORT_MARKET_CAP: "時価総額順です。企業規模と流動性の確認材料です。",
+        RANKING_PRESET_SORT_VOLUME: "出来高順です。短期的な注目度や売買しやすさの参考です。",
+        RANKING_PRESET_SORT_VOLATILITY: "値動き小さい順です。安定性の参考であり、リターン保証ではありません。",
+        RANKING_PRESET_SORT_RISK: (
+            "リスク確認しやすい順です。安全保証ではなく、値動きと下落耐性の確認材料です。"
+        ),
+        RANKING_PRESET_SORT_DATA_QUALITY: "データ品質順です。欠損が少ない候補から確認します。",
+    }.get(preset, "比較候補を確認するための並べ替えです。")
+
+
+def _ranking_metric_sort_value(row: dict[str, str], field: str) -> Decimal | None:
+    return _ranking_sort_decimal_from_text(row.get(field, ""))
 
 
 def _ensure_ranking_signal_fields(row: dict[str, str]) -> dict[str, str]:
@@ -1916,5 +2196,15 @@ def _optional_decimal_from_text(value: str) -> Decimal | None:
         return None
     try:
         return Decimal(value)
+    except InvalidOperation:
+        return None
+
+
+def _ranking_sort_decimal_from_text(value: object) -> Decimal | None:
+    text = str(value or "").replace(",", "").replace("%", "").strip()
+    if not text or text in {"-", "N/A", "未接続", "未登録", "未取得", "未計算"}:
+        return None
+    try:
+        return Decimal(text)
     except InvalidOperation:
         return None

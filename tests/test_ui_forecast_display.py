@@ -1626,11 +1626,25 @@ def test_external_research_fetch_rows_show_transient_sources_without_storage_pat
 
 
 def test_external_research_source_cards_explain_how_to_read_each_source():
+    edinet_source_url = "https://disclosure.edinet-fsa.go.jp/api/v2/documents/S100TOYOTA?type=2"
     result = ExternalResearchFetchResult(
         symbol="7203.T",
-        provider="tdnet_yahoo_finance",
+        provider="edinet_tdnet_yahoo_finance",
         fetched_at=datetime(2026, 5, 27, 12, 30, tzinfo=UTC),
         entries=[
+            ExternalResearchFetchManifestEntry(
+                title="7203 EDINET 有価証券報告書",
+                symbol="7203.T",
+                source_type="annual_report",
+                source_url=edinet_source_url,
+                provider="edinet",
+                published_at=date(2026, 5, 27),
+                fetched_at=datetime(2026, 5, 27, 12, 30, tzinfo=UTC),
+                freshness_status="latest",
+                document_id="research-doc-edinet",
+                retention_policy="session",
+                content_summary="EDINET official filing metadata.",
+            ),
             ExternalResearchFetchManifestEntry(
                 title="7203 TDnet 決算短信",
                 symbol="7203.T",
@@ -1669,9 +1683,11 @@ def test_external_research_source_cards_explain_how_to_read_each_source():
     cards = _external_research_source_cards_html(result)
 
     assert "外部参照ソースの確認メモ" in overview
-    assert "TDnet / Yahoo Finance" in overview
+    assert "EDINET / TDnet / Yahoo Finance" in overview
     assert "公式開示" in overview
-    assert "2件" in overview
+    assert "3件" in overview
+    assert "EDINET" in cards
+    assert "EDINETなどの公式開示" in cards
     assert "TDnet（適時開示）" in cards
     assert "PDF本文で対象期間" in cards
     assert "外部データ" in cards

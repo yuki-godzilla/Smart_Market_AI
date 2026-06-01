@@ -5398,14 +5398,18 @@ def _external_research_provider_profile_display_text(text: str) -> str:
 
 def _external_research_provider_label(provider: str) -> str:
     labels = {
+        "edinet": "EDINET",
         "tdnet": "TDnet（適時開示）",
         "yahoo_finance": "Yahoo Finance",
+        "edinet_tdnet_yahoo_finance": "EDINET / TDnet / Yahoo Finance",
         "tdnet_yahoo_finance": "TDnet / Yahoo Finance",
     }
     return labels.get(provider, provider)
 
 
 def _external_research_entry_check_note(entry: ExternalResearchFetchManifestEntry) -> str:
+    if entry.source_type == "annual_report":
+        return "EDINETなどの公式開示です。対象期間、提出会社、本文の該当箇所を確認してください。"
     if entry.source_type == "tdnet":
         return "公式開示です。PDF本文で対象期間、数値、会社発表の前提を確認してください。"
     if entry.source_type == "provider_profile":

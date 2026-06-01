@@ -918,3 +918,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - Synchronized current docs with the implemented Research Summary UI: `最新ニュース・開示サマリー`, pre-fetch `確認方針`, `調査アクション`, and collapsed `取得失敗の技術詳細`.
 - Updated the manual UX checklist and functional-spec issue register to mark the CompanyResearchSummary readability and external-fetch failure / material-insufficient checks as resolved after actual-screen validation.
+
+## 2026-06-01 - EDINET external research adapter slice
+
+- Added an optional EDINET metadata/link adapter to the default `AI調査を更新` external research source set; it live-fetches only when `EDINET_API_KEY` is configured and otherwise returns no payloads.
+- Kept normal checks network-free with fixture/fake JSON tests for EDINET matching, source URLs, reliability, and default adapter ordering.
+- Updated Cockpit external-source labels/check notes and synced Research RAG roadmap/operations docs so EDINET is no longer described only as future scope.

@@ -11,6 +11,8 @@ from backend.research import (
     CompanyResearchRequest,
     CompanyResearchSummaryBuilder,
     CompositeExternalResearchAdapter,
+    DefaultExternalResearchAdapter,
+    EDINETResearchAdapter,
     ETFResearchSummaryBuilder,
     ExternalResearchFetchManifestEntry,
     ExternalResearchFetchRequest,
@@ -3377,6 +3379,90 @@ def test_tdnet_research_adapter_continues_after_page_fetch_failure():
     assert payloads[0].source_url == ("https://www.release.tdnet.info/inbs/140120260525000003.pdf")
 
 
+def test_edinet_research_adapter_builds_filing_payloads_without_live_call():
+    requested_urls: list[str] = []
+
+    def fake_http_get_json(url: str) -> dict[str, object]:
+        requested_urls.append(url)
+        return {
+            "metadata": {"status": "200"},
+            "results": [
+                {
+                    "docID": "S100TOYOTA",
+                    "edinetCode": "E02144",
+                    "secCode": "72030",
+                    "filerName": "トヨタ自動車株式会社",
+                    "docDescription": "有価証券報告書－第122期",
+                    "docTypeCode": "120",
+                    "periodStart": "2025-04-01",
+                    "periodEnd": "2026-03-31",
+                    "submitDateTime": "2026-06-24 15:00",
+                },
+                {
+                    "docID": "S100SONY",
+                    "edinetCode": "E01777",
+                    "secCode": "67580",
+                    "filerName": "ソニーグループ株式会社",
+                    "docDescription": "有価証券報告書",
+                    "docTypeCode": "120",
+                    "submitDateTime": "2026-06-24 15:05",
+                },
+            ],
+        }
+
+    adapter = EDINETResearchAdapter(
+        http_get_json=fake_http_get_json,
+        api_key="test-edinet-key",
+        lookback_days=1,
+    )
+
+    payloads = adapter.fetch_sources(
+        ExternalResearchFetchRequest(
+            symbol="7203.T",
+            company_name="トヨタ自動車",
+            provider="edinet",
+            as_of=date(2026, 6, 24),
+            allow_network=True,
+        )
+    )
+
+    assert requested_urls == [
+        "https://disclosure.edinet-fsa.go.jp/api/v2/documents.json?"
+        "date=2026-06-24&type=2&Subscription-Key=test-edinet-key"
+    ]
+    assert len(payloads) == 1
+    payload = payloads[0]
+    assert payload.provider == "edinet"
+    assert payload.source_type == "annual_report"
+    assert payload.title == "7203 EDINET 有価証券報告書－第122期"
+    assert payload.source_url == (
+        "https://disclosure.edinet-fsa.go.jp/api/v2/documents/S100TOYOTA?type=2"
+    )
+    assert "test-edinet-key" not in payload.source_url
+    assert payload.company_name == "トヨタ自動車"
+    assert payload.published_at == date(2026, 6, 24)
+    assert payload.reliability == Decimal("0.90")
+    assert "source: EDINET official filing" in payload.content
+    assert "filer_name: トヨタ自動車株式会社" in payload.content
+    assert "document_id: S100TOYOTA" in payload.content
+    assert "period_end: 2026-03-31" in payload.content
+
+
+def test_edinet_research_adapter_skips_live_fetch_without_api_key():
+    adapter = EDINETResearchAdapter(api_key="", lookback_days=1)
+
+    payloads = adapter.fetch_sources(
+        ExternalResearchFetchRequest(
+            symbol="7203.T",
+            provider="edinet",
+            as_of=date(2026, 6, 24),
+            allow_network=True,
+        )
+    )
+
+    assert payloads == []
+
+
 def test_composite_external_research_adapter_combines_sources_without_live_call():
     fetched_at = datetime(2026, 5, 25, 9, 0, tzinfo=UTC)
     first = FakeExternalResearchAdapter(
@@ -3462,6 +3548,17 @@ def test_composite_external_research_adapter_continues_after_source_failure():
     )
 
     assert [payload.provider for payload in payloads] == ["yahoo_finance"]
+
+
+def test_default_external_research_adapter_includes_edinet_as_optional_source():
+    adapter = DefaultExternalResearchAdapter()
+
+    assert adapter.provider == "edinet_tdnet_yahoo_finance"
+    assert [source.provider for source in adapter.adapters] == [
+        "edinet",
+        "tdnet",
+        "yahoo_finance",
+    ]
 
 
 def test_research_search_uses_category_query_expansion(tmp_path):

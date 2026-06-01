@@ -4,6 +4,7 @@ import hashlib
 import html
 import json
 import math
+import os
 import re
 from collections.abc import Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -11,7 +12,9 @@ from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Callable, Literal, Protocol, Sequence, cast
-from urllib.parse import urljoin
+from urllib.parse import urlencode, urljoin
+from urllib.request import Request as UrlRequest
+from urllib.request import urlopen
 
 import yaml  # type: ignore[import-untyped]
 from pydantic import Field, ValidationError
@@ -215,6 +218,9 @@ YAHOO_RESEARCH_PROFILE_FIELDS: tuple[tuple[str, str], ...] = (
 )
 TDNET_BASE_URL = "https://www.release.tdnet.info/inbs/"
 TDNET_LIST_URL_TEMPLATE = TDNET_BASE_URL + "I_list_{page:03d}_{yyyymmdd}.html"
+EDINET_API_KEY_ENV = "EDINET_API_KEY"
+EDINET_DOCUMENTS_LIST_URL = "https://disclosure.edinet-fsa.go.jp/api/v2/documents.json"
+EDINET_DOCUMENT_URL_TEMPLATE = "https://disclosure.edinet-fsa.go.jp/api/v2/documents/{doc_id}"
 DEFAULT_RESEARCH_QUERY_TERMS: dict[ResearchTopicCategory, tuple[str, ...]] = {
     "growth": (
         "growth strategy",
@@ -2873,6 +2879,77 @@ class TDnetResearchAdapter:
             ) from exc
 
 
+class EDINETResearchAdapter:
+    """EDINET adapter for official Japanese securities report metadata links."""
+
+    provider = "edinet"
+    requires_network = True
+
+    def __init__(
+        self,
+        *,
+        http_get_json: Callable[[str], Mapping[str, Any]] | None = None,
+        api_key: str | None = None,
+        lookback_days: int = 45,
+        max_results: int = 5,
+    ) -> None:
+        self._http_get_json = http_get_json
+        self.api_key = api_key if api_key is not None else os.getenv(EDINET_API_KEY_ENV, "")
+        self.lookback_days = max(1, lookback_days)
+        self.max_results = max(1, max_results)
+
+    def fetch_sources(
+        self,
+        request: ExternalResearchFetchRequest,
+    ) -> list[ExternalResearchSourcePayload]:
+        if not self.api_key and self._http_get_json is None:
+            return []
+        fetched_at = datetime.now(UTC)
+        as_of = request.as_of or fetched_at.date()
+        payloads: list[ExternalResearchSourcePayload] = []
+        seen_urls: set[str] = set()
+        for offset in range(self.lookback_days):
+            submitted_at = date.fromordinal(as_of.toordinal() - offset)
+            list_url = _edinet_documents_list_url(submitted_at, api_key=self.api_key)
+            try:
+                response = self._get_json(list_url)
+            except ResearchDocumentError:
+                continue
+            for payload in _edinet_payloads_from_response(
+                request,
+                response,
+                fetched_at=fetched_at,
+            ):
+                if payload.source_url in seen_urls:
+                    continue
+                seen_urls.add(payload.source_url)
+                payloads.append(payload)
+                if len(payloads) >= self.max_results:
+                    return payloads
+        return payloads
+
+    def _get_json(self, url: str) -> Mapping[str, Any]:
+        if self._http_get_json is not None:
+            return self._http_get_json(url)
+        try:
+            url_request = UrlRequest(url, headers={"User-Agent": "SmartMarketAI/1.0"})
+            with urlopen(url_request, timeout=10) as response:  # noqa: S310
+                body = response.read().decode("utf-8")
+        except Exception as exc:  # pragma: no cover - provider-specific network failure
+            raise ResearchDocumentError(
+                "EDINET document list fetch failed.",
+                details={"provider": self.provider, "url": _edinet_safe_url(url)},
+            ) from exc
+        try:
+            parsed = json.loads(body)
+        except json.JSONDecodeError as exc:  # pragma: no cover - provider response issue
+            raise ResearchDocumentError(
+                "EDINET document list response was not JSON.",
+                details={"provider": self.provider, "url": _edinet_safe_url(url)},
+            ) from exc
+        return cast(Mapping[str, Any], parsed) if isinstance(parsed, Mapping) else {}
+
+
 class CompositeExternalResearchAdapter:
     """Run multiple external source adapters as one UI-facing provider."""
 
@@ -2944,9 +3021,11 @@ class DefaultExternalResearchAdapter(CompositeExternalResearchAdapter):
     def __init__(self) -> None:
         super().__init__(
             [
+                EDINETResearchAdapter(),
                 TDnetResearchAdapter(),
                 YahooFinanceResearchAdapter(),
-            ]
+            ],
+            provider="edinet_tdnet_yahoo_finance",
         )
 
 
@@ -3234,6 +3313,177 @@ def _tdnet_payload_content(
             "Data Quality Notes:",
             "TDnet is an official timely-disclosure source for Japanese listed companies.",
             "Confirm PDF details before using the information in an investment decision.",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _edinet_documents_list_url(submitted_at: date, *, api_key: str) -> str:
+    params = {"date": submitted_at.isoformat(), "type": "2"}
+    if api_key:
+        params["Subscription-Key"] = api_key
+    return f"{EDINET_DOCUMENTS_LIST_URL}?{urlencode(params)}"
+
+
+def _edinet_safe_url(url: str) -> str:
+    return re.sub(r"([?&]Subscription-Key=)[^&]+", r"\1***", url)
+
+
+def _edinet_payloads_from_response(
+    request: ExternalResearchFetchRequest,
+    response: Mapping[str, Any],
+    *,
+    fetched_at: datetime,
+) -> list[ExternalResearchSourcePayload]:
+    results = response.get("results", [])
+    if not isinstance(results, list):
+        return []
+    symbol_code = _tdnet_symbol_code(request.symbol)
+    payloads: list[ExternalResearchSourcePayload] = []
+    for row in results:
+        if not isinstance(row, Mapping):
+            continue
+        typed_row = cast(Mapping[str, Any], row)
+        if not _edinet_row_matches_request(typed_row, request, symbol_code=symbol_code):
+            continue
+        doc_id = _edinet_row_text(typed_row, "docID", "docId", "documentId")
+        if not doc_id:
+            continue
+        description = (
+            _edinet_row_text(typed_row, "docDescription", "documentDescription")
+            or "EDINET disclosure"
+        )
+        filer_name = _edinet_row_text(typed_row, "filerName", "issuerName")
+        published_at = _edinet_published_at(typed_row)
+        source_url = _edinet_document_url(doc_id)
+        payloads.append(
+            ExternalResearchSourcePayload(
+                symbol=_normalize_symbol(request.symbol),
+                title=_edinet_payload_title(
+                    request.symbol,
+                    description=description,
+                    symbol_code=symbol_code,
+                ),
+                content=_edinet_payload_content(
+                    typed_row,
+                    description=description,
+                    source_url=source_url,
+                    filer_name=filer_name,
+                    published_at=published_at,
+                ),
+                source_type=_edinet_source_type(typed_row, description),
+                source_url=source_url,
+                provider=EDINETResearchAdapter.provider,
+                company_name=request.company_name or filer_name or None,
+                published_at=published_at,
+                fetched_at=fetched_at,
+                reliability=Decimal("0.90"),
+            )
+        )
+    return payloads
+
+
+def _edinet_row_text(row: Mapping[str, Any], *keys: str) -> str:
+    for key in keys:
+        value = row.get(key)
+        text = _external_text_value(value)
+        if text:
+            return text
+    return ""
+
+
+def _edinet_row_matches_request(
+    row: Mapping[str, Any],
+    request: ExternalResearchFetchRequest,
+    *,
+    symbol_code: str,
+) -> bool:
+    sec_code = _edinet_row_text(row, "secCode", "securityCode")
+    if symbol_code and sec_code.startswith(symbol_code):
+        return True
+    haystack = " ".join(
+        _edinet_row_text(row, key)
+        for key in ("filerName", "issuerName", "docDescription", "documentDescription")
+    ).casefold()
+    keywords = [
+        request.company_name or "",
+        *request.related_keywords,
+        _normalize_symbol(request.symbol),
+        symbol_code,
+    ]
+    return any(keyword.strip().casefold() in haystack for keyword in keywords if keyword.strip())
+
+
+def _edinet_published_at(row: Mapping[str, Any]) -> date | None:
+    for key in ("submitDateTime", "submitDate", "receiveDateTime", "opeDateTime"):
+        text = _edinet_row_text(row, key)
+        if not text:
+            continue
+        match = re.search(r"\d{4}-\d{2}-\d{2}", text)
+        if not match:
+            continue
+        try:
+            return date.fromisoformat(match.group(0))
+        except ValueError:
+            continue
+    return None
+
+
+def _edinet_document_url(doc_id: str) -> str:
+    return f"{EDINET_DOCUMENT_URL_TEMPLATE.format(doc_id=doc_id)}?type=2"
+
+
+def _edinet_payload_title(symbol: str, *, description: str, symbol_code: str) -> str:
+    display_symbol = symbol_code or _normalize_symbol(symbol)
+    return f"{display_symbol} EDINET {description}"
+
+
+def _edinet_source_type(row: Mapping[str, Any], description: str) -> ResearchSourceType:
+    doc_type_code = _edinet_row_text(row, "docTypeCode")
+    if doc_type_code in {"120", "130", "140", "150"}:
+        return "annual_report"
+    if any(keyword in description for keyword in ("有価証券報告書", "四半期報告書", "半期報告書")):
+        return "annual_report"
+    if "臨時報告書" in description:
+        return "annual_report"
+    return "annual_report"
+
+
+def _edinet_payload_content(
+    row: Mapping[str, Any],
+    *,
+    description: str,
+    source_url: str,
+    filer_name: str,
+    published_at: date | None,
+) -> str:
+    lines = [
+        f"title: {description}",
+        f"url: {source_url}",
+        "source: EDINET official filing",
+    ]
+    if published_at:
+        lines.append(f"published_at: {published_at.isoformat()}")
+    details = [
+        ("filer_name", filer_name),
+        ("edinet_code", _edinet_row_text(row, "edinetCode")),
+        ("securities_code", _edinet_row_text(row, "secCode", "securityCode")),
+        ("document_id", _edinet_row_text(row, "docID", "docId", "documentId")),
+        ("document_type_code", _edinet_row_text(row, "docTypeCode")),
+        ("period_start", _edinet_row_text(row, "periodStart")),
+        ("period_end", _edinet_row_text(row, "periodEnd")),
+        ("submit_datetime", _edinet_row_text(row, "submitDateTime", "submitDate")),
+    ]
+    lines.extend(f"{label}: {value}" for label, value in details if value)
+    lines.extend(
+        [
+            "",
+            "Filing summary:",
+            description,
+            "",
+            "Data Quality Notes:",
+            "EDINET is an official disclosure source for Japanese securities reports.",
+            "This adapter records the filing metadata and source link; confirm report body details before using the information in an investment decision.",
         ]
     )
     return "\n".join(lines)

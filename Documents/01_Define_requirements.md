@@ -21,7 +21,7 @@
 
 未実装または future scope として扱う要件:
 
-- Research RAG の EDINET / company IR site 追加 adapter、ResearchFactSummary 抽出対象の拡張、ranking order 統合
+- Research RAG の company IR site 追加 adapter、EDINET adapter の本文/詳細抽出拡張、ResearchFactSummary 抽出対象の拡張、ranking order 統合
 - SBI / NISA metadata の公式 source import
 - Decision Report の本格化
 - broker への注文送信 / Execution workflow

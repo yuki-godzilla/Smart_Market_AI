@@ -10,8 +10,8 @@ The source of truth remains actual code in `backend/`, `ui/`, and `tests/`.
 Current implementation notes:
 
 - Core / MarketData / FeatureBuilder / Risk / Portfolio / Screening / Forecast / Scoring are implemented.
-- Research RAG local evidence foundation, advanced extraction, Research Score first slice, and TDnet / Yahoo Finance external fetch first slice are implemented.
-- ResearchBriefBuilder and the first ResearchFactSummary slice are implemented as the local readability / fact layer. EDINET / company IR adapters, ranking-order integration, and Assistant integration are future/planned unless explicitly assigned.
+- Research RAG local evidence foundation, advanced extraction, Research Score first slice, and EDINET optional metadata/link + TDnet / Yahoo Finance external fetch first slice are implemented.
+- ResearchBriefBuilder and the first ResearchFactSummary slice are implemented as the local readability / fact layer. Company IR adapters, ranking-order integration, and Assistant integration are future/planned unless explicitly assigned.
 - Execution is deferred; only config placeholders and `TradeIntent` exist in current code.
 - Portfolio solver is currently `none`; optimizer backends are not implemented.
 
@@ -37,7 +37,7 @@ Current implementation notes:
 - Screening: `ScreeningService` and reason labels implemented
 - Scoring: `InvestmentScoringService` and `InvestmentScore` contract implemented
 - Streamlit UI: cockpit / ranking / rebalance cockpit helpers implemented
-- Research RAG: local document ingestion, evidence search, grounded summary, optional vector/hybrid foundation, Research Score, Stock News RAG, and TDnet / Yahoo Finance external fetch first slice implemented
+- Research RAG: local document ingestion, evidence search, grounded summary, optional vector/hybrid foundation, Research Score, Stock News RAG, and EDINET optional metadata/link + TDnet / Yahoo Finance external fetch first slice implemented
 
 ## 3. Core Foundation Class Diagram
 
@@ -406,7 +406,7 @@ PortfolioRiskResult o-- RiskDecision
 
 現在方針: local ingestion は fixture / archive / fallback として維持し、通常の AI Research 導線では adapter 経由の外部最新 source を優先する。local rule-based `ResearchFactSummary` / `ResearchBriefBuilder` で、取得状態ではなく source-backed fact と読める調査メモを作る。外部LLM要約は future / optional とする。
 
-`backend.research` は、IR資料、ユーザーメモ、外部取得 source payload などの非構造データを扱う実装済み component です。EDINET / 企業IR adapter、Assistant 接続は後続 planned として扱う。
+`backend.research` は、IR資料、ユーザーメモ、外部取得 source payload などの非構造データを扱う実装済み component です。EDINET optional metadata/link adapter は初期 slice 実装済みで、企業IR adapter、Assistant 接続は後続 planned として扱う。
 ローカル資料 ingestion は deterministic fixture / archive / fallback として維持し、通常ユーザー導線では外部 source adapter から最新情報を一時取得/参照する。embedding と LLM要約は optional adapter として段階的に追加する。
 
 ```plantuml
@@ -456,6 +456,7 @@ package "backend.research" {
   }
 
   interface ExternalResearchSourceAdapter
+  class EDINETResearchAdapter
   class TDnetResearchAdapter
   class YahooFinanceResearchAdapter
   class CompositeExternalResearchAdapter
@@ -556,6 +557,7 @@ ExternalResearchFetchService ..> ExternalResearchFetchRequest
 ExternalResearchFetchService ..> ExternalResearchFetchResult
 ExternalResearchFetchResult *-- ExternalResearchFetchManifestEntry
 ExternalResearchSourceAdapter ..> ExternalResearchSourcePayload
+ExternalResearchSourceAdapter <|.. EDINETResearchAdapter
 ExternalResearchSourceAdapter <|.. TDnetResearchAdapter
 ExternalResearchSourceAdapter <|.. YahooFinanceResearchAdapter
 ExternalResearchSourceAdapter <|.. CompositeExternalResearchAdapter

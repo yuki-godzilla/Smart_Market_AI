@@ -1015,6 +1015,15 @@ class ExternalResearchSourceAdapter(Protocol):
     ) -> list[ExternalResearchSourcePayload]: ...
 
 
+class ExternalStockNewsAdapter(Protocol):
+    """Adapter protocol for selected-symbol external news fetches."""
+
+    provider: str
+    requires_network: bool
+
+    def fetch_news(self, request: StockNewsRequest) -> list[StockNewsEvidence]: ...
+
+
 class ResearchInMemoryStore:
     """Simple local store used by Phase 20 services and tests."""
 
@@ -2585,6 +2594,71 @@ class StockNewsAnalysisService:
             as_of=as_of,
             news=news,
             warnings=warnings,
+        )
+
+
+class ExternalStockNewsFetchService:
+    """Fetch selected-symbol external news through a news adapter."""
+
+    def __init__(self, adapter: ExternalStockNewsAdapter) -> None:
+        self.adapter = adapter
+
+    def fetch_news(
+        self,
+        request: StockNewsRequest,
+        *,
+        allow_network: bool = False,
+    ) -> StockNewsReport:
+        if self.adapter.requires_network and not allow_network:
+            raise ResearchDocumentError(
+                "External stock news fetch requires explicit network opt-in.",
+                details={"provider": self.adapter.provider, "symbol": request.symbol},
+            )
+
+        as_of = request.as_of or date.today()
+        normalized_symbol = _normalize_symbol(request.symbol)
+        news, warnings = _normalize_external_stock_news(
+            self.adapter.fetch_news(request),
+            request=request,
+            as_of=as_of,
+        )
+        if not news:
+            warnings.append(
+                "URL付きの外部ニュースが見つかりませんでした。ニュース本文ではなく、URL付きの出典を確認してください。"
+            )
+        return StockNewsReport(
+            symbol=normalized_symbol,
+            company_name=request.company_name.strip() if request.company_name else None,
+            as_of=as_of,
+            news=news[: request.top_k],
+            warnings=warnings,
+        )
+
+
+class ExternalResearchStockNewsAdapter:
+    """Adapt source_type=news research payloads into StockNewsEvidence rows."""
+
+    def __init__(self, source_adapter: ExternalResearchSourceAdapter) -> None:
+        self.source_adapter = source_adapter
+        self.provider = source_adapter.provider
+        self.requires_network = source_adapter.requires_network
+
+    def fetch_news(self, request: StockNewsRequest) -> list[StockNewsEvidence]:
+        as_of = request.as_of or date.today()
+        payloads = self.source_adapter.fetch_sources(
+            ExternalResearchFetchRequest(
+                symbol=request.symbol,
+                company_name=request.company_name,
+                related_keywords=request.related_keywords,
+                provider=self.provider,
+                as_of=as_of,
+                allow_network=True,
+            )
+        )
+        return _stock_news_evidence_from_external_payloads(
+            payloads,
+            request=request,
+            as_of=as_of,
         )
 
 
@@ -10485,6 +10559,106 @@ def _stock_news_keywords(request: StockNewsRequest) -> list[str]:
         terms.append(request.company_name)
     terms.extend(request.related_keywords)
     return [term.strip().lower() for term in terms if term.strip()]
+
+
+def _normalize_external_stock_news(
+    rows: Sequence[StockNewsEvidence],
+    *,
+    request: StockNewsRequest,
+    as_of: date,
+) -> tuple[list[StockNewsEvidence], list[str]]:
+    normalized_symbol = _normalize_symbol(request.symbol)
+    keywords = _stock_news_keywords(request)
+    deduped: dict[str, StockNewsEvidence] = {}
+    warnings: list[str] = []
+    for row in rows:
+        if not _stock_news_evidence_matches_request(row, normalized_symbol, keywords):
+            continue
+        url = row.url.strip()
+        if not url:
+            warnings.append(f"{row.title}: URL がないため外部ニュース根拠から除外しました。")
+            continue
+        freshness_status = _stock_news_freshness(row.published_at, as_of=as_of)
+        normalized = row.model_copy(
+            update={
+                "symbol": normalized_symbol,
+                "company_name": row.company_name or request.company_name,
+                "url": url,
+                "freshness_status": freshness_status,
+            }
+        )
+        key = url.casefold()
+        if key not in deduped:
+            deduped[key] = normalized
+        if freshness_status == "stale":
+            warnings.append(
+                f"{row.title}: 公開日が古いため、最新ニュースや公式発表と合わせて確認してください。"
+            )
+    news = sorted(
+        deduped.values(),
+        key=lambda row: (
+            _stock_news_freshness_rank(row.freshness_status),
+            -(row.published_at or date.min).toordinal(),
+            row.title,
+        ),
+    )
+    return news, warnings
+
+
+def _stock_news_evidence_matches_request(
+    row: StockNewsEvidence,
+    symbol: str,
+    keywords: Sequence[str],
+) -> bool:
+    if _normalize_symbol(row.symbol) == symbol:
+        return True
+    haystack = f"{row.symbol} {row.company_name or ''} {row.title} {row.summary}".lower()
+    return any(keyword and keyword in haystack for keyword in keywords)
+
+
+def _stock_news_evidence_from_external_payloads(
+    payloads: Sequence[ExternalResearchSourcePayload],
+    *,
+    request: StockNewsRequest,
+    as_of: date,
+) -> list[StockNewsEvidence]:
+    return [
+        news
+        for payload in payloads
+        if payload.source_type == "news"
+        for news in [
+            _stock_news_evidence_from_external_payload(
+                payload,
+                request=request,
+                as_of=as_of,
+            )
+        ]
+        if news is not None
+    ]
+
+
+def _stock_news_evidence_from_external_payload(
+    payload: ExternalResearchSourcePayload,
+    *,
+    request: StockNewsRequest,
+    as_of: date,
+) -> StockNewsEvidence | None:
+    url = payload.source_url.strip() or _stock_news_url(payload.content)
+    if not url:
+        return None
+    text = f"{payload.title}\n{payload.content}"
+    return StockNewsEvidence(
+        symbol=_normalize_symbol(request.symbol),
+        company_name=payload.company_name or request.company_name,
+        title=payload.title,
+        url=url,
+        source=_stock_news_source(payload.content) or payload.provider,
+        published_at=payload.published_at,
+        summary=_stock_news_summary(payload.content),
+        investment_viewpoint=_stock_news_viewpoint(text),
+        sentiment_for_investment=_stock_news_sentiment(text),
+        freshness_status=_stock_news_freshness(payload.published_at, as_of=as_of),
+    )
 
 
 def _stock_news_matches(

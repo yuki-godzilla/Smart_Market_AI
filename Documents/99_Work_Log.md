@@ -924,3 +924,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added an optional EDINET metadata/link adapter to the default `AI調査を更新` external research source set; it live-fetches only when `EDINET_API_KEY` is configured and otherwise returns no payloads.
 - Kept normal checks network-free with fixture/fake JSON tests for EDINET matching, source URLs, reliability, and default adapter ordering.
 - Updated Cockpit external-source labels/check notes and synced Research RAG roadmap/operations docs so EDINET is no longer described only as future scope.
+
+## 2026-06-02 - External stock news adapter normalization slice
+
+- Added `ExternalStockNewsAdapter`, `ExternalStockNewsFetchService`, and `ExternalResearchStockNewsAdapter` as the first Phase 21.7 backend slice for URL-backed external news normalization.
+- Normalized external news into `StockNewsEvidence` with selected-symbol filtering, URL dedupe, freshness status, stale-news warnings, viewpoint / sentiment classification, and explicit network opt-in gating.
+- Added fake-adapter tests and synced Research RAG roadmap / operations docs so Phase 21.7 has a concrete backend contract while normal checks remain network-free.

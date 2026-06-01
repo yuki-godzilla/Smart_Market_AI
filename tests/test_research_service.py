@@ -19,6 +19,8 @@ from backend.research import (
     ExternalResearchFetchResult,
     ExternalResearchFetchService,
     ExternalResearchSourcePayload,
+    ExternalResearchStockNewsAdapter,
+    ExternalStockNewsFetchService,
     HybridResearchRetrievalService,
     InvestmentInsightBuilder,
     InvestmentQuestionSummaryBuilder,
@@ -2996,6 +2998,124 @@ summary: 7203 faces regulation risk in an older market update.
     assert report.news[0].freshness_status == "latest"
     assert report.news[1].freshness_status == "stale"
     assert any("source URL" in warning for warning in report.warnings)
+
+
+def test_external_stock_news_fetch_service_normalizes_research_payloads_without_live_call():
+    fetched_at = datetime(2026, 5, 25, 9, 0, tzinfo=UTC)
+    adapter = ExternalResearchStockNewsAdapter(
+        FakeExternalResearchAdapter(
+            [
+                ExternalResearchSourcePayload(
+                    symbol="7203.T",
+                    title="7203 Provider Profile",
+                    content="Business Summary: Toyota sells vehicles globally.",
+                    source_type="provider_profile",
+                    source_url="https://example.com/profile",
+                    provider="fake_external",
+                    company_name="Toyota",
+                    published_at=date(2026, 5, 25),
+                    fetched_at=fetched_at,
+                    reliability=Decimal("0.65"),
+                ),
+                ExternalResearchSourcePayload(
+                    symbol="7203.T",
+                    title="7203 Guidance Raised",
+                    content=(
+                        "source: Example News\n"
+                        "url: https://example.com/7203-guidance\n"
+                        "summary: Toyota raised guidance after revenue growth."
+                    ),
+                    source_type="news",
+                    source_url="https://example.com/7203-guidance",
+                    provider="fake_external",
+                    company_name="Toyota",
+                    published_at=date(2026, 5, 25),
+                    fetched_at=fetched_at,
+                    reliability=Decimal("0.70"),
+                ),
+                ExternalResearchSourcePayload(
+                    symbol="7203.T",
+                    title="7203 Guidance Raised Duplicate",
+                    content=(
+                        "source: Example News\n"
+                        "url: https://example.com/7203-guidance\n"
+                        "summary: Duplicate article should be deduped by URL."
+                    ),
+                    source_type="news",
+                    source_url="https://example.com/7203-guidance",
+                    provider="fake_external",
+                    company_name="Toyota",
+                    published_at=date(2026, 5, 25),
+                    fetched_at=fetched_at,
+                    reliability=Decimal("0.70"),
+                ),
+            ]
+        )
+    )
+
+    report = ExternalStockNewsFetchService(adapter).fetch_news(
+        StockNewsRequest(
+            symbol="7203.T",
+            company_name="Toyota",
+            as_of=date(2026, 5, 25),
+        )
+    )
+
+    assert report.symbol == "7203.T"
+    assert [row.title for row in report.news] == ["7203 Guidance Raised"]
+    assert report.news[0].url == "https://example.com/7203-guidance"
+    assert report.news[0].source == "Example News"
+    assert report.news[0].investment_viewpoint == "earnings"
+    assert report.news[0].sentiment_for_investment == "positive"
+    assert report.news[0].freshness_status == "latest"
+    assert report.warnings == []
+
+
+def test_external_stock_news_fetch_service_warns_about_stale_external_news():
+    class FakeExternalStockNewsAdapter:
+        provider = "fake_news"
+        requires_network = False
+
+        def fetch_news(self, request: StockNewsRequest) -> list[StockNewsEvidence]:
+            return [
+                StockNewsEvidence(
+                    symbol=request.symbol,
+                    company_name=request.company_name,
+                    title="7203 Old Risk News",
+                    url="https://example.com/7203-old-risk",
+                    source="Example News",
+                    published_at=date(2026, 1, 10),
+                    summary="Older lawsuit risk article.",
+                    investment_viewpoint="risk",
+                    sentiment_for_investment="negative",
+                )
+            ]
+
+    report = ExternalStockNewsFetchService(FakeExternalStockNewsAdapter()).fetch_news(
+        StockNewsRequest(
+            symbol="7203.T",
+            company_name="Toyota",
+            as_of=date(2026, 5, 25),
+        )
+    )
+
+    assert report.news[0].freshness_status == "stale"
+    assert any("公開日が古い" in warning for warning in report.warnings)
+
+
+def test_external_stock_news_fetch_service_requires_explicit_network_opt_in():
+    class NetworkExternalStockNewsAdapter:
+        provider = "network_news"
+        requires_network = True
+
+        def fetch_news(self, request: StockNewsRequest) -> list[StockNewsEvidence]:
+            raise AssertionError("network adapter should not be called without opt-in")
+
+    with pytest.raises(ResearchDocumentError, match="requires explicit network opt-in"):
+        ExternalStockNewsFetchService(NetworkExternalStockNewsAdapter()).fetch_news(
+            StockNewsRequest(symbol="7203.T", as_of=date(2026, 5, 25)),
+            allow_network=False,
+        )
 
 
 def test_external_research_fetch_service_registers_sources_without_persisting_payloads(

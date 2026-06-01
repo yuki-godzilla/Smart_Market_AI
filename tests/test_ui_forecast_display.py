@@ -95,6 +95,7 @@ from ui.app import (
     _render_company_research_summary_panel,
     _render_market_chart,
     _render_research_operation_card,
+    _render_score_confidence_hierarchy,
     _research_brief_focus_html,
     _research_brief_gap_panel_html,
     _research_brief_gap_rows,
@@ -5131,6 +5132,23 @@ def test_score_confidence_hierarchy_rows_distinguish_score_roles():
     assert "総合スコアやRanking順位を変えません" in research_row["順位への影響"]
     assert "根拠確認不足" in research_row["読み方"]
     assert "投資魅力度ではなく" in confidence_row["読み方"]
+
+
+def test_render_score_confidence_hierarchy_uses_wrapping_html_table(monkeypatch):
+    markdown_calls: list[str] = []
+
+    def fake_markdown(body: str, **_: object) -> None:
+        markdown_calls.append(body)
+
+    monkeypatch.setattr("ui.app.st.markdown", fake_markdown)
+
+    _render_score_confidence_hierarchy()
+
+    table_html = markdown_calls[-1]
+    assert "symbol-detail-table" in table_html
+    assert "Research Score" in table_html
+    assert "既定では総合スコアやRanking順位を変えません" in table_html
+    assert "投資魅力度ではなく" in table_html
 
 
 def test_cockpit_detail_summary_rows_lift_key_closed_details():

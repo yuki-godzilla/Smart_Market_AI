@@ -900,3 +900,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added a shared score / confidence hierarchy table for Cockpit and Ranking so `投資スコア / 総合スコア`, `Research Score`, `データ品質`, and `条件適合度 / DB信頼度` have distinct roles.
 - Clarified that Research Score is evidence coverage / freshness / confidence context and does not change the default total score or Ranking order.
 - Expanded Cockpit score component rows and Ranking detail rows with beginner-facing reading guidance, especially that data quality and DB confidence are not investment attractiveness.
+
+## 2026-06-01 - Score hierarchy browser validation fix
+
+- Rechecked the Cockpit and Ranking score hierarchy sections in an actual Chrome / Streamlit screen after the in-app browser backend was unavailable.
+- Found that the hierarchy table was readable but too cramped when rendered through Streamlit's dataframe grid; switched this hierarchy-only display to the existing wrapping HTML table style.
+- Confirmed the refreshed Cockpit and Ranking screens with `mock` market data: the score hierarchy text is visible, wraps in place, and no longer uses the dataframe grid for this explanation block.

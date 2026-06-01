@@ -3036,7 +3036,7 @@ def _render_ranking_score_explanation() -> None:
 """
         )
         st.markdown("##### スコアと信頼度の読み分け")
-        _render_compact_dataframe(score_confidence_hierarchy_rows())
+        _render_score_confidence_hierarchy()
 
 
 def _ranking_data_state_text(
@@ -8036,7 +8036,7 @@ def _render_score_breakdown_context(
         st.caption(
             "Research Score、データ品質、DB信頼度は役割が異なります。総合スコアと混同せず、確認材料として読み分けます。"
         )
-        _render_compact_dataframe(score_confidence_hierarchy_rows())
+        _render_score_confidence_hierarchy()
         _render_target_symbol_caption(symbol_label)
         _render_table(rows, EMPTY_STATE_MESSAGES["investment_score_rows"])
         col_json, col_csv = st.columns(2)
@@ -8447,6 +8447,11 @@ def score_confidence_hierarchy_rows() -> list[dict[str, str]]:
             "読み方": "投資魅力度ではなく、評価材料がそろっているかの確認値です。",
         },
     ]
+
+
+def _render_score_confidence_hierarchy() -> None:
+    st.markdown(SYMBOL_DETAIL_DIALOG_CSS, unsafe_allow_html=True)
+    st.markdown(symbol_detail_table_html(score_confidence_hierarchy_rows()), unsafe_allow_html=True)
 
 
 def _render_compact_dataframe(rows: list[dict[str, str]]) -> None:

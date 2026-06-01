@@ -888,3 +888,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Restored SMAI composite evaluation profiles in `評価方針`, including `上昇気配重視`, `モメンタム・トレンド`, `成長クオリティ`, `割安クオリティ`, `高配当の持続性`, `低ボラ・安定`, `リスク調整パフォーマンス`, `小型・成長探索`, `データ信頼度優先`, and ETF profiles.
 - Re-aligned top candidate cards, the Top 10 chart, selected-candidate breakdown, and Decision Report context with the selected evaluation policy instead of a single metric sort.
 - Expanded detailed-table sort guidance to cover Screening, upside/downside signals, risk, and missing-value handling.
+
+## 2026-06-01 - Research Summary UX review
+
+- Checked the `AI調査を更新` Cockpit flow for a domestic stock, foreign stock, ETF, and external-source failure path with Streamlit's UI test runner because the in-app browser backend was unavailable in this session.
+- Confirmed the primary Research Summary order: company / ETF summary, quantitative or fund metrics, IR or ETF-specific sections, latest news / disclosure summary, and confirmation questions, with AI reading notes, evidence details, source cards, Research Score, and external-source traces behind expanders.
+- Softened the news-URL gap message in the UI so internal `source_type=news` wording no longer appears in the main Research Summary; it now reads as supplemental confirmation guidance instead of a warning.

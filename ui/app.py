@@ -5686,7 +5686,11 @@ def _render_research_summary_panel(
 
     if news_report is not None and news_report.warnings:
         for warning in news_report.warnings:
-            st.warning(warning)
+            warning_text = _research_news_warning_display_text(warning)
+            if _is_research_news_url_gap_warning(warning):
+                st.info(warning_text)
+            else:
+                st.warning(warning_text)
 
     if external_research_result is not None and external_research_result.entries:
         with st.expander(
@@ -5756,6 +5760,24 @@ def _render_research_summary_panel(
             _render_compact_dataframe(
                 _external_research_fetch_summary_rows(external_research_result)
             )
+
+
+def _is_research_news_url_gap_warning(warning: str) -> bool:
+    return (
+        "URL付きのニュース根拠" in warning
+        or "source_type=news" in warning
+        or "source URL がない" in warning
+        or "source URL is missing" in warning
+    )
+
+
+def _research_news_warning_display_text(warning: str) -> str:
+    if _is_research_news_url_gap_warning(warning):
+        return (
+            "URL付きで確認できるニュース根拠はまだ見つかっていません。"
+            "ニュース内容は外部参照ソース、公式IR、開示資料で追加確認してください。"
+        )
+    return warning
 
 
 def _research_summary_bundle(

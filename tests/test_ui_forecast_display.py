@@ -112,6 +112,7 @@ from ui.app import (
     _research_evidence_report_section,
     _research_extracted_claim_rows,
     _research_grounded_answer_rows,
+    _research_news_warning_display_text,
     _research_quality_warning_rows,
     _research_result_overview_html,
     _research_retrieval_quality_rows,
@@ -1705,6 +1706,19 @@ def test_external_research_fetch_result_rows_clean_provider_raw_summary():
     assert "Quote Type" not in rows[0]["要約"]
     assert "Website:" not in rows[0]["要約"]
     assert "https://example.com" not in rows[0]["要約"]
+
+
+def test_research_news_warning_display_text_hides_internal_source_type():
+    warning = (
+        "URL付きのニュース根拠が見つかりませんでした。"
+        "必要な場合は source_type=news の資料に URL を含めて登録してください。"
+    )
+
+    text = _research_news_warning_display_text(warning)
+
+    assert "URL付きで確認できるニュース根拠" in text
+    assert "source_type" not in text
+    assert "売買" not in text
 
 
 def test_fetch_external_research_for_preview_uses_external_source_and_stores(monkeypatch):

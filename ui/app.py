@@ -110,7 +110,6 @@ from ui.content.research_texts import (
     RESEARCH_DOCUMENTS_OR_CHUNKS_MISSING,
     RESEARCH_EVIDENCE_CHECK_FALLBACK,
     RESEARCH_FETCH_BUTTON_LABEL,
-    RESEARCH_FETCH_SPINNER,
     RESEARCH_INSUFFICIENT_REPORT_NOTE,
     RESEARCH_INVESTMENT_INSIGHT_GAPS_LABEL,
     RESEARCH_INVESTMENT_INSIGHT_NEGATIVE_LABEL,
@@ -5133,7 +5132,15 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
         news_report=news_report,
     )
     if fetch_clicked:
-        with st.spinner(RESEARCH_FETCH_SPINNER):
+        loading_slot = st.empty()
+        with loading_slot.container():
+            render_mascot_loading(
+                "report",
+                title="AI調査を整理中",
+                message="外部参照ソース、ニュース、保存済み資料を読み込み、企業リサーチレポートにまとめています。",
+                tone="info",
+            )
+        try:
             refresh_started = perf_time.perf_counter()
             trace_rows: list[tuple[str, float]] = []
             try:
@@ -5173,6 +5180,8 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
             trace_rows.append(("合計", perf_time.perf_counter() - refresh_started))
             st.session_state[RESEARCH_REFRESH_TRACE_STATE_KEY] = trace_rows
             st.caption(_research_refresh_trace_caption(trace_rows))
+        finally:
+            loading_slot.empty()
 
     report = _cockpit_research_report_from_state(preview)
     news_report = _cockpit_stock_news_report_from_state(preview)
@@ -5618,9 +5627,19 @@ def _render_ranking_symbol_research_lookup(symbol: str) -> None:
         type="primary",
     )
     if fetch_clicked:
-        with st.spinner(RESEARCH_FETCH_SPINNER):
+        loading_slot = st.empty()
+        with loading_slot.container():
+            render_mascot_loading(
+                "report",
+                title="AI資料を確認中",
+                message="保存済み資料を読み込み、根拠付きの企業リサーチメモに整理しています。",
+                tone="info",
+            )
+        try:
             fetched_report = analyze_research_for_symbol(symbol)
             _store_ranking_research_report(fetched_report)
+        finally:
+            loading_slot.empty()
 
     report = _ranking_research_report_from_state(symbol)
     if report is None:

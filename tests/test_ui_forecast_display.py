@@ -93,6 +93,7 @@ from ui.app import (
     _ranking_result_table_base_key,
     _ranking_source_key_for_selection,
     _ranking_symbols_from_selected_labels,
+    _render_cockpit_research_summary,
     _render_company_research_summary_panel,
     _render_market_chart,
     _render_research_operation_card,
@@ -1825,6 +1826,93 @@ def test_fetch_external_research_for_preview_uses_external_source_and_stores(mon
         "allow_network": True,
     }
     assert st.session_state[MARKET_DATA_EXTERNAL_RESEARCH_FETCH_STATE_KEY] is result
+
+
+def test_cockpit_research_refresh_uses_mascot_loading(monkeypatch):
+    class FakeLoadingSlot:
+        def __init__(self) -> None:
+            self.cleared = False
+
+        def container(self):
+            return nullcontext()
+
+        def empty(self) -> None:
+            self.cleared = True
+
+    slot = FakeLoadingSlot()
+    loading_calls: list[tuple[str, dict[str, object]]] = []
+    session_state: dict[str, object] = {}
+    external_result = ExternalResearchFetchResult(
+        symbol="7203.T",
+        provider="fake",
+        fetched_at=datetime(2026, 5, 27, 12, 30, tzinfo=UTC),
+        entries=[],
+        retention_policy="session",
+    )
+    preview = MarketDataPreview(
+        status="ok",
+        bars=[],
+        provider_rows=[],
+        quote_rows=[],
+        ohlcv_rows=[],
+        price_chart_rows=[],
+        forecast_chart_rows=[],
+        forecast_metric_rows=[],
+        fx_rows=[],
+        feature_rows=[],
+        investment_score_rows=[],
+        screening_rows=[{"symbol": "7203.T"}],
+        error_rows=[],
+    )
+
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.app.st.empty", lambda: slot)
+    monkeypatch.setattr("ui.app.st.subheader", lambda *_, **__: None)
+    monkeypatch.setattr("ui.app.st.caption", lambda *_, **__: None)
+    monkeypatch.setattr("ui.app.st.info", lambda *_, **__: None)
+    monkeypatch.setattr(
+        "ui.app.render_mascot_loading",
+        lambda variant, **kwargs: loading_calls.append((variant, kwargs)),
+    )
+    monkeypatch.setattr(
+        "ui.app._render_research_operation_card",
+        lambda *_, **__: True,
+    )
+    monkeypatch.setattr("ui.app._cockpit_research_report_from_state", lambda _: None)
+    monkeypatch.setattr("ui.app._cockpit_stock_news_report_from_state", lambda _: None)
+    monkeypatch.setattr(
+        "ui.app._fetch_external_research_for_preview",
+        lambda _: external_result,
+    )
+    monkeypatch.setattr(
+        "ui.app._build_cockpit_research_report",
+        lambda _: object(),
+    )
+    monkeypatch.setattr(
+        "ui.app._build_cockpit_stock_news_report",
+        lambda _: object(),
+    )
+    monkeypatch.setattr(
+        "ui.app.external_research_fetch_cache_info",
+        lambda: {"cache_hit": False},
+    )
+
+    _render_cockpit_research_summary(preview)
+
+    assert loading_calls == [
+        (
+            "report",
+            {
+                "title": "AI調査を整理中",
+                "message": (
+                    "外部参照ソース、ニュース、保存済み資料を読み込み、"
+                    "企業リサーチレポートにまとめています。"
+                ),
+                "tone": "info",
+            },
+        )
+    ]
+    assert slot.cleared is True
 
 
 def test_fetch_external_research_for_symbol_reuses_session_ttl_cache(monkeypatch, tmp_path):

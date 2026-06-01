@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-06-02: Added the first company IR site external Research adapter slice. `AI調査を更新` now includes company official IR page discovery from website metadata in the default EDINET / TDnet / company IR / Yahoo Finance composite source set, shows `企業IRサイト` as official-source evidence in the UI, and keeps normal checks network-free through fake ticker / HTTP tests.
 - 2026-06-01: Completed the symbol universe metadata refresh closeout. All 9,197 rows in `symbol_universe.csv` now have Yahoo metadata dated 2026-06-01 after retrying PARR / PASG; dividend yield, PER, PBR, and ROE abnormal-count checks are 0; coverage/manifest baselines were regenerated and provider-vs-Web definition differences were documented as sanity-check references rather than exact parity requirements.
 - 2026-05-30: Added manual coverage for Ranking sort-condition usage and symbol-detail entry points from both Ranking and Cockpit, with live UI screenshots for sort controls, ranking row-click detail, and cockpit `銘柄データを見る`.
 - 2026-05-30: Expanded the root-level SMAI user manual with external Yahoo live-data screenshots for ranking results, cockpit chart/data retrieval, AI Research refresh, Decision Report reading, and report downloads; added bordered/responsive screenshot presentation and per-image viewing points.

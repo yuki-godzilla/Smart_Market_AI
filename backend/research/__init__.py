@@ -1,5 +1,6 @@
 from backend.research.service import (
     CompanyBusinessProfile,
+    CompanyIRSiteResearchAdapter,
     CompanyOverviewSummary,
     CompanyResearchEvidence,
     CompanyResearchReport,
@@ -112,6 +113,7 @@ __all__ = [
     "CompanyResearchReport",
     "CompanyResearchSummary",
     "CompanyResearchSummaryBuilder",
+    "CompanyIRSiteResearchAdapter",
     "CompositeExternalResearchAdapter",
     "DefaultExternalResearchAdapter",
     "EDINETResearchAdapter",

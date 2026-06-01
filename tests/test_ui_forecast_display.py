@@ -1632,7 +1632,7 @@ def test_external_research_source_cards_explain_how_to_read_each_source():
     edinet_source_url = "https://disclosure.edinet-fsa.go.jp/api/v2/documents/S100TOYOTA?type=2"
     result = ExternalResearchFetchResult(
         symbol="7203.T",
-        provider="edinet_tdnet_yahoo_finance",
+        provider="edinet_tdnet_company_ir_yahoo_finance",
         fetched_at=datetime(2026, 5, 27, 12, 30, tzinfo=UTC),
         entries=[
             ExternalResearchFetchManifestEntry(
@@ -1662,6 +1662,19 @@ def test_external_research_source_cards_explain_how_to_read_each_source():
                 content_summary="2026年3月期の決算短信です。",
             ),
             ExternalResearchFetchManifestEntry(
+                title="Toyota 公式IRサイト",
+                symbol="7203.T",
+                source_type="company_ir",
+                source_url="https://global.toyota/jp/ir/",
+                provider="company_ir_site",
+                published_at=None,
+                fetched_at=datetime(2026, 5, 27, 12, 30, tzinfo=UTC),
+                freshness_status="unknown",
+                document_id="research-doc-company-ir",
+                retention_policy="session",
+                content_summary="公式IRサイトのInvestor Relationsページです。",
+            ),
+            ExternalResearchFetchManifestEntry(
                 title="7203 Yahoo Finance Profile",
                 symbol="7203.T",
                 source_type="provider_profile",
@@ -1686,13 +1699,15 @@ def test_external_research_source_cards_explain_how_to_read_each_source():
     cards = _external_research_source_cards_html(result)
 
     assert "外部参照ソースの確認メモ" in overview
-    assert "EDINET / TDnet / Yahoo Finance" in overview
+    assert "EDINET / TDnet / 企業IR / Yahoo Finance" in overview
     assert "公式開示" in overview
-    assert "3件" in overview
+    assert "4件" in overview
     assert "EDINET" in cards
     assert "EDINETなどの公式開示" in cards
     assert "TDnet（適時開示）" in cards
     assert "PDF本文で対象期間" in cards
+    assert "企業IRサイト" in cards
+    assert "掲載資料の公開日" in cards
     assert "外部データ" in cards
     assert "Toyota sells vehicles globally" in cards
     assert "Provider Symbol" not in cards

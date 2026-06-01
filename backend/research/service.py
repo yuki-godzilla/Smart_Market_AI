@@ -12,7 +12,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Callable, Literal, Protocol, Sequence, cast
-from urllib.parse import urlencode, urljoin
+from urllib.parse import urlencode, urljoin, urlparse, urlunparse
 from urllib.request import Request as UrlRequest
 from urllib.request import urlopen
 
@@ -28,6 +28,7 @@ ResearchSourceType = Literal[
     "earnings_presentation",
     "medium_term_plan",
     "integrated_report",
+    "company_ir",
     "tdnet",
     "news",
     "provider_profile",
@@ -215,6 +216,16 @@ YAHOO_RESEARCH_PROFILE_FIELDS: tuple[tuple[str, str], ...] = (
     ("fullTimeEmployees", "Full Time Employees"),
     ("payoutRatio", "Payout Ratio"),
     ("beta", "Beta"),
+)
+COMPANY_IR_CANDIDATE_PATHS: tuple[str, ...] = (
+    "ir",
+    "jp/ir",
+    "en/ir",
+    "investor-relations",
+    "investors",
+    "investor",
+    "ir/library",
+    "ir/news",
 )
 TDNET_BASE_URL = "https://www.release.tdnet.info/inbs/"
 TDNET_LIST_URL_TEMPLATE = TDNET_BASE_URL + "I_list_{page:03d}_{yyyymmdd}.html"
@@ -2874,6 +2885,103 @@ class YahooFinanceResearchAdapter:
         return yf.Ticker(symbol)
 
 
+class CompanyIRSiteResearchAdapter:
+    """Opt-in company IR site adapter using official website metadata."""
+
+    provider = "company_ir_site"
+    requires_network = True
+
+    def __init__(
+        self,
+        *,
+        ticker_factory: Callable[[str], Any] | None = None,
+        http_get: Callable[[str], str] | None = None,
+        website_resolver: Callable[[ExternalResearchFetchRequest], str | None] | None = None,
+        candidate_paths: Sequence[str] = COMPANY_IR_CANDIDATE_PATHS,
+        max_results: int = 1,
+    ) -> None:
+        self._ticker_factory = ticker_factory
+        self._http_get = http_get
+        self._website_resolver = website_resolver
+        self.candidate_paths = tuple(candidate_paths)
+        self.max_results = max(1, max_results)
+
+    def fetch_sources(
+        self,
+        request: ExternalResearchFetchRequest,
+    ) -> list[ExternalResearchSourcePayload]:
+        fetched_at = datetime.now(UTC)
+        website = self._official_website(request)
+        if not website:
+            return []
+        payloads: list[ExternalResearchSourcePayload] = []
+        seen_urls: set[str] = set()
+        for source_url in _company_ir_candidate_urls(website, self.candidate_paths):
+            if source_url in seen_urls:
+                continue
+            seen_urls.add(source_url)
+            try:
+                html_text = self._get_text(source_url)
+            except ResearchDocumentError:
+                continue
+            if not _company_ir_page_is_relevant(html_text):
+                continue
+            payloads.append(
+                _company_ir_site_payload(
+                    request,
+                    html_text,
+                    source_url=source_url,
+                    fetched_at=fetched_at,
+                )
+            )
+            if len(payloads) >= self.max_results:
+                return payloads
+        return payloads
+
+    def _official_website(self, request: ExternalResearchFetchRequest) -> str:
+        if self._website_resolver is not None:
+            return _normalize_external_url(self._website_resolver(request))
+        try:
+            info = _ticker_info(self._ticker(request.symbol))
+        except ResearchDocumentError:
+            return ""
+        return _normalize_external_url(_external_text_value(info.get("website")))
+
+    def _ticker(self, symbol: str) -> Any:
+        if self._ticker_factory is not None:
+            return self._ticker_factory(symbol)
+        try:
+            import yfinance as yf  # type: ignore[import-untyped]
+        except ImportError as exc:
+            raise ResearchDocumentError(
+                "yfinance is required for the company IR site research adapter.",
+                details={"provider": self.provider},
+            ) from exc
+        return yf.Ticker(symbol)
+
+    def _get_text(self, url: str) -> str:
+        if self._http_get is not None:
+            return self._http_get(url)
+        try:
+            import httpx
+        except ImportError as exc:  # pragma: no cover - dependency is pinned for runtime
+            raise ResearchDocumentError(
+                "httpx is required for the company IR site research adapter.",
+                details={"provider": self.provider},
+            ) from exc
+        try:
+            with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+                response = client.get(url)
+                response.raise_for_status()
+                response.encoding = response.encoding or "utf-8"
+                return response.text
+        except Exception as exc:  # pragma: no cover - provider-specific network failure
+            raise ResearchDocumentError(
+                "Company IR site fetch failed.",
+                details={"provider": self.provider, "url": url},
+            ) from exc
+
+
 class TDnetResearchAdapter:
     """TDnet timely-disclosure adapter for current Japanese IR source links."""
 
@@ -3097,9 +3205,10 @@ class DefaultExternalResearchAdapter(CompositeExternalResearchAdapter):
             [
                 EDINETResearchAdapter(),
                 TDnetResearchAdapter(),
+                CompanyIRSiteResearchAdapter(),
                 YahooFinanceResearchAdapter(),
             ],
-            provider="edinet_tdnet_yahoo_finance",
+            provider="edinet_tdnet_company_ir_yahoo_finance",
         )
 
 
@@ -3561,6 +3670,112 @@ def _edinet_payload_content(
         ]
     )
     return "\n".join(lines)
+
+
+def _normalize_external_url(value: str | None) -> str:
+    text = _external_text_value(value)
+    if not text:
+        return ""
+    if not re.match(r"^https?://", text, flags=re.IGNORECASE):
+        text = f"https://{text}"
+    parsed = urlparse(text)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return ""
+    path = parsed.path.rstrip("/")
+    return urlunparse((parsed.scheme, parsed.netloc.lower(), path, "", "", ""))
+
+
+def _company_ir_candidate_urls(
+    website: str,
+    candidate_paths: Sequence[str],
+) -> list[str]:
+    normalized = _normalize_external_url(website)
+    if not normalized:
+        return []
+    parsed = urlparse(normalized)
+    candidates: list[str] = []
+    if _company_ir_url_looks_relevant(normalized):
+        candidates.append(normalized)
+    root = urlunparse((parsed.scheme, parsed.netloc, "/", "", "", ""))
+    path_base = (
+        urlunparse((parsed.scheme, parsed.netloc, f"{parsed.path.strip('/')}/", "", "", ""))
+        if parsed.path.strip("/")
+        else root
+    )
+    for raw_path in candidate_paths:
+        path = raw_path.strip().strip("/")
+        if not path:
+            continue
+        for base in (root, path_base):
+            url = urljoin(base, path)
+            if url not in candidates:
+                candidates.append(url)
+    return candidates
+
+
+def _company_ir_url_looks_relevant(url: str) -> bool:
+    path = urlparse(url).path.casefold()
+    return any(token in path for token in ("ir", "investor"))
+
+
+def _company_ir_page_is_relevant(html_text: str) -> bool:
+    text = _clean_html_text(html_text).casefold()
+    if not text:
+        return False
+    keywords = (
+        "investor relations",
+        "investors",
+        "ir library",
+        "financial results",
+        "annual report",
+        "integrated report",
+        "株主",
+        "投資家",
+        "決算",
+        "有価証券報告書",
+        "統合報告書",
+        "ir情報",
+    )
+    return any(keyword.casefold() in text for keyword in keywords)
+
+
+def _company_ir_site_payload(
+    request: ExternalResearchFetchRequest,
+    html_text: str,
+    *,
+    source_url: str,
+    fetched_at: datetime,
+) -> ExternalResearchSourcePayload:
+    symbol = _normalize_symbol(request.symbol)
+    company_name = request.company_name or symbol
+    page_text = _clean_html_text(html_text)
+    content = "\n".join(
+        [
+            f"title: {company_name} official IR site",
+            f"url: {source_url}",
+            "source: company official IR site",
+            f"company: {company_name}",
+            "",
+            "IR page summary:",
+            _excerpt(page_text, max_chars=720),
+            "",
+            "Data Quality Notes:",
+            "This adapter records a company official IR site page discovered from official website metadata.",
+            "Use the page as a starting point for official documents; confirm document dates and PDF details before using the information in an investment decision.",
+        ]
+    )
+    return ExternalResearchSourcePayload(
+        symbol=symbol,
+        title=f"{company_name} 公式IRサイト",
+        content=content,
+        source_type="company_ir",
+        source_url=source_url,
+        provider=CompanyIRSiteResearchAdapter.provider,
+        company_name=company_name,
+        published_at=None,
+        fetched_at=fetched_at,
+        reliability=Decimal("0.82"),
+    )
 
 
 def _external_text_value(value: object) -> str:
@@ -4039,6 +4254,7 @@ def _source_type_priority(source_type: ResearchSourceType) -> float:
         "earnings_presentation": 0.95,
         "medium_term_plan": 0.95,
         "integrated_report": 0.95,
+        "company_ir": 0.88,
         "tdnet": 0.90,
         "provider_profile": 0.65,
         "user_note": 0.70,
@@ -4375,6 +4591,7 @@ _RESEARCH_BRIEF_HIGH_CONFIDENCE_SOURCES: set[ResearchSourceType] = {
     "earnings_presentation",
     "medium_term_plan",
     "integrated_report",
+    "company_ir",
     "tdnet",
 }
 _RESEARCH_BRIEF_MEDIUM_CONFIDENCE_SOURCES: set[ResearchSourceType] = {
@@ -5319,6 +5536,7 @@ def _research_brief_source_type_label(source_type: ResearchSourceType) -> str:
         "earnings_presentation": "決算説明資料",
         "medium_term_plan": "中期経営計画",
         "integrated_report": "統合報告書",
+        "company_ir": "企業IRサイト",
         "tdnet": "適時開示",
         "provider_profile": "取得元プロフィール",
         "news": "ニュース",
@@ -5912,6 +6130,12 @@ def _company_research_ir_items(
             "annual_report",
             ("annual_report", "integrated_report"),
             ("有価証券報告書", "annual securities report", "annual report"),
+        ),
+        (
+            "公式IRサイト",
+            "other",
+            ("company_ir",),
+            ("IR", "investor relations", "投資家", "株主"),
         ),
         (
             "適時開示",
@@ -6775,6 +6999,8 @@ def _company_research_evidence_kind(
         return "news"
     if source_type == "tdnet":
         return "tdnet_disclosure"
+    if source_type == "company_ir":
+        return "ir_document"
     if source_type in {
         "annual_report",
         "earnings_report",
@@ -6797,6 +7023,7 @@ def _company_research_reliability(
         "earnings_presentation",
         "medium_term_plan",
         "integrated_report",
+        "company_ir",
         "tdnet",
     }:
         return "official"

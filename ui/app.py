@@ -5264,7 +5264,18 @@ def _external_research_fetch_summary_rows(
 def _external_research_fetch_overview_html(result: ExternalResearchFetchResult) -> str:
     latest_dates = [entry.published_at for entry in result.entries if entry.published_at]
     latest_text = max(latest_dates).isoformat() if latest_dates else "未確認"
-    official_count = sum(1 for entry in result.entries if entry.source_type == "tdnet")
+    official_source_types = {
+        "annual_report",
+        "earnings_report",
+        "earnings_presentation",
+        "medium_term_plan",
+        "integrated_report",
+        "company_ir",
+        "tdnet",
+    }
+    official_count = sum(
+        1 for entry in result.entries if entry.source_type in official_source_types
+    )
     stale_count = sum(1 for entry in result.entries if entry.freshness_status == "stale")
     source_types = sorted(
         {_research_source_type_label(entry.source_type) for entry in result.entries}
@@ -5419,8 +5430,10 @@ def _external_research_provider_label(provider: str) -> str:
     labels = {
         "edinet": "EDINET",
         "tdnet": "TDnet（適時開示）",
+        "company_ir_site": "企業IRサイト",
         "yahoo_finance": "Yahoo Finance",
         "edinet_tdnet_yahoo_finance": "EDINET / TDnet / Yahoo Finance",
+        "edinet_tdnet_company_ir_yahoo_finance": ("EDINET / TDnet / 企業IR / Yahoo Finance"),
         "tdnet_yahoo_finance": "TDnet / Yahoo Finance",
     }
     return labels.get(provider, provider)
@@ -5431,6 +5444,8 @@ def _external_research_entry_check_note(entry: ExternalResearchFetchManifestEntr
         return "EDINETなどの公式開示です。対象期間、提出会社、本文の該当箇所を確認してください。"
     if entry.source_type == "tdnet":
         return "公式開示です。PDF本文で対象期間、数値、会社発表の前提を確認してください。"
+    if entry.source_type == "company_ir":
+        return "企業公式IRサイトです。掲載資料の公開日、PDF本文、対象期間を確認してください。"
     if entry.source_type == "provider_profile":
         return "外部データです。事業内容や指標は公式IR・決算資料と照合してください。"
     if entry.source_type == "news":
@@ -8740,6 +8755,7 @@ def _research_source_type_label(source_type: str) -> str:
         "earnings_presentation": "決算説明資料",
         "medium_term_plan": "中期経営計画",
         "integrated_report": "統合報告書",
+        "company_ir": "企業IRサイト",
         "tdnet": "TDnet",
         "news": "ニュース",
         "provider_profile": "取得元プロフィール",
@@ -8755,6 +8771,7 @@ def _research_source_rank_label(source_type: str) -> str:
         "earnings_presentation",
         "medium_term_plan",
         "integrated_report",
+        "company_ir",
         "tdnet",
     }:
         return "公式資料"

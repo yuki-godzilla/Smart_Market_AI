@@ -7,6 +7,7 @@ import pytest
 
 from backend.research import (
     CompanyBusinessProfile,
+    CompanyIRSiteResearchAdapter,
     CompanyResearchReport,
     CompanyResearchRequest,
     CompanyResearchSummaryBuilder,
@@ -3424,6 +3425,88 @@ def test_yahoo_finance_research_adapter_exports_etf_metric_candidates():
     assert "Top Holdings: US912810TT51" in content
 
 
+def test_company_ir_site_research_adapter_discovers_official_ir_page_without_live_call():
+    class WebsiteTicker:
+        def get_info(self) -> dict[str, object]:
+            return {
+                "longName": "Toyota Motor Corporation",
+                "symbol": "7203.T",
+                "website": "https://example.com",
+            }
+
+    requested_urls: list[str] = []
+
+    def fake_http_get(url: str) -> str:
+        requested_urls.append(url)
+        if url == "https://example.com/ir":
+            return """
+            <html><body>
+              Investor Relations
+              Financial Results
+              Annual Report
+              株主 投資家 決算
+            </body></html>
+            """
+        raise ResearchDocumentError("page not found")
+
+    adapter = CompanyIRSiteResearchAdapter(
+        ticker_factory=lambda symbol: WebsiteTicker(),
+        http_get=fake_http_get,
+        candidate_paths=("ir", "investors"),
+    )
+
+    payloads = adapter.fetch_sources(
+        ExternalResearchFetchRequest(
+            symbol="7203.T",
+            company_name="Toyota",
+            provider="company_ir_site",
+            as_of=date(2026, 5, 25),
+            allow_network=True,
+        )
+    )
+
+    assert requested_urls == ["https://example.com/ir"]
+    assert len(payloads) == 1
+    payload = payloads[0]
+    assert payload.provider == "company_ir_site"
+    assert payload.source_type == "company_ir"
+    assert payload.source_url == "https://example.com/ir"
+    assert payload.title == "Toyota 公式IRサイト"
+    assert payload.published_at is None
+    assert payload.reliability == Decimal("0.82")
+    assert "source: company official IR site" in payload.content
+    assert "Financial Results" in payload.content
+
+
+def test_company_ir_site_research_adapter_uses_explicit_website_resolver_first():
+    requested_urls: list[str] = []
+
+    def fake_http_get(url: str) -> str:
+        requested_urls.append(url)
+        return "<html><body>IR情報 投資家 決算 統合報告書</body></html>"
+
+    adapter = CompanyIRSiteResearchAdapter(
+        ticker_factory=lambda symbol: pytest.fail("ticker should not be used"),
+        http_get=fake_http_get,
+        website_resolver=lambda request: "example.com/investors",
+        candidate_paths=("ir",),
+    )
+
+    payloads = adapter.fetch_sources(
+        ExternalResearchFetchRequest(
+            symbol="AAPL",
+            company_name="Apple Inc.",
+            provider="company_ir_site",
+            as_of=date(2026, 5, 25),
+            allow_network=True,
+        )
+    )
+
+    assert requested_urls == ["https://example.com/investors"]
+    assert payloads[0].source_type == "company_ir"
+    assert payloads[0].source_url == "https://example.com/investors"
+
+
 def test_tdnet_research_adapter_builds_disclosure_payloads_without_live_call():
     requested_urls: list[str] = []
 
@@ -3673,10 +3756,11 @@ def test_composite_external_research_adapter_continues_after_source_failure():
 def test_default_external_research_adapter_includes_edinet_as_optional_source():
     adapter = DefaultExternalResearchAdapter()
 
-    assert adapter.provider == "edinet_tdnet_yahoo_finance"
+    assert adapter.provider == "edinet_tdnet_company_ir_yahoo_finance"
     assert [source.provider for source in adapter.adapters] == [
         "edinet",
         "tdnet",
+        "company_ir_site",
         "yahoo_finance",
     ]
 

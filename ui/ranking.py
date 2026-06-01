@@ -1427,6 +1427,11 @@ def apply_ranking_weight_preset(
         metadata_confidence_score = ranking_metadata_confidence_score(symbol_row)
         enriched_row = {
             **row,
+            "dividend_yield_pct": row.get("dividend_yield_pct", "")
+            or symbol_row.get("dividend_yield_pct", ""),
+            "per": row.get("per", "") or symbol_row.get("per", ""),
+            "pbr": row.get("pbr", "") or symbol_row.get("pbr", ""),
+            "roe_pct": row.get("roe_pct", "") or symbol_row.get("roe_pct", ""),
             "database_fit_score": _format_score(database_fit_score),
             "metadata_confidence_score": _format_score(metadata_confidence_score),
         }

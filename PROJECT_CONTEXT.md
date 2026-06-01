@@ -5,7 +5,7 @@
 This file is the compact current-state summary for Smart Market AI.
 Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_Log.md).
 
-Last updated: 2026-05-29
+Last updated: 2026-06-01
 
 ## Project Summary
 
@@ -18,6 +18,8 @@ Current focus is project maturity improvement rather than feature expansion. Fun
 Current UI maturity work includes Ranking visualization polish: existing ranking results are being presented as screening / comparison candidates with summary cards, top-candidate cards, score and confidence charts, selected-candidate breakdown, and a detailed table, without changing backend ranking or scoring logic.
 
 Ranking visualization maturity now uses condition-aware chart profiles, purpose-specific focus summaries, purpose-specific table leading columns, and row-level sorting reasons / checkpoints. The main scatter chart changes by ranking purpose, uses `上昇気配 x 下降警戒` for multi-factor / upside views, falls back to available existing columns, and treats Evaluation Confidence as a data-reliability / coverage support metric except for data-confidence-focused rankings.
+
+Ranking detailed table maturity now keeps beginner comparison columns visible by default: `総合スコア`, `配当利回り`, `PER`, `PBR`, and `ROE`; column-header sorting runs locally on the displayed data with metric-specific default directions and missing values shown as `N/A` at the end. Ranking refresh is tied to the explicit `最新データを取得して更新` action, while table sort/search/filter operations do not fetch external data.
 
 Ranking logic now uses `upside_signal_score` and `downside_signal_score` as the primary forecast-derived ranking/cockpit indicators. Direction signal v2 scores forecast edge, model-by-model direction edge, recent price momentum, and simple trend confirmation after volatility adjustment, so future forecast models contribute by direction and magnitude rather than only up/down counts. Agreement / model spread is treated as a confidence adjustment with a 0.70 floor, not as an additive bonus. Ranking / preview signals use fetched feature-history bars rather than only the selected display period, so short ranking periods do not force every symbol into neutral 50 / 50 fallback. `forecast_agreement_score` remains for compatibility and as a supplementary model-consistency metric; older direction net/label fields may remain in backend contracts for compatibility but are not main ranking/cockpit UI indicators.
 

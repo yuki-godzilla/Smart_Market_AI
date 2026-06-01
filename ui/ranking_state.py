@@ -24,6 +24,7 @@ from ui.state import (
     MARKET_DATA_RANKING_FILTERS_STATE_KEY,
     MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY,
     MARKET_DATA_RANKING_STATE_KEY,
+    MARKET_DATA_RANKING_UPDATED_AT_STATE_KEY,
     RANKING_FILTER_DIALOG_STATE_KEY,
 )
 
@@ -211,6 +212,7 @@ def apply_ranking_filter_state(
     )
     st.session_state.pop(MARKET_DATA_RANKING_STATE_KEY, None)
     st.session_state.pop(MARKET_DATA_RANKING_ERROR_STATE_KEY, None)
+    st.session_state.pop(MARKET_DATA_RANKING_UPDATED_AT_STATE_KEY, None)
     st.session_state[RANKING_FILTER_DIALOG_STATE_KEY] = False
 
 
@@ -230,3 +232,4 @@ def clear_ranking_filter_state() -> None:
     st.session_state.pop(MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY, None)
     st.session_state.pop(MARKET_DATA_RANKING_STATE_KEY, None)
     st.session_state.pop(MARKET_DATA_RANKING_ERROR_STATE_KEY, None)
+    st.session_state.pop(MARKET_DATA_RANKING_UPDATED_AT_STATE_KEY, None)

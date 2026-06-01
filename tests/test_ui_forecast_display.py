@@ -82,6 +82,7 @@ from ui.app import (
     _normalize_dividend_filter_state,
     _quantitative_summary_html,
     _ranking_candidate_card_html,
+    _ranking_data_state_text,
     _ranking_decision_report_state_key,
     _ranking_result_grid_height,
     _ranking_result_grid_key,
@@ -165,6 +166,7 @@ from ui.app import (
     ranking_result_aggrid_options,
     ranking_score_bar_chart_frame,
     ranking_score_confidence_frame,
+    ranking_score_detail_rows,
     ranking_summary_cards,
     ranking_top_candidate_cards,
     score_component_rows,
@@ -2077,6 +2079,13 @@ def test_ranking_result_aggrid_options_enable_single_row_click_selection():
     column_defs = {column["field"]: column for column in options["columnDefs"]}
     assert column_defs["順位"]["pinned"] == "left"
     assert column_defs["銘柄"]["pinned"] == "left"
+    assert column_defs["総合スコア"]["sortingOrder"] == ["desc", "asc", None]
+    assert column_defs["配当利回り"]["sortingOrder"] == ["desc", "asc", None]
+    assert column_defs["PER"]["sortingOrder"] == ["asc", "desc", None]
+    assert column_defs["PBR"]["sortingOrder"] == ["asc", "desc", None]
+    assert column_defs["ROE"]["sortingOrder"] == ["desc", "asc", None]
+    assert column_defs["PER"]["unSortIcon"] is True
+    assert "comparator" in column_defs["PER"]
     assert "確認メモ" in column_defs
     assert column_defs["確認メモ"]["tooltipField"] == "確認詳細"
     assert column_defs["確認詳細"]["hide"] is True
@@ -3235,6 +3244,26 @@ def test_ranking_comparison_summary_shows_period_and_selection_status():
         )["status"]
         == "候補なし"
     )
+
+
+def test_ranking_data_state_text_separates_refresh_from_local_sorting():
+    text, detail_rows = _ranking_data_state_text(
+        provider="yahoo",
+        rows=[
+            {"銘柄": "7203.T", "取得元": "yahoo"},
+            {"銘柄": "9983.T", "取得元": "N/A"},
+        ],
+        error_rows=[{"symbol": "NO_DATA"}],
+        updated_at="2026-06-01 22:30",
+    )
+
+    assert "一部銘柄は最新取得データを反映済み" in text
+    assert "2026-06-01 22:30" in text
+    assert detail_rows[:3] == [
+        {"区分": "保存済み", "件数": "1"},
+        {"区分": "最新反映", "件数": "1"},
+        {"区分": "取得失敗", "件数": "1"},
+    ]
 
 
 def test_ranking_symbols_state_key_uses_filter_signature():
@@ -4503,18 +4532,26 @@ def test_ranking_result_aggrid_frame_keeps_display_table_compact():
         "銘柄",
         "銘柄名",
         "総合スコア",
+        "配当利回り",
+        "PER",
+        "PBR",
+        "ROE",
+        "見方",
         "上昇気配",
         "下降警戒",
         "Risk",
         "データ品質",
         "信頼度/根拠",
-        "見方",
         "確認メモ",
         "確認詳細",
         "並べ替え理由",
         "確認ポイント",
     ]
     assert frame.loc[0, "銘柄名"] == "Toyota Motor Corporation Long Name"
+    assert frame.loc[0, "PER"] == "N/A"
+    assert frame.loc[0, "PBR"] == "N/A"
+    assert frame.loc[0, "ROE"] == "N/A"
+    assert frame.loc[0, "配当利回り"] == "N/A"
     assert "品質90" in frame.loc[0, "信頼度/根拠"]
     assert "条件86" in frame.loc[0, "信頼度/根拠"]
     assert "DB88" in frame.loc[0, "信頼度/根拠"]
@@ -4544,15 +4581,21 @@ def test_ranking_result_aggrid_frame_prioritizes_upside_columns_for_upside_purpo
         ranking_purpose=RANKING_PURPOSE_UPSIDE_SIGNAL,
     )
 
-    assert frame.columns.tolist()[:7] == [
+    assert frame.columns.tolist()[:12] == [
         "順位",
         "銘柄",
         "銘柄名",
+        "総合スコア",
+        "配当利回り",
+        "PER",
+        "PBR",
+        "ROE",
+        "見方",
         "上昇気配",
         "下降警戒",
         "予測変化率",
-        "方向一致",
     ]
+    assert frame.columns.tolist()[12] == "方向一致"
     assert "上昇気配 78" in frame.loc[0, "並べ替え理由"]
 
 
@@ -4576,16 +4619,45 @@ def test_ranking_result_aggrid_frame_avoids_duplicate_confidence_for_data_purpos
     )
 
     assert "信頼度/根拠" not in frame.columns
-    assert frame.columns.tolist()[:8] == [
+    assert frame.columns.tolist()[:13] == [
         "順位",
         "銘柄",
         "銘柄名",
+        "総合スコア",
+        "配当利回り",
+        "PER",
+        "PBR",
+        "ROE",
+        "見方",
         "データ品質",
         "DB信頼度",
         "根拠状態",
         "条件適合度",
-        "注意点",
     ]
+    assert frame.columns.tolist()[13] == "注意点"
+
+
+def test_ranking_result_aggrid_frame_keeps_zero_and_missing_fundamentals_distinct():
+    frame = ranking_result_aggrid_frame(
+        [
+            {
+                "順位": "1",
+                "銘柄": "ZERO",
+                "銘柄名": "Zero Dividend",
+                "総合スコア": "70",
+                "配当利回り": "0%",
+                "PER": "",
+                "PBR": "-",
+                "ROE": "未登録",
+                "見方": "比較候補",
+            }
+        ]
+    )
+
+    assert frame.loc[0, "配当利回り"] == "0%"
+    assert frame.loc[0, "PER"] == "N/A"
+    assert frame.loc[0, "PBR"] == "N/A"
+    assert frame.loc[0, "ROE"] == "N/A"
 
 
 def test_ranking_investment_note_uses_scores_and_symbol_metadata(monkeypatch):
@@ -4645,7 +4717,34 @@ def test_ranking_investment_detail_rows_adds_modal_guidance():
 
     assert rows[0]["観点"] == "ランキング上位理由"
     assert any(row["観点"] == "バリュエーション" and "PER" in row["内容"] for row in rows)
+    assert any(row["観点"] == "スコア内訳" and "データ品質 100" in row["内容"] for row in rows)
+    assert any(row["観点"] == "基礎指標" and "配当利回り" in row["内容"] for row in rows)
     assert rows[-1]["確認ポイント"] == "売買推奨ではなく、深掘り順と確認観点の整理です。"
+
+
+def test_ranking_score_detail_rows_show_missing_as_na():
+    rows = ranking_score_detail_rows(
+        {
+            "総合スコア": "82",
+            "見方": "比較候補",
+            "Screening": "80",
+            "上昇気配": "76",
+            "下降警戒": "42",
+            "Risk": "55",
+            "データ品質": "90",
+            "配当利回り": "N/A",
+            "PER": "N/A",
+            "PBR": "1.2",
+            "ROE": "12%",
+            "取得元": "yahoo",
+            "取得日時": "2026-06-01",
+            "欠損項目": "dividend_yield",
+        }
+    )
+
+    assert rows[1]["観点"] == "スコア内訳"
+    assert "PER N/A" in rows[2]["内容"]
+    assert "欠損 dividend_yield" in rows[3]["確認ポイント"]
 
 
 def test_investment_score_summary_lines_explain_score_without_recommendation():

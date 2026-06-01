@@ -855,3 +855,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Reworked company overview wording so provider-profile summaries lead with the company name and confirmed business context before listing missing segment / profit-composition checks.
 - Improved latest news / disclosure summaries into an `概要 / 企業理解上の意味 / 追加確認` shape, avoiding title-only repetition for TDnet rows.
 - Expanded latest-topic classification for forecast revisions, shareholder returns, business reorganizations, governance, and product/service topics while deduping repeated disclosure rows.
+
+## 2026-06-01 - Ranking rich sort table
+
+- Added always-visible ranking detail columns for `配当利回り`, `PER`, `PBR`, and `ROE`, with missing values displayed as `N/A` instead of zero-like placeholders.
+- Added local AgGrid numeric sort settings for total score, dividend yield, PER, PBR, ROE, and related detail metrics, keeping missing values at the end for both ascending and descending sorts.
+- Added ranking data-state and score-explanation expanders, refreshed ranking via the explicit `最新データを取得して更新` action, and moved score/detail/fetch context into row-click detail rows.

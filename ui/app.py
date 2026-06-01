@@ -14,7 +14,7 @@ from typing import Callable, Iterable, Literal, Mapping, Sequence, cast
 import altair as alt
 import pandas as pd
 import streamlit as st
-from st_aggrid import AgGrid, DataReturnMode, GridOptionsBuilder
+from st_aggrid import AgGrid, DataReturnMode, GridOptionsBuilder, JsCode
 
 from backend.core.config import get_settings
 from backend.core.data_contracts import (
@@ -244,6 +244,7 @@ from ui.state import (
     MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY,
     MARKET_DATA_RANKING_SOURCE_STATE_KEY,
     MARKET_DATA_RANKING_STATE_KEY,
+    MARKET_DATA_RANKING_UPDATED_AT_STATE_KEY,
     MARKET_DATA_RESEARCH_REPORT_STATE_KEY,
     MARKET_DATA_STATUS_STATE_KEY,
     MARKET_DATA_STOCK_NEWS_REPORT_STATE_KEY,
@@ -378,6 +379,64 @@ class RankingResearchStatus:
 
 
 RANKING_RESULT_GRID_CUSTOM_CSS = RANKING_GRID_CUSTOM_CSS
+RANKING_MISSING_DISPLAY = "N/A"
+RANKING_TABLE_BASE_COLUMNS = (
+    "順位",
+    "銘柄",
+    "銘柄名",
+    "総合スコア",
+    "配当利回り",
+    "PER",
+    "PBR",
+    "ROE",
+    "見方",
+)
+RANKING_NUMERIC_SORT_DIRECTIONS = {
+    "総合スコア": "desc",
+    "配当利回り": "desc",
+    "PER": "asc",
+    "PBR": "asc",
+    "ROE": "desc",
+    "現在値": "desc",
+    "時価総額": "desc",
+    "出来高": "desc",
+    "ボラティリティ": "asc",
+    "自己資本比率": "desc",
+    "営業利益率": "desc",
+    "売上成長率": "desc",
+    "Risk": "asc",
+    "データ品質": "desc",
+}
+RANKING_NUMERIC_SORT_COMPARATOR = JsCode(
+    """
+function(valueA, valueB, nodeA, nodeB, isDescending) {
+  function parseMetric(value) {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    var text = String(value).replace(/,/g, "").replace(/%/g, "").trim();
+    var missing = ["", "-", "N/A", "未登録", "未取得", "取得不可", "未計算", "未接続"];
+    if (missing.indexOf(text) >= 0) {
+      return null;
+    }
+    var numberValue = Number(text);
+    return Number.isFinite(numberValue) ? numberValue : null;
+  }
+  var a = parseMetric(valueA);
+  var b = parseMetric(valueB);
+  if (a === null && b === null) {
+    return 0;
+  }
+  if (a === null) {
+    return isDescending ? -1 : 1;
+  }
+  if (b === null) {
+    return isDescending ? 1 : -1;
+  }
+  return a - b;
+}
+"""
+)
 SYMBOL_DETAIL_DIALOG_CSS = """
 <style>
 div[data-testid="stDialog"] div[role="dialog"] {
@@ -1360,16 +1419,14 @@ def _ranking_result_columns(ranking_purpose: str) -> list[str]:
     support_columns: tuple[str, ...] = (
         () if {"条件適合度", "DB信頼度", "根拠状態"}.intersection(focus_set) else ("信頼度/根拠",)
     )
+    secondary_focus_columns = tuple(
+        column for column in focus_columns if column not in set(RANKING_TABLE_BASE_COLUMNS)
+    )
     return _dedupe_columns(
         (
-            "順位",
-            "銘柄",
-            "銘柄名",
-            *focus_columns,
-            "総合スコア",
-            "Risk",
+            *RANKING_TABLE_BASE_COLUMNS,
+            *secondary_focus_columns,
             *support_columns,
-            "見方",
             "確認メモ",
             "確認詳細",
             "並べ替え理由",
@@ -1398,6 +1455,13 @@ def _ranking_display_column_label(column: str) -> str:
         "Screening": "スクリーニング",
         "Risk": "リスク確認",
     }.get(column, column)
+
+
+def _ranking_table_display_value(value: object) -> str:
+    text = str(value or "").strip()
+    if not text or text in {"-", "未登録", "未取得", "取得不可", "未計算"}:
+        return RANKING_MISSING_DISPLAY
+    return text
 
 
 def _ranking_distinct_numeric_count(rows: list[dict[str, str]], column: str) -> int:
@@ -1554,14 +1618,20 @@ def ranking_result_aggrid_frame(
             "根拠状態": row.get("根拠状態", ""),
             "信頼度/根拠": _ranking_compact_confidence_summary(row),
             "見方": row.get("見方", ""),
-            "PER": row.get("PER", ""),
-            "PBR": row.get("PBR", ""),
-            "ROE": row.get("ROE", ""),
-            "配当利回り": row.get("配当利回り", ""),
+            "PER": _ranking_table_display_value(row.get("PER", "")),
+            "PBR": _ranking_table_display_value(row.get("PBR", "")),
+            "ROE": _ranking_table_display_value(row.get("ROE", "")),
+            "配当利回り": _ranking_table_display_value(row.get("配当利回り", "")),
             "経費率": row.get("経費率", ""),
             "NISA": row.get("NISA", ""),
             "投資スタイル": row.get("投資スタイル", ""),
-            "時価総額": row.get("時価総額", ""),
+            "現在値": _ranking_table_display_value(row.get("現在値", "")),
+            "時価総額": _ranking_table_display_value(row.get("時価総額", "")),
+            "出来高": _ranking_table_display_value(row.get("出来高", "")),
+            "ボラティリティ": _ranking_table_display_value(row.get("ボラティリティ", "")),
+            "自己資本比率": _ranking_table_display_value(row.get("自己資本比率", "")),
+            "営業利益率": _ranking_table_display_value(row.get("営業利益率", "")),
+            "売上成長率": _ranking_table_display_value(row.get("売上成長率", "")),
             "連動指数": row.get("連動指数", ""),
             "通貨": row.get("通貨", ""),
             "複雑性": row.get("複雑性", ""),
@@ -1635,6 +1705,13 @@ def ranking_result_aggrid_options(
         "PBR",
         "ROE",
         "配当利回り",
+        "現在値",
+        "時価総額",
+        "出来高",
+        "ボラティリティ",
+        "自己資本比率",
+        "営業利益率",
+        "売上成長率",
         "経費率",
     ):
         if column in frame.columns:
@@ -1642,7 +1719,19 @@ def ranking_result_aggrid_options(
                 "Screening": "スクリーニング",
                 "Risk": "リスク確認",
             }.get(column, column)
-            builder.configure_column(column, width=104, filter=False, headerName=header_name)
+            sort_direction = RANKING_NUMERIC_SORT_DIRECTIONS.get(column, "desc")
+            sorting_order = (
+                ["asc", "desc", None] if sort_direction == "asc" else ["desc", "asc", None]
+            )
+            builder.configure_column(
+                column,
+                width=118,
+                filter=False,
+                headerName=header_name,
+                comparator=RANKING_NUMERIC_SORT_COMPARATOR,
+                sortingOrder=sorting_order,
+                unSortIcon=True,
+            )
     if "方向一致" in frame.columns:
         builder.configure_column("方向一致", width=142, headerName="モデル方向")
     if "信頼度/根拠" in frame.columns:
@@ -2854,6 +2943,79 @@ def _render_ranking_advanced_insights(
             _render_ranking_confidence_scatter(display_rows)
 
 
+def _render_ranking_score_explanation() -> None:
+    with st.expander("総合スコアとは", expanded=False):
+        st.markdown(
+            """
+総合スコアは、複数の投資指標を100点満点で統合した比較用スコアです。
+
+- 割安性: PER、PBRなど
+- 収益性: ROE、営業利益率など
+- 財務安定性: 自己資本比率など
+- 配当魅力: 配当利回りなど
+- 成長性: 売上成長率など
+- リスク: ボラティリティ、下降警戒など
+- データ品質: 欠損や取得信頼性
+
+このスコアは売買推奨ではなく、比較対象を絞るための参考指標です。
+"""
+        )
+
+
+def _ranking_data_state_text(
+    *,
+    provider: str,
+    rows: list[dict[str, str]],
+    error_rows: list[dict[str, str]],
+    updated_at: str,
+) -> tuple[str, list[dict[str, str]]]:
+    fetched_count = sum(1 for row in rows if str(row.get("取得元", "")).strip() not in {"", "N/A"})
+    saved_count = max(0, len(rows) - fetched_count)
+    failed_count = len(error_rows)
+    if provider in LIVE_MARKET_DATA_PROVIDERS:
+        if fetched_count and saved_count:
+            status = "保存済みデータを表示中。一部銘柄は最新取得データを反映済み。"
+        elif fetched_count:
+            status = "最新取得データを表示中。"
+        else:
+            status = "保存済みデータを表示中。"
+    else:
+        status = "ローカル/保存済みデータを表示中。"
+    rows_for_detail = [
+        {"区分": "保存済み", "件数": str(saved_count)},
+        {"区分": "最新反映", "件数": str(fetched_count)},
+        {"区分": "取得失敗", "件数": str(failed_count)},
+    ]
+    if failed_count:
+        rows_for_detail.append(
+            {
+                "区分": "補足",
+                "件数": "取得失敗した銘柄は保存済みデータがあれば継続確認します。",
+            }
+        )
+    last_updated = updated_at or "未取得"
+    return f"現在のデータ: {status}  最終更新: {last_updated}", rows_for_detail
+
+
+def _render_ranking_data_state(
+    *,
+    provider: str,
+    display_rows: list[dict[str, str]],
+    error_rows: list[dict[str, str]],
+) -> None:
+    updated_at = str(st.session_state.get(MARKET_DATA_RANKING_UPDATED_AT_STATE_KEY, "")).strip()
+    state_text, detail_rows = _ranking_data_state_text(
+        provider=provider,
+        rows=display_rows,
+        error_rows=error_rows,
+        updated_at=updated_at,
+    )
+    st.caption(state_text)
+    with st.expander("データ状態", expanded=False):
+        st.dataframe(detail_rows, hide_index=True, use_container_width=True)
+        st.caption("テーブル内のソート、検索、絞り込みでは外部取得を実行しません。")
+
+
 def _render_ranking_result_table(
     display_rows: list[dict[str, str]],
     *,
@@ -2880,6 +3042,7 @@ def _render_ranking_result_table(
         show_toolbar=False,
         show_search=False,
         show_download_button=False,
+        allow_unsafe_jscode=True,
     )
     selected_symbol = ranking_detail_symbol_from_aggrid_response(grid_response)
     detail_event_token = ranking_detail_event_token_from_aggrid_response(
@@ -3963,7 +4126,7 @@ def _render_market_data_ranking() -> None:
     with action_button_col:
         st.write("")
         build_ranking_clicked = st.button(
-            "ランキングを作成",
+            "最新データを取得して更新",
             key="build_market_data_ranking",
             type="primary",
         )
@@ -3974,43 +4137,41 @@ def _render_market_data_ranking() -> None:
             st.error("対象の銘柄を1件以上選んでください。")
             return
         cache_key = current_ranking_source
-        cached_result = get_cached_ranking_build(cache_key)
-        if cached_result is None:
-            loading_slot = st.empty()
-            with loading_slot.container():
-                render_mascot_loading(
-                    "ranking",
-                    title="ランキング作成中",
-                    message="候補ごとの価格データを集めて、深掘り候補を整理しています。",
-                    tone="success",
-                )
-            progress_bar = st.progress(0.0)
-            progress_status = st.empty()
+        loading_slot = st.empty()
+        with loading_slot.container():
+            render_mascot_loading(
+                "ranking",
+                title="ランキング更新中",
+                message="候補ごとの価格データを集めて、深掘り候補を整理しています。",
+                tone="success",
+            )
+        progress_bar = st.progress(0.0)
+        progress_status = st.empty()
 
-            def update_progress(message: str, ratio: float) -> None:
-                progress_status.caption(message)
-                progress_bar.progress(max(0.0, min(1.0, ratio)))
+        def update_progress(message: str, ratio: float) -> None:
+            progress_status.caption(message)
+            progress_bar.progress(max(0.0, min(1.0, ratio)))
 
-            try:
-                rows, error_rows = asyncio.run(
-                    _build_market_data_ranking_rows(
-                        ranking_symbols,
-                        start=start_date,
-                        end=end_date,
-                        provider=provider,
-                        progress_callback=update_progress,
-                    )
+        try:
+            rows, error_rows = asyncio.run(
+                _build_market_data_ranking_rows(
+                    ranking_symbols,
+                    start=start_date,
+                    end=end_date,
+                    provider=provider,
+                    progress_callback=update_progress,
                 )
-                update_progress("ランキング作成が完了しました。", 1.0)
-            finally:
-                loading_slot.empty()
-            set_cached_ranking_build(cache_key, rows=rows, error_rows=error_rows)
-        else:
-            rows, error_rows = cached_result
-            st.caption("同じ条件の取得済みデータを再利用しました。")
+            )
+            update_progress("ランキング更新が完了しました。", 1.0)
+        finally:
+            loading_slot.empty()
+        set_cached_ranking_build(cache_key, rows=rows, error_rows=error_rows)
         st.session_state[MARKET_DATA_RANKING_STATE_KEY] = rows
         st.session_state[MARKET_DATA_RANKING_ERROR_STATE_KEY] = error_rows
         st.session_state[MARKET_DATA_RANKING_SOURCE_STATE_KEY] = cache_key
+        st.session_state[MARKET_DATA_RANKING_UPDATED_AT_STATE_KEY] = datetime.now().strftime(
+            "%Y-%m-%d %H:%M"
+        )
 
     rows = st.session_state.get(MARKET_DATA_RANKING_STATE_KEY, [])
     error_rows = st.session_state.get(MARKET_DATA_RANKING_ERROR_STATE_KEY, [])
@@ -4024,10 +4185,10 @@ def _render_market_data_ranking() -> None:
     )
     if (rows or error_rows) and not is_current_ranking_result:
         _clear_ranking_deep_dive_state()
-        st.info("条件が変わりました。ランキング作成で結果を更新してください。")
+        st.info("条件が変わりました。最新データを取得して更新してください。")
         render_mascot_panel(
             "guide",
-            message="条件を変えた後は、ランキング作成でもう一度候補を整理しましょう。",
+            message="条件を変えた後は、更新ボタンでもう一度候補を整理しましょう。",
             layout="compact",
         )
     elif rows:
@@ -4063,6 +4224,12 @@ def _render_market_data_ranking() -> None:
             layout="compact",
         )
         _render_ranking_purpose_context(ranking_purpose, weight_preset)
+        _render_ranking_data_state(
+            provider=provider,
+            display_rows=display_rows,
+            error_rows=cast(list[dict[str, str]], error_rows),
+        )
+        _render_ranking_score_explanation()
         _render_ranking_summary_cards(
             ranking_summary_cards(
                 display_rows,
@@ -4172,11 +4339,11 @@ def _render_market_data_ranking() -> None:
         _render_ranking_error_rows(cast(list[dict[str, str]], error_rows))
     else:
         _clear_ranking_deep_dive_state()
-        st.info("銘柄を選んでランキングを作成してください。")
+        st.info("銘柄を選んで最新データを取得してください。")
         render_mascot_panel(
             "empty",
             title="ランキング準備",
-            message="比較条件を選んでランキング作成を押すと、SMAIが深掘り候補を整理します。",
+            message="比較条件を選んで最新データを取得すると、SMAIが深掘り候補を整理します。",
             layout="compact",
         )
 
@@ -4201,6 +4368,106 @@ def _render_ranking_error_rows(error_rows: list[dict[str, str]]) -> None:
             st.caption("診断情報")
             for details in details_rows:
                 st.code(details, language="json")
+
+
+def _format_ranking_decimal_value(value: Decimal | None) -> str:
+    if value is None:
+        return ""
+    text = f"{value:.2f}".rstrip("0").rstrip(".")
+    return text
+
+
+def _format_ranking_percent_value(value: Decimal | None) -> str:
+    if value is None:
+        return ""
+    return f"{_format_ranking_decimal_value(value * Decimal('100'))}%"
+
+
+def _ranking_missing_items(row: DailySnapshot) -> str:
+    return ", ".join(feature for feature, is_missing in sorted(row.missing.items()) if is_missing)
+
+
+def _latest_volume_by_symbol(bars_by_symbol: dict[str, list[Bar]]) -> dict[str, str]:
+    volumes: dict[str, str] = {}
+    for symbol, bars in bars_by_symbol.items():
+        if not bars:
+            continue
+        volumes[symbol] = _format_ranking_decimal_value(bars[-1].volume)
+    return volumes
+
+
+def _enrich_ranking_rows_with_feature_details(
+    rows: list[dict[str, str]],
+    feature_rows: list[DailySnapshot],
+    *,
+    latest_volume_by_symbol: dict[str, str] | None = None,
+    provider_name: str = "",
+) -> list[dict[str, str]]:
+    feature_by_symbol = {row.symbol.strip().upper(): row for row in feature_rows}
+    latest_volumes = latest_volume_by_symbol or {}
+    enriched_rows: list[dict[str, str]] = []
+    for row in rows:
+        symbol = row.get("symbol", "").strip().upper()
+        feature = feature_by_symbol.get(symbol)
+        if feature is None:
+            enriched_rows.append(row)
+            continue
+        enriched_rows.append(
+            {
+                **row,
+                "current_price": _format_ranking_decimal_value(feature.last),
+                "market_cap": _format_ranking_decimal_value(feature.market_cap_jpy),
+                "volume": latest_volumes.get(symbol, ""),
+                "volatility": _format_ranking_percent_value(feature.vol_20d),
+                "dividend_yield_pct": row.get("dividend_yield_pct", "")
+                or _format_ranking_decimal_value(
+                    feature.dividend_yield * Decimal("100")
+                    if feature.dividend_yield is not None
+                    else None
+                ),
+                "data_as_of": feature.as_of.isoformat(),
+                "data_provider": provider_name,
+                "missing_items": _ranking_missing_items(feature),
+            }
+        )
+    return enriched_rows
+
+
+def _percent_display_to_pct_text(value: object) -> str:
+    return str(value or "").replace("%", "").strip()
+
+
+def _enrich_ranking_rows_with_feature_display_rows(
+    rows: list[dict[str, str]],
+    feature_rows: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    feature_by_symbol = {
+        row.get("symbol", "").strip().upper(): row
+        for row in feature_rows
+        if row.get("symbol", "").strip()
+    }
+    enriched_rows: list[dict[str, str]] = []
+    for row in rows:
+        symbol = row.get("symbol", "").strip().upper()
+        feature = feature_by_symbol.get(symbol)
+        if feature is None:
+            enriched_rows.append(row)
+            continue
+        enriched_rows.append(
+            {
+                **row,
+                "current_price": feature.get("last", ""),
+                "market_cap": feature.get("market_cap_jpy", ""),
+                "volume": feature.get("adv_20d", ""),
+                "volatility": feature.get("vol_20d", ""),
+                "dividend_yield_pct": row.get("dividend_yield_pct", "")
+                or _percent_display_to_pct_text(feature.get("dividend_yield", "")),
+                "data_as_of": feature.get("as_of", ""),
+                "data_provider": feature.get("provider", ""),
+                "missing_items": feature.get("missing", ""),
+            }
+        )
+    return enriched_rows
 
 
 async def _build_market_data_ranking_rows(
@@ -4370,7 +4637,13 @@ async def _build_market_data_ranking_rows_fast(
         screening_scores,
         forecast_consensus_by_symbol=forecast_consensus_by_symbol,
     )
-    ranked_rows = rank_investment_score_rows(investment_score_rows(investment_scores))
+    score_rows = _enrich_ranking_rows_with_feature_details(
+        investment_score_rows(investment_scores),
+        feature_rows,
+        latest_volume_by_symbol=_latest_volume_by_symbol(bars_by_symbol),
+        provider_name=provider_name,
+    )
+    ranked_rows = rank_investment_score_rows(score_rows)
     _report_ranking_progress(progress_callback, "ランキングを並べ替えています。", 0.98)
     return ranked_rows, error_rows
 
@@ -4540,9 +4813,10 @@ async def _build_market_data_ranking_rows_from_previews(
                 provider_override=provider,
                 forecast_horizon_days=forecast_horizon_days,
             )
-        return preview.investment_score_rows, [
-            {"symbol": symbol, **error_row} for error_row in preview.error_rows
-        ]
+        return _enrich_ranking_rows_with_feature_display_rows(
+            preview.investment_score_rows,
+            getattr(preview, "feature_rows", []),
+        ), [{"symbol": symbol, **error_row} for error_row in getattr(preview, "error_rows", [])]
 
     tasks = [asyncio.create_task(build_symbol_preview(symbol)) for symbol in symbols]
     for completed_count, task in enumerate(asyncio.as_completed(tasks), start=1):
@@ -10671,7 +10945,7 @@ def forecast_consensus_display_rows(rows: list[dict[str, str]]) -> list[dict[str
 
 def _decimal_from_text(value: object) -> Decimal | None:
     text = str(value or "").replace("%", "").replace(",", "").strip()
-    if not text or text in {"-", "未接続", "未登録"}:
+    if not text or text in {"-", "N/A", "未接続", "未登録", "未取得", "取得不可"}:
         return None
     try:
         decimal_value = Decimal(text)
@@ -10697,6 +10971,39 @@ def _ranking_symbol_detail_display(
     if symbol_row is None:
         return "未登録"
     return symbol_universe_detail_display_value(symbol_row, column)
+
+
+def _ranking_numeric_display(value: object, *, suffix: str = "") -> str:
+    decimal_value = _decimal_from_text(value)
+    if decimal_value is None:
+        text = str(value or "").strip()
+        if text and text not in {"-", "未登録", "未取得", "取得不可", "未計算"}:
+            return text
+        return RANKING_MISSING_DISPLAY
+    text = f"{decimal_value:.2f}".rstrip("0").rstrip(".")
+    return f"{text}{suffix}"
+
+
+def _ranking_row_or_symbol_metric_display(
+    row: dict[str, str],
+    symbol_row: dict[str, str] | None,
+    column: str,
+    *,
+    suffix: str = "",
+) -> str:
+    raw_value = str(row.get(column, "")).strip()
+    if raw_value:
+        return _ranking_numeric_display(raw_value, suffix=suffix)
+    if symbol_row is not None:
+        return _ranking_numeric_display(_symbol_detail_raw_value(symbol_row, column), suffix=suffix)
+    return RANKING_MISSING_DISPLAY
+
+
+def _ranking_optional_display(value: object) -> str:
+    text = str(value or "").strip()
+    if not text or text in {"-", "未登録", "未取得", "取得不可", "未計算"}:
+        return RANKING_MISSING_DISPLAY
+    return text
 
 
 def ranking_investment_note(
@@ -10829,7 +11136,7 @@ def ranking_investment_detail_rows(
         f"分類 {symbol_universe_detail_display_value(symbol_row, 'dividend_category')}"
     )
     caution = warning or _ranking_caution_sentence(_ranking_primary_caution({}, symbol_row))
-    return [
+    rows = [
         {
             "観点": "ランキング上位理由",
             "内容": note or "今回の条件で相対的に上位に入りました。",
@@ -10850,10 +11157,65 @@ def ranking_investment_detail_rows(
             "内容": income,
             "確認ポイント": "高配当は利回りだけでなく、配当性向・減配リスク・業績安定性を確認します。",
         },
+        *ranking_score_detail_rows(ranking_row),
         {
             "観点": "次の行動",
             "内容": _ranking_next_action(ranking_row, symbol_row),
             "確認ポイント": "売買推奨ではなく、深掘り順と確認観点の整理です。",
+        },
+    ]
+    return rows
+
+
+def ranking_score_detail_rows(ranking_row: dict[str, str]) -> list[dict[str, str]]:
+    score_parts = [
+        f"総合スコア {ranking_row.get('総合スコア', RANKING_MISSING_DISPLAY)}",
+        f"見方 {ranking_row.get('見方', RANKING_MISSING_DISPLAY)}",
+    ]
+    component_parts = [
+        f"スクリーニング {ranking_row.get('Screening', RANKING_MISSING_DISPLAY)}",
+        f"上昇気配 {ranking_row.get('上昇気配', RANKING_MISSING_DISPLAY)}",
+        f"下降警戒 {ranking_row.get('下降警戒', RANKING_MISSING_DISPLAY)}",
+        f"リスク確認 {ranking_row.get('Risk', RANKING_MISSING_DISPLAY)}",
+        f"データ品質 {ranking_row.get('データ品質', RANKING_MISSING_DISPLAY)}",
+    ]
+    fundamental_parts = [
+        f"配当利回り {ranking_row.get('配当利回り', RANKING_MISSING_DISPLAY)}",
+        f"PER {ranking_row.get('PER', RANKING_MISSING_DISPLAY)}",
+        f"PBR {ranking_row.get('PBR', RANKING_MISSING_DISPLAY)}",
+        f"ROE {ranking_row.get('ROE', RANKING_MISSING_DISPLAY)}",
+    ]
+    fetched_parts = [
+        f"現在値 {ranking_row.get('現在値', RANKING_MISSING_DISPLAY)}",
+        f"時価総額 {ranking_row.get('時価総額', RANKING_MISSING_DISPLAY)}",
+        f"出来高 {ranking_row.get('出来高', RANKING_MISSING_DISPLAY)}",
+        f"ボラティリティ {ranking_row.get('ボラティリティ', RANKING_MISSING_DISPLAY)}",
+    ]
+    missing_items = ranking_row.get("欠損項目", RANKING_MISSING_DISPLAY)
+    return [
+        {
+            "観点": "総合スコア",
+            "内容": " / ".join(score_parts),
+            "確認ポイント": "複数材料を統合した比較用スコアです。単独で売買判断には使いません。",
+        },
+        {
+            "観点": "スコア内訳",
+            "内容": " / ".join(component_parts),
+            "確認ポイント": "どの観点が順位に効いているかを確認します。",
+        },
+        {
+            "観点": "基礎指標",
+            "内容": " / ".join(fundamental_parts),
+            "確認ポイント": "未取得の値は0ではなくN/Aとして扱い、スコアは参考値として確認します。",
+        },
+        {
+            "観点": "取得データ",
+            "内容": " / ".join(fetched_parts),
+            "確認ポイント": (
+                f"取得元 {ranking_row.get('取得元', RANKING_MISSING_DISPLAY)} / "
+                f"更新 {ranking_row.get('取得日時', RANKING_MISSING_DISPLAY)} / "
+                f"欠損 {missing_items or RANKING_MISSING_DISPLAY}"
+            ),
         },
     ]
 
@@ -10887,12 +11249,19 @@ def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, 
                 "Risk": row.get("risk_signal_score", "") or "未接続",
                 "注意点": _investment_warning_label(row.get("warnings", "")),
                 "補足": ranking_investment_note(row, symbol_rows_by_symbol),
-                "PER": _ranking_symbol_detail_display(symbol_row, "per"),
-                "PBR": _ranking_symbol_detail_display(symbol_row, "pbr"),
-                "ROE": _ranking_symbol_detail_display(symbol_row, "roe_pct"),
-                "配当利回り": _ranking_symbol_detail_display(
+                "PER": _ranking_row_or_symbol_metric_display(row, symbol_row, "per"),
+                "PBR": _ranking_row_or_symbol_metric_display(row, symbol_row, "pbr"),
+                "ROE": _ranking_row_or_symbol_metric_display(
+                    row,
+                    symbol_row,
+                    "roe_pct",
+                    suffix="%",
+                ),
+                "配当利回り": _ranking_row_or_symbol_metric_display(
+                    row,
                     symbol_row,
                     "dividend_yield_pct",
+                    suffix="%",
                 ),
                 "経費率": _ranking_symbol_detail_display(symbol_row, "expense_ratio_pct"),
                 "NISA": symbol_universe_nisa_display(symbol_row) if symbol_row else "未登録",
@@ -10900,7 +11269,23 @@ def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, 
                     symbol_row,
                     "investment_style",
                 ),
-                "時価総額": _ranking_symbol_detail_display(symbol_row, "market_cap_tier"),
+                "現在値": _ranking_optional_display(row.get("current_price", "")),
+                "時価総額": _ranking_optional_display(
+                    row.get("market_cap", "")
+                    or (
+                        _ranking_symbol_detail_display(symbol_row, "market_cap_tier")
+                        if symbol_row
+                        else ""
+                    )
+                ),
+                "出来高": _ranking_optional_display(row.get("volume", "")),
+                "ボラティリティ": _ranking_optional_display(row.get("volatility", "")),
+                "自己資本比率": _ranking_optional_display(row.get("equity_ratio", "")),
+                "営業利益率": _ranking_optional_display(row.get("operating_margin", "")),
+                "売上成長率": _ranking_optional_display(row.get("revenue_growth", "")),
+                "取得日時": _ranking_optional_display(row.get("data_as_of", "")),
+                "取得元": _ranking_optional_display(row.get("data_provider", "")),
+                "欠損項目": _ranking_optional_display(row.get("missing_items", "")),
                 "連動指数": _ranking_symbol_detail_display(symbol_row, "benchmark_index"),
                 "通貨": _ranking_symbol_detail_display(symbol_row, "currency"),
                 "複雑性": _ranking_symbol_detail_display(symbol_row, "complexity"),

@@ -174,6 +174,7 @@ from ui.app import (
     ranking_summary_cards,
     ranking_top_candidate_cards,
     score_component_rows,
+    score_confidence_hierarchy_rows,
     selected_symbol_has_universe_detail,
     set_cached_ranking_build,
     symbol_candidate_label,
@@ -4597,11 +4598,12 @@ def test_ranking_candidate_cards_and_breakdown_use_existing_display_values():
     ]
     assert breakdown[2]["値"] == "上昇気配 76 / 下降警戒 42"
     assert breakdown[3]["確認ポイント"] == (
-        "銘柄メタデータと価格データの充実度です。低い場合はスコア解釈を控えめにします。"
+        "投資魅力度ではなく、評価材料の充実度です。低い場合はスコア解釈を控えめにします。"
     )
     assert breakdown[5]["値"] == "根拠あり"
     assert breakdown[6]["値"] == "72.00"
     assert "注意点" in breakdown[6]["確認ポイント"]
+    assert "confidence" not in breakdown[6]["確認ポイント"]
 
 
 def test_ranking_candidate_cards_fallback_when_direction_data_is_limited():
@@ -5059,8 +5061,10 @@ def test_ranking_score_detail_rows_show_missing_as_na():
     )
 
     assert rows[1]["観点"] == "スコア内訳"
-    assert "PER N/A" in rows[2]["内容"]
-    assert "欠損 dividend_yield" in rows[3]["確認ポイント"]
+    assert rows[2]["観点"] == "評価材料の信頼度"
+    assert "投資魅力度ではなく" in rows[2]["確認ポイント"]
+    assert "PER N/A" in rows[3]["内容"]
+    assert "欠損 dividend_yield" in rows[4]["確認ポイント"]
 
 
 def test_investment_score_summary_lines_explain_score_without_recommendation():
@@ -5090,12 +5094,43 @@ def test_score_component_rows_builds_cockpit_breakdown():
             "データ品質": "100",
         }
     ) == [
-        {"要素": "スクリーニング", "スコア": "80"},
-        {"要素": "上昇気配", "スコア": "68"},
-        {"要素": "下降警戒", "スコア": "42"},
-        {"要素": "リスク確認", "スコア": "70"},
-        {"要素": "データ品質", "スコア": "100"},
+        {
+            "要素": "スクリーニング",
+            "スコア": "80",
+            "読み方": "市場データ由来の候補評価です。単独の売買判断には使いません。",
+        },
+        {
+            "要素": "上昇気配",
+            "スコア": "68",
+            "読み方": "予測と直近値動きから見た上向き材料の確認値です。",
+        },
+        {
+            "要素": "下降警戒",
+            "スコア": "42",
+            "読み方": "下向き材料の警戒値です。高いほど追加確認します。",
+        },
+        {
+            "要素": "リスク確認",
+            "スコア": "70",
+            "読み方": "価格変動や下落幅を確認する材料で、安全保証ではありません。",
+        },
+        {
+            "要素": "データ品質",
+            "スコア": "100",
+            "読み方": "評価に使える価格・特徴量データの充実度です。投資魅力度ではありません。",
+        },
     ]
+
+
+def test_score_confidence_hierarchy_rows_distinguish_score_roles():
+    rows = score_confidence_hierarchy_rows()
+
+    research_row = next(row for row in rows if row["表示"] == "Research Score")
+    confidence_row = next(row for row in rows if row["表示"] == "条件適合度 / DB信頼度")
+
+    assert "総合スコアやRanking順位を変えません" in research_row["順位への影響"]
+    assert "根拠確認不足" in research_row["読み方"]
+    assert "投資魅力度ではなく" in confidence_row["読み方"]
 
 
 def test_cockpit_detail_summary_rows_lift_key_closed_details():

@@ -2557,7 +2557,9 @@ def ranking_candidate_breakdown_rows(
         {
             "観点": "データ信頼度",
             "値": selected_row.get("DB信頼度") or selected_row.get("条件適合度") or "未登録",
-            "確認ポイント": "銘柄メタデータと価格データの充実度です。低い場合はスコア解釈を控えめにします。",
+            "確認ポイント": (
+                "投資魅力度ではなく、評価材料の充実度です。低い場合はスコア解釈を控えめにします。"
+            ),
         },
         {
             "観点": "リスク確認",
@@ -2618,11 +2620,11 @@ def _ranking_research_score_check(row: Mapping[str, str]) -> str:
         return "資料不足の参考値です。AI Researchで根拠カードと不足観点を確認します。"
     if warning_count > 0:
         return truncate_text(
-            f"confidence {confidence or '未計算'}。注意点があるため、根拠カードと内訳を確認します。",
+            f"信頼度 {confidence or '未計算'}。注意点があるため、根拠カードと内訳を確認します。",
             max_chars=56,
         )
     return truncate_text(
-        f"confidence {confidence or '未計算'}。売買推奨ではなく、資料の充実度確認です。",
+        f"信頼度 {confidence or '未計算'}。売買推奨ではなく、資料の充実度確認です。",
         max_chars=56,
     )
 
@@ -3033,6 +3035,8 @@ def _render_ranking_score_explanation() -> None:
 このスコアは売買推奨ではなく、比較対象を絞るための参考指標です。
 """
         )
+        st.markdown("##### スコアと信頼度の読み分け")
+        _render_compact_dataframe(score_confidence_hierarchy_rows())
 
 
 def _ranking_data_state_text(
@@ -5682,6 +5686,9 @@ def _render_research_summary_panel(
             st.caption(
                 "根拠資料の充実度・鮮度・信頼度を整理する参考スコアです。売買推奨ではありません。"
             )
+            st.caption(
+                "既定では総合スコアやRanking順位を変えません。低い値は銘柄評価ではなく、根拠確認不足のサインとして扱います。"
+            )
             _render_compact_dataframe(score_rows)
 
     if news_report is not None and news_report.warnings:
@@ -8026,6 +8033,10 @@ def _render_score_breakdown_context(
         st.caption(
             "投資スコアの表示値とダウンロードです。スコア計算ロジックは既存の結果をそのまま使っています。"
         )
+        st.caption(
+            "Research Score、データ品質、DB信頼度は役割が異なります。総合スコアと混同せず、確認材料として読み分けます。"
+        )
+        _render_compact_dataframe(score_confidence_hierarchy_rows())
         _render_target_symbol_caption(symbol_label)
         _render_table(rows, EMPTY_STATE_MESSAGES["investment_score_rows"])
         col_json, col_csv = st.columns(2)
@@ -8381,11 +8392,60 @@ def investment_score_summary_lines(row: dict[str, str]) -> list[str]:
 
 def score_component_rows(row: dict[str, str]) -> list[dict[str, str]]:
     return [
-        {"要素": "スクリーニング", "スコア": row.get("Screening", "")},
-        {"要素": "上昇気配", "スコア": row.get("上昇気配", "")},
-        {"要素": "下降警戒", "スコア": row.get("下降警戒", "")},
-        {"要素": "リスク確認", "スコア": row.get("Risk", "")},
-        {"要素": "データ品質", "スコア": row.get("データ品質", "")},
+        {
+            "要素": "スクリーニング",
+            "スコア": row.get("Screening", ""),
+            "読み方": "市場データ由来の候補評価です。単独の売買判断には使いません。",
+        },
+        {
+            "要素": "上昇気配",
+            "スコア": row.get("上昇気配", ""),
+            "読み方": "予測と直近値動きから見た上向き材料の確認値です。",
+        },
+        {
+            "要素": "下降警戒",
+            "スコア": row.get("下降警戒", ""),
+            "読み方": "下向き材料の警戒値です。高いほど追加確認します。",
+        },
+        {
+            "要素": "リスク確認",
+            "スコア": row.get("Risk", ""),
+            "読み方": "価格変動や下落幅を確認する材料で、安全保証ではありません。",
+        },
+        {
+            "要素": "データ品質",
+            "スコア": row.get("データ品質", ""),
+            "読み方": "評価に使える価格・特徴量データの充実度です。投資魅力度ではありません。",
+        },
+    ]
+
+
+def score_confidence_hierarchy_rows() -> list[dict[str, str]]:
+    return [
+        {
+            "表示": "投資スコア / 総合スコア",
+            "役割": "複数材料を統合した比較・分析用スコア",
+            "順位への影響": "通常のRanking表示順に使います",
+            "読み方": "高くても売買指示ではなく、内訳と注意点を確認します。",
+        },
+        {
+            "表示": "Research Score",
+            "役割": "根拠資料の充実度・鮮度・信頼度",
+            "順位への影響": "既定では総合スコアやRanking順位を変えません",
+            "読み方": "低い値は銘柄評価ではなく、根拠確認不足のサインとして扱います。",
+        },
+        {
+            "表示": "データ品質",
+            "役割": "価格・特徴量データの欠損や取得品質",
+            "順位への影響": "スコア解釈の信頼度を補助します",
+            "読み方": "低い場合は取得期間、provider、欠損項目を確認します。",
+        },
+        {
+            "表示": "条件適合度 / DB信頼度",
+            "役割": "銘柄マスタやメタデータの充実度",
+            "順位への影響": "一部の評価方針で補助的に使います",
+            "読み方": "投資魅力度ではなく、評価材料がそろっているかの確認値です。",
+        },
     ]
 
 
@@ -8428,7 +8488,10 @@ def _research_score_summary_rows(score: ResearchScore) -> list[dict[str, str]]:
         {
             "確認項目": "Research Score",
             "内容": str(score.total_score),
-            "確認ポイント": "根拠資料の充実度・鮮度・信頼度を整理する参考スコアです。売買推奨ではありません。",
+            "確認ポイント": (
+                "根拠資料の充実度・鮮度・信頼度を整理する参考スコアです。"
+                "売買推奨ではありません。既定では総合スコアやRanking順位を変えません。"
+            ),
         },
         {
             "確認項目": "信頼度",
@@ -11363,6 +11426,11 @@ def ranking_score_detail_rows(ranking_row: dict[str, str]) -> list[dict[str, str
         f"リスク確認 {ranking_row.get('Risk', RANKING_MISSING_DISPLAY)}",
         f"データ品質 {ranking_row.get('データ品質', RANKING_MISSING_DISPLAY)}",
     ]
+    confidence_parts = [
+        f"データ品質 {ranking_row.get('データ品質', RANKING_MISSING_DISPLAY)}",
+        f"条件適合度 {ranking_row.get('条件適合度', RANKING_MISSING_DISPLAY)}",
+        f"DB信頼度 {ranking_row.get('DB信頼度', RANKING_MISSING_DISPLAY)}",
+    ]
     fundamental_parts = [
         f"配当利回り {ranking_row.get('配当利回り', RANKING_MISSING_DISPLAY)}",
         f"PER {ranking_row.get('PER', RANKING_MISSING_DISPLAY)}",
@@ -11386,6 +11454,11 @@ def ranking_score_detail_rows(ranking_row: dict[str, str]) -> list[dict[str, str
             "観点": "スコア内訳",
             "内容": " / ".join(component_parts),
             "確認ポイント": "どの観点が順位に効いているかを確認します。",
+        },
+        {
+            "観点": "評価材料の信頼度",
+            "内容": " / ".join(confidence_parts),
+            "確認ポイント": "投資魅力度ではなく、評価材料がどれだけそろっているかを確認します。",
         },
         {
             "観点": "基礎指標",

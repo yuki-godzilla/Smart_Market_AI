@@ -894,3 +894,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Checked the `AI調査を更新` Cockpit flow for a domestic stock, foreign stock, ETF, and external-source failure path with Streamlit's UI test runner because the in-app browser backend was unavailable in this session.
 - Confirmed the primary Research Summary order: company / ETF summary, quantitative or fund metrics, IR or ETF-specific sections, latest news / disclosure summary, and confirmation questions, with AI reading notes, evidence details, source cards, Research Score, and external-source traces behind expanders.
 - Softened the news-URL gap message in the UI so internal `source_type=news` wording no longer appears in the main Research Summary; it now reads as supplemental confirmation guidance instead of a warning.
+
+## 2026-06-01 - Score hierarchy UX slice
+
+- Added a shared score / confidence hierarchy table for Cockpit and Ranking so `投資スコア / 総合スコア`, `Research Score`, `データ品質`, and `条件適合度 / DB信頼度` have distinct roles.
+- Clarified that Research Score is evidence coverage / freshness / confidence context and does not change the default total score or Ranking order.
+- Expanded Cockpit score component rows and Ranking detail rows with beginner-facing reading guidance, especially that data quality and DB confidence are not investment attractiveness.

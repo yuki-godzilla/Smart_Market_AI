@@ -2402,7 +2402,7 @@ def test_filter_symbol_universe_rows_finds_curated_dividend_candidates():
     rows = symbol_universe_rows(
         [
             {"symbol": "9432.T", "name": "Nippon Telegraph and Telephone"},
-            {"symbol": "8058.T", "name": "Mitsubishi Corporation"},
+            {"symbol": "2914.T", "name": "Japan Tobacco"},
             {"symbol": "NVDA", "name": "NVIDIA"},
         ]
     )
@@ -2415,7 +2415,7 @@ def test_filter_symbol_universe_rows_finds_curated_dividend_candidates():
             market="jp",
             dividend_category="high_dividend",
         )
-    ] == ["9432.T", "8058.T"]
+    ] == ["9432.T", "2914.T"]
 
 
 def test_filter_symbol_universe_rows_finds_us_dividend_candidates():

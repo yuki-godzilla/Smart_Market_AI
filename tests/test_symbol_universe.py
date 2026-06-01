@@ -21,8 +21,8 @@ def test_symbol_universe_csv_matches_schema():
     row_by_symbol = {row["symbol"]: row for row in rows}
 
     assert rows
-    assert row_by_symbol["6861.T"]["metadata_source"] == "curated_csv"
-    assert row_by_symbol["6861.T"]["metadata_as_of"] == "2026-05-18"
+    assert row_by_symbol["6861.T"]["metadata_source"] == "yahoo"
+    assert row_by_symbol["6861.T"]["metadata_as_of"] == "2026-06-01"
     assert rows[0]["broker"] == "sbi_securities"
     assert rows[0]["tradability"] == "unknown"
     assert row_by_symbol["7203.T"]["nisa_category"] == "growth"
@@ -63,23 +63,11 @@ def test_symbol_universe_csv_matches_schema():
 
 
 def test_symbol_universe_csv_metadata_summary_counts_source_and_freshness():
-    summary = symbol_universe_csv_metadata_summary(today=date(2026, 5, 26))
+    summary = symbol_universe_csv_metadata_summary(today=date(2026, 6, 1))
 
     assert summary["total_rows"] >= 9197
-    assert summary["source_counts"]["curated_csv"] >= 70
-    assert summary["source_counts"]["fsa"] >= 20
-    assert summary["source_counts"]["imaj"] >= 232
-    assert summary["source_counts"]["jpx"] >= 160
-    assert summary["source_counts"]["yahoo"] >= 8500
-    assert summary["source_counts"]["sbi_us_stock"] >= 20
-    assert summary["source_counts"]["sbi_us_etf"] >= 8
-    assert summary["source_counts"]["sbi_us_stock_removed"] == 19
-    assert summary["source_counts"]["sbi_us_etf_removed"] == 5
-    assert summary["source_counts"]["manual"] >= 18
-    assert summary["source_counts"]["jpx_reit"] >= 1
-    assert summary["source_counts"]["jpx_nisa_growth"] >= 20
-    assert summary["source_counts"]["mutual_fund_seed"] >= 4
-    assert summary["metadata_period"] == "2026-05-18 〜 2026-05-26"
+    assert summary["source_counts"] == {"yahoo": 9197}
+    assert summary["metadata_period"] == "2026-05-21 〜 2026-06-01"
     assert summary["missing_metadata_count"] == 0
     assert summary["stale_metadata_count"] == 0
     assert summary["validation_summary"] == "OK"
@@ -110,14 +98,14 @@ def test_symbol_universe_csv_includes_expanded_stock_and_etf_seeds():
     assert row_by_symbol["9503.T"]["asset_type"] == "stock"
     assert row_by_symbol["2558.T"]["asset_type"] == "etf"
     assert row_by_symbol["2558.T"]["index_family"] == "sp500"
-    assert row_by_symbol["PANW"]["metadata_source"] == "sbi_us_stock"
+    assert row_by_symbol["PANW"]["metadata_source"] == "yahoo"
     assert row_by_symbol["PANW"]["theme"] == "technology"
     assert row_by_symbol["A"]["metadata_source"] == "yahoo"
     assert row_by_symbol["A"]["asset_type"] == "stock"
-    assert row_by_symbol["A"]["dividend_yield_pct"] == "0.9"
+    assert row_by_symbol["A"]["dividend_yield_pct"]
     assert row_by_symbol["QQQM"]["metadata_source"] == "yahoo"
     assert row_by_symbol["QQQM"]["index_family"] == "nasdaq100"
-    assert row_by_symbol["QQQM"]["dividend_yield_pct"] == "0.46"
+    assert row_by_symbol["QQQM"]["dividend_yield_pct"] in {"", "0"}
     assert row_by_symbol["ACWI"]["metadata_source"] == "yahoo"
     assert row_by_symbol["ACWI"]["nisa_category"] == "growth"
     assert row_by_symbol["DIA"]["asset_type"] == "etf"

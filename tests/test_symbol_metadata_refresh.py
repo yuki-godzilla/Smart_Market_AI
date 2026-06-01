@@ -155,6 +155,57 @@ def test_yahoo_provider_scales_jp_stock_integer_dividend_yield_basis_points():
     assert updates[0].values["dividend_category"] == "dividend"
 
 
+def test_yahoo_provider_converts_ratio_style_dividend_yield_to_percent():
+    provider = YahooSymbolMetadataProvider(
+        ticker_info_reader=lambda symbol: {
+            "dividendYield": 0.032,
+        }
+    )
+
+    updates = provider.fetch_metadata(
+        [{"symbol": "AAPL", "asset_type": "stock", "currency": "USD"}],
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert updates[0].values["dividend_yield_pct"] == "3.2"
+    assert updates[0].values["dividend_category"] == "high_dividend"
+
+
+def test_yahoo_provider_scales_large_jp_integer_dividend_yield_basis_points():
+    provider = YahooSymbolMetadataProvider(
+        ticker_info_reader=lambda symbol: {
+            "dividendYield": 132,
+        }
+    )
+
+    updates = provider.fetch_metadata(
+        [{"symbol": "6479.T", "market": "jp", "asset_type": "stock", "currency": "JPY"}],
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert updates[0].values["dividend_yield_pct"] == "1.32"
+    assert updates[0].values["dividend_category"] == "dividend"
+
+
+def test_yahoo_provider_skips_abnormal_dividend_yield():
+    provider = YahooSymbolMetadataProvider(
+        ticker_info_reader=lambda symbol: {
+            "dividendYield": 25,
+        }
+    )
+
+    updates = provider.fetch_metadata(
+        [{"symbol": "AAPL", "asset_type": "stock", "currency": "USD"}],
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert "dividend_yield_pct" not in updates[0].values
+    assert "dividend_category" not in updates[0].values
+
+
 def test_yahoo_provider_treats_annual_expense_ratio_as_ratio():
     provider = YahooSymbolMetadataProvider(
         ticker_info_reader=lambda symbol: {
@@ -283,6 +334,71 @@ def test_yahoo_provider_skips_negative_filter_values_without_network():
     assert "dividend_category" not in updates[0].values
     assert "pbr" not in updates[0].values
     assert "expense_ratio_pct" not in updates[0].values
+
+
+def test_yahoo_provider_skips_abnormal_valuation_metrics_without_network():
+    provider = YahooSymbolMetadataProvider(
+        ticker_info_reader=lambda symbol: {
+            "trailingPE": 250,
+            "forwardPE": -1,
+            "priceToBook": 51,
+            "returnOnEquity": 1.5,
+        }
+    )
+
+    updates = provider.fetch_metadata(
+        [{"symbol": "BAD", "asset_type": "stock", "currency": "USD"}],
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert "per" not in updates[0].values
+    assert "pbr" not in updates[0].values
+    assert "roe_pct" not in updates[0].values
+
+
+def test_yahoo_provider_uses_forward_pe_when_trailing_pe_is_abnormal():
+    provider = YahooSymbolMetadataProvider(
+        ticker_info_reader=lambda symbol: {
+            "trailingPE": 250,
+            "forwardPE": 18.456,
+        }
+    )
+
+    updates = provider.fetch_metadata(
+        [{"symbol": "AAPL", "asset_type": "stock", "currency": "USD"}],
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert updates[0].values["per"] == "18.46"
+
+
+def test_yahoo_provider_clears_existing_abnormal_metrics_when_provider_has_no_valid_value():
+    provider = YahooSymbolMetadataProvider(ticker_info_reader=lambda symbol: {})
+
+    updates = provider.fetch_metadata(
+        [
+            {
+                "symbol": "BAD",
+                "asset_type": "stock",
+                "currency": "USD",
+                "dividend_yield_pct": "293.19",
+                "dividend_category": "high_dividend",
+                "per": "-12.3",
+                "pbr": "51",
+                "roe_pct": "125",
+            }
+        ],
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert updates[0].values["dividend_yield_pct"] == ""
+    assert updates[0].values["dividend_category"] == ""
+    assert updates[0].values["per"] == ""
+    assert updates[0].values["pbr"] == ""
+    assert updates[0].values["roe_pct"] == ""
 
 
 def test_refresh_manifest_includes_provider_failures():

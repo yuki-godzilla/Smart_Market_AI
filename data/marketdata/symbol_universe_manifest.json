@@ -1,98 +1,233 @@
 {
-  "as_of": "2026-05-26",
+  "operation": "symbol_universe_metadata_refresh_chunked",
+  "provider": "yahoo",
+  "dry_run": false,
+  "as_of": "2026-06-01",
+  "updated_at": "2026-06-01T14:42:32.445313+09:00",
+  "total_rows": 9197,
+  "refreshed_rows": 9195,
+  "stale_rows": 2,
+  "stale_symbols": [
+    "PARR",
+    "PASG"
+  ],
+  "updates_requested": 9202,
+  "updates_applied": 9202,
+  "changed_rows": 9202,
   "changed_columns": [
+    "dividend_category",
     "dividend_yield_pct",
     "expense_ratio_pct",
+    "market_cap_tier",
     "metadata_as_of",
+    "metadata_source",
     "metadata_updated_at",
     "pbr",
-    "per"
+    "per",
+    "risk_band",
+    "roe_pct",
+    "sector",
+    "theme"
   ],
-  "changed_rows": 16,
-  "changed_symbols": [
-    "ASML",
-    "BRBS",
-    "FRHC",
-    "FWDI",
-    "GMEX",
-    "GRND",
-    "KBAB",
-    "KPDD",
-    "KZIA",
-    "MSGS",
-    "PAC",
-    "PL",
-    "RKLB",
-    "SATS",
-    "TLT",
-    "USAR"
+  "failed_symbols": [
+    "PARR",
+    "PASG"
   ],
-  "dry_run": false,
-  "failed_symbols": [],
-  "failures": [],
-  "operation": "symbol_universe_metadata_refresh",
-  "provider": "yahoo",
-  "selection": {
-    "filters": {
-      "asset_type": "",
-      "limit": 0,
-      "market": "",
-      "metadata_source": "",
-      "missing_any": [],
-      "symbols": [
-        "BRBS",
-        "GMEX",
-        "KBAB",
-        "KPDD",
-        "FRHC",
-        "FWDI",
-        "MSGS",
-        "PL",
-        "RKLB",
-        "SATS",
-        "USAR",
-        "KZIA",
-        "TLT",
-        "GRND",
-        "PAC",
-        "ASML"
+  "failures": [
+    {
+      "code": "YAHOO-METADATA-FAILED",
+      "message": "Failed to perform, curl: (28) Recv failure: Connection was reset. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.",
+      "symbol": "PARR"
+    },
+    {
+      "code": "YAHOO-METADATA-FAILED",
+      "message": "Failed to perform, curl: (28) Recv failure: Connection was reset. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.",
+      "symbol": "PASG"
+    }
+  ],
+  "pre_batches": [
+    {
+      "batch": "initial_limit_500",
+      "selected_rows": 500,
+      "updates_requested": 500,
+      "updates_applied": 500,
+      "changed_rows": 500,
+      "failed_symbols": []
+    },
+    {
+      "batch": "representative_symbols",
+      "selected_rows": 11,
+      "updates_requested": 11,
+      "updates_applied": 11,
+      "changed_rows": 11,
+      "failed_symbols": []
+    }
+  ],
+  "batches": [
+    {
+      "batch": "batch_01",
+      "selected_rows": 500,
+      "updates_requested": 500,
+      "updates_applied": 500,
+      "changed_rows": 500,
+      "failed_symbols": []
+    },
+    {
+      "batch": "batch_02",
+      "selected_rows": 500,
+      "updates_requested": 500,
+      "updates_applied": 500,
+      "changed_rows": 500,
+      "failed_symbols": []
+    },
+    {
+      "batch": "batch_03",
+      "selected_rows": 500,
+      "updates_requested": 500,
+      "updates_applied": 500,
+      "changed_rows": 500,
+      "failed_symbols": []
+    },
+    {
+      "batch": "batch_04",
+      "selected_rows": 500,
+      "updates_requested": 500,
+      "updates_applied": 500,
+      "changed_rows": 500,
+      "failed_symbols": []
+    },
+    {
+      "batch": "batch_05",
+      "selected_rows": 500,
+      "updates_requested": 500,
+      "updates_applied": 500,
+      "changed_rows": 500,
+      "failed_symbols": []
+    },
+    {
+      "batch": "batch_06",
+      "selected_rows": 500,
+      "updates_requested": 500,
+      "updates_applied": 500,
+      "changed_rows": 500,
+      "failed_symbols": []
+    },
+    {
+      "batch": "batch_07",
+      "selected_rows": 500,
+      "updates_requested": 500,
+      "updates_applied": 500,
+      "changed_rows": 500,
+      "failed_symbols": []
+    },
+    {
+      "batch": "batch_08",
+      "selected_rows": 500,
+      "updates_requested": 500,
+      "updates_applied": 500,
+      "changed_rows": 500,
+      "failed_symbols": []
+    },
+    {
+      "batch": "batch_09",
+      "selected_rows": 500,
+      "updates_requested": 500,
+      "updates_applied": 500,
+      "changed_rows": 500,
+      "failed_symbols": []
+    },
+    {
+      "batch": "batch_10",
+      "selected_rows": 500,
+      "updates_requested": 500,
+      "updates_applied": 500,
+      "changed_rows": 500,
+      "failed_symbols": []
+    },
+    {
+      "batch": "batch_11",
+      "selected_rows": 500,
+      "updates_requested": 500,
+      "updates_applied": 500,
+      "changed_rows": 500,
+      "failed_symbols": []
+    },
+    {
+      "batch": "batch_12",
+      "selected_rows": 500,
+      "updates_requested": 500,
+      "updates_applied": 500,
+      "changed_rows": 500,
+      "failed_symbols": []
+    },
+    {
+      "batch": "batch_13",
+      "selected_rows": 500,
+      "updates_requested": 498,
+      "updates_applied": 498,
+      "changed_rows": 498,
+      "failed_symbols": [
+        "PARR",
+        "PASG"
       ]
     },
-    "selected_rows": 16,
-    "selected_symbols": [
-      "BRBS",
-      "FRHC",
-      "FWDI",
-      "GMEX",
-      "GRND",
-      "MSGS",
-      "PL",
-      "RKLB",
-      "SATS",
-      "USAR",
-      "KZIA",
-      "PAC",
-      "ASML",
-      "TLT",
-      "KBAB",
-      "KPDD"
-    ],
-    "selected_symbols_truncated": false,
-    "total_rows": 9197
-  },
-  "total_rows": 9197,
-  "unknown_symbols": [],
-  "updated_at": "2026-05-26T00:00:00+09:00",
-  "updates_applied": 16,
-  "updates_requested": 16,
+    {
+      "batch": "batch_14",
+      "selected_rows": 500,
+      "updates_requested": 500,
+      "updates_applied": 500,
+      "changed_rows": 500,
+      "failed_symbols": []
+    },
+    {
+      "batch": "batch_15",
+      "selected_rows": 500,
+      "updates_requested": 500,
+      "updates_applied": 500,
+      "changed_rows": 500,
+      "failed_symbols": []
+    },
+    {
+      "batch": "batch_16",
+      "selected_rows": 500,
+      "updates_requested": 500,
+      "updates_applied": 500,
+      "changed_rows": 500,
+      "failed_symbols": []
+    },
+    {
+      "batch": "batch_17",
+      "selected_rows": 500,
+      "updates_requested": 500,
+      "updates_applied": 500,
+      "changed_rows": 500,
+      "failed_symbols": []
+    },
+    {
+      "batch": "batch_18",
+      "selected_rows": 193,
+      "updates_requested": 193,
+      "updates_applied": 193,
+      "changed_rows": 193,
+      "failed_symbols": []
+    }
+  ],
   "validation_after": {
-    "errors": 0,
     "total": 0,
+    "errors": 0,
     "warnings": 0
   },
-  "validation_before": {
-    "errors": 0,
-    "total": 0,
-    "warnings": 0
+  "notes": [
+    "Chunked live refresh. Initial top-500 and representative-symbol writes were followed by stale-row batches of up to 500 symbols.",
+    "PARR and PASG remained stale because the live provider failed for those symbols during the batch run.",
+    "updates_requested/updates_applied count batch operations and may include repeated symbols from the representative refresh."
+  ],
+  "post_refresh_cleanup": {
+    "dividend_yield_pct_cleared": 3,
+    "dividend_category_cleared": 3,
+    "per_cleared": 990,
+    "pbr_cleared": 74,
+    "roe_pct_cleared": 0,
+    "reason": "Cleared values outside display/ranking guard ranges after live refresh."
   }
 }

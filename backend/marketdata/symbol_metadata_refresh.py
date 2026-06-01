@@ -17,6 +17,12 @@ PLANNED_METADATA_REFRESH_PROVIDERS = (
     "alpha_vantage",
     "polygon",
 )
+MAX_REASONABLE_DIVIDEND_YIELD_RATIO = Decimal("0.20")
+YAHOO_PERCENT_STYLE_DIVIDEND_YIELD_THRESHOLD = Decimal("0.20")
+MAX_REASONABLE_PER = Decimal("200")
+MAX_REASONABLE_PBR = Decimal("50")
+MIN_REASONABLE_ROE_PCT = Decimal("-100")
+MAX_REASONABLE_ROE_PCT = Decimal("100")
 
 
 @dataclass(frozen=True)
@@ -305,21 +311,33 @@ def _yahoo_metadata_values(
         values["theme"] = _theme_for_sector(sector)
 
     dividend_yield_pct = _yahoo_dividend_yield_pct(row, info)
-    if dividend_yield_pct is not None and dividend_yield_pct >= 0:
+    if dividend_yield_pct is not None:
         values["dividend_yield_pct"] = _format_decimal(dividend_yield_pct)
         values["dividend_category"] = _dividend_category(dividend_yield_pct)
+    elif _existing_dividend_yield_pct_is_abnormal(row):
+        values["dividend_yield_pct"] = ""
+        values["dividend_category"] = ""
 
-    per = _optional_decimal_info(info, "trailingPE") or _optional_decimal_info(info, "forwardPE")
+    per = _guard_per(_optional_decimal_info(info, "trailingPE")) or _guard_per(
+        _optional_decimal_info(info, "forwardPE")
+    )
     if per is not None:
         values["per"] = _format_decimal(per)
+    elif _existing_per_is_abnormal(row):
+        values["per"] = ""
 
-    pbr = _optional_decimal_info(info, "priceToBook")
-    if pbr is not None and pbr >= 0:
+    pbr = _guard_pbr(_optional_decimal_info(info, "priceToBook"))
+    if pbr is not None:
         values["pbr"] = _format_decimal(pbr)
+    elif _existing_pbr_is_abnormal(row):
+        values["pbr"] = ""
 
     roe = _optional_decimal_info(info, "returnOnEquity")
-    if roe is not None:
-        values["roe_pct"] = _format_decimal(_ratio_to_percent(roe))
+    roe_pct = _guard_roe_pct(_yahoo_return_on_equity_pct(roe))
+    if roe_pct is not None:
+        values["roe_pct"] = _format_decimal(roe_pct)
+    elif _existing_roe_pct_is_abnormal(row):
+        values["roe_pct"] = ""
 
     market_cap = _optional_decimal_info(info, "marketCap")
     if market_cap is not None:
@@ -341,7 +359,10 @@ def _yahoo_metadata_values(
 
 
 def _optional_decimal_info(info: dict[str, object], key: str) -> Decimal | None:
-    value = info.get(key)
+    return _optional_decimal_value(info.get(key))
+
+
+def _optional_decimal_value(value: object) -> Decimal | None:
     if value is None or str(value).lower() == "nan":
         return None
     try:
@@ -360,23 +381,87 @@ def _ratio_to_percent(value: Decimal) -> Decimal:
 
 
 def _yahoo_dividend_yield_pct(row: dict[str, str], info: dict[str, object]) -> Decimal | None:
-    dividend_yield = _optional_decimal_info(info, "dividendYield")
-    if dividend_yield is not None:
-        return _normalize_yahoo_dividend_yield_pct(row, dividend_yield)
-
     trailing_yield = _optional_decimal_info(info, "trailingAnnualDividendYield")
-    if trailing_yield is None:
+    if trailing_yield is not None:
+        guarded_trailing_yield = _guard_dividend_yield_ratio(trailing_yield)
+        if guarded_trailing_yield is not None:
+            return _ratio_to_percent(guarded_trailing_yield)
+
+    dividend_yield = _optional_decimal_info(info, "dividendYield")
+    if dividend_yield is None or dividend_yield < 0:
         return None
-    return _ratio_to_percent(trailing_yield)
+    dividend_yield_ratio = _guard_dividend_yield_ratio(
+        _normalize_yahoo_dividend_yield_ratio(row, dividend_yield)
+    )
+    if dividend_yield_ratio is None:
+        return None
+    return _ratio_to_percent(dividend_yield_ratio)
 
 
-def _normalize_yahoo_dividend_yield_pct(row: dict[str, str], value: Decimal) -> Decimal:
+def _normalize_yahoo_dividend_yield_ratio(row: dict[str, str], value: Decimal) -> Decimal:
     is_jp_stock = row.get("asset_type") == "stock" and (
         row.get("market") == "jp" or row.get("symbol", "").endswith(".T")
     )
     if is_jp_stock and value >= Decimal("10") and value == value.to_integral_value():
+        return value / Decimal("10000")
+    if value > YAHOO_PERCENT_STYLE_DIVIDEND_YIELD_THRESHOLD:
         return value / Decimal("100")
     return value
+
+
+def _guard_dividend_yield_ratio(value: Decimal) -> Decimal | None:
+    if value < 0 or value > MAX_REASONABLE_DIVIDEND_YIELD_RATIO:
+        return None
+    return value
+
+
+def _guard_per(value: Decimal | None) -> Decimal | None:
+    if value is None or value <= 0 or value > MAX_REASONABLE_PER:
+        return None
+    return value
+
+
+def _guard_pbr(value: Decimal | None) -> Decimal | None:
+    if value is None or value <= 0 or value > MAX_REASONABLE_PBR:
+        return None
+    return value
+
+
+def _yahoo_return_on_equity_pct(value: Decimal | None) -> Decimal | None:
+    if value is None:
+        return None
+    return value * Decimal("100")
+
+
+def _guard_roe_pct(value: Decimal | None) -> Decimal | None:
+    if value is None or value < MIN_REASONABLE_ROE_PCT or value > MAX_REASONABLE_ROE_PCT:
+        return None
+    return value
+
+
+def _existing_dividend_yield_pct_is_abnormal(row: dict[str, str]) -> bool:
+    value = _optional_decimal_value(row.get("dividend_yield_pct"))
+    return value is not None and (
+        value < 0 or value > MAX_REASONABLE_DIVIDEND_YIELD_RATIO * Decimal("100")
+    )
+
+
+def _existing_per_is_abnormal(row: dict[str, str]) -> bool:
+    return _guard_per(_optional_decimal_value(row.get("per"))) is None and bool(
+        row.get("per", "").strip()
+    )
+
+
+def _existing_pbr_is_abnormal(row: dict[str, str]) -> bool:
+    return _guard_pbr(_optional_decimal_value(row.get("pbr"))) is None and bool(
+        row.get("pbr", "").strip()
+    )
+
+
+def _existing_roe_pct_is_abnormal(row: dict[str, str]) -> bool:
+    return _guard_roe_pct(_optional_decimal_value(row.get("roe_pct"))) is None and bool(
+        row.get("roe_pct", "").strip()
+    )
 
 
 def _yahoo_expense_ratio_pct(info: dict[str, object]) -> Decimal | None:

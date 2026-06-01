@@ -68,6 +68,7 @@ from ui.app import (
     _ensure_selectbox_state_value,
     _etf_question_summary_html,
     _etf_research_summary_html,
+    _external_research_fetch_failure_caption,
     _external_research_fetch_overview_html,
     _external_research_fetch_result_rows,
     _external_research_fetch_summary_rows,
@@ -114,6 +115,7 @@ from ui.app import (
     _research_extracted_claim_rows,
     _research_grounded_answer_rows,
     _research_news_warning_display_text,
+    _research_operation_insight,
     _research_quality_warning_rows,
     _research_result_overview_html,
     _research_retrieval_quality_rows,
@@ -1110,6 +1112,14 @@ def test_research_operation_card_keeps_single_primary_action(monkeypatch):
     assert "最終更新:" not in markup
 
 
+def test_research_operation_insight_uses_neutral_prefetch_guidance():
+    insight = _research_operation_insight(None, None)
+
+    assert insight["title"] == "AI調査で確認すること"
+    assert "確認方針:" in insight["next_step"]
+    assert "AI調査を更新して" not in insight["next_step"]
+
+
 def test_investment_insight_panel_html_accepts_cached_legacy_insight():
     legacy_insight = SimpleNamespace(
         short_summary=(
@@ -1708,6 +1718,20 @@ def test_external_research_fetch_result_rows_clean_provider_raw_summary():
     assert "Quote Type" not in rows[0]["要約"]
     assert "Website:" not in rows[0]["要約"]
     assert "https://example.com" not in rows[0]["要約"]
+
+
+def test_external_research_fetch_failure_caption_hides_provider_raw_details():
+    exc = DataSourceError(
+        "Yahoo Finance profile fetch failed.",
+        details={"provider": "yahoo_finance"},
+    )
+
+    caption = _external_research_fetch_failure_caption(exc)
+
+    assert "保存済み資料と既存データ" in caption
+    assert "ネットワーク設定" in caption
+    assert "Yahoo Finance profile fetch failed" not in caption
+    assert "provider" not in caption
 
 
 def test_research_news_warning_display_text_hides_internal_source_type():

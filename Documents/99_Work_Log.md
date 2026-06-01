@@ -906,3 +906,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Rechecked the Cockpit and Ranking score hierarchy sections in an actual Chrome / Streamlit screen after the in-app browser backend was unavailable.
 - Found that the hierarchy table was readable but too cramped when rendered through Streamlit's dataframe grid; switched this hierarchy-only display to the existing wrapping HTML table style.
 - Confirmed the refreshed Cockpit and Ranking screens with `mock` market data: the score hierarchy text is visible, wraps in place, and no longer uses the dataframe grid for this explanation block.
+
+## 2026-06-01 - Research Summary actual-screen validation polish
+
+- Rechecked `AI調査を更新` Research Summary in actual Chrome / Streamlit screens for domestic stock, foreign stock, ETF, and external-source failure / material-insufficient states.
+- Confirmed the primary summary order and folding boundary: company / ETF summary, quantitative or fund metrics, IR or ETF-specific sections, latest news / disclosure, and confirmation questions appear first; AI notes, evidence/source cards, Research Score, external-source traces, and technical failure details stay behind expanders.
+- Changed the pre-refresh operation-card wording to neutral `確認方針` / `調査アクション` text so the immediate post-refresh screen does not keep stale `AI調査を更新して...` guidance above the refreshed summary.
+- Moved raw external-fetch failure details out of the normal warning area and into a collapsed technical-details expander, keeping the visible failure message beginner-friendly.

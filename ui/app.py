@@ -5155,9 +5155,11 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
                 st.warning(
                     "外部参照ソースを取得できませんでした。保存済み資料と既存データでAI調査を続行します。"
                 )
-                st.caption(exc.message)
-                if exc.details:
-                    st.caption(json.dumps(exc.details, ensure_ascii=False, sort_keys=True))
+                st.caption(_external_research_fetch_failure_caption(exc))
+                with st.expander("取得失敗の技術詳細", expanded=False):
+                    st.caption(exc.message)
+                    if exc.details:
+                        st.json(exc.details)
             step_started = perf_time.perf_counter()
             st.session_state[MARKET_DATA_RESEARCH_REPORT_STATE_KEY] = (
                 _build_cockpit_research_report(preview)
@@ -5215,6 +5217,13 @@ def _cockpit_external_research_fetch_result_from_state(
     if result.symbol.strip().upper() != _market_data_preview_symbol(preview).strip().upper():
         return None
     return result
+
+
+def _external_research_fetch_failure_caption(_exc: AppError) -> str:
+    return (
+        "外部取得元に接続できなかったため、保存済み資料と既存データだけで要約しました。"
+        "必要に応じてネットワーク設定、銘柄コード、外部取得元の状態を確認してください。"
+    )
 
 
 def _external_research_fetch_summary_rows(
@@ -5438,7 +5447,7 @@ def _render_research_operation_card(
             )
         with action_col:
             st.markdown(
-                '<div class="research-action-label">まずここから</div>', unsafe_allow_html=True
+                '<div class="research-action-label">調査アクション</div>', unsafe_allow_html=True
             )
             fetch_clicked = st.button(
                 RESEARCH_FETCH_BUTTON_LABEL,
@@ -5472,7 +5481,7 @@ def _research_operation_insight(
                     "AI調査を更新すると、事業概要、定量情報、IR情報も企業リサーチとして整理します。"
                 ),
                 "source_summary": source_summary,
-                "next_step": "追加確認: AI調査を更新して、IR・開示・外部データを合わせて確認します。",
+                "next_step": "確認方針: IR・開示・外部データを合わせて確認します。",
             }
         return {
             "title": "AI調査で確認すること",
@@ -5481,7 +5490,7 @@ def _research_operation_insight(
                 "AI調査を更新すると、外部情報・ニュース・保存済み資料を企業理解の材料に変換します。"
             ),
             "source_summary": "確認済み: 未取得",
-            "next_step": "追加確認: AI調査を更新して、根拠資料を整理します。",
+            "next_step": "確認方針: 外部情報・ニュース・保存済み資料を根拠資料として整理します。",
         }
 
     brief = ResearchBriefBuilder().build(report, news_report=news_report)

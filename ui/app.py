@@ -92,6 +92,16 @@ from ui.components.sidemenu import (
     render_sidemenu,
 )
 from ui.content.common_texts import (
+    DECISION_REPORT_DOWNLOAD_GUIDE,
+    DECISION_REPORT_JSON_DOWNLOAD_HELP,
+    DECISION_REPORT_JSON_DOWNLOAD_LABEL,
+    DECISION_REPORT_MANIFEST_DOWNLOAD_HELP,
+    DECISION_REPORT_MANIFEST_DOWNLOAD_LABEL,
+    DECISION_REPORT_MARKDOWN_DOWNLOAD_HELP,
+    DECISION_REPORT_MARKDOWN_DOWNLOAD_LABEL,
+    DECISION_REPORT_SUPPORT_MESSAGE,
+    DECISION_REPORT_ZIP_DOWNLOAD_HELP,
+    DECISION_REPORT_ZIP_DOWNLOAD_LABEL,
     EMPTY_STATE_MESSAGES,
     FORECAST_ACTUAL_LABEL,
     MARKET_DATA_PERIOD_CUSTOM,
@@ -9748,10 +9758,7 @@ def _render_cockpit_decision_report(preview: MarketDataPreview) -> None:
     overview = cockpit_decision_report_overview(preview)
 
     st.markdown("### 07 投資判断レポート")
-    st.info(
-        "取得済みデータ、スコア、価格トレンド、根拠資料を判断材料として整理しました。"
-        "売買推奨ではなく、後から確認できる分析メモとして扱います。"
-    )
+    st.info(DECISION_REPORT_SUPPORT_MESSAGE)
     st.markdown(_decision_report_overview_card_html(overview), unsafe_allow_html=True)
 
     summary_lines = cockpit_decision_report_summary_lines(preview, research_report)
@@ -9835,7 +9842,7 @@ def _render_ranking_decision_report_lazy(
             layout="compact",
         )
         st.info(
-            "深掘り操作を先に使えるよう、ランキングの投資判断レポートは必要時に作成します。"
+            "ランキング上位を推奨するものではなく、比較条件、分布、確認ポイントを保存する分析メモです。"
             "作成後は同じ評価方針の間、ダウンロード用データを再利用します。"
         )
         if st.button("投資判断レポートを作成", key=f"{report_state_key}_build"):
@@ -9892,10 +9899,7 @@ def _render_decision_report_downloads(
     markdown = decision_report_markdown_download(context)
     heading = f"{heading_prefix} {expander_label}" if heading_prefix else expander_label
     st.markdown(f"### {heading}")
-    st.info(
-        "取得済みデータ、銘柄メタデータ、スコア、根拠、確認ポイントを判断材料として整理しました。"
-        "売買推奨ではなく、後から確認できる分析メモとして扱います。"
-    )
+    st.info(DECISION_REPORT_SUPPORT_MESSAGE)
     _render_decision_report_download_buttons(
         context,
         expander_label=expander_label,
@@ -9923,30 +9927,35 @@ def _render_decision_report_download_buttons(
     markdown = decision_report_markdown_download(context)
     heading = f"{heading_prefix} {expander_label}" if heading_prefix else expander_label
     st.markdown(f"#### ダウンロード / {heading}")
+    st.caption(DECISION_REPORT_DOWNLOAD_GUIDE)
     col_markdown, col_json, col_manifest, col_zip = st.columns(4)
     col_markdown.download_button(
-        "Markdownをダウンロード",
+        DECISION_REPORT_MARKDOWN_DOWNLOAD_LABEL,
         data=markdown,
         file_name=markdown_file_name,
         mime="text/markdown",
+        help=DECISION_REPORT_MARKDOWN_DOWNLOAD_HELP,
     )
     col_json.download_button(
-        "JSONをダウンロード",
+        DECISION_REPORT_JSON_DOWNLOAD_LABEL,
         data=decision_report_json_download(context),
         file_name=json_file_name,
         mime="application/json",
+        help=DECISION_REPORT_JSON_DOWNLOAD_HELP,
     )
     col_manifest.download_button(
-        "manifestをダウンロード",
+        DECISION_REPORT_MANIFEST_DOWNLOAD_LABEL,
         data=decision_report_manifest_json_download(context),
         file_name="decision_report_manifest.json",
         mime="application/json",
+        help=DECISION_REPORT_MANIFEST_DOWNLOAD_HELP,
     )
     col_zip.download_button(
-        "一式ZIP",
+        DECISION_REPORT_ZIP_DOWNLOAD_LABEL,
         data=decision_report_zip_download(context),
         file_name="decision_report_package.zip",
         mime="application/zip",
+        help=DECISION_REPORT_ZIP_DOWNLOAD_HELP,
     )
 
 

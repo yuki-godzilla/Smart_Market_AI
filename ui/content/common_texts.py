@@ -43,6 +43,27 @@ MARKET_DATA_MODE_LABELS = {
 DECISION_SUPPORT_DISCLAIMER = (
     "SMAIの表示は投資判断を補助する確認材料であり、売買を推奨するものではありません。"
 )
+DECISION_REPORT_SUPPORT_MESSAGE = (
+    "このレポートは、その時点の判断材料、根拠、不確実性、確認ポイントを保存する分析メモです。"
+    "買い・売り・保有の指示ではありません。"
+)
+DECISION_REPORT_DOWNLOAD_GUIDE = (
+    "Markdownは読む用、JSONは再現用、manifestは同梱内容の確認用、ZIPは一式保存用です。"
+)
+DECISION_REPORT_MARKDOWN_DOWNLOAD_LABEL = "Markdown（読む用）をダウンロード"
+DECISION_REPORT_JSON_DOWNLOAD_LABEL = "JSON（再現用）をダウンロード"
+DECISION_REPORT_MANIFEST_DOWNLOAD_LABEL = "manifest（内容確認）をダウンロード"
+DECISION_REPORT_ZIP_DOWNLOAD_LABEL = "一式ZIP（保存用）をダウンロード"
+DECISION_REPORT_MARKDOWN_DOWNLOAD_HELP = (
+    "人が読むためのMarkdown形式です。判断材料、根拠、不確実性、確認ポイントを見返す用途に使います。"
+)
+DECISION_REPORT_JSON_DOWNLOAD_HELP = (
+    "画面表示やレポート生成に使った構造化contextです。再現確認や後続処理に使います。"
+)
+DECISION_REPORT_MANIFEST_DOWNLOAD_HELP = (
+    "レポート一式に含まれるファイル、情報元、作成日時を確認するための一覧です。"
+)
+DECISION_REPORT_ZIP_DOWNLOAD_HELP = "Markdown、JSON、manifestをまとめた保存用パッケージです。"
 
 NG_INVESTMENT_ADVICE_TERMS = (
     "買い" + "推奨",

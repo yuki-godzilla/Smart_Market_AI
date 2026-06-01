@@ -12,7 +12,19 @@ from pydantic import ValidationError
 from backend.app.main import RebalanceCheckRequest
 from backend.portfolio.workflow import PortfolioRiskResult
 from ui.components.mascot import render_page_title
-from ui.content.common_texts import EMPTY_STATE_MESSAGES
+from ui.content.common_texts import (
+    DECISION_REPORT_DOWNLOAD_GUIDE,
+    DECISION_REPORT_JSON_DOWNLOAD_HELP,
+    DECISION_REPORT_JSON_DOWNLOAD_LABEL,
+    DECISION_REPORT_MANIFEST_DOWNLOAD_HELP,
+    DECISION_REPORT_MANIFEST_DOWNLOAD_LABEL,
+    DECISION_REPORT_MARKDOWN_DOWNLOAD_HELP,
+    DECISION_REPORT_MARKDOWN_DOWNLOAD_LABEL,
+    DECISION_REPORT_SUPPORT_MESSAGE,
+    DECISION_REPORT_ZIP_DOWNLOAD_HELP,
+    DECISION_REPORT_ZIP_DOWNLOAD_LABEL,
+    EMPTY_STATE_MESSAGES,
+)
 from ui.rebalance_app import (
     RebalanceScenarioError,
     build_rebalance_decision_report_context,
@@ -311,33 +323,39 @@ def _render_rebalance_decision_report(
     markdown = rebalance_decision_report_markdown_download(context)
     st.markdown("### 投資判断レポート")
     st.info(
-        "現在保有、目標配分、配分見直し候補、リスク判定、確認ポイントを投資判断レポートとして整理しました。"
-        "売買推奨ではありません。"
+        "現在保有、目標配分、配分見直し候補、リスク判定、確認ポイントを保存する分析メモです。"
+        "売買指示ではありません。"
     )
+    st.caption(DECISION_REPORT_SUPPORT_MESSAGE)
+    st.caption(DECISION_REPORT_DOWNLOAD_GUIDE)
     col_markdown, col_json, col_manifest, col_zip = st.columns(4)
     col_markdown.download_button(
-        "Markdownをダウンロード",
+        DECISION_REPORT_MARKDOWN_DOWNLOAD_LABEL,
         data=markdown,
         file_name="decision_report_rebalance.md",
         mime="text/markdown",
+        help=DECISION_REPORT_MARKDOWN_DOWNLOAD_HELP,
     )
     col_json.download_button(
-        "JSONをダウンロード",
+        DECISION_REPORT_JSON_DOWNLOAD_LABEL,
         data=rebalance_decision_report_json_download(context),
         file_name="decision_report_rebalance.json",
         mime="application/json",
+        help=DECISION_REPORT_JSON_DOWNLOAD_HELP,
     )
     col_manifest.download_button(
-        "manifestをダウンロード",
+        DECISION_REPORT_MANIFEST_DOWNLOAD_LABEL,
         data=rebalance_decision_report_manifest_download(context),
         file_name="decision_report_manifest.json",
         mime="application/json",
+        help=DECISION_REPORT_MANIFEST_DOWNLOAD_HELP,
     )
     col_zip.download_button(
-        "一式ZIP",
+        DECISION_REPORT_ZIP_DOWNLOAD_LABEL,
         data=rebalance_decision_report_zip_download(context),
         file_name="decision_report_rebalance_package.zip",
         mime="application/zip",
+        help=DECISION_REPORT_ZIP_DOWNLOAD_HELP,
     )
     with st.expander("レポート本文を表示", expanded=False):
         st.markdown(markdown)

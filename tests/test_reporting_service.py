@@ -87,6 +87,8 @@ def test_render_decision_report_markdown_is_deterministic_and_includes_disclaime
 
     assert markdown.startswith("# Decision support report\n")
     assert f"- 位置づけ: {DECISION_SUPPORT_NOTE}" in markdown
+    assert "Markdownは人が読むためのメモ" in markdown
+    assert "JSON・manifest・ZIPは再現や保存のための形式" in markdown
     assert "| 順位 | 銘柄 | memo |" in markdown
     assert "| 1 | 7203.T | value \\| checked |" in markdown
 
@@ -114,6 +116,10 @@ def test_build_decision_report_manifest_describes_local_export_files():
         "decision_report_context.json",
         "decision_report.md",
     }
+    descriptions = {file["filename"]: file["description"] for file in manifest.files}
+    assert "ファイル一覧と用途" in descriptions["decision_report_manifest.json"]
+    assert "構造化context" in descriptions["decision_report_context.json"]
+    assert "Markdown形式の判断材料メモ" in descriptions["decision_report.md"]
 
 
 def test_decision_report_export_package_contains_context_manifest_and_markdown():

@@ -1,5 +1,6 @@
 import asyncio
 import sys
+from contextlib import nullcontext
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from io import BytesIO
@@ -88,6 +89,7 @@ from ui.rebalance_app import (
     target_allocations_json,
     yfinance_search_symbol_rows,
 )
+from ui.views.rebalance import _render_rebalance_decision_report
 
 FIXTURE_ROOT = Path("tests/fixtures")
 
@@ -1236,6 +1238,49 @@ def test_build_rebalance_decision_report_context_uses_phase19_schema():
     assert '"rebalance"' in payload
     assert '"decision_report.md"' in manifest
     assert archive.startswith(b"PK")
+
+
+def test_rebalance_decision_report_downloads_explain_export_roles(monkeypatch):
+    request = build_default_rebalance_request()
+    result = asyncio.run(run_rebalance_check(request))
+    infos: list[str] = []
+    captions: list[str] = []
+    button_calls: list[tuple[str, dict[str, object]]] = []
+
+    class FakeColumn:
+        def download_button(self, label: str, **kwargs: object) -> None:
+            button_calls.append((label, kwargs))
+
+    monkeypatch.setattr("ui.views.rebalance.st.markdown", lambda *_, **__: None)
+    monkeypatch.setattr("ui.views.rebalance.st.info", lambda body, **_: infos.append(str(body)))
+    monkeypatch.setattr(
+        "ui.views.rebalance.st.caption",
+        lambda body, **_: captions.append(str(body)),
+    )
+    monkeypatch.setattr(
+        "ui.views.rebalance.st.columns",
+        lambda _: [FakeColumn() for _ in range(4)],
+    )
+    monkeypatch.setattr("ui.views.rebalance.st.expander", lambda *_, **__: nullcontext())
+
+    _render_rebalance_decision_report(result, request)
+
+    assert any("売買指示ではありません" in info for info in infos)
+    assert any("買い・売り・保有の指示ではありません。" in caption for caption in captions)
+    assert (
+        "Markdownは読む用、JSONは再現用、manifestは同梱内容の確認用、ZIPは一式保存用です。"
+        in captions
+    )
+    assert [label for label, _ in button_calls] == [
+        "Markdown（読む用）をダウンロード",
+        "JSON（再現用）をダウンロード",
+        "manifest（内容確認）をダウンロード",
+        "一式ZIP（保存用）をダウンロード",
+    ]
+    assert "人が読むため" in str(button_calls[0][1]["help"])
+    assert "再現確認" in str(button_calls[1][1]["help"])
+    assert "ファイル" in str(button_calls[2][1]["help"])
+    assert "保存用パッケージ" in str(button_calls[3][1]["help"])
 
 
 def test_rebalance_result_from_state_returns_stored_result(monkeypatch):

@@ -11,6 +11,7 @@ import streamlit as st
 
 from backend.core.data_contracts import Bar, DailySnapshot, FundamentalSnapshot, Symbol
 from backend.core.errors import DataSourceError
+from backend.reporting import build_decision_report_context, build_report_section
 from backend.research import (
     CompanyBusinessProfile,
     CompanyOverviewSummary,
@@ -95,6 +96,7 @@ from ui.app import (
     _ranking_symbols_from_selected_labels,
     _render_cockpit_research_summary,
     _render_company_research_summary_panel,
+    _render_decision_report_download_buttons,
     _render_market_chart,
     _render_research_operation_card,
     _render_score_confidence_hierarchy,
@@ -5436,6 +5438,51 @@ def test_cockpit_investment_memo_rows_combines_score_master_and_price(monkeypatc
     assert "配当利回り 0.23%" in rows[3]["評価"]
     assert "高値圏" in rows[4]["評価"]
     assert rows[0]["確認ポイント"] == "スコアは深掘り順の整理で、売買推奨ではありません。"
+
+
+def test_decision_report_download_buttons_explain_export_roles(monkeypatch):
+    context = build_decision_report_context(
+        title="投資判断レポート - テスト",
+        sections=[
+            build_report_section(
+                title="確認材料",
+                source_kind="cockpit",
+                summary={"symbol": "7203.T"},
+            )
+        ],
+        created_at=datetime(2026, 5, 17, 12, 0, tzinfo=UTC),
+    )
+    captions: list[str] = []
+    button_calls: list[tuple[str, dict[str, object]]] = []
+
+    class FakeColumn:
+        def download_button(self, label: str, **kwargs: object) -> None:
+            button_calls.append((label, kwargs))
+
+    monkeypatch.setattr("ui.app.st.markdown", lambda *_, **__: None)
+    monkeypatch.setattr("ui.app.st.caption", lambda body, **_: captions.append(str(body)))
+    monkeypatch.setattr("ui.app.st.columns", lambda _: [FakeColumn() for _ in range(4)])
+
+    _render_decision_report_download_buttons(
+        context,
+        expander_label="投資判断レポート",
+        json_file_name="decision_report_test.json",
+        markdown_file_name="decision_report_test.md",
+    )
+
+    assert captions == [
+        "Markdownは読む用、JSONは再現用、manifestは同梱内容の確認用、ZIPは一式保存用です。"
+    ]
+    assert [label for label, _ in button_calls] == [
+        "Markdown（読む用）をダウンロード",
+        "JSON（再現用）をダウンロード",
+        "manifest（内容確認）をダウンロード",
+        "一式ZIP（保存用）をダウンロード",
+    ]
+    assert "人が読むため" in str(button_calls[0][1]["help"])
+    assert "再現確認" in str(button_calls[1][1]["help"])
+    assert "ファイル" in str(button_calls[2][1]["help"])
+    assert "保存用パッケージ" in str(button_calls[3][1]["help"])
 
 
 def test_cockpit_decision_report_context_includes_metadata_confidence(monkeypatch):

@@ -11,7 +11,10 @@ from backend.core.data_contracts import StrictBaseModel
 from backend.core.errors import ValidationAppError
 
 DECISION_REPORT_SCHEMA_VERSION = "decision-report-context-v1"
-DECISION_SUPPORT_NOTE = "このレポートは投資判断の補助資料であり、売買推奨ではありません。"
+DECISION_SUPPORT_NOTE = (
+    "このレポートは、ある時点の判断材料、根拠、不確実性、確認ポイントを保存する補助資料であり、"
+    "売買推奨ではありません。また、投資助言でもありません。"
+)
 
 ReportSourceKind = Literal["cockpit", "ranking", "rebalance", "metadata", "manual", "research"]
 
@@ -411,6 +414,7 @@ def render_decision_report_markdown(context: DecisionReportContext) -> str:
         f"- スキーマ: {context.schema_version}",
         f"- 作成日時: {context.created_at.isoformat()}",
         f"- 位置づけ: {context.decision_support_note}",
+        "- 形式: Markdownは人が読むためのメモ、JSON・manifest・ZIPは再現や保存のための形式です。",
     ]
     if context.tags:
         lines.append(f"- タグ: {', '.join(context.tags)}")
@@ -456,15 +460,15 @@ def build_decision_report_manifest(context: DecisionReportContext) -> DecisionRe
         files=[
             {
                 "filename": "decision_report_manifest.json",
-                "description": "Manifest describing the local Decision Report export package.",
+                "description": "レポート一式に含まれるファイル一覧と用途を示すmanifestです。",
             },
             {
                 "filename": "decision_report_context.json",
-                "description": "Structured context used to render the Decision Report.",
+                "description": "レポートを再現するための構造化contextです。",
             },
             {
                 "filename": "decision_report.md",
-                "description": "Deterministic Markdown report rendered from local context.",
+                "description": "人が読むためのMarkdown形式の判断材料メモです。",
             },
         ],
     )

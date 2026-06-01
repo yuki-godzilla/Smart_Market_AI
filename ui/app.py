@@ -173,8 +173,12 @@ from ui.ranking import (
     ranking_build_cache_key,
     ranking_deep_dive_default_symbol,
     ranking_detail_filters_for_category,
+    ranking_dividend_yield_pct_is_abnormal,
+    ranking_dividend_yield_pct_value,
     ranking_fetch_limit_label,
     ranking_filter_signature,
+    ranking_fundamental_metric_is_abnormal,
+    ranking_fundamental_metric_value,
     ranking_no_bars_error_row,
     ranking_period_dates,
     ranking_period_label,
@@ -383,6 +387,7 @@ class RankingResearchStatus:
 
 RANKING_RESULT_GRID_CUSTOM_CSS = RANKING_GRID_CUSTOM_CSS
 RANKING_MISSING_DISPLAY = "N/A"
+RANKING_ABNORMAL_DIVIDEND_DISPLAY = "要確認"
 RANKING_TABLE_BASE_COLUMNS = (
     "順位",
     "銘柄",
@@ -1204,14 +1209,21 @@ def symbol_universe_detail_display_value(row: dict[str, str], column: str) -> st
         "installment_available",
     }:
         return _symbol_detail_bool_display(value)
+    if column == "dividend_yield_pct":
+        if ranking_dividend_yield_pct_is_abnormal(value):
+            return RANKING_ABNORMAL_DIVIDEND_DISPLAY
+        return _symbol_detail_decimal_display(value, suffix="%")
     if column in {
-        "dividend_yield_pct",
         "expense_ratio_pct",
         "trust_fee_pct",
         "roe_pct",
     }:
+        if ranking_fundamental_metric_is_abnormal(column, value):
+            return RANKING_ABNORMAL_DIVIDEND_DISPLAY
         return _symbol_detail_decimal_display(value, suffix="%")
     if column in {"per", "pbr", "consensus_rating", "aum"}:
+        if ranking_fundamental_metric_is_abnormal(column, value):
+            return RANKING_ABNORMAL_DIVIDEND_DISPLAY
         return _symbol_detail_decimal_display(value)
     if column in {"metadata_as_of", "metadata_updated_at"}:
         return _symbol_detail_date_display(value)
@@ -9350,9 +9362,12 @@ def _cockpit_investment_stance(
         return "慎重確認 / リスク優先"
     if score is not None and score >= Decimal("70") and "高値圏" not in trend:
         return "中長期向け / 押し目確認"
-    if symbol_row and (
-        _decimal_from_text(symbol_row.get("dividend_yield_pct")) or Decimal("0")
-    ) >= Decimal("3"):
+    dividend_yield = (
+        ranking_dividend_yield_pct_value(symbol_row.get("dividend_yield_pct"))
+        if symbol_row
+        else None
+    )
+    if dividend_yield is not None and dividend_yield >= Decimal("3"):
         return "インカム候補 / 配当安定性確認"
     return "様子見 / 追加根拠確認"
 
@@ -9372,8 +9387,8 @@ def _cockpit_key_risks(
         risk_band = symbol_universe_detail_display_value(symbol_row, "risk_band")
         if risk_band:
             risks.append(f"リスク帯: {risk_band}")
-        per = _decimal_from_text(symbol_row.get("per"))
-        pbr = _decimal_from_text(symbol_row.get("pbr"))
+        per = ranking_fundamental_metric_value("per", symbol_row.get("per"))
+        pbr = ranking_fundamental_metric_value("pbr", symbol_row.get("pbr"))
         if (per is not None and per >= Decimal("40")) or (pbr is not None and pbr >= Decimal("10")):
             risks.append("バリュエーション")
     if not risks:
@@ -10236,9 +10251,18 @@ def _ranking_metadata_available_count(rows: list[dict[str, str]], field: str) ->
     count = 0
     for row in rows:
         symbol_row = _symbol_universe_row_for_symbol(row.get("symbol", ""))
-        if symbol_row is not None and _symbol_detail_raw_value(symbol_row, field):
+        if symbol_row is not None and _symbol_metadata_field_available(symbol_row, field):
             count += 1
     return count
+
+
+def _symbol_metadata_field_available(symbol_row: dict[str, str], field: str) -> bool:
+    value = _symbol_detail_raw_value(symbol_row, field)
+    if not value:
+        return False
+    if ranking_fundamental_metric_is_abnormal(field, value):
+        return False
+    return True
 
 
 def _best_ranking_row_by_metric(
@@ -10262,11 +10286,20 @@ def _best_ranking_row_by_symbol_metric(
 ) -> dict[str, str] | None:
     return _best_row_by_decimal(
         rows,
-        lambda row: _decimal_from_text(
-            (_symbol_universe_row_for_symbol(row.get("symbol", "")) or {}).get(metric)
+        lambda row: _symbol_metric_decimal(
+            _symbol_universe_row_for_symbol(row.get("symbol", "")), metric
         ),
         prefer_low=prefer_low,
     )
+
+
+def _symbol_metric_decimal(symbol_row: dict[str, str] | None, metric: str) -> Decimal | None:
+    if symbol_row is None:
+        return None
+    metric_value = ranking_fundamental_metric_value(metric, symbol_row.get(metric))
+    if metric_value is not None or metric in {"dividend_yield_pct", "per", "pbr", "roe_pct"}:
+        return metric_value
+    return _decimal_from_text(symbol_row.get(metric))
 
 
 def _best_row_by_decimal(
@@ -10387,11 +10420,11 @@ def _ranking_report_review_point(
     if quality is not None and quality < Decimal("80"):
         return "データ品質に確認余地があります。取得期間や欠損項目を確認します。"
     if symbol_row is not None:
-        per = _decimal_from_text(symbol_row.get("per"))
-        pbr = _decimal_from_text(symbol_row.get("pbr"))
+        per = ranking_fundamental_metric_value("per", symbol_row.get("per"))
+        pbr = ranking_fundamental_metric_value("pbr", symbol_row.get("pbr"))
         if (per is not None and per >= Decimal("40")) or (pbr is not None and pbr >= Decimal("10")):
             return "バリュエーションが高めです。成長期待と決算材料の裏付けを確認します。"
-        dividend_yield = _decimal_from_text(symbol_row.get("dividend_yield_pct"))
+        dividend_yield = ranking_dividend_yield_pct_value(symbol_row.get("dividend_yield_pct"))
         if dividend_yield is not None and dividend_yield >= Decimal("3"):
             return "インカム面が目立ちます。配当方針、減配リスク、業績安定性を確認します。"
     return "スコアとデータ品質が比較的そろっています。価格トレンドと個別材料を確認します。"
@@ -10462,9 +10495,12 @@ def _cockpit_score_strength_summary(
         strengths.append("データ品質が高く、比較の土台が安定しています")
     if (_decimal_from_text(row.get("Screening")) or Decimal("0")) >= Decimal("80"):
         strengths.append("スクリーニング上位の条件に合っています")
-    if symbol_row and (_decimal_from_text(symbol_row.get("roe_pct")) or Decimal("0")) >= Decimal(
-        "20"
-    ):
+    roe = (
+        ranking_fundamental_metric_value("roe_pct", symbol_row.get("roe_pct"))
+        if symbol_row
+        else None
+    )
+    if roe is not None and roe >= Decimal("20"):
         strengths.append("ROEが高く、資本効率の強さが見えます")
     if (_decimal_from_text(row.get("Risk")) or Decimal("0")) >= Decimal("70"):
         strengths.append("短期のリスクシグナルは比較的落ち着いています")
@@ -10493,12 +10529,12 @@ def _cockpit_score_caution_summary(
         return "データ品質が低めのため、取得元や期間を変えて再確認したい候補です。"
     if symbol_row is None:
         return "銘柄マスタの補足情報が少ないため、財務・分類・配当情報を別途確認してください。"
-    per = _decimal_from_text(symbol_row.get("per"))
-    pbr = _decimal_from_text(symbol_row.get("pbr"))
+    per = ranking_fundamental_metric_value("per", symbol_row.get("per"))
+    pbr = ranking_fundamental_metric_value("pbr", symbol_row.get("pbr"))
     if (per is not None and per >= Decimal("40")) or (pbr is not None and pbr >= Decimal("10")):
         return "PER/PBRが高めです。成長期待が株価にどこまで織り込まれているか確認してください。"
-    dividend_yield = _decimal_from_text(symbol_row.get("dividend_yield_pct")) or Decimal("0")
-    if dividend_yield >= Decimal("5"):
+    dividend_yield = ranking_dividend_yield_pct_value(symbol_row.get("dividend_yield_pct"))
+    if dividend_yield is not None and dividend_yield >= Decimal("5"):
         return "配当利回りが高いため、減配リスクや一時要因を確認してください。"
     return "大きな警告はありません。スコアの内訳とチャートの位置を確認してください。"
 
@@ -10571,14 +10607,18 @@ def _cockpit_next_action_summary(
         return "まず下落耐性、損失許容幅、ポジションサイズを確認してください。"
     if "高値圏" in trend["summary"]:
         return "高値圏のため、出来高、押し目、決算予定を確認してから深掘りしてください。"
+    per = ranking_fundamental_metric_value("per", symbol_row.get("per")) if symbol_row else None
+    pbr = ranking_fundamental_metric_value("pbr", symbol_row.get("pbr")) if symbol_row else None
     if symbol_row and (
-        (_decimal_from_text(symbol_row.get("per")) or Decimal("0")) >= Decimal("40")
-        or (_decimal_from_text(symbol_row.get("pbr")) or Decimal("0")) >= Decimal("10")
+        (per is not None and per >= Decimal("40")) or (pbr is not None and pbr >= Decimal("10"))
     ):
         return "高バリュエーションのため、成長率、利益率、決算ガイダンスを確認してください。"
-    if symbol_row and (
-        _decimal_from_text(symbol_row.get("dividend_yield_pct")) or Decimal("0")
-    ) >= Decimal("3"):
+    dividend_yield = (
+        ranking_dividend_yield_pct_value(symbol_row.get("dividend_yield_pct"))
+        if symbol_row
+        else None
+    )
+    if dividend_yield is not None and dividend_yield >= Decimal("3"):
         return "インカム候補として、配当性向、減配履歴、キャッシュフローを確認してください。"
     return "候補として残し、銘柄データ、チャート、決算材料の順に確認してください。"
 
@@ -11020,7 +11060,15 @@ def forecast_consensus_display_rows(rows: list[dict[str, str]]) -> list[dict[str
 
 def _decimal_from_text(value: object) -> Decimal | None:
     text = str(value or "").replace("%", "").replace(",", "").strip()
-    if not text or text in {"-", "N/A", "未接続", "未登録", "未取得", "取得不可"}:
+    if not text or text in {
+        "-",
+        "N/A",
+        "未接続",
+        "未登録",
+        "未取得",
+        "取得不可",
+        RANKING_ABNORMAL_DIVIDEND_DISPLAY,
+    }:
         return None
     try:
         decimal_value = Decimal(text)
@@ -11059,6 +11107,18 @@ def _ranking_numeric_display(value: object, *, suffix: str = "") -> str:
     return f"{text}{suffix}"
 
 
+def _ranking_dividend_yield_display(value: object) -> str:
+    if ranking_dividend_yield_pct_is_abnormal(value):
+        return RANKING_ABNORMAL_DIVIDEND_DISPLAY
+    return _ranking_numeric_display(value, suffix="%")
+
+
+def _ranking_fundamental_metric_display(field: str, value: object, *, suffix: str = "") -> str:
+    if ranking_fundamental_metric_is_abnormal(field, value):
+        return RANKING_ABNORMAL_DIVIDEND_DISPLAY
+    return _ranking_numeric_display(value, suffix=suffix)
+
+
 def _ranking_row_or_symbol_metric_display(
     row: dict[str, str],
     symbol_row: dict[str, str] | None,
@@ -11067,6 +11127,22 @@ def _ranking_row_or_symbol_metric_display(
     suffix: str = "",
 ) -> str:
     raw_value = str(row.get(column, "")).strip()
+    if column == "dividend_yield_pct":
+        if raw_value:
+            return _ranking_dividend_yield_display(raw_value)
+        if symbol_row is not None:
+            return _ranking_dividend_yield_display(_symbol_detail_raw_value(symbol_row, column))
+        return RANKING_MISSING_DISPLAY
+    if column in {"per", "pbr", "roe_pct"}:
+        if raw_value:
+            return _ranking_fundamental_metric_display(column, raw_value, suffix=suffix)
+        if symbol_row is not None:
+            return _ranking_fundamental_metric_display(
+                column,
+                _symbol_detail_raw_value(symbol_row, column),
+                suffix=suffix,
+            )
+        return RANKING_MISSING_DISPLAY
     if raw_value:
         return _ranking_numeric_display(raw_value, suffix=suffix)
     if symbol_row is not None:
@@ -11115,13 +11191,19 @@ def _ranking_strength_phrases(
         strengths.append("スクリーニング")
     if (_decimal_from_text(row.get("risk_signal_score")) or Decimal("0")) >= Decimal("70"):
         strengths.append("リスク確認")
-    if symbol_row and (_decimal_from_text(symbol_row.get("roe_pct")) or Decimal("0")) >= Decimal(
-        "20"
-    ):
+    roe = (
+        ranking_fundamental_metric_value("roe_pct", symbol_row.get("roe_pct"))
+        if symbol_row
+        else None
+    )
+    if roe is not None and roe >= Decimal("20"):
         strengths.append("ROE")
-    if symbol_row and (
-        _decimal_from_text(symbol_row.get("dividend_yield_pct")) or Decimal("0")
-    ) >= Decimal("3"):
+    dividend_yield = (
+        ranking_dividend_yield_pct_value(symbol_row.get("dividend_yield_pct"))
+        if symbol_row
+        else None
+    )
+    if dividend_yield is not None and dividend_yield >= Decimal("3"):
         strengths.append("配当利回り")
     return strengths
 
@@ -11143,11 +11225,12 @@ def _ranking_primary_caution(
         return "データ品質に確認余地がある"
     if symbol_row is None:
         return "銘柄マスタの補足情報が少ない"
-    per = _decimal_from_text(symbol_row.get("per"))
-    pbr = _decimal_from_text(symbol_row.get("pbr"))
+    per = ranking_fundamental_metric_value("per", symbol_row.get("per"))
+    pbr = ranking_fundamental_metric_value("pbr", symbol_row.get("pbr"))
     if (per is not None and per >= Decimal("40")) or (pbr is not None and pbr >= Decimal("10")):
         return "PER/PBRが高めな"
-    if (_decimal_from_text(symbol_row.get("dividend_yield_pct")) or Decimal("0")) >= Decimal("5"):
+    dividend_yield = ranking_dividend_yield_pct_value(symbol_row.get("dividend_yield_pct"))
+    if dividend_yield is not None and dividend_yield >= Decimal("5"):
         return "高配当の持続性を確認したい"
     if symbol_row.get("asset_type") == "etf" and (
         _decimal_from_text(symbol_row.get("expense_ratio_pct")) or Decimal("0")
@@ -11166,14 +11249,18 @@ def _ranking_next_action(
         return "下降警戒と直近トレンドを銘柄コックピットで確認してください"
     if (_decimal_from_text(row.get("risk_signal_score")) or Decimal("100")) < Decimal("50"):
         return "ポジションサイズと損切り条件を先に確認してください"
+    per = ranking_fundamental_metric_value("per", symbol_row.get("per")) if symbol_row else None
+    pbr = ranking_fundamental_metric_value("pbr", symbol_row.get("pbr")) if symbol_row else None
     if symbol_row and (
-        (_decimal_from_text(symbol_row.get("per")) or Decimal("0")) >= Decimal("40")
-        or (_decimal_from_text(symbol_row.get("pbr")) or Decimal("0")) >= Decimal("10")
+        (per is not None and per >= Decimal("40")) or (pbr is not None and pbr >= Decimal("10"))
     ):
         return "成長期待の裏付けと決算材料を確認してください"
-    if symbol_row and (
-        _decimal_from_text(symbol_row.get("dividend_yield_pct")) or Decimal("0")
-    ) >= Decimal("3"):
+    dividend_yield = (
+        ranking_dividend_yield_pct_value(symbol_row.get("dividend_yield_pct"))
+        if symbol_row
+        else None
+    )
+    if dividend_yield is not None and dividend_yield >= Decimal("3"):
         return "配当性向、減配リスク、業績安定性を確認してください"
     return "銘柄データとコックピットで価格トレンドを確認してください"
 

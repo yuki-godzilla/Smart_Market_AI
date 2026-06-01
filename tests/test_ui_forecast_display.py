@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pandas as pd
 import streamlit as st
 
-from backend.core.data_contracts import Bar, FundamentalSnapshot, Symbol
+from backend.core.data_contracts import Bar, DailySnapshot, FundamentalSnapshot, Symbol
 from backend.core.errors import DataSourceError
 from backend.research import (
     CompanyBusinessProfile,
@@ -64,6 +64,7 @@ from ui.app import (
     _dividend_category_option_label,
     _dividend_filter_help_text,
     _dividend_yield_filter_label,
+    _enrich_ranking_rows_with_feature_details,
     _ensure_selectbox_state_value,
     _etf_question_summary_html,
     _etf_research_summary_html,
@@ -206,6 +207,9 @@ from ui.ranking import (
     RANKING_PRESET_QUALITY_GROWTH,
     RANKING_PRESET_QUALITY_VALUE,
     RANKING_PRESET_SMALL_GROWTH,
+    RANKING_PRESET_SORT_DIVIDEND_YIELD,
+    RANKING_PRESET_SORT_PBR,
+    RANKING_PRESET_SORT_PER,
     RANKING_PRESET_SUSTAINABLE_INCOME,
     RANKING_PRESET_UPSIDE_SIGNAL,
     RANKING_PRODUCT_ETF,
@@ -570,6 +574,20 @@ def test_symbol_universe_detail_display_value_translates_internal_codes():
     assert symbol_universe_detail_display_value(row, "market_cap_tier").startswith("大型")
     assert symbol_universe_detail_display_value(row, "risk_band") == "低変動（β < 0.8目安）"
     assert symbol_universe_detail_display_value(row, "yahoo_symbol") == "表示銘柄と同じ"
+
+
+def test_symbol_universe_detail_display_value_marks_abnormal_dividend_yield():
+    row = {"dividend_yield_pct": "293.19"}
+
+    assert symbol_universe_detail_display_value(row, "dividend_yield_pct") == "要確認"
+
+
+def test_symbol_universe_detail_display_value_marks_abnormal_valuation_metrics():
+    row = {"per": "0", "pbr": "624.11", "roe_pct": "101"}
+
+    assert symbol_universe_detail_display_value(row, "per") == "要確認"
+    assert symbol_universe_detail_display_value(row, "pbr") == "要確認"
+    assert symbol_universe_detail_display_value(row, "roe_pct") == "要確認"
 
 
 def test_symbol_universe_overview_rows_use_user_friendly_values():
@@ -4862,6 +4880,88 @@ def test_ranking_result_aggrid_frame_keeps_zero_and_missing_fundamentals_distinc
     assert frame.loc[0, "ROE"] == "N/A"
 
 
+def test_investment_score_display_rows_keeps_feature_dividend_yield_as_percent(monkeypatch):
+    monkeypatch.setattr("ui.app.symbol_universe_csv_rows", lambda: [])
+    feature = DailySnapshot(
+        symbol="6479.T",
+        as_of=date(2026, 6, 1),
+        last=Decimal("3200"),
+        close_1d=Decimal("3180"),
+        dividend_yield=Decimal("0.0132"),
+        missing={},
+    )
+
+    enriched = _enrich_ranking_rows_with_feature_details(
+        [{"rank": "1", "symbol": "6479.T", "total_score": "72"}],
+        [feature],
+        provider_name="yahoo",
+    )
+    display_rows = investment_score_display_rows(enriched)
+
+    assert enriched[0]["dividend_yield_pct"] == "1.32"
+    assert display_rows[0]["配当利回り"] == "1.32%"
+
+
+def test_investment_score_display_rows_marks_abnormal_dividend_yield(monkeypatch):
+    symbol_rows = [
+        {
+            "symbol": "GMEX",
+            "asset_type": "stock",
+            "dividend_yield_pct": "293.19",
+            "per": "12",
+            "pbr": "1.1",
+            "roe_pct": "8",
+        }
+    ]
+    monkeypatch.setattr("ui.app.symbol_universe_csv_rows", lambda: symbol_rows)
+
+    display_rows = investment_score_display_rows(
+        [{"rank": "1", "symbol": "GMEX", "total_score": "72"}]
+    )
+    frame = ranking_result_aggrid_frame(display_rows)
+    detail_rows = ranking_score_detail_rows(display_rows[0])
+
+    assert display_rows[0]["配当利回り"] == "要確認"
+    assert frame.loc[0, "配当利回り"] == "要確認"
+    assert any("配当利回り 要確認" in row["内容"] for row in detail_rows)
+
+
+def test_investment_score_display_rows_shows_missing_dividend_yield_as_na(monkeypatch):
+    monkeypatch.setattr(
+        "ui.app.symbol_universe_csv_rows",
+        lambda: [{"symbol": "NODIV", "asset_type": "stock", "dividend_yield_pct": ""}],
+    )
+
+    display_rows = investment_score_display_rows(
+        [{"rank": "1", "symbol": "NODIV", "total_score": "72"}]
+    )
+
+    assert display_rows[0]["配当利回り"] == "N/A"
+
+
+def test_investment_score_display_rows_marks_abnormal_per_pbr(monkeypatch):
+    monkeypatch.setattr(
+        "ui.app.symbol_universe_csv_rows",
+        lambda: [
+            {
+                "symbol": "BA",
+                "asset_type": "stock",
+                "per": "0",
+                "pbr": "0",
+                "roe_pct": "0",
+            }
+        ],
+    )
+
+    display_rows = investment_score_display_rows(
+        [{"rank": "1", "symbol": "BA", "total_score": "72"}]
+    )
+
+    assert display_rows[0]["PER"] == "要確認"
+    assert display_rows[0]["PBR"] == "要確認"
+    assert display_rows[0]["ROE"] == "0%"
+
+
 def test_ranking_investment_note_uses_scores_and_symbol_metadata(monkeypatch):
     monkeypatch.setattr(
         "ui.app.symbol_universe_csv_rows",
@@ -5916,6 +6016,100 @@ def test_ranking_database_scores_use_symbol_metadata():
 
     assert ranking_database_fit_score(high_dividend, "income") == Decimal("100")
     assert ranking_metadata_confidence_score(high_dividend) == Decimal("100")
+
+
+def test_ranking_scores_do_not_treat_abnormal_dividend_yield_as_income_fit():
+    normal_dividend = {
+        "symbol": "7203.T",
+        "asset_type": "stock",
+        "is_active": "true",
+        "nisa_category": "growth",
+        "dividend_yield_pct": "3.29",
+        "pbr": "1.1",
+        "risk_band": "MEDIUM",
+        "metadata_source": "yahoo",
+        "metadata_as_of": "2026-06-01",
+    }
+    abnormal_dividend = {
+        **normal_dividend,
+        "symbol": "GMEX",
+        "dividend_yield_pct": "293.19",
+    }
+
+    assert ranking_database_fit_score(abnormal_dividend, "income") < ranking_database_fit_score(
+        normal_dividend, "income"
+    )
+    assert ranking_metadata_confidence_score(abnormal_dividend) < ranking_metadata_confidence_score(
+        normal_dividend
+    )
+
+
+def test_ranking_scores_do_not_treat_invalid_per_pbr_as_value_fit():
+    valid_value = {
+        "symbol": "VALUE",
+        "asset_type": "stock",
+        "is_active": "true",
+        "nisa_category": "growth",
+        "per": "10",
+        "pbr": "0.9",
+        "roe_pct": "12",
+        "risk_band": "MEDIUM",
+        "metadata_source": "yahoo",
+        "metadata_as_of": "2026-06-01",
+    }
+    invalid_value = {
+        **valid_value,
+        "symbol": "BA",
+        "per": "0",
+        "pbr": "0",
+    }
+
+    assert ranking_database_fit_score(invalid_value, "value_profile") < ranking_database_fit_score(
+        valid_value, "value_profile"
+    )
+    assert ranking_metadata_confidence_score(invalid_value) < ranking_metadata_confidence_score(
+        valid_value
+    )
+
+
+def test_dividend_yield_sort_places_abnormal_values_after_valid_values():
+    rows = [
+        {"symbol": "GMEX", "total_score": "90"},
+        {"symbol": "7203.T", "total_score": "70"},
+        {"symbol": "AAPL", "total_score": "60"},
+    ]
+    symbol_rows = {
+        "GMEX": {"symbol": "GMEX", "asset_type": "stock", "dividend_yield_pct": "293.19"},
+        "7203.T": {"symbol": "7203.T", "asset_type": "stock", "dividend_yield_pct": "3.29"},
+        "AAPL": {"symbol": "AAPL", "asset_type": "stock", "dividend_yield_pct": "0.35"},
+    }
+
+    ranked = apply_ranking_weight_preset(
+        rows,
+        RANKING_PRESET_SORT_DIVIDEND_YIELD,
+        symbol_rows,
+    )
+
+    assert [row["symbol"] for row in ranked] == ["7203.T", "AAPL", "GMEX"]
+
+
+def test_per_and_pbr_sort_place_invalid_values_after_valid_values():
+    rows = [
+        {"symbol": "NEG", "total_score": "90"},
+        {"symbol": "LOW", "total_score": "70"},
+        {"symbol": "HIGH", "total_score": "60"},
+    ]
+    symbol_rows = {
+        "NEG": {"symbol": "NEG", "asset_type": "stock", "per": "-24.84", "pbr": "0"},
+        "LOW": {"symbol": "LOW", "asset_type": "stock", "per": "8", "pbr": "0.9"},
+        "HIGH": {"symbol": "HIGH", "asset_type": "stock", "per": "30", "pbr": "5"},
+    }
+
+    per_ranked = apply_ranking_weight_preset(rows, RANKING_PRESET_SORT_PER, symbol_rows)
+    pbr_ranked = apply_ranking_weight_preset(rows, RANKING_PRESET_SORT_PBR, symbol_rows)
+
+    assert [row["symbol"] for row in per_ranked] == ["LOW", "HIGH", "NEG"]
+    assert [row["symbol"] for row in pbr_ranked] == ["LOW", "HIGH", "NEG"]
 
 
 def test_investment_score_csv_download_accepts_ranking_metadata_scores():

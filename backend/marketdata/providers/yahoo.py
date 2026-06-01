@@ -5,7 +5,7 @@ import logging
 import os
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import UTC, date, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from io import StringIO
 from pathlib import Path
 from typing import Any
@@ -20,6 +20,8 @@ YAHOO_FX_TICKERS = {"USDJPY": "JPY=X"}
 YFINANCE_CACHE_DIR_ENV = "SMAI_YFINANCE_CACHE_DIR"
 YAHOO_DOWNLOAD_MAX_ATTEMPTS = 2
 YAHOO_DOWNLOAD_EMPTY_RETRY_DELAY_SECONDS = 0.25
+YAHOO_MAX_REASONABLE_DIVIDEND_YIELD_RATIO = Decimal("0.20")
+YAHOO_PERCENT_STYLE_DIVIDEND_YIELD_THRESHOLD = Decimal("0.20")
 _YAHOO_SESSION: Any | None = None
 
 
@@ -152,7 +154,7 @@ class YahooMarketDataProviderAdapter:
                     symbol=raw_symbol,
                     as_of=as_of,
                     provider="yahoo",
-                    dividend_yield=_optional_decimal_info(info, "dividendYield"),
+                    dividend_yield=_yahoo_dividend_yield_ratio(info, raw_symbol),
                     market_cap_jpy=_market_cap_jpy(info, raw_symbol),
                 )
             )
@@ -439,9 +441,42 @@ def _ticker_info(ticker: Any) -> dict[str, object]:
 
 def _optional_decimal_info(info: dict[str, object], key: str) -> Decimal | None:
     value = info.get(key)
-    if value is None or str(value) == "nan":
+    if value is None or str(value).lower() == "nan":
         return None
-    return Decimal(str(value))
+    try:
+        decimal_value = Decimal(str(value))
+    except InvalidOperation:
+        return None
+    if not decimal_value.is_finite():
+        return None
+    return decimal_value
+
+
+def _yahoo_dividend_yield_ratio(info: dict[str, object], raw_symbol: str) -> Decimal | None:
+    trailing_yield = _optional_decimal_info(info, "trailingAnnualDividendYield")
+    if trailing_yield is not None and trailing_yield >= 0:
+        return _guard_dividend_yield_ratio(trailing_yield)
+
+    dividend_yield = _optional_decimal_info(info, "dividendYield")
+    if dividend_yield is None or dividend_yield < 0:
+        return None
+    return _guard_dividend_yield_ratio(
+        _normalize_yahoo_dividend_yield_ratio(dividend_yield, raw_symbol)
+    )
+
+
+def _normalize_yahoo_dividend_yield_ratio(value: Decimal, raw_symbol: str) -> Decimal:
+    if raw_symbol.endswith(".T") and value >= Decimal("10") and value == value.to_integral_value():
+        return value / Decimal("10000")
+    if value > YAHOO_PERCENT_STYLE_DIVIDEND_YIELD_THRESHOLD:
+        return value / Decimal("100")
+    return value
+
+
+def _guard_dividend_yield_ratio(value: Decimal) -> Decimal | None:
+    if value > YAHOO_MAX_REASONABLE_DIVIDEND_YIELD_RATIO:
+        return None
+    return value
 
 
 def _market_cap_jpy(info: dict[str, object], raw_symbol: str) -> Decimal | None:

@@ -107,6 +107,45 @@ def test_yahoo_adapter_fetches_live_contracts_from_yfinance(monkeypatch):
     assert fundamentals[0].market_cap_jpy == Decimal("480000000000000")
 
 
+def test_yahoo_adapter_normalizes_percent_style_dividend_yield(monkeypatch):
+    fake_yfinance = _FakeYFinance(ticker_info={"dividendYield": Decimal("1.32")})
+    monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
+    monkeypatch.setattr(yahoo, "shared_yfinance_session", lambda: "shared-session")
+    adapter = create_market_data_provider_adapter(
+        DataAccessConfig(provider="yahoo", allow_external_providers=True)
+    )
+
+    fundamentals = asyncio.run(adapter.fetch_fundamentals(["6479.T"], as_of=date(2026, 6, 1)))
+
+    assert fundamentals[0].dividend_yield == Decimal("0.0132")
+
+
+def test_yahoo_adapter_scales_jp_integer_dividend_yield_basis_points(monkeypatch):
+    fake_yfinance = _FakeYFinance(ticker_info={"dividendYield": Decimal("23")})
+    monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
+    monkeypatch.setattr(yahoo, "shared_yfinance_session", lambda: "shared-session")
+    adapter = create_market_data_provider_adapter(
+        DataAccessConfig(provider="yahoo", allow_external_providers=True)
+    )
+
+    fundamentals = asyncio.run(adapter.fetch_fundamentals(["7203.T"], as_of=date(2026, 6, 1)))
+
+    assert fundamentals[0].dividend_yield == Decimal("0.0023")
+
+
+def test_yahoo_adapter_drops_abnormal_dividend_yield(monkeypatch):
+    fake_yfinance = _FakeYFinance(ticker_info={"dividendYield": Decimal("293.19")})
+    monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
+    monkeypatch.setattr(yahoo, "shared_yfinance_session", lambda: "shared-session")
+    adapter = create_market_data_provider_adapter(
+        DataAccessConfig(provider="yahoo", allow_external_providers=True)
+    )
+
+    fundamentals = asyncio.run(adapter.fetch_fundamentals(["GMEX"], as_of=date(2026, 6, 1)))
+
+    assert fundamentals[0].dividend_yield is None
+
+
 def test_yahoo_adapter_fetches_multiple_ohlcv_symbols_with_download(monkeypatch, capsys, caplog):
     fake_yfinance = _FakeYFinance()
     monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
@@ -205,16 +244,23 @@ def test_yahoo_adapter_maps_empty_history_to_provider_unavailable(monkeypatch):
 
 
 class _FakeYFinance:
-    def __init__(self, *, empty: bool = False, empty_download_attempts: int = 0) -> None:
+    def __init__(
+        self,
+        *,
+        empty: bool = False,
+        empty_download_attempts: int = 0,
+        ticker_info: dict[str, object] | None = None,
+    ) -> None:
         self.empty = empty
         self.empty_download_attempts = empty_download_attempts
+        self.ticker_info = ticker_info
         self.download_calls = 0
         self.ticker_sessions: list[object] = []
         self.last_download_kwargs: dict[str, object] = {}
 
     def Ticker(self, raw_symbol: str, session: object | None = None) -> "_FakeTicker":
         self.ticker_sessions.append(session)
-        return _FakeTicker(raw_symbol, empty=self.empty)
+        return _FakeTicker(raw_symbol, empty=self.empty, info=self.ticker_info)
 
     def download(self, **kwargs: object) -> pd.DataFrame:
         print("possibly delisted; no timezone found")
@@ -249,14 +295,21 @@ class _FakeYFinance:
 
 
 class _FakeTicker:
-    def __init__(self, raw_symbol: str, *, empty: bool) -> None:
+    def __init__(
+        self,
+        raw_symbol: str,
+        *,
+        empty: bool,
+        info: dict[str, object] | None = None,
+    ) -> None:
         self.raw_symbol = raw_symbol
         self.empty = empty
-        self.info = {
+        default_info = {
             "dividendYield": Decimal("0.006"),
             "marketCap": Decimal("3200000000000"),
             "currency": "USD",
         }
+        self.info = {**default_info, **(info or {})}
 
     def history(self, **_: object) -> pd.DataFrame:
         if self.empty:

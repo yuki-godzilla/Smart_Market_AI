@@ -41,6 +41,12 @@ MAX_RANKING_BATCH_FETCH_SYMBOLS = 25
 MAX_RANKING_BUILD_CACHE_ENTRIES = 8
 LIVE_MARKET_DATA_PROVIDERS = {"yahoo", "polygon"}
 LIVE_RANKING_WARNING_SYMBOL_THRESHOLD = 30
+RANKING_MAX_REASONABLE_DIVIDEND_YIELD_PCT = Decimal("20")
+RANKING_MAX_REASONABLE_PER = Decimal("200")
+RANKING_MAX_REASONABLE_PBR = Decimal("50")
+RANKING_MIN_REASONABLE_ROE_PCT = Decimal("-100")
+RANKING_MAX_REASONABLE_ROE_PCT = Decimal("100")
+RANKING_FUNDAMENTAL_METRIC_FIELDS = {"dividend_yield_pct", "per", "pbr", "roe_pct"}
 
 RANKING_REGION_JAPAN = "japan"
 RANKING_REGION_US = "us"
@@ -1730,6 +1736,9 @@ def ranking_metric_sort_note(preset: str) -> str:
 
 
 def _ranking_metric_sort_value(row: dict[str, str], field: str) -> Decimal | None:
+    metric_value = ranking_fundamental_metric_value(field, row.get(field, ""))
+    if field in RANKING_FUNDAMENTAL_METRIC_FIELDS:
+        return metric_value
     return _ranking_sort_decimal_from_text(row.get(field, ""))
 
 
@@ -1813,7 +1822,7 @@ def ranking_metadata_confidence_score(symbol_row: dict[str, str]) -> Decimal:
     stock_fields = ["per", "pbr", "roe_pct"]
     etf_fields = ["index_family", "expense_ratio_pct", "complexity"]
     fields = common_fields + (etf_fields if symbol_row.get("asset_type") == "etf" else stock_fields)
-    available = sum(1 for field in fields if str(symbol_row.get(field, "")).strip())
+    available = sum(1 for field in fields if _symbol_metadata_field_available(symbol_row, field))
     score += Decimal(available) * Decimal("5")
     return max(Decimal("0"), min(Decimal("100"), score))
 
@@ -1837,25 +1846,27 @@ def ranking_profile_note(
 
 
 def _stock_database_fit_bonus(symbol_row: dict[str, str], preset: str) -> Decimal:
-    dividend_yield = _optional_decimal_from_text(
-        symbol_row.get("dividend_yield_pct", "")
-    ) or Decimal("0")
-    per = _optional_decimal_from_text(symbol_row.get("per", ""))
-    pbr = _optional_decimal_from_text(symbol_row.get("pbr", ""))
-    roe = _optional_decimal_from_text(symbol_row.get("roe_pct", "")) or Decimal("0")
+    dividend_yield = ranking_dividend_yield_pct_value(symbol_row.get("dividend_yield_pct", ""))
+    per = ranking_per_value(symbol_row.get("per", ""))
+    pbr = ranking_pbr_value(symbol_row.get("pbr", ""))
+    roe = ranking_roe_pct_value(symbol_row.get("roe_pct", "")) or Decimal("0")
     risk_band = symbol_row.get("risk_band", "")
     market_cap_tier = symbol_row.get("market_cap_tier", "")
     bonus = Decimal("0")
     if preset in {RANKING_PRESET_INCOME, RANKING_PRESET_SUSTAINABLE_INCOME}:
-        if dividend_yield >= Decimal("3"):
+        if dividend_yield is not None and dividend_yield >= Decimal("3"):
             bonus += Decimal("25")
-        elif dividend_yield > Decimal("0"):
+        elif dividend_yield is not None and dividend_yield > Decimal("0"):
             bonus += Decimal("10")
         if pbr is not None and pbr <= Decimal("2"):
             bonus += Decimal("5")
         if risk_band in {"LOW", "MEDIUM"}:
             bonus += Decimal("10")
-        if preset == RANKING_PRESET_SUSTAINABLE_INCOME and dividend_yield <= Decimal("8"):
+        if (
+            preset == RANKING_PRESET_SUSTAINABLE_INCOME
+            and dividend_yield is not None
+            and dividend_yield <= Decimal("8")
+        ):
             bonus += Decimal("5")
     elif preset in {RANKING_PRESET_GROWTH, RANKING_PRESET_QUALITY_GROWTH}:
         if roe >= Decimal("20"):
@@ -1888,7 +1899,7 @@ def _stock_database_fit_bonus(symbol_row: dict[str, str], preset: str) -> Decima
             bonus += Decimal("10")
         if risk_band in {"LOW", "MEDIUM"}:
             bonus += Decimal("20")
-        if Decimal("0") < dividend_yield <= Decimal("5"):
+        if dividend_yield is not None and Decimal("0") < dividend_yield <= Decimal("5"):
             bonus += Decimal("5")
         if preset == RANKING_PRESET_MIN_VOLATILITY and risk_band == "LOW":
             bonus += Decimal("5")
@@ -1949,7 +1960,7 @@ def _etf_database_fit_bonus(symbol_row: dict[str, str], preset: str) -> Decimal:
     expense_ratio = _optional_decimal_from_text(symbol_row.get("expense_ratio_pct", "")) or Decimal(
         "99"
     )
-    dividend_yield = _optional_decimal_from_text(
+    dividend_yield = ranking_dividend_yield_pct_value(
         symbol_row.get("dividend_yield_pct", "")
     ) or Decimal("0")
     complexity = symbol_row.get("complexity", "")
@@ -2011,7 +2022,16 @@ def _row_decimal_in_range(
     min_value: Decimal | str | int,
     max_value: Decimal | str | int,
 ) -> bool:
-    value = _decimal_filter_value(row.get(key, ""), Decimal("-999999"))
+    if key == "dividend_yield_pct":
+        value = ranking_dividend_yield_pct_value(row.get(key, ""))
+        if value is None:
+            return False
+    elif key in {"per", "pbr", "roe_pct"}:
+        value = ranking_fundamental_metric_value(key, row.get(key, ""))
+        if value is None:
+            return False
+    else:
+        value = _decimal_filter_value(row.get(key, ""), Decimal("-999999"))
     lower = _decimal_filter_value(min_value, Decimal("-999999"))
     upper = _decimal_filter_value(max_value, Decimal("999999"))
     return lower <= value <= upper
@@ -2050,7 +2070,7 @@ def _symbol_universe_row(row: dict[str, str]) -> dict[str, str]:
         "is_inverse": row.get("is_inverse", ""),
         "theme": theme,
         "dividend_category": dividend_category,
-        "dividend_yield_pct": row.get("dividend_yield_pct") or "0",
+        "dividend_yield_pct": row.get("dividend_yield_pct", ""),
         "market_cap_tier": row.get("market_cap_tier") or "mid",
         "index_family": row.get("index_family", ""),
         "yahoo_symbol": row.get("yahoo_symbol", ""),
@@ -2189,6 +2209,80 @@ def _score_band_for_total(total_score: Decimal, warnings: str) -> str:
 def _format_score(value: Decimal) -> str:
     rounded = value.quantize(Decimal("0.01"))
     return format(rounded.normalize(), "f")
+
+
+def ranking_dividend_yield_pct_value(value: object) -> Decimal | None:
+    dividend_yield = _ranking_sort_decimal_from_text(value)
+    if dividend_yield is None:
+        return None
+    if dividend_yield < Decimal("0") or dividend_yield > RANKING_MAX_REASONABLE_DIVIDEND_YIELD_PCT:
+        return None
+    return dividend_yield
+
+
+def ranking_dividend_yield_pct_is_abnormal(value: object) -> bool:
+    dividend_yield = _ranking_sort_decimal_from_text(value)
+    return dividend_yield is not None and dividend_yield > RANKING_MAX_REASONABLE_DIVIDEND_YIELD_PCT
+
+
+def ranking_per_value(value: object) -> Decimal | None:
+    per = _ranking_sort_decimal_from_text(value)
+    if per is None:
+        return None
+    if per <= Decimal("0") or per > RANKING_MAX_REASONABLE_PER:
+        return None
+    return per
+
+
+def ranking_pbr_value(value: object) -> Decimal | None:
+    pbr = _ranking_sort_decimal_from_text(value)
+    if pbr is None:
+        return None
+    if pbr <= Decimal("0") or pbr > RANKING_MAX_REASONABLE_PBR:
+        return None
+    return pbr
+
+
+def ranking_roe_pct_value(value: object) -> Decimal | None:
+    roe = _ranking_sort_decimal_from_text(value)
+    if roe is None:
+        return None
+    if roe < RANKING_MIN_REASONABLE_ROE_PCT or roe > RANKING_MAX_REASONABLE_ROE_PCT:
+        return None
+    return roe
+
+
+def ranking_fundamental_metric_value(field: str, value: object) -> Decimal | None:
+    if field == "dividend_yield_pct":
+        return ranking_dividend_yield_pct_value(value)
+    if field == "per":
+        return ranking_per_value(value)
+    if field == "pbr":
+        return ranking_pbr_value(value)
+    if field == "roe_pct":
+        return ranking_roe_pct_value(value)
+    return None
+
+
+def ranking_fundamental_metric_is_abnormal(field: str, value: object) -> bool:
+    metric_value = _ranking_sort_decimal_from_text(value)
+    return (
+        metric_value is not None
+        and field in RANKING_FUNDAMENTAL_METRIC_FIELDS
+        and ranking_fundamental_metric_value(field, value) is None
+    )
+
+
+def _symbol_metadata_field_available(symbol_row: dict[str, str], field: str) -> bool:
+    value = str(symbol_row.get(field, "")).strip()
+    if not value:
+        return False
+    if (
+        field in RANKING_FUNDAMENTAL_METRIC_FIELDS
+        and ranking_fundamental_metric_value(field, value) is None
+    ):
+        return False
+    return True
 
 
 def _optional_decimal_from_text(value: str) -> Decimal | None:

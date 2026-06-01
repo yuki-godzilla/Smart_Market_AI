@@ -67,7 +67,7 @@ def test_symbol_universe_csv_metadata_summary_counts_source_and_freshness():
 
     assert summary["total_rows"] >= 9197
     assert summary["source_counts"] == {"yahoo": 9197}
-    assert summary["metadata_period"] == "2026-05-21 〜 2026-06-01"
+    assert summary["metadata_period"] == "2026-06-01"
     assert summary["missing_metadata_count"] == 0
     assert summary["stale_metadata_count"] == 0
     assert summary["validation_summary"] == "OK"

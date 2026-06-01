@@ -3,17 +3,14 @@
   "provider": "yahoo",
   "dry_run": false,
   "as_of": "2026-06-01",
-  "updated_at": "2026-06-01T14:42:32.445313+09:00",
+  "updated_at": "2026-06-01T14:55:00+09:00",
   "total_rows": 9197,
-  "refreshed_rows": 9195,
-  "stale_rows": 2,
-  "stale_symbols": [
-    "PARR",
-    "PASG"
-  ],
-  "updates_requested": 9202,
-  "updates_applied": 9202,
-  "changed_rows": 9202,
+  "refreshed_rows": 9197,
+  "stale_rows": 0,
+  "stale_symbols": [],
+  "updates_requested": 9204,
+  "updates_applied": 9204,
+  "changed_rows": 9204,
   "changed_columns": [
     "dividend_category",
     "dividend_yield_pct",
@@ -29,22 +26,8 @@
     "sector",
     "theme"
   ],
-  "failed_symbols": [
-    "PARR",
-    "PASG"
-  ],
-  "failures": [
-    {
-      "code": "YAHOO-METADATA-FAILED",
-      "message": "Failed to perform, curl: (28) Recv failure: Connection was reset. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.",
-      "symbol": "PARR"
-    },
-    {
-      "code": "YAHOO-METADATA-FAILED",
-      "message": "Failed to perform, curl: (28) Recv failure: Connection was reset. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.",
-      "symbol": "PASG"
-    }
-  ],
+  "failed_symbols": [],
+  "failures": [],
   "pre_batches": [
     {
       "batch": "initial_limit_500",
@@ -63,152 +46,27 @@
       "failed_symbols": []
     }
   ],
-  "batches": [
+  "batch_summary": {
+    "full_refresh_batches": 18,
+    "full_refresh_selected_rows": 8693,
+    "full_refresh_updates_requested": 8691,
+    "full_refresh_updates_applied": 8691,
+    "full_refresh_failed_symbols": [
+      "PARR",
+      "PASG"
+    ],
+    "retry_batches": 1,
+    "retry_updates_requested": 2,
+    "retry_updates_applied": 2,
+    "retry_failed_symbols": []
+  },
+  "retry_batches": [
     {
-      "batch": "batch_01",
-      "selected_rows": 500,
-      "updates_requested": 500,
-      "updates_applied": 500,
-      "changed_rows": 500,
-      "failed_symbols": []
-    },
-    {
-      "batch": "batch_02",
-      "selected_rows": 500,
-      "updates_requested": 500,
-      "updates_applied": 500,
-      "changed_rows": 500,
-      "failed_symbols": []
-    },
-    {
-      "batch": "batch_03",
-      "selected_rows": 500,
-      "updates_requested": 500,
-      "updates_applied": 500,
-      "changed_rows": 500,
-      "failed_symbols": []
-    },
-    {
-      "batch": "batch_04",
-      "selected_rows": 500,
-      "updates_requested": 500,
-      "updates_applied": 500,
-      "changed_rows": 500,
-      "failed_symbols": []
-    },
-    {
-      "batch": "batch_05",
-      "selected_rows": 500,
-      "updates_requested": 500,
-      "updates_applied": 500,
-      "changed_rows": 500,
-      "failed_symbols": []
-    },
-    {
-      "batch": "batch_06",
-      "selected_rows": 500,
-      "updates_requested": 500,
-      "updates_applied": 500,
-      "changed_rows": 500,
-      "failed_symbols": []
-    },
-    {
-      "batch": "batch_07",
-      "selected_rows": 500,
-      "updates_requested": 500,
-      "updates_applied": 500,
-      "changed_rows": 500,
-      "failed_symbols": []
-    },
-    {
-      "batch": "batch_08",
-      "selected_rows": 500,
-      "updates_requested": 500,
-      "updates_applied": 500,
-      "changed_rows": 500,
-      "failed_symbols": []
-    },
-    {
-      "batch": "batch_09",
-      "selected_rows": 500,
-      "updates_requested": 500,
-      "updates_applied": 500,
-      "changed_rows": 500,
-      "failed_symbols": []
-    },
-    {
-      "batch": "batch_10",
-      "selected_rows": 500,
-      "updates_requested": 500,
-      "updates_applied": 500,
-      "changed_rows": 500,
-      "failed_symbols": []
-    },
-    {
-      "batch": "batch_11",
-      "selected_rows": 500,
-      "updates_requested": 500,
-      "updates_applied": 500,
-      "changed_rows": 500,
-      "failed_symbols": []
-    },
-    {
-      "batch": "batch_12",
-      "selected_rows": 500,
-      "updates_requested": 500,
-      "updates_applied": 500,
-      "changed_rows": 500,
-      "failed_symbols": []
-    },
-    {
-      "batch": "batch_13",
-      "selected_rows": 500,
-      "updates_requested": 498,
-      "updates_applied": 498,
-      "changed_rows": 498,
-      "failed_symbols": [
-        "PARR",
-        "PASG"
-      ]
-    },
-    {
-      "batch": "batch_14",
-      "selected_rows": 500,
-      "updates_requested": 500,
-      "updates_applied": 500,
-      "changed_rows": 500,
-      "failed_symbols": []
-    },
-    {
-      "batch": "batch_15",
-      "selected_rows": 500,
-      "updates_requested": 500,
-      "updates_applied": 500,
-      "changed_rows": 500,
-      "failed_symbols": []
-    },
-    {
-      "batch": "batch_16",
-      "selected_rows": 500,
-      "updates_requested": 500,
-      "updates_applied": 500,
-      "changed_rows": 500,
-      "failed_symbols": []
-    },
-    {
-      "batch": "batch_17",
-      "selected_rows": 500,
-      "updates_requested": 500,
-      "updates_applied": 500,
-      "changed_rows": 500,
-      "failed_symbols": []
-    },
-    {
-      "batch": "batch_18",
-      "selected_rows": 193,
-      "updates_requested": 193,
-      "updates_applied": 193,
-      "changed_rows": 193,
+      "batch": "retry_PARR_PASG",
+      "selected_rows": 2,
+      "updates_requested": 2,
+      "updates_applied": 2,
+      "changed_rows": 2,
       "failed_symbols": []
     }
   ],
@@ -217,11 +75,28 @@
     "errors": 0,
     "warnings": 0
   },
-  "notes": [
-    "Chunked live refresh. Initial top-500 and representative-symbol writes were followed by stale-row batches of up to 500 symbols.",
-    "PARR and PASG remained stale because the live provider failed for those symbols during the batch run.",
-    "updates_requested/updates_applied count batch operations and may include repeated symbols from the representative refresh."
-  ],
+  "sanity_check_after": {
+    "metadata_as_of_2026_06_01": 9197,
+    "abnormal_counts": {
+      "dividend_yield_pct_gt_20": 0,
+      "per_le_0_or_gt_200": 0,
+      "pbr_le_0_or_gt_50": 0,
+      "roe_outside_minus100_100": 0
+    },
+    "missing_counts": {
+      "dividend_yield_pct": 106,
+      "per": 1975,
+      "pbr": 1481,
+      "roe_pct": 1665,
+      "expense_ratio_pct": 8170
+    }
+  },
+  "source_policy": {
+    "operational_source_of_record": "Yahoo provider/yfinance values written to data/marketdata/symbol_universe.csv",
+    "web_reference_policy": "Yahoo Japan and ETF web pages are used as sanity-check references. Exact parity is not required because trailing, forward, forecast, TTM, and update-timing definitions can differ by source.",
+    "missing_value_policy": "Unavailable provider fields remain blank and are displayed as N/A instead of being filled with zero.",
+    "abnormal_value_policy": "Dividend yield above 20%, PER <= 0 or > 200, PBR <= 0 or > 50, and ROE outside -100% to 100% are treated as abnormal for ranking metadata and kept out of display/ranking calculations."
+  },
   "post_refresh_cleanup": {
     "dividend_yield_pct_cleared": 3,
     "dividend_category_cleared": 3,
@@ -229,5 +104,11 @@
     "pbr_cleared": 74,
     "roe_pct_cleared": 0,
     "reason": "Cleared values outside display/ranking guard ranges after live refresh."
-  }
+  },
+  "notes": [
+    "Chunked live refresh. Initial top-500 and representative-symbol writes were followed by stale-row batches of up to 500 symbols.",
+    "PARR and PASG failed during the first full batch run because of a transient provider connection reset, then succeeded in a targeted retry.",
+    "updates_requested/updates_applied/changed_rows count batch operations and may include repeated symbols from the representative refresh.",
+    "Coverage details are recorded in data/marketdata/symbol_universe_metadata_coverage.json."
+  ]
 }

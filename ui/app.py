@@ -5347,6 +5347,299 @@ def _external_research_source_cards_html(result: ExternalResearchFetchResult) ->
     return f'<div class="research-evidence-list">{"".join(items)}</div>'
 
 
+def _render_news_source_links_panel(
+    summary_items: Sequence[NewsSummaryItem],
+    *,
+    news_report: StockNewsReport | None,
+    external_research_result: ExternalResearchFetchResult | None,
+    security_type: SecurityResearchType = "domestic_stock",
+) -> None:
+    if not summary_items and news_report is None and external_research_result is None:
+        return
+    rows = _news_source_link_rows(
+        summary_items,
+        news_report=news_report,
+        external_research_result=external_research_result,
+        security_type=security_type,
+    )
+    all_rows = _news_source_link_rows(
+        summary_items,
+        news_report=news_report,
+        external_research_result=external_research_result,
+        security_type=security_type,
+        limit=None,
+    )
+    news_url_count = sum(1 for row in all_rows if row["source_kind"] == "news")
+    with st.expander("ニュース・開示の出典を表示", expanded=False):
+        st.caption(
+            "最新ニュース・開示サマリーに関係するURL付きsourceを簡易表示します。"
+            "全件は下部の外部参照ソースで確認できます。"
+        )
+        st.markdown(
+            _news_source_links_panel_html(
+                rows,
+                total_url_count=len(all_rows),
+                news_url_count=news_url_count,
+            ),
+            unsafe_allow_html=True,
+        )
+
+
+def _news_source_link_rows(
+    summary_items: Sequence[NewsSummaryItem],
+    *,
+    news_report: StockNewsReport | None,
+    external_research_result: ExternalResearchFetchResult | None,
+    security_type: SecurityResearchType = "domestic_stock",
+    limit: int | None = 5,
+) -> list[dict[str, str]]:
+    candidates: list[tuple[int, int, dict[str, str]]] = []
+    seen_urls: set[str] = set()
+
+    def add_row(row: dict[str, str]) -> None:
+        url = row["url"]
+        normalized_url = url.strip().lower()
+        if normalized_url in seen_urls:
+            return
+        seen_urls.add(normalized_url)
+        candidates.append(
+            (
+                _news_source_priority(row["source_kind"]),
+                len(candidates),
+                row,
+            )
+        )
+
+    for item in summary_items:
+        url = _displayable_source_url(item.source_url)
+        if not url:
+            continue
+        source_type = _news_summary_item_source_type(item)
+        source_kind = _news_source_kind(source_type, item.source_title)
+        date_label, date_text = _news_source_date_text(item.published_at, None)
+        add_row(
+            {
+                "source_kind": source_kind,
+                "source_label": _news_source_display_label(source_type, item.source_title),
+                "provider": _latest_topic_source_label(item, security_type=security_type),
+                "date_label": date_label,
+                "date_text": date_text,
+                "freshness": _information_status_label(item.information_status),
+                "title": item.title,
+                "summary": _research_brief_ui_text(item.summary, max_chars=180),
+                "url": url,
+                "link_label": _news_source_link_label(source_kind),
+            }
+        )
+
+    if news_report is not None:
+        for news in news_report.news:
+            url = _displayable_source_url(news.url)
+            if not url:
+                continue
+            date_label, date_text = _news_source_date_text(news.published_at, None)
+            add_row(
+                {
+                    "source_kind": "news",
+                    "source_label": "ニュース",
+                    "provider": news.source or "ニュース",
+                    "date_label": date_label,
+                    "date_text": date_text,
+                    "freshness": _research_freshness_status_label(news.freshness_status),
+                    "title": news.title,
+                    "summary": _research_brief_ui_text(news.summary, max_chars=180),
+                    "url": url,
+                    "link_label": "ニュースを開く",
+                }
+            )
+
+    if external_research_result is not None:
+        for entry in external_research_result.entries:
+            url = _displayable_source_url(entry.source_url)
+            if not url:
+                continue
+            source_kind = _news_source_kind(entry.source_type, entry.provider)
+            date_label, date_text = _news_source_date_text(entry.published_at, entry.fetched_at)
+            add_row(
+                {
+                    "source_kind": source_kind,
+                    "source_label": _news_source_display_label(entry.source_type, entry.provider),
+                    "provider": _external_research_provider_label(entry.provider),
+                    "date_label": date_label,
+                    "date_text": date_text,
+                    "freshness": _research_freshness_status_label(entry.freshness_status),
+                    "title": entry.title,
+                    "summary": _research_brief_ui_text(
+                        _external_research_entry_summary_display_text(entry),
+                        max_chars=180,
+                    ),
+                    "url": url,
+                    "link_label": _news_source_link_label(source_kind),
+                }
+            )
+
+    candidates.sort(key=lambda candidate: (candidate[0], candidate[1]))
+    rows = [row for _, _, row in candidates]
+    return rows if limit is None else rows[:limit]
+
+
+def _news_source_links_panel_html(
+    rows: Sequence[dict[str, str]],
+    *,
+    total_url_count: int,
+    news_url_count: int,
+) -> str:
+    if not rows:
+        return (
+            '<section class="research-result-brief">'
+            '<div class="research-result-brief-summary">'
+            "ニュース専用のURL付き根拠は見つかりませんでした。"
+            "関連する公式開示・企業IR・provider情報は外部参照ソースも確認してください。"
+            "</div>"
+            "</section>"
+        )
+
+    if news_url_count:
+        notice = (
+            "URL付きのニュース・開示を簡易表示します。"
+            "取得本文は表示せず、リンク先で公開日や本文を確認してください。"
+        )
+    else:
+        notice = (
+            "ニュース専用のURL付き根拠は見つかりませんでした。"
+            "外部参照ソースにURL付きの公式資料・provider情報があります。"
+        )
+    items = "".join(_news_source_link_item_html(row) for row in rows)
+    more = ""
+    if total_url_count > len(rows):
+        more = (
+            '<div class="research-brief-focus-more">'
+            f"ほか {total_url_count - len(rows)}件は下部の外部参照ソースで確認できます。"
+            "</div>"
+        )
+    return (
+        '<section class="research-result-brief">'
+        f'<div class="research-result-brief-summary">{html.escape(notice)}</div>'
+        f'<div class="research-evidence-list">{items}</div>'
+        f"{more}"
+        "</section>"
+    )
+
+
+def _news_source_link_item_html(row: dict[str, str]) -> str:
+    freshness_markup = (
+        f'<span class="research-evidence-pill">鮮度: {html.escape(row["freshness"])}</span>'
+        if row["freshness"]
+        else ""
+    )
+    summary_markup = (
+        f'<div class="research-evidence-excerpt">{html.escape(row["summary"])}</div>'
+        if row["summary"]
+        else ""
+    )
+    return (
+        '<article class="research-evidence-item">'
+        '<div class="research-evidence-card-header">'
+        f'<span class="research-evidence-pill positive">{html.escape(row["source_label"])}</span>'
+        f'<span class="research-evidence-pill">{html.escape(row["provider"])}</span>'
+        f"{freshness_markup}"
+        "</div>"
+        f'<div class="research-evidence-title">{html.escape(row["title"])}</div>'
+        '<div class="research-evidence-meta">'
+        f'{html.escape(row["date_label"])}: {html.escape(row["date_text"])}</div>'
+        f"{summary_markup}"
+        '<div class="research-evidence-actions">'
+        f'<a href="{html.escape(row["url"])}" target="_blank" rel="noopener noreferrer">'
+        f'{html.escape(row["link_label"])}</a>'
+        "</div>"
+        "</article>"
+    )
+
+
+def _displayable_source_url(source_url: str | None) -> str:
+    url = str(source_url or "").strip()
+    if not url:
+        return ""
+    if url.lower() in {"nan", "none", "null"}:
+        return ""
+    if not url.lower().startswith(("http://", "https://")):
+        return ""
+    return url
+
+
+def _news_summary_item_source_type(item: NewsSummaryItem) -> str:
+    topic_type = getattr(item, "topic_type", "news")
+    if topic_type in {
+        "tdnet",
+        "ir_disclosure",
+        "earnings",
+        "forecast_revision",
+        "shareholder_return",
+    }:
+        return "tdnet"
+    return "news"
+
+
+def _news_source_kind(source_type: str, provider: str | None = None) -> str:
+    source_type_key = str(source_type or "").strip().lower()
+    provider_key = str(provider or "").strip().lower()
+    if source_type_key in {"news", "external_news"}:
+        return "news"
+    if source_type_key == "tdnet" or provider_key == "tdnet":
+        return "tdnet"
+    if source_type_key == "company_ir" or provider_key == "company_ir_site":
+        return "company_ir"
+    if source_type_key in {"edinet", "annual_report"} or provider_key == "edinet":
+        return "edinet"
+    if source_type_key in {"yahoo_finance", "provider_profile"} or provider_key == "yahoo_finance":
+        return "yahoo_finance"
+    return "other"
+
+
+def _news_source_display_label(source_type: str, provider: str | None = None) -> str:
+    source_kind = _news_source_kind(source_type, provider)
+    labels = {
+        "news": "ニュース",
+        "tdnet": "TDnet適時開示",
+        "company_ir": "企業IRサイト",
+        "edinet": "EDINET",
+        "yahoo_finance": "Yahoo Finance",
+        "other": "外部参照ソース",
+    }
+    return labels[source_kind]
+
+
+def _news_source_priority(source_kind: str) -> int:
+    priorities = {
+        "news": 0,
+        "tdnet": 1,
+        "company_ir": 2,
+        "edinet": 3,
+        "yahoo_finance": 4,
+        "other": 5,
+    }
+    return priorities.get(source_kind, priorities["other"])
+
+
+def _news_source_link_label(source_kind: str) -> str:
+    if source_kind == "news":
+        return "ニュースを開く"
+    if source_kind in {"tdnet", "company_ir", "edinet"}:
+        return "開示資料を開く"
+    return "出典を開く"
+
+
+def _news_source_date_text(
+    published_at: date | None,
+    fetched_at: datetime | None,
+) -> tuple[str, str]:
+    if published_at is not None:
+        return "公開日", published_at.isoformat()
+    if fetched_at is not None:
+        return "取得日", _datetime_display_text(fetched_at)
+    return "日付", "未確認"
+
+
 def _external_research_fetch_result_rows(
     result: ExternalResearchFetchResult,
 ) -> list[dict[str, str]]:
@@ -5704,6 +5997,12 @@ def _render_research_summary_panel(
         _render_etf_holdings_panel(etf_summary)
         _render_etf_distribution_cost_panel(etf_summary)
         _render_news_summary_panel(etf_summary.news_items, security_type=security_type)
+        _render_news_source_links_panel(
+            etf_summary.news_items,
+            news_report=news_report,
+            external_research_result=external_research_result,
+            security_type=security_type,
+        )
         _render_etf_question_summary_panel(etf_summary)
     elif company_summary is not None and question_summary is not None:
         _render_company_research_summary_panel(
@@ -5713,6 +6012,12 @@ def _render_research_summary_panel(
         _render_quantitative_summary_panel(company_summary.quantitative)
         _render_ir_summary_panel(company_summary.ir_items, security_type=security_type)
         _render_news_summary_panel(company_summary.news_items, security_type=security_type)
+        _render_news_source_links_panel(
+            company_summary.news_items,
+            news_report=news_report,
+            external_research_result=external_research_result,
+            security_type=security_type,
+        )
         _render_investment_question_summary_panel(question_summary, security_type=security_type)
     with st.expander("AI読み取りメモを表示", expanded=False):
         if company_summary is not None and company_summary.ai_reading_notes:
@@ -5848,8 +6153,8 @@ def _is_research_news_url_gap_warning(warning: str) -> bool:
 def _research_news_warning_display_text(warning: str) -> str:
     if _is_research_news_url_gap_warning(warning):
         return (
-            "URL付きで確認できるニュース根拠はまだ見つかっていません。"
-            "ニュース内容は外部参照ソース、公式IR、開示資料で追加確認してください。"
+            "ニュース専用のURL付き根拠は見つかりませんでした。"
+            "関連する公式開示・企業IR・provider情報は外部参照ソースも確認してください。"
         )
     return warning
 

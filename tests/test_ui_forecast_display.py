@@ -82,6 +82,8 @@ from ui.app import (
     _ir_summary_html,
     _market_data_preview_symbol_label,
     _name_from_candidate,
+    _news_source_link_rows,
+    _news_source_links_panel_html,
     _news_summary_html,
     _normalize_dividend_filter_state,
     _quantitative_summary_html,
@@ -1728,6 +1730,343 @@ def test_external_research_source_cards_explain_how_to_read_each_source():
     assert "external://" not in cards
 
 
+def test_news_source_link_rows_prioritize_url_sources_and_hide_raw_fields():
+    result = ExternalResearchFetchResult(
+        symbol="7203.T",
+        provider="edinet_tdnet_company_ir_yahoo_finance",
+        fetched_at=datetime(2026, 6, 2, 12, 30, tzinfo=UTC),
+        entries=[
+            ExternalResearchFetchManifestEntry(
+                title="7203 EDINET 有価証券報告書",
+                symbol="7203.T",
+                source_type="annual_report",
+                source_url="https://disclosure.edinet-fsa.go.jp/example",
+                provider="edinet",
+                published_at=date(2026, 5, 30),
+                fetched_at=datetime(2026, 6, 2, 12, 30, tzinfo=UTC),
+                freshness_status="latest",
+                document_id="research-doc-edinet",
+                retention_policy="session",
+                content_summary="EDINET official filing metadata.",
+            ),
+            ExternalResearchFetchManifestEntry(
+                title="7203 TDnet 決算短信",
+                symbol="7203.T",
+                source_type="tdnet",
+                source_url="https://www.release.tdnet.info/inbs/example.pdf",
+                provider="tdnet",
+                published_at=date(2026, 5, 31),
+                fetched_at=datetime(2026, 6, 2, 12, 30, tzinfo=UTC),
+                freshness_status="latest",
+                document_id="research-doc-tdnet",
+                retention_policy="session",
+                content_summary="決算短信のPDFです。",
+            ),
+            ExternalResearchFetchManifestEntry(
+                title="Toyota 公式IRサイト",
+                symbol="7203.T",
+                source_type="company_ir",
+                source_url="https://global.toyota/jp/ir/",
+                provider="company_ir_site",
+                published_at=None,
+                fetched_at=datetime(2026, 6, 2, 12, 30, tzinfo=UTC),
+                freshness_status="unknown",
+                document_id="research-doc-company-ir",
+                retention_policy="session",
+                content_summary="公式IRサイトです。",
+            ),
+            ExternalResearchFetchManifestEntry(
+                title="7203 Yahoo Finance Profile",
+                symbol="7203.T",
+                source_type="provider_profile",
+                source_url="https://finance.yahoo.com/quote/7203.T/profile",
+                provider="yahoo_finance",
+                published_at=None,
+                fetched_at=datetime(2026, 6, 2, 12, 30, tzinfo=UTC),
+                freshness_status="unknown",
+                document_id="research-doc-yahoo",
+                retention_policy="session",
+                content_summary=(
+                    "Company Name: Toyota Provider Symbol: 7203.T Quote Type: EQUITY "
+                    "Website: https://example.com Business Summary: Toyota sells vehicles globally."
+                ),
+            ),
+            ExternalResearchFetchManifestEntry(
+                title="7203 決算説明資料",
+                symbol="7203.T",
+                source_type="earnings_presentation",
+                source_url="https://example.com/presentation.pdf",
+                provider="example_provider",
+                published_at=date(2026, 5, 29),
+                fetched_at=datetime(2026, 6, 2, 12, 30, tzinfo=UTC),
+                freshness_status="recent",
+                document_id="research-doc-presentation",
+                retention_policy="session",
+                content_summary="決算説明資料です。",
+            ),
+        ],
+        retention_policy="session",
+    )
+    summary_items = [
+        NewsSummaryItem(
+            topic_type="news",
+            title="Toyota expands software services",
+            summary="ソフトウェア領域のニュースです。",
+            source_title="Example News",
+            source_url="https://example.com/news",
+            published_at=date(2026, 6, 1),
+            impact_hint="business",
+            information_status="unverified",
+        ),
+    ]
+
+    rows = _news_source_link_rows(
+        summary_items,
+        news_report=None,
+        external_research_result=result,
+    )
+    panel_html = _news_source_links_panel_html(rows, total_url_count=6, news_url_count=1)
+
+    assert len(rows) == 5
+    assert [row["source_label"] for row in rows] == [
+        "ニュース",
+        "TDnet適時開示",
+        "企業IRサイト",
+        "EDINET",
+        "Yahoo Finance",
+    ]
+    assert "ニュースを開く" in panel_html
+    assert "開示資料を開く" in panel_html
+    assert "出典を開く" in panel_html
+    assert "ほか 1件は下部の外部参照ソース" in panel_html
+    assert "Provider Symbol" not in panel_html
+    assert "Quote Type" not in panel_html
+    assert "Website:" not in panel_html
+    assert "https://example.com Business Summary" not in panel_html
+
+
+def test_news_source_links_panel_guides_to_external_urls_when_news_url_is_missing():
+    result = ExternalResearchFetchResult(
+        symbol="7203.T",
+        provider="yahoo_finance",
+        fetched_at=datetime(2026, 6, 2, 12, 30, tzinfo=UTC),
+        entries=[
+            ExternalResearchFetchManifestEntry(
+                title="7203 Yahoo Finance Profile",
+                symbol="7203.T",
+                source_type="provider_profile",
+                source_url="https://finance.yahoo.com/quote/7203.T/profile",
+                provider="yahoo_finance",
+                published_at=None,
+                fetched_at=datetime(2026, 6, 2, 12, 30, tzinfo=UTC),
+                freshness_status="unknown",
+                document_id="research-doc-yahoo",
+                retention_policy="session",
+                content_summary="Toyota sells vehicles globally.",
+            ),
+        ],
+        retention_policy="session",
+    )
+
+    rows = _news_source_link_rows(
+        [],
+        news_report=StockNewsReport(symbol="7203.T", as_of=date(2026, 6, 2)),
+        external_research_result=result,
+    )
+    panel_html = _news_source_links_panel_html(rows, total_url_count=len(rows), news_url_count=0)
+
+    assert "ニュース専用のURL付き根拠は見つかりませんでした。" in panel_html
+    assert "外部参照ソースにURL付きの公式資料・provider情報があります。" in panel_html
+    assert "Yahoo Finance" in panel_html
+    assert "出典を開く" in panel_html
+    assert "URL表示は未実装" not in panel_html
+
+
+def test_news_source_links_panel_fallback_is_not_implementation_gap_wording():
+    panel_html = _news_source_links_panel_html([], total_url_count=0, news_url_count=0)
+
+    assert "ニュース専用のURL付き根拠は見つかりませんでした。" in panel_html
+    assert (
+        "関連する公式開示・企業IR・provider情報は外部参照ソースも確認してください。" in panel_html
+    )
+    assert "URL表示は未実装" not in panel_html
+    assert "情報が存在しません" not in panel_html
+
+
+def test_news_source_link_rows_cover_broad_symbol_case_matrix():
+    fetched_at = datetime(2026, 6, 2, 12, 30, tzinfo=UTC)
+    cases = [
+        {
+            "label": "国内大型株",
+            "symbol": "7203.T",
+            "summary_items": [
+                NewsSummaryItem(
+                    title="Toyota software news",
+                    summary="ソフトウェア領域のニュースです。",
+                    source_title="Example News",
+                    source_url="https://example.com/7203-news",
+                    published_at=date(2026, 6, 1),
+                )
+            ],
+            "entries": [
+                ExternalResearchFetchManifestEntry(
+                    title="7203 TDnet 決算短信",
+                    symbol="7203.T",
+                    source_type="tdnet",
+                    source_url="https://www.release.tdnet.info/inbs/7203.pdf",
+                    provider="tdnet",
+                    published_at=date(2026, 5, 31),
+                    fetched_at=fetched_at,
+                    freshness_status="latest",
+                    document_id="doc-7203-tdnet",
+                    retention_policy="session",
+                    content_summary="決算短信のPDFです。",
+                )
+            ],
+            "expected_label": "ニュース",
+            "expected_text": "ニュースを開く",
+        },
+        {
+            "label": "国内大型株 大阪ガス",
+            "symbol": "9532.T",
+            "summary_items": [],
+            "entries": [
+                ExternalResearchFetchManifestEntry(
+                    title="大阪ガス 企業IRサイト",
+                    symbol="9532.T",
+                    source_type="company_ir",
+                    source_url="https://www.osakagas.co.jp/ir/",
+                    provider="company_ir_site",
+                    published_at=None,
+                    fetched_at=fetched_at,
+                    freshness_status="unknown",
+                    document_id="doc-9532-ir",
+                    retention_policy="session",
+                    content_summary="公式IRサイトです。",
+                )
+            ],
+            "expected_label": "企業IRサイト",
+            "expected_text": "外部参照ソースにURL付きの公式資料・provider情報があります。",
+        },
+        {
+            "label": "国内中小型株",
+            "symbol": "4493.T",
+            "summary_items": [],
+            "entries": [
+                ExternalResearchFetchManifestEntry(
+                    title="4493 Yahoo Finance Profile",
+                    symbol="4493.T",
+                    source_type="provider_profile",
+                    source_url="https://finance.yahoo.com/quote/4493.T/profile",
+                    provider="yahoo_finance",
+                    published_at=None,
+                    fetched_at=fetched_at,
+                    freshness_status="unknown",
+                    document_id="doc-4493-yahoo",
+                    retention_policy="session",
+                    content_summary="Business Summary: クラウド関連サービスです。",
+                )
+            ],
+            "expected_label": "Yahoo Finance",
+            "expected_text": "出典を開く",
+        },
+        {
+            "label": "米国大型株",
+            "symbol": "AAPL",
+            "summary_items": [
+                NewsSummaryItem(
+                    title="Apple product news",
+                    summary="製品サービスに関するニュースです。",
+                    source_title="Example News",
+                    source_url="https://example.com/aapl-news",
+                    published_at=date(2026, 6, 1),
+                )
+            ],
+            "entries": [
+                ExternalResearchFetchManifestEntry(
+                    title="AAPL Yahoo Finance Profile",
+                    symbol="AAPL",
+                    source_type="provider_profile",
+                    source_url="https://finance.yahoo.com/quote/AAPL/profile",
+                    provider="yahoo_finance",
+                    published_at=None,
+                    fetched_at=fetched_at,
+                    freshness_status="unknown",
+                    document_id="doc-aapl-yahoo",
+                    retention_policy="session",
+                    content_summary="Business Summary: Consumer electronics.",
+                )
+            ],
+            "expected_label": "ニュース",
+            "expected_text": "ニュースを開く",
+        },
+        {
+            "label": "ETF",
+            "symbol": "SPY",
+            "summary_items": [],
+            "entries": [
+                ExternalResearchFetchManifestEntry(
+                    title="SPY Yahoo Finance Profile",
+                    symbol="SPY",
+                    source_type="provider_profile",
+                    source_url="https://finance.yahoo.com/quote/SPY/profile",
+                    provider="yahoo_finance",
+                    published_at=None,
+                    fetched_at=fetched_at,
+                    freshness_status="unknown",
+                    document_id="doc-spy-yahoo",
+                    retention_policy="session",
+                    content_summary="Business Summary: ETF profile.",
+                )
+            ],
+            "expected_label": "Yahoo Finance",
+            "expected_text": "出典を開く",
+        },
+        {
+            "label": "URLなし",
+            "symbol": "NOURL",
+            "summary_items": [
+                NewsSummaryItem(
+                    title="URL missing news",
+                    summary="URLなしのニュースです。",
+                    source_title="Example News",
+                    source_url=None,
+                )
+            ],
+            "entries": [],
+            "expected_label": None,
+            "expected_text": "関連する公式開示・企業IR・provider情報は外部参照ソースも確認してください。",
+        },
+    ]
+
+    for case in cases:
+        result = ExternalResearchFetchResult(
+            symbol=str(case["symbol"]),
+            provider="fixture",
+            fetched_at=fetched_at,
+            entries=case["entries"],
+            retention_policy="session",
+        )
+        rows = _news_source_link_rows(
+            case["summary_items"],
+            news_report=None,
+            external_research_result=result,
+        )
+        panel_html = _news_source_links_panel_html(
+            rows,
+            total_url_count=len(rows),
+            news_url_count=sum(1 for row in rows if row["source_kind"] == "news"),
+        )
+
+        if case["expected_label"] is not None:
+            assert any(row["source_label"] == case["expected_label"] for row in rows), case["label"]
+        else:
+            assert rows == [], case["label"]
+        assert str(case["expected_text"]) in panel_html, case["label"]
+        assert "Provider Symbol" not in panel_html
+        assert "取得本文全文" not in panel_html
+
+
 def test_external_research_fetch_result_rows_clean_provider_raw_summary():
     result = ExternalResearchFetchResult(
         symbol="ACME",
@@ -1786,7 +2125,8 @@ def test_research_news_warning_display_text_hides_internal_source_type():
 
     text = _research_news_warning_display_text(warning)
 
-    assert "URL付きで確認できるニュース根拠" in text
+    assert "ニュース専用のURL付き根拠" in text
+    assert "外部参照ソースも確認" in text
     assert "source_type" not in text
     assert "売買" not in text
 

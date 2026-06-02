@@ -1179,6 +1179,10 @@ def test_company_research_summary_builder_prefers_context_metric_value_over_trun
     assert summary.quantitative.pbr == "2.49倍"
     assert summary.quantitative.roe == "12.37%"
     assert summary.quantitative.dividend_yield == "1.01%"
+    assert summary.overview.scale_summary == (
+        "確認できた規模情報は時価総額 20.25兆円、売上高 12.48兆円です。"
+    )
+    assert "時価総額 20です" not in summary.overview.scale_summary
     assert "時価総額" not in summary.quantitative.missing_items
     assert "PER" not in summary.quantitative.missing_items
 
@@ -3339,6 +3343,37 @@ def test_yahoo_finance_research_adapter_builds_profile_and_news_payloads_without
     assert "revenue growth" in payloads[1].content
 
 
+def test_yahoo_finance_research_adapter_uses_shared_yfinance_runtime(monkeypatch):
+    ticker_calls: list[tuple[str, object]] = []
+
+    class FakeYFinance:
+        def Ticker(self, symbol: str, *, session: object | None = None) -> FakeYahooTicker:
+            ticker_calls.append((symbol, session))
+            return FakeYahooTicker()
+
+    monkeypatch.setattr(
+        "backend.marketdata.providers.yahoo._load_yfinance",
+        lambda: FakeYFinance(),
+    )
+    monkeypatch.setattr(
+        "backend.marketdata.providers.yahoo.shared_yfinance_session",
+        lambda: "shared-session",
+    )
+
+    payloads = YahooFinanceResearchAdapter().fetch_sources(
+        ExternalResearchFetchRequest(
+            symbol="7203.T",
+            company_name="Toyota",
+            provider="yahoo_finance",
+            as_of=date(2026, 5, 25),
+            allow_network=True,
+        )
+    )
+
+    assert ticker_calls == [("7203.T", "shared-session")]
+    assert payloads[0].source_url == "https://finance.yahoo.com/quote/7203.T/profile"
+
+
 def test_yahoo_finance_research_adapter_keeps_percent_style_dividend_yield_readable():
     class PercentDividendTicker:
         def get_info(self) -> dict[str, object]:
@@ -3476,6 +3511,54 @@ def test_company_ir_site_research_adapter_discovers_official_ir_page_without_liv
     assert payload.reliability == Decimal("0.82")
     assert "source: company official IR site" in payload.content
     assert "Financial Results" in payload.content
+
+
+def test_company_ir_site_research_adapter_uses_shared_yfinance_runtime(monkeypatch):
+    ticker_calls: list[tuple[str, object]] = []
+    requested_urls: list[str] = []
+
+    class WebsiteTicker:
+        def get_info(self) -> dict[str, object]:
+            return {
+                "longName": "Toyota Motor Corporation",
+                "symbol": "7203.T",
+                "website": "https://example.com",
+            }
+
+    class FakeYFinance:
+        def Ticker(self, symbol: str, *, session: object | None = None) -> WebsiteTicker:
+            ticker_calls.append((symbol, session))
+            return WebsiteTicker()
+
+    def fake_http_get(url: str) -> str:
+        requested_urls.append(url)
+        return "<html><body>Investor Relations Financial Results 決算</body></html>"
+
+    monkeypatch.setattr(
+        "backend.marketdata.providers.yahoo._load_yfinance",
+        lambda: FakeYFinance(),
+    )
+    monkeypatch.setattr(
+        "backend.marketdata.providers.yahoo.shared_yfinance_session",
+        lambda: "shared-session",
+    )
+
+    payloads = CompanyIRSiteResearchAdapter(
+        http_get=fake_http_get,
+        candidate_paths=("ir",),
+    ).fetch_sources(
+        ExternalResearchFetchRequest(
+            symbol="7203.T",
+            company_name="Toyota",
+            provider="company_ir_site",
+            as_of=date(2026, 5, 25),
+            allow_network=True,
+        )
+    )
+
+    assert ticker_calls == [("7203.T", "shared-session")]
+    assert requested_urls == ["https://example.com/ir"]
+    assert payloads[0].source_url == "https://example.com/ir"
 
 
 def test_company_ir_site_research_adapter_uses_explicit_website_resolver_first():

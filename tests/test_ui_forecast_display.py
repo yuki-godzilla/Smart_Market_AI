@@ -83,6 +83,7 @@ from ui.app import (
     _market_data_preview_symbol_label,
     _name_from_candidate,
     _news_source_link_rows,
+    _news_source_links_expander_label,
     _news_source_links_panel_html,
     _news_summary_html,
     _normalize_dividend_filter_state,
@@ -1882,6 +1883,11 @@ def test_news_source_links_panel_guides_to_external_urls_when_news_url_is_missin
     assert "URL表示は未実装" not in panel_html
 
 
+def test_news_source_links_expander_label_shows_url_count():
+    assert _news_source_links_expander_label(3) == "ニュース・開示の出典を表示（URL付き3件）"
+    assert _news_source_links_expander_label(0) == "ニュース・開示の出典を表示（URL付き0件）"
+
+
 def test_news_source_links_panel_fallback_is_not_implementation_gap_wording():
     panel_html = _news_source_links_panel_html([], total_url_count=0, news_url_count=0)
 
@@ -2129,6 +2135,17 @@ def test_research_news_warning_display_text_hides_internal_source_type():
     assert "外部参照ソースも確認" in text
     assert "source_type" not in text
     assert "売買" not in text
+
+
+def test_research_news_warning_display_text_points_to_url_panel_when_external_urls_exist():
+    warning = "URL付きのニュース根拠が見つかりませんでした。"
+
+    text = _research_news_warning_display_text(warning, has_external_source_urls=True)
+
+    assert "ニュース・開示の出典" in text
+    assert "公式資料・企業IR・provider情報のURL" in text
+    assert "外部参照ソースも確認してください" not in text
+    assert "source_type" not in text
 
 
 def test_fetch_external_research_for_preview_uses_external_source_and_stores(monkeypatch):

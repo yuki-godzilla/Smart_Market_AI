@@ -20,7 +20,7 @@ import yaml  # type: ignore[import-untyped]
 from pydantic import Field, ValidationError
 
 from backend.core.data_contracts import DataQuality, StrictBaseModel
-from backend.core.errors import AppError, ValidationAppError
+from backend.core.errors import AppError, ProviderUnavailableError, ValidationAppError
 
 ResearchSourceType = Literal[
     "annual_report",
@@ -2875,14 +2875,30 @@ class YahooFinanceResearchAdapter:
     def _ticker(self, symbol: str) -> Any:
         if self._ticker_factory is not None:
             return self._ticker_factory(symbol)
-        try:
-            import yfinance as yf  # type: ignore[import-untyped]
-        except ImportError as exc:
-            raise ResearchDocumentError(
-                "yfinance is required for the Yahoo Finance research adapter.",
-                details={"provider": self.provider},
-            ) from exc
-        return yf.Ticker(symbol)
+        yf, session = _research_yfinance_runtime(self.provider)
+        return yf.Ticker(symbol, session=session)
+
+
+def _research_yfinance_runtime(provider: str) -> tuple[Any, Any]:
+    try:
+        from backend.marketdata.providers.yahoo import (
+            _load_yfinance,
+            shared_yfinance_session,
+        )
+    except ImportError as exc:  # pragma: no cover - package-internal import
+        raise ResearchDocumentError(
+            "yfinance runtime is required for external research.",
+            details={"provider": provider},
+        ) from exc
+    try:
+        return _load_yfinance(), shared_yfinance_session()
+    except ProviderUnavailableError as exc:
+        details: dict[str, object] = {"provider": provider}
+        details.update(exc.details)
+        raise ResearchDocumentError(
+            "yfinance runtime is unavailable for external research.",
+            details=details,
+        ) from exc
 
 
 class CompanyIRSiteResearchAdapter:
@@ -2950,14 +2966,8 @@ class CompanyIRSiteResearchAdapter:
     def _ticker(self, symbol: str) -> Any:
         if self._ticker_factory is not None:
             return self._ticker_factory(symbol)
-        try:
-            import yfinance as yf  # type: ignore[import-untyped]
-        except ImportError as exc:
-            raise ResearchDocumentError(
-                "yfinance is required for the company IR site research adapter.",
-                details={"provider": self.provider},
-            ) from exc
-        return yf.Ticker(symbol)
+        yf, session = _research_yfinance_runtime(self.provider)
+        return yf.Ticker(symbol, session=session)
 
     def _get_text(self, url: str) -> str:
         if self._http_get is not None:
@@ -5799,7 +5809,10 @@ def _company_research_overview_summary(
         limit=4,
     )
     regions = business_profile.regions or _company_research_values(region_items, limit=4)
-    scale_summary = _company_research_scale_summary(brief)
+    scale_summary = _company_research_scale_summary(
+        brief,
+        normalized_evidence=normalized_evidence,
+    )
     recent_focus = _company_research_recent_focus(recent_items, news_report=news_report)
     source_items = [
         *overview_items,
@@ -6786,18 +6799,65 @@ def _etf_research_missing_items(
     return items
 
 
-def _company_research_scale_summary(brief: ResearchBrief) -> str:
+def _company_research_scale_summary(
+    brief: ResearchBrief,
+    *,
+    normalized_evidence: Sequence[CompanyResearchEvidence],
+) -> str:
     metrics = {metric.key: metric for metric in brief.metrics}
-    scale_parts = []
-    if "market_cap" in metrics:
-        scale_parts.append(f"時価総額 {metrics['market_cap'].value}")
-    if "revenue" in metrics:
-        scale_parts.append(f"売上高 {metrics['revenue'].value}")
-    if "operating_income" in metrics:
-        scale_parts.append(f"営業利益 {metrics['operating_income'].value}")
+    scale_specs: tuple[tuple[str, str, ResearchMetricKey, tuple[str, ...]], ...] = (
+        (
+            "market_cap",
+            "時価総額",
+            "market_cap",
+            (r"時価総額", r"market cap(?:italization)?", r"marketCap"),
+        ),
+        (
+            "revenue",
+            "売上高",
+            "revenue",
+            (
+                r"売上(?:高|収益)?",
+                r"total revenue",
+                r"totalRevenue",
+                r"revenue",
+                r"sales",
+            ),
+        ),
+        (
+            "operating_profit",
+            "営業利益",
+            "operating_income",
+            (r"営業利益", r"operating income", r"operatingIncome"),
+        ),
+    )
+    scale_parts: list[str] = []
+    for field_key, label, metric_key, patterns in scale_specs:
+        value, _, _ = _company_research_quantitative_field_value(
+            field_key,
+            metrics,
+            metric_key,
+            normalized_evidence,
+            patterns,
+        )
+        if value and _company_research_scale_value_has_unit(value):
+            scale_parts.append(f"{label} {value}")
     if scale_parts:
         return f"確認できた規模情報は{'、'.join(scale_parts)}です。"
     return "売上高・利益・時価総額などの規模情報が不足しているため、定量的な把握には追加確認が必要です。"
+
+
+def _company_research_scale_value_has_unit(value: str) -> bool:
+    normalized = value.strip()
+    if re.fullmatch(r"[+-]?\d[\d,]*(?:\.\d+)?円", normalized):
+        return False
+    return bool(
+        re.search(
+            r"(?:兆円|億円|百万円|万円|円|\b(?:JPY|USD)\b|\d\s*[TBM]\b)",
+            normalized,
+            flags=re.IGNORECASE,
+        )
+    )
 
 
 def _company_research_recent_focus(

@@ -5370,7 +5370,7 @@ def _render_news_source_links_panel(
         limit=None,
     )
     news_url_count = sum(1 for row in all_rows if row["source_kind"] == "news")
-    with st.expander("ニュース・開示の出典を表示", expanded=False):
+    with st.expander(_news_source_links_expander_label(len(all_rows)), expanded=False):
         st.caption(
             "最新ニュース・開示サマリーに関係するURL付きsourceを簡易表示します。"
             "全件は下部の外部参照ソースで確認できます。"
@@ -5383,6 +5383,12 @@ def _render_news_source_links_panel(
             ),
             unsafe_allow_html=True,
         )
+
+
+def _news_source_links_expander_label(total_url_count: int) -> str:
+    if total_url_count <= 0:
+        return "ニュース・開示の出典を表示（URL付き0件）"
+    return f"ニュース・開示の出典を表示（URL付き{total_url_count}件）"
 
 
 def _news_source_link_rows(
@@ -6071,9 +6077,15 @@ def _render_research_summary_panel(
                 st.markdown("###### 注意点")
                 _render_compact_dataframe(score_warning_rows)
 
+    has_external_source_urls = _external_research_result_has_displayable_source_urls(
+        external_research_result
+    )
     if news_report is not None and news_report.warnings:
         for warning in news_report.warnings:
-            warning_text = _research_news_warning_display_text(warning)
+            warning_text = _research_news_warning_display_text(
+                warning,
+                has_external_source_urls=has_external_source_urls,
+            )
             if _is_research_news_url_gap_warning(warning):
                 st.info(warning_text)
             else:
@@ -6150,13 +6162,33 @@ def _is_research_news_url_gap_warning(warning: str) -> bool:
     )
 
 
-def _research_news_warning_display_text(warning: str) -> str:
+def _research_news_warning_display_text(
+    warning: str,
+    *,
+    has_external_source_urls: bool = False,
+) -> str:
     if _is_research_news_url_gap_warning(warning):
+        if has_external_source_urls:
+            return (
+                "ニュース専用のURL付き根拠は見つかりませんでしたが、"
+                "公式資料・企業IR・provider情報のURLは上の「ニュース・開示の出典」"
+                "または外部参照ソースで確認できます。"
+            )
         return (
             "ニュース専用のURL付き根拠は見つかりませんでした。"
             "関連する公式開示・企業IR・provider情報は外部参照ソースも確認してください。"
         )
     return warning
+
+
+def _external_research_result_has_displayable_source_urls(
+    external_research_result: ExternalResearchFetchResult | None,
+) -> bool:
+    if external_research_result is None:
+        return False
+    return any(
+        _displayable_source_url(entry.source_url) for entry in external_research_result.entries
+    )
 
 
 def _research_summary_bundle(

@@ -45,7 +45,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 
 現在の MVP は、ローカル検証と説明用です。
 外部 API へ接続する場合は明示 opt-in が必要で、broker や execution provider へ注文を送りません。
-Research RAG / News RAG は実運用では情報鮮度が重要です。標準導線では、`AI調査を更新` が EDINET securities-report metadata/link（`EDINET_API_KEY` 設定時のみ live call、未設定時 no-op）、TDnet 適時開示、企業IRサイト、Yahoo Finance profile / news、今後追加するニュース・provider evidence を取得/参照し、source URL、provider、published_at、fetched_at、freshness warning を確認材料として表示します。Yahoo Finance を使う Research 側 adapter は MarketData 側と同じ yfinance cache / shared session 設定を使います。ニュースURL表示自体は `外部参照ソース` と詳細データに実装済みです。Cockpit Research Summary では、`最新ニュース・開示サマリー` の直後に `ニュース・開示の出典を表示（URL付きN件）` を置き、URL付きニュース・TDnet・企業IR・EDINET・Yahoo Finance の簡易リンクを最大5件表示します。ニュース専用URLが無い場合も、外部参照ソース側に公式資料・provider URLがある可能性を案内します。取得本文は既定では保持せず、session-local の一時参照として扱います。通常検証は fake adapter / fixture を使い、network 非依存を維持します。
+Research RAG / News RAG は実運用では情報鮮度が重要です。標準導線では、`AI調査を更新` が EDINET securities-report metadata/link（`EDINET_API_KEY` 設定時のみ live call、未設定時 no-op）、TDnet 適時開示、企業IRサイト、Yahoo Finance profile / news、今後追加するニュース・provider evidence を取得/参照し、source URL、provider、published_at、fetched_at、freshness warning を確認材料として表示します。Yahoo Finance を使う Research 側 adapter は MarketData 側と同じ yfinance cache / shared session 設定を使います。ニュースURL表示自体は `外部参照ソース` と詳細データに実装済みです。Cockpit Research Summary では、`最新ニュース・開示サマリー` の直後に `ニュース・開示の出典を表示（URL付きN件）` を置き、URL付きニュース・TDnet・企業IR・EDINET・Yahoo Finance の簡易リンクを最大5件表示します。URL付き出典がある場合、このパネルは初期展開してクリック用リンクを見せます。ニュース専用URLが無い場合も、外部参照ソース側に公式資料・provider URLがある可能性を案内します。取得本文は既定では保持せず、session-local の一時参照として扱います。通常検証は fake adapter / fixture を使い、network 非依存を維持します。
 
 ## 3. API 起動と確認
 
@@ -234,7 +234,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - period-aware evaluation summarizes the fetched window as short-term reaction, medium-term trend, annual trend, or long-term resilience, with return, range position, drawdown, and volatility checks
 - warnings / reasons
 - Forecast metrics / Screening Score / provider detail
-- Research Summary: `最新ニュース・開示サマリー` の近くで `ニュース・開示の出典を表示` を開くと、URL付きニュース・開示・provider source の簡易リンクを確認できます。全件確認は下部の `外部参照ソース` と詳細データを使います。
+- Research Summary: `最新ニュース・開示サマリー` の近くに `ニュース・開示の出典を表示（URL付きN件）` が出ます。URL付き出典がある場合は初期展開され、ニュース・開示・provider source の簡易リンクをその場で確認できます。全件確認は下部の `外部参照ソース` と詳細データを使います。
 - JSON / CSV downloads
 
 ### 銘柄ランキング

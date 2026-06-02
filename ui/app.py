@@ -5369,8 +5369,12 @@ def _render_news_source_links_panel(
         security_type=security_type,
         limit=None,
     )
+    total_url_count = len(all_rows)
     news_url_count = sum(1 for row in all_rows if row["source_kind"] == "news")
-    with st.expander(_news_source_links_expander_label(len(all_rows)), expanded=False):
+    with st.expander(
+        _news_source_links_expander_label(total_url_count),
+        expanded=_news_source_links_expander_expanded(total_url_count),
+    ):
         st.caption(
             "最新ニュース・開示サマリーに関係するURL付きsourceを簡易表示します。"
             "全件は下部の外部参照ソースで確認できます。"
@@ -5378,7 +5382,7 @@ def _render_news_source_links_panel(
         st.markdown(
             _news_source_links_panel_html(
                 rows,
-                total_url_count=len(all_rows),
+                total_url_count=total_url_count,
                 news_url_count=news_url_count,
             ),
             unsafe_allow_html=True,
@@ -5389,6 +5393,10 @@ def _news_source_links_expander_label(total_url_count: int) -> str:
     if total_url_count <= 0:
         return "ニュース・開示の出典を表示（URL付き0件）"
     return f"ニュース・開示の出典を表示（URL付き{total_url_count}件）"
+
+
+def _news_source_links_expander_expanded(total_url_count: int) -> bool:
+    return total_url_count > 0
 
 
 def _news_source_link_rows(

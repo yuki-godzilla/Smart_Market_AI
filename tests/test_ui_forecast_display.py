@@ -83,6 +83,7 @@ from ui.app import (
     _market_data_preview_symbol_label,
     _name_from_candidate,
     _news_source_link_rows,
+    _news_source_links_expander_expanded,
     _news_source_links_expander_label,
     _news_source_links_panel_html,
     _news_summary_html,
@@ -1886,6 +1887,8 @@ def test_news_source_links_panel_guides_to_external_urls_when_news_url_is_missin
 def test_news_source_links_expander_label_shows_url_count():
     assert _news_source_links_expander_label(3) == "ニュース・開示の出典を表示（URL付き3件）"
     assert _news_source_links_expander_label(0) == "ニュース・開示の出典を表示（URL付き0件）"
+    assert _news_source_links_expander_expanded(3) is True
+    assert _news_source_links_expander_expanded(0) is False
 
 
 def test_news_source_links_panel_fallback_is_not_implementation_gap_wording():

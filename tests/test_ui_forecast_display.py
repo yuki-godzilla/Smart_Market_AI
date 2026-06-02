@@ -123,6 +123,9 @@ from ui.app import (
     _research_result_overview_html,
     _research_retrieval_quality_rows,
     _research_score_component_rows,
+    _research_score_context_caption,
+    _research_score_expander_label,
+    _research_score_guidance_rows,
     _research_score_report_section,
     _research_score_summary_rows,
     _research_score_warning_rows,
@@ -1523,10 +1526,17 @@ def test_research_score_rows_explain_optional_context_without_advice():
     summary_rows = _research_score_summary_rows(score)
     component_rows = _research_score_component_rows(score)
     warning_rows = _research_score_warning_rows(score)
+    cockpit_guidance_rows = _research_score_guidance_rows("cockpit")
 
     assert summary_rows[0]["確認項目"] == "Research Score"
     assert "売買推奨ではありません" in summary_rows[0]["確認ポイント"]
+    assert "ランキング順位を変えません" in summary_rows[0]["確認ポイント"]
     assert summary_rows[2]["内容"] == "1件"
+    assert "根拠資料の確認材料" in _research_score_expander_label("cockpit")
+    assert "深掘り" in _research_score_context_caption("cockpit")
+    assert "順位計算ではなく" in _research_score_context_caption("ranking")
+    assert cockpit_guidance_rows[-1]["確認項目"] == "順位への影響"
+    assert "ランキング順位を変更しません" in cockpit_guidance_rows[-1]["内容"]
     assert component_rows[0]["観点"] == "成長材料"
     assert component_rows[-1]["観点"] == "情報の鮮度"
     assert any("根拠が不足" in row["注意点"] for row in warning_rows)
@@ -5277,7 +5287,7 @@ def test_score_confidence_hierarchy_rows_distinguish_score_roles():
     research_row = next(row for row in rows if row["表示"] == "Research Score")
     confidence_row = next(row for row in rows if row["表示"] == "条件適合度 / DB信頼度")
 
-    assert "総合スコアやRanking順位を変えません" in research_row["順位への影響"]
+    assert "総合スコアやランキング順位を変えません" in research_row["順位への影響"]
     assert "根拠確認不足" in research_row["読み方"]
     assert "投資魅力度ではなく" in confidence_row["読み方"]
 
@@ -5295,7 +5305,7 @@ def test_render_score_confidence_hierarchy_uses_wrapping_html_table(monkeypatch)
     table_html = markdown_calls[-1]
     assert "symbol-detail-table" in table_html
     assert "Research Score" in table_html
-    assert "既定では総合スコアやRanking順位を変えません" in table_html
+    assert "既定では総合スコアやランキング順位を変えません" in table_html
     assert "投資魅力度ではなく" in table_html
 
 

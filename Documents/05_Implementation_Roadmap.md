@@ -826,7 +826,7 @@ Phase 21.5 の対象外:
 
 ### 5.8 Phase 22: Research Score とコックピット深掘り導線
 
-状態: 初期backend slice / UI表示slice 実装済み。次はコックピット深掘り表示の磨き込み
+状態: 初期backend slice / UI表示slice 実装済み。Cockpit ResearchScore UX polish の初期実装済み。次は実画面回帰確認
 
 現在の統合方針:
 
@@ -841,7 +841,7 @@ Phase 21.5 の対象外:
 
 - R5: Vector Search / Hybrid Search optional adapter。keyword retrieval を baseline に残し、embedding / vector は optional にする。
 - R6: Research Score MVP。growth、profitability、shareholder_return、financial_safety、business_risk、disclosure_quality、freshness を rule/template で採点し、evidence_count と confidence を保持する。Backend 初期 slice は `ResearchScore` / `ResearchScoreService` として実装済み。
-- R7: コックピット / Report / optional score plumbing。Research Score を `research_scores_by_symbol` と `scoring.weights.research` default 0.0 で optional input として保持しつつ、通常順位は変えない。Display 初期 slice は Cockpit / Ranking の共通 Research Summary panel に Research Score summary / component / warning rows を出し、AI Research report 由来の score を selected-candidate breakdown に確認材料として出す形で実装済み。Report 初期 slice は Cockpit Decision Report の `Research Score` section として実装済みで、内訳、supporting evidence、confidence、warnings、非推奨注記を Research Evidence と並べて保存する。
+- R7: コックピット / Report / optional score plumbing。Research Score を `research_scores_by_symbol` と `scoring.weights.research` default 0.0 で optional input として保持しつつ、通常順位は変えない。Display 初期 slice は Cockpit / Ranking の共通 Research Summary panel に Research Score summary / component / warning rows を出し、AI Research report 由来の score を selected-candidate breakdown に確認材料として出す形で実装済み。Cockpit UX polish slice では、Research Score の折りたたみ内に読み方、要約、観点別内訳、注意点をまとめ、詳細データ側の重複表示を外した。Report 初期 slice は Cockpit Decision Report の `Research Score` section として実装済みで、内訳、supporting evidence、confidence、warnings、非推奨注記を Research Evidence と並べて保存する。
 - R8: External Source Adapter。EDINET optional metadata/link adapter、TDnet、企業IR site adapter、外部ニュース adapter/service 正規化は初期 slice 実装済み。Additional news providers / RSS などを `AI調査を更新` の標準 source adapter として広げ、通常 checks は fake adapter / fixture で network 非依存にする。
 
 推奨完了条件:

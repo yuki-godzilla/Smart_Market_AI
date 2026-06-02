@@ -5209,6 +5209,7 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
             detail_expanded=False,
             news_report=news_report,
             external_research_result=_cockpit_external_research_fetch_result_from_state(preview),
+            display_context="cockpit",
         )
 
 
@@ -5674,7 +5675,7 @@ def _render_ranking_symbol_research_lookup(symbol: str) -> None:
     if report is None:
         st.info("資料確認は未実行です。必要な場合は「AIで資料を確認」を押してください。")
         return
-    _render_research_summary_panel(report, detail_expanded=False)
+    _render_research_summary_panel(report, detail_expanded=False, display_context="ranking")
 
 
 def _render_research_summary_panel(
@@ -5683,6 +5684,7 @@ def _render_research_summary_panel(
     detail_expanded: bool,
     news_report: StockNewsReport | None = None,
     external_research_result: ExternalResearchFetchResult | None = None,
+    display_context: Literal["cockpit", "ranking"] = "cockpit",
 ) -> None:
     summary_bundle = _research_summary_bundle(
         report,
@@ -5743,14 +5745,28 @@ def _render_research_summary_panel(
 
     score_rows = _research_score_summary_rows(research_score)
     if score_rows:
-        with st.expander("Research Score（参考）を表示", expanded=False):
+        with st.expander(
+            _research_score_expander_label(display_context),
+            expanded=False,
+        ):
+            st.caption(_research_score_context_caption(display_context))
             st.caption(
-                "根拠資料の充実度・鮮度・信頼度を整理する参考スコアです。売買推奨ではありません。"
+                "低い値は銘柄評価ではなく、根拠確認不足のサインとして扱います。"
             )
-            st.caption(
-                "既定では総合スコアやRanking順位を変えません。低い値は銘柄評価ではなく、根拠確認不足のサインとして扱います。"
-            )
+            _render_compact_dataframe(_research_score_guidance_rows(display_context))
+            st.markdown("###### Research Score要約")
             _render_compact_dataframe(score_rows)
+            score_component_rows = _research_score_component_rows(research_score)
+            if score_component_rows:
+                st.markdown("###### 観点別の内訳")
+                st.caption(
+                    "どの観点の根拠が薄いかを見て、次に確認するIR・開示・ニュースを決めます。"
+                )
+                _render_compact_dataframe(score_component_rows)
+            score_warning_rows = _research_score_warning_rows(research_score)
+            if score_warning_rows:
+                st.markdown("###### 注意点")
+                _render_compact_dataframe(score_warning_rows)
 
     if news_report is not None and news_report.warnings:
         for warning in news_report.warnings:
@@ -5800,14 +5816,6 @@ def _render_research_summary_panel(
         if retrieval_quality_rows:
             st.markdown("###### 検索品質")
             _render_compact_dataframe(retrieval_quality_rows)
-        score_component_rows = _research_score_component_rows(research_score)
-        if score_component_rows:
-            st.markdown("###### Research Score内訳")
-            _render_compact_dataframe(score_component_rows)
-        score_warning_rows = _research_score_warning_rows(research_score)
-        if score_warning_rows:
-            st.markdown("###### Research Score注意点")
-            _render_compact_dataframe(score_warning_rows)
         point_rows = _research_investment_point_rows(report)
         if point_rows:
             st.markdown("###### 要点サマリー")
@@ -8492,7 +8500,7 @@ def score_confidence_hierarchy_rows() -> list[dict[str, str]]:
         {
             "表示": "Research Score",
             "役割": "根拠資料の充実度・鮮度・信頼度",
-            "順位への影響": "既定では総合スコアやRanking順位を変えません",
+            "順位への影響": "既定では総合スコアやランキング順位を変えません",
             "読み方": "低い値は銘柄評価ではなく、根拠確認不足のサインとして扱います。",
         },
         {
@@ -8549,6 +8557,52 @@ _RESEARCH_SCORE_UI_COMPONENTS = (
 )
 
 
+def _research_score_expander_label(
+    display_context: Literal["cockpit", "ranking"],
+) -> str:
+    if display_context == "cockpit":
+        return "Research Score（根拠資料の確認材料）を表示"
+    return "Research Score（参考情報）を表示"
+
+
+def _research_score_context_caption(
+    display_context: Literal["cockpit", "ranking"],
+) -> str:
+    if display_context == "cockpit":
+        return (
+            "銘柄コックピットで深掘りするときの確認材料です。"
+            "根拠資料の充実度・鮮度・信頼度を整理し、売買推奨や順位付けは行いません。"
+        )
+    return (
+        "ランキングから深掘り候補を確認するときの参考情報です。"
+        "Research Scoreは順位計算ではなく、コックピットで追加確認する材料として扱います。"
+    )
+
+
+def _research_score_guidance_rows(
+    display_context: Literal["cockpit", "ranking"],
+) -> list[dict[str, str]]:
+    usage = (
+        "内訳と出典カードを見て、公式IR・開示・ニュースで追加確認する観点を選びます。"
+        if display_context == "cockpit"
+        else "候補比較後に、コックピットで深掘りする観点を選ぶために使います。"
+    )
+    return [
+        {
+            "確認項目": "役割",
+            "内容": "根拠資料の充実度・鮮度・信頼度を整理する参考スコア",
+        },
+        {
+            "確認項目": "使い方",
+            "内容": usage,
+        },
+        {
+            "確認項目": "順位への影響",
+            "内容": "既定では総合スコアやランキング順位を変更しません。",
+        },
+    ]
+
+
 def _research_score_summary_rows(score: ResearchScore) -> list[dict[str, str]]:
     return [
         {
@@ -8556,7 +8610,7 @@ def _research_score_summary_rows(score: ResearchScore) -> list[dict[str, str]]:
             "内容": str(score.total_score),
             "確認ポイント": (
                 "根拠資料の充実度・鮮度・信頼度を整理する参考スコアです。"
-                "売買推奨ではありません。既定では総合スコアやRanking順位を変えません。"
+                "売買推奨ではありません。既定では総合スコアやランキング順位を変えません。"
             ),
         },
         {

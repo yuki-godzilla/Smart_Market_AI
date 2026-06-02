@@ -5141,6 +5141,7 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
         report=report,
         news_report=news_report,
     )
+    should_rerun_after_refresh = False
     if fetch_clicked:
         loading_slot = st.empty()
         with loading_slot.container():
@@ -5190,8 +5191,11 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
             trace_rows.append(("合計", perf_time.perf_counter() - refresh_started))
             st.session_state[RESEARCH_REFRESH_TRACE_STATE_KEY] = trace_rows
             st.caption(_research_refresh_trace_caption(trace_rows))
+            should_rerun_after_refresh = True
         finally:
             loading_slot.empty()
+        if should_rerun_after_refresh:
+            st.rerun()
 
     report = _cockpit_research_report_from_state(preview)
     news_report = _cockpit_stock_news_report_from_state(preview)

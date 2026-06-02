@@ -1858,6 +1858,7 @@ def test_cockpit_research_refresh_uses_mascot_loading(monkeypatch):
 
     slot = FakeLoadingSlot()
     loading_calls: list[tuple[str, dict[str, object]]] = []
+    rerun_calls: list[bool] = []
     session_state: dict[str, object] = {}
     external_result = ExternalResearchFetchResult(
         symbol="7203.T",
@@ -1887,6 +1888,7 @@ def test_cockpit_research_refresh_uses_mascot_loading(monkeypatch):
     monkeypatch.setattr("ui.app.st.subheader", lambda *_, **__: None)
     monkeypatch.setattr("ui.app.st.caption", lambda *_, **__: None)
     monkeypatch.setattr("ui.app.st.info", lambda *_, **__: None)
+    monkeypatch.setattr("ui.app.st.rerun", lambda: rerun_calls.append(True))
     monkeypatch.setattr(
         "ui.app.render_mascot_loading",
         lambda variant, **kwargs: loading_calls.append((variant, kwargs)),
@@ -1930,6 +1932,7 @@ def test_cockpit_research_refresh_uses_mascot_loading(monkeypatch):
         )
     ]
     assert slot.cleared is True
+    assert rerun_calls == [True]
 
 
 def test_fetch_external_research_for_symbol_reuses_session_ttl_cache(monkeypatch, tmp_path):

@@ -559,6 +559,8 @@ ExternalResearchFetchResult *-- ExternalResearchFetchManifestEntry
 ExternalResearchSourceAdapter ..> ExternalResearchSourcePayload
 ExternalResearchSourceAdapter <|.. EDINETResearchAdapter
 ExternalResearchSourceAdapter <|.. TDnetResearchAdapter
+ExternalResearchSourceAdapter <|.. CompanyIRSiteResearchAdapter
+ExternalResearchSourceAdapter <|.. GoogleNewsRSSResearchAdapter
 ExternalResearchSourceAdapter <|.. YahooFinanceResearchAdapter
 ExternalResearchSourceAdapter <|.. CompositeExternalResearchAdapter
 CompositeExternalResearchAdapter <|-- DefaultExternalResearchAdapter

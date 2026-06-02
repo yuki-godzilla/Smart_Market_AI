@@ -1647,7 +1647,7 @@ def test_external_research_source_cards_explain_how_to_read_each_source():
     edinet_source_url = "https://disclosure.edinet-fsa.go.jp/api/v2/documents/S100TOYOTA?type=2"
     result = ExternalResearchFetchResult(
         symbol="7203.T",
-        provider="edinet_tdnet_company_ir_yahoo_finance",
+        provider="edinet_tdnet_company_ir_google_news_yahoo_finance",
         fetched_at=datetime(2026, 5, 27, 12, 30, tzinfo=UTC),
         entries=[
             ExternalResearchFetchManifestEntry(
@@ -1714,7 +1714,7 @@ def test_external_research_source_cards_explain_how_to_read_each_source():
     cards = _external_research_source_cards_html(result)
 
     assert "外部参照ソースの確認メモ" in overview
-    assert "EDINET / TDnet / 企業IR / Yahoo Finance" in overview
+    assert "EDINET / TDnet / 企業IR / Google News / Yahoo Finance" in overview
     assert "公式開示" in overview
     assert "4件" in overview
     assert "EDINET" in cards
@@ -1736,7 +1736,7 @@ def test_external_research_source_cards_explain_how_to_read_each_source():
 def test_news_source_link_rows_prioritize_url_sources_and_hide_raw_fields():
     result = ExternalResearchFetchResult(
         symbol="7203.T",
-        provider="edinet_tdnet_company_ir_yahoo_finance",
+        provider="edinet_tdnet_company_ir_google_news_yahoo_finance",
         fetched_at=datetime(2026, 6, 2, 12, 30, tzinfo=UTC),
         entries=[
             ExternalResearchFetchManifestEntry(

@@ -22,6 +22,7 @@ from backend.research import (
     ExternalResearchSourcePayload,
     ExternalResearchStockNewsAdapter,
     ExternalStockNewsFetchService,
+    GoogleNewsRSSResearchAdapter,
     HybridResearchRetrievalService,
     InvestmentInsightBuilder,
     InvestmentQuestionSummaryBuilder,
@@ -3123,6 +3124,81 @@ def test_external_stock_news_fetch_service_requires_explicit_network_opt_in():
         )
 
 
+def test_google_news_rss_adapter_parses_investment_headlines_without_live_call():
+    requested_urls: list[str] = []
+    rss_text = """<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <item>
+      <title>Toyota raises guidance after strong hybrid demand</title>
+      <link>https://news.google.com/rss/articles/toyota-guidance</link>
+      <pubDate>Tue, 02 Jun 2026 09:30:00 GMT</pubDate>
+      <source url="https://example.com">Example News</source>
+      <description><![CDATA[<a href="https://example.com/toyota">Toyota</a> raised guidance after revenue growth.]]></description>
+    </item>
+    <item>
+      <title>Toyota supplier risk headline</title>
+      <link>https://news.google.com/rss/articles/toyota-risk</link>
+      <pubDate>Mon, 01 Jun 2026 08:15:00 GMT</pubDate>
+      <source url="https://example.com">Example News</source>
+      <description>Supplier risk may affect production.</description>
+    </item>
+  </channel>
+</rss>
+"""
+
+    def fake_http_get(url: str) -> str:
+        requested_urls.append(url)
+        return rss_text
+
+    adapter = GoogleNewsRSSResearchAdapter(
+        http_get=fake_http_get,
+        lookback_days=7,
+        max_results=1,
+    )
+
+    payloads = adapter.fetch_sources(
+        ExternalResearchFetchRequest(
+            symbol="7203.T",
+            company_name="Toyota Motor",
+            related_keywords=["トヨタ自動車"],
+            provider=adapter.provider,
+            as_of=date(2026, 6, 2),
+            allow_network=True,
+        )
+    )
+
+    assert requested_urls
+    assert "news.google.com/rss/search" in requested_urls[0]
+    assert "when%3A7d" in requested_urls[0]
+    assert payloads[0].symbol == "7203.T"
+    assert payloads[0].title == "Toyota raises guidance after strong hybrid demand"
+    assert payloads[0].source_type == "news"
+    assert payloads[0].source_url == "https://news.google.com/rss/articles/toyota-guidance"
+    assert payloads[0].provider == "google_news_rss"
+    assert payloads[0].published_at == date(2026, 6, 2)
+    assert "source: Example News" in payloads[0].content
+    assert "summary: Toyota raised guidance after revenue growth." in payloads[0].content
+    assert "売買推奨ではなく" in payloads[0].content
+    assert len(payloads) == 1
+
+
+def test_google_news_rss_adapter_ignores_invalid_feed_without_live_call():
+    adapter = GoogleNewsRSSResearchAdapter(http_get=lambda _: "not xml")
+
+    payloads = adapter.fetch_sources(
+        ExternalResearchFetchRequest(
+            symbol="AAPL",
+            company_name="Apple Inc.",
+            provider=adapter.provider,
+            as_of=date(2026, 6, 2),
+            allow_network=True,
+        )
+    )
+
+    assert payloads == []
+
+
 def test_external_research_fetch_service_registers_sources_without_persisting_payloads(
     tmp_path,
 ):
@@ -3839,11 +3915,12 @@ def test_composite_external_research_adapter_continues_after_source_failure():
 def test_default_external_research_adapter_includes_edinet_as_optional_source():
     adapter = DefaultExternalResearchAdapter()
 
-    assert adapter.provider == "edinet_tdnet_company_ir_yahoo_finance"
+    assert adapter.provider == "edinet_tdnet_company_ir_google_news_yahoo_finance"
     assert [source.provider for source in adapter.adapters] == [
         "edinet",
         "tdnet",
         "company_ir_site",
+        "google_news_rss",
         "yahoo_finance",
     ]
 

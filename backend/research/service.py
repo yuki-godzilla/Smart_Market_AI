@@ -6,10 +6,12 @@ import json
 import math
 import os
 import re
+import xml.etree.ElementTree as ET
 from collections.abc import Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any, Callable, Literal, Protocol, Sequence, cast
 from urllib.parse import urlencode, urljoin, urlparse, urlunparse
@@ -229,6 +231,16 @@ COMPANY_IR_CANDIDATE_PATHS: tuple[str, ...] = (
 )
 TDNET_BASE_URL = "https://www.release.tdnet.info/inbs/"
 TDNET_LIST_URL_TEMPLATE = TDNET_BASE_URL + "I_list_{page:03d}_{yyyymmdd}.html"
+GOOGLE_NEWS_RSS_SEARCH_URL = "https://news.google.com/rss/search"
+GOOGLE_NEWS_INVESTMENT_QUERY_TERMS: tuple[str, ...] = (
+    "株価",
+    "決算",
+    "業績",
+    "配当",
+    "投資",
+    "買収",
+    "提携",
+)
 EDINET_API_KEY_ENV = "EDINET_API_KEY"
 EDINET_DOCUMENTS_LIST_URL = "https://disclosure.edinet-fsa.go.jp/api/v2/documents.json"
 EDINET_DOCUMENT_URL_TEMPLATE = "https://disclosure.edinet-fsa.go.jp/api/v2/documents/{doc_id}"
@@ -2850,6 +2862,63 @@ class ExternalResearchFetchService:
         return path
 
 
+class GoogleNewsRSSResearchAdapter:
+    """Opt-in Google News RSS search adapter for general investment headlines."""
+
+    provider = "google_news_rss"
+    requires_network = True
+
+    def __init__(
+        self,
+        *,
+        http_get: Callable[[str], str] | None = None,
+        hl: str = "ja",
+        gl: str = "JP",
+        ceid: str = "JP:ja",
+        lookback_days: int = 14,
+        max_results: int = 5,
+    ) -> None:
+        self._http_get = http_get
+        self.hl = hl
+        self.gl = gl
+        self.ceid = ceid
+        self.lookback_days = max(1, lookback_days)
+        self.max_results = max(1, max_results)
+
+    def fetch_sources(
+        self,
+        request: ExternalResearchFetchRequest,
+    ) -> list[ExternalResearchSourcePayload]:
+        query = _google_news_query(request, lookback_days=self.lookback_days)
+        if not query:
+            return []
+        fetched_at = datetime.now(UTC)
+        feed_url = _google_news_rss_url(query, hl=self.hl, gl=self.gl, ceid=self.ceid)
+        try:
+            rss_text = self._get_text(feed_url)
+        except ResearchDocumentError:
+            return []
+        return _google_news_payloads_from_rss(
+            request,
+            rss_text,
+            fetched_at=fetched_at,
+            max_results=self.max_results,
+        )
+
+    def _get_text(self, url: str) -> str:
+        if self._http_get is not None:
+            return self._http_get(url)
+        try:
+            url_request = UrlRequest(url, headers={"User-Agent": "SmartMarketAI/1.0"})
+            with urlopen(url_request, timeout=10) as response:  # noqa: S310
+                return response.read().decode("utf-8", errors="replace")
+        except Exception as exc:  # pragma: no cover - provider-specific network failure
+            raise ResearchDocumentError(
+                "Google News RSS fetch failed.",
+                details={"provider": self.provider, "url": url},
+            ) from exc
+
+
 class YahooFinanceResearchAdapter:
     """Opt-in Yahoo Finance adapter for provider profile and recent news payloads."""
 
@@ -3216,9 +3285,10 @@ class DefaultExternalResearchAdapter(CompositeExternalResearchAdapter):
                 EDINETResearchAdapter(),
                 TDnetResearchAdapter(),
                 CompanyIRSiteResearchAdapter(),
+                GoogleNewsRSSResearchAdapter(),
                 YahooFinanceResearchAdapter(),
             ],
-            provider="edinet_tdnet_company_ir_yahoo_finance",
+            provider="edinet_tdnet_company_ir_google_news_yahoo_finance",
         )
 
 
@@ -3292,6 +3362,161 @@ def _external_payload_content_digest(payload: ExternalResearchSourcePayload) -> 
 def _external_research_content_summary(payload: ExternalResearchSourcePayload) -> str:
     max_chars = 1800 if payload.source_type == "provider_profile" else 360
     return _excerpt(payload.content, max_chars=max_chars)
+
+
+def _google_news_query(
+    request: ExternalResearchFetchRequest,
+    *,
+    lookback_days: int,
+) -> str:
+    base_terms = _google_news_query_base_terms(request)
+    if not base_terms:
+        return ""
+    base_query = " OR ".join(_google_news_quote_query_term(term) for term in base_terms[:3])
+    if len(base_terms) > 1:
+        base_query = f"({base_query})"
+    investment_query = " OR ".join(GOOGLE_NEWS_INVESTMENT_QUERY_TERMS)
+    return f"{base_query} ({investment_query}) when:{max(1, lookback_days)}d"
+
+
+def _google_news_query_base_terms(request: ExternalResearchFetchRequest) -> list[str]:
+    terms: list[str] = []
+    if request.company_name:
+        terms.append(request.company_name)
+    terms.extend(request.related_keywords)
+    symbol = _normalize_symbol(request.symbol)
+    terms.append(symbol)
+    if "." in symbol:
+        terms.append(symbol.split(".", 1)[0])
+    return _dedupe_non_empty_text(terms)
+
+
+def _dedupe_non_empty_text(values: Sequence[str]) -> list[str]:
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        stripped = value.strip()
+        if not stripped:
+            continue
+        key = stripped.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(stripped)
+    return deduped
+
+
+def _google_news_quote_query_term(term: str) -> str:
+    stripped = term.strip()
+    if not stripped:
+        return ""
+    if re.search(r"\s", stripped):
+        return f'"{stripped}"'
+    return stripped
+
+
+def _google_news_rss_url(
+    query: str,
+    *,
+    hl: str,
+    gl: str,
+    ceid: str,
+) -> str:
+    return (
+        f"{GOOGLE_NEWS_RSS_SEARCH_URL}?"
+        f"{urlencode({'q': query, 'hl': hl, 'gl': gl, 'ceid': ceid})}"
+    )
+
+
+def _google_news_payloads_from_rss(
+    request: ExternalResearchFetchRequest,
+    rss_text: str,
+    *,
+    fetched_at: datetime,
+    max_results: int,
+) -> list[ExternalResearchSourcePayload]:
+    try:
+        root = ET.fromstring(rss_text)
+    except ET.ParseError:
+        return []
+    payloads: list[ExternalResearchSourcePayload] = []
+    seen_urls: set[str] = set()
+    for item in root.findall(".//item"):
+        payload = _google_news_payload_from_item(
+            request,
+            item,
+            fetched_at=fetched_at,
+        )
+        if payload is None:
+            continue
+        key = payload.source_url.casefold()
+        if key in seen_urls:
+            continue
+        seen_urls.add(key)
+        payloads.append(payload)
+        if len(payloads) >= max_results:
+            return payloads
+    return payloads
+
+
+def _google_news_payload_from_item(
+    request: ExternalResearchFetchRequest,
+    item: ET.Element,
+    *,
+    fetched_at: datetime,
+) -> ExternalResearchSourcePayload | None:
+    title = _google_news_rss_child_text(item, "title")
+    link = _normalize_external_url(_google_news_rss_child_text(item, "link"))
+    if not title or not link:
+        return None
+    source = _google_news_rss_child_text(item, "source") or "Google News"
+    description = _google_news_description_text(_google_news_rss_child_text(item, "description"))
+    published_at = _google_news_published_date(_google_news_rss_child_text(item, "pubDate"))
+    summary = description or title
+    content = "\n".join(
+        [
+            f"source: {source}",
+            f"url: {link}",
+            f"summary: {_excerpt(summary, max_chars=220)}",
+            "",
+            "Google News RSSで確認できた一般ニュースのヘッドラインです。",
+            "売買推奨ではなく、公式IRや一次情報と合わせて確認してください。",
+        ]
+    )
+    return ExternalResearchSourcePayload(
+        symbol=_normalize_symbol(request.symbol),
+        title=title,
+        content=content,
+        source_type="news",
+        source_url=link,
+        provider=GoogleNewsRSSResearchAdapter.provider,
+        company_name=request.company_name,
+        published_at=published_at,
+        fetched_at=fetched_at,
+        reliability=Decimal("0.60"),
+    )
+
+
+def _google_news_rss_child_text(item: ET.Element, tag_name: str) -> str:
+    child = item.find(tag_name)
+    if child is None or child.text is None:
+        return ""
+    return html.unescape(child.text).strip()
+
+
+def _google_news_description_text(value: str) -> str:
+    without_tags = re.sub(r"<[^>]+>", " ", value)
+    return _excerpt(" ".join(html.unescape(without_tags).split()), max_chars=240)
+
+
+def _google_news_published_date(value: str) -> date | None:
+    if not value.strip():
+        return None
+    try:
+        parsed = parsedate_to_datetime(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed.date()
 
 
 def _ticker_info(ticker: Any) -> dict[str, Any]:

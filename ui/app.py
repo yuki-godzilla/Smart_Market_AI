@@ -5744,9 +5744,13 @@ def _external_research_provider_label(provider: str) -> str:
         "edinet": "EDINET",
         "tdnet": "TDnet（適時開示）",
         "company_ir_site": "企業IRサイト",
+        "google_news_rss": "Google News",
         "yahoo_finance": "Yahoo Finance",
         "edinet_tdnet_yahoo_finance": "EDINET / TDnet / Yahoo Finance",
         "edinet_tdnet_company_ir_yahoo_finance": ("EDINET / TDnet / 企業IR / Yahoo Finance"),
+        "edinet_tdnet_company_ir_google_news_yahoo_finance": (
+            "EDINET / TDnet / 企業IR / Google News / Yahoo Finance"
+        ),
         "tdnet_yahoo_finance": "TDnet / Yahoo Finance",
     }
     return labels.get(provider, provider)

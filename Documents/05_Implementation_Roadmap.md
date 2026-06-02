@@ -841,7 +841,7 @@ Phase 21.5 の対象外:
 
 - R5: Vector Search / Hybrid Search optional adapter。keyword retrieval を baseline に残し、embedding / vector は optional にする。
 - R6: Research Score MVP。growth、profitability、shareholder_return、financial_safety、business_risk、disclosure_quality、freshness を rule/template で採点し、evidence_count と confidence を保持する。Backend 初期 slice は `ResearchScore` / `ResearchScoreService` として実装済み。
-- R7: コックピット / Report / optional score plumbing。Research Score を `research_scores_by_symbol` と `scoring.weights.research` default 0.0 で optional input として保持しつつ、通常順位は変えない。Display 初期 slice は Cockpit / Ranking の共通 Research Summary panel に Research Score summary / component / warning rows を出し、AI Research report 由来の score を selected-candidate breakdown に確認材料として出す形で実装済み。Cockpit UX polish slice では、Research Score の折りたたみ内に読み方、要約、観点別内訳、注意点をまとめ、詳細データ側の重複表示を外した。Report 初期 slice は Cockpit Decision Report の `Research Score` section として実装済みで、内訳、supporting evidence、confidence、warnings、非推奨注記を Research Evidence と並べて保存する。
+- R7: コックピット / Report / optional score plumbing。Research Score を `research_scores_by_symbol` と `scoring.weights.research` default 0.0 で optional input として保持しつつ、通常順位は変えない。Display 初期 slice は Cockpit / Ranking の共通 Research Summary panel に Research Score summary / component / warning rows を出し、AI Research report 由来の score を selected-candidate breakdown に確認材料として出す形で実装済み。Cockpit UX polish slice では、Research Score の折りたたみ内に読み方、要約、観点別内訳、注意点をまとめ、詳細データ側の重複表示を外した。2026-06-02 の回帰では、大阪ガスを含む24銘柄で Cockpit の `根拠資料の確認材料` 文脈と Ranking lookup の `参考情報` 文脈、資料不足 no-op、ETF 表示、旧 `Ranking順位` 表記なしを確認済み。Report 初期 slice は Cockpit Decision Report の `Research Score` section として実装済みで、内訳、supporting evidence、confidence、warnings、非推奨注記を Research Evidence と並べて保存する。
 - R8: External Source Adapter。EDINET optional metadata/link adapter、TDnet、企業IR site adapter、外部ニュース adapter/service 正規化は初期 slice 実装済み。Additional news providers / RSS などを `AI調査を更新` の標準 source adapter として広げ、通常 checks は fake adapter / fixture で network 非依存にする。
 
 推奨完了条件:
@@ -852,6 +852,7 @@ Phase 21.5 の対象外:
 - Cockpit Research Summary と Cockpit Decision Report では、Research Score が売買推奨ではなく根拠資料の充実度・鮮度・信頼度の確認材料として表示される。
 - Ranking は順位統合ではなく、候補比較からコックピット深掘りへ進む導線を保つ。
 - external source adapter は通常 checks に入れない。
+- 2026-06-02時点で、Phase 22 Research Score UX polish の実画面回帰スプリントは完了。live external fetch は環境依存のため別 smoke とし、通常確認は fake/local fixture で network 非依存に維持する。
 
 目的: Research RAG の evidence / summary / Research Score を、銘柄コックピット深掘りと Cockpit Decision Report で確認しやすい判断材料にする。
 

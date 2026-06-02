@@ -5750,9 +5750,7 @@ def _render_research_summary_panel(
             expanded=False,
         ):
             st.caption(_research_score_context_caption(display_context))
-            st.caption(
-                "低い値は銘柄評価ではなく、根拠確認不足のサインとして扱います。"
-            )
+            st.caption("低い値は銘柄評価ではなく、根拠確認不足のサインとして扱います。")
             _render_compact_dataframe(_research_score_guidance_rows(display_context))
             st.markdown("###### Research Score要約")
             _render_compact_dataframe(score_rows)

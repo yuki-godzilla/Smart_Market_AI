@@ -75,6 +75,7 @@ from ui.app import (
     _external_research_fetch_summary_rows,
     _external_research_source_cards_html,
     _fetch_external_research_for_preview,
+    _investment_hint_news_panel_html,
     _investment_insight_panel_html,
     _investment_question_answers_html,
     _investment_question_primary_answers,
@@ -1882,6 +1883,111 @@ def test_news_source_links_panel_guides_to_external_urls_when_news_url_is_missin
     assert "Yahoo Finance" in panel_html
     assert "出典を開く" in panel_html
     assert "URL表示は未実装" not in panel_html
+
+
+def test_investment_hint_news_panel_html_surfaces_news_only_cards():
+    report = StockNewsReport(
+        symbol="7203.T",
+        as_of=date(2026, 6, 2),
+        news=[
+            StockNewsEvidence(
+                symbol="7203.T",
+                title="Toyota raises software investment",
+                url="https://example.com/toyota-growth",
+                source="Example News",
+                published_at=date(2026, 6, 1),
+                summary="Toyota increased software investment for new services.",
+                investment_viewpoint="growth",
+                sentiment_for_investment="positive",
+                freshness_status="latest",
+            ),
+            StockNewsEvidence(
+                symbol="7203.T",
+                title="Tariff risk rises",
+                url="https://example.com/toyota-risk",
+                source="Example News",
+                published_at=date(2026, 6, 2),
+                summary="Tariff headline adds export uncertainty.",
+                investment_viewpoint="risk",
+                sentiment_for_investment="negative",
+                freshness_status="recent",
+            ),
+        ],
+    )
+
+    panel_html = _investment_hint_news_panel_html(report)
+
+    assert "投資ヒントとなるニュース" in panel_html
+    assert "ニュースだけを切り出し" in panel_html
+    assert "売買推奨ではなく" in panel_html
+    assert "Toyota raises software investment" in panel_html
+    assert "Tariff risk rises" in panel_html
+    assert "事業成長" in panel_html
+    assert "リスク材料" in panel_html
+    assert "なぜ見るか" in panel_html
+    assert "追加確認" in panel_html
+    assert "https://example.com/toyota-growth" in panel_html
+    assert "https://example.com/toyota-risk" in panel_html
+    assert panel_html.count("ニュースを開く") == 2
+    assert "TDnet" not in panel_html
+    assert "Provider Symbol" not in panel_html
+
+
+def test_investment_hint_news_panel_html_skips_news_without_displayable_url_and_limits():
+    report = StockNewsReport(
+        symbol="AAPL",
+        as_of=date(2026, 6, 2),
+        news=[
+            StockNewsEvidence(
+                symbol="AAPL",
+                title="Apple url missing",
+                url="nan",
+                source="Example News",
+                summary="URLなしのニュースです。",
+            ),
+            *[
+                StockNewsEvidence(
+                    symbol="AAPL",
+                    title=f"Apple news {index}",
+                    url=f"https://example.com/apple-{index}",
+                    source="Example News",
+                    summary="Apple product and service update.",
+                    investment_viewpoint="growth",
+                    sentiment_for_investment="neutral",
+                    freshness_status="recent",
+                )
+                for index in range(1, 5)
+            ],
+        ],
+    )
+
+    panel_html = _investment_hint_news_panel_html(report, limit=3)
+
+    assert "Apple url missing" not in panel_html
+    assert "https://example.com/apple-1" in panel_html
+    assert "https://example.com/apple-3" in panel_html
+    assert "https://example.com/apple-4" not in panel_html
+    assert "ほか 1件" in panel_html
+    assert panel_html.count("ニュースを開く") == 3
+
+
+def test_investment_hint_news_panel_html_is_empty_without_url_backed_news():
+    report = StockNewsReport(
+        symbol="NOURL",
+        as_of=date(2026, 6, 2),
+        news=[
+            StockNewsEvidence(
+                symbol="NOURL",
+                title="No URL news",
+                url="none",
+                source="Example News",
+                summary="URLなしです。",
+            )
+        ],
+    )
+
+    assert _investment_hint_news_panel_html(None) == ""
+    assert _investment_hint_news_panel_html(report) == ""
 
 
 def test_news_source_links_expander_label_shows_url_count():

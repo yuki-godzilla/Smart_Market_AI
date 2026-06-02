@@ -74,6 +74,7 @@ from backend.research import (
     ResearchScore,
     ResearchScoreService,
     SecurityResearchType,
+    StockNewsEvidence,
     StockNewsReport,
 )
 from backend.scoring import InvestmentScoringService
@@ -6011,6 +6012,7 @@ def _render_research_summary_panel(
         _render_etf_holdings_panel(etf_summary)
         _render_etf_distribution_cost_panel(etf_summary)
         _render_news_summary_panel(etf_summary.news_items, security_type=security_type)
+        _render_investment_hint_news_panel(news_report)
         _render_news_source_links_panel(
             etf_summary.news_items,
             news_report=news_report,
@@ -6026,6 +6028,7 @@ def _render_research_summary_panel(
         _render_quantitative_summary_panel(company_summary.quantitative)
         _render_ir_summary_panel(company_summary.ir_items, security_type=security_type)
         _render_news_summary_panel(company_summary.news_items, security_type=security_type)
+        _render_investment_hint_news_panel(news_report)
         _render_news_source_links_panel(
             company_summary.news_items,
             news_report=news_report,
@@ -6322,6 +6325,12 @@ def _render_news_summary_panel(
     security_type: SecurityResearchType = "domestic_stock",
 ) -> None:
     st.markdown(_news_summary_html(items, security_type=security_type), unsafe_allow_html=True)
+
+
+def _render_investment_hint_news_panel(news_report: StockNewsReport | None) -> None:
+    html_text = _investment_hint_news_panel_html(news_report)
+    if html_text:
+        st.markdown(html_text, unsafe_allow_html=True)
 
 
 def _etf_research_summary_html(summary: ETFResearchSummary) -> str:
@@ -6743,6 +6752,122 @@ def _news_summary_html(
         f'<div class="research-evidence-list">{body}</div>'
         "</section>"
     )
+
+
+def _investment_hint_news_panel_html(
+    news_report: StockNewsReport | None,
+    *,
+    limit: int = 3,
+) -> str:
+    all_rows = _investment_hint_news_rows(news_report, limit=None)
+    rows = all_rows[:limit]
+    if not rows:
+        return ""
+    cards = "".join(_investment_hint_news_card_html(row) for row in rows)
+    more = ""
+    total_count = len(all_rows)
+    if total_count > len(rows):
+        more = (
+            '<div class="research-brief-focus-more">'
+            f"ほか {total_count - len(rows)}件は下部の外部参照ソースまたは詳細データで確認できます。"
+            "</div>"
+        )
+    return (
+        '<section class="research-result-brief">'
+        '<div class="research-result-brief-title">投資ヒントとなるニュース</div>'
+        '<div class="research-result-brief-summary">'
+        "ニュースだけを切り出し、業績・成長・株主還元・リスクなどの確認観点で整理します。"
+        "売買推奨ではなく、次に確認する材料として扱ってください。"
+        "</div>"
+        f'<div class="research-evidence-list">{cards}</div>'
+        f"{more}"
+        "</section>"
+    )
+
+
+def _investment_hint_news_rows(
+    news_report: StockNewsReport | None,
+    *,
+    limit: int | None = 3,
+) -> list[dict[str, str]]:
+    if news_report is None or not news_report.news:
+        return []
+    rows: list[dict[str, str]] = []
+    for news in news_report.news:
+        url = _displayable_source_url(news.url)
+        if not url:
+            continue
+        rows.append(
+            {
+                "sentiment": _stock_news_sentiment_label(news.sentiment_for_investment),
+                "category": _stock_news_viewpoint_label(news.investment_viewpoint),
+                "title": news.title,
+                "summary": _research_brief_ui_text(news.summary, max_chars=180),
+                "source": news.source or "ニュース",
+                "published_at": news.published_at.isoformat() if news.published_at else "未確認",
+                "freshness": _research_freshness_status_label(news.freshness_status),
+                "why": _stock_news_investment_impact(news.sentiment_for_investment),
+                "next_check": _investment_hint_news_next_check(news),
+                "url": url,
+            }
+        )
+    return rows if limit is None else rows[:limit]
+
+
+def _investment_hint_news_card_html(row: dict[str, str]) -> str:
+    sentiment = row.get("sentiment", "中立材料")
+    tone = _research_sentiment_css_class(sentiment)
+    freshness = row.get("freshness", "")
+    freshness_markup = (
+        f'<span class="research-evidence-pill">鮮度: {html.escape(freshness)}</span>'
+        if freshness
+        else ""
+    )
+    meta_parts = [
+        f"出典: {row.get('source', 'ニュース')}",
+        f"公開日: {row.get('published_at', '未確認')}",
+    ]
+    meta = " / ".join(html.escape(part) for part in meta_parts if part)
+    return (
+        '<article class="research-evidence-item">'
+        '<div class="research-evidence-card-header">'
+        f'<span class="research-evidence-pill {tone}">{html.escape(sentiment)}</span>'
+        f'<span class="research-evidence-pill">{html.escape(row.get("category", "ニュース材料"))}</span>'
+        f"{freshness_markup}"
+        "</div>"
+        f'<div class="research-evidence-title">{html.escape(row.get("title", "ニュース"))}</div>'
+        '<div class="research-evidence-body">'
+        '<span class="research-evidence-label">要約: </span>'
+        f'{html.escape(row.get("summary", ""))}</div>'
+        '<div class="research-evidence-body">'
+        '<span class="research-evidence-label">なぜ見るか: </span>'
+        f'{html.escape(row.get("why", ""))}</div>'
+        '<div class="research-evidence-body">'
+        '<span class="research-evidence-label">追加確認: </span>'
+        f'{html.escape(row.get("next_check", ""))}</div>'
+        f'<div class="research-evidence-meta">{meta}</div>'
+        '<div class="research-evidence-actions">'
+        f'<a href="{html.escape(row.get("url", ""), quote=True)}" '
+        'target="_blank" rel="noopener noreferrer">ニュースを開く</a>'
+        "</div>"
+        "</article>"
+    )
+
+
+def _investment_hint_news_next_check(news: StockNewsEvidence) -> str:
+    viewpoint_checks = {
+        "earnings": "売上・利益・ガイダンスへの影響を決算資料や会社発表で確認します。",
+        "growth": "事業成長や新サービスの継続性を、公式IRや関連開示で確認します。",
+        "shareholder_return": "配当・自社株買いの方針と継続性を、公式IRで確認します。",
+        "risk": "業績・需要・費用への影響が一時的か継続的かを確認します。",
+        "macro": "金利、為替、規制、景気影響を他の指標と合わせて確認します。",
+        "other": "株価材料として、価格トレンドや公式発表との整合を確認します。",
+    }
+    if news.sentiment_for_investment == "negative":
+        return "注意材料として、会社発表と業績影響を優先して確認します。"
+    if news.sentiment_for_investment == "mixed":
+        return "良い材料と注意材料を分け、どちらが業績に効くか確認します。"
+    return viewpoint_checks.get(news.investment_viewpoint, viewpoint_checks["other"])
 
 
 def _news_summary_item_html(

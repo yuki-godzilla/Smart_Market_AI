@@ -1206,6 +1206,7 @@ def test_company_research_summary_html_prioritizes_company_understanding():
                 summary="ソフトウェア領域のニュースです。",
                 source_title="Example News",
                 source_url="https://example.com/news",
+                published_at=date(2026, 6, 1),
                 impact_hint="business",
                 evidence_level="low",
             )
@@ -1230,8 +1231,14 @@ def test_company_research_summary_html_prioritizes_company_understanding():
     assert "売上高" in markup
     assert "IR情報サマリー" in markup
     assert "最新ニュース・開示サマリー" in markup
-    assert "影響カテゴリ: 事業影響あり" in markup
-    assert "公式確認: 未確認（公式IR確認が必要）" in markup
+    assert "research-news-summary-card" in markup
+    assert 'href="https://example.com/news"' in markup
+    assert "ニュースを開く" in markup
+    assert "公開日" in markup
+    assert "2026-06-01" in markup
+    assert "事業影響あり" in markup
+    assert "公式確認が必要" in markup
+    assert "URL: https://example.com/news" not in markup
     assert "SMAI 投資判断サマリー" not in markup
 
 
@@ -1918,17 +1925,25 @@ def test_investment_hint_news_panel_html_surfaces_news_only_cards():
     panel_html = _investment_hint_news_panel_html(report)
 
     assert "投資ヒントとなるニュース" in panel_html
-    assert "ニュースだけを切り出し" in panel_html
-    assert "売買推奨ではなく" in panel_html
+    assert "外部ニュースの見出しだけ" in panel_html
+    assert "クリックして" in panel_html
+    assert "research-news-headline-card" in panel_html
     assert "Toyota raises software investment" in panel_html
     assert "Tariff risk rises" in panel_html
     assert "事業成長" in panel_html
     assert "リスク材料" in panel_html
-    assert "なぜ見るか" in panel_html
-    assert "追加確認" in panel_html
+    assert "公開日" in panel_html
+    assert "2026-06-01" in panel_html
+    assert "鮮度" in panel_html
+    assert "最新" in panel_html
+    assert "最近" in panel_html
     assert "https://example.com/toyota-growth" in panel_html
     assert "https://example.com/toyota-risk" in panel_html
+    assert 'href="https://example.com/toyota-growth"' in panel_html
+    assert 'target="_blank"' in panel_html
     assert panel_html.count("ニュースを開く") == 2
+    assert "なぜ見るか" not in panel_html
+    assert "追加確認:" not in panel_html
     assert "TDnet" not in panel_html
     assert "Provider Symbol" not in panel_html
 

@@ -234,7 +234,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - period-aware evaluation summarizes the fetched window as short-term reaction, medium-term trend, annual trend, or long-term resilience, with return, range position, drawdown, and volatility checks
 - warnings / reasons
 - Forecast metrics / Screening Score / provider detail
-- Research Summary: `最新ニュース・開示サマリー` の近くに `投資ヒントとなるニュース` と `ニュース・開示の出典を表示（URL付きN件）` が出ます。`投資ヒントとなるニュース` はURL付きの一般ニュースだけをカード化し、材料分類、確認観点、鮮度、要約、なぜ見るか、追加確認、ニュースURLを表示します。TDnet、企業IR、EDINET、provider source、URL不足ニュースはこの専用カードに混ぜず、下部の `ニュース・開示の出典`、`外部参照ソース`、詳細データで確認します。
+- Research Summary: `最新ニュース・開示サマリー` の近くに `投資ヒントとなるニュース` と `ニュース・開示の出典を表示（URL付きN件）` が出ます。`投資ヒントとなるニュース` はURL付きの一般ニュースだけを、IR/開示とは別系統のヘッドラインカードとして表示します。カードではタイトル、公開日、鮮度、出典、材料分類、確認観点、短い要約を優先し、カード全体をクリックしてニュースURLを開けます。TDnet、企業IR、EDINET、provider source、URL不足ニュースはこの専用カードに混ぜず、下部の `ニュース・開示の出典`、`外部参照ソース`、詳細データで確認します。
 - JSON / CSV downloads
 
 ### 銘柄ランキング

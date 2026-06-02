@@ -74,7 +74,6 @@ from backend.research import (
     ResearchScore,
     ResearchScoreService,
     SecurityResearchType,
-    StockNewsEvidence,
     StockNewsReport,
 )
 from backend.scoring import InvestmentScoringService
@@ -917,6 +916,116 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     font-weight: 700;
     padding: 0.34rem 0.58rem;
     text-decoration: none;
+}
+.research-news-headline-list {
+    display: grid;
+    gap: 0.68rem;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    margin-top: 0.72rem;
+}
+.research-news-headline-card {
+    border: 1px solid rgba(34, 211, 238, 0.28);
+    border-left: 3px solid rgba(34, 211, 238, 0.72);
+    border-radius: 7px;
+    background: linear-gradient(135deg, rgba(8, 22, 36, 0.96), rgba(14, 28, 46, 0.92));
+    color: var(--text-secondary);
+    display: block;
+    min-height: 142px;
+    padding: 0.72rem 0.82rem;
+    text-decoration: none;
+    transition: border-color 0.12s ease, background 0.12s ease, transform 0.12s ease;
+}
+.research-news-headline-card:hover {
+    border-color: rgba(34, 211, 238, 0.72);
+    background: linear-gradient(135deg, rgba(10, 32, 50, 0.98), rgba(18, 36, 58, 0.96));
+    transform: translateY(-1px);
+}
+.research-news-headline-card.is-muted {
+    cursor: default;
+}
+.research-news-headline-card.is-muted:hover {
+    border-color: rgba(34, 211, 238, 0.28);
+    background: linear-gradient(135deg, rgba(8, 22, 36, 0.96), rgba(14, 28, 46, 0.92));
+    transform: none;
+}
+.research-news-headline-top {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.36rem;
+    margin-bottom: 0.42rem;
+}
+.research-news-headline-chip {
+    border: 1px solid rgba(148, 163, 184, 0.42);
+    border-radius: 999px;
+    color: var(--text-caption);
+    font-size: 0.72rem;
+    font-weight: 820;
+    line-height: 1.25;
+    padding: 0.14rem 0.45rem;
+}
+.research-news-headline-chip.primary {
+    border-color: rgba(34, 211, 238, 0.52);
+    color: var(--text-ai-title);
+}
+.research-news-headline-chip.positive {
+    border-color: rgba(52, 211, 153, 0.52);
+    color: var(--text-positive);
+}
+.research-news-headline-chip.risk {
+    border-color: rgba(251, 191, 36, 0.58);
+    color: var(--text-warning);
+}
+.research-news-headline-title {
+    color: var(--text-heading);
+    font-size: 0.98rem;
+    font-weight: 850;
+    line-height: 1.42;
+    margin-bottom: 0.45rem;
+    overflow-wrap: anywhere;
+}
+.research-news-headline-meta {
+    color: var(--text-caption);
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 0.78rem;
+    gap: 0.45rem 0.72rem;
+    line-height: 1.45;
+    margin-bottom: 0.42rem;
+}
+.research-news-headline-meta strong {
+    color: var(--text-ai-primary);
+    font-weight: 830;
+}
+.research-news-headline-summary {
+    color: var(--text-secondary);
+    font-size: 0.84rem;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+}
+.research-news-headline-action {
+    color: var(--text-ai-title);
+    font-size: 0.78rem;
+    font-weight: 820;
+    margin-top: 0.54rem;
+}
+.research-news-summary-list {
+    display: grid;
+    gap: 0.6rem;
+    margin-top: 0.68rem;
+}
+.research-news-summary-card {
+    border: 1px solid var(--border-default);
+    border-radius: 7px;
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    display: block;
+    padding: 0.7rem 0.82rem;
+    text-decoration: none;
+}
+.research-news-summary-card[href]:hover {
+    border-color: rgba(34, 211, 238, 0.58);
+    background: rgba(15, 33, 55, 0.92);
 }
 .research-point-list {
     display: grid;
@@ -6753,7 +6862,7 @@ def _news_summary_html(
     return (
         '<section class="research-result-brief">'
         f'<div class="research-result-brief-title">{html.escape(RESEARCH_NEWS_SUMMARY_TITLE)}</div>'
-        f'<div class="research-evidence-list">{body}</div>'
+        f'<div class="research-news-summary-list">{body}</div>'
         "</section>"
     )
 
@@ -6780,10 +6889,9 @@ def _investment_hint_news_panel_html(
         '<section class="research-result-brief">'
         '<div class="research-result-brief-title">投資ヒントとなるニュース</div>'
         '<div class="research-result-brief-summary">'
-        "ニュースだけを切り出し、業績・成長・株主還元・リスクなどの確認観点で整理します。"
-        "売買推奨ではなく、次に確認する材料として扱ってください。"
+        "外部ニュースの見出しだけを分けて表示します。気になるカードをクリックして、本文と一次情報を確認してください。"
         "</div>"
-        f'<div class="research-evidence-list">{cards}</div>'
+        f'<div class="research-news-headline-list">{cards}</div>'
         f"{more}"
         "</section>"
     )
@@ -6806,12 +6914,10 @@ def _investment_hint_news_rows(
                 "sentiment": _stock_news_sentiment_label(news.sentiment_for_investment),
                 "category": _stock_news_viewpoint_label(news.investment_viewpoint),
                 "title": news.title,
-                "summary": _research_brief_ui_text(news.summary, max_chars=180),
+                "summary": _research_brief_ui_text(news.summary, max_chars=140),
                 "source": news.source or "ニュース",
                 "published_at": news.published_at.isoformat() if news.published_at else "未確認",
                 "freshness": _research_freshness_status_label(news.freshness_status),
-                "why": _stock_news_investment_impact(news.sentiment_for_investment),
-                "next_check": _investment_hint_news_next_check(news),
                 "url": url,
             }
         )
@@ -6821,57 +6927,30 @@ def _investment_hint_news_rows(
 def _investment_hint_news_card_html(row: dict[str, str]) -> str:
     sentiment = row.get("sentiment", "中立材料")
     tone = _research_sentiment_css_class(sentiment)
-    freshness = row.get("freshness", "")
-    freshness_markup = (
-        f'<span class="research-evidence-pill">鮮度: {html.escape(freshness)}</span>'
-        if freshness
-        else ""
-    )
-    meta_parts = [
-        f"出典: {row.get('source', 'ニュース')}",
-        f"公開日: {row.get('published_at', '未確認')}",
-    ]
-    meta = " / ".join(html.escape(part) for part in meta_parts if part)
+    url = row.get("url", "")
+    title = row.get("title", "ニュース")
+    published_at = row.get("published_at", "未確認")
+    freshness = row.get("freshness", "未確認")
+    source = row.get("source", "ニュース")
+    summary = row.get("summary", "")
     return (
-        '<article class="research-evidence-item">'
-        '<div class="research-evidence-card-header">'
-        f'<span class="research-evidence-pill {tone}">{html.escape(sentiment)}</span>'
-        f'<span class="research-evidence-pill">{html.escape(row.get("category", "ニュース材料"))}</span>'
-        f"{freshness_markup}"
+        f'<a class="research-news-headline-card" href="{html.escape(url, quote=True)}" '
+        f'target="_blank" rel="noopener noreferrer" aria-label="{html.escape(title, quote=True)}">'
+        '<div class="research-news-headline-top">'
+        '<span class="research-news-headline-chip primary">外部ニュース</span>'
+        f'<span class="research-news-headline-chip {tone}">{html.escape(sentiment)}</span>'
+        f'<span class="research-news-headline-chip">{html.escape(row.get("category", "ニュース材料"))}</span>'
         "</div>"
-        f'<div class="research-evidence-title">{html.escape(row.get("title", "ニュース"))}</div>'
-        '<div class="research-evidence-body">'
-        '<span class="research-evidence-label">要約: </span>'
-        f'{html.escape(row.get("summary", ""))}</div>'
-        '<div class="research-evidence-body">'
-        '<span class="research-evidence-label">なぜ見るか: </span>'
-        f'{html.escape(row.get("why", ""))}</div>'
-        '<div class="research-evidence-body">'
-        '<span class="research-evidence-label">追加確認: </span>'
-        f'{html.escape(row.get("next_check", ""))}</div>'
-        f'<div class="research-evidence-meta">{meta}</div>'
-        '<div class="research-evidence-actions">'
-        f'<a href="{html.escape(row.get("url", ""), quote=True)}" '
-        'target="_blank" rel="noopener noreferrer">ニュースを開く</a>'
+        f'<div class="research-news-headline-title">{html.escape(title)}</div>'
+        '<div class="research-news-headline-meta">'
+        f"<span>公開日 <strong>{html.escape(published_at)}</strong></span>"
+        f"<span>鮮度 <strong>{html.escape(freshness)}</strong></span>"
+        f"<span>出典 <strong>{html.escape(source)}</strong></span>"
         "</div>"
-        "</article>"
+        f'<div class="research-news-headline-summary">{html.escape(summary)}</div>'
+        '<div class="research-news-headline-action">ニュースを開く</div>'
+        "</a>"
     )
-
-
-def _investment_hint_news_next_check(news: StockNewsEvidence) -> str:
-    viewpoint_checks = {
-        "earnings": "売上・利益・ガイダンスへの影響を決算資料や会社発表で確認します。",
-        "growth": "事業成長や新サービスの継続性を、公式IRや関連開示で確認します。",
-        "shareholder_return": "配当・自社株買いの方針と継続性を、公式IRで確認します。",
-        "risk": "業績・需要・費用への影響が一時的か継続的かを確認します。",
-        "macro": "金利、為替、規制、景気影響を他の指標と合わせて確認します。",
-        "other": "株価材料として、価格トレンドや公式発表との整合を確認します。",
-    }
-    if news.sentiment_for_investment == "negative":
-        return "注意材料として、会社発表と業績影響を優先して確認します。"
-    if news.sentiment_for_investment == "mixed":
-        return "良い材料と注意材料を分け、どちらが業績に効くか確認します。"
-    return viewpoint_checks.get(news.investment_viewpoint, viewpoint_checks["other"])
 
 
 def _news_summary_item_html(
@@ -6887,32 +6966,71 @@ def _news_summary_item_html(
         security_type=security_type,
     )
     source = _latest_topic_source_label(item, security_type=security_type)
-    confirmation_label = _latest_topic_confirmation_label(
-        item,
-        security_type=security_type,
-    )
-    status_label = _information_status_label(getattr(item, "information_status", "unverified"))
-    status_tone = _information_status_tone(getattr(item, "information_status", "unverified"))
-    url_markup = (
-        '<div class="research-evidence-meta">'
-        f"URL: {html.escape(_research_brief_ui_text(item.source_url or '', max_chars=96))}</div>"
-        if item.source_url
-        else ""
-    )
-    return (
-        '<article class="research-evidence-item">'
-        '<div class="research-evidence-card-header">'
-        f'<span class="research-evidence-pill">{html.escape(topic_type)} {index}</span>'
-        f'<span class="research-evidence-pill">影響カテゴリ: {html.escape(impact)}</span>'
-        f'<span class="research-evidence-pill confidence-low">公式確認: {html.escape(confirmation_label)}</span>'
-        f'<span class="research-evidence-pill confidence-{html.escape(status_tone)}">状態: {html.escape(status_label)}</span>'
+    status_text = _news_summary_short_status(item, security_type=security_type)
+    url = _displayable_source_url(item.source_url)
+    action_label = _news_summary_action_label(item, security_type=security_type)
+    content = (
+        '<div class="research-news-headline-top">'
+        f'<span class="research-news-headline-chip primary">{html.escape(topic_type)} {index}</span>'
+        f'<span class="research-news-headline-chip">{html.escape(impact)}</span>'
+        f'<span class="research-news-headline-chip">{html.escape(status_text)}</span>'
         "</div>"
-        f'<div class="research-evidence-title">{html.escape(item.title)}</div>'
-        f'<div class="research-evidence-body">{html.escape(item.summary)}</div>'
-        f'<div class="research-evidence-meta">出典: {html.escape(source)} / {html.escape(published)}</div>'
-        f"{url_markup}"
-        "</article>"
+        f'<div class="research-news-headline-title">{html.escape(item.title)}</div>'
+        '<div class="research-news-headline-meta">'
+        f"<span>公開日 <strong>{html.escape(published)}</strong></span>"
+        f"<span>出典 <strong>{html.escape(source)}</strong></span>"
+        "</div>"
+        f'<div class="research-news-headline-summary">{html.escape(_research_brief_ui_text(item.summary, max_chars=150))}</div>'
     )
+    if url:
+        return (
+            f'<a class="research-news-summary-card" href="{html.escape(url, quote=True)}" '
+            f'target="_blank" rel="noopener noreferrer" aria-label="{html.escape(item.title, quote=True)}">'
+            f"{content}"
+            f'<div class="research-news-headline-action">{html.escape(action_label)}</div>'
+            "</a>"
+        )
+    return '<article class="research-news-summary-card">' f"{content}" "</article>"
+
+
+def _news_summary_short_status(
+    item: NewsSummaryItem,
+    *,
+    security_type: SecurityResearchType,
+) -> str:
+    if not getattr(item, "official_confirmation_required", True):
+        return "公式確認済み"
+    status = getattr(item, "information_status", "unverified")
+    if status == "unparsed":
+        return "本文未解析"
+    if security_type == "foreign_stock":
+        return "公式IR/SEC確認"
+    return "公式確認が必要"
+
+
+def _news_summary_action_label(
+    item: NewsSummaryItem,
+    *,
+    security_type: SecurityResearchType,
+) -> str:
+    topic_type = getattr(item, "topic_type", "news")
+    if security_type == "foreign_stock" and topic_type in {
+        "tdnet",
+        "ir_disclosure",
+        "earnings",
+        "forecast_revision",
+        "shareholder_return",
+    }:
+        return "資料を開く"
+    if topic_type in {
+        "tdnet",
+        "ir_disclosure",
+        "earnings",
+        "forecast_revision",
+        "shareholder_return",
+    }:
+        return "開示資料を開く"
+    return "ニュースを開く"
 
 
 def _latest_topic_type_label(

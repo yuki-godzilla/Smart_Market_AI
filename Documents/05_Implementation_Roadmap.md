@@ -866,13 +866,282 @@ Phase 21.5 の対象外:
 - R7: コックピット / Report / optional score plumbing。ランキング順位統合は現時点では行わない。
 - R8: External Source Adapter。live scraping / external source は adapter 化し、通常 checks は fake adapter / fixture で代替する。
 
-Phase 22.x 候補: 投資ニュースダッシュボード
+Phase 22.x: 投資ニュースダッシュボード MVP
 
-- Phase 22 の主目的は、Research Score をコックピット深掘りと Cockpit Decision Report の確認材料として整えることに置く。
-- `投資ニュース` dashboard は Phase 21.5 で Stock News RAG の型が固まった後の候補として整理する。Phase 22 本体を置き換えず、着手する場合は Phase 22.x または Phase 23+ の UI slice として扱う。
-- 現在実装済みのニュースURL導線は、Cockpit Research Summary 内の補助折りたたみです。独立した投資ニュース専用ダッシュボード、ニュース横断ランキング、News Score 化は後続候補のままです。
-- Dashboard 範囲: 新画面 `投資ニュース`、今日の注目トピック、注目ジャンル、注目業界、リスクニュース、ニュースカード一覧、source URL / published_at / summary / investment_viewpoint 表示、ポジティブ材料とリスク材料の分離表示、後で銘柄コックピットへ接続できる導線設計。
-- Dashboard 対象外: Research Score のランキング順位統合、ニュースだけでランキングを変更すること、自動売買判断、buy / sell / hold 判断、高度なクラスタリング、Watchlist 連動、portfolio 連動。
+状態: 方針整理済み / 実装候補
+
+目的: 新画面 `投資ニュース` を、単なるニュース一覧ではなく、市場全体の温度感、注目テーマ、関連銘柄への深掘り導線を提供する市場ニュースコックピットとして設計する。ニュースだけで判断を完結させず、気になる材料を `銘柄コックピット` で確認する入口にする。
+
+現在の前提:
+
+- 既存実装では、Cockpit Research Summary 内に `Market Intelligence`、URL付き `投資ヒントとなるニュース`、`ニュース・開示の出典` citation list がある。
+- 独立した `投資ニュース` 画面、ニュース横断ランキング、News Score 化、Watchlist 連動、通知は未実装。
+- Phase 22 本体の Research Score 方針は維持し、投資ニュース dashboard は Phase 22.x の UI / backend snapshot slice として扱う。
+
+MVP 必須機能:
+
+- 上部: 流れるマーケット概況ニュース
+  - 固定サマリーではなく、ニュースティッカー / 速報カード / 重要ニュースの自動ローテーション風 UI を配置する。
+  - 表示項目は title、source_name、source_type、published_at、freshness_status、material_type、related_symbols、短いAIコメント、元記事URL。
+  - MVP では realtime 通信は不要。fake fixture / snapshot 内のニュースを一定間隔で切り替える UI でよい。
+  - ユーザー操作による一時停止、hover 時停止、URLクリックを将来拡張しやすい構造にする。
+- 中央上: 加熱テーマ・ヒートマップ
+  - 価格変動ではなくニュース加熱度ヒートマップにする。
+  - `heat = news_count * freshness_weight * material_weight` を初期案とし、カテゴリ、news_count、risk_count、positive_count、official_source_count、freshness_ratio を表示する。
+  - heat が高いセルは強調、リスク材料が多いセルは警戒色、ポジティブ材料が多いセルはポジティブ色、公式開示が多いセルは badge 表示にする。
+  - セルクリックで下部カテゴリレーンへフォーカスできるとよい。
+- 中央下: 投資カテゴリ別ニュースレーン
+  - 国内株、米国株、ETF、半導体・AI、金融、エネルギー、為替・金利、決算・業績修正、配当・株主還元、政策・規制、地政学・マクロリスクを初期カテゴリ候補にする。
+  - 各カテゴリに 3〜5 件程度のコンパクトニュースカードを表示する。
+  - カード項目は title、source_name、source_type、url、published_at、fetched_at、freshness_status、summary、material_type、related_symbols、official_source badge、AI分析コメント、投資確認観点。
+- AI分析コメント / 投資確認観点
+  - MVP では LLM 生成は不要。material_type / category / source_type に応じた deterministic template comment でよい。
+  - `ai_comment: str | None` と `investment_checkpoints: list[str]` を保持し、将来 LLM / RAG 生成へ差し替えやすい関数境界にする。
+  - コメントは売買推奨に見えないようにし、買い / 売り / 今すぐ投資 / 必ず上がる / 確実に儲かる等の断定表現を避ける。
+- 銘柄コックピットで確認 導線
+  - `related_symbols` が1件以上あるニュースカードには、銘柄チップと `銘柄コックピットで確認` 導線を表示する。
+  - ニュースだけで銘柄評価、Investment Score、Research Score、ランキング順位を変更しない。
+
+MVP で見送る機能:
+
+- 右側フィルタ、詳細なニュース一覧、高度な検索、ソース別の細かい絞り込み。
+- Watchlist 連動、通知、SNS sentiment、高度なクラスタリング。
+- News Score、ニュースによる Investment Score / Ranking 順位への統合。
+- 売買推奨、自動売買、buy / sell / hold 判断。
+
+実装候補:
+
+- `backend/news/contracts.py`: `NewsHeadlineCard`、`NewsHeatmapCell`、`NewsCategoryLane`、`NewsDashboardSnapshot`。
+- `backend/news/dashboard_service.py`: `build_news_dashboard_snapshot`、`classify_news_category`、`classify_material_type`、`build_news_stream`、`build_heatmap_cells`、`build_category_lanes`、`build_ai_comment`、`build_investment_checkpoints`。
+- `ui/views/news.py`: `投資ニュース` 画面。ニュースストリーム、加熱テーマヒートマップ、カテゴリ別ニュースレーンを表示する。
+- `ui/components/sidemenu.py` / `ui/app.py`: `投資ニュース` を side menu と routing に追加する。
+
+データ構造案:
+
+```python
+class NewsHeadlineCard(BaseModel):
+    title: str
+    summary: str | None = None
+    url: str | None = None
+    source_name: str | None = None
+    source_type: str
+    published_at: datetime | None = None
+    fetched_at: datetime | None = None
+    freshness_status: str
+    category: str
+    region: str | None = None
+    material_type: str
+    related_symbols: list[str] = []
+    is_official_source: bool = False
+    ai_comment: str | None = None
+    investment_checkpoints: list[str] = []
+
+class NewsHeatmapCell(BaseModel):
+    category: str
+    region: str | None = None
+    news_count: int
+    risk_count: int
+    positive_count: int
+    official_source_count: int
+    freshness_ratio: float
+    heat_score: float
+    dominant_material_type: str | None = None
+
+class NewsCategoryLane(BaseModel):
+    category: str
+    headlines: list[NewsHeadlineCard]
+
+class NewsDashboardSnapshot(BaseModel):
+    generated_at: datetime
+    fetched_at: datetime | None = None
+    freshness_status: str
+    stream_headlines: list[NewsHeadlineCard]
+    heatmap_cells: list[NewsHeatmapCell]
+    category_lanes: list[NewsCategoryLane]
+```
+
+テスト方針:
+
+- `tests/test_news_dashboard_service.py` を追加し、fake fixture から network-free に snapshot を生成する。
+- stream_headlines、heatmap_cells、category_lanes、source URL 保持、related_symbols ありの場合の Cockpit 導線対象、ai_comment、investment_checkpoints を確認する。
+- published_at / fetched_at 欠落時も壊れないことを確認する。
+- 禁止表現テストとして、買い、売り、今すぐ投資、必ず上がる、確実に儲かる等を含まないことを確認する。
+
+Phase 22.x 完了条件:
+
+- サイドメニューから `投資ニュース` 画面を開ける。
+- 上部に流れるマーケットニュースストリームが表示される。
+- ニュースカードが自動ローテーション風に表示される。
+- 加熱テーマ・ヒートマップが表示される。
+- 投資カテゴリ別ニュースレーンが表示される。
+- ニュースカードにAI分析コメント / 投資確認観点が表示される。
+- 関連銘柄があるニュースカードに `銘柄コックピットで確認` 導線が表示される。
+- 元記事URLがクリック可能。
+- 右側フィルタ / 詳細一覧は未実装でよい。
+- fake fixture による network-free regression test が通る。
+- 既存の Research Summary / ニュースURL表示仕様を壊さない。
+
+Phase 22.y: News Background Refresh & Cache Layer
+
+状態: 方針整理済み / 実装候補
+
+目的: 投資ニュースダッシュボードのニュース取得、分類、AIコメント生成、ヒートマップ生成を、起動時、手動更新、将来の定期更新で繰り返しても、ニュースキャッシュ、更新履歴、取得ログ、エラーログ、一時ファイル、古い snapshot、source raw data、debug dump が無制限に増えないようにする。ローカルアプリとして長期利用してもストレージを圧迫しない設計を MVP 時点から入れる。
+
+基本方針:
+
+- メインキャッシュは原則として最新の `NewsDashboardSnapshot` 1件だけを保持する。
+  - 保存先候補: `data/cache/news_dashboard_snapshot.json`
+  - 更新成功時は既存ファイルを上書きし、古い snapshot を無制限に残さない。
+- 直前バックアップは最大1世代まで保持してよい。
+  - 保存先候補: `data/cache/news_dashboard_snapshot.prev.json`
+  - 更新開始前に現行 snapshot を `.prev` に退避し、更新成功後に新 snapshot を保存する。
+  - 更新失敗時は現行または `.prev` を維持する。
+  - `.prev.1`、`.prev.2` のような多世代 backup は作らない。
+- raw source data は原則として永続化しない。
+  - 保存するのは UI 表示と再利用に必要な正規化済みデータのみ。
+  - 保存対象は title、summary、url、source_name、source_type、published_at、fetched_at、freshness_status、category、material_type、related_symbols、ai_comment、investment_checkpoints、heatmap_cells、category_lanes。
+  - provider raw response、HTML本文全文、取得本文全文、debug dump、大量履歴配列は保存しない。
+  - debug flag が有効な場合だけ一時保存を検討し、通常運用では保存しない。
+
+ログ設計:
+
+- ニュース更新処理用ログを追加する場合は、必ず `logging.handlers.RotatingFileHandler` を使う。
+  - 保存先候補: `logs/news_update.log`
+  - 推奨設定: `maxBytes=1MB`、`backupCount=3`
+  - 最大でも `news_update.log`、`news_update.log.1`、`news_update.log.2`、`news_update.log.3` 程度に収める。
+- INFOログは更新処理の要約のみ残す。
+  - 残してよい情報: refresh started、refresh skipped because cache is fresh、refresh succeeded、refresh failed、generated_at、fetched_at、news_count、heatmap_cell_count、category_lane_count、elapsed_ms、error type。
+  - 残さない情報: ニュース本文全文、provider raw response、HTML全文、API key、認証情報、個人情報、巨大JSON、stack trace の過剰な重複。
+- ERRORログも肥大化させない。
+  - 連続失敗回数を status に持つ。
+  - 同一エラーの連続出力を抑制できる構造にする。
+  - stack trace は必要最小限にし、大量リトライをしない。
+  - リトライ回数には上限を設ける。
+
+キャッシュサイズ上限:
+
+- `NewsDashboardSnapshot` は保存前に軽量化し、件数・文字数上限を適用する。
+- MVP 目安:
+  - `MAX_NEWS_ITEMS = 100`
+  - `MAX_STREAM_HEADLINES = 20`
+  - `MAX_HEADLINES_PER_CATEGORY = 5`
+  - `MAX_HEATMAP_CELLS = 30`
+  - `MAX_CHECKPOINTS_PER_NEWS = 3`
+  - `MAX_SUMMARY_CHARS = 300`
+  - `MAX_AI_COMMENT_CHARS = 240`
+- 保存前の正規化では、件数上限、summary truncate、ai_comment truncate、investment_checkpoints 最大3件、related_symbols 重複除去、None / 空文字整理、raw field 排除を必ず行う。
+- URLなしカードは必要以上に保存しない。ただし dashboard 表示上の警告や資料不足表示に必要な最小カードは許容する。
+
+一時ファイル / Atomic Save:
+
+- 更新中に一時ファイルを使う場合は `data/cache/news_dashboard_snapshot.tmp.json` に書く。
+- tmp に書き込み、JSONとして読み直せることを確認し、既存 snapshot を `.prev` に退避してから tmp を本ファイルへ atomic replace する。
+- 保存成功後は tmp を削除する。
+- 起動時に古い tmp が残っていたら削除する。
+- tmp ファイルを履歴化しない。
+- 更新失敗時は既存キャッシュを壊さない。
+
+Cache Cleanup:
+
+- 起動時または更新後に軽量な `cleanup_news_cache_files()` を実行する。
+- 削除対象は `data/cache` 配下の news dashboard 関連ファイルに限定する。
+- 削除対象候補: 古い `.tmp` ファイル、2世代以上の古い backup、debug dump、想定外に増えた snapshot copy、一定日数以上前の一時ファイル。
+- MVPでは aggressive に削除しすぎず、想定外ファイルの削除範囲は名前 prefix / suffix で明確に限定する。
+
+更新頻度制御:
+
+- fresh 状態では自動更新しない。
+- 起動時も TTL 内なら更新を skip する。
+- 手動更新は `force=True` で許可する。
+- 連続失敗時に短時間で再試行し続けない。
+- 初期候補:
+  - `MIN_REFRESH_INTERVAL_MINUTES = 30`
+  - `NEWS_CACHE_FRESH_HOURS = 3`
+  - `NEWS_CACHE_EXPIRED_HOURS = 24`
+  - `MAX_REFRESH_RETRY = 1`
+
+状態ファイル:
+
+- 必要であれば、更新状態だけを軽量に保存する。
+  - 保存先候補: `data/cache/news_update_status.json`
+  - 保持内容: last_attempt_at、last_success_at、last_error_at、last_error_type、consecutive_failures、is_refreshing、cache_file_size_bytes。
+  - 履歴配列は持たず、最新状態のみ保存する。
+
+UI表示:
+
+- `投資ニュース` 画面には、肥大化防止に関係する状態を簡潔に表示できるようにする。
+  - 例: `最終更新: 21:15`、`状態: fresh`、`キャッシュ: 182KB`、`バックグラウンド更新中`
+  - エラー時: `ニュース更新に失敗しました。前回キャッシュを表示しています。`
+  - 詳細な stack trace や巨大ログは UI に出さない。
+
+実装候補:
+
+- `backend/news/contracts.py`
+- `backend/news/dashboard_service.py`
+- `backend/news/cache.py`
+- `backend/news/update_manager.py`
+- `backend/news/logging_utils.py`
+
+関数候補:
+
+```python
+def cleanup_news_cache_files() -> None:
+    ...
+
+def get_news_cache_file_size() -> int | None:
+    ...
+
+def normalize_snapshot_for_cache(
+    snapshot: NewsDashboardSnapshot,
+) -> NewsDashboardSnapshot:
+    ...
+
+def save_cached_news_dashboard_snapshot(
+    snapshot: NewsDashboardSnapshot,
+) -> None:
+    ...
+
+def load_cached_news_dashboard_snapshot() -> NewsDashboardSnapshot | None:
+    ...
+
+def rotate_previous_snapshot() -> None:
+    ...
+
+def configure_news_update_logger() -> logging.Logger:
+    ...
+```
+
+テスト方針:
+
+- 追加候補: `tests/test_news_cache_cleanup.py`、`tests/test_news_cache_limits.py`、`tests/test_news_update_logging.py`
+- 確認観点:
+  - snapshot 保存時に件数上限が適用される。
+  - category_lanes が1カテゴリ最大5件に制限される。
+  - stream_headlines が最大20件に制限される。
+  - summary / ai_comment が最大文字数で truncate される。
+  - investment_checkpoints が最大3件に制限される。
+  - related_symbols が重複除去される。
+  - raw response field が保存されない。
+  - `.prev` が1世代以上増えない。
+  - `.tmp` が保存成功後に削除される。
+  - 起動時 cleanup で古い tmp が削除される。
+  - 更新失敗時に既存 cache が破壊されない。
+  - ログファイルが `RotatingFileHandler` で設定される。
+  - ログに巨大JSONや本文全文が出力されない。
+  - TTL 内では自動更新が skip される。
+  - 連続失敗時に過剰リトライしない。
+
+Phase 22.y 完了条件:
+
+- 最新 snapshot 1件と最大1世代 backup のみを保持する。
+- raw provider response / HTML本文全文 / debug dump を通常運用で保存しない。
+- snapshot 保存前に件数上限・文字数上限・重複除去・raw field 排除が適用される。
+- atomic save により、更新失敗時も既存 cache が壊れない。
+- cache cleanup が news dashboard 関連ファイルだけを対象に安全に動く。
+- 更新ログはローテーションされ、本文全文・巨大JSON・秘密情報を出さない。
+- TTL / 最小更新間隔 / retry 上限により、background refresh が走りすぎない。
+- UI に最終更新、freshness、cache size、fallback 状態を簡潔に表示できる。
+- network-free tests で cache limit、cleanup、logging、TTL skip、failure fallback を確認する。
 
 完了条件:
 
@@ -884,7 +1153,7 @@ Phase 22.x 候補: 投資ニュースダッシュボード
 
 ### 5.9 Phase 23: 低コストAssistant体験
 
-状態: 計画中
+状態: 初期backend slice 実装中
 
 目的: Decision Report context と Research Summary を入力にし、初心者向けの質問応答・説明を deterministic template で提供する。
 
@@ -895,6 +1164,12 @@ Phase 22.x 候補: 投資ニュースダッシュボード
 - cockpit / ranking / rebalance / report / research context から assistant context を組み立てる。
 - Streamlit に質問パネルまたは assistant view を追加する。
 - 応答は理由、注意点、次に確認する観点、非助言文言を含める。
+
+現在の実装メモ:
+
+- `backend/assistant` に `AssistantRequest` / `AssistantResponse` と `TemplateAssistantService` の初期 slice を追加済み。LLM / network なしで、`DecisionReportContext` から質問意図、関連 section、理由、注意点、次の確認観点、引用 section を deterministic に整理する。
+- Assistant は買う / 売る / 保有などの指示には答えず、スコア、リスク、根拠資料、未確認項目を確認するための説明に限定する。
+- 初期 slice は backend service / unit tests まで。API / Streamlit 質問パネルは次の slice として扱う。
 
 完了条件:
 

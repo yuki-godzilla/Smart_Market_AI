@@ -971,3 +971,24 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Consolidated the stacked Research Summary detail expanders into a single `詳細情報・開発者向け` panel.
 - Kept the normal user path focused on company / metric / IR / news summaries, citation-style source links, and primary company-understanding checkpoints.
 - Removed advanced sections whose purpose overlapped with the already-visible summaries, citations, and confirmation points; the panel now keeps Research Score, data quality, retrieval quality, extracted claims, evidence detail, and external-source fetch status without changing fetch logic, Research Score calculation, Investment Score, or ranking order.
+
+## 2026-06-03 - Phase 23 low-cost Assistant backend slice
+
+- Added `backend/assistant` with `AssistantRequest`, `AssistantResponse`, citations, intent classification, and `TemplateAssistantService`.
+- Kept the first Assistant slice deterministic and network-free: it reads existing `DecisionReportContext` sections and returns reasons, cautions, next checkpoints, and cited sections without LLM calls.
+- Added an explicit advice-boundary path for buy / sell / hold style questions, so the Assistant explains confirmation materials without giving trade instructions.
+- Updated the roadmap, project context, and FS-014 tracking to mark Phase 23 as an initial backend slice with API / Streamlit UI still pending.
+
+## 2026-06-03 - Phase 22.x Investment News dashboard MVP planning
+
+- Updated the roadmap for a planned independent `投資ニュース` market-news cockpit screen.
+- Defined MVP-priority UI blocks: flowing market news stream, news-heat theme heatmap, investment-category news lanes, deterministic AI comment / confirmation checkpoints, and related-symbol handoff to Symbol Cockpit.
+- Clarified MVP exclusions: right-side filters, detailed search, Watchlist notifications, SNS sentiment, advanced clustering, News Score, score/ranking integration, buy/sell/hold judgement, and automation.
+- Added FS-021 to track the product-safety boundary that investment news must remain a confirmation-material entry point rather than a recommendation engine.
+
+## 2026-06-03 - Phase 22.y News refresh and cache planning
+
+- Added Phase 22.y for the Investment News dashboard background refresh and cache layer.
+- Required bounded local storage from MVP: latest snapshot only, one previous backup, no raw source persistence by default, atomic save, tmp cleanup, and cache normalization limits.
+- Added rotating news update log requirements with `RotatingFileHandler`, summary-only INFO logs, bounded ERROR behavior, TTL / retry controls, and lightweight update status.
+- Added FS-022 to track storage / operations risk for news cache, logs, raw data, debug dumps, and refresh retry behavior.

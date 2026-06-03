@@ -16,7 +16,6 @@ from backend.news import (
     get_news_cache_file_size,
     load_cached_news_dashboard_snapshot,
     load_news_update_status,
-    news_snapshot_item_count,
     refresh_news_dashboard_cache,
 )
 from ui.components.mascot import render_page_title
@@ -91,8 +90,8 @@ def news_dashboard_status_items(
     return [
         {
             "label": "表示ニュース",
-            "value": f"{news_snapshot_item_count(snapshot)}件",
-            "caption": "保存済み + カテゴリ表示",
+            "value": f"{news_dashboard_unique_headline_count(snapshot)}件",
+            "caption": "重複を除いた見出し数",
         },
         {
             "label": "ヒートマップ",
@@ -212,8 +211,21 @@ def news_dashboard_handoff_symbols(snapshot: NewsDashboardSnapshot) -> list[str]
     return symbols
 
 
+def news_dashboard_unique_headline_count(snapshot: NewsDashboardSnapshot) -> int:
+    """Return unique headline count for user-facing status display."""
+
+    seen: set[tuple[str, str, str]] = set()
+    cards = list(snapshot.stream_headlines)
+    for lane in snapshot.category_lanes:
+        cards.extend(lane.headlines)
+    for card in cards:
+        published = card.published_at.isoformat() if card.published_at else ""
+        seen.add((card.title.strip(), card.url or "", published))
+    return len(seen)
+
+
 def news_symbol_handoff_label(symbol: str) -> str:
-    """Return a compact symbol handoff label with known company name."""
+    """Return a symbol handoff label with known company name."""
 
     normalized = symbol.strip().upper()
     try:
@@ -221,7 +233,7 @@ def news_symbol_handoff_label(symbol: str) -> str:
     except OSError:
         name = None
     if name and name.strip().upper() != normalized:
-        return f"{normalized} / {truncate_text(name, max_chars=18)}"
+        return f"{normalized} / {name}"
     return normalized
 
 
@@ -321,8 +333,12 @@ def _render_heatmap(snapshot: NewsDashboardSnapshot) -> None:
         st.info("投資ヒートマップを集計できる材料はまだありません。")
         return
     base = alt.Chart(frame).encode(
-        x=alt.X("投資カテゴリ:N", title=None, sort="-color"),
-        y=alt.Y("分野:N", title=None),
+        x=alt.X("分野:N", title=None),
+        y=alt.Y(
+            "投資カテゴリ:N",
+            title=None,
+            sort=alt.EncodingSortField(field="加熱度", order="descending"),
+        ),
         tooltip=[
             alt.Tooltip("投資カテゴリ:N"),
             alt.Tooltip("分野:N"),
@@ -361,7 +377,7 @@ def _render_heatmap(snapshot: NewsDashboardSnapshot) -> None:
         fontWeight="bold",
         fontSize=13,
     ).encode(text=alt.Text("値動き表示:N"))
-    chart = (rect + text).properties(height=max(180, 48 * frame["分野"].nunique()))
+    chart = (rect + text).properties(height=max(260, 44 * frame["投資カテゴリ"].nunique()))
     st.altair_chart(style_altair_chart(chart), use_container_width=True)
 
 
@@ -403,7 +419,7 @@ def _render_symbol_handoff_buttons(
         label = news_symbol_handoff_label(symbol)
         with cols[index % len(cols)]:
             st.button(
-                truncate_text(label, max_chars=28),
+                truncate_text(label, max_chars=34),
                 key=f"investment_news_open_{key_prefix}_{symbol}",
                 help=f"{label}を銘柄コックピットで確認します。",
                 use_container_width=True,

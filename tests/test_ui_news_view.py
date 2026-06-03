@@ -5,6 +5,7 @@ from ui.views.news import (
     news_dashboard_handoff_symbols,
     news_dashboard_heatmap_frame,
     news_dashboard_status_items,
+    news_dashboard_unique_headline_count,
     news_headline_card_html,
     news_symbol_handoff_label,
 )
@@ -21,6 +22,8 @@ def test_news_dashboard_status_items_distinguish_demo_and_cache():
     )
 
     assert items[0]["label"] == "表示ニュース"
+    assert items[0]["value"] == "8件"
+    assert items[0]["caption"] == "重複を除いた見出し数"
     assert items[2]["value"] == "最新"
     assert items[3]["value"] == "キャッシュ"
     assert items[3]["caption"] == "2.0KB"
@@ -75,13 +78,23 @@ def test_news_dashboard_handoff_symbols_are_unique_in_display_order():
     assert "NVDA" in symbols
 
 
+def test_news_dashboard_unique_headline_count_deduplicates_lanes():
+    snapshot = build_demo_news_dashboard_snapshot(
+        now=datetime(2026, 6, 4, 10, 0, tzinfo=UTC),
+    )
+
+    assert len(snapshot.stream_headlines) == 8
+    assert sum(len(lane.headlines) for lane in snapshot.category_lanes) == 8
+    assert news_dashboard_unique_headline_count(snapshot) == 8
+
+
 def test_news_symbol_handoff_label_includes_known_company_name(monkeypatch):
     monkeypatch.setattr(
         "ui.views.news.symbol_name",
-        lambda symbol: "NVIDIA" if symbol == "NVDA" else None,
+        lambda symbol: "NVIDIA Corporation" if symbol == "NVDA" else None,
     )
 
-    assert news_symbol_handoff_label("nvda") == "NVDA / NVIDIA"
+    assert news_symbol_handoff_label("nvda") == "NVDA / NVIDIA Corporation"
 
 
 def test_news_symbol_handoff_label_falls_back_when_name_lookup_fails(monkeypatch):

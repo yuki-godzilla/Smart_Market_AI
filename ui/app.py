@@ -403,6 +403,15 @@ class RankingResearchStatus:
 
 RANKING_RESULT_GRID_CUSTOM_CSS = RANKING_GRID_CUSTOM_CSS
 RANKING_MISSING_DISPLAY = "N/A"
+RANKING_GRID_NOWRAP_CELL_STYLE = {
+    "overflow": "hidden",
+    "textOverflow": "ellipsis",
+    "whiteSpace": "nowrap",
+}
+RANKING_GRID_NUMERIC_CELL_STYLE = {
+    **RANKING_GRID_NOWRAP_CELL_STYLE,
+    "textAlign": "right",
+}
 RANKING_ABNORMAL_DIVIDEND_DISPLAY = "要確認"
 RANKING_TABLE_BASE_COLUMNS = (
     "順位",
@@ -2211,17 +2220,31 @@ def ranking_result_aggrid_options(
         enableCellTextSelection=True,
     )
     if "順位" in frame.columns:
-        builder.configure_column("順位", width=64, pinned="left", filter=False)
+        builder.configure_column(
+            "順位",
+            width=58,
+            pinned="left",
+            filter=False,
+            cellStyle=RANKING_GRID_NUMERIC_CELL_STYLE,
+        )
     if "銘柄" in frame.columns:
-        builder.configure_column("銘柄", width=96, pinned="left")
+        builder.configure_column(
+            "銘柄",
+            width=92,
+            pinned="left",
+            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
+        )
     if "銘柄名" in frame.columns:
         builder.configure_column(
             "銘柄名",
-            minWidth=220,
+            width=200,
+            minWidth=170,
+            maxWidth=260,
             pinned="left",
             tooltipField="銘柄名",
-            wrapText=True,
-            autoHeight=True,
+            wrapText=False,
+            autoHeight=False,
+            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
         )
     for column in (
         "総合スコア",
@@ -2257,32 +2280,59 @@ def ranking_result_aggrid_options(
             )
             builder.configure_column(
                 column,
-                width=118,
+                width=92,
                 filter=False,
                 headerName=header_name,
                 comparator=RANKING_NUMERIC_SORT_COMPARATOR,
                 sortingOrder=sorting_order,
                 unSortIcon=True,
+                wrapText=False,
+                autoHeight=False,
+                cellStyle=RANKING_GRID_NUMERIC_CELL_STYLE,
             )
     if "方向一致" in frame.columns:
-        builder.configure_column("方向一致", width=142, headerName="モデル方向")
+        builder.configure_column(
+            "方向一致",
+            width=112,
+            headerName="モデル方向",
+            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
+        )
     if "信頼度/根拠" in frame.columns:
-        builder.configure_column("信頼度/根拠", width=168, tooltipField="信頼度/根拠")
+        builder.configure_column(
+            "信頼度/根拠",
+            width=142,
+            tooltipField="信頼度/根拠",
+            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
+        )
     if "根拠状態" in frame.columns:
-        builder.configure_column("根拠状態", width=138)
+        builder.configure_column(
+            "根拠状態",
+            width=116,
+            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
+        )
     if "見方" in frame.columns:
-        builder.configure_column("見方", width=112)
+        builder.configure_column(
+            "見方",
+            width=96,
+            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
+        )
     for column in ("NISA", "投資スタイル", "時価総額", "連動指数", "通貨", "複雑性"):
         if column in frame.columns:
-            builder.configure_column(column, width=130)
+            builder.configure_column(
+                column,
+                width=112,
+                cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
+            )
     if "確認メモ" in frame.columns:
         builder.configure_column(
             "確認メモ",
-            minWidth=360,
-            flex=1,
+            width=420,
+            minWidth=300,
+            maxWidth=520,
             tooltipField="確認詳細",
-            wrapText=True,
-            autoHeight=True,
+            wrapText=False,
+            autoHeight=False,
+            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
         )
     for column in ("確認詳細", "並べ替え理由", "確認ポイント"):
         if column in frame.columns:

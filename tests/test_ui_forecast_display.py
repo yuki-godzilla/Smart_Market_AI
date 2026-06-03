@@ -2918,6 +2918,39 @@ def test_ranking_result_aggrid_options_enable_single_row_click_selection():
     assert column_defs["並べ替え理由"]["tooltipField"] == "並べ替え理由"
 
 
+def test_ranking_result_aggrid_options_keep_detail_table_cells_compact():
+    options = ranking_result_aggrid_options(
+        pd.DataFrame(
+            [
+                {
+                    "順位": "1",
+                    "銘柄": "7203.T",
+                    "銘柄名": "トヨタ自動車",
+                    "総合スコア": "82.16",
+                    "PER": "8.2",
+                    "PBR": "1.0",
+                    "ROE": "11.7%",
+                    "確認メモ": "総合スコアと上昇気配、下降警戒、Risk、品質の偏りを確認します。",
+                    "確認詳細": "詳細な確認メモです。",
+                }
+            ]
+        )
+    )
+
+    column_defs = {column["field"]: column for column in options["columnDefs"]}
+    assert column_defs["順位"]["width"] == 58
+    assert column_defs["銘柄名"]["wrapText"] is False
+    assert column_defs["銘柄名"]["autoHeight"] is False
+    assert column_defs["総合スコア"]["width"] == 92
+    assert column_defs["PER"]["cellStyle"]["whiteSpace"] == "nowrap"
+    assert column_defs["PER"]["cellStyle"]["textAlign"] == "right"
+    assert column_defs["確認メモ"]["width"] == 420
+    assert "flex" not in column_defs["確認メモ"]
+    assert column_defs["確認メモ"]["wrapText"] is False
+    assert column_defs["確認メモ"]["autoHeight"] is False
+    assert column_defs["確認メモ"]["cellStyle"]["textOverflow"] == "ellipsis"
+
+
 def test_ranking_result_aggrid_options_assigns_metric_sort_directions():
     frame = pd.DataFrame(
         [

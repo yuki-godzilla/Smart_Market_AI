@@ -100,3 +100,6 @@ def test_global_theme_tokens_define_dark_financial_ai_palette():
     assert "rgba(17, 31, 53, 0.46)" in SMAI_GLOBAL_CSS
     assert ".smai-metric-card:hover" in SMAI_GLOBAL_CSS
     assert RANKING_GRID_CUSTOM_CSS[".ag-header"]["background-color"].startswith("#122038")
+    assert RANKING_GRID_CUSTOM_CSS[".ag-cell"]["white-space"] == "nowrap"
+    assert RANKING_GRID_CUSTOM_CSS[".ag-cell"]["text-overflow"] == "ellipsis"
+    assert RANKING_GRID_CUSTOM_CSS[".ag-cell-value"]["white-space"] == "nowrap"

@@ -135,13 +135,17 @@ RANKING_GRID_CUSTOM_CSS = {
         "color": f"{THEME_COLORS['text_value']} !important",
         "font-weight": "600",
         "line-height": "1.35",
-        "overflow-wrap": "anywhere",
-        "white-space": "normal",
+        "overflow": "hidden",
+        "overflow-wrap": "normal",
+        "text-overflow": "ellipsis",
+        "white-space": "nowrap",
     },
     ".ag-cell-value": {
         "color": f"{THEME_COLORS['text_value']} !important",
-        "overflow-wrap": "anywhere",
-        "white-space": "normal",
+        "overflow": "hidden",
+        "overflow-wrap": "normal",
+        "text-overflow": "ellipsis",
+        "white-space": "nowrap",
     },
 }
 

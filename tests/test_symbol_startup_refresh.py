@@ -96,6 +96,30 @@ def test_startup_refresh_skips_when_recent_batch_succeeded(tmp_path) -> None:
     assert second.record_count == 1
 
 
+def test_startup_refresh_default_batch_caps_at_eighty_symbols(tmp_path) -> None:
+    csv_path = _write_symbol_universe(
+        tmp_path,
+        [
+            {
+                "symbol": f"T{index:04d}",
+                "name": f"Test {index:04d}",
+                "market": "us",
+                "asset_type": "stock",
+            }
+            for index in range(100)
+        ],
+    )
+
+    summary = run_symbol_database_startup_refresh(
+        cache_dir=tmp_path,
+        symbol_universe_csv=csv_path,
+        now=datetime(2026, 6, 3, 12, 0, 0),
+    )
+
+    assert summary.succeeded_count == 80
+    assert summary.record_count == 80
+
+
 def _write_symbol_universe(tmp_path: Path, rows: list[dict[str, str]]) -> Path:
     csv_path = tmp_path / "symbol_universe.csv"
     fields = [

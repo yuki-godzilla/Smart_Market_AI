@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import html
 import json
+import os
 import re
 import time as perf_time
 from dataclasses import dataclass
@@ -78,7 +79,7 @@ from backend.research import (
 )
 from backend.scoring import InvestmentScoringService
 from backend.screening import ScreeningService
-from backend.symbols.startup import run_symbol_database_startup_refresh
+from backend.symbols.background import start_symbol_background_refresh_worker
 from ui.components.mascot import (
     render_app_header,
     render_mascot_loading,
@@ -1458,7 +1459,7 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
 def main() -> None:
     st.set_page_config(page_title="Smart Market AI", layout="wide")
     render_global_styles()
-    _run_symbol_database_startup_refresh_once()
+    _start_symbol_background_refresh_worker_once()
 
     selected_page = render_sidemenu(runtime_settings_summary())
     render_app_header()
@@ -1472,18 +1473,28 @@ def main() -> None:
         render_settings_page()
 
 
-def _run_symbol_database_startup_refresh_once() -> None:
-    state_key = "symbol_database_startup_refresh_summary"
+def _start_symbol_background_refresh_worker_once() -> None:
+    state_key = "symbol_background_refresh_worker_started"
     if state_key in st.session_state:
         return
     try:
-        summary = run_symbol_database_startup_refresh()
-        st.session_state[state_key] = summary.model_dump(mode="json")
+        start_symbol_background_refresh_worker(delay_scale=_symbol_background_refresh_delay_scale())
+        st.session_state[state_key] = True
     except Exception as exc:
         st.session_state[state_key] = {
             "failed": True,
             "error_type": type(exc).__name__,
         }
+
+
+def _symbol_background_refresh_delay_scale() -> float:
+    raw_value = os.environ.get("SMAI_SYMBOL_BACKGROUND_REFRESH_DELAY_SCALE", "").strip()
+    if not raw_value:
+        return 1.0
+    try:
+        return max(0.0, float(raw_value))
+    except ValueError:
+        return 1.0
 
 
 def default_market_data_start_date() -> date:

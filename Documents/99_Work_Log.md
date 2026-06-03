@@ -1026,3 +1026,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Fixed refresh status persistence so `last_attempt_at` survives the final status save and can be used for interval checks.
 - Corrected the `ORR` ETF row in `symbol_universe.csv`: kept the high `expense_ratio_pct=10.91` value, changed `complexity` to `advanced`, removed the inconsistent `low_cost` tag, and marked `data_quality=WARN`.
 - Revalidated `symbol_universe.csv`; schema validation remained OK with 0 issues.
+
+## 2026-06-03 - Symbol DB background worker cadence
+
+- Replaced the visible-startup path with a daemon background worker so Streamlit rendering is not blocked by symbol DB maintenance.
+- Set the short-session cadence to 80 symbols immediately, 40 after 3 minutes, 40 after 8 minutes, then 30 every 5 minutes.
+- Kept fresh-symbol skip behavior and added a 500-symbol per-session safety cap to avoid runaway background work.
+- Added network-free tests for the short-session plan, recurring batch behavior, and early stop when no missing/stale symbols remain.

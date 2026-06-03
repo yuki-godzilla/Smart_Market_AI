@@ -26,8 +26,12 @@ def configure_symbol_refresh_logger(
     logger.setLevel(logging.INFO)
     logger.propagate = False
 
+    resolved_log_file = log_file.resolve()
     for handler in logger.handlers:
-        if isinstance(handler, RotatingFileHandler) and Path(handler.baseFilename) == log_file:
+        if (
+            isinstance(handler, RotatingFileHandler)
+            and Path(handler.baseFilename).resolve() == resolved_log_file
+        ):
             return logger
 
     handler = RotatingFileHandler(

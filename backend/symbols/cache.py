@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import os
 from collections.abc import Sequence
 from datetime import datetime, timedelta
 from pathlib import Path
+from time import sleep
 from typing import Final
 
 from pydantic import TypeAdapter
@@ -24,6 +26,8 @@ MAX_PERSISTED_REFRESH_TASKS = 100
 MAX_STATUS_SYMBOLS = 20
 MAX_TASK_RETRY = 1
 STALE_LOCK_MINUTES = 30
+ATOMIC_REPLACE_RETRY_COUNT = 5
+ATOMIC_REPLACE_RETRY_DELAY_SECONDS = 0.05
 
 _TASK_LIST_ADAPTER = TypeAdapter(list[SymbolRefreshTask])
 
@@ -61,7 +65,7 @@ def save_symbol_refresh_queue(
             encoding="utf-8",
         )
         _TASK_LIST_ADAPTER.validate_json(tmp_file.read_text(encoding="utf-8"))
-        tmp_file.replace(queue_file)
+        _replace_with_retry(tmp_file, queue_file)
     finally:
         if tmp_file.exists():
             tmp_file.unlink()
@@ -104,7 +108,7 @@ def save_symbol_refresh_status(
     try:
         tmp_file.write_text(normalized.model_dump_json(indent=2), encoding="utf-8")
         SymbolRefreshStatus.model_validate_json(tmp_file.read_text(encoding="utf-8"))
-        tmp_file.replace(status_file)
+        _replace_with_retry(tmp_file, status_file)
     finally:
         if tmp_file.exists():
             tmp_file.unlink()
@@ -248,6 +252,17 @@ def _read_lock_created_at(path: Path) -> datetime | None:
 
 def _cache_path(cache_dir: Path | str, filename: str) -> Path:
     return Path(cache_dir) / filename
+
+
+def _replace_with_retry(source: Path, target: Path) -> None:
+    for attempt in range(ATOMIC_REPLACE_RETRY_COUNT):
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            if attempt >= ATOMIC_REPLACE_RETRY_COUNT - 1:
+                raise
+            sleep(ATOMIC_REPLACE_RETRY_DELAY_SECONDS)
 
 
 def _normalize_symbol_set(symbols: set[str] | None) -> set[str]:

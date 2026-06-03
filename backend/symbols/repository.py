@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
+from time import sleep
 from typing import Final
 
 from pydantic import TypeAdapter
@@ -13,6 +15,8 @@ SYMBOL_RECORDS_TMP_FILENAME: Final[str] = "symbols_cache.tmp.json"
 
 MAX_NORMALIZED_FIELDS = 80
 MAX_FIELD_TEXT_CHARS = 300
+ATOMIC_REPLACE_RETRY_COUNT = 5
+ATOMIC_REPLACE_RETRY_DELAY_SECONDS = 0.05
 
 _SYMBOL_RECORD_MAP_ADAPTER = TypeAdapter(dict[str, SymbolRecord])
 _RAW_FIELD_KEYWORDS = (
@@ -74,7 +78,7 @@ def save_symbol_record(
             encoding="utf-8",
         )
         _SYMBOL_RECORD_MAP_ADAPTER.validate_json(tmp_file.read_text(encoding="utf-8"))
-        tmp_file.replace(records_file)
+        _replace_with_retry(tmp_file, records_file)
     finally:
         if tmp_file.exists():
             tmp_file.unlink()
@@ -140,3 +144,14 @@ def _normalize_symbol(symbol: str) -> str:
 
 def _cache_path(cache_dir: Path | str, filename: str) -> Path:
     return Path(cache_dir) / filename
+
+
+def _replace_with_retry(source: Path, target: Path) -> None:
+    for attempt in range(ATOMIC_REPLACE_RETRY_COUNT):
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            if attempt >= ATOMIC_REPLACE_RETRY_COUNT - 1:
+                raise
+            sleep(ATOMIC_REPLACE_RETRY_DELAY_SECONDS)

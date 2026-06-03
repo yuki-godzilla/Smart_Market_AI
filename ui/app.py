@@ -78,6 +78,7 @@ from backend.research import (
 )
 from backend.scoring import InvestmentScoringService
 from backend.screening import ScreeningService
+from backend.symbols.startup import run_symbol_database_startup_refresh
 from ui.components.mascot import (
     render_app_header,
     render_mascot_loading,
@@ -1457,6 +1458,7 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
 def main() -> None:
     st.set_page_config(page_title="Smart Market AI", layout="wide")
     render_global_styles()
+    _run_symbol_database_startup_refresh_once()
 
     selected_page = render_sidemenu(runtime_settings_summary())
     render_app_header()
@@ -1468,6 +1470,20 @@ def main() -> None:
         render_rebalance_page()
     else:
         render_settings_page()
+
+
+def _run_symbol_database_startup_refresh_once() -> None:
+    state_key = "symbol_database_startup_refresh_summary"
+    if state_key in st.session_state:
+        return
+    try:
+        summary = run_symbol_database_startup_refresh()
+        st.session_state[state_key] = summary.model_dump(mode="json")
+    except Exception as exc:
+        st.session_state[state_key] = {
+            "failed": True,
+            "error_type": type(exc).__name__,
+        }
 
 
 def default_market_data_start_date() -> date:

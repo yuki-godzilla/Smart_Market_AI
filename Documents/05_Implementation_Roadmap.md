@@ -1161,7 +1161,8 @@ Phase 22.z: 銘柄データベース自動リフレッシュ基盤
 - 22.z-1: `backend/symbols/contracts.py` と `backend/symbols/refresh_priority.py` を追加し、`data_freshness_status`、usage / importance / stale / recent view / ranking / manual refresh bonus、`refresh_priority_score`、更新キュー作成・ソートを deterministic に実装。
 - 22.z-2: `backend/symbols/cache.py` を追加し、`symbol_refresh_queue.json`、`symbol_refresh_status.json`、`symbol_refresh.lock` の atomic save / bounded persistence / in_progress 復旧 / stale lock / cleanup を実装。
 - 22.z-3: `backend/symbols/repository.py`、`backend/symbols/refresh_manager.py`、`backend/symbols/logging_utils.py` を追加し、正規化済み latest-only `SymbolRecord` 保存、raw/debug field 除外、1銘柄単位の保存、provider失敗時の既存データ維持、`RotatingFileHandler` ログを実装。
-- 通常確認は network-free tests のみで完結し、実provider取得やUI連携は後続Phaseの接続作業として扱う。
+- 22.z-4 follow-up: `backend/symbols/startup.py` と `ui/app.py` startup hook を追加し、アプリ起動時に `data/marketdata/symbol_universe.csv` から最大20件ずつ local-first に `symbols_cache.json` へ正規化保存する。既存 fresh 銘柄はskipし、次回起動で次の missing / stale 銘柄へ進む。検証では 20件 -> 40件へ前進し、`pending` / `retryable` / `in_progress` は0件だった。
+- 通常確認は network-free tests のみで完結する。実provider取得や visible UI freshness badge は後続Phaseの接続作業として扱う。
 
 基本UX:
 

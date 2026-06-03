@@ -1013,3 +1013,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Implemented deterministic freshness classification, usage / importance / stale / recent view / ranking / manual refresh priority scoring, bounded queue sorting, and fresh-symbol skip behavior.
 - Added atomic queue/status persistence, in-progress recovery, stale lock cleanup, latest-only normalized symbol record storage, raw/debug field filtering, and failure-safe one-symbol refresh execution that preserves existing data.
 - Kept the slice network-free with targeted tests for priority, cache/lock recovery, repository atomic save, manager success/failure behavior, and logger rotation.
+
+## 2026-06-03 - Symbol DB startup refresh verification / hookup
+
+- Confirmed that the first Phase 22.z foundation was not yet called from the app startup path: launching the app initially produced no `symbol_refresh_queue.json`, `symbol_refresh_status.json`, or `symbols_cache.json`.
+- Added `backend/symbols/startup.py` and a Streamlit startup hook that runs a bounded local-first refresh from `data/marketdata/symbol_universe.csv` without network access.
+- Verified startup execution in bare Streamlit mode: first run created 20 normalized symbol records with `pending_like_count=0`; second run advanced to 40 records, kept `refresh_queue_size=0`, and left no `pending` / `retryable` / `in_progress` tasks.

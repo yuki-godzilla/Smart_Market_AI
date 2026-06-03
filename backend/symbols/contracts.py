@@ -137,3 +137,16 @@ class SymbolRecord(StrictBaseModel):
     last_fundamental_updated_at: datetime | None = None
     data_freshness_status: SymbolFreshnessStatus = "fresh"
     normalized_fields: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
+
+
+class SymbolStartupRefreshSummary(StrictBaseModel):
+    """Compact startup-refresh summary for UI/session diagnostics."""
+
+    attempted_count: int = Field(ge=0)
+    succeeded_count: int = Field(ge=0)
+    failed_count: int = Field(ge=0)
+    skipped_count: int = Field(ge=0)
+    pending_like_count: int = Field(ge=0)
+    record_count: int = Field(ge=0)
+    queue_symbols: list[str] = Field(default_factory=list)
+    refreshed_symbols: list[str] = Field(default_factory=list)

@@ -1006,3 +1006,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added latest snapshot load/save, one-generation `.prev` backup, `.tmp` atomic save, news-dashboard-only cleanup, cache-size helper, and latest-only update status persistence.
 - Added rotating news-update logger configuration and refresh manager behavior for TTL/minimum-interval skip, force refresh, bounded retry, failure fallback, and summary-only logging.
 - Added network-free tests for atomic save, cleanup, status persistence, log rotation, TTL skip, success refresh, failure fallback, and prevention of huge raw error text in logs.
+
+## 2026-06-03 - Phase 22.z symbol database background refresh foundation
+
+- Added the Phase 22.z backend foundation in three committed slices: refresh contracts / priority queue, queue persistence / recovery / lock, and repository / refresh manager / rotating logging.
+- Implemented deterministic freshness classification, usage / importance / stale / recent view / ranking / manual refresh priority scoring, bounded queue sorting, and fresh-symbol skip behavior.
+- Added atomic queue/status persistence, in-progress recovery, stale lock cleanup, latest-only normalized symbol record storage, raw/debug field filtering, and failure-safe one-symbol refresh execution that preserves existing data.
+- Kept the slice network-free with targeted tests for priority, cache/lock recovery, repository atomic save, manager success/failure behavior, and logger rotation.

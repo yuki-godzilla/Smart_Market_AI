@@ -1152,9 +1152,16 @@ Phase 22.y 完了条件:
 
 Phase 22.z: 銘柄データベース自動リフレッシュ基盤
 
-状態: 計画中
+状態: 実装完了
 
 目的: 銘柄データベースを、画面操作時に都度取得するだけの構成から、アプリ起動中にバックグラウンドで順次リフレッシュされる構成へ拡張する。アプリ起動直後は前回保存済みデータを即利用し、裏側で古い銘柄、重要銘柄、使用頻度の高い銘柄、直近閲覧銘柄から順次更新する。ランキング画面や銘柄コックピットで古すぎるデータに依存し続けることを避けつつ、画面表示を重くしない設計を目指す。
+
+実装メモ（2026-06-03）:
+
+- 22.z-1: `backend/symbols/contracts.py` と `backend/symbols/refresh_priority.py` を追加し、`data_freshness_status`、usage / importance / stale / recent view / ranking / manual refresh bonus、`refresh_priority_score`、更新キュー作成・ソートを deterministic に実装。
+- 22.z-2: `backend/symbols/cache.py` を追加し、`symbol_refresh_queue.json`、`symbol_refresh_status.json`、`symbol_refresh.lock` の atomic save / bounded persistence / in_progress 復旧 / stale lock / cleanup を実装。
+- 22.z-3: `backend/symbols/repository.py`、`backend/symbols/refresh_manager.py`、`backend/symbols/logging_utils.py` を追加し、正規化済み latest-only `SymbolRecord` 保存、raw/debug field 除外、1銘柄単位の保存、provider失敗時の既存データ維持、`RotatingFileHandler` ログを実装。
+- 通常確認は network-free tests のみで完結し、実provider取得やUI連携は後続Phaseの接続作業として扱う。
 
 基本UX:
 

@@ -8,6 +8,7 @@ from pydantic import Field
 from backend.core.data_contracts import StrictBaseModel
 
 SYMBOL_REFRESH_SCHEMA_VERSION = "symbol-refresh-v1"
+SYMBOL_RECORD_SCHEMA_VERSION = "symbol-record-v1"
 
 SymbolFreshnessStatus = Literal["fresh", "stale", "expired", "missing"]
 SymbolRefreshTaskStatus = Literal[
@@ -122,3 +123,17 @@ class SymbolRefreshStatus(StrictBaseModel):
     last_refreshed_symbols: list[str] = Field(default_factory=list)
     refresh_queue_size: int = Field(default=0, ge=0)
     is_refreshing: bool = False
+
+
+class SymbolRecord(StrictBaseModel):
+    """Normalized latest-only symbol data persisted by the refresh layer."""
+
+    schema_version: str = SYMBOL_RECORD_SCHEMA_VERSION
+    symbol: str = Field(min_length=1)
+    market: str | None = Field(default=None, min_length=1)
+    provider: str | None = Field(default=None, min_length=1)
+    updated_at: datetime
+    last_price_updated_at: datetime | None = None
+    last_fundamental_updated_at: datetime | None = None
+    data_freshness_status: SymbolFreshnessStatus = "fresh"
+    normalized_fields: dict[str, str | int | float | bool | None] = Field(default_factory=dict)

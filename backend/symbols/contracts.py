@@ -109,3 +109,16 @@ class SymbolRefreshResult(StrictBaseModel):
     failed_count: int = Field(ge=0)
     skipped_count: int = Field(ge=0)
     items: list[SymbolRefreshItemResult] = Field(default_factory=list)
+
+
+class SymbolRefreshStatus(StrictBaseModel):
+    """Latest-only state for symbol background refresh operations."""
+
+    last_attempt_at: datetime | None = None
+    last_success_at: datetime | None = None
+    last_error_at: datetime | None = None
+    last_error_type: str | None = Field(default=None, min_length=1)
+    consecutive_failures: int = Field(default=0, ge=0)
+    last_refreshed_symbols: list[str] = Field(default_factory=list)
+    refresh_queue_size: int = Field(default=0, ge=0)
+    is_refreshing: bool = False

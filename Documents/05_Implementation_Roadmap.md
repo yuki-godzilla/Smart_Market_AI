@@ -57,10 +57,11 @@ Research RAG は Phase 20 local evidence slice が決定的な土台として実
 
 - `polygon` などの追加 live provider adapter 本体
 - 追加 provider / fund metadata source adapter
-- Research RAG の `ResearchFactSummary` 抽出対象拡張、追加 external source adapter、Research Score の銘柄コックピット深掘り導線 / Decision Report 表示 polish
-- cockpit / report の Research Summary 表示 polish と source-backed fact 表示
+- Research RAG の `ResearchFactSummary` 抽出対象拡張、追加 external source adapter、vector / hybrid search の運用UI
+- 独立した `投資ニュース` dashboard UI。`backend/news` の cache/update foundation は実装済みで、Phase 22.x では Streamlit 画面と fake snapshot regression を接続する
+- 銘柄DB background refresh の visible freshness badge / live provider refresh wiring。`backend/symbols` の foundation と Streamlit daemon worker は実装済み
 - Research Score によるランキング順位統合は、現時点では見送り。必要性が再確認された場合のみ後続の opt-in 機能として扱う
-- Assistant / LLM / news integration
+- Assistant API / Streamlit 質問パネル、optional LLM provider。`backend/assistant` の deterministic template service は初期実装済み
 - broker への live order 送信
 - Execution workflow
 - PDF / Excel export
@@ -1161,7 +1162,7 @@ Phase 22.z: 銘柄データベース自動リフレッシュ基盤
 - 22.z-1: `backend/symbols/contracts.py` と `backend/symbols/refresh_priority.py` を追加し、`data_freshness_status`、usage / importance / stale / recent view / ranking / manual refresh bonus、`refresh_priority_score`、更新キュー作成・ソートを deterministic に実装。
 - 22.z-2: `backend/symbols/cache.py` を追加し、`symbol_refresh_queue.json`、`symbol_refresh_status.json`、`symbol_refresh.lock` の atomic save / bounded persistence / in_progress 復旧 / stale lock / cleanup を実装。
 - 22.z-3: `backend/symbols/repository.py`、`backend/symbols/refresh_manager.py`、`backend/symbols/logging_utils.py` を追加し、正規化済み latest-only `SymbolRecord` 保存、raw/debug field 除外、1銘柄単位の保存、provider失敗時の既存データ維持、`RotatingFileHandler` ログを実装。
-- 22.z-4 follow-up: `backend/symbols/startup.py` と `ui/app.py` startup hook を追加し、アプリ起動時に `data/marketdata/symbol_universe.csv` から最大20件ずつ local-first に `symbols_cache.json` へ正規化保存する。既存 fresh 銘柄はskipし、次回起動で次の missing / stale 銘柄へ進む。検証では 20件 -> 40件へ前進し、`pending` / `retryable` / `in_progress` は0件だった。
+- 22.z-4 follow-up: `backend/symbols/startup.py` と `ui/app.py` startup hook を追加し、その後 visible startup path から daemon background worker へ切り替え済み。現在の short-session plan は `data/marketdata/symbol_universe.csv` から 150 symbols immediately、75 after 3 minutes、75 after 8 minutes、then 50 every 5 minutes を local-first に `symbols_cache.json` へ正規化保存し、fresh records を skip しつつ 1000 symbols per session で止める。`symbol_refresh_queue.json` は成功 batch 後に空へ戻し、`pending` / `retryable` / `in_progress` を残さない。
 - 通常確認は network-free tests のみで完結する。実provider取得や visible UI freshness badge は後続Phaseの接続作業として扱う。
 
 基本UX:
@@ -1563,7 +1564,7 @@ Phase 22 完了条件:
 
 ### 5.9 Phase 23: 低コストAssistant体験
 
-状態: 初期backend slice 実装中
+状態: 初期backend slice 実装済み。API / Streamlit 質問パネルは次の slice
 
 目的: Decision Report context と Research Summary を入力にし、初心者向けの質問応答・説明を deterministic template で提供する。
 
@@ -1721,10 +1722,10 @@ Markdown UTF-8 check:
 ## 8. Open Items
 
 - Phase 16S の最終 Streamlit browser smoke をいつ実施するか
-- Ranking condition model をどのファイルに置き、UI 表示名と internal key をどう分けるか
-- provider fundamentals から symbol metadata を更新する command / cache / manifest の粒度
-- Decision Report に含める cockpit / ranking / rebalance context の最小 schema
-- Research Score を Investment Score に統合する重みと表示順
-- Assistant が参照できる context の範囲と privacy boundary
+- Phase 22.x `投資ニュース` dashboard MVP の fake snapshot / fixture、Streamlit route、side menu、関連銘柄 handoff をどう切るか
+- `投資ニュース` 画面で news cache status、fallback、freshness、cache size をどの密度で見せるか
+- Symbol DB background refresh の freshness badge / live provider refresh wiring を Ranking / Cockpit のどこへ接続するか
+- Research Score をランキング順位へ統合する必要性を再確認するか。既定では統合しない
+- Assistant が参照できる context の範囲、privacy boundary、API / Streamlit 質問パネルの位置
 - PDF / Excel export をいつ入れるか
 - Execution / broker order をどの段階で再開するか

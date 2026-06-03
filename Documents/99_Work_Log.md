@@ -1039,3 +1039,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Increased the symbol DB background refresh cadence after app smoke indicated low runtime load.
 - Updated the short-session plan to 150 symbols immediately, 75 after 3 minutes, 75 after 8 minutes, then 50 every 5 minutes.
 - Raised the per-session safety cap from 500 to 1000 symbols while keeping fresh-symbol skip, lock, and bounded batch behavior.
+
+## 2026-06-04 - Phase 22.x pre-implementation documentation sync
+
+- Reviewed the current implementation boundary before starting the Investment News dashboard MVP.
+- Updated README, operations guide, roadmap, project context, functional spec issues, and manual UX checklist so news cache / symbol DB refresh foundations are no longer described as future work.
+- Clarified that Phase 22.x is the next recommended UI slice, while `backend/news` cache/update foundation, `backend/symbols` background refresh foundation, and `backend/assistant` deterministic template service already exist.
+- Kept the next implementation target network-free by documenting fake snapshot / fixture regression, non-advice wording, URL/freshness/source visibility, and related-symbol handoff review points.

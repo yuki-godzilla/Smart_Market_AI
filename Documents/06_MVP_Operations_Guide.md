@@ -26,6 +26,14 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - Research RAG Phase 20 local evidence slice
   - local UTF-8 document registration, chunking, keyword evidence search, Research Summary / ResearchBrief
   - Settings upload, Cockpit `AI調査を更新`, Ranking modal `AI Research`, Cockpit Decision Report Research Evidence / Research Score
+- News dashboard cache/update backend foundation
+  - `NewsDashboardSnapshot` / `NewsUpdateStatus` contracts, latest snapshot cache, one-generation backup, atomic save, bounded cleanup, cache-size/status helpers
+  - TTL / minimum-interval skip, bounded retry, failure fallback, rotating update logs
+- Symbol database background refresh foundation
+  - freshness classification, refresh priority queue, queue/status recovery, latest-only normalized symbol cache
+  - Streamlit startup daemon worker that updates missing / stale local symbol records without blocking rendering
+- Low-cost Assistant backend first slice
+  - deterministic `TemplateAssistantService` that explains score / risk / research / next checkpoints from Decision Report context without LLM or network
 - Streamlit UI
   - Market Data: `銘柄コックピット` / `銘柄ランキング`
   - Rebalance: summary flow / allocation comparison / risk confirmation
@@ -38,7 +46,9 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - 追加 provider adapter / fund metadata source
 - 追加 Research RAG external source adapters / vector search の運用UI
 - Research Score によるランキング順位統合は現時点では見送り。Cockpit / Ranking Research Summary と Cockpit Decision Report への参考表示、Investment Score optional numeric input、disabled-by-default weight は対応済み
-- Assistant / LLM / news integration
+- 独立した `投資ニュース` dashboard UI。`backend/news` cache/update foundation は実装済みで、画面接続は Phase 22.x の次作業
+- Assistant API / Streamlit 質問パネル、optional LLM provider
+- 銘柄DB freshness badge / live provider refresh wiring の visible UI 接続
 - broker への live order 送信
 - Execution workflow
 - PDF / Excel export
@@ -46,6 +56,8 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 現在の MVP は、ローカル検証と説明用です。
 外部 API へ接続する場合は明示 opt-in が必要で、broker や execution provider へ注文を送りません。
 Research RAG / News RAG は実運用では情報鮮度が重要です。標準導線では、`AI調査を更新` が EDINET securities-report metadata/link（`EDINET_API_KEY` 設定時のみ live call、未設定時 no-op）、TDnet 適時開示、企業IRサイト、Google News RSS headline search、Yahoo Finance profile / news を取得/参照し、source URL、provider、published_at、fetched_at、freshness warning を確認材料として表示します。Yahoo Finance を使う Research 側 adapter は MarketData 側と同じ yfinance cache / shared session 設定を使います。Google News RSS は一般ニュースのヘッドライン幅を広げる補助sourceで、検索語は会社名・関連キーワード・銘柄コードに決算/業績/株価/配当などの投資文脈語を添えます。ニュースURL表示自体は `外部参照ソース` と詳細データに実装済みです。Cockpit Research Summary では、`最新ニュース・開示サマリー` の直後に `投資ヒントとなるニュース` と `ニュース・開示の出典を表示（URL付きN件）` を置きます。サマリと注目材料は `Market Intelligence` の主表示カードとして扱い、出典は初期折りたたみの小さな citation list としてURL付きニュース・TDnet・企業IR・EDINET・Google News・Yahoo Finance を確認できるようにします。ニュース専用URLが無い場合も、外部参照ソース側に公式資料・provider URLがある可能性を案内します。取得本文は既定では保持せず、session-local の一時参照として扱います。通常検証は fake adapter / fixture / RSS fixture を使い、network 非依存を維持します。
+
+Investment News dashboard は Phase 22.x の次ターゲットです。現時点で `backend/news` の snapshot / status / cache / refresh manager は実装済みですが、サイドメニューから開く独立した `投資ニュース` 画面は未実装です。MVP 実装では fake snapshot / fixture から市場ニュースストリーム、ニュース加熱テーマ、カテゴリ別ニュースレーン、関連銘柄の `銘柄コックピットで確認` 導線を表示し、Investment Score / Research Score / Ranking order は変更しません。
 
 ## 3. API 起動と確認
 

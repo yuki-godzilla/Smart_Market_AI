@@ -664,7 +664,7 @@ body,
     border-radius: 8px;
     background: linear-gradient(90deg, rgba(8, 27, 42, 0.9), rgba(11, 18, 32, 0.92));
     margin: 0.35rem 0 1rem;
-    min-height: 3.2rem;
+    min-height: 3.75rem;
 }
 
 .investment-news-ticker-track {
@@ -672,8 +672,8 @@ body,
     align-items: center;
     gap: 0.8rem;
     min-width: max-content;
-    padding: 0.72rem 0.8rem;
-    animation: investment-news-ticker-scroll 42s linear infinite;
+    padding: 0.88rem 0.9rem;
+    animation: investment-news-ticker-scroll 55s linear infinite;
 }
 
 .investment-news-ticker:hover .investment-news-ticker-track {
@@ -683,10 +683,10 @@ body,
 .investment-news-ticker-item {
     display: inline-flex;
     align-items: center;
-    gap: 0.45rem;
+    gap: 0.5rem;
     color: var(--text-primary);
-    font-size: 0.86rem;
-    font-weight: 680;
+    font-size: 1.02rem;
+    font-weight: 720;
     white-space: nowrap;
 }
 
@@ -695,7 +695,7 @@ body,
     border-radius: 999px;
     background: rgba(34, 211, 238, 0.09);
     color: var(--text-ai-title);
-    font-size: 0.72rem;
+    font-size: 0.8rem;
     font-weight: 800;
     padding: 0.12rem 0.46rem;
 }

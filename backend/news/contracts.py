@@ -33,10 +33,12 @@ class NewsHeadlineCard(StrictBaseModel):
 
 
 class NewsHeatmapCell(StrictBaseModel):
-    """News heat cell for market theme / category intensity."""
+    """Investment heat cell for market category intensity."""
 
     category: str = Field(min_length=1)
     region: str | None = Field(default=None, min_length=1)
+    price_change_pct: float | None = None
+    volume_activity_score: float | None = Field(default=None, ge=0.0)
     news_count: int = Field(ge=0)
     risk_count: int = Field(ge=0)
     positive_count: int = Field(ge=0)

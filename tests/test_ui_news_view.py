@@ -6,6 +6,7 @@ from ui.views.news import (
     news_dashboard_heatmap_frame,
     news_dashboard_status_items,
     news_headline_card_html,
+    news_symbol_handoff_label,
 )
 
 
@@ -32,8 +33,20 @@ def test_news_dashboard_heatmap_frame_is_user_facing():
     frame = news_dashboard_heatmap_frame(snapshot)
 
     assert not frame.empty
-    assert {"カテゴリ", "地域", "加熱度", "ニュース件数", "主な材料"}.issubset(set(frame.columns))
+    assert {
+        "投資カテゴリ",
+        "分野",
+        "加熱度",
+        "値動き",
+        "値動き表示",
+        "取引量",
+        "取引量目安",
+        "ニュース件数",
+        "主な材料",
+    }.issubset(set(frame.columns))
     assert frame["加熱度"].min() >= 0
+    assert frame["値動き"].notna().any()
+    assert frame["取引量"].notna().any()
 
 
 def test_news_headline_card_html_keeps_link_safe_and_hides_raw_url():
@@ -60,3 +73,21 @@ def test_news_dashboard_handoff_symbols_are_unique_in_display_order():
     assert symbols
     assert len(symbols) == len(set(symbols))
     assert "NVDA" in symbols
+
+
+def test_news_symbol_handoff_label_includes_known_company_name(monkeypatch):
+    monkeypatch.setattr(
+        "ui.views.news.symbol_name",
+        lambda symbol: "NVIDIA" if symbol == "NVDA" else None,
+    )
+
+    assert news_symbol_handoff_label("nvda") == "NVDA / NVIDIA"
+
+
+def test_news_symbol_handoff_label_falls_back_when_name_lookup_fails(monkeypatch):
+    def raise_permission_error(symbol: str) -> str | None:
+        raise PermissionError(symbol)
+
+    monkeypatch.setattr("ui.views.news.symbol_name", raise_permission_error)
+
+    assert news_symbol_handoff_label("7203.T") == "7203.T"

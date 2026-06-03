@@ -22,7 +22,7 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     )
     button_labels = [str(getattr(element, "label", "")) for element in app.button]
     assert "投資レーダー" in page_text
-    assert "マーケットニュースストリーム" in page_text
-    assert "ニュース加熱テーマ" in page_text
+    assert "市場ニュースヘッドライン" in page_text
+    assert "投資ヒートマップ" in page_text
     assert "カテゴリ別ニュースレーン" in page_text
     assert "ニュース表示を更新" in button_labels

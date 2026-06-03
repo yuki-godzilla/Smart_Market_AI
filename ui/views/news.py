@@ -21,6 +21,7 @@ from backend.news import (
 )
 from ui.components.mascot import render_page_title
 from ui.styles import THEME_COLORS, render_metric_card, style_altair_chart, truncate_text
+from ui.symbol_universe import symbol_name
 
 OpenSymbolCallback = Callable[[str], None]
 
@@ -62,7 +63,7 @@ def render_news_dashboard_page(
 
     render_page_title(
         "投資レーダー",
-        "市場ニュースの流れ、加熱テーマ、カテゴリ別材料を確認し、気になる銘柄を深掘りします。",
+        "市場ニュースの流れ、投資ヒートマップ、カテゴリ別材料を確認し、気になる銘柄を深掘りします。",
         "investment_radar",
     )
 
@@ -94,9 +95,9 @@ def news_dashboard_status_items(
             "caption": "保存済み + カテゴリ表示",
         },
         {
-            "label": "加熱テーマ",
+            "label": "ヒートマップ",
             "value": f"{len(snapshot.heatmap_cells)}件",
-            "caption": "ニュース量と鮮度で集計",
+            "caption": "値動き + 取引量 + ニュース",
         },
         {
             "label": "鮮度",
@@ -118,8 +119,18 @@ def news_dashboard_heatmap_frame(snapshot: NewsDashboardSnapshot) -> pd.DataFram
         [
             {
                 "カテゴリ": cell.category,
+                "投資カテゴリ": cell.category,
                 "地域": cell.region or "全体",
+                "分野": cell.region or "全体",
                 "加熱度": cell.heat_score,
+                "値動き": cell.price_change_pct,
+                "値動きスコア": cell.price_change_pct if cell.price_change_pct is not None else 0.0,
+                "値動き表示": _price_change_label(cell.price_change_pct),
+                "取引量": cell.volume_activity_score,
+                "取引量スコア": (
+                    cell.volume_activity_score if cell.volume_activity_score is not None else 1.0
+                ),
+                "取引量目安": _volume_label(cell.volume_activity_score),
                 "ニュース件数": cell.news_count,
                 "リスク材料": cell.risk_count,
                 "ポジティブ材料": cell.positive_count,
@@ -201,6 +212,19 @@ def news_dashboard_handoff_symbols(snapshot: NewsDashboardSnapshot) -> list[str]
     return symbols
 
 
+def news_symbol_handoff_label(symbol: str) -> str:
+    """Return a compact symbol handoff label with known company name."""
+
+    normalized = symbol.strip().upper()
+    try:
+        name = symbol_name(normalized)
+    except OSError:
+        name = None
+    if name and name.strip().upper() != normalized:
+        return f"{normalized} / {truncate_text(name, max_chars=18)}"
+    return normalized
+
+
 def _load_dashboard_snapshot() -> tuple[NewsDashboardSnapshot, NewsUpdateStatus, bool]:
     status = load_news_update_status()
     snapshot = load_cached_news_dashboard_snapshot()
@@ -272,7 +296,7 @@ def _render_news_stream(
     *,
     open_symbol_callback: OpenSymbolCallback,
 ) -> None:
-    st.markdown("### マーケットニュースストリーム")
+    st.markdown("### 市場ニュースヘッドライン")
     st.markdown(_news_ticker_html(snapshot.stream_headlines[:8]), unsafe_allow_html=True)
     featured = snapshot.stream_headlines[:3]
     if not featured:
@@ -290,18 +314,21 @@ def _render_news_stream(
 
 
 def _render_heatmap(snapshot: NewsDashboardSnapshot) -> None:
-    st.markdown("### ニュース加熱テーマ")
+    st.markdown("### 投資ヒートマップ")
+    st.caption("投資カテゴリごとの値動き、取引量の活発さ、ニュース量を合わせた確認用の温度感です。")
     frame = news_dashboard_heatmap_frame(snapshot)
     if frame.empty:
-        st.info("加熱テーマを集計できるニュースはまだありません。")
+        st.info("投資ヒートマップを集計できる材料はまだありません。")
         return
     base = alt.Chart(frame).encode(
-        x=alt.X("カテゴリ:N", title=None, sort="-color"),
-        y=alt.Y("地域:N", title=None),
+        x=alt.X("投資カテゴリ:N", title=None, sort="-color"),
+        y=alt.Y("分野:N", title=None),
         tooltip=[
-            alt.Tooltip("カテゴリ:N"),
-            alt.Tooltip("地域:N"),
+            alt.Tooltip("投資カテゴリ:N"),
+            alt.Tooltip("分野:N"),
             alt.Tooltip("加熱度:Q", format=".1f"),
+            alt.Tooltip("値動き:Q", format="+.1f"),
+            alt.Tooltip("取引量:Q", format=".2f"),
             alt.Tooltip("ニュース件数:Q"),
             alt.Tooltip("リスク材料:Q"),
             alt.Tooltip("ポジティブ材料:Q"),
@@ -312,23 +339,29 @@ def _render_heatmap(snapshot: NewsDashboardSnapshot) -> None:
     )
     rect = base.mark_rect(cornerRadius=4).encode(
         color=alt.Color(
-            "加熱度:Q",
-            title="加熱度",
+            "値動きスコア:Q",
+            title="値動き",
             scale=alt.Scale(
+                domain=[-3, 0, 3],
                 range=[
-                    THEME_COLORS["bg_card_hover"],
-                    THEME_COLORS["ai_cyan"],
                     THEME_COLORS["signal_risk"],
-                ]
+                    THEME_COLORS["bg_card_hover"],
+                    THEME_COLORS["signal_buy"],
+                ],
             ),
-        )
+        ),
+        opacity=alt.Opacity(
+            "取引量スコア:Q",
+            title="取引量",
+            scale=alt.Scale(domain=[1.0, 2.2], range=[0.65, 1.0]),
+        ),
     )
     text = base.mark_text(
         color=THEME_COLORS["text_title"],
         fontWeight="bold",
-        fontSize=12,
-    ).encode(text=alt.Text("ニュース件数:Q"))
-    chart = (rect + text).properties(height=max(180, 42 * frame["地域"].nunique()))
+        fontSize=13,
+    ).encode(text=alt.Text("値動き表示:N"))
+    chart = (rect + text).properties(height=max(180, 48 * frame["分野"].nunique()))
     st.altair_chart(style_altair_chart(chart), use_container_width=True)
 
 
@@ -367,11 +400,12 @@ def _render_symbol_handoff_buttons(
     st.caption("関連銘柄")
     cols = st.columns(min(3, len(symbols)))
     for index, symbol in enumerate(symbols[:3]):
+        label = news_symbol_handoff_label(symbol)
         with cols[index % len(cols)]:
             st.button(
-                truncate_text(symbol, max_chars=12),
+                truncate_text(label, max_chars=28),
                 key=f"investment_news_open_{key_prefix}_{symbol}",
-                help="銘柄コックピットで確認します。",
+                help=f"{label}を銘柄コックピットで確認します。",
                 use_container_width=True,
                 on_click=open_symbol_callback,
                 args=(symbol,),
@@ -426,3 +460,19 @@ def _cache_size_label(size_bytes: int | None) -> str:
     if size_bytes < 1024:
         return f"{size_bytes}B"
     return f"{size_bytes / 1024:.1f}KB"
+
+
+def _price_change_label(value: float | None) -> str:
+    if value is None:
+        return "未取得"
+    return f"{value:+.1f}%"
+
+
+def _volume_label(value: float | None) -> str:
+    if value is None:
+        return "未取得"
+    if value >= 1.8:
+        return "高い"
+    if value >= 1.3:
+        return "やや高い"
+    return "通常"

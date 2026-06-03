@@ -58,7 +58,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 外部 API へ接続する場合は明示 opt-in が必要で、broker や execution provider へ注文を送りません。
 Research RAG / News RAG は実運用では情報鮮度が重要です。標準導線では、`AI調査を更新` が EDINET securities-report metadata/link（`EDINET_API_KEY` 設定時のみ live call、未設定時 no-op）、TDnet 適時開示、企業IRサイト、Google News RSS headline search、Yahoo Finance profile / news を取得/参照し、source URL、provider、published_at、fetched_at、freshness warning を確認材料として表示します。Yahoo Finance を使う Research 側 adapter は MarketData 側と同じ yfinance cache / shared session 設定を使います。Google News RSS は一般ニュースのヘッドライン幅を広げる補助sourceで、検索語は会社名・関連キーワード・銘柄コードに決算/業績/株価/配当などの投資文脈語を添えます。ニュースURL表示自体は `外部参照ソース` と詳細データに実装済みです。Cockpit Research Summary では、`最新ニュース・開示サマリー` の直後に `投資ヒントとなるニュース` と `ニュース・開示の出典を表示（URL付きN件）` を置きます。サマリと注目材料は `Market Intelligence` の主表示カードとして扱い、出典は初期折りたたみの小さな citation list としてURL付きニュース・TDnet・企業IR・EDINET・Google News・Yahoo Finance を確認できるようにします。ニュース専用URLが無い場合も、外部参照ソース側に公式資料・provider URLがある可能性を案内します。取得本文は既定では保持せず、session-local の一時参照として扱います。通常検証は fake adapter / fixture / RSS fixture を使い、network 非依存を維持します。
 
-Investment News dashboard は Phase 22.x の初期MVPとして、サイドメニューの `投資レーダー` から開けます。現時点では `backend/news` の snapshot / status / cache / refresh manager と deterministic dashboard builder を使い、保存済みsnapshotがなければ fake snapshot / fixture から市場ニュースストリーム、ニュース加熱テーマ、カテゴリ別ニュースレーン、関連銘柄の `銘柄コックピット` 導線を表示します。Investment Score / Research Score / Ranking order は変更しません。外部ニュースsource接続、詳細フィルタ、Watchlist連動、通知は後続範囲です。
+Investment News dashboard は Phase 22.x の初期MVPとして、サイドメニューの `投資レーダー` から開けます。現時点では `backend/news` の snapshot / status / cache / refresh manager と deterministic dashboard builder を使い、保存済みsnapshotがなければ fake snapshot / fixture から市場ニュースヘッドライン、投資ヒートマップ、カテゴリ別ニュースレーン、銘柄名付き関連銘柄の `銘柄コックピット` 導線を表示します。Investment Score / Research Score / Ranking order は変更しません。外部ニュースsource接続、詳細フィルタ、Watchlist連動、通知は後続範囲です。
 
 ## 3. API 起動と確認
 
@@ -225,7 +225,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 | --- | --- |
 | `銘柄コックピット` | 1 銘柄の価格、予測、Investment Score、注意点を深掘りする |
 | `銘柄ランキング` | 複数銘柄を条件で絞り、Investment Score で比較する |
-| `投資レーダー` | 市場ニュース、加熱テーマ、カテゴリ別材料から確認候補を探す |
+| `投資レーダー` | 市場ニュース、投資ヒートマップ、カテゴリ別材料から確認候補を探す |
 | `リバランス` | 現在資産、目標配分、配分見直し候補、Risk 判定を確認する |
 | `設定 / データ情報` | Runtime、config、scenario directory、銘柄候補を確認する |
 
@@ -537,11 +537,11 @@ Phase 16 final UI smoke checklist:
 
 - 保存済み news dashboard snapshot。保存済みがない場合は network-free demo snapshot を表示する。
 - `ニュース表示を更新` で deterministic snapshot を再作成し、`data/cache/news_dashboard_snapshot.json` に保存する。
-- 表示ニュース件数、加熱テーマ数、snapshot鮮度、表示元 / cache size。
-- マーケットニュースストリーム。カードには title、source、published_at、freshness、category、AIコメント、確認ポイント、元記事リンクを表示する。
-- ニュース加熱テーマ heatmap。価格変動ではなく、ニュース件数、freshness、risk / positive / official source count から集計した確認優先度を見る。
+- 表示ニュース件数、ヒートマップ数、snapshot鮮度、表示元 / cache size。
+- 市場ニュースヘッドライン。読みやすい大きさのニュースティッカーとカードに title、source、published_at、freshness、category、AIコメント、確認ポイント、元記事リンクを表示する。
+- 投資ヒートマップ。投資カテゴリ / 分野ごとの値動き、取引量の活発さ、ニュース件数、freshness、risk / positive / official source count から集計した確認用の温度感を見る。
 - カテゴリ別ニュースレーン。カテゴリごとの代表ニュースと関連銘柄を確認する。
-- 関連銘柄ボタンから `銘柄コックピット` へ遷移する。Investment Score / Research Score / Ranking order は変更しない。
+- 関連銘柄ボタンにはシンボルと銘柄名 / 企業名を表示し、`銘柄コックピット` へ遷移する。Investment Score / Research Score / Ranking order は変更しない。
 
 運用上の注意:
 

@@ -1059,3 +1059,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Renamed the user-facing Investment News screen label to `投資レーダー` while keeping the internal `news` route key and backend Investment News contracts.
 - Generated and added `ui/assets/mascot/smai-title-investment-radar.webp`, a mascot title art with radar and news-card motifs.
 - Wired the new title art into `render_page_title` and updated sidebar labels, UI regression expectations, docs, wording policy, and review checklists.
+
+## 2026-06-04 - Investment Radar headline and heatmap UX
+
+- Renamed `マーケットニュースストリーム` to `市場ニュースヘッドライン` and enlarged / slowed the ticker text for readability.
+- Renamed `ニュース加熱テーマ` to `投資ヒートマップ` and added category price-change / volume-activity fields so tile color, opacity, and text prioritize visual market movement.
+- Updated related-symbol handoff buttons to include known local symbol names / company names before opening `銘柄コックピット`.

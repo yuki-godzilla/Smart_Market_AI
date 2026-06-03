@@ -54,6 +54,8 @@ def test_demo_news_dashboard_snapshot_has_no_recommendation_wording():
     assert snapshot.heatmap_cells
     assert snapshot.category_lanes
     assert any(card.related_symbols for card in snapshot.stream_headlines)
+    assert any(cell.price_change_pct is not None for cell in snapshot.heatmap_cells)
+    assert any(cell.volume_activity_score is not None for cell in snapshot.heatmap_cells)
     for card in snapshot.stream_headlines:
         text = " ".join(
             [

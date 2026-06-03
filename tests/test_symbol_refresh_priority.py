@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from backend.symbols.contracts import SymbolImportanceMeta, SymbolRefreshTask, SymbolUsageStats
+from backend.symbols.contracts import (
+    SymbolFreshnessStatus,
+    SymbolImportanceMeta,
+    SymbolRefreshTask,
+    SymbolUsageStats,
+)
 from backend.symbols.refresh_priority import (
     build_symbol_refresh_queue,
     calculate_symbol_refresh_priority,
@@ -130,7 +135,7 @@ def test_build_queue_applies_max_items_and_manual_refresh_for_fresh_symbol() -> 
 def _task(
     symbol: str,
     score: int,
-    freshness: str,
+    freshness: SymbolFreshnessStatus,
     last_refreshed_at: datetime,
     requested_at: datetime,
 ) -> SymbolRefreshTask:

@@ -13,7 +13,11 @@ from backend.symbols.cache import (
     save_symbol_refresh_queue,
     save_symbol_refresh_status,
 )
-from backend.symbols.contracts import SymbolRefreshStatus, SymbolRefreshTask
+from backend.symbols.contracts import (
+    SymbolRefreshStatus,
+    SymbolRefreshTask,
+    SymbolRefreshTaskStatus,
+)
 
 
 def test_symbol_refresh_queue_is_bounded_deduped_and_atomic(tmp_path) -> None:
@@ -108,7 +112,7 @@ def _task(
     symbol: str,
     requested_at: datetime,
     *,
-    status: str = "pending",
+    status: SymbolRefreshTaskStatus = "pending",
     retry_count: int = 0,
 ) -> SymbolRefreshTask:
     return SymbolRefreshTask(

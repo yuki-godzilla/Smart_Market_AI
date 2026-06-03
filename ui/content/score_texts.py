@@ -14,12 +14,12 @@ SCORE_TEXTS = {
     "investment_score": ScoreText(
         label="投資スコア",
         short_label="総合スコア",
-        description="複数観点を統合した比較・分析用スコアです。",
+        description="複数観点を統合した比較・分析用スコアです。高い値でも売買指示ではありません。",
     ),
     "decision_view": ScoreText(
         label="総合評価",
         short_label="評価",
-        description="スコア帯を確認レベルに置き換えた見方です。",
+        description="スコア帯を確認レベルに置き換えた見方です。判断を急がず、内訳と注意点を合わせて確認します。",
     ),
     "upside_signal_score": ScoreText(
         label="上昇気配",
@@ -33,7 +33,7 @@ SCORE_TEXTS = {
     ),
     "forecast_return_pct": ScoreText(
         label="予測変化率",
-        description="平均予測価格が直近終値からどの程度離れているかを示します。",
+        description="平均予測価格が直近終値からどの程度離れているかを示します。将来の保証ではありません。",
     ),
     "data_confidence": ScoreText(
         label="データ信頼度",
@@ -42,7 +42,7 @@ SCORE_TEXTS = {
     ),
     "risk": ScoreText(
         label="リスク確認",
-        description="取得期間の値動きや警告を整理したリスク確認材料です。",
+        description="取得期間の値動きや警告を整理したリスク確認材料です。高い値でも安全保証ではありません。",
     ),
 }
 

@@ -945,3 +945,29 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added `ExternalStockNewsAdapter`, `ExternalStockNewsFetchService`, and `ExternalResearchStockNewsAdapter` as the first Phase 21.7 backend slice for URL-backed external news normalization.
 - Normalized external news into `StockNewsEvidence` with selected-symbol filtering, URL dedupe, freshness status, stale-news warnings, viewpoint / sentiment classification, and explicit network opt-in gating.
 - Added fake-adapter tests and synced Research RAG roadmap / operations docs so Phase 21.7 has a concrete backend contract while normal checks remain network-free.
+
+## 2026-06-03 - Cockpit score / forecast / risk wording slice
+
+- Clarified Symbol Cockpit wording for Investment Score, Screening, Forecast, Risk, and Data Quality without changing scoring or forecast logic.
+- Added a Forecast / Risk reading distinction to the Cockpit score hierarchy table, including explicit non-guarantee and non-advice wording.
+- Updated UX / functional-spec trackers so the score, forecast, screening, and risk wording issues are in review pending real-screen confirmation.
+- Checked the fetched Cockpit screen with Chrome headless on `mock` / `7203.T`, including `04 評価の内訳` and the opened `投資スコアの詳細・ダウンロード` expander. Screenshots were saved under `outputs/work/cockpit_score_breakdown_check_04.png` and `outputs/work/cockpit_score_detail_expander_check_open.png`.
+
+## 2026-06-03 - Ranking criteria / confidence wording slice
+
+- Added a folded `評価方針・条件・信頼度の読み方` guide to the Ranking flow before data fetch, distinguishing evaluation policy from pre-fetch detail filters.
+- Clarified that `条件適合度` and `DB信頼度` are data / coverage checks rather than investment attractiveness, and that NISA, dividend / distribution yield, and ETF cost / income criteria are comparison conditions rather than safety or product-suitability judgments.
+- Updated Ranking help texts, UX checklist, functional-spec issue register, roadmap, and current-state context without changing ranking score logic or provider fetch behavior.
+- Checked the Ranking screen in actual Chrome headless against the fresh Streamlit server on `http://localhost:8502`; the guide opened, the table text was visible, and the screenshot was saved under `outputs/work/ranking_criteria_guide_check_open.png`.
+
+## 2026-06-03 - Research source citation UI de-emphasis
+
+- Changed `ニュース・開示の出典を表示（URL付きN件）` from a Market Intelligence card grid into a folded, small citation-style list so it reads as supporting references rather than another summary block.
+- Kept external link behavior (`href`, `target="_blank"`, `rel="noopener noreferrer"`) and source-specific labels while removing the prominent summary-card visual treatment from the source panel.
+- Updated Research Summary UX / spec tracking to reflect that summaries and top news remain the primary cards, while source links are secondary reference material.
+
+## 2026-06-03 - Research Summary advanced detail consolidation
+
+- Consolidated the stacked Research Summary detail expanders into a single `詳細情報・開発者向け` panel.
+- Kept the normal user path focused on company / metric / IR / news summaries, citation-style source links, and primary company-understanding checkpoints.
+- Removed advanced sections whose purpose overlapped with the already-visible summaries, citations, and confirmation points; the panel now keeps Research Score, data quality, retrieval quality, extracted claims, evidence detail, and external-source fetch status without changing fetch logic, Research Score calculation, Investment Score, or ranking order.

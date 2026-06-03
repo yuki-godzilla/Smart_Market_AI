@@ -79,6 +79,7 @@ from ui.app import (
     _investment_insight_panel_html,
     _investment_question_answers_html,
     _investment_question_primary_answers,
+    _investment_question_secondary_answers,
     _investment_question_summary_intro_html,
     _ir_summary_html,
     _market_data_preview_symbol_label,
@@ -104,6 +105,7 @@ from ui.app import (
     _render_decision_report_download_buttons,
     _render_market_chart,
     _render_research_operation_card,
+    _render_research_summary_panel,
     _render_score_confidence_hierarchy,
     _research_brief_focus_html,
     _research_brief_gap_panel_html,
@@ -205,6 +207,7 @@ from ui.app import (
 from ui.ranking import (
     RANKING_BETA_RISK_LABELS,
     RANKING_BETA_RISK_STANDARD_OR_LOWER,
+    RANKING_CRITERIA_GUIDE_ROWS,
     RANKING_DIVIDEND_LABELS,
     RANKING_FETCH_LIMIT_BALANCED,
     RANKING_FETCH_LIMIT_FAST,
@@ -320,6 +323,14 @@ from ui.research_state import (
 )
 from ui.styles import FORECAST_ACTUAL_PRICE_COLOR, FORECAST_MODEL_COLORS, THEME_COLORS
 from ui.symbol_universe import symbol_universe_csv_rows
+
+
+class _FakeExpander:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        return False
 
 
 def test_default_forecast_horizon_days_uses_chart_period():
@@ -1490,6 +1501,7 @@ def test_investment_question_summary_html_prioritizes_initial_questions():
     )
 
     primary_answers = _investment_question_primary_answers(summary)
+    secondary_answers = _investment_question_secondary_answers(summary)
     markup = _investment_question_summary_intro_html(summary)
     markup += _investment_question_answers_html(primary_answers)
 
@@ -1500,11 +1512,90 @@ def test_investment_question_summary_html_prioritizes_initial_questions():
         "growth_driver",
         "key_takeaway",
     ]
+    assert [answer.category for answer in secondary_answers] == [
+        "profitability",
+        "risk",
+        "shareholder_return",
+        "valuation",
+        "recent_news_impact",
+    ]
     assert "企業理解の確認ポイント" in markup
     assert "Q. この会社は何で稼いでいるか？" in markup
     assert "根拠: 中" in markup
     assert "根拠: 不足" in markup
     assert "利益率は良いか？" not in markup
+
+
+def test_research_summary_advanced_detail_omits_duplicate_reading_sections(monkeypatch):
+    evidence = ResearchEvidence(
+        symbol="7203.T",
+        document_id="doc-1",
+        chunk_id="chunk-1",
+        title="7203 Research Note",
+        source_type="annual_report",
+        published_at=date(2026, 5, 1),
+        section_title="Growth",
+        excerpt="Growth strategy and shareholder returns are discussed.",
+        relevance_score=Decimal("0.82"),
+        reliability=Decimal("0.88"),
+    )
+    report = CompanyResearchReport(
+        symbol="7203.T",
+        as_of=date(2026, 5, 25),
+        summary="Research summary",
+        points=[
+            ResearchSummaryPoint(
+                category="growth",
+                label="成長材料",
+                summary="成長戦略を確認材料として整理します。",
+                evidence=[evidence],
+            )
+        ],
+        evidence=[evidence],
+        data_quality=ResearchDataQuality(
+            status="OK",
+            latest_document_date=date(2026, 5, 1),
+            document_count=1,
+            evidence_count=1,
+            warnings=[],
+        ),
+    )
+    research_score = ResearchScoreService().score_report(report)
+    monkeypatch.setattr(
+        "ui.app._research_summary_bundle",
+        lambda *args, **kwargs: SimpleNamespace(
+            company_summary=None,
+            etf_summary=None,
+            question_summary=None,
+            security_type="domestic_stock",
+            research_score=research_score,
+        ),
+    )
+    rendered: list[str] = []
+    monkeypatch.setattr(
+        st,
+        "expander",
+        lambda label, expanded=False: rendered.append(str(label)) or _FakeExpander(),
+    )
+    monkeypatch.setattr(st, "caption", lambda text, *args, **kwargs: rendered.append(str(text)))
+    monkeypatch.setattr(st, "markdown", lambda text, *args, **kwargs: rendered.append(str(text)))
+    monkeypatch.setattr(st, "warning", lambda text, *args, **kwargs: rendered.append(str(text)))
+    monkeypatch.setattr(st, "divider", lambda *args, **kwargs: rendered.append("---"))
+    monkeypatch.setattr(
+        "ui.app._render_compact_dataframe",
+        lambda rows: rendered.append(json.dumps(rows, ensure_ascii=False)),
+    )
+
+    _render_research_summary_panel(report, detail_expanded=False)
+
+    rendered_text = "\n".join(rendered)
+    assert "詳細情報・開発者向け" in rendered_text
+    assert "Research Score" in rendered_text
+    assert "検索品質" in rendered_text or "根拠資料の詳細" in rendered_text
+    assert "AI読み取りメモ" not in rendered_text
+    assert "根拠確認（会社概要・確認できた事実）" not in rendered_text
+    assert "出典カード" not in rendered_text
+    assert "その他の確認ポイント" not in rendered_text
 
 
 def test_research_score_rows_explain_optional_context_without_advice():
@@ -1861,12 +1952,15 @@ def test_news_source_link_rows_prioritize_url_sources_and_hide_raw_fields():
     assert "企業IRで見る" in panel_html
     assert "EDINETで見る" in panel_html
     assert "Yahoo Financeで見る" in panel_html
-    assert "news-feed-item-clickable" in panel_html
-    assert "market-news-grid" in panel_html
-    assert "market-news-item" in panel_html
-    assert "market-news-main" in panel_html
-    assert "market-news-aside" in panel_html
-    assert "market-news-link" in panel_html
+    assert "news-source-citation-panel" in panel_html
+    assert "news-source-citation-list" in panel_html
+    assert "news-source-citation-item" in panel_html
+    assert "news-source-citation-title-line" in panel_html
+    assert "news-source-citation-meta" in panel_html
+    assert "news-source-citation-action" in panel_html
+    assert "Market Intelligence" not in panel_html
+    assert "market-news-grid" not in panel_html
+    assert "market-news-item" not in panel_html
     assert 'href="https://example.com/news"' in panel_html
     assert 'target="_blank"' in panel_html
     assert 'rel="noopener noreferrer"' in panel_html
@@ -2040,7 +2134,7 @@ def test_investment_hint_news_panel_html_is_empty_without_url_backed_news():
 def test_news_source_links_expander_label_shows_url_count():
     assert _news_source_links_expander_label(3) == "ニュース・開示の出典を表示（URL付き3件）"
     assert _news_source_links_expander_label(0) == "ニュース・開示の出典を表示（URL付き0件）"
-    assert _news_source_links_expander_expanded(3) is True
+    assert _news_source_links_expander_expanded(3) is False
     assert _news_source_links_expander_expanded(0) is False
 
 
@@ -2048,6 +2142,7 @@ def test_news_source_links_panel_fallback_is_not_implementation_gap_wording():
     panel_html = _news_source_links_panel_html([], total_url_count=0, news_url_count=0)
 
     assert "ニュース専用のURL付き根拠は見つかりませんでした。" in panel_html
+    assert "news-source-citation-panel" in panel_html
     assert (
         "関連する公式開示・企業IR・provider情報は外部参照ソースも確認してください。" in panel_html
     )
@@ -5762,6 +5857,7 @@ def test_score_component_rows_builds_cockpit_breakdown():
             "Screening": "80",
             "上昇気配": "68",
             "下降警戒": "42",
+            "モデル一致度": "64",
             "Risk": "70",
             "データ品質": "100",
         }
@@ -5769,17 +5865,22 @@ def test_score_component_rows_builds_cockpit_breakdown():
         {
             "要素": "スクリーニング",
             "スコア": "80",
-            "読み方": "市場データ由来の候補評価です。単独の売買判断には使いません。",
+            "読み方": "市場データ由来の候補評価です。投資スコアの一部で、単独の売買判断には使いません。",
         },
         {
             "要素": "上昇気配",
             "スコア": "68",
-            "読み方": "予測と直近値動きから見た上向き材料の確認値です。",
+            "読み方": "予測と直近値動きから見た上向き材料の確認値です。上昇を保証する値ではありません。",
         },
         {
             "要素": "下降警戒",
             "スコア": "42",
-            "読み方": "下向き材料の警戒値です。高いほど追加確認します。",
+            "読み方": "下向き材料の警戒値です。売り指示ではなく、高いほど追加確認します。",
+        },
+        {
+            "要素": "予測・モデル一致",
+            "スコア": "64",
+            "読み方": "予測モデルの見方がどの程度近いかを見る補助材料です。的中率や将来保証ではありません。",
         },
         {
             "要素": "リスク確認",
@@ -5798,11 +5899,31 @@ def test_score_confidence_hierarchy_rows_distinguish_score_roles():
     rows = score_confidence_hierarchy_rows()
 
     research_row = next(row for row in rows if row["表示"] == "Research Score")
+    forecast_row = next(row for row in rows if row["表示"] == "Forecast / 予測")
+    risk_row = next(row for row in rows if row["表示"] == "リスク確認")
     confidence_row = next(row for row in rows if row["表示"] == "条件適合度 / DB信頼度")
 
     assert "総合スコアやランキング順位を変えません" in research_row["順位への影響"]
     assert "根拠確認不足" in research_row["読み方"]
+    assert "確定未来ではなく" in forecast_row["読み方"]
+    assert "安全保証ではなく" in risk_row["読み方"]
     assert "投資魅力度ではなく" in confidence_row["読み方"]
+
+
+def test_ranking_criteria_guide_rows_render_as_wrapping_table():
+    rows = [dict(row) for row in RANKING_CRITERIA_GUIDE_ROWS]
+
+    table_html = symbol_detail_table_html(rows)
+
+    assert "symbol-detail-table" in table_html
+    assert "評価方針" in table_html
+    assert "詳細条件" in table_html
+    assert "条件適合度" in table_html
+    assert "DB信頼度" in table_html
+    assert "NISA" in table_html
+    assert "配当 / 分配金" in table_html
+    assert "投資魅力度ではなく" in table_html
+    assert "万能評価や商品適合性" in table_html
 
 
 def test_render_score_confidence_hierarchy_uses_wrapping_html_table(monkeypatch):
@@ -5817,7 +5938,9 @@ def test_render_score_confidence_hierarchy_uses_wrapping_html_table(monkeypatch)
 
     table_html = markdown_calls[-1]
     assert "symbol-detail-table" in table_html
+    assert "Forecast / 予測" in table_html
     assert "Research Score" in table_html
+    assert "安全保証ではなく" in table_html
     assert "既定では総合スコアやランキング順位を変えません" in table_html
     assert "投資魅力度ではなく" in table_html
 

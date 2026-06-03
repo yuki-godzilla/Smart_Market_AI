@@ -111,12 +111,12 @@ from ui.content.common_texts import (
     user_facing_table_rows,
 )
 from ui.content.research_texts import (
+    RESEARCH_ADVANCED_DETAIL_EXPANDER_LABEL,
     RESEARCH_AI_READING_MEMO_TITLE,
     RESEARCH_COCKPIT_INTRO,
     RESEARCH_COCKPIT_SECTION_TITLE,
     RESEARCH_COMPANY_RESEARCH_TITLE,
     RESEARCH_DETAIL_EXPANDER_LABEL,
-    RESEARCH_DETAIL_OK_CAPTION,
     RESEARCH_DOCUMENTS_OR_CHUNKS_MISSING,
     RESEARCH_EVIDENCE_CHECK_FALLBACK,
     RESEARCH_FETCH_BUTTON_LABEL,
@@ -157,6 +157,7 @@ from ui.ranking import (
     MAX_RANKING_CONCURRENT_FETCHES,
     RANKING_BETA_RISK_LABELS,
     RANKING_COMPLEXITY_LABELS,
+    RANKING_CRITERIA_GUIDE_ROWS,
     RANKING_CURRENCY_LABELS,
     RANKING_DEFAULT_PERIOD_PRESET,
     RANKING_DIVIDEND_LABELS,
@@ -289,7 +290,6 @@ from ui.views.cockpit import (
     cockpit_summary_items,
     render_cockpit_kpi_cards,
     render_cockpit_summary_header,
-    render_research_evidence_summary,
 )
 from ui.views.common import (
     _optional_decimal_from_text,
@@ -1282,6 +1282,80 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     text-decoration: none;
 }
 .news-feed-item-clickable:hover .news-source-link {
+    text-decoration: underline;
+}
+.news-source-citation-panel {
+    border-top: 1px solid rgba(127, 151, 170, 0.20);
+    color: rgba(158, 183, 200, 0.70);
+    font-size: 0.78rem;
+    line-height: 1.55;
+    margin-top: 0.25rem;
+    padding-top: 0.72rem;
+}
+.news-source-citation-header {
+    align-items: baseline;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.7rem;
+    justify-content: space-between;
+    margin-bottom: 0.55rem;
+}
+.news-source-citation-title {
+    color: rgba(188, 210, 225, 0.76);
+    font-size: 0.82rem;
+    font-weight: 780;
+}
+.news-source-citation-note,
+.news-source-citation-count,
+.news-source-citation-more {
+    color: rgba(135, 165, 185, 0.62);
+    font-size: 0.74rem;
+}
+.news-source-citation-list {
+    counter-reset: source-citation;
+    display: grid;
+    gap: 0.38rem;
+    margin: 0;
+}
+.news-source-citation-item {
+    border-left: 2px solid rgba(127, 151, 170, 0.22);
+    color: rgba(170, 195, 210, 0.72);
+    display: grid;
+    gap: 0.18rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 0.36rem 0 0.36rem 0.65rem;
+    text-decoration: none;
+}
+.news-source-citation-item:hover {
+    border-left-color: rgba(90, 235, 240, 0.42);
+    color: rgba(208, 230, 242, 0.88);
+}
+.news-source-citation-main {
+    min-width: 0;
+}
+.news-source-citation-title-line {
+    color: rgba(208, 230, 242, 0.84);
+    font-size: 0.8rem;
+    font-weight: 760;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+.news-source-citation-meta {
+    color: rgba(135, 165, 185, 0.62);
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 0.72rem;
+    gap: 0.24rem 0.58rem;
+}
+.news-source-citation-action {
+    align-self: center;
+    color: rgba(90, 235, 240, 0.78);
+    font-size: 0.72rem;
+    font-weight: 760;
+    white-space: nowrap;
+}
+.news-source-citation-item:hover .news-source-citation-action {
+    color: rgba(145, 245, 250, 0.96);
     text-decoration: underline;
 }
 .research-news-summary-list {
@@ -3085,6 +3159,19 @@ def _render_ranking_purpose_context(ranking_purpose: str, weight_preset: str) ->
     )
 
 
+def _render_ranking_criteria_guide() -> None:
+    with st.expander("評価方針・条件・信頼度の読み方", expanded=False):
+        st.caption(
+            "評価方針は取得後の並べ替え、詳細条件は取得前の候補絞り込みです。"
+            "条件適合度とDB信頼度は、銘柄の良し悪しではなく評価材料のそろい方として読みます。"
+        )
+        st.markdown(SYMBOL_DETAIL_DIALOG_CSS, unsafe_allow_html=True)
+        st.markdown(
+            symbol_detail_table_html([dict(row) for row in RANKING_CRITERIA_GUIDE_ROWS]),
+            unsafe_allow_html=True,
+        )
+
+
 def _render_top_screening_candidate_cards(cards: list[dict[str, str]]) -> None:
     if not cards:
         st.info("比較候補カードを表示できるランキング結果がありません。")
@@ -4605,6 +4692,7 @@ def _render_market_data_ranking() -> None:
         "配当利回り、PER、PBR、ROEなどで並べ替えたい場合は、詳細テーブルの列名をクリックしてください。"
         f" {ranking_policy_label(ranking_policy)}は{ranking_purpose_help(ranking_policy)}"
     )
+    _render_ranking_criteria_guide()
     if len(effective_selected_labels) < len(selected_labels):
         st.info(
             f"候補が多いため、{ranking_fetch_limit_label(fetch_limit)}として"
@@ -5767,8 +5855,8 @@ def _render_news_source_links_panel(
         expanded=_news_source_links_expander_expanded(total_url_count),
     ):
         st.caption(
-            "最新ニュース・開示サマリーに関係するURL付きsourceを簡易表示します。"
-            "全件は下部の外部参照ソースで確認できます。"
+            "サマリ本文の補足として、確認元のURLだけを控えめに表示します。"
+            "本文や詳細な根拠はリンク先と下部の外部参照ソースで確認します。"
         )
         st.markdown(
             _news_source_links_panel_html(
@@ -5787,7 +5875,8 @@ def _news_source_links_expander_label(total_url_count: int) -> str:
 
 
 def _news_source_links_expander_expanded(total_url_count: int) -> bool:
-    return total_url_count > 0
+    _ = total_url_count
+    return False
 
 
 def _news_source_link_rows(
@@ -5896,17 +5985,14 @@ def _news_source_links_panel_html(
 ) -> str:
     if not rows:
         return (
-            '<section class="market-intelligence-panel sources">'
-            '<div class="market-intelligence-header">'
-            "<div>"
-            '<div class="market-intelligence-kicker">Market Intelligence</div>'
-            '<div class="market-intelligence-title">ニュース・開示の出典</div>'
-            '<div class="market-intelligence-subtitle">'
+            '<section class="news-source-citation-panel">'
+            '<div class="news-source-citation-header">'
+            '<div class="news-source-citation-title">ニュース・開示の出典</div>'
+            '<div class="news-source-citation-count">URL 0件</div>'
+            "</div>"
+            '<div class="news-source-citation-note">'
             "ニュース専用のURL付き根拠は見つかりませんでした。"
             "関連する公式開示・企業IR・provider情報は外部参照ソースも確認してください。"
-            "</div>"
-            "</div>"
-            '<div class="market-intelligence-count">URL 0件</div>'
             "</div>"
             "</section>"
         )
@@ -5925,55 +6011,43 @@ def _news_source_links_panel_html(
     more = ""
     if total_url_count > len(rows):
         more = (
-            '<div class="research-brief-focus-more">'
+            '<div class="news-source-citation-more">'
             f"ほか {total_url_count - len(rows)}件は下部の外部参照ソースで確認できます。"
             "</div>"
         )
     return (
-        '<section class="market-intelligence-panel sources">'
-        '<div class="market-intelligence-header">'
-        "<div>"
-        '<div class="market-intelligence-kicker">Market Intelligence</div>'
-        '<div class="market-intelligence-title">ニュース・開示の出典</div>'
-        f'<div class="market-intelligence-subtitle">{html.escape(notice)}</div>'
+        '<section class="news-source-citation-panel">'
+        '<div class="news-source-citation-header">'
+        '<div class="news-source-citation-title">ニュース・開示の出典</div>'
+        f'<div class="news-source-citation-count">URL {total_url_count}件</div>'
         "</div>"
-        f'<div class="market-intelligence-count">URL {total_url_count}件</div>'
-        "</div>"
-        f'<div class="news-feed-list market-news-grid">{items}</div>'
+        f'<div class="news-source-citation-note">{html.escape(notice)}</div>'
+        f'<div class="news-source-citation-list">{items}</div>'
         f"{more}"
         "</section>"
     )
 
 
 def _news_source_link_item_html(row: dict[str, str]) -> str:
-    feed_kind = _news_source_feed_kind(row["source_kind"])
-    freshness_markup = (
-        f'<span class="news-item-badge">鮮度 {html.escape(row["freshness"])}</span>'
-        if row["freshness"]
-        else ""
+    freshness = f"鮮度 {row['freshness']}" if row["freshness"] else ""
+    meta_parts = [
+        row["source_label"],
+        row["provider"],
+        f"{row['date_label']} {row['date_text']}",
+        freshness,
+    ]
+    meta_markup = "".join(
+        f"<span>{html.escape(part)}</span>" for part in meta_parts if part.strip()
     )
-    summary = _research_brief_ui_text(row["summary"], max_chars=140)
     return (
-        f'<a class="news-feed-item news-feed-item-clickable {html.escape(feed_kind)} market-news-item" '
+        '<a class="news-source-citation-item" '
         f'href="{html.escape(row["url"], quote=True)}" target="_blank" rel="noopener noreferrer" '
         f'aria-label="{html.escape(row["title"], quote=True)}">'
-        '<div class="market-news-main">'
-        '<div class="news-item-top">'
-        f'<span class="news-item-badge primary">{html.escape(row["source_label"])}</span>'
-        f'<span class="news-item-badge">{html.escape(row["provider"])}</span>'
-        f"{freshness_markup}"
+        '<div class="news-source-citation-main">'
+        f'<div class="news-source-citation-title-line">{html.escape(row["title"])}</div>'
+        f'<div class="news-source-citation-meta">{meta_markup}</div>'
         "</div>"
-        f'<div class="news-item-title market-news-title">{html.escape(row["title"])}</div>'
-        '<div class="news-item-meta market-news-meta">'
-        f'<span>{html.escape(row["date_label"])} <strong>{html.escape(row["date_text"])}</strong></span>'
-        "</div>"
-        f'<div class="news-item-summary market-news-summary">{html.escape(summary)}</div>'
-        "</div>"
-        '<div class="market-news-aside">'
-        f'<span class="market-news-kind">{html.escape(row["source_label"])}</span>'
-        f'<span class="market-news-date">{html.escape(row["date_text"])}</span>'
-        f'<span class="news-source-link market-news-link">{html.escape(row["link_label"])} ↗</span>'
-        "</div>"
+        f'<span class="news-source-citation-action">{html.escape(row["link_label"])} ↗</span>'
         "</a>"
     )
 
@@ -6424,8 +6498,6 @@ def _render_research_summary_panel(
         news_report=news_report,
         external_research_result=external_research_result,
     )
-    brief = summary_bundle.brief
-    insight = summary_bundle.insight
     company_summary = summary_bundle.company_summary
     etf_summary = summary_bundle.etf_summary
     question_summary = summary_bundle.question_summary
@@ -6460,58 +6532,11 @@ def _render_research_summary_panel(
             external_research_result=external_research_result,
             security_type=security_type,
         )
-        _render_investment_question_summary_panel(question_summary, security_type=security_type)
-    with st.expander("AI読み取りメモを表示", expanded=False):
-        if company_summary is not None and company_summary.ai_reading_notes:
-            st.markdown(
-                _company_research_ai_notes_html(
-                    company_summary.ai_reading_notes,
-                    security_type=security_type,
-                ),
-                unsafe_allow_html=True,
-            )
-        st.markdown(_investment_insight_panel_html(insight), unsafe_allow_html=True)
-    with st.expander("根拠確認（会社概要・確認できた事実）を表示", expanded=detail_expanded):
-        st.markdown(_research_brief_overview_html(brief), unsafe_allow_html=True)
-        st.markdown("##### 読み方サマリー")
-        st.markdown(_research_brief_reading_guide_html(brief), unsafe_allow_html=True)
-        if report.data_quality.status != "OK":
-            st.warning("根拠資料が不足しています。表示内容は確認材料として控えめに扱ってください。")
-        _render_research_brief_sections(brief)
-
-    card_rows = _research_brief_source_card_rows(brief)
-    if card_rows:
-        with st.expander(f"出典カードを表示（{len(card_rows)}件）", expanded=detail_expanded):
-            st.caption("出典、公開日、URL、情報源信頼度を確認できます。")
-            st.markdown(
-                _research_evidence_cards_html(card_rows),
-                unsafe_allow_html=True,
-            )
-    else:
-        st.info("根拠カードとして表示できる資料はまだありません。AI調査を更新してください。")
-
-    score_rows = _research_score_summary_rows(research_score)
-    if score_rows:
-        with st.expander(
-            _research_score_expander_label(display_context),
-            expanded=False,
-        ):
-            st.caption(_research_score_context_caption(display_context))
-            st.caption("低い値は銘柄評価ではなく、根拠確認不足のサインとして扱います。")
-            _render_compact_dataframe(_research_score_guidance_rows(display_context))
-            st.markdown("###### Research Score要約")
-            _render_compact_dataframe(score_rows)
-            score_component_rows = _research_score_component_rows(research_score)
-            if score_component_rows:
-                st.markdown("###### 観点別の内訳")
-                st.caption(
-                    "どの観点の根拠が薄いかを見て、次に確認するIR・開示・ニュースを決めます。"
-                )
-                _render_compact_dataframe(score_component_rows)
-            score_warning_rows = _research_score_warning_rows(research_score)
-            if score_warning_rows:
-                st.markdown("###### 注意点")
-                _render_compact_dataframe(score_warning_rows)
+        _render_investment_question_summary_panel(
+            question_summary,
+            security_type=security_type,
+            include_secondary=False,
+        )
 
     has_external_source_urls = _external_research_result_has_displayable_source_urls(
         external_research_result
@@ -6527,30 +6552,38 @@ def _render_research_summary_panel(
             else:
                 st.warning(warning_text)
 
-    if external_research_result is not None and external_research_result.entries:
-        with st.expander(
-            f"外部参照ソースを表示（{len(external_research_result.entries)}件）",
-            expanded=False,
-        ):
-            st.caption(
-                "AI調査で一時参照した外部ソースです。"
-                "取得本文は保存せず、URL・公開日・取得日時を確認材料として残します。"
-            )
-            st.markdown(
-                _external_research_fetch_overview_html(external_research_result),
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                _external_research_source_cards_html(external_research_result),
-                unsafe_allow_html=True,
-            )
+    score_rows = _research_score_summary_rows(research_score)
+    with st.expander(RESEARCH_ADVANCED_DETAIL_EXPANDER_LABEL, expanded=detail_expanded):
+        st.caption(
+            "通常は上のサマリと確認ポイントを先に確認します。"
+            "ここでは通常画面と用途が重ならないスコア内訳、検索品質、抽出データ、取得トレースを確認できます。"
+        )
 
-    with st.expander(RESEARCH_DETAIL_EXPANDER_LABEL, expanded=detail_expanded):
+        if score_rows:
+            st.markdown(f"###### {_research_score_expander_label(display_context)}")
+            st.caption(_research_score_context_caption(display_context))
+            st.caption("低い値は銘柄評価ではなく、根拠確認不足のサインとして扱います。")
+            _render_compact_dataframe(_research_score_guidance_rows(display_context))
+            st.markdown("###### Research Score要約")
+            _render_compact_dataframe(score_rows)
+            research_score_component_rows = _research_score_component_rows(research_score)
+            if research_score_component_rows:
+                st.markdown("###### 観点別の内訳")
+                st.caption(
+                    "どの観点の根拠が薄いかを見て、次に確認するIR・開示・ニュースを決めます。"
+                )
+                _render_compact_dataframe(research_score_component_rows)
+            score_warning_rows = _research_score_warning_rows(research_score)
+            if score_warning_rows:
+                st.markdown("###### 注意点")
+                _render_compact_dataframe(score_warning_rows)
+            st.divider()
+
+        st.markdown(f"###### {RESEARCH_DETAIL_EXPANDER_LABEL}")
         if report.data_quality.status == "OK":
-            st.caption(RESEARCH_DETAIL_OK_CAPTION)
+            st.caption("通常画面と重複するサマリを除き、検証用の行データだけを表示します。")
         else:
             st.caption("登録資料または検索できた根拠が少ないため、詳細は確認材料として扱います。")
-        render_research_evidence_summary(report)
         warning_rows = _research_quality_warning_rows(report)
         if warning_rows:
             st.markdown("###### データ品質・注意点")
@@ -6567,10 +6600,6 @@ def _render_research_summary_panel(
         if retrieval_quality_rows:
             st.markdown("###### 検索品質")
             _render_compact_dataframe(retrieval_quality_rows)
-        point_rows = _research_investment_point_rows(report)
-        if point_rows:
-            st.markdown("###### 要点サマリー")
-            _render_compact_dataframe(point_rows)
         claim_rows = _research_extracted_claim_rows(report)
         if claim_rows:
             st.markdown("###### 抽出した主張")
@@ -6579,9 +6608,6 @@ def _render_research_summary_panel(
         if evidence_detail_rows:
             st.markdown("###### 根拠資料の詳細")
             _render_compact_dataframe(evidence_detail_rows)
-        if news_report is not None and news_report.news:
-            st.markdown("###### 関連ニュース")
-            _render_compact_dataframe(_stock_news_detail_rows(news_report))
         if external_research_result is not None:
             st.markdown("###### 外部参照ソース取得状況")
             _render_compact_dataframe(
@@ -7690,6 +7716,7 @@ def _render_investment_question_summary_panel(
     summary: InvestmentQuestionSummary,
     *,
     security_type: SecurityResearchType = "domestic_stock",
+    include_secondary: bool = True,
 ) -> None:
     st.markdown(
         _investment_question_summary_intro_html(summary, security_type=security_type),
@@ -7700,15 +7727,22 @@ def _render_investment_question_summary_panel(
         _investment_question_answers_html(primary_answers, security_type=security_type),
         unsafe_allow_html=True,
     )
-    secondary_answers = [
-        answer for answer in getattr(summary, "answers", []) if answer not in primary_answers
-    ]
-    if secondary_answers:
+    secondary_answers = _investment_question_secondary_answers(summary)
+    if include_secondary and secondary_answers:
         with st.expander(RESEARCH_INVESTMENT_QUESTION_MORE_LABEL, expanded=False):
             st.markdown(
                 _investment_question_answers_html(secondary_answers, security_type=security_type),
                 unsafe_allow_html=True,
             )
+
+
+def _investment_question_secondary_answers(
+    summary: InvestmentQuestionSummary,
+) -> list[InvestmentQuestionAnswer]:
+    primary_answer_ids = {id(answer) for answer in _investment_question_primary_answers(summary)}
+    return [
+        answer for answer in getattr(summary, "answers", []) if id(answer) not in primary_answer_ids
+    ]
 
 
 def _investment_question_summary_intro_html(
@@ -8982,7 +9016,7 @@ def _render_price_forecast_hero(
     st.subheader("02 価格・予測")
     _render_target_symbol_caption(symbol_label)
     st.caption(
-        "価格の流れと予測レンジを最初に確認します。予測は将来の保証ではなく、比較・確認のための参考情報です。"
+        "価格の流れと予測レンジを最初に確認します。予測は将来の保証ではなく、モデル間の見方と不確実性を読む参考情報です。"
     )
     for index, message in enumerate(forecast_chart_summary(consensus_rows, metric_rows)):
         if index == 0:
@@ -9052,7 +9086,7 @@ def _render_score_breakdown_context(
 ) -> None:
     st.markdown("#### 04 評価の内訳")
     st.caption(
-        "チャートを見たあとに、総合スコアを構成する観点を確認します。売買判断ではなく、深掘りする理由を整理するための表示です。"
+        "チャートを見たあとに、総合スコアを構成する観点を確認します。投資スコア、予測、リスク確認は役割を分けて読みます。"
     )
     _render_score_breakdown_chart(score_component_rows(row))
 
@@ -9084,7 +9118,7 @@ def _render_score_breakdown_context(
 
     with st.expander("投資スコアの詳細・ダウンロード"):
         st.caption(
-            "投資スコアの表示値とダウンロードです。スコア計算ロジックは既存の結果をそのまま使っています。"
+            "投資スコア、予測、リスク、データ信頼度の読み分けとダウンロードです。スコア計算ロジックは既存の結果をそのまま使っています。"
         )
         st.caption(
             "Research Score、データ品質、DB信頼度は役割が異なります。総合スコアと混同せず、確認材料として読み分けます。"
@@ -9201,7 +9235,7 @@ def cockpit_detail_summary_rows(
             {
                 "観点": "予測評価",
                 "内容": metric_messages[0],
-                "確認ポイント": "RMSEは価格予測の誤差、方向一致率は上下方向の当たり方です。予測線を読む時の信頼度補助として見ます。",
+                "確認ポイント": "RMSEは価格予測の誤差、方向一致率は過去評価サンプル内で上下方向が合った割合です。将来保証ではなく、予測線を読む時の補助材料として見ます。",
             }
         )
     return rows
@@ -9436,7 +9470,7 @@ def investment_score_summary_lines(row: dict[str, str]) -> list[str]:
     if warning:
         lines.append(f"注意点: {warning}。")
     else:
-        lines.append("大きな注意点はありません。")
+        lines.append("目立つ注意点は表示されていません。")
     note = row.get("補足", "")
     if note:
         lines.append(note)
@@ -9448,17 +9482,22 @@ def score_component_rows(row: dict[str, str]) -> list[dict[str, str]]:
         {
             "要素": "スクリーニング",
             "スコア": row.get("Screening", ""),
-            "読み方": "市場データ由来の候補評価です。単独の売買判断には使いません。",
+            "読み方": "市場データ由来の候補評価です。投資スコアの一部で、単独の売買判断には使いません。",
         },
         {
             "要素": "上昇気配",
             "スコア": row.get("上昇気配", ""),
-            "読み方": "予測と直近値動きから見た上向き材料の確認値です。",
+            "読み方": "予測と直近値動きから見た上向き材料の確認値です。上昇を保証する値ではありません。",
         },
         {
             "要素": "下降警戒",
             "スコア": row.get("下降警戒", ""),
-            "読み方": "下向き材料の警戒値です。高いほど追加確認します。",
+            "読み方": "下向き材料の警戒値です。売り指示ではなく、高いほど追加確認します。",
+        },
+        {
+            "要素": "予測・モデル一致",
+            "スコア": row.get("モデル一致度", "") or row.get("予測変化率", ""),
+            "読み方": "予測モデルの見方がどの程度近いかを見る補助材料です。的中率や将来保証ではありません。",
         },
         {
             "要素": "リスク確認",
@@ -9480,6 +9519,18 @@ def score_confidence_hierarchy_rows() -> list[dict[str, str]]:
             "役割": "複数材料を統合した比較・分析用スコア",
             "順位への影響": "通常のRanking表示順に使います",
             "読み方": "高くても売買指示ではなく、内訳と注意点を確認します。",
+        },
+        {
+            "表示": "Forecast / 予測",
+            "役割": "baseline model の見方、予測レンジ、モデル間のばらつき",
+            "順位への影響": "上昇気配・下降警戒や投資スコアの一部として補助的に使います",
+            "読み方": "予測線は確定未来ではなく、価格チャートとモデル差を確認する材料です。",
+        },
+        {
+            "表示": "リスク確認",
+            "役割": "価格変動、下落幅、制約警告などの確認材料",
+            "順位への影響": "一部の評価方針や投資スコアの確認材料として使います",
+            "読み方": "高い値でも安全保証ではなく、低い値は値動きや警告を先に確認します。",
         },
         {
             "表示": "Research Score",
@@ -9567,7 +9618,7 @@ def _research_score_guidance_rows(
     display_context: Literal["cockpit", "ranking"],
 ) -> list[dict[str, str]]:
     usage = (
-        "内訳と出典カードを見て、公式IR・開示・ニュースで追加確認する観点を選びます。"
+        "内訳と根拠資料の詳細を見て、公式IR・開示・ニュースで追加確認する観点を選びます。"
         if display_context == "cockpit"
         else "候補比較後に、コックピットで深掘りする観点を選ぶために使います。"
     )
@@ -9636,7 +9687,7 @@ def _research_score_next_check(score: ResearchScore) -> str:
         return "資料が不足しています。対象銘柄のIR資料やニュース資料を追加確認します。"
     if score.warnings:
         return "注意点と内訳を見て、根拠が薄い観点を追加確認します。"
-    return "内訳と根拠カードを見て、どの観点の資料が支えているか確認します。"
+    return "内訳と根拠資料の詳細を見て、どの観点の資料が支えているか確認します。"
 
 
 def _research_point_cards_html(rows: list[dict[str, str]]) -> str:

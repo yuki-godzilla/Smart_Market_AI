@@ -21,3 +21,10 @@ Smart Market AI プレ配布版
 実行時データ
 - キャッシュ、出力、ログ、ユーザー設定は %LOCALAPPDATA%\SmartMarketAI に保存されます。
 - 配布フォルダ直下には実行時データを書き込まない方針です。
+
+問題発生時に送ってほしい情報
+- コンソールに表示されたエラーメッセージ
+- 表示されていた URL
+- 操作した画面名と銘柄コード
+- %LOCALAPPDATA%\SmartMarketAI\logs にログがある場合は、その内容
+- Windows のバージョンと、SMAI フォルダを置いた場所

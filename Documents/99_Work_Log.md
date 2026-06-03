@@ -992,3 +992,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Required bounded local storage from MVP: latest snapshot only, one previous backup, no raw source persistence by default, atomic save, tmp cleanup, and cache normalization limits.
 - Added rotating news update log requirements with `RotatingFileHandler`, summary-only INFO logs, bounded ERROR behavior, TTL / retry controls, and lightweight update status.
 - Added FS-022 to track storage / operations risk for news cache, logs, raw data, debug dumps, and refresh retry behavior.
+
+## 2026-06-03 - Phase 22.y news contracts and cache limits slice
+
+- Added `backend/news` contracts for `NewsHeadlineCard`, `NewsHeatmapCell`, `NewsCategoryLane`, and `NewsDashboardSnapshot`.
+- Added cache normalization limits for stream headlines, category lanes, heatmap cells, summary text, AI comments, checkpoints, and related-symbol dedupe.
+- Kept raw provider payloads out of the contract by using strict models, and added a helper to detect recommendation-like prohibited wording.
+- Added network-free cache-limit tests for collection caps, text truncation, checkpoint limiting, symbol dedupe, raw-field rejection, and prohibited wording detection.

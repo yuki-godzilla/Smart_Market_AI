@@ -983,9 +983,15 @@ Phase 22.x 完了条件:
 
 Phase 22.y: News Background Refresh & Cache Layer
 
-状態: 方針整理済み / 実装候補
+状態: 初期 contracts / cache limit slice 実装済み。atomic save / cleanup / logging / TTL は次 slice
 
 目的: 投資ニュースダッシュボードのニュース取得、分類、AIコメント生成、ヒートマップ生成を、起動時、手動更新、将来の定期更新で繰り返しても、ニュースキャッシュ、更新履歴、取得ログ、エラーログ、一時ファイル、古い snapshot、source raw data、debug dump が無制限に増えないようにする。ローカルアプリとして長期利用してもストレージを圧迫しない設計を MVP 時点から入れる。
+
+現在の実装メモ:
+
+- `backend/news/contracts.py` に `NewsHeadlineCard`、`NewsHeatmapCell`、`NewsCategoryLane`、`NewsDashboardSnapshot` を追加済み。`StrictBaseModel` により raw provider response など未知 field は拒否する。
+- `backend/news/cache.py` に `normalize_snapshot_for_cache`、件数 / 文字数上限 constants、`news_snapshot_item_count`、禁止表現検出 helper を追加済み。
+- 22.y-1 では保存前正規化までを実装済み。ファイル保存、`.prev` / `.tmp`、cleanup、RotatingFileHandler、TTL / retry 制御、status file は後続 slice。
 
 基本方針:
 

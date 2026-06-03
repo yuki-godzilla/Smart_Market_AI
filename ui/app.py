@@ -918,16 +918,25 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     text-decoration: none;
 }
 .market-intelligence-panel {
-    background: linear-gradient(135deg, rgba(8, 20, 34, 0.98), rgba(15, 28, 48, 0.96));
-    border: 1px solid rgba(80, 210, 220, 0.28);
+    background:
+        radial-gradient(circle at top left, rgba(42, 196, 210, 0.10), transparent 32%),
+        linear-gradient(135deg, rgba(7, 18, 30, 0.98), rgba(11, 25, 42, 0.96));
+    border: 1px solid rgba(80, 220, 230, 0.24);
     border-radius: 8px;
-    box-shadow: 0 0 24px rgba(0, 200, 220, 0.08);
+    box-shadow:
+        0 0 28px rgba(0, 210, 230, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
     margin: 0.85rem 0;
     padding: 0.92rem;
 }
 .market-intelligence-panel.spotlight {
     border-color: rgba(245, 197, 66, 0.26);
-    box-shadow: 0 0 24px rgba(245, 197, 66, 0.08);
+    background:
+        radial-gradient(circle at top left, rgba(245, 197, 66, 0.12), transparent 30%),
+        linear-gradient(135deg, rgba(14, 24, 36, 0.98), rgba(12, 28, 46, 0.96));
+    box-shadow:
+        0 0 26px rgba(245, 197, 66, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 .market-intelligence-panel.sources {
     margin: 0;
@@ -962,6 +971,7 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
 .market-intelligence-count {
     border: 1px solid rgba(80, 210, 220, 0.32);
     border-radius: 999px;
+    background: rgba(80, 220, 230, 0.08);
     color: var(--text-ai-title);
     flex: 0 0 auto;
     font-size: 0.74rem;
@@ -974,19 +984,28 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     gap: 0.72rem;
     margin-top: 0.85rem;
 }
+.market-news-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.market-news-grid .market-news-item.featured {
+    grid-column: 1 / -1;
+}
 .news-feed-top-list,
 .research-news-headline-list {
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
 }
 .news-feed-item {
-    background: rgba(255, 255, 255, 0.025);
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018));
     border: 1px solid rgba(160, 210, 230, 0.14);
     border-left: 3px solid rgba(120, 150, 170, 0.78);
-    border-radius: 7px;
+    border-radius: 12px;
     color: var(--text-secondary);
-    display: block;
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr) auto;
     min-height: 118px;
-    padding: 0.78rem 0.88rem;
+    padding: 0.86rem 0.95rem;
     text-decoration: none;
     transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
 }
@@ -994,9 +1013,12 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     cursor: pointer;
 }
 .news-feed-item-clickable:hover {
-    background: rgba(80, 210, 220, 0.055);
+    background:
+        linear-gradient(135deg, rgba(70, 220, 230, 0.075), rgba(255, 255, 255, 0.026));
     border-color: rgba(80, 210, 220, 0.35);
-    box-shadow: 0 0 18px rgba(80, 210, 220, 0.10);
+    box-shadow:
+        0 0 22px rgba(70, 220, 230, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
     transform: translateY(-1px);
 }
 .news-feed-item-clickable:focus-visible {
@@ -1005,22 +1027,69 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     outline: none;
 }
 .news-feed-item.news {
-    border-left-color: rgba(80, 210, 220, 0.82);
+    background:
+        linear-gradient(135deg, rgba(65, 220, 230, 0.060), rgba(255, 255, 255, 0.018));
+    border-left-color: rgba(65, 220, 230, 0.90);
 }
 .news-feed-item.ir,
 .news-feed-item.disclosure {
-    border-left-color: rgba(150, 130, 255, 0.86);
+    background:
+        linear-gradient(135deg, rgba(150, 125, 255, 0.070), rgba(255, 255, 255, 0.018));
+    border-left-color: rgba(150, 125, 255, 0.95);
 }
 .news-feed-item.important {
-    background: rgba(245, 197, 66, 0.04);
-    border-left-color: rgba(245, 197, 66, 0.96);
+    background:
+        linear-gradient(135deg, rgba(245, 197, 66, 0.090), rgba(255, 255, 255, 0.020));
+    border-left-color: rgba(245, 197, 66, 1.0);
 }
 .news-feed-item.risk {
-    background: rgba(255, 107, 107, 0.038);
-    border-left-color: rgba(255, 107, 107, 0.92);
+    background:
+        linear-gradient(135deg, rgba(255, 105, 105, 0.080), rgba(255, 255, 255, 0.018));
+    border-left-color: rgba(255, 105, 105, 0.95);
 }
 .news-feed-item.other {
-    border-left-color: rgba(120, 150, 170, 0.78);
+    background:
+        linear-gradient(135deg, rgba(130, 160, 180, 0.050), rgba(255, 255, 255, 0.016));
+    border-left-color: rgba(130, 160, 180, 0.85);
+}
+.top-material-card {
+    background:
+        radial-gradient(circle at top left, rgba(245, 197, 66, 0.12), transparent 36%),
+        linear-gradient(135deg, rgba(35, 31, 18, 0.72), rgba(13, 25, 40, 0.94));
+    border: 1px solid rgba(245, 197, 66, 0.32);
+    border-left: 3px solid rgba(245, 197, 66, 0.95);
+    box-shadow: 0 0 20px rgba(245, 197, 66, 0.07);
+}
+.top-material-card:hover {
+    border-color: rgba(245, 197, 66, 0.55);
+    box-shadow: 0 0 26px rgba(245, 197, 66, 0.13);
+}
+.market-news-main {
+    max-width: 980px;
+    min-width: 0;
+}
+.market-news-aside {
+    align-items: flex-end;
+    display: flex;
+    flex-direction: column;
+    gap: 0.42rem;
+    justify-content: flex-start;
+    min-width: 9.5rem;
+    text-align: right;
+}
+.market-news-kind {
+    border: 1px solid rgba(80, 220, 230, 0.28);
+    border-radius: 999px;
+    color: var(--text-ai-muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+    line-height: 1.25;
+    padding: 0.16rem 0.52rem;
+}
+.market-news-date {
+    color: rgba(145, 170, 185, 0.72);
+    font-size: 0.76rem;
+    line-height: 1.35;
 }
 .news-item-top,
 .research-news-headline-top {
@@ -1057,11 +1126,12 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
 }
 .news-item-title,
 .research-news-headline-title {
-    color: var(--text-heading);
+    color: rgba(238, 248, 255, 0.96);
     font-size: 0.98rem;
     font-weight: 850;
-    line-height: 1.42;
+    line-height: 1.45;
     margin-bottom: 0.45rem;
+    max-width: 920px;
     overflow-wrap: anywhere;
 }
 .news-item-meta,
@@ -1081,9 +1151,10 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
 }
 .news-item-summary,
 .research-news-headline-summary {
-    color: var(--text-secondary);
+    color: rgba(195, 214, 226, 0.78);
     font-size: 0.84rem;
-    line-height: 1.55;
+    line-height: 1.7;
+    max-width: 980px;
     overflow-wrap: anywhere;
 }
 .news-source-link,
@@ -1106,6 +1177,21 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
 .research-news-summary-card {
     color: var(--text-secondary);
     text-decoration: none;
+}
+@media (max-width: 1100px) {
+    .market-news-grid,
+    .news-feed-top-list,
+    .research-news-headline-list {
+        grid-template-columns: 1fr;
+    }
+    .news-feed-item {
+        grid-template-columns: 1fr;
+    }
+    .market-news-aside {
+        align-items: flex-start;
+        min-width: 0;
+        text-align: left;
+    }
 }
 .research-point-list {
     display: grid;
@@ -5738,7 +5824,7 @@ def _news_source_links_panel_html(
         "</div>"
         f'<div class="market-intelligence-count">URL {total_url_count}件</div>'
         "</div>"
-        f'<div class="news-feed-list">{items}</div>'
+        f'<div class="news-feed-list market-news-grid">{items}</div>'
         f"{more}"
         "</section>"
     )
@@ -5753,20 +5839,26 @@ def _news_source_link_item_html(row: dict[str, str]) -> str:
     )
     summary = _research_brief_ui_text(row["summary"], max_chars=140)
     return (
-        f'<a class="news-feed-item news-feed-item-clickable {html.escape(feed_kind)}" '
+        f'<a class="news-feed-item news-feed-item-clickable {html.escape(feed_kind)} market-news-item" '
         f'href="{html.escape(row["url"], quote=True)}" target="_blank" rel="noopener noreferrer" '
         f'aria-label="{html.escape(row["title"], quote=True)}">'
+        '<div class="market-news-main">'
         '<div class="news-item-top">'
         f'<span class="news-item-badge primary">{html.escape(row["source_label"])}</span>'
         f'<span class="news-item-badge">{html.escape(row["provider"])}</span>'
         f"{freshness_markup}"
         "</div>"
-        f'<div class="news-item-title">{html.escape(row["title"])}</div>'
-        '<div class="news-item-meta">'
+        f'<div class="news-item-title market-news-title">{html.escape(row["title"])}</div>'
+        '<div class="news-item-meta market-news-meta">'
         f'<span>{html.escape(row["date_label"])} <strong>{html.escape(row["date_text"])}</strong></span>'
         "</div>"
-        f'<div class="news-item-summary">{html.escape(summary)}</div>'
-        f'<span class="news-source-link">{html.escape(row["link_label"])}</span>'
+        f'<div class="news-item-summary market-news-summary">{html.escape(summary)}</div>'
+        "</div>"
+        '<div class="market-news-aside">'
+        f'<span class="market-news-kind">{html.escape(row["source_label"])}</span>'
+        f'<span class="market-news-date">{html.escape(row["date_text"])}</span>'
+        f'<span class="news-source-link market-news-link">{html.escape(row["link_label"])} ↗</span>'
+        "</div>"
         "</a>"
     )
 
@@ -6960,8 +7052,10 @@ def _news_summary_html(
             else "ニュース・適時開示は取得できていません。必要に応じて外部ニュースや公式IRを追加確認してください。"
         )
         body = (
-            '<article class="news-feed-item other">'
-            f'<div class="news-item-summary">{html.escape(missing_text)}</div>'
+            '<article class="news-feed-item other market-news-item featured">'
+            '<div class="market-news-main">'
+            f'<div class="news-item-summary market-news-summary">{html.escape(missing_text)}</div>'
+            "</div>"
             "</article>"
         )
     else:
@@ -6982,7 +7076,7 @@ def _news_summary_html(
         "</div>"
         f'<div class="market-intelligence-count">{html.escape(item_count_label)}</div>'
         "</div>"
-        f'<div class="research-news-summary-list news-feed-list">{body}</div>'
+        f'<div class="research-news-summary-list news-feed-list market-news-grid">{body}</div>'
         "</section>"
     )
 
@@ -7062,23 +7156,31 @@ def _investment_hint_news_card_html(row: dict[str, str]) -> str:
     source = row.get("source", "ニュース")
     summary = row.get("summary", "")
     return (
-        f'<a class="research-news-headline-card news-feed-item news-feed-item-clickable {feed_kind}" '
+        f'<a class="research-news-headline-card news-feed-item news-feed-item-clickable {feed_kind} '
+        'market-news-item top-material-card" '
         f'href="{html.escape(url, quote=True)}" '
         f'target="_blank" rel="noopener noreferrer" aria-label="{html.escape(title, quote=True)}">'
+        '<div class="market-news-main">'
         '<div class="research-news-headline-top news-item-top">'
-        '<span class="research-news-headline-chip news-item-badge primary">注目</span>'
+        '<span class="research-news-headline-chip news-item-badge primary">AI注目</span>'
         '<span class="research-news-headline-chip news-item-badge">外部ニュース</span>'
         f'<span class="research-news-headline-chip news-item-badge {tone}">{html.escape(sentiment)}</span>'
         f'<span class="research-news-headline-chip news-item-badge">{html.escape(row.get("category", "ニュース材料"))}</span>'
         "</div>"
-        f'<div class="research-news-headline-title news-item-title">{html.escape(title)}</div>'
-        '<div class="research-news-headline-meta news-item-meta">'
+        f'<div class="research-news-headline-title news-item-title market-news-title">{html.escape(title)}</div>'
+        '<div class="research-news-headline-meta news-item-meta market-news-meta">'
         f"<span>公開日 <strong>{html.escape(published_at)}</strong></span>"
         f"<span>鮮度 <strong>{html.escape(freshness)}</strong></span>"
         f"<span>出典 <strong>{html.escape(source)}</strong></span>"
         "</div>"
-        f'<div class="research-news-headline-summary news-item-summary">{html.escape(summary)}</div>'
-        '<span class="research-news-headline-action news-source-link">元記事を見る</span>'
+        f'<div class="research-news-headline-summary news-item-summary market-news-summary">{html.escape(summary)}</div>'
+        "</div>"
+        '<div class="market-news-aside">'
+        '<span class="market-news-kind">優先確認</span>'
+        f'<span class="market-news-date">公開日 {html.escape(published_at)}</span>'
+        f'<span class="market-news-date">{html.escape(freshness)}</span>'
+        '<span class="research-news-headline-action news-source-link market-news-link">元記事を見る ↗</span>'
+        "</div>"
         "</a>"
     )
 
@@ -7109,29 +7211,46 @@ def _news_summary_item_html(
     url = _displayable_source_url(item.source_url)
     action_label = _news_summary_action_label(item, security_type=security_type)
     feed_kind = _news_summary_feed_kind(item)
+    featured_class = " featured" if index == 1 else ""
     content = (
+        '<div class="market-news-main">'
         '<div class="research-news-headline-top news-item-top">'
         f'<span class="research-news-headline-chip news-item-badge primary">{html.escape(topic_type)} {index}</span>'
         f'<span class="research-news-headline-chip news-item-badge">{html.escape(impact)}</span>'
         f'<span class="research-news-headline-chip news-item-badge">{html.escape(status_text)}</span>'
         "</div>"
-        f'<div class="research-news-headline-title news-item-title">{html.escape(item.title)}</div>'
-        '<div class="research-news-headline-meta news-item-meta">'
+        f'<div class="research-news-headline-title news-item-title market-news-title">{html.escape(item.title)}</div>'
+        '<div class="research-news-headline-meta news-item-meta market-news-meta">'
         f"<span>公開日 <strong>{html.escape(published)}</strong></span>"
         f"<span>出典 <strong>{html.escape(source)}</strong></span>"
         "</div>"
-        f'<div class="research-news-headline-summary news-item-summary">{html.escape(_research_brief_ui_text(item.summary, max_chars=140))}</div>'
+        f'<div class="research-news-headline-summary news-item-summary market-news-summary">{html.escape(_research_brief_ui_text(item.summary, max_chars=140))}</div>'
+        "</div>"
     )
     if url:
         return (
-            f'<a class="research-news-summary-card news-feed-item news-feed-item-clickable {feed_kind}" '
+            f'<a class="research-news-summary-card news-feed-item news-feed-item-clickable {feed_kind} '
+            f'market-news-item{featured_class}" '
             f'href="{html.escape(url, quote=True)}" '
             f'target="_blank" rel="noopener noreferrer" aria-label="{html.escape(item.title, quote=True)}">'
             f"{content}"
-            f'<span class="research-news-headline-action news-source-link">{html.escape(action_label)}</span>'
+            '<div class="market-news-aside">'
+            f'<span class="market-news-kind">{html.escape(topic_type)}</span>'
+            f'<span class="market-news-date">{html.escape(published)}</span>'
+            f'<span class="research-news-headline-action news-source-link market-news-link">{html.escape(action_label)} ↗</span>'
+            "</div>"
             "</a>"
         )
-    return f'<article class="research-news-summary-card news-feed-item {feed_kind}">{content}</article>'
+    return (
+        f'<article class="research-news-summary-card news-feed-item {feed_kind} '
+        f'market-news-item{featured_class}">{content}'
+        '<div class="market-news-aside">'
+        f'<span class="market-news-kind">{html.escape(topic_type)}</span>'
+        f'<span class="market-news-date">{html.escape(published)}</span>'
+        '<span class="news-source-link market-news-link">URL未取得</span>'
+        "</div>"
+        "</article>"
+    )
 
 
 def _news_summary_feed_kind(item: NewsSummaryItem) -> str:

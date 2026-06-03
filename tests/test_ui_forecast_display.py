@@ -1233,9 +1233,14 @@ def test_company_research_summary_html_prioritizes_company_understanding():
     assert "最新ニュース・開示サマリー" in markup
     assert "market-intelligence-panel" in markup
     assert "Market Intelligence" in markup
+    assert "market-news-grid" in markup
+    assert "market-news-item featured" in markup
+    assert "market-news-main" in markup
+    assert "market-news-aside" in markup
     assert "research-news-summary-card" in markup
     assert "news-feed-item-clickable" in markup
     assert "news-source-link" in markup
+    assert "market-news-link" in markup
     assert 'href="https://example.com/news"' in markup
     assert 'target="_blank"' in markup
     assert 'rel="noopener noreferrer"' in markup
@@ -1857,6 +1862,11 @@ def test_news_source_link_rows_prioritize_url_sources_and_hide_raw_fields():
     assert "EDINETで見る" in panel_html
     assert "Yahoo Financeで見る" in panel_html
     assert "news-feed-item-clickable" in panel_html
+    assert "market-news-grid" in panel_html
+    assert "market-news-item" in panel_html
+    assert "market-news-main" in panel_html
+    assert "market-news-aside" in panel_html
+    assert "market-news-link" in panel_html
     assert 'href="https://example.com/news"' in panel_html
     assert 'target="_blank"' in panel_html
     assert 'rel="noopener noreferrer"' in panel_html
@@ -1943,6 +1953,9 @@ def test_investment_hint_news_panel_html_surfaces_news_only_cards():
     assert "market-intelligence-panel spotlight" in panel_html
     assert "news-feed-top-list" in panel_html
     assert "news-feed-item-clickable" in panel_html
+    assert "top-material-card" in panel_html
+    assert "market-news-main" in panel_html
+    assert "market-news-aside" in panel_html
     assert "research-news-headline-card" in panel_html
     assert "Toyota raises software investment" in panel_html
     assert "Tariff risk rises" in panel_html

@@ -3166,8 +3166,12 @@ def _render_ranking_criteria_guide() -> None:
             "条件適合度とDB信頼度は、銘柄の良し悪しではなく評価材料のそろい方として読みます。"
         )
         st.markdown(SYMBOL_DETAIL_DIALOG_CSS, unsafe_allow_html=True)
+        guide_rows = [
+            {"表示": row["表示"], "使う場面": row["使う場面"], "読み方": row["読み方"]}
+            for row in RANKING_CRITERIA_GUIDE_ROWS
+        ]
         st.markdown(
-            symbol_detail_table_html([dict(row) for row in RANKING_CRITERIA_GUIDE_ROWS]),
+            symbol_detail_table_html(guide_rows),
             unsafe_allow_html=True,
         )
 

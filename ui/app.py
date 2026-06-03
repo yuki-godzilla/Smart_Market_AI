@@ -284,7 +284,12 @@ from ui.styles import (
     style_altair_chart,
     truncate_text,
 )
-from ui.symbol_universe import symbol_provider_symbol, symbol_universe_csv_rows
+from ui.symbol_universe import (
+    symbol_provider_symbol,
+)
+from ui.symbol_universe import (
+    symbol_universe_runtime_rows as symbol_universe_csv_rows,
+)
 from ui.views.cockpit import (
     cockpit_direction_signal_detail_rows,
     cockpit_direction_signal_summary,

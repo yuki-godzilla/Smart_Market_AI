@@ -18,6 +18,8 @@ from backend.marketdata.symbol_metadata_schema import (
     symbol_universe_required_value_columns,
     symbol_universe_source_required_fields,
 )
+from backend.symbols.contracts import SymbolRecord
+from backend.symbols.repository import load_symbol_records
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SYMBOL_UNIVERSE_CSV = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe.csv"
@@ -52,6 +54,39 @@ def symbol_universe_csv_rows(path: Path = SYMBOL_UNIVERSE_CSV) -> list[dict[str,
     """Return local-first symbol universe rows from the curated CSV."""
 
     return [dict(row) for row in _cached_symbol_universe_rows(str(path))]
+
+
+def symbol_universe_runtime_rows(
+    path: Path = SYMBOL_UNIVERSE_CSV,
+    *,
+    symbol_records: dict[str, SymbolRecord] | None = None,
+) -> list[dict[str, str]]:
+    """Return UI/ranking rows with runtime symbol-cache values overlaid."""
+
+    rows = symbol_universe_csv_rows(path)
+    records = symbol_records
+    if records is None:
+        records = load_symbol_records() if path.resolve() == SYMBOL_UNIVERSE_CSV.resolve() else {}
+    if not records:
+        return rows
+
+    records_by_symbol = {symbol.strip().upper(): record for symbol, record in records.items()}
+    merged_rows: list[dict[str, str]] = []
+    for row in rows:
+        merged = dict(row)
+        record = records_by_symbol.get(row.get("symbol", "").strip().upper())
+        if record is not None:
+            merged.update(_runtime_fields_from_record(record))
+        merged_rows.append(merged)
+    return merged_rows
+
+
+def _runtime_fields_from_record(record: SymbolRecord) -> dict[str, str]:
+    fields: dict[str, str] = {}
+    for key, value in record.normalized_fields.items():
+        if key in SYMBOL_UNIVERSE_FIELDS and value is not None:
+            fields[key] = str(value)
+    return fields
 
 
 @lru_cache(maxsize=4)
@@ -320,7 +355,7 @@ def symbol_reference_rows() -> list[dict[str, str]]:
             "name": row["name"] or row["symbol"],
             "yahoo_symbol": row.get("yahoo_symbol", ""),
         }
-        for row in symbol_universe_csv_rows()
+        for row in symbol_universe_runtime_rows()
     ]
 
 
@@ -330,7 +365,7 @@ def symbol_provider_symbol(symbol: str, provider: str) -> str:
     normalized_symbol = symbol.strip().upper()
     if provider.strip().lower() != "yahoo":
         return symbol
-    for row in symbol_universe_csv_rows():
+    for row in symbol_universe_runtime_rows():
         if row["symbol"].upper() == normalized_symbol:
             return row.get("yahoo_symbol", "").strip() or symbol
     return symbol
@@ -340,7 +375,7 @@ def symbol_name(symbol: str) -> str | None:
     """Return the known company name for a yfinance-compatible ticker."""
 
     normalized_symbol = symbol.strip().upper()
-    for row in symbol_universe_csv_rows():
+    for row in symbol_universe_runtime_rows():
         if row["symbol"].upper() == normalized_symbol:
             return row["name"] or row["symbol"]
     return None

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
 from backend.marketdata.ranking_universe_policy import (
     symbol_allowed_by_ranking_universe_policy,
 )
+from backend.symbols.contracts import SymbolRecord
 from ui.symbol_universe import (
     SYMBOL_UNIVERSE_REQUIRED_COLUMNS,
     symbol_provider_symbol,
@@ -12,6 +13,7 @@ from ui.symbol_universe import (
     symbol_universe_csv_rows,
     symbol_universe_csv_validation_issues,
     symbol_universe_metadata_summary,
+    symbol_universe_runtime_rows,
     validate_symbol_universe_rows,
 )
 
@@ -126,6 +128,37 @@ def test_symbol_universe_csv_includes_expanded_stock_and_etf_seeds():
     assert symbol_allowed_by_ranking_universe_policy(row_by_symbol["1301.T"])
     assert symbol_allowed_by_ranking_universe_policy(row_by_symbol["9503.T"])
     assert not symbol_allowed_by_ranking_universe_policy(row_by_symbol["8951.T"])
+
+
+def test_symbol_universe_runtime_rows_overlay_symbol_cache_values(tmp_path):
+    csv_path = tmp_path / "symbol_universe.csv"
+    csv_path.write_text(
+        ",".join(SYMBOL_UNIVERSE_REQUIRED_COLUMNS)
+        + "\n"
+        + "AAPL,Apple,us,stock,USD,sbi_securities,tradable,growth,lump_sum,true,true,false,false\n",
+        encoding="utf-8",
+    )
+    rows = symbol_universe_runtime_rows(
+        csv_path,
+        symbol_records={
+            "AAPL": SymbolRecord(
+                symbol="AAPL",
+                provider="fixture",
+                updated_at=datetime(2026, 6, 4, 9, 0, 0),
+                normalized_fields={
+                    "name": "Apple Runtime",
+                    "per": "28.1",
+                    "metadata_source": "cache",
+                    "raw_response": "ignored",
+                },
+            )
+        },
+    )
+
+    assert rows[0]["name"] == "Apple Runtime"
+    assert rows[0]["per"] == "28.1"
+    assert rows[0]["metadata_source"] == "cache"
+    assert "raw_response" not in rows[0]
 
 
 def _nisa_flags_match_category(rows: list[dict[str, str]]) -> bool:

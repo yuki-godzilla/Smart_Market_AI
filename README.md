@@ -67,9 +67,10 @@ SMAI は以下の思想を重視しています。
   - `backend/assistant` の `AssistantRequest` / `AssistantResponse` / `TemplateAssistantService`
   - LLM / network なしで Decision Report context から理由、注意点、次の確認観点を deterministic に返し、売買指示質問は助言境界として扱う
 - Streamlit UI
-  - left side menu for `銘柄コックピット` / `銘柄ランキング` / `リバランス` / `設定 / データ情報`
+  - left side menu for `銘柄コックピット` / `銘柄ランキング` / `投資ニュース` / `リバランス` / `設定 / データ情報`
   - 銘柄コックピット: 価格・予測チャート、Investment Score、投資判断メモ、Research Evidence、Decision Report、銘柄データ modal、warnings、downloads
   - 銘柄ランキング: curated symbol metadata、候補条件 modal、ランキング preset、行クリックで開く銘柄データ modal、AI Research tab、Decision Report
+  - 投資ニュース: network-free dashboard snapshot によるニュースストリーム、加熱テーマ heatmap、カテゴリ別ニュースレーン、関連銘柄から銘柄コックピットへの導線
   - Rebalance Cockpit: summary flow、percentage target、allocation comparison chart、risk breach confirmation points、Decision Report
 - symbol universe metadata schema、source import、opt-in metadata refresh、SBI ranking universe policy columns / default exclusion helper
 - JPX / SBI / NISA / IMAJ / REIT source builders and import profiles
@@ -82,7 +83,7 @@ SMAI は以下の思想を重視しています。
 - `polygon` など追加 live provider adapter 本体
 - 追加 provider / fund metadata source adapter
 - 投信 metadata / 基準価額 / ranking 対応
-- 独立した `投資ニュース` Streamlit dashboard UI、ニュース横断ヒートマップ、カテゴリ別ニュースレーン、関連銘柄からコックピットへの導線
+- `投資ニュース` dashboard の外部ニュースsource接続、詳細フィルタ、Watchlist連動、通知
 - EDINET / company IR site など追加 Research RAG external source adapter の拡張、vector / hybrid search の運用UI
 - Research Score の ranking order 統合は現時点では見送り。必要性が再確認された場合のみ opt-in 後続機能として扱う
 - Assistant API / Streamlit 質問パネル、optional LLM provider
@@ -102,12 +103,12 @@ MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で
 - Phase 19: Decision Report Context MVP は implementation complete
 - Phase 20: Research RAG Evidence Layer は local evidence foundation が implementation complete
 - Phase 21: 高度Research RAG / Stock News RAG / external fresh-source fetch の first slices は implementation complete。追加 provider と運用UIは後続
-- Phase 22: Research Score / Cockpit deep-dive は first UI slices 実装済み。Phase 22.x `投資ニュース` dashboard は次の実装候補、Phase 22.y news cache と Phase 22.z symbol DB background refresh は backend foundation 実装済み
+- Phase 22: Research Score / Cockpit deep-dive は first UI slices 実装済み。Phase 22.x `投資ニュース` dashboard は初期MVP実装済み、Phase 22.y news cache と Phase 22.z symbol DB background refresh は backend foundation 実装済み
 - Phase 23: Template Assistant backend slice は実装済み。API / Streamlit 質問パネルは次の slice
 - Phase 24〜25: optional adapter / LLM provider、advanced export、Execution gate の順に整理
 - Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
-次の重点は、Phase 22.x `投資ニュース` dashboard MVP です。既存の `backend/news` cache/update foundation と Cockpit のニュース表示を土台に、独立画面で市場ニュースの流れ、加熱テーマ、カテゴリ別ニュース、関連銘柄の深掘り導線を表示します。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、Assistant API/UI、optional LLM/provider、Execution / Broker は段階的に扱います。通常 checks は引き続き fake adapter / fixture で network 非依存を維持します。
+次の重点は、`投資ニュース` dashboard の実画面確認、外部ニュースsource接続の設計、または Phase 23 Assistant API/UI のどれを先に進めるかの判断です。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、optional LLM/provider、Execution / Broker は段階的に扱います。通常 checks は引き続き fake adapter / fixture で network 非依存を維持します。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント

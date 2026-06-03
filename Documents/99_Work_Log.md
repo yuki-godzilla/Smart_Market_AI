@@ -1046,3 +1046,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Updated README, operations guide, roadmap, project context, functional spec issues, and manual UX checklist so news cache / symbol DB refresh foundations are no longer described as future work.
 - Clarified that Phase 22.x is the next recommended UI slice, while `backend/news` cache/update foundation, `backend/symbols` background refresh foundation, and `backend/assistant` deterministic template service already exist.
 - Kept the next implementation target network-free by documenting fake snapshot / fixture regression, non-advice wording, URL/freshness/source visibility, and related-symbol handoff review points.
+
+## 2026-06-04 - Phase 22.x Investment News dashboard MVP
+
+- Added deterministic Investment News dashboard snapshot building in `backend/news/dashboard.py`, including demo snapshot, heatmap aggregation, category lanes, and stream headline ordering.
+- Added the Streamlit `投資ニュース` screen with market news ticker, status cards, news heatmap, category news lanes, safe source links, and related-symbol handoff to Symbol Cockpit.
+- Added `投資ニュース` to the sidebar routing and kept the screen network-free by default with cached snapshot / demo snapshot fallback.
+- Added regression tests for dashboard snapshot generation, prohibited recommendation wording, UI status items, heatmap frame, safe source-link HTML, and related-symbol handoff.

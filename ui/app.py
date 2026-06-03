@@ -89,6 +89,7 @@ from ui.components.mascot import (
 )
 from ui.components.sidemenu import (
     SIDEMENU_PAGE_COCKPIT,
+    SIDEMENU_PAGE_NEWS,
     SIDEMENU_PAGE_RANKING,
     SIDEMENU_PAGE_REBALANCE,
     render_sidemenu,
@@ -304,6 +305,7 @@ from ui.views.common import (
     _single_date_from_input,
     default_as_of_date,
 )
+from ui.views.news import render_news_dashboard_page
 from ui.views.ranking_chart_profiles import chart_profile_for_purpose, ranking_chart_frame
 from ui.views.rebalance import (
     REBALANCE_REQUEST_STATE_KEY,
@@ -1481,6 +1483,8 @@ def main() -> None:
         _render_market_data_cockpit()
     elif selected_page == SIDEMENU_PAGE_RANKING:
         _render_market_data_ranking()
+    elif selected_page == SIDEMENU_PAGE_NEWS:
+        render_news_dashboard_page(open_symbol_callback=_select_news_symbol_for_cockpit)
     elif selected_page == SIDEMENU_PAGE_REBALANCE:
         render_rebalance_page()
     else:
@@ -5522,6 +5526,15 @@ def _select_ranking_symbol_for_cockpit_with_period(
     st.session_state["market_data_period_preset"] = MARKET_DATA_PERIOD_CUSTOM
     st.session_state["market_data_start"] = start
     st.session_state["market_data_end"] = end
+
+
+def _select_news_symbol_for_cockpit(symbol: str) -> None:
+    st.session_state["sidemenu_page"] = SIDEMENU_PAGE_COCKPIT
+    st.session_state["market_data_mode"] = MARKET_DATA_MODE_COCKPIT
+    st.session_state[MARKET_DATA_PROVIDER_WIDGET_KEY] = default_market_data_provider()
+    st.session_state["market_data_symbol_candidate"] = symbol_candidate_label(symbol)
+    st.session_state.pop(MARKET_DATA_PREVIEW_STATE_KEY, None)
+    st.session_state.pop(MARKET_DATA_STATUS_STATE_KEY, None)
 
 
 def _clear_ranking_deep_dive_state() -> None:

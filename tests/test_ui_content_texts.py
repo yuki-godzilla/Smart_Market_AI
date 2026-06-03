@@ -71,6 +71,7 @@ def test_major_ui_code_does_not_directly_use_ng_investment_advice_terms():
         Path("ui/app.py"),
         Path("ui/ranking.py"),
         Path("ui/views/cockpit.py"),
+        Path("ui/views/news.py"),
         Path("ui/views/ranking_chart_profiles.py"),
     ]
     banned_terms = (

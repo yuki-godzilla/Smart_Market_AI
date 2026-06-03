@@ -869,15 +869,17 @@ Phase 21.5 の対象外:
 
 Phase 22.x: 投資ニュースダッシュボード MVP
 
-状態: 方針整理済み / 実装候補
+状態: 初期MVP実装済み。外部ニュースsource接続、詳細フィルタ、Watchlist連動は後続
 
 目的: 新画面 `投資ニュース` を、単なるニュース一覧ではなく、市場全体の温度感、注目テーマ、関連銘柄への深掘り導線を提供する市場ニュースコックピットとして設計する。ニュースだけで判断を完結させず、気になる材料を `銘柄コックピット` で確認する入口にする。
 
 現在の前提:
 
 - 既存実装では、Cockpit Research Summary 内に `Market Intelligence`、URL付き `投資ヒントとなるニュース`、`ニュース・開示の出典` citation list がある。
-- 独立した `投資ニュース` 画面、ニュース横断ランキング、News Score 化、Watchlist 連動、通知は未実装。
+- 独立した `投資ニュース` 画面は初期MVP実装済み。ニュース横断ランキング、News Score 化、Watchlist 連動、通知は未実装。
 - Phase 22 本体の Research Score 方針は維持し、投資ニュース dashboard は Phase 22.x の UI / backend snapshot slice として扱う。
+- `backend/news/dashboard.py` で deterministic `build_news_dashboard_snapshot` / `build_demo_news_dashboard_snapshot` を実装し、保存済みsnapshotがない場合も network-free demo snapshot で表示できる。
+- `ui/views/news.py` で `投資ニュース` 画面を追加し、side menu / routing / related-symbol cockpit handoff を `ui/components/sidemenu.py` と `ui/app.py` に接続済み。
 
 MVP 必須機能:
 
@@ -913,9 +915,9 @@ MVP で見送る機能:
 実装候補:
 
 - `backend/news/contracts.py`: `NewsHeadlineCard`、`NewsHeatmapCell`、`NewsCategoryLane`、`NewsDashboardSnapshot`。
-- `backend/news/dashboard_service.py`: `build_news_dashboard_snapshot`、`classify_news_category`、`classify_material_type`、`build_news_stream`、`build_heatmap_cells`、`build_category_lanes`、`build_ai_comment`、`build_investment_checkpoints`。
-- `ui/views/news.py`: `投資ニュース` 画面。ニュースストリーム、加熱テーマヒートマップ、カテゴリ別ニュースレーンを表示する。
-- `ui/components/sidemenu.py` / `ui/app.py`: `投資ニュース` を side menu と routing に追加する。
+- `backend/news/dashboard.py`: `build_news_dashboard_snapshot`、`build_demo_news_dashboard_snapshot`、heatmap / category lane 集計。
+- `ui/views/news.py`: `投資ニュース` 画面。ニュースストリーム、加熱テーマヒートマップ、カテゴリ別ニュースレーン、関連銘柄 handoff を表示する。
+- `ui/components/sidemenu.py` / `ui/app.py`: `投資ニュース` を side menu と routing に追加済み。
 
 データ構造案:
 
@@ -964,6 +966,7 @@ class NewsDashboardSnapshot(BaseModel):
 テスト方針:
 
 - `tests/test_news_dashboard_service.py` を追加し、fake fixture から network-free に snapshot を生成する。
+- `tests/test_ui_news_view.py` を追加し、status cards、heatmap frame、safe source link HTML、related-symbol handoff symbol を確認する。
 - stream_headlines、heatmap_cells、category_lanes、source URL 保持、related_symbols ありの場合の Cockpit 導線対象、ai_comment、investment_checkpoints を確認する。
 - published_at / fetched_at 欠落時も壊れないことを確認する。
 - 禁止表現テストとして、買い、売り、今すぐ投資、必ず上がる、確実に儲かる等を含まないことを確認する。
@@ -1722,8 +1725,8 @@ Markdown UTF-8 check:
 ## 8. Open Items
 
 - Phase 16S の最終 Streamlit browser smoke をいつ実施するか
-- Phase 22.x `投資ニュース` dashboard MVP の fake snapshot / fixture、Streamlit route、side menu、関連銘柄 handoff をどう切るか
-- `投資ニュース` 画面で news cache status、fallback、freshness、cache size をどの密度で見せるか
+- Phase 22.x `投資ニュース` dashboard の外部ニュースsource接続、詳細フィルタ、Watchlist連動をどの順に進めるか
+- `投資ニュース` 画面で news cache status、fallback、freshness、cache size の見せ方を実画面で継続調整するか
 - Symbol DB background refresh の freshness badge / live provider refresh wiring を Ranking / Cockpit のどこへ接続するか
 - Research Score をランキング順位へ統合する必要性を再確認するか。既定では統合しない
 - Assistant が参照できる context の範囲、privacy boundary、API / Streamlit 質問パネルの位置

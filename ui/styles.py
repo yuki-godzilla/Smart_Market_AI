@@ -658,6 +658,202 @@ body,
     line-height: 1.62;
 }
 
+.investment-news-ticker {
+    overflow: hidden;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    background: linear-gradient(90deg, rgba(8, 27, 42, 0.9), rgba(11, 18, 32, 0.92));
+    margin: 0.35rem 0 1rem;
+    min-height: 3.2rem;
+}
+
+.investment-news-ticker-track {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.8rem;
+    min-width: max-content;
+    padding: 0.72rem 0.8rem;
+    animation: investment-news-ticker-scroll 42s linear infinite;
+}
+
+.investment-news-ticker:hover .investment-news-ticker-track {
+    animation-play-state: paused;
+}
+
+.investment-news-ticker-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--text-primary);
+    font-size: 0.86rem;
+    font-weight: 680;
+    white-space: nowrap;
+}
+
+.investment-news-ticker-category {
+    border: 1px solid rgba(34, 211, 238, 0.28);
+    border-radius: 999px;
+    background: rgba(34, 211, 238, 0.09);
+    color: var(--text-ai-title);
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 0.12rem 0.46rem;
+}
+
+@keyframes investment-news-ticker-scroll {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(-50%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .investment-news-ticker-track {
+        animation: none;
+        flex-wrap: wrap;
+    }
+}
+
+.investment-news-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.78rem;
+    min-height: 15.8rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    background: var(--bg-card);
+    padding: 0.86rem;
+    margin-bottom: 0.75rem;
+}
+
+.investment-news-card.compact {
+    min-height: 18rem;
+}
+
+.investment-news-card.news {
+    border-color: rgba(34, 211, 238, 0.24);
+}
+
+.investment-news-card.positive {
+    border-color: rgba(52, 211, 153, 0.28);
+}
+
+.investment-news-card.important {
+    border-color: rgba(251, 191, 36, 0.3);
+}
+
+.investment-news-card.risk {
+    border-color: rgba(248, 113, 113, 0.32);
+}
+
+.investment-news-card-main {
+    min-width: 0;
+}
+
+.investment-news-card-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.34rem;
+    margin-bottom: 0.58rem;
+}
+
+.investment-news-chip {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--border-default);
+    border-radius: 999px;
+    background: rgba(127, 151, 170, 0.08);
+    color: var(--text-caption);
+    font-size: 0.7rem;
+    font-weight: 760;
+    line-height: 1.25;
+    padding: 0.13rem 0.44rem;
+}
+
+.investment-news-chip.primary {
+    border-color: rgba(34, 211, 238, 0.28);
+    background: rgba(34, 211, 238, 0.09);
+    color: var(--text-ai-title);
+}
+
+.investment-news-chip.official {
+    border-color: rgba(167, 139, 250, 0.3);
+    background: rgba(167, 139, 250, 0.1);
+    color: #C4B5FD;
+}
+
+.investment-news-card-title {
+    color: var(--text-heading);
+    font-size: 1rem;
+    line-height: 1.34;
+    margin: 0 0 0.42rem;
+    overflow-wrap: anywhere;
+}
+
+.investment-news-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.48rem;
+    color: var(--text-caption);
+    font-size: 0.72rem;
+    font-weight: 680;
+    margin-bottom: 0.55rem;
+}
+
+.investment-news-card-summary,
+.investment-news-card-comment {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    line-height: 1.55;
+    margin: 0.35rem 0;
+    overflow-wrap: anywhere;
+}
+
+.investment-news-card-comment {
+    color: var(--text-ai-primary);
+}
+
+.investment-news-card-checkpoints {
+    margin: 0.45rem 0 0;
+    padding-left: 1.05rem;
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    line-height: 1.46;
+}
+
+.investment-news-card-aside {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    min-width: 5.8rem;
+}
+
+.investment-news-source-link {
+    color: var(--text-ai-title);
+    font-size: 0.76rem;
+    font-weight: 800;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.investment-news-source-link:hover {
+    color: var(--text-title);
+    text-decoration: underline;
+}
+
+@media (max-width: 760px) {
+    .investment-news-card,
+    .investment-news-card.compact {
+        grid-template-columns: 1fr;
+        min-height: auto;
+    }
+    .investment-news-card-aside {
+        justify-content: flex-start;
+    }
+}
+
 .smai-investment-signal-badge {
     display: inline-flex;
     align-items: center;

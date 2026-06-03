@@ -32,6 +32,10 @@ from backend.news.contracts import (
     NewsHeatmapCell,
     NewsUpdateStatus,
 )
+from backend.news.dashboard import (
+    build_demo_news_dashboard_snapshot,
+    build_news_dashboard_snapshot,
+)
 from backend.news.logging_utils import (
     NEWS_LOG_DIR,
     NEWS_UPDATE_LOG_BACKUP_COUNT,
@@ -78,6 +82,8 @@ __all__ = [
     "NewsHeatmapCell",
     "NewsRefreshResult",
     "NewsUpdateStatus",
+    "build_demo_news_dashboard_snapshot",
+    "build_news_dashboard_snapshot",
     "cleanup_news_cache_files",
     "configure_news_update_logger",
     "contains_prohibited_recommendation_terms",

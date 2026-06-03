@@ -84,6 +84,18 @@ def test_symbol_refresh_logger_uses_rotating_file_handler(tmp_path) -> None:
     assert handlers[0].backupCount == 2
 
 
+def test_symbol_refresh_logger_does_not_write_repo_log_during_pytest(monkeypatch) -> None:
+    monkeypatch.setenv("PYTEST_CURRENT_TEST", "tests/test_symbol_refresh_manager.py::test")
+    logger = configure_symbol_refresh_logger()
+
+    rotating_handlers = [
+        handler for handler in logger.handlers if isinstance(handler, RotatingFileHandler)
+    ]
+
+    assert not rotating_handlers
+    assert any(isinstance(handler, logging.NullHandler) for handler in logger.handlers)
+
+
 def _task(symbol: str, requested_at: datetime) -> SymbolRefreshTask:
     return SymbolRefreshTask(
         symbol=symbol,

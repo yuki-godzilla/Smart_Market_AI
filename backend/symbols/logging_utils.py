@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -19,10 +20,19 @@ def configure_symbol_refresh_logger(
 ) -> logging.Logger:
     """Configure a bounded symbol-refresh logger with rotating file storage."""
 
+    logger = logging.getLogger(logger_name)
+    if _should_use_test_null_logger(log_dir=log_dir, logger_name=logger_name):
+        logger.setLevel(logging.INFO)
+        logger.propagate = False
+        for handler in list(logger.handlers):
+            logger.removeHandler(handler)
+            handler.close()
+        logger.addHandler(logging.NullHandler())
+        return logger
+
     log_root = Path(log_dir)
     log_root.mkdir(parents=True, exist_ok=True)
     log_file = log_root / SYMBOL_REFRESH_LOG_FILENAME
-    logger = logging.getLogger(logger_name)
     logger.setLevel(logging.INFO)
     logger.propagate = False
 
@@ -44,3 +54,11 @@ def configure_symbol_refresh_logger(
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
     logger.addHandler(handler)
     return logger
+
+
+def _should_use_test_null_logger(*, log_dir: Path | str, logger_name: str) -> bool:
+    return (
+        os.environ.get("PYTEST_CURRENT_TEST") is not None
+        and Path(log_dir) == SYMBOL_LOG_DIR
+        and logger_name == "smart_market_ai.symbols.refresh"
+    )

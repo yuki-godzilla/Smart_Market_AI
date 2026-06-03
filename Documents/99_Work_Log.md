@@ -999,3 +999,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added cache normalization limits for stream headlines, category lanes, heatmap cells, summary text, AI comments, checkpoints, and related-symbol dedupe.
 - Kept raw provider payloads out of the contract by using strict models, and added a helper to detect recommendation-like prohibited wording.
 - Added network-free cache-limit tests for collection caps, text truncation, checkpoint limiting, symbol dedupe, raw-field rejection, and prohibited wording detection.
+
+## 2026-06-03 - Phase 22.y cache persistence and refresh manager completion
+
+- Completed the Phase 22.y backend cache/update foundation for Investment News.
+- Added latest snapshot load/save, one-generation `.prev` backup, `.tmp` atomic save, news-dashboard-only cleanup, cache-size helper, and latest-only update status persistence.
+- Added rotating news-update logger configuration and refresh manager behavior for TTL/minimum-interval skip, force refresh, bounded retry, failure fallback, and summary-only logging.
+- Added network-free tests for atomic save, cleanup, status persistence, log rotation, TTL skip, success refresh, failure fallback, and prevention of huge raw error text in logs.

@@ -63,3 +63,15 @@ class NewsDashboardSnapshot(StrictBaseModel):
     stream_headlines: list[NewsHeadlineCard] = Field(default_factory=list)
     heatmap_cells: list[NewsHeatmapCell] = Field(default_factory=list)
     category_lanes: list[NewsCategoryLane] = Field(default_factory=list)
+
+
+class NewsUpdateStatus(StrictBaseModel):
+    """Latest-only status for dashboard refresh/cache operations."""
+
+    last_attempt_at: datetime | None = None
+    last_success_at: datetime | None = None
+    last_error_at: datetime | None = None
+    last_error_type: str | None = Field(default=None, min_length=1)
+    consecutive_failures: int = Field(default=0, ge=0)
+    is_refreshing: bool = False
+    cache_file_size_bytes: int | None = Field(default=None, ge=0)

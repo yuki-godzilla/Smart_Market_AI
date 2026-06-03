@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
+from pathlib import Path
+from typing import Final
 
 from backend.news.contracts import (
     NewsCategoryLane,
     NewsDashboardSnapshot,
     NewsHeadlineCard,
     NewsHeatmapCell,
+    NewsUpdateStatus,
 )
 
 MAX_NEWS_ITEMS = 100
@@ -16,6 +19,12 @@ MAX_HEATMAP_CELLS = 30
 MAX_CHECKPOINTS_PER_NEWS = 3
 MAX_SUMMARY_CHARS = 300
 MAX_AI_COMMENT_CHARS = 240
+
+NEWS_CACHE_DIR: Final[Path] = Path("data/cache")
+NEWS_SNAPSHOT_FILENAME: Final[str] = "news_dashboard_snapshot.json"
+NEWS_PREVIOUS_SNAPSHOT_FILENAME: Final[str] = "news_dashboard_snapshot.prev.json"
+NEWS_TMP_SNAPSHOT_FILENAME: Final[str] = "news_dashboard_snapshot.tmp.json"
+NEWS_UPDATE_STATUS_FILENAME: Final[str] = "news_update_status.json"
 
 PROHIBITED_RECOMMENDATION_TERMS: tuple[str, ...] = (
     "買い",
@@ -64,6 +73,146 @@ def normalize_snapshot_for_cache(
         heatmap_cells=heatmap_cells,
         category_lanes=category_lanes,
     )
+
+
+def load_cached_news_dashboard_snapshot(
+    *,
+    cache_dir: Path | str = NEWS_CACHE_DIR,
+) -> NewsDashboardSnapshot | None:
+    """Load the latest normalized dashboard snapshot if it exists and is valid."""
+
+    cache_file = _cache_path(cache_dir, NEWS_SNAPSHOT_FILENAME)
+    if not cache_file.exists():
+        return None
+    try:
+        return NewsDashboardSnapshot.model_validate_json(cache_file.read_text(encoding="utf-8"))
+    except ValueError:
+        return None
+
+
+def save_cached_news_dashboard_snapshot(
+    snapshot: NewsDashboardSnapshot,
+    *,
+    cache_dir: Path | str = NEWS_CACHE_DIR,
+) -> NewsDashboardSnapshot:
+    """Normalize and atomically save the latest snapshot with one previous backup."""
+
+    cache_root = Path(cache_dir)
+    cache_root.mkdir(parents=True, exist_ok=True)
+    normalized = normalize_snapshot_for_cache(snapshot)
+    cache_file = _cache_path(cache_root, NEWS_SNAPSHOT_FILENAME)
+    tmp_file = _cache_path(cache_root, NEWS_TMP_SNAPSHOT_FILENAME)
+
+    try:
+        tmp_file.write_text(
+            normalized.model_dump_json(indent=2),
+            encoding="utf-8",
+        )
+        NewsDashboardSnapshot.model_validate_json(tmp_file.read_text(encoding="utf-8"))
+        rotate_previous_snapshot(cache_dir=cache_root)
+        tmp_file.replace(cache_file)
+    finally:
+        if tmp_file.exists():
+            tmp_file.unlink()
+    return normalized
+
+
+def rotate_previous_snapshot(
+    *,
+    cache_dir: Path | str = NEWS_CACHE_DIR,
+) -> None:
+    """Keep at most one previous valid snapshot backup."""
+
+    cache_root = Path(cache_dir)
+    cache_file = _cache_path(cache_root, NEWS_SNAPSHOT_FILENAME)
+    previous_file = _cache_path(cache_root, NEWS_PREVIOUS_SNAPSHOT_FILENAME)
+    if not cache_file.exists():
+        return
+    previous_file.write_bytes(cache_file.read_bytes())
+
+
+def cleanup_news_cache_files(
+    *,
+    cache_dir: Path | str = NEWS_CACHE_DIR,
+) -> list[Path]:
+    """Remove only bounded, known news-dashboard temporary or extra files."""
+
+    cache_root = Path(cache_dir)
+    if not cache_root.exists():
+        return []
+
+    allowed_names = {
+        NEWS_SNAPSHOT_FILENAME,
+        NEWS_PREVIOUS_SNAPSHOT_FILENAME,
+        NEWS_UPDATE_STATUS_FILENAME,
+    }
+    deleted: list[Path] = []
+    for path in cache_root.iterdir():
+        if not path.is_file():
+            continue
+        name = path.name
+        should_delete = (
+            name == NEWS_TMP_SNAPSHOT_FILENAME
+            or (
+                name.startswith("news_dashboard_snapshot.prev.")
+                and name != NEWS_PREVIOUS_SNAPSHOT_FILENAME
+            )
+            or name.startswith("news_dashboard_snapshot.copy")
+            or name.startswith("news_dashboard_debug")
+            or (
+                name.startswith("news_dashboard_snapshot")
+                and name.endswith(".json")
+                and name not in allowed_names
+            )
+        )
+        if should_delete:
+            path.unlink()
+            deleted.append(path)
+    return deleted
+
+
+def get_news_cache_file_size(
+    *,
+    cache_dir: Path | str = NEWS_CACHE_DIR,
+) -> int | None:
+    """Return the latest snapshot cache size in bytes."""
+
+    cache_file = _cache_path(cache_dir, NEWS_SNAPSHOT_FILENAME)
+    if not cache_file.exists():
+        return None
+    return cache_file.stat().st_size
+
+
+def load_news_update_status(
+    *,
+    cache_dir: Path | str = NEWS_CACHE_DIR,
+) -> NewsUpdateStatus:
+    """Load latest-only refresh status, falling back to an empty status."""
+
+    status_file = _cache_path(cache_dir, NEWS_UPDATE_STATUS_FILENAME)
+    if not status_file.exists():
+        return NewsUpdateStatus()
+    try:
+        return NewsUpdateStatus.model_validate_json(status_file.read_text(encoding="utf-8"))
+    except ValueError:
+        return NewsUpdateStatus()
+
+
+def save_news_update_status(
+    status: NewsUpdateStatus,
+    *,
+    cache_dir: Path | str = NEWS_CACHE_DIR,
+) -> NewsUpdateStatus:
+    """Save the latest-only refresh status without keeping history arrays."""
+
+    cache_root = Path(cache_dir)
+    cache_root.mkdir(parents=True, exist_ok=True)
+    normalized = status.model_copy(
+        update={"cache_file_size_bytes": get_news_cache_file_size(cache_dir=cache_root)}
+    )
+    status_file = _cache_path(cache_root, NEWS_UPDATE_STATUS_FILENAME)
+    status_file.write_text(normalized.model_dump_json(indent=2), encoding="utf-8")
+    return normalized
 
 
 def news_snapshot_item_count(snapshot: NewsDashboardSnapshot) -> int:
@@ -190,3 +339,7 @@ def _truncate_text(value: str, max_chars: int) -> str:
     if max_chars <= 3:
         return value[:max_chars]
     return f"{value[: max_chars - 3]}..."
+
+
+def _cache_path(cache_dir: Path | str, filename: str) -> Path:
+    return Path(cache_dir) / filename

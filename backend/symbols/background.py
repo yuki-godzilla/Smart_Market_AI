@@ -23,13 +23,13 @@ class SymbolBackgroundRefreshStep:
 
 
 BACKGROUND_REFRESH_STEPS: Final[tuple[SymbolBackgroundRefreshStep, ...]] = (
-    SymbolBackgroundRefreshStep(delay_minutes=3, max_items=40),
-    SymbolBackgroundRefreshStep(delay_minutes=8, max_items=40),
+    SymbolBackgroundRefreshStep(delay_minutes=3, max_items=75),
+    SymbolBackgroundRefreshStep(delay_minutes=8, max_items=75),
 )
 STARTUP_BACKGROUND_REFRESH_MAX_ITEMS: Final[int] = MAX_SYMBOL_REFRESH_PER_RUN
 BACKGROUND_REFRESH_INTERVAL_MINUTES: Final[int] = 5
-BACKGROUND_REFRESH_MAX_ITEMS: Final[int] = 30
-MAX_SYMBOL_REFRESH_PER_SESSION: Final[int] = 500
+BACKGROUND_REFRESH_MAX_ITEMS: Final[int] = 50
+MAX_SYMBOL_REFRESH_PER_SESSION: Final[int] = 1000
 
 _WORKER_LOCK = threading.Lock()
 _WORKER_THREAD: threading.Thread | None = None

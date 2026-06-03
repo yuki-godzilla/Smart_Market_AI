@@ -14,7 +14,7 @@ from backend.symbols.contracts import (
 
 SYMBOL_PRICE_FRESH_HOURS = 24
 SYMBOL_EXPIRED_DAYS = 7
-MAX_SYMBOL_REFRESH_PER_RUN = 80
+MAX_SYMBOL_REFRESH_PER_RUN = 150
 
 STALE_SCORES: dict[SymbolFreshnessStatus, int] = {
     "missing": 100,

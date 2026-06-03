@@ -96,7 +96,9 @@ def test_startup_refresh_skips_when_recent_batch_succeeded(tmp_path) -> None:
     assert second.record_count == 1
 
 
-def test_startup_refresh_default_batch_caps_at_eighty_symbols(tmp_path) -> None:
+def test_startup_refresh_default_batch_caps_at_one_hundred_fifty_symbols(
+    tmp_path,
+) -> None:
     csv_path = _write_symbol_universe(
         tmp_path,
         [
@@ -106,7 +108,7 @@ def test_startup_refresh_default_batch_caps_at_eighty_symbols(tmp_path) -> None:
                 "market": "us",
                 "asset_type": "stock",
             }
-            for index in range(100)
+            for index in range(200)
         ],
     )
 
@@ -116,8 +118,8 @@ def test_startup_refresh_default_batch_caps_at_eighty_symbols(tmp_path) -> None:
         now=datetime(2026, 6, 3, 12, 0, 0),
     )
 
-    assert summary.succeeded_count == 80
-    assert summary.record_count == 80
+    assert summary.succeeded_count == 150
+    assert summary.record_count == 150
 
 
 def _write_symbol_universe(tmp_path: Path, rows: list[dict[str, str]]) -> Path:

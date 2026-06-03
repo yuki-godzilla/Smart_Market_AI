@@ -39,8 +39,8 @@ def test_background_refresh_cycle_runs_short_session_plan(tmp_path) -> None:
         now_provider=now_provider,
     )
 
-    assert STARTUP_BACKGROUND_REFRESH_MAX_ITEMS == 80
-    assert MAX_SYMBOL_REFRESH_PER_SESSION == 500
+    assert STARTUP_BACKGROUND_REFRESH_MAX_ITEMS == 150
+    assert MAX_SYMBOL_REFRESH_PER_SESSION == 1000
     assert waits == [180.0, 300.0]
     assert sum(summary.succeeded_count for summary in summaries) == 16
     assert len(load_symbol_records(cache_dir=tmp_path)) == 16
@@ -92,9 +92,9 @@ def test_background_refresh_cycle_uses_recurring_batches_after_eight_minutes(
     )
 
     assert waits == [180.0, 300.0, 300.0]
-    assert BACKGROUND_REFRESH_STEPS[0].max_items == 40
-    assert BACKGROUND_REFRESH_STEPS[1].max_items == 40
-    assert BACKGROUND_REFRESH_MAX_ITEMS == 30
+    assert BACKGROUND_REFRESH_STEPS[0].max_items == 75
+    assert BACKGROUND_REFRESH_STEPS[1].max_items == 75
+    assert BACKGROUND_REFRESH_MAX_ITEMS == 50
     assert summaries[-1].succeeded_count == 3
     assert sum(summary.succeeded_count for summary in summaries) == 19
 

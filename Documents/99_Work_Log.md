@@ -1033,3 +1033,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Set the short-session cadence to 80 symbols immediately, 40 after 3 minutes, 40 after 8 minutes, then 30 every 5 minutes.
 - Kept fresh-symbol skip behavior and added a 500-symbol per-session safety cap to avoid runaway background work.
 - Added network-free tests for the short-session plan, recurring batch behavior, and early stop when no missing/stale symbols remain.
+
+## 2026-06-04 - Symbol DB background worker cadence increase
+
+- Increased the symbol DB background refresh cadence after app smoke indicated low runtime load.
+- Updated the short-session plan to 150 symbols immediately, 75 after 3 minutes, 75 after 8 minutes, then 50 every 5 minutes.
+- Raised the per-session safety cap from 500 to 1000 symbols while keeping fresh-symbol skip, lock, and bounded batch behavior.

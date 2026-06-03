@@ -1019,3 +1019,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Confirmed that the first Phase 22.z foundation was not yet called from the app startup path: launching the app initially produced no `symbol_refresh_queue.json`, `symbol_refresh_status.json`, or `symbols_cache.json`.
 - Added `backend/symbols/startup.py` and a Streamlit startup hook that runs a bounded local-first refresh from `data/marketdata/symbol_universe.csv` without network access.
 - Verified startup execution in bare Streamlit mode: first run created 20 normalized symbol records with `pending_like_count=0`; second run advanced to 40 records, kept `refresh_queue_size=0`, and left no `pending` / `retryable` / `in_progress` tasks.
+
+## 2026-06-03 - Symbol DB startup refresh TTL and CSV cleanup
+
+- Added a 24-hour minimum interval to the Streamlit startup symbol refresh so repeated app restarts do not keep processing additional batches.
+- Fixed refresh status persistence so `last_attempt_at` survives the final status save and can be used for interval checks.
+- Corrected the `ORR` ETF row in `symbol_universe.csv`: kept the high `expense_ratio_pct=10.91` value, changed `complexity` to `advanced`, removed the inconsistent `low_cost` tag, and marked `data_quality=WARN`.
+- Revalidated `symbol_universe.csv`; schema validation remained OK with 0 issues.

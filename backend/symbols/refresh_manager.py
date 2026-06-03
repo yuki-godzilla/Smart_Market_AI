@@ -49,8 +49,9 @@ def refresh_symbols_if_needed(
         return _skipped_result(started_at, "lock_active")
 
     status = load_symbol_refresh_status(cache_dir=cache_dir)
+    status = status.model_copy(update={"last_attempt_at": started_at, "is_refreshing": True})
     save_symbol_refresh_status(
-        status.model_copy(update={"last_attempt_at": started_at, "is_refreshing": True}),
+        status,
         cache_dir=cache_dir,
     )
     logger.info("refresh started max_items=%s force=%s", max_items, force)

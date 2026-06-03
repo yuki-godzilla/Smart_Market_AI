@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import csv
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Final
 
@@ -10,6 +10,7 @@ from backend.symbols.cache import (
     SYMBOL_CACHE_DIR,
     cleanup_symbol_refresh_artifacts,
     load_symbol_refresh_queue,
+    load_symbol_refresh_status,
 )
 from backend.symbols.contracts import (
     SymbolImportanceMeta,
@@ -26,6 +27,7 @@ from backend.symbols.repository import load_symbol_records
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SYMBOL_UNIVERSE_CSV = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe.csv"
+MIN_STARTUP_REFRESH_INTERVAL_HOURS = 24
 
 SYMBOL_RECORD_FIELD_KEYS: Final[tuple[str, ...]] = (
     "name",
@@ -62,11 +64,28 @@ def run_symbol_database_startup_refresh(
     symbol_universe_csv: Path | str = SYMBOL_UNIVERSE_CSV,
     now: datetime | None = None,
     max_items: int = MAX_SYMBOL_REFRESH_PER_RUN,
+    min_interval_hours: int = MIN_STARTUP_REFRESH_INTERVAL_HOURS,
+    force: bool = False,
 ) -> SymbolStartupRefreshSummary:
     """Refresh a small local-first symbol DB slice during app startup."""
 
     current_time = now or datetime.utcnow()
     cleanup_symbol_refresh_artifacts(cache_dir=cache_dir, now=current_time)
+    if not force and _startup_refresh_is_recent(
+        cache_dir=cache_dir,
+        now=current_time,
+        min_interval_hours=min_interval_hours,
+    ):
+        queue = load_symbol_refresh_queue(cache_dir=cache_dir)
+        return _summary_from_counts(
+            attempted_count=0,
+            succeeded_count=0,
+            failed_count=0,
+            skipped_count=1,
+            queue=queue,
+            cache_dir=cache_dir,
+        )
+
     rows = _load_symbol_universe_rows(Path(symbol_universe_csv))
     if not rows:
         return SymbolStartupRefreshSummary(
@@ -134,6 +153,21 @@ def find_pending_symbol_refresh_tasks(
         for task in load_symbol_refresh_queue(cache_dir=cache_dir)
         if task.status in {"pending", "retryable", "in_progress"}
     ]
+
+
+def _startup_refresh_is_recent(
+    *,
+    cache_dir: Path | str,
+    now: datetime,
+    min_interval_hours: int,
+) -> bool:
+    if min_interval_hours <= 0:
+        return False
+    status = load_symbol_refresh_status(cache_dir=cache_dir)
+    last_refresh_at = status.last_success_at or status.last_attempt_at
+    if last_refresh_at is None:
+        return False
+    return now - last_refresh_at < timedelta(hours=min_interval_hours)
 
 
 def _load_symbol_universe_rows(csv_path: Path) -> list[dict[str, str]]:

@@ -31,6 +31,7 @@ def test_startup_refresh_updates_next_missing_symbols_without_pending_leftovers(
         symbol_universe_csv=csv_path,
         now=now,
         max_items=2,
+        force=True,
     )
 
     assert first.attempted_count == 2
@@ -58,11 +59,41 @@ def test_startup_refresh_skips_when_all_symbols_are_fresh(tmp_path) -> None:
         cache_dir=tmp_path,
         symbol_universe_csv=csv_path,
         now=now,
+        force=True,
     )
 
     assert first.succeeded_count == 1
     assert second.attempted_count == 0
     assert second.pending_like_count == 0
+
+
+def test_startup_refresh_skips_when_recent_batch_succeeded(tmp_path) -> None:
+    csv_path = _write_symbol_universe(
+        tmp_path,
+        [
+            {"symbol": "7203", "name": "Toyota", "market": "jp", "asset_type": "stock"},
+            {"symbol": "AAPL", "name": "Apple", "market": "us", "asset_type": "stock"},
+        ],
+    )
+    now = datetime(2026, 6, 3, 12, 0, 0)
+
+    first = run_symbol_database_startup_refresh(
+        cache_dir=tmp_path,
+        symbol_universe_csv=csv_path,
+        now=now,
+        max_items=1,
+    )
+    second = run_symbol_database_startup_refresh(
+        cache_dir=tmp_path,
+        symbol_universe_csv=csv_path,
+        now=now,
+        max_items=1,
+    )
+
+    assert first.succeeded_count == 1
+    assert second.attempted_count == 0
+    assert second.skipped_count == 1
+    assert second.record_count == 1
 
 
 def _write_symbol_universe(tmp_path: Path, rows: list[dict[str, str]]) -> Path:

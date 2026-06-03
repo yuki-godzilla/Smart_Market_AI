@@ -114,32 +114,7 @@ def news_dashboard_status_items(
 def news_dashboard_heatmap_frame(snapshot: NewsDashboardSnapshot) -> pd.DataFrame:
     """Return the heatmap frame used by the Investment News chart."""
 
-    return pd.DataFrame(
-        [
-            {
-                "カテゴリ": cell.category,
-                "投資カテゴリ": cell.category,
-                "地域": cell.region or "全体",
-                "分野": cell.region or "全体",
-                "加熱度": cell.heat_score,
-                "値動き": cell.price_change_pct,
-                "値動きスコア": cell.price_change_pct if cell.price_change_pct is not None else 0.0,
-                "値動き表示": _price_change_label(cell.price_change_pct),
-                "取引量": cell.volume_activity_score,
-                "取引量スコア": (
-                    cell.volume_activity_score if cell.volume_activity_score is not None else 1.0
-                ),
-                "取引量目安": _volume_label(cell.volume_activity_score),
-                "ニュース件数": cell.news_count,
-                "リスク材料": cell.risk_count,
-                "ポジティブ材料": cell.positive_count,
-                "公式開示": cell.official_source_count,
-                "鮮度比率": round(cell.freshness_ratio * 100, 1),
-                "主な材料": _material_label(cell.dominant_material_type),
-            }
-            for cell in snapshot.heatmap_cells
-        ]
-    )
+    return pd.DataFrame([_heatmap_cell_row(cell) for cell in snapshot.heatmap_cells])
 
 
 def news_headline_card_html(
@@ -222,6 +197,41 @@ def news_dashboard_unique_headline_count(snapshot: NewsDashboardSnapshot) -> int
         published = card.published_at.isoformat() if card.published_at else ""
         seen.add((card.title.strip(), card.url or "", published))
     return len(seen)
+
+
+def _heatmap_cell_row(cell: object) -> dict[str, object]:
+    price_change_pct = _optional_float_attr(cell, "price_change_pct")
+    volume_activity_score = _optional_float_attr(cell, "volume_activity_score")
+    region = getattr(cell, "region", None) or "全体"
+    return {
+        "カテゴリ": getattr(cell, "category"),
+        "投資カテゴリ": getattr(cell, "category"),
+        "地域": region,
+        "分野": region,
+        "加熱度": getattr(cell, "heat_score"),
+        "値動き": price_change_pct,
+        "値動きスコア": price_change_pct if price_change_pct is not None else 0.0,
+        "値動き表示": _price_change_label(price_change_pct),
+        "取引量": volume_activity_score,
+        "取引量スコア": volume_activity_score if volume_activity_score is not None else 1.0,
+        "取引量目安": _volume_label(volume_activity_score),
+        "ニュース件数": getattr(cell, "news_count"),
+        "リスク材料": getattr(cell, "risk_count"),
+        "ポジティブ材料": getattr(cell, "positive_count"),
+        "公式開示": getattr(cell, "official_source_count"),
+        "鮮度比率": round(getattr(cell, "freshness_ratio") * 100, 1),
+        "主な材料": _material_label(getattr(cell, "dominant_material_type")),
+    }
+
+
+def _optional_float_attr(value: object, name: str) -> float | None:
+    raw_value = getattr(value, name, None)
+    if raw_value is None:
+        return None
+    try:
+        return float(raw_value)
+    except (TypeError, ValueError):
+        return None
 
 
 def news_symbol_handoff_label(symbol: str) -> str:

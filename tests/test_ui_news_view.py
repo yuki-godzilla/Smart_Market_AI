@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 from backend.news import NewsUpdateStatus, build_demo_news_dashboard_snapshot
 from ui.views.news import (
@@ -50,6 +51,31 @@ def test_news_dashboard_heatmap_frame_is_user_facing():
     assert frame["加熱度"].min() >= 0
     assert frame["値動き"].notna().any()
     assert frame["取引量"].notna().any()
+
+
+def test_news_dashboard_heatmap_frame_accepts_legacy_cells_without_market_metrics():
+    snapshot = SimpleNamespace(
+        heatmap_cells=[
+            SimpleNamespace(
+                category="旧キャッシュ",
+                region="日本",
+                heat_score=2.5,
+                news_count=3,
+                risk_count=1,
+                positive_count=1,
+                official_source_count=0,
+                freshness_ratio=0.5,
+                dominant_material_type="risk",
+            )
+        ]
+    )
+
+    frame = news_dashboard_heatmap_frame(snapshot)
+
+    assert frame.loc[0, "投資カテゴリ"] == "旧キャッシュ"
+    assert frame.loc[0, "値動きスコア"] == 0.0
+    assert frame.loc[0, "取引量スコア"] == 1.0
+    assert frame.loc[0, "値動き表示"] == "未取得"
 
 
 def test_news_headline_card_html_keeps_link_safe_and_hides_raw_url():

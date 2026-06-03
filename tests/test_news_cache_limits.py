@@ -48,6 +48,8 @@ def _headline(index: int, *, category: str = "国内株") -> NewsHeadlineCard:
 def _heatmap_cell(index: int) -> NewsHeatmapCell:
     return NewsHeatmapCell(
         category=f"カテゴリ {index}",
+        price_change_pct=round(index * 0.1, 1),
+        volume_activity_score=round(1.0 + index * 0.05, 2),
         news_count=index,
         risk_count=index % 3,
         positive_count=index % 2,
@@ -88,6 +90,14 @@ def test_normalize_snapshot_for_cache_applies_collection_limits():
         len(lane.headlines) <= MAX_HEADLINES_PER_CATEGORY for lane in normalized.category_lanes
     )
     assert news_snapshot_item_count(normalized) == MAX_NEWS_ITEMS
+
+
+def test_normalize_snapshot_for_cache_preserves_heatmap_market_metrics():
+    normalized = normalize_snapshot_for_cache(_snapshot())
+    cell = normalized.heatmap_cells[3]
+
+    assert cell.price_change_pct == 0.3
+    assert cell.volume_activity_score == 1.15
 
 
 def test_normalize_snapshot_for_cache_truncates_text_and_limits_checkpoints():

@@ -1231,9 +1231,15 @@ def test_company_research_summary_html_prioritizes_company_understanding():
     assert "売上高" in markup
     assert "IR情報サマリー" in markup
     assert "最新ニュース・開示サマリー" in markup
+    assert "market-intelligence-panel" in markup
+    assert "Market Intelligence" in markup
     assert "research-news-summary-card" in markup
+    assert "news-feed-item-clickable" in markup
+    assert "news-source-link" in markup
     assert 'href="https://example.com/news"' in markup
-    assert "ニュースを開く" in markup
+    assert 'target="_blank"' in markup
+    assert 'rel="noopener noreferrer"' in markup
+    assert "元記事を見る" in markup
     assert "公開日" in markup
     assert "2026-06-01" in markup
     assert "事業影響あり" in markup
@@ -1845,9 +1851,15 @@ def test_news_source_link_rows_prioritize_url_sources_and_hide_raw_fields():
         "EDINET",
         "Yahoo Finance",
     ]
-    assert "ニュースを開く" in panel_html
-    assert "開示資料を開く" in panel_html
-    assert "出典を開く" in panel_html
+    assert "元記事を見る" in panel_html
+    assert "TDnetで見る" in panel_html
+    assert "企業IRで見る" in panel_html
+    assert "EDINETで見る" in panel_html
+    assert "Yahoo Financeで見る" in panel_html
+    assert "news-feed-item-clickable" in panel_html
+    assert 'href="https://example.com/news"' in panel_html
+    assert 'target="_blank"' in panel_html
+    assert 'rel="noopener noreferrer"' in panel_html
     assert "ほか 1件は下部の外部参照ソース" in panel_html
     assert "Provider Symbol" not in panel_html
     assert "Quote Type" not in panel_html
@@ -1888,7 +1900,7 @@ def test_news_source_links_panel_guides_to_external_urls_when_news_url_is_missin
     assert "ニュース専用のURL付き根拠は見つかりませんでした。" in panel_html
     assert "外部参照ソースにURL付きの公式資料・provider情報があります。" in panel_html
     assert "Yahoo Finance" in panel_html
-    assert "出典を開く" in panel_html
+    assert "Yahoo Financeで見る" in panel_html
     assert "URL表示は未実装" not in panel_html
 
 
@@ -1925,8 +1937,12 @@ def test_investment_hint_news_panel_html_surfaces_news_only_cards():
     panel_html = _investment_hint_news_panel_html(report)
 
     assert "投資ヒントとなるニュース" in panel_html
+    assert "注目材料 Top 3" in panel_html
     assert "外部ニュースの見出しだけ" in panel_html
     assert "クリックして" in panel_html
+    assert "market-intelligence-panel spotlight" in panel_html
+    assert "news-feed-top-list" in panel_html
+    assert "news-feed-item-clickable" in panel_html
     assert "research-news-headline-card" in panel_html
     assert "Toyota raises software investment" in panel_html
     assert "Tariff risk rises" in panel_html
@@ -1941,7 +1957,10 @@ def test_investment_hint_news_panel_html_surfaces_news_only_cards():
     assert "https://example.com/toyota-risk" in panel_html
     assert 'href="https://example.com/toyota-growth"' in panel_html
     assert 'target="_blank"' in panel_html
-    assert panel_html.count("ニュースを開く") == 2
+    assert 'rel="noopener noreferrer"' in panel_html
+    assert "news-feed-item-clickable important" in panel_html
+    assert "news-feed-item-clickable risk" in panel_html
+    assert panel_html.count("元記事を見る") == 2
     assert "なぜ見るか" not in panel_html
     assert "追加確認:" not in panel_html
     assert "TDnet" not in panel_html
@@ -1983,7 +2002,7 @@ def test_investment_hint_news_panel_html_skips_news_without_displayable_url_and_
     assert "https://example.com/apple-3" in panel_html
     assert "https://example.com/apple-4" not in panel_html
     assert "ほか 1件" in panel_html
-    assert panel_html.count("ニュースを開く") == 3
+    assert panel_html.count("元記事を見る") == 3
 
 
 def test_investment_hint_news_panel_html_is_empty_without_url_backed_news():
@@ -2054,7 +2073,7 @@ def test_news_source_link_rows_cover_broad_symbol_case_matrix():
                 )
             ],
             "expected_label": "ニュース",
-            "expected_text": "ニュースを開く",
+            "expected_text": "元記事を見る",
         },
         {
             "label": "国内大型株 大阪ガス",
@@ -2098,7 +2117,7 @@ def test_news_source_link_rows_cover_broad_symbol_case_matrix():
                 )
             ],
             "expected_label": "Yahoo Finance",
-            "expected_text": "出典を開く",
+            "expected_text": "Yahoo Financeで見る",
         },
         {
             "label": "米国大型株",
@@ -2128,7 +2147,7 @@ def test_news_source_link_rows_cover_broad_symbol_case_matrix():
                 )
             ],
             "expected_label": "ニュース",
-            "expected_text": "ニュースを開く",
+            "expected_text": "元記事を見る",
         },
         {
             "label": "ETF",
@@ -2150,7 +2169,7 @@ def test_news_source_link_rows_cover_broad_symbol_case_matrix():
                 )
             ],
             "expected_label": "Yahoo Finance",
-            "expected_text": "出典を開く",
+            "expected_text": "Yahoo Financeで見る",
         },
         {
             "label": "URLなし",

@@ -917,37 +917,112 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     padding: 0.34rem 0.58rem;
     text-decoration: none;
 }
-.research-news-headline-list {
-    display: grid;
-    gap: 0.68rem;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    margin-top: 0.72rem;
+.market-intelligence-panel {
+    background: linear-gradient(135deg, rgba(8, 20, 34, 0.98), rgba(15, 28, 48, 0.96));
+    border: 1px solid rgba(80, 210, 220, 0.28);
+    border-radius: 8px;
+    box-shadow: 0 0 24px rgba(0, 200, 220, 0.08);
+    margin: 0.85rem 0;
+    padding: 0.92rem;
 }
-.research-news-headline-card {
-    border: 1px solid rgba(34, 211, 238, 0.28);
-    border-left: 3px solid rgba(34, 211, 238, 0.72);
+.market-intelligence-panel.spotlight {
+    border-color: rgba(245, 197, 66, 0.26);
+    box-shadow: 0 0 24px rgba(245, 197, 66, 0.08);
+}
+.market-intelligence-panel.sources {
+    margin: 0;
+}
+.market-intelligence-header {
+    align-items: flex-start;
+    display: flex;
+    gap: 0.85rem;
+    justify-content: space-between;
+}
+.market-intelligence-kicker {
+    color: var(--text-ai-primary);
+    font-size: 0.72rem;
+    font-weight: 850;
+    letter-spacing: 0;
+    line-height: 1.25;
+    text-transform: uppercase;
+}
+.market-intelligence-title {
+    color: var(--text-heading);
+    font-size: 1.05rem;
+    font-weight: 880;
+    line-height: 1.35;
+    margin-top: 0.12rem;
+}
+.market-intelligence-subtitle {
+    color: var(--text-caption);
+    font-size: 0.82rem;
+    line-height: 1.55;
+    margin-top: 0.25rem;
+}
+.market-intelligence-count {
+    border: 1px solid rgba(80, 210, 220, 0.32);
+    border-radius: 999px;
+    color: var(--text-ai-title);
+    flex: 0 0 auto;
+    font-size: 0.74rem;
+    font-weight: 830;
+    line-height: 1.2;
+    padding: 0.2rem 0.55rem;
+}
+.news-feed-list {
+    display: grid;
+    gap: 0.72rem;
+    margin-top: 0.85rem;
+}
+.news-feed-top-list,
+.research-news-headline-list {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+.news-feed-item {
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(160, 210, 230, 0.14);
+    border-left: 3px solid rgba(120, 150, 170, 0.78);
     border-radius: 7px;
-    background: linear-gradient(135deg, rgba(8, 22, 36, 0.96), rgba(14, 28, 46, 0.92));
     color: var(--text-secondary);
     display: block;
-    min-height: 142px;
-    padding: 0.72rem 0.82rem;
+    min-height: 118px;
+    padding: 0.78rem 0.88rem;
     text-decoration: none;
-    transition: border-color 0.12s ease, background 0.12s ease, transform 0.12s ease;
+    transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
 }
-.research-news-headline-card:hover {
-    border-color: rgba(34, 211, 238, 0.72);
-    background: linear-gradient(135deg, rgba(10, 32, 50, 0.98), rgba(18, 36, 58, 0.96));
+.news-feed-item-clickable {
+    cursor: pointer;
+}
+.news-feed-item-clickable:hover {
+    background: rgba(80, 210, 220, 0.055);
+    border-color: rgba(80, 210, 220, 0.35);
+    box-shadow: 0 0 18px rgba(80, 210, 220, 0.10);
     transform: translateY(-1px);
 }
-.research-news-headline-card.is-muted {
-    cursor: default;
+.news-feed-item-clickable:focus-visible {
+    border-color: rgba(105, 230, 235, 0.88);
+    box-shadow: 0 0 0 2px rgba(105, 230, 235, 0.24), 0 0 18px rgba(105, 230, 235, 0.12);
+    outline: none;
 }
-.research-news-headline-card.is-muted:hover {
-    border-color: rgba(34, 211, 238, 0.28);
-    background: linear-gradient(135deg, rgba(8, 22, 36, 0.96), rgba(14, 28, 46, 0.92));
-    transform: none;
+.news-feed-item.news {
+    border-left-color: rgba(80, 210, 220, 0.82);
 }
+.news-feed-item.ir,
+.news-feed-item.disclosure {
+    border-left-color: rgba(150, 130, 255, 0.86);
+}
+.news-feed-item.important {
+    background: rgba(245, 197, 66, 0.04);
+    border-left-color: rgba(245, 197, 66, 0.96);
+}
+.news-feed-item.risk {
+    background: rgba(255, 107, 107, 0.038);
+    border-left-color: rgba(255, 107, 107, 0.92);
+}
+.news-feed-item.other {
+    border-left-color: rgba(120, 150, 170, 0.78);
+}
+.news-item-top,
 .research-news-headline-top {
     align-items: center;
     display: flex;
@@ -955,6 +1030,7 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     gap: 0.36rem;
     margin-bottom: 0.42rem;
 }
+.news-item-badge,
 .research-news-headline-chip {
     border: 1px solid rgba(148, 163, 184, 0.42);
     border-radius: 999px;
@@ -964,18 +1040,22 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     line-height: 1.25;
     padding: 0.14rem 0.45rem;
 }
+.news-item-badge.primary,
 .research-news-headline-chip.primary {
     border-color: rgba(34, 211, 238, 0.52);
     color: var(--text-ai-title);
 }
+.news-item-badge.positive,
 .research-news-headline-chip.positive {
     border-color: rgba(52, 211, 153, 0.52);
     color: var(--text-positive);
 }
+.news-item-badge.risk,
 .research-news-headline-chip.risk {
     border-color: rgba(251, 191, 36, 0.58);
     color: var(--text-warning);
 }
+.news-item-title,
 .research-news-headline-title {
     color: var(--text-heading);
     font-size: 0.98rem;
@@ -984,6 +1064,7 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     margin-bottom: 0.45rem;
     overflow-wrap: anywhere;
 }
+.news-item-meta,
 .research-news-headline-meta {
     color: var(--text-caption);
     display: flex;
@@ -993,39 +1074,38 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     line-height: 1.45;
     margin-bottom: 0.42rem;
 }
+.news-item-meta strong,
 .research-news-headline-meta strong {
     color: var(--text-ai-primary);
     font-weight: 830;
 }
+.news-item-summary,
 .research-news-headline-summary {
     color: var(--text-secondary);
     font-size: 0.84rem;
     line-height: 1.55;
     overflow-wrap: anywhere;
 }
+.news-source-link,
 .research-news-headline-action {
-    color: var(--text-ai-title);
+    color: rgba(105, 230, 235, 0.95);
+    display: inline-block;
     font-size: 0.78rem;
     font-weight: 820;
     margin-top: 0.54rem;
+    text-decoration: none;
+}
+.news-feed-item-clickable:hover .news-source-link {
+    text-decoration: underline;
 }
 .research-news-summary-list {
     display: grid;
-    gap: 0.6rem;
-    margin-top: 0.68rem;
+    gap: 0.72rem;
+    margin-top: 0.85rem;
 }
 .research-news-summary-card {
-    border: 1px solid var(--border-default);
-    border-radius: 7px;
-    background: var(--bg-card);
     color: var(--text-secondary);
-    display: block;
-    padding: 0.7rem 0.82rem;
     text-decoration: none;
-}
-.research-news-summary-card[href]:hover {
-    border-color: rgba(34, 211, 238, 0.58);
-    background: rgba(15, 33, 55, 0.92);
 }
 .research-point-list {
     display: grid;
@@ -5573,7 +5653,7 @@ def _news_source_link_rows(
                     "title": news.title,
                     "summary": _research_brief_ui_text(news.summary, max_chars=180),
                     "url": url,
-                    "link_label": "ニュースを開く",
+                    "link_label": _news_source_link_label("news"),
                 }
             )
 
@@ -5615,10 +5695,17 @@ def _news_source_links_panel_html(
 ) -> str:
     if not rows:
         return (
-            '<section class="research-result-brief">'
-            '<div class="research-result-brief-summary">'
+            '<section class="market-intelligence-panel sources">'
+            '<div class="market-intelligence-header">'
+            "<div>"
+            '<div class="market-intelligence-kicker">Market Intelligence</div>'
+            '<div class="market-intelligence-title">ニュース・開示の出典</div>'
+            '<div class="market-intelligence-subtitle">'
             "ニュース専用のURL付き根拠は見つかりませんでした。"
             "関連する公式開示・企業IR・provider情報は外部参照ソースも確認してください。"
+            "</div>"
+            "</div>"
+            '<div class="market-intelligence-count">URL 0件</div>'
             "</div>"
             "</section>"
         )
@@ -5642,41 +5729,45 @@ def _news_source_links_panel_html(
             "</div>"
         )
     return (
-        '<section class="research-result-brief">'
-        f'<div class="research-result-brief-summary">{html.escape(notice)}</div>'
-        f'<div class="research-evidence-list">{items}</div>'
+        '<section class="market-intelligence-panel sources">'
+        '<div class="market-intelligence-header">'
+        "<div>"
+        '<div class="market-intelligence-kicker">Market Intelligence</div>'
+        '<div class="market-intelligence-title">ニュース・開示の出典</div>'
+        f'<div class="market-intelligence-subtitle">{html.escape(notice)}</div>'
+        "</div>"
+        f'<div class="market-intelligence-count">URL {total_url_count}件</div>'
+        "</div>"
+        f'<div class="news-feed-list">{items}</div>'
         f"{more}"
         "</section>"
     )
 
 
 def _news_source_link_item_html(row: dict[str, str]) -> str:
+    feed_kind = _news_source_feed_kind(row["source_kind"])
     freshness_markup = (
-        f'<span class="research-evidence-pill">鮮度: {html.escape(row["freshness"])}</span>'
+        f'<span class="news-item-badge">鮮度 {html.escape(row["freshness"])}</span>'
         if row["freshness"]
         else ""
     )
-    summary_markup = (
-        f'<div class="research-evidence-excerpt">{html.escape(row["summary"])}</div>'
-        if row["summary"]
-        else ""
-    )
+    summary = _research_brief_ui_text(row["summary"], max_chars=140)
     return (
-        '<article class="research-evidence-item">'
-        '<div class="research-evidence-card-header">'
-        f'<span class="research-evidence-pill positive">{html.escape(row["source_label"])}</span>'
-        f'<span class="research-evidence-pill">{html.escape(row["provider"])}</span>'
+        f'<a class="news-feed-item news-feed-item-clickable {html.escape(feed_kind)}" '
+        f'href="{html.escape(row["url"], quote=True)}" target="_blank" rel="noopener noreferrer" '
+        f'aria-label="{html.escape(row["title"], quote=True)}">'
+        '<div class="news-item-top">'
+        f'<span class="news-item-badge primary">{html.escape(row["source_label"])}</span>'
+        f'<span class="news-item-badge">{html.escape(row["provider"])}</span>'
         f"{freshness_markup}"
         "</div>"
-        f'<div class="research-evidence-title">{html.escape(row["title"])}</div>'
-        '<div class="research-evidence-meta">'
-        f'{html.escape(row["date_label"])}: {html.escape(row["date_text"])}</div>'
-        f"{summary_markup}"
-        '<div class="research-evidence-actions">'
-        f'<a href="{html.escape(row["url"])}" target="_blank" rel="noopener noreferrer">'
-        f'{html.escape(row["link_label"])}</a>'
+        f'<div class="news-item-title">{html.escape(row["title"])}</div>'
+        '<div class="news-item-meta">'
+        f'<span>{html.escape(row["date_label"])} <strong>{html.escape(row["date_text"])}</strong></span>'
         "</div>"
-        "</article>"
+        f'<div class="news-item-summary">{html.escape(summary)}</div>'
+        f'<span class="news-source-link">{html.escape(row["link_label"])}</span>'
+        "</a>"
     )
 
 
@@ -5747,10 +5838,24 @@ def _news_source_priority(source_kind: str) -> int:
 
 def _news_source_link_label(source_kind: str) -> str:
     if source_kind == "news":
-        return "ニュースを開く"
-    if source_kind in {"tdnet", "company_ir", "edinet"}:
-        return "開示資料を開く"
+        return "元記事を見る"
+    if source_kind == "tdnet":
+        return "TDnetで見る"
+    if source_kind == "company_ir":
+        return "企業IRで見る"
+    if source_kind == "edinet":
+        return "EDINETで見る"
+    if source_kind == "yahoo_finance":
+        return "Yahoo Financeで見る"
     return "出典を開く"
+
+
+def _news_source_feed_kind(source_kind: str) -> str:
+    if source_kind == "news":
+        return "news"
+    if source_kind in {"tdnet", "company_ir", "edinet"}:
+        return "disclosure"
+    return "other"
 
 
 def _news_source_date_text(
@@ -6847,22 +6952,37 @@ def _news_summary_html(
     *,
     security_type: SecurityResearchType = "domestic_stock",
 ) -> str:
+    item_count_label = f"{len(items)}件" if items else "未取得"
     if not items:
         missing_text = (
             "ニュース・開示は取得できていません。必要に応じて外部ニュース、公式IR、SEC Filingを追加確認してください。"
             if security_type == "foreign_stock"
             else "ニュース・適時開示は取得できていません。必要に応じて外部ニュースや公式IRを追加確認してください。"
         )
-        body = '<div class="research-brief-focus-body">' f"{html.escape(missing_text)}</div>"
+        body = (
+            '<article class="news-feed-item other">'
+            f'<div class="news-item-summary">{html.escape(missing_text)}</div>'
+            "</article>"
+        )
     else:
         body = "".join(
             _news_summary_item_html(index, item, security_type=security_type)
             for index, item in enumerate(items, 1)
         )
     return (
-        '<section class="research-result-brief">'
-        f'<div class="research-result-brief-title">{html.escape(RESEARCH_NEWS_SUMMARY_TITLE)}</div>'
-        f'<div class="research-news-summary-list">{body}</div>'
+        '<section class="market-intelligence-panel" aria-label="ニュース・開示インテリジェンス">'
+        '<div class="market-intelligence-header">'
+        "<div>"
+        '<div class="market-intelligence-kicker">Market Intelligence</div>'
+        f'<div class="market-intelligence-title">{html.escape(RESEARCH_NEWS_SUMMARY_TITLE)}</div>'
+        '<div class="market-intelligence-subtitle">'
+        "外部ニュース、IR、開示をニュースフィードとして整理します。"
+        "気になる項目はカードから元資料を確認してください。"
+        "</div>"
+        "</div>"
+        f'<div class="market-intelligence-count">{html.escape(item_count_label)}</div>'
+        "</div>"
+        f'<div class="research-news-summary-list news-feed-list">{body}</div>'
         "</section>"
     )
 
@@ -6886,12 +7006,19 @@ def _investment_hint_news_panel_html(
             "</div>"
         )
     return (
-        '<section class="research-result-brief">'
-        '<div class="research-result-brief-title">投資ヒントとなるニュース</div>'
-        '<div class="research-result-brief-summary">'
-        "外部ニュースの見出しだけを分けて表示します。気になるカードをクリックして、本文と一次情報を確認してください。"
+        '<section class="market-intelligence-panel spotlight" aria-label="注目材料 Top 3">'
+        '<div class="market-intelligence-header">'
+        "<div>"
+        '<div class="market-intelligence-kicker">Market Intelligence</div>'
+        '<div class="market-intelligence-title">注目材料 Top 3</div>'
+        '<div class="market-intelligence-subtitle">'
+        "投資ヒントとなるニュースを外部ニュースの見出しだけで整理します。"
+        "気になるカードをクリックして、本文と一次情報を確認してください。"
         "</div>"
-        f'<div class="research-news-headline-list">{cards}</div>'
+        "</div>"
+        f'<div class="market-intelligence-count">{len(rows)}件</div>'
+        "</div>"
+        f'<div class="research-news-headline-list news-feed-list news-feed-top-list">{cards}</div>'
         f"{more}"
         "</section>"
     )
@@ -6927,6 +7054,7 @@ def _investment_hint_news_rows(
 def _investment_hint_news_card_html(row: dict[str, str]) -> str:
     sentiment = row.get("sentiment", "中立材料")
     tone = _research_sentiment_css_class(sentiment)
+    feed_kind = _investment_hint_news_feed_kind(sentiment, row.get("category", ""))
     url = row.get("url", "")
     title = row.get("title", "ニュース")
     published_at = row.get("published_at", "未確認")
@@ -6934,23 +7062,34 @@ def _investment_hint_news_card_html(row: dict[str, str]) -> str:
     source = row.get("source", "ニュース")
     summary = row.get("summary", "")
     return (
-        f'<a class="research-news-headline-card" href="{html.escape(url, quote=True)}" '
+        f'<a class="research-news-headline-card news-feed-item news-feed-item-clickable {feed_kind}" '
+        f'href="{html.escape(url, quote=True)}" '
         f'target="_blank" rel="noopener noreferrer" aria-label="{html.escape(title, quote=True)}">'
-        '<div class="research-news-headline-top">'
-        '<span class="research-news-headline-chip primary">外部ニュース</span>'
-        f'<span class="research-news-headline-chip {tone}">{html.escape(sentiment)}</span>'
-        f'<span class="research-news-headline-chip">{html.escape(row.get("category", "ニュース材料"))}</span>'
+        '<div class="research-news-headline-top news-item-top">'
+        '<span class="research-news-headline-chip news-item-badge primary">注目</span>'
+        '<span class="research-news-headline-chip news-item-badge">外部ニュース</span>'
+        f'<span class="research-news-headline-chip news-item-badge {tone}">{html.escape(sentiment)}</span>'
+        f'<span class="research-news-headline-chip news-item-badge">{html.escape(row.get("category", "ニュース材料"))}</span>'
         "</div>"
-        f'<div class="research-news-headline-title">{html.escape(title)}</div>'
-        '<div class="research-news-headline-meta">'
+        f'<div class="research-news-headline-title news-item-title">{html.escape(title)}</div>'
+        '<div class="research-news-headline-meta news-item-meta">'
         f"<span>公開日 <strong>{html.escape(published_at)}</strong></span>"
         f"<span>鮮度 <strong>{html.escape(freshness)}</strong></span>"
         f"<span>出典 <strong>{html.escape(source)}</strong></span>"
         "</div>"
-        f'<div class="research-news-headline-summary">{html.escape(summary)}</div>'
-        '<div class="research-news-headline-action">ニュースを開く</div>'
+        f'<div class="research-news-headline-summary news-item-summary">{html.escape(summary)}</div>'
+        '<span class="research-news-headline-action news-source-link">元記事を見る</span>'
         "</a>"
     )
+
+
+def _investment_hint_news_feed_kind(sentiment: str, category: str) -> str:
+    text = f"{sentiment} {category}"
+    if "リスク" in text or "ネガティブ" in text:
+        return "risk"
+    if "ポジティブ" in text or "成長" in text or "業績" in text or "株主還元" in text:
+        return "important"
+    return "news"
 
 
 def _news_summary_item_html(
@@ -6969,28 +7108,49 @@ def _news_summary_item_html(
     status_text = _news_summary_short_status(item, security_type=security_type)
     url = _displayable_source_url(item.source_url)
     action_label = _news_summary_action_label(item, security_type=security_type)
+    feed_kind = _news_summary_feed_kind(item)
     content = (
-        '<div class="research-news-headline-top">'
-        f'<span class="research-news-headline-chip primary">{html.escape(topic_type)} {index}</span>'
-        f'<span class="research-news-headline-chip">{html.escape(impact)}</span>'
-        f'<span class="research-news-headline-chip">{html.escape(status_text)}</span>'
+        '<div class="research-news-headline-top news-item-top">'
+        f'<span class="research-news-headline-chip news-item-badge primary">{html.escape(topic_type)} {index}</span>'
+        f'<span class="research-news-headline-chip news-item-badge">{html.escape(impact)}</span>'
+        f'<span class="research-news-headline-chip news-item-badge">{html.escape(status_text)}</span>'
         "</div>"
-        f'<div class="research-news-headline-title">{html.escape(item.title)}</div>'
-        '<div class="research-news-headline-meta">'
+        f'<div class="research-news-headline-title news-item-title">{html.escape(item.title)}</div>'
+        '<div class="research-news-headline-meta news-item-meta">'
         f"<span>公開日 <strong>{html.escape(published)}</strong></span>"
         f"<span>出典 <strong>{html.escape(source)}</strong></span>"
         "</div>"
-        f'<div class="research-news-headline-summary">{html.escape(_research_brief_ui_text(item.summary, max_chars=150))}</div>'
+        f'<div class="research-news-headline-summary news-item-summary">{html.escape(_research_brief_ui_text(item.summary, max_chars=140))}</div>'
     )
     if url:
         return (
-            f'<a class="research-news-summary-card" href="{html.escape(url, quote=True)}" '
+            f'<a class="research-news-summary-card news-feed-item news-feed-item-clickable {feed_kind}" '
+            f'href="{html.escape(url, quote=True)}" '
             f'target="_blank" rel="noopener noreferrer" aria-label="{html.escape(item.title, quote=True)}">'
             f"{content}"
-            f'<div class="research-news-headline-action">{html.escape(action_label)}</div>'
+            f'<span class="research-news-headline-action news-source-link">{html.escape(action_label)}</span>'
             "</a>"
         )
-    return '<article class="research-news-summary-card">' f"{content}" "</article>"
+    return f'<article class="research-news-summary-card news-feed-item {feed_kind}">{content}</article>'
+
+
+def _news_summary_feed_kind(item: NewsSummaryItem) -> str:
+    topic_type = str(getattr(item, "topic_type", "news") or "news").lower()
+    impact_hint = str(getattr(item, "impact_hint", "") or "").lower()
+    text = f"{item.title} {item.summary}".lower()
+    if "risk" in impact_hint or "リスク" in text or "警戒" in text:
+        return "risk"
+    if topic_type in {"tdnet", "ir_disclosure"}:
+        return "disclosure"
+    if topic_type in {"earnings", "forecast_revision", "shareholder_return"}:
+        return "important"
+    if "重要" in text or "業績" in text or "上方修正" in text or "増配" in text:
+        return "important"
+    if topic_type in {"business_reorganization", "product", "governance"}:
+        return "ir"
+    if topic_type == "news":
+        return "news"
+    return "other"
 
 
 def _news_summary_short_status(
@@ -7029,8 +7189,8 @@ def _news_summary_action_label(
         "forecast_revision",
         "shareholder_return",
     }:
-        return "開示資料を開く"
-    return "ニュースを開く"
+        return "TDnetで見る"
+    return "元記事を見る"
 
 
 def _latest_topic_type_label(

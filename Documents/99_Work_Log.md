@@ -1053,3 +1053,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added the Streamlit `投資ニュース` screen with market news ticker, status cards, news heatmap, category news lanes, safe source links, and related-symbol handoff to Symbol Cockpit.
 - Added `投資ニュース` to the sidebar routing and kept the screen network-free by default with cached snapshot / demo snapshot fallback.
 - Added regression tests for dashboard snapshot generation, prohibited recommendation wording, UI status items, heatmap frame, safe source-link HTML, and related-symbol handoff.
+
+## 2026-06-04 - Investment Radar mascot title art
+
+- Renamed the user-facing Investment News screen label to `投資レーダー` while keeping the internal `news` route key and backend Investment News contracts.
+- Generated and added `ui/assets/mascot/smai-title-investment-radar.webp`, a mascot title art with radar and news-card motifs.
+- Wired the new title art into `render_page_title` and updated sidebar labels, UI regression expectations, docs, wording policy, and review checklists.

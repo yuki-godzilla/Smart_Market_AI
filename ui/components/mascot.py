@@ -19,7 +19,7 @@ MascotVariant = Literal[
 ]
 MascotLayout = Literal["sidebar", "compact", "panel"]
 MascotTone = Literal["info", "success", "forecast", "caution", "risk"]
-TitleMascot = Literal["cockpit", "ranking", "rebalance"]
+TitleMascot = Literal["cockpit", "ranking", "investment_radar", "rebalance"]
 CopilotState = Literal["ready", "analyzing", "updated", "warning"]
 
 ASSET_DIR = Path(__file__).resolve().parents[1] / "assets"
@@ -34,6 +34,7 @@ MASCOT_LOADING_ASSET = "smai-mascot-loading.webp"
 MASCOT_TITLE_ASSETS: dict[TitleMascot, str] = {
     "cockpit": "smai-title-cockpit.webp",
     "ranking": "smai-title-ranking.webp",
+    "investment_radar": "smai-title-investment-radar.webp",
     "rebalance": "smai-title-rebalance.webp",
 }
 MASCOT_VARIANT_ASSETS: dict[MascotVariant, str] = {

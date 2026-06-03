@@ -21,7 +21,7 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
         if getattr(element, "value", None) is not None
     )
     button_labels = [str(getattr(element, "label", "")) for element in app.button]
-    assert "投資ニュース" in page_text
+    assert "投資レーダー" in page_text
     assert "マーケットニュースストリーム" in page_text
     assert "ニュース加熱テーマ" in page_text
     assert "カテゴリ別ニュースレーン" in page_text

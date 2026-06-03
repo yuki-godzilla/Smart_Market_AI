@@ -58,7 +58,7 @@ Research RAG は Phase 20 local evidence slice が決定的な土台として実
 - `polygon` などの追加 live provider adapter 本体
 - 追加 provider / fund metadata source adapter
 - Research RAG の `ResearchFactSummary` 抽出対象拡張、追加 external source adapter、vector / hybrid search の運用UI
-- 独立した `投資ニュース` dashboard UI。`backend/news` の cache/update foundation は実装済みで、Phase 22.x では Streamlit 画面と fake snapshot regression を接続する
+- `投資レーダー` dashboard の外部ニュースsource接続、詳細フィルタ、Watchlist連動、通知
 - 銘柄DB background refresh の visible freshness badge / live provider refresh wiring。`backend/symbols` の foundation と Streamlit daemon worker は実装済み
 - Research Score によるランキング順位統合は、現時点では見送り。必要性が再確認された場合のみ後続の opt-in 機能として扱う
 - Assistant API / Streamlit 質問パネル、optional LLM provider。`backend/assistant` の deterministic template service は初期実装済み
@@ -763,7 +763,7 @@ class StockNewsEvidence:
 
 Phase 21.5 の対象外:
 
-- 新しい `投資ニュース` 画面の実装
+- 新しい `投資レーダー` 画面の実装
 - 市場全体トピックの自動抽出
 - 注目ジャンル / 業界ランキング
 - 関連銘柄の自動抽出
@@ -867,19 +867,19 @@ Phase 21.5 の対象外:
 - R7: コックピット / Report / optional score plumbing。ランキング順位統合は現時点では行わない。
 - R8: External Source Adapter。live scraping / external source は adapter 化し、通常 checks は fake adapter / fixture で代替する。
 
-Phase 22.x: 投資ニュースダッシュボード MVP
+Phase 22.x: 投資レーダー / Investment News dashboard MVP
 
 状態: 初期MVP実装済み。外部ニュースsource接続、詳細フィルタ、Watchlist連動は後続
 
-目的: 新画面 `投資ニュース` を、単なるニュース一覧ではなく、市場全体の温度感、注目テーマ、関連銘柄への深掘り導線を提供する市場ニュースコックピットとして設計する。ニュースだけで判断を完結させず、気になる材料を `銘柄コックピット` で確認する入口にする。
+目的: 新画面 `投資レーダー` を、単なるニュース一覧ではなく、市場全体の温度感、注目テーマ、関連銘柄への深掘り導線を提供する市場ニュースコックピットとして設計する。ニュースだけで判断を完結させず、気になる材料を `銘柄コックピット` で確認する入口にする。
 
 現在の前提:
 
 - 既存実装では、Cockpit Research Summary 内に `Market Intelligence`、URL付き `投資ヒントとなるニュース`、`ニュース・開示の出典` citation list がある。
-- 独立した `投資ニュース` 画面は初期MVP実装済み。ニュース横断ランキング、News Score 化、Watchlist 連動、通知は未実装。
-- Phase 22 本体の Research Score 方針は維持し、投資ニュース dashboard は Phase 22.x の UI / backend snapshot slice として扱う。
+- 独立した `投資レーダー` 画面は初期MVP実装済み。ニュース横断ランキング、News Score 化、Watchlist 連動、通知は未実装。
+- Phase 22 本体の Research Score 方針は維持し、Investment News / 投資レーダー dashboard は Phase 22.x の UI / backend snapshot slice として扱う。
 - `backend/news/dashboard.py` で deterministic `build_news_dashboard_snapshot` / `build_demo_news_dashboard_snapshot` を実装し、保存済みsnapshotがない場合も network-free demo snapshot で表示できる。
-- `ui/views/news.py` で `投資ニュース` 画面を追加し、side menu / routing / related-symbol cockpit handoff を `ui/components/sidemenu.py` と `ui/app.py` に接続済み。
+- `ui/views/news.py` で `投資レーダー` 画面を追加し、side menu / routing / related-symbol cockpit handoff を `ui/components/sidemenu.py` と `ui/app.py` に接続済み。
 
 MVP 必須機能:
 
@@ -916,8 +916,8 @@ MVP で見送る機能:
 
 - `backend/news/contracts.py`: `NewsHeadlineCard`、`NewsHeatmapCell`、`NewsCategoryLane`、`NewsDashboardSnapshot`。
 - `backend/news/dashboard.py`: `build_news_dashboard_snapshot`、`build_demo_news_dashboard_snapshot`、heatmap / category lane 集計。
-- `ui/views/news.py`: `投資ニュース` 画面。ニュースストリーム、加熱テーマヒートマップ、カテゴリ別ニュースレーン、関連銘柄 handoff を表示する。
-- `ui/components/sidemenu.py` / `ui/app.py`: `投資ニュース` を side menu と routing に追加済み。
+- `ui/views/news.py`: `投資レーダー` 画面。ニュースストリーム、加熱テーマヒートマップ、カテゴリ別ニュースレーン、関連銘柄 handoff を表示する。
+- `ui/components/sidemenu.py` / `ui/app.py`: `投資レーダー` を side menu と routing に追加済み。
 
 データ構造案:
 
@@ -973,7 +973,7 @@ class NewsDashboardSnapshot(BaseModel):
 
 Phase 22.x 完了条件:
 
-- サイドメニューから `投資ニュース` 画面を開ける。
+- サイドメニューから `投資レーダー` 画面を開ける。
 - 上部に流れるマーケットニュースストリームが表示される。
 - ニュースカードが自動ローテーション風に表示される。
 - 加熱テーマ・ヒートマップが表示される。
@@ -989,7 +989,7 @@ Phase 22.y: News Background Refresh & Cache Layer
 
 状態: 実装完了
 
-目的: 投資ニュースダッシュボードのニュース取得、分類、AIコメント生成、ヒートマップ生成を、起動時、手動更新、将来の定期更新で繰り返しても、ニュースキャッシュ、更新履歴、取得ログ、エラーログ、一時ファイル、古い snapshot、source raw data、debug dump が無制限に増えないようにする。ローカルアプリとして長期利用してもストレージを圧迫しない設計を MVP 時点から入れる。
+目的: 投資レーダー / Investment News dashboard のニュース取得、分類、AIコメント生成、ヒートマップ生成を、起動時、手動更新、将来の定期更新で繰り返しても、ニュースキャッシュ、更新履歴、取得ログ、エラーログ、一時ファイル、古い snapshot、source raw data、debug dump が無制限に増えないようにする。ローカルアプリとして長期利用してもストレージを圧迫しない設計を MVP 時点から入れる。
 
 現在の実装メモ:
 
@@ -1080,7 +1080,7 @@ Cache Cleanup:
 
 UI表示:
 
-- `投資ニュース` 画面には、肥大化防止に関係する状態を簡潔に表示できるようにする。
+- `投資レーダー` 画面には、肥大化防止に関係する状態を簡潔に表示できるようにする。
   - 例: `最終更新: 21:15`、`状態: fresh`、`キャッシュ: 182KB`、`バックグラウンド更新中`
   - エラー時: `ニュース更新に失敗しました。前回キャッシュを表示しています。`
   - 詳細な stack trace や巨大ログは UI に出さない。
@@ -1595,7 +1595,7 @@ Phase 22 完了条件:
 Phase 23+ の高度ニュース活用候補:
 
 - 関連銘柄の自動抽出
-- `投資ニュース` 画面から `銘柄コックピット` への遷移
+- `投資レーダー` 画面から `銘柄コックピット` への遷移
 - Watchlist 銘柄に関連するニュースの優先表示
 - Decision Report へのニュース根拠反映
 - ニュースクラスタリング
@@ -1725,8 +1725,8 @@ Markdown UTF-8 check:
 ## 8. Open Items
 
 - Phase 16S の最終 Streamlit browser smoke をいつ実施するか
-- Phase 22.x `投資ニュース` dashboard の外部ニュースsource接続、詳細フィルタ、Watchlist連動をどの順に進めるか
-- `投資ニュース` 画面で news cache status、fallback、freshness、cache size の見せ方を実画面で継続調整するか
+- Phase 22.x `投資レーダー` dashboard の外部ニュースsource接続、詳細フィルタ、Watchlist連動をどの順に進めるか
+- `投資レーダー` 画面で news cache status、fallback、freshness、cache size の見せ方を実画面で継続調整するか
 - Symbol DB background refresh の freshness badge / live provider refresh wiring を Ranking / Cockpit のどこへ接続するか
 - Research Score をランキング順位へ統合する必要性を再確認するか。既定では統合しない
 - Assistant が参照できる context の範囲、privacy boundary、API / Streamlit 質問パネルの位置

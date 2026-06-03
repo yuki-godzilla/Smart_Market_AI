@@ -58,12 +58,12 @@ def render_news_dashboard_page(
     *,
     open_symbol_callback: OpenSymbolCallback,
 ) -> None:
-    """Render the Investment News dashboard MVP."""
+    """Render the Investment Radar dashboard MVP."""
 
     render_page_title(
-        "投資ニュース",
+        "投資レーダー",
         "市場ニュースの流れ、加熱テーマ、カテゴリ別材料を確認し、気になる銘柄を深掘りします。",
-        "ranking",
+        "investment_radar",
     )
 
     snapshot, status, using_demo = _load_dashboard_snapshot()

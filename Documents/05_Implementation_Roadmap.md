@@ -893,9 +893,9 @@ MVP 必須機能:
   - `heat = news_intensity + abs(price_change_pct) + volume_activity_score` を初期案とし、カテゴリ、region、price_change_pct、volume_activity_score、news_count、risk_count、positive_count、official_source_count、freshness_ratio を表示する。
   - 値動きの方向を色、取引量の活発さを濃さ、値動きの大きさをセル内テキストとして見せる。
   - セルクリックで下部カテゴリレーンへフォーカスできるとよい。
-- 中央下: 投資カテゴリ別ニュースレーン
+- 中央下: 3列カード型の投資カテゴリ別ニュースレーン
   - 国内株、米国株、ETF、半導体・AI、金融、エネルギー、為替・金利、決算・業績修正、配当・株主還元、政策・規制、地政学・マクロリスクを初期カテゴリ候補にする。
-  - 各カテゴリに 3〜5 件程度のコンパクトニュースカードを表示する。
+  - MVPでは各カテゴリの代表カードを3列で並べる。将来はカテゴリ内に 3〜5 件程度のカードを横スクロール / フィルタ付きで増やす。
   - カード項目は title、source_name、source_type、url、published_at、fetched_at、freshness_status、summary、material_type、related_symbols、official_source badge、AI分析コメント、投資確認観点。
 - AI分析コメント / 投資確認観点
   - MVP では LLM 生成は不要。material_type / category / source_type に応じた deterministic template comment でよい。
@@ -916,7 +916,7 @@ MVP で見送る機能:
 
 - `backend/news/contracts.py`: `NewsHeadlineCard`、`NewsHeatmapCell`、`NewsCategoryLane`、`NewsDashboardSnapshot`。
 - `backend/news/dashboard.py`: `build_news_dashboard_snapshot`、`build_demo_news_dashboard_snapshot`、heatmap / category lane 集計。
-- `ui/views/news.py`: `投資レーダー` 画面。市場ニュースヘッドライン、投資ヒートマップ、カテゴリ別ニュースレーン、銘柄名付き関連銘柄 handoff を表示する。
+- `ui/views/news.py`: `投資レーダー` 画面。市場ニュースヘッドライン、投資ヒートマップ、3列カード型カテゴリ別ニュースレーン、銘柄名付き関連銘柄 handoff を表示する。市場指標が欠ける heatmap cell はニュース材料から代理シグナルを補完する。
 - `ui/components/sidemenu.py` / `ui/app.py`: `投資レーダー` を side menu と routing に追加済み。
 
 データ構造案:
@@ -978,8 +978,8 @@ Phase 22.x 完了条件:
 - サイドメニューから `投資レーダー` 画面を開ける。
 - 上部に流れる市場ニュースヘッドラインが表示される。
 - ニュースカードが自動ローテーション風に表示される。
-- 値動き、取引量、ニュース量を合わせた投資ヒートマップが表示される。
-- 投資カテゴリ別ニュースレーンが表示される。
+- 値動き、取引量、ニュース量を合わせた投資ヒートマップが表示される。市場指標が欠ける場合も `ニュース代理` として材料シグナルが表示され、`未取得` だけのヒートマップにならない。
+- 投資カテゴリ別ニュースレーンが3列カードで表示される。
 - ニュースカードにAI分析コメント / 投資確認観点が表示される。
 - 関連銘柄があるニュースカードに、シンボルと銘柄名 / 企業名が分かる `銘柄コックピットで確認` 導線が表示される。
 - 元記事URLがクリック可能。

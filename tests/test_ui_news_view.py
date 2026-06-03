@@ -5,6 +5,7 @@ from backend.news import NewsUpdateStatus, build_demo_news_dashboard_snapshot
 from ui.views.news import (
     news_dashboard_handoff_symbols,
     news_dashboard_heatmap_frame,
+    news_dashboard_lane_card_items,
     news_dashboard_status_items,
     news_dashboard_unique_headline_count,
     news_headline_card_html,
@@ -41,6 +42,7 @@ def test_news_dashboard_heatmap_frame_is_user_facing():
         "投資カテゴリ",
         "分野",
         "加熱度",
+        "市場指標",
         "値動き",
         "値動き表示",
         "取引量",
@@ -51,6 +53,7 @@ def test_news_dashboard_heatmap_frame_is_user_facing():
     assert frame["加熱度"].min() >= 0
     assert frame["値動き"].notna().any()
     assert frame["取引量"].notna().any()
+    assert set(frame["市場指標"]) == {"市場データ"}
 
 
 def test_news_dashboard_heatmap_frame_accepts_legacy_cells_without_market_metrics():
@@ -73,9 +76,10 @@ def test_news_dashboard_heatmap_frame_accepts_legacy_cells_without_market_metric
     frame = news_dashboard_heatmap_frame(snapshot)
 
     assert frame.loc[0, "投資カテゴリ"] == "旧キャッシュ"
-    assert frame.loc[0, "値動きスコア"] == 0.0
-    assert frame.loc[0, "取引量スコア"] == 1.0
-    assert frame.loc[0, "値動き表示"] == "未取得"
+    assert frame.loc[0, "市場指標"] == "ニュース代理"
+    assert frame.loc[0, "値動きスコア"] < 0
+    assert frame.loc[0, "取引量スコア"] > 1.0
+    assert frame.loc[0, "値動き表示"].startswith("材料")
 
 
 def test_news_headline_card_html_keeps_link_safe_and_hides_raw_url():
@@ -102,6 +106,17 @@ def test_news_dashboard_handoff_symbols_are_unique_in_display_order():
     assert symbols
     assert len(symbols) == len(set(symbols))
     assert "NVDA" in symbols
+
+
+def test_news_dashboard_lane_card_items_keep_three_column_grid_reasonable():
+    snapshot = build_demo_news_dashboard_snapshot(
+        now=datetime(2026, 6, 4, 10, 0, tzinfo=UTC),
+    )
+    items = news_dashboard_lane_card_items(snapshot)
+
+    assert len(items) == 6
+    assert all(card.title for _, _, _, card in items)
+    assert len({category for _, _, category, _ in items}) == 6
 
 
 def test_news_dashboard_unique_headline_count_deduplicates_lanes():

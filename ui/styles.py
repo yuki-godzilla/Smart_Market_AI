@@ -662,7 +662,10 @@ body,
     overflow: hidden;
     border: 1px solid var(--border-subtle);
     border-radius: 8px;
-    background: linear-gradient(90deg, rgba(8, 27, 42, 0.9), rgba(11, 18, 32, 0.92));
+    background:
+        linear-gradient(90deg, rgba(34, 211, 238, 0.13), rgba(251, 191, 36, 0.08)),
+        linear-gradient(180deg, rgba(8, 27, 42, 0.95), rgba(11, 18, 32, 0.94));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     margin: 0.35rem 0 1rem;
     min-height: 3.75rem;
 }
@@ -717,15 +720,32 @@ body,
 }
 
 .investment-news-card {
+    --news-accent: #22D3EE;
+    --news-accent-soft: rgba(34, 211, 238, 0.1);
+    --news-accent-border: rgba(34, 211, 238, 0.28);
+    position: relative;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.78rem;
     min-height: 15.8rem;
-    border: 1px solid var(--border-subtle);
+    border: 1px solid var(--news-accent-border);
     border-radius: 8px;
-    background: var(--bg-card);
+    background:
+        linear-gradient(180deg, var(--news-accent-soft), rgba(15, 23, 42, 0.02)),
+        var(--bg-card);
+    box-shadow: 0 0.8rem 1.5rem rgba(2, 6, 23, 0.16);
     padding: 0.86rem;
     margin-bottom: 0.75rem;
+    overflow: hidden;
+}
+
+.investment-news-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 3px;
+    background: linear-gradient(90deg, var(--news-accent), transparent);
+    opacity: 0.9;
 }
 
 .investment-news-card.compact {
@@ -733,19 +753,27 @@ body,
 }
 
 .investment-news-card.news {
-    border-color: rgba(34, 211, 238, 0.24);
+    --news-accent: #22D3EE;
+    --news-accent-soft: rgba(34, 211, 238, 0.09);
+    --news-accent-border: rgba(34, 211, 238, 0.28);
 }
 
 .investment-news-card.positive {
-    border-color: rgba(52, 211, 153, 0.28);
+    --news-accent: #34D399;
+    --news-accent-soft: rgba(52, 211, 153, 0.1);
+    --news-accent-border: rgba(52, 211, 153, 0.3);
 }
 
 .investment-news-card.important {
-    border-color: rgba(251, 191, 36, 0.3);
+    --news-accent: #FBBF24;
+    --news-accent-soft: rgba(251, 191, 36, 0.1);
+    --news-accent-border: rgba(251, 191, 36, 0.33);
 }
 
 .investment-news-card.risk {
-    border-color: rgba(248, 113, 113, 0.32);
+    --news-accent: #FB7185;
+    --news-accent-soft: rgba(251, 113, 133, 0.11);
+    --news-accent-border: rgba(251, 113, 133, 0.36);
 }
 
 .investment-news-card-main {
@@ -773,9 +801,9 @@ body,
 }
 
 .investment-news-chip.primary {
-    border-color: rgba(34, 211, 238, 0.28);
-    background: rgba(34, 211, 238, 0.09);
-    color: var(--text-ai-title);
+    border-color: var(--news-accent-border);
+    background: var(--news-accent-soft);
+    color: var(--news-accent);
 }
 
 .investment-news-chip.official {
@@ -831,7 +859,7 @@ body,
 }
 
 .investment-news-source-link {
-    color: var(--text-ai-title);
+    color: var(--news-accent);
     font-size: 0.76rem;
     font-weight: 800;
     text-decoration: none;
@@ -841,6 +869,24 @@ body,
 .investment-news-source-link:hover {
     color: var(--text-title);
     text-decoration: underline;
+}
+
+.investment-news-lane-heading {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.44rem;
+    color: var(--text-heading);
+    font-size: 0.94rem;
+    font-weight: 850;
+    margin: 0.18rem 0 0.46rem;
+}
+
+.investment-news-lane-dot {
+    width: 0.58rem;
+    height: 0.58rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #22D3EE, #FBBF24);
+    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12);
 }
 
 @media (max-width: 760px) {

@@ -186,6 +186,21 @@ def news_dashboard_handoff_symbols(snapshot: NewsDashboardSnapshot) -> list[str]
     return symbols
 
 
+def news_dashboard_lane_card_items(
+    snapshot: NewsDashboardSnapshot,
+    *,
+    max_lanes: int = 6,
+    max_cards_per_lane: int = 1,
+) -> list[tuple[int, int, str, NewsHeadlineCard]]:
+    """Return bounded category lane cards for the responsive lane grid."""
+
+    items: list[tuple[int, int, str, NewsHeadlineCard]] = []
+    for lane_index, lane in enumerate(snapshot.category_lanes[:max_lanes]):
+        for card_index, card in enumerate(lane.headlines[:max_cards_per_lane]):
+            items.append((lane_index, card_index, lane.category, card))
+    return items
+
+
 def news_dashboard_unique_headline_count(snapshot: NewsDashboardSnapshot) -> int:
     """Return unique headline count for user-facing status display."""
 
@@ -200,8 +215,23 @@ def news_dashboard_unique_headline_count(snapshot: NewsDashboardSnapshot) -> int
 
 
 def _heatmap_cell_row(cell: object) -> dict[str, object]:
-    price_change_pct = _optional_float_attr(cell, "price_change_pct")
-    volume_activity_score = _optional_float_attr(cell, "volume_activity_score")
+    actual_price_change_pct = _optional_float_attr(cell, "price_change_pct")
+    actual_volume_activity_score = _optional_float_attr(cell, "volume_activity_score")
+    price_change_pct = (
+        actual_price_change_pct
+        if actual_price_change_pct is not None
+        else _fallback_price_signal(cell)
+    )
+    volume_activity_score = (
+        actual_volume_activity_score
+        if actual_volume_activity_score is not None
+        else _fallback_volume_signal(cell)
+    )
+    metric_source = (
+        "市場データ"
+        if actual_price_change_pct is not None and actual_volume_activity_score is not None
+        else "ニュース代理"
+    )
     region = getattr(cell, "region", None) or "全体"
     return {
         "カテゴリ": getattr(cell, "category"),
@@ -209,12 +239,19 @@ def _heatmap_cell_row(cell: object) -> dict[str, object]:
         "地域": region,
         "分野": region,
         "加熱度": getattr(cell, "heat_score"),
+        "市場指標": metric_source,
         "値動き": price_change_pct,
-        "値動きスコア": price_change_pct if price_change_pct is not None else 0.0,
-        "値動き表示": _price_change_label(price_change_pct),
+        "値動きスコア": price_change_pct,
+        "値動き表示": _price_change_label(
+            price_change_pct,
+            inferred=actual_price_change_pct is None,
+        ),
         "取引量": volume_activity_score,
-        "取引量スコア": volume_activity_score if volume_activity_score is not None else 1.0,
-        "取引量目安": _volume_label(volume_activity_score),
+        "取引量スコア": volume_activity_score,
+        "取引量目安": _volume_label(
+            volume_activity_score,
+            inferred=actual_volume_activity_score is None,
+        ),
         "ニュース件数": getattr(cell, "news_count"),
         "リスク材料": getattr(cell, "risk_count"),
         "ポジティブ材料": getattr(cell, "positive_count"),
@@ -232,6 +269,48 @@ def _optional_float_attr(value: object, name: str) -> float | None:
         return float(raw_value)
     except (TypeError, ValueError):
         return None
+
+
+def _fallback_price_signal(cell: object) -> float:
+    risk_count = _int_attr(cell, "risk_count")
+    positive_count = _int_attr(cell, "positive_count")
+    official_count = _int_attr(cell, "official_source_count")
+    material_type = getattr(cell, "dominant_material_type", None)
+    signal = (positive_count - risk_count) * 0.85 + official_count * 0.2
+    if material_type == "risk":
+        signal -= 1.15
+    elif material_type in {"earnings", "theme", "shareholder_return"}:
+        signal += 0.85
+    elif material_type == "fund_flow":
+        signal += 0.25
+    elif material_type in {"macro", "policy"}:
+        signal -= 0.2
+    if signal == 0:
+        signal = min(1.0, _float_attr(cell, "heat_score") / 6.0)
+    return round(max(-3.0, min(3.0, signal)), 1)
+
+
+def _fallback_volume_signal(cell: object) -> float:
+    heat_score = _float_attr(cell, "heat_score")
+    news_count = _int_attr(cell, "news_count")
+    signal = 1.0 + min(1.25, heat_score / 10.0 + news_count * 0.08)
+    return round(max(1.0, min(2.3, signal)), 2)
+
+
+def _float_attr(value: object, name: str) -> float:
+    raw_value = getattr(value, name, 0.0)
+    try:
+        return float(raw_value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _int_attr(value: object, name: str) -> int:
+    raw_value = getattr(value, name, 0)
+    try:
+        return int(raw_value)
+    except (TypeError, ValueError):
+        return 0
 
 
 def news_symbol_handoff_label(symbol: str) -> str:
@@ -337,7 +416,10 @@ def _render_news_stream(
 
 def _render_heatmap(snapshot: NewsDashboardSnapshot) -> None:
     st.markdown("### 投資ヒートマップ")
-    st.caption("投資カテゴリごとの値動き、取引量の活発さ、ニュース量を合わせた確認用の温度感です。")
+    st.caption(
+        "投資カテゴリごとの値動き、取引量の活発さ、ニュース量を合わせた確認用の温度感です。"
+        "市場指標がないカテゴリはニュース材料から代理シグナルを補完します。"
+    )
     frame = news_dashboard_heatmap_frame(snapshot)
     if frame.empty:
         st.info("投資ヒートマップを集計できる材料はまだありません。")
@@ -352,6 +434,7 @@ def _render_heatmap(snapshot: NewsDashboardSnapshot) -> None:
         tooltip=[
             alt.Tooltip("投資カテゴリ:N"),
             alt.Tooltip("分野:N"),
+            alt.Tooltip("市場指標:N"),
             alt.Tooltip("加熱度:Q", format=".1f"),
             alt.Tooltip("値動き:Q", format="+.1f"),
             alt.Tooltip("取引量:Q", format=".2f"),
@@ -366,7 +449,7 @@ def _render_heatmap(snapshot: NewsDashboardSnapshot) -> None:
     rect = base.mark_rect(cornerRadius=4).encode(
         color=alt.Color(
             "値動きスコア:Q",
-            title="値動き",
+            title="値動き/材料",
             scale=alt.Scale(
                 domain=[-3, 0, 3],
                 range=[
@@ -397,20 +480,25 @@ def _render_category_lanes(
     open_symbol_callback: OpenSymbolCallback,
 ) -> None:
     st.markdown("### カテゴリ別ニュースレーン")
-    if not snapshot.category_lanes:
+    lane_items = news_dashboard_lane_card_items(snapshot)
+    if not lane_items:
         st.info("カテゴリ別に表示できるニュースはまだありません。")
         return
-    for lane_index, lane in enumerate(snapshot.category_lanes[:6]):
-        st.markdown(f"#### {lane.category}")
-        cards = lane.headlines[:3]
-        cols = st.columns(max(1, len(cards)))
-        for card_index, card in enumerate(cards):
-            with cols[card_index]:
+    for row_start in range(0, len(lane_items), 3):
+        cols = st.columns(3)
+        for col, (lane_index, card_index, category, card) in zip(
+            cols,
+            lane_items[row_start : row_start + 3],
+            strict=False,
+        ):
+            with col:
+                st.markdown(_lane_heading_html(category), unsafe_allow_html=True)
                 st.markdown(news_headline_card_html(card, compact=True), unsafe_allow_html=True)
                 _render_symbol_handoff_buttons(
                     card,
                     key_prefix=f"lane_{lane_index}_{card_index}",
                     open_symbol_callback=open_symbol_callback,
+                    max_columns=1,
                 )
 
 
@@ -419,12 +507,13 @@ def _render_symbol_handoff_buttons(
     *,
     key_prefix: str,
     open_symbol_callback: OpenSymbolCallback,
+    max_columns: int = 3,
 ) -> None:
     symbols = [symbol.strip().upper() for symbol in card.related_symbols if symbol.strip()]
     if not symbols:
         return
     st.caption("関連銘柄")
-    cols = st.columns(min(3, len(symbols)))
+    cols = st.columns(min(max_columns, len(symbols)))
     for index, symbol in enumerate(symbols[:3]):
         label = news_symbol_handoff_label(symbol)
         with cols[index % len(cols)]:
@@ -436,6 +525,15 @@ def _render_symbol_handoff_buttons(
                 on_click=open_symbol_callback,
                 args=(symbol,),
             )
+
+
+def _lane_heading_html(category: str) -> str:
+    return (
+        '<div class="investment-news-lane-heading">'
+        '<span class="investment-news-lane-dot"></span>'
+        f"<span>{html.escape(category)}</span>"
+        "</div>"
+    )
 
 
 def _news_ticker_html(cards: list[NewsHeadlineCard]) -> str:
@@ -488,17 +586,20 @@ def _cache_size_label(size_bytes: int | None) -> str:
     return f"{size_bytes / 1024:.1f}KB"
 
 
-def _price_change_label(value: float | None) -> str:
+def _price_change_label(value: float | None, *, inferred: bool = False) -> str:
     if value is None:
         return "未取得"
+    if inferred:
+        return f"材料{value:+.1f}"
     return f"{value:+.1f}%"
 
 
-def _volume_label(value: float | None) -> str:
+def _volume_label(value: float | None, *, inferred: bool = False) -> str:
     if value is None:
         return "未取得"
+    suffix = "相当" if inferred else ""
     if value >= 1.8:
-        return "高い"
+        return f"高い{suffix}"
     if value >= 1.3:
-        return "やや高い"
-    return "通常"
+        return f"やや高い{suffix}"
+    return f"通常{suffix}"

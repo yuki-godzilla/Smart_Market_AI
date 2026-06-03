@@ -1150,7 +1150,402 @@ Phase 22.y 完了条件:
 - UI に最終更新、freshness、cache size、fallback 状態を簡潔に表示できる。
 - network-free tests で cache limit、cleanup、logging、TTL skip、failure fallback を確認する。
 
+Phase 22.z: 銘柄データベース自動リフレッシュ基盤
+
+状態: 計画中
+
+目的: 銘柄データベースを、画面操作時に都度取得するだけの構成から、アプリ起動中にバックグラウンドで順次リフレッシュされる構成へ拡張する。アプリ起動直後は前回保存済みデータを即利用し、裏側で古い銘柄、重要銘柄、使用頻度の高い銘柄、直近閲覧銘柄から順次更新する。ランキング画面や銘柄コックピットで古すぎるデータに依存し続けることを避けつつ、画面表示を重くしない設計を目指す。
+
+基本UX:
+
+1. アプリ起動時に保存済み銘柄DBを即利用する。
+2. 銘柄ごとの freshness を確認する。
+3. 使用頻度、重要度、古さ、直近閲覧情報から refresh priority を算出する。
+4. `missing` / `expired` / `stale` 銘柄を更新キューに追加する。
+5. 優先度が高い銘柄から順次更新する。
+6. 1銘柄ごとに正規化、保存、状態更新を確定する。
+7. 途中でアプリが閉じられても、次回起動時に未完了分を再評価する。
+
+対象データ:
+
+- MVPでは現在ランキング画面・銘柄コックピットで利用している主要フィールドを優先する。
+- 対象候補は、株価、終値、出来高、PER、PBR、ROE、配当利回り、時価総額、業種 / セクター、市場区分、通貨、ETF基本情報、provider source、provider confidence、最終取得日時、freshness status。
+- MVPではすべての field を完全更新しなくてよい。まず既存 UI の候補抽出、symbol detail、investment memo、ranking score 補助に使う field を対象にする。
+
+必須機能:
+
+- アプリ起動時に銘柄DBの鮮度を確認する。
+- 保存済み銘柄データを即表示できる。
+- 銘柄ごとに `data_freshness_status` を持つ。
+- 使用頻度、重要度、古さから `refresh_priority_score` を算出する。
+- `missing` / `expired` / `stale` 銘柄を更新候補に入れる。
+- 直近閲覧銘柄、重要銘柄、主要銘柄を優先更新する。
+- 更新キューを作成し、軽量に永続化する。
+- 一度に更新する銘柄数と provider access rate に上限を設ける。
+- provider 失敗時も既存データを壊さない。
+- 更新成功時に正規化済み銘柄データを保存する。
+- 1銘柄ごと、または小さなバッチ単位で更新結果を確定する。
+- アプリ終了、強制終了、スリープ、例外発生で中断されても次回起動時に安全に復旧できる。
+- 手動更新は `force=True` として許可する。
+- ランキング画面 / 銘柄コックピットでデータ鮮度を小さく表示する。
+- 外部 provider へ過剰アクセスしない。
+- ログ、キャッシュ、更新履歴が無制限に肥大化しないようにする。
+
+Refresh Priority Score:
+
+- 単純な古い順ではなく、使用頻度、重要度、データの古さ、直近閲覧、ランキング利用有無、手動更新要求を組み合わせて優先度を決める。
+- 初期案:
+
+```text
+refresh_priority_score =
+    usage_score
+  + importance_score
+  + stale_score
+  + recent_view_bonus
+  + ranking_candidate_bonus
+  + manual_refresh_bonus
+```
+
+- `usage_score`: Cockpitで開かれた回数、ランキングで表示された回数、詳細確認された回数、手動更新された回数を候補にする。MVPでは `usage_score = min(view_count_last_30_days, 20)` 程度でよい。
+- `importance_score`: 国内主要銘柄、米国主要銘柄、ETF主要銘柄、大型株、ランキング対象銘柄、標準ウォッチ対象を候補にする。MVPでは固定リストまたは既存 CSV から `major_symbol: +30`、`ranking_base_symbol: +20`、`etf_core_symbol: +15` 程度でよい。
+- `stale_score`: `missing: +100`、`expired: +60`、`stale: +30`、`fresh: +0` を初期案にする。
+- `recent_view_bonus`: 1時間以内 `+40`、24時間以内 `+25`、7日以内 `+10` を初期案にする。
+- `ranking_candidate_bonus`: 現在表示中のランキング候補 `+30`、ランキング候補群 `+15` を初期案にする。
+- `manual_refresh_bonus`: 手動更新要求は `+100` として最優先に近づける。
+
+更新キューの並び順:
+
+1. `refresh_priority_score` の高い順。
+2. `data_freshness_status` が `missing` / `expired` / `stale` の順。
+3. `last_refreshed_at` が古い順。
+4. `symbol` 昇順。
+
+鮮度管理 / TTL:
+
+- MVPでは `data_freshness_status` だけでもよい。
+- 初期目安:
+  - `fresh`: 24時間以内
+  - `stale`: 1〜7日以内
+  - `expired`: 7日超
+  - `missing`: 未取得
+- 将来的には `price_freshness_status`、`fundamental_freshness_status`、`data_freshness_status` に分離できる構造にする。
+
+使用頻度 / 重要度メタデータ:
+
+- 使用頻度は軽量な集計済みデータだけを保持する。
+  - 保存先候補: `data/cache/symbol_usage_stats.json`
+  - 候補 field: `symbol`、`view_count_total`、`view_count_last_30_days`、`last_viewed_at`、`last_opened_from`
+  - 全閲覧履歴、クリック履歴の詳細ログ、無制限の操作ログは保存しない。
+- 重要度 metadata は、MVPでは固定リストまたは既存 CSV から判定してよい。
+  - 候補 field: `symbol`、`importance_rank`、`is_major_symbol`、`is_core_etf`、`is_ranking_base_symbol`
+
+更新キュー設計:
+
+- 更新キューや更新状態は軽量に保存する。
+  - 保存先候補: `data/cache/symbol_refresh_queue.json`、`data/cache/symbol_refresh_status.json`
+- `SymbolRefreshTask` 候補 field:
+  - `symbol`
+  - `market`
+  - `priority`
+  - `refresh_priority_score`
+  - `reason`
+  - `status`
+  - `requested_at`
+  - `started_at`
+  - `finished_at`
+  - `last_error_type`
+  - `retry_count`
+  - `last_refreshed_at`
+- `reason` 候補: `opened_in_cockpit`、`ranking_candidate`、`expired_data`、`manual_refresh`、`startup_refresh`、`major_symbol`、`high_usage_symbol`
+- `status` 候補: `pending`、`in_progress`、`succeeded`、`failed`、`skipped`、`retryable`
+- 保持するのは現在の pending / retryable task と直近の lightweight status だけにし、全更新履歴や provider raw response は保存しない。
+
+中断耐性 / 復旧設計:
+
+- 銘柄DB更新は全件一括更新ではなく、1銘柄単位または小さなバッチ単位で安全に確定する。
+- 1銘柄取得、正規化、atomic save / transaction commit、task status 更新、次の銘柄へ、という流れを基本にする。
+- 次回起動時は、前回 `in_progress` の task を中断扱いにする。
+  - 既にDB保存済みで fresh になっていれば skip。
+  - 保存されていなければ pending または retryable に戻す。
+  - `retry_count` が上限を超えていれば failed として扱う。
+  - failed でも既存銘柄データは削除しない。
+- 完了済み銘柄まで巻き戻さず、未完了分だけ再評価する。
+
+Atomic Save / Transaction:
+
+- SQLite等のDBを使う場合:
+  - 1銘柄更新ごとに transaction を張る。
+  - 正規化済みデータを upsert する。
+  - commit 成功後に task を `succeeded` にする。
+  - commit 失敗時は rollback し、既存データを保持する。
+- JSON / CSV cache を使う場合:
+  - 直接上書きしない。
+  - `.tmp` に保存し、読み直して検証し、問題なければ `os.replace()` で atomic replace する。
+  - 失敗時は既存ファイルを維持する。
+
+Lock / stale lock:
+
+- 同時に複数の更新処理が走らないようにする。
+  - lock 候補: `data/cache/symbol_refresh.lock`
+- 更新開始時に lock を取得し、更新完了時に解放する。
+- 強制終了で lock が残る可能性を考慮し、lock には作成時刻を持たせる。
+- 作成から30分以上経過した lock は stale lock として起動時に破棄する初期案にする。
+
+更新頻度 / レート制限:
+
+- MVP推奨値:
+  - `MAX_SYMBOL_REFRESH_PER_RUN = 20`
+  - `MAX_SYMBOL_REFRESH_PER_MINUTE = 5`
+  - `MIN_SYMBOL_REFRESH_INTERVAL_HOURS = 12`
+  - `SYMBOL_PRICE_FRESH_HOURS = 24`
+  - `SYMBOL_EXPIRED_DAYS = 7`
+  - `MAX_REFRESH_RETRY = 1`
+  - `MAX_TASK_RETRY = 1`
+  - `STALE_LOCK_MINUTES = 30`
+- アプリ起動時は最大20銘柄まで更新する。
+- 将来の定期更新は30〜60分ごとに最大10銘柄程度を候補にする。
+- 銘柄コックピット表示時は対象銘柄が `expired` / `missing` の場合のみ優先更新する。
+- `fresh` の場合は自動更新しない。
+- 手動更新は `force=True` で許可する。
+- provider 失敗は `retry_count` を増やし、上限以下なら `retryable`、上限超過なら `failed` にする。
+- `failed` でも既存データは維持する。
+
+データ肥大化防止:
+
+- 保存するもの:
+  - 最新の正規化済み銘柄データ
+  - 最終更新日時
+  - provider名
+  - freshness status
+  - 直近の軽量更新ステータス
+  - 集計済みの軽量な使用頻度データ
+  - 現在の pending / retryable task
+- 保存しないもの:
+  - provider raw response 全文
+  - HTML全文
+  - 巨大JSON
+  - debug dump
+  - 無制限の更新履歴
+  - 過去 snapshot の無制限保存
+  - 全閲覧履歴
+  - クリック履歴の詳細ログ
+  - API key / 認証情報 / 個人情報
+- 価格履歴や過去データを保持する場合は別機能として明示的に扱う。MVPの銘柄DB自動リフレッシュでは、原則として最新値を上書きする。
+
+Cleanup / logging:
+
+- 起動時または更新前に `cleanup_symbol_refresh_artifacts(now)` を実行する。
+- 削除対象候補: 古い `.tmp` ファイル、stale lock、古すぎる一時 queue、想定外に増えた backup、debug dump。
+- 削除対象は銘柄DB更新関連ファイルに限定する。
+- 銘柄DB更新ログは必ず `logging.handlers.RotatingFileHandler` でローテーションする。
+  - 保存先候補: `logs/symbol_refresh.log`
+  - 推奨設定: `maxBytes=1MB`、`backupCount=3`
+- ログに残してよい情報: refresh started / skipped / succeeded / failed、symbol、provider、elapsed_ms、updated_field_count、freshness_status、error type。
+- ログに残さない情報: raw response、巨大JSON、HTML全文、API key、認証情報、個人情報、詳細なイベント履歴。
+
+UI表示:
+
+- ランキング画面や銘柄コックピットに、データ鮮度を小さく表示する。
+  - `データ最終更新: 2026-06-03 21:15`
+  - `状態: fresh`
+  - `バックグラウンド更新中`
+- 古い場合: `一部データが古い可能性があります。バックグラウンドで更新中です。`
+- 更新中: `銘柄データをバックグラウンド更新中。一部データは前回保存値を表示しています。`
+- 更新失敗時: `最新データ取得に失敗しました。前回保存データを表示しています。`
+- 通常は内部状態を出しすぎず、UIに stack trace や詳細ログは出さない。
+
+実装候補:
+
+- `backend/symbols/contracts.py`
+- `backend/symbols/repository.py`
+- `backend/symbols/cache.py`
+- `backend/symbols/refresh_manager.py`
+- `backend/symbols/logging_utils.py`
+- 既存構成に寄せる場合は、`backend/marketdata/security_master/` または `backend/marketdata/symbol_refresh/` への配置も候補にする。
+
+関数候補:
+
+```python
+def evaluate_symbol_freshness(symbol_record, now: datetime) -> str:
+    ...
+
+def calculate_symbol_refresh_priority(
+    symbol_record,
+    usage_stats,
+    importance_meta,
+    now: datetime,
+    reason: str | None = None,
+) -> SymbolRefreshPriority:
+    ...
+
+def build_symbol_refresh_queue(
+    symbols: list[str],
+    usage_context: dict,
+    now: datetime,
+) -> list[SymbolRefreshTask]:
+    ...
+
+def sort_symbol_refresh_queue(
+    tasks: list[SymbolRefreshTask],
+) -> list[SymbolRefreshTask]:
+    ...
+
+def refresh_symbols_if_needed(
+    force: bool = False,
+    max_items: int = 20,
+) -> SymbolRefreshResult:
+    ...
+
+def refresh_single_symbol(
+    task: SymbolRefreshTask,
+) -> SymbolRefreshItemResult:
+    ...
+
+def save_symbol_record(record) -> None:
+    ...
+
+def cleanup_symbol_refresh_artifacts(now: datetime) -> None:
+    ...
+```
+
+データ構造案:
+
+```python
+class SymbolRefreshPriority(BaseModel):
+    symbol: str
+    usage_score: int = 0
+    importance_score: int = 0
+    stale_score: int = 0
+    recent_view_bonus: int = 0
+    ranking_candidate_bonus: int = 0
+    manual_refresh_bonus: int = 0
+    refresh_priority_score: int
+    reason: str | None = None
+
+class SymbolRefreshTask(BaseModel):
+    symbol: str
+    market: str | None = None
+    priority: int
+    refresh_priority_score: int = 0
+    reason: str
+    status: str = "pending"
+    requested_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    last_error_type: str | None = None
+    retry_count: int = 0
+    last_refreshed_at: datetime | None = None
+
+class SymbolRefreshItemResult(BaseModel):
+    symbol: str
+    success: bool
+    provider: str | None = None
+    updated_fields: list[str] = []
+    skipped_reason: str | None = None
+    error_type: str | None = None
+    elapsed_ms: int | None = None
+
+class SymbolRefreshResult(BaseModel):
+    started_at: datetime
+    finished_at: datetime
+    attempted_count: int
+    succeeded_count: int
+    failed_count: int
+    skipped_count: int
+    items: list[SymbolRefreshItemResult]
+
+class SymbolDataFreshness(BaseModel):
+    symbol: str
+    last_price_updated_at: datetime | None = None
+    last_fundamental_updated_at: datetime | None = None
+    data_freshness_status: str
+    should_refresh: bool
+    reason: str | None = None
+
+class SymbolUsageStats(BaseModel):
+    symbol: str
+    view_count_total: int = 0
+    view_count_last_30_days: int = 0
+    last_viewed_at: datetime | None = None
+    last_opened_from: str | None = None
+
+class SymbolImportanceMeta(BaseModel):
+    symbol: str
+    importance_rank: int | None = None
+    is_major_symbol: bool = False
+    is_core_etf: bool = False
+    is_ranking_base_symbol: bool = False
+```
+
+画面連携:
+
+- 銘柄コックピット
+  - 表示時に対象銘柄の freshness を確認する。
+  - `expired` / `missing` の場合は高優先度で refresh queue に入れる。
+  - 画面は前回保存データを即表示する。
+  - 更新完了後、次回再描画時に新データを表示する。
+  - `fresh` の場合は provider 取得を skip する。
+  - 開いた回数や最終閲覧日時を usage stats として軽量に記録する。
+- ランキング画面
+  - ランキング表示に必要な銘柄群の freshness を確認する。
+  - 古い銘柄を低〜中優先度で refresh queue に入れる。
+  - 画面表示をブロックしない。
+  - 一部データが古い場合は小さく注意表示する。
+  - 表示対象になりやすい銘柄は `ranking_candidate_bonus` の対象にする。
+
+テスト方針:
+
+- 追加候補:
+  - `tests/test_symbol_refresh_manager.py`
+  - `tests/test_symbol_freshness.py`
+  - `tests/test_symbol_refresh_priority.py`
+  - `tests/test_symbol_refresh_limits.py`
+  - `tests/test_symbol_refresh_logging.py`
+  - `tests/test_symbol_refresh_resume.py`
+  - `tests/test_symbol_refresh_atomic_save.py`
+  - `tests/test_symbol_refresh_lock.py`
+- 確認観点:
+  - fresh 銘柄は自動更新対象にならない。
+  - expired / missing 銘柄は更新対象になる。
+  - stale / usage / importance / recent view / manual refresh bonus が優先度に反映される。
+  - `refresh_priority_score` の高い順に queue が並び、同一優先度の場合は古い銘柄から更新される。
+  - `MAX_SYMBOL_REFRESH_PER_RUN` と `MAX_SYMBOL_REFRESH_PER_MINUTE` を超えて provider access しない。
+  - provider 取得失敗時に既存データを壊さない。
+  - 更新成功時に normalized record が保存され、raw response を保存しない。
+  - ログが `RotatingFileHandler` で設定される。
+  - TTL内では自動更新が skip され、手動更新時は `force=True` で更新できる。
+  - 連続失敗時に過剰リトライしない。
+  - 1銘柄更新成功ごとに保存される。
+  - 更新途中で例外が発生しても既存データが壊れない。
+  - `in_progress` task が次回起動時に pending / retryable へ復旧される。
+  - 既に更新済みの銘柄は次回起動時に再更新されない。
+  - `.tmp` file cleanup、stale lock cleanup、二重更新防止、atomic replace / transaction rollback を確認する。
+  - `retry_count` 上限超過時は failed になり、failed でも既存銘柄データが維持される。
+
+対象外:
+
+- Watchlist通知、自動売買、売買推奨。
+- 価格履歴の長期蓄積。
+- 詳細なクリック履歴の永続保存。
+- OS常駐サービス化。
+- 大量銘柄の高速並列更新。
+
 完了条件:
+
+- 最新ロードマップに、銘柄データベース自動リフレッシュ基盤が追記されている。
+- 既存 Phase 番号と衝突していない。
+- 目的、基本UX、対象データ、必須機能が記載されている。
+- 使用頻度、重要度、古さを組み合わせた refresh priority score の考え方が記載されている。
+- 更新キュー、TTL、レート制限が記載されている。
+- アプリ終了・中断に強い復旧設計が記載されている。
+- atomic save / transaction の方針が記載されている。
+- lock / stale lock / cleanup の方針が記載されている。
+- ログ・キャッシュ肥大化防止設計が記載されている。
+- テスト方針が記載されている。
+- 既存ロードマップの文体・章立てに合わせて自然に統合されている。
+
+
+Phase 22 完了条件:
 
 - Research Score は evidence と紐づいて説明できる。
 - Cockpit / Decision Report で Research Score の内訳、根拠、confidence、warnings を確認できる。

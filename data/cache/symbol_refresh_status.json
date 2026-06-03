@@ -1,0 +1,31 @@
+{
+  "last_attempt_at": "2026-06-03T20:33:02.519686",
+  "last_success_at": "2026-06-03T20:33:04.900436",
+  "last_error_at": null,
+  "last_error_type": null,
+  "consecutive_failures": 0,
+  "last_refreshed_symbols": [
+    "224A.T",
+    "2250.T",
+    "2252.T",
+    "2253.T",
+    "2254.T",
+    "2255.T",
+    "2256.T",
+    "2257.T",
+    "2258.T",
+    "2259.T",
+    "233A.T",
+    "234A.T",
+    "236A.T",
+    "237A.T",
+    "238A.T",
+    "2510.T",
+    "2511.T",
+    "2512.T",
+    "2513.T",
+    "2514.T"
+  ],
+  "refresh_queue_size": 0,
+  "is_refreshing": false
+}

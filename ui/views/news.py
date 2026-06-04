@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import html
-from collections.abc import Callable
+import re
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from functools import lru_cache
 from typing import cast
@@ -11,6 +12,7 @@ import pandas as pd
 import streamlit as st
 
 from backend.news import (
+    NewsCategoryLane,
     NewsDashboardSnapshot,
     NewsHeadlineCard,
     NewsUpdateStatus,
@@ -27,6 +29,7 @@ from ui.symbol_universe import symbol_name, symbol_universe_csv_rows
 OpenSymbolCallback = Callable[[str], None]
 
 NEWS_DASHBOARD_REFRESH_STATE_KEY = "investment_news_dashboard_refresh_message"
+NEWS_DASHBOARD_WATCHLIST_STATE_KEY = "investment_news_watchlist_symbols"
 NEWS_COCKPIT_QUERY_PAGE_PARAM = "smai_page"
 NEWS_COCKPIT_QUERY_SYMBOL_PARAM = "smai_symbol"
 NEWS_COCKPIT_QUERY_COCKPIT_VALUE = "cockpit"
@@ -324,9 +327,10 @@ def render_news_dashboard_page(
     _render_cache_status(snapshot, status, uses_cached_snapshot=uses_cached_snapshot)
     _render_status_message()
     _render_update_warning(status)
-    _render_news_stream(snapshot, open_symbol_callback=open_symbol_callback)
-    _render_heatmap(snapshot)
-    _render_category_lanes(snapshot, open_symbol_callback=open_symbol_callback)
+    filtered_snapshot = _render_news_detail_filters(snapshot)
+    _render_news_stream(filtered_snapshot, open_symbol_callback=open_symbol_callback)
+    _render_heatmap(filtered_snapshot)
+    _render_category_lanes(filtered_snapshot, open_symbol_callback=open_symbol_callback)
 
 
 def news_dashboard_heatmap_frame(snapshot: NewsDashboardSnapshot) -> pd.DataFrame:
@@ -547,6 +551,163 @@ def news_dashboard_unique_headline_count(snapshot: NewsDashboardSnapshot) -> int
         published = card.published_at.isoformat() if card.published_at else ""
         seen.add((card.title.strip(), card.url or "", published))
     return len(seen)
+
+
+def news_dashboard_filter_options(
+    snapshot: NewsDashboardSnapshot,
+) -> dict[str, list[str]]:
+    """Return stable filter options for Investment Radar detail controls."""
+
+    cards = _news_dashboard_all_cards(snapshot)
+    categories = sorted({card.category for card in cards if card.category})
+    freshness = [
+        status
+        for status in ("latest", "recent", "stale", "unknown")
+        if any(card.freshness_status == status for card in cards)
+    ]
+    sources = sorted({card.source_name or _source_type_label(card.source_type) for card in cards})
+    return {
+        "categories": categories,
+        "freshness": freshness,
+        "sources": sources,
+    }
+
+
+def news_dashboard_filtered_snapshot(
+    snapshot: NewsDashboardSnapshot,
+    *,
+    categories: Sequence[str] = (),
+    freshness: Sequence[str] = (),
+    relation_filter: str = "all",
+    sources: Sequence[str] = (),
+    watchlist_symbols: Sequence[str] = (),
+    watchlist_only: bool = False,
+    prioritize_watchlist: bool = True,
+) -> NewsDashboardSnapshot:
+    """Return a display-only snapshot filtered for the current UI controls."""
+
+    category_set = {value for value in categories if value}
+    freshness_set = {value for value in freshness if value}
+    source_set = {value for value in sources if value}
+    watchlist_set = {symbol.strip().upper() for symbol in watchlist_symbols if symbol.strip()}
+
+    def include(card: NewsHeadlineCard) -> bool:
+        if category_set and card.category not in category_set:
+            return False
+        if freshness_set and card.freshness_status not in freshness_set:
+            return False
+        source = card.source_name or _source_type_label(card.source_type)
+        if source_set and source not in source_set:
+            return False
+        if relation_filter == "direct" and not card.related_symbols:
+            return False
+        if relation_filter == "inferred" and not getattr(card, "inferred_symbols", []):
+            return False
+        if relation_filter == "none" and (
+            card.related_symbols or getattr(card, "inferred_symbols", [])
+        ):
+            return False
+        if watchlist_only and not _card_watchlist_symbols(card, watchlist_set):
+            return False
+        return True
+
+    stream_cards = [card for card in snapshot.stream_headlines if include(card)]
+    lanes: list[NewsCategoryLane] = []
+    for lane in snapshot.category_lanes:
+        lane_cards = [card for card in lane.headlines if include(card)]
+        if lane_cards:
+            lanes.append(NewsCategoryLane(category=lane.category, headlines=lane_cards))
+
+    if prioritize_watchlist and watchlist_set:
+        stream_cards = _sort_cards_by_watchlist(stream_cards, watchlist_set)
+        lanes = [
+            NewsCategoryLane(
+                category=lane.category,
+                headlines=_sort_cards_by_watchlist(lane.headlines, watchlist_set),
+            )
+            for lane in lanes
+        ]
+
+    visible_categories = {card.category for card in stream_cards}
+    for lane in lanes:
+        visible_categories.add(lane.category)
+    heatmap_cells = [
+        cell
+        for cell in snapshot.heatmap_cells
+        if not visible_categories or cell.category in visible_categories
+    ]
+
+    return NewsDashboardSnapshot(
+        schema_version=snapshot.schema_version,
+        generated_at=snapshot.generated_at,
+        fetched_at=snapshot.fetched_at,
+        freshness_status=snapshot.freshness_status,
+        stream_headlines=stream_cards,
+        heatmap_cells=heatmap_cells,
+        category_lanes=lanes,
+    )
+
+
+def _news_dashboard_all_cards(
+    snapshot: NewsDashboardSnapshot,
+) -> list[NewsHeadlineCard]:
+    cards = list(snapshot.stream_headlines)
+    for lane in snapshot.category_lanes:
+        cards.extend(lane.headlines)
+    return cards
+
+
+def _sort_cards_by_watchlist(
+    cards: Sequence[NewsHeadlineCard],
+    watchlist_symbols: set[str],
+) -> list[NewsHeadlineCard]:
+    ranked_cards = sorted(
+        enumerate(cards),
+        key=lambda item: (
+            0 if _card_watchlist_symbols(item[1], watchlist_symbols) else 1,
+            -_card_material_rank(item[1]),
+            item[0],
+        ),
+    )
+    return [card for _, card in ranked_cards]
+
+
+def _card_watchlist_symbols(card: NewsHeadlineCard, watchlist_symbols: set[str]) -> list[str]:
+    if not watchlist_symbols:
+        return []
+    direct_symbols, inferred_symbols = _card_handoff_symbol_groups(card)
+    return [
+        symbol for symbol in [*direct_symbols, *inferred_symbols] if symbol in watchlist_symbols
+    ]
+
+
+def _card_material_rank(card: NewsHeadlineCard) -> int:
+    return {
+        "earnings": 5,
+        "risk": 5,
+        "policy": 4,
+        "theme": 4,
+        "shareholder_return": 3,
+        "macro": 3,
+        "fund_flow": 2,
+    }.get(card.material_type, 1)
+
+
+def parse_news_watchlist_symbols(value: str) -> list[str]:
+    """Parse comma/space separated watchlist symbols for the News UI."""
+
+    parts = re_split_news_watchlist(value)
+    symbols: list[str] = []
+    for part in parts:
+        symbol = part.strip().upper()
+        if not symbol or symbol in symbols:
+            continue
+        symbols.append(symbol)
+    return symbols
+
+
+def re_split_news_watchlist(value: str) -> list[str]:
+    return [part for part in re.split(r"[\s,、;；]+", value.strip()) if part]
 
 
 def news_dashboard_status_items(
@@ -1329,6 +1490,88 @@ def _render_update_warning(status: NewsUpdateStatus) -> None:
         st.warning(
             "ニュース更新で確認が必要な状態です。前回保存データまたはデモ表示を使っています。"
         )
+
+
+def _render_news_detail_filters(
+    snapshot: NewsDashboardSnapshot,
+) -> NewsDashboardSnapshot:
+    options = news_dashboard_filter_options(snapshot)
+    relation_labels = {
+        "all": "すべて",
+        "direct": "本文に出た銘柄あり",
+        "inferred": "SMAI推測候補あり",
+        "none": "関連銘柄なし",
+    }
+    with st.expander("ニュース詳細フィルタ", expanded=False):
+        col_category, col_freshness, col_relation, col_source = st.columns([1.2, 0.9, 1.0, 1.2])
+        with col_category:
+            categories = st.multiselect(
+                "カテゴリ",
+                options["categories"],
+                default=[],
+                key="investment_news_filter_categories",
+            )
+        with col_freshness:
+            freshness = st.multiselect(
+                "鮮度",
+                options["freshness"],
+                default=[],
+                format_func=_freshness_label,
+                key="investment_news_filter_freshness",
+            )
+        with col_relation:
+            relation_filter = st.selectbox(
+                "関連銘柄",
+                list(relation_labels),
+                format_func=lambda value: relation_labels.get(value, str(value)),
+                key="investment_news_filter_relation",
+            )
+        with col_source:
+            sources = st.multiselect(
+                "source",
+                options["sources"],
+                default=[],
+                key="investment_news_filter_sources",
+            )
+
+        watch_col, priority_col, only_col = st.columns([1.8, 0.8, 0.8])
+        with watch_col:
+            watchlist_value = st.text_input(
+                "Watchlist",
+                key=NEWS_DASHBOARD_WATCHLIST_STATE_KEY,
+                placeholder="NVDA, 7203.T, GLD",
+            )
+        with priority_col:
+            prioritize_watchlist = st.checkbox(
+                "Watchlist一致を優先表示",
+                value=True,
+                key="investment_news_filter_watchlist_priority",
+            )
+        with only_col:
+            watchlist_only = st.checkbox(
+                "Watchlist一致だけ表示",
+                value=False,
+                key="investment_news_filter_watchlist_only",
+            )
+
+        watchlist_symbols = parse_news_watchlist_symbols(watchlist_value)
+        filtered_snapshot = news_dashboard_filtered_snapshot(
+            snapshot,
+            categories=categories,
+            freshness=freshness,
+            relation_filter=relation_filter or "all",
+            sources=sources,
+            watchlist_symbols=watchlist_symbols,
+            watchlist_only=watchlist_only,
+            prioritize_watchlist=prioritize_watchlist,
+        )
+        original_count = news_dashboard_unique_headline_count(snapshot)
+        filtered_count = news_dashboard_unique_headline_count(filtered_snapshot)
+        watchlist_note = (
+            f" / Watchlist: {', '.join(watchlist_symbols)}" if watchlist_symbols else ""
+        )
+        st.caption(f"表示中ニュース: {filtered_count}件 / 全体 {original_count}件{watchlist_note}")
+        return filtered_snapshot
 
 
 def _render_news_stream(

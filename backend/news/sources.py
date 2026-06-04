@@ -346,6 +346,18 @@ def _google_news_dashboard_card_from_item(
         symbol_text,
         fallback=category_query.related_symbols,
     )
+    inferred_symbols = _inferred_symbols_from_text(
+        symbol_text,
+        related_symbols,
+        fallback=category_query.related_symbols,
+    )
+    ai_comment = _standard_news_ai_comment(
+        category_query,
+        title=title,
+        summary=description,
+        related_symbols=related_symbols,
+        inferred_symbols=inferred_symbols,
+    )
     return NewsHeadlineCard(
         title=_clip_text(title, max_chars=120),
         summary=_clip_text(description or title, max_chars=220),
@@ -359,13 +371,15 @@ def _google_news_dashboard_card_from_item(
         region=category_query.region,
         material_type=category_query.material_type,
         related_symbols=related_symbols,
-        inferred_symbols=_inferred_symbols_from_text(
-            symbol_text,
-            related_symbols,
-            fallback=category_query.related_symbols,
+        inferred_symbols=inferred_symbols,
+        ai_comment=ai_comment,
+        investment_checkpoints=_standard_news_checkpoints(
+            category_query,
+            title=title,
+            summary=description,
+            related_symbols=related_symbols,
+            inferred_symbols=inferred_symbols,
         ),
-        ai_comment=_standard_news_ai_comment(category_query),
-        investment_checkpoints=_standard_news_checkpoints(category_query),
     )
 
 
@@ -600,19 +614,140 @@ def _dedupe_inferred_symbols(
     return inferred
 
 
-def _standard_news_ai_comment(category_query: NewsCategoryQuery) -> str:
+def _standard_news_ai_comment(
+    category_query: NewsCategoryQuery,
+    *,
+    title: str,
+    summary: str,
+    related_symbols: Sequence[str],
+    inferred_symbols: Sequence[str],
+) -> str:
+    """Build a compact, RAG-style reading note for a dashboard headline."""
+
+    profile = _news_reading_profile(category_query.material_type)
+    topic = _topic_hint(title, summary, category_query)
+    source_distance = _symbol_distance_phrase(related_symbols, inferred_symbols)
     return (
-        f"{category_query.category}の材料です。ニュース本文だけで判断せず、"
-        "関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。"
+        f"{profile['lead']} {topic}を中心に、{source_distance}。"
+        f"{profile['rag']} ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。"
     )
 
 
-def _standard_news_checkpoints(category_query: NewsCategoryQuery) -> list[str]:
-    return [
-        "一時的な見出しか、業績や需給に継続して効く材料かを分けます。",
-        "関連銘柄の決算、公式開示、市場データで裏取りします。",
-        f"{category_query.category}全体の材料か、個別企業の材料かを確認します。",
+def _standard_news_checkpoints(
+    category_query: NewsCategoryQuery,
+    *,
+    title: str,
+    summary: str,
+    related_symbols: Sequence[str],
+    inferred_symbols: Sequence[str],
+) -> list[str]:
+    profile = _news_reading_profile(category_query.material_type)
+    checkpoints = [
+        profile["checkpoint"],
+        _symbol_checkpoint(related_symbols, inferred_symbols),
+        _fresh_context_checkpoint(title, summary, category_query),
     ]
+    return [checkpoint for checkpoint in checkpoints if checkpoint]
+
+
+def _news_reading_profile(material_type: str) -> dict[str, str]:
+    profiles = {
+        "earnings": {
+            "lead": "決算・業績材料です。",
+            "rag": "会社発表、通期見通し、利益率、需要の継続性を分けて読みます。",
+            "checkpoint": "一時的な決算反応か、業績予想や受注に続く材料かを確認します。",
+        },
+        "fund_flow": {
+            "lead": "資金フロー材料です。",
+            "rag": "ETFの資金流入、指数採用、金利環境、為替影響を分けて読みます。",
+            "checkpoint": "基準価額、出来高、コスト、連動対象の変化を確認します。",
+        },
+        "macro": {
+            "lead": "マクロ環境の材料です。",
+            "rag": "金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。",
+            "checkpoint": "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
+        },
+        "policy": {
+            "lead": "政策・規制に関する材料です。",
+            "rag": "規制、補助金、関税、制度変更の対象範囲と時期を確認します。",
+            "checkpoint": "公式発表の有無、対象地域、企業ごとの影響差を確認します。",
+        },
+        "risk": {
+            "lead": "リスク材料です。",
+            "rag": "地政学、資源価格、金利、ディフェンシブ需要のどれに近いかを整理します。",
+            "checkpoint": "短期の警戒材料か、業績や需給に継続して効く材料かを確認します。",
+        },
+        "shareholder_return": {
+            "lead": "配当・株主還元の材料です。",
+            "rag": "増配、自社株買い、資本効率、財務余力を合わせて読みます。",
+            "checkpoint": "還元方針が一過性か、利益成長や財務余力に支えられているかを確認します。",
+        },
+        "theme": {
+            "lead": "テーマ性のある材料です。",
+            "rag": "需要、供給制約、設備投資、関連企業への波及を分けて読みます。",
+            "checkpoint": "テーマの見出しだけでなく、売上・受注・投資計画に結びつくかを確認します。",
+        },
+    }
+    return profiles.get(
+        material_type,
+        {
+            "lead": "市場ニュース材料です。",
+            "rag": "見出し、出典、関連銘柄、価格データを突き合わせて読みます。",
+            "checkpoint": "ニュースの発生源と、個別銘柄への距離を確認します。",
+        },
+    )
+
+
+def _symbol_distance_phrase(
+    related_symbols: Sequence[str],
+    inferred_symbols: Sequence[str],
+) -> str:
+    if related_symbols and inferred_symbols:
+        return "本文に出た銘柄とSMAI推測候補を分けて確認します"
+    if related_symbols:
+        return "本文に出た銘柄を優先して確認します"
+    if inferred_symbols:
+        return "テーマから近そうな銘柄をSMAI推測候補として確認します"
+    return "関連銘柄は追加確認候補として慎重に見ます"
+
+
+def _symbol_checkpoint(
+    related_symbols: Sequence[str],
+    inferred_symbols: Sequence[str],
+) -> str:
+    if related_symbols:
+        return "本文に出た銘柄は、業績・開示・市場データを銘柄コックピットで確認します。"
+    if inferred_symbols:
+        return "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。"
+    return "関連銘柄が薄い場合は、カテゴリ全体の材料として扱います。"
+
+
+def _topic_hint(title: str, summary: str, category_query: NewsCategoryQuery) -> str:
+    text = f"{title} {summary}".casefold()
+    hints = (
+        (("gold", "金価格", "金相場"), "金価格・リスク回避"),
+        (("tsmc", "nvidia", "半導体", "chip"), "半導体需要と供給"),
+        (("決算", "業績", "earnings"), "業績と見通し"),
+        (("金利", "為替", "ドル", "treasury", "yield"), "金利・為替"),
+        (("配当", "自社株", "shareholder"), "株主還元"),
+        (("原油", "lng", "opec", "energy"), "資源・エネルギー"),
+        (("防衛", "地政学", "geopolitical"), "地政学リスク"),
+    )
+    for keywords, label in hints:
+        if any(keyword in text for keyword in keywords):
+            return label
+    return category_query.category
+
+
+def _fresh_context_checkpoint(
+    title: str,
+    summary: str,
+    category_query: NewsCategoryQuery,
+) -> str:
+    text = f"{title} {summary}"
+    if len(text) < 60:
+        return "本文情報が短い場合は、元記事と公式資料で不足情報を補います。"
+    return f"{category_query.category}全体の温度感と、個別企業の材料を分けて確認します。"
 
 
 def _clip_text(value: str, *, max_chars: int) -> str:

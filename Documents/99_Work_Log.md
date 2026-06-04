@@ -1084,3 +1084,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added `?smai_page=news|ranking|rebalance|settings` routing support so the implemented app screen can be opened directly while preserving the existing cockpit symbol handoff query path.
 - Tightened compact news-card display with fixed height, line clamps, and hidden checkpoint bullets so the first viewport reaches the heatmap more quickly.
 - Verified the screen through Streamlit AppTest and headless Chrome desktop / mobile captures; desktop reached the status panel, three headline cards, and the heatmap, while mobile kept the status grid within the viewport.
+## 2026-06-05 - Investment Radar filters and Watchlist linkage
+
+- Added category / freshness / related-symbol type / source filters to the Investment Radar screen.
+- Added Watchlist parsing, Watchlist match prioritization, and Watchlist-only display across the headline stream, heatmap-visible categories, and category lanes.
+- Reworked standard news comments / checkpoints into deterministic RAG-style reading notes that distinguish direct article mentions from SMAI inferred candidates.
+- Added UI helper tests for filter behavior, Watchlist ordering, Watchlist parsing, and Streamlit control rendering.
+- Revalidated the 100-case related-symbol extraction sprint in 10-case batches; all batches passed at 100.0%.

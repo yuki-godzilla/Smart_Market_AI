@@ -869,7 +869,7 @@ Phase 21.5 の対象外:
 
 Phase 22.x: 投資レーダー / Investment News dashboard MVP
 
-状態: 初期MVP実装済み。外部ニュースsource接続、詳細フィルタ、Watchlist連動は後続
+状態: 初期MVP実装済み。Google News RSS Standard Mode の初期接続まで実装済み。詳細フィルタ、Watchlist連動、通知、追加providerは後続
 
 目的: 新画面 `投資レーダー` を、単なるニュース一覧ではなく、市場全体の温度感、注目テーマ、関連銘柄への深掘り導線を提供する市場ニュースコックピットとして設計する。ニュースだけで判断を完結させず、気になる材料を `銘柄コックピット` で確認する入口にする。
 
@@ -879,6 +879,7 @@ Phase 22.x: 投資レーダー / Investment News dashboard MVP
 - 独立した `投資レーダー` 画面は初期MVP実装済み。ニュース横断ランキング、News Score 化、Watchlist 連動、通知は未実装。
 - Phase 22 本体の Research Score 方針は維持し、Investment News / 投資レーダー dashboard は Phase 22.x の UI / backend snapshot slice として扱う。
 - `backend/news/dashboard.py` で deterministic `build_news_dashboard_snapshot` / `build_demo_news_dashboard_snapshot` を実装し、保存済みsnapshotがない場合も network-free demo snapshot で表示できる。
+- `backend/news/sources.py` で Standard Mode の市場横断ニュース取得層を追加済み。手動更新時に Google News RSS を12カテゴリで広めに取得し、raw 150〜250件程度の候補からURL/title重複を除き、最大100件の dashboard snapshot に圧縮する。通常 tests は Static adapter / RSS fixture で network-free に維持する。
 - `ui/views/news.py` で `投資レーダー` 画面を追加し、side menu / routing / related-symbol cockpit handoff を `ui/components/sidemenu.py` と `ui/app.py` に接続済み。投資ヒートマップの銘柄タイルは企業名を主、シンボルを補助タグとして表示し、クリックで同一アプリ内の `銘柄コックピット` に遷移する。
 
 MVP 必須機能:
@@ -888,6 +889,10 @@ MVP 必須機能:
   - 表示項目は title、source_name、source_type、published_at、freshness_status、material_type、related_symbols、短いAIコメント、元記事URL。
   - MVP では realtime 通信は不要。fake fixture / snapshot 内のニュースを一定間隔で切り替える UI でよい。
   - ユーザー操作による一時停止、hover 時停止、URLクリックを将来拡張しやすい構造にする。
+- ニュース仕入れ Standard Mode
+  - 手動更新ではカテゴリ別 Google News RSS を使い、半導体・AI、決算、株主還元、為替・金利、金融、エネルギー、ETF、地政学、政策、日本株、米国株、小売・消費の12カテゴリを初期対象にする。
+  - アプリ負荷を抑えるため、raw取得候補は約150〜250件、正規化・重複排除後は最大100件、初期UI表示はヘッドライン/カード/カテゴリレーンで20〜30件程度に抑える。
+  - Google RSS / provider 障害時は既存 cache、保存済みがなければ network-free demo snapshot にフォールバックする。
 - 中央上: 投資ヒートマップ
   - 株式ヒートマップ風に、投資カテゴリをセクター枠、関連銘柄をタイルとして詰め、値動き / 材料シグナルを注意材料・中立・好材料の温度感として確認できる配色にする。
   - `heat = news_intensity + abs(price_change_pct) + volume_activity_score` を初期案とし、カテゴリ、region、price_change_pct、volume_activity_score、news_count、risk_count、positive_count、official_source_count、freshness_ratio を表示する。
@@ -917,6 +922,7 @@ MVP で見送る機能:
 
 - `backend/news/contracts.py`: `NewsHeadlineCard`、`NewsHeatmapCell`、`NewsCategoryLane`、`NewsDashboardSnapshot`。
 - `backend/news/dashboard.py`: `build_news_dashboard_snapshot`、`build_demo_news_dashboard_snapshot`、heatmap / category lane 集計。
+- `backend/news/sources.py`: `GoogleNewsRSSDashboardAdapter`、`StaticNewsSourceAdapter`、`build_standard_news_dashboard_snapshot`、RSS parsing、dedupe、Standard Mode category queries。
 - `ui/views/news.py`: `投資レーダー` 画面。市場ニュースヘッドライン、株式ヒートマップ風の投資ヒートマップ、3列カード型カテゴリ別ニュースレーン、銘柄名付き関連銘柄 handoff を表示する。市場指標が欠ける heatmap cell はニュース材料から代理シグナルを補完する。投資ヒートマップの銘柄タイルは同一アプリURLで `銘柄コックピット` へ遷移する。
 - `ui/components/sidemenu.py` / `ui/app.py`: `投資レーダー` を side menu と routing に追加済み。
 
@@ -984,6 +990,7 @@ Phase 22.x 完了条件:
 - ニュースカードにAI分析コメント / 投資確認観点が表示される。
 - 関連銘柄があるニュースカードに、シンボルと銘柄名 / 企業名が分かる `銘柄コックピットで確認` 導線が表示される。
 - 元記事URLがクリック可能。
+- 手動更新で Standard Mode の外部RSS取得を実行し、重複除去・最大100件保存・既存cache fallback が働く。
 - 右側フィルタ / 詳細一覧は未実装でよい。
 - fake fixture による network-free regression test が通る。
 - 既存の Research Summary / ニュースURL表示仕様を壊さない。

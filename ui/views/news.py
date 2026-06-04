@@ -13,6 +13,7 @@ from backend.news import (
     NewsHeadlineCard,
     NewsUpdateStatus,
     build_demo_news_dashboard_snapshot,
+    build_standard_news_dashboard_snapshot,
     get_news_cache_file_size,
     load_cached_news_dashboard_snapshot,
     load_news_update_status,
@@ -551,8 +552,13 @@ def _render_refresh_controls() -> None:
     col_action, col_note = st.columns([0.8, 2.2])
     with col_action:
         if st.button("ニュース表示を更新", key="investment_news_refresh", type="secondary"):
+            now = datetime.now(UTC)
             result = refresh_news_dashboard_cache(
-                lambda: build_demo_news_dashboard_snapshot(now=datetime.now(UTC)),
+                lambda: build_standard_news_dashboard_snapshot(
+                    allow_network=True,
+                    now=now,
+                    fallback_to_demo=False,
+                ),
                 force=True,
             )
             if result.refreshed:
@@ -568,7 +574,8 @@ def _render_refresh_controls() -> None:
             st.rerun()
     with col_note:
         st.caption(
-            "ニュースは市場テーマと確認材料の入口です。スコアやランキング順位は変更しません。"
+            "手動更新では外部ニュースRSSを広めに取得し、重複を除いて最大100件の確認材料に整理します。"
+            "スコアやランキング順位は変更しません。"
         )
 
 

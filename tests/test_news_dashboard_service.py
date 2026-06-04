@@ -1,10 +1,17 @@
 from datetime import UTC, datetime
 
+import pytest
+
 from backend.news import (
+    NewsCategoryQuery,
     NewsHeadlineCard,
+    StaticNewsSourceAdapter,
     build_demo_news_dashboard_snapshot,
     build_news_dashboard_snapshot,
+    build_standard_news_dashboard_snapshot,
     contains_prohibited_recommendation_terms,
+    dedupe_news_headline_cards,
+    google_news_dashboard_cards_from_rss,
 )
 
 
@@ -66,3 +73,118 @@ def test_demo_news_dashboard_snapshot_has_no_recommendation_wording():
             ]
         )
         assert not contains_prohibited_recommendation_terms(text)
+
+
+def test_standard_news_dashboard_snapshot_uses_bounded_dedupe_from_adapter():
+    fetched_at = datetime(2026, 6, 4, 10, 0, tzinfo=UTC)
+    headlines = [
+        NewsHeadlineCard(
+            title=f"市場ニュース {index}",
+            summary="市場材料を確認します。",
+            url=f"https://example.com/news/{index % 110}",
+            source_name="Example News",
+            source_type="news",
+            category="日本株" if index % 2 else "米国株",
+            region="日本" if index % 2 else "米国",
+            material_type="macro",
+            published_at=fetched_at,
+            fetched_at=fetched_at,
+            freshness_status="latest",
+            related_symbols=["7203.T"],
+        )
+        for index in range(130)
+    ]
+
+    snapshot = build_standard_news_dashboard_snapshot(
+        adapters=[StaticNewsSourceAdapter(headlines)],
+        allow_network=False,
+        now=fetched_at,
+    )
+
+    assert len(snapshot.stream_headlines) == 100
+    assert len({card.url for card in snapshot.stream_headlines}) == 100
+    assert {lane.category for lane in snapshot.category_lanes} == {"日本株", "米国株"}
+
+
+def test_standard_news_dashboard_snapshot_without_network_uses_demo_fallback():
+    snapshot = build_standard_news_dashboard_snapshot(
+        allow_network=False,
+        now=datetime(2026, 6, 4, 10, 0, tzinfo=UTC),
+    )
+
+    assert len(snapshot.stream_headlines) == 8
+    assert all((card.source_name or "").startswith("SMAI") for card in snapshot.stream_headlines)
+
+
+def test_standard_news_dashboard_snapshot_can_fail_without_demo_fallback():
+    with pytest.raises(RuntimeError):
+        build_standard_news_dashboard_snapshot(
+            adapters=[StaticNewsSourceAdapter([])],
+            allow_network=True,
+            fallback_to_demo=False,
+            now=datetime(2026, 6, 4, 10, 0, tzinfo=UTC),
+        )
+
+
+def test_google_news_dashboard_cards_from_rss_parses_category_fixture():
+    fetched_at = datetime(2026, 6, 4, 10, 0, tzinfo=UTC)
+    category_query = NewsCategoryQuery(
+        category="半導体・AI",
+        region="グローバル",
+        material_type="theme",
+        query="半導体 AI 株",
+        related_symbols=("NVDA", "6857.T"),
+    )
+    rss = """
+    <rss><channel>
+      <item>
+        <title>NVIDIAと半導体投資のニュース</title>
+        <link>https://example.com/semiconductor</link>
+        <source>Example Market</source>
+        <pubDate>Thu, 04 Jun 2026 09:30:00 GMT</pubDate>
+        <description><![CDATA[<p>AI投資と半導体設備の動向を確認します。</p>]]></description>
+      </item>
+      <item>
+        <title>重複ニュース</title>
+        <link>https://example.com/semiconductor</link>
+        <source>Example Market</source>
+        <pubDate>Thu, 04 Jun 2026 09:00:00 GMT</pubDate>
+      </item>
+    </channel></rss>
+    """
+
+    cards = google_news_dashboard_cards_from_rss(
+        rss,
+        category_query=category_query,
+        fetched_at=fetched_at,
+        as_of=fetched_at.date(),
+        max_results=10,
+    )
+
+    assert len(cards) == 1
+    assert cards[0].category == "半導体・AI"
+    assert cards[0].source_name == "Example Market"
+    assert cards[0].freshness_status == "latest"
+    assert cards[0].related_symbols[0] == "NVDA"
+    assert "公式資料" in (cards[0].ai_comment or "")
+
+
+def test_dedupe_news_headline_cards_prefers_url_and_limit():
+    cards = [
+        NewsHeadlineCard(
+            title=f"ニュース {index}",
+            url="https://example.com/same" if index < 2 else f"https://example.com/{index}",
+            source_type="news",
+            category="国内株",
+            material_type="macro",
+        )
+        for index in range(5)
+    ]
+
+    deduped = dedupe_news_headline_cards(cards, limit=3)
+
+    assert [card.url for card in deduped] == [
+        "https://example.com/same",
+        "https://example.com/2",
+        "https://example.com/3",
+    ]

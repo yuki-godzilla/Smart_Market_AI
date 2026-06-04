@@ -870,7 +870,7 @@ def _stock_heatmap_tile_html(tile: dict[str, object]) -> str:
     symbol_html = f'<span class="investment-stock-heatmap-symbol">{symbol}</span>' if name else ""
     return (
         f'<a class="investment-stock-heatmap-tile {tone} {size}" '
-        f'href="{href}" title="{label}" aria-label="{label}">'
+        f'href="{href}" target="_self" title="{label}" aria-label="{label}">'
         '<span class="investment-stock-heatmap-identity">'
         f'<span class="investment-stock-heatmap-name">{primary_name}</span>'
         f"{symbol_html}"

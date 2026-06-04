@@ -84,6 +84,8 @@ def test_news_dashboard_stock_heatmap_html_uses_sector_tiles():
     assert "investment-stock-heatmap-click" in html_text
     assert '<a class="investment-stock-heatmap-tile' in html_text
     assert 'href="?smai_page=cockpit&amp;smai_symbol=NVDA"' in html_text
+    assert 'target="_self"' in html_text
+    assert 'target="_blank"' not in html_text
     assert "count-12" in html_text
     assert "NVDA" in html_text
     assert "AAPL" in html_text

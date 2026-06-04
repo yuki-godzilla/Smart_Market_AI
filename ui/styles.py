@@ -962,8 +962,8 @@ body,
 .investment-stock-heatmap-board {
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
-    grid-auto-rows: 7.6rem;
-    gap: 0.42rem;
+    grid-auto-rows: 6.5rem;
+    gap: 0.54rem;
 }
 
 .investment-stock-heatmap-group {
@@ -981,17 +981,17 @@ body,
 
 .investment-stock-heatmap-group.mega {
     grid-column: span 4;
-    grid-row: span 3;
+    grid-row: span 4;
 }
 
 .investment-stock-heatmap-group.large {
     grid-column: span 4;
-    grid-row: span 2;
+    grid-row: span 3;
 }
 
 .investment-stock-heatmap-group.medium {
-    grid-column: span 3;
-    grid-row: span 2;
+    grid-column: span 4;
+    grid-row: span 3;
 }
 
 .investment-stock-heatmap-group-header {
@@ -1026,11 +1026,11 @@ body,
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
     grid-auto-flow: dense;
-    grid-auto-rows: minmax(2.35rem, 1fr);
-    gap: 0.12rem;
+    grid-auto-rows: minmax(2.55rem, 1fr);
+    gap: 0.16rem;
     flex: 1;
     min-height: 0;
-    padding: 0.12rem;
+    padding: 0.16rem;
 }
 
 .investment-stock-heatmap-tile {
@@ -1101,6 +1101,11 @@ body,
 .investment-stock-heatmap-tile.minor {
     grid-column: span 1;
     grid-row: span 1;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.04rem;
+    padding: 0.16rem 0.18rem;
+    text-align: left;
 }
 
 .investment-stock-heatmap-group.count-1 .investment-stock-heatmap-tile {
@@ -1217,21 +1222,44 @@ body,
 .investment-stock-heatmap-name {
     max-width: 100%;
     color: var(--heatmap-tile-name);
+    display: -webkit-box;
     font-size: 0.72rem;
     font-weight: 900;
     line-height: 1.12;
     overflow: hidden;
+    overflow-wrap: anywhere;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
 }
 
 .investment-stock-heatmap-tile.hero .investment-stock-heatmap-name {
     font-size: 1.42rem;
+    line-height: 1.08;
 }
 
 .investment-stock-heatmap-tile.major .investment-stock-heatmap-name,
 .investment-stock-heatmap-tile.medium .investment-stock-heatmap-name {
     font-size: 0.96rem;
+    line-height: 1.1;
+}
+
+.investment-stock-heatmap-tile.minor .investment-stock-heatmap-identity {
+    align-items: flex-start;
+    gap: 0;
+}
+
+.investment-stock-heatmap-tile.minor .investment-stock-heatmap-name {
+    font-size: 0.58rem;
+    font-weight: 850;
+    line-height: 1.05;
+    -webkit-line-clamp: 2;
+}
+
+.investment-stock-heatmap-tile.minor .investment-stock-heatmap-symbol,
+.investment-stock-heatmap-tile.minor .investment-stock-heatmap-change {
+    display: none;
 }
 
 .investment-stock-heatmap-change {

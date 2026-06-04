@@ -756,6 +756,7 @@ def _stock_heatmap_tile(
     )
     inferred = str(row.get("市場指標")) != "市場データ"
     display_name, full_name = _stock_heatmap_tile_names(symbol)
+    display_name = _stock_heatmap_tile_display_name(display_name, symbol, tile_index)
     label = f"{symbol} / {full_name} / 注目度 {symbol_score:.1f}" if full_name else symbol
     return {
         "symbol": symbol,
@@ -786,6 +787,19 @@ def _stock_heatmap_tile_names(symbol: str) -> tuple[str, str]:
         return "", ""
     normalized = name.strip()
     return truncate_text(normalized, max_chars=30), normalized
+
+
+def _stock_heatmap_tile_display_name(display_name: str, symbol: str, tile_index: int) -> str:
+    name = display_name or symbol
+    if tile_index == 0:
+        max_chars = 20
+    elif tile_index <= 2:
+        max_chars = 18
+    elif tile_index <= 5:
+        max_chars = 16
+    else:
+        max_chars = 12
+    return truncate_text(name, max_chars=max_chars)
 
 
 def _stock_heatmap_tone(change: float) -> str:
@@ -827,7 +841,7 @@ def _stock_heatmap_group_html(group: dict[str, object]) -> str:
     tiles_raw = group.get("tiles")
     tiles = cast(list[dict[str, object]], tiles_raw) if isinstance(tiles_raw, list) else []
     tile_html = "".join(_stock_heatmap_tile_html(tile) for tile in tiles)
-    count_class = f"count-{min(len(tiles), 6)}"
+    count_class = f"count-{min(len(tiles), 12)}"
     return (
         f'<article class="investment-stock-heatmap-group {group_class} {count_class}">'
         '<header class="investment-stock-heatmap-group-header">'

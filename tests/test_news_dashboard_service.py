@@ -169,6 +169,74 @@ def test_google_news_dashboard_cards_from_rss_parses_category_fixture():
     assert "公式資料" in (cards[0].ai_comment or "")
 
 
+def test_google_news_related_symbols_prefer_text_hits_over_category_fallback():
+    fetched_at = datetime(2026, 6, 4, 10, 0, tzinfo=UTC)
+    category_query = NewsCategoryQuery(
+        category="半導体・AI",
+        region="グローバル",
+        material_type="theme",
+        query="半導体 AI 株",
+        related_symbols=("NVDA", "6857.T", "8035.T"),
+    )
+    rss = """
+    <rss><channel>
+      <item>
+        <title>半導体供給は今後数年間、需要を満たすのに十分ではない</title>
+        <link>https://example.com/chip-supply</link>
+        <source>Vietnam.vn</source>
+        <pubDate>Thu, 04 Jun 2026 09:30:00 GMT</pubDate>
+        <description><![CDATA[
+          <p>TSMCの幹部はAI向け半導体の供給制約について説明しました。</p>
+        ]]></description>
+      </item>
+    </channel></rss>
+    """
+
+    cards = google_news_dashboard_cards_from_rss(
+        rss,
+        category_query=category_query,
+        fetched_at=fetched_at,
+        as_of=fetched_at.date(),
+        max_results=10,
+    )
+
+    assert cards[0].related_symbols == ["TSM"]
+
+
+def test_google_news_related_symbols_do_not_invent_seed_symbols_for_generic_theme():
+    fetched_at = datetime(2026, 6, 4, 10, 0, tzinfo=UTC)
+    category_query = NewsCategoryQuery(
+        category="半導体・AI",
+        region="グローバル",
+        material_type="theme",
+        query="半導体 AI 株",
+        related_symbols=("NVDA", "6857.T", "8035.T"),
+    )
+    rss = """
+    <rss><channel>
+      <item>
+        <title>半導体供給は今後数年間、需要を満たすのに十分ではない</title>
+        <link>https://example.com/chip-supply-generic</link>
+        <source>Example Market</source>
+        <pubDate>Thu, 04 Jun 2026 09:30:00 GMT</pubDate>
+        <description><![CDATA[
+          <p>AI向け半導体の供給制約が業界全体の課題になっています。</p>
+        ]]></description>
+      </item>
+    </channel></rss>
+    """
+
+    cards = google_news_dashboard_cards_from_rss(
+        rss,
+        category_query=category_query,
+        fetched_at=fetched_at,
+        as_of=fetched_at.date(),
+        max_results=10,
+    )
+
+    assert cards[0].related_symbols == []
+
+
 def test_dedupe_news_headline_cards_prefers_url_and_limit():
     cards = [
         NewsHeadlineCard(

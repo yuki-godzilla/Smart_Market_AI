@@ -425,35 +425,33 @@ def _symbols_from_text(
     fallback: Sequence[str],
     limit: int = 6,
 ) -> list[str]:
-    symbol_map = {
-        "nvidia": "NVDA",
-        "エヌビディア": "NVDA",
-        "トヨタ": "7203.T",
-        "toyota": "7203.T",
-        "ソニー": "6758.T",
-        "sony": "6758.T",
-        "三菱ufj": "8306.T",
-        "jpmorgan": "JPM",
-        "jpm": "JPM",
-        "東京エレクトロン": "8035.T",
-        "アドバンテスト": "6857.T",
-        "inpex": "1605.T",
-        "日経平均": "1488.T",
-        "nasdaq": "QQQ",
-        "s&p500": "VOO",
-        "s&p 500": "VOO",
-        "金": "GLD",
-        "防衛": "7011.T",
-    }
-    lowered = text.casefold()
+    symbol_patterns = (
+        (r"(?<![A-Za-z0-9])nvidia(?![A-Za-z0-9])|エヌビディア|エヌヴィディア", "NVDA"),
+        (
+            r"(?<![A-Za-z0-9])tsmc(?![A-Za-z0-9])"
+            r"|(?<![A-Za-z0-9])tsm(?![A-Za-z0-9])"
+            r"|taiwan semiconductor|台湾積体電路|台積電",
+            "TSM",
+        ),
+        (r"(?<![A-Za-z0-9])asml(?![A-Za-z0-9])", "ASML"),
+        (r"(?<![A-Za-z0-9])amd(?![A-Za-z0-9])|advanced micro devices", "AMD"),
+        (r"東京エレクトロン|tokyo electron", "8035.T"),
+        (r"アドバンテスト|advantest", "6857.T"),
+        (r"トヨタ|toyota", "7203.T"),
+        (r"ソニー|sony", "6758.T"),
+        (r"三菱ufj|三菱UFJ|mitsubishi ufj", "8306.T"),
+        (r"(?<![A-Za-z0-9])jpmorgan(?![A-Za-z0-9])|(?<![A-Za-z0-9])jpm(?![A-Za-z0-9])", "JPM"),
+        (r"(?<![A-Za-z0-9])inpex(?![A-Za-z0-9])", "1605.T"),
+        (r"日経平均|日経225", "1488.T"),
+        (r"(?<![A-Za-z0-9])nasdaq(?![A-Za-z0-9])|ナスダック", "QQQ"),
+        (r"(?<![A-Za-z0-9])s&p\s*500(?![A-Za-z0-9])|S&P500", "VOO"),
+        (r"(?<!金融)金(?!利|融)|(?<![A-Za-z0-9])gold(?![A-Za-z0-9])", "GLD"),
+        (r"防衛|defense", "7011.T"),
+    )
     symbols: list[str] = []
-    for needle, symbol in symbol_map.items():
-        if needle.casefold() in lowered and symbol not in symbols:
+    for pattern, symbol in symbol_patterns:
+        if re.search(pattern, text, flags=re.IGNORECASE) and symbol not in symbols:
             symbols.append(symbol)
-    for symbol in fallback:
-        normalized = symbol.strip().upper()
-        if normalized and normalized not in symbols:
-            symbols.append(normalized)
         if len(symbols) >= limit:
             break
     return symbols[:limit]

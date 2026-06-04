@@ -34,6 +34,17 @@ Default path:
 - 投資出力は売買推奨ではなく判断補助
 - Research RAG / News RAG は鮮度が重要なため、プロダクト挙動では最新外部 source を優先する。通常確認は fake/local fixture で network 非依存を維持する。`AI調査を更新` は外部 source 探索の標準導線とし、取得本文は既定では保持せず、永続化は別の明示 archive/save action とする。
 
+## Implementation Maturity / 実装成熟の考え方
+
+- Initial implementation should be MVP-first: validate contracts, UX, and risk with the smallest useful slice.
+- Full implementation should deepen the feature by researching relevant market practice, Web/source behavior, and comparable user experiences when useful, then expand scope within reasonable cost, performance, and safety bounds.
+- Keep normal verification deterministic and network-free. Live market / Web checks are explicit opt-in, separated from CI, and documented when they affect product behavior.
+
+基本理念:
+- 初期実装は MVP として、契約、UX、リスクを小さく検証する。
+- 本格実装では、市場や Web の情報、類似アプリの見せ方を必要に応じて調べ、妥当なコスト、負荷、安全性の範囲で実装を深める。
+- 通常確認は deterministic / network-free を維持し、live 市場 / Web 確認は明示 opt-in として CI から分離する。
+
 ## Fast Start / 最初に見るもの
 
 Use the smallest context set that can safely solve the task.

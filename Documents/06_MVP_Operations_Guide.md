@@ -539,7 +539,7 @@ Phase 16 final UI smoke checklist:
 - `ニュース表示を更新` で deterministic snapshot を再作成し、`data/cache/news_dashboard_snapshot.json` に保存する。
 - 表示ニュース件数、ヒートマップ数、snapshot鮮度、表示元 / cache size。
 - 市場ニュースヘッドライン。読みやすい大きさのニュースティッカーとカードに title、source、published_at、freshness、category、AIコメント、確認ポイント、元記事リンクを表示する。
-- 投資ヒートマップ。投資カテゴリをセクター枠、関連銘柄をタイルとして詰める株式ヒートマップ風UIで、値動き、取引量の活発さ、ニュース件数、freshness、risk / positive / official source count から集計した確認用の温度感を見る。市場指標が欠けるカテゴリは、ニュース材料の positive / risk / official / heat_score から `ニュース代理` のシグナルを表示する。
+- 投資ヒートマップ。投資カテゴリをセクター枠、関連銘柄をシンボル＋銘柄名 / 企業名付きタイルとして詰める株式ヒートマップ風UIで、値動き、取引量の活発さ、ニュース件数、freshness、risk / positive / official source count から集計した確認用の温度感を見る。市場指標が欠けるカテゴリは、ニュース材料の positive / risk / official / heat_score から `ニュース代理` のシグナルを表示する。
 - カテゴリ別ニュースレーン。カテゴリごとの代表ニュースを幅のある3列カードで確認し、関連銘柄は縦並びボタンで銘柄名 / 企業名を読みやすくする。
 - 関連銘柄ボタンにはシンボルと銘柄名 / 企業名を表示し、`銘柄コックピット` へ遷移する。Investment Score / Research Score / Ranking order は変更しない。
 

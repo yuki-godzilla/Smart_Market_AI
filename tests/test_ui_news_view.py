@@ -96,7 +96,10 @@ def test_news_dashboard_stock_heatmap_html_uses_sector_tiles():
     assert "investment-stock-heatmap-board" in html_text
     assert "investment-stock-heatmap-group" in html_text
     assert "investment-stock-heatmap-tile" in html_text
+    assert "count-3" in html_text
     assert "NVDA" in html_text
+    assert "NVDA / NVIDIA" in html_text
+    assert "6857.T / アドバンテスト" in html_text
     assert "未取得" not in html_text
 
 

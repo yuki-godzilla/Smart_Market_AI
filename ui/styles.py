@@ -912,6 +912,37 @@ body,
     margin: 0 0 0.55rem;
 }
 
+.investment-stock-heatmap-read {
+    margin-right: auto;
+    color: var(--text-secondary);
+}
+
+.investment-stock-heatmap-legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.24rem;
+}
+
+.investment-stock-heatmap-legend::before {
+    content: "";
+    width: 0.58rem;
+    height: 0.58rem;
+    border-radius: 2px;
+    background: #64748B;
+}
+
+.investment-stock-heatmap-legend.negative::before {
+    background: #E11D48;
+}
+
+.investment-stock-heatmap-legend.neutral::before {
+    background: #94A3B8;
+}
+
+.investment-stock-heatmap-legend.positive::before {
+    background: #10B981;
+}
+
 .investment-stock-heatmap-board {
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -975,7 +1006,8 @@ body,
 .investment-stock-heatmap-tiles {
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
-    grid-auto-rows: minmax(2.7rem, 1fr);
+    grid-auto-flow: dense;
+    grid-auto-rows: minmax(2.35rem, 1fr);
     gap: 0.12rem;
     flex: 1;
     min-height: 0;
@@ -987,6 +1019,7 @@ body,
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 0.18rem;
     min-width: 0;
     min-height: 0;
     border: 1px solid rgba(255, 255, 255, 0.44);
@@ -1017,6 +1050,35 @@ body,
     grid-row: span 1;
 }
 
+.investment-stock-heatmap-group.count-1 .investment-stock-heatmap-tile {
+    grid-column: span 6;
+    grid-row: span 5;
+}
+
+.investment-stock-heatmap-group.count-2 .investment-stock-heatmap-tile {
+    grid-column: span 3;
+    grid-row: span 5;
+}
+
+.investment-stock-heatmap-group.count-3 .investment-stock-heatmap-tile.hero {
+    grid-column: span 3;
+    grid-row: span 5;
+}
+
+.investment-stock-heatmap-group.count-3 .investment-stock-heatmap-tile.major {
+    grid-column: span 3;
+    grid-row: span 2;
+}
+
+.investment-stock-heatmap-group.count-3 .investment-stock-heatmap-tile.major:nth-child(3) {
+    grid-row: span 3;
+}
+
+.investment-stock-heatmap-group.count-4 .investment-stock-heatmap-tile {
+    grid-column: span 3;
+    grid-row: span 3;
+}
+
 .investment-stock-heatmap-tile.strong-positive {
     background: linear-gradient(180deg, #10B981, #047857);
 }
@@ -1037,6 +1099,15 @@ body,
     background: linear-gradient(180deg, #EF4444, #991B1B);
 }
 
+.investment-stock-heatmap-identity {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    max-width: 100%;
+}
+
 .investment-stock-heatmap-symbol {
     max-width: 100%;
     font-size: 0.68rem;
@@ -1048,11 +1119,11 @@ body,
 }
 
 .investment-stock-heatmap-tile.hero .investment-stock-heatmap-symbol {
-    font-size: 1.76rem;
+    font-size: 1.72rem;
 }
 
 .investment-stock-heatmap-tile.major .investment-stock-heatmap-symbol {
-    font-size: 1.24rem;
+    font-size: 1.2rem;
 }
 
 .investment-stock-heatmap-tile.medium .investment-stock-heatmap-symbol {
@@ -1061,19 +1132,27 @@ body,
 
 .investment-stock-heatmap-name {
     max-width: 100%;
-    color: rgba(248, 250, 252, 0.82);
-    font-size: 0.62rem;
-    font-weight: 760;
+    color: rgba(248, 250, 252, 0.9);
+    font-size: 0.7rem;
+    font-weight: 800;
     line-height: 1.15;
-    margin-top: 0.12rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
+.investment-stock-heatmap-tile.hero .investment-stock-heatmap-name {
+    font-size: 0.86rem;
+}
+
+.investment-stock-heatmap-tile.major .investment-stock-heatmap-name,
+.investment-stock-heatmap-tile.medium .investment-stock-heatmap-name {
+    font-size: 0.76rem;
+}
+
 .investment-stock-heatmap-change {
     color: rgba(255, 255, 255, 0.96);
-    font-size: 0.64rem;
+    font-size: 0.7rem;
     font-weight: 850;
     line-height: 1.12;
     margin-top: 0.14rem;
@@ -1081,7 +1160,7 @@ body,
 }
 
 .investment-stock-heatmap-tile.hero .investment-stock-heatmap-change {
-    font-size: 1.16rem;
+    font-size: 1.12rem;
 }
 
 .investment-stock-heatmap-tile.major .investment-stock-heatmap-change,

@@ -168,7 +168,10 @@ def news_dashboard_stock_heatmap_html(snapshot: NewsDashboardSnapshot) -> str:
     return (
         '<section class="investment-stock-heatmap" aria-label="investment stock heatmap">'
         '<div class="investment-stock-heatmap-topline">'
-        "<span>赤: 注意材料</span><span>灰: 中立</span><span>緑: 好材料</span>"
+        '<span class="investment-stock-heatmap-read">表示: シンボル / 銘柄名 / 値動き</span>'
+        '<span class="investment-stock-heatmap-legend negative">赤: 注意材料</span>'
+        '<span class="investment-stock-heatmap-legend neutral">灰: 中立</span>'
+        '<span class="investment-stock-heatmap-legend positive">緑: 好材料</span>'
         "</div>"
         f'<div class="investment-stock-heatmap-board">{group_html}</div>'
         "</section>"
@@ -403,9 +406,13 @@ def _stock_heatmap_tile(
         1,
     )
     inferred = str(row.get("市場指標")) != "市場データ"
+    display_name, full_name = _stock_heatmap_tile_names(symbol)
+    label = f"{symbol} / {full_name}" if full_name else symbol
     return {
         "symbol": symbol,
-        "name": _stock_heatmap_tile_name(symbol),
+        "name": display_name,
+        "full_name": full_name,
+        "label": label,
         "change": change,
         "change_label": _price_change_label(change, inferred=inferred),
         "tone": _stock_heatmap_tone(change),
@@ -413,14 +420,15 @@ def _stock_heatmap_tile(
     }
 
 
-def _stock_heatmap_tile_name(symbol: str) -> str:
+def _stock_heatmap_tile_names(symbol: str) -> tuple[str, str]:
     try:
         name = symbol_name(symbol)
     except OSError:
         name = None
     if not name or name.strip().upper() == symbol.strip().upper():
-        return ""
-    return truncate_text(name, max_chars=22)
+        return "", ""
+    normalized = name.strip()
+    return truncate_text(normalized, max_chars=30), normalized
 
 
 def _stock_heatmap_tone(change: float) -> str:
@@ -461,8 +469,9 @@ def _stock_heatmap_group_html(group: dict[str, object]) -> str:
     group_class = html.escape(str(group["group_class"]))
     tiles = group["tiles"]
     tile_html = "".join(_stock_heatmap_tile_html(tile) for tile in tiles if isinstance(tile, dict))
+    count_class = f"count-{min(len(tiles) if isinstance(tiles, list) else 0, 6)}"
     return (
-        f'<article class="investment-stock-heatmap-group {group_class}">'
+        f'<article class="investment-stock-heatmap-group {group_class} {count_class}">'
         '<header class="investment-stock-heatmap-group-header">'
         f'<span class="investment-stock-heatmap-group-title">{category}</span>'
         f'<span class="investment-stock-heatmap-group-meta">{region} / {metric_source} / {summary_label}</span>'
@@ -475,14 +484,17 @@ def _stock_heatmap_group_html(group: dict[str, object]) -> str:
 def _stock_heatmap_tile_html(tile: dict[str, object]) -> str:
     symbol = html.escape(str(tile["symbol"]))
     name = html.escape(str(tile["name"]))
+    label = html.escape(str(tile["label"]), quote=True)
     change_label = html.escape(str(tile["change_label"]))
     tone = html.escape(str(tile["tone"]))
     size = html.escape(str(tile["size"]))
     name_html = f'<span class="investment-stock-heatmap-name">{name}</span>' if name else ""
     return (
-        f'<div class="investment-stock-heatmap-tile {tone} {size}">'
+        f'<div class="investment-stock-heatmap-tile {tone} {size}" title="{label}" aria-label="{label}">'
+        '<span class="investment-stock-heatmap-identity">'
         f'<span class="investment-stock-heatmap-symbol">{symbol}</span>'
         f"{name_html}"
+        "</span>"
         f'<span class="investment-stock-heatmap-change">{change_label}</span>'
         "</div>"
     )

@@ -10,7 +10,7 @@ import time as perf_time
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
-from typing import Callable, Iterable, Literal, Mapping, Sequence, cast
+from typing import Callable, Iterable, Literal, Mapping, MutableMapping, Sequence, cast
 
 import altair as alt
 import pandas as pd
@@ -1529,10 +1529,11 @@ def _query_param_value(value: object) -> str:
 
 
 def _clear_navigation_query_params(params: object, keys: Iterable[str]) -> None:
+    mutable_params = cast(MutableMapping[str, object], params)
     for key in keys:
         try:
-            if key in params:  # type: ignore[operator]
-                del params[key]  # type: ignore[index]
+            if key in mutable_params:
+                del mutable_params[key]
         except (KeyError, TypeError, AttributeError):
             continue
 

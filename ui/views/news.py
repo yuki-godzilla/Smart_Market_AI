@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 from collections.abc import Callable
 from datetime import UTC, datetime
+from typing import cast
 from urllib.parse import quote
 
 import pandas as pd
@@ -484,9 +485,10 @@ def _stock_heatmap_group_html(group: dict[str, object]) -> str:
     metric_source = html.escape(str(group["metric_source"]))
     summary_label = html.escape(str(group["summary_label"]))
     group_class = html.escape(str(group["group_class"]))
-    tiles = group["tiles"]
-    tile_html = "".join(_stock_heatmap_tile_html(tile) for tile in tiles if isinstance(tile, dict))
-    count_class = f"count-{min(len(tiles) if isinstance(tiles, list) else 0, 6)}"
+    tiles_raw = group.get("tiles")
+    tiles = cast(list[dict[str, object]], tiles_raw) if isinstance(tiles_raw, list) else []
+    tile_html = "".join(_stock_heatmap_tile_html(tile) for tile in tiles)
+    count_class = f"count-{min(len(tiles), 6)}"
     return (
         f'<article class="investment-stock-heatmap-group {group_class} {count_class}">'
         '<header class="investment-stock-heatmap-group-header">'
@@ -521,6 +523,8 @@ def _stock_heatmap_tile_html(tile: dict[str, object]) -> str:
 
 
 def _coerce_float(value: object, fallback: float) -> float:
+    if not isinstance(value, (int, float, str)):
+        return fallback
     try:
         return float(value)
     except (TypeError, ValueError):

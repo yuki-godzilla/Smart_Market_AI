@@ -341,8 +341,9 @@ def _google_news_dashboard_card_from_item(
     source = _rss_child_text(item, "source") or "Google News"
     description = _description_text(_rss_child_text(item, "description"))
     published_at = _rss_datetime(_rss_child_text(item, "pubDate"))
+    symbol_text = f"{title} {description}"
     related_symbols = _symbols_from_text(
-        f"{title} {description}",
+        symbol_text,
         fallback=category_query.related_symbols,
     )
     return NewsHeadlineCard(
@@ -358,7 +359,8 @@ def _google_news_dashboard_card_from_item(
         region=category_query.region,
         material_type=category_query.material_type,
         related_symbols=related_symbols,
-        inferred_symbols=_inferred_symbols_from_fallback(
+        inferred_symbols=_inferred_symbols_from_text(
+            symbol_text,
             related_symbols,
             fallback=category_query.related_symbols,
         ),
@@ -451,7 +453,7 @@ def _symbols_from_text(
         (r"(?<![A-Za-z0-9])inpex(?![A-Za-z0-9])", "1605.T"),
         (r"日経平均|日経225", "1488.T"),
         (r"(?<![A-Za-z0-9])nasdaq(?![A-Za-z0-9])|ナスダック", "QQQ"),
-        (r"(?<![A-Za-z0-9])s&p\s*500(?![A-Za-z0-9])|S&P500", "VOO"),
+        (r"(?<![A-Za-z0-9])s&p\s*500(?![A-Za-z0-9])|S&P500|SP500|S＆P500", "VOO"),
         (r"(?<!金融)金(?!利|融)|(?<![A-Za-z0-9])gold(?![A-Za-z0-9])", "GLD"),
         (r"防衛|defense", "7011.T"),
     )
@@ -478,9 +480,69 @@ def _inferred_symbols_from_fallback(
     fallback: Sequence[str],
     limit: int = 3,
 ) -> list[str]:
+    return _dedupe_inferred_symbols(related_symbols, fallback, limit=limit)
+
+
+def _inferred_symbols_from_text(
+    text: str,
+    related_symbols: Sequence[str],
+    *,
+    fallback: Sequence[str],
+    limit: int = 3,
+) -> list[str]:
+    if len({symbol.strip().upper() for symbol in related_symbols if symbol.strip()}) >= 3:
+        return []
+    lowered = text.casefold()
+    context_candidates: list[str] = []
+    context_rules = (
+        (
+            ("gold", "金価格", "金相場", "ゴールド"),
+            ("SPY", "TLT", "QQQ"),
+        ),
+        (
+            ("s&p", "sp500", "s&p500", "s＆p", "株安"),
+            ("SPY", "QQQ"),
+        ),
+        (
+            ("nasdaq", "ナスダック"),
+            ("QQQ", "SPY", "NVDA"),
+        ),
+        (
+            ("金利", "利回り", "国債", "treasury", "yield"),
+            ("TLT", "JPM", "SPY"),
+        ),
+        (
+            ("半導体", "chip", "semiconductor", "tsmc", "nvidia", "ai"),
+            ("NVDA", "TSM", "ASML", "AMD", "6857.T", "8035.T"),
+        ),
+        (
+            ("日経平均", "topix", "日本株"),
+            ("1488.T", "1306.T", "7203.T"),
+        ),
+        (
+            ("決算", "業績修正", "上方修正", "下方修正"),
+            ("QQQ", "SPY", "6758.T"),
+        ),
+    )
+    for keywords, symbols in context_rules:
+        if any(keyword.casefold() in lowered for keyword in keywords):
+            context_candidates.extend(symbols)
+    return _dedupe_inferred_symbols(
+        related_symbols,
+        [*context_candidates, *fallback],
+        limit=limit,
+    )
+
+
+def _dedupe_inferred_symbols(
+    related_symbols: Sequence[str],
+    candidates: Sequence[str],
+    *,
+    limit: int,
+) -> list[str]:
     direct_symbols = {symbol.strip().upper() for symbol in related_symbols if symbol.strip()}
     inferred: list[str] = []
-    for symbol in fallback:
+    for symbol in candidates:
         normalized = symbol.strip().upper()
         if not normalized or normalized in direct_symbols or normalized in inferred:
             continue

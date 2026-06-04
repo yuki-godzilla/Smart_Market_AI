@@ -201,7 +201,7 @@ def test_google_news_related_symbols_prefer_text_hits_over_category_fallback():
     )
 
     assert cards[0].related_symbols == ["TSM"]
-    assert cards[0].inferred_symbols == ["NVDA", "6857.T", "8035.T"]
+    assert cards[0].inferred_symbols == ["NVDA", "ASML", "AMD"]
 
 
 def test_google_news_related_symbols_keep_article_mention_order():
@@ -273,6 +273,120 @@ def test_google_news_related_symbols_extract_japanese_company_names_and_codes():
     assert cards[0].related_symbols == ["LULU", "AVGO", "3815.T", "3172.T"]
 
 
+@pytest.mark.parametrize(
+    ("title", "description", "fallback", "expected_direct", "expected_inferred_prefix"),
+    [
+        (
+            "本日（6月3日）の金価格：下落傾向が継続。",
+            "金価格は下落傾向が続き、米国株や金利の動向も確認したい材料です。",
+            ("7011.T", "9101.T", "GLD"),
+            ["GLD"],
+            ["SPY", "TLT", "QQQ"],
+        ),
+        (
+            "今後数年間、半導体の供給は需要を満たすのに十分ではないだろう。",
+            "TSMCは生産能力増強を続けています。",
+            ("NVDA", "6857.T", "8035.T", "TSM"),
+            ["TSM"],
+            ["NVDA", "ASML", "AMD"],
+        ),
+        (
+            "Chip supply pressure continues",
+            "TSMC said demand is strong before NVIDIA and AMD were mentioned.",
+            ("NVDA", "TSM", "AMD"),
+            ["TSM", "NVDA", "AMD"],
+            [],
+        ),
+        (
+            "決算プレビュー：ルルレモンの第1四半期決算",
+            "消費関連企業の決算を確認します。",
+            ("6758.T", "9432.T", "9984.T"),
+            ["LULU"],
+            ["QQQ", "SPY", "6758.T"],
+        ),
+        (
+            "米ブロードコム決算が冷や水",
+            "AI半導体の期待と決算反応を確認します。",
+            ("7203.T", "8306.T", "6758.T"),
+            ["AVGO"],
+            ["NVDA", "TSM", "ASML"],
+        ),
+        (
+            "ティーライフ【3172】、今期経常を下方修正",
+            "業績修正を発表しました。",
+            ("6758.T", "9432.T", "9984.T"),
+            ["3172.T"],
+            ["QQQ", "SPY", "6758.T"],
+        ),
+        (
+            "メディア工房【3815】、今期最終を赤字拡大に下方修正",
+            "決算速報です。",
+            ("6758.T", "9432.T", "9984.T"),
+            ["3815.T"],
+            ["QQQ", "SPY", "6758.T"],
+        ),
+        (
+            "日経平均終値931円安、米ブロードコム決算が冷や水",
+            "日本株の地合いとAI半導体の反応を確認します。",
+            ("7203.T", "8306.T", "6758.T"),
+            ["1488.T", "AVGO"],
+            ["NVDA", "TSM", "ASML"],
+        ),
+        (
+            "NASDAQが反落、ハイテク株に売り",
+            "米国株は金利上昇を嫌気しました。",
+            ("NVDA", "JPM", "QQQ"),
+            ["QQQ"],
+            ["SPY", "NVDA", "TLT"],
+        ),
+        (
+            "SP500週間展望、雇用統計と金利に注目",
+            "米国株と国債利回りが焦点です。",
+            ("NVDA", "JPM", "QQQ"),
+            ["VOO"],
+            ["SPY", "QQQ", "TLT"],
+        ),
+    ],
+)
+def test_google_news_symbol_extraction_sprint_regression_cases(
+    title,
+    description,
+    fallback,
+    expected_direct,
+    expected_inferred_prefix,
+):
+    fetched_at = datetime(2026, 6, 4, 10, 0, tzinfo=UTC)
+    category_query = NewsCategoryQuery(
+        category="sprint",
+        region="global",
+        material_type="theme",
+        query="sprint regression",
+        related_symbols=fallback,
+    )
+    rss = f"""
+    <rss><channel>
+      <item>
+        <title>{title}</title>
+        <link>https://example.com/sprint-regression</link>
+        <source>Example Market</source>
+        <pubDate>Thu, 04 Jun 2026 09:30:00 GMT</pubDate>
+        <description><![CDATA[<p>{description}</p>]]></description>
+      </item>
+    </channel></rss>
+    """
+
+    cards = google_news_dashboard_cards_from_rss(
+        rss,
+        category_query=category_query,
+        fetched_at=fetched_at,
+        as_of=fetched_at.date(),
+        max_results=10,
+    )
+
+    assert cards[0].related_symbols == expected_direct
+    assert cards[0].inferred_symbols[: len(expected_inferred_prefix)] == expected_inferred_prefix
+
+
 def test_google_news_related_symbols_do_not_invent_seed_symbols_for_generic_theme():
     fetched_at = datetime(2026, 6, 4, 10, 0, tzinfo=UTC)
     category_query = NewsCategoryQuery(
@@ -305,7 +419,7 @@ def test_google_news_related_symbols_do_not_invent_seed_symbols_for_generic_them
     )
 
     assert cards[0].related_symbols == []
-    assert cards[0].inferred_symbols == ["NVDA", "6857.T", "8035.T"]
+    assert cards[0].inferred_symbols == ["NVDA", "TSM", "ASML"]
 
 
 def test_dedupe_news_headline_cards_prefers_url_and_limit():

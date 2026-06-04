@@ -444,18 +444,42 @@ def _symbols_from_text(
         (r"(?<![A-Za-z0-9])amd(?![A-Za-z0-9])|advanced micro devices", "AMD"),
         (r"(?<![A-Za-z0-9])broadcom(?![A-Za-z0-9])|ブロードコム", "AVGO"),
         (r"(?<![A-Za-z0-9])lululemon(?![A-Za-z0-9])|ルルレモン", "LULU"),
+        (r"(?<![A-Za-z0-9])apple(?![A-Za-z0-9])|アップル", "AAPL"),
+        (r"(?<![A-Za-z0-9])microsoft(?![A-Za-z0-9])|マイクロソフト", "MSFT"),
+        (r"(?<![A-Za-z0-9])amazon(?![A-Za-z0-9])|アマゾン", "AMZN"),
+        (
+            r"(?<![A-Za-z0-9])alphabet(?![A-Za-z0-9])|(?<![A-Za-z0-9])google(?![A-Za-z0-9])|グーグル",
+            "GOOGL",
+        ),
         (r"東京エレクトロン|tokyo electron", "8035.T"),
         (r"アドバンテスト|advantest", "6857.T"),
         (r"トヨタ|toyota", "7203.T"),
         (r"ソニー|sony", "6758.T"),
+        (r"ソフトバンク|softbank", "9984.T"),
+        (r"任天堂|nintendo", "7974.T"),
+        (r"ntt|日本電信電話", "9432.T"),
+        (r"三菱商事|mitsubishi corp", "8058.T"),
+        (r"三井住友|sumitomo mitsui", "8316.T"),
         (r"三菱ufj|三菱UFJ|mitsubishi ufj", "8306.T"),
         (r"(?<![A-Za-z0-9])jpmorgan(?![A-Za-z0-9])|(?<![A-Za-z0-9])jpm(?![A-Za-z0-9])", "JPM"),
+        (r"bank of america|バンク・オブ・アメリカ", "BAC"),
+        (r"goldman sachs|ゴールドマン", "GS"),
+        (r"morgan stanley|モルガン・スタンレー", "MS"),
+        (r"exxon mobil|エクソン", "XOM"),
+        (r"chevron|シェブロン", "CVX"),
+        (r"eneos", "5020.T"),
+        (r"日本郵船|nippon yusen", "9101.T"),
+        (r"石川製作所", "6208.T"),
+        (r"japan tobacco|日本たばこ|(?<![A-Za-z0-9])jt(?![A-Za-z0-9])", "2914.T"),
+        (r"walmart|ウォルマート", "WMT"),
+        (r"coca-?cola|コカ・コーラ", "KO"),
         (r"(?<![A-Za-z0-9])inpex(?![A-Za-z0-9])", "1605.T"),
         (r"日経平均|日経225", "1488.T"),
+        (r"topix", "1306.T"),
         (r"(?<![A-Za-z0-9])nasdaq(?![A-Za-z0-9])|ナスダック", "QQQ"),
-        (r"(?<![A-Za-z0-9])s&p\s*500(?![A-Za-z0-9])|S&P500|SP500|S＆P500", "VOO"),
-        (r"(?<!金融)金(?!利|融)|(?<![A-Za-z0-9])gold(?![A-Za-z0-9])", "GLD"),
-        (r"防衛|defense", "7011.T"),
+        (r"(?<![A-Za-z0-9])s&p\s*500(?![A-Za-z0-9])|S&P500|SP500|S＆P500|S＆P", "VOO"),
+        (r"金価格|金相場|ゴールド|安全資産|(?<![A-Za-z0-9])gold(?![A-Za-z0-9])", "GLD"),
+        (r"三菱重工|防衛|defense", "7011.T"),
     )
     matches: dict[str, tuple[int, int]] = {}
     for match in re.finditer(r"【(\d{4})】", text):
@@ -496,7 +520,7 @@ def _inferred_symbols_from_text(
     context_candidates: list[str] = []
     context_rules = (
         (
-            ("gold", "金価格", "金相場", "ゴールド"),
+            ("金価格", "金相場", "ゴールド"),
             ("SPY", "TLT", "QQQ"),
         ),
         (
@@ -512,16 +536,40 @@ def _inferred_symbols_from_text(
             ("TLT", "JPM", "SPY"),
         ),
         (
-            ("半導体", "chip", "semiconductor", "tsmc", "nvidia", "ai"),
+            ("半導体", "ai半導体", "chip", "semiconductor", "tsmc", "nvidia"),
             ("NVDA", "TSM", "ASML", "AMD", "6857.T", "8035.T"),
+        ),
+        (
+            ("クラウド", "生成ai", "データセンター", "大型テック", "ハイテク"),
+            ("MSFT", "NVDA", "AMZN"),
         ),
         (
             ("日経平均", "topix", "日本株"),
             ("1488.T", "1306.T", "7203.T"),
         ),
         (
+            ("配当", "自社株買い", "株主還元"),
+            ("8306.T", "8058.T", "2914.T"),
+        ),
+        (
+            ("銀行", "金融株", "利ざや", "融資", "bank"),
+            ("JPM", "BAC", "8306.T"),
+        ),
+        (
+            ("原油", "石油", "opec", "lng", "エネルギー"),
+            ("XLE", "XOM", "CVX", "1605.T"),
+        ),
+        (
+            ("防衛", "地政学", "中東", "軍事", "安全保障"),
+            ("7011.T", "6208.T", "GLD"),
+        ),
+        (
             ("決算", "業績修正", "上方修正", "下方修正"),
             ("QQQ", "SPY", "6758.T"),
+        ),
+        (
+            ("小売", "消費", "個人消費", "retail"),
+            ("AMZN", "WMT", "COST"),
         ),
     )
     for keywords, symbols in context_rules:

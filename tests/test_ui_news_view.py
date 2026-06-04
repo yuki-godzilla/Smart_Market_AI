@@ -79,22 +79,42 @@ def test_news_dashboard_stock_heatmap_html_uses_sector_tiles():
     assert "investment-stock-heatmap-group" in html_text
     assert "investment-stock-heatmap-tile" in html_text
     assert "8セクター" in html_text
-    assert "96銘柄タイル" in html_text
-    assert "注目度順" in html_text
+    assert "64銘柄タイル" in html_text
+    assert "面積は値動き・時価総額目安・注目度" in html_text
     assert "investment-stock-heatmap-click" in html_text
     assert '<a class="investment-stock-heatmap-tile' in html_text
     assert 'href="?smai_page=cockpit&amp;smai_symbol=NVDA"' in html_text
     assert 'target="_self"' in html_text
     assert 'target="_blank"' not in html_text
-    assert "count-12" in html_text
+    assert "count-8" in html_text
     assert "NVDA" in html_text
-    assert "AAPL" in html_text
+    assert "TSM" in html_text
     assert "NVDA / NVIDIA" in html_text
     assert "6857.T / アドバンテスト" in html_text
     assert html_text.index("investment-stock-heatmap-name") < html_text.index(
         "investment-stock-heatmap-symbol"
     )
     assert "未取得" not in html_text
+
+
+def test_news_dashboard_stock_heatmap_tiles_use_dynamic_area_factors():
+    snapshot = build_demo_news_dashboard_snapshot(
+        now=datetime(2026, 6, 4, 10, 0, tzinfo=UTC),
+    )
+
+    groups = news_dashboard_stock_heatmap_groups(snapshot)
+    tiles = [tile for group in groups for tile in group["tiles"]]
+    spans = {(tile["span_cols"], tile["span_rows"]) for tile in tiles}
+    html_text = news_dashboard_stock_heatmap_html(snapshot)
+
+    assert len(spans) >= 3
+    assert all(tile["area_score"] > 0 for tile in tiles)
+    assert all(" / " in tile["factors_label"] for tile in tiles)
+    assert all(tile["color_style"].startswith("--heatmap-tile-bg") for tile in tiles)
+    assert "investment-stock-heatmap-factors" in html_text
+    assert "面積根拠:" in html_text
+    assert "一方向" in html_text or "銘柄差" in html_text
+    assert 'style="grid-column: span ' in html_text
 
 
 def test_news_dashboard_cockpit_href_normalizes_symbol_for_same_app_navigation():

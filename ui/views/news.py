@@ -68,6 +68,22 @@ _HEATMAP_MARKET_CAP_WEIGHTS = {
     "micro": 0.02,
 }
 
+_HEATMAP_MARKET_CAP_AREA_WEIGHTS = {
+    "mega": 2.6,
+    "large": 2.1,
+    "mid": 1.45,
+    "small": 0.85,
+    "micro": 0.45,
+}
+
+_HEATMAP_MARKET_CAP_LABELS = {
+    "mega": "超大型",
+    "large": "大型",
+    "mid": "中型",
+    "small": "小型",
+    "micro": "超小型",
+}
+
 _HEATMAP_CATEGORY_PROFILES: dict[str, dict[str, tuple[str, ...]]] = {
     "半導体・AI": {
         "sectors": ("technology",),
@@ -279,7 +295,7 @@ def news_dashboard_stock_heatmap_groups(
     snapshot: NewsDashboardSnapshot,
     *,
     max_groups: int = 12,
-    max_tiles_per_group: int = 12,
+    max_tiles_per_group: int = 8,
 ) -> list[dict[str, object]]:
     """Return sector-style groups for the stock heatmap view."""
 
@@ -300,12 +316,20 @@ def news_dashboard_stock_heatmap_groups(
             row,
             max_tiles_per_group,
         )
+        symbol_sentiments = _heatmap_group_symbol_sentiments(lane.headlines if lane else [])
         if not symbol_scores:
             symbol_scores = [(category, 0.0)]
         tiles = [
-            _stock_heatmap_tile(symbol, row, tile_index, symbol_score)
+            _stock_heatmap_tile(
+                symbol,
+                row,
+                tile_index,
+                symbol_score,
+                symbol_sentiments.get(symbol, 0.0),
+            )
             for tile_index, (symbol, symbol_score) in enumerate(symbol_scores)
         ]
+        balance_label = _stock_heatmap_group_balance_label(tiles)
         groups.append(
             {
                 "category": category,
@@ -313,7 +337,7 @@ def news_dashboard_stock_heatmap_groups(
                 "metric_source": str(row["市場指標"]),
                 "heat_score": row["加熱度"],
                 "group_class": _stock_heatmap_group_class(group_index, float(row["加熱度"])),
-                "summary_label": str(row["値動き表示"]),
+                "summary_label": f'{row["値動き表示"]} / {balance_label}',
                 "tiles": tiles,
             }
         )
@@ -333,7 +357,7 @@ def news_dashboard_stock_heatmap_html(snapshot: NewsDashboardSnapshot) -> str:
         '<div class="investment-stock-heatmap-topline">'
         '<span class="investment-stock-heatmap-read">'
         f"表示: {len(groups)}セクター / {tile_count}銘柄タイル。"
-        "広い銘柄候補から注目度順に銘柄名・シンボル・値動きを並べています。"
+        "面積は値動き・時価総額目安・注目度、色は値動きで変わります。"
         "</span>"
         '<span class="investment-stock-heatmap-click">コックピット連携</span>'
         '<span class="investment-stock-heatmap-legend negative">注意材料</span>'
@@ -571,6 +595,15 @@ def _heatmap_symbol_names() -> dict[str, str]:
     }
 
 
+@lru_cache(maxsize=1)
+def _heatmap_symbol_universe_by_symbol() -> dict[str, dict[str, str]]:
+    return {
+        row.get("symbol", "").strip().upper(): row
+        for row in _heatmap_symbol_universe_rows()
+        if row.get("symbol", "").strip()
+    }
+
+
 def _heatmap_group_symbol_scores(
     category: str,
     cards: list[NewsHeadlineCard],
@@ -635,6 +668,35 @@ def _heatmap_news_card_score(card: NewsHeadlineCard) -> float:
     }.get(card.material_type, 0.35)
     official_weight = 0.35 if card.is_official_source else 0.0
     return 3.7 + freshness_weight + material_weight + official_weight
+
+
+def _heatmap_group_symbol_sentiments(cards: list[NewsHeadlineCard]) -> dict[str, float]:
+    sentiments: dict[str, float] = {}
+    for card_index, card in enumerate(cards):
+        polarity = _heatmap_news_card_polarity(card)
+        if polarity == 0.0:
+            continue
+        freshness = 1.0 if card.freshness_status == "latest" else 0.72
+        weight = max(0.35, freshness - card_index * 0.08)
+        for symbol_index, symbol in enumerate(card.related_symbols):
+            normalized = symbol.strip().upper()
+            if not normalized:
+                continue
+            current = sentiments.get(normalized, 0.0)
+            sentiments[normalized] = current + polarity * max(0.25, weight - symbol_index * 0.08)
+    return {symbol: max(-1.0, min(1.0, value)) for symbol, value in sentiments.items()}
+
+
+def _heatmap_news_card_polarity(card: NewsHeadlineCard) -> float:
+    if card.material_type == "risk":
+        return -1.0
+    if card.material_type in {"earnings", "theme", "shareholder_return"}:
+        return 0.8
+    if card.material_type == "fund_flow":
+        return 0.25
+    if card.material_type in {"macro", "policy"}:
+        return -0.25
+    return 0.0
 
 
 def _heatmap_market_signal_boost(row: dict[str, object]) -> float:
@@ -737,27 +799,61 @@ def _stable_heatmap_symbol_offset(category: str, symbol: str) -> float:
     return (ordinal_sum % 1000) / 10000.0
 
 
+def _stable_heatmap_symbol_unit(category: str, symbol: str) -> float:
+    seed = f"{category}:{symbol}"
+    ordinal_sum = sum((index + 1) * ord(character) for index, character in enumerate(seed))
+    return ((ordinal_sum % 2001) / 1000.0) - 1.0
+
+
 def _stock_heatmap_tile(
     symbol: str,
     row: dict[str, object],
     tile_index: int,
     symbol_score: float,
+    symbol_sentiment: float = 0.0,
 ) -> dict[str, object]:
     base_change = _coerce_float(row.get("値動きスコア"), 0.0)
     offset = _HEATMAP_TILE_OFFSETS[tile_index % len(_HEATMAP_TILE_OFFSETS)]
     direction = -1.0 if base_change < -0.25 else 1.0
     score_boost = min(0.55, max(0.0, symbol_score - 4.2) * 0.06)
+    symbol_dispersion = _stable_heatmap_symbol_unit("tile-change", symbol) * 0.35
+    sentiment_shift = max(-1.0, min(1.0, symbol_sentiment)) * 0.9
     change = round(
         max(
             -3.0,
-            min(3.0, base_change + offset + direction * score_boost),
+            min(
+                3.0,
+                base_change * 0.72
+                + offset * 0.45
+                + sentiment_shift
+                + symbol_dispersion
+                + direction * score_boost,
+            ),
         ),
         1,
     )
     inferred = str(row.get("市場指標")) != "市場データ"
     display_name, full_name = _stock_heatmap_tile_names(symbol)
     display_name = _stock_heatmap_tile_display_name(display_name, symbol, tile_index)
-    label = f"{symbol} / {full_name} / 注目度 {symbol_score:.1f}" if full_name else symbol
+    market_cap_tier = _stock_heatmap_market_cap_tier(symbol)
+    market_cap_label = _stock_heatmap_market_cap_label(market_cap_tier)
+    area_score = _stock_heatmap_area_score(
+        symbol_score=symbol_score,
+        change=change,
+        market_cap_tier=market_cap_tier,
+    )
+    span_cols, span_rows = _stock_heatmap_tile_spans(area_score, tile_index)
+    size = _stock_heatmap_tile_size(span_cols, span_rows)
+    factors_label = _stock_heatmap_tile_factors_label(
+        change_label=_price_change_label(change, inferred=inferred),
+        market_cap_label=market_cap_label,
+        symbol_score=symbol_score,
+    )
+    label_parts = [symbol]
+    if full_name:
+        label_parts.append(full_name)
+    label_parts.append(f"面積根拠: {factors_label}")
+    label = " / ".join(label_parts)
     return {
         "symbol": symbol,
         "name": display_name,
@@ -767,8 +863,13 @@ def _stock_heatmap_tile(
         "change": change,
         "change_label": _price_change_label(change, inferred=inferred),
         "score": round(symbol_score, 2),
+        "factors_label": factors_label,
+        "area_score": round(area_score, 2),
+        "span_cols": span_cols,
+        "span_rows": span_rows,
+        "color_style": _stock_heatmap_tile_color_style(symbol, change),
         "tone": _stock_heatmap_tone(change),
-        "size": _stock_heatmap_tile_size(tile_index),
+        "size": size,
     }
 
 
@@ -814,14 +915,128 @@ def _stock_heatmap_tone(change: float) -> str:
     return "neutral"
 
 
-def _stock_heatmap_tile_size(tile_index: int) -> str:
+def _stock_heatmap_group_balance_label(tiles: list[dict[str, object]]) -> str:
+    positive = 0
+    negative = 0
+    neutral = 0
+    for tile in tiles:
+        change = _coerce_float(tile.get("change"), 0.0)
+        if change >= 0.35:
+            positive += 1
+        elif change <= -0.35:
+            negative += 1
+        else:
+            neutral += 1
+    if positive and negative:
+        if positive > negative:
+            return "上昇・銘柄差"
+        if negative > positive:
+            return "下降・銘柄差"
+        return "まちまち"
+    if positive:
+        return "上昇・一方向"
+    if negative:
+        return "下降・一方向"
+    if neutral:
+        return "中立中心"
+    return "方向感未確認"
+
+
+def _stock_heatmap_market_cap_tier(symbol: str) -> str:
+    row = _heatmap_symbol_universe_by_symbol().get(symbol.strip().upper(), {})
+    tier = row.get("market_cap_tier", "").strip().lower()
+    return tier if tier in _HEATMAP_MARKET_CAP_AREA_WEIGHTS else ""
+
+
+def _stock_heatmap_market_cap_label(market_cap_tier: str) -> str:
+    return _HEATMAP_MARKET_CAP_LABELS.get(market_cap_tier, "規模不明")
+
+
+def _stock_heatmap_area_score(
+    *,
+    symbol_score: float,
+    change: float,
+    market_cap_tier: str,
+) -> float:
+    cap_weight = _HEATMAP_MARKET_CAP_AREA_WEIGHTS.get(market_cap_tier, 1.0)
+    change_weight = min(3.0, abs(change)) * 0.75
+    attention_weight = max(0.0, symbol_score) * 0.62
+    return round(attention_weight + cap_weight + change_weight, 3)
+
+
+def _stock_heatmap_tile_factors_label(
+    *,
+    change_label: str,
+    market_cap_label: str,
+    symbol_score: float,
+) -> str:
+    return f"{change_label} / {market_cap_label} / 注目{symbol_score:.1f}"
+
+
+def _stock_heatmap_tile_spans(area_score: float, tile_index: int) -> tuple[int, int]:
+    if area_score >= 14.0:
+        spans = (3, 3)
+    elif area_score >= 12.5:
+        spans = (3, 2)
+    elif area_score >= 10.5:
+        spans = (2, 2)
+    elif area_score >= 8.5:
+        spans = (2, 1)
+    else:
+        spans = (1, 1)
+    return _stock_heatmap_tile_span_cap(spans, tile_index)
+
+
+def _stock_heatmap_tile_span_cap(spans: tuple[int, int], tile_index: int) -> tuple[int, int]:
+    span_cols, span_rows = spans
     if tile_index == 0:
+        return span_cols, span_rows
+    if tile_index <= 3:
+        return min(span_cols, 3), min(span_rows, 2)
+    if tile_index <= 5:
+        return min(span_cols, 2), min(span_rows, 2)
+    if tile_index <= 7:
+        return min(span_cols, 2), min(span_rows, 1)
+    return 1, 1
+
+
+def _stock_heatmap_tile_size(span_cols: int, span_rows: int) -> str:
+    if span_cols >= 3 and span_rows >= 3:
         return "hero"
-    if tile_index in {1, 2}:
+    if span_cols >= 3 or span_rows >= 2:
         return "major"
-    if tile_index in {3, 4, 5}:
+    if span_cols >= 2 and span_rows >= 2:
         return "medium"
+    if span_cols >= 2:
+        return "compact"
     return "minor"
+
+
+def _stock_heatmap_tile_color_style(symbol: str, change: float) -> str:
+    offset = _stable_heatmap_symbol_offset("tile-color", symbol)
+    strength = min(3.0, abs(change)) / 3.0
+    if change > 0.25:
+        hue = 166 + int(offset * 36)
+        saturation = 62 + int(strength * 18)
+        lightness = 28 + int(strength * 12) + int(offset * 4)
+        border_hue = 170
+    elif change < -0.25:
+        hue = 340 + int(offset * 28)
+        saturation = 62 + int(strength * 16)
+        lightness = 26 + int(strength * 10) + int(offset * 4)
+        border_hue = 350
+    else:
+        hue = 214 + int(offset * 20)
+        saturation = 34 + int(strength * 14)
+        lightness = 24 + int(offset * 5)
+        border_hue = 210
+    dark_lightness = max(13, lightness - 18)
+    return (
+        f"--heatmap-tile-bg: linear-gradient(145deg, "
+        f"hsl({hue} {saturation}% {lightness}%), "
+        f"hsl({hue} {max(45, saturation - 10)}% {dark_lightness}%)); "
+        f"--heatmap-tile-border: hsla({border_hue}, 88%, 78%, 0.58);"
+    )
 
 
 def _stock_heatmap_group_class(group_index: int, heat_score: float) -> str:
@@ -834,7 +1049,6 @@ def _stock_heatmap_group_class(group_index: int, heat_score: float) -> str:
 
 def _stock_heatmap_group_html(group: dict[str, object]) -> str:
     category = html.escape(str(group["category"]))
-    region = html.escape(str(group["region"]))
     metric_source = html.escape(str(group["metric_source"]))
     summary_label = html.escape(str(group["summary_label"]))
     group_class = html.escape(str(group["group_class"]))
@@ -846,7 +1060,7 @@ def _stock_heatmap_group_html(group: dict[str, object]) -> str:
         f'<article class="investment-stock-heatmap-group {group_class} {count_class}">'
         '<header class="investment-stock-heatmap-group-header">'
         f'<span class="investment-stock-heatmap-group-title">{category}</span>'
-        f'<span class="investment-stock-heatmap-group-meta">{region} / {metric_source} / {summary_label}</span>'
+        f'<span class="investment-stock-heatmap-group-meta">{metric_source} / {summary_label}</span>'
         "</header>"
         f'<div class="investment-stock-heatmap-tiles">{tile_html}</div>'
         "</article>"
@@ -864,18 +1078,27 @@ def _stock_heatmap_tile_html(tile: dict[str, object]) -> str:
     label = html.escape(str(tile["label"]), quote=True)
     href = html.escape(str(tile["href"]), quote=True)
     change_label = html.escape(str(tile["change_label"]))
+    factors_label = html.escape(str(tile["factors_label"]))
     tone = html.escape(str(tile["tone"]))
     size = html.escape(str(tile["size"]))
+    span_cols = _coerce_int(tile.get("span_cols"), 1)
+    span_rows = _coerce_int(tile.get("span_rows"), 1)
+    color_style = str(tile.get("color_style", ""))
+    style = html.escape(
+        f"grid-column: span {span_cols}; grid-row: span {span_rows}; {color_style}",
+        quote=True,
+    )
     primary_name = name or symbol
     symbol_html = f'<span class="investment-stock-heatmap-symbol">{symbol}</span>' if name else ""
     return (
         f'<a class="investment-stock-heatmap-tile {tone} {size}" '
-        f'href="{href}" target="_self" title="{label}" aria-label="{label}">'
+        f'href="{href}" target="_self" title="{label}" aria-label="{label}" style="{style}">'
         '<span class="investment-stock-heatmap-identity">'
         f'<span class="investment-stock-heatmap-name">{primary_name}</span>'
         f"{symbol_html}"
         "</span>"
         f'<span class="investment-stock-heatmap-change">{change_label}</span>'
+        f'<span class="investment-stock-heatmap-factors">{factors_label}</span>'
         "</a>"
     )
 
@@ -885,6 +1108,15 @@ def _coerce_float(value: object, fallback: float) -> float:
         return fallback
     try:
         return float(value)
+    except (TypeError, ValueError):
+        return fallback
+
+
+def _coerce_int(value: object, fallback: int) -> int:
+    if not isinstance(value, (int, float, str)):
+        return fallback
+    try:
+        return int(float(value))
     except (TypeError, ValueError):
         return fallback
 

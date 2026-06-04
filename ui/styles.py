@@ -895,7 +895,7 @@ body,
     background:
         linear-gradient(135deg, rgba(18, 29, 49, 0.94), rgba(4, 10, 24, 0.96)),
         linear-gradient(180deg, rgba(34, 211, 238, 0.05), rgba(251, 113, 133, 0.04)),
-        var(--bg-card);
+        var(--bg-card, #0B1120);
     padding: 0.76rem;
     margin: 0.35rem 0 1.2rem;
     box-shadow:
@@ -1016,9 +1016,12 @@ body,
 }
 
 .investment-stock-heatmap-group-meta {
+    min-width: 0;
     color: rgba(51, 65, 85, 0.82);
     font-size: 0.72rem;
     font-weight: 760;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
 }
 
@@ -1083,28 +1086,18 @@ body,
     text-decoration: none;
 }
 
-.investment-stock-heatmap-tile.hero {
-    grid-column: span 3;
-    grid-row: span 3;
-}
-
-.investment-stock-heatmap-tile.major {
-    grid-column: span 3;
-    grid-row: span 2;
-}
-
-.investment-stock-heatmap-tile.medium {
-    grid-column: span 2;
-    grid-row: span 2;
-}
-
 .investment-stock-heatmap-tile.minor {
-    grid-column: span 1;
-    grid-row: span 1;
     align-items: flex-start;
     justify-content: center;
     gap: 0.04rem;
     padding: 0.16rem 0.18rem;
+    text-align: left;
+}
+
+.investment-stock-heatmap-tile.compact {
+    align-items: flex-start;
+    gap: 0.08rem;
+    padding: 0.18rem 0.24rem;
     text-align: left;
 }
 
@@ -1219,6 +1212,17 @@ body,
     font-size: 0.62rem;
 }
 
+.investment-stock-heatmap-tile.compact .investment-stock-heatmap-symbol {
+    font-size: 0.56rem;
+}
+
+.investment-stock-heatmap-tile.minor .investment-stock-heatmap-symbol {
+    border-radius: 4px;
+    font-size: 0.46rem;
+    line-height: 1;
+    padding: 0.04rem 0.12rem;
+}
+
 .investment-stock-heatmap-name {
     max-width: 100%;
     color: var(--heatmap-tile-name);
@@ -1241,25 +1245,32 @@ body,
 
 .investment-stock-heatmap-tile.major .investment-stock-heatmap-name,
 .investment-stock-heatmap-tile.medium .investment-stock-heatmap-name {
-    font-size: 1.02rem;
+    font-size: 0.98rem;
     line-height: 1.1;
+}
+
+.investment-stock-heatmap-tile.compact .investment-stock-heatmap-identity {
+    align-items: flex-start;
+    gap: 0.03rem;
+}
+
+.investment-stock-heatmap-tile.compact .investment-stock-heatmap-name {
+    font-size: 0.76rem;
+    font-weight: 870;
+    line-height: 1.06;
+    -webkit-line-clamp: 2;
 }
 
 .investment-stock-heatmap-tile.minor .investment-stock-heatmap-identity {
     align-items: flex-start;
-    gap: 0;
+    gap: 0.03rem;
 }
 
 .investment-stock-heatmap-tile.minor .investment-stock-heatmap-name {
-    font-size: 0.64rem;
+    font-size: 0.55rem;
     font-weight: 850;
-    line-height: 1.05;
-    -webkit-line-clamp: 2;
-}
-
-.investment-stock-heatmap-tile.minor .investment-stock-heatmap-symbol,
-.investment-stock-heatmap-tile.minor .investment-stock-heatmap-change {
-    display: none;
+    line-height: 1;
+    -webkit-line-clamp: 1;
 }
 
 .investment-stock-heatmap-change {
@@ -1278,6 +1289,42 @@ body,
 .investment-stock-heatmap-tile.major .investment-stock-heatmap-change,
 .investment-stock-heatmap-tile.medium .investment-stock-heatmap-change {
     font-size: 0.92rem;
+}
+
+.investment-stock-heatmap-tile.compact .investment-stock-heatmap-change {
+    font-size: 0.7rem;
+    margin-top: 0;
+}
+
+.investment-stock-heatmap-tile.minor .investment-stock-heatmap-change {
+    font-size: 0.5rem;
+    line-height: 1;
+    margin-top: 0;
+}
+
+.investment-stock-heatmap-factors {
+    max-width: 100%;
+    color: rgba(226, 232, 240, 0.78);
+    font-size: 0.58rem;
+    font-weight: 760;
+    line-height: 1.08;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.investment-stock-heatmap-tile.hero .investment-stock-heatmap-factors {
+    font-size: 0.72rem;
+}
+
+.investment-stock-heatmap-tile.major .investment-stock-heatmap-factors {
+    font-size: 0.64rem;
+}
+
+.investment-stock-heatmap-tile.medium .investment-stock-heatmap-factors,
+.investment-stock-heatmap-tile.compact .investment-stock-heatmap-factors,
+.investment-stock-heatmap-tile.minor .investment-stock-heatmap-factors {
+    display: none;
 }
 
 @media (max-width: 760px) {

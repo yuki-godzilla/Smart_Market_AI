@@ -1691,13 +1691,13 @@ def _news_ticker_html(cards: list[NewsHeadlineCard]) -> str:
     items = "".join(
         '<span class="investment-news-ticker-item">'
         f'<span class="investment-news-ticker-category">{html.escape(card.category)}</span>'
-        f"{html.escape(card.title)}"
+        f'<span class="investment-news-ticker-title">{html.escape(card.title)}</span>'
         "</span>"
         for card in cards
     )
     return (
         '<section class="investment-news-ticker" aria-label="market news stream">'
-        f'<div class="investment-news-ticker-track">{items}{items}</div>'
+        f'<div class="investment-news-ticker-track">{items}</div>'
         "</section>"
     )
 

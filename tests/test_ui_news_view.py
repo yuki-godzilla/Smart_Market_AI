@@ -7,6 +7,7 @@ from backend.news import (
     build_demo_news_dashboard_snapshot,
 )
 from ui.views.news import (
+    _news_ticker_html,
     news_card_symbol_handoff_groups,
     news_dashboard_cockpit_href,
     news_dashboard_handoff_symbols,
@@ -141,6 +142,29 @@ def test_news_headline_card_html_keeps_link_safe_and_hides_raw_url():
     assert card.url not in html_text.replace(f'href="{card.url}"', "")
     assert "銘柄コックピット" not in html_text
     assert html_text.count("<li>") == 1
+
+
+def test_news_ticker_html_uses_wrappable_single_headline_items():
+    cards = [
+        NewsHeadlineCard(
+            title="長い市場ニュース見出しを折り返して表示できるようにするテスト",
+            source_type="news",
+            category="地政学・マクロリスク",
+            material_type="risk",
+        ),
+        NewsHeadlineCard(
+            title="半導体ニュース",
+            source_type="news",
+            category="半導体・AI",
+            material_type="theme",
+        ),
+    ]
+
+    html_text = _news_ticker_html(cards)
+
+    assert html_text.count("investment-news-ticker-item") == 2
+    assert "investment-news-ticker-title" in html_text
+    assert "長い市場ニュース見出しを折り返して表示できるようにするテスト" in html_text
 
 
 def test_news_dashboard_handoff_symbols_are_unique_in_display_order():

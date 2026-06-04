@@ -537,7 +537,7 @@ Phase 16 final UI smoke checklist:
 
 - 保存済み news dashboard snapshot。保存済みがない場合は network-free demo snapshot を表示する。
 - `ニュース表示を更新` で Standard Mode の外部ニュースRSS取得を実行し、`data/cache/news_dashboard_snapshot.json` に保存する。Google News RSS を12カテゴリで取得し、raw 150〜250件程度の候補から URL / title 重複を除き、最大100件の確認材料に圧縮する。RSS取得に失敗した場合は既存cache、保存済みがなければ demo snapshot にフォールバックする。
-- 表示ニュース件数、ヒートマップ数、snapshot鮮度、表示元 / cache size。
+- 表示ニュース件数、ヒートマップ数、snapshot鮮度、データ状態（サンプル表示 / 保存データ）と cache size。
 - 市場ニュースヘッドライン。読みやすい大きさのニュースティッカーとカードに title、source、published_at、freshness、category、AIコメント、確認ポイント、元記事リンクを表示する。UI初期表示は20〜30件程度に抑え、保存上限100件を一度にカード描画しない。
 - 投資ヒートマップ。投資カテゴリをセクター枠、関連銘柄をシンボル＋銘柄名 / 企業名付きタイルとして詰める株式ヒートマップ風UIで、値動き、取引量の活発さ、ニュース件数、freshness、risk / positive / official source count から集計した確認用の温度感を見る。市場指標が欠けるカテゴリは、ニュース材料の positive / risk / official / heat_score から `ニュース代理` のシグナルを表示する。
 - カテゴリ別ニュースレーン。カテゴリごとの代表ニュースを幅のある3列カードで確認し、関連銘柄は縦並びボタンで銘柄名 / 企業名を読みやすくする。

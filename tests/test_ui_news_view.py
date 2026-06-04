@@ -30,8 +30,18 @@ def test_news_dashboard_status_items_distinguish_demo_and_cache():
     assert items[0]["value"] == "8件"
     assert items[0]["caption"] == "重複を除いた見出し数"
     assert items[2]["value"] == "最新"
-    assert items[3]["value"] == "キャッシュ"
+    assert items[3]["label"] == "データ状態"
+    assert items[3]["value"] == "保存データ"
     assert items[3]["caption"] == "2.0KB"
+
+    demo_items = news_dashboard_status_items(
+        snapshot,
+        NewsUpdateStatus(cache_file_size_bytes=None),
+        using_demo=True,
+    )
+    assert demo_items[3]["label"] == "データ状態"
+    assert demo_items[3]["value"] == "サンプル表示"
+    assert demo_items[3]["caption"] == "手動更新前の例示データ"
 
 
 def test_news_dashboard_heatmap_frame_is_user_facing():

@@ -133,9 +133,9 @@ def news_dashboard_status_items(
             "caption": _datetime_label(snapshot.generated_at),
         },
         {
-            "label": "表示元",
-            "value": "デモ" if using_demo else "キャッシュ",
-            "caption": _cache_size_label(cache_size),
+            "label": "データ状態",
+            "value": "サンプル表示" if using_demo else "保存データ",
+            "caption": "手動更新前の例示データ" if using_demo else _cache_size_label(cache_size),
         },
     ]
 
@@ -646,7 +646,7 @@ def _render_dashboard_status(
                 item["label"],
                 item["value"],
                 caption=item["caption"],
-                tone="forecast" if item["label"] in {"鮮度", "表示元"} else "info",
+                tone="forecast" if item["label"] in {"鮮度", "データ状態"} else "info",
             )
     if status.last_error_type:
         st.warning(

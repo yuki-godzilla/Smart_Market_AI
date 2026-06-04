@@ -38,4 +38,5 @@ data/marketdata/**/*.bak
 outputs/work/pytest_tmp/
 outputs/work/symbol_metadata_probe/
 data/cache/*.lock
+data/cache/*.tmp.json
 logs/*.log

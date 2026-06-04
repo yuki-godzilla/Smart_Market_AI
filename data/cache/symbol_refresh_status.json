@@ -1,9 +1,9 @@
 {
-  "last_attempt_at": "2026-06-04T20:19:29.023495",
+  "last_attempt_at": "2026-06-04T20:52:43.619681",
   "last_success_at": "2026-06-04T19:46:42.787663",
-  "last_error_at": null,
-  "last_error_type": null,
-  "consecutive_failures": 0,
+  "last_error_at": "2026-06-04T20:51:39.532215",
+  "last_error_type": "PermissionError",
+  "consecutive_failures": 1,
   "last_refreshed_symbols": [
     "6044.T",
     "6045.T",
@@ -26,6 +26,6 @@
     "6074.T",
     "6078.T"
   ],
-  "refresh_queue_size": 0,
+  "refresh_queue_size": 150,
   "is_refreshing": true
 }

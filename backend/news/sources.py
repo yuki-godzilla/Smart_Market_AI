@@ -485,10 +485,10 @@ def _symbols_from_text(
     for match in re.finditer(r"【(\d{4})】", text):
         matches[f"{match.group(1)}.T"] = (match.start(), -1)
     for pattern_index, (pattern, symbol) in enumerate(symbol_patterns):
-        match = re.search(pattern, text, flags=re.IGNORECASE)
-        if match is None:
+        pattern_match = re.search(pattern, text, flags=re.IGNORECASE)
+        if pattern_match is None:
             continue
-        candidate = (match.start(), pattern_index)
+        candidate = (pattern_match.start(), pattern_index)
         current = matches.get(symbol)
         if current is None or candidate < current:
             matches[symbol] = candidate

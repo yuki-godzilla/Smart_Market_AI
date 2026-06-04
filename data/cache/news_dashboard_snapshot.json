@@ -1,7 +1,7 @@
 {
   "schema_version": "news-dashboard-snapshot-v1",
-  "generated_at": "2026-06-04T20:10:54.019086Z",
-  "fetched_at": "2026-06-04T20:10:54.019086Z",
+  "generated_at": "2026-06-04T20:56:29.436405Z",
+  "fetched_at": "2026-06-04T20:56:29.436405Z",
   "freshness_status": "latest",
   "stream_headlines": [
     {
@@ -11,7 +11,7 @@
       "source_name": "ｄメニューニュース",
       "source_type": "news",
       "published_at": "2026-06-04T09:45:00Z",
-      "fetched_at": "2026-06-04T20:10:54.019086Z",
+      "fetched_at": "2026-06-04T20:56:29.436405Z",
       "freshness_status": "latest",
       "category": "地政学・マクロリスク",
       "region": "グローバル",
@@ -37,7 +37,7 @@
       "source_name": "finance.biggo.jp",
       "source_type": "news",
       "published_at": "2026-06-03T08:06:00Z",
-      "fetched_at": "2026-06-04T20:10:54.019086Z",
+      "fetched_at": "2026-06-04T20:56:29.436405Z",
       "freshness_status": "latest",
       "category": "地政学・マクロリスク",
       "region": "グローバル",
@@ -45,7 +45,7 @@
       "related_symbols": [],
       "inferred_symbols": [
         "7011.T",
-        "6208.T",
+        "9101.T",
         "GLD"
       ],
       "is_official_source": false,
@@ -63,7 +63,7 @@
       "source_name": "Vietnam.vn",
       "source_type": "news",
       "published_at": "2026-06-03T00:14:11Z",
-      "fetched_at": "2026-06-04T20:10:54.019086Z",
+      "fetched_at": "2026-06-04T20:56:29.436405Z",
       "freshness_status": "latest",
       "category": "地政学・マクロリスク",
       "region": "グローバル",
@@ -72,9 +72,9 @@
         "GLD"
       ],
       "inferred_symbols": [
-        "SPY",
-        "TLT",
-        "QQQ"
+        "7011.T",
+        "9101.T",
+        "6208.T"
       ],
       "is_official_source": false,
       "ai_comment": "地政学・マクロリスクの材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -91,18 +91,16 @@
       "source_name": "Moomoo",
       "source_type": "news",
       "published_at": "2026-06-04T07:16:20Z",
-      "fetched_at": "2026-06-04T20:10:54.019086Z",
+      "fetched_at": "2026-06-04T20:56:29.436405Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
       "material_type": "earnings",
-      "related_symbols": [
-        "LULU"
-      ],
+      "related_symbols": [],
       "inferred_symbols": [
-        "QQQ",
-        "SPY",
-        "6758.T"
+        "6758.T",
+        "9432.T",
+        "9984.T"
       ],
       "is_official_source": false,
       "ai_comment": "決算・業績修正の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -119,18 +117,16 @@
       "source_name": "株探（かぶたん）",
       "source_type": "news",
       "published_at": "2026-06-04T06:00:00Z",
-      "fetched_at": "2026-06-04T20:10:54.019086Z",
+      "fetched_at": "2026-06-04T20:56:29.436405Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
       "material_type": "earnings",
-      "related_symbols": [
-        "3172.T"
-      ],
+      "related_symbols": [],
       "inferred_symbols": [
-        "QQQ",
-        "SPY",
-        "6758.T"
+        "6758.T",
+        "9432.T",
+        "9984.T"
       ],
       "is_official_source": false,
       "ai_comment": "決算・業績修正の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -147,7 +143,7 @@
       "source_name": "四季報オンライン",
       "source_type": "news",
       "published_at": "2026-06-04T03:00:00Z",
-      "fetched_at": "2026-06-04T20:10:54.019086Z",
+      "fetched_at": "2026-06-04T20:56:29.436405Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -173,16 +169,16 @@
       "source_name": "Yahoo!ファイナンス",
       "source_type": "news",
       "published_at": "2026-06-03T06:31:00Z",
-      "fetched_at": "2026-06-04T20:10:54.019086Z",
+      "fetched_at": "2026-06-04T20:56:29.436405Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
       "material_type": "earnings",
       "related_symbols": [],
       "inferred_symbols": [
-        "QQQ",
-        "SPY",
-        "6758.T"
+        "6758.T",
+        "9432.T",
+        "9984.T"
       ],
       "is_official_source": false,
       "ai_comment": "決算・業績修正の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -199,16 +195,16 @@
       "source_name": "株探（かぶたん）",
       "source_type": "news",
       "published_at": "2026-06-03T06:30:00Z",
-      "fetched_at": "2026-06-04T20:10:54.019086Z",
+      "fetched_at": "2026-06-04T20:56:29.436405Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
       "material_type": "earnings",
       "related_symbols": [],
       "inferred_symbols": [
-        "8306.T",
-        "8058.T",
-        "2914.T"
+        "6758.T",
+        "9432.T",
+        "9984.T"
       ],
       "is_official_source": false,
       "ai_comment": "決算・業績修正の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -225,18 +221,16 @@
       "source_name": "株探（かぶたん）",
       "source_type": "news",
       "published_at": "2026-06-03T06:30:00Z",
-      "fetched_at": "2026-06-04T20:10:54.019086Z",
+      "fetched_at": "2026-06-04T20:56:29.436405Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
       "material_type": "earnings",
-      "related_symbols": [
-        "3815.T"
-      ],
+      "related_symbols": [],
       "inferred_symbols": [
-        "QQQ",
-        "SPY",
-        "6758.T"
+        "6758.T",
+        "9432.T",
+        "9984.T"
       ],
       "is_official_source": false,
       "ai_comment": "決算・業績修正の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -253,16 +247,16 @@
       "source_name": "株探（かぶたん）",
       "source_type": "news",
       "published_at": "2026-06-03T05:00:00Z",
-      "fetched_at": "2026-06-04T20:10:54.019086Z",
+      "fetched_at": "2026-06-04T20:56:29.436405Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
       "material_type": "earnings",
       "related_symbols": [],
       "inferred_symbols": [
-        "8306.T",
-        "8058.T",
-        "2914.T"
+        "6758.T",
+        "9432.T",
+        "9984.T"
       ],
       "is_official_source": false,
       "ai_comment": "決算・業績修正の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -279,7 +273,7 @@
       "source_name": "SBI証券",
       "source_type": "news",
       "published_at": "2026-06-03T02:18:44Z",
-      "fetched_at": "2026-06-04T20:10:54.019086Z",
+      "fetched_at": "2026-06-04T20:56:29.436405Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -305,7 +299,7 @@
       "source_name": "株探（かぶたん）",
       "source_type": "news",
       "published_at": "2026-06-04T11:00:30Z",
-      "fetched_at": "2026-06-04T20:10:54.019086Z",
+      "fetched_at": "2026-06-04T20:56:29.436405Z",
       "freshness_status": "latest",
       "category": "日本株",
       "region": "日本",
@@ -331,16 +325,16 @@
       "source_name": "日本経済新聞",
       "source_type": "news",
       "published_at": "2026-06-04T10:15:17Z",
-      "fetched_at": "2026-06-04T20:10:54.019086Z",
+      "fetched_at": "2026-06-04T20:56:29.436405Z",
       "freshness_status": "latest",
       "category": "日本株",
       "region": "日本",
       "material_type": "macro",
       "related_symbols": [],
       "inferred_symbols": [
-        "1488.T",
-        "1306.T",
-        "7203.T"
+        "7203.T",
+        "8306.T",
+        "6758.T"
       ],
       "is_official_source": false,
       "ai_comment": "日本株の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -357,7 +351,7 @@
       "source_name": "株探（かぶたん）",
       "source_type": "news",
       "published_at": "2026-06-04T09:16:00Z",
-      "fetched_at": "2026-06-04T20:10:54.019086Z",
+      "fetched_at": "2026-06-04T20:56:29.436405Z",
       "freshness_status": "latest",
       "category": "日本株",
       "region": "日本",
@@ -383,16 +377,16 @@
       "source_name": "ｄメニューニュース",
       "source_type": "news",
       "published_at": "2026-06-04T06:44:00Z",
-      "fetched_at": "2026-06-04T20:10:54.019086Z",
+      "fetched_at": "2026-06-04T20:56:29.436405Z",
       "freshness_status": "latest",
       "category": "為替・金利",
       "region": "米国",
       "material_type": "macro",
       "related_symbols": [],
       "inferred_symbols": [
-        "TLT",
         "JPM",
-        "SPY"
+        "QQQ",
+        "1488.T"
       ],
       "is_official_source": false,
       "ai_comment": "為替・金利の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -409,19 +403,18 @@
       "source_name": "日本経済新聞",
       "source_type": "news",
       "published_at": "2026-06-04T02:46:24Z",
-      "fetched_at": "2026-06-04T20:10:54.019086Z",
+      "fetched_at": "2026-06-04T20:56:29.436405Z",
       "freshness_status": "latest",
       "category": "日本株",
       "region": "日本",
       "material_type": "macro",
       "related_symbols": [
-        "1488.T",
-        "AVGO"
+        "1488.T"
       ],
       "inferred_symbols": [
-        "1306.T",
         "7203.T",
-        "QQQ"
+        "8306.T",
+        "6758.T"
       ],
       "is_official_source": false,
       "ai_comment": "日本株の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -438,7 +431,7 @@
       "source_name": "日本経済新聞",
       "source_type": "news",
       "published_at": "2026-06-04T00:05:00Z",
-      "fetched_at": "2026-06-04T20:10:54.019086Z",
+      "fetched_at": "2026-06-04T20:56:29.436405Z",
       "freshness_status": "latest",
       "category": "日本株",
       "region": "日本",
@@ -447,9 +440,9 @@
         "1488.T"
       ],
       "inferred_symbols": [
-        "1306.T",
         "7203.T",
-        "8306.T"
+        "8306.T",
+        "6758.T"
       ],
       "is_official_source": false,
       "ai_comment": "日本株の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -466,16 +459,16 @@
       "source_name": "QUICK Money World",
       "source_type": "news",
       "published_at": "2026-06-03T22:20:00Z",
-      "fetched_at": "2026-06-04T20:10:54.019086Z",
+      "fetched_at": "2026-06-04T20:56:29.436405Z",
       "freshness_status": "latest",
       "category": "為替・金利",
       "region": "米国",
       "material_type": "macro",
       "related_symbols": [],
       "inferred_symbols": [
-        "7011.T",
-        "6208.T",
-        "GLD"
+        "JPM",
+        "QQQ",
+        "1488.T"
       ],
       "is_official_source": false,
       "ai_comment": "為替・金利の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -492,16 +485,16 @@
       "source_name": "ザイFX！",
       "source_type": "news",
       "published_at": "2026-06-03T21:58:00Z",
-      "fetched_at": "2026-06-04T20:10:54.019086Z",
+      "fetched_at": "2026-06-04T20:56:29.436405Z",
       "freshness_status": "latest",
       "category": "為替・金利",
       "region": "米国",
       "material_type": "macro",
       "related_symbols": [],
       "inferred_symbols": [
-        "TLT",
         "JPM",
-        "SPY"
+        "QQQ",
+        "1488.T"
       ],
       "is_official_source": false,
       "ai_comment": "為替・金利の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -518,16 +511,16 @@
       "source_name": "Yahoo!ファイナンス",
       "source_type": "news",
       "published_at": "2026-06-03T21:20:00Z",
-      "fetched_at": "2026-06-04T20:10:54.019086Z",
+      "fetched_at": "2026-06-04T20:56:29.436405Z",
       "freshness_status": "latest",
       "category": "為替・金利",
       "region": "米国",
       "material_type": "macro",
       "related_symbols": [],
       "inferred_symbols": [
-        "SPY",
+        "JPM",
         "QQQ",
-        "TLT"
+        "1488.T"
       ],
       "is_official_source": false,
       "ai_comment": "為替・金利の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -561,8 +554,8 @@
       "risk_count": 0,
       "positive_count": 13,
       "official_source_count": 0,
-      "freshness_ratio": 0.78,
-      "heat_score": 30.74,
+      "freshness_ratio": 0.81,
+      "heat_score": 31.02,
       "dominant_material_type": "theme"
     },
     {
@@ -668,18 +661,16 @@
           "source_name": "Moomoo",
           "source_type": "news",
           "published_at": "2026-06-04T07:16:20Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "決算・業績修正",
           "region": "日本",
           "material_type": "earnings",
-          "related_symbols": [
-            "LULU"
-          ],
+          "related_symbols": [],
           "inferred_symbols": [
-            "QQQ",
-            "SPY",
-            "6758.T"
+            "6758.T",
+            "9432.T",
+            "9984.T"
           ],
           "is_official_source": false,
           "ai_comment": "決算・業績修正の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -696,18 +687,16 @@
           "source_name": "株探（かぶたん）",
           "source_type": "news",
           "published_at": "2026-06-04T06:00:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "決算・業績修正",
           "region": "日本",
           "material_type": "earnings",
-          "related_symbols": [
-            "3172.T"
-          ],
+          "related_symbols": [],
           "inferred_symbols": [
-            "QQQ",
-            "SPY",
-            "6758.T"
+            "6758.T",
+            "9432.T",
+            "9984.T"
           ],
           "is_official_source": false,
           "ai_comment": "決算・業績修正の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -724,7 +713,7 @@
           "source_name": "四季報オンライン",
           "source_type": "news",
           "published_at": "2026-06-04T03:00:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "決算・業績修正",
           "region": "日本",
@@ -750,16 +739,16 @@
           "source_name": "Yahoo!ファイナンス",
           "source_type": "news",
           "published_at": "2026-06-03T06:31:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "決算・業績修正",
           "region": "日本",
           "material_type": "earnings",
           "related_symbols": [],
           "inferred_symbols": [
-            "QQQ",
-            "SPY",
-            "6758.T"
+            "6758.T",
+            "9432.T",
+            "9984.T"
           ],
           "is_official_source": false,
           "ai_comment": "決算・業績修正の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -776,16 +765,16 @@
           "source_name": "株探（かぶたん）",
           "source_type": "news",
           "published_at": "2026-06-03T06:30:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "決算・業績修正",
           "region": "日本",
           "material_type": "earnings",
           "related_symbols": [],
           "inferred_symbols": [
-            "8306.T",
-            "8058.T",
-            "2914.T"
+            "6758.T",
+            "9432.T",
+            "9984.T"
           ],
           "is_official_source": false,
           "ai_comment": "決算・業績修正の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -807,91 +796,8 @@
           "source_name": "Vietnam.vn",
           "source_type": "news",
           "published_at": "2026-06-04T07:57:30Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
-          "category": "半導体・AI",
-          "region": "グローバル",
-          "material_type": "theme",
-          "related_symbols": [],
-          "inferred_symbols": [
-            "NVDA",
-            "TSM",
-            "ASML"
-          ],
-          "is_official_source": false,
-          "ai_comment": "半導体・AIの材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
-          "investment_checkpoints": [
-            "一時的な見出しか、業績や需給に継続して効く材料かを分けます。",
-            "関連銘柄の決算、公式開示、市場データで裏取りします。",
-            "半導体・AI全体の材料か、個別企業の材料かを確認します。"
-          ]
-        },
-        {
-          "title": "米ブロードコム、時価総額2兆ドル TSMC超え AI半導体に期待 - 日本経済新聞",
-          "summary": "米ブロードコム、時価総額2兆ドル TSMC超え AI半導体に期待 日本経済新聞",
-          "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxNdHMwWFowallId0haYy1ic1JYQWdQOGdUQm1wZlIyY2FLanBldFNtWWVMcUw0Q0plWDdzOFdVTDZlX0U4LUs4aFduanBsbnZKSUtnT3NTOVRETjcxLUo2NC1RbV93NVVkeHBCc0NRRVVNNWhNODA5WXRGdnFsWWVmWWxFX253dmlZUzJoemhSMWpDV3RiZ1ZXcHNB?oc=5",
-          "source_name": "日本経済新聞",
-          "source_type": "news",
-          "published_at": "2026-06-04T05:34:47Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
-          "freshness_status": "latest",
-          "category": "半導体・AI",
-          "region": "グローバル",
-          "material_type": "theme",
-          "related_symbols": [
-            "AVGO",
-            "TSM"
-          ],
-          "inferred_symbols": [
-            "NVDA",
-            "ASML",
-            "AMD"
-          ],
-          "is_official_source": false,
-          "ai_comment": "半導体・AIの材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
-          "investment_checkpoints": [
-            "一時的な見出しか、業績や需給に継続して効く材料かを分けます。",
-            "関連銘柄の決算、公式開示、市場データで裏取りします。",
-            "半導体・AI全体の材料か、個別企業の材料かを確認します。"
-          ]
-        },
-        {
-          "title": "TSMC魏哲家氏、株主総会で自信「成長に天井見えず」、株式購入検討の株主に「どうぞ続けて」 - finance.biggo.jp",
-          "summary": "TSMC魏哲家氏、株主総会で自信「成長に天井見えず」、株式購入検討の株主に「どうぞ続けて」 finance.biggo.jp",
-          "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE4xakJVNEg1eHlzNll1SjZzd29CZjJ0aFlUUXpIeGNoT2IyUHNMb2ZDZTVVTjBXR0N4U09mckU4bUljdWN1M2Y1aS1YTmFydnBRa1BpWTA3QjV2anRxdXVz?oc=5",
-          "source_name": "finance.biggo.jp",
-          "source_type": "news",
-          "published_at": "2026-06-04T02:35:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
-          "freshness_status": "latest",
-          "category": "半導体・AI",
-          "region": "グローバル",
-          "material_type": "theme",
-          "related_symbols": [
-            "TSM"
-          ],
-          "inferred_symbols": [
-            "NVDA",
-            "ASML",
-            "AMD"
-          ],
-          "is_official_source": false,
-          "ai_comment": "半導体・AIの材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
-          "investment_checkpoints": [
-            "一時的な見出しか、業績や需給に継続して効く材料かを分けます。",
-            "関連銘柄の決算、公式開示、市場データで裏取りします。",
-            "半導体・AI全体の材料か、個別企業の材料かを確認します。"
-          ]
-        },
-        {
-          "title": "AI資金の奔流、実体インフラへシフト アジアのサプライチェーン銘柄が新たな寵児に - finance.biggo.jp",
-          "summary": "AI資金の奔流、実体インフラへシフト アジアのサプライチェーン銘柄が新たな寵児に finance.biggo.jp",
-          "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTFBlbjlwWHFqRk9aYWcwQnlTcmNLdW4xenZabFo2NVFNNlc0Tk1vQWRCNkhrVFFtbGpXVlVBTGZ4SnhaZGxGT2VlbzJhVnR1aEoxWm5Xa2tkS3pOTDl1ak8w?oc=5",
-          "source_name": "finance.biggo.jp",
-          "source_type": "news",
-          "published_at": "2026-06-02T01:48:32Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
-          "freshness_status": "recent",
           "category": "半導体・AI",
           "region": "グローバル",
           "material_type": "theme",
@@ -910,24 +816,108 @@
           ]
         },
         {
-          "title": "台湾セミコンダクター・マニュファクチャリング株が急騰、NvidiaのCEOが台湾への大規模投資を発表 執筆 - Investing.com - FX | 株式市場 | ファイナンス | 金融ニュース",
-          "summary": "台湾セミコンダクター・マニュファクチャリング株が急騰、NvidiaのCEOが台湾への大規模投資を発表 執筆 Investing.com - FX | 株式市場 | ファイナンス | 金融ニュース",
-          "url": "https://news.google.com/rss/articles/CBMid0FVX3lxTE9weXhuM3R4Ykd6cEgyWmFacTZndVhHM25sLXpndmJyTlBTbmZObTFTWUNvYmYtWG5tdDQxTzNRR1ZGejJKVEdHU1UwZS1QV2pYQ25IaUpVUlpleVdxenhvM3NkZ0htcUdFUTBYbHRVcXVyOUlXM0Zv?oc=5",
-          "source_name": "Investing.com - FX | 株式市場 | ファイナンス | 金融ニュース",
+          "title": "米ブロードコム、時価総額2兆ドル TSMC超え AI半導体に期待 - 日本経済新聞",
+          "summary": "米ブロードコム、時価総額2兆ドル TSMC超え AI半導体に期待 日本経済新聞",
+          "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxNdHMwWFowallId0haYy1ic1JYQWdQOGdUQm1wZlIyY2FLanBldFNtWWVMcUw0Q0plWDdzOFdVTDZlX0U4LUs4aFduanBsbnZKSUtnT3NTOVRETjcxLUo2NC1RbV93NVVkeHBCc0NRRVVNNWhNODA5WXRGdnFsWWVmWWxFX253dmlZUzJoemhSMWpDV3RiZ1ZXcHNB?oc=5",
+          "source_name": "日本経済新聞",
           "source_type": "news",
-          "published_at": "2026-06-01T15:06:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "published_at": "2026-06-04T05:34:47Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
+          "freshness_status": "latest",
+          "category": "半導体・AI",
+          "region": "グローバル",
+          "material_type": "theme",
+          "related_symbols": [
+            "TSM"
+          ],
+          "inferred_symbols": [
+            "NVDA",
+            "6857.T",
+            "8035.T"
+          ],
+          "is_official_source": false,
+          "ai_comment": "半導体・AIの材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
+          "investment_checkpoints": [
+            "一時的な見出しか、業績や需給に継続して効く材料かを分けます。",
+            "関連銘柄の決算、公式開示、市場データで裏取りします。",
+            "半導体・AI全体の材料か、個別企業の材料かを確認します。"
+          ]
+        },
+        {
+          "title": "TSMC魏哲家氏、株主総会で自信「成長に天井見えず」、株式購入検討の株主に「どうぞ続けて」 - finance.biggo.jp",
+          "summary": "TSMC魏哲家氏、株主総会で自信「成長に天井見えず」、株式購入検討の株主に「どうぞ続けて」 finance.biggo.jp",
+          "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE4xakJVNEg1eHlzNll1SjZzd29CZjJ0aFlUUXpIeGNoT2IyUHNMb2ZDZTVVTjBXR0N4U09mckU4bUljdWN1M2Y1aS1YTmFydnBRa1BpWTA3QjV2anRxdXVz?oc=5",
+          "source_name": "finance.biggo.jp",
+          "source_type": "news",
+          "published_at": "2026-06-04T02:35:00Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
+          "freshness_status": "latest",
+          "category": "半導体・AI",
+          "region": "グローバル",
+          "material_type": "theme",
+          "related_symbols": [
+            "TSM"
+          ],
+          "inferred_symbols": [
+            "NVDA",
+            "6857.T",
+            "8035.T"
+          ],
+          "is_official_source": false,
+          "ai_comment": "半導体・AIの材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
+          "investment_checkpoints": [
+            "一時的な見出しか、業績や需給に継続して効く材料かを分けます。",
+            "関連銘柄の決算、公式開示、市場データで裏取りします。",
+            "半導体・AI全体の材料か、個別企業の材料かを確認します。"
+          ]
+        },
+        {
+          "title": "AI半導体ブロードコム、時価総額2兆ドルでTSMC超え 2〜4月最高益 - 日本経済新聞",
+          "summary": "AI半導体ブロードコム、時価総額2兆ドルでTSMC超え 2〜4月最高益 日本経済新聞",
+          "url": "https://news.google.com/rss/articles/CBMimgFBVV95cUxQeUJWRjVrQWxvY0MzNXhnY1RrZVlVNHYxM3JiNVBOYWZPZHRObmg1Q3RFbHlCVTQ3dFpsYnFHaGtISUE2MmVHU0RsbmZnOFlYcGwtejdRMV9IRGlsTkNrMkhQZ28tZEp4UWNwU0dCUC0yU2JsREZqWHY5ZC1xOEZITmJiMmFua0ZXalpoUExKeUo0a3FwcFdhX1Bn?oc=5",
+          "source_name": "日本経済新聞",
+          "source_type": "news",
+          "published_at": "2026-06-03T17:38:00Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
+          "freshness_status": "latest",
+          "category": "半導体・AI",
+          "region": "グローバル",
+          "material_type": "theme",
+          "related_symbols": [
+            "TSM"
+          ],
+          "inferred_symbols": [
+            "NVDA",
+            "6857.T",
+            "8035.T"
+          ],
+          "is_official_source": false,
+          "ai_comment": "半導体・AIの材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
+          "investment_checkpoints": [
+            "一時的な見出しか、業績や需給に継続して効く材料かを分けます。",
+            "関連銘柄の決算、公式開示、市場データで裏取りします。",
+            "半導体・AI全体の材料か、個別企業の材料かを確認します。"
+          ]
+        },
+        {
+          "title": "AI資金の奔流、実体インフラへシフト アジアのサプライチェーン銘柄が新たな寵児に - finance.biggo.jp",
+          "summary": "AI資金の奔流、実体インフラへシフト アジアのサプライチェーン銘柄が新たな寵児に finance.biggo.jp",
+          "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTFBlbjlwWHFqRk9aYWcwQnlTcmNLdW4xenZabFo2NVFNNlc0Tk1vQWRCNkhrVFFtbGpXVlVBTGZ4SnhaZGxGT2VlbzJhVnR1aEoxWm5Xa2tkS3pOTDl1ak8w?oc=5",
+          "source_name": "finance.biggo.jp",
+          "source_type": "news",
+          "published_at": "2026-06-02T01:48:32Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "recent",
           "category": "半導体・AI",
           "region": "グローバル",
           "material_type": "theme",
           "related_symbols": [
-            "NVDA"
+            "GLD"
           ],
           "inferred_symbols": [
-            "TSM",
-            "ASML",
-            "AMD"
+            "NVDA",
+            "6857.T",
+            "8035.T"
           ],
           "is_official_source": false,
           "ai_comment": "半導体・AIの材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -949,7 +939,7 @@
           "source_name": "ｄメニューニュース",
           "source_type": "news",
           "published_at": "2026-06-04T09:45:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "地政学・マクロリスク",
           "region": "グローバル",
@@ -975,7 +965,7 @@
           "source_name": "finance.biggo.jp",
           "source_type": "news",
           "published_at": "2026-06-03T08:06:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "地政学・マクロリスク",
           "region": "グローバル",
@@ -983,7 +973,7 @@
           "related_symbols": [],
           "inferred_symbols": [
             "7011.T",
-            "6208.T",
+            "9101.T",
             "GLD"
           ],
           "is_official_source": false,
@@ -1001,7 +991,7 @@
           "source_name": "Vietnam.vn",
           "source_type": "news",
           "published_at": "2026-06-03T00:14:11Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "地政学・マクロリスク",
           "region": "グローバル",
@@ -1010,9 +1000,9 @@
             "GLD"
           ],
           "inferred_symbols": [
-            "SPY",
-            "TLT",
-            "QQQ"
+            "7011.T",
+            "9101.T",
+            "6208.T"
           ],
           "is_official_source": false,
           "ai_comment": "地政学・マクロリスクの材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -1029,7 +1019,7 @@
           "source_name": "Mashup Reporter",
           "source_type": "news",
           "published_at": "2026-06-02T05:18:10Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "recent",
           "category": "地政学・マクロリスク",
           "region": "グローバル",
@@ -1055,16 +1045,16 @@
           "source_name": "finance.biggo.jp",
           "source_type": "news",
           "published_at": "2026-06-01T21:25:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "recent",
           "category": "地政学・マクロリスク",
           "region": "グローバル",
           "material_type": "risk",
           "related_symbols": [],
           "inferred_symbols": [
-            "SPY",
-            "QQQ",
-            "TLT"
+            "7011.T",
+            "9101.T",
+            "GLD"
           ],
           "is_official_source": false,
           "ai_comment": "地政学・マクロリスクの材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -1086,16 +1076,16 @@
           "source_name": "ｄメニューニュース",
           "source_type": "news",
           "published_at": "2026-06-04T06:44:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "為替・金利",
           "region": "米国",
           "material_type": "macro",
           "related_symbols": [],
           "inferred_symbols": [
-            "TLT",
             "JPM",
-            "SPY"
+            "QQQ",
+            "1488.T"
           ],
           "is_official_source": false,
           "ai_comment": "為替・金利の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -1112,16 +1102,16 @@
           "source_name": "QUICK Money World",
           "source_type": "news",
           "published_at": "2026-06-03T22:20:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "為替・金利",
           "region": "米国",
           "material_type": "macro",
           "related_symbols": [],
           "inferred_symbols": [
-            "7011.T",
-            "6208.T",
-            "GLD"
+            "JPM",
+            "QQQ",
+            "1488.T"
           ],
           "is_official_source": false,
           "ai_comment": "為替・金利の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -1138,16 +1128,16 @@
           "source_name": "ザイFX！",
           "source_type": "news",
           "published_at": "2026-06-03T21:58:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "為替・金利",
           "region": "米国",
           "material_type": "macro",
           "related_symbols": [],
           "inferred_symbols": [
-            "TLT",
             "JPM",
-            "SPY"
+            "QQQ",
+            "1488.T"
           ],
           "is_official_source": false,
           "ai_comment": "為替・金利の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -1164,16 +1154,16 @@
           "source_name": "Yahoo!ファイナンス",
           "source_type": "news",
           "published_at": "2026-06-03T21:20:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "為替・金利",
           "region": "米国",
           "material_type": "macro",
           "related_symbols": [],
           "inferred_symbols": [
-            "SPY",
+            "JPM",
             "QQQ",
-            "TLT"
+            "1488.T"
           ],
           "is_official_source": false,
           "ai_comment": "為替・金利の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -1190,7 +1180,7 @@
           "source_name": "日本経済新聞",
           "source_type": "news",
           "published_at": "2026-06-03T19:50:40Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "為替・金利",
           "region": "米国",
@@ -1221,7 +1211,7 @@
           "source_name": "note",
           "source_type": "news",
           "published_at": "2026-06-03T09:43:13Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "配当・株主還元",
           "region": "日本",
@@ -1247,16 +1237,16 @@
           "source_name": "ｄメニューニュース",
           "source_type": "news",
           "published_at": "2026-06-01T21:00:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "recent",
           "category": "配当・株主還元",
           "region": "日本",
           "material_type": "shareholder_return",
           "related_symbols": [],
           "inferred_symbols": [
-            "1488.T",
-            "1306.T",
-            "7203.T"
+            "7203.T",
+            "8306.T",
+            "8316.T"
           ],
           "is_official_source": false,
           "ai_comment": "配当・株主還元の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -1273,16 +1263,16 @@
           "source_name": "finance.biggo.jp",
           "source_type": "news",
           "published_at": "2026-06-01T15:37:28Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "recent",
           "category": "配当・株主還元",
           "region": "日本",
           "material_type": "shareholder_return",
           "related_symbols": [],
           "inferred_symbols": [
+            "7203.T",
             "8306.T",
-            "8058.T",
-            "2914.T"
+            "8316.T"
           ],
           "is_official_source": false,
           "ai_comment": "配当・株主還元の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -1299,16 +1289,16 @@
           "source_name": "Chosunbiz",
           "source_type": "news",
           "published_at": "2026-06-01T06:36:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "recent",
           "category": "配当・株主還元",
           "region": "日本",
           "material_type": "shareholder_return",
           "related_symbols": [],
           "inferred_symbols": [
-            "JPM",
-            "BAC",
-            "8306.T"
+            "7203.T",
+            "8306.T",
+            "8316.T"
           ],
           "is_official_source": false,
           "ai_comment": "配当・株主還元の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -1325,16 +1315,16 @@
           "source_name": "finance.biggo.jp",
           "source_type": "news",
           "published_at": "2026-06-01T04:36:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "recent",
           "category": "配当・株主還元",
           "region": "日本",
           "material_type": "shareholder_return",
           "related_symbols": [],
           "inferred_symbols": [
-            "JPM",
-            "BAC",
-            "8306.T"
+            "7203.T",
+            "8306.T",
+            "8316.T"
           ],
           "is_official_source": false,
           "ai_comment": "配当・株主還元の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -1356,7 +1346,7 @@
           "source_name": "株探（かぶたん）",
           "source_type": "news",
           "published_at": "2026-06-04T11:00:30Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "日本株",
           "region": "日本",
@@ -1382,16 +1372,16 @@
           "source_name": "日本経済新聞",
           "source_type": "news",
           "published_at": "2026-06-04T10:15:17Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "日本株",
           "region": "日本",
           "material_type": "macro",
           "related_symbols": [],
           "inferred_symbols": [
-            "1488.T",
-            "1306.T",
-            "7203.T"
+            "7203.T",
+            "8306.T",
+            "6758.T"
           ],
           "is_official_source": false,
           "ai_comment": "日本株の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -1408,7 +1398,7 @@
           "source_name": "株探（かぶたん）",
           "source_type": "news",
           "published_at": "2026-06-04T09:16:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "日本株",
           "region": "日本",
@@ -1434,19 +1424,18 @@
           "source_name": "日本経済新聞",
           "source_type": "news",
           "published_at": "2026-06-04T02:46:24Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "日本株",
           "region": "日本",
           "material_type": "macro",
           "related_symbols": [
-            "1488.T",
-            "AVGO"
+            "1488.T"
           ],
           "inferred_symbols": [
-            "1306.T",
             "7203.T",
-            "QQQ"
+            "8306.T",
+            "6758.T"
           ],
           "is_official_source": false,
           "ai_comment": "日本株の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -1463,7 +1452,7 @@
           "source_name": "日本経済新聞",
           "source_type": "news",
           "published_at": "2026-06-04T00:05:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "日本株",
           "region": "日本",
@@ -1472,9 +1461,9 @@
             "1488.T"
           ],
           "inferred_symbols": [
-            "1306.T",
             "7203.T",
-            "8306.T"
+            "8306.T",
+            "6758.T"
           ],
           "is_official_source": false,
           "ai_comment": "日本株の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -1496,7 +1485,7 @@
           "source_name": "Moomoo",
           "source_type": "news",
           "published_at": "2026-06-03T04:01:06Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "米国株",
           "region": "米国",
@@ -1522,7 +1511,7 @@
           "source_name": "Moomoo",
           "source_type": "news",
           "published_at": "2026-06-03T01:10:23Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "米国株",
           "region": "米国",
@@ -1548,7 +1537,7 @@
           "source_name": "TradingKey",
           "source_type": "news",
           "published_at": "2026-06-02T20:21:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "recent",
           "category": "米国株",
           "region": "米国",
@@ -1557,9 +1546,9 @@
             "AVGO"
           ],
           "inferred_symbols": [
-            "XLE",
-            "XOM",
-            "CVX"
+            "NVDA",
+            "JPM",
+            "QQQ"
           ],
           "is_official_source": false,
           "ai_comment": "米国株の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -1576,7 +1565,7 @@
           "source_name": "finance.biggo.jp",
           "source_type": "news",
           "published_at": "2026-06-02T13:41:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "recent",
           "category": "米国株",
           "region": "米国",
@@ -1602,17 +1591,20 @@
           "source_name": "Investing.com - FX | 株式市場 | ファイナンス | 金融ニュース",
           "source_type": "news",
           "published_at": "2026-06-01T12:38:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "recent",
           "category": "米国株",
           "region": "米国",
           "material_type": "macro",
           "related_symbols": [
             "QQQ",
-            "VOO",
-            "AVGO"
+            "VOO"
           ],
-          "inferred_symbols": [],
+          "inferred_symbols": [
+            "NVDA",
+            "JPM",
+            "AAPL"
+          ],
           "is_official_source": false,
           "ai_comment": "米国株の材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
           "investment_checkpoints": [
@@ -1633,7 +1625,7 @@
           "source_name": "Yahoo!ファイナンス",
           "source_type": "news",
           "published_at": "2026-06-04T15:50:51Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "ETF",
           "region": "グローバル",
@@ -1642,9 +1634,9 @@
             "VOO"
           ],
           "inferred_symbols": [
-            "SPY",
+            "2558.T",
             "QQQ",
-            "2558.T"
+            "SPY"
           ],
           "is_official_source": false,
           "ai_comment": "ETFの材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -1661,7 +1653,7 @@
           "source_name": "EBC Financial Group",
           "source_type": "news",
           "published_at": "2026-06-04T05:52:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "ETF",
           "region": "グローバル",
@@ -1687,7 +1679,7 @@
           "source_name": "finance.biggo.jp",
           "source_type": "news",
           "published_at": "2026-06-03T18:27:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "ETF",
           "region": "グローバル",
@@ -1713,7 +1705,7 @@
           "source_name": "TradingKey",
           "source_type": "news",
           "published_at": "2026-06-03T14:52:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "latest",
           "category": "ETF",
           "region": "グローバル",
@@ -1722,9 +1714,9 @@
             "VOO"
           ],
           "inferred_symbols": [
-            "SPY",
+            "2558.T",
             "QQQ",
-            "2558.T"
+            "SPY"
           ],
           "is_official_source": false,
           "ai_comment": "ETFの材料です。ニュース本文だけで判断せず、関連銘柄の業績、公式資料、市場データを銘柄コックピットで確認します。",
@@ -1741,7 +1733,7 @@
           "source_name": "Yellow.com",
           "source_type": "news",
           "published_at": "2026-05-30T07:00:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "recent",
           "category": "ETF",
           "region": "グローバル",
@@ -1772,7 +1764,7 @@
           "source_name": "note",
           "source_type": "news",
           "published_at": "2026-05-29T13:30:00Z",
-          "fetched_at": "2026-06-04T20:10:54.019086Z",
+          "fetched_at": "2026-06-04T20:56:29.436405Z",
           "freshness_status": "recent",
           "category": "金融",
           "region": "日本",

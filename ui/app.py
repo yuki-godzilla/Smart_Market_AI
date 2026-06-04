@@ -305,7 +305,12 @@ from ui.views.common import (
     _single_date_from_input,
     default_as_of_date,
 )
-from ui.views.news import render_news_dashboard_page
+from ui.views.news import (
+    NEWS_COCKPIT_QUERY_COCKPIT_VALUE,
+    NEWS_COCKPIT_QUERY_PAGE_PARAM,
+    NEWS_COCKPIT_QUERY_SYMBOL_PARAM,
+    render_news_dashboard_page,
+)
 from ui.views.ranking_chart_profiles import chart_profile_for_purpose, ranking_chart_frame
 from ui.views.rebalance import (
     REBALANCE_REQUEST_STATE_KEY,
@@ -1476,6 +1481,7 @@ def main() -> None:
     st.set_page_config(page_title="Smart Market AI", layout="wide")
     render_global_styles()
     _start_symbol_background_refresh_worker_once()
+    _apply_navigation_query_params()
 
     selected_page = render_sidemenu(runtime_settings_summary())
     render_app_header()
@@ -1489,6 +1495,46 @@ def main() -> None:
         render_rebalance_page()
     else:
         render_settings_page()
+
+
+def _apply_navigation_query_params() -> None:
+    params = getattr(st, "query_params", None)
+    if params is None:
+        return
+    page = _query_param_value(_query_param_get(params, NEWS_COCKPIT_QUERY_PAGE_PARAM))
+    symbol = _query_param_value(_query_param_get(params, NEWS_COCKPIT_QUERY_SYMBOL_PARAM))
+    if page != NEWS_COCKPIT_QUERY_COCKPIT_VALUE or not symbol:
+        return
+    _select_news_symbol_for_cockpit(symbol.upper())
+    _clear_navigation_query_params(
+        params,
+        (NEWS_COCKPIT_QUERY_PAGE_PARAM, NEWS_COCKPIT_QUERY_SYMBOL_PARAM),
+    )
+
+
+def _query_param_get(params: object, key: str) -> object:
+    getter = getattr(params, "get", None)
+    if callable(getter):
+        return getter(key)
+    try:
+        return params[key]  # type: ignore[index]
+    except (KeyError, TypeError):
+        return None
+
+
+def _query_param_value(value: object) -> str:
+    if isinstance(value, (list, tuple)):
+        value = value[0] if value else ""
+    return str(value or "").strip()
+
+
+def _clear_navigation_query_params(params: object, keys: Iterable[str]) -> None:
+    for key in keys:
+        try:
+            if key in params:  # type: ignore[operator]
+                del params[key]  # type: ignore[index]
+        except (KeyError, TypeError, AttributeError):
+            continue
 
 
 def _start_symbol_background_refresh_worker_once() -> None:

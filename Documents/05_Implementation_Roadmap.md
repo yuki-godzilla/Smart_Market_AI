@@ -879,7 +879,7 @@ Phase 22.x: 投資レーダー / Investment News dashboard MVP
 - 独立した `投資レーダー` 画面は初期MVP実装済み。ニュース横断ランキング、News Score 化、Watchlist 連動、通知は未実装。
 - Phase 22 本体の Research Score 方針は維持し、Investment News / 投資レーダー dashboard は Phase 22.x の UI / backend snapshot slice として扱う。
 - `backend/news/dashboard.py` で deterministic `build_news_dashboard_snapshot` / `build_demo_news_dashboard_snapshot` を実装し、保存済みsnapshotがない場合も network-free demo snapshot で表示できる。
-- `ui/views/news.py` で `投資レーダー` 画面を追加し、side menu / routing / related-symbol cockpit handoff を `ui/components/sidemenu.py` と `ui/app.py` に接続済み。
+- `ui/views/news.py` で `投資レーダー` 画面を追加し、side menu / routing / related-symbol cockpit handoff を `ui/components/sidemenu.py` と `ui/app.py` に接続済み。投資ヒートマップの銘柄タイルは企業名を主、シンボルを補助タグとして表示し、クリックで同一アプリ内の `銘柄コックピット` に遷移する。
 
 MVP 必須機能:
 
@@ -889,11 +889,11 @@ MVP 必須機能:
   - MVP では realtime 通信は不要。fake fixture / snapshot 内のニュースを一定間隔で切り替える UI でよい。
   - ユーザー操作による一時停止、hover 時停止、URLクリックを将来拡張しやすい構造にする。
 - 中央上: 投資ヒートマップ
-  - 株式ヒートマップ風に、投資カテゴリをセクター枠、関連銘柄をタイルとして詰め、値動き / 材料シグナルを赤・灰・緑で確認できる温度感にする。
+  - 株式ヒートマップ風に、投資カテゴリをセクター枠、関連銘柄をタイルとして詰め、値動き / 材料シグナルを注意材料・中立・好材料の温度感として確認できる配色にする。
   - `heat = news_intensity + abs(price_change_pct) + volume_activity_score` を初期案とし、カテゴリ、region、price_change_pct、volume_activity_score、news_count、risk_count、positive_count、official_source_count、freshness_ratio を表示する。
-  - タイルにはシンボル、ローカル銘柄名 / 企業名、値動き / 材料シグナルを併記し、長い名称は省略しつつ tooltip / title で確認できるようにする。
+  - タイルにはローカル銘柄名 / 企業名、シンボル、値動き / 材料シグナルを併記し、企業名を読み取りの主情報、シンボルを小さな補助タグとして扱う。長い名称は省略しつつ tooltip / title で確認できるようにする。
   - 値動き / 材料シグナルの方向をタイル色、カテゴリの注目度をセクター枠サイズ、値動きの大きさをタイル内テキストとして見せる。
-  - タイルクリックで関連銘柄や下部カテゴリレーンへフォーカスできるとよい。
+  - タイルクリックで該当銘柄の `銘柄コックピット` を開き、ニュース画面だけで判断を閉じずに深掘りへ進める。
 - 中央下: 3列カード型の投資カテゴリ別ニュースレーン
   - 国内株、米国株、ETF、半導体・AI、金融、エネルギー、為替・金利、決算・業績修正、配当・株主還元、政策・規制、地政学・マクロリスクを初期カテゴリ候補にする。
   - MVPでは各カテゴリの代表カードを3列で並べる。将来はカテゴリ内に 3〜5 件程度のカードを横スクロール / フィルタ付きで増やす。
@@ -917,7 +917,7 @@ MVP で見送る機能:
 
 - `backend/news/contracts.py`: `NewsHeadlineCard`、`NewsHeatmapCell`、`NewsCategoryLane`、`NewsDashboardSnapshot`。
 - `backend/news/dashboard.py`: `build_news_dashboard_snapshot`、`build_demo_news_dashboard_snapshot`、heatmap / category lane 集計。
-- `ui/views/news.py`: `投資レーダー` 画面。市場ニュースヘッドライン、株式ヒートマップ風の投資ヒートマップ、3列カード型カテゴリ別ニュースレーン、銘柄名付き関連銘柄 handoff を表示する。市場指標が欠ける heatmap cell はニュース材料から代理シグナルを補完する。
+- `ui/views/news.py`: `投資レーダー` 画面。市場ニュースヘッドライン、株式ヒートマップ風の投資ヒートマップ、3列カード型カテゴリ別ニュースレーン、銘柄名付き関連銘柄 handoff を表示する。市場指標が欠ける heatmap cell はニュース材料から代理シグナルを補完する。投資ヒートマップの銘柄タイルは同一アプリURLで `銘柄コックピット` へ遷移する。
 - `ui/components/sidemenu.py` / `ui/app.py`: `投資レーダー` を side menu と routing に追加済み。
 
 データ構造案:
@@ -979,7 +979,7 @@ Phase 22.x 完了条件:
 - サイドメニューから `投資レーダー` 画面を開ける。
 - 上部に流れる市場ニュースヘッドラインが表示される。
 - ニュースカードが自動ローテーション風に表示される。
-- 値動き、取引量、ニュース量を合わせた株式ヒートマップ風の投資ヒートマップが表示される。ヒートマップタイルにもシンボルと銘柄名 / 企業名が併記され、市場指標が欠ける場合も `ニュース代理` として材料シグナルが表示され、`未取得` だけのヒートマップにならない。
+- 値動き、取引量、ニュース量を合わせた株式ヒートマップ風の投資ヒートマップが表示される。ヒートマップタイルにも銘柄名 / 企業名とシンボルが併記され、市場指標が欠ける場合も `ニュース代理` として材料シグナルが表示され、`未取得` だけのヒートマップにならない。タイルクリックで該当銘柄の `銘柄コックピット` に遷移できる。
 - 投資カテゴリ別ニュースレーンが3列カードで表示される。
 - ニュースカードにAI分析コメント / 投資確認観点が表示される。
 - 関連銘柄があるニュースカードに、シンボルと銘柄名 / 企業名が分かる `銘柄コックピットで確認` 導線が表示される。

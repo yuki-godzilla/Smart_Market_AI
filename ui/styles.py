@@ -890,14 +890,17 @@ body,
 }
 
 .investment-stock-heatmap {
-    border: 1px solid rgba(148, 163, 184, 0.24);
+    border: 1px solid rgba(125, 211, 252, 0.20);
     border-radius: 8px;
     background:
-        linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(2, 6, 23, 0.94)),
+        linear-gradient(135deg, rgba(18, 29, 49, 0.94), rgba(4, 10, 24, 0.96)),
+        linear-gradient(180deg, rgba(34, 211, 238, 0.05), rgba(251, 113, 133, 0.04)),
         var(--bg-card);
-    padding: 0.72rem;
+    padding: 0.76rem;
     margin: 0.35rem 0 1.2rem;
-    box-shadow: 0 1rem 2rem rgba(2, 6, 23, 0.2);
+    box-shadow:
+        0 1.1rem 2.4rem rgba(2, 6, 23, 0.24),
+        inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
 .investment-stock-heatmap-topline {
@@ -906,15 +909,15 @@ body,
     align-items: center;
     justify-content: flex-end;
     gap: 0.72rem;
-    color: var(--text-caption);
-    font-size: 0.74rem;
+    color: rgba(178, 199, 216, 0.82);
+    font-size: 0.75rem;
     font-weight: 760;
     margin: 0 0 0.55rem;
 }
 
 .investment-stock-heatmap-read {
     margin-right: auto;
-    color: var(--text-secondary);
+    color: rgba(208, 230, 242, 0.82);
 }
 
 .investment-stock-heatmap-legend {
@@ -928,19 +931,19 @@ body,
     width: 0.58rem;
     height: 0.58rem;
     border-radius: 2px;
-    background: #64748B;
+    background: #7C8AA0;
 }
 
 .investment-stock-heatmap-legend.negative::before {
-    background: #E11D48;
+    background: linear-gradient(135deg, #F9739A, #9F234A);
 }
 
 .investment-stock-heatmap-legend.neutral::before {
-    background: #94A3B8;
+    background: linear-gradient(135deg, #B7C1D2, #667085);
 }
 
 .investment-stock-heatmap-legend.positive::before {
-    background: #10B981;
+    background: linear-gradient(135deg, #5EEAD4, #0F9F80);
 }
 
 .investment-stock-heatmap-board {
@@ -955,10 +958,12 @@ body,
     flex-direction: column;
     min-width: 0;
     min-height: 0;
-    border: 1px solid rgba(226, 232, 240, 0.16);
+    border: 1px solid rgba(148, 163, 184, 0.18);
     border-radius: 6px;
-    background: rgba(15, 23, 42, 0.78);
+    background:
+        linear-gradient(180deg, rgba(15, 23, 42, 0.86), rgba(5, 10, 24, 0.88));
     overflow: hidden;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.026);
 }
 
 .investment-stock-heatmap-group.mega {
@@ -981,9 +986,10 @@ body,
     align-items: baseline;
     justify-content: space-between;
     gap: 0.5rem;
-    border-bottom: 1px solid rgba(226, 232, 240, 0.14);
-    background: rgba(248, 250, 252, 0.94);
-    color: #111827;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+    background:
+        linear-gradient(90deg, rgba(226, 232, 240, 0.95), rgba(186, 230, 253, 0.88));
+    color: #0F172A;
     padding: 0.24rem 0.42rem;
 }
 
@@ -997,7 +1003,7 @@ body,
 }
 
 .investment-stock-heatmap-group-meta {
-    color: #475569;
+    color: rgba(51, 65, 85, 0.82);
     font-size: 0.68rem;
     font-weight: 760;
     white-space: nowrap;
@@ -1015,19 +1021,53 @@ body,
 }
 
 .investment-stock-heatmap-tile {
+    --heatmap-tile-bg: linear-gradient(145deg, #334155, #111827);
+    --heatmap-tile-border: rgba(226, 232, 240, 0.28);
+    --heatmap-tile-name: rgba(248, 250, 252, 0.96);
+    --heatmap-tile-symbol: rgba(226, 232, 240, 0.82);
+    --heatmap-tile-change: rgba(248, 250, 252, 0.95);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.18rem;
+    gap: 0.22rem;
     min-width: 0;
     min-height: 0;
-    border: 1px solid rgba(255, 255, 255, 0.44);
-    border-radius: 3px;
-    color: #F8FAFC;
+    border: 1px solid var(--heatmap-tile-border);
+    border-radius: 4px;
+    background: var(--heatmap-tile-bg);
+    color: var(--heatmap-tile-name);
     overflow: hidden;
-    padding: 0.22rem;
+    padding: 0.26rem;
     text-align: center;
+    text-decoration: none;
+    text-shadow: 0 1px 1px rgba(2, 6, 23, 0.34);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        inset 0 -1.2rem 2.4rem rgba(2, 6, 23, 0.10);
+    transition:
+        border-color 140ms ease,
+        box-shadow 140ms ease,
+        filter 140ms ease,
+        transform 140ms ease;
+}
+
+.investment-stock-heatmap-tile:hover {
+    border-color: rgba(226, 232, 240, 0.72);
+    color: var(--heatmap-tile-name);
+    filter: brightness(1.06) saturate(1.04);
+    text-decoration: none;
+    transform: translateY(-1px);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        0 0 0 1px rgba(226, 232, 240, 0.10),
+        0 0.7rem 1.3rem rgba(2, 6, 23, 0.20);
+}
+
+.investment-stock-heatmap-tile:focus-visible {
+    outline: 2px solid rgba(186, 230, 253, 0.92);
+    outline-offset: -2px;
+    text-decoration: none;
 }
 
 .investment-stock-heatmap-tile.hero {
@@ -1080,23 +1120,48 @@ body,
 }
 
 .investment-stock-heatmap-tile.strong-positive {
-    background: linear-gradient(180deg, #10B981, #047857);
+    --heatmap-tile-bg:
+        linear-gradient(145deg, #5EEAD4 0%, #14B8A6 38%, #075E55 100%);
+    --heatmap-tile-border: rgba(153, 246, 228, 0.72);
+    --heatmap-tile-name: #ECFEFF;
+    --heatmap-tile-symbol: rgba(204, 251, 241, 0.88);
+    --heatmap-tile-change: #D1FAE5;
 }
 
 .investment-stock-heatmap-tile.positive {
-    background: linear-gradient(180deg, #34D399, #059669);
+    --heatmap-tile-bg:
+        linear-gradient(145deg, #34D399 0%, #0F9F80 48%, #064E3B 100%);
+    --heatmap-tile-border: rgba(110, 231, 183, 0.62);
+    --heatmap-tile-name: #F0FDFA;
+    --heatmap-tile-symbol: rgba(204, 251, 241, 0.84);
+    --heatmap-tile-change: #BBF7D0;
 }
 
 .investment-stock-heatmap-tile.neutral {
-    background: linear-gradient(180deg, #9CA3AF, #64748B);
+    --heatmap-tile-bg:
+        linear-gradient(145deg, #AAB4C3 0%, #6B7789 45%, #334155 100%);
+    --heatmap-tile-border: rgba(203, 213, 225, 0.50);
+    --heatmap-tile-name: #F8FAFC;
+    --heatmap-tile-symbol: rgba(226, 232, 240, 0.76);
+    --heatmap-tile-change: #E2E8F0;
 }
 
 .investment-stock-heatmap-tile.negative {
-    background: linear-gradient(180deg, #FB7185, #BE123C);
+    --heatmap-tile-bg:
+        linear-gradient(145deg, #FB7185 0%, #D03861 45%, #7F1D3A 100%);
+    --heatmap-tile-border: rgba(253, 164, 175, 0.66);
+    --heatmap-tile-name: #FFF1F2;
+    --heatmap-tile-symbol: rgba(255, 228, 230, 0.82);
+    --heatmap-tile-change: #FFE4E6;
 }
 
 .investment-stock-heatmap-tile.strong-negative {
-    background: linear-gradient(180deg, #EF4444, #991B1B);
+    --heatmap-tile-bg:
+        linear-gradient(145deg, #F43F5E 0%, #B42348 44%, #5F1836 100%);
+    --heatmap-tile-border: rgba(251, 113, 133, 0.76);
+    --heatmap-tile-name: #FFF7ED;
+    --heatmap-tile-symbol: rgba(255, 228, 230, 0.84);
+    --heatmap-tile-change: #FFE4E6;
 }
 
 .investment-stock-heatmap-identity {
@@ -1104,54 +1169,60 @@ body,
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 0.16rem;
     min-width: 0;
     max-width: 100%;
 }
 
 .investment-stock-heatmap-symbol {
     max-width: 100%;
-    font-size: 0.68rem;
-    font-weight: 900;
-    line-height: 1.05;
+    border: 1px solid rgba(248, 250, 252, 0.24);
+    border-radius: 999px;
+    background: rgba(2, 6, 23, 0.18);
+    color: var(--heatmap-tile-symbol);
+    font-size: 0.52rem;
+    font-weight: 860;
+    line-height: 1.1;
     overflow: hidden;
+    padding: 0.08rem 0.32rem;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .investment-stock-heatmap-tile.hero .investment-stock-heatmap-symbol {
-    font-size: 1.72rem;
+    font-size: 0.72rem;
 }
 
 .investment-stock-heatmap-tile.major .investment-stock-heatmap-symbol {
-    font-size: 1.2rem;
+    font-size: 0.62rem;
 }
 
 .investment-stock-heatmap-tile.medium .investment-stock-heatmap-symbol {
-    font-size: 0.94rem;
+    font-size: 0.58rem;
 }
 
 .investment-stock-heatmap-name {
     max-width: 100%;
-    color: rgba(248, 250, 252, 0.9);
-    font-size: 0.7rem;
-    font-weight: 800;
-    line-height: 1.15;
+    color: var(--heatmap-tile-name);
+    font-size: 0.72rem;
+    font-weight: 900;
+    line-height: 1.12;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .investment-stock-heatmap-tile.hero .investment-stock-heatmap-name {
-    font-size: 0.86rem;
+    font-size: 1.42rem;
 }
 
 .investment-stock-heatmap-tile.major .investment-stock-heatmap-name,
 .investment-stock-heatmap-tile.medium .investment-stock-heatmap-name {
-    font-size: 0.76rem;
+    font-size: 0.96rem;
 }
 
 .investment-stock-heatmap-change {
-    color: rgba(255, 255, 255, 0.96);
+    color: var(--heatmap-tile-change);
     font-size: 0.7rem;
     font-weight: 850;
     line-height: 1.12;
@@ -1160,7 +1231,7 @@ body,
 }
 
 .investment-stock-heatmap-tile.hero .investment-stock-heatmap-change {
-    font-size: 1.12rem;
+    font-size: 1.02rem;
 }
 
 .investment-stock-heatmap-tile.major .investment-stock-heatmap-change,

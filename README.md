@@ -70,7 +70,7 @@ SMAI は以下の思想を重視しています。
   - left side menu for `銘柄コックピット` / `銘柄ランキング` / `投資レーダー` / `リバランス` / `設定 / データ情報`
   - 銘柄コックピット: 価格・予測チャート、Investment Score、投資判断メモ、Research Evidence、Decision Report、銘柄データ modal、warnings、downloads
   - 銘柄ランキング: curated symbol metadata、候補条件 modal、ランキング preset、行クリックで開く銘柄データ modal、AI Research tab、Decision Report
-  - 投資レーダー: network-free dashboard snapshot による市場ニュースヘッドライン、シンボル＋銘柄名付きタイルの株式ヒートマップ風投資ヒートマップ、3列カテゴリ別ニュースカード、銘柄名付き関連銘柄から銘柄コックピットへの導線
+  - 投資レーダー: network-free dashboard snapshot による市場ニュースヘッドライン、企業名主表示＋シンボル補助タグのクリック可能な株式ヒートマップ風投資ヒートマップ、3列カテゴリ別ニュースカード、銘柄名付き関連銘柄から銘柄コックピットへの導線
   - Rebalance Cockpit: summary flow、percentage target、allocation comparison chart、risk breach confirmation points、Decision Report
 - symbol universe metadata schema、source import、opt-in metadata refresh、SBI ranking universe policy columns / default exclusion helper
 - JPX / SBI / NISA / IMAJ / REIT source builders and import profiles

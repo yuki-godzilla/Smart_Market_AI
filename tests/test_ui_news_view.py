@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 from backend.news import NewsUpdateStatus, build_demo_news_dashboard_snapshot
 from ui.views.news import (
+    news_dashboard_cockpit_href,
     news_dashboard_handoff_symbols,
     news_dashboard_heatmap_frame,
     news_dashboard_lane_card_items,
@@ -96,11 +97,21 @@ def test_news_dashboard_stock_heatmap_html_uses_sector_tiles():
     assert "investment-stock-heatmap-board" in html_text
     assert "investment-stock-heatmap-group" in html_text
     assert "investment-stock-heatmap-tile" in html_text
+    assert '<a class="investment-stock-heatmap-tile' in html_text
+    assert 'href="?smai_page=cockpit&amp;smai_symbol=NVDA"' in html_text
     assert "count-3" in html_text
     assert "NVDA" in html_text
     assert "NVDA / NVIDIA" in html_text
     assert "6857.T / アドバンテスト" in html_text
+    assert html_text.index("investment-stock-heatmap-name") < html_text.index(
+        "investment-stock-heatmap-symbol"
+    )
     assert "未取得" not in html_text
+
+
+def test_news_dashboard_cockpit_href_normalizes_symbol_for_same_app_navigation():
+    assert news_dashboard_cockpit_href(" nvda ") == "?smai_page=cockpit&smai_symbol=NVDA"
+    assert news_dashboard_cockpit_href("9432.t") == "?smai_page=cockpit&smai_symbol=9432.T"
 
 
 def test_news_headline_card_html_keeps_link_safe_and_hides_raw_url():

@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 from collections.abc import Callable
 from datetime import UTC, datetime
+from urllib.parse import quote
 
 import pandas as pd
 import streamlit as st
@@ -24,6 +25,9 @@ from ui.symbol_universe import symbol_name
 OpenSymbolCallback = Callable[[str], None]
 
 NEWS_DASHBOARD_REFRESH_STATE_KEY = "investment_news_dashboard_refresh_message"
+NEWS_COCKPIT_QUERY_PAGE_PARAM = "smai_page"
+NEWS_COCKPIT_QUERY_SYMBOL_PARAM = "smai_symbol"
+NEWS_COCKPIT_QUERY_COCKPIT_VALUE = "cockpit"
 
 _FRESHNESS_LABELS = {
     "latest": "最新",
@@ -168,13 +172,24 @@ def news_dashboard_stock_heatmap_html(snapshot: NewsDashboardSnapshot) -> str:
     return (
         '<section class="investment-stock-heatmap" aria-label="investment stock heatmap">'
         '<div class="investment-stock-heatmap-topline">'
-        '<span class="investment-stock-heatmap-read">表示: シンボル / 銘柄名 / 値動き</span>'
-        '<span class="investment-stock-heatmap-legend negative">赤: 注意材料</span>'
-        '<span class="investment-stock-heatmap-legend neutral">灰: 中立</span>'
-        '<span class="investment-stock-heatmap-legend positive">緑: 好材料</span>'
+        '<span class="investment-stock-heatmap-read">表示: 銘柄名 / シンボル / 値動き。タイルクリックで銘柄コックピットへ移動します。</span>'
+        '<span class="investment-stock-heatmap-legend negative">注意材料</span>'
+        '<span class="investment-stock-heatmap-legend neutral">中立</span>'
+        '<span class="investment-stock-heatmap-legend positive">好材料</span>'
         "</div>"
         f'<div class="investment-stock-heatmap-board">{group_html}</div>'
         "</section>"
+    )
+
+
+def news_dashboard_cockpit_href(symbol: str) -> str:
+    """Return the same-app URL used to open a heatmap symbol in the cockpit."""
+
+    normalized = symbol.strip().upper()
+    encoded_symbol = quote(normalized, safe="")
+    return (
+        f"?{NEWS_COCKPIT_QUERY_PAGE_PARAM}={NEWS_COCKPIT_QUERY_COCKPIT_VALUE}"
+        f"&{NEWS_COCKPIT_QUERY_SYMBOL_PARAM}={encoded_symbol}"
     )
 
 
@@ -413,6 +428,7 @@ def _stock_heatmap_tile(
         "name": display_name,
         "full_name": full_name,
         "label": label,
+        "href": news_dashboard_cockpit_href(symbol),
         "change": change,
         "change_label": _price_change_label(change, inferred=inferred),
         "tone": _stock_heatmap_tone(change),
@@ -485,18 +501,21 @@ def _stock_heatmap_tile_html(tile: dict[str, object]) -> str:
     symbol = html.escape(str(tile["symbol"]))
     name = html.escape(str(tile["name"]))
     label = html.escape(str(tile["label"]), quote=True)
+    href = html.escape(str(tile["href"]), quote=True)
     change_label = html.escape(str(tile["change_label"]))
     tone = html.escape(str(tile["tone"]))
     size = html.escape(str(tile["size"]))
-    name_html = f'<span class="investment-stock-heatmap-name">{name}</span>' if name else ""
+    primary_name = name or symbol
+    symbol_html = f'<span class="investment-stock-heatmap-symbol">{symbol}</span>' if name else ""
     return (
-        f'<div class="investment-stock-heatmap-tile {tone} {size}" title="{label}" aria-label="{label}">'
+        f'<a class="investment-stock-heatmap-tile {tone} {size}" '
+        f'href="{href}" title="{label}" aria-label="{label}">'
         '<span class="investment-stock-heatmap-identity">'
-        f'<span class="investment-stock-heatmap-symbol">{symbol}</span>'
-        f"{name_html}"
+        f'<span class="investment-stock-heatmap-name">{primary_name}</span>'
+        f"{symbol_html}"
         "</span>"
         f'<span class="investment-stock-heatmap-change">{change_label}</span>'
-        "</div>"
+        "</a>"
     )
 
 

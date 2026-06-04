@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import pandas as pd
 import streamlit as st
 
+import ui.app as app_module
 from backend.core.data_contracts import Bar, DailySnapshot, FundamentalSnapshot, Symbol
 from backend.core.errors import DataSourceError
 from backend.reporting import build_decision_report_context, build_report_section
@@ -56,6 +57,7 @@ from ui.app import (
     RANKING_TABLE_SORT_GUIDANCE,
     SYMBOL_DETAIL_DIALOG_CSS,
     RankingResearchStatus,
+    _apply_navigation_query_params,
     _build_market_data_ranking_rows,
     _coerce_number_input_state,
     _company_research_ai_notes_html,
@@ -3110,6 +3112,29 @@ def test_select_ranking_symbol_for_cockpit_with_period_carries_ranking_window(mo
     assert "market_data_preview" not in session_state
     assert "market_data_status_message" not in session_state
     assert "market_data_ranking_deep_dive_symbol" not in session_state
+
+
+def test_navigation_query_params_open_news_symbol_in_cockpit(monkeypatch):
+    session_state: dict[str, object] = {
+        "market_data_preview": object(),
+        "market_data_status_message": "old",
+    }
+    query_params = {
+        "smai_page": ["cockpit"],
+        "smai_symbol": ["7203.t"],
+    }
+    monkeypatch.setattr(app_module.st, "session_state", session_state)
+    monkeypatch.setattr(app_module.st, "query_params", query_params, raising=False)
+
+    _apply_navigation_query_params()
+
+    assert session_state["sidemenu_page"] == "cockpit"
+    assert session_state["market_data_mode"] == "cockpit"
+    assert session_state["market_data_provider_live_first"] == "yahoo"
+    assert session_state["market_data_symbol_candidate"] == "7203.T - Toyota Motor"
+    assert "market_data_preview" not in session_state
+    assert "market_data_status_message" not in session_state
+    assert query_params == {}
 
 
 def test_symbol_universe_rows_adds_static_selection_metadata():

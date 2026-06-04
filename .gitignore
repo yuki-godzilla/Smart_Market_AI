@@ -38,4 +38,4 @@ data/marketdata/**/*.bak
 outputs/work/pytest_tmp/
 outputs/work/symbol_metadata_probe/
 data/cache/*.lock
-logs/streamlit_*_uiux.*.log
+logs/*.log

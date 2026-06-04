@@ -316,15 +316,15 @@ def render_news_dashboard_page(
 ) -> None:
     """Render the Investment Radar dashboard MVP."""
 
+    snapshot, status = _load_dashboard_snapshot()
     render_page_title(
         "投資レーダー",
         "市場ニュースの流れ、投資ヒートマップ、カテゴリ別材料を確認し、気になる銘柄を深掘りします。",
         "investment_radar",
+        accessory_html=news_dashboard_freshness_badge_html(snapshot),
     )
 
-    snapshot, status, uses_cached_snapshot = _load_dashboard_snapshot()
     _render_refresh_controls()
-    _render_cache_status(snapshot, status, uses_cached_snapshot=uses_cached_snapshot)
     _render_status_message()
     _render_update_warning(status)
     filtered_snapshot = _render_news_detail_filters(snapshot)
@@ -710,27 +710,19 @@ def re_split_news_watchlist(value: str) -> list[str]:
     return [part for part in re.split(r"[\s,、;；]+", value.strip()) if part]
 
 
-def news_dashboard_status_items(
+def news_dashboard_freshness_badge_html(
     snapshot: NewsDashboardSnapshot,
-    status: NewsUpdateStatus,
-    *,
-    uses_cached_snapshot: bool,
-) -> list[tuple[str, str]]:
-    """Return compact dashboard status rows for the Investment Radar UI."""
+) -> str:
+    """Return the small freshness badge shown in the Investment Radar title."""
 
-    source_label = "保存済みキャッシュ" if uses_cached_snapshot else "デモ表示"
-    update_label = _news_update_state_label(status)
-    items = [
-        ("表示データ", source_label),
-        ("鮮度", _freshness_label(snapshot.freshness_status)),
-        ("生成時刻", _datetime_label(snapshot.generated_at)),
-        ("最終取得成功", _datetime_label(status.last_success_at)),
-        ("ニュース件数", f"{news_dashboard_unique_headline_count(snapshot)}件"),
-        ("ヒートマップ", f"{len(snapshot.heatmap_cells)}カテゴリ"),
-        ("キャッシュサイズ", _bytes_label(status.cache_file_size_bytes)),
-        ("更新状態", update_label),
-    ]
-    return items
+    freshness = _freshness_label(snapshot.freshness_status)
+    return (
+        '<div class="investment-news-freshness-badge" '
+        f'aria-label="情報鮮度 {html.escape(freshness)}">'
+        '<span class="investment-news-freshness-label">情報鮮度</span>'
+        f'<strong class="investment-news-freshness-value">{html.escape(freshness)}</strong>'
+        "</div>"
+    )
 
 
 def _heatmap_cell_row(cell: object) -> dict[str, object]:
@@ -1408,12 +1400,12 @@ def news_symbol_handoff_label(symbol: str) -> str:
     return normalized
 
 
-def _load_dashboard_snapshot() -> tuple[NewsDashboardSnapshot, NewsUpdateStatus, bool]:
+def _load_dashboard_snapshot() -> tuple[NewsDashboardSnapshot, NewsUpdateStatus]:
     status = load_news_update_status()
     snapshot = load_cached_news_dashboard_snapshot()
     if snapshot is not None:
-        return snapshot, status, True
-    return build_demo_news_dashboard_snapshot(), status, False
+        return snapshot, status
+    return build_demo_news_dashboard_snapshot(), status
 
 
 def _render_refresh_controls() -> None:
@@ -1445,38 +1437,6 @@ def _render_refresh_controls() -> None:
             "手動更新では外部ニュースRSSを広めに取得し、重複を除いて最大100件の確認材料に整理します。"
             "スコアやランキング順位は変更しません。"
         )
-
-
-def _render_cache_status(
-    snapshot: NewsDashboardSnapshot,
-    status: NewsUpdateStatus,
-    *,
-    uses_cached_snapshot: bool,
-) -> None:
-    status_items = news_dashboard_status_items(
-        snapshot,
-        status,
-        uses_cached_snapshot=uses_cached_snapshot,
-    )
-    item_html = "".join(
-        '<div class="investment-news-status-item">'
-        f'<span class="investment-news-status-label">{html.escape(label)}</span>'
-        f'<span class="investment-news-status-value">{html.escape(value)}</span>'
-        "</div>"
-        for label, value in status_items
-    )
-    st.markdown(
-        '<section class="investment-news-status-panel" aria-label="news cache status">'
-        '<div class="investment-news-status-head">'
-        '<span class="investment-news-status-title">ニュース表示の状態</span>'
-        '<span class="investment-news-status-note">'
-        "起動時のバックグラウンド更新、手動更新、キャッシュ表示の状態をここで確認できます。"
-        "</span>"
-        "</div>"
-        f'<div class="investment-news-status-grid">{item_html}</div>'
-        "</section>",
-        unsafe_allow_html=True,
-    )
 
 
 def _render_status_message() -> None:
@@ -1731,28 +1691,6 @@ def _news_ticker_html(cards: list[NewsHeadlineCard]) -> str:
 
 def _freshness_label(status: str) -> str:
     return _FRESHNESS_LABELS.get(status, status or "未確認")
-
-
-def _news_update_state_label(status: NewsUpdateStatus) -> str:
-    if status.is_refreshing:
-        return "バックグラウンド更新中"
-    if status.last_error_type:
-        return f"前回失敗: {status.last_error_type}"
-    if status.last_success_at is not None:
-        return "前回更新成功"
-    if status.last_attempt_at is not None:
-        return "更新確認済み"
-    return "未更新"
-
-
-def _bytes_label(value: int | None) -> str:
-    if value is None:
-        return "未作成"
-    if value < 1024:
-        return f"{value} B"
-    if value < 1024 * 1024:
-        return f"{value / 1024:.1f} KB"
-    return f"{value / (1024 * 1024):.1f} MB"
 
 
 def _material_label(material_type: str | None) -> str:

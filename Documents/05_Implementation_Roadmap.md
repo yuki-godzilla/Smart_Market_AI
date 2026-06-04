@@ -1092,7 +1092,7 @@ Cache Cleanup:
 UI表示:
 
 - `投資レーダー` 画面には、肥大化防止に関係する状態を簡潔に表示できるようにする。
-  - 例: `最終更新: 21:15`、`状態: fresh`、`キャッシュ: 182KB`、`バックグラウンド更新中`
+  - 通常表示はタイトル右上の `情報鮮度` に絞る。キャッシュサイズや更新履歴は初期画面に常時カード表示しない。
   - エラー時: `ニュース更新に失敗しました。前回キャッシュを表示しています。`
   - 詳細な stack trace や巨大ログは UI に出さない。
 
@@ -1737,7 +1737,7 @@ Markdown UTF-8 check:
 
 - Phase 16S の最終 Streamlit browser smoke をいつ実施するか
 - Phase 22.x `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動をどの順に進めるか
-- `投資レーダー` 画面の news cache status、fallback、freshness、cache size 初期表示は実装済み。今後は詳細フィルタ / Watchlist 連動と合わせて継続調整するか
+- `投資レーダー` 画面の初期表示は、詳細な news cache status / cache size カードを置かず、タイトル右上の `情報鮮度` と必要時の警告に絞った。今後は詳細フィルタ / Watchlist 連動と合わせて継続調整するか
 - Symbol DB background refresh の freshness badge / live provider refresh wiring を Ranking / Cockpit のどこへ接続するか
 - Research Score をランキング順位へ統合する必要性を再確認するか。既定では統合しない
 - Assistant が参照できる context の範囲、privacy boundary、API / Streamlit 質問パネルの位置

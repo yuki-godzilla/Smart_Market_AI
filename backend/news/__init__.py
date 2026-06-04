@@ -1,3 +1,8 @@
+from backend.news.background import (
+    NEWS_BACKGROUND_STARTUP_DELAY_SECONDS,
+    run_news_background_refresh_once,
+    start_news_background_refresh_worker,
+)
 from backend.news.cache import (
     MAX_AI_COMMENT_CHARS,
     MAX_CHECKPOINTS_PER_NEWS,
@@ -81,6 +86,7 @@ __all__ = [
     "NEWS_CACHE_DIR",
     "NEWS_CACHE_EXPIRED_HOURS",
     "NEWS_CACHE_FRESH_HOURS",
+    "NEWS_BACKGROUND_STARTUP_DELAY_SECONDS",
     "NEWS_DASHBOARD_SCHEMA_VERSION",
     "NEWS_LOG_DIR",
     "NEWS_PREVIOUS_SNAPSHOT_FILENAME",
@@ -122,8 +128,10 @@ __all__ = [
     "load_news_update_status",
     "news_snapshot_item_count",
     "normalize_snapshot_for_cache",
+    "run_news_background_refresh_once",
     "refresh_news_dashboard_cache",
     "rotate_previous_snapshot",
     "save_cached_news_dashboard_snapshot",
     "save_news_update_status",
+    "start_news_background_refresh_worker",
 ]

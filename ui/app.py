@@ -30,6 +30,7 @@ from backend.core.errors import AppError
 from backend.forecast import forecast_model_display_name
 from backend.marketdata import create_market_data_provider_adapter
 from backend.marketdata.feature_builder import build_daily_snapshots_from_market_data
+from backend.news.background import start_news_background_refresh_worker
 from backend.reporting import (
     DecisionReportContext,
     DecisionReportSection,
@@ -1481,6 +1482,7 @@ def main() -> None:
     st.set_page_config(page_title="Smart Market AI", layout="wide")
     render_global_styles()
     _start_symbol_background_refresh_worker_once()
+    _start_news_background_refresh_worker_once()
     _apply_navigation_query_params()
 
     selected_page = render_sidemenu(runtime_settings_summary())
@@ -1554,6 +1556,30 @@ def _start_symbol_background_refresh_worker_once() -> None:
 
 def _symbol_background_refresh_delay_scale() -> float:
     raw_value = os.environ.get("SMAI_SYMBOL_BACKGROUND_REFRESH_DELAY_SCALE", "").strip()
+    if not raw_value:
+        return 1.0
+    try:
+        return max(0.0, float(raw_value))
+    except ValueError:
+        return 1.0
+
+
+def _start_news_background_refresh_worker_once() -> None:
+    state_key = "news_background_refresh_worker_started"
+    if state_key in st.session_state:
+        return
+    try:
+        start_news_background_refresh_worker(delay_scale=_news_background_refresh_delay_scale())
+        st.session_state[state_key] = True
+    except Exception as exc:
+        st.session_state[state_key] = {
+            "failed": True,
+            "error_type": type(exc).__name__,
+        }
+
+
+def _news_background_refresh_delay_scale() -> float:
+    raw_value = os.environ.get("SMAI_NEWS_BACKGROUND_REFRESH_DELAY_SCALE", "").strip()
     if not raw_value:
         return 1.0
     try:

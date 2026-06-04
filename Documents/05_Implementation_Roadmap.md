@@ -880,7 +880,7 @@ Phase 22.x: 投資レーダー / Investment News dashboard
 - Phase 22 本体の Research Score 方針は維持し、Investment News / 投資レーダー dashboard は Phase 22.x の UI / backend snapshot slice として扱う。
 - `backend/news/dashboard.py` で deterministic `build_news_dashboard_snapshot` / `build_demo_news_dashboard_snapshot` を実装し、保存済みsnapshotがない場合も network-free demo snapshot で表示できる。
 - `backend/news/sources.py` で Standard Mode の市場横断ニュース取得層を追加済み。手動更新時に Google News RSS を12カテゴリで広めに取得し、raw 150〜250件程度の候補からURL/title重複を除き、最大100件の dashboard snapshot に圧縮する。通常 tests は Static adapter / RSS fixture で network-free に維持する。
-- `ui/views/news.py` で `投資レーダー` 画面を追加し、side menu / routing / related-symbol cockpit handoff を `ui/components/sidemenu.py` と `ui/app.py` に接続済み。ニュースカードの関連銘柄は `本文に出た銘柄` を最大8件まで優先表示し、残り枠に `SMAI推測候補` を可変で補完する。投資ヒートマップの銘柄タイルはニュース直結の関連銘柄だけでなく、ローカル銘柄ユニバース全体からカテゴリ適合、時価総額帯、データ品質、ニュース鮮度、材料タイプ、市場シグナルを使って注目度順に補完する。企業名を主、シンボルを補助タグとして表示し、クリックで同一アプリ内の `銘柄コックピット` に遷移する。
+- `ui/views/news.py` で `投資レーダー` 画面を追加し、side menu / routing / related-symbol cockpit handoff を `ui/components/sidemenu.py` と `ui/app.py` に接続済み。タイトル右上の `情報鮮度` バッジには取得時刻も小さく表示する。ニュースカードの関連銘柄は `本文に出た銘柄` を最大8件まで優先表示し、残り枠に `SMAI推測候補` を可変で補完する。投資ヒートマップの銘柄タイルはニュース直結の関連銘柄だけでなく、ローカル銘柄ユニバース全体からカテゴリ適合、時価総額帯、データ品質、ニュース鮮度、材料タイプ、市場シグナルを使って注目度順に補完する。企業名を主、シンボルを補助タグとして表示し、クリックで同一アプリ内の `銘柄コックピット` に遷移する。
 
 MVP 必須機能:
 
@@ -1092,7 +1092,7 @@ Cache Cleanup:
 UI表示:
 
 - `投資レーダー` 画面には、肥大化防止に関係する状態を簡潔に表示できるようにする。
-  - 通常表示はタイトル右上の `情報鮮度` に絞る。キャッシュサイズや更新履歴は初期画面に常時カード表示しない。
+  - 通常表示はタイトル右上の `情報鮮度` と取得時刻に絞る。キャッシュサイズや更新履歴は初期画面に常時カード表示しない。
   - エラー時: `ニュース更新に失敗しました。前回キャッシュを表示しています。`
   - 詳細な stack trace や巨大ログは UI に出さない。
 

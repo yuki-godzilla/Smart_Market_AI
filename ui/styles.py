@@ -721,15 +721,22 @@ body,
 
 .investment-news-freshness-badge {
     display: inline-flex;
-    align-items: baseline;
-    gap: 0.38rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.12rem;
     max-width: 100%;
     border: 1px solid rgba(125, 211, 252, 0.22);
     border-radius: 8px;
     background: rgba(9, 20, 35, 0.68);
-    padding: 0.28rem 0.56rem;
+    padding: 0.3rem 0.58rem;
     box-shadow: 0 0.35rem 1rem rgba(2, 6, 23, 0.18);
     backdrop-filter: blur(8px);
+}
+
+.investment-news-freshness-status {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.38rem;
 }
 
 .investment-news-freshness-label {
@@ -744,6 +751,14 @@ body,
     color: var(--text-value);
     font-size: 0.78rem;
     font-weight: 850;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.investment-news-freshness-time {
+    color: var(--text-secondary);
+    font-size: 0.68rem;
+    font-weight: 680;
     line-height: 1.2;
     white-space: nowrap;
 }

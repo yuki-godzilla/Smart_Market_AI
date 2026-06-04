@@ -743,11 +743,17 @@ def news_dashboard_freshness_badge_html(
     """Return the small freshness badge shown in the Investment Radar title."""
 
     freshness = _freshness_label(snapshot.freshness_status)
+    fetched_at = snapshot.fetched_at or snapshot.generated_at
+    fetched_at_label = _datetime_label(fetched_at)
     return (
         '<div class="investment-news-freshness-badge" '
-        f'aria-label="情報鮮度 {html.escape(freshness)}">'
+        f'aria-label="情報鮮度 {html.escape(freshness)} '
+        f'取得時刻 {html.escape(fetched_at_label)}">'
+        '<span class="investment-news-freshness-status">'
         '<span class="investment-news-freshness-label">情報鮮度</span>'
         f'<strong class="investment-news-freshness-value">{html.escape(freshness)}</strong>'
+        "</span>"
+        f'<span class="investment-news-freshness-time">取得 {html.escape(fetched_at_label)}</span>'
         "</div>"
     )
 

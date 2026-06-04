@@ -54,6 +54,7 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert ".smai-page-title-accessory" in SMAI_GLOBAL_CSS
     assert ".smai-copilot-panel" in SMAI_GLOBAL_CSS
     assert ".investment-news-freshness-badge" in SMAI_GLOBAL_CSS
+    assert ".investment-news-freshness-time" in SMAI_GLOBAL_CSS
     assert ".smai-insight" in SMAI_GLOBAL_CSS
     assert "@keyframes smai-copilot-float" in SMAI_GLOBAL_CSS
     assert "translateY(-3px) scale(1.012)" in SMAI_GLOBAL_CSS

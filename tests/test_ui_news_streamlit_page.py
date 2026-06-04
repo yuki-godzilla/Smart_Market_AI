@@ -21,6 +21,8 @@ def test_news_dashboard_freshness_badge_keeps_header_context_compact():
 
     assert "情報鮮度" in badge_html
     assert "最新" in badge_html
+    assert "取得 2026-06-04 09:58 UTC" in badge_html
+    assert "取得時刻 2026-06-04 09:58 UTC" in badge_html
     assert "表示データ" not in badge_html
     assert "キャッシュサイズ" not in badge_html
     assert "更新状態" not in badge_html

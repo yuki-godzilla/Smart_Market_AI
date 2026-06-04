@@ -10,6 +10,7 @@ from urllib.parse import quote
 
 import pandas as pd
 import streamlit as st
+from zoneinfo import ZoneInfo
 
 from backend.news import (
     NewsCategoryLane,
@@ -36,6 +37,8 @@ NEWS_COCKPIT_QUERY_COCKPIT_VALUE = "cockpit"
 NEWS_DIRECT_SYMBOL_DISPLAY_LIMIT = 8
 NEWS_INFERRED_SYMBOL_DISPLAY_LIMIT = 4
 NEWS_SYMBOL_DISPLAY_TOTAL_LIMIT = 8
+NEWS_DISPLAY_TIMEZONE = ZoneInfo("Asia/Tokyo")
+NEWS_DISPLAY_TIMEZONE_LABEL = "JST"
 
 _FRESHNESS_LABELS = {
     "latest": "最新",
@@ -1721,7 +1724,8 @@ def _source_type_label(source_type: str) -> str:
 def _datetime_label(value: datetime | None) -> str:
     if value is None:
         return "未確認"
-    return value.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
+    local_value = value.astimezone(NEWS_DISPLAY_TIMEZONE)
+    return f"{local_value.strftime('%Y-%m-%d %H:%M')} {NEWS_DISPLAY_TIMEZONE_LABEL}"
 
 
 def _price_change_label(value: float | None, *, inferred: bool = False) -> str:

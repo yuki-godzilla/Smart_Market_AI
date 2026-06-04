@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from streamlit.testing.v1 import AppTest
 
 from backend.news import (
+    NewsDashboardSnapshot,
     NewsHeadlineCard,
     build_demo_news_dashboard_snapshot,
     build_news_dashboard_snapshot,
@@ -21,11 +22,24 @@ def test_news_dashboard_freshness_badge_keeps_header_context_compact():
 
     assert "情報鮮度" in badge_html
     assert "最新" in badge_html
-    assert "取得 2026-06-04 09:58 UTC" in badge_html
-    assert "取得時刻 2026-06-04 09:58 UTC" in badge_html
+    assert "取得 2026-06-04 18:58 JST" in badge_html
+    assert "取得時刻 2026-06-04 18:58 JST" in badge_html
     assert "表示データ" not in badge_html
     assert "キャッシュサイズ" not in badge_html
     assert "更新状態" not in badge_html
+
+
+def test_news_dashboard_freshness_badge_shows_jst_date_rollover():
+    snapshot = NewsDashboardSnapshot(
+        generated_at=datetime(2026, 6, 4, 23, 13, tzinfo=UTC),
+        fetched_at=datetime(2026, 6, 4, 23, 13, tzinfo=UTC),
+        freshness_status="latest",
+    )
+
+    badge_html = news_dashboard_freshness_badge_html(snapshot)
+
+    assert "取得 2026-06-05 08:13 JST" in badge_html
+    assert "2026-06-04 23:13 UTC" not in badge_html
 
 
 def test_news_dashboard_filtered_snapshot_filters_detail_conditions():

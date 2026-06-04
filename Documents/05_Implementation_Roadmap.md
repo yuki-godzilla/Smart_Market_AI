@@ -1737,7 +1737,7 @@ Markdown UTF-8 check:
 
 - Phase 16S の最終 Streamlit browser smoke をいつ実施するか
 - Phase 22.x `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動をどの順に進めるか
-- `投資レーダー` 画面で news cache status、fallback、freshness、cache size の見せ方を実画面で継続調整するか
+- `投資レーダー` 画面の news cache status、fallback、freshness、cache size 初期表示は実装済み。今後は詳細フィルタ / Watchlist 連動と合わせて継続調整するか
 - Symbol DB background refresh の freshness badge / live provider refresh wiring を Ranking / Cockpit のどこへ接続するか
 - Research Score をランキング順位へ統合する必要性を再確認するか。既定では統合しない
 - Assistant が参照できる context の範囲、privacy boundary、API / Streamlit 質問パネルの位置

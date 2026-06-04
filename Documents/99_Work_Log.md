@@ -1077,3 +1077,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Renamed `マーケットニュースストリーム` to `市場ニュースヘッドライン` and enlarged / slowed the ticker text for readability.
 - Renamed `ニュース加熱テーマ` to `投資ヒートマップ` and added category price-change / volume-activity fields so tile color, opacity, and text prioritize visual market movement.
 - Updated related-symbol handoff buttons to include known local symbol names / company names before opening `銘柄コックピット`.
+
+## 2026-06-05 - Investment Radar cache status UI
+
+- Added a compact `ニュース表示の状態` panel to `投資レーダー` showing cached/demo source, freshness, generated time, last successful refresh, headline count, heatmap category count, cache size, and refresh state.
+- Added `?smai_page=news|ranking|rebalance|settings` routing support so the implemented app screen can be opened directly while preserving the existing cockpit symbol handoff query path.
+- Tightened compact news-card display with fixed height, line clamps, and hidden checkpoint bullets so the first viewport reaches the heatmap more quickly.
+- Verified the screen through Streamlit AppTest and headless Chrome desktop / mobile captures; desktop reached the status panel, three headline cards, and the heatmap, while mobile kept the status grid within the viewport.

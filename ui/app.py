@@ -93,6 +93,8 @@ from ui.components.sidemenu import (
     SIDEMENU_PAGE_NEWS,
     SIDEMENU_PAGE_RANKING,
     SIDEMENU_PAGE_REBALANCE,
+    SIDEMENU_PAGE_SETTINGS,
+    SIDEMENU_STATE_KEY,
     render_sidemenu,
 )
 from ui.content.common_texts import (
@@ -1505,13 +1507,30 @@ def _apply_navigation_query_params() -> None:
         return
     page = _query_param_value(_query_param_get(params, NEWS_COCKPIT_QUERY_PAGE_PARAM))
     symbol = _query_param_value(_query_param_get(params, NEWS_COCKPIT_QUERY_SYMBOL_PARAM))
-    if page != NEWS_COCKPIT_QUERY_COCKPIT_VALUE or not symbol:
+    if page != NEWS_COCKPIT_QUERY_COCKPIT_VALUE:
+        if _apply_sidemenu_page_query(page):
+            _clear_navigation_query_params(params, (NEWS_COCKPIT_QUERY_PAGE_PARAM,))
+        return
+    if not symbol:
         return
     _select_news_symbol_for_cockpit(symbol.upper())
     _clear_navigation_query_params(
         params,
         (NEWS_COCKPIT_QUERY_PAGE_PARAM, NEWS_COCKPIT_QUERY_SYMBOL_PARAM),
     )
+
+
+def _apply_sidemenu_page_query(page: str) -> bool:
+    page_key = page.strip().lower()
+    if page_key not in {
+        SIDEMENU_PAGE_NEWS,
+        SIDEMENU_PAGE_RANKING,
+        SIDEMENU_PAGE_REBALANCE,
+        SIDEMENU_PAGE_SETTINGS,
+    }:
+        return False
+    st.session_state[SIDEMENU_STATE_KEY] = page_key
+    return True
 
 
 def _query_param_get(params: object, key: str) -> object:

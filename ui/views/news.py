@@ -4,7 +4,6 @@ import html
 from collections.abc import Callable
 from datetime import UTC, datetime
 
-import altair as alt
 import pandas as pd
 import streamlit as st
 
@@ -19,7 +18,7 @@ from backend.news import (
     refresh_news_dashboard_cache,
 )
 from ui.components.mascot import render_page_title
-from ui.styles import THEME_COLORS, render_metric_card, style_altair_chart, truncate_text
+from ui.styles import render_metric_card, truncate_text
 from ui.symbol_universe import symbol_name
 
 OpenSymbolCallback = Callable[[str], None]
@@ -52,6 +51,8 @@ _MATERIAL_TONES = {
     "shareholder_return": "positive",
     "theme": "news",
 }
+
+_HEATMAP_TILE_OFFSETS = (0.0, -0.35, 0.28, 0.62, -0.72, 0.18, -0.15, 0.45, -0.42, 0.08)
 
 
 def render_news_dashboard_page(
@@ -115,6 +116,63 @@ def news_dashboard_heatmap_frame(snapshot: NewsDashboardSnapshot) -> pd.DataFram
     """Return the heatmap frame used by the Investment News chart."""
 
     return pd.DataFrame([_heatmap_cell_row(cell) for cell in snapshot.heatmap_cells])
+
+
+def news_dashboard_stock_heatmap_groups(
+    snapshot: NewsDashboardSnapshot,
+    *,
+    max_groups: int = 12,
+    max_tiles_per_group: int = 12,
+) -> list[dict[str, object]]:
+    """Return sector-style groups for the stock heatmap view."""
+
+    if max_groups <= 0 or max_tiles_per_group <= 0:
+        return []
+    frame = news_dashboard_heatmap_frame(snapshot)
+    if frame.empty:
+        return []
+    lanes_by_category = {lane.category: lane for lane in snapshot.category_lanes}
+    groups: list[dict[str, object]] = []
+    sorted_frame = frame.sort_values("加熱度", ascending=False).head(max_groups)
+    for group_index, row in enumerate(sorted_frame.to_dict("records")):
+        category = str(row["投資カテゴリ"])
+        lane = lanes_by_category.get(category)
+        symbols = _heatmap_group_symbols(lane.headlines if lane else [], max_tiles_per_group)
+        if not symbols:
+            symbols = [category]
+        tiles = [
+            _stock_heatmap_tile(symbol, row, tile_index)
+            for tile_index, symbol in enumerate(symbols[:max_tiles_per_group])
+        ]
+        groups.append(
+            {
+                "category": category,
+                "region": str(row["分野"]),
+                "metric_source": str(row["市場指標"]),
+                "heat_score": row["加熱度"],
+                "group_class": _stock_heatmap_group_class(group_index, float(row["加熱度"])),
+                "summary_label": str(row["値動き表示"]),
+                "tiles": tiles,
+            }
+        )
+    return groups
+
+
+def news_dashboard_stock_heatmap_html(snapshot: NewsDashboardSnapshot) -> str:
+    """Return a sector-style stock heatmap HTML surface."""
+
+    groups = news_dashboard_stock_heatmap_groups(snapshot)
+    if not groups:
+        return ""
+    group_html = "".join(_stock_heatmap_group_html(group) for group in groups)
+    return (
+        '<section class="investment-stock-heatmap" aria-label="investment stock heatmap">'
+        '<div class="investment-stock-heatmap-topline">'
+        "<span>赤: 注意材料</span><span>灰: 中立</span><span>緑: 好材料</span>"
+        "</div>"
+        f'<div class="investment-stock-heatmap-board">{group_html}</div>'
+        "</section>"
+    )
 
 
 def news_headline_card_html(
@@ -313,6 +371,130 @@ def _int_attr(value: object, name: str) -> int:
         return 0
 
 
+def _heatmap_group_symbols(
+    cards: list[NewsHeadlineCard],
+    limit: int,
+) -> list[str]:
+    symbols: list[str] = []
+    seen: set[str] = set()
+    for card in cards:
+        for symbol in card.related_symbols:
+            normalized = symbol.strip().upper()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            symbols.append(normalized)
+            if len(symbols) >= limit:
+                return symbols
+    return symbols
+
+
+def _stock_heatmap_tile(
+    symbol: str,
+    row: dict[str, object],
+    tile_index: int,
+) -> dict[str, object]:
+    base_change = _coerce_float(row.get("値動きスコア"), 0.0)
+    change = round(
+        max(
+            -3.0,
+            min(3.0, base_change + _HEATMAP_TILE_OFFSETS[tile_index % len(_HEATMAP_TILE_OFFSETS)]),
+        ),
+        1,
+    )
+    inferred = str(row.get("市場指標")) != "市場データ"
+    return {
+        "symbol": symbol,
+        "name": _stock_heatmap_tile_name(symbol),
+        "change": change,
+        "change_label": _price_change_label(change, inferred=inferred),
+        "tone": _stock_heatmap_tone(change),
+        "size": _stock_heatmap_tile_size(tile_index),
+    }
+
+
+def _stock_heatmap_tile_name(symbol: str) -> str:
+    try:
+        name = symbol_name(symbol)
+    except OSError:
+        name = None
+    if not name or name.strip().upper() == symbol.strip().upper():
+        return ""
+    return truncate_text(name, max_chars=22)
+
+
+def _stock_heatmap_tone(change: float) -> str:
+    if change >= 1.4:
+        return "strong-positive"
+    if change >= 0.35:
+        return "positive"
+    if change <= -1.4:
+        return "strong-negative"
+    if change <= -0.35:
+        return "negative"
+    return "neutral"
+
+
+def _stock_heatmap_tile_size(tile_index: int) -> str:
+    if tile_index == 0:
+        return "hero"
+    if tile_index in {1, 2}:
+        return "major"
+    if tile_index in {3, 4, 5}:
+        return "medium"
+    return "minor"
+
+
+def _stock_heatmap_group_class(group_index: int, heat_score: float) -> str:
+    if group_index < 2 or heat_score >= 4.5:
+        return "mega"
+    if group_index < 5 or heat_score >= 3.2:
+        return "large"
+    return "medium"
+
+
+def _stock_heatmap_group_html(group: dict[str, object]) -> str:
+    category = html.escape(str(group["category"]))
+    region = html.escape(str(group["region"]))
+    metric_source = html.escape(str(group["metric_source"]))
+    summary_label = html.escape(str(group["summary_label"]))
+    group_class = html.escape(str(group["group_class"]))
+    tiles = group["tiles"]
+    tile_html = "".join(_stock_heatmap_tile_html(tile) for tile in tiles if isinstance(tile, dict))
+    return (
+        f'<article class="investment-stock-heatmap-group {group_class}">'
+        '<header class="investment-stock-heatmap-group-header">'
+        f'<span class="investment-stock-heatmap-group-title">{category}</span>'
+        f'<span class="investment-stock-heatmap-group-meta">{region} / {metric_source} / {summary_label}</span>'
+        "</header>"
+        f'<div class="investment-stock-heatmap-tiles">{tile_html}</div>'
+        "</article>"
+    )
+
+
+def _stock_heatmap_tile_html(tile: dict[str, object]) -> str:
+    symbol = html.escape(str(tile["symbol"]))
+    name = html.escape(str(tile["name"]))
+    change_label = html.escape(str(tile["change_label"]))
+    tone = html.escape(str(tile["tone"]))
+    size = html.escape(str(tile["size"]))
+    name_html = f'<span class="investment-stock-heatmap-name">{name}</span>' if name else ""
+    return (
+        f'<div class="investment-stock-heatmap-tile {tone} {size}">'
+        f'<span class="investment-stock-heatmap-symbol">{symbol}</span>'
+        f"{name_html}"
+        f'<span class="investment-stock-heatmap-change">{change_label}</span>'
+        "</div>"
+    )
+
+
+def _coerce_float(value: object, fallback: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return fallback
+
+
 def news_symbol_handoff_label(symbol: str) -> str:
     """Return a symbol handoff label with known company name."""
 
@@ -417,61 +599,14 @@ def _render_news_stream(
 def _render_heatmap(snapshot: NewsDashboardSnapshot) -> None:
     st.markdown("### 投資ヒートマップ")
     st.caption(
-        "投資カテゴリごとの値動き、取引量の活発さ、ニュース量を合わせた確認用の温度感です。"
+        "カテゴリごとの市場温度感を、セクター枠と関連銘柄タイルで確認します。"
         "市場指標がないカテゴリはニュース材料から代理シグナルを補完します。"
     )
-    frame = news_dashboard_heatmap_frame(snapshot)
-    if frame.empty:
+    heatmap_html = news_dashboard_stock_heatmap_html(snapshot)
+    if not heatmap_html:
         st.info("投資ヒートマップを集計できる材料はまだありません。")
         return
-    base = alt.Chart(frame).encode(
-        x=alt.X("分野:N", title=None),
-        y=alt.Y(
-            "投資カテゴリ:N",
-            title=None,
-            sort=alt.EncodingSortField(field="加熱度", order="descending"),
-        ),
-        tooltip=[
-            alt.Tooltip("投資カテゴリ:N"),
-            alt.Tooltip("分野:N"),
-            alt.Tooltip("市場指標:N"),
-            alt.Tooltip("加熱度:Q", format=".1f"),
-            alt.Tooltip("値動き:Q", format="+.1f"),
-            alt.Tooltip("取引量:Q", format=".2f"),
-            alt.Tooltip("ニュース件数:Q"),
-            alt.Tooltip("リスク材料:Q"),
-            alt.Tooltip("ポジティブ材料:Q"),
-            alt.Tooltip("公式開示:Q"),
-            alt.Tooltip("鮮度比率:Q", format=".1f"),
-            alt.Tooltip("主な材料:N"),
-        ],
-    )
-    rect = base.mark_rect(cornerRadius=4).encode(
-        color=alt.Color(
-            "値動きスコア:Q",
-            title="値動き/材料",
-            scale=alt.Scale(
-                domain=[-3, 0, 3],
-                range=[
-                    THEME_COLORS["signal_risk"],
-                    THEME_COLORS["bg_card_hover"],
-                    THEME_COLORS["signal_buy"],
-                ],
-            ),
-        ),
-        opacity=alt.Opacity(
-            "取引量スコア:Q",
-            title="取引量",
-            scale=alt.Scale(domain=[1.0, 2.2], range=[0.65, 1.0]),
-        ),
-    )
-    text = base.mark_text(
-        color=THEME_COLORS["text_title"],
-        fontWeight="bold",
-        fontSize=13,
-    ).encode(text=alt.Text("値動き表示:N"))
-    chart = (rect + text).properties(height=max(260, 44 * frame["投資カテゴリ"].nunique()))
-    st.altair_chart(style_altair_chart(chart), use_container_width=True)
+    st.markdown(heatmap_html, unsafe_allow_html=True)
 
 
 def _render_category_lanes(

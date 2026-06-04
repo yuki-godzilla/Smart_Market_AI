@@ -7,6 +7,8 @@ from ui.views.news import (
     news_dashboard_heatmap_frame,
     news_dashboard_lane_card_items,
     news_dashboard_status_items,
+    news_dashboard_stock_heatmap_groups,
+    news_dashboard_stock_heatmap_html,
     news_dashboard_unique_headline_count,
     news_headline_card_html,
     news_symbol_handoff_label,
@@ -80,6 +82,22 @@ def test_news_dashboard_heatmap_frame_accepts_legacy_cells_without_market_metric
     assert frame.loc[0, "値動きスコア"] < 0
     assert frame.loc[0, "取引量スコア"] > 1.0
     assert frame.loc[0, "値動き表示"].startswith("材料")
+
+
+def test_news_dashboard_stock_heatmap_html_uses_sector_tiles():
+    snapshot = build_demo_news_dashboard_snapshot(
+        now=datetime(2026, 6, 4, 10, 0, tzinfo=UTC),
+    )
+    groups = news_dashboard_stock_heatmap_groups(snapshot)
+    html_text = news_dashboard_stock_heatmap_html(snapshot)
+
+    assert groups
+    assert groups[0]["tiles"]
+    assert "investment-stock-heatmap-board" in html_text
+    assert "investment-stock-heatmap-group" in html_text
+    assert "investment-stock-heatmap-tile" in html_text
+    assert "NVDA" in html_text
+    assert "未取得" not in html_text
 
 
 def test_news_headline_card_html_keeps_link_safe_and_hides_raw_url():

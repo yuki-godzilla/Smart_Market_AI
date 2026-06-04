@@ -118,9 +118,9 @@ def news_dashboard_status_items(
         cache_size = status.cache_file_size_bytes
     return [
         {
-            "label": "表示ニュース",
+            "label": "表示中ニュース",
             "value": f"{news_dashboard_unique_headline_count(snapshot)}件",
-            "caption": "重複を除いた見出し数",
+            "caption": "サンプル見出し数" if using_demo else "重複を除いた見出し数",
         },
         {
             "label": "ヒートマップ",

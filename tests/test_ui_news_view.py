@@ -26,7 +26,7 @@ def test_news_dashboard_status_items_distinguish_demo_and_cache():
         using_demo=False,
     )
 
-    assert items[0]["label"] == "表示ニュース"
+    assert items[0]["label"] == "表示中ニュース"
     assert items[0]["value"] == "8件"
     assert items[0]["caption"] == "重複を除いた見出し数"
     assert items[2]["value"] == "最新"
@@ -39,6 +39,9 @@ def test_news_dashboard_status_items_distinguish_demo_and_cache():
         NewsUpdateStatus(cache_file_size_bytes=None),
         using_demo=True,
     )
+    assert demo_items[0]["label"] == "表示中ニュース"
+    assert demo_items[0]["value"] == "8件"
+    assert demo_items[0]["caption"] == "サンプル見出し数"
     assert demo_items[3]["label"] == "データ状態"
     assert demo_items[3]["value"] == "サンプル表示"
     assert demo_items[3]["caption"] == "手動更新前の例示データ"

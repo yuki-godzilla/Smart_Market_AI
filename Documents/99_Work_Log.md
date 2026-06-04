@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-06-05: Restored the animated Investment Radar market headline strip while keeping the anti-clipping layout. Headlines now scroll again as two-line pills, duplicate items are hidden from assistive tech with `aria-hidden`, and reduced-motion users still get a wrapped static layout.
 - 2026-06-05: Adjusted Investment Radar news layout after longer wording caused visible clipping. The market headline strip now uses wrappable headline pills instead of a single scrolling line, and compact news cards no longer use a fixed height; title / summary / comment text is line-clamped within a taller auto-height card so symbol handoff controls stay below readable card content.
 - 2026-06-05: Switched Investment Radar news time labels from UTC to JST after the compact freshness badge made fresh morning updates look like the previous day. Added a date-rollover regression test for `2026-06-04 23:13 UTC` displaying as `2026-06-05 08:13 JST`.
 - 2026-06-05: Added acquisition time back into the Investment Radar title-right freshness badge. The compact header still avoids the old status-card block, but now shows `情報鮮度` plus `取得 ... UTC` so users can see when the dashboard data was fetched.

@@ -666,26 +666,30 @@ body,
         linear-gradient(180deg, rgba(8, 27, 42, 0.95), rgba(11, 18, 32, 0.94));
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     margin: 0.35rem 0 1rem;
-    min-height: 3.2rem;
-    overflow: visible;
+    min-height: 4.65rem;
+    overflow: hidden;
 }
 
 .investment-news-ticker-track {
-    display: flex;
-    flex-wrap: wrap;
+    display: inline-flex;
     align-items: stretch;
-    gap: 0.44rem;
-    min-width: 0;
-    padding: 0.62rem 0.68rem;
+    gap: 0.58rem;
+    min-width: max-content;
+    padding: 0.58rem 0.68rem;
+    animation: investment-news-ticker-scroll 68s linear infinite;
+    will-change: transform;
+}
+
+.investment-news-ticker:hover .investment-news-ticker-track {
+    animation-play-state: paused;
 }
 
 .investment-news-ticker-item {
     display: inline-flex;
     align-items: flex-start;
     gap: 0.42rem;
-    flex: 1 1 min(28rem, 100%);
-    min-width: min(20rem, 100%);
-    max-width: 100%;
+    flex: 0 0 clamp(22rem, 32vw, 32rem);
+    width: clamp(22rem, 32vw, 32rem);
     border: 1px solid rgba(125, 211, 252, 0.18);
     border-radius: 7px;
     background: rgba(15, 23, 42, 0.38);
@@ -716,6 +720,38 @@ body,
     overflow-wrap: anywhere;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+}
+
+@keyframes investment-news-ticker-scroll {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(-50%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .investment-news-ticker {
+        overflow: visible;
+    }
+    .investment-news-ticker-track {
+        display: flex;
+        flex-wrap: wrap;
+        min-width: 0;
+        animation: none;
+    }
+    .investment-news-ticker-item {
+        flex: 1 1 min(28rem, 100%);
+        width: auto;
+    }
+}
+
+@media (max-width: 720px) {
+    .investment-news-ticker-item {
+        flex-basis: min(86vw, 24rem);
+        width: min(86vw, 24rem);
+    }
 }
 
 .investment-news-freshness-badge {

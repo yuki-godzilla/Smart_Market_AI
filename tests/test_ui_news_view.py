@@ -144,7 +144,7 @@ def test_news_headline_card_html_keeps_link_safe_and_hides_raw_url():
     assert html_text.count("<li>") == 1
 
 
-def test_news_ticker_html_uses_wrappable_single_headline_items():
+def test_news_ticker_html_uses_wrappable_scrolling_headline_items():
     cards = [
         NewsHeadlineCard(
             title="長い市場ニュース見出しを折り返して表示できるようにするテスト",
@@ -162,7 +162,8 @@ def test_news_ticker_html_uses_wrappable_single_headline_items():
 
     html_text = _news_ticker_html(cards)
 
-    assert html_text.count("investment-news-ticker-item") == 2
+    assert html_text.count("investment-news-ticker-item") == 4
+    assert html_text.count('aria-hidden="true"') == 2
     assert "investment-news-ticker-title" in html_text
     assert "長い市場ニュース見出しを折り返して表示できるようにするテスト" in html_text
 

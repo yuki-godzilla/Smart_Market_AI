@@ -1688,17 +1688,22 @@ def _lane_heading_html(category: str) -> str:
 def _news_ticker_html(cards: list[NewsHeadlineCard]) -> str:
     if not cards:
         return ""
-    items = "".join(
-        '<span class="investment-news-ticker-item">'
+    items = "".join(_news_ticker_item_html(card) for card in cards)
+    repeated_items = "".join(_news_ticker_item_html(card, aria_hidden=True) for card in cards)
+    return (
+        '<section class="investment-news-ticker" aria-label="market news stream">'
+        f'<div class="investment-news-ticker-track">{items}{repeated_items}</div>'
+        "</section>"
+    )
+
+
+def _news_ticker_item_html(card: NewsHeadlineCard, *, aria_hidden: bool = False) -> str:
+    hidden_attr = ' aria-hidden="true"' if aria_hidden else ""
+    return (
+        f'<span class="investment-news-ticker-item"{hidden_attr}>'
         f'<span class="investment-news-ticker-category">{html.escape(card.category)}</span>'
         f'<span class="investment-news-ticker-title">{html.escape(card.title)}</span>'
         "</span>"
-        for card in cards
-    )
-    return (
-        '<section class="investment-news-ticker" aria-label="market news stream">'
-        f'<div class="investment-news-ticker-track">{items}</div>'
-        "</section>"
     )
 
 

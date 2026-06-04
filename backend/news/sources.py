@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import html
 import re
 import xml.etree.ElementTree as ET
@@ -7,6 +8,8 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from email.utils import parsedate_to_datetime
+from functools import lru_cache
+from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request as UrlRequest
 from urllib.request import urlopen
@@ -21,6 +24,38 @@ STANDARD_NEWS_CATEGORY_QUERY_COUNT = 12
 STANDARD_NEWS_PER_QUERY_LIMIT = 15
 STANDARD_NEWS_LOOKBACK_DAYS = 7
 GOOGLE_NEWS_RSS_SEARCH_URL = "https://news.google.com/rss/search"
+DIRECT_SYMBOL_EXTRACTION_LIMIT = 8
+INFERRED_SYMBOL_EXTRACTION_LIMIT = 4
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SYMBOL_UNIVERSE_CSV = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe.csv"
+SYMBOL_ALIAS_BLOCKLIST = {
+    "ai",
+    "etf",
+    "reit",
+    "株",
+    "日本",
+    "米国",
+    "銀行",
+    "金融",
+    "商社",
+    "食品",
+    "機械",
+    "電機",
+    "情報",
+    "通信",
+    "投資",
+    "投資証券",
+    "プライム",
+    "グロース",
+    "スタンダード",
+    "内国株式",
+    "卸売業",
+    "食料品",
+    "医薬品",
+    "化学",
+    "サービス業",
+    "その他",
+}
 
 
 @dataclass(frozen=True)
@@ -444,7 +479,7 @@ def _symbols_from_text(
     text: str,
     *,
     fallback: Sequence[str],
-    limit: int = 6,
+    limit: int = DIRECT_SYMBOL_EXTRACTION_LIMIT,
 ) -> list[str]:
     symbol_patterns = (
         (r"(?<![A-Za-z0-9])nvidia(?![A-Za-z0-9])|エヌビディア|エヌヴィディア", "NVDA"),
@@ -494,9 +529,17 @@ def _symbols_from_text(
         (r"(?<![A-Za-z0-9])s&p\s*500(?![A-Za-z0-9])|S&P500|SP500|S＆P500|S＆P", "VOO"),
         (r"金価格|金相場|ゴールド|安全資産|(?<![A-Za-z0-9])gold(?![A-Za-z0-9])", "GLD"),
         (r"三菱重工|防衛|defense", "7011.T"),
+        (r"三菱電機|mitsubishi electric", "6503.T"),
+        (r"住友商事|sumitomo corp", "8053.T"),
+        (r"アトラ[ＧG]|アトラグループ", "6029.T"),
+        (r"燦[ＨH][ＤD]|燦ホールディングス", "9628.T"),
+        (r"リネット[ＪJ]|リネットジャパングループ", "3556.T"),
+        (r"ＫＮＴＣＴ|KNTCT|ＫＮＴ－ＣＴ|KNT-CT", "9726.T"),
     )
     matches: dict[str, tuple[int, int]] = {}
     for match in re.finditer(r"【(\d{4})】", text):
+        matches[f"{match.group(1)}.T"] = (match.start(), -1)
+    for match in re.finditer(r"(?<![A-Za-z0-9])(\d{4})\.T(?![A-Za-z0-9])", text, re.IGNORECASE):
         matches[f"{match.group(1)}.T"] = (match.start(), -1)
     for pattern_index, (pattern, symbol) in enumerate(symbol_patterns):
         pattern_match = re.search(pattern, text, flags=re.IGNORECASE)
@@ -506,10 +549,133 @@ def _symbols_from_text(
         current = matches.get(symbol)
         if current is None or candidate < current:
             matches[symbol] = candidate
+    matched_alias_spans: list[tuple[int, int]] = []
+    lowered_text = text.casefold()
+    for alias_index, (alias, symbol) in enumerate(_symbol_universe_aliases()):
+        alias_match = _find_symbol_alias_match(text, lowered_text, alias)
+        if alias_match is None:
+            continue
+        start, end = alias_match
+        if any(
+            start >= matched_start and end <= matched_end
+            for matched_start, matched_end in matched_alias_spans
+        ):
+            continue
+        matched_alias_spans.append((start, end))
+        candidate = (start, len(symbol_patterns) + alias_index)
+        current = matches.get(symbol)
+        if current is None or candidate < current:
+            matches[symbol] = candidate
     return [
         symbol
         for symbol, _ in sorted(matches.items(), key=lambda item: (item[1][0], item[1][1], item[0]))
     ][:limit]
+
+
+@lru_cache(maxsize=1)
+def _symbol_universe_aliases() -> tuple[tuple[str, str], ...]:
+    if not SYMBOL_UNIVERSE_CSV.exists():
+        return ()
+    symbol_by_alias: dict[str, str] = {}
+    try:
+        with SYMBOL_UNIVERSE_CSV.open("r", encoding="utf-8-sig", newline="") as file:
+            for row in csv.DictReader(file):
+                symbol = (row.get("symbol") or "").strip().upper()
+                if not symbol:
+                    continue
+                for alias in _symbol_alias_candidates(row):
+                    symbol_by_alias.setdefault(alias, symbol)
+    except OSError:
+        return ()
+    return tuple(
+        sorted(
+            symbol_by_alias.items(),
+            key=lambda item: (-len(item[0]), item[0], item[1]),
+        )
+    )
+
+
+def _symbol_alias_candidates(row: dict[str, str]) -> list[str]:
+    alias_tokens = (row.get("aliases") or "").split()
+    raw_values = [row.get("name") or ""]
+    if alias_tokens:
+        raw_values.append(alias_tokens[0])
+    aliases: list[str] = []
+    seen: set[str] = set()
+    for value in raw_values:
+        alias = _normalize_symbol_alias(value)
+        if not alias or alias in seen:
+            continue
+        seen.add(alias)
+        aliases.append(alias)
+    return aliases
+
+
+def _normalize_symbol_alias(value: str) -> str:
+    alias = value.strip().strip("、，,・/（）()[]【】")
+    if not alias:
+        return ""
+    if not re.search(r"[^\x00-\x7F]", alias):
+        return ""
+    lowered = alias.casefold()
+    if lowered in SYMBOL_ALIAS_BLOCKLIST or alias in SYMBOL_ALIAS_BLOCKLIST:
+        return ""
+    if re.fullmatch(r"\d+(?:/\d+)?", alias):
+        return ""
+    if re.search(r"\d{4}/\d{2}/\d{2}", alias):
+        return ""
+    if len(alias) < 3 and not re.search(r"[A-Za-z]{3,}", alias):
+        return ""
+    return alias
+
+
+def _find_symbol_alias_match(
+    text: str,
+    lowered_text: str,
+    alias: str,
+) -> tuple[int, int] | None:
+    if _is_ascii_symbol_alias(alias):
+        lowered_alias = alias.casefold()
+        start = lowered_text.find(lowered_alias)
+        while start >= 0:
+            end = start + len(alias)
+            if _has_ascii_symbol_boundaries(text, start, end):
+                return start, end
+            start = lowered_text.find(lowered_alias, start + 1)
+        return None
+    start = text.find(alias)
+    while start >= 0:
+        end = start + len(alias)
+        if _has_non_ascii_symbol_boundaries(text, alias, start, end):
+            return start, end
+        start = text.find(alias, start + 1)
+    return None
+
+
+def _is_ascii_symbol_alias(alias: str) -> bool:
+    return bool(re.fullmatch(r"[A-Za-z0-9 .&+-]+", alias))
+
+
+def _has_ascii_symbol_boundaries(text: str, start: int, end: int) -> bool:
+    before = text[start - 1] if start > 0 else ""
+    after = text[end] if end < len(text) else ""
+    return not (before.isascii() and before.isalnum()) and not (after.isascii() and after.isalnum())
+
+
+def _has_non_ascii_symbol_boundaries(text: str, alias: str, start: int, end: int) -> bool:
+    if not _is_short_katakana_alias(alias):
+        return True
+    before = text[start - 1] if start > 0 else ""
+    after = text[end] if end < len(text) else ""
+    return not _is_katakana(before) and not _is_katakana(after)
+
+
+def _is_short_katakana_alias(alias: str) -> bool:
+    return len(alias) <= 3 and all(_is_katakana(char) for char in alias)
+
+
+def _is_katakana(value: str) -> bool:
+    return bool(value) and all("\u30a0" <= char <= "\u30ff" for char in value)
 
 
 def _inferred_symbols_from_fallback(
@@ -526,10 +692,17 @@ def _inferred_symbols_from_text(
     related_symbols: Sequence[str],
     *,
     fallback: Sequence[str],
-    limit: int = 3,
+    limit: int = INFERRED_SYMBOL_EXTRACTION_LIMIT,
 ) -> list[str]:
-    if len({symbol.strip().upper() for symbol in related_symbols if symbol.strip()}) >= 3:
+    direct_count = len({symbol.strip().upper() for symbol in related_symbols if symbol.strip()})
+    if direct_count >= DIRECT_SYMBOL_EXTRACTION_LIMIT:
         return []
+    if direct_count >= 6:
+        limit = min(limit, 1)
+    elif direct_count >= 3:
+        limit = min(limit, 2)
+    elif direct_count >= 1:
+        limit = min(limit, 3)
     lowered = text.casefold()
     context_candidates: list[str] = []
     context_rules = (

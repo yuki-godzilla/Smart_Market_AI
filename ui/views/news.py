@@ -33,6 +33,9 @@ NEWS_DASHBOARD_WATCHLIST_STATE_KEY = "investment_news_watchlist_symbols"
 NEWS_COCKPIT_QUERY_PAGE_PARAM = "smai_page"
 NEWS_COCKPIT_QUERY_SYMBOL_PARAM = "smai_symbol"
 NEWS_COCKPIT_QUERY_COCKPIT_VALUE = "cockpit"
+NEWS_DIRECT_SYMBOL_DISPLAY_LIMIT = 8
+NEWS_INFERRED_SYMBOL_DISPLAY_LIMIT = 4
+NEWS_SYMBOL_DISPLAY_TOTAL_LIMIT = 8
 
 _FRESHNESS_LABELS = {
     "latest": "最新",
@@ -507,6 +510,30 @@ def _card_handoff_symbol_groups(card: NewsHeadlineCard) -> tuple[list[str], list
         exclude=set(direct),
     )
     return direct, inferred
+
+
+def news_card_symbol_handoff_groups(
+    card: NewsHeadlineCard,
+    *,
+    direct_limit: int = NEWS_DIRECT_SYMBOL_DISPLAY_LIMIT,
+    inferred_limit: int = NEWS_INFERRED_SYMBOL_DISPLAY_LIMIT,
+    total_limit: int = NEWS_SYMBOL_DISPLAY_TOTAL_LIMIT,
+) -> list[tuple[str, list[str]]]:
+    """Return balanced direct/inferred symbol groups for one news card."""
+
+    direct_symbols, inferred_symbols = _card_handoff_symbol_groups(card)
+    normalized_direct_limit = max(0, direct_limit)
+    normalized_inferred_limit = max(0, inferred_limit)
+    normalized_total_limit = max(0, total_limit)
+    displayed_direct = direct_symbols[: min(normalized_direct_limit, normalized_total_limit)]
+    remaining_slots = max(0, normalized_total_limit - len(displayed_direct))
+    displayed_inferred = inferred_symbols[: min(normalized_inferred_limit, remaining_slots)]
+    groups: list[tuple[str, list[str]]] = []
+    if displayed_direct:
+        groups.append(("本文に出た銘柄", displayed_direct))
+    if displayed_inferred:
+        groups.append(("SMAI推測候補", displayed_inferred))
+    return groups
 
 
 def _unique_normalized_symbols(
@@ -1604,40 +1631,17 @@ def _render_symbol_handoff_buttons(
     open_symbol_callback: OpenSymbolCallback,
     max_columns: int = 3,
 ) -> None:
-    direct_symbols, inferred_symbols = _card_handoff_symbol_groups(card)
-    if not direct_symbols and not inferred_symbols:
+    groups = news_card_symbol_handoff_groups(card)
+    if not groups:
         return
-    symbols = [*direct_symbols, *inferred_symbols]
-    if direct_symbols:
+    for group_index, (caption, symbols) in enumerate(groups):
         _render_symbol_button_group(
-            direct_symbols,
-            caption="本文に出た銘柄",
-            key_prefix=f"{key_prefix}_direct",
+            symbols,
+            caption=caption,
+            key_prefix=f"{key_prefix}_group_{group_index}",
             open_symbol_callback=open_symbol_callback,
             max_columns=max_columns,
         )
-    if inferred_symbols:
-        _render_symbol_button_group(
-            inferred_symbols,
-            caption="SMAI推測候補",
-            key_prefix=f"{key_prefix}_inferred",
-            open_symbol_callback=open_symbol_callback,
-            max_columns=max_columns,
-        )
-    return
-    st.caption("関連銘柄")
-    cols = st.columns(min(max_columns, len(symbols)))
-    for index, symbol in enumerate(symbols[:3]):
-        label = news_symbol_handoff_label(symbol)
-        with cols[index % len(cols)]:
-            st.button(
-                truncate_text(label, max_chars=34),
-                key=f"investment_news_open_{key_prefix}_{symbol}",
-                help=f"{label}を銘柄コックピットで確認します。",
-                use_container_width=True,
-                on_click=open_symbol_callback,
-                args=(symbol,),
-            )
 
 
 def _render_symbol_button_group(
@@ -1650,7 +1654,7 @@ def _render_symbol_button_group(
 ) -> None:
     st.caption(caption)
     cols = st.columns(min(max_columns, len(symbols)))
-    for index, symbol in enumerate(symbols[:3]):
+    for index, symbol in enumerate(symbols):
         label = news_symbol_handoff_label(symbol)
         with cols[index % len(cols)]:
             st.button(

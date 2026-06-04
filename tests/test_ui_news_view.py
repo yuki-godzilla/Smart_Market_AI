@@ -7,6 +7,7 @@ from backend.news import (
     build_demo_news_dashboard_snapshot,
 )
 from ui.views.news import (
+    news_card_symbol_handoff_groups,
     news_dashboard_cockpit_href,
     news_dashboard_handoff_symbols,
     news_dashboard_heatmap_frame,
@@ -169,6 +170,54 @@ def test_news_dashboard_handoff_symbols_include_inferred_after_direct():
     )
 
     assert news_dashboard_handoff_symbols(snapshot) == ["TSM", "NVDA", "AMD"]
+
+
+def test_news_card_symbol_handoff_groups_prioritize_direct_and_fill_inferred():
+    card = NewsHeadlineCard(
+        title="Multiple company mentions",
+        source_type="news",
+        category="semiconductors",
+        material_type="theme",
+        related_symbols=["NVDA", "TSM", "ASML", "AMD", "AVGO"],
+        inferred_symbols=["QQQ", "SPY", "6857.T", "8035.T"],
+    )
+
+    groups = news_card_symbol_handoff_groups(card)
+
+    assert groups == [
+        ("本文に出た銘柄", ["NVDA", "TSM", "ASML", "AMD", "AVGO"]),
+        ("SMAI推測候補", ["QQQ", "SPY", "6857.T"]),
+    ]
+
+
+def test_news_card_symbol_handoff_groups_keep_direct_until_high_count():
+    card = NewsHeadlineCard(
+        title="Many direct company mentions",
+        source_type="news",
+        category="semiconductors",
+        material_type="theme",
+        related_symbols=[
+            "NVDA",
+            "TSM",
+            "ASML",
+            "AMD",
+            "AVGO",
+            "AAPL",
+            "MSFT",
+            "AMZN",
+            "7203.T",
+        ],
+        inferred_symbols=["QQQ", "SPY"],
+    )
+
+    groups = news_card_symbol_handoff_groups(card)
+
+    assert groups == [
+        (
+            "本文に出た銘柄",
+            ["NVDA", "TSM", "ASML", "AMD", "AVGO", "AAPL", "MSFT", "AMZN"],
+        )
+    ]
 
 
 def test_news_dashboard_lane_card_items_keep_three_column_grid_reasonable():

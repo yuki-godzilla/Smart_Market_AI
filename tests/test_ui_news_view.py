@@ -1,7 +1,11 @@
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
-from backend.news import build_demo_news_dashboard_snapshot
+from backend.news import (
+    NewsDashboardSnapshot,
+    NewsHeadlineCard,
+    build_demo_news_dashboard_snapshot,
+)
 from ui.views.news import (
     news_dashboard_cockpit_href,
     news_dashboard_handoff_symbols,
@@ -147,6 +151,24 @@ def test_news_dashboard_handoff_symbols_are_unique_in_display_order():
     assert symbols
     assert len(symbols) == len(set(symbols))
     assert "NVDA" in symbols
+
+
+def test_news_dashboard_handoff_symbols_include_inferred_after_direct():
+    snapshot = NewsDashboardSnapshot(
+        generated_at=datetime(2026, 6, 4, 10, 0, tzinfo=UTC),
+        stream_headlines=[
+            NewsHeadlineCard(
+                title="Chip supply pressure continues",
+                source_type="news",
+                category="semiconductors",
+                material_type="theme",
+                related_symbols=["TSM"],
+                inferred_symbols=["NVDA", "AMD"],
+            )
+        ],
+    )
+
+    assert news_dashboard_handoff_symbols(snapshot) == ["TSM", "NVDA", "AMD"]
 
 
 def test_news_dashboard_lane_card_items_keep_three_column_grid_reasonable():

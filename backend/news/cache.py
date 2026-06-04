@@ -260,6 +260,7 @@ def _normalize_headline_card(headline: NewsHeadlineCard) -> NewsHeadlineCard:
         region=_normalize_optional_text(headline.region),
         material_type=_normalize_text(headline.material_type) or headline.material_type.strip(),
         related_symbols=_dedupe_symbols(headline.related_symbols),
+        inferred_symbols=_dedupe_symbols(headline.inferred_symbols),
         is_official_source=headline.is_official_source,
         ai_comment=_truncate_optional_text(headline.ai_comment, MAX_AI_COMMENT_CHARS),
         investment_checkpoints=_limit_text_items(

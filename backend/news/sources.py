@@ -341,6 +341,10 @@ def _google_news_dashboard_card_from_item(
     source = _rss_child_text(item, "source") or "Google News"
     description = _description_text(_rss_child_text(item, "description"))
     published_at = _rss_datetime(_rss_child_text(item, "pubDate"))
+    related_symbols = _symbols_from_text(
+        f"{title} {description}",
+        fallback=category_query.related_symbols,
+    )
     return NewsHeadlineCard(
         title=_clip_text(title, max_chars=120),
         summary=_clip_text(description or title, max_chars=220),
@@ -353,8 +357,9 @@ def _google_news_dashboard_card_from_item(
         category=category_query.category,
         region=category_query.region,
         material_type=category_query.material_type,
-        related_symbols=_symbols_from_text(
-            f"{title} {description}",
+        related_symbols=related_symbols,
+        inferred_symbols=_inferred_symbols_from_fallback(
+            related_symbols,
             fallback=category_query.related_symbols,
         ),
         ai_comment=_standard_news_ai_comment(category_query),
@@ -435,6 +440,8 @@ def _symbols_from_text(
         ),
         (r"(?<![A-Za-z0-9])asml(?![A-Za-z0-9])", "ASML"),
         (r"(?<![A-Za-z0-9])amd(?![A-Za-z0-9])|advanced micro devices", "AMD"),
+        (r"(?<![A-Za-z0-9])broadcom(?![A-Za-z0-9])|ブロードコム", "AVGO"),
+        (r"(?<![A-Za-z0-9])lululemon(?![A-Za-z0-9])|ルルレモン", "LULU"),
         (r"東京エレクトロン|tokyo electron", "8035.T"),
         (r"アドバンテスト|advantest", "6857.T"),
         (r"トヨタ|toyota", "7203.T"),
@@ -448,13 +455,39 @@ def _symbols_from_text(
         (r"(?<!金融)金(?!利|融)|(?<![A-Za-z0-9])gold(?![A-Za-z0-9])", "GLD"),
         (r"防衛|defense", "7011.T"),
     )
-    symbols: list[str] = []
-    for pattern, symbol in symbol_patterns:
-        if re.search(pattern, text, flags=re.IGNORECASE) and symbol not in symbols:
-            symbols.append(symbol)
-        if len(symbols) >= limit:
+    matches: dict[str, tuple[int, int]] = {}
+    for match in re.finditer(r"【(\d{4})】", text):
+        matches[f"{match.group(1)}.T"] = (match.start(), -1)
+    for pattern_index, (pattern, symbol) in enumerate(symbol_patterns):
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if match is None:
+            continue
+        candidate = (match.start(), pattern_index)
+        current = matches.get(symbol)
+        if current is None or candidate < current:
+            matches[symbol] = candidate
+    return [
+        symbol
+        for symbol, _ in sorted(matches.items(), key=lambda item: (item[1][0], item[1][1], item[0]))
+    ][:limit]
+
+
+def _inferred_symbols_from_fallback(
+    related_symbols: Sequence[str],
+    *,
+    fallback: Sequence[str],
+    limit: int = 3,
+) -> list[str]:
+    direct_symbols = {symbol.strip().upper() for symbol in related_symbols if symbol.strip()}
+    inferred: list[str] = []
+    for symbol in fallback:
+        normalized = symbol.strip().upper()
+        if not normalized or normalized in direct_symbols or normalized in inferred:
+            continue
+        inferred.append(normalized)
+        if len(inferred) >= limit:
             break
-    return symbols[:limit]
+    return inferred
 
 
 def _standard_news_ai_comment(category_query: NewsCategoryQuery) -> str:

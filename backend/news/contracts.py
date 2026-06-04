@@ -27,6 +27,7 @@ class NewsHeadlineCard(StrictBaseModel):
     region: str | None = Field(default=None, min_length=1)
     material_type: str = Field(min_length=1)
     related_symbols: list[str] = Field(default_factory=list)
+    inferred_symbols: list[str] = Field(default_factory=list)
     is_official_source: bool = False
     ai_comment: str | None = None
     investment_checkpoints: list[str] = Field(default_factory=list)

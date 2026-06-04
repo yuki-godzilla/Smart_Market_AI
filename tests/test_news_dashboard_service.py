@@ -201,6 +201,76 @@ def test_google_news_related_symbols_prefer_text_hits_over_category_fallback():
     )
 
     assert cards[0].related_symbols == ["TSM"]
+    assert cards[0].inferred_symbols == ["NVDA", "6857.T", "8035.T"]
+
+
+def test_google_news_related_symbols_keep_article_mention_order():
+    fetched_at = datetime(2026, 6, 4, 10, 0, tzinfo=UTC)
+    category_query = NewsCategoryQuery(
+        category="semiconductors",
+        region="global",
+        material_type="theme",
+        query="semiconductor AI stocks",
+        related_symbols=("NVDA", "TSM", "AMD"),
+    )
+    rss = """
+    <rss><channel>
+      <item>
+        <title>Chip supply pressure continues</title>
+        <link>https://example.com/chip-order</link>
+        <source>Example Market</source>
+        <pubDate>Thu, 04 Jun 2026 09:30:00 GMT</pubDate>
+        <description><![CDATA[
+          <p>TSMC said demand is strong before NVIDIA and AMD were mentioned by analysts.</p>
+        ]]></description>
+      </item>
+    </channel></rss>
+    """
+
+    cards = google_news_dashboard_cards_from_rss(
+        rss,
+        category_query=category_query,
+        fetched_at=fetched_at,
+        as_of=fetched_at.date(),
+        max_results=10,
+    )
+
+    assert cards[0].related_symbols == ["TSM", "NVDA", "AMD"]
+    assert cards[0].inferred_symbols == []
+
+
+def test_google_news_related_symbols_extract_japanese_company_names_and_codes():
+    fetched_at = datetime(2026, 6, 4, 10, 0, tzinfo=UTC)
+    category_query = NewsCategoryQuery(
+        category="earnings",
+        region="jp",
+        material_type="earnings",
+        query="earnings",
+        related_symbols=("6758.T", "9432.T", "9984.T"),
+    )
+    rss = """
+    <rss><channel>
+      <item>
+        <title>決算プレビュー：ルルレモンと米ブロードコムに注目</title>
+        <link>https://example.com/earnings-preview</link>
+        <source>Example Market</source>
+        <pubDate>Thu, 04 Jun 2026 09:30:00 GMT</pubDate>
+        <description><![CDATA[
+          <p>メディア工房【3815】、ティーライフ【3172】も業績修正を発表しました。</p>
+        ]]></description>
+      </item>
+    </channel></rss>
+    """
+
+    cards = google_news_dashboard_cards_from_rss(
+        rss,
+        category_query=category_query,
+        fetched_at=fetched_at,
+        as_of=fetched_at.date(),
+        max_results=10,
+    )
+
+    assert cards[0].related_symbols == ["LULU", "AVGO", "3815.T", "3172.T"]
 
 
 def test_google_news_related_symbols_do_not_invent_seed_symbols_for_generic_theme():
@@ -235,6 +305,7 @@ def test_google_news_related_symbols_do_not_invent_seed_symbols_for_generic_them
     )
 
     assert cards[0].related_symbols == []
+    assert cards[0].inferred_symbols == ["NVDA", "6857.T", "8035.T"]
 
 
 def test_dedupe_news_headline_cards_prefers_url_and_limit():

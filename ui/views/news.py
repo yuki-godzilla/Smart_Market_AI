@@ -104,7 +104,13 @@ _HEATMAP_CATEGORY_PROFILES: dict[str, dict[str, tuple[str, ...]]] = {
         "seed_symbols": ("NVDA", "6857.T", "8035.T", "TSM", "ASML", "AMD"),
     },
     "決算・業績修正": {
-        "sectors": ("technology", "communication", "consumer", "industrial", "financial"),
+        "sectors": (
+            "technology",
+            "communication",
+            "consumer",
+            "industrial",
+            "financial",
+        ),
         "themes": ("technology", "communication", "consumer", "financial", "balanced"),
         "markets": ("jp", "us"),
         "asset_types": ("stock", "adr"),
@@ -156,15 +162,38 @@ _HEATMAP_CATEGORY_PROFILES: dict[str, dict[str, tuple[str, ...]]] = {
         "themes": ("balanced", "energy", "commodity", "index"),
         "markets": ("jp", "us"),
         "asset_types": ("stock", "adr", "etf"),
-        "keywords": ("defense", "gold", "shipping", "commodity", "防衛", "海運", "資源", "金"),
+        "keywords": (
+            "defense",
+            "gold",
+            "shipping",
+            "commodity",
+            "防衛",
+            "海運",
+            "資源",
+            "金",
+        ),
         "seed_symbols": ("7011.T", "9101.T", "GLD", "6208.T", "6301.T", "1605.T"),
     },
     "政策・規制": {
-        "sectors": ("technology", "consumer", "financial", "industrial", "communication"),
+        "sectors": (
+            "technology",
+            "consumer",
+            "financial",
+            "industrial",
+            "communication",
+        ),
         "themes": ("technology", "consumer", "financial", "balanced", "communication"),
         "markets": ("jp", "us"),
         "asset_types": ("stock", "adr", "etf"),
-        "keywords": ("policy", "regulation", "tariff", "subsidy", "政策", "規制", "関税"),
+        "keywords": (
+            "policy",
+            "regulation",
+            "tariff",
+            "subsidy",
+            "政策",
+            "規制",
+            "関税",
+        ),
         "seed_symbols": ("7203.T", "NVDA", "6758.T", "9432.T", "9984.T", "8306.T"),
     },
     "日本株": {
@@ -176,7 +205,14 @@ _HEATMAP_CATEGORY_PROFILES: dict[str, dict[str, tuple[str, ...]]] = {
             "communication",
             "index",
         ),
-        "themes": ("technology", "consumer", "financial", "balanced", "index", "communication"),
+        "themes": (
+            "technology",
+            "consumer",
+            "financial",
+            "balanced",
+            "index",
+            "communication",
+        ),
         "markets": ("jp",),
         "asset_types": ("stock", "etf", "reit"),
         "keywords": ("topix", "nikkei", "japan", "日本", "日経"),
@@ -191,7 +227,14 @@ _HEATMAP_CATEGORY_PROFILES: dict[str, dict[str, tuple[str, ...]]] = {
             "healthcare",
             "index",
         ),
-        "themes": ("technology", "financial", "consumer", "communication", "healthcare", "index"),
+        "themes": (
+            "technology",
+            "financial",
+            "consumer",
+            "communication",
+            "healthcare",
+            "index",
+        ),
         "markets": ("us",),
         "asset_types": ("stock", "adr", "etf"),
         "keywords": ("s&p", "nasdaq", "us", "米国", "growth"),
@@ -442,13 +485,39 @@ def news_dashboard_handoff_symbols(snapshot: NewsDashboardSnapshot) -> list[str]
     symbols: list[str] = []
     seen: set[str] = set()
     for card in snapshot.stream_headlines:
-        for symbol in card.related_symbols:
+        direct_symbols, inferred_symbols = _card_handoff_symbol_groups(card)
+        for symbol in [*direct_symbols, *inferred_symbols]:
             normalized = symbol.strip().upper()
             if not normalized or normalized in seen:
                 continue
             seen.add(normalized)
             symbols.append(normalized)
     return symbols
+
+
+def _card_handoff_symbol_groups(card: NewsHeadlineCard) -> tuple[list[str], list[str]]:
+    direct = _unique_normalized_symbols(card.related_symbols)
+    inferred = _unique_normalized_symbols(
+        getattr(card, "inferred_symbols", []),
+        exclude=set(direct),
+    )
+    return direct, inferred
+
+
+def _unique_normalized_symbols(
+    symbols: list[str],
+    *,
+    exclude: set[str] | None = None,
+) -> list[str]:
+    seen = set(exclude or set())
+    normalized_symbols: list[str] = []
+    for symbol in symbols:
+        normalized = symbol.strip().upper()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        normalized_symbols.append(normalized)
+    return normalized_symbols
 
 
 def news_dashboard_lane_card_items(
@@ -617,11 +686,18 @@ def _heatmap_group_symbol_scores(
     market_signal = _heatmap_market_signal_boost(row)
     for card_index, card in enumerate(cards):
         card_score = _heatmap_news_card_score(card) + max(0.0, 0.35 - card_index * 0.08)
-        for symbol_index, symbol in enumerate(card.related_symbols):
+        direct_symbols, inferred_symbols = _card_handoff_symbol_groups(card)
+        for symbol_index, symbol in enumerate(direct_symbols):
             _add_heatmap_symbol_score(
                 scores,
                 symbol,
                 card_score + market_signal - symbol_index * 0.12,
+            )
+        for symbol_index, symbol in enumerate(inferred_symbols):
+            _add_heatmap_symbol_score(
+                scores,
+                symbol,
+                card_score + market_signal - 1.0 - symbol_index * 0.16,
             )
     for symbol, universe_score in _heatmap_universe_symbol_scores(category, profile):
         _add_heatmap_symbol_score(scores, symbol, universe_score + market_signal)
@@ -629,7 +705,10 @@ def _heatmap_group_symbol_scores(
         _add_heatmap_symbol_score(scores, symbol, 5.2 + market_signal - symbol_index * 0.08)
     ranked_symbols = sorted(
         scores.items(),
-        key=lambda item: (item[1] + _stable_heatmap_symbol_offset(category, item[0]), item[0]),
+        key=lambda item: (
+            item[1] + _stable_heatmap_symbol_offset(category, item[0]),
+            item[0],
+        ),
         reverse=True,
     )
     return ranked_symbols[:limit]
@@ -678,12 +757,16 @@ def _heatmap_group_symbol_sentiments(cards: list[NewsHeadlineCard]) -> dict[str,
             continue
         freshness = 1.0 if card.freshness_status == "latest" else 0.72
         weight = max(0.35, freshness - card_index * 0.08)
-        for symbol_index, symbol in enumerate(card.related_symbols):
+        direct_symbols, inferred_symbols = _card_handoff_symbol_groups(card)
+        for symbol_index, symbol in enumerate([*direct_symbols, *inferred_symbols]):
             normalized = symbol.strip().upper()
             if not normalized:
                 continue
+            source_weight = 1.0 if symbol_index < len(direct_symbols) else 0.65
             current = sentiments.get(normalized, 0.0)
-            sentiments[normalized] = current + polarity * max(0.25, weight - symbol_index * 0.08)
+            sentiments[normalized] = (
+                current + polarity * max(0.25, weight - symbol_index * 0.08) * source_weight
+            )
     return {symbol: max(-1.0, min(1.0, value)) for symbol, value in sentiments.items()}
 
 
@@ -704,7 +787,10 @@ def _heatmap_market_signal_boost(row: dict[str, object]) -> float:
     price_change = abs(_coerce_float(row.get("値動きスコア"), 0.0))
     volume_score = _coerce_float(row.get("取引量スコア"), 1.0)
     return round(
-        min(1.8, heat_score * 0.08 + price_change * 0.16 + max(0.0, volume_score - 1.0) * 0.35),
+        min(
+            1.8,
+            heat_score * 0.08 + price_change * 0.16 + max(0.0, volume_score - 1.0) * 0.35,
+        ),
         3,
     )
 
@@ -753,7 +839,10 @@ def _heatmap_universe_symbol_scores(
             candidates.append((symbol, round(score, 3)))
 
     candidates.sort(
-        key=lambda item: (item[1] + _stable_heatmap_symbol_offset(category, item[0]), item[0]),
+        key=lambda item: (
+            item[1] + _stable_heatmap_symbol_offset(category, item[0]),
+            item[0],
+        ),
         reverse=True,
     )
     return candidates[:96]
@@ -1256,9 +1345,27 @@ def _render_symbol_handoff_buttons(
     open_symbol_callback: OpenSymbolCallback,
     max_columns: int = 3,
 ) -> None:
-    symbols = [symbol.strip().upper() for symbol in card.related_symbols if symbol.strip()]
-    if not symbols:
+    direct_symbols, inferred_symbols = _card_handoff_symbol_groups(card)
+    if not direct_symbols and not inferred_symbols:
         return
+    symbols = [*direct_symbols, *inferred_symbols]
+    if direct_symbols:
+        _render_symbol_button_group(
+            direct_symbols,
+            caption="本文に出た銘柄",
+            key_prefix=f"{key_prefix}_direct",
+            open_symbol_callback=open_symbol_callback,
+            max_columns=max_columns,
+        )
+    if inferred_symbols:
+        _render_symbol_button_group(
+            inferred_symbols,
+            caption="SMAI推測候補",
+            key_prefix=f"{key_prefix}_inferred",
+            open_symbol_callback=open_symbol_callback,
+            max_columns=max_columns,
+        )
+    return
     st.caption("関連銘柄")
     cols = st.columns(min(max_columns, len(symbols)))
     for index, symbol in enumerate(symbols[:3]):
@@ -1268,6 +1375,29 @@ def _render_symbol_handoff_buttons(
                 truncate_text(label, max_chars=34),
                 key=f"investment_news_open_{key_prefix}_{symbol}",
                 help=f"{label}を銘柄コックピットで確認します。",
+                use_container_width=True,
+                on_click=open_symbol_callback,
+                args=(symbol,),
+            )
+
+
+def _render_symbol_button_group(
+    symbols: list[str],
+    *,
+    caption: str,
+    key_prefix: str,
+    open_symbol_callback: OpenSymbolCallback,
+    max_columns: int,
+) -> None:
+    st.caption(caption)
+    cols = st.columns(min(max_columns, len(symbols)))
+    for index, symbol in enumerate(symbols[:3]):
+        label = news_symbol_handoff_label(symbol)
+        with cols[index % len(cols)]:
+            st.button(
+                truncate_text(label, max_chars=34),
+                key=f"investment_news_open_{key_prefix}_{symbol}",
+                help=f"{label}を投資コックピットで確認します。",
                 use_container_width=True,
                 on_click=open_symbol_callback,
                 args=(symbol,),

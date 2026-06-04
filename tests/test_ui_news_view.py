@@ -1,50 +1,18 @@
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
-from backend.news import NewsUpdateStatus, build_demo_news_dashboard_snapshot
+from backend.news import build_demo_news_dashboard_snapshot
 from ui.views.news import (
     news_dashboard_cockpit_href,
     news_dashboard_handoff_symbols,
     news_dashboard_heatmap_frame,
     news_dashboard_lane_card_items,
-    news_dashboard_status_items,
     news_dashboard_stock_heatmap_groups,
     news_dashboard_stock_heatmap_html,
     news_dashboard_unique_headline_count,
     news_headline_card_html,
     news_symbol_handoff_label,
 )
-
-
-def test_news_dashboard_status_items_distinguish_demo_and_cache():
-    snapshot = build_demo_news_dashboard_snapshot(
-        now=datetime(2026, 6, 4, 10, 0, tzinfo=UTC),
-    )
-    items = news_dashboard_status_items(
-        snapshot,
-        NewsUpdateStatus(cache_file_size_bytes=2048),
-        using_demo=False,
-    )
-
-    assert items[0]["label"] == "表示中ニュース"
-    assert items[0]["value"] == "8件"
-    assert items[0]["caption"] == "重複を除いた見出し数"
-    assert items[2]["value"] == "最新"
-    assert items[3]["label"] == "データ状態"
-    assert items[3]["value"] == "保存データ"
-    assert items[3]["caption"] == "2.0KB"
-
-    demo_items = news_dashboard_status_items(
-        snapshot,
-        NewsUpdateStatus(cache_file_size_bytes=None),
-        using_demo=True,
-    )
-    assert demo_items[0]["label"] == "表示中ニュース"
-    assert demo_items[0]["value"] == "8件"
-    assert demo_items[0]["caption"] == "サンプル見出し数"
-    assert demo_items[3]["label"] == "データ状態"
-    assert demo_items[3]["value"] == "サンプル表示"
-    assert demo_items[3]["caption"] == "手動更新前の例示データ"
 
 
 def test_news_dashboard_heatmap_frame_is_user_facing():
@@ -111,12 +79,14 @@ def test_news_dashboard_stock_heatmap_html_uses_sector_tiles():
     assert "investment-stock-heatmap-group" in html_text
     assert "investment-stock-heatmap-tile" in html_text
     assert "8セクター" in html_text
-    assert "銘柄タイル" in html_text
+    assert "96銘柄タイル" in html_text
+    assert "注目度順" in html_text
     assert "investment-stock-heatmap-click" in html_text
     assert '<a class="investment-stock-heatmap-tile' in html_text
     assert 'href="?smai_page=cockpit&amp;smai_symbol=NVDA"' in html_text
-    assert "count-3" in html_text
+    assert "count-6" in html_text
     assert "NVDA" in html_text
+    assert "AAPL" in html_text
     assert "NVDA / NVIDIA" in html_text
     assert "6857.T / アドバンテスト" in html_text
     assert html_text.index("investment-stock-heatmap-name") < html_text.index(

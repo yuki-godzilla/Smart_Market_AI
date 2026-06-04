@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 from collections.abc import Callable
 from datetime import UTC, datetime
+from functools import lru_cache
 from typing import cast
 from urllib.parse import quote
 
@@ -15,14 +16,13 @@ from backend.news import (
     NewsUpdateStatus,
     build_demo_news_dashboard_snapshot,
     build_standard_news_dashboard_snapshot,
-    get_news_cache_file_size,
     load_cached_news_dashboard_snapshot,
     load_news_update_status,
     refresh_news_dashboard_cache,
 )
 from ui.components.mascot import render_page_title
-from ui.styles import render_metric_card, truncate_text
-from ui.symbol_universe import symbol_name
+from ui.styles import truncate_text
+from ui.symbol_universe import symbol_name, symbol_universe_csv_rows
 
 OpenSymbolCallback = Callable[[str], None]
 
@@ -60,26 +60,191 @@ _MATERIAL_TONES = {
 
 _HEATMAP_TILE_OFFSETS = (0.0, -0.35, 0.28, 0.62, -0.72, 0.18, -0.15, 0.45, -0.42, 0.08)
 
+_HEATMAP_MARKET_CAP_WEIGHTS = {
+    "mega": 1.4,
+    "large": 1.0,
+    "mid": 0.52,
+    "small": 0.22,
+    "micro": 0.02,
+}
+
+_HEATMAP_CATEGORY_PROFILES: dict[str, dict[str, tuple[str, ...]]] = {
+    "半導体・AI": {
+        "sectors": ("technology",),
+        "themes": ("technology", "index"),
+        "markets": ("jp", "us"),
+        "asset_types": ("stock", "adr", "etf"),
+        "keywords": (
+            "semiconductor",
+            "セミコン",
+            "半導体",
+            "nvidia",
+            "tsmc",
+            "asml",
+            "advanced micro",
+            "ai",
+            "robotics",
+        ),
+        "seed_symbols": ("NVDA", "6857.T", "8035.T", "TSM", "ASML", "AMD"),
+    },
+    "決算・業績修正": {
+        "sectors": ("technology", "communication", "consumer", "industrial", "financial"),
+        "themes": ("technology", "communication", "consumer", "financial", "balanced"),
+        "markets": ("jp", "us"),
+        "asset_types": ("stock", "adr"),
+        "keywords": ("earnings", "growth", "決算", "業績", "profit", "sales"),
+        "seed_symbols": ("6758.T", "9432.T", "9984.T", "7974.T", "6861.T"),
+    },
+    "配当・株主還元": {
+        "sectors": ("financial", "industrial", "consumer", "communication", "energy"),
+        "themes": ("financial", "consumer", "balanced", "energy"),
+        "markets": ("jp", "us"),
+        "asset_types": ("stock", "adr", "etf"),
+        "keywords": ("dividend", "shareholder", "配当", "自社株", "還元", "高配当"),
+        "seed_symbols": ("7203.T", "8306.T", "8316.T", "9432.T", "8058.T"),
+    },
+    "為替・金利": {
+        "sectors": ("financial", "index", "real_estate"),
+        "themes": ("financial", "bond", "index", "reit"),
+        "markets": ("jp", "us"),
+        "asset_types": ("stock", "etf", "reit"),
+        "keywords": ("bond", "treasury", "bank", "reit", "為替", "金利", "米国債"),
+        "seed_symbols": ("JPM", "QQQ", "1488.T", "SPY", "TLT", "8306.T"),
+    },
+    "金融": {
+        "sectors": ("financial",),
+        "themes": ("financial",),
+        "markets": ("jp", "us"),
+        "asset_types": ("stock", "adr", "etf"),
+        "keywords": ("bank", "financial", "insurance", "銀行", "証券", "保険"),
+        "seed_symbols": ("8306.T", "8316.T", "JPM", "BAC", "GS", "MS"),
+    },
+    "エネルギー": {
+        "sectors": ("energy", "utilities", "index"),
+        "themes": ("energy", "commodity", "index"),
+        "markets": ("jp", "us"),
+        "asset_types": ("stock", "adr", "etf"),
+        "keywords": ("energy", "oil", "lng", "原油", "石油", "ガス", "電力"),
+        "seed_symbols": ("1605.T", "XLE", "XOM", "CVX", "5020.T"),
+    },
+    "ETF": {
+        "sectors": ("index",),
+        "themes": ("index", "bond", "commodity", "reit"),
+        "markets": ("jp", "us"),
+        "asset_types": ("etf", "mutual_fund", "reit"),
+        "keywords": ("etf", "index", "s&p", "topix", "nasdaq", "低コスト", "指数"),
+        "seed_symbols": ("VOO", "2558.T", "QQQ", "SPY", "VTI", "1306.T"),
+    },
+    "地政学・マクロリスク": {
+        "sectors": ("industrial", "energy", "materials", "index"),
+        "themes": ("balanced", "energy", "commodity", "index"),
+        "markets": ("jp", "us"),
+        "asset_types": ("stock", "adr", "etf"),
+        "keywords": ("defense", "gold", "shipping", "commodity", "防衛", "海運", "資源", "金"),
+        "seed_symbols": ("7011.T", "9101.T", "GLD", "6208.T", "6301.T", "1605.T"),
+    },
+    "政策・規制": {
+        "sectors": ("technology", "consumer", "financial", "industrial", "communication"),
+        "themes": ("technology", "consumer", "financial", "balanced", "communication"),
+        "markets": ("jp", "us"),
+        "asset_types": ("stock", "adr", "etf"),
+        "keywords": ("policy", "regulation", "tariff", "subsidy", "政策", "規制", "関税"),
+        "seed_symbols": ("7203.T", "NVDA", "6758.T", "9432.T", "9984.T", "8306.T"),
+    },
+    "日本株": {
+        "sectors": (
+            "technology",
+            "consumer",
+            "financial",
+            "industrial",
+            "communication",
+            "index",
+        ),
+        "themes": ("technology", "consumer", "financial", "balanced", "index", "communication"),
+        "markets": ("jp",),
+        "asset_types": ("stock", "etf", "reit"),
+        "keywords": ("topix", "nikkei", "japan", "日本", "日経"),
+        "seed_symbols": ("7203.T", "8306.T", "6758.T", "9984.T", "7974.T", "6861.T"),
+    },
+    "米国株": {
+        "sectors": (
+            "technology",
+            "financial",
+            "consumer",
+            "communication",
+            "healthcare",
+            "index",
+        ),
+        "themes": ("technology", "financial", "consumer", "communication", "healthcare", "index"),
+        "markets": ("us",),
+        "asset_types": ("stock", "adr", "etf"),
+        "keywords": ("s&p", "nasdaq", "us", "米国", "growth"),
+        "seed_symbols": ("NVDA", "JPM", "QQQ", "AAPL", "MSFT", "AMZN"),
+    },
+    "小売・消費": {
+        "sectors": ("consumer", "communication"),
+        "themes": ("consumer", "communication"),
+        "markets": ("jp", "us"),
+        "asset_types": ("stock", "adr", "etf"),
+        "keywords": ("retail", "consumer", "小売", "消費", "ecommerce", "restaurant"),
+        "seed_symbols": ("AMZN", "7203.T", "HD", "WMT", "COST", "9983.T"),
+    },
+}
+
+_HEATMAP_DEFAULT_PROFILE: dict[str, tuple[str, ...]] = {
+    "sectors": ("technology", "financial", "consumer", "industrial", "index"),
+    "themes": ("technology", "financial", "consumer", "balanced", "index"),
+    "markets": ("jp", "us"),
+    "asset_types": ("stock", "adr", "etf"),
+    "keywords": (),
+    "seed_symbols": ("7203.T", "8306.T", "NVDA", "QQQ", "VOO"),
+}
+
 _HEATMAP_SYMBOL_SHORT_NAMES = {
     "NVDA": "NVIDIA",
+    "TSM": "TSMC",
+    "ASML": "ASML",
+    "AMD": "AMD",
     "6857.T": "アドバンテスト",
     "8035.T": "東京エレクトロン",
     "7203.T": "トヨタ自動車",
     "8306.T": "三菱UFJ",
     "8316.T": "三井住友FG",
+    "8058.T": "三菱商事",
     "6758.T": "ソニーG",
     "9432.T": "NTT",
+    "9984.T": "ソフトバンクG",
+    "7974.T": "任天堂",
+    "6861.T": "キーエンス",
     "JPM": "JPMorgan",
+    "BAC": "Bank of America",
+    "GS": "Goldman Sachs",
+    "MS": "Morgan Stanley",
     "QQQ": "QQQ",
+    "SPY": "S&P500 ETF",
+    "TLT": "米国債ETF",
     "1488.T": "日経高配当50",
     "1605.T": "INPEX",
     "XLE": "エネルギーETF",
+    "XOM": "Exxon Mobil",
+    "CVX": "Chevron",
+    "5020.T": "ENEOS",
     "VOO": "S&P500 ETF",
     "2558.T": "MAXIS S&P500",
+    "VTI": "全米株ETF",
+    "1306.T": "TOPIX ETF",
     "7011.T": "三菱重工",
     "9101.T": "日本郵船",
+    "6208.T": "石川製作所",
+    "6301.T": "コマツ",
     "GLD": "ゴールドETF",
     "AMZN": "Amazon",
+    "AAPL": "Apple",
+    "MSFT": "Microsoft",
+    "HD": "Home Depot",
+    "WMT": "Walmart",
+    "COST": "Costco",
+    "9983.T": "ファストリ",
 }
 
 
@@ -95,49 +260,13 @@ def render_news_dashboard_page(
         "investment_radar",
     )
 
-    snapshot, status, using_demo = _load_dashboard_snapshot()
+    snapshot, status = _load_dashboard_snapshot()
     _render_refresh_controls()
     _render_status_message()
-    _render_dashboard_status(snapshot, status, using_demo=using_demo)
+    _render_update_warning(status)
     _render_news_stream(snapshot, open_symbol_callback=open_symbol_callback)
     _render_heatmap(snapshot)
     _render_category_lanes(snapshot, open_symbol_callback=open_symbol_callback)
-
-
-def news_dashboard_status_items(
-    snapshot: NewsDashboardSnapshot,
-    status: NewsUpdateStatus,
-    *,
-    using_demo: bool,
-    cache_size_bytes: int | None = None,
-) -> list[dict[str, str]]:
-    """Return compact status cards for the news dashboard header."""
-
-    cache_size = cache_size_bytes
-    if cache_size is None:
-        cache_size = status.cache_file_size_bytes
-    return [
-        {
-            "label": "表示中ニュース",
-            "value": f"{news_dashboard_unique_headline_count(snapshot)}件",
-            "caption": "サンプル見出し数" if using_demo else "重複を除いた見出し数",
-        },
-        {
-            "label": "ヒートマップ",
-            "value": f"{len(snapshot.heatmap_cells)}件",
-            "caption": "値動き + 取引量 + ニュース",
-        },
-        {
-            "label": "鮮度",
-            "value": _freshness_label(snapshot.freshness_status),
-            "caption": _datetime_label(snapshot.generated_at),
-        },
-        {
-            "label": "データ状態",
-            "value": "サンプル表示" if using_demo else "保存データ",
-            "caption": "手動更新前の例示データ" if using_demo else _cache_size_label(cache_size),
-        },
-    ]
 
 
 def news_dashboard_heatmap_frame(snapshot: NewsDashboardSnapshot) -> pd.DataFrame:
@@ -165,12 +294,17 @@ def news_dashboard_stock_heatmap_groups(
     for group_index, row in enumerate(sorted_frame.to_dict("records")):
         category = str(row["投資カテゴリ"])
         lane = lanes_by_category.get(category)
-        symbols = _heatmap_group_symbols(lane.headlines if lane else [], max_tiles_per_group)
-        if not symbols:
-            symbols = [category]
+        symbol_scores = _heatmap_group_symbol_scores(
+            category,
+            lane.headlines if lane else [],
+            row,
+            max_tiles_per_group,
+        )
+        if not symbol_scores:
+            symbol_scores = [(category, 0.0)]
         tiles = [
-            _stock_heatmap_tile(symbol, row, tile_index)
-            for tile_index, symbol in enumerate(symbols[:max_tiles_per_group])
+            _stock_heatmap_tile(symbol, row, tile_index, symbol_score)
+            for tile_index, (symbol, symbol_score) in enumerate(symbol_scores)
         ]
         groups.append(
             {
@@ -199,7 +333,7 @@ def news_dashboard_stock_heatmap_html(snapshot: NewsDashboardSnapshot) -> str:
         '<div class="investment-stock-heatmap-topline">'
         '<span class="investment-stock-heatmap-read">'
         f"表示: {len(groups)}セクター / {tile_count}銘柄タイル。"
-        "銘柄名・シンボル・値動きを並べて確認できます。"
+        "広い銘柄候補から注目度順に銘柄名・シンボル・値動きを並べています。"
         "</span>"
         '<span class="investment-stock-heatmap-click">コックピット連携</span>'
         '<span class="investment-stock-heatmap-legend negative">注意材料</span>'
@@ -420,40 +554,209 @@ def _int_attr(value: object, name: str) -> int:
         return 0
 
 
-def _heatmap_group_symbols(
+@lru_cache(maxsize=1)
+def _heatmap_symbol_universe_rows() -> tuple[dict[str, str], ...]:
+    try:
+        return tuple(symbol_universe_csv_rows())
+    except OSError:
+        return ()
+
+
+@lru_cache(maxsize=1)
+def _heatmap_symbol_names() -> dict[str, str]:
+    return {
+        row.get("symbol", "").strip().upper(): row.get("name", "").strip()
+        for row in _heatmap_symbol_universe_rows()
+        if row.get("symbol", "").strip() and row.get("name", "").strip()
+    }
+
+
+def _heatmap_group_symbol_scores(
+    category: str,
     cards: list[NewsHeadlineCard],
+    row: dict[str, object],
     limit: int,
-) -> list[str]:
-    symbols: list[str] = []
-    seen: set[str] = set()
-    for card in cards:
-        for symbol in card.related_symbols:
-            normalized = symbol.strip().upper()
-            if not normalized or normalized in seen:
-                continue
-            seen.add(normalized)
-            symbols.append(normalized)
-            if len(symbols) >= limit:
-                return symbols
-    return symbols
+) -> list[tuple[str, float]]:
+    if limit <= 0:
+        return []
+    profile = _HEATMAP_CATEGORY_PROFILES.get(category, _HEATMAP_DEFAULT_PROFILE)
+    scores: dict[str, float] = {}
+    market_signal = _heatmap_market_signal_boost(row)
+    for card_index, card in enumerate(cards):
+        card_score = _heatmap_news_card_score(card) + max(0.0, 0.35 - card_index * 0.08)
+        for symbol_index, symbol in enumerate(card.related_symbols):
+            _add_heatmap_symbol_score(
+                scores,
+                symbol,
+                card_score + market_signal - symbol_index * 0.12,
+            )
+    for symbol, universe_score in _heatmap_universe_symbol_scores(category, profile):
+        _add_heatmap_symbol_score(scores, symbol, universe_score + market_signal)
+    for symbol_index, symbol in enumerate(profile.get("seed_symbols", ())):
+        _add_heatmap_symbol_score(scores, symbol, 5.2 + market_signal - symbol_index * 0.08)
+    ranked_symbols = sorted(
+        scores.items(),
+        key=lambda item: (item[1] + _stable_heatmap_symbol_offset(category, item[0]), item[0]),
+        reverse=True,
+    )
+    return ranked_symbols[:limit]
+
+
+def _add_heatmap_symbol_score(
+    scores: dict[str, float],
+    symbol: str,
+    score: float,
+) -> None:
+    normalized = symbol.strip().upper()
+    if not normalized:
+        return
+    current = scores.get(normalized)
+    if current is None:
+        scores[normalized] = score
+    else:
+        scores[normalized] = max(current, score) + min(0.7, score * 0.06)
+
+
+def _heatmap_news_card_score(card: NewsHeadlineCard) -> float:
+    freshness_weight = {
+        "latest": 1.1,
+        "recent": 0.7,
+        "stale": 0.25,
+        "unknown": 0.0,
+    }.get(card.freshness_status, 0.0)
+    material_weight = {
+        "risk": 1.15,
+        "earnings": 1.0,
+        "theme": 0.9,
+        "shareholder_return": 0.85,
+        "policy": 0.65,
+        "macro": 0.6,
+        "fund_flow": 0.5,
+    }.get(card.material_type, 0.35)
+    official_weight = 0.35 if card.is_official_source else 0.0
+    return 3.7 + freshness_weight + material_weight + official_weight
+
+
+def _heatmap_market_signal_boost(row: dict[str, object]) -> float:
+    heat_score = _coerce_float(row.get("加熱度"), 0.0)
+    price_change = abs(_coerce_float(row.get("値動きスコア"), 0.0))
+    volume_score = _coerce_float(row.get("取引量スコア"), 1.0)
+    return round(
+        min(1.8, heat_score * 0.08 + price_change * 0.16 + max(0.0, volume_score - 1.0) * 0.35),
+        3,
+    )
+
+
+def _heatmap_universe_symbol_scores(
+    category: str,
+    profile: dict[str, tuple[str, ...]],
+) -> list[tuple[str, float]]:
+    profile_sectors = set(profile.get("sectors", ()))
+    profile_themes = set(profile.get("themes", ()))
+    profile_markets = set(profile.get("markets", ()))
+    profile_asset_types = set(profile.get("asset_types", ()))
+    profile_keywords = tuple(keyword.lower() for keyword in profile.get("keywords", ()))
+    seed_symbols = {symbol.upper() for symbol in profile.get("seed_symbols", ())}
+
+    candidates: list[tuple[str, float]] = []
+    for universe_row in _heatmap_symbol_universe_rows():
+        symbol = universe_row.get("symbol", "").strip().upper()
+        if not symbol or universe_row.get("is_active", "").lower() == "false":
+            continue
+        is_seed = symbol in seed_symbols
+        market = universe_row.get("market", "").strip()
+        asset_type = universe_row.get("asset_type", "").strip()
+        sector = universe_row.get("sector", "").strip()
+        theme = universe_row.get("theme", "").strip()
+        if not is_seed and profile_markets and market not in profile_markets:
+            continue
+        if not is_seed and profile_asset_types and asset_type not in profile_asset_types:
+            continue
+
+        score = 0.0
+        if is_seed:
+            score += 5.4
+        if sector in profile_sectors:
+            score += 2.7
+        if theme in profile_themes:
+            score += 2.0
+        if market in profile_markets:
+            score += 0.55
+        if asset_type in profile_asset_types:
+            score += 0.45
+        score += _HEATMAP_MARKET_CAP_WEIGHTS.get(universe_row.get("market_cap_tier", ""), 0.0)
+        score += _heatmap_keyword_match_score(universe_row, profile_keywords)
+        score += _heatmap_universe_quality_score(universe_row)
+        if score >= 3.05 or is_seed:
+            candidates.append((symbol, round(score, 3)))
+
+    candidates.sort(
+        key=lambda item: (item[1] + _stable_heatmap_symbol_offset(category, item[0]), item[0]),
+        reverse=True,
+    )
+    return candidates[:96]
+
+
+def _heatmap_keyword_match_score(
+    universe_row: dict[str, str],
+    profile_keywords: tuple[str, ...],
+) -> float:
+    if not profile_keywords:
+        return 0.0
+    search_text = " ".join(
+        (
+            universe_row.get("symbol", ""),
+            universe_row.get("name", ""),
+            universe_row.get("sector", ""),
+            universe_row.get("theme", ""),
+            universe_row.get("aliases", ""),
+            universe_row.get("tags", ""),
+            universe_row.get("index_family", ""),
+        )
+    ).lower()
+    matches = sum(1 for keyword in profile_keywords if keyword and keyword in search_text)
+    return min(2.2, matches * 0.55)
+
+
+def _heatmap_universe_quality_score(universe_row: dict[str, str]) -> float:
+    score = 0.0
+    if universe_row.get("data_quality", "").upper() == "OK":
+        score += 0.28
+    if universe_row.get("tradability", "") == "tradable":
+        score += 0.18
+    if universe_row.get("is_sbi_supported", "").lower() == "true":
+        score += 0.12
+    if universe_row.get("risk_band", "").upper() == "HIGH":
+        score -= 0.14
+    return score
+
+
+def _stable_heatmap_symbol_offset(category: str, symbol: str) -> float:
+    seed = f"{category}:{symbol}"
+    ordinal_sum = sum((index + 1) * ord(character) for index, character in enumerate(seed))
+    return (ordinal_sum % 1000) / 10000.0
 
 
 def _stock_heatmap_tile(
     symbol: str,
     row: dict[str, object],
     tile_index: int,
+    symbol_score: float,
 ) -> dict[str, object]:
     base_change = _coerce_float(row.get("値動きスコア"), 0.0)
+    offset = _HEATMAP_TILE_OFFSETS[tile_index % len(_HEATMAP_TILE_OFFSETS)]
+    direction = -1.0 if base_change < -0.25 else 1.0
+    score_boost = min(0.55, max(0.0, symbol_score - 4.2) * 0.06)
     change = round(
         max(
             -3.0,
-            min(3.0, base_change + _HEATMAP_TILE_OFFSETS[tile_index % len(_HEATMAP_TILE_OFFSETS)]),
+            min(3.0, base_change + offset + direction * score_boost),
         ),
         1,
     )
     inferred = str(row.get("市場指標")) != "市場データ"
     display_name, full_name = _stock_heatmap_tile_names(symbol)
-    label = f"{symbol} / {full_name}" if full_name else symbol
+    label = f"{symbol} / {full_name} / 注目度 {symbol_score:.1f}" if full_name else symbol
     return {
         "symbol": symbol,
         "name": display_name,
@@ -462,6 +765,7 @@ def _stock_heatmap_tile(
         "href": news_dashboard_cockpit_href(symbol),
         "change": change,
         "change_label": _price_change_label(change, inferred=inferred),
+        "score": round(symbol_score, 2),
         "tone": _stock_heatmap_tone(change),
         "size": _stock_heatmap_tile_size(tile_index),
     }
@@ -470,10 +774,12 @@ def _stock_heatmap_tile(
 def _stock_heatmap_tile_names(symbol: str) -> tuple[str, str]:
     normalized_symbol = symbol.strip().upper()
     short_name = _HEATMAP_SYMBOL_SHORT_NAMES.get(normalized_symbol)
-    try:
-        name = symbol_name(symbol)
-    except OSError:
-        name = None
+    name = _heatmap_symbol_names().get(normalized_symbol)
+    if name is None:
+        try:
+            name = symbol_name(symbol)
+        except OSError:
+            name = None
     if short_name:
         return short_name, (name or short_name).strip()
     if not name or name.strip().upper() == symbol.strip().upper():
@@ -582,12 +888,12 @@ def news_symbol_handoff_label(symbol: str) -> str:
     return normalized
 
 
-def _load_dashboard_snapshot() -> tuple[NewsDashboardSnapshot, NewsUpdateStatus, bool]:
+def _load_dashboard_snapshot() -> tuple[NewsDashboardSnapshot, NewsUpdateStatus]:
     status = load_news_update_status()
     snapshot = load_cached_news_dashboard_snapshot()
     if snapshot is not None:
-        return snapshot, status, False
-    return build_demo_news_dashboard_snapshot(), status, True
+        return snapshot, status
+    return build_demo_news_dashboard_snapshot(), status
 
 
 def _render_refresh_controls() -> None:
@@ -627,27 +933,7 @@ def _render_status_message() -> None:
         st.toast(str(message), icon="✅")
 
 
-def _render_dashboard_status(
-    snapshot: NewsDashboardSnapshot,
-    status: NewsUpdateStatus,
-    *,
-    using_demo: bool,
-) -> None:
-    items = news_dashboard_status_items(
-        snapshot,
-        status,
-        using_demo=using_demo,
-        cache_size_bytes=get_news_cache_file_size(),
-    )
-    cols = st.columns(4)
-    for col, item in zip(cols, items, strict=True):
-        with col:
-            render_metric_card(
-                item["label"],
-                item["value"],
-                caption=item["caption"],
-                tone="forecast" if item["label"] in {"鮮度", "データ状態"} else "info",
-            )
+def _render_update_warning(status: NewsUpdateStatus) -> None:
     if status.last_error_type:
         st.warning(
             "ニュース更新で確認が必要な状態です。前回保存データまたはデモ表示を使っています。"
@@ -791,14 +1077,6 @@ def _datetime_label(value: datetime | None) -> str:
     if value is None:
         return "未確認"
     return value.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
-
-
-def _cache_size_label(size_bytes: int | None) -> str:
-    if size_bytes is None:
-        return "保存なし"
-    if size_bytes < 1024:
-        return f"{size_bytes}B"
-    return f"{size_bytes / 1024:.1f}KB"
 
 
 def _price_change_label(value: float | None, *, inferred: bool = False) -> str:

@@ -25,4 +25,6 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     assert "市場ニュースヘッドライン" in page_text
     assert "投資ヒートマップ" in page_text
     assert "カテゴリ別ニュースレーン" in page_text
+    assert "表示中ニュース" not in page_text
+    assert "データ状態" not in page_text
     assert "ニュース表示を更新" in button_labels

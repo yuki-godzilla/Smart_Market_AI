@@ -132,84 +132,84 @@ STANDARD_NEWS_CATEGORY_QUERIES: tuple[NewsCategoryQuery, ...] = (
         region="グローバル",
         material_type="theme",
         query="半導体 AI NVIDIA TSMC 設備投資 株",
-        related_symbols=("NVDA", "6857.T", "8035.T"),
+        related_symbols=("NVDA", "6857.T", "8035.T", "TSM", "ASML", "AMD"),
     ),
     NewsCategoryQuery(
         category="決算・業績修正",
         region="日本",
         material_type="earnings",
         query="決算 業績修正 上方修正 下方修正 株",
-        related_symbols=("6758.T", "9432.T"),
+        related_symbols=("6758.T", "9432.T", "9984.T", "7974.T", "6861.T"),
     ),
     NewsCategoryQuery(
         category="配当・株主還元",
         region="日本",
         material_type="shareholder_return",
         query="配当 自社株買い 株主還元 ROE 日本株",
-        related_symbols=("7203.T", "8306.T"),
+        related_symbols=("7203.T", "8306.T", "8316.T", "9432.T", "8058.T"),
     ),
     NewsCategoryQuery(
         category="為替・金利",
         region="米国",
         material_type="macro",
         query="為替 金利 米国債 ドル円 株式市場",
-        related_symbols=("JPM", "QQQ", "1488.T"),
+        related_symbols=("JPM", "QQQ", "1488.T", "SPY", "TLT", "8306.T"),
     ),
     NewsCategoryQuery(
         category="金融",
         region="日本",
         material_type="earnings",
         query="銀行 金融株 金利 与信費用 株主還元",
-        related_symbols=("8306.T", "8316.T"),
+        related_symbols=("8306.T", "8316.T", "JPM", "BAC", "GS", "MS"),
     ),
     NewsCategoryQuery(
         category="エネルギー",
         region="グローバル",
         material_type="policy",
         query="原油 エネルギー株 OPEC LNG 政策",
-        related_symbols=("1605.T", "XLE"),
+        related_symbols=("1605.T", "XLE", "XOM", "CVX", "5020.T"),
     ),
     NewsCategoryQuery(
         category="ETF",
         region="グローバル",
         material_type="fund_flow",
         query="ETF 資金流入 経費率 インデックス 投資信託",
-        related_symbols=("VOO", "2558.T", "QQQ"),
+        related_symbols=("VOO", "2558.T", "QQQ", "SPY", "VTI", "1306.T"),
     ),
     NewsCategoryQuery(
         category="地政学・マクロリスク",
         region="グローバル",
         material_type="risk",
         query="地政学 リスク 防衛 資源 株式市場",
-        related_symbols=("7011.T", "9101.T", "GLD"),
+        related_symbols=("7011.T", "9101.T", "GLD", "6208.T", "6301.T", "1605.T"),
     ),
     NewsCategoryQuery(
         category="政策・規制",
         region="グローバル",
         material_type="policy",
         query="政策 規制 関税 補助金 株式市場",
-        related_symbols=("7203.T", "NVDA"),
+        related_symbols=("7203.T", "NVDA", "6758.T", "9432.T", "9984.T", "8306.T"),
     ),
     NewsCategoryQuery(
         category="日本株",
         region="日本",
         material_type="macro",
         query="日本株 日経平均 TOPIX 海外投資家 決算",
-        related_symbols=("7203.T", "8306.T", "6758.T"),
+        related_symbols=("7203.T", "8306.T", "6758.T", "9984.T", "7974.T", "6861.T"),
     ),
     NewsCategoryQuery(
         category="米国株",
         region="米国",
         material_type="macro",
         query="米国株 S&P500 Nasdaq FRB 決算",
-        related_symbols=("NVDA", "JPM", "QQQ"),
+        related_symbols=("NVDA", "JPM", "QQQ", "AAPL", "MSFT", "AMZN"),
     ),
     NewsCategoryQuery(
         category="小売・消費",
         region="グローバル",
         material_type="earnings",
         query="小売 消費 インフレ 決算 消費者 株",
-        related_symbols=("AMZN", "7203.T"),
+        related_symbols=("AMZN", "7203.T", "HD", "WMT", "COST", "9983.T"),
     ),
 )
 
@@ -419,7 +419,12 @@ def _freshness_from_published_at(
     return "stale"
 
 
-def _symbols_from_text(text: str, *, fallback: Sequence[str]) -> list[str]:
+def _symbols_from_text(
+    text: str,
+    *,
+    fallback: Sequence[str],
+    limit: int = 6,
+) -> list[str]:
     symbol_map = {
         "nvidia": "NVDA",
         "エヌビディア": "NVDA",
@@ -449,9 +454,9 @@ def _symbols_from_text(text: str, *, fallback: Sequence[str]) -> list[str]:
         normalized = symbol.strip().upper()
         if normalized and normalized not in symbols:
             symbols.append(normalized)
-        if len(symbols) >= 3:
+        if len(symbols) >= limit:
             break
-    return symbols[:3]
+    return symbols[:limit]
 
 
 def _standard_news_ai_comment(category_query: NewsCategoryQuery) -> str:

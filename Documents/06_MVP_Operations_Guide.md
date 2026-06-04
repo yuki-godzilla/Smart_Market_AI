@@ -47,7 +47,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - 追加 provider adapter / fund metadata source
 - 追加 Research RAG external source adapters / vector search の運用UI
 - Research Score によるランキング順位統合は現時点では見送り。Cockpit / Ranking Research Summary と Cockpit Decision Report への参考表示、Investment Score optional numeric input、disabled-by-default weight は対応済み
-- `投資レーダー` dashboard の外部ニュースsource接続、詳細フィルタ、Watchlist連動、通知
+- `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動、通知
 - Assistant API / Streamlit 質問パネル、optional LLM provider
 - 銘柄DB freshness badge / live provider refresh wiring の visible UI 接続
 - broker への live order 送信
@@ -58,7 +58,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 外部 API へ接続する場合は明示 opt-in が必要で、broker や execution provider へ注文を送りません。
 Research RAG / News RAG は実運用では情報鮮度が重要です。標準導線では、`AI調査を更新` が EDINET securities-report metadata/link（`EDINET_API_KEY` 設定時のみ live call、未設定時 no-op）、TDnet 適時開示、企業IRサイト、Google News RSS headline search、Yahoo Finance profile / news を取得/参照し、source URL、provider、published_at、fetched_at、freshness warning を確認材料として表示します。Yahoo Finance を使う Research 側 adapter は MarketData 側と同じ yfinance cache / shared session 設定を使います。Google News RSS は一般ニュースのヘッドライン幅を広げる補助sourceで、検索語は会社名・関連キーワード・銘柄コードに決算/業績/株価/配当などの投資文脈語を添えます。ニュースURL表示自体は `外部参照ソース` と詳細データに実装済みです。Cockpit Research Summary では、`最新ニュース・開示サマリー` の直後に `投資ヒントとなるニュース` と `ニュース・開示の出典を表示（URL付きN件）` を置きます。サマリと注目材料は `Market Intelligence` の主表示カードとして扱い、出典は初期折りたたみの小さな citation list としてURL付きニュース・TDnet・企業IR・EDINET・Google News・Yahoo Finance を確認できるようにします。ニュース専用URLが無い場合も、外部参照ソース側に公式資料・provider URLがある可能性を案内します。取得本文は既定では保持せず、session-local の一時参照として扱います。通常検証は fake adapter / fixture / RSS fixture を使い、network 非依存を維持します。
 
-Investment News dashboard は Phase 22.x の初期MVPとして、サイドメニューの `投資レーダー` から開けます。現時点では `backend/news` の snapshot / status / cache / refresh manager と deterministic dashboard builder を使い、保存済みsnapshotがなければ fake snapshot / fixture から市場ニュースヘッドライン、株式ヒートマップ風の投資ヒートマップ、3列のカテゴリ別ニュースカード、銘柄名付き関連銘柄の `銘柄コックピット` 導線を表示します。投資ヒートマップは市場指標がある場合は値動き / 取引量を使い、欠ける場合はニュース材料から代理シグナルを補完します。銘柄タイルは企業名を主、シンボルを補助タグとして表示し、クリックすると同一アプリ内の該当 `銘柄コックピット` へ移動します。Investment Score / Research Score / Ranking order は変更しません。外部ニュースsource接続、詳細フィルタ、Watchlist連動、通知は後続範囲です。
+Investment News dashboard はサイドメニューの `投資レーダー` から開けます。現時点では `backend/news` の snapshot / status / cache / refresh manager と deterministic dashboard builder を使い、保存済みsnapshotがなければ fake snapshot / fixture から市場ニュースヘッドライン、株式ヒートマップ風の投資ヒートマップ、3列のカテゴリ別ニュースカード、銘柄名付き関連銘柄の `銘柄コックピット` 導線を表示します。投資ヒートマップはニュースに直接紐づいた関連銘柄だけでなく、ローカル銘柄ユニバース全体からカテゴリ適合、時価総額帯、データ品質、ニュース鮮度、材料タイプ、市場シグナルを見て注目度順の銘柄タイルを補完します。市場指標がある場合は値動き / 取引量を使い、欠ける場合はニュース材料から代理シグナルを補完します。銘柄タイルは企業名を主、シンボルを補助タグとして表示し、クリックすると同一アプリ内の該当 `銘柄コックピット` へ移動します。Investment Score / Research Score / Ranking order は変更しません。詳細フィルタ、Watchlist連動、通知、追加providerは後続範囲です。
 
 ## 3. API 起動と確認
 
@@ -537,9 +537,9 @@ Phase 16 final UI smoke checklist:
 
 - 保存済み news dashboard snapshot。保存済みがない場合は network-free demo snapshot を表示する。
 - `ニュース表示を更新` で Standard Mode の外部ニュースRSS取得を実行し、`data/cache/news_dashboard_snapshot.json` に保存する。Google News RSS を12カテゴリで取得し、raw 150〜250件程度の候補から URL / title 重複を除き、最大100件の確認材料に圧縮する。RSS取得に失敗した場合は既存cache、保存済みがなければ demo snapshot にフォールバックする。
-- 表示中ニュース件数、ヒートマップ数、snapshot鮮度、データ状態（サンプル表示 / 保存データ）と cache size。
+- 上部の状態カードは置かず、更新ボタンと必要時の警告だけを表示する。ヒートマップ本体の top-line でセクター数と銘柄タイル数を確認する。
 - 市場ニュースヘッドライン。読みやすい大きさのニュースティッカーとカードに title、source、published_at、freshness、category、AIコメント、確認ポイント、元記事リンクを表示する。UI初期表示は20〜30件程度に抑え、保存上限100件を一度にカード描画しない。
-- 投資ヒートマップ。投資カテゴリをセクター枠、関連銘柄をシンボル＋銘柄名 / 企業名付きタイルとして詰める株式ヒートマップ風UIで、値動き、取引量の活発さ、ニュース件数、freshness、risk / positive / official source count から集計した確認用の温度感を見る。市場指標が欠けるカテゴリは、ニュース材料の positive / risk / official / heat_score から `ニュース代理` のシグナルを表示する。
+- 投資ヒートマップ。投資カテゴリをセクター枠、注目銘柄をシンボル＋銘柄名 / 企業名付きタイルとして詰める株式ヒートマップ風UIで、値動き、取引量の活発さ、ニュース件数、freshness、risk / positive / official source count から集計した確認用の温度感を見る。銘柄タイルはニュースに直接紐づく銘柄に加え、`data/marketdata/symbol_universe.csv` の広い候補からカテゴリ適合、時価総額帯、データ品質、市場シグナルを使って注目度順に補完する。市場指標が欠けるカテゴリは、ニュース材料の positive / risk / official / heat_score から `ニュース代理` のシグナルを表示する。
 - カテゴリ別ニュースレーン。カテゴリごとの代表ニュースを幅のある3列カードで確認し、関連銘柄は縦並びボタンで銘柄名 / 企業名を読みやすくする。
 - 関連銘柄ボタンにはシンボルと銘柄名 / 企業名を表示し、`銘柄コックピット` へ遷移する。Investment Score / Research Score / Ranking order は変更しない。
 

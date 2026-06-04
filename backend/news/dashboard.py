@@ -88,7 +88,7 @@ def build_demo_news_dashboard_snapshot(
             source_name="SMAI Market Fixture",
             minutes_ago=12,
             freshness_status="latest",
-            related_symbols=["NVDA", "6857.T", "8035.T"],
+            related_symbols=["NVDA", "6857.T", "8035.T", "TSM", "ASML", "AMD"],
             ai_comment="テーマ全体の材料か、個別企業の受注・粗利率に効く材料かを分けて確認します。",
             investment_checkpoints=[
                 "直近決算の受注残と会社計画を確認します。",
@@ -106,7 +106,7 @@ def build_demo_news_dashboard_snapshot(
             source_type="disclosure",
             minutes_ago=38,
             freshness_status="latest",
-            related_symbols=["7203.T", "8306.T"],
+            related_symbols=["7203.T", "8306.T", "8316.T", "9432.T", "8058.T"],
             is_official_source=True,
             ai_comment="還元方針だけでなく、利益水準とキャッシュフローの持続性を合わせて確認します。",
             investment_checkpoints=[
@@ -123,7 +123,7 @@ def build_demo_news_dashboard_snapshot(
             source_name="SMAI Macro Fixture",
             minutes_ago=55,
             freshness_status="latest",
-            related_symbols=["JPM", "QQQ", "1488.T"],
+            related_symbols=["JPM", "QQQ", "1488.T", "SPY", "TLT", "8306.T"],
             ai_comment="金利材料はセクターごとの追い風と逆風を分け、価格変動リスクも確認します。",
             investment_checkpoints=[
                 "金利感応度とバリュエーションの関係を確認します。",
@@ -139,7 +139,7 @@ def build_demo_news_dashboard_snapshot(
             source_name="SMAI Policy Fixture",
             minutes_ago=82,
             freshness_status="recent",
-            related_symbols=["1605.T", "XLE"],
+            related_symbols=["1605.T", "XLE", "XOM", "CVX", "5020.T"],
             ai_comment="資源価格だけでなく、ヘッジ、コスト、政策影響を分けて確認します。",
             investment_checkpoints=[
                 "資源価格の前提が業績見通しにどう反映されているか見ます。",
@@ -155,7 +155,7 @@ def build_demo_news_dashboard_snapshot(
             source_name="SMAI ETF Fixture",
             minutes_ago=110,
             freshness_status="recent",
-            related_symbols=["VOO", "2558.T", "QQQ"],
+            related_symbols=["VOO", "2558.T", "QQQ", "SPY", "VTI", "1306.T"],
             ai_comment="低コストだけでなく、指数、分配、為替、流動性を並べて確認します。",
             investment_checkpoints=[
                 "連動指数と経費率を商品資料で確認します。",
@@ -172,7 +172,7 @@ def build_demo_news_dashboard_snapshot(
             source_type="news",
             minutes_ago=145,
             freshness_status="recent",
-            related_symbols=["6758.T", "9432.T"],
+            related_symbols=["6758.T", "9432.T", "9984.T", "7974.T", "6861.T"],
             ai_comment="見通し修正の理由が数量、価格、為替、一時要因のどれかを確認します。",
             investment_checkpoints=[
                 "修正理由と通期計画への影響を確認します。",
@@ -188,7 +188,7 @@ def build_demo_news_dashboard_snapshot(
             source_name="SMAI Risk Fixture",
             minutes_ago=210,
             freshness_status="recent",
-            related_symbols=["7011.T", "9101.T", "GLD"],
+            related_symbols=["7011.T", "9101.T", "GLD", "6208.T", "6301.T", "1605.T"],
             ai_comment="リスク材料は価格反応だけでなく、企業業績への経路と一時性を確認します。",
             investment_checkpoints=[
                 "公式発表と継続性を確認します。",
@@ -204,7 +204,7 @@ def build_demo_news_dashboard_snapshot(
             source_name="SMAI Banking Fixture",
             minutes_ago=260,
             freshness_status="stale",
-            related_symbols=["8306.T", "8316.T"],
+            related_symbols=["8306.T", "8316.T", "JPM", "BAC", "GS", "MS"],
             ai_comment="金利収益の追い風と与信費用の変化を同じ表で確認します。",
             investment_checkpoints=[
                 "決算資料の利ざやと与信費用を見ます。",

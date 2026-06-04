@@ -58,7 +58,7 @@ Research RAG は Phase 20 local evidence slice が決定的な土台として実
 - `polygon` などの追加 live provider adapter 本体
 - 追加 provider / fund metadata source adapter
 - Research RAG の `ResearchFactSummary` 抽出対象拡張、追加 external source adapter、vector / hybrid search の運用UI
-- `投資レーダー` dashboard の外部ニュースsource接続、詳細フィルタ、Watchlist連動、通知
+- `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動、通知
 - 銘柄DB background refresh の visible freshness badge / live provider refresh wiring。`backend/symbols` の foundation と Streamlit daemon worker は実装済み
 - Research Score によるランキング順位統合は、現時点では見送り。必要性が再確認された場合のみ後続の opt-in 機能として扱う
 - Assistant API / Streamlit 質問パネル、optional LLM provider。`backend/assistant` の deterministic template service は初期実装済み
@@ -867,20 +867,20 @@ Phase 21.5 の対象外:
 - R7: コックピット / Report / optional score plumbing。ランキング順位統合は現時点では行わない。
 - R8: External Source Adapter。live scraping / external source は adapter 化し、通常 checks は fake adapter / fixture で代替する。
 
-Phase 22.x: 投資レーダー / Investment News dashboard MVP
+Phase 22.x: 投資レーダー / Investment News dashboard
 
-状態: 初期MVP実装済み。Google News RSS Standard Mode の初期接続まで実装済み。詳細フィルタ、Watchlist連動、通知、追加providerは後続
+状態: 投資レーダー画面、Google News RSS Standard Mode、銘柄ユニバース補完型の投資ヒートマップを実装済み。詳細フィルタ、Watchlist連動、通知、追加providerは後続
 
 目的: 新画面 `投資レーダー` を、単なるニュース一覧ではなく、市場全体の温度感、注目テーマ、関連銘柄への深掘り導線を提供する市場ニュースコックピットとして設計する。ニュースだけで判断を完結させず、気になる材料を `銘柄コックピット` で確認する入口にする。
 
 現在の前提:
 
 - 既存実装では、Cockpit Research Summary 内に `Market Intelligence`、URL付き `投資ヒントとなるニュース`、`ニュース・開示の出典` citation list がある。
-- 独立した `投資レーダー` 画面は初期MVP実装済み。ニュース横断ランキング、News Score 化、Watchlist 連動、通知は未実装。
+- 独立した `投資レーダー` 画面は実装済み。ニュース横断ランキング、News Score 化、Watchlist 連動、通知は未実装。
 - Phase 22 本体の Research Score 方針は維持し、Investment News / 投資レーダー dashboard は Phase 22.x の UI / backend snapshot slice として扱う。
 - `backend/news/dashboard.py` で deterministic `build_news_dashboard_snapshot` / `build_demo_news_dashboard_snapshot` を実装し、保存済みsnapshotがない場合も network-free demo snapshot で表示できる。
 - `backend/news/sources.py` で Standard Mode の市場横断ニュース取得層を追加済み。手動更新時に Google News RSS を12カテゴリで広めに取得し、raw 150〜250件程度の候補からURL/title重複を除き、最大100件の dashboard snapshot に圧縮する。通常 tests は Static adapter / RSS fixture で network-free に維持する。
-- `ui/views/news.py` で `投資レーダー` 画面を追加し、side menu / routing / related-symbol cockpit handoff を `ui/components/sidemenu.py` と `ui/app.py` に接続済み。投資ヒートマップの銘柄タイルは企業名を主、シンボルを補助タグとして表示し、クリックで同一アプリ内の `銘柄コックピット` に遷移する。
+- `ui/views/news.py` で `投資レーダー` 画面を追加し、side menu / routing / related-symbol cockpit handoff を `ui/components/sidemenu.py` と `ui/app.py` に接続済み。投資ヒートマップの銘柄タイルはニュース直結の関連銘柄だけでなく、ローカル銘柄ユニバース全体からカテゴリ適合、時価総額帯、データ品質、ニュース鮮度、材料タイプ、市場シグナルを使って注目度順に補完する。企業名を主、シンボルを補助タグとして表示し、クリックで同一アプリ内の `銘柄コックピット` に遷移する。
 
 MVP 必須機能:
 
@@ -896,6 +896,7 @@ MVP 必須機能:
 - 中央上: 投資ヒートマップ
   - 株式ヒートマップ風に、投資カテゴリをセクター枠、関連銘柄をタイルとして詰め、値動き / 材料シグナルを注意材料・中立・好材料の温度感として確認できる配色にする。
   - `heat = news_intensity + abs(price_change_pct) + volume_activity_score` を初期案とし、カテゴリ、region、price_change_pct、volume_activity_score、news_count、risk_count、positive_count、official_source_count、freshness_ratio を表示する。
+  - 銘柄タイルは `related_symbols` の直接表示だけで終えず、`data/marketdata/symbol_universe.csv` の広い銘柄候補からカテゴリ profile、sector / theme / market / asset_type、時価総額帯、データ品質、ニュース材料スコアを使って注目度順に補完する。
   - タイルにはローカル銘柄名 / 企業名、シンボル、値動き / 材料シグナルを併記し、企業名を読み取りの主情報、シンボルを小さな補助タグとして扱う。長い名称は省略しつつ tooltip / title で確認できるようにする。
   - 値動き / 材料シグナルの方向をタイル色、カテゴリの注目度をセクター枠サイズ、値動きの大きさをタイル内テキストとして見せる。
   - タイルクリックで該当銘柄の `銘柄コックピット` を開き、ニュース画面だけで判断を閉じずに深掘りへ進める。
@@ -923,7 +924,7 @@ MVP で見送る機能:
 - `backend/news/contracts.py`: `NewsHeadlineCard`、`NewsHeatmapCell`、`NewsCategoryLane`、`NewsDashboardSnapshot`。
 - `backend/news/dashboard.py`: `build_news_dashboard_snapshot`、`build_demo_news_dashboard_snapshot`、heatmap / category lane 集計。
 - `backend/news/sources.py`: `GoogleNewsRSSDashboardAdapter`、`StaticNewsSourceAdapter`、`build_standard_news_dashboard_snapshot`、RSS parsing、dedupe、Standard Mode category queries。
-- `ui/views/news.py`: `投資レーダー` 画面。市場ニュースヘッドライン、株式ヒートマップ風の投資ヒートマップ、3列カード型カテゴリ別ニュースレーン、銘柄名付き関連銘柄 handoff を表示する。市場指標が欠ける heatmap cell はニュース材料から代理シグナルを補完する。投資ヒートマップの銘柄タイルは同一アプリURLで `銘柄コックピット` へ遷移する。
+- `ui/views/news.py`: `投資レーダー` 画面。市場ニュースヘッドライン、株式ヒートマップ風の投資ヒートマップ、3列カード型カテゴリ別ニュースレーン、銘柄名付き関連銘柄 handoff を表示する。市場指標が欠ける heatmap cell はニュース材料から代理シグナルを補完する。投資ヒートマップの銘柄タイルは関連銘柄とローカル銘柄ユニバース候補を注目度順に混ぜ、同一アプリURLで `銘柄コックピット` へ遷移する。
 - `ui/components/sidemenu.py` / `ui/app.py`: `投資レーダー` を side menu と routing に追加済み。
 
 データ構造案:
@@ -975,7 +976,7 @@ class NewsDashboardSnapshot(BaseModel):
 テスト方針:
 
 - `tests/test_news_dashboard_service.py` を追加し、fake fixture から network-free に snapshot を生成する。
-- `tests/test_ui_news_view.py` を追加し、status cards、heatmap frame、safe source link HTML、related-symbol handoff symbol を確認する。
+- `tests/test_ui_news_view.py` を追加し、statusless dashboard、heatmap frame、stock-heatmap HTML、safe source link HTML、related-symbol handoff symbol を確認する。
 - stream_headlines、heatmap_cells、category_lanes、source URL 保持、related_symbols ありの場合の Cockpit 導線対象、ai_comment、investment_checkpoints を確認する。
 - published_at / fetched_at 欠落時も壊れないことを確認する。
 - 禁止表現テストとして、買い、売り、今すぐ投資、必ず上がる、確実に儲かる等を含まないことを確認する。
@@ -985,7 +986,7 @@ Phase 22.x 完了条件:
 - サイドメニューから `投資レーダー` 画面を開ける。
 - 上部に流れる市場ニュースヘッドラインが表示される。
 - ニュースカードが自動ローテーション風に表示される。
-- 値動き、取引量、ニュース量を合わせた株式ヒートマップ風の投資ヒートマップが表示される。ヒートマップタイルにも銘柄名 / 企業名とシンボルが併記され、市場指標が欠ける場合も `ニュース代理` として材料シグナルが表示され、`未取得` だけのヒートマップにならない。タイルクリックで該当銘柄の `銘柄コックピット` に遷移できる。
+- 値動き、取引量、ニュース量を合わせた株式ヒートマップ風の投資ヒートマップが表示される。ヒートマップタイルにも銘柄名 / 企業名とシンボルが併記され、ニュース直結の関連銘柄だけでなく広い銘柄ユニバースから注目度順に候補が補完される。市場指標が欠ける場合も `ニュース代理` として材料シグナルが表示され、`未取得` だけのヒートマップにならない。タイルクリックで該当銘柄の `銘柄コックピット` に遷移できる。
 - 投資カテゴリ別ニュースレーンが3列カードで表示される。
 - ニュースカードにAI分析コメント / 投資確認観点が表示される。
 - 関連銘柄があるニュースカードに、シンボルと銘柄名 / 企業名が分かる `銘柄コックピットで確認` 導線が表示される。
@@ -1735,7 +1736,7 @@ Markdown UTF-8 check:
 ## 8. Open Items
 
 - Phase 16S の最終 Streamlit browser smoke をいつ実施するか
-- Phase 22.x `投資レーダー` dashboard の外部ニュースsource接続、詳細フィルタ、Watchlist連動をどの順に進めるか
+- Phase 22.x `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動をどの順に進めるか
 - `投資レーダー` 画面で news cache status、fallback、freshness、cache size の見せ方を実画面で継続調整するか
 - Symbol DB background refresh の freshness badge / live provider refresh wiring を Ranking / Cockpit のどこへ接続するか
 - Research Score をランキング順位へ統合する必要性を再確認するか。既定では統合しない

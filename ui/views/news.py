@@ -60,6 +60,28 @@ _MATERIAL_TONES = {
 
 _HEATMAP_TILE_OFFSETS = (0.0, -0.35, 0.28, 0.62, -0.72, 0.18, -0.15, 0.45, -0.42, 0.08)
 
+_HEATMAP_SYMBOL_SHORT_NAMES = {
+    "NVDA": "NVIDIA",
+    "6857.T": "アドバンテスト",
+    "8035.T": "東京エレクトロン",
+    "7203.T": "トヨタ自動車",
+    "8306.T": "三菱UFJ",
+    "8316.T": "三井住友FG",
+    "6758.T": "ソニーG",
+    "9432.T": "NTT",
+    "JPM": "JPMorgan",
+    "QQQ": "QQQ",
+    "1488.T": "日経高配当50",
+    "1605.T": "INPEX",
+    "XLE": "エネルギーETF",
+    "VOO": "S&P500 ETF",
+    "2558.T": "MAXIS S&P500",
+    "7011.T": "三菱重工",
+    "9101.T": "日本郵船",
+    "GLD": "ゴールドETF",
+    "AMZN": "Amazon",
+}
+
 
 def render_news_dashboard_page(
     *,
@@ -170,11 +192,16 @@ def news_dashboard_stock_heatmap_html(snapshot: NewsDashboardSnapshot) -> str:
     groups = news_dashboard_stock_heatmap_groups(snapshot)
     if not groups:
         return ""
+    tile_count = sum(_stock_heatmap_group_tile_count(group) for group in groups)
     group_html = "".join(_stock_heatmap_group_html(group) for group in groups)
     return (
         '<section class="investment-stock-heatmap" aria-label="investment stock heatmap">'
         '<div class="investment-stock-heatmap-topline">'
-        '<span class="investment-stock-heatmap-read">表示: 銘柄名 / シンボル / 値動き。タイルクリックで銘柄コックピットへ移動します。</span>'
+        '<span class="investment-stock-heatmap-read">'
+        f"表示: {len(groups)}セクター / {tile_count}銘柄タイル。"
+        "銘柄名・シンボル・値動きを並べて確認できます。"
+        "</span>"
+        '<span class="investment-stock-heatmap-click">コックピット連携</span>'
         '<span class="investment-stock-heatmap-legend negative">注意材料</span>'
         '<span class="investment-stock-heatmap-legend neutral">中立</span>'
         '<span class="investment-stock-heatmap-legend positive">好材料</span>'
@@ -207,8 +234,10 @@ def news_headline_card_html(
     freshness = _freshness_label(card.freshness_status)
     summary = card.summary or "概要は未取得です。元記事と公式資料で確認してください。"
     comment = card.ai_comment or "関連する公式資料と銘柄コックピットで前提を確認します。"
+    checkpoint_limit = 1 if compact else 3
     checkpoint_items = "".join(
-        f"<li>{html.escape(checkpoint)}</li>" for checkpoint in card.investment_checkpoints[:3]
+        f"<li>{html.escape(checkpoint)}</li>"
+        for checkpoint in card.investment_checkpoints[:checkpoint_limit]
     )
     official_badge = (
         '<span class="investment-news-chip official">公式系</span>'
@@ -267,7 +296,7 @@ def news_dashboard_handoff_symbols(snapshot: NewsDashboardSnapshot) -> list[str]
 def news_dashboard_lane_card_items(
     snapshot: NewsDashboardSnapshot,
     *,
-    max_lanes: int = 6,
+    max_lanes: int = 9,
     max_cards_per_lane: int = 1,
 ) -> list[tuple[int, int, str, NewsHeadlineCard]]:
     """Return bounded category lane cards for the responsive lane grid."""
@@ -439,10 +468,14 @@ def _stock_heatmap_tile(
 
 
 def _stock_heatmap_tile_names(symbol: str) -> tuple[str, str]:
+    normalized_symbol = symbol.strip().upper()
+    short_name = _HEATMAP_SYMBOL_SHORT_NAMES.get(normalized_symbol)
     try:
         name = symbol_name(symbol)
     except OSError:
         name = None
+    if short_name:
+        return short_name, (name or short_name).strip()
     if not name or name.strip().upper() == symbol.strip().upper():
         return "", ""
     normalized = name.strip()
@@ -498,6 +531,11 @@ def _stock_heatmap_group_html(group: dict[str, object]) -> str:
         f'<div class="investment-stock-heatmap-tiles">{tile_html}</div>'
         "</article>"
     )
+
+
+def _stock_heatmap_group_tile_count(group: dict[str, object]) -> int:
+    tiles = group.get("tiles")
+    return len(tiles) if isinstance(tiles, list) else 0
 
 
 def _stock_heatmap_tile_html(tile: dict[str, object]) -> str:

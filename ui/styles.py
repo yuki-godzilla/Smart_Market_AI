@@ -749,7 +749,7 @@ body,
 }
 
 .investment-news-card.compact {
-    min-height: 18rem;
+    min-height: 14.6rem;
 }
 
 .investment-news-card.news {
@@ -918,6 +918,19 @@ body,
 .investment-stock-heatmap-read {
     margin-right: auto;
     color: rgba(208, 230, 242, 0.82);
+}
+
+.investment-stock-heatmap-click {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid rgba(251, 191, 36, 0.32);
+    border-radius: 999px;
+    background: rgba(251, 191, 36, 0.10);
+    color: #FDE68A;
+    font-size: 0.72rem;
+    font-weight: 850;
+    line-height: 1.2;
+    padding: 0.14rem 0.48rem;
 }
 
 .investment-stock-heatmap-legend {
@@ -1258,11 +1271,28 @@ body,
     .investment-stock-heatmap-group.medium {
         grid-column: span 1;
         grid-row: auto;
-        min-height: 17rem;
+        min-height: 14.2rem;
     }
     .investment-stock-heatmap-group-header {
         align-items: flex-start;
         flex-direction: column;
+        gap: 0.16rem;
+    }
+    .investment-stock-heatmap-group-meta {
+        white-space: normal;
+    }
+    .investment-stock-heatmap-tiles {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-auto-rows: minmax(2.7rem, 1fr);
+    }
+    .investment-stock-heatmap-tile.hero,
+    .investment-stock-heatmap-tile.major {
+        grid-column: span 3;
+        grid-row: span 2;
+    }
+    .investment-stock-heatmap-tile.medium {
+        grid-column: span 2;
+        grid-row: span 2;
     }
 }
 

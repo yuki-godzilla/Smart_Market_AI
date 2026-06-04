@@ -97,6 +97,9 @@ def test_news_dashboard_stock_heatmap_html_uses_sector_tiles():
     assert "investment-stock-heatmap-board" in html_text
     assert "investment-stock-heatmap-group" in html_text
     assert "investment-stock-heatmap-tile" in html_text
+    assert "8セクター" in html_text
+    assert "銘柄タイル" in html_text
+    assert "investment-stock-heatmap-click" in html_text
     assert '<a class="investment-stock-heatmap-tile' in html_text
     assert 'href="?smai_page=cockpit&amp;smai_symbol=NVDA"' in html_text
     assert "count-3" in html_text
@@ -127,6 +130,7 @@ def test_news_headline_card_html_keeps_link_safe_and_hides_raw_url():
     assert card.url is not None
     assert card.url not in html_text.replace(f'href="{card.url}"', "")
     assert "銘柄コックピット" not in html_text
+    assert html_text.count("<li>") == 1
 
 
 def test_news_dashboard_handoff_symbols_are_unique_in_display_order():
@@ -146,9 +150,9 @@ def test_news_dashboard_lane_card_items_keep_three_column_grid_reasonable():
     )
     items = news_dashboard_lane_card_items(snapshot)
 
-    assert len(items) == 6
+    assert len(items) == 8
     assert all(card.title for _, _, _, card in items)
-    assert len({category for _, _, category, _ in items}) == 6
+    assert len({category for _, _, category, _ in items}) == 8
 
 
 def test_news_dashboard_unique_headline_count_deduplicates_lanes():

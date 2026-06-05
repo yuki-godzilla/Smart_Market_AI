@@ -78,6 +78,7 @@ def _configure_environment(app_root: Path, runtime_root: Path) -> None:
     user_config_dir = runtime_root / "user_config"
 
     os.environ.setdefault("SMAI_RUNTIME_DIR", str(runtime_root))
+    os.environ.setdefault("SMAI_CACHE_DIR", str(cache_dir))
     os.environ.setdefault("SMAI_OUTPUT_DIR", str(outputs_dir))
     os.environ.setdefault("SMAI_LOG_DIR", str(logs_dir))
     os.environ.setdefault("SMAI_USER_CONFIG_DIR", str(user_config_dir))

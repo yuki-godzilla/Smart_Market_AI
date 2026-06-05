@@ -1103,3 +1103,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Reworked standard news comments / checkpoints into deterministic RAG-style reading notes that distinguish direct article mentions from SMAI inferred candidates.
 - Added UI helper tests for filter behavior, Watchlist ordering, Watchlist parsing, and Streamlit control rendering.
 - Revalidated the 100-case related-symbol extraction sprint in 10-case batches; all batches passed at 100.0%.
+
+## 2026-06-05 - EXE CRUD runtime path readiness
+
+- Reviewed the pre-release EXE packaging slice from a CRUD perspective before the second pre-distribution build.
+- Added runtime path environment handling so the EXE launcher redirects cache, output, logs, and user config to `%LOCALAPPDATA%\SmartMarketAI`.
+- Updated news and symbol cache/log defaults to consume the runtime cache/log environment variables while preserving local `data/cache` and `logs` fallbacks for development and CI.
+- Added packaging runtime path regression tests and documented the CRUD runtime directories in the operations guide and pre-release README.

@@ -4,6 +4,7 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Final
 
+from backend.core.runtime_paths import CACHE_DIR_ENV, runtime_path_from_env
 from backend.news.contracts import (
     NewsCategoryLane,
     NewsDashboardSnapshot,
@@ -20,7 +21,7 @@ MAX_CHECKPOINTS_PER_NEWS = 3
 MAX_SUMMARY_CHARS = 300
 MAX_AI_COMMENT_CHARS = 240
 
-NEWS_CACHE_DIR: Final[Path] = Path("data/cache")
+NEWS_CACHE_DIR: Final[Path] = runtime_path_from_env(CACHE_DIR_ENV, "data/cache")
 NEWS_SNAPSHOT_FILENAME: Final[str] = "news_dashboard_snapshot.json"
 NEWS_PREVIOUS_SNAPSHOT_FILENAME: Final[str] = "news_dashboard_snapshot.prev.json"
 NEWS_TMP_SNAPSHOT_FILENAME: Final[str] = "news_dashboard_snapshot.tmp.json"

@@ -19,7 +19,10 @@ Smart Market AI プレ配布版
 - 外部データ取得が失敗しても、ローカル同梱データを使う画面確認は継続できます。
 
 実行時データ
-- キャッシュ、出力、ログ、ユーザー設定は %LOCALAPPDATA%\SmartMarketAI に保存されます。
+- キャッシュは %LOCALAPPDATA%\SmartMarketAI\cache に保存されます。
+- 出力は %LOCALAPPDATA%\SmartMarketAI\outputs に保存されます。
+- ログは %LOCALAPPDATA%\SmartMarketAI\logs に保存されます。
+- ユーザー設定は %LOCALAPPDATA%\SmartMarketAI\user_config に保存されます。
 - 配布フォルダ直下には実行時データを書き込まない方針です。
 
 問題発生時に送ってほしい情報

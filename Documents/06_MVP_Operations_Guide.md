@@ -218,6 +218,17 @@ dist\SMAI\README_PRE_RELEASE.txt
 
 `SMAI.exe` は `ui/app.py` を Streamlit headless で起動し、実行時キャッシュ、出力、ログ、ユーザー設定を `%LOCALAPPDATA%\SmartMarketAI` に保存します。配布物には `backend/`, `ui/`, `config/`, 必要最小限の `data/marketdata/`, `data/research_docs/`, `examples/rebalance_scenarios/` を同梱し、`.git/`, `venv_SMAI/`, cache、`outputs/`, live/raw取得物、秘密情報は含めません。
 
+EXE起動時のCRUD系ランタイム領域:
+
+| 用途 | 既定パス | 環境変数 |
+| --- | --- | --- |
+| ニュース/銘柄更新キャッシュ | `%LOCALAPPDATA%\SmartMarketAI\cache` | `SMAI_CACHE_DIR` |
+| エクスポート/生成出力 | `%LOCALAPPDATA%\SmartMarketAI\outputs` | `SMAI_OUTPUT_DIR` |
+| 更新ログ | `%LOCALAPPDATA%\SmartMarketAI\logs` | `SMAI_LOG_DIR` |
+| ユーザー設定 | `%LOCALAPPDATA%\SmartMarketAI\user_config` | `SMAI_USER_CONFIG_DIR` |
+
+ランチャーは上記ディレクトリを起動時に作成し、配布フォルダ直下や `_internal` 配下へ実行時データを書き込まない方針です。通常の開発/CI起動では環境変数がなければ従来どおり `data/cache` と `logs` を使います。
+
 ### Side menu
 
 Streamlit UI は左サイドメニューで画面を切り替えます。

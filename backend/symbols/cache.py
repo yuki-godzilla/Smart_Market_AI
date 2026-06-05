@@ -9,13 +9,14 @@ from typing import Final
 
 from pydantic import TypeAdapter
 
+from backend.core.runtime_paths import CACHE_DIR_ENV, runtime_path_from_env
 from backend.symbols.contracts import (
     SymbolRefreshStatus,
     SymbolRefreshTask,
     SymbolRefreshTaskStatus,
 )
 
-SYMBOL_CACHE_DIR: Final[Path] = Path("data/cache")
+SYMBOL_CACHE_DIR: Final[Path] = runtime_path_from_env(CACHE_DIR_ENV, "data/cache")
 SYMBOL_REFRESH_QUEUE_FILENAME: Final[str] = "symbol_refresh_queue.json"
 SYMBOL_REFRESH_QUEUE_TMP_FILENAME: Final[str] = "symbol_refresh_queue.tmp.json"
 SYMBOL_REFRESH_STATUS_FILENAME: Final[str] = "symbol_refresh_status.json"

@@ -19,6 +19,7 @@ from backend.marketdata.symbol_metadata_schema import (
     symbol_universe_source_required_fields,
 )
 from backend.symbols.contracts import SymbolRecord
+from backend.symbols.metrics_repository import load_symbol_metric_fields
 from backend.symbols.repository import load_symbol_record, load_symbol_records
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -66,6 +67,25 @@ def symbol_universe_csv_rows(path: Path = SYMBOL_UNIVERSE_CSV) -> list[dict[str,
     """Return local-first symbol universe rows from the curated CSV."""
 
     return [dict(row) for row in _cached_symbol_universe_rows(str(path))]
+
+
+def symbol_universe_search_rows(path: Path = SYMBOL_UNIVERSE_CSV) -> list[dict[str, str]]:
+    """Return formal symbol rows with official lightweight metrics overlaid."""
+
+    rows = symbol_universe_csv_rows(path)
+    if path.resolve() != SYMBOL_UNIVERSE_CSV.resolve():
+        return rows
+    metrics_by_symbol = load_symbol_metric_fields()
+    if not metrics_by_symbol:
+        return rows
+    merged_rows: list[dict[str, str]] = []
+    for row in rows:
+        merged = dict(row)
+        metric_fields = metrics_by_symbol.get(row.get("symbol", "").strip().upper())
+        if metric_fields:
+            merged.update(metric_fields)
+        merged_rows.append(merged)
+    return merged_rows
 
 
 @lru_cache(maxsize=4)

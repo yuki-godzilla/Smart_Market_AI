@@ -18,6 +18,7 @@ from backend.symbols.contracts import (
     SymbolRefreshTask,
     SymbolStartupRefreshSummary,
 )
+from backend.symbols.metrics_repository import load_symbol_metric_records
 from backend.symbols.refresh_manager import refresh_symbols_if_needed
 from backend.symbols.refresh_priority import (
     MAX_SYMBOL_REFRESH_PER_RUN,
@@ -100,10 +101,7 @@ def run_symbol_database_startup_refresh(
         )
 
     row_by_symbol = {row["symbol"].strip().upper(): row for row in rows if row.get("symbol")}
-    records = load_symbol_records(cache_dir=cache_dir)
-    symbol_records = {
-        symbol: {"last_refreshed_at": record.updated_at} for symbol, record in records.items()
-    }
+    symbol_records = _refresh_reference_records(cache_dir=cache_dir)
     currently_visible_symbol_set = _normalize_symbol_set(currently_visible_symbols)
     ranking_candidate_set = _normalize_symbol_set(ranking_candidates)
     tasks = build_symbol_refresh_queue(
@@ -198,11 +196,10 @@ def run_symbol_database_target_refresh(
             cache_dir=cache_dir,
         )
 
-    records = load_symbol_records(cache_dir=cache_dir)
     known_target_symbol_set = set(known_target_symbols)
     symbol_records = {
-        symbol: {"last_refreshed_at": record.updated_at}
-        for symbol, record in records.items()
+        symbol: record
+        for symbol, record in _refresh_reference_records(cache_dir=cache_dir).items()
         if symbol in known_target_symbol_set
     }
     currently_visible_symbol_set = _normalize_symbol_set(currently_visible_symbols)
@@ -288,6 +285,21 @@ def _load_symbol_universe_rows(csv_path: Path) -> list[dict[str, str]]:
             for row in reader
             if (row.get("symbol") or "").strip()
         ]
+
+
+def _refresh_reference_records(
+    *,
+    cache_dir: Path | str,
+) -> dict[str, dict[str, datetime]]:
+    records = {
+        symbol: {"last_refreshed_at": record.updated_at}
+        for symbol, record in load_symbol_records(cache_dir=cache_dir).items()
+    }
+    for symbol, record in load_symbol_metric_records(cache_dir=cache_dir).items():
+        if record.source_updated_at is None or symbol in records:
+            continue
+        records[symbol] = {"last_refreshed_at": record.source_updated_at}
+    return records
 
 
 def _record_from_symbol_row(

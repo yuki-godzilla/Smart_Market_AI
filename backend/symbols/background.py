@@ -10,6 +10,7 @@ from time import sleep
 from typing import Final
 
 from backend.symbols.cache import SYMBOL_CACHE_DIR
+from backend.symbols.cache_sync import sync_symbol_cache_to_official_metrics
 from backend.symbols.contracts import SymbolStartupRefreshSummary
 from backend.symbols.logging_utils import configure_symbol_refresh_logger
 from backend.symbols.refresh_priority import MAX_SYMBOL_REFRESH_PER_RUN
@@ -131,12 +132,20 @@ def run_symbol_background_target_refresh_once(
         currently_visible_symbols=currently_visible_symbols,
         ranking_candidates=ranking_candidates,
     )
+    sync_result = sync_symbol_cache_to_official_metrics(
+        cache_dir=cache_dir,
+        now=now_provider(),
+        max_items=max(0, max_items),
+    )
     logger.info(
-        "target refresh batch attempted=%s succeeded=%s failed=%s records=%s",
+        "target refresh batch attempted=%s succeeded=%s failed=%s records=%s "
+        "promoted=%s deleted=%s",
         summary.attempted_count,
         summary.succeeded_count,
         summary.failed_count,
         summary.record_count,
+        sync_result.promoted_count,
+        sync_result.deleted_count,
     )
     return summary
 
@@ -242,12 +251,20 @@ def _run_background_batch(
         currently_visible_symbols=currently_visible_symbols,
         ranking_candidates=ranking_candidates,
     )
+    sync_result = sync_symbol_cache_to_official_metrics(
+        cache_dir=cache_dir,
+        now=datetime.utcnow(),
+        max_items=max_items,
+    )
     logger.info(
-        "background refresh batch attempted=%s succeeded=%s failed=%s records=%s",
+        "background refresh batch attempted=%s succeeded=%s failed=%s records=%s "
+        "promoted=%s deleted=%s",
         summary.attempted_count,
         summary.succeeded_count,
         summary.failed_count,
         summary.record_count,
+        sync_result.promoted_count,
+        sync_result.deleted_count,
     )
     return summary
 

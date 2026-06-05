@@ -8,9 +8,12 @@ from pydantic import ValidationError
 
 from backend.symbols.contracts import SymbolRecord
 from backend.symbols.repository import (
+    delete_symbol_record,
+    delete_symbol_records,
     load_symbol_record,
     load_symbol_records,
     normalize_symbol_record,
+    purge_symbol_records_by_status,
     save_symbol_record,
     save_symbol_records,
 )
@@ -98,6 +101,42 @@ def test_save_symbol_records_upserts_multiple_records_without_legacy_json_read(
     assert reads_after_save == 0
     assert (tmp_path / "symbols_cache.sqlite").exists()
     assert not (tmp_path / "symbols_cache.tmp.json").exists()
+
+
+def test_delete_symbol_records_removes_only_requested_records(tmp_path) -> None:
+    now = datetime(2026, 6, 3, 12, 0, 0)
+    save_symbol_records(
+        [
+            SymbolRecord(symbol="AAPL", provider="fake", updated_at=now),
+            SymbolRecord(symbol="NVDA", provider="fake", updated_at=now),
+        ],
+        cache_dir=tmp_path,
+    )
+
+    assert delete_symbol_record("aapl", cache_dir=tmp_path) is True
+    assert delete_symbol_records(["missing", "NVDA"], cache_dir=tmp_path) == 1
+
+    assert load_symbol_records(cache_dir=tmp_path) == {}
+
+
+def test_purge_symbol_records_by_status_removes_missing_records(tmp_path) -> None:
+    now = datetime(2026, 6, 3, 12, 0, 0)
+    save_symbol_records(
+        [
+            SymbolRecord(
+                symbol="MISS",
+                provider="fake",
+                updated_at=now,
+                data_freshness_status="missing",
+            ),
+            SymbolRecord(symbol="FRESH", provider="fake", updated_at=now),
+        ],
+        cache_dir=tmp_path,
+    )
+
+    assert purge_symbol_records_by_status(["missing"], cache_dir=tmp_path) == 1
+
+    assert sorted(load_symbol_records(cache_dir=tmp_path)) == ["FRESH"]
 
 
 def test_load_symbol_records_migrates_legacy_json_to_sqlite(tmp_path) -> None:

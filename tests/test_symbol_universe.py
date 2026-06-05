@@ -16,6 +16,7 @@ from ui.symbol_universe import (
     symbol_universe_metadata_summary,
     symbol_universe_name_map,
     symbol_universe_runtime_rows,
+    symbol_universe_search_rows,
     validate_symbol_universe_rows,
 )
 
@@ -169,6 +170,19 @@ def test_symbol_universe_runtime_rows_overlay_symbol_cache_values(tmp_path):
     assert rows[0]["symbol_cache_last_fundamental_updated_at"] == "2026-06-04T08:45:00"
     assert rows[0]["symbol_cache_freshness_status"] == "stale"
     assert "raw_response" not in rows[0]
+
+
+def test_symbol_universe_search_rows_overlay_official_metrics(monkeypatch):
+    def fake_metric_fields() -> dict[str, dict[str, str]]:
+        return {"AAPL": {"per": "18.2", "dividend_yield_pct": "3.5"}}
+
+    monkeypatch.setattr("ui.symbol_universe.load_symbol_metric_fields", fake_metric_fields)
+
+    rows = symbol_universe_search_rows()
+    aapl = next(row for row in rows if row["symbol"] == "AAPL")
+
+    assert aapl["per"] == "18.2"
+    assert aapl["dividend_yield_pct"] == "3.5"
 
 
 def test_symbol_name_map_uses_formal_master_without_runtime_cache():

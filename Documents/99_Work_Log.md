@@ -1122,3 +1122,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added runtime path environment handling so the EXE launcher redirects cache, output, logs, and user config to `%LOCALAPPDATA%\SmartMarketAI`.
 - Updated news and symbol cache/log defaults to consume the runtime cache/log environment variables while preserving local `data/cache` and `logs` fallbacks for development and CI.
 - Added packaging runtime path regression tests and documented the CRUD runtime directories in the operations guide and pre-release README.
+
+## 2026-06-06 - Symbol cache promotion and cleanup CRUD
+
+- Added delete/purge CRUD for the runtime symbol cache SQLite store.
+- Added `symbol_metrics.sqlite` as the lightweight official metrics store used by search/filter UI paths.
+- Added background cache promotion so usable cache fields move into official metrics and promoted/missing cache records are deleted.
+- Kept explicit startup/target refresh cache behavior available for immediate detail views, while background maintenance performs cleanup.
+- Updated ranking symbol rows to overlay official metrics without reading the runtime cache DB during normal filtering.

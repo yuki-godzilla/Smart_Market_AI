@@ -139,6 +139,28 @@ class SymbolRecord(StrictBaseModel):
     normalized_fields: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
 
 
+class SymbolMetricRecord(StrictBaseModel):
+    """Official lightweight metrics used by search/filter UI paths."""
+
+    symbol: str = Field(min_length=1)
+    source: str | None = Field(default=None, min_length=1)
+    source_updated_at: datetime | None = None
+    promoted_at: datetime
+    fields: dict[str, str] = Field(default_factory=dict)
+
+
+class SymbolCacheSyncResult(StrictBaseModel):
+    """Summary for moving runtime cache records into official search metrics."""
+
+    scanned_count: int = Field(ge=0)
+    promoted_count: int = Field(ge=0)
+    deleted_count: int = Field(ge=0)
+    missing_deleted_count: int = Field(ge=0)
+    skipped_count: int = Field(ge=0)
+    promoted_symbols: list[str] = Field(default_factory=list)
+    deleted_symbols: list[str] = Field(default_factory=list)
+
+
 class SymbolStartupRefreshSummary(StrictBaseModel):
     """Compact startup-refresh summary for UI/session diagnostics."""
 

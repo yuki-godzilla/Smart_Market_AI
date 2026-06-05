@@ -13,7 +13,8 @@ from backend.symbols.background import (
     request_symbol_background_refresh,
     run_symbol_background_refresh_cycle,
 )
-from backend.symbols.repository import load_symbol_record, load_symbol_records
+from backend.symbols.metrics_repository import load_symbol_metric_records
+from backend.symbols.repository import load_symbol_records
 
 
 def test_background_refresh_cycle_runs_short_session_plan(tmp_path) -> None:
@@ -45,7 +46,8 @@ def test_background_refresh_cycle_runs_short_session_plan(tmp_path) -> None:
     assert MAX_SYMBOL_REFRESH_PER_SESSION == 1000
     assert waits == [180.0, 300.0]
     assert sum(summary.succeeded_count for summary in summaries) == 16
-    assert len(load_symbol_records(cache_dir=tmp_path)) == 16
+    assert len(load_symbol_records(cache_dir=tmp_path)) == 0
+    assert len(load_symbol_metric_records(cache_dir=tmp_path)) == 16
     assert summaries[0].succeeded_count == 8
     assert summaries[1].succeeded_count == steps[0].max_items
     assert summaries[2].succeeded_count == steps[1].max_items
@@ -67,7 +69,8 @@ def test_background_refresh_cycle_stops_when_no_stale_symbols_remain(tmp_path) -
 
     assert len(summaries) == 1
     assert summaries[0].succeeded_count == 50
-    assert len(load_symbol_records(cache_dir=tmp_path)) == 50
+    assert len(load_symbol_records(cache_dir=tmp_path)) == 0
+    assert len(load_symbol_metric_records(cache_dir=tmp_path)) == 50
     assert waits == []
 
 
@@ -126,7 +129,8 @@ def test_background_refresh_cycle_prioritizes_requested_ranking_symbol(tmp_path)
 
     assert requested_symbols == ["T0049"]
     assert summaries[0].refreshed_symbols == ["T0049"]
-    assert load_symbol_record("T0049", cache_dir=tmp_path) is not None
+    assert "T0049" in load_symbol_metric_records(cache_dir=tmp_path)
+    assert load_symbol_records(cache_dir=tmp_path) == {}
 
 
 def _write_symbol_universe(tmp_path: Path, *, symbol_count: int) -> Path:

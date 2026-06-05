@@ -85,6 +85,67 @@ def load_symbol_record(
         return None
 
 
+def delete_symbol_record(
+    symbol: str,
+    *,
+    cache_dir: Path | str = SYMBOL_CACHE_DIR,
+) -> bool:
+    """Delete one runtime cache record by symbol."""
+
+    deleted = delete_symbol_records([symbol], cache_dir=cache_dir)
+    return deleted == 1
+
+
+def delete_symbol_records(
+    symbols: Sequence[str],
+    *,
+    cache_dir: Path | str = SYMBOL_CACHE_DIR,
+) -> int:
+    """Delete runtime cache records by symbol and return the deleted row count."""
+
+    normalized_symbols = _normalize_symbols(symbols)
+    if not normalized_symbols:
+        return 0
+    cache_root = Path(cache_dir)
+    try:
+        _ensure_sqlite_store(cache_root)
+        with _connect(cache_root) as connection:
+            cursor = connection.executemany(
+                f"DELETE FROM {SYMBOL_RECORDS_TABLE} WHERE symbol = ?",
+                [(symbol,) for symbol in normalized_symbols],
+            )
+            return cursor.rowcount if cursor.rowcount != -1 else 0
+    except (OSError, sqlite3.Error, ValueError):
+        return 0
+
+
+def purge_symbol_records_by_status(
+    statuses: Sequence[str],
+    *,
+    cache_dir: Path | str = SYMBOL_CACHE_DIR,
+) -> int:
+    """Delete runtime cache records matching freshness statuses."""
+
+    normalized_statuses = [status.strip() for status in statuses if status.strip()]
+    if not normalized_statuses:
+        return 0
+    placeholders = ",".join("?" for _ in normalized_statuses)
+    cache_root = Path(cache_dir)
+    try:
+        _ensure_sqlite_store(cache_root)
+        with _connect(cache_root) as connection:
+            cursor = connection.execute(
+                f"""
+                DELETE FROM {SYMBOL_RECORDS_TABLE}
+                WHERE data_freshness_status IN ({placeholders})
+                """,
+                tuple(normalized_statuses),
+            )
+            return cursor.rowcount if cursor.rowcount != -1 else 0
+    except (OSError, sqlite3.Error, ValueError):
+        return 0
+
+
 def save_symbol_record(
     record: SymbolRecord,
     *,
@@ -195,6 +256,18 @@ def _truncate_text(value: str, max_chars: int) -> str:
 
 def _normalize_symbol(symbol: str) -> str:
     return symbol.strip().upper()
+
+
+def _normalize_symbols(symbols: Sequence[str]) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for symbol in symbols:
+        normalized_symbol = _normalize_symbol(symbol)
+        if not normalized_symbol or normalized_symbol in seen:
+            continue
+        seen.add(normalized_symbol)
+        normalized.append(normalized_symbol)
+    return normalized
 
 
 def _cache_path(cache_dir: Path | str, filename: str) -> Path:

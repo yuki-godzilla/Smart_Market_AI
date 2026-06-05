@@ -43,7 +43,7 @@ def load_symbol_records(
         return {}
     try:
         return _SYMBOL_RECORD_MAP_ADAPTER.validate_json(records_file.read_text(encoding="utf-8"))
-    except ValueError:
+    except (OSError, ValueError):
         return {}
 
 

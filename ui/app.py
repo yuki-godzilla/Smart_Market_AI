@@ -80,7 +80,10 @@ from backend.research import (
 )
 from backend.scoring import InvestmentScoringService
 from backend.screening import ScreeningService
-from backend.symbols.background import start_symbol_background_refresh_worker
+from backend.symbols.background import (
+    request_symbol_background_refresh,
+    start_symbol_background_refresh_worker,
+)
 from ui.components.mascot import (
     render_app_header,
     render_mascot_loading,
@@ -466,6 +469,9 @@ RANKING_TABLE_SORT_GUIDANCE = (
     "N/Aは末尾に置きます。"
 )
 RANKING_LOW_VALUE_BETTER_COLUMNS = {"PER", "PBR", "ボラティリティ", "Risk", "下降警戒"}
+SYMBOL_AUTO_REFRESH_REQUEST_STATE_KEY = "symbol_auto_refresh_requests"
+SYMBOL_AUTO_REFRESH_REQUEST_KEY_LIMIT = 100
+RANKING_AUTO_REFRESH_SYMBOL_LIMIT = 300
 RANKING_NUMERIC_SORT_COMPARATOR = JsCode(
     """
 function(valueA, valueB, nodeA, nodeB, isDescending) {
@@ -1586,6 +1592,72 @@ def _symbol_background_refresh_delay_scale() -> float:
         return max(0.0, float(raw_value))
     except ValueError:
         return 1.0
+
+
+def symbol_auto_refresh_request_key(
+    symbols: Sequence[str],
+    *,
+    context: Literal["cockpit", "ranking"],
+    source_key: str = "",
+    max_symbols: int = RANKING_AUTO_REFRESH_SYMBOL_LIMIT,
+) -> str:
+    normalized_symbols = _symbol_auto_refresh_symbols(symbols, max_symbols=max_symbols)
+    symbols_digest = hashlib.sha1(",".join(normalized_symbols).encode("utf-8")).hexdigest()[:16]
+    source_digest = (
+        hashlib.sha1(source_key.encode("utf-8")).hexdigest()[:12] if source_key else "default"
+    )
+    return f"{context}|{source_digest}|{len(normalized_symbols)}|{symbols_digest}"
+
+
+def _request_symbol_auto_refresh_once(
+    symbols: Sequence[str],
+    *,
+    context: Literal["cockpit", "ranking"],
+    source_key: str = "",
+    max_symbols: int = RANKING_AUTO_REFRESH_SYMBOL_LIMIT,
+) -> None:
+    normalized_symbols = _symbol_auto_refresh_symbols(symbols, max_symbols=max_symbols)
+    if not normalized_symbols:
+        return
+    request_key = symbol_auto_refresh_request_key(
+        normalized_symbols,
+        context=context,
+        source_key=source_key,
+        max_symbols=max_symbols,
+    )
+    raw_requested_keys = st.session_state.get(SYMBOL_AUTO_REFRESH_REQUEST_STATE_KEY, [])
+    requested_keys = (
+        [str(key) for key in raw_requested_keys]
+        if isinstance(raw_requested_keys, (list, tuple, set))
+        else []
+    )
+    if request_key in requested_keys:
+        return
+    try:
+        request_symbol_background_refresh(normalized_symbols, source=context)
+    except Exception as exc:  # noqa: BLE001
+        st.session_state["symbol_auto_refresh_last_error_type"] = type(exc).__name__
+        return
+    requested_keys.append(request_key)
+    st.session_state[SYMBOL_AUTO_REFRESH_REQUEST_STATE_KEY] = requested_keys[
+        -SYMBOL_AUTO_REFRESH_REQUEST_KEY_LIMIT:
+    ]
+
+
+def _symbol_auto_refresh_symbols(symbols: Sequence[str], *, max_symbols: int) -> list[str]:
+    if max_symbols <= 0:
+        return []
+    normalized_symbols: list[str] = []
+    seen: set[str] = set()
+    for symbol in symbols:
+        normalized_symbol = symbol.strip().upper()
+        if not normalized_symbol or normalized_symbol in seen:
+            continue
+        seen.add(normalized_symbol)
+        normalized_symbols.append(normalized_symbol)
+        if len(normalized_symbols) >= max(0, max_symbols):
+            break
+    return normalized_symbols
 
 
 def _start_news_background_refresh_worker_once() -> None:
@@ -4609,6 +4681,13 @@ def _render_market_data_cockpit() -> None:
             ),
         )
     symbol = _symbol_from_candidate(symbol_candidate) or ""
+    if symbol:
+        _request_symbol_auto_refresh_once(
+            [symbol],
+            context="cockpit",
+            source_key=symbol,
+            max_symbols=1,
+        )
     with col_detail:
         st.write("")
         if selected_symbol_has_universe_detail(symbol):
@@ -5027,6 +5106,12 @@ def _render_market_data_ranking() -> None:
         selected_labels=effective_selected_labels,
         start=start_date,
         end=end_date,
+    )
+    _request_symbol_auto_refresh_once(
+        ranking_symbols,
+        context="ranking",
+        source_key=current_ranking_source,
+        max_symbols=RANKING_AUTO_REFRESH_SYMBOL_LIMIT,
     )
     st.caption(
         "評価方針: どの観点で候補を評価するかを選びます。"

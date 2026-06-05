@@ -32,6 +32,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - Symbol database background refresh foundation
   - freshness classification, refresh priority queue, queue/status recovery, latest-only normalized symbol cache
   - Streamlit startup daemon worker that updates missing / stale local symbol records without blocking rendering
+  - Cockpit selected symbols and Ranking comparison targets are registered as background priority hints without adding user-facing controls
   - Cockpit selected-symbol caption and the shared Ranking / Cockpit `銘柄データ` modal show saved symbol DB freshness, source, update times, and missing key fields
 - Low-cost Assistant backend first slice
   - deterministic `TemplateAssistantService` that explains score / risk / research / next checkpoints from Decision Report context without LLM or network
@@ -50,7 +51,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - Research Score によるランキング順位統合は現時点では見送り。Cockpit / Ranking Research Summary と Cockpit Decision Report への参考表示、Investment Score optional numeric input、disabled-by-default weight は対応済み
 - `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動、通知
 - Assistant API / Streamlit 質問パネル、optional LLM provider
-- 銘柄DB live provider refresh wiring / 手動更新導線の UI 接続
+- 銘柄DB live provider refresh wiring
 - broker への live order 送信
 - Execution workflow
 - PDF / Excel export
@@ -506,7 +507,7 @@ Yahoo coverage check:
 Phase 16 ranking implementation notes:
 
 - `data/marketdata/symbol_universe.csv` is the ranking candidate master used before provider fetch. It is intentionally curated/local-first and currently carries display/search/filter metadata such as `symbol`, `name`, `market`, `asset_type`, `currency`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases`, `per`, `pbr`, `roe_pct`, `sector`, `consensus_rating`, `forecast_agreement`, `data_quality`, and `risk_band`. Optional `yahoo_symbol` is used only when Yahoo needs a different ticker than the display/source symbol.
-- Streamlit startup starts a daemon background symbol DB refresh worker instead of blocking the UI. The worker reads `symbol_universe.csv`, writes latest-only normalized records to `data/cache/symbols_cache.json`, keeps `symbol_refresh_queue.json` empty after successful batches, and updates `symbol_refresh_status.json`. The current network-free maintenance plan is: immediate startup batch 150 symbols, 75 symbols after 3 minutes, 75 symbols after 8 minutes, then 50 symbols every 5 minutes, with fresh records skipped and a 1000-symbol per-session safety cap.
+- Streamlit startup starts a daemon background symbol DB refresh worker instead of blocking the UI. The worker reads `symbol_universe.csv`, writes latest-only normalized records to `data/cache/symbols_cache.json`, keeps `symbol_refresh_queue.json` empty after successful batches, and updates `symbol_refresh_status.json`. The current network-free maintenance plan is: immediate startup batch 150 symbols, 75 symbols after 3 minutes, 75 symbols after 8 minutes, then 50 symbols every 5 minutes, with fresh records skipped and a 1000-symbol per-session safety cap. Cockpit selected symbols and Ranking comparison targets are registered internally as priority hints, so missing / stale records used by current workflows move ahead of ordinary background candidates without changing the visible UI.
 - To check whether any symbol is stuck in the refresh queue, inspect `symbol_refresh_queue.json` or run `backend.symbols.startup.find_pending_symbol_refresh_tasks()`. A healthy post-startup state has no `pending`, `retryable`, or `in_progress` tasks left after the local batch completes.
 - The Phase 18 schema helper validates required columns, allowed enum values, decimal fields, duplicate tickers, and metadata freshness/source columns without requiring live provider access.
 - The in-page screening condition panel filters comparison candidates by metadata, NISA eligibility, and metric ranges. `取得期間` and `重視して並べ替え` are not screening filters; they control ranking calculation and display ordering.

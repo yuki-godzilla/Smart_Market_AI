@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
+from backend.symbols.repository import load_symbol_record
 from backend.symbols.startup import (
     find_pending_symbol_refresh_tasks,
     run_symbol_database_startup_refresh,
@@ -120,6 +121,33 @@ def test_startup_refresh_default_batch_caps_at_one_hundred_fifty_symbols(
 
     assert summary.succeeded_count == 150
     assert summary.record_count == 150
+
+
+def test_startup_refresh_prioritizes_currently_visible_symbols(tmp_path) -> None:
+    csv_path = _write_symbol_universe(
+        tmp_path,
+        [
+            {
+                "symbol": f"T{index:04d}",
+                "name": f"Test {index:04d}",
+                "market": "us",
+                "asset_type": "stock",
+            }
+            for index in range(10)
+        ],
+    )
+
+    summary = run_symbol_database_startup_refresh(
+        cache_dir=tmp_path,
+        symbol_universe_csv=csv_path,
+        now=datetime(2026, 6, 3, 12, 0, 0),
+        max_items=2,
+        currently_visible_symbols={"T0009"},
+    )
+
+    assert summary.succeeded_count == 2
+    assert "T0009" in summary.refreshed_symbols
+    assert load_symbol_record("T0009", cache_dir=tmp_path) is not None
 
 
 def _write_symbol_universe(tmp_path: Path, rows: list[dict[str, str]]) -> Path:

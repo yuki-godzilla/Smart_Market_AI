@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -30,9 +30,15 @@ STARTUP_BACKGROUND_REFRESH_MAX_ITEMS: Final[int] = MAX_SYMBOL_REFRESH_PER_RUN
 BACKGROUND_REFRESH_INTERVAL_MINUTES: Final[int] = 5
 BACKGROUND_REFRESH_MAX_ITEMS: Final[int] = 50
 MAX_SYMBOL_REFRESH_PER_SESSION: Final[int] = 1000
+TARGET_BACKGROUND_REFRESH_MAX_ITEMS: Final[int] = 50
+MAX_SYMBOL_REFRESH_TARGET_HINTS: Final[int] = 500
 
 _WORKER_LOCK = threading.Lock()
 _WORKER_THREAD: threading.Thread | None = None
+_TARGET_LOCK = threading.Lock()
+_TARGET_WORKER_THREAD: threading.Thread | None = None
+_CURRENTLY_VISIBLE_SYMBOLS: set[str] = set()
+_RANKING_CANDIDATE_SYMBOLS: set[str] = set()
 
 
 def start_symbol_background_refresh_worker(
@@ -62,6 +68,77 @@ def start_symbol_background_refresh_worker(
         worker.start()
         _WORKER_THREAD = worker
         return worker
+
+
+def request_symbol_background_refresh(
+    symbols: Iterable[str],
+    *,
+    source: str,
+    cache_dir: Path | str = SYMBOL_CACHE_DIR,
+    symbol_universe_csv: Path | str = SYMBOL_UNIVERSE_CSV,
+    max_items: int = TARGET_BACKGROUND_REFRESH_MAX_ITEMS,
+    start_worker: bool = True,
+    logger: logging.Logger | None = None,
+) -> list[str]:
+    """Register UI-context symbols so the background worker refreshes them first."""
+
+    normalized_symbols = _normalize_symbol_list(symbols)
+    if not normalized_symbols:
+        return []
+
+    with _TARGET_LOCK:
+        if source == "ranking":
+            _merge_target_symbols(_RANKING_CANDIDATE_SYMBOLS, normalized_symbols)
+        else:
+            _merge_target_symbols(_CURRENTLY_VISIBLE_SYMBOLS, normalized_symbols)
+
+    if start_worker:
+        _start_symbol_target_refresh_worker(
+            cache_dir=cache_dir,
+            symbol_universe_csv=symbol_universe_csv,
+            max_items=max_items,
+            logger=logger,
+        )
+    return normalized_symbols
+
+
+def clear_symbol_background_refresh_targets() -> None:
+    """Clear transient UI-context refresh hints."""
+
+    with _TARGET_LOCK:
+        _CURRENTLY_VISIBLE_SYMBOLS.clear()
+        _RANKING_CANDIDATE_SYMBOLS.clear()
+
+
+def run_symbol_background_target_refresh_once(
+    *,
+    cache_dir: Path | str = SYMBOL_CACHE_DIR,
+    symbol_universe_csv: Path | str = SYMBOL_UNIVERSE_CSV,
+    max_items: int = TARGET_BACKGROUND_REFRESH_MAX_ITEMS,
+    now_provider: Callable[[], datetime] = datetime.utcnow,
+    logger: logging.Logger | None = None,
+) -> SymbolStartupRefreshSummary:
+    """Run one non-blocking priority pass for symbols currently used by the UI."""
+
+    logger = logger or configure_symbol_refresh_logger()
+    currently_visible_symbols, ranking_candidates = _target_symbol_snapshot()
+    summary = run_symbol_database_startup_refresh(
+        cache_dir=cache_dir,
+        symbol_universe_csv=symbol_universe_csv,
+        now=now_provider(),
+        max_items=max(0, max_items),
+        min_interval_hours=0,
+        currently_visible_symbols=currently_visible_symbols,
+        ranking_candidates=ranking_candidates,
+    )
+    logger.info(
+        "target refresh batch attempted=%s succeeded=%s failed=%s records=%s",
+        summary.attempted_count,
+        summary.succeeded_count,
+        summary.failed_count,
+        summary.record_count,
+    )
+    return summary
 
 
 def run_symbol_background_refresh_cycle(
@@ -143,6 +220,7 @@ def _run_background_batch(
     max_items: int,
     logger: logging.Logger,
 ) -> SymbolStartupRefreshSummary:
+    currently_visible_symbols, ranking_candidates = _target_symbol_snapshot()
     if max_items <= 0:
         return run_symbol_database_startup_refresh(
             cache_dir=cache_dir,
@@ -151,6 +229,8 @@ def _run_background_batch(
             max_items=0,
             min_interval_hours=0,
             force=True,
+            currently_visible_symbols=currently_visible_symbols,
+            ranking_candidates=ranking_candidates,
         )
     summary = run_symbol_database_startup_refresh(
         cache_dir=cache_dir,
@@ -159,6 +239,8 @@ def _run_background_batch(
         max_items=max_items,
         min_interval_hours=0,
         force=True,
+        currently_visible_symbols=currently_visible_symbols,
+        ranking_candidates=ranking_candidates,
     )
     logger.info(
         "background refresh batch attempted=%s succeeded=%s failed=%s records=%s",
@@ -168,6 +250,61 @@ def _run_background_batch(
         summary.record_count,
     )
     return summary
+
+
+def _start_symbol_target_refresh_worker(
+    *,
+    cache_dir: Path | str,
+    symbol_universe_csv: Path | str,
+    max_items: int,
+    logger: logging.Logger | None,
+) -> threading.Thread:
+    global _TARGET_WORKER_THREAD
+    with _TARGET_LOCK:
+        if _TARGET_WORKER_THREAD is not None and _TARGET_WORKER_THREAD.is_alive():
+            return _TARGET_WORKER_THREAD
+        worker = threading.Thread(
+            target=run_symbol_background_target_refresh_once,
+            kwargs={
+                "cache_dir": cache_dir,
+                "symbol_universe_csv": symbol_universe_csv,
+                "max_items": max_items,
+                "logger": logger,
+            },
+            name="smai-symbol-target-refresh",
+            daemon=True,
+        )
+        worker.start()
+        _TARGET_WORKER_THREAD = worker
+        return worker
+
+
+def _target_symbol_snapshot() -> tuple[set[str], set[str]]:
+    with _TARGET_LOCK:
+        return set(_CURRENTLY_VISIBLE_SYMBOLS), set(_RANKING_CANDIDATE_SYMBOLS)
+
+
+def _merge_target_symbols(target: set[str], symbols: Sequence[str]) -> None:
+    target.update(symbols)
+    if len(target) <= MAX_SYMBOL_REFRESH_TARGET_HINTS:
+        return
+    kept_symbols = sorted(target)[:MAX_SYMBOL_REFRESH_TARGET_HINTS]
+    target.clear()
+    target.update(kept_symbols)
+
+
+def _normalize_symbol_list(symbols: Iterable[str]) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for symbol in symbols:
+        normalized_symbol = symbol.strip().upper()
+        if not normalized_symbol or normalized_symbol in seen:
+            continue
+        seen.add(normalized_symbol)
+        normalized.append(normalized_symbol)
+        if len(normalized) >= MAX_SYMBOL_REFRESH_TARGET_HINTS:
+            break
+    return normalized
 
 
 def _wait_minutes(

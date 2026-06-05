@@ -1,31 +1,12 @@
 {
-  "last_attempt_at": "2026-06-05T02:14:37.788796",
-  "last_success_at": "2026-06-04T23:37:05.202745",
+  "last_attempt_at": "2026-06-05T04:09:34.362255",
+  "last_success_at": "2026-06-05T04:09:34.787657",
   "last_error_at": "2026-06-04T20:51:39.532215",
   "last_error_type": null,
   "consecutive_failures": 0,
   "last_refreshed_symbols": [
-    "7266.T",
-    "7267.T",
-    "7269.T",
-    "7270.T",
-    "7271.T",
-    "7272.T",
-    "7273.T",
-    "7276.T",
-    "7277.T",
-    "7278.T",
-    "7279.T",
-    "7280.T",
-    "7282.T",
-    "7283.T",
-    "7284.T",
-    "7287.T",
-    "7291.T",
-    "7292.T",
-    "7294.T",
-    "7296.T"
+    "7600.T"
   ],
   "refresh_queue_size": 0,
-  "is_refreshing": true
+  "is_refreshing": false
 }

@@ -9,9 +9,11 @@ from backend.symbols.background import (
     MAX_SYMBOL_REFRESH_PER_SESSION,
     STARTUP_BACKGROUND_REFRESH_MAX_ITEMS,
     SymbolBackgroundRefreshStep,
+    clear_symbol_background_refresh_targets,
+    request_symbol_background_refresh,
     run_symbol_background_refresh_cycle,
 )
-from backend.symbols.repository import load_symbol_records
+from backend.symbols.repository import load_symbol_record, load_symbol_records
 
 
 def test_background_refresh_cycle_runs_short_session_plan(tmp_path) -> None:
@@ -97,6 +99,34 @@ def test_background_refresh_cycle_uses_recurring_batches_after_eight_minutes(
     assert BACKGROUND_REFRESH_MAX_ITEMS == 50
     assert summaries[-1].succeeded_count == 3
     assert sum(summary.succeeded_count for summary in summaries) == 19
+
+
+def test_background_refresh_cycle_prioritizes_requested_ranking_symbol(tmp_path) -> None:
+    csv_path = _write_symbol_universe(tmp_path, symbol_count=50)
+    now = datetime(2026, 6, 3, 12, 0, 0)
+    clear_symbol_background_refresh_targets()
+
+    try:
+        requested_symbols = request_symbol_background_refresh(
+            [" t0049 ", ""],
+            source="ranking",
+            start_worker=False,
+        )
+        summaries = run_symbol_background_refresh_cycle(
+            cache_dir=tmp_path,
+            symbol_universe_csv=csv_path,
+            startup_max_items=1,
+            steps=(),
+            recurring_max_items=0,
+            max_items_per_session=1,
+            now_provider=lambda: now,
+        )
+    finally:
+        clear_symbol_background_refresh_targets()
+
+    assert requested_symbols == ["T0049"]
+    assert summaries[0].refreshed_symbols == ["T0049"]
+    assert load_symbol_record("T0049", cache_dir=tmp_path) is not None
 
 
 def _write_symbol_universe(tmp_path: Path, *, symbol_count: int) -> Path:

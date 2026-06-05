@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import csv
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Final
@@ -66,6 +66,8 @@ def run_symbol_database_startup_refresh(
     max_items: int = MAX_SYMBOL_REFRESH_PER_RUN,
     min_interval_hours: int = MIN_STARTUP_REFRESH_INTERVAL_HOURS,
     force: bool = False,
+    currently_visible_symbols: Iterable[str] | None = None,
+    ranking_candidates: Iterable[str] | None = None,
 ) -> SymbolStartupRefreshSummary:
     """Refresh a small local-first symbol DB slice during app startup."""
 
@@ -102,12 +104,16 @@ def run_symbol_database_startup_refresh(
     symbol_records = {
         symbol: {"last_refreshed_at": record.updated_at} for symbol, record in records.items()
     }
+    currently_visible_symbol_set = _normalize_symbol_set(currently_visible_symbols)
+    ranking_candidate_set = _normalize_symbol_set(ranking_candidates)
     tasks = build_symbol_refresh_queue(
         row_by_symbol,
         symbol_records=symbol_records,
         importance_meta=_importance_meta_by_symbol(rows),
         now=current_time,
         reason="startup_refresh",
+        currently_visible_symbols=currently_visible_symbol_set,
+        ranking_candidates=ranking_candidate_set,
         max_items=max_items,
     )
     if not tasks:
@@ -220,6 +226,12 @@ def _importance_meta_by_symbol(rows: Sequence[dict[str, str]]) -> dict[str, Symb
             is_ranking_base_symbol=row.get("is_active", "").strip().lower() != "false",
         )
     return result
+
+
+def _normalize_symbol_set(symbols: Iterable[str] | None) -> set[str]:
+    if symbols is None:
+        return set()
+    return {symbol.strip().upper() for symbol in symbols if symbol.strip()}
 
 
 def _summary_from_counts(

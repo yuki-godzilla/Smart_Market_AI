@@ -55,6 +55,7 @@ from ui.app import (
     NO_SYMBOL_CANDIDATE_LABEL,
     RANKING_RESULT_GRID_CUSTOM_CSS,
     RANKING_TABLE_SORT_GUIDANCE,
+    SYMBOL_AUTO_REFRESH_REQUEST_STATE_KEY,
     SYMBOL_DETAIL_DIALOG_CSS,
     RankingResearchStatus,
     _apply_navigation_query_params,
@@ -109,6 +110,7 @@ from ui.app import (
     _render_research_operation_card,
     _render_research_summary_panel,
     _render_score_confidence_hierarchy,
+    _request_symbol_auto_refresh_once,
     _research_brief_focus_html,
     _research_brief_gap_panel_html,
     _research_brief_gap_rows,
@@ -195,6 +197,7 @@ from ui.app import (
     score_confidence_hierarchy_rows,
     selected_symbol_has_universe_detail,
     set_cached_ranking_build,
+    symbol_auto_refresh_request_key,
     symbol_candidate_label,
     symbol_detail_table_html,
     symbol_universe_cache_notice,
@@ -800,6 +803,52 @@ def test_symbol_universe_cache_status_text_falls_back_to_local_master_when_cache
     )
     assert symbol_universe_missing_key_fields_display(row) == "主要項目は登録済み"
     assert "ローカル銘柄マスタ" in symbol_universe_cache_notice(row)
+
+
+def test_symbol_auto_refresh_request_key_normalizes_symbols():
+    first = symbol_auto_refresh_request_key(
+        [" aapl ", "AAPL", "7203.t"],
+        context="ranking",
+        source_key="ranking-source",
+    )
+    second = symbol_auto_refresh_request_key(
+        ["AAPL", "7203.T"],
+        context="ranking",
+        source_key="ranking-source",
+    )
+
+    assert first == second
+    assert first.startswith("ranking|")
+
+
+def test_symbol_auto_refresh_once_dedupes_session_requests(monkeypatch):
+    session_state: dict[str, object] = {}
+    calls: list[tuple[list[str], str]] = []
+
+    def fake_request(symbols: list[str], *, source: str) -> list[str]:
+        calls.append((list(symbols), source))
+        return list(symbols)
+
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.app.request_symbol_background_refresh", fake_request)
+
+    _request_symbol_auto_refresh_once(
+        [" aapl ", "AAPL", ""],
+        context="cockpit",
+        source_key="aapl",
+        max_symbols=5,
+    )
+    _request_symbol_auto_refresh_once(
+        ["AAPL"],
+        context="cockpit",
+        source_key="aapl",
+        max_symbols=5,
+    )
+
+    requested_keys = session_state[SYMBOL_AUTO_REFRESH_REQUEST_STATE_KEY]
+    assert calls == [(["AAPL"], "cockpit")]
+    assert isinstance(requested_keys, list)
+    assert len(requested_keys) == 1
 
 
 def test_symbol_detail_dialog_css_expands_width_and_wraps_metric_values():

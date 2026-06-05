@@ -139,8 +139,7 @@ def test_parse_news_watchlist_symbols_accepts_common_separators():
 
 
 def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
-    monkeypatch.setenv("SMAI_SYMBOL_BACKGROUND_REFRESH_DELAY_SCALE", "9999")
-    monkeypatch.setenv("SMAI_NEWS_BACKGROUND_REFRESH_DELAY_SCALE", "9999")
+    monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
     app = AppTest.from_file("ui/app.py", default_timeout=20)
     app.session_state["sidemenu_page"] = "news"
 

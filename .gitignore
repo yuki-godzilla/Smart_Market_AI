@@ -36,6 +36,7 @@ data/marketdata/**/*.bak
 
 # Local work/test outputs
 outputs/work/pytest_tmp/
+outputs/work/pytest_*/
 outputs/work/symbol_metadata_probe/
 data/cache/*.lock
 data/cache/*.tmp.json

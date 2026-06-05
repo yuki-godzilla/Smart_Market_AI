@@ -1581,6 +1581,9 @@ def _start_symbol_background_refresh_worker_once() -> None:
     state_key = "symbol_background_refresh_worker_started"
     if state_key in st.session_state:
         return
+    if _background_workers_disabled():
+        st.session_state[state_key] = {"disabled": True}
+        return
     try:
         start_symbol_background_refresh_worker(delay_scale=_symbol_background_refresh_delay_scale())
         st.session_state[state_key] = True
@@ -1710,6 +1713,9 @@ def _start_news_background_refresh_worker_once() -> None:
     state_key = "news_background_refresh_worker_started"
     if state_key in st.session_state:
         return
+    if _background_workers_disabled():
+        st.session_state[state_key] = {"disabled": True}
+        return
     try:
         start_news_background_refresh_worker(delay_scale=_news_background_refresh_delay_scale())
         st.session_state[state_key] = True
@@ -1728,6 +1734,11 @@ def _news_background_refresh_delay_scale() -> float:
         return max(0.0, float(raw_value))
     except ValueError:
         return 1.0
+
+
+def _background_workers_disabled() -> bool:
+    raw_value = os.environ.get("SMAI_DISABLE_BACKGROUND_WORKERS", "").strip().lower()
+    return raw_value in {"1", "true", "yes", "on"}
 
 
 def default_market_data_start_date() -> date:

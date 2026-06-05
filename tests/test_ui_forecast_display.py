@@ -61,6 +61,7 @@ from ui.app import (
     SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY,
     RankingResearchStatus,
     _apply_navigation_query_params,
+    _background_workers_disabled,
     _build_market_data_ranking_rows,
     _coerce_number_input_state,
     _company_research_ai_notes_html,
@@ -854,6 +855,14 @@ def test_symbol_auto_refresh_once_dedupes_session_requests(monkeypatch):
     assert calls == [(["AAPL"], "cockpit")]
     assert isinstance(requested_keys, list)
     assert len(requested_keys) == 1
+
+
+def test_background_workers_disabled_env_flag(monkeypatch):
+    monkeypatch.delenv("SMAI_DISABLE_BACKGROUND_WORKERS", raising=False)
+    assert _background_workers_disabled() is False
+
+    monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "true")
+    assert _background_workers_disabled() is True
 
 
 def test_ranking_symbol_db_preflight_limit_bounds_large_requests():

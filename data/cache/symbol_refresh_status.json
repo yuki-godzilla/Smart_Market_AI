@@ -1,11 +1,11 @@
 {
-  "last_attempt_at": "2026-06-05T04:35:09.142786",
-  "last_success_at": "2026-06-05T04:35:09.583468",
+  "last_attempt_at": "2026-06-05T05:22:08.805805",
+  "last_success_at": "2026-06-05T05:22:09.276751",
   "last_error_at": "2026-06-04T20:51:39.532215",
   "last_error_type": null,
   "consecutive_failures": 0,
   "last_refreshed_symbols": [
-    "7683.T"
+    "7685.T"
   ],
   "refresh_queue_size": 0,
   "is_refreshing": false

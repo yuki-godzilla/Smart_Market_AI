@@ -1,0 +1,201 @@
+{
+  "results": [
+    {
+      "scenario": "http_get_1",
+      "elapsed_sec": 0.012,
+      "status": 200,
+      "bytes": 891
+    },
+    {
+      "scenario": "http_get_2",
+      "elapsed_sec": 0.003,
+      "status": 200,
+      "bytes": 891
+    },
+    {
+      "scenario": "http_get_3",
+      "elapsed_sec": 0.003,
+      "status": 200,
+      "bytes": 891
+    },
+    {
+      "scenario": "http_get_4",
+      "elapsed_sec": 0.003,
+      "status": 200,
+      "bytes": 891
+    },
+    {
+      "scenario": "http_get_5",
+      "elapsed_sec": 0.003,
+      "status": 200,
+      "bytes": 891
+    },
+    {
+      "scenario": "cockpit_initial_render_1",
+      "elapsed_sec": 2.856,
+      "button_count": 8
+    },
+    {
+      "scenario": "cockpit_fetch_mock_1",
+      "elapsed_sec": 5.785,
+      "status": "OK",
+      "symbol": null,
+      "markdown_count": 74,
+      "caption_count": 37
+    },
+    {
+      "scenario": "cockpit_initial_render_2",
+      "elapsed_sec": 0.918,
+      "button_count": 8
+    },
+    {
+      "scenario": "cockpit_fetch_mock_2",
+      "elapsed_sec": 6.194,
+      "status": "OK",
+      "symbol": null,
+      "markdown_count": 74,
+      "caption_count": 37
+    },
+    {
+      "scenario": "cockpit_initial_render_3",
+      "elapsed_sec": 0.958,
+      "button_count": 8
+    },
+    {
+      "scenario": "cockpit_fetch_mock_3",
+      "elapsed_sec": 6.543,
+      "status": "OK",
+      "symbol": null,
+      "markdown_count": 74,
+      "caption_count": 37
+    },
+    {
+      "scenario": "ranking_30_selected_mock_1",
+      "elapsed_sec": 1.976,
+      "selected_before_limit": 30,
+      "fetch_limit": "all",
+      "result_rows": 1,
+      "error_rows": 29,
+      "button_count": 9,
+      "markdown_count": 43
+    },
+    {
+      "scenario": "ranking_30_selected_mock_2",
+      "elapsed_sec": 2.119,
+      "selected_before_limit": 30,
+      "fetch_limit": "all",
+      "result_rows": 1,
+      "error_rows": 29,
+      "button_count": 9,
+      "markdown_count": 43
+    },
+    {
+      "scenario": "ranking_30_selected_mock_3",
+      "elapsed_sec": 2.486,
+      "selected_before_limit": 30,
+      "fetch_limit": "all",
+      "result_rows": 1,
+      "error_rows": 29,
+      "button_count": 9,
+      "markdown_count": 43
+    },
+    {
+      "scenario": "ranking_fast100_mock_1",
+      "elapsed_sec": 1.478,
+      "selected_before_limit": 3747,
+      "fetch_limit": "fast_100",
+      "result_rows": 0,
+      "error_rows": 100,
+      "button_count": 7,
+      "markdown_count": 16
+    },
+    {
+      "scenario": "ranking_fast100_mock_2",
+      "elapsed_sec": 1.529,
+      "selected_before_limit": 3747,
+      "fetch_limit": "fast_100",
+      "result_rows": 0,
+      "error_rows": 100,
+      "button_count": 7,
+      "markdown_count": 16
+    },
+    {
+      "scenario": "ranking_fast100_mock_3",
+      "elapsed_sec": 1.637,
+      "selected_before_limit": 3747,
+      "fetch_limit": "fast_100",
+      "result_rows": 0,
+      "error_rows": 100,
+      "button_count": 7,
+      "markdown_count": 16
+    },
+    {
+      "scenario": "ranking_balanced300_mock_1",
+      "elapsed_sec": 1.414,
+      "selected_before_limit": 3747,
+      "fetch_limit": "balanced_300",
+      "result_rows": 0,
+      "error_rows": 300,
+      "button_count": 7,
+      "markdown_count": 16
+    },
+    {
+      "scenario": "ranking_balanced300_mock_2",
+      "elapsed_sec": 1.511,
+      "selected_before_limit": 3747,
+      "fetch_limit": "balanced_300",
+      "result_rows": 0,
+      "error_rows": 300,
+      "button_count": 7,
+      "markdown_count": 16
+    },
+    {
+      "scenario": "ranking_balanced300_mock_3",
+      "elapsed_sec": 1.563,
+      "selected_before_limit": 3747,
+      "fetch_limit": "balanced_300",
+      "result_rows": 0,
+      "error_rows": 300,
+      "button_count": 7,
+      "markdown_count": 16
+    }
+  ],
+  "summary": {
+    "http_get": {
+      "n": 5,
+      "avg": 0.005,
+      "min": 0.003,
+      "max": 0.012
+    },
+    "cockpit_initial_render": {
+      "n": 3,
+      "avg": 1.577,
+      "min": 0.918,
+      "max": 2.856
+    },
+    "cockpit_fetch_mock": {
+      "n": 3,
+      "avg": 6.174,
+      "min": 5.785,
+      "max": 6.543
+    },
+    "ranking_30_selected_mock": {
+      "n": 3,
+      "avg": 2.194,
+      "min": 1.976,
+      "max": 2.486
+    },
+    "ranking_fast100_mock": {
+      "n": 3,
+      "avg": 1.548,
+      "min": 1.478,
+      "max": 1.637
+    },
+    "ranking_balanced300_mock": {
+      "n": 3,
+      "avg": 1.496,
+      "min": 1.414,
+      "max": 1.563
+    }
+  }
+}

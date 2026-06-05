@@ -300,9 +300,8 @@ from ui.symbol_universe import (
     SYMBOL_CACHE_PROVIDER_FIELD,
     SYMBOL_CACHE_UPDATED_AT_FIELD,
     symbol_provider_symbol,
-)
-from ui.symbol_universe import (
-    symbol_universe_runtime_rows as symbol_universe_csv_rows,
+    symbol_universe_csv_rows,
+    symbol_universe_runtime_rows,
 )
 from ui.views.cockpit import (
     cockpit_direction_signal_detail_rows,
@@ -1896,15 +1895,28 @@ SYMBOL_CACHE_FUND_REQUIRED_FIELDS = (
 SYMBOL_CACHE_MISSING_FIELD_DISPLAY_LIMIT = 6
 
 
-def _symbol_universe_row_for_symbol(symbol: str) -> dict[str, str] | None:
+def _symbol_universe_row_for_symbol(
+    symbol: str,
+    *,
+    include_runtime_cache: bool = False,
+) -> dict[str, str] | None:
     normalized_symbol = symbol.strip().upper()
-    return _symbol_universe_rows_by_symbol().get(normalized_symbol)
+    return _symbol_universe_rows_by_symbol(include_runtime_cache=include_runtime_cache).get(
+        normalized_symbol
+    )
 
 
 def _symbol_universe_rows_by_symbol(
     rows: list[dict[str, str]] | None = None,
+    *,
+    include_runtime_cache: bool = False,
 ) -> dict[str, dict[str, str]]:
-    source_rows = rows if rows is not None else symbol_universe_csv_rows()
+    if rows is not None:
+        source_rows = rows
+    elif include_runtime_cache:
+        source_rows = symbol_universe_runtime_rows()
+    else:
+        source_rows = symbol_universe_csv_rows()
     return {
         row.get("symbol", "").strip().upper(): row
         for row in source_rows
@@ -2983,7 +2995,7 @@ def _render_symbol_universe_detail_dialog(
     symbol: str,
     ranking_row: dict[str, str] | None = None,
 ) -> None:
-    row = _symbol_universe_row_for_symbol(symbol)
+    row = _symbol_universe_row_for_symbol(symbol, include_runtime_cache=True)
     if row is None:
         st.warning("銘柄マスタに該当するデータが見つかりませんでした。")
         return
@@ -4738,13 +4750,6 @@ def _render_market_data_cockpit() -> None:
             ),
         )
     symbol = _symbol_from_candidate(symbol_candidate) or ""
-    if symbol:
-        _request_symbol_auto_refresh_once(
-            [symbol],
-            context="cockpit",
-            source_key=symbol,
-            max_symbols=1,
-        )
     with col_detail:
         st.write("")
         if selected_symbol_has_universe_detail(symbol):
@@ -5168,12 +5173,6 @@ def _render_market_data_ranking() -> None:
         selected_labels=effective_selected_labels,
         start=start_date,
         end=end_date,
-    )
-    _request_symbol_auto_refresh_once(
-        ranking_symbols,
-        context="ranking",
-        source_key=current_ranking_source,
-        max_symbols=RANKING_AUTO_REFRESH_SYMBOL_LIMIT,
     )
     st.caption(
         "評価方針: どの観点で候補を評価するかを選びます。"

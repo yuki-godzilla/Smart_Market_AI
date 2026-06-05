@@ -10,7 +10,7 @@ from backend.marketdata.ranking_universe_policy import (
     symbol_allowed_by_ranking_universe_policy,
 )
 from ui.content import ranking_texts
-from ui.symbol_universe import symbol_universe_runtime_rows as symbol_universe_csv_rows
+from ui.symbol_universe import symbol_universe_csv_rows
 
 RANKING_ASSET_TYPE_LABELS = ranking_texts.RANKING_ASSET_TYPE_LABELS
 RANKING_BETA_RISK_LABELS = ranking_texts.RANKING_BETA_RISK_LABELS

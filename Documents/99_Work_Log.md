@@ -1091,3 +1091,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Reworked standard news comments / checkpoints into deterministic RAG-style reading notes that distinguish direct article mentions from SMAI inferred candidates.
 - Added UI helper tests for filter behavior, Watchlist ordering, Watchlist parsing, and Streamlit control rendering.
 - Revalidated the 100-case related-symbol extraction sprint in 10-case batches; all batches passed at 100.0%.
+
+## 2026-06-05 - Investment Radar direct-symbol extraction 300-case sprint
+
+- Tightened direct related-symbol extraction so topic words such as gold price, defense, NASDAQ, S&P500, TOPIX, and Nikkei are treated as SMAI inferred candidates unless an ETF/product name, ticker, company name, or explicit code appears in the text.
+- Added guarded symbol-universe alias matching for Japanese company / product names while filtering generic aliases and ambiguous fragments.
+- Expanded the sprint regression suite from 100 to 300 cases, covering explicit direct mentions, code/name extraction, ETF product names, and topic-only inferred candidates.
+- Removed the Investment Radar cache-status panel from the normal first view; error warnings remain visible when refresh needs attention.
+- Revalidated 300 cases in 10-case batches; all batches passed at 100.0%.

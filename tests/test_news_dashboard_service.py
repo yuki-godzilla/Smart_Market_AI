@@ -281,8 +281,8 @@ def test_google_news_related_symbols_extract_japanese_company_names_and_codes():
             "本日（6月3日）の金価格：下落傾向が継続。",
             "金価格は下落傾向が続き、米国株や金利の動向も確認したい材料です。",
             ("7011.T", "9101.T", "GLD"),
-            ["GLD"],
-            ["SPY", "TLT", "QQQ"],
+            [],
+            ["GLD", "SPY", "TLT"],
         ),
         (
             "今後数年間、半導体の供給は需要を満たすのに十分ではないだろう。",
@@ -330,21 +330,21 @@ def test_google_news_related_symbols_extract_japanese_company_names_and_codes():
             "日経平均終値931円安、米ブロードコム決算が冷や水",
             "日本株の地合いとAI半導体の反応を確認します。",
             ("7203.T", "8306.T", "6758.T"),
-            ["1488.T", "AVGO"],
+            ["AVGO"],
             ["NVDA", "TSM", "ASML"],
         ),
         (
             "NASDAQが反落、ハイテク株に売り",
             "米国株は金利上昇を嫌気しました。",
             ("NVDA", "JPM", "QQQ"),
-            ["QQQ"],
-            ["SPY", "NVDA", "TLT"],
+            [],
+            ["QQQ", "SPY", "NVDA"],
         ),
         (
             "SP500週間展望、雇用統計と金利に注目",
             "米国株と国債利回りが焦点です。",
             ("NVDA", "JPM", "QQQ"),
-            ["VOO"],
+            [],
             ["SPY", "QQQ", "TLT"],
         ),
     ],
@@ -522,15 +522,15 @@ def _sprint_100_cases() -> list[tuple[str, str, str, tuple[str, ...], list[str],
             "NASDAQが反落、ハイテク株に売り",
             "米国株は金利上昇を嫌気しました。",
             ("NVDA", "JPM", "QQQ"),
-            ["QQQ"],
-            ["SPY", "NVDA", "TLT"],
+            [],
+            ["QQQ", "SPY", "NVDA"],
         ),
         _sprint_case(
             "tech_06_sp500",
             "S&P500が週間で上昇",
             "米国株と国債利回りを確認します。",
             ("NVDA", "JPM", "QQQ"),
-            ["VOO"],
+            [],
             ["SPY", "QQQ", "TLT"],
         ),
         _sprint_case(
@@ -572,16 +572,16 @@ def _sprint_100_cases() -> list[tuple[str, str, str, tuple[str, ...], list[str],
             "トヨタが日本株を支える",
             "日経平均とTOPIXの地合いを確認します。",
             ("7203.T", "8306.T", "6758.T"),
-            ["7203.T", "1488.T", "1306.T"],
-            [],
+            ["7203.T"],
+            ["1488.T", "1306.T", "8306.T"],
         ),
         _sprint_case(
             "jp_02_mufg",
             "三菱UFJが日本株の銀行株をけん引",
             "TOPIXと金融株を確認します。",
             ("7203.T", "8306.T", "6758.T"),
-            ["8306.T", "1306.T"],
-            ["1488.T", "7203.T", "JPM"],
+            ["8306.T"],
+            ["1488.T", "1306.T", "7203.T"],
         ),
         _sprint_case(
             "jp_03_smfg",
@@ -628,23 +628,23 @@ def _sprint_100_cases() -> list[tuple[str, str, str, tuple[str, ...], list[str],
             "日経平均が大幅反落",
             "日本株とTOPIXの地合いを確認します。",
             ("7203.T", "8306.T", "6758.T"),
-            ["1488.T", "1306.T"],
-            ["7203.T"],
+            [],
+            ["1488.T", "1306.T", "7203.T"],
         ),
         _sprint_case(
             "jp_09_topix",
             "TOPIXが高値を更新",
             "日本株の循環物色を確認します。",
             ("7203.T", "8306.T", "6758.T"),
-            ["1306.T"],
-            ["1488.T", "7203.T"],
+            [],
+            ["1488.T", "1306.T", "7203.T"],
         ),
         _sprint_case(
             "jp_10_nikkei_broadcom",
             "日経平均終値931円安、米ブロードコム決算が冷や水",
             "日本株の地合いとAI半導体の反応を確認します。",
             ("7203.T", "8306.T", "6758.T"),
-            ["1488.T", "AVGO"],
+            ["AVGO"],
             ["NVDA", "TSM", "ASML"],
         ),
     ]
@@ -826,16 +826,16 @@ def _sprint_100_cases() -> list[tuple[str, str, str, tuple[str, ...], list[str],
             "石川製作所が防衛関連で急伸",
             "地政学リスクを確認します。",
             ("7011.T", "6208.T", "GLD"),
-            ["6208.T", "7011.T"],
-            ["GLD"],
+            ["6208.T"],
+            ["7011.T", "GLD"],
         ),
         _sprint_case(
             "def_03_generic",
             "防衛関連株に買い",
             "安全保障と地政学の材料です。",
             ("7011.T", "6208.T", "GLD"),
-            ["7011.T"],
-            ["6208.T", "GLD"],
+            [],
+            ["7011.T", "6208.T", "GLD"],
         ),
         _sprint_case(
             "def_04_middle_east",
@@ -850,16 +850,16 @@ def _sprint_100_cases() -> list[tuple[str, str, str, tuple[str, ...], list[str],
             "Defense stocks rise on geopolitical tension",
             "security spending is in focus.",
             ("7011.T", "6208.T", "GLD"),
-            ["7011.T"],
-            ["6208.T", "GLD"],
+            [],
+            ["7011.T", "6208.T", "GLD"],
         ),
         _sprint_case(
             "def_06_gold_risk",
             "地政学リスクで金価格が上昇",
             "中東情勢も確認します。",
             ("7011.T", "6208.T", "GLD"),
-            ["GLD"],
-            ["SPY", "TLT", "QQQ"],
+            [],
+            ["GLD", "SPY", "TLT"],
         ),
         _sprint_case(
             "def_07_shipping",
@@ -882,16 +882,16 @@ def _sprint_100_cases() -> list[tuple[str, str, str, tuple[str, ...], list[str],
             "軍事緊張でゴールドが買われる",
             "地政学リスクを確認します。",
             ("7011.T", "6208.T", "GLD"),
-            ["GLD"],
-            ["SPY", "TLT", "QQQ"],
+            [],
+            ["GLD", "SPY", "TLT"],
         ),
         _sprint_case(
             "def_10_security_generic",
             "安全保障関連の投資が拡大",
             "防衛と地政学の材料です。",
             ("7011.T", "6208.T", "GLD"),
-            ["7011.T"],
-            ["6208.T", "GLD"],
+            [],
+            ["7011.T", "6208.T", "GLD"],
         ),
     ]
     gold_rates = [
@@ -900,15 +900,15 @@ def _sprint_100_cases() -> list[tuple[str, str, str, tuple[str, ...], list[str],
             "本日（6月3日）の金価格：下落傾向が継続。",
             "米国株や金利の動向も確認したい材料です。",
             ("7011.T", "9101.T", "GLD"),
-            ["GLD"],
-            ["SPY", "TLT", "QQQ"],
+            [],
+            ["GLD", "SPY", "TLT"],
         ),
         _sprint_case(
             "gold_02_gold_en",
             "Gold falls as dollar strengthens",
             "Treasury yield and US stocks are also in focus.",
             ("GLD", "SPY", "TLT"),
-            ["GLD"],
+            [],
             ["TLT", "JPM", "SPY"],
         ),
         _sprint_case(
@@ -916,8 +916,8 @@ def _sprint_100_cases() -> list[tuple[str, str, str, tuple[str, ...], list[str],
             "金価格とS&P500が同時に下落",
             "リスク資産と金利を確認します。",
             ("GLD", "SPY", "TLT"),
-            ["GLD", "VOO"],
-            ["SPY", "TLT", "QQQ"],
+            [],
+            ["GLD", "SPY", "TLT"],
         ),
         _sprint_case(
             "gold_04_rates",
@@ -940,7 +940,7 @@ def _sprint_100_cases() -> list[tuple[str, str, str, tuple[str, ...], list[str],
             "SP500週間展望、雇用統計と金利に注目",
             "米国株と国債利回りが焦点です。",
             ("NVDA", "JPM", "QQQ"),
-            ["VOO"],
+            [],
             ["SPY", "QQQ", "TLT"],
         ),
         _sprint_case(
@@ -948,32 +948,32 @@ def _sprint_100_cases() -> list[tuple[str, str, str, tuple[str, ...], list[str],
             "ナスダックが金利上昇で反落",
             "米国株の地合いを確認します。",
             ("NVDA", "JPM", "QQQ"),
-            ["QQQ"],
-            ["SPY", "NVDA", "TLT"],
+            [],
+            ["QQQ", "SPY", "NVDA"],
         ),
         _sprint_case(
             "gold_08_gold_safe",
             "ゴールドが安全資産として上昇",
             "金相場と米国株を確認します。",
             ("GLD", "SPY", "TLT"),
-            ["GLD"],
-            ["SPY", "TLT", "QQQ"],
+            [],
+            ["GLD", "SPY", "TLT"],
         ),
         _sprint_case(
             "gold_09_gold_rate",
             "金相場は金利上昇で失速",
             "国債利回りと米国株を確認します。",
             ("GLD", "SPY", "TLT"),
-            ["GLD"],
-            ["SPY", "TLT", "QQQ"],
+            [],
+            ["GLD", "SPY", "TLT"],
         ),
         _sprint_case(
             "gold_10_s_and_p",
             "S＆P500が反発",
             "株安後の米国株を確認します。",
             ("NVDA", "JPM", "QQQ"),
-            ["VOO"],
-            ["SPY", "QQQ"],
+            [],
+            ["SPY", "QQQ", "NVDA"],
         ),
     ]
     retail = [
@@ -1186,8 +1186,8 @@ def _sprint_100_cases() -> list[tuple[str, str, str, tuple[str, ...], list[str],
             "Apple、Google、NASDAQがハイテク株を押し上げ",
             "大型テックが材料です。",
             ("AAPL", "GOOGL", "QQQ"),
-            ["AAPL", "GOOGL", "QQQ"],
-            [],
+            ["AAPL", "GOOGL"],
+            ["QQQ", "SPY", "NVDA"],
         ),
         _sprint_case(
             "mix_07",
@@ -1210,8 +1210,8 @@ def _sprint_100_cases() -> list[tuple[str, str, str, tuple[str, ...], list[str],
             "日経平均、TOPIX、S&P500がそろって反発",
             "指数を直接確認します。",
             ("1488.T", "1306.T", "VOO"),
-            ["1488.T", "1306.T", "VOO"],
             [],
+            ["SPY", "QQQ", "1488.T"],
         ),
         _sprint_case(
             "mix_10",
@@ -1238,11 +1238,301 @@ def _sprint_100_cases() -> list[tuple[str, str, str, tuple[str, ...], list[str],
     return cases
 
 
+def _sprint_300_cases() -> list[tuple[str, str, str, tuple[str, ...], list[str], list[str]]]:
+    direct_specs = [
+        ("nvda", "NVIDIA", "NVDA"),
+        ("tsmc", "TSMC", "TSM"),
+        ("asml", "ASML", "ASML"),
+        ("amd", "AMD", "AMD"),
+        ("broadcom", "ブロードコム", "AVGO"),
+        ("lulu", "ルルレモン", "LULU"),
+        ("apple", "Apple", "AAPL"),
+        ("microsoft", "Microsoft", "MSFT"),
+        ("amazon", "Amazon", "AMZN"),
+        ("google", "Google", "GOOGL"),
+        ("tel", "東京エレクトロン", "8035.T"),
+        ("advantest", "アドバンテスト", "6857.T"),
+        ("toyota", "トヨタ", "7203.T"),
+        ("sony", "ソニー", "6758.T"),
+        ("softbank", "ソフトバンク", "9984.T"),
+        ("nintendo", "任天堂", "7974.T"),
+        ("ntt", "NTT", "9432.T"),
+        ("mitsubishi_corp", "三菱商事", "8058.T"),
+        ("smfg", "三井住友FG", "8316.T"),
+        ("mufg", "三菱UFJ", "8306.T"),
+        ("jpm", "JPMorgan", "JPM"),
+        ("bac", "Bank of America", "BAC"),
+        ("gs", "Goldman Sachs", "GS"),
+        ("ms", "Morgan Stanley", "MS"),
+        ("xom", "Exxon Mobil", "XOM"),
+        ("cvx", "Chevron", "CVX"),
+        ("eneos", "ENEOS", "5020.T"),
+        ("nyk", "日本郵船", "9101.T"),
+        ("ishikawa", "石川製作所", "6208.T"),
+        ("jt", "Japan Tobacco", "2914.T"),
+        ("walmart", "Walmart", "WMT"),
+        ("coke", "Coca-Cola", "KO"),
+        ("inpex", "INPEX", "1605.T"),
+        ("mhi", "三菱重工", "7011.T"),
+        ("gld", "SPDR ゴールド シェア", "GLD"),
+        ("voo", "Vanguard S&P 500 ETF", "VOO"),
+        ("spy", "SPDR S&P 500 ETF", "SPY"),
+        ("qqq", "Invesco QQQ", "QQQ"),
+        ("maxis_sp", "MAXIS S&P 500 ETF", "2558.T"),
+        ("topix_etf", "NEXT FUNDS TOPIX ETF", "1306.T"),
+        ("reit_etf", "iFreeETF 東証REIT指数", "1488.T"),
+        ("tlife", "ティーライフ【3172】", "3172.T"),
+        ("media", "メディア工房【3815】", "3815.T"),
+        ("biprogy", "BIPROGY【8056】", "8056.T"),
+        ("toyo", "東陽テクニカ【8151】", "8151.T"),
+        ("sagami", "サガミホールディングス【9900】", "9900.T"),
+        ("cij", "ＣＩＪ【4826】", "4826.T"),
+        ("nabtesco", "ナブテスコ【6268】", "6268.T"),
+        ("komatsu", "コマツ【6301】", "6301.T"),
+        ("keyence", "キーエンス【6861】", "6861.T"),
+    ]
+    direct_cases: list[tuple[str, str, str, tuple[str, ...], list[str], list[str]]] = []
+    for index, (name, mention, symbol) in enumerate(direct_specs, start=1):
+        fallback = (symbol, "SPY", "QQQ", "TLT")
+        direct_cases.append(
+            _sprint_case(
+                f"direct_{index:03d}_{name}_title",
+                f"{mention}が市場材料で注目",
+                "個別企業またはETF商品の本文明示を確認します。",
+                fallback,
+                [symbol],
+                [],
+            )
+        )
+        direct_cases.append(
+            _sprint_case(
+                f"direct_{index:03d}_{name}_body",
+                "市場材料の続報",
+                f"本文では{mention}の業績、需給、開示を確認します。",
+                fallback,
+                [symbol],
+                [],
+            )
+        )
+
+    topic_specs: list[tuple[str, str, str, tuple[str, ...], list[str]]] = [
+        (
+            "semi",
+            "半導体供給制約が再燃",
+            "AI投資とchip需要が続きます。",
+            ("NVDA", "6857.T", "8035.T"),
+            ["NVDA", "TSM", "ASML"],
+        ),
+        (
+            "gold",
+            "金価格が下落傾向",
+            "金相場と米国株を確認します。",
+            ("GLD", "SPY", "TLT"),
+            ["GLD", "SPY", "TLT"],
+        ),
+        (
+            "sp500",
+            "S&P500週間展望",
+            "米国株と国債利回りを確認します。",
+            ("NVDA", "JPM", "QQQ"),
+            ["SPY", "QQQ", "TLT"],
+        ),
+        (
+            "nasdaq",
+            "ナスダックが反落",
+            "ハイテク株と米国株の地合いを確認します。",
+            ("NVDA", "JPM", "QQQ"),
+            ["QQQ", "SPY", "NVDA"],
+        ),
+        (
+            "rates",
+            "米国債利回りが上昇",
+            "金利と銀行株の材料です。",
+            ("JPM", "BAC", "TLT"),
+            ["TLT", "JPM", "SPY"],
+        ),
+        (
+            "japan",
+            "日本株の循環物色が続く",
+            "日経平均とTOPIXの地合いを確認します。",
+            ("7203.T", "8306.T", "6758.T"),
+            ["1488.T", "1306.T", "7203.T"],
+        ),
+        (
+            "return",
+            "株主還元テーマに注目",
+            "配当と自社株買いの材料です。",
+            ("8306.T", "8058.T", "2914.T"),
+            ["8306.T", "8058.T", "2914.T"],
+        ),
+        (
+            "bank",
+            "銀行株が世界的に反発",
+            "利ざやと融資需要を確認します。",
+            ("JPM", "BAC", "8306.T"),
+            ["JPM", "BAC", "8306.T"],
+        ),
+        (
+            "energy",
+            "原油価格が急騰",
+            "OPECとエネルギー需要を確認します。",
+            ("1605.T", "XLE", "XOM"),
+            ["XLE", "XOM", "CVX"],
+        ),
+        (
+            "defense",
+            "防衛関連株に買い",
+            "安全保障と地政学の材料です。",
+            ("7011.T", "6208.T", "GLD"),
+            ["7011.T", "6208.T", "GLD"],
+        ),
+        (
+            "earnings",
+            "業績修正銘柄が増加",
+            "決算と上方修正を確認します。",
+            ("6758.T", "9432.T", "9984.T"),
+            ["QQQ", "SPY", "6758.T"],
+        ),
+        (
+            "retail",
+            "小売株に資金流入",
+            "個人消費とretailの反応を確認します。",
+            ("AMZN", "WMT", "COST"),
+            ["AMZN", "WMT", "COST"],
+        ),
+        (
+            "cloud",
+            "クラウド投資が拡大",
+            "生成AIとデータセンター需要を確認します。",
+            ("NVDA", "QQQ", "SPY"),
+            ["MSFT", "NVDA", "AMZN"],
+        ),
+        (
+            "oil_rates",
+            "原油高と金利上昇が市場を揺らす",
+            "国債利回りとエネルギーを確認します。",
+            ("1605.T", "XLE", "XOM"),
+            ["TLT", "JPM", "SPY"],
+        ),
+        (
+            "middle_east",
+            "中東情勢が緊迫",
+            "地政学リスクと安全保障を確認します。",
+            ("7011.T", "6208.T", "GLD"),
+            ["7011.T", "6208.T", "GLD"],
+        ),
+        (
+            "us_stocks",
+            "米国株が反発",
+            "S&P500とNASDAQの地合いを確認します。",
+            ("NVDA", "JPM", "QQQ"),
+            ["SPY", "QQQ", "NVDA"],
+        ),
+        (
+            "dividend",
+            "高配当株に資金流入",
+            "配当と株主還元を確認します。",
+            ("8306.T", "8058.T", "2914.T"),
+            ["8306.T", "8058.T", "2914.T"],
+        ),
+        (
+            "lng",
+            "LNG需要がアジアで拡大",
+            "エネルギー株の材料です。",
+            ("1605.T", "XLE", "XOM"),
+            ["XLE", "XOM", "CVX"],
+        ),
+        (
+            "consumer",
+            "個人消費が市場を支える",
+            "小売と消費関連企業を確認します。",
+            ("AMZN", "WMT", "COST"),
+            ["AMZN", "WMT", "COST"],
+        ),
+        (
+            "generic",
+            "市場全体の材料を確認",
+            "ニュース本文に個別銘柄名は出ていません。",
+            ("7203.T", "8306.T", "NVDA"),
+            ["7203.T", "8306.T", "NVDA"],
+        ),
+    ]
+    topic_cases: list[tuple[str, str, str, tuple[str, ...], list[str], list[str]]] = []
+    for round_index in range(5):
+        for topic_index, (
+            topic_name,
+            topic_title,
+            topic_description,
+            topic_fallback,
+            topic_inferred,
+        ) in enumerate(topic_specs, start=1):
+            topic_cases.append(
+                _sprint_case(
+                    f"topic_{round_index + 1:02d}_{topic_index:02d}_{topic_name}",
+                    f"{topic_title} #{round_index + 1}",
+                    topic_description,
+                    topic_fallback,
+                    [],
+                    topic_inferred,
+                )
+            )
+
+    cases = _sprint_100_cases() + direct_cases + topic_cases
+    assert len(cases) == 300
+    return cases
+
+
 @pytest.mark.parametrize(
     ("name", "title", "description", "fallback", "expected_direct", "expected_inferred_prefix"),
     _sprint_100_cases(),
 )
 def test_google_news_symbol_extraction_100_case_sprint(
+    name,
+    title,
+    description,
+    fallback,
+    expected_direct,
+    expected_inferred_prefix,
+):
+    fetched_at = datetime(2026, 6, 4, 10, 0, tzinfo=UTC)
+    escaped_title = html.escape(title)
+    escaped_description = html.escape(description)
+    category_query = NewsCategoryQuery(
+        category=f"sprint-{name}",
+        region="global",
+        material_type="theme",
+        query="sprint regression",
+        related_symbols=fallback,
+    )
+    rss = f"""
+    <rss><channel>
+      <item>
+        <title>{escaped_title}</title>
+        <link>https://example.com/{name}</link>
+        <source>Example Market</source>
+        <pubDate>Thu, 04 Jun 2026 09:30:00 GMT</pubDate>
+        <description><![CDATA[<p>{escaped_description}</p>]]></description>
+      </item>
+    </channel></rss>
+    """
+
+    cards = google_news_dashboard_cards_from_rss(
+        rss,
+        category_query=category_query,
+        fetched_at=fetched_at,
+        as_of=fetched_at.date(),
+        max_results=10,
+    )
+
+    assert cards[0].related_symbols == expected_direct
+    assert cards[0].inferred_symbols[: len(expected_inferred_prefix)] == expected_inferred_prefix
+
+
+@pytest.mark.parametrize(
+    ("name", "title", "description", "fallback", "expected_direct", "expected_inferred_prefix"),
+    _sprint_300_cases(),
+)
+def test_google_news_symbol_extraction_300_case_sprint(
     name,
     title,
     description,

@@ -159,14 +159,14 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     multiselect_labels = [str(getattr(element, "label", "")) for element in app.multiselect]
     selectbox_labels = [str(getattr(element, "label", "")) for element in app.selectbox]
     checkbox_labels = [str(getattr(element, "label", "")) for element in app.checkbox]
-    assert "ニュース表示の状態" in page_text
-    assert "表示データ" in page_text
-    assert "キャッシュサイズ" in page_text
     assert "投資レーダー" in page_text
     assert "市場ニュースヘッドライン" in page_text
     assert "投資ヒートマップ" in page_text
     assert "カテゴリ別ニュースレーン" in page_text
     assert "表示中ニュース" in page_text
+    assert "ニュース表示の状態" not in page_text
+    assert "表示データ" not in page_text
+    assert "キャッシュサイズ" not in page_text
     assert "データ状態" not in page_text
     assert "ニュース表示を更新" in button_labels
     assert "Watchlist" in text_input_labels

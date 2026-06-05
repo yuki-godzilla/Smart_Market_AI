@@ -324,7 +324,6 @@ def render_news_dashboard_page(
 
     snapshot, status, uses_cached_snapshot = _load_dashboard_snapshot()
     _render_refresh_controls()
-    _render_cache_status(snapshot, status, uses_cached_snapshot=uses_cached_snapshot)
     _render_status_message()
     _render_update_warning(status)
     filtered_snapshot = _render_news_detail_filters(snapshot)

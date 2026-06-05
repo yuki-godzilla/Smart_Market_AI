@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import html
 import re
 import xml.etree.ElementTree as ET
@@ -7,6 +8,8 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from email.utils import parsedate_to_datetime
+from functools import lru_cache
+from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request as UrlRequest
 from urllib.request import urlopen
@@ -21,6 +24,7 @@ STANDARD_NEWS_CATEGORY_QUERY_COUNT = 12
 STANDARD_NEWS_PER_QUERY_LIMIT = 15
 STANDARD_NEWS_LOOKBACK_DAYS = 7
 GOOGLE_NEWS_RSS_SEARCH_URL = "https://news.google.com/rss/search"
+SYMBOL_UNIVERSE_CSV = Path("data/marketdata/symbol_universe.csv")
 
 
 @dataclass(frozen=True)
@@ -482,21 +486,28 @@ def _symbols_from_text(
         (r"exxon mobil|エクソン", "XOM"),
         (r"chevron|シェブロン", "CVX"),
         (r"eneos", "5020.T"),
+        (
+            r"spdr\s*ゴールド\s*シェア|spdr\s*gold\s*shares|(?<![A-Za-z0-9])gld(?![A-Za-z0-9])",
+            "GLD",
+        ),
+        (r"vanguard\s*s&p\s*500\s*etf|(?<![A-Za-z0-9])voo(?![A-Za-z0-9])", "VOO"),
+        (r"spdr\s*s&p\s*500\s*etf|(?<![A-Za-z0-9])spy(?![A-Za-z0-9])", "SPY"),
+        (r"invesco\s*qqq|(?<![A-Za-z0-9])qqq(?![A-Za-z0-9])", "QQQ"),
+        (r"maxis\s*s&p\s*500|ＭＡＸＩＳ米国株式", "2558.T"),
+        (r"next\s*funds\s*topix|ＴＯＰＩＸ連動型上場投信", "1306.T"),
+        (r"ifreeetf\s*東証reit|東証REIT指数", "1488.T"),
         (r"日本郵船|nippon yusen", "9101.T"),
         (r"石川製作所", "6208.T"),
         (r"japan tobacco|日本たばこ|(?<![A-Za-z0-9])jt(?![A-Za-z0-9])", "2914.T"),
         (r"walmart|ウォルマート", "WMT"),
         (r"coca-?cola|コカ・コーラ", "KO"),
         (r"(?<![A-Za-z0-9])inpex(?![A-Za-z0-9])", "1605.T"),
-        (r"日経平均|日経225", "1488.T"),
-        (r"topix", "1306.T"),
-        (r"(?<![A-Za-z0-9])nasdaq(?![A-Za-z0-9])|ナスダック", "QQQ"),
-        (r"(?<![A-Za-z0-9])s&p\s*500(?![A-Za-z0-9])|S&P500|SP500|S＆P500|S＆P", "VOO"),
-        (r"金価格|金相場|ゴールド|安全資産|(?<![A-Za-z0-9])gold(?![A-Za-z0-9])", "GLD"),
-        (r"三菱重工|防衛|defense", "7011.T"),
+        (r"三菱重工|mitsubishi heavy", "7011.T"),
     )
     matches: dict[str, tuple[int, int]] = {}
     for match in re.finditer(r"【(\d{4})】", text):
+        matches[f"{match.group(1)}.T"] = (match.start(), -1)
+    for match in re.finditer(r"[（(［\[](\d{4})[）)］\]]", text):
         matches[f"{match.group(1)}.T"] = (match.start(), -1)
     for pattern_index, (pattern, symbol) in enumerate(symbol_patterns):
         pattern_match = re.search(pattern, text, flags=re.IGNORECASE)
@@ -506,10 +517,133 @@ def _symbols_from_text(
         current = matches.get(symbol)
         if current is None or candidate < current:
             matches[symbol] = candidate
+    universe_offset = len(symbol_patterns) + 100
+    for alias_index, (alias, symbol) in enumerate(_symbol_universe_aliases()):
+        alias_match = _alias_match(alias, text)
+        if alias_match is None:
+            continue
+        candidate = (alias_match.start(), universe_offset + alias_index)
+        current = matches.get(symbol)
+        if current is None or candidate < current:
+            matches[symbol] = candidate
     return [
         symbol
         for symbol, _ in sorted(matches.items(), key=lambda item: (item[1][0], item[1][1], item[0]))
     ][:limit]
+
+
+def _alias_match(alias: str, text: str) -> re.Match[str] | None:
+    if _is_ascii_alias(alias):
+        return re.search(
+            rf"(?<![A-Za-z0-9]){re.escape(alias)}(?![A-Za-z0-9])",
+            text,
+            flags=re.IGNORECASE,
+        )
+    return re.search(re.escape(alias), text, flags=re.IGNORECASE)
+
+
+@lru_cache(maxsize=1)
+def _symbol_universe_aliases() -> tuple[tuple[str, str], ...]:
+    if not SYMBOL_UNIVERSE_CSV.exists():
+        return ()
+    symbols_by_alias: dict[str, set[str]] = {}
+    with SYMBOL_UNIVERSE_CSV.open(encoding="utf-8", newline="") as file:
+        for row in csv.DictReader(file):
+            symbol = (row.get("symbol") or "").strip().upper()
+            if not symbol:
+                continue
+            for alias in _symbol_universe_row_aliases(row):
+                symbols_by_alias.setdefault(alias, set()).add(symbol)
+    aliases = [
+        (alias, next(iter(symbols)))
+        for alias, symbols in symbols_by_alias.items()
+        if len(symbols) == 1
+    ]
+    return tuple(sorted(aliases, key=lambda item: (-len(item[0]), item[0], item[1])))
+
+
+def _symbol_universe_row_aliases(row: dict[str, str]) -> list[str]:
+    values = [
+        row.get("name", ""),
+        *(row.get("aliases", "") or "").replace("（", " ").replace("）", " ").split(),
+    ]
+    aliases: list[str] = []
+    for value in values:
+        alias = _normalized_symbol_alias(value)
+        if (
+            not alias
+            or alias in aliases
+            or _is_ascii_alias(alias)
+            or not _has_japanese_alias_character(alias)
+            or _is_generic_symbol_alias(alias)
+        ):
+            continue
+        aliases.append(alias)
+    return aliases
+
+
+def _normalized_symbol_alias(value: str) -> str:
+    return " ".join(value.replace("　", " ").strip().split())
+
+
+def _is_ascii_alias(value: str) -> bool:
+    return all(ord(character) < 128 for character in value)
+
+
+def _has_japanese_alias_character(value: str) -> bool:
+    return any(
+        "\u3040" <= character <= "\u30ff" or "\u3400" <= character <= "\u9fff"
+        for character in value
+    )
+
+
+def _is_generic_symbol_alias(value: str) -> bool:
+    lowered = value.casefold()
+    generic_aliases = {
+        "ai",
+        "bank",
+        "bond",
+        "consumer",
+        "defense",
+        "energy",
+        "financial",
+        "growth",
+        "high_dividend",
+        "index",
+        "retail",
+        "sp500",
+        "s&p500",
+        "s&p500指数",
+        "topix",
+        "topix (配当込み)",
+        "nasdaq100",
+        "銀行",
+        "金融",
+        "半導体",
+        "米国",
+        "日本株",
+        "米国株",
+        "株式",
+        "株式市場",
+        "関連企業",
+        "センター",
+        "商社",
+        "高配当",
+        "小売",
+        "機械",
+        "メディア",
+        "ブロード",
+        "エレクトロ",
+        "ホールディ",
+        "情報通信・サービスその他",
+        "東証reit指数",
+        "東証reit指数（配当込み）",
+    }
+    if lowered in generic_aliases:
+        return True
+    if _is_ascii_alias(value) and len(value) < 3:
+        return True
+    return len(value) < 4
 
 
 def _inferred_symbols_from_fallback(
@@ -535,7 +669,7 @@ def _inferred_symbols_from_text(
     context_rules = (
         (
             ("金価格", "金相場", "ゴールド"),
-            ("SPY", "TLT", "QQQ"),
+            ("GLD", "SPY", "TLT", "QQQ"),
         ),
         (
             ("s&p", "sp500", "s&p500", "s＆p", "株安"),

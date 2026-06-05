@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-import os
+import sqlite3
+from collections.abc import Sequence
+from contextlib import contextmanager
 from pathlib import Path
-from time import sleep
-from typing import Final
+from typing import Final, Iterator
 
 from pydantic import TypeAdapter
 
@@ -11,12 +12,12 @@ from backend.symbols.cache import SYMBOL_CACHE_DIR
 from backend.symbols.contracts import SymbolRecord
 
 SYMBOL_RECORDS_FILENAME: Final[str] = "symbols_cache.json"
-SYMBOL_RECORDS_TMP_FILENAME: Final[str] = "symbols_cache.tmp.json"
+SYMBOL_RECORDS_DB_FILENAME: Final[str] = "symbols_cache.sqlite"
+SYMBOL_RECORDS_TABLE: Final[str] = "symbol_records"
 
 MAX_NORMALIZED_FIELDS = 80
 MAX_FIELD_TEXT_CHARS = 300
-ATOMIC_REPLACE_RETRY_COUNT = 5
-ATOMIC_REPLACE_RETRY_DELAY_SECONDS = 0.05
+SQLITE_TIMEOUT_SECONDS = 5.0
 
 _SYMBOL_RECORD_MAP_ADAPTER = TypeAdapter(dict[str, SymbolRecord])
 _RAW_FIELD_KEYWORDS = (
@@ -36,14 +37,23 @@ def load_symbol_records(
     *,
     cache_dir: Path | str = SYMBOL_CACHE_DIR,
 ) -> dict[str, SymbolRecord]:
-    """Load normalized latest-only symbol records."""
+    """Load normalized latest-only symbol records from the runtime cache DB."""
 
-    records_file = _cache_path(cache_dir, SYMBOL_RECORDS_FILENAME)
-    if not records_file.exists():
+    cache_root = Path(cache_dir)
+    try:
+        _ensure_sqlite_store(cache_root)
+        with _connect(cache_root) as connection:
+            rows = connection.execute(
+                f"SELECT symbol, payload_json FROM {SYMBOL_RECORDS_TABLE} ORDER BY symbol"
+            ).fetchall()
+    except (OSError, sqlite3.Error, ValueError):
         return {}
     try:
-        return _SYMBOL_RECORD_MAP_ADAPTER.validate_json(records_file.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        return {
+            str(row["symbol"]): SymbolRecord.model_validate_json(str(row["payload_json"]))
+            for row in rows
+        }
+    except ValueError:
         return {}
 
 
@@ -52,9 +62,27 @@ def load_symbol_record(
     *,
     cache_dir: Path | str = SYMBOL_CACHE_DIR,
 ) -> SymbolRecord | None:
-    """Load one normalized symbol record if present."""
+    """Load one normalized symbol record if present without scanning all records."""
 
-    return load_symbol_records(cache_dir=cache_dir).get(_normalize_symbol(symbol))
+    cache_root = Path(cache_dir)
+    normalized_symbol = _normalize_symbol(symbol)
+    if not normalized_symbol:
+        return None
+    try:
+        _ensure_sqlite_store(cache_root)
+        with _connect(cache_root) as connection:
+            row = connection.execute(
+                f"SELECT payload_json FROM {SYMBOL_RECORDS_TABLE} WHERE symbol = ?",
+                (normalized_symbol,),
+            ).fetchone()
+    except (OSError, sqlite3.Error, ValueError):
+        return None
+    if row is None:
+        return None
+    try:
+        return SymbolRecord.model_validate_json(str(row["payload_json"]))
+    except ValueError:
+        return None
 
 
 def save_symbol_record(
@@ -64,25 +92,52 @@ def save_symbol_record(
 ) -> SymbolRecord:
     """Normalize and atomically upsert one symbol record."""
 
+    return save_symbol_records([record], cache_dir=cache_dir)[0]
+
+
+def save_symbol_records(
+    records: Sequence[SymbolRecord],
+    *,
+    cache_dir: Path | str = SYMBOL_CACHE_DIR,
+) -> list[SymbolRecord]:
+    """Normalize and atomically upsert symbol records into the runtime cache DB."""
+
     cache_root = Path(cache_dir)
     cache_root.mkdir(parents=True, exist_ok=True)
-    normalized = normalize_symbol_record(record)
-    records = load_symbol_records(cache_dir=cache_root)
-    records[normalized.symbol] = normalized
+    normalized_records = [normalize_symbol_record(record) for record in records]
+    if not normalized_records:
+        return []
 
-    records_file = _cache_path(cache_root, SYMBOL_RECORDS_FILENAME)
-    tmp_file = _cache_path(cache_root, SYMBOL_RECORDS_TMP_FILENAME)
-    try:
-        tmp_file.write_text(
-            _SYMBOL_RECORD_MAP_ADAPTER.dump_json(records, indent=2).decode("utf-8"),
-            encoding="utf-8",
+    _ensure_sqlite_store(cache_root)
+    with _connect(cache_root) as connection:
+        connection.executemany(
+            f"""
+            INSERT INTO {SYMBOL_RECORDS_TABLE} (
+                symbol,
+                payload_json,
+                updated_at,
+                provider,
+                data_freshness_status
+            )
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(symbol) DO UPDATE SET
+                payload_json = excluded.payload_json,
+                updated_at = excluded.updated_at,
+                provider = excluded.provider,
+                data_freshness_status = excluded.data_freshness_status
+            """,
+            [
+                (
+                    record.symbol,
+                    record.model_dump_json(),
+                    record.updated_at.isoformat(),
+                    record.provider,
+                    record.data_freshness_status,
+                )
+                for record in normalized_records
+            ],
         )
-        _SYMBOL_RECORD_MAP_ADAPTER.validate_json(tmp_file.read_text(encoding="utf-8"))
-        _replace_with_retry(tmp_file, records_file)
-    finally:
-        if tmp_file.exists():
-            tmp_file.unlink()
-    return normalized
+    return normalized_records
 
 
 def normalize_symbol_record(record: SymbolRecord) -> SymbolRecord:
@@ -146,12 +201,85 @@ def _cache_path(cache_dir: Path | str, filename: str) -> Path:
     return Path(cache_dir) / filename
 
 
-def _replace_with_retry(source: Path, target: Path) -> None:
-    for attempt in range(ATOMIC_REPLACE_RETRY_COUNT):
-        try:
-            os.replace(source, target)
-            return
-        except PermissionError:
-            if attempt >= ATOMIC_REPLACE_RETRY_COUNT - 1:
-                raise
-            sleep(ATOMIC_REPLACE_RETRY_DELAY_SECONDS)
+@contextmanager
+def _connect(cache_dir: Path | str) -> Iterator[sqlite3.Connection]:
+    connection = sqlite3.connect(
+        _cache_path(cache_dir, SYMBOL_RECORDS_DB_FILENAME),
+        timeout=SQLITE_TIMEOUT_SECONDS,
+    )
+    connection.row_factory = sqlite3.Row
+    try:
+        yield connection
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def _ensure_sqlite_store(cache_dir: Path | str) -> None:
+    cache_root = Path(cache_dir)
+    cache_root.mkdir(parents=True, exist_ok=True)
+    db_file = _cache_path(cache_root, SYMBOL_RECORDS_DB_FILENAME)
+    should_migrate = not db_file.exists()
+    with _connect(cache_root) as connection:
+        _create_symbol_records_table(connection)
+        if should_migrate:
+            _migrate_legacy_json_records(connection, cache_root)
+
+
+def _create_symbol_records_table(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS {SYMBOL_RECORDS_TABLE} (
+            symbol TEXT PRIMARY KEY,
+            payload_json TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            provider TEXT,
+            data_freshness_status TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        f"""
+        CREATE INDEX IF NOT EXISTS idx_{SYMBOL_RECORDS_TABLE}_updated_at
+        ON {SYMBOL_RECORDS_TABLE}(updated_at)
+        """
+    )
+
+
+def _migrate_legacy_json_records(connection: sqlite3.Connection, cache_dir: Path) -> None:
+    records = _load_legacy_json_records(cache_dir)
+    if not records:
+        return
+    normalized_records = [normalize_symbol_record(record) for record in records.values()]
+    connection.executemany(
+        f"""
+        INSERT OR REPLACE INTO {SYMBOL_RECORDS_TABLE} (
+            symbol,
+            payload_json,
+            updated_at,
+            provider,
+            data_freshness_status
+        )
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                record.symbol,
+                record.model_dump_json(),
+                record.updated_at.isoformat(),
+                record.provider,
+                record.data_freshness_status,
+            )
+            for record in normalized_records
+        ],
+    )
+
+
+def _load_legacy_json_records(cache_dir: Path | str) -> dict[str, SymbolRecord]:
+    records_file = _cache_path(cache_dir, SYMBOL_RECORDS_FILENAME)
+    if not records_file.exists():
+        return {}
+    try:
+        return _SYMBOL_RECORD_MAP_ADAPTER.validate_json(records_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}

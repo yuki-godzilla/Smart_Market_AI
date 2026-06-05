@@ -1,11 +1,30 @@
 {
-  "last_attempt_at": "2026-06-05T05:22:08.805805",
-  "last_success_at": "2026-06-05T05:22:09.276751",
+  "last_attempt_at": "2026-06-05T12:28:13.586915",
+  "last_success_at": "2026-06-05T12:28:14.227191",
   "last_error_at": "2026-06-04T20:51:39.532215",
   "last_error_type": null,
   "consecutive_failures": 0,
   "last_refreshed_symbols": [
-    "7685.T"
+    "7203.T",
+    "1305.T",
+    "1306.T",
+    "1308.T",
+    "1309.T",
+    "1311.T",
+    "1319.T",
+    "1320.T",
+    "1321.T",
+    "1322.T",
+    "1325.T",
+    "1329.T",
+    "1330.T",
+    "133A.T",
+    "1343.T",
+    "1345.T",
+    "1346.T",
+    "1348.T",
+    "1349.T",
+    "1364.T"
   ],
   "refresh_queue_size": 0,
   "is_refreshing": false

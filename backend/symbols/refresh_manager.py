@@ -26,7 +26,11 @@ from backend.symbols.contracts import (
 )
 from backend.symbols.logging_utils import configure_symbol_refresh_logger
 from backend.symbols.refresh_priority import MAX_SYMBOL_REFRESH_PER_RUN, sort_symbol_refresh_queue
-from backend.symbols.repository import save_symbol_record
+from backend.symbols.repository import (
+    normalize_symbol_record,
+    save_symbol_record,
+    save_symbol_records,
+)
 
 SymbolRefreshProvider = Callable[[SymbolRefreshTask], SymbolRecord | None]
 
@@ -63,6 +67,7 @@ def refresh_symbols_if_needed(
     )
 
     try:
+        records_to_save: list[SymbolRecord] = []
         for task in queue[:max_items]:
             if task.status not in {"pending", "retryable"} and not force:
                 items.append(
@@ -77,20 +82,22 @@ def refresh_symbols_if_needed(
                 update={"status": "in_progress", "started_at": started_at}
             )
             queue = _replace_task(queue, in_progress)
-            save_symbol_refresh_queue(queue, cache_dir=cache_dir)
-            result = refresh_single_symbol(
+            result, record = _refresh_single_symbol_without_persist(
                 in_progress,
                 provider=provider,
-                cache_dir=cache_dir,
                 now=started_at,
                 logger=logger,
             )
             items.append(result)
+            if record is not None:
+                records_to_save.append(record)
             queue = _replace_task(queue, _task_after_result(task, result, started_at))
-            save_symbol_refresh_queue(queue, cache_dir=cache_dir)
 
         finished_at = datetime.utcnow()
         summary = _build_result(started_at, finished_at, items)
+        if records_to_save:
+            save_symbol_records(records_to_save, cache_dir=cache_dir)
+        save_symbol_refresh_queue(queue, cache_dir=cache_dir)
         save_symbol_refresh_status(
             _status_after_result(status, summary, queue),
             cache_dir=cache_dir,
@@ -106,6 +113,7 @@ def refresh_symbols_if_needed(
     except Exception as exc:
         finished_at = datetime.utcnow()
         summary = _build_result(started_at, finished_at, items)
+        save_symbol_refresh_queue(queue, cache_dir=cache_dir)
         save_symbol_refresh_status(
             status.model_copy(
                 update={
@@ -134,6 +142,26 @@ def refresh_single_symbol(
 ) -> SymbolRefreshItemResult:
     """Refresh one symbol and atomically save its normalized record."""
 
+    result, record = _refresh_single_symbol_without_persist(
+        task,
+        provider=provider,
+        now=now,
+        logger=logger,
+    )
+    if record is not None:
+        save_symbol_record(record, cache_dir=cache_dir)
+    return result
+
+
+def _refresh_single_symbol_without_persist(
+    task: SymbolRefreshTask,
+    *,
+    provider: SymbolRefreshProvider,
+    now: datetime | None = None,
+    logger: logging.Logger | None = None,
+) -> tuple[SymbolRefreshItemResult, SymbolRecord | None]:
+    """Refresh one symbol and return the normalized record for batched persistence."""
+
     logger = logger or configure_symbol_refresh_logger()
     started = perf_counter()
     started_at = now or datetime.utcnow()
@@ -143,13 +171,16 @@ def refresh_single_symbol(
         elapsed_ms = int((perf_counter() - started) * 1000)
         if record is None:
             logger.info("symbol skipped symbol=%s reason=provider_returned_none", task.symbol)
-            return SymbolRefreshItemResult(
-                symbol=task.symbol,
-                success=True,
-                skipped_reason="provider_returned_none",
-                elapsed_ms=elapsed_ms,
+            return (
+                SymbolRefreshItemResult(
+                    symbol=task.symbol,
+                    success=True,
+                    skipped_reason="provider_returned_none",
+                    elapsed_ms=elapsed_ms,
+                ),
+                None,
             )
-        saved = save_symbol_record(record, cache_dir=cache_dir)
+        saved = normalize_symbol_record(record)
         updated_fields = sorted(saved.normalized_fields.keys())
         logger.info(
             "symbol refresh succeeded symbol=%s provider=%s updated_field_count=%s elapsed_ms=%s",
@@ -158,12 +189,15 @@ def refresh_single_symbol(
             len(updated_fields),
             elapsed_ms,
         )
-        return SymbolRefreshItemResult(
-            symbol=saved.symbol,
-            success=True,
-            provider=saved.provider,
-            updated_fields=updated_fields,
-            elapsed_ms=elapsed_ms,
+        return (
+            SymbolRefreshItemResult(
+                symbol=saved.symbol,
+                success=True,
+                provider=saved.provider,
+                updated_fields=updated_fields,
+                elapsed_ms=elapsed_ms,
+            ),
+            saved,
         )
     except Exception as exc:
         elapsed_ms = int((perf_counter() - started) * 1000)
@@ -173,11 +207,14 @@ def refresh_single_symbol(
             type(exc).__name__,
             elapsed_ms,
         )
-        return SymbolRefreshItemResult(
-            symbol=task.symbol,
-            success=False,
-            error_type=type(exc).__name__,
-            elapsed_ms=elapsed_ms,
+        return (
+            SymbolRefreshItemResult(
+                symbol=task.symbol,
+                success=False,
+                error_type=type(exc).__name__,
+                elapsed_ms=elapsed_ms,
+            ),
+            None,
         )
 
 

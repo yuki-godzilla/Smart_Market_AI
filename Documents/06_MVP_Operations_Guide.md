@@ -229,6 +229,8 @@ EXE起動時のCRUD系ランタイム領域:
 
 ランチャーは上記ディレクトリを起動時に作成し、配布フォルダ直下や `_internal` 配下へ実行時データを書き込まない方針です。通常の開発/CI起動では環境変数がなければ従来どおり `data/cache` と `logs` を使います。
 
+銘柄の正式マスタは `data/marketdata/symbol_universe.csv` です。外部取得や背景更新で変わる銘柄データはランタイムキャッシュとして `symbols_cache.sqlite` に保存し、既存の `symbols_cache.json` がある場合は初回読み込み時にキャッシュDBへ移行します。キャッシュ由来の値は自動で正式マスタへ昇格しません。正式登録へ反映する場合は、別途レビュー/登録導線で確認してから `symbol_universe.csv` を更新します。
+
 ### Side menu
 
 Streamlit UI は左サイドメニューで画面を切り替えます。
@@ -322,7 +324,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
   - 取得期間、候補数、選択数は銘柄リストの上に1行で表示
   - 銘柄リストは折りたたみ内で確認・変更
 - ranking result with ticker / company name / score / warnings
-- ranking result は AgGrid で表示し、銘柄行をクリックするとローカル銘柄マスタ `symbol_universe.csv` と保存済み銘柄DB `symbols_cache.json` の登録値をモーダルで確認できます
+- ranking result は AgGrid で表示し、銘柄行をクリックするとローカル銘柄マスタ `symbol_universe.csv` と保存済み銘柄キャッシュDB `symbols_cache.sqlite` の登録値をモーダルで確認できます
 - `銘柄データ` モーダルの `データ情報` タブでは、銘柄DB鮮度、銘柄DB最終更新、銘柄DB取得元、価格データ更新、財務データ更新、不足している主要項目を確認できます。これはデータ信頼度の確認材料であり、売買推奨やランキング順位変更ではありません。
 - Cockpit の `データを取得` では選択中1銘柄、Ranking の `最新データを取得して更新` では上記上限内の比較候補を、UI操作を増やさずに銘柄DB preflight 更新対象へ渡します。失敗しても前回保存データと通常の market-data fetch / ranking creation は継続します。
 - 銘柄データモーダルの `AI Research` タブでは、`AIで資料を確認` を押した場合だけ登録済みResearch資料を検索し、Research Summary、根拠資料名、資料日、根拠数、詳細 evidence を確認できます
@@ -520,7 +522,7 @@ Yahoo coverage check:
 Phase 16 ranking implementation notes:
 
 - `data/marketdata/symbol_universe.csv` is the ranking candidate master used before provider fetch. It is intentionally curated/local-first and currently carries display/search/filter metadata such as `symbol`, `name`, `market`, `asset_type`, `currency`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases`, `per`, `pbr`, `roe_pct`, `sector`, `consensus_rating`, `forecast_agreement`, `data_quality`, and `risk_band`. Optional `yahoo_symbol` is used only when Yahoo needs a different ticker than the display/source symbol.
-- Streamlit startup starts a daemon background symbol DB refresh worker instead of blocking the UI. The worker reads `symbol_universe.csv`, writes latest-only normalized records to `data/cache/symbols_cache.json`, keeps `symbol_refresh_queue.json` empty after successful batches, and updates `symbol_refresh_status.json`. The current network-free maintenance plan is: immediate startup batch 150 symbols, 75 symbols after 3 minutes, 75 symbols after 8 minutes, then 50 symbols every 5 minutes, with fresh records skipped and a 1000-symbol per-session safety cap. Cockpit selected symbols and Ranking comparison targets are registered internally as priority hints, so missing / stale records used by current workflows move ahead of ordinary background candidates without changing the visible UI.
+- Streamlit startup starts a daemon background symbol DB refresh worker instead of blocking the UI. The worker reads the formal master `symbol_universe.csv`, writes latest-only normalized runtime records to `data/cache/symbols_cache.sqlite`, keeps `symbol_refresh_queue.json` empty after successful batches, and updates `symbol_refresh_status.json`. Existing `symbols_cache.json` is treated as a legacy cache import source, not as the primary runtime store. The current network-free maintenance plan is: immediate startup batch 150 symbols, 75 symbols after 3 minutes, 75 symbols after 8 minutes, then 50 symbols every 5 minutes, with fresh records skipped and a 1000-symbol per-session safety cap. Cockpit selected symbols and Ranking comparison targets are registered internally as priority hints, so missing / stale records used by current workflows move ahead of ordinary background candidates without changing the visible UI.
 - To check whether any symbol is stuck in the refresh queue, inspect `symbol_refresh_queue.json` or run `backend.symbols.startup.find_pending_symbol_refresh_tasks()`. A healthy post-startup state has no `pending`, `retryable`, or `in_progress` tasks left after the local batch completes.
 - The Phase 18 schema helper validates required columns, allowed enum values, decimal fields, duplicate tickers, and metadata freshness/source columns without requiring live provider access.
 - The in-page screening condition panel filters comparison candidates by metadata, NISA eligibility, and metric ranges. `取得期間` and `重視して並べ替え` are not screening filters; they control ranking calculation and display ordering.

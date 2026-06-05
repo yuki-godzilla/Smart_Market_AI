@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
+import backend.symbols.refresh_manager as refresh_manager
 from backend.symbols.cache import load_symbol_refresh_queue
 from backend.symbols.contracts import SymbolRecord, SymbolRefreshTask
 from backend.symbols.logging_utils import configure_symbol_refresh_logger
@@ -51,6 +52,38 @@ def test_refresh_manager_saves_each_symbol_and_preserves_data_on_failure(tmp_pat
     assert records["7203"].normalized_fields["price"] == 1000
     assert records["AAPL"].normalized_fields["per"] == 30
     assert {task.symbol: task.status for task in queue}["AAPL"] == "retryable"
+
+
+def test_refresh_manager_batches_symbol_record_persistence(tmp_path, monkeypatch) -> None:
+    now = datetime(2026, 6, 3, 12, 0, 0)
+    tasks = [_task("7203", now), _task("AAPL", now), _task("NVDA", now)]
+    save_calls: list[list[str]] = []
+    original_save_symbol_records = refresh_manager.save_symbol_records
+
+    def counting_save_symbol_records(records, *, cache_dir):
+        save_calls.append([record.symbol for record in records])
+        return original_save_symbol_records(records, cache_dir=cache_dir)
+
+    monkeypatch.setattr(refresh_manager, "save_symbol_records", counting_save_symbol_records)
+
+    result = refresh_symbols_if_needed(
+        provider=lambda task: SymbolRecord(
+            symbol=task.symbol,
+            provider="fake",
+            updated_at=now,
+            normalized_fields={"price": 1000},
+        ),
+        tasks=tasks,
+        cache_dir=tmp_path,
+        now=now,
+        logger=logging.getLogger("test.symbol.refresh.batch"),
+    )
+
+    records = load_symbol_records(cache_dir=tmp_path)
+
+    assert result.succeeded_count == 3
+    assert save_calls == [["7203", "AAPL", "NVDA"]]
+    assert sorted(records) == ["7203", "AAPL", "NVDA"]
 
 
 def test_refresh_manager_skips_when_lock_is_active(tmp_path) -> None:

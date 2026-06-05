@@ -39,5 +39,7 @@ outputs/work/pytest_tmp/
 outputs/work/pytest_*/
 outputs/work/symbol_metadata_probe/
 data/cache/*.lock
+data/cache/*.sqlite
+data/cache/*.sqlite-*
 data/cache/*.tmp.json
 logs/*.log

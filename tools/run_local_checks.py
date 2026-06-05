@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
 from typing import Sequence
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+BACKGROUND_WORKER_DISABLE_ENV = "SMAI_DISABLE_BACKGROUND_WORKERS"
 
 
 def build_commands(
@@ -65,11 +67,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         skip_pytest=args.skip_pytest,
     ):
         print(f"+ {' '.join(command)}")
-        completed = subprocess.run(command, cwd=PROJECT_ROOT, check=False)
+        completed = subprocess.run(
+            command,
+            cwd=PROJECT_ROOT,
+            check=False,
+            env=_verification_env(),
+        )
         if completed.returncode != 0:
             return completed.returncode
 
     return 0
+
+
+def _verification_env() -> dict[str, str]:
+    env = os.environ.copy()
+    env.setdefault(BACKGROUND_WORKER_DISABLE_ENV, "1")
+    return env
 
 
 if __name__ == "__main__":

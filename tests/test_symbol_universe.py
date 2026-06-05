@@ -8,11 +8,13 @@ from backend.marketdata.ranking_universe_policy import (
 from backend.symbols.contracts import SymbolRecord
 from ui.symbol_universe import (
     SYMBOL_UNIVERSE_REQUIRED_COLUMNS,
+    symbol_name,
     symbol_provider_symbol,
     symbol_universe_csv_metadata_summary,
     symbol_universe_csv_rows,
     symbol_universe_csv_validation_issues,
     symbol_universe_metadata_summary,
+    symbol_universe_name_map,
     symbol_universe_runtime_rows,
     validate_symbol_universe_rows,
 )
@@ -167,6 +169,30 @@ def test_symbol_universe_runtime_rows_overlay_symbol_cache_values(tmp_path):
     assert rows[0]["symbol_cache_last_fundamental_updated_at"] == "2026-06-04T08:45:00"
     assert rows[0]["symbol_cache_freshness_status"] == "stale"
     assert "raw_response" not in rows[0]
+
+
+def test_symbol_name_map_uses_formal_master_without_runtime_cache():
+    name_map = symbol_universe_name_map()
+
+    assert name_map["NVDA"] == "NVIDIA"
+    assert name_map["7203.T"]
+
+
+def test_symbol_name_uses_single_runtime_record_before_csv(monkeypatch):
+    now = datetime(2026, 6, 6, 9, 0, 0)
+
+    def fake_load_symbol_record(symbol: str):
+        assert symbol == "NVDA"
+        return SymbolRecord(
+            symbol="NVDA",
+            provider="fixture",
+            updated_at=now,
+            normalized_fields={"name": "Runtime NVIDIA"},
+        )
+
+    monkeypatch.setattr("ui.symbol_universe.load_symbol_record", fake_load_symbol_record)
+
+    assert symbol_name("nvda") == "Runtime NVIDIA"
 
 
 def _nisa_flags_match_category(rows: list[dict[str, str]]) -> bool:

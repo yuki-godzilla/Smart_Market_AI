@@ -25,7 +25,7 @@ from backend.news import (
 )
 from ui.components.mascot import render_page_title
 from ui.styles import truncate_text
-from ui.symbol_universe import symbol_name, symbol_universe_csv_rows
+from ui.symbol_universe import symbol_name, symbol_universe_csv_rows, symbol_universe_name_map
 
 OpenSymbolCallback = Callable[[str], None]
 
@@ -333,10 +333,19 @@ def render_news_dashboard_page(
     _render_refresh_controls()
     _render_status_message()
     _render_update_warning(status)
+    symbol_name_map = _news_symbol_name_map()
     filtered_snapshot = _render_news_detail_filters(snapshot)
-    _render_news_stream(filtered_snapshot, open_symbol_callback=open_symbol_callback)
+    _render_news_stream(
+        filtered_snapshot,
+        open_symbol_callback=open_symbol_callback,
+        symbol_name_map=symbol_name_map,
+    )
     _render_heatmap(filtered_snapshot)
-    _render_category_lanes(filtered_snapshot, open_symbol_callback=open_symbol_callback)
+    _render_category_lanes(
+        filtered_snapshot,
+        open_symbol_callback=open_symbol_callback,
+        symbol_name_map=symbol_name_map,
+    )
 
 
 def news_dashboard_heatmap_frame(snapshot: NewsDashboardSnapshot) -> pd.DataFrame:
@@ -1423,10 +1432,19 @@ def _coerce_int(value: object, fallback: int) -> int:
         return fallback
 
 
-def news_symbol_handoff_label(symbol: str) -> str:
+def news_symbol_handoff_label(
+    symbol: str,
+    *,
+    symbol_name_map: dict[str, str] | None = None,
+) -> str:
     """Return a symbol handoff label with known company name."""
 
     normalized = symbol.strip().upper()
+    if symbol_name_map is not None:
+        name = symbol_name_map.get(normalized)
+        if name and name.strip().upper() != normalized:
+            return f"{normalized} / {name}"
+        return normalized
     try:
         name = symbol_name(normalized)
     except OSError:
@@ -1574,6 +1592,7 @@ def _render_news_stream(
     snapshot: NewsDashboardSnapshot,
     *,
     open_symbol_callback: OpenSymbolCallback,
+    symbol_name_map: dict[str, str],
 ) -> None:
     st.markdown("### 市場ニュースヘッドライン")
     st.markdown(_news_ticker_html(snapshot.stream_headlines[:8]), unsafe_allow_html=True)
@@ -1589,6 +1608,7 @@ def _render_news_stream(
                 card,
                 key_prefix=f"stream_{index}",
                 open_symbol_callback=open_symbol_callback,
+                symbol_name_map=symbol_name_map,
             )
 
 
@@ -1609,6 +1629,7 @@ def _render_category_lanes(
     snapshot: NewsDashboardSnapshot,
     *,
     open_symbol_callback: OpenSymbolCallback,
+    symbol_name_map: dict[str, str],
 ) -> None:
     st.markdown("### カテゴリ別ニュースレーン")
     lane_items = news_dashboard_lane_card_items(snapshot)
@@ -1629,6 +1650,7 @@ def _render_category_lanes(
                     card,
                     key_prefix=f"lane_{lane_index}_{card_index}",
                     open_symbol_callback=open_symbol_callback,
+                    symbol_name_map=symbol_name_map,
                     max_columns=1,
                 )
 
@@ -1638,6 +1660,7 @@ def _render_symbol_handoff_buttons(
     *,
     key_prefix: str,
     open_symbol_callback: OpenSymbolCallback,
+    symbol_name_map: dict[str, str],
     max_columns: int = 3,
 ) -> None:
     groups = news_card_symbol_handoff_groups(card)
@@ -1649,6 +1672,7 @@ def _render_symbol_handoff_buttons(
             caption=caption,
             key_prefix=f"{key_prefix}_group_{group_index}",
             open_symbol_callback=open_symbol_callback,
+            symbol_name_map=symbol_name_map,
             max_columns=max_columns,
         )
 
@@ -1659,12 +1683,13 @@ def _render_symbol_button_group(
     caption: str,
     key_prefix: str,
     open_symbol_callback: OpenSymbolCallback,
+    symbol_name_map: dict[str, str],
     max_columns: int,
 ) -> None:
     st.caption(caption)
     cols = st.columns(min(max_columns, len(symbols)))
     for index, symbol in enumerate(symbols):
-        label = news_symbol_handoff_label(symbol)
+        label = news_symbol_handoff_label(symbol, symbol_name_map=symbol_name_map)
         with cols[index % len(cols)]:
             st.button(
                 truncate_text(label, max_chars=34),
@@ -1674,6 +1699,13 @@ def _render_symbol_button_group(
                 on_click=open_symbol_callback,
                 args=(symbol,),
             )
+
+
+def _news_symbol_name_map() -> dict[str, str]:
+    try:
+        return symbol_universe_name_map()
+    except OSError:
+        return {}
 
 
 def _lane_heading_html(category: str) -> str:

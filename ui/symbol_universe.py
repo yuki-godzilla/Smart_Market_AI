@@ -19,7 +19,7 @@ from backend.marketdata.symbol_metadata_schema import (
     symbol_universe_source_required_fields,
 )
 from backend.symbols.contracts import SymbolRecord
-from backend.symbols.repository import load_symbol_records
+from backend.symbols.repository import load_symbol_record, load_symbol_records
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SYMBOL_UNIVERSE_CSV = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe.csv"
@@ -66,6 +66,29 @@ def symbol_universe_csv_rows(path: Path = SYMBOL_UNIVERSE_CSV) -> list[dict[str,
     """Return local-first symbol universe rows from the curated CSV."""
 
     return [dict(row) for row in _cached_symbol_universe_rows(str(path))]
+
+
+@lru_cache(maxsize=4)
+def _cached_symbol_universe_lookup(path: str) -> dict[str, tuple[str, str]]:
+    lookup: dict[str, tuple[str, str]] = {}
+    for row_items in _cached_symbol_universe_rows(path):
+        row = dict(row_items)
+        symbol = row.get("symbol", "").strip().upper()
+        if not symbol:
+            continue
+        lookup[symbol] = (
+            row.get("name", "").strip() or symbol,
+            row.get("yahoo_symbol", "").strip(),
+        )
+    return lookup
+
+
+def symbol_universe_name_map(path: Path = SYMBOL_UNIVERSE_CSV) -> dict[str, str]:
+    """Return a lightweight symbol-to-name map from the formal local master."""
+
+    return {
+        symbol: values[0] for symbol, values in _cached_symbol_universe_lookup(str(path)).items()
+    }
 
 
 def symbol_universe_runtime_rows(
@@ -384,7 +407,7 @@ def symbol_reference_rows() -> list[dict[str, str]]:
             "name": row["name"] or row["symbol"],
             "yahoo_symbol": row.get("yahoo_symbol", ""),
         }
-        for row in symbol_universe_runtime_rows()
+        for row in symbol_universe_csv_rows()
     ]
 
 
@@ -394,20 +417,31 @@ def symbol_provider_symbol(symbol: str, provider: str) -> str:
     normalized_symbol = symbol.strip().upper()
     if provider.strip().lower() != "yahoo":
         return symbol
-    for row in symbol_universe_runtime_rows():
-        if row["symbol"].upper() == normalized_symbol:
-            return row.get("yahoo_symbol", "").strip() or symbol
-    return symbol
+    runtime_symbol = _runtime_field_value(normalized_symbol, "yahoo_symbol")
+    if runtime_symbol:
+        return runtime_symbol
+    lookup = _cached_symbol_universe_lookup(str(SYMBOL_UNIVERSE_CSV))
+    return lookup.get(normalized_symbol, ("", ""))[1] or symbol
 
 
 def symbol_name(symbol: str) -> str | None:
     """Return the known company name for a yfinance-compatible ticker."""
 
     normalized_symbol = symbol.strip().upper()
-    for row in symbol_universe_runtime_rows():
-        if row["symbol"].upper() == normalized_symbol:
-            return row["name"] or row["symbol"]
-    return None
+    runtime_name = _runtime_field_value(normalized_symbol, "name")
+    if runtime_name:
+        return runtime_name
+    lookup = _cached_symbol_universe_lookup(str(SYMBOL_UNIVERSE_CSV))
+    name = lookup.get(normalized_symbol, ("", ""))[0]
+    return name or None
+
+
+def _runtime_field_value(symbol: str, field: str) -> str:
+    record = load_symbol_record(symbol)
+    if record is None:
+        return ""
+    value = record.normalized_fields.get(field)
+    return str(value).strip() if value is not None else ""
 
 
 def _fieldnames_from_rows(rows: Sequence[dict[str | None, Any]]) -> list[str]:

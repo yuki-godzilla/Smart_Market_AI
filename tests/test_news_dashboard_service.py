@@ -237,7 +237,7 @@ def test_google_news_related_symbols_keep_article_mention_order():
     )
 
     assert cards[0].related_symbols == ["TSM", "NVDA", "AMD"]
-    assert cards[0].inferred_symbols == []
+    assert cards[0].inferred_symbols == ["ASML", "6857.T"]
 
 
 def test_google_news_related_symbols_extract_japanese_company_names_and_codes():
@@ -274,6 +274,216 @@ def test_google_news_related_symbols_extract_japanese_company_names_and_codes():
     assert cards[0].related_symbols == ["LULU", "AVGO", "3815.T", "3172.T"]
 
 
+def test_google_news_related_symbols_keep_more_direct_mentions_before_inferred_balance():
+    fetched_at = datetime(2026, 6, 4, 10, 0, tzinfo=UTC)
+    category_query = NewsCategoryQuery(
+        category="semiconductors",
+        region="global",
+        material_type="theme",
+        query="semiconductor AI stocks",
+        related_symbols=("NVDA", "TSM", "ASML", "AMD", "6857.T", "8035.T"),
+    )
+    rss = """
+    <rss><channel>
+      <item>
+        <title>NVIDIA、TSMC、ASML、AMD、Broadcom、Apple、Microsoft、Amazon、トヨタを確認</title>
+        <link>https://example.com/many-direct-symbols</link>
+        <source>Example Market</source>
+        <pubDate>Thu, 04 Jun 2026 09:30:00 GMT</pubDate>
+        <description><![CDATA[<p>AI半導体と大型テックの決算反応を確認します。</p>]]></description>
+      </item>
+    </channel></rss>
+    """
+
+    cards = google_news_dashboard_cards_from_rss(
+        rss,
+        category_query=category_query,
+        fetched_at=fetched_at,
+        as_of=fetched_at.date(),
+        max_results=10,
+    )
+
+    assert cards[0].related_symbols == [
+        "NVDA",
+        "TSM",
+        "ASML",
+        "AMD",
+        "AVGO",
+        "AAPL",
+        "MSFT",
+        "AMZN",
+    ]
+    assert cards[0].inferred_symbols == []
+
+
+def test_google_news_inferred_symbols_are_balanced_when_direct_mentions_exist():
+    fetched_at = datetime(2026, 6, 4, 10, 0, tzinfo=UTC)
+    category_query = NewsCategoryQuery(
+        category="semiconductors",
+        region="global",
+        material_type="theme",
+        query="semiconductor AI stocks",
+        related_symbols=("NVDA", "TSM", "ASML", "AMD", "6857.T", "8035.T"),
+    )
+    rss = """
+    <rss><channel>
+      <item>
+        <title>TSMC、NVIDIA、AMDがAI半導体の需要を説明</title>
+        <link>https://example.com/balanced-inferred-symbols</link>
+        <source>Example Market</source>
+        <pubDate>Thu, 04 Jun 2026 09:30:00 GMT</pubDate>
+        <description><![CDATA[<p>半導体装置や関連企業への波及も確認します。</p>]]></description>
+      </item>
+    </channel></rss>
+    """
+
+    cards = google_news_dashboard_cards_from_rss(
+        rss,
+        category_query=category_query,
+        fetched_at=fetched_at,
+        as_of=fetched_at.date(),
+        max_results=10,
+    )
+
+    assert cards[0].related_symbols == ["TSM", "NVDA", "AMD"]
+    assert cards[0].inferred_symbols == ["ASML", "6857.T"]
+
+
+def test_google_news_related_symbols_extract_local_universe_aliases():
+    fetched_at = datetime(2026, 6, 4, 10, 0, tzinfo=UTC)
+    category_query = NewsCategoryQuery(
+        category="earnings",
+        region="jp",
+        material_type="earnings",
+        query="earnings",
+        related_symbols=("6758.T", "9432.T", "9984.T"),
+    )
+    rss = """
+    <rss><channel>
+      <item>
+        <title>伊藤園、第一三共、三井不動産、セコムが決算材料に反応</title>
+        <link>https://example.com/local-universe-aliases</link>
+        <source>Example Market</source>
+        <pubDate>Thu, 04 Jun 2026 09:30:00 GMT</pubDate>
+        <description><![CDATA[<p>ニチレイとメディア工房も業績を確認します。</p>]]></description>
+      </item>
+    </channel></rss>
+    """
+
+    cards = google_news_dashboard_cards_from_rss(
+        rss,
+        category_query=category_query,
+        fetched_at=fetched_at,
+        as_of=fetched_at.date(),
+        max_results=10,
+    )
+
+    assert cards[0].related_symbols == [
+        "2593.T",
+        "4568.T",
+        "8801.T",
+        "9735.T",
+        "2871.T",
+        "3815.T",
+    ]
+
+
+def test_google_news_related_symbols_prefer_longer_alias_match():
+    fetched_at = datetime(2026, 6, 4, 10, 0, tzinfo=UTC)
+    category_query = NewsCategoryQuery(
+        category="earnings",
+        region="jp",
+        material_type="earnings",
+        query="earnings",
+        related_symbols=("6758.T", "9432.T", "9984.T"),
+    )
+    rss = """
+    <rss><channel>
+      <item>
+        <title>オービックビジネスコンサルタントが業績予想を更新</title>
+        <link>https://example.com/longer-alias</link>
+        <source>Example Market</source>
+        <pubDate>Thu, 04 Jun 2026 09:30:00 GMT</pubDate>
+        <description><![CDATA[<p>親しみやすい短縮名を含む銘柄名でも確認します。</p>]]></description>
+      </item>
+    </channel></rss>
+    """
+
+    cards = google_news_dashboard_cards_from_rss(
+        rss,
+        category_query=category_query,
+        fetched_at=fetched_at,
+        as_of=fetched_at.date(),
+        max_results=10,
+    )
+
+    assert cards[0].related_symbols == ["4733.T"]
+
+
+def test_google_news_related_symbols_do_not_match_short_katakana_inside_longer_name():
+    fetched_at = datetime(2026, 6, 4, 10, 0, tzinfo=UTC)
+    category_query = NewsCategoryQuery(
+        category="earnings",
+        region="jp",
+        material_type="earnings",
+        query="earnings",
+        related_symbols=("6758.T", "9432.T", "9984.T"),
+    )
+    rss = """
+    <rss><channel>
+      <item>
+        <title>レントラクス、前期経常を一転減益に下方修正</title>
+        <link>https://example.com/short-katakana-boundary</link>
+        <source>Example Market</source>
+        <pubDate>Thu, 04 Jun 2026 09:30:00 GMT</pubDate>
+        <description><![CDATA[<p>短い別銘柄aliasの部分一致は避けます。</p>]]></description>
+      </item>
+    </channel></rss>
+    """
+
+    cards = google_news_dashboard_cards_from_rss(
+        rss,
+        category_query=category_query,
+        fetched_at=fetched_at,
+        as_of=fetched_at.date(),
+        max_results=10,
+    )
+
+    assert cards[0].related_symbols == []
+
+
+def test_google_news_related_symbols_extract_common_japanese_short_names():
+    fetched_at = datetime(2026, 6, 4, 10, 0, tzinfo=UTC)
+    category_query = NewsCategoryQuery(
+        category="earnings",
+        region="jp",
+        material_type="earnings",
+        query="earnings",
+        related_symbols=("6758.T", "9432.T", "9984.T"),
+    )
+    rss = """
+    <rss><channel>
+      <item>
+        <title>アトラＧ、燦ＨＤ、リネットＪ、ＫＮＴＣＴが業績予想を修正</title>
+        <link>https://example.com/japanese-short-names</link>
+        <source>Example Market</source>
+        <pubDate>Thu, 04 Jun 2026 09:30:00 GMT</pubDate>
+        <description><![CDATA[<p>ニュース見出しの短縮表記も確認します。</p>]]></description>
+      </item>
+    </channel></rss>
+    """
+
+    cards = google_news_dashboard_cards_from_rss(
+        rss,
+        category_query=category_query,
+        fetched_at=fetched_at,
+        as_of=fetched_at.date(),
+        max_results=10,
+    )
+
+    assert cards[0].related_symbols == ["6029.T", "9628.T", "3556.T", "9726.T"]
+
+
 @pytest.mark.parametrize(
     ("title", "description", "fallback", "expected_direct", "expected_inferred_prefix"),
     [
@@ -296,7 +506,7 @@ def test_google_news_related_symbols_extract_japanese_company_names_and_codes():
             "TSMC said demand is strong before NVIDIA and AMD were mentioned.",
             ("NVDA", "TSM", "AMD"),
             ["TSM", "NVDA", "AMD"],
-            [],
+            ["ASML", "6857.T"],
         ),
         (
             "決算プレビュー：ルルレモンの第1四半期決算",
@@ -1606,7 +1816,7 @@ def test_google_news_related_symbols_do_not_invent_seed_symbols_for_generic_them
     )
 
     assert cards[0].related_symbols == []
-    assert cards[0].inferred_symbols == ["NVDA", "TSM", "ASML"]
+    assert cards[0].inferred_symbols == ["NVDA", "TSM", "ASML", "AMD"]
 
 
 def test_dedupe_news_headline_cards_prefers_url_and_limit():

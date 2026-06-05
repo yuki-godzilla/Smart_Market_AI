@@ -7,6 +7,8 @@ from backend.news import (
     build_demo_news_dashboard_snapshot,
 )
 from ui.views.news import (
+    _news_ticker_html,
+    news_card_symbol_handoff_groups,
     news_dashboard_cockpit_href,
     news_dashboard_handoff_symbols,
     news_dashboard_heatmap_frame,
@@ -142,6 +144,30 @@ def test_news_headline_card_html_keeps_link_safe_and_hides_raw_url():
     assert html_text.count("<li>") == 1
 
 
+def test_news_ticker_html_uses_wrappable_scrolling_headline_items():
+    cards = [
+        NewsHeadlineCard(
+            title="長い市場ニュース見出しを折り返して表示できるようにするテスト",
+            source_type="news",
+            category="地政学・マクロリスク",
+            material_type="risk",
+        ),
+        NewsHeadlineCard(
+            title="半導体ニュース",
+            source_type="news",
+            category="半導体・AI",
+            material_type="theme",
+        ),
+    ]
+
+    html_text = _news_ticker_html(cards)
+
+    assert html_text.count("investment-news-ticker-item") == 4
+    assert html_text.count('aria-hidden="true"') == 2
+    assert "investment-news-ticker-title" in html_text
+    assert "長い市場ニュース見出しを折り返して表示できるようにするテスト" in html_text
+
+
 def test_news_dashboard_handoff_symbols_are_unique_in_display_order():
     snapshot = build_demo_news_dashboard_snapshot(
         now=datetime(2026, 6, 4, 10, 0, tzinfo=UTC),
@@ -169,6 +195,54 @@ def test_news_dashboard_handoff_symbols_include_inferred_after_direct():
     )
 
     assert news_dashboard_handoff_symbols(snapshot) == ["TSM", "NVDA", "AMD"]
+
+
+def test_news_card_symbol_handoff_groups_prioritize_direct_and_fill_inferred():
+    card = NewsHeadlineCard(
+        title="Multiple company mentions",
+        source_type="news",
+        category="semiconductors",
+        material_type="theme",
+        related_symbols=["NVDA", "TSM", "ASML", "AMD", "AVGO"],
+        inferred_symbols=["QQQ", "SPY", "6857.T", "8035.T"],
+    )
+
+    groups = news_card_symbol_handoff_groups(card)
+
+    assert groups == [
+        ("本文に出た銘柄", ["NVDA", "TSM", "ASML", "AMD", "AVGO"]),
+        ("SMAI推測候補", ["QQQ", "SPY", "6857.T"]),
+    ]
+
+
+def test_news_card_symbol_handoff_groups_keep_direct_until_high_count():
+    card = NewsHeadlineCard(
+        title="Many direct company mentions",
+        source_type="news",
+        category="semiconductors",
+        material_type="theme",
+        related_symbols=[
+            "NVDA",
+            "TSM",
+            "ASML",
+            "AMD",
+            "AVGO",
+            "AAPL",
+            "MSFT",
+            "AMZN",
+            "7203.T",
+        ],
+        inferred_symbols=["QQQ", "SPY"],
+    )
+
+    groups = news_card_symbol_handoff_groups(card)
+
+    assert groups == [
+        (
+            "本文に出た銘柄",
+            ["NVDA", "TSM", "ASML", "AMD", "AVGO", "AAPL", "MSFT", "AMZN"],
+        )
+    ]
 
 
 def test_news_dashboard_lane_card_items_keep_three_column_grid_reasonable():

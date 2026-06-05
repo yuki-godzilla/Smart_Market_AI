@@ -203,11 +203,17 @@ def page_title_html(
     title: str,
     subtitle: str,
     mascot: TitleMascot,
+    *,
+    accessory_html: str | None = None,
 ) -> str:
+    accessory = (
+        f'<div class="smai-page-title-accessory">{accessory_html}</div>' if accessory_html else ""
+    )
     if mascot == "cockpit":
         title_art = _asset_data_uri(MASCOT_TITLE_ASSETS[mascot])
         return (
             '<section class="smai-page-title smai-page-title--copilot" data-mascot="cockpit">'
+            f"{accessory}"
             '<div class="smai-page-title-copy">'
             '<div class="smai-page-title-row">'
             f'<h2 class="smai-page-title-heading">{html.escape(title)}</h2>'
@@ -221,6 +227,7 @@ def page_title_html(
     image = _asset_data_uri(MASCOT_TITLE_ASSETS[mascot])
     return (
         f'<section class="smai-page-title" data-mascot="{html.escape(mascot)}">'
+        f"{accessory}"
         '<div class="smai-page-title-copy">'
         '<div class="smai-page-title-row">'
         f'<h2 class="smai-page-title-heading">{html.escape(title)}</h2>'
@@ -238,8 +245,13 @@ def render_page_title(
     title: str,
     subtitle: str,
     mascot: TitleMascot,
+    *,
+    accessory_html: str | None = None,
 ) -> None:
-    st.markdown(page_title_html(title, subtitle, mascot), unsafe_allow_html=True)
+    st.markdown(
+        page_title_html(title, subtitle, mascot, accessory_html=accessory_html),
+        unsafe_allow_html=True,
+    )
 
 
 def mascot_loading_html(

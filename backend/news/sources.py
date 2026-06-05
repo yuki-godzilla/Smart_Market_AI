@@ -24,7 +24,38 @@ STANDARD_NEWS_CATEGORY_QUERY_COUNT = 12
 STANDARD_NEWS_PER_QUERY_LIMIT = 15
 STANDARD_NEWS_LOOKBACK_DAYS = 7
 GOOGLE_NEWS_RSS_SEARCH_URL = "https://news.google.com/rss/search"
-SYMBOL_UNIVERSE_CSV = Path("data/marketdata/symbol_universe.csv")
+DIRECT_SYMBOL_EXTRACTION_LIMIT = 8
+INFERRED_SYMBOL_EXTRACTION_LIMIT = 4
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SYMBOL_UNIVERSE_CSV = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe.csv"
+SYMBOL_ALIAS_BLOCKLIST = {
+    "ai",
+    "etf",
+    "reit",
+    "株",
+    "日本",
+    "米国",
+    "銀行",
+    "金融",
+    "商社",
+    "食品",
+    "機械",
+    "電機",
+    "情報",
+    "通信",
+    "投資",
+    "投資証券",
+    "プライム",
+    "グロース",
+    "スタンダード",
+    "内国株式",
+    "卸売業",
+    "食料品",
+    "医薬品",
+    "化学",
+    "サービス業",
+    "その他",
+}
 
 
 @dataclass(frozen=True)
@@ -448,7 +479,7 @@ def _symbols_from_text(
     text: str,
     *,
     fallback: Sequence[str],
-    limit: int = 6,
+    limit: int = DIRECT_SYMBOL_EXTRACTION_LIMIT,
 ) -> list[str]:
     symbol_patterns = (
         (r"(?<![A-Za-z0-9])nvidia(?![A-Za-z0-9])|エヌビディア|エヌヴィディア", "NVDA"),
@@ -486,6 +517,12 @@ def _symbols_from_text(
         (r"exxon mobil|エクソン", "XOM"),
         (r"chevron|シェブロン", "CVX"),
         (r"eneos", "5020.T"),
+        (r"日本郵船|nippon yusen", "9101.T"),
+        (r"石川製作所", "6208.T"),
+        (r"japan tobacco|日本たばこ|(?<![A-Za-z0-9])jt(?![A-Za-z0-9])", "2914.T"),
+        (r"walmart|ウォルマート", "WMT"),
+        (r"coca-?cola|コカ・コーラ", "KO"),
+        (r"(?<![A-Za-z0-9])inpex(?![A-Za-z0-9])", "1605.T"),
         (
             r"spdr\s*ゴールド\s*シェア|spdr\s*gold\s*shares|(?<![A-Za-z0-9])gld(?![A-Za-z0-9])",
             "GLD",
@@ -496,18 +533,20 @@ def _symbols_from_text(
         (r"maxis\s*s&p\s*500|ＭＡＸＩＳ米国株式", "2558.T"),
         (r"next\s*funds\s*topix|ＴＯＰＩＸ連動型上場投信", "1306.T"),
         (r"ifreeetf\s*東証reit|東証REIT指数", "1488.T"),
-        (r"日本郵船|nippon yusen", "9101.T"),
-        (r"石川製作所", "6208.T"),
-        (r"japan tobacco|日本たばこ|(?<![A-Za-z0-9])jt(?![A-Za-z0-9])", "2914.T"),
-        (r"walmart|ウォルマート", "WMT"),
-        (r"coca-?cola|コカ・コーラ", "KO"),
-        (r"(?<![A-Za-z0-9])inpex(?![A-Za-z0-9])", "1605.T"),
         (r"三菱重工|mitsubishi heavy", "7011.T"),
+        (r"三菱電機|mitsubishi electric", "6503.T"),
+        (r"住友商事|sumitomo corp", "8053.T"),
+        (r"アトラ[ＧG]|アトラグループ", "6029.T"),
+        (r"燦[ＨH][ＤD]|燦ホールディングス", "9628.T"),
+        (r"リネット[ＪJ]|リネットジャパングループ", "3556.T"),
+        (r"ＫＮＴＣＴ|KNTCT|ＫＮＴ－ＣＴ|KNT-CT", "9726.T"),
     )
     matches: dict[str, tuple[int, int]] = {}
     for match in re.finditer(r"【(\d{4})】", text):
         matches[f"{match.group(1)}.T"] = (match.start(), -1)
     for match in re.finditer(r"[（(［\[](\d{4})[）)］\]]", text):
+        matches[f"{match.group(1)}.T"] = (match.start(), -1)
+    for match in re.finditer(r"(?<![A-Za-z0-9])(\d{4})\.T(?![A-Za-z0-9])", text, re.IGNORECASE):
         matches[f"{match.group(1)}.T"] = (match.start(), -1)
     for pattern_index, (pattern, symbol) in enumerate(symbol_patterns):
         pattern_match = re.search(pattern, text, flags=re.IGNORECASE)
@@ -517,12 +556,20 @@ def _symbols_from_text(
         current = matches.get(symbol)
         if current is None or candidate < current:
             matches[symbol] = candidate
-    universe_offset = len(symbol_patterns) + 100
+    matched_alias_spans: list[tuple[int, int]] = []
+    lowered_text = text.casefold()
     for alias_index, (alias, symbol) in enumerate(_symbol_universe_aliases()):
-        alias_match = _alias_match(alias, text)
+        alias_match = _find_symbol_alias_match(text, lowered_text, alias)
         if alias_match is None:
             continue
-        candidate = (alias_match.start(), universe_offset + alias_index)
+        start, end = alias_match
+        if any(
+            start >= matched_start and end <= matched_end
+            for matched_start, matched_end in matched_alias_spans
+        ):
+            continue
+        matched_alias_spans.append((start, end))
+        candidate = (start, len(symbol_patterns) + alias_index)
         current = matches.get(symbol)
         if current is None or candidate < current:
             matches[symbol] = candidate
@@ -532,118 +579,115 @@ def _symbols_from_text(
     ][:limit]
 
 
-def _alias_match(alias: str, text: str) -> re.Match[str] | None:
-    if _is_ascii_alias(alias):
-        return re.search(
-            rf"(?<![A-Za-z0-9]){re.escape(alias)}(?![A-Za-z0-9])",
-            text,
-            flags=re.IGNORECASE,
-        )
-    return re.search(re.escape(alias), text, flags=re.IGNORECASE)
-
-
 @lru_cache(maxsize=1)
 def _symbol_universe_aliases() -> tuple[tuple[str, str], ...]:
     if not SYMBOL_UNIVERSE_CSV.exists():
         return ()
     symbols_by_alias: dict[str, set[str]] = {}
-    with SYMBOL_UNIVERSE_CSV.open(encoding="utf-8", newline="") as file:
-        for row in csv.DictReader(file):
-            symbol = (row.get("symbol") or "").strip().upper()
-            if not symbol:
-                continue
-            for alias in _symbol_universe_row_aliases(row):
-                symbols_by_alias.setdefault(alias, set()).add(symbol)
-    aliases = [
-        (alias, next(iter(symbols)))
+    try:
+        with SYMBOL_UNIVERSE_CSV.open("r", encoding="utf-8-sig", newline="") as file:
+            for row in csv.DictReader(file):
+                symbol = (row.get("symbol") or "").strip().upper()
+                if not symbol:
+                    continue
+                for alias in _symbol_alias_candidates(row):
+                    symbols_by_alias.setdefault(alias, set()).add(symbol)
+    except OSError:
+        return ()
+    symbol_by_alias = {
+        alias: next(iter(symbols))
         for alias, symbols in symbols_by_alias.items()
         if len(symbols) == 1
-    ]
-    return tuple(sorted(aliases, key=lambda item: (-len(item[0]), item[0], item[1])))
+    }
+    return tuple(
+        sorted(
+            symbol_by_alias.items(),
+            key=lambda item: (-len(item[0]), item[0], item[1]),
+        )
+    )
 
 
-def _symbol_universe_row_aliases(row: dict[str, str]) -> list[str]:
-    values = [
-        row.get("name", ""),
-        *(row.get("aliases", "") or "").replace("（", " ").replace("）", " ").split(),
-    ]
+def _symbol_alias_candidates(row: dict[str, str]) -> list[str]:
+    alias_tokens = (row.get("aliases") or "").split()
+    raw_values = [row.get("name") or ""]
+    if alias_tokens:
+        raw_values.append(alias_tokens[0])
     aliases: list[str] = []
-    for value in values:
-        alias = _normalized_symbol_alias(value)
-        if (
-            not alias
-            or alias in aliases
-            or _is_ascii_alias(alias)
-            or not _has_japanese_alias_character(alias)
-            or _is_generic_symbol_alias(alias)
-        ):
+    seen: set[str] = set()
+    for value in raw_values:
+        alias = _normalize_symbol_alias(value)
+        if not alias or alias in seen:
             continue
+        seen.add(alias)
         aliases.append(alias)
     return aliases
 
 
-def _normalized_symbol_alias(value: str) -> str:
-    return " ".join(value.replace("　", " ").strip().split())
+def _normalize_symbol_alias(value: str) -> str:
+    alias = value.strip().strip("、，,・/（）()[]【】")
+    if not alias:
+        return ""
+    if not re.search(r"[^\x00-\x7F]", alias):
+        return ""
+    lowered = alias.casefold()
+    if lowered in SYMBOL_ALIAS_BLOCKLIST or alias in SYMBOL_ALIAS_BLOCKLIST:
+        return ""
+    if re.fullmatch(r"\d+(?:/\d+)?", alias):
+        return ""
+    if re.search(r"\d{4}/\d{2}/\d{2}", alias):
+        return ""
+    if len(alias) < 3 and not re.search(r"[A-Za-z]{3,}", alias):
+        return ""
+    return alias
 
 
-def _is_ascii_alias(value: str) -> bool:
-    return all(ord(character) < 128 for character in value)
+def _find_symbol_alias_match(
+    text: str,
+    lowered_text: str,
+    alias: str,
+) -> tuple[int, int] | None:
+    if _is_ascii_symbol_alias(alias):
+        lowered_alias = alias.casefold()
+        start = lowered_text.find(lowered_alias)
+        while start >= 0:
+            end = start + len(alias)
+            if _has_ascii_symbol_boundaries(text, start, end):
+                return start, end
+            start = lowered_text.find(lowered_alias, start + 1)
+        return None
+    start = text.find(alias)
+    while start >= 0:
+        end = start + len(alias)
+        if _has_non_ascii_symbol_boundaries(text, alias, start, end):
+            return start, end
+        start = text.find(alias, start + 1)
+    return None
 
 
-def _has_japanese_alias_character(value: str) -> bool:
-    return any(
-        "\u3040" <= character <= "\u30ff" or "\u3400" <= character <= "\u9fff"
-        for character in value
-    )
+def _is_ascii_symbol_alias(alias: str) -> bool:
+    return bool(re.fullmatch(r"[A-Za-z0-9 .&+-]+", alias))
 
 
-def _is_generic_symbol_alias(value: str) -> bool:
-    lowered = value.casefold()
-    generic_aliases = {
-        "ai",
-        "bank",
-        "bond",
-        "consumer",
-        "defense",
-        "energy",
-        "financial",
-        "growth",
-        "high_dividend",
-        "index",
-        "retail",
-        "sp500",
-        "s&p500",
-        "s&p500指数",
-        "topix",
-        "topix (配当込み)",
-        "nasdaq100",
-        "銀行",
-        "金融",
-        "半導体",
-        "米国",
-        "日本株",
-        "米国株",
-        "株式",
-        "株式市場",
-        "関連企業",
-        "センター",
-        "商社",
-        "高配当",
-        "小売",
-        "機械",
-        "メディア",
-        "ブロード",
-        "エレクトロ",
-        "ホールディ",
-        "情報通信・サービスその他",
-        "東証reit指数",
-        "東証reit指数（配当込み）",
-    }
-    if lowered in generic_aliases:
+def _has_ascii_symbol_boundaries(text: str, start: int, end: int) -> bool:
+    before = text[start - 1] if start > 0 else ""
+    after = text[end] if end < len(text) else ""
+    return not (before.isascii() and before.isalnum()) and not (after.isascii() and after.isalnum())
+
+
+def _has_non_ascii_symbol_boundaries(text: str, alias: str, start: int, end: int) -> bool:
+    if not _is_short_katakana_alias(alias):
         return True
-    if _is_ascii_alias(value) and len(value) < 3:
-        return True
-    return len(value) < 4
+    before = text[start - 1] if start > 0 else ""
+    after = text[end] if end < len(text) else ""
+    return not _is_katakana(before) and not _is_katakana(after)
+
+
+def _is_short_katakana_alias(alias: str) -> bool:
+    return len(alias) <= 3 and all(_is_katakana(char) for char in alias)
+
+
+def _is_katakana(value: str) -> bool:
+    return bool(value) and all("\u30a0" <= char <= "\u30ff" for char in value)
 
 
 def _inferred_symbols_from_fallback(
@@ -660,10 +704,17 @@ def _inferred_symbols_from_text(
     related_symbols: Sequence[str],
     *,
     fallback: Sequence[str],
-    limit: int = 3,
+    limit: int = INFERRED_SYMBOL_EXTRACTION_LIMIT,
 ) -> list[str]:
-    if len({symbol.strip().upper() for symbol in related_symbols if symbol.strip()}) >= 3:
+    direct_count = len({symbol.strip().upper() for symbol in related_symbols if symbol.strip()})
+    if direct_count >= DIRECT_SYMBOL_EXTRACTION_LIMIT:
         return []
+    if direct_count >= 6:
+        limit = min(limit, 1)
+    elif direct_count >= 3:
+        limit = min(limit, 2)
+    elif direct_count >= 1:
+        limit = min(limit, 3)
     lowered = text.casefold()
     context_candidates: list[str] = []
     context_rules = (

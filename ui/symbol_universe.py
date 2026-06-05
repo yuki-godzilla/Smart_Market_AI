@@ -23,6 +23,18 @@ from backend.symbols.repository import load_symbol_records
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SYMBOL_UNIVERSE_CSV = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe.csv"
+SYMBOL_CACHE_PROVIDER_FIELD = "symbol_cache_provider"
+SYMBOL_CACHE_UPDATED_AT_FIELD = "symbol_cache_updated_at"
+SYMBOL_CACHE_LAST_PRICE_UPDATED_AT_FIELD = "symbol_cache_last_price_updated_at"
+SYMBOL_CACHE_LAST_FUNDAMENTAL_UPDATED_AT_FIELD = "symbol_cache_last_fundamental_updated_at"
+SYMBOL_CACHE_FRESHNESS_STATUS_FIELD = "symbol_cache_freshness_status"
+SYMBOL_CACHE_RUNTIME_FIELDS = (
+    SYMBOL_CACHE_PROVIDER_FIELD,
+    SYMBOL_CACHE_UPDATED_AT_FIELD,
+    SYMBOL_CACHE_LAST_PRICE_UPDATED_AT_FIELD,
+    SYMBOL_CACHE_LAST_FUNDAMENTAL_UPDATED_AT_FIELD,
+    SYMBOL_CACHE_FRESHNESS_STATUS_FIELD,
+)
 SYMBOL_UNIVERSE_REQUIRED_COLUMNS = symbol_universe_required_columns()
 SYMBOL_UNIVERSE_OPTIONAL_COLUMNS = symbol_universe_optional_columns()
 SYMBOL_UNIVERSE_METADATA_VALUE_COLUMNS = symbol_universe_metadata_value_columns()
@@ -86,6 +98,23 @@ def _runtime_fields_from_record(record: SymbolRecord) -> dict[str, str]:
     for key, value in record.normalized_fields.items():
         if key in SYMBOL_UNIVERSE_FIELDS and value is not None:
             fields[key] = str(value)
+    fields.update(_runtime_metadata_from_record(record))
+    return fields
+
+
+def _runtime_metadata_from_record(record: SymbolRecord) -> dict[str, str]:
+    fields = {
+        SYMBOL_CACHE_UPDATED_AT_FIELD: record.updated_at.isoformat(),
+        SYMBOL_CACHE_FRESHNESS_STATUS_FIELD: record.data_freshness_status,
+    }
+    if record.provider:
+        fields[SYMBOL_CACHE_PROVIDER_FIELD] = record.provider
+    if record.last_price_updated_at:
+        fields[SYMBOL_CACHE_LAST_PRICE_UPDATED_AT_FIELD] = record.last_price_updated_at.isoformat()
+    if record.last_fundamental_updated_at:
+        fields[SYMBOL_CACHE_LAST_FUNDAMENTAL_UPDATED_AT_FIELD] = (
+            record.last_fundamental_updated_at.isoformat()
+        )
     return fields
 
 

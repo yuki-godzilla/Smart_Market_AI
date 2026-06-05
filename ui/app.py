@@ -80,7 +80,12 @@ from backend.research import (
 )
 from backend.scoring import InvestmentScoringService
 from backend.screening import ScreeningService
-from backend.symbols.background import start_symbol_background_refresh_worker
+from backend.symbols.background import (
+    request_symbol_background_refresh,
+    start_symbol_background_refresh_worker,
+)
+from backend.symbols.contracts import SymbolStartupRefreshSummary
+from backend.symbols.startup import run_symbol_database_target_refresh
 from ui.components.mascot import (
     render_app_header,
     render_mascot_loading,
@@ -289,6 +294,11 @@ from ui.styles import (
     truncate_text,
 )
 from ui.symbol_universe import (
+    SYMBOL_CACHE_FRESHNESS_STATUS_FIELD,
+    SYMBOL_CACHE_LAST_FUNDAMENTAL_UPDATED_AT_FIELD,
+    SYMBOL_CACHE_LAST_PRICE_UPDATED_AT_FIELD,
+    SYMBOL_CACHE_PROVIDER_FIELD,
+    SYMBOL_CACHE_UPDATED_AT_FIELD,
     symbol_provider_symbol,
 )
 from ui.symbol_universe import (
@@ -461,6 +471,14 @@ RANKING_TABLE_SORT_GUIDANCE = (
     "N/Aは末尾に置きます。"
 )
 RANKING_LOW_VALUE_BETTER_COLUMNS = {"PER", "PBR", "ボラティリティ", "Risk", "下降警戒"}
+SYMBOL_AUTO_REFRESH_REQUEST_STATE_KEY = "symbol_auto_refresh_requests"
+SYMBOL_AUTO_REFRESH_REQUEST_KEY_LIMIT = 100
+RANKING_AUTO_REFRESH_SYMBOL_LIMIT = 300
+SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY = "symbol_preflight_refresh_last_error_type"
+COCKPIT_SYMBOL_DB_PREFLIGHT_MAX_ITEMS = 1
+RANKING_SYMBOL_DB_PREFLIGHT_DIRECT_THRESHOLD = 30
+RANKING_SYMBOL_DB_PREFLIGHT_MAX_ITEMS = 50
+RANKING_SYMBOL_DB_PREFLIGHT_SCAN_LIMIT = 300
 RANKING_NUMERIC_SORT_COMPARATOR = JsCode(
     """
 function(valueA, valueB, nodeA, nodeB, isDescending) {
@@ -1563,6 +1581,9 @@ def _start_symbol_background_refresh_worker_once() -> None:
     state_key = "symbol_background_refresh_worker_started"
     if state_key in st.session_state:
         return
+    if _background_workers_disabled():
+        st.session_state[state_key] = {"disabled": True}
+        return
     try:
         start_symbol_background_refresh_worker(delay_scale=_symbol_background_refresh_delay_scale())
         st.session_state[state_key] = True
@@ -1583,9 +1604,117 @@ def _symbol_background_refresh_delay_scale() -> float:
         return 1.0
 
 
+def symbol_auto_refresh_request_key(
+    symbols: Sequence[str],
+    *,
+    context: Literal["cockpit", "ranking"],
+    source_key: str = "",
+    max_symbols: int = RANKING_AUTO_REFRESH_SYMBOL_LIMIT,
+) -> str:
+    normalized_symbols = _symbol_auto_refresh_symbols(symbols, max_symbols=max_symbols)
+    symbols_digest = hashlib.sha1(",".join(normalized_symbols).encode("utf-8")).hexdigest()[:16]
+    source_digest = (
+        hashlib.sha1(source_key.encode("utf-8")).hexdigest()[:12] if source_key else "default"
+    )
+    return f"{context}|{source_digest}|{len(normalized_symbols)}|{symbols_digest}"
+
+
+def _request_symbol_auto_refresh_once(
+    symbols: Sequence[str],
+    *,
+    context: Literal["cockpit", "ranking"],
+    source_key: str = "",
+    max_symbols: int = RANKING_AUTO_REFRESH_SYMBOL_LIMIT,
+) -> None:
+    normalized_symbols = _symbol_auto_refresh_symbols(symbols, max_symbols=max_symbols)
+    if not normalized_symbols:
+        return
+    request_key = symbol_auto_refresh_request_key(
+        normalized_symbols,
+        context=context,
+        source_key=source_key,
+        max_symbols=max_symbols,
+    )
+    raw_requested_keys = st.session_state.get(SYMBOL_AUTO_REFRESH_REQUEST_STATE_KEY, [])
+    requested_keys = (
+        [str(key) for key in raw_requested_keys]
+        if isinstance(raw_requested_keys, (list, tuple, set))
+        else []
+    )
+    if request_key in requested_keys:
+        return
+    try:
+        request_symbol_background_refresh(normalized_symbols, source=context)
+    except Exception as exc:  # noqa: BLE001
+        st.session_state["symbol_auto_refresh_last_error_type"] = type(exc).__name__
+        return
+    requested_keys.append(request_key)
+    st.session_state[SYMBOL_AUTO_REFRESH_REQUEST_STATE_KEY] = requested_keys[
+        -SYMBOL_AUTO_REFRESH_REQUEST_KEY_LIMIT:
+    ]
+
+
+def ranking_symbol_db_preflight_limit(symbol_count: int) -> int:
+    if symbol_count <= 0:
+        return 0
+    if symbol_count <= RANKING_SYMBOL_DB_PREFLIGHT_DIRECT_THRESHOLD:
+        return symbol_count
+    return min(symbol_count, RANKING_SYMBOL_DB_PREFLIGHT_MAX_ITEMS)
+
+
+def ranking_symbol_db_preflight_symbols(symbols: Sequence[str]) -> list[str]:
+    return _symbol_auto_refresh_symbols(
+        symbols,
+        max_symbols=RANKING_SYMBOL_DB_PREFLIGHT_SCAN_LIMIT,
+    )
+
+
+def _run_symbol_database_preflight_refresh(
+    symbols: Sequence[str],
+    *,
+    context: Literal["cockpit", "ranking"],
+    max_items: int,
+) -> SymbolStartupRefreshSummary | None:
+    max_symbols = RANKING_SYMBOL_DB_PREFLIGHT_SCAN_LIMIT if context == "ranking" else max_items
+    target_symbols = _symbol_auto_refresh_symbols(symbols, max_symbols=max_symbols)
+    if max_items <= 0 or not target_symbols:
+        return None
+    try:
+        summary = run_symbol_database_target_refresh(
+            target_symbols,
+            max_items=max_items,
+            currently_visible_symbols=target_symbols if context == "cockpit" else None,
+            ranking_candidates=target_symbols if context == "ranking" else None,
+        )
+        st.session_state.pop(SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY, None)
+        return summary
+    except Exception as exc:  # noqa: BLE001
+        st.session_state[SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY] = type(exc).__name__
+        return None
+
+
+def _symbol_auto_refresh_symbols(symbols: Sequence[str], *, max_symbols: int) -> list[str]:
+    if max_symbols <= 0:
+        return []
+    normalized_symbols: list[str] = []
+    seen: set[str] = set()
+    for symbol in symbols:
+        normalized_symbol = symbol.strip().upper()
+        if not normalized_symbol or normalized_symbol in seen:
+            continue
+        seen.add(normalized_symbol)
+        normalized_symbols.append(normalized_symbol)
+        if len(normalized_symbols) >= max(0, max_symbols):
+            break
+    return normalized_symbols
+
+
 def _start_news_background_refresh_worker_once() -> None:
     state_key = "news_background_refresh_worker_started"
     if state_key in st.session_state:
+        return
+    if _background_workers_disabled():
+        st.session_state[state_key] = {"disabled": True}
         return
     try:
         start_news_background_refresh_worker(delay_scale=_news_background_refresh_delay_scale())
@@ -1605,6 +1734,11 @@ def _news_background_refresh_delay_scale() -> float:
         return max(0.0, float(raw_value))
     except ValueError:
         return 1.0
+
+
+def _background_workers_disabled() -> bool:
+    raw_value = os.environ.get("SMAI_DISABLE_BACKGROUND_WORKERS", "").strip().lower()
+    return raw_value in {"1", "true", "yes", "on"}
 
 
 def default_market_data_start_date() -> date:
@@ -1738,6 +1872,30 @@ def _ranking_result_matches_current_selection(
     return bool(current_source) and stored_source == current_source
 
 
+SYMBOL_CACHE_FRESHNESS_LABELS = {
+    "fresh": "最新",
+    "stale": "やや古い",
+    "expired": "古い",
+    "missing": "未取得",
+}
+SYMBOL_CACHE_COMMON_REQUIRED_FIELDS = ("metadata_source", "metadata_as_of")
+SYMBOL_CACHE_STOCK_REQUIRED_FIELDS = (
+    "per",
+    "pbr",
+    "roe_pct",
+    "dividend_yield_pct",
+    "market_cap_tier",
+    "risk_band",
+)
+SYMBOL_CACHE_FUND_REQUIRED_FIELDS = (
+    "index_family",
+    "expense_ratio_pct",
+    "dividend_yield_pct",
+    "complexity",
+)
+SYMBOL_CACHE_MISSING_FIELD_DISPLAY_LIMIT = 6
+
+
 def _symbol_universe_row_for_symbol(symbol: str) -> dict[str, str] | None:
     normalized_symbol = symbol.strip().upper()
     return _symbol_universe_rows_by_symbol().get(normalized_symbol)
@@ -1836,7 +1994,21 @@ def symbol_universe_detail_display_value(row: dict[str, str], column: str) -> st
         if ranking_fundamental_metric_is_abnormal(column, value):
             return RANKING_ABNORMAL_DIVIDEND_DISPLAY
         return _symbol_detail_decimal_display(value)
-    if column in {"metadata_as_of", "metadata_updated_at"}:
+    if column == SYMBOL_CACHE_PROVIDER_FIELD:
+        return (
+            SYMBOL_UNIVERSE_DISPLAY_LABELS["metadata_source"].get(value, value)
+            if value
+            else "未登録"
+        )
+    if column == SYMBOL_CACHE_FRESHNESS_STATUS_FIELD:
+        return SYMBOL_CACHE_FRESHNESS_LABELS.get(value, value) if value else "未取得"
+    if column in {
+        "metadata_as_of",
+        "metadata_updated_at",
+        SYMBOL_CACHE_UPDATED_AT_FIELD,
+        SYMBOL_CACHE_LAST_PRICE_UPDATED_AT_FIELD,
+        SYMBOL_CACHE_LAST_FUNDAMENTAL_UPDATED_AT_FIELD,
+    }:
         return _symbol_detail_date_display(value)
     if column == "yahoo_symbol":
         return value or "表示銘柄と同じ"
@@ -1878,6 +2050,111 @@ def _symbol_detail_row(label: str, value: str) -> dict[str, str]:
 
 def _symbol_data_info_row(label: str, value: str, purpose: str) -> dict[str, str]:
     return {"項目": label, "内容": value or "未登録", "使い道": purpose}
+
+
+def symbol_universe_missing_key_fields(row: dict[str, str]) -> list[str]:
+    required_fields = list(SYMBOL_CACHE_COMMON_REQUIRED_FIELDS)
+    asset_type = _symbol_detail_raw_value(row, "asset_type")
+    if asset_type == "etf":
+        required_fields.extend(SYMBOL_CACHE_FUND_REQUIRED_FIELDS)
+    elif asset_type in {"stock", "adr"} or not asset_type:
+        required_fields.extend(SYMBOL_CACHE_STOCK_REQUIRED_FIELDS)
+    else:
+        required_fields.extend(("dividend_yield_pct", "risk_band"))
+    return [
+        _symbol_missing_field_label(field)
+        for field in required_fields
+        if not _symbol_detail_raw_value(row, field)
+    ]
+
+
+def symbol_universe_missing_key_fields_display(row: dict[str, str]) -> str:
+    fields = symbol_universe_missing_key_fields(row)
+    if not fields:
+        return "主要項目は登録済み"
+    visible = fields[:SYMBOL_CACHE_MISSING_FIELD_DISPLAY_LIMIT]
+    suffix = ""
+    remaining_count = len(fields) - len(visible)
+    if remaining_count > 0:
+        suffix = f" ほか{remaining_count}件"
+    return "、".join(visible) + suffix
+
+
+def _symbol_missing_field_label(field: str) -> str:
+    label = SYMBOL_UNIVERSE_DETAIL_LABELS.get(field, field)
+    return label.replace("(%)", "")
+
+
+def symbol_universe_cache_status_text(row: dict[str, str]) -> str:
+    status = symbol_universe_detail_display_value(row, SYMBOL_CACHE_FRESHNESS_STATUS_FIELD)
+    updated_at = symbol_universe_detail_display_value(row, SYMBOL_CACHE_UPDATED_AT_FIELD)
+    provider = symbol_universe_detail_display_value(row, SYMBOL_CACHE_PROVIDER_FIELD)
+    if provider == "未登録":
+        provider = symbol_universe_detail_display_value(row, "metadata_source")
+    parts = [f"銘柄DB: {status}"]
+    parts.append(f"最終更新 {updated_at if updated_at != '未登録' else '未取得'}")
+    parts.append(f"取得元 {provider}")
+    missing_fields = symbol_universe_missing_key_fields(row)
+    if missing_fields:
+        parts.append(f"不足 {len(missing_fields)}項目")
+    return " / ".join(parts)
+
+
+def symbol_universe_cache_notice(row: dict[str, str]) -> str:
+    status = _symbol_detail_raw_value(row, SYMBOL_CACHE_FRESHNESS_STATUS_FIELD) or "missing"
+    if status in {"stale", "expired"}:
+        return (
+            "一部データが古い可能性があります。前回保存値を表示しつつ、"
+            "必要に応じてバックグラウンド更新を待ってください。"
+        )
+    if status == "missing":
+        return (
+            "保存済み銘柄DBの更新情報はまだありません。"
+            "ローカル銘柄マスタの登録値を表示しています。"
+        )
+    if symbol_universe_missing_key_fields(row):
+        return (
+            "主要項目の一部が未登録です。"
+            "スコアやランキングは取得済みの材料だけで確認してください。"
+        )
+    return ""
+
+
+def symbol_universe_cache_status_rows(row: dict[str, str]) -> list[dict[str, str]]:
+    return [
+        _symbol_data_info_row(
+            "銘柄DB鮮度",
+            symbol_universe_detail_display_value(row, SYMBOL_CACHE_FRESHNESS_STATUS_FIELD),
+            "保存済み銘柄データをそのまま読めるか、再確認が必要かを見ます。",
+        ),
+        _symbol_data_info_row(
+            "銘柄DB最終更新",
+            symbol_universe_detail_display_value(row, SYMBOL_CACHE_UPDATED_AT_FIELD),
+            "バックグラウンド更新で最後に保存した日時です。",
+        ),
+        _symbol_data_info_row(
+            "銘柄DB取得元",
+            symbol_universe_detail_display_value(row, SYMBOL_CACHE_PROVIDER_FIELD),
+            "保存済み銘柄DBを更新したproviderです。",
+        ),
+        _symbol_data_info_row(
+            "価格データ更新",
+            symbol_universe_detail_display_value(row, SYMBOL_CACHE_LAST_PRICE_UPDATED_AT_FIELD),
+            "株価・出来高など価格系データの取得タイミングを確認します。",
+        ),
+        _symbol_data_info_row(
+            "財務データ更新",
+            symbol_universe_detail_display_value(
+                row, SYMBOL_CACHE_LAST_FUNDAMENTAL_UPDATED_AT_FIELD
+            ),
+            "PER/PBR/ROE/配当など財務・分類系データの取得タイミングを確認します。",
+        ),
+        _symbol_data_info_row(
+            "不足している主要項目",
+            symbol_universe_missing_key_fields_display(row),
+            "空欄が多い銘柄では評価材料が少ないため、追加確認が必要です。",
+        ),
+    ]
 
 
 def symbol_universe_overview_rows(row: dict[str, str]) -> list[dict[str, str]]:
@@ -1964,6 +2241,7 @@ def symbol_universe_fund_detail_rows(row: dict[str, str]) -> list[dict[str, str]
 
 def symbol_universe_data_info_rows(row: dict[str, str]) -> list[dict[str, str]]:
     return [
+        *symbol_universe_cache_status_rows(row),
         _symbol_data_info_row(
             "データ出所",
             symbol_universe_detail_display_value(row, "metadata_source"),
@@ -2713,6 +2991,14 @@ def _render_symbol_universe_detail_dialog(
     display_name = row.get("name") or symbol
     st.subheader(f"{symbol} - {display_name}")
     st.caption("ローカル銘柄マスタの登録値を、確認しやすい項目に整理しています。")
+    st.caption(symbol_universe_cache_status_text(row))
+    cache_notice = symbol_universe_cache_notice(row)
+    if cache_notice:
+        cache_status = _symbol_detail_raw_value(row, SYMBOL_CACHE_FRESHNESS_STATUS_FIELD)
+        if cache_status in {"stale", "expired"}:
+            st.warning(cache_notice)
+        else:
+            st.caption(cache_notice)
 
     metric_columns = st.columns(4)
     for column, metric in zip(metric_columns, symbol_universe_key_metric_rows(row), strict=False):
@@ -4452,6 +4738,13 @@ def _render_market_data_cockpit() -> None:
             ),
         )
     symbol = _symbol_from_candidate(symbol_candidate) or ""
+    if symbol:
+        _request_symbol_auto_refresh_once(
+            [symbol],
+            context="cockpit",
+            source_key=symbol,
+            max_symbols=1,
+        )
     with col_detail:
         st.write("")
         if selected_symbol_has_universe_detail(symbol):
@@ -4467,6 +4760,9 @@ def _render_market_data_cockpit() -> None:
     with col_name:
         company_name = symbol_name(symbol) or _name_from_candidate(symbol_candidate) or ""
         st.text_input("銘柄名", value=company_name, disabled=True, key="market_data_symbol_name")
+    symbol_detail_row = _symbol_universe_row_for_symbol(symbol) if symbol else None
+    if symbol_detail_row is not None:
+        st.caption(symbol_universe_cache_status_text(symbol_detail_row))
     col_period, col_start, col_end, _ = st.columns([1.2, 1.0, 1.0, 3.8])
     with col_period:
         period_preset = cast(
@@ -4538,6 +4834,11 @@ def _render_market_data_cockpit() -> None:
                     message="価格、予測、スコアの材料をまとめています。少しだけお待ちください。",
                     tone="forecast",
                 )
+            _run_symbol_database_preflight_refresh(
+                [symbol],
+                context="cockpit",
+                max_items=COCKPIT_SYMBOL_DB_PREFLIGHT_MAX_ITEMS,
+            )
             preview = asyncio.run(
                 build_market_data_preview(
                     symbol=symbol.strip(),
@@ -4868,6 +5169,12 @@ def _render_market_data_ranking() -> None:
         start=start_date,
         end=end_date,
     )
+    _request_symbol_auto_refresh_once(
+        ranking_symbols,
+        context="ranking",
+        source_key=current_ranking_source,
+        max_symbols=RANKING_AUTO_REFRESH_SYMBOL_LIMIT,
+    )
     st.caption(
         "評価方針: どの観点で候補を評価するかを選びます。"
         "候補は選択中の評価方針スコア順に表示されます。"
@@ -4914,6 +5221,11 @@ def _render_market_data_ranking() -> None:
             progress_bar.progress(max(0.0, min(1.0, ratio)))
 
         try:
+            _run_symbol_database_preflight_refresh(
+                ranking_symbol_db_preflight_symbols(ranking_symbols),
+                context="ranking",
+                max_items=ranking_symbol_db_preflight_limit(len(ranking_symbols)),
+            )
             rows, error_rows = asyncio.run(
                 _build_market_data_ranking_rows(
                     ranking_symbols,

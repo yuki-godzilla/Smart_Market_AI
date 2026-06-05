@@ -44,6 +44,24 @@ def test_save_symbol_record_is_atomic_and_preserves_existing_records(tmp_path) -
     assert not (tmp_path / "symbols_cache.tmp.json").exists()
 
 
+def test_load_symbol_records_treats_temporary_read_error_as_empty(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    records_file = tmp_path / "symbols_cache.json"
+    records_file.write_text("{}", encoding="utf-8")
+    original_read_text = type(records_file).read_text
+
+    def fake_read_text(path, *args, **kwargs):
+        if path == records_file:
+            raise PermissionError("temporarily locked")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(type(records_file), "read_text", fake_read_text)
+
+    assert load_symbol_records(cache_dir=tmp_path) == {}
+
+
 def test_normalize_symbol_record_removes_raw_fields_and_bounds_text() -> None:
     now = datetime(2026, 6, 3, 12, 0, 0)
     record = SymbolRecord(

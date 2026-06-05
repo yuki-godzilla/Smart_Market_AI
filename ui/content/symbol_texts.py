@@ -37,6 +37,11 @@ SYMBOL_UNIVERSE_DETAIL_LABELS = {
     "metadata_source": "取得元情報",
     "metadata_as_of": "取得元情報の基準日",
     "metadata_updated_at": "取得元情報の更新日時",
+    "symbol_cache_provider": "銘柄DB取得元",
+    "symbol_cache_updated_at": "銘柄DB最終更新",
+    "symbol_cache_last_price_updated_at": "価格データ更新",
+    "symbol_cache_last_fundamental_updated_at": "財務データ更新",
+    "symbol_cache_freshness_status": "銘柄DB鮮度",
 }
 
 SYMBOL_UNIVERSE_DISPLAY_LABELS = {

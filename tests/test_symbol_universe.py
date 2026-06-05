@@ -145,6 +145,9 @@ def test_symbol_universe_runtime_rows_overlay_symbol_cache_values(tmp_path):
                 symbol="AAPL",
                 provider="fixture",
                 updated_at=datetime(2026, 6, 4, 9, 0, 0),
+                last_price_updated_at=datetime(2026, 6, 4, 8, 30, 0),
+                last_fundamental_updated_at=datetime(2026, 6, 4, 8, 45, 0),
+                data_freshness_status="stale",
                 normalized_fields={
                     "name": "Apple Runtime",
                     "per": "28.1",
@@ -158,6 +161,11 @@ def test_symbol_universe_runtime_rows_overlay_symbol_cache_values(tmp_path):
     assert rows[0]["name"] == "Apple Runtime"
     assert rows[0]["per"] == "28.1"
     assert rows[0]["metadata_source"] == "cache"
+    assert rows[0]["symbol_cache_provider"] == "fixture"
+    assert rows[0]["symbol_cache_updated_at"] == "2026-06-04T09:00:00"
+    assert rows[0]["symbol_cache_last_price_updated_at"] == "2026-06-04T08:30:00"
+    assert rows[0]["symbol_cache_last_fundamental_updated_at"] == "2026-06-04T08:45:00"
+    assert rows[0]["symbol_cache_freshness_status"] == "stale"
     assert "raw_response" not in rows[0]
 
 

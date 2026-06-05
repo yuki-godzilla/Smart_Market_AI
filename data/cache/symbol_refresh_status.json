@@ -1,31 +1,12 @@
 {
-  "last_attempt_at": "2026-06-05T10:09:44.599645",
-  "last_success_at": "2026-06-04T19:46:42.787663",
+  "last_attempt_at": "2026-06-05T05:22:08.805805",
+  "last_success_at": "2026-06-05T05:22:09.276751",
   "last_error_at": "2026-06-04T20:51:39.532215",
-  "last_error_type": "PermissionError",
-  "consecutive_failures": 1,
+  "last_error_type": null,
+  "consecutive_failures": 0,
   "last_refreshed_symbols": [
-    "6044.T",
-    "6045.T",
-    "6046.T",
-    "6047.T",
-    "6049.T",
-    "6050.T",
-    "6054.T",
-    "6055.T",
-    "6058.T",
-    "6059.T",
-    "6061.T",
-    "6062.T",
-    "6063.T",
-    "6069.T",
-    "6070.T",
-    "6071.T",
-    "6072.T",
-    "6073.T",
-    "6074.T",
-    "6078.T"
+    "7685.T"
   ],
-  "refresh_queue_size": 150,
-  "is_refreshing": true
+  "refresh_queue_size": 0,
+  "is_refreshing": false
 }

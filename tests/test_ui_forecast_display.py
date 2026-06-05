@@ -54,10 +54,14 @@ from ui.app import (
     MARKET_DATA_PERIOD_PRESETS,
     NO_SYMBOL_CANDIDATE_LABEL,
     RANKING_RESULT_GRID_CUSTOM_CSS,
+    RANKING_SYMBOL_DB_PREFLIGHT_SCAN_LIMIT,
     RANKING_TABLE_SORT_GUIDANCE,
+    SYMBOL_AUTO_REFRESH_REQUEST_STATE_KEY,
     SYMBOL_DETAIL_DIALOG_CSS,
+    SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY,
     RankingResearchStatus,
     _apply_navigation_query_params,
+    _background_workers_disabled,
     _build_market_data_ranking_rows,
     _coerce_number_input_state,
     _company_research_ai_notes_html,
@@ -109,6 +113,7 @@ from ui.app import (
     _render_research_operation_card,
     _render_research_summary_panel,
     _render_score_confidence_hierarchy,
+    _request_symbol_auto_refresh_once,
     _research_brief_focus_html,
     _research_brief_gap_panel_html,
     _research_brief_gap_rows,
@@ -140,6 +145,7 @@ from ui.app import (
     _research_score_warning_rows,
     _research_table_html,
     _research_terms_preview,
+    _run_symbol_database_preflight_refresh,
     _select_ranking_symbol_for_cockpit_with_period,
     _stock_news_display_rows,
     _symbol_from_candidate,
@@ -190,19 +196,25 @@ from ui.app import (
     ranking_score_confidence_frame,
     ranking_score_detail_rows,
     ranking_summary_cards,
+    ranking_symbol_db_preflight_limit,
+    ranking_symbol_db_preflight_symbols,
     ranking_top_candidate_cards,
     score_component_rows,
     score_confidence_hierarchy_rows,
     selected_symbol_has_universe_detail,
     set_cached_ranking_build,
+    symbol_auto_refresh_request_key,
     symbol_candidate_label,
     symbol_detail_table_html,
+    symbol_universe_cache_notice,
+    symbol_universe_cache_status_text,
     symbol_universe_data_info_rows,
     symbol_universe_detail_display_value,
     symbol_universe_detail_rows,
     symbol_universe_fund_detail_rows,
     symbol_universe_investment_metric_rows,
     symbol_universe_key_metric_rows,
+    symbol_universe_missing_key_fields_display,
     symbol_universe_nisa_display,
     symbol_universe_overview_rows,
 )
@@ -722,6 +734,205 @@ def test_symbol_universe_data_info_rows_explain_how_values_are_used():
     assert rows[-1]["項目"] == "価格取得用ticker"
     assert rows[-1]["内容"] == "表示銘柄と同じ"
     assert "Yahoo取得時" in rows[-1]["使い道"]
+
+
+def test_symbol_universe_data_info_rows_include_runtime_cache_freshness():
+    rows = symbol_universe_data_info_rows(
+        {
+            "asset_type": "stock",
+            "metadata_source": "yahoo",
+            "metadata_as_of": "2026-06-01",
+            "metadata_updated_at": "2026-06-01T13:00:00+09:00",
+            "symbol_cache_provider": "yahoo",
+            "symbol_cache_updated_at": "2026-06-04T09:00:00",
+            "symbol_cache_last_price_updated_at": "2026-06-04T08:30:00",
+            "symbol_cache_last_fundamental_updated_at": "2026-06-04T08:45:00",
+            "symbol_cache_freshness_status": "fresh",
+            "per": "28.1",
+            "pbr": "7.2",
+            "roe_pct": "24",
+            "dividend_yield_pct": "0.5",
+            "market_cap_tier": "large",
+            "risk_band": "LOW",
+            "yahoo_symbol": "",
+        }
+    )
+
+    assert rows[0] == {
+        "項目": "銘柄DB鮮度",
+        "内容": "最新",
+        "使い道": "保存済み銘柄データをそのまま読めるか、再確認が必要かを見ます。",
+    }
+    assert {
+        "項目": "銘柄DB取得元",
+        "内容": "Yahoo Finance",
+        "使い道": "保存済み銘柄DBを更新したproviderです。",
+    } in rows
+    assert {
+        "項目": "不足している主要項目",
+        "内容": "主要項目は登録済み",
+        "使い道": "空欄が多い銘柄では評価材料が少ないため、追加確認が必要です。",
+    } in rows
+
+
+def test_symbol_universe_cache_status_text_and_notice_show_stale_missing_fields():
+    row = {
+        "asset_type": "stock",
+        "metadata_source": "yahoo",
+        "metadata_as_of": "2026-06-01",
+        "symbol_cache_provider": "yahoo",
+        "symbol_cache_updated_at": "2026-06-04T09:00:00",
+        "symbol_cache_freshness_status": "stale",
+        "per": "28.1",
+    }
+
+    assert symbol_universe_cache_status_text(row) == (
+        "銘柄DB: やや古い / 最終更新 2026-06-04 09:00 / " "取得元 Yahoo Finance / 不足 5項目"
+    )
+    assert symbol_universe_missing_key_fields_display(row).startswith("PBR、ROE")
+    assert "一部データが古い可能性" in symbol_universe_cache_notice(row)
+
+
+def test_symbol_universe_cache_status_text_falls_back_to_local_master_when_cache_missing():
+    row = {
+        "asset_type": "etf",
+        "metadata_source": "curated_csv",
+        "metadata_as_of": "2026-06-01",
+        "index_family": "sp500",
+        "expense_ratio_pct": "0.09",
+        "dividend_yield_pct": "1.1",
+        "complexity": "beginner",
+    }
+
+    assert symbol_universe_cache_status_text(row) == (
+        "銘柄DB: 未取得 / 最終更新 未取得 / 取得元 手動整備CSV"
+    )
+    assert symbol_universe_missing_key_fields_display(row) == "主要項目は登録済み"
+    assert "ローカル銘柄マスタ" in symbol_universe_cache_notice(row)
+
+
+def test_symbol_auto_refresh_request_key_normalizes_symbols():
+    first = symbol_auto_refresh_request_key(
+        [" aapl ", "AAPL", "7203.t"],
+        context="ranking",
+        source_key="ranking-source",
+    )
+    second = symbol_auto_refresh_request_key(
+        ["AAPL", "7203.T"],
+        context="ranking",
+        source_key="ranking-source",
+    )
+
+    assert first == second
+    assert first.startswith("ranking|")
+
+
+def test_symbol_auto_refresh_once_dedupes_session_requests(monkeypatch):
+    session_state: dict[str, object] = {}
+    calls: list[tuple[list[str], str]] = []
+
+    def fake_request(symbols: list[str], *, source: str) -> list[str]:
+        calls.append((list(symbols), source))
+        return list(symbols)
+
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.app.request_symbol_background_refresh", fake_request)
+
+    _request_symbol_auto_refresh_once(
+        [" aapl ", "AAPL", ""],
+        context="cockpit",
+        source_key="aapl",
+        max_symbols=5,
+    )
+    _request_symbol_auto_refresh_once(
+        ["AAPL"],
+        context="cockpit",
+        source_key="aapl",
+        max_symbols=5,
+    )
+
+    requested_keys = session_state[SYMBOL_AUTO_REFRESH_REQUEST_STATE_KEY]
+    assert calls == [(["AAPL"], "cockpit")]
+    assert isinstance(requested_keys, list)
+    assert len(requested_keys) == 1
+
+
+def test_background_workers_disabled_env_flag(monkeypatch):
+    monkeypatch.delenv("SMAI_DISABLE_BACKGROUND_WORKERS", raising=False)
+    assert _background_workers_disabled() is False
+
+    monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "true")
+    assert _background_workers_disabled() is True
+
+
+def test_ranking_symbol_db_preflight_limit_bounds_large_requests():
+    assert ranking_symbol_db_preflight_limit(0) == 0
+    assert ranking_symbol_db_preflight_limit(12) == 12
+    assert ranking_symbol_db_preflight_limit(30) == 30
+    assert ranking_symbol_db_preflight_limit(31) == 31
+    assert ranking_symbol_db_preflight_limit(300) == 50
+    assert ranking_symbol_db_preflight_limit(1200) == 50
+
+
+def test_ranking_symbol_db_preflight_symbols_dedupes_and_caps_scan_set():
+    symbols = [" aapl ", "AAPL", *[f"T{index:04d}" for index in range(400)]]
+
+    result = ranking_symbol_db_preflight_symbols(symbols)
+
+    assert result[:2] == ["AAPL", "T0000"]
+    assert len(result) == RANKING_SYMBOL_DB_PREFLIGHT_SCAN_LIMIT
+    assert len(set(result)) == len(result)
+
+
+def test_symbol_database_preflight_refresh_passes_ranking_context(monkeypatch):
+    session_state: dict[str, object] = {
+        SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY: "RuntimeError",
+    }
+    calls: list[dict[str, object]] = []
+    summary = SimpleNamespace(succeeded_count=1)
+
+    def fake_target_refresh(symbols: list[str], **kwargs: object) -> object:
+        calls.append({"symbols": list(symbols), **kwargs})
+        return summary
+
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.app.run_symbol_database_target_refresh", fake_target_refresh)
+
+    result = _run_symbol_database_preflight_refresh(
+        [" aapl ", "AAPL", "7203.t"],
+        context="ranking",
+        max_items=31,
+    )
+
+    assert result is summary
+    assert calls == [
+        {
+            "symbols": ["AAPL", "7203.T"],
+            "max_items": 31,
+            "currently_visible_symbols": None,
+            "ranking_candidates": ["AAPL", "7203.T"],
+        }
+    ]
+    assert SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY not in session_state
+
+
+def test_symbol_database_preflight_refresh_suppresses_failure(monkeypatch):
+    session_state: dict[str, object] = {}
+
+    def fake_target_refresh(symbols: list[str], **kwargs: object) -> object:
+        raise RuntimeError("locked")
+
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.app.run_symbol_database_target_refresh", fake_target_refresh)
+
+    result = _run_symbol_database_preflight_refresh(
+        ["7203.t"],
+        context="cockpit",
+        max_items=1,
+    )
+
+    assert result is None
+    assert session_state[SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY] == "RuntimeError"
 
 
 def test_symbol_detail_dialog_css_expands_width_and_wraps_metric_values():

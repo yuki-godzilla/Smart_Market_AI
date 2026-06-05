@@ -10,6 +10,7 @@ from urllib.parse import quote
 
 import pandas as pd
 import streamlit as st
+from zoneinfo import ZoneInfo
 
 from backend.news import (
     NewsCategoryLane,
@@ -33,6 +34,11 @@ NEWS_DASHBOARD_WATCHLIST_STATE_KEY = "investment_news_watchlist_symbols"
 NEWS_COCKPIT_QUERY_PAGE_PARAM = "smai_page"
 NEWS_COCKPIT_QUERY_SYMBOL_PARAM = "smai_symbol"
 NEWS_COCKPIT_QUERY_COCKPIT_VALUE = "cockpit"
+NEWS_DIRECT_SYMBOL_DISPLAY_LIMIT = 8
+NEWS_INFERRED_SYMBOL_DISPLAY_LIMIT = 4
+NEWS_SYMBOL_DISPLAY_TOTAL_LIMIT = 8
+NEWS_DISPLAY_TIMEZONE = ZoneInfo("Asia/Tokyo")
+NEWS_DISPLAY_TIMEZONE_LABEL = "JST"
 
 _FRESHNESS_LABELS = {
     "latest": "最新",
@@ -316,13 +322,14 @@ def render_news_dashboard_page(
 ) -> None:
     """Render the Investment Radar dashboard MVP."""
 
+    snapshot, status = _load_dashboard_snapshot()
     render_page_title(
         "投資レーダー",
         "市場ニュースの流れ、投資ヒートマップ、カテゴリ別材料を確認し、気になる銘柄を深掘りします。",
         "investment_radar",
+        accessory_html=news_dashboard_freshness_badge_html(snapshot),
     )
 
-    snapshot, status, uses_cached_snapshot = _load_dashboard_snapshot()
     _render_refresh_controls()
     _render_status_message()
     _render_update_warning(status)
@@ -506,6 +513,30 @@ def _card_handoff_symbol_groups(card: NewsHeadlineCard) -> tuple[list[str], list
         exclude=set(direct),
     )
     return direct, inferred
+
+
+def news_card_symbol_handoff_groups(
+    card: NewsHeadlineCard,
+    *,
+    direct_limit: int = NEWS_DIRECT_SYMBOL_DISPLAY_LIMIT,
+    inferred_limit: int = NEWS_INFERRED_SYMBOL_DISPLAY_LIMIT,
+    total_limit: int = NEWS_SYMBOL_DISPLAY_TOTAL_LIMIT,
+) -> list[tuple[str, list[str]]]:
+    """Return balanced direct/inferred symbol groups for one news card."""
+
+    direct_symbols, inferred_symbols = _card_handoff_symbol_groups(card)
+    normalized_direct_limit = max(0, direct_limit)
+    normalized_inferred_limit = max(0, inferred_limit)
+    normalized_total_limit = max(0, total_limit)
+    displayed_direct = direct_symbols[: min(normalized_direct_limit, normalized_total_limit)]
+    remaining_slots = max(0, normalized_total_limit - len(displayed_direct))
+    displayed_inferred = inferred_symbols[: min(normalized_inferred_limit, remaining_slots)]
+    groups: list[tuple[str, list[str]]] = []
+    if displayed_direct:
+        groups.append(("本文に出た銘柄", displayed_direct))
+    if displayed_inferred:
+        groups.append(("SMAI推測候補", displayed_inferred))
+    return groups
 
 
 def _unique_normalized_symbols(
@@ -709,27 +740,25 @@ def re_split_news_watchlist(value: str) -> list[str]:
     return [part for part in re.split(r"[\s,、;；]+", value.strip()) if part]
 
 
-def news_dashboard_status_items(
+def news_dashboard_freshness_badge_html(
     snapshot: NewsDashboardSnapshot,
-    status: NewsUpdateStatus,
-    *,
-    uses_cached_snapshot: bool,
-) -> list[tuple[str, str]]:
-    """Return compact dashboard status rows for the Investment Radar UI."""
+) -> str:
+    """Return the small freshness badge shown in the Investment Radar title."""
 
-    source_label = "保存済みキャッシュ" if uses_cached_snapshot else "デモ表示"
-    update_label = _news_update_state_label(status)
-    items = [
-        ("表示データ", source_label),
-        ("鮮度", _freshness_label(snapshot.freshness_status)),
-        ("生成時刻", _datetime_label(snapshot.generated_at)),
-        ("最終取得成功", _datetime_label(status.last_success_at)),
-        ("ニュース件数", f"{news_dashboard_unique_headline_count(snapshot)}件"),
-        ("ヒートマップ", f"{len(snapshot.heatmap_cells)}カテゴリ"),
-        ("キャッシュサイズ", _bytes_label(status.cache_file_size_bytes)),
-        ("更新状態", update_label),
-    ]
-    return items
+    freshness = _freshness_label(snapshot.freshness_status)
+    fetched_at = snapshot.fetched_at or snapshot.generated_at
+    fetched_at_label = _datetime_label(fetched_at)
+    return (
+        '<div class="investment-news-freshness-badge" '
+        f'aria-label="情報鮮度 {html.escape(freshness)} '
+        f'取得時刻 {html.escape(fetched_at_label)}">'
+        '<span class="investment-news-freshness-status">'
+        '<span class="investment-news-freshness-label">情報鮮度</span>'
+        f'<strong class="investment-news-freshness-value">{html.escape(freshness)}</strong>'
+        "</span>"
+        f'<span class="investment-news-freshness-time">取得 {html.escape(fetched_at_label)}</span>'
+        "</div>"
+    )
 
 
 def _heatmap_cell_row(cell: object) -> dict[str, object]:
@@ -1407,12 +1436,12 @@ def news_symbol_handoff_label(symbol: str) -> str:
     return normalized
 
 
-def _load_dashboard_snapshot() -> tuple[NewsDashboardSnapshot, NewsUpdateStatus, bool]:
+def _load_dashboard_snapshot() -> tuple[NewsDashboardSnapshot, NewsUpdateStatus]:
     status = load_news_update_status()
     snapshot = load_cached_news_dashboard_snapshot()
     if snapshot is not None:
-        return snapshot, status, True
-    return build_demo_news_dashboard_snapshot(), status, False
+        return snapshot, status
+    return build_demo_news_dashboard_snapshot(), status
 
 
 def _render_refresh_controls() -> None:
@@ -1444,38 +1473,6 @@ def _render_refresh_controls() -> None:
             "手動更新では外部ニュースRSSを広めに取得し、重複を除いて最大100件の確認材料に整理します。"
             "スコアやランキング順位は変更しません。"
         )
-
-
-def _render_cache_status(
-    snapshot: NewsDashboardSnapshot,
-    status: NewsUpdateStatus,
-    *,
-    uses_cached_snapshot: bool,
-) -> None:
-    status_items = news_dashboard_status_items(
-        snapshot,
-        status,
-        uses_cached_snapshot=uses_cached_snapshot,
-    )
-    item_html = "".join(
-        '<div class="investment-news-status-item">'
-        f'<span class="investment-news-status-label">{html.escape(label)}</span>'
-        f'<span class="investment-news-status-value">{html.escape(value)}</span>'
-        "</div>"
-        for label, value in status_items
-    )
-    st.markdown(
-        '<section class="investment-news-status-panel" aria-label="news cache status">'
-        '<div class="investment-news-status-head">'
-        '<span class="investment-news-status-title">ニュース表示の状態</span>'
-        '<span class="investment-news-status-note">'
-        "起動時のバックグラウンド更新、手動更新、キャッシュ表示の状態をここで確認できます。"
-        "</span>"
-        "</div>"
-        f'<div class="investment-news-status-grid">{item_html}</div>'
-        "</section>",
-        unsafe_allow_html=True,
-    )
 
 
 def _render_status_message() -> None:
@@ -1643,40 +1640,17 @@ def _render_symbol_handoff_buttons(
     open_symbol_callback: OpenSymbolCallback,
     max_columns: int = 3,
 ) -> None:
-    direct_symbols, inferred_symbols = _card_handoff_symbol_groups(card)
-    if not direct_symbols and not inferred_symbols:
+    groups = news_card_symbol_handoff_groups(card)
+    if not groups:
         return
-    symbols = [*direct_symbols, *inferred_symbols]
-    if direct_symbols:
+    for group_index, (caption, symbols) in enumerate(groups):
         _render_symbol_button_group(
-            direct_symbols,
-            caption="本文に出た銘柄",
-            key_prefix=f"{key_prefix}_direct",
+            symbols,
+            caption=caption,
+            key_prefix=f"{key_prefix}_group_{group_index}",
             open_symbol_callback=open_symbol_callback,
             max_columns=max_columns,
         )
-    if inferred_symbols:
-        _render_symbol_button_group(
-            inferred_symbols,
-            caption="SMAI推測候補",
-            key_prefix=f"{key_prefix}_inferred",
-            open_symbol_callback=open_symbol_callback,
-            max_columns=max_columns,
-        )
-    return
-    st.caption("関連銘柄")
-    cols = st.columns(min(max_columns, len(symbols)))
-    for index, symbol in enumerate(symbols[:3]):
-        label = news_symbol_handoff_label(symbol)
-        with cols[index % len(cols)]:
-            st.button(
-                truncate_text(label, max_chars=34),
-                key=f"investment_news_open_{key_prefix}_{symbol}",
-                help=f"{label}を銘柄コックピットで確認します。",
-                use_container_width=True,
-                on_click=open_symbol_callback,
-                args=(symbol,),
-            )
 
 
 def _render_symbol_button_group(
@@ -1689,7 +1663,7 @@ def _render_symbol_button_group(
 ) -> None:
     st.caption(caption)
     cols = st.columns(min(max_columns, len(symbols)))
-    for index, symbol in enumerate(symbols[:3]):
+    for index, symbol in enumerate(symbols):
         label = news_symbol_handoff_label(symbol)
         with cols[index % len(cols)]:
             st.button(
@@ -1714,44 +1688,27 @@ def _lane_heading_html(category: str) -> str:
 def _news_ticker_html(cards: list[NewsHeadlineCard]) -> str:
     if not cards:
         return ""
-    items = "".join(
-        '<span class="investment-news-ticker-item">'
-        f'<span class="investment-news-ticker-category">{html.escape(card.category)}</span>'
-        f"{html.escape(card.title)}"
-        "</span>"
-        for card in cards
-    )
+    items = "".join(_news_ticker_item_html(card) for card in cards)
+    repeated_items = "".join(_news_ticker_item_html(card, aria_hidden=True) for card in cards)
     return (
         '<section class="investment-news-ticker" aria-label="market news stream">'
-        f'<div class="investment-news-ticker-track">{items}{items}</div>'
+        f'<div class="investment-news-ticker-track">{items}{repeated_items}</div>'
         "</section>"
+    )
+
+
+def _news_ticker_item_html(card: NewsHeadlineCard, *, aria_hidden: bool = False) -> str:
+    hidden_attr = ' aria-hidden="true"' if aria_hidden else ""
+    return (
+        f'<span class="investment-news-ticker-item"{hidden_attr}>'
+        f'<span class="investment-news-ticker-category">{html.escape(card.category)}</span>'
+        f'<span class="investment-news-ticker-title">{html.escape(card.title)}</span>'
+        "</span>"
     )
 
 
 def _freshness_label(status: str) -> str:
     return _FRESHNESS_LABELS.get(status, status or "未確認")
-
-
-def _news_update_state_label(status: NewsUpdateStatus) -> str:
-    if status.is_refreshing:
-        return "バックグラウンド更新中"
-    if status.last_error_type:
-        return f"前回失敗: {status.last_error_type}"
-    if status.last_success_at is not None:
-        return "前回更新成功"
-    if status.last_attempt_at is not None:
-        return "更新確認済み"
-    return "未更新"
-
-
-def _bytes_label(value: int | None) -> str:
-    if value is None:
-        return "未作成"
-    if value < 1024:
-        return f"{value} B"
-    if value < 1024 * 1024:
-        return f"{value / 1024:.1f} KB"
-    return f"{value / (1024 * 1024):.1f} MB"
 
 
 def _material_label(material_type: str | None) -> str:
@@ -1772,7 +1729,8 @@ def _source_type_label(source_type: str) -> str:
 def _datetime_label(value: datetime | None) -> str:
     if value is None:
         return "未確認"
-    return value.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
+    local_value = value.astimezone(NEWS_DISPLAY_TIMEZONE)
+    return f"{local_value.strftime('%Y-%m-%d %H:%M')} {NEWS_DISPLAY_TIMEZONE_LABEL}"
 
 
 def _price_change_label(value: float | None, *, inferred: bool = False) -> str:

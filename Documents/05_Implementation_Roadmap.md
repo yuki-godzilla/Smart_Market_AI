@@ -59,7 +59,7 @@ Research RAG は Phase 20 local evidence slice が決定的な土台として実
 - 追加 provider / fund metadata source adapter
 - Research RAG の `ResearchFactSummary` 抽出対象拡張、追加 external source adapter、vector / hybrid search の運用UI
 - `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動、通知
-- 銘柄DB background refresh の visible freshness badge / live provider refresh wiring。`backend/symbols` の foundation と Streamlit daemon worker は実装済み
+- 銘柄DB background refresh の live provider refresh wiring。`backend/symbols` の foundation、Streamlit daemon worker、Cockpit / Ranking 共通の visible freshness 表示、Cockpit / Ranking 対象銘柄の自動優先更新、Cockpit / Ranking 操作直前の軽量 preflight 更新は実装済み
 - Research Score によるランキング順位統合は、現時点では見送り。必要性が再確認された場合のみ後続の opt-in 機能として扱う
 - Assistant API / Streamlit 質問パネル、optional LLM provider。`backend/assistant` の deterministic template service は初期実装済み
 - broker への live order 送信
@@ -880,7 +880,7 @@ Phase 22.x: 投資レーダー / Investment News dashboard
 - Phase 22 本体の Research Score 方針は維持し、Investment News / 投資レーダー dashboard は Phase 22.x の UI / backend snapshot slice として扱う。
 - `backend/news/dashboard.py` で deterministic `build_news_dashboard_snapshot` / `build_demo_news_dashboard_snapshot` を実装し、保存済みsnapshotがない場合も network-free demo snapshot で表示できる。
 - `backend/news/sources.py` で Standard Mode の市場横断ニュース取得層を追加済み。手動更新時に Google News RSS を12カテゴリで広めに取得し、raw 150〜250件程度の候補からURL/title重複を除き、最大100件の dashboard snapshot に圧縮する。通常 tests は Static adapter / RSS fixture で network-free に維持する。
-- `ui/views/news.py` で `投資レーダー` 画面を追加し、side menu / routing / related-symbol cockpit handoff を `ui/components/sidemenu.py` と `ui/app.py` に接続済み。投資ヒートマップの銘柄タイルはニュース直結の関連銘柄だけでなく、ローカル銘柄ユニバース全体からカテゴリ適合、時価総額帯、データ品質、ニュース鮮度、材料タイプ、市場シグナルを使って注目度順に補完する。企業名を主、シンボルを補助タグとして表示し、クリックで同一アプリ内の `銘柄コックピット` に遷移する。
+- `ui/views/news.py` で `投資レーダー` 画面を追加し、side menu / routing / related-symbol cockpit handoff を `ui/components/sidemenu.py` と `ui/app.py` に接続済み。タイトル右上の `情報鮮度` バッジには取得時刻をJSTで小さく表示する。ニュースカードの関連銘柄は `本文に出た銘柄` を最大8件まで優先表示し、残り枠に `SMAI推測候補` を可変で補完する。投資ヒートマップの銘柄タイルはニュース直結の関連銘柄だけでなく、ローカル銘柄ユニバース全体からカテゴリ適合、時価総額帯、データ品質、ニュース鮮度、材料タイプ、市場シグナルを使って注目度順に補完する。企業名を主、シンボルを補助タグとして表示し、クリックで同一アプリ内の `銘柄コックピット` に遷移する。
 
 MVP 必須機能:
 
@@ -989,7 +989,7 @@ Phase 22.x 完了条件:
 - 値動き、取引量、ニュース量を合わせた株式ヒートマップ風の投資ヒートマップが表示される。ヒートマップタイルにも銘柄名 / 企業名とシンボルが併記され、ニュース直結の関連銘柄だけでなく広い銘柄ユニバースから注目度順に候補が補完される。市場指標が欠ける場合も `ニュース代理` として材料シグナルが表示され、`未取得` だけのヒートマップにならない。タイルクリックで該当銘柄の `銘柄コックピット` に遷移できる。
 - 投資カテゴリ別ニュースレーンが3列カードで表示される。
 - ニュースカードにAI分析コメント / 投資確認観点が表示される。
-- 関連銘柄があるニュースカードに、シンボルと銘柄名 / 企業名が分かる `銘柄コックピットで確認` 導線が表示される。
+- 関連銘柄があるニュースカードに、`本文に出た銘柄` と `SMAI推測候補` を分けた `銘柄コックピットで確認` 導線が表示される。本文抽出は最大8件まで優先し、推測候補は残り枠に可変で補完する。
 - 元記事URLがクリック可能。
 - 手動更新で Standard Mode の外部RSS取得を実行し、重複除去・最大100件保存・既存cache fallback が働く。
 - 右側フィルタ / 詳細一覧は未実装でよい。
@@ -1092,7 +1092,7 @@ Cache Cleanup:
 UI表示:
 
 - `投資レーダー` 画面には、肥大化防止に関係する状態を簡潔に表示できるようにする。
-  - 例: `最終更新: 21:15`、`状態: fresh`、`キャッシュ: 182KB`、`バックグラウンド更新中`
+  - 通常表示はタイトル右上の `情報鮮度` とJST取得時刻に絞る。キャッシュサイズや更新履歴は初期画面に常時カード表示しない。
   - エラー時: `ニュース更新に失敗しました。前回キャッシュを表示しています。`
   - 詳細な stack trace や巨大ログは UI に出さない。
 
@@ -1177,7 +1177,9 @@ Phase 22.z: 銘柄データベース自動リフレッシュ基盤
 - 22.z-2: `backend/symbols/cache.py` を追加し、`symbol_refresh_queue.json`、`symbol_refresh_status.json`、`symbol_refresh.lock` の atomic save / bounded persistence / in_progress 復旧 / stale lock / cleanup を実装。
 - 22.z-3: `backend/symbols/repository.py`、`backend/symbols/refresh_manager.py`、`backend/symbols/logging_utils.py` を追加し、正規化済み latest-only `SymbolRecord` 保存、raw/debug field 除外、1銘柄単位の保存、provider失敗時の既存データ維持、`RotatingFileHandler` ログを実装。
 - 22.z-4 follow-up: `backend/symbols/startup.py` と `ui/app.py` startup hook を追加し、その後 visible startup path から daemon background worker へ切り替え済み。現在の short-session plan は `data/marketdata/symbol_universe.csv` から 150 symbols immediately、75 after 3 minutes、75 after 8 minutes、then 50 every 5 minutes を local-first に `symbols_cache.json` へ正規化保存し、fresh records を skip しつつ 1000 symbols per session で止める。`symbol_refresh_queue.json` は成功 batch 後に空へ戻し、`pending` / `retryable` / `in_progress` を残さない。
-- 通常確認は network-free tests のみで完結する。実provider取得や visible UI freshness badge は後続Phaseの接続作業として扱う。
+- 22.z-5 follow-up: Cockpit の選択銘柄と Ranking の比較対象銘柄を、ユーザー操作を増やさず background refresh の priority hint として登録する。`currently_visible_symbols` / `ranking_candidates` を既存 priority queue に渡し、missing / stale records を通常候補より先に更新する。visible UI は変更しない。
+- 22.z-6 follow-up: ユーザーに明示操作を増やさず、Cockpit の `データを取得` 実行時は対象1銘柄を、Ranking の `最新データを取得して更新` 実行時はランキング作成前に比較候補を lightweight preflight refresh する。ランキングは性能劣化を避けるため、比較候補30件までは全件、31件以上は最大50件、対象スキャンは最大300件までに制限し、残りは既存の background priority refresh に任せる。visible UI は変更しない。
+- 通常確認は network-free tests のみで完結する。visible UI freshness 表示は、Cockpit の選択銘柄行と Ranking / Cockpit 共通の `銘柄データ` モーダルへ初期接続済み。実provider refresh wiring は後続Phaseの接続作業として扱う。
 
 基本UX:
 
@@ -1737,8 +1739,8 @@ Markdown UTF-8 check:
 
 - Phase 16S の最終 Streamlit browser smoke をいつ実施するか
 - Phase 22.x `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動をどの順に進めるか
-- `投資レーダー` 画面の news cache status、fallback、freshness、cache size 初期表示は実装済み。今後は詳細フィルタ / Watchlist 連動と合わせて継続調整するか
-- Symbol DB background refresh の freshness badge / live provider refresh wiring を Ranking / Cockpit のどこへ接続するか
+- `投資レーダー` 画面の初期表示は、詳細な news cache status / cache size カードを置かず、タイトル右上の `情報鮮度` と必要時の警告に絞った。今後は詳細フィルタ / Watchlist 連動と合わせて継続調整するか
+- Symbol DB background refresh の live provider refresh wiring をどの provider / opt-in 条件で接続するか
 - Research Score をランキング順位へ統合する必要性を再確認するか。既定では統合しない
 - Assistant が参照できる context の範囲、privacy boundary、API / Streamlit 質問パネルの位置
 - PDF / Excel export をいつ入れるか

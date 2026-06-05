@@ -5,7 +5,9 @@ import os
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-SYMBOL_LOG_DIR = Path("logs")
+from backend.core.runtime_paths import LOG_DIR_ENV, runtime_path_from_env
+
+SYMBOL_LOG_DIR = runtime_path_from_env(LOG_DIR_ENV, "logs")
 SYMBOL_REFRESH_LOG_FILENAME = "symbol_refresh.log"
 SYMBOL_REFRESH_LOG_MAX_BYTES = 1_000_000
 SYMBOL_REFRESH_LOG_BACKUP_COUNT = 3

@@ -1,0 +1,114 @@
+{
+  "results": [
+    {
+      "scenario": "ranking_selected30_all_mock_1",
+      "elapsed_sec": 1.941,
+      "selected_before_limit": 30,
+      "fetch_limit": "all",
+      "result_rows": 1,
+      "error_rows": 29,
+      "button_count": 9,
+      "markdown_count": 43
+    },
+    {
+      "scenario": "ranking_selected30_all_mock_2",
+      "elapsed_sec": 1.998,
+      "selected_before_limit": 30,
+      "fetch_limit": "all",
+      "result_rows": 1,
+      "error_rows": 29,
+      "button_count": 9,
+      "markdown_count": 43
+    },
+    {
+      "scenario": "ranking_selected30_all_mock_3",
+      "elapsed_sec": 2.263,
+      "selected_before_limit": 30,
+      "fetch_limit": "all",
+      "result_rows": 1,
+      "error_rows": 29,
+      "button_count": 9,
+      "markdown_count": 43
+    },
+    {
+      "scenario": "ranking_selected50_all_mock_1",
+      "elapsed_sec": 1.97,
+      "selected_before_limit": 50,
+      "fetch_limit": "all",
+      "result_rows": 1,
+      "error_rows": 49,
+      "button_count": 9,
+      "markdown_count": 43
+    },
+    {
+      "scenario": "ranking_selected50_all_mock_2",
+      "elapsed_sec": 1.777,
+      "selected_before_limit": 50,
+      "fetch_limit": "all",
+      "result_rows": 1,
+      "error_rows": 49,
+      "button_count": 9,
+      "markdown_count": 43
+    },
+    {
+      "scenario": "ranking_selected50_all_mock_3",
+      "elapsed_sec": 2.159,
+      "selected_before_limit": 50,
+      "fetch_limit": "all",
+      "result_rows": 1,
+      "error_rows": 49,
+      "button_count": 9,
+      "markdown_count": 43
+    },
+    {
+      "scenario": "ranking_selected300_all_mock_1",
+      "elapsed_sec": 1.861,
+      "selected_before_limit": 300,
+      "fetch_limit": "all",
+      "result_rows": 1,
+      "error_rows": 299,
+      "button_count": 9,
+      "markdown_count": 43
+    },
+    {
+      "scenario": "ranking_selected300_all_mock_2",
+      "elapsed_sec": 2.045,
+      "selected_before_limit": 300,
+      "fetch_limit": "all",
+      "result_rows": 1,
+      "error_rows": 299,
+      "button_count": 9,
+      "markdown_count": 43
+    },
+    {
+      "scenario": "ranking_selected300_all_mock_3",
+      "elapsed_sec": 2.417,
+      "selected_before_limit": 300,
+      "fetch_limit": "all",
+      "result_rows": 1,
+      "error_rows": 299,
+      "button_count": 9,
+      "markdown_count": 43
+    }
+  ],
+  "summary": {
+    "ranking_selected30_all_mock": {
+      "n": 3,
+      "avg": 2.067,
+      "min": 1.941,
+      "max": 2.263
+    },
+    "ranking_selected50_all_mock": {
+      "n": 3,
+      "avg": 1.969,
+      "min": 1.777,
+      "max": 2.159
+    },
+    "ranking_selected300_all_mock": {
+      "n": 3,
+      "avg": 2.108,
+      "min": 1.861,
+      "max": 2.417
+    }
+  }
+}

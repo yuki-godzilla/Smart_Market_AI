@@ -32,6 +32,9 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - Symbol database background refresh foundation
   - freshness classification, refresh priority queue, queue/status recovery, latest-only normalized symbol cache
   - Streamlit startup daemon worker that updates missing / stale local symbol records without blocking rendering
+  - Cockpit selected symbols and Ranking comparison targets are registered as background priority hints without adding user-facing controls
+  - Cockpit `データを取得` and Ranking `最新データを取得して更新` run a bounded target preflight refresh before market-data fetch / ranking creation
+  - Cockpit selected-symbol caption and the shared Ranking / Cockpit `銘柄データ` modal show saved symbol DB freshness, source, update times, and missing key fields
 - Low-cost Assistant backend first slice
   - deterministic `TemplateAssistantService` that explains score / risk / research / next checkpoints from Decision Report context without LLM or network
 - Streamlit UI
@@ -49,7 +52,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - Research Score によるランキング順位統合は現時点では見送り。Cockpit / Ranking Research Summary と Cockpit Decision Report への参考表示、Investment Score optional numeric input、disabled-by-default weight は対応済み
 - `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動、通知
 - Assistant API / Streamlit 質問パネル、optional LLM provider
-- 銘柄DB freshness badge / live provider refresh wiring の visible UI 接続
+- 銘柄DB live provider refresh wiring
 - broker への live order 送信
 - Execution workflow
 - PDF / Excel export
@@ -58,7 +61,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 外部 API へ接続する場合は明示 opt-in が必要で、broker や execution provider へ注文を送りません。
 Research RAG / News RAG は実運用では情報鮮度が重要です。標準導線では、`AI調査を更新` が EDINET securities-report metadata/link（`EDINET_API_KEY` 設定時のみ live call、未設定時 no-op）、TDnet 適時開示、企業IRサイト、Google News RSS headline search、Yahoo Finance profile / news を取得/参照し、source URL、provider、published_at、fetched_at、freshness warning を確認材料として表示します。Yahoo Finance を使う Research 側 adapter は MarketData 側と同じ yfinance cache / shared session 設定を使います。Google News RSS は一般ニュースのヘッドライン幅を広げる補助sourceで、検索語は会社名・関連キーワード・銘柄コードに決算/業績/株価/配当などの投資文脈語を添えます。ニュースURL表示自体は `外部参照ソース` と詳細データに実装済みです。Cockpit Research Summary では、`最新ニュース・開示サマリー` の直後に `投資ヒントとなるニュース` と `ニュース・開示の出典を表示（URL付きN件）` を置きます。サマリと注目材料は `Market Intelligence` の主表示カードとして扱い、出典は初期折りたたみの小さな citation list としてURL付きニュース・TDnet・企業IR・EDINET・Google News・Yahoo Finance を確認できるようにします。ニュース専用URLが無い場合も、外部参照ソース側に公式資料・provider URLがある可能性を案内します。取得本文は既定では保持せず、session-local の一時参照として扱います。通常検証は fake adapter / fixture / RSS fixture を使い、network 非依存を維持します。
 
-Investment News dashboard はサイドメニューの `投資レーダー` から開けます。現時点では `backend/news` の snapshot / status / cache / refresh manager と deterministic dashboard builder を使い、保存済みsnapshotがなければ fake snapshot / fixture から市場ニュースヘッドライン、株式ヒートマップ風の投資ヒートマップ、3列のカテゴリ別ニュースカード、銘柄名付き関連銘柄の `銘柄コックピット` 導線を表示します。投資ヒートマップはニュースに直接紐づいた関連銘柄だけでなく、ローカル銘柄ユニバース全体からカテゴリ適合、時価総額帯、データ品質、ニュース鮮度、材料タイプ、市場シグナルを見て注目度順の銘柄タイルを補完します。市場指標がある場合は値動き / 取引量を使い、欠ける場合はニュース材料から代理シグナルを補完します。銘柄タイルは企業名を主、シンボルを補助タグとして表示し、クリックすると同一アプリ内の該当 `銘柄コックピット` へ移動します。Investment Score / Research Score / Ranking order は変更しません。詳細フィルタ、Watchlist連動、通知、追加providerは後続範囲です。
+Investment News dashboard はサイドメニューの `投資レーダー` から開けます。現時点では `backend/news` の snapshot / status / cache / refresh manager と deterministic dashboard builder を使い、保存済みsnapshotがなければ fake snapshot / fixture から市場ニュースヘッドライン、株式ヒートマップ風の投資ヒートマップ、3列のカテゴリ別ニュースカード、銘柄名付き関連銘柄の `銘柄コックピット` 導線を表示します。ニュースカードの関連銘柄は、本文に出た銘柄を最大8件まで優先表示し、残り枠に `SMAI推測候補` を補完します。投資ヒートマップはニュースに直接紐づいた関連銘柄だけでなく、ローカル銘柄ユニバース全体からカテゴリ適合、時価総額帯、データ品質、ニュース鮮度、材料タイプ、市場シグナルを見て注目度順の銘柄タイルを補完します。市場指標がある場合は値動き / 取引量を使い、欠ける場合はニュース材料から代理シグナルを補完します。銘柄タイルは企業名を主、シンボルを補助タグとして表示し、クリックすると同一アプリ内の該当 `銘柄コックピット` へ移動します。Investment Score / Research Score / Ranking order は変更しません。詳細フィルタ、Watchlist連動、通知、追加providerは後続範囲です。
 
 ## 3. API 起動と確認
 
@@ -215,6 +218,17 @@ dist\SMAI\README_PRE_RELEASE.txt
 
 `SMAI.exe` は `ui/app.py` を Streamlit headless で起動し、実行時キャッシュ、出力、ログ、ユーザー設定を `%LOCALAPPDATA%\SmartMarketAI` に保存します。配布物には `backend/`, `ui/`, `config/`, 必要最小限の `data/marketdata/`, `data/research_docs/`, `examples/rebalance_scenarios/` を同梱し、`.git/`, `venv_SMAI/`, cache、`outputs/`, live/raw取得物、秘密情報は含めません。
 
+EXE起動時のCRUD系ランタイム領域:
+
+| 用途 | 既定パス | 環境変数 |
+| --- | --- | --- |
+| ニュース/銘柄更新キャッシュ | `%LOCALAPPDATA%\SmartMarketAI\cache` | `SMAI_CACHE_DIR` |
+| エクスポート/生成出力 | `%LOCALAPPDATA%\SmartMarketAI\outputs` | `SMAI_OUTPUT_DIR` |
+| 更新ログ | `%LOCALAPPDATA%\SmartMarketAI\logs` | `SMAI_LOG_DIR` |
+| ユーザー設定 | `%LOCALAPPDATA%\SmartMarketAI\user_config` | `SMAI_USER_CONFIG_DIR` |
+
+ランチャーは上記ディレクトリを起動時に作成し、配布フォルダ直下や `_internal` 配下へ実行時データを書き込まない方針です。通常の開発/CI起動では環境変数がなければ従来どおり `data/cache` と `logs` を使います。
+
 ### Side menu
 
 Streamlit UI は左サイドメニューで画面を切り替えます。
@@ -277,7 +291,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
   - 旧来の `配当重視` / `成長重視` / `割安重視` / `安定重視` / `トレンド重視` は内部互換として残すが、上部UIでは代表プロファイルへ統合して重複表示しない。
 - ランキング結果画面では、`評価方針` で候補を採点し、そのスコア順に上位カード / Top 10棒グラフ / 確認メモを表示する。単一指標ソートは上部ドロップダウンには置かず、詳細テーブルの列ヘッダークリックで表示中データをローカルに並べ替える。詳細テーブルは `順位` / `銘柄` / `銘柄名` / `総合スコア` / `配当利回り` / `PER` / `PBR` / `ROE` / `見方` を常時表示する。`総合スコア` / `配当利回り` / `ROE` / `時価総額` / `出来高` / `データ品質` / `スクリーニング` / `上昇気配` は高い順、`PER` / `PBR` / `ボラティリティ` / `リスク` / `下降警戒` は低い順を最初に確認する。メインチャートは選択中の `評価方針` で使う代表指標の比較であり、詳細テーブルの列ソートでは自動切替しない。欠損値は `N/A` として表示し、ソート時は末尾に置く。データ品質 / 条件適合度 / DB信頼度 / 根拠状態は必要に応じて `信頼度/根拠` にまとめる。長い評価理由、確認ポイント、スコア内訳、取得状態は tooltip / 行クリック後の銘柄データで確認する。
 - `上昇気配` / `下降警戒` は、予測エッジ、モデル別方向エッジ、価格モメンタム、トレンド確認を組み合わせる。予測変化率とモメンタムはボラティリティ調整し、モデル間の開きは直接加点せず、スコアを中立へ寄せる信頼度調整として扱う。ランキングは売買推奨ではなく、深掘り候補の比較優先度として扱う。
-- `作成対象` は、外部 provider 取得前の件数上限です。既定は `標準: 上位300件` で、候補が多い場合は総合マルチファクター基準の条件適合度とDB信頼度で事前に上位候補を選んでから価格データを取得します。`評価方針` の変更、詳細テーブルの列ソート、検索、絞り込みは取得対象を変えず、取得済みデータの再評価・再ソートとして扱います。外部取得は `最新データを取得して更新` を押した場合のみ実行します。全件取得も選べますが、Yahoo live data では時間がかかります。
+- `作成対象` は、外部 provider 取得前の件数上限です。既定は `標準: 上位300件` で、候補が多い場合は総合マルチファクター基準の条件適合度とDB信頼度で事前に上位候補を選んでから価格データを取得します。`評価方針` の変更、詳細テーブルの列ソート、検索、絞り込みは取得対象を変えず、取得済みデータの再評価・再ソートとして扱います。外部取得は `最新データを取得して更新` を押した場合のみ実行します。全件取得も選べますが、Yahoo live data では時間がかかります。ランキング作成前の銘柄DB preflight 更新は、比較候補30件までは全件、31件以上は最大50件、対象スキャンは最大300件に制限し、残りはバックグラウンド優先更新へ回します。
 - ランキング結果の総合スコアには、取得期間の市場評価に加えて、条件適合度とDB信頼度を反映する。
   - 条件適合度: NISA、時価総額、配当、PER/PBR/ROE、ETF経費率、複雑性などを評価方針別に評価する。投資魅力度を直接保証するものではありません。
   - DB信頼度: `metadata_source`、`metadata_as_of` / `metadata_updated_at`、ランキング判断に使う主要項目の登録状況を評価する。
@@ -308,7 +322,9 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
   - 取得期間、候補数、選択数は銘柄リストの上に1行で表示
   - 銘柄リストは折りたたみ内で確認・変更
 - ranking result with ticker / company name / score / warnings
-- ranking result は AgGrid で表示し、銘柄行をクリックするとローカル銘柄マスタ `symbol_universe.csv` の登録値をモーダルで確認できます
+- ranking result は AgGrid で表示し、銘柄行をクリックするとローカル銘柄マスタ `symbol_universe.csv` と保存済み銘柄DB `symbols_cache.json` の登録値をモーダルで確認できます
+- `銘柄データ` モーダルの `データ情報` タブでは、銘柄DB鮮度、銘柄DB最終更新、銘柄DB取得元、価格データ更新、財務データ更新、不足している主要項目を確認できます。これはデータ信頼度の確認材料であり、売買推奨やランキング順位変更ではありません。
+- Cockpit の `データを取得` では選択中1銘柄、Ranking の `最新データを取得して更新` では上記上限内の比較候補を、UI操作を増やさずに銘柄DB preflight 更新対象へ渡します。失敗しても前回保存データと通常の market-data fetch / ranking creation は継続します。
 - 銘柄データモーダルの `AI Research` タブでは、`AIで資料を確認` を押した場合だけ登録済みResearch資料を検索し、Research Summary、根拠資料名、資料日、根拠数、詳細 evidence を確認できます
 - 選択銘柄をコックピットへ渡す deep-dive flow
 
@@ -504,7 +520,7 @@ Yahoo coverage check:
 Phase 16 ranking implementation notes:
 
 - `data/marketdata/symbol_universe.csv` is the ranking candidate master used before provider fetch. It is intentionally curated/local-first and currently carries display/search/filter metadata such as `symbol`, `name`, `market`, `asset_type`, `currency`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases`, `per`, `pbr`, `roe_pct`, `sector`, `consensus_rating`, `forecast_agreement`, `data_quality`, and `risk_band`. Optional `yahoo_symbol` is used only when Yahoo needs a different ticker than the display/source symbol.
-- Streamlit startup starts a daemon background symbol DB refresh worker instead of blocking the UI. The worker reads `symbol_universe.csv`, writes latest-only normalized records to `data/cache/symbols_cache.json`, keeps `symbol_refresh_queue.json` empty after successful batches, and updates `symbol_refresh_status.json`. The current network-free maintenance plan is: immediate startup batch 150 symbols, 75 symbols after 3 minutes, 75 symbols after 8 minutes, then 50 symbols every 5 minutes, with fresh records skipped and a 1000-symbol per-session safety cap.
+- Streamlit startup starts a daemon background symbol DB refresh worker instead of blocking the UI. The worker reads `symbol_universe.csv`, writes latest-only normalized records to `data/cache/symbols_cache.json`, keeps `symbol_refresh_queue.json` empty after successful batches, and updates `symbol_refresh_status.json`. The current network-free maintenance plan is: immediate startup batch 150 symbols, 75 symbols after 3 minutes, 75 symbols after 8 minutes, then 50 symbols every 5 minutes, with fresh records skipped and a 1000-symbol per-session safety cap. Cockpit selected symbols and Ranking comparison targets are registered internally as priority hints, so missing / stale records used by current workflows move ahead of ordinary background candidates without changing the visible UI.
 - To check whether any symbol is stuck in the refresh queue, inspect `symbol_refresh_queue.json` or run `backend.symbols.startup.find_pending_symbol_refresh_tasks()`. A healthy post-startup state has no `pending`, `retryable`, or `in_progress` tasks left after the local batch completes.
 - The Phase 18 schema helper validates required columns, allowed enum values, decimal fields, duplicate tickers, and metadata freshness/source columns without requiring live provider access.
 - The in-page screening condition panel filters comparison candidates by metadata, NISA eligibility, and metric ranges. `取得期間` and `重視して並べ替え` are not screening filters; they control ranking calculation and display ordering.
@@ -537,10 +553,10 @@ Phase 16 final UI smoke checklist:
 
 - 保存済み news dashboard snapshot。保存済みがない場合は network-free demo snapshot を表示する。
 - `ニュース表示を更新` で Standard Mode の外部ニュースRSS取得を実行し、`data/cache/news_dashboard_snapshot.json` に保存する。Google News RSS を12カテゴリで取得し、raw 150〜250件程度の候補から URL / title 重複を除き、最大100件の確認材料に圧縮する。RSS取得に失敗した場合は既存cache、保存済みがなければ demo snapshot にフォールバックする。
-- 上部の状態カードは置かず、更新ボタンと必要時の警告だけを表示する。ヒートマップ本体の top-line でセクター数と銘柄タイル数を確認する。
-- 市場ニュースヘッドライン。読みやすい大きさのニュースティッカーとカードに title、source、published_at、freshness、category、AIコメント、確認ポイント、元記事リンクを表示する。UI初期表示は20〜30件程度に抑え、保存上限100件を一度にカード描画しない。
+- タイトル右上に `情報鮮度` とJST取得時刻を小さく表示する。上部の状態カードは置かず、更新ボタンと必要時の警告だけを表示する。ヒートマップ本体の top-line でセクター数と銘柄タイル数を確認する。
+- 市場ニュースヘッドライン。流れるヘッドラインバーとカードに title、source、published_at、freshness、category、AIコメント、確認ポイント、元記事リンクを表示する。ヘッドラインはピル内で2行まで読めるようにし、UI初期表示は20〜30件程度に抑え、保存上限100件を一度にカード描画しない。
 - 投資ヒートマップ。投資カテゴリをセクター枠、注目銘柄をシンボル＋銘柄名 / 企業名付きタイルとして詰める株式ヒートマップ風UIで、値動き、取引量の活発さ、ニュース件数、freshness、risk / positive / official source count から集計した確認用の温度感を見る。銘柄タイルはニュースに直接紐づく銘柄に加え、`data/marketdata/symbol_universe.csv` の広い候補からカテゴリ適合、時価総額帯、データ品質、市場シグナルを使って注目度順に補完する。市場指標が欠けるカテゴリは、ニュース材料の positive / risk / official / heat_score から `ニュース代理` のシグナルを表示する。
-- カテゴリ別ニュースレーン。カテゴリごとの代表ニュースを幅のある3列カードで確認し、関連銘柄は縦並びボタンで銘柄名 / 企業名を読みやすくする。
+- カテゴリ別ニュースレーン。カテゴリごとの代表ニュースを幅のある3列カードで確認し、関連銘柄は `本文に出た銘柄` と `SMAI推測候補` を分けて縦並びボタンで表示する。本文に出た銘柄は最大8件まで優先し、推測候補は残り枠に可変で補完する。
 - 関連銘柄ボタンにはシンボルと銘柄名 / 企業名を表示し、`銘柄コックピット` へ遷移する。Investment Score / Research Score / Ranking order は変更しない。
 
 運用上の注意:

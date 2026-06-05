@@ -4,7 +4,9 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-NEWS_LOG_DIR = Path("logs")
+from backend.core.runtime_paths import LOG_DIR_ENV, runtime_path_from_env
+
+NEWS_LOG_DIR = runtime_path_from_env(LOG_DIR_ENV, "logs")
 NEWS_UPDATE_LOG_FILENAME = "news_update.log"
 NEWS_UPDATE_LOG_MAX_BYTES = 1_000_000
 NEWS_UPDATE_LOG_BACKUP_COUNT = 3

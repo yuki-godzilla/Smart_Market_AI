@@ -93,6 +93,18 @@ def test_page_title_html_uses_screen_specific_mascot_asset_and_escapes_copy():
     assert "data:image/webp;base64," in markup
 
 
+def test_page_title_html_can_include_top_right_accessory():
+    markup = page_title_html(
+        "投資レーダー",
+        "市場ニュースを確認します。",
+        "investment_radar",
+        accessory_html='<span class="demo-accessory">情報鮮度 最新</span>',
+    )
+
+    assert 'class="smai-page-title-accessory"' in markup
+    assert '<span class="demo-accessory">情報鮮度 最新</span>' in markup
+
+
 def test_cockpit_page_title_uses_copilot_presence_panel():
     markup = page_title_html(
         "銘柄<コックピット>",

@@ -32,6 +32,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - Symbol database background refresh foundation
   - freshness classification, refresh priority queue, queue/status recovery, latest-only normalized symbol cache
   - Streamlit startup daemon worker that updates missing / stale local symbol records without blocking rendering
+  - Cockpit selected-symbol caption and the shared Ranking / Cockpit `銘柄データ` modal show saved symbol DB freshness, source, update times, and missing key fields
 - Low-cost Assistant backend first slice
   - deterministic `TemplateAssistantService` that explains score / risk / research / next checkpoints from Decision Report context without LLM or network
 - Streamlit UI
@@ -49,7 +50,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - Research Score によるランキング順位統合は現時点では見送り。Cockpit / Ranking Research Summary と Cockpit Decision Report への参考表示、Investment Score optional numeric input、disabled-by-default weight は対応済み
 - `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動、通知
 - Assistant API / Streamlit 質問パネル、optional LLM provider
-- 銘柄DB freshness badge / live provider refresh wiring の visible UI 接続
+- 銘柄DB live provider refresh wiring / 手動更新導線の UI 接続
 - broker への live order 送信
 - Execution workflow
 - PDF / Excel export
@@ -308,7 +309,8 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
   - 取得期間、候補数、選択数は銘柄リストの上に1行で表示
   - 銘柄リストは折りたたみ内で確認・変更
 - ranking result with ticker / company name / score / warnings
-- ranking result は AgGrid で表示し、銘柄行をクリックするとローカル銘柄マスタ `symbol_universe.csv` の登録値をモーダルで確認できます
+- ranking result は AgGrid で表示し、銘柄行をクリックするとローカル銘柄マスタ `symbol_universe.csv` と保存済み銘柄DB `symbols_cache.json` の登録値をモーダルで確認できます
+- `銘柄データ` モーダルの `データ情報` タブでは、銘柄DB鮮度、銘柄DB最終更新、銘柄DB取得元、価格データ更新、財務データ更新、不足している主要項目を確認できます。これはデータ信頼度の確認材料であり、売買推奨やランキング順位変更ではありません。
 - 銘柄データモーダルの `AI Research` タブでは、`AIで資料を確認` を押した場合だけ登録済みResearch資料を検索し、Research Summary、根拠資料名、資料日、根拠数、詳細 evidence を確認できます
 - 選択銘柄をコックピットへ渡す deep-dive flow
 

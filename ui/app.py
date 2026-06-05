@@ -289,6 +289,11 @@ from ui.styles import (
     truncate_text,
 )
 from ui.symbol_universe import (
+    SYMBOL_CACHE_FRESHNESS_STATUS_FIELD,
+    SYMBOL_CACHE_LAST_FUNDAMENTAL_UPDATED_AT_FIELD,
+    SYMBOL_CACHE_LAST_PRICE_UPDATED_AT_FIELD,
+    SYMBOL_CACHE_PROVIDER_FIELD,
+    SYMBOL_CACHE_UPDATED_AT_FIELD,
     symbol_provider_symbol,
 )
 from ui.symbol_universe import (
@@ -1738,6 +1743,30 @@ def _ranking_result_matches_current_selection(
     return bool(current_source) and stored_source == current_source
 
 
+SYMBOL_CACHE_FRESHNESS_LABELS = {
+    "fresh": "最新",
+    "stale": "やや古い",
+    "expired": "古い",
+    "missing": "未取得",
+}
+SYMBOL_CACHE_COMMON_REQUIRED_FIELDS = ("metadata_source", "metadata_as_of")
+SYMBOL_CACHE_STOCK_REQUIRED_FIELDS = (
+    "per",
+    "pbr",
+    "roe_pct",
+    "dividend_yield_pct",
+    "market_cap_tier",
+    "risk_band",
+)
+SYMBOL_CACHE_FUND_REQUIRED_FIELDS = (
+    "index_family",
+    "expense_ratio_pct",
+    "dividend_yield_pct",
+    "complexity",
+)
+SYMBOL_CACHE_MISSING_FIELD_DISPLAY_LIMIT = 6
+
+
 def _symbol_universe_row_for_symbol(symbol: str) -> dict[str, str] | None:
     normalized_symbol = symbol.strip().upper()
     return _symbol_universe_rows_by_symbol().get(normalized_symbol)
@@ -1836,7 +1865,21 @@ def symbol_universe_detail_display_value(row: dict[str, str], column: str) -> st
         if ranking_fundamental_metric_is_abnormal(column, value):
             return RANKING_ABNORMAL_DIVIDEND_DISPLAY
         return _symbol_detail_decimal_display(value)
-    if column in {"metadata_as_of", "metadata_updated_at"}:
+    if column == SYMBOL_CACHE_PROVIDER_FIELD:
+        return (
+            SYMBOL_UNIVERSE_DISPLAY_LABELS["metadata_source"].get(value, value)
+            if value
+            else "未登録"
+        )
+    if column == SYMBOL_CACHE_FRESHNESS_STATUS_FIELD:
+        return SYMBOL_CACHE_FRESHNESS_LABELS.get(value, value) if value else "未取得"
+    if column in {
+        "metadata_as_of",
+        "metadata_updated_at",
+        SYMBOL_CACHE_UPDATED_AT_FIELD,
+        SYMBOL_CACHE_LAST_PRICE_UPDATED_AT_FIELD,
+        SYMBOL_CACHE_LAST_FUNDAMENTAL_UPDATED_AT_FIELD,
+    }:
         return _symbol_detail_date_display(value)
     if column == "yahoo_symbol":
         return value or "表示銘柄と同じ"
@@ -1878,6 +1921,111 @@ def _symbol_detail_row(label: str, value: str) -> dict[str, str]:
 
 def _symbol_data_info_row(label: str, value: str, purpose: str) -> dict[str, str]:
     return {"項目": label, "内容": value or "未登録", "使い道": purpose}
+
+
+def symbol_universe_missing_key_fields(row: dict[str, str]) -> list[str]:
+    required_fields = list(SYMBOL_CACHE_COMMON_REQUIRED_FIELDS)
+    asset_type = _symbol_detail_raw_value(row, "asset_type")
+    if asset_type == "etf":
+        required_fields.extend(SYMBOL_CACHE_FUND_REQUIRED_FIELDS)
+    elif asset_type in {"stock", "adr"} or not asset_type:
+        required_fields.extend(SYMBOL_CACHE_STOCK_REQUIRED_FIELDS)
+    else:
+        required_fields.extend(("dividend_yield_pct", "risk_band"))
+    return [
+        _symbol_missing_field_label(field)
+        for field in required_fields
+        if not _symbol_detail_raw_value(row, field)
+    ]
+
+
+def symbol_universe_missing_key_fields_display(row: dict[str, str]) -> str:
+    fields = symbol_universe_missing_key_fields(row)
+    if not fields:
+        return "主要項目は登録済み"
+    visible = fields[:SYMBOL_CACHE_MISSING_FIELD_DISPLAY_LIMIT]
+    suffix = ""
+    remaining_count = len(fields) - len(visible)
+    if remaining_count > 0:
+        suffix = f" ほか{remaining_count}件"
+    return "、".join(visible) + suffix
+
+
+def _symbol_missing_field_label(field: str) -> str:
+    label = SYMBOL_UNIVERSE_DETAIL_LABELS.get(field, field)
+    return label.replace("(%)", "")
+
+
+def symbol_universe_cache_status_text(row: dict[str, str]) -> str:
+    status = symbol_universe_detail_display_value(row, SYMBOL_CACHE_FRESHNESS_STATUS_FIELD)
+    updated_at = symbol_universe_detail_display_value(row, SYMBOL_CACHE_UPDATED_AT_FIELD)
+    provider = symbol_universe_detail_display_value(row, SYMBOL_CACHE_PROVIDER_FIELD)
+    if provider == "未登録":
+        provider = symbol_universe_detail_display_value(row, "metadata_source")
+    parts = [f"銘柄DB: {status}"]
+    parts.append(f"最終更新 {updated_at if updated_at != '未登録' else '未取得'}")
+    parts.append(f"取得元 {provider}")
+    missing_fields = symbol_universe_missing_key_fields(row)
+    if missing_fields:
+        parts.append(f"不足 {len(missing_fields)}項目")
+    return " / ".join(parts)
+
+
+def symbol_universe_cache_notice(row: dict[str, str]) -> str:
+    status = _symbol_detail_raw_value(row, SYMBOL_CACHE_FRESHNESS_STATUS_FIELD) or "missing"
+    if status in {"stale", "expired"}:
+        return (
+            "一部データが古い可能性があります。前回保存値を表示しつつ、"
+            "必要に応じてバックグラウンド更新を待ってください。"
+        )
+    if status == "missing":
+        return (
+            "保存済み銘柄DBの更新情報はまだありません。"
+            "ローカル銘柄マスタの登録値を表示しています。"
+        )
+    if symbol_universe_missing_key_fields(row):
+        return (
+            "主要項目の一部が未登録です。"
+            "スコアやランキングは取得済みの材料だけで確認してください。"
+        )
+    return ""
+
+
+def symbol_universe_cache_status_rows(row: dict[str, str]) -> list[dict[str, str]]:
+    return [
+        _symbol_data_info_row(
+            "銘柄DB鮮度",
+            symbol_universe_detail_display_value(row, SYMBOL_CACHE_FRESHNESS_STATUS_FIELD),
+            "保存済み銘柄データをそのまま読めるか、再確認が必要かを見ます。",
+        ),
+        _symbol_data_info_row(
+            "銘柄DB最終更新",
+            symbol_universe_detail_display_value(row, SYMBOL_CACHE_UPDATED_AT_FIELD),
+            "バックグラウンド更新で最後に保存した日時です。",
+        ),
+        _symbol_data_info_row(
+            "銘柄DB取得元",
+            symbol_universe_detail_display_value(row, SYMBOL_CACHE_PROVIDER_FIELD),
+            "保存済み銘柄DBを更新したproviderです。",
+        ),
+        _symbol_data_info_row(
+            "価格データ更新",
+            symbol_universe_detail_display_value(row, SYMBOL_CACHE_LAST_PRICE_UPDATED_AT_FIELD),
+            "株価・出来高など価格系データの取得タイミングを確認します。",
+        ),
+        _symbol_data_info_row(
+            "財務データ更新",
+            symbol_universe_detail_display_value(
+                row, SYMBOL_CACHE_LAST_FUNDAMENTAL_UPDATED_AT_FIELD
+            ),
+            "PER/PBR/ROE/配当など財務・分類系データの取得タイミングを確認します。",
+        ),
+        _symbol_data_info_row(
+            "不足している主要項目",
+            symbol_universe_missing_key_fields_display(row),
+            "空欄が多い銘柄では評価材料が少ないため、追加確認が必要です。",
+        ),
+    ]
 
 
 def symbol_universe_overview_rows(row: dict[str, str]) -> list[dict[str, str]]:
@@ -1964,6 +2112,7 @@ def symbol_universe_fund_detail_rows(row: dict[str, str]) -> list[dict[str, str]
 
 def symbol_universe_data_info_rows(row: dict[str, str]) -> list[dict[str, str]]:
     return [
+        *symbol_universe_cache_status_rows(row),
         _symbol_data_info_row(
             "データ出所",
             symbol_universe_detail_display_value(row, "metadata_source"),
@@ -2713,6 +2862,14 @@ def _render_symbol_universe_detail_dialog(
     display_name = row.get("name") or symbol
     st.subheader(f"{symbol} - {display_name}")
     st.caption("ローカル銘柄マスタの登録値を、確認しやすい項目に整理しています。")
+    st.caption(symbol_universe_cache_status_text(row))
+    cache_notice = symbol_universe_cache_notice(row)
+    if cache_notice:
+        cache_status = _symbol_detail_raw_value(row, SYMBOL_CACHE_FRESHNESS_STATUS_FIELD)
+        if cache_status in {"stale", "expired"}:
+            st.warning(cache_notice)
+        else:
+            st.caption(cache_notice)
 
     metric_columns = st.columns(4)
     for column, metric in zip(metric_columns, symbol_universe_key_metric_rows(row), strict=False):
@@ -4467,6 +4624,9 @@ def _render_market_data_cockpit() -> None:
     with col_name:
         company_name = symbol_name(symbol) or _name_from_candidate(symbol_candidate) or ""
         st.text_input("銘柄名", value=company_name, disabled=True, key="market_data_symbol_name")
+    symbol_detail_row = _symbol_universe_row_for_symbol(symbol) if symbol else None
+    if symbol_detail_row is not None:
+        st.caption(symbol_universe_cache_status_text(symbol_detail_row))
     col_period, col_start, col_end, _ = st.columns([1.2, 1.0, 1.0, 3.8])
     with col_period:
         period_preset = cast(

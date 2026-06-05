@@ -197,12 +197,15 @@ from ui.app import (
     set_cached_ranking_build,
     symbol_candidate_label,
     symbol_detail_table_html,
+    symbol_universe_cache_notice,
+    symbol_universe_cache_status_text,
     symbol_universe_data_info_rows,
     symbol_universe_detail_display_value,
     symbol_universe_detail_rows,
     symbol_universe_fund_detail_rows,
     symbol_universe_investment_metric_rows,
     symbol_universe_key_metric_rows,
+    symbol_universe_missing_key_fields_display,
     symbol_universe_nisa_display,
     symbol_universe_overview_rows,
 )
@@ -722,6 +725,81 @@ def test_symbol_universe_data_info_rows_explain_how_values_are_used():
     assert rows[-1]["項目"] == "価格取得用ticker"
     assert rows[-1]["内容"] == "表示銘柄と同じ"
     assert "Yahoo取得時" in rows[-1]["使い道"]
+
+
+def test_symbol_universe_data_info_rows_include_runtime_cache_freshness():
+    rows = symbol_universe_data_info_rows(
+        {
+            "asset_type": "stock",
+            "metadata_source": "yahoo",
+            "metadata_as_of": "2026-06-01",
+            "metadata_updated_at": "2026-06-01T13:00:00+09:00",
+            "symbol_cache_provider": "yahoo",
+            "symbol_cache_updated_at": "2026-06-04T09:00:00",
+            "symbol_cache_last_price_updated_at": "2026-06-04T08:30:00",
+            "symbol_cache_last_fundamental_updated_at": "2026-06-04T08:45:00",
+            "symbol_cache_freshness_status": "fresh",
+            "per": "28.1",
+            "pbr": "7.2",
+            "roe_pct": "24",
+            "dividend_yield_pct": "0.5",
+            "market_cap_tier": "large",
+            "risk_band": "LOW",
+            "yahoo_symbol": "",
+        }
+    )
+
+    assert rows[0] == {
+        "項目": "銘柄DB鮮度",
+        "内容": "最新",
+        "使い道": "保存済み銘柄データをそのまま読めるか、再確認が必要かを見ます。",
+    }
+    assert {
+        "項目": "銘柄DB取得元",
+        "内容": "Yahoo Finance",
+        "使い道": "保存済み銘柄DBを更新したproviderです。",
+    } in rows
+    assert {
+        "項目": "不足している主要項目",
+        "内容": "主要項目は登録済み",
+        "使い道": "空欄が多い銘柄では評価材料が少ないため、追加確認が必要です。",
+    } in rows
+
+
+def test_symbol_universe_cache_status_text_and_notice_show_stale_missing_fields():
+    row = {
+        "asset_type": "stock",
+        "metadata_source": "yahoo",
+        "metadata_as_of": "2026-06-01",
+        "symbol_cache_provider": "yahoo",
+        "symbol_cache_updated_at": "2026-06-04T09:00:00",
+        "symbol_cache_freshness_status": "stale",
+        "per": "28.1",
+    }
+
+    assert symbol_universe_cache_status_text(row) == (
+        "銘柄DB: やや古い / 最終更新 2026-06-04 09:00 / " "取得元 Yahoo Finance / 不足 5項目"
+    )
+    assert symbol_universe_missing_key_fields_display(row).startswith("PBR、ROE")
+    assert "一部データが古い可能性" in symbol_universe_cache_notice(row)
+
+
+def test_symbol_universe_cache_status_text_falls_back_to_local_master_when_cache_missing():
+    row = {
+        "asset_type": "etf",
+        "metadata_source": "curated_csv",
+        "metadata_as_of": "2026-06-01",
+        "index_family": "sp500",
+        "expense_ratio_pct": "0.09",
+        "dividend_yield_pct": "1.1",
+        "complexity": "beginner",
+    }
+
+    assert symbol_universe_cache_status_text(row) == (
+        "銘柄DB: 未取得 / 最終更新 未取得 / 取得元 手動整備CSV"
+    )
+    assert symbol_universe_missing_key_fields_display(row) == "主要項目は登録済み"
+    assert "ローカル銘柄マスタ" in symbol_universe_cache_notice(row)
 
 
 def test_symbol_detail_dialog_css_expands_width_and_wraps_metric_values():

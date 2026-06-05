@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-06-05: Connected the Symbol DB background refresh cache to visible Cockpit / Ranking UI. `symbol_universe_runtime_rows()` now carries saved `SymbolRecord` provider, update timestamps, and freshness; Cockpit shows a compact selected-symbol `銘柄DB` status line, and the shared `銘柄データ` modal shows freshness, source, price/fundamental update times, and missing key fields in `データ情報`.
 - 2026-06-05: Restored the animated Investment Radar market headline strip while keeping the anti-clipping layout. Headlines now scroll again as two-line pills, duplicate items are hidden from assistive tech with `aria-hidden`, and reduced-motion users still get a wrapped static layout.
 - 2026-06-05: Adjusted Investment Radar news layout after longer wording caused visible clipping. The market headline strip now uses wrappable headline pills instead of a single scrolling line, and compact news cards no longer use a fixed height; title / summary / comment text is line-clamped within a taller auto-height card so symbol handoff controls stay below readable card content.
 - 2026-06-05: Switched Investment Radar news time labels from UTC to JST after the compact freshness badge made fresh morning updates look like the previous day. Added a date-rollover regression test for `2026-06-04 23:13 UTC` displaying as `2026-06-05 08:13 JST`.

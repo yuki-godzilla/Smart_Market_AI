@@ -84,6 +84,8 @@ from backend.symbols.background import (
     request_symbol_background_refresh,
     start_symbol_background_refresh_worker,
 )
+from backend.symbols.contracts import SymbolStartupRefreshSummary
+from backend.symbols.startup import run_symbol_database_target_refresh
 from ui.components.mascot import (
     render_app_header,
     render_mascot_loading,
@@ -472,6 +474,11 @@ RANKING_LOW_VALUE_BETTER_COLUMNS = {"PER", "PBR", "ボラティリティ", "Risk
 SYMBOL_AUTO_REFRESH_REQUEST_STATE_KEY = "symbol_auto_refresh_requests"
 SYMBOL_AUTO_REFRESH_REQUEST_KEY_LIMIT = 100
 RANKING_AUTO_REFRESH_SYMBOL_LIMIT = 300
+SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY = "symbol_preflight_refresh_last_error_type"
+COCKPIT_SYMBOL_DB_PREFLIGHT_MAX_ITEMS = 1
+RANKING_SYMBOL_DB_PREFLIGHT_DIRECT_THRESHOLD = 30
+RANKING_SYMBOL_DB_PREFLIGHT_MAX_ITEMS = 50
+RANKING_SYMBOL_DB_PREFLIGHT_SCAN_LIMIT = 300
 RANKING_NUMERIC_SORT_COMPARATOR = JsCode(
     """
 function(valueA, valueB, nodeA, nodeB, isDescending) {
@@ -1642,6 +1649,45 @@ def _request_symbol_auto_refresh_once(
     st.session_state[SYMBOL_AUTO_REFRESH_REQUEST_STATE_KEY] = requested_keys[
         -SYMBOL_AUTO_REFRESH_REQUEST_KEY_LIMIT:
     ]
+
+
+def ranking_symbol_db_preflight_limit(symbol_count: int) -> int:
+    if symbol_count <= 0:
+        return 0
+    if symbol_count <= RANKING_SYMBOL_DB_PREFLIGHT_DIRECT_THRESHOLD:
+        return symbol_count
+    return min(symbol_count, RANKING_SYMBOL_DB_PREFLIGHT_MAX_ITEMS)
+
+
+def ranking_symbol_db_preflight_symbols(symbols: Sequence[str]) -> list[str]:
+    return _symbol_auto_refresh_symbols(
+        symbols,
+        max_symbols=RANKING_SYMBOL_DB_PREFLIGHT_SCAN_LIMIT,
+    )
+
+
+def _run_symbol_database_preflight_refresh(
+    symbols: Sequence[str],
+    *,
+    context: Literal["cockpit", "ranking"],
+    max_items: int,
+) -> SymbolStartupRefreshSummary | None:
+    max_symbols = RANKING_SYMBOL_DB_PREFLIGHT_SCAN_LIMIT if context == "ranking" else max_items
+    target_symbols = _symbol_auto_refresh_symbols(symbols, max_symbols=max_symbols)
+    if max_items <= 0 or not target_symbols:
+        return None
+    try:
+        summary = run_symbol_database_target_refresh(
+            target_symbols,
+            max_items=max_items,
+            currently_visible_symbols=target_symbols if context == "cockpit" else None,
+            ranking_candidates=target_symbols if context == "ranking" else None,
+        )
+        st.session_state.pop(SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY, None)
+        return summary
+    except Exception as exc:  # noqa: BLE001
+        st.session_state[SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY] = type(exc).__name__
+        return None
 
 
 def _symbol_auto_refresh_symbols(symbols: Sequence[str], *, max_symbols: int) -> list[str]:
@@ -4777,6 +4823,11 @@ def _render_market_data_cockpit() -> None:
                     message="価格、予測、スコアの材料をまとめています。少しだけお待ちください。",
                     tone="forecast",
                 )
+            _run_symbol_database_preflight_refresh(
+                [symbol],
+                context="cockpit",
+                max_items=COCKPIT_SYMBOL_DB_PREFLIGHT_MAX_ITEMS,
+            )
             preview = asyncio.run(
                 build_market_data_preview(
                     symbol=symbol.strip(),
@@ -5159,6 +5210,11 @@ def _render_market_data_ranking() -> None:
             progress_bar.progress(max(0.0, min(1.0, ratio)))
 
         try:
+            _run_symbol_database_preflight_refresh(
+                ranking_symbol_db_preflight_symbols(ranking_symbols),
+                context="ranking",
+                max_items=ranking_symbol_db_preflight_limit(len(ranking_symbols)),
+            )
             rows, error_rows = asyncio.run(
                 _build_market_data_ranking_rows(
                     ranking_symbols,

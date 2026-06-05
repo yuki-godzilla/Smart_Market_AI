@@ -148,6 +148,108 @@ def run_symbol_database_startup_refresh(
     )
 
 
+def run_symbol_database_target_refresh(
+    symbols: Iterable[str],
+    *,
+    cache_dir: Path | str = SYMBOL_CACHE_DIR,
+    symbol_universe_csv: Path | str = SYMBOL_UNIVERSE_CSV,
+    now: datetime | None = None,
+    max_items: int = 50,
+    force: bool = False,
+    currently_visible_symbols: Iterable[str] | None = None,
+    ranking_candidates: Iterable[str] | None = None,
+) -> SymbolStartupRefreshSummary:
+    """Refresh only workflow-target symbols before an explicit user action."""
+
+    current_time = now or datetime.utcnow()
+    cleanup_symbol_refresh_artifacts(cache_dir=cache_dir, now=current_time)
+    target_symbols = _normalize_symbol_list(symbols)
+    queue = load_symbol_refresh_queue(cache_dir=cache_dir)
+    if max_items <= 0 or not target_symbols:
+        return _summary_from_counts(
+            attempted_count=0,
+            succeeded_count=0,
+            failed_count=0,
+            skipped_count=0,
+            queue=queue,
+            cache_dir=cache_dir,
+        )
+
+    rows = _load_symbol_universe_rows(Path(symbol_universe_csv))
+    if not rows:
+        return _summary_from_counts(
+            attempted_count=0,
+            succeeded_count=0,
+            failed_count=0,
+            skipped_count=len(target_symbols),
+            queue=queue,
+            cache_dir=cache_dir,
+        )
+
+    row_by_symbol = {row["symbol"].strip().upper(): row for row in rows if row.get("symbol")}
+    known_target_symbols = [symbol for symbol in target_symbols if symbol in row_by_symbol]
+    if not known_target_symbols:
+        return _summary_from_counts(
+            attempted_count=0,
+            succeeded_count=0,
+            failed_count=0,
+            skipped_count=len(target_symbols),
+            queue=queue,
+            cache_dir=cache_dir,
+        )
+
+    records = load_symbol_records(cache_dir=cache_dir)
+    known_target_symbol_set = set(known_target_symbols)
+    symbol_records = {
+        symbol: {"last_refreshed_at": record.updated_at}
+        for symbol, record in records.items()
+        if symbol in known_target_symbol_set
+    }
+    currently_visible_symbol_set = _normalize_symbol_set(currently_visible_symbols)
+    ranking_candidate_set = _normalize_symbol_set(ranking_candidates)
+    tasks = build_symbol_refresh_queue(
+        known_target_symbols,
+        symbol_records=symbol_records,
+        importance_meta=_importance_meta_by_symbol(rows),
+        now=current_time,
+        reason="target_preflight_refresh",
+        force=force,
+        currently_visible_symbols=currently_visible_symbol_set,
+        ranking_candidates=ranking_candidate_set,
+        max_items=max_items,
+    )
+    if not tasks:
+        return _summary_from_counts(
+            attempted_count=0,
+            succeeded_count=0,
+            failed_count=0,
+            skipped_count=0,
+            queue=load_symbol_refresh_queue(cache_dir=cache_dir),
+            cache_dir=cache_dir,
+        )
+
+    result = refresh_symbols_if_needed(
+        provider=lambda task: _record_from_symbol_row(task, row_by_symbol, current_time),
+        tasks=tasks,
+        cache_dir=cache_dir,
+        now=current_time,
+        max_items=max_items,
+        force=force,
+    )
+    queue = load_symbol_refresh_queue(cache_dir=cache_dir)
+    return _summary_from_counts(
+        attempted_count=result.attempted_count,
+        succeeded_count=result.succeeded_count,
+        failed_count=result.failed_count,
+        skipped_count=result.skipped_count,
+        queue=queue,
+        cache_dir=cache_dir,
+        refreshed_symbols=[
+            item.symbol for item in result.items if item.success and item.updated_fields
+        ],
+    )
+
+
 def find_pending_symbol_refresh_tasks(
     *,
     cache_dir: Path | str = SYMBOL_CACHE_DIR,
@@ -232,6 +334,18 @@ def _normalize_symbol_set(symbols: Iterable[str] | None) -> set[str]:
     if symbols is None:
         return set()
     return {symbol.strip().upper() for symbol in symbols if symbol.strip()}
+
+
+def _normalize_symbol_list(symbols: Iterable[str]) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for symbol in symbols:
+        normalized = symbol.strip().upper()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        result.append(normalized)
+    return result
 
 
 def _summary_from_counts(

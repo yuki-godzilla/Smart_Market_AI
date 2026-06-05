@@ -59,7 +59,7 @@ Research RAG は Phase 20 local evidence slice が決定的な土台として実
 - 追加 provider / fund metadata source adapter
 - Research RAG の `ResearchFactSummary` 抽出対象拡張、追加 external source adapter、vector / hybrid search の運用UI
 - `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動、通知
-- 銘柄DB background refresh の live provider refresh wiring。`backend/symbols` の foundation、Streamlit daemon worker、Cockpit / Ranking 共通の visible freshness 表示、Cockpit / Ranking 対象銘柄の自動優先更新は実装済み
+- 銘柄DB background refresh の live provider refresh wiring。`backend/symbols` の foundation、Streamlit daemon worker、Cockpit / Ranking 共通の visible freshness 表示、Cockpit / Ranking 対象銘柄の自動優先更新、Cockpit / Ranking 操作直前の軽量 preflight 更新は実装済み
 - Research Score によるランキング順位統合は、現時点では見送り。必要性が再確認された場合のみ後続の opt-in 機能として扱う
 - Assistant API / Streamlit 質問パネル、optional LLM provider。`backend/assistant` の deterministic template service は初期実装済み
 - broker への live order 送信
@@ -1178,6 +1178,7 @@ Phase 22.z: 銘柄データベース自動リフレッシュ基盤
 - 22.z-3: `backend/symbols/repository.py`、`backend/symbols/refresh_manager.py`、`backend/symbols/logging_utils.py` を追加し、正規化済み latest-only `SymbolRecord` 保存、raw/debug field 除外、1銘柄単位の保存、provider失敗時の既存データ維持、`RotatingFileHandler` ログを実装。
 - 22.z-4 follow-up: `backend/symbols/startup.py` と `ui/app.py` startup hook を追加し、その後 visible startup path から daemon background worker へ切り替え済み。現在の short-session plan は `data/marketdata/symbol_universe.csv` から 150 symbols immediately、75 after 3 minutes、75 after 8 minutes、then 50 every 5 minutes を local-first に `symbols_cache.json` へ正規化保存し、fresh records を skip しつつ 1000 symbols per session で止める。`symbol_refresh_queue.json` は成功 batch 後に空へ戻し、`pending` / `retryable` / `in_progress` を残さない。
 - 22.z-5 follow-up: Cockpit の選択銘柄と Ranking の比較対象銘柄を、ユーザー操作を増やさず background refresh の priority hint として登録する。`currently_visible_symbols` / `ranking_candidates` を既存 priority queue に渡し、missing / stale records を通常候補より先に更新する。visible UI は変更しない。
+- 22.z-6 follow-up: ユーザーに明示操作を増やさず、Cockpit の `データを取得` 実行時は対象1銘柄を、Ranking の `最新データを取得して更新` 実行時はランキング作成前に比較候補を lightweight preflight refresh する。ランキングは性能劣化を避けるため、比較候補30件までは全件、31件以上は最大50件、対象スキャンは最大300件までに制限し、残りは既存の background priority refresh に任せる。visible UI は変更しない。
 - 通常確認は network-free tests のみで完結する。visible UI freshness 表示は、Cockpit の選択銘柄行と Ranking / Cockpit 共通の `銘柄データ` モーダルへ初期接続済み。実provider refresh wiring は後続Phaseの接続作業として扱う。
 
 基本UX:

@@ -54,9 +54,11 @@ from ui.app import (
     MARKET_DATA_PERIOD_PRESETS,
     NO_SYMBOL_CANDIDATE_LABEL,
     RANKING_RESULT_GRID_CUSTOM_CSS,
+    RANKING_SYMBOL_DB_PREFLIGHT_SCAN_LIMIT,
     RANKING_TABLE_SORT_GUIDANCE,
     SYMBOL_AUTO_REFRESH_REQUEST_STATE_KEY,
     SYMBOL_DETAIL_DIALOG_CSS,
+    SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY,
     RankingResearchStatus,
     _apply_navigation_query_params,
     _build_market_data_ranking_rows,
@@ -142,6 +144,7 @@ from ui.app import (
     _research_score_warning_rows,
     _research_table_html,
     _research_terms_preview,
+    _run_symbol_database_preflight_refresh,
     _select_ranking_symbol_for_cockpit_with_period,
     _stock_news_display_rows,
     _symbol_from_candidate,
@@ -192,6 +195,8 @@ from ui.app import (
     ranking_score_confidence_frame,
     ranking_score_detail_rows,
     ranking_summary_cards,
+    ranking_symbol_db_preflight_limit,
+    ranking_symbol_db_preflight_symbols,
     ranking_top_candidate_cards,
     score_component_rows,
     score_confidence_hierarchy_rows,
@@ -849,6 +854,76 @@ def test_symbol_auto_refresh_once_dedupes_session_requests(monkeypatch):
     assert calls == [(["AAPL"], "cockpit")]
     assert isinstance(requested_keys, list)
     assert len(requested_keys) == 1
+
+
+def test_ranking_symbol_db_preflight_limit_bounds_large_requests():
+    assert ranking_symbol_db_preflight_limit(0) == 0
+    assert ranking_symbol_db_preflight_limit(12) == 12
+    assert ranking_symbol_db_preflight_limit(30) == 30
+    assert ranking_symbol_db_preflight_limit(31) == 31
+    assert ranking_symbol_db_preflight_limit(300) == 50
+    assert ranking_symbol_db_preflight_limit(1200) == 50
+
+
+def test_ranking_symbol_db_preflight_symbols_dedupes_and_caps_scan_set():
+    symbols = [" aapl ", "AAPL", *[f"T{index:04d}" for index in range(400)]]
+
+    result = ranking_symbol_db_preflight_symbols(symbols)
+
+    assert result[:2] == ["AAPL", "T0000"]
+    assert len(result) == RANKING_SYMBOL_DB_PREFLIGHT_SCAN_LIMIT
+    assert len(set(result)) == len(result)
+
+
+def test_symbol_database_preflight_refresh_passes_ranking_context(monkeypatch):
+    session_state: dict[str, object] = {
+        SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY: "RuntimeError",
+    }
+    calls: list[dict[str, object]] = []
+    summary = SimpleNamespace(succeeded_count=1)
+
+    def fake_target_refresh(symbols: list[str], **kwargs: object) -> object:
+        calls.append({"symbols": list(symbols), **kwargs})
+        return summary
+
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.app.run_symbol_database_target_refresh", fake_target_refresh)
+
+    result = _run_symbol_database_preflight_refresh(
+        [" aapl ", "AAPL", "7203.t"],
+        context="ranking",
+        max_items=31,
+    )
+
+    assert result is summary
+    assert calls == [
+        {
+            "symbols": ["AAPL", "7203.T"],
+            "max_items": 31,
+            "currently_visible_symbols": None,
+            "ranking_candidates": ["AAPL", "7203.T"],
+        }
+    ]
+    assert SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY not in session_state
+
+
+def test_symbol_database_preflight_refresh_suppresses_failure(monkeypatch):
+    session_state: dict[str, object] = {}
+
+    def fake_target_refresh(symbols: list[str], **kwargs: object) -> object:
+        raise RuntimeError("locked")
+
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.app.run_symbol_database_target_refresh", fake_target_refresh)
+
+    result = _run_symbol_database_preflight_refresh(
+        ["7203.t"],
+        context="cockpit",
+        max_items=1,
+    )
+
+    assert result is None
+    assert session_state[SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY] == "RuntimeError"
 
 
 def test_symbol_detail_dialog_css_expands_width_and_wraps_metric_values():

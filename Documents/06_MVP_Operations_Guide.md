@@ -33,6 +33,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
   - freshness classification, refresh priority queue, queue/status recovery, latest-only normalized symbol cache
   - Streamlit startup daemon worker that updates missing / stale local symbol records without blocking rendering
   - Cockpit selected symbols and Ranking comparison targets are registered as background priority hints without adding user-facing controls
+  - Cockpit `データを取得` and Ranking `最新データを取得して更新` run a bounded target preflight refresh before market-data fetch / ranking creation
   - Cockpit selected-symbol caption and the shared Ranking / Cockpit `銘柄データ` modal show saved symbol DB freshness, source, update times, and missing key fields
 - Low-cost Assistant backend first slice
   - deterministic `TemplateAssistantService` that explains score / risk / research / next checkpoints from Decision Report context without LLM or network
@@ -279,7 +280,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
   - 旧来の `配当重視` / `成長重視` / `割安重視` / `安定重視` / `トレンド重視` は内部互換として残すが、上部UIでは代表プロファイルへ統合して重複表示しない。
 - ランキング結果画面では、`評価方針` で候補を採点し、そのスコア順に上位カード / Top 10棒グラフ / 確認メモを表示する。単一指標ソートは上部ドロップダウンには置かず、詳細テーブルの列ヘッダークリックで表示中データをローカルに並べ替える。詳細テーブルは `順位` / `銘柄` / `銘柄名` / `総合スコア` / `配当利回り` / `PER` / `PBR` / `ROE` / `見方` を常時表示する。`総合スコア` / `配当利回り` / `ROE` / `時価総額` / `出来高` / `データ品質` / `スクリーニング` / `上昇気配` は高い順、`PER` / `PBR` / `ボラティリティ` / `リスク` / `下降警戒` は低い順を最初に確認する。メインチャートは選択中の `評価方針` で使う代表指標の比較であり、詳細テーブルの列ソートでは自動切替しない。欠損値は `N/A` として表示し、ソート時は末尾に置く。データ品質 / 条件適合度 / DB信頼度 / 根拠状態は必要に応じて `信頼度/根拠` にまとめる。長い評価理由、確認ポイント、スコア内訳、取得状態は tooltip / 行クリック後の銘柄データで確認する。
 - `上昇気配` / `下降警戒` は、予測エッジ、モデル別方向エッジ、価格モメンタム、トレンド確認を組み合わせる。予測変化率とモメンタムはボラティリティ調整し、モデル間の開きは直接加点せず、スコアを中立へ寄せる信頼度調整として扱う。ランキングは売買推奨ではなく、深掘り候補の比較優先度として扱う。
-- `作成対象` は、外部 provider 取得前の件数上限です。既定は `標準: 上位300件` で、候補が多い場合は総合マルチファクター基準の条件適合度とDB信頼度で事前に上位候補を選んでから価格データを取得します。`評価方針` の変更、詳細テーブルの列ソート、検索、絞り込みは取得対象を変えず、取得済みデータの再評価・再ソートとして扱います。外部取得は `最新データを取得して更新` を押した場合のみ実行します。全件取得も選べますが、Yahoo live data では時間がかかります。
+- `作成対象` は、外部 provider 取得前の件数上限です。既定は `標準: 上位300件` で、候補が多い場合は総合マルチファクター基準の条件適合度とDB信頼度で事前に上位候補を選んでから価格データを取得します。`評価方針` の変更、詳細テーブルの列ソート、検索、絞り込みは取得対象を変えず、取得済みデータの再評価・再ソートとして扱います。外部取得は `最新データを取得して更新` を押した場合のみ実行します。全件取得も選べますが、Yahoo live data では時間がかかります。ランキング作成前の銘柄DB preflight 更新は、比較候補30件までは全件、31件以上は最大50件、対象スキャンは最大300件に制限し、残りはバックグラウンド優先更新へ回します。
 - ランキング結果の総合スコアには、取得期間の市場評価に加えて、条件適合度とDB信頼度を反映する。
   - 条件適合度: NISA、時価総額、配当、PER/PBR/ROE、ETF経費率、複雑性などを評価方針別に評価する。投資魅力度を直接保証するものではありません。
   - DB信頼度: `metadata_source`、`metadata_as_of` / `metadata_updated_at`、ランキング判断に使う主要項目の登録状況を評価する。
@@ -312,6 +313,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - ranking result with ticker / company name / score / warnings
 - ranking result は AgGrid で表示し、銘柄行をクリックするとローカル銘柄マスタ `symbol_universe.csv` と保存済み銘柄DB `symbols_cache.json` の登録値をモーダルで確認できます
 - `銘柄データ` モーダルの `データ情報` タブでは、銘柄DB鮮度、銘柄DB最終更新、銘柄DB取得元、価格データ更新、財務データ更新、不足している主要項目を確認できます。これはデータ信頼度の確認材料であり、売買推奨やランキング順位変更ではありません。
+- Cockpit の `データを取得` では選択中1銘柄、Ranking の `最新データを取得して更新` では上記上限内の比較候補を、UI操作を増やさずに銘柄DB preflight 更新対象へ渡します。失敗しても前回保存データと通常の market-data fetch / ranking creation は継続します。
 - 銘柄データモーダルの `AI Research` タブでは、`AIで資料を確認` を押した場合だけ登録済みResearch資料を検索し、Research Summary、根拠資料名、資料日、根拠数、詳細 evidence を確認できます
 - 選択銘柄をコックピットへ渡す deep-dive flow
 

@@ -1176,3 +1176,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Extended `POST /forecast/evaluate` with optional `adapter=advanced_linear` while keeping the default baseline response unchanged.
 - Limited `advanced_linear` API horizons to 5 / 20 days and return deterministic validation metrics, confidence, feature contributions, and warnings.
 - Added deterministic service and API tests for advanced forecast output and unsupported-horizon errors.
+
+## 2026-06-07 - Forecast model card UX polish
+
+- Reworked the Cockpit forecast model cards so baseline models and advanced forecasts appear together with prediction horizon, signed return, forecast value, and model-specific help text.
+- Added beginner-friendly help text for naive, moving-average, momentum, and advanced-linear forecast logic.
+- Styled forecast model names with stronger color and size, and normalized positive returns to `+x.x%` display.

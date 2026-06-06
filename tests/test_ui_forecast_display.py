@@ -150,7 +150,6 @@ from ui.app import (
     _select_ranking_symbol_for_cockpit_with_period,
     _stock_news_display_rows,
     _symbol_from_candidate,
-    advanced_forecast_card_rows,
     advanced_forecast_display_rows,
     advanced_forecast_intro_text,
     build_cockpit_decision_report_context,
@@ -173,6 +172,8 @@ from ui.app import (
     forecast_consensus_display_rows,
     forecast_metric_display_rows,
     forecast_metric_summary,
+    forecast_model_card_rows,
+    forecast_model_cards_html,
     format_provider_error_details,
     get_cached_ranking_build,
     investment_score_display_rows,
@@ -7517,8 +7518,30 @@ def test_market_chart_long_frame_labels_advanced_linear_forecast():
     assert advanced_rows["series_label"].unique().tolist() == ["高度予測: 線形モデル 5日"]
 
 
-def test_advanced_forecast_cards_and_display_rows_are_beginner_friendly():
-    rows = [
+def test_forecast_model_cards_include_baseline_and_advanced_logic_help():
+    metric_rows = [
+        {
+            "model": "naive",
+            "symbol": "AAPL",
+            "horizon_days": "1",
+            "forecast_close": "101.7",
+            "mae": "1.2",
+            "rmse": "1.5",
+            "direction_accuracy": "50.00%",
+            "sample_count": "30",
+        },
+        {
+            "model": "moving_average_20",
+            "symbol": "AAPL",
+            "horizon_days": "1",
+            "forecast_close": "98.3",
+            "mae": "1.2",
+            "rmse": "1.5",
+            "direction_accuracy": "45.00%",
+            "sample_count": "30",
+        },
+    ]
+    advanced_rows = [
         {
             "horizon_days": "5",
             "predicted_return": "1.40%",
@@ -7540,15 +7563,30 @@ def test_advanced_forecast_cards_and_display_rows_are_beginner_friendly():
         }
     ]
 
-    cards = advanced_forecast_card_rows(rows)
-    display_rows = advanced_forecast_display_rows(rows)
-    intro = advanced_forecast_intro_text(rows)
+    cards = forecast_model_card_rows(
+        metric_rows,
+        advanced_rows,
+        latest_close=Decimal("100"),
+    )
+    cards_html = forecast_model_cards_html(cards)
+    display_rows = advanced_forecast_display_rows(advanced_rows)
+    intro = advanced_forecast_intro_text(advanced_rows)
 
-    assert cards[0]["label"] == "5日予測"
-    assert cards[0]["value"] == "1.40%"
-    assert "予測価格 2889.9" in cards[0]["caption"]
-    assert "5日 1.40%" in intro
+    assert [card["model"] for card in cards] == [
+        "予測: 直近値維持",
+        "予測: 20日移動平均",
+        "高度予測: 線形モデル 5日",
+    ]
+    assert cards[0]["value"] == "+1.7%"
+    assert cards[1]["value"] == "-1.7%"
+    assert cards[2]["value"] == "+1.4%"
+    assert "直近の終値をそのまま予測値" in cards[0]["help"]
+    assert "直近20日間の終値の平均" in cards[1]["help"]
+    assert "線形モデル" in cards[2]["help"]
+    assert "smai-forecast-model-name" in cards_html
     assert display_rows[0]["信頼度"] == "中くらい"
+    assert display_rows[0]["予測変化"] == "+1.4%"
+    assert "5日 +1.4%" in intro
     assert "実験的な参考予測" in display_rows[0]["注意点"]
     assert "因果関係の説明ではありません" in display_rows[0]["注意点"]
 

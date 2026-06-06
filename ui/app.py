@@ -9661,10 +9661,16 @@ def _render_price_forecast_hero(
         currency=chart_currency,
         title="価格・予測",
     )
-    if advanced_forecast_rows:
-        st.markdown("###### 高度予測モデル")
-        st.caption(advanced_forecast_intro_text(advanced_forecast_rows))
-        _render_advanced_forecast_cards(advanced_forecast_rows)
+    latest_close = preview.bars[-1].close if preview.bars else None
+    model_cards = forecast_model_card_rows(
+        metric_rows,
+        advanced_forecast_rows,
+        latest_close=latest_close,
+    )
+    if model_cards:
+        st.markdown("###### 予測モデル別の見方")
+        st.caption(forecast_model_cards_intro_text(model_cards))
+        st.markdown(forecast_model_cards_html(model_cards), unsafe_allow_html=True)
     st.caption("縦の点線は、実績価格から予測表示へ切り替わる位置です。")
 
 
@@ -9685,6 +9691,193 @@ def _render_advanced_forecast_cards(rows: list[dict[str, str]]) -> None:
                 emphasis="strong",
                 progress=metric_progress_from_value(card["progress"]),
             )
+
+
+def forecast_model_card_rows(
+    metric_rows: list[dict[str, str]],
+    advanced_rows: list[dict[str, str]],
+    *,
+    latest_close: Decimal | None,
+) -> list[dict[str, Any]]:
+    cards: list[dict[str, Any]] = []
+    for row in metric_rows:
+        model = row.get("model", "")
+        forecast_close = row.get("forecast_close", "")
+        forecast_return = _forecast_return_display(
+            forecast_close,
+            latest_close=latest_close,
+        )
+        cards.append(
+            {
+                "model": _forecast_series_label(model),
+                "kind": "通常予測",
+                "horizon": f"{row.get('horizon_days', '')}日先",
+                "value": forecast_return or "未計算",
+                "forecast_close": forecast_close or "未計算",
+                "sub": (
+                    f"予測値 {forecast_close or '未計算'} / "
+                    f"方向一致 {row.get('direction_accuracy', '') or '未計算'}"
+                ),
+                "help": _forecast_model_logic_help(model),
+                "tone": _forecast_card_tone(forecast_return),
+                "badges": (
+                    badge_html("通常予測", "info"),
+                    badge_html(f"{row.get('horizon_days', '')}日先", "neutral"),
+                ),
+            }
+        )
+    for row in advanced_rows:
+        horizon_days = row.get("horizon_days", "")
+        forecast_return = _signed_percent_from_text(row.get("predicted_return", ""))
+        forecast_close = row.get("forecast_close", "")
+        confidence = _advanced_forecast_confidence_label(row.get("confidence", ""))
+        cards.append(
+            {
+                "model": f"高度予測: 線形モデル {horizon_days}日",
+                "kind": "高度予測",
+                "horizon": f"{horizon_days}日先",
+                "value": forecast_return or "未計算",
+                "forecast_close": forecast_close or "未計算",
+                "sub": (
+                    f"予測値 {forecast_close or '未計算'} / "
+                    f"方向感 {row.get('direction_score', '') or '未計算'}"
+                ),
+                "help": (
+                    "リターン、移動平均との差、値動きの大きさ、下落幅、出来高などを使い、"
+                    f"過去に似た状態から{horizon_days}日後にどう動いたかを線形モデルで参考推定します。"
+                    "売買判断ではなく価格シナリオ確認用です。"
+                ),
+                "tone": _forecast_card_tone(forecast_return),
+                "badges": (
+                    badge_html("高度予測", "info"),
+                    badge_html(
+                        f"信頼度 {confidence}",
+                        _advanced_forecast_confidence_tone(row),
+                    ),
+                ),
+            }
+        )
+    return cards
+
+
+def forecast_model_cards_intro_text(cards: list[dict[str, Any]]) -> str:
+    values = [
+        f"{card.get('model', '')}: {card.get('value', '')}"
+        for card in cards
+        if card.get("model") and card.get("value") and card.get("value") != "未計算"
+    ]
+    if not values:
+        return "各モデルの予測値と予測ロジックをカードで確認します。将来の値動きを保証するものではありません。"
+    return (
+        "各モデルの予測値と予測ロジックをカードで確認します。"
+        f"今回の変化率は {' / '.join(values[:5])}。"
+        "将来の値動きを保証するものではありません。"
+    )
+
+
+def forecast_model_cards_html(cards: list[dict[str, Any]]) -> str:
+    if not cards:
+        return ""
+    card_html = "\n".join(_forecast_model_card_html(card) for card in cards)
+    return (
+        "<style>"
+        ".smai-forecast-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:10px 0 8px;}"
+        ".smai-forecast-card{border:1px solid rgba(148,163,184,.35);border-radius:8px;padding:14px 16px;background:rgba(15,23,42,.72);box-shadow:inset 0 1px 0 rgba(255,255,255,.04);}"
+        ".smai-forecast-card[data-tone='success']{border-color:rgba(45,212,191,.75);background:linear-gradient(180deg,rgba(20,83,78,.42),rgba(15,23,42,.75));}"
+        ".smai-forecast-card[data-tone='caution']{border-color:rgba(251,113,133,.72);background:linear-gradient(180deg,rgba(127,29,29,.34),rgba(15,23,42,.75));}"
+        ".smai-forecast-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}"
+        ".smai-forecast-model-name{font-size:1.02rem;font-weight:800;line-height:1.25;color:#7dd3fc;letter-spacing:0;}"
+        ".smai-forecast-card[data-tone='success'] .smai-forecast-model-name{color:#5eead4;}"
+        ".smai-forecast-card[data-tone='caution'] .smai-forecast-model-name{color:#fda4af;}"
+        ".smai-forecast-help{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:1px solid rgba(148,163,184,.45);border-radius:999px;color:#cbd5e1;font-size:.72rem;cursor:help;flex:0 0 auto;}"
+        ".smai-forecast-horizon{margin-top:6px;color:#94a3b8;font-size:.82rem;font-weight:700;}"
+        ".smai-forecast-value{margin-top:6px;font-size:1.58rem;font-weight:850;color:#f8fafc;line-height:1.1;}"
+        ".smai-forecast-sub{margin-top:8px;color:#cbd5e1;font-size:.86rem;line-height:1.4;overflow-wrap:anywhere;}"
+        ".smai-forecast-card .smai-badge-row{margin-top:10px;}"
+        "</style>"
+        f'<div class="smai-forecast-card-grid">{card_html}</div>'
+    )
+
+
+def _forecast_model_card_html(card: dict[str, Any]) -> str:
+    tone = str(card.get("tone") or "neutral")
+    safe_tone = tone if tone in {"success", "caution", "info", "neutral"} else "neutral"
+    model = str(card.get("model") or "予測モデル")
+    help_text = str(card.get("help") or "")
+    badges = "".join(card.get("badges") or ())
+    return (
+        '<div class="smai-forecast-card" '
+        f'data-tone="{html.escape(safe_tone, quote=True)}">'
+        '<div class="smai-forecast-card-head">'
+        f'<div class="smai-forecast-model-name">{html.escape(model)}</div>'
+        f'<span class="smai-forecast-help" title="{html.escape(help_text, quote=True)}">?</span>'
+        "</div>"
+        f'<div class="smai-forecast-horizon">{html.escape(str(card.get("horizon") or ""))}</div>'
+        f'<div class="smai-forecast-value">{html.escape(str(card.get("value") or "未計算"))}</div>'
+        f'<div class="smai-forecast-sub">{html.escape(str(card.get("sub") or ""))}</div>'
+        f'<div class="smai-badge-row">{badges}</div>'
+        "</div>"
+    )
+
+
+def _forecast_return_display(
+    forecast_close: str,
+    *,
+    latest_close: Decimal | None,
+) -> str:
+    forecast_value = _decimal_from_text(forecast_close)
+    if forecast_value is None or latest_close is None or latest_close <= 0:
+        return ""
+    percent_value = ((forecast_value / latest_close) - Decimal("1")) * Decimal("100")
+    return _signed_percent_display(percent_value)
+
+
+def _signed_percent_from_text(value: str) -> str:
+    percent_value = _decimal_from_text(value)
+    if percent_value is None:
+        return ""
+    return _signed_percent_display(percent_value)
+
+
+def _signed_percent_display(percent_value: Decimal) -> str:
+    text = f"{percent_value.quantize(Decimal('0.01'))}".rstrip("0").rstrip(".")
+    if percent_value > 0:
+        return f"+{text}%"
+    return f"{text}%"
+
+
+def _forecast_card_tone(value: str) -> str:
+    decimal_value = _decimal_from_text(value)
+    if decimal_value is None:
+        return "neutral"
+    if decimal_value > 0:
+        return "success"
+    if decimal_value < 0:
+        return "caution"
+    return "neutral"
+
+
+def _forecast_model_logic_help(model: str) -> str:
+    moving_average = re.fullmatch(r"moving_average_(\d+)", model)
+    if moving_average:
+        window = moving_average.group(1)
+        return (
+            f"直近{window}日間の終値の平均を予測値として使います。"
+            "短期の上下に振られにくく、今の価格が平均より高いか低いかを見る基準になります。"
+        )
+    momentum = re.fullmatch(r"momentum_(\d+)", model)
+    if momentum:
+        lookback = momentum.group(1)
+        return (
+            f"直近{lookback}日間の上昇・下落ペースを将来にも少し延長して見る予測です。"
+            "強い流れが続くかを確認する材料ですが、急反転には弱いことがあります。"
+        )
+    if model == "naive":
+        return (
+            "直近の終値をそのまま予測値として置く一番シンプルな基準です。"
+            "他のモデルがこの基準からどれだけ離れているかを見る土台になります。"
+        )
+    return "価格データから作った予測モデルです。予測値は投資判断ではなく、比較用の参考材料です。"
 
 
 def _render_investment_score_section(
@@ -12913,7 +13106,7 @@ def advanced_forecast_display_rows(rows: list[dict[str, str]]) -> list[dict[str,
     return [
         {
             "モデル": f"高度予測: 線形モデル {row.get('horizon_days', '')}日",
-            "予測変化": row.get("predicted_return", ""),
+            "予測変化": _signed_percent_from_text(row.get("predicted_return", "")),
             "予測価格": row.get("forecast_close", ""),
             "方向感": row.get("direction_score", ""),
             "信頼度": confidence_labels.get(row.get("confidence", ""), row.get("confidence", "")),
@@ -12940,7 +13133,7 @@ def advanced_forecast_card_rows(rows: list[dict[str, str]]) -> list[dict[str, An
         cards.append(
             {
                 "label": f"{horizon_days}日予測",
-                "value": predicted_return or "未計算",
+                "value": _signed_percent_from_text(predicted_return) or "未計算",
                 "caption": (
                     f"予測価格 {forecast_close or '未計算'} / "
                     f"方向感 {direction_score or '未計算'}"
@@ -12965,7 +13158,10 @@ def advanced_forecast_card_rows(rows: list[dict[str, str]]) -> list[dict[str, An
 
 def advanced_forecast_intro_text(rows: list[dict[str, str]]) -> str:
     parts = [
-        f"{row.get('horizon_days', '')}日 {row.get('predicted_return', '')}".strip()
+        (
+            f"{row.get('horizon_days', '')}日 "
+            f"{_signed_percent_from_text(row.get('predicted_return', ''))}"
+        ).strip()
         for row in rows
         if row.get("horizon_days") and row.get("predicted_return")
     ]

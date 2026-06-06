@@ -1149,3 +1149,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Documented Phase 23 Advanced Forecast Slice 1 as the planned `advanced_linear` forecast adapter.
 - Captured Ridge / ElasticNet-style forward-return forecasting, 5 / 20 trading day horizons, walk-forward validation, confidence, validation metrics, and feature contribution summary requirements.
 - Updated README, operations guide, roadmap, and project context so the next implementation target is advanced forecast before Assistant / LLM UI work.
+
+## 2026-06-06 - Advanced Forecast Slice 1 backend adapter
+
+- Added `backend/forecast/adapters/advanced_linear.py` as a lightweight deterministic Ridge-style advanced forecast adapter using existing `numpy` dependency only.
+- Added 5 / 20 trading day forward-return prediction, walk-forward validation, zero-return baseline RMSE comparison, confidence, warnings, and feature contribution summaries.
+- Exported the adapter from `backend.forecast` and added deterministic tests for supported horizons, data shortage, missing early feature windows, result schema, and unchanged baseline forecast behavior.
+- Left forecast service / API / Streamlit Cockpit / Ranking display connection as the next Phase 23 slice.

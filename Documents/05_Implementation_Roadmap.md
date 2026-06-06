@@ -1581,7 +1581,7 @@ Phase 22 完了条件:
 
 ### 5.9 Phase 23: Optional Adapter と高度分析
 
-状態: 計画中。Phase 23 / 24 の順序を入れ替え、低コストAssistant体験は LLM 実装時に伸ばす。
+状態: Advanced Forecast Slice 1 backend first slice 実装済み。forecast service / API / Streamlit 接続は次の slice。
 
 目的: default path を deterministic に保ったまま、追加 provider、advanced forecast / research model、news / sentiment、将来の LLM adapter を optional layer として追加する。次の実装優先度は、銘柄コックピット / 銘柄ランキングで使う高度予測モデル adapter。
 
@@ -1603,13 +1603,15 @@ Phase 22 完了条件:
 
 #### Phase 23.a: Advanced Forecast Slice 1 - `advanced_linear`
 
+状態: backend first slice 実装済み。UI/API 接続は未実装。
+
 目的: 派手な深層学習モデルより先に、軽量・deterministic・説明可能な高度予測 adapter の骨格を追加する。既存 FeatureBuilder / Forecast service / Cockpit / Ranking の構造を壊さず、将来の tree / GBDT / quantile / deep-learning adapter を足せる境界を作る。
 
 実装方針:
 
-- `backend/forecast/adapters/advanced_linear.py` を候補に、既存の forecast adapter / registry 方針に合わせて追加する。
-- default model は `Ridge`、optional model は `ElasticNet` とする。
-- 追加依存は最小にする。scikit-learn が既存依存に含まれていない場合だけ、project の requirements / pyproject 方針に従って追加する。
+- `backend/forecast/adapters/advanced_linear.py` を追加済み。
+- default model は `Ridge`、optional model は `ElasticNet` とする。現行 backend first slice は sklearn 非依存の deterministic Ridge 互換実装を使い、ElasticNet は adapter contract 予約として warning 付きで扱う。
+- 追加依存は最小にする。現行 slice は既存依存の `numpy` のみを使い、scikit-learn は追加していない。
 - 価格そのものではなく forward return を予測する。
 - 対応 horizon はまず `5` / `20` trading days とする。
 - `future_return_5d = close[t+5] / close[t] - 1`、`future_return_20d = close[t+20] / close[t] - 1` を target とする。
@@ -1617,7 +1619,7 @@ Phase 22 完了条件:
 - FeatureBuilder / ranking feature / DailySnapshot など既存生成済み特徴量を優先し、存在しない特徴量を無理に新規実装しない。
 - 使用候補 feature は、既存値があるものに限って `return_1d`、`return_5d`、`return_20d`、momentum、volatility、drawdown、volume / rolling volume、moving-average gap、利用可能なら RSI / PER / PBR / ROE / dividend yield / market cap / Research Score 系を扱う。
 - 前処理は数値 feature 抽出、`SimpleImputer(strategy="median")`、`StandardScaler`、`Ridge` / `ElasticNet` を基本にする。
-- scikit-learn `Pipeline` を使える場合は、imputer / scaler / model をひとまとまりにする。
+- sklearn adapter へ拡張する場合は、`Pipeline` で imputer / scaler / model をひとまとまりにする。
 - deterministic のため、random state を持つ処理では `random_state = 42` を固定する。
 
 評価方針:
@@ -1699,7 +1701,7 @@ Streamlit / Ranking 接続方針:
 - 予測は売買判断の主体にせず、スコアやリスクと合わせて確認する材料として扱う。
 - `advanced_linear` adapter が追加され、Ridge / ElasticNet の少なくとも Ridge が使える。
 - 5 / 20 trading day forward return の予測、walk-forward validation、validation metrics、confidence、feature contribution summary が返る。
-- API または forecast service から adapter 指定でき、Streamlit UI で最小表示できる。
+- backend adapter は実装済み。API または forecast service からの adapter 指定と Streamlit UI 最小表示は次 slice。
 - README または roadmap に Advanced Forecast Slice 1 として記録されている。
 
 Research資料保存方針の移行:

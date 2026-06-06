@@ -1,3 +1,11 @@
+from backend.forecast.adapters import (
+    ADVANCED_LINEAR_ADAPTER_NAME,
+    SUPPORTED_ADVANCED_LINEAR_HORIZONS,
+    AdvancedForecastValidationMetrics,
+    AdvancedLinearForecastAdapter,
+    AdvancedLinearForecastResult,
+    FeatureContribution,
+)
 from backend.forecast.registry import (
     ForecastModelSpec,
     available_forecast_models,
@@ -36,6 +44,12 @@ from backend.forecast.service import (
 
 __all__ = [
     "DirectionSignalLabel",
+    "ADVANCED_LINEAR_ADAPTER_NAME",
+    "SUPPORTED_ADVANCED_LINEAR_HORIZONS",
+    "AdvancedForecastValidationMetrics",
+    "AdvancedLinearForecastAdapter",
+    "AdvancedLinearForecastResult",
+    "FeatureContribution",
     "ForecastConsensus",
     "ForecastEvaluation",
     "ForecastMetrics",

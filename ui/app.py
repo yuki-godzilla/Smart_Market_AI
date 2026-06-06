@@ -9662,10 +9662,12 @@ def _render_price_forecast_hero(
         title="価格・予測",
     )
     latest_close = preview.bars[-1].close if preview.bars else None
+    latest_date = preview.bars[-1].ts.date() if preview.bars else None
     model_cards = forecast_model_card_rows(
         metric_rows,
         advanced_forecast_rows,
         latest_close=latest_close,
+        latest_date=latest_date,
     )
     if model_cards:
         st.markdown("###### 予測モデル別の見方")
@@ -9693,11 +9695,31 @@ def _render_advanced_forecast_cards(rows: list[dict[str, str]]) -> None:
             )
 
 
+def forecast_horizon_label(horizon_days: str) -> str:
+    if not horizon_days:
+        return "予測日未設定"
+    return f"{horizon_days}日先"
+
+
+def forecast_horizon_display(
+    horizon_days: str,
+    *,
+    latest_date: date | None,
+) -> str:
+    label = forecast_horizon_label(horizon_days)
+    days = _int_from_text(horizon_days)
+    if latest_date is None or days <= 0:
+        return label
+    forecast_date = latest_date + timedelta(days=days)
+    return f"{label} ({forecast_date.strftime('%Y/%m/%d')})"
+
+
 def forecast_model_card_rows(
     metric_rows: list[dict[str, str]],
     advanced_rows: list[dict[str, str]],
     *,
     latest_close: Decimal | None,
+    latest_date: date | None = None,
 ) -> list[dict[str, Any]]:
     cards: list[dict[str, Any]] = []
     for row in metric_rows:
@@ -9711,7 +9733,10 @@ def forecast_model_card_rows(
             {
                 "model": _forecast_series_label(model),
                 "kind": "通常予測",
-                "horizon": f"{row.get('horizon_days', '')}日先",
+                "horizon": forecast_horizon_display(
+                    row.get("horizon_days", ""),
+                    latest_date=latest_date,
+                ),
                 "value": forecast_return or "未計算",
                 "forecast_close": forecast_close or "未計算",
                 "sub": (
@@ -9722,7 +9747,10 @@ def forecast_model_card_rows(
                 "tone": _forecast_card_tone(forecast_return),
                 "badges": (
                     badge_html("通常予測", "info"),
-                    badge_html(f"{row.get('horizon_days', '')}日先", "neutral"),
+                    badge_html(
+                        forecast_horizon_label(row.get("horizon_days", "")),
+                        "neutral",
+                    ),
                 ),
             }
         )
@@ -9735,7 +9763,10 @@ def forecast_model_card_rows(
             {
                 "model": f"高度予測: 線形モデル {horizon_days}日",
                 "kind": "高度予測",
-                "horizon": f"{horizon_days}日先",
+                "horizon": forecast_horizon_display(
+                    horizon_days,
+                    latest_date=latest_date,
+                ),
                 "value": forecast_return or "未計算",
                 "forecast_close": forecast_close or "未計算",
                 "sub": (

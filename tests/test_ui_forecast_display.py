@@ -7567,6 +7567,7 @@ def test_forecast_model_cards_include_baseline_and_advanced_logic_help():
         metric_rows,
         advanced_rows,
         latest_close=Decimal("100"),
+        latest_date=date(2026, 6, 7),
     )
     cards_html = forecast_model_cards_html(cards)
     display_rows = advanced_forecast_display_rows(advanced_rows)
@@ -7580,6 +7581,8 @@ def test_forecast_model_cards_include_baseline_and_advanced_logic_help():
     assert cards[0]["value"] == "+1.7%"
     assert cards[1]["value"] == "-1.7%"
     assert cards[2]["value"] == "+1.4%"
+    assert cards[0]["horizon"] == "1日先 (2026/06/08)"
+    assert cards[2]["horizon"] == "5日先 (2026/06/12)"
     assert "直近の終値をそのまま予測値" in cards[0]["help"]
     assert "直近20日間の終値の平均" in cards[1]["help"]
     assert "線形モデル" in cards[2]["help"]

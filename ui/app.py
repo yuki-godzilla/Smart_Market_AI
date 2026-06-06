@@ -9761,10 +9761,9 @@ def forecast_horizon_display(
 def forecast_chart_series_options(rows: list[dict[str, str]]) -> list[dict[str, Any]]:
     if not rows:
         return []
+    series_keys = dict.fromkeys(key for row in rows for key in row if key not in {"ts", "close"})
     ordered_series = [
-        series
-        for series in rows[0]
-        if series not in {"ts", "close"} and any(str(row.get(series, "")).strip() for row in rows)
+        series for series in series_keys if any(str(row.get(series, "")).strip() for row in rows)
     ]
     options: list[dict[str, Any]] = []
     for series in ordered_series:

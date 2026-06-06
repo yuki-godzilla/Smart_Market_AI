@@ -1186,3 +1186,4 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Removed the naive "latest value hold" baseline from forecast cards so cards focus on model-driven forecast views.
 - Added forecast chart model filters and comparison summary cards for up/down model counts, model spread, and direction agreement.
 - Fixed forecast chart filtering so model forecast lines remain visible when the UI selection state is empty.
+- Fixed forecast chart filter option detection to scan all chart rows, not only the first row, so forecast lines appear when early history rows do not contain forecast columns.

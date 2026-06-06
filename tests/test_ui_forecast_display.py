@@ -7600,9 +7600,6 @@ def test_forecast_chart_filter_options_hide_naive_by_default():
         {
             "ts": "2026-06-07T00:00:00+00:00",
             "close": "100",
-            "naive": "100",
-            "moving_average_20": "101",
-            "advanced_linear_5d": "",
         },
         {
             "ts": "2026-06-12T00:00:00+00:00",
@@ -7627,7 +7624,7 @@ def test_forecast_chart_filter_options_hide_naive_by_default():
     assert filtered[0]["close"] == "100"
     assert filtered[1]["advanced_linear_5d"] == "103"
     assert "naive" not in fallback_filtered[0]
-    assert fallback_filtered[0]["moving_average_20"] == "101"
+    assert "moving_average_20" not in fallback_filtered[0]
     assert fallback_filtered[1]["advanced_linear_5d"] == "103"
 
 

@@ -1130,3 +1130,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added background cache promotion so usable cache fields move into official metrics and promoted/missing cache records are deleted.
 - Kept explicit startup/target refresh cache behavior available for immediate detail views, while background maintenance performs cleanup.
 - Updated ranking symbol rows to overlay official metrics without reading the runtime cache DB during normal filtering.
+
+## 2026-06-06 - Symbol detail modal AI research refresh reuse
+
+- Reused the cockpit AI research helpers from the symbol detail modal so `AIで資料を確認` now refreshes external research, company research, and stock-news summaries through the same flow.
+- Added ranking-detail session state for fetched external research results and stock-news reports so the existing integrated research summary panel can show richer evidence.
+- Added a UI regression test proving the modal button follows the cockpit-style external research -> research report -> stock-news report flow.
+- Verified with targeted UI tests, Ruff, Black helper, and full local checks.

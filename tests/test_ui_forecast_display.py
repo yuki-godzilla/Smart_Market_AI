@@ -2766,6 +2766,98 @@ def test_cockpit_research_refresh_uses_mascot_loading(monkeypatch):
     assert rerun_calls == [True]
 
 
+def test_ranking_symbol_research_lookup_reuses_cockpit_research_flow(monkeypatch):
+    class FakeLoadingSlot:
+        def __init__(self) -> None:
+            self.cleared = False
+
+        def container(self):
+            return nullcontext()
+
+        def empty(self) -> None:
+            self.cleared = True
+
+    slot = FakeLoadingSlot()
+    calls: list[tuple[str, object]] = []
+    stored: dict[str, object] = {}
+    fake_report = object()
+    fake_news_report = object()
+    fake_external_result = SimpleNamespace(
+        symbol="7751.T",
+        entries=[object(), object()],
+        warnings=[],
+    )
+    rendered: dict[str, object] = {}
+
+    monkeypatch.setattr("ui.app.st.subheader", lambda *_, **__: None)
+    monkeypatch.setattr("ui.app.st.caption", lambda *_, **__: None)
+    monkeypatch.setattr("ui.app.st.success", lambda *_, **__: None)
+    monkeypatch.setattr("ui.app.st.warning", lambda *_, **__: None)
+    monkeypatch.setattr("ui.app.st.info", lambda *_, **__: None)
+    monkeypatch.setattr("ui.app.st.button", lambda *_, **__: True)
+    monkeypatch.setattr("ui.app.st.empty", lambda: slot)
+    monkeypatch.setattr("ui.app.render_mascot_loading", lambda *_, **__: None)
+
+    def fake_fetch(symbol: str, *, as_of: date | None):
+        calls.append(("external", (symbol, as_of)))
+        return fake_external_result
+
+    def fake_build_report(symbol: str, *, as_of: date | None):
+        calls.append(("report", (symbol, as_of)))
+        return fake_report
+
+    def fake_build_news(symbol: str, *, as_of: date | None):
+        calls.append(("news", (symbol, as_of)))
+        return fake_news_report
+
+    monkeypatch.setattr("ui.app._fetch_external_research_for_symbol", fake_fetch)
+    monkeypatch.setattr("ui.app._build_research_report_for_symbol", fake_build_report)
+    monkeypatch.setattr("ui.app._build_stock_news_report_for_symbol", fake_build_news)
+    monkeypatch.setattr(
+        "ui.app._store_ranking_external_research_result",
+        lambda result: stored.__setitem__("external", result),
+    )
+    monkeypatch.setattr(
+        "ui.app._store_ranking_research_report",
+        lambda report: stored.__setitem__("report", report),
+    )
+    monkeypatch.setattr(
+        "ui.app._store_ranking_stock_news_report",
+        lambda report: stored.__setitem__("news", report),
+    )
+    monkeypatch.setattr("ui.app._ranking_research_report_from_state", lambda symbol: fake_report)
+    monkeypatch.setattr(
+        "ui.app._ranking_stock_news_report_from_state",
+        lambda symbol: stored.get("news"),
+    )
+    monkeypatch.setattr(
+        "ui.app._ranking_external_research_result_from_state",
+        lambda symbol: stored.get("external"),
+    )
+
+    def fake_render_panel(report, **kwargs):
+        rendered["report"] = report
+        rendered.update(kwargs)
+
+    monkeypatch.setattr("ui.app._render_research_summary_panel", fake_render_panel)
+
+    app_module._render_ranking_symbol_research_lookup("7751.T")
+
+    assert [name for name, _ in calls] == ["external", "report", "news"]
+    assert all(args[0] == "7751.T" for _, args in calls)
+    assert all(isinstance(args[1], date) for _, args in calls)
+    assert stored == {
+        "external": fake_external_result,
+        "report": fake_report,
+        "news": fake_news_report,
+    }
+    assert rendered["report"] is fake_report
+    assert rendered["news_report"] is fake_news_report
+    assert rendered["external_research_result"] is fake_external_result
+    assert rendered["display_context"] == "ranking"
+    assert slot.cleared is True
+
+
 def test_fetch_external_research_for_symbol_reuses_session_ttl_cache(monkeypatch, tmp_path):
     class CountingResearchAdapter:
         provider = "fake_external"

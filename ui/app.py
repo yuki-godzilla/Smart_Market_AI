@@ -353,6 +353,10 @@ MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY = "market_data_ranking_provider_live_fir
 RANKING_BUILD_CACHE_VERSION = "signal-v4"
 RESEARCH_SUMMARY_BUILD_CACHE_STATE_KEY = "market_data_research_summary_build_cache_v1"
 RESEARCH_REFRESH_TRACE_STATE_KEY = "market_data_research_refresh_trace_v1"
+MARKET_DATA_RANKING_STOCK_NEWS_REPORTS_STATE_KEY = "market_data_ranking_stock_news_reports"
+MARKET_DATA_RANKING_EXTERNAL_RESEARCH_RESULTS_STATE_KEY = (
+    "market_data_ranking_external_research_results"
+)
 RESEARCH_STALE_DAYS = 730
 DEFAULT_MARKET_DATA_PERIOD_PRESET = MARKET_DATA_PERIOD_CUSTOM
 MARKET_DATA_COCKPIT_FILTER_DEFAULTS: dict[str, str | bool] = {
@@ -6200,17 +6204,28 @@ def _fetch_external_research_for_preview(
     symbol = _market_data_preview_symbol(preview)
     if not symbol:
         raise AppError("AI調査の対象銘柄が選択されていません。")
-    company_name = symbol_name(symbol) or None
-    related_keywords = [company_name] if company_name else []
-    result = fetch_external_research_for_symbol(
+    result = _fetch_external_research_for_symbol(
         symbol,
-        company_name=company_name,
-        related_keywords=related_keywords,
         as_of=_date_from_iso_text(_market_data_as_of(preview)),
-        allow_network=True,
     )
     st.session_state[MARKET_DATA_EXTERNAL_RESEARCH_FETCH_STATE_KEY] = result
     return result
+
+
+def _fetch_external_research_for_symbol(
+    symbol: str,
+    *,
+    as_of: date | None,
+) -> ExternalResearchFetchResult:
+    company_name = symbol_name(symbol) or None
+    related_keywords = [company_name] if company_name else []
+    return fetch_external_research_for_symbol(
+        symbol,
+        company_name=company_name,
+        related_keywords=related_keywords,
+        as_of=as_of,
+        allow_network=True,
+    )
 
 
 def _cockpit_external_research_fetch_result_from_state(
@@ -6966,6 +6981,7 @@ def _render_ranking_symbol_research_lookup(symbol: str) -> None:
         type="primary",
     )
     if fetch_clicked:
+        as_of = date.today()
         loading_slot = st.empty()
         with loading_slot.container():
             render_mascot_loading(
@@ -6975,8 +6991,33 @@ def _render_ranking_symbol_research_lookup(symbol: str) -> None:
                 tone="info",
             )
         try:
-            fetched_report = analyze_research_for_symbol(symbol)
+            try:
+                external_result = _fetch_external_research_for_symbol(
+                    symbol,
+                    as_of=as_of,
+                )
+                _store_ranking_external_research_result(external_result)
+                if external_result.entries:
+                    st.success(
+                        f"外部参照ソース {len(external_result.entries)}件をAI調査に反映しました。"
+                    )
+                for warning in external_result.warnings:
+                    st.warning(warning)
+            except AppError as exc:
+                st.warning(
+                    "外部参照ソースを取得できませんでした。保存済み資料と既存データでAI調査を続行します。"
+                )
+                st.caption(_external_research_fetch_failure_caption(exc))
+            fetched_report = _build_research_report_for_symbol(
+                symbol,
+                as_of=as_of,
+            )
             _store_ranking_research_report(fetched_report)
+            stock_news_report = _build_stock_news_report_for_symbol(
+                symbol,
+                as_of=as_of,
+            )
+            _store_ranking_stock_news_report(stock_news_report)
         finally:
             loading_slot.empty()
 
@@ -6984,7 +7025,13 @@ def _render_ranking_symbol_research_lookup(symbol: str) -> None:
     if report is None:
         st.info("資料確認は未実行です。必要な場合は「AIで資料を確認」を押してください。")
         return
-    _render_research_summary_panel(report, detail_expanded=False, display_context="ranking")
+    _render_research_summary_panel(
+        report,
+        detail_expanded=False,
+        news_report=_ranking_stock_news_report_from_state(symbol),
+        external_research_result=_ranking_external_research_result_from_state(symbol),
+        display_context="ranking",
+    )
 
 
 def _render_research_summary_panel(
@@ -9420,8 +9467,9 @@ def _build_cockpit_research_report(preview: MarketDataPreview) -> CompanyResearc
     symbol = _market_data_preview_symbol(preview)
     if not symbol:
         return None
-    return analyze_research_for_symbol(
-        symbol, as_of=_date_from_iso_text(_market_data_as_of(preview))
+    return _build_research_report_for_symbol(
+        symbol,
+        as_of=_date_from_iso_text(_market_data_as_of(preview)),
     )
 
 
@@ -9451,13 +9499,32 @@ def _build_cockpit_stock_news_report(preview: MarketDataPreview) -> StockNewsRep
     symbol = _market_data_preview_symbol(preview)
     if not symbol:
         return None
+    return _build_stock_news_report_for_symbol(
+        symbol,
+        as_of=_date_from_iso_text(_market_data_as_of(preview)),
+    )
+
+
+def _build_research_report_for_symbol(
+    symbol: str,
+    *,
+    as_of: date | None,
+) -> CompanyResearchReport:
+    return analyze_research_for_symbol(symbol, as_of=as_of)
+
+
+def _build_stock_news_report_for_symbol(
+    symbol: str,
+    *,
+    as_of: date | None,
+) -> StockNewsReport:
     company_name = symbol_name(symbol) or None
     related_keywords = [company_name] if company_name else []
     return analyze_stock_news_for_symbol(
         symbol,
         company_name=company_name,
         related_keywords=related_keywords,
-        as_of=_date_from_iso_text(_market_data_as_of(preview)),
+        as_of=as_of,
     )
 
 
@@ -9477,6 +9544,44 @@ def _store_ranking_research_report(report: CompanyResearchReport) -> None:
         reports = {}
         st.session_state[MARKET_DATA_RANKING_RESEARCH_REPORTS_STATE_KEY] = reports
     reports[report.symbol.strip().upper()] = report
+
+
+def _ranking_stock_news_report_from_state(symbol: str) -> StockNewsReport | None:
+    reports = st.session_state.get(MARKET_DATA_RANKING_STOCK_NEWS_REPORTS_STATE_KEY)
+    if not isinstance(reports, dict):
+        return None
+    report = reports.get(symbol.strip().upper())
+    if not isinstance(report, StockNewsReport):
+        return None
+    return report
+
+
+def _store_ranking_stock_news_report(report: StockNewsReport) -> None:
+    reports = st.session_state.get(MARKET_DATA_RANKING_STOCK_NEWS_REPORTS_STATE_KEY)
+    if not isinstance(reports, dict):
+        reports = {}
+        st.session_state[MARKET_DATA_RANKING_STOCK_NEWS_REPORTS_STATE_KEY] = reports
+    reports[report.symbol.strip().upper()] = report
+
+
+def _ranking_external_research_result_from_state(
+    symbol: str,
+) -> ExternalResearchFetchResult | None:
+    results = st.session_state.get(MARKET_DATA_RANKING_EXTERNAL_RESEARCH_RESULTS_STATE_KEY)
+    if not isinstance(results, dict):
+        return None
+    result = results.get(symbol.strip().upper())
+    if not isinstance(result, ExternalResearchFetchResult):
+        return None
+    return result
+
+
+def _store_ranking_external_research_result(result: ExternalResearchFetchResult) -> None:
+    results = st.session_state.get(MARKET_DATA_RANKING_EXTERNAL_RESEARCH_RESULTS_STATE_KEY)
+    if not isinstance(results, dict):
+        results = {}
+        st.session_state[MARKET_DATA_RANKING_EXTERNAL_RESEARCH_RESULTS_STATE_KEY] = results
+    results[result.symbol.strip().upper()] = result
 
 
 def _render_market_data_cockpit_header(

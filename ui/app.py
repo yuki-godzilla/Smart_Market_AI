@@ -9656,8 +9656,9 @@ def _render_price_forecast_hero(
         else:
             st.caption(message)
     chart_currency = preview.bars[0].symbol.currency if preview.bars else ""
+    selected_chart_series = _render_forecast_chart_filters(forecast_rows)
     _render_market_chart(
-        forecast_rows,
+        filter_forecast_chart_rows(forecast_rows, selected_chart_series),
         currency=chart_currency,
         title="価格・予測",
     )
@@ -9672,6 +9673,7 @@ def _render_price_forecast_hero(
     if model_cards:
         st.markdown("###### 予測モデル別の見方")
         st.caption(forecast_model_cards_intro_text(model_cards))
+        _render_forecast_model_comparison_cards(forecast_model_comparison_rows(model_cards))
         st.markdown(forecast_model_cards_html(model_cards), unsafe_allow_html=True)
     st.caption("縦の点線は、実績価格から予測表示へ切り替わる位置です。")
 
@@ -9695,6 +9697,46 @@ def _render_advanced_forecast_cards(rows: list[dict[str, str]]) -> None:
             )
 
 
+def _render_forecast_chart_filters(rows: list[dict[str, str]]) -> set[str]:
+    options = forecast_chart_series_options(rows)
+    if not options:
+        return set()
+    st.markdown("###### チャート表示")
+    columns = st.columns(min(3, len(options)))
+    selected: set[str] = set()
+    for index, option in enumerate(options):
+        with columns[index % len(columns)]:
+            checked = st.checkbox(
+                option["label"],
+                value=option["default"],
+                key=f"market_data_forecast_chart_series_{option['series']}",
+                help=option["help"],
+            )
+        if checked:
+            selected.add(option["series"])
+    st.caption(
+        "直近値維持は比較基準のため、必要な時だけ表示します。" "実線は実績、点線は予測です。"
+    )
+    return selected
+
+
+def _render_forecast_model_comparison_cards(rows: list[dict[str, str]]) -> None:
+    if not rows:
+        return
+    columns = st.columns(min(3, len(rows)))
+    for index, row in enumerate(rows):
+        with columns[index % len(columns)]:
+            render_metric_card(
+                row["label"],
+                row["value"],
+                caption=row["caption"],
+                help_text=row["help"],
+                badges=(badge_html("予測比較", row["tone"]),),
+                tone=row["tone"],
+                emphasis="normal",
+            )
+
+
 def forecast_horizon_label(horizon_days: str) -> str:
     if not horizon_days:
         return "予測日未設定"
@@ -9712,6 +9754,54 @@ def forecast_horizon_display(
         return label
     forecast_date = latest_date + timedelta(days=days)
     return f"{label} ({forecast_date.strftime('%Y/%m/%d')})"
+
+
+def forecast_chart_series_options(rows: list[dict[str, str]]) -> list[dict[str, Any]]:
+    if not rows:
+        return []
+    ordered_series = [
+        series
+        for series in rows[0]
+        if series not in {"ts", "close"} and any(str(row.get(series, "")).strip() for row in rows)
+    ]
+    options: list[dict[str, Any]] = []
+    for series in ordered_series:
+        kind = forecast_chart_series_kind(series)
+        options.append(
+            {
+                "series": series,
+                "label": _forecast_series_label(series),
+                "kind": kind,
+                "default": kind != "baseline",
+                "help": forecast_chart_series_help(series),
+            }
+        )
+    return options
+
+
+def forecast_chart_series_kind(series: str) -> str:
+    if series == "naive":
+        return "baseline"
+    if re.fullmatch(r"advanced_linear_\d+d", series):
+        return "advanced"
+    return "standard"
+
+
+def forecast_chart_series_help(series: str) -> str:
+    kind = forecast_chart_series_kind(series)
+    if kind == "baseline":
+        return "最新終値をそのまま置く比較基準です。予測カードには表示しません。"
+    if kind == "advanced":
+        return "複数の価格特徴量を使う高度予測です。売買判断ではなく参考シナリオです。"
+    return _forecast_model_logic_help(series)
+
+
+def filter_forecast_chart_rows(
+    rows: list[dict[str, str]],
+    selected_series: set[str],
+) -> list[dict[str, str]]:
+    allowed = {"ts", "close", *selected_series}
+    return [{key: value for key, value in row.items() if key in allowed} for row in rows]
 
 
 def forecast_model_card_rows(
@@ -9808,6 +9898,58 @@ def forecast_model_cards_intro_text(cards: list[dict[str, Any]]) -> str:
     )
 
 
+def forecast_model_comparison_rows(cards: list[dict[str, Any]]) -> list[dict[str, str]]:
+    values = [
+        value for card in cards if (value := _decimal_from_text(card.get("value", ""))) is not None
+    ]
+    if not values:
+        return []
+    up_count = sum(1 for value in values if value > 0)
+    down_count = sum(1 for value in values if value < 0)
+    flat_count = len(values) - up_count - down_count
+    spread = max(values) - min(values) if len(values) >= 2 else Decimal("0")
+    if up_count and down_count:
+        direction_value = "見方が割れています"
+        direction_caption = "上方向と下方向のモデルが混在しています。理由を分けて確認します。"
+        direction_tone = "caution"
+    elif up_count:
+        direction_value = "上方向が多め"
+        direction_caption = "表示中のモデルは上方向の見方が中心です。過熱感も確認します。"
+        direction_tone = "success"
+    elif down_count:
+        direction_value = "下方向が多め"
+        direction_caption = "表示中のモデルは下方向の見方が中心です。下落理由を確認します。"
+        direction_tone = "caution"
+    else:
+        direction_value = "横ばい中心"
+        direction_caption = "表示中のモデルは大きな方向感を出していません。"
+        direction_tone = "neutral"
+    spread_text = _plain_percent_display(spread)
+    return [
+        {
+            "label": "上方向 / 下方向",
+            "value": f"{up_count}件 / {down_count}件",
+            "caption": f"横ばい {flat_count}件。方向の偏りを見るための件数です。",
+            "help": "プラス予測を上方向、マイナス予測を下方向として数えています。",
+            "tone": "info",
+        },
+        {
+            "label": "モデル間の開き",
+            "value": spread_text,
+            "caption": "最大の予測変化率と最小の予測変化率の差です。",
+            "help": "開きが大きいほど、モデルごとの見方に差があります。",
+            "tone": "caution" if spread >= Decimal("10") else "info",
+        },
+        {
+            "label": "方向感",
+            "value": direction_value,
+            "caption": direction_caption,
+            "help": "売買判断ではなく、次に確認する観点を整理するための補助表示です。",
+            "tone": direction_tone,
+        },
+    ]
+
+
 def forecast_model_cards_html(cards: list[dict[str, Any]]) -> str:
     if not cards:
         return ""
@@ -9876,6 +10018,11 @@ def _signed_percent_display(percent_value: Decimal) -> str:
     text = f"{percent_value.quantize(Decimal('0.01'))}".rstrip("0").rstrip(".")
     if percent_value > 0:
         return f"+{text}%"
+    return f"{text}%"
+
+
+def _plain_percent_display(percent_value: Decimal) -> str:
+    text = f"{percent_value.quantize(Decimal('0.01'))}".rstrip("0").rstrip(".")
     return f"{text}%"
 
 

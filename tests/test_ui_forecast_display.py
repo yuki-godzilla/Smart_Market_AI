@@ -165,15 +165,18 @@ from ui.app import (
     decision_report_markdown_download,
     default_forecast_horizon_days,
     default_market_data_provider,
+    filter_forecast_chart_rows,
     forecast_boundary_frame,
     forecast_chart_color_domain,
     forecast_chart_color_range,
+    forecast_chart_series_options,
     forecast_chart_summary,
     forecast_consensus_display_rows,
     forecast_metric_display_rows,
     forecast_metric_summary,
     forecast_model_card_rows,
     forecast_model_cards_html,
+    forecast_model_comparison_rows,
     format_provider_error_details,
     get_cached_ranking_build,
     investment_score_display_rows,
@@ -7590,6 +7593,54 @@ def test_forecast_model_cards_include_baseline_and_advanced_logic_help():
     assert "5日 +1.4%" in intro
     assert "実験的な参考予測" in display_rows[0]["注意点"]
     assert "因果関係の説明ではありません" in display_rows[0]["注意点"]
+
+
+def test_forecast_chart_filter_options_hide_naive_by_default():
+    rows = [
+        {
+            "ts": "2026-06-07T00:00:00+00:00",
+            "close": "100",
+            "naive": "100",
+            "moving_average_20": "101",
+            "advanced_linear_5d": "",
+        },
+        {
+            "ts": "2026-06-12T00:00:00+00:00",
+            "close": "",
+            "naive": "100",
+            "moving_average_20": "102",
+            "advanced_linear_5d": "103",
+        },
+    ]
+
+    options = forecast_chart_series_options(rows)
+    filtered = filter_forecast_chart_rows(rows, {"moving_average_20", "advanced_linear_5d"})
+
+    assert [(option["series"], option["default"]) for option in options] == [
+        ("naive", False),
+        ("moving_average_20", True),
+        ("advanced_linear_5d", True),
+    ]
+    assert "直近値維持" in options[0]["label"]
+    assert "naive" not in filtered[0]
+    assert filtered[0]["close"] == "100"
+    assert filtered[1]["advanced_linear_5d"] == "103"
+
+
+def test_forecast_model_comparison_rows_summarize_direction_and_spread():
+    rows = forecast_model_comparison_rows(
+        [
+            {"model": "予測: 20日移動平均", "value": "+4.99%"},
+            {"model": "予測: 30日モメンタム", "value": "-14.76%"},
+            {"model": "高度予測: 線形モデル 5日", "value": "+1.42%"},
+        ]
+    )
+
+    assert rows[0]["value"] == "2件 / 1件"
+    assert rows[1]["value"] == "19.75%"
+    assert rows[1]["tone"] == "caution"
+    assert rows[2]["value"] == "見方が割れています"
+    assert rows[2]["tone"] == "caution"
 
 
 def test_forecast_chart_palette_highlights_actual_price_first():

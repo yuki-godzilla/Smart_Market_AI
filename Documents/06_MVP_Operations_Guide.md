@@ -35,6 +35,11 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
   - Cockpit selected symbols and Ranking comparison targets are registered as background priority hints without adding user-facing controls
   - Cockpit `データを取得` and Ranking `最新データを取得して更新` run a bounded target preflight refresh before market-data fetch / ranking creation
   - Cockpit selected-symbol caption and the shared Ranking / Cockpit `銘柄データ` modal show saved symbol DB freshness, source, update times, and missing key fields
+- Phase 23 Advanced Forecast Slice 1 plan
+  - planned `advanced_linear` forecast adapter for Cockpit / Ranking
+  - Ridge / ElasticNet-style lightweight deterministic forecasting of 5 / 20 trading day forward returns
+  - walk-forward / time-series validation, validation metrics, confidence, and feature contribution summary
+  - designed to keep normal checks network-free and avoid heavy ML dependencies by default
 - Low-cost Assistant backend first slice
   - deterministic `TemplateAssistantService` that explains score / risk / research / next checkpoints from Decision Report context without LLM or network
 - Streamlit UI
@@ -51,7 +56,8 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - 追加 Research RAG external source adapters / vector search の運用UI
 - Research Score によるランキング順位統合は現時点では見送り。Cockpit / Ranking Research Summary と Cockpit Decision Report への参考表示、Investment Score optional numeric input、disabled-by-default weight は対応済み
 - `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動、通知
-- Assistant API / Streamlit 質問パネル、optional LLM provider
+- Advanced Forecast Slice 1 implementation: `advanced_linear` adapter, 5 / 20 trading day forward return prediction, walk-forward validation, Cockpit / Ranking minimal display
+- Assistant API / Streamlit 質問パネル、optional LLM provider は Phase 24 に後ろ倒し
 - 銘柄DB live provider refresh wiring
 - broker への live order 送信
 - Execution workflow

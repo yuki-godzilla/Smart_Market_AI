@@ -1143,3 +1143,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Swapped the roadmap order so Phase 23 is now Optional Adapter / advanced analysis, prioritizing advanced forecast model adapters for Cockpit / Ranking.
 - Moved low-cost Assistant UI/API work to Phase 24, keeping the existing deterministic backend Assistant slice as a future fallback for mascot / LLM Assistant work.
 - Updated project context to record the new phase order and current next-priority assumption.
+
+## 2026-06-06 - Advanced Forecast Slice 1 docs
+
+- Documented Phase 23 Advanced Forecast Slice 1 as the planned `advanced_linear` forecast adapter.
+- Captured Ridge / ElasticNet-style forward-return forecasting, 5 / 20 trading day horizons, walk-forward validation, confidence, validation metrics, and feature contribution summary requirements.
+- Updated README, operations guide, roadmap, and project context so the next implementation target is advanced forecast before Assistant / LLM UI work.

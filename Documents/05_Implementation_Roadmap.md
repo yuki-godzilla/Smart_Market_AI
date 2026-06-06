@@ -1601,6 +1601,95 @@ Phase 22 完了条件:
 - ランキング順位への反映は opt-in または比較表示から始め、既定挙動を急に変えない。
 - UI では「将来保証」ではなく「モデル別の見方 / 不確実性 / 確認材料」として表示する。
 
+#### Phase 23.a: Advanced Forecast Slice 1 - `advanced_linear`
+
+目的: 派手な深層学習モデルより先に、軽量・deterministic・説明可能な高度予測 adapter の骨格を追加する。既存 FeatureBuilder / Forecast service / Cockpit / Ranking の構造を壊さず、将来の tree / GBDT / quantile / deep-learning adapter を足せる境界を作る。
+
+実装方針:
+
+- `backend/forecast/adapters/advanced_linear.py` を候補に、既存の forecast adapter / registry 方針に合わせて追加する。
+- default model は `Ridge`、optional model は `ElasticNet` とする。
+- 追加依存は最小にする。scikit-learn が既存依存に含まれていない場合だけ、project の requirements / pyproject 方針に従って追加する。
+- 価格そのものではなく forward return を予測する。
+- 対応 horizon はまず `5` / `20` trading days とする。
+- `future_return_5d = close[t+5] / close[t] - 1`、`future_return_20d = close[t+20] / close[t] - 1` を target とする。
+- target 作成後、未来値がない末尾行は学習対象から除外する。target 列、日付、銘柄名、未来由来の列は feature に混ぜない。
+- FeatureBuilder / ranking feature / DailySnapshot など既存生成済み特徴量を優先し、存在しない特徴量を無理に新規実装しない。
+- 使用候補 feature は、既存値があるものに限って `return_1d`、`return_5d`、`return_20d`、momentum、volatility、drawdown、volume / rolling volume、moving-average gap、利用可能なら RSI / PER / PBR / ROE / dividend yield / market cap / Research Score 系を扱う。
+- 前処理は数値 feature 抽出、`SimpleImputer(strategy="median")`、`StandardScaler`、`Ridge` / `ElasticNet` を基本にする。
+- scikit-learn `Pipeline` を使える場合は、imputer / scaler / model をひとまとまりにする。
+- deterministic のため、random state を持つ処理では `random_state = 42` を固定する。
+
+評価方針:
+
+- ランダム split は禁止し、`TimeSeriesSplit` または同等の walk-forward validation を使う。
+- 最小評価指標は `MAE`、`RMSE`、`direction_accuracy`、`fold_count`、`sample_count`。
+- `direction_accuracy` は predicted return と actual return の符号が一致した割合とする。
+- 可能なら baseline 比較として `baseline_zero_return` を入れ、`baseline_zero_rmse` と `rmse_improvement` を返す。
+- `rank_correlation` / `top_k_hit_rate` は Ranking 接続を意識した拡張候補として設計余地を残すが、初期 slice で重ければ TODO として残す。
+
+出力候補:
+
+- `adapter_name`: `advanced_linear`
+- `model_name`: `Ridge` または `ElasticNet`
+- `horizon_days`: `5` / `20`
+- `predicted_return`
+- `direction_score`
+- `confidence`: `low` / `medium` / `high`
+- `validation_metrics`
+- `feature_contribution_summary`
+- `warnings`
+
+confidence 方針:
+
+- `high`: sample_count と fold_count が十分で、direction accuracy が baseline より明確に良く、RMSE が極端に悪くない。
+- `medium`: sample_count が十分で、最低限の評価指標が計算できる。
+- `low`: sample_count / fold_count が不足、欠損が多い、validation metrics が不安定。
+- 初期実装では simple rule でよい。過度に賢く見せない。
+
+feature contribution 方針:
+
+- Ridge / ElasticNet の標準化後係数から、絶対値上位 feature を抽出する。
+- 正の係数は `positive`、負の係数は `negative` と表示する。
+- これは因果ではなく、モデル上の寄与傾向であることを warning / UI 文言で明示する。
+
+API / service 接続方針:
+
+- 既存 forecast API / service の default 挙動は壊さない。
+- adapter 未指定時は既存 baseline consensus のままにする。
+- `advanced_linear` 指定時だけ新 adapter を使う。
+- horizon は `5` / `20` をサポートし、不正 horizon は validation error にする。
+- データ不足時は graceful error または low-confidence warning として扱う。
+
+Streamlit / Ranking 接続方針:
+
+- 銘柄コックピットの予測表示エリアに最小表示を追加する。
+- 表示候補は、高度予測モデル名、horizon、予測リターン、direction score、confidence、MAE / RMSE / direction accuracy、主な寄与 feature、非助言 note。
+- まずは expander `高度予測モデル詳細` でもよい。
+- Ranking へは `predicted_return_5d`、`predicted_return_20d`、`advanced_forecast_score`、`advanced_forecast_confidence` の列を保持できる形にする。
+- 初期 slice では Ranking 本体順位を変更せず、補助列 / optional score として扱う。
+
+将来 adapter 候補:
+
+- `advanced_tree_sklearn`: RandomForestRegressor / ExtraTreesRegressor
+- `advanced_gbdt_sklearn`: HistGradientBoostingRegressor
+- `advanced_gbdt_optional`: LightGBM / XGBoost
+- `advanced_quantile`: Quantile Regression / prediction interval
+- LightGBM / XGBoost / Prophet / deep learning 系は今回追加しない。
+
+テスト方針:
+
+- `advanced_linear` adapter を import できる。
+- 小さな時系列 fixture で学習・予測できる。
+- `future_return_5d` / `future_return_20d` が生成される。
+- 未来データが特徴量へ混ざらない。
+- TimeSeriesSplit / walk-forward が使われ、random split が使われない。
+- 欠損があっても落ちにくい。
+- データ不足時に graceful error または low-confidence warning になる。
+- prediction result schema が期待どおり。
+- 既存 forecast API / default 挙動が壊れない。
+- validation metrics、confidence、feature contribution summary が返る。
+
 完了条件:
 
 - adapter 未設定でも既存機能が壊れない。
@@ -1608,6 +1697,10 @@ Phase 22 完了条件:
 - 通常 tests は network / cloud API / heavy ML library に依存しない。
 - 高度予測モデルの出力は、銘柄コックピットとランキングで既存 Forecast / direction signal と読み分けられる。
 - 予測は売買判断の主体にせず、スコアやリスクと合わせて確認する材料として扱う。
+- `advanced_linear` adapter が追加され、Ridge / ElasticNet の少なくとも Ridge が使える。
+- 5 / 20 trading day forward return の予測、walk-forward validation、validation metrics、confidence、feature contribution summary が返る。
+- API または forecast service から adapter 指定でき、Streamlit UI で最小表示できる。
+- README または roadmap に Advanced Forecast Slice 1 として記録されている。
 
 Research資料保存方針の移行:
 

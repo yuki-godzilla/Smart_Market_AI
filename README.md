@@ -104,11 +104,12 @@ MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で
 - Phase 20: Research RAG Evidence Layer は local evidence foundation が implementation complete
 - Phase 21: 高度Research RAG / Stock News RAG / external fresh-source fetch の first slices は implementation complete。追加 provider と運用UIは後続
 - Phase 22: Research Score / Cockpit deep-dive は first UI slices 実装済み。Phase 22.x `投資レーダー` (Investment News dashboard) は初期MVP実装済み、Phase 22.y news cache と Phase 22.z symbol DB background refresh は backend foundation 実装済み
-- Phase 23: Template Assistant backend slice は実装済み。API / Streamlit 質問パネルは次の slice
-- Phase 24〜25: optional adapter / LLM provider、advanced export、Execution gate の順に整理
+- Phase 23: Optional Adapter / 高度分析を先に進める。次ターゲットは Advanced Forecast Slice 1 として、`advanced_linear` forecast adapter を計画
+- Phase 24: Template Assistant backend slice は実装済み。SMAI マスコット UI / Assistant API / optional LLM provider は LLM 実装時に再開
+- Phase 25: advanced export、Execution gate の順に整理
 - Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
-次の重点は、`投資レーダー` dashboard の実画面確認、外部ニュースsource接続の設計、または Phase 23 Assistant API/UI のどれを先に進めるかの判断です。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、optional LLM/provider、Execution / Broker は段階的に扱います。通常 checks は引き続き fake adapter / fixture で network 非依存を維持します。
+次の重点は Phase 23 Advanced Forecast Slice 1 です。まず `advanced_linear` adapter として Ridge / ElasticNet 系の軽量・deterministic な予測モデルを追加し、5 / 20 trading day forward return、walk-forward validation、validation metrics、confidence、feature contribution summary を扱えるようにします。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、Assistant / optional LLM/provider、Execution / Broker は段階的に扱います。通常 checks は引き続き fake adapter / fixture で network 非依存を維持します。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント

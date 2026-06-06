@@ -1137,3 +1137,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added ranking-detail session state for fetched external research results and stock-news reports so the existing integrated research summary panel can show richer evidence.
 - Added a UI regression test proving the modal button follows the cockpit-style external research -> research report -> stock-news report flow.
 - Verified with targeted UI tests, Ruff, Black helper, and full local checks.
+
+## 2026-06-06 - Roadmap Phase 23 / 24 reorder
+
+- Swapped the roadmap order so Phase 23 is now Optional Adapter / advanced analysis, prioritizing advanced forecast model adapters for Cockpit / Ranking.
+- Moved low-cost Assistant UI/API work to Phase 24, keeping the existing deterministic backend Assistant slice as a future fallback for mascot / LLM Assistant work.
+- Updated project context to record the new phase order and current next-priority assumption.

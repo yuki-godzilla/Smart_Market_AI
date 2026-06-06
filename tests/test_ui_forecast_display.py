@@ -7615,6 +7615,7 @@ def test_forecast_chart_filter_options_hide_naive_by_default():
 
     options = forecast_chart_series_options(rows)
     filtered = filter_forecast_chart_rows(rows, {"moving_average_20", "advanced_linear_5d"})
+    fallback_filtered = filter_forecast_chart_rows(rows, set())
 
     assert [(option["series"], option["default"]) for option in options] == [
         ("naive", False),
@@ -7625,6 +7626,9 @@ def test_forecast_chart_filter_options_hide_naive_by_default():
     assert "naive" not in filtered[0]
     assert filtered[0]["close"] == "100"
     assert filtered[1]["advanced_linear_5d"] == "103"
+    assert "naive" not in fallback_filtered[0]
+    assert fallback_filtered[0]["moving_average_20"] == "101"
+    assert fallback_filtered[1]["advanced_linear_5d"] == "103"
 
 
 def test_forecast_model_comparison_rows_summarize_direction_and_spread():

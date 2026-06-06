@@ -9714,6 +9714,8 @@ def _render_forecast_chart_filters(rows: list[dict[str, str]]) -> set[str]:
             )
         if checked:
             selected.add(option["series"])
+    if not selected:
+        selected = default_forecast_chart_series(options)
     st.caption(
         "直近値維持は比較基準のため、必要な時だけ表示します。" "実線は実績、点線は予測です。"
     )
@@ -9779,6 +9781,10 @@ def forecast_chart_series_options(rows: list[dict[str, str]]) -> list[dict[str, 
     return options
 
 
+def default_forecast_chart_series(options: list[dict[str, Any]]) -> set[str]:
+    return {option["series"] for option in options if option.get("default")}
+
+
 def forecast_chart_series_kind(series: str) -> str:
     if series == "naive":
         return "baseline"
@@ -9800,6 +9806,8 @@ def filter_forecast_chart_rows(
     rows: list[dict[str, str]],
     selected_series: set[str],
 ) -> list[dict[str, str]]:
+    if not selected_series:
+        selected_series = default_forecast_chart_series(forecast_chart_series_options(rows))
     allowed = {"ts", "close", *selected_series}
     return [{key: value for key, value in row.items() if key in allowed} for row in rows]
 

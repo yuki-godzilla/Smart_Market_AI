@@ -15,6 +15,7 @@ from backend.forecast.registry import (
     forecast_model_specs,
 )
 from backend.forecast.service import (
+    AdvancedForecastEvaluation,
     DirectionSignalLabel,
     ForecastConsensus,
     ForecastEvaluation,
@@ -34,6 +35,7 @@ from backend.forecast.service import (
     direction_signal_label,
     edge_to_down_score,
     edge_to_up_score,
+    evaluate_advanced_linear_forecast,
     evaluate_models,
     forecast_direction_signal,
     forecast_model_signal_weight,
@@ -47,6 +49,7 @@ __all__ = [
     "ADVANCED_LINEAR_ADAPTER_NAME",
     "SUPPORTED_ADVANCED_LINEAR_HORIZONS",
     "AdvancedForecastValidationMetrics",
+    "AdvancedForecastEvaluation",
     "AdvancedLinearForecastAdapter",
     "AdvancedLinearForecastResult",
     "FeatureContribution",
@@ -71,6 +74,7 @@ __all__ = [
     "edge_to_down_score",
     "edge_to_up_score",
     "default_forecast_models",
+    "evaluate_advanced_linear_forecast",
     "evaluate_models",
     "forecast_direction_signal",
     "forecast_model_signal_weight",

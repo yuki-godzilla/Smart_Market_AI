@@ -42,7 +42,7 @@ def test_openapi_schema_documents_main_api_contracts():
     assert "502" in screening_operation["responses"]
 
     forecast_operation = paths["/forecast/evaluate"]["post"]
-    assert forecast_operation["summary"] == "Evaluate baseline forecasts for a symbol"
+    assert forecast_operation["summary"] == "Evaluate deterministic forecasts for a symbol"
     assert "422" in forecast_operation["responses"]
 
     scoring_operation = paths["/scoring/investment-score"]["post"]
@@ -76,6 +76,10 @@ def test_openapi_schema_includes_request_examples():
     assert forecast_example["symbol"] == "AAPL"
     assert forecast_example["start"] == "2026-04-07"
     assert forecast_example["end"] == "2026-04-09"
+    assert forecast_example["adapter"] == "baseline"
+    advanced_forecast_example = schemas["ForecastEvaluateRequest"]["examples"][1]
+    assert advanced_forecast_example["adapter"] == "advanced_linear"
+    assert advanced_forecast_example["horizon_days"] == 5
 
     scoring_example = schemas["InvestmentScoreRequest"]["examples"][0]
     assert scoring_example["symbols"] == ["AAPL", "7203.T"]

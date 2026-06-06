@@ -7,6 +7,11 @@ from typing import Literal, Protocol, TypedDict
 from pydantic import ConfigDict, Field
 
 from backend.core.data_contracts import Bar, StrictBaseModel
+from backend.forecast.adapters import (
+    AdvancedForecastValidationMetrics,
+    AdvancedLinearForecastAdapter,
+    FeatureContribution,
+)
 
 DirectionSignalLabel = Literal[
     "STRONG_UPSIDE",
@@ -66,6 +71,25 @@ class ForecastEvaluation(StrictBaseModel):
     horizon_days: int = Field(ge=1)
     latest_forecast: ForecastPoint
     metrics: ForecastMetrics
+
+
+class AdvancedForecastEvaluation(StrictBaseModel):
+    """Advanced forecast output enriched for service and API consumers."""
+
+    model_config = ConfigDict(extra="forbid", protected_namespaces=())
+
+    adapter_name: str = Field(min_length=1)
+    model_name: str = Field(min_length=1)
+    symbol: str = Field(min_length=1)
+    horizon_days: int = Field(ge=1)
+    latest_close: Decimal = Field(ge=0)
+    forecast_close: Decimal = Field(ge=0)
+    predicted_return: Decimal
+    direction_score: Decimal = Field(ge=0, le=1)
+    confidence: str = Field(min_length=1)
+    validation_metrics: AdvancedForecastValidationMetrics
+    feature_contribution_summary: list[FeatureContribution] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class ForecastConsensus(StrictBaseModel):
@@ -194,6 +218,35 @@ def evaluate_models(
     return [
         _evaluate_model(sorted_bars, model, horizon_days=horizon_days) for model in resolved_models
     ]
+
+
+def evaluate_advanced_linear_forecast(
+    bars: list[Bar],
+    *,
+    horizon_days: int,
+) -> AdvancedForecastEvaluation:
+    """Evaluate the deterministic advanced-linear forecast adapter."""
+
+    sorted_bars = sorted(bars, key=lambda bar: bar.ts)
+    if not sorted_bars:
+        raise ValueError("bars are required")
+    result = AdvancedLinearForecastAdapter().forecast(sorted_bars, horizon_days=horizon_days)
+    latest_close = sorted_bars[-1].close
+    forecast_close = latest_close * (Decimal("1") + result.predicted_return)
+    return AdvancedForecastEvaluation(
+        adapter_name=result.adapter_name,
+        model_name=result.model_name,
+        symbol=result.symbol,
+        horizon_days=result.horizon_days,
+        latest_close=_round_price(latest_close),
+        forecast_close=_round_price(forecast_close),
+        predicted_return=result.predicted_return,
+        direction_score=result.direction_score,
+        confidence=result.confidence,
+        validation_metrics=result.validation_metrics,
+        feature_contribution_summary=result.feature_contribution_summary,
+        warnings=result.warnings,
+    )
 
 
 def summarize_forecast_evaluations(

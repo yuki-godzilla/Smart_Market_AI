@@ -1,19 +1,23 @@
 from datetime import UTC, date, datetime, time
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import ConfigDict, Field
 
 from backend.core.config import get_settings
-from backend.core.data_contracts import Position, StrictBaseModel, TradeIntent
+from backend.core.data_contracts import Bar, Position, StrictBaseModel, TradeIntent
 from backend.core.errors import AppError, ComputationError
 from backend.forecast import (
+    ADVANCED_LINEAR_ADAPTER_NAME,
+    SUPPORTED_ADVANCED_LINEAR_HORIZONS,
+    AdvancedForecastEvaluation,
     ForecastConsensus,
     ForecastEvaluation,
     ForecastModel,
     available_forecast_models,
+    evaluate_advanced_linear_forecast,
     evaluate_models,
     summarize_forecast_evaluations,
 )
@@ -192,7 +196,7 @@ class ScreeningScoreRequest(StrictBaseModel):
 
 
 class ForecastEvaluateRequest(StrictBaseModel):
-    """Request body for deterministic baseline forecast evaluation."""
+    """Request body for deterministic forecast evaluation."""
 
     model_config = ConfigDict(
         extra="forbid",
@@ -203,7 +207,15 @@ class ForecastEvaluateRequest(StrictBaseModel):
                     "start": "2026-04-07",
                     "end": "2026-04-09",
                     "horizon_days": 1,
-                }
+                    "adapter": "baseline",
+                },
+                {
+                    "symbol": "AAPL",
+                    "start": "2026-04-01",
+                    "end": "2026-06-06",
+                    "horizon_days": 5,
+                    "adapter": "advanced_linear",
+                },
             ]
         },
     )
@@ -212,6 +224,7 @@ class ForecastEvaluateRequest(StrictBaseModel):
     start: date
     end: date
     horizon_days: int = Field(default=1, ge=1, le=30)
+    adapter: Literal["baseline", "advanced_linear"] = "baseline"
 
 
 class InvestmentScoreRequest(StrictBaseModel):
@@ -321,8 +334,8 @@ async def build_investment_scores(request: InvestmentScoreRequest) -> list[Inves
 
 async def build_forecast_evaluations(
     request: ForecastEvaluateRequest,
-) -> list[ForecastEvaluation]:
-    """Fetch OHLCV bars and evaluate available deterministic forecast baselines."""
+) -> list[ForecastEvaluation] | list[AdvancedForecastEvaluation]:
+    """Fetch OHLCV bars and evaluate the requested deterministic forecast adapter."""
 
     if request.start > request.end:
         raise ComputationError(
@@ -337,6 +350,9 @@ async def build_forecast_evaluations(
         start=datetime.combine(request.start, time.min, tzinfo=UTC),
         end=datetime.combine(request.end, time.max, tzinfo=UTC),
     )
+    if request.adapter == ADVANCED_LINEAR_ADAPTER_NAME:
+        return [_build_advanced_linear_forecast_evaluation(request, bars)]
+
     models = _available_forecast_models(len(bars))
     if not bars or not models:
         raise ComputationError(
@@ -348,6 +364,36 @@ async def build_forecast_evaluations(
             },
         )
     return evaluate_models(bars, models=models, horizon_days=request.horizon_days)
+
+
+def _build_advanced_linear_forecast_evaluation(
+    request: ForecastEvaluateRequest,
+    bars: list[Bar],
+) -> AdvancedForecastEvaluation:
+    if request.horizon_days not in SUPPORTED_ADVANCED_LINEAR_HORIZONS:
+        raise ComputationError(
+            "advanced_linear supports only 5 or 20 day horizons",
+            details={
+                "adapter": request.adapter,
+                "horizon_days": request.horizon_days,
+                "supported_horizons": list(SUPPORTED_ADVANCED_LINEAR_HORIZONS),
+            },
+        )
+    try:
+        return evaluate_advanced_linear_forecast(
+            bars,
+            horizon_days=request.horizon_days,
+        )
+    except ValueError as exc:
+        raise ComputationError(
+            "Not enough OHLCV bars for advanced_linear forecast evaluation",
+            details={
+                "symbol": request.symbol,
+                "bar_count": len(bars),
+                "adapter": request.adapter,
+                "horizon_days": request.horizon_days,
+            },
+        ) from exc
 
 
 async def _build_forecast_consensus_by_symbol(
@@ -444,19 +490,20 @@ async def screening_score(request: ScreeningScoreRequest) -> list[ScreeningScore
 
 @app.post(
     "/forecast/evaluate",
-    response_model=list[ForecastEvaluation],
+    response_model=list[ForecastEvaluation] | list[AdvancedForecastEvaluation],
     tags=["Forecast"],
-    summary="Evaluate baseline forecasts for a symbol",
+    summary="Evaluate deterministic forecasts for a symbol",
     description=(
-        "Fetches configured OHLCV data for one symbol and evaluates deterministic "
-        "baseline forecast models with walk-forward metrics."
+        "Fetches configured OHLCV data for one symbol and evaluates deterministic baseline "
+        "models by default. Set adapter=advanced_linear to evaluate the lightweight "
+        "5 / 20 day advanced forecast adapter."
     ),
     responses=ERROR_RESPONSES,
 )
 async def forecast_evaluate(
     request: ForecastEvaluateRequest,
-) -> list[ForecastEvaluation]:
-    """Evaluate available deterministic forecast baselines for one symbol."""
+) -> list[ForecastEvaluation] | list[AdvancedForecastEvaluation]:
+    """Evaluate the requested deterministic forecast adapter for one symbol."""
 
     return await build_forecast_evaluations(request)
 

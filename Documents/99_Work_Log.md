@@ -1169,3 +1169,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Replaced the chart-adjacent advanced forecast table with 5日 / 20日 metric cards so the new model is easier to notice beside the existing forecast chart.
 - Kept detailed advanced forecast metrics in the forecast detail expander while shortening feature contribution display.
 - Translated advanced forecast UI warnings into beginner-friendly Japanese and clarified that the output is scenario support, not investment advice.
+
+## 2026-06-07 - Advanced Forecast service and API connection
+
+- Added an API-ready `AdvancedForecastEvaluation` wrapper that enriches `advanced_linear` adapter output with latest close and forecast close.
+- Extended `POST /forecast/evaluate` with optional `adapter=advanced_linear` while keeping the default baseline response unchanged.
+- Limited `advanced_linear` API horizons to 5 / 20 days and return deterministic validation metrics, confidence, feature contributions, and warnings.
+- Added deterministic service and API tests for advanced forecast output and unsupported-horizon errors.

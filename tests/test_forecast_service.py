@@ -18,6 +18,7 @@ from backend.forecast import (
     direction_signal_label,
     edge_to_down_score,
     edge_to_up_score,
+    evaluate_advanced_linear_forecast,
     evaluate_models,
     forecast_model_signal_weight,
     safe_signal_volatility,
@@ -71,6 +72,21 @@ def test_evaluate_models_uses_horizon_days_for_walk_forward_target():
     assert evaluations[0].metrics.rmse == Decimal("3.3912")
     assert evaluations[1].metrics.sample_count == 2
     assert evaluations[2].metrics.sample_count == 1
+
+
+def test_evaluate_advanced_linear_forecast_returns_api_ready_close():
+    bars = _bars(list(range(100, 172)))
+
+    evaluation = evaluate_advanced_linear_forecast(bars, horizon_days=5)
+
+    assert evaluation.adapter_name == "advanced_linear"
+    assert evaluation.model_name == "Ridge"
+    assert evaluation.symbol == "AAPL"
+    assert evaluation.horizon_days == 5
+    assert evaluation.latest_close == Decimal("171.0000")
+    assert evaluation.forecast_close >= Decimal("0")
+    assert evaluation.validation_metrics.sample_count == 67
+    assert evaluation.feature_contribution_summary
 
 
 def test_summarize_forecast_evaluations_returns_model_agreement():

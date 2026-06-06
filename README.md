@@ -104,12 +104,12 @@ MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で
 - Phase 20: Research RAG Evidence Layer は local evidence foundation が implementation complete
 - Phase 21: 高度Research RAG / Stock News RAG / external fresh-source fetch の first slices は implementation complete。追加 provider と運用UIは後続
 - Phase 22: Research Score / Cockpit deep-dive は first UI slices 実装済み。Phase 22.x `投資レーダー` (Investment News dashboard) は初期MVP実装済み、Phase 22.y news cache と Phase 22.z symbol DB background refresh は backend foundation 実装済み
-- Phase 23: Optional Adapter / 高度分析を先に進める。Advanced Forecast Slice 1 として、`advanced_linear` forecast adapter の backend first slice と Cockpit chart/table 表示を実装済み
+- Phase 23: Optional Adapter / 高度分析を先に進める。Advanced Forecast Slice 1 として、`advanced_linear` forecast adapter、forecast service / API adapter selection、Cockpit chart/card 表示を実装済み
 - Phase 24: Template Assistant backend slice は実装済み。SMAI マスコット UI / Assistant API / optional LLM provider は LLM 実装時に再開
 - Phase 25: advanced export、Execution gate の順に整理
 - Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
-次の重点は Phase 23 Advanced Forecast Slice 1 の接続拡張です。backend には `advanced_linear` adapter が入り、Ridge 系の軽量・deterministic な予測モデルで 5 / 20 trading day forward return、walk-forward validation、validation metrics、confidence、feature contribution summary を扱えます。銘柄コックピットでは既存の価格・予測チャートへ高度予測点を重ね、補助テーブルで検証指標と注意点を確認できます。次は forecast service / API adapter selection と Ranking 接続を進めます。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、Assistant / optional LLM/provider、Execution / Broker は段階的に扱います。通常 checks は引き続き fake adapter / fixture で network 非依存を維持します。
+次の重点は Phase 23 Advanced Forecast Slice 1 の接続拡張です。backend には `advanced_linear` adapter が入り、Ridge 系の軽量・deterministic な予測モデルで 5 / 20 trading day forward return、walk-forward validation、validation metrics、confidence、feature contribution summary を扱えます。`POST /forecast/evaluate` では `adapter=advanced_linear` 指定時に高度予測を返し、銘柄コックピットでは既存の価格・予測チャートへ高度予測点を重ね、カードと詳細表で検証指標と注意点を確認できます。次は Ranking 接続を進めます。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、Assistant / optional LLM/provider、Execution / Broker は段階的に扱います。通常 checks は引き続き fake adapter / fixture で network 非依存を維持します。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント

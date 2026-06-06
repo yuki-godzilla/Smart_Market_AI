@@ -35,8 +35,9 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
   - Cockpit selected symbols and Ranking comparison targets are registered as background priority hints without adding user-facing controls
   - Cockpit `データを取得` and Ranking `最新データを取得して更新` run a bounded target preflight refresh before market-data fetch / ranking creation
   - Cockpit selected-symbol caption and the shared Ranking / Cockpit `銘柄データ` modal show saved symbol DB freshness, source, update times, and missing key fields
-- Phase 23 Advanced Forecast Slice 1 backend + Cockpit chart slice
+- Phase 23 Advanced Forecast Slice 1 backend + API + Cockpit chart slice
   - `advanced_linear` forecast adapter foundation for Cockpit / Ranking
+  - `POST /forecast/evaluate` accepts `adapter=advanced_linear` with `horizon_days` 5 / 20 and returns predicted return, forecast close, validation metrics, confidence, feature contribution summary, and warnings
   - Cockpit overlays 5 / 20 day `advanced_linear` forecast points on the existing price / forecast chart when enough local history is available
   - Ridge-style lightweight deterministic forecasting of 5 / 20 trading day forward returns without adding heavy ML dependencies
   - walk-forward / time-series validation, validation metrics, confidence, and feature contribution summary
@@ -57,7 +58,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - 追加 Research RAG external source adapters / vector search の運用UI
 - Research Score によるランキング順位統合は現時点では見送り。Cockpit / Ranking Research Summary と Cockpit Decision Report への参考表示、Investment Score optional numeric input、disabled-by-default weight は対応済み
 - `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動、通知
-- Advanced Forecast Slice 1 service / API / Ranking connection: backend `advanced_linear` adapter exists and Cockpit chart/table display is connected; service/API adapter selection and Ranking minimal display are next
+- Advanced Forecast Slice 1 Ranking connection: backend `advanced_linear` adapter, service/API adapter selection, and Cockpit chart/card display are connected; Ranking minimal display is next
 - Assistant API / Streamlit 質問パネル、optional LLM provider は Phase 24 に後ろ倒し
 - 銘柄DB live provider refresh wiring
 - broker への live order 送信
@@ -94,7 +95,7 @@ http://127.0.0.1:8000/openapi.json
 | `POST /risk/pre-trade-check` | trade intent を deterministic risk rule で評価 |
 | `POST /portfolio/rebalance-check` | 現在 portfolio と target allocation から配分見直し候補を作り Risk check へ接続 |
 | `POST /screening/score` | Feature Snapshot から Screening Score / ranking / reason を返す |
-| `POST /forecast/evaluate` | OHLCV から baseline forecast と walk-forward metrics を返す |
+| `POST /forecast/evaluate` | OHLCV から baseline forecast と walk-forward metrics を返す。`adapter=advanced_linear` 指定時は 5日 / 20日の高度予測、予測変化率、予測価格、信頼度、検証指標、特徴量要約、注意点を返す |
 | `POST /scoring/investment-score` | Screening / Direction signal / Forecast agreement compatibility / Data quality / Risk signal を統合した Investment Score を返す。`research_scores_by_symbol` は任意入力で、既定 weight は 0.0 |
 
 エラー応答は JSON です。

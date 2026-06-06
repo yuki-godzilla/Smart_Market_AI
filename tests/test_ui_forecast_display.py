@@ -169,6 +169,7 @@ from ui.app import (
     forecast_boundary_frame,
     forecast_chart_color_domain,
     forecast_chart_color_range,
+    forecast_chart_series_labels,
     forecast_chart_series_options,
     forecast_chart_summary,
     forecast_consensus_display_rows,
@@ -7527,7 +7528,7 @@ def test_forecast_model_cards_include_baseline_and_advanced_logic_help():
             "model": "naive",
             "symbol": "AAPL",
             "horizon_days": "1",
-            "forecast_close": "101.7",
+            "forecast_close": "100",
             "mae": "1.2",
             "rmse": "1.5",
             "direction_accuracy": "50.00%",
@@ -7653,6 +7654,41 @@ def test_forecast_chart_palette_highlights_actual_price_first():
     assert domain == ["実績価格", "予測: 直近値維持", "予測: 30日移動平均"]
     assert color_range[0] == FORECAST_ACTUAL_PRICE_COLOR
     assert color_range[1:] == list(FORECAST_MODEL_COLORS[:2])
+
+
+def test_forecast_chart_color_labels_keep_model_colors_stable_when_filtered():
+    rows = [
+        {
+            "ts": "2026-06-07T00:00:00+00:00",
+            "close": "100",
+        },
+        {
+            "ts": "2026-06-12T00:00:00+00:00",
+            "close": "",
+            "naive": "100",
+            "moving_average_20": "102",
+            "advanced_linear_5d": "103",
+        },
+    ]
+
+    full_domain = forecast_chart_color_domain(forecast_chart_series_labels(rows))
+    full_colors = forecast_chart_color_range(full_domain)
+    filtered_domain = forecast_chart_color_domain(
+        ["実績価格", "予測: 20日移動平均", "高度予測: 線形モデル 5日"]
+    )
+    filtered_colors = forecast_chart_color_range(filtered_domain)
+
+    assert full_domain == [
+        "実績価格",
+        "予測: 直近値維持",
+        "予測: 20日移動平均",
+        "高度予測: 線形モデル 5日",
+    ]
+    assert full_domain.index("予測: 20日移動平均") != filtered_domain.index("予測: 20日移動平均")
+    assert (
+        full_colors[full_domain.index("予測: 20日移動平均")]
+        != filtered_colors[filtered_domain.index("予測: 20日移動平均")]
+    )
 
 
 def test_latest_actual_price_frame_marks_current_price_point():

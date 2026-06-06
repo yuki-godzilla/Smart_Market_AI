@@ -9661,6 +9661,7 @@ def _render_price_forecast_hero(
         filter_forecast_chart_rows(forecast_rows, selected_chart_series),
         currency=chart_currency,
         title="価格・予測",
+        color_series_labels=forecast_chart_series_labels(forecast_rows),
     )
     latest_close = preview.bars[-1].close if preview.bars else None
     latest_date = preview.bars[-1].ts.date() if preview.bars else None
@@ -9778,6 +9779,12 @@ def forecast_chart_series_options(rows: list[dict[str, str]]) -> list[dict[str, 
             }
         )
     return options
+
+
+def forecast_chart_series_labels(rows: list[dict[str, str]]) -> list[str]:
+    labels = [FORECAST_ACTUAL_LABEL]
+    labels.extend(option["label"] for option in forecast_chart_series_options(rows))
+    return labels
 
 
 def default_forecast_chart_series(options: list[dict[str, Any]]) -> set[str]:
@@ -10061,8 +10068,8 @@ def _forecast_model_logic_help(model: str) -> str:
         )
     if model == "naive":
         return (
-            "直近の終値をそのまま予測値として置く一番シンプルな基準です。"
-            "他のモデルがこの基準からどれだけ離れているかを見る土台になります。"
+            "最新の終値をそのまま置く比較基準です。カードの0%は、最新価格から最終予測値への変化がないという意味です。"
+            "チャートの点線は過去の各時点でも同じ基準を置くため、価格の流れの中では下がって見える区間があります。"
         )
     return "価格データから作った予測モデルです。予測値は投資判断ではなく、比較用の参考材料です。"
 
@@ -12938,6 +12945,7 @@ def _render_market_chart(
     *,
     currency: str = "",
     title: str = "",
+    color_series_labels: Iterable[str] | None = None,
 ) -> None:
     if not rows:
         st.info(EMPTY_STATE_MESSAGES["chart_rows"])
@@ -12946,7 +12954,11 @@ def _render_market_chart(
     chart_data = market_chart_long_frame(rows)
     boundary_data = forecast_boundary_frame(rows)
     latest_actual_data = latest_actual_price_frame(rows)
-    color_domain = forecast_chart_color_domain(chart_data["series_label"].tolist())
+    color_domain = forecast_chart_color_domain(
+        color_series_labels
+        if color_series_labels is not None
+        else chart_data["series_label"].tolist()
+    )
     color_range = forecast_chart_color_range(color_domain)
     color_scale = alt.Scale(domain=color_domain, range=color_range)
     legend_data = chart_data[["series_label", "line_label"]].drop_duplicates().copy()

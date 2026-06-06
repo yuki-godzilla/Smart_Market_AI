@@ -150,6 +150,9 @@ from ui.app import (
     _select_ranking_symbol_for_cockpit_with_period,
     _stock_news_display_rows,
     _symbol_from_candidate,
+    advanced_forecast_card_rows,
+    advanced_forecast_display_rows,
+    advanced_forecast_intro_text,
     build_cockpit_decision_report_context,
     build_ranking_decision_report_context,
     cockpit_decision_report_evidence_rows,
@@ -7512,6 +7515,42 @@ def test_market_chart_long_frame_labels_advanced_linear_forecast():
 
     assert advanced_rows["line_label"].unique().tolist() == ["予測"]
     assert advanced_rows["series_label"].unique().tolist() == ["高度予測: 線形モデル 5日"]
+
+
+def test_advanced_forecast_cards_and_display_rows_are_beginner_friendly():
+    rows = [
+        {
+            "horizon_days": "5",
+            "predicted_return": "1.40%",
+            "forecast_close": "2889.9",
+            "direction_score": "63.67%",
+            "confidence": "medium",
+            "rmse": "0.0618",
+            "direction_accuracy": "49.74%",
+            "sample_count": "238",
+            "top_features": (
+                "ma_gap_20d: 押し下げ -0.0123, "
+                "drawdown_20d: 押し下げ -0.0085, "
+                "rolling_volume_20d: 押し上げ 0.004"
+            ),
+            "warnings": (
+                "This advanced forecast is experimental reference information, not investment advice.; "
+                "Feature contributions describe model coefficients and are not causal explanations."
+            ),
+        }
+    ]
+
+    cards = advanced_forecast_card_rows(rows)
+    display_rows = advanced_forecast_display_rows(rows)
+    intro = advanced_forecast_intro_text(rows)
+
+    assert cards[0]["label"] == "5日予測"
+    assert cards[0]["value"] == "1.40%"
+    assert "予測価格 2889.9" in cards[0]["caption"]
+    assert "5日 1.40%" in intro
+    assert display_rows[0]["信頼度"] == "中くらい"
+    assert "実験的な参考予測" in display_rows[0]["注意点"]
+    assert "因果関係の説明ではありません" in display_rows[0]["注意点"]
 
 
 def test_forecast_chart_palette_highlights_actual_price_first():

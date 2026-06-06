@@ -10,7 +10,7 @@ import time as perf_time
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
-from typing import Callable, Iterable, Literal, Mapping, MutableMapping, Sequence, cast
+from typing import Any, Callable, Iterable, Literal, Mapping, MutableMapping, Sequence, cast
 
 import altair as alt
 import pandas as pd
@@ -9663,11 +9663,28 @@ def _render_price_forecast_hero(
     )
     if advanced_forecast_rows:
         st.markdown("###### 高度予測モデル")
-        st.caption(
-            "5日・20日の線形モデル予測を参考表示します。将来の値動きを保証するものではありません。"
-        )
-        _render_compact_dataframe(advanced_forecast_display_rows(advanced_forecast_rows))
+        st.caption(advanced_forecast_intro_text(advanced_forecast_rows))
+        _render_advanced_forecast_cards(advanced_forecast_rows)
     st.caption("縦の点線は、実績価格から予測表示へ切り替わる位置です。")
+
+
+def _render_advanced_forecast_cards(rows: list[dict[str, str]]) -> None:
+    cards = advanced_forecast_card_rows(rows)
+    if not cards:
+        return
+    columns = st.columns(min(2, len(cards)))
+    for index, card in enumerate(cards):
+        with columns[index % len(columns)]:
+            render_metric_card(
+                card["label"],
+                card["value"],
+                caption=card["caption"],
+                help_text=card["help"],
+                badges=tuple(card["badges"]),
+                tone=card["tone"],
+                emphasis="strong",
+                progress=metric_progress_from_value(card["progress"]),
+            )
 
 
 def _render_investment_score_section(
@@ -12903,11 +12920,126 @@ def advanced_forecast_display_rows(rows: list[dict[str, str]]) -> list[dict[str,
             "RMSE": row.get("rmse", ""),
             "方向一致": row.get("direction_accuracy", ""),
             "検証数": row.get("sample_count", ""),
-            "効いた特徴": row.get("top_features", ""),
-            "注意点": row.get("warnings", ""),
+            "効いた特徴": _advanced_forecast_feature_display(row.get("top_features", "")),
+            "注意点": _advanced_forecast_warning_display(row.get("warnings", "")),
         }
         for row in rows
     ]
+
+
+def advanced_forecast_card_rows(rows: list[dict[str, str]]) -> list[dict[str, Any]]:
+    cards: list[dict[str, Any]] = []
+    for row in rows:
+        horizon_days = row.get("horizon_days", "")
+        predicted_return = row.get("predicted_return", "")
+        forecast_close = row.get("forecast_close", "")
+        direction_score = row.get("direction_score", "")
+        confidence = _advanced_forecast_confidence_label(row.get("confidence", ""))
+        direction_accuracy = row.get("direction_accuracy", "")
+        sample_count = row.get("sample_count", "")
+        cards.append(
+            {
+                "label": f"{horizon_days}日予測",
+                "value": predicted_return or "未計算",
+                "caption": (
+                    f"予測価格 {forecast_close or '未計算'} / "
+                    f"方向感 {direction_score or '未計算'}"
+                ),
+                "help": (
+                    f"方向一致 {direction_accuracy or '未計算'}、検証数 {sample_count or '0'}。"
+                    "売買判断ではなく、価格シナリオの確認材料です。"
+                ),
+                "badges": (
+                    badge_html("高度予測", "info"),
+                    badge_html(
+                        f"信頼度 {confidence}",
+                        _advanced_forecast_confidence_tone(row),
+                    ),
+                ),
+                "tone": _advanced_forecast_card_tone(row),
+                "progress": direction_score,
+            }
+        )
+    return cards
+
+
+def advanced_forecast_intro_text(rows: list[dict[str, str]]) -> str:
+    parts = [
+        f"{row.get('horizon_days', '')}日 {row.get('predicted_return', '')}".strip()
+        for row in rows
+        if row.get("horizon_days") and row.get("predicted_return")
+    ]
+    if parts:
+        return (
+            "高度予測は5日・20日の線形モデル予測です。"
+            f"今回の参考変化率は {' / '.join(parts)}。"
+            "将来の値動きを保証するものではありません。"
+        )
+    return "高度予測は5日・20日の線形モデル予測です。将来の値動きを保証するものではありません。"
+
+
+def _advanced_forecast_confidence_label(value: str) -> str:
+    labels = {
+        "high": "高め",
+        "medium": "中くらい",
+        "low": "低め",
+    }
+    return labels.get(value, value or "未計算")
+
+
+def _advanced_forecast_card_tone(row: dict[str, str]) -> str:
+    predicted_return = _decimal_from_text(row.get("predicted_return", ""))
+    if predicted_return is None:
+        return "neutral"
+    if predicted_return > 0:
+        return "success"
+    if predicted_return < 0:
+        return "caution"
+    return "neutral"
+
+
+def _advanced_forecast_confidence_tone(row: dict[str, str]) -> str:
+    confidence = row.get("confidence", "")
+    if confidence == "high":
+        return "success"
+    if confidence == "low":
+        return "caution"
+    return "info"
+
+
+def _advanced_forecast_feature_display(value: str) -> str:
+    if not value:
+        return ""
+    replacements = {
+        "positive": "押し上げ",
+        "negative": "押し下げ",
+    }
+    text = value
+    for source, target in replacements.items():
+        text = text.replace(source, target)
+    parts = [part.strip() for part in text.split(",") if part.strip()]
+    return " / ".join(parts[:3])
+
+
+def _advanced_forecast_warning_display(value: str) -> str:
+    if not value:
+        return ""
+    warning_map = {
+        "This advanced forecast is experimental reference information, not investment advice.": (
+            "実験的な参考予測です。売買判断ではなく、価格シナリオ確認に使ってください。"
+        ),
+        "Feature contributions describe model coefficients and are not causal explanations.": (
+            "効いた特徴はモデル上の係数であり、因果関係の説明ではありません。"
+        ),
+        "Validation data is limited or unstable; treat this forecast as low confidence.": (
+            "検証データが少ない、または不安定です。信頼度は低めに見てください。"
+        ),
+        "Validation RMSE did not improve over the zero-return baseline.": (
+            "ゼロリターン基準よりRMSEが改善していません。慎重に確認してください。"
+        ),
+    }
+    warnings = [part.strip() for part in value.split(";") if part.strip()]
+    return " / ".join(warning_map.get(warning, warning) for warning in warnings)
 
 
 def forecast_chart_summary(

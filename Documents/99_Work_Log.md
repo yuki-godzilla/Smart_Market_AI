@@ -1163,3 +1163,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added 5 / 20 day advanced forecast points to the existing price / forecast chart, starting from the latest actual price so the visual matches the current forecast UI.
 - Added compact Cockpit display rows for predicted return, forecast price, confidence, validation metrics, feature contribution summary, and warnings.
 - Added deterministic UI tests for advanced forecast chart rows and beginner-friendly chart labels.
+
+## 2026-06-06 - Advanced Forecast Cockpit readability polish
+
+- Replaced the chart-adjacent advanced forecast table with 5日 / 20日 metric cards so the new model is easier to notice beside the existing forecast chart.
+- Kept detailed advanced forecast metrics in the forecast detail expander while shortening feature contribution display.
+- Translated advanced forecast UI warnings into beginner-friendly Japanese and clarified that the output is scenario support, not investment advice.

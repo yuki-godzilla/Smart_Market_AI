@@ -88,6 +88,7 @@ from ui.app import (
     _investment_question_secondary_answers,
     _investment_question_summary_intro_html,
     _ir_summary_html,
+    _market_data_preview_advanced_forecast_rows,
     _market_data_preview_symbol_label,
     _name_from_candidate,
     _news_source_link_rows,
@@ -446,6 +447,18 @@ def test_market_data_preview_symbol_label_falls_back_to_rows():
     )
 
     assert _market_data_preview_symbol_label(preview) == "CUSTOM"
+
+
+def test_market_data_preview_advanced_forecast_rows_tolerates_legacy_state():
+    legacy_preview = SimpleNamespace(bars=[])
+    current_preview = SimpleNamespace(
+        advanced_forecast_rows=[{"horizon_days": "5", "forecast_close": "101"}]
+    )
+
+    assert _market_data_preview_advanced_forecast_rows(legacy_preview) == []
+    assert _market_data_preview_advanced_forecast_rows(current_preview) == [
+        {"horizon_days": "5", "forecast_close": "101"}
+    ]
 
 
 def test_merged_symbol_candidate_rows_deduplicates_representative_first():

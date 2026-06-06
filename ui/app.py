@@ -5964,13 +5964,23 @@ def _market_data_preview_from_state() -> MarketDataPreview | None:
     return None
 
 
+def _market_data_preview_advanced_forecast_rows(
+    preview: MarketDataPreview,
+) -> list[dict[str, str]]:
+    rows = getattr(preview, "advanced_forecast_rows", [])
+    if isinstance(rows, list):
+        return rows
+    return []
+
+
 def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
     symbol_label = _market_data_preview_symbol_label(preview)
     forecast_horizon_days = _render_market_data_cockpit_header(preview, symbol_label)
+    advanced_forecast_rows = _market_data_preview_advanced_forecast_rows(preview)
     forecast_rows = forecast_chart_rows(
         preview.bars,
         horizon_days=forecast_horizon_days,
-        advanced_forecast_rows=preview.advanced_forecast_rows,
+        advanced_forecast_rows=advanced_forecast_rows,
     )
     consensus_rows = forecast_consensus_rows_for_bars(
         preview.bars,
@@ -6010,7 +6020,7 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         forecast_rows,
         consensus_rows,
         metric_rows,
-        preview.advanced_forecast_rows,
+        advanced_forecast_rows,
     )
     if score_row is not None:
         _render_cockpit_direction_signal_section(score_row, consensus_rows)
@@ -6052,13 +6062,13 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
             forecast_metric_display_rows(metric_rows),
             EMPTY_STATE_MESSAGES["forecast_metrics"],
         )
-        if preview.advanced_forecast_rows:
+        if advanced_forecast_rows:
             st.subheader("高度予測モデル")
             st.caption(
                 "advanced_linear は5日・20日の参考予測です。売買判断ではなく、価格シナリオと注意点の確認に使います。"
             )
             _render_table(
-                advanced_forecast_display_rows(preview.advanced_forecast_rows),
+                advanced_forecast_display_rows(advanced_forecast_rows),
                 "高度予測を表示するには、もう少し長い価格データが必要です。",
             )
         if metric_rows:

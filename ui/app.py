@@ -5967,7 +5967,11 @@ def _market_data_preview_from_state() -> MarketDataPreview | None:
 def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
     symbol_label = _market_data_preview_symbol_label(preview)
     forecast_horizon_days = _render_market_data_cockpit_header(preview, symbol_label)
-    forecast_rows = forecast_chart_rows(preview.bars, horizon_days=forecast_horizon_days)
+    forecast_rows = forecast_chart_rows(
+        preview.bars,
+        horizon_days=forecast_horizon_days,
+        advanced_forecast_rows=preview.advanced_forecast_rows,
+    )
     consensus_rows = forecast_consensus_rows_for_bars(
         preview.bars,
         horizon_days=forecast_horizon_days,
@@ -6006,6 +6010,7 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         forecast_rows,
         consensus_rows,
         metric_rows,
+        preview.advanced_forecast_rows,
     )
     if score_row is not None:
         _render_cockpit_direction_signal_section(score_row, consensus_rows)
@@ -6047,6 +6052,15 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
             forecast_metric_display_rows(metric_rows),
             EMPTY_STATE_MESSAGES["forecast_metrics"],
         )
+        if preview.advanced_forecast_rows:
+            st.subheader("高度予測モデル")
+            st.caption(
+                "advanced_linear は5日・20日の参考予測です。売買判断ではなく、価格シナリオと注意点の確認に使います。"
+            )
+            _render_table(
+                advanced_forecast_display_rows(preview.advanced_forecast_rows),
+                "高度予測を表示するには、もう少し長い価格データが必要です。",
+            )
         if metric_rows:
             col_json, col_csv = st.columns(2)
             col_json.download_button(
@@ -9619,6 +9633,7 @@ def _render_price_forecast_hero(
     forecast_rows: list[dict[str, str]],
     consensus_rows: list[dict[str, str]],
     metric_rows: list[dict[str, str]],
+    advanced_forecast_rows: list[dict[str, str]],
 ) -> None:
     st.subheader("02 価格・予測")
     _render_target_symbol_caption(symbol_label)
@@ -9636,6 +9651,12 @@ def _render_price_forecast_hero(
         currency=chart_currency,
         title="価格・予測",
     )
+    if advanced_forecast_rows:
+        st.markdown("###### 高度予測モデル")
+        st.caption(
+            "5日・20日の線形モデル予測を参考表示します。将来の値動きを保証するものではありません。"
+        )
+        _render_compact_dataframe(advanced_forecast_display_rows(advanced_forecast_rows))
     st.caption("縦の点線は、実績価格から予測表示へ切り替わる位置です。")
 
 
@@ -12856,6 +12877,29 @@ def forecast_metric_display_rows(rows: list[dict[str, str]]) -> list[dict[str, s
     ]
 
 
+def advanced_forecast_display_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    confidence_labels = {
+        "high": "高め",
+        "medium": "中くらい",
+        "low": "低め",
+    }
+    return [
+        {
+            "モデル": f"高度予測: 線形モデル {row.get('horizon_days', '')}日",
+            "予測変化": row.get("predicted_return", ""),
+            "予測価格": row.get("forecast_close", ""),
+            "方向感": row.get("direction_score", ""),
+            "信頼度": confidence_labels.get(row.get("confidence", ""), row.get("confidence", "")),
+            "RMSE": row.get("rmse", ""),
+            "方向一致": row.get("direction_accuracy", ""),
+            "検証数": row.get("sample_count", ""),
+            "効いた特徴": row.get("top_features", ""),
+            "注意点": row.get("warnings", ""),
+        }
+        for row in rows
+    ]
+
+
 def forecast_chart_summary(
     consensus_rows: list[dict[str, str]],
     metric_rows: list[dict[str, str]],
@@ -13343,6 +13387,9 @@ def forecast_metric_summary(rows: list[dict[str, str]]) -> list[str]:
 def _forecast_series_label(series: str) -> str:
     if series == "close":
         return FORECAST_ACTUAL_LABEL
+    advanced_match = re.fullmatch(r"advanced_linear_(\d+)d", series)
+    if advanced_match:
+        return f"高度予測: 線形モデル {advanced_match.group(1)}日"
     return forecast_model_display_name(series)
 
 

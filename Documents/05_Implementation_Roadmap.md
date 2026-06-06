@@ -1701,7 +1701,7 @@ Streamlit / Ranking 接続方針:
 - 予測は売買判断の主体にせず、スコアやリスクと合わせて確認する材料として扱う。
 - `advanced_linear` adapter が追加され、Ridge / ElasticNet の少なくとも Ridge が使える。
 - 5 / 20 trading day forward return の予測、walk-forward validation、validation metrics、confidence、feature contribution summary が返る。
-- backend adapter は実装済み。API または forecast service からの adapter 指定と Streamlit UI 最小表示は次 slice。
+- backend adapter は実装済み。Streamlit 銘柄コックピットでは `advanced_linear` の 5日 / 20日予測を既存の価格・予測チャートへ重ね、補助テーブルで予測変化率、信頼度、検証指標、注意点を表示する最小 UI slice まで接続済み。API または forecast service からの adapter 指定と Ranking 接続は次 slice。
 - README または roadmap に Advanced Forecast Slice 1 として記録されている。
 
 Research資料保存方針の移行:

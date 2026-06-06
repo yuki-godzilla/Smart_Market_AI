@@ -3,7 +3,7 @@ from __future__ import annotations
 import csv
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from functools import lru_cache
@@ -33,6 +33,11 @@ from backend.forecast import (
 )
 from backend.forecast import (
     summarize_forecast_evaluations as _summarize_forecast_evaluations,
+)
+from backend.forecast.adapters import (
+    SUPPORTED_ADVANCED_LINEAR_HORIZONS,
+    AdvancedLinearForecastAdapter,
+    AdvancedLinearForecastResult,
 )
 from backend.marketdata import create_market_data_provider_adapter
 from backend.marketdata.feature_builder import build_daily_snapshots_from_market_data
@@ -608,6 +613,7 @@ class MarketDataPreview:
     investment_score_rows: list[dict[str, str]]
     screening_rows: list[dict[str, str]]
     error_rows: list[dict[str, str]]
+    advanced_forecast_rows: list[dict[str, str]] = field(default_factory=list)
 
 
 class RebalanceScenarioError(ValueError):
@@ -846,6 +852,11 @@ async def build_market_data_preview(
             if forecast_consensus is not None
             else {}
         )
+        advanced_linear_results = advanced_linear_forecast_results_for_bars(feature_bars)
+        advanced_linear_rows = advanced_linear_forecast_rows(
+            advanced_linear_results,
+            feature_bars,
+        )
         screening_scores = ScreeningService().score(
             feature_snapshot,
             forecast_consensus_by_symbol=forecast_consensus_by_symbol,
@@ -891,6 +902,7 @@ async def build_market_data_preview(
         forecast_chart_rows=forecast_chart_rows(
             bars,
             horizon_days=forecast_horizon_days,
+            advanced_forecast_rows=advanced_linear_rows,
         ),
         forecast_metric_rows=forecast_metric_rows(forecast_evaluations),
         fx_rows=[
@@ -906,6 +918,7 @@ async def build_market_data_preview(
         investment_score_rows=investment_score_rows(investment_scores),
         screening_rows=screening_score_rows(screening_scores),
         error_rows=warning_rows,
+        advanced_forecast_rows=advanced_linear_rows,
     )
 
 
@@ -1053,6 +1066,7 @@ def forecast_chart_rows(
     bars: list[Bar],
     *,
     horizon_days: int = 1,
+    advanced_forecast_rows: list[dict[str, str]] | None = None,
 ) -> list[dict[str, str]]:
     """Return actual close and model forecast rows for chart display."""
 
@@ -1083,7 +1097,92 @@ def forecast_chart_rows(
         forecast_row = rows_by_ts.setdefault(forecast_ts, {"ts": forecast_ts, "close": ""})
         forecast_row[model.name] = _format_decimal(latest_forecast.forecast_close)
 
+    if advanced_forecast_rows:
+        latest_bar = sorted_bars[-1]
+        latest_ts = latest_bar.ts.isoformat()
+        for row in advanced_forecast_rows:
+            advanced_horizon = _int_from_text(row.get("horizon_days", ""))
+            forecast_close = row.get("forecast_close", "")
+            if advanced_horizon <= 0 or not forecast_close:
+                continue
+            series_key = advanced_forecast_chart_series_key(advanced_horizon)
+            rows_by_ts[latest_ts][series_key] = _format_decimal(latest_bar.close)
+            forecast_ts = _next_forecast_ts(latest_bar, horizon_days=advanced_horizon)
+            forecast_row = rows_by_ts.setdefault(forecast_ts, {"ts": forecast_ts, "close": ""})
+            forecast_row[series_key] = forecast_close
+
     return [rows_by_ts[key] for key in sorted(rows_by_ts)]
+
+
+def advanced_linear_forecast_results_for_bars(
+    bars: list[Bar],
+) -> list[AdvancedLinearForecastResult]:
+    """Return supported advanced-linear forecasts when enough local history exists."""
+
+    if not bars:
+        return []
+    adapter = AdvancedLinearForecastAdapter()
+    results: list[AdvancedLinearForecastResult] = []
+    for horizon_days in SUPPORTED_ADVANCED_LINEAR_HORIZONS:
+        try:
+            results.append(adapter.forecast(bars, horizon_days=horizon_days))
+        except ValueError:
+            continue
+    return results
+
+
+def advanced_linear_forecast_rows(
+    results: list[AdvancedLinearForecastResult],
+    bars: list[Bar],
+) -> list[dict[str, str]]:
+    """Return advanced-linear forecast rows for Streamlit detail display."""
+
+    sorted_bars = sorted(bars, key=lambda row: row.ts)
+    if not sorted_bars:
+        return []
+
+    latest_close = sorted_bars[-1].close
+    rows: list[dict[str, str]] = []
+    for result in results:
+        metrics = result.validation_metrics
+        forecast_close = latest_close * (Decimal("1") + result.predicted_return)
+        rows.append(
+            {
+                "adapter": result.adapter_name,
+                "model": result.model_name,
+                "symbol": result.symbol,
+                "horizon_days": str(result.horizon_days),
+                "predicted_return": _format_percent(result.predicted_return),
+                "forecast_close": _format_decimal(forecast_close),
+                "direction_score": _format_percent(result.direction_score),
+                "confidence": result.confidence,
+                "mae": _format_decimal(metrics.mae),
+                "rmse": _format_decimal(metrics.rmse),
+                "direction_accuracy": _format_percent(metrics.direction_accuracy),
+                "fold_count": str(metrics.fold_count),
+                "sample_count": str(metrics.sample_count),
+                "baseline_zero_rmse": _format_optional_decimal(metrics.baseline_zero_rmse),
+                "rmse_improvement": _format_optional_decimal(metrics.rmse_improvement),
+                "top_features": _feature_contribution_text(
+                    result.feature_contribution_summary,
+                ),
+                "warnings": "; ".join(result.warnings),
+            }
+        )
+    return rows
+
+
+def advanced_forecast_chart_series_key(horizon_days: int) -> str:
+    return f"advanced_linear_{horizon_days}d"
+
+
+def _feature_contribution_text(contributions: list[Any]) -> str:
+    labels = {"positive": "押し上げ", "negative": "押し下げ"}
+    parts: list[str] = []
+    for contribution in contributions:
+        effect = labels.get(str(contribution.effect), str(contribution.effect))
+        parts.append(f"{contribution.feature}: {effect} {_format_decimal(contribution.weight)}")
+    return ", ".join(parts)
 
 
 def forecast_metric_rows(evaluations: list[ForecastEvaluation]) -> list[dict[str, str]]:
@@ -2002,6 +2101,13 @@ def _format_optional_percent(value: Decimal | None) -> str:
 
 def _format_percent(value: Decimal) -> str:
     return f"{(value * Decimal('100')).quantize(Decimal('0.01'))}%"
+
+
+def _int_from_text(value: object) -> int:
+    try:
+        return int(str(value or "").strip())
+    except ValueError:
+        return 0
 
 
 def _stringify_metadata_value(value: object) -> str:

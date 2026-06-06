@@ -7479,6 +7479,28 @@ def test_market_chart_long_frame_adds_beginner_friendly_labels():
     ]
 
 
+def test_market_chart_long_frame_labels_advanced_linear_forecast():
+    frame = market_chart_long_frame(
+        [
+            {
+                "ts": "2026-05-10T00:00:00+00:00",
+                "close": "185",
+                "advanced_linear_5d": "185",
+            },
+            {
+                "ts": "2026-05-15T00:00:00+00:00",
+                "close": "",
+                "advanced_linear_5d": "191.5",
+            },
+        ]
+    )
+
+    advanced_rows = frame[frame["series"] == "advanced_linear_5d"]
+
+    assert advanced_rows["line_label"].unique().tolist() == ["予測"]
+    assert advanced_rows["series_label"].unique().tolist() == ["高度予測: 線形モデル 5日"]
+
+
 def test_forecast_chart_palette_highlights_actual_price_first():
     domain = forecast_chart_color_domain(
         ["予測: 直近値維持", "実績価格", "予測: 30日移動平均", "実績価格"]

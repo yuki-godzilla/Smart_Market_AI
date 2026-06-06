@@ -1,7 +1,7 @@
 import asyncio
 import sys
 from contextlib import nullcontext
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
@@ -44,6 +44,8 @@ from ui.rebalance_app import (
     PROJECT_ROOT,
     SCENARIO_DIR_ENV,
     RebalanceScenarioError,
+    advanced_linear_forecast_results_for_bars,
+    advanced_linear_forecast_rows,
     allocation_comparison_rows,
     build_default_rebalance_request,
     build_market_data_preview,
@@ -687,6 +689,37 @@ def test_forecast_chart_rows_places_latest_point_on_selected_horizon():
         "naive": "175",
         "moving_average_3": "172.6667",
     }
+
+
+def test_advanced_linear_forecast_rows_can_feed_forecast_chart():
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    bars = [
+        _bar(
+            "AAPL",
+            (start + timedelta(days=index)).isoformat(),
+            str(100 + index),
+        )
+        for index in range(70)
+    ]
+
+    results = advanced_linear_forecast_results_for_bars(bars)
+    advanced_rows = advanced_linear_forecast_rows(results, bars)
+    chart_rows = forecast_chart_rows(
+        bars[-10:],
+        horizon_days=1,
+        advanced_forecast_rows=advanced_rows,
+    )
+
+    assert {row["horizon_days"] for row in advanced_rows} == {"5", "20"}
+    assert advanced_rows[0]["adapter"] == "advanced_linear"
+    assert advanced_rows[0]["forecast_close"]
+    rows_by_ts = {row["ts"]: row for row in chart_rows}
+    latest_ts = bars[-1].ts.isoformat()
+    five_day_ts = (bars[-1].ts + timedelta(days=5)).isoformat()
+    twenty_day_ts = (bars[-1].ts + timedelta(days=20)).isoformat()
+    assert rows_by_ts[latest_ts]["advanced_linear_5d"] == "169"
+    assert rows_by_ts[five_day_ts]["advanced_linear_5d"] == advanced_rows[0]["forecast_close"]
+    assert rows_by_ts[twenty_day_ts]["advanced_linear_20d"] == advanced_rows[1]["forecast_close"]
 
 
 def test_forecast_consensus_rows_tolerates_cached_old_summarizer(monkeypatch):

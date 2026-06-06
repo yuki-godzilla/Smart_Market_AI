@@ -35,8 +35,9 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
   - Cockpit selected symbols and Ranking comparison targets are registered as background priority hints without adding user-facing controls
   - Cockpit `データを取得` and Ranking `最新データを取得して更新` run a bounded target preflight refresh before market-data fetch / ranking creation
   - Cockpit selected-symbol caption and the shared Ranking / Cockpit `銘柄データ` modal show saved symbol DB freshness, source, update times, and missing key fields
-- Phase 23 Advanced Forecast Slice 1 backend first slice
+- Phase 23 Advanced Forecast Slice 1 backend + Cockpit chart slice
   - `advanced_linear` forecast adapter foundation for Cockpit / Ranking
+  - Cockpit overlays 5 / 20 day `advanced_linear` forecast points on the existing price / forecast chart when enough local history is available
   - Ridge-style lightweight deterministic forecasting of 5 / 20 trading day forward returns without adding heavy ML dependencies
   - walk-forward / time-series validation, validation metrics, confidence, and feature contribution summary
   - designed to keep normal checks network-free and avoid heavy ML dependencies by default
@@ -56,7 +57,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - 追加 Research RAG external source adapters / vector search の運用UI
 - Research Score によるランキング順位統合は現時点では見送り。Cockpit / Ranking Research Summary と Cockpit Decision Report への参考表示、Investment Score optional numeric input、disabled-by-default weight は対応済み
 - `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動、通知
-- Advanced Forecast Slice 1 service / API / Streamlit connection: backend `advanced_linear` adapter exists; Cockpit / Ranking minimal display is next
+- Advanced Forecast Slice 1 service / API / Ranking connection: backend `advanced_linear` adapter exists and Cockpit chart/table display is connected; service/API adapter selection and Ranking minimal display are next
 - Assistant API / Streamlit 質問パネル、optional LLM provider は Phase 24 に後ろ倒し
 - 銘柄DB live provider refresh wiring
 - broker への live order 送信
@@ -261,7 +262,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - default cockpit period is `カスタム`; preset選択時は Start / End を自動表示し、`カスタム` の時だけ手入力する
 - period preset help explains the intended review basis: short-term material reaction, medium-term trend, long-term drawdown resilience / structural change, and custom event windows
 - collapsed sample symbol reference
-- 価格・予測チャート: モデル数、平均予測の変化率、予測の開きを先に確認し、方向シグナルの数値重複を避ける
+- 価格・予測チャート: モデル数、平均予測の変化率、予測の開きを先に確認し、方向シグナルの数値重複を避ける。十分な履歴がある場合は `advanced_linear` の5日 / 20日予測点も同じチャートに重ねて表示し、補助テーブルで予測変化率、信頼度、検証指標、注意点を確認する。
 - `Signal Reading / シグナル読み取り`: Analysis KPI と同じ `上昇気配` / `下降警戒` を、予測変化率、モデル方向一致、予測のばらつきと合わせて解釈する。売買推奨ではなく比較・確認材料として扱う。
 - forecast agreement compatibility、forecast spread、best RMSE model
 - Investment Score summary

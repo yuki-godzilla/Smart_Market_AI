@@ -1156,3 +1156,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added 5 / 20 trading day forward-return prediction, walk-forward validation, zero-return baseline RMSE comparison, confidence, warnings, and feature contribution summaries.
 - Exported the adapter from `backend.forecast` and added deterministic tests for supported horizons, data shortage, missing early feature windows, result schema, and unchanged baseline forecast behavior.
 - Left forecast service / API / Streamlit Cockpit / Ranking display connection as the next Phase 23 slice.
+
+## 2026-06-06 - Advanced Forecast Cockpit chart slice
+
+- Connected the deterministic `advanced_linear` adapter to the Streamlit market-data Cockpit preview path when enough local OHLCV history is available.
+- Added 5 / 20 day advanced forecast points to the existing price / forecast chart, starting from the latest actual price so the visual matches the current forecast UI.
+- Added compact Cockpit display rows for predicted return, forecast price, confidence, validation metrics, feature contribution summary, and warnings.
+- Added deterministic UI tests for advanced forecast chart rows and beginner-friendly chart labels.

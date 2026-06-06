@@ -1183,3 +1183,4 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added beginner-friendly help text for naive, moving-average, momentum, and advanced-linear forecast logic.
 - Styled forecast model names with stronger color and size, and normalized positive returns to `+x.x%` display.
 - Added forecast-date display such as `5日先 (2026/06/12)` to make each model horizon easier to read.
+- Removed the naive "latest value hold" baseline from forecast cards so cards focus on model-driven forecast views.

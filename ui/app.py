@@ -9724,6 +9724,8 @@ def forecast_model_card_rows(
     cards: list[dict[str, Any]] = []
     for row in metric_rows:
         model = row.get("model", "")
+        if model == "naive":
+            continue
         forecast_close = row.get("forecast_close", "")
         forecast_return = _forecast_return_display(
             forecast_close,

@@ -7574,18 +7574,16 @@ def test_forecast_model_cards_include_baseline_and_advanced_logic_help():
     intro = advanced_forecast_intro_text(advanced_rows)
 
     assert [card["model"] for card in cards] == [
-        "予測: 直近値維持",
         "予測: 20日移動平均",
         "高度予測: 線形モデル 5日",
     ]
-    assert cards[0]["value"] == "+1.7%"
-    assert cards[1]["value"] == "-1.7%"
-    assert cards[2]["value"] == "+1.4%"
+    assert cards[0]["value"] == "-1.7%"
+    assert cards[1]["value"] == "+1.4%"
     assert cards[0]["horizon"] == "1日先 (2026/06/08)"
-    assert cards[2]["horizon"] == "5日先 (2026/06/12)"
-    assert "直近の終値をそのまま予測値" in cards[0]["help"]
-    assert "直近20日間の終値の平均" in cards[1]["help"]
-    assert "線形モデル" in cards[2]["help"]
+    assert cards[1]["horizon"] == "5日先 (2026/06/12)"
+    assert "直近値維持" not in cards_html
+    assert "直近20日間の終値の平均" in cards[0]["help"]
+    assert "線形モデル" in cards[1]["help"]
     assert "smai-forecast-model-name" in cards_html
     assert display_rows[0]["信頼度"] == "中くらい"
     assert display_rows[0]["予測変化"] == "+1.4%"

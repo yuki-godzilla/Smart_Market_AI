@@ -10119,10 +10119,11 @@ def _render_advanced_forecast_consensus_cards(rows: list[dict[str, str]]) -> Non
             f"{'レンジ ' + range_display if range_display else 'レンジ 未計算'}"
         ),
         help_text=(
-            f"{row.get('model_count') or '0'}モデルを、信頼度・検証指標・方向一致を使って"
-            "保守的にまとめた参考シナリオです。"
-            f"一致度 {agreement}、方向一致 {row.get('direction_agreement_score') or '未計算'}。"
-            "ランキング順位は既定では変更しません。"
+            _advanced_forecast_consensus_help_text(row)
+            + (
+                f"一致度 {agreement}、方向一致 {row.get('direction_agreement_score') or '未計算'}。"
+                "ランキング順位は既定では変更しません。"
+            )
         ),
         badges=(
             badge_html("高度予測まとめ", "info"),
@@ -10265,17 +10266,34 @@ def _forecast_chart_series_default(series: str) -> bool:
 def forecast_chart_series_help(series: str) -> str:
     kind = forecast_chart_series_kind(series)
     if kind == "baseline":
-        return "最新終値をそのまま置く比較基準です。予測カードには表示しません。"
+        return "直近値維持です。計算式: 予測価格 = 最新終値。変化しない場合の比較基準です。"
     if kind == "advanced_consensus":
-        return "信頼度・検証指標・方向一致で高度予測を保守的にまとめた参考線です。"
+        return (
+            "高度予測まとめです。計算式: まとめ予測 = "
+            "Σ(各高度予測の変化率 × 重み) ÷ Σ重み。"
+            "重みは信頼度・RMSE改善・方向一致・検証数を見て0.70〜1.30に丸めます。"
+        )
     if kind == "advanced":
         if series.startswith("advanced_quantile_"):
-            return "過去の値動き分布から下振れ・中央値・上振れを確認する高度予測です。"
+            return (
+                "レンジモデルです。計算式: 過去の予測日数後リターン = "
+                "(予測日数後の価格 ÷ 当日の価格) - 1。"
+                "中央値を中心予測、20%点と80%点を下振れ・上振れとして見ます。"
+            )
         if series.startswith("advanced_gbdt_sklearn_"):
-            return "値動きの非線形な変化をブースティングで参考推定する高度予測です。"
+            return (
+                "ブースティングモデルです。過去の特徴量から小さな決定木を順番に足し、"
+                "前の誤差を補う形で予測変化率を推定します。"
+            )
         if series.startswith("advanced_tree_sklearn_"):
-            return "特徴量の非線形な組み合わせを使うツリー型の高度予測です。"
-        return "複数の価格特徴量を使う高度予測です。売買判断ではなく参考シナリオです。"
+            return (
+                "ツリーモデルです。過去の特徴量を条件分岐で似た局面に分け、"
+                "その局面の予測日数後リターンから参考推定します。"
+            )
+        return (
+            "線形モデルです。計算式イメージ: 予測変化率 = 切片 + "
+            "Σ(特徴量 × 係数)。予測価格 = 最新価格 × (1 + 予測変化率)。"
+        )
     return _forecast_model_logic_help(series)
 
 
@@ -10533,19 +10551,22 @@ def _forecast_model_logic_help(model: str) -> str:
     if moving_average:
         window = moving_average.group(1)
         return (
-            f"直近{window}日間の終値の平均を予測値として使います。"
+            f"移動平均モデルです。計算式: 予測価格 = 直近{window}日間の終値の平均。"
             "短期の上下に振られにくく、今の価格が平均より高いか低いかを見る基準になります。"
         )
     momentum = re.fullmatch(r"momentum_(\d+)", model)
     if momentum:
         lookback = momentum.group(1)
         return (
-            f"直近{lookback}日間の上昇・下落ペースを将来にも少し延長して見る予測です。"
+            f"モメンタムモデルです。計算式: 直近{lookback}日変化率 = 最新価格 ÷ "
+            f"{lookback}日前価格 - 1。"
+            "1日あたり変化率に直し、予測日数分だけ最新価格へかけ合わせます。"
             "強い流れが続くかを確認する材料ですが、急反転には弱いことがあります。"
         )
     if model == "naive":
         return (
-            "最新の終値をそのまま置く比較基準です。カードの0%は、最新価格から最終予測値への変化がないという意味です。"
+            "直近値維持モデルです。計算式: 予測価格 = 最新終値。"
+            "カードの0%は、最新価格から最終予測値への変化がないという意味です。"
             "チャートの点線は過去の各時点でも同じ基準を置くため、価格の流れの中では下がって見える区間があります。"
         )
     return "価格データから作った予測モデルです。予測値は投資判断ではなく、比較用の参考材料です。"
@@ -13976,8 +13997,11 @@ def advanced_forecast_card_rows(rows: list[dict[str, str]]) -> list[dict[str, An
                     f"{'レンジ ' + range_display if range_display else '方向感 ' + direction_score}"
                 ),
                 "help": (
-                    f"方向一致 {direction_accuracy or '未計算'}、検証数 {sample_count or '0'}。"
-                    "売買判断ではなく、価格シナリオの確認材料です。"
+                    _advanced_forecast_model_help(row)
+                    + (
+                        f"方向一致 {direction_accuracy or '未計算'}、検証数 {sample_count or '0'}。"
+                        "売買判断ではなく、価格シナリオの確認材料です。"
+                    )
                 ),
                 "badges": (
                     badge_html("高度予測", "info"),
@@ -14056,27 +14080,41 @@ def _advanced_forecast_model_help(row: Mapping[str, str]) -> str:
     adapter = row.get("adapter", "")
     if adapter == "advanced_quantile":
         return (
-            f"過去に観測された{horizon_days}日後リターンの分布から、中央値と下振れ・上振れを"
-            "参考表示します。売買判断ではなく価格レンジ確認用です。"
+            f"レンジモデルです。計算式: 過去の{horizon_days}日後リターン = "
+            f"({horizon_days}日後の価格 ÷ 当日の価格) - 1。"
+            "中央値を中心予測、20%点と80%点を下振れ・上振れとして表示します。"
+            "売買判断ではなく価格レンジ確認用です。"
         )
     if adapter == "advanced_tree_sklearn":
         return (
-            "リターン、移動平均との差、値動きの大きさ、下落幅、出来高などを使い、"
-            f"過去に似た状態から{horizon_days}日後にどう動いたかを"
-            "scikit-learnのツリー集合モデルで参考推定します。"
+            "ツリーモデルです。入力はリターン、移動平均との差、値動きの大きさ、下落幅、出来高など。"
+            f"過去データを条件分岐で似た局面に分け、その局面の{horizon_days}日後リターンから"
+            "参考推定します。予測価格 = 最新価格 × (1 + 推定リターン)。"
             "売買判断ではなく価格シナリオ確認用です。"
         )
     if adapter == "advanced_gbdt_sklearn":
         return (
-            "リターン、移動平均との差、値動きの大きさ、下落幅、出来高などを使い、"
-            f"過去に似た状態から{horizon_days}日後にどう動いたかを"
-            "scikit-learnのブースティングモデルで参考推定します。"
+            "ブースティングモデルです。入力はリターン、移動平均との差、値動きの大きさ、下落幅、出来高など。"
+            "小さな決定木を順番に足し、前の誤差を補いながら予測変化率を推定します。"
+            "予測価格 = 最新価格 × (1 + 推定リターン)。"
             "売買判断ではなく価格シナリオ確認用です。"
         )
     return (
-        "リターン、移動平均との差、値動きの大きさ、下落幅、出来高などを使い、"
-        f"過去に似た状態から{horizon_days}日後にどう動いたかを線形モデルで参考推定します。"
+        "線形モデルです。入力はリターン、移動平均との差、値動きの大きさ、下落幅、出来高など。"
+        "計算式イメージ: 予測変化率 = 切片 + Σ(特徴量 × 係数)。"
+        f"これを{horizon_days}日後の参考変化率として、予測価格 = 最新価格 × (1 + 予測変化率)で表示します。"
         "売買判断ではなく価格シナリオ確認用です。"
+    )
+
+
+def _advanced_forecast_consensus_help_text(row: Mapping[str, str]) -> str:
+    model_count = row.get("model_count") or "0"
+    return (
+        f"{model_count}モデルを保守的にまとめた参考シナリオです。"
+        "計算式: まとめ予測 = Σ(各モデルの予測変化率 × 重み) ÷ Σ重み。"
+        "重み = 信頼度 × RMSE改善 × 方向一致 × 検証数を0.70〜1.30に丸めた値。"
+        "予測価格 = 最新価格 × (1 + まとめ予測)。"
+        "レンジは個別モデルの最小〜最大とレンジモデルの下振れ〜上振れを合わせて見ます。"
     )
 
 

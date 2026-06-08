@@ -1599,6 +1599,7 @@ Phase 22 完了条件:
 - scikit-learn は `advanced_tree_sklearn` / `advanced_gbdt_sklearn` のため runtime dependency として導入済み。より重い LightGBM / XGBoost / Prophet / deep learning 系は optional adapter とし、未導入でもアプリ・通常 tests・CI が動くようにする。
 - 最初は 1 銘柄または小さい銘柄集合で、walk-forward evaluation、モデル別予測、予測レンジ、方向シグナルへの反映を確認する。
 - 高度予測 consensus は、予測統合で単純平均が強い benchmark になりやすいことを前提に、信頼度・RMSE 改善・方向一致・検証サンプル数による重みを保守的に 0.70〜1.30 に制限する。重みは「保証」ではなく比較補助として扱う。
+- Cockpit の helper / tooltip では、Consensus の重み付き平均式と各予測モデルの基本ロジックを初心者向けの短い計算式で示し、「将来保証」ではなく比較補助として読める表現にする。
 - ランキング順位への反映は、`advanced_linear` 単体では行わない。tree / GBDT / quantile など追加予定の高度予測モデルを一通り実装し、モデル間比較、信頼度、検証指標、計算コストを見たうえで、後続 slice で opt-in sort profile / ranking logic としてまとめて仕上げる。
 - UI では「将来保証」ではなく「モデル別の見方 / 不確実性 / 確認材料」として表示する。
 

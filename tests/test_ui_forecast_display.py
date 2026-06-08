@@ -66,6 +66,8 @@ from ui.app import (
     SYMBOL_DETAIL_DIALOG_CSS,
     SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY,
     RankingResearchStatus,
+    _advanced_forecast_consensus_help_text,
+    _advanced_forecast_model_help,
     _advanced_forecast_rows_for_ranking,
     _apply_navigation_query_params,
     _background_workers_disabled,
@@ -88,6 +90,7 @@ from ui.app import (
     _external_research_fetch_summary_rows,
     _external_research_source_cards_html,
     _fetch_external_research_for_preview,
+    _forecast_model_logic_help,
     _investment_hint_news_panel_html,
     _investment_insight_panel_html,
     _investment_question_answers_html,
@@ -7966,14 +7969,25 @@ def test_forecast_model_cards_include_baseline_and_advanced_logic_help():
     assert cards[0]["horizon"] == "1日先 (2026/06/08)"
     assert cards[1]["horizon"] == "5日先 (2026/06/12)"
     assert "直近値維持" not in cards_html
-    assert "直近20日間の終値の平均" in cards[0]["help"]
-    assert "線形モデル" in cards[1]["help"]
+    assert "予測価格 = 直近20日間の終値の平均" in cards[0]["help"]
+    assert "予測変化率 = 切片 + Σ(特徴量 × 係数)" in cards[1]["help"]
+    assert "予測価格 = 最新価格 × (1 + 予測変化率)" in cards[1]["help"]
     assert "smai-forecast-model-name" in cards_html
     assert display_rows[0]["信頼度"] == "中くらい"
     assert display_rows[0]["予測変化"] == "+1.4%"
     assert "5日 +1.4%" in intro
     assert "実験的な参考予測" in display_rows[0]["注意点"]
     assert "因果関係の説明ではありません" in display_rows[0]["注意点"]
+
+
+def test_forecast_logic_help_uses_beginner_friendly_formulas():
+    moving_average_help = _forecast_model_logic_help("moving_average_20")
+    momentum_help = _forecast_model_logic_help("momentum_30")
+    naive_help = _forecast_model_logic_help("naive")
+
+    assert "予測価格 = 直近20日間の終値の平均" in moving_average_help
+    assert "直近30日変化率 = 最新価格 ÷ 30日前価格 - 1" in momentum_help
+    assert "予測価格 = 最新終値" in naive_help
 
 
 def test_forecast_model_cards_can_focus_on_advanced_models_only():
@@ -8050,10 +8064,25 @@ def test_forecast_model_cards_show_quantile_range_context():
 
     assert cards[0]["model"] == "高度予測: レンジモデル 5日"
     assert "レンジ -2.5%〜+4.2%" in cards[0]["sub"]
-    assert "下振れ・上振れ" in cards[0]["help"]
+    assert "過去の5日後リターン = (5日後の価格 ÷ 当日の価格) - 1" in cards[0]["help"]
+    assert "20%点と80%点を下振れ・上振れ" in cards[0]["help"]
     assert display_rows[0]["想定レンジ"] == "-2.5%〜+4.2%"
     assert display_rows[0]["方向感"] == "上向き寄り 63.67%"
     assert "高度予測: レンジモデル 5日 +1.4%" in intro
+
+
+def test_advanced_forecast_model_help_explains_tree_and_boosting_logic():
+    tree_help = _advanced_forecast_model_help(
+        {"adapter": "advanced_tree_sklearn", "horizon_days": "10"}
+    )
+    gbdt_help = _advanced_forecast_model_help(
+        {"adapter": "advanced_gbdt_sklearn", "horizon_days": "10"}
+    )
+
+    assert "条件分岐で似た局面に分け" in tree_help
+    assert "予測価格 = 最新価格 × (1 + 推定リターン)" in tree_help
+    assert "小さな決定木を順番に足し" in gbdt_help
+    assert "予測価格 = 最新価格 × (1 + 推定リターン)" in gbdt_help
 
 
 def test_advanced_forecast_consensus_display_rows_are_beginner_friendly():
@@ -8083,6 +8112,7 @@ def test_advanced_forecast_consensus_display_rows_are_beginner_friendly():
     ]
 
     display_rows = advanced_forecast_consensus_display_rows(rows)
+    help_text = _advanced_forecast_consensus_help_text(rows[0])
 
     assert display_rows == [
         {
@@ -8105,6 +8135,9 @@ def test_advanced_forecast_consensus_display_rows_are_beginner_friendly():
             ),
         }
     ]
+    assert "まとめ予測 = Σ(各モデルの予測変化率 × 重み) ÷ Σ重み" in help_text
+    assert "重み = 信頼度 × RMSE改善 × 方向一致 × 検証数" in help_text
+    assert "予測価格 = 最新価格 × (1 + まとめ予測)" in help_text
 
 
 def test_forecast_chart_filter_options_hide_naive_by_default():

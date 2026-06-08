@@ -2805,6 +2805,9 @@ def test_fetch_external_research_for_preview_uses_external_source_and_stores(mon
 
 
 def test_cockpit_research_refresh_uses_mascot_loading(monkeypatch):
+    progress_messages: list[str] = []
+    progress_values: list[float] = []
+
     class FakeLoadingSlot:
         def __init__(self) -> None:
             self.cleared = False
@@ -2812,8 +2815,15 @@ def test_cockpit_research_refresh_uses_mascot_loading(monkeypatch):
         def container(self):
             return nullcontext()
 
+        def caption(self, message: str) -> None:
+            progress_messages.append(message)
+
         def empty(self) -> None:
             self.cleared = True
+
+    class FakeProgressBar:
+        def progress(self, value: float) -> None:
+            progress_values.append(value)
 
     slot = FakeLoadingSlot()
     loading_calls: list[tuple[str, dict[str, object]]] = []
@@ -2844,6 +2854,10 @@ def test_cockpit_research_refresh_uses_mascot_loading(monkeypatch):
 
     monkeypatch.setattr("ui.app.st.session_state", session_state)
     monkeypatch.setattr("ui.app.st.empty", lambda: slot)
+    monkeypatch.setattr(
+        "ui.app.st.progress",
+        lambda value: progress_values.append(value) or FakeProgressBar(),
+    )
     monkeypatch.setattr("ui.app.st.subheader", lambda *_, **__: None)
     monkeypatch.setattr("ui.app.st.caption", lambda *_, **__: None)
     monkeypatch.setattr("ui.app.st.info", lambda *_, **__: None)
@@ -2892,6 +2906,16 @@ def test_cockpit_research_refresh_uses_mascot_loading(monkeypatch):
     ]
     assert slot.cleared is True
     assert rerun_calls == [True]
+    assert progress_values == [0.0, 0.08, 0.24, 0.52, 0.70, 0.86, 0.96, 1.0]
+    assert progress_messages == [
+        "調査対象と取得元を確認しています。",
+        "外部参照ソースとニュースを取得しています。",
+        "外部参照ソースをAI調査に反映しています。",
+        "企業リサーチレポートを生成しています。",
+        "ニュースと開示材料を整理しています。",
+        "表示内容を更新しています。",
+        "AI調査の更新が完了しました。",
+    ]
 
 
 def test_ranking_symbol_research_lookup_reuses_cockpit_research_flow(monkeypatch):

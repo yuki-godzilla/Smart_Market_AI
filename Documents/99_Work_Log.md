@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-06-08: Added a Cockpit `AI調査を更新` progress bar with short status captions for target/source confirmation, external reference fetch, company research report generation, news/disclosure organization, and display refresh.
 - 2026-06-08: Reworked the Cockpit forecast chart legend as a dedicated custom Altair legend strip below the full/focus charts so model names remain visible even when native legends disappear. Increased the full and forecast-focus chart height from 540px to 648px.
 - 2026-06-08: Restored the Cockpit forecast chart's model legend by suppressing the secondary `実績/予測` stroke-dash legend and keeping the bottom `価格・モデル` color legend as the interactive series control.
 - 2026-06-08: Added `advanced_tree_sklearn` as the third Advanced Forecast adapter. `scikit-learn==1.5.2` is now a runtime dependency; the adapter defaults to deterministic `ExtraTreesRegressor`, supports `RandomForestRegressor` as an option, returns walk-forward metrics and tree feature-importance summaries, and is wired into Forecast API, Cockpit chart/card/detail display, and Ranking auxiliary advanced forecast context without changing ranking order.

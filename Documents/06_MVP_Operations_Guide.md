@@ -272,6 +272,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - period preset help explains the intended review basis: short-term material reaction, medium-term trend, long-term drawdown resilience / structural change, and custom event windows
 - collapsed sample symbol reference
 - `データを取得` 実行中は、入力確認、価格・予測材料取得、予測 / スコア / チャート整理、表示更新の進捗を progress bar と短いステータス文で表示する
+- `AI調査を更新` 実行中は、外部参照ソース取得、企業リサーチレポート生成、ニュース / 開示材料整理、表示更新の進捗を progress bar と短いステータス文で表示する
 - 価格・予測チャート: モデル数、平均予測の変化率、予測の開きを先に確認し、方向シグナルの数値重複を避ける。十分な履歴がある場合は `advanced_linear`、`advanced_tree_sklearn`、`advanced_quantile` も取得期間から決まる共通の予測日数で同じチャートに重ねて表示し、`advanced_quantile` は下振れ〜上振れを薄い帯で示す。予測日数の初期値は取得期間のおよそ 1/12 を使い、60日を上限にする。全体チャートの右側に、最新実績の数日前から予測部分までを自動抽出した拡大図を並べる。凡例はチャート下部に置き、全体チャートは線を中心にして点マーカーを最新実績と予測終点に絞る。チャート系列の切り替えは Streamlit checkbox ではなくチャート内凡例の interaction で扱い、補助テーブルで予測変化率、レンジ、信頼度、検証指標、注意点を確認する。
 - `Signal Reading / シグナル読み取り`: Analysis KPI と同じ `上昇気配` / `下降警戒` を、予測変化率、モデル方向一致、予測のばらつきと合わせて解釈する。売買推奨ではなく比較・確認材料として扱う。
 - forecast agreement compatibility、forecast spread、best RMSE model

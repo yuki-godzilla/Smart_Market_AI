@@ -6453,6 +6453,15 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
     should_rerun_after_refresh = False
     if fetch_clicked:
         loading_slot = st.empty()
+        progress_bar: Any | None = None
+        progress_status: Any | None = None
+
+        def update_research_progress(message: str, ratio: float) -> None:
+            if progress_status is not None:
+                progress_status.caption(message)
+            if progress_bar is not None:
+                progress_bar.progress(max(0.0, min(1.0, ratio)))
+
         with loading_slot.container():
             render_mascot_loading(
                 "report",
@@ -6460,13 +6469,18 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
                 message="外部参照ソース、ニュース、保存済み資料を読み込み、企業リサーチレポートにまとめています。",
                 tone="info",
             )
+            progress_bar = st.progress(0.0)
+            progress_status = st.empty()
+        update_research_progress("調査対象と取得元を確認しています。", 0.08)
         try:
             refresh_started = perf_time.perf_counter()
             trace_rows: list[tuple[str, float]] = []
             try:
+                update_research_progress("外部参照ソースとニュースを取得しています。", 0.24)
                 step_started = perf_time.perf_counter()
                 external_result = _fetch_external_research_for_preview(preview)
                 trace_rows.append(("外部取得", perf_time.perf_counter() - step_started))
+                update_research_progress("外部参照ソースをAI調査に反映しています。", 0.52)
                 if external_result.entries:
                     st.success(
                         f"外部参照ソース {len(external_result.entries)}件をAI調査に反映しました。"
@@ -6487,11 +6501,14 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
                     st.caption(exc.message)
                     if exc.details:
                         st.json(exc.details)
+                update_research_progress("保存済み資料と既存データで調査を続行しています。", 0.52)
+            update_research_progress("企業リサーチレポートを生成しています。", 0.70)
             step_started = perf_time.perf_counter()
             st.session_state[MARKET_DATA_RESEARCH_REPORT_STATE_KEY] = (
                 _build_cockpit_research_report(preview)
             )
             trace_rows.append(("企業レポート生成", perf_time.perf_counter() - step_started))
+            update_research_progress("ニュースと開示材料を整理しています。", 0.86)
             step_started = perf_time.perf_counter()
             st.session_state[MARKET_DATA_STOCK_NEWS_REPORT_STATE_KEY] = (
                 _build_cockpit_stock_news_report(preview)
@@ -6499,7 +6516,9 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
             trace_rows.append(("ニュース整理", perf_time.perf_counter() - step_started))
             trace_rows.append(("合計", perf_time.perf_counter() - refresh_started))
             st.session_state[RESEARCH_REFRESH_TRACE_STATE_KEY] = trace_rows
+            update_research_progress("表示内容を更新しています。", 0.96)
             st.caption(_research_refresh_trace_caption(trace_rows))
+            update_research_progress("AI調査の更新が完了しました。", 1.0)
             should_rerun_after_refresh = True
         finally:
             loading_slot.empty()

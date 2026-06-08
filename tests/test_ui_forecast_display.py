@@ -114,6 +114,7 @@ from ui.app import (
     _quantitative_summary_html,
     _ranking_advanced_forecast_fields,
     _ranking_candidate_card_html,
+    _ranking_condition_card_html,
     _ranking_data_state_text,
     _ranking_decision_report_state_key,
     _ranking_result_grid_height,
@@ -191,6 +192,7 @@ from ui.app import (
     forecast_chart_summary,
     forecast_consensus_display_rows,
     forecast_focus_chart_rows,
+    forecast_horizon_notice_text,
     forecast_metric_display_rows,
     forecast_metric_summary,
     forecast_model_card_rows,
@@ -213,6 +215,7 @@ from ui.app import (
     ranking_detail_symbol_from_aggrid_response,
     ranking_detail_symbol_to_open,
     ranking_display_rows_with_research_status,
+    ranking_forecast_term_explanation_rows,
     ranking_investment_detail_rows,
     ranking_investment_note,
     ranking_research_status_from_documents,
@@ -231,6 +234,7 @@ from ui.app import (
     score_confidence_hierarchy_rows,
     selected_symbol_has_universe_detail,
     set_cached_ranking_build,
+    simple_forecast_baseline_comparison_rows,
     symbol_auto_refresh_request_key,
     symbol_candidate_label,
     symbol_detail_table_html,
@@ -333,6 +337,7 @@ from ui.ranking import (
     ranking_symbol_chunks,
     ranking_symbol_options,
     ranking_symbols_state_key,
+    ranking_weight_group_rows,
     ranking_weight_preset_for_purpose,
     ranking_weight_preset_label,
     symbol_candidate_labels,
@@ -6642,6 +6647,56 @@ def test_ranking_criteria_guide_rows_render_as_wrapping_table():
     assert "万能評価や商品適合性" in table_html
 
 
+def test_ranking_forecast_term_explanation_rows_cover_ai_signals():
+    rows = ranking_forecast_term_explanation_rows()
+    labels = {row["表示"] for row in rows}
+
+    assert {
+        "AI総合",
+        "上昇気配",
+        "下降警戒",
+        "AI予測インサイト",
+        "高度予測上昇",
+        "高度予測下振れ警戒",
+        "高度予測信頼",
+        "予測日数",
+    } <= labels
+    downside_row = next(row for row in rows if row["表示"] == "下降警戒")
+    advanced_quality_row = next(row for row in rows if row["表示"] == "高度予測信頼")
+    assert "低いほど良い" in downside_row["ランキングでの扱い"]
+    assert "投資魅力度ではなく" in advanced_quality_row["確認ポイント"]
+
+
+def test_ranking_weight_group_rows_summarize_ai_composite_profile():
+    rows = ranking_weight_group_rows(RANKING_PRESET_MULTI_FACTOR)
+
+    assert rows == [
+        {"group": "基礎スクリーニング", "weight": "23%"},
+        {"group": "予測シグナル", "weight": "29%"},
+        {"group": "リスク・データ品質", "weight": "28%"},
+        {"group": "DB条件・信頼度", "weight": "18%"},
+        {"group": "Research", "weight": "2%"},
+    ]
+
+
+def test_ranking_condition_card_html_explains_common_horizon_and_ai_weighting():
+    markup = _ranking_condition_card_html(
+        RANKING_PURPOSE_MULTI_FACTOR,
+        RANKING_PRESET_MULTI_FACTOR,
+        forecast_horizon_days=31,
+    )
+
+    assert "今回のランキング条件" in markup
+    assert "ランキング評価用予測期間" in markup
+    assert "31日" in markup
+    assert "同じランキング内では共通の予測期間で比較します" in markup
+    assert "AI予測インサイトは順位を直接支配せず" in markup
+    assert "予測シグナル" in markup
+    assert "29%" in markup
+    assert "下降警戒と高度予測の下振れ警戒は低いほど良い" in markup
+    assert "売買推奨ではありません" in markup
+
+
 def test_render_score_confidence_hierarchy_uses_wrapping_html_table(monkeypatch):
     markdown_calls: list[str] = []
 
@@ -8249,12 +8304,63 @@ def test_advanced_forecast_insight_card_html_is_information_dense():
 
     assert "AI予測インサイト" in html
     assert "統合予測" in _advanced_forecast_consensus_help_text({"model_count": "4"})
+    assert "結論" in html
+    assert "中立寄り" in html
+    assert "主な理由" in html
+    assert "注意点" in html
     assert "予測日数" in html
     assert "モデル数" in html
+    assert "モデル合意度" in html
+    assert "ばらつき" in html
     assert "方向一致" in html
     assert "平均RMSE" in html
+    assert "弱気" in html
+    assert "中央値" in html
+    assert "強気" in html
     assert "相対的に安定" in html
     assert "レンジ -8.58%〜+10.48%" in html
+
+
+def test_forecast_horizon_notice_text_explains_period_derived_horizon():
+    text = forecast_horizon_notice_text(31)
+
+    assert "今回の予測期間: 31日" in text
+    assert "取得期間から自動計算" in text
+    assert "短期寄り" in text
+    assert "中期寄り" in text
+
+
+def test_simple_forecast_baseline_comparison_rows_include_consensus_and_baselines():
+    rows = simple_forecast_baseline_comparison_rows(
+        [
+            {"model": "naive", "rmse": "0.0800", "direction_accuracy": "50.0%"},
+            {
+                "model": "moving_average_30",
+                "rmse": "0.0610",
+                "direction_accuracy": "52.0%",
+            },
+            {
+                "model": "advanced_linear_31d",
+                "rmse": "0.0550",
+                "direction_accuracy": "58.0%",
+            },
+        ],
+        [
+            {
+                "predicted_return": "2.35%",
+                "mean_rmse": "0.0412",
+                "mean_direction_accuracy": "54.20%",
+                "mean_rmse_improvement": "0.0031",
+                "confidence": "medium",
+            }
+        ],
+    )
+
+    assert rows[0]["区分"] == "AI予測インサイト"
+    assert rows[0]["予測変化"] == "+2.35%"
+    assert "改善傾向" in rows[0]["検証メモ"]
+    assert [row["区分"] for row in rows[1:]] == ["予測: 直近値維持", "予測: 30日移動平均"]
+    assert all("基準モデル" in row["検証メモ"] for row in rows[1:])
 
 
 def test_forecast_chart_filter_options_hide_naive_by_default():

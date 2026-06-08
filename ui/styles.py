@@ -2337,6 +2337,63 @@ body,
     margin: 0.35rem 0 0.7rem 0;
 }
 
+.smai-ranking-condition-card {
+    border-color: rgba(34, 211, 238, 0.34);
+    background:
+        linear-gradient(90deg, rgba(34, 211, 238, 0.1), transparent 70%),
+        linear-gradient(180deg, rgba(23, 35, 56, 0.88), rgba(11, 18, 32, 0.84));
+}
+
+.smai-ranking-condition-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: 0.72rem;
+    margin-top: 0.48rem;
+}
+
+.smai-ranking-condition-grid strong {
+    display: block;
+    color: var(--text-title);
+    font-size: 1.05rem;
+    line-height: 1.25;
+    margin-top: 0.12rem;
+}
+
+.smai-ranking-condition-grid p,
+.smai-ranking-condition-note {
+    color: var(--text-secondary);
+    font-size: 0.84rem;
+    line-height: 1.55;
+    margin: 0.32rem 0 0;
+}
+
+.smai-ranking-weight-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    gap: 0.42rem;
+    margin-top: 0.75rem;
+}
+
+.smai-ranking-weight-grid > div {
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    background: rgba(7, 13, 25, 0.72);
+    padding: 0.42rem 0.52rem;
+}
+
+.smai-ranking-weight-grid span {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 780;
+}
+
+.smai-ranking-weight-grid strong {
+    color: var(--text-heading);
+    font-size: 0.96rem;
+    line-height: 1.25;
+}
+
 .smai-metric-card {
     --smai-card-accent: var(--smai-gray);
     --smai-card-glow: rgba(100, 116, 139, 0.12);
@@ -2461,6 +2518,102 @@ body,
     line-height: 1.25;
     font-weight: 780;
     overflow-wrap: anywhere;
+}
+
+.smai-insight-hero {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-top: 0.1rem;
+}
+
+.smai-insight-kicker {
+    color: var(--text-ai-muted);
+    font-size: 0.78rem;
+    font-weight: 820;
+    line-height: 1.25;
+}
+
+.smai-insight-result {
+    color: var(--text-title);
+    font-size: 1.5rem;
+    font-weight: 860;
+    line-height: 1.16;
+    margin-top: 0.12rem;
+}
+
+.smai-insight-forecast {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    font-weight: 760;
+    text-align: right;
+}
+
+.smai-insight-forecast strong {
+    display: block;
+    color: var(--text-value);
+    font-size: 1.22rem;
+    line-height: 1.18;
+}
+
+.smai-insight-range {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.45rem;
+    margin-top: 0.72rem;
+}
+
+.smai-insight-range > div {
+    min-width: 0;
+    padding: 0.42rem 0.52rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    background: rgba(7, 13, 25, 0.72);
+}
+
+.smai-insight-range span {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 820;
+}
+
+.smai-insight-range strong {
+    color: var(--text-heading);
+    font-size: 0.92rem;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+.smai-insight-two-col {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 0.72rem;
+    margin-top: 0.78rem;
+}
+
+.smai-insight-subtitle {
+    color: var(--text-ai-title);
+    font-size: 0.8rem;
+    font-weight: 840;
+    margin-bottom: 0.28rem;
+}
+
+.smai-insight-two-col ul {
+    margin: 0;
+    padding-left: 1rem;
+    color: var(--text-secondary);
+    font-size: 0.84rem;
+    line-height: 1.55;
+}
+
+.smai-insight-two-col p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.84rem;
+    line-height: 1.55;
 }
 
 .smai-card-caption {
@@ -2710,6 +2863,27 @@ body,
 .neutral,
 .smai-text-neutral {
     color: var(--text-neutral);
+}
+
+@media print {
+    .smai-metric-card,
+    .smai-ranking-card,
+    .smai-section-card,
+    .smai-forecast-card {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        min-height: auto !important;
+        box-shadow: none !important;
+    }
+
+    .smai-score-track,
+    .smai-badge-row {
+        margin-top: 0.36rem;
+    }
+
+    [data-testid="stVerticalBlock"] {
+        gap: 0.45rem;
+    }
 }
 
 .link,

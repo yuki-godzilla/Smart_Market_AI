@@ -68,8 +68,8 @@ SMAI は以下の思想を重視しています。
   - LLM / network なしで Decision Report context から理由、注意点、次の確認観点を deterministic に返し、売買指示質問は助言境界として扱う
 - Streamlit UI
   - left side menu for `銘柄コックピット` / `銘柄ランキング` / `投資レーダー` / `リバランス` / `設定 / データ情報`
-  - 銘柄コックピット: 価格・予測チャート、Investment Score、投資判断メモ、Research Evidence、Decision Report、銘柄データ modal、warnings、downloads
-  - 銘柄ランキング: curated symbol metadata、候補条件 modal、ランキング preset、行クリックで開く銘柄データ modal、AI Research tab、Decision Report
+  - 銘柄コックピット: 価格・予測チャート、AI予測インサイト、Investment Score、投資判断メモ、Research Evidence、Decision Report、銘柄データ modal、warnings、downloads
+  - 銘柄ランキング: curated symbol metadata、候補条件 modal、ランキング preset、今回のランキング条件カード、AI総合 / 予測シグナル説明、行クリックで開く銘柄データ modal、AI Research tab、Decision Report
   - 投資レーダー: network-free demo snapshot と手動更新時の Google News RSS Standard Mode による市場ニュースヘッドライン、企業名主表示＋シンボル補助タグのクリック可能な株式ヒートマップ風投資ヒートマップ、3列カテゴリ別ニュースカード、銘柄名付き関連銘柄から銘柄コックピットへの導線
   - Rebalance Cockpit: summary flow、percentage target、allocation comparison chart、risk breach confirmation points、Decision Report
 - symbol universe metadata schema、source import、opt-in metadata refresh、SBI ranking universe policy columns / default exclusion helper
@@ -104,12 +104,12 @@ MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で
 - Phase 20: Research RAG Evidence Layer は local evidence foundation が implementation complete
 - Phase 21: 高度Research RAG / Stock News RAG / external fresh-source fetch の first slices は implementation complete。追加 provider と運用UIは後続
 - Phase 22: Research Score / Cockpit deep-dive は first UI slices 実装済み。Phase 22.x `投資レーダー` (Investment News dashboard) は初期MVP実装済み、Phase 22.y news cache と Phase 22.z symbol DB background refresh は backend foundation 実装済み
-- Phase 23: Optional Adapter / 高度分析を先に進める。Advanced Forecast は `advanced_linear` / `advanced_tree_sklearn` / `advanced_quantile` の registry、forecast service / API adapter selection、Cockpit chart/card、Ranking auxiliary 表示を実装済み
+- Phase 23: Optional Adapter / 高度分析を先に進める。Advanced Forecast は `advanced_linear` / `advanced_tree_sklearn` / `advanced_gbdt_sklearn` / `advanced_quantile` の registry、forecast service / API adapter selection、Cockpit `AI予測インサイト` chart/card/detail、Ranking auxiliary 表示、上昇気配 / 下降警戒への控えめブレンド、AI総合への軽量統合まで実装済み
 - Phase 24: Template Assistant backend slice は実装済み。SMAI マスコット UI / Assistant API / optional LLM provider は LLM 実装時に再開
 - Phase 25: advanced export、Execution gate の順に整理
 - Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
-次の重点は Phase 23 Advanced Forecast のモデル比較拡張です。backend には `advanced_linear`、scikit-learn `ExtraTreesRegressor` ベースの `advanced_tree_sklearn`、レンジ確認用の `advanced_quantile` が入り、取得期間から決まる共通 horizon の 1〜60 day forward return、walk-forward validation、validation metrics、confidence、feature contribution / importance summary を扱えます。`POST /forecast/evaluate` では各 adapter を直接指定でき、銘柄コックピットとランキング補助列では通常予測と同じ予測日数で比較できます。Ranking 順位への本格統合は、追加モデルの比較後に opt-in sort / evaluation profile として仕上げます。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、Assistant / optional LLM/provider、Execution / Broker は段階的に扱います。通常 checks は引き続き fake adapter / fixture で network 非依存を維持します。
+次の重点は Phase 23 Advanced Forecast / Ranking UI の成熟化です。backend には `advanced_linear`、scikit-learn `ExtraTreesRegressor` ベースの `advanced_tree_sklearn`、`HistGradientBoostingRegressor` ベースの `advanced_gbdt_sklearn`、レンジ確認用の `advanced_quantile` が入り、取得期間から決まる共通 horizon の 1〜60 day forward return、walk-forward validation、validation metrics、confidence、feature contribution / importance summary を扱えます。`POST /forecast/evaluate` では各 adapter を直接指定でき、銘柄コックピットとランキング補助列では通常予測と同じ予測日数で比較できます。Cockpit は `AI予測インサイト` を主表示にし、Ranking は同じ共通 horizon の高度予測を上昇気配 / 下降警戒と `AI総合` に控えめに反映します。Phase 18 の source 更新や残 metadata gap 補完は運用タスクとして継続し、Assistant / optional LLM/provider、Execution / Broker は段階的に扱います。通常 checks は引き続き fake adapter / fixture で network 非依存を維持します。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント

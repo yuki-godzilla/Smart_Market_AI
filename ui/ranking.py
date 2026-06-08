@@ -572,6 +572,25 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
         "metadata_confidence_score": Decimal("0.10"),
     },
 }
+
+RANKING_WEIGHT_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
+    RANKING_PRESET_MULTI_FACTOR: (
+        ("基礎スクリーニング", ("screening_score",)),
+        (
+            "予測シグナル",
+            (
+                "upside_signal_score",
+                "downside_signal_score",
+                "advanced_forecast_upside_score",
+                "advanced_forecast_downside_score",
+                "advanced_forecast_quality_score",
+            ),
+        ),
+        ("リスク・データ品質", ("data_quality_score", "risk_signal_score")),
+        ("DB条件・信頼度", ("database_fit_score", "metadata_confidence_score")),
+        ("Research", ("research_score",)),
+    ),
+}
 RANKING_PURPOSE_WEIGHT_PRESETS = {
     RANKING_PURPOSE_SORT_TOTAL_SCORE: RANKING_PRESET_SORT_TOTAL_SCORE,
     RANKING_PURPOSE_SORT_DIVIDEND_YIELD: RANKING_PRESET_SORT_DIVIDEND_YIELD,
@@ -1056,6 +1075,31 @@ def ranking_purpose_help(purpose: str) -> str:
 
 def ranking_weight_preset_for_purpose(purpose: str) -> str:
     return RANKING_PURPOSE_WEIGHT_PRESETS.get(purpose, RANKING_PRESET_BALANCED)
+
+
+def ranking_weight_group_rows(preset: str) -> list[dict[str, str]]:
+    """Return beginner-friendly grouped weight rows for a ranking preset."""
+
+    weights = RANKING_WEIGHT_PRESETS.get(preset, {})
+    groups = RANKING_WEIGHT_GROUPS.get(preset)
+    if groups is None:
+        return [
+            {
+                "group": RANKING_SCORE_FIELD_LABELS.get(field, field),
+                "weight": _format_percent(weight),
+            }
+            for field, weight in weights.items()
+            if weight > 0
+        ]
+    return [
+        {
+            "group": label,
+            "weight": _format_percent(
+                sum((weights.get(field, Decimal("0")) for field in fields), Decimal("0"))
+            ),
+        }
+        for label, fields in groups
+    ]
 
 
 def ranking_purpose_primary_columns(purpose: str) -> tuple[str, ...]:
@@ -2225,6 +2269,10 @@ def _score_band_for_total(total_score: Decimal, warnings: str) -> str:
 def _format_score(value: Decimal) -> str:
     rounded = value.quantize(Decimal("0.01"))
     return format(rounded.normalize(), "f")
+
+
+def _format_percent(value: Decimal) -> str:
+    return f"{value * Decimal('100'):.0f}%"
 
 
 def ranking_dividend_yield_pct_value(value: object) -> Decimal | None:

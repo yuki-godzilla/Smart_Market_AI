@@ -218,6 +218,7 @@ from ui.ranking import (
     ranking_symbol_chunks,
     ranking_symbol_options,
     ranking_symbols_state_key,
+    ranking_weight_group_rows,
     ranking_weight_preset_for_purpose,
     ranking_weight_preset_label,
     symbol_candidate_labels,
@@ -497,6 +498,13 @@ MARKET_CHART_COMBINED_SPACING = 8
 MARKET_CHART_HEIGHT = 540
 ADVANCED_FORECAST_CONSENSUS_LABEL = "AI予測インサイト"
 ADVANCED_FORECAST_CONSENSUS_PREDICTION_LABEL = "統合予測"
+FORECAST_DECISION_SUPPORT_NOTE = (
+    "この予測は過去データに基づく参考情報であり、将来の値動きを保証するものではありません。"
+)
+RANKING_DOWNSIDE_LOW_IS_BETTER_NOTE = (
+    "下降警戒と高度予測の下振れ警戒は低いほど良い指標です。"
+    "ランキング内部では低警戒の候補を高く評価します。"
+)
 RANKING_NUMERIC_SORT_COMPARATOR = JsCode(
     """
 function(valueA, valueB, nodeA, nodeB, isDescending) {
@@ -3795,6 +3803,122 @@ def _render_ranking_purpose_context(ranking_purpose: str, weight_preset: str) ->
     )
 
 
+def _render_ranking_condition_card(
+    ranking_purpose: str,
+    weight_preset: str,
+    *,
+    forecast_horizon_days: int,
+) -> None:
+    st.markdown(
+        _ranking_condition_card_html(
+            ranking_purpose,
+            weight_preset,
+            forecast_horizon_days=forecast_horizon_days,
+        ),
+        unsafe_allow_html=True,
+    )
+
+
+def _ranking_condition_card_html(
+    ranking_purpose: str,
+    weight_preset: str,
+    *,
+    forecast_horizon_days: int,
+) -> str:
+    group_rows = ranking_weight_group_rows(weight_preset)
+    group_items = "".join(
+        "<div>"
+        f"<span>{html.escape(row['group'])}</span>"
+        f"<strong>{html.escape(row['weight'])}</strong>"
+        "</div>"
+        for row in group_rows
+    )
+    purpose = ranking_policy_label(ranking_purpose)
+    profile = ranking_weight_preset_label(weight_preset)
+    return (
+        '<div class="smai-section-card smai-ranking-condition-card">'
+        '<div class="smai-card-label">今回のランキング条件</div>'
+        '<div class="smai-ranking-condition-grid">'
+        "<div>"
+        f'<div class="smai-insight-kicker">評価方針</div><strong>{html.escape(purpose)}</strong>'
+        f"<p>{html.escape(ranking_purpose_focus_summary(ranking_purpose))}</p>"
+        "</div>"
+        "<div>"
+        '<div class="smai-insight-kicker">ランキング評価用予測期間</div>'
+        f"<strong>{forecast_horizon_days}日</strong>"
+        "<p>同じランキング内では共通の予測期間で比較します。</p>"
+        "</div>"
+        "<div>"
+        '<div class="smai-insight-kicker">AI予測の扱い</div>'
+        "<strong>控えめに反映</strong>"
+        "<p>AI予測インサイトは順位を直接支配せず、上昇気配・下降警戒・信頼度として使います。</p>"
+        "</div>"
+        "</div>"
+        '<div class="smai-ranking-weight-grid">'
+        f"{group_items}"
+        "</div>"
+        f'<p class="smai-ranking-condition-note">評価プロファイル: {html.escape(profile)}。'
+        f"{html.escape(RANKING_DOWNSIDE_LOW_IS_BETTER_NOTE)} "
+        "この画面は比較候補を整理するためのもので、売買推奨ではありません。</p>"
+        "</div>"
+    )
+
+
+def ranking_forecast_term_explanation_rows() -> list[dict[str, str]]:
+    """Return beginner-friendly Ranking forecast signal explanations."""
+
+    return [
+        {
+            "表示": "AI総合",
+            "意味": "Screening、方向シグナル、Risk、データ品質、DB条件、AI予測インサイトをまとめた比較用スコアです。",
+            "ランキングでの扱い": "既定の総合比較です。AI予測は控えめに加味し、単独で順位を決めません。",
+            "確認ポイント": "高順位でも、上昇気配・下降警戒・信頼度の偏りを一緒に確認します。",
+        },
+        {
+            "表示": "上昇気配",
+            "意味": "予測エッジ、直近トレンド、モデル方向感を合わせた上向き材料の強さです。",
+            "ランキングでの扱い": "高いほど上向き候補として見ます。AI予測インサイトがある場合は25%までブレンドします。",
+            "確認ポイント": "下降警戒も高い場合は、上下どちらにも振れやすい候補として慎重に読みます。",
+        },
+        {
+            "表示": "下降警戒",
+            "意味": "下向きシグナル、予測下限、価格変動リスクを合わせた注意度です。",
+            "ランキングでの扱い": "低いほど良い指標です。AI予測インサイトの下振れ警戒も25%までブレンドします。",
+            "確認ポイント": "高い場合は、価格トレンド、予測レンジ下限、Riskを先に確認します。",
+        },
+        {
+            "表示": "AI予測インサイト",
+            "意味": "複数の高度予測モデルを、信頼度・RMSE改善・方向一致・検証数で重みづけした統合予測です。",
+            "ランキングでの扱い": "上昇気配、下降警戒、高度予測信頼の材料として控えめに使います。",
+            "確認ポイント": "予測日数、レンジの広さ、モデル合意度、注意点をコックピットで確認します。",
+        },
+        {
+            "表示": "高度予測上昇",
+            "意味": "AI予測インサイトの予測変化率とモデル合意度から見た上向き寄与です。",
+            "ランキングでの扱い": "AI総合の一部として小さく加味します。低信頼時は中立50へ寄せます。",
+            "確認ポイント": "単純な上昇予想ではなく、信頼度と検証指標込みの補助材料として読みます。",
+        },
+        {
+            "表示": "高度予測下振れ警戒",
+            "意味": "AI予測インサイトの予測下限、ばらつき、低信頼を反映した下振れ注意度です。",
+            "ランキングでの扱い": "低いほど良い指標です。AI総合では警戒が低い候補を相対的に評価します。",
+            "確認ポイント": "予測レンジが広い場合は、中央値よりも下限シナリオを優先して確認します。",
+        },
+        {
+            "表示": "高度予測信頼",
+            "意味": "方向一致、RMSE改善、モデル合意度、検証サンプルを合わせた予測材料のそろい方です。",
+            "ランキングでの扱い": "高いほどAI予測を少し使いやすくします。低い場合は予測スコアを中立へ戻します。",
+            "確認ポイント": "信頼度は投資魅力度ではなく、予測をどの程度参考にするかの目安です。",
+        },
+        {
+            "表示": "予測日数",
+            "意味": "取得期間から自動計算した共通の予測先です。",
+            "ランキングでの扱い": "同じランキング内では共通の日数で比較し、銘柄間の見方をそろえます。",
+            "確認ポイント": "短期取得では短期寄り、長期取得では中期寄りになります。",
+        },
+    ]
+
+
 def _render_ranking_criteria_guide() -> None:
     with st.expander("評価方針・条件・信頼度の読み方", expanded=False):
         st.caption(
@@ -3808,6 +3932,11 @@ def _render_ranking_criteria_guide() -> None:
         ]
         st.markdown(
             symbol_detail_table_html(guide_rows),
+            unsafe_allow_html=True,
+        )
+        st.markdown("##### AI総合・予測シグナルの読み方")
+        st.markdown(
+            symbol_detail_table_html(ranking_forecast_term_explanation_rows()),
             unsafe_allow_html=True,
         )
 
@@ -5346,11 +5475,17 @@ def _render_market_data_ranking() -> None:
         start=start_date,
         end=end_date,
     )
+    ranking_forecast_horizon_days = default_forecast_horizon_days(start_date, end_date)
     st.caption(
         "評価方針: どの観点で候補を評価するかを選びます。"
         "候補は選択中の評価方針スコア順に表示されます。"
         "配当利回り、PER、PBR、ROEなどで並べ替えたい場合は、詳細テーブルの列名をクリックしてください。"
         f" {ranking_policy_label(ranking_policy)}は{ranking_purpose_help(ranking_policy)}"
+    )
+    _render_ranking_condition_card(
+        ranking_policy,
+        policy_preset,
+        forecast_horizon_days=ranking_forecast_horizon_days,
     )
     _render_ranking_criteria_guide()
     if len(effective_selected_labels) < len(selected_labels):
@@ -10254,6 +10389,7 @@ def _render_price_forecast_hero(
             st.info(message)
         else:
             st.caption(message)
+    st.caption(forecast_horizon_notice_text(forecast_horizon_days))
     chart_currency = preview.bars[0].symbol.currency if preview.bars else ""
     display_forecast_rows = filter_forecast_chart_rows(forecast_rows, set())
     _render_forecast_chart_filters(display_forecast_rows)
@@ -10267,22 +10403,110 @@ def _render_price_forecast_hero(
     )
     latest_close = preview.bars[-1].close if preview.bars else None
     latest_date = preview.bars[-1].ts.date() if preview.bars else None
-    model_cards = forecast_model_card_rows(
+    _render_forecast_model_detail_expanders(
+        metric_rows,
+        advanced_forecast_rows,
+        advanced_forecast_consensus_rows,
+        latest_close=latest_close,
+        latest_date=latest_date,
+    )
+    st.caption(
+        "縦の点線は、実績価格から予測表示へ切り替わる位置です。"
+        "レンジモデルの薄い帯は、下振れ〜上振れの参考幅です。"
+    )
+
+
+def forecast_horizon_notice_text(horizon_days: int) -> str:
+    return (
+        f"今回の予測期間: {horizon_days}日。"
+        "取得期間から自動計算され、短い取得期間では短期寄り、長い取得期間では中期寄りの見方になります。"
+    )
+
+
+def _render_forecast_model_detail_expanders(
+    metric_rows: list[dict[str, str]],
+    advanced_forecast_rows: list[dict[str, str]],
+    advanced_forecast_consensus_rows: list[dict[str, str]],
+    *,
+    latest_close: Decimal | None,
+    latest_date: date | None,
+) -> None:
+    advanced_model_cards = forecast_model_card_rows(
         metric_rows,
         advanced_forecast_rows,
         latest_close=latest_close,
         latest_date=latest_date,
         include_standard_models=False,
     )
-    if model_cards:
-        st.markdown("###### 予測モデル別の見方")
-        st.caption(forecast_model_cards_intro_text(model_cards))
-        _render_forecast_model_comparison_cards(forecast_model_comparison_rows(model_cards))
-        st.markdown(forecast_model_cards_html(model_cards), unsafe_allow_html=True)
-    st.caption(
-        "縦の点線は、実績価格から予測表示へ切り替わる位置です。"
-        "レンジモデルの薄い帯は、下振れ〜上振れの参考幅です。"
-    )
+    with st.expander("高度予測モデルの詳細を見る", expanded=False):
+        st.caption(
+            "モデル別の予測変化率、検証指標、特徴量メモです。"
+            "AI予測インサイトで気になった点を分解して確認します。"
+        )
+        if advanced_model_cards:
+            _render_forecast_model_comparison_cards(
+                forecast_model_comparison_rows(advanced_model_cards)
+            )
+            st.markdown(forecast_model_cards_html(advanced_model_cards), unsafe_allow_html=True)
+        _render_table(
+            advanced_forecast_display_rows(advanced_forecast_rows),
+            "高度予測を表示するには、もう少し長い価格データが必要です。",
+        )
+    with st.expander("単純予測との比較を見る", expanded=False):
+        st.caption(
+            "単純予測は基準・保険です。高度予測との差が小さい場合は、AI予測を強く読みすぎないよう確認します。"
+        )
+        _render_table(
+            simple_forecast_baseline_comparison_rows(
+                metric_rows,
+                advanced_forecast_consensus_rows,
+            ),
+            "比較に使える予測検証データがありません。",
+        )
+
+
+def simple_forecast_baseline_comparison_rows(
+    metric_rows: list[dict[str, str]],
+    advanced_forecast_consensus_rows: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    if advanced_forecast_consensus_rows:
+        consensus = advanced_forecast_consensus_rows[0]
+        rows.append(
+            {
+                "区分": ADVANCED_FORECAST_CONSENSUS_LABEL,
+                "予測変化": _signed_percent_from_text(consensus.get("predicted_return", ""))
+                or "未計算",
+                "RMSE": consensus.get("mean_rmse", "") or "未計算",
+                "方向一致率": consensus.get("mean_direction_accuracy", "") or "未計算",
+                "検証メモ": _advanced_forecast_validation_summary(consensus),
+            }
+        )
+    for row in metric_rows:
+        model = row.get("model", "")
+        if model == "naive" or model.startswith(("moving_average_", "momentum_")):
+            rows.append(
+                {
+                    "区分": _forecast_series_label(model),
+                    "予測変化": "-",
+                    "RMSE": row.get("rmse", "") or "未計算",
+                    "方向一致率": row.get("direction_accuracy", "") or "未計算",
+                    "検証メモ": "基準モデルです。高度予測の参考度を確認するために残しています。",
+                }
+            )
+    return rows
+
+
+def _advanced_forecast_validation_summary(row: Mapping[str, str]) -> str:
+    improvement = _decimal_from_text(row.get("mean_rmse_improvement"))
+    confidence = _advanced_forecast_confidence_label(row.get("confidence", ""))
+    if improvement is None:
+        return f"信頼度は{confidence}です。単純予測との差は詳細指標と合わせて確認します。"
+    if improvement > 0:
+        return f"過去検証では単純なゼロリターン基準より改善傾向です。信頼度は{confidence}です。"
+    if improvement < 0:
+        return f"過去検証では単純基準を上回らない場面があります。信頼度は{confidence}です。"
+    return f"単純基準との差は小さめです。信頼度は{confidence}です。"
 
 
 def _render_advanced_forecast_status(
@@ -10314,9 +10538,101 @@ def _render_advanced_forecast_consensus_cards(rows: list[dict[str, str]]) -> Non
     )
 
 
-def _advanced_forecast_insight_card_html(row: Mapping[str, str]) -> str:
-    value = _signed_percent_from_text(row.get("predicted_return", "")) or "未計算"
+def _advanced_forecast_insight_summary(row: Mapping[str, str]) -> dict[str, object]:
+    conclusion = _advanced_forecast_conclusion_label(row)
+    agreement_count = _advanced_forecast_model_agreement_count(row)
+    dispersion = _advanced_forecast_dispersion_label(row)
     range_display = _advanced_forecast_range_display(row) or "未計算"
+    reasons = _advanced_forecast_reason_lines(row, conclusion=conclusion, dispersion=dispersion)
+    caution = _advanced_forecast_caution_text(row, dispersion=dispersion)
+    return {
+        "conclusion": conclusion,
+        "agreement_count": agreement_count,
+        "dispersion": dispersion,
+        "range_display": range_display,
+        "reasons": reasons,
+        "caution": caution,
+    }
+
+
+def _advanced_forecast_conclusion_label(row: Mapping[str, str]) -> str:
+    predicted_return = _decimal_from_text(row.get("predicted_return"))
+    confidence = str(row.get("confidence", "")).strip()
+    dispersion = _advanced_forecast_dispersion_label(row)
+    if predicted_return is None:
+        return "判断材料不足"
+    if confidence == "low" or dispersion == "高":
+        if predicted_return > Decimal("1"):
+            return "上昇寄りだが慎重"
+        if predicted_return < Decimal("-1"):
+            return "下振れに注意"
+        return "中立寄り"
+    if predicted_return > Decimal("1"):
+        return "やや上昇"
+    if predicted_return < Decimal("-1"):
+        return "下振れ警戒"
+    return "中立寄り"
+
+
+def _advanced_forecast_model_agreement_count(row: Mapping[str, str]) -> str:
+    model_count = _int_from_text(row.get("model_count", ""))
+    agreement_score = _decimal_from_text(row.get("direction_agreement_score"))
+    if model_count <= 0 or agreement_score is None:
+        return _forecast_agreement_label(row.get("agreement", ""))
+    agreed = int((agreement_score * Decimal(model_count) / Decimal("100")).to_integral_value())
+    agreed = max(0, min(model_count, agreed))
+    return f"{agreed}/{model_count}"
+
+
+def _advanced_forecast_dispersion_label(row: Mapping[str, str]) -> str:
+    lower = _decimal_from_text(row.get("predicted_return_lower"))
+    upper = _decimal_from_text(row.get("predicted_return_upper"))
+    if lower is None or upper is None:
+        return _forecast_agreement_label(row.get("agreement", "")) or "未計算"
+    spread = upper - lower
+    if spread <= Decimal("3"):
+        return "低"
+    if spread <= Decimal("8"):
+        return "中"
+    return "高"
+
+
+def _advanced_forecast_reason_lines(
+    row: Mapping[str, str],
+    *,
+    conclusion: str,
+    dispersion: str,
+) -> list[str]:
+    agreement_count = _advanced_forecast_model_agreement_count(row)
+    confidence = _advanced_forecast_confidence_label(row.get("confidence", ""))
+    lines = [
+        f"複数の高度予測モデルを統合した結論は「{conclusion}」です。",
+        f"モデル合意度は {agreement_count}、信頼度は{confidence}です。",
+    ]
+    if dispersion in {"中", "高"}:
+        lines.append(f"予測レンジのばらつきは{dispersion}で、過信せず確認します。")
+    improvement = _decimal_from_text(row.get("mean_rmse_improvement"))
+    if improvement is not None:
+        if improvement > 0:
+            lines.append("過去検証では単純基準より改善傾向があります。")
+        elif improvement < 0:
+            lines.append("過去検証では単純基準を上回らないモデルもあります。")
+    return lines
+
+
+def _advanced_forecast_caution_text(row: Mapping[str, str], *, dispersion: str) -> str:
+    warning_text = _advanced_forecast_warning_display(row.get("warnings", ""))
+    if dispersion == "高":
+        return "予測レンジが広いため、強い方向表示としては読みすぎないでください。"
+    if warning_text:
+        return warning_text
+    return FORECAST_DECISION_SUPPORT_NOTE
+
+
+def _advanced_forecast_insight_card_html(row: Mapping[str, str]) -> str:
+    summary = _advanced_forecast_insight_summary(row)
+    value = _signed_percent_from_text(row.get("predicted_return", "")) or "未計算"
+    range_display = str(summary["range_display"])
     confidence = _advanced_forecast_confidence_label(row.get("confidence", ""))
     agreement = _forecast_agreement_label(row.get("agreement", ""))
     horizon = row.get("horizon_days", "").strip()
@@ -10330,6 +10646,15 @@ def _advanced_forecast_insight_card_html(row: Mapping[str, str]) -> str:
     progress = metric_progress_from_value(row.get("weighted_direction_score", "")) or 0
     safe_progress = min(100, max(0, int(progress)))
     tone = _advanced_forecast_card_tone(dict(row))
+    conclusion = str(summary["conclusion"])
+    agreement_count = str(summary["agreement_count"])
+    dispersion = str(summary["dispersion"])
+    reason_items = "".join(
+        f"<li>{html.escape(reason)}</li>" for reason in cast(list[str], summary["reasons"])
+    )
+    caution = str(summary["caution"])
+    lower = _signed_percent_from_text(row.get("predicted_return_lower", "")) or "未計算"
+    upper = _signed_percent_from_text(row.get("predicted_return_upper", "")) or "未計算"
     help_text = _advanced_forecast_consensus_help_text(row) + (
         f"一致度 {agreement}、方向一致 {direction_display}。"
         "AI総合と方向シグナルでは、信頼度を見ながら控えめに使います。"
@@ -10337,7 +10662,8 @@ def _advanced_forecast_insight_card_html(row: Mapping[str, str]) -> str:
     metrics = (
         ("予測日数", f"{horizon}日" if horizon else "未計算"),
         ("モデル数", model_count),
-        ("モデル一致", agreement),
+        ("モデル合意度", agreement_count),
+        ("ばらつき", dispersion),
         ("方向一致", direction_display),
         ("平均方向一致", mean_direction),
         ("RMSE改善", rmse_improvement),
@@ -10370,18 +10696,36 @@ def _advanced_forecast_insight_card_html(row: Mapping[str, str]) -> str:
         f'title="{html.escape(help_text, quote=True)}" '
         f'aria-label="{html.escape(ADVANCED_FORECAST_CONSENSUS_LABEL, quote=True)} の説明">?</span>'
         "</div>"
-        '<div style="display:flex;align-items:flex-end;gap:1rem;flex-wrap:wrap;">'
-        f'<div class="smai-card-value">{html.escape(value)}</div>'
-        f'<div style="color:{THEME_COLORS["text_secondary"]};font-size:0.88rem;'
-        'font-weight:700;margin-bottom:0.22rem;">'
-        f'予測価格 {html.escape(row.get("forecast_close") or "未計算")} / '
-        f"レンジ {html.escape(range_display)}</div>"
+        '<div class="smai-insight-hero">'
+        "<div>"
+        '<div class="smai-insight-kicker">結論</div>'
+        f'<div class="smai-insight-result">{html.escape(conclusion)}</div>'
         "</div>"
+        '<div class="smai-insight-forecast">'
+        f"<span>{html.escape(ADVANCED_FORECAST_CONSENSUS_PREDICTION_LABEL)}</span>"
+        f"<strong>{html.escape(value)}</strong>"
+        "</div>"
+        "</div>"
+        f'<div class="smai-insight-range" aria-label="予測レンジ {html.escape(range_display, quote=True)}">'
+        f"<div><span>弱気</span><strong>{html.escape(lower)}</strong></div>"
+        f"<div><span>中央値</span><strong>{html.escape(value)}</strong></div>"
+        f"<div><span>強気</span><strong>{html.escape(upper)}</strong></div>"
+        "</div>"
+        f'<div style="color:{THEME_COLORS["text_secondary"]};font-size:0.88rem;'
+        'font-weight:700;margin-top:0.45rem;">'
+        f'予測価格 {html.escape(row.get("forecast_close") or "未計算")} / '
+        f"予測レンジ {html.escape(range_display)}</div>"
         '<div class="smai-score-track" aria-hidden="true">'
         f'<div class="smai-score-fill" style="--smai-score-width: {safe_progress}%"></div>'
         "</div>"
         '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));'
         f'gap:0.45rem;margin-top:0.65rem;">{metric_html}</div>'
+        '<div class="smai-insight-two-col">'
+        '<div><div class="smai-insight-subtitle">主な理由</div>'
+        f"<ul>{reason_items}</ul></div>"
+        '<div><div class="smai-insight-subtitle">注意点</div>'
+        f"<p>{html.escape(caution)}</p></div>"
+        "</div>"
         f'<div style="margin-top:0.55rem;color:{THEME_COLORS["text_secondary"]};'
         'font-size:0.82rem;font-weight:700;">'
         f'相対的に安定: {html.escape(truncate_text(best_model, max_chars=90, fallback="未計算"))}'

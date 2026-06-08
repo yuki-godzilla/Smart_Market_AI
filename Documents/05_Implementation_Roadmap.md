@@ -1668,7 +1668,7 @@ Streamlit / Ranking 接続方針:
 - 銘柄コックピットの予測表示エリアに、通常予測と同じ horizon の高度予測を表示する。
 - 表示候補は、高度予測モデル名、horizon、予測リターン、direction score、confidence、MAE / RMSE / direction accuracy、主な寄与 feature、非助言 note。
 - まずは expander `高度予測モデル詳細` でもよい。
-- Ranking では互換用に `predicted_return_5d`、`predicted_return_20d`、`advanced_forecast_score`、`advanced_forecast_confidence` の列を保持し、表示テーブル / 選択候補 breakdown / score detail / CSV export で補助情報として確認できる。
+- Ranking では取得期間から決まる共通 horizon の `advanced_forecast_horizon_days`、`advanced_forecast_predicted_return`、`advanced_forecast_score`、`advanced_forecast_confidence` を保持し、表示テーブル / 選択候補 breakdown / score detail / CSV export で補助情報として確認できる。
 - 初期 slice では Ranking 本体順位を変更せず、補助列 / optional score として扱う。`advanced_forecast_score` による sort profile 追加は、追加高度予測モデルを一通りそろえた後の ranking logic finalization slice でまとめて検討する。
 
 実装済み / 将来 adapter 候補:
@@ -1732,7 +1732,7 @@ Ranking logic finalization 方針:
 - 予測は売買判断の主体にせず、スコアやリスクと合わせて確認する材料として扱う。
 - `advanced_linear` adapter が追加され、Ridge / ElasticNet の少なくとも Ridge が使える。
 - 1〜60 trading day forward return の予測、walk-forward validation、validation metrics、confidence、feature contribution summary が返る。
-- backend adapter は実装済み。`POST /forecast/evaluate` では `adapter=advanced_linear` / `advanced_quantile` 指定時に 1〜60日の高度予測、予測変化率、予測価格、信頼度、検証指標、特徴量要約またはレンジ、注意点を返す。Streamlit 銘柄コックピットでは通常予測と同じ共通 horizon の高度予測を既存の価格・予測チャートへ重ね、右側の予測拡大図、カード、詳細表で予測変化率、レンジ、信頼度、検証指標、注意点を表示する。Ranking では互換用の `advanced_linear` 5日 / 20日出力を補助列として保持し、表示テーブル / 選択候補 breakdown / score detail / CSV export で確認できる。Ranking 順位と既定 Investment Score は変更していない。
+- backend adapter は実装済み。`POST /forecast/evaluate` では `adapter=advanced_linear` / `advanced_quantile` 指定時に 1〜60日の高度予測、予測変化率、予測価格、信頼度、検証指標、特徴量要約またはレンジ、注意点を返す。Streamlit 銘柄コックピットでは通常予測と同じ共通 horizon の高度予測を既存の価格・予測チャートへ重ね、右側の予測拡大図、カード、詳細表で予測変化率、レンジ、信頼度、検証指標、注意点を表示する。Ranking では取得期間から決まる同じ horizon の高度予測を補助列として保持し、表示テーブル / 選択候補 breakdown / score detail / CSV export で確認できる。Ranking 順位と既定 Investment Score は変更していない。
 - README または roadmap に Advanced Forecast Slice 1 として記録されている。
 
 Research資料保存方針の移行:

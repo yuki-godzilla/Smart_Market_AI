@@ -239,8 +239,6 @@ from ui.rebalance_app import (
     _available_forecast_evaluations,
     advanced_forecast_results_for_bars,
     advanced_forecast_rows_for_results,
-    advanced_linear_forecast_results_for_bars,
-    advanced_linear_forecast_rows,
     build_market_data_preview,
     forecast_chart_rows,
     forecast_consensus_rows_for_bars,
@@ -461,8 +459,8 @@ RANKING_NUMERIC_SORT_DIRECTIONS = {
     "PER": "asc",
     "PBR": "asc",
     "ROE": "desc",
-    "高度予測5日": "desc",
-    "高度予測20日": "desc",
+    "高度予測": "desc",
+    "高度予測日数": "desc",
     "高度予測スコア": "desc",
     "現在値": "desc",
     "時価総額": "desc",
@@ -2388,7 +2386,7 @@ def _ranking_result_columns_with_optional_advanced_forecast(
     insert_after = "予測変化率"
     if insert_after not in columns:
         insert_after = "下降警戒" if "下降警戒" in columns else "見方"
-    advanced_columns = ("高度予測5日", "高度予測20日", "高度予測スコア", "高度予測信頼度")
+    advanced_columns = ("高度予測", "高度予測日数", "高度予測スコア", "高度予測信頼度")
     next_columns: list[str] = []
     for column in columns:
         next_columns.append(column)
@@ -2399,8 +2397,8 @@ def _ranking_result_columns_with_optional_advanced_forecast(
 
 def _ranking_has_advanced_forecast(display_rows: list[dict[str, str]]) -> bool:
     return any(
-        _ranking_has_present_display_value(row.get("高度予測5日"))
-        or _ranking_has_present_display_value(row.get("高度予測20日"))
+        _ranking_has_present_display_value(row.get("高度予測"))
+        or _ranking_has_present_display_value(row.get("高度予測日数"))
         or _ranking_has_present_display_value(row.get("高度予測スコア"))
         or _ranking_has_present_display_value(row.get("高度予測信頼度"))
         for row in display_rows
@@ -2599,8 +2597,8 @@ def ranking_result_aggrid_frame(
             "上昇気配": row.get("上昇気配", ""),
             "下降警戒": row.get("下降警戒", ""),
             "予測変化率": row.get("予測変化率", ""),
-            "高度予測5日": row.get("高度予測5日", ""),
-            "高度予測20日": row.get("高度予測20日", ""),
+            "高度予測": row.get("高度予測", ""),
+            "高度予測日数": row.get("高度予測日数", ""),
             "高度予測スコア": row.get("高度予測スコア", ""),
             "高度予測信頼度": row.get("高度予測信頼度", ""),
             "方向一致": row.get("方向一致", ""),
@@ -2702,8 +2700,8 @@ def ranking_result_aggrid_options(
         "上昇気配",
         "下降警戒",
         "予測変化率",
-        "高度予測5日",
-        "高度予測20日",
+        "高度予測",
+        "高度予測日数",
         "高度予測スコア",
         "データ品質",
         "条件適合度",
@@ -3608,7 +3606,7 @@ def ranking_candidate_breakdown_rows(
                 "観点": "高度予測",
                 "値": advanced_value,
                 "確認ポイント": (
-                    "線形モデルによる参考シナリオです。順位や売買判断ではなく、コックピットで価格レンジと合わせて確認します。"
+                    "取得期間から決まる共通予測日数の参考シナリオです。順位や売買判断ではなく、コックピットで価格レンジと合わせて確認します。"
                 ),
             }
         )
@@ -3683,12 +3681,11 @@ def _ranking_direction_check(row: Mapping[str, str]) -> str:
 
 def _ranking_advanced_forecast_display(row: Mapping[str, str]) -> str:
     parts: list[str] = []
-    return_5d = row.get("高度予測5日", "")
-    if _ranking_has_present_display_value(return_5d):
-        parts.append(f"5日 {return_5d}")
-    return_20d = row.get("高度予測20日", "")
-    if _ranking_has_present_display_value(return_20d):
-        parts.append(f"20日 {return_20d}")
+    horizon = row.get("高度予測日数", "")
+    predicted_return = row.get("高度予測", "")
+    if _ranking_has_present_display_value(predicted_return):
+        prefix = f"{horizon} " if _ranking_has_present_display_value(horizon) else ""
+        parts.append(f"{prefix}{predicted_return}")
     score = row.get("高度予測スコア", "")
     if _ranking_has_present_display_value(score):
         parts.append(f"スコア {score}")
@@ -5643,41 +5640,45 @@ def _enrich_ranking_rows_with_feature_display_rows(
     return enriched_rows
 
 
-def _advanced_forecast_rows_for_ranking(bars: list[Bar]) -> list[dict[str, str]]:
+def _advanced_forecast_rows_for_ranking(
+    bars: list[Bar],
+    *,
+    horizon_days: int,
+) -> list[dict[str, str]]:
     if not bars:
         return []
-    results = advanced_linear_forecast_results_for_bars(bars)
-    return advanced_linear_forecast_rows(results, bars)
+    results = advanced_forecast_results_for_bars(bars, horizon_days=horizon_days)
+    return advanced_forecast_rows_for_results(results, bars)
 
 
 def _ranking_advanced_forecast_fields(
     advanced_forecast_rows: list[dict[str, str]],
 ) -> dict[str, str]:
-    linear_rows = [
-        row
-        for row in advanced_forecast_rows
-        if row.get("adapter", "advanced_linear") == "advanced_linear"
-    ]
-    if not linear_rows:
+    if not advanced_forecast_rows:
         return {}
 
+    model_keys = sorted(
+        {row.get("adapter", "").strip() for row in advanced_forecast_rows if row.get("adapter")}
+    )
     fields: dict[str, str] = {
-        "advanced_forecast_model": "advanced_linear",
+        "advanced_forecast_model": ",".join(model_keys) or "advanced_forecast",
         "advanced_forecast_note": (
             "高度予測は参考シナリオです。ランキング順位は既定では変えません。"
         ),
     }
     horizons: list[str] = []
+    predicted_returns: list[Decimal] = []
     direction_scores: list[Decimal] = []
     confidence_rank = {"low": 0, "medium": 1, "high": 2}
     confidences: list[str] = []
-    for row in linear_rows:
+    for row in advanced_forecast_rows:
         horizon = str(row.get("horizon_days", "")).strip()
         if horizon:
             horizons.append(horizon)
         predicted_return = str(row.get("predicted_return", "")).strip()
-        if horizon in {"5", "20"} and predicted_return:
-            fields[f"predicted_return_{horizon}d"] = predicted_return
+        predicted_return_value = _decimal_from_text(predicted_return)
+        if predicted_return_value is not None:
+            predicted_returns.append(predicted_return_value)
         direction_score = _decimal_from_text(row.get("direction_score"))
         if direction_score is not None:
             direction_scores.append(direction_score)
@@ -5687,6 +5688,13 @@ def _ranking_advanced_forecast_fields(
 
     if horizons:
         fields["advanced_forecast_horizons"] = ",".join(sorted(set(horizons), key=int))
+        if len(set(horizons)) == 1:
+            fields["advanced_forecast_horizon_days"] = horizons[0]
+    if predicted_returns:
+        average_return = sum(predicted_returns, Decimal("0")) / Decimal(len(predicted_returns))
+        fields["advanced_forecast_predicted_return"] = (
+            f"{_format_ranking_decimal_value(average_return)}%"
+        )
     if direction_scores:
         average_score = sum(direction_scores, Decimal("0")) / Decimal(len(direction_scores))
         fields["advanced_forecast_score"] = _format_ranking_decimal_value(average_score)
@@ -5862,7 +5870,10 @@ async def _build_market_data_ranking_rows_fast(
         if forecast_consensus is not None:
             forecast_consensus_by_symbol[forecast_consensus.symbol] = forecast_consensus
         advanced_fields = _ranking_advanced_forecast_fields(
-            _advanced_forecast_rows_for_ranking(forecast_history_bars)
+            _advanced_forecast_rows_for_ranking(
+                forecast_history_bars,
+                horizon_days=forecast_horizon_days,
+            )
         )
         if advanced_fields:
             advanced_forecast_fields_by_symbol[symbol.strip().upper()] = advanced_fields
@@ -6070,7 +6081,10 @@ async def _build_market_data_ranking_rows_from_previews(
             getattr(preview, "feature_rows", []),
         )
         advanced_fields = _ranking_advanced_forecast_fields(
-            _advanced_forecast_rows_for_ranking(getattr(preview, "bars", []))
+            _advanced_forecast_rows_for_ranking(
+                getattr(preview, "bars", []),
+                horizon_days=forecast_horizon_days,
+            )
         )
         if advanced_fields:
             preview_rows = [
@@ -14246,7 +14260,7 @@ def ranking_score_detail_rows(ranking_row: dict[str, str]) -> list[dict[str, str
                     "観点": "高度予測",
                     "内容": advanced_value,
                     "確認ポイント": (
-                        "ランキング互換用の5日・20日補助シナリオです。順位は変えず、Cockpitの共通予測日数と分けて確認します。"
+                        "取得期間から決まる共通予測日数の参考シナリオです。順位は変えず、Cockpitの価格レンジと合わせて確認します。"
                     ),
                 }
             ]
@@ -14288,8 +14302,14 @@ def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, 
                 "上昇気配": row.get("upside_signal_score", ""),
                 "下降警戒": row.get("downside_signal_score", ""),
                 "予測変化率": row.get("forecast_return_pct", ""),
-                "高度予測5日": _ranking_optional_display(row.get("predicted_return_5d", "")),
-                "高度予測20日": _ranking_optional_display(row.get("predicted_return_20d", "")),
+                "高度予測": _ranking_optional_display(
+                    row.get("advanced_forecast_predicted_return", "")
+                ),
+                "高度予測日数": (
+                    f"{row.get('advanced_forecast_horizon_days')}日"
+                    if row.get("advanced_forecast_horizon_days", "")
+                    else ""
+                ),
                 "高度予測スコア": _ranking_optional_display(row.get("advanced_forecast_score", "")),
                 "高度予測信頼度": (
                     _advanced_forecast_confidence_label(row.get("advanced_forecast_confidence", ""))

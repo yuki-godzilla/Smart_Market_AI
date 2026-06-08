@@ -1165,7 +1165,7 @@ def advanced_linear_forecast_results_for_bars(
 def _legacy_ranking_advanced_forecast_horizons(
     supported_horizons: tuple[int, ...],
 ) -> tuple[int, ...]:
-    """Keep Ranking auxiliary 5 / 20 day fields until ranking logic finalization."""
+    """Return the historical multi-horizon default when a caller does not choose one."""
 
     legacy_horizons = tuple(horizon for horizon in (5, 20) if horizon in supported_horizons)
     return legacy_horizons or supported_horizons
@@ -1504,8 +1504,8 @@ def investment_score_csv_download(rows: list[dict[str, str]]) -> str:
             "direction_net_score",
             "direction_signal_label",
             "forecast_return_pct",
-            "predicted_return_5d",
-            "predicted_return_20d",
+            "advanced_forecast_horizon_days",
+            "advanced_forecast_predicted_return",
             "advanced_forecast_score",
             "advanced_forecast_confidence",
             "up_model_count",

@@ -5995,8 +5995,8 @@ def test_ranking_display_rows_surface_advanced_forecast_as_auxiliary_context(mon
                 "upside_signal_score": "78",
                 "downside_signal_score": "42",
                 "forecast_return_pct": "1.1%",
-                "predicted_return_5d": "1.25%",
-                "predicted_return_20d": "-0.40%",
+                "advanced_forecast_horizon_days": "10",
+                "advanced_forecast_predicted_return": "1.25%",
                 "advanced_forecast_score": "54.32",
                 "advanced_forecast_confidence": "medium",
                 "data_quality_score": "90",
@@ -6010,38 +6010,40 @@ def test_ranking_display_rows_surface_advanced_forecast_as_auxiliary_context(mon
     detail_rows = ranking_score_detail_rows(display_rows[0])
     breakdown = ranking_candidate_breakdown_rows(display_rows, "AAPL")
 
-    assert display_rows[0]["高度予測5日"] == "1.25%"
-    assert display_rows[0]["高度予測20日"] == "-0.40%"
+    assert display_rows[0]["高度予測"] == "1.25%"
+    assert display_rows[0]["高度予測日数"] == "10日"
     assert display_rows[0]["高度予測スコア"] == "54.32"
     assert display_rows[0]["高度予測信頼度"] == "中くらい"
-    assert "高度予測5日" in frame.columns
+    assert "高度予測" in frame.columns
+    assert "高度予測日数" in frame.columns
     assert "高度予測スコア" in frame.columns
-    assert frame.loc[0, "高度予測5日"] == "1.25%"
+    assert frame.loc[0, "高度予測"] == "1.25%"
+    assert frame.loc[0, "高度予測日数"] == "10日"
     assert frame.loc[0, "高度予測スコア"] == "54.32"
     assert frame.loc[0, "高度予測信頼度"] == "中くらい"
     assert any(row["観点"] == "高度予測" for row in detail_rows)
     assert any(
-        row["観点"] == "高度予測" and "5日 1.25%" in row["値"] and "スコア 54.32" in row["値"]
+        row["観点"] == "高度予測" and "10日 1.25%" in row["値"] and "スコア 54.32" in row["値"]
         for row in breakdown
     )
 
 
-def test_ranking_advanced_forecast_rows_keep_legacy_auxiliary_horizons():
+def test_ranking_advanced_forecast_rows_use_common_period_horizon():
     start = datetime(2026, 1, 1, tzinfo=UTC)
     bars = [
         _bar((start + timedelta(days=index)).date().isoformat(), close=100 + index)
         for index in range(90)
     ]
 
-    rows = _advanced_forecast_rows_for_ranking(bars)
+    rows = _advanced_forecast_rows_for_ranking(bars, horizon_days=10)
     fields = _ranking_advanced_forecast_fields(rows)
 
-    assert {row["adapter"] for row in rows} == {"advanced_linear"}
-    assert {row["horizon_days"] for row in rows} == {"5", "20"}
-    assert fields["advanced_forecast_model"] == "advanced_linear"
-    assert fields["advanced_forecast_horizons"] == "5,20"
-    assert fields["predicted_return_5d"]
-    assert fields["predicted_return_20d"]
+    assert {row["adapter"] for row in rows} == {"advanced_linear", "advanced_quantile"}
+    assert {row["horizon_days"] for row in rows} == {"10"}
+    assert fields["advanced_forecast_model"] == "advanced_linear,advanced_quantile"
+    assert fields["advanced_forecast_horizons"] == "10"
+    assert fields["advanced_forecast_horizon_days"] == "10"
+    assert fields["advanced_forecast_predicted_return"]
     assert fields["advanced_forecast_score"]
 
 
@@ -6069,9 +6071,9 @@ def test_ranking_display_rows_hide_advanced_forecast_when_not_available(monkeypa
     detail_rows = ranking_score_detail_rows(display_rows[0])
     breakdown = ranking_candidate_breakdown_rows(display_rows, "AAPL")
 
-    assert display_rows[0]["高度予測5日"] == "N/A"
+    assert display_rows[0]["高度予測"] == "N/A"
     assert display_rows[0]["高度予測スコア"] == "N/A"
-    assert "高度予測5日" not in frame.columns
+    assert "高度予測" not in frame.columns
     assert "高度予測スコア" not in frame.columns
     assert not any(row["観点"] == "高度予測" for row in detail_rows)
     assert not any(row["観点"] == "高度予測" for row in breakdown)

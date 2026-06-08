@@ -1244,3 +1244,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Rebuilt the consensus card to show integrated return, forecast price, range, horizon, model count, agreement, direction agreement, average direction accuracy, RMSE improvement, and the relatively stable model.
 - Restored small point markers on the full price / forecast chart and reduced the actual-price line width so the yellow line no longer dominates the chart.
 - Updated helper wording, tests, roadmap, operations guide, and project context for the new display name and denser insight card.
+
+## 2026-06-09 - AI Forecast Insight UI simplification
+
+- Simplified the Cockpit `AI予測インサイト` primary card so the first view focuses on conclusion, integrated prediction, weak / median / strong range, forecast price range, confidence reason, model agreement, forecast dispersion, cautions, and forecast horizon.
+- Moved RMSE, error improvement, historical direction accuracy, relatively stable model, individual advanced model rows, and simple forecast baseline comparison into `高度予測モデルの詳細を見る`, `検証指標を見る`, and `単純予測との比較を見る`.
+- Changed beginner-facing wording from model agreement / direction-count style labels to `予測ばらつき`, `モデル合意度`, `過去検証の方向一致率`, and `誤差改善`, while keeping detailed RMSE values available in folded validation rows.
+- Simplified the default price / forecast chart toward actual price, `AI予測インサイト`, and the prediction range band; individual advanced and simple forecast lines remain available only when explicitly selected or in detail context.
+- Updated README, roadmap, operations guide, project context, and deterministic UI tests for the simplified first-view behavior.

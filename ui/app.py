@@ -3888,7 +3888,7 @@ def ranking_forecast_term_explanation_rows() -> list[dict[str, str]]:
         },
         {
             "表示": "AI予測インサイト",
-            "意味": "複数の高度予測モデルを、信頼度・RMSE改善・方向一致・検証数で重みづけした統合予測です。",
+            "意味": "複数の高度予測モデルを、信頼度・誤差改善・モデル合意度・検証数で重みづけした統合予測です。",
             "ランキングでの扱い": "上昇気配、下降警戒、高度予測信頼の材料として控えめに使います。",
             "確認ポイント": "予測日数、レンジの広さ、モデル合意度、注意点をコックピットで確認します。",
         },
@@ -3906,7 +3906,7 @@ def ranking_forecast_term_explanation_rows() -> list[dict[str, str]]:
         },
         {
             "表示": "高度予測信頼",
-            "意味": "方向一致、RMSE改善、モデル合意度、検証サンプルを合わせた予測材料のそろい方です。",
+            "意味": "モデル合意度、誤差改善、予測ばらつき、検証サンプルを合わせた予測材料のそろい方です。",
             "ランキングでの扱い": "高いほどAI予測を少し使いやすくします。低い場合は予測スコアを中立へ戻します。",
             "確認ポイント": "信頼度は投資魅力度ではなく、予測をどの程度参考にするかの目安です。",
         },
@@ -5907,7 +5907,7 @@ def _ranking_advanced_forecast_fields(
             fields["advanced_forecast_range"] = _advanced_forecast_range_display(consensus_row)
         fields["advanced_forecast_agreement"] = consensus_row.get("agreement", "")
         fields["advanced_forecast_consensus_note"] = (
-            "AI予測インサイトは、信頼度・検証指標・方向一致を保守的に重みづけした参考値です。AI総合では補助材料として控えめに加味します。"
+            "AI予測インサイトは、信頼度・誤差改善・モデル合意度を保守的に重みづけした参考値です。AI総合では補助材料として控えめに加味します。"
         )
         return fields
 
@@ -10438,6 +10438,14 @@ def _render_forecast_model_detail_expanders(
             advanced_forecast_display_rows(advanced_forecast_rows),
             "高度予測を表示するには、もう少し長い価格データが必要です。",
         )
+    with st.expander("検証指標を見る", expanded=False):
+        st.caption(
+            "初期表示から外した検証指標です。数値は将来精度の保証ではなく、予測の読み方を補助します。"
+        )
+        _render_table(
+            advanced_forecast_validation_detail_rows(advanced_forecast_consensus_rows),
+            "検証指標を表示できるAI予測インサイトがありません。",
+        )
     with st.expander("単純予測との比較を見る", expanded=False):
         st.caption(
             "単純予測は基準・保険です。高度予測との差が小さい場合は、AI予測を強く読みすぎないよう確認します。"
@@ -10483,6 +10491,41 @@ def simple_forecast_baseline_comparison_rows(
     return rows
 
 
+def advanced_forecast_validation_detail_rows(
+    advanced_forecast_consensus_rows: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    if not advanced_forecast_consensus_rows:
+        return []
+    row = advanced_forecast_consensus_rows[0]
+    return [
+        {
+            "項目": "過去検証の方向一致率",
+            "値": row.get("mean_direction_accuracy", "") or "未計算",
+            "読み方": "過去の評価サンプルで上下方向が合った割合です。将来保証ではありません。",
+        },
+        {
+            "項目": "平均RMSE",
+            "値": row.get("mean_rmse", "") or "未計算",
+            "読み方": "価格予測の平均的な誤差です。小さいほど過去検証では安定しています。",
+        },
+        {
+            "項目": "誤差改善",
+            "値": _advanced_forecast_error_improvement_display(row),
+            "読み方": "単純基準と比べた誤差改善の大きさです。詳細確認用の数値です。",
+        },
+        {
+            "項目": "相対的に安定",
+            "値": _advanced_forecast_best_model_display(row) or "未計算",
+            "読み方": "今回の高度予測モデル群の中で相対的に誤差が小さいモデルです。",
+        },
+        {
+            "項目": "注意点",
+            "値": _advanced_forecast_warning_display(row.get("warnings", "")) or "特記事項なし",
+            "読み方": "低信頼やモデル間の見方の差がある場合に確認します。",
+        },
+    ]
+
+
 def _advanced_forecast_validation_summary(row: Mapping[str, str]) -> str:
     improvement = _decimal_from_text(row.get("mean_rmse_improvement"))
     confidence = _advanced_forecast_confidence_label(row.get("confidence", ""))
@@ -10519,7 +10562,7 @@ def _render_advanced_forecast_consensus_cards(rows: list[dict[str, str]]) -> Non
 
 def _advanced_forecast_insight_summary(row: Mapping[str, str]) -> dict[str, object]:
     conclusion = _advanced_forecast_conclusion_label(row)
-    agreement_count = _advanced_forecast_model_agreement_count(row)
+    agreement_count = _advanced_forecast_model_agreement_display(row)
     dispersion = _advanced_forecast_dispersion_label(row)
     range_display = _advanced_forecast_range_display(row) or "未計算"
     reasons = _advanced_forecast_reason_lines(row, conclusion=conclusion, dispersion=dispersion)
@@ -10540,14 +10583,16 @@ def _advanced_forecast_conclusion_label(row: Mapping[str, str]) -> str:
     dispersion = _advanced_forecast_dispersion_label(row)
     if predicted_return is None:
         return "判断材料不足"
-    if confidence == "low" or dispersion == "高":
+    if confidence == "low" or dispersion == "大きめ":
         if predicted_return > Decimal("1"):
-            return "上昇寄りだが慎重"
+            return "上昇寄りだが、信頼度は低め"
         if predicted_return < Decimal("-1"):
-            return "下振れに注意"
-        return "中立寄り"
+            return "下振れ警戒。短期変動に注意"
+        return "中立寄り。予測レンジが広く判断保留"
+    if predicted_return > Decimal("5"):
+        return "強い上昇寄り"
     if predicted_return > Decimal("1"):
-        return "やや上昇"
+        return "やや上昇寄り。モデル方向はおおむね一致"
     if predicted_return < Decimal("-1"):
         return "下振れ警戒"
     return "中立寄り"
@@ -10563,17 +10608,34 @@ def _advanced_forecast_model_agreement_count(row: Mapping[str, str]) -> str:
     return f"{agreed}/{model_count}"
 
 
+def _advanced_forecast_model_agreement_display(row: Mapping[str, str]) -> str:
+    model_count = _int_from_text(row.get("model_count", ""))
+    agreement_score = _decimal_from_text(row.get("direction_agreement_score"))
+    if model_count <= 0 or agreement_score is None:
+        return _forecast_agreement_label(row.get("agreement", "")) or "未計算"
+    agreed = int((agreement_score * Decimal(model_count) / Decimal("100")).to_integral_value())
+    agreed = max(0, min(model_count, agreed))
+    predicted_return = _decimal_from_text(row.get("predicted_return"))
+    if predicted_return is None or abs(predicted_return) < Decimal("0.5"):
+        direction_label = "中立寄り"
+    elif predicted_return > 0:
+        direction_label = "上昇寄り"
+    else:
+        direction_label = "下振れ寄り"
+    return f"{model_count}モデル中{agreed}モデルが{direction_label}"
+
+
 def _advanced_forecast_dispersion_label(row: Mapping[str, str]) -> str:
     lower = _decimal_from_text(row.get("predicted_return_lower"))
     upper = _decimal_from_text(row.get("predicted_return_upper"))
     if lower is None or upper is None:
         return _forecast_agreement_label(row.get("agreement", "")) or "未計算"
     spread = upper - lower
-    if spread <= Decimal("3"):
-        return "低"
-    if spread <= Decimal("8"):
-        return "中"
-    return "高"
+    if spread < Decimal("5"):
+        return "コンパクト"
+    if spread < Decimal("10"):
+        return "やや広い"
+    return "大きめ"
 
 
 def _advanced_forecast_reason_lines(
@@ -10582,14 +10644,14 @@ def _advanced_forecast_reason_lines(
     conclusion: str,
     dispersion: str,
 ) -> list[str]:
-    agreement_count = _advanced_forecast_model_agreement_count(row)
+    agreement_count = _advanced_forecast_model_agreement_display(row)
     confidence = _advanced_forecast_confidence_label(row.get("confidence", ""))
     lines = [
         f"複数の高度予測モデルを統合した結論は「{conclusion}」です。",
         f"モデル合意度は {agreement_count}、信頼度は{confidence}です。",
     ]
-    if dispersion in {"中", "高"}:
-        lines.append(f"予測レンジのばらつきは{dispersion}で、過信せず確認します。")
+    if dispersion in {"やや広い", "大きめ"}:
+        lines.append(f"予測ばらつきは{dispersion}で、過信せず確認します。")
     improvement = _decimal_from_text(row.get("mean_rmse_improvement"))
     if improvement is not None:
         if improvement > 0:
@@ -10601,11 +10663,56 @@ def _advanced_forecast_reason_lines(
 
 def _advanced_forecast_caution_text(row: Mapping[str, str], *, dispersion: str) -> str:
     warning_text = _advanced_forecast_warning_display(row.get("warnings", ""))
-    if dispersion == "高":
+    if dispersion == "大きめ":
         return "予測レンジが広いため、強い方向表示としては読みすぎないでください。"
     if warning_text:
         return warning_text
     return FORECAST_DECISION_SUPPORT_NOTE
+
+
+def _advanced_forecast_confidence_reason(row: Mapping[str, str], *, dispersion: str) -> str:
+    confidence = str(row.get("confidence", "")).strip()
+    improvement = _decimal_from_text(row.get("mean_rmse_improvement"))
+    agreement_score = _decimal_from_text(row.get("direction_agreement_score"))
+    if confidence == "low":
+        if dispersion == "大きめ":
+            return "信頼度低め: 予測レンジが広く、不確実性が高めです。"
+        return "信頼度低め: 検証データまたはモデル間の見方に注意が必要です。"
+    if confidence == "high":
+        if (
+            agreement_score is not None
+            and agreement_score >= Decimal("75")
+            and (improvement is None or improvement >= 0)
+        ):
+            return "信頼度高め: モデル方向がそろい、過去検証でも改善傾向があります。"
+        return "信頼度高め: 予測材料は比較的そろっています。"
+    if improvement is not None and improvement <= 0:
+        return "信頼度中: モデル方向は確認できますが、誤差改善は限定的です。"
+    return "信頼度中: モデル方向はおおむね一致していますが、レンジも合わせて確認します。"
+
+
+def _advanced_forecast_price_range_display(row: Mapping[str, str]) -> str:
+    lower = str(row.get("forecast_close_lower", "")).strip()
+    upper = str(row.get("forecast_close_upper", "")).strip()
+    if lower and upper:
+        return f"{lower}〜{upper}"
+    return ""
+
+
+def _advanced_forecast_error_improvement_display(row: Mapping[str, str]) -> str:
+    improvement = _decimal_from_text(row.get("mean_rmse_improvement"))
+    if improvement is None:
+        return "未計算"
+    magnitude = abs(improvement)
+    if magnitude < Decimal("0.01"):
+        label = "小"
+    elif magnitude < Decimal("0.05"):
+        label = "中"
+    else:
+        label = "大"
+    if improvement < 0:
+        label = f"{label}（悪化）"
+    return f"{label} / RMSE改善値 {row.get('mean_rmse_improvement', '')}"
 
 
 def _advanced_forecast_insight_card_html(row: Mapping[str, str]) -> str:
@@ -10613,39 +10720,30 @@ def _advanced_forecast_insight_card_html(row: Mapping[str, str]) -> str:
     value = _signed_percent_from_text(row.get("predicted_return", "")) or "未計算"
     range_display = str(summary["range_display"])
     confidence = _advanced_forecast_confidence_label(row.get("confidence", ""))
-    agreement = _forecast_agreement_label(row.get("agreement", ""))
     horizon = row.get("horizon_days", "").strip()
-    model_count = row.get("model_count", "").strip() or "0"
-    direction_score = row.get("direction_agreement_score", "").strip()
-    direction_display = f"{direction_score} / 100" if direction_score else "未計算"
-    mean_direction = row.get("mean_direction_accuracy", "").strip() or "未計算"
-    mean_rmse = row.get("mean_rmse", "").strip() or "未計算"
-    rmse_improvement = row.get("mean_rmse_improvement", "").strip() or "未計算"
-    best_model = _advanced_forecast_best_model_display(row) or "未計算"
     progress = metric_progress_from_value(row.get("weighted_direction_score", "")) or 0
     safe_progress = min(100, max(0, int(progress)))
     tone = _advanced_forecast_card_tone(dict(row))
     conclusion = str(summary["conclusion"])
     agreement_count = str(summary["agreement_count"])
     dispersion = str(summary["dispersion"])
+    confidence_reason = _advanced_forecast_confidence_reason(row, dispersion=dispersion)
     reason_items = "".join(
         f"<li>{html.escape(reason)}</li>" for reason in cast(list[str], summary["reasons"])
     )
     caution = str(summary["caution"])
     lower = _signed_percent_from_text(row.get("predicted_return_lower", "")) or "未計算"
     upper = _signed_percent_from_text(row.get("predicted_return_upper", "")) or "未計算"
+    price_range = _advanced_forecast_price_range_display(row) or "未計算"
     help_text = _advanced_forecast_consensus_help_text(row) + (
-        f"一致度 {agreement}、方向一致 {direction_display}。"
+        f"モデル合意度 {agreement_count}、予測ばらつき {dispersion}。"
         "AI総合と方向シグナルでは、信頼度を見ながら控えめに使います。"
     )
     metrics = (
-        ("予測日数", f"{horizon}日" if horizon else "未計算"),
-        ("モデル数", model_count),
+        ("予測期間", f"{horizon}日" if horizon else "未計算"),
+        ("信頼度", confidence),
         ("モデル合意度", agreement_count),
-        ("ばらつき", dispersion),
-        ("方向一致", direction_display),
-        ("平均方向一致", mean_direction),
-        ("RMSE改善", rmse_improvement),
+        ("予測ばらつき", dispersion),
     )
     metric_html = "".join(
         '<div style="min-width:0;padding:0.46rem 0.55rem;border-radius:0.45rem;'
@@ -10663,7 +10761,7 @@ def _advanced_forecast_insight_card_html(row: Mapping[str, str]) -> str:
         (
             badge_html(ADVANCED_FORECAST_CONSENSUS_LABEL, "info"),
             badge_html(f"信頼度 {confidence}", _advanced_forecast_confidence_tone(dict(row))),
-            badge_html(f"平均RMSE {mean_rmse}", "neutral"),
+            badge_html(f"予測期間 {horizon}日" if horizon else "予測期間 未計算", "neutral"),
         )
     )
     return (
@@ -10693,21 +10791,20 @@ def _advanced_forecast_insight_card_html(row: Mapping[str, str]) -> str:
         f'<div style="color:{THEME_COLORS["text_secondary"]};font-size:0.88rem;'
         'font-weight:700;margin-top:0.45rem;">'
         f'予測価格 {html.escape(row.get("forecast_close") or "未計算")} / '
-        f"予測レンジ {html.escape(range_display)}</div>"
+        f"予測価格レンジ {html.escape(price_range)}</div>"
         '<div class="smai-score-track" aria-hidden="true">'
         f'<div class="smai-score-fill" style="--smai-score-width: {safe_progress}%"></div>'
         "</div>"
         '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));'
         f'gap:0.45rem;margin-top:0.65rem;">{metric_html}</div>'
+        f'<div style="color:{THEME_COLORS["text_secondary"]};font-size:0.84rem;'
+        'font-weight:760;line-height:1.45;margin-top:0.55rem;">'
+        f"{html.escape(confidence_reason)}</div>"
         '<div class="smai-insight-two-col">'
         '<div><div class="smai-insight-subtitle">主な理由</div>'
         f"<ul>{reason_items}</ul></div>"
         '<div><div class="smai-insight-subtitle">注意点</div>'
         f"<p>{html.escape(caution)}</p></div>"
-        "</div>"
-        f'<div style="margin-top:0.55rem;color:{THEME_COLORS["text_secondary"]};'
-        'font-size:0.82rem;font-weight:700;">'
-        f'相対的に安定: {html.escape(truncate_text(best_model, max_chars=90, fallback="未計算"))}'
         "</div>"
         f'<div class="smai-badge-row" style="margin-top:0.55rem;">{badge_row}</div>'
         "</div>"
@@ -10834,7 +10931,7 @@ def _forecast_chart_series_default(series: str) -> bool:
         return True
     advanced_match = re.fullmatch(r"advanced_[a-z_]+_(\d+)d", series)
     if advanced_match:
-        return True
+        return False
     return False
 
 
@@ -10846,7 +10943,7 @@ def forecast_chart_series_help(series: str) -> str:
         return (
             "AI予測インサイトです。計算式: 統合予測 = "
             "Σ(各高度予測の変化率 × 重み) ÷ Σ重み。"
-            "重みは信頼度・RMSE改善・方向一致・検証数を見て0.70〜1.30に丸めます。"
+            "重みは信頼度・誤差改善・モデル合意度・検証数を見て0.70〜1.30に丸めます。"
         )
     if kind == "advanced":
         if series.startswith("advanced_quantile_"):
@@ -14057,7 +14154,7 @@ def _render_market_chart(
         disabled_series=disabled_series,
         height=MARKET_CHART_HEIGHT,
         width=MARKET_CHART_FOCUS_WIDTH,
-        title="予測拡大",
+        title=forecast_focus_chart_title(rows),
         show_all_points=True,
         compact_points=False,
     )
@@ -14445,6 +14542,17 @@ def forecast_focus_chart_rows(rows: list[dict[str, str]]) -> list[dict[str, str]
     return [row for row_date, row in dated_rows if row_date >= focus_start]
 
 
+def forecast_focus_chart_title(rows: list[dict[str, str]]) -> str:
+    for row in rows:
+        for key, value in row.items():
+            if not str(value).strip() or _is_forecast_range_bound_series(str(key)):
+                continue
+            match = re.fullmatch(r".+_(\d+)d", str(key))
+            if match:
+                return f"今後{match.group(1)}日の予測拡大"
+    return "予測期間の拡大表示"
+
+
 def _row_has_forecast_value(row: Mapping[str, str]) -> bool:
     return any(
         key != "ts"
@@ -14560,12 +14668,12 @@ def advanced_forecast_consensus_display_rows(
             ),
             "予測価格": row.get("forecast_close", ""),
             "想定レンジ": _advanced_forecast_range_display(row),
-            "モデル一致度": _forecast_agreement_label(row.get("agreement", "")),
-            "方向一致": f"{row.get('direction_agreement_score', '')} / 100",
+            "予測ばらつき": _advanced_forecast_dispersion_label(row),
+            "モデル合意度": _advanced_forecast_model_agreement_display(row),
             "信頼度": _advanced_forecast_confidence_label(row.get("confidence", "")),
-            "平均方向一致": row.get("mean_direction_accuracy", ""),
+            "過去検証の方向一致率": row.get("mean_direction_accuracy", ""),
             "平均RMSE": row.get("mean_rmse", ""),
-            "RMSE改善": row.get("mean_rmse_improvement", ""),
+            "誤差改善": _advanced_forecast_error_improvement_display(row),
             "相対的に安定": _advanced_forecast_best_model_display(row),
             "注意点": _advanced_forecast_warning_display(row.get("warnings", "")),
         }
@@ -14708,7 +14816,7 @@ def _advanced_forecast_consensus_help_text(row: Mapping[str, str]) -> str:
     return (
         f"{model_count}モデルを保守的にまとめた参考シナリオです。"
         "計算式: 統合予測 = Σ(各モデルの予測変化率 × 重み) ÷ Σ重み。"
-        "重み = 信頼度 × RMSE改善 × 方向一致 × 検証数を0.70〜1.30に丸めた値。"
+        "重み = 信頼度 × 誤差改善 × モデル合意度 × 検証数を0.70〜1.30に丸めた値。"
         "予測価格 = 最新価格 × (1 + 統合予測)。"
         "レンジは個別モデルの最小〜最大とレンジモデルの下振れ〜上振れを合わせて見ます。"
     )

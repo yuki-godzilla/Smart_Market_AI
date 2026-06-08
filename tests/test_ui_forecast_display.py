@@ -171,6 +171,7 @@ from ui.app import (
     advanced_forecast_consensus_display_rows,
     advanced_forecast_display_rows,
     advanced_forecast_intro_text,
+    advanced_forecast_validation_detail_rows,
     build_cockpit_decision_report_context,
     build_ranking_decision_report_context,
     cockpit_decision_report_evidence_rows,
@@ -193,6 +194,7 @@ from ui.app import (
     forecast_chart_summary,
     forecast_consensus_display_rows,
     forecast_focus_chart_rows,
+    forecast_focus_chart_title,
     forecast_horizon_notice_text,
     forecast_metric_display_rows,
     forecast_metric_summary,
@@ -8264,12 +8266,12 @@ def test_advanced_forecast_consensus_display_rows_are_beginner_friendly():
             "統合予測": "+2.35%",
             "予測価格": "104.2",
             "想定レンジ": "-1.2%〜+4.8%",
-            "モデル一致度": "中くらい",
-            "方向一致": "75 / 100",
+            "予測ばらつき": "やや広い",
+            "モデル合意度": "4モデル中3モデルが上昇寄り",
             "信頼度": "中くらい",
-            "平均方向一致": "54.20%",
+            "過去検証の方向一致率": "54.20%",
             "平均RMSE": "0.0412",
-            "RMSE改善": "0.0031",
+            "誤差改善": "小 / RMSE改善値 0.0031",
             "相対的に安定": ("高度予測: ブースティングモデル 10日 / HistGradientBoostingRegressor"),
             "注意点": (
                 "AI予測インサイトは参考情報です。売買判断そのものではありません。 / "
@@ -8278,7 +8280,7 @@ def test_advanced_forecast_consensus_display_rows_are_beginner_friendly():
         }
     ]
     assert "統合予測 = Σ(各モデルの予測変化率 × 重み) ÷ Σ重み" in help_text
-    assert "重み = 信頼度 × RMSE改善 × 方向一致 × 検証数" in help_text
+    assert "重み = 信頼度 × 誤差改善 × モデル合意度 × 検証数" in help_text
     assert "予測価格 = 最新価格 × (1 + 統合予測)" in help_text
 
 
@@ -8291,6 +8293,8 @@ def test_advanced_forecast_insight_card_html_is_information_dense():
             "forecast_close": "2812.865",
             "predicted_return_lower": "-8.58%",
             "predicted_return_upper": "10.48%",
+            "forecast_close_lower": "2580.3",
+            "forecast_close_upper": "3120.1",
             "agreement": "MEDIUM",
             "confidence": "low",
             "direction_agreement_score": "50",
@@ -8306,20 +8310,23 @@ def test_advanced_forecast_insight_card_html_is_information_dense():
     assert "AI予測インサイト" in html
     assert "統合予測" in _advanced_forecast_consensus_help_text({"model_count": "4"})
     assert "結論" in html
-    assert "中立寄り" in html
+    assert "中立寄り。予測レンジが広く判断保留" in html
     assert "主な理由" in html
     assert "注意点" in html
-    assert "予測日数" in html
-    assert "モデル数" in html
+    assert "予測期間" in html
     assert "モデル合意度" in html
-    assert "ばらつき" in html
-    assert "方向一致" in html
-    assert "平均RMSE" in html
+    assert "4モデル中2モデルが中立寄り" in html
+    assert "予測ばらつき" in html
+    assert "大きめ" in html
     assert "弱気" in html
     assert "中央値" in html
     assert "強気" in html
-    assert "相対的に安定" in html
+    assert "予測価格レンジ 2580.3〜3120.1" in html
+    assert "信頼度低め" in html
     assert "レンジ -8.58%〜+10.48%" in html
+    assert "平均RMSE" not in html
+    assert "RMSE改善" not in html
+    assert "相対的に安定" not in html
 
 
 def test_forecast_horizon_notice_text_explains_period_derived_horizon():
@@ -8441,6 +8448,33 @@ def test_simple_forecast_baseline_comparison_rows_include_consensus_and_baseline
     assert all("基準モデル" in row["検証メモ"] for row in rows[1:])
 
 
+def test_advanced_forecast_validation_detail_rows_keep_metrics_folded():
+    rows = advanced_forecast_validation_detail_rows(
+        [
+            {
+                "mean_direction_accuracy": "73.38%",
+                "mean_rmse": "0.0962",
+                "mean_rmse_improvement": "0.0252",
+                "best_adapter": "advanced_tree_sklearn",
+                "best_model": "ExtraTreesRegressor",
+                "horizon_days": "31",
+                "warnings": "Advanced models have a wide forecast spread.",
+            }
+        ]
+    )
+
+    assert [row["項目"] for row in rows] == [
+        "過去検証の方向一致率",
+        "平均RMSE",
+        "誤差改善",
+        "相対的に安定",
+        "注意点",
+    ]
+    assert rows[2]["値"] == "中 / RMSE改善値 0.0252"
+    assert "高度予測: ツリーモデル 31日 / ExtraTreesRegressor" in rows[3]["値"]
+    assert "高度予測モデル間の開きが大きい状態です" in rows[4]["値"]
+
+
 def test_forecast_chart_filter_options_hide_naive_by_default():
     rows = [
         {
@@ -8476,9 +8510,9 @@ def test_forecast_chart_filter_options_hide_naive_by_default():
         ("moving_average_20", False),
         ("momentum_30", False),
         ("advanced_consensus_5d", True),
-        ("advanced_linear_5d", True),
-        ("advanced_quantile_5d", True),
-        ("advanced_quantile_20d", True),
+        ("advanced_linear_5d", False),
+        ("advanced_quantile_5d", False),
+        ("advanced_quantile_20d", False),
     ]
     assert "直近値維持" in options[0]["label"]
     assert "naive" not in filtered[0]
@@ -8494,9 +8528,9 @@ def test_forecast_chart_filter_options_hide_naive_by_default():
     assert fallback_filtered[1]["advanced_consensus_5d"] == "102.5"
     assert fallback_filtered[1]["advanced_consensus_5d_lower"] == "98"
     assert fallback_filtered[1]["advanced_consensus_5d_upper"] == "108"
-    assert fallback_filtered[1]["advanced_linear_5d"] == "103"
-    assert fallback_filtered[1]["advanced_quantile_5d"] == "104"
-    assert fallback_filtered[1]["advanced_quantile_20d"] == "110"
+    assert "advanced_linear_5d" not in fallback_filtered[1]
+    assert "advanced_quantile_5d" not in fallback_filtered[1]
+    assert "advanced_quantile_20d" not in fallback_filtered[1]
 
 
 def test_forecast_focus_chart_rows_keeps_recent_actual_and_forecast_area():
@@ -8534,6 +8568,24 @@ def test_forecast_focus_chart_rows_keeps_recent_actual_and_forecast_area():
         "2026-05-10T00:00:00+00:00",
         "2026-06-09T00:00:00+00:00",
     ]
+
+
+def test_forecast_focus_chart_title_uses_forecast_horizon():
+    assert (
+        forecast_focus_chart_title(
+            [
+                {
+                    "ts": "2026-06-07T00:00:00+00:00",
+                    "close": "100",
+                    "advanced_consensus_31d": "105",
+                }
+            ]
+        )
+        == "今後31日の予測拡大"
+    )
+    assert forecast_focus_chart_title([{"ts": "2026-06-07T00:00:00+00:00"}]) == (
+        "予測期間の拡大表示"
+    )
 
 
 def test_forecast_model_comparison_rows_summarize_direction_and_spread():
@@ -8740,7 +8792,7 @@ def test_render_market_chart_uses_currency_axis_title_and_expanded_width(monkeyp
     assert chart_spec["height"] == MARKET_CHART_HEIGHT
     assert focus_spec["height"] == MARKET_CHART_HEIGHT
     assert chart_spec["title"] == "全体"
-    assert focus_spec["title"] == "予測拡大"
+    assert focus_spec["title"] == "予測期間の拡大表示"
     assert chart_spec["layer"][1]["mark"]["point"]["filled"] is True
     assert (
         chart_spec["layer"][1]["mark"]["point"]["size"]

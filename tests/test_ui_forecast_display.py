@@ -67,6 +67,7 @@ from ui.app import (
     SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY,
     RankingResearchStatus,
     _advanced_forecast_consensus_help_text,
+    _advanced_forecast_insight_card_html,
     _advanced_forecast_model_help,
     _advanced_forecast_ranking_signal_fields,
     _advanced_forecast_rows_for_ranking,
@@ -6149,9 +6150,9 @@ def test_ranking_display_rows_surface_advanced_forecast_as_auxiliary_context(mon
     assert frame.loc[0, "高度予測日数"] == "10日"
     assert frame.loc[0, "高度予測スコア"] == "54.32"
     assert frame.loc[0, "高度予測信頼度"] == "中くらい"
-    assert any(row["観点"] == "高度予測まとめ" for row in detail_rows)
+    assert any(row["観点"] == "AI予測インサイト" for row in detail_rows)
     assert any(
-        row["観点"] == "高度予測まとめ"
+        row["観点"] == "AI予測インサイト"
         and "10日 1.25%" in row["値"]
         and "スコア 54.32" in row["値"]
         for row in breakdown
@@ -6275,8 +6276,8 @@ def test_ranking_display_rows_hide_advanced_forecast_when_not_available(monkeypa
     assert display_rows[0]["高度予測スコア"] == "N/A"
     assert "高度予測" not in frame.columns
     assert "高度予測スコア" not in frame.columns
-    assert not any(row["観点"] == "高度予測まとめ" for row in detail_rows)
-    assert not any(row["観点"] == "高度予測まとめ" for row in breakdown)
+    assert not any(row["観点"] == "AI予測インサイト" for row in detail_rows)
+    assert not any(row["観点"] == "AI予測インサイト" for row in breakdown)
 
 
 def test_ranking_result_aggrid_frame_prioritizes_upside_columns_for_upside_purpose():
@@ -7985,7 +7986,7 @@ def test_forecast_range_band_frame_includes_advanced_consensus_range():
     )
 
     assert band_frame["series"].unique().tolist() == ["advanced_consensus_10d"]
-    assert band_frame["series_label"].unique().tolist() == ["高度予測まとめ 10日"]
+    assert band_frame["series_label"].unique().tolist() == ["AI予測インサイト 10日"]
     assert band_frame.iloc[-1]["lower"] == 178.2
     assert band_frame.iloc[-1]["upper"] == 202.4
 
@@ -8204,7 +8205,7 @@ def test_advanced_forecast_consensus_display_rows_are_beginner_friendly():
             "銘柄": "AAPL",
             "予測日数": "10",
             "モデル数": "4",
-            "まとめ予測": "+2.35%",
+            "統合予測": "+2.35%",
             "予測価格": "104.2",
             "想定レンジ": "-1.2%〜+4.8%",
             "モデル一致度": "中くらい",
@@ -8215,14 +8216,45 @@ def test_advanced_forecast_consensus_display_rows_are_beginner_friendly():
             "RMSE改善": "0.0031",
             "相対的に安定": ("高度予測: ブースティングモデル 10日 / HistGradientBoostingRegressor"),
             "注意点": (
-                "高度予測まとめは参考情報です。売買判断そのものではありません。 / "
+                "AI予測インサイトは参考情報です。売買判断そのものではありません。 / "
                 "高度予測モデルの方向感が割れています。"
             ),
         }
     ]
-    assert "まとめ予測 = Σ(各モデルの予測変化率 × 重み) ÷ Σ重み" in help_text
+    assert "統合予測 = Σ(各モデルの予測変化率 × 重み) ÷ Σ重み" in help_text
     assert "重み = 信頼度 × RMSE改善 × 方向一致 × 検証数" in help_text
-    assert "予測価格 = 最新価格 × (1 + まとめ予測)" in help_text
+    assert "予測価格 = 最新価格 × (1 + 統合予測)" in help_text
+
+
+def test_advanced_forecast_insight_card_html_is_information_dense():
+    html = _advanced_forecast_insight_card_html(
+        {
+            "horizon_days": "31",
+            "model_count": "4",
+            "predicted_return": "-0.30%",
+            "forecast_close": "2812.865",
+            "predicted_return_lower": "-8.58%",
+            "predicted_return_upper": "10.48%",
+            "agreement": "MEDIUM",
+            "confidence": "low",
+            "direction_agreement_score": "50",
+            "mean_direction_accuracy": "54.20%",
+            "mean_rmse": "0.0412",
+            "mean_rmse_improvement": "0.0031",
+            "best_adapter": "advanced_gbdt_sklearn",
+            "best_model": "HistGradientBoostingRegressor",
+            "weighted_direction_score": "48",
+        }
+    )
+
+    assert "AI予測インサイト" in html
+    assert "統合予測" in _advanced_forecast_consensus_help_text({"model_count": "4"})
+    assert "予測日数" in html
+    assert "モデル数" in html
+    assert "方向一致" in html
+    assert "平均RMSE" in html
+    assert "相対的に安定" in html
+    assert "レンジ -8.58%〜+10.48%" in html
 
 
 def test_forecast_chart_filter_options_hide_naive_by_default():
@@ -8525,8 +8557,13 @@ def test_render_market_chart_uses_currency_axis_title_and_expanded_width(monkeyp
     assert focus_spec["height"] == MARKET_CHART_HEIGHT
     assert chart_spec["title"] == "全体"
     assert focus_spec["title"] == "予測拡大"
-    assert chart_spec["layer"][1]["mark"]["point"] is False
+    assert chart_spec["layer"][1]["mark"]["point"]["filled"] is True
+    assert (
+        chart_spec["layer"][1]["mark"]["point"]["size"]
+        < focus_spec["layer"][1]["mark"]["point"]["size"]
+    )
     assert focus_spec["layer"][1]["mark"]["point"]["filled"] is True
+    assert chart_spec["layer"][2]["mark"]["strokeWidth"] == 2.8
     assert chart_spec["layer"][1]["encoding"]["color"]["legend"] is None
     assert chart_spec["layer"][1]["encoding"]["strokeDash"]["legend"] is None
     assert focus_spec["layer"][1]["encoding"]["color"]["legend"] is None

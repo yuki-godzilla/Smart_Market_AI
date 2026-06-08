@@ -1581,7 +1581,7 @@ Phase 22 完了条件:
 
 ### 5.9 Phase 23: Optional Adapter と高度分析
 
-状態: Advanced Forecast Slice 1 `advanced_linear`、Slice 2 `advanced_quantile` / adapter registry、Slice 3 `advanced_tree_sklearn`、Slice 4 `advanced_gbdt_sklearn`、Slice 5 advanced forecast consensus、Slice 5 closeout-1 の Cockpit chart 主導線整理、Slice 5 closeout-2 の AI総合 Ranking 統合まで接続済み。Cockpit / API は 1〜60日の共通 horizon に対応し、Cockpit では高度予測まとめと高度予測モデルを取得期間由来の同じ予測日数で比較する。予測日数の初期値は取得期間のおよそ 1/12 を使い、60日を上限にする。Ranking では高度予測まとめから派生した上昇 / 下振れ警戒を通常の上昇気配 / 下降警戒へ25%までブレンドし、`AI総合` では派生した上昇 / 下振れ警戒 / 信頼スコアを低信頼時に中立寄せしながら控えめに加味する。
+状態: Advanced Forecast Slice 1 `advanced_linear`、Slice 2 `advanced_quantile` / adapter registry、Slice 3 `advanced_tree_sklearn`、Slice 4 `advanced_gbdt_sklearn`、Slice 5 advanced forecast consensus、Slice 5 closeout-1 の Cockpit chart 主導線整理、Slice 5 closeout-2 の AI総合 Ranking 統合、Cockpit chart / card polish まで接続済み。Cockpit / API は 1〜60日の共通 horizon に対応し、Cockpit では `AI予測インサイト` と高度予測モデルを取得期間由来の同じ予測日数で比較する。予測日数の初期値は取得期間のおよそ 1/12 を使い、60日を上限にする。Ranking では `AI予測インサイト` から派生した上昇 / 下振れ警戒を通常の上昇気配 / 下降警戒へ25%までブレンドし、`AI総合` では派生した上昇 / 下振れ警戒 / 信頼スコアを低信頼時に中立寄せしながら控えめに加味する。
 
 目的: default path を deterministic に保ったまま、追加 provider、advanced forecast / research model、news / sentiment、将来の LLM adapter を optional layer として追加する。次の実装優先度は、銘柄コックピット / 銘柄ランキングで使う高度予測モデル adapter を複数そろえ、比較表示の土台を作ること。
 
@@ -1595,7 +1595,7 @@ Phase 22 完了条件:
 
 高度予測モデル first slice の方針:
 
-- 既存の naive / moving-average / momentum baseline と consensus は backend baseline / fallback / 詳細確認用として維持する。Cockpit の初期チャートと主要モデルカードでは、高度予測まとめ、レンジ、個別高度予測モデルを主導線にする。
+- 既存の naive / moving-average / momentum baseline と consensus は backend baseline / fallback / 詳細確認用として維持する。Cockpit の初期チャートと主要モデルカードでは、`AI予測インサイト`、レンジ、個別高度予測モデルを主導線にする。
 - scikit-learn は `advanced_tree_sklearn` / `advanced_gbdt_sklearn` のため runtime dependency として導入済み。より重い LightGBM / XGBoost / Prophet / deep learning 系は optional adapter とし、未導入でもアプリ・通常 tests・CI が動くようにする。
 - 最初は 1 銘柄または小さい銘柄集合で、walk-forward evaluation、モデル別予測、予測レンジ、方向シグナルへの反映を確認する。
 - 高度予測 consensus は、予測統合で単純平均が強い benchmark になりやすいことを前提に、信頼度・RMSE 改善・方向一致・検証サンプル数による重みを保守的に 0.70〜1.30 に制限する。重みは「保証」ではなく比較補助として扱う。
@@ -1757,7 +1757,7 @@ Streamlit / Ranking 接続方針:
 
 #### Phase 23.e: Advanced Forecast Slice 5 - advanced forecast consensus
 
-状態: 実装済み。`AdvancedForecastConsensus` / `summarize_advanced_forecast_evaluations` を backend forecast service に追加し、Cockpit の `高度予測まとめ` カード / 詳細表、Ranking の高度予測補助列に接続済み。後続 closeout で Ranking 上昇気配 / 下降警戒への25%ブレンドと `AI総合` への控えめ統合まで接続した。既定 Investment Score は変更していない。
+状態: 実装済み。`AdvancedForecastConsensus` / `summarize_advanced_forecast_evaluations` を backend forecast service に追加し、Cockpit の `AI予測インサイト` カード / 詳細表、Ranking の高度予測補助列に接続済み。後続 closeout で Ranking 上昇気配 / 下降警戒への25%ブレンドと `AI総合` への控えめ統合まで接続した。既定 Investment Score は変更していない。
 
 目的: 個別の高度予測 adapter を増やす段階から、モデル群をどう読むかの段階へ進める。Ranking logic finalization の前に、Cockpit と Ranking が同じ consensus 計算を使い、信頼度・検証指標・方向一致・予測レンジを一貫して扱えるようにする。
 
@@ -1775,16 +1775,16 @@ Streamlit / Ranking 接続方針:
 
 UI / Ranking 接続:
 
-- Cockpit では個別モデルカードの前に `高度予測まとめ` カードを表示し、価格・予測チャートにも `高度予測まとめ` 線と想定レンジ帯を表示する。
-- 詳細データでは `高度予測まとめ` 表に、まとめ予測、予測価格、想定レンジ、モデル一致度、方向一致、信頼度、平均方向一致、平均 RMSE、RMSE 改善、相対的に安定したモデル、注意点を表示する。
+- Cockpit では個別モデルカードの前に `AI予測インサイト` カードを表示し、価格・予測チャートにも `AI予測インサイト` 線と想定レンジ帯を表示する。
+- 詳細データでは `AI予測インサイト` 表に、統合予測、予測価格、想定レンジ、モデル一致度、方向一致、信頼度、平均方向一致、平均 RMSE、RMSE 改善、相対的に安定したモデル、注意点を表示する。
 - Ranking 補助列 `advanced_forecast_predicted_return` / `advanced_forecast_score` / `advanced_forecast_confidence` は、個別モデル平均ではなく consensus rows を優先する。
 - Ranking では consensus 由来の高度予測上昇 / 下振れ警戒を通常の上昇気配 / 下降警戒へ25%までブレンドし、`AI総合` では高度予測上昇 / 下振れ警戒 / 信頼スコアを控えめに加味する。その他の評価方針への拡張は後続で個別に検討する。
-- Cockpit の初期チャートでは `高度予測まとめ` と個別高度予測モデルを表示し、naive / moving-average / momentum は初期表示から外す。単純予測モデルは backend baseline / fallback / 技術詳細として残す。
+- Cockpit の初期チャートでは `AI予測インサイト` と個別高度予測モデルを表示し、naive / moving-average / momentum は初期表示から外す。単純予測モデルは backend baseline / fallback / 技術詳細として残す。
 
 完了条件:
 
 - backend service が advanced consensus contract と計算関数を提供する。
-- Cockpit が `高度予測まとめ` を表示し、個別モデル rows と読み分けられる。
+- Cockpit が `AI予測インサイト` を表示し、個別モデル rows と読み分けられる。
 - Ranking 補助列が consensus 値を使い、上昇気配 / 下降警戒への25%ブレンドと `AI総合` の derived advanced forecast scores が中立寄せで加味される。
 - 通常 tests は network / cloud API に依存しない。
 
@@ -1793,7 +1793,7 @@ Ranking logic finalization 方針:
 - 個別 adapter 追加のたびにランキング順位を変えず、まず Cockpit / Ranking の補助表示と CSV export にモデル別の予測・信頼度・検証指標を蓄積する。
 - 一通りの高度予測モデルと advanced forecast consensus を追加した後、モデル間の重複、検証安定性、horizon 別の用途、計算時間、データ不足時の扱いを比較して、Ranking 用の統合指標を設計する。
 - Ranking 統合は既定順位の丸ごと差し替えではなく、通常方向シグナルへの小さなブレンドと `AI総合` の一部として入れる。その他の opt-in sort profile / evaluation profile は後続で検討する。
-- Phase 23 closeout-1 では、naive / moving-average / momentum の単純予測モデルを Cockpit chart の初期表示と主要モデルカードから外し、高度予測 consensus / 信頼度 / レンジ / 検証指標を主表示にした。Phase 23 closeout-2 では、AI総合が高度予測 consensus 由来の上昇 / 下振れ警戒 / 信頼スコアを控えめに加味し、通常の上昇気配 / 下降警戒にも25%までブレンドする。単純予測は削除せず、回帰 baseline / fallback / 技術詳細として残す。
+- Phase 23 closeout-1 では、naive / moving-average / momentum の単純予測モデルを Cockpit chart の初期表示と主要モデルカードから外し、高度予測 consensus / 信頼度 / レンジ / 検証指標を主表示にした。Phase 23 closeout-2 では、AI総合が高度予測 consensus 由来の上昇 / 下振れ警戒 / 信頼スコアを控えめに加味し、通常の上昇気配 / 下降警戒にも25%までブレンドする。Cockpit chart polish では consensus 表示名を `AI予測インサイト` に改め、カードに予測日数、モデル数、モデル一致、方向一致、平均方向一致、RMSE改善、相対的に安定したモデルを追加し、全体チャートの小さな点マーカーと細めの実績線を復活させた。単純予測は削除せず、回帰 baseline / fallback / 技術詳細として残す。
 - 完了条件には、Research Score と同様に「投資助言ではない」「既定の Ranking / Investment Score は急に変えない」「通常 checks は deterministic / network-free」を含める。
 
 テスト方針:
@@ -1818,7 +1818,7 @@ Ranking logic finalization 方針:
 - 予測は売買判断の主体にせず、スコアやリスクと合わせて確認する材料として扱う。
 - `advanced_linear` adapter が追加され、Ridge / ElasticNet の少なくとも Ridge が使える。
 - 1〜60 trading day forward return の予測、walk-forward validation、validation metrics、confidence、feature contribution summary が返る。
-- backend adapter / advanced forecast consensus は実装済み。`POST /forecast/evaluate` では `adapter=advanced_linear` / `advanced_tree_sklearn` / `advanced_gbdt_sklearn` / `advanced_quantile` 指定時に 1〜60日の高度予測、予測変化率、予測価格、信頼度、検証指標、特徴量要約またはレンジ、注意点を返す。Streamlit 銘柄コックピットでは共通 horizon の高度予測まとめと個別高度予測を価格・予測チャートへ重ね、右側の予測拡大図、下部色見本、カード、詳細表で予測変化率、レンジ、信頼度、検証指標、注意点を表示する。初期チャートと主要モデルカードから naive / moving-average / momentum は外し、単純予測は詳細確認用の baseline として残す。Ranking では取得期間から決まる同じ horizon の高度予測 consensus を補助列として保持し、表示テーブル / 選択候補 breakdown / score detail / CSV export で確認できる。高度予測まとめから派生した上昇 / 下振れ警戒は通常の上昇気配 / 下降警戒へ25%までブレンドし、AI総合では上昇 / 下振れ警戒 / 信頼スコアを低信頼時に中立寄せしながら控えめに加味する。
+- backend adapter / advanced forecast consensus は実装済み。`POST /forecast/evaluate` では `adapter=advanced_linear` / `advanced_tree_sklearn` / `advanced_gbdt_sklearn` / `advanced_quantile` 指定時に 1〜60日の高度予測、予測変化率、予測価格、信頼度、検証指標、特徴量要約またはレンジ、注意点を返す。Streamlit 銘柄コックピットでは共通 horizon の `AI予測インサイト` と個別高度予測を価格・予測チャートへ重ね、右側の予測拡大図、下部色見本、カード、詳細表で予測変化率、レンジ、信頼度、検証指標、注意点を表示する。初期チャートと主要モデルカードから naive / moving-average / momentum は外し、単純予測は詳細確認用の baseline として残す。Ranking では取得期間から決まる同じ horizon の高度予測 consensus を補助列として保持し、表示テーブル / 選択候補 breakdown / score detail / CSV export で確認できる。`AI予測インサイト` から派生した上昇 / 下振れ警戒は通常の上昇気配 / 下降警戒へ25%までブレンドし、AI総合では上昇 / 下振れ警戒 / 信頼スコアを低信頼時に中立寄せしながら控えめに加味する。
 - Phase 23 closeout では、単純予測モデルが Cockpit の通常チャート初期表示から外れ、高度予測モデル群 / `forecast_consensus` / 信頼度 / レンジ / 検証指標が主表示になっている。Ranking 主要評価への反映は、上昇気配 / 下降警戒の小さなブレンドとAI総合に組み込み済みで、その他の評価方針や専用 opt-in profile は後続検討する。
 - README または roadmap に Advanced Forecast Slice 1 として記録されている。
 

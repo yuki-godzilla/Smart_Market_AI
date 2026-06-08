@@ -495,6 +495,8 @@ MARKET_CHART_FULL_WIDTH = 1012
 MARKET_CHART_FOCUS_WIDTH = 260
 MARKET_CHART_COMBINED_SPACING = 8
 MARKET_CHART_HEIGHT = 540
+ADVANCED_FORECAST_CONSENSUS_LABEL = "AI予測インサイト"
+ADVANCED_FORECAST_CONSENSUS_PREDICTION_LABEL = "統合予測"
 RANKING_NUMERIC_SORT_COMPARATOR = JsCode(
     """
 function(valueA, valueB, nodeA, nodeB, isDescending) {
@@ -3663,10 +3665,10 @@ def ranking_candidate_breakdown_rows(
     if advanced_value:
         rows.append(
             {
-                "観点": "高度予測まとめ",
+                "観点": ADVANCED_FORECAST_CONSENSUS_LABEL,
                 "値": advanced_value,
                 "確認ポイント": (
-                    "取得期間から決まる共通予測日数の参考シナリオです。AI総合では信頼度で控えめに加味し、コックピットで価格レンジと合わせて確認します。"
+                    "取得期間から決まる共通予測日数のAI予測シナリオです。AI総合では信頼度で控えめに加味し、コックピットで価格レンジと合わせて確認します。"
                 ),
             }
         )
@@ -5770,7 +5772,7 @@ def _ranking_advanced_forecast_fields(
             fields["advanced_forecast_range"] = _advanced_forecast_range_display(consensus_row)
         fields["advanced_forecast_agreement"] = consensus_row.get("agreement", "")
         fields["advanced_forecast_consensus_note"] = (
-            "高度予測まとめは、信頼度・検証指標・方向一致を保守的に重みづけした参考値です。AI総合では補助材料として控えめに加味します。"
+            "AI予測インサイトは、信頼度・検証指標・方向一致を保守的に重みづけした参考値です。AI総合では補助材料として控えめに加味します。"
         )
         return fields
 
@@ -6003,7 +6005,7 @@ def _ranking_row_with_advanced_forecast_signal(
                 blended_downside,
             ),
             "advanced_forecast_direction_note": (
-                "上昇気配・下降警戒は通常方向シグナルに高度予測まとめを25%までブレンドしています。"
+                "上昇気配・下降警戒は通常方向シグナルにAI予測インサイトを25%までブレンドしています。"
             ),
         }
     )
@@ -6632,10 +6634,10 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
             EMPTY_STATE_MESSAGES["forecast_metrics"],
         )
         if advanced_forecast_consensus_rows:
-            st.subheader("高度予測まとめ")
+            st.subheader(ADVANCED_FORECAST_CONSENSUS_LABEL)
             _render_table(
                 advanced_forecast_consensus_display_rows(advanced_forecast_consensus_rows),
-                "高度予測まとめを表示するには、もう少し長い価格データが必要です。",
+                f"{ADVANCED_FORECAST_CONSENSUS_LABEL}を表示するには、もう少し長い価格データが必要です。",
             )
         if advanced_forecast_rows:
             st.subheader("高度予測モデル")
@@ -10306,32 +10308,86 @@ def _render_advanced_forecast_status(
 def _render_advanced_forecast_consensus_cards(rows: list[dict[str, str]]) -> None:
     if not rows:
         return
-    row = rows[0]
+    st.markdown(
+        _advanced_forecast_insight_card_html(rows[0]),
+        unsafe_allow_html=True,
+    )
+
+
+def _advanced_forecast_insight_card_html(row: Mapping[str, str]) -> str:
     value = _signed_percent_from_text(row.get("predicted_return", "")) or "未計算"
-    range_display = _advanced_forecast_range_display(row)
+    range_display = _advanced_forecast_range_display(row) or "未計算"
     confidence = _advanced_forecast_confidence_label(row.get("confidence", ""))
     agreement = _forecast_agreement_label(row.get("agreement", ""))
-    render_metric_card(
-        "高度予測まとめ",
-        value,
-        caption=(
-            f"予測価格 {row.get('forecast_close') or '未計算'} / "
-            f"{'レンジ ' + range_display if range_display else 'レンジ 未計算'}"
-        ),
-        help_text=(
-            _advanced_forecast_consensus_help_text(row)
-            + (
-                f"一致度 {agreement}、方向一致 {row.get('direction_agreement_score') or '未計算'}。"
-                "ランキング順位は既定では変更しません。"
-            )
-        ),
-        badges=(
-            badge_html("高度予測まとめ", "info"),
-            badge_html(f"信頼度 {confidence}", _advanced_forecast_confidence_tone(row)),
-        ),
-        tone=_advanced_forecast_card_tone(row),
-        emphasis="strong",
-        progress=metric_progress_from_value(row.get("weighted_direction_score", "")),
+    horizon = row.get("horizon_days", "").strip()
+    model_count = row.get("model_count", "").strip() or "0"
+    direction_score = row.get("direction_agreement_score", "").strip()
+    direction_display = f"{direction_score} / 100" if direction_score else "未計算"
+    mean_direction = row.get("mean_direction_accuracy", "").strip() or "未計算"
+    mean_rmse = row.get("mean_rmse", "").strip() or "未計算"
+    rmse_improvement = row.get("mean_rmse_improvement", "").strip() or "未計算"
+    best_model = _advanced_forecast_best_model_display(row) or "未計算"
+    progress = metric_progress_from_value(row.get("weighted_direction_score", "")) or 0
+    safe_progress = min(100, max(0, int(progress)))
+    tone = _advanced_forecast_card_tone(dict(row))
+    help_text = _advanced_forecast_consensus_help_text(row) + (
+        f"一致度 {agreement}、方向一致 {direction_display}。"
+        "AI総合と方向シグナルでは、信頼度を見ながら控えめに使います。"
+    )
+    metrics = (
+        ("予測日数", f"{horizon}日" if horizon else "未計算"),
+        ("モデル数", model_count),
+        ("モデル一致", agreement),
+        ("方向一致", direction_display),
+        ("平均方向一致", mean_direction),
+        ("RMSE改善", rmse_improvement),
+    )
+    metric_html = "".join(
+        '<div style="min-width:0;padding:0.46rem 0.55rem;border-radius:0.45rem;'
+        f'background:{THEME_COLORS["bg_surface"]};'
+        f'border:1px solid {THEME_COLORS["border_subtle"]};">'
+        f'<div style="color:{THEME_COLORS["text_muted"]};font-size:0.72rem;'
+        f'font-weight:800;">{html.escape(label)}</div>'
+        f'<div style="color:{THEME_COLORS["text_heading"]};font-size:0.9rem;'
+        f'font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" '
+        f'title="{html.escape(value, quote=True)}">{html.escape(value)}</div>'
+        "</div>"
+        for label, value in metrics
+    )
+    badge_row = "".join(
+        (
+            badge_html(ADVANCED_FORECAST_CONSENSUS_LABEL, "info"),
+            badge_html(f"信頼度 {confidence}", _advanced_forecast_confidence_tone(dict(row))),
+            badge_html(f"平均RMSE {mean_rmse}", "neutral"),
+        )
+    )
+    return (
+        '<div class="smai-metric-card" '
+        f'data-tone="{html.escape(tone)}" data-emphasis="strong">'
+        '<div class="smai-card-label-row">'
+        f'<div class="smai-card-label">{html.escape(ADVANCED_FORECAST_CONSENSUS_LABEL)}</div>'
+        '<span class="smai-card-help" '
+        f'title="{html.escape(help_text, quote=True)}" '
+        f'aria-label="{html.escape(ADVANCED_FORECAST_CONSENSUS_LABEL, quote=True)} の説明">?</span>'
+        "</div>"
+        '<div style="display:flex;align-items:flex-end;gap:1rem;flex-wrap:wrap;">'
+        f'<div class="smai-card-value">{html.escape(value)}</div>'
+        f'<div style="color:{THEME_COLORS["text_secondary"]};font-size:0.88rem;'
+        'font-weight:700;margin-bottom:0.22rem;">'
+        f'予測価格 {html.escape(row.get("forecast_close") or "未計算")} / '
+        f"レンジ {html.escape(range_display)}</div>"
+        "</div>"
+        '<div class="smai-score-track" aria-hidden="true">'
+        f'<div class="smai-score-fill" style="--smai-score-width: {safe_progress}%"></div>'
+        "</div>"
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));'
+        f'gap:0.45rem;margin-top:0.65rem;">{metric_html}</div>'
+        f'<div style="margin-top:0.55rem;color:{THEME_COLORS["text_secondary"]};'
+        'font-size:0.82rem;font-weight:700;">'
+        f'相対的に安定: {html.escape(truncate_text(best_model, max_chars=90, fallback="未計算"))}'
+        "</div>"
+        f'<div class="smai-badge-row" style="margin-top:0.55rem;">{badge_row}</div>'
+        "</div>"
     )
 
 
@@ -10469,7 +10525,7 @@ def forecast_chart_series_help(series: str) -> str:
         return "直近値維持です。計算式: 予測価格 = 最新終値。変化しない場合の比較基準です。"
     if kind == "advanced_consensus":
         return (
-            "高度予測まとめです。計算式: まとめ予測 = "
+            "AI予測インサイトです。計算式: 統合予測 = "
             "Σ(各高度予測の変化率 × 重み) ÷ Σ重み。"
             "重みは信頼度・RMSE改善・方向一致・検証数を見て0.70〜1.30に丸めます。"
         )
@@ -13671,7 +13727,8 @@ def _render_market_chart(
         height=MARKET_CHART_HEIGHT,
         width=MARKET_CHART_FULL_WIDTH,
         title="全体",
-        show_all_points=False,
+        show_all_points=True,
+        compact_points=True,
     )
     focus_rows = forecast_focus_chart_rows(rows)
     focus_chart = _market_chart_layers(
@@ -13683,6 +13740,7 @@ def _render_market_chart(
         width=MARKET_CHART_FOCUS_WIDTH,
         title="予測拡大",
         show_all_points=True,
+        compact_points=False,
     )
     combined_chart = (
         alt.hconcat(chart, focus_chart, spacing=MARKET_CHART_COMBINED_SPACING)
@@ -13747,6 +13805,7 @@ def _market_chart_layers(
     width: int,
     title: str,
     show_all_points: bool,
+    compact_points: bool,
 ) -> alt.LayerChart:
     chart_data = market_chart_long_frame(rows)
     range_band_data = forecast_range_band_frame(rows)
@@ -13778,6 +13837,24 @@ def _market_chart_layers(
         ],
         "opacity": alt.condition(disabled_series, alt.value(0.18), alt.value(1.0)),
     }
+    forecast_point = (
+        alt.OverlayMarkDef(
+            filled=True,
+            size=22 if compact_points else 36,
+            opacity=0.58 if compact_points else 0.92,
+        )
+        if show_all_points
+        else False
+    )
+    actual_point = (
+        alt.OverlayMarkDef(
+            filled=True,
+            size=24 if compact_points else 52,
+            opacity=0.62 if compact_points else 0.92,
+        )
+        if show_all_points
+        else False
+    )
     range_band = (
         alt.Chart(range_band_data)
         .mark_area(opacity=0.18)
@@ -13804,9 +13881,7 @@ def _market_chart_layers(
     forecast_lines = (
         alt.Chart(forecast_data)
         .mark_line(
-            point=(
-                alt.OverlayMarkDef(filled=True, size=34, opacity=0.92) if show_all_points else False
-            ),
+            point=forecast_point,
             strokeWidth=1.9,
             opacity=0.9,
         )
@@ -13816,8 +13891,8 @@ def _market_chart_layers(
     actual_line = (
         alt.Chart(actual_data)
         .mark_line(
-            point=(alt.OverlayMarkDef(filled=True, size=60) if show_all_points else False),
-            strokeWidth=3.4,
+            point=actual_point,
+            strokeWidth=2.8,
         )
         .encode(**base_encoding)
         .properties(height=height, width=width)
@@ -14161,7 +14236,9 @@ def advanced_forecast_consensus_display_rows(
             "銘柄": row.get("symbol", ""),
             "予測日数": row.get("horizon_days", ""),
             "モデル数": row.get("model_count", ""),
-            "まとめ予測": _signed_percent_from_text(row.get("predicted_return", "")),
+            ADVANCED_FORECAST_CONSENSUS_PREDICTION_LABEL: _signed_percent_from_text(
+                row.get("predicted_return", "")
+            ),
             "予測価格": row.get("forecast_close", ""),
             "想定レンジ": _advanced_forecast_range_display(row),
             "モデル一致度": _forecast_agreement_label(row.get("agreement", "")),
@@ -14311,9 +14388,9 @@ def _advanced_forecast_consensus_help_text(row: Mapping[str, str]) -> str:
     model_count = row.get("model_count") or "0"
     return (
         f"{model_count}モデルを保守的にまとめた参考シナリオです。"
-        "計算式: まとめ予測 = Σ(各モデルの予測変化率 × 重み) ÷ Σ重み。"
+        "計算式: 統合予測 = Σ(各モデルの予測変化率 × 重み) ÷ Σ重み。"
         "重み = 信頼度 × RMSE改善 × 方向一致 × 検証数を0.70〜1.30に丸めた値。"
-        "予測価格 = 最新価格 × (1 + まとめ予測)。"
+        "予測価格 = 最新価格 × (1 + 統合予測)。"
         "レンジは個別モデルの最小〜最大とレンジモデルの下振れ〜上振れを合わせて見ます。"
     )
 
@@ -14400,13 +14477,13 @@ def _advanced_forecast_warning_display(value: str) -> str:
             "ゼロリターン基準よりRMSEが改善していません。慎重に確認してください。"
         ),
         "Advanced forecast consensus is reference information, not investment advice.": (
-            "高度予測まとめは参考情報です。売買判断そのものではありません。"
+            "AI予測インサイトは参考情報です。売買判断そのものではありません。"
         ),
         "Consensus weights are capped; validation metrics support comparison but do not guarantee future accuracy.": (
             "重みは保守的に制限しています。検証指標は比較材料であり、将来精度の保証ではありません。"
         ),
         "Consensus confidence is low; check model-by-model reasons before using it.": (
-            "まとめ信頼度は低めです。個別モデルの理由も確認してください。"
+            "AI予測インサイトの信頼度は低めです。個別モデルの理由も確認してください。"
         ),
         "Advanced models have a wide forecast spread.": (
             "高度予測モデル間の開きが大きい状態です。"
@@ -14791,10 +14868,10 @@ def ranking_score_detail_rows(ranking_row: dict[str, str]) -> list[dict[str, str
         *(
             [
                 {
-                    "観点": "高度予測まとめ",
+                    "観点": ADVANCED_FORECAST_CONSENSUS_LABEL,
                     "内容": advanced_value,
                     "確認ポイント": (
-                        "取得期間から決まる共通予測日数の参考シナリオです。AI総合では信頼度で控えめに加味し、Cockpitの価格レンジと合わせて確認します。"
+                        "取得期間から決まる共通予測日数のAI予測シナリオです。AI総合では信頼度で控えめに加味し、Cockpitの価格レンジと合わせて確認します。"
                     ),
                 }
             ]
@@ -14937,7 +15014,7 @@ def _forecast_series_label(series: str) -> str:
         return FORECAST_ACTUAL_LABEL
     consensus_match = re.fullmatch(r"advanced_consensus_(\d+)d", series)
     if consensus_match:
-        return f"高度予測まとめ {consensus_match.group(1)}日"
+        return f"{ADVANCED_FORECAST_CONSENSUS_LABEL} {consensus_match.group(1)}日"
     advanced_match = re.fullmatch(r"(advanced_[a-z_]+)_(\d+)d", series)
     if advanced_match:
         adapter_name = advanced_match.group(1)

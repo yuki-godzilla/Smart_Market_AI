@@ -1235,3 +1235,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added modest direct AI総合 weights for advanced forecast upside / downside / quality so the consensus affects Ranking without turning forecast output into an investment instruction.
 - Updated beginner-facing labels and detail/breakdown wording to call this `高度予測まとめ` and explain that it is a comparison aid.
 - Updated roadmap, operations guide, project context, and spec issue tracking for the new Ranking direction-signal and AI総合 behavior.
+
+## 2026-06-08 - Cockpit AI forecast insight polish
+
+- Renamed the Cockpit advanced forecast consensus display from `高度予測まとめ` to `AI予測インサイト` while keeping internal field names compatible.
+- Rebuilt the consensus card to show integrated return, forecast price, range, horizon, model count, agreement, direction agreement, average direction accuracy, RMSE improvement, and the relatively stable model.
+- Restored small point markers on the full price / forecast chart and reduced the actual-price line width so the yellow line no longer dominates the chart.
+- Updated helper wording, tests, roadmap, operations guide, and project context for the new display name and denser insight card.

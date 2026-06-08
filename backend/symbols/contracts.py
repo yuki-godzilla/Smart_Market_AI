@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import Field
@@ -133,6 +133,9 @@ class SymbolRecord(StrictBaseModel):
     market: str | None = Field(default=None, min_length=1)
     provider: str | None = Field(default=None, min_length=1)
     updated_at: datetime
+    cached_at: datetime | None = None
+    source_as_of: date | None = None
+    source_updated_at: datetime | None = None
     last_price_updated_at: datetime | None = None
     last_fundamental_updated_at: datetime | None = None
     data_freshness_status: SymbolFreshnessStatus = "fresh"
@@ -144,7 +147,9 @@ class SymbolMetricRecord(StrictBaseModel):
 
     symbol: str = Field(min_length=1)
     source: str | None = Field(default=None, min_length=1)
+    source_as_of: date | None = None
     source_updated_at: datetime | None = None
+    cached_at: datetime | None = None
     promoted_at: datetime
     fields: dict[str, str] = Field(default_factory=dict)
 
@@ -158,6 +163,16 @@ class SymbolCacheSyncResult(StrictBaseModel):
     missing_deleted_count: int = Field(ge=0)
     skipped_count: int = Field(ge=0)
     promoted_symbols: list[str] = Field(default_factory=list)
+    deleted_symbols: list[str] = Field(default_factory=list)
+
+
+class SymbolMetricPruneResult(StrictBaseModel):
+    """Summary for pruning official metrics that no longer match the master universe."""
+
+    scanned_count: int = Field(ge=0)
+    deleted_count: int = Field(ge=0)
+    orphan_deleted_count: int = Field(ge=0)
+    inactive_deleted_count: int = Field(ge=0)
     deleted_symbols: list[str] = Field(default_factory=list)
 
 

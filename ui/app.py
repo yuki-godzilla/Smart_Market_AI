@@ -84,6 +84,7 @@ from backend.symbols.background import (
     request_symbol_background_refresh,
     start_symbol_background_refresh_worker,
 )
+from backend.symbols.cache_sync import sync_symbol_cache_to_official_metrics
 from backend.symbols.contracts import SymbolStartupRefreshSummary
 from backend.symbols.startup import run_symbol_database_target_refresh
 from ui.components.mascot import (
@@ -1689,6 +1690,10 @@ def _run_symbol_database_preflight_refresh(
             currently_visible_symbols=target_symbols if context == "cockpit" else None,
             ranking_candidates=target_symbols if context == "ranking" else None,
         )
+        try:
+            sync_symbol_cache_to_official_metrics(max_items=max_items, symbols=target_symbols)
+        except Exception:  # noqa: BLE001 - metric promotion must not block data fetch.
+            pass
         st.session_state.pop(SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY, None)
         return summary
     except Exception as exc:  # noqa: BLE001

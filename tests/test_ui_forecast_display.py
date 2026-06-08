@@ -910,14 +910,20 @@ def test_symbol_database_preflight_refresh_passes_ranking_context(monkeypatch):
         SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY: "RuntimeError",
     }
     calls: list[dict[str, object]] = []
+    sync_calls: list[dict[str, object]] = []
     summary = SimpleNamespace(succeeded_count=1)
 
     def fake_target_refresh(symbols: list[str], **kwargs: object) -> object:
         calls.append({"symbols": list(symbols), **kwargs})
         return summary
 
+    def fake_sync(**kwargs: object) -> object:
+        sync_calls.append(dict(kwargs))
+        return SimpleNamespace(promoted_count=1)
+
     monkeypatch.setattr("ui.app.st.session_state", session_state)
     monkeypatch.setattr("ui.app.run_symbol_database_target_refresh", fake_target_refresh)
+    monkeypatch.setattr("ui.app.sync_symbol_cache_to_official_metrics", fake_sync)
 
     result = _run_symbol_database_preflight_refresh(
         [" aapl ", "AAPL", "7203.t"],
@@ -934,6 +940,7 @@ def test_symbol_database_preflight_refresh_passes_ranking_context(monkeypatch):
             "ranking_candidates": ["AAPL", "7203.T"],
         }
     ]
+    assert sync_calls == [{"max_items": 31, "symbols": ["AAPL", "7203.T"]}]
     assert SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY not in session_state
 
 
@@ -945,6 +952,10 @@ def test_symbol_database_preflight_refresh_suppresses_failure(monkeypatch):
 
     monkeypatch.setattr("ui.app.st.session_state", session_state)
     monkeypatch.setattr("ui.app.run_symbol_database_target_refresh", fake_target_refresh)
+    monkeypatch.setattr(
+        "ui.app.sync_symbol_cache_to_official_metrics",
+        lambda **kwargs: None,
+    )
 
     result = _run_symbol_database_preflight_refresh(
         ["7203.t"],

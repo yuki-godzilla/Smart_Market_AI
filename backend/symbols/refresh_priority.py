@@ -234,6 +234,7 @@ def _extract_last_refreshed_at(
 ) -> datetime | None:
     return (
         _extract_datetime(symbol_record, "last_refreshed_at")
+        or _extract_datetime(symbol_record, "cached_at")
         or _extract_datetime(symbol_record, "last_price_updated_at")
         or _extract_datetime(symbol_record, "last_fundamental_updated_at")
         or _extract_datetime(symbol_record, "updated_at")

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 from backend.symbols.repository import load_symbol_record
@@ -173,7 +173,11 @@ def test_target_refresh_updates_only_requested_symbols(tmp_path) -> None:
     assert summary.attempted_count == 1
     assert summary.succeeded_count == 1
     assert summary.refreshed_symbols == ["NVDA"]
-    assert load_symbol_record("NVDA", cache_dir=tmp_path) is not None
+    record = load_symbol_record("NVDA", cache_dir=tmp_path)
+    assert record is not None
+    assert record.cached_at == datetime(2026, 6, 3, 12, 0, 0)
+    assert record.source_as_of == date(2026, 6, 1)
+    assert record.source_updated_at == datetime(2026, 6, 1, 0, 0, 0)
     assert load_symbol_record("7203", cache_dir=tmp_path) is None
 
 
@@ -219,6 +223,7 @@ def _write_symbol_universe(tmp_path: Path, rows: list[dict[str, str]]) -> Path:
         "asset_type",
         "currency",
         "metadata_source",
+        "metadata_as_of",
         "metadata_updated_at",
         "is_active",
         "tags",
@@ -228,6 +233,7 @@ def _write_symbol_universe(tmp_path: Path, rows: list[dict[str, str]]) -> Path:
         values = {
             "currency": "JPY",
             "metadata_source": "fixture",
+            "metadata_as_of": "2026-06-01",
             "metadata_updated_at": "2026-06-01T00:00:00",
             "is_active": "true",
             "tags": "",

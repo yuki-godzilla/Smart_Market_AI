@@ -26,12 +26,16 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SYMBOL_UNIVERSE_CSV = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe.csv"
 SYMBOL_CACHE_PROVIDER_FIELD = "symbol_cache_provider"
 SYMBOL_CACHE_UPDATED_AT_FIELD = "symbol_cache_updated_at"
+SYMBOL_CACHE_SOURCE_AS_OF_FIELD = "symbol_cache_source_as_of"
+SYMBOL_CACHE_SOURCE_UPDATED_AT_FIELD = "symbol_cache_source_updated_at"
 SYMBOL_CACHE_LAST_PRICE_UPDATED_AT_FIELD = "symbol_cache_last_price_updated_at"
 SYMBOL_CACHE_LAST_FUNDAMENTAL_UPDATED_AT_FIELD = "symbol_cache_last_fundamental_updated_at"
 SYMBOL_CACHE_FRESHNESS_STATUS_FIELD = "symbol_cache_freshness_status"
 SYMBOL_CACHE_RUNTIME_FIELDS = (
     SYMBOL_CACHE_PROVIDER_FIELD,
     SYMBOL_CACHE_UPDATED_AT_FIELD,
+    SYMBOL_CACHE_SOURCE_AS_OF_FIELD,
+    SYMBOL_CACHE_SOURCE_UPDATED_AT_FIELD,
     SYMBOL_CACHE_LAST_PRICE_UPDATED_AT_FIELD,
     SYMBOL_CACHE_LAST_FUNDAMENTAL_UPDATED_AT_FIELD,
     SYMBOL_CACHE_FRESHNESS_STATUS_FIELD,
@@ -147,11 +151,15 @@ def _runtime_fields_from_record(record: SymbolRecord) -> dict[str, str]:
 
 def _runtime_metadata_from_record(record: SymbolRecord) -> dict[str, str]:
     fields = {
-        SYMBOL_CACHE_UPDATED_AT_FIELD: record.updated_at.isoformat(),
+        SYMBOL_CACHE_UPDATED_AT_FIELD: (record.cached_at or record.updated_at).isoformat(),
         SYMBOL_CACHE_FRESHNESS_STATUS_FIELD: record.data_freshness_status,
     }
     if record.provider:
         fields[SYMBOL_CACHE_PROVIDER_FIELD] = record.provider
+    if record.source_as_of:
+        fields[SYMBOL_CACHE_SOURCE_AS_OF_FIELD] = record.source_as_of.isoformat()
+    if record.source_updated_at:
+        fields[SYMBOL_CACHE_SOURCE_UPDATED_AT_FIELD] = record.source_updated_at.isoformat()
     if record.last_price_updated_at:
         fields[SYMBOL_CACHE_LAST_PRICE_UPDATED_AT_FIELD] = record.last_price_updated_at.isoformat()
     if record.last_fundamental_updated_at:

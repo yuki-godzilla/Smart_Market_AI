@@ -239,6 +239,10 @@ EXE起動時のCRUD系ランタイム領域:
 
 銘柄の正式マスタは `data/marketdata/symbol_universe.csv` です。外部取得や背景更新で変わる銘柄データはランタイムキャッシュとして `symbols_cache.sqlite` に保存し、既存の `symbols_cache.json` がある場合は初回読み込み時にキャッシュDBへ移行します。キャッシュ由来の値は自動で正式マスタへ昇格しません。正式登録へ反映する場合は、別途レビュー/登録導線で確認してから `symbol_universe.csv` を更新します。
 
+銘柄DBの時刻は用途別に分けます。`cached_at` は runtime cache に保存した時刻、`source_as_of` は元データの基準日、`source_updated_at` は provider / source 側の更新日時、`promoted_at` は公式軽量メトリクスDBへ昇格した時刻です。古い `updated_at` は互換フィールドとして残しますが、UIの `銘柄DB最終更新` は `cached_at` を優先します。
+
+ランキング / 検索で使う軽量指標は、runtime cache から許可フィールドだけを `symbol_metrics.sqlite` に昇格します。通常の background refresh 後に加え、Cockpit / Ranking の preflight refresh 後も対象銘柄だけを即時 sync します。`symbol_metrics.sqlite` は runtime writable な軽量DBで、既定では `SMAI_CACHE_DIR` 配下を使います。分離したい場合は `SMAI_SYMBOL_METRICS_DIR` で保存先を指定できます。`symbol_universe.csv` に存在しない銘柄、または `is_active=false` の銘柄については、background sync 後に公式軽量メトリクスを prune します。CSV が読めない場合は誤削除を避けるため prune をスキップします。
+
 ### Side menu
 
 Streamlit UI は左サイドメニューで画面を切り替えます。

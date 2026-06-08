@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import csv
 from collections.abc import Iterable, Sequence
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Final
 
@@ -18,7 +18,7 @@ from backend.symbols.contracts import (
     SymbolRefreshTask,
     SymbolStartupRefreshSummary,
 )
-from backend.symbols.metrics_repository import load_symbol_metric_records
+from backend.symbols.metrics_repository import SYMBOL_METRICS_DIR, load_symbol_metric_records
 from backend.symbols.refresh_manager import refresh_symbols_if_needed
 from backend.symbols.refresh_priority import (
     MAX_SYMBOL_REFRESH_PER_RUN,
@@ -292,13 +292,14 @@ def _refresh_reference_records(
     cache_dir: Path | str,
 ) -> dict[str, dict[str, datetime]]:
     records = {
-        symbol: {"last_refreshed_at": record.updated_at}
+        symbol: {"last_refreshed_at": record.cached_at or record.updated_at}
         for symbol, record in load_symbol_records(cache_dir=cache_dir).items()
     }
-    for symbol, record in load_symbol_metric_records(cache_dir=cache_dir).items():
-        if record.source_updated_at is None or symbol in records:
+    metrics_dir = SYMBOL_METRICS_DIR if Path(cache_dir) == Path(SYMBOL_CACHE_DIR) else cache_dir
+    for symbol, record in load_symbol_metric_records(metrics_dir=metrics_dir).items():
+        if symbol in records:
             continue
-        records[symbol] = {"last_refreshed_at": record.source_updated_at}
+        records[symbol] = {"last_refreshed_at": record.promoted_at}
     return records
 
 
@@ -315,6 +316,9 @@ def _record_from_symbol_row(
         market=_optional_text(row.get("market")),
         provider=_optional_text(row.get("metadata_source")) or "symbol_universe",
         updated_at=now,
+        cached_at=now,
+        source_as_of=_date_value(row.get("metadata_as_of")),
+        source_updated_at=_datetime_value(row.get("metadata_updated_at")),
         last_price_updated_at=_datetime_value(row.get("metadata_updated_at")),
         last_fundamental_updated_at=_datetime_value(row.get("metadata_updated_at")),
         data_freshness_status="fresh",
@@ -397,5 +401,14 @@ def _datetime_value(value: str | None) -> datetime | None:
         return None
     try:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _date_value(value: str | None) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
     except ValueError:
         return None

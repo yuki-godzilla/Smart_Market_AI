@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import logging
 import threading
 from collections.abc import Callable, Iterable, Sequence
@@ -10,9 +11,13 @@ from time import sleep
 from typing import Final
 
 from backend.symbols.cache import SYMBOL_CACHE_DIR
-from backend.symbols.cache_sync import sync_symbol_cache_to_official_metrics
+from backend.symbols.cache_sync import (
+    prune_symbol_metrics_against_universe,
+    sync_symbol_cache_to_official_metrics,
+)
 from backend.symbols.contracts import SymbolStartupRefreshSummary
 from backend.symbols.logging_utils import configure_symbol_refresh_logger
+from backend.symbols.metrics_repository import SYMBOL_METRICS_DIR
 from backend.symbols.refresh_priority import MAX_SYMBOL_REFRESH_PER_RUN
 from backend.symbols.startup import SYMBOL_UNIVERSE_CSV, run_symbol_database_startup_refresh
 
@@ -137,15 +142,20 @@ def run_symbol_background_target_refresh_once(
         now=now_provider(),
         max_items=max(0, max_items),
     )
+    prune_deleted_count = _prune_metrics_after_background_sync(
+        symbol_universe_csv=symbol_universe_csv,
+        metrics_dir=_background_metrics_dir(cache_dir),
+    )
     logger.info(
         "target refresh batch attempted=%s succeeded=%s failed=%s records=%s "
-        "promoted=%s deleted=%s",
+        "promoted=%s deleted=%s pruned=%s",
         summary.attempted_count,
         summary.succeeded_count,
         summary.failed_count,
         summary.record_count,
         sync_result.promoted_count,
         sync_result.deleted_count,
+        prune_deleted_count,
     )
     return summary
 
@@ -256,15 +266,20 @@ def _run_background_batch(
         now=datetime.utcnow(),
         max_items=max_items,
     )
+    prune_deleted_count = _prune_metrics_after_background_sync(
+        symbol_universe_csv=symbol_universe_csv,
+        metrics_dir=_background_metrics_dir(cache_dir),
+    )
     logger.info(
         "background refresh batch attempted=%s succeeded=%s failed=%s records=%s "
-        "promoted=%s deleted=%s",
+        "promoted=%s deleted=%s pruned=%s",
         summary.attempted_count,
         summary.succeeded_count,
         summary.failed_count,
         summary.record_count,
         sync_result.promoted_count,
         sync_result.deleted_count,
+        prune_deleted_count,
     )
     return summary
 
@@ -308,6 +323,36 @@ def _merge_target_symbols(target: set[str], symbols: Sequence[str]) -> None:
     kept_symbols = sorted(target)[:MAX_SYMBOL_REFRESH_TARGET_HINTS]
     target.clear()
     target.update(kept_symbols)
+
+
+def _prune_metrics_after_background_sync(
+    *,
+    symbol_universe_csv: Path | str,
+    metrics_dir: Path | str,
+) -> int:
+    rows = _load_symbol_universe_rows_for_prune(Path(symbol_universe_csv))
+    if not rows:
+        return 0
+    result = prune_symbol_metrics_against_universe(rows, metrics_dir=metrics_dir)
+    return result.deleted_count
+
+
+def _load_symbol_universe_rows_for_prune(csv_path: Path) -> list[dict[str, str]]:
+    if not csv_path.exists():
+        return []
+    with csv_path.open("r", encoding="utf-8-sig", newline="") as file:
+        reader = csv.DictReader(file)
+        return [
+            {str(key): (value or "").strip() for key, value in row.items() if key is not None}
+            for row in reader
+            if (row.get("symbol") or "").strip()
+        ]
+
+
+def _background_metrics_dir(cache_dir: Path | str) -> Path | str:
+    if Path(cache_dir) == Path(SYMBOL_CACHE_DIR):
+        return SYMBOL_METRICS_DIR
+    return cache_dir
 
 
 def _normalize_symbol_list(symbols: Iterable[str]) -> list[str]:

@@ -1,14 +1,23 @@
 from __future__ import annotations
 
+import os
 import sqlite3
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Final, Iterator
 
-from backend.symbols.cache import SYMBOL_CACHE_DIR
+from backend.core.runtime_paths import CACHE_DIR_ENV
 from backend.symbols.contracts import SymbolMetricRecord
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SYMBOL_METRICS_DIR_ENV: Final[str] = "SMAI_SYMBOL_METRICS_DIR"
+SYMBOL_METRICS_DIR: Final[Path] = Path(
+    os.environ.get(
+        SYMBOL_METRICS_DIR_ENV,
+        os.environ.get(CACHE_DIR_ENV, str(PROJECT_ROOT / "data" / "cache")),
+    )
+)
 SYMBOL_METRICS_DB_FILENAME: Final[str] = "symbol_metrics.sqlite"
 SYMBOL_METRICS_TABLE: Final[str] = "symbol_metrics"
 SQLITE_TIMEOUT_SECONDS = 5.0
@@ -35,14 +44,15 @@ OFFICIAL_SYMBOL_METRIC_FIELDS: Final[tuple[str, ...]] = (
 
 def load_symbol_metric_records(
     *,
-    cache_dir: Path | str = SYMBOL_CACHE_DIR,
+    metrics_dir: Path | str | None = None,
+    cache_dir: Path | str | None = None,
 ) -> dict[str, SymbolMetricRecord]:
     """Load official lightweight metrics used for search/filter UI paths."""
 
-    cache_root = Path(cache_dir)
+    metrics_root = _metrics_root(metrics_dir=metrics_dir, cache_dir=cache_dir)
     try:
-        _ensure_metrics_store(cache_root)
-        with _connect(cache_root) as connection:
+        _ensure_metrics_store(metrics_root)
+        with _connect(metrics_root) as connection:
             rows = connection.execute(
                 f"""
                 SELECT symbol, payload_json
@@ -65,20 +75,25 @@ def load_symbol_metric_records(
 
 def load_symbol_metric_fields(
     *,
-    cache_dir: Path | str = SYMBOL_CACHE_DIR,
+    metrics_dir: Path | str | None = None,
+    cache_dir: Path | str | None = None,
 ) -> dict[str, dict[str, str]]:
     """Load only metric fields keyed by symbol."""
 
     return {
         symbol: dict(record.fields)
-        for symbol, record in load_symbol_metric_records(cache_dir=cache_dir).items()
+        for symbol, record in load_symbol_metric_records(
+            metrics_dir=metrics_dir,
+            cache_dir=cache_dir,
+        ).items()
     }
 
 
 def save_symbol_metric_records(
     records: Sequence[SymbolMetricRecord],
     *,
-    cache_dir: Path | str = SYMBOL_CACHE_DIR,
+    metrics_dir: Path | str | None = None,
+    cache_dir: Path | str | None = None,
 ) -> list[SymbolMetricRecord]:
     """Upsert official lightweight metrics."""
 
@@ -87,24 +102,28 @@ def save_symbol_metric_records(
     if not normalized_records:
         return []
 
-    cache_root = Path(cache_dir)
-    cache_root.mkdir(parents=True, exist_ok=True)
-    _ensure_metrics_store(cache_root)
-    with _connect(cache_root) as connection:
+    metrics_root = _metrics_root(metrics_dir=metrics_dir, cache_dir=cache_dir)
+    metrics_root.mkdir(parents=True, exist_ok=True)
+    _ensure_metrics_store(metrics_root)
+    with _connect(metrics_root) as connection:
         connection.executemany(
             f"""
             INSERT INTO {SYMBOL_METRICS_TABLE} (
                 symbol,
                 payload_json,
                 source,
+                source_as_of,
                 source_updated_at,
+                cached_at,
                 promoted_at
             )
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(symbol) DO UPDATE SET
                 payload_json = excluded.payload_json,
                 source = excluded.source,
+                source_as_of = excluded.source_as_of,
                 source_updated_at = excluded.source_updated_at,
+                cached_at = excluded.cached_at,
                 promoted_at = excluded.promoted_at
             """,
             [
@@ -112,17 +131,43 @@ def save_symbol_metric_records(
                     record.symbol,
                     record.model_dump_json(),
                     record.source,
+                    (record.source_as_of.isoformat() if record.source_as_of is not None else None),
                     (
                         record.source_updated_at.isoformat()
                         if record.source_updated_at is not None
                         else None
                     ),
+                    record.cached_at.isoformat() if record.cached_at is not None else None,
                     record.promoted_at.isoformat(),
                 )
                 for record in normalized_records
             ],
         )
     return normalized_records
+
+
+def delete_symbol_metric_records(
+    symbols: Sequence[str],
+    *,
+    metrics_dir: Path | str | None = None,
+    cache_dir: Path | str | None = None,
+) -> int:
+    """Delete official metric records by symbol and return the deleted row count."""
+
+    normalized_symbols = _normalize_symbols(symbols)
+    if not normalized_symbols:
+        return 0
+    metrics_root = _metrics_root(metrics_dir=metrics_dir, cache_dir=cache_dir)
+    try:
+        _ensure_metrics_store(metrics_root)
+        with _connect(metrics_root) as connection:
+            cursor = connection.executemany(
+                f"DELETE FROM {SYMBOL_METRICS_TABLE} WHERE symbol = ?",
+                [(symbol,) for symbol in normalized_symbols],
+            )
+            return cursor.rowcount if cursor.rowcount != -1 else 0
+    except (OSError, sqlite3.Error, ValueError):
+        return 0
 
 
 def metric_fields_from_mapping(
@@ -143,7 +188,9 @@ def _normalize_metric_record(record: SymbolMetricRecord) -> SymbolMetricRecord:
     return SymbolMetricRecord(
         symbol=record.symbol.strip().upper(),
         source=_optional_text(record.source),
+        source_as_of=record.source_as_of,
         source_updated_at=record.source_updated_at,
+        cached_at=record.cached_at,
         promoted_at=record.promoted_at,
         fields=metric_fields_from_mapping(record.fields),
     )
@@ -187,11 +234,15 @@ def _ensure_metrics_store(cache_dir: Path | str) -> None:
                 symbol TEXT PRIMARY KEY,
                 payload_json TEXT NOT NULL,
                 source TEXT,
+                source_as_of TEXT,
                 source_updated_at TEXT,
+                cached_at TEXT,
                 promoted_at TEXT NOT NULL
             )
             """
         )
+        _ensure_column(connection, "source_as_of", "TEXT")
+        _ensure_column(connection, "cached_at", "TEXT")
         connection.execute(
             f"""
             CREATE INDEX IF NOT EXISTS idx_{SYMBOL_METRICS_TABLE}_source_updated_at
@@ -202,3 +253,37 @@ def _ensure_metrics_store(cache_dir: Path | str) -> None:
 
 def _cache_path(cache_dir: Path | str, filename: str) -> Path:
     return Path(cache_dir) / filename
+
+
+def _ensure_column(connection: sqlite3.Connection, column: str, column_type: str) -> None:
+    existing_columns = {
+        str(row["name"])
+        for row in connection.execute(f"PRAGMA table_info({SYMBOL_METRICS_TABLE})").fetchall()
+    }
+    if column in existing_columns:
+        return
+    connection.execute(f"ALTER TABLE {SYMBOL_METRICS_TABLE} ADD COLUMN {column} {column_type}")
+
+
+def _metrics_root(
+    *,
+    metrics_dir: Path | str | None,
+    cache_dir: Path | str | None,
+) -> Path:
+    if metrics_dir is not None:
+        return Path(metrics_dir)
+    if cache_dir is not None:
+        return Path(cache_dir)
+    return SYMBOL_METRICS_DIR
+
+
+def _normalize_symbols(symbols: Sequence[str]) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for symbol in symbols:
+        normalized_symbol = symbol.strip().upper()
+        if not normalized_symbol or normalized_symbol in seen:
+            continue
+        seen.add(normalized_symbol)
+        normalized.append(normalized_symbol)
+    return normalized

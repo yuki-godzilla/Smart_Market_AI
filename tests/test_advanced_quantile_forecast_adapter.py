@@ -20,7 +20,8 @@ def test_advanced_quantile_adapter_returns_forecast_range():
     assert result.model_name == "HistoricalQuantile"
     assert result.symbol == "AAPL"
     assert result.horizon_days == 5
-    assert SUPPORTED_ADVANCED_QUANTILE_HORIZONS == (5, 20)
+    assert SUPPORTED_ADVANCED_QUANTILE_HORIZONS[0] == 1
+    assert SUPPORTED_ADVANCED_QUANTILE_HORIZONS[-1] == 30
     assert result.predicted_return_lower <= result.predicted_return <= result.predicted_return_upper
     assert result.predicted_return != Decimal("0.0000")
     assert result.validation_metrics.sample_count == 67
@@ -31,9 +32,16 @@ def test_advanced_quantile_adapter_returns_forecast_range():
     assert any("not a guaranteed interval" in warning for warning in result.warnings)
 
 
-def test_advanced_quantile_adapter_rejects_unsupported_horizon():
+def test_advanced_quantile_adapter_supports_common_forecast_horizon():
+    result = AdvancedQuantileForecastAdapter().forecast(_bars(72), horizon_days=10)
+
+    assert result.horizon_days == 10
+    assert result.validation_metrics.sample_count == 62
+
+
+def test_advanced_quantile_adapter_rejects_out_of_range_horizon():
     with pytest.raises(ValueError, match="horizon_days"):
-        AdvancedQuantileForecastAdapter().forecast(_bars(40), horizon_days=10)
+        AdvancedQuantileForecastAdapter().forecast(_bars(40), horizon_days=31)
 
 
 def test_advanced_forecast_registry_lists_quantile_adapter():
@@ -42,7 +50,8 @@ def test_advanced_forecast_registry_lists_quantile_adapter():
     assert "advanced_quantile" in advanced_forecast_adapter_keys()
     assert spec is not None
     assert spec.display_name == "高度予測: レンジモデル"
-    assert spec.supported_horizons == (5, 20)
+    assert spec.supported_horizons[0] == 1
+    assert spec.supported_horizons[-1] == 30
 
 
 def _bars(count: int) -> list[Bar]:

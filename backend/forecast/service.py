@@ -250,7 +250,7 @@ def evaluate_advanced_forecast(
     if spec is None:
         raise ValueError(f"unsupported advanced forecast adapter: {adapter_name}")
     if horizon_days not in spec.supported_horizons:
-        raise ValueError(f"{adapter_name} supports only supported_horizons")
+        raise ValueError(f"{adapter_name} supports only supported horizons")
     result = spec.factory().forecast(sorted_bars, horizon_days=horizon_days)
     latest_close = sorted_bars[-1].close
     forecast_close = latest_close * (Decimal("1") + result.predicted_return)

@@ -849,7 +849,10 @@ async def build_market_data_preview(
             if forecast_consensus is not None
             else {}
         )
-        advanced_forecast_results = advanced_forecast_results_for_bars(feature_bars)
+        advanced_forecast_results = advanced_forecast_results_for_bars(
+            feature_bars,
+            horizon_days=forecast_horizon_days,
+        )
         advanced_forecast_rows = advanced_forecast_rows_for_results(
             advanced_forecast_results,
             feature_bars,
@@ -1122,6 +1125,8 @@ def forecast_chart_rows(
 
 def advanced_forecast_results_for_bars(
     bars: list[Bar],
+    *,
+    horizon_days: int | None = None,
 ) -> list[Any]:
     """Return supported advanced forecasts when enough local history exists."""
 
@@ -1130,9 +1135,14 @@ def advanced_forecast_results_for_bars(
     results: list[Any] = []
     for spec in advanced_forecast_adapter_specs():
         adapter = spec.factory()
-        for horizon_days in spec.supported_horizons:
+        target_horizons = (
+            (horizon_days,)
+            if horizon_days is not None
+            else _legacy_ranking_advanced_forecast_horizons(spec.supported_horizons)
+        )
+        for target_horizon_days in target_horizons:
             try:
-                results.append(adapter.forecast(bars, horizon_days=horizon_days))
+                results.append(adapter.forecast(bars, horizon_days=target_horizon_days))
             except ValueError:
                 continue
     return results
@@ -1140,14 +1150,25 @@ def advanced_forecast_results_for_bars(
 
 def advanced_linear_forecast_results_for_bars(
     bars: list[Bar],
+    *,
+    horizon_days: int | None = None,
 ) -> list[Any]:
     """Return supported advanced-linear forecasts when enough local history exists."""
 
     return [
         result
-        for result in advanced_forecast_results_for_bars(bars)
+        for result in advanced_forecast_results_for_bars(bars, horizon_days=horizon_days)
         if getattr(result, "adapter_name", "") == ADVANCED_LINEAR_ADAPTER_NAME
     ]
+
+
+def _legacy_ranking_advanced_forecast_horizons(
+    supported_horizons: tuple[int, ...],
+) -> tuple[int, ...]:
+    """Keep Ranking auxiliary 5 / 20 day fields until ranking logic finalization."""
+
+    legacy_horizons = tuple(horizon for horizon in (5, 20) if horizon in supported_horizons)
+    return legacy_horizons or supported_horizons
 
 
 def advanced_forecast_rows_for_results(

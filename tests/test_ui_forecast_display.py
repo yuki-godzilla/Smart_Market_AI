@@ -173,6 +173,7 @@ from ui.app import (
     forecast_chart_series_options,
     forecast_chart_summary,
     forecast_consensus_display_rows,
+    forecast_focus_chart_rows,
     forecast_metric_display_rows,
     forecast_metric_summary,
     forecast_model_card_rows,
@@ -7805,7 +7806,7 @@ def test_forecast_chart_filter_options_hide_naive_by_default():
         ("momentum_30", False),
         ("advanced_linear_5d", True),
         ("advanced_quantile_5d", True),
-        ("advanced_quantile_20d", False),
+        ("advanced_quantile_20d", True),
     ]
     assert "直近値維持" in options[0]["label"]
     assert "naive" not in filtered[0]
@@ -7818,7 +7819,44 @@ def test_forecast_chart_filter_options_hide_naive_by_default():
     assert "moving_average_20" not in fallback_filtered[0]
     assert fallback_filtered[1]["advanced_linear_5d"] == "103"
     assert fallback_filtered[1]["advanced_quantile_5d"] == "104"
-    assert "advanced_quantile_20d" not in fallback_filtered[1]
+    assert fallback_filtered[1]["advanced_quantile_20d"] == "110"
+
+
+def test_forecast_focus_chart_rows_keeps_recent_actual_and_forecast_area():
+    rows = [
+        {
+            "ts": "2026-04-20T00:00:00+00:00",
+            "close": "90",
+            "advanced_quantile_30d": "",
+        },
+        {
+            "ts": "2026-05-01T00:00:00+00:00",
+            "close": "96",
+            "advanced_quantile_30d": "",
+        },
+        {
+            "ts": "2026-05-10T00:00:00+00:00",
+            "close": "100",
+            "advanced_quantile_30d": "100",
+            "advanced_quantile_30d_lower": "100",
+            "advanced_quantile_30d_upper": "100",
+        },
+        {
+            "ts": "2026-06-09T00:00:00+00:00",
+            "close": "",
+            "advanced_quantile_30d": "108",
+            "advanced_quantile_30d_lower": "95",
+            "advanced_quantile_30d_upper": "115",
+        },
+    ]
+
+    focus_rows = forecast_focus_chart_rows(rows)
+
+    assert [row["ts"] for row in focus_rows] == [
+        "2026-05-01T00:00:00+00:00",
+        "2026-05-10T00:00:00+00:00",
+        "2026-06-09T00:00:00+00:00",
+    ]
 
 
 def test_forecast_model_comparison_rows_summarize_direction_and_spread():
@@ -8009,8 +8047,13 @@ def test_render_market_chart_uses_currency_axis_title_and_compact_width(monkeypa
 
     spec = captured["spec"]
     chart_spec = spec["hconcat"][0]  # type: ignore[index]
+    focus_spec = spec["hconcat"][1]  # type: ignore[index]
     assert spec["title"] == "Price and forecast"
-    assert chart_spec["width"] == 1400
+    assert len(spec["hconcat"]) == 3
+    assert chart_spec["width"] == 920
+    assert focus_spec["width"] == 390
+    assert chart_spec["title"] == "全体"
+    assert focus_spec["title"] == "予測拡大"
     assert chart_spec["layer"][0]["encoding"]["y"]["title"] == "終値 (USD)"
     assert captured["use_container_width"] is True
 

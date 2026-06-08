@@ -117,6 +117,21 @@ def test_evaluate_advanced_forecast_returns_quantile_range():
     assert evaluation.validation_metrics.sample_count == 67
 
 
+def test_evaluate_advanced_forecast_supports_common_horizon():
+    bars = _bars(list(range(100, 172)))
+
+    evaluation = evaluate_advanced_forecast(
+        bars,
+        adapter_name="advanced_quantile",
+        horizon_days=10,
+    )
+
+    assert evaluation.horizon_days == 10
+    assert evaluation.validation_metrics.sample_count == 62
+    assert evaluation.forecast_close_lower is not None
+    assert evaluation.forecast_close_upper is not None
+
+
 def test_summarize_forecast_evaluations_returns_model_agreement():
     evaluations = evaluate_models(
         _bars([100, 102, 104, 103, 106, 108]),

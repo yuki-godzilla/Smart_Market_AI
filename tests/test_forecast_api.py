@@ -106,7 +106,7 @@ def test_forecast_evaluate_api_returns_advanced_quantile_adapter(monkeypatch):
     assert row["validation_metrics"]["sample_count"] == 67
 
 
-def test_forecast_evaluate_api_rejects_advanced_linear_unsupported_horizon(monkeypatch):
+def test_forecast_evaluate_api_returns_advanced_linear_common_horizon(monkeypatch):
     monkeypatch.setattr(
         "backend.app.main.create_market_data_provider_adapter",
         lambda _: _FakeForecastProvider(_bars(72)),
@@ -123,11 +123,11 @@ def test_forecast_evaluate_api_rejects_advanced_linear_unsupported_horizon(monke
         },
     )
 
-    assert response.status_code == 422
-    payload = response.json()
-    assert payload["code"] == "APP-2002"
-    assert payload["message"] == "advanced_linear supports only 5 or 20 day horizons"
-    assert payload["details"]["supported_horizons"] == [5, 20]
+    assert response.status_code == 200
+    row = response.json()[0]
+    assert row["adapter_name"] == "advanced_linear"
+    assert row["horizon_days"] == 10
+    assert row["validation_metrics"]["sample_count"] == 62
 
 
 def test_forecast_evaluate_api_rejects_unknown_adapter(monkeypatch):

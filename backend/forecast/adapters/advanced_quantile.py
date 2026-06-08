@@ -15,7 +15,7 @@ from backend.forecast.adapters.advanced_linear import (
 )
 
 ADVANCED_QUANTILE_ADAPTER_NAME = "advanced_quantile"
-SUPPORTED_ADVANCED_QUANTILE_HORIZONS = (5, 20)
+SUPPORTED_ADVANCED_QUANTILE_HORIZONS = tuple(range(1, 31))
 
 AdvancedQuantileModelName = Literal["HistoricalQuantile"]
 
@@ -66,7 +66,7 @@ class AdvancedQuantileForecastAdapter:
         horizon_days: int,
     ) -> AdvancedQuantileForecastResult:
         if horizon_days not in SUPPORTED_ADVANCED_QUANTILE_HORIZONS:
-            raise ValueError("horizon_days must be one of 5 or 20")
+            raise ValueError("horizon_days must be between 1 and 30")
 
         sorted_bars = sorted(bars, key=lambda bar: bar.ts)
         targets = _forward_returns(sorted_bars, horizon_days=horizon_days)

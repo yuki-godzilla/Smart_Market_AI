@@ -724,6 +724,27 @@ def test_advanced_linear_forecast_rows_can_feed_forecast_chart():
     assert rows_by_ts[twenty_day_ts]["advanced_linear_20d"] == advanced_rows[1]["forecast_close"]
 
 
+def test_advanced_forecast_rows_use_selected_common_horizon():
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    bars = [
+        _bar(
+            "AAPL",
+            (start + timedelta(days=index)).isoformat(),
+            str(100 + index),
+        )
+        for index in range(70)
+    ]
+
+    results = advanced_forecast_results_for_bars(bars, horizon_days=10)
+    advanced_rows = advanced_forecast_rows_for_results(results, bars)
+
+    assert {row["adapter"] for row in advanced_rows} == {
+        "advanced_linear",
+        "advanced_quantile",
+    }
+    assert {row["horizon_days"] for row in advanced_rows} == {"10"}
+
+
 def test_advanced_forecast_rows_include_quantile_range_for_chart():
     start = datetime(2026, 1, 1, tzinfo=UTC)
     bars = [

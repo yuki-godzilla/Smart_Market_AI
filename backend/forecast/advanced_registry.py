@@ -49,7 +49,7 @@ def advanced_forecast_adapter_specs() -> list[AdvancedForecastAdapterSpec]:
         AdvancedForecastAdapterSpec(
             key=ADVANCED_LINEAR_ADAPTER_NAME,
             display_name="高度予測: 線形モデル",
-            description="価格特徴量から5日 / 20日先のforward returnを軽量Ridgeで参考推定します。",
+            description="価格特徴量から取得期間に合わせたforward returnを軽量Ridgeで参考推定します。",
             supported_horizons=SUPPORTED_ADVANCED_LINEAR_HORIZONS,
             factory=lambda: AdvancedLinearForecastAdapter(),
         ),

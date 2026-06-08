@@ -1199,3 +1199,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added `predicted_return_5d`, `predicted_return_20d`, `advanced_forecast_score`, and `advanced_forecast_confidence` to ranking rows and Investment Score CSV export.
 - Surfaced the fields as `高度予測5日` / `高度予測20日` / `高度予測スコア` / confidence context in Ranking display rows, optional result-table columns, selected-candidate breakdown, and score detail rows.
 - Updated roadmap, operations guide, and project context to record that Ranking auxiliary display is connected while opt-in ranking-order integration remains future scope.
+
+## 2026-06-08 - Advanced Forecast common horizon and chart focus
+
+- Expanded `advanced_linear` and `advanced_quantile` from fixed 5 / 20 day horizons to deterministic 1-30 day forward-return horizons for Cockpit/API.
+- Unified Cockpit forecast display so baseline, linear advanced, and range advanced models use the same period-derived `forecast_horizon_days`.
+- Kept Ranking's existing 5 / 20 day `advanced_linear` auxiliary fields as a compatibility path until ranking logic finalization.
+- Replaced Streamlit checkbox chart-series controls with in-chart legend interaction to avoid full app recalculation when toggling model visibility.
+- Added a right-side forecast-focus chart that automatically keeps the latest actual-price days plus the forward forecast area, making the range band easier to inspect.
+- Updated deterministic tests and Phase 23 docs for the common-horizon behavior and chart focus view.

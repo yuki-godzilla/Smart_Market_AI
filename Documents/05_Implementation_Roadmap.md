@@ -1581,7 +1581,7 @@ Phase 22 完了条件:
 
 ### 5.9 Phase 23: Optional Adapter と高度分析
 
-状態: Advanced Forecast Slice 1 `advanced_linear` と Slice 2 `advanced_quantile` / adapter registry 接続済み。Ranking 順位への統合は未実施で、追加予定の高度予測モデルを一通り実装してからまとめて仕上げる。
+状態: Advanced Forecast Slice 1 `advanced_linear` と Slice 2 `advanced_quantile` / adapter registry 接続済み。Cockpit / API は 1〜30日の共通 horizon に対応し、Cockpit では通常予測と高度予測を取得期間由来の同じ予測日数で比較する。Ranking 順位への統合は未実施で、追加予定の高度予測モデルを一通り実装してからまとめて仕上げる。
 
 目的: default path を deterministic に保ったまま、追加 provider、advanced forecast / research model、news / sentiment、将来の LLM adapter を optional layer として追加する。次の実装優先度は、銘柄コックピット / 銘柄ランキングで使う高度予測モデル adapter を複数そろえ、比較表示の土台を作ること。
 
@@ -1613,8 +1613,8 @@ Phase 22 完了条件:
 - default model は `Ridge`、optional model は `ElasticNet` とする。現行 backend first slice は sklearn 非依存の deterministic Ridge 互換実装を使い、ElasticNet は adapter contract 予約として warning 付きで扱う。
 - 追加依存は最小にする。現行 slice は既存依存の `numpy` のみを使い、scikit-learn は追加していない。
 - 価格そのものではなく forward return を予測する。
-- 対応 horizon はまず `5` / `20` trading days とする。
-- `future_return_5d = close[t+5] / close[t] - 1`、`future_return_20d = close[t+20] / close[t] - 1` を target とする。
+- 対応 horizon は Cockpit / API では `1`〜`30` trading days とし、取得期間から決まる通常予測 horizon と同じ予測日数で高度予測を表示する。
+- `future_return_h = close[t+h] / close[t] - 1` を target とする。`h` は request / Cockpit の共通 horizon。
 - target 作成後、未来値がない末尾行は学習対象から除外する。target 列、日付、銘柄名、未来由来の列は feature に混ぜない。
 - FeatureBuilder / ranking feature / DailySnapshot など既存生成済み特徴量を優先し、存在しない特徴量を無理に新規実装しない。
 - 使用候補 feature は、既存値があるものに限って `return_1d`、`return_5d`、`return_20d`、momentum、volatility、drawdown、volume / rolling volume、moving-average gap、利用可能なら RSI / PER / PBR / ROE / dividend yield / market cap / Research Score 系を扱う。
@@ -1634,7 +1634,7 @@ Phase 22 完了条件:
 
 - `adapter_name`: `advanced_linear`
 - `model_name`: `Ridge` または `ElasticNet`
-- `horizon_days`: `5` / `20`
+- `horizon_days`: `1`〜`30`
 - `predicted_return`
 - `direction_score`
 - `confidence`: `low` / `medium` / `high`
@@ -1660,15 +1660,15 @@ API / service 接続方針:
 - 既存 forecast API / service の default 挙動は壊さない。
 - adapter 未指定時は既存 baseline consensus のままにする。
 - `advanced_linear` 指定時だけ新 adapter を使う。
-- horizon は `5` / `20` をサポートし、不正 horizon は validation error にする。
+- horizon は `1`〜`30` をサポートし、不正 horizon は validation error にする。
 - データ不足時は graceful error または low-confidence warning として扱う。
 
 Streamlit / Ranking 接続方針:
 
-- 銘柄コックピットの予測表示エリアに最小表示を追加する。
+- 銘柄コックピットの予測表示エリアに、通常予測と同じ horizon の高度予測を表示する。
 - 表示候補は、高度予測モデル名、horizon、予測リターン、direction score、confidence、MAE / RMSE / direction accuracy、主な寄与 feature、非助言 note。
 - まずは expander `高度予測モデル詳細` でもよい。
-- Ranking では `predicted_return_5d`、`predicted_return_20d`、`advanced_forecast_score`、`advanced_forecast_confidence` の列を保持し、表示テーブル / 選択候補 breakdown / score detail / CSV export で補助情報として確認できる。
+- Ranking では互換用に `predicted_return_5d`、`predicted_return_20d`、`advanced_forecast_score`、`advanced_forecast_confidence` の列を保持し、表示テーブル / 選択候補 breakdown / score detail / CSV export で補助情報として確認できる。
 - 初期 slice では Ranking 本体順位を変更せず、補助列 / optional score として扱う。`advanced_forecast_score` による sort profile 追加は、追加高度予測モデルを一通りそろえた後の ranking logic finalization slice でまとめて検討する。
 
 実装済み / 将来 adapter 候補:
@@ -1691,15 +1691,15 @@ Streamlit / Ranking 接続方針:
 - `backend/forecast/advanced_registry.py` で advanced adapter の key、表示名、説明、対応 horizon、factory を管理する。
 - `evaluate_advanced_forecast(adapter_name=...)` を追加し、既存 `evaluate_advanced_linear_forecast` は互換 wrapper として残す。
 - `advanced_quantile` は過去の forward return 分布から中央値、20% quantile、80% quantile を返す。
-- 対応 horizon は `advanced_linear` と同じ `5` / `20` trading days とする。
+- 対応 horizon は `advanced_linear` と同じ `1`〜`30` trading days とする。
 - 通常 forecast baseline、Ranking 順位、既定 Investment Score は変更しない。
-- Streamlit Cockpit では `advanced_linear` と `advanced_quantile` を同じ高度予測セクションに表示し、`advanced_quantile` はレンジ確認用として表示する。価格・予測チャートでは `advanced_quantile` の中央予測を線、下振れ〜上振れを薄い帯として表示する。
+- Streamlit Cockpit では `advanced_linear` と `advanced_quantile` を同じ高度予測セクションに表示し、通常予測と同じ共通 horizon で比較する。価格・予測チャートでは `advanced_quantile` の中央予測を線、下振れ〜上振れを薄い帯として表示し、全体チャートの右側に予測開始前数日と予測部分を自動抽出した拡大図を並べる。系列の切り替えは Streamlit checkbox ではなくチャート内凡例 interaction で扱う。
 - Ranking auxiliary fields は当面 `advanced_linear` ベースの既存列を維持し、`advanced_quantile` は ranking logic finalization まで順位や既定 score に混ぜない。
 
 完了条件:
 
-- `POST /forecast/evaluate` で `adapter=advanced_quantile` を指定でき、5日 / 20日の中央値予測、予測価格、下振れ / 上振れレンジ、検証指標、信頼度、注意点を返す。
-- Cockpit の価格・予測チャートと予測カード / 詳細表で `advanced_quantile` が `高度予測: レンジモデル` として確認でき、チャート上では薄い帯で下振れ〜上振れの参考幅を確認できる。
+- `POST /forecast/evaluate` で `adapter=advanced_quantile` を指定でき、1〜30日の中央値予測、予測価格、下振れ / 上振れレンジ、検証指標、信頼度、注意点を返す。
+- Cockpit の価格・予測チャートと予測カード / 詳細表で `advanced_quantile` が `高度予測: レンジモデル` として確認でき、チャート上では薄い帯で下振れ〜上振れの参考幅と右側の予測拡大図を確認できる。
 - adapter registry により、今後の tree / GBDT adapter 追加時の接続箇所が限定される。
 - 通常 tests は network / cloud API / heavy ML library に依存しない。
 
@@ -1714,7 +1714,7 @@ Ranking logic finalization 方針:
 
 - `advanced_linear` adapter を import できる。
 - 小さな時系列 fixture で学習・予測できる。
-- `future_return_5d` / `future_return_20d` が生成される。
+- horizon 別の forward return target が生成される。
 - 未来データが特徴量へ混ざらない。
 - TimeSeriesSplit / walk-forward が使われ、random split が使われない。
 - 欠損があっても落ちにくい。
@@ -1731,8 +1731,8 @@ Ranking logic finalization 方針:
 - 高度予測モデルの出力は、銘柄コックピットとランキングで既存 Forecast / direction signal と読み分けられる。
 - 予測は売買判断の主体にせず、スコアやリスクと合わせて確認する材料として扱う。
 - `advanced_linear` adapter が追加され、Ridge / ElasticNet の少なくとも Ridge が使える。
-- 5 / 20 trading day forward return の予測、walk-forward validation、validation metrics、confidence、feature contribution summary が返る。
-- backend adapter は実装済み。`POST /forecast/evaluate` では `adapter=advanced_linear` 指定時に 5日 / 20日の高度予測、予測変化率、予測価格、信頼度、検証指標、特徴量要約、注意点を返す。Streamlit 銘柄コックピットでは `advanced_linear` の 5日 / 20日予測を既存の価格・予測チャートへ重ね、カードと詳細表で予測変化率、信頼度、検証指標、注意点を表示する最小 UI slice まで接続済み。Ranking では同じ `advanced_linear` 出力を補助列として保持し、表示テーブル / 選択候補 breakdown / score detail / CSV export で確認できる。Ranking 順位と既定 Investment Score は変更していない。
+- 1〜30 trading day forward return の予測、walk-forward validation、validation metrics、confidence、feature contribution summary が返る。
+- backend adapter は実装済み。`POST /forecast/evaluate` では `adapter=advanced_linear` / `advanced_quantile` 指定時に 1〜30日の高度予測、予測変化率、予測価格、信頼度、検証指標、特徴量要約またはレンジ、注意点を返す。Streamlit 銘柄コックピットでは通常予測と同じ共通 horizon の高度予測を既存の価格・予測チャートへ重ね、右側の予測拡大図、カード、詳細表で予測変化率、レンジ、信頼度、検証指標、注意点を表示する。Ranking では互換用の `advanced_linear` 5日 / 20日出力を補助列として保持し、表示テーブル / 選択候補 breakdown / score detail / CSV export で確認できる。Ranking 順位と既定 Investment Score は変更していない。
 - README または roadmap に Advanced Forecast Slice 1 として記録されている。
 
 Research資料保存方針の移行:

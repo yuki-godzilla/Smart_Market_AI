@@ -6254,7 +6254,7 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         if advanced_forecast_rows:
             st.subheader("高度予測モデル")
             st.caption(
-                "高度予測は5日・20日の参考シナリオです。売買判断ではなく、価格レンジと注意点の確認に使います。"
+                "高度予測は取得期間に合わせた予測先で表示します。売買判断ではなく、価格レンジと注意点の確認に使います。"
             )
             _render_table(
                 advanced_forecast_display_rows(advanced_forecast_rows),
@@ -9845,9 +9845,9 @@ def _render_price_forecast_hero(
         else:
             st.caption(message)
     chart_currency = preview.bars[0].symbol.currency if preview.bars else ""
-    selected_chart_series = _render_forecast_chart_filters(forecast_rows)
+    _render_forecast_chart_filters(forecast_rows)
     _render_market_chart(
-        filter_forecast_chart_rows(forecast_rows, selected_chart_series),
+        forecast_rows,
         currency=chart_currency,
         title="価格・予測",
         color_series_labels=forecast_chart_series_labels(forecast_rows),
@@ -9890,29 +9890,15 @@ def _render_advanced_forecast_cards(rows: list[dict[str, str]]) -> None:
             )
 
 
-def _render_forecast_chart_filters(rows: list[dict[str, str]]) -> set[str]:
+def _render_forecast_chart_filters(rows: list[dict[str, str]]) -> None:
     options = forecast_chart_series_options(rows)
     if not options:
-        return set()
+        return
     st.markdown("###### チャート表示")
-    columns = st.columns(min(3, len(options)))
-    selected: set[str] = set()
-    for index, option in enumerate(options):
-        with columns[index % len(columns)]:
-            checked = st.checkbox(
-                option["label"],
-                value=option["default"],
-                key=f"market_data_forecast_chart_series_{option['series']}",
-                help=option["help"],
-            )
-        if checked:
-            selected.add(option["series"])
-    if not selected:
-        selected = default_forecast_chart_series(options)
     st.caption(
-        "直近値維持は比較基準のため、必要な時だけ表示します。" "実線は実績、点線は予測です。"
+        "凡例のモデル名をクリックすると、その系列を画面内で薄くできます。"
+        "画面全体の再計算を避けるため、チェックボックスではなくチャート内操作にしています。"
     )
-    return selected
 
 
 def _render_forecast_model_comparison_cards(rows: list[dict[str, str]]) -> None:
@@ -10003,7 +9989,7 @@ def _forecast_chart_series_default(series: str) -> bool:
         return False
     advanced_match = re.fullmatch(r"advanced_[a-z_]+_(\d+)d", series)
     if advanced_match:
-        return advanced_match.group(1) == "5"
+        return True
     return True
 
 
@@ -13166,9 +13152,6 @@ def _render_market_chart(
         return
     y_axis_title = f"終値 ({currency})" if currency else "終値"
     chart_data = market_chart_long_frame(rows)
-    range_band_data = forecast_range_band_frame(rows)
-    boundary_data = forecast_boundary_frame(rows)
-    latest_actual_data = latest_actual_price_frame(rows)
     color_domain = forecast_chart_color_domain(
         color_series_labels
         if color_series_labels is not None
@@ -13189,104 +13172,25 @@ def _render_market_chart(
         toggle="true",
         empty=False,
     )
-    forecast_data = chart_data[chart_data["series_label"] != FORECAST_ACTUAL_LABEL]
-    actual_data = chart_data[chart_data["series_label"] == FORECAST_ACTUAL_LABEL]
-    range_band = (
-        alt.Chart(range_band_data)
-        .mark_area(opacity=0.16)
-        .encode(
-            x=alt.X("date:T", title="Date", axis=alt.Axis(format="%m/%d", labelAngle=0)),
-            y=alt.Y("lower:Q", title=y_axis_title, scale=alt.Scale(zero=False)),
-            y2=alt.Y2("upper:Q"),
-            color=alt.Color(
-                "series_label:N",
-                title="価格・モデル",
-                legend=None,
-                scale=color_scale,
-            ),
-            tooltip=[
-                alt.Tooltip("date:T", title="日付"),
-                alt.Tooltip("series_label:N", title="価格・モデル"),
-                alt.Tooltip("lower:Q", title="下振れ"),
-                alt.Tooltip("upper:Q", title="上振れ"),
-            ],
-            opacity=alt.condition(disabled_series, alt.value(0.06), alt.value(0.16)),
-        )
-        .properties(height=540, width=1400)
+    chart = _market_chart_layers(
+        rows,
+        y_axis_title=y_axis_title,
+        color_scale=color_scale,
+        disabled_series=disabled_series,
+        height=540,
+        width=920,
+        title="全体",
     )
-    base_encoding = {
-        "x": alt.X("date:T", title="Date", axis=alt.Axis(format="%m/%d", labelAngle=0)),
-        "y": alt.Y("value:Q", title=y_axis_title, scale=alt.Scale(zero=False)),
-        "color": alt.Color(
-            "series_label:N",
-            title="価格・モデル",
-            legend=None,
-            scale=color_scale,
-        ),
-        "strokeDash": alt.StrokeDash(
-            "line_label:N",
-            title="実績/予測",
-            scale=alt.Scale(domain=["実績", "予測"], range=[[1, 0], [6, 4]]),
-            legend=None,
-        ),
-        "tooltip": [
-            alt.Tooltip("date:T", title="日付"),
-            alt.Tooltip("series_label:N", title="価格・モデル"),
-            alt.Tooltip("value:Q", title="終値"),
-            alt.Tooltip("line_label:N", title="実績/予測"),
-        ],
-        "opacity": alt.condition(disabled_series, alt.value(0.18), alt.value(1.0)),
-    }
-    forecast_lines = (
-        alt.Chart(forecast_data)
-        .mark_line(
-            point=alt.OverlayMarkDef(filled=True, size=34, opacity=0.92),
-            strokeWidth=1.9,
-            opacity=0.9,
-        )
-        .encode(**base_encoding)
-        .properties(height=540, width=1400)
+    focus_rows = forecast_focus_chart_rows(rows)
+    focus_chart = _market_chart_layers(
+        focus_rows,
+        y_axis_title=y_axis_title,
+        color_scale=color_scale,
+        disabled_series=disabled_series,
+        height=540,
+        width=390,
+        title="予測拡大",
     )
-    actual_line = (
-        alt.Chart(actual_data)
-        .mark_line(
-            point=alt.OverlayMarkDef(filled=True, size=60),
-            strokeWidth=3.4,
-        )
-        .encode(**base_encoding)
-        .properties(height=540, width=1400)
-    )
-    chart = range_band + forecast_lines + actual_line
-    if not latest_actual_data.empty:
-        latest_marker = (
-            alt.Chart(latest_actual_data)
-            .mark_point(
-                filled=True,
-                shape="diamond",
-                size=180,
-                color=FORECAST_ACTUAL_PRICE_COLOR,
-                stroke=THEME_COLORS["text_title"],
-                strokeWidth=1.8,
-            )
-            .encode(
-                x=alt.X("date:T"),
-                y=alt.Y("value:Q"),
-                tooltip=[
-                    alt.Tooltip("date:T", title="日付"),
-                    alt.Tooltip("marker_label:N", title="状態"),
-                    alt.Tooltip("value:Q", title="現在価格"),
-                ],
-                opacity=alt.condition(disabled_series, alt.value(0.18), alt.value(1.0)),
-            )
-        )
-        chart = chart + latest_marker
-    if not boundary_data.empty:
-        boundary_rule = (
-            alt.Chart(boundary_data)
-            .mark_rule(color=THEME_COLORS["text_muted"], opacity=0.52, strokeDash=[4, 4])
-            .encode(x="date:T")
-        )
-        chart = chart + boundary_rule
     series_legend_base = alt.Chart(legend_data).encode(
         y=alt.Y("series_label:N", title=None, axis=None, sort=None),
         color=alt.Color(
@@ -13336,9 +13240,9 @@ def _render_market_chart(
         spacing=10,
     )
     combined_chart = (
-        alt.hconcat(chart, legend, spacing=10)
+        alt.hconcat(chart, focus_chart, legend, spacing=10)
         .add_params(disabled_series)
-        .resolve_scale(color="shared")
+        .resolve_scale(color="shared", y="independent", x="independent")
         .configure(background=THEME_COLORS["bg_surface"])
         .configure_view(fill=THEME_COLORS["bg_card"], stroke=THEME_COLORS["border_strong"])
         .configure_axis(
@@ -13355,6 +13259,122 @@ def _render_market_chart(
         combined_chart,
         use_container_width=True,
     )
+
+
+def _market_chart_layers(
+    rows: list[dict[str, str]],
+    *,
+    y_axis_title: str,
+    color_scale: alt.Scale,
+    disabled_series: alt.Parameter,
+    height: int,
+    width: int,
+    title: str,
+) -> alt.LayerChart:
+    chart_data = market_chart_long_frame(rows)
+    range_band_data = forecast_range_band_frame(rows)
+    boundary_data = forecast_boundary_frame(rows)
+    latest_actual_data = latest_actual_price_frame(rows)
+    forecast_data = chart_data[chart_data["series_label"] != FORECAST_ACTUAL_LABEL]
+    actual_data = chart_data[chart_data["series_label"] == FORECAST_ACTUAL_LABEL]
+    base_x = alt.X("date:T", title="Date", axis=alt.Axis(format="%m/%d", labelAngle=0))
+    base_encoding = {
+        "x": base_x,
+        "y": alt.Y("value:Q", title=y_axis_title, scale=alt.Scale(zero=False)),
+        "color": alt.Color(
+            "series_label:N",
+            title="価格・モデル",
+            legend=None,
+            scale=color_scale,
+        ),
+        "strokeDash": alt.StrokeDash(
+            "line_label:N",
+            title="実績/予測",
+            scale=alt.Scale(domain=["実績", "予測"], range=[[1, 0], [6, 4]]),
+            legend=None,
+        ),
+        "tooltip": [
+            alt.Tooltip("date:T", title="日付"),
+            alt.Tooltip("series_label:N", title="価格・モデル"),
+            alt.Tooltip("value:Q", title="終値"),
+            alt.Tooltip("line_label:N", title="実績/予測"),
+        ],
+        "opacity": alt.condition(disabled_series, alt.value(0.18), alt.value(1.0)),
+    }
+    range_band = (
+        alt.Chart(range_band_data)
+        .mark_area(opacity=0.18)
+        .encode(
+            x=base_x,
+            y=alt.Y("lower:Q", title=y_axis_title, scale=alt.Scale(zero=False)),
+            y2=alt.Y2("upper:Q"),
+            color=alt.Color(
+                "series_label:N",
+                title="価格・モデル",
+                legend=None,
+                scale=color_scale,
+            ),
+            tooltip=[
+                alt.Tooltip("date:T", title="日付"),
+                alt.Tooltip("series_label:N", title="価格・モデル"),
+                alt.Tooltip("lower:Q", title="下振れ"),
+                alt.Tooltip("upper:Q", title="上振れ"),
+            ],
+            opacity=alt.condition(disabled_series, alt.value(0.05), alt.value(0.18)),
+        )
+        .properties(height=height, width=width)
+    )
+    forecast_lines = (
+        alt.Chart(forecast_data)
+        .mark_line(
+            point=alt.OverlayMarkDef(filled=True, size=34, opacity=0.92),
+            strokeWidth=1.9,
+            opacity=0.9,
+        )
+        .encode(**base_encoding)
+        .properties(height=height, width=width)
+    )
+    actual_line = (
+        alt.Chart(actual_data)
+        .mark_line(
+            point=alt.OverlayMarkDef(filled=True, size=60),
+            strokeWidth=3.4,
+        )
+        .encode(**base_encoding)
+        .properties(height=height, width=width)
+    )
+    chart = range_band + forecast_lines + actual_line
+    if not latest_actual_data.empty:
+        latest_marker = (
+            alt.Chart(latest_actual_data)
+            .mark_point(
+                filled=True,
+                shape="diamond",
+                size=180,
+                color=FORECAST_ACTUAL_PRICE_COLOR,
+                stroke=THEME_COLORS["text_title"],
+                strokeWidth=1.8,
+            )
+            .encode(
+                x=alt.X("date:T"),
+                y=alt.Y("value:Q"),
+                tooltip=[
+                    alt.Tooltip("date:T", title="日付"),
+                    alt.Tooltip("marker_label:N", title="状態"),
+                    alt.Tooltip("value:Q", title="現在価格"),
+                ],
+                opacity=alt.condition(disabled_series, alt.value(0.18), alt.value(1.0)),
+            )
+        )
+        chart = chart + latest_marker
+    if not boundary_data.empty:
+        boundary_rule = (
+            alt.Chart(boundary_data)
+            .mark_rule(color=THEME_COLORS["text_muted"], opacity=0.52, strokeDash=[4, 4])
+            .encode(x="date:T")
+        )
+        chart = chart + boundary_rule
+    return chart.properties(height=height, width=width, title=title)
 
 
 def _render_provider_error_summary(rows: list[dict[str, str]]) -> None:
@@ -13504,6 +13524,50 @@ def forecast_range_band_frame(rows: list[dict[str, str]]) -> pd.DataFrame:
     return pd.concat(range_rows, ignore_index=True)
 
 
+def forecast_focus_chart_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Return rows around the latest actual price and the forward forecast area."""
+
+    dated_rows: list[tuple[date, dict[str, str]]] = []
+    for row in rows:
+        ts = row.get("ts", "")
+        if not ts:
+            continue
+        parsed = pd.to_datetime(ts, errors="coerce")
+        if pd.isna(parsed):
+            continue
+        dated_rows.append((parsed.date(), row))
+    if not dated_rows:
+        return rows
+
+    actual_dates = [row_date for row_date, row in dated_rows if str(row.get("close", "")).strip()]
+    if not actual_dates:
+        return rows
+
+    latest_actual_date = max(actual_dates)
+    future_forecast_dates = [
+        row_date
+        for row_date, row in dated_rows
+        if row_date > latest_actual_date and _row_has_forecast_value(row)
+    ]
+    latest_forecast_date = (
+        max(future_forecast_dates) if future_forecast_dates else latest_actual_date
+    )
+    forecast_span_days = max(1, (latest_forecast_date - latest_actual_date).days)
+    lookback_days = max(3, min(14, (forecast_span_days // 2) + 2))
+    focus_start = latest_actual_date - timedelta(days=lookback_days)
+    return [row for row_date, row in dated_rows if row_date >= focus_start]
+
+
+def _row_has_forecast_value(row: Mapping[str, str]) -> bool:
+    return any(
+        key != "ts"
+        and key != "close"
+        and not _is_forecast_range_bound_series(key)
+        and str(value).strip()
+        for key, value in row.items()
+    )
+
+
 def _is_forecast_range_bound_series(series: str) -> bool:
     return bool(re.fullmatch(r"advanced_quantile_\d+d_(lower|upper)", series))
 
@@ -13639,11 +13703,11 @@ def advanced_forecast_intro_text(rows: list[dict[str, str]]) -> str:
     ]
     if parts:
         return (
-            "高度予測は5日・20日の複数モデルによる参考シナリオです。"
+            "高度予測は取得期間に合わせた予測先でそろえた参考シナリオです。"
             f"今回の参考変化率は {' / '.join(parts)}。"
             "将来の値動きを保証するものではありません。"
         )
-    return "高度予測は5日・20日の参考シナリオです。将来の値動きを保証するものではありません。"
+    return "高度予測は取得期間に合わせた予測先の参考シナリオです。将来の値動きを保証するものではありません。"
 
 
 def _advanced_forecast_model_title(row: Mapping[str, str]) -> str:
@@ -14135,7 +14199,7 @@ def ranking_score_detail_rows(ranking_row: dict[str, str]) -> list[dict[str, str
                     "観点": "高度予測",
                     "内容": advanced_value,
                     "確認ポイント": (
-                        "5日・20日の参考シナリオです。ランキング順位は変えず、価格・予測チャートで確認します。"
+                        "ランキング互換用の5日・20日補助シナリオです。順位は変えず、Cockpitの共通予測日数と分けて確認します。"
                     ),
                 }
             ]

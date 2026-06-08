@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-06-08: Shifted more Cockpit price / forecast chart width to the full-history panel while keeping the forecast-focus panel narrow, raising the two-panel chart target width to 1280px without changing chart height.
 - 2026-06-08: Adjusted the Cockpit price / forecast chart sizing from the prior 20% width expansion to roughly 15% width expansion and reduced chart height by 10% for a less vertically stretched layout.
 - 2026-06-08: Increased the Cockpit price / forecast chart's full and forecast-focus widths by roughly 20% while keeping the same two-panel layout and bottom model color key.
 - 2026-06-08: Added a Phase 23 closeout task to demote naive / moving-average / momentum simple forecast models from the default Cockpit chart and Ranking main logic after advanced forecast adapters / `forecast_consensus` are ready, while keeping them as backend baseline / fallback / test context.

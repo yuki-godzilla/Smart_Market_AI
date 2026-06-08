@@ -44,6 +44,8 @@ from ui.rebalance_app import (
     PROJECT_ROOT,
     SCENARIO_DIR_ENV,
     RebalanceScenarioError,
+    advanced_forecast_results_for_bars,
+    advanced_forecast_rows_for_results,
     advanced_linear_forecast_results_for_bars,
     advanced_linear_forecast_rows,
     allocation_comparison_rows,
@@ -720,6 +722,40 @@ def test_advanced_linear_forecast_rows_can_feed_forecast_chart():
     assert rows_by_ts[latest_ts]["advanced_linear_5d"] == "169"
     assert rows_by_ts[five_day_ts]["advanced_linear_5d"] == advanced_rows[0]["forecast_close"]
     assert rows_by_ts[twenty_day_ts]["advanced_linear_20d"] == advanced_rows[1]["forecast_close"]
+
+
+def test_advanced_forecast_rows_include_quantile_range_for_chart():
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    bars = [
+        _bar(
+            "AAPL",
+            (start + timedelta(days=index)).isoformat(),
+            str(100 + index),
+        )
+        for index in range(70)
+    ]
+
+    results = advanced_forecast_results_for_bars(bars)
+    advanced_rows = advanced_forecast_rows_for_results(results, bars)
+    chart_rows = forecast_chart_rows(
+        bars[-10:],
+        horizon_days=1,
+        advanced_forecast_rows=advanced_rows,
+    )
+
+    adapters = {row["adapter"] for row in advanced_rows}
+    quantile_rows = [row for row in advanced_rows if row["adapter"] == "advanced_quantile"]
+    rows_by_ts = {row["ts"]: row for row in chart_rows}
+    latest_ts = bars[-1].ts.isoformat()
+    five_day_ts = (bars[-1].ts + timedelta(days=5)).isoformat()
+
+    assert adapters == {"advanced_linear", "advanced_quantile"}
+    assert quantile_rows
+    assert quantile_rows[0]["model_label"] == "高度予測: レンジモデル"
+    assert quantile_rows[0]["predicted_return_lower"]
+    assert quantile_rows[0]["predicted_return_upper"]
+    assert rows_by_ts[latest_ts]["advanced_quantile_5d"] == "169"
+    assert rows_by_ts[five_day_ts]["advanced_quantile_5d"] == quantile_rows[0]["forecast_close"]
 
 
 def test_forecast_consensus_rows_tolerates_cached_old_summarizer(monkeypatch):

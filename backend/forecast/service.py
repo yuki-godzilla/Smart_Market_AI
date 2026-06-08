@@ -7,11 +7,8 @@ from typing import Literal, Protocol, TypedDict
 from pydantic import ConfigDict, Field
 
 from backend.core.data_contracts import Bar, StrictBaseModel
-from backend.forecast.adapters import (
-    AdvancedForecastValidationMetrics,
-    AdvancedLinearForecastAdapter,
-    FeatureContribution,
-)
+from backend.forecast.adapters import AdvancedForecastValidationMetrics, FeatureContribution
+from backend.forecast.advanced_registry import advanced_forecast_adapter_spec
 
 DirectionSignalLabel = Literal[
     "STRONG_UPSIDE",
@@ -85,6 +82,10 @@ class AdvancedForecastEvaluation(StrictBaseModel):
     latest_close: Decimal = Field(ge=0)
     forecast_close: Decimal = Field(ge=0)
     predicted_return: Decimal
+    predicted_return_lower: Decimal | None = None
+    predicted_return_upper: Decimal | None = None
+    forecast_close_lower: Decimal | None = Field(default=None, ge=0)
+    forecast_close_upper: Decimal | None = Field(default=None, ge=0)
     direction_score: Decimal = Field(ge=0, le=1)
     confidence: str = Field(min_length=1)
     validation_metrics: AdvancedForecastValidationMetrics
@@ -227,12 +228,34 @@ def evaluate_advanced_linear_forecast(
 ) -> AdvancedForecastEvaluation:
     """Evaluate the deterministic advanced-linear forecast adapter."""
 
+    return evaluate_advanced_forecast(
+        bars,
+        adapter_name="advanced_linear",
+        horizon_days=horizon_days,
+    )
+
+
+def evaluate_advanced_forecast(
+    bars: list[Bar],
+    *,
+    adapter_name: str,
+    horizon_days: int,
+) -> AdvancedForecastEvaluation:
+    """Evaluate a deterministic advanced forecast adapter by registry key."""
+
     sorted_bars = sorted(bars, key=lambda bar: bar.ts)
     if not sorted_bars:
         raise ValueError("bars are required")
-    result = AdvancedLinearForecastAdapter().forecast(sorted_bars, horizon_days=horizon_days)
+    spec = advanced_forecast_adapter_spec(adapter_name)
+    if spec is None:
+        raise ValueError(f"unsupported advanced forecast adapter: {adapter_name}")
+    if horizon_days not in spec.supported_horizons:
+        raise ValueError(f"{adapter_name} supports only supported_horizons")
+    result = spec.factory().forecast(sorted_bars, horizon_days=horizon_days)
     latest_close = sorted_bars[-1].close
     forecast_close = latest_close * (Decimal("1") + result.predicted_return)
+    predicted_return_lower = getattr(result, "predicted_return_lower", None)
+    predicted_return_upper = getattr(result, "predicted_return_upper", None)
     return AdvancedForecastEvaluation(
         adapter_name=result.adapter_name,
         model_name=result.model_name,
@@ -241,6 +264,18 @@ def evaluate_advanced_linear_forecast(
         latest_close=_round_price(latest_close),
         forecast_close=_round_price(forecast_close),
         predicted_return=result.predicted_return,
+        predicted_return_lower=predicted_return_lower,
+        predicted_return_upper=predicted_return_upper,
+        forecast_close_lower=(
+            _round_price(latest_close * (Decimal("1") + predicted_return_lower))
+            if predicted_return_lower is not None
+            else None
+        ),
+        forecast_close_upper=(
+            _round_price(latest_close * (Decimal("1") + predicted_return_upper))
+            if predicted_return_upper is not None
+            else None
+        ),
         direction_score=result.direction_score,
         confidence=result.confidence,
         validation_metrics=result.validation_metrics,

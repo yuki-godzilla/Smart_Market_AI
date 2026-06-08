@@ -1581,7 +1581,7 @@ Phase 22 完了条件:
 
 ### 5.9 Phase 23: Optional Adapter と高度分析
 
-状態: Advanced Forecast Slice 1 backend adapter / forecast service / API / Streamlit Cockpit / Ranking auxiliary display 接続済み。Ranking 順位への統合は未実施で、追加予定の高度予測モデルを一通り実装してからまとめて仕上げる。
+状態: Advanced Forecast Slice 1 `advanced_linear` と Slice 2 `advanced_quantile` / adapter registry 接続済み。Ranking 順位への統合は未実施で、追加予定の高度予測モデルを一通り実装してからまとめて仕上げる。
 
 目的: default path を deterministic に保ったまま、追加 provider、advanced forecast / research model、news / sentiment、将来の LLM adapter を optional layer として追加する。次の実装優先度は、銘柄コックピット / 銘柄ランキングで使う高度予測モデル adapter を複数そろえ、比較表示の土台を作ること。
 
@@ -1671,13 +1671,37 @@ Streamlit / Ranking 接続方針:
 - Ranking では `predicted_return_5d`、`predicted_return_20d`、`advanced_forecast_score`、`advanced_forecast_confidence` の列を保持し、表示テーブル / 選択候補 breakdown / score detail / CSV export で補助情報として確認できる。
 - 初期 slice では Ranking 本体順位を変更せず、補助列 / optional score として扱う。`advanced_forecast_score` による sort profile 追加は、追加高度予測モデルを一通りそろえた後の ranking logic finalization slice でまとめて検討する。
 
-将来 adapter 候補:
+実装済み / 将来 adapter 候補:
 
+- 実装済み: `advanced_linear`: lightweight deterministic Ridge-style model
+- 実装済み: `advanced_quantile`: historical forward-return quantile / prediction range
 - `advanced_tree_sklearn`: RandomForestRegressor / ExtraTreesRegressor
 - `advanced_gbdt_sklearn`: HistGradientBoostingRegressor
 - `advanced_gbdt_optional`: LightGBM / XGBoost
-- `advanced_quantile`: Quantile Regression / prediction interval
 - LightGBM / XGBoost / Prophet / deep learning 系は今回追加しない。
+
+#### Phase 23.b: Advanced Forecast Slice 2 - adapter registry / `advanced_quantile`
+
+状態: 実装済み。backend adapter registry / service / API / Streamlit Cockpit chart-card-detail 接続済み。Ranking 順位と既定 Investment Score は変更していない。
+
+目的: 高度予測 adapter を model-by-model に直結せず、registry 経由で増やせる境界を作る。2本目の adapter として、単一予測値だけでなく下振れ / 中央 / 上振れレンジを確認できる deterministic quantile model を追加する。
+
+実装方針:
+
+- `backend/forecast/advanced_registry.py` で advanced adapter の key、表示名、説明、対応 horizon、factory を管理する。
+- `evaluate_advanced_forecast(adapter_name=...)` を追加し、既存 `evaluate_advanced_linear_forecast` は互換 wrapper として残す。
+- `advanced_quantile` は過去の forward return 分布から中央値、20% quantile、80% quantile を返す。
+- 対応 horizon は `advanced_linear` と同じ `5` / `20` trading days とする。
+- 通常 forecast baseline、Ranking 順位、既定 Investment Score は変更しない。
+- Streamlit Cockpit では `advanced_linear` と `advanced_quantile` を同じ高度予測セクションに表示し、`advanced_quantile` はレンジ確認用として表示する。
+- Ranking auxiliary fields は当面 `advanced_linear` ベースの既存列を維持し、`advanced_quantile` は ranking logic finalization まで順位や既定 score に混ぜない。
+
+完了条件:
+
+- `POST /forecast/evaluate` で `adapter=advanced_quantile` を指定でき、5日 / 20日の中央値予測、予測価格、下振れ / 上振れレンジ、検証指標、信頼度、注意点を返す。
+- Cockpit の価格・予測チャートと予測カード / 詳細表で `advanced_quantile` が `高度予測: レンジモデル` として確認できる。
+- adapter registry により、今後の tree / GBDT adapter 追加時の接続箇所が限定される。
+- 通常 tests は network / cloud API / heavy ML library に依存しない。
 
 Ranking logic finalization 方針:
 

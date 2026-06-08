@@ -1,6 +1,6 @@
 from datetime import UTC, date, datetime, time
 from decimal import Decimal
-from typing import Any, Literal
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -10,14 +10,15 @@ from backend.core.config import get_settings
 from backend.core.data_contracts import Bar, Position, StrictBaseModel, TradeIntent
 from backend.core.errors import AppError, ComputationError
 from backend.forecast import (
-    ADVANCED_LINEAR_ADAPTER_NAME,
-    SUPPORTED_ADVANCED_LINEAR_HORIZONS,
     AdvancedForecastEvaluation,
     ForecastConsensus,
     ForecastEvaluation,
     ForecastModel,
+    advanced_forecast_adapter_keys,
+    advanced_forecast_adapter_spec,
+    advanced_forecast_supported_horizons,
     available_forecast_models,
-    evaluate_advanced_linear_forecast,
+    evaluate_advanced_forecast,
     evaluate_models,
     summarize_forecast_evaluations,
 )
@@ -216,6 +217,13 @@ class ForecastEvaluateRequest(StrictBaseModel):
                     "horizon_days": 5,
                     "adapter": "advanced_linear",
                 },
+                {
+                    "symbol": "AAPL",
+                    "start": "2026-04-01",
+                    "end": "2026-06-06",
+                    "horizon_days": 20,
+                    "adapter": "advanced_quantile",
+                },
             ]
         },
     )
@@ -224,7 +232,7 @@ class ForecastEvaluateRequest(StrictBaseModel):
     start: date
     end: date
     horizon_days: int = Field(default=1, ge=1, le=30)
-    adapter: Literal["baseline", "advanced_linear"] = "baseline"
+    adapter: str = Field(default="baseline", min_length=1)
 
 
 class InvestmentScoreRequest(StrictBaseModel):
@@ -350,8 +358,8 @@ async def build_forecast_evaluations(
         start=datetime.combine(request.start, time.min, tzinfo=UTC),
         end=datetime.combine(request.end, time.max, tzinfo=UTC),
     )
-    if request.adapter == ADVANCED_LINEAR_ADAPTER_NAME:
-        return [_build_advanced_linear_forecast_evaluation(request, bars)]
+    if request.adapter != "baseline":
+        return [_build_advanced_forecast_evaluation(request, bars)]
 
     models = _available_forecast_models(len(bars))
     if not bars or not models:
@@ -366,27 +374,38 @@ async def build_forecast_evaluations(
     return evaluate_models(bars, models=models, horizon_days=request.horizon_days)
 
 
-def _build_advanced_linear_forecast_evaluation(
+def _build_advanced_forecast_evaluation(
     request: ForecastEvaluateRequest,
     bars: list[Bar],
 ) -> AdvancedForecastEvaluation:
-    if request.horizon_days not in SUPPORTED_ADVANCED_LINEAR_HORIZONS:
+    spec = advanced_forecast_adapter_spec(request.adapter)
+    if spec is None:
         raise ComputationError(
-            "advanced_linear supports only 5 or 20 day horizons",
+            "Unsupported forecast adapter",
+            details={
+                "adapter": request.adapter,
+                "supported_adapters": ["baseline", *advanced_forecast_adapter_keys()],
+            },
+        )
+    supported_horizons = advanced_forecast_supported_horizons(request.adapter)
+    if request.horizon_days not in supported_horizons:
+        raise ComputationError(
+            f"{request.adapter} supports only 5 or 20 day horizons",
             details={
                 "adapter": request.adapter,
                 "horizon_days": request.horizon_days,
-                "supported_horizons": list(SUPPORTED_ADVANCED_LINEAR_HORIZONS),
+                "supported_horizons": list(supported_horizons),
             },
         )
     try:
-        return evaluate_advanced_linear_forecast(
+        return evaluate_advanced_forecast(
             bars,
+            adapter_name=request.adapter,
             horizon_days=request.horizon_days,
         )
     except ValueError as exc:
         raise ComputationError(
-            "Not enough OHLCV bars for advanced_linear forecast evaluation",
+            f"Not enough OHLCV bars for {request.adapter} forecast evaluation",
             details={
                 "symbol": request.symbol,
                 "bar_count": len(bars),

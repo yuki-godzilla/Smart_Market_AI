@@ -5651,7 +5651,12 @@ def _advanced_forecast_rows_for_ranking(bars: list[Bar]) -> list[dict[str, str]]
 def _ranking_advanced_forecast_fields(
     advanced_forecast_rows: list[dict[str, str]],
 ) -> dict[str, str]:
-    if not advanced_forecast_rows:
+    linear_rows = [
+        row
+        for row in advanced_forecast_rows
+        if row.get("adapter", "advanced_linear") == "advanced_linear"
+    ]
+    if not linear_rows:
         return {}
 
     fields: dict[str, str] = {
@@ -5664,7 +5669,7 @@ def _ranking_advanced_forecast_fields(
     direction_scores: list[Decimal] = []
     confidence_rank = {"low": 0, "medium": 1, "high": 2}
     confidences: list[str] = []
-    for row in advanced_forecast_rows:
+    for row in linear_rows:
         horizon = str(row.get("horizon_days", "")).strip()
         if horizon:
             horizons.append(horizon)
@@ -6249,7 +6254,7 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         if advanced_forecast_rows:
             st.subheader("高度予測モデル")
             st.caption(
-                "advanced_linear は5日・20日の参考予測です。売買判断ではなく、価格シナリオと注意点の確認に使います。"
+                "高度予測は5日・20日の参考シナリオです。売買判断ではなく、価格レンジと注意点の確認に使います。"
             )
             _render_table(
                 advanced_forecast_display_rows(advanced_forecast_rows),
@@ -9978,7 +9983,7 @@ def default_forecast_chart_series(options: list[dict[str, Any]]) -> set[str]:
 def forecast_chart_series_kind(series: str) -> str:
     if series == "naive":
         return "baseline"
-    if re.fullmatch(r"advanced_linear_\d+d", series):
+    if re.fullmatch(r"advanced_[a-z_]+_\d+d", series):
         return "advanced"
     return "standard"
 
@@ -9988,6 +9993,8 @@ def forecast_chart_series_help(series: str) -> str:
     if kind == "baseline":
         return "最新終値をそのまま置く比較基準です。予測カードには表示しません。"
     if kind == "advanced":
+        if series.startswith("advanced_quantile_"):
+            return "過去の値動き分布から下振れ・中央値・上振れを確認する高度予測です。"
         return "複数の価格特徴量を使う高度予測です。売買判断ではなく参考シナリオです。"
     return _forecast_model_logic_help(series)
 
@@ -10048,10 +10055,11 @@ def forecast_model_card_rows(
         horizon_days = row.get("horizon_days", "")
         forecast_return = _signed_percent_from_text(row.get("predicted_return", ""))
         forecast_close = row.get("forecast_close", "")
+        range_display = _advanced_forecast_range_display(row)
         confidence = _advanced_forecast_confidence_label(row.get("confidence", ""))
         cards.append(
             {
-                "model": f"高度予測: 線形モデル {horizon_days}日",
+                "model": _advanced_forecast_model_title(row),
                 "kind": "高度予測",
                 "horizon": forecast_horizon_display(
                     horizon_days,
@@ -10061,13 +10069,9 @@ def forecast_model_card_rows(
                 "forecast_close": forecast_close or "未計算",
                 "sub": (
                     f"予測値 {forecast_close or '未計算'} / "
-                    f"方向感 {row.get('direction_score', '') or '未計算'}"
+                    f"{'レンジ ' + range_display if range_display else '方向感 ' + (row.get('direction_score', '') or '未計算')}"
                 ),
-                "help": (
-                    "リターン、移動平均との差、値動きの大きさ、下落幅、出来高などを使い、"
-                    f"過去に似た状態から{horizon_days}日後にどう動いたかを線形モデルで参考推定します。"
-                    "売買判断ではなく価格シナリオ確認用です。"
-                ),
+                "help": _advanced_forecast_model_help(row),
                 "tone": _forecast_card_tone(forecast_return),
                 "badges": (
                     badge_html("高度予測", "info"),
@@ -13488,9 +13492,10 @@ def advanced_forecast_display_rows(rows: list[dict[str, str]]) -> list[dict[str,
     }
     return [
         {
-            "モデル": f"高度予測: 線形モデル {row.get('horizon_days', '')}日",
+            "モデル": _advanced_forecast_model_title(row),
             "予測変化": _signed_percent_from_text(row.get("predicted_return", "")),
             "予測価格": row.get("forecast_close", ""),
+            "想定レンジ": _advanced_forecast_range_display(row),
             "方向感": row.get("direction_score", ""),
             "信頼度": confidence_labels.get(row.get("confidence", ""), row.get("confidence", "")),
             "RMSE": row.get("rmse", ""),
@@ -13509,6 +13514,7 @@ def advanced_forecast_card_rows(rows: list[dict[str, str]]) -> list[dict[str, An
         horizon_days = row.get("horizon_days", "")
         predicted_return = row.get("predicted_return", "")
         forecast_close = row.get("forecast_close", "")
+        range_display = _advanced_forecast_range_display(row)
         direction_score = row.get("direction_score", "")
         confidence = _advanced_forecast_confidence_label(row.get("confidence", ""))
         direction_accuracy = row.get("direction_accuracy", "")
@@ -13519,7 +13525,7 @@ def advanced_forecast_card_rows(rows: list[dict[str, str]]) -> list[dict[str, An
                 "value": _signed_percent_from_text(predicted_return) or "未計算",
                 "caption": (
                     f"予測価格 {forecast_close or '未計算'} / "
-                    f"方向感 {direction_score or '未計算'}"
+                    f"{'レンジ ' + range_display if range_display else '方向感 ' + (direction_score or '未計算')}"
                 ),
                 "help": (
                     f"方向一致 {direction_accuracy or '未計算'}、検証数 {sample_count or '0'}。"
@@ -13542,7 +13548,7 @@ def advanced_forecast_card_rows(rows: list[dict[str, str]]) -> list[dict[str, An
 def advanced_forecast_intro_text(rows: list[dict[str, str]]) -> str:
     parts = [
         (
-            f"{row.get('horizon_days', '')}日 "
+            f"{_advanced_forecast_model_title(row)} "
             f"{_signed_percent_from_text(row.get('predicted_return', ''))}"
         ).strip()
         for row in rows
@@ -13550,11 +13556,48 @@ def advanced_forecast_intro_text(rows: list[dict[str, str]]) -> str:
     ]
     if parts:
         return (
-            "高度予測は5日・20日の線形モデル予測です。"
+            "高度予測は5日・20日の複数モデルによる参考シナリオです。"
             f"今回の参考変化率は {' / '.join(parts)}。"
             "将来の値動きを保証するものではありません。"
         )
-    return "高度予測は5日・20日の線形モデル予測です。将来の値動きを保証するものではありません。"
+    return "高度予測は5日・20日の参考シナリオです。将来の値動きを保証するものではありません。"
+
+
+def _advanced_forecast_model_title(row: Mapping[str, str]) -> str:
+    model_label = row.get("model_label", "").strip()
+    if not model_label:
+        adapter = row.get("adapter", "").strip()
+        if adapter == "advanced_quantile":
+            model_label = "高度予測: レンジモデル"
+        elif adapter == "advanced_linear" or not adapter:
+            model_label = "高度予測: 線形モデル"
+        else:
+            model_label = f"高度予測: {adapter or row.get('model', '')}".strip()
+    horizon_days = row.get("horizon_days", "").strip()
+    return f"{model_label} {horizon_days}日".strip()
+
+
+def _advanced_forecast_range_display(row: Mapping[str, str]) -> str:
+    lower = _signed_percent_from_text(row.get("predicted_return_lower", ""))
+    upper = _signed_percent_from_text(row.get("predicted_return_upper", ""))
+    if lower and upper:
+        return f"{lower}〜{upper}"
+    return ""
+
+
+def _advanced_forecast_model_help(row: Mapping[str, str]) -> str:
+    horizon_days = row.get("horizon_days", "")
+    adapter = row.get("adapter", "")
+    if adapter == "advanced_quantile":
+        return (
+            f"過去に観測された{horizon_days}日後リターンの分布から、中央値と下振れ・上振れを"
+            "参考表示します。売買判断ではなく価格レンジ確認用です。"
+        )
+    return (
+        "リターン、移動平均との差、値動きの大きさ、下落幅、出来高などを使い、"
+        f"過去に似た状態から{horizon_days}日後にどう動いたかを線形モデルで参考推定します。"
+        "売買判断ではなく価格シナリオ確認用です。"
+    )
 
 
 def _advanced_forecast_confidence_label(value: str) -> str:
@@ -14130,9 +14173,15 @@ def forecast_metric_summary(rows: list[dict[str, str]]) -> list[str]:
 def _forecast_series_label(series: str) -> str:
     if series == "close":
         return FORECAST_ACTUAL_LABEL
-    advanced_match = re.fullmatch(r"advanced_linear_(\d+)d", series)
+    advanced_match = re.fullmatch(r"(advanced_[a-z_]+)_(\d+)d", series)
     if advanced_match:
-        return f"高度予測: 線形モデル {advanced_match.group(1)}日"
+        adapter_name = advanced_match.group(1)
+        horizon_days = advanced_match.group(2)
+        if adapter_name == "advanced_quantile":
+            return f"高度予測: レンジモデル {horizon_days}日"
+        if adapter_name == "advanced_linear":
+            return f"高度予測: 線形モデル {horizon_days}日"
+        return f"高度予測: {adapter_name} {horizon_days}日"
     return forecast_model_display_name(series)
 
 

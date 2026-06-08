@@ -28,17 +28,14 @@ from backend.core.errors import AppError, DataSourceError
 from backend.forecast import (
     ForecastEvaluation,
     ForecastModel,
+    advanced_forecast_adapter_specs,
     available_forecast_models,
     evaluate_models,
 )
 from backend.forecast import (
     summarize_forecast_evaluations as _summarize_forecast_evaluations,
 )
-from backend.forecast.adapters import (
-    SUPPORTED_ADVANCED_LINEAR_HORIZONS,
-    AdvancedLinearForecastAdapter,
-    AdvancedLinearForecastResult,
-)
+from backend.forecast.adapters import ADVANCED_LINEAR_ADAPTER_NAME
 from backend.marketdata import create_market_data_provider_adapter
 from backend.marketdata.feature_builder import build_daily_snapshots_from_market_data
 from backend.marketdata.live_provider_adapters import live_provider_adapter_details
@@ -852,9 +849,9 @@ async def build_market_data_preview(
             if forecast_consensus is not None
             else {}
         )
-        advanced_linear_results = advanced_linear_forecast_results_for_bars(feature_bars)
-        advanced_linear_rows = advanced_linear_forecast_rows(
-            advanced_linear_results,
+        advanced_forecast_results = advanced_forecast_results_for_bars(feature_bars)
+        advanced_forecast_rows = advanced_forecast_rows_for_results(
+            advanced_forecast_results,
             feature_bars,
         )
         screening_scores = ScreeningService().score(
@@ -902,7 +899,7 @@ async def build_market_data_preview(
         forecast_chart_rows=forecast_chart_rows(
             bars,
             horizon_days=forecast_horizon_days,
-            advanced_forecast_rows=advanced_linear_rows,
+            advanced_forecast_rows=advanced_forecast_rows,
         ),
         forecast_metric_rows=forecast_metric_rows(forecast_evaluations),
         fx_rows=[
@@ -918,7 +915,7 @@ async def build_market_data_preview(
         investment_score_rows=investment_score_rows(investment_scores),
         screening_rows=screening_score_rows(screening_scores),
         error_rows=warning_rows,
-        advanced_forecast_rows=advanced_linear_rows,
+        advanced_forecast_rows=advanced_forecast_rows,
     )
 
 
@@ -1105,7 +1102,8 @@ def forecast_chart_rows(
             forecast_close = row.get("forecast_close", "")
             if advanced_horizon <= 0 or not forecast_close:
                 continue
-            series_key = advanced_forecast_chart_series_key(advanced_horizon)
+            adapter_name = row.get("adapter", ADVANCED_LINEAR_ADAPTER_NAME)
+            series_key = advanced_forecast_chart_series_key(adapter_name, advanced_horizon)
             rows_by_ts[latest_ts][series_key] = _format_decimal(latest_bar.close)
             forecast_ts = _next_forecast_ts(latest_bar, horizon_days=advanced_horizon)
             forecast_row = rows_by_ts.setdefault(forecast_ts, {"ts": forecast_ts, "close": ""})
@@ -1114,28 +1112,41 @@ def forecast_chart_rows(
     return [rows_by_ts[key] for key in sorted(rows_by_ts)]
 
 
-def advanced_linear_forecast_results_for_bars(
+def advanced_forecast_results_for_bars(
     bars: list[Bar],
-) -> list[AdvancedLinearForecastResult]:
-    """Return supported advanced-linear forecasts when enough local history exists."""
+) -> list[Any]:
+    """Return supported advanced forecasts when enough local history exists."""
 
     if not bars:
         return []
-    adapter = AdvancedLinearForecastAdapter()
-    results: list[AdvancedLinearForecastResult] = []
-    for horizon_days in SUPPORTED_ADVANCED_LINEAR_HORIZONS:
-        try:
-            results.append(adapter.forecast(bars, horizon_days=horizon_days))
-        except ValueError:
-            continue
+    results: list[Any] = []
+    for spec in advanced_forecast_adapter_specs():
+        adapter = spec.factory()
+        for horizon_days in spec.supported_horizons:
+            try:
+                results.append(adapter.forecast(bars, horizon_days=horizon_days))
+            except ValueError:
+                continue
     return results
 
 
-def advanced_linear_forecast_rows(
-    results: list[AdvancedLinearForecastResult],
+def advanced_linear_forecast_results_for_bars(
+    bars: list[Bar],
+) -> list[Any]:
+    """Return supported advanced-linear forecasts when enough local history exists."""
+
+    return [
+        result
+        for result in advanced_forecast_results_for_bars(bars)
+        if getattr(result, "adapter_name", "") == ADVANCED_LINEAR_ADAPTER_NAME
+    ]
+
+
+def advanced_forecast_rows_for_results(
+    results: list[Any],
     bars: list[Bar],
 ) -> list[dict[str, str]]:
-    """Return advanced-linear forecast rows for Streamlit detail display."""
+    """Return advanced forecast rows for Streamlit detail display."""
 
     sorted_bars = sorted(bars, key=lambda row: row.ts)
     if not sorted_bars:
@@ -1146,14 +1157,31 @@ def advanced_linear_forecast_rows(
     for result in results:
         metrics = result.validation_metrics
         forecast_close = latest_close * (Decimal("1") + result.predicted_return)
+        predicted_return_lower = getattr(result, "predicted_return_lower", None)
+        predicted_return_upper = getattr(result, "predicted_return_upper", None)
+        forecast_close_lower = (
+            latest_close * (Decimal("1") + predicted_return_lower)
+            if predicted_return_lower is not None
+            else None
+        )
+        forecast_close_upper = (
+            latest_close * (Decimal("1") + predicted_return_upper)
+            if predicted_return_upper is not None
+            else None
+        )
         rows.append(
             {
                 "adapter": result.adapter_name,
                 "model": result.model_name,
+                "model_label": advanced_forecast_model_label(result.adapter_name),
                 "symbol": result.symbol,
                 "horizon_days": str(result.horizon_days),
                 "predicted_return": _format_percent(result.predicted_return),
+                "predicted_return_lower": _format_optional_percent(predicted_return_lower),
+                "predicted_return_upper": _format_optional_percent(predicted_return_upper),
                 "forecast_close": _format_decimal(forecast_close),
+                "forecast_close_lower": _format_optional_decimal(forecast_close_lower),
+                "forecast_close_upper": _format_optional_decimal(forecast_close_upper),
                 "direction_score": _format_percent(result.direction_score),
                 "confidence": result.confidence,
                 "mae": _format_decimal(metrics.mae),
@@ -1172,8 +1200,25 @@ def advanced_linear_forecast_rows(
     return rows
 
 
-def advanced_forecast_chart_series_key(horizon_days: int) -> str:
-    return f"advanced_linear_{horizon_days}d"
+def advanced_linear_forecast_rows(
+    results: list[Any],
+    bars: list[Bar],
+) -> list[dict[str, str]]:
+    """Return advanced-linear forecast rows for Streamlit detail display."""
+
+    return advanced_forecast_rows_for_results(results, bars)
+
+
+def advanced_forecast_chart_series_key(adapter_name: str, horizon_days: int) -> str:
+    return f"{adapter_name}_{horizon_days}d"
+
+
+def advanced_forecast_model_label(adapter_name: str) -> str:
+    if adapter_name == "advanced_linear":
+        return "高度予測: 線形モデル"
+    if adapter_name == "advanced_quantile":
+        return "高度予測: レンジモデル"
+    return f"高度予測: {adapter_name}"
 
 
 def _feature_contribution_text(contributions: list[Any]) -> str:

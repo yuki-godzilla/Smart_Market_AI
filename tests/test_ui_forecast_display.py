@@ -7609,6 +7609,28 @@ def test_market_chart_long_frame_labels_advanced_linear_forecast():
     assert advanced_rows["series_label"].unique().tolist() == ["高度予測: 線形モデル 5日"]
 
 
+def test_market_chart_long_frame_labels_advanced_quantile_forecast():
+    frame = market_chart_long_frame(
+        [
+            {
+                "ts": "2026-05-10T00:00:00+00:00",
+                "close": "185",
+                "advanced_quantile_5d": "185",
+            },
+            {
+                "ts": "2026-05-15T00:00:00+00:00",
+                "close": "",
+                "advanced_quantile_5d": "191.5",
+            },
+        ]
+    )
+
+    advanced_rows = frame[frame["series"] == "advanced_quantile_5d"]
+
+    assert advanced_rows["line_label"].unique().tolist() == ["予測"]
+    assert advanced_rows["series_label"].unique().tolist() == ["高度予測: レンジモデル 5日"]
+
+
 def test_forecast_model_cards_include_baseline_and_advanced_logic_help():
     metric_rows = [
         {
@@ -7681,6 +7703,45 @@ def test_forecast_model_cards_include_baseline_and_advanced_logic_help():
     assert "5日 +1.4%" in intro
     assert "実験的な参考予測" in display_rows[0]["注意点"]
     assert "因果関係の説明ではありません" in display_rows[0]["注意点"]
+
+
+def test_forecast_model_cards_show_quantile_range_context():
+    advanced_rows = [
+        {
+            "adapter": "advanced_quantile",
+            "model_label": "高度予測: レンジモデル",
+            "horizon_days": "5",
+            "predicted_return": "1.40%",
+            "predicted_return_lower": "-2.50%",
+            "predicted_return_upper": "4.20%",
+            "forecast_close": "101.4",
+            "direction_score": "63.67%",
+            "confidence": "medium",
+            "rmse": "0.0618",
+            "direction_accuracy": "49.74%",
+            "sample_count": "238",
+            "top_features": "",
+            "warnings": (
+                "This advanced forecast is experimental reference information, not investment advice.; "
+                "Quantile range is based on historical forward returns and is not a guaranteed interval."
+            ),
+        }
+    ]
+
+    cards = forecast_model_card_rows(
+        [],
+        advanced_rows,
+        latest_close=Decimal("100"),
+        latest_date=date(2026, 6, 7),
+    )
+    display_rows = advanced_forecast_display_rows(advanced_rows)
+    intro = advanced_forecast_intro_text(advanced_rows)
+
+    assert cards[0]["model"] == "高度予測: レンジモデル 5日"
+    assert "レンジ -2.5%〜+4.2%" in cards[0]["sub"]
+    assert "下振れ・上振れ" in cards[0]["help"]
+    assert display_rows[0]["想定レンジ"] == "-2.5%〜+4.2%"
+    assert "高度予測: レンジモデル 5日 +1.4%" in intro
 
 
 def test_forecast_chart_filter_options_hide_naive_by_default():

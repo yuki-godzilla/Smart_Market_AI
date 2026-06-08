@@ -76,6 +76,36 @@ def test_forecast_evaluate_api_returns_advanced_linear_adapter(monkeypatch):
     assert any("not investment advice" in warning for warning in row["warnings"])
 
 
+def test_forecast_evaluate_api_returns_advanced_quantile_adapter(monkeypatch):
+    monkeypatch.setattr(
+        "backend.app.main.create_market_data_provider_adapter",
+        lambda _: _FakeForecastProvider(_bars(72)),
+    )
+
+    response = client.post(
+        "/forecast/evaluate",
+        json={
+            "symbol": "AAPL",
+            "start": "2026-01-01",
+            "end": "2026-03-15",
+            "horizon_days": 5,
+            "adapter": "advanced_quantile",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 1
+    row = payload[0]
+    assert row["adapter_name"] == "advanced_quantile"
+    assert row["model_name"] == "HistoricalQuantile"
+    assert row["forecast_close_lower"] is not None
+    assert row["forecast_close_upper"] is not None
+    assert row["predicted_return_lower"] is not None
+    assert row["predicted_return_upper"] is not None
+    assert row["validation_metrics"]["sample_count"] == 67
+
+
 def test_forecast_evaluate_api_rejects_advanced_linear_unsupported_horizon(monkeypatch):
     monkeypatch.setattr(
         "backend.app.main.create_market_data_provider_adapter",
@@ -98,6 +128,34 @@ def test_forecast_evaluate_api_rejects_advanced_linear_unsupported_horizon(monke
     assert payload["code"] == "APP-2002"
     assert payload["message"] == "advanced_linear supports only 5 or 20 day horizons"
     assert payload["details"]["supported_horizons"] == [5, 20]
+
+
+def test_forecast_evaluate_api_rejects_unknown_adapter(monkeypatch):
+    monkeypatch.setattr(
+        "backend.app.main.create_market_data_provider_adapter",
+        lambda _: _FakeForecastProvider(_bars(72)),
+    )
+
+    response = client.post(
+        "/forecast/evaluate",
+        json={
+            "symbol": "AAPL",
+            "start": "2026-01-01",
+            "end": "2026-03-15",
+            "horizon_days": 5,
+            "adapter": "advanced_magic",
+        },
+    )
+
+    assert response.status_code == 422
+    payload = response.json()
+    assert payload["code"] == "APP-2002"
+    assert payload["message"] == "Unsupported forecast adapter"
+    assert payload["details"]["supported_adapters"] == [
+        "baseline",
+        "advanced_linear",
+        "advanced_quantile",
+    ]
 
 
 class _FakeForecastProvider:

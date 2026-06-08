@@ -18,6 +18,7 @@ from backend.forecast import (
     direction_signal_label,
     edge_to_down_score,
     edge_to_up_score,
+    evaluate_advanced_forecast,
     evaluate_advanced_linear_forecast,
     evaluate_models,
     forecast_model_signal_weight,
@@ -87,6 +88,33 @@ def test_evaluate_advanced_linear_forecast_returns_api_ready_close():
     assert evaluation.forecast_close >= Decimal("0")
     assert evaluation.validation_metrics.sample_count == 67
     assert evaluation.feature_contribution_summary
+
+
+def test_evaluate_advanced_forecast_returns_quantile_range():
+    bars = _bars(list(range(100, 172)))
+
+    evaluation = evaluate_advanced_forecast(
+        bars,
+        adapter_name="advanced_quantile",
+        horizon_days=5,
+    )
+
+    assert evaluation.adapter_name == "advanced_quantile"
+    assert evaluation.model_name == "HistoricalQuantile"
+    assert evaluation.symbol == "AAPL"
+    assert evaluation.horizon_days == 5
+    assert evaluation.latest_close == Decimal("171.0000")
+    assert evaluation.forecast_close >= Decimal("0")
+    assert evaluation.forecast_close_lower is not None
+    assert evaluation.forecast_close_upper is not None
+    assert (
+        evaluation.forecast_close_lower
+        <= evaluation.forecast_close
+        <= evaluation.forecast_close_upper
+    )
+    assert evaluation.predicted_return_lower is not None
+    assert evaluation.predicted_return_upper is not None
+    assert evaluation.validation_metrics.sample_count == 67
 
 
 def test_summarize_forecast_evaluations_returns_model_agreement():

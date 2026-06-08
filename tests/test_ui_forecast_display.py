@@ -8202,7 +8202,7 @@ def test_render_market_chart_uses_currency_axis_title_and_expanded_width(monkeyp
     assert spec["title"] == "Price and forecast"
     assert len(spec["hconcat"]) == 2
     assert (
-        MARKET_CHART_FULL_WIDTH + MARKET_CHART_FOCUS_WIDTH + MARKET_CHART_COMBINED_SPACING <= 1200
+        MARKET_CHART_FULL_WIDTH + MARKET_CHART_FOCUS_WIDTH + MARKET_CHART_COMBINED_SPACING <= 1120
     )
     assert chart_spec["width"] == MARKET_CHART_FULL_WIDTH
     assert focus_spec["width"] == MARKET_CHART_FOCUS_WIDTH

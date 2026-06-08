@@ -910,6 +910,7 @@ async def build_market_data_preview(
             bars,
             horizon_days=forecast_horizon_days,
             advanced_forecast_rows=advanced_forecast_rows,
+            advanced_forecast_consensus_rows=advanced_forecast_consensus_rows,
         ),
         forecast_metric_rows=forecast_metric_rows(forecast_evaluations),
         fx_rows=[
@@ -1075,6 +1076,7 @@ def forecast_chart_rows(
     *,
     horizon_days: int = 1,
     advanced_forecast_rows: list[dict[str, str]] | None = None,
+    advanced_forecast_consensus_rows: list[dict[str, str]] | None = None,
 ) -> list[dict[str, str]]:
     """Return actual close and model forecast rows for chart display."""
 
@@ -1105,9 +1107,28 @@ def forecast_chart_rows(
         forecast_row = rows_by_ts.setdefault(forecast_ts, {"ts": forecast_ts, "close": ""})
         forecast_row[model.name] = _format_decimal(latest_forecast.forecast_close)
 
+    latest_bar = sorted_bars[-1]
+    latest_ts = latest_bar.ts.isoformat()
+    if advanced_forecast_consensus_rows:
+        for row in advanced_forecast_consensus_rows:
+            advanced_horizon = _int_from_text(row.get("horizon_days", ""))
+            forecast_close = row.get("forecast_close", "")
+            if advanced_horizon <= 0 or not forecast_close:
+                continue
+            series_key = advanced_forecast_consensus_chart_series_key(advanced_horizon)
+            rows_by_ts[latest_ts][series_key] = _format_decimal(latest_bar.close)
+            forecast_ts = _next_forecast_ts(latest_bar, horizon_days=advanced_horizon)
+            forecast_row = rows_by_ts.setdefault(forecast_ts, {"ts": forecast_ts, "close": ""})
+            forecast_row[series_key] = forecast_close
+            forecast_close_lower = row.get("forecast_close_lower", "")
+            forecast_close_upper = row.get("forecast_close_upper", "")
+            if forecast_close_lower and forecast_close_upper:
+                rows_by_ts[latest_ts][f"{series_key}_lower"] = _format_decimal(latest_bar.close)
+                rows_by_ts[latest_ts][f"{series_key}_upper"] = _format_decimal(latest_bar.close)
+                forecast_row[f"{series_key}_lower"] = forecast_close_lower
+                forecast_row[f"{series_key}_upper"] = forecast_close_upper
+
     if advanced_forecast_rows:
-        latest_bar = sorted_bars[-1]
-        latest_ts = latest_bar.ts.isoformat()
         for row in advanced_forecast_rows:
             advanced_horizon = _int_from_text(row.get("horizon_days", ""))
             forecast_close = row.get("forecast_close", "")
@@ -1299,6 +1320,10 @@ def advanced_linear_forecast_rows(
 
 def advanced_forecast_chart_series_key(adapter_name: str, horizon_days: int) -> str:
     return f"{adapter_name}_{horizon_days}d"
+
+
+def advanced_forecast_consensus_chart_series_key(horizon_days: int) -> str:
+    return f"advanced_consensus_{horizon_days}d"
 
 
 def advanced_forecast_model_label(adapter_name: str) -> str:

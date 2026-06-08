@@ -771,6 +771,44 @@ def test_advanced_forecast_consensus_rows_use_selected_common_horizon():
     assert consensus_rows[0]["confidence"] in {"low", "medium", "high"}
 
 
+def test_forecast_chart_rows_include_advanced_consensus_series():
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    bars = [
+        _bar(
+            "AAPL",
+            (start + timedelta(days=index)).isoformat(),
+            str(100 + index),
+        )
+        for index in range(90)
+    ]
+
+    results = advanced_forecast_results_for_bars(bars, horizon_days=10)
+    advanced_rows = advanced_forecast_rows_for_results(results, bars)
+    consensus_rows = advanced_forecast_consensus_rows_for_results(results)
+    chart_rows = forecast_chart_rows(
+        bars[-10:],
+        horizon_days=10,
+        advanced_forecast_rows=advanced_rows,
+        advanced_forecast_consensus_rows=consensus_rows,
+    )
+
+    rows_by_ts = {row["ts"]: row for row in chart_rows}
+    latest_ts = bars[-1].ts.isoformat()
+    forecast_ts = (bars[-1].ts + timedelta(days=10)).isoformat()
+
+    assert consensus_rows
+    assert rows_by_ts[latest_ts]["advanced_consensus_10d"] == "189"
+    assert rows_by_ts[forecast_ts]["advanced_consensus_10d"] == consensus_rows[0]["forecast_close"]
+    assert (
+        rows_by_ts[forecast_ts]["advanced_consensus_10d_lower"]
+        == consensus_rows[0]["forecast_close_lower"]
+    )
+    assert (
+        rows_by_ts[forecast_ts]["advanced_consensus_10d_upper"]
+        == consensus_rows[0]["forecast_close_upper"]
+    )
+
+
 def test_advanced_forecast_rows_include_quantile_range_for_chart():
     start = datetime(2026, 1, 1, tzinfo=UTC)
     bars = [

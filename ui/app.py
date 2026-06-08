@@ -3663,7 +3663,7 @@ def ranking_candidate_breakdown_rows(
     if advanced_value:
         rows.append(
             {
-                "観点": "高度予測",
+                "観点": "高度予測まとめ",
                 "値": advanced_value,
                 "確認ポイント": (
                     "取得期間から決まる共通予測日数の参考シナリオです。順位や売買判断ではなく、コックピットで価格レンジと合わせて確認します。"
@@ -6347,6 +6347,7 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         preview.bars,
         horizon_days=forecast_horizon_days,
         advanced_forecast_rows=advanced_forecast_rows,
+        advanced_forecast_consensus_rows=advanced_forecast_consensus_rows,
     )
     consensus_rows = forecast_consensus_rows_for_bars(
         preview.bars,
@@ -10052,14 +10053,15 @@ def _render_price_forecast_hero(
         else:
             st.caption(message)
     chart_currency = preview.bars[0].symbol.currency if preview.bars else ""
-    _render_forecast_chart_filters(forecast_rows)
+    display_forecast_rows = filter_forecast_chart_rows(forecast_rows, set())
+    _render_forecast_chart_filters(display_forecast_rows)
     _render_advanced_forecast_status(advanced_forecast_rows, horizon_days=forecast_horizon_days)
     _render_advanced_forecast_consensus_cards(advanced_forecast_consensus_rows)
     _render_market_chart(
-        forecast_rows,
+        display_forecast_rows,
         currency=chart_currency,
         title="価格・予測",
-        color_series_labels=forecast_chart_series_labels(forecast_rows),
+        color_series_labels=forecast_chart_series_labels(display_forecast_rows),
     )
     latest_close = preview.bars[-1].close if preview.bars else None
     latest_date = preview.bars[-1].ts.date() if preview.bars else None
@@ -10068,6 +10070,7 @@ def _render_price_forecast_hero(
         advanced_forecast_rows,
         latest_close=latest_close,
         latest_date=latest_date,
+        include_standard_models=False,
     )
     if model_cards:
         st.markdown("###### 予測モデル別の見方")
@@ -10237,6 +10240,8 @@ def default_forecast_chart_series(options: list[dict[str, Any]]) -> set[str]:
 def forecast_chart_series_kind(series: str) -> str:
     if series == "naive":
         return "baseline"
+    if re.fullmatch(r"advanced_consensus_\d+d", series):
+        return "advanced_consensus"
     if re.fullmatch(r"advanced_[a-z_]+_\d+d", series):
         return "advanced"
     return "standard"
@@ -10245,18 +10250,24 @@ def forecast_chart_series_kind(series: str) -> str:
 def _forecast_chart_series_default(series: str) -> bool:
     if series == "naive":
         return False
+    if series.startswith("moving_average_"):
+        return False
     if series.startswith("momentum_"):
         return False
+    if re.fullmatch(r"advanced_consensus_\d+d", series):
+        return True
     advanced_match = re.fullmatch(r"advanced_[a-z_]+_(\d+)d", series)
     if advanced_match:
         return True
-    return True
+    return False
 
 
 def forecast_chart_series_help(series: str) -> str:
     kind = forecast_chart_series_kind(series)
     if kind == "baseline":
         return "最新終値をそのまま置く比較基準です。予測カードには表示しません。"
+    if kind == "advanced_consensus":
+        return "信頼度・検証指標・方向一致で高度予測を保守的にまとめた参考線です。"
     if kind == "advanced":
         if series.startswith("advanced_quantile_"):
             return "過去の値動き分布から下振れ・中央値・上振れを確認する高度予測です。"
@@ -10290,42 +10301,44 @@ def forecast_model_card_rows(
     *,
     latest_close: Decimal | None,
     latest_date: date | None = None,
+    include_standard_models: bool = True,
 ) -> list[dict[str, Any]]:
     cards: list[dict[str, Any]] = []
-    for row in metric_rows:
-        model = row.get("model", "")
-        if model == "naive":
-            continue
-        forecast_close = row.get("forecast_close", "")
-        forecast_return = _forecast_return_display(
-            forecast_close,
-            latest_close=latest_close,
-        )
-        cards.append(
-            {
-                "model": _forecast_series_label(model),
-                "kind": "通常予測",
-                "horizon": forecast_horizon_display(
-                    row.get("horizon_days", ""),
-                    latest_date=latest_date,
-                ),
-                "value": forecast_return or "未計算",
-                "forecast_close": forecast_close or "未計算",
-                "sub": (
-                    f"予測値 {forecast_close or '未計算'} / "
-                    f"方向一致 {row.get('direction_accuracy', '') or '未計算'}"
-                ),
-                "help": _forecast_model_logic_help(model),
-                "tone": _forecast_card_tone(forecast_return),
-                "badges": (
-                    badge_html("通常予測", "info"),
-                    badge_html(
-                        forecast_horizon_label(row.get("horizon_days", "")),
-                        "neutral",
+    if include_standard_models:
+        for row in metric_rows:
+            model = row.get("model", "")
+            if model == "naive":
+                continue
+            forecast_close = row.get("forecast_close", "")
+            forecast_return = _forecast_return_display(
+                forecast_close,
+                latest_close=latest_close,
+            )
+            cards.append(
+                {
+                    "model": _forecast_series_label(model),
+                    "kind": "通常予測",
+                    "horizon": forecast_horizon_display(
+                        row.get("horizon_days", ""),
+                        latest_date=latest_date,
                     ),
-                ),
-            }
-        )
+                    "value": forecast_return or "未計算",
+                    "forecast_close": forecast_close or "未計算",
+                    "sub": (
+                        f"予測値 {forecast_close or '未計算'} / "
+                        f"方向一致 {row.get('direction_accuracy', '') or '未計算'}"
+                    ),
+                    "help": _forecast_model_logic_help(model),
+                    "tone": _forecast_card_tone(forecast_return),
+                    "badges": (
+                        badge_html("通常予測", "info"),
+                        badge_html(
+                            forecast_horizon_label(row.get("horizon_days", "")),
+                            "neutral",
+                        ),
+                    ),
+                }
+            )
     for row in advanced_rows:
         horizon_days = row.get("horizon_days", "")
         forecast_return = _signed_percent_from_text(row.get("predicted_return", ""))
@@ -13760,7 +13773,10 @@ def forecast_range_band_frame(rows: list[dict[str, str]]) -> pd.DataFrame:
     frame = market_chart_frame(rows).reset_index(names="date")
     range_rows: list[pd.DataFrame] = []
     for column in frame.columns:
-        match = re.fullmatch(r"(advanced_quantile_\d+d)_lower", str(column))
+        match = re.fullmatch(
+            r"((?:advanced_quantile|advanced_consensus)_\d+d)_lower",
+            str(column),
+        )
         if not match:
             continue
         series = match.group(1)
@@ -13825,7 +13841,12 @@ def _row_has_forecast_value(row: Mapping[str, str]) -> bool:
 
 
 def _is_forecast_range_bound_series(series: str) -> bool:
-    return bool(re.fullmatch(r"advanced_quantile_\d+d_(lower|upper)", series))
+    return bool(
+        re.fullmatch(
+            r"(?:advanced_quantile|advanced_consensus)_\d+d_(lower|upper)",
+            series,
+        )
+    )
 
 
 def forecast_chart_color_domain(series_labels: Iterable[str]) -> list[str]:
@@ -14532,7 +14553,7 @@ def ranking_score_detail_rows(ranking_row: dict[str, str]) -> list[dict[str, str
         *(
             [
                 {
-                    "観点": "高度予測",
+                    "観点": "高度予測まとめ",
                     "内容": advanced_value,
                     "確認ポイント": (
                         "取得期間から決まる共通予測日数の参考シナリオです。順位は変えず、Cockpitの価格レンジと合わせて確認します。"
@@ -14676,6 +14697,9 @@ def forecast_metric_summary(rows: list[dict[str, str]]) -> list[str]:
 def _forecast_series_label(series: str) -> str:
     if series == "close":
         return FORECAST_ACTUAL_LABEL
+    consensus_match = re.fullmatch(r"advanced_consensus_(\d+)d", series)
+    if consensus_match:
+        return f"高度予測まとめ {consensus_match.group(1)}日"
     advanced_match = re.fullmatch(r"(advanced_[a-z_]+)_(\d+)d", series)
     if advanced_match:
         adapter_name = advanced_match.group(1)

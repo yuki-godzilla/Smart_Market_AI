@@ -6144,9 +6144,11 @@ def test_ranking_display_rows_surface_advanced_forecast_as_auxiliary_context(mon
     assert frame.loc[0, "高度予測日数"] == "10日"
     assert frame.loc[0, "高度予測スコア"] == "54.32"
     assert frame.loc[0, "高度予測信頼度"] == "中くらい"
-    assert any(row["観点"] == "高度予測" for row in detail_rows)
+    assert any(row["観点"] == "高度予測まとめ" for row in detail_rows)
     assert any(
-        row["観点"] == "高度予測" and "10日 1.25%" in row["値"] and "スコア 54.32" in row["値"]
+        row["観点"] == "高度予測まとめ"
+        and "10日 1.25%" in row["値"]
+        and "スコア 54.32" in row["値"]
         for row in breakdown
     )
 
@@ -6246,8 +6248,8 @@ def test_ranking_display_rows_hide_advanced_forecast_when_not_available(monkeypa
     assert display_rows[0]["高度予測スコア"] == "N/A"
     assert "高度予測" not in frame.columns
     assert "高度予測スコア" not in frame.columns
-    assert not any(row["観点"] == "高度予測" for row in detail_rows)
-    assert not any(row["観点"] == "高度予測" for row in breakdown)
+    assert not any(row["観点"] == "高度予測まとめ" for row in detail_rows)
+    assert not any(row["観点"] == "高度予測まとめ" for row in breakdown)
 
 
 def test_ranking_result_aggrid_frame_prioritizes_upside_columns_for_upside_purpose():
@@ -7874,6 +7876,32 @@ def test_market_chart_long_frame_labels_advanced_quantile_forecast():
     assert band_frame.iloc[-1]["upper"] == 202.4
 
 
+def test_forecast_range_band_frame_includes_advanced_consensus_range():
+    band_frame = forecast_range_band_frame(
+        [
+            {
+                "ts": "2026-05-10T00:00:00+00:00",
+                "close": "185",
+                "advanced_consensus_10d": "185",
+                "advanced_consensus_10d_lower": "185",
+                "advanced_consensus_10d_upper": "185",
+            },
+            {
+                "ts": "2026-05-20T00:00:00+00:00",
+                "close": "",
+                "advanced_consensus_10d": "191.5",
+                "advanced_consensus_10d_lower": "178.2",
+                "advanced_consensus_10d_upper": "202.4",
+            },
+        ]
+    )
+
+    assert band_frame["series"].unique().tolist() == ["advanced_consensus_10d"]
+    assert band_frame["series_label"].unique().tolist() == ["高度予測まとめ 10日"]
+    assert band_frame.iloc[-1]["lower"] == 178.2
+    assert band_frame.iloc[-1]["upper"] == 202.4
+
+
 def test_forecast_model_cards_include_baseline_and_advanced_logic_help():
     metric_rows = [
         {
@@ -7946,6 +7974,46 @@ def test_forecast_model_cards_include_baseline_and_advanced_logic_help():
     assert "5日 +1.4%" in intro
     assert "実験的な参考予測" in display_rows[0]["注意点"]
     assert "因果関係の説明ではありません" in display_rows[0]["注意点"]
+
+
+def test_forecast_model_cards_can_focus_on_advanced_models_only():
+    metric_rows = [
+        {
+            "model": "moving_average_20",
+            "symbol": "AAPL",
+            "horizon_days": "10",
+            "forecast_close": "98.3",
+            "mae": "1.2",
+            "rmse": "1.5",
+            "direction_accuracy": "45.00%",
+            "sample_count": "30",
+        }
+    ]
+    advanced_rows = [
+        {
+            "horizon_days": "10",
+            "predicted_return": "1.40%",
+            "forecast_close": "101.4",
+            "direction_score": "63.67%",
+            "confidence": "medium",
+            "rmse": "0.0618",
+            "direction_accuracy": "49.74%",
+            "sample_count": "238",
+            "top_features": "",
+            "warnings": "",
+        }
+    ]
+
+    cards = forecast_model_card_rows(
+        metric_rows,
+        advanced_rows,
+        latest_close=Decimal("100"),
+        latest_date=date(2026, 6, 7),
+        include_standard_models=False,
+    )
+
+    assert [card["kind"] for card in cards] == ["高度予測"]
+    assert cards[0]["model"] == "高度予測: 線形モデル 10日"
 
 
 def test_forecast_model_cards_show_quantile_range_context():
@@ -8051,6 +8119,9 @@ def test_forecast_chart_filter_options_hide_naive_by_default():
             "naive": "100",
             "moving_average_20": "102",
             "momentum_30": "106",
+            "advanced_consensus_5d": "102.5",
+            "advanced_consensus_5d_lower": "98",
+            "advanced_consensus_5d_upper": "108",
             "advanced_linear_5d": "103",
             "advanced_quantile_5d": "104",
             "advanced_quantile_5d_lower": "99",
@@ -8068,8 +8139,9 @@ def test_forecast_chart_filter_options_hide_naive_by_default():
 
     assert [(option["series"], option["default"]) for option in options] == [
         ("naive", False),
-        ("moving_average_20", True),
+        ("moving_average_20", False),
         ("momentum_30", False),
+        ("advanced_consensus_5d", True),
         ("advanced_linear_5d", True),
         ("advanced_quantile_5d", True),
         ("advanced_quantile_20d", True),
@@ -8083,6 +8155,11 @@ def test_forecast_chart_filter_options_hide_naive_by_default():
     assert filtered[1]["advanced_quantile_5d_upper"] == "109"
     assert "naive" not in fallback_filtered[0]
     assert "moving_average_20" not in fallback_filtered[0]
+    assert "moving_average_20" not in fallback_filtered[1]
+    assert "momentum_30" not in fallback_filtered[1]
+    assert fallback_filtered[1]["advanced_consensus_5d"] == "102.5"
+    assert fallback_filtered[1]["advanced_consensus_5d_lower"] == "98"
+    assert fallback_filtered[1]["advanced_consensus_5d_upper"] == "108"
     assert fallback_filtered[1]["advanced_linear_5d"] == "103"
     assert fallback_filtered[1]["advanced_quantile_5d"] == "104"
     assert fallback_filtered[1]["advanced_quantile_20d"] == "110"

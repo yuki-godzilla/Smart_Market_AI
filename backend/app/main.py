@@ -231,7 +231,7 @@ class ForecastEvaluateRequest(StrictBaseModel):
     symbol: str = Field(min_length=1)
     start: date
     end: date
-    horizon_days: int = Field(default=1, ge=1, le=30)
+    horizon_days: int = Field(default=1, ge=1, le=60)
     adapter: str = Field(default="baseline", min_length=1)
 
 
@@ -254,7 +254,7 @@ class InvestmentScoreRequest(StrictBaseModel):
 
     symbols: list[str] = Field(min_length=1)
     as_of: date
-    horizon_days: int = Field(default=1, ge=1, le=30)
+    horizon_days: int = Field(default=1, ge=1, le=60)
     research_scores_by_symbol: dict[str, Decimal] = Field(default_factory=dict)
 
 
@@ -390,7 +390,7 @@ def _build_advanced_forecast_evaluation(
     supported_horizons = advanced_forecast_supported_horizons(request.adapter)
     if request.horizon_days not in supported_horizons:
         raise ComputationError(
-            f"{request.adapter} supports only 1 to 30 day horizons",
+            f"{request.adapter} supports only 1 to 60 day horizons",
             details={
                 "adapter": request.adapter,
                 "horizon_days": request.horizon_days,
@@ -515,7 +515,7 @@ async def screening_score(request: ScreeningScoreRequest) -> list[ScreeningScore
     description=(
         "Fetches configured OHLCV data for one symbol and evaluates deterministic baseline "
         "models by default. Set adapter=advanced_linear or adapter=advanced_quantile "
-        "to evaluate 1 to 30 day advanced forecast adapters."
+        "to evaluate 1 to 60 day advanced forecast adapters."
     ),
     responses=ERROR_RESPONSES,
 )

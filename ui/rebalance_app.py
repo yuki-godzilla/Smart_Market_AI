@@ -766,8 +766,8 @@ async def build_market_data_preview(
 ) -> MarketDataPreview:
     """Fetch a small market-data preview for the configured provider."""
 
-    if forecast_horizon_days < 1 or forecast_horizon_days > 30:
-        raise ValueError("forecast_horizon_days must be between 1 and 30")
+    if forecast_horizon_days < 1 or forecast_horizon_days > 60:
+        raise ValueError("forecast_horizon_days must be between 1 and 60")
 
     settings = get_settings()
     dataaccess_cfg = settings.dataaccess
@@ -1070,8 +1070,8 @@ def forecast_chart_rows(
 ) -> list[dict[str, str]]:
     """Return actual close and model forecast rows for chart display."""
 
-    if horizon_days < 1 or horizon_days > 30:
-        raise ValueError("horizon_days must be between 1 and 30")
+    if horizon_days < 1 or horizon_days > 60:
+        raise ValueError("horizon_days must be between 1 and 60")
 
     sorted_bars = sorted(bars, key=lambda row: row.ts)
     if not sorted_bars:
@@ -1378,14 +1378,14 @@ def forecast_reference_period(
 ) -> int:
     """Return the automatically selected reference period for baseline models."""
 
-    if horizon_days < 1 or horizon_days > 30:
-        raise ValueError("horizon_days must be between 1 and 30")
+    if horizon_days < 1 or horizon_days > 60:
+        raise ValueError("horizon_days must be between 1 and 60")
     bar_count = len(bars)
     if bar_count <= 3:
         return 3
     period_from_horizon = max(3, horizon_days * 2)
     period_cap = max(3, bar_count // 3)
-    return min(period_from_horizon, period_cap, 30, bar_count - 1)
+    return min(period_from_horizon, period_cap, 60, bar_count - 1)
 
 
 def feature_snapshot_rows(snapshot: FeatureSnapshot) -> list[dict[str, str]]:

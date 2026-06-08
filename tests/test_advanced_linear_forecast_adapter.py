@@ -38,7 +38,7 @@ def test_advanced_linear_adapter_supports_twenty_day_forward_return():
     result = AdvancedLinearForecastAdapter().forecast(_bars(80), horizon_days=20)
 
     assert SUPPORTED_ADVANCED_LINEAR_HORIZONS[0] == 1
-    assert SUPPORTED_ADVANCED_LINEAR_HORIZONS[-1] == 30
+    assert SUPPORTED_ADVANCED_LINEAR_HORIZONS[-1] == 60
     assert result.horizon_days == 20
     assert result.validation_metrics.sample_count == 60
     assert result.predicted_return != Decimal("0.0000")
@@ -53,7 +53,7 @@ def test_advanced_linear_adapter_supports_common_forecast_horizon():
 
 def test_advanced_linear_adapter_rejects_out_of_range_horizon():
     with pytest.raises(ValueError, match="horizon_days"):
-        AdvancedLinearForecastAdapter().forecast(_bars(40), horizon_days=31)
+        AdvancedLinearForecastAdapter().forecast(_bars(80), horizon_days=61)
 
 
 def test_advanced_linear_adapter_returns_graceful_data_shortage_error():

@@ -1,7 +1,7 @@
 import asyncio
 import json
 from contextlib import nullcontext
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
@@ -60,6 +60,7 @@ from ui.app import (
     SYMBOL_DETAIL_DIALOG_CSS,
     SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY,
     RankingResearchStatus,
+    _advanced_forecast_rows_for_ranking,
     _apply_navigation_query_params,
     _background_workers_disabled,
     _build_market_data_ranking_rows,
@@ -98,6 +99,7 @@ from ui.app import (
     _news_summary_html,
     _normalize_dividend_filter_state,
     _quantitative_summary_html,
+    _ranking_advanced_forecast_fields,
     _ranking_candidate_card_html,
     _ranking_data_state_text,
     _ranking_decision_report_state_key,
@@ -362,6 +364,7 @@ def test_default_forecast_horizon_days_uses_chart_period():
     assert default_forecast_horizon_days(date(2026, 5, 1), date(2026, 5, 7)) == 1
     assert default_forecast_horizon_days(date(2026, 5, 1), date(2026, 5, 30)) == 3
     assert default_forecast_horizon_days(date(2026, 1, 1), date(2026, 12, 31)) == 30
+    assert default_forecast_horizon_days(date(2021, 5, 23), date(2026, 5, 23)) == 60
 
 
 def test_market_data_period_dates_support_decision_review_presets():
@@ -469,6 +472,26 @@ def test_market_data_preview_advanced_forecast_rows_tolerates_legacy_state():
     assert _market_data_preview_advanced_forecast_rows(current_preview) == [
         {"horizon_days": "5", "forecast_close": "101"}
     ]
+    assert _market_data_preview_advanced_forecast_rows(current_preview, horizon_days=5) == [
+        {"horizon_days": "5", "forecast_close": "101"}
+    ]
+
+
+def test_market_data_preview_advanced_forecast_rows_recomputes_for_common_horizon():
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    bars = [
+        _bar((start + timedelta(days=index)).date().isoformat(), close=100 + index)
+        for index in range(90)
+    ]
+    preview = SimpleNamespace(
+        bars=bars,
+        advanced_forecast_rows=[{"horizon_days": "5", "forecast_close": "101"}],
+    )
+
+    rows = _market_data_preview_advanced_forecast_rows(preview, horizon_days=10)
+
+    assert {row["adapter"] for row in rows} == {"advanced_linear", "advanced_quantile"}
+    assert {row["horizon_days"] for row in rows} == {"10"}
 
 
 def test_merged_symbol_candidate_rows_deduplicates_representative_first():
@@ -6003,6 +6026,25 @@ def test_ranking_display_rows_surface_advanced_forecast_as_auxiliary_context(mon
     )
 
 
+def test_ranking_advanced_forecast_rows_keep_legacy_auxiliary_horizons():
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    bars = [
+        _bar((start + timedelta(days=index)).date().isoformat(), close=100 + index)
+        for index in range(90)
+    ]
+
+    rows = _advanced_forecast_rows_for_ranking(bars)
+    fields = _ranking_advanced_forecast_fields(rows)
+
+    assert {row["adapter"] for row in rows} == {"advanced_linear"}
+    assert {row["horizon_days"] for row in rows} == {"5", "20"}
+    assert fields["advanced_forecast_model"] == "advanced_linear"
+    assert fields["advanced_forecast_horizons"] == "5,20"
+    assert fields["predicted_return_5d"]
+    assert fields["predicted_return_20d"]
+    assert fields["advanced_forecast_score"]
+
+
 def test_ranking_display_rows_hide_advanced_forecast_when_not_available(monkeypatch):
     monkeypatch.setattr("ui.app.symbol_universe_csv_rows", lambda: [])
     display_rows = investment_score_display_rows(
@@ -8050,8 +8092,8 @@ def test_render_market_chart_uses_currency_axis_title_and_compact_width(monkeypa
     focus_spec = spec["hconcat"][1]  # type: ignore[index]
     assert spec["title"] == "Price and forecast"
     assert len(spec["hconcat"]) == 3
-    assert chart_spec["width"] == 920
-    assert focus_spec["width"] == 390
+    assert chart_spec["width"] == 1180
+    assert focus_spec["width"] == 520
     assert chart_spec["title"] == "全体"
     assert focus_spec["title"] == "予測拡大"
     assert chart_spec["layer"][0]["encoding"]["y"]["title"] == "終値 (USD)"

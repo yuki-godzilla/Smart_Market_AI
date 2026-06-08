@@ -237,6 +237,8 @@ from ui.ranking_state import (
 from ui.rebalance_app import (
     MarketDataPreview,
     _available_forecast_evaluations,
+    advanced_forecast_results_for_bars,
+    advanced_forecast_rows_for_results,
     advanced_linear_forecast_results_for_bars,
     advanced_linear_forecast_rows,
     build_market_data_preview,
@@ -1819,7 +1821,7 @@ def default_forecast_horizon_days(start: date, end: date) -> int:
     if end < start:
         raise ValueError("End must be on or after Start")
     display_days = (end - start).days + 1
-    return max(1, min(30, round(display_days / 10)))
+    return max(1, min(60, (display_days + 6) // 12))
 
 
 def _provider_option_index(provider: str) -> int:
@@ -6068,7 +6070,7 @@ async def _build_market_data_ranking_rows_from_previews(
             getattr(preview, "feature_rows", []),
         )
         advanced_fields = _ranking_advanced_forecast_fields(
-            getattr(preview, "advanced_forecast_rows", [])
+            _advanced_forecast_rows_for_ranking(getattr(preview, "bars", []))
         )
         if advanced_fields:
             preview_rows = [
@@ -6155,17 +6157,38 @@ def _market_data_preview_from_state() -> MarketDataPreview | None:
 
 def _market_data_preview_advanced_forecast_rows(
     preview: MarketDataPreview,
+    *,
+    horizon_days: int | None = None,
 ) -> list[dict[str, str]]:
     rows = getattr(preview, "advanced_forecast_rows", [])
-    if isinstance(rows, list):
+    if not isinstance(rows, list):
+        rows = []
+    if horizon_days is None or _advanced_forecast_rows_match_horizon(rows, horizon_days):
         return rows
-    return []
+
+    bars = getattr(preview, "bars", [])
+    if not bars:
+        return rows
+    results = advanced_forecast_results_for_bars(bars, horizon_days=horizon_days)
+    return advanced_forecast_rows_for_results(results, bars)
+
+
+def _advanced_forecast_rows_match_horizon(
+    rows: list[dict[str, str]],
+    horizon_days: int,
+) -> bool:
+    if not rows:
+        return False
+    return all(_int_from_text(row.get("horizon_days", "")) == horizon_days for row in rows)
 
 
 def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
     symbol_label = _market_data_preview_symbol_label(preview)
     forecast_horizon_days = _render_market_data_cockpit_header(preview, symbol_label)
-    advanced_forecast_rows = _market_data_preview_advanced_forecast_rows(preview)
+    advanced_forecast_rows = _market_data_preview_advanced_forecast_rows(
+        preview,
+        horizon_days=forecast_horizon_days,
+    )
     forecast_rows = forecast_chart_rows(
         preview.bars,
         horizon_days=forecast_horizon_days,
@@ -6210,6 +6233,7 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         consensus_rows,
         metric_rows,
         advanced_forecast_rows,
+        forecast_horizon_days=forecast_horizon_days,
     )
     if score_row is not None:
         _render_cockpit_direction_signal_section(score_row, consensus_rows)
@@ -9811,7 +9835,7 @@ def _render_market_data_cockpit_header(
             st.number_input(
                 "Forecast days",
                 min_value=1,
-                max_value=30,
+                max_value=60,
                 step=1,
                 key=MARKET_DATA_FORECAST_DAYS_STATE_KEY,
                 help="取得済みデータを使ってチャートと指標だけを再計算します。",
@@ -9833,6 +9857,8 @@ def _render_price_forecast_hero(
     consensus_rows: list[dict[str, str]],
     metric_rows: list[dict[str, str]],
     advanced_forecast_rows: list[dict[str, str]],
+    *,
+    forecast_horizon_days: int,
 ) -> None:
     st.subheader("02 価格・予測")
     _render_target_symbol_caption(symbol_label)
@@ -9846,6 +9872,7 @@ def _render_price_forecast_hero(
             st.caption(message)
     chart_currency = preview.bars[0].symbol.currency if preview.bars else ""
     _render_forecast_chart_filters(forecast_rows)
+    _render_advanced_forecast_status(advanced_forecast_rows, horizon_days=forecast_horizon_days)
     _render_market_chart(
         forecast_rows,
         currency=chart_currency,
@@ -9868,6 +9895,26 @@ def _render_price_forecast_hero(
     st.caption(
         "縦の点線は、実績価格から予測表示へ切り替わる位置です。"
         "レンジモデルの薄い帯は、下振れ〜上振れの参考幅です。"
+    )
+
+
+def _render_advanced_forecast_status(
+    rows: list[dict[str, str]],
+    *,
+    horizon_days: int,
+) -> None:
+    if rows:
+        model_labels = [
+            _advanced_forecast_model_title(row) for row in rows if row.get("forecast_close")
+        ]
+        st.caption(
+            f"高度予測は通常予測と同じ{horizon_days}日先で表示しています。"
+            f"表示中: {' / '.join(model_labels) if model_labels else '計算済み'}。"
+        )
+        return
+    st.caption(
+        f"高度予測は{horizon_days}日先で再計算を試みましたが、現在の取得データでは表示できません。"
+        "期間を少し長くするか、取得データを更新すると表示される場合があります。"
     )
 
 
@@ -13178,7 +13225,7 @@ def _render_market_chart(
         color_scale=color_scale,
         disabled_series=disabled_series,
         height=540,
-        width=920,
+        width=1180,
         title="全体",
     )
     focus_rows = forecast_focus_chart_rows(rows)
@@ -13188,7 +13235,7 @@ def _render_market_chart(
         color_scale=color_scale,
         disabled_series=disabled_series,
         height=540,
-        width=390,
+        width=520,
         title="予測拡大",
     )
     series_legend_base = alt.Chart(legend_data).encode(
@@ -13235,8 +13282,8 @@ def _render_market_chart(
         text="description:N",
     )
     legend = alt.vconcat(
-        series_legend.properties(title="価格・モデル", height=190, width=190),
-        line_type_legend.properties(title="実績/予測", height=60, width=190),
+        series_legend.properties(title="価格・モデル", height=190, width=230),
+        line_type_legend.properties(title="実績/予測", height=60, width=230),
         spacing=10,
     )
     combined_chart = (

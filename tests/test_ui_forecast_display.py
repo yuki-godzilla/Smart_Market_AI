@@ -5957,6 +5957,82 @@ def test_ranking_result_aggrid_frame_keeps_display_table_compact():
     assert frame.loc[0, "確認詳細"].startswith("総合スコア 82")
 
 
+def test_ranking_display_rows_surface_advanced_forecast_as_auxiliary_context(monkeypatch):
+    monkeypatch.setattr("ui.app.symbol_universe_csv_rows", lambda: [])
+    display_rows = investment_score_display_rows(
+        [
+            {
+                "rank": "1",
+                "symbol": "AAPL",
+                "total_score": "82",
+                "score_band": "BALANCED",
+                "screening_score": "80",
+                "upside_signal_score": "78",
+                "downside_signal_score": "42",
+                "forecast_return_pct": "1.1%",
+                "predicted_return_5d": "1.25%",
+                "predicted_return_20d": "-0.40%",
+                "advanced_forecast_score": "54.32",
+                "advanced_forecast_confidence": "medium",
+                "data_quality_score": "90",
+                "metadata_confidence_score": "88",
+                "risk_signal_score": "55",
+            }
+        ]
+    )
+
+    frame = ranking_result_aggrid_frame(display_rows)
+    detail_rows = ranking_score_detail_rows(display_rows[0])
+    breakdown = ranking_candidate_breakdown_rows(display_rows, "AAPL")
+
+    assert display_rows[0]["高度予測5日"] == "1.25%"
+    assert display_rows[0]["高度予測20日"] == "-0.40%"
+    assert display_rows[0]["高度予測スコア"] == "54.32"
+    assert display_rows[0]["高度予測信頼度"] == "中くらい"
+    assert "高度予測5日" in frame.columns
+    assert "高度予測スコア" in frame.columns
+    assert frame.loc[0, "高度予測5日"] == "1.25%"
+    assert frame.loc[0, "高度予測スコア"] == "54.32"
+    assert frame.loc[0, "高度予測信頼度"] == "中くらい"
+    assert any(row["観点"] == "高度予測" for row in detail_rows)
+    assert any(
+        row["観点"] == "高度予測" and "5日 1.25%" in row["値"] and "スコア 54.32" in row["値"]
+        for row in breakdown
+    )
+
+
+def test_ranking_display_rows_hide_advanced_forecast_when_not_available(monkeypatch):
+    monkeypatch.setattr("ui.app.symbol_universe_csv_rows", lambda: [])
+    display_rows = investment_score_display_rows(
+        [
+            {
+                "rank": "1",
+                "symbol": "AAPL",
+                "total_score": "82",
+                "score_band": "BALANCED",
+                "screening_score": "80",
+                "upside_signal_score": "78",
+                "downside_signal_score": "42",
+                "forecast_return_pct": "1.1%",
+                "data_quality_score": "90",
+                "metadata_confidence_score": "88",
+                "risk_signal_score": "55",
+            }
+        ]
+    )
+
+    frame = ranking_result_aggrid_frame(display_rows)
+    detail_rows = ranking_score_detail_rows(display_rows[0])
+    breakdown = ranking_candidate_breakdown_rows(display_rows, "AAPL")
+
+    assert display_rows[0]["高度予測5日"] == "N/A"
+    assert display_rows[0]["高度予測スコア"] == "N/A"
+    assert "高度予測5日" not in frame.columns
+    assert "高度予測スコア" not in frame.columns
+    assert not any(row["観点"] == "高度予測" for row in detail_rows)
+    assert not any(row["観点"] == "高度予測" for row in breakdown)
+
+
 def test_ranking_result_aggrid_frame_prioritizes_upside_columns_for_upside_purpose():
     frame = ranking_result_aggrid_frame(
         [

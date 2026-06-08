@@ -1581,7 +1581,7 @@ Phase 22 完了条件:
 
 ### 5.9 Phase 23: Optional Adapter と高度分析
 
-状態: Advanced Forecast Slice 1 backend adapter / forecast service / API / Streamlit Cockpit 接続済み。Ranking 接続は次の slice。
+状態: Advanced Forecast Slice 1 backend adapter / forecast service / API / Streamlit Cockpit / Ranking auxiliary display 接続済み。Ranking 順位への統合は未実施。
 
 目的: default path を deterministic に保ったまま、追加 provider、advanced forecast / research model、news / sentiment、将来の LLM adapter を optional layer として追加する。次の実装優先度は、銘柄コックピット / 銘柄ランキングで使う高度予測モデル adapter。
 
@@ -1603,7 +1603,7 @@ Phase 22 完了条件:
 
 #### Phase 23.a: Advanced Forecast Slice 1 - `advanced_linear`
 
-状態: backend first slice 実装済み。UI/API 接続は未実装。
+状態: backend adapter / forecast service / API / Streamlit Cockpit / Ranking auxiliary display 接続済み。Ranking 順位への統合は未実施。
 
 目的: 派手な深層学習モデルより先に、軽量・deterministic・説明可能な高度予測 adapter の骨格を追加する。既存 FeatureBuilder / Forecast service / Cockpit / Ranking の構造を壊さず、将来の tree / GBDT / quantile / deep-learning adapter を足せる境界を作る。
 
@@ -1668,8 +1668,8 @@ Streamlit / Ranking 接続方針:
 - 銘柄コックピットの予測表示エリアに最小表示を追加する。
 - 表示候補は、高度予測モデル名、horizon、予測リターン、direction score、confidence、MAE / RMSE / direction accuracy、主な寄与 feature、非助言 note。
 - まずは expander `高度予測モデル詳細` でもよい。
-- Ranking へは `predicted_return_5d`、`predicted_return_20d`、`advanced_forecast_score`、`advanced_forecast_confidence` の列を保持できる形にする。
-- 初期 slice では Ranking 本体順位を変更せず、補助列 / optional score として扱う。
+- Ranking では `predicted_return_5d`、`predicted_return_20d`、`advanced_forecast_score`、`advanced_forecast_confidence` の列を保持し、表示テーブル / 選択候補 breakdown / score detail / CSV export で補助情報として確認できる。
+- 初期 slice では Ranking 本体順位を変更せず、補助列 / optional score として扱う。`advanced_forecast_score` による sort profile 追加は後続の opt-in 検討とする。
 
 将来 adapter 候補:
 
@@ -1701,7 +1701,7 @@ Streamlit / Ranking 接続方針:
 - 予測は売買判断の主体にせず、スコアやリスクと合わせて確認する材料として扱う。
 - `advanced_linear` adapter が追加され、Ridge / ElasticNet の少なくとも Ridge が使える。
 - 5 / 20 trading day forward return の予測、walk-forward validation、validation metrics、confidence、feature contribution summary が返る。
-- backend adapter は実装済み。`POST /forecast/evaluate` では `adapter=advanced_linear` 指定時に 5日 / 20日の高度予測、予測変化率、予測価格、信頼度、検証指標、特徴量要約、注意点を返す。Streamlit 銘柄コックピットでは `advanced_linear` の 5日 / 20日予測を既存の価格・予測チャートへ重ね、カードと詳細表で予測変化率、信頼度、検証指標、注意点を表示する最小 UI slice まで接続済み。Ranking 接続は次 slice。
+- backend adapter は実装済み。`POST /forecast/evaluate` では `adapter=advanced_linear` 指定時に 5日 / 20日の高度予測、予測変化率、予測価格、信頼度、検証指標、特徴量要約、注意点を返す。Streamlit 銘柄コックピットでは `advanced_linear` の 5日 / 20日予測を既存の価格・予測チャートへ重ね、カードと詳細表で予測変化率、信頼度、検証指標、注意点を表示する最小 UI slice まで接続済み。Ranking では同じ `advanced_linear` 出力を補助列として保持し、表示テーブル / 選択候補 breakdown / score detail / CSV export で確認できる。Ranking 順位と既定 Investment Score は変更していない。
 - README または roadmap に Advanced Forecast Slice 1 として記録されている。
 
 Research資料保存方針の移行:

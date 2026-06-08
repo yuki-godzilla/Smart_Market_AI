@@ -1189,3 +1189,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Fixed forecast chart filtering so model forecast lines remain visible when the UI selection state is empty.
 - Fixed forecast chart filter option detection to scan all chart rows, not only the first row, so forecast lines appear when early history rows do not contain forecast columns.
 - Fixed forecast chart colors to use the full model candidate order even when filters hide some lines; latest-value-hold remains a chart-only comparison baseline.
+
+## 2026-06-08 - Advanced Forecast Ranking auxiliary connection
+
+- Connected existing `advanced_linear` 5 / 20 day forecast rows into Ranking as auxiliary row fields without changing ranking order or default Investment Score.
+- Added `predicted_return_5d`, `predicted_return_20d`, `advanced_forecast_score`, and `advanced_forecast_confidence` to ranking rows and Investment Score CSV export.
+- Surfaced the fields as `高度予測5日` / `高度予測20日` / `高度予測スコア` / confidence context in Ranking display rows, optional result-table columns, selected-candidate breakdown, and score detail rows.
+- Updated roadmap, operations guide, and project context to record that Ranking auxiliary display is connected while opt-in ranking-order integration remains future scope.

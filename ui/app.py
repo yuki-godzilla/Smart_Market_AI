@@ -3666,7 +3666,7 @@ def ranking_candidate_breakdown_rows(
                 "観点": "高度予測まとめ",
                 "値": advanced_value,
                 "確認ポイント": (
-                    "取得期間から決まる共通予測日数の参考シナリオです。順位や売買判断ではなく、コックピットで価格レンジと合わせて確認します。"
+                    "取得期間から決まる共通予測日数の参考シナリオです。AI総合では信頼度で控えめに加味し、コックピットで価格レンジと合わせて確認します。"
                 ),
             }
         )
@@ -5743,7 +5743,7 @@ def _ranking_advanced_forecast_fields(
     fields: dict[str, str] = {
         "advanced_forecast_model": ",".join(model_keys) or "advanced_forecast",
         "advanced_forecast_note": (
-            "高度予測は参考シナリオです。ランキング順位は既定では変えません。"
+            "高度予測は参考シナリオです。AI総合では信頼度で中立寄せしながら控えめに加味します。"
         ),
     }
     if consensus_row is not None:
@@ -5761,6 +5761,7 @@ def _ranking_advanced_forecast_fields(
         direction_score_value = _decimal_from_text(direction_score)
         if direction_score_value is not None:
             fields["advanced_forecast_score"] = _format_ranking_decimal_value(direction_score_value)
+        fields.update(_advanced_forecast_ranking_signal_fields(consensus_row))
         if confidence:
             fields["advanced_forecast_confidence"] = confidence
         if consensus_row.get("predicted_return_lower") or consensus_row.get(
@@ -5769,13 +5770,16 @@ def _ranking_advanced_forecast_fields(
             fields["advanced_forecast_range"] = _advanced_forecast_range_display(consensus_row)
         fields["advanced_forecast_agreement"] = consensus_row.get("agreement", "")
         fields["advanced_forecast_consensus_note"] = (
-            "高度予測まとめは、信頼度・検証指標・方向一致を保守的に重みづけした参考値です。"
+            "高度予測まとめは、信頼度・検証指標・方向一致を保守的に重みづけした参考値です。AI総合では補助材料として控えめに加味します。"
         )
         return fields
 
     horizons: list[str] = []
     predicted_returns: list[Decimal] = []
     direction_scores: list[Decimal] = []
+    ranking_upside_scores: list[Decimal] = []
+    ranking_downside_scores: list[Decimal] = []
+    ranking_quality_scores: list[Decimal] = []
     confidence_rank = {"low": 0, "medium": 1, "high": 2}
     confidences: list[str] = []
     for row in advanced_forecast_rows:
@@ -5789,6 +5793,22 @@ def _ranking_advanced_forecast_fields(
         direction_score_value = _decimal_from_text(row.get("direction_score"))
         if direction_score_value is not None:
             direction_scores.append(direction_score_value)
+        ranking_signal_fields = _advanced_forecast_ranking_signal_fields(row)
+        upside_score = _decimal_from_text(
+            ranking_signal_fields.get("advanced_forecast_upside_score")
+        )
+        if upside_score is not None:
+            ranking_upside_scores.append(upside_score)
+        downside_score = _decimal_from_text(
+            ranking_signal_fields.get("advanced_forecast_downside_score")
+        )
+        if downside_score is not None:
+            ranking_downside_scores.append(downside_score)
+        quality_score = _decimal_from_text(
+            ranking_signal_fields.get("advanced_forecast_quality_score")
+        )
+        if quality_score is not None:
+            ranking_quality_scores.append(quality_score)
         confidence = str(row.get("confidence", "")).strip()
         if confidence in confidence_rank:
             confidences.append(confidence)
@@ -5805,12 +5825,132 @@ def _ranking_advanced_forecast_fields(
     if direction_scores:
         average_score = sum(direction_scores, Decimal("0")) / Decimal(len(direction_scores))
         fields["advanced_forecast_score"] = _format_ranking_decimal_value(average_score)
+    if ranking_upside_scores:
+        fields["advanced_forecast_upside_score"] = _format_ranking_decimal_value(
+            sum(ranking_upside_scores, Decimal("0")) / Decimal(len(ranking_upside_scores))
+        )
+    if ranking_downside_scores:
+        fields["advanced_forecast_downside_score"] = _format_ranking_decimal_value(
+            max(ranking_downside_scores)
+        )
+    if ranking_quality_scores:
+        fields["advanced_forecast_quality_score"] = _format_ranking_decimal_value(
+            sum(ranking_quality_scores, Decimal("0")) / Decimal(len(ranking_quality_scores))
+        )
     if confidences:
         fields["advanced_forecast_confidence"] = min(
             confidences,
             key=lambda confidence: confidence_rank[confidence],
         )
     return fields
+
+
+def _advanced_forecast_ranking_signal_fields(row: Mapping[str, str]) -> dict[str, str]:
+    quality_score = _advanced_forecast_ranking_quality_score(row)
+    quality_adjustment = min(
+        max(quality_score / Decimal("100"), Decimal("0.60")),
+        Decimal("1.00"),
+    )
+    center_return_pct = _decimal_from_text(row.get("predicted_return"))
+    lower_return_pct = _decimal_from_text(row.get("predicted_return_lower"))
+    direction_score = _decimal_from_text(row.get("weighted_direction_score"))
+    if direction_score is None:
+        direction_score = _decimal_from_text(row.get("direction_score"))
+    upside_raw = (
+        _clamp_ranking_score(direction_score)
+        if direction_score is not None
+        else _advanced_return_pct_to_upside_score(center_return_pct)
+    )
+    center_downside = _advanced_return_pct_to_downside_score(center_return_pct)
+    lower_downside = _advanced_return_pct_to_downside_score(
+        lower_return_pct if lower_return_pct is not None else center_return_pct
+    )
+    downside_raw = max(center_downside, lower_downside)
+    upside_score = _neutral_adjusted_ranking_score(upside_raw, quality_adjustment)
+    downside_score = _neutral_adjusted_ranking_score(downside_raw, quality_adjustment)
+    return {
+        "advanced_forecast_upside_score": _format_ranking_decimal_value(upside_score),
+        "advanced_forecast_downside_score": _format_ranking_decimal_value(downside_score),
+        "advanced_forecast_quality_score": _format_ranking_decimal_value(quality_score),
+    }
+
+
+def _advanced_forecast_ranking_quality_score(row: Mapping[str, str]) -> Decimal:
+    confidence_score = {
+        "high": Decimal("90"),
+        "medium": Decimal("75"),
+        "low": Decimal("55"),
+    }.get(str(row.get("confidence", "")).strip(), Decimal("50"))
+    agreement_score = {
+        "HIGH": Decimal("90"),
+        "MEDIUM": Decimal("75"),
+        "LOW": Decimal("45"),
+        "UNKNOWN": Decimal("50"),
+    }.get(str(row.get("agreement", "")).strip(), Decimal("50"))
+    direction_agreement = (
+        _decimal_from_text(row.get("direction_agreement_score"))
+        or _decimal_from_text(row.get("direction_accuracy"))
+        or Decimal("50")
+    )
+    direction_accuracy = (
+        _decimal_from_text(row.get("mean_direction_accuracy"))
+        or _decimal_from_text(row.get("direction_accuracy"))
+        or Decimal("50")
+    )
+    rmse_score = _advanced_forecast_rmse_quality_score(row.get("mean_rmse_improvement"))
+    if rmse_score == Decimal("50"):
+        rmse_score = _advanced_forecast_rmse_quality_score(row.get("rmse_improvement"))
+    sample_score = _advanced_forecast_sample_quality_score(row.get("sample_count"))
+    return _clamp_ranking_score(
+        (confidence_score * Decimal("0.25"))
+        + (agreement_score * Decimal("0.20"))
+        + (_clamp_ranking_score(direction_agreement) * Decimal("0.20"))
+        + (_clamp_ranking_score(direction_accuracy) * Decimal("0.15"))
+        + (rmse_score * Decimal("0.10"))
+        + (sample_score * Decimal("0.10"))
+    )
+
+
+def _advanced_forecast_rmse_quality_score(value: object) -> Decimal:
+    improvement = _decimal_from_text(value)
+    if improvement is None:
+        return Decimal("50")
+    if improvement > 0:
+        return Decimal("65")
+    if improvement < 0:
+        return Decimal("45")
+    return Decimal("50")
+
+
+def _advanced_forecast_sample_quality_score(value: object) -> Decimal:
+    sample_count = _decimal_from_text(value)
+    if sample_count is None or sample_count <= 0:
+        return Decimal("50")
+    if sample_count >= Decimal("60"):
+        return Decimal("85")
+    if sample_count >= Decimal("24"):
+        return Decimal("70")
+    return Decimal("55")
+
+
+def _advanced_return_pct_to_upside_score(value: Decimal | None) -> Decimal:
+    if value is None:
+        return Decimal("50")
+    return _clamp_ranking_score(Decimal("50") + (value * Decimal("7.5")))
+
+
+def _advanced_return_pct_to_downside_score(value: Decimal | None) -> Decimal:
+    if value is None:
+        return Decimal("50")
+    return _clamp_ranking_score(Decimal("50") - (value * Decimal("7.5")))
+
+
+def _neutral_adjusted_ranking_score(score: Decimal, factor: Decimal) -> Decimal:
+    return _clamp_ranking_score(Decimal("50") + ((score - Decimal("50")) * factor))
+
+
+def _clamp_ranking_score(value: Decimal) -> Decimal:
+    return max(Decimal("0"), min(Decimal("100"), value))
 
 
 def _enrich_ranking_rows_with_advanced_forecast(
@@ -5823,8 +5963,68 @@ def _enrich_ranking_rows_with_advanced_forecast(
     for row in rows:
         symbol = row.get("symbol", "").strip().upper()
         advanced_fields = advanced_fields_by_symbol.get(symbol, {})
-        enriched_rows.append({**row, **advanced_fields} if advanced_fields else row)
+        if advanced_fields:
+            enriched_rows.append(_ranking_row_with_advanced_forecast_signal(row, advanced_fields))
+        else:
+            enriched_rows.append(row)
     return enriched_rows
+
+
+def _ranking_row_with_advanced_forecast_signal(
+    row: dict[str, str],
+    advanced_fields: dict[str, str],
+) -> dict[str, str]:
+    merged = {**row, **advanced_fields}
+    advanced_upside = _decimal_from_text(advanced_fields.get("advanced_forecast_upside_score"))
+    advanced_downside = _decimal_from_text(advanced_fields.get("advanced_forecast_downside_score"))
+    if advanced_upside is None and advanced_downside is None:
+        return merged
+
+    base_upside = _decimal_from_text(row.get("upside_signal_score")) or Decimal("50")
+    base_downside = _decimal_from_text(row.get("downside_signal_score")) or Decimal("50")
+    blended_upside = _blend_advanced_direction_score(
+        base_upside,
+        advanced_upside if advanced_upside is not None else Decimal("50"),
+    )
+    blended_downside = _blend_advanced_direction_score(
+        base_downside,
+        advanced_downside if advanced_downside is not None else Decimal("50"),
+    )
+    direction_net = _clamp_ranking_score(
+        Decimal("50") + ((blended_upside - blended_downside) / Decimal("2"))
+    )
+    merged.update(
+        {
+            "upside_signal_score": _format_ranking_decimal_value(blended_upside),
+            "downside_signal_score": _format_ranking_decimal_value(blended_downside),
+            "direction_net_score": _format_ranking_decimal_value(direction_net),
+            "direction_signal_label": _ranking_direction_label_from_scores(
+                blended_upside,
+                blended_downside,
+            ),
+            "advanced_forecast_direction_note": (
+                "上昇気配・下降警戒は通常方向シグナルに高度予測まとめを25%までブレンドしています。"
+            ),
+        }
+    )
+    return merged
+
+
+def _blend_advanced_direction_score(base_score: Decimal, advanced_score: Decimal) -> Decimal:
+    return _clamp_ranking_score((base_score * Decimal("0.75")) + (advanced_score * Decimal("0.25")))
+
+
+def _ranking_direction_label_from_scores(upside: Decimal, downside: Decimal) -> str:
+    signal_gap = upside - downside
+    if upside >= Decimal("80") and signal_gap >= Decimal("20"):
+        return "STRONG_UPSIDE"
+    if upside >= Decimal("65") and signal_gap >= Decimal("10"):
+        return "MODERATE_UPSIDE"
+    if downside >= Decimal("80") and signal_gap <= Decimal("-20"):
+        return "STRONG_DOWNSIDE"
+    if downside >= Decimal("65") and signal_gap <= Decimal("-10"):
+        return "MODERATE_DOWNSIDE"
+    return "NEUTRAL"
 
 
 async def _build_market_data_ranking_rows(
@@ -14594,7 +14794,7 @@ def ranking_score_detail_rows(ranking_row: dict[str, str]) -> list[dict[str, str
                     "観点": "高度予測まとめ",
                     "内容": advanced_value,
                     "確認ポイント": (
-                        "取得期間から決まる共通予測日数の参考シナリオです。順位は変えず、Cockpitの価格レンジと合わせて確認します。"
+                        "取得期間から決まる共通予測日数の参考シナリオです。AI総合では信頼度で控えめに加味し、Cockpitの価格レンジと合わせて確認します。"
                     ),
                 }
             ]

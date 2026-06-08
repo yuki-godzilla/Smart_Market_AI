@@ -68,6 +68,7 @@ from ui.app import (
     RankingResearchStatus,
     _advanced_forecast_consensus_help_text,
     _advanced_forecast_model_help,
+    _advanced_forecast_ranking_signal_fields,
     _advanced_forecast_rows_for_ranking,
     _apply_navigation_query_params,
     _background_workers_disabled,
@@ -80,6 +81,7 @@ from ui.app import (
     _dividend_category_option_label,
     _dividend_filter_help_text,
     _dividend_yield_filter_label,
+    _enrich_ranking_rows_with_advanced_forecast,
     _enrich_ranking_rows_with_feature_details,
     _ensure_selectbox_state_value,
     _etf_question_summary_html,
@@ -6218,9 +6220,31 @@ def test_ranking_advanced_forecast_fields_use_consensus_when_available():
     assert fields["advanced_forecast_horizon_days"] == "10"
     assert fields["advanced_forecast_predicted_return"] == "+2.5%"
     assert fields["advanced_forecast_score"] == "61.25"
+    assert fields["advanced_forecast_upside_score"]
+    assert fields["advanced_forecast_downside_score"]
+    assert fields["advanced_forecast_quality_score"]
     assert fields["advanced_forecast_confidence"] == "medium"
     assert fields["advanced_forecast_range"] == "-1%〜+4%"
     assert fields["advanced_forecast_agreement"] == "MEDIUM"
+
+
+def test_advanced_forecast_ranking_signal_fields_neutralize_low_quality():
+    strong_low_quality = _advanced_forecast_ranking_signal_fields(
+        {
+            "predicted_return": "8%",
+            "predicted_return_lower": "-12%",
+            "weighted_direction_score": "92%",
+            "confidence": "low",
+            "agreement": "LOW",
+            "direction_agreement_score": "50",
+            "mean_direction_accuracy": "48%",
+            "mean_rmse_improvement": "-0.02",
+        }
+    )
+
+    assert Decimal(strong_low_quality["advanced_forecast_upside_score"]) < Decimal("80")
+    assert Decimal(strong_low_quality["advanced_forecast_downside_score"]) > Decimal("70")
+    assert Decimal(strong_low_quality["advanced_forecast_quality_score"]) < Decimal("60")
 
 
 def test_ranking_display_rows_hide_advanced_forecast_when_not_available(monkeypatch):
@@ -7357,6 +7381,67 @@ def test_ranking_weight_presets_prefer_direction_signal_over_forecast_agreement(
     assert RANKING_WEIGHT_PRESETS[RANKING_PRESET_SUSTAINABLE_INCOME][
         "upside_signal_score"
     ] == Decimal("0.03")
+    assert RANKING_WEIGHT_PRESETS[RANKING_PRESET_MULTI_FACTOR][
+        "advanced_forecast_upside_score"
+    ] == Decimal("0.06")
+    assert RANKING_WEIGHT_PRESETS[RANKING_PRESET_MULTI_FACTOR][
+        "advanced_forecast_downside_score"
+    ] == Decimal("0.03")
+
+
+def test_ai_multi_factor_profile_uses_advanced_forecast_without_penalizing_missing_data():
+    rows = [
+        {
+            **_ranking_score_row("ADVANCED"),
+            "advanced_forecast_upside_score": "80",
+            "advanced_forecast_downside_score": "35",
+            "advanced_forecast_quality_score": "75",
+        },
+        _ranking_score_row("MISSING_ADVANCED"),
+    ]
+    symbol_rows = {
+        "ADVANCED": _stock_symbol_metadata("ADVANCED"),
+        "MISSING_ADVANCED": _stock_symbol_metadata("MISSING_ADVANCED"),
+    }
+
+    ranked = apply_ranking_weight_preset(rows, RANKING_PRESET_MULTI_FACTOR, symbol_rows)
+
+    assert ranked[0]["symbol"] == "ADVANCED"
+    assert ranked[0]["rank"] == "1"
+    assert ranked[1]["symbol"] == "MISSING_ADVANCED"
+    assert ranked[1]["advanced_forecast_upside_score"] == "50"
+    assert ranked[1]["advanced_forecast_downside_score"] == "50"
+    assert ranked[1]["advanced_forecast_quality_score"] == "50"
+
+
+def test_advanced_forecast_enrichment_blends_upside_and_downside_signals():
+    rows = [
+        {
+            **_ranking_score_row("ADVANCED"),
+            "upside_signal_score": "60",
+            "downside_signal_score": "40",
+            "direction_net_score": "60",
+            "direction_signal_label": "MODERATE_UPSIDE",
+        }
+    ]
+
+    enriched = _enrich_ranking_rows_with_advanced_forecast(
+        rows,
+        {
+            "ADVANCED": {
+                "advanced_forecast_predicted_return": "+3%",
+                "advanced_forecast_upside_score": "80",
+                "advanced_forecast_downside_score": "70",
+                "advanced_forecast_quality_score": "75",
+            }
+        },
+    )
+
+    assert enriched[0]["upside_signal_score"] == "65"
+    assert enriched[0]["downside_signal_score"] == "47.5"
+    assert enriched[0]["direction_net_score"] == "58.75"
+    assert enriched[0]["direction_signal_label"] == "MODERATE_UPSIDE"
+    assert "25%" in enriched[0]["advanced_forecast_direction_note"]
 
 
 def test_upside_signal_profile_keeps_high_downside_warning_from_top_rank():

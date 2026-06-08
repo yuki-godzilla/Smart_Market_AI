@@ -176,6 +176,7 @@ RANKING_INVESTMENT_STYLE_METRICS = {
         "screening_score",
         "direction_signal",
         "downside_warning",
+        "advanced_forecast",
         "data_quality",
         "risk_signal",
         "database_fit",
@@ -459,14 +460,17 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
         "metadata_confidence_score": Decimal("0.10"),
     },
     RANKING_PRESET_MULTI_FACTOR: {
-        "screening_score": Decimal("0.25"),
-        "upside_signal_score": Decimal("0.14"),
-        "downside_signal_score": Decimal("0.06"),
-        "data_quality_score": Decimal("0.15"),
-        "risk_signal_score": Decimal("0.15"),
-        "database_fit_score": Decimal("0.10"),
-        "metadata_confidence_score": Decimal("0.10"),
-        "research_score": Decimal("0.05"),
+        "screening_score": Decimal("0.23"),
+        "upside_signal_score": Decimal("0.12"),
+        "downside_signal_score": Decimal("0.05"),
+        "advanced_forecast_upside_score": Decimal("0.06"),
+        "advanced_forecast_downside_score": Decimal("0.03"),
+        "advanced_forecast_quality_score": Decimal("0.03"),
+        "data_quality_score": Decimal("0.14"),
+        "risk_signal_score": Decimal("0.14"),
+        "database_fit_score": Decimal("0.09"),
+        "metadata_confidence_score": Decimal("0.09"),
+        "research_score": Decimal("0.02"),
     },
     RANKING_PRESET_QUALITY_GROWTH: {
         "database_fit_score": Decimal("0.25"),
@@ -1763,19 +1767,30 @@ def _ensure_ranking_signal_fields(row: dict[str, str]) -> dict[str, str]:
         enriched["flat_model_count"] = "0"
     if not enriched.get("research_score"):
         enriched["research_score"] = "50"
+    for advanced_field in (
+        "advanced_forecast_upside_score",
+        "advanced_forecast_downside_score",
+        "advanced_forecast_quality_score",
+    ):
+        if not enriched.get(advanced_field):
+            enriched[advanced_field] = "50"
     return enriched
 
 
 def _ranking_component_score(row: dict[str, str], field: str) -> Decimal:
     value = _optional_decimal_from_text(row.get(field, ""))
-    if field == "downside_signal_score":
+    if field in {"downside_signal_score", "advanced_forecast_downside_score"}:
         # Lower downside warning ranks higher; UI still displays the raw warning score.
         if value is None:
             return Decimal("50")
         return max(Decimal("0"), min(Decimal("100"), Decimal("100") - value))
     if value is not None:
         return value
-    if field == "research_score":
+    if field in {
+        "advanced_forecast_upside_score",
+        "advanced_forecast_quality_score",
+        "research_score",
+    }:
         return Decimal("50")
     if field == "upside_signal_score":
         return _optional_decimal_from_text(row.get("forecast_agreement_score", "")) or Decimal("50")

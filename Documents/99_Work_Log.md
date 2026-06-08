@@ -1227,3 +1227,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Replaced Streamlit checkbox chart-series controls with in-chart legend interaction to avoid full app recalculation when toggling model visibility.
 - Added a right-side forecast-focus chart that automatically keeps the latest actual-price days plus the forward forecast area, making the range band easier to inspect.
 - Updated deterministic tests and Phase 23 docs for the common-horizon behavior and chart focus view.
+
+## 2026-06-08 - Advanced Forecast Ranking / AI総合 integration
+
+- Derived Ranking-ready advanced forecast upside, downside, and quality scores from the common-horizon consensus using return, lower range, confidence, agreement, direction accuracy, RMSE improvement, and validation sample context.
+- Blended advanced forecast upside / downside into Ranking `上昇気配` / `下降警戒` at 25% when consensus fields exist, while pulling low-confidence or missing data toward neutral 50.
+- Added modest direct AI総合 weights for advanced forecast upside / downside / quality so the consensus affects Ranking without turning forecast output into an investment instruction.
+- Updated beginner-facing labels and detail/breakdown wording to call this `高度予測まとめ` and explain that it is a comparison aid.
+- Updated roadmap, operations guide, project context, and spec issue tracking for the new Ranking direction-signal and AI総合 behavior.

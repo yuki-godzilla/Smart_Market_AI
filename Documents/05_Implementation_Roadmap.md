@@ -1581,9 +1581,9 @@ Phase 22 完了条件:
 
 ### 5.9 Phase 23: Optional Adapter と高度分析
 
-状態: Advanced Forecast Slice 1 backend adapter / forecast service / API / Streamlit Cockpit / Ranking auxiliary display 接続済み。Ranking 順位への統合は未実施。
+状態: Advanced Forecast Slice 1 backend adapter / forecast service / API / Streamlit Cockpit / Ranking auxiliary display 接続済み。Ranking 順位への統合は未実施で、追加予定の高度予測モデルを一通り実装してからまとめて仕上げる。
 
-目的: default path を deterministic に保ったまま、追加 provider、advanced forecast / research model、news / sentiment、将来の LLM adapter を optional layer として追加する。次の実装優先度は、銘柄コックピット / 銘柄ランキングで使う高度予測モデル adapter。
+目的: default path を deterministic に保ったまま、追加 provider、advanced forecast / research model、news / sentiment、将来の LLM adapter を optional layer として追加する。次の実装優先度は、銘柄コックピット / 銘柄ランキングで使う高度予測モデル adapter を複数そろえ、比較表示の土台を作ること。
 
 範囲:
 
@@ -1598,12 +1598,12 @@ Phase 22 完了条件:
 - 通常 path は既存の naive / moving-average / momentum baseline と consensus を維持する。
 - heavy ML library に依存するモデルは optional adapter とし、未導入でもアプリ・通常 tests・CI が動くようにする。
 - 最初は 1 銘柄または小さい銘柄集合で、walk-forward evaluation、モデル別予測、予測レンジ、方向シグナルへの反映を確認する。
-- ランキング順位への反映は opt-in または比較表示から始め、既定挙動を急に変えない。
+- ランキング順位への反映は、`advanced_linear` 単体では行わない。tree / GBDT / quantile など追加予定の高度予測モデルを一通り実装し、モデル間比較、信頼度、検証指標、計算コストを見たうえで、後続 slice で opt-in sort profile / ranking logic としてまとめて仕上げる。
 - UI では「将来保証」ではなく「モデル別の見方 / 不確実性 / 確認材料」として表示する。
 
 #### Phase 23.a: Advanced Forecast Slice 1 - `advanced_linear`
 
-状態: backend adapter / forecast service / API / Streamlit Cockpit / Ranking auxiliary display 接続済み。Ranking 順位への統合は未実施。
+状態: backend adapter / forecast service / API / Streamlit Cockpit / Ranking auxiliary display 接続済み。Ranking 順位への統合は未実施で、追加高度予測モデルの実装完了後にまとめて扱う。
 
 目的: 派手な深層学習モデルより先に、軽量・deterministic・説明可能な高度予測 adapter の骨格を追加する。既存 FeatureBuilder / Forecast service / Cockpit / Ranking の構造を壊さず、将来の tree / GBDT / quantile / deep-learning adapter を足せる境界を作る。
 
@@ -1669,7 +1669,7 @@ Streamlit / Ranking 接続方針:
 - 表示候補は、高度予測モデル名、horizon、予測リターン、direction score、confidence、MAE / RMSE / direction accuracy、主な寄与 feature、非助言 note。
 - まずは expander `高度予測モデル詳細` でもよい。
 - Ranking では `predicted_return_5d`、`predicted_return_20d`、`advanced_forecast_score`、`advanced_forecast_confidence` の列を保持し、表示テーブル / 選択候補 breakdown / score detail / CSV export で補助情報として確認できる。
-- 初期 slice では Ranking 本体順位を変更せず、補助列 / optional score として扱う。`advanced_forecast_score` による sort profile 追加は後続の opt-in 検討とする。
+- 初期 slice では Ranking 本体順位を変更せず、補助列 / optional score として扱う。`advanced_forecast_score` による sort profile 追加は、追加高度予測モデルを一通りそろえた後の ranking logic finalization slice でまとめて検討する。
 
 将来 adapter 候補:
 
@@ -1678,6 +1678,13 @@ Streamlit / Ranking 接続方針:
 - `advanced_gbdt_optional`: LightGBM / XGBoost
 - `advanced_quantile`: Quantile Regression / prediction interval
 - LightGBM / XGBoost / Prophet / deep learning 系は今回追加しない。
+
+Ranking logic finalization 方針:
+
+- 個別 adapter 追加のたびにランキング順位を変えず、まず Cockpit / Ranking の補助表示と CSV export にモデル別の予測・信頼度・検証指標を蓄積する。
+- 一通りの高度予測モデルを追加した後、モデル間の重複、検証安定性、horizon 別の用途、計算時間、データ不足時の扱いを比較して、Ranking 用の統合指標を設計する。
+- Ranking 統合は既定順位の差し替えではなく、まず opt-in sort profile / evaluation profile として実装する。
+- 完了条件には、Research Score と同様に「投資助言ではない」「既定の Ranking / Investment Score は急に変えない」「通常 checks は deterministic / network-free」を含める。
 
 テスト方針:
 

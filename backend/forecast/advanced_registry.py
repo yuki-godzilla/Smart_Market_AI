@@ -6,12 +6,16 @@ from typing import Protocol
 
 from backend.core.data_contracts import Bar
 from backend.forecast.adapters import (
+    ADVANCED_GBDT_SKLEARN_ADAPTER_NAME,
     ADVANCED_LINEAR_ADAPTER_NAME,
     ADVANCED_QUANTILE_ADAPTER_NAME,
     ADVANCED_TREE_SKLEARN_ADAPTER_NAME,
+    SUPPORTED_ADVANCED_GBDT_SKLEARN_HORIZONS,
     SUPPORTED_ADVANCED_LINEAR_HORIZONS,
     SUPPORTED_ADVANCED_QUANTILE_HORIZONS,
     SUPPORTED_ADVANCED_TREE_SKLEARN_HORIZONS,
+    AdvancedGbdtSklearnForecastAdapter,
+    AdvancedGbdtSklearnForecastResult,
     AdvancedLinearForecastAdapter,
     AdvancedLinearForecastResult,
     AdvancedQuantileForecastAdapter,
@@ -22,8 +26,9 @@ from backend.forecast.adapters import (
 
 AdvancedForecastResult = (
     AdvancedLinearForecastResult
-    | AdvancedQuantileForecastResult
     | AdvancedTreeSklearnForecastResult
+    | AdvancedGbdtSklearnForecastResult
+    | AdvancedQuantileForecastResult
 )
 
 
@@ -69,6 +74,16 @@ def advanced_forecast_adapter_specs() -> list[AdvancedForecastAdapterSpec]:
             ),
             supported_horizons=SUPPORTED_ADVANCED_TREE_SKLEARN_HORIZONS,
             factory=lambda: AdvancedTreeSklearnForecastAdapter(),
+        ),
+        AdvancedForecastAdapterSpec(
+            key=ADVANCED_GBDT_SKLEARN_ADAPTER_NAME,
+            display_name="高度予測: ブースティングモデル",
+            description=(
+                "価格特徴量の非線形な変化をscikit-learnのHistogram Gradient Boostingで"
+                "参考推定します。"
+            ),
+            supported_horizons=SUPPORTED_ADVANCED_GBDT_SKLEARN_HORIZONS,
+            factory=lambda: AdvancedGbdtSklearnForecastAdapter(),
         ),
         AdvancedForecastAdapterSpec(
             key=ADVANCED_QUANTILE_ADAPTER_NAME,

@@ -136,6 +136,25 @@ def test_evaluate_advanced_forecast_returns_tree_sklearn_adapter():
     assert evaluation.feature_contribution_summary
 
 
+def test_evaluate_advanced_forecast_returns_gbdt_sklearn_adapter():
+    bars = _bars(list(range(100, 172)))
+
+    evaluation = evaluate_advanced_forecast(
+        bars,
+        adapter_name="advanced_gbdt_sklearn",
+        horizon_days=5,
+    )
+
+    assert evaluation.adapter_name == "advanced_gbdt_sklearn"
+    assert evaluation.model_name == "HistGradientBoostingRegressor"
+    assert evaluation.symbol == "AAPL"
+    assert evaluation.horizon_days == 5
+    assert evaluation.latest_close == Decimal("171.0000")
+    assert evaluation.forecast_close >= Decimal("0")
+    assert evaluation.validation_metrics.sample_count == 67
+    assert evaluation.feature_contribution_summary
+
+
 def test_evaluate_advanced_forecast_supports_common_horizon():
     bars = _bars(list(range(100, 172)))
 

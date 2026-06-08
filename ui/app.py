@@ -5728,9 +5728,13 @@ def _ranking_advanced_forecast_fields(
     if not advanced_forecast_rows:
         return {}
 
-    model_keys = sorted(
-        {row.get("adapter", "").strip() for row in advanced_forecast_rows if row.get("adapter")}
-    )
+    model_keys: list[str] = []
+    seen_model_keys: set[str] = set()
+    for row in advanced_forecast_rows:
+        model_key = row.get("adapter", "").strip()
+        if model_key and model_key not in seen_model_keys:
+            model_keys.append(model_key)
+            seen_model_keys.add(model_key)
     fields: dict[str, str] = {
         "advanced_forecast_model": ",".join(model_keys) or "advanced_forecast",
         "advanced_forecast_note": (
@@ -10151,6 +10155,8 @@ def forecast_chart_series_help(series: str) -> str:
     if kind == "advanced":
         if series.startswith("advanced_quantile_"):
             return "過去の値動き分布から下振れ・中央値・上振れを確認する高度予測です。"
+        if series.startswith("advanced_gbdt_sklearn_"):
+            return "値動きの非線形な変化をブースティングで参考推定する高度予測です。"
         if series.startswith("advanced_tree_sklearn_"):
             return "特徴量の非線形な組み合わせを使うツリー型の高度予測です。"
         return "複数の価格特徴量を使う高度予測です。売買判断ではなく参考シナリオです。"
@@ -13861,6 +13867,8 @@ def _advanced_forecast_model_title(row: Mapping[str, str]) -> str:
         adapter = row.get("adapter", "").strip()
         if adapter == "advanced_quantile":
             model_label = "高度予測: レンジモデル"
+        elif adapter == "advanced_gbdt_sklearn":
+            model_label = "高度予測: ブースティングモデル"
         elif adapter == "advanced_tree_sklearn":
             model_label = "高度予測: ツリーモデル"
         elif adapter == "advanced_linear" or not adapter:
@@ -13906,6 +13914,13 @@ def _advanced_forecast_model_help(row: Mapping[str, str]) -> str:
             "リターン、移動平均との差、値動きの大きさ、下落幅、出来高などを使い、"
             f"過去に似た状態から{horizon_days}日後にどう動いたかを"
             "scikit-learnのツリー集合モデルで参考推定します。"
+            "売買判断ではなく価格シナリオ確認用です。"
+        )
+    if adapter == "advanced_gbdt_sklearn":
+        return (
+            "リターン、移動平均との差、値動きの大きさ、下落幅、出来高などを使い、"
+            f"過去に似た状態から{horizon_days}日後にどう動いたかを"
+            "scikit-learnのブースティングモデルで参考推定します。"
             "売買判断ではなく価格シナリオ確認用です。"
         )
     return (
@@ -14509,6 +14524,8 @@ def _forecast_series_label(series: str) -> str:
         horizon_days = advanced_match.group(2)
         if adapter_name == "advanced_quantile":
             return f"高度予測: レンジモデル {horizon_days}日"
+        if adapter_name == "advanced_gbdt_sklearn":
+            return f"高度予測: ブースティングモデル {horizon_days}日"
         if adapter_name == "advanced_tree_sklearn":
             return f"高度予測: ツリーモデル {horizon_days}日"
         if adapter_name == "advanced_linear":

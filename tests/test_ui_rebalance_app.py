@@ -741,6 +741,7 @@ def test_advanced_forecast_rows_use_selected_common_horizon():
     assert {row["adapter"] for row in advanced_rows} == {
         "advanced_linear",
         "advanced_tree_sklearn",
+        "advanced_gbdt_sklearn",
         "advanced_quantile",
     }
     assert {row["horizon_days"] for row in advanced_rows} == {"10"}
@@ -774,6 +775,7 @@ def test_advanced_forecast_rows_include_quantile_range_for_chart():
     assert adapters == {
         "advanced_linear",
         "advanced_tree_sklearn",
+        "advanced_gbdt_sklearn",
         "advanced_quantile",
     }
     assert quantile_rows

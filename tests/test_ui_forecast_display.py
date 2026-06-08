@@ -500,6 +500,7 @@ def test_market_data_preview_advanced_forecast_rows_recomputes_for_common_horizo
     assert {row["adapter"] for row in rows} == {
         "advanced_linear",
         "advanced_tree_sklearn",
+        "advanced_gbdt_sklearn",
         "advanced_quantile",
     }
     assert {row["horizon_days"] for row in rows} == {"10"}
@@ -6136,12 +6137,13 @@ def test_ranking_advanced_forecast_rows_use_common_period_horizon():
     assert {row["adapter"] for row in rows} == {
         "advanced_linear",
         "advanced_tree_sklearn",
+        "advanced_gbdt_sklearn",
         "advanced_quantile",
     }
     assert {row["horizon_days"] for row in rows} == {"10"}
     assert (
         fields["advanced_forecast_model"]
-        == "advanced_linear,advanced_quantile,advanced_tree_sklearn"
+        == "advanced_linear,advanced_tree_sklearn,advanced_gbdt_sklearn,advanced_quantile"
     )
     assert fields["advanced_forecast_horizons"] == "10"
     assert fields["advanced_forecast_horizon_days"] == "10"

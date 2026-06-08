@@ -1247,6 +1247,8 @@ def advanced_forecast_model_label(adapter_name: str) -> str:
         return "高度予測: 線形モデル"
     if adapter_name == "advanced_tree_sklearn":
         return "高度予測: ツリーモデル"
+    if adapter_name == "advanced_gbdt_sklearn":
+        return "高度予測: ブースティングモデル"
     if adapter_name == "advanced_quantile":
         return "高度予測: レンジモデル"
     return f"高度予測: {adapter_name}"

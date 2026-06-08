@@ -229,6 +229,13 @@ class ForecastEvaluateRequest(StrictBaseModel):
                     "start": "2026-04-01",
                     "end": "2026-06-06",
                     "horizon_days": 20,
+                    "adapter": "advanced_gbdt_sklearn",
+                },
+                {
+                    "symbol": "AAPL",
+                    "start": "2026-04-01",
+                    "end": "2026-06-06",
+                    "horizon_days": 20,
                     "adapter": "advanced_quantile",
                 },
             ]
@@ -522,7 +529,8 @@ async def screening_score(request: ScreeningScoreRequest) -> list[ScreeningScore
     description=(
         "Fetches configured OHLCV data for one symbol and evaluates deterministic baseline "
         "models by default. Set adapter=advanced_linear, advanced_tree_sklearn, "
-        "or advanced_quantile to evaluate 1 to 60 day advanced forecast adapters."
+        "advanced_gbdt_sklearn, or advanced_quantile to evaluate 1 to 60 day "
+        "advanced forecast adapters."
     ),
     responses=ERROR_RESPONSES,
 )

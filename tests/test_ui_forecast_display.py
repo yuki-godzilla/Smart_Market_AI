@@ -8164,7 +8164,7 @@ def test_provider_error_summary_rows_explain_ranking_no_bars():
     assert details["request"]["display_end"] == "2026-05-18"
 
 
-def test_render_market_chart_uses_currency_axis_title_and_compact_width(monkeypatch):
+def test_render_market_chart_uses_currency_axis_title_and_expanded_width(monkeypatch):
     captured: dict[str, object] = {}
     markdown_calls: list[str] = []
 
@@ -8202,7 +8202,7 @@ def test_render_market_chart_uses_currency_axis_title_and_compact_width(monkeypa
     assert spec["title"] == "Price and forecast"
     assert len(spec["hconcat"]) == 2
     assert (
-        MARKET_CHART_FULL_WIDTH + MARKET_CHART_FOCUS_WIDTH + MARKET_CHART_COMBINED_SPACING <= 1000
+        MARKET_CHART_FULL_WIDTH + MARKET_CHART_FOCUS_WIDTH + MARKET_CHART_COMBINED_SPACING <= 1200
     )
     assert chart_spec["width"] == MARKET_CHART_FULL_WIDTH
     assert focus_spec["width"] == MARKET_CHART_FOCUS_WIDTH

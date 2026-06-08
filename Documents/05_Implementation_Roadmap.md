@@ -59,7 +59,7 @@ Research RAG は Phase 20 local evidence slice が決定的な土台として実
 - 追加 provider / fund metadata source adapter
 - Research RAG の `ResearchFactSummary` 抽出対象拡張、追加 external source adapter、vector / hybrid search の運用UI
 - `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動、通知
-- 銘柄DB background refresh の live provider refresh wiring。`backend/symbols` の foundation、Streamlit daemon worker、Cockpit / Ranking 共通の visible freshness 表示、Cockpit / Ranking 対象銘柄の自動優先更新、Cockpit / Ranking 操作直前の軽量 preflight 更新は実装済み
+- 銘柄DB background refresh の live provider refresh wiring。`backend/symbols` の foundation、Streamlit daemon worker、Cockpit / Ranking 共通の visible freshness 表示、Cockpit / Ranking 対象銘柄の自動優先更新、Cockpit の価格・予測取得後 background priority refresh + 30分TTL、Ranking 操作直前の軽量 preflight 更新は実装済み
 - Research Score によるランキング順位統合は、現時点では見送り。必要性が再確認された場合のみ後続の opt-in 機能として扱う
 - Phase 23 は Optional Adapter / 高度分析を先に進め、銘柄コックピット / ランキング向け advanced forecast model adapter を次の優先候補にする
 - Assistant API / Streamlit 質問パネル、optional LLM provider は Phase 24 に後ろ倒し。`backend/assistant` の deterministic template service は初期実装済み

@@ -485,6 +485,8 @@ SYMBOL_AUTO_REFRESH_REQUEST_KEY_LIMIT = 100
 RANKING_AUTO_REFRESH_SYMBOL_LIMIT = 300
 SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY = "symbol_preflight_refresh_last_error_type"
 COCKPIT_SYMBOL_DB_PREFLIGHT_MAX_ITEMS = 1
+COCKPIT_SYMBOL_DB_PREFLIGHT_REQUEST_STATE_KEY = "cockpit_symbol_db_preflight_requests"
+COCKPIT_SYMBOL_DB_PREFLIGHT_TTL_SECONDS = 30 * 60
 RANKING_SYMBOL_DB_PREFLIGHT_DIRECT_THRESHOLD = 30
 RANKING_SYMBOL_DB_PREFLIGHT_MAX_ITEMS = 50
 RANKING_SYMBOL_DB_PREFLIGHT_SCAN_LIMIT = 300
@@ -1661,6 +1663,59 @@ def _request_symbol_auto_refresh_once(
     st.session_state[SYMBOL_AUTO_REFRESH_REQUEST_STATE_KEY] = requested_keys[
         -SYMBOL_AUTO_REFRESH_REQUEST_KEY_LIMIT:
     ]
+
+
+def _cockpit_symbol_db_preflight_request_times() -> dict[str, float]:
+    raw_request_times = st.session_state.get(COCKPIT_SYMBOL_DB_PREFLIGHT_REQUEST_STATE_KEY, {})
+    if not isinstance(raw_request_times, Mapping):
+        return {}
+    request_times: dict[str, float] = {}
+    for raw_symbol, raw_requested_at in raw_request_times.items():
+        try:
+            request_times[str(raw_symbol)] = float(raw_requested_at)
+        except (TypeError, ValueError):
+            continue
+    return request_times
+
+
+def _request_cockpit_symbol_db_preflight_background(
+    symbol: str,
+    *,
+    now: float | None = None,
+) -> bool:
+    target_symbols = _symbol_auto_refresh_symbols(
+        [symbol],
+        max_symbols=COCKPIT_SYMBOL_DB_PREFLIGHT_MAX_ITEMS,
+    )
+    if not target_symbols or _background_workers_disabled():
+        return False
+
+    current_time = perf_time.monotonic() if now is None else now
+    target_symbol = target_symbols[0]
+    request_times = _cockpit_symbol_db_preflight_request_times()
+    last_requested_at = request_times.get(target_symbol)
+    if (
+        last_requested_at is not None
+        and current_time - last_requested_at < COCKPIT_SYMBOL_DB_PREFLIGHT_TTL_SECONDS
+    ):
+        return False
+
+    try:
+        request_symbol_background_refresh(target_symbols, source="cockpit")
+    except Exception as exc:  # noqa: BLE001
+        st.session_state[SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY] = type(exc).__name__
+        return False
+
+    stale_cutoff = current_time - COCKPIT_SYMBOL_DB_PREFLIGHT_TTL_SECONDS
+    request_times = {
+        symbol_key: requested_at
+        for symbol_key, requested_at in request_times.items()
+        if requested_at >= stale_cutoff
+    }
+    request_times[target_symbol] = current_time
+    st.session_state[COCKPIT_SYMBOL_DB_PREFLIGHT_REQUEST_STATE_KEY] = request_times
+    st.session_state.pop(SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY, None)
+    return True
 
 
 def ranking_symbol_db_preflight_limit(symbol_count: int) -> int:
@@ -4937,11 +4992,6 @@ def _render_market_data_cockpit() -> None:
                     message="価格、予測、スコアの材料をまとめています。少しだけお待ちください。",
                     tone="forecast",
                 )
-            _run_symbol_database_preflight_refresh(
-                [symbol],
-                context="cockpit",
-                max_items=COCKPIT_SYMBOL_DB_PREFLIGHT_MAX_ITEMS,
-            )
             preview = asyncio.run(
                 build_market_data_preview(
                     symbol=symbol.strip(),
@@ -4965,6 +5015,7 @@ def _render_market_data_cockpit() -> None:
         st.session_state[MARKET_DATA_STATUS_STATE_KEY] = preview.status
         if preview.status == "OK":
             st.session_state[MARKET_DATA_TOAST_STATE_KEY] = "データを取得しました。"
+            _request_cockpit_symbol_db_preflight_background(symbol)
 
     stored_preview = _market_data_preview_from_state()
     if stored_preview is None:

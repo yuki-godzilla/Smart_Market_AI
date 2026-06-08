@@ -47,6 +47,8 @@ from backend.research import (
 )
 from backend.screening import ScreeningScore
 from ui.app import (
+    COCKPIT_SYMBOL_DB_PREFLIGHT_REQUEST_STATE_KEY,
+    COCKPIT_SYMBOL_DB_PREFLIGHT_TTL_SECONDS,
     DEFAULT_MARKET_DATA_PERIOD_PRESET,
     MARKET_DATA_COCKPIT_FILTER_DEFAULTS,
     MARKET_DATA_EXTERNAL_RESEARCH_FETCH_STATE_KEY,
@@ -116,6 +118,7 @@ from ui.app import (
     _render_research_operation_card,
     _render_research_summary_panel,
     _render_score_confidence_hierarchy,
+    _request_cockpit_symbol_db_preflight_background,
     _request_symbol_auto_refresh_once,
     _research_brief_focus_html,
     _research_brief_gap_panel_html,
@@ -901,6 +904,66 @@ def test_symbol_auto_refresh_once_dedupes_session_requests(monkeypatch):
     assert calls == [(["AAPL"], "cockpit")]
     assert isinstance(requested_keys, list)
     assert len(requested_keys) == 1
+
+
+def test_cockpit_symbol_db_preflight_background_uses_session_ttl(monkeypatch):
+    session_state: dict[str, object] = {}
+    calls: list[tuple[list[str], str]] = []
+
+    def fake_request(symbols: list[str], *, source: str) -> list[str]:
+        calls.append((list(symbols), source))
+        return list(symbols)
+
+    monkeypatch.delenv("SMAI_DISABLE_BACKGROUND_WORKERS", raising=False)
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.app.request_symbol_background_refresh", fake_request)
+
+    assert _request_cockpit_symbol_db_preflight_background(" aapl ", now=100.0) is True
+    assert _request_cockpit_symbol_db_preflight_background("AAPL", now=160.0) is False
+    assert (
+        _request_cockpit_symbol_db_preflight_background(
+            "AAPL",
+            now=100.0 + COCKPIT_SYMBOL_DB_PREFLIGHT_TTL_SECONDS + 1,
+        )
+        is True
+    )
+
+    assert calls == [(["AAPL"], "cockpit"), (["AAPL"], "cockpit")]
+    assert session_state[COCKPIT_SYMBOL_DB_PREFLIGHT_REQUEST_STATE_KEY] == {
+        "AAPL": 100.0 + COCKPIT_SYMBOL_DB_PREFLIGHT_TTL_SECONDS + 1
+    }
+
+
+def test_cockpit_symbol_db_preflight_background_respects_disabled_workers(monkeypatch):
+    session_state: dict[str, object] = {}
+    calls: list[tuple[list[str], str]] = []
+
+    def fake_request(symbols: list[str], *, source: str) -> list[str]:
+        calls.append((list(symbols), source))
+        return list(symbols)
+
+    monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "true")
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.app.request_symbol_background_refresh", fake_request)
+
+    assert _request_cockpit_symbol_db_preflight_background("AAPL", now=100.0) is False
+    assert calls == []
+    assert COCKPIT_SYMBOL_DB_PREFLIGHT_REQUEST_STATE_KEY not in session_state
+
+
+def test_cockpit_symbol_db_preflight_background_suppresses_failure(monkeypatch):
+    session_state: dict[str, object] = {}
+
+    def fake_request(symbols: list[str], *, source: str) -> list[str]:
+        raise RuntimeError("locked")
+
+    monkeypatch.delenv("SMAI_DISABLE_BACKGROUND_WORKERS", raising=False)
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+    monkeypatch.setattr("ui.app.request_symbol_background_refresh", fake_request)
+
+    assert _request_cockpit_symbol_db_preflight_background("AAPL", now=100.0) is False
+    assert session_state[SYMBOL_PREFLIGHT_REFRESH_ERROR_STATE_KEY] == "RuntimeError"
+    assert COCKPIT_SYMBOL_DB_PREFLIGHT_REQUEST_STATE_KEY not in session_state
 
 
 def test_background_workers_disabled_env_flag(monkeypatch):

@@ -33,7 +33,8 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
   - freshness classification, refresh priority queue, queue/status recovery, latest-only normalized symbol cache
   - Streamlit startup daemon worker that updates missing / stale local symbol records without blocking rendering
   - Cockpit selected symbols and Ranking comparison targets are registered as background priority hints without adding user-facing controls
-  - Cockpit `データを取得` and Ranking `最新データを取得して更新` run a bounded target preflight refresh before market-data fetch / ranking creation
+  - Cockpit `データを取得` prioritizes price / forecast rendering, then registers the selected symbol for background priority refresh with a 30-minute in-session TTL
+  - Ranking `最新データを取得して更新` runs a bounded target preflight refresh before ranking creation
   - Cockpit selected-symbol caption and the shared Ranking / Cockpit `銘柄データ` modal show saved symbol DB freshness, source, update times, and missing key fields
 - Phase 23 Advanced Forecast adapter registry + `advanced_linear` / `advanced_quantile` backend + API + Cockpit + Ranking auxiliary display slice
   - `advanced_linear` forecast adapter foundation for Cockpit / Ranking
@@ -243,7 +244,7 @@ EXE起動時のCRUD系ランタイム領域:
 
 銘柄DBの時刻は用途別に分けます。`cached_at` は runtime cache に保存した時刻、`source_as_of` は元データの基準日、`source_updated_at` は provider / source 側の更新日時、`promoted_at` は公式軽量メトリクスDBへ昇格した時刻です。古い `updated_at` は互換フィールドとして残しますが、UIの `銘柄DB最終更新` は `cached_at` を優先します。
 
-ランキング / 検索で使う軽量指標は、runtime cache から許可フィールドだけを `symbol_metrics.sqlite` に昇格します。通常の background refresh 後に加え、Cockpit / Ranking の preflight refresh 後も対象銘柄だけを即時 sync します。`symbol_metrics.sqlite` は runtime writable な軽量DBで、既定では `SMAI_CACHE_DIR` 配下を使います。分離したい場合は `SMAI_SYMBOL_METRICS_DIR` で保存先を指定できます。`symbol_universe.csv` に存在しない銘柄、または `is_active=false` の銘柄については、background sync 後に公式軽量メトリクスを prune します。CSV が読めない場合は誤削除を避けるため prune をスキップします。
+ランキング / 検索で使う軽量指標は、runtime cache から許可フィールドだけを `symbol_metrics.sqlite` に昇格します。通常の background refresh と Cockpit の background priority refresh 後に加え、Ranking の preflight refresh 後も軽量指標を sync します。`symbol_metrics.sqlite` は runtime writable な軽量DBで、既定では `SMAI_CACHE_DIR` 配下を使います。分離したい場合は `SMAI_SYMBOL_METRICS_DIR` で保存先を指定できます。`symbol_universe.csv` に存在しない銘柄、または `is_active=false` の銘柄については、background sync 後に公式軽量メトリクスを prune します。CSV が読めない場合は誤削除を避けるため prune をスキップします。
 
 ### Side menu
 
@@ -340,7 +341,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - ranking result with ticker / company name / score / warnings
 - ranking result は AgGrid で表示し、銘柄行をクリックするとローカル銘柄マスタ `symbol_universe.csv` と保存済み銘柄キャッシュDB `symbols_cache.sqlite` の登録値をモーダルで確認できます
 - `銘柄データ` モーダルの `データ情報` タブでは、銘柄DB鮮度、銘柄DB最終更新、銘柄DB取得元、価格データ更新、財務データ更新、不足している主要項目を確認できます。これはデータ信頼度の確認材料であり、売買推奨やランキング順位変更ではありません。
-- Cockpit の `データを取得` では選択中1銘柄、Ranking の `最新データを取得して更新` では上記上限内の比較候補を、UI操作を増やさずに銘柄DB preflight 更新対象へ渡します。失敗しても前回保存データと通常の market-data fetch / ranking creation は継続します。
+- Cockpit の `データを取得` では、価格・予測・Investment Score の表示を優先し、取得成功後に選択中1銘柄を background priority refresh へ登録します。同じセッションでは同じ銘柄の登録を30分TTLで抑制します。Ranking の `最新データを取得して更新` では、上記上限内の比較候補を同期 preflight 更新対象へ渡してから ranking creation を進めます。失敗しても前回保存データと通常の market-data fetch / ranking creation は継続します。
 - 銘柄データモーダルの `AI Research` タブでは、`AIで資料を確認` を押した場合だけ登録済みResearch資料を検索し、Research Summary、根拠資料名、資料日、根拠数、詳細 evidence を確認できます
 - 選択銘柄をコックピットへ渡す deep-dive flow
 
@@ -536,7 +537,7 @@ Yahoo coverage check:
 Phase 16 ranking implementation notes:
 
 - `data/marketdata/symbol_universe.csv` is the ranking candidate master used before provider fetch. It is intentionally curated/local-first and currently carries display/search/filter metadata such as `symbol`, `name`, `market`, `asset_type`, `currency`, `theme`, `dividend_category`, `dividend_yield_pct`, `market_cap_tier`, `index_family`, `expense_ratio_pct`, `complexity`, `tags`, `aliases`, `per`, `pbr`, `roe_pct`, `sector`, `consensus_rating`, `forecast_agreement`, `data_quality`, and `risk_band`. Optional `yahoo_symbol` is used only when Yahoo needs a different ticker than the display/source symbol.
-- Streamlit startup starts a daemon background symbol DB refresh worker instead of blocking the UI. The worker reads the formal master `symbol_universe.csv`, writes latest-only normalized runtime records to `data/cache/symbols_cache.sqlite`, keeps `symbol_refresh_queue.json` empty after successful batches, and updates `symbol_refresh_status.json`. Existing `symbols_cache.json` is treated as a legacy cache import source, not as the primary runtime store. The current network-free maintenance plan is: immediate startup batch 150 symbols, 75 symbols after 3 minutes, 75 symbols after 8 minutes, then 50 symbols every 5 minutes, with fresh records skipped and a 1000-symbol per-session safety cap. Cockpit selected symbols and Ranking comparison targets are registered internally as priority hints, so missing / stale records used by current workflows move ahead of ordinary background candidates without changing the visible UI.
+- Streamlit startup starts a daemon background symbol DB refresh worker instead of blocking the UI. The worker reads the formal master `symbol_universe.csv`, writes latest-only normalized runtime records to `data/cache/symbols_cache.sqlite`, keeps `symbol_refresh_queue.json` empty after successful batches, and updates `symbol_refresh_status.json`. Existing `symbols_cache.json` is treated as a legacy cache import source, not as the primary runtime store. The current network-free maintenance plan is: immediate startup batch 150 symbols, 75 symbols after 3 minutes, 75 symbols after 8 minutes, then 50 symbols every 5 minutes, with fresh records skipped and a 1000-symbol per-session safety cap. Cockpit selected symbols and Ranking comparison targets are registered internally as priority hints, so missing / stale records used by current workflows move ahead of ordinary background candidates without changing the visible UI. Cockpit registers the selected symbol only after a successful price / forecast fetch and skips repeated same-symbol requests for 30 minutes in the current session.
 - To check whether any symbol is stuck in the refresh queue, inspect `symbol_refresh_queue.json` or run `backend.symbols.startup.find_pending_symbol_refresh_tasks()`. A healthy post-startup state has no `pending`, `retryable`, or `in_progress` tasks left after the local batch completes.
 - The Phase 18 schema helper validates required columns, allowed enum values, decimal fields, duplicate tickers, and metadata freshness/source columns without requiring live provider access.
 - The in-page screening condition panel filters comparison candidates by metadata, NISA eligibility, and metric ranges. `取得期間` and `重視して並べ替え` are not screening filters; they control ranking calculation and display ordering.

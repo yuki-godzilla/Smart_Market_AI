@@ -755,7 +755,17 @@ def test_advanced_forecast_rows_include_quantile_range_for_chart():
     assert quantile_rows[0]["predicted_return_lower"]
     assert quantile_rows[0]["predicted_return_upper"]
     assert rows_by_ts[latest_ts]["advanced_quantile_5d"] == "169"
+    assert rows_by_ts[latest_ts]["advanced_quantile_5d_lower"] == "169"
+    assert rows_by_ts[latest_ts]["advanced_quantile_5d_upper"] == "169"
     assert rows_by_ts[five_day_ts]["advanced_quantile_5d"] == quantile_rows[0]["forecast_close"]
+    assert (
+        rows_by_ts[five_day_ts]["advanced_quantile_5d_lower"]
+        == quantile_rows[0]["forecast_close_lower"]
+    )
+    assert (
+        rows_by_ts[five_day_ts]["advanced_quantile_5d_upper"]
+        == quantile_rows[0]["forecast_close_upper"]
+    )
 
 
 def test_forecast_consensus_rows_tolerates_cached_old_summarizer(monkeypatch):

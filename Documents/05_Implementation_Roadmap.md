@@ -1693,13 +1693,13 @@ Streamlit / Ranking 接続方針:
 - `advanced_quantile` は過去の forward return 分布から中央値、20% quantile、80% quantile を返す。
 - 対応 horizon は `advanced_linear` と同じ `5` / `20` trading days とする。
 - 通常 forecast baseline、Ranking 順位、既定 Investment Score は変更しない。
-- Streamlit Cockpit では `advanced_linear` と `advanced_quantile` を同じ高度予測セクションに表示し、`advanced_quantile` はレンジ確認用として表示する。
+- Streamlit Cockpit では `advanced_linear` と `advanced_quantile` を同じ高度予測セクションに表示し、`advanced_quantile` はレンジ確認用として表示する。価格・予測チャートでは `advanced_quantile` の中央予測を線、下振れ〜上振れを薄い帯として表示する。
 - Ranking auxiliary fields は当面 `advanced_linear` ベースの既存列を維持し、`advanced_quantile` は ranking logic finalization まで順位や既定 score に混ぜない。
 
 完了条件:
 
 - `POST /forecast/evaluate` で `adapter=advanced_quantile` を指定でき、5日 / 20日の中央値予測、予測価格、下振れ / 上振れレンジ、検証指標、信頼度、注意点を返す。
-- Cockpit の価格・予測チャートと予測カード / 詳細表で `advanced_quantile` が `高度予測: レンジモデル` として確認できる。
+- Cockpit の価格・予測チャートと予測カード / 詳細表で `advanced_quantile` が `高度予測: レンジモデル` として確認でき、チャート上では薄い帯で下振れ〜上振れの参考幅を確認できる。
 - adapter registry により、今後の tree / GBDT adapter 追加時の接続箇所が限定される。
 - 通常 tests は network / cloud API / heavy ML library に依存しない。
 

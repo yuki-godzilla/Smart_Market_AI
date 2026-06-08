@@ -9865,7 +9865,10 @@ def _render_price_forecast_hero(
         st.caption(forecast_model_cards_intro_text(model_cards))
         _render_forecast_model_comparison_cards(forecast_model_comparison_rows(model_cards))
         st.markdown(forecast_model_cards_html(model_cards), unsafe_allow_html=True)
-    st.caption("縦の点線は、実績価格から予測表示へ切り替わる位置です。")
+    st.caption(
+        "縦の点線は、実績価格から予測表示へ切り替わる位置です。"
+        "レンジモデルの薄い帯は、下振れ〜上振れの参考幅です。"
+    )
 
 
 def _render_advanced_forecast_cards(rows: list[dict[str, str]]) -> None:
@@ -9951,7 +9954,12 @@ def forecast_horizon_display(
 def forecast_chart_series_options(rows: list[dict[str, str]]) -> list[dict[str, Any]]:
     if not rows:
         return []
-    series_keys = dict.fromkeys(key for row in rows for key in row if key not in {"ts", "close"})
+    series_keys = dict.fromkeys(
+        key
+        for row in rows
+        for key in row
+        if key not in {"ts", "close"} and not _is_forecast_range_bound_series(key)
+    )
     ordered_series = [
         series for series in series_keys if any(str(row.get(series, "")).strip() for row in rows)
     ]
@@ -9963,7 +9971,7 @@ def forecast_chart_series_options(rows: list[dict[str, str]]) -> list[dict[str, 
                 "series": series,
                 "label": _forecast_series_label(series),
                 "kind": kind,
-                "default": kind != "baseline",
+                "default": _forecast_chart_series_default(series),
                 "help": forecast_chart_series_help(series),
             }
         )
@@ -9988,6 +9996,17 @@ def forecast_chart_series_kind(series: str) -> str:
     return "standard"
 
 
+def _forecast_chart_series_default(series: str) -> bool:
+    if series == "naive":
+        return False
+    if series.startswith("momentum_"):
+        return False
+    advanced_match = re.fullmatch(r"advanced_[a-z_]+_(\d+)d", series)
+    if advanced_match:
+        return advanced_match.group(1) == "5"
+    return True
+
+
 def forecast_chart_series_help(series: str) -> str:
     kind = forecast_chart_series_kind(series)
     if kind == "baseline":
@@ -10005,7 +10024,13 @@ def filter_forecast_chart_rows(
 ) -> list[dict[str, str]]:
     if not selected_series:
         selected_series = default_forecast_chart_series(forecast_chart_series_options(rows))
-    allowed = {"ts", "close", *selected_series}
+    range_series = {
+        key
+        for series in selected_series
+        for key in (f"{series}_lower", f"{series}_upper")
+        if any(str(row.get(key, "")).strip() for row in rows)
+    }
+    allowed = {"ts", "close", *selected_series, *range_series}
     return [{key: value for key, value in row.items() if key in allowed} for row in rows]
 
 
@@ -10056,6 +10081,7 @@ def forecast_model_card_rows(
         forecast_return = _signed_percent_from_text(row.get("predicted_return", ""))
         forecast_close = row.get("forecast_close", "")
         range_display = _advanced_forecast_range_display(row)
+        direction_display = _advanced_forecast_direction_display(row.get("direction_score", ""))
         confidence = _advanced_forecast_confidence_label(row.get("confidence", ""))
         cards.append(
             {
@@ -10069,7 +10095,7 @@ def forecast_model_card_rows(
                 "forecast_close": forecast_close or "未計算",
                 "sub": (
                     f"予測値 {forecast_close or '未計算'} / "
-                    f"{'レンジ ' + range_display if range_display else '方向感 ' + (row.get('direction_score', '') or '未計算')}"
+                    f"{'レンジ ' + range_display if range_display else '方向感 ' + direction_display}"
                 ),
                 "help": _advanced_forecast_model_help(row),
                 "tone": _forecast_card_tone(forecast_return),
@@ -13140,6 +13166,7 @@ def _render_market_chart(
         return
     y_axis_title = f"終値 ({currency})" if currency else "終値"
     chart_data = market_chart_long_frame(rows)
+    range_band_data = forecast_range_band_frame(rows)
     boundary_data = forecast_boundary_frame(rows)
     latest_actual_data = latest_actual_price_frame(rows)
     color_domain = forecast_chart_color_domain(
@@ -13164,6 +13191,29 @@ def _render_market_chart(
     )
     forecast_data = chart_data[chart_data["series_label"] != FORECAST_ACTUAL_LABEL]
     actual_data = chart_data[chart_data["series_label"] == FORECAST_ACTUAL_LABEL]
+    range_band = (
+        alt.Chart(range_band_data)
+        .mark_area(opacity=0.16)
+        .encode(
+            x=alt.X("date:T", title="Date", axis=alt.Axis(format="%m/%d", labelAngle=0)),
+            y=alt.Y("lower:Q", title=y_axis_title, scale=alt.Scale(zero=False)),
+            y2=alt.Y2("upper:Q"),
+            color=alt.Color(
+                "series_label:N",
+                title="価格・モデル",
+                legend=None,
+                scale=color_scale,
+            ),
+            tooltip=[
+                alt.Tooltip("date:T", title="日付"),
+                alt.Tooltip("series_label:N", title="価格・モデル"),
+                alt.Tooltip("lower:Q", title="下振れ"),
+                alt.Tooltip("upper:Q", title="上振れ"),
+            ],
+            opacity=alt.condition(disabled_series, alt.value(0.06), alt.value(0.16)),
+        )
+        .properties(height=540, width=1400)
+    )
     base_encoding = {
         "x": alt.X("date:T", title="Date", axis=alt.Axis(format="%m/%d", labelAngle=0)),
         "y": alt.Y("value:Q", title=y_axis_title, scale=alt.Scale(zero=False)),
@@ -13206,7 +13256,7 @@ def _render_market_chart(
         .encode(**base_encoding)
         .properties(height=540, width=1400)
     )
-    chart = forecast_lines + actual_line
+    chart = range_band + forecast_lines + actual_line
     if not latest_actual_data.empty:
         latest_marker = (
             alt.Chart(latest_actual_data)
@@ -13413,6 +13463,11 @@ def market_chart_frame(rows: list[dict[str, str]]) -> pd.DataFrame:
 
 def market_chart_long_frame(rows: list[dict[str, str]]) -> pd.DataFrame:
     frame = market_chart_frame(rows).reset_index(names="date")
+    range_bound_columns = [
+        column for column in frame.columns if _is_forecast_range_bound_series(str(column))
+    ]
+    if range_bound_columns:
+        frame = frame.drop(columns=range_bound_columns)
     long_frame = frame.melt(id_vars="date", var_name="series", value_name="value")
     long_frame = long_frame.dropna(subset=["value"])
     long_frame["line_type"] = long_frame["series"].map(
@@ -13423,6 +13478,34 @@ def market_chart_long_frame(rows: list[dict[str, str]]) -> pd.DataFrame:
     )
     long_frame["series_label"] = long_frame["series"].map(_forecast_series_label)
     return long_frame
+
+
+def forecast_range_band_frame(rows: list[dict[str, str]]) -> pd.DataFrame:
+    frame = market_chart_frame(rows).reset_index(names="date")
+    range_rows: list[pd.DataFrame] = []
+    for column in frame.columns:
+        match = re.fullmatch(r"(advanced_quantile_\d+d)_lower", str(column))
+        if not match:
+            continue
+        series = match.group(1)
+        upper_column = f"{series}_upper"
+        if upper_column not in frame:
+            continue
+        band = frame[["date", column, upper_column]].copy()
+        band = band.rename(columns={column: "lower", upper_column: "upper"})
+        band = band.dropna(subset=["lower", "upper"])
+        if band.empty:
+            continue
+        band["series"] = series
+        band["series_label"] = _forecast_series_label(series)
+        range_rows.append(band[["date", "lower", "upper", "series", "series_label"]])
+    if not range_rows:
+        return pd.DataFrame(columns=["date", "lower", "upper", "series", "series_label"])
+    return pd.concat(range_rows, ignore_index=True)
+
+
+def _is_forecast_range_bound_series(series: str) -> bool:
+    return bool(re.fullmatch(r"advanced_quantile_\d+d_(lower|upper)", series))
 
 
 def forecast_chart_color_domain(series_labels: Iterable[str]) -> list[str]:
@@ -13496,7 +13579,7 @@ def advanced_forecast_display_rows(rows: list[dict[str, str]]) -> list[dict[str,
             "予測変化": _signed_percent_from_text(row.get("predicted_return", "")),
             "予測価格": row.get("forecast_close", ""),
             "想定レンジ": _advanced_forecast_range_display(row),
-            "方向感": row.get("direction_score", ""),
+            "方向感": _advanced_forecast_direction_display(row.get("direction_score", "")),
             "信頼度": confidence_labels.get(row.get("confidence", ""), row.get("confidence", "")),
             "RMSE": row.get("rmse", ""),
             "方向一致": row.get("direction_accuracy", ""),
@@ -13515,7 +13598,7 @@ def advanced_forecast_card_rows(rows: list[dict[str, str]]) -> list[dict[str, An
         predicted_return = row.get("predicted_return", "")
         forecast_close = row.get("forecast_close", "")
         range_display = _advanced_forecast_range_display(row)
-        direction_score = row.get("direction_score", "")
+        direction_score = _advanced_forecast_direction_display(row.get("direction_score", ""))
         confidence = _advanced_forecast_confidence_label(row.get("confidence", ""))
         direction_accuracy = row.get("direction_accuracy", "")
         sample_count = row.get("sample_count", "")
@@ -13525,7 +13608,7 @@ def advanced_forecast_card_rows(rows: list[dict[str, str]]) -> list[dict[str, An
                 "value": _signed_percent_from_text(predicted_return) or "未計算",
                 "caption": (
                     f"予測価格 {forecast_close or '未計算'} / "
-                    f"{'レンジ ' + range_display if range_display else '方向感 ' + (direction_score or '未計算')}"
+                    f"{'レンジ ' + range_display if range_display else '方向感 ' + direction_score}"
                 ),
                 "help": (
                     f"方向一致 {direction_accuracy or '未計算'}、検証数 {sample_count or '0'}。"
@@ -13583,6 +13666,20 @@ def _advanced_forecast_range_display(row: Mapping[str, str]) -> str:
     if lower and upper:
         return f"{lower}〜{upper}"
     return ""
+
+
+def _advanced_forecast_direction_display(value: str) -> str:
+    score = _decimal_from_text(value)
+    if score is None:
+        return "未計算"
+    if abs(score) <= Decimal("1"):
+        score *= Decimal("100")
+    percent = _signed_percent_display(score).lstrip("+")
+    if score > Decimal("55"):
+        return f"上向き寄り {percent}"
+    if score < Decimal("45"):
+        return f"下向き寄り {percent}"
+    return f"中立 {percent}"
 
 
 def _advanced_forecast_model_help(row: Mapping[str, str]) -> str:

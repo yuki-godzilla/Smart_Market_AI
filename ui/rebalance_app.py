@@ -1108,6 +1108,14 @@ def forecast_chart_rows(
             forecast_ts = _next_forecast_ts(latest_bar, horizon_days=advanced_horizon)
             forecast_row = rows_by_ts.setdefault(forecast_ts, {"ts": forecast_ts, "close": ""})
             forecast_row[series_key] = forecast_close
+            if adapter_name == "advanced_quantile":
+                forecast_close_lower = row.get("forecast_close_lower", "")
+                forecast_close_upper = row.get("forecast_close_upper", "")
+                if forecast_close_lower and forecast_close_upper:
+                    rows_by_ts[latest_ts][f"{series_key}_lower"] = _format_decimal(latest_bar.close)
+                    rows_by_ts[latest_ts][f"{series_key}_upper"] = _format_decimal(latest_bar.close)
+                    forecast_row[f"{series_key}_lower"] = forecast_close_lower
+                    forecast_row[f"{series_key}_upper"] = forecast_close_upper
 
     return [rows_by_ts[key] for key in sorted(rows_by_ts)]
 

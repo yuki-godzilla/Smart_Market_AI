@@ -178,6 +178,7 @@ from ui.app import (
     forecast_model_card_rows,
     forecast_model_cards_html,
     forecast_model_comparison_rows,
+    forecast_range_band_frame,
     format_provider_error_details,
     get_cached_ranking_build,
     investment_score_display_rows,
@@ -7616,11 +7617,33 @@ def test_market_chart_long_frame_labels_advanced_quantile_forecast():
                 "ts": "2026-05-10T00:00:00+00:00",
                 "close": "185",
                 "advanced_quantile_5d": "185",
+                "advanced_quantile_5d_lower": "185",
+                "advanced_quantile_5d_upper": "185",
             },
             {
                 "ts": "2026-05-15T00:00:00+00:00",
                 "close": "",
                 "advanced_quantile_5d": "191.5",
+                "advanced_quantile_5d_lower": "178.2",
+                "advanced_quantile_5d_upper": "202.4",
+            },
+        ]
+    )
+    band_frame = forecast_range_band_frame(
+        [
+            {
+                "ts": "2026-05-10T00:00:00+00:00",
+                "close": "185",
+                "advanced_quantile_5d": "185",
+                "advanced_quantile_5d_lower": "185",
+                "advanced_quantile_5d_upper": "185",
+            },
+            {
+                "ts": "2026-05-15T00:00:00+00:00",
+                "close": "",
+                "advanced_quantile_5d": "191.5",
+                "advanced_quantile_5d_lower": "178.2",
+                "advanced_quantile_5d_upper": "202.4",
             },
         ]
     )
@@ -7629,6 +7652,10 @@ def test_market_chart_long_frame_labels_advanced_quantile_forecast():
 
     assert advanced_rows["line_label"].unique().tolist() == ["予測"]
     assert advanced_rows["series_label"].unique().tolist() == ["高度予測: レンジモデル 5日"]
+    assert "advanced_quantile_5d_lower" not in set(frame["series"])
+    assert band_frame["series"].unique().tolist() == ["advanced_quantile_5d"]
+    assert band_frame.iloc[-1]["lower"] == 178.2
+    assert band_frame.iloc[-1]["upper"] == 202.4
 
 
 def test_forecast_model_cards_include_baseline_and_advanced_logic_help():
@@ -7741,6 +7768,7 @@ def test_forecast_model_cards_show_quantile_range_context():
     assert "レンジ -2.5%〜+4.2%" in cards[0]["sub"]
     assert "下振れ・上振れ" in cards[0]["help"]
     assert display_rows[0]["想定レンジ"] == "-2.5%〜+4.2%"
+    assert display_rows[0]["方向感"] == "上向き寄り 63.67%"
     assert "高度予測: レンジモデル 5日 +1.4%" in intro
 
 
@@ -7755,26 +7783,42 @@ def test_forecast_chart_filter_options_hide_naive_by_default():
             "close": "",
             "naive": "100",
             "moving_average_20": "102",
+            "momentum_30": "106",
             "advanced_linear_5d": "103",
+            "advanced_quantile_5d": "104",
+            "advanced_quantile_5d_lower": "99",
+            "advanced_quantile_5d_upper": "109",
+            "advanced_quantile_20d": "110",
         },
     ]
 
     options = forecast_chart_series_options(rows)
-    filtered = filter_forecast_chart_rows(rows, {"moving_average_20", "advanced_linear_5d"})
+    filtered = filter_forecast_chart_rows(
+        rows,
+        {"moving_average_20", "advanced_linear_5d", "advanced_quantile_5d"},
+    )
     fallback_filtered = filter_forecast_chart_rows(rows, set())
 
     assert [(option["series"], option["default"]) for option in options] == [
         ("naive", False),
         ("moving_average_20", True),
+        ("momentum_30", False),
         ("advanced_linear_5d", True),
+        ("advanced_quantile_5d", True),
+        ("advanced_quantile_20d", False),
     ]
     assert "直近値維持" in options[0]["label"]
     assert "naive" not in filtered[0]
     assert filtered[0]["close"] == "100"
     assert filtered[1]["advanced_linear_5d"] == "103"
+    assert filtered[1]["advanced_quantile_5d"] == "104"
+    assert filtered[1]["advanced_quantile_5d_lower"] == "99"
+    assert filtered[1]["advanced_quantile_5d_upper"] == "109"
     assert "naive" not in fallback_filtered[0]
     assert "moving_average_20" not in fallback_filtered[0]
     assert fallback_filtered[1]["advanced_linear_5d"] == "103"
+    assert fallback_filtered[1]["advanced_quantile_5d"] == "104"
+    assert "advanced_quantile_20d" not in fallback_filtered[1]
 
 
 def test_forecast_model_comparison_rows_summarize_direction_and_spread():

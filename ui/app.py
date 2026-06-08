@@ -490,6 +490,10 @@ COCKPIT_SYMBOL_DB_PREFLIGHT_TTL_SECONDS = 30 * 60
 RANKING_SYMBOL_DB_PREFLIGHT_DIRECT_THRESHOLD = 30
 RANKING_SYMBOL_DB_PREFLIGHT_MAX_ITEMS = 50
 RANKING_SYMBOL_DB_PREFLIGHT_SCAN_LIMIT = 300
+MARKET_CHART_FULL_WIDTH = 860
+MARKET_CHART_FOCUS_WIDTH = 300
+MARKET_CHART_LEGEND_WIDTH = 210
+MARKET_CHART_COMBINED_SPACING = 8
 RANKING_NUMERIC_SORT_COMPARATOR = JsCode(
     """
 function(valueA, valueB, nodeA, nodeB, isDescending) {
@@ -13290,7 +13294,7 @@ def _render_market_chart(
         color_scale=color_scale,
         disabled_series=disabled_series,
         height=540,
-        width=1180,
+        width=MARKET_CHART_FULL_WIDTH,
         title="全体",
     )
     focus_rows = forecast_focus_chart_rows(rows)
@@ -13300,7 +13304,7 @@ def _render_market_chart(
         color_scale=color_scale,
         disabled_series=disabled_series,
         height=540,
-        width=520,
+        width=MARKET_CHART_FOCUS_WIDTH,
         title="予測拡大",
     )
     series_legend_base = alt.Chart(legend_data).encode(
@@ -13347,12 +13351,20 @@ def _render_market_chart(
         text="description:N",
     )
     legend = alt.vconcat(
-        series_legend.properties(title="価格・モデル", height=190, width=230),
-        line_type_legend.properties(title="実績/予測", height=60, width=230),
+        series_legend.properties(
+            title="価格・モデル",
+            height=190,
+            width=MARKET_CHART_LEGEND_WIDTH,
+        ),
+        line_type_legend.properties(
+            title="実績/予測",
+            height=60,
+            width=MARKET_CHART_LEGEND_WIDTH,
+        ),
         spacing=10,
     )
     combined_chart = (
-        alt.hconcat(chart, focus_chart, legend, spacing=10)
+        alt.hconcat(chart, focus_chart, legend, spacing=MARKET_CHART_COMBINED_SPACING)
         .add_params(disabled_series)
         .resolve_scale(color="shared", y="independent", x="independent")
         .configure(background=THEME_COLORS["bg_surface"])

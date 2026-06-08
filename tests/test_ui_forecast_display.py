@@ -50,6 +50,10 @@ from ui.app import (
     COCKPIT_SYMBOL_DB_PREFLIGHT_REQUEST_STATE_KEY,
     COCKPIT_SYMBOL_DB_PREFLIGHT_TTL_SECONDS,
     DEFAULT_MARKET_DATA_PERIOD_PRESET,
+    MARKET_CHART_COMBINED_SPACING,
+    MARKET_CHART_FOCUS_WIDTH,
+    MARKET_CHART_FULL_WIDTH,
+    MARKET_CHART_LEGEND_WIDTH,
     MARKET_DATA_COCKPIT_FILTER_DEFAULTS,
     MARKET_DATA_EXTERNAL_RESEARCH_FETCH_STATE_KEY,
     MARKET_DATA_PERIOD_CUSTOM,
@@ -8157,8 +8161,16 @@ def test_render_market_chart_uses_currency_axis_title_and_compact_width(monkeypa
     focus_spec = spec["hconcat"][1]  # type: ignore[index]
     assert spec["title"] == "Price and forecast"
     assert len(spec["hconcat"]) == 3
-    assert chart_spec["width"] == 1180
-    assert focus_spec["width"] == 520
+    assert (
+        MARKET_CHART_FULL_WIDTH
+        + MARKET_CHART_FOCUS_WIDTH
+        + MARKET_CHART_LEGEND_WIDTH
+        + (MARKET_CHART_COMBINED_SPACING * 2)
+        <= 1400
+    )
+    assert chart_spec["width"] == MARKET_CHART_FULL_WIDTH
+    assert focus_spec["width"] == MARKET_CHART_FOCUS_WIDTH
+    assert spec["hconcat"][2]["vconcat"][0]["width"] == MARKET_CHART_LEGEND_WIDTH
     assert chart_spec["title"] == "全体"
     assert focus_spec["title"] == "予測拡大"
     assert chart_spec["layer"][0]["encoding"]["y"]["title"] == "終値 (USD)"

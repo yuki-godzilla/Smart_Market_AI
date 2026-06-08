@@ -40,7 +40,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
   - `advanced_linear` forecast adapter foundation for Cockpit / Ranking
   - `advanced_quantile` forecast adapter for deterministic historical forward-return range checks
   - `POST /forecast/evaluate` accepts `adapter=advanced_linear` or `adapter=advanced_quantile` with `horizon_days` 1-60 and returns predicted return, forecast close, validation metrics, confidence, and warnings. `advanced_quantile` also returns lower / upper predicted return and forecast close range fields.
-  - Cockpit overlays advanced forecast points on the existing price / forecast chart using the same period-derived horizon as baseline forecasts. The default horizon is roughly one twelfth of the displayed period and capped at 60 days. `advanced_quantile` is shown as `高度予測: レンジモデル` with a thin lower-to-upper range band plus a right-side forecast-focus chart
+  - Cockpit overlays advanced forecast points on the existing price / forecast chart using the same period-derived horizon as baseline forecasts. The default horizon is roughly one twelfth of the displayed period and capped at 60 days. `advanced_quantile` is shown as `高度予測: レンジモデル` with a thin lower-to-upper range band plus a compact right-side forecast-focus chart
   - Ranking rows retain one period-derived common-horizon advanced forecast return (`advanced_forecast_predicted_return`), horizon days, score, and confidence as auxiliary fields for table/detail/CSV review without changing ranking order
   - Ridge-style lightweight deterministic forecasting of 1-60 day forward returns without adding heavy ML dependencies
   - walk-forward / time-series validation, validation metrics, confidence, and feature contribution summary

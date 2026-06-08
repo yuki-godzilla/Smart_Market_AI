@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-06-08: Reduced the Cockpit price / forecast chart combined width so the full chart, compact forecast-focus chart, and legend fit at normal browser zoom without horizontal cutoff.
 - 2026-06-08: Moved Cockpit Symbol DB preflight off the `データを取得` critical path. Cockpit now builds and displays price / forecast / Investment Score first, then registers the selected symbol for background priority refresh with a 30-minute same-symbol session TTL. Ranking keeps its bounded synchronous preflight before ranking creation.
 - 2026-06-08: Unified Ranking Advanced Forecast auxiliary evaluation to the acquisition-period common horizon. Ranking now calculates registered advanced forecast adapters for one period-derived horizon, stores `advanced_forecast_horizon_days` / `advanced_forecast_predicted_return` / score / confidence, and shows `高度予測` plus `高度予測日数` instead of fixed 5日 / 20日 columns while keeping ranking order unchanged.
 - 2026-06-08: Raised Cockpit/API Advanced Forecast horizons from 1-30 to 1-60 days, changed the default Cockpit horizon to roughly one twelfth of the displayed period capped at 60 days, widened the full and focus forecast charts, and added UI fallback recomputation so advanced forecast rows are recalculated for the current common horizon. Ranking auxiliary advanced forecast fields remain the legacy `advanced_linear` 5 / 20 day compatibility path, including the per-symbol preview fallback route.

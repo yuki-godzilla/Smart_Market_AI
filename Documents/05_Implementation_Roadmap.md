@@ -1581,7 +1581,7 @@ Phase 22 完了条件:
 
 ### 5.9 Phase 23: Optional Adapter と高度分析
 
-状態: Advanced Forecast Slice 1 `advanced_linear`、Slice 2 `advanced_quantile` / adapter registry、Slice 3 `advanced_tree_sklearn`、Slice 4 `advanced_gbdt_sklearn` 接続済み。Cockpit / API は 1〜60日の共通 horizon に対応し、Cockpit では通常予測と高度予測を取得期間由来の同じ予測日数で比較する。予測日数の初期値は取得期間のおよそ 1/12 を使い、60日を上限にする。Ranking 順位への統合は未実施で、追加予定の高度予測モデルを一通り実装してからまとめて仕上げる。
+状態: Advanced Forecast Slice 1 `advanced_linear`、Slice 2 `advanced_quantile` / adapter registry、Slice 3 `advanced_tree_sklearn`、Slice 4 `advanced_gbdt_sklearn`、Slice 5 advanced forecast consensus 接続済み。Cockpit / API は 1〜60日の共通 horizon に対応し、Cockpit では通常予測と高度予測を取得期間由来の同じ予測日数で比較する。予測日数の初期値は取得期間のおよそ 1/12 を使い、60日を上限にする。Ranking 順位への統合は未実施で、追加予定の高度予測モデルを一通り実装してからまとめて仕上げる。
 
 目的: default path を deterministic に保ったまま、追加 provider、advanced forecast / research model、news / sentiment、将来の LLM adapter を optional layer として追加する。次の実装優先度は、銘柄コックピット / 銘柄ランキングで使う高度予測モデル adapter を複数そろえ、比較表示の土台を作ること。
 
@@ -1598,6 +1598,7 @@ Phase 22 完了条件:
 - 実装途中の通常 path は既存の naive / moving-average / momentum baseline と consensus を維持する。Phase 23 closeout では高度予測モデル群と `forecast_consensus` を主導線にし、単純予測モデルは backend baseline / fallback / 詳細確認用へ下げる。
 - scikit-learn は `advanced_tree_sklearn` / `advanced_gbdt_sklearn` のため runtime dependency として導入済み。より重い LightGBM / XGBoost / Prophet / deep learning 系は optional adapter とし、未導入でもアプリ・通常 tests・CI が動くようにする。
 - 最初は 1 銘柄または小さい銘柄集合で、walk-forward evaluation、モデル別予測、予測レンジ、方向シグナルへの反映を確認する。
+- 高度予測 consensus は、予測統合で単純平均が強い benchmark になりやすいことを前提に、信頼度・RMSE 改善・方向一致・検証サンプル数による重みを保守的に 0.70〜1.30 に制限する。重みは「保証」ではなく比較補助として扱う。
 - ランキング順位への反映は、`advanced_linear` 単体では行わない。tree / GBDT / quantile など追加予定の高度予測モデルを一通り実装し、モデル間比較、信頼度、検証指標、計算コストを見たうえで、後続 slice で opt-in sort profile / ranking logic としてまとめて仕上げる。
 - UI では「将来保証」ではなく「モデル別の見方 / 不確実性 / 確認材料」として表示する。
 
@@ -1677,6 +1678,7 @@ Streamlit / Ranking 接続方針:
 - 実装済み: `advanced_quantile`: historical forward-return quantile / prediction range
 - 実装済み: `advanced_tree_sklearn`: scikit-learn ExtraTreesRegressor default / RandomForestRegressor option
 - 実装済み: `advanced_gbdt_sklearn`: scikit-learn HistGradientBoostingRegressor
+- 実装済み: advanced forecast consensus: registered advanced adapters の共通 horizon 出力を、信頼度・検証指標・方向一致で保守的に統合
 - `advanced_gbdt_optional`: LightGBM / XGBoost
 - LightGBM / XGBoost / Prophet / deep learning 系は今回追加しない。
 
@@ -1694,7 +1696,7 @@ Streamlit / Ranking 接続方針:
 - 対応 horizon は `advanced_linear` と同じ `1`〜`60` trading days とする。
 - 通常 forecast baseline、Ranking 順位、既定 Investment Score は変更しない。
 - Streamlit Cockpit では登録済み高度予測 adapter を同じ高度予測セクションに表示し、通常予測と同じ共通 horizon で比較する。価格・予測チャートでは `advanced_quantile` の中央予測を線、下振れ〜上振れを薄い帯として表示し、全体チャートの右側に予測開始前数日と予測部分を自動抽出した拡大図を並べる。系列の強調確認は Streamlit checkbox ではなくチャート上の線 / 点クリックと下部の色見本で扱い、全体チャートは線中心で点マーカーを抑える。
-- Ranking auxiliary fields は登録済み adapter の共通 horizon 評価を補助平均として保持し、ranking logic finalization まで順位や既定 score に混ぜない。
+- Ranking auxiliary fields は登録済み adapter の共通 horizon consensus を補助値として保持し、ranking logic finalization まで順位や既定 score に混ぜない。
 
 完了条件:
 
@@ -1725,7 +1727,7 @@ Streamlit / Ranking 接続方針:
 
 - `POST /forecast/evaluate` で `adapter=advanced_tree_sklearn` を指定でき、1〜60日の予測変化率、予測価格、検証指標、信頼度、特徴量重要度、注意点を返す。
 - Cockpit の価格・予測チャート、カード、詳細表で `高度予測: ツリーモデル` として確認できる。
-- Ranking の高度予測補助欄は登録済み adapter の共通 horizon を平均した参考値として保持し、ランキング順位は変更しない。
+- Ranking の高度予測補助欄は登録済み adapter の共通 horizon consensus を参考値として保持し、ランキング順位は変更しない。
 - 通常 tests は network / cloud API に依存しない。
 
 #### Phase 23.d: Advanced Forecast Slice 4 - `advanced_gbdt_sklearn`
@@ -1749,13 +1751,46 @@ Streamlit / Ranking 接続方針:
 
 - `POST /forecast/evaluate` で `adapter=advanced_gbdt_sklearn` を指定でき、1〜60日の予測変化率、予測価格、検証指標、信頼度、特徴量感度、注意点を返す。
 - Cockpit の価格・予測チャート、カード、詳細表で `高度予測: ブースティングモデル` として確認できる。
-- Ranking の高度予測補助欄は登録済み adapter の共通 horizon を平均した参考値として保持し、ランキング順位は変更しない。
+- Ranking の高度予測補助欄は登録済み adapter の共通 horizon consensus を参考値として保持し、ランキング順位は変更しない。
+- 通常 tests は network / cloud API に依存しない。
+
+#### Phase 23.e: Advanced Forecast Slice 5 - advanced forecast consensus
+
+状態: 実装済み。`AdvancedForecastConsensus` / `summarize_advanced_forecast_evaluations` を backend forecast service に追加し、Cockpit の `高度予測まとめ` カード / 詳細表、Ranking の高度予測補助列に接続済み。Ranking 順位と既定 Investment Score は変更していない。
+
+目的: 個別の高度予測 adapter を増やす段階から、モデル群をどう読むかの段階へ進める。Ranking logic finalization の前に、Cockpit と Ranking が同じ consensus 計算を使い、信頼度・検証指標・方向一致・予測レンジを一貫して扱えるようにする。
+
+実装方針:
+
+- 入力は登録済み高度予測 adapter の共通 horizon `AdvancedForecastEvaluation` とする。
+- 予測統合は、単純平均を強い baseline と見なし、過度な最適化を避ける。
+- 個別モデル重みは `confidence`、`rmse_improvement / baseline_zero_rmse`、`direction_accuracy`、`sample_count / fold_count` で調整するが、0.70〜1.30 に制限する。
+- `direction_accuracy` は 50% を chance-like benchmark と見なし、50% 超は軽い加点、50% 未満は軽い減点にとどめる。
+- `advanced_quantile` の下振れ / 上振れは consensus の想定レンジに反映する。
+- `agreement` はモデル間の予測変化率レンジで `HIGH` / `MEDIUM` / `LOW` を返す。
+- `confidence` は個別モデル信頼度、モデル数、予測レンジ、方向一致、平均方向一致率から `low` / `medium` / `high` を返す。
+- `best_adapter_name` / `best_model_name` は RMSE 改善、方向一致率、検証サンプル数から相対的に安定したモデルを示す。
+- warning では、consensus が投資助言ではないこと、重みは保守的で将来精度保証ではないこと、モデル間の開きや方向割れを明示する。
+
+UI / Ranking 接続:
+
+- Cockpit では個別モデルカードの前に `高度予測まとめ` カードを表示する。
+- 詳細データでは `高度予測まとめ` 表に、まとめ予測、予測価格、想定レンジ、モデル一致度、方向一致、信頼度、平均方向一致、平均 RMSE、RMSE 改善、相対的に安定したモデル、注意点を表示する。
+- Ranking 補助列 `advanced_forecast_predicted_return` / `advanced_forecast_score` / `advanced_forecast_confidence` は、個別モデル平均ではなく consensus rows を優先する。
+- Ranking 順位は変更しない。後続の ranking logic finalization で opt-in sort / evaluation profile として扱う。
+- チャート線はまだ増やさない。単純予測モデルを初期表示から下げる closeout slice で、advanced consensus のチャート表示をまとめて検討する。
+
+完了条件:
+
+- backend service が advanced consensus contract と計算関数を提供する。
+- Cockpit が `高度予測まとめ` を表示し、個別モデル rows と読み分けられる。
+- Ranking 補助列が consensus 値を使い、順位を変更しない。
 - 通常 tests は network / cloud API に依存しない。
 
 Ranking logic finalization 方針:
 
 - 個別 adapter 追加のたびにランキング順位を変えず、まず Cockpit / Ranking の補助表示と CSV export にモデル別の予測・信頼度・検証指標を蓄積する。
-- 一通りの高度予測モデルを追加した後、モデル間の重複、検証安定性、horizon 別の用途、計算時間、データ不足時の扱いを比較して、Ranking 用の統合指標を設計する。
+- 一通りの高度予測モデルと advanced forecast consensus を追加した後、モデル間の重複、検証安定性、horizon 別の用途、計算時間、データ不足時の扱いを比較して、Ranking 用の統合指標を設計する。
 - Ranking 統合は既定順位の差し替えではなく、まず opt-in sort profile / evaluation profile として実装する。
 - Phase 23 closeout では、naive / moving-average / momentum の単純予測モデルを Cockpit chart の初期表示と Ranking 主要評価ロジックから外し、高度予測 consensus / 信頼度 / レンジ / 検証指標を主表示・opt-in Ranking 評価の中心にする。単純予測は削除せず、回帰 baseline / fallback / 技術詳細として残す。
 - 完了条件には、Research Score と同様に「投資助言ではない」「既定の Ranking / Investment Score は急に変えない」「通常 checks は deterministic / network-free」を含める。
@@ -1782,7 +1817,7 @@ Ranking logic finalization 方針:
 - 予測は売買判断の主体にせず、スコアやリスクと合わせて確認する材料として扱う。
 - `advanced_linear` adapter が追加され、Ridge / ElasticNet の少なくとも Ridge が使える。
 - 1〜60 trading day forward return の予測、walk-forward validation、validation metrics、confidence、feature contribution summary が返る。
-- backend adapter は実装済み。`POST /forecast/evaluate` では `adapter=advanced_linear` / `advanced_tree_sklearn` / `advanced_gbdt_sklearn` / `advanced_quantile` 指定時に 1〜60日の高度予測、予測変化率、予測価格、信頼度、検証指標、特徴量要約またはレンジ、注意点を返す。Streamlit 銘柄コックピットでは通常予測と同じ共通 horizon の高度予測を既存の価格・予測チャートへ重ね、右側の予測拡大図、下部色見本、カード、詳細表で予測変化率、レンジ、信頼度、検証指標、注意点を表示する。Ranking では取得期間から決まる同じ horizon の高度予測を補助列として保持し、表示テーブル / 選択候補 breakdown / score detail / CSV export で確認できる。Ranking 順位と既定 Investment Score は変更していない。
+- backend adapter / advanced forecast consensus は実装済み。`POST /forecast/evaluate` では `adapter=advanced_linear` / `advanced_tree_sklearn` / `advanced_gbdt_sklearn` / `advanced_quantile` 指定時に 1〜60日の高度予測、予測変化率、予測価格、信頼度、検証指標、特徴量要約またはレンジ、注意点を返す。Streamlit 銘柄コックピットでは通常予測と同じ共通 horizon の高度予測を既存の価格・予測チャートへ重ね、右側の予測拡大図、下部色見本、カード、詳細表で予測変化率、レンジ、信頼度、検証指標、注意点を表示し、個別モデルの前に `高度予測まとめ` を表示する。Ranking では取得期間から決まる同じ horizon の高度予測 consensus を補助列として保持し、表示テーブル / 選択候補 breakdown / score detail / CSV export で確認できる。Ranking 順位と既定 Investment Score は変更していない。
 - Phase 23 closeout では、単純予測モデルが通常のチャート初期表示と Ranking 主要評価から外れ、高度予測モデル群 / `forecast_consensus` / 信頼度 / レンジ / 検証指標が主表示・opt-in Ranking 評価の中心になっている。
 - README または roadmap に Advanced Forecast Slice 1 として記録されている。
 

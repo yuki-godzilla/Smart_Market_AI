@@ -26,11 +26,14 @@ from backend.core.data_contracts import (
 )
 from backend.core.errors import AppError, DataSourceError
 from backend.forecast import (
+    AdvancedForecastEvaluation,
     ForecastEvaluation,
     ForecastModel,
     advanced_forecast_adapter_specs,
     available_forecast_models,
+    evaluate_advanced_forecast,
     evaluate_models,
+    summarize_advanced_forecast_evaluations,
 )
 from backend.forecast import (
     summarize_forecast_evaluations as _summarize_forecast_evaluations,
@@ -611,6 +614,7 @@ class MarketDataPreview:
     screening_rows: list[dict[str, str]]
     error_rows: list[dict[str, str]]
     advanced_forecast_rows: list[dict[str, str]] = field(default_factory=list)
+    advanced_forecast_consensus_rows: list[dict[str, str]] = field(default_factory=list)
 
 
 class RebalanceScenarioError(ValueError):
@@ -857,6 +861,9 @@ async def build_market_data_preview(
             advanced_forecast_results,
             feature_bars,
         )
+        advanced_forecast_consensus_rows = advanced_forecast_consensus_rows_for_results(
+            advanced_forecast_results,
+        )
         screening_scores = ScreeningService().score(
             feature_snapshot,
             forecast_consensus_by_symbol=forecast_consensus_by_symbol,
@@ -919,6 +926,7 @@ async def build_market_data_preview(
         screening_rows=screening_score_rows(screening_scores),
         error_rows=warning_rows,
         advanced_forecast_rows=advanced_forecast_rows,
+        advanced_forecast_consensus_rows=advanced_forecast_consensus_rows,
     )
 
 
@@ -1127,14 +1135,13 @@ def advanced_forecast_results_for_bars(
     bars: list[Bar],
     *,
     horizon_days: int | None = None,
-) -> list[Any]:
+) -> list[AdvancedForecastEvaluation]:
     """Return supported advanced forecasts when enough local history exists."""
 
     if not bars:
         return []
-    results: list[Any] = []
+    results: list[AdvancedForecastEvaluation] = []
     for spec in advanced_forecast_adapter_specs():
-        adapter = spec.factory()
         target_horizons = (
             (horizon_days,)
             if horizon_days is not None
@@ -1142,7 +1149,13 @@ def advanced_forecast_results_for_bars(
         )
         for target_horizon_days in target_horizons:
             try:
-                results.append(adapter.forecast(bars, horizon_days=target_horizon_days))
+                results.append(
+                    evaluate_advanced_forecast(
+                        bars,
+                        adapter_name=spec.key,
+                        horizon_days=target_horizon_days,
+                    )
+                )
             except ValueError:
                 continue
     return results
@@ -1227,6 +1240,52 @@ def advanced_forecast_rows_for_results(
             }
         )
     return rows
+
+
+def advanced_forecast_consensus_rows_for_results(
+    results: list[AdvancedForecastEvaluation],
+) -> list[dict[str, str]]:
+    """Return advanced forecast consensus rows for Streamlit summary display."""
+
+    consensus = summarize_advanced_forecast_evaluations(results)
+    if consensus is None:
+        return []
+    return [
+        {
+            "symbol": consensus.symbol,
+            "horizon_days": str(consensus.horizon_days),
+            "model_count": str(consensus.model_count),
+            "predicted_return": _format_percent(consensus.consensus_predicted_return),
+            "forecast_close": _format_decimal(consensus.consensus_forecast_close),
+            "predicted_return_lower": _format_optional_percent(consensus.predicted_return_lower),
+            "predicted_return_upper": _format_optional_percent(consensus.predicted_return_upper),
+            "forecast_close_lower": _format_optional_decimal(consensus.forecast_close_lower),
+            "forecast_close_upper": _format_optional_decimal(consensus.forecast_close_upper),
+            "predicted_return_range": _format_percent(consensus.predicted_return_range),
+            "agreement": consensus.agreement,
+            "confidence": consensus.confidence,
+            "direction_agreement_score": _format_decimal(consensus.direction_agreement_score),
+            "weighted_direction_score": _format_percent(consensus.weighted_direction_score),
+            "mean_direction_accuracy": _format_percent(consensus.mean_direction_accuracy),
+            "mean_rmse": _format_decimal(consensus.mean_rmse),
+            "mean_rmse_improvement": _format_optional_decimal(consensus.mean_rmse_improvement),
+            "best_adapter": consensus.best_adapter_name,
+            "best_model": consensus.best_model_name,
+            "warnings": "; ".join(consensus.warnings),
+        }
+    ]
+
+
+def advanced_forecast_consensus_rows_for_bars(
+    bars: list[Bar],
+    *,
+    horizon_days: int,
+) -> list[dict[str, str]]:
+    """Return advanced forecast consensus rows recalculated from fetched bars."""
+
+    return advanced_forecast_consensus_rows_for_results(
+        advanced_forecast_results_for_bars(bars, horizon_days=horizon_days)
+    )
 
 
 def advanced_linear_forecast_rows(

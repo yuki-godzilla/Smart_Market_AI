@@ -34,6 +34,7 @@ from backend.forecast.registry import (
     forecast_model_specs,
 )
 from backend.forecast.service import (
+    AdvancedForecastConsensus,
     AdvancedForecastEvaluation,
     DirectionSignalLabel,
     ForecastConsensus,
@@ -60,6 +61,7 @@ from backend.forecast.service import (
     forecast_direction_signal,
     forecast_model_signal_weight,
     safe_signal_volatility,
+    summarize_advanced_forecast_evaluations,
     summarize_forecast_evaluations,
     volatility_adjusted_edge,
 )
@@ -75,6 +77,7 @@ __all__ = [
     "SUPPORTED_ADVANCED_QUANTILE_HORIZONS",
     "SUPPORTED_ADVANCED_TREE_SKLEARN_HORIZONS",
     "AdvancedForecastAdapterSpec",
+    "AdvancedForecastConsensus",
     "AdvancedForecastValidationMetrics",
     "AdvancedForecastEvaluation",
     "AdvancedGbdtSklearnForecastAdapter",
@@ -120,6 +123,7 @@ __all__ = [
     "forecast_model_display_name",
     "forecast_model_registry_rows",
     "forecast_model_specs",
+    "summarize_advanced_forecast_evaluations",
     "summarize_forecast_evaluations",
     "volatility_adjusted_edge",
 ]

@@ -23,6 +23,7 @@ from backend.forecast import (
     evaluate_models,
     forecast_model_signal_weight,
     safe_signal_volatility,
+    summarize_advanced_forecast_evaluations,
     summarize_forecast_evaluations,
     volatility_adjusted_edge,
 )
@@ -168,6 +169,41 @@ def test_evaluate_advanced_forecast_supports_common_horizon():
     assert evaluation.validation_metrics.sample_count == 62
     assert evaluation.forecast_close_lower is not None
     assert evaluation.forecast_close_upper is not None
+
+
+def test_summarize_advanced_forecast_evaluations_returns_consensus_context():
+    bars = _bars(list(range(100, 190)))
+    evaluations = [
+        evaluate_advanced_forecast(
+            bars,
+            adapter_name=adapter_name,
+            horizon_days=10,
+        )
+        for adapter_name in (
+            "advanced_linear",
+            "advanced_tree_sklearn",
+            "advanced_gbdt_sklearn",
+            "advanced_quantile",
+        )
+    ]
+
+    consensus = summarize_advanced_forecast_evaluations(evaluations)
+
+    assert consensus is not None
+    assert consensus.symbol == "AAPL"
+    assert consensus.horizon_days == 10
+    assert consensus.model_count == 4
+    assert consensus.consensus_forecast_close >= Decimal("0")
+    assert consensus.predicted_return_lower is not None
+    assert consensus.predicted_return_upper is not None
+    assert consensus.predicted_return_lower <= consensus.consensus_predicted_return
+    assert consensus.consensus_predicted_return <= consensus.predicted_return_upper
+    assert consensus.agreement in {"HIGH", "MEDIUM", "LOW"}
+    assert consensus.confidence in {"low", "medium", "high"}
+    assert Decimal("0") <= consensus.direction_agreement_score <= Decimal("100")
+    assert Decimal("0") <= consensus.weighted_direction_score <= Decimal("1")
+    assert consensus.best_adapter_name
+    assert consensus.warnings
 
 
 def test_summarize_forecast_evaluations_returns_model_agreement():

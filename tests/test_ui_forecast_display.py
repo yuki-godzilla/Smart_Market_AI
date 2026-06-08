@@ -95,6 +95,7 @@ from ui.app import (
     _investment_question_secondary_answers,
     _investment_question_summary_intro_html,
     _ir_summary_html,
+    _market_data_preview_advanced_forecast_consensus_rows,
     _market_data_preview_advanced_forecast_rows,
     _market_data_preview_symbol_label,
     _name_from_candidate,
@@ -159,6 +160,7 @@ from ui.app import (
     _select_ranking_symbol_for_cockpit_with_period,
     _stock_news_display_rows,
     _symbol_from_candidate,
+    advanced_forecast_consensus_display_rows,
     advanced_forecast_display_rows,
     advanced_forecast_intro_text,
     build_cockpit_decision_report_context,
@@ -504,6 +506,31 @@ def test_market_data_preview_advanced_forecast_rows_recomputes_for_common_horizo
         "advanced_quantile",
     }
     assert {row["horizon_days"] for row in rows} == {"10"}
+
+
+def test_market_data_preview_advanced_forecast_consensus_rows_recompute_common_horizon():
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    bars = [
+        _bar((start + timedelta(days=index)).date().isoformat(), close=100 + index)
+        for index in range(90)
+    ]
+    preview = SimpleNamespace(
+        bars=bars,
+        advanced_forecast_consensus_rows=[{"horizon_days": "5", "predicted_return": "1%"}],
+    )
+
+    rows = _market_data_preview_advanced_forecast_consensus_rows(
+        preview,
+        [],
+        horizon_days=10,
+    )
+
+    assert rows[0]["horizon_days"] == "10"
+    assert rows[0]["model_count"] == "4"
+    assert rows[0]["predicted_return"]
+    assert rows[0]["forecast_close"]
+    assert rows[0]["direction_agreement_score"]
+    assert rows[0]["confidence"] in {"low", "medium", "high"}
 
 
 def test_merged_symbol_candidate_rows_deduplicates_representative_first():
@@ -6151,6 +6178,46 @@ def test_ranking_advanced_forecast_rows_use_common_period_horizon():
     assert fields["advanced_forecast_score"]
 
 
+def test_ranking_advanced_forecast_fields_use_consensus_when_available():
+    advanced_rows = [
+        {
+            "adapter": "advanced_linear",
+            "horizon_days": "10",
+            "predicted_return": "9.00%",
+            "direction_score": "90.00%",
+            "confidence": "high",
+        },
+        {
+            "adapter": "advanced_quantile",
+            "horizon_days": "10",
+            "predicted_return": "-1.00%",
+            "direction_score": "40.00%",
+            "confidence": "low",
+        },
+    ]
+    consensus_rows = [
+        {
+            "horizon_days": "10",
+            "predicted_return": "2.50%",
+            "predicted_return_lower": "-1.00%",
+            "predicted_return_upper": "4.00%",
+            "weighted_direction_score": "61.25%",
+            "confidence": "medium",
+            "agreement": "MEDIUM",
+        }
+    ]
+
+    fields = _ranking_advanced_forecast_fields(advanced_rows, consensus_rows)
+
+    assert fields["advanced_forecast_model"] == "advanced_linear,advanced_quantile"
+    assert fields["advanced_forecast_horizon_days"] == "10"
+    assert fields["advanced_forecast_predicted_return"] == "+2.5%"
+    assert fields["advanced_forecast_score"] == "61.25"
+    assert fields["advanced_forecast_confidence"] == "medium"
+    assert fields["advanced_forecast_range"] == "-1%〜+4%"
+    assert fields["advanced_forecast_agreement"] == "MEDIUM"
+
+
 def test_ranking_display_rows_hide_advanced_forecast_when_not_available(monkeypatch):
     monkeypatch.setattr("ui.app.symbol_universe_csv_rows", lambda: [])
     display_rows = investment_score_display_rows(
@@ -7919,6 +7986,57 @@ def test_forecast_model_cards_show_quantile_range_context():
     assert display_rows[0]["想定レンジ"] == "-2.5%〜+4.2%"
     assert display_rows[0]["方向感"] == "上向き寄り 63.67%"
     assert "高度予測: レンジモデル 5日 +1.4%" in intro
+
+
+def test_advanced_forecast_consensus_display_rows_are_beginner_friendly():
+    rows = [
+        {
+            "symbol": "AAPL",
+            "horizon_days": "10",
+            "model_count": "4",
+            "predicted_return": "2.35%",
+            "forecast_close": "104.2",
+            "predicted_return_lower": "-1.20%",
+            "predicted_return_upper": "4.80%",
+            "agreement": "MEDIUM",
+            "confidence": "medium",
+            "direction_agreement_score": "75",
+            "weighted_direction_score": "62.50%",
+            "mean_direction_accuracy": "54.20%",
+            "mean_rmse": "0.0412",
+            "mean_rmse_improvement": "0.0031",
+            "best_adapter": "advanced_gbdt_sklearn",
+            "best_model": "HistGradientBoostingRegressor",
+            "warnings": (
+                "Advanced forecast consensus is reference information, not investment advice.; "
+                "Advanced model directions are mixed."
+            ),
+        }
+    ]
+
+    display_rows = advanced_forecast_consensus_display_rows(rows)
+
+    assert display_rows == [
+        {
+            "銘柄": "AAPL",
+            "予測日数": "10",
+            "モデル数": "4",
+            "まとめ予測": "+2.35%",
+            "予測価格": "104.2",
+            "想定レンジ": "-1.2%〜+4.8%",
+            "モデル一致度": "中くらい",
+            "方向一致": "75 / 100",
+            "信頼度": "中くらい",
+            "平均方向一致": "54.20%",
+            "平均RMSE": "0.0412",
+            "RMSE改善": "0.0031",
+            "相対的に安定": ("高度予測: ブースティングモデル 10日 / HistGradientBoostingRegressor"),
+            "注意点": (
+                "高度予測まとめは参考情報です。売買判断そのものではありません。 / "
+                "高度予測モデルの方向感が割れています。"
+            ),
+        }
+    ]
 
 
 def test_forecast_chart_filter_options_hide_naive_by_default():

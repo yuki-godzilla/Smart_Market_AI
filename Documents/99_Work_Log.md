@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-06-08: Added Advanced Forecast consensus as Phase 23 Slice 5. `AdvancedForecastConsensus` now combines registered advanced adapters at one common horizon with capped weights from confidence, RMSE improvement, direction agreement, and validation sample context; Cockpit shows `高度予測まとめ`, and Ranking auxiliary advanced forecast fields now prefer consensus values while ranking order remains unchanged.
 - 2026-06-08: Added `advanced_gbdt_sklearn` as the fourth Advanced Forecast adapter. The adapter uses deterministic scikit-learn `HistGradientBoostingRegressor` with walk-forward validation, confidence / warning output, and model-sensitivity feature summaries; Forecast API, Cockpit chart/card/detail display, Rebalance helpers, and Ranking auxiliary common-horizon context now include `高度予測: ブースティングモデル` while ranking order remains unchanged. Ranking auxiliary model key output now preserves registry display order.
 - 2026-06-08: Shifted more Cockpit price / forecast chart width to the full-history panel while keeping the forecast-focus panel narrow, raising the two-panel chart target width to 1280px without changing chart height.
 - 2026-06-08: Adjusted the Cockpit price / forecast chart sizing from the prior 20% width expansion to roughly 15% width expansion and reduced chart height by 10% for a less vertically stretched layout.

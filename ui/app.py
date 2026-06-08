@@ -237,6 +237,7 @@ from ui.ranking_state import (
 from ui.rebalance_app import (
     MarketDataPreview,
     _available_forecast_evaluations,
+    advanced_forecast_consensus_rows_for_results,
     advanced_forecast_results_for_bars,
     advanced_forecast_rows_for_results,
     build_market_data_preview,
@@ -5724,10 +5725,14 @@ def _advanced_forecast_rows_for_ranking(
 
 def _ranking_advanced_forecast_fields(
     advanced_forecast_rows: list[dict[str, str]],
+    advanced_forecast_consensus_rows: list[dict[str, str]] | None = None,
 ) -> dict[str, str]:
     if not advanced_forecast_rows:
         return {}
 
+    consensus_row = (
+        advanced_forecast_consensus_rows[0] if advanced_forecast_consensus_rows else None
+    )
     model_keys: list[str] = []
     seen_model_keys: set[str] = set()
     for row in advanced_forecast_rows:
@@ -5741,6 +5746,33 @@ def _ranking_advanced_forecast_fields(
             "高度予測は参考シナリオです。ランキング順位は既定では変えません。"
         ),
     }
+    if consensus_row is not None:
+        horizon = str(consensus_row.get("horizon_days", "")).strip()
+        predicted_return = str(consensus_row.get("predicted_return", "")).strip()
+        direction_score = str(consensus_row.get("weighted_direction_score", "")).strip()
+        confidence = str(consensus_row.get("confidence", "")).strip()
+        if horizon:
+            fields["advanced_forecast_horizons"] = horizon
+            fields["advanced_forecast_horizon_days"] = horizon
+        if predicted_return:
+            fields["advanced_forecast_predicted_return"] = _signed_percent_from_text(
+                predicted_return
+            )
+        direction_score_value = _decimal_from_text(direction_score)
+        if direction_score_value is not None:
+            fields["advanced_forecast_score"] = _format_ranking_decimal_value(direction_score_value)
+        if confidence:
+            fields["advanced_forecast_confidence"] = confidence
+        if consensus_row.get("predicted_return_lower") or consensus_row.get(
+            "predicted_return_upper"
+        ):
+            fields["advanced_forecast_range"] = _advanced_forecast_range_display(consensus_row)
+        fields["advanced_forecast_agreement"] = consensus_row.get("agreement", "")
+        fields["advanced_forecast_consensus_note"] = (
+            "高度予測まとめは、信頼度・検証指標・方向一致を保守的に重みづけした参考値です。"
+        )
+        return fields
+
     horizons: list[str] = []
     predicted_returns: list[Decimal] = []
     direction_scores: list[Decimal] = []
@@ -5754,9 +5786,9 @@ def _ranking_advanced_forecast_fields(
         predicted_return_value = _decimal_from_text(predicted_return)
         if predicted_return_value is not None:
             predicted_returns.append(predicted_return_value)
-        direction_score = _decimal_from_text(row.get("direction_score"))
-        if direction_score is not None:
-            direction_scores.append(direction_score)
+        direction_score_value = _decimal_from_text(row.get("direction_score"))
+        if direction_score_value is not None:
+            direction_scores.append(direction_score_value)
         confidence = str(row.get("confidence", "")).strip()
         if confidence in confidence_rank:
             confidences.append(confidence)
@@ -5944,11 +5976,18 @@ async def _build_market_data_ranking_rows_fast(
         )
         if forecast_consensus is not None:
             forecast_consensus_by_symbol[forecast_consensus.symbol] = forecast_consensus
+        advanced_results = advanced_forecast_results_for_bars(
+            forecast_history_bars,
+            horizon_days=forecast_horizon_days,
+        )
+        advanced_rows = advanced_forecast_rows_for_results(
+            advanced_results,
+            forecast_history_bars,
+        )
+        advanced_consensus_rows = advanced_forecast_consensus_rows_for_results(advanced_results)
         advanced_fields = _ranking_advanced_forecast_fields(
-            _advanced_forecast_rows_for_ranking(
-                forecast_history_bars,
-                horizon_days=forecast_horizon_days,
-            )
+            advanced_rows,
+            advanced_consensus_rows,
         )
         if advanced_fields:
             advanced_forecast_fields_by_symbol[symbol.strip().upper()] = advanced_fields
@@ -6262,6 +6301,27 @@ def _market_data_preview_advanced_forecast_rows(
     return advanced_forecast_rows_for_results(results, bars)
 
 
+def _market_data_preview_advanced_forecast_consensus_rows(
+    preview: MarketDataPreview,
+    advanced_forecast_rows: list[dict[str, str]],
+    *,
+    horizon_days: int | None = None,
+) -> list[dict[str, str]]:
+    rows = getattr(preview, "advanced_forecast_consensus_rows", [])
+    if not isinstance(rows, list):
+        rows = []
+    if horizon_days is None or _advanced_forecast_rows_match_horizon(rows, horizon_days):
+        return rows
+
+    bars = getattr(preview, "bars", [])
+    if not bars:
+        return rows
+    results = advanced_forecast_results_for_bars(bars, horizon_days=horizon_days)
+    if results:
+        return advanced_forecast_consensus_rows_for_results(results)
+    return rows
+
+
 def _advanced_forecast_rows_match_horizon(
     rows: list[dict[str, str]],
     horizon_days: int,
@@ -6276,6 +6336,11 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
     forecast_horizon_days = _render_market_data_cockpit_header(preview, symbol_label)
     advanced_forecast_rows = _market_data_preview_advanced_forecast_rows(
         preview,
+        horizon_days=forecast_horizon_days,
+    )
+    advanced_forecast_consensus_rows = _market_data_preview_advanced_forecast_consensus_rows(
+        preview,
+        advanced_forecast_rows,
         horizon_days=forecast_horizon_days,
     )
     forecast_rows = forecast_chart_rows(
@@ -6322,6 +6387,7 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         consensus_rows,
         metric_rows,
         advanced_forecast_rows,
+        advanced_forecast_consensus_rows,
         forecast_horizon_days=forecast_horizon_days,
     )
     if score_row is not None:
@@ -6364,6 +6430,12 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
             forecast_metric_display_rows(metric_rows),
             EMPTY_STATE_MESSAGES["forecast_metrics"],
         )
+        if advanced_forecast_consensus_rows:
+            st.subheader("高度予測まとめ")
+            _render_table(
+                advanced_forecast_consensus_display_rows(advanced_forecast_consensus_rows),
+                "高度予測まとめを表示するには、もう少し長い価格データが必要です。",
+            )
         if advanced_forecast_rows:
             st.subheader("高度予測モデル")
             st.caption(
@@ -9965,6 +10037,7 @@ def _render_price_forecast_hero(
     consensus_rows: list[dict[str, str]],
     metric_rows: list[dict[str, str]],
     advanced_forecast_rows: list[dict[str, str]],
+    advanced_forecast_consensus_rows: list[dict[str, str]],
     *,
     forecast_horizon_days: int,
 ) -> None:
@@ -9981,6 +10054,7 @@ def _render_price_forecast_hero(
     chart_currency = preview.bars[0].symbol.currency if preview.bars else ""
     _render_forecast_chart_filters(forecast_rows)
     _render_advanced_forecast_status(advanced_forecast_rows, horizon_days=forecast_horizon_days)
+    _render_advanced_forecast_consensus_cards(advanced_forecast_consensus_rows)
     _render_market_chart(
         forecast_rows,
         currency=chart_currency,
@@ -10023,6 +10097,37 @@ def _render_advanced_forecast_status(
     st.caption(
         f"高度予測は{horizon_days}日先で再計算を試みましたが、現在の取得データでは表示できません。"
         "期間を少し長くするか、取得データを更新すると表示される場合があります。"
+    )
+
+
+def _render_advanced_forecast_consensus_cards(rows: list[dict[str, str]]) -> None:
+    if not rows:
+        return
+    row = rows[0]
+    value = _signed_percent_from_text(row.get("predicted_return", "")) or "未計算"
+    range_display = _advanced_forecast_range_display(row)
+    confidence = _advanced_forecast_confidence_label(row.get("confidence", ""))
+    agreement = _forecast_agreement_label(row.get("agreement", ""))
+    render_metric_card(
+        "高度予測まとめ",
+        value,
+        caption=(
+            f"予測価格 {row.get('forecast_close') or '未計算'} / "
+            f"{'レンジ ' + range_display if range_display else 'レンジ 未計算'}"
+        ),
+        help_text=(
+            f"{row.get('model_count') or '0'}モデルを、信頼度・検証指標・方向一致を使って"
+            "保守的にまとめた参考シナリオです。"
+            f"一致度 {agreement}、方向一致 {row.get('direction_agreement_score') or '未計算'}。"
+            "ランキング順位は既定では変更しません。"
+        ),
+        badges=(
+            badge_html("高度予測まとめ", "info"),
+            badge_html(f"信頼度 {confidence}", _advanced_forecast_confidence_tone(row)),
+        ),
+        tone=_advanced_forecast_card_tone(row),
+        emphasis="strong",
+        progress=metric_progress_from_value(row.get("weighted_direction_score", "")),
     )
 
 
@@ -13806,6 +13911,30 @@ def advanced_forecast_display_rows(rows: list[dict[str, str]]) -> list[dict[str,
     ]
 
 
+def advanced_forecast_consensus_display_rows(
+    rows: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    return [
+        {
+            "銘柄": row.get("symbol", ""),
+            "予測日数": row.get("horizon_days", ""),
+            "モデル数": row.get("model_count", ""),
+            "まとめ予測": _signed_percent_from_text(row.get("predicted_return", "")),
+            "予測価格": row.get("forecast_close", ""),
+            "想定レンジ": _advanced_forecast_range_display(row),
+            "モデル一致度": _forecast_agreement_label(row.get("agreement", "")),
+            "方向一致": f"{row.get('direction_agreement_score', '')} / 100",
+            "信頼度": _advanced_forecast_confidence_label(row.get("confidence", "")),
+            "平均方向一致": row.get("mean_direction_accuracy", ""),
+            "平均RMSE": row.get("mean_rmse", ""),
+            "RMSE改善": row.get("mean_rmse_improvement", ""),
+            "相対的に安定": _advanced_forecast_best_model_display(row),
+            "注意点": _advanced_forecast_warning_display(row.get("warnings", "")),
+        }
+        for row in rows
+    ]
+
+
 def advanced_forecast_card_rows(rows: list[dict[str, str]]) -> list[dict[str, Any]]:
     cards: list[dict[str, Any]] = []
     for row in rows:
@@ -13959,6 +14088,19 @@ def _advanced_forecast_confidence_tone(row: dict[str, str]) -> str:
     return "info"
 
 
+def _advanced_forecast_best_model_display(row: Mapping[str, str]) -> str:
+    adapter = row.get("best_adapter", "").strip()
+    model = row.get("best_model", "").strip()
+    if not adapter and not model:
+        return ""
+    label = _advanced_forecast_model_title(
+        {"adapter": adapter, "model": model, "horizon_days": row.get("horizon_days", "")}
+    )
+    if model and model not in label:
+        return f"{label} / {model}"
+    return label
+
+
 def _advanced_forecast_feature_display(value: str) -> str:
     if not value:
         return ""
@@ -13997,6 +14139,22 @@ def _advanced_forecast_warning_display(value: str) -> str:
         ),
         "Validation RMSE did not improve over the zero-return baseline.": (
             "ゼロリターン基準よりRMSEが改善していません。慎重に確認してください。"
+        ),
+        "Advanced forecast consensus is reference information, not investment advice.": (
+            "高度予測まとめは参考情報です。売買判断そのものではありません。"
+        ),
+        "Consensus weights are capped; validation metrics support comparison but do not guarantee future accuracy.": (
+            "重みは保守的に制限しています。検証指標は比較材料であり、将来精度の保証ではありません。"
+        ),
+        "Consensus confidence is low; check model-by-model reasons before using it.": (
+            "まとめ信頼度は低めです。個別モデルの理由も確認してください。"
+        ),
+        "Advanced models have a wide forecast spread.": (
+            "高度予測モデル間の開きが大きい状態です。"
+        ),
+        "Advanced model directions are mixed.": ("高度予測モデルの方向感が割れています。"),
+        "At least one advanced model did not improve RMSE over the zero-return baseline.": (
+            "少なくとも1つの高度予測モデルはゼロリターン基準よりRMSEが改善していません。"
         ),
     }
     warnings = [part.strip() for part in value.split(";") if part.strip()]

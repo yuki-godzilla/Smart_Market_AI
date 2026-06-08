@@ -44,6 +44,7 @@ from ui.rebalance_app import (
     PROJECT_ROOT,
     SCENARIO_DIR_ENV,
     RebalanceScenarioError,
+    advanced_forecast_consensus_rows_for_results,
     advanced_forecast_results_for_bars,
     advanced_forecast_rows_for_results,
     advanced_linear_forecast_results_for_bars,
@@ -745,6 +746,29 @@ def test_advanced_forecast_rows_use_selected_common_horizon():
         "advanced_quantile",
     }
     assert {row["horizon_days"] for row in advanced_rows} == {"10"}
+
+
+def test_advanced_forecast_consensus_rows_use_selected_common_horizon():
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    bars = [
+        _bar(
+            "AAPL",
+            (start + timedelta(days=index)).isoformat(),
+            str(100 + index),
+        )
+        for index in range(90)
+    ]
+
+    results = advanced_forecast_results_for_bars(bars, horizon_days=10)
+    consensus_rows = advanced_forecast_consensus_rows_for_results(results)
+
+    assert len(consensus_rows) == 1
+    assert consensus_rows[0]["horizon_days"] == "10"
+    assert consensus_rows[0]["model_count"] == "4"
+    assert consensus_rows[0]["predicted_return"]
+    assert consensus_rows[0]["forecast_close"]
+    assert consensus_rows[0]["direction_agreement_score"]
+    assert consensus_rows[0]["confidence"] in {"low", "medium", "high"}
 
 
 def test_advanced_forecast_rows_include_quantile_range_for_chart():

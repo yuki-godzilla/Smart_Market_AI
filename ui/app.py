@@ -10131,6 +10131,8 @@ def forecast_chart_series_help(series: str) -> str:
     if kind == "advanced":
         if series.startswith("advanced_quantile_"):
             return "過去の値動き分布から下振れ・中央値・上振れを確認する高度予測です。"
+        if series.startswith("advanced_tree_sklearn_"):
+            return "特徴量の非線形な組み合わせを使うツリー型の高度予測です。"
         return "複数の価格特徴量を使う高度予測です。売買判断ではなく参考シナリオです。"
     return _forecast_model_logic_help(series)
 
@@ -13834,6 +13836,8 @@ def _advanced_forecast_model_title(row: Mapping[str, str]) -> str:
         adapter = row.get("adapter", "").strip()
         if adapter == "advanced_quantile":
             model_label = "高度予測: レンジモデル"
+        elif adapter == "advanced_tree_sklearn":
+            model_label = "高度予測: ツリーモデル"
         elif adapter == "advanced_linear" or not adapter:
             model_label = "高度予測: 線形モデル"
         else:
@@ -13871,6 +13875,13 @@ def _advanced_forecast_model_help(row: Mapping[str, str]) -> str:
         return (
             f"過去に観測された{horizon_days}日後リターンの分布から、中央値と下振れ・上振れを"
             "参考表示します。売買判断ではなく価格レンジ確認用です。"
+        )
+    if adapter == "advanced_tree_sklearn":
+        return (
+            "リターン、移動平均との差、値動きの大きさ、下落幅、出来高などを使い、"
+            f"過去に似た状態から{horizon_days}日後にどう動いたかを"
+            "scikit-learnのツリー集合モデルで参考推定します。"
+            "売買判断ではなく価格シナリオ確認用です。"
         )
     return (
         "リターン、移動平均との差、値動きの大きさ、下落幅、出来高などを使い、"
@@ -13931,6 +13942,15 @@ def _advanced_forecast_warning_display(value: str) -> str:
         ),
         "Feature contributions describe model coefficients and are not causal explanations.": (
             "効いた特徴はモデル上の係数であり、因果関係の説明ではありません。"
+        ),
+        "Tree feature importance is model importance and not a causal explanation.": (
+            "効いた特徴はツリーモデル上の重要度であり、因果関係の説明ではありません。"
+        ),
+        "ExtraTreesRegressor uses a fixed random_state for deterministic local checks.": (
+            "ツリーモデルは通常確認で再現しやすいよう乱数を固定しています。"
+        ),
+        "RandomForestRegressor uses a fixed random_state for deterministic local checks.": (
+            "ツリーモデルは通常確認で再現しやすいよう乱数を固定しています。"
         ),
         "Validation data is limited or unstable; treat this forecast as low confidence.": (
             "検証データが少ない、または不安定です。信頼度は低めに見てください。"
@@ -14464,6 +14484,8 @@ def _forecast_series_label(series: str) -> str:
         horizon_days = advanced_match.group(2)
         if adapter_name == "advanced_quantile":
             return f"高度予測: レンジモデル {horizon_days}日"
+        if adapter_name == "advanced_tree_sklearn":
+            return f"高度予測: ツリーモデル {horizon_days}日"
         if adapter_name == "advanced_linear":
             return f"高度予測: 線形モデル {horizon_days}日"
         return f"高度予測: {adapter_name} {horizon_days}日"

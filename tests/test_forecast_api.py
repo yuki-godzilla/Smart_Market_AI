@@ -106,6 +106,34 @@ def test_forecast_evaluate_api_returns_advanced_quantile_adapter(monkeypatch):
     assert row["validation_metrics"]["sample_count"] == 67
 
 
+def test_forecast_evaluate_api_returns_advanced_tree_sklearn_adapter(monkeypatch):
+    monkeypatch.setattr(
+        "backend.app.main.create_market_data_provider_adapter",
+        lambda _: _FakeForecastProvider(_bars(72)),
+    )
+
+    response = client.post(
+        "/forecast/evaluate",
+        json={
+            "symbol": "AAPL",
+            "start": "2026-01-01",
+            "end": "2026-03-15",
+            "horizon_days": 5,
+            "adapter": "advanced_tree_sklearn",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 1
+    row = payload[0]
+    assert row["adapter_name"] == "advanced_tree_sklearn"
+    assert row["model_name"] == "ExtraTreesRegressor"
+    assert row["forecast_close"] != row["latest_close"]
+    assert row["validation_metrics"]["sample_count"] == 67
+    assert row["feature_contribution_summary"]
+
+
 def test_forecast_evaluate_api_returns_advanced_linear_common_horizon(monkeypatch):
     monkeypatch.setattr(
         "backend.app.main.create_market_data_provider_adapter",
@@ -154,6 +182,7 @@ def test_forecast_evaluate_api_rejects_unknown_adapter(monkeypatch):
     assert payload["details"]["supported_adapters"] == [
         "baseline",
         "advanced_linear",
+        "advanced_tree_sklearn",
         "advanced_quantile",
     ]
 

@@ -740,6 +740,7 @@ def test_advanced_forecast_rows_use_selected_common_horizon():
 
     assert {row["adapter"] for row in advanced_rows} == {
         "advanced_linear",
+        "advanced_tree_sklearn",
         "advanced_quantile",
     }
     assert {row["horizon_days"] for row in advanced_rows} == {"10"}
@@ -770,7 +771,11 @@ def test_advanced_forecast_rows_include_quantile_range_for_chart():
     latest_ts = bars[-1].ts.isoformat()
     five_day_ts = (bars[-1].ts + timedelta(days=5)).isoformat()
 
-    assert adapters == {"advanced_linear", "advanced_quantile"}
+    assert adapters == {
+        "advanced_linear",
+        "advanced_tree_sklearn",
+        "advanced_quantile",
+    }
     assert quantile_rows
     assert quantile_rows[0]["model_label"] == "高度予測: レンジモデル"
     assert quantile_rows[0]["predicted_return_lower"]

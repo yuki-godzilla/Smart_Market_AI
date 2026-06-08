@@ -496,7 +496,11 @@ def test_market_data_preview_advanced_forecast_rows_recomputes_for_common_horizo
 
     rows = _market_data_preview_advanced_forecast_rows(preview, horizon_days=10)
 
-    assert {row["adapter"] for row in rows} == {"advanced_linear", "advanced_quantile"}
+    assert {row["adapter"] for row in rows} == {
+        "advanced_linear",
+        "advanced_tree_sklearn",
+        "advanced_quantile",
+    }
     assert {row["horizon_days"] for row in rows} == {"10"}
 
 
@@ -6104,9 +6108,16 @@ def test_ranking_advanced_forecast_rows_use_common_period_horizon():
     rows = _advanced_forecast_rows_for_ranking(bars, horizon_days=10)
     fields = _ranking_advanced_forecast_fields(rows)
 
-    assert {row["adapter"] for row in rows} == {"advanced_linear", "advanced_quantile"}
+    assert {row["adapter"] for row in rows} == {
+        "advanced_linear",
+        "advanced_tree_sklearn",
+        "advanced_quantile",
+    }
     assert {row["horizon_days"] for row in rows} == {"10"}
-    assert fields["advanced_forecast_model"] == "advanced_linear,advanced_quantile"
+    assert (
+        fields["advanced_forecast_model"]
+        == "advanced_linear,advanced_quantile,advanced_tree_sklearn"
+    )
     assert fields["advanced_forecast_horizons"] == "10"
     assert fields["advanced_forecast_horizon_days"] == "10"
     assert fields["advanced_forecast_predicted_return"]

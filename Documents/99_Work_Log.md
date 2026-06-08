@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-06-08: Added `advanced_tree_sklearn` as the third Advanced Forecast adapter. `scikit-learn==1.5.2` is now a runtime dependency; the adapter defaults to deterministic `ExtraTreesRegressor`, supports `RandomForestRegressor` as an option, returns walk-forward metrics and tree feature-importance summaries, and is wired into Forecast API, Cockpit chart/card/detail display, and Ranking auxiliary advanced forecast context without changing ranking order.
 - 2026-06-08: Restored Cockpit forecast chart rendering by replacing the custom bottom legend concat with standard Altair bottom legends, while keeping reduced full-chart markers. Added a Cockpit `データを取得` progress bar with short step captions.
 - 2026-06-08: Improved Cockpit forecast chart readability by moving the interactive legend from the right side to the bottom and reducing full-chart point markers to latest actual / forecast endpoints while keeping detailed points in the forecast-focus chart.
 - 2026-06-08: Reduced the Cockpit price / forecast chart combined width so the full chart, compact forecast-focus chart, and legend fit at normal browser zoom without horizontal cutoff.

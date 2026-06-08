@@ -50,7 +50,6 @@ from ui.app import (
     COCKPIT_SYMBOL_DB_PREFLIGHT_REQUEST_STATE_KEY,
     COCKPIT_SYMBOL_DB_PREFLIGHT_TTL_SECONDS,
     DEFAULT_MARKET_DATA_PERIOD_PRESET,
-    MARKET_CHART_BOTTOM_LEGEND_WIDTH,
     MARKET_CHART_COMBINED_SPACING,
     MARKET_CHART_FOCUS_WIDTH,
     MARKET_CHART_FULL_WIDTH,
@@ -8157,23 +8156,21 @@ def test_render_market_chart_uses_currency_axis_title_and_compact_width(monkeypa
     )
 
     spec = captured["spec"]
-    chart_row_spec = spec["vconcat"][0]  # type: ignore[index]
-    legend_spec = spec["vconcat"][1]  # type: ignore[index]
-    chart_spec = chart_row_spec["hconcat"][0]
-    focus_spec = chart_row_spec["hconcat"][1]
+    chart_spec = spec["hconcat"][0]  # type: ignore[index]
+    focus_spec = spec["hconcat"][1]  # type: ignore[index]
     assert spec["title"] == "Price and forecast"
-    assert len(spec["vconcat"]) == 2
-    assert len(chart_row_spec["hconcat"]) == 2
+    assert len(spec["hconcat"]) == 2
     assert (
         MARKET_CHART_FULL_WIDTH + MARKET_CHART_FOCUS_WIDTH + MARKET_CHART_COMBINED_SPACING <= 1400
     )
     assert chart_spec["width"] == MARKET_CHART_FULL_WIDTH
     assert focus_spec["width"] == MARKET_CHART_FOCUS_WIDTH
-    assert legend_spec["vconcat"][0]["width"] == MARKET_CHART_BOTTOM_LEGEND_WIDTH
     assert chart_spec["title"] == "全体"
     assert focus_spec["title"] == "予測拡大"
     assert chart_spec["layer"][1]["mark"]["point"] is False
     assert focus_spec["layer"][1]["mark"]["point"]["filled"] is True
+    assert chart_spec["layer"][1]["encoding"]["color"]["legend"]["orient"] == "bottom"
+    assert focus_spec["layer"][1]["encoding"]["color"]["legend"] is None
     assert chart_spec["layer"][0]["encoding"]["y"]["title"] == "終値 (USD)"
     assert captured["use_container_width"] is True
 

@@ -493,11 +493,6 @@ RANKING_SYMBOL_DB_PREFLIGHT_SCAN_LIMIT = 300
 MARKET_CHART_FULL_WIDTH = 1048
 MARKET_CHART_FOCUS_WIDTH = 320
 MARKET_CHART_COMBINED_SPACING = 8
-MARKET_CHART_BOTTOM_LEGEND_COLUMNS = 4
-MARKET_CHART_BOTTOM_LEGEND_ROW_HEIGHT = 28
-MARKET_CHART_BOTTOM_LEGEND_WIDTH = (
-    MARKET_CHART_FULL_WIDTH + MARKET_CHART_FOCUS_WIDTH + MARKET_CHART_COMBINED_SPACING
-)
 RANKING_NUMERIC_SORT_COMPARATOR = JsCode(
     """
 function(valueA, valueB, nodeA, nodeB, isDescending) {
@@ -4988,6 +4983,15 @@ def _render_market_data_cockpit() -> None:
         help="選択した銘柄と取得期間で、価格・予測・投資スコアを再計算します。",
     ):
         loading_slot = st.empty()
+        progress_bar: Any | None = None
+        progress_status: Any | None = None
+
+        def update_cockpit_progress(message: str, ratio: float) -> None:
+            if progress_status is not None:
+                progress_status.caption(message)
+            if progress_bar is not None:
+                progress_bar.progress(max(0.0, min(1.0, ratio)))
+
         try:
             start_date = _single_date_from_input(start)
             end_date = _single_date_from_input(end)
@@ -5000,6 +5004,10 @@ def _render_market_data_cockpit() -> None:
                     message="価格、予測、スコアの材料をまとめています。少しだけお待ちください。",
                     tone="forecast",
                 )
+                progress_bar = st.progress(0.0)
+                progress_status = st.empty()
+            update_cockpit_progress("入力条件と予測日数を確認しています。", 0.12)
+            update_cockpit_progress("価格データと予測材料を取得しています。", 0.32)
             preview = asyncio.run(
                 build_market_data_preview(
                     symbol=symbol.strip(),
@@ -5009,6 +5017,7 @@ def _render_market_data_cockpit() -> None:
                     forecast_horizon_days=forecast_horizon_days,
                 )
             )
+            update_cockpit_progress("予測モデル、スコア、チャート材料を整理しています。", 0.86)
         except ValueError as exc:
             loading_slot.empty()
             st.error(str(exc))
@@ -5018,12 +5027,14 @@ def _render_market_data_cockpit() -> None:
             st.error(str(exc))
             return
 
-        loading_slot.empty()
         st.session_state[MARKET_DATA_PREVIEW_STATE_KEY] = preview
         st.session_state[MARKET_DATA_STATUS_STATE_KEY] = preview.status
         if preview.status == "OK":
+            update_cockpit_progress("表示内容を更新しています。", 0.96)
             st.session_state[MARKET_DATA_TOAST_STATE_KEY] = "データを取得しました。"
             _request_cockpit_symbol_db_preflight_background(symbol)
+            update_cockpit_progress("データ取得が完了しました。", 1.0)
+        loading_slot.empty()
 
     stored_preview = _market_data_preview_from_state()
     if stored_preview is None:
@@ -13279,44 +13290,9 @@ def _render_market_chart(
     )
     color_range = forecast_chart_color_range(color_domain)
     color_scale = alt.Scale(domain=color_domain, range=color_range)
-    legend_data = chart_data[["series_label", "line_label"]].drop_duplicates().copy()
-    legend_records: list[dict[str, object]] = []
-    for index, record in enumerate(legend_data.to_dict("records")):
-        legend_records.append(
-            {
-                **record,
-                "legend_col": index % MARKET_CHART_BOTTOM_LEGEND_COLUMNS,
-                "legend_row": index // MARKET_CHART_BOTTOM_LEGEND_COLUMNS,
-            }
-        )
-    legend_data = pd.DataFrame(legend_records)
-    legend_row_count = max(
-        1,
-        (len(legend_records) + MARKET_CHART_BOTTOM_LEGEND_COLUMNS - 1)
-        // MARKET_CHART_BOTTOM_LEGEND_COLUMNS,
-    )
-    line_type_legend_data = pd.DataFrame(
-        [
-            {
-                "line_label": "実績",
-                "description": "実線: 実績価格",
-                "x": 12,
-                "x2": 44,
-                "label_x": 52,
-                "y": 14,
-            },
-            {
-                "line_label": "予測",
-                "description": "破線: 予測モデル",
-                "x": 180,
-                "x2": 212,
-                "label_x": 220,
-                "y": 14,
-            },
-        ]
-    )
     disabled_series = alt.selection_point(
         fields=["series_label"],
+        bind="legend",
         on="click",
         toggle="true",
         empty=False,
@@ -13330,6 +13306,7 @@ def _render_market_chart(
         width=MARKET_CHART_FULL_WIDTH,
         title="全体",
         show_all_points=False,
+        show_legend=True,
     )
     focus_rows = forecast_focus_chart_rows(rows)
     focus_chart = _market_chart_layers(
@@ -13341,96 +13318,10 @@ def _render_market_chart(
         width=MARKET_CHART_FOCUS_WIDTH,
         title="予測拡大",
         show_all_points=True,
+        show_legend=False,
     )
-    series_legend_base = alt.Chart(legend_data).encode(
-        x=alt.X(
-            "legend_col:O",
-            title=None,
-            axis=None,
-            sort=list(range(MARKET_CHART_BOTTOM_LEGEND_COLUMNS)),
-        ),
-        y=alt.Y(
-            "legend_row:O",
-            title=None,
-            axis=None,
-            sort=list(range(legend_row_count)),
-        ),
-        color=alt.Color(
-            "series_label:N",
-            title="価格・モデル",
-            legend=None,
-            scale=color_scale,
-        ),
-        opacity=alt.condition(disabled_series, alt.value(0.25), alt.value(1.0)),
-        tooltip=[
-            alt.Tooltip("series_label:N", title="価格・モデル"),
-            alt.Tooltip("line_label:N", title="実績/予測"),
-        ],
-    )
-    series_legend = series_legend_base.mark_point(filled=True, size=95).encode(
-        xOffset=alt.value(-88)
-    ) + series_legend_base.mark_text(
-        align="left",
-        baseline="middle",
-        dx=16,
-        fontSize=12,
-    ).encode(
-        xOffset=alt.value(-88),
-        text="series_label:N",
-    )
-    line_type_legend_base = alt.Chart(line_type_legend_data).encode(
-        y=alt.Y(
-            "y:Q",
-            title=None,
-            axis=None,
-            scale=alt.Scale(domain=[0, 28]),
-        ),
-        strokeDash=alt.StrokeDash(
-            "line_label:N",
-            scale=alt.Scale(domain=["実績", "予測"], range=[[1, 0], [6, 4]]),
-            legend=None,
-        ),
-    )
-    line_type_legend = line_type_legend_base.mark_rule(
-        color=THEME_COLORS["text_secondary"], strokeWidth=2
-    ).encode(
-        x=alt.X(
-            "x:Q",
-            title=None,
-            axis=None,
-            scale=alt.Scale(domain=[0, MARKET_CHART_BOTTOM_LEGEND_WIDTH]),
-        ),
-        x2=alt.X2("x2:Q"),
-    ) + line_type_legend_base.mark_text(
-        align="left",
-        baseline="middle",
-        fontSize=12,
-        color=THEME_COLORS["text_secondary"],
-    ).encode(
-        x=alt.X(
-            "label_x:Q",
-            title=None,
-            axis=None,
-            scale=alt.Scale(domain=[0, MARKET_CHART_BOTTOM_LEGEND_WIDTH]),
-        ),
-        text="description:N",
-    )
-    legend = alt.vconcat(
-        series_legend.properties(
-            title="価格・モデル",
-            height=MARKET_CHART_BOTTOM_LEGEND_ROW_HEIGHT * legend_row_count,
-            width=MARKET_CHART_BOTTOM_LEGEND_WIDTH,
-        ),
-        line_type_legend.properties(
-            title="実績/予測",
-            height=28,
-            width=MARKET_CHART_BOTTOM_LEGEND_WIDTH,
-        ),
-        spacing=2,
-    )
-    chart_row = alt.hconcat(chart, focus_chart, spacing=MARKET_CHART_COMBINED_SPACING)
     combined_chart = (
-        alt.vconcat(chart_row, legend, spacing=8)
+        alt.hconcat(chart, focus_chart, spacing=MARKET_CHART_COMBINED_SPACING)
         .add_params(disabled_series)
         .resolve_scale(color="shared", y="independent", x="independent")
         .configure(background=THEME_COLORS["bg_surface"])
@@ -13461,6 +13352,7 @@ def _market_chart_layers(
     width: int,
     title: str,
     show_all_points: bool,
+    show_legend: bool,
 ) -> alt.LayerChart:
     chart_data = market_chart_long_frame(rows)
     range_band_data = forecast_range_band_frame(rows)
@@ -13469,20 +13361,42 @@ def _market_chart_layers(
     forecast_data = chart_data[chart_data["series_label"] != FORECAST_ACTUAL_LABEL]
     actual_data = chart_data[chart_data["series_label"] == FORECAST_ACTUAL_LABEL]
     base_x = alt.X("date:T", title="Date", axis=alt.Axis(format="%m/%d", labelAngle=0))
+    color_legend = (
+        alt.Legend(
+            title="価格・モデル",
+            orient="bottom",
+            direction="horizontal",
+            columns=3,
+            symbolType="circle",
+            labelLimit=220,
+        )
+        if show_legend
+        else None
+    )
+    line_type_legend = (
+        alt.Legend(
+            title="実績/予測",
+            orient="bottom",
+            direction="horizontal",
+            symbolLimit=2,
+        )
+        if show_legend
+        else None
+    )
     base_encoding = {
         "x": base_x,
         "y": alt.Y("value:Q", title=y_axis_title, scale=alt.Scale(zero=False)),
         "color": alt.Color(
             "series_label:N",
             title="価格・モデル",
-            legend=None,
+            legend=color_legend,
             scale=color_scale,
         ),
         "strokeDash": alt.StrokeDash(
             "line_label:N",
             title="実績/予測",
             scale=alt.Scale(domain=["実績", "予測"], range=[[1, 0], [6, 4]]),
-            legend=None,
+            legend=line_type_legend,
         ),
         "tooltip": [
             alt.Tooltip("date:T", title="日付"),

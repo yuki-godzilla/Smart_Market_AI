@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-06-08: Added a Phase 23 closeout task to demote naive / moving-average / momentum simple forecast models from the default Cockpit chart and Ranking main logic after advanced forecast adapters / `forecast_consensus` are ready, while keeping them as backend baseline / fallback / test context.
 - 2026-06-08: Fixed the Cockpit price / forecast chart blank rendering by removing the nested Altair `vconcat` legend layout, returning the full/focus charts to a stable horizontal concat that fits the normal content width, rendering the model color key as separate bottom HTML, and narrowing the chart height to 600px after Chrome headless visual confirmation.
 - 2026-06-08: Added a Cockpit `AI調査を更新` progress bar with short status captions for target/source confirmation, external reference fetch, company research report generation, news/disclosure organization, and display refresh.
 - 2026-06-08: Reworked the Cockpit forecast chart legend as a dedicated custom Altair legend strip below the full/focus charts so model names remain visible even when native legends disappear. Increased the full and forecast-focus chart height from 540px to 648px.

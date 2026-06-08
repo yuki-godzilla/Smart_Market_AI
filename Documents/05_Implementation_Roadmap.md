@@ -1595,7 +1595,7 @@ Phase 22 完了条件:
 
 高度予測モデル first slice の方針:
 
-- 通常 path は既存の naive / moving-average / momentum baseline と consensus を維持する。
+- 実装途中の通常 path は既存の naive / moving-average / momentum baseline と consensus を維持する。Phase 23 closeout では高度予測モデル群と `forecast_consensus` を主導線にし、単純予測モデルは backend baseline / fallback / 詳細確認用へ下げる。
 - scikit-learn は `advanced_tree_sklearn` のため runtime dependency として導入済み。より重い LightGBM / XGBoost / Prophet / deep learning 系は optional adapter とし、未導入でもアプリ・通常 tests・CI が動くようにする。
 - 最初は 1 銘柄または小さい銘柄集合で、walk-forward evaluation、モデル別予測、予測レンジ、方向シグナルへの反映を確認する。
 - ランキング順位への反映は、`advanced_linear` 単体では行わない。tree / GBDT / quantile など追加予定の高度予測モデルを一通り実装し、モデル間比較、信頼度、検証指標、計算コストを見たうえで、後続 slice で opt-in sort profile / ranking logic としてまとめて仕上げる。
@@ -1733,6 +1733,7 @@ Ranking logic finalization 方針:
 - 個別 adapter 追加のたびにランキング順位を変えず、まず Cockpit / Ranking の補助表示と CSV export にモデル別の予測・信頼度・検証指標を蓄積する。
 - 一通りの高度予測モデルを追加した後、モデル間の重複、検証安定性、horizon 別の用途、計算時間、データ不足時の扱いを比較して、Ranking 用の統合指標を設計する。
 - Ranking 統合は既定順位の差し替えではなく、まず opt-in sort profile / evaluation profile として実装する。
+- Phase 23 closeout では、naive / moving-average / momentum の単純予測モデルを Cockpit chart の初期表示と Ranking 主要評価ロジックから外し、高度予測 consensus / 信頼度 / レンジ / 検証指標を主表示・opt-in Ranking 評価の中心にする。単純予測は削除せず、回帰 baseline / fallback / 技術詳細として残す。
 - 完了条件には、Research Score と同様に「投資助言ではない」「既定の Ranking / Investment Score は急に変えない」「通常 checks は deterministic / network-free」を含める。
 
 テスト方針:
@@ -1758,6 +1759,7 @@ Ranking logic finalization 方針:
 - `advanced_linear` adapter が追加され、Ridge / ElasticNet の少なくとも Ridge が使える。
 - 1〜60 trading day forward return の予測、walk-forward validation、validation metrics、confidence、feature contribution summary が返る。
 - backend adapter は実装済み。`POST /forecast/evaluate` では `adapter=advanced_linear` / `advanced_tree_sklearn` / `advanced_quantile` 指定時に 1〜60日の高度予測、予測変化率、予測価格、信頼度、検証指標、特徴量要約またはレンジ、注意点を返す。Streamlit 銘柄コックピットでは通常予測と同じ共通 horizon の高度予測を既存の価格・予測チャートへ重ね、右側の予測拡大図、下部色見本、カード、詳細表で予測変化率、レンジ、信頼度、検証指標、注意点を表示する。Ranking では取得期間から決まる同じ horizon の高度予測を補助列として保持し、表示テーブル / 選択候補 breakdown / score detail / CSV export で確認できる。Ranking 順位と既定 Investment Score は変更していない。
+- Phase 23 closeout では、単純予測モデルが通常のチャート初期表示と Ranking 主要評価から外れ、高度予測モデル群 / `forecast_consensus` / 信頼度 / レンジ / 検証指標が主表示・opt-in Ranking 評価の中心になっている。
 - README または roadmap に Advanced Forecast Slice 1 として記録されている。
 
 Research資料保存方針の移行:

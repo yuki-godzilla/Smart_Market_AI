@@ -40,7 +40,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
   - `advanced_linear` forecast adapter foundation for Cockpit / Ranking
   - `advanced_quantile` forecast adapter for deterministic historical forward-return range checks
   - `POST /forecast/evaluate` accepts `adapter=advanced_linear` or `adapter=advanced_quantile` with `horizon_days` 1-60 and returns predicted return, forecast close, validation metrics, confidence, and warnings. `advanced_quantile` also returns lower / upper predicted return and forecast close range fields.
-  - Cockpit overlays advanced forecast points on the existing price / forecast chart using the same period-derived horizon as baseline forecasts. The default horizon is roughly one twelfth of the displayed period and capped at 60 days. `advanced_quantile` is shown as `高度予測: レンジモデル` with a thin lower-to-upper range band plus a compact right-side forecast-focus chart
+  - Cockpit overlays advanced forecast points on the existing price / forecast chart using the same period-derived horizon as baseline forecasts. The default horizon is roughly one twelfth of the displayed period and capped at 60 days. `advanced_quantile` is shown as `高度予測: レンジモデル` with a thin lower-to-upper range band plus a compact forecast-focus chart. The chart legend sits below the chart row, and the full chart is line-first with only latest / forecast-end markers.
   - Ranking rows retain one period-derived common-horizon advanced forecast return (`advanced_forecast_predicted_return`), horizon days, score, and confidence as auxiliary fields for table/detail/CSV review without changing ranking order
   - Ridge-style lightweight deterministic forecasting of 1-60 day forward returns without adding heavy ML dependencies
   - walk-forward / time-series validation, validation metrics, confidence, and feature contribution summary
@@ -270,7 +270,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - default cockpit period is `カスタム`; preset選択時は Start / End を自動表示し、`カスタム` の時だけ手入力する
 - period preset help explains the intended review basis: short-term material reaction, medium-term trend, long-term drawdown resilience / structural change, and custom event windows
 - collapsed sample symbol reference
-- 価格・予測チャート: モデル数、平均予測の変化率、予測の開きを先に確認し、方向シグナルの数値重複を避ける。十分な履歴がある場合は `advanced_linear` と `advanced_quantile` も取得期間から決まる共通の予測日数で同じチャートに重ねて表示し、`advanced_quantile` は下振れ〜上振れを薄い帯で示す。予測日数の初期値は取得期間のおよそ 1/12 を使い、60日を上限にする。全体チャートの右側に、最新実績の数日前から予測部分までを自動抽出した拡大図を並べる。チャート系列の切り替えは Streamlit checkbox ではなくチャート内凡例の interaction で扱い、補助テーブルで予測変化率、レンジ、信頼度、検証指標、注意点を確認する。
+- 価格・予測チャート: モデル数、平均予測の変化率、予測の開きを先に確認し、方向シグナルの数値重複を避ける。十分な履歴がある場合は `advanced_linear` と `advanced_quantile` も取得期間から決まる共通の予測日数で同じチャートに重ねて表示し、`advanced_quantile` は下振れ〜上振れを薄い帯で示す。予測日数の初期値は取得期間のおよそ 1/12 を使い、60日を上限にする。全体チャートの右側に、最新実績の数日前から予測部分までを自動抽出した拡大図を並べる。凡例はチャート下部に置き、全体チャートは線を中心にして点マーカーを最新実績と予測終点に絞る。チャート系列の切り替えは Streamlit checkbox ではなくチャート内凡例の interaction で扱い、補助テーブルで予測変化率、レンジ、信頼度、検証指標、注意点を確認する。
 - `Signal Reading / シグナル読み取り`: Analysis KPI と同じ `上昇気配` / `下降警戒` を、予測変化率、モデル方向一致、予測のばらつきと合わせて解釈する。売買推奨ではなく比較・確認材料として扱う。
 - forecast agreement compatibility、forecast spread、best RMSE model
 - Investment Score summary

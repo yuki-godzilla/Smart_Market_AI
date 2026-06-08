@@ -127,6 +127,7 @@ from ui.app import (
     _render_company_research_summary_panel,
     _render_decision_report_download_buttons,
     _render_market_chart,
+    _render_price_forecast_hero,
     _render_research_operation_card,
     _render_research_summary_panel,
     _render_score_confidence_hierarchy,
@@ -8328,6 +8329,83 @@ def test_forecast_horizon_notice_text_explains_period_derived_horizon():
     assert "取得期間から自動計算" in text
     assert "短期寄り" in text
     assert "中期寄り" in text
+
+
+def test_price_forecast_hero_keeps_guidance_inside_cards(monkeypatch):
+    preview = MarketDataPreview(
+        status="ok",
+        bars=[_bar("2026-06-01", close=100), _bar("2026-06-02", close=102)],
+        provider_rows=[],
+        quote_rows=[],
+        ohlcv_rows=[],
+        price_chart_rows=[],
+        forecast_chart_rows=[],
+        forecast_metric_rows=[],
+        fx_rows=[],
+        feature_rows=[],
+        investment_score_rows=[],
+        screening_rows=[],
+        error_rows=[],
+    )
+    forecast_rows = [
+        {"ts": "2026-06-02T00:00:00+00:00", "close": "102"},
+        {
+            "ts": "2026-07-03T00:00:00+00:00",
+            "close": "",
+            "advanced_consensus_31d": "105",
+        },
+    ]
+    advanced_rows = [
+        {
+            "model": "advanced_linear",
+            "horizon_days": "31",
+            "forecast_close": "105",
+        }
+    ]
+    consensus_rows = [
+        {
+            "horizon_days": "31",
+            "model_count": "4",
+            "predicted_return": "2.35%",
+            "forecast_close": "105",
+            "predicted_return_lower": "-1.20%",
+            "predicted_return_upper": "4.80%",
+            "agreement": "HIGH",
+            "confidence": "medium",
+            "direction_agreement_score": "75",
+            "mean_direction_accuracy": "54.20%",
+            "mean_rmse": "0.0412",
+            "mean_rmse_improvement": "0.0031",
+            "weighted_direction_score": "72",
+        }
+    ]
+    caption_calls: list[str] = []
+    warning_calls: list[str] = []
+
+    monkeypatch.setattr("ui.app.st.caption", lambda text, *_, **__: caption_calls.append(text))
+    monkeypatch.setattr("ui.app.st.warning", lambda text, *_, **__: warning_calls.append(text))
+    monkeypatch.setattr("ui.app.st.subheader", lambda *_, **__: None)
+    monkeypatch.setattr("ui.app.st.markdown", lambda *_, **__: None)
+    monkeypatch.setattr(app_module, "_render_market_chart", lambda *_, **__: None)
+    monkeypatch.setattr(
+        app_module,
+        "_render_forecast_model_detail_expanders",
+        lambda *_, **__: None,
+    )
+
+    _render_price_forecast_hero(
+        preview,
+        "AAPL - Apple Inc.",
+        forecast_rows,
+        [],
+        [],
+        advanced_rows,
+        consensus_rows,
+        forecast_horizon_days=31,
+    )
+
+    assert caption_calls == []
+    assert warning_calls == []
 
 
 def test_simple_forecast_baseline_comparison_rows_include_consensus_and_baselines():

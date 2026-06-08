@@ -10380,16 +10380,6 @@ def _render_price_forecast_hero(
     forecast_horizon_days: int,
 ) -> None:
     st.subheader("02 価格・予測")
-    _render_target_symbol_caption(symbol_label)
-    st.caption(
-        "価格の流れと予測レンジを最初に確認します。予測は将来の保証ではなく、モデル間の見方と不確実性を読む参考情報です。"
-    )
-    for index, message in enumerate(forecast_chart_summary(consensus_rows, metric_rows)):
-        if index == 0:
-            st.info(message)
-        else:
-            st.caption(message)
-    st.caption(forecast_horizon_notice_text(forecast_horizon_days))
     chart_currency = preview.bars[0].symbol.currency if preview.bars else ""
     display_forecast_rows = filter_forecast_chart_rows(forecast_rows, set())
     _render_forecast_chart_filters(display_forecast_rows)
@@ -10409,10 +10399,6 @@ def _render_price_forecast_hero(
         advanced_forecast_consensus_rows,
         latest_close=latest_close,
         latest_date=latest_date,
-    )
-    st.caption(
-        "縦の点線は、実績価格から予測表示へ切り替わる位置です。"
-        "レンジモデルの薄い帯は、下振れ〜上振れの参考幅です。"
     )
 
 
@@ -10515,15 +10501,8 @@ def _render_advanced_forecast_status(
     horizon_days: int,
 ) -> None:
     if rows:
-        model_labels = [
-            _advanced_forecast_model_title(row) for row in rows if row.get("forecast_close")
-        ]
-        st.caption(
-            f"高度予測は通常予測と同じ{horizon_days}日先で表示しています。"
-            f"表示中: {' / '.join(model_labels) if model_labels else '計算済み'}。"
-        )
         return
-    st.caption(
+    st.warning(
         f"高度予測は{horizon_days}日先で再計算を試みましたが、現在の取得データでは表示できません。"
         "期間を少し長くするか、取得データを更新すると表示される場合があります。"
     )
@@ -10759,10 +10738,6 @@ def _render_forecast_chart_filters(rows: list[dict[str, str]]) -> None:
     if not options:
         return
     st.markdown("###### チャート表示")
-    st.caption(
-        "チャート上の線や点をクリックすると、その系列を画面内で薄くできます。"
-        "下部の色見本で、実績価格と各予測モデルを確認できます。"
-    )
 
 
 def _render_forecast_model_comparison_cards(rows: list[dict[str, str]]) -> None:

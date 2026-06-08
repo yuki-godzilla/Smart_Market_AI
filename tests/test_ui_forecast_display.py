@@ -8180,7 +8180,9 @@ def test_render_market_chart_uses_currency_axis_title_and_compact_width(monkeypa
     assert focus_spec["title"] == "予測拡大"
     assert chart_spec["layer"][1]["mark"]["point"] is False
     assert focus_spec["layer"][1]["mark"]["point"]["filled"] is True
+    assert chart_spec["layer"][1]["encoding"]["color"]["legend"]["title"] == "価格・モデル"
     assert chart_spec["layer"][1]["encoding"]["color"]["legend"]["orient"] == "bottom"
+    assert chart_spec["layer"][1]["encoding"]["strokeDash"]["legend"] is None
     assert focus_spec["layer"][1]["encoding"]["color"]["legend"] is None
     assert chart_spec["layer"][0]["encoding"]["y"]["title"] == "終値 (USD)"
     assert captured["use_container_width"] is True

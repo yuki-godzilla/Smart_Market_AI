@@ -13375,16 +13375,6 @@ def _market_chart_layers(
         if show_legend
         else None
     )
-    line_type_legend = (
-        alt.Legend(
-            title="実績/予測",
-            orient="bottom",
-            direction="horizontal",
-            symbolLimit=2,
-        )
-        if show_legend
-        else None
-    )
     base_encoding = {
         "x": base_x,
         "y": alt.Y("value:Q", title=y_axis_title, scale=alt.Scale(zero=False)),
@@ -13398,7 +13388,7 @@ def _market_chart_layers(
             "line_label:N",
             title="実績/予測",
             scale=alt.Scale(domain=["実績", "予測"], range=[[1, 0], [6, 4]]),
-            legend=line_type_legend,
+            legend=None,
         ),
         "tooltip": [
             alt.Tooltip("date:T", title="日付"),

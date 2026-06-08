@@ -490,12 +490,10 @@ COCKPIT_SYMBOL_DB_PREFLIGHT_TTL_SECONDS = 30 * 60
 RANKING_SYMBOL_DB_PREFLIGHT_DIRECT_THRESHOLD = 30
 RANKING_SYMBOL_DB_PREFLIGHT_MAX_ITEMS = 50
 RANKING_SYMBOL_DB_PREFLIGHT_SCAN_LIMIT = 300
-MARKET_CHART_FULL_WIDTH = 1048
-MARKET_CHART_FOCUS_WIDTH = 320
+MARKET_CHART_FULL_WIDTH = 700
+MARKET_CHART_FOCUS_WIDTH = 260
 MARKET_CHART_COMBINED_SPACING = 8
-MARKET_CHART_HEIGHT = 648
-MARKET_CHART_LEGEND_COLUMNS = 3
-MARKET_CHART_LEGEND_ROW_HEIGHT = 28
+MARKET_CHART_HEIGHT = 600
 RANKING_NUMERIC_SORT_COMPARATOR = JsCode(
     """
 function(valueA, valueB, nodeA, nodeB, isDescending) {
@@ -10049,8 +10047,8 @@ def _render_forecast_chart_filters(rows: list[dict[str, str]]) -> None:
         return
     st.markdown("###### チャート表示")
     st.caption(
-        "凡例のモデル名をクリックすると、その系列を画面内で薄くできます。"
-        "画面全体の再計算を避けるため、チェックボックスではなくチャート内操作にしています。"
+        "チャート上の線や点をクリックすると、その系列を画面内で薄くできます。"
+        "下部の色見本で、実績価格と各予測モデルを確認できます。"
     )
 
 
@@ -13341,15 +13339,8 @@ def _render_market_chart(
         title="予測拡大",
         show_all_points=True,
     )
-    chart_row = alt.hconcat(chart, focus_chart, spacing=MARKET_CHART_COMBINED_SPACING)
-    legend_chart = _market_chart_model_legend(
-        color_domain,
-        color_scale=color_scale,
-        disabled_series=disabled_series,
-        width=MARKET_CHART_FULL_WIDTH + MARKET_CHART_FOCUS_WIDTH + MARKET_CHART_COMBINED_SPACING,
-    )
     combined_chart = (
-        alt.vconcat(chart_row, legend_chart, spacing=8)
+        alt.hconcat(chart, focus_chart, spacing=MARKET_CHART_COMBINED_SPACING)
         .add_params(disabled_series)
         .resolve_scale(color="shared", y="independent", x="independent")
         .configure(background=THEME_COLORS["bg_surface"])
@@ -13368,48 +13359,36 @@ def _render_market_chart(
         combined_chart,
         use_container_width=True,
     )
+    st.markdown(
+        _market_chart_model_legend_html(color_domain, color_range),
+        unsafe_allow_html=True,
+    )
 
 
-def _market_chart_model_legend(
+def _market_chart_model_legend_html(
     labels: Sequence[str],
-    *,
-    color_scale: alt.Scale,
-    disabled_series: alt.Parameter,
-    width: int,
-) -> alt.LayerChart:
-    legend_rows = [
-        {
-            "series_label": label,
-            "legend_col": index % MARKET_CHART_LEGEND_COLUMNS,
-            "legend_row": index // MARKET_CHART_LEGEND_COLUMNS,
-        }
-        for index, label in enumerate(labels)
-    ]
-    row_count = max(1, ((len(legend_rows) - 1) // MARKET_CHART_LEGEND_COLUMNS) + 1)
-    legend_data = pd.DataFrame(legend_rows)
-    legend_base = alt.Chart(legend_data).encode(
-        x=alt.X("legend_col:O", axis=None, title=None),
-        y=alt.Y("legend_row:O", axis=None, title=None),
-        opacity=alt.condition(disabled_series, alt.value(0.36), alt.value(1.0)),
-        tooltip=[alt.Tooltip("series_label:N", title="価格・モデル")],
-    )
-    legend_points = legend_base.mark_point(filled=True, size=90).encode(
-        color=alt.Color("series_label:N", scale=color_scale, legend=None)
-    )
-    legend_text = legend_base.mark_text(
-        align="left",
-        baseline="middle",
-        dx=13,
-        fontSize=12,
-        fontWeight=600,
-    ).encode(
-        color=alt.Color("series_label:N", scale=color_scale, legend=None),
-        text=alt.Text("series_label:N"),
-    )
-    return (legend_points + legend_text).properties(
-        width=width,
-        height=max(34, row_count * MARKET_CHART_LEGEND_ROW_HEIGHT),
-        title="価格・モデル",
+    colors: Sequence[str],
+) -> str:
+    items = []
+    for label, color in zip(labels, colors, strict=False):
+        items.append(
+            '<span style="display:inline-flex;align-items:center;gap:0.42rem;'
+            'min-width:13.5rem;margin:0.18rem 0.75rem 0.18rem 0;">'
+            f'<span style="width:0.68rem;height:0.68rem;border-radius:999px;'
+            f'background:{html.escape(color)};box-shadow:0 0 0 1px rgba(226,232,240,0.32);">'
+            "</span>"
+            f'<span style="color:{THEME_COLORS["text_secondary"]};font-size:0.82rem;'
+            'font-weight:700;line-height:1.35;">'
+            f"{html.escape(label)}</span></span>"
+        )
+    return (
+        '<div style="margin:0.35rem 0 0.55rem 0;padding:0.55rem 0.7rem;'
+        f'background:{THEME_COLORS["bg_surface"]};'
+        f'border-top:1px solid {THEME_COLORS["border_subtle"]};">'
+        f'<div style="color:{THEME_COLORS["text_heading"]};font-size:0.8rem;'
+        'font-weight:800;margin-bottom:0.25rem;">価格・モデル</div>'
+        '<div style="display:flex;flex-wrap:wrap;align-items:center;">'
+        f'{"".join(items)}</div></div>'
     )
 
 

@@ -1693,7 +1693,7 @@ Streamlit / Ranking 接続方針:
 - `advanced_quantile` は過去の forward return 分布から中央値、20% quantile、80% quantile を返す。
 - 対応 horizon は `advanced_linear` と同じ `1`〜`60` trading days とする。
 - 通常 forecast baseline、Ranking 順位、既定 Investment Score は変更しない。
-- Streamlit Cockpit では登録済み高度予測 adapter を同じ高度予測セクションに表示し、通常予測と同じ共通 horizon で比較する。価格・予測チャートでは `advanced_quantile` の中央予測を線、下振れ〜上振れを薄い帯として表示し、全体チャートの右側に予測開始前数日と予測部分を自動抽出した拡大図を並べる。系列の切り替えは Streamlit checkbox ではなく標準 Altair の下部凡例 interaction で扱い、全体チャートは線中心で点マーカーを抑える。
+- Streamlit Cockpit では登録済み高度予測 adapter を同じ高度予測セクションに表示し、通常予測と同じ共通 horizon で比較する。価格・予測チャートでは `advanced_quantile` の中央予測を線、下振れ〜上振れを薄い帯として表示し、全体チャートの右側に予測開始前数日と予測部分を自動抽出した拡大図を並べる。系列の強調確認は Streamlit checkbox ではなくチャート上の線 / 点クリックと下部の色見本で扱い、全体チャートは線中心で点マーカーを抑える。
 - Ranking auxiliary fields は登録済み adapter の共通 horizon 評価を補助平均として保持し、ranking logic finalization まで順位や既定 score に混ぜない。
 
 完了条件:
@@ -1757,7 +1757,7 @@ Ranking logic finalization 方針:
 - 予測は売買判断の主体にせず、スコアやリスクと合わせて確認する材料として扱う。
 - `advanced_linear` adapter が追加され、Ridge / ElasticNet の少なくとも Ridge が使える。
 - 1〜60 trading day forward return の予測、walk-forward validation、validation metrics、confidence、feature contribution summary が返る。
-- backend adapter は実装済み。`POST /forecast/evaluate` では `adapter=advanced_linear` / `advanced_tree_sklearn` / `advanced_quantile` 指定時に 1〜60日の高度予測、予測変化率、予測価格、信頼度、検証指標、特徴量要約またはレンジ、注意点を返す。Streamlit 銘柄コックピットでは通常予測と同じ共通 horizon の高度予測を既存の価格・予測チャートへ重ね、右側の予測拡大図、標準 Altair 下部凡例、カード、詳細表で予測変化率、レンジ、信頼度、検証指標、注意点を表示する。Ranking では取得期間から決まる同じ horizon の高度予測を補助列として保持し、表示テーブル / 選択候補 breakdown / score detail / CSV export で確認できる。Ranking 順位と既定 Investment Score は変更していない。
+- backend adapter は実装済み。`POST /forecast/evaluate` では `adapter=advanced_linear` / `advanced_tree_sklearn` / `advanced_quantile` 指定時に 1〜60日の高度予測、予測変化率、予測価格、信頼度、検証指標、特徴量要約またはレンジ、注意点を返す。Streamlit 銘柄コックピットでは通常予測と同じ共通 horizon の高度予測を既存の価格・予測チャートへ重ね、右側の予測拡大図、下部色見本、カード、詳細表で予測変化率、レンジ、信頼度、検証指標、注意点を表示する。Ranking では取得期間から決まる同じ horizon の高度予測を補助列として保持し、表示テーブル / 選択候補 breakdown / score detail / CSV export で確認できる。Ranking 順位と既定 Investment Score は変更していない。
 - README または roadmap に Advanced Forecast Slice 1 として記録されている。
 
 Research資料保存方針の移行:

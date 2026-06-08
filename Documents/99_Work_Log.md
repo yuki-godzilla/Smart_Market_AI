@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-06-08: Fixed the Cockpit price / forecast chart blank rendering by removing the nested Altair `vconcat` legend layout, returning the full/focus charts to a stable horizontal concat that fits the normal content width, rendering the model color key as separate bottom HTML, and narrowing the chart height to 600px after Chrome headless visual confirmation.
 - 2026-06-08: Added a Cockpit `AI調査を更新` progress bar with short status captions for target/source confirmation, external reference fetch, company research report generation, news/disclosure organization, and display refresh.
 - 2026-06-08: Reworked the Cockpit forecast chart legend as a dedicated custom Altair legend strip below the full/focus charts so model names remain visible even when native legends disappear. Increased the full and forecast-focus chart height from 540px to 648px.
 - 2026-06-08: Restored the Cockpit forecast chart's model legend by suppressing the secondary `実績/予測` stroke-dash legend and keeping the bottom `価格・モデル` color legend as the interactive series control.

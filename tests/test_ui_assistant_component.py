@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from backend.assistant import AssistantResponse
+from ui.components import assistant as assistant_component
 from ui.components.assistant import (
+    ASSISTANT_QUERY_CONTEXT_KEY,
     SmaiAssistantContext,
     _assistant_trigger_label,
+    _fallback_assistant_context,
+    _query_targets_current_context,
     floating_assistant_html,
 )
 
@@ -113,6 +117,48 @@ def test_floating_assistant_html_uses_ranking_visual_for_ranking_context():
     assert "smai-assistant-rank-bars" in markup
 
 
+def test_assistant_legacy_query_open_only_targets_current_context(monkeypatch):
+    context = SmaiAssistantContext(
+        context_id="news_overview",
+        page_key="news",
+        page_label="投資レーダー",
+        section_key="overview",
+        section_label="ニュース確認",
+        lead="ニュースを確認します。",
+    )
+    monkeypatch.setattr(
+        assistant_component.st,
+        "query_params",
+        {ASSISTANT_QUERY_CONTEXT_KEY: "cockpit_setup"},
+        raising=False,
+    )
+
+    assert not _query_targets_current_context(context)
+
+    monkeypatch.setattr(
+        assistant_component.st,
+        "query_params",
+        {ASSISTANT_QUERY_CONTEXT_KEY: "news_overview"},
+        raising=False,
+    )
+
+    assert _query_targets_current_context(context)
+
+
+def test_fallback_assistant_context_uses_page_specific_copy():
+    news = _fallback_assistant_context(page_key="news", page_label="投資レーダー")
+    rebalance = _fallback_assistant_context(page_key="rebalance", page_label="リバランス")
+    settings = _fallback_assistant_context(page_key="settings", page_label="設定 / データ情報")
+
+    assert news.section_label == "ニュース確認"
+    assert "市場ニュース" in news.lead
+    assert "関連銘柄はどう読む？" in news.suggested_questions
+    assert rebalance.section_label == "配分見直し"
+    assert "目標比率" in rebalance.lead
+    assert settings.section_label == "データ設定"
+    assert "キャッシュ状態" in settings.lead
+
+
 def test_assistant_trigger_label_varies_by_context():
     cases = (
         ("cockpit_setup", "cockpit", "setup", "データ取得前", "取得前の確認を聞く"),
@@ -134,6 +180,9 @@ def test_assistant_trigger_label_varies_by_context():
         ("ranking_setup", "ranking", "setup", "ランキング作成前", "条件設定を確認する"),
         ("ranking_results", "ranking", "ranking_results", "ランキング結果", "上位理由を聞く"),
         ("ranking_deep_dive", "ranking", "deep_dive_candidate", "深掘り候補", "候補の比べ方を聞く"),
+        ("news_overview", "news", "overview", "ニュース確認", "ニュースの見方を聞く"),
+        ("rebalance_overview", "rebalance", "overview", "配分見直し", "配分見直しを聞く"),
+        ("settings_overview", "settings", "overview", "データ設定", "データ設定を確認する"),
     )
     for context_id, page_key, section_key, section_label, expected in cases:
         context = SmaiAssistantContext(
@@ -153,9 +202,9 @@ def test_assistant_trigger_label_varies_by_context():
 
 def test_assistant_trigger_label_has_future_context_fallbacks():
     cases = (
-        ("news_overview", "news", "market_news", "ニュース", "根拠の見方を聞く"),
+        ("news_overview", "news", "market_news", "ニュース", "ニュースの見方を聞く"),
         ("risk_overview", "cockpit", "risk", "リスク確認", "リスクの見方を聞く"),
-        ("rebalance_overview", "rebalance", "allocation", "配分調整", "調整ポイントを聞く"),
+        ("rebalance_overview", "rebalance", "allocation", "配分調整", "配分見直しを聞く"),
         ("unknown_overview", "unknown", "overview", "画面の見方", "この画面の見どころを聞く"),
     )
     for context_id, page_key, section_key, section_label, expected in cases:

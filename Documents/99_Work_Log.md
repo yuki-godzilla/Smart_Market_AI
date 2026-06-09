@@ -1313,3 +1313,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Kept deterministic `TemplateAssistantService` answers for each visible question, including old query-parameter compatibility when a saved URL already contains a selected question.
 - Tightened the open `SMAI Copilot` panel width, text density, max height, and internal scrolling so the top of the panel stays inside desktop / narrow viewports.
 - Added component/style/AppTest verification that the local question UI is present and `smai_assistant_question` links are no longer emitted for question chips.
+
+## 2026-06-09 - SMAI Copilot contextual answer depth
+
+- Fixed page-transition carryover so legacy assistant query parameters only auto-open a panel when the requested context matches the current page context.
+- Added News / Rebalance / Settings fallback contexts and trigger labels, plus an outside-click close layer for the open Copilot panel using native details / summary behavior.
+- Expanded `TemplateAssistantService` with question-focus guidance so prepared chips change not only the lead answer but also `見る材料`, `注意点`, and `次に確認すること`.
+- Added specific guidance sets for 投資レーダー news flow / related symbols / source freshness, Ranking reasons / signal reading / low-confidence data, Rebalance drift / proposed trades / risk, Settings provider / local documents / cache, and Cockpit forecast / direction / report reading.
+- Verified the news Copilot HTML contains distinct materials for the three visible chips, and kept checks deterministic without network or LLM calls.

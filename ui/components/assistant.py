@@ -64,12 +64,11 @@ def render_floating_assistant(*, page_key: str, page_label: str) -> None:
     """Render the floating SMAI Copilot for the current screen."""
 
     context = _selected_context(page_key=page_key, page_label=page_label)
-    question = _query_param_text(ASSISTANT_QUERY_QUESTION_KEY)
+    query_targets_context = _query_targets_current_context(context)
+    question = _query_param_text(ASSISTANT_QUERY_QUESTION_KEY) if query_targets_context else ""
     response = _assistant_response(context, question) if question else None
     open_panel = bool(
-        response
-        or _query_param_text(ASSISTANT_QUERY_OPEN_KEY)
-        or _query_param_text(ASSISTANT_QUERY_CONTEXT_KEY)
+        query_targets_context and (response or _query_param_text(ASSISTANT_QUERY_OPEN_KEY))
     )
     st.markdown(
         floating_assistant_html(
@@ -164,6 +163,9 @@ def _assistant_trigger_label(context: SmaiAssistantContext) -> str:
         "ranking_setup": "条件設定を確認する",
         "ranking_results": "上位理由を聞く",
         "ranking_deep_dive": "候補の比べ方を聞く",
+        "news_overview": "ニュースの見方を聞く",
+        "rebalance_overview": "配分見直しを聞く",
+        "settings_overview": "データ設定を確認する",
     }
     if context.context_id in labels_by_context:
         return labels_by_context[context.context_id]
@@ -181,6 +183,8 @@ def _assistant_trigger_label(context: SmaiAssistantContext) -> str:
         return "残す確認点を聞く"
     if any(term in text for term in ("setup", "取得", "設定", "before")):
         return "まず設定を確認"
+    if "news" in text or "投資レーダー" in text or "ニュース" in text:
+        return "ニュースの見方を聞く"
     if any(term in text for term in ("research", "rag", "根拠", "調査", "ニュース", "news")):
         return "根拠の見方を聞く"
     if any(term in text for term in ("risk", "リスク")):
@@ -415,25 +419,70 @@ def _selected_context(*, page_key: str, page_label: str) -> SmaiAssistantContext
             ),
             reverse=True,
         )[0]
+    return _fallback_assistant_context(page_key=page_key, page_label=page_label)
+
+
+def _fallback_assistant_context(*, page_key: str, page_label: str) -> SmaiAssistantContext:
+    presets = {
+        "news": {
+            "section_label": "ニュース確認",
+            "lead": "市場ニュース、カテゴリ別材料、関連銘柄、出典の鮮度を確認します。",
+            "questions": (
+                "ニュースはどこから見る？",
+                "関連銘柄はどう読む？",
+                "出典と鮮度で何を見る？",
+            ),
+        },
+        "rebalance": {
+            "section_label": "配分見直し",
+            "lead": "現在比率と目標比率のズレ、提案取引、リスク警告を確認します。",
+            "questions": (
+                "まずどのズレを見る？",
+                "提案取引はどう読む？",
+                "リスク警告は何を確認する？",
+            ),
+        },
+        "settings": {
+            "section_label": "データ設定",
+            "lead": "データ取得元、ローカル資料、キャッシュ状態を確認します。",
+            "questions": (
+                "データ取得元はどう選ぶ？",
+                "ローカル資料は何に使う？",
+                "キャッシュ状態はどう見る？",
+            ),
+        },
+    }
+    preset = presets.get(
+        page_key,
+        {
+            "section_label": "画面の見方",
+            "lead": "この画面の確認順をSMAIが整理します。",
+            "questions": _assistant_questions(
+                SmaiAssistantContext(
+                    context_id=f"{page_key}_fallback",
+                    page_key=page_key,
+                    page_label=page_label,
+                    section_key="fallback",
+                    section_label="画面の見方",
+                    lead="",
+                )
+            ),
+        },
+    )
     return SmaiAssistantContext(
         context_id=f"{page_key}_overview",
         page_key=page_key,
         page_label=page_label,
         section_key="overview",
-        section_label="画面の見方",
-        lead="この画面の確認順をSMAIが整理します。",
-        suggested_questions=_assistant_questions(
-            SmaiAssistantContext(
-                context_id=f"{page_key}_fallback",
-                page_key=page_key,
-                page_label=page_label,
-                section_key="fallback",
-                section_label="画面の見方",
-                lead="",
-            )
-        ),
+        section_label=str(preset["section_label"]),
+        lead=str(preset["lead"]),
+        suggested_questions=cast(Sequence[str], preset["questions"]),
         priority=0,
     )
+
+
+def _query_targets_current_context(context: SmaiAssistantContext) -> bool:
+    return _query_param_text(ASSISTANT_QUERY_CONTEXT_KEY) == context.context_id
 
 
 def _page_contexts(page_key: str) -> list[SmaiAssistantContext]:

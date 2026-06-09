@@ -1927,6 +1927,7 @@ body,
 }
 
 .smai-floating-assistant-trigger {
+    position: relative;
     display: inline-grid;
     grid-template-columns: 3.95rem minmax(0, 1fr);
     align-items: center;
@@ -1948,6 +1949,20 @@ body,
         transform 160ms ease,
         border-color 160ms ease,
         box-shadow 160ms ease;
+}
+
+.smai-floating-assistant[open] .smai-floating-assistant-trigger::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background: transparent;
+    cursor: default;
+}
+
+.smai-floating-assistant[open] .smai-floating-assistant-trigger > * {
+    position: relative;
+    z-index: 2;
 }
 
 .smai-floating-assistant-trigger:hover {
@@ -2198,6 +2213,8 @@ body,
 }
 
 .smai-floating-assistant-body {
+    position: relative;
+    z-index: 3;
     max-height: min(66vh, 34rem);
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -3034,14 +3051,14 @@ body,
     }
 
     .smai-floating-assistant {
-        right: 0.65rem;
+        right: 0.8rem;
         bottom: 0.65rem;
-        width: min(24rem, calc(100vw - 1.3rem));
+        width: min(22.5rem, calc(100vw - 1.8rem));
     }
 
     .smai-floating-assistant-trigger {
         grid-template-columns: 3.7rem minmax(0, 1fr);
-        min-width: min(18rem, calc(100vw - 1.3rem));
+        min-width: min(18rem, calc(100vw - 1.8rem));
         padding-right: 0.68rem;
     }
 

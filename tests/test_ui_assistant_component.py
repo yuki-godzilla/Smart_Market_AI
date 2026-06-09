@@ -21,6 +21,16 @@ def test_floating_assistant_html_renders_contextual_question_chips():
     assert "SMAI Copilot" in markup
     assert "AI予測インサイト" in markup
     assert "中心予測とレンジを確認します。" in markup
+    assert "smai-floating-assistant-avatar--forecast" in markup
+    assert "smai-assistant-holo-chart" in markup
+    assert "smai-assistant-holo-range" in markup
+    assert "smai-assistant-expression" in markup
+    assert "smai-assistant-eye eye-left" in markup
+    assert "smai-assistant-mouth" in markup
+    assert "smai-assistant-arm arm-right" in markup
+    assert "smai-assistant-foot foot-left" in markup
+    assert "smai-assistant-gaze" in markup
+    assert "smai-assistant-hand-cue" in markup
     assert "smai_assistant_context=cockpit_forecast" in markup
     assert "AI%E4%BA%88%E6%B8%AC" in markup
     assert "data:image/png;base64," in markup
@@ -81,3 +91,19 @@ def test_floating_assistant_html_lists_related_contexts():
     assert "関連セクション" in markup
     assert "深掘り候補" in markup
     assert "smai_assistant_context=ranking_deep_dive" in markup
+
+
+def test_floating_assistant_html_uses_ranking_visual_for_ranking_context():
+    context = SmaiAssistantContext(
+        context_id="ranking_results",
+        page_key="ranking",
+        page_label="銘柄ランキング",
+        section_key="ranking_results",
+        section_label="ランキング結果",
+        lead="候補を確認します。",
+    )
+
+    markup = floating_assistant_html(context)
+
+    assert "smai-floating-assistant-avatar--ranking" in markup
+    assert "smai-assistant-rank-bars" in markup

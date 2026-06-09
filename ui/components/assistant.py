@@ -93,6 +93,7 @@ def floating_assistant_html(
 ) -> str:
     image = _asset_data_uri(MASCOT_CUTOUT_ASSET)
     open_attr = " open" if open_panel else ""
+    visual_key = _assistant_visual_key(context)
     chips = "".join(
         _question_chip_html(context, question) for question in _assistant_questions(context)
     )
@@ -117,8 +118,34 @@ def floating_assistant_html(
     return (
         f'<details class="smai-floating-assistant"{open_attr}>'
         '<summary class="smai-floating-assistant-trigger">'
-        '<span class="smai-floating-assistant-avatar" aria-hidden="true">'
-        f'<img src="{image}" alt="" loading="lazy" />'
+        f'<span class="smai-floating-assistant-avatar '
+        f'smai-floating-assistant-avatar--{visual_key}" aria-hidden="true">'
+        '<span class="smai-floating-assistant-stage">'
+        '<span class="smai-assistant-orbit"></span>'
+        '<span class="smai-assistant-holo-chart">'
+        '<span class="smai-assistant-holo-range"></span>'
+        '<span class="smai-assistant-holo-line line-a"></span>'
+        '<span class="smai-assistant-holo-line line-b"></span>'
+        '<span class="smai-assistant-holo-line line-c"></span>'
+        "</span>"
+        '<span class="smai-assistant-rank-bars">'
+        "<span></span><span></span><span></span>"
+        "</span>"
+        f'<img class="smai-floating-assistant-character" src="{image}" alt="" loading="lazy" />'
+        '<span class="smai-assistant-expression">'
+        '<span class="smai-assistant-eye eye-left"></span>'
+        '<span class="smai-assistant-eye eye-right"></span>'
+        '<span class="smai-assistant-mouth"></span>'
+        "</span>"
+        '<span class="smai-assistant-arm arm-left"></span>'
+        '<span class="smai-assistant-arm arm-right"></span>'
+        '<span class="smai-assistant-foot foot-left"></span>'
+        '<span class="smai-assistant-foot foot-right"></span>'
+        '<span class="smai-assistant-gaze"></span>'
+        '<span class="smai-assistant-hand-cue"></span>'
+        '<span class="smai-assistant-spark spark-a"></span>'
+        '<span class="smai-assistant-spark spark-b"></span>'
+        "</span>"
         "</span>"
         '<span class="smai-floating-assistant-trigger-copy">'
         '<span class="smai-floating-assistant-kicker">SMAI Copilot</span>'
@@ -140,6 +167,19 @@ def floating_assistant_html(
         "</div>"
         "</details>"
     )
+
+
+def _assistant_visual_key(context: SmaiAssistantContext) -> str:
+    text = f"{context.page_key} {context.section_key} {context.section_label}".lower()
+    if any(term in text for term in ("forecast", "予測", "insight", "インサイト")):
+        return "forecast"
+    if any(term in text for term in ("ranking", "ランキング", "順位", "候補", "deep_dive")):
+        return "ranking"
+    if any(term in text for term in ("direction", "上昇", "下降", "警戒", "signal")):
+        return "direction"
+    if any(term in text for term in ("report", "レポート")):
+        return "report"
+    return "setup"
 
 
 def _assistant_response(

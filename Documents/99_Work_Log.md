@@ -1280,3 +1280,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Extended the deterministic Assistant service with forecast, direction-signal, and ranking intents, plus beginner usage questions such as `まず見る点`.
 - Kept the panel network-free and LLM-free: chip clicks pass page / section context into `TemplateAssistantService` and do not trigger data fetch, forecast recalculation, or ranking rebuild.
 - Added component, service, style, and Streamlit AppTest coverage; in-app Browser was unavailable in this session, so visual smoke used Streamlit's testing API.
+
+## 2026-06-09 - SMAI Copilot dedicated motion polish
+
+- Reworked the floating `SMAI Copilot` trigger so the mascot is no longer a simple reused cutout: the avatar now has context-aware visual states for forecast / ranking / direction scenes.
+- Added layered forecast chart, prediction range, ranking bars, gaze sweep, blink, mouth, hand, and foot motion so the character has a small organic reaction instead of only a static bob.
+- Kept the interaction local to the browser: the motion layers do not trigger Streamlit reruns, data fetches, forecast recalculation, or ranking rebuilds.
+- Added reduced-motion coverage and deterministic component/style/AppTest checks for the new assistant trigger layers.

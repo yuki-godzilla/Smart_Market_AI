@@ -53,6 +53,10 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert ".smai-page-title--copilot" in SMAI_GLOBAL_CSS
     assert ".smai-page-title-accessory" in SMAI_GLOBAL_CSS
     assert ".smai-copilot-panel" in SMAI_GLOBAL_CSS
+    assert ".smai-floating-assistant" in SMAI_GLOBAL_CSS
+    assert ".smai-floating-assistant-trigger" in SMAI_GLOBAL_CSS
+    assert ".smai-floating-assistant-chip" in SMAI_GLOBAL_CSS
+    assert ".smai-floating-assistant-avatar img" in SMAI_GLOBAL_CSS
     assert ".investment-news-freshness-badge" in SMAI_GLOBAL_CSS
     assert ".investment-news-freshness-time" in SMAI_GLOBAL_CSS
     assert ".investment-news-ticker-title" in SMAI_GLOBAL_CSS

@@ -1272,3 +1272,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added a one-time same-parameter retry for single-symbol DNS / curl timeout failures so transient Yahoo resolution errors are absorbed before surfacing `request failed`.
 - Kept multi-symbol Ranking fetch on the batch path for speed.
 - Added deterministic provider tests for single-symbol history-first behavior, empty-history errors, batch retry behavior, the `6758.T`-style no-price-data retry path, and transient DNS timeout retry.
+
+## 2026-06-09 - Phase 24 floating SMAI Copilot first slice
+
+- Added a fixed floating `SMAI Copilot` mascot panel for Cockpit / Ranking that opens contextual question chips instead of a static help card.
+- Registered Cockpit assistant contexts for data setup, `AI予測インサイト`, `上昇気配・下降警戒`, and Decision Report; registered Ranking contexts for setup, ranking results, and selected deep-dive candidates.
+- Extended the deterministic Assistant service with forecast, direction-signal, and ranking intents, plus beginner usage questions such as `まず見る点`.
+- Kept the panel network-free and LLM-free: chip clicks pass page / section context into `TemplateAssistantService` and do not trigger data fetch, forecast recalculation, or ranking rebuild.
+- Added component, service, style, and Streamlit AppTest coverage; in-app Browser was unavailable in this session, so visual smoke used Streamlit's testing API.

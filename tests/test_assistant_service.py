@@ -96,6 +96,58 @@ def test_template_assistant_research_question_uses_research_section_first():
     assert any("出典URL" in checkpoint for checkpoint in response.next_checkpoints)
 
 
+def test_template_assistant_answers_forecast_question_from_report_context():
+    response = TemplateAssistantService().answer(
+        AssistantRequest(
+            question="AI予測インサイトをどう読む？",
+            report_context=_sample_report_context(),
+        )
+    )
+
+    assert response.intent == "forecast"
+    assert "中心予測" in response.answer
+    assert any("予測レンジ" in checkpoint for checkpoint in response.next_checkpoints)
+    assert any("将来価格の保証" in caution for caution in response.cautions)
+
+
+def test_template_assistant_answers_direction_question_before_risk_intent():
+    response = TemplateAssistantService().answer(
+        AssistantRequest(
+            question="上昇気配と下降警戒の理由は？",
+            report_context=_sample_report_context(),
+        )
+    )
+
+    assert response.intent == "direction"
+    assert "上昇気配と下降警戒を分けて確認" in response.answer
+    assert any("深掘りの優先度" in caution for caution in response.cautions)
+
+
+def test_template_assistant_answers_ranking_question_from_report_context():
+    response = TemplateAssistantService().answer(
+        AssistantRequest(
+            question="なぜこの候補が上位？",
+            report_context=_sample_report_context(),
+        )
+    )
+
+    assert response.intent == "ranking"
+    assert "深掘り候補" in response.answer
+    assert any("1位だけで閉じず" in checkpoint for checkpoint in response.next_checkpoints)
+
+
+def test_template_assistant_treats_beginner_usage_question_as_next_steps():
+    response = TemplateAssistantService().answer(
+        AssistantRequest(
+            question="この画面でまず見る点は？",
+            report_context=_sample_report_context(),
+        )
+    )
+
+    assert response.intent == "next_steps"
+    assert any("不足" in checkpoint for checkpoint in response.next_checkpoints)
+
+
 def test_template_assistant_without_context_returns_general_confirmation_path():
     response = TemplateAssistantService().answer(
         AssistantRequest(question="次に何を確認すればいい？")

@@ -5,13 +5,20 @@ from typing import Literal, Sequence
 from pydantic import Field
 
 from backend.core.data_contracts import StrictBaseModel
-from backend.reporting import DECISION_SUPPORT_NOTE, DecisionReportContext, DecisionReportSection
+from backend.reporting import (
+    DECISION_SUPPORT_NOTE,
+    DecisionReportContext,
+    DecisionReportSection,
+)
 
 ASSISTANT_SCHEMA_VERSION = "assistant-response-v1"
 
 AssistantIntent = Literal[
     "overview",
     "score",
+    "forecast",
+    "direction",
+    "ranking",
     "risk",
     "research",
     "next_steps",
@@ -89,13 +96,43 @@ def _detect_intent(question: str) -> AssistantIntent:
     normalized = question.lower()
     if any(term in normalized for term in ("買", "売", "buy", "sell", "hold", "保有")):
         return "advice_boundary"
+    if any(
+        term in normalized
+        for term in (
+            "ai予測",
+            "予測インサイト",
+            "中心予測",
+            "下振れ",
+            "上振れ",
+            "forecast",
+            "予測",
+            "モデル",
+        )
+    ):
+        return "forecast"
+    if any(term in normalized for term in ("上昇気配", "下降警戒", "方向", "シグナル", "signal")):
+        return "direction"
+    if any(term in normalized for term in ("ランキング", "順位", "上位", "候補", "深掘り", "比較")):
+        return "ranking"
     if any(term in normalized for term in ("research", "根拠", "資料", "ニュース", "ir", "開示")):
         return "research"
     if any(term in normalized for term in ("risk", "リスク", "注意", "警戒", "下落")):
         return "risk"
     if any(term in normalized for term in ("score", "スコア", "評価", "順位", "ランキング")):
         return "score"
-    if any(term in normalized for term in ("次", "確認", "どう見る", "何を見る")):
+    if any(
+        term in normalized
+        for term in (
+            "次",
+            "確認",
+            "どう見る",
+            "何を見る",
+            "まず見る",
+            "見る点",
+            "使い方",
+            "取得期間",
+        )
+    ):
         return "next_steps"
     if any(term in normalized for term in ("概要", "要約", "まとめ", "summary")):
         return "overview"
@@ -112,6 +149,25 @@ def _select_sections(
     keywords_by_intent: dict[AssistantIntent, tuple[str, ...]] = {
         "overview": (),
         "score": ("score", "スコア", "screening", "ranking", "investment"),
+        "forecast": (
+            "forecast",
+            "予測",
+            "ai予測",
+            "中心予測",
+            "下振れ",
+            "上振れ",
+            "model",
+            "モデル",
+        ),
+        "direction": (
+            "上昇気配",
+            "下降警戒",
+            "direction",
+            "signal",
+            "シグナル",
+            "警戒",
+        ),
+        "ranking": ("ranking", "ランキング", "順位", "候補", "深掘り", "比較", "score"),
         "risk": ("risk", "リスク", "warning", "注意", "警戒", "breach"),
         "research": ("research", "根拠", "資料", "news", "ニュース", "ir", "開示"),
         "next_steps": ("checkpoint", "確認", "memo", "メモ", "risk", "research"),
@@ -169,6 +225,21 @@ def _build_answer(
     section_phrase = _format_section_phrase(sections)
     if intent == "score":
         return f"{section_phrase}から、スコアは候補比較の入口として読みます。単独の売買判断ではなく、内訳と警告を合わせて確認します。"
+    if intent == "forecast":
+        return (
+            f"{section_phrase}から、予測は中心予測、下振れ、上振れ、信頼度の順に読みます。"
+            "将来の保証ではなく、モデル間の見方と不確実性を整理する材料です。"
+        )
+    if intent == "direction":
+        return (
+            f"{section_phrase}から、上昇気配と下降警戒を分けて確認します。"
+            "どちらか一方を結論にせず、価格トレンド、AI予測インサイト、データ信頼度を合わせて見ます。"
+        )
+    if intent == "ranking":
+        return (
+            f"{section_phrase}から、順位は深掘り候補の並びとして読みます。"
+            "上位候補ほど先に確認しやすい一方で、下降警戒やデータ不足があれば読みを控えめにします。"
+        )
     if intent == "risk":
         return f"{section_phrase}から、注意材料とデータ不足を先に確認します。リスク表示は安全保証ではなく、追加確認の優先度を示す材料です。"
     if intent == "research":
@@ -211,6 +282,16 @@ def _collect_cautions(
         cautions.extend(section.warnings)
     if intent in {"score", "advice_boundary"}:
         cautions.append("スコアや順位は比較・分析用の参考値であり、売買推奨ではありません。")
+    if intent == "forecast":
+        cautions.append(
+            "予測は将来価格の保証ではなく、モデルの見方と予測レンジを確認する参考情報です。"
+        )
+    if intent == "direction":
+        cautions.append(
+            "上昇気配や下降警戒は売買方向ではなく、深掘りの優先度を整理する補助指標です。"
+        )
+    if intent == "ranking":
+        cautions.append("ランキング上位は確認順の候補であり、投資対象の確定ではありません。")
     if intent == "research":
         cautions.append("根拠資料は出典、公開日、未確認項目を合わせて確認してください。")
     if intent == "risk":
@@ -232,6 +313,15 @@ def _build_next_checkpoints(
         ],
         "score": [
             "総合スコアだけでなく、Screening、Forecast、Risk、Data Quality の内訳を確認します。",
+        ],
+        "forecast": [
+            "中心予測、予測レンジ、信頼度、モデル合意度を見て、強く読める予測かを確認します。",
+        ],
+        "direction": [
+            "上昇気配と下降警戒の差、AI予測インサイト、直近価格トレンドを同じ画面で確認します。",
+        ],
+        "ranking": [
+            "1位だけで閉じず、上位候補の下降警戒、データ信頼度、AI予測インサイトを見比べます。",
         ],
         "risk": [
             "警告がある場合は、価格変動、保有比率、データ欠損、短期材料を分けて確認します。",

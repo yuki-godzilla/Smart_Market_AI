@@ -62,7 +62,7 @@ Research RAG は Phase 20 local evidence slice が決定的な土台として実
 - 銘柄DB background refresh の live provider refresh wiring。`backend/symbols` の foundation、Streamlit daemon worker、Cockpit / Ranking 共通の visible freshness 表示、Cockpit / Ranking 対象銘柄の自動優先更新、Cockpit の価格・予測取得後 background priority refresh + 30分TTL、Ranking 操作直前の軽量 preflight 更新は実装済み
 - Research Score によるランキング順位統合は、現時点では見送り。必要性が再確認された場合のみ後続の opt-in 機能として扱う
 - Phase 23 は Optional Adapter / 高度分析を先に進め、銘柄コックピット / ランキング向け advanced forecast model adapter を次の優先候補にする
-- Assistant API / Streamlit 質問パネル、optional LLM provider は Phase 24 に後ろ倒し。`backend/assistant` の deterministic template service は初期実装済み
+- Phase 24 Assistant は deterministic backend と Cockpit / Ranking 向け floating `SMAI Copilot` UI の初期 slice まで実装済み。Assistant API、専用 Assistant 画面、optional LLM provider は後続範囲
 - broker への live order 送信
 - Execution workflow
 - PDF / Excel export
@@ -1831,9 +1831,9 @@ Research資料保存方針の移行:
 
 ### 5.10 Phase 24: 低コストAssistant体験
 
-状態: 初期backend slice 実装済み。SMAIマスコットUI / Assistant API / LLM provider は、LLM実装時に再開する。
+状態: 初期backend slice と Cockpit / Ranking 向け floating `SMAI Copilot` UI slice 実装済み。Assistant API / 専用 Assistant 画面 / LLM provider は後続範囲。
 
-目的: Decision Report context と Research Summary を入力にし、初心者向けの質問応答・説明を deterministic template または opt-in LLM provider で提供する。将来は SMAI マスコットのフローティングAssistant UI として、アプリ機能の使い方、銘柄の確認観点、投資レーダーの読み方を案内する。
+目的: Decision Report context と Research Summary を入力にし、初心者向けの質問応答・説明を deterministic template または opt-in LLM provider で提供する。SMAI マスコットのフローティングAssistant UI として、アプリ機能の使い方、銘柄の確認観点、投資レーダーの読み方を案内する。
 
 範囲:
 
@@ -1848,11 +1848,13 @@ Research資料保存方針の移行:
 
 - `backend/assistant` に `AssistantRequest` / `AssistantResponse` と `TemplateAssistantService` の初期 slice を追加済み。LLM / network なしで、`DecisionReportContext` から質問意図、関連 section、理由、注意点、次の確認観点、引用 section を deterministic に整理する。
 - Assistant は買う / 売る / 保有などの指示には答えず、スコア、リスク、根拠資料、未確認項目を確認するための説明に限定する。
-- 初期 slice は backend service / unit tests まで。SMAIマスコットUI、Assistant API、LLM provider は Phase 24 の後続 slice として扱う。
+- Cockpit / Ranking には fixed floating `SMAI Copilot` を追加済み。画面・セクションに応じた context を登録し、質問チップから deterministic `TemplateAssistantService` に渡す。Cockpit はデータ取得前、`AI予測インサイト`、`上昇気配・下降警戒`、Decision Report、Ranking は作成前、ランキング結果、深掘り候補を説明対象にする。
+- チップ操作は query parameter による同一画面内の再表示で、価格取得・予測計算・ランキング作成を走らせない。回答は理由、注意点、次の確認、参照 section を返す。
+- Assistant API、専用 Assistant 画面、限定自由入力、optional LLM provider は Phase 24 の後続 slice として扱う。
 
 完了条件:
 
-- LLM なしでも assistant API/UI が fallback 動作する。
+- LLM なしでも assistant UI が deterministic fallback で動作する。API endpoint は後続 slice で追加する。
 - LLM provider を使う場合も明示 opt-in で、失敗時は deterministic fallback に戻る。
 - 同じ deterministic input / context では同じ応答になる。
 - 通常 tests は network 非依存で通る。

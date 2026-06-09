@@ -50,6 +50,9 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
   - designed to keep normal checks network-free; `scikit-learn` is pinned in setup requirements for tree / boosting adapters
 - Low-cost Assistant backend first slice
   - deterministic `TemplateAssistantService` that explains score / risk / research / next checkpoints from Decision Report context without LLM or network
+- Low-cost Assistant Streamlit first slice
+  - Cockpit / Ranking show a fixed floating `SMAI Copilot` mascot. The panel registers the current page / section context and uses question chips to explain what to check next without running price fetch, ranking creation, network calls, or LLM calls.
+  - Cockpit contexts currently cover data setup, `AI予測インサイト`, `上昇気配・下降警戒`, and Decision Report. Ranking contexts cover ranking setup, ranking results, and selected deep-dive candidate checks.
 - Streamlit UI
   - Market Data: `銘柄コックピット` / `銘柄ランキング`
   - Investment News: `投資レーダー` dashboard with news stream, heatmap, category lanes, and related-symbol cockpit handoff
@@ -65,7 +68,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - Research Score によるランキング順位統合は現時点では見送り。Cockpit / Ranking Research Summary と Cockpit Decision Report への参考表示、Investment Score optional numeric input、disabled-by-default weight は対応済み
 - `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動、通知
 - Advanced Forecast ranking logic: Ranking retains and displays common-horizon advanced forecast fields, blends consensus-derived advanced upside / downside into Ranking direction signals at 25%, and `AI総合` lightly includes advanced upside / downside / quality scores. Other ranking profiles remain existing-profile centered unless explicitly changed later.
-- Assistant API / Streamlit 質問パネル、optional LLM provider は Phase 24 に後ろ倒し
+- Assistant API / dedicated Assistant screen / optional LLM provider は Phase 24 後続範囲。Streamlit の floating `SMAI Copilot` question-panel first slice は実装済み
 - 銘柄DB live provider refresh wiring
 - broker への live order 送信
 - Execution workflow
@@ -276,6 +279,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - collapsed sample symbol reference
 - `データを取得` 実行中は、入力確認、価格・予測材料取得、予測 / スコア / チャート整理、表示更新の進捗を progress bar と短いステータス文で表示する
 - `AI調査を更新` 実行中は、外部参照ソース取得、企業リサーチレポート生成、ニュース / 開示材料整理、表示更新の進捗を progress bar と短いステータス文で表示する
+- 右下の floating `SMAI Copilot` は、現在見ているコックピット section に応じて固定質問を出す。データ取得前、`AI予測インサイト`、`上昇気配・下降警戒`、Decision Report の読み方を deterministic に説明し、価格取得や予測再計算は走らせない
 - 価格・予測チャート: 初期表示では実績価格、`AI予測インサイト`、予測レンジ帯を先に確認し、個別モデル線の重なりで読みづらくしない。十分な履歴がある場合は `advanced_linear`、`advanced_tree_sklearn`、`advanced_gbdt_sklearn`、`advanced_quantile` を取得期間から決まる共通の予測日数で計算する。高度予測モデルと単純予測モデルはチャート直上のグループチェックでまとめて追加する。このチェックは取得済みチャート行の表示対象だけを変え、データ取得や予測再計算は走らせない。表示後は固定色のチャート内凡例クリックで個別系列を薄くできる。`AI予測インサイト` カードは結論、中心予測（高度予測モデルの統合結果）、下振れ予測 / 上振れ予測、予測価格、予測レンジ、信頼度、モデル合意度、予測ばらつき、主な理由、注意点を主表示にする。信頼度が低い、または判断保留に近い場合は amber accent を使う。個別高度モデルカードは常時表示し、平均 RMSE、誤差改善、過去検証の方向一致率、相対的に安定したモデル、単純予測比較は `高度予測モデルの詳細を見る` / `検証指標を見る` / `単純予測との比較を見る` で確認する。Consensus helper には `統合予測 = Σ(各モデルの予測変化率 × 重み) ÷ Σ重み` と、重みを信頼度・誤差改善・モデル合意度・検証数から保守的に丸めることを明記する。各モデルの helper も直近値維持、移動平均、モメンタム、線形、ツリー、ブースティング、レンジの考え方を初心者向けの短い計算式で説明する。予測日数の初期値は取得期間のおよそ 1/12 を使い、60日を上限にする。全体チャートの右側に、最新実績の数日前から予測部分までを自動抽出した拡大図を並べ、タイトルは `予測スコープ（31日）` のように期間を示す。全体チャートは `価格チャート` として小さな点マーカーを復活させつつ線を主役にする。naive / moving-average / momentum の単純予測は backend baseline / fallback / 詳細確認用として残すが、既定のチャート表示と主要モデルカードには出さない。
 - `Signal Reading / シグナル読み取り`: Analysis KPI と同じ `上昇気配` / `下降警戒` を、予測変化率、モデル方向一致、予測のばらつきと合わせて解釈する。売買推奨ではなく比較・確認材料として扱う。
 - forecast agreement compatibility、forecast spread、best RMSE model
@@ -298,6 +302,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
   - 商品: `株式` / `ETF` / `指定なし`
   - 評価方針: `AI総合` / `上昇気配重視` / `モメンタム・トレンド` / `成長クオリティ` / `割安クオリティ` / `高配当の持続性` / `低ボラ・安定` / `リスク調整パフォーマンス` / `小型・成長探索` / `NISA長期適合` / `データ信頼度優先` / `ETF低コスト・コア` / `ETFインカム・分散`
 - `評価方針` はSMAIの複合評価プロファイルを選ぶ主導線です（画面上では `最新データを取得して更新` ボタンの横で選択）。
+  - 右下の floating `SMAI Copilot` は、ランキング作成前、ランキング結果、深掘り候補の section に応じて固定質問を出す。順位の理由、深掘り比較、AI総合 / 上昇気配 / 下降警戒の読み分け、低信頼データの注意点を deterministic に説明し、ランキング再作成は走らせない。
   - AI総合: `総合マルチファクター`。Screening、上昇気配・下降警戒、Risk、Data Quality、条件適合度、DB信頼度に加え、AI予測インサイトの上昇 / 下振れ警戒 / 信頼度を低信頼時に中立寄せしながら控えめに加味する既定条件。上昇気配・下降警戒自体も、AI予測インサイトがある場合は通常方向シグナルに25%までブレンドされる。
   - 上昇気配重視: 上昇気配と下降警戒の差し引き、Screening、Data Qualityを重視する。買い推奨ではなく、短期的な深掘り候補の整理に使う。
   - モメンタム・トレンド: 取得期間の価格評価、上昇気配・下降警戒、Screeningを重視し、追随リスクも確認する。

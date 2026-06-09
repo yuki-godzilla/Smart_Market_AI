@@ -88,6 +88,12 @@ from backend.symbols.background import (
 from backend.symbols.cache_sync import sync_symbol_cache_to_official_metrics
 from backend.symbols.contracts import SymbolStartupRefreshSummary
 from backend.symbols.startup import run_symbol_database_target_refresh
+from ui.components.assistant import (
+    SmaiAssistantContext,
+    register_assistant_context,
+    render_floating_assistant,
+    reset_assistant_contexts,
+)
 from ui.components.mascot import (
     render_app_header,
     render_mascot_loading,
@@ -97,6 +103,7 @@ from ui.components.mascot import (
 )
 from ui.components.sidemenu import (
     SIDEMENU_PAGE_COCKPIT,
+    SIDEMENU_PAGE_LABELS,
     SIDEMENU_PAGE_NEWS,
     SIDEMENU_PAGE_RANKING,
     SIDEMENU_PAGE_REBALANCE,
@@ -1533,6 +1540,7 @@ def main() -> None:
     _apply_navigation_query_params()
 
     selected_page = render_sidemenu(runtime_settings_summary())
+    reset_assistant_contexts()
     render_app_header()
     if selected_page == SIDEMENU_PAGE_COCKPIT:
         _render_market_data_cockpit()
@@ -1544,6 +1552,10 @@ def main() -> None:
         render_rebalance_page()
     else:
         render_settings_page()
+    render_floating_assistant(
+        page_key=selected_page,
+        page_label=SIDEMENU_PAGE_LABELS.get(selected_page, "SMAI"),
+    )
 
 
 def _apply_navigation_query_params() -> None:
@@ -1602,6 +1614,239 @@ def _clear_navigation_query_params(params: object, keys: Iterable[str]) -> None:
                 del mutable_params[key]
         except (KeyError, TypeError, AttributeError):
             continue
+
+
+def _register_cockpit_setup_assistant_context(symbol: str = "") -> None:
+    register_assistant_context(
+        SmaiAssistantContext(
+            context_id="cockpit_setup",
+            page_key=SIDEMENU_PAGE_COCKPIT,
+            page_label=SIDEMENU_PAGE_LABELS[SIDEMENU_PAGE_COCKPIT],
+            section_key="setup",
+            section_label="データ取得前",
+            lead="銘柄と期間を選び、価格・予測・スコアの確認材料をそろえます。",
+            summary={"対象銘柄": symbol or "未選択"},
+            suggested_questions=(
+                "この画面でまず見る点は？",
+                "取得期間はどう選ぶ？",
+                "データ取得後に何を見る？",
+            ),
+            priority=10,
+        )
+    )
+
+
+def _register_cockpit_forecast_assistant_context(
+    symbol_label: str,
+    rows: list[dict[str, str]],
+    *,
+    forecast_horizon_days: int,
+) -> None:
+    if not rows:
+        return
+    row = rows[0]
+    warning = _advanced_forecast_warning_display(row.get("warnings", ""))
+    register_assistant_context(
+        SmaiAssistantContext(
+            context_id="cockpit_forecast",
+            page_key=SIDEMENU_PAGE_COCKPIT,
+            page_label=SIDEMENU_PAGE_LABELS[SIDEMENU_PAGE_COCKPIT],
+            section_key="ai_forecast_insight",
+            section_label=ADVANCED_FORECAST_CONSENSUS_LABEL,
+            lead="中心予測、下振れ、上振れ、信頼度を順番に確認するセクションです。",
+            summary={
+                "対象": symbol_label,
+                "予測期間": f"{forecast_horizon_days}日",
+                "中心予測": _signed_percent_from_text(row.get("predicted_return", "")) or "未計算",
+                "予測価格": row.get("forecast_close", "") or "未計算",
+                "予測レンジ": _advanced_forecast_range_display(row) or "未計算",
+                "信頼度": _advanced_forecast_confidence_label(row.get("confidence", "")),
+                "モデル合意度": _advanced_forecast_model_agreement_display(row),
+            },
+            warnings=(warning,) if warning else (),
+            notes=(
+                _advanced_forecast_caution_text(
+                    row,
+                    dispersion=_advanced_forecast_dispersion_label(row),
+                ),
+            ),
+            suggested_questions=(
+                "AI予測インサイトをどう読む？",
+                "中心予測とは？",
+                "下振れ・上振れはどう読む？",
+                "Decision Reportに残す確認ポイントは？",
+            ),
+            priority=95,
+        )
+    )
+
+
+def _register_cockpit_direction_assistant_context(
+    score_row: dict[str, str],
+    consensus_row: dict[str, str],
+    detail_rows: list[dict[str, str]],
+) -> None:
+    warning = ""
+    downside = _decimal_from_text(score_row.get("下降警戒") or "")
+    if downside is not None and downside >= Decimal("65"):
+        warning = "下降警戒が高めです。価格トレンドと予測下限を合わせて確認します。"
+    register_assistant_context(
+        SmaiAssistantContext(
+            context_id="cockpit_direction",
+            page_key=SIDEMENU_PAGE_COCKPIT,
+            page_label=SIDEMENU_PAGE_LABELS[SIDEMENU_PAGE_COCKPIT],
+            section_key="direction_signal",
+            section_label="上昇気配・下降警戒",
+            lead="上向きシグナルと下振れ警戒を分け、どちらを先に確認するか整理します。",
+            summary={
+                "上昇気配": score_row.get("上昇気配") or "未計算",
+                "下降警戒": score_row.get("下降警戒") or "未計算",
+                "読み取り": cockpit_direction_signal_summary(score_row, consensus_row),
+            },
+            rows=detail_rows,
+            warnings=(warning,) if warning else (),
+            suggested_questions=(
+                "上昇気配・下降警戒の理由は？",
+                "AI予測インサイトとどう見比べる？",
+                "下降警戒が高い時は？",
+                "Decision Reportに残す確認ポイントは？",
+            ),
+            priority=85,
+        )
+    )
+
+
+def _register_cockpit_report_assistant_context(
+    context: DecisionReportContext,
+    summary_lines: Sequence[str],
+) -> None:
+    register_assistant_context(
+        SmaiAssistantContext(
+            context_id="cockpit_report",
+            page_key=SIDEMENU_PAGE_COCKPIT,
+            page_label=SIDEMENU_PAGE_LABELS[SIDEMENU_PAGE_COCKPIT],
+            section_key="decision_report",
+            section_label="投資判断レポート",
+            lead="確認した材料を、あとで見返せる分析メモとして整理します。",
+            summary={
+                "レポート": context.title,
+                "セクション数": str(len(context.sections)),
+                "AI要約": " / ".join(summary_lines[:2]) if summary_lines else "未作成",
+            },
+            rows=_decision_report_context_summary_rows(context),
+            suggested_questions=(
+                "Decision Reportに残す確認ポイントは？",
+                "レポートでは何を保存する？",
+                "AI予測とリスクをどう書き分ける？",
+            ),
+            priority=70,
+        )
+    )
+
+
+def _register_ranking_setup_assistant_context() -> None:
+    register_assistant_context(
+        SmaiAssistantContext(
+            context_id="ranking_setup",
+            page_key=SIDEMENU_PAGE_RANKING,
+            page_label=SIDEMENU_PAGE_LABELS[SIDEMENU_PAGE_RANKING],
+            section_key="setup",
+            section_label="ランキング作成前",
+            lead="評価方針と比較対象を選び、深掘り候補を整理する準備をします。",
+            suggested_questions=(
+                "評価方針はどう選ぶ？",
+                "作成対象はどう決める？",
+                "ランキング作成後に何を見る？",
+            ),
+            priority=10,
+        )
+    )
+
+
+def _register_ranking_results_assistant_context(
+    display_rows: list[dict[str, str]],
+    *,
+    ranking_policy: str,
+    forecast_horizon_days: int,
+) -> None:
+    top_rows = display_rows[:5]
+    register_assistant_context(
+        SmaiAssistantContext(
+            context_id="ranking_results",
+            page_key=SIDEMENU_PAGE_RANKING,
+            page_label=SIDEMENU_PAGE_LABELS[SIDEMENU_PAGE_RANKING],
+            section_key="ranking_results",
+            section_label="ランキング結果",
+            lead="順位を深掘り候補の確認順として読み、スコアと警戒材料を見比べます。",
+            summary={
+                "評価方針": ranking_policy_label(ranking_policy),
+                "表示件数": f"{len(display_rows)}件",
+                "共通予測期間": f"{forecast_horizon_days}日",
+            },
+            rows=[
+                {
+                    "順位": row.get("順位", ""),
+                    "銘柄": row.get("銘柄", ""),
+                    "銘柄名": row.get("銘柄名", ""),
+                    "総合スコア": row.get("総合スコア", ""),
+                    "上昇気配": row.get("上昇気配", ""),
+                    "下降警戒": row.get("下降警戒", ""),
+                    "AI予測インサイト": _ranking_advanced_forecast_display(row),
+                }
+                for row in top_rows
+            ],
+            suggested_questions=(
+                "なぜこの候補が上位？",
+                "深掘り候補の比較ポイントは？",
+                "AI総合・上昇気配・下降警戒の違いは？",
+                "低信頼データはどう読む？",
+            ),
+            priority=92,
+        )
+    )
+
+
+def _register_ranking_deep_dive_assistant_context(
+    selected_row: dict[str, str] | None,
+    *,
+    ranking_policy: str,
+) -> None:
+    if selected_row is None:
+        return
+    reason = ranking_purpose_row_reason(selected_row, ranking_policy)
+    checkpoint = ranking_purpose_row_checkpoint(selected_row, ranking_policy)
+    register_assistant_context(
+        SmaiAssistantContext(
+            context_id="ranking_deep_dive",
+            page_key=SIDEMENU_PAGE_RANKING,
+            page_label=SIDEMENU_PAGE_LABELS[SIDEMENU_PAGE_RANKING],
+            section_key="deep_dive_candidate",
+            section_label="深掘り候補",
+            lead="選択中の候補について、上位にある理由と次に見る観点を整理します。",
+            summary={
+                "銘柄": selected_row.get("銘柄", ""),
+                "銘柄名": selected_row.get("銘柄名", ""),
+                "評価方針": ranking_policy_label(ranking_policy),
+                "総合スコア": selected_row.get("総合スコア", ""),
+                "上昇気配": selected_row.get("上昇気配", ""),
+                "下降警戒": selected_row.get("下降警戒", ""),
+                "AI予測インサイト": _ranking_advanced_forecast_display(selected_row),
+                "上位理由": reason,
+            },
+            rows=[
+                {"観点": "上位理由", "内容": reason},
+                {"観点": "確認ポイント", "内容": checkpoint},
+            ],
+            warnings=(selected_row.get("注意点", ""),),
+            suggested_questions=(
+                "なぜこの候補が上位？",
+                "コックピットで何を見る？",
+                "下降警戒が高い時は？",
+                "低信頼データはどう読む？",
+            ),
+            priority=88,
+        )
+    )
 
 
 def _start_symbol_background_refresh_worker_once() -> None:
@@ -5261,6 +5506,7 @@ def _render_market_data_cockpit() -> None:
 
     stored_preview = _market_data_preview_from_state()
     if stored_preview is None:
+        _register_cockpit_setup_assistant_context(symbol)
         render_mascot_panel(
             "empty",
             message="銘柄、取得期間、データ取得元を選んでデータを取得すると、確認ポイントをまとめます。",
@@ -5286,6 +5532,7 @@ def _render_market_data_ranking() -> None:
         "複数銘柄を比較し、深掘り候補を整理します。売買推奨ではありません。",
         "ranking",
     )
+    _register_ranking_setup_assistant_context()
     symbol_options = symbol_universe_rows()
     purpose = "all"
 
@@ -5671,6 +5918,11 @@ def _render_market_data_ranking() -> None:
             display_rows,
             _ranking_research_statuses_for_display_rows(display_rows, as_of=end_date),
         )
+        _register_ranking_results_assistant_context(
+            display_rows,
+            ranking_policy=ranking_policy,
+            forecast_horizon_days=ranking_forecast_horizon_days,
+        )
         render_dashboard_header(
             "ランキング候補ダッシュボード",
             "比較候補と深掘り候補を整理するための画面です。買う銘柄を決める画面ではありません。",
@@ -5755,6 +6007,15 @@ def _render_market_data_ranking() -> None:
                 on_click=_select_ranking_symbol_for_cockpit_with_period,
                 args=(selected_symbol, provider, start_date, end_date),
             )
+        selected_display_row = (
+            _ranking_display_row_for_symbol(display_rows, selected_symbol)
+            if selected_symbol
+            else None
+        )
+        _register_ranking_deep_dive_assistant_context(
+            selected_display_row,
+            ranking_policy=ranking_policy,
+        )
         _render_selected_ranking_candidate_breakdown(
             display_rows,
             selected_symbol,
@@ -10473,6 +10734,11 @@ def _render_price_forecast_hero(
     chart_currency = preview.bars[0].symbol.currency if preview.bars else ""
     _render_advanced_forecast_status(advanced_forecast_rows, horizon_days=forecast_horizon_days)
     _render_advanced_forecast_consensus_cards(advanced_forecast_consensus_rows)
+    _register_cockpit_forecast_assistant_context(
+        symbol_label,
+        advanced_forecast_consensus_rows,
+        forecast_horizon_days=forecast_horizon_days,
+    )
     selected_chart_series = _render_forecast_chart_filters(forecast_rows)
     display_forecast_rows = filter_forecast_chart_rows(forecast_rows, selected_chart_series)
     _render_market_chart(
@@ -11415,6 +11681,8 @@ def _render_cockpit_direction_signal_section(
     consensus_rows: list[dict[str, str]],
 ) -> None:
     consensus_row = consensus_rows[0] if consensus_rows else {}
+    detail_rows = cockpit_direction_signal_detail_rows(score_row, consensus_row)
+    _register_cockpit_direction_assistant_context(score_row, consensus_row, detail_rows)
     render_section_heading("03 シグナル読み取り")
     st.caption(
         "主要KPIの方向シグナルを、価格チャート後の読み取りとして整理します。売買推奨ではありません。"
@@ -11431,7 +11699,6 @@ def _render_cockpit_direction_signal_section(
         ),
         unsafe_allow_html=True,
     )
-    detail_rows = cockpit_direction_signal_detail_rows(score_row, consensus_row)
     if detail_rows:
         _render_symbol_detail_table(detail_rows)
 
@@ -13230,6 +13497,7 @@ def _render_cockpit_decision_report(preview: MarketDataPreview) -> None:
     st.markdown(_decision_report_overview_card_html(overview), unsafe_allow_html=True)
 
     summary_lines = cockpit_decision_report_summary_lines(preview, research_report)
+    _register_cockpit_report_assistant_context(context, summary_lines)
     st.markdown("#### AI要約")
     st.markdown(_decision_summary_list_html(summary_lines), unsafe_allow_html=True)
 

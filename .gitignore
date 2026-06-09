@@ -43,3 +43,4 @@ data/cache/*.sqlite
 data/cache/*.sqlite-*
 data/cache/*.tmp.json
 logs/*.log
+logs/*.log.*

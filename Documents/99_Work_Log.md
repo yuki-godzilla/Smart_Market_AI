@@ -1299,3 +1299,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - Added explicit `target="_self"` to floating Copilot question chips and related-section links so asking the assistant stays in the current app tab instead of opening a separate tab.
 - Added component/AppTest coverage that Copilot links render with same-tab targets and do not include `target="_blank"`.
+
+## 2026-06-09 - SMAI Copilot contextual CTA labels
+
+- Changed the floating Copilot trigger from showing the current section name to showing action-oriented labels that tell users what they can ask next.
+- Added explicit labels for Cockpit setup / forecast / direction / report and Ranking setup / results / deep-dive contexts, plus fallback labels for future news, risk, rebalance, research, ranking, forecast, setup, and report-like sections.
+- Kept the section label in the opened panel badge and aria label so the user still knows which feature area the assistant is explaining.
+- Ignored rotated local log files such as `logs/*.log.1` so AppTest / background worker runs do not leave commit-noise.

@@ -94,6 +94,8 @@ def floating_assistant_html(
     image = _asset_data_uri(MASCOT_THUMB_ASSET)
     open_attr = " open" if open_panel else ""
     visual_key = _assistant_visual_key(context)
+    trigger_label = _assistant_trigger_label(context)
+    trigger_aria = f"SMAI Copilot: {trigger_label}（{context.section_label}）"
     chips = "".join(
         _question_chip_html(context, question) for question in _assistant_questions(context)
     )
@@ -117,7 +119,8 @@ def floating_assistant_html(
     )
     return (
         f'<details class="smai-floating-assistant"{open_attr}>'
-        '<summary class="smai-floating-assistant-trigger">'
+        '<summary class="smai-floating-assistant-trigger" '
+        f'aria-label="{html.escape(trigger_aria, quote=True)}">'
         f'<span class="smai-floating-assistant-avatar '
         f'smai-floating-assistant-avatar--{visual_key}" aria-hidden="true">'
         '<span class="smai-floating-assistant-stage">'
@@ -136,7 +139,7 @@ def floating_assistant_html(
         "</span>"
         '<span class="smai-floating-assistant-trigger-copy">'
         '<span class="smai-floating-assistant-kicker">SMAI Copilot</span>'
-        f"<strong>{html.escape(context.section_label)}</strong>"
+        f"<strong>{html.escape(trigger_label)}</strong>"
         "</span>"
         "</summary>"
         '<div class="smai-floating-assistant-body" role="dialog" aria-label="SMAI Copilot">'
@@ -154,6 +157,41 @@ def floating_assistant_html(
         "</div>"
         "</details>"
     )
+
+
+def _assistant_trigger_label(context: SmaiAssistantContext) -> str:
+    labels_by_context = {
+        "cockpit_setup": "取得前の確認を聞く",
+        "cockpit_forecast": "予測の読み方を聞く",
+        "cockpit_direction": "シグナルの理由を聞く",
+        "cockpit_report": "残す確認点を聞く",
+        "ranking_setup": "条件設定を確認する",
+        "ranking_results": "上位理由を聞く",
+        "ranking_deep_dive": "候補の比べ方を聞く",
+    }
+    if context.context_id in labels_by_context:
+        return labels_by_context[context.context_id]
+
+    text = f"{context.page_key} {context.section_key} {context.section_label}".lower()
+    if any(term in text for term in ("forecast", "予測", "insight", "インサイト")):
+        return "予測の読み方を聞く"
+    if any(term in text for term in ("direction", "signal", "上昇", "下降", "警戒")):
+        return "シグナルの理由を聞く"
+    if any(term in text for term in ("deep_dive", "candidate", "候補", "深掘り")):
+        return "候補の比べ方を聞く"
+    if any(term in text for term in ("ranking", "ランキング", "順位", "score", "スコア")):
+        return "上位理由を聞く"
+    if any(term in text for term in ("report", "レポート", "memo", "メモ")):
+        return "残す確認点を聞く"
+    if any(term in text for term in ("setup", "取得", "設定", "before")):
+        return "まず設定を確認"
+    if any(term in text for term in ("research", "rag", "根拠", "調査", "ニュース", "news")):
+        return "根拠の見方を聞く"
+    if any(term in text for term in ("risk", "リスク")):
+        return "リスクの見方を聞く"
+    if any(term in text for term in ("rebalance", "リバランス", "配分", "調整")):
+        return "調整ポイントを聞く"
+    return "この画面の見どころを聞く"
 
 
 def _assistant_visual_key(context: SmaiAssistantContext) -> str:

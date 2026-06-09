@@ -65,9 +65,15 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert ".smai-insight-center-forecast" in SMAI_GLOBAL_CSS
     assert ".smai-insight-price-row" in SMAI_GLOBAL_CSS
     assert ".smai-insight-range" in SMAI_GLOBAL_CSS
+    assert ".smai-insight-mini-grid" in SMAI_GLOBAL_CSS
+    assert ".smai-insight-mini-field" in SMAI_GLOBAL_CSS
+    assert "justify-content: space-between;" in SMAI_GLOBAL_CSS
     assert '.smai-insight-range > div[data-case="downside"]' in SMAI_GLOBAL_CSS
-    assert '.smai-insight-range > div[data-case="center"]' in SMAI_GLOBAL_CSS
     assert '.smai-insight-range > div[data-case="upside"]' in SMAI_GLOBAL_CSS
+    assert ".vega-embed" in SMAI_GLOBAL_CSS
+    assert ".vega-bindings" in SMAI_GLOBAL_CSS
+    assert "order: -1 !important;" in SMAI_GLOBAL_CSS
+    assert '.vega-bind input[type="checkbox"]' in SMAI_GLOBAL_CSS
     assert ".smai-ranking-condition-card" in SMAI_GLOBAL_CSS
     assert ".smai-ranking-weight-grid" in SMAI_GLOBAL_CSS
     assert "@media print" in SMAI_GLOBAL_CSS

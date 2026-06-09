@@ -2601,6 +2601,10 @@ body,
 
 .smai-insight-price-row > div {
     min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
     padding: 0.46rem 0.55rem;
     border: 1px solid var(--border-subtle);
     border-radius: 8px;
@@ -2608,46 +2612,55 @@ body,
 }
 
 .smai-insight-price-row span {
-    display: block;
+    flex: 0 0 auto;
     color: var(--text-muted);
     font-size: 0.72rem;
     font-weight: 820;
 }
 
 .smai-insight-price-row strong {
-    display: block;
+    min-width: 0;
+    flex: 1 1 auto;
     color: var(--text-heading);
-    font-size: 0.94rem;
+    font-size: 1rem;
     line-height: 1.25;
+    text-align: right;
     overflow-wrap: anywhere;
 }
 
 .smai-insight-range {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.45rem;
     margin-top: 0.72rem;
 }
 
 .smai-insight-range > div {
     min-width: 0;
-    padding: 0.42rem 0.52rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    padding: 0.5rem 0.62rem;
     border: 1px solid var(--border-subtle);
     border-radius: 8px;
     background: rgba(7, 13, 25, 0.72);
 }
 
 .smai-insight-range span {
-    display: block;
+    flex: 0 0 auto;
     color: var(--text-muted);
-    font-size: 0.7rem;
+    font-size: 0.84rem;
     font-weight: 820;
 }
 
 .smai-insight-range strong {
+    min-width: 0;
+    flex: 1 1 auto;
     color: var(--text-heading);
-    font-size: 0.92rem;
+    font-size: 1.22rem;
     line-height: 1.25;
+    text-align: right;
     overflow-wrap: anywhere;
 }
 
@@ -2661,16 +2674,6 @@ body,
     color: var(--text-negative);
 }
 
-.smai-insight-range > div[data-case="center"] {
-    border-color: rgba(34, 211, 238, 0.48);
-    background:
-        linear-gradient(180deg, rgba(34, 211, 238, 0.12), rgba(7, 13, 25, 0.74));
-}
-
-.smai-insight-range > div[data-case="center"] strong {
-    color: var(--text-ai-title);
-}
-
 .smai-insight-range > div[data-case="upside"] {
     border-color: rgba(52, 211, 153, 0.44);
     background:
@@ -2679,6 +2682,43 @@ body,
 
 .smai-insight-range > div[data-case="upside"] strong {
     color: var(--text-positive);
+}
+
+.smai-insight-mini-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 0.45rem;
+    margin-top: 0.65rem;
+}
+
+.smai-insight-mini-field {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    padding: 0.5rem 0.62rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    background: rgba(7, 13, 25, 0.72);
+}
+
+.smai-insight-mini-label {
+    flex: 0 0 auto;
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    font-weight: 820;
+}
+
+.smai-insight-mini-value {
+    min-width: 0;
+    flex: 1 1 auto;
+    color: var(--text-heading);
+    font-size: 1rem;
+    font-weight: 840;
+    line-height: 1.25;
+    text-align: right;
+    overflow-wrap: anywhere;
 }
 
 .smai-insight-two-col {
@@ -2708,6 +2748,66 @@ body,
     color: var(--text-secondary);
     font-size: 0.84rem;
     line-height: 1.55;
+}
+
+.vega-embed {
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+[data-testid="stVegaLiteChart"] .vega-embed,
+[data-testid="stVegaLiteChart"] div:has(> .vega-bindings) {
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.vega-bindings {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    align-items: center;
+    order: -1 !important;
+    align-self: stretch;
+    margin: 0.2rem 0 0.5rem 0;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    background: rgba(7, 13, 25, 0.72);
+}
+
+.vega-bind {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    font-weight: 780;
+}
+
+.vega-bind input[type="checkbox"] {
+    accent-color: var(--smai-cyan);
+}
+
+@media (max-width: 720px) {
+    .smai-insight-price-row,
+    .smai-insight-range,
+    .smai-insight-mini-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .smai-insight-price-row > div,
+    .smai-insight-range > div,
+    .smai-insight-mini-field {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.22rem;
+    }
+
+    .smai-insight-price-row strong,
+    .smai-insight-range strong,
+    .smai-insight-mini-value {
+        text-align: left;
+    }
 }
 
 .smai-card-caption {

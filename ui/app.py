@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import html
 import json
+import math
 import os
 import re
 import time as perf_time
@@ -10381,14 +10382,14 @@ def _render_price_forecast_hero(
 ) -> None:
     st.subheader("02 価格・予測")
     chart_currency = preview.bars[0].symbol.currency if preview.bars else ""
-    selected_chart_series = _render_forecast_chart_filters(forecast_rows)
-    display_forecast_rows = filter_forecast_chart_rows(forecast_rows, selected_chart_series)
     _render_advanced_forecast_status(advanced_forecast_rows, horizon_days=forecast_horizon_days)
     _render_advanced_forecast_consensus_cards(advanced_forecast_consensus_rows)
+    selected_chart_series = _render_forecast_chart_filters(forecast_rows)
+    display_forecast_rows = filter_forecast_chart_rows(forecast_rows, selected_chart_series)
     _render_market_chart(
         display_forecast_rows,
         currency=chart_currency,
-        title="価格・予測",
+        title="",
         color_series_labels=forecast_chart_series_labels(display_forecast_rows),
     )
     latest_close = preview.bars[-1].close if preview.bars else None
@@ -10750,14 +10751,10 @@ def _advanced_forecast_insight_card_html(row: Mapping[str, str]) -> str:
         ("予測期間", f"{horizon}日" if horizon else "未計算"),
     )
     metric_html = "".join(
-        '<div style="min-width:0;padding:0.46rem 0.55rem;border-radius:0.45rem;'
-        f'background:{THEME_COLORS["bg_surface"]};'
-        f'border:1px solid {THEME_COLORS["border_subtle"]};">'
-        f'<div style="color:{THEME_COLORS["text_muted"]};font-size:0.72rem;'
-        f'font-weight:800;">{html.escape(label)}</div>'
-        f'<div style="color:{THEME_COLORS["text_heading"]};font-size:0.9rem;'
-        f'font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" '
-        f'title="{html.escape(value, quote=True)}">{html.escape(value)}</div>'
+        '<div class="smai-insight-mini-field">'
+        f'<span class="smai-insight-mini-label">{html.escape(label)}</span>'
+        f'<strong class="smai-insight-mini-value" title="{html.escape(value, quote=True)}">'
+        f"{html.escape(value)}</strong>"
         "</div>"
         for label, value in metrics
     )
@@ -10784,31 +10781,27 @@ def _advanced_forecast_insight_card_html(row: Mapping[str, str]) -> str:
         "</div>"
         "</div>"
         '<div class="smai-insight-center-forecast" '
-        'title="高度予測モデルの統合結果です。将来の値動きを保証するものではありません。">'
+        'title="複数の高度予測モデルを統合した中心的な見通しです。将来の値動きを保証するものではありません。">'
         "<span>中心予測</span>"
         f"<strong>{html.escape(value)}</strong>"
         "<small>高度予測モデルの統合結果</small>"
-        "</div>"
-        '<div class="smai-insight-price-row">'
-        f'<div><span>予測価格</span><strong>{html.escape(row.get("forecast_close") or "未計算")}</strong></div>'
-        f"<div><span>予測レンジ</span><strong>{html.escape(price_range)}</strong></div>"
         "</div>"
         f'<div class="smai-insight-range" aria-label="予測レンジ {html.escape(range_display, quote=True)}">'
         '<div data-case="downside" '
         'title="過去のばらつきやモデル差を考慮した慎重側の見方です。">'
         f"<span>下振れ予測</span><strong>{html.escape(lower)}</strong></div>"
-        '<div data-case="center" '
-        'title="複数の高度予測モデルを統合した中心的な見通しです。">'
-        f"<span>中心予測</span><strong>{html.escape(value)}</strong></div>"
         '<div data-case="upside" '
         'title="モデル上の上方向シナリオです。実現を保証するものではありません。">'
         f"<span>上振れ予測</span><strong>{html.escape(upper)}</strong></div>"
         "</div>"
+        '<div class="smai-insight-price-row">'
+        f'<div><span>予測価格</span><strong>{html.escape(row.get("forecast_close") or "未計算")}</strong></div>'
+        f"<div><span>予測レンジ</span><strong>{html.escape(price_range)}</strong></div>"
+        "</div>"
         '<div class="smai-score-track" aria-hidden="true">'
         f'<div class="smai-score-fill" style="--smai-score-width: {safe_progress}%"></div>'
         "</div>"
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));'
-        f'gap:0.45rem;margin-top:0.65rem;">{metric_html}</div>'
+        f'<div class="smai-insight-mini-grid">{metric_html}</div>'
         f'<div style="color:{THEME_COLORS["text_secondary"]};font-size:0.84rem;'
         'font-weight:760;line-height:1.45;margin-top:0.55rem;">'
         f"{html.escape(confidence_reason)}</div>"
@@ -10846,24 +10839,19 @@ def _render_forecast_chart_filters(rows: list[dict[str, str]]) -> set[str]:
     options = forecast_chart_series_options(rows)
     if not options:
         return set()
-    selected_series = default_forecast_chart_series(options)
-    advanced_options = [option for option in options if option["kind"] == "advanced"]
-    if not advanced_options:
+    selected_series = forecast_chart_runtime_series(options)
+    toggle_options = [
+        option
+        for option in options
+        if option["kind"] == "advanced" or _is_simple_forecast_series(option["series"])
+    ]
+    if not toggle_options:
         return selected_series
-    st.markdown("###### チャート表示")
+    st.markdown("#### 価格チャート / 予測スコープ")
     st.caption(
-        "AI予測インサイトは常時表示します。個別の高度予測モデルはチェックするとチャートに追加され、表示後は凡例クリックで薄くできます。"
+        "チャート直上のチェックで高度予測モデル / 単純予測モデルをまとめて表示します。"
+        "切り替えはブラウザ内で完結するため、データ取得や予測計算は走りません。"
     )
-    columns = st.columns(min(4, len(advanced_options)))
-    for index, option in enumerate(advanced_options):
-        with columns[index % len(columns)]:
-            if st.checkbox(
-                option["label"],
-                value=bool(option.get("default")),
-                key=f"forecast_chart_series_{option['series']}",
-                help=option["help"],
-            ):
-                selected_series.add(option["series"])
     return selected_series
 
 
@@ -10938,6 +10926,22 @@ def forecast_chart_series_labels(rows: list[dict[str, str]]) -> list[str]:
 
 def default_forecast_chart_series(options: list[dict[str, Any]]) -> set[str]:
     return {option["series"] for option in options if option.get("default")}
+
+
+def forecast_chart_runtime_series(options: list[dict[str, Any]]) -> set[str]:
+    return {
+        option["series"]
+        for option in options
+        if option.get("default")
+        or option.get("kind") == "advanced"
+        or _is_simple_forecast_series(option["series"])
+    }
+
+
+def _is_simple_forecast_series(series: str) -> bool:
+    return (
+        series == "naive" or series.startswith("moving_average_") or series.startswith("momentum_")
+    )
 
 
 def forecast_chart_series_kind(series: str) -> str:
@@ -14165,14 +14169,16 @@ def _render_market_chart(
         toggle="true",
         empty=False,
     )
+    group_visibility_params, group_hidden_expr = _market_chart_group_visibility_controls(rows)
     chart = _market_chart_layers(
         rows,
         y_axis_title=y_axis_title,
         color_scale=color_scale,
         disabled_series=disabled_series,
+        group_hidden_expr=group_hidden_expr,
         height=MARKET_CHART_HEIGHT,
         width=MARKET_CHART_FULL_WIDTH,
-        title="全体",
+        title="価格チャート",
         show_all_points=True,
         compact_points=True,
     )
@@ -14182,15 +14188,23 @@ def _render_market_chart(
         y_axis_title=y_axis_title,
         color_scale=color_scale,
         disabled_series=disabled_series,
+        group_hidden_expr=group_hidden_expr,
         height=MARKET_CHART_HEIGHT,
         width=MARKET_CHART_FOCUS_WIDTH,
         title=forecast_focus_chart_title(rows),
         show_all_points=True,
         compact_points=False,
     )
+    main_chart = alt.hconcat(chart, focus_chart, spacing=MARKET_CHART_COMBINED_SPACING)
+    legend_chart = _market_chart_interactive_legend(
+        color_domain,
+        color_scale=color_scale,
+        disabled_series=disabled_series,
+        group_hidden_expr=group_hidden_expr,
+    )
     combined_chart = (
-        alt.hconcat(chart, focus_chart, spacing=MARKET_CHART_COMBINED_SPACING)
-        .add_params(disabled_series)
+        alt.vconcat(main_chart, legend_chart, spacing=4)
+        .add_params(disabled_series, *group_visibility_params)
         .resolve_scale(color="shared", y="independent", x="independent")
         .configure(background=THEME_COLORS["bg_surface"])
         .configure_view(fill=THEME_COLORS["bg_card"], stroke=THEME_COLORS["border_strong"])
@@ -14201,16 +14215,104 @@ def _render_market_chart(
             titleColor=THEME_COLORS["text_label"],
             tickColor=THEME_COLORS["border_strong"],
         )
-        .configure_title(color=THEME_COLORS["text_heading"], fontSize=13, anchor="start", offset=8)
-        .properties(title=title or None)
+        .configure_title(color=THEME_COLORS["text_heading"], fontSize=16, anchor="start", offset=10)
     )
+    if title:
+        combined_chart = combined_chart.properties(title=title)
     st.altair_chart(
         combined_chart,
         use_container_width=True,
     )
-    st.markdown(
-        _market_chart_model_legend_html(color_domain, color_range),
-        unsafe_allow_html=True,
+
+
+def _market_chart_group_visibility_controls(
+    rows: list[dict[str, str]],
+) -> tuple[list[alt.Parameter], str]:
+    options = forecast_chart_series_options(rows)
+    groups = [
+        (
+            "smai_show_advanced_forecast_models",
+            "高度予測モデル ",
+            [str(option["label"]) for option in options if option.get("kind") == "advanced"],
+        ),
+        (
+            "smai_show_simple_forecast_models",
+            "単純予測モデル ",
+            [
+                str(option["label"])
+                for option in options
+                if _is_simple_forecast_series(str(option["series"]))
+            ],
+        ),
+    ]
+    params: list[alt.Parameter] = []
+    hidden_tests: list[str] = []
+    for param_name, control_label, series_labels in groups:
+        if not series_labels:
+            continue
+        params.append(
+            alt.param(
+                name=param_name,
+                value=False,
+                bind=alt.binding_checkbox(name=control_label),
+            )
+        )
+        match_expr = " || ".join(
+            f"datum.series_label === {json.dumps(label, ensure_ascii=False)}"
+            for label in series_labels
+        )
+        hidden_tests.append(f"({match_expr}) && !{param_name}")
+    return params, " || ".join(hidden_tests)
+
+
+def _with_group_visibility_filter(chart: alt.Chart, hidden_expr: str) -> alt.Chart:
+    if not hidden_expr:
+        return chart
+    return chart.transform_filter(f"!({hidden_expr})")
+
+
+def _market_chart_interactive_legend(
+    labels: Sequence[str],
+    *,
+    color_scale: alt.Scale,
+    disabled_series: alt.Parameter,
+    group_hidden_expr: str,
+) -> alt.LayerChart:
+    columns = 3
+    legend_rows = [
+        {
+            "series_label": label,
+            "legend_col": index % columns,
+            "legend_row": index // columns,
+        }
+        for index, label in enumerate(labels)
+    ]
+    legend_data = pd.DataFrame(legend_rows)
+    row_count = max(1, math.ceil(len(labels) / columns))
+    base = _with_group_visibility_filter(alt.Chart(legend_data), group_hidden_expr).encode(
+        x=alt.X("legend_col:O", axis=None, title=None, scale=alt.Scale(paddingInner=0.18)),
+        y=alt.Y("legend_row:O", axis=None, title=None, scale=alt.Scale(paddingInner=0.36)),
+        tooltip=[alt.Tooltip("series_label:N", title="価格・モデル")],
+    )
+    points = base.mark_point(filled=True, size=96).encode(
+        color=alt.Color("series_label:N", legend=None, scale=color_scale),
+        opacity=alt.condition(disabled_series, alt.value(0.14), alt.value(1.0)),
+    )
+    text = base.mark_text(
+        align="left",
+        baseline="middle",
+        dx=13,
+        fontSize=13,
+        fontWeight=700,
+    ).encode(
+        text="series_label:N",
+        color=alt.value(THEME_COLORS["text_secondary"]),
+        opacity=alt.condition(disabled_series, alt.value(0.28), alt.value(1.0)),
+    )
+    return (points + text).properties(
+        width=MARKET_CHART_FULL_WIDTH + MARKET_CHART_FOCUS_WIDTH + MARKET_CHART_COMBINED_SPACING,
+        height=max(38, row_count * 30),
+        title="価格・モデル",
     )
 
 
@@ -14247,6 +14349,7 @@ def _market_chart_layers(
     y_axis_title: str,
     color_scale: alt.Scale,
     disabled_series: alt.Parameter,
+    group_hidden_expr: str,
     height: int,
     width: int,
     title: str,
@@ -14281,7 +14384,7 @@ def _market_chart_layers(
             alt.Tooltip("value:Q", title="終値"),
             alt.Tooltip("line_label:N", title="実績/予測"),
         ],
-        "opacity": alt.condition(disabled_series, alt.value(0.18), alt.value(1.0)),
+        "opacity": alt.condition(disabled_series, alt.value(0.04), alt.value(1.0)),
     }
     forecast_point = (
         alt.OverlayMarkDef(
@@ -14302,7 +14405,7 @@ def _market_chart_layers(
         else False
     )
     range_band = (
-        alt.Chart(range_band_data)
+        _with_group_visibility_filter(alt.Chart(range_band_data), group_hidden_expr)
         .mark_area(opacity=0.18)
         .encode(
             x=base_x,
@@ -14320,12 +14423,12 @@ def _market_chart_layers(
                 alt.Tooltip("lower:Q", title="下振れ"),
                 alt.Tooltip("upper:Q", title="上振れ"),
             ],
-            opacity=alt.condition(disabled_series, alt.value(0.05), alt.value(0.18)),
+            opacity=alt.condition(disabled_series, alt.value(0.01), alt.value(0.18)),
         )
         .properties(height=height, width=width)
     )
     forecast_lines = (
-        alt.Chart(forecast_data)
+        _with_group_visibility_filter(alt.Chart(forecast_data), group_hidden_expr)
         .mark_line(
             point=forecast_point,
             strokeWidth=1.9,
@@ -14335,7 +14438,7 @@ def _market_chart_layers(
         .properties(height=height, width=width)
     )
     actual_line = (
-        alt.Chart(actual_data)
+        _with_group_visibility_filter(alt.Chart(actual_data), group_hidden_expr)
         .mark_line(
             point=actual_point,
             strokeWidth=2.8,
@@ -14349,7 +14452,10 @@ def _market_chart_layers(
             forecast_data.sort_values("date").groupby("series_label", as_index=False).tail(1)
         )
         forecast_endpoint_marker = (
-            alt.Chart(forecast_endpoint_data)
+            _with_group_visibility_filter(
+                alt.Chart(forecast_endpoint_data),
+                group_hidden_expr,
+            )
             .mark_point(filled=True, size=58, opacity=0.95)
             .encode(**base_encoding)
             .properties(height=height, width=width)
@@ -14357,7 +14463,7 @@ def _market_chart_layers(
         chart = chart + forecast_endpoint_marker
     if not latest_actual_data.empty:
         latest_marker = (
-            alt.Chart(latest_actual_data)
+            _with_group_visibility_filter(alt.Chart(latest_actual_data), group_hidden_expr)
             .mark_point(
                 filled=True,
                 shape="diamond",
@@ -14374,7 +14480,7 @@ def _market_chart_layers(
                     alt.Tooltip("marker_label:N", title="状態"),
                     alt.Tooltip("value:Q", title="現在価格"),
                 ],
-                opacity=alt.condition(disabled_series, alt.value(0.18), alt.value(1.0)),
+                opacity=alt.condition(disabled_series, alt.value(0.04), alt.value(1.0)),
             )
         )
         chart = chart + latest_marker
@@ -14579,8 +14685,8 @@ def forecast_focus_chart_title(rows: list[dict[str, str]]) -> str:
                 continue
             match = re.fullmatch(r".+_(\d+)d", str(key))
             if match:
-                return f"今後{match.group(1)}日の予測拡大"
-    return "予測期間の拡大表示"
+                return f"予測スコープ（{match.group(1)}日）"
+    return "予測スコープ"
 
 
 def _row_has_forecast_value(row: Mapping[str, str]) -> bool:

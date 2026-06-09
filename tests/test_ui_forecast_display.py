@@ -7,6 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pandas as pd
+import pytest
 import streamlit as st
 
 import ui.app as app_module
@@ -191,6 +192,7 @@ from ui.app import (
     forecast_boundary_frame,
     forecast_chart_color_domain,
     forecast_chart_color_range,
+    forecast_chart_runtime_series,
     forecast_chart_series_labels,
     forecast_chart_series_options,
     forecast_chart_summary,
@@ -8319,6 +8321,8 @@ def test_advanced_forecast_insight_card_html_is_information_dense():
     assert "予測期間" in html
     assert "モデル合意度" in html
     assert "4モデル中2モデルが中立寄り" in html
+    assert "smai-insight-mini-grid" in html
+    assert "smai-insight-mini-field" in html
     assert "予測ばらつき" in html
     assert "大きめ" in html
     assert "中心予測" in html
@@ -8331,6 +8335,9 @@ def test_advanced_forecast_insight_card_html_is_information_dense():
     assert "過去のばらつきやモデル差を考慮した慎重側の見方" in html
     assert "複数の高度予測モデルを統合した中心的な見通し" in html
     assert "モデル上の上方向シナリオ" in html
+    assert 'data-case="center"' not in html
+    assert html.index("smai-insight-center-forecast") < html.index("smai-insight-range")
+    assert html.index("smai-insight-range") < html.index("smai-insight-price-row")
     assert "弱気" not in html
     assert "中央値" not in html
     assert "強気" not in html
@@ -8511,6 +8518,7 @@ def test_forecast_chart_filter_options_hide_naive_by_default():
     ]
 
     options = forecast_chart_series_options(rows)
+    runtime_series = forecast_chart_runtime_series(options)
     filtered = filter_forecast_chart_rows(
         rows,
         {"moving_average_20", "advanced_linear_5d", "advanced_quantile_5d"},
@@ -8526,6 +8534,15 @@ def test_forecast_chart_filter_options_hide_naive_by_default():
         ("advanced_quantile_5d", False),
         ("advanced_quantile_20d", False),
     ]
+    assert runtime_series == {
+        "naive",
+        "moving_average_20",
+        "momentum_30",
+        "advanced_consensus_5d",
+        "advanced_linear_5d",
+        "advanced_quantile_5d",
+        "advanced_quantile_20d",
+    }
     assert "直近値維持" in options[0]["label"]
     assert "naive" not in filtered[0]
     assert filtered[0]["close"] == "100"
@@ -8545,7 +8562,9 @@ def test_forecast_chart_filter_options_hide_naive_by_default():
     assert "advanced_quantile_20d" not in fallback_filtered[1]
 
 
-def test_render_forecast_chart_filters_checks_individual_advanced_models(monkeypatch):
+def test_render_forecast_chart_filters_keeps_advanced_models_for_client_side_toggle(
+    monkeypatch,
+):
     rows = [
         {
             "ts": "2026-06-07T00:00:00+00:00",
@@ -8554,6 +8573,9 @@ def test_render_forecast_chart_filters_checks_individual_advanced_models(monkeyp
         {
             "ts": "2026-06-12T00:00:00+00:00",
             "close": "",
+            "naive": "100",
+            "moving_average_20": "101",
+            "momentum_30": "106",
             "advanced_consensus_5d": "102.5",
             "advanced_linear_5d": "103",
             "advanced_tree_sklearn_5d": "104",
@@ -8562,7 +8584,6 @@ def test_render_forecast_chart_filters_checks_individual_advanced_models(monkeyp
     ]
     markdown_calls: list[str] = []
     caption_calls: list[str] = []
-    checkbox_calls: list[tuple[str, bool, str, str]] = []
 
     monkeypatch.setattr(
         "ui.app.st.markdown",
@@ -8573,28 +8594,24 @@ def test_render_forecast_chart_filters_checks_individual_advanced_models(monkeyp
         lambda text, *_, **__: caption_calls.append(text),
     )
     monkeypatch.setattr(
-        "ui.app.st.columns",
-        lambda count, *_, **__: [_FakeExpander() for _ in range(count)],
+        "ui.app.st.checkbox",
+        lambda *_, **__: pytest.fail("rerun widget"),
     )
-
-    def fake_checkbox(label: str, *, value: bool, key: str, help: str, **_: object) -> bool:
-        checkbox_calls.append((label, value, key, help))
-        return "ツリーモデル" in label
-
-    monkeypatch.setattr("ui.app.st.checkbox", fake_checkbox)
 
     selected = _render_forecast_chart_filters(rows)
 
-    assert selected == {"advanced_consensus_5d", "advanced_tree_sklearn_5d"}
-    assert markdown_calls == ["###### チャート表示"]
-    assert "個別の高度予測モデルはチェックするとチャートに追加" in caption_calls[0]
-    assert [call[0] for call in checkbox_calls] == [
-        "高度予測: 線形モデル 5日",
-        "高度予測: ツリーモデル 5日",
-        "高度予測: レンジモデル 5日",
-    ]
-    assert all(call[1] is False for call in checkbox_calls)
-    assert all(call[2].startswith("forecast_chart_series_") for call in checkbox_calls)
+    assert selected == {
+        "naive",
+        "moving_average_20",
+        "momentum_30",
+        "advanced_consensus_5d",
+        "advanced_linear_5d",
+        "advanced_tree_sklearn_5d",
+        "advanced_quantile_5d",
+    }
+    assert markdown_calls == ["#### 価格チャート / 予測スコープ"]
+    assert "高度予測モデル / 単純予測モデル" in caption_calls[0]
+    assert "切り替えはブラウザ内で完結" in caption_calls[0]
 
 
 def test_render_forecast_model_detail_keeps_advanced_cards_visible(monkeypatch):
@@ -8710,11 +8727,9 @@ def test_forecast_focus_chart_title_uses_forecast_horizon():
                 }
             ]
         )
-        == "今後31日の予測拡大"
+        == "予測スコープ（31日）"
     )
-    assert forecast_focus_chart_title([{"ts": "2026-06-07T00:00:00+00:00"}]) == (
-        "予測期間の拡大表示"
-    )
+    assert forecast_focus_chart_title([{"ts": "2026-06-07T00:00:00+00:00"}]) == "予測スコープ"
 
 
 def test_forecast_model_comparison_rows_summarize_direction_and_spread():
@@ -8909,10 +8924,13 @@ def test_render_market_chart_uses_currency_axis_title_and_expanded_width(monkeyp
     )
 
     spec = captured["spec"]
-    chart_spec = spec["hconcat"][0]  # type: ignore[index]
-    focus_spec = spec["hconcat"][1]  # type: ignore[index]
+    main_spec = spec["vconcat"][0]  # type: ignore[index]
+    legend_spec = spec["vconcat"][1]  # type: ignore[index]
+    chart_spec = main_spec["hconcat"][0]
+    focus_spec = main_spec["hconcat"][1]
     assert spec["title"] == "Price and forecast"
-    assert len(spec["hconcat"]) == 2
+    assert len(spec["vconcat"]) == 2
+    assert len(main_spec["hconcat"]) == 2
     assert (
         MARKET_CHART_FULL_WIDTH + MARKET_CHART_FOCUS_WIDTH + MARKET_CHART_COMBINED_SPACING <= 1280
     )
@@ -8920,8 +8938,8 @@ def test_render_market_chart_uses_currency_axis_title_and_expanded_width(monkeyp
     assert focus_spec["width"] == MARKET_CHART_FOCUS_WIDTH
     assert chart_spec["height"] == MARKET_CHART_HEIGHT
     assert focus_spec["height"] == MARKET_CHART_HEIGHT
-    assert chart_spec["title"] == "全体"
-    assert focus_spec["title"] == "予測期間の拡大表示"
+    assert chart_spec["title"] == "価格チャート"
+    assert focus_spec["title"] == "予測スコープ"
     assert chart_spec["layer"][1]["mark"]["point"]["filled"] is True
     assert (
         chart_spec["layer"][1]["mark"]["point"]["size"]
@@ -8930,14 +8948,68 @@ def test_render_market_chart_uses_currency_axis_title_and_expanded_width(monkeyp
     assert focus_spec["layer"][1]["mark"]["point"]["filled"] is True
     assert chart_spec["layer"][2]["mark"]["strokeWidth"] == 2.8
     assert chart_spec["layer"][1]["encoding"]["color"]["legend"] is None
+    assert chart_spec["layer"][1]["encoding"]["color"]["scale"]["domain"] == [
+        "実績価格",
+        "予測: 直近値維持",
+    ]
     assert chart_spec["layer"][1]["encoding"]["strokeDash"]["legend"] is None
     assert focus_spec["layer"][1]["encoding"]["color"]["legend"] is None
+    assert legend_spec["title"] == "価格・モデル"
+    assert legend_spec["layer"][0]["encoding"]["color"]["scale"]["domain"] == [
+        "実績価格",
+        "予測: 直近値維持",
+    ]
     assert chart_spec["layer"][0]["encoding"]["y"]["title"] == "終値 (USD)"
     assert captured["use_container_width"] is True
-    assert len(markdown_calls) == 1
-    assert "価格・モデル" in markdown_calls[0]
-    assert "実績価格" in markdown_calls[0]
-    assert "予測: 直近値維持" in markdown_calls[0]
+    assert markdown_calls == []
+    assert any(param.get("select", {}).get("on") == "click" for param in spec["params"])
+
+
+def test_render_market_chart_uses_client_side_group_toggles(monkeypatch):
+    captured: dict[str, object] = {}
+
+    def fake_altair_chart(chart: object, *, use_container_width: bool = False) -> None:
+        captured["spec"] = chart.to_dict(validate=True)  # type: ignore[attr-defined]
+
+    monkeypatch.setattr("ui.app.st.altair_chart", fake_altair_chart)
+    monkeypatch.setattr("ui.app.st.markdown", lambda *_, **__: None)
+
+    _render_market_chart(
+        [
+            {
+                "ts": "2026-06-07T00:00:00+00:00",
+                "close": "100",
+                "naive": "",
+                "moving_average_20": "",
+                "advanced_consensus_5d": "100",
+                "advanced_linear_5d": "100",
+            },
+            {
+                "ts": "2026-06-12T00:00:00+00:00",
+                "close": "",
+                "naive": "100",
+                "moving_average_20": "101",
+                "advanced_consensus_5d": "102.5",
+                "advanced_linear_5d": "103",
+            },
+        ],
+        currency="JPY",
+    )
+
+    spec = captured["spec"]
+    spec_text = json.dumps(spec, ensure_ascii=False, default=str)
+    assert "smai_show_advanced_forecast_models" in spec_text
+    assert "smai_show_simple_forecast_models" in spec_text
+    assert "高度予測モデル" in spec_text
+    assert "単純予測モデル" in spec_text
+    assert '"input": "checkbox"' in spec_text
+    assert "高度予測: 線形モデル 5日" in spec_text
+    assert "予測: 直近値維持" in spec_text
+    assert spec["vconcat"][1]["title"] == "価格・モデル"
+    assert any(
+        param.get("select", {}).get("fields") == ["series_label"] for param in spec["params"]
+    )
+    assert any(param.get("select", {}).get("on") == "click" for param in spec["params"])
 
 
 def test_forecast_boundary_frame_marks_latest_actual_date():

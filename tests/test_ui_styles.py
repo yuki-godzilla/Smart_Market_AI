@@ -58,19 +58,10 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert ".smai-floating-assistant-chip" in SMAI_GLOBAL_CSS
     assert ".smai-floating-assistant-avatar img" in SMAI_GLOBAL_CSS
     assert ".smai-floating-assistant-stage" in SMAI_GLOBAL_CSS
-    assert ".smai-assistant-expression" in SMAI_GLOBAL_CSS
-    assert ".smai-assistant-eye" in SMAI_GLOBAL_CSS
-    assert ".smai-assistant-mouth" in SMAI_GLOBAL_CSS
-    assert ".smai-assistant-arm" in SMAI_GLOBAL_CSS
-    assert ".smai-assistant-foot" in SMAI_GLOBAL_CSS
+    assert ".smai-floating-assistant-avatar::after" in SMAI_GLOBAL_CSS
     assert ".smai-assistant-holo-chart" in SMAI_GLOBAL_CSS
-    assert ".smai-assistant-hand-cue" in SMAI_GLOBAL_CSS
     assert ".smai-assistant-rank-bars" in SMAI_GLOBAL_CSS
     assert "@keyframes smai-buddy-curious" in SMAI_GLOBAL_CSS
-    assert "@keyframes smai-buddy-expression" in SMAI_GLOBAL_CSS
-    assert "@keyframes smai-buddy-blink" in SMAI_GLOBAL_CSS
-    assert "@keyframes smai-buddy-arm-right" in SMAI_GLOBAL_CSS
-    assert "@keyframes smai-buddy-foot-left" in SMAI_GLOBAL_CSS
     assert "@keyframes smai-buddy-notice" in SMAI_GLOBAL_CSS
     assert "@keyframes smai-holo-peek" in SMAI_GLOBAL_CSS
     assert ".investment-news-freshness-badge" in SMAI_GLOBAL_CSS
@@ -99,7 +90,7 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert "@media print" in SMAI_GLOBAL_CSS
     assert "break-inside: avoid;" in SMAI_GLOBAL_CSS
     assert "@keyframes smai-copilot-float" in SMAI_GLOBAL_CSS
-    assert "translateY(-3px) scale(1.012)" in SMAI_GLOBAL_CSS
+    assert "translateY(-2px) scale(1.008)" in SMAI_GLOBAL_CSS
     assert ".smai-app-logo" in SMAI_GLOBAL_CSS
     assert "justify-items: center;" in SMAI_GLOBAL_CSS
     assert "width: min(43rem, 72vw);" in SMAI_GLOBAL_CSS

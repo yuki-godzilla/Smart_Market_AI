@@ -1287,3 +1287,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added layered forecast chart, prediction range, ranking bars, gaze sweep, blink, mouth, hand, and foot motion so the character has a small organic reaction instead of only a static bob.
 - Kept the interaction local to the browser: the motion layers do not trigger Streamlit reruns, data fetches, forecast recalculation, or ranking rebuilds.
 - Added reduced-motion coverage and deterministic component/style/AppTest checks for the new assistant trigger layers.
+
+## 2026-06-09 - SMAI Copilot visual sprint cleanup
+
+- Ran a 10-step visual correction sprint for the floating `SMAI Copilot` trigger after high-zoom review showed the CSS-drawn face / limb overlays felt unnatural.
+- Replaced the trigger image from the full cutout to the face-up mascot thumbnail, removed artificial face, hand, foot, gaze, and sparkle overlays, and kept only restrained breathing / hover motion plus a subtle avatar ring.
+- Tightened the pill width, avatar size, border opacity, hover lift, and shadow so the trigger reads as a calm assistant entry point instead of a large decorative capsule.
+- Captured static component previews for normal, high-zoom, mobile-width, forecast, ranking, and open-panel states with Chrome headless; Streamlit full-app headless screenshot still stopped at the loading skeleton, so component-level visual checks were used for the UI sprint.

@@ -18,7 +18,7 @@ from backend.reporting import (
     build_decision_report_context,
     build_report_section,
 )
-from ui.components.mascot import MASCOT_CUTOUT_ASSET, _asset_data_uri
+from ui.components.mascot import MASCOT_THUMB_ASSET, _asset_data_uri
 
 ASSISTANT_CONTEXTS_STATE_KEY = "smai_assistant_contexts"
 ASSISTANT_CONTEXT_ORDER_STATE_KEY = "smai_assistant_context_order"
@@ -91,7 +91,7 @@ def floating_assistant_html(
     open_panel: bool = False,
     sibling_contexts: Sequence[SmaiAssistantContext] = (),
 ) -> str:
-    image = _asset_data_uri(MASCOT_CUTOUT_ASSET)
+    image = _asset_data_uri(MASCOT_THUMB_ASSET)
     open_attr = " open" if open_panel else ""
     visual_key = _assistant_visual_key(context)
     chips = "".join(
@@ -132,19 +132,6 @@ def floating_assistant_html(
         "<span></span><span></span><span></span>"
         "</span>"
         f'<img class="smai-floating-assistant-character" src="{image}" alt="" loading="lazy" />'
-        '<span class="smai-assistant-expression">'
-        '<span class="smai-assistant-eye eye-left"></span>'
-        '<span class="smai-assistant-eye eye-right"></span>'
-        '<span class="smai-assistant-mouth"></span>'
-        "</span>"
-        '<span class="smai-assistant-arm arm-left"></span>'
-        '<span class="smai-assistant-arm arm-right"></span>'
-        '<span class="smai-assistant-foot foot-left"></span>'
-        '<span class="smai-assistant-foot foot-right"></span>'
-        '<span class="smai-assistant-gaze"></span>'
-        '<span class="smai-assistant-hand-cue"></span>'
-        '<span class="smai-assistant-spark spark-a"></span>'
-        '<span class="smai-assistant-spark spark-b"></span>'
         "</span>"
         "</span>"
         '<span class="smai-floating-assistant-trigger-copy">'

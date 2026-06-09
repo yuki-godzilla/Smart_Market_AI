@@ -24,16 +24,9 @@ def test_floating_assistant_html_renders_contextual_question_chips():
     assert "smai-floating-assistant-avatar--forecast" in markup
     assert "smai-assistant-holo-chart" in markup
     assert "smai-assistant-holo-range" in markup
-    assert "smai-assistant-expression" in markup
-    assert "smai-assistant-eye eye-left" in markup
-    assert "smai-assistant-mouth" in markup
-    assert "smai-assistant-arm arm-right" in markup
-    assert "smai-assistant-foot foot-left" in markup
-    assert "smai-assistant-gaze" in markup
-    assert "smai-assistant-hand-cue" in markup
     assert "smai_assistant_context=cockpit_forecast" in markup
     assert "AI%E4%BA%88%E6%B8%AC" in markup
-    assert "data:image/png;base64," in markup
+    assert "data:image/webp;base64," in markup
 
 
 def test_floating_assistant_html_escapes_context_and_answer_copy():

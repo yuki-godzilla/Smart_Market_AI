@@ -65,7 +65,7 @@ Implemented or mostly implemented:
 
 - Core contracts, settings, YAML loading, and domain errors.
 - Deterministic `mock` / `csv` MarketData providers.
-- Explicit opt-in `yahoo` live provider adapter path via `yfinance`.
+- Explicit opt-in `yahoo` live provider adapter path via `yfinance`; single-symbol OHLCV fetches fall back from empty `yf.download` responses to `Ticker.history`, while multi-symbol ranking batches keep the batch result boundary.
 - Provider registry / factory and error mapping for unavailable, timeout, rate-limit, and schema mismatch cases.
 - Feature Store Lite style snapshots with last/close, returns, momentum, ADV, volatility, drawdown, missing summary, data quality, and completeness.
 - FastAPI endpoints:

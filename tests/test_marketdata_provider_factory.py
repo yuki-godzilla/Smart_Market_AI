@@ -200,6 +200,28 @@ def test_yahoo_adapter_retries_empty_download_once(monkeypatch):
     assert [bar.close for bar in bars] == [Decimal("170.5"), Decimal("175.25")]
 
 
+def test_yahoo_adapter_falls_back_to_ticker_history_for_empty_single_download(monkeypatch):
+    fake_yfinance = _FakeYFinance(empty_download_attempts=10)
+    monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
+    monkeypatch.setattr(yahoo, "shared_yfinance_session", lambda: "shared-session")
+    monkeypatch.setattr(yahoo, "YAHOO_DOWNLOAD_EMPTY_RETRY_DELAY_SECONDS", 0)
+    adapter = create_market_data_provider_adapter(
+        DataAccessConfig(provider="yahoo", allow_external_providers=True)
+    )
+
+    bars = asyncio.run(
+        adapter.fetch_ohlcv(
+            ["AAPL"],
+            start=datetime(2026, 4, 7, tzinfo=UTC),
+            end=datetime(2026, 4, 9, tzinfo=UTC),
+        )
+    )
+
+    assert fake_yfinance.download_calls == 2
+    assert fake_yfinance.ticker_sessions == ["shared-session"]
+    assert [bar.close for bar in bars] == [Decimal("170.5"), Decimal("175.25")]
+
+
 def test_yahoo_adapter_reports_empty_download_after_retry(monkeypatch):
     fake_yfinance = _FakeYFinance(empty=True)
     monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
@@ -223,6 +245,34 @@ def test_yahoo_adapter_reports_empty_download_after_retry(monkeypatch):
     assert request["operation"] == "fetch_ohlcv"
     assert request["attempts"] == 2
     assert request["retry_reason"] == "empty_batch_data"
+
+
+def test_yahoo_adapter_reports_single_history_fallback_request_failure(monkeypatch):
+    fake_yfinance = _FakeYFinance(
+        empty_download_attempts=10,
+        history_error=RuntimeError("DNS timeout"),
+    )
+    monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
+    monkeypatch.setattr(yahoo, "shared_yfinance_session", lambda: "shared-session")
+    monkeypatch.setattr(yahoo, "YAHOO_DOWNLOAD_EMPTY_RETRY_DELAY_SECONDS", 0)
+    adapter = create_market_data_provider_adapter(
+        DataAccessConfig(provider="yahoo", allow_external_providers=True)
+    )
+
+    with pytest.raises(ProviderUnavailableError) as exc_info:
+        asyncio.run(
+            adapter.fetch_ohlcv(
+                ["AAPL"],
+                start=datetime(2026, 4, 7, tzinfo=UTC),
+                end=datetime(2026, 4, 9, tzinfo=UTC),
+            )
+        )
+
+    assert fake_yfinance.download_calls == 2
+    assert exc_info.value.message == "Yahoo market-data provider request failed"
+    request = exc_info.value.details["request"]
+    assert request["operation"] == "fetch_ohlcv_single_history_fallback"
+    assert request["error"] == "DNS timeout"
 
 
 def test_yahoo_adapter_maps_empty_history_to_provider_unavailable(monkeypatch):
@@ -250,17 +300,24 @@ class _FakeYFinance:
         empty: bool = False,
         empty_download_attempts: int = 0,
         ticker_info: dict[str, object] | None = None,
+        history_error: Exception | None = None,
     ) -> None:
         self.empty = empty
         self.empty_download_attempts = empty_download_attempts
         self.ticker_info = ticker_info
+        self.history_error = history_error
         self.download_calls = 0
         self.ticker_sessions: list[object] = []
         self.last_download_kwargs: dict[str, object] = {}
 
     def Ticker(self, raw_symbol: str, session: object | None = None) -> "_FakeTicker":
         self.ticker_sessions.append(session)
-        return _FakeTicker(raw_symbol, empty=self.empty, info=self.ticker_info)
+        return _FakeTicker(
+            raw_symbol,
+            empty=self.empty,
+            info=self.ticker_info,
+            history_error=self.history_error,
+        )
 
     def download(self, **kwargs: object) -> pd.DataFrame:
         print("possibly delisted; no timezone found")
@@ -301,9 +358,11 @@ class _FakeTicker:
         *,
         empty: bool,
         info: dict[str, object] | None = None,
+        history_error: Exception | None = None,
     ) -> None:
         self.raw_symbol = raw_symbol
         self.empty = empty
+        self.history_error = history_error
         default_info = {
             "dividendYield": Decimal("0.006"),
             "marketCap": Decimal("3200000000000"),
@@ -312,6 +371,8 @@ class _FakeTicker:
         self.info = {**default_info, **(info or {})}
 
     def history(self, **_: object) -> pd.DataFrame:
+        if self.history_error is not None:
+            raise self.history_error
         if self.empty:
             return pd.DataFrame()
         if self.raw_symbol == "JPY=X":

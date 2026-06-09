@@ -18,6 +18,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+- 2026-06-09: Hardened the Yahoo market-data live adapter for Cockpit data fetches. When a single-symbol OHLCV `yf.download` batch returns empty after retry, the adapter now retries the same symbol/date range through `Ticker.history`, while multi-symbol Ranking batches keep the existing batch-failure boundary.
 - 2026-06-09: Refined the Cockpit `AI予測インサイト` card so `下振れ予測` / `上振れ予測` appears before `予測価格` / `予測レンジ`, with `中心予測` kept one row above as the main consensus result. The forecast chart now uses a fixed-color in-chart legend so colors stay stable, legend items follow the grouped model toggles, and legend clicks visibly dim individual displayed series.
 - 2026-06-09: Simplified the Cockpit price / forecast first view by removing low-contrast caption guidance around the chart area. Important forecast context now stays in the `AI予測インサイト` card and detail expanders, while missing advanced forecasts surface as a visible warning instead of thin helper text.
 - 2026-06-09: Improved the Cockpit `AI予測インサイト` card so `中心予測` is the primary display, downside / upside cases replace weak / strong wording, case tooltips explain the assumptions, low-confidence / hold states get amber emphasis, model lines are grouped behind chart toggles, and advanced model cards remain visible under the chart.

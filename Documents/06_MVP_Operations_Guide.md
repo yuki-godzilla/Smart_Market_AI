@@ -182,6 +182,7 @@ Invoke-RestMethod `
 
 設定上の既定 provider は deterministic な `mock` です。
 Streamlit の Market Data 画面では provider 選択の初期表示と表示順先頭が `yahoo` です。通常の API / local checks は `mock` / `csv` を基準にしつつ、UI では生きた株価データを主導線として扱います。
+Cockpit の単銘柄取得では、Yahoo の一括 download が空レスポンスになった場合に `Ticker.history` で同じ期間を再取得します。Ranking の多銘柄取得は速度と負荷を優先し、一括取得の成功/失敗をそのまま扱います。
 ローカル CSV を使う場合は、`SMAI_CONFIG_FILE` で設定ファイルを指定します。
 
 ```powershell

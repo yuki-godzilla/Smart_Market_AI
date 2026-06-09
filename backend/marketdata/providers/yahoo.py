@@ -55,13 +55,30 @@ class YahooMarketDataProviderAdapter:
         interval: Interval,
         operation: str,
     ) -> list[Bar]:
-        frame = await self._download_history(
-            symbols,
-            start=start,
-            end=end,
-            interval=interval,
-            operation=operation,
-        )
+        try:
+            frame = await self._download_history(
+                symbols,
+                start=start,
+                end=end,
+                interval=interval,
+                operation=operation,
+            )
+        except ProviderUnavailableError as batch_exc:
+            if len(symbols) != 1 or not _is_empty_batch_download_error(batch_exc):
+                raise
+            raw_symbol = symbols[0]
+            try:
+                frame = await self._history(
+                    raw_symbol,
+                    start=start,
+                    end=end,
+                    interval=interval,
+                    operation=f"{operation}_single_history_fallback",
+                )
+            except ProviderUnavailableError as fallback_exc:
+                if not _is_empty_single_history_error(fallback_exc):
+                    raise fallback_exc from batch_exc
+                raise batch_exc from fallback_exc
         bars: list[Bar] = []
         for raw_symbol in symbols:
             symbol_frame = _download_symbol_frame(frame, raw_symbol)
@@ -368,6 +385,24 @@ def _implemented_live_provider_details(provider: str) -> dict[str, object]:
         details["implemented"] = True
         details["live_adapter"] = "implemented_opt_in"
     return details
+
+
+def _is_empty_batch_download_error(exc: ProviderUnavailableError) -> bool:
+    request = exc.details.get("request")
+    if not isinstance(request, dict):
+        return False
+    return request.get("retry_reason") == "empty_batch_data"
+
+
+def _is_empty_single_history_error(exc: ProviderUnavailableError) -> bool:
+    request = exc.details.get("request")
+    if not isinstance(request, dict):
+        return False
+    operation = request.get("operation")
+    return (
+        operation == "fetch_ohlcv_single_history_fallback"
+        and exc.message == "Yahoo market-data provider returned no data"
+    )
 
 
 def _yfinance_available() -> bool:

@@ -3685,7 +3685,7 @@ def ranking_candidate_breakdown_rows(
                     "取得期間から決まる共通予測日数のAI予測シナリオです。"
                     "上昇気配・下降警戒へ25%まで反映し、信頼度で控えめに扱います。"
                 ),
-            }
+            },
         )
     research_score = selected_row.get("根拠スコア", "").strip()
     if research_score:
@@ -10479,7 +10479,8 @@ def _render_price_forecast_hero(
         display_forecast_rows,
         currency=chart_currency,
         title="",
-        color_series_labels=forecast_chart_series_labels(display_forecast_rows),
+        color_series_labels=forecast_chart_series_labels(forecast_rows),
+        legend_series_labels=forecast_chart_series_labels(display_forecast_rows),
     )
     latest_close = preview.bars[-1].close if preview.bars else None
     latest_date = preview.bars[-1].ts.date() if preview.bars else None
@@ -10928,19 +10929,41 @@ def _render_forecast_chart_filters(rows: list[dict[str, str]]) -> set[str]:
     options = forecast_chart_series_options(rows)
     if not options:
         return set()
-    selected_series = forecast_chart_runtime_series(options)
-    toggle_options = [
-        option
-        for option in options
-        if option["kind"] == "advanced" or _is_simple_forecast_series(option["series"])
+    selected_series = default_forecast_chart_series(options)
+    advanced_series = [
+        str(option["series"]) for option in options if option.get("kind") == "advanced"
     ]
-    if not toggle_options:
+    simple_series = [
+        str(option["series"])
+        for option in options
+        if _is_simple_forecast_series(str(option["series"]))
+    ]
+    if not advanced_series and not simple_series:
         return selected_series
     st.markdown("#### 価格チャート / 予測スコープ")
     st.caption(
-        "チャート直上のチェックで高度予測モデル / 単純予測モデルをまとめて表示します。"
-        "切り替えはブラウザ内で完結するため、データ取得や予測計算は走りません。"
+        "チェックで高度予測モデル / 単純予測モデルをまとめて追加します。"
+        "データ取得や予測計算は走らず、取得済みチャートデータの表示だけを切り替えます。"
     )
+    columns = st.columns(2)
+    if advanced_series:
+        with columns[0]:
+            if st.checkbox(
+                "高度予測モデル",
+                value=False,
+                key="market_chart_show_advanced_models",
+                help="AI予測インサイトの内訳となる個別高度予測モデルをチャートへ追加します。",
+            ):
+                selected_series.update(advanced_series)
+    if simple_series:
+        with columns[1 if advanced_series else 0]:
+            if st.checkbox(
+                "単純予測モデル",
+                value=False,
+                key="market_chart_show_simple_models",
+                help="直近値維持、移動平均、モメンタムなどの比較用モデルをチャートへ追加します。",
+            ):
+                selected_series.update(simple_series)
     return selected_series
 
 
@@ -13692,9 +13715,7 @@ def _ranking_report_checkpoints(
 
 def _ranking_distribution_summary(rows: list[dict[str, str]]) -> dict[str, str]:
     top_score = _decimal_from_text(rows[0].get("total_score")) if rows else None
-    twentieth_score = (
-        _decimal_from_text(rows[19].get("total_score")) if len(rows) >= 20 else None
-    )
+    twentieth_score = _decimal_from_text(rows[19].get("total_score")) if len(rows) >= 20 else None
     advanced_count = _count_rows_with_advanced_forecast(rows)
     return {
         "比較銘柄数": str(len(rows)),
@@ -13869,9 +13890,7 @@ def _count_rows_with_advanced_forecast_confidence(
     confidence_key: str,
 ) -> int:
     return sum(
-        1
-        for row in rows
-        if _ranking_advanced_forecast_confidence_key(row) == confidence_key
+        1 for row in rows if _ranking_advanced_forecast_confidence_key(row) == confidence_key
     )
 
 
@@ -14352,6 +14371,7 @@ def _render_market_chart(
     currency: str = "",
     title: str = "",
     color_series_labels: Iterable[str] | None = None,
+    legend_series_labels: Iterable[str] | None = None,
 ) -> None:
     if not rows:
         st.info(EMPTY_STATE_MESSAGES["chart_rows"])
@@ -14399,7 +14419,11 @@ def _render_market_chart(
     )
     main_chart = alt.hconcat(chart, focus_chart, spacing=MARKET_CHART_COMBINED_SPACING)
     legend_chart = _market_chart_interactive_legend(
-        color_domain,
+        forecast_chart_color_domain(
+            legend_series_labels
+            if legend_series_labels is not None
+            else chart_data["series_label"].tolist()
+        ),
         color_scale=color_scale,
         disabled_series=disabled_series,
         group_hidden_expr=group_hidden_expr,
@@ -14430,41 +14454,7 @@ def _render_market_chart(
 def _market_chart_group_visibility_controls(
     rows: list[dict[str, str]],
 ) -> tuple[list[alt.Parameter], str]:
-    options = forecast_chart_series_options(rows)
-    groups = [
-        (
-            "smai_show_advanced_forecast_models",
-            "高度予測モデル ",
-            [str(option["label"]) for option in options if option.get("kind") == "advanced"],
-        ),
-        (
-            "smai_show_simple_forecast_models",
-            "単純予測モデル ",
-            [
-                str(option["label"])
-                for option in options
-                if _is_simple_forecast_series(str(option["series"]))
-            ],
-        ),
-    ]
-    params: list[alt.Parameter] = []
-    hidden_tests: list[str] = []
-    for param_name, control_label, series_labels in groups:
-        if not series_labels:
-            continue
-        params.append(
-            alt.param(
-                name=param_name,
-                value=False,
-                bind=alt.binding_checkbox(name=control_label),
-            )
-        )
-        match_expr = " || ".join(
-            f"datum.series_label === {json.dumps(label, ensure_ascii=False)}"
-            for label in series_labels
-        )
-        hidden_tests.append(f"({match_expr}) && !{param_name}")
-    return params, " || ".join(hidden_tests)
+    return [], ""
 
 
 def _with_group_visibility_filter(chart: alt.Chart, hidden_expr: str) -> alt.Chart:

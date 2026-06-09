@@ -253,7 +253,10 @@ class YahooMarketDataProviderAdapter:
             retry_reason = None
             if _is_yahoo_transient_request_error(exc):
                 retry_reason = "transient_request"
-                retry_frame = await self._retry_history_after_transient_request_error(ticker, kwargs)
+                retry_frame = await self._retry_history_after_transient_request_error(
+                    ticker,
+                    kwargs,
+                )
                 if retry_frame is not None:
                     return retry_frame
             request_details = {

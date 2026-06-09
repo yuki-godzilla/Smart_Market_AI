@@ -2603,7 +2603,8 @@ body,
     min-width: 0;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
+    flex-wrap: wrap;
     gap: 0.8rem;
     padding: 0.46rem 0.55rem;
     border: 1px solid var(--border-subtle);
@@ -2620,11 +2621,11 @@ body,
 
 .smai-insight-price-row strong {
     min-width: 0;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     color: var(--text-heading);
     font-size: 1rem;
     line-height: 1.25;
-    text-align: right;
+    text-align: left;
     overflow-wrap: anywhere;
 }
 
@@ -2639,7 +2640,8 @@ body,
     min-width: 0;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
+    flex-wrap: wrap;
     gap: 0.8rem;
     padding: 0.5rem 0.62rem;
     border: 1px solid var(--border-subtle);
@@ -2656,11 +2658,11 @@ body,
 
 .smai-insight-range strong {
     min-width: 0;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     color: var(--text-heading);
     font-size: 1.22rem;
     line-height: 1.25;
-    text-align: right;
+    text-align: left;
     overflow-wrap: anywhere;
 }
 
@@ -2695,7 +2697,8 @@ body,
     min-width: 0;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
+    flex-wrap: wrap;
     gap: 0.8rem;
     padding: 0.5rem 0.62rem;
     border: 1px solid var(--border-subtle);
@@ -2712,12 +2715,12 @@ body,
 
 .smai-insight-mini-value {
     min-width: 0;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     color: var(--text-heading);
     font-size: 1rem;
     font-weight: 840;
     line-height: 1.25;
-    text-align: right;
+    text-align: left;
     overflow-wrap: anywhere;
 }
 

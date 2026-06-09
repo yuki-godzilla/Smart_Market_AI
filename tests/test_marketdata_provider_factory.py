@@ -451,8 +451,7 @@ class _FakeTicker:
         if self.history_errors:
             raise self.history_errors.pop(0)
         if self.history_error is not None and (
-            not self.history_error_when_raise_errors
-            or bool(kwargs.get("raise_errors", True))
+            not self.history_error_when_raise_errors or bool(kwargs.get("raise_errors", True))
         ):
             raise self.history_error
         if self.empty:

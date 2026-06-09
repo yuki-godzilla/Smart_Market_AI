@@ -41,6 +41,9 @@ def test_floating_assistant_html_renders_contextual_question_chips():
     assert "smai-assistant-holo-range" in markup
     assert "smai-floating-assistant-localqa" in markup
     assert "smai-floating-assistant-question-input" in markup
+    assert "smai-floating-assistant-question-input--1" in markup
+    assert "smai-floating-assistant-chip--2" in markup
+    assert "smai-floating-assistant-answer-panel--2" in markup
     assert 'type="radio"' in markup
     assert 'for="smai-assistant-cockpit-forecast-question-0"' in markup
     assert '<a class="smai-floating-assistant-chip"' not in markup

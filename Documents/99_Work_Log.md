@@ -1328,3 +1328,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Kept question-chip answer switching fully browser-local while making clicks outside the open panel uncheck the toggle and close the window without a Streamlit rerun.
 - Updated component/style tests for the new toggle/backdrop contract.
 - Verified with headless Chrome against the real generated HTML/CSS that clicking outside hits `smai-floating-assistant-backdrop` and changes the toggle from open to closed.
+
+## 2026-06-09 - SMAI Copilot chip focus and edge placement fix
+
+- Replaced question-chip CSS matching from `nth-of-type` / `nth-child` selectors to explicit numbered input / chip / panel classes, so clicking a prepared question always focuses the matching chip and answer panel.
+- Moved the floating Assistant closer to the bottom-right screen edge on desktop and narrow viewports.
+- Verified with headless Chrome against the generated HTML/CSS that clicking the second and third chips checks the matching radio input and displays the matching answer panel.

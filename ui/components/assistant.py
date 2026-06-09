@@ -293,13 +293,16 @@ def _local_question_switcher_html(
     for index, question in enumerate(questions):
         input_id = f"{base_id}-question-{index}"
         checked = " checked" if index == selected_index else ""
+        question_position = index + 1
         inputs.append(
-            '<input class="smai-floating-assistant-question-input" '
+            '<input class="smai-floating-assistant-question-input '
+            f'smai-floating-assistant-question-input--{question_position}" '
             f'type="radio" name="{html.escape(group_name, quote=True)}" '
             f'id="{html.escape(input_id, quote=True)}"{checked} />'
         )
         labels.append(
-            '<label class="smai-floating-assistant-chip" '
+            '<label class="smai-floating-assistant-chip '
+            f'smai-floating-assistant-chip--{question_position}" '
             f'for="{html.escape(input_id, quote=True)}">'
             f"{html.escape(question)}</label>"
         )
@@ -309,7 +312,8 @@ def _local_question_switcher_html(
             else _assistant_response(context, question)
         )
         panels.append(
-            '<div class="smai-floating-assistant-answer-panel">'
+            '<div class="smai-floating-assistant-answer-panel '
+            f'smai-floating-assistant-answer-panel--{question_position}">'
             f"{_assistant_response_html(answer, question)}"
             "</div>"
         )

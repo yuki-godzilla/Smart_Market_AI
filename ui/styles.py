@@ -1901,8 +1901,8 @@ body,
 
 .smai-floating-assistant {
     position: fixed;
-    right: 1.1rem;
-    bottom: 1.1rem;
+    right: 0.35rem;
+    bottom: 0.35rem;
     z-index: 9998;
     width: min(25.5rem, calc(100vw - 2rem));
     color: var(--text-primary);
@@ -2312,18 +2312,18 @@ body,
     color: var(--text-value) !important;
 }
 
-.smai-floating-assistant-question-input:nth-of-type(1):checked
-    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip:nth-child(1),
-.smai-floating-assistant-question-input:nth-of-type(2):checked
-    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip:nth-child(2),
-.smai-floating-assistant-question-input:nth-of-type(3):checked
-    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip:nth-child(3),
-.smai-floating-assistant-question-input:nth-of-type(4):checked
-    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip:nth-child(4),
-.smai-floating-assistant-question-input:nth-of-type(5):checked
-    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip:nth-child(5),
-.smai-floating-assistant-question-input:nth-of-type(6):checked
-    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip:nth-child(6) {
+.smai-floating-assistant-question-input--1:checked
+    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip--1,
+.smai-floating-assistant-question-input--2:checked
+    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip--2,
+.smai-floating-assistant-question-input--3:checked
+    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip--3,
+.smai-floating-assistant-question-input--4:checked
+    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip--4,
+.smai-floating-assistant-question-input--5:checked
+    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip--5,
+.smai-floating-assistant-question-input--6:checked
+    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip--6 {
     border-color: rgba(103, 232, 249, 0.72);
     background: rgba(8, 145, 178, 0.28);
     box-shadow: inset 0 0 0 1px rgba(103, 232, 249, 0.14);
@@ -2334,18 +2334,18 @@ body,
     display: none;
 }
 
-.smai-floating-assistant-question-input:nth-of-type(1):checked
-    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel:nth-child(1),
-.smai-floating-assistant-question-input:nth-of-type(2):checked
-    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel:nth-child(2),
-.smai-floating-assistant-question-input:nth-of-type(3):checked
-    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel:nth-child(3),
-.smai-floating-assistant-question-input:nth-of-type(4):checked
-    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel:nth-child(4),
-.smai-floating-assistant-question-input:nth-of-type(5):checked
-    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel:nth-child(5),
-.smai-floating-assistant-question-input:nth-of-type(6):checked
-    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel:nth-child(6) {
+.smai-floating-assistant-question-input--1:checked
+    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel--1,
+.smai-floating-assistant-question-input--2:checked
+    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel--2,
+.smai-floating-assistant-question-input--3:checked
+    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel--3,
+.smai-floating-assistant-question-input--4:checked
+    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel--4,
+.smai-floating-assistant-question-input--5:checked
+    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel--5,
+.smai-floating-assistant-question-input--6:checked
+    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel--6 {
     display: block;
 }
 
@@ -3046,14 +3046,14 @@ body,
     }
 
     .smai-floating-assistant {
-        right: 0.8rem;
-        bottom: 0.65rem;
-        width: min(22.5rem, calc(100vw - 1.8rem));
+        right: 0.35rem;
+        bottom: 0.35rem;
+        width: min(22.5rem, calc(100vw - 0.7rem));
     }
 
     .smai-floating-assistant-trigger {
         grid-template-columns: 3.7rem minmax(0, 1fr);
-        min-width: min(18rem, calc(100vw - 1.8rem));
+        min-width: min(18rem, calc(100vw - 0.7rem));
         padding-right: 0.68rem;
     }
 

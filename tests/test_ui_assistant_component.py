@@ -45,7 +45,8 @@ def test_floating_assistant_html_renders_contextual_question_chips():
     assert "smai-floating-assistant-chip--2" in markup
     assert "smai-floating-assistant-answer-panel--2" in markup
     assert 'type="radio"' in markup
-    assert 'for="smai-assistant-cockpit-forecast-question-0"' in markup
+    assert '<label class="smai-floating-assistant-chip smai-floating-assistant-chip--1">' in markup
+    assert "<span>AI予測インサイトをどう読む？</span>" in markup
     assert '<a class="smai-floating-assistant-chip"' not in markup
     assert "smai_assistant_question=" not in markup
     assert 'target="_blank"' not in markup

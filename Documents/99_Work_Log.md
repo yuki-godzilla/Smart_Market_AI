@@ -1334,3 +1334,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Replaced question-chip CSS matching from `nth-of-type` / `nth-child` selectors to explicit numbered input / chip / panel classes, so clicking a prepared question always focuses the matching chip and answer panel.
 - Moved the floating Assistant closer to the bottom-right screen edge on desktop and narrow viewports.
 - Verified with headless Chrome against the generated HTML/CSS that clicking the second and third chips checks the matching radio input and displays the matching answer panel.
+
+## 2026-06-09 - SMAI Copilot wrapped-chip interaction fix
+
+- Reworked prepared-question chips so each label contains its own radio input instead of targeting a separate hidden input by `for` / `id`.
+- Switched answer-panel display to `:has()` based matching, which keeps the clicked chip and visible answer aligned even when chips wrap onto a second row.
+- Changed the floating trigger from inline-grid to block-level grid and set the fixed container to `right: 0` / `bottom: 0` so the Assistant sits on the bottom-right edge.
+- Verified with headless Chrome that clicking chip 3 from chip 1 shows panel 3, clicking chip 2 from chip 3 shows panel 2, and the trigger has zero right/bottom viewport gap.

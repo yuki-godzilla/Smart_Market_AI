@@ -1901,10 +1901,10 @@ body,
 
 .smai-floating-assistant {
     position: fixed;
-    right: 0.35rem;
-    bottom: 0.35rem;
+    right: 0;
+    bottom: 0;
     z-index: 9998;
-    width: min(25.5rem, calc(100vw - 2rem));
+    width: min(25.5rem, calc(100vw - 0.5rem));
     color: var(--text-primary);
 }
 
@@ -1919,13 +1919,14 @@ body,
 .smai-floating-assistant-trigger {
     position: relative;
     z-index: 4;
-    display: inline-grid;
+    display: grid;
     grid-template-columns: 3.95rem minmax(0, 1fr);
     align-items: center;
     gap: 0.62rem;
     min-width: 14.4rem;
     max-width: min(23rem, calc(100vw - 2rem));
     margin-left: auto;
+    width: fit-content;
     border: 1px solid rgba(34, 211, 238, 0.24);
     border-radius: 999px;
     background:
@@ -2302,6 +2303,7 @@ body,
 
 .smai-floating-assistant-chip {
     cursor: pointer;
+    position: relative;
     user-select: none;
 }
 
@@ -2312,18 +2314,7 @@ body,
     color: var(--text-value) !important;
 }
 
-.smai-floating-assistant-question-input--1:checked
-    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip--1,
-.smai-floating-assistant-question-input--2:checked
-    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip--2,
-.smai-floating-assistant-question-input--3:checked
-    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip--3,
-.smai-floating-assistant-question-input--4:checked
-    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip--4,
-.smai-floating-assistant-question-input--5:checked
-    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip--5,
-.smai-floating-assistant-question-input--6:checked
-    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip--6 {
+.smai-floating-assistant-chip:has(.smai-floating-assistant-question-input:checked) {
     border-color: rgba(103, 232, 249, 0.72);
     background: rgba(8, 145, 178, 0.28);
     box-shadow: inset 0 0 0 1px rgba(103, 232, 249, 0.14);
@@ -2334,18 +2325,18 @@ body,
     display: none;
 }
 
-.smai-floating-assistant-question-input--1:checked
-    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel--1,
-.smai-floating-assistant-question-input--2:checked
-    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel--2,
-.smai-floating-assistant-question-input--3:checked
-    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel--3,
-.smai-floating-assistant-question-input--4:checked
-    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel--4,
-.smai-floating-assistant-question-input--5:checked
-    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel--5,
-.smai-floating-assistant-question-input--6:checked
-    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel--6 {
+.smai-floating-assistant-localqa:has(.smai-floating-assistant-question-input--1:checked)
+    .smai-floating-assistant-answer-panel--1,
+.smai-floating-assistant-localqa:has(.smai-floating-assistant-question-input--2:checked)
+    .smai-floating-assistant-answer-panel--2,
+.smai-floating-assistant-localqa:has(.smai-floating-assistant-question-input--3:checked)
+    .smai-floating-assistant-answer-panel--3,
+.smai-floating-assistant-localqa:has(.smai-floating-assistant-question-input--4:checked)
+    .smai-floating-assistant-answer-panel--4,
+.smai-floating-assistant-localqa:has(.smai-floating-assistant-question-input--5:checked)
+    .smai-floating-assistant-answer-panel--5,
+.smai-floating-assistant-localqa:has(.smai-floating-assistant-question-input--6:checked)
+    .smai-floating-assistant-answer-panel--6 {
     display: block;
 }
 
@@ -3046,14 +3037,14 @@ body,
     }
 
     .smai-floating-assistant {
-        right: 0.35rem;
-        bottom: 0.35rem;
-        width: min(22.5rem, calc(100vw - 0.7rem));
+        right: 0;
+        bottom: 0;
+        width: min(22.5rem, calc(100vw - 0.5rem));
     }
 
     .smai-floating-assistant-trigger {
         grid-template-columns: 3.7rem minmax(0, 1fr);
-        min-width: min(18rem, calc(100vw - 0.7rem));
+        min-width: min(18rem, calc(100vw - 0.5rem));
         padding-right: 0.68rem;
     }
 

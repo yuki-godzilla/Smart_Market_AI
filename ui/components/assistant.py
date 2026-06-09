@@ -286,7 +286,6 @@ def _local_question_switcher_html(
     selected_index = questions.index(selected_question) if selected_question in questions else 0
     base_id = _assistant_dom_id(context.context_id)
     group_name = f"{base_id}-question"
-    inputs: list[str] = []
     labels: list[str] = []
     panels: list[str] = []
 
@@ -294,17 +293,15 @@ def _local_question_switcher_html(
         input_id = f"{base_id}-question-{index}"
         checked = " checked" if index == selected_index else ""
         question_position = index + 1
-        inputs.append(
+        labels.append(
+            '<label class="smai-floating-assistant-chip '
+            f'smai-floating-assistant-chip--{question_position}">'
             '<input class="smai-floating-assistant-question-input '
             f'smai-floating-assistant-question-input--{question_position}" '
             f'type="radio" name="{html.escape(group_name, quote=True)}" '
             f'id="{html.escape(input_id, quote=True)}"{checked} />'
-        )
-        labels.append(
-            '<label class="smai-floating-assistant-chip '
-            f'smai-floating-assistant-chip--{question_position}" '
-            f'for="{html.escape(input_id, quote=True)}">'
-            f"{html.escape(question)}</label>"
+            f"<span>{html.escape(question)}</span>"
+            "</label>"
         )
         answer = (
             response
@@ -320,7 +317,6 @@ def _local_question_switcher_html(
 
     return (
         '<div class="smai-floating-assistant-localqa">'
-        f"{''.join(inputs)}"
         '<div class="smai-floating-assistant-chips">'
         f"{''.join(labels)}"
         "</div>"

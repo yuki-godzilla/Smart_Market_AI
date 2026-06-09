@@ -6163,12 +6163,16 @@ def test_ranking_display_rows_surface_advanced_forecast_as_auxiliary_context(mon
     assert frame.loc[0, "高度予測スコア"] == "54.32"
     assert frame.loc[0, "高度予測信頼度"] == "中くらい"
     assert any(row["観点"] == "AI予測インサイト" for row in detail_rows)
+    assert [row["観点"] for row in detail_rows][2] == "AI予測インサイト"
+    assert [row["観点"] for row in breakdown][3] == "AI予測インサイト"
     assert any(
         row["観点"] == "AI予測インサイト"
         and "10日 1.25%" in row["値"]
         and "スコア 54.32" in row["値"]
         for row in breakdown
     )
+    assert "AI予測インサイト" in frame.loc[0, "並べ替え理由"]
+    assert "25%" in frame.loc[0, "並べ替え理由"]
 
 
 def test_ranking_advanced_forecast_rows_use_common_period_horizon():
@@ -7238,6 +7242,20 @@ def test_ranking_decision_report_context_limits_rows_and_uses_top_symbol(monkeyp
         }
         for index in range(25)
     ]
+    rows[0].update(
+        {
+            "advanced_forecast_horizon_days": "31",
+            "advanced_forecast_predicted_return": "+2.5%",
+            "advanced_forecast_score": "61.25",
+            "advanced_forecast_confidence": "low",
+            "advanced_forecast_upside_score": "68.75",
+            "advanced_forecast_downside_score": "43.25",
+            "advanced_forecast_quality_score": "58.5",
+            "advanced_forecast_direction_note": (
+                "上昇気配・下降警戒は通常方向シグナルにAI予測インサイトを25%までブレンドしています。"
+            ),
+        }
+    )
 
     context = build_ranking_decision_report_context(
         ranked_rows=rows,
@@ -7267,11 +7285,20 @@ def test_ranking_decision_report_context_limits_rows_and_uses_top_symbol(monkeyp
     assert ranking_section.rows[0]["ranking_purpose"] == "成長重視"
     assert "note" not in ranking_section.rows[0]
     assert "screening_score" not in ranking_section.rows[0]
-    assert ranking_section.rows[0]["review_point"].startswith("スコアとデータ品質")
+    assert ranking_section.rows[0]["review_point"].startswith("AI予測インサイトの信頼度")
+    assert "AI予測インサイト: 31日 +2.5%" in ranking_section.rows[0]["ai_forecast_insight"]
     assert detail_section.rows[0]["upside_signal_score"] == "78"
     assert detail_section.rows[0]["downside_signal_score"] == "34"
+    assert "31日 +2.5%" in detail_section.rows[0]["ai_forecast_insight"]
+    assert detail_section.rows[0]["advanced_forecast_quality_score"] == "58.5"
     assert distribution_section.summary["比較銘柄数"] == "25"
+    assert distribution_section.summary["AI予測インサイトあり"] == "1/25"
+    assert any(
+        row["観点"] == "AI予測信頼度 低め" and row["件数"] == "1"
+        for row in distribution_section.rows
+    )
     assert factor_section.rows[0]["観点"] == "総合スコア"
+    assert any(row["観点"] == "AI予測上昇" for row in factor_section.rows)
     assert "銘柄メタデータ" not in [section.title for section in context.sections]
     assert "スコア分解" not in [section.title for section in context.sections]
     assert "ランキング結果" in context.title

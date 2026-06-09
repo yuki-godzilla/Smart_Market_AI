@@ -2586,9 +2586,10 @@ def ranking_purpose_row_reason(
             "方向データが不足しているため、上昇気配・下降警戒は中立値50として扱っています。"
             f"{fallback}を補助確認してください。"
         )
+    advanced_note = _ranking_advanced_forecast_reason_note(row)
     if not metrics:
-        return focus
-    return f"{' / '.join(metrics)}。{focus}"
+        return f"{focus}{advanced_note}"
+    return f"{' / '.join(metrics)}。{focus}{advanced_note}"
 
 
 def ranking_purpose_row_checkpoint(row: dict[str, str], ranking_purpose: str) -> str:
@@ -2604,6 +2605,9 @@ def ranking_purpose_row_checkpoint(row: dict[str, str], ranking_purpose: str) ->
         return "リスク確認が低めです。値動きの荒さや下落耐性を確認します。"
     if data_quality is not None and data_quality < Decimal("80"):
         return "データ品質に確認余地があります。欠損や取得期間を確認します。"
+    advanced_checkpoint = _ranking_advanced_forecast_checkpoint(row)
+    if advanced_checkpoint:
+        return advanced_checkpoint
     if ranking_purpose in {"etf_core_cost", "etf_income"}:
         return "連動指数、経費率、分配方針をETF資料で確認します。"
     return "銘柄コックピットで価格・予測・リスクを確認します。"
@@ -3672,12 +3676,14 @@ def ranking_candidate_breakdown_rows(
     ]
     advanced_value = _ranking_advanced_forecast_display(selected_row)
     if advanced_value:
-        rows.append(
+        rows.insert(
+            3,
             {
                 "観点": ADVANCED_FORECAST_CONSENSUS_LABEL,
                 "値": advanced_value,
                 "確認ポイント": (
-                    "取得期間から決まる共通予測日数のAI予測シナリオです。AI総合では信頼度で控えめに加味し、コックピットで価格レンジと合わせて確認します。"
+                    "取得期間から決まる共通予測日数のAI予測シナリオです。"
+                    "上昇気配・下降警戒へ25%まで反映し、信頼度で控えめに扱います。"
                 ),
             }
         )
@@ -3752,18 +3758,101 @@ def _ranking_direction_check(row: Mapping[str, str]) -> str:
 
 def _ranking_advanced_forecast_display(row: Mapping[str, str]) -> str:
     parts: list[str] = []
-    horizon = row.get("高度予測日数", "")
-    predicted_return = row.get("高度予測", "")
+    horizon = _ranking_advanced_forecast_horizon_display(row)
+    predicted_return = _ranking_advanced_forecast_return_display(row)
     if _ranking_has_present_display_value(predicted_return):
         prefix = f"{horizon} " if _ranking_has_present_display_value(horizon) else ""
         parts.append(f"{prefix}{predicted_return}")
-    score = row.get("高度予測スコア", "")
+    score = _ranking_advanced_forecast_score_display(row)
     if _ranking_has_present_display_value(score):
         parts.append(f"スコア {score}")
-    confidence = row.get("高度予測信頼度", "")
+    confidence = _ranking_advanced_forecast_confidence_display(row)
     if _ranking_has_present_display_value(confidence):
         parts.append(f"信頼度 {confidence}")
     return " / ".join(parts)
+
+
+def _ranking_advanced_forecast_horizon_display(row: Mapping[str, str]) -> str:
+    value = row.get("高度予測日数") or row.get("advanced_forecast_horizon_days") or ""
+    if not _ranking_has_present_display_value(value):
+        return ""
+    text = str(value).strip()
+    return text if text.endswith("日") else f"{text}日"
+
+
+def _ranking_advanced_forecast_return_display(row: Mapping[str, str]) -> str:
+    value = row.get("高度予測") or row.get("advanced_forecast_predicted_return") or ""
+    return str(value).strip()
+
+
+def _ranking_advanced_forecast_score_display(row: Mapping[str, str]) -> str:
+    value = row.get("高度予測スコア") or row.get("advanced_forecast_score") or ""
+    return str(value).strip()
+
+
+def _ranking_advanced_forecast_confidence_display(row: Mapping[str, str]) -> str:
+    value = row.get("高度予測信頼度") or row.get("advanced_forecast_confidence") or ""
+    text = str(value).strip()
+    if not text:
+        return ""
+    normalized = text.lower()
+    if normalized in {"high", "medium", "low"}:
+        return _advanced_forecast_confidence_label(normalized)
+    return _advanced_forecast_confidence_label(text)
+
+
+def _ranking_advanced_forecast_confidence_key(row: Mapping[str, str]) -> str:
+    value = row.get("advanced_forecast_confidence") or row.get("高度予測信頼度") or ""
+    text = str(value).strip().lower()
+    aliases = {
+        "高め": "high",
+        "中くらい": "medium",
+        "低め": "low",
+        "high": "high",
+        "medium": "medium",
+        "low": "low",
+    }
+    return aliases.get(text, "")
+
+
+def _ranking_advanced_forecast_reason_note(row: Mapping[str, str]) -> str:
+    if not _ranking_advanced_forecast_display(row):
+        return ""
+    horizon = _ranking_advanced_forecast_horizon_display(row)
+    predicted_return = _ranking_advanced_forecast_return_display(row)
+    confidence = _ranking_advanced_forecast_confidence_display(row)
+    target = f"{horizon} {predicted_return}".strip() or "中心予測"
+    if confidence == "低め":
+        confidence_note = "信頼度低めのため控えめに読みます。"
+    elif confidence:
+        confidence_note = f"信頼度は{confidence}です。"
+    else:
+        confidence_note = "信頼度もあわせて確認します。"
+    return (
+        f" AI予測インサイトは{target}を上昇気配・下降警戒へ25%まで反映しています。"
+        f"{confidence_note}"
+    )
+
+
+def _ranking_advanced_forecast_checkpoint(row: Mapping[str, str]) -> str:
+    if not _ranking_advanced_forecast_display(row):
+        return ""
+    if _ranking_advanced_forecast_confidence_key(row) == "low":
+        return (
+            "AI予測インサイトの信頼度が低めです。上昇気配・下降警戒は控えめに読み、"
+            "価格レンジとモデル合意度を確認します。"
+        )
+    return (
+        "AI予測インサイトを上昇気配・下降警戒へ25%まで反映しています。"
+        "中心予測と予測レンジを銘柄コックピットで確認します。"
+    )
+
+
+def _ranking_advanced_forecast_report_summary(row: Mapping[str, str]) -> str:
+    display = _ranking_advanced_forecast_display(row)
+    if not display:
+        return ""
+    return f"{ADVANCED_FORECAST_CONSENSUS_LABEL}: {display}"
 
 
 def _render_ranking_summary_cards(cards: list[dict[str, str]]) -> None:
@@ -13323,38 +13412,58 @@ def _investment_score_report_section(
     symbol: str = "",
     as_of: date | None = None,
 ) -> DecisionReportSection:
+    summary = {
+        "total_score": row.get("total_score", ""),
+        "score_band": row.get("score_band", ""),
+        "screening_score": row.get("screening_score", ""),
+        "forecast_agreement_score": row.get("forecast_agreement_score", ""),
+        "upside_signal_score": row.get("upside_signal_score", ""),
+        "downside_signal_score": row.get("downside_signal_score", ""),
+        "forecast_return_pct": row.get("forecast_return_pct", ""),
+        "data_quality_score": row.get("data_quality_score", ""),
+        "risk_signal_score": row.get("risk_signal_score", ""),
+        "warnings": row.get("warnings", ""),
+        "reasons": row.get("reasons", ""),
+    }
+    advanced_summary = _ranking_advanced_forecast_report_summary(row)
+    if advanced_summary:
+        summary["ai_forecast_insight"] = advanced_summary
+        summary["ai_forecast_direction_usage"] = (
+            "上昇気配・下降警戒へ25%まで反映。信頼度が低い場合は控えめに読む。"
+        )
+    rows = [
+        {"component": "スクリーニング", "score": row.get("screening_score", "")},
+        {
+            "component": "上昇気配",
+            "score": row.get("upside_signal_score", ""),
+        },
+        {
+            "component": "下降警戒",
+            "score": row.get("downside_signal_score", ""),
+        },
+    ]
+    if advanced_summary:
+        rows.append(
+            {
+                "component": ADVANCED_FORECAST_CONSENSUS_LABEL,
+                "score": _ranking_advanced_forecast_display(row),
+                "confirmation_point": _ranking_advanced_forecast_checkpoint(row),
+            }
+        )
+    rows.extend(
+        [
+            {"component": "データ品質", "score": row.get("data_quality_score", "")},
+            {"component": "リスク確認", "score": row.get("risk_signal_score", "")},
+        ]
+    )
     return build_report_section(
         title="スコア分解",
         source_kind=source_kind,
         provider=provider,
         symbol=symbol or None,
         as_of=as_of,
-        summary={
-            "total_score": row.get("total_score", ""),
-            "score_band": row.get("score_band", ""),
-            "screening_score": row.get("screening_score", ""),
-            "forecast_agreement_score": row.get("forecast_agreement_score", ""),
-            "upside_signal_score": row.get("upside_signal_score", ""),
-            "downside_signal_score": row.get("downside_signal_score", ""),
-            "forecast_return_pct": row.get("forecast_return_pct", ""),
-            "data_quality_score": row.get("data_quality_score", ""),
-            "risk_signal_score": row.get("risk_signal_score", ""),
-            "warnings": row.get("warnings", ""),
-            "reasons": row.get("reasons", ""),
-        },
-        rows=[
-            {"component": "スクリーニング", "score": row.get("screening_score", "")},
-            {
-                "component": "上昇気配",
-                "score": row.get("upside_signal_score", ""),
-            },
-            {
-                "component": "下降警戒",
-                "score": row.get("downside_signal_score", ""),
-            },
-            {"component": "データ品質", "score": row.get("data_quality_score", "")},
-            {"component": "リスク確認", "score": row.get("risk_signal_score", "")},
-        ],
+        summary=summary,
+        rows=rows,
     )
 
 
@@ -13517,7 +13626,7 @@ def _cockpit_report_checkpoints(
     bars: list[Bar],
 ) -> list[dict[str, str]]:
     trend = _cockpit_price_trend_summary(bars)
-    return [
+    rows = [
         {
             "area": "スコア",
             "finding": _cockpit_score_strength_summary(display_score_row, symbol_row),
@@ -13540,6 +13649,17 @@ def _cockpit_report_checkpoints(
         },
         {"area": "価格トレンド", "finding": trend["summary"], "confirmation_point": trend["check"]},
     ]
+    advanced_summary = _ranking_advanced_forecast_report_summary(display_score_row)
+    if advanced_summary:
+        rows.insert(
+            2,
+            {
+                "area": ADVANCED_FORECAST_CONSENSUS_LABEL,
+                "finding": advanced_summary,
+                "confirmation_point": _ranking_advanced_forecast_checkpoint(display_score_row),
+            },
+        )
+    return rows
 
 
 def _ranking_report_checkpoints(
@@ -13572,7 +13692,10 @@ def _ranking_report_checkpoints(
 
 def _ranking_distribution_summary(rows: list[dict[str, str]]) -> dict[str, str]:
     top_score = _decimal_from_text(rows[0].get("total_score")) if rows else None
-    twentieth_score = _decimal_from_text(rows[19].get("total_score")) if len(rows) >= 20 else None
+    twentieth_score = (
+        _decimal_from_text(rows[19].get("total_score")) if len(rows) >= 20 else None
+    )
+    advanced_count = _count_rows_with_advanced_forecast(rows)
     return {
         "比較銘柄数": str(len(rows)),
         "表示上位": str(min(len(rows), 20)),
@@ -13584,6 +13707,11 @@ def _ranking_distribution_summary(rows: list[dict[str, str]]) -> dict[str, str]:
         "平均下降警戒": _average_ranking_metric(rows, "downside_signal_score"),
         "平均データ品質": _average_ranking_metric(rows, "data_quality_score"),
         "平均リスク確認": _average_ranking_metric(rows, "risk_signal_score"),
+        "AI予測インサイトあり": f"{advanced_count}/{len(rows)}",
+        "平均AI予測信頼スコア": _average_ranking_metric(
+            rows,
+            "advanced_forecast_quality_score",
+        ),
     }
 
 
@@ -13619,6 +13747,16 @@ def _ranking_distribution_rows(rows: list[dict[str, str]]) -> list[dict[str, str
             "件数": str(sum(1 for row in rows if str(row.get("warnings", "")).strip())),
             "読み方": "高スコアでも確認順を下げるべき候補がないか見ます。",
         },
+        {
+            "観点": "AI予測インサイトあり",
+            "件数": str(_count_rows_with_advanced_forecast(rows)),
+            "読み方": "高度予測を上昇気配・下降警戒の補助材料として使える候補数です。",
+        },
+        {
+            "観点": "AI予測信頼度 低め",
+            "件数": str(_count_rows_with_advanced_forecast_confidence(rows, "low")),
+            "読み方": "予測レンジやモデル合意度を特に慎重に確認したい候補数です。",
+        },
     ]
 
 
@@ -13629,6 +13767,8 @@ def _ranking_factor_leader_rows(rows: list[dict[str, str]]) -> list[dict[str, st
         ("スクリーニング", "screening_score", False),
         ("上昇気配", "upside_signal_score", False),
         ("下降警戒", "downside_signal_score", True),
+        ("AI予測上昇", "advanced_forecast_upside_score", False),
+        ("AI予測下振れ警戒", "advanced_forecast_downside_score", True),
         ("データ品質", "data_quality_score", False),
         ("リスク確認", "risk_signal_score", False),
     ]:
@@ -13676,7 +13816,7 @@ def _ranking_group_checkpoints(
     rows: list[dict[str, str]],
     ranking_purpose: str,
 ) -> list[dict[str, str]]:
-    return [
+    checkpoints = [
         {
             "area": "上位群",
             "finding": f"{ranking_purpose}の条件で上位20件を比較対象として整理しています。",
@@ -13702,6 +13842,37 @@ def _ranking_group_checkpoints(
             "confirmation_point": "銘柄ごとの価格トレンド、決算材料、配当方針、リスクを確認してから判断します。",
         },
     ]
+    advanced_count = _count_rows_with_advanced_forecast(rows)
+    if advanced_count:
+        checkpoints.insert(
+            2,
+            {
+                "area": ADVANCED_FORECAST_CONSENSUS_LABEL,
+                "finding": (
+                    f"{advanced_count}/{len(rows)}件にAI予測インサイトがあります。"
+                    "上昇気配・下降警戒へ25%まで反映しています。"
+                ),
+                "confirmation_point": (
+                    "信頼度が低い候補は順位を過信せず、中心予測、予測レンジ、モデル合意度を確認します。"
+                ),
+            },
+        )
+    return checkpoints
+
+
+def _count_rows_with_advanced_forecast(rows: list[dict[str, str]]) -> int:
+    return sum(1 for row in rows if _ranking_advanced_forecast_display(row))
+
+
+def _count_rows_with_advanced_forecast_confidence(
+    rows: list[dict[str, str]],
+    confidence_key: str,
+) -> int:
+    return sum(
+        1
+        for row in rows
+        if _ranking_advanced_forecast_confidence_key(row) == confidence_key
+    )
 
 
 def _ranking_metadata_coverage_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -13865,7 +14036,7 @@ def _ranking_report_row(
         or symbol_name(symbol)
         or ""
     )
-    return {
+    report_row = {
         "rank": row.get("rank", ""),
         "symbol": symbol,
         "name": name,
@@ -13874,10 +14045,14 @@ def _ranking_report_row(
         "score_band": row.get("score_band", ""),
         "review_point": _ranking_report_review_point(row, symbol_row),
     }
+    advanced_summary = _ranking_advanced_forecast_report_summary(row)
+    if advanced_summary:
+        report_row["ai_forecast_insight"] = advanced_summary
+    return report_row
 
 
 def _ranking_report_detail_row(row: dict[str, str]) -> dict[str, str]:
-    return {
+    detail_row = {
         "rank": row.get("rank", ""),
         "symbol": row.get("symbol", ""),
         "screening_score": row.get("screening_score", ""),
@@ -13888,6 +14063,30 @@ def _ranking_report_detail_row(row: dict[str, str]) -> dict[str, str]:
         "risk_signal_score": row.get("risk_signal_score", ""),
         "warnings": row.get("warnings", ""),
     }
+    advanced_summary = _ranking_advanced_forecast_report_summary(row)
+    if advanced_summary:
+        detail_row.update(
+            {
+                "ai_forecast_insight": advanced_summary,
+                "advanced_forecast_upside_score": row.get(
+                    "advanced_forecast_upside_score",
+                    "",
+                ),
+                "advanced_forecast_downside_score": row.get(
+                    "advanced_forecast_downside_score",
+                    "",
+                ),
+                "advanced_forecast_quality_score": row.get(
+                    "advanced_forecast_quality_score",
+                    "",
+                ),
+                "advanced_forecast_direction_note": row.get(
+                    "advanced_forecast_direction_note",
+                    "",
+                ),
+            }
+        )
+    return detail_row
 
 
 def _ranking_report_review_point(
@@ -13906,6 +14105,9 @@ def _ranking_report_review_point(
     quality = _decimal_from_text(row.get("data_quality_score"))
     if quality is not None and quality < Decimal("80"):
         return "データ品質に確認余地があります。取得期間や欠損項目を確認します。"
+    advanced_checkpoint = _ranking_advanced_forecast_checkpoint(row)
+    if advanced_checkpoint:
+        return advanced_checkpoint
     if symbol_row is not None:
         per = ranking_fundamental_metric_value("per", symbol_row.get("per"))
         pbr = ranking_fundamental_metric_value("pbr", symbol_row.get("pbr"))
@@ -15427,24 +15629,25 @@ def ranking_score_detail_rows(ranking_row: dict[str, str]) -> list[dict[str, str
             "内容": " / ".join(component_parts),
             "確認ポイント": "どの観点が順位に効いているかを確認します。",
         },
-        {
-            "観点": "評価材料の信頼度",
-            "内容": " / ".join(confidence_parts),
-            "確認ポイント": "投資魅力度ではなく、評価材料がどれだけそろっているかを確認します。",
-        },
         *(
             [
                 {
                     "観点": ADVANCED_FORECAST_CONSENSUS_LABEL,
                     "内容": advanced_value,
                     "確認ポイント": (
-                        "取得期間から決まる共通予測日数のAI予測シナリオです。AI総合では信頼度で控えめに加味し、Cockpitの価格レンジと合わせて確認します。"
+                        "取得期間から決まる共通予測日数のAI予測シナリオです。"
+                        "上昇気配・下降警戒へ25%まで反映し、Cockpitの価格レンジと合わせて確認します。"
                     ),
                 }
             ]
             if advanced_value
             else []
         ),
+        {
+            "観点": "評価材料の信頼度",
+            "内容": " / ".join(confidence_parts),
+            "確認ポイント": "投資魅力度ではなく、評価材料がどれだけそろっているかを確認します。",
+        },
         {
             "観点": "基礎指標",
             "内容": " / ".join(fundamental_parts),

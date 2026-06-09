@@ -1256,3 +1256,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Changed beginner-facing wording from model agreement / direction-count style labels to `予測ばらつき`, `モデル合意度`, `過去検証の方向一致率`, and `誤差改善`, while keeping detailed RMSE values available in folded validation rows.
 - Simplified the default price / forecast chart toward actual price, `AI予測インサイト`, and the prediction range band; individual advanced and simple forecast lines remain available only when explicitly selected or in detail context.
 - Updated README, roadmap, operations guide, project context, and deterministic UI tests for the simplified first-view behavior.
+
+## 2026-06-09 - Phase 23 closeout Ranking and report wording slice
+
+- Unified Ranking reason text around `AI予測インサイト`, making it explicit that advanced forecast signals are blended into `上昇気配` / `下降警戒` up to 25% and should be read conservatively when confidence is low.
+- Moved `AI予測インサイト` near the direction-signal rows in selected-candidate breakdown and score detail rows so the display order matches how the signal affects Ranking.
+- Added `AI予測インサイト` context to Cockpit / Ranking Decision Report sections, including score decomposition, ranking context, detail rows, distribution counts, factor leaders, and group checkpoints.
+- Added deterministic UI/report tests for the new Ranking display order and Decision Report advanced-forecast fields.

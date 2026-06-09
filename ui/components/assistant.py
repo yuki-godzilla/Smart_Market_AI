@@ -263,7 +263,8 @@ def _question_chip_html(context: SmaiAssistantContext, question: str) -> str:
     href = _assistant_question_href(context.context_id, question)
     return (
         '<a class="smai-floating-assistant-chip" '
-        f'href="{html.escape(href, quote=True)}">{html.escape(question)}</a>'
+        f'href="{html.escape(href, quote=True)}" target="_self">'
+        f"{html.escape(question)}</a>"
     )
 
 
@@ -271,7 +272,8 @@ def _context_link_html(context: SmaiAssistantContext) -> str:
     href = _assistant_context_href(context.context_id)
     return (
         '<a class="smai-floating-assistant-context-link" '
-        f'href="{html.escape(href, quote=True)}">{html.escape(context.section_label)}</a>'
+        f'href="{html.escape(href, quote=True)}" target="_self">'
+        f"{html.escape(context.section_label)}</a>"
     )
 
 

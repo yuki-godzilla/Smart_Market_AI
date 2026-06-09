@@ -1294,3 +1294,8 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Replaced the trigger image from the full cutout to the face-up mascot thumbnail, removed artificial face, hand, foot, gaze, and sparkle overlays, and kept only restrained breathing / hover motion plus a subtle avatar ring.
 - Tightened the pill width, avatar size, border opacity, hover lift, and shadow so the trigger reads as a calm assistant entry point instead of a large decorative capsule.
 - Captured static component previews for normal, high-zoom, mobile-width, forecast, ranking, and open-panel states with Chrome headless; Streamlit full-app headless screenshot still stopped at the loading skeleton, so component-level visual checks were used for the UI sprint.
+
+## 2026-06-09 - SMAI Copilot same-tab chip navigation
+
+- Added explicit `target="_self"` to floating Copilot question chips and related-section links so asking the assistant stays in the current app tab instead of opening a separate tab.
+- Added component/AppTest coverage that Copilot links render with same-tab targets and do not include `target="_blank"`.

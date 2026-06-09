@@ -26,6 +26,8 @@ def test_floating_assistant_html_renders_contextual_question_chips():
     assert "smai-assistant-holo-range" in markup
     assert "smai_assistant_context=cockpit_forecast" in markup
     assert "AI%E4%BA%88%E6%B8%AC" in markup
+    assert 'target="_self"' in markup
+    assert 'target="_blank"' not in markup
     assert "data:image/webp;base64," in markup
 
 
@@ -84,6 +86,7 @@ def test_floating_assistant_html_lists_related_contexts():
     assert "関連セクション" in markup
     assert "深掘り候補" in markup
     assert "smai_assistant_context=ranking_deep_dive" in markup
+    assert 'target="_self"' in markup
 
 
 def test_floating_assistant_html_uses_ranking_visual_for_ranking_context():

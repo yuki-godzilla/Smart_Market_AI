@@ -10381,8 +10381,8 @@ def _render_price_forecast_hero(
 ) -> None:
     st.subheader("02 価格・予測")
     chart_currency = preview.bars[0].symbol.currency if preview.bars else ""
-    display_forecast_rows = filter_forecast_chart_rows(forecast_rows, set())
-    _render_forecast_chart_filters(display_forecast_rows)
+    selected_chart_series = _render_forecast_chart_filters(forecast_rows)
+    display_forecast_rows = filter_forecast_chart_rows(forecast_rows, selected_chart_series)
     _render_advanced_forecast_status(advanced_forecast_rows, horizon_days=forecast_horizon_days)
     _render_advanced_forecast_consensus_cards(advanced_forecast_consensus_rows)
     _render_market_chart(
@@ -10424,16 +10424,20 @@ def _render_forecast_model_detail_expanders(
         latest_date=latest_date,
         include_standard_models=False,
     )
+    if advanced_model_cards:
+        st.markdown("##### 高度予測モデル")
+        st.caption(
+            "個別モデルの見方です。AI予測インサイトの内訳として、方向やレンジの割れ方を確認します。"
+        )
+        _render_forecast_model_comparison_cards(
+            forecast_model_comparison_rows(advanced_model_cards)
+        )
+        st.markdown(forecast_model_cards_html(advanced_model_cards), unsafe_allow_html=True)
     with st.expander("高度予測モデルの詳細を見る", expanded=False):
         st.caption(
             "モデル別の予測変化率、検証指標、特徴量メモです。"
-            "AI予測インサイトで気になった点を分解して確認します。"
+            "カードで気になった点を表で分解して確認します。"
         )
-        if advanced_model_cards:
-            _render_forecast_model_comparison_cards(
-                forecast_model_comparison_rows(advanced_model_cards)
-            )
-            st.markdown(forecast_model_cards_html(advanced_model_cards), unsafe_allow_html=True)
         _render_table(
             advanced_forecast_display_rows(advanced_forecast_rows),
             "高度予測を表示するには、もう少し長い価格データが必要です。",
@@ -10740,10 +10744,10 @@ def _advanced_forecast_insight_card_html(row: Mapping[str, str]) -> str:
         "AI総合と方向シグナルでは、信頼度を見ながら控えめに使います。"
     )
     metrics = (
-        ("予測期間", f"{horizon}日" if horizon else "未計算"),
         ("信頼度", confidence),
         ("モデル合意度", agreement_count),
         ("予測ばらつき", dispersion),
+        ("予測期間", f"{horizon}日" if horizon else "未計算"),
     )
     metric_html = "".join(
         '<div style="min-width:0;padding:0.46rem 0.55rem;border-radius:0.45rem;'
@@ -10778,20 +10782,28 @@ def _advanced_forecast_insight_card_html(row: Mapping[str, str]) -> str:
         '<div class="smai-insight-kicker">結論</div>'
         f'<div class="smai-insight-result">{html.escape(conclusion)}</div>'
         "</div>"
-        '<div class="smai-insight-forecast">'
-        f"<span>{html.escape(ADVANCED_FORECAST_CONSENSUS_PREDICTION_LABEL)}</span>"
-        f"<strong>{html.escape(value)}</strong>"
         "</div>"
+        '<div class="smai-insight-center-forecast" '
+        'title="高度予測モデルの統合結果です。将来の値動きを保証するものではありません。">'
+        "<span>中心予測</span>"
+        f"<strong>{html.escape(value)}</strong>"
+        "<small>高度予測モデルの統合結果</small>"
+        "</div>"
+        '<div class="smai-insight-price-row">'
+        f'<div><span>予測価格</span><strong>{html.escape(row.get("forecast_close") or "未計算")}</strong></div>'
+        f"<div><span>予測レンジ</span><strong>{html.escape(price_range)}</strong></div>"
         "</div>"
         f'<div class="smai-insight-range" aria-label="予測レンジ {html.escape(range_display, quote=True)}">'
-        f"<div><span>弱気</span><strong>{html.escape(lower)}</strong></div>"
-        f"<div><span>中央値</span><strong>{html.escape(value)}</strong></div>"
-        f"<div><span>強気</span><strong>{html.escape(upper)}</strong></div>"
+        '<div data-case="downside" '
+        'title="過去のばらつきやモデル差を考慮した慎重側の見方です。">'
+        f"<span>下振れ予測</span><strong>{html.escape(lower)}</strong></div>"
+        '<div data-case="center" '
+        'title="複数の高度予測モデルを統合した中心的な見通しです。">'
+        f"<span>中心予測</span><strong>{html.escape(value)}</strong></div>"
+        '<div data-case="upside" '
+        'title="モデル上の上方向シナリオです。実現を保証するものではありません。">'
+        f"<span>上振れ予測</span><strong>{html.escape(upper)}</strong></div>"
         "</div>"
-        f'<div style="color:{THEME_COLORS["text_secondary"]};font-size:0.88rem;'
-        'font-weight:700;margin-top:0.45rem;">'
-        f'予測価格 {html.escape(row.get("forecast_close") or "未計算")} / '
-        f"予測価格レンジ {html.escape(price_range)}</div>"
         '<div class="smai-score-track" aria-hidden="true">'
         f'<div class="smai-score-fill" style="--smai-score-width: {safe_progress}%"></div>'
         "</div>"
@@ -10830,11 +10842,29 @@ def _render_advanced_forecast_cards(rows: list[dict[str, str]]) -> None:
             )
 
 
-def _render_forecast_chart_filters(rows: list[dict[str, str]]) -> None:
+def _render_forecast_chart_filters(rows: list[dict[str, str]]) -> set[str]:
     options = forecast_chart_series_options(rows)
     if not options:
-        return
+        return set()
+    selected_series = default_forecast_chart_series(options)
+    advanced_options = [option for option in options if option["kind"] == "advanced"]
+    if not advanced_options:
+        return selected_series
     st.markdown("###### チャート表示")
+    st.caption(
+        "AI予測インサイトは常時表示します。個別の高度予測モデルはチェックするとチャートに追加され、表示後は凡例クリックで薄くできます。"
+    )
+    columns = st.columns(min(4, len(advanced_options)))
+    for index, option in enumerate(advanced_options):
+        with columns[index % len(columns)]:
+            if st.checkbox(
+                option["label"],
+                value=bool(option.get("default")),
+                key=f"forecast_chart_series_{option['series']}",
+                help=option["help"],
+            ):
+                selected_series.add(option["series"])
+    return selected_series
 
 
 def _render_forecast_model_comparison_cards(rows: list[dict[str, str]]) -> None:
@@ -14832,9 +14862,13 @@ def _advanced_forecast_confidence_label(value: str) -> str:
 
 
 def _advanced_forecast_card_tone(row: dict[str, str]) -> str:
+    confidence = str(row.get("confidence", "")).strip()
+    dispersion = _advanced_forecast_dispersion_label(row)
+    if confidence == "low" or dispersion == "大きめ":
+        return "caution"
     predicted_return = _decimal_from_text(row.get("predicted_return", ""))
     if predicted_return is None:
-        return "neutral"
+        return "caution"
     if predicted_return > 0:
         return "success"
     if predicted_return < 0:

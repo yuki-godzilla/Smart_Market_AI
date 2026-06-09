@@ -126,6 +126,8 @@ from ui.app import (
     _render_cockpit_research_summary,
     _render_company_research_summary_panel,
     _render_decision_report_download_buttons,
+    _render_forecast_chart_filters,
+    _render_forecast_model_detail_expanders,
     _render_market_chart,
     _render_price_forecast_hero,
     _render_research_operation_card,
@@ -8308,6 +8310,7 @@ def test_advanced_forecast_insight_card_html_is_information_dense():
     )
 
     assert "AI予測インサイト" in html
+    assert 'data-tone="caution"' in html
     assert "統合予測" in _advanced_forecast_consensus_help_text({"model_count": "4"})
     assert "結論" in html
     assert "中立寄り。予測レンジが広く判断保留" in html
@@ -8318,10 +8321,19 @@ def test_advanced_forecast_insight_card_html_is_information_dense():
     assert "4モデル中2モデルが中立寄り" in html
     assert "予測ばらつき" in html
     assert "大きめ" in html
-    assert "弱気" in html
-    assert "中央値" in html
-    assert "強気" in html
-    assert "予測価格レンジ 2580.3〜3120.1" in html
+    assert "中心予測" in html
+    assert "高度予測モデルの統合結果" in html
+    assert "予測価格" in html
+    assert "予測レンジ" in html
+    assert "2580.3〜3120.1" in html
+    assert "下振れ予測" in html
+    assert "上振れ予測" in html
+    assert "過去のばらつきやモデル差を考慮した慎重側の見方" in html
+    assert "複数の高度予測モデルを統合した中心的な見通し" in html
+    assert "モデル上の上方向シナリオ" in html
+    assert "弱気" not in html
+    assert "中央値" not in html
+    assert "強気" not in html
     assert "信頼度低め" in html
     assert "レンジ -8.58%〜+10.48%" in html
     assert "平均RMSE" not in html
@@ -8531,6 +8543,123 @@ def test_forecast_chart_filter_options_hide_naive_by_default():
     assert "advanced_linear_5d" not in fallback_filtered[1]
     assert "advanced_quantile_5d" not in fallback_filtered[1]
     assert "advanced_quantile_20d" not in fallback_filtered[1]
+
+
+def test_render_forecast_chart_filters_checks_individual_advanced_models(monkeypatch):
+    rows = [
+        {
+            "ts": "2026-06-07T00:00:00+00:00",
+            "close": "100",
+        },
+        {
+            "ts": "2026-06-12T00:00:00+00:00",
+            "close": "",
+            "advanced_consensus_5d": "102.5",
+            "advanced_linear_5d": "103",
+            "advanced_tree_sklearn_5d": "104",
+            "advanced_quantile_5d": "105",
+        },
+    ]
+    markdown_calls: list[str] = []
+    caption_calls: list[str] = []
+    checkbox_calls: list[tuple[str, bool, str, str]] = []
+
+    monkeypatch.setattr(
+        "ui.app.st.markdown",
+        lambda text, *_, **__: markdown_calls.append(text),
+    )
+    monkeypatch.setattr(
+        "ui.app.st.caption",
+        lambda text, *_, **__: caption_calls.append(text),
+    )
+    monkeypatch.setattr(
+        "ui.app.st.columns",
+        lambda count, *_, **__: [_FakeExpander() for _ in range(count)],
+    )
+
+    def fake_checkbox(label: str, *, value: bool, key: str, help: str, **_: object) -> bool:
+        checkbox_calls.append((label, value, key, help))
+        return "ツリーモデル" in label
+
+    monkeypatch.setattr("ui.app.st.checkbox", fake_checkbox)
+
+    selected = _render_forecast_chart_filters(rows)
+
+    assert selected == {"advanced_consensus_5d", "advanced_tree_sklearn_5d"}
+    assert markdown_calls == ["###### チャート表示"]
+    assert "個別の高度予測モデルはチェックするとチャートに追加" in caption_calls[0]
+    assert [call[0] for call in checkbox_calls] == [
+        "高度予測: 線形モデル 5日",
+        "高度予測: ツリーモデル 5日",
+        "高度予測: レンジモデル 5日",
+    ]
+    assert all(call[1] is False for call in checkbox_calls)
+    assert all(call[2].startswith("forecast_chart_series_") for call in checkbox_calls)
+
+
+def test_render_forecast_model_detail_keeps_advanced_cards_visible(monkeypatch):
+    advanced_rows = [
+        {
+            "adapter": "advanced_linear",
+            "horizon_days": "31",
+            "forecast_close": "105",
+            "predicted_return": "5.00%",
+            "direction_agreement_score": "75",
+            "confidence": "medium",
+        },
+        {
+            "adapter": "advanced_tree_sklearn",
+            "horizon_days": "31",
+            "forecast_close": "101",
+            "predicted_return": "1.00%",
+            "direction_agreement_score": "60",
+            "confidence": "high",
+        },
+    ]
+    markdown_calls: list[str] = []
+    caption_calls: list[str] = []
+    table_labels: list[str] = []
+    metric_labels: list[str] = []
+
+    monkeypatch.setattr(
+        "ui.app.st.markdown",
+        lambda text, *_, **__: markdown_calls.append(text),
+    )
+    monkeypatch.setattr(
+        "ui.app.st.caption",
+        lambda text, *_, **__: caption_calls.append(text),
+    )
+    monkeypatch.setattr("ui.app.st.expander", lambda *_, **__: _FakeExpander())
+    monkeypatch.setattr(
+        "ui.app.st.columns",
+        lambda count, *_, **__: [_FakeExpander() for _ in range(count)],
+    )
+    monkeypatch.setattr(
+        "ui.app.render_metric_card",
+        lambda label, *_, **__: metric_labels.append(label),
+    )
+    monkeypatch.setattr(
+        "ui.app._render_table",
+        lambda *args, **__: table_labels.append(args[1] if len(args) > 1 else ""),
+    )
+
+    _render_forecast_model_detail_expanders(
+        [],
+        advanced_rows,
+        [],
+        latest_close=Decimal("100"),
+        latest_date=date(2026, 6, 8),
+    )
+
+    assert "##### 高度予測モデル" in markdown_calls
+    assert any("AI予測インサイトの内訳" in text for text in caption_calls)
+    assert any("高度予測: 線形モデル 31日" in text for text in markdown_calls)
+    assert {"上方向 / 下方向", "モデル間の開き", "方向感"}.issubset(metric_labels)
+    assert table_labels == [
+        "高度予測を表示するには、もう少し長い価格データが必要です。",
+        "検証指標を表示できるAI予測インサイトがありません。",
+        "比較に使える予測検証データがありません。",
+    ]
 
 
 def test_forecast_focus_chart_rows_keeps_recent_actual_and_forecast_area():

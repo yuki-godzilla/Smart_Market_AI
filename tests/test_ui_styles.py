@@ -62,7 +62,12 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert "@keyframes investment-news-ticker-scroll" in SMAI_GLOBAL_CSS
     assert ".smai-insight" in SMAI_GLOBAL_CSS
     assert ".smai-insight-hero" in SMAI_GLOBAL_CSS
+    assert ".smai-insight-center-forecast" in SMAI_GLOBAL_CSS
+    assert ".smai-insight-price-row" in SMAI_GLOBAL_CSS
     assert ".smai-insight-range" in SMAI_GLOBAL_CSS
+    assert '.smai-insight-range > div[data-case="downside"]' in SMAI_GLOBAL_CSS
+    assert '.smai-insight-range > div[data-case="center"]' in SMAI_GLOBAL_CSS
+    assert '.smai-insight-range > div[data-case="upside"]' in SMAI_GLOBAL_CSS
     assert ".smai-ranking-condition-card" in SMAI_GLOBAL_CSS
     assert ".smai-ranking-weight-grid" in SMAI_GLOBAL_CSS
     assert "@media print" in SMAI_GLOBAL_CSS

@@ -1908,26 +1908,17 @@ body,
     color: var(--text-primary);
 }
 
-.smai-floating-assistant:not([open]) {
-    width: auto;
-}
-
-.smai-floating-assistant[open] {
-    display: flex;
-    flex-direction: column-reverse;
-    max-height: calc(100vh - 2.2rem);
-}
-
-.smai-floating-assistant summary {
-    list-style: none;
-}
-
-.smai-floating-assistant summary::-webkit-details-marker {
-    display: none;
+.smai-floating-assistant-toggle {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
 }
 
 .smai-floating-assistant-trigger {
     position: relative;
+    z-index: 4;
     display: inline-grid;
     grid-template-columns: 3.95rem minmax(0, 1fr);
     align-items: center;
@@ -1951,18 +1942,17 @@ body,
         box-shadow 160ms ease;
 }
 
-.smai-floating-assistant[open] .smai-floating-assistant-trigger::before {
-    content: "";
+.smai-floating-assistant-backdrop {
+    display: none;
     position: fixed;
     inset: 0;
-    z-index: 0;
+    z-index: 1;
     background: transparent;
     cursor: default;
 }
 
-.smai-floating-assistant[open] .smai-floating-assistant-trigger > * {
-    position: relative;
-    z-index: 2;
+.smai-floating-assistant-toggle:checked ~ .smai-floating-assistant-backdrop {
+    display: block;
 }
 
 .smai-floating-assistant-trigger:hover {
@@ -2213,6 +2203,7 @@ body,
 }
 
 .smai-floating-assistant-body {
+    display: none;
     position: relative;
     z-index: 3;
     max-height: min(66vh, 34rem);
@@ -2230,6 +2221,10 @@ body,
     font-size: 0.84rem;
     margin-bottom: 0.62rem;
     padding: 0.92rem;
+}
+
+.smai-floating-assistant-toggle:checked ~ .smai-floating-assistant-body {
+    display: block;
 }
 
 .smai-floating-assistant-head {

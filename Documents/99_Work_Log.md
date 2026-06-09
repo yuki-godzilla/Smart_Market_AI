@@ -1321,3 +1321,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Expanded `TemplateAssistantService` with question-focus guidance so prepared chips change not only the lead answer but also `見る材料`, `注意点`, and `次に確認すること`.
 - Added specific guidance sets for 投資レーダー news flow / related symbols / source freshness, Ranking reasons / signal reading / low-confidence data, Rebalance drift / proposed trades / risk, Settings provider / local documents / cache, and Cockpit forecast / direction / report reading.
 - Verified the news Copilot HTML contains distinct materials for the three visible chips, and kept checks deterministic without network or LLM calls.
+
+## 2026-06-09 - SMAI Copilot outside-click close fix
+
+- Replaced the floating Copilot panel open/close mechanism from `details` / `summary` to a local checkbox toggle plus transparent full-screen backdrop label.
+- Kept question-chip answer switching fully browser-local while making clicks outside the open panel uncheck the toggle and close the window without a Streamlit rerun.
+- Updated component/style tests for the new toggle/backdrop contract.
+- Verified with headless Chrome against the real generated HTML/CSS that clicking outside hits `smai-floating-assistant-backdrop` and changes the toggle from open to closed.

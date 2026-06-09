@@ -55,7 +55,12 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert ".smai-copilot-panel" in SMAI_GLOBAL_CSS
     assert ".smai-floating-assistant" in SMAI_GLOBAL_CSS
     assert ".smai-floating-assistant-trigger" in SMAI_GLOBAL_CSS
-    assert ".smai-floating-assistant[open] .smai-floating-assistant-trigger::before" in (
+    assert ".smai-floating-assistant-toggle" in SMAI_GLOBAL_CSS
+    assert ".smai-floating-assistant-backdrop" in SMAI_GLOBAL_CSS
+    assert ".smai-floating-assistant-toggle:checked ~ .smai-floating-assistant-backdrop" in (
+        SMAI_GLOBAL_CSS
+    )
+    assert ".smai-floating-assistant-toggle:checked ~ .smai-floating-assistant-body" in (
         SMAI_GLOBAL_CSS
     )
     assert ".smai-floating-assistant-localqa" in SMAI_GLOBAL_CSS
@@ -97,7 +102,6 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert "break-inside: avoid;" in SMAI_GLOBAL_CSS
     assert "@keyframes smai-copilot-float" in SMAI_GLOBAL_CSS
     assert "translateY(-2px) scale(1.008)" in SMAI_GLOBAL_CSS
-    assert "max-height: calc(100vh - 2.2rem);" in SMAI_GLOBAL_CSS
     assert "max-height: min(66vh, 34rem);" in SMAI_GLOBAL_CSS
     assert "cursor: default;" in SMAI_GLOBAL_CSS
     assert ".smai-app-logo" in SMAI_GLOBAL_CSS

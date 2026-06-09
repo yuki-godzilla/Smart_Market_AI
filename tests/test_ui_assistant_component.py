@@ -26,6 +26,12 @@ def test_floating_assistant_html_renders_contextual_question_chips():
     markup = floating_assistant_html(context, open_panel=True)
 
     assert 'class="smai-floating-assistant"' in markup
+    assert "<details" not in markup
+    assert "<summary" not in markup
+    assert 'class="smai-floating-assistant-toggle" type="checkbox"' in markup
+    assert 'id="smai-assistant-cockpit-forecast-open" checked' in markup
+    assert 'class="smai-floating-assistant-backdrop"' in markup
+    assert 'for="smai-assistant-cockpit-forecast-open"' in markup
     assert "SMAI Copilot" in markup
     assert "AI予測インサイト" in markup
     assert "予測の読み方を聞く" in markup
@@ -41,6 +47,23 @@ def test_floating_assistant_html_renders_contextual_question_chips():
     assert "smai_assistant_question=" not in markup
     assert 'target="_blank"' not in markup
     assert "data:image/webp;base64," in markup
+
+
+def test_floating_assistant_html_keeps_panel_closed_by_default():
+    context = SmaiAssistantContext(
+        context_id="ranking_setup",
+        page_key="ranking",
+        page_label="銘柄ランキング",
+        section_key="setup",
+        section_label="ランキング作成前",
+        lead="条件を確認します。",
+    )
+
+    markup = floating_assistant_html(context)
+
+    assert 'id="smai-assistant-ranking-setup-open" checked' not in markup
+    assert 'class="smai-floating-assistant-backdrop"' in markup
+    assert 'for="smai-assistant-ranking-setup-open"' in markup
 
 
 def test_floating_assistant_html_escapes_context_and_answer_copy():

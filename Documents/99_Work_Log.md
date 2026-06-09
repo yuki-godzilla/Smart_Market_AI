@@ -1263,3 +1263,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Moved `AI予測インサイト` near the direction-signal rows in selected-candidate breakdown and score detail rows so the display order matches how the signal affects Ranking.
 - Added `AI予測インサイト` context to Cockpit / Ranking Decision Report sections, including score decomposition, ranking context, detail rows, distribution counts, factor leaders, and group checkpoints.
 - Added deterministic UI/report tests for the new Ranking display order and Decision Report advanced-forecast fields.
+
+## 2026-06-09 - Yahoo single-symbol OHLCV stability fix
+
+- Changed the Yahoo market-data adapter so single-symbol Cockpit OHLCV fetches use `Ticker.history` first instead of batch `download`, reducing false `possibly delisted` failures from the batch path.
+- Added a retry path for Yahoo `possibly delisted` / `no price data` exceptions: retry with `raise_errors=False`, and for daily requests also try the non-expanded end date before surfacing a no-data error.
+- Added a one-time same-parameter retry for single-symbol DNS / curl timeout failures so transient Yahoo resolution errors are absorbed before surfacing `request failed`.
+- Kept multi-symbol Ranking fetch on the batch path for speed.
+- Added deterministic provider tests for single-symbol history-first behavior, empty-history errors, batch retry behavior, the `6758.T`-style no-price-data retry path, and transient DNS timeout retry.

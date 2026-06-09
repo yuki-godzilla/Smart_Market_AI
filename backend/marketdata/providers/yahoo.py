@@ -55,7 +55,15 @@ class YahooMarketDataProviderAdapter:
         interval: Interval,
         operation: str,
     ) -> list[Bar]:
-        try:
+        if len(symbols) == 1:
+            frame = await self._history(
+                symbols[0],
+                start=start,
+                end=end,
+                interval=interval,
+                operation=operation,
+            )
+        else:
             frame = await self._download_history(
                 symbols,
                 start=start,
@@ -63,22 +71,6 @@ class YahooMarketDataProviderAdapter:
                 interval=interval,
                 operation=operation,
             )
-        except ProviderUnavailableError as batch_exc:
-            if len(symbols) != 1 or not _is_empty_batch_download_error(batch_exc):
-                raise
-            raw_symbol = symbols[0]
-            try:
-                frame = await self._history(
-                    raw_symbol,
-                    start=start,
-                    end=end,
-                    interval=interval,
-                    operation=f"{operation}_single_history_fallback",
-                )
-            except ProviderUnavailableError as fallback_exc:
-                if not _is_empty_single_history_error(fallback_exc):
-                    raise fallback_exc from batch_exc
-                raise batch_exc from fallback_exc
         bars: list[Bar] = []
         for raw_symbol in symbols:
             symbol_frame = _download_symbol_frame(frame, raw_symbol)
@@ -236,20 +228,59 @@ class YahooMarketDataProviderAdapter:
         try:
             frame = await asyncio.to_thread(_call_yfinance_silently, ticker.history, **kwargs)
         except Exception as exc:
+            if _is_yahoo_no_price_data_error(exc):
+                retry_frame = await self._retry_history_after_no_price_data(
+                    ticker,
+                    kwargs,
+                    interval=interval,
+                    end=end,
+                )
+                if retry_frame is not None:
+                    return retry_frame
+                raise ProviderUnavailableError(
+                    "Yahoo market-data provider returned no data",
+                    details=self._provider_details(
+                        operation=operation,
+                        symbol=raw_symbol,
+                        interval=interval,
+                        start=start.isoformat() if start else None,
+                        end=end.isoformat() if end else None,
+                        period=period,
+                        retry_reason="no_price_data",
+                        error=str(exc),
+                    ),
+                ) from exc
+            retry_reason = None
+            if _is_yahoo_transient_request_error(exc):
+                retry_reason = "transient_request"
+                retry_frame = await self._retry_history_after_transient_request_error(ticker, kwargs)
+                if retry_frame is not None:
+                    return retry_frame
+            request_details = {
+                "operation": operation,
+                "symbol": raw_symbol,
+                "interval": interval,
+                "start": start.isoformat() if start else None,
+                "end": end.isoformat() if end else None,
+                "period": period,
+                "error": str(exc),
+            }
+            if retry_reason is not None:
+                request_details["retry_reason"] = retry_reason
             raise ProviderUnavailableError(
                 "Yahoo market-data provider request failed",
-                details=self._provider_details(
-                    operation=operation,
-                    symbol=raw_symbol,
-                    interval=interval,
-                    start=start.isoformat() if start else None,
-                    end=end.isoformat() if end else None,
-                    period=period,
-                    error=str(exc),
-                ),
+                details=self._provider_details(**request_details),
             ) from exc
 
         if getattr(frame, "empty", True):
+            retry_frame = await self._retry_history_after_no_price_data(
+                ticker,
+                kwargs,
+                interval=interval,
+                end=end,
+            )
+            if retry_frame is not None:
+                return retry_frame
             raise ProviderUnavailableError(
                 "Yahoo market-data provider returned no data",
                 details=self._provider_details(
@@ -263,6 +294,48 @@ class YahooMarketDataProviderAdapter:
             )
         _validate_history_columns(frame, operation=operation, symbol=raw_symbol)
         return frame
+
+    async def _retry_history_after_transient_request_error(
+        self,
+        ticker: Any,
+        kwargs: dict[str, object],
+    ) -> Any | None:
+        try:
+            frame = await asyncio.to_thread(
+                _call_yfinance_silently,
+                ticker.history,
+                **kwargs,
+            )
+        except Exception:
+            return None
+        if not getattr(frame, "empty", True):
+            return frame
+        return None
+
+    async def _retry_history_after_no_price_data(
+        self,
+        ticker: Any,
+        kwargs: dict[str, object],
+        *,
+        interval: Interval,
+        end: datetime | None,
+    ) -> Any | None:
+        for retry_kwargs in _history_retry_kwargs_after_no_price_data(
+            kwargs,
+            interval=interval,
+            end=end,
+        ):
+            try:
+                frame = await asyncio.to_thread(
+                    _call_yfinance_silently,
+                    ticker.history,
+                    **retry_kwargs,
+                )
+            except Exception:
+                continue
+            if not getattr(frame, "empty", True):
+                return frame
+        return None
 
     async def _download_history(
         self,
@@ -387,22 +460,52 @@ def _implemented_live_provider_details(provider: str) -> dict[str, object]:
     return details
 
 
-def _is_empty_batch_download_error(exc: ProviderUnavailableError) -> bool:
-    request = exc.details.get("request")
-    if not isinstance(request, dict):
-        return False
-    return request.get("retry_reason") == "empty_batch_data"
-
-
-def _is_empty_single_history_error(exc: ProviderUnavailableError) -> bool:
-    request = exc.details.get("request")
-    if not isinstance(request, dict):
-        return False
-    operation = request.get("operation")
-    return (
-        operation == "fetch_ohlcv_single_history_fallback"
-        and exc.message == "Yahoo market-data provider returned no data"
+def _is_yahoo_no_price_data_error(exc: Exception) -> bool:
+    text = str(exc).lower()
+    return any(
+        marker in text
+        for marker in (
+            "possibly delisted",
+            "no price data found",
+            "no price data",
+            "yfpricesmissingerror",
+        )
     )
+
+
+def _is_yahoo_transient_request_error(exc: Exception) -> bool:
+    text = str(exc).lower()
+    return any(
+        marker in text
+        for marker in (
+            "curl: (28)",
+            "resolving timed out",
+            "operation timed out",
+            "connection timed out",
+            "timed out after",
+        )
+    )
+
+
+def _history_retry_kwargs_after_no_price_data(
+    kwargs: dict[str, object],
+    *,
+    interval: Interval,
+    end: datetime | None,
+) -> list[dict[str, object]]:
+    retry_kwargs: list[dict[str, object]] = []
+    without_raise = dict(kwargs)
+    without_raise["raise_errors"] = False
+    retry_kwargs.append(without_raise)
+
+    if interval == "1d" and end is not None and "end" in kwargs:
+        non_expanded_end = _date_arg(end)
+        if kwargs.get("end") != non_expanded_end:
+            rounded_end = dict(without_raise)
+            rounded_end["end"] = non_expanded_end
+            retry_kwargs.append(rounded_end)
+
+    return retry_kwargs
 
 
 def _yfinance_available() -> bool:

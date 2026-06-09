@@ -1306,3 +1306,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added explicit labels for Cockpit setup / forecast / direction / report and Ranking setup / results / deep-dive contexts, plus fallback labels for future news, risk, rebalance, research, ranking, forecast, setup, and report-like sections.
 - Kept the section label in the opened panel badge and aria label so the user still knows which feature area the assistant is explaining.
 - Ignored rotated local log files such as `logs/*.log.1` so AppTest / background worker runs do not leave commit-noise.
+
+## 2026-06-09 - SMAI Copilot local answer switching
+
+- Replaced question-chip query-parameter links with pre-rendered local radio / label switching, so asking a prepared question changes the answer inside the panel without opening a new tab or rerunning Streamlit.
+- Kept deterministic `TemplateAssistantService` answers for each visible question, including old query-parameter compatibility when a saved URL already contains a selected question.
+- Tightened the open `SMAI Copilot` panel width, text density, max height, and internal scrolling so the top of the panel stays inside desktop / narrow viewports.
+- Added component/style/AppTest verification that the local question UI is present and `smai_assistant_question` links are no longer emitted for question chips.

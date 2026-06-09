@@ -29,9 +29,12 @@ def test_floating_assistant_html_renders_contextual_question_chips():
     assert "smai-floating-assistant-avatar--forecast" in markup
     assert "smai-assistant-holo-chart" in markup
     assert "smai-assistant-holo-range" in markup
-    assert "smai_assistant_context=cockpit_forecast" in markup
-    assert "AI%E4%BA%88%E6%B8%AC" in markup
-    assert 'target="_self"' in markup
+    assert "smai-floating-assistant-localqa" in markup
+    assert "smai-floating-assistant-question-input" in markup
+    assert 'type="radio"' in markup
+    assert 'for="smai-assistant-cockpit-forecast-question-0"' in markup
+    assert '<a class="smai-floating-assistant-chip"' not in markup
+    assert "smai_assistant_question=" not in markup
     assert 'target="_blank"' not in markup
     assert "data:image/webp;base64," in markup
 

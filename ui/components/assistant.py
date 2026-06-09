@@ -96,18 +96,15 @@ def floating_assistant_html(
     visual_key = _assistant_visual_key(context)
     trigger_label = _assistant_trigger_label(context)
     trigger_aria = f"SMAI Copilot: {trigger_label}（{context.section_label}）"
-    chips = "".join(
-        _question_chip_html(context, question) for question in _assistant_questions(context)
+    local_questions = _local_question_switcher_html(
+        context,
+        response=response,
+        selected_question=selected_question,
     )
     context_links = "".join(
         _context_link_html(item)
         for item in sibling_contexts
         if item.context_id != context.context_id
-    )
-    response_html = (
-        _assistant_response_html(response, selected_question)
-        if response is not None
-        else _assistant_empty_state_html(context)
     )
     context_switcher = (
         '<div class="smai-floating-assistant-contexts">'
@@ -151,8 +148,7 @@ def floating_assistant_html(
         f"<span>{html.escape(context.section_label)}</span>"
         "</div>"
         f'<p class="smai-floating-assistant-lead">{html.escape(context.lead)}</p>'
-        f'<div class="smai-floating-assistant-chips">{chips}</div>'
-        f"{response_html}"
+        f"{local_questions}"
         f"{context_switcher}"
         "</div>"
         "</details>"
@@ -263,6 +259,62 @@ def _assistant_empty_state_html(context: SmaiAssistantContext) -> str:
     )
 
 
+def _local_question_switcher_html(
+    context: SmaiAssistantContext,
+    *,
+    response: AssistantResponse | None,
+    selected_question: str,
+) -> str:
+    questions = tuple(_assistant_questions(context))
+    if response is not None and selected_question and selected_question not in questions:
+        questions = (selected_question, *questions)
+    if not questions:
+        return _assistant_empty_state_html(context)
+
+    selected_index = questions.index(selected_question) if selected_question in questions else 0
+    base_id = _assistant_dom_id(context.context_id)
+    group_name = f"{base_id}-question"
+    inputs: list[str] = []
+    labels: list[str] = []
+    panels: list[str] = []
+
+    for index, question in enumerate(questions):
+        input_id = f"{base_id}-question-{index}"
+        checked = " checked" if index == selected_index else ""
+        inputs.append(
+            '<input class="smai-floating-assistant-question-input" '
+            f'type="radio" name="{html.escape(group_name, quote=True)}" '
+            f'id="{html.escape(input_id, quote=True)}"{checked} />'
+        )
+        labels.append(
+            '<label class="smai-floating-assistant-chip" '
+            f'for="{html.escape(input_id, quote=True)}">'
+            f"{html.escape(question)}</label>"
+        )
+        answer = (
+            response
+            if response is not None and question == selected_question
+            else _assistant_response(context, question)
+        )
+        panels.append(
+            '<div class="smai-floating-assistant-answer-panel">'
+            f"{_assistant_response_html(answer, question)}"
+            "</div>"
+        )
+
+    return (
+        '<div class="smai-floating-assistant-localqa">'
+        f"{''.join(inputs)}"
+        '<div class="smai-floating-assistant-chips">'
+        f"{''.join(labels)}"
+        "</div>"
+        '<div class="smai-floating-assistant-answers">'
+        f"{''.join(panels)}"
+        "</div>"
+        "</div>"
+    )
+
+
 def _assistant_response_html(response: AssistantResponse, question: str) -> str:
     reasons = _list_html(response.reasons[:4])
     cautions = _list_html(response.cautions[:3])
@@ -297,31 +349,12 @@ def _list_html(items: Sequence[str]) -> str:
     return "<ul>" + "".join(f"<li>{html.escape(item)}</li>" for item in items) + "</ul>"
 
 
-def _question_chip_html(context: SmaiAssistantContext, question: str) -> str:
-    href = _assistant_question_href(context.context_id, question)
-    return (
-        '<a class="smai-floating-assistant-chip" '
-        f'href="{html.escape(href, quote=True)}" target="_self">'
-        f"{html.escape(question)}</a>"
-    )
-
-
 def _context_link_html(context: SmaiAssistantContext) -> str:
     href = _assistant_context_href(context.context_id)
     return (
         '<a class="smai-floating-assistant-context-link" '
         f'href="{html.escape(href, quote=True)}" target="_self">'
         f"{html.escape(context.section_label)}</a>"
-    )
-
-
-def _assistant_question_href(context_id: str, question: str) -> str:
-    return "?" + urlencode(
-        {
-            ASSISTANT_QUERY_CONTEXT_KEY: context_id,
-            ASSISTANT_QUERY_QUESTION_KEY: question,
-            ASSISTANT_QUERY_OPEN_KEY: "1",
-        }
     )
 
 
@@ -356,6 +389,15 @@ def _assistant_questions(context: SmaiAssistantContext) -> Sequence[str]:
         "注意して確認する点は？",
         "次に確認することは？",
     )
+
+
+def _assistant_dom_id(value: str) -> str:
+    safe = "".join(
+        character.lower() if character.isascii() and character.isalnum() else "-"
+        for character in value
+    )
+    compact = "-".join(part for part in safe.split("-") if part)
+    return f"smai-assistant-{compact or 'context'}"
 
 
 def _selected_context(*, page_key: str, page_label: str) -> SmaiAssistantContext:

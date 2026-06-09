@@ -1904,7 +1904,7 @@ body,
     right: 1.1rem;
     bottom: 1.1rem;
     z-index: 9998;
-    width: min(27rem, calc(100vw - 2rem));
+    width: min(25.5rem, calc(100vw - 2rem));
     color: var(--text-primary);
 }
 
@@ -1915,6 +1915,7 @@ body,
 .smai-floating-assistant[open] {
     display: flex;
     flex-direction: column-reverse;
+    max-height: calc(100vh - 2.2rem);
 }
 
 .smai-floating-assistant summary {
@@ -2197,7 +2198,10 @@ body,
 }
 
 .smai-floating-assistant-body {
-    overflow: hidden;
+    max-height: min(66vh, 34rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
     border: 1px solid rgba(34, 211, 238, 0.28);
     border-radius: 10px;
     background:
@@ -2206,8 +2210,9 @@ body,
     box-shadow:
         0 22px 54px rgba(0, 0, 0, 0.44),
         inset 0 1px 0 rgba(255, 255, 255, 0.045);
+    font-size: 0.84rem;
     margin-bottom: 0.62rem;
-    padding: 1rem;
+    padding: 0.92rem;
 }
 
 .smai-floating-assistant-head {
@@ -2221,7 +2226,7 @@ body,
 
 .smai-floating-assistant-head h3 {
     color: var(--text-title);
-    font-size: 1.05rem;
+    font-size: 0.98rem;
     font-weight: 860;
     line-height: 1.2;
     margin: 0.12rem 0 0;
@@ -2244,17 +2249,29 @@ body,
 
 .smai-floating-assistant-lead {
     color: var(--text-secondary);
-    font-size: 0.86rem;
+    font-size: 0.82rem;
     font-weight: 650;
     line-height: 1.55;
     margin: 0.74rem 0 0.68rem;
+}
+
+.smai-floating-assistant-localqa {
+    display: grid;
+    gap: 0.68rem;
+}
+
+.smai-floating-assistant-question-input {
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+    position: absolute;
+    width: 1px;
 }
 
 .smai-floating-assistant-chips {
     display: flex;
     flex-wrap: wrap;
     gap: 0.42rem;
-    margin-bottom: 0.78rem;
 }
 
 .smai-floating-assistant-chip,
@@ -2264,11 +2281,16 @@ body,
     background: rgba(8, 47, 73, 0.42);
     color: var(--text-ai-primary) !important;
     display: inline-flex;
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     font-weight: 780;
     line-height: 1.25;
     padding: 0.38rem 0.58rem;
     text-decoration: none !important;
+}
+
+.smai-floating-assistant-chip {
+    cursor: pointer;
+    user-select: none;
 }
 
 .smai-floating-assistant-chip:hover,
@@ -2276,6 +2298,43 @@ body,
     border-color: rgba(45, 212, 191, 0.64);
     background: rgba(13, 148, 136, 0.2);
     color: var(--text-value) !important;
+}
+
+.smai-floating-assistant-question-input:nth-of-type(1):checked
+    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip:nth-child(1),
+.smai-floating-assistant-question-input:nth-of-type(2):checked
+    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip:nth-child(2),
+.smai-floating-assistant-question-input:nth-of-type(3):checked
+    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip:nth-child(3),
+.smai-floating-assistant-question-input:nth-of-type(4):checked
+    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip:nth-child(4),
+.smai-floating-assistant-question-input:nth-of-type(5):checked
+    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip:nth-child(5),
+.smai-floating-assistant-question-input:nth-of-type(6):checked
+    ~ .smai-floating-assistant-chips .smai-floating-assistant-chip:nth-child(6) {
+    border-color: rgba(103, 232, 249, 0.72);
+    background: rgba(8, 145, 178, 0.28);
+    box-shadow: inset 0 0 0 1px rgba(103, 232, 249, 0.14);
+    color: var(--text-value) !important;
+}
+
+.smai-floating-assistant-answer-panel {
+    display: none;
+}
+
+.smai-floating-assistant-question-input:nth-of-type(1):checked
+    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel:nth-child(1),
+.smai-floating-assistant-question-input:nth-of-type(2):checked
+    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel:nth-child(2),
+.smai-floating-assistant-question-input:nth-of-type(3):checked
+    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel:nth-child(3),
+.smai-floating-assistant-question-input:nth-of-type(4):checked
+    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel:nth-child(4),
+.smai-floating-assistant-question-input:nth-of-type(5):checked
+    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel:nth-child(5),
+.smai-floating-assistant-question-input:nth-of-type(6):checked
+    ~ .smai-floating-assistant-answers .smai-floating-assistant-answer-panel:nth-child(6) {
+    display: block;
 }
 
 .smai-floating-assistant-chat {
@@ -2290,7 +2349,7 @@ body,
     border-radius: 8px;
     background: rgba(30, 64, 175, 0.22);
     color: var(--text-value);
-    font-size: 0.84rem;
+    font-size: 0.8rem;
     font-weight: 780;
     line-height: 1.45;
     padding: 0.58rem 0.68rem;
@@ -2303,7 +2362,7 @@ body,
         linear-gradient(90deg, rgba(34, 211, 238, 0.08), transparent 75%),
         rgba(2, 8, 23, 0.42);
     color: var(--text-secondary);
-    font-size: 0.84rem;
+    font-size: 0.8rem;
     line-height: 1.55;
     padding: 0.76rem 0.82rem;
 }
@@ -2311,7 +2370,7 @@ body,
 .smai-floating-assistant-answer > strong {
     color: var(--text-value);
     display: block;
-    font-size: 0.88rem;
+    font-size: 0.84rem;
     line-height: 1.48;
     margin-bottom: 0.54rem;
 }

@@ -86,6 +86,95 @@ flowchart LR
   linkStyle 9,10,11 stroke:#f59e0b,stroke-width:2px,stroke-dasharray: 5 4;
 ```
 
+## システム構成表
+
+<table>
+  <tr>
+    <th>図の要素</th>
+    <th>Web画像</th>
+    <th>技術スタック</th>
+    <th>役割</th>
+  </tr>
+  <tr>
+    <td>SMAI 本体</td>
+    <td><img alt="SMAI logo" src="https://raw.githubusercontent.com/yuki-godzilla/Smart_Market_AI/main/ui/assets/brand/smai-logo.png" width="42"></td>
+    <td>Streamlit / SMAI backend</td>
+    <td>Cockpit、Ranking、Decision Report などの文脈を HTTP request として Gateway に渡します。</td>
+  </tr>
+  <tr>
+    <td>会議要約アプリ</td>
+    <td><img alt="Google Docs logo" src="https://cdn.simpleicons.org/googledocs/4285F4" width="34"></td>
+    <td>Meeting summary client</td>
+    <td>会議メモや議事録テキストを要約 API に渡す将来利用元です。</td>
+  </tr>
+  <tr>
+    <td>AIテスト基盤 / その他ツール</td>
+    <td><img alt="Testing Library logo" src="https://cdn.simpleicons.org/testinglibrary/E33332" width="34"></td>
+    <td>AI test tooling</td>
+    <td>テスト観点生成、レビュー補助、汎用チャットなどに Gateway を利用します。</td>
+  </tr>
+  <tr>
+    <td>将来 client</td>
+    <td><img alt="PWA logo" src="https://cdn.simpleicons.org/pwa/5A0FC8" width="34"></td>
+    <td>PWA / Mobile / Cloud client</td>
+    <td>将来のスマホ、PWA、クラウド UI から同じ API を呼び出します。</td>
+  </tr>
+  <tr>
+    <td>FastAPI API 層</td>
+    <td><img alt="FastAPI logo" src="https://cdn.simpleicons.org/fastapi/009688" width="34"></td>
+    <td>FastAPI / Uvicorn</td>
+    <td><code>/health</code>、<code>/api/v1/chat</code>、<code>/api/v1/summarize</code> を公開します。</td>
+  </tr>
+  <tr>
+    <td>Pydantic Schemas</td>
+    <td><img alt="Pydantic logo" src="https://cdn.simpleicons.org/pydantic/E92063" width="34"></td>
+    <td>Pydantic</td>
+    <td>request / response を検証し、SMAI 専用ではない汎用 API 契約を保ちます。</td>
+  </tr>
+  <tr>
+    <td>Service 層</td>
+    <td><img alt="Python logo" src="https://cdn.simpleicons.org/python/3776AB" width="34"></td>
+    <td>Python service modules</td>
+    <td>chat、summarize、prompt 生成を API 層から分離します。</td>
+  </tr>
+  <tr>
+    <td>Config</td>
+    <td><img alt=".env config badge" src="https://img.shields.io/badge/.env-Config-ECD53F" height="24"></td>
+    <td><code>.env</code> / environment variables</td>
+    <td>base URL、default model、timeout、debug flag を管理します。</td>
+  </tr>
+  <tr>
+    <td>Provider Client Boundary</td>
+    <td><img alt="httpx badge" src="https://img.shields.io/badge/httpx-Client-2563EB" height="24"></td>
+    <td>httpx client boundary</td>
+    <td>LLM provider 呼び出し、timeout、elapsed_ms、error normalization を集約します。</td>
+  </tr>
+  <tr>
+    <td>Ollama</td>
+    <td><img alt="Ollama logo" src="https://cdn.simpleicons.org/ollama/111827" width="34"></td>
+    <td>Local LLM provider</td>
+    <td>初期 provider。既定は <code>http://localhost:11434</code> と <code>qwen3:8b</code> です。</td>
+  </tr>
+  <tr>
+    <td>OpenAI compatible API</td>
+    <td><img alt="OpenAI logo" src="https://cdn.simpleicons.org/openai/111827" width="34"></td>
+    <td>Future cloud / compatible provider</td>
+    <td>将来の cloud / compatible API 接続候補です。SMAI 側ではなく Gateway 境界で差し替えます。</td>
+  </tr>
+  <tr>
+    <td>vLLM</td>
+    <td><img alt="vLLM badge" src="https://img.shields.io/badge/vLLM-Provider-7C3AED" height="24"></td>
+    <td>Future inference server</td>
+    <td>高スループット推論サーバーへの差し替え候補です。</td>
+  </tr>
+  <tr>
+    <td>llama.cpp server</td>
+    <td><img alt="llama.cpp badge" src="https://img.shields.io/badge/llama.cpp-Provider-64748B" height="24"></td>
+    <td>Future lightweight local provider</td>
+    <td>軽量ローカル推論サーバーへの差し替え候補です。</td>
+  </tr>
+</table>
+
 SMAI 本体は `AssistantContextBundle` などの必要な文脈だけを HTTP request として渡します。
 Gateway は prompt 実行、provider 呼び出し、timeout、error normalization を担当し、SMAI 本体の Python module は import しません。
 LLM provider を変更する場合も、SMAI 側ではなく Gateway の provider client 境界を差し替える設計です。

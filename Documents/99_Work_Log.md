@@ -1406,3 +1406,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added top-right technology badges for Python, FastAPI, Pydantic, Ollama, httpx, and Uvicorn.
 - Color-coded the Mermaid architecture diagram by client apps, API layer, schemas, services, config, provider boundary, current provider, and future provider candidates.
 - Styled HTTP, internal Gateway, and future provider replacement paths with distinct link colors and dashed future-provider edges.
+
+## 2026-06-11 - smai-ai-gateway README system component table
+
+- Added a system component table below the architecture diagram in `smai-ai-gateway/README.md`.
+- Summarized each diagram element by Web image, technology stack, and role.
+- Used Web image sources for SMAI, client-app examples, FastAPI, Pydantic, Python, config, httpx, Ollama, OpenAI-compatible API, vLLM, and llama.cpp.

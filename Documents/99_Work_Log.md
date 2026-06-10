@@ -1361,3 +1361,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added a Phase 24 closeout follow-up plan for `smai-ai-gateway/`, created inside the SMAI repo first but designed for future independent repository / Git submodule extraction.
 - Captured the intended generic FastAPI gateway scope: `/health`, `/api/v1/chat`, `/api/v1/summarize`, Pydantic schemas, service layer, Ollama client boundary, `.env` settings, Windows run script, setup docs, architecture docs, prompt policy, roadmap, and minimal tests.
 - Clarified non-goals for the future task: do not move existing SMAI RAG / News RAG, do not change Cockpit / Ranking / Forecast / News / Decision Report behavior, and do not add import coupling from SMAI core to the Gateway.
+
+## 2026-06-10 - SMAI Copilot chat workspace roadmap note
+
+- Added the future LLM-backed `SMAI Copilot` chat workspace to the Phase 24+ roadmap.
+- Clarified the UI split: the bottom-right floating Copilot remains section-local quick guidance, while the dedicated chat workspace is for free-text, conversation history, and cross-screen consultation across Cockpit, Ranking, News, and Decision Report contexts.
+- Noted that `AssistantContextBundle` should be shared by floating UI and chat UI, with later room for `conversation_id`, `message_history`, `active_context_id`, and `referenced_context_ids`.

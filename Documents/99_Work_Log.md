@@ -1379,3 +1379,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added `backend/assistant/gateway_client.py` with `AssistantGatewayClient`, `MockAssistantGatewayClient`, `AssistantGatewayError`, and `GatewayBackedAssistantService`.
 - `GatewayBackedAssistantService` now prefers schema-valid Gateway responses but falls back to `TemplateAssistantService` when the Gateway raises, times out, returns invalid schema, returns an empty answer, or when no report context is available.
 - Added deterministic tests for Gateway success mapping, error fallback, schema-validation fallback, no-context fallback without Gateway calls, and default mock responses.
+
+## 2026-06-10 - smai-ai-gateway initial scaffold
+
+- Added the standalone `smai-ai-gateway/` FastAPI scaffold inside the SMAI repo as a future independent repository / Git submodule candidate.
+- Implemented generic `/health`, `/api/v1/chat`, and `/api/v1/summarize` endpoints with Pydantic request / response schemas, a service layer, prompt shaping, and an Ollama client boundary.
+- Added `.env.example`, `run_server.bat`, README / SETUP / architecture / API spec / prompt policy / roadmap docs, and minimal network-free tests.
+- Kept the Gateway independent from existing SMAI imports and left Cockpit / Ranking / Forecast / News / Decision Report UI behavior unchanged.

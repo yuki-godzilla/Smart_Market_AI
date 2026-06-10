@@ -1831,7 +1831,7 @@ Research資料保存方針の移行:
 
 ### 5.10 Phase 24: 低コストAssistant体験
 
-状態: 初期backend slice と Cockpit / Ranking 向け floating `SMAI Copilot` UI slice 実装済み。LLM 実装後の `SMAI Copilot` チャット画面、限定自由入力、外部 LLM Gateway API 連携は後続範囲。
+状態: 初期backend slice と Cockpit / Ranking 向け floating `SMAI Copilot` UI slice 実装済み。SMAI 本体から独立した `smai-ai-gateway/` FastAPI scaffold も実装済み。LLM 実装後の `SMAI Copilot` チャット画面、限定自由入力、外部 LLM Gateway API 連携は後続範囲。
 
 目的: Decision Report context と Research Summary を入力にし、初心者向けの質問応答・説明を deterministic template または opt-in `LLM Gateway API` で提供する。SMAI マスコットのフローティングAssistant UI として、アプリ機能の使い方、銘柄の確認観点、投資レーダーの読み方を案内する。
 
@@ -1852,6 +1852,7 @@ Research資料保存方針の移行:
 - チップ操作はブラウザ内の native `details` / `summary` と CSS 表示切替で完結し、query parameter navigation、価格取得、予測計算、ランキング作成を走らせない。回答は理由、注意点、次の確認、参照 section を返す。
 - `backend/assistant/gateway_contracts.py` に、LLM Gateway / 将来チャット画面へ渡す `AssistantContextBundle`、`AssistantGatewayRequest`、`AssistantGatewayResponse` の契約を追加済み。`DecisionReportContext` から送信可能な短い context bundle を生成し、provider raw fields、debug logs、外部本文全文、source metadata を除外する。Gateway request には安全制約と将来の `conversation_id` / `message_history` / `active_context_id` / `referenced_context_ids` を持たせる。
 - `backend/assistant/gateway_client.py` に `AssistantGatewayClient` protocol、network-free `MockAssistantGatewayClient`、`GatewayBackedAssistantService` を追加済み。Gateway応答が有効なら既存UI互換の `AssistantResponse` に変換し、Gateway error、timeout、schema validation failure、空回答、context未指定時は `TemplateAssistantService` に戻す。
+- `smai-ai-gateway/` に、将来の独立リポジトリ / Git submodule 化を前提にした汎用 FastAPI Gateway scaffold を追加済み。`GET /health`、`POST /api/v1/chat`、`POST /api/v1/summarize`、Pydantic schema、Ollama client 境界、service 層、`.env.example`、Windows 起動 bat、README / SETUP / docs、network-free tests を持ち、既存 SMAI 本体への import 依存や UI 影響は入れていない。
 - LLM 実装後の `SMAI Copilot` チャット画面、限定自由入力、外部 `LLM Gateway API` の実 client / opt-in live smoke は Phase 24 の後続 slice として扱う。
 - `SMAI Copilot` チャット画面は、右下 floating Copilot の置き換えではなく、銘柄コックピット、ランキング、投資レーダー、Decision Report を横断して相談する専用ワークスペースとして扱う。floating Copilot は画面・セクション内のクイック補助、チャット画面は自由入力と会話履歴を持つ深掘り補助に分ける。
 
@@ -1865,9 +1866,9 @@ Pre-LLM closeout 方針:
 - 通常テストは `MockAssistantGatewayClient` で network-free に保つ。実 Gateway / external LLM 呼び出しは明示 opt-in の live smoke として分離する。
 - LLM は説明、要約、確認観点の提示だけを担当し、スコア計算、ランキング順位、予測値、売買判断、ポートフォリオ配分案の決定主体にしない。
 
-Phase 24 closeout 後の `smai-ai-gateway` 構想:
+Phase 24 closeout 後の `smai-ai-gateway` 構想 / 初期実装状況:
 
-- Phase 24 closeout 後、SMAI リポジトリ配下に `smai-ai-gateway/` を新設する。ただし将来的に独立リポジトリまたは Git submodule へ切り出せる前提で、SMAI 本体からの import 依存や内部 contract 共有を避ける。
+- SMAI リポジトリ配下に `smai-ai-gateway/` を新設済み。ただし将来的に独立リポジトリまたは Git submodule へ切り出せる前提で、SMAI 本体からの import 依存や内部 contract 共有を避ける。
 - `smai-ai-gateway` は SMAI 専用ではなく、会議要約アプリ、AI テスト基盤、その他ローカルツールからも使える汎用 AI Gateway として扱う。SMAI との接続は HTTP API と request / response schema に限定する。
 - 既存の SMAI RAG / News RAG / Research Evidence 機能は現時点では移動しない。まずは LLM 通信、API、prompt 実行、設定、ドキュメント体系、network-free test の土台を整備する。
 - 初期構成は FastAPI ベースとし、`GET /health`、`POST /api/v1/chat`、`POST /api/v1/summarize` を提供する。chat / summarize は SMAI 固有名を使わず、`answer`、`model`、`provider`、`elapsed_ms` などの汎用 response を返す。

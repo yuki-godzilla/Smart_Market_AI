@@ -202,12 +202,16 @@ Docs:
 - AI-facing docs (`AGENTS.md`, `PROJECT_CONTEXT.md`): concise bilingual where useful
 - keep `AGENTS.md` stable; keep volatile history in `Documents/99_Work_Log.md`
 - update `PROJECT_CONTEXT.md` only when current state, assumptions, phase, or verification baseline changes
+- When changing LLM / Assistant / Gateway behavior, API, setup, architecture, or roadmap, keep parent SMAI docs and child Gateway docs aligned: check `Documents/05_Implementation_Roadmap.md`, `Documents/06_MVP_Operations_Guide.md`, `PROJECT_CONTEXT.md` when state changes, `Documents/99_Work_Log.md`, plus `smai-ai-gateway/README.md`, `smai-ai-gateway/SETUP.md`, and `smai-ai-gateway/docs/*.md`.
+- Keep the parent / child boundary explicit in docs: `smai-ai-gateway` is a generic HTTP API Gateway with no SMAI Python imports; SMAI calls it through request / response contracts, and existing SMAI RAG stays in the parent unless explicitly moved.
 - use `Documents/98_Codex_Task_Template.md` when a new implementation task needs a reusable prompt shape
 - update `Documents/06_MVP_Operations_Guide.md` for API/UI/CSV/provider/runbook changes
 - use `Documents/07_UI_Wording_Policy.md` when changing user-facing UI/report wording
 - use `Documents/04_Detail_Design/04-8_Onepager_Research_RAG.md` when adding research/RAG/evidence behavior
 - use `Documents/04_Detail_Design/04-9_Onepager_Investment_Scoring_UI.md` when changing Investment Score or Phase 16 scoring UI behavior
 - update `Documents/05_Implementation_Roadmap.md` for phase/scope/completion changes
+- LLM / Assistant / Gateway の挙動、API、セットアップ、構成、ロードマップを変える場合は、親モジュール SMAI 側の文書と子モジュール `smai-ai-gateway` 側の文書を同期する。
+- 文書上でも境界を明確にする。`smai-ai-gateway` は汎用 HTTP API Gateway とし、SMAI Python module を import しない。SMAI は request / response contract 経由で接続し、既存 SMAI RAG は明示移動まで親側に残す。
 
 Encoding:
 - Markdown files should be UTF-8 without BOM

@@ -18,6 +18,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-11 - AGENTS parent Gateway doc sync rule
+
+- Added an `AGENTS.md` Docs rule that LLM / Assistant / Gateway changes must keep parent SMAI docs and child `smai-ai-gateway` docs aligned.
+- Clarified that `smai-ai-gateway` remains a generic HTTP API Gateway with no SMAI Python imports, while SMAI connects through request / response contracts.
+
 - 2026-06-09: Hardened the Yahoo market-data live adapter for Cockpit data fetches. When a single-symbol OHLCV `yf.download` batch returns empty after retry, the adapter now retries the same symbol/date range through `Ticker.history`, while multi-symbol Ranking batches keep the existing batch-failure boundary.
 - 2026-06-09: Refined the Cockpit `AI予測インサイト` card so `下振れ予測` / `上振れ予測` appears before `予測価格` / `予測レンジ`, with `中心予測` kept one row above as the main consensus result. The forecast chart now uses a fixed-color in-chart legend so colors stay stable, legend items follow the grouped model toggles, and legend clicks visibly dim individual displayed series.
 - 2026-06-09: Fixed the Cockpit price / forecast chart blank state by replacing Altair-bound group checkboxes with Streamlit group checkboxes that filter already-built chart rows only. The chart now keeps actual price / `AI予測インサイト` visible by default, adds advanced/simple model groups when checked, shrinks the legend to displayed series while preserving fixed colors, and left-aligns `AI予測インサイト` card values.

@@ -1367,3 +1367,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added the future LLM-backed `SMAI Copilot` chat workspace to the Phase 24+ roadmap.
 - Clarified the UI split: the bottom-right floating Copilot remains section-local quick guidance, while the dedicated chat workspace is for free-text, conversation history, and cross-screen consultation across Cockpit, Ranking, News, and Decision Report contexts.
 - Noted that `AssistantContextBundle` should be shared by floating UI and chat UI, with later room for `conversation_id`, `message_history`, `active_context_id`, and `referenced_context_ids`.
+
+## 2026-06-10 - Phase 24 Assistant Gateway contract slice
+
+- Added `backend/assistant/gateway_contracts.py` with `AssistantContextBundle`, `AssistantGatewayRequest`, `AssistantGatewayResponse`, safety constraints, referenced-section schema, and future chat-history fields.
+- Added a `DecisionReportContext` to Gateway-safe context conversion helper that keeps summary / rows / warnings / notes while redacting provider raw fields, debug logs, full external source text, source metadata, and row overflows.
+- Exported the new contracts from `backend.assistant` and added deterministic tests covering raw-field redaction, safety defaults, future chat fields, response schema, and extra-field rejection.

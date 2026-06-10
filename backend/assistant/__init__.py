@@ -1,3 +1,17 @@
+from backend.assistant.gateway_contracts import (
+    ASSISTANT_CONTEXT_BUNDLE_SCHEMA_VERSION,
+    ASSISTANT_GATEWAY_REQUEST_SCHEMA_VERSION,
+    ASSISTANT_GATEWAY_RESPONSE_SCHEMA_VERSION,
+    AssistantContextBundle,
+    AssistantContextSection,
+    AssistantGatewayConstraints,
+    AssistantGatewayMessage,
+    AssistantGatewayReferencedSection,
+    AssistantGatewayRequest,
+    AssistantGatewayResponse,
+    build_assistant_context_bundle,
+    build_assistant_gateway_request,
+)
 from backend.assistant.service import (
     ASSISTANT_SCHEMA_VERSION,
     AssistantCitation,
@@ -8,10 +22,22 @@ from backend.assistant.service import (
 )
 
 __all__ = [
+    "ASSISTANT_CONTEXT_BUNDLE_SCHEMA_VERSION",
+    "ASSISTANT_GATEWAY_REQUEST_SCHEMA_VERSION",
+    "ASSISTANT_GATEWAY_RESPONSE_SCHEMA_VERSION",
     "ASSISTANT_SCHEMA_VERSION",
+    "AssistantContextBundle",
+    "AssistantContextSection",
     "AssistantCitation",
+    "AssistantGatewayConstraints",
+    "AssistantGatewayMessage",
+    "AssistantGatewayReferencedSection",
+    "AssistantGatewayRequest",
+    "AssistantGatewayResponse",
     "AssistantIntent",
     "AssistantRequest",
     "AssistantResponse",
     "TemplateAssistantService",
+    "build_assistant_context_bundle",
+    "build_assistant_gateway_request",
 ]

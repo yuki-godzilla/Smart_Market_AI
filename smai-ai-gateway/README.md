@@ -1,5 +1,14 @@
 # SMAI AI Gateway
 
+<p align="right">
+  <img alt="Python 3.11+" src="https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white">
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-API-009688?logo=fastapi&logoColor=white">
+  <img alt="Pydantic" src="https://img.shields.io/badge/Pydantic-Schemas-E92063?logo=pydantic&logoColor=white">
+  <img alt="Ollama" src="https://img.shields.io/badge/Ollama-Local%20LLM-111827?logo=ollama&logoColor=white">
+  <img alt="httpx" src="https://img.shields.io/badge/httpx-Client-2563EB">
+  <img alt="Uvicorn" src="https://img.shields.io/badge/Uvicorn-ASGI-22C55E">
+</p>
+
 SMAI AI Gateway は、Smart Market AI から LLM 通信を分離するための汎用 API Gateway です。
 現時点では SMAI リポジトリ配下に置きますが、将来的に独立リポジトリまたは Git submodule へ切り出せる前提で設計します。
 
@@ -49,6 +58,32 @@ flowchart LR
   provider -. "差し替え候補" .-> openai
   provider -. "差し替え候補" .-> vllm
   provider -. "差し替え候補" .-> llamacpp
+
+  classDef client fill:#0f172a,stroke:#38bdf8,color:#e0f2fe,stroke-width:2px;
+  classDef api fill:#083344,stroke:#22d3ee,color:#ecfeff,stroke-width:2px;
+  classDef schema fill:#312e81,stroke:#a78bfa,color:#ede9fe,stroke-width:2px;
+  classDef service fill:#064e3b,stroke:#34d399,color:#ecfdf5,stroke-width:2px;
+  classDef config fill:#451a03,stroke:#f59e0b,color:#fffbeb,stroke-width:2px;
+  classDef boundary fill:#4c0519,stroke:#fb7185,color:#fff1f2,stroke-width:2px;
+  classDef provider fill:#111827,stroke:#facc15,color:#fefce8,stroke-width:2px;
+  classDef futureProvider fill:#1e293b,stroke:#94a3b8,color:#f8fafc,stroke-width:1.5px,stroke-dasharray: 5 4;
+
+  class smai,meeting,testtools,future client;
+  class api api;
+  class schemas schema;
+  class services service;
+  class config config;
+  class provider boundary;
+  class ollama provider;
+  class openai,vllm,llamacpp futureProvider;
+
+  style clients fill:#020617,stroke:#38bdf8,stroke-width:2px,color:#e0f2fe;
+  style gateway fill:#031b2e,stroke:#22d3ee,stroke-width:2px,color:#ecfeff;
+  style providers fill:#111827,stroke:#facc15,stroke-width:2px,color:#fefce8;
+
+  linkStyle 0,1,2,3 stroke:#38bdf8,stroke-width:2px;
+  linkStyle 4,5,6,7,8 stroke:#34d399,stroke-width:2px;
+  linkStyle 9,10,11 stroke:#f59e0b,stroke-width:2px,stroke-dasharray: 5 4;
 ```
 
 SMAI 本体は `AssistantContextBundle` などの必要な文脈だけを HTTP request として渡します。

@@ -1400,3 +1400,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added a Mermaid system architecture diagram to `smai-ai-gateway/README.md`.
 - Clarified the separation between client apps, FastAPI API layer, Pydantic schemas, services, config, provider client boundary, and current/future LLM providers.
 - Reiterated that SMAI connects through HTTP request / response schemas and the Gateway does not import SMAI Python modules.
+
+## 2026-06-10 - smai-ai-gateway README visual polish
+
+- Added top-right technology badges for Python, FastAPI, Pydantic, Ollama, httpx, and Uvicorn.
+- Color-coded the Mermaid architecture diagram by client apps, API layer, schemas, services, config, provider boundary, current provider, and future provider candidates.
+- Styled HTTP, internal Gateway, and future provider replacement paths with distinct link colors and dashed future-provider edges.

@@ -1348,3 +1348,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Found that hidden radio / label variants can behave differently in the real Streamlit DOM, so the final structure uses native `details` controls for the clickable question chips and separate answer panels below them.
 - Moved question chips back above the explanation text while keeping the selected chip and visible answer synchronized with `:has(.smai-floating-assistant-qa-item--N[open])`.
 - Kept the floating Assistant at the bottom-right edge and verified in the real app that chip clicks switch 1 -> 3 -> 2 -> 3 -> 1 correctly without opening a new tab or rerunning Streamlit.
+
+## 2026-06-10 - Phase 24 LLM Gateway roadmap alignment
+
+- Updated Phase 24 roadmap direction so the LLM foundation is treated as an external `LLM Gateway API`, not a provider stack tightly embedded in SMAI.
+- Added the Pre-LLM closeout scope: `AssistantContextBundle`, Gateway request / response schema, mock gateway client, schema validation, deterministic fallback, and network-free normal tests.
+- Clarified that SMAI keeps explanation context shaping and UI display, while provider routing, prompt tuning, rate limits, and model switching belong on the Gateway side.
+- Reconfirmed the safety boundary that LLM output is for explanation, summary, and confirmation viewpoints only, not ranking, score calculation, forecasts, buy / sell / hold, or portfolio decisions.

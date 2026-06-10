@@ -62,7 +62,7 @@ Research RAG は Phase 20 local evidence slice が決定的な土台として実
 - 銘柄DB background refresh の live provider refresh wiring。`backend/symbols` の foundation、Streamlit daemon worker、Cockpit / Ranking 共通の visible freshness 表示、Cockpit / Ranking 対象銘柄の自動優先更新、Cockpit の価格・予測取得後 background priority refresh + 30分TTL、Ranking 操作直前の軽量 preflight 更新は実装済み
 - Research Score によるランキング順位統合は、現時点では見送り。必要性が再確認された場合のみ後続の opt-in 機能として扱う
 - Phase 23 は Optional Adapter / 高度分析を先に進め、銘柄コックピット / ランキング向け advanced forecast model adapter を次の優先候補にする
-- Phase 24 Assistant は deterministic backend と Cockpit / Ranking 向け floating `SMAI Copilot` UI の初期 slice まで実装済み。Assistant API、専用 Assistant 画面、optional LLM provider は後続範囲
+- Phase 24 Assistant は deterministic backend と Cockpit / Ranking 向け floating `SMAI Copilot` UI の初期 slice まで実装済み。専用 Assistant 画面、限定自由入力、外部 LLM Gateway API client / schema は後続範囲
 - broker への live order 送信
 - Execution workflow
 - PDF / Excel export
@@ -1590,8 +1590,8 @@ Phase 22 完了条件:
 - advanced forecast model adapter を追加し、既存の Forecast consensus / direction signal / Investment Score 入力へ安全に接続する。
 - `polygon` など追加 live provider adapter は、必要になった時点で明示 opt-in として追加する。
 - news / sentiment local CSV provider と optional external provider は、投資レーダー / Research RAG の後続拡張として扱う。
-- local LLM / cloud LLM assistant provider は Phase 24 Assistant で扱う。
-- LLM / news / external provider はすべて明示 opt-in とし、失敗時は deterministic fallback に戻す。
+- LLM 連携は Phase 24 Assistant で外部 LLM Gateway API client / schema として扱い、provider 個別実装は Gateway 側に寄せる。
+- LLM Gateway / news / external provider はすべて明示 opt-in とし、失敗時は deterministic fallback に戻す。
 
 高度予測モデル first slice の方針:
 
@@ -1831,17 +1831,17 @@ Research資料保存方針の移行:
 
 ### 5.10 Phase 24: 低コストAssistant体験
 
-状態: 初期backend slice と Cockpit / Ranking 向け floating `SMAI Copilot` UI slice 実装済み。Assistant API / 専用 Assistant 画面 / LLM provider は後続範囲。
+状態: 初期backend slice と Cockpit / Ranking 向け floating `SMAI Copilot` UI slice 実装済み。専用 Assistant 画面、限定自由入力、外部 LLM Gateway API 連携は後続範囲。
 
-目的: Decision Report context と Research Summary を入力にし、初心者向けの質問応答・説明を deterministic template または opt-in LLM provider で提供する。SMAI マスコットのフローティングAssistant UI として、アプリ機能の使い方、銘柄の確認観点、投資レーダーの読み方を案内する。
+目的: Decision Report context と Research Summary を入力にし、初心者向けの質問応答・説明を deterministic template または opt-in `LLM Gateway API` で提供する。SMAI マスコットのフローティングAssistant UI として、アプリ機能の使い方、銘柄の確認観点、投資レーダーの読み方を案内する。
 
 範囲:
 
 - `backend/assistant/` の request / response contract を維持する。
 - template-based response service を deterministic fallback として維持する。
 - cockpit / ranking / rebalance / report / research context から assistant context を組み立てる。
-- Streamlit に SMAI マスコットのフローティングAssistant UI、チャット画面、固定質問 / 限定自由入力を追加する。
-- local LLM / cloud LLM assistant provider は明示 opt-in とし、未設定時は deterministic template に戻す。
+- Streamlit に SMAI マスコットのフローティングAssistant UI、専用 Assistant 画面、固定質問 / 限定自由入力を追加する。
+- LLM 基盤は SMAI 本体に密結合させず、外部 `LLM Gateway API` 経由で呼び出す。SMAI 側は context bundle、API client、schema validation、deterministic fallback を持ち、provider routing / prompt tuning / rate limit / model switching は Gateway 側に寄せる。
 - 応答は理由、注意点、次に確認する観点、参照セクション、非助言文言を含める。
 
 現在の実装メモ:
@@ -1849,13 +1849,22 @@ Research資料保存方針の移行:
 - `backend/assistant` に `AssistantRequest` / `AssistantResponse` と `TemplateAssistantService` の初期 slice を追加済み。LLM / network なしで、`DecisionReportContext` から質問意図、関連 section、理由、注意点、次の確認観点、引用 section を deterministic に整理する。
 - Assistant は買う / 売る / 保有などの指示には答えず、スコア、リスク、根拠資料、未確認項目を確認するための説明に限定する。
 - Cockpit / Ranking には fixed floating `SMAI Copilot` を追加済み。画面・セクションに応じた context を登録し、質問チップから deterministic `TemplateAssistantService` に渡す。Cockpit はデータ取得前、`AI予測インサイト`、`上昇気配・下降警戒`、Decision Report、Ranking は作成前、ランキング結果、深掘り候補を説明対象にする。
-- チップ操作は query parameter による同一画面内の再表示で、価格取得・予測計算・ランキング作成を走らせない。回答は理由、注意点、次の確認、参照 section を返す。
-- Assistant API、専用 Assistant 画面、限定自由入力、optional LLM provider は Phase 24 の後続 slice として扱う。
+- チップ操作はブラウザ内の native `details` / `summary` と CSS 表示切替で完結し、query parameter navigation、価格取得、予測計算、ランキング作成を走らせない。回答は理由、注意点、次の確認、参照 section を返す。
+- Assistant 専用画面、限定自由入力、外部 `LLM Gateway API` client、Gateway request / response schema、mock gateway provider は Phase 24 の後続 slice として扱う。
+
+Pre-LLM closeout 方針:
+
+- LLM 導入前に、現在の deterministic Assistant を基準線として固定する。対象画面、セクション、質問タイプ、`見る材料` / `注意点` / `次に確認すること` の出力形、非助言境界を仕様化する。
+- SMAI から Gateway へ渡す `AssistantContextBundle` を定義し、Decision Report context、Research Summary、Ranking score breakdown、`AI予測インサイト`、データ品質、根拠不足などの共有可能な文脈だけを含める。内部 raw logs、不要な provider raw fields、保存対象でない外部本文全文は通常 request に含めない。
+- Gateway request には task、language、user_question、context、constraints を含め、constraints で `no_investment_advice`、`do_not_change_scores`、`do_not_rank_symbols`、`answer_format=materials_cautions_checkpoints` を明示する。
+- Gateway response は `answer`、`materials`、`cautions`、`next_checkpoints`、`referenced_sections`、`confidence`、`safety_notes` のような UI 互換 schema に固定し、schema validation に失敗した場合は deterministic fallback に戻す。
+- 通常テストは `MockAssistantGatewayClient` で network-free に保つ。実 Gateway / external LLM 呼び出しは明示 opt-in の live smoke として分離する。
+- LLM は説明、要約、確認観点の提示だけを担当し、スコア計算、ランキング順位、予測値、売買判断、ポートフォリオ配分案の決定主体にしない。
 
 完了条件:
 
-- LLM なしでも assistant UI が deterministic fallback で動作する。API endpoint は後続 slice で追加する。
-- LLM provider を使う場合も明示 opt-in で、失敗時は deterministic fallback に戻る。
+- LLM なしでも assistant UI が deterministic fallback で動作する。
+- LLM Gateway API を使う場合も明示 opt-in で、失敗時、timeout、schema validation failure 時は deterministic fallback に戻る。
 - 同じ deterministic input / context では同じ応答になる。
 - 通常 tests は network 非依存で通る。
 - Assistant の説明は UI / report と同じ指標名・制約を使う。
@@ -1933,9 +1942,9 @@ Phase 24+ のニュース機能で守る線:
 - News / sentiment local CSV provider
 - Assistant x news integration
 - 高度ニュース活用
-- LLM provider protocol
-- Local LLM / Ollama provider
-- Cloud LLM / OpenAI provider
+- LLM Gateway API request / response protocol
+- MockAssistantGatewayClient / schema validation
+- Opt-in live LLM Gateway smoke
 - LLM-enhanced report / news explanation
 - Hybrid assistant evaluation
 

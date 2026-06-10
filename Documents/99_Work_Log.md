@@ -1410,5 +1410,6 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 ## 2026-06-11 - smai-ai-gateway README system component table
 
 - Added a system component table below the architecture diagram in `smai-ai-gateway/README.md`.
-- Summarized each diagram element by Web image, technology stack, and role.
+- Summarized each diagram element by technology stack and role.
+- Inserted Web images inline after each technology stack label, avoiding a separate image-only column.
 - Used Web image sources for SMAI, client-app examples, FastAPI, Pydantic, Python, config, httpx, Ollama, OpenAI-compatible API, vLLM, and llama.cpp.

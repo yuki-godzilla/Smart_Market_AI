@@ -1355,3 +1355,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added the Pre-LLM closeout scope: `AssistantContextBundle`, Gateway request / response schema, mock gateway client, schema validation, deterministic fallback, and network-free normal tests.
 - Clarified that SMAI keeps explanation context shaping and UI display, while provider routing, prompt tuning, rate limits, and model switching belong on the Gateway side.
 - Reconfirmed the safety boundary that LLM output is for explanation, summary, and confirmation viewpoints only, not ranking, score calculation, forecasts, buy / sell / hold, or portfolio decisions.
+
+## 2026-06-10 - smai-ai-gateway future scaffold roadmap note
+
+- Added a Phase 24 closeout follow-up plan for `smai-ai-gateway/`, created inside the SMAI repo first but designed for future independent repository / Git submodule extraction.
+- Captured the intended generic FastAPI gateway scope: `/health`, `/api/v1/chat`, `/api/v1/summarize`, Pydantic schemas, service layer, Ollama client boundary, `.env` settings, Windows run script, setup docs, architecture docs, prompt policy, roadmap, and minimal tests.
+- Clarified non-goals for the future task: do not move existing SMAI RAG / News RAG, do not change Cockpit / Ranking / Forecast / News / Decision Report behavior, and do not add import coupling from SMAI core to the Gateway.

@@ -62,7 +62,7 @@ Research RAG は Phase 20 local evidence slice が決定的な土台として実
 - 銘柄DB background refresh の live provider refresh wiring。`backend/symbols` の foundation、Streamlit daemon worker、Cockpit / Ranking 共通の visible freshness 表示、Cockpit / Ranking 対象銘柄の自動優先更新、Cockpit の価格・予測取得後 background priority refresh + 30分TTL、Ranking 操作直前の軽量 preflight 更新は実装済み
 - Research Score によるランキング順位統合は、現時点では見送り。必要性が再確認された場合のみ後続の opt-in 機能として扱う
 - Phase 23 は Optional Adapter / 高度分析を先に進め、銘柄コックピット / ランキング向け advanced forecast model adapter を次の優先候補にする
-- Phase 24 Assistant は deterministic backend と Cockpit / Ranking 向け floating `SMAI Copilot` UI の初期 slice まで実装済み。専用 Assistant 画面、限定自由入力、外部 LLM Gateway API client / schema は後続範囲
+- Phase 24 Assistant は deterministic backend と Cockpit / Ranking 向け floating `SMAI Copilot` UI の初期 slice まで実装済み。専用 Assistant 画面、限定自由入力、`smai-ai-gateway/` scaffold、外部 LLM Gateway API client / schema は後続範囲
 - broker への live order 送信
 - Execution workflow
 - PDF / Excel export
@@ -1861,6 +1861,57 @@ Pre-LLM closeout 方針:
 - 通常テストは `MockAssistantGatewayClient` で network-free に保つ。実 Gateway / external LLM 呼び出しは明示 opt-in の live smoke として分離する。
 - LLM は説明、要約、確認観点の提示だけを担当し、スコア計算、ランキング順位、予測値、売買判断、ポートフォリオ配分案の決定主体にしない。
 
+Phase 24 closeout 後の `smai-ai-gateway` 構想:
+
+- Phase 24 closeout 後、SMAI リポジトリ配下に `smai-ai-gateway/` を新設する。ただし将来的に独立リポジトリまたは Git submodule へ切り出せる前提で、SMAI 本体からの import 依存や内部 contract 共有を避ける。
+- `smai-ai-gateway` は SMAI 専用ではなく、会議要約アプリ、AI テスト基盤、その他ローカルツールからも使える汎用 AI Gateway として扱う。SMAI との接続は HTTP API と request / response schema に限定する。
+- 既存の SMAI RAG / News RAG / Research Evidence 機能は現時点では移動しない。まずは LLM 通信、API、prompt 実行、設定、ドキュメント体系、network-free test の土台を整備する。
+- 初期構成は FastAPI ベースとし、`GET /health`、`POST /api/v1/chat`、`POST /api/v1/summarize` を提供する。chat / summarize は SMAI 固有名を使わず、`answer`、`model`、`provider`、`elapsed_ms` などの汎用 response を返す。
+- 初期 LLM provider は Ollama とする。`OLLAMA_BASE_URL` は `.env` から読み、既定値は `http://localhost:11434`、既定 model は `DEFAULT_LLM_MODEL` とする。request model 指定があれば優先し、timeout と分かりやすい error response を備える。将来 OpenAI compatible API、vLLM、llama.cpp server へ差し替えられる client 境界にする。
+- 設定は `APP_NAME`、`APP_ENV`、`OLLAMA_BASE_URL`、`DEFAULT_LLM_MODEL`、`REQUEST_TIMEOUT_SECONDS`、`ENABLE_DEBUG_LOG` を最小構成とし、`.env.example` と `SETUP.md` で起動手順を明示する。
+- サービス層は `chat_service.py`、`summarize_service.py`、`prompt_service.py` に分け、API 層へ prompt 生成や provider 呼び出しを直接書かない。prompt template は後から外部化できる形を保つ。
+- 初期ディレクトリ案:
+
+```text
+smai-ai-gateway/
+  README.md
+  SETUP.md
+  .env.example
+  pyproject.toml
+  run_server.bat
+  docs/
+    architecture.md
+    api_spec.md
+    prompt_policy.md
+    roadmap.md
+  app/
+    __init__.py
+    main.py
+    config.py
+    clients/
+      __init__.py
+      ollama_client.py
+    services/
+      __init__.py
+      chat_service.py
+      summarize_service.py
+      prompt_service.py
+    schemas/
+      __init__.py
+      common.py
+      chat.py
+      summarize.py
+  tests/
+    test_health.py
+    test_chat_schema.py
+```
+
+- Gateway 側 docs では、`README.md` に目的、SMAI 本体から LLM 通信を分離する理由、submodule 化前提、汎用用途、起動概要を書く。`SETUP.md` に Python 環境、依存関係、Ollama、`ollama pull qwen3:8b` 例、`.env` 作成、`run_server.bat`、`/health` と `/api/v1/chat` の確認を書く。
+- `docs/architecture.md` には SMAI 本体、`smai-ai-gateway`、Ollama、将来 RAG / スマホ / PWA / cloud client の関係を書く。`docs/api_spec.md` には `/health`、`/api/v1/chat`、`/api/v1/summarize` の request / response 例を書く。`docs/prompt_policy.md` には LLM が数値予測やランキング決定ではなく説明、要約、判断補助を担当すること、投資助言ではないこと、根拠データを明示的に渡して hallucination を抑えること、将来 SMAI RAG context を入力として渡す方針を書く。
+- Gateway 側 roadmap は、Phase 1 local Ollama 接続、Phase 2 SMAI の投資コメント生成、Phase 3 会議要約 / AI テスト基盤への展開、Phase 4 認証 / ログ / API key / rate limit、Phase 5 別リポジトリ化 / Git submodule 化、Phase 6 スマホ / PWA / cloud 対応とする。
+- 初期 test は `/health` が 200 を返すこと、chat request schema、summarize request schema が validate できることに絞る。通常確認は Ollama や network に依存させず、live LLM smoke は明示 opt-in として分離する。
+- 初期実装時は既存 SMAI の画面、RAG、Ranking、Forecast、News fetch、Decision Report を変更しない。SMAI から呼び出す統合 slice は、Gateway 単体の scaffold / schema / local smoke が安定した後に別タスクとして扱う。
+
 完了条件:
 
 - LLM なしでも assistant UI が deterministic fallback で動作する。
@@ -1942,6 +1993,9 @@ Phase 24+ のニュース機能で守る線:
 - News / sentiment local CSV provider
 - Assistant x news integration
 - 高度ニュース活用
+- `smai-ai-gateway` scaffold inside SMAI repo, with future independent repo / Git submodule boundary
+- Generic FastAPI LLM Gateway endpoints: `/health`, `/api/v1/chat`, `/api/v1/summarize`
+- Ollama client boundary with `.env` settings and future OpenAI compatible / vLLM / llama.cpp replacement path
 - LLM Gateway API request / response protocol
 - MockAssistantGatewayClient / schema validation
 - Opt-in live LLM Gateway smoke

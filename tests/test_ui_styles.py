@@ -64,15 +64,15 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
         SMAI_GLOBAL_CSS
     )
     assert ".smai-floating-assistant-localqa" in SMAI_GLOBAL_CSS
-    assert ".smai-floating-assistant-question-input" in SMAI_GLOBAL_CSS
-    assert ".smai-floating-assistant-chip:has(.smai-floating-assistant-question-input:checked)" in (
+    assert ".smai-floating-assistant-qa-item" in SMAI_GLOBAL_CSS
+    assert ".smai-floating-assistant-chip > span" in SMAI_GLOBAL_CSS
+    assert ".smai-floating-assistant-qa-item[open] > .smai-floating-assistant-chip" in (
         SMAI_GLOBAL_CSS
     )
-    assert (
-        ".smai-floating-assistant-localqa:has(.smai-floating-assistant-question-input--2:checked)"
-        in (SMAI_GLOBAL_CSS)
-    )
     assert ".smai-floating-assistant-answer-panel--2" in SMAI_GLOBAL_CSS
+    assert ".smai-floating-assistant-localqa:has(.smai-floating-assistant-qa-item--2[open])" in (
+        SMAI_GLOBAL_CSS
+    )
     assert ".smai-floating-assistant-answer-panel" in SMAI_GLOBAL_CSS
     assert ".smai-floating-assistant-chip" in SMAI_GLOBAL_CSS
     assert ".smai-floating-assistant-avatar img" in SMAI_GLOBAL_CSS

@@ -26,8 +26,8 @@ def test_floating_assistant_html_renders_contextual_question_chips():
     markup = floating_assistant_html(context, open_panel=True)
 
     assert 'class="smai-floating-assistant"' in markup
-    assert "<details" not in markup
-    assert "<summary" not in markup
+    assert "<details" in markup
+    assert "<summary" in markup
     assert 'class="smai-floating-assistant-toggle" type="checkbox"' in markup
     assert 'id="smai-assistant-cockpit-forecast-open" checked' in markup
     assert 'class="smai-floating-assistant-backdrop"' in markup
@@ -40,12 +40,14 @@ def test_floating_assistant_html_renders_contextual_question_chips():
     assert "smai-assistant-holo-chart" in markup
     assert "smai-assistant-holo-range" in markup
     assert "smai-floating-assistant-localqa" in markup
-    assert "smai-floating-assistant-question-input" in markup
-    assert "smai-floating-assistant-question-input--1" in markup
+    assert "smai-floating-assistant-qa-item" in markup
+    assert "smai-floating-assistant-qa-item--1" in markup
     assert "smai-floating-assistant-chip--2" in markup
     assert "smai-floating-assistant-answer-panel--2" in markup
-    assert 'type="radio"' in markup
-    assert '<label class="smai-floating-assistant-chip smai-floating-assistant-chip--1">' in markup
+    assert 'type="radio"' not in markup
+    assert (
+        '<summary class="smai-floating-assistant-chip smai-floating-assistant-chip--1">' in markup
+    )
     assert "<span>AI予測インサイトをどう読む？</span>" in markup
     assert '<a class="smai-floating-assistant-chip"' not in markup
     assert "smai_assistant_question=" not in markup

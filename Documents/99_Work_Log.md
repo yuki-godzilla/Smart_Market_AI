@@ -1341,3 +1341,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Switched answer-panel display to `:has()` based matching, which keeps the clicked chip and visible answer aligned even when chips wrap onto a second row.
 - Changed the floating trigger from inline-grid to block-level grid and set the fixed container to `right: 0` / `bottom: 0` so the Assistant sits on the bottom-right edge.
 - Verified with headless Chrome that clicking chip 3 from chip 1 shows panel 3, clicking chip 2 from chip 3 shows panel 2, and the trigger has zero right/bottom viewport gap.
+
+## 2026-06-10 - SMAI Copilot question placement fix
+
+- Investigated the prepared-question chip behavior against the running Streamlit app with local Chrome DevTools inspection instead of only static HTML checks.
+- Found that hidden radio / label variants can behave differently in the real Streamlit DOM, so the final structure uses native `details` controls for the clickable question chips and separate answer panels below them.
+- Moved question chips back above the explanation text while keeping the selected chip and visible answer synchronized with `:has(.smai-floating-assistant-qa-item--N[open])`.
+- Kept the floating Assistant at the bottom-right edge and verified in the real app that chip clicks switch 1 -> 3 -> 2 -> 3 -> 1 correctly without opening a new tab or rerunning Streamlit.

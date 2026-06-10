@@ -2273,18 +2273,14 @@ body,
     gap: 0.68rem;
 }
 
-.smai-floating-assistant-question-input {
-    height: 1px;
-    opacity: 0;
-    pointer-events: none;
-    position: absolute;
-    width: 1px;
-}
-
 .smai-floating-assistant-chips {
     display: flex;
     flex-wrap: wrap;
     gap: 0.42rem;
+}
+
+.smai-floating-assistant-qa-item {
+    display: inline-flex;
 }
 
 .smai-floating-assistant-chip,
@@ -2296,6 +2292,7 @@ body,
     display: inline-flex;
     font-size: 0.75rem;
     font-weight: 780;
+    list-style: none;
     line-height: 1.25;
     padding: 0.38rem 0.58rem;
     text-decoration: none !important;
@@ -2303,8 +2300,19 @@ body,
 
 .smai-floating-assistant-chip {
     cursor: pointer;
-    position: relative;
     user-select: none;
+}
+
+.smai-floating-assistant-chip::-webkit-details-marker {
+    display: none;
+}
+
+.smai-floating-assistant-chip::marker {
+    content: "";
+}
+
+.smai-floating-assistant-chip > span {
+    pointer-events: none;
 }
 
 .smai-floating-assistant-chip:hover,
@@ -2314,28 +2322,37 @@ body,
     color: var(--text-value) !important;
 }
 
-.smai-floating-assistant-chip:has(.smai-floating-assistant-question-input:checked) {
+.smai-floating-assistant-chip:focus-visible {
+    outline: 2px solid rgba(103, 232, 249, 0.48);
+    outline-offset: 2px;
+}
+
+.smai-floating-assistant-qa-item[open] > .smai-floating-assistant-chip {
     border-color: rgba(103, 232, 249, 0.72);
     background: rgba(8, 145, 178, 0.28);
     box-shadow: inset 0 0 0 1px rgba(103, 232, 249, 0.14);
     color: var(--text-value) !important;
 }
 
+.smai-floating-assistant-qa-item[open] > .smai-floating-assistant-chip {
+    pointer-events: none;
+}
+
 .smai-floating-assistant-answer-panel {
     display: none;
 }
 
-.smai-floating-assistant-localqa:has(.smai-floating-assistant-question-input--1:checked)
+.smai-floating-assistant-localqa:has(.smai-floating-assistant-qa-item--1[open])
     .smai-floating-assistant-answer-panel--1,
-.smai-floating-assistant-localqa:has(.smai-floating-assistant-question-input--2:checked)
+.smai-floating-assistant-localqa:has(.smai-floating-assistant-qa-item--2[open])
     .smai-floating-assistant-answer-panel--2,
-.smai-floating-assistant-localqa:has(.smai-floating-assistant-question-input--3:checked)
+.smai-floating-assistant-localqa:has(.smai-floating-assistant-qa-item--3[open])
     .smai-floating-assistant-answer-panel--3,
-.smai-floating-assistant-localqa:has(.smai-floating-assistant-question-input--4:checked)
+.smai-floating-assistant-localqa:has(.smai-floating-assistant-qa-item--4[open])
     .smai-floating-assistant-answer-panel--4,
-.smai-floating-assistant-localqa:has(.smai-floating-assistant-question-input--5:checked)
+.smai-floating-assistant-localqa:has(.smai-floating-assistant-qa-item--5[open])
     .smai-floating-assistant-answer-panel--5,
-.smai-floating-assistant-localqa:has(.smai-floating-assistant-question-input--6:checked)
+.smai-floating-assistant-localqa:has(.smai-floating-assistant-qa-item--6[open])
     .smai-floating-assistant-answer-panel--6 {
     display: block;
 }

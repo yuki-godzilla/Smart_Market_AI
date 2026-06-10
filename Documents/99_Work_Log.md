@@ -1413,3 +1413,8 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Summarized each diagram element by technology stack and role.
 - Inserted Web images inline after each technology stack label, avoiding a separate image-only column.
 - Used Web image sources for SMAI, client-app examples, FastAPI, Pydantic, Python, config, httpx, Ollama, OpenAI-compatible API, vLLM, and llama.cpp.
+
+## 2026-06-11 - smai-ai-gateway README light-background logo
+
+- Added `smai-ai-gateway/docs/assets/smai-logo-readme-light.png`, a README-specific SMAI logo card with dark background, cyan border, and padding.
+- Replaced the system component table's SMAI logo reference with the light-background-friendly local asset.

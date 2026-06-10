@@ -96,7 +96,7 @@ flowchart LR
   </tr>
   <tr>
     <td>SMAI 本体</td>
-    <td>Streamlit / SMAI backend <img alt="SMAI logo" src="https://raw.githubusercontent.com/yuki-godzilla/Smart_Market_AI/main/ui/assets/brand/smai-logo.png" height="24"></td>
+    <td>Streamlit / SMAI backend <img alt="SMAI logo for light background" src="docs/assets/smai-logo-readme-light.png" height="28"></td>
     <td>Cockpit、Ranking、Decision Report などの文脈を HTTP request として Gateway に渡します。</td>
   </tr>
   <tr>

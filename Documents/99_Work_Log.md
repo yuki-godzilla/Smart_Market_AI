@@ -1373,3 +1373,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added `backend/assistant/gateway_contracts.py` with `AssistantContextBundle`, `AssistantGatewayRequest`, `AssistantGatewayResponse`, safety constraints, referenced-section schema, and future chat-history fields.
 - Added a `DecisionReportContext` to Gateway-safe context conversion helper that keeps summary / rows / warnings / notes while redacting provider raw fields, debug logs, full external source text, source metadata, and row overflows.
 - Exported the new contracts from `backend.assistant` and added deterministic tests covering raw-field redaction, safety defaults, future chat fields, response schema, and extra-field rejection.
+
+## 2026-06-10 - Phase 24 Assistant Gateway mock/fallback slice
+
+- Added `backend/assistant/gateway_client.py` with `AssistantGatewayClient`, `MockAssistantGatewayClient`, `AssistantGatewayError`, and `GatewayBackedAssistantService`.
+- `GatewayBackedAssistantService` now prefers schema-valid Gateway responses but falls back to `TemplateAssistantService` when the Gateway raises, times out, returns invalid schema, returns an empty answer, or when no report context is available.
+- Added deterministic tests for Gateway success mapping, error fallback, schema-validation fallback, no-context fallback without Gateway calls, and default mock responses.

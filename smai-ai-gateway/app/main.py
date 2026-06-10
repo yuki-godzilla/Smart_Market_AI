@@ -5,7 +5,7 @@ from fastapi import FastAPI, HTTPException
 from app.clients.ollama_client import OllamaClient, OllamaClientError
 from app.config import get_settings
 from app.schemas.chat import ChatRequest, ChatResponse
-from app.schemas.common import HealthResponse
+from app.schemas.common import ErrorDetail, HealthResponse
 from app.schemas.summarize import SummarizeRequest, SummarizeResponse
 from app.services.chat_service import ChatService
 from app.services.summarize_service import SummarizeService
@@ -25,10 +25,7 @@ def chat(request: ChatRequest) -> ChatResponse:
         service = ChatService(OllamaClient(settings))
         return service.chat(request)
     except OllamaClientError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail={"error": str(exc), "provider": "ollama"},
-        ) from exc
+        raise provider_error_to_http_exception(exc) from exc
 
 
 @app.post("/api/v1/summarize", response_model=SummarizeResponse)
@@ -37,7 +34,14 @@ def summarize(request: SummarizeRequest) -> SummarizeResponse:
         service = SummarizeService(OllamaClient(settings))
         return service.summarize(request)
     except OllamaClientError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail={"error": str(exc), "provider": "ollama"},
-        ) from exc
+        raise provider_error_to_http_exception(exc) from exc
+
+
+def provider_error_to_http_exception(exc: OllamaClientError) -> HTTPException:
+    detail = ErrorDetail(
+        error=str(exc),
+        provider=exc.provider,
+        code=exc.code,
+        retryable=exc.retryable,
+    )
+    return HTTPException(status_code=exc.http_status, detail=detail.model_dump())

@@ -25,6 +25,9 @@ run_server.bat
 既定では `http://127.0.0.1:8088` で起動します。
 詳細は [SETUP.md](SETUP.md) を参照してください。
 
+通常テストは Ollama / network に依存しません。
+Ollama 実接続は `SMAI_AI_GATEWAY_LIVE_SMOKE=1` を指定した opt-in smoke として分離します。
+
 ## SMAI 本体との境界
 
 SMAI 本体からは HTTP API と request / response schema だけで接続します。

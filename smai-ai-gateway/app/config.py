@@ -6,6 +6,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+GATEWAY_ROOT = Path(__file__).resolve().parents[1]
+
 
 class GatewaySettings(BaseModel):
     """Runtime settings for the standalone AI Gateway."""
@@ -22,7 +24,7 @@ class GatewaySettings(BaseModel):
 def get_settings() -> GatewaySettings:
     """Load settings from .env and environment variables."""
 
-    _load_dotenv(Path(".env"))
+    _load_dotenv(GATEWAY_ROOT / ".env")
     return GatewaySettings(
         APP_NAME=os.getenv("APP_NAME", "smai-ai-gateway"),
         APP_ENV=os.getenv("APP_ENV", "local"),

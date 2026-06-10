@@ -49,6 +49,22 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8088
 
 ## 5. 動作確認
 
+### Ollama なしでできる確認
+
+通常のテストは Ollama や network に依存しません。schema と `/health` の土台確認だけを行います。
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests -q
+```
+
+既存の SMAI 開発環境から確認する場合:
+
+```powershell
+..\venv_SMAI\Scripts\python.exe -m pytest tests -q
+```
+
+### Gateway 起動確認
+
 ```powershell
 curl http://127.0.0.1:8088/health
 ```
@@ -69,3 +85,32 @@ curl -X POST http://127.0.0.1:8088/api/v1/chat ^
   -H "Content-Type: application/json" ^
   -d "{\"message\":\"こんにちは\",\"system_prompt\":\"You are a helpful assistant.\",\"model\":\"qwen3:8b\"}"
 ```
+
+要約確認例:
+
+```powershell
+curl -X POST http://127.0.0.1:8088/api/v1/summarize ^
+  -H "Content-Type: application/json" ^
+  -d "{\"text\":\"会議で決まったことを要約してください。\",\"purpose\":\"meeting_notes\",\"model\":\"qwen3:8b\"}"
+```
+
+### Ollama ありの opt-in live smoke
+
+Ollama を起動し、モデル取得後にだけ実行します。通常 CI / 通常確認には含めません。
+
+```powershell
+ollama pull qwen3:8b
+$env:SMAI_AI_GATEWAY_LIVE_SMOKE = "1"
+.\.venv\Scripts\python.exe -m pytest tests/test_live_ollama_smoke.py -q
+Remove-Item Env:SMAI_AI_GATEWAY_LIVE_SMOKE
+```
+
+SMAI の既存仮想環境から実行する場合:
+
+```powershell
+$env:SMAI_AI_GATEWAY_LIVE_SMOKE = "1"
+..\venv_SMAI\Scripts\python.exe -m pytest tests/test_live_ollama_smoke.py -q
+Remove-Item Env:SMAI_AI_GATEWAY_LIVE_SMOKE
+```
+
+Ollama 未起動、base URL 誤り、model 未取得、timeout の場合は、`code` と `retryable` を含むエラー detail を返します。

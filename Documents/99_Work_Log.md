@@ -1386,3 +1386,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Implemented generic `/health`, `/api/v1/chat`, and `/api/v1/summarize` endpoints with Pydantic request / response schemas, a service layer, prompt shaping, and an Ollama client boundary.
 - Added `.env.example`, `run_server.bat`, README / SETUP / architecture / API spec / prompt policy / roadmap docs, and minimal network-free tests.
 - Kept the Gateway independent from existing SMAI imports and left Cockpit / Ranking / Forecast / News / Decision Report UI behavior unchanged.
+
+## 2026-06-10 - smai-ai-gateway provider smoke readiness
+
+- Added structured provider error detail for the Gateway, including `code`, `provider`, and `retryable` fields.
+- Improved Ollama error handling for timeout, unreachable server / base URL mistakes, missing model, invalid JSON, empty response, and HTTP provider errors.
+- Made `.env` loading stable from the `smai-ai-gateway` directory even when tests are launched from the SMAI repo root.
+- Added an opt-in live Ollama smoke test gated by `SMAI_AI_GATEWAY_LIVE_SMOKE=1`, keeping normal tests network-free.
+- Updated Gateway setup/API docs and roadmap notes for Ollama-free checks, Ollama live smoke, and actionable error examples.

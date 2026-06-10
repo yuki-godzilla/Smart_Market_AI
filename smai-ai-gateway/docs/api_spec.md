@@ -65,13 +65,28 @@ Response:
 
 ## Error
 
-provider 呼び出しに失敗した場合は、HTTP 502 として分かりやすい detail を返します。
+provider 呼び出しに失敗した場合は、分かりやすい detail を返します。Ollama 未起動や URL 誤りは `provider_unreachable`、timeout は `provider_timeout`、model 未取得は `model_not_found` として扱います。
 
 ```json
 {
   "detail": {
-    "error": "Ollama request timed out.",
-    "provider": "ollama"
+    "error": "Ollama request failed. Check OLLAMA_BASE_URL and whether Ollama is running.",
+    "provider": "ollama",
+    "code": "provider_unreachable",
+    "retryable": true
+  }
+}
+```
+
+model が未取得の場合:
+
+```json
+{
+  "detail": {
+    "error": "Ollama model 'qwen3:8b' was not found. Run `ollama pull qwen3:8b` or choose an installed model.",
+    "provider": "ollama",
+    "code": "model_not_found",
+    "retryable": false
   }
 }
 ```

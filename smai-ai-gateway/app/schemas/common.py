@@ -16,6 +16,13 @@ class HealthResponse(GatewayBaseModel):
     service: str = Field(min_length=1)
 
 
+class ErrorDetail(GatewayBaseModel):
+    error: str = Field(min_length=1)
+    provider: str | None = Field(default=None, min_length=1)
+    code: str = Field(min_length=1)
+    retryable: bool = False
+
+
 class LlmMessage(GatewayBaseModel):
     role: Literal["system", "user", "assistant"]
     content: str = Field(min_length=1)

@@ -8,6 +8,8 @@
 - `/api/v1/summarize`
 - Ollama client
 - 基本 schema / tests
+- provider error detail
+- opt-in live Ollama smoke
 
 ## Phase 2: SMAI から投資コメント生成に利用
 

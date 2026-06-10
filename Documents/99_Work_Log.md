@@ -1394,3 +1394,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Made `.env` loading stable from the `smai-ai-gateway` directory even when tests are launched from the SMAI repo root.
 - Added an opt-in live Ollama smoke test gated by `SMAI_AI_GATEWAY_LIVE_SMOKE=1`, keeping normal tests network-free.
 - Updated Gateway setup/API docs and roadmap notes for Ollama-free checks, Ollama live smoke, and actionable error examples.
+
+## 2026-06-10 - smai-ai-gateway README architecture diagram
+
+- Added a Mermaid system architecture diagram to `smai-ai-gateway/README.md`.
+- Clarified the separation between client apps, FastAPI API layer, Pydantic schemas, services, config, provider client boundary, and current/future LLM providers.
+- Reiterated that SMAI connects through HTTP request / response schemas and the Gateway does not import SMAI Python modules.

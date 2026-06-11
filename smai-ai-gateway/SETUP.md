@@ -91,7 +91,7 @@ curl -X POST http://127.0.0.1:8088/api/v1/chat ^
 ```powershell
 curl -X POST http://127.0.0.1:8088/api/v1/summarize ^
   -H "Content-Type: application/json" ^
-  -d "{\"text\":\"会議で決まったことを要約してください。\",\"purpose\":\"meeting_notes\",\"model\":\"qwen3:8b\"}"
+  -d "{\"text\":\"確認したい文章の要点を短く整理してください。\",\"purpose\":\"general_summary\",\"model\":\"qwen3:8b\"}"
 ```
 
 ### Ollama ありの opt-in live smoke

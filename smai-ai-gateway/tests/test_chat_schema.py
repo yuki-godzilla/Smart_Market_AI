@@ -21,13 +21,13 @@ def test_chat_request_schema_accepts_generic_message():
 
 def test_summarize_request_schema_accepts_generic_text():
     request = SummarizeRequest(
-        text="会議で決まったことを箇条書きにしてください。",
-        purpose="meeting_notes",
+        text="確認したい文章の要点を箇条書きにしてください。",
+        purpose="general_summary",
         model="qwen3:8b",
     )
 
-    assert request.text.startswith("会議")
-    assert request.purpose == "meeting_notes"
+    assert request.text.startswith("確認")
+    assert request.purpose == "general_summary"
     assert request.model == "qwen3:8b"
 
 

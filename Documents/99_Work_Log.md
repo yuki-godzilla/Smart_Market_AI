@@ -18,6 +18,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-11 - smai-ai-gateway scope wording cleanup
+
+- Re-centered `smai-ai-gateway` documentation on SMAI as the primary current client and moved non-SMAI use cases to generic future local-tool wording.
+- Removed concrete meeting-summary / AI-test-tool examples, project-specific icons, and `meeting_notes` sample values from Gateway README, specification, setup/API docs, roadmap, and schema tests.
+- Synchronized the parent roadmap and project context so concrete other-project requirements are not treated as part of the current Gateway specification.
+
 ## 2026-06-11 - smai-ai-gateway Project Specification
 
 - Added `smai-ai-gateway/Project_Specification.md` based on the lightweight specification-document pattern from `C:\IDE_Workspace\ai-dev-process-documents`.

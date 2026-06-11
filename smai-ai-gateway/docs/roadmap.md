@@ -17,11 +17,11 @@
 - SMAI Copilot / Decision Report の説明補助
 - deterministic fallback 維持
 
-## Phase 3: 他用途へ展開
+## Phase 3: 他ローカルツールへ展開
 
-- 会議要約
-- AI テスト基盤
-- 技術文書要約
+- SMAI 以外のローカルクライアントからの利用
+- 汎用テキスト要約
+- 汎用プロンプト実行
 - 汎用チャット
 
 ## Phase 4: 運用機能

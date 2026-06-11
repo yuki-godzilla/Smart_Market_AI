@@ -40,14 +40,14 @@ Response:
 
 ## POST /api/v1/summarize
 
-汎用要約 API です。会議要約、ニュース要約、技術文書要約などに使う想定です。
+汎用要約 API です。入力テキストの要点整理に使う想定で、特定アプリ専用の field は持ちません。
 
 Request:
 
 ```json
 {
   "text": "...",
-  "purpose": "meeting_notes",
+  "purpose": "general_summary",
   "model": "qwen3:8b"
 }
 ```

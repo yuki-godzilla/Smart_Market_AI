@@ -3,7 +3,7 @@
 ## 全体像
 
 ```text
-SMAI / meeting summary / AI test tools
+SMAI / future local tools
         |
         | HTTP API
         v
@@ -16,7 +16,7 @@ Ollama / OpenAI compatible API / vLLM / llama.cpp server
 
 ## 設計方針
 
-- Gateway は SMAI 専用ではなく、複数アプリから使える汎用 AI API とする
+- Gateway は SMAI 本体を主利用元としつつ、将来ほかのローカルツールにも展開できる汎用 AI API とする
 - SMAI 本体とは HTTP request / response schema だけで接続する
 - Gateway から SMAI 本体の Python module を import しない
 - provider routing、prompt 実行、timeout、error normalization は Gateway 側に寄せる
@@ -35,7 +35,6 @@ Ollama / OpenAI compatible API / vLLM / llama.cpp server
 ## 将来拡張
 
 - SMAI Copilot チャット画面
-- 会議要約アプリからの要約利用
-- AI テスト基盤からのテスト観点生成
+- 他ローカルツールからの汎用 chat / summarize 利用
 - スマホ / PWA からの共通 AI API 利用
 - 認証、API key、rate limit、監査ログ

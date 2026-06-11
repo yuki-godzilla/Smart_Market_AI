@@ -18,6 +18,13 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-12 - Roadmap order and chapter renumbering
+
+- Reordered the future implementation priority around `SMAI LLM Factor` first, followed by factor cache/backtest, Gateway/Copilot real connection, advanced news intelligence, Research RAG expansion, Symbol DB live-provider wiring, advanced export, and Execution Gate.
+- Renumbered `Documents/05_Implementation_Roadmap.md` section 5 to remove the confusing `5.7.5` branch and split Phase 24+ candidates into `Phase 24A` / `Phase 24B` headings.
+- Split the detailed backlog into clearer buckets for Research RAG, SMAI LLM Factor, Assistant/Gateway, News/Research Intelligence, Symbol DB/Provider Operations, and Execution.
+- Clarified that Symbol DB background refresh foundation is implemented and only live-provider wiring remains as a lower-priority operational connection task.
+
 ## 2026-06-12 - SMAI LLM Factor roadmap note
 
 - Added a future `SMAI LLM Factor` roadmap concept that treats LLMs as source-bound qualitative feature generators, not final stock-price forecasters.

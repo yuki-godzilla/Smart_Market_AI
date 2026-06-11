@@ -69,6 +69,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動、通知
 - Advanced Forecast ranking logic: Ranking retains and displays common-horizon advanced forecast fields, blends consensus-derived advanced upside / downside into Ranking direction signals at 25%, and `AI総合` lightly includes advanced upside / downside / quality scores. Other ranking profiles remain existing-profile centered unless explicitly changed later.
 - Assistant API / dedicated Assistant screen / optional LLM provider は Phase 24 後続範囲。Streamlit の floating `SMAI Copilot` question-panel first slice は実装済み
+- `SMAI LLM Factor` は将来範囲。RAG / News / IR を LLM で構造化特徴量に変換する構想だが、初期は参考表示のみとし、既存予測モデル / Ranking / Investment Score には backtest 前に混ぜない
 - 銘柄DB live provider refresh wiring
 - broker への live order 送信
 - Execution workflow

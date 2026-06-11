@@ -1951,6 +1951,119 @@ Phase 24+ のニュース機能で守る線:
 - CI / 通常テストは外部ネットワークに依存させない。
 - 外部 LLM は必須にせず、template / deterministic fallback を維持する。
 
+Phase 24+ の SMAI LLM Factor / 定性特徴量化候補:
+
+状態: 将来範囲 / 設計追記。既存予測モデル、Ranking、Investment Score には初期段階では混ぜない。
+
+仮称: `SMAI LLM Factor`。名称候補は `SMAI LLM Factor Model`、`SMAI Sentiment Alpha`、`SMAI Material Factor`、`SMAI Catalyst Score`。
+
+目的:
+
+- LLM に直接「株価が上がる / 下がる」を予測させない。
+- LLM は RAG、ニュース、IR、企業情報などの定性データを読み取り、既存の数値予測モデルや UI が再利用できる構造化特徴量へ変換する。
+- 価格、財務、テクニカル指標だけでは拾いにくい材料を、SMAI 独自の予測因子候補として扱えるようにする。
+- 有効性が確認されるまでは、銘柄コックピットとランキングの参考情報に留め、売買推奨やランキング順位の決定主体にはしない。
+
+入力候補:
+
+- 銘柄DB、価格データ、財務指標、Ranking 情報、既存予測モデル出力。
+- RAG 検索結果、最新ニュース、TDnet / EDINET / 企業IR、Research Summary。
+- ニュース / 開示の source URL、source type、published_at、fetched_at。
+
+LLM が生成する特徴量候補:
+
+- `llm_bullish_score`: 好決算、上方修正、増配、自社株買い、新製品、大型契約、市場テーマ一致、セクター追い風などの上昇材料スコア。
+- `llm_bearish_score`: 下方修正、減益、訴訟、規制リスク、競争激化、為替逆風、セクター逆風、過熱感などの下降材料スコア。
+- `llm_catalyst_score`: 決算、増配、自社株買い、新規事業、M&A、政策テーマ、業界ニュースなど、株価変動のきっかけになり得る材料の強さ。
+- `llm_risk_score`: 投資判断上の注意点の強さ。
+- `llm_theme_score`: AI、半導体、防衛、データセンター、EV、インバウンド、高配当、円安メリットなどの市場テーマ一致度。
+- `llm_freshness_score`: 取得情報の新しさ。
+- `llm_evidence_quality_score`: 出典の信頼性、具体性、件数。
+- `llm_confidence_score`: LLM が判断材料としてどれだけ確信を持てるか。
+
+構造化 JSON 仕様案:
+
+```json
+{
+  "ticker": "7203.T",
+  "llm_bullish_score": 78,
+  "llm_bearish_score": 34,
+  "llm_catalyst_score": 71,
+  "llm_risk_score": 42,
+  "llm_theme_score": 66,
+  "llm_freshness_score": 89,
+  "llm_evidence_quality_score": 74,
+  "llm_confidence_score": 68,
+  "bullish_factors": [
+    {
+      "title": "増配期待",
+      "score": 82,
+      "reason": "直近の業績改善と株主還元姿勢が確認できるため",
+      "source_url": "...",
+      "source_date": "2026-06-12"
+    }
+  ],
+  "bearish_factors": [
+    {
+      "title": "為替反転リスク",
+      "score": 55,
+      "reason": "円高方向に振れた場合、輸出採算に悪影響の可能性があるため",
+      "source_url": "...",
+      "source_date": "2026-06-12"
+    }
+  ],
+  "summary": "定性材料ベースではやや強気。ただし為替・バリュエーション面の注意が必要。",
+  "disclaimer": "本結果は投資判断材料の整理であり、売買推奨ではありません。"
+}
+```
+
+設計方針:
+
+- LLM は特徴量生成器として扱い、最終予測、ランキング順位、売買判断、ポートフォリオ配分案を決定しない。
+- 出典 URL、source type、source date、fetched_at、model name、prompt version、source hash を保持する。根拠がないスコアは UI 上で低信頼として扱う。
+- `LLMFactorResult`、`BullishFactor`、`BearishFactor`、`EvidenceSource` を Pydantic 等で検証し、0-100 範囲外スコア、不正 JSON、必須 source 欠落を補正または破棄する。
+- Ollama / Qwen 系 / Gemini / OpenAI compatible provider などを差し替えられるようにし、provider 固有処理は Gateway 境界へ寄せる。SMAI 側は domain schema、cache、UI、backtest を持つ。
+- 初期は既存予測モデルへ直接混ぜず、LLM特徴量生成、UI参考表示、保存 / キャッシュ、バックテスト、有効特徴量だけ予測モデル統合の順に進める。
+
+実装フェーズ案:
+
+- Phase A: `LLMFactorResult`、`BullishFactor`、`BearishFactor`、`EvidenceSource` schema を追加し、confidence、freshness、evidence_quality、source URL / date を必須化する。既存 RAG / News / Research Summary との接続点を整理する。
+- Phase B: 銘柄コックピットの 1 銘柄分析だけを対象に、既存 RAG / ニュース / 銘柄DBを入力し、LLM 構造化 prompt、JSON 出力、Pydantic 検証、UI 表示までの MVP を作る。
+- Phase C: 同一銘柄 / 同一 source hash の cache、LLM 実行日時、使用 model、prompt version、TTL を保存し、再現性と cache 肥大化防止を両立する。
+- Phase D: ランキング画面に `LLM強気材料`、`LLM弱気材料`、`LLM確信度`、`材料鮮度` を参考カラムとして追加する。既存ランキングスコアにはまだ混ぜない。
+- Phase E: `llm_bullish_score` と将来リターン、`llm_bearish_score` と下落率、`llm_catalyst_score` と短期リターン、`llm_risk_score` と drawdown、既存予測モデルに追加した場合の精度差分を backtest する。Accuracy、Precision、Recall、F1、AUC、Top-N return、Sharpe Ratio、最大 drawdown、既存モデルとの差分を見る。
+- Phase F: backtest で有効性が確認できた特徴量のみ、SMAI 独自予測モデルへ統合する。統合時は価格、財務、テクニカル、RAG / News、LLM 材料分析の寄与度を UI で可視化する。
+
+初期 UI 方針:
+
+- 銘柄コックピットに `AI材料分析` または `LLM材料分析` として表示する。
+- 初期表示は `上昇材料`、`下降材料`、`カタリスト`、`リスク`、`確信度`、上昇要因 Top 3、下降要因 Top 3、根拠 URL に絞る。
+- 説明文は「RAG・ニュース・IR情報をLLMで構造化し、投資判断材料としてスコア化した参考指標です。売買推奨ではありません。」を基本にする。
+
+Prompt 方針:
+
+- 売買推奨は禁止し、断定表現を避ける。
+- 根拠のない推測をせず、出典にない情報を作らない。
+- score は 0-100 とし、出典 URL と日付を各 factor に紐づける。
+- JSON のみ返す。不明な場合は低 confidence にする。
+
+テスト方針:
+
+- JSON parse 成功、score 範囲検証、欠損値処理、source URL 欠落時の扱い、confidence 低下処理、不正 LLM 応答時 fallback を単体テストする。
+- 回帰対象は国内大型株、海外大型株、ETF、高配当株、成長株、ニュースが少ない銘柄、大阪ガス `9532.T` を含める。
+- 既存予測ロジック、Ranking、Research Summary、Decision Report、通常 checks が壊れていないことを確認する。
+
+受け入れ条件:
+
+- 既存予測モデルの挙動を変更しない。
+- LLM特徴量は初期段階では参考表示のみ。
+- LLM出力は Pydantic 等で検証される。
+- 根拠 URL、日付、model name、prompt version が保持される。
+- LLM失敗時に graceful degradation する。
+- 銘柄コックピットで 1 銘柄単位の LLM 材料分析が表示できる。
+- JSON構造がテストで検証される。
+- 回帰テストで既存画面が壊れていないことを確認する。
+
 ### 5.11 Phase 25: 高度ExportとExecution Gate
 
 状態: 将来範囲 / 低優先度
@@ -2006,6 +2119,7 @@ Phase 24+ のニュース機能で守る線:
 - Opt-in live LLM Gateway smoke
 - `SMAI Copilot` dedicated chat workspace with conversation history and shared `AssistantContextBundle`
 - LLM-enhanced report / news explanation
+- `SMAI LLM Factor` structured qualitative feature generation from RAG / news / IR sources, with source-bound JSON schema validation and reference-only UI before backtest
 - Hybrid assistant evaluation
 
 ### 6.3 Execution
@@ -2040,5 +2154,6 @@ Markdown UTF-8 check:
 - Symbol DB background refresh の live provider refresh wiring をどの provider / opt-in 条件で接続するか
 - Research Score をランキング順位へ統合する必要性を再確認するか。既定では統合しない
 - Assistant が参照できる context の範囲、privacy boundary、API / Streamlit 質問パネルの位置
+- `SMAI LLM Factor` を Assistant / Copilot 説明機能と分離し、どの時点で cache / backtest / forecast integration へ進めるか
 - PDF / Excel export をいつ入れるか
 - Execution / broker order をどの段階で再開するか

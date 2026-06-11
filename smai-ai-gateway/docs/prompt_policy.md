@@ -2,13 +2,17 @@
 
 ## LLM の役割
 
-LLM は数値予測そのもの、ランキング順位、スコア計算、売買判断を担当しません。
+現在の Assistant / `context-answer` では、LLM は数値予測そのもの、ランキング順位、スコア計算、売買判断を担当しません。
 担当範囲は以下に限定します。
 
 - 説明
 - 要約
 - 確認観点の整理
 - ユーザーが見ている材料の読み方の補助
+
+将来の `SMAI LLM Factor` では、LLM を最終予測器ではなく、出典付きの定性材料を構造化特徴量へ変換する provider として扱う余地があります。
+この場合も、LLM が直接「株価が上がる / 下がる」を予測したり、Ranking / Investment Score / Forecast の最終値を決定したりすることは禁止します。
+LLM が出す 0-100 の材料スコアは domain schema で検証される参考特徴量であり、SMAI 側の backtest と UI 境界を通るまで既存予測モデルへ統合しません。
 
 ## 投資助言ではない
 
@@ -38,3 +42,17 @@ LLM は `answer` の本文生成を担当し、`materials`、`cautions`、`next_
 
 将来的には、SMAI RAG / Research Evidence の要約済み context を Gateway 入力へ渡します。
 その場合も、全文を無制限に渡すのではなく、出典、公開日、要約、確認ポイントを構造化して渡します。
+
+## 将来の構造化特徴量生成
+
+`SMAI LLM Factor` 用の prompt では、以下を必ず制約として含めます。
+
+- 売買推奨をしない。
+- 断定表現を避ける。
+- 出典にない情報を作らない。
+- score は 0-100 に限定する。
+- factor ごとに source URL、source date、source type を保持する。
+- JSON のみ返す。
+- 不明な場合は低 confidence にする。
+
+Gateway は provider 呼び出しと prompt 実行の境界を担い、`LLMFactorResult` などの SMAI domain schema、source hash、cache、backtest、UI 統合は SMAI 本体側で扱います。

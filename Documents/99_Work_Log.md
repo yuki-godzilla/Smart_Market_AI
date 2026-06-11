@@ -18,6 +18,13 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-12 - SMAI LLM Factor roadmap note
+
+- Added a future `SMAI LLM Factor` roadmap concept that treats LLMs as source-bound qualitative feature generators, not final stock-price forecasters.
+- Captured candidate factor fields such as `llm_bullish_score`, `llm_bearish_score`, `llm_catalyst_score`, `llm_risk_score`, `llm_theme_score`, `llm_freshness_score`, `llm_evidence_quality_score`, and `llm_confidence_score`.
+- Defined the implementation sequence as schema design, single-symbol Cockpit reference display, cache / reproducibility, Ranking reference columns, backtest, and only then optional forecast-model integration.
+- Updated Gateway docs to keep Assistant / context-answer explanation behavior separate from future structured JSON feature extraction, with SMAI domain schema, cache, backtest, and UI integration remaining on the SMAI side.
+
 ## 2026-06-11 - smai-ai-gateway context-answer API
 
 - Added `POST /api/v1/context-answer` to `smai-ai-gateway` with generic context bundle request / structured response schemas.

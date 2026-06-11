@@ -22,6 +22,7 @@ Ollama / OpenAI compatible API / vLLM / llama.cpp server
 - provider routing、prompt 実行、timeout、error normalization は Gateway 側に寄せる
 - SMAI 側は context bundle 作成、schema validation、deterministic fallback を持つ
 - `context-answer` では、LLM は回答本文を作り、`materials` / `cautions` / `next_checkpoints` は Gateway が渡された context から安定生成する
+- 将来の `SMAI LLM Factor` では、Gateway は provider 呼び出しと prompt 実行の境界に留め、LLM factor の domain schema、source hash、cache、backtest、UI 統合は SMAI 本体側で扱う
 
 ## 現時点で移動しないもの
 
@@ -30,12 +31,14 @@ Ollama / OpenAI compatible API / vLLM / llama.cpp server
 - Research Evidence
 - Forecast / Ranking / Scoring
 - Decision Report 生成
+- SMAI LLM Factor の domain model / backtest / score integration
 
 これらは当面 SMAI 本体側に残し、Gateway には必要な context だけを明示的に渡します。
 
 ## 将来拡張
 
 - SMAI Copilot チャット画面
+- `SMAI LLM Factor` 向けの構造化 JSON 生成補助。ただし最終予測、ランキング順位、Investment Score 統合は SMAI 側の backtest 後に判断する
 - 他ローカルツールからの汎用 chat / summarize 利用
 - スマホ / PWA からの共通 AI API 利用
 - 認証、API key、rate limit、監査ログ

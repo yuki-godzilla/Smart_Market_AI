@@ -21,6 +21,7 @@ Ollama / OpenAI compatible API / vLLM / llama.cpp server
 - Gateway から SMAI 本体の Python module を import しない
 - provider routing、prompt 実行、timeout、error normalization は Gateway 側に寄せる
 - SMAI 側は context bundle 作成、schema validation、deterministic fallback を持つ
+- `context-answer` では、LLM は回答本文を作り、`materials` / `cautions` / `next_checkpoints` は Gateway が渡された context から安定生成する
 
 ## 現時点で移動しないもの
 

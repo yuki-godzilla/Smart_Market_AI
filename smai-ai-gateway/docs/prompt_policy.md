@@ -28,6 +28,12 @@ SMAI / Gateway の出力は投資判断の補助情報です。
 
 Provider raw fields、debug logs、保存対象でない外部本文全文は通常 request に含めません。
 
+## 構造化回答
+
+`/api/v1/context-answer` では、LLM に自由な JSON 生成を任せません。
+LLM は `answer` の本文生成を担当し、`materials`、`cautions`、`next_checkpoints`、`referenced_sections` は Gateway が受け取った context から安定生成します。
+これにより、SMAI 側 UI が必要とする表示順と安全境界を保ちます。
+
 ## 将来の SMAI RAG context
 
 将来的には、SMAI RAG / Research Evidence の要約済み context を Gateway 入力へ渡します。

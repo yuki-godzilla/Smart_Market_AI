@@ -6,6 +6,7 @@
 - `/health`
 - `/api/v1/chat`
 - `/api/v1/summarize`
+- `/api/v1/context-answer`
 - Ollama client
 - 基本 schema / tests
 - provider error detail
@@ -15,6 +16,7 @@
 
 - SMAI 側 `AssistantContextBundle` から Gateway へ接続
 - SMAI Copilot / Decision Report の説明補助
+- context answer response の `materials` / `cautions` / `next_checkpoints` を UI 表示へ接続
 - deterministic fallback 維持
 
 ## Phase 3: 他ローカルツールへ展開

@@ -63,6 +63,82 @@ Response:
 }
 ```
 
+## POST /api/v1/context-answer
+
+context bundle をもとに、説明本文と `materials` / `cautions` / `next_checkpoints` を返す汎用 API です。
+SMAI Copilot や Decision Report 連携では、画面やレポートの安全な要約 context だけを渡します。Gateway はスコア、予測値、ランキング順位を変更しません。
+
+Request:
+
+```json
+{
+  "schema_version": "assistant-gateway-request-v1",
+  "task": "explain",
+  "language": "ja",
+  "user_question": "AI予測インサイトでは何を見ればよいですか？",
+  "model": "qwen3:8b",
+  "context": {
+    "schema_version": "assistant-context-bundle-v1",
+    "bundle_id": "bundle-1",
+    "title": "銘柄コックピット / AI予測インサイト",
+    "source": "decision_report",
+    "active_context_id": "forecast-1",
+    "sections": [
+      {
+        "section_id": "forecast-1",
+        "title": "AI予測インサイト",
+        "source_kind": "forecast",
+        "summary": {
+          "中心予測": "+1.2%",
+          "予測レンジ": "-3.0%〜+4.5%"
+        },
+        "included_fields": ["中心予測", "予測レンジ", "信頼度"],
+        "warnings": ["予測レンジが広めです。"],
+        "notes": ["根拠資料とデータ品質も確認します。"]
+      }
+    ],
+    "privacy_notes": [
+      "Provider raw fields, debug logs, and full external source bodies are excluded."
+    ]
+  },
+  "constraints": {
+    "no_investment_advice": true,
+    "do_not_change_scores": true,
+    "do_not_rank_symbols": true,
+    "answer_format": "materials_cautions_checkpoints",
+    "require_referenced_sections": true
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "schema_version": "assistant-gateway-response-v1",
+  "answer": "中心予測、予測レンジ、信頼度の順に確認します。",
+  "materials": ["AI予測インサイト", "中心予測", "予測レンジ", "信頼度"],
+  "cautions": [
+    "予測レンジが広めです。",
+    "投資助言ではなく、確認材料の整理として扱ってください。"
+  ],
+  "next_checkpoints": ["根拠資料とデータ品質も確認します。"],
+  "referenced_sections": [
+    {
+      "section_id": "forecast-1",
+      "title": "AI予測インサイト",
+      "source_kind": "forecast"
+    }
+  ],
+  "confidence": "medium",
+  "safety_notes": ["スコア、予測値、ランキング順位は変更していません。"],
+  "provider": "ollama",
+  "model": "qwen3:8b",
+  "elapsed_ms": 120,
+  "decision_support_note": "この回答は判断材料の整理であり、投資助言ではありません。"
+}
+```
+
 ## Error
 
 provider 呼び出しに失敗した場合は、分かりやすい detail を返します。Ollama 未起動や URL 誤りは `provider_unreachable`、timeout は `provider_timeout`、model 未取得は `model_not_found` として扱います。

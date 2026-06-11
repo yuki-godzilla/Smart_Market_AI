@@ -1852,7 +1852,7 @@ Research資料保存方針の移行:
 - チップ操作はブラウザ内の native `details` / `summary` と CSS 表示切替で完結し、query parameter navigation、価格取得、予測計算、ランキング作成を走らせない。回答は理由、注意点、次の確認、参照 section を返す。
 - `backend/assistant/gateway_contracts.py` に、LLM Gateway / 将来チャット画面へ渡す `AssistantContextBundle`、`AssistantGatewayRequest`、`AssistantGatewayResponse` の契約を追加済み。`DecisionReportContext` から送信可能な短い context bundle を生成し、provider raw fields、debug logs、外部本文全文、source metadata を除外する。Gateway request には安全制約と将来の `conversation_id` / `message_history` / `active_context_id` / `referenced_context_ids` を持たせる。
 - `backend/assistant/gateway_client.py` に `AssistantGatewayClient` protocol、network-free `MockAssistantGatewayClient`、`GatewayBackedAssistantService` を追加済み。Gateway応答が有効なら既存UI互換の `AssistantResponse` に変換し、Gateway error、timeout、schema validation failure、空回答、context未指定時は `TemplateAssistantService` に戻す。
-- `smai-ai-gateway/` に、将来の独立リポジトリ / Git submodule 化を前提にした汎用 FastAPI Gateway scaffold を追加済み。`GET /health`、`POST /api/v1/chat`、`POST /api/v1/summarize`、Pydantic schema、Ollama client 境界、service 層、provider error detail、`.env.example`、Windows 起動 bat、README / SETUP / docs、network-free tests、opt-in live smoke path を持ち、既存 SMAI 本体への import 依存や UI 影響は入れていない。
+- `smai-ai-gateway/` に、将来の独立リポジトリ / Git submodule 化を前提にした汎用 FastAPI Gateway scaffold を追加済み。`GET /health`、`POST /api/v1/chat`、`POST /api/v1/summarize`、`POST /api/v1/context-answer`、Pydantic schema、Ollama client 境界、service 層、provider error detail、`.env.example`、Windows 起動 bat、README / SETUP / docs、network-free tests、opt-in live smoke path を持ち、既存 SMAI 本体への import 依存や UI 影響は入れていない。
 - LLM 実装後の `SMAI Copilot` チャット画面、限定自由入力、外部 `LLM Gateway API` の実 client / opt-in live smoke は Phase 24 の後続 slice として扱う。
 - `SMAI Copilot` チャット画面は、右下 floating Copilot の置き換えではなく、銘柄コックピット、ランキング、投資レーダー、Decision Report を横断して相談する専用ワークスペースとして扱う。floating Copilot は画面・セクション内のクイック補助、チャット画面は自由入力と会話履歴を持つ深掘り補助に分ける。
 
@@ -1871,7 +1871,7 @@ Phase 24 closeout 後の `smai-ai-gateway` 構想 / 初期実装状況:
 - SMAI リポジトリ配下に `smai-ai-gateway/` を新設済み。ただし将来的に独立リポジトリまたは Git submodule へ切り出せる前提で、SMAI 本体からの import 依存や内部 contract 共有を避ける。
 - `smai-ai-gateway` は SMAI 本体を主利用元としつつ、将来ほかのローカルツールからも使える汎用 AI Gateway 境界として扱う。SMAI との接続は HTTP API と request / response schema に限定し、具体的な他プロジェクト仕様は Gateway の現在仕様に持ち込まない。
 - 既存の SMAI RAG / News RAG / Research Evidence 機能は現時点では移動しない。まずは LLM 通信、API、prompt 実行、設定、ドキュメント体系、network-free test の土台を整備する。
-- 初期構成は FastAPI ベースとし、`GET /health`、`POST /api/v1/chat`、`POST /api/v1/summarize` を提供する。chat / summarize は SMAI 固有名を使わず、`answer`、`model`、`provider`、`elapsed_ms` などの汎用 response を返す。
+- 初期構成は FastAPI ベースとし、`GET /health`、`POST /api/v1/chat`、`POST /api/v1/summarize`、`POST /api/v1/context-answer` を提供する。chat / summarize は SMAI 固有名を使わず、`answer`、`model`、`provider`、`elapsed_ms` などの汎用 response を返す。context-answer は、LLM answer に加えて `materials`、`cautions`、`next_checkpoints`、`referenced_sections` を context から安定生成し、SMAI Copilot / Decision Report UI が扱いやすい構造にする。
 - 初期 LLM provider は Ollama とする。`OLLAMA_BASE_URL` は `.env` から読み、既定値は `http://localhost:11434`、既定 model は `DEFAULT_LLM_MODEL` とする。request model 指定があれば優先し、timeout と分かりやすい error response を備える。将来 OpenAI compatible API、vLLM、llama.cpp server へ差し替えられる client 境界にする。
 - 設定は `APP_NAME`、`APP_ENV`、`OLLAMA_BASE_URL`、`DEFAULT_LLM_MODEL`、`REQUEST_TIMEOUT_SECONDS`、`ENABLE_DEBUG_LOG` を最小構成とし、`.env.example` と `SETUP.md` で起動手順を明示する。
 - サービス層は `chat_service.py`、`summarize_service.py`、`prompt_service.py` に分け、API 層へ prompt 生成や provider 呼び出しを直接書かない。prompt template は後から外部化できる形を保つ。

@@ -94,6 +94,14 @@ curl -X POST http://127.0.0.1:8088/api/v1/summarize ^
   -d "{\"text\":\"確認したい文章の要点を短く整理してください。\",\"purpose\":\"general_summary\",\"model\":\"qwen3:8b\"}"
 ```
 
+context answer 確認例:
+
+```powershell
+curl -X POST http://127.0.0.1:8088/api/v1/context-answer ^
+  -H "Content-Type: application/json" ^
+  -d "{\"user_question\":\"AI予測インサイトでは何を見る？\",\"model\":\"qwen3:8b\",\"context\":{\"bundle_id\":\"bundle-1\",\"title\":\"銘柄コックピット\",\"sections\":[{\"section_id\":\"forecast-1\",\"title\":\"AI予測インサイト\",\"source_kind\":\"forecast\",\"summary\":{\"中心予測\":\"+1.2%\",\"予測レンジ\":\"-3.0%〜+4.5%\"},\"included_fields\":[\"中心予測\",\"予測レンジ\",\"信頼度\"],\"warnings\":[\"予測レンジが広めです。\"],\"notes\":[\"根拠資料とデータ品質も確認します。\"]}]}}"
+```
+
 ### Ollama ありの opt-in live smoke
 
 Ollama を起動し、モデル取得後にだけ実行します。通常 CI / 通常確認には含めません。

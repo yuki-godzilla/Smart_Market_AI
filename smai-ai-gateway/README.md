@@ -39,7 +39,7 @@ flowchart LR
   end
 
   subgraph gateway["smai-ai-gateway"]
-    api["FastAPI API 層<br/>/health<br/>/api/v1/chat<br/>/api/v1/summarize"]
+    api["FastAPI API 層<br/>/health<br/>/api/v1/chat<br/>/api/v1/summarize<br/>/api/v1/context-answer"]
     schemas["Pydantic Schemas<br/>request / response validation"]
     services["Service 層<br/>chat / summarize / prompt"]
     config["Config<br/>.env / timeout / default model"]
@@ -119,7 +119,7 @@ flowchart LR
   <tr>
     <td>FastAPI API 層</td>
     <td>FastAPI / Uvicorn <img alt="FastAPI logo" src="https://cdn.simpleicons.org/fastapi/009688" height="22"> <img alt="Uvicorn badge" src="https://img.shields.io/badge/Uvicorn-ASGI-22C55E" height="20"></td>
-    <td><code>/health</code>、<code>/api/v1/chat</code>、<code>/api/v1/summarize</code> を公開します。</td>
+    <td><code>/health</code>、<code>/api/v1/chat</code>、<code>/api/v1/summarize</code>、<code>/api/v1/context-answer</code> を公開します。</td>
   </tr>
   <tr>
     <td>Pydantic Schemas</td>
@@ -172,6 +172,7 @@ LLM provider を変更する場合も、SMAI 側ではなく Gateway の provide
 - `GET /health`
 - `POST /api/v1/chat`
 - `POST /api/v1/summarize`
+- `POST /api/v1/context-answer`
 
 ## 起動概要
 

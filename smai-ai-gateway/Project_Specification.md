@@ -80,11 +80,11 @@ flowchart LR
 | Health check | 実装済み | Gateway 起動確認 | `GET /health` が service 名と status を返す | [docs/api_spec.md](docs/api_spec.md) |
 | Generic chat API | 実装済み | 汎用チャット実行 | message、system_prompt、model を受け取り、Ollama chat API を呼ぶ | [docs/api_spec.md](docs/api_spec.md) |
 | Generic summarize API | 実装済み | 汎用要約実行 | text、purpose、model を受け取り、保守的な要約 prompt を生成する | [docs/api_spec.md](docs/api_spec.md) |
+| Context answer API | 実装済み | 画面 / レポート文脈に基づく構造化回答 | context bundle と質問を受け取り、answer、materials、cautions、next_checkpoints、referenced_sections を返す | [docs/api_spec.md](docs/api_spec.md) |
 | Ollama client boundary | 実装済み | provider 詳細の隠蔽 | base URL、timeout、model selection、elapsed_ms、error normalization を扱う | [docs/architecture.md](docs/architecture.md) |
 | Provider error detail | 実装済み | 利用者が原因を判断しやすくする | `code`、`provider`、`retryable` を含む error detail を返す | [docs/api_spec.md](docs/api_spec.md) |
 | Network-free tests | 実装済み | 通常 CI を deterministic に保つ | schema、health、provider error mapping を Ollama なしで確認する | [SETUP.md](SETUP.md) |
 | Opt-in live Ollama smoke | 実装済み | 実 provider 接続確認 | `SMAI_AI_GATEWAY_LIVE_SMOKE=1` のときだけ実行する | [SETUP.md](SETUP.md) |
-| SMAI context answer API | 設計中 | SMAI context から構造化回答を返す | `materials` / `cautions` / `next_checkpoints` などを返す汎用 endpoint 候補 | [docs/roadmap.md](docs/roadmap.md) |
 | SMAI real Gateway connection | 未着手 | SMAI 本体から実 Gateway を呼ぶ | SMAI 側 HTTP client、設定、fallback、schema validation | 親側 roadmap |
 | 認証 / API key / rate limit | 未着手 | 運用時の保護 | local-first MVP 後の運用機能 | [docs/roadmap.md](docs/roadmap.md) |
 
@@ -125,13 +125,17 @@ smai-ai-gateway/
       common.py
       chat.py
       summarize.py
+      context_answer.py
     services/
       chat_service.py
       summarize_service.py
       prompt_service.py
+      context_answer_service.py
   tests/
     test_health.py
     test_chat_schema.py
+    test_context_answer_schema.py
+    test_context_answer_service.py
     test_provider_errors.py
     test_live_ollama_smoke.py
 ```
@@ -146,9 +150,11 @@ smai-ai-gateway/
 | `app/schemas/common.py` | `GatewayBaseModel`, `HealthResponse`, `ErrorDetail`, `LlmMessage`, `LlmProviderResult` | 共通 schema と strict validation。 |
 | `app/schemas/chat.py` | `ChatRequest`, `ChatResponse` | 汎用 chat API contract。 |
 | `app/schemas/summarize.py` | `SummarizeRequest`, `SummarizeResponse` | 汎用 summarize API contract。 |
+| `app/schemas/context_answer.py` | `ContextAnswerRequest`, `ContextAnswerResponse` | context bundle に基づく構造化回答 API contract。 |
 | `app/services/prompt_service.py` | `PromptService` | API request から provider message を組み立てる。 |
 | `app/services/chat_service.py` | `ChatService` | chat request を provider 呼び出しへ変換する。 |
 | `app/services/summarize_service.py` | `SummarizeService` | summarize request を要約 prompt と provider 呼び出しへ変換する。 |
+| `app/services/context_answer_service.py` | `ContextAnswerService` | LLM answer を context 由来の materials / cautions / next_checkpoints と一緒に返す。 |
 
 ## 7. 外部インターフェース仕様
 
@@ -166,6 +172,7 @@ smai-ai-gateway/
 | `GET /health` | なし | `{ "status": "ok", "service": "smai-ai-gateway" }` | Gateway process が起動していること。 |
 | `POST /api/v1/chat` | `message`, 任意 `system_prompt`, 任意 `model` | `answer`, `model`, `provider`, `elapsed_ms` | SMAI 専用 field を要求しないこと。model 指定が任意であること。 |
 | `POST /api/v1/summarize` | `text`, 任意 `purpose`, 任意 `model` | `answer`, `model`, `provider`, `elapsed_ms` | 入力テキストの要点整理として汎用利用でき、特定アプリ専用 field を要求しないこと。 |
+| `POST /api/v1/context-answer` | `user_question`, `context`, 任意 `constraints`, 任意 `model` | `answer`, `materials`, `cautions`, `next_checkpoints`, `referenced_sections`, `confidence`, `provider`, `model`, `elapsed_ms` | LLM がスコアや順位を変更せず、渡された context から説明補助だけを返すこと。 |
 
 ### 7.3 Provider interface
 
@@ -219,7 +226,7 @@ Remove-Item Env:SMAI_AI_GATEWAY_LIVE_SMOKE
 | 確認日 | 内容 | 環境 | 結果 |
 | --- | --- | --- | --- |
 | 2026-06-11 | Markdown UTF-8 read / `git diff --check` | SMAI repo root / Windows | PASS。CRLF 変換 warning のみ。 |
-| 2026-06-11 | Gateway tests | `smai-ai-gateway` / `venv_SMAI` | PASS。6 passed / 1 skipped。pytest cache permission warning のみ。 |
+| 2026-06-11 | Gateway tests | `smai-ai-gateway` / `venv_SMAI` | PASS。11 passed / 1 skipped。pytest cache permission warning のみ。 |
 
 ### 8.4 未確認範囲
 
@@ -238,7 +245,7 @@ Remove-Item Env:SMAI_AI_GATEWAY_LIVE_SMOKE
 | Provider | 実装済み | Ollama client boundary を実装済み。 |
 | Error normalization | 実装済み | provider error を `ErrorDetail` と HTTPException に変換。 |
 | SMAI coupling | 境界維持 | Gateway から SMAI module は import しない。既存 SMAI RAG は移動しない。 |
-| Structured SMAI assistant response | 設計中 | SMAI の `materials` / `cautions` / `next_checkpoints` に対応する汎用 endpoint は次ターゲット候補。 |
+| Structured context answer | 実装済み | `materials` / `cautions` / `next_checkpoints` に対応する汎用 endpoint を追加済み。 |
 | Gateway operations | 未着手 | 認証、API key、rate limit、audit log、provider routing UI は未実装。 |
 
 ## 10. 関連資料・参考URL

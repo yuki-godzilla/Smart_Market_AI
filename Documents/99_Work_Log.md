@@ -18,6 +18,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-11 - smai-ai-gateway context-answer API
+
+- Added `POST /api/v1/context-answer` to `smai-ai-gateway` with generic context bundle request / structured response schemas.
+- Implemented `ContextAnswerService`, which lets the LLM generate the answer text while Gateway derives `materials`, `cautions`, `next_checkpoints`, and `referenced_sections` from the supplied context to keep UI contracts stable.
+- Added network-free schema/service tests and synchronized Gateway README, setup, API spec, architecture, prompt policy, roadmap, project specification, and parent SMAI roadmap/context docs.
+
 ## 2026-06-11 - smai-ai-gateway scope wording cleanup
 
 - Re-centered `smai-ai-gateway` documentation on SMAI as the primary current client and moved non-SMAI use cases to generic future local-tool wording.

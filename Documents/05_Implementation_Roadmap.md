@@ -1911,7 +1911,7 @@ smai-ai-gateway/
     test_chat_schema.py
 ```
 
-- Gateway 側 docs では、`README.md` に目的、SMAI 本体から LLM 通信を分離する理由、submodule 化前提、汎用用途、起動概要を書く。`SETUP.md` に Python 環境、依存関係、Ollama、`ollama pull qwen3:8b` 例、`.env` 作成、`run_server.bat`、`/health` と `/api/v1/chat` の確認を書く。
+- Gateway 側 docs では、`README.md` に目的、SMAI 本体から LLM 通信を分離する理由、submodule 化前提、汎用用途、起動概要を書く。`Project_Specification.md` に現在仕様、実装状況、外部インターフェース、確認状況を集約する。`SETUP.md` に Python 環境、依存関係、Ollama、`ollama pull qwen3:8b` 例、`.env` 作成、`run_server.bat`、`/health` と `/api/v1/chat` の確認を書く。
 - `docs/architecture.md` には SMAI 本体、`smai-ai-gateway`、Ollama、将来 RAG / スマホ / PWA / cloud client の関係を書く。`docs/api_spec.md` には `/health`、`/api/v1/chat`、`/api/v1/summarize` の request / response 例を書く。`docs/prompt_policy.md` には LLM が数値予測やランキング決定ではなく説明、要約、判断補助を担当すること、投資助言ではないこと、根拠データを明示的に渡して hallucination を抑えること、将来 SMAI RAG context を入力として渡す方針を書く。
 - Gateway 側 roadmap は、Phase 1 local Ollama 接続、Phase 2 SMAI の投資コメント生成、Phase 3 会議要約 / AI テスト基盤への展開、Phase 4 認証 / ログ / API key / rate limit、Phase 5 別リポジトリ化 / Git submodule 化、Phase 6 スマホ / PWA / cloud 対応とする。
 - 初期 test は `/health` が 200 を返すこと、chat request schema、summarize request schema が validate できることに絞る。通常確認は Ollama や network に依存させず、live LLM smoke は明示 opt-in として分離する。

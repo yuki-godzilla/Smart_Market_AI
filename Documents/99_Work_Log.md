@@ -18,6 +18,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-11 - smai-ai-gateway Project Specification
+
+- Added `smai-ai-gateway/Project_Specification.md` based on the lightweight specification-document pattern from `C:\IDE_Workspace\ai-dev-process-documents`.
+- Documented the Gateway's purpose, system boundary, current API, settings, module structure, provider error handling, test policy, implementation status, and known未実装 scope before the next SMAI-to-Gateway connection slice.
+- Linked the new specification from `smai-ai-gateway/README.md` and synchronized the parent SMAI roadmap / current context with the Gateway documentation baseline.
+
 ## 2026-06-11 - AGENTS parent Gateway doc sync rule
 
 - Added an `AGENTS.md` Docs rule that LLM / Assistant / Gateway changes must keep parent SMAI docs and child `smai-ai-gateway` docs aligned.

@@ -12,7 +12,11 @@ import streamlit as st
 import ui.app as app_module
 from backend.core.data_contracts import Bar, DailySnapshot, FundamentalSnapshot, Symbol
 from backend.core.errors import DataSourceError
-from backend.llm_factor import FakeLLMFactorService, LLMFactorCacheMetadata
+from backend.llm_factor import (
+    FakeLLMFactorService,
+    LLMFactorCacheMetadata,
+    LLMFactorRankingReference,
+)
 from backend.reporting import build_decision_report_context, build_report_section
 from backend.research import (
     CompanyBusinessProfile,
@@ -51,6 +55,8 @@ from ui.app import (
     COCKPIT_SYMBOL_DB_PREFLIGHT_REQUEST_STATE_KEY,
     COCKPIT_SYMBOL_DB_PREFLIGHT_TTL_SECONDS,
     DEFAULT_MARKET_DATA_PERIOD_PRESET,
+    LLM_FACTOR_RANKING_COLUMN_TOOLTIPS,
+    LLM_FACTOR_RANKING_REFERENCE_NOTICE,
     MARKET_CHART_COMBINED_SPACING,
     MARKET_CHART_FOCUS_WIDTH,
     MARKET_CHART_FULL_WIDTH,
@@ -180,6 +186,7 @@ from ui.app import (
     advanced_forecast_intro_text,
     advanced_forecast_validation_detail_rows,
     build_cockpit_decision_report_context,
+    build_llm_factor_reference_display,
     build_ranking_decision_report_context,
     cockpit_decision_report_evidence_rows,
     cockpit_decision_report_overview,
@@ -210,6 +217,7 @@ from ui.app import (
     forecast_model_cards_html,
     forecast_model_comparison_rows,
     forecast_range_band_frame,
+    format_llm_factor_score,
     format_provider_error_details,
     get_cached_ranking_build,
     investment_score_display_rows,
@@ -225,6 +233,7 @@ from ui.app import (
     ranking_detail_event_token_from_aggrid_response,
     ranking_detail_symbol_from_aggrid_response,
     ranking_detail_symbol_to_open,
+    ranking_display_rows_with_llm_factor_references,
     ranking_display_rows_with_research_status,
     ranking_forecast_term_explanation_rows,
     ranking_investment_detail_rows,
@@ -3511,6 +3520,7 @@ def test_ranking_table_sort_guidance_explains_low_sort_and_missing_values():
     )
     assert "スクリーニング・上昇気配は高い順" in RANKING_TABLE_SORT_GUIDANCE
     assert "PER・PBR・ボラティリティ・リスク・下降警戒は低い順" in (RANKING_TABLE_SORT_GUIDANCE)
+    assert "LLM材料列は参考表示" in RANKING_TABLE_SORT_GUIDANCE
     assert "N/Aは末尾" in RANKING_TABLE_SORT_GUIDANCE
 
 
@@ -6127,6 +6137,186 @@ def test_ranking_result_aggrid_frame_keeps_display_table_compact():
     assert frame.loc[0, "確認詳細"].startswith("総合スコア 82")
 
 
+def test_ranking_table_renders_llm_reference_columns():
+    display_rows = ranking_display_rows_with_llm_factor_references(
+        [
+            {
+                "順位": "1",
+                "銘柄": "7203.T",
+                "銘柄名": "トヨタ自動車",
+                "総合スコア": "82",
+            }
+        ],
+        {
+            "7203.T": LLMFactorRankingReference(
+                bullish_score=Decimal("72"),
+                bearish_score=Decimal("18"),
+                confidence_score=Decimal("84"),
+                freshness_score=Decimal("91"),
+                evidence_quality_score=Decimal("80"),
+                source_count=3,
+                result_id="7203.T:fixture",
+                source_type="cache",
+            )
+        },
+    )
+
+    frame = ranking_result_aggrid_frame(display_rows)
+
+    for column in ("LLM強気材料", "LLM弱気材料", "LLM確信度", "材料鮮度"):
+        assert column in frame.columns
+    assert frame.loc[0, "LLM強気材料"] == "72"
+    assert frame.loc[0, "LLM弱気材料"] == "18"
+    assert frame.loc[0, "LLM確信度"] == "84"
+    assert frame.loc[0, "材料鮮度"] == "91"
+
+
+def test_llm_reference_disclaimer_is_visible():
+    assert "参考指標" in LLM_FACTOR_RANKING_REFERENCE_NOTICE
+    assert "売買推奨ではありません" in LLM_FACTOR_RANKING_REFERENCE_NOTICE
+    assert "ランキング順位には未反映" in LLM_FACTOR_RANKING_REFERENCE_NOTICE
+
+
+def test_format_llm_factor_score():
+    assert format_llm_factor_score(Decimal("0.734")) == "73"
+    assert format_llm_factor_score(Decimal("1.0")) == "100"
+    assert format_llm_factor_score(Decimal("0.0")) == "0"
+    assert format_llm_factor_score(Decimal("73.4")) == "73"
+    assert format_llm_factor_score(None) == "—"
+    assert format_llm_factor_score(float("nan")) == "—"
+    assert format_llm_factor_score("invalid") == "—"
+
+
+def test_ranking_default_order_is_unchanged_with_llm_columns():
+    display_rows = ranking_display_rows_with_llm_factor_references(
+        [
+            {"順位": "1", "銘柄": "AAA", "銘柄名": "Alpha", "総合スコア": "90"},
+            {"順位": "2", "銘柄": "BBB", "銘柄名": "Beta", "総合スコア": "80"},
+        ],
+        {
+            "AAA": LLMFactorRankingReference(
+                bullish_score=Decimal("10"),
+                bearish_score=Decimal("90"),
+                confidence_score=Decimal("60"),
+                freshness_score=Decimal("60"),
+                source_type="cache",
+            ),
+            "BBB": LLMFactorRankingReference(
+                bullish_score=Decimal("99"),
+                bearish_score=Decimal("1"),
+                confidence_score=Decimal("60"),
+                freshness_score=Decimal("60"),
+                source_type="cache",
+            ),
+        },
+    )
+
+    frame = ranking_result_aggrid_frame(display_rows)
+
+    assert frame["銘柄"].tolist() == ["AAA", "BBB"]
+    assert frame["順位"].tolist() == ["1", "2"]
+
+
+def test_llm_columns_do_not_change_rank_labels():
+    display_rows = ranking_display_rows_with_llm_factor_references(
+        [{"順位": "3", "銘柄": "AAPL", "銘柄名": "Apple", "総合スコア": "70"}],
+        {
+            "AAPL": LLMFactorRankingReference(
+                bullish_score=Decimal("100"),
+                bearish_score=Decimal("0"),
+                confidence_score=Decimal("80"),
+                freshness_score=Decimal("80"),
+                source_type="cache",
+            )
+        },
+    )
+
+    frame = ranking_result_aggrid_frame(display_rows)
+
+    assert display_rows[0]["順位"] == "3"
+    assert frame.loc[0, "順位"] == "3"
+
+
+def test_missing_llm_reference_renders_dash():
+    display_rows = ranking_display_rows_with_llm_factor_references(
+        [{"順位": "1", "銘柄": "MISS", "銘柄名": "Missing", "総合スコア": "50"}],
+        {},
+    )
+
+    frame = ranking_result_aggrid_frame(display_rows)
+
+    assert frame.loc[0, "LLM強気材料"] == "—"
+    assert frame.loc[0, "LLM弱気材料"] == "—"
+    assert frame.loc[0, "LLM確信度"] == "—"
+    assert frame.loc[0, "材料鮮度"] == "—"
+
+
+def test_no_buy_sell_recommendation_text_in_llm_column_labels():
+    display = build_llm_factor_reference_display(
+        LLMFactorRankingReference(
+            bullish_score=Decimal("72"),
+            bearish_score=Decimal("18"),
+            confidence_score=Decimal("84"),
+            freshness_score=Decimal("91"),
+            source_type="cache",
+        )
+    )
+    visible_text = " ".join(
+        [
+            "LLM強気材料",
+            "LLM弱気材料",
+            "LLM確信度",
+            "材料鮮度",
+            *LLM_FACTOR_RANKING_COLUMN_TOOLTIPS.values(),
+            display["bullishAriaLabel"],
+            display["bearishAriaLabel"],
+            display["confidenceAriaLabel"],
+            display["freshnessAriaLabel"],
+        ]
+    )
+
+    for forbidden in ("買い", "売り", "Strong Buy", "Strong Sell", "Buy", "Sell"):
+        assert forbidden not in visible_text
+
+
+def test_llm_reference_tooltip_or_aria_label_mentions_reference():
+    display = build_llm_factor_reference_display(
+        LLMFactorRankingReference(
+            bullish_score=Decimal("72"),
+            bearish_score=Decimal("18"),
+            confidence_score=Decimal("84"),
+            freshness_score=Decimal("91"),
+            source_type="cache",
+        )
+    )
+
+    assert "参考指標" in LLM_FACTOR_RANKING_COLUMN_TOOLTIPS["LLM強気材料"]
+    assert display["bullishAriaLabel"] == "LLM強気材料 72点 参考指標"
+
+
+def test_llm_columns_are_not_sortable_first_slice():
+    display_rows = ranking_display_rows_with_llm_factor_references(
+        [{"順位": "1", "銘柄": "7203.T", "銘柄名": "トヨタ自動車", "総合スコア": "82"}],
+        {
+            "7203.T": LLMFactorRankingReference(
+                bullish_score=Decimal("72"),
+                bearish_score=Decimal("18"),
+                confidence_score=Decimal("84"),
+                freshness_score=Decimal("91"),
+                source_type="cache",
+            )
+        },
+    )
+    options = ranking_result_aggrid_options(
+        ranking_result_aggrid_frame(display_rows),
+    )
+    column_defs = {column["field"]: column for column in options["columnDefs"]}
+
+    for column in ("LLM強気材料", "LLM弱気材料", "LLM確信度", "材料鮮度"):
+        assert column_defs[column]["sortable"] is False
+        assert "comparator" not in column_defs[column]
+
+
 def test_ranking_display_rows_surface_advanced_forecast_as_auxiliary_context(monkeypatch):
     monkeypatch.setattr("ui.app.symbol_universe_csv_rows", lambda: [])
     display_rows = investment_score_display_rows(
@@ -6637,12 +6827,16 @@ def test_score_confidence_hierarchy_rows_distinguish_score_roles():
     research_row = next(row for row in rows if row["表示"] == "Research Score")
     forecast_row = next(row for row in rows if row["表示"] == "Forecast / 予測")
     risk_row = next(row for row in rows if row["表示"] == "リスク確認")
+    llm_row = next(row for row in rows if row["表示"] == "LLM材料（参考）")
     confidence_row = next(row for row in rows if row["表示"] == "条件適合度 / DB信頼度")
 
     assert "総合スコアやランキング順位を変えません" in research_row["順位への影響"]
     assert "根拠確認不足" in research_row["読み方"]
     assert "確定未来ではなく" in forecast_row["読み方"]
     assert "安全保証ではなく" in risk_row["読み方"]
+    assert "総合スコア、ランキング順位、Forecast、Investment Scoreには反映しません" in (
+        llm_row["順位への影響"]
+    )
     assert "投資魅力度ではなく" in confidence_row["読み方"]
 
 

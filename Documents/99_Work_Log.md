@@ -18,6 +18,13 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-12 - SMAI LLM Factor Ranking reference columns
+
+- Added `backend/llm_factor` Ranking reference contracts/helpers that attach optional LLM material scores only after Ranking rows are already selected/displayed.
+- Ranking now shows reference-only `LLM強気材料`, `LLM弱気材料`, `LLM確信度`, and `材料鮮度` columns with cache-hit reuse, deterministic fake fallback, non-sortable LLM columns, and no Ranking score / rank / Forecast / Investment Score changes.
+- Added backend and UI tests for order preservation, existing-score preservation, cache hit, deterministic fake miss, displayed-candidate limit, unavailable fallback, score formatting, missing display, non-sortable columns, and non-advice wording.
+- Updated parent SMAI and child Gateway docs while keeping real LLM/Gateway extraction and model integration out of scope.
+
 ## 2026-06-12 - SMAI LLM Factor backtest first slice
 
 - Added `backend/llm_factor` backtest contracts and `run_llm_factor_backtest(case)` for deterministic fixture-based alpha factor diagnostics.

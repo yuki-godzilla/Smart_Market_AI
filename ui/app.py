@@ -33,9 +33,12 @@ from backend.llm_factor import (
     CachedLLMFactorService,
     EvidenceSource,
     LLMFactorCacheMetadata,
+    LLMFactorRankingReference,
     LLMFactorResult,
     LLMFactorServiceResult,
     LLMFactorSourceType,
+    build_llm_factor_references_for_ranking_items,
+    llm_factor_ranking_candidate_key,
 )
 from backend.marketdata import create_market_data_provider_adapter
 from backend.marketdata.feature_builder import build_daily_snapshots_from_market_data
@@ -468,6 +471,18 @@ RANKING_TABLE_BASE_COLUMNS = (
     "ROE",
     "見方",
 )
+LLM_FACTOR_RANKING_COLUMNS = ("LLM強気材料", "LLM弱気材料", "LLM確信度", "材料鮮度")
+LLM_FACTOR_RANKING_REFERENCE_NOTICE = (
+    "LLM材料スコアは参考指標です。既存ランキング、Forecast、Investment Scoreには反映していません。"
+    "ランキング順位には未反映で、売買推奨ではありません。"
+)
+LLM_FACTOR_RANKING_COLUMN_TOOLTIPS = {
+    "LLM強気材料": "高いほどポジティブ材料が強いことを示す参考指標です。",
+    "LLM弱気材料": "高いほどネガティブ材料が強いことを示す参考指標です。",
+    "LLM確信度": "材料抽出結果の確信度を示す参考指標です。",
+    "材料鮮度": "高いほど新しい材料に基づくことを示す参考指標です。",
+}
+LLM_FACTOR_RANKING_MISSING_DISPLAY = "—"
 RANKING_NUMERIC_SORT_DIRECTIONS = {
     "総合スコア": "desc",
     "Screening": "desc",
@@ -495,6 +510,7 @@ RANKING_TABLE_SORT_GUIDANCE = (
     "詳細テーブルでは、列名をクリックして各指標順に並べ替えできます。"
     "総合スコア・配当利回り・ROE・時価総額・出来高・データ品質・スクリーニング・上昇気配は高い順、"
     "PER・PBR・ボラティリティ・リスク・下降警戒は低い順から確認します。"
+    "LLM材料列は参考表示のため初期表示順や順位計算には使いません。"
     "N/Aは末尾に置きます。"
 )
 RANKING_LOW_VALUE_BETTER_COLUMNS = {"PER", "PBR", "ボラティリティ", "Risk", "下降警戒"}
@@ -2704,7 +2720,10 @@ def _ranking_result_columns_with_optional_advanced_forecast(
     display_rows: list[dict[str, str]],
     ranking_purpose: str,
 ) -> list[str]:
-    columns = _ranking_result_columns(ranking_purpose)
+    columns = _ranking_result_columns_with_optional_llm_factor(
+        _ranking_result_columns(ranking_purpose),
+        display_rows,
+    )
     if not _ranking_has_advanced_forecast(display_rows):
         return columns
     insert_after = "予測変化率"
@@ -2719,6 +2738,20 @@ def _ranking_result_columns_with_optional_advanced_forecast(
     return _dedupe_columns(tuple(next_columns))
 
 
+def _ranking_result_columns_with_optional_llm_factor(
+    columns: list[str],
+    display_rows: list[dict[str, str]],
+) -> list[str]:
+    if not _ranking_has_llm_factor_reference(display_rows):
+        return columns
+    next_columns: list[str] = []
+    for column in columns:
+        next_columns.append(column)
+        if column == "総合スコア":
+            next_columns.extend(LLM_FACTOR_RANKING_COLUMNS)
+    return _dedupe_columns(tuple(next_columns))
+
+
 def _ranking_has_advanced_forecast(display_rows: list[dict[str, str]]) -> bool:
     return any(
         _ranking_has_present_display_value(row.get("高度予測"))
@@ -2729,10 +2762,15 @@ def _ranking_has_advanced_forecast(display_rows: list[dict[str, str]]) -> bool:
     )
 
 
+def _ranking_has_llm_factor_reference(display_rows: list[dict[str, str]]) -> bool:
+    return any(any(column in row for column in LLM_FACTOR_RANKING_COLUMNS) for row in display_rows)
+
+
 def _ranking_has_present_display_value(value: object) -> bool:
     text = str(value or "").strip()
     return bool(text) and text not in {
         RANKING_MISSING_DISPLAY,
+        LLM_FACTOR_RANKING_MISSING_DISPLAY,
         "-",
         "未登録",
         "未取得",
@@ -2740,6 +2778,122 @@ def _ranking_has_present_display_value(value: object) -> bool:
         "未計算",
         "未接続",
     }
+
+
+def normalize_llm_factor_score(score: object) -> Decimal | None:
+    if score is None:
+        return None
+    if isinstance(score, float) and not math.isfinite(score):
+        return None
+    text = str(score).strip()
+    if not text:
+        return None
+    try:
+        value = Decimal(text)
+    except Exception:
+        return None
+    if not value.is_finite():
+        return None
+    if Decimal("0") <= value <= Decimal("1"):
+        value *= Decimal("100")
+    value = max(Decimal("0"), min(Decimal("100"), value))
+    return value.quantize(Decimal("1"))
+
+
+def format_llm_factor_score(score: object) -> str:
+    normalized = normalize_llm_factor_score(score)
+    if normalized is None:
+        return LLM_FACTOR_RANKING_MISSING_DISPLAY
+    return str(normalized)
+
+
+def build_llm_factor_reference_display(
+    reference: LLMFactorRankingReference | Mapping[str, object] | None,
+) -> dict[str, str]:
+    values = {
+        "bullish": format_llm_factor_score(_llm_factor_reference_value(reference, "bullish_score")),
+        "bearish": format_llm_factor_score(_llm_factor_reference_value(reference, "bearish_score")),
+        "confidence": format_llm_factor_score(
+            _llm_factor_reference_value(reference, "confidence_score")
+        ),
+        "freshness": format_llm_factor_score(
+            _llm_factor_reference_value(reference, "freshness_score")
+        ),
+    }
+    return {
+        "bullishLabel": values["bullish"],
+        "bearishLabel": values["bearish"],
+        "confidenceLabel": values["confidence"],
+        "freshnessLabel": values["freshness"],
+        "bullishAriaLabel": _llm_factor_reference_aria_label(
+            "LLM強気材料",
+            values["bullish"],
+        ),
+        "bearishAriaLabel": _llm_factor_reference_aria_label(
+            "LLM弱気材料",
+            values["bearish"],
+        ),
+        "confidenceAriaLabel": _llm_factor_reference_aria_label(
+            "LLM確信度",
+            values["confidence"],
+        ),
+        "freshnessAriaLabel": _llm_factor_reference_aria_label(
+            "材料鮮度",
+            values["freshness"],
+        ),
+        "sourceLabel": _llm_factor_reference_source_label(reference),
+        "warning": str(_llm_factor_reference_value(reference, "warning") or ""),
+    }
+
+
+def ranking_display_rows_with_llm_factor_references(
+    display_rows: list[dict[str, str]],
+    references: Mapping[str, LLMFactorRankingReference],
+) -> list[dict[str, str]]:
+    enriched_rows: list[dict[str, str]] = []
+    for row in display_rows:
+        key = llm_factor_ranking_candidate_key(row)
+        display = build_llm_factor_reference_display(references.get(key))
+        enriched_rows.append(
+            {
+                **row,
+                "LLM強気材料": display["bullishLabel"],
+                "LLM弱気材料": display["bearishLabel"],
+                "LLM確信度": display["confidenceLabel"],
+                "材料鮮度": display["freshnessLabel"],
+                "LLM材料元": display["sourceLabel"],
+                "LLM材料補足": display["warning"],
+            }
+        )
+    return enriched_rows
+
+
+def _llm_factor_reference_value(
+    reference: LLMFactorRankingReference | Mapping[str, object] | None,
+    key: str,
+) -> object:
+    if reference is None:
+        return None
+    if isinstance(reference, Mapping):
+        return reference.get(key)
+    return getattr(reference, key)
+
+
+def _llm_factor_reference_aria_label(label: str, value: str) -> str:
+    if value == LLM_FACTOR_RANKING_MISSING_DISPLAY:
+        return f"{label} 未評価 参考指標"
+    return f"{label} {value}点 参考指標"
+
+
+def _llm_factor_reference_source_label(
+    reference: LLMFactorRankingReference | Mapping[str, object] | None,
+) -> str:
+    source_type = str(_llm_factor_reference_value(reference, "source_type") or "unavailable")
+    return {
+        "cache": "cache",
+        "deterministic_fake": "deterministic fake",
+        "unavailable": "未評価",
+    }.get(source_type, "未評価")
 
 
 def _ranking_metric_text(row: dict[str, str], column: str) -> str:
@@ -2921,6 +3075,10 @@ def ranking_result_aggrid_frame(
             "銘柄": row.get("銘柄", ""),
             "銘柄名": truncate_text(row.get("銘柄名", ""), max_chars=56),
             "総合スコア": row.get("総合スコア", ""),
+            "LLM強気材料": row.get("LLM強気材料", ""),
+            "LLM弱気材料": row.get("LLM弱気材料", ""),
+            "LLM確信度": row.get("LLM確信度", ""),
+            "材料鮮度": row.get("材料鮮度", ""),
             "Screening": row.get("Screening", ""),
             "上昇気配": row.get("上昇気配", ""),
             "下降警戒": row.get("下降警戒", ""),
@@ -3065,6 +3223,18 @@ def ranking_result_aggrid_options(
                 comparator=RANKING_NUMERIC_SORT_COMPARATOR,
                 sortingOrder=sorting_order,
                 unSortIcon=True,
+                wrapText=False,
+                autoHeight=False,
+                cellStyle=RANKING_GRID_NUMERIC_CELL_STYLE,
+            )
+    for column in LLM_FACTOR_RANKING_COLUMNS:
+        if column in frame.columns:
+            builder.configure_column(
+                column,
+                width=112,
+                filter=False,
+                sortable=False,
+                headerTooltip=LLM_FACTOR_RANKING_COLUMN_TOOLTIPS[column],
                 wrapText=False,
                 autoHeight=False,
                 cellStyle=RANKING_GRID_NUMERIC_CELL_STYLE,
@@ -4705,6 +4875,8 @@ def _render_ranking_result_table(
     table_base_key = _ranking_result_table_base_key(ranking_source, weight_preset)
     grid_key = _ranking_result_grid_key(table_base_key)
     st.caption("詳細確認用のテーブルです。銘柄データを見るには行をクリックしてください。")
+    if _ranking_has_llm_factor_reference(display_rows):
+        st.caption(LLM_FACTOR_RANKING_REFERENCE_NOTICE)
     st.caption(RANKING_TABLE_SORT_GUIDANCE)
     frame = ranking_result_aggrid_frame(display_rows, ranking_purpose=ranking_purpose)
     grid_response = AgGrid(
@@ -5925,6 +6097,13 @@ def _render_market_data_ranking() -> None:
         display_rows = ranking_display_rows_with_research_status(
             display_rows,
             _ranking_research_statuses_for_display_rows(display_rows, as_of=end_date),
+        )
+        display_rows = ranking_display_rows_with_llm_factor_references(
+            display_rows,
+            build_llm_factor_references_for_ranking_items(
+                display_rows,
+                as_of_date=end_date,
+            ),
         )
         _register_ranking_results_assistant_context(
             display_rows,
@@ -12490,6 +12669,12 @@ def score_confidence_hierarchy_rows() -> list[dict[str, str]]:
             "役割": "根拠資料の充実度・鮮度・信頼度",
             "順位への影響": "既定では総合スコアやランキング順位を変えません",
             "読み方": "低い値は銘柄評価ではなく、根拠確認不足のサインとして扱います。",
+        },
+        {
+            "表示": "LLM材料（参考）",
+            "役割": "RAG・ニュース・IR情報を材料スコアへ構造化した参考指標",
+            "順位への影響": "総合スコア、ランキング順位、Forecast、Investment Scoreには反映しません",
+            "読み方": "強気材料・弱気材料・確信度・鮮度を並べて確認します。売買推奨ではありません。",
         },
         {
             "表示": "データ品質",

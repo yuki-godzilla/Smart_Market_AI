@@ -55,7 +55,7 @@ Research RAG は Phase 20 local evidence slice が決定的な土台として実
 
 未実装または今後の範囲:
 
-- `SMAI LLM Factor` の Ranking 参考カラム / broader historical backtest / optional forecast integration。schema、1銘柄 Cockpit 参考表示、cache / reproducibility、deterministic backtest evaluator の初期 slice は実装済み。初期段階では既存予測モデル、Ranking、Investment Score へ混ぜない
+- `SMAI LLM Factor` の broader historical backtest / optional forecast integration。schema、1銘柄 Cockpit 参考表示、cache / reproducibility、Ranking 参考カラム、deterministic backtest evaluator の初期 slice は実装済み。初期段階では既存予測モデル、Ranking score、Investment Score へ混ぜない
 - SMAI から `smai-ai-gateway` への実 Gateway 接続、`SMAI Copilot` チャット画面、限定自由入力、opt-in live smoke 実行
 - `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動、通知、ニュース根拠の Decision Report 反映
 - Research RAG の `ResearchFactSummary` 抽出対象拡張、追加 external source adapter、vector / hybrid search の運用UI
@@ -267,7 +267,7 @@ Phase 1〜23 と Phase 24 の初期 Assistant / Gateway 土台は概ね実装済
 | 順位 | Roadmap item | 目的 | 初期スコープ | 既存挙動への影響 |
 | --- | --- | --- | --- | --- |
 | 1 | `SMAI LLM Factor` Phase A-B | RAG / News / IR を LLM で構造化特徴量に変換する土台を作る | `LLMFactorResult` schema、factor / evidence schema、1銘柄 Cockpit 参考表示 | 既存 Forecast / Ranking / Investment Score は変更しない |
-| 2 | `SMAI LLM Factor` Phase C-E | 再現性と有効性を検証する | cache / reproducibility と deterministic backtest evaluator の初期 slice は実装済み。次は Ranking 参考カラムまたは broader historical backtest | 有効性確認まで予測モデルへ混ぜない |
+| 2 | `SMAI LLM Factor` Phase C-E | 再現性と有効性を検証する | cache / reproducibility、Ranking 参考カラム、deterministic backtest evaluator の初期 slice は実装済み。次は broader historical backtest fixture / 評価指標拡張 | 有効性確認まで予測モデルへ混ぜない |
 | 3 | Gateway / Copilot 実接続 | 既存 deterministic Assistant を LLM Gateway へ opt-in 接続する | SMAI HTTP client、schema validation、fallback、live smoke、限定自由入力 | Gateway 失敗時は deterministic fallback |
 | 4 | 高度ニュース活用 | 投資レーダーと Research / Decision Report のニュース根拠を強化する | Watchlist 連動、source reliability、impact horizon、Decision Report 反映 | News だけで順位・スコアを変えない |
 | 5 | Research RAG 拡張 | 外部最新 source と根拠抽出の幅を広げる | 追加 adapter、vector / hybrid 運用UI、抽出対象拡張 | 通常 checks は network-free |
@@ -1946,7 +1946,7 @@ smai-ai-gateway/
 
 ### 5.13 Phase 24A: SMAI LLM Factor / 定性特徴量化
 
-状態: Phase A-C と Phase E first slice の SMAI 側 MVP 実装済み。`backend/llm_factor` の Pydantic schema、deterministic fake service、file-backed cache、deterministic backtest evaluator、銘柄コックピットの `AI材料分析` 参考表示、cache status / generated_at / expires_at / model / prompt version / source hash の表示まで。既存予測モデル、Ranking、Investment Score には初期段階では混ぜない。
+状態: Phase A-D と Phase E first slice の SMAI 側 MVP 実装済み。`backend/llm_factor` の Pydantic schema、deterministic fake service、file-backed cache、deterministic backtest evaluator、Ranking reference DTO / helper、銘柄コックピットの `AI材料分析` 参考表示、ランキング画面の `LLM強気材料` / `LLM弱気材料` / `LLM確信度` / `材料鮮度` 参考カラム、cache status / generated_at / expires_at / model / prompt version / source hash の表示まで。既存予測モデル、Ranking score / rank、Investment Score には初期段階では混ぜない。
 
 仮称: `SMAI LLM Factor`。名称候補は `SMAI LLM Factor Model`、`SMAI Sentiment Alpha`、`SMAI Material Factor`、`SMAI Catalyst Score`。
 
@@ -2023,7 +2023,7 @@ LLM が生成する特徴量候補:
 - Phase A: `LLMFactorResult`、`BullishFactor`、`BearishFactor`、`EvidenceSource` schema を追加し、confidence、freshness、evidence_quality、source URL / date を必須化する。既存 RAG / News / Research Summary との接続点を整理する。初期 schema は `backend/llm_factor` に実装済み。
 - Phase B: 銘柄コックピットの 1 銘柄分析だけを対象に、既存 RAG / ニュース / 銘柄DBを入力し、LLM 構造化 prompt、JSON 出力、Pydantic 検証、UI 表示までの MVP を作る。現時点では実 LLM 呼び出し前の deterministic fake service と `AI材料分析` 参考表示まで実装済み。
 - Phase C: 同一銘柄 / 同一 source hash の cache、LLM 実行日時、使用 model、prompt version、TTL を保存し、再現性と cache 肥大化防止を両立する。初期 slice として `data/cache/llm_factor_results.json` の file-backed cache、cache key、source hash、generated_at、expires_at、model、prompt version、cache hit / miss / expired / invalid の metadata、Cockpit cache caption まで実装済み。
-- Phase D: ランキング画面に `LLM強気材料`、`LLM弱気材料`、`LLM確信度`、`材料鮮度` を参考カラムとして追加する。既存ランキングスコアにはまだ混ぜない。
+- Phase D: ランキング画面に `LLM強気材料`、`LLM弱気材料`、`LLM確信度`、`材料鮮度` を参考カラムとして追加する。実装済み。表示対象は selected / displayed candidates のみに限定し、cache hit 時は cached `LLMFactorResult` を使用、cache miss 時は deterministic fake service を使用する。LLM列は first slice では non-sortable とし、既存 Ranking score / rank / Forecast / Investment Score には混ぜない。UI 上では「参考指標」「売買推奨ではない」「ランキング順位には未反映」を明記する。
 - Phase E: `llm_bullish_score` と将来リターン、`llm_bearish_score` と下落率、`llm_catalyst_score` と短期リターン、`llm_risk_score` と drawdown、既存予測モデルに追加した場合の精度差分を backtest する。first slice として `run_llm_factor_backtest(case)` を実装済み。fixture price bars を使い、raw factor / derived factor と forward return / drawdown を deterministic に評価し、Top-N return、high-score group return / hit rate / down rate / drawdown、coverage、sample / date不足、missing price、duplicate signal、zero variance、stable input/config hash を返す。Accuracy、Precision、Recall、F1、AUC、Sharpe Ratio、market-adjusted return、IC / rank IC、quantile spread は後続範囲。
 - Phase F: backtest で有効性が確認できた特徴量のみ、SMAI 独自予測モデルへ統合する。統合時は価格、財務、テクニカル、RAG / News、LLM 材料分析の寄与度を UI で可視化する。
 
@@ -2053,6 +2053,7 @@ Prompt 方針:
 - LLM出力は Pydantic 等で検証される。
 - 根拠 URL、日付、model name、prompt version、source hash、generated_at、expires_at が保持される。
 - LLM Factor backtest は fixture ベースで deterministic に実行でき、Ranking / Forecast weight へ直接つながらない。
+- ランキング画面の LLM材料列は表示対象候補だけに付与され、既存 Ranking score、rank、Forecast、Investment Score、default sort order を変更しない。
 - LLM失敗時に graceful degradation する。
 - 銘柄コックピットで 1 銘柄単位の LLM 材料分析が表示できる。
 - JSON構造がテストで検証される。
@@ -2138,7 +2139,7 @@ Prompt 方針:
 - deterministic fake service / Cockpit reference display implemented
 - cache / TTL / reproducibility first slice implemented
 - deterministic backtest evaluator first slice implemented
-- Ranking reference columns
+- Ranking reference columns implemented
 - broader historical backtest for factor usefulness
 - optional forecast-model integration after validation
 
@@ -2201,7 +2202,7 @@ Markdown UTF-8 check:
 
 ## 8. Open Items
 
-- `SMAI LLM Factor` の deterministic backtest first slice 後、Ranking 参考カラムをどの範囲で出すか、また broader historical backtest fixture / 評価指標をどこまで増やすか
+- `SMAI LLM Factor` の deterministic backtest first slice / Ranking 参考カラム後、broader historical backtest fixture / 評価指標をどこまで増やすか
 - `SMAI LLM Factor` を Assistant / Copilot 説明機能と分離したまま、実 LLM/Gateway 接続をどの prompt / schema boundary で進めるか
 - Gateway / Copilot 実接続を、LLM Factor の schema 基盤後にどの範囲で接続するか
 - Phase 22.x `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動をどの順に進めるか

@@ -7361,13 +7361,13 @@ def _llm_factor_evidence_sources(
         for entry in external_result.entries[:8]:
             sources.append(_llm_factor_source_from_external_entry(entry, as_of=as_of))
     if news_report is not None:
-        for item in news_report.news[:5]:
-            sources.append(_llm_factor_source_from_news(item, as_of=as_of))
+        for news_item in news_report.news[:5]:
+            sources.append(_llm_factor_source_from_news(news_item, as_of=as_of))
     if report is not None:
-        for item in report.evidence[:5]:
+        for evidence_item in report.evidence[:5]:
             sources.append(
                 _llm_factor_source_from_research_evidence(
-                    item,
+                    evidence_item,
                     symbol=symbol,
                     as_of=as_of,
                 )

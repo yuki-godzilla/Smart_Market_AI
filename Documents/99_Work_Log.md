@@ -18,6 +18,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-12 - CI mypy fix for LLM Factor cockpit slice
+
+- Fixed the CI `Mypy (type check)` failure after the LLM Factor cockpit slice by separating News and Research evidence loop variables in `ui/app.py`.
+- Re-ran mypy, ruff, Black helper, and the LLM Factor targeted UI tests locally.
+
 ## 2026-06-12 - SMAI LLM Factor parent MVP slice
 
 - Added parent-side `backend/llm_factor` contracts for `LLMFactorResult`, bullish / bearish factors, evidence sources, source hash, model name, prompt version, and 0-100 material scores.

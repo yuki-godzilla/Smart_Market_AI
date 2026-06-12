@@ -4,10 +4,12 @@ from streamlit.testing.v1 import AppTest
 
 from backend.assistant import AssistantMessage
 from ui.views.copilot import (
+    COPILOT_CHAT_HISTORY_STATE_KEY,
     copilot_context_label,
     copilot_context_options,
     copilot_history_messages,
     copilot_turn_html,
+    copilot_welcome_html,
 )
 
 
@@ -55,6 +57,19 @@ def test_copilot_turn_html_escapes_question_and_answer():
     assert "注意 &lt;2&gt;" in markup
     assert "次 &lt;3&gt;" in markup
     assert "<script>" not in markup
+    assert "smai-copilot-bubble-row--user" in markup
+    assert "smai-copilot-bubble-row--assistant" in markup
+
+
+def test_copilot_welcome_html_uses_chat_bubble_markup():
+    context = copilot_context_options()[0]
+
+    markup = copilot_welcome_html(context)
+
+    assert "smai-copilot-turn--welcome" in markup
+    assert "smai-copilot-avatar" in markup
+    assert copilot_context_label(context) in markup
+    assert "質問例" in markup
 
 
 def test_copilot_page_renders_with_streamlit_app(monkeypatch):
@@ -70,7 +85,6 @@ def test_copilot_page_renders_with_streamlit_app(monkeypatch):
         for group in (
             app.caption,
             app.markdown,
-            app.info,
         )
         for element in group
         if getattr(element, "value", None) is not None
@@ -80,7 +94,21 @@ def test_copilot_page_renders_with_streamlit_app(monkeypatch):
     text_area_labels = [str(getattr(element, "label", "")) for element in app.text_area]
 
     assert "SMAI Copilot" in page_text
-    assert "相談文脈" in selectbox_labels
-    assert "質問例" in selectbox_labels
-    assert "質問" in text_area_labels
-    assert {"Copilotに確認", "履歴をクリア"}.issubset(set(button_labels))
+    assert "smai-copilot-chat-topbar" in page_text
+    assert "文脈" in selectbox_labels
+    assert "クイック質問" in selectbox_labels
+    assert "メッセージ" in text_area_labels
+    assert {"送信", "クリア"}.issubset(set(button_labels))
+
+
+def test_copilot_page_send_button_appends_chat_turn(monkeypatch):
+    monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    app = AppTest.from_file("ui/app.py", default_timeout=20)
+    app.session_state["sidemenu_page"] = "copilot"
+    app.run()
+
+    app.text_area[0].set_value("確認点を整理して")
+    app.button[0].click().run()
+
+    assert not app.exception
+    assert len(app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]) == 1

@@ -18,6 +18,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-12 - SMAI Copilot chat-style UI polish
+
+- Reworked the dedicated `SMAI Copilot` workspace from a form-first layout into a chat-style shell with compact header, context rail, scrollable conversation thread, assistant/user bubbles, and bottom composer.
+- Kept the same deterministic Assistant service, limited free text, session-local history, and no score / ranking / prediction changes.
+- Updated AppTest and CSS coverage for the chat-style workspace.
+
 ## 2026-06-12 - SMAI Copilot chat workspace MVP
 
 - Added a side-menu `SMAI Copilot` workspace with context presets, question examples, 240-character limited free text, and session-local conversation history.

@@ -87,7 +87,7 @@ flowchart LR
 | Network-free tests | 実装済み | 通常 CI を deterministic に保つ | schema、health、provider error mapping を Ollama なしで確認する | [SETUP.md](SETUP.md) |
 | Opt-in live Ollama smoke | 実装済み | 実 provider 接続確認 | `SMAI_AI_GATEWAY_LIVE_SMOKE=1` のときだけ実行する | [SETUP.md](SETUP.md) |
 | SMAI real Gateway connection | 親側実装済み | SMAI 本体から実 Gateway を呼ぶ | SMAI 側 `HttpAssistantGatewayClient`、`assistant.gateway` 設定、fallback、schema validation。Gateway 側に SMAI import は追加しない | 親側 roadmap |
-| SMAI Copilot workspace | 親側実装済み | 画面横断の相談 UI | SMAI 側サイドメニューに専用 workspace を追加済み。context preset、限定自由入力、session-local 履歴を持ち、Gateway は `/api/v1/context-answer` の汎用境界として使う | 親側 roadmap |
+| SMAI Copilot workspace | 親側実装済み | 画面横断の相談 UI | SMAI 側サイドメニューに chat-style workspace を追加済み。context preset、限定自由入力、user / assistant bubbles、session-local 履歴を持ち、Gateway は `/api/v1/context-answer` の汎用境界として使う | 親側 roadmap |
 | SMAI LLM Factor structured extraction support | 将来範囲 | RAG / News / IR 由来の定性材料を構造化特徴量へ変換する補助 | SMAI 本体側の `LLMFactorResult` schema / fake service / file-backed cache / deterministic backtest evaluator / broader historical fixture / validation report / Cockpit 参考表示 / Ranking 参考表示は実装済み。Gateway は今後も provider / prompt 境界に留め、cache policy expansion、UI 統合は SMAI 本体側で扱う | 親側 roadmap / [docs/prompt_policy.md](docs/prompt_policy.md) |
 | 認証 / API key / rate limit | 未着手 | 運用時の保護 | local-first MVP 後の運用機能 | [docs/roadmap.md](docs/roadmap.md) |
 
@@ -238,7 +238,7 @@ Remove-Item Env:SMAI_AI_GATEWAY_LIVE_SMOKE
 
 - 実 Ollama 起動状態での live smoke は opt-in。通常確認には含めない。
 - SMAI 本体から Gateway を呼ぶ real HTTP client は親側で実装済み。実Gateway / Ollama live smoke は未実行で、明示 opt-in 確認範囲。
-- `SMAI Copilot` チャット画面、限定自由入力、session-local 会話履歴の first MVP は親側で実装済み。実 Gateway / Ollama live smoke と、長い会話履歴・複数文脈参照の本格拡張は未実行 / 後続範囲。
+- `SMAI Copilot` チャット画面、限定自由入力、user / assistant bubbles、session-local 会話履歴の first MVP は親側で実装済み。実 Gateway / Ollama live smoke と、長い会話履歴・複数文脈参照の本格拡張は未実行 / 後続範囲。
 - `SMAI LLM Factor` 向けの structured extraction endpoint / prompt profile は未実装。domain schema / deterministic fake service / file-backed cache / deterministic backtest evaluator / broader historical fixture / validation report / Cockpit 参考表示 / Ranking 参考表示は SMAI 本体側にあり、cache policy expansion、UI 統合拡張も SMAI 本体側で扱う。
 - 認証、API key、rate limit、監査ログは未実装。
 - 別リポジトリ化 / Git submodule 化は未実施。
@@ -254,7 +254,7 @@ Remove-Item Env:SMAI_AI_GATEWAY_LIVE_SMOKE
 | SMAI coupling | 境界維持 | Gateway から SMAI module は import しない。既存 SMAI RAG は移動しない。 |
 | Structured context answer | 実装済み | `materials` / `cautions` / `next_checkpoints` に対応する汎用 endpoint を追加済み。 |
 | SMAI parent client wiring | 親側実装済み | 親SMAIが `assistant.gateway.enabled=true` のとき `/api/v1/context-answer` を呼ぶ。失敗時は deterministic fallback。 |
-| SMAI Copilot workspace | 親側実装済み | 親SMAIのサイドメニューに、context preset、限定自由入力、session-local 履歴を持つ dedicated Copilot workspace first MVP を追加済み。Gateway 側は汎用 HTTP API 境界のまま。 |
+| SMAI Copilot workspace | 親側実装済み | 親SMAIのサイドメニューに、context preset、限定自由入力、user / assistant bubbles、session-local 履歴を持つ chat-style Copilot workspace first MVP を追加済み。Gateway 側は汎用 HTTP API 境界のまま。 |
 | SMAI LLM Factor | 親側 validation slice 実装済み / Gateway は将来範囲 | LLM を最終予測器ではなく、source-bound qualitative feature generator として使う構想。SMAI 本体側に schema / fake service / file-backed cache / deterministic backtest evaluator / broader historical fixture / validation report / Cockpit 参考表示 / Ranking 参考表示を置き、Gateway 側は provider / prompt 実行境界に限定する。 |
 | Gateway operations | 未着手 | 認証、API key、rate limit、audit log、provider routing UI は未実装。 |
 

@@ -7,7 +7,6 @@ import streamlit as st
 
 from backend.assistant import AssistantMessage, AssistantResponse
 from ui.components.assistant import SmaiAssistantContext, assistant_response_for_context
-from ui.components.mascot import render_page_title
 
 COPILOT_CHAT_HISTORY_STATE_KEY = "smai_copilot_chat_history"
 COPILOT_CONVERSATION_ID_STATE_KEY = "smai_copilot_conversation_id"
@@ -141,11 +140,15 @@ def copilot_turn_html(turn: dict[str, str]) -> str:
     checkpoints = _list_html(_split_lines(turn.get("next_checkpoints", "")))
     return (
         '<article class="smai-copilot-turn">'
-        '<div class="smai-copilot-user">'
+        '<div class="smai-copilot-bubble-row smai-copilot-bubble-row--user">'
+        '<div class="smai-copilot-bubble smai-copilot-user">'
         f"<span>{context_label}</span>"
-        f"<strong>{question}</strong>"
+        f"<p>{question}</p>"
         "</div>"
-        '<div class="smai-copilot-answer">'
+        "</div>"
+        '<div class="smai-copilot-bubble-row smai-copilot-bubble-row--assistant">'
+        '<div class="smai-copilot-avatar">AI</div>'
+        '<div class="smai-copilot-bubble smai-copilot-answer">'
         f"<p>{answer}</p>"
         '<div class="smai-copilot-answer-grid">'
         f'{_block_html("見る材料", reasons)}'
@@ -153,55 +156,86 @@ def copilot_turn_html(turn: dict[str, str]) -> str:
         f'{_block_html("次に確認", checkpoints)}'
         "</div>"
         "</div>"
+        "</div>"
+        "</article>"
+    )
+
+
+def copilot_welcome_html(context: SmaiAssistantContext) -> str:
+    context_label = html.escape(copilot_context_label(context))
+    lead = html.escape(context.lead)
+    questions = _list_html(list(context.suggested_questions[:3]))
+    return (
+        '<article class="smai-copilot-turn smai-copilot-turn--welcome">'
+        '<div class="smai-copilot-bubble-row smai-copilot-bubble-row--assistant">'
+        '<div class="smai-copilot-avatar">AI</div>'
+        '<div class="smai-copilot-bubble smai-copilot-answer">'
+        f"<span>{context_label}</span>"
+        f"<p>{lead}</p>"
+        '<div class="smai-copilot-answer-grid smai-copilot-answer-grid--welcome">'
+        f'{_block_html("質問例", questions)}'
+        "</div>"
+        "</div>"
+        "</div>"
         "</article>"
     )
 
 
 def render_copilot_workspace_page() -> None:
-    render_page_title(
-        "SMAI Copilot",
-        "銘柄、ランキング、ニュース、配分見直しの確認材料を横断して整理します。",
-        "cockpit",
-    )
-    st.markdown('<section class="smai-copilot-workspace">', unsafe_allow_html=True)
-
     contexts = copilot_context_options()
     labels = [copilot_context_label(context) for context in contexts]
-    selected_label = st.selectbox("相談文脈", labels, key="smai_copilot_context_select")
+    history = _copilot_history()
+
+    st.markdown('<section class="smai-copilot-workspace">', unsafe_allow_html=True)
+    st.markdown(_chat_header_html(history_count=len(history)), unsafe_allow_html=True)
+
+    st.markdown('<div class="smai-copilot-context-rail">', unsafe_allow_html=True)
+    context_col, quick_col = st.columns([1.08, 1])
+    with context_col:
+        selected_label = st.selectbox("文脈", labels, key="smai_copilot_context_select")
     selected_context = contexts[labels.index(selected_label)]
     quick_questions = tuple(selected_context.suggested_questions)
-    selected_question = st.selectbox(
-        "質問例",
-        quick_questions,
-        key="smai_copilot_question_example",
-    )
+    with quick_col:
+        selected_question = st.selectbox(
+            "クイック質問",
+            quick_questions,
+            key="smai_copilot_question_example",
+        )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown('<div class="smai-copilot-thread">', unsafe_allow_html=True)
+    if not history:
+        st.markdown(copilot_welcome_html(selected_context), unsafe_allow_html=True)
+    else:
+        for turn in history:
+            st.markdown(copilot_turn_html(turn), unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown('<div class="smai-copilot-composer">', unsafe_allow_html=True)
     question = st.text_area(
-        "質問",
+        "メッセージ",
         value=selected_question,
         max_chars=240,
         key="smai_copilot_question",
     )
-
-    left, right = st.columns([1, 1])
-    with left:
-        submit = st.button("Copilotに確認", type="primary", use_container_width=True)
-    with right:
-        clear = st.button("履歴をクリア", use_container_width=True)
+    send_col, clear_col = st.columns([0.72, 0.28])
+    with send_col:
+        submit = st.button("送信", type="primary", use_container_width=True)
+    with clear_col:
+        clear = st.button("クリア", use_container_width=True)
 
     if clear:
         st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = []
         st.session_state[COPILOT_CONVERSATION_ID_STATE_KEY] = _new_conversation_id()
+        st.rerun()
 
     if submit:
+        previous_history_count = len(_copilot_history())
         _handle_copilot_submit(selected_context, question)
+        if len(_copilot_history()) > previous_history_count:
+            st.rerun()
 
-    history = _copilot_history()
-    if not history:
-        st.info("相談する文脈を選び、質問を入力すると、確認材料・注意点・次に見る点を整理します。")
-    else:
-        st.markdown("#### 会話履歴")
-        for turn in history:
-            st.markdown(copilot_turn_html(turn), unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
     st.caption(
         "SMAI Copilotは判断材料の整理を補助します。"
@@ -267,6 +301,23 @@ def _conversation_id() -> str:
 
 def _new_conversation_id() -> str:
     return f"smai-copilot-{uuid4().hex}"
+
+
+def _chat_header_html(*, history_count: int) -> str:
+    return (
+        '<div class="smai-copilot-chat-topbar">'
+        "<div>"
+        '<span class="smai-copilot-eyebrow">SMAI Copilot</span>'
+        "<h1>チャット</h1>"
+        "<p>確認材料を短く整理します。</p>"
+        "</div>"
+        '<div class="smai-copilot-statusbar">'
+        '<span class="smai-copilot-chat-status-dot"></span>'
+        f"<strong>{history_count}件</strong>"
+        "<small>準備完了</small>"
+        "</div>"
+        "</div>"
+    )
 
 
 def _split_lines(value: str) -> list[str]:

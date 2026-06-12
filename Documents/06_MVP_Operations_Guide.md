@@ -54,7 +54,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
   - Cockpit / Ranking show a fixed floating `SMAI Copilot` mascot. The panel registers the current page / section context and, in the default config, uses question chips to explain what to check next without running price fetch, ranking creation, network calls, or LLM calls.
   - Cockpit contexts currently cover data setup, `AI予測インサイト`, `上昇気配・下降警戒`, and Decision Report. Ranking contexts cover ranking setup, ranking results, and selected deep-dive candidate checks.
   - SMAI parent can optionally call `smai-ai-gateway` `/api/v1/context-answer` through `assistant.gateway.enabled=true`. The default remains disabled, schema-validated, and deterministic fallback is used on timeout, Gateway error, invalid JSON/schema, empty answer, or missing context.
-  - Side menu now includes a dedicated `SMAI Copilot` workspace. It provides context presets, question examples, 240-character limited free text, and session-local history while reusing the same Assistant service and keeping Gateway usage opt-in.
+  - Side menu now includes a dedicated chat-style `SMAI Copilot` workspace. It provides context presets, question examples, 240-character limited free text, user / assistant bubbles, and session-local history while reusing the same Assistant service and keeping Gateway usage opt-in.
 - `SMAI LLM Factor` SMAI-side first slice
   - `backend/llm_factor` provides `LLMFactorResult` / factor / evidence schemas, source hash retention, deterministic fake service validation, and a file-backed cache with generated_at / expires_at / model / prompt version metadata.
   - `run_llm_factor_backtest(case)` provides a deterministic fixture-based evaluator for LLM material scores versus forward returns / drawdowns. It is an exploratory alpha-factor diagnostic, not a trading strategy backtest.
@@ -101,7 +101,7 @@ assistant:
 
 Gateway 接続失敗時も `TemplateAssistantService` に戻るため、SMAI の予測、ランキング、Investment Score、Research Score、LLM Factor 参考列は変更されません。
 
-`SMAI Copilot` workspace はサイドメニューから開けます。相談文脈は `銘柄コックピット`、`銘柄ランキング`、`投資レーダー`、`AI材料分析`、`リバランス` の preset から選び、質問例または 240 文字以内の自由入力で確認できます。会話履歴は session-local で、通常設定では deterministic fallback の説明を使い、価格取得、ランキング再作成、スコア変更、売買推奨は行いません。`assistant.gateway.enabled=true` のときだけ `/api/v1/context-answer` へ opt-in 接続し、失敗時は同じ画面内で deterministic answer に戻ります。
+`SMAI Copilot` workspace はサイドメニューから開けます。相談文脈は `銘柄コックピット`、`銘柄ランキング`、`投資レーダー`、`AI材料分析`、`リバランス` の preset から選び、クイック質問または 240 文字以内のメッセージで確認できます。画面は chat-style の thread / composer 構成で、会話履歴は session-local です。通常設定では deterministic fallback の説明を使い、価格取得、ランキング再作成、スコア変更、売買推奨は行いません。`assistant.gateway.enabled=true` のときだけ `/api/v1/context-answer` へ opt-in 接続し、失敗時は同じ画面内で deterministic answer に戻ります。
 
 Investment News dashboard はサイドメニューの `投資レーダー` から開けます。現時点では `backend/news` の snapshot / status / cache / refresh manager と deterministic dashboard builder を使い、保存済みsnapshotがなければ fake snapshot / fixture から市場ニュースヘッドライン、株式ヒートマップ風の投資ヒートマップ、3列のカテゴリ別ニュースカード、銘柄名付き関連銘柄の `銘柄コックピット` 導線を表示します。ニュースカードの関連銘柄は、本文に出た銘柄を最大8件まで優先表示し、残り枠に `SMAI推測候補` を補完します。投資ヒートマップはニュースに直接紐づいた関連銘柄だけでなく、ローカル銘柄ユニバース全体からカテゴリ適合、時価総額帯、データ品質、ニュース鮮度、材料タイプ、市場シグナルを見て注目度順の銘柄タイルを補完します。市場指標がある場合は値動き / 取引量を使い、欠ける場合はニュース材料から代理シグナルを補完します。銘柄タイルは企業名を主、シンボルを補助タグとして表示し、クリックすると同一アプリ内の該当 `銘柄コックピット` へ移動します。Investment Score / Research Score / Ranking order は変更しません。詳細フィルタ、Watchlist連動、通知、追加providerは後続範囲です。
 
@@ -289,7 +289,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 | `銘柄コックピット` | 1 銘柄の価格、予測、Investment Score、注意点を深掘りする |
 | `銘柄ランキング` | 複数銘柄を条件で絞り、Investment Score で比較する |
 | `投資レーダー` | 市場ニュース、投資ヒートマップ、カテゴリ別材料から確認候補を探す |
-| `SMAI Copilot` | 画面横断の確認材料を、限定自由入力と session-local 履歴で相談する |
+| `SMAI Copilot` | 画面横断の確認材料を、chat-style の限定自由入力と session-local 履歴で相談する |
 | `リバランス` | 現在資産、目標配分、配分見直し候補、Risk 判定を確認する |
 | `設定 / データ情報` | Runtime、config、scenario directory、銘柄候補を確認する |
 

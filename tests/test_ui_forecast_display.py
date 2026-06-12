@@ -12,6 +12,7 @@ import streamlit as st
 import ui.app as app_module
 from backend.core.data_contracts import Bar, DailySnapshot, FundamentalSnapshot, Symbol
 from backend.core.errors import DataSourceError
+from backend.llm_factor import FakeLLMFactorService
 from backend.reporting import build_decision_report_context, build_report_section
 from backend.research import (
     CompanyBusinessProfile,
@@ -101,6 +102,9 @@ from ui.app import (
     _investment_question_secondary_answers,
     _investment_question_summary_intro_html,
     _ir_summary_html,
+    _llm_factor_evidence_display_rows,
+    _llm_factor_evidence_sources,
+    _llm_factor_panel_html,
     _market_data_preview_advanced_forecast_consensus_rows,
     _market_data_preview_advanced_forecast_rows,
     _market_data_preview_symbol_label,
@@ -9178,6 +9182,94 @@ def test_forecast_metric_downloads_are_stable_json_and_csv():
         "model,symbol,horizon_days,forecast_close,mae,rmse,direction_accuracy,sample_count\n"
         "naive,AAPL,10,221.32,13.11,13.90,44.44%,55\n"
     )
+
+
+def test_llm_factor_evidence_sources_convert_external_and_news_entries() -> None:
+    fetched_at = datetime(2026, 6, 12, 9, 0, tzinfo=UTC)
+    external_result = ExternalResearchFetchResult(
+        symbol="7203.T",
+        provider="fixture",
+        fetched_at=fetched_at,
+        entries=[
+            ExternalResearchFetchManifestEntry(
+                title="トヨタ、AIデータセンター向け成長投資を説明",
+                symbol="7203.T",
+                source_type="company_ir",
+                source_url="https://example.com/ir/7203",
+                provider="fixture",
+                published_at=date(2026, 6, 12),
+                fetched_at=fetched_at,
+                freshness_status="latest",
+                document_id="doc-1",
+                content_summary="AIとデータセンター需要への対応を説明しています。",
+            )
+        ],
+    )
+    news_report = StockNewsReport(
+        symbol="7203.T",
+        as_of=date(2026, 6, 12),
+        news=[
+            StockNewsEvidence(
+                symbol="7203.T",
+                title="自社株買いと増配への期待が市場で注目",
+                url="https://example.com/news/7203",
+                source="fixture-news",
+                published_at=date(2026, 6, 11),
+                summary="増配と自社株買いへの期待が材料として扱われています。",
+                investment_viewpoint="shareholder_return",
+                sentiment_for_investment="positive",
+                freshness_status="latest",
+            )
+        ],
+    )
+
+    sources = _llm_factor_evidence_sources(
+        symbol="7203.T",
+        as_of=date(2026, 6, 12),
+        report=None,
+        news_report=news_report,
+        external_result=external_result,
+    )
+    result = FakeLLMFactorService().build_reference_result(
+        ticker="7203.T",
+        as_of=date(2026, 6, 12),
+        evidence_sources=sources,
+        generated_at=datetime(2026, 6, 12, 10, 0, tzinfo=UTC),
+    )
+    rows = _llm_factor_evidence_display_rows(result)
+
+    assert [source.source_type for source in sources] == ["company_ir", "news"]
+    assert result.bullish_factors
+    assert rows[0]["種別"] == "企業IRサイト"
+    assert rows[1]["種別"] == "ニュース"
+    assert rows[1]["URL"] == "https://example.com/news/7203"
+
+
+def test_llm_factor_panel_html_is_reference_display_and_escapes_source_text() -> None:
+    source = app_module.EvidenceSource(
+        title="<script>増配</script>",
+        source_type="news",
+        source_url="https://example.com/news/escape",
+        source_date=date(2026, 6, 12),
+        provider="fixture",
+        summary="<b>好決算</b>と増配が確認できます。",
+        reliability_score=Decimal("70"),
+    )
+    result = FakeLLMFactorService().build_reference_result(
+        ticker="7203.T",
+        as_of=date(2026, 6, 12),
+        evidence_sources=[source],
+        generated_at=datetime(2026, 6, 12, 10, 0, tzinfo=UTC),
+    )
+
+    html = _llm_factor_panel_html(result)
+
+    assert "AI材料分析" in html
+    assert "参考表示" in html
+    assert "LLM未接続" in html
+    assert "売買推奨ではありません" in html
+    assert "&lt;script&gt;増配&lt;/script&gt;" in html
+    assert "<script>増配</script>" not in html
 
 
 def _bar(ts: str, *, close: int = 100, symbol: str = "AAPL") -> Bar:

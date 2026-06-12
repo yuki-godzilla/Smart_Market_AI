@@ -29,6 +29,12 @@ from backend.core.data_contracts import (
 )
 from backend.core.errors import AppError
 from backend.forecast import forecast_model_display_name
+from backend.llm_factor import (
+    EvidenceSource,
+    FakeLLMFactorService,
+    LLMFactorResult,
+    LLMFactorSourceType,
+)
 from backend.marketdata import create_market_data_provider_adapter
 from backend.marketdata.feature_builder import build_daily_snapshots_from_market_data
 from backend.news.background import start_news_background_refresh_worker
@@ -7092,9 +7098,10 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         _render_symbol_detail_table(summary_rows)
 
     _render_cockpit_research_summary(preview)
+    _render_cockpit_llm_factor(preview)
     _render_cockpit_decision_report(preview)
 
-    st.subheader("08 詳細データ")
+    st.subheader("09 詳細データ")
     st.caption(
         "取得元データや計算に使った詳細情報です。通常の投資判断では、必要な場合のみ確認してください。"
     )
@@ -7302,6 +7309,299 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
             external_research_result=_cockpit_external_research_fetch_result_from_state(preview),
             display_context="cockpit",
         )
+
+
+def _render_cockpit_llm_factor(preview: MarketDataPreview) -> None:
+    symbol = _market_data_preview_symbol(preview)
+    if not symbol:
+        return
+    result = _cockpit_llm_factor_result(preview)
+    st.subheader("07 AI材料分析")
+    st.caption(
+        "RAG・ニュース・IR情報をLLMで構造化するための参考指標です。"
+        "初期段階ではスコアやランキングには反映しません。"
+    )
+    st.markdown(_llm_factor_panel_html(result), unsafe_allow_html=True)
+    source_rows = _llm_factor_evidence_display_rows(result)
+    if source_rows:
+        with st.expander("AI材料分析の出典を表示", expanded=False):
+            _render_compact_dataframe(source_rows)
+
+
+def _cockpit_llm_factor_result(preview: MarketDataPreview) -> LLMFactorResult:
+    symbol = _market_data_preview_symbol(preview)
+    as_of = _date_from_iso_text(_market_data_as_of(preview)) or default_as_of_date()
+    report = _cockpit_research_report_from_state(preview)
+    news_report = _cockpit_stock_news_report_from_state(preview)
+    external_result = _cockpit_external_research_fetch_result_from_state(preview)
+    evidence_sources = _llm_factor_evidence_sources(
+        symbol=symbol,
+        as_of=as_of,
+        report=report,
+        news_report=news_report,
+        external_result=external_result,
+    )
+    return FakeLLMFactorService().build_reference_result(
+        ticker=symbol,
+        as_of=as_of,
+        evidence_sources=evidence_sources,
+    )
+
+
+def _llm_factor_evidence_sources(
+    *,
+    symbol: str,
+    as_of: date,
+    report: CompanyResearchReport | None,
+    news_report: StockNewsReport | None,
+    external_result: ExternalResearchFetchResult | None,
+) -> list[EvidenceSource]:
+    sources: list[EvidenceSource] = []
+    if external_result is not None:
+        for entry in external_result.entries[:8]:
+            sources.append(_llm_factor_source_from_external_entry(entry, as_of=as_of))
+    if news_report is not None:
+        for item in news_report.news[:5]:
+            sources.append(_llm_factor_source_from_news(item, as_of=as_of))
+    if report is not None:
+        for item in report.evidence[:5]:
+            sources.append(
+                _llm_factor_source_from_research_evidence(
+                    item,
+                    symbol=symbol,
+                    as_of=as_of,
+                )
+            )
+    return _dedupe_llm_factor_sources(sources)
+
+
+def _llm_factor_source_from_external_entry(
+    entry: ExternalResearchFetchManifestEntry,
+    *,
+    as_of: date,
+) -> EvidenceSource:
+    source_date = entry.published_at or entry.fetched_at.date() or as_of
+    return EvidenceSource(
+        title=entry.title,
+        source_type=_llm_factor_source_type(entry.source_type),
+        source_url=entry.source_url,
+        source_date=source_date,
+        fetched_at=entry.fetched_at,
+        provider=entry.provider,
+        summary=entry.content_summary or None,
+        reliability_score=_llm_factor_source_reliability(
+            entry.source_type,
+            provider=entry.provider,
+        ),
+    )
+
+
+def _llm_factor_source_from_news(
+    item: Any,
+    *,
+    as_of: date,
+) -> EvidenceSource:
+    return EvidenceSource(
+        title=item.title,
+        source_type="news",
+        source_url=item.url,
+        source_date=item.published_at or as_of,
+        provider=item.source or "news",
+        summary=item.summary,
+        reliability_score=Decimal("62"),
+    )
+
+
+def _llm_factor_source_from_research_evidence(
+    item: Any,
+    *,
+    symbol: str,
+    as_of: date,
+) -> EvidenceSource:
+    source_url = f"smai://research-evidence/{symbol}/{item.document_id}/{item.chunk_id}"
+    return EvidenceSource(
+        title=item.title,
+        source_type=_llm_factor_source_type(item.source_type),
+        source_url=source_url,
+        source_date=item.published_at or as_of,
+        provider="research",
+        summary=item.excerpt,
+        reliability_score=_percent_from_unit_decimal(item.reliability),
+    )
+
+
+def _llm_factor_source_type(source_type: str) -> LLMFactorSourceType:
+    if source_type == "tdnet":
+        return "tdnet"
+    if source_type == "news":
+        return "news"
+    if source_type == "provider_profile":
+        return "provider_profile"
+    if source_type == "company_ir":
+        return "company_ir"
+    if source_type in {
+        "annual_report",
+        "earnings_report",
+        "earnings_presentation",
+        "medium_term_plan",
+        "integrated_report",
+    }:
+        return "company_ir"
+    if source_type == "user_note":
+        return "local_reference"
+    return "other"
+
+
+def _llm_factor_source_reliability(source_type: str, *, provider: str | None) -> Decimal:
+    if source_type in {
+        "tdnet",
+        "company_ir",
+        "annual_report",
+        "earnings_report",
+        "edinet",
+    }:
+        return Decimal("82")
+    if source_type == "provider_profile":
+        return Decimal("68")
+    if source_type == "news":
+        return Decimal("60")
+    if provider:
+        return Decimal("55")
+    return Decimal("45")
+
+
+def _dedupe_llm_factor_sources(sources: Sequence[EvidenceSource]) -> list[EvidenceSource]:
+    deduped: list[EvidenceSource] = []
+    seen: set[tuple[str, str]] = set()
+    for source in sources:
+        key = (source.source_url.strip(), source.title.strip())
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(source)
+    return deduped
+
+
+def _percent_from_unit_decimal(value: Decimal) -> Decimal:
+    return max(
+        Decimal("0"),
+        min(Decimal("100"), (value * Decimal("100")).quantize(Decimal("1"))),
+    )
+
+
+def _llm_factor_panel_html(result: LLMFactorResult) -> str:
+    scores = [
+        ("上昇材料", result.llm_bullish_score, "positive"),
+        ("下降材料", result.llm_bearish_score, "warning"),
+        ("カタリスト", result.llm_catalyst_score, "info"),
+        ("リスク", result.llm_risk_score, "warning"),
+        ("確信度", result.llm_confidence_score, _llm_factor_confidence_tone(result)),
+    ]
+    score_cards = "".join(
+        '<section class="research-brief-metric-card">'
+        '<div class="research-evidence-card-header">'
+        f'<span class="research-evidence-pill {html.escape(tone)}">'
+        f"{html.escape(label)}</span>"
+        "</div>"
+        f"<strong>{html.escape(_llm_factor_score_display(score))}</strong>"
+        f"<p>{html.escape(_llm_factor_score_note(label, score))}</p>"
+        "</section>"
+        for label, score, tone in scores
+    )
+    bullish_items = _llm_factor_items_html(
+        result.bullish_factors,
+        empty_text="上昇材料として表示できる出典付き候補はまだ少なめです。",
+    )
+    bearish_items = _llm_factor_items_html(
+        result.bearish_factors,
+        empty_text="下降材料として表示できる出典付き候補はまだ少なめです。",
+    )
+    warnings = "".join(f"<li>{html.escape(warning)}</li>" for warning in result.warnings)
+    warning_html = f"<ul>{warnings}</ul>" if warnings else "<p>特記事項なし</p>"
+    return (
+        '<section class="research-result-brief hero">'
+        '<div class="research-result-brief-header">'
+        '<span class="research-evidence-pill positive">参考表示</span>'
+        '<span class="research-evidence-pill">LLM未接続</span>'
+        "</div>"
+        "<h4>AI材料分析</h4>"
+        f"<p>{html.escape(result.summary)}</p>"
+        f'<div class="research-brief-metric-grid">{score_cards}</div>'
+        '<div class="research-brief-reading-grid">'
+        '<section class="research-brief-reading-item tone-positive">'
+        "<h5>上昇材料候補 Top 3</h5>"
+        f"{bullish_items}"
+        "</section>"
+        '<section class="research-brief-reading-item tone-warning">'
+        "<h5>注意材料候補 Top 3</h5>"
+        f"{bearish_items}"
+        "</section>"
+        '<section class="research-brief-reading-item tone-warning">'
+        "<h5>確認メモ</h5>"
+        f"{warning_html}"
+        f"<p>{html.escape(result.disclaimer)}</p>"
+        "</section>"
+        "</div>"
+        "</section>"
+    )
+
+
+def _llm_factor_items_html(
+    factors: Sequence[Any],
+    *,
+    empty_text: str,
+) -> str:
+    if not factors:
+        return f"<p>{html.escape(empty_text)}</p>"
+    items = "".join(
+        "<li>"
+        f"<strong>{html.escape(factor.title)}</strong>"
+        f" <span>{html.escape(_llm_factor_score_display(factor.score))}</span>"
+        f"<br><small>{html.escape(factor.reason)}</small>"
+        f"<br><small>出典日: {html.escape(factor.source_date.isoformat())}</small>"
+        "</li>"
+        for factor in factors[:3]
+    )
+    return f"<ul>{items}</ul>"
+
+
+def _llm_factor_score_display(score: Decimal) -> str:
+    return f"{int(score.to_integral_value())}/100"
+
+
+def _llm_factor_score_note(label: str, score: Decimal) -> str:
+    if label == "確信度":
+        if score < Decimal("35"):
+            return "出典が少ないため低信頼です。"
+        if score < Decimal("70"):
+            return "参考材料として確認します。"
+        return "出典が比較的そろっています。"
+    if score >= Decimal("70"):
+        return "強めに確認したい材料です。"
+    if score >= Decimal("45"):
+        return "中立からやや注目の材料です。"
+    return "現時点では控えめに読みます。"
+
+
+def _llm_factor_confidence_tone(result: LLMFactorResult) -> str:
+    if result.llm_confidence_score < Decimal("35"):
+        return "warning"
+    if result.llm_confidence_score >= Decimal("70"):
+        return "positive"
+    return "info"
+
+
+def _llm_factor_evidence_display_rows(result: LLMFactorResult) -> list[dict[str, str]]:
+    return [
+        {
+            "出典": source.title,
+            "種別": _research_source_type_label(source.source_type),
+            "日付": source.source_date.isoformat(),
+            "取得元": source.provider or "",
+            "URL": source.source_url,
+        }
+        for source in result.evidence_sources
+    ]
 
 
 def _fetch_external_research_for_preview(
@@ -12477,6 +12777,11 @@ def _research_source_type_label(source_type: str) -> str:
         "tdnet": "TDnet",
         "news": "ニュース",
         "provider_profile": "取得元プロフィール",
+        "research_summary": "Research Summary",
+        "edinet": "EDINET",
+        "symbol_db": "銘柄DB",
+        "local_reference": "ローカル参考情報",
+        "other": "確認資料",
         "user_note": "ユーザーメモ",
     }
     return labels.get(source_type, source_type or "未確認")
@@ -13492,7 +13797,7 @@ def _render_cockpit_decision_report(preview: MarketDataPreview) -> None:
     news_report = _cockpit_stock_news_report_from_state(preview)
     overview = cockpit_decision_report_overview(preview)
 
-    st.markdown("### 07 投資判断レポート")
+    st.markdown("### 08 投資判断レポート")
     st.info(DECISION_REPORT_SUPPORT_MESSAGE)
     st.markdown(_decision_report_overview_card_html(overview), unsafe_allow_html=True)
 
@@ -13524,7 +13829,7 @@ def _render_cockpit_decision_report(preview: MarketDataPreview) -> None:
         expander_label="投資判断レポート",
         json_file_name="decision_report_cockpit.json",
         markdown_file_name="decision_report_cockpit.md",
-        heading_prefix="07",
+        heading_prefix="08",
     )
 
 

@@ -55,4 +55,4 @@ LLM は `answer` の本文生成を担当し、`materials`、`cautions`、`next_
 - JSON のみ返す。
 - 不明な場合は低 confidence にする。
 
-Gateway は provider 呼び出しと prompt 実行の境界を担い、`LLMFactorResult` などの SMAI domain schema、source hash、cache、backtest、UI 統合は SMAI 本体側で扱います。
+Gateway は provider 呼び出しと prompt 実行の境界を担い、`LLMFactorResult` などの SMAI domain schema と source hash は SMAI 本体側の初期 slice で扱います。cache、backtest、UI 統合拡張も SMAI 本体側で進めます。

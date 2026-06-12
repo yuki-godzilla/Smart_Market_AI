@@ -18,6 +18,13 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-12 - SMAI LLM Factor parent MVP slice
+
+- Added parent-side `backend/llm_factor` contracts for `LLMFactorResult`, bullish / bearish factors, evidence sources, source hash, model name, prompt version, and 0-100 material scores.
+- Implemented a deterministic fake LLM Factor service with source-backed scoring, low-confidence fallback for missing sources, and invalid-provider-JSON fallback behavior.
+- Added Cockpit `07 AI材料分析` reference display that uses existing Research / News / external-source context and leaves Forecast, Ranking, Investment Score, and Research Score unchanged.
+- Added deterministic tests for schema validation, fallback behavior, Cockpit source conversion, and safe HTML rendering.
+
 ## 2026-06-12 - Roadmap order and chapter renumbering
 
 - Reordered the future implementation priority around `SMAI LLM Factor` first, followed by factor cache/backtest, Gateway/Copilot real connection, advanced news intelligence, Research RAG expansion, Symbol DB live-provider wiring, advanced export, and Execution Gate.

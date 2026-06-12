@@ -1946,7 +1946,7 @@ smai-ai-gateway/
 
 ### 5.13 Phase 24A: SMAI LLM Factor / 定性特徴量化
 
-状態: 将来範囲 / 設計追記。既存予測モデル、Ranking、Investment Score には初期段階では混ぜない。
+状態: Phase A-B の最初の SMAI 側 MVP slice 実装済み。`backend/llm_factor` の Pydantic schema、deterministic fake service、銘柄コックピットの `AI材料分析` 参考表示まで。既存予測モデル、Ranking、Investment Score には初期段階では混ぜない。
 
 仮称: `SMAI LLM Factor`。名称候補は `SMAI LLM Factor Model`、`SMAI Sentiment Alpha`、`SMAI Material Factor`、`SMAI Catalyst Score`。
 
@@ -2020,8 +2020,8 @@ LLM が生成する特徴量候補:
 
 実装フェーズ案:
 
-- Phase A: `LLMFactorResult`、`BullishFactor`、`BearishFactor`、`EvidenceSource` schema を追加し、confidence、freshness、evidence_quality、source URL / date を必須化する。既存 RAG / News / Research Summary との接続点を整理する。
-- Phase B: 銘柄コックピットの 1 銘柄分析だけを対象に、既存 RAG / ニュース / 銘柄DBを入力し、LLM 構造化 prompt、JSON 出力、Pydantic 検証、UI 表示までの MVP を作る。
+- Phase A: `LLMFactorResult`、`BullishFactor`、`BearishFactor`、`EvidenceSource` schema を追加し、confidence、freshness、evidence_quality、source URL / date を必須化する。既存 RAG / News / Research Summary との接続点を整理する。初期 schema は `backend/llm_factor` に実装済み。
+- Phase B: 銘柄コックピットの 1 銘柄分析だけを対象に、既存 RAG / ニュース / 銘柄DBを入力し、LLM 構造化 prompt、JSON 出力、Pydantic 検証、UI 表示までの MVP を作る。現時点では実 LLM 呼び出し前の deterministic fake service と `AI材料分析` 参考表示まで実装済み。
 - Phase C: 同一銘柄 / 同一 source hash の cache、LLM 実行日時、使用 model、prompt version、TTL を保存し、再現性と cache 肥大化防止を両立する。
 - Phase D: ランキング画面に `LLM強気材料`、`LLM弱気材料`、`LLM確信度`、`材料鮮度` を参考カラムとして追加する。既存ランキングスコアにはまだ混ぜない。
 - Phase E: `llm_bullish_score` と将来リターン、`llm_bearish_score` と下落率、`llm_catalyst_score` と短期リターン、`llm_risk_score` と drawdown、既存予測モデルに追加した場合の精度差分を backtest する。Accuracy、Precision、Recall、F1、AUC、Top-N return、Sharpe Ratio、最大 drawdown、既存モデルとの差分を見る。
@@ -2134,6 +2134,7 @@ Prompt 方針:
 - model name / prompt version / source hash retention
 - structured JSON validation / fallback
 - single-symbol Cockpit `AI材料分析` reference display
+- deterministic fake service / Cockpit reference display implemented
 - cache / TTL / reproducibility
 - Ranking reference columns
 - backtest for factor usefulness
@@ -2198,8 +2199,8 @@ Markdown UTF-8 check:
 
 ## 8. Open Items
 
-- `SMAI LLM Factor` Phase A-B の最初の schema / 1銘柄 Cockpit 参考表示をどの粒度で切るか
-- `SMAI LLM Factor` を Assistant / Copilot 説明機能と分離し、どの時点で cache / backtest / forecast integration へ進めるか
+- `SMAI LLM Factor` Phase C-E として、cache / TTL / reproducibility、backtest、Ranking 参考カラムをどの順で進めるか
+- `SMAI LLM Factor` を Assistant / Copilot 説明機能と分離したまま、実 LLM/Gateway 接続をどの prompt / schema boundary で進めるか
 - Gateway / Copilot 実接続を、LLM Factor の schema 基盤後にどの範囲で接続するか
 - Phase 22.x `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動をどの順に進めるか
 - `投資レーダー` 画面の初期表示は、詳細な news cache status / cache size カードを置かず、タイトル右上の `情報鮮度` と必要時の警告に絞った。今後は詳細フィルタ / Watchlist 連動と合わせて継続調整するか

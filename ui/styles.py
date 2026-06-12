@@ -2434,6 +2434,92 @@ body,
     flex: 0 0 100%;
 }
 
+.smai-copilot-workspace {
+    display: block;
+    width: 100%;
+}
+
+.smai-copilot-turn {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0.85rem 0;
+}
+
+.smai-copilot-user {
+    justify-self: end;
+    width: min(42rem, 88%);
+    border: 1px solid rgba(34, 211, 238, 0.22);
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(14, 116, 144, 0.35), rgba(37, 99, 235, 0.2));
+    padding: 0.72rem 0.85rem;
+}
+
+.smai-copilot-user span {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    font-weight: 760;
+    line-height: 1.35;
+    margin-bottom: 0.25rem;
+}
+
+.smai-copilot-user strong {
+    display: block;
+    color: var(--text-title);
+    font-size: 0.96rem;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+}
+
+.smai-copilot-answer {
+    width: min(58rem, 100%);
+    border-left: 3px solid var(--ai-cyan);
+    background: rgba(17, 31, 53, 0.72);
+    padding: 0.82rem 0.95rem;
+}
+
+.smai-copilot-answer p {
+    color: var(--text-primary);
+    font-size: 0.96rem;
+    line-height: 1.68;
+    margin: 0;
+}
+
+.smai-copilot-answer-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.72rem;
+    margin-top: 0.8rem;
+}
+
+.smai-copilot-answer-block {
+    min-width: 0;
+    border: 1px solid rgba(71, 85, 105, 0.58);
+    border-radius: 8px;
+    background: rgba(8, 13, 24, 0.42);
+    padding: 0.62rem 0.68rem;
+}
+
+.smai-copilot-answer-block span {
+    display: block;
+    color: var(--text-ai-title);
+    font-size: 0.78rem;
+    font-weight: 800;
+    margin-bottom: 0.32rem;
+}
+
+.smai-copilot-answer-block ul {
+    margin: 0;
+    padding-left: 1rem;
+    color: var(--text-secondary);
+    line-height: 1.55;
+    font-size: 0.84rem;
+}
+
+.smai-copilot-answer-block li {
+    margin-bottom: 0.22rem;
+}
+
 .smai-dashboard-header {
     position: relative;
     overflow: hidden;
@@ -3025,6 +3111,14 @@ body,
 
     .smai-page-title-row {
         gap: 0.55rem;
+    }
+
+    .smai-copilot-user {
+        width: 100%;
+    }
+
+    .smai-copilot-answer-grid {
+        grid-template-columns: 1fr;
     }
 
     .smai-page-title-accessory {

@@ -18,6 +18,13 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-12 - SMAI Copilot chat workspace MVP
+
+- Added a side-menu `SMAI Copilot` workspace with context presets, question examples, 240-character limited free text, and session-local conversation history.
+- Extended Assistant request handling so Gateway-backed responses receive `conversation_id`, `message_history`, `active_context_id`, and `referenced_context_ids` while preserving deterministic fallback.
+- Kept the bottom-right floating Copilot as section-local quick guidance and used the dedicated workspace for cross-screen consultation.
+- Added Streamlit AppTest / helper / style / Gateway client coverage and synchronized parent SMAI plus `smai-ai-gateway` docs.
+
 ## 2026-06-12 - SMAI Assistant Gateway opt-in HTTP client
 
 - Added parent-side `HttpAssistantGatewayClient` and settings-based assistant service factory for optional `/api/v1/context-answer` calls.

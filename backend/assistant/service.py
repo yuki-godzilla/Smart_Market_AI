@@ -27,6 +27,13 @@ AssistantIntent = Literal[
 ]
 
 
+class AssistantMessage(StrictBaseModel):
+    """Optional chat history item for future Gateway-backed assistant sessions."""
+
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1)
+
+
 class AssistantCitation(StrictBaseModel):
     """Report section reference used by the deterministic assistant response."""
 
@@ -41,6 +48,10 @@ class AssistantRequest(StrictBaseModel):
     question: str = Field(min_length=1)
     report_context: DecisionReportContext | None = None
     max_points: int = Field(default=4, ge=1, le=8)
+    conversation_id: str | None = Field(default=None, min_length=1)
+    message_history: list[AssistantMessage] = Field(default_factory=list)
+    active_context_id: str | None = Field(default=None, min_length=1)
+    referenced_context_ids: list[str] = Field(default_factory=list)
 
 
 class AssistantResponse(StrictBaseModel):

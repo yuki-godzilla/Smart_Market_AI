@@ -7,6 +7,7 @@ import httpx
 from pydantic import ValidationError
 
 from backend.assistant.gateway_contracts import (
+    AssistantGatewayMessage,
     AssistantGatewayReferencedSection,
     AssistantGatewayRequest,
     AssistantGatewayResponse,
@@ -140,6 +141,14 @@ class GatewayBackedAssistantService:
         gateway_request = build_assistant_gateway_request(
             question=request.question,
             context=context_bundle,
+            task="chat" if request.message_history else "explain",
+            conversation_id=request.conversation_id,
+            message_history=[
+                AssistantGatewayMessage(role=item.role, content=item.content)
+                for item in request.message_history
+            ],
+            active_context_id=request.active_context_id,
+            referenced_context_ids=request.referenced_context_ids,
         )
         try:
             raw_response = self.gateway_client.answer(gateway_request)

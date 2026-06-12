@@ -6,11 +6,12 @@ import streamlit as st
 
 from ui.components.mascot import render_mascot_panel
 
-SideMenuPage = Literal["cockpit", "ranking", "news", "rebalance", "settings"]
+SideMenuPage = Literal["cockpit", "ranking", "news", "copilot", "rebalance", "settings"]
 
 SIDEMENU_PAGE_COCKPIT: SideMenuPage = "cockpit"
 SIDEMENU_PAGE_RANKING: SideMenuPage = "ranking"
 SIDEMENU_PAGE_NEWS: SideMenuPage = "news"
+SIDEMENU_PAGE_COPILOT: SideMenuPage = "copilot"
 SIDEMENU_PAGE_REBALANCE: SideMenuPage = "rebalance"
 SIDEMENU_PAGE_SETTINGS: SideMenuPage = "settings"
 
@@ -18,6 +19,7 @@ SIDEMENU_PAGE_LABELS: dict[SideMenuPage, str] = {
     SIDEMENU_PAGE_COCKPIT: "銘柄コックピット",
     SIDEMENU_PAGE_RANKING: "銘柄ランキング",
     SIDEMENU_PAGE_NEWS: "投資レーダー",
+    SIDEMENU_PAGE_COPILOT: "SMAI Copilot",
     SIDEMENU_PAGE_REBALANCE: "リバランス",
     SIDEMENU_PAGE_SETTINGS: "設定 / データ情報",
 }
@@ -77,6 +79,7 @@ def _sidebar_mascot_message(page: SideMenuPage) -> str:
         SIDEMENU_PAGE_COCKPIT: "1銘柄の確認ポイントを一緒に整理します。",
         SIDEMENU_PAGE_RANKING: "深掘り候補をスコアとリスク確認で見比べます。",
         SIDEMENU_PAGE_NEWS: "市場ニュースから確認すべきテーマと関連銘柄を整理します。",
+        SIDEMENU_PAGE_COPILOT: "画面横断で、確認材料と次に見る点を整理します。",
         SIDEMENU_PAGE_REBALANCE: "配分のズレと見直し候補を確認します。",
         SIDEMENU_PAGE_SETTINGS: "データ設定と取得元を確認します。",
     }

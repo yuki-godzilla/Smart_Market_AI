@@ -8,6 +8,7 @@ from urllib.parse import urlencode
 import streamlit as st
 
 from backend.assistant import (
+    AssistantMessage,
     AssistantRequest,
     AssistantResponse,
     create_assistant_service_from_settings,
@@ -219,16 +220,31 @@ def _assistant_response(
     context: SmaiAssistantContext,
     question: str,
 ) -> AssistantResponse:
+    return assistant_response_for_context(context, question)
+
+
+def assistant_response_for_context(
+    context: SmaiAssistantContext,
+    question: str,
+    *,
+    conversation_id: str | None = None,
+    message_history: Sequence[AssistantMessage] = (),
+    referenced_context_ids: Sequence[str] = (),
+) -> AssistantResponse:
     return create_assistant_service_from_settings().answer(
         AssistantRequest(
             question=question,
-            report_context=_context_to_report_context(context),
+            report_context=assistant_context_to_report_context(context),
             max_points=5,
+            conversation_id=conversation_id,
+            message_history=list(message_history),
+            active_context_id=context.context_id,
+            referenced_context_ids=list(referenced_context_ids),
         )
     )
 
 
-def _context_to_report_context(context: SmaiAssistantContext) -> DecisionReportContext:
+def assistant_context_to_report_context(context: SmaiAssistantContext) -> DecisionReportContext:
     summary = {
         "画面": context.page_label,
         "セクション": context.section_label,

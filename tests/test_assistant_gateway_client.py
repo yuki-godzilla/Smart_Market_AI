@@ -9,6 +9,7 @@ from backend.assistant import (
     AssistantGatewayError,
     AssistantGatewayReferencedSection,
     AssistantGatewayResponse,
+    AssistantMessage,
     AssistantRequest,
     GatewayBackedAssistantService,
     HttpAssistantGatewayClient,
@@ -88,6 +89,34 @@ def test_gateway_backed_assistant_uses_gateway_response_when_valid():
     assert len(client.requests) == 1
     assert client.requests[0].constraints.no_investment_advice
     assert client.requests[0].context.sections[0].title == "AI予測インサイト"
+
+
+def test_gateway_backed_assistant_passes_chat_history_to_gateway_request():
+    client = MockAssistantGatewayClient()
+    service = GatewayBackedAssistantService(client)
+
+    response = service.answer(
+        AssistantRequest(
+            question="続けて注意点を整理して",
+            report_context=_sample_report_context(),
+            conversation_id="conversation-1",
+            message_history=[
+                AssistantMessage(role="user", content="AI予測インサイトをどう読む？"),
+                AssistantMessage(role="assistant", content="中心予測とレンジを確認します。"),
+            ],
+            active_context_id="cockpit-forecast",
+            referenced_context_ids=["cockpit-forecast"],
+        )
+    )
+
+    assert response.answer.startswith("Gateway mock response")
+    assert len(client.requests) == 1
+    request = client.requests[0]
+    assert request.task == "chat"
+    assert request.conversation_id == "conversation-1"
+    assert [message.role for message in request.message_history] == ["user", "assistant"]
+    assert request.active_context_id == "cockpit-forecast"
+    assert request.referenced_context_ids == ["cockpit-forecast"]
 
 
 def test_gateway_backed_assistant_falls_back_when_client_raises():

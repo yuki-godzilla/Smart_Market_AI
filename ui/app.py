@@ -114,6 +114,7 @@ from ui.components.mascot import (
 )
 from ui.components.sidemenu import (
     SIDEMENU_PAGE_COCKPIT,
+    SIDEMENU_PAGE_COPILOT,
     SIDEMENU_PAGE_LABELS,
     SIDEMENU_PAGE_NEWS,
     SIDEMENU_PAGE_RANKING,
@@ -341,6 +342,7 @@ from ui.views.common import (
     _single_date_from_input,
     default_as_of_date,
 )
+from ui.views.copilot import render_copilot_workspace_page
 from ui.views.news import (
     NEWS_COCKPIT_QUERY_COCKPIT_VALUE,
     NEWS_COCKPIT_QUERY_PAGE_PARAM,
@@ -1572,14 +1574,17 @@ def main() -> None:
         _render_market_data_ranking()
     elif selected_page == SIDEMENU_PAGE_NEWS:
         render_news_dashboard_page(open_symbol_callback=_select_news_symbol_for_cockpit)
+    elif selected_page == SIDEMENU_PAGE_COPILOT:
+        render_copilot_workspace_page()
     elif selected_page == SIDEMENU_PAGE_REBALANCE:
         render_rebalance_page()
     else:
         render_settings_page()
-    render_floating_assistant(
-        page_key=selected_page,
-        page_label=SIDEMENU_PAGE_LABELS.get(selected_page, "SMAI"),
-    )
+    if selected_page != SIDEMENU_PAGE_COPILOT:
+        render_floating_assistant(
+            page_key=selected_page,
+            page_label=SIDEMENU_PAGE_LABELS.get(selected_page, "SMAI"),
+        )
 
 
 def _apply_navigation_query_params() -> None:
@@ -1605,6 +1610,7 @@ def _apply_sidemenu_page_query(page: str) -> bool:
     page_key = page.strip().lower()
     if page_key not in {
         SIDEMENU_PAGE_NEWS,
+        SIDEMENU_PAGE_COPILOT,
         SIDEMENU_PAGE_RANKING,
         SIDEMENU_PAGE_REBALANCE,
         SIDEMENU_PAGE_SETTINGS,

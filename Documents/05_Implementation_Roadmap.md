@@ -56,7 +56,7 @@ Research RAG は Phase 20 local evidence slice が決定的な土台として実
 未実装または今後の範囲:
 
 - `SMAI LLM Factor` の optional forecast integration。schema、1銘柄 Cockpit 参考表示、cache / reproducibility、Ranking 参考カラム、deterministic backtest evaluator、broader historical fixture pack、extended validation metrics / report は実装済み。初期段階では既存予測モデル、Ranking score、Forecast、Investment Score へ混ぜない
-- `SMAI Copilot` チャット画面、限定自由入力、opt-in live Gateway smoke 実行。SMAI から `smai-ai-gateway` への opt-in HTTP client wiring は実装済み
+- `SMAI Copilot` の opt-in live Gateway smoke 実行と、会話履歴 / 参照文脈の本格拡張。専用チャット画面、限定自由入力、SMAI から `smai-ai-gateway` への opt-in HTTP client wiring は実装済み
 - `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動、通知、ニュース根拠の Decision Report 反映
 - Research RAG の `ResearchFactSummary` 抽出対象拡張、追加 external source adapter、vector / hybrid search の運用UI
 - 銘柄DB background refresh の live provider refresh wiring。`backend/symbols` の foundation、Streamlit daemon worker、Cockpit / Ranking 共通の visible freshness 表示、Cockpit / Ranking 対象銘柄の自動優先更新、Cockpit の価格・予測取得後 background priority refresh + 30分TTL、Ranking 操作直前の軽量 preflight 更新は実装済みのため、残りは provider / opt-in 条件を決める運用接続タスクとして扱う
@@ -64,7 +64,7 @@ Research RAG は Phase 20 local evidence slice が決定的な土台として実
 - 追加 provider / fund metadata source adapter
 - Research Score によるランキング順位統合は、現時点では見送り。必要性が再確認された場合のみ後続の opt-in 機能として扱う
 - Phase 23 Advanced Forecast は実装済み。今後は LLM Factor や Research / News 由来の特徴量を、backtest 後に必要なものだけ統合候補にする
-- Phase 24 Assistant は deterministic backend、Cockpit / Ranking 向け floating `SMAI Copilot` UI、Gateway request / response schema、opt-in HTTP client wiring、`smai-ai-gateway/` scaffold まで実装済み
+- Phase 24 Assistant は deterministic backend、Cockpit / Ranking 向け floating `SMAI Copilot` UI、専用 `SMAI Copilot` チャットワークスペース、Gateway request / response schema、opt-in HTTP client wiring、`smai-ai-gateway/` scaffold まで実装済み
 - broker への live order 送信
 - Execution workflow
 - PDF / Excel export
@@ -268,7 +268,7 @@ Phase 1〜23 と Phase 24 の初期 Assistant / Gateway 土台は概ね実装済
 | --- | --- | --- | --- | --- |
 | 1 | `SMAI LLM Factor` Phase A-B | RAG / News / IR を LLM で構造化特徴量に変換する土台を作る | `LLMFactorResult` schema、factor / evidence schema、1銘柄 Cockpit 参考表示 | 既存 Forecast / Ranking / Investment Score は変更しない |
 | 2 | `SMAI LLM Factor` Phase C-E | 再現性と有効性を検証する | cache / reproducibility、Ranking 参考カラム、deterministic backtest evaluator、broader historical fixture pack、Accuracy / Precision / Recall / F1 / AUC / Top-N return / Sharpe / 最大ドローダウン / baseline comparison の validation report は実装済み | 有効性確認まで予測モデルへ混ぜない |
-| 3 | Gateway / Copilot 実接続 | 既存 deterministic Assistant を LLM Gateway へ opt-in 接続する | SMAI HTTP client、schema validation、fallback、live smoke、限定自由入力 | Gateway 失敗時は deterministic fallback |
+| 3 | Gateway / Copilot 実接続 | 既存 deterministic Assistant を LLM Gateway へ opt-in 接続する | SMAI HTTP client、schema validation、fallback、専用 Copilot 画面、限定自由入力は実装済み。live smoke は opt-in 未実行 | Gateway 失敗時は deterministic fallback |
 | 4 | 高度ニュース活用 | 投資レーダーと Research / Decision Report のニュース根拠を強化する | Watchlist 連動、source reliability、impact horizon、Decision Report 反映 | News だけで順位・スコアを変えない |
 | 5 | Research RAG 拡張 | 外部最新 source と根拠抽出の幅を広げる | 追加 adapter、vector / hybrid 運用UI、抽出対象拡張 | 通常 checks は network-free |
 | 6 | 銘柄DB live provider refresh 接続 | 実装済み background refresh 基盤を live provider へつなぐ | provider / opt-in 条件、失敗時表示、bounded retry | local cache / deterministic path は維持 |
@@ -1849,7 +1849,7 @@ Research資料保存方針の移行:
 
 ### 5.12 Phase 24: 低コストAssistant体験
 
-状態: 初期backend slice と Cockpit / Ranking 向け floating `SMAI Copilot` UI slice 実装済み。SMAI 本体から独立した `smai-ai-gateway/` FastAPI scaffold と、SMAI 親側の opt-in 実 Gateway HTTP client wiring も実装済み。LLM 実装後の `SMAI Copilot` チャット画面、限定自由入力、opt-in live smoke 実行は後続範囲。
+状態: 初期backend slice、Cockpit / Ranking 向け floating `SMAI Copilot` UI slice、専用 `SMAI Copilot` チャットワークスペースの first MVP は実装済み。SMAI 本体から独立した `smai-ai-gateway/` FastAPI scaffold と、SMAI 親側の opt-in 実 Gateway HTTP client wiring も実装済み。実 Gateway / Ollama を起動しての opt-in live smoke と、会話履歴 / 参照文脈の本格拡張は後続範囲。
 
 目的: Decision Report context と Research Summary を入力にし、初心者向けの質問応答・説明を deterministic template または opt-in `LLM Gateway API` で提供する。SMAI マスコットのフローティングAssistant UI として、アプリ機能の使い方、銘柄の確認観点、投資レーダーの読み方を案内する。
 
@@ -1858,7 +1858,7 @@ Research資料保存方針の移行:
 - `backend/assistant/` の request / response contract を維持する。
 - template-based response service を deterministic fallback として維持する。
 - cockpit / ranking / rebalance / report / research context から assistant context を組み立てる。
-- Streamlit に SMAI マスコットのフローティングAssistant UI、将来の `SMAI Copilot` チャット画面、固定質問 / 限定自由入力を追加する。
+- Streamlit に SMAI マスコットのフローティングAssistant UI、専用 `SMAI Copilot` チャット画面、固定質問 / 限定自由入力を追加する。
 - LLM 基盤は SMAI 本体に密結合させず、外部 `LLM Gateway API` 経由で呼び出す。SMAI 側は context bundle、API client、schema validation、deterministic fallback を持ち、provider routing / prompt tuning / rate limit / model switching は Gateway 側に寄せる。
 - 応答は理由、注意点、次に確認する観点、参照セクション、非助言文言を含める。
 
@@ -1868,11 +1868,11 @@ Research資料保存方針の移行:
 - Assistant は買う / 売る / 保有などの指示には答えず、スコア、リスク、根拠資料、未確認項目を確認するための説明に限定する。
 - Cockpit / Ranking には fixed floating `SMAI Copilot` を追加済み。画面・セクションに応じた context を登録し、質問チップから deterministic `TemplateAssistantService` に渡す。Cockpit はデータ取得前、`AI予測インサイト`、`上昇気配・下降警戒`、Decision Report、Ranking は作成前、ランキング結果、深掘り候補を説明対象にする。
 - チップ操作はブラウザ内の native `details` / `summary` と CSS 表示切替で完結し、query parameter navigation、価格取得、予測計算、ランキング作成を走らせない。回答は理由、注意点、次の確認、参照 section を返す。
-- `backend/assistant/gateway_contracts.py` に、LLM Gateway / 将来チャット画面へ渡す `AssistantContextBundle`、`AssistantGatewayRequest`、`AssistantGatewayResponse` の契約を追加済み。`DecisionReportContext` から送信可能な短い context bundle を生成し、provider raw fields、debug logs、外部本文全文、source metadata を除外する。Gateway request には安全制約と将来の `conversation_id` / `message_history` / `active_context_id` / `referenced_context_ids` を持たせる。
+- `backend/assistant/gateway_contracts.py` に、LLM Gateway / チャット画面へ渡す `AssistantContextBundle`、`AssistantGatewayRequest`、`AssistantGatewayResponse` の契約を追加済み。`DecisionReportContext` から送信可能な短い context bundle を生成し、provider raw fields、debug logs、外部本文全文、source metadata を除外する。Gateway request には安全制約と `conversation_id` / `message_history` / `active_context_id` / `referenced_context_ids` を持たせる。
 - `backend/assistant/gateway_client.py` に `AssistantGatewayClient` protocol、network-free `MockAssistantGatewayClient`、`HttpAssistantGatewayClient`、`GatewayBackedAssistantService`、settings-based service factory を追加済み。Gateway応答が有効なら既存UI互換の `AssistantResponse` に変換し、Gateway error、timeout、schema validation failure、空回答、context未指定時は `TemplateAssistantService` に戻す。既定では `assistant.gateway.enabled=false` のため、通常起動 / CI は network-free のまま。
 - `smai-ai-gateway/` に、将来の独立リポジトリ / Git submodule 化を前提にした汎用 FastAPI Gateway scaffold を追加済み。`GET /health`、`POST /api/v1/chat`、`POST /api/v1/summarize`、`POST /api/v1/context-answer`、Pydantic schema、Ollama client 境界、service 層、provider error detail、`.env.example`、Windows 起動 bat、README / SETUP / docs、network-free tests、opt-in live smoke path を持ち、既存 SMAI 本体への import 依存や UI 影響は入れていない。
-- LLM 実装後の `SMAI Copilot` チャット画面、限定自由入力、外部 `LLM Gateway API` の opt-in live smoke は Phase 24 の後続 slice として扱う。
-- `SMAI Copilot` チャット画面は、右下 floating Copilot の置き換えではなく、銘柄コックピット、ランキング、投資レーダー、Decision Report を横断して相談する専用ワークスペースとして扱う。floating Copilot は画面・セクション内のクイック補助、チャット画面は自由入力と会話履歴を持つ深掘り補助に分ける。
+- 専用 `SMAI Copilot` チャット画面の first MVP は、右下 floating Copilot の置き換えではなく、銘柄コックピット、ランキング、投資レーダー、AI材料分析、リバランスを横断して相談するワークスペースとして追加済み。floating Copilot は画面・セクション内のクイック補助、チャット画面は限定自由入力と session-local 会話履歴を持つ深掘り補助に分ける。
+- 外部 `LLM Gateway API` の opt-in live smoke と、実 LLM 前提の長い会話履歴 / cross-context 参照拡張は Phase 24 の後続 slice として扱う。
 
 Pre-LLM closeout 方針:
 
@@ -1880,7 +1880,7 @@ Pre-LLM closeout 方針:
 - SMAI から Gateway へ渡す `AssistantContextBundle` を定義し、Decision Report context、Research Summary、Ranking score breakdown、`AI予測インサイト`、データ品質、根拠不足などの共有可能な文脈だけを含める。内部 raw logs、不要な provider raw fields、保存対象でない外部本文全文は通常 request に含めない。
 - Gateway request には task、language、user_question、context、constraints を含め、constraints で `no_investment_advice`、`do_not_change_scores`、`do_not_rank_symbols`、`answer_format=materials_cautions_checkpoints` を明示する。
 - Gateway response は `answer`、`materials`、`cautions`、`next_checkpoints`、`referenced_sections`、`confidence`、`safety_notes` のような UI 互換 schema に固定し、schema validation に失敗した場合は deterministic fallback に戻す。
-- 将来のチャット画面に備え、Gateway request / response は `conversation_id`、`message_history`、`active_context_id`、`referenced_context_ids` を後から追加できる形にする。初期実装では固定質問・単発質問でも、`AssistantContextBundle` は floating UI と chat UI の共通文脈として設計する。
+- チャット画面に備えた `conversation_id`、`message_history`、`active_context_id`、`referenced_context_ids` は request path に実装済み。初期実装では限定自由入力・短い session-local 履歴でも、`AssistantContextBundle` は floating UI と chat UI の共通文脈として使う。
 - 通常テストは `MockAssistantGatewayClient` または `httpx.MockTransport` で network-free に保つ。実 Gateway / external LLM 呼び出しは明示 opt-in の live smoke として分離する。
 - LLM は説明、要約、確認観点の提示だけを担当し、スコア計算、ランキング順位、予測値、売買判断、ポートフォリオ配分案の決定主体にしない。
 
@@ -1933,7 +1933,7 @@ smai-ai-gateway/
 - `docs/architecture.md` には SMAI 本体、`smai-ai-gateway`、Ollama、将来 RAG / スマホ / PWA / cloud client の関係を書く。`docs/api_spec.md` には `/health`、`/api/v1/chat`、`/api/v1/summarize` の request / response 例を書く。`docs/prompt_policy.md` には LLM が数値予測やランキング決定ではなく説明、要約、判断補助を担当すること、投資助言ではないこと、根拠データを明示的に渡して hallucination を抑えること、将来 SMAI RAG context を入力として渡す方針を書く。
 - Gateway 側 roadmap は、Phase 1 local Ollama 接続、Phase 2 SMAI の投資コメント生成、Phase 3 他ローカルツールへの汎用展開、Phase 4 認証 / ログ / API key / rate limit、Phase 5 別リポジトリ化 / Git submodule 化、Phase 6 スマホ / PWA / cloud 対応とする。
 - 初期 test は `/health` が 200 を返すこと、chat request schema、summarize request schema が validate できることに絞る。通常確認は Ollama や network に依存させず、live LLM smoke は明示 opt-in として分離する。
-- 初期実装時は既存 SMAI の画面、RAG、Ranking、Forecast、News fetch、Decision Report を変更しない。SMAI から呼び出す統合 slice と `SMAI Copilot` チャット画面は、Gateway 単体の scaffold / schema / local smoke が安定した後に別タスクとして扱う。
+- 初期 Gateway scaffold / schema / local smoke の後続として、SMAI から呼び出す opt-in 統合 slice と `SMAI Copilot` チャットワークスペース first MVP は親側で実装済み。既存 SMAI の RAG、Ranking、Forecast、News fetch、Decision Report の計算ロジックは変更しない。
 
 完了条件:
 
@@ -2153,7 +2153,7 @@ Prompt 方針:
 - MockAssistantGatewayClient / schema validation
 - Opt-in `HttpAssistantGatewayClient` wiring from SMAI parent settings
 - Opt-in live LLM Gateway smoke
-- `SMAI Copilot` dedicated chat workspace with conversation history and shared `AssistantContextBundle`
+- `SMAI Copilot` dedicated chat workspace first MVP with session-local conversation history and shared `AssistantContextBundle` is implemented
 - LLM-enhanced report / news explanation
 - Hybrid assistant evaluation
 

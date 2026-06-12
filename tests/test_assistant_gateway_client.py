@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
+
+import httpx
 
 from backend.assistant import (
     AssistantGatewayError,
@@ -8,8 +11,15 @@ from backend.assistant import (
     AssistantGatewayResponse,
     AssistantRequest,
     GatewayBackedAssistantService,
+    HttpAssistantGatewayClient,
     MockAssistantGatewayClient,
+    TemplateAssistantService,
+    build_assistant_context_bundle,
+    build_assistant_gateway_request,
+    create_assistant_gateway_client_from_settings,
+    create_assistant_service_from_settings,
 )
+from backend.core.config import Settings
 from backend.reporting import build_decision_report_context, build_report_section
 
 
@@ -31,6 +41,13 @@ def _sample_report_context():
         sections=[forecast_section],
         tags=["assistant", "cockpit"],
         created_at=datetime(2026, 6, 10, 10, 0, tzinfo=UTC),
+    )
+
+
+def _sample_gateway_request():
+    return build_assistant_gateway_request(
+        question="AI予測インサイトをどう読む？",
+        context=build_assistant_context_bundle(_sample_report_context()),
     )
 
 
@@ -135,3 +152,147 @@ def test_mock_assistant_gateway_client_returns_network_free_default_response():
     assert "AI予測インサイト" in response.reasons
     assert "スコア、ランキング、予測値は変更していません。" in response.cautions
     assert len(client.requests) == 1
+
+
+def test_http_assistant_gateway_client_posts_context_answer_request():
+    observed: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        observed["url"] = str(request.url)
+        payload = request.read()
+        observed["payload"] = json.loads(payload.decode("utf-8"))
+        return httpx.Response(
+            200,
+            json={
+                "schema_version": "assistant-gateway-response-v1",
+                "answer": "Gateway実接続では、画面文脈に沿って確認点を整理します。",
+                "materials": ["AI予測インサイト", "中心予測"],
+                "cautions": ["投資助言ではありません。"],
+                "next_checkpoints": ["根拠とデータ品質を確認します。"],
+                "referenced_sections": [
+                    {
+                        "section_id": "cockpit-1",
+                        "title": "AI予測インサイト",
+                        "source_kind": "cockpit",
+                    }
+                ],
+                "confidence": "medium",
+                "safety_notes": ["スコアや順位は変更していません。"],
+                "provider": "ollama",
+                "model": "qwen3:8b",
+                "elapsed_ms": 42,
+            },
+        )
+
+    client = HttpAssistantGatewayClient(
+        base_url="http://gateway.local/",
+        context_answer_path="api/v1/context-answer",
+        timeout_seconds=3.0,
+        model="qwen3:8b",
+        transport=httpx.MockTransport(handler),
+    )
+    service = GatewayBackedAssistantService(client)
+
+    response = service.answer(
+        AssistantRequest(
+            question="AI予測インサイトをどう読む？",
+            report_context=_sample_report_context(),
+        )
+    )
+
+    assert observed["url"] == "http://gateway.local/api/v1/context-answer"
+    payload = observed["payload"]
+    assert isinstance(payload, dict)
+    assert payload["schema_version"] == "assistant-gateway-request-v1"
+    assert payload["model"] == "qwen3:8b"
+    assert response.answer.startswith("Gateway実接続")
+    assert response.reasons == ["AI予測インサイト", "中心予測"]
+    assert "スコアや順位は変更していません。" in response.cautions
+
+
+def test_http_assistant_gateway_client_timeout_raises_timeout_error():
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectTimeout("timed out", request=request)
+
+    client = HttpAssistantGatewayClient(
+        base_url="http://gateway.local",
+        transport=httpx.MockTransport(handler),
+    )
+
+    try:
+        client.answer(_sample_gateway_request())
+    except TimeoutError as exc:
+        assert "timed out" in str(exc)
+    else:
+        raise AssertionError("Gateway timeouts should become TimeoutError")
+
+
+def test_gateway_backed_assistant_falls_back_when_http_gateway_times_out():
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectTimeout("timed out", request=request)
+
+    client = HttpAssistantGatewayClient(
+        base_url="http://gateway.local",
+        transport=httpx.MockTransport(handler),
+    )
+    service = GatewayBackedAssistantService(client)
+
+    response = service.answer(
+        AssistantRequest(
+            question="AI予測インサイトをどう読む？",
+            report_context=_sample_report_context(),
+        )
+    )
+
+    assert "中心予測を主役" in response.answer
+    assert response.intent == "forecast"
+
+
+def test_http_assistant_gateway_client_raises_on_http_error():
+    client = HttpAssistantGatewayClient(
+        base_url="http://gateway.local",
+        transport=httpx.MockTransport(lambda request: httpx.Response(500, request=request)),
+    )
+
+    try:
+        client.answer(_sample_gateway_request())
+    except AssistantGatewayError as exc:
+        assert "HTTP 500" in str(exc)
+    else:
+        raise AssertionError("HTTP errors should become AssistantGatewayError")
+
+
+def test_assistant_service_factory_uses_template_when_gateway_disabled():
+    service = create_assistant_service_from_settings(Settings())
+
+    assert isinstance(service, TemplateAssistantService)
+
+
+def test_assistant_service_factory_uses_gateway_when_enabled():
+    settings = Settings.model_validate(
+        {
+            "assistant": {
+                "gateway": {
+                    "enabled": True,
+                    "base_url": "http://gateway.local",
+                    "context_answer_path": "/api/v1/context-answer",
+                    "timeout_seconds": 2.5,
+                    "model": "qwen3:8b",
+                }
+            }
+        }
+    )
+
+    client = create_assistant_gateway_client_from_settings(
+        settings,
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={})),
+    )
+    service = create_assistant_service_from_settings(
+        settings,
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={})),
+    )
+
+    assert isinstance(client, HttpAssistantGatewayClient)
+    assert client.context_answer_url == "http://gateway.local/api/v1/context-answer"
+    assert client.model == "qwen3:8b"
+    assert isinstance(service, GatewayBackedAssistantService)

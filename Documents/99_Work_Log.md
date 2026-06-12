@@ -18,6 +18,13 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-12 - SMAI Assistant Gateway opt-in HTTP client
+
+- Added parent-side `HttpAssistantGatewayClient` and settings-based assistant service factory for optional `/api/v1/context-answer` calls.
+- Added `assistant.gateway` config defaults with `enabled=false`, base URL, endpoint path, timeout, and optional model override.
+- Wired floating `SMAI Copilot` to the configured assistant service while keeping deterministic fallback on Gateway errors, timeouts, invalid JSON/schema, empty answers, and missing context.
+- Added network-free `httpx.MockTransport` tests and synchronized parent SMAI docs plus `smai-ai-gateway` docs to keep the HTTP-only boundary explicit.
+
 ## 2026-06-12 - SMAI LLM Factor validation metrics expansion
 
 - Added deterministic broader historical fixture pack for LLM Factor validation, covering JP large cap, US large cap, ETF, high dividend, growth, low news coverage, Osaka Gas `9532.T`, and mixed global segments.

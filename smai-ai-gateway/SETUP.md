@@ -102,6 +102,18 @@ curl -X POST http://127.0.0.1:8088/api/v1/context-answer ^
   -d "{\"user_question\":\"AI予測インサイトでは何を見る？\",\"model\":\"qwen3:8b\",\"context\":{\"bundle_id\":\"bundle-1\",\"title\":\"銘柄コックピット\",\"sections\":[{\"section_id\":\"forecast-1\",\"title\":\"AI予測インサイト\",\"source_kind\":\"forecast\",\"summary\":{\"中心予測\":\"+1.2%\",\"予測レンジ\":\"-3.0%〜+4.5%\"},\"included_fields\":[\"中心予測\",\"予測レンジ\",\"信頼度\"],\"warnings\":[\"予測レンジが広めです。\"],\"notes\":[\"根拠資料とデータ品質も確認します。\"]}]}}"
 ```
 
+SMAI 親アプリから試す場合は、Gateway を起動したまま、SMAI 側の `SMAI_CONFIG_FILE` に次のような設定を指定します。通常確認では使わず、既定の `enabled: false` を維持します。
+
+```yaml
+assistant:
+  gateway:
+    enabled: true
+    base_url: "http://127.0.0.1:8088"
+    context_answer_path: "/api/v1/context-answer"
+    timeout_seconds: 10
+    model: "qwen3:8b"
+```
+
 ### Ollama ありの opt-in live smoke
 
 Ollama を起動し、モデル取得後にだけ実行します。通常 CI / 通常確認には含めません。

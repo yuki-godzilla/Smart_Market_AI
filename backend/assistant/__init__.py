@@ -1,8 +1,12 @@
 from backend.assistant.gateway_client import (
+    AssistantAnswerService,
     AssistantGatewayClient,
     AssistantGatewayError,
     GatewayBackedAssistantService,
+    HttpAssistantGatewayClient,
     MockAssistantGatewayClient,
+    create_assistant_gateway_client_from_settings,
+    create_assistant_service_from_settings,
 )
 from backend.assistant.gateway_contracts import (
     ASSISTANT_CONTEXT_BUNDLE_SCHEMA_VERSION,
@@ -35,6 +39,7 @@ __all__ = [
     "AssistantContextBundle",
     "AssistantContextSection",
     "AssistantCitation",
+    "AssistantAnswerService",
     "AssistantGatewayClient",
     "AssistantGatewayConstraints",
     "AssistantGatewayError",
@@ -46,8 +51,11 @@ __all__ = [
     "AssistantRequest",
     "AssistantResponse",
     "GatewayBackedAssistantService",
+    "HttpAssistantGatewayClient",
     "MockAssistantGatewayClient",
     "TemplateAssistantService",
     "build_assistant_context_bundle",
     "build_assistant_gateway_request",
+    "create_assistant_gateway_client_from_settings",
+    "create_assistant_service_from_settings",
 ]

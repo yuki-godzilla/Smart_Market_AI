@@ -51,8 +51,9 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - Low-cost Assistant backend first slice
   - deterministic `TemplateAssistantService` that explains score / risk / research / next checkpoints from Decision Report context without LLM or network
 - Low-cost Assistant Streamlit first slice
-  - Cockpit / Ranking show a fixed floating `SMAI Copilot` mascot. The panel registers the current page / section context and uses question chips to explain what to check next without running price fetch, ranking creation, network calls, or LLM calls.
+  - Cockpit / Ranking show a fixed floating `SMAI Copilot` mascot. The panel registers the current page / section context and, in the default config, uses question chips to explain what to check next without running price fetch, ranking creation, network calls, or LLM calls.
   - Cockpit contexts currently cover data setup, `AI予測インサイト`, `上昇気配・下降警戒`, and Decision Report. Ranking contexts cover ranking setup, ranking results, and selected deep-dive candidate checks.
+  - SMAI parent can optionally call `smai-ai-gateway` `/api/v1/context-answer` through `assistant.gateway.enabled=true`. The default remains disabled, schema-validated, and deterministic fallback is used on timeout, Gateway error, invalid JSON/schema, empty answer, or missing context.
 - `SMAI LLM Factor` SMAI-side first slice
   - `backend/llm_factor` provides `LLMFactorResult` / factor / evidence schemas, source hash retention, deterministic fake service validation, and a file-backed cache with generated_at / expires_at / model / prompt version metadata.
   - `run_llm_factor_backtest(case)` provides a deterministic fixture-based evaluator for LLM material scores versus forward returns / drawdowns. It is an exploratory alpha-factor diagnostic, not a trading strategy backtest.
@@ -75,7 +76,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動、通知
 - Advanced Forecast ranking logic: Ranking retains and displays common-horizon advanced forecast fields, blends consensus-derived advanced upside / downside into Ranking direction signals at 25%, and `AI総合` lightly includes advanced upside / downside / quality scores. Other ranking profiles remain existing-profile centered unless explicitly changed later.
 - `SMAI LLM Factor` の実 LLM/Gateway 接続、予測モデル統合は後続範囲。cache / TTL / reproducibility、Ranking 参考カラム、deterministic backtest evaluator、broader historical fixture pack、extended validation report は実装済み。既存予測モデル / Ranking score / rank / Forecast / Investment Score には検証完了前に混ぜない
-- Assistant API / dedicated Assistant screen / optional LLM provider は `SMAI LLM Factor` の schema / 参考表示基盤後の Phase 24 後続範囲。Streamlit の floating `SMAI Copilot` question-panel first slice は実装済み
+- Assistant dedicated screen / limited free-text chat / optional live Gateway smoke は Phase 24 後続範囲。Streamlit の floating `SMAI Copilot` question-panel first slice と SMAI 親側の opt-in Gateway HTTP client wiring は実装済み
 - 銘柄DB live provider refresh wiring は background refresh 基盤実装済み後の provider / opt-in 接続タスクとして扱う
 - broker への live order 送信
 - Execution workflow
@@ -84,6 +85,20 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 現在の MVP は、ローカル検証と説明用です。
 外部 API へ接続する場合は明示 opt-in が必要で、broker や execution provider へ注文を送りません。
 Research RAG / News RAG は実運用では情報鮮度が重要です。標準導線では、`AI調査を更新` が EDINET securities-report metadata/link（`EDINET_API_KEY` 設定時のみ live call、未設定時 no-op）、TDnet 適時開示、企業IRサイト、Google News RSS headline search、Yahoo Finance profile / news を取得/参照し、source URL、provider、published_at、fetched_at、freshness warning を確認材料として表示します。Yahoo Finance を使う Research 側 adapter は MarketData 側と同じ yfinance cache / shared session 設定を使います。Google News RSS は一般ニュースのヘッドライン幅を広げる補助sourceで、検索語は会社名・関連キーワード・銘柄コードに決算/業績/株価/配当などの投資文脈語を添えます。ニュースURL表示自体は `外部参照ソース` と詳細データに実装済みです。Cockpit Research Summary では、`最新ニュース・開示サマリー` の直後に `投資ヒントとなるニュース` と `ニュース・開示の出典を表示（URL付きN件）` を置きます。サマリと注目材料は `Market Intelligence` の主表示カードとして扱い、出典は初期折りたたみの小さな citation list としてURL付きニュース・TDnet・企業IR・EDINET・Google News・Yahoo Finance を確認できるようにします。ニュース専用URLが無い場合も、外部参照ソース側に公式資料・provider URLがある可能性を案内します。取得本文は既定では保持せず、session-local の一時参照として扱います。通常検証は fake adapter / fixture / RSS fixture を使い、network 非依存を維持します。
+
+`SMAI Copilot` の Gateway 接続を試す場合は、`smai-ai-gateway` を別プロセスで起動したうえで、SMAI 側の `SMAI_CONFIG_FILE` に次のような設定を指定します。通常確認やCIではこの設定を使わず、`enabled: false` の既定値を維持します。
+
+```yaml
+assistant:
+  gateway:
+    enabled: true
+    base_url: "http://127.0.0.1:8088"
+    context_answer_path: "/api/v1/context-answer"
+    timeout_seconds: 10
+    model: "qwen3:8b"
+```
+
+Gateway 接続失敗時も `TemplateAssistantService` に戻るため、SMAI の予測、ランキング、Investment Score、Research Score、LLM Factor 参考列は変更されません。
 
 Investment News dashboard はサイドメニューの `投資レーダー` から開けます。現時点では `backend/news` の snapshot / status / cache / refresh manager と deterministic dashboard builder を使い、保存済みsnapshotがなければ fake snapshot / fixture から市場ニュースヘッドライン、株式ヒートマップ風の投資ヒートマップ、3列のカテゴリ別ニュースカード、銘柄名付き関連銘柄の `銘柄コックピット` 導線を表示します。ニュースカードの関連銘柄は、本文に出た銘柄を最大8件まで優先表示し、残り枠に `SMAI推測候補` を補完します。投資ヒートマップはニュースに直接紐づいた関連銘柄だけでなく、ローカル銘柄ユニバース全体からカテゴリ適合、時価総額帯、データ品質、ニュース鮮度、材料タイプ、市場シグナルを見て注目度順の銘柄タイルを補完します。市場指標がある場合は値動き / 取引量を使い、欠ける場合はニュース材料から代理シグナルを補完します。銘柄タイルは企業名を主、シンボルを補助タグとして表示し、クリックすると同一アプリ内の該当 `銘柄コックピット` へ移動します。Investment Score / Research Score / Ranking order は変更しません。詳細フィルタ、Watchlist連動、通知、追加providerは後続範囲です。
 

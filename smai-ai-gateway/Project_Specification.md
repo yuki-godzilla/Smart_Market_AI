@@ -66,7 +66,7 @@ flowchart LR
 | --- | --- | --- |
 | SMAI 本体 | 親プロジェクト / 主利用元 | Assistant context、Decision Report context、画面文脈を HTTP request として渡す。Gateway から SMAI は import しない。 |
 | 将来の他ローカルツール | 将来利用候補 | SMAI 以外へ展開する場合の汎用 HTTP client。現時点では具体アプリ仕様を Gateway に持ち込まない。 |
-| FastAPI API 層 | Gateway | `/health`、`/api/v1/chat`、`/api/v1/summarize` を公開する。 |
+| FastAPI API 層 | Gateway | `/health`、`/api/v1/chat`、`/api/v1/summarize`、`/api/v1/context-answer` を公開する。 |
 | Pydantic Schemas | Gateway | request / response を検証し、SMAI 固有 field 混入を防ぐ。 |
 | Service 層 | Gateway | API handler から prompt 生成と provider 呼び出しを分離する。 |
 | Config | Gateway | `.env` / environment variables から provider URL、default model、timeout を読み込む。 |
@@ -86,7 +86,7 @@ flowchart LR
 | Provider error detail | 実装済み | 利用者が原因を判断しやすくする | `code`、`provider`、`retryable` を含む error detail を返す | [docs/api_spec.md](docs/api_spec.md) |
 | Network-free tests | 実装済み | 通常 CI を deterministic に保つ | schema、health、provider error mapping を Ollama なしで確認する | [SETUP.md](SETUP.md) |
 | Opt-in live Ollama smoke | 実装済み | 実 provider 接続確認 | `SMAI_AI_GATEWAY_LIVE_SMOKE=1` のときだけ実行する | [SETUP.md](SETUP.md) |
-| SMAI real Gateway connection | 未着手 | SMAI 本体から実 Gateway を呼ぶ | SMAI 側 HTTP client、設定、fallback、schema validation | 親側 roadmap |
+| SMAI real Gateway connection | 親側実装済み | SMAI 本体から実 Gateway を呼ぶ | SMAI 側 `HttpAssistantGatewayClient`、`assistant.gateway` 設定、fallback、schema validation。Gateway 側に SMAI import は追加しない | 親側 roadmap |
 | SMAI LLM Factor structured extraction support | 将来範囲 | RAG / News / IR 由来の定性材料を構造化特徴量へ変換する補助 | SMAI 本体側の `LLMFactorResult` schema / fake service / file-backed cache / deterministic backtest evaluator / broader historical fixture / validation report / Cockpit 参考表示 / Ranking 参考表示は実装済み。Gateway は今後も provider / prompt 境界に留め、cache policy expansion、UI 統合は SMAI 本体側で扱う | 親側 roadmap / [docs/prompt_policy.md](docs/prompt_policy.md) |
 | 認証 / API key / rate limit | 未着手 | 運用時の保護 | local-first MVP 後の運用機能 | [docs/roadmap.md](docs/roadmap.md) |
 
@@ -96,6 +96,7 @@ flowchart LR
 | --- | --- | --- |
 | `.env` | 実行時設定 | `APP_NAME`、`APP_ENV`、`OLLAMA_BASE_URL`、`DEFAULT_LLM_MODEL`、`REQUEST_TIMEOUT_SECONDS`、`ENABLE_DEBUG_LOG` を読み込む。存在しない場合は既定値で動く。 |
 | `.env.example` | 設定テンプレート | local setup の標準値を示す。secret は含めない。 |
+| SMAI `assistant.gateway` config | 親SMAI側の接続設定 | 既定は `enabled=false`。有効化時のみ `base_url`、`context_answer_path`、`timeout_seconds`、任意 `model` で `/api/v1/context-answer` を呼ぶ。 |
 | Chat request | chat API 入力 | `message` は必須。`system_prompt`、`model` は任意。未知 field は拒否する。 |
 | Summarize request | summarize API 入力 | `text` は必須。`purpose`、`model` は任意。未知 field は拒否する。 |
 | Ollama model | LLM 実行資産 | request model が指定されれば優先し、未指定なら `DEFAULT_LLM_MODEL` を使う。既定は `qwen3:8b`。 |
@@ -203,7 +204,7 @@ smai-ai-gateway/
 - 通常確認は Ollama / network に依存しない。
 - API schema、strict validation、health、provider error mapping を deterministic に確認する。
 - 実 provider 接続は opt-in live smoke として分離する。
-- SMAI 本体からの実接続は未実装のため、現時点では Gateway 単体 tests を基準にする。
+- SMAI 本体からの実接続 client は親側で実装済みだが、通常確認は `httpx.MockTransport` を使う network-free tests を基準にする。
 
 ### 8.2 テスト実行方法
 
@@ -229,11 +230,12 @@ Remove-Item Env:SMAI_AI_GATEWAY_LIVE_SMOKE
 | --- | --- | --- | --- |
 | 2026-06-11 | Markdown UTF-8 read / `git diff --check` | SMAI repo root / Windows | PASS。CRLF 変換 warning のみ。 |
 | 2026-06-11 | Gateway tests | `smai-ai-gateway` / `venv_SMAI` | PASS。11 passed / 1 skipped。pytest cache permission warning のみ。 |
+| 2026-06-12 | SMAI parent Gateway client targeted tests | SMAI repo root / Windows | PASS。`tests/test_assistant_gateway_client.py` / `tests/test_core_config.py` / `tests/test_ui_assistant_component.py` 30 passed。pytest cache permission warning のみ。 |
 
 ### 8.4 未確認範囲
 
 - 実 Ollama 起動状態での live smoke は opt-in。通常確認には含めない。
-- SMAI 本体から Gateway を呼ぶ real HTTP client は未実装。
+- SMAI 本体から Gateway を呼ぶ real HTTP client は親側で実装済み。実Gateway / Ollama live smoke は未実行で、明示 opt-in 確認範囲。
 - `SMAI Copilot` チャット画面、会話履歴、限定自由入力は未実装。
 - `SMAI LLM Factor` 向けの structured extraction endpoint / prompt profile は未実装。domain schema / deterministic fake service / file-backed cache / deterministic backtest evaluator / broader historical fixture / validation report / Cockpit 参考表示 / Ranking 参考表示は SMAI 本体側にあり、cache policy expansion、UI 統合拡張も SMAI 本体側で扱う。
 - 認証、API key、rate limit、監査ログは未実装。
@@ -249,6 +251,7 @@ Remove-Item Env:SMAI_AI_GATEWAY_LIVE_SMOKE
 | Error normalization | 実装済み | provider error を `ErrorDetail` と HTTPException に変換。 |
 | SMAI coupling | 境界維持 | Gateway から SMAI module は import しない。既存 SMAI RAG は移動しない。 |
 | Structured context answer | 実装済み | `materials` / `cautions` / `next_checkpoints` に対応する汎用 endpoint を追加済み。 |
+| SMAI parent client wiring | 親側実装済み | 親SMAIが `assistant.gateway.enabled=true` のとき `/api/v1/context-answer` を呼ぶ。失敗時は deterministic fallback。 |
 | SMAI LLM Factor | 親側 validation slice 実装済み / Gateway は将来範囲 | LLM を最終予測器ではなく、source-bound qualitative feature generator として使う構想。SMAI 本体側に schema / fake service / file-backed cache / deterministic backtest evaluator / broader historical fixture / validation report / Cockpit 参考表示 / Ranking 参考表示を置き、Gateway 側は provider / prompt 実行境界に限定する。 |
 | Gateway operations | 未着手 | 認証、API key、rate limit、audit log、provider routing UI は未実装。 |
 

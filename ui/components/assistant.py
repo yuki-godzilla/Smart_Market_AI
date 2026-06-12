@@ -10,7 +10,7 @@ import streamlit as st
 from backend.assistant import (
     AssistantRequest,
     AssistantResponse,
-    TemplateAssistantService,
+    create_assistant_service_from_settings,
 )
 from backend.reporting import (
     DecisionReportContext,
@@ -219,7 +219,7 @@ def _assistant_response(
     context: SmaiAssistantContext,
     question: str,
 ) -> AssistantResponse:
-    return TemplateAssistantService().answer(
+    return create_assistant_service_from_settings().answer(
         AssistantRequest(
             question=question,
             report_context=_context_to_report_context(context),

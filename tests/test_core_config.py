@@ -16,6 +16,11 @@ def test_settings_defaults_are_local_and_mock_first():
     assert settings.scoring.weights.screening == 0.5
     assert settings.scoring.weights.research == 0.0
     assert settings.scoring.weights.risk_signal == 0.1
+    assert settings.assistant.gateway.enabled is False
+    assert settings.assistant.gateway.base_url == "http://127.0.0.1:8088"
+    assert settings.assistant.gateway.context_answer_path == "/api/v1/context-answer"
+    assert settings.assistant.gateway.timeout_seconds == 10.0
+    assert settings.assistant.gateway.model is None
 
 
 def test_settings_loads_yaml_overrides(monkeypatch):
@@ -52,6 +57,27 @@ def test_settings_can_load_explicit_external_provider_opt_in():
 
     assert settings.dataaccess.provider == "yahoo"
     assert settings.dataaccess.allow_external_providers is True
+
+
+def test_settings_can_load_explicit_assistant_gateway_opt_in():
+    settings = Settings.model_validate(
+        {
+            "assistant": {
+                "gateway": {
+                    "enabled": True,
+                    "base_url": "http://127.0.0.1:8088",
+                    "context_answer_path": "/api/v1/context-answer",
+                    "timeout_seconds": 2.5,
+                    "model": "qwen3:8b",
+                }
+            }
+        }
+    )
+
+    assert settings.assistant.gateway.enabled is True
+    assert settings.assistant.gateway.base_url == "http://127.0.0.1:8088"
+    assert settings.assistant.gateway.timeout_seconds == 2.5
+    assert settings.assistant.gateway.model == "qwen3:8b"
 
 
 def test_settings_rejects_unknown_yaml_keys(monkeypatch):

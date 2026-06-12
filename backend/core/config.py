@@ -134,6 +134,22 @@ class ExecutionConfig(StrictConfigModel):
     idempotency: ExecutionIdempotencyConfig = Field(default_factory=ExecutionIdempotencyConfig)
 
 
+class AssistantGatewayConfig(StrictConfigModel):
+    """Optional HTTP Gateway settings for LLM-backed assistant answers."""
+
+    enabled: bool = False
+    base_url: str = Field(default="http://127.0.0.1:8088", min_length=1)
+    context_answer_path: str = Field(default="/api/v1/context-answer", min_length=1)
+    timeout_seconds: float = Field(default=10.0, gt=0)
+    model: str | None = Field(default=None, min_length=1)
+
+
+class AssistantConfig(StrictConfigModel):
+    """Assistant runtime settings."""
+
+    gateway: AssistantGatewayConfig = Field(default_factory=AssistantGatewayConfig)
+
+
 class Settings(StrictConfigModel):
     """Root settings object for Smart Market AI."""
 
@@ -144,6 +160,7 @@ class Settings(StrictConfigModel):
     portfolio: PortfolioConfig = Field(default_factory=PortfolioConfig)
     scoring: ScoringConfig = Field(default_factory=ScoringConfig)
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
+    assistant: AssistantConfig = Field(default_factory=AssistantConfig)
 
 
 def get_settings() -> Settings:

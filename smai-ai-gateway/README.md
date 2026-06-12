@@ -167,6 +167,7 @@ flowchart LR
 SMAI 本体は `AssistantContextBundle` などの必要な文脈だけを HTTP request として渡します。
 Gateway は prompt 実行、provider 呼び出し、timeout、error normalization を担当し、SMAI 本体の Python module は import しません。
 LLM provider を変更する場合も、SMAI 側ではなく Gateway の provider client 境界を差し替える設計です。
+SMAI 親側には、`assistant.gateway.enabled=true` のときだけ `/api/v1/context-answer` を呼ぶ opt-in HTTP client wiring があり、既定は deterministic fallback のままです。
 
 ## 初期 API
 
@@ -191,6 +192,7 @@ Ollama 実接続は `SMAI_AI_GATEWAY_LIVE_SMOKE=1` を指定した opt-in smoke 
 
 SMAI 本体からは HTTP API と request / response schema だけで接続します。
 この Gateway から SMAI 本体の Python module を import しません。
+親SMAI側の実接続 client は `backend/assistant` にあり、Gateway 側には SMAI domain import を追加しません。
 
 既存の SMAI RAG / News RAG / Research Evidence 機能は現時点では移動しません。
 将来 `SMAI LLM Factor` の構造化特徴量生成を Gateway 経由で行う場合も、SMAI domain schema、file-backed cache、deterministic backtest evaluator、broader historical fixture / validation report、Cockpit 参考表示、Ranking 参考表示は SMAI 本体側に残し、cache policy expansion、UI 統合拡張も SMAI 本体側で扱います。Gateway は provider 呼び出しと prompt 実行の境界に留めます。

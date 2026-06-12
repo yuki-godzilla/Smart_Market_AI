@@ -18,6 +18,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-12 - SMAI Copilot ChatGPT-style layout
+
+- Changed the dedicated `SMAI Copilot` workspace into a ChatGPT-style centered conversation screen using native Streamlit chat messages and chat input.
+- Kept conversation guidance visible through context presets and question suggestion buttons, with `新しいチャット` clearing only the session-local history.
+- Skipped the shared app header on the Copilot page so the chat surface starts immediately, without changing scores, rankings, forecasts, LLM Factor, or Gateway defaults.
+
 ## 2026-06-12 - SMAI Copilot chat-style UI polish
 
 - Reworked the dedicated `SMAI Copilot` workspace from a form-first layout into a chat-style shell with compact header, context rail, scrollable conversation thread, assistant/user bubbles, and bottom composer.

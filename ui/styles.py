@@ -2434,30 +2434,20 @@ body,
     flex: 0 0 100%;
 }
 
-.smai-copilot-workspace {
-    display: grid;
-    grid-template-rows: auto auto minmax(18rem, 1fr) auto;
-    gap: 0.85rem;
-    width: 100%;
-    max-width: 78rem;
-    min-height: min(76vh, 52rem);
-    margin: 0.2rem auto 0;
-    border: 1px solid rgba(71, 85, 105, 0.48);
-    border-radius: 8px;
-    background:
-        linear-gradient(180deg, rgba(13, 24, 43, 0.98), rgba(7, 12, 22, 0.96)),
-        var(--surface-base);
-    box-shadow: var(--shadow-soft);
-    padding: 1rem;
-}
-
 .smai-copilot-chat-topbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    border-bottom: 1px solid rgba(71, 85, 105, 0.46);
-    padding: 0.15rem 0.15rem 0.95rem;
+    width: 100%;
+    max-width: 56rem;
+    margin: 0.85rem auto 0.75rem;
+    border: 1px solid rgba(71, 85, 105, 0.48);
+    border-radius: 8px;
+    background:
+        linear-gradient(180deg, rgba(13, 24, 43, 0.88), rgba(7, 12, 22, 0.82)),
+        var(--surface-base);
+    padding: 0.78rem 0.88rem;
 }
 
 .smai-copilot-eyebrow {
@@ -2471,7 +2461,7 @@ body,
 
 .smai-copilot-chat-topbar h1 {
     color: var(--text-title);
-    font-size: 1.7rem;
+    font-size: 1.35rem;
     line-height: 1.15;
     margin: 0;
 }
@@ -2516,113 +2506,28 @@ body,
     font-weight: 760;
 }
 
-.smai-copilot-context-rail {
-    border: 1px solid rgba(71, 85, 105, 0.35);
-    border-radius: 8px;
-    background: rgba(15, 23, 42, 0.5);
-    padding: 0.75rem 0.85rem 0.2rem;
+div[data-testid="stChatMessage"] {
+    max-width: 56rem;
+    margin-left: auto;
+    margin-right: auto;
 }
 
-.smai-copilot-thread {
-    min-height: 22rem;
-    max-height: 34rem;
-    overflow-y: auto;
-    border: 1px solid rgba(30, 64, 175, 0.18);
-    border-radius: 8px;
-    background:
-        linear-gradient(180deg, rgba(2, 6, 23, 0.18), rgba(15, 23, 42, 0.44)),
-        rgba(3, 7, 18, 0.3);
-    padding: 1rem 0.85rem;
+div[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {
+    line-height: 1.72;
 }
 
-.smai-copilot-turn {
-    display: grid;
-    gap: 0.58rem;
-    margin: 0 0 1rem;
-}
-
-.smai-copilot-turn:last-child {
-    margin-bottom: 0;
-}
-
-.smai-copilot-bubble-row {
-    display: flex;
-    align-items: flex-end;
-    gap: 0.62rem;
-}
-
-.smai-copilot-bubble-row--user {
-    justify-content: flex-end;
-}
-
-.smai-copilot-bubble-row--assistant {
-    justify-content: flex-start;
-}
-
-.smai-copilot-avatar {
-    flex: 0 0 2.3rem;
-    width: 2.3rem;
-    height: 2.3rem;
-    display: grid;
-    place-items: center;
-    border: 1px solid rgba(34, 211, 238, 0.32);
-    border-radius: 999px;
-    background: radial-gradient(circle at 35% 25%, rgba(34, 211, 238, 0.42), rgba(15, 23, 42, 0.92));
-    color: var(--text-title);
-    font-size: 0.74rem;
-    font-weight: 850;
-}
-
-.smai-copilot-bubble {
-    min-width: 0;
-    border-radius: 8px;
-    padding: 0.78rem 0.9rem;
-    overflow-wrap: anywhere;
-}
-
-.smai-copilot-user {
-    width: fit-content;
-    max-width: min(42rem, 82%);
-    border: 1px solid rgba(34, 211, 238, 0.22);
-    background: linear-gradient(135deg, rgba(14, 116, 144, 0.55), rgba(37, 99, 235, 0.34));
-}
-
-.smai-copilot-user span {
-    display: block;
-    color: rgba(226, 232, 240, 0.72);
-    font-size: 0.76rem;
-    font-weight: 760;
-    line-height: 1.35;
-    margin-bottom: 0.25rem;
-}
-
-.smai-copilot-user p {
-    color: var(--text-title);
-    font-size: 0.96rem;
-    line-height: 1.55;
-    margin: 0;
-}
-
-.smai-copilot-answer {
-    width: min(58rem, calc(100% - 3rem));
-    border: 1px solid rgba(71, 85, 105, 0.5);
-    background: rgba(17, 31, 53, 0.76);
-}
-
-.smai-copilot-answer > span {
-    display: block;
+.smai-copilot-suggestions-title {
+    max-width: 56rem;
+    margin: 0.72rem auto 0.42rem;
     color: var(--text-ai-title);
-    font-size: 0.78rem;
-    font-weight: 820;
-    line-height: 1.35;
-    margin-bottom: 0.34rem;
+    font-size: 0.82rem;
+    font-weight: 840;
 }
 
-.smai-copilot-answer p {
-    color: var(--text-primary);
-    font-size: 0.96rem;
-    line-height: 1.68;
-    margin: 0;
+div[data-testid="stChatInput"] {
+    max-width: 56rem;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .smai-copilot-answer-grid {
@@ -2662,26 +2567,6 @@ body,
 
 .smai-copilot-answer-block li {
     margin-bottom: 0.22rem;
-}
-
-.smai-copilot-composer {
-    border: 1px solid rgba(34, 211, 238, 0.2);
-    border-radius: 8px;
-    background: rgba(15, 23, 42, 0.72);
-    padding: 0.85rem 0.85rem 0.2rem;
-}
-
-.smai-copilot-workspace [data-testid="stTextArea"] textarea {
-    min-height: 5.4rem;
-    border-radius: 8px;
-    background: rgba(8, 13, 24, 0.76);
-}
-
-.smai-copilot-workspace [data-testid="stSelectbox"] label,
-.smai-copilot-workspace [data-testid="stTextArea"] label {
-    color: var(--text-secondary);
-    font-size: 0.82rem;
-    font-weight: 800;
 }
 
 .smai-dashboard-header {
@@ -3277,11 +3162,6 @@ body,
         gap: 0.55rem;
     }
 
-    .smai-copilot-workspace {
-        min-height: auto;
-        padding: 0.78rem;
-    }
-
     .smai-copilot-chat-topbar {
         align-items: flex-start;
         flex-direction: column;
@@ -3289,15 +3169,6 @@ body,
 
     .smai-copilot-statusbar {
         width: 100%;
-    }
-
-    .smai-copilot-thread {
-        max-height: none;
-        min-height: 18rem;
-    }
-
-    .smai-copilot-user {
-        max-width: 100%;
     }
 
     .smai-copilot-answer-grid {

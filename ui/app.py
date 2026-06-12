@@ -1567,7 +1567,8 @@ def main() -> None:
 
     selected_page = render_sidemenu(runtime_settings_summary())
     reset_assistant_contexts()
-    render_app_header()
+    if selected_page != SIDEMENU_PAGE_COPILOT:
+        render_app_header()
     if selected_page == SIDEMENU_PAGE_COCKPIT:
         _render_market_data_cockpit()
     elif selected_page == SIDEMENU_PAGE_RANKING:

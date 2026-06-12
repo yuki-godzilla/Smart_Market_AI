@@ -5,11 +5,10 @@ from streamlit.testing.v1 import AppTest
 from backend.assistant import AssistantMessage
 from ui.views.copilot import (
     COPILOT_CHAT_HISTORY_STATE_KEY,
+    copilot_answer_detail_html,
     copilot_context_label,
     copilot_context_options,
     copilot_history_messages,
-    copilot_turn_html,
-    copilot_welcome_html,
 )
 
 
@@ -38,8 +37,8 @@ def test_copilot_history_messages_keeps_recent_chat_pairs():
     ]
 
 
-def test_copilot_turn_html_escapes_question_and_answer():
-    markup = copilot_turn_html(
+def test_copilot_answer_detail_html_escapes_detail_lists():
+    markup = copilot_answer_detail_html(
         {
             "context_label": "銘柄<コックピット>",
             "question": "確認 <script>",
@@ -50,26 +49,11 @@ def test_copilot_turn_html_escapes_question_and_answer():
         }
     )
 
-    assert "銘柄&lt;コックピット&gt;" in markup
-    assert "確認 &lt;script&gt;" in markup
-    assert "回答 &lt;b&gt;" in markup
     assert "材料 &lt;1&gt;" in markup
     assert "注意 &lt;2&gt;" in markup
     assert "次 &lt;3&gt;" in markup
     assert "<script>" not in markup
-    assert "smai-copilot-bubble-row--user" in markup
-    assert "smai-copilot-bubble-row--assistant" in markup
-
-
-def test_copilot_welcome_html_uses_chat_bubble_markup():
-    context = copilot_context_options()[0]
-
-    markup = copilot_welcome_html(context)
-
-    assert "smai-copilot-turn--welcome" in markup
-    assert "smai-copilot-avatar" in markup
-    assert copilot_context_label(context) in markup
-    assert "質問例" in markup
+    assert "smai-copilot-answer-grid" in markup
 
 
 def test_copilot_page_renders_with_streamlit_app(monkeypatch):
@@ -91,24 +75,25 @@ def test_copilot_page_renders_with_streamlit_app(monkeypatch):
     )
     button_labels = [str(getattr(element, "label", "")) for element in app.button]
     selectbox_labels = [str(getattr(element, "label", "")) for element in app.selectbox]
-    text_area_labels = [str(getattr(element, "label", "")) for element in app.text_area]
+    chat_input_placeholders = [
+        str(getattr(element, "placeholder", "")) for element in app.chat_input
+    ]
 
     assert "SMAI Copilot" in page_text
     assert "smai-copilot-chat-topbar" in page_text
     assert "文脈" in selectbox_labels
-    assert "クイック質問" in selectbox_labels
-    assert "メッセージ" in text_area_labels
-    assert {"送信", "クリア"}.issubset(set(button_labels))
+    assert "SMAI Copilotにメッセージを送る" in chat_input_placeholders
+    assert "新しいチャット" in button_labels
+    assert "この銘柄でまず確認する順番は？" in button_labels
 
 
-def test_copilot_page_send_button_appends_chat_turn(monkeypatch):
+def test_copilot_page_chat_input_appends_chat_turn(monkeypatch):
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
     app = AppTest.from_file("ui/app.py", default_timeout=20)
     app.session_state["sidemenu_page"] = "copilot"
     app.run()
 
-    app.text_area[0].set_value("確認点を整理して")
-    app.button[0].click().run()
+    app.chat_input[0].set_value("確認点を整理して").run()
 
     assert not app.exception
     assert len(app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]) == 1

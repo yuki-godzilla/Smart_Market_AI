@@ -18,6 +18,13 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-12 - SMAI LLM Factor backtest first slice
+
+- Added `backend/llm_factor` backtest contracts and `run_llm_factor_backtest(case)` for deterministic fixture-based alpha factor diagnostics.
+- Evaluates raw and derived LLM material factors against forward returns / drawdowns with daily Top-N, high-score group, coverage, warning, and stable input/config hash metrics.
+- Added fixture tests for bullish / bearish / risk behavior, derived factor ranking, missing price, insufficient samples, duplicate signals, zero variance, entry lag, and reproducibility.
+- Synchronized parent SMAI and child Gateway docs while keeping Gateway / Ranking / Forecast integration out of scope.
+
 ## 2026-06-12 - SMAI LLM Factor cache / reproducibility slice
 
 - Added file-backed `backend/llm_factor` cache contracts and helpers for ticker/source-hash keyed entries, generated_at, expires_at, model name, prompt version, cache status, and bounded persistence.

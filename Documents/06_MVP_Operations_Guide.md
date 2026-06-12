@@ -55,6 +55,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
   - Cockpit contexts currently cover data setup, `AI予測インサイト`, `上昇気配・下降警戒`, and Decision Report. Ranking contexts cover ranking setup, ranking results, and selected deep-dive candidate checks.
 - `SMAI LLM Factor` SMAI-side first slice
   - `backend/llm_factor` provides `LLMFactorResult` / factor / evidence schemas, source hash retention, deterministic fake service validation, and a file-backed cache with generated_at / expires_at / model / prompt version metadata.
+  - `run_llm_factor_backtest(case)` provides a deterministic fixture-based evaluator for LLM material scores versus forward returns / drawdowns. It is an exploratory alpha-factor diagnostic, not a trading strategy backtest.
   - Cockpit shows `AI材料分析` as a reference-only panel using existing Research / News / external-source context when available, plus a small cache caption for reproducibility. It is not blended into Forecast, Ranking, Investment Score, or Research Score.
 - Streamlit UI
   - Market Data: `銘柄コックピット` / `銘柄ランキング`
@@ -71,7 +72,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - Research Score によるランキング順位統合は現時点では見送り。Cockpit / Ranking Research Summary と Cockpit Decision Report への参考表示、Investment Score optional numeric input、disabled-by-default weight は対応済み
 - `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動、通知
 - Advanced Forecast ranking logic: Ranking retains and displays common-horizon advanced forecast fields, blends consensus-derived advanced upside / downside into Ranking direction signals at 25%, and `AI総合` lightly includes advanced upside / downside / quality scores. Other ranking profiles remain existing-profile centered unless explicitly changed later.
-- `SMAI LLM Factor` の実 LLM/Gateway 接続、backtest、Ranking 参考カラム、予測モデル統合は後続範囲。cache / TTL / reproducibility の初期 slice は実装済み。既存予測モデル / Ranking / Investment Score には backtest 前に混ぜない
+- `SMAI LLM Factor` の実 LLM/Gateway 接続、broader historical backtest、Ranking 参考カラム、予測モデル統合は後続範囲。cache / TTL / reproducibility と deterministic backtest evaluator の初期 slice は実装済み。既存予測モデル / Ranking / Investment Score には検証完了前に混ぜない
 - Assistant API / dedicated Assistant screen / optional LLM provider は `SMAI LLM Factor` の schema / 参考表示基盤後の Phase 24 後続範囲。Streamlit の floating `SMAI Copilot` question-panel first slice は実装済み
 - 銘柄DB live provider refresh wiring は background refresh 基盤実装済み後の provider / opt-in 接続タスクとして扱う
 - broker への live order 送信

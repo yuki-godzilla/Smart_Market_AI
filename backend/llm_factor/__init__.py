@@ -1,3 +1,14 @@
+from backend.llm_factor.backtest import run_llm_factor_backtest
+from backend.llm_factor.backtest_contracts import (
+    LLM_FACTOR_BACKTEST_RESULT_SCHEMA_VERSION,
+    LLMFactorBacktestCase,
+    LLMFactorBacktestMetrics,
+    LLMFactorBacktestResult,
+    LLMFactorBacktestSignal,
+    LLMFactorBacktestWarning,
+    LLMFactorBacktestWarningSeverity,
+    LLMFactorPriceBar,
+)
 from backend.llm_factor.contracts import (
     LLM_FACTOR_CACHE_ENTRY_SCHEMA_VERSION,
     LLM_FACTOR_FAKE_MODEL_NAME,
@@ -24,6 +35,7 @@ from backend.llm_factor.service import (
 
 __all__ = [
     "LLM_FACTOR_CACHE_ENTRY_SCHEMA_VERSION",
+    "LLM_FACTOR_BACKTEST_RESULT_SCHEMA_VERSION",
     "LLM_FACTOR_FAKE_MODEL_NAME",
     "LLM_FACTOR_PROMPT_VERSION",
     "LLM_FACTOR_SCHEMA_VERSION",
@@ -36,10 +48,18 @@ __all__ = [
     "LLMFactorCacheLookup",
     "LLMFactorCacheMetadata",
     "LLMFactorCacheStatus",
+    "LLMFactorBacktestCase",
+    "LLMFactorBacktestMetrics",
+    "LLMFactorBacktestResult",
+    "LLMFactorBacktestSignal",
+    "LLMFactorBacktestWarning",
+    "LLMFactorBacktestWarningSeverity",
+    "LLMFactorPriceBar",
     "LLMFactorResult",
     "LLMFactorServiceResult",
     "LLMFactorSourceType",
     "LLMFactorValidationError",
     "normalized_evidence_sources_for_factor",
+    "run_llm_factor_backtest",
     "source_hash_for_evidence",
 ]

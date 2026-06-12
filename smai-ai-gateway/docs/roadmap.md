@@ -11,7 +11,7 @@
 - 基本 schema / tests
 - provider error detail
 - opt-in live Ollama smoke
-- SMAI 本体側の `SMAI LLM Factor` 初期 schema / fake service / file-backed cache / deterministic backtest evaluator / Cockpit 参考表示 / Ranking 参考表示は親プロジェクト側で実装済み。Gateway 側にはまだ構造化抽出 endpoint を追加しない。
+- SMAI 本体側の `SMAI LLM Factor` 初期 schema / fake service / file-backed cache / deterministic backtest evaluator / broader validation report / Cockpit 参考表示 / Ranking 参考表示は親プロジェクト側で実装済み。Gateway 側にはまだ構造化抽出 endpoint を追加しない。
 
 ## Phase 2: SMAI から投資コメント生成に利用
 
@@ -24,7 +24,7 @@
 
 - 将来の `SMAI LLM Factor` 向けに、RAG / News / IR 由来の定性材料を JSON へ変換する prompt profile を検討する
 - Gateway は provider 呼び出し、prompt 実行、timeout、error normalization を担当する
-- `LLMFactorResult`、factor schema、source hash、file-backed cache、deterministic backtest evaluator、Cockpit / Ranking 参考表示は SMAI 本体側の初期 slice で実装済み。broader historical backtest、cache policy expansion、UI 統合拡張も SMAI 本体側で扱い、Gateway から SMAI module は import しない
+- `LLMFactorResult`、factor schema、source hash、file-backed cache、deterministic backtest evaluator、broader historical fixture / validation report、Cockpit / Ranking 参考表示は SMAI 本体側で実装済み。cache policy expansion、UI 統合拡張も SMAI 本体側で扱い、Gateway から SMAI module は import しない
 - LLM は最終予測、ランキング順位、Investment Score、売買判断を決めない
 - source URL、source date、model name、prompt version を保持できる request / response 形を検討する
 - 通常 tests は network-free、live provider smoke は opt-in に分離する

@@ -18,6 +18,13 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-12 - SMAI LLM Factor validation metrics expansion
+
+- Added deterministic broader historical fixture pack for LLM Factor validation, covering JP large cap, US large cap, ETF, high dividend, growth, low news coverage, Osaka Gas `9532.T`, and mixed global segments.
+- Added extended validation contracts, classification / return / risk / baseline-comparison / segment metrics, validation warnings, deterministic hashes, and JSON / Markdown report export.
+- Kept Ranking / Forecast / Investment Score integration disabled; validation reports explicitly state the scores are not integrated and are not investment recommendations.
+- Added deterministic tests for fixture loading, required segments, classification metrics, AUC / class imbalance warnings, return spread, Sharpe / drawdown, baseline comparison, segment metrics, reproducibility, non-integration wording, and recommendation flags.
+
 ## 2026-06-12 - SMAI LLM Factor Ranking reference columns
 
 - Added `backend/llm_factor` Ranking reference contracts/helpers that attach optional LLM material scores only after Ranking rows are already selected/displayed.

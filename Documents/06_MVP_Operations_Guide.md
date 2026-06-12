@@ -56,6 +56,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - `SMAI LLM Factor` SMAI-side first slice
   - `backend/llm_factor` provides `LLMFactorResult` / factor / evidence schemas, source hash retention, deterministic fake service validation, and a file-backed cache with generated_at / expires_at / model / prompt version metadata.
   - `run_llm_factor_backtest(case)` provides a deterministic fixture-based evaluator for LLM material scores versus forward returns / drawdowns. It is an exploratory alpha-factor diagnostic, not a trading strategy backtest.
+  - `load_llm_factor_historical_fixture_pack()` and `run_llm_factor_validation_report(fixture_pack, config)` provide the broader deterministic validation phase. The fixture pack covers domestic large caps, US large caps, ETFs, high-dividend names, growth names, low-news-coverage names, Osaka Gas `9532.T`, and mixed global segments. The report exports JSON / Markdown and covers Accuracy, Precision, Recall, F1, AUC, Top-N return, top-bottom spread, Sharpe Ratio, maximum drawdown, baseline comparison, segment metrics, and validation warnings.
   - Cockpit shows `AI材料分析` as a reference-only panel using existing Research / News / external-source context when available, plus a small cache caption for reproducibility. It is not blended into Forecast, Ranking, Investment Score, or Research Score.
   - Ranking shows display-only LLM material reference columns for displayed candidates: `LLM強気材料`, `LLM弱気材料`, `LLM確信度`, and `材料鮮度`. Cache hits reuse cached `LLMFactorResult`; cache misses use deterministic fake values. These columns are non-sortable in the first slice and do not change Ranking score, rank, Forecast, Investment Score, or default order.
 - Streamlit UI
@@ -73,7 +74,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - Research Score によるランキング順位統合は現時点では見送り。Cockpit / Ranking Research Summary と Cockpit Decision Report への参考表示、Investment Score optional numeric input、disabled-by-default weight は対応済み
 - `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動、通知
 - Advanced Forecast ranking logic: Ranking retains and displays common-horizon advanced forecast fields, blends consensus-derived advanced upside / downside into Ranking direction signals at 25%, and `AI総合` lightly includes advanced upside / downside / quality scores. Other ranking profiles remain existing-profile centered unless explicitly changed later.
-- `SMAI LLM Factor` の実 LLM/Gateway 接続、broader historical backtest、予測モデル統合は後続範囲。cache / TTL / reproducibility、Ranking 参考カラム、deterministic backtest evaluator の初期 slice は実装済み。既存予測モデル / Ranking score / rank / Investment Score には検証完了前に混ぜない
+- `SMAI LLM Factor` の実 LLM/Gateway 接続、予測モデル統合は後続範囲。cache / TTL / reproducibility、Ranking 参考カラム、deterministic backtest evaluator、broader historical fixture pack、extended validation report は実装済み。既存予測モデル / Ranking score / rank / Forecast / Investment Score には検証完了前に混ぜない
 - Assistant API / dedicated Assistant screen / optional LLM provider は `SMAI LLM Factor` の schema / 参考表示基盤後の Phase 24 後続範囲。Streamlit の floating `SMAI Copilot` question-panel first slice は実装済み
 - 銘柄DB live provider refresh wiring は background refresh 基盤実装済み後の provider / opt-in 接続タスクとして扱う
 - broker への live order 送信

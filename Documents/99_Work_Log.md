@@ -18,6 +18,13 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-12 - SMAI LLM Factor cache / reproducibility slice
+
+- Added file-backed `backend/llm_factor` cache contracts and helpers for ticker/source-hash keyed entries, generated_at, expires_at, model name, prompt version, cache status, and bounded persistence.
+- Wrapped the deterministic fake service with `CachedLLMFactorService`, preserving network-free behavior while reusing stable source-bound factor results for identical inputs.
+- Added Cockpit cache metadata caption for `AI材料分析` and tests for cache hits, source-hash misses, expired entries, invalid cache recovery, and UI reproducibility wording.
+- Synchronized SMAI and Gateway docs to keep the boundary clear: SMAI owns LLM Factor schema/cache/backtest/UI, while `smai-ai-gateway` remains the provider/prompt boundary.
+
 ## 2026-06-12 - CI mypy fix for LLM Factor cockpit slice
 
 - Fixed the CI `Mypy (type check)` failure after the LLM Factor cockpit slice by separating News and Research evidence loop variables in `ui/app.py`.

@@ -4,17 +4,30 @@ import hashlib
 import json
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from pathlib import Path
 from typing import Iterable
 
 from pydantic import ValidationError
 
+from backend.llm_factor.cache import (
+    DEFAULT_LLM_FACTOR_CACHE_TTL_SECONDS,
+    LLM_FACTOR_CACHE_DIR,
+    build_llm_factor_cache_entry,
+    find_llm_factor_cache_entry,
+    llm_factor_cache_expires_at,
+    llm_factor_cache_key,
+    save_llm_factor_cache_entry,
+)
 from backend.llm_factor.contracts import (
     LLM_FACTOR_FAKE_MODEL_NAME,
     LLM_FACTOR_PROMPT_VERSION,
     BearishFactor,
     BullishFactor,
     EvidenceSource,
+    LLMFactorCacheMetadata,
+    LLMFactorCacheStatus,
     LLMFactorResult,
+    LLMFactorServiceResult,
 )
 
 _DEFAULT_DISCLAIMER = "本結果は投資判断材料の整理であり、売買推奨ではありません。"
@@ -81,7 +94,11 @@ class FakeLLMFactorService:
         has_source_backing = bool(sources)
         warnings = [_NO_LLM_WARNING]
         if not sources:
-            sources = [_fallback_evidence_source(ticker=ticker, as_of=as_of)]
+            sources = normalized_evidence_sources_for_factor(
+                ticker=ticker,
+                as_of=as_of,
+                evidence_sources=sources,
+            )
             warnings.append(_NO_SOURCE_WARNING)
 
         source_hash = source_hash_for_evidence(sources)
@@ -163,6 +180,88 @@ class FakeLLMFactorService:
             )
 
 
+class CachedLLMFactorService:
+    """Cache-aware LLM Factor service used by UI/reference flows."""
+
+    def __init__(
+        self,
+        *,
+        base_service: FakeLLMFactorService | None = None,
+        cache_dir: Path | str = LLM_FACTOR_CACHE_DIR,
+        ttl_seconds: int = DEFAULT_LLM_FACTOR_CACHE_TTL_SECONDS,
+    ) -> None:
+        self.base_service = base_service or FakeLLMFactorService()
+        self.cache_dir = cache_dir
+        self.ttl_seconds = ttl_seconds
+
+    def build_reference_result(
+        self,
+        *,
+        ticker: str,
+        as_of: date,
+        evidence_sources: Iterable[EvidenceSource] = (),
+        now: datetime | None = None,
+    ) -> LLMFactorServiceResult:
+        now_utc = _ensure_utc(now or datetime.now(UTC))
+        raw_sources = list(evidence_sources)
+        cache_sources = normalized_evidence_sources_for_factor(
+            ticker=ticker,
+            as_of=as_of,
+            evidence_sources=raw_sources,
+        )
+        source_hash = source_hash_for_evidence(cache_sources)
+        cache_key = llm_factor_cache_key(
+            ticker=ticker,
+            as_of=as_of,
+            source_hash=source_hash,
+            model_name=LLM_FACTOR_FAKE_MODEL_NAME,
+            prompt_version=LLM_FACTOR_PROMPT_VERSION,
+        )
+        lookup = find_llm_factor_cache_entry(
+            cache_key=cache_key,
+            now=now_utc,
+            cache_dir=self.cache_dir,
+        )
+        if lookup.cache_hit and lookup.entry is not None:
+            return LLMFactorServiceResult(
+                result=lookup.entry.result,
+                cache=_cache_metadata(
+                    status=lookup.status,
+                    cache_hit=True,
+                    cache_key=cache_key,
+                    result=lookup.entry.result,
+                    expires_at=lookup.entry.expires_at,
+                ),
+            )
+
+        result = self.base_service.build_reference_result(
+            ticker=ticker,
+            as_of=as_of,
+            evidence_sources=raw_sources,
+            generated_at=now_utc,
+        )
+        expires_at = llm_factor_cache_expires_at(now=now_utc, ttl_seconds=self.ttl_seconds)
+        entry = build_llm_factor_cache_entry(
+            result,
+            cache_key=cache_key,
+            expires_at=expires_at,
+        )
+        try:
+            save_llm_factor_cache_entry(entry, cache_dir=self.cache_dir)
+        except OSError:
+            pass
+        return LLMFactorServiceResult(
+            result=result,
+            cache=_cache_metadata(
+                status=lookup.status,
+                cache_hit=False,
+                cache_key=cache_key,
+                result=result,
+                expires_at=expires_at,
+            ),
+        )
+
+
 def source_hash_for_evidence(sources: Iterable[EvidenceSource]) -> str:
     payload = [
         {
@@ -176,6 +275,18 @@ def source_hash_for_evidence(sources: Iterable[EvidenceSource]) -> str:
     ]
     raw = json.dumps(payload, ensure_ascii=False, sort_keys=True)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def normalized_evidence_sources_for_factor(
+    *,
+    ticker: str,
+    as_of: date,
+    evidence_sources: Iterable[EvidenceSource],
+) -> list[EvidenceSource]:
+    sources = list(evidence_sources)
+    if sources:
+        return sources
+    return [_fallback_evidence_source(ticker=ticker, as_of=as_of)]
 
 
 def _fallback_evidence_source(*, ticker: str, as_of: date) -> EvidenceSource:
@@ -343,3 +454,29 @@ def _clamp_score(value: Decimal) -> Decimal:
         Decimal("0"),
         min(Decimal("100"), value.quantize(Decimal("1"))),
     )
+
+
+def _cache_metadata(
+    *,
+    status: LLMFactorCacheStatus,
+    cache_hit: bool,
+    cache_key: str,
+    result: LLMFactorResult,
+    expires_at: datetime,
+) -> LLMFactorCacheMetadata:
+    return LLMFactorCacheMetadata(
+        status=status,
+        cache_hit=cache_hit,
+        cache_key=cache_key,
+        source_hash=result.source_hash,
+        model_name=result.model_name,
+        prompt_version=result.prompt_version,
+        generated_at=result.generated_at,
+        expires_at=expires_at,
+    )
+
+
+def _ensure_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)

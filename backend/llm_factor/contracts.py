@@ -9,8 +9,11 @@ from pydantic import ConfigDict, Field
 from backend.core.data_contracts import StrictBaseModel
 
 LLM_FACTOR_SCHEMA_VERSION = "llm-factor-result-v1"
+LLM_FACTOR_CACHE_ENTRY_SCHEMA_VERSION = "llm-factor-cache-entry-v1"
 LLM_FACTOR_PROMPT_VERSION = "llm-factor-reference-v0"
 LLM_FACTOR_FAKE_MODEL_NAME = "deterministic_fake_llm_factor"
+
+LLMFactorCacheStatus = Literal["hit", "miss", "expired", "invalid"]
 
 LLMFactorSourceType = Literal[
     "research_summary",
@@ -89,3 +92,51 @@ class LLMFactorResult(StrictBaseModel):
         min_length=1,
     )
     warnings: list[str] = Field(default_factory=list)
+
+
+class LLMFactorCacheEntry(StrictBaseModel):
+    """Persisted LLM Factor result keyed by source hash and execution contract."""
+
+    model_config = ConfigDict(extra="forbid", protected_namespaces=())
+
+    schema_version: str = Field(default=LLM_FACTOR_CACHE_ENTRY_SCHEMA_VERSION, min_length=1)
+    cache_key: str = Field(min_length=1)
+    ticker: str = Field(min_length=1)
+    as_of: date
+    source_hash: str = Field(min_length=1)
+    model_name: str = Field(min_length=1)
+    prompt_version: str = Field(min_length=1)
+    generated_at: datetime
+    expires_at: datetime
+    result: LLMFactorResult
+
+
+class LLMFactorCacheLookup(StrictBaseModel):
+    """Cache lookup result used by services to decide reuse or regeneration."""
+
+    cache_key: str = Field(min_length=1)
+    status: LLMFactorCacheStatus
+    cache_hit: bool = False
+    entry: LLMFactorCacheEntry | None = None
+
+
+class LLMFactorCacheMetadata(StrictBaseModel):
+    """User-visible cache/reproducibility metadata for a generated factor result."""
+
+    model_config = ConfigDict(extra="forbid", protected_namespaces=())
+
+    status: LLMFactorCacheStatus
+    cache_hit: bool
+    cache_key: str = Field(min_length=1)
+    source_hash: str = Field(min_length=1)
+    model_name: str = Field(min_length=1)
+    prompt_version: str = Field(min_length=1)
+    generated_at: datetime | None = None
+    expires_at: datetime | None = None
+
+
+class LLMFactorServiceResult(StrictBaseModel):
+    """LLM Factor output plus cache metadata for UI/reporting reuse."""
+
+    result: LLMFactorResult
+    cache: LLMFactorCacheMetadata

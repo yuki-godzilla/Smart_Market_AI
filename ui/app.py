@@ -30,9 +30,11 @@ from backend.core.data_contracts import (
 from backend.core.errors import AppError
 from backend.forecast import forecast_model_display_name
 from backend.llm_factor import (
+    CachedLLMFactorService,
     EvidenceSource,
-    FakeLLMFactorService,
+    LLMFactorCacheMetadata,
     LLMFactorResult,
+    LLMFactorServiceResult,
     LLMFactorSourceType,
 )
 from backend.marketdata import create_market_data_provider_adapter
@@ -7315,20 +7317,22 @@ def _render_cockpit_llm_factor(preview: MarketDataPreview) -> None:
     symbol = _market_data_preview_symbol(preview)
     if not symbol:
         return
-    result = _cockpit_llm_factor_result(preview)
+    response = _cockpit_llm_factor_result(preview)
+    result = response.result
     st.subheader("07 AI材料分析")
     st.caption(
         "RAG・ニュース・IR情報をLLMで構造化するための参考指標です。"
         "初期段階ではスコアやランキングには反映しません。"
     )
     st.markdown(_llm_factor_panel_html(result), unsafe_allow_html=True)
+    st.caption(_llm_factor_cache_caption(response.cache))
     source_rows = _llm_factor_evidence_display_rows(result)
     if source_rows:
         with st.expander("AI材料分析の出典を表示", expanded=False):
             _render_compact_dataframe(source_rows)
 
 
-def _cockpit_llm_factor_result(preview: MarketDataPreview) -> LLMFactorResult:
+def _cockpit_llm_factor_result(preview: MarketDataPreview) -> LLMFactorServiceResult:
     symbol = _market_data_preview_symbol(preview)
     as_of = _date_from_iso_text(_market_data_as_of(preview)) or default_as_of_date()
     report = _cockpit_research_report_from_state(preview)
@@ -7341,7 +7345,7 @@ def _cockpit_llm_factor_result(preview: MarketDataPreview) -> LLMFactorResult:
         news_report=news_report,
         external_result=external_result,
     )
-    return FakeLLMFactorService().build_reference_result(
+    return CachedLLMFactorService().build_reference_result(
         ticker=symbol,
         as_of=as_of,
         evidence_sources=evidence_sources,
@@ -7602,6 +7606,30 @@ def _llm_factor_evidence_display_rows(result: LLMFactorResult) -> list[dict[str,
         }
         for source in result.evidence_sources
     ]
+
+
+def _llm_factor_cache_caption(cache: LLMFactorCacheMetadata) -> str:
+    status_label = {
+        "hit": "cache利用",
+        "miss": "新規生成",
+        "expired": "期限切れのため再生成",
+        "invalid": "cache読込失敗のため再生成",
+    }.get(cache.status, "cache状態未確認")
+    generated_at = _llm_factor_datetime_display(cache.generated_at)
+    expires_at = _llm_factor_datetime_display(cache.expires_at)
+    return (
+        f"{status_label} / 生成: {generated_at} / 有効期限: {expires_at} / "
+        f"model: {cache.model_name} / prompt: {cache.prompt_version} / "
+        f"source: {cache.source_hash[:8]}"
+    )
+
+
+def _llm_factor_datetime_display(value: datetime | None) -> str:
+    if value is None:
+        return "未確認"
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
 
 def _fetch_external_research_for_preview(

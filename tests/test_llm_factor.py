@@ -8,11 +8,13 @@ from backend.llm_factor import (
     LLM_FACTOR_FAKE_MODEL_NAME,
     LLM_FACTOR_PROMPT_VERSION,
     BullishFactor,
+    CachedLLMFactorService,
     EvidenceSource,
     FakeLLMFactorService,
     LLMFactorResult,
     source_hash_for_evidence,
 )
+from backend.llm_factor.cache import LLM_FACTOR_CACHE_FILENAME
 
 
 def _evidence_source(
@@ -104,3 +106,96 @@ def test_parse_provider_json_validates_json_and_falls_back_conservatively() -> N
     assert fallback.llm_confidence_score <= Decimal("20")
     assert fallback.evidence_sources == [source]
     assert any("LLM応答を検証できなかった" in warning for warning in fallback.warnings)
+
+
+def test_cached_llm_factor_service_reuses_same_source_hash(tmp_path) -> None:
+    source = _evidence_source()
+    service = CachedLLMFactorService(cache_dir=tmp_path, ttl_seconds=3600)
+    first = service.build_reference_result(
+        ticker="7203.T",
+        as_of=date(2026, 6, 12),
+        evidence_sources=[source],
+        now=datetime(2026, 6, 12, 10, 0, tzinfo=UTC),
+    )
+    second = service.build_reference_result(
+        ticker="7203.T",
+        as_of=date(2026, 6, 12),
+        evidence_sources=[source],
+        now=datetime(2026, 6, 12, 10, 10, tzinfo=UTC),
+    )
+
+    assert first.cache.status == "miss"
+    assert first.cache.cache_hit is False
+    assert second.cache.status == "hit"
+    assert second.cache.cache_hit is True
+    assert second.result.generated_at == first.result.generated_at
+    assert second.result.source_hash == first.result.source_hash
+
+
+def test_cached_llm_factor_service_misses_when_source_hash_changes(tmp_path) -> None:
+    service = CachedLLMFactorService(cache_dir=tmp_path, ttl_seconds=3600)
+    first = service.build_reference_result(
+        ticker="7203.T",
+        as_of=date(2026, 6, 12),
+        evidence_sources=[_evidence_source()],
+        now=datetime(2026, 6, 12, 10, 0, tzinfo=UTC),
+    )
+    second = service.build_reference_result(
+        ticker="7203.T",
+        as_of=date(2026, 6, 12),
+        evidence_sources=[
+            _evidence_source(
+                title="下方修正と為替リスクを発表",
+                source_url="https://example.com/ir/7203-risk",
+                summary="下方修正、為替リスク、競争激化への注意が必要です。",
+            )
+        ],
+        now=datetime(2026, 6, 12, 10, 10, tzinfo=UTC),
+    )
+
+    assert first.cache.status == "miss"
+    assert second.cache.status == "miss"
+    assert second.result.source_hash != first.result.source_hash
+    assert second.result.generated_at != first.result.generated_at
+
+
+def test_cached_llm_factor_service_regenerates_expired_entry(tmp_path) -> None:
+    source = _evidence_source()
+    service = CachedLLMFactorService(cache_dir=tmp_path, ttl_seconds=60)
+    first = service.build_reference_result(
+        ticker="7203.T",
+        as_of=date(2026, 6, 12),
+        evidence_sources=[source],
+        now=datetime(2026, 6, 12, 10, 0, tzinfo=UTC),
+    )
+    second = service.build_reference_result(
+        ticker="7203.T",
+        as_of=date(2026, 6, 12),
+        evidence_sources=[source],
+        now=datetime(2026, 6, 12, 10, 2, tzinfo=UTC),
+    )
+
+    assert first.cache.status == "miss"
+    assert second.cache.status == "expired"
+    assert second.cache.cache_hit is False
+    assert second.result.generated_at == datetime(2026, 6, 12, 10, 2, tzinfo=UTC)
+
+
+def test_cached_llm_factor_service_recovers_from_invalid_cache_file(tmp_path) -> None:
+    (tmp_path / LLM_FACTOR_CACHE_FILENAME).write_text("{not-json", encoding="utf-8")
+    source = _evidence_source()
+    service = CachedLLMFactorService(cache_dir=tmp_path, ttl_seconds=3600)
+
+    result = service.build_reference_result(
+        ticker="7203.T",
+        as_of=date(2026, 6, 12),
+        evidence_sources=[source],
+        now=datetime(2026, 6, 12, 10, 0, tzinfo=UTC),
+    )
+
+    assert result.cache.status == "invalid"
+    assert result.cache.cache_hit is False
+    assert result.result.source_hash == source_hash_for_evidence([source])
+    assert "llm-factor-cache-file-v1" in (tmp_path / LLM_FACTOR_CACHE_FILENAME).read_text(
+        encoding="utf-8"
+    )

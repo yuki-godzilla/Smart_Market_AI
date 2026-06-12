@@ -12,7 +12,7 @@ import streamlit as st
 import ui.app as app_module
 from backend.core.data_contracts import Bar, DailySnapshot, FundamentalSnapshot, Symbol
 from backend.core.errors import DataSourceError
-from backend.llm_factor import FakeLLMFactorService
+from backend.llm_factor import FakeLLMFactorService, LLMFactorCacheMetadata
 from backend.reporting import build_decision_report_context, build_report_section
 from backend.research import (
     CompanyBusinessProfile,
@@ -102,6 +102,7 @@ from ui.app import (
     _investment_question_secondary_answers,
     _investment_question_summary_intro_html,
     _ir_summary_html,
+    _llm_factor_cache_caption,
     _llm_factor_evidence_display_rows,
     _llm_factor_evidence_sources,
     _llm_factor_panel_html,
@@ -9270,6 +9271,27 @@ def test_llm_factor_panel_html_is_reference_display_and_escapes_source_text() ->
     assert "売買推奨ではありません" in html
     assert "&lt;script&gt;増配&lt;/script&gt;" in html
     assert "<script>増配</script>" not in html
+
+
+def test_llm_factor_cache_caption_shows_reproducibility_metadata() -> None:
+    caption = _llm_factor_cache_caption(
+        LLMFactorCacheMetadata(
+            status="hit",
+            cache_hit=True,
+            cache_key="cache-key",
+            source_hash="abcdef123456",
+            model_name="deterministic_fake_llm_factor",
+            prompt_version="llm-factor-reference-v0",
+            generated_at=datetime(2026, 6, 12, 10, 0, tzinfo=UTC),
+            expires_at=datetime(2026, 6, 12, 16, 0, tzinfo=UTC),
+        )
+    )
+
+    assert "cache利用" in caption
+    assert "生成: 2026-06-12 10:00 UTC" in caption
+    assert "model: deterministic_fake_llm_factor" in caption
+    assert "prompt: llm-factor-reference-v0" in caption
+    assert "source: abcdef12" in caption
 
 
 def _bar(ts: str, *, close: int = 100, symbol: str = "AAPL") -> Bar:

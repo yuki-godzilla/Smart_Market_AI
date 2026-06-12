@@ -22,7 +22,7 @@ Ollama / OpenAI compatible API / vLLM / llama.cpp server
 - provider routing、prompt 実行、timeout、error normalization は Gateway 側に寄せる
 - SMAI 側は context bundle 作成、schema validation、deterministic fallback を持つ
 - `context-answer` では、LLM は回答本文を作り、`materials` / `cautions` / `next_checkpoints` は Gateway が渡された context から安定生成する
-- 将来の `SMAI LLM Factor` では、Gateway は provider 呼び出しと prompt 実行の境界に留める。LLM factor の domain schema と source hash は SMAI 本体側の初期 slice で実装済みで、cache、backtest、UI 統合拡張も SMAI 本体側で扱う
+- 将来の `SMAI LLM Factor` では、Gateway は provider 呼び出しと prompt 実行の境界に留める。LLM factor の domain schema、source hash、file-backed cache は SMAI 本体側の初期 slice で実装済みで、backtest、Ranking 参考表示、cache policy expansion、UI 統合拡張も SMAI 本体側で扱う
 
 ## 現時点で移動しないもの
 

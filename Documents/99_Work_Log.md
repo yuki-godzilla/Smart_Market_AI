@@ -1528,3 +1528,17 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Updated Copilot context labels, header copy, analysis-mode selector, welcome theme card, recommended action cards, chat input placeholder, and safety caption with beginner-friendly Japanese wording.
 - Added Copilot-specific styling for the AI dashboard header, status card, material chips, confirmation-theme card, and compact action cards while preserving the existing Assistant / Gateway / deterministic fallback behavior.
 - Updated focused Streamlit UI tests for the new wording and ran targeted UI / style / assistant checks plus Ruff and Black helper verification.
+
+## 2026-06-13 - SMAI Copilot conversation layout polish
+
+- Added role-specific Copilot conversation rendering so user messages appear as right-aligned confirmation requests and SMAI responses appear as left-aligned assistant replies.
+- Added the SMAI mascot avatar to assistant replies, reusing the existing mascot asset and mirroring it with CSS so the assistant visually faces the conversation.
+- Strengthened the chat input visual treatment with a subtle cyan focus state and kept the initial screen focused on analysis theme / materials / next checks rather than a generic greeting.
+- Added focused tests for the new turn markup, mascot image rendering, and preserved Assistant / Gateway / deterministic fallback behavior.
+
+## 2026-06-13 - SMAI Copilot mascot final polish
+
+- Switched the Copilot reply avatar to the existing cutout mascot asset so the icon reads as an integrated conversation avatar instead of a pasted thumbnail.
+- Tightened avatar sizing, circular frame, cyan border / glow, and reply-card spacing so the SMAI reply row reads as one coherent left-aligned conversation unit.
+- Rebalanced the response detail cards toward a 30 / 30 / 40 layout with tighter padding and line-height, improving readability for longer next-check lists.
+- Updated focused UI tests for the PNG cutout avatar and reran Copilot UI, style, assistant component, Assistant service, Gateway client, Gateway contract, Ruff, and Black helper checks.

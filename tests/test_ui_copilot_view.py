@@ -9,6 +9,7 @@ from ui.views.copilot import (
     copilot_context_label,
     copilot_context_options,
     copilot_history_messages,
+    copilot_turn_html,
 )
 
 
@@ -56,6 +57,29 @@ def test_copilot_answer_detail_html_escapes_detail_lists():
     assert "smai-copilot-answer-grid" in markup
 
 
+def test_copilot_turn_html_separates_user_and_smai_messages():
+    markup = copilot_turn_html(
+        {
+            "context_label": "銘柄コックピット / 価格・予測",
+            "question": "この銘柄の確認点は？",
+            "answer": "価格と材料を分けて確認します。",
+            "reasons": "価格トレンド",
+            "cautions": "売買推奨ではありません",
+            "next_checkpoints": "ニュースを見る",
+        }
+    )
+
+    assert "smai-copilot-message-row--user" in markup
+    assert "smai-copilot-message-row--assistant" in markup
+    assert "あなたの確認" in markup
+    assert "SMAIの整理" in markup
+    assert "smai-copilot-assistant-avatar" in markup
+    assert "smai-copilot-assistant-avatar-image--reply" in markup
+    assert "data:image/png;base64," in markup
+    assert "この銘柄の確認点は？" in markup
+    assert "価格と材料を分けて確認します。" in markup
+
+
 def test_copilot_page_renders_with_streamlit_app(monkeypatch):
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
     app = AppTest.from_file("ui/app.py", default_timeout=20)
@@ -88,7 +112,7 @@ def test_copilot_page_renders_with_streamlit_app(monkeypatch):
     )
     assert "新しい分析" in button_labels
     assert "この観点で聞く" in button_labels
-    assert "今日の確認テーマ" in page_text
+    assert "現在の分析テーマ" in page_text
 
 
 def test_copilot_page_chat_input_appends_chat_turn(monkeypatch):

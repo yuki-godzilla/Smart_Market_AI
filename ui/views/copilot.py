@@ -7,6 +7,7 @@ import streamlit as st
 
 from backend.assistant import AssistantMessage, AssistantResponse
 from ui.components.assistant import SmaiAssistantContext, assistant_response_for_context
+from ui.components.mascot import MASCOT_CUTOUT_ASSET, _asset_data_uri
 
 COPILOT_CHAT_HISTORY_STATE_KEY = "smai_copilot_chat_history"
 COPILOT_CONVERSATION_ID_STATE_KEY = "smai_copilot_conversation_id"
@@ -153,6 +154,18 @@ def copilot_answer_detail_html(turn: dict[str, str]) -> str:
     )
 
 
+def copilot_turn_html(turn: dict[str, str]) -> str:
+    context_label = str(turn.get("context_label", "")).strip()
+    question = str(turn.get("question", "")).strip()
+    answer = str(turn.get("answer", "")).strip()
+    return (
+        '<div class="smai-copilot-thread">'
+        f"{_user_bubble_html(context_label=context_label, question=question)}"
+        f"{_assistant_bubble_html(answer=answer, detail_html=copilot_answer_detail_html(turn))}"
+        "</div>"
+    )
+
+
 def render_copilot_workspace_page() -> None:
     contexts = copilot_context_options()
     labels = [copilot_context_label(context) for context in contexts]
@@ -210,12 +223,7 @@ def _render_chat_thread(
         return
 
     for turn in turns:
-        with st.chat_message("user"):
-            st.caption(str(turn.get("context_label", "")))
-            st.write(str(turn.get("question", "")))
-        with st.chat_message("assistant"):
-            st.write(str(turn.get("answer", "")))
-            st.markdown(copilot_answer_detail_html(turn), unsafe_allow_html=True)
+        st.markdown(copilot_turn_html(turn), unsafe_allow_html=True)
 
 
 def _render_suggestion_buttons(
@@ -347,15 +355,44 @@ def _welcome_prompt_html(context: SmaiAssistantContext) -> str:
     )
     return (
         '<section class="smai-copilot-workspace-card">'
-        '<div class="smai-copilot-card-kicker">今日の確認テーマ</div>'
+        '<div class="smai-copilot-card-kicker">現在の分析テーマ</div>'
         f"<h2>{html.escape(context.section_label)}</h2>"
         f"<p>{html.escape(context.lead)}</p>"
         '<div class="smai-copilot-chip-row">'
         f"{chips}"
         "</div>"
         '<div class="smai-copilot-answer-grid smai-copilot-answer-grid--welcome">'
-        f'{_block_html("この画面で確認できること", _summary_html(context))}'
-        f'{_block_html("おすすめ確認順", steps)}'
+        f'{_block_html("見る材料", _summary_html(context))}'
+        f'{_block_html("次に確認", steps)}'
+        "</div>"
+        "</section>"
+    )
+
+
+def _user_bubble_html(*, context_label: str, question: str) -> str:
+    return (
+        '<section class="smai-copilot-message-row smai-copilot-message-row--user">'
+        '<div class="smai-copilot-message-card smai-copilot-message-card--user">'
+        '<div class="smai-copilot-message-meta">あなたの確認</div>'
+        f'<div class="smai-copilot-message-context">{html.escape(context_label)}</div>'
+        f"<p>{html.escape(question)}</p>"
+        "</div>"
+        "</section>"
+    )
+
+
+def _assistant_bubble_html(*, answer: str, detail_html: str) -> str:
+    image = _asset_data_uri(MASCOT_CUTOUT_ASSET)
+    return (
+        '<section class="smai-copilot-message-row smai-copilot-message-row--assistant">'
+        '<div class="smai-copilot-assistant-avatar" aria-hidden="true">'
+        f'<img class="smai-copilot-assistant-avatar-image '
+        f'smai-copilot-assistant-avatar-image--reply" src="{image}" alt="" loading="lazy" />'
+        "</div>"
+        '<div class="smai-copilot-message-card smai-copilot-message-card--assistant">'
+        '<div class="smai-copilot-message-meta">SMAIの整理</div>'
+        f"<p>{html.escape(answer)}</p>"
+        f"{detail_html}"
         "</div>"
         "</section>"
     )

@@ -18,6 +18,14 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-14 - SMAI Assistant LLM conversation UX polish
+
+- Changed assistant response rendering from fixed template-first layout to conversation-first layout: SMAIナビ natural-language lead-in now appears before structured response sections.
+- Split response formats by intent (`app_help`, `stock_summary`, `forecast_risk_compare`, `news_materials`, `decision_report_draft`, `free_chat`) and limited generic `見る材料 / 注意点 / 次に確認` to stock-summary style responses.
+- Added compact LLM / fallback metadata display, moved `実行した確認` below the structured answer, and separated fixed guide cards, LLM response bubbles, structured result cards, and tool execution results visually.
+- Improved conversation continuity by tightening the user / SMAI response pair layout and renaming the assistant bubble from `SMAIナビの整理` to `SMAIナビ`.
+- Manual UI validation with Streamlit AppTest covered: `SMAIの使い方を教えて`, `この銘柄で最初に確認する材料は？`, `AI予測インサイトと下振れ警戒をどう比べればいい？`, `ニュース材料を見たい`, and `Decision Reportに残す確認点を整理して`. Each prompt resolved to the expected intent, showed distinct structure, displayed response metadata, and did not repeat the initial six cards.
+
 ## 2026-06-14 - SMAI Assistant conversation and tool-layer sprint
 
 - Reworked the dedicated `SMAIアシスタント` workspace around SMAIナビ greeting, six conversation-start intent cards, visible material status, intent-specific response sections, and response actions for copy / Markdown memo / Decision Report-ready download.

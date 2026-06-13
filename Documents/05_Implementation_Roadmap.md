@@ -2136,7 +2136,7 @@ Prompt 方針:
 
 ### 5.16 Phase 26: Context-Aware / Agentic SMAI Assistant
 
-状態: 初期スライス実装済み。会話UX再設計、6つの開始 intent、ルールベース Intent Router、read-only `Assistant Tool Layer`、Tool Plan実行結果の画面表示、Gatewayへのintent別prompt guide、Markdown memo出力導線まで実装済み。外部大量取得、永続Decision Report保存、複数銘柄一括RAG、複数ファイル生成は確認付きの後続範囲。
+状態: 初期スライス実装済み。会話UX再設計、6つの開始 intent、ルールベース Intent Router、read-only `Assistant Tool Layer`、Tool Plan実行結果の画面表示、Gatewayへのintent別prompt guide、Markdown memo出力導線、会話ファースト回答表示、LLM / fallbackメタ表示、代表5質問のStreamlitレンダリング確認まで実装済み。外部大量取得、永続Decision Report保存、複数銘柄一括RAG、複数ファイル生成は確認付きの後続範囲。
 
 目的: SMAIアシスタントが「いま見ている画面・銘柄・候補・材料」と会話指示を理解し、許可されたSMAI内部機能を安全に呼び出して、ユーザーの確認作業とDecision Report下書きを短くする。
 
@@ -2149,6 +2149,8 @@ Prompt 方針:
 - 会話指示を `app_help`、`stock_summary`、`forecast_check`、`forecast_risk_compare`、`chart_check`、`news_materials`、`rag_search`、`decision_report_draft`、`file_export`、`free_chat`、`unknown` に分類する。
 - 初期 Tool Layer は read-only とし、現在文脈、銘柄推定、価格文脈、予測文脈、ニュース/RAG文脈、Decision Report下書き、Markdown memoを扱う。
 - Tool結果は `実行した確認` としてUIとMarkdown memoに残す。
+- 回答は自然文の会話応答を先頭に置き、構造化整理、実行確認、次アクションを分けて表示する。
+- LLM / fallback の応答元メタ情報を控えめに表示する。
 
 非ゴール:
 
@@ -2164,6 +2166,7 @@ Prompt 方針:
 - deterministic fallback と network-free tests が維持される。
 - 代表的な日本語指示が intent に分類され、Tool単位の欠落があっても全体が落ちない。
 - Markdown memoには `実行した確認`、確認材料、注意点、次に確認すること、投資判断補助の注記が含まれる。
+- `SMAIの使い方`、銘柄整理、予測/リスク比較、ニュース材料、Decision Report下書きの代表質問で、別々の回答構造が画面上で確認できる。
 
 ### 5.17 Phase 27: LLM Factor Live Generation
 

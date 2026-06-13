@@ -128,7 +128,7 @@ Remove-Item Env:SMAI_ASSISTANT_GATEWAY_MODEL
 
 `SMAIアシスタント` 画面の通常チャット送信は、UIにON/OFFを出さずに Gateway 接続を既定で試します。Gateway が未起動、timeout、schema validation failure、LLM JSON不正、空応答の場合は SMAI 側の deterministic fallback に戻ります。
 
-SMAI 親側の context-answer 呼び出しは、SMAI Assistant intent と read-only Tool結果の要約を `user_question` 内に含めることがあります。Gateway は SMAI 固有moduleを importせず、`app_help`、`stock_summary`、`forecast_risk_compare`、`news_materials`、`decision_report_draft`、`free_chat` などの intent marker をプロンプト指示として読み、同じJSON response contractに沿って `materials` / `cautions` / `next_checkpoints` を返します。Gateway 側もスコア、ランキング、予測値、売買判断は変更しません。
+SMAI 親側の context-answer 呼び出しは、SMAI Assistant intent と read-only Tool結果の要約を `user_question` 内に含めることがあります。Gateway は SMAI 固有moduleを importせず、`app_help`、`stock_summary`、`forecast_risk_compare`、`news_materials`、`decision_report_draft`、`free_chat` などの intent marker をプロンプト指示として読み、同じJSON response contractに沿って `materials` / `cautions` / `next_checkpoints` を返します。`answer` はSMAIナビの自然な会話応答から始め、構造化整理は必要に応じて各配列へ分けます。Gateway 側もスコア、ランキング、予測値、売買判断は変更しません。
 `qwen3:8b` は thinking 出力が長くなりやすいため、Gateway は Ollama chat API に `think: false` を指定します。LLM の構造化JSONに文字化け、`????`、不正JSON、空項目がある場合も、画面には文脈由来の安全な回答を返します。
 
 ### Ollama ありの opt-in live smoke

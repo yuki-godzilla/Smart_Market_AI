@@ -86,6 +86,9 @@ def test_gateway_backed_assistant_uses_gateway_response_when_valid():
     assert "スコアや予測値は変更していません。" in response.cautions
     assert response.next_checkpoints == ["モデル合意度を確認します。"]
     assert response.citations[0].section_title == "AI予測インサイト"
+    assert response.response_source == "gateway"
+    assert response.model == "mock-assistant-gateway"
+    assert response.provider == "mock"
     assert len(client.requests) == 1
     assert client.requests[0].constraints.no_investment_advice
     assert client.requests[0].context.sections[0].title == "AI予測インサイト"
@@ -132,6 +135,7 @@ def test_gateway_backed_assistant_falls_back_when_client_raises():
 
     assert "中心予測を主役" in response.answer
     assert response.intent == "forecast"
+    assert response.response_source == "fallback"
     assert len(client.requests) == 1
 
 
@@ -153,6 +157,7 @@ def test_gateway_backed_assistant_falls_back_when_schema_is_invalid():
 
     assert "中心予測を主役" in response.answer
     assert response.intent == "forecast"
+    assert response.response_source == "fallback"
     assert len(client.requests) == 1
 
 
@@ -237,6 +242,9 @@ def test_http_assistant_gateway_client_posts_context_answer_request():
     assert response.answer.startswith("Gateway実接続")
     assert response.reasons == ["AI予測インサイト", "中心予測"]
     assert "スコアや順位は変更していません。" in response.cautions
+    assert response.response_source == "gateway"
+    assert response.model == "qwen3:8b"
+    assert response.provider == "ollama"
 
 
 def test_http_assistant_gateway_client_timeout_raises_timeout_error():
@@ -275,6 +283,7 @@ def test_gateway_backed_assistant_falls_back_when_http_gateway_times_out():
 
     assert "中心予測を主役" in response.answer
     assert response.intent == "forecast"
+    assert response.response_source == "fallback"
 
 
 def test_http_assistant_gateway_client_raises_on_http_error():

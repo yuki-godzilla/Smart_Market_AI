@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from streamlit.testing.v1 import AppTest
 
-from backend.assistant import AssistantMessage
+from backend.assistant import AssistantMessage, AssistantResponse
 from backend.core.config import Settings
 from ui.views.copilot import (
     COPILOT_CHAT_HISTORY_STATE_KEY,
     CopilotGatewayRuntimeConfig,
     _chat_header_html,
+    _turn_from_response,
     copilot_answer_detail_html,
     copilot_context_label,
     copilot_context_options,
@@ -96,17 +97,70 @@ def test_copilot_answer_detail_html_escapes_detail_lists():
             "cautions": "注意 <2>",
             "next_checkpoints": "次 <3>",
             "memo_points": "温度差 <4>",
+            "executed_checks": "現在文脈 <確認>",
+            "response_meta": "qwen3:8b / ollama / forecast_risk_compare",
         }
     )
 
+    assert markup.index("予測側の見方") < markup.index("実行した確認")
     assert "材料 &lt;1&gt;" in markup
     assert "注意 &lt;2&gt;" in markup
     assert "次 &lt;3&gt;" in markup
     assert "温度差 &lt;4&gt;" in markup
+    assert "現在文脈 &lt;確認&gt;" in markup
+    assert "qwen3:8b / ollama / forecast_risk_compare" in markup
     assert "予測側の見方" in markup
     assert "リスク側の見方" in markup
     assert "<script>" not in markup
     assert "smai-copilot-answer-grid" in markup
+
+
+def test_copilot_answer_detail_html_uses_intent_specific_formats():
+    app_help = copilot_answer_detail_html(
+        {
+            "intent": "app_help",
+            "reasons": "銘柄コックピット",
+            "cautions": "売買推奨ではありません",
+            "next_checkpoints": "銘柄を入力します",
+            "response_meta": "SMAI通常回答 / deterministic / app_help",
+        }
+    )
+    forecast = copilot_answer_detail_html(
+        {
+            "intent": "forecast_risk_compare",
+            "reasons": "中心予測",
+            "cautions": "下振れ警戒",
+            "next_checkpoints": "モデル合意度",
+            "memo_points": "温度差",
+        }
+    )
+    news = copilot_answer_detail_html(
+        {
+            "intent": "news_materials",
+            "reasons": "強気ニュース",
+            "cautions": "弱気ニュース",
+            "next_checkpoints": "出典URL",
+            "memo_points": "未確認材料",
+        }
+    )
+    report = copilot_answer_detail_html(
+        {
+            "intent": "decision_report_draft",
+            "reasons": "確認した材料",
+            "cautions": "未確認事項",
+            "next_checkpoints": "次回確認",
+            "memo_points": "メモ",
+        }
+    )
+
+    assert "目的別の使い方" in app_help
+    assert "見る材料" not in app_help
+    assert "予測側の見方" in forecast
+    assert "リスク側の見方" in forecast
+    assert "強気材料" in news
+    assert "未確認材料" in news
+    assert "確認した材料" in report
+    assert "次回確認" in report
 
 
 def test_copilot_turn_html_separates_user_and_smai_messages():
@@ -119,18 +173,64 @@ def test_copilot_turn_html_separates_user_and_smai_messages():
             "reasons": "価格トレンド",
             "cautions": "売買推奨ではありません",
             "next_checkpoints": "ニュースを見る",
+            "response_meta": "SMAI通常回答 / fallback / stock_summary",
         }
     )
 
     assert "smai-copilot-message-row--user" in markup
     assert "smai-copilot-message-row--assistant" in markup
     assert "あなたの確認" in markup
-    assert "SMAIナビの整理" in markup
+    assert "SMAIナビ" in markup
+    assert "smai-copilot-natural-lead" in markup
+    assert "SMAI通常回答 / fallback / stock_summary" in markup
     assert "smai-copilot-assistant-avatar" in markup
     assert "smai-copilot-assistant-avatar-image--reply" in markup
     assert "data:image/webp;base64," in markup
     assert "この銘柄の確認点は？" in markup
     assert "価格と材料を分けて確認します。" in markup
+
+
+def test_copilot_turn_from_response_adds_natural_lead_and_meta():
+    context = copilot_context_options()[0]
+
+    turn = _turn_from_response(
+        context,
+        "SMAIの使い方を教えて",
+        AssistantResponse(
+            intent="overview",
+            answer="銘柄コックピットから確認できます。",
+            reasons=["銘柄を深掘りしたい -> 銘柄コックピット"],
+            next_checkpoints=["気になる銘柄を入力します。"],
+            response_source="gateway",
+            model="qwen3:8b",
+            provider="ollama",
+        ),
+        intent="app_help",
+        executed_checks=["現在文脈を確認"],
+    )
+
+    assert turn["answer"].startswith("はい！SMAIの使い方ですね。")
+    assert "銘柄コックピットから確認できます。" in turn["answer"]
+    assert turn["response_meta"] == "qwen3:8b / ollama / app_help / context: current screen"
+
+
+def test_copilot_turn_from_response_hides_internal_prompt_text():
+    context = copilot_context_options()[1]
+
+    turn = _turn_from_response(
+        context,
+        "AI予測インサイトと下振れ警戒をどう比べればいい？",
+        AssistantResponse(
+            intent="forecast",
+            answer="SMAI Assistant intent: forecast_risk_compare\nBoundary: no advice",
+            response_source="fallback",
+        ),
+        intent="forecast_risk_compare",
+    )
+
+    assert turn["answer"].startswith("はい、予測とリスクを分けて確認しますね。")
+    assert "SMAI Assistant intent" not in turn["answer"]
+    assert turn["response_meta"] == "SMAI通常回答 / fallback / forecast_risk_compare"
 
 
 def test_copilot_header_uses_smai_navi_chat_icon():

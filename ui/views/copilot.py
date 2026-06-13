@@ -314,7 +314,6 @@ def copilot_history_messages(
 
 def copilot_answer_detail_html(turn: dict[str, str]) -> str:
     titles = _section_titles_for_intent(_normalize_intent(turn.get("intent", "")))
-    executed = _list_html(_split_lines(turn.get("executed_checks", "")))
     reasons = _list_html(_split_lines(turn.get("reasons", "")))
     cautions = _list_html(_split_lines(turn.get("cautions", "")))
     checkpoints = _list_html(_split_lines(turn.get("next_checkpoints", "")))
@@ -322,13 +321,14 @@ def copilot_answer_detail_html(turn: dict[str, str]) -> str:
     if len(titles) == 4:
         grid_class += " smai-copilot-answer-grid--four"
     return (
-        f'{_block_html("実行した確認", executed)}'
         f'<div class="{grid_class}">'
         f"{_block_html(titles[0], reasons)}"
         f"{_block_html(titles[1], cautions)}"
         f"{_block_html(titles[2], checkpoints)}"
         f"{_block_html(titles[3], _list_html(_split_lines(turn.get('memo_points', '')))) if len(titles) == 4 else ''}"
         "</div>"
+        f"{_execution_result_html(turn)}"
+        f"{_response_meta_html(turn)}"
     )
 
 
@@ -509,7 +509,10 @@ def _handle_copilot_submit(
             visible_question,
             response,
             intent=intent,
-            executed_checks=[result.summary for result in tool_plan.executed],
+            executed_checks=[
+                _material_status_summary(context),
+                *[result.summary for result in tool_plan.executed],
+            ],
             tool_statuses=[f"{result.name}: {result.status}" for result in tool_plan.executed],
         )
     )
@@ -532,13 +535,17 @@ def _turn_from_response(
         "intent": intent,
         "intent_label": _preset_for_intent(intent).label,
         "question": question,
-        "answer": response.answer,
+        "answer": _conversation_answer(intent=intent, question=question, response=response),
         "reasons": "\n".join(response.reasons),
         "cautions": "\n".join(response.cautions),
         "next_checkpoints": "\n".join(response.next_checkpoints),
         "memo_points": "\n".join(_memo_points_for_intent(intent, response)),
         "executed_checks": "\n".join(executed_checks or ()),
         "tool_statuses": "\n".join(tool_statuses or ()),
+        "response_source": response.response_source,
+        "model": response.model or "",
+        "provider": response.provider or "",
+        "response_meta": _response_meta_label(response=response, intent=intent),
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
 
@@ -624,8 +631,8 @@ def _assistant_bubble_html(*, answer: str, detail_html: str) -> str:
         f'smai-copilot-assistant-avatar-image--reply" src="{image}" alt="" loading="lazy" />'
         "</div>"
         '<div class="smai-copilot-message-card smai-copilot-message-card--assistant">'
-        '<div class="smai-copilot-message-meta">SMAIナビの整理</div>'
-        f"<p>{html.escape(answer)}</p>"
+        '<div class="smai-copilot-message-meta">SMAIナビ</div>'
+        f'<p class="smai-copilot-natural-lead">{html.escape(answer)}</p>'
         f"{detail_html}"
         "</div>"
         "</section>"
@@ -639,6 +646,68 @@ def _action_card_intro_html(*, preset: CopilotConversationPreset) -> str:
         f"<p>{html.escape(preset.description)}</p>"
         "</div>"
     )
+
+
+def _conversation_answer(
+    *,
+    intent: CopilotIntent,
+    question: str,
+    response: AssistantResponse,
+) -> str:
+    lead = {
+        "app_help": "はい！SMAIの使い方ですね。目的別に見る画面を分けると分かりやすいです。",
+        "stock_summary": "承知しました。この銘柄について、まず確認する材料を整理しますね。",
+        "forecast_risk_compare": (
+            "はい、予測とリスクを分けて確認しますね。AI予測の方向感と、"
+            "下振れ警戒のバランスを見るのがポイントです。"
+        ),
+        "news_materials": (
+            "はい、ニュース材料を確認する流れですね。取得できている材料と、"
+            "まだ未確認の材料を分けて整理します。"
+        ),
+        "decision_report_draft": (
+            "Decision Reportに残す前提で整理しますね。確認済み材料、"
+            "強気・弱気材料、未確認事項を分けます。"
+        ),
+        "free_chat": "はい、SMAIナビです。会話の流れに沿って、分かる範囲で整理しますね。",
+    }[intent]
+    body = _safe_response_body(response.answer)
+    if not body or body.startswith(lead):
+        return lead
+    return f"{lead}\n\n{body}"
+
+
+def _safe_response_body(answer: str) -> str:
+    text = str(answer or "").strip()
+    blocked_markers = (
+        "SMAI Assistant intent:",
+        "Tool results already checked",
+        "Response instruction:",
+        "Boundary:",
+    )
+    if any(marker in text for marker in blocked_markers):
+        return ""
+    return text
+
+
+def _execution_result_html(turn: dict[str, str]) -> str:
+    executed = _split_lines(turn.get("executed_checks", ""))
+    if not executed:
+        return ""
+    items = "".join(f"<li>{html.escape(item)}</li>" for item in executed[:6])
+    return (
+        '<section class="smai-copilot-tool-result">'
+        "<span>実行した確認</span>"
+        f"<ul>{items}</ul>"
+        "</section>"
+    )
+
+
+def _response_meta_html(turn: dict[str, str]) -> str:
+    meta = str(turn.get("response_meta", "")).strip()
+    if not meta:
+        meta = "SMAI通常回答 / fallback"
+    return f'<div class="smai-copilot-response-meta">{html.escape(meta)}</div>'
 
 
 def _render_turn_actions(turn: dict[str, str], *, index: int) -> None:
@@ -658,7 +727,7 @@ def _render_turn_actions(turn: dict[str, str], *, index: int) -> None:
             )
         with memo_col:
             st.download_button(
-                "メモとして保存",
+                "Markdownで保存",
                 data=markdown,
                 file_name=_memo_filename(turn),
                 mime="text/markdown",
@@ -763,6 +832,17 @@ def _gateway_question(
     )
 
 
+def _response_meta_label(*, response: AssistantResponse, intent: CopilotIntent) -> str:
+    intent_label = intent
+    if response.response_source == "gateway":
+        model = response.model or "LLM"
+        provider = response.provider or "Gateway"
+        return f"{model} / {provider} / {intent_label} / context: current screen"
+    if response.response_source == "fallback":
+        return f"SMAI通常回答 / fallback / {intent_label}"
+    return f"SMAI通常回答 / deterministic / {intent_label}"
+
+
 def _render_material_status(context: SmaiAssistantContext) -> None:
     status = _material_status(context)
     chips = "".join(
@@ -800,6 +880,12 @@ def _material_status(context: SmaiAssistantContext) -> tuple[tuple[str, str], ..
         ("Decision Report", "下書き可"),
         ("LLM", "Gateway優先 / fallbackあり"),
     )
+
+
+def _material_status_summary(context: SmaiAssistantContext) -> str:
+    status = _material_status(context)
+    visible = [(label, value) for label, value in status if label != "LLM"]
+    return "参照材料: " + " / ".join(f"{label}={value}" for label, value in visible)
 
 
 def _active_context_from_history(
@@ -851,7 +937,7 @@ def _preset_for_intent(intent: CopilotIntent) -> CopilotConversationPreset:
 
 def _section_titles_for_intent(intent: CopilotIntent) -> tuple[str, ...]:
     return {
-        "app_help": ("案内", "注意点", "次の操作"),
+        "app_help": ("目的別の使い方", "注意点", "まずおすすめ"),
         "stock_summary": ("見る材料", "注意点", "次に確認"),
         "forecast_risk_compare": (
             "予測側の見方",

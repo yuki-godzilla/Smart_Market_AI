@@ -43,6 +43,8 @@ class PromptService:
             "Do not invent facts, recompute scores, rank symbols, or give investment advice. "
             "If the context is insufficient, say what should be checked next. "
             "Keep the tone natural, concise, and beginner-friendly. "
+            "Start the answer as a natural conversational reply from SMAI Navi, then use "
+            "structured points only when useful for the requested intent. "
             f"{language_instruction}"
         )
         messages = [LlmMessage(role="system", content=system_prompt)]

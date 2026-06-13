@@ -154,10 +154,10 @@ class GatewayBackedAssistantService:
             raw_response = self.gateway_client.answer(gateway_request)
             gateway_response = _coerce_gateway_response(raw_response)
         except (AssistantGatewayError, TimeoutError, ValidationError, ValueError):
-            return fallback_response
+            return fallback_response.model_copy(update={"response_source": "fallback"})
 
         if not gateway_response.answer.strip():
-            return fallback_response
+            return fallback_response.model_copy(update={"response_source": "fallback"})
 
         return _assistant_response_from_gateway_response(
             gateway_response,
@@ -185,6 +185,9 @@ def _assistant_response_from_gateway_response(
         cautions=[*response.cautions, *response.safety_notes],
         next_checkpoints=response.next_checkpoints,
         citations=[_citation_from_gateway_reference(item) for item in response.referenced_sections],
+        response_source="gateway",
+        model=response.model,
+        provider=response.provider,
     )
 
 

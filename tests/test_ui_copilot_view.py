@@ -3,13 +3,16 @@ from __future__ import annotations
 from streamlit.testing.v1 import AppTest
 
 from backend.assistant import AssistantMessage
+from backend.core.config import Settings
 from ui.views.copilot import (
     COPILOT_CHAT_HISTORY_STATE_KEY,
+    CopilotGatewayRuntimeConfig,
     _chat_header_html,
     copilot_answer_detail_html,
     copilot_context_label,
     copilot_context_options,
     copilot_history_messages,
+    copilot_settings_from_gateway_runtime,
     copilot_turn_html,
 )
 
@@ -37,6 +40,26 @@ def test_copilot_history_messages_keeps_recent_chat_pairs():
         AssistantMessage(role="user", content="質問6"),
         AssistantMessage(role="assistant", content="回答6"),
     ]
+
+
+def test_copilot_settings_from_gateway_runtime_enables_session_gateway():
+    base_settings = Settings()
+    runtime_config = CopilotGatewayRuntimeConfig(
+        enabled=True,
+        base_url="http://gateway.local",
+        model="qwen3:8b",
+        timeout_seconds=5.0,
+        context_answer_path="/api/v1/context-answer",
+        source_enabled=False,
+    )
+
+    settings = copilot_settings_from_gateway_runtime(runtime_config, base_settings)
+
+    assert settings.assistant.gateway.enabled
+    assert settings.assistant.gateway.base_url == "http://gateway.local"
+    assert settings.assistant.gateway.model == "qwen3:8b"
+    assert settings.assistant.gateway.timeout_seconds == 5.0
+    assert not base_settings.assistant.gateway.enabled
 
 
 def test_copilot_answer_detail_html_escapes_detail_lists():
@@ -111,8 +134,11 @@ def test_copilot_page_renders_with_streamlit_app(monkeypatch):
     chat_input_placeholders = [
         str(getattr(element, "placeholder", "")) for element in app.chat_input
     ]
+    checkbox_labels = [str(getattr(element, "label", "")) for element in app.checkbox]
 
     assert "SMAI Copilot" in page_text
+    assert "LLM接続: OFF" in page_text
+    assert "LLM Gatewayを使う" in checkbox_labels
     assert "投資判断アシスタント" in page_text
     assert "smai-copilot-chat-topbar" in page_text
     assert "SMAIアシスタント" in button_labels

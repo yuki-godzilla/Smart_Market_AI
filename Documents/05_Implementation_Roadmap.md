@@ -56,7 +56,7 @@ Research RAG は Phase 20 local evidence slice が決定的な土台として実
 未実装または今後の範囲:
 
 - `SMAI LLM Factor` の optional forecast integration。schema、1銘柄 Cockpit 参考表示、cache / reproducibility、Ranking 参考カラム、deterministic backtest evaluator、broader historical fixture pack、extended validation metrics / report は実装済み。初期段階では既存予測モデル、Ranking score、Forecast、Investment Score へ混ぜない
-- `SMAI Copilot` の opt-in live Gateway smoke 実行と、会話履歴 / 参照文脈の本格拡張。専用チャット画面、限定自由入力、SMAI から `smai-ai-gateway` への opt-in HTTP client wiring は実装済み
+- `SMAI Copilot` の実 Gateway / Ollama を起動した手元 live smoke 実行と、会話履歴 / 参照文脈の本格拡張。専用チャット画面、限定自由入力、SMAI から `smai-ai-gateway` への opt-in HTTP client wiring、`SMAIアシスタント` 画面のセッション内 LLM Gateway 設定、親SMAI側の opt-in live smoke test path は実装済み
 - `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動、通知、ニュース根拠の Decision Report 反映
 - Research RAG の `ResearchFactSummary` 抽出対象拡張、追加 external source adapter、vector / hybrid search の運用UI
 - 銘柄DB background refresh の live provider refresh wiring。`backend/symbols` の foundation、Streamlit daemon worker、Cockpit / Ranking 共通の visible freshness 表示、Cockpit / Ranking 対象銘柄の自動優先更新、Cockpit の価格・予測取得後 background priority refresh + 30分TTL、Ranking 操作直前の軽量 preflight 更新は実装済みのため、残りは provider / opt-in 条件を決める運用接続タスクとして扱う
@@ -2104,7 +2104,7 @@ Prompt 方針:
 
 ### 5.15 Phase 25: SMAI Copilot Live LLM Integration
 
-状態: 将来範囲。SMAI 親側の Gateway client / schema / fallback と `smai-ai-gateway/` scaffold は実装済み。実 Gateway / Ollama を起動した opt-in live smoke は未実行。
+状態: 初期 live integration slice 実装済み。SMAI 親側の Gateway client / schema / fallback、`smai-ai-gateway/` scaffold、`SMAIアシスタント` 画面のセッション内 LLM Gateway ON/OFF / URL / model / timeout 設定、親SMAIから `/api/v1/context-answer` を叩く opt-in live smoke test path は実装済み。実 Gateway / Ollama を起動した手元 live smoke 実行は環境依存のため通常確認から分離する。
 
 目的: 既存の deterministic Copilot を基準線にしたまま、明示 opt-in で live LLM 応答を試せるようにする。
 
@@ -2115,6 +2115,12 @@ Prompt 方針:
 - request / response schema validation、timeout、retry、error handling、invalid JSON / empty response handling。
 - Streamlit UI が LLM 待ちで固まらない設計。必要なら status 表示と deterministic fallback を先に返す。
 - `MockAssistantGatewayClient` / fixture による network-free tests と、明示 opt-in live smoke を分離する。
+
+実装済みスライス:
+
+- `SMAIアシスタント` 画面に `LLM Gateway` 設定パネルを追加し、現在セッションだけで `assistant.gateway` を上書きして `smai-ai-gateway` を試せる。
+- Gateway disabled / failure / timeout / schema validation failure 時は既存 deterministic Copilot に戻る。
+- 親SMAI側の `tests/test_assistant_gateway_live_smoke.py` は `SMAI_ASSISTANT_GATEWAY_LIVE_SMOKE=1` のときだけ実 Gateway に接続する。
 
 非ゴール:
 

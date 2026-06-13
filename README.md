@@ -113,13 +113,13 @@ MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で
 - Phase 21: 高度Research RAG / Stock News RAG / external fresh-source fetch の first slices は implementation complete。追加 provider と運用UIは後続
 - Phase 22: Research Score / Cockpit deep-dive は first UI slices 実装済み。Phase 22.x `投資レーダー` (Investment News dashboard) は初期MVP実装済み、Phase 22.y news cache と Phase 22.z symbol DB background refresh は backend foundation 実装済み
 - Phase 23: Optional Adapter / 高度分析を先に進める。Advanced Forecast は `advanced_linear` / `advanced_tree_sklearn` / `advanced_gbdt_sklearn` / `advanced_quantile` の registry、forecast service / API adapter selection、Cockpit `AI予測インサイト` chart/card/detail、Ranking auxiliary 表示、上昇気配 / 下降警戒への控えめブレンド、AI総合への軽量統合、Ranking理由表示 / 深掘り候補 / Decision Report 連携まで実装済み。Cockpit の AI予測インサイト初期表示は、結論、中心予測（高度予測モデルの統合結果）、下振れ / 上振れケース、予測価格、予測レンジ、信頼度、モデル合意度、予測ばらつき、注意点に整理し、個別高度モデルカードは常時表示、RMSE / 方向一致率 / 単純予測比較は折りたたみ配下で確認する
-- Phase 24: Template Assistant backend slice、SMAI Copilot floating UI、専用 Copilot workspace、Gateway schema / client / deterministic fallback、`smai-ai-gateway/` scaffold は実装済み
+- Phase 24-25: Template Assistant backend slice、SMAI Copilot floating UI、専用 Copilot workspace、Gateway schema / client / deterministic fallback、`smai-ai-gateway/` scaffold、`SMAIアシスタント` 画面のセッション内 LLM Gateway 接続設定、親SMAI側の opt-in live smoke test path は実装済み
 - Phase 24A: `SMAI LLM Factor` の schema、deterministic fake / cache、Cockpit / Ranking 参考表示、validation foundation は実装済み。実 LLM 生成とモデル統合は未実施
-- Phase 25-30: Copilot live LLM integration、context-aware Copilot、LLM Factor live generation、Cockpit / Ranking / Radar / News / Decision Report への LLM 解釈展開、LLM Factor validation and gradual model integration を段階的に扱う
+- Phase 26-30: context-aware Copilot、LLM Factor live generation、Cockpit / Ranking / Radar / News / Decision Report への LLM 解釈展開、LLM Factor validation and gradual model integration を段階的に扱う
 - Phase 31: advanced export、Execution gate の順に整理
 - Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
-次の重点は Phase 25-30 の LLM 拡張を、既存の Copilot / LLM Factor / Decision Report 境界を壊さずに段階化することです。まず opt-in live Gateway smoke と context-aware Copilot を進め、次に LLM Factor の実生成、各画面の解釈支援、Decision Report 草案、検証済み LLM-derived factor の段階的統合可否を扱います。早期段階では LLM が Ranking score、AI総合、Forecast、Investment Score、投資判断を直接変更しません。通常 checks は引き続き fake adapter / fixture で network 非依存を維持します。
+次の重点は Phase 26-30 の LLM 拡張を、既存の Copilot / LLM Factor / Decision Report 境界を壊さずに段階化することです。まず context-aware Copilot を進め、次に LLM Factor の実生成、各画面の解釈支援、Decision Report 草案、検証済み LLM-derived factor の段階的統合可否を扱います。早期段階では LLM が Ranking score、AI総合、Forecast、Investment Score、投資判断を直接変更しません。通常 checks は引き続き fake adapter / fixture で network 非依存を維持します。実 Gateway / Ollama smoke は明示 opt-in で分離します。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント

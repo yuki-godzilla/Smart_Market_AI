@@ -114,6 +114,18 @@ assistant:
     model: "qwen3:8b"
 ```
 
+SMAI 親アプリから Gateway へ接続する opt-in live smoke 確認例:
+
+```powershell
+$env:SMAI_ASSISTANT_GATEWAY_LIVE_SMOKE = "1"
+$env:SMAI_ASSISTANT_GATEWAY_BASE_URL = "http://127.0.0.1:8088"
+$env:SMAI_ASSISTANT_GATEWAY_MODEL = "qwen3:8b"
+..\venv_SMAI\Scripts\python.exe -m pytest ..\tests\test_assistant_gateway_live_smoke.py -q
+Remove-Item Env:SMAI_ASSISTANT_GATEWAY_LIVE_SMOKE
+Remove-Item Env:SMAI_ASSISTANT_GATEWAY_BASE_URL
+Remove-Item Env:SMAI_ASSISTANT_GATEWAY_MODEL
+```
+
 ### Ollama ありの opt-in live smoke
 
 Ollama を起動し、モデル取得後にだけ実行します。通常 CI / 通常確認には含めません。

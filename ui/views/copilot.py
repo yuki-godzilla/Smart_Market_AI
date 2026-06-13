@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import html
+from dataclasses import dataclass
 from uuid import uuid4
 
 import streamlit as st
 
 from backend.assistant import AssistantMessage, AssistantResponse
+from backend.core.config import AssistantGatewayConfig, Settings, get_settings
 from ui.components.assistant import SmaiAssistantContext, assistant_response_for_context
 from ui.components.mascot import (
     MASCOT_NAVI_CHAT_ASSET,
@@ -15,6 +17,28 @@ from ui.components.mascot import (
 
 COPILOT_CHAT_HISTORY_STATE_KEY = "smai_copilot_chat_history"
 COPILOT_CONVERSATION_ID_STATE_KEY = "smai_copilot_conversation_id"
+COPILOT_GATEWAY_ENABLED_STATE_KEY = "smai_copilot_gateway_enabled"
+COPILOT_GATEWAY_BASE_URL_STATE_KEY = "smai_copilot_gateway_base_url"
+COPILOT_GATEWAY_MODEL_STATE_KEY = "smai_copilot_gateway_model"
+COPILOT_GATEWAY_TIMEOUT_STATE_KEY = "smai_copilot_gateway_timeout_seconds"
+
+
+@dataclass(frozen=True)
+class CopilotGatewayRuntimeConfig:
+    enabled: bool
+    base_url: str
+    model: str
+    timeout_seconds: float
+    context_answer_path: str
+    source_enabled: bool
+
+    @property
+    def mode_label(self) -> str:
+        return "LLM Gateway" if self.enabled else "deterministic"
+
+    @property
+    def status_label(self) -> str:
+        return "LLM接続: ON" if self.enabled else "LLM接続: OFF"
 
 
 def copilot_context_options() -> tuple[SmaiAssistantContext, ...]:
@@ -129,6 +153,47 @@ def copilot_context_label(context: SmaiAssistantContext) -> str:
     return f"{context.page_label} / {context.section_label}"
 
 
+def copilot_gateway_runtime_config(
+    base_settings: Settings | None = None,
+) -> CopilotGatewayRuntimeConfig:
+    settings = base_settings or get_settings()
+    gateway = settings.assistant.gateway
+    if COPILOT_GATEWAY_ENABLED_STATE_KEY not in st.session_state:
+        st.session_state[COPILOT_GATEWAY_ENABLED_STATE_KEY] = gateway.enabled
+    if COPILOT_GATEWAY_BASE_URL_STATE_KEY not in st.session_state:
+        st.session_state[COPILOT_GATEWAY_BASE_URL_STATE_KEY] = gateway.base_url
+    if COPILOT_GATEWAY_MODEL_STATE_KEY not in st.session_state:
+        st.session_state[COPILOT_GATEWAY_MODEL_STATE_KEY] = gateway.model or ""
+    if COPILOT_GATEWAY_TIMEOUT_STATE_KEY not in st.session_state:
+        st.session_state[COPILOT_GATEWAY_TIMEOUT_STATE_KEY] = float(gateway.timeout_seconds)
+
+    return CopilotGatewayRuntimeConfig(
+        enabled=bool(st.session_state[COPILOT_GATEWAY_ENABLED_STATE_KEY]),
+        base_url=str(st.session_state[COPILOT_GATEWAY_BASE_URL_STATE_KEY]).strip()
+        or gateway.base_url,
+        model=str(st.session_state[COPILOT_GATEWAY_MODEL_STATE_KEY]).strip(),
+        timeout_seconds=float(st.session_state[COPILOT_GATEWAY_TIMEOUT_STATE_KEY]),
+        context_answer_path=gateway.context_answer_path,
+        source_enabled=gateway.enabled,
+    )
+
+
+def copilot_settings_from_gateway_runtime(
+    runtime_config: CopilotGatewayRuntimeConfig,
+    base_settings: Settings | None = None,
+) -> Settings:
+    settings = base_settings or get_settings()
+    gateway = AssistantGatewayConfig(
+        enabled=runtime_config.enabled,
+        base_url=runtime_config.base_url,
+        context_answer_path=runtime_config.context_answer_path,
+        timeout_seconds=runtime_config.timeout_seconds,
+        model=runtime_config.model or None,
+    )
+    assistant_config = settings.assistant.model_copy(update={"gateway": gateway})
+    return settings.model_copy(update={"assistant": assistant_config})
+
+
 def copilot_history_messages(
     turns: list[dict[str, str]],
     *,
@@ -170,6 +235,45 @@ def copilot_turn_html(turn: dict[str, str]) -> str:
     )
 
 
+def _render_gateway_controls() -> CopilotGatewayRuntimeConfig:
+    runtime_config = copilot_gateway_runtime_config()
+    with st.expander("LLM Gateway", expanded=runtime_config.enabled):
+        source = "config" if runtime_config.source_enabled else "session"
+        st.caption(
+            f"{runtime_config.status_label} / mode: {runtime_config.mode_label} / source: {source}"
+        )
+        st.checkbox(
+            "LLM Gatewayを使う",
+            key=COPILOT_GATEWAY_ENABLED_STATE_KEY,
+            help=(
+                "ONのときだけ smai-ai-gateway の /api/v1/context-answer に送ります。"
+                "失敗時は自動でdeterministic回答に戻ります。"
+            ),
+        )
+        st.text_input(
+            "Gateway URL",
+            key=COPILOT_GATEWAY_BASE_URL_STATE_KEY,
+            placeholder="http://127.0.0.1:8088",
+        )
+        st.text_input(
+            "Model",
+            key=COPILOT_GATEWAY_MODEL_STATE_KEY,
+            placeholder="qwen3:8b",
+        )
+        st.number_input(
+            "Timeout seconds",
+            min_value=1.0,
+            max_value=120.0,
+            step=1.0,
+            key=COPILOT_GATEWAY_TIMEOUT_STATE_KEY,
+        )
+        st.caption(
+            "この設定は現在のStreamlitセッションだけに適用されます。"
+            "永続化する場合はSMAI_CONFIG_FILEのassistant.gatewayを更新してください。"
+        )
+    return copilot_gateway_runtime_config()
+
+
 def render_copilot_workspace_page() -> None:
     contexts = copilot_context_options()
     labels = [copilot_context_label(context) for context in contexts]
@@ -192,6 +296,7 @@ def render_copilot_workspace_page() -> None:
             )
         with clear_col:
             clear = st.button("新しい分析", use_container_width=True)
+        runtime_config = _render_gateway_controls()
     selected_context = contexts[labels.index(selected_label)]
 
     if clear:
@@ -209,7 +314,11 @@ def render_copilot_workspace_page() -> None:
 
     submitted_question = suggested_question or prompt
     if submitted_question:
-        _handle_copilot_submit(selected_context, submitted_question)
+        _handle_copilot_submit(
+            selected_context,
+            submitted_question,
+            runtime_config=runtime_config,
+        )
         st.rerun()
 
     st.caption(
@@ -259,7 +368,12 @@ def _render_suggestion_buttons(
     return None
 
 
-def _handle_copilot_submit(context: SmaiAssistantContext, question: str) -> None:
+def _handle_copilot_submit(
+    context: SmaiAssistantContext,
+    question: str,
+    *,
+    runtime_config: CopilotGatewayRuntimeConfig,
+) -> None:
     normalized_question = question.strip()
     if not normalized_question:
         st.warning("質問を入力してください。")
@@ -273,6 +387,7 @@ def _handle_copilot_submit(context: SmaiAssistantContext, question: str) -> None
         conversation_id=conversation_id,
         message_history=copilot_history_messages(history),
         referenced_context_ids=[context.context_id],
+        settings=copilot_settings_from_gateway_runtime(runtime_config),
     )
     history.append(_turn_from_response(context, normalized_question, response))
     st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = history

@@ -1557,3 +1557,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added the transparent SMAIナビ icon to the dedicated assistant workspace header.
 - Renamed the side-menu entry from `SMAI Copilot` to `SMAIアシスタント` while keeping the internal `copilot` route stable.
 - Updated focused UI/style tests and docs for the new icon and side-menu label.
+
+## 2026-06-13 - Phase 25 parent-side LLM Gateway integration
+
+- Added a session-local `LLM Gateway` panel to the `SMAIアシスタント` workspace for ON/OFF, Gateway URL, model, and timeout.
+- Passed the runtime Gateway settings into the assistant service so the workspace can call `smai-ai-gateway` `/api/v1/context-answer` only when explicitly enabled.
+- Kept deterministic fallback for disabled Gateway, provider failure, timeout, schema validation failure, invalid JSON, empty answers, and normal tests.
+- Added parent SMAI opt-in live smoke coverage in `tests/test_assistant_gateway_live_smoke.py`, guarded by `SMAI_ASSISTANT_GATEWAY_LIVE_SMOKE=1`.
+- Updated README, roadmap, current context, and Gateway setup docs for the new Phase 25 boundary and smoke command.

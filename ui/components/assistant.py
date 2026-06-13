@@ -13,6 +13,7 @@ from backend.assistant import (
     AssistantResponse,
     create_assistant_service_from_settings,
 )
+from backend.core.config import Settings
 from backend.reporting import (
     DecisionReportContext,
     ReportSourceKind,
@@ -230,8 +231,9 @@ def assistant_response_for_context(
     conversation_id: str | None = None,
     message_history: Sequence[AssistantMessage] = (),
     referenced_context_ids: Sequence[str] = (),
+    settings: Settings | None = None,
 ) -> AssistantResponse:
-    return create_assistant_service_from_settings().answer(
+    return create_assistant_service_from_settings(settings).answer(
         AssistantRequest(
             question=question,
             report_context=assistant_context_to_report_context(context),

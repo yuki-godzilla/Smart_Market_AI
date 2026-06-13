@@ -262,18 +262,32 @@ Phase 1〜23 と Phase 24 の初期 Assistant / Gateway 土台は概ね実装済
 - 銘柄DB live provider refresh は基盤が実装済みなので、緊急の次フェーズではなく provider / opt-in 条件を決める運用接続タスクに下げる。
 - Export / Execution は引き続き低優先度とし、特に live order sending は安全条件が揃うまで実装しない。
 
+### 5.0 LLM拡張の共通方針
+
+Phase 25 以降の LLM は、SMAI 全体の判断を置き換えるものではなく、解釈・理由付け・材料整理を支援する layer として扱います。
+
+共通ガードレール:
+
+- 初期 LLM 機能は、売買推奨、Investment Score、Screening / Ranking score、ランキング順位、Forecast 値、ポートフォリオ配分、投資判断を直接変更しない。
+- LLM の役割は、材料整理、根拠要約、理由説明、未確認項目の抽出、矛盾検出、Decision Report 草案作成、LLM Factor 候補生成に限定する。
+- LLM Factor を Forecast / Ranking / AI総合 / Investment Score に混ぜる場合は、過去データでの backtest、leakage check、baseline 比較、ablation、validation report を先に通す。
+- Gateway / provider failure、timeout、schema validation failure、不正 JSON、空応答では deterministic fallback に戻す。
+- LLM 出力は確認材料であり、権威ある判定や投資助言として表示しない。
+- 通常 tests / CI は network-free を維持し、実 LLM / Ollama / 外部 Gateway smoke は明示 opt-in の live check として分離する。
+
 ### 5.1 今後の実装順
 
 | 順位 | Roadmap item | 目的 | 初期スコープ | 既存挙動への影響 |
 | --- | --- | --- | --- | --- |
-| 1 | `SMAI LLM Factor` Phase A-B | RAG / News / IR を LLM で構造化特徴量に変換する土台を作る | `LLMFactorResult` schema、factor / evidence schema、1銘柄 Cockpit 参考表示 | 既存 Forecast / Ranking / Investment Score は変更しない |
-| 2 | `SMAI LLM Factor` Phase C-E | 再現性と有効性を検証する | cache / reproducibility、Ranking 参考カラム、deterministic backtest evaluator、broader historical fixture pack、Accuracy / Precision / Recall / F1 / AUC / Top-N return / Sharpe / 最大ドローダウン / baseline comparison の validation report は実装済み | 有効性確認まで予測モデルへ混ぜない |
-| 3 | Gateway / Copilot 実接続 | 既存 deterministic Assistant を LLM Gateway へ opt-in 接続する | SMAI HTTP client、schema validation、fallback、専用 Copilot 画面、限定自由入力は実装済み。live smoke は opt-in 未実行 | Gateway 失敗時は deterministic fallback |
-| 4 | 高度ニュース活用 | 投資レーダーと Research / Decision Report のニュース根拠を強化する | Watchlist 連動、source reliability、impact horizon、Decision Report 反映 | News だけで順位・スコアを変えない |
-| 5 | Research RAG 拡張 | 外部最新 source と根拠抽出の幅を広げる | 追加 adapter、vector / hybrid 運用UI、抽出対象拡張 | 通常 checks は network-free |
-| 6 | 銘柄DB live provider refresh 接続 | 実装済み background refresh 基盤を live provider へつなぐ | provider / opt-in 条件、失敗時表示、bounded retry | local cache / deterministic path は維持 |
-| 7 | 高度 Export | Decision Report を保存・共有しやすくする | PDF / Excel、archive、saved scenario | 投資判断支援の範囲に留める |
-| 8 | Execution Gate | broker execution 再開可否を判断する | dry-run、risk gate、user confirmation、audit log | live order sending は最後まで保留 |
+| 1 | Phase 25: SMAI Copilot Live LLM Integration | 既存 deterministic Copilot を opt-in live LLM へ接続して検証する | `smai-ai-gateway` / Ollama live smoke、ON/OFF 設定、schema validation、timeout / retry / error handling、UI非停止、fallback | Forecast / Ranking / scores / buy-sell 判断は変更しない |
+| 2 | Phase 26: Context-Aware SMAI Copilot | 画面文脈を広げ、現在見ている材料に沿って質問できるようにする | `AssistantContextBundle` 拡張、screen / symbol / ranking / price / forecast / research / news / report context、追加確認項目 | LLM は説明のみ。順位・スコア・予測値は変更しない |
+| 3 | Phase 27: LLM Factor Live Generation | News / RAG / IR / profile から LLM Factor を実生成する | structured output、Pydantic / JSON schema validation、cache、source hash、prompt version、model、generated_at、expires_at、fallback | 参考表示のみ。Forecast / Ranking / AI総合には混ぜない |
+| 4 | Phase 28: LLM Interpretation Across SMAI Screens | Cockpit / Ranking / Radar / News / Research Summary / Decision Report へ解釈支援を広げる | 画面別 summary、強弱材料、注意点、矛盾、次の確認、Cockpit handoff | 画面説明と材料整理に限定する |
+| 5 | Phase 29: LLM-Assisted Decision Report | Decision Report の草案作成を支援する | checked materials、strong / weak / neutral evidence、unconfirmed items、why not buy、why monitor、next checks、uncertainty | 最終判断はユーザー。売買指示は出さない |
+| 6 | Phase 30: LLM Factor Validation and Gradual Model Integration | LLM Factor の有効性を検証し、統合可否を判断する | backtest、ablation、leakage check、baseline comparison、validation report、controlled optional integration design | 検証済み feature のみ段階的に検討する |
+| 7 | Research RAG / 高度ニュース活用 | 外部最新 source と根拠抽出、News 整理の幅を広げる | 追加 adapter、vector / hybrid 運用UI、source reliability、impact horizon、Cockpit / Report handoff | 通常 checks は network-free。News だけで順位・スコアを変えない |
+| 8 | 銘柄DB live provider refresh 接続 | 実装済み background refresh 基盤を live provider へつなぐ | provider / opt-in 条件、失敗時表示、bounded retry | local cache / deterministic path は維持 |
+| 9 | Phase 31: 高度 Export / Execution Gate | Decision Report を保存・共有し、broker execution 再開可否を判断する | PDF / Excel、archive、saved scenario、dry-run、risk gate、user confirmation、audit log | live order sending は最後まで保留 |
 
 以下の `5.2` 以降は、完了済み phase を含むフェーズ別の詳細メモです。次に実装する順番は上の表を優先します。
 
@@ -2088,7 +2102,152 @@ Prompt 方針:
 - CI / 通常テストは外部ネットワークに依存させない。
 - 外部 LLM は必須にせず、template / deterministic fallback を維持する。
 
-### 5.15 Phase 25: 高度ExportとExecution Gate
+### 5.15 Phase 25: SMAI Copilot Live LLM Integration
+
+状態: 将来範囲。SMAI 親側の Gateway client / schema / fallback と `smai-ai-gateway/` scaffold は実装済み。実 Gateway / Ollama を起動した opt-in live smoke は未実行。
+
+目的: 既存の deterministic Copilot を基準線にしたまま、明示 opt-in で live LLM 応答を試せるようにする。
+
+範囲:
+
+- `smai-ai-gateway` 経由の live LLM 呼び出し。初期 provider 候補は Ollama。
+- UI / config での ON / OFF 設定、provider / model / timeout の表示。
+- request / response schema validation、timeout、retry、error handling、invalid JSON / empty response handling。
+- Streamlit UI が LLM 待ちで固まらない設計。必要なら status 表示と deterministic fallback を先に返す。
+- `MockAssistantGatewayClient` / fixture による network-free tests と、明示 opt-in live smoke を分離する。
+
+非ゴール:
+
+- Ranking score、AI総合、Investment Score、Forecast 値、売買判断、ポートフォリオ配分を LLM で変更しない。
+- LLM Factor score integration はこの phase では行わない。
+
+完了条件:
+
+- Gateway disabled / failed / timeout / schema failure 時に deterministic Copilot が動作する。
+- live smoke は通常 CI と分離され、手順と期待結果が文書化されている。
+- UI は LLM 出力を確認材料として表示し、投資助言に見える表現を避ける。
+
+### 5.16 Phase 26: Context-Aware SMAI Copilot
+
+状態: 将来範囲。
+
+目的: Copilot が「いま見ている画面・銘柄・候補・材料」を理解した説明を返せるようにし、ユーザーの確認作業を短くする。
+
+範囲:
+
+- `AssistantContextBundle` を拡張し、screen、symbol、ranking condition、selected candidate、price、trend、advanced forecast、upside / downside、Research Summary、News、Decision Report candidate context を渡せるようにする。
+- context に不足がある場合は、断定せず `追加確認` として返す。
+- Free text / guided question の両方で、active context と referenced context を明示する。
+- provider raw fields、debug logs、外部本文全文、保存対象でない source body は通常 request に含めない。
+
+非ゴール:
+
+- LLM に buy / sell / hold を判断させない。
+- score、ranking order、forecast value、Investment Score を変更しない。
+
+完了条件:
+
+- Cockpit / Ranking / News / Rebalance / Decision Report 候補の代表 context で、理由、注意点、次の確認が画面材料に沿って返る。
+- context 欠落時の文言が初心者にも分かる。
+- deterministic fallback と network-free tests が維持される。
+
+### 5.17 Phase 27: LLM Factor Live Generation
+
+状態: 将来範囲。Phase 24A の schema / deterministic fake / cache / validation foundation は実装済み。
+
+目的: News / RAG / IR / company profile から、実 LLM による `LLMFactorResult` を生成し、参考材料として表示する。
+
+範囲:
+
+- Gateway-based LLM Factor generation。
+- Pydantic / JSON schema validation、score range validation、source URL / date validation。
+- cache key、source hash、prompt version、model、generated_at、expires_at、cache status を保存する。
+- bullish / bearish / neutral factors、confidence、material freshness、performance、supply-demand、theme、risk、additional confirmation を構造化する。
+- LLM failure、low confidence、source insufficiency 時は deterministic fake / cached / fallback 表示に戻す。
+
+非ゴール:
+
+- Forecast、Ranking score、AI総合、Investment Score、default sort order へ直接混ぜない。
+- LLM の raw answer を未検証のまま UI に出さない。
+
+完了条件:
+
+- live LLM 応答が schema validation を通った場合だけ `LLMFactorResult` として扱われる。
+- invalid response / no source / stale material / provider failure の表示と fallback が確認できる。
+- Cockpit / Ranking では参考指標として表示され、順位・スコア未反映が明示される。
+
+### 5.18 Phase 28: LLM Interpretation Across SMAI Screens
+
+状態: 将来範囲。
+
+目的: LLM を Copilot だけでなく、Cockpit、Ranking、投資レーダー、News、Research Summary、Decision Report の読み解き支援に広げる。
+
+Subphases:
+
+- 28-A Cockpit LLM reflection: 注目点、強気 / 弱気材料、AI予測と News の整合、価格と材料の温度差、追加確認、Decision Report に残す観点を整理する。
+- 28-B Ranking: 上位理由、注意点、効いている指標、sector comparison、deep-dive 候補を説明する。ランキング順位は変更しない。
+- 28-C Investment Radar: market / sector mood、news-symbol links、today's themes、deep-dive hints をまとめる。
+- 28-D News screen: news list ではなく投資確認に使える整理として、impact direction / horizon、related sectors、noise filtering、evidence-backed summary、Cockpit handoff を表示する。
+
+非ゴール:
+
+- LLM summary だけでスコア、順位、Forecast、Research Score、Investment Score を変更しない。
+- source のない断定や、売買指示に見える文言を出さない。
+
+完了条件:
+
+- 各画面で LLM あり / なしの fallback 表示が成立する。
+- News / Research / Forecast / Ranking / Report の説明が矛盾しない。
+- 通常 tests は fixture / mock で deterministic に通る。
+
+### 5.19 Phase 29: LLM-Assisted Decision Report
+
+状態: 将来範囲。
+
+目的: 既存 Decision Report context を使い、ユーザーが読み返しやすい分析メモの草案作成を支援する。
+
+範囲:
+
+- 今日確認した材料、強い / 弱い / 中立 evidence、未確認項目、買わない理由、監視する理由、次の確認、uncertainty、news / disclosure evidence、Forecast / Ranking / Research consistency を整理する。
+- 草案は structured sections とし、Markdown / JSON export の既存構造と整合させる。
+- 引用 section、source、確認時点を明示する。
+
+非ゴール:
+
+- 最終判断、売買推奨、注文文生成、portfolio allocation 決定を LLM に任せない。
+- source 不足の材料を確定事実として書かない。
+
+完了条件:
+
+- LLM disabled / failed 時も既存 deterministic report が出力できる。
+- LLM 草案は「投資判断支援メモ」として表示され、buy / sell / hold 指示を避ける。
+- Report の根拠と未確認項目がユーザーに追える。
+
+### 5.20 Phase 30: LLM Factor Validation and Gradual Model Integration
+
+状態: 将来範囲。
+
+目的: LLM Factor が将来 return / risk / drawdown / ranking quality に対して有効かを検証し、統合してよい feature だけを段階的に扱う。
+
+範囲:
+
+- Forward return / downside risk / drawdown / sector segment に対する validation。
+- backtest、ablation、leakage check、baseline comparison、walk-forward validation、multiple-testing warning、validation report。
+- 有効性が確認できた場合だけ、lightweight forecast feature、controlled ranking reference score、AI総合の限定 blend、deep-dive hints、downside caution support への統合案を設計する。
+- 統合する場合も explicit opt-in、weight cap、rollback path、UI explanation を持つ。
+
+非ゴール:
+
+- 検証前に LLM-derived factor を Forecast / Ranking / AI総合 / Investment Score へ混ぜない。
+- LLM を最終予測器、順位決定器、売買判断器として扱わない。
+
+完了条件:
+
+- validation report が再現可能な fixture / historical dataset で生成できる。
+- leakage / overfit / low-evidence / stale-source risk が明示される。
+- 統合可否が「有効性確認済み feature のみ」という方針で判断できる。
+
+### 5.21 Phase 31: 高度ExportとExecution Gate
 
 状態: 将来範囲 / 低優先度
 

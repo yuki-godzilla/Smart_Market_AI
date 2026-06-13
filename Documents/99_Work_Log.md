@@ -1542,3 +1542,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Tightened avatar sizing, circular frame, cyan border / glow, and reply-card spacing so the SMAI reply row reads as one coherent left-aligned conversation unit.
 - Rebalanced the response detail cards toward a 30 / 30 / 40 layout with tighter padding and line-height, improving readability for longer next-check lists.
 - Updated focused UI tests for the PNG cutout avatar and reran Copilot UI, style, assistant component, Assistant service, Gateway client, Gateway contract, Ruff, and Black helper checks.
+
+## 2026-06-13 - LLM Expansion Roadmap Update
+
+- Added roadmap direction for expanding LLM usage beyond SMAI Copilot.
+- Defined staged rollout: Copilot live LLM integration, context-aware Copilot, live LLM Factor generation, LLM interpretation across Cockpit / Ranking / Radar / News / Decision Report, and LLM Factor validation with gradual model integration.
+- Clarified that LLM output will initially be used for explanation, summarization, material extraction, contradiction detection, and report drafting only.
+- Explicitly prohibited early-stage LLM use from directly changing scores, rankings, forecasts, or investment decisions.
+- Added validation-first policy for any future LLM-derived factor integration.

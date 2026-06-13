@@ -8,6 +8,7 @@ from ui.views.copilot import (
     COPILOT_CHAT_HISTORY_STATE_KEY,
     CopilotGatewayRuntimeConfig,
     _chat_header_html,
+    _stream_chunks,
     _turn_from_response,
     copilot_answer_detail_html,
     copilot_context_label,
@@ -152,8 +153,19 @@ def test_copilot_answer_detail_html_uses_intent_specific_formats():
             "memo_points": "メモ",
         }
     )
+    free_chat = copilot_answer_detail_html(
+        {
+            "intent": "free_chat",
+            "reasons": "固定カードにしない",
+            "cautions": "注意",
+            "next_checkpoints": "次",
+            "response_meta": "SMAI通常回答 / deterministic / free_chat",
+        }
+    )
 
     assert "目的別の使い方" in app_help
+    assert "smai-copilot-inline-sections" in app_help
+    assert "smai-copilot-answer-grid" not in app_help
     assert "見る材料" not in app_help
     assert "予測側の見方" in forecast
     assert "リスク側の見方" in forecast
@@ -161,6 +173,9 @@ def test_copilot_answer_detail_html_uses_intent_specific_formats():
     assert "未確認材料" in news
     assert "確認した材料" in report
     assert "次回確認" in report
+    assert "smai-copilot-answer-grid" not in free_chat
+    assert "固定カードにしない" not in free_chat
+    assert "SMAI通常回答 / deterministic / free_chat" in free_chat
 
 
 def test_copilot_turn_html_separates_user_and_smai_messages():
@@ -231,6 +246,14 @@ def test_copilot_turn_from_response_hides_internal_prompt_text():
     assert turn["answer"].startswith("はい、予測とリスクを分けて確認しますね。")
     assert "SMAI Assistant intent" not in turn["answer"]
     assert turn["response_meta"] == "SMAI通常回答 / fallback / forecast_risk_compare"
+
+
+def test_stream_chunks_progressively_build_answer_text():
+    chunks = _stream_chunks("SMAIナビが少しずつ回答を表示します。")
+
+    assert len(chunks) >= 2
+    assert chunks[-1] == "SMAIナビが少しずつ回答を表示します。"
+    assert all(chunks[index] != chunks[index + 1] for index in range(len(chunks) - 1))
 
 
 def test_copilot_header_uses_smai_navi_chat_icon():
@@ -320,3 +343,25 @@ def test_copilot_page_chat_input_appends_chat_turn(monkeypatch):
     assert "予測だけ確認" in button_labels
     assert "ニュースだけ再確認" in button_labels
     assert "Decision Report下書きへ" in button_labels
+
+
+def test_copilot_page_free_chat_does_not_render_fixed_cards(monkeypatch):
+    monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    app = AppTest.from_file("ui/app.py", default_timeout=20)
+    app.session_state["sidemenu_page"] = "copilot"
+    app.run()
+
+    app.chat_input[0].set_value("こんにちは").run()
+
+    assert not app.exception
+    history = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]
+    assert history[-1]["intent"] == "free_chat"
+    page_text = "\n".join(
+        str(element.value)
+        for element in app.markdown
+        if getattr(element, "value", None) is not None
+    )
+    assert "SMAI通常回答" in page_text
+    assert "見る材料" not in page_text
+    assert "注意点" not in page_text
+    assert "次に確認" not in page_text

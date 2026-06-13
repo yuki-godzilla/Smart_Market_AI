@@ -85,6 +85,10 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert 'div[data-testid="stChatMessage"]' in SMAI_GLOBAL_CSS
     assert 'div[data-testid="stChatInput"]' in SMAI_GLOBAL_CSS
     assert ".smai-copilot-answer-grid" in SMAI_GLOBAL_CSS
+    assert "width: min(54rem, calc(100% - 1.5rem));" in SMAI_GLOBAL_CSS
+    assert ".smai-copilot-inline-sections" in SMAI_GLOBAL_CSS
+    assert ".smai-copilot-natural-lead" in SMAI_GLOBAL_CSS
+    assert ".smai-copilot-action-link" in SMAI_GLOBAL_CSS
     assert ".smai-assistant-holo-chart" in SMAI_GLOBAL_CSS
     assert ".smai-assistant-rank-bars" in SMAI_GLOBAL_CSS
     assert "@keyframes smai-buddy-curious" in SMAI_GLOBAL_CSS

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import base64
 import html
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
@@ -29,6 +31,7 @@ from ui.components.mascot import (
 COPILOT_CHAT_HISTORY_STATE_KEY = "smai_copilot_chat_history"
 COPILOT_CONVERSATION_ID_STATE_KEY = "smai_copilot_conversation_id"
 COPILOT_ACTIVE_INTENT_STATE_KEY = "smai_copilot_active_intent"
+COPILOT_PENDING_STREAM_STATE_KEY = "smai_copilot_pending_stream_turn_id"
 
 CopilotIntent = Literal[
     "app_help",
@@ -313,10 +316,25 @@ def copilot_history_messages(
 
 
 def copilot_answer_detail_html(turn: dict[str, str]) -> str:
-    titles = _section_titles_for_intent(_normalize_intent(turn.get("intent", "")))
+    intent = _normalize_intent(turn.get("intent", ""))
+    if intent == "free_chat":
+        return f"{_execution_result_html(turn)}{_response_meta_html(turn)}"
+    titles = _section_titles_for_intent(intent)
     reasons = _list_html(_split_lines(turn.get("reasons", "")))
     cautions = _list_html(_split_lines(turn.get("cautions", "")))
     checkpoints = _list_html(_split_lines(turn.get("next_checkpoints", "")))
+    if intent == "app_help":
+        return (
+            _inline_sections_html(
+                (
+                    (titles[0], reasons),
+                    (titles[1], cautions),
+                    (titles[2], checkpoints),
+                )
+            )
+            + _execution_result_html(turn)
+            + _response_meta_html(turn)
+        )
     grid_class = "smai-copilot-answer-grid"
     if len(titles) == 4:
         grid_class += " smai-copilot-answer-grid--four"
@@ -362,38 +380,39 @@ def render_copilot_workspace_page() -> None:
         st.session_state[COPILOT_ACTIVE_INTENT_STATE_KEY] = "free_chat"
         st.rerun()
 
-    _render_chat_thread(history)
-    suggested = _render_suggestion_buttons(has_history=bool(history))
     prompt = st.chat_input(
         "価格・予測・ニュース・根拠資料について確認したいことを入力...",
         key="smai_copilot_chat_input",
         max_chars=240,
     )
 
-    if suggested is not None:
-        context = context_by_id.get(suggested.context_id, contexts[0])
-        with st.spinner("SMAIナビが確認中です..."):
-            _handle_copilot_submit(
-                context,
-                suggested.default_question,
-                intent=suggested.intent,
-                prompt_instruction=suggested.prompt_instruction,
-                visible_question=suggested.label,
-                runtime_config=runtime_config,
-            )
-        st.rerun()
-
     if prompt:
         intent = _intent_from_message(prompt, fallback=_active_intent())
         preset = _preset_for_intent(intent)
         context = context_by_id.get(preset.context_id, contexts[0])
-        with st.spinner("SMAIナビが確認中です..."):
+        with st.spinner(f"SMAIナビが考えています... {runtime_config.model}で回答を生成中"):
             _handle_copilot_submit(
                 context,
                 prompt,
                 intent=intent,
                 prompt_instruction=preset.prompt_instruction,
                 visible_question=prompt,
+                runtime_config=runtime_config,
+            )
+        st.rerun()
+
+    _render_chat_thread(history)
+    suggested = _render_suggestion_buttons(has_history=bool(history))
+
+    if suggested is not None:
+        context = context_by_id.get(suggested.context_id, contexts[0])
+        with st.spinner(f"SMAIナビが考えています... {runtime_config.model}で回答を生成中"):
+            _handle_copilot_submit(
+                context,
+                suggested.default_question,
+                intent=suggested.intent,
+                prompt_instruction=suggested.prompt_instruction,
+                visible_question=suggested.label,
                 runtime_config=runtime_config,
             )
         st.rerun()
@@ -409,8 +428,13 @@ def _render_chat_thread(turns: list[dict[str, str]]) -> None:
         st.markdown(_welcome_prompt_html(), unsafe_allow_html=True)
         return
 
+    pending_turn_id = str(st.session_state.get(COPILOT_PENDING_STREAM_STATE_KEY, "") or "")
     for index, turn in enumerate(turns):
-        st.markdown(copilot_turn_html(turn), unsafe_allow_html=True)
+        if pending_turn_id and str(turn.get("turn_id", "")) == pending_turn_id:
+            _render_streaming_turn(turn)
+            st.session_state[COPILOT_PENDING_STREAM_STATE_KEY] = ""
+        else:
+            st.markdown(copilot_turn_html(turn), unsafe_allow_html=True)
         _render_turn_actions(turn, index=index)
 
 
@@ -503,21 +527,21 @@ def _handle_copilot_submit(
         referenced_context_ids=[context.context_id],
         settings=copilot_settings_from_gateway_runtime(runtime_config),
     )
-    history.append(
-        _turn_from_response(
-            context,
-            visible_question,
-            response,
-            intent=intent,
-            executed_checks=[
-                _material_status_summary(context),
-                *[result.summary for result in tool_plan.executed],
-            ],
-            tool_statuses=[f"{result.name}: {result.status}" for result in tool_plan.executed],
-        )
+    turn = _turn_from_response(
+        context,
+        visible_question,
+        response,
+        intent=intent,
+        executed_checks=[
+            _material_status_summary(context),
+            *[result.summary for result in tool_plan.executed],
+        ],
+        tool_statuses=[f"{result.name}: {result.status}" for result in tool_plan.executed],
     )
+    history.append(turn)
     st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = history
     st.session_state[COPILOT_ACTIVE_INTENT_STATE_KEY] = intent
+    st.session_state[COPILOT_PENDING_STREAM_STATE_KEY] = turn["turn_id"]
 
 
 def _turn_from_response(
@@ -530,6 +554,7 @@ def _turn_from_response(
     tool_statuses: list[str] | None = None,
 ) -> dict[str, str]:
     return {
+        "turn_id": uuid4().hex,
         "context_id": context.context_id,
         "context_label": copilot_context_label(context),
         "intent": intent,
@@ -639,6 +664,36 @@ def _assistant_bubble_html(*, answer: str, detail_html: str) -> str:
     )
 
 
+def _render_streaming_turn(turn: dict[str, str]) -> None:
+    context_label = str(turn.get("context_label", "")).strip()
+    question = str(turn.get("question", "")).strip()
+    answer = str(turn.get("answer", "")).strip()
+    st.markdown(
+        _user_bubble_html(context_label=context_label, question=question), unsafe_allow_html=True
+    )
+    placeholder = st.empty()
+    for partial in _stream_chunks(answer):
+        placeholder.markdown(
+            _assistant_bubble_html(answer=partial, detail_html=""),
+            unsafe_allow_html=True,
+        )
+        time.sleep(0.006)
+    placeholder.markdown(
+        _assistant_bubble_html(answer=answer, detail_html=copilot_answer_detail_html(turn)),
+        unsafe_allow_html=True,
+    )
+
+
+def _stream_chunks(text: str) -> list[str]:
+    normalized = str(text or "").strip()
+    if not normalized:
+        return [""]
+    chunk_size = max(12, min(28, len(normalized) // 8 or 12))
+    chunks = [normalized[:index] for index in range(chunk_size, len(normalized), chunk_size)]
+    chunks.append(normalized)
+    return chunks[:16]
+
+
 def _action_card_intro_html(*, preset: CopilotConversationPreset) -> str:
     return (
         '<div class="smai-copilot-action-card">'
@@ -646,6 +701,22 @@ def _action_card_intro_html(*, preset: CopilotConversationPreset) -> str:
         f"<p>{html.escape(preset.description)}</p>"
         "</div>"
     )
+
+
+def _inline_sections_html(sections: tuple[tuple[str, str], ...]) -> str:
+    blocks = "".join(
+        (
+            '<section class="smai-copilot-inline-section">'
+            f"<span>{html.escape(title)}</span>"
+            f"{body}"
+            "</section>"
+        )
+        for title, body in sections
+        if body
+    )
+    if not blocks:
+        return ""
+    return f'<div class="smai-copilot-inline-sections">{blocks}</div>'
 
 
 def _conversation_answer(
@@ -711,39 +782,52 @@ def _response_meta_html(turn: dict[str, str]) -> str:
 
 
 def _render_turn_actions(turn: dict[str, str], *, index: int) -> None:
-    _, actions_col, _ = st.columns([0.14, 0.72, 0.14])
-    with actions_col:
-        copy_col, memo_col, report_col = st.columns(3)
-        plain_text = copilot_turn_plain_text(turn)
-        markdown = copilot_turn_markdown(turn)
-        with copy_col:
-            st.download_button(
-                "コピー",
-                data=plain_text,
-                file_name=_memo_filename(turn, extension="txt"),
-                mime="text/plain",
-                key=f"smai_copilot_copy_{index}",
-                use_container_width=True,
-            )
-        with memo_col:
-            st.download_button(
-                "Markdownで保存",
-                data=markdown,
-                file_name=_memo_filename(turn),
-                mime="text/markdown",
-                key=f"smai_copilot_memo_{index}",
-                use_container_width=True,
-            )
-        with report_col:
-            st.download_button(
-                "Decision Reportに追加",
-                data=markdown,
-                file_name=_memo_filename(turn),
-                mime="text/markdown",
-                key=f"smai_copilot_report_{index}",
-                use_container_width=True,
-                help="現時点ではDecision Reportへ貼り付けやすいMarkdownメモとして保存します。",
-            )
+    actions = _actions_for_turn(turn)
+    plain_text = copilot_turn_plain_text(turn)
+    markdown = copilot_turn_markdown(turn)
+    action_links = "".join(
+        _download_action_link_html(
+            label=label,
+            data=plain_text if kind == "copy" else markdown,
+            file_name=(
+                _memo_filename(turn, extension="txt") if kind == "copy" else _memo_filename(turn)
+            ),
+            mime="text/plain" if kind == "copy" else "text/markdown",
+        )
+        for label, kind in actions
+    )
+    st.markdown(
+        (
+            '<div class="smai-copilot-thread smai-copilot-actions-thread">'
+            '<div class="smai-copilot-actions-row">'
+            f"{action_links}"
+            "</div>"
+            "</div>"
+        ),
+        unsafe_allow_html=True,
+    )
+
+
+def _actions_for_turn(turn: dict[str, str]) -> tuple[tuple[str, str], ...]:
+    intent = _normalize_intent(turn.get("intent", ""))
+    if intent == "free_chat":
+        return (("コピー", "copy"),)
+    if intent == "app_help":
+        return (("コピー", "copy"), ("Markdownで保存", "memo"))
+    if intent == "decision_report_draft":
+        return (("Markdownで保存", "memo"), ("Decision Reportに追加", "report"))
+    return (("コピー", "copy"), ("Markdownで保存", "memo"), ("Decision Reportに追加", "report"))
+
+
+def _download_action_link_html(*, label: str, data: str, file_name: str, mime: str) -> str:
+    encoded = base64.b64encode(data.encode("utf-8")).decode("ascii")
+    return (
+        '<a class="smai-copilot-action-link" '
+        f'href="data:{html.escape(mime)};charset=utf-8;base64,{encoded}" '
+        f'download="{html.escape(file_name)}">'
+        f"{html.escape(label)}"
+        "</a>"
+    )
 
 
 def copilot_turn_plain_text(turn: dict[str, str]) -> str:

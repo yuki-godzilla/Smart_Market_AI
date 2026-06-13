@@ -18,6 +18,21 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-14 - SMAI Assistant Chat Layout Fix
+
+- Reworked SMAI Assistant conversation layout into a centered single-column chat flow constrained to the same chat width for header, material status, thread, suggestions, and input.
+- Kept user messages right-aligned and SMAI responses left-aligned within the same column so each question / answer pair reads in chronological order.
+- Prevented assistant response cards from scattering across the full screen by keeping structured cards inside the assistant response as supporting content.
+- Replaced oversized Streamlit action bars with compact per-response download links directly under each assistant answer.
+- Validated representative prompts: `こんにちは`, `SMAIの使い方を教えて`, `この銘柄で最初に確認する材料は？`, `AI予測インサイトと下振れ警戒をどう比べればいい？`, and `Decision Reportに残す確認点を整理して`.
+
+## 2026-06-14 - SMAI Assistant chat-first streaming UX update
+
+- Changed SMAI Assistant rendering further toward chat-first behavior by suppressing fixed structured cards for `free_chat` and using inline, non-card sections for `app_help`.
+- Added pseudo-streaming for the newest assistant turn: after submit, the answer is rendered progressively before structured support sections, execution checks, metadata, and actions appear.
+- Added model-aware processing text (`SMAIナビが考えています... qwen3:8bで回答を生成中`) and intent-sensitive action buttons so free chat does not look like a report panel.
+- Validated actual Streamlit rendering with representative prompts: `こんにちは`, `SMAIの使い方を教えて`, `この銘柄で最初に確認する材料は？`, `AI予測インサイトと下振れ警戒をどう比べればいい？`, `ニュース材料を見たい`, and `Decision Reportに残す確認点を整理して`. Each prompt resolved to the expected intent, showed metadata, did not repeat the initial six cards, and `こんにちは` did not show fixed structured cards.
+
 ## 2026-06-14 - SMAI Assistant LLM conversation UX polish
 
 - Changed assistant response rendering from fixed template-first layout to conversation-first layout: SMAIナビ natural-language lead-in now appears before structured response sections.

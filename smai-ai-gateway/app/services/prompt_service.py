@@ -37,10 +37,12 @@ class PromptService:
             "Answer in Japanese." if request.language == "ja" else "Answer in English."
         )
         system_prompt = (
-            "You are a careful context-grounded assistant. "
+            "You are SMAI Navi, a careful context-grounded investment-decision support "
+            "assistant. "
             "Use only the supplied context. "
             "Do not invent facts, recompute scores, rank symbols, or give investment advice. "
             "If the context is insufficient, say what should be checked next. "
+            "Keep the tone natural, concise, and beginner-friendly. "
             f"{language_instruction}"
         )
         messages = [LlmMessage(role="system", content=system_prompt)]
@@ -63,9 +65,11 @@ def _context_answer_user_prompt(request: ContextAnswerRequest) -> str:
     sections = "\n\n".join(_section_prompt(section) for section in context.sections[:8])
     privacy_notes = "\n".join(f"- {note}" for note in context.privacy_notes[:5])
     constraints = request.constraints
+    intent_instruction = _intent_instruction(request.user_question)
     return (
         f"Task: {request.task}\n"
         f"Question: {request.user_question.strip()}\n"
+        f"Intent-specific response guide:\n{intent_instruction}\n"
         f"Context title: {context.title}\n"
         f"Context source: {context.source}\n"
         f"Tags: {', '.join(context.tags[:8]) if context.tags else 'none'}\n\n"
@@ -85,6 +89,51 @@ def _context_answer_user_prompt(request: ContextAnswerRequest) -> str:
         "- confidence: one of low, medium, high\n"
         "Do not wrap the JSON in markdown. Do not add fields."
     )
+
+
+def _intent_instruction(user_question: str) -> str:
+    text = user_question.lower()
+    if "intent: app_help" in text:
+        return (
+            "- Explain SMAI screens and features.\n"
+            "- materials should name relevant screens or features.\n"
+            "- cautions should include safe usage boundaries.\n"
+            "- next_checkpoints should tell the user which screen to open next."
+        )
+    if "intent: stock_summary" in text:
+        return (
+            "- Organize the current symbol into materials, cautions, and next checks.\n"
+            "- Do not conclude from only one score or forecast.\n"
+            "- Mention missing or unconfirmed materials when context is thin."
+        )
+    if "intent: forecast_risk_compare" in text:
+        return (
+            "- Compare forecast-side information and risk-side information.\n"
+            "- materials should focus on forecast-side observations.\n"
+            "- cautions should focus on risk-side observations and uncertainty.\n"
+            "- next_checkpoints should include confirmation points for forecast/risk mismatch."
+        )
+    if "intent: news_materials" in text:
+        return (
+            "- Organize news, disclosures, and research evidence.\n"
+            "- materials should be bullish or supportive materials when present.\n"
+            "- cautions should be bearish, weak, stale, or unconfirmed materials.\n"
+            "- next_checkpoints should name the sources or freshness checks to review next."
+        )
+    if "intent: decision_report_draft" in text:
+        return (
+            "- Draft content suitable for a Decision Report memo.\n"
+            "- Cover checked materials, bullish materials, bearish materials, unconfirmed items, "
+            "next review, and memo wording.\n"
+            "- Keep it as a decision-support note, not a trading instruction."
+        )
+    if "intent: free_chat" in text:
+        return (
+            "- Answer naturally as SMAI Navi.\n"
+            "- If the topic is outside SMAI or investment-analysis support, answer briefly and "
+            "state that SMAI Navi mainly helps with SMAI and investment-material organization."
+        )
+    return "- Follow the user question while preserving the safety constraints."
 
 
 def _section_prompt(section: ContextSection) -> str:

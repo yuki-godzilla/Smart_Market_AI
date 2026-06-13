@@ -2,13 +2,24 @@ from __future__ import annotations
 
 import html
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Literal
 from uuid import uuid4
 
 import streamlit as st
 
-from backend.assistant import AssistantMessage, AssistantResponse
+from backend.assistant import (
+    AssistantMessage,
+    AssistantResponse,
+    detect_assistant_intent,
+    execute_assistant_tool_plan,
+)
 from backend.core.config import AssistantGatewayConfig, Settings, get_settings
-from ui.components.assistant import SmaiAssistantContext, assistant_response_for_context
+from ui.components.assistant import (
+    SmaiAssistantContext,
+    assistant_context_to_report_context,
+    assistant_response_for_context,
+)
 from ui.components.mascot import (
     MASCOT_NAVI_CHAT_ASSET,
     MASCOT_THUMB_ASSET,
@@ -17,6 +28,16 @@ from ui.components.mascot import (
 
 COPILOT_CHAT_HISTORY_STATE_KEY = "smai_copilot_chat_history"
 COPILOT_CONVERSATION_ID_STATE_KEY = "smai_copilot_conversation_id"
+COPILOT_ACTIVE_INTENT_STATE_KEY = "smai_copilot_active_intent"
+
+CopilotIntent = Literal[
+    "app_help",
+    "stock_summary",
+    "forecast_risk_compare",
+    "news_materials",
+    "decision_report_draft",
+    "free_chat",
+]
 
 
 @dataclass(frozen=True)
@@ -36,8 +57,36 @@ class CopilotGatewayRuntimeConfig:
         return "LLM接続: ON" if self.enabled else "LLM接続: OFF"
 
 
+@dataclass(frozen=True)
+class CopilotConversationPreset:
+    intent: CopilotIntent
+    label: str
+    description: str
+    context_id: str
+    default_question: str
+    prompt_instruction: str
+
+
 def copilot_context_options() -> tuple[SmaiAssistantContext, ...]:
     return (
+        SmaiAssistantContext(
+            context_id="copilot_app_help",
+            page_key="assistant",
+            page_label="SMAIアシスタント",
+            section_key="app_help",
+            section_label="SMAIの使い方",
+            lead=("SMAIの主要画面、確認順、Decision Reportへの残し方を" "初心者向けに案内します。"),
+            summary={
+                "用途": "SMAIの画面案内",
+                "主な材料": "銘柄コックピット、銘柄ランキング、投資レーダー、リバランス",
+            },
+            suggested_questions=(
+                "SMAIでは何から見ればいい？",
+                "銘柄コックピットとランキングはどう使い分ける？",
+                "Decision Reportには何を残す？",
+            ),
+            priority=90,
+        ),
         SmaiAssistantContext(
             context_id="copilot_cockpit_overview",
             page_key="cockpit",
@@ -144,6 +193,74 @@ def copilot_context_options() -> tuple[SmaiAssistantContext, ...]:
     )
 
 
+def copilot_conversation_presets() -> tuple[CopilotConversationPreset, ...]:
+    return (
+        CopilotConversationPreset(
+            intent="app_help",
+            label="SMAIの使い方を聞きたい",
+            description="画面ごとの役割と、次に開く場所を確認します。",
+            context_id="copilot_app_help",
+            default_question="SMAIの使い方と、最初に見る画面を教えてください。",
+            prompt_instruction=(
+                "SMAIの画面と機能を説明し、ユーザーが次に開くべき画面を案内してください。"
+            ),
+        ),
+        CopilotConversationPreset(
+            intent="stock_summary",
+            label="この銘柄を整理したい",
+            description="見る材料、注意点、次に確認することに分けます。",
+            context_id="copilot_cockpit_overview",
+            default_question="この銘柄を、見る材料・注意点・次に確認することに分けて整理してください。",
+            prompt_instruction=(
+                "現在の銘柄文脈を、見る材料、注意点、次に確認することに分けて整理してください。"
+            ),
+        ),
+        CopilotConversationPreset(
+            intent="forecast_risk_compare",
+            label="予測とリスクを比べたい",
+            description="予測側とリスク側の温度差を見ます。",
+            context_id="copilot_cockpit_overview",
+            default_question="AI予測インサイトと下振れ警戒を比べて、確認ポイントを整理してください。",
+            prompt_instruction=(
+                "予測側の見方、リスク側の見方、矛盾・温度差、確認ポイントの順に整理してください。"
+            ),
+        ),
+        CopilotConversationPreset(
+            intent="news_materials",
+            label="ニュース材料を見たい",
+            description="強気材料、弱気材料、未確認材料を分けます。",
+            context_id="copilot_news_overview",
+            default_question="ニュースや開示材料を、強気材料・弱気材料・未確認材料に分けて整理してください。",
+            prompt_instruction=(
+                "ニュース、開示、Research Evidenceを、強気材料、弱気材料、未確認材料、"
+                "次に見る資料に分けて整理してください。"
+            ),
+        ),
+        CopilotConversationPreset(
+            intent="decision_report_draft",
+            label="Decision Reportを作りたい",
+            description="判断メモとして残す下書きを作ります。",
+            context_id="copilot_cockpit_overview",
+            default_question="Decision Reportに残すための整理メモを作ってください。",
+            prompt_instruction=(
+                "確認した材料、強気材料、弱気材料、未確認事項、次回確認、メモの順に"
+                "Decision Reportの下書きを作ってください。"
+            ),
+        ),
+        CopilotConversationPreset(
+            intent="free_chat",
+            label="自由に会話する",
+            description="SMAIや投資材料について自由に相談します。",
+            context_id="copilot_app_help",
+            default_question="SMAIナビとして、自由相談を始めてください。",
+            prompt_instruction=(
+                "SMAIナビの口調で自然に会話してください。投資やSMAI以外の話題では、"
+                "主な役割がSMAIと投資判断材料の整理であることを添えてください。"
+            ),
+        ),
+    )
+
+
 def copilot_context_label(context: SmaiAssistantContext) -> str:
     return f"{context.page_label} / {context.section_label}"
 
@@ -196,14 +313,21 @@ def copilot_history_messages(
 
 
 def copilot_answer_detail_html(turn: dict[str, str]) -> str:
+    titles = _section_titles_for_intent(_normalize_intent(turn.get("intent", "")))
+    executed = _list_html(_split_lines(turn.get("executed_checks", "")))
     reasons = _list_html(_split_lines(turn.get("reasons", "")))
     cautions = _list_html(_split_lines(turn.get("cautions", "")))
     checkpoints = _list_html(_split_lines(turn.get("next_checkpoints", "")))
+    grid_class = "smai-copilot-answer-grid"
+    if len(titles) == 4:
+        grid_class += " smai-copilot-answer-grid--four"
     return (
-        '<div class="smai-copilot-answer-grid">'
-        f'{_block_html("見る材料", reasons)}'
-        f'{_block_html("注意点", cautions)}'
-        f'{_block_html("次に確認", checkpoints)}'
+        f'{_block_html("実行した確認", executed)}'
+        f'<div class="{grid_class}">'
+        f"{_block_html(titles[0], reasons)}"
+        f"{_block_html(titles[1], cautions)}"
+        f"{_block_html(titles[2], checkpoints)}"
+        f"{_block_html(titles[3], _list_html(_split_lines(turn.get('memo_points', '')))) if len(titles) == 4 else ''}"
         "</div>"
     )
 
@@ -222,95 +346,125 @@ def copilot_turn_html(turn: dict[str, str]) -> str:
 
 def render_copilot_workspace_page() -> None:
     contexts = copilot_context_options()
-    labels = [copilot_context_label(context) for context in contexts]
+    context_by_id = {context.context_id: context for context in contexts}
     history = _copilot_history()
     runtime_config = copilot_gateway_runtime_config()
 
     st.markdown(_chat_header_html(history_count=len(history)), unsafe_allow_html=True)
-    _, settings_col, _ = st.columns([0.14, 0.72, 0.14])
-    with settings_col:
-        st.markdown(
-            '<div class="smai-copilot-mode-label">分析モード</div>',
-            unsafe_allow_html=True,
-        )
-        context_col, clear_col = st.columns([0.74, 0.26])
-        with context_col:
-            selected_label = st.selectbox(
-                "分析モード",
-                labels,
-                key="smai_copilot_context_select",
-                label_visibility="collapsed",
-            )
-        with clear_col:
-            clear = st.button("新しい分析", use_container_width=True)
-    selected_context = contexts[labels.index(selected_label)]
+    _render_material_status(_active_context_from_history(history, context_by_id))
+    _, clear_col = st.columns([0.82, 0.18])
+    with clear_col:
+        clear = st.button("新しい会話", use_container_width=True)
 
     if clear:
         st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = []
         st.session_state[COPILOT_CONVERSATION_ID_STATE_KEY] = _new_conversation_id()
+        st.session_state[COPILOT_ACTIVE_INTENT_STATE_KEY] = "free_chat"
         st.rerun()
 
-    _render_chat_thread(history, selected_context)
-    suggested_question = _render_suggestion_buttons(selected_context, has_history=bool(history))
+    _render_chat_thread(history)
+    suggested = _render_suggestion_buttons(has_history=bool(history))
     prompt = st.chat_input(
         "価格・予測・ニュース・根拠資料について確認したいことを入力...",
         key="smai_copilot_chat_input",
         max_chars=240,
     )
 
-    submitted_question = suggested_question or prompt
-    if submitted_question:
-        _handle_copilot_submit(
-            selected_context,
-            submitted_question,
-            runtime_config=runtime_config,
-        )
+    if suggested is not None:
+        context = context_by_id.get(suggested.context_id, contexts[0])
+        with st.spinner("SMAIナビが確認中です..."):
+            _handle_copilot_submit(
+                context,
+                suggested.default_question,
+                intent=suggested.intent,
+                prompt_instruction=suggested.prompt_instruction,
+                visible_question=suggested.label,
+                runtime_config=runtime_config,
+            )
+        st.rerun()
+
+    if prompt:
+        intent = _intent_from_message(prompt, fallback=_active_intent())
+        preset = _preset_for_intent(intent)
+        context = context_by_id.get(preset.context_id, contexts[0])
+        with st.spinner("SMAIナビが確認中です..."):
+            _handle_copilot_submit(
+                context,
+                prompt,
+                intent=intent,
+                prompt_instruction=preset.prompt_instruction,
+                visible_question=prompt,
+                runtime_config=runtime_config,
+            )
         st.rerun()
 
     st.caption(
-        "SMAI Copilotは判断材料の整理を補助します。売買推奨、スコア変更、"
+        "SMAIアシスタントは判断材料の整理を補助します。売買推奨、スコア変更、"
         "ランキング順位変更は行いません。"
     )
 
 
-def _render_chat_thread(
-    turns: list[dict[str, str]],
-    selected_context: SmaiAssistantContext,
-) -> None:
+def _render_chat_thread(turns: list[dict[str, str]]) -> None:
     if not turns:
-        st.markdown(_welcome_prompt_html(selected_context), unsafe_allow_html=True)
+        st.markdown(_welcome_prompt_html(), unsafe_allow_html=True)
         return
 
-    for turn in turns:
+    for index, turn in enumerate(turns):
         st.markdown(copilot_turn_html(turn), unsafe_allow_html=True)
+        _render_turn_actions(turn, index=index)
 
 
 def _render_suggestion_buttons(
-    selected_context: SmaiAssistantContext,
     *,
     has_history: bool,
-) -> str | None:
-    heading = "続けて確認" if has_history else "おすすめアクション"
+) -> CopilotConversationPreset | None:
+    heading = "続けて相談" if has_history else "今日は何を相談しますか？"
     st.markdown(
         f'<div class="smai-copilot-suggestions-title">{html.escape(heading)}</div>',
         unsafe_allow_html=True,
     )
     _, suggestions_col, _ = st.columns([0.14, 0.72, 0.14])
     with suggestions_col:
-        columns = st.columns(len(selected_context.suggested_questions))
-        for index, question in enumerate(selected_context.suggested_questions):
-            with columns[index]:
-                st.markdown(
-                    _action_card_intro_html(index=index, question=question),
-                    unsafe_allow_html=True,
-                )
-                if st.button(
-                    _action_button_label(index),
-                    key=f"smai_copilot_suggestion_{selected_context.context_id}_{index}",
-                    use_container_width=True,
-                    help=question,
-                ):
-                    return question
+        if has_history:
+            return _render_followup_buttons()
+        presets = copilot_conversation_presets()
+        for row_start in range(0, len(presets), 3):
+            columns = st.columns(3)
+            for offset, preset in enumerate(presets[row_start : row_start + 3]):
+                with columns[offset]:
+                    st.markdown(
+                        _action_card_intro_html(preset=preset),
+                        unsafe_allow_html=True,
+                    )
+                    if st.button(
+                        preset.label,
+                        key=f"smai_copilot_suggestion_{preset.intent}",
+                        use_container_width=True,
+                        help=preset.description,
+                    ):
+                        st.session_state[COPILOT_ACTIVE_INTENT_STATE_KEY] = preset.intent
+                        return preset
+    return None
+
+
+def _render_followup_buttons() -> CopilotConversationPreset | None:
+    followups: tuple[tuple[str, CopilotIntent], ...] = (
+        ("予測だけ確認", "forecast_risk_compare"),
+        ("ニュースだけ再確認", "news_materials"),
+        ("Decision Report下書きへ", "decision_report_draft"),
+    )
+    columns = st.columns(len(followups))
+    for index, (label, intent) in enumerate(followups):
+        preset = _preset_for_intent(intent)
+        with columns[index]:
+            if st.button(
+                label,
+                key=f"smai_copilot_followup_{intent}",
+                use_container_width=True,
+                help=preset.description,
+            ):
+                st.session_state[COPILOT_ACTIVE_INTENT_STATE_KEY] = intent
+                return preset
     return None
 
 
@@ -318,6 +472,9 @@ def _handle_copilot_submit(
     context: SmaiAssistantContext,
     question: str,
     *,
+    intent: CopilotIntent,
+    prompt_instruction: str,
+    visible_question: str,
     runtime_config: CopilotGatewayRuntimeConfig,
 ) -> None:
     normalized_question = question.strip()
@@ -327,31 +484,62 @@ def _handle_copilot_submit(
 
     history = _copilot_history()
     conversation_id = _conversation_id()
+    tool_plan = execute_assistant_tool_plan(
+        intent=intent,
+        message=normalized_question,
+        report_context=assistant_context_to_report_context(context),
+    )
+    gateway_question = _gateway_question(
+        question=normalized_question,
+        intent=intent,
+        prompt_instruction=prompt_instruction,
+        tool_summaries=[result.summary for result in tool_plan.executed],
+    )
     response = assistant_response_for_context(
         context,
-        normalized_question,
+        gateway_question,
         conversation_id=conversation_id,
         message_history=copilot_history_messages(history),
         referenced_context_ids=[context.context_id],
         settings=copilot_settings_from_gateway_runtime(runtime_config),
     )
-    history.append(_turn_from_response(context, normalized_question, response))
+    history.append(
+        _turn_from_response(
+            context,
+            visible_question,
+            response,
+            intent=intent,
+            executed_checks=[result.summary for result in tool_plan.executed],
+            tool_statuses=[f"{result.name}: {result.status}" for result in tool_plan.executed],
+        )
+    )
     st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = history
+    st.session_state[COPILOT_ACTIVE_INTENT_STATE_KEY] = intent
 
 
 def _turn_from_response(
     context: SmaiAssistantContext,
     question: str,
     response: AssistantResponse,
+    *,
+    intent: CopilotIntent = "stock_summary",
+    executed_checks: list[str] | None = None,
+    tool_statuses: list[str] | None = None,
 ) -> dict[str, str]:
     return {
         "context_id": context.context_id,
         "context_label": copilot_context_label(context),
+        "intent": intent,
+        "intent_label": _preset_for_intent(intent).label,
         "question": question,
         "answer": response.answer,
         "reasons": "\n".join(response.reasons),
         "cautions": "\n".join(response.cautions),
         "next_checkpoints": "\n".join(response.next_checkpoints),
+        "memo_points": "\n".join(_memo_points_for_intent(intent, response)),
+        "executed_checks": "\n".join(executed_checks or ()),
+        "tool_statuses": "\n".join(tool_statuses or ()),
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
 
 
@@ -381,7 +569,7 @@ def _new_conversation_id() -> str:
 
 def _chat_header_html(*, history_count: int) -> str:
     status_label = "準備完了" if history_count == 0 else "確認中"
-    status_detail = "文脈: 銘柄コックピット" if history_count == 0 else f"会話 {history_count}件"
+    status_detail = "SMAIナビ" if history_count == 0 else f"会話 {history_count}件"
     navi_image = _asset_data_uri(MASCOT_NAVI_CHAT_ASSET)
     return (
         '<section class="smai-copilot-chat-topbar">'
@@ -390,8 +578,8 @@ def _chat_header_html(*, history_count: int) -> str:
         f'<img src="{navi_image}" alt="" loading="lazy" />'
         "</div>"
         "<div>"
-        '<span class="smai-copilot-eyebrow">SMAI Copilot</span>'
-        "<h1>投資判断アシスタント</h1>"
+        '<span class="smai-copilot-eyebrow">SMAIアシスタント</span>'
+        "<h1>SMAIナビ</h1>"
         "<p>銘柄・予測・ニュース・根拠資料を横断して、確認すべき材料を整理します。</p>"
         "</div>"
         "</div>"
@@ -404,38 +592,13 @@ def _chat_header_html(*, history_count: int) -> str:
     )
 
 
-def _welcome_prompt_html(context: SmaiAssistantContext) -> str:
-    chips = "".join(
-        f'<span class="smai-copilot-chip">{html.escape(label)}</span>'
-        for label in (
-            "価格",
-            "AI予測",
-            "上向き気配",
-            "下振れ警戒",
-            "ニュース・開示",
-            "Decision Report",
-        )
-    )
-    steps = _list_html(
-        [
-            "まず価格とトレンドを見る",
-            "AI予測と警戒シグナルを比較する",
-            "ニュース・開示で理由を確認する",
-            "Decision Reportに残す観点を整理する",
-        ]
-    )
+def _welcome_prompt_html() -> str:
     return (
         '<section class="smai-copilot-workspace-card">'
-        '<div class="smai-copilot-card-kicker">現在の分析テーマ</div>'
-        f"<h2>{html.escape(context.section_label)}</h2>"
-        f"<p>{html.escape(context.lead)}</p>"
-        '<div class="smai-copilot-chip-row">'
-        f"{chips}"
-        "</div>"
-        '<div class="smai-copilot-answer-grid smai-copilot-answer-grid--welcome">'
-        f'{_block_html("見る材料", _summary_html(context))}'
-        f'{_block_html("次に確認", steps)}'
-        "</div>"
+        '<div class="smai-copilot-card-kicker">SMAIナビ</div>'
+        "<h2>こんにちは。SMAIナビです。</h2>"
+        "<p>投資判断アシスタントとして、SMAIの使い方や銘柄・予測・ニュース・"
+        "根拠資料の整理をお手伝いします。今日は何を相談しますか？</p>"
         "</section>"
     )
 
@@ -461,7 +624,7 @@ def _assistant_bubble_html(*, answer: str, detail_html: str) -> str:
         f'smai-copilot-assistant-avatar-image--reply" src="{image}" alt="" loading="lazy" />'
         "</div>"
         '<div class="smai-copilot-message-card smai-copilot-message-card--assistant">'
-        '<div class="smai-copilot-message-meta">SMAIの整理</div>'
+        '<div class="smai-copilot-message-meta">SMAIナビの整理</div>'
         f"<p>{html.escape(answer)}</p>"
         f"{detail_html}"
         "</div>"
@@ -469,24 +632,258 @@ def _assistant_bubble_html(*, answer: str, detail_html: str) -> str:
     )
 
 
-def _action_card_intro_html(*, index: int, question: str) -> str:
-    label = ("まず確認", "予測比較", "判断メモ")[index] if index < 3 else "確認"
+def _action_card_intro_html(*, preset: CopilotConversationPreset) -> str:
     return (
         '<div class="smai-copilot-action-card">'
-        f'<span class="smai-copilot-action-label">{html.escape(label)}</span>'
-        f"<p>{html.escape(question)}</p>"
+        f'<span class="smai-copilot-action-label">{html.escape(preset.label)}</span>'
+        f"<p>{html.escape(preset.description)}</p>"
         "</div>"
     )
 
 
-def _action_button_label(index: int) -> str:
-    labels = ("この観点で聞く", "比較して聞く", "メモ観点を聞く")
-    return labels[index] if index < len(labels) else "聞く"
+def _render_turn_actions(turn: dict[str, str], *, index: int) -> None:
+    _, actions_col, _ = st.columns([0.14, 0.72, 0.14])
+    with actions_col:
+        copy_col, memo_col, report_col = st.columns(3)
+        plain_text = copilot_turn_plain_text(turn)
+        markdown = copilot_turn_markdown(turn)
+        with copy_col:
+            st.download_button(
+                "コピー",
+                data=plain_text,
+                file_name=_memo_filename(turn, extension="txt"),
+                mime="text/plain",
+                key=f"smai_copilot_copy_{index}",
+                use_container_width=True,
+            )
+        with memo_col:
+            st.download_button(
+                "メモとして保存",
+                data=markdown,
+                file_name=_memo_filename(turn),
+                mime="text/markdown",
+                key=f"smai_copilot_memo_{index}",
+                use_container_width=True,
+            )
+        with report_col:
+            st.download_button(
+                "Decision Reportに追加",
+                data=markdown,
+                file_name=_memo_filename(turn),
+                mime="text/markdown",
+                key=f"smai_copilot_report_{index}",
+                use_container_width=True,
+                help="現時点ではDecision Reportへ貼り付けやすいMarkdownメモとして保存します。",
+            )
+
+
+def copilot_turn_plain_text(turn: dict[str, str]) -> str:
+    lines = [
+        f"相談モード: {turn.get('intent_label', '')}",
+        f"対象: {turn.get('context_label', '')}",
+        f"質問: {turn.get('question', '')}",
+        "",
+        str(turn.get("answer", "")).strip(),
+    ]
+    executed = _split_lines(turn.get("executed_checks", ""))
+    if executed:
+        lines.extend(["", "実行した確認:"])
+        lines.extend(f"- {item}" for item in executed)
+    for title, key in zip(
+        _section_titles_for_intent(_normalize_intent(turn.get("intent", ""))),
+        ("reasons", "cautions", "next_checkpoints", "memo_points"),
+    ):
+        items = _split_lines(turn.get(key, ""))
+        if not items:
+            continue
+        lines.extend(["", f"{title}:"])
+        lines.extend(f"- {item}" for item in items)
+    return "\n".join(lines).strip() + "\n"
+
+
+def copilot_turn_markdown(turn: dict[str, str]) -> str:
+    context_label = str(turn.get("context_label", "")).strip()
+    intent_label = str(turn.get("intent_label", "")).strip()
+    created_at = str(turn.get("created_at", "")).strip() or datetime.now().strftime(
+        "%Y-%m-%d %H:%M"
+    )
+    answer = str(turn.get("answer", "")).strip()
+    reasons = _markdown_list(_split_lines(turn.get("reasons", "")))
+    cautions = _markdown_list(_split_lines(turn.get("cautions", "")))
+    checkpoints = _markdown_list(_split_lines(turn.get("next_checkpoints", "")))
+    memo_points = _markdown_list(_split_lines(turn.get("memo_points", "")))
+    executed = _markdown_list(_split_lines(turn.get("executed_checks", "")))
+    return (
+        "# SMAIアシスタント メモ\n\n"
+        "## 対象\n"
+        "- 銘柄: 未指定\n"
+        f"- 画面: {context_label or 'SMAIアシスタント'}\n"
+        f"- 分析モード: {intent_label or '自由相談'}\n"
+        f"- 作成日時: {created_at}\n\n"
+        "## 実行した確認\n"
+        f"{executed}\n\n"
+        "## 確認した材料\n"
+        f"{reasons}\n\n"
+        "## 強気材料\n"
+        f"{memo_points}\n\n"
+        "## 弱気材料\n"
+        f"{cautions}\n\n"
+        "## 未確認事項\n"
+        f"{cautions}\n\n"
+        "## 次に確認すること\n"
+        f"{checkpoints}\n\n"
+        "## SMAIナビの整理\n"
+        f"- {answer or '未入力'}\n\n"
+        "---\n\n"
+        "本レポートは投資判断を補助するための整理メモであり、"
+        "売買を推奨するものではありません。\n"
+    )
 
 
 def _summary_html(context: SmaiAssistantContext) -> str:
     items = [f"{key}: {value}" for key, value in context.summary.items()]
     return _list_html(items or [context.lead])
+
+
+def _gateway_question(
+    *,
+    question: str,
+    intent: CopilotIntent,
+    prompt_instruction: str,
+    tool_summaries: list[str],
+) -> str:
+    tool_block = "\n".join(f"- {summary}" for summary in tool_summaries) or "- なし"
+    return (
+        f"SMAI Assistant intent: {intent}\n"
+        f"User question: {question.strip()}\n"
+        f"Response instruction: {prompt_instruction}\n"
+        f"Tool results already checked by SMAI:\n{tool_block}\n"
+        "Tone: SMAIナビとして、初心者にも分かる日本語で、断定しすぎず自然に答える。\n"
+        "Boundary: 売買推奨、スコア変更、ランキング変更、予測値の変更はしない。"
+    )
+
+
+def _render_material_status(context: SmaiAssistantContext) -> None:
+    status = _material_status(context)
+    chips = "".join(
+        f'<span class="smai-copilot-chip">{html.escape(label)}: {html.escape(value)}</span>'
+        for label, value in status
+    )
+    st.markdown(
+        '<div class="smai-copilot-material-status">'
+        "<span>参照中の材料</span>"
+        f'<div class="smai-copilot-chip-row">{chips}</div>'
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def _material_status(context: SmaiAssistantContext) -> tuple[tuple[str, str], ...]:
+    text = " ".join(
+        [
+            context.context_id,
+            context.page_key,
+            context.section_key,
+            context.section_label,
+            " ".join(str(value) for value in context.summary.values()),
+        ]
+    ).lower()
+    has_news = any(term in text for term in ("news", "ニュース", "開示", "research", "rag"))
+    has_research = any(term in text for term in ("research", "rag", "根拠", "材料分析"))
+    has_forecast = any(term in text for term in ("forecast", "予測", "ai予測", "cockpit"))
+    has_price = any(term in text for term in ("価格", "chart", "cockpit", "ranking"))
+    return (
+        ("価格", "あり" if has_price else "なし"),
+        ("AI予測", "あり" if has_forecast else "なし"),
+        ("ニュース", "あり" if has_news else "なし"),
+        ("Research Evidence", "あり" if has_research else "なし"),
+        ("Decision Report", "下書き可"),
+        ("LLM", "Gateway優先 / fallbackあり"),
+    )
+
+
+def _active_context_from_history(
+    history: list[dict[str, str]],
+    context_by_id: dict[str, SmaiAssistantContext],
+) -> SmaiAssistantContext:
+    if history:
+        context = context_by_id.get(str(history[-1].get("context_id", "")))
+        if context is not None:
+            return context
+    preset = _preset_for_intent(_active_intent())
+    return context_by_id.get(preset.context_id) or next(iter(context_by_id.values()))
+
+
+def _active_intent() -> CopilotIntent:
+    return _normalize_intent(st.session_state.get(COPILOT_ACTIVE_INTENT_STATE_KEY, "free_chat"))
+
+
+def _intent_from_message(message: str, *, fallback: CopilotIntent) -> CopilotIntent:
+    decision = detect_assistant_intent(message)
+    mapping: dict[str, CopilotIntent] = {
+        "app_help": "app_help",
+        "stock_summary": "stock_summary",
+        "forecast_check": "forecast_risk_compare",
+        "forecast_risk_compare": "forecast_risk_compare",
+        "chart_check": "stock_summary",
+        "news_materials": "news_materials",
+        "rag_search": "news_materials",
+        "decision_report_draft": "decision_report_draft",
+        "file_export": "decision_report_draft",
+        "free_chat": fallback,
+        "unknown": fallback,
+    }
+    return mapping.get(decision.intent, fallback)
+
+
+def _normalize_intent(value: object) -> CopilotIntent:
+    text = str(value or "").strip()
+    valid = {preset.intent for preset in copilot_conversation_presets()}
+    return text if text in valid else "free_chat"  # type: ignore[return-value]
+
+
+def _preset_for_intent(intent: CopilotIntent) -> CopilotConversationPreset:
+    for preset in copilot_conversation_presets():
+        if preset.intent == intent:
+            return preset
+    return copilot_conversation_presets()[-1]
+
+
+def _section_titles_for_intent(intent: CopilotIntent) -> tuple[str, ...]:
+    return {
+        "app_help": ("案内", "注意点", "次の操作"),
+        "stock_summary": ("見る材料", "注意点", "次に確認"),
+        "forecast_risk_compare": (
+            "予測側の見方",
+            "リスク側の見方",
+            "確認ポイント",
+            "矛盾・温度差",
+        ),
+        "news_materials": ("強気材料", "弱気材料", "次に見る資料", "未確認材料"),
+        "decision_report_draft": ("確認した材料", "未確認事項", "次回確認", "メモ"),
+        "free_chat": ("SMAIナビの見方", "注意点", "次にできること"),
+    }[intent]
+
+
+def _memo_points_for_intent(intent: CopilotIntent, response: AssistantResponse) -> list[str]:
+    if intent == "forecast_risk_compare":
+        return ["予測とリスクの向きが一致しているか、期間と根拠をそろえて確認します。"]
+    if intent == "news_materials":
+        return ["未確認材料は出典、日付、対象銘柄への影響範囲を分けて確認します。"]
+    if intent == "decision_report_draft":
+        return [response.answer]
+    return []
+
+
+def _memo_filename(turn: dict[str, str], *, extension: str = "md") -> str:
+    symbol = _safe_filename_part(str(turn.get("symbol", "")).strip())
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    prefix = f"{symbol}_decision_memo" if symbol else "smai_assistant_memo"
+    return f"{prefix}_{timestamp}.{extension}"
+
+
+def _safe_filename_part(value: str) -> str:
+    return "".join(ch for ch in value if ch.isascii() and (ch.isalnum() or ch in "-_")).strip("_-")
 
 
 def _split_lines(value: str) -> list[str]:
@@ -508,3 +905,9 @@ def _list_html(items: list[str]) -> str:
     if not items:
         return ""
     return "<ul>" + "".join(f"<li>{html.escape(item)}</li>" for item in items[:4]) + "</ul>"
+
+
+def _markdown_list(items: list[str]) -> str:
+    if not items:
+        return "-"
+    return "\n".join(f"- {item}" for item in items)

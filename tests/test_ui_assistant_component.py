@@ -32,7 +32,7 @@ def test_floating_assistant_html_renders_contextual_question_chips():
     assert 'id="smai-assistant-cockpit-forecast-open" checked' in markup
     assert 'class="smai-floating-assistant-backdrop"' in markup
     assert 'for="smai-assistant-cockpit-forecast-open"' in markup
-    assert "SMAI Copilot" in markup
+    assert "SMAIアシスタント" in markup
     assert "AI予測インサイト" in markup
     assert "予測の読み方を聞く" in markup
     assert "中心予測とレンジを確認します。" in markup
@@ -226,7 +226,7 @@ def test_assistant_trigger_label_varies_by_context():
         assert _assistant_trigger_label(context) == expected
         markup = floating_assistant_html(context)
         assert expected in markup
-        assert f"SMAI Copilot: {expected}" in markup
+        assert f"SMAIアシスタント: {expected}" in markup
 
 
 def test_assistant_trigger_label_has_future_context_fallbacks():

@@ -63,7 +63,7 @@ def register_assistant_context(context: SmaiAssistantContext) -> None:
 
 
 def render_floating_assistant(*, page_key: str, page_label: str) -> None:
-    """Render the floating SMAI Copilot for the current screen."""
+    """Render the floating SMAI Assistant for the current screen."""
 
     context = _selected_context(page_key=page_key, page_label=page_label)
     query_targets_context = _query_targets_current_context(context)
@@ -96,7 +96,7 @@ def floating_assistant_html(
     open_checked = " checked" if open_panel else ""
     visual_key = _assistant_visual_key(context)
     trigger_label = _assistant_trigger_label(context)
-    trigger_aria = f"SMAI Copilot: {trigger_label}（{context.section_label}）"
+    trigger_aria = f"SMAIアシスタント: {trigger_label}（{context.section_label}）"
     toggle_id = f"{_assistant_dom_id(context.context_id)}-open"
     local_questions = _local_question_switcher_html(
         context,
@@ -120,11 +120,11 @@ def floating_assistant_html(
         '<div class="smai-floating-assistant">'
         '<input class="smai-floating-assistant-toggle" type="checkbox" '
         f'id="{html.escape(toggle_id, quote=True)}"{open_checked} '
-        'aria-label="SMAI Copilotを開閉" />'
-        '<div class="smai-floating-assistant-body" role="dialog" aria-label="SMAI Copilot">'
+        'aria-label="SMAIアシスタントを開閉" />'
+        '<div class="smai-floating-assistant-body" role="dialog" aria-label="SMAIアシスタント">'
         '<div class="smai-floating-assistant-head">'
         "<div>"
-        '<div class="smai-floating-assistant-kicker">SMAI Copilot</div>'
+        '<div class="smai-floating-assistant-kicker">SMAIアシスタント</div>'
         f"<h3>{html.escape(context.page_label)}</h3>"
         "</div>"
         f"<span>{html.escape(context.section_label)}</span>"
@@ -135,7 +135,7 @@ def floating_assistant_html(
         "</div>"
         '<label class="smai-floating-assistant-backdrop" '
         f'for="{html.escape(toggle_id, quote=True)}" '
-        'aria-label="SMAI Copilotを閉じる"></label>'
+        'aria-label="SMAIアシスタントを閉じる"></label>'
         '<label class="smai-floating-assistant-trigger" '
         f'for="{html.escape(toggle_id, quote=True)}" '
         f'aria-label="{html.escape(trigger_aria, quote=True)}" role="button">'
@@ -156,7 +156,7 @@ def floating_assistant_html(
         "</span>"
         "</span>"
         '<span class="smai-floating-assistant-trigger-copy">'
-        '<span class="smai-floating-assistant-kicker">SMAI Copilot</span>'
+        '<span class="smai-floating-assistant-kicker">SMAIアシスタント</span>'
         f"<strong>{html.escape(trigger_label)}</strong>"
         "</span>"
         "</label>"

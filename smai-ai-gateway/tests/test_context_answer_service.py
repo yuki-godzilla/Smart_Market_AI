@@ -96,6 +96,23 @@ def test_context_answer_service_falls_back_when_llm_payload_has_broken_text():
     assert "????" not in response.answer
 
 
+def test_context_answer_service_prompt_includes_intent_specific_guide():
+    client = FakeLlmClient()
+    service = ContextAnswerService(client)  # type: ignore[arg-type]
+    request = _request()
+    request.user_question = (
+        "SMAI Assistant intent: forecast_risk_compare\n"
+        "User question: 予測とリスクを比べて"
+    )
+
+    service.answer(request)
+
+    joined = "\n".join(message.content for message in client.messages)
+    assert "Intent-specific response guide" in joined
+    assert "Compare forecast-side information and risk-side information" in joined
+    assert "SMAI Navi" in joined
+
+
 def _request(*, active_context_id: str = "forecast-1") -> ContextAnswerRequest:
     return ContextAnswerRequest.model_validate(
         {

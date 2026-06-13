@@ -140,7 +140,7 @@ def copilot_presence_panel_html(
         f'<img class="smai-copilot-image" src="{image}" alt="" loading="lazy" />'
         "</div>"
         '<div class="smai-copilot-copy">'
-        '<div class="smai-copilot-label">SMAI Copilot</div>'
+        '<div class="smai-copilot-label">SMAIアシスタント</div>'
         '<div class="smai-copilot-status">'
         '<span class="smai-copilot-status-dot"></span>'
         f"<span>{html.escape(status)}</span>"

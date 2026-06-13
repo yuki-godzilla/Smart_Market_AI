@@ -18,6 +18,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-14 - SMAI Assistant conversation and tool-layer sprint
+
+- Reworked the dedicated `SMAIアシスタント` workspace around SMAIナビ greeting, six conversation-start intent cards, visible material status, intent-specific response sections, and response actions for copy / Markdown memo / Decision Report-ready download.
+- Added a rule-based Assistant Intent Router and read-only `Assistant Tool Layer` foundation for current context, symbol resolution, price / forecast / news / Research Evidence context checks, Decision Report draft context, and overwrite-safe Markdown memo export without changing scores, rankings, forecast values, settings, or source data.
+- Passed intent / tool / UI / Gateway targeted tests, and updated roadmap, operations guide, and current context to mark Phase 26 initial context-aware / agentic Assistant slice as implemented.
+
 ## 2026-06-12 - SMAI Copilot ChatGPT-style layout
 
 - Changed the dedicated `SMAI Copilot` workspace into a ChatGPT-style centered conversation screen using native Streamlit chat messages and chat input.

@@ -116,7 +116,7 @@ def test_cockpit_page_title_uses_copilot_presence_panel():
     assert 'data-mascot="cockpit"' in markup
     assert "銘柄&lt;コックピット&gt;" in markup
     assert "価格 &lt;予測&gt; と根拠を確認します。" in markup
-    assert "SMAI Copilot" in markup
+    assert "SMAIアシスタント" in markup
     assert "Market Ready" in markup
     assert "smai-copilot-panel" in markup
     assert "smai-page-title-art" in markup

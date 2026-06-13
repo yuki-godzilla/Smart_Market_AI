@@ -1,7 +1,7 @@
 {
   "schema_version": "news-dashboard-snapshot-v1",
-  "generated_at": "2026-06-13T13:33:20.459244Z",
-  "fetched_at": "2026-06-13T13:33:20.459244Z",
+  "generated_at": "2026-06-13T20:12:28.853061Z",
+  "fetched_at": "2026-06-13T20:12:28.853061Z",
   "freshness_status": "latest",
   "stream_headlines": [
     {
@@ -11,7 +11,7 @@
       "source_name": "スマートニュース",
       "source_type": "news",
       "published_at": "2026-06-12T12:06:27Z",
-      "fetched_at": "2026-06-13T13:33:20.459244Z",
+      "fetched_at": "2026-06-13T20:12:28.853061Z",
       "freshness_status": "latest",
       "category": "地政学・マクロリスク",
       "region": "グローバル",
@@ -39,7 +39,7 @@
       "source_name": "Moomoo",
       "source_type": "news",
       "published_at": "2026-06-12T10:18:35Z",
-      "fetched_at": "2026-06-13T13:33:20.459244Z",
+      "fetched_at": "2026-06-13T20:12:28.853061Z",
       "freshness_status": "latest",
       "category": "地政学・マクロリスク",
       "region": "グローバル",
@@ -60,29 +60,30 @@
       ]
     },
     {
-      "title": "ＮＥ【441A】、今期経常は18％減益へ | 決算速報 - 株探ニュース - かぶたん",
-      "summary": "ＮＥ【441A】、今期経常は18％減益へ | 決算速報 - 株探ニュース かぶたん",
-      "url": "https://news.google.com/rss/articles/CBMiYkFVX3lxTE9wZGp1NkQzaEZ6Q1R5TjkxQ2I2TGdBeHVRQlJQZ2h1SGNaNm5qdkFnQk0wQ0R2Mm43QWRVd0xGMk9UNGN4emNJZEZ2cFFGbTQ1Q01OLVFLTzRsSVVTSnJISGxB?oc=5",
+      "title": "モルフォ【3653】、今期最終を一転赤字に下方修正 | 決算速報 - 株探ニュース - かぶたん",
+      "summary": "モルフォ【3653】、今期最終を一転赤字に下方修正 | 決算速報 - 株探ニュース かぶたん",
+      "url": "https://news.google.com/rss/articles/CBMiU0FVX3lxTFAyQ1RmMW5mZWhqd2Z4SVJCS0laSjM0LU1ZS0cxOHlHTWt3cDVPVnNZQlZ0Sy1XZC1oOEE5UlI2bnlsSlhQYldHSlBTcUxjNmZFcjBV?oc=5",
       "source_name": "かぶたん",
       "source_type": "news",
-      "published_at": "2026-06-12T06:30:00Z",
-      "fetched_at": "2026-06-13T13:33:20.459244Z",
+      "published_at": "2026-06-12T07:00:00Z",
+      "fetched_at": "2026-06-13T20:12:28.853061Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
       "material_type": "earnings",
-      "related_symbols": [],
+      "related_symbols": [
+        "3653.T"
+      ],
       "inferred_symbols": [
         "QQQ",
         "SPY",
-        "6758.T",
-        "9432.T"
+        "6758.T"
       ],
       "is_official_source": false,
-      "ai_comment": "決算・業績材料です。 業績と見通しを中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。会社発表、通期見通し、利益率、需要の継続性を分けて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+      "ai_comment": "決算・業績材料です。 業績と見通しを中心に、本文に出た銘柄とSMAI推測候補を分けて確認します。会社発表、通期見通し、利益率、需要の継続性を分けて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
       "investment_checkpoints": [
         "一時的な決算反応か、業績予想や受注に続く材料かを確認します。",
-        "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
+        "本文に出た銘柄は、業績・開示・市場データを銘柄コックピットで確認します。",
         "決算・業績修正全体の温度感と、個別企業の材料を分けて確認します。"
       ]
     },
@@ -93,7 +94,7 @@
       "source_name": "かぶたん",
       "source_type": "news",
       "published_at": "2026-06-12T06:30:00Z",
-      "fetched_at": "2026-06-13T13:33:20.459244Z",
+      "fetched_at": "2026-06-13T20:12:28.853061Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -120,7 +121,7 @@
       "source_name": "かぶたん",
       "source_type": "news",
       "published_at": "2026-06-12T06:30:00Z",
-      "fetched_at": "2026-06-13T13:33:20.459244Z",
+      "fetched_at": "2026-06-13T20:12:28.853061Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -148,7 +149,7 @@
       "source_name": "かぶたん",
       "source_type": "news",
       "published_at": "2026-06-12T06:30:00Z",
-      "fetched_at": "2026-06-13T13:33:20.459244Z",
+      "fetched_at": "2026-06-13T20:12:28.853061Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -176,7 +177,7 @@
       "source_name": "かぶたん",
       "source_type": "news",
       "published_at": "2026-06-12T06:30:00Z",
-      "fetched_at": "2026-06-13T13:33:20.459244Z",
+      "fetched_at": "2026-06-13T20:12:28.853061Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -204,7 +205,7 @@
       "source_name": "かぶたん",
       "source_type": "news",
       "published_at": "2026-06-12T06:30:00Z",
-      "fetched_at": "2026-06-13T13:33:20.459244Z",
+      "fetched_at": "2026-06-13T20:12:28.853061Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -232,7 +233,7 @@
       "source_name": "かぶたん",
       "source_type": "news",
       "published_at": "2026-06-12T06:00:00Z",
-      "fetched_at": "2026-06-13T13:33:20.459244Z",
+      "fetched_at": "2026-06-13T20:12:28.853061Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -259,7 +260,7 @@
       "source_name": "かぶたん",
       "source_type": "news",
       "published_at": "2026-06-12T05:00:00Z",
-      "fetched_at": "2026-06-13T13:33:20.459244Z",
+      "fetched_at": "2026-06-13T20:12:28.853061Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -287,7 +288,7 @@
       "source_name": "かぶたん",
       "source_type": "news",
       "published_at": "2026-06-12T05:00:00Z",
-      "fetched_at": "2026-06-13T13:33:20.459244Z",
+      "fetched_at": "2026-06-13T20:12:28.853061Z",
       "freshness_status": "latest",
       "category": "決算・業績修正",
       "region": "日本",
@@ -309,40 +310,13 @@
       ]
     },
     {
-      "title": "梅の花Ｇ、前期経常が一転減益で下振れ着地・今期は12％減益へ - かぶたん",
-      "summary": "梅の花Ｇ、前期経常が一転減益で下振れ着地・今期は12％減益へ かぶたん",
-      "url": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE1OZGs4SjJpNlVlN1R6bmFITnctSHplVlNNOXZoN09LaEtDTDd4VDZtZ2lUVC1ZMlN3eVd3bFI4QVUwSDZ3aGhCZnF4TlViS1A1R1E?oc=5",
-      "source_name": "かぶたん",
-      "source_type": "news",
-      "published_at": "2026-06-12T04:00:00Z",
-      "fetched_at": "2026-06-13T13:33:20.459244Z",
-      "freshness_status": "latest",
-      "category": "決算・業績修正",
-      "region": "日本",
-      "material_type": "earnings",
-      "related_symbols": [],
-      "inferred_symbols": [
-        "6758.T",
-        "9432.T",
-        "9984.T",
-        "7974.T"
-      ],
-      "is_official_source": false,
-      "ai_comment": "決算・業績材料です。 決算・業績修正を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。会社発表、通期見通し、利益率、需要の継続性を分けて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
-      "investment_checkpoints": [
-        "一時的な決算反応か、業績予想や受注に続く材料かを確認します。",
-        "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
-        "決算・業績修正全体の温度感と、個別企業の材料を分けて確認します。"
-      ]
-    },
-    {
       "title": "日経平均株価は高すぎるのか？ 半導体株が牽引も、バブルではないと考える理由 野村證券・岡崎康平 - nomura.co.jp",
       "summary": "日経平均株価は高すぎるのか？ 半導体株が牽引も、バブルではないと考える理由 野村證券・岡崎康平 nomura.co.jp",
       "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE9RTlNWOU5GdWVuOXlTbkkzeXdISXAyeTZZMTJCZGtFNS00Z3pIWFI1NkdqMFhzTTYtNXItdW5uWHJuaWVaME53ckZSSVdiN293ZWtIRldIX3NWQXhqSmk4?oc=5",
       "source_name": "nomura.co.jp",
       "source_type": "news",
       "published_at": "2026-06-13T10:45:21Z",
-      "fetched_at": "2026-06-13T13:33:20.459244Z",
+      "fetched_at": "2026-06-13T20:12:28.853061Z",
       "freshness_status": "latest",
       "category": "日本株",
       "region": "日本",
@@ -369,7 +343,7 @@
       "source_name": "nomura.co.jp",
       "source_type": "news",
       "published_at": "2026-06-13T08:43:29Z",
-      "fetched_at": "2026-06-13T13:33:20.459244Z",
+      "fetched_at": "2026-06-13T20:12:28.853061Z",
       "freshness_status": "latest",
       "category": "日本株",
       "region": "日本",
@@ -396,7 +370,7 @@
       "source_name": "nomura.co.jp",
       "source_type": "news",
       "published_at": "2026-06-13T08:38:38Z",
-      "fetched_at": "2026-06-13T13:33:20.459244Z",
+      "fetched_at": "2026-06-13T20:12:28.853061Z",
       "freshness_status": "latest",
       "category": "為替・金利",
       "region": "米国",
@@ -423,7 +397,7 @@
       "source_name": "かぶたん",
       "source_type": "news",
       "published_at": "2026-06-12T21:50:00Z",
-      "fetched_at": "2026-06-13T13:33:20.459244Z",
+      "fetched_at": "2026-06-13T20:12:28.853061Z",
       "freshness_status": "latest",
       "category": "日本株",
       "region": "日本",
@@ -450,7 +424,7 @@
       "source_name": "Yahoo!ファイナンス",
       "source_type": "news",
       "published_at": "2026-06-12T21:20:00Z",
-      "fetched_at": "2026-06-13T13:33:20.459244Z",
+      "fetched_at": "2026-06-13T20:12:28.853061Z",
       "freshness_status": "latest",
       "category": "為替・金利",
       "region": "米国",
@@ -477,7 +451,7 @@
       "source_name": "simplywall.st",
       "source_type": "news",
       "published_at": "2026-06-12T09:46:44Z",
-      "fetched_at": "2026-06-13T13:33:20.459244Z",
+      "fetched_at": "2026-06-13T20:12:28.853061Z",
       "freshness_status": "latest",
       "category": "米国株",
       "region": "米国",
@@ -504,7 +478,7 @@
       "source_name": "四季報オンライン",
       "source_type": "news",
       "published_at": "2026-06-12T08:00:00Z",
-      "fetched_at": "2026-06-13T13:33:20.459244Z",
+      "fetched_at": "2026-06-13T20:12:28.853061Z",
       "freshness_status": "latest",
       "category": "日本株",
       "region": "日本",
@@ -525,30 +499,57 @@
       ]
     },
     {
-      "title": "2040年の日経平均株価は「24万円」に到達する可能性があると予想 その根拠は？ 野村アセットマネジメント・石黒英之 - nomura.co.jp",
-      "summary": "2040年の日経平均株価は「24万円」に到達する可能性があると予想 その根拠は？ 野村アセットマネジメント・石黒英之 nomura.co.jp",
-      "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTFBjNUtSeTRZXzBWU1JWT2ZMUEVTOVk1empBOEdBck5QNktTU1dPcXhHdmpPWjFrdWU4WFppMkpqaHlBaHlEbG9aN3ZQc21NOGhpaWtFYV9PdkNBMG9qYkVN?oc=5",
+      "title": "S＆P500の見通しを変更 イラン情勢は遅かれ早かれ収束し、株高基調は継続すると予想 野村證券ストラテジストが解説 - nomura.co.jp",
+      "summary": "S＆P500の見通しを変更 イラン情勢は遅かれ早かれ収束し、株高基調は継続すると予想 野村證券ストラテジストが解説 nomura.co.jp",
+      "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE5FRmhhWEEwcFpETzRRY3lfTkI5UlVmQ2ZucE9JR0xJVXZIaGFjNFNhbVBPNUcyYXc4UXg0V3FzM09nZmtuSTQ5dlVsbmtybnBQYnBqQS1rQjFDNXFtdzA0?oc=5",
       "source_name": "nomura.co.jp",
       "source_type": "news",
       "published_at": "2026-06-12T07:00:00Z",
-      "fetched_at": "2026-06-13T13:33:20.459244Z",
+      "fetched_at": "2026-06-13T20:12:28.853061Z",
       "freshness_status": "latest",
-      "category": "日本株",
-      "region": "日本",
+      "category": "米国株",
+      "region": "米国",
       "material_type": "macro",
       "related_symbols": [],
       "inferred_symbols": [
-        "1488.T",
-        "1306.T",
-        "7203.T",
-        "8306.T"
+        "SPY",
+        "QQQ",
+        "NVDA",
+        "JPM"
       ],
       "is_official_source": false,
-      "ai_comment": "マクロ環境の材料です。 日本株を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+      "ai_comment": "マクロ環境の材料です。 米国株を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
       "investment_checkpoints": [
         "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
         "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
-        "日本株全体の温度感と、個別企業の材料を分けて確認します。"
+        "米国株全体の温度感と、個別企業の材料を分けて確認します。"
+      ]
+    },
+    {
+      "title": "～米利上げ観測が残る中では効果は一時的、日銀本格利上げも必要～ - 第一ライフ資産運用経済研究所",
+      "summary": "～米利上げ観測が残る中では効果は一時的、日銀本格利上げも必要～ 第一ライフ資産運用経済研究所",
+      "url": "https://news.google.com/rss/articles/CBMiW0FVX3lxTE5tT0c3ZkhxRVhfX3VHMWl4cE83M09KZnREWTZIa0ZMcV9EcmNSWHE5S0NYV2o1eXZFaHNYMXc1cHd0aFhDLXN6VFVlX09kWkpnUTVCMEZOUXlPYjg?oc=5",
+      "source_name": "第一ライフ資産運用経済研究所",
+      "source_type": "news",
+      "published_at": "2026-06-12T06:31:52Z",
+      "fetched_at": "2026-06-13T20:12:28.853061Z",
+      "freshness_status": "latest",
+      "category": "為替・金利",
+      "region": "米国",
+      "material_type": "macro",
+      "related_symbols": [],
+      "inferred_symbols": [
+        "JPM",
+        "QQQ",
+        "1488.T",
+        "SPY"
+      ],
+      "is_official_source": false,
+      "ai_comment": "マクロ環境の材料です。 為替・金利を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+      "investment_checkpoints": [
+        "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
+        "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
+        "為替・金利全体の温度感と、個別企業の材料を分けて確認します。"
       ]
     }
   ],
@@ -562,8 +563,8 @@
       "risk_count": 0,
       "positive_count": 15,
       "official_source_count": 0,
-      "freshness_ratio": 0.91,
-      "heat_score": 36.32,
+      "freshness_ratio": 0.89,
+      "heat_score": 36.04,
       "dominant_material_type": "earnings"
     },
     {
@@ -575,8 +576,8 @@
       "risk_count": 0,
       "positive_count": 15,
       "official_source_count": 0,
-      "freshness_ratio": 0.78,
-      "heat_score": 34.98,
+      "freshness_ratio": 0.79,
+      "heat_score": 35.26,
       "dominant_material_type": "theme"
     },
     {
@@ -593,6 +594,19 @@
       "dominant_material_type": "macro"
     },
     {
+      "category": "米国株",
+      "region": "米国",
+      "price_change_pct": null,
+      "volume_activity_score": null,
+      "news_count": 15,
+      "risk_count": 0,
+      "positive_count": 0,
+      "official_source_count": 0,
+      "freshness_ratio": 0.78,
+      "heat_score": 22.14,
+      "dominant_material_type": "macro"
+    },
+    {
       "category": "日本株",
       "region": "日本",
       "price_change_pct": null,
@@ -601,21 +615,8 @@
       "risk_count": 0,
       "positive_count": 0,
       "official_source_count": 0,
-      "freshness_ratio": 0.84,
-      "heat_score": 21.56,
-      "dominant_material_type": "macro"
-    },
-    {
-      "category": "米国株",
-      "region": "米国",
-      "price_change_pct": null,
-      "volume_activity_score": null,
-      "news_count": 14,
-      "risk_count": 0,
-      "positive_count": 0,
-      "official_source_count": 0,
-      "freshness_ratio": 0.74,
-      "heat_score": 20.16,
+      "freshness_ratio": 0.82,
+      "heat_score": 21.28,
       "dominant_material_type": "macro"
     },
     {
@@ -671,19 +672,6 @@
       "dominant_material_type": "earnings"
     },
     {
-      "category": "政策・規制",
-      "region": "グローバル",
-      "price_change_pct": null,
-      "volume_activity_score": null,
-      "news_count": 2,
-      "risk_count": 0,
-      "positive_count": 0,
-      "official_source_count": 0,
-      "freshness_ratio": 0.72,
-      "heat_score": 2.84,
-      "dominant_material_type": "policy"
-    },
-    {
       "category": "小売・消費",
       "region": "グローバル",
       "price_change_pct": null,
@@ -695,6 +683,19 @@
       "freshness_ratio": 0.72,
       "heat_score": 2.12,
       "dominant_material_type": "earnings"
+    },
+    {
+      "category": "政策・規制",
+      "region": "グローバル",
+      "price_change_pct": null,
+      "volume_activity_score": null,
+      "news_count": 1,
+      "risk_count": 0,
+      "positive_count": 0,
+      "official_source_count": 0,
+      "freshness_ratio": 0.72,
+      "heat_score": 1.42,
+      "dominant_material_type": "policy"
     }
   ],
   "category_lanes": [
@@ -702,29 +703,30 @@
       "category": "決算・業績修正",
       "headlines": [
         {
-          "title": "ＮＥ【441A】、今期経常は18％減益へ | 決算速報 - 株探ニュース - かぶたん",
-          "summary": "ＮＥ【441A】、今期経常は18％減益へ | 決算速報 - 株探ニュース かぶたん",
-          "url": "https://news.google.com/rss/articles/CBMiYkFVX3lxTE9wZGp1NkQzaEZ6Q1R5TjkxQ2I2TGdBeHVRQlJQZ2h1SGNaNm5qdkFnQk0wQ0R2Mm43QWRVd0xGMk9UNGN4emNJZEZ2cFFGbTQ1Q01OLVFLTzRsSVVTSnJISGxB?oc=5",
+          "title": "モルフォ【3653】、今期最終を一転赤字に下方修正 | 決算速報 - 株探ニュース - かぶたん",
+          "summary": "モルフォ【3653】、今期最終を一転赤字に下方修正 | 決算速報 - 株探ニュース かぶたん",
+          "url": "https://news.google.com/rss/articles/CBMiU0FVX3lxTFAyQ1RmMW5mZWhqd2Z4SVJCS0laSjM0LU1ZS0cxOHlHTWt3cDVPVnNZQlZ0Sy1XZC1oOEE5UlI2bnlsSlhQYldHSlBTcUxjNmZFcjBV?oc=5",
           "source_name": "かぶたん",
           "source_type": "news",
-          "published_at": "2026-06-12T06:30:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "published_at": "2026-06-12T07:00:00Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "決算・業績修正",
           "region": "日本",
           "material_type": "earnings",
-          "related_symbols": [],
+          "related_symbols": [
+            "3653.T"
+          ],
           "inferred_symbols": [
             "QQQ",
             "SPY",
-            "6758.T",
-            "9432.T"
+            "6758.T"
           ],
           "is_official_source": false,
-          "ai_comment": "決算・業績材料です。 業績と見通しを中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。会社発表、通期見通し、利益率、需要の継続性を分けて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "ai_comment": "決算・業績材料です。 業績と見通しを中心に、本文に出た銘柄とSMAI推測候補を分けて確認します。会社発表、通期見通し、利益率、需要の継続性を分けて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
           "investment_checkpoints": [
             "一時的な決算反応か、業績予想や受注に続く材料かを確認します。",
-            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
+            "本文に出た銘柄は、業績・開示・市場データを銘柄コックピットで確認します。",
             "決算・業績修正全体の温度感と、個別企業の材料を分けて確認します。"
           ]
         },
@@ -735,7 +737,7 @@
           "source_name": "かぶたん",
           "source_type": "news",
           "published_at": "2026-06-12T06:30:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "決算・業績修正",
           "region": "日本",
@@ -762,7 +764,7 @@
           "source_name": "かぶたん",
           "source_type": "news",
           "published_at": "2026-06-12T06:30:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "決算・業績修正",
           "region": "日本",
@@ -790,7 +792,7 @@
           "source_name": "かぶたん",
           "source_type": "news",
           "published_at": "2026-06-12T06:30:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "決算・業績修正",
           "region": "日本",
@@ -818,7 +820,7 @@
           "source_name": "かぶたん",
           "source_type": "news",
           "published_at": "2026-06-12T06:30:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "決算・業績修正",
           "region": "日本",
@@ -845,13 +847,40 @@
       "category": "半導体・AI",
       "headlines": [
         {
+          "title": "新NISA3年目、半導体株はもう「遅い」のか？2026年後半の相場を本音で語る｜日本個別株デューデリジェンスセンター - note",
+          "summary": "新NISA3年目、半導体株はもう「遅い」のか？2026年後半の相場を本音で語る｜日本個別株デューデリジェンスセンター note",
+          "url": "https://news.google.com/rss/articles/CBMiW0FVX3lxTFB4MnhENkhpb0NyYlFxM2FWYmVrWVRiWVNnRG1reVBPQk94eXZRX3lQZkw0M3BVLW9MN25FcUh5UmM0a3NkVmtJYmJFTmFCNXJXWi04dGJneDQtUlk?oc=5",
+          "source_name": "note",
+          "source_type": "news",
+          "published_at": "2026-06-13T14:30:00Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
+          "freshness_status": "latest",
+          "category": "半導体・AI",
+          "region": "グローバル",
+          "material_type": "theme",
+          "related_symbols": [],
+          "inferred_symbols": [
+            "NVDA",
+            "TSM",
+            "ASML",
+            "AMD"
+          ],
+          "is_official_source": false,
+          "ai_comment": "テーマ性のある材料です。 半導体需要と供給を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。需要、供給制約、設備投資、関連企業への波及を分けて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "investment_checkpoints": [
+            "テーマの見出しだけでなく、売上・受注・投資計画に結びつくかを確認します。",
+            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
+            "半導体・AI全体の温度感と、個別企業の材料を分けて確認します。"
+          ]
+        },
+        {
           "title": "サムスン、グーグルの次世代AIチップ「Icefish」2nm受注間近か - finance.biggo.jp",
           "summary": "サムスン、グーグルの次世代AIチップ「Icefish」2nm受注間近か finance.biggo.jp",
           "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE9tR0dGR05WR1R1MGU3Skg2d0pCOVRISVNmR3ozbVhaM2RJTjVIVWlIbTV2U1IzQXExbGllOGpfc1FPT2h2Y0hCeFlnWFJLZ3V0VFBlWHM2ZWQ1X28yMjFj?oc=5",
           "source_name": "finance.biggo.jp",
           "source_type": "news",
           "published_at": "2026-06-12T17:25:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "半導体・AI",
           "region": "グローバル",
@@ -879,7 +908,7 @@
           "source_name": "finance.biggo.jp",
           "source_type": "news",
           "published_at": "2026-06-12T07:36:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "半導体・AI",
           "region": "グローバル",
@@ -907,7 +936,7 @@
           "source_name": "finance.biggo.jp",
           "source_type": "news",
           "published_at": "2026-06-12T04:16:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "半導体・AI",
           "region": "グローバル",
@@ -934,7 +963,7 @@
           "source_name": "finance.biggo.jp",
           "source_type": "news",
           "published_at": "2026-06-11T17:25:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "recent",
           "category": "半導体・AI",
           "region": "グローバル",
@@ -947,34 +976,6 @@
             "NVDA",
             "ASML",
             "AMD"
-          ],
-          "is_official_source": false,
-          "ai_comment": "テーマ性のある材料です。 半導体需要と供給を中心に、本文に出た銘柄とSMAI推測候補を分けて確認します。需要、供給制約、設備投資、関連企業への波及を分けて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
-          "investment_checkpoints": [
-            "テーマの見出しだけでなく、売上・受注・投資計画に結びつくかを確認します。",
-            "本文に出た銘柄は、業績・開示・市場データを銘柄コックピットで確認します。",
-            "半導体・AI全体の温度感と、個別企業の材料を分けて確認します。"
-          ]
-        },
-        {
-          "title": "アルファベットがAIインフラに800億ドル調達、半導体4銘柄が最大の勝者に - finance.biggo.jp",
-          "summary": "アルファベットがAIインフラに800億ドル調達、半導体4銘柄が最大の勝者に finance.biggo.jp",
-          "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE9nQXJleU9FNTd2M05jbXB4LW5sTHhwNndKY2t4ZXlQeEpNa0FBY2c1cWZMekRhQ1hiTWwwdExEYmRzUFIzdzBrZVdQamhUWUtqb0N5Z1E5bHVjNjMzbkE0?oc=5",
-          "source_name": "finance.biggo.jp",
-          "source_type": "news",
-          "published_at": "2026-06-10T13:26:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
-          "freshness_status": "recent",
-          "category": "半導体・AI",
-          "region": "グローバル",
-          "material_type": "theme",
-          "related_symbols": [
-            "4760.T"
-          ],
-          "inferred_symbols": [
-            "NVDA",
-            "TSM",
-            "ASML"
           ],
           "is_official_source": false,
           "ai_comment": "テーマ性のある材料です。 半導体需要と供給を中心に、本文に出た銘柄とSMAI推測候補を分けて確認します。需要、供給制約、設備投資、関連企業への波及を分けて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
@@ -996,7 +997,7 @@
           "source_name": "nomura.co.jp",
           "source_type": "news",
           "published_at": "2026-06-13T08:38:38Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "為替・金利",
           "region": "米国",
@@ -1023,7 +1024,7 @@
           "source_name": "Yahoo!ファイナンス",
           "source_type": "news",
           "published_at": "2026-06-12T21:20:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "為替・金利",
           "region": "米国",
@@ -1050,7 +1051,7 @@
           "source_name": "第一ライフ資産運用経済研究所",
           "source_type": "news",
           "published_at": "2026-06-12T06:31:52Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "為替・金利",
           "region": "米国",
@@ -1077,7 +1078,7 @@
           "source_name": "外為どっとコム",
           "source_type": "news",
           "published_at": "2026-06-12T01:00:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "為替・金利",
           "region": "米国",
@@ -1098,13 +1099,13 @@
           ]
         },
         {
-          "title": "【詳報】中尾武彦元財務官「日銀は利上げ継続し、金融政策正常化を」＝行き過ぎた円安で日本の国力弱まる＃取材班インタビュー - 時事ドットコム",
-          "summary": "【詳報】中尾武彦元財務官「日銀は利上げ継続し、金融政策正常化を」＝行き過ぎた円安で日本の国力弱まる＃取材班インタビュー 時事ドットコム",
-          "url": "https://news.google.com/rss/articles/CBMiXkFVX3lxTFAwaUFpeC1zdy1HNFc2M3pTS0xfNVZqcXBRc29WVklEUlowOGVQZVh1Tk1UNkxHQzBLdTgtSzdHbTNHRVR4akFHU1pfbzF2Q0d2NDJWZWF6LUVRRS0zV3c?oc=5",
-          "source_name": "時事ドットコム",
+          "title": "米国株は大幅反発、米・イランの最終合意観測で (朝の材料チェック) - QUICK Money World",
+          "summary": "米国株は大幅反発、米・イランの最終合意観測で (朝の材料チェック) QUICK Money World",
+          "url": "https://news.google.com/rss/articles/CBMiVkFVX3lxTE95NC1OTS1RNVMyRjFPVTdScTlxeGc5QW9yTUsxeVRyM254a1BZMEpsVGtlcmViNGZqY3VHT3B0MjBLc2paSjFlRG1OYTZMcDdhTU5DRnBR?oc=5",
+          "source_name": "QUICK Money World",
           "source_type": "news",
-          "published_at": "2026-06-11T09:00:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "published_at": "2026-06-11T22:20:00Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "recent",
           "category": "為替・金利",
           "region": "米国",
@@ -1127,146 +1128,6 @@
       ]
     },
     {
-      "category": "日本株",
-      "headlines": [
-        {
-          "title": "日経平均株価は高すぎるのか？ 半導体株が牽引も、バブルではないと考える理由 野村證券・岡崎康平 - nomura.co.jp",
-          "summary": "日経平均株価は高すぎるのか？ 半導体株が牽引も、バブルではないと考える理由 野村證券・岡崎康平 nomura.co.jp",
-          "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE9RTlNWOU5GdWVuOXlTbkkzeXdISXAyeTZZMTJCZGtFNS00Z3pIWFI1NkdqMFhzTTYtNXItdW5uWHJuaWVaME53ckZSSVdiN293ZWtIRldIX3NWQXhqSmk4?oc=5",
-          "source_name": "nomura.co.jp",
-          "source_type": "news",
-          "published_at": "2026-06-13T10:45:21Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
-          "freshness_status": "latest",
-          "category": "日本株",
-          "region": "日本",
-          "material_type": "macro",
-          "related_symbols": [],
-          "inferred_symbols": [
-            "NVDA",
-            "TSM",
-            "ASML",
-            "AMD"
-          ],
-          "is_official_source": false,
-          "ai_comment": "マクロ環境の材料です。 半導体需要と供給を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
-          "investment_checkpoints": [
-            "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
-            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
-            "日本株全体の温度感と、個別企業の材料を分けて確認します。"
-          ]
-        },
-        {
-          "title": "中東情勢不透明でも、日経平均株価2026年末60,000円見通しを維持 米国景気3つの楽観シグナルあり 野村證券・池田雄之輔 - nomura.co.jp",
-          "summary": "中東情勢不透明でも、日経平均株価2026年末60,000円見通しを維持 米国景気3つの楽観シグナルあり 野村證券・池田雄之輔 nomura.co.jp",
-          "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE1kNW4ya1dVWjZKSll5d1plUWd5eFRRckItZXNQeWsxR25TbWc4YlMwTFA4S3VycXdkOHZXZ1h2bWtQS0VlU3REUlFTd1NtWnFKZEtfS3J6bnp6OTlBRk1V?oc=5",
-          "source_name": "nomura.co.jp",
-          "source_type": "news",
-          "published_at": "2026-06-13T08:43:29Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
-          "freshness_status": "latest",
-          "category": "日本株",
-          "region": "日本",
-          "material_type": "macro",
-          "related_symbols": [],
-          "inferred_symbols": [
-            "1488.T",
-            "1306.T",
-            "7203.T",
-            "7011.T"
-          ],
-          "is_official_source": false,
-          "ai_comment": "マクロ環境の材料です。 日本株を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
-          "investment_checkpoints": [
-            "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
-            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
-            "日本株全体の温度感と、個別企業の材料を分けて確認します。"
-          ]
-        },
-        {
-          "title": "【市況】 【投資部門別売買動向】個人が2週連続で買い越す一方、海外勢は2週連続で売り越す (6月第1週) - かぶたん",
-          "summary": "【市況】 【投資部門別売買動向】個人が2週連続で買い越す一方、海外勢は2週連続で売り越す (6月第1週) かぶたん",
-          "url": "https://news.google.com/rss/articles/CBMiYEFVX3lxTFAyMGFoQnlMblBwOXdpOW03d3NFVUtEWHVNd1M2WF8zTnNfYk1sUGx2Q0VVQmFCbVh4SG9Rem5iOHFPcGRHQV9BUVNBVThscHcycm1EbWlUXzY1RzZoZUtKRQ?oc=5",
-          "source_name": "かぶたん",
-          "source_type": "news",
-          "published_at": "2026-06-12T21:50:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
-          "freshness_status": "latest",
-          "category": "日本株",
-          "region": "日本",
-          "material_type": "macro",
-          "related_symbols": [],
-          "inferred_symbols": [
-            "7203.T",
-            "8306.T",
-            "6758.T",
-            "9984.T"
-          ],
-          "is_official_source": false,
-          "ai_comment": "マクロ環境の材料です。 日本株を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
-          "investment_checkpoints": [
-            "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
-            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
-            "日本株全体の温度感と、個別企業の材料を分けて確認します。"
-          ]
-        },
-        {
-          "title": "12日の日本株は大幅上昇､イラン戦争への終結期待 - 四季報オンライン",
-          "summary": "12日の日本株は大幅上昇､イラン戦争への終結期待 四季報オンライン",
-          "url": "https://news.google.com/rss/articles/CBMiV0FVX3lxTFBvQmdWRHFxZUNwcmN2N01Za05OdnJxb3Jhd1BhTk5kTVdlVGlybmN4WTRMUnBQQlk1UmxpRVpVVnR0bnlLaVhtQlFCSWlPTE5IWV9yckx1WQ?oc=5",
-          "source_name": "四季報オンライン",
-          "source_type": "news",
-          "published_at": "2026-06-12T08:00:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
-          "freshness_status": "latest",
-          "category": "日本株",
-          "region": "日本",
-          "material_type": "macro",
-          "related_symbols": [],
-          "inferred_symbols": [
-            "1488.T",
-            "1306.T",
-            "7203.T",
-            "8306.T"
-          ],
-          "is_official_source": false,
-          "ai_comment": "マクロ環境の材料です。 日本株を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
-          "investment_checkpoints": [
-            "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
-            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
-            "日本株全体の温度感と、個別企業の材料を分けて確認します。"
-          ]
-        },
-        {
-          "title": "2040年の日経平均株価は「24万円」に到達する可能性があると予想 その根拠は？ 野村アセットマネジメント・石黒英之 - nomura.co.jp",
-          "summary": "2040年の日経平均株価は「24万円」に到達する可能性があると予想 その根拠は？ 野村アセットマネジメント・石黒英之 nomura.co.jp",
-          "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTFBjNUtSeTRZXzBWU1JWT2ZMUEVTOVk1empBOEdBck5QNktTU1dPcXhHdmpPWjFrdWU4WFppMkpqaHlBaHlEbG9aN3ZQc21NOGhpaWtFYV9PdkNBMG9qYkVN?oc=5",
-          "source_name": "nomura.co.jp",
-          "source_type": "news",
-          "published_at": "2026-06-12T07:00:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
-          "freshness_status": "latest",
-          "category": "日本株",
-          "region": "日本",
-          "material_type": "macro",
-          "related_symbols": [],
-          "inferred_symbols": [
-            "1488.T",
-            "1306.T",
-            "7203.T",
-            "8306.T"
-          ],
-          "is_official_source": false,
-          "ai_comment": "マクロ環境の材料です。 日本株を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
-          "investment_checkpoints": [
-            "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
-            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
-            "日本株全体の温度感と、個別企業の材料を分けて確認します。"
-          ]
-        }
-      ]
-    },
-    {
       "category": "米国株",
       "headlines": [
         {
@@ -1276,7 +1137,7 @@
           "source_name": "simplywall.st",
           "source_type": "news",
           "published_at": "2026-06-12T09:46:44Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "米国株",
           "region": "米国",
@@ -1297,13 +1158,69 @@
           ]
         },
         {
+          "title": "S＆P500の見通しを変更 イラン情勢は遅かれ早かれ収束し、株高基調は継続すると予想 野村證券ストラテジストが解説 - nomura.co.jp",
+          "summary": "S＆P500の見通しを変更 イラン情勢は遅かれ早かれ収束し、株高基調は継続すると予想 野村證券ストラテジストが解説 nomura.co.jp",
+          "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE5FRmhhWEEwcFpETzRRY3lfTkI5UlVmQ2ZucE9JR0xJVXZIaGFjNFNhbVBPNUcyYXc4UXg0V3FzM09nZmtuSTQ5dlVsbmtybnBQYnBqQS1rQjFDNXFtdzA0?oc=5",
+          "source_name": "nomura.co.jp",
+          "source_type": "news",
+          "published_at": "2026-06-12T07:00:00Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
+          "freshness_status": "latest",
+          "category": "米国株",
+          "region": "米国",
+          "material_type": "macro",
+          "related_symbols": [],
+          "inferred_symbols": [
+            "SPY",
+            "QQQ",
+            "NVDA",
+            "JPM"
+          ],
+          "is_official_source": false,
+          "ai_comment": "マクロ環境の材料です。 米国株を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "investment_checkpoints": [
+            "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
+            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
+            "米国株全体の温度感と、個別企業の材料を分けて確認します。"
+          ]
+        },
+        {
+          "title": "【NVIDIAショック⚡️】株価まさかの大幅続落！AMDも急落の裏側を徹底解説【米国株で朝活投資】日本一早い米国株市場解説 朝5:15～ Prices (DHiZbAYVA5) - Mshale",
+          "summary": "【NVIDIAショック⚡️】株価まさかの大幅続落！AMDも急落の裏側を徹底解説【米国株で朝活投資】日本一早い米国株市場解説 朝5:15～ Prices (DHiZbAYVA5) Mshale",
+          "url": "https://news.google.com/rss/articles/CBMiW0FVX3lxTFBPYkxJNjN0NV9nbEd1UFc2bk1HWk10bHhBQlRDS3RQTFRsNWt0by1GbTBWUDhzRG1oRlEzVGl2NHRzVGY2anRTcFIzTFhSbVVuOXJ6R1Zaa1Y2UGc?oc=5",
+          "source_name": "Mshale",
+          "source_type": "news",
+          "published_at": "2026-06-12T03:53:05Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
+          "freshness_status": "latest",
+          "category": "米国株",
+          "region": "米国",
+          "material_type": "macro",
+          "related_symbols": [
+            "NVDA",
+            "AMD"
+          ],
+          "inferred_symbols": [
+            "TSM",
+            "ASML",
+            "6857.T"
+          ],
+          "is_official_source": false,
+          "ai_comment": "マクロ環境の材料です。 半導体需要と供給を中心に、本文に出た銘柄とSMAI推測候補を分けて確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "investment_checkpoints": [
+            "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
+            "本文に出た銘柄は、業績・開示・市場データを銘柄コックピットで確認します。",
+            "米国株全体の温度感と、個別企業の材料を分けて確認します。"
+          ]
+        },
+        {
           "title": "【米国株】エヌビディア、マイクロンが節目を試す展開に――利益確定売りでAI株が最高値から急落 - finance.biggo.jp",
           "summary": "【米国株】エヌビディア、マイクロンが節目を試す展開に――利益確定売りでAI株が最高値から急落 finance.biggo.jp",
           "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTFA0TEtjSmxnOU84aXYxemFKU2MwSDRScWdIVjRfbkNrWXlCa1kxWHdTbUtfaVN5YTNSR2pIS2VaRHc4blJJbXlPVm9Iek4tLUlqYWo2NDVmdXV2NmpxLVQ4?oc=5",
           "source_name": "finance.biggo.jp",
           "source_type": "news",
           "published_at": "2026-06-11T17:05:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "recent",
           "category": "米国株",
           "region": "米国",
@@ -1331,61 +1248,7 @@
           "source_name": "かぶたん",
           "source_type": "news",
           "published_at": "2026-06-11T12:58:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
-          "freshness_status": "recent",
-          "category": "米国株",
-          "region": "米国",
-          "material_type": "macro",
-          "related_symbols": [],
-          "inferred_symbols": [
-            "NVDA",
-            "JPM",
-            "QQQ",
-            "AAPL"
-          ],
-          "is_official_source": false,
-          "ai_comment": "マクロ環境の材料です。 米国株を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
-          "investment_checkpoints": [
-            "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
-            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
-            "米国株全体の温度感と、個別企業の材料を分けて確認します。"
-          ]
-        },
-        {
-          "title": "米5月CPI、3年ぶり高水準もコア指数は鈍化、米国株は乱高下しダウは1%超安 - finance.biggo.jp",
-          "summary": "米5月CPI、3年ぶり高水準もコア指数は鈍化、米国株は乱高下しダウは1%超安 finance.biggo.jp",
-          "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE5pZi0xT3pBQ0tTRFFGanNqbFVUVXloSk5TU19xd2cyaFRXN203ZjVrZXZpNHZjMUhINlRGbmpYNk5zbVRHUmxQZEFmS1Q0VkxBTHVPV1BLQ2pIYVFxbzUw?oc=5",
-          "source_name": "finance.biggo.jp",
-          "source_type": "news",
-          "published_at": "2026-06-10T15:55:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
-          "freshness_status": "recent",
-          "category": "米国株",
-          "region": "米国",
-          "material_type": "macro",
-          "related_symbols": [],
-          "inferred_symbols": [
-            "NVDA",
-            "JPM",
-            "QQQ",
-            "AAPL"
-          ],
-          "is_official_source": false,
-          "ai_comment": "マクロ環境の材料です。 米国株を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
-          "investment_checkpoints": [
-            "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
-            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
-            "米国株全体の温度感と、個別企業の材料を分けて確認します。"
-          ]
-        },
-        {
-          "title": "米国株、CPI控え下げ渋りか SpaceX大型IPO目前で需給に警戒感 - finance.biggo.jp",
-          "summary": "米国株、CPI控え下げ渋りか SpaceX大型IPO目前で需給に警戒感 finance.biggo.jp",
-          "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE5rRGR4Vmw0YmNRM2ktSU9RelR5OTlTSkhLVXVxR2M5U0VZMXc4em9nZ05lUXg5MkpBU0UtWHpqc1NpSDJzTzJMZkpoeWhsQzEyRE5iclZ3Y0kzWE5qLW1j?oc=5",
-          "source_name": "finance.biggo.jp",
-          "source_type": "news",
-          "published_at": "2026-06-09T04:06:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "recent",
           "category": "米国株",
           "region": "米国",
@@ -1408,6 +1271,146 @@
       ]
     },
     {
+      "category": "日本株",
+      "headlines": [
+        {
+          "title": "日経平均株価は高すぎるのか？ 半導体株が牽引も、バブルではないと考える理由 野村證券・岡崎康平 - nomura.co.jp",
+          "summary": "日経平均株価は高すぎるのか？ 半導体株が牽引も、バブルではないと考える理由 野村證券・岡崎康平 nomura.co.jp",
+          "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE9RTlNWOU5GdWVuOXlTbkkzeXdISXAyeTZZMTJCZGtFNS00Z3pIWFI1NkdqMFhzTTYtNXItdW5uWHJuaWVaME53ckZSSVdiN293ZWtIRldIX3NWQXhqSmk4?oc=5",
+          "source_name": "nomura.co.jp",
+          "source_type": "news",
+          "published_at": "2026-06-13T10:45:21Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
+          "freshness_status": "latest",
+          "category": "日本株",
+          "region": "日本",
+          "material_type": "macro",
+          "related_symbols": [],
+          "inferred_symbols": [
+            "NVDA",
+            "TSM",
+            "ASML",
+            "AMD"
+          ],
+          "is_official_source": false,
+          "ai_comment": "マクロ環境の材料です。 半導体需要と供給を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "investment_checkpoints": [
+            "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
+            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
+            "日本株全体の温度感と、個別企業の材料を分けて確認します。"
+          ]
+        },
+        {
+          "title": "中東情勢不透明でも、日経平均株価2026年末60,000円見通しを維持 米国景気3つの楽観シグナルあり 野村證券・池田雄之輔 - nomura.co.jp",
+          "summary": "中東情勢不透明でも、日経平均株価2026年末60,000円見通しを維持 米国景気3つの楽観シグナルあり 野村證券・池田雄之輔 nomura.co.jp",
+          "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE1kNW4ya1dVWjZKSll5d1plUWd5eFRRckItZXNQeWsxR25TbWc4YlMwTFA4S3VycXdkOHZXZ1h2bWtQS0VlU3REUlFTd1NtWnFKZEtfS3J6bnp6OTlBRk1V?oc=5",
+          "source_name": "nomura.co.jp",
+          "source_type": "news",
+          "published_at": "2026-06-13T08:43:29Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
+          "freshness_status": "latest",
+          "category": "日本株",
+          "region": "日本",
+          "material_type": "macro",
+          "related_symbols": [],
+          "inferred_symbols": [
+            "1488.T",
+            "1306.T",
+            "7203.T",
+            "7011.T"
+          ],
+          "is_official_source": false,
+          "ai_comment": "マクロ環境の材料です。 日本株を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "investment_checkpoints": [
+            "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
+            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
+            "日本株全体の温度感と、個別企業の材料を分けて確認します。"
+          ]
+        },
+        {
+          "title": "【市況】 【投資部門別売買動向】個人が2週連続で買い越す一方、海外勢は2週連続で売り越す (6月第1週) - かぶたん",
+          "summary": "【市況】 【投資部門別売買動向】個人が2週連続で買い越す一方、海外勢は2週連続で売り越す (6月第1週) かぶたん",
+          "url": "https://news.google.com/rss/articles/CBMiYEFVX3lxTFAyMGFoQnlMblBwOXdpOW03d3NFVUtEWHVNd1M2WF8zTnNfYk1sUGx2Q0VVQmFCbVh4SG9Rem5iOHFPcGRHQV9BUVNBVThscHcycm1EbWlUXzY1RzZoZUtKRQ?oc=5",
+          "source_name": "かぶたん",
+          "source_type": "news",
+          "published_at": "2026-06-12T21:50:00Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
+          "freshness_status": "latest",
+          "category": "日本株",
+          "region": "日本",
+          "material_type": "macro",
+          "related_symbols": [],
+          "inferred_symbols": [
+            "7203.T",
+            "8306.T",
+            "6758.T",
+            "9984.T"
+          ],
+          "is_official_source": false,
+          "ai_comment": "マクロ環境の材料です。 日本株を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "investment_checkpoints": [
+            "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
+            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
+            "日本株全体の温度感と、個別企業の材料を分けて確認します。"
+          ]
+        },
+        {
+          "title": "12日の日本株は大幅上昇､イラン戦争への終結期待 - 四季報オンライン",
+          "summary": "12日の日本株は大幅上昇､イラン戦争への終結期待 四季報オンライン",
+          "url": "https://news.google.com/rss/articles/CBMiV0FVX3lxTFBvQmdWRHFxZUNwcmN2N01Za05OdnJxb3Jhd1BhTk5kTVdlVGlybmN4WTRMUnBQQlk1UmxpRVpVVnR0bnlLaVhtQlFCSWlPTE5IWV9yckx1WQ?oc=5",
+          "source_name": "四季報オンライン",
+          "source_type": "news",
+          "published_at": "2026-06-12T08:00:00Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
+          "freshness_status": "latest",
+          "category": "日本株",
+          "region": "日本",
+          "material_type": "macro",
+          "related_symbols": [],
+          "inferred_symbols": [
+            "1488.T",
+            "1306.T",
+            "7203.T",
+            "8306.T"
+          ],
+          "is_official_source": false,
+          "ai_comment": "マクロ環境の材料です。 日本株を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "investment_checkpoints": [
+            "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
+            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
+            "日本株全体の温度感と、個別企業の材料を分けて確認します。"
+          ]
+        },
+        {
+          "title": "日経平均株価、大幅続伸 午前終値は2225円高の6万6442円 - 日本経済新聞",
+          "summary": "日経平均株価、大幅続伸 午前終値は2225円高の6万6442円 日本経済新聞",
+          "url": "https://news.google.com/rss/articles/CBMiogFBVV95cUxPdTg1dEFUSTVGUGNRLXlxY0tNWFVUWTRYbENkbXV3VUtETjl6QmJFUEMwalliUTk3WlVMMVl1REwxNnRkNFFaS1E2OW9RY2RQQnRqZTZyMHZDdlpmTkExcjl2eldTd2hHNEw0aVVTTnFoVFc1RkZwU1ZCS2VXSzBQUlB5TGlobWxGVWYyX3AxNFdCSE1CazFYV2oyeWJDQ21lV2c?oc=5",
+          "source_name": "日本経済新聞",
+          "source_type": "news",
+          "published_at": "2026-06-12T00:06:00Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
+          "freshness_status": "latest",
+          "category": "日本株",
+          "region": "日本",
+          "material_type": "macro",
+          "related_symbols": [],
+          "inferred_symbols": [
+            "1488.T",
+            "1306.T",
+            "7203.T",
+            "8306.T"
+          ],
+          "is_official_source": false,
+          "ai_comment": "マクロ環境の材料です。 日本株を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。金利、為替、指数、景気敏感度のどこに波及しやすいかを整理します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "investment_checkpoints": [
+            "指数全体の話か、個別銘柄に波及する話かを切り分けます。",
+            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
+            "日本株全体の温度感と、個別企業の材料を分けて確認します。"
+          ]
+        }
+      ]
+    },
+    {
       "category": "配当・株主還元",
       "headlines": [
         {
@@ -1417,7 +1420,7 @@
           "source_name": "nomura.co.jp",
           "source_type": "news",
           "published_at": "2026-06-13T10:33:15Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "配当・株主還元",
           "region": "日本",
@@ -1444,7 +1447,7 @@
           "source_name": "日本経済新聞",
           "source_type": "news",
           "published_at": "2026-06-12T10:01:09Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "配当・株主還元",
           "region": "日本",
@@ -1471,7 +1474,7 @@
           "source_name": "ｄメニューニュース",
           "source_type": "news",
           "published_at": "2026-06-12T07:52:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "配当・株主還元",
           "region": "日本",
@@ -1498,7 +1501,7 @@
           "source_name": "finance.biggo.jp",
           "source_type": "news",
           "published_at": "2026-06-11T09:46:37Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "recent",
           "category": "配当・株主還元",
           "region": "日本",
@@ -1525,7 +1528,7 @@
           "source_name": "simplywall.st",
           "source_type": "news",
           "published_at": "2026-06-09T22:41:10Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "recent",
           "category": "配当・株主還元",
           "region": "日本",
@@ -1558,7 +1561,7 @@
           "source_name": "スマートニュース",
           "source_type": "news",
           "published_at": "2026-06-12T12:06:27Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "地政学・マクロリスク",
           "region": "グローバル",
@@ -1586,7 +1589,7 @@
           "source_name": "Moomoo",
           "source_type": "news",
           "published_at": "2026-06-12T10:18:35Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "地政学・マクロリスク",
           "region": "グローバル",
@@ -1613,7 +1616,7 @@
           "source_name": "finance.biggo.jp",
           "source_type": "news",
           "published_at": "2026-06-11T15:35:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "recent",
           "category": "地政学・マクロリスク",
           "region": "グローバル",
@@ -1640,7 +1643,7 @@
           "source_name": "日本経済新聞",
           "source_type": "news",
           "published_at": "2026-06-10T06:25:38Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "recent",
           "category": "地政学・マクロリスク",
           "region": "グローバル",
@@ -1667,7 +1670,7 @@
           "source_name": "note",
           "source_type": "news",
           "published_at": "2026-06-07T06:00:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "recent",
           "category": "地政学・マクロリスク",
           "region": "グローバル",
@@ -1698,8 +1701,8 @@
           "url": "https://news.google.com/rss/articles/CBMiVEFVX3lxTE00d09NQWtESkVrNXpla3NJWFNSV3J1OFlpWnJHWXRoUlYtM0hxOV9pR3laSEIzSzI0ZmVIeTE0MG5jWVNSWFJXekQwMkV2N0lJVmh6WA?oc=5",
           "source_name": "Yahoo!ファイナンス",
           "source_type": "news",
-          "published_at": "2026-06-13T13:18:20Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "published_at": "2026-06-13T16:22:39Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "ETF",
           "region": "グローバル",
@@ -1725,8 +1728,8 @@
           "url": "https://news.google.com/rss/articles/CBMiVEFVX3lxTE5SSUtzaEVHVU1va2E1TWg5LV9PYUo0U0Vkb0pKbkRHN3hwMm51SEdIT1NnN2tDVE5DOUk3dlR3d3dxc3htcjhqZmtqUDgxNWloanp2cw?oc=5",
           "source_name": "Yahoo!ファイナンス",
           "source_type": "news",
-          "published_at": "2026-06-13T11:57:57Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "published_at": "2026-06-13T15:00:41Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "ETF",
           "region": "グローバル",
@@ -1752,8 +1755,8 @@
           "url": "https://news.google.com/rss/articles/CBMiVEFVX3lxTE5UeThJaG9jU1oxZlR0QWdVSXczcHZWSVV5NHJ0b0FxZnVYYVZvXzd0RTVMajQ5WjFVNHk3b2NMUFRZcVJNbWkyVGtCRldjR1FOQ2VaMw?oc=5",
           "source_name": "Yahoo!ファイナンス",
           "source_type": "news",
-          "published_at": "2026-06-13T11:21:41Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "published_at": "2026-06-13T14:26:22Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "ETF",
           "region": "グローバル",
@@ -1780,7 +1783,7 @@
           "source_name": "Yahoo!ファイナンス",
           "source_type": "news",
           "published_at": "2026-06-13T06:58:19Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "ETF",
           "region": "グローバル",
@@ -1801,26 +1804,26 @@
           ]
         },
         {
-          "title": "SBI 欧州高配当株式(分配)ファンド(年4回決算型)【8931C242】：基準価格・投資信託情報 - Yahoo!ファイナンス",
-          "summary": "SBI 欧州高配当株式(分配)ファンド(年4回決算型)【8931C242】：基準価格・投資信託情報 Yahoo!ファイナンス",
-          "url": "https://news.google.com/rss/articles/CBMiVEFVX3lxTE9sTnNyZlQzQU5HXzFVQzNHeEVsekVsaXVPQ0lpUk83azNiTU9TdEhNVFZuYWEtVUFGcnkzdm1wUHpWU05RUUtBU25zYW1GUnhBNXhaSA?oc=5",
-          "source_name": "Yahoo!ファイナンス",
+          "title": "6月12日のCharles Schwab Corp (SCHW) 値動きは3.71%上昇：完全な分析 - TradingKey",
+          "summary": "6月12日のCharles Schwab Corp (SCHW) 値動きは3.71%上昇：完全な分析 TradingKey",
+          "url": "https://news.google.com/rss/articles/CBMijwFBVV95cUxQdUhHRmdCM2o5VVVCb2xHYmhkSFZoRURNdjk5WnZFLS1HUmx1QWdIbFJ6R3pPeWptQmhmY3BiZDVUTjZ2LTJDUmFlSEl2aHVlRklCSEt1ZWQ1VG9jNlJvU21kSDNUc0RQUktDYUFDRUl1ZGNmVHBmYkJRcU5QU2xXSmZSUElzdmpQNG5Jd19ONA?oc=5",
+          "source_name": "TradingKey",
           "source_type": "news",
-          "published_at": "2026-06-13T05:40:03Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "published_at": "2026-06-12T15:16:18Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "latest",
           "category": "ETF",
           "region": "グローバル",
           "material_type": "fund_flow",
           "related_symbols": [],
           "inferred_symbols": [
-            "8306.T",
-            "8058.T",
-            "2914.T",
-            "QQQ"
+            "VOO",
+            "2558.T",
+            "QQQ",
+            "SPY"
           ],
           "is_official_source": false,
-          "ai_comment": "資金フロー材料です。 業績と見通しを中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。ETFの資金流入、指数採用、金利環境、為替影響を分けて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "ai_comment": "資金フロー材料です。 ETFを中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。ETFの資金流入、指数採用、金利環境、為替影響を分けて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
           "investment_checkpoints": [
             "基準価額、出来高、コスト、連動対象の変化を確認します。",
             "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
@@ -1839,7 +1842,7 @@
           "source_name": "simplywall.st",
           "source_type": "news",
           "published_at": "2026-06-10T08:36:45Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "recent",
           "category": "金融",
           "region": "日本",
@@ -1862,6 +1865,38 @@
       ]
     },
     {
+      "category": "小売・消費",
+      "headlines": [
+        {
+          "title": "アカデミー・スポーツ、第1四半期好調で2026年通期利益見通しを上方修正も、インフレが消費者の重しと警告 - finance.biggo.jp",
+          "summary": "アカデミー・スポーツ、第1四半期好調で2026年通期利益見通しを上方修正も、インフレが消費者の重しと警告 finance.biggo.jp",
+          "url": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE44TkZSZk5VMW0xX3pXakhjejVZZ0Vjb250WHloWFJxQm92S1hIenBQMGsySU9TNHA1WjdvMTJyRHFkMHVJWFF1djF1QXNPUWtwRHBXRnVzR0tscEF5R0Vn?oc=5",
+          "source_name": "finance.biggo.jp",
+          "source_type": "news",
+          "published_at": "2026-06-09T14:56:00Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
+          "freshness_status": "recent",
+          "category": "小売・消費",
+          "region": "グローバル",
+          "material_type": "earnings",
+          "related_symbols": [],
+          "inferred_symbols": [
+            "QQQ",
+            "SPY",
+            "6758.T",
+            "AMZN"
+          ],
+          "is_official_source": false,
+          "ai_comment": "決算・業績材料です。 小売・消費を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。会社発表、通期見通し、利益率、需要の継続性を分けて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
+          "investment_checkpoints": [
+            "一時的な決算反応か、業績予想や受注に続く材料かを確認します。",
+            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
+            "小売・消費全体の温度感と、個別企業の材料を分けて確認します。"
+          ]
+        }
+      ]
+    },
+    {
       "category": "政策・規制",
       "headlines": [
         {
@@ -1871,7 +1906,7 @@
           "source_name": "Vietnam.vn",
           "source_type": "news",
           "published_at": "2026-06-11T23:16:25Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
+          "fetched_at": "2026-06-13T20:12:28.853061Z",
           "freshness_status": "recent",
           "category": "政策・規制",
           "region": "グローバル",
@@ -1889,65 +1924,6 @@
             "公式発表の有無、対象地域、企業ごとの影響差を確認します。",
             "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
             "政策・規制全体の温度感と、個別企業の材料を分けて確認します。"
-          ]
-        },
-        {
-          "title": "EUへの鉄鋼輸出はより困難になるだろう。 - Vietnam.vn",
-          "summary": "EUへの鉄鋼輸出はより困難になるだろう。 Vietnam.vn",
-          "url": "https://news.google.com/rss/articles/CBMia0FVX3lxTE1vWS1nQWVGLVNpQ3pjbWlvbW9HTjVpQzgyNFZJVk1jUlRNRHlXS25Uanp3b2lqSnVOWDV4YmE4UUdNbDdqSHU0dU80YXVvcmdkeTE3QndJMU0zc3VVNF9TU3pENkJQVG01dlQ0?oc=5",
-          "source_name": "Vietnam.vn",
-          "source_type": "news",
-          "published_at": "2026-06-09T15:04:43Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
-          "freshness_status": "recent",
-          "category": "政策・規制",
-          "region": "グローバル",
-          "material_type": "policy",
-          "related_symbols": [],
-          "inferred_symbols": [
-            "7203.T",
-            "NVDA",
-            "6758.T",
-            "9432.T"
-          ],
-          "is_official_source": false,
-          "ai_comment": "政策・規制に関する材料です。 政策・規制を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。規制、補助金、関税、制度変更の対象範囲と時期を確認します。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
-          "investment_checkpoints": [
-            "公式発表の有無、対象地域、企業ごとの影響差を確認します。",
-            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
-            "政策・規制全体の温度感と、個別企業の材料を分けて確認します。"
-          ]
-        }
-      ]
-    },
-    {
-      "category": "小売・消費",
-      "headlines": [
-        {
-          "title": "GLP-1が動かす米国民の消費変容―追い風が期待される米国の企業・業界とは？ - マネクリ",
-          "summary": "GLP-1が動かす米国民の消費変容―追い風が期待される米国の企業・業界とは？ マネクリ",
-          "url": "https://news.google.com/rss/articles/CBMiVEFVX3lxTE9DV200b0JaMzJ6WkthTU9OWURjd2Etdl9HODlTZDdjSVBjRER0Y0FsZGJiNGZzV0pSd1RCRkJqbnR2OGFtVTBWajJRNWhFemllMlQxbtIBV0FVX3lxTFBuOHo5NDNfbEprYWhURWl3bXRGNWoyZ2ZXbTlhZ0JUMy1XR1czNFJVRlN0c3RKQkFLdDFod04yM3R5RTlwTWhvbjlraWdqREV4bWRDd2pKaw?oc=5",
-          "source_name": "マネクリ",
-          "source_type": "news",
-          "published_at": "2026-06-11T08:00:00Z",
-          "fetched_at": "2026-06-13T13:33:20.459244Z",
-          "freshness_status": "recent",
-          "category": "小売・消費",
-          "region": "グローバル",
-          "material_type": "earnings",
-          "related_symbols": [],
-          "inferred_symbols": [
-            "AMZN",
-            "WMT",
-            "COST",
-            "7203.T"
-          ],
-          "is_official_source": false,
-          "ai_comment": "決算・業績材料です。 小売・消費を中心に、テーマから近そうな銘柄をSMAI推測候補として確認します。会社発表、通期見通し、利益率、需要の継続性を分けて読みます。 ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。",
-          "investment_checkpoints": [
-            "一時的な決算反応か、業績予想や受注に続く材料かを確認します。",
-            "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。",
-            "小売・消費全体の温度感と、個別企業の材料を分けて確認します。"
           ]
         }
       ]

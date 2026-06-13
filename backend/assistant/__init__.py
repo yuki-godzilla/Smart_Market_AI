@@ -22,6 +22,11 @@ from backend.assistant.gateway_contracts import (
     build_assistant_context_bundle,
     build_assistant_gateway_request,
 )
+from backend.assistant.intent_router import (
+    AssistantAgentIntent,
+    AssistantIntentDecision,
+    detect_assistant_intent,
+)
 from backend.assistant.service import (
     ASSISTANT_SCHEMA_VERSION,
     AssistantCitation,
@@ -30,6 +35,13 @@ from backend.assistant.service import (
     AssistantRequest,
     AssistantResponse,
     TemplateAssistantService,
+)
+from backend.assistant.tools import (
+    AssistantCurrentContext,
+    AssistantToolLayer,
+    AssistantToolPlanResult,
+    AssistantToolResult,
+    execute_assistant_tool_plan,
 )
 
 __all__ = [
@@ -40,7 +52,9 @@ __all__ = [
     "AssistantContextBundle",
     "AssistantContextSection",
     "AssistantCitation",
+    "AssistantAgentIntent",
     "AssistantAnswerService",
+    "AssistantCurrentContext",
     "AssistantGatewayClient",
     "AssistantGatewayConstraints",
     "AssistantGatewayError",
@@ -49,9 +63,13 @@ __all__ = [
     "AssistantGatewayRequest",
     "AssistantGatewayResponse",
     "AssistantIntent",
+    "AssistantIntentDecision",
     "AssistantMessage",
     "AssistantRequest",
     "AssistantResponse",
+    "AssistantToolLayer",
+    "AssistantToolPlanResult",
+    "AssistantToolResult",
     "GatewayBackedAssistantService",
     "HttpAssistantGatewayClient",
     "MockAssistantGatewayClient",
@@ -60,4 +78,6 @@ __all__ = [
     "build_assistant_gateway_request",
     "create_assistant_gateway_client_from_settings",
     "create_assistant_service_from_settings",
+    "detect_assistant_intent",
+    "execute_assistant_tool_plan",
 ]

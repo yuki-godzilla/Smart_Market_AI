@@ -2550,6 +2550,22 @@ body,
     font-weight: 840;
 }
 
+.smai-copilot-material-status {
+    max-width: 64rem;
+    margin: 0 auto 0.72rem;
+    border: 1px solid rgba(71, 85, 105, 0.44);
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.46);
+    padding: 0.68rem 0.76rem;
+}
+
+.smai-copilot-material-status > span {
+    display: block;
+    color: var(--text-ai-title);
+    font-size: 0.78rem;
+    font-weight: 840;
+}
+
 div[data-testid="stChatMessage"] {
     max-width: 64rem;
     margin-left: auto;
@@ -2766,6 +2782,11 @@ div[data-testid="stChatInput"] textarea:focus {
         transform 160ms ease;
 }
 
+.smai-copilot-action-label {
+    display: block;
+    line-height: 1.32;
+}
+
 .smai-copilot-action-card:hover {
     border-color: rgba(45, 212, 191, 0.5);
     box-shadow: 0 0 18px rgba(34, 211, 238, 0.11);
@@ -2787,6 +2808,10 @@ div[data-testid="stChatInput"] textarea:focus {
 }
 
 .smai-copilot-answer-grid--welcome {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.smai-copilot-answer-grid--four {
     grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 

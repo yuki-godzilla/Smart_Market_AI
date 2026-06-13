@@ -1550,3 +1550,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Clarified that LLM output will initially be used for explanation, summarization, material extraction, contradiction detection, and report drafting only.
 - Explicitly prohibited early-stage LLM use from directly changing scores, rankings, forecasts, or investment decisions.
 - Added validation-first policy for any future LLM-derived factor integration.
+
+## 2026-06-13 - SMAI Assistant header icon update
+
+- Created `ui/assets/mascot/smai-navi-chat-cutout.png` from the user-provided SMAIナビ chat image with a transparent background.
+- Added the transparent SMAIナビ icon to the dedicated assistant workspace header.
+- Renamed the side-menu entry from `SMAI Copilot` to `SMAIアシスタント` while keeping the internal `copilot` route stable.
+- Updated focused UI/style tests and docs for the new icon and side-menu label.

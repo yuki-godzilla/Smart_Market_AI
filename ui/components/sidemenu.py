@@ -19,7 +19,7 @@ SIDEMENU_PAGE_LABELS: dict[SideMenuPage, str] = {
     SIDEMENU_PAGE_COCKPIT: "銘柄コックピット",
     SIDEMENU_PAGE_RANKING: "銘柄ランキング",
     SIDEMENU_PAGE_NEWS: "投資レーダー",
-    SIDEMENU_PAGE_COPILOT: "SMAI Copilot",
+    SIDEMENU_PAGE_COPILOT: "SMAIアシスタント",
     SIDEMENU_PAGE_REBALANCE: "リバランス",
     SIDEMENU_PAGE_SETTINGS: "設定 / データ情報",
 }

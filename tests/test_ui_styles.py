@@ -79,6 +79,8 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert ".smai-floating-assistant-stage" in SMAI_GLOBAL_CSS
     assert ".smai-floating-assistant-avatar::after" in SMAI_GLOBAL_CSS
     assert ".smai-copilot-chat-topbar" in SMAI_GLOBAL_CSS
+    assert ".smai-copilot-header-icon" in SMAI_GLOBAL_CSS
+    assert ".smai-copilot-header-icon img" in SMAI_GLOBAL_CSS
     assert ".smai-copilot-suggestions-title" in SMAI_GLOBAL_CSS
     assert 'div[data-testid="stChatMessage"]' in SMAI_GLOBAL_CSS
     assert 'div[data-testid="stChatInput"]' in SMAI_GLOBAL_CSS

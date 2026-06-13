@@ -5,6 +5,7 @@ from streamlit.testing.v1 import AppTest
 from backend.assistant import AssistantMessage
 from ui.views.copilot import (
     COPILOT_CHAT_HISTORY_STATE_KEY,
+    _chat_header_html,
     copilot_answer_detail_html,
     copilot_context_label,
     copilot_context_options,
@@ -75,9 +76,17 @@ def test_copilot_turn_html_separates_user_and_smai_messages():
     assert "SMAIの整理" in markup
     assert "smai-copilot-assistant-avatar" in markup
     assert "smai-copilot-assistant-avatar-image--reply" in markup
-    assert "data:image/png;base64," in markup
+    assert "data:image/webp;base64," in markup
     assert "この銘柄の確認点は？" in markup
     assert "価格と材料を分けて確認します。" in markup
+
+
+def test_copilot_header_uses_smai_navi_chat_icon():
+    markup = _chat_header_html(history_count=0)
+
+    assert "smai-copilot-header-icon" in markup
+    assert "data:image/png;base64," in markup
+    assert "投資判断アシスタント" in markup
 
 
 def test_copilot_page_renders_with_streamlit_app(monkeypatch):
@@ -106,6 +115,7 @@ def test_copilot_page_renders_with_streamlit_app(monkeypatch):
     assert "SMAI Copilot" in page_text
     assert "投資判断アシスタント" in page_text
     assert "smai-copilot-chat-topbar" in page_text
+    assert "SMAIアシスタント" in button_labels
     assert "分析モード" in selectbox_labels
     assert (
         "価格・予測・ニュース・根拠資料について確認したいことを入力..." in chat_input_placeholders

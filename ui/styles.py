@@ -2454,6 +2454,36 @@ body,
     padding: 0.95rem 1rem;
 }
 
+.smai-copilot-header-identity {
+    display: flex;
+    align-items: center;
+    gap: 0.82rem;
+    min-width: 0;
+}
+
+.smai-copilot-header-icon {
+    flex: 0 0 auto;
+    width: 4.3rem;
+    height: 4.3rem;
+    border-radius: 999px;
+    background:
+        radial-gradient(circle at 50% 40%, rgba(34, 211, 238, 0.18), transparent 62%),
+        rgba(2, 8, 23, 0.38);
+    border: 1px solid rgba(125, 211, 252, 0.34);
+    box-shadow:
+        0 0 24px rgba(34, 211, 238, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+.smai-copilot-header-icon img {
+    display: block;
+    width: 118%;
+    height: 118%;
+    object-fit: contain;
+    transform: translate(-7%, -8%);
+}
+
 .smai-copilot-eyebrow {
     display: block;
     color: var(--text-ai-title);
@@ -3386,6 +3416,11 @@ div[data-testid="stChatInput"] textarea:focus {
     .smai-copilot-chat-topbar {
         align-items: flex-start;
         flex-direction: column;
+    }
+
+    .smai-copilot-header-icon {
+        width: 3.8rem;
+        height: 3.8rem;
     }
 
     .smai-copilot-statusbar {

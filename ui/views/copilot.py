@@ -7,7 +7,11 @@ import streamlit as st
 
 from backend.assistant import AssistantMessage, AssistantResponse
 from ui.components.assistant import SmaiAssistantContext, assistant_response_for_context
-from ui.components.mascot import MASCOT_CUTOUT_ASSET, _asset_data_uri
+from ui.components.mascot import (
+    MASCOT_NAVI_CHAT_ASSET,
+    MASCOT_THUMB_ASSET,
+    _asset_data_uri,
+)
 
 COPILOT_CHAT_HISTORY_STATE_KEY = "smai_copilot_chat_history"
 COPILOT_CONVERSATION_ID_STATE_KEY = "smai_copilot_conversation_id"
@@ -317,12 +321,18 @@ def _new_conversation_id() -> str:
 def _chat_header_html(*, history_count: int) -> str:
     status_label = "準備完了" if history_count == 0 else "確認中"
     status_detail = "文脈: 銘柄コックピット" if history_count == 0 else f"会話 {history_count}件"
+    navi_image = _asset_data_uri(MASCOT_NAVI_CHAT_ASSET)
     return (
         '<section class="smai-copilot-chat-topbar">'
+        '<div class="smai-copilot-header-identity">'
+        '<div class="smai-copilot-header-icon" aria-hidden="true">'
+        f'<img src="{navi_image}" alt="" loading="lazy" />'
+        "</div>"
         "<div>"
         '<span class="smai-copilot-eyebrow">SMAI Copilot</span>'
         "<h1>投資判断アシスタント</h1>"
         "<p>銘柄・予測・ニュース・根拠資料を横断して、確認すべき材料を整理します。</p>"
+        "</div>"
         "</div>"
         '<div class="smai-copilot-statusbar">'
         '<span class="smai-copilot-chat-status-dot"></span>'
@@ -382,7 +392,7 @@ def _user_bubble_html(*, context_label: str, question: str) -> str:
 
 
 def _assistant_bubble_html(*, answer: str, detail_html: str) -> str:
-    image = _asset_data_uri(MASCOT_CUTOUT_ASSET)
+    image = _asset_data_uri(MASCOT_THUMB_ASSET)
     return (
         '<section class="smai-copilot-message-row smai-copilot-message-row--assistant">'
         '<div class="smai-copilot-assistant-avatar" aria-hidden="true">'

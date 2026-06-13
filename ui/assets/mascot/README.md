@@ -12,5 +12,6 @@ Title illustrations:
 Transparent presence asset:
 
 - `smai-mascot-cutout.png`: transparent PNG cutout used by the Symbol Cockpit `SMAI Copilot` panel and `SMAI Insight` comment context.
+- `smai-navi-chat-cutout.png`: transparent PNG cutout used as the dedicated `SMAIアシスタント` chat header icon.
 
 Keep project-used mascot assets lightweight WebP files under this directory.

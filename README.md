@@ -75,7 +75,7 @@ SMAI は以下の思想を重視しています。
   - 初期段階の LLM は Copilot、画面文脈に沿った説明、ニュース / 材料要約、Decision Report 草案、LLM Factor 候補生成に使い、スコア、順位、予測値、投資判断は直接変更しない。
   - LLM 由来の特徴量を Ranking / Forecast に統合する場合は、backtest、leakage check、baseline 比較などの検証後に段階的に扱う。
 - Streamlit UI
-  - left side menu for `銘柄コックピット` / `銘柄ランキング` / `投資レーダー` / `リバランス` / `設定 / データ情報`
+  - left side menu for `銘柄コックピット` / `銘柄ランキング` / `投資レーダー` / `SMAIアシスタント` / `リバランス` / `設定 / データ情報`
   - 銘柄コックピット: 価格・予測チャート、AI予測インサイト、Investment Score、投資判断メモ、Research Evidence、Decision Report、銘柄データ modal、warnings、downloads
   - 銘柄ランキング: curated symbol metadata、候補条件 modal、ランキング preset、今回のランキング条件カード、AI総合 / 予測シグナル説明、AI予測インサイト込みの並べ替え理由と深掘り候補、行クリックで開く銘柄データ modal、AI Research tab、Decision Report
   - 投資レーダー: network-free demo snapshot と手動更新時の Google News RSS Standard Mode による市場ニュースヘッドライン、企業名主表示＋シンボル補助タグのクリック可能な株式ヒートマップ風投資ヒートマップ、3列カテゴリ別ニュースカード、銘柄名付き関連銘柄から銘柄コックピットへの導線

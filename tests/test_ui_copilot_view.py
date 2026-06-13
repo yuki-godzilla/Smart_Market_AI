@@ -50,7 +50,6 @@ def test_copilot_settings_from_gateway_runtime_enables_session_gateway():
         model="qwen3:8b",
         timeout_seconds=5.0,
         context_answer_path="/api/v1/context-answer",
-        source_enabled=False,
     )
 
     settings = copilot_settings_from_gateway_runtime(runtime_config, base_settings)
@@ -134,11 +133,10 @@ def test_copilot_page_renders_with_streamlit_app(monkeypatch):
     chat_input_placeholders = [
         str(getattr(element, "placeholder", "")) for element in app.chat_input
     ]
-    checkbox_labels = [str(getattr(element, "label", "")) for element in app.checkbox]
 
     assert "SMAI Copilot" in page_text
-    assert "LLM接続: OFF" in page_text
-    assert "LLM Gatewayを使う" in checkbox_labels
+    assert "LLM接続" not in page_text
+    assert "LLM Gateway" not in page_text
     assert "投資判断アシスタント" in page_text
     assert "smai-copilot-chat-topbar" in page_text
     assert "SMAIアシスタント" in button_labels

@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+import json
+from collections.abc import Sequence
+
+from pydantic import Field, ValidationError
+
 from app.clients.ollama_client import OllamaClient
+from app.schemas.common import GatewayBaseModel
 from app.schemas.context_answer import (
     ContextAnswerConfidence,
     ContextAnswerRequest,
@@ -12,6 +18,16 @@ from app.services.prompt_service import PromptService
 
 _JA_DECISION_SUPPORT_NOTE = "この回答は判断材料の整理であり、投資助言ではありません。"
 _EN_DECISION_SUPPORT_NOTE = "This response is decision-support context, not investment advice."
+
+
+class LlmContextAnswerPayload(GatewayBaseModel):
+    """Structured payload requested from the LLM provider."""
+
+    answer: str = Field(min_length=1)
+    materials: list[str] = Field(default_factory=list)
+    cautions: list[str] = Field(default_factory=list)
+    next_checkpoints: list[str] = Field(default_factory=list)
+    confidence: ContextAnswerConfidence = "medium"
 
 
 class ContextAnswerService:
@@ -30,11 +46,24 @@ class ContextAnswerService:
         messages = self.prompt_service.build_context_answer_messages(request)
         result = self.client.chat(messages, model=request.model)
         sections = _selected_sections(request)
+        llm_payload = _parse_llm_context_answer(result.answer)
         return ContextAnswerResponse(
-            answer=result.answer,
-            materials=_materials_from_sections(sections),
-            cautions=_cautions_from_request(request),
-            next_checkpoints=_next_checkpoints_from_sections(sections, language=request.language),
+            answer=llm_payload.answer if llm_payload else result.answer,
+            materials=_bounded_non_empty(
+                llm_payload.materials if llm_payload else (),
+                fallback=_materials_from_sections(sections),
+                limit=8,
+            ),
+            cautions=_bounded_non_empty(
+                llm_payload.cautions if llm_payload else (),
+                fallback=_cautions_from_request(request),
+                limit=8,
+            ),
+            next_checkpoints=_bounded_non_empty(
+                llm_payload.next_checkpoints if llm_payload else (),
+                fallback=_next_checkpoints_from_sections(sections, language=request.language),
+                limit=6,
+            ),
             referenced_sections=[
                 ContextReferencedSection(
                     section_id=section.section_id,
@@ -43,7 +72,7 @@ class ContextAnswerService:
                 )
                 for section in sections
             ],
-            confidence=_confidence_from_request(request),
+            confidence=llm_payload.confidence if llm_payload else _confidence_from_request(request),
             safety_notes=_safety_notes_from_request(request),
             provider=result.provider,
             model=result.model,
@@ -52,6 +81,45 @@ class ContextAnswerService:
                 _JA_DECISION_SUPPORT_NOTE if request.language == "ja" else _EN_DECISION_SUPPORT_NOTE
             ),
         )
+
+
+def _parse_llm_context_answer(answer: str) -> LlmContextAnswerPayload | None:
+    raw_json = _extract_json_object(answer)
+    if raw_json is None:
+        return None
+    try:
+        data = json.loads(raw_json)
+    except json.JSONDecodeError:
+        return None
+    try:
+        return LlmContextAnswerPayload.model_validate(data)
+    except ValidationError:
+        return None
+
+
+def _extract_json_object(text: str) -> str | None:
+    normalized = text.strip()
+    if not normalized:
+        return None
+    if normalized.startswith("```"):
+        normalized = normalized.strip("`").strip()
+        if normalized.lower().startswith("json"):
+            normalized = normalized[4:].strip()
+    start = normalized.find("{")
+    end = normalized.rfind("}")
+    if start < 0 or end < start:
+        return None
+    return normalized[start : end + 1]
+
+
+def _bounded_non_empty(
+    values: Sequence[str],
+    *,
+    fallback: list[str],
+    limit: int,
+) -> list[str]:
+    bounded = _dedupe_non_empty([str(value) for value in values])[:limit]
+    return bounded or fallback[:limit]
 
 
 def _selected_sections(request: ContextAnswerRequest) -> list[ContextSection]:

@@ -1565,3 +1565,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Kept deterministic fallback for disabled Gateway, provider failure, timeout, schema validation failure, invalid JSON, empty answers, and normal tests.
 - Added parent SMAI opt-in live smoke coverage in `tests/test_assistant_gateway_live_smoke.py`, guarded by `SMAI_ASSISTANT_GATEWAY_LIVE_SMOKE=1`.
 - Updated README, roadmap, current context, and Gateway setup docs for the new Phase 25 boundary and smoke command.
+
+## 2026-06-13 - Phase 25 default LLM Gateway and structured LLM response
+
+- Removed the visible `LLM Gateway` ON/OFF panel from `SMAIアシスタント`.
+- Made submitted assistant chat questions use the Gateway path by default, with deterministic fallback retained for unavailable Gateway, timeout, schema validation failure, malformed JSON, empty answer, and normal network-free checks.
+- Updated Gateway `/api/v1/context-answer` prompts to request structured JSON from the LLM and validate `answer`, `materials`, `cautions`, `next_checkpoints`, and `confidence` before adopting them.
+- Kept fallback materials / cautions / next checkpoints derived from the supplied context when the LLM payload is not valid structured JSON.

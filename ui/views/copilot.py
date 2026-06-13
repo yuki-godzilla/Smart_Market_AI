@@ -17,10 +17,6 @@ from ui.components.mascot import (
 
 COPILOT_CHAT_HISTORY_STATE_KEY = "smai_copilot_chat_history"
 COPILOT_CONVERSATION_ID_STATE_KEY = "smai_copilot_conversation_id"
-COPILOT_GATEWAY_ENABLED_STATE_KEY = "smai_copilot_gateway_enabled"
-COPILOT_GATEWAY_BASE_URL_STATE_KEY = "smai_copilot_gateway_base_url"
-COPILOT_GATEWAY_MODEL_STATE_KEY = "smai_copilot_gateway_model"
-COPILOT_GATEWAY_TIMEOUT_STATE_KEY = "smai_copilot_gateway_timeout_seconds"
 
 
 @dataclass(frozen=True)
@@ -30,7 +26,6 @@ class CopilotGatewayRuntimeConfig:
     model: str
     timeout_seconds: float
     context_answer_path: str
-    source_enabled: bool
 
     @property
     def mode_label(self) -> str:
@@ -158,23 +153,13 @@ def copilot_gateway_runtime_config(
 ) -> CopilotGatewayRuntimeConfig:
     settings = base_settings or get_settings()
     gateway = settings.assistant.gateway
-    if COPILOT_GATEWAY_ENABLED_STATE_KEY not in st.session_state:
-        st.session_state[COPILOT_GATEWAY_ENABLED_STATE_KEY] = gateway.enabled
-    if COPILOT_GATEWAY_BASE_URL_STATE_KEY not in st.session_state:
-        st.session_state[COPILOT_GATEWAY_BASE_URL_STATE_KEY] = gateway.base_url
-    if COPILOT_GATEWAY_MODEL_STATE_KEY not in st.session_state:
-        st.session_state[COPILOT_GATEWAY_MODEL_STATE_KEY] = gateway.model or ""
-    if COPILOT_GATEWAY_TIMEOUT_STATE_KEY not in st.session_state:
-        st.session_state[COPILOT_GATEWAY_TIMEOUT_STATE_KEY] = float(gateway.timeout_seconds)
 
     return CopilotGatewayRuntimeConfig(
-        enabled=bool(st.session_state[COPILOT_GATEWAY_ENABLED_STATE_KEY]),
-        base_url=str(st.session_state[COPILOT_GATEWAY_BASE_URL_STATE_KEY]).strip()
-        or gateway.base_url,
-        model=str(st.session_state[COPILOT_GATEWAY_MODEL_STATE_KEY]).strip(),
-        timeout_seconds=float(st.session_state[COPILOT_GATEWAY_TIMEOUT_STATE_KEY]),
+        enabled=True,
+        base_url=gateway.base_url,
+        model=gateway.model or "qwen3:8b",
+        timeout_seconds=float(gateway.timeout_seconds),
         context_answer_path=gateway.context_answer_path,
-        source_enabled=gateway.enabled,
     )
 
 
@@ -235,49 +220,11 @@ def copilot_turn_html(turn: dict[str, str]) -> str:
     )
 
 
-def _render_gateway_controls() -> CopilotGatewayRuntimeConfig:
-    runtime_config = copilot_gateway_runtime_config()
-    with st.expander("LLM Gateway", expanded=runtime_config.enabled):
-        source = "config" if runtime_config.source_enabled else "session"
-        st.caption(
-            f"{runtime_config.status_label} / mode: {runtime_config.mode_label} / source: {source}"
-        )
-        st.checkbox(
-            "LLM Gatewayを使う",
-            key=COPILOT_GATEWAY_ENABLED_STATE_KEY,
-            help=(
-                "ONのときだけ smai-ai-gateway の /api/v1/context-answer に送ります。"
-                "失敗時は自動でdeterministic回答に戻ります。"
-            ),
-        )
-        st.text_input(
-            "Gateway URL",
-            key=COPILOT_GATEWAY_BASE_URL_STATE_KEY,
-            placeholder="http://127.0.0.1:8088",
-        )
-        st.text_input(
-            "Model",
-            key=COPILOT_GATEWAY_MODEL_STATE_KEY,
-            placeholder="qwen3:8b",
-        )
-        st.number_input(
-            "Timeout seconds",
-            min_value=1.0,
-            max_value=120.0,
-            step=1.0,
-            key=COPILOT_GATEWAY_TIMEOUT_STATE_KEY,
-        )
-        st.caption(
-            "この設定は現在のStreamlitセッションだけに適用されます。"
-            "永続化する場合はSMAI_CONFIG_FILEのassistant.gatewayを更新してください。"
-        )
-    return copilot_gateway_runtime_config()
-
-
 def render_copilot_workspace_page() -> None:
     contexts = copilot_context_options()
     labels = [copilot_context_label(context) for context in contexts]
     history = _copilot_history()
+    runtime_config = copilot_gateway_runtime_config()
 
     st.markdown(_chat_header_html(history_count=len(history)), unsafe_allow_html=True)
     _, settings_col, _ = st.columns([0.14, 0.72, 0.14])
@@ -296,7 +243,6 @@ def render_copilot_workspace_page() -> None:
             )
         with clear_col:
             clear = st.button("新しい分析", use_container_width=True)
-        runtime_config = _render_gateway_controls()
     selected_context = contexts[labels.index(selected_label)]
 
     if clear:

@@ -6,9 +6,14 @@ from app.services.context_answer_service import ContextAnswerService
 
 
 class FakeLlmClient:
-    def __init__(self) -> None:
+    def __init__(self, *, answer: str | None = None) -> None:
         self.messages: list[LlmMessage] = []
         self.model: str | None = None
+        self.answer = answer or (
+            '{"answer":"LLM structured answer.","materials":["LLM material 1","LLM material 2"],'
+            '"cautions":["LLM caution"],"next_checkpoints":["LLM next check"],'
+            '"confidence":"high"}'
+        )
 
     def chat(
         self,
@@ -19,43 +24,59 @@ class FakeLlmClient:
         self.messages = messages
         self.model = model
         return LlmProviderResult(
-            answer="中心予測、予測レンジ、信頼度を順に確認します。",
+            answer=self.answer,
             model=model or "qwen3:8b",
             provider="fake",
             elapsed_ms=7,
         )
 
 
-def test_context_answer_service_wraps_llm_answer_with_structured_context():
+def test_context_answer_service_uses_structured_llm_payload():
     client = FakeLlmClient()
     service = ContextAnswerService(client)  # type: ignore[arg-type]
     request = _request()
 
     response = service.answer(request)
 
-    assert response.answer == "中心予測、予測レンジ、信頼度を順に確認します。"
+    assert response.answer == "LLM structured answer."
     assert response.provider == "fake"
     assert response.model == "qwen3:8b"
     assert response.elapsed_ms == 7
-    assert response.materials[:3] == ["AI予測インサイト", "中心予測", "予測レンジ"]
-    assert "予測レンジが広めです。" in response.cautions
-    assert "根拠資料とデータ品質も確認します。" in response.next_checkpoints
+    assert response.materials == ["LLM material 1", "LLM material 2"]
+    assert response.cautions == ["LLM caution"]
+    assert response.next_checkpoints == ["LLM next check"]
     assert response.referenced_sections[0].section_id == "forecast-1"
-    assert response.confidence == "medium"
+    assert response.confidence == "high"
     assert response.safety_notes
     assert client.model == "qwen3:8b"
     assert any("AI予測インサイト" in message.content for message in client.messages)
+    assert any("Return only valid JSON" in message.content for message in client.messages)
 
 
-def test_context_answer_service_uses_active_section_when_supplied():
-    client = FakeLlmClient()
+def test_context_answer_service_uses_active_section_when_payload_is_unstructured():
+    client = FakeLlmClient(answer="LLM plain answer")
     service = ContextAnswerService(client)  # type: ignore[arg-type]
     request = _request(active_context_id="risk-1")
 
     response = service.answer(request)
 
-    assert response.materials[0] == "下降警戒"
+    assert response.answer == "LLM plain answer"
+    assert response.materials[0] == "下振れ警戒"
     assert response.referenced_sections[0].section_id == "risk-1"
+
+
+def test_context_answer_service_falls_back_when_llm_payload_is_invalid_json():
+    client = FakeLlmClient(answer='{"answer": "", "materials": ["中心予測"]}')
+    service = ContextAnswerService(client)  # type: ignore[arg-type]
+    request = _request()
+
+    response = service.answer(request)
+
+    assert response.answer == '{"answer": "", "materials": ["中心予測"]}'
+    assert response.materials[:3] == ["AI予測インサイト", "中心予測", "予測レンジ"]
+    assert "予測レンジが広めです。" in response.cautions
+    assert "根拠資料とデータ品質を確認します。" in response.next_checkpoints
+    assert response.confidence == "medium"
 
 
 def _request(*, active_context_id: str = "forecast-1") -> ContextAnswerRequest:
@@ -63,7 +84,7 @@ def _request(*, active_context_id: str = "forecast-1") -> ContextAnswerRequest:
         {
             "task": "explain",
             "language": "ja",
-            "user_question": "何を見ればいい？",
+            "user_question": "何を見ればよいですか？",
             "active_context_id": active_context_id,
             "model": "qwen3:8b",
             "context": {
@@ -78,18 +99,18 @@ def _request(*, active_context_id: str = "forecast-1") -> ContextAnswerRequest:
                         "source_kind": "forecast",
                         "summary": {
                             "中心予測": "+1.2%",
-                            "予測レンジ": "-3.0%〜+4.5%",
+                            "予測レンジ": "-3.0%から+4.5%",
                         },
                         "included_fields": ["中心予測", "予測レンジ", "信頼度"],
                         "warnings": ["予測レンジが広めです。"],
-                        "notes": ["根拠資料とデータ品質も確認します。"],
+                        "notes": ["根拠資料とデータ品質を確認します。"],
                     },
                     {
                         "section_id": "risk-1",
-                        "title": "下降警戒",
+                        "title": "下振れ警戒",
                         "source_kind": "risk",
-                        "summary": {"下降警戒": "42.0"},
-                        "included_fields": ["下降警戒", "注意点"],
+                        "summary": {"下振れ警戒": "42.0"},
+                        "included_fields": ["下振れ警戒", "注意点"],
                     },
                 ],
                 "privacy_notes": [

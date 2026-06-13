@@ -126,6 +126,8 @@ Remove-Item Env:SMAI_ASSISTANT_GATEWAY_BASE_URL
 Remove-Item Env:SMAI_ASSISTANT_GATEWAY_MODEL
 ```
 
+`SMAIアシスタント` 画面の通常チャット送信は、UIにON/OFFを出さずに Gateway 接続を既定で試します。Gateway が未起動、timeout、schema validation failure、LLM JSON不正、空応答の場合は SMAI 側の deterministic fallback に戻ります。
+
 ### Ollama ありの opt-in live smoke
 
 Ollama を起動し、モデル取得後にだけ実行します。通常 CI / 通常確認には含めません。

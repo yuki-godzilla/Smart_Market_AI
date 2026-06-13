@@ -77,8 +77,13 @@ def _context_answer_user_prompt(request: ContextAnswerRequest) -> str:
         f"Privacy notes:\n{privacy_notes or '- none'}\n\n"
         "Context sections:\n"
         f"{sections}\n\n"
-        "Write a concise answer for the user's question. "
-        "Mention uncertainty or missing checks when relevant."
+        "Return only valid JSON with these keys:\n"
+        "- answer: concise answer string\n"
+        "- materials: array of 1 to 8 strings grounded in the supplied context\n"
+        "- cautions: array of 1 to 8 strings, including uncertainty or missing checks when relevant\n"
+        "- next_checkpoints: array of 1 to 6 strings\n"
+        "- confidence: one of low, medium, high\n"
+        "Do not wrap the JSON in markdown. Do not add fields."
     )
 
 

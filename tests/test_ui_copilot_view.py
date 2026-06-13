@@ -41,8 +41,8 @@ def test_copilot_answer_detail_html_escapes_detail_lists():
     markup = copilot_answer_detail_html(
         {
             "context_label": "銘柄<コックピット>",
-            "question": "確認 <script>",
-            "answer": "回答 <b>",
+            "question": "確認<script>",
+            "answer": "回答<b>",
             "reasons": "材料 <1>",
             "cautions": "注意 <2>",
             "next_checkpoints": "次 <3>",
@@ -80,11 +80,15 @@ def test_copilot_page_renders_with_streamlit_app(monkeypatch):
     ]
 
     assert "SMAI Copilot" in page_text
+    assert "投資判断アシスタント" in page_text
     assert "smai-copilot-chat-topbar" in page_text
-    assert "文脈" in selectbox_labels
-    assert "SMAI Copilotにメッセージを送る" in chat_input_placeholders
-    assert "新しいチャット" in button_labels
-    assert "この銘柄でまず確認する順番は？" in button_labels
+    assert "分析モード" in selectbox_labels
+    assert (
+        "価格・予測・ニュース・根拠資料について確認したいことを入力..." in chat_input_placeholders
+    )
+    assert "新しい分析" in button_labels
+    assert "この観点で聞く" in button_labels
+    assert "今日の確認テーマ" in page_text
 
 
 def test_copilot_page_chat_input_appends_chat_turn(monkeypatch):

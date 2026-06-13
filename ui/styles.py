@@ -2440,14 +2440,18 @@ body,
     justify-content: space-between;
     gap: 1rem;
     width: 100%;
-    max-width: 56rem;
-    margin: 0.85rem auto 0.75rem;
-    border: 1px solid rgba(71, 85, 105, 0.48);
+    max-width: 64rem;
+    margin: 0.85rem auto 0.82rem;
+    border: 1px solid rgba(34, 211, 238, 0.3);
     border-radius: 8px;
     background:
-        linear-gradient(180deg, rgba(13, 24, 43, 0.88), rgba(7, 12, 22, 0.82)),
+        linear-gradient(90deg, rgba(34, 211, 238, 0.12), transparent 42%),
+        linear-gradient(180deg, rgba(14, 25, 44, 0.94), rgba(5, 10, 20, 0.9)),
         var(--surface-base);
-    padding: 0.78rem 0.88rem;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 18px 48px rgba(0, 0, 0, 0.22);
+    padding: 0.95rem 1rem;
 }
 
 .smai-copilot-eyebrow {
@@ -2461,15 +2465,15 @@ body,
 
 .smai-copilot-chat-topbar h1 {
     color: var(--text-title);
-    font-size: 1.35rem;
+    font-size: 1.42rem;
     line-height: 1.15;
     margin: 0;
 }
 
 .smai-copilot-chat-topbar p {
-    color: var(--text-muted);
+    color: var(--text-secondary);
     font-size: 0.92rem;
-    line-height: 1.45;
+    line-height: 1.55;
     margin: 0.24rem 0 0;
 }
 
@@ -2478,11 +2482,13 @@ body,
     grid-template-columns: auto auto;
     align-items: center;
     gap: 0.14rem 0.45rem;
-    border: 1px solid rgba(34, 211, 238, 0.24);
+    border: 1px solid rgba(45, 212, 191, 0.34);
     border-radius: 8px;
-    background: rgba(8, 47, 73, 0.28);
+    background:
+        linear-gradient(135deg, rgba(20, 184, 166, 0.12), rgba(2, 8, 23, 0.2)),
+        rgba(8, 47, 73, 0.28);
     padding: 0.55rem 0.72rem;
-    min-width: 8.8rem;
+    min-width: 10rem;
 }
 
 .smai-copilot-chat-status-dot {
@@ -2506,8 +2512,16 @@ body,
     font-weight: 760;
 }
 
+.smai-copilot-mode-label {
+    max-width: 64rem;
+    margin: 0 auto 0.36rem;
+    color: var(--text-ai-title);
+    font-size: 0.8rem;
+    font-weight: 840;
+}
+
 div[data-testid="stChatMessage"] {
-    max-width: 56rem;
+    max-width: 64rem;
     margin-left: auto;
     margin-right: auto;
 }
@@ -2517,17 +2531,105 @@ div[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {
 }
 
 .smai-copilot-suggestions-title {
-    max-width: 56rem;
-    margin: 0.72rem auto 0.42rem;
+    max-width: 64rem;
+    margin: 0.86rem auto 0.44rem;
     color: var(--text-ai-title);
     font-size: 0.82rem;
     font-weight: 840;
 }
 
 div[data-testid="stChatInput"] {
-    max-width: 56rem;
+    max-width: 64rem;
     margin-left: auto;
     margin-right: auto;
+}
+
+.smai-copilot-workspace-card {
+    position: relative;
+    overflow: hidden;
+    max-width: 64rem;
+    margin: 0.82rem auto 0;
+    border: 1px solid rgba(45, 212, 191, 0.22);
+    border-radius: 8px;
+    background:
+        linear-gradient(135deg, rgba(34, 211, 238, 0.11), transparent 42%),
+        linear-gradient(180deg, rgba(15, 23, 42, 0.78), rgba(2, 6, 23, 0.72));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    padding: 1rem;
+}
+
+.smai-copilot-workspace-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-left: 3px solid rgba(34, 211, 238, 0.72);
+}
+
+.smai-copilot-card-kicker,
+.smai-copilot-action-label {
+    color: var(--text-ai-title);
+    font-size: 0.76rem;
+    font-weight: 850;
+}
+
+.smai-copilot-workspace-card h2 {
+    color: var(--text-title);
+    font-size: 1.08rem;
+    line-height: 1.25;
+    margin: 0.18rem 0 0;
+}
+
+.smai-copilot-workspace-card > p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.62;
+    margin: 0.42rem 0 0;
+}
+
+.smai-copilot-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.74rem;
+}
+
+.smai-copilot-chip {
+    border: 1px solid rgba(34, 211, 238, 0.28);
+    border-radius: 999px;
+    background: rgba(8, 47, 73, 0.32);
+    color: var(--text-ai-primary);
+    font-size: 0.76rem;
+    font-weight: 760;
+    line-height: 1.2;
+    padding: 0.34rem 0.58rem;
+}
+
+.smai-copilot-action-card {
+    min-height: 6.4rem;
+    border: 1px solid rgba(71, 85, 105, 0.5);
+    border-radius: 8px;
+    background:
+        linear-gradient(180deg, rgba(15, 23, 42, 0.74), rgba(2, 6, 23, 0.58)),
+        rgba(8, 13, 24, 0.42);
+    padding: 0.74rem 0.78rem;
+    transition:
+        border-color 160ms ease,
+        box-shadow 160ms ease,
+        transform 160ms ease;
+}
+
+.smai-copilot-action-card:hover {
+    border-color: rgba(45, 212, 191, 0.5);
+    box-shadow: 0 0 18px rgba(34, 211, 238, 0.11);
+    transform: translateY(-1px);
+}
+
+.smai-copilot-action-card p {
+    color: var(--text-secondary);
+    font-size: 0.84rem;
+    line-height: 1.5;
+    margin: 0.34rem 0 0;
 }
 
 .smai-copilot-answer-grid {
@@ -2538,15 +2640,17 @@ div[data-testid="stChatInput"] {
 }
 
 .smai-copilot-answer-grid--welcome {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .smai-copilot-answer-block {
     min-width: 0;
-    border: 1px solid rgba(71, 85, 105, 0.58);
+    border: 1px solid rgba(71, 85, 105, 0.5);
     border-radius: 8px;
-    background: rgba(8, 13, 24, 0.42);
-    padding: 0.62rem 0.68rem;
+    background:
+        linear-gradient(180deg, rgba(15, 23, 42, 0.62), rgba(2, 6, 23, 0.42)),
+        rgba(8, 13, 24, 0.42);
+    padding: 0.68rem 0.72rem;
 }
 
 .smai-copilot-answer-block span {

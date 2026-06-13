@@ -1572,3 +1572,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Made submitted assistant chat questions use the Gateway path by default, with deterministic fallback retained for unavailable Gateway, timeout, schema validation failure, malformed JSON, empty answer, and normal network-free checks.
 - Updated Gateway `/api/v1/context-answer` prompts to request structured JSON from the LLM and validate `answer`, `materials`, `cautions`, `next_checkpoints`, and `confidence` before adopting them.
 - Kept fallback materials / cautions / next checkpoints derived from the supplied context when the LLM payload is not valid structured JSON.
+
+## 2026-06-14 - qwen3:8b local setup and answer quality gate
+
+- Installed Ollama through winget and pulled `qwen3:8b` locally.
+- Started Ollama, `smai-ai-gateway`, and the Streamlit app, then confirmed parent SMAI live smoke passes against the real Gateway / qwen3 path.
+- Added `think: false` to Gateway Ollama chat payloads to reduce qwen3 thinking latency and avoid exposing thinking output.
+- Added a Gateway answer-quality gate so malformed JSON, `????`, replacement characters, or mojibake markers fall back to safe context-derived answer/material/caution/checkpoint lists.
+- Verified a UTF-8 escaped context-answer smoke returns grounded Japanese fields for `AI予測インサイト`, `中心予測`, `予測レンジ`, and `モデル合意度`.

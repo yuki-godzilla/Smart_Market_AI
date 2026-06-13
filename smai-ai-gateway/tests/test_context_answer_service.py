@@ -60,7 +60,7 @@ def test_context_answer_service_uses_active_section_when_payload_is_unstructured
 
     response = service.answer(request)
 
-    assert response.answer == "LLM plain answer"
+    assert response.answer.startswith("下振れ警戒では")
     assert response.materials[0] == "下振れ警戒"
     assert response.referenced_sections[0].section_id == "risk-1"
 
@@ -72,11 +72,28 @@ def test_context_answer_service_falls_back_when_llm_payload_is_invalid_json():
 
     response = service.answer(request)
 
-    assert response.answer == '{"answer": "", "materials": ["中心予測"]}'
+    assert response.answer.startswith("AI予測インサイトでは")
     assert response.materials[:3] == ["AI予測インサイト", "中心予測", "予測レンジ"]
     assert "予測レンジが広めです。" in response.cautions
     assert "根拠資料とデータ品質を確認します。" in response.next_checkpoints
     assert response.confidence == "medium"
+
+
+def test_context_answer_service_falls_back_when_llm_payload_has_broken_text():
+    client = FakeLlmClient(
+        answer=(
+            '{"answer":"AI??????? is unclear.","materials":["AI???????"],'
+            '"cautions":["????"],"next_checkpoints":["????"],"confidence":"low"}'
+        )
+    )
+    service = ContextAnswerService(client)  # type: ignore[arg-type]
+    request = _request()
+
+    response = service.answer(request)
+
+    assert response.answer.startswith("AI予測インサイトでは")
+    assert response.materials[:3] == ["AI予測インサイト", "中心予測", "予測レンジ"]
+    assert "????" not in response.answer
 
 
 def _request(*, active_context_id: str = "forecast-1") -> ContextAnswerRequest:

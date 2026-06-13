@@ -47,20 +47,29 @@ class ContextAnswerService:
         result = self.client.chat(messages, model=request.model)
         sections = _selected_sections(request)
         llm_payload = _parse_llm_context_answer(result.answer)
+        usable_payload = (
+            llm_payload
+            if llm_payload is not None and not _is_low_quality_payload(llm_payload)
+            else None
+        )
         return ContextAnswerResponse(
-            answer=llm_payload.answer if llm_payload else result.answer,
+            answer=(
+                usable_payload.answer
+                if usable_payload is not None
+                else _fallback_answer_from_sections(sections, language=request.language)
+            ),
             materials=_bounded_non_empty(
-                llm_payload.materials if llm_payload else (),
+                usable_payload.materials if usable_payload is not None else (),
                 fallback=_materials_from_sections(sections),
                 limit=8,
             ),
             cautions=_bounded_non_empty(
-                llm_payload.cautions if llm_payload else (),
+                usable_payload.cautions if usable_payload is not None else (),
                 fallback=_cautions_from_request(request),
                 limit=8,
             ),
             next_checkpoints=_bounded_non_empty(
-                llm_payload.next_checkpoints if llm_payload else (),
+                usable_payload.next_checkpoints if usable_payload is not None else (),
                 fallback=_next_checkpoints_from_sections(sections, language=request.language),
                 limit=6,
             ),
@@ -72,7 +81,11 @@ class ContextAnswerService:
                 )
                 for section in sections
             ],
-            confidence=llm_payload.confidence if llm_payload else _confidence_from_request(request),
+            confidence=(
+                usable_payload.confidence
+                if usable_payload is not None
+                else _confidence_from_request(request)
+            ),
             safety_notes=_safety_notes_from_request(request),
             provider=result.provider,
             model=result.model,
@@ -84,7 +97,7 @@ class ContextAnswerService:
 
 
 def _parse_llm_context_answer(answer: str) -> LlmContextAnswerPayload | None:
-    raw_json = _extract_json_object(answer)
+    raw_json = _extract_json_object(_strip_thinking_blocks(answer))
     if raw_json is None:
         return None
     try:
@@ -95,6 +108,17 @@ def _parse_llm_context_answer(answer: str) -> LlmContextAnswerPayload | None:
         return LlmContextAnswerPayload.model_validate(data)
     except ValidationError:
         return None
+
+
+def _strip_thinking_blocks(text: str) -> str:
+    normalized = text.strip()
+    while "<think>" in normalized and "</think>" in normalized:
+        start = normalized.find("<think>")
+        end = normalized.find("</think>", start)
+        if end < start:
+            break
+        normalized = (normalized[:start] + normalized[end + len("</think>") :]).strip()
+    return normalized
 
 
 def _extract_json_object(text: str) -> str | None:
@@ -110,6 +134,54 @@ def _extract_json_object(text: str) -> str | None:
     if start < 0 or end < start:
         return None
     return normalized[start : end + 1]
+
+
+def _is_low_quality_payload(payload: LlmContextAnswerPayload) -> bool:
+    values = [
+        payload.answer,
+        *payload.materials,
+        *payload.cautions,
+        *payload.next_checkpoints,
+    ]
+    joined = "\n".join(values)
+    if "????" in joined or "�" in joined:
+        return True
+    mojibake_markers = ("ã", "æ", "é", "縺", "繧", "荳", "譁")
+    return any(marker in joined for marker in mojibake_markers)
+
+
+def _fallback_answer_from_sections(
+    sections: list[ContextSection],
+    *,
+    language: str,
+) -> str:
+    if not sections:
+        return (
+            "画面の材料が不足しています。まず表示中のデータ、注意点、根拠資料を確認してください。"
+            if language == "ja"
+            else "The screen context is insufficient. Check the visible data, cautions, and evidence first."
+        )
+    section = sections[0]
+    fields = _dedupe_non_empty([section.title, *section.included_fields, *section.summary.keys()])
+    if language == "ja":
+        if fields:
+            return f"{section.title}では、{_join_ja(fields[:4])}をまず確認します。注意点と根拠資料も同じ画面で見てください。"
+        return f"{section.title}の表示内容、注意点、次に確認することを順に確認します。"
+    if fields:
+        return f"First check {_join_en(fields[:4])} in {section.title}, then review cautions and evidence on the same screen."
+    return f"Review the visible values, cautions, and next checks in {section.title}."
+
+
+def _join_ja(values: list[str]) -> str:
+    if len(values) <= 1:
+        return values[0] if values else ""
+    return "、".join(values[:-1]) + "、" + values[-1]
+
+
+def _join_en(values: list[str]) -> str:
+    if len(values) <= 1:
+        return values[0] if values else ""
+    return ", ".join(values[:-1]) + f", and {values[-1]}"
 
 
 def _bounded_non_empty(

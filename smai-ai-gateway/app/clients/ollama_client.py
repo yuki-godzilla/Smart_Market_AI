@@ -44,6 +44,7 @@ class OllamaClient:
             "model": selected_model,
             "messages": [message.model_dump() for message in messages],
             "stream": False,
+            "think": False,
         }
         started = perf_counter()
         try:

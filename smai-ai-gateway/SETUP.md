@@ -127,6 +127,7 @@ Remove-Item Env:SMAI_ASSISTANT_GATEWAY_MODEL
 ```
 
 `SMAIアシスタント` 画面の通常チャット送信は、UIにON/OFFを出さずに Gateway 接続を既定で試します。Gateway が未起動、timeout、schema validation failure、LLM JSON不正、空応答の場合は SMAI 側の deterministic fallback に戻ります。
+`qwen3:8b` は thinking 出力が長くなりやすいため、Gateway は Ollama chat API に `think: false` を指定します。LLM の構造化JSONに文字化け、`????`、不正JSON、空項目がある場合も、画面には文脈由来の安全な回答を返します。
 
 ### Ollama ありの opt-in live smoke
 

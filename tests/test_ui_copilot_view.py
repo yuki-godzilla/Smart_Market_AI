@@ -34,13 +34,19 @@ def _click_button_label(app: AppTest, label: str) -> None:
 def test_copilot_layout_uses_shared_wide_lane():
     css = Path("ui/styles.py").read_text(encoding="utf-8")
 
-    shared_lane = "width: min(1120px, calc(100% - 48px));"
+    lane_gutter = "calc(100% - var(--smai-content-gutter))"
+    shared_lane = f"width: min(var(--smai-content-max-width), {lane_gutter});"
+    chat_lane = f"width: min(var(--smai-chat-main-width), {lane_gutter});"
+    assert "--smai-content-max-width: 1320px;" in css
+    assert "--smai-chat-main-width: 1040px;" in css
     assert css.count(shared_lane) >= 5
+    assert chat_lane in css
     assert ".smai-copilot-chat-topbar" in css
     assert "grid-template-columns: auto minmax(0, 1fr) auto;" in css
     assert ".smai-copilot-material-status" in css
     assert ".smai-copilot-thread" in css
     assert ".smai-copilot-composer-toolbar" in css
+    assert "border-left: 3px solid var(--smai-teal);" in css
     assert "width: min(54rem, calc(100% - 1.5rem));" not in css
 
 

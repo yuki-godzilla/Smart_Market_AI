@@ -1679,6 +1679,42 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - The live validation covered Gateway greeting latency and Streamlit health. A full browser screenshot comparison remains useful after further visual tuning.
 
+## 2026-06-15 - SMAI Assistant Design Consistency Sprint
+
+### Compared Screens
+
+- Cockpit: main content uses broad dashboard sections with clear header / card / result roles.
+- Ranking: repeated cards use 8px radius, left accent borders, cyan/teal glow, and compact metric hierarchy.
+- Radar: dense information panels keep the neon financial dashboard tone without narrowing the main lane.
+- Assistant: moved further from a narrow standalone chat and closer to the shared SMAI dashboard structure.
+
+### Layout Changes
+
+- content width: introduced shared geometry variables: 1440px page max, 1320px content lane, 1040px chat lane, 280px future side panel width.
+- header: kept icon / title / status grid, widened to the 1320px content lane, and allowed longer description text before wrapping.
+- context chips: aligned to the 1320px content lane.
+- quick cards: widened the initial card area and matched ranking-style card treatment with 8px radius, left teal accent, subtle glow, and hover lift.
+- chat thread: kept one vertical renderer and narrowed only the message reading lane to 1040px for readability.
+- input area: aligned model selector, input, send button, and LLM caption to the 1320px content lane.
+
+### Validation Loops
+
+- Loop 1: compared cockpit / ranking / radar design tokens and card treatment against Assistant CSS.
+- Loop 2: initial Assistant UI retains header, chips, quick cards, and input in aligned lanes.
+- Loop 3: width policy uses shared variables instead of hard-coded 1120px lanes.
+- Loop 4: chat greeting remains in the single chat thread with user right / SMAI left.
+- Loop 5: app_help and fallback responses keep internal reasoning hidden.
+- Loop 6: quick-card click still flows into chat history and hides initial cards after conversation starts.
+- Loop 7: input area remains sticky at the bottom and aligned with the main content lane.
+- Loop 8: compact viewport keeps 24px side gutter and stacks status card under the header.
+- Loop 9: ranking-style left accent and hover treatment are applied to Assistant quick cards.
+- Loop 10: final UI checks include content width, chat width, header, thread, input, and section alignment.
+
+### Final Judgement
+
+- design consistency: improved. Assistant now uses SMAI shared width variables and dashboard-card treatment.
+- remaining issues: full Playwright screenshot comparison with cockpit/ranking/radar would still be useful for pixel-level tuning after the next visual pass.
+
 ## 2026-06-15 - SMAI Assistant header width and layout balance
 
 ### Layout balance

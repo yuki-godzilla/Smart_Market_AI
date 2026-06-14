@@ -574,7 +574,7 @@ def _render_suggestion_buttons(
         f'<div class="smai-copilot-suggestions-title">{html.escape(heading)}</div>',
         unsafe_allow_html=True,
     )
-    _, suggestions_col, _ = st.columns([0.14, 0.72, 0.14])
+    _, suggestions_col, _ = st.columns([0.04, 0.92, 0.04])
     with suggestions_col:
         presets = copilot_conversation_presets()
         for row_start in range(0, len(presets), 3):

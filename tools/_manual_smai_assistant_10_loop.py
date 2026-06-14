@@ -89,6 +89,23 @@ def gateway_check(
     }
 
 
+def render_page_probe(page_key: str, *, timeout: float = 35) -> dict[str, object]:
+    app = AppTest.from_file("ui/app.py", default_timeout=timeout)
+    app.session_state["sidemenu_page"] = page_key
+    app.run()
+    page_text = "\n".join(
+        str(element.value)
+        for element in app.markdown
+        if getattr(element, "value", None) is not None
+    )
+    return {
+        "page": page_key,
+        "exception_count": len(app.exception),
+        "markdown_blocks": len(app.markdown),
+        "text_chars": len(page_text),
+    }
+
+
 def main() -> None:
     results: list[dict[str, object]] = []
     health = httpx.get(f"{GATEWAY}/health", timeout=5).json()
@@ -99,12 +116,22 @@ def main() -> None:
             "service": health.get("service"),
         }
     )
+    results.append(
+        {
+            "loop": "1_design_screen_compare",
+            "pages": [
+                render_page_probe(page) for page in ("cockpit", "ranking", "news", "copilot")
+            ],
+        }
+    )
 
     app = AppTest.from_file("ui/app.py", default_timeout=25)
     app.session_state["sidemenu_page"] = "copilot"
     app.run()
     css = Path("ui/styles.py").read_text(encoding="utf-8")
-    shared_lane = "width: min(1120px, calc(100% - 48px));"
+    lane_gutter = "calc(100% - var(--smai-content-gutter))"
+    shared_lane = f"width: min(var(--smai-content-max-width), {lane_gutter});"
+    chat_lane = f"width: min(var(--smai-chat-main-width), {lane_gutter});"
     page_text = "\n".join(
         str(element.value)
         for element in app.markdown
@@ -125,11 +152,13 @@ def main() -> None:
             "context_chip_width_lane": (
                 shared_lane in css and ".smai-copilot-material-status" in css
             ),
-            "chat_thread_width_lane": shared_lane in css and ".smai-copilot-thread" in css,
+            "chat_thread_width_lane": chat_lane in css and ".smai-copilot-thread" in css,
             "input_area_width_lane": (
                 shared_lane in css and ".smai-copilot-composer-toolbar" in css
             ),
             "main_sections_aligned": css.count(shared_lane) >= 5,
+            "content_max_width": "--smai-content-max-width: 1320px;" in css,
+            "chat_main_width": "--smai-chat-main-width: 1040px;" in css,
         }
     )
 

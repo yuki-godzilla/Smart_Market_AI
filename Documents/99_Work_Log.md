@@ -18,6 +18,48 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-15 - SMAI Assistant Pending Bubble / Answer Quality Sprint
+
+### Loading UI
+
+- bottom-left loading removed: removed the Streamlit `st.spinner` generation path from the chat submit flow.
+- pending bubble: submit now queues a pending assistant turn inside the same `.smai-copilot-thread`.
+- loading text: pending wording is intent-specific, such as `SMAIナビが考えています...`, without provider / LLM / timeout wording.
+- replacement behavior: pending turns are replaced by the final answer using the same turn id, and stale pending requests are ignored if their pending bubble is not present.
+
+### Answer Quality
+
+- free_chat: weak one-line answers are filtered; fallback replies are at least useful and conversational.
+- identity: `あなたの名前は？` now answers as SMAIナビ instead of drifting into generic symbol-review guidance.
+- app_help: short LLM output is supplemented by intent-specific guidance.
+- forecast: existing forecast / risk intent template remains the fallback floor.
+- news: existing news-materials template remains the fallback floor.
+
+### Fallback
+
+- fallback naturalized: free_chat provider timeout continues to map to `local_conversation_fallback`.
+- runtime info collapsed: fallback reason / latency stay inside `技術情報を表示`, not in the visible answer body.
+
+### Validation Loops
+
+- Loop 1: pending bubble HTML renders as an assistant bubble with avatar and pending dots.
+- Loop 2: generation spinner text is absent from `ui/views/copilot.py`.
+- Loop 3: greeting free_chat remains card-free.
+- Loop 4: identity free_chat returns SMAIナビ / Smart Market AI identity wording.
+- Loop 5: app_help low-quality one-liner is supplemented.
+- Loop 6: forecast fallback hides internal prompt text.
+- Loop 7: Gateway free_chat timeout returns `local_conversation_fallback`.
+- Loop 8: Gateway identity timeout returns identity wording.
+- Loop 9: runtime metadata remains folded.
+- Loop 10: targeted UI / Gateway tests passed.
+
+### Final Judgement
+
+- answer quality: improved for free_chat, identity, weak LLM output, and fallback cases.
+- pending UI: in-thread pending bubble implemented; standalone spinner removed.
+- timeout: free_chat timeout remains lightweight and naturalized.
+- remaining issues: browser visual smoke was not run in this turn.
+
 ## 2026-06-15 - SMAI Assistant UI/LLM Quality Rebuild Sprint
 
 ### Layout Validation

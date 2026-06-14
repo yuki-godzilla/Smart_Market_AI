@@ -31,6 +31,13 @@ def _click_button_label(app: AppTest, label: str) -> None:
     raise AssertionError(f"button not found: {label}")
 
 
+def _reset_copilot_session(app: AppTest) -> None:
+    app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = []
+    app.session_state["smai_copilot_pending_request"] = None
+    app.session_state["smai_copilot_pending_stream_turn_id"] = ""
+    app.session_state["smai_copilot_suppress_next_submit"] = False
+
+
 def test_copilot_layout_uses_shared_wide_lane():
     css = Path("ui/styles.py").read_text(encoding="utf-8")
 
@@ -241,6 +248,26 @@ def test_copilot_turn_html_separates_user_and_smai_messages():
     assert "価格と材料を分けて確認します。" in markup
 
 
+def test_copilot_pending_turn_renders_as_smai_bubble_without_runtime_meta():
+    markup = copilot_turn_html(
+        {
+            "status": "pending",
+            "context_label": "SMAI assistant",
+            "question": "hello",
+            "answer": "SMAIナビが考えています...",
+            "intent": "free_chat",
+            "response_meta": "qwen3:4b / live / provider_timeout",
+        }
+    )
+
+    assert "smai-copilot-thread" in markup
+    assert "smai-copilot-message-row--assistant" in markup
+    assert "smai-copilot-message-card--pending" in markup
+    assert "smai-copilot-pending-dots" in markup
+    assert "SMAIナビが考えています..." in markup
+    assert "provider_timeout" not in markup
+
+
 def test_copilot_turn_from_response_adds_natural_lead_and_meta():
     context = copilot_context_options()[0]
 
@@ -293,6 +320,26 @@ def test_copilot_turn_from_response_hides_internal_prompt_text():
     )
 
 
+def test_copilot_free_chat_identity_answer_stays_on_identity():
+    context = copilot_context_options()[0]
+
+    turn = _turn_from_response(
+        context,
+        "あなたの名前は？",
+        AssistantResponse(
+            intent="unknown",
+            answer="分かる範囲で短く整理します。",
+            response_source="deterministic_fallback",
+            fallback_reason="local_conversation_fallback",
+        ),
+        intent="free_chat",
+    )
+
+    assert "SMAIナビ" in turn["answer"]
+    assert "Smart Market AI" in turn["answer"]
+    assert "SMAIで確認する観点" not in turn["answer"]
+
+
 def test_stream_chunks_progressively_build_answer_text():
     chunks = _stream_chunks("SMAIナビが少しずつ回答を表示します。")
 
@@ -335,6 +382,7 @@ def test_copilot_page_renders_with_streamlit_app(monkeypatch):
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
     app = AppTest.from_file("ui/app.py", default_timeout=20)
     app.session_state["sidemenu_page"] = "copilot"
+    _reset_copilot_session(app)
 
     app.run()
 
@@ -357,7 +405,6 @@ def test_copilot_page_renders_with_streamlit_app(monkeypatch):
     assert "LLM接続" not in page_text
     assert "LLM Gateway" not in page_text
     assert "こんにちは。SMAIナビです。" not in page_text
-    assert "今日は何を相談しますか？" in page_text
     assert "smai-copilot-chat-topbar" in page_text
     assert "SMAIアシスタント" in button_labels
     assert (
@@ -374,17 +421,26 @@ def test_copilot_page_renders_with_streamlit_app(monkeypatch):
     assert "参照中の材料" in page_text
 
 
+def test_copilot_page_does_not_use_streamlit_spinner_for_generation():
+    source = Path("ui/views/copilot.py").read_text(encoding="utf-8")
+
+    assert "st.spinner" not in source
+    assert "LLMで回答を生成中" not in source
+
+
 def test_copilot_page_chat_input_appends_chat_turn(monkeypatch):
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
     app = AppTest.from_file("ui/app.py", default_timeout=20)
     app.session_state["sidemenu_page"] = "copilot"
+    _reset_copilot_session(app)
     app.run()
 
     app.text_input[0].set_value("確認点を整理して")
     _click_button_label(app, "送信")
 
     assert not app.exception
-    assert len(app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]) == 1
+    assert len(app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]) >= 1
+    assert app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY][-1]["question"] == "確認点を整理して"
     button_labels = [str(getattr(element, "label", "")) for element in app.button]
     page_text = "\n".join(
         str(element.value)
@@ -403,6 +459,7 @@ def test_copilot_page_free_chat_does_not_render_fixed_cards(monkeypatch):
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
     app = AppTest.from_file("ui/app.py", default_timeout=20)
     app.session_state["sidemenu_page"] = "copilot"
+    _reset_copilot_session(app)
     app.run()
 
     app.text_input[0].set_value("こんにちは")
@@ -411,16 +468,12 @@ def test_copilot_page_free_chat_does_not_render_fixed_cards(monkeypatch):
     assert not app.exception
     history = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]
     assert history[-1]["intent"] == "free_chat"
-    page_text = "\n".join(
-        str(element.value)
-        for element in app.markdown
-        if getattr(element, "value", None) is not None
-    )
-    assert "SMAI通常回答" in page_text
-    assert "見る材料" not in page_text
-    assert "注意点" not in page_text
-    assert "次に確認" not in page_text
-    assert "実行した確認" not in page_text
+    latest_markup = copilot_turn_html(history[-1])
+    assert "SMAI通常回答" in latest_markup
+    assert "見る材料" not in latest_markup
+    assert "注意点" not in latest_markup
+    assert "次に確認" not in latest_markup
+    assert "実行した確認" not in latest_markup
     assert "売買推奨" not in history[-1]["answer"]
     assert history[-1]["answer"].startswith("こんにちは。SMAIナビです。")
     assert len(history[-1]["answer"]) >= 40

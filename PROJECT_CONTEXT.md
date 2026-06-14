@@ -162,7 +162,7 @@ Partial or intentionally deferred:
 
 ## Known Documentation Rules
 
-- SMAIアシスタントの current live path uses Gateway by default for chat, but `free_chat` is now a lightweight route: parent SMAI skips tool/RAG/news/symbol-specific context and chat-history payload, Gateway uses short runtime limits, a greeting fast path, and maps `free_chat` provider timeout to a local conversation fallback instead of surfacing `provider_timeout` as the main chat experience. The UI is organized as header / material chips / a single chat thread / bottom composer with a 1320px content lane and 1180px chat lane. The model selector, text input, and send button live inside the composer; response actions live inside the assistant message block.
+- SMAIアシスタントの current live path uses Gateway by default for chat, but `free_chat` is now a lightweight route: parent SMAI skips tool/RAG/news/symbol-specific context and chat-history payload, Gateway uses short runtime limits, a greeting fast path, identity-question fallback, and maps `free_chat` provider timeout to a local conversation fallback instead of surfacing `provider_timeout` as the main chat experience. The UI is organized as header / material chips / a single chat thread / bottom composer with a 1320px content lane and 1180px chat lane. The model selector, text input, and send button live inside the composer; response actions live inside the assistant message block. Submit now appends an in-thread SMAIナビ pending bubble first and replaces that same turn with the final answer; standalone Streamlit generation spinners are not used for the chat flow.
 
 - Treat code and tests as the source of truth for current behavior.
 - Keep `PROJECT_CONTEXT.md` compact; put chronological detail in `Documents/99_Work_Log.md`.

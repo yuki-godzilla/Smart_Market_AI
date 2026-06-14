@@ -2757,6 +2757,40 @@ div[data-testid="stChatInput"] textarea:focus {
         var(--shadow-subtle);
 }
 
+.smai-copilot-message-card--pending {
+    background:
+        linear-gradient(90deg, rgba(45, 212, 191, 0.1), transparent 54%),
+        linear-gradient(180deg, rgba(18, 29, 48, 0.82), rgba(8, 15, 28, 0.84));
+}
+
+.smai-copilot-message-card--pending .smai-copilot-natural-lead {
+    color: var(--text-secondary);
+}
+
+.smai-copilot-pending-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    margin-top: 0.52rem;
+}
+
+.smai-copilot-pending-dots span {
+    width: 0.36rem;
+    height: 0.36rem;
+    border-radius: 999px;
+    background: var(--text-ai-title);
+    opacity: 0.34;
+    animation: smai-copilot-pending-dot 1.15s ease-in-out infinite;
+}
+
+.smai-copilot-pending-dots span:nth-child(2) {
+    animation-delay: 140ms;
+}
+
+.smai-copilot-pending-dots span:nth-child(3) {
+    animation-delay: 280ms;
+}
+
 .smai-copilot-message-card--user {
     max-width: min(38.75rem, 72%);
     border: 1px solid rgba(96, 165, 250, 0.26);
@@ -3395,6 +3429,19 @@ div[data-testid="stChatInput"] textarea:focus {
     }
 }
 
+@keyframes smai-copilot-pending-dot {
+    0%,
+    80%,
+    100% {
+        opacity: 0.28;
+        transform: translateY(0);
+    }
+    40% {
+        opacity: 0.9;
+        transform: translateY(-0.18rem);
+    }
+}
+
 @keyframes smai-soft-glow {
     0%,
     100% {
@@ -3646,7 +3693,8 @@ div[data-testid="stChatInput"] textarea:focus {
     .smai-insight-avatar img,
     .smai-mascot-image--loading,
     .smai-loading-pulse,
-    .smai-loading-dots span {
+    .smai-loading-dots span,
+    .smai-copilot-pending-dots span {
         animation: none;
     }
 }

@@ -471,6 +471,11 @@ def _free_chat_fallback_answer(request: ContextAnswerRequest) -> str:
                 "Hello, I am SMAI Navi. I can help organize SMAI screens, "
                 "review materials, cautions, and next checks."
             )
+        if _is_identity_question(question):
+            return (
+                "I am SMAI Navi. I help organize Smart Market AI screens, symbols, "
+                "AI forecasts, news, evidence, and next checkpoints."
+            )
         return (
             "I can organize this as SMAI review support. Separate the visible "
             "price, forecast, news, evidence, and missing checks before treating it as a decision input."
@@ -480,6 +485,11 @@ def _free_chat_fallback_answer(request: ContextAnswerRequest) -> str:
             "こんにちは。SMAIナビです。SMAIの使い方、銘柄の確認材料、"
             "AI予測やニュースの見方を短く整理できます。"
         )
+    if _is_identity_question(question):
+        return (
+            "私はSMAIナビです。Smart Market AIの中で、銘柄の見方、AI予測、ニュース、"
+            "根拠資料の確認ポイントを整理するお手伝いをします。"
+        )
     if question:
         return (
             f"「{question[:40]}」について、SMAIで確認する観点を整理します。"
@@ -487,6 +497,22 @@ def _free_chat_fallback_answer(request: ContextAnswerRequest) -> str:
         )
     return (
         "SMAIで確認したいことを送ってください。見ている材料、注意点、次に確認することの順に整理します。"
+    )
+
+
+def _is_identity_question(text: str) -> bool:
+    normalized = str(text or "").strip().lower()
+    return any(
+        phrase in normalized
+        for phrase in (
+            "あなたの名前",
+            "君の名前",
+            "名前は",
+            "だれ",
+            "誰",
+            "who are you",
+            "your name",
+        )
     )
 
 

@@ -33,6 +33,8 @@ COPILOT_CHAT_HISTORY_STATE_KEY = "smai_copilot_chat_history"
 COPILOT_CONVERSATION_ID_STATE_KEY = "smai_copilot_conversation_id"
 COPILOT_ACTIVE_INTENT_STATE_KEY = "smai_copilot_active_intent"
 COPILOT_PENDING_STREAM_STATE_KEY = "smai_copilot_pending_stream_turn_id"
+COPILOT_PENDING_REQUEST_STATE_KEY = "smai_copilot_pending_request"
+COPILOT_SUPPRESS_SUBMIT_STATE_KEY = "smai_copilot_suppress_next_submit"
 COPILOT_LLM_PROFILE_STATE_KEY = "smai_copilot_llm_profile"
 COPILOT_LLM_MODEL_STATE_KEY = "smai_copilot_llm_model"
 
@@ -485,10 +487,14 @@ def _copilot_turn_rows_html(turn: dict[str, str]) -> str:
     context_label = str(turn.get("context_label", "")).strip()
     question = str(turn.get("question", "")).strip()
     answer = str(turn.get("answer", "")).strip()
-    return (
-        f"{_user_bubble_html(context_label=context_label, question=question)}"
-        f"{_assistant_bubble_html(answer=answer, detail_html=copilot_answer_detail_html(turn))}"
+    is_pending = str(turn.get("status", "")).strip() == "pending"
+    detail_html = "" if is_pending else copilot_answer_detail_html(turn)
+    assistant_html = _assistant_bubble_html(
+        answer=answer,
+        detail_html=detail_html,
+        is_pending=is_pending,
     )
+    return _user_bubble_html(context_label=context_label, question=question) + assistant_html
 
 
 def _copilot_thread_html(turns: list[dict[str, str]]) -> str:
@@ -516,39 +522,46 @@ def render_copilot_workspace_page() -> None:
         st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = []
         st.session_state[COPILOT_CONVERSATION_ID_STATE_KEY] = _new_conversation_id()
         st.session_state[COPILOT_ACTIVE_INTENT_STATE_KEY] = "free_chat"
+        st.session_state[COPILOT_PENDING_REQUEST_STATE_KEY] = None
+        st.session_state[COPILOT_PENDING_STREAM_STATE_KEY] = ""
+        st.session_state[COPILOT_SUPPRESS_SUBMIT_STATE_KEY] = False
         st.rerun()
 
     _render_chat_thread(history)
+    if _process_pending_copilot_request(
+        context_by_id=context_by_id,
+        fallback_context=contexts[0],
+    ):
+        st.rerun()
+    suppress_submit = bool(st.session_state.pop(COPILOT_SUPPRESS_SUBMIT_STATE_KEY, False))
     suggested = _render_suggestion_buttons(has_history=bool(history))
 
-    if suggested is not None:
+    if suggested is not None and not suppress_submit:
         context = context_by_id.get(suggested.context_id, contexts[0])
-        with st.spinner("SMAIナビが必要な材料を確認しています... LLMで回答を生成中"):
-            _handle_copilot_submit(
-                context,
-                suggested.default_question,
-                intent=suggested.intent,
-                prompt_instruction=suggested.prompt_instruction,
-                visible_question=suggested.label,
-                runtime_config=runtime_config,
-            )
+        _queue_copilot_submit(
+            context,
+            suggested.default_question,
+            intent=suggested.intent,
+            prompt_instruction=suggested.prompt_instruction,
+            visible_question=suggested.label,
+            runtime_config=runtime_config,
+        )
         st.rerun()
 
     prompt, runtime_config = _render_chat_composer(runtime_config)
 
-    if prompt:
+    if prompt and not suppress_submit:
         intent = _intent_from_message(prompt, fallback=_active_intent())
         preset = _preset_for_intent(intent)
         context = context_by_id.get(preset.context_id, contexts[0])
-        with st.spinner("SMAIナビが必要な材料を確認しています... LLMで回答を生成中"):
-            _handle_copilot_submit(
-                context,
-                prompt,
-                intent=intent,
-                prompt_instruction=preset.prompt_instruction,
-                visible_question=prompt,
-                runtime_config=runtime_config,
-            )
+        _queue_copilot_submit(
+            context,
+            prompt,
+            intent=intent,
+            prompt_instruction=preset.prompt_instruction,
+            visible_question=prompt,
+            runtime_config=runtime_config,
+        )
         st.rerun()
 
     st.caption(
@@ -611,7 +624,7 @@ def _render_suggestion_buttons(
     return None
 
 
-def _handle_copilot_submit(
+def _queue_copilot_submit(
     context: SmaiAssistantContext,
     question: str,
     *,
@@ -624,8 +637,167 @@ def _handle_copilot_submit(
     if not normalized_question:
         st.warning("質問を入力してください。")
         return
+    turn_id = uuid4().hex
+    history = _copilot_history()
+    history.append(
+        _pending_turn(
+            turn_id=turn_id,
+            context=context,
+            visible_question=visible_question,
+            intent=intent,
+        )
+    )
+    st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = history
+    st.session_state[COPILOT_ACTIVE_INTENT_STATE_KEY] = intent
+    st.session_state[COPILOT_PENDING_REQUEST_STATE_KEY] = {
+        "turn_id": turn_id,
+        "context_id": context.context_id,
+        "question": normalized_question,
+        "intent": intent,
+        "prompt_instruction": prompt_instruction,
+        "visible_question": visible_question,
+        "runtime_config": _runtime_config_to_state(runtime_config),
+    }
+
+
+def _process_pending_copilot_request(
+    *,
+    context_by_id: dict[str, SmaiAssistantContext],
+    fallback_context: SmaiAssistantContext,
+) -> bool:
+    request = st.session_state.get(COPILOT_PENDING_REQUEST_STATE_KEY)
+    if not isinstance(request, dict):
+        return False
+    pending_turn_id = str(request.get("turn_id", ""))
+    history = _copilot_history()
+    has_pending_turn = any(
+        str(turn.get("turn_id", "")) == pending_turn_id and str(turn.get("status", "")) == "pending"
+        for turn in history
+    )
+    if not pending_turn_id or not has_pending_turn:
+        st.session_state[COPILOT_PENDING_REQUEST_STATE_KEY] = None
+        return False
+    st.session_state[COPILOT_PENDING_REQUEST_STATE_KEY] = None
+    intent = _normalize_intent(str(request.get("intent", "free_chat")))
+    context = context_by_id.get(str(request.get("context_id", "")), fallback_context)
+    runtime_config = _runtime_config_from_state(request.get("runtime_config"))
+    _handle_copilot_submit(
+        context,
+        str(request.get("question", "")),
+        intent=intent,
+        prompt_instruction=str(request.get("prompt_instruction", "")),
+        visible_question=str(request.get("visible_question", "")),
+        runtime_config=runtime_config,
+        pending_turn_id=pending_turn_id,
+    )
+    st.session_state[COPILOT_SUPPRESS_SUBMIT_STATE_KEY] = True
+    return True
+
+
+def _pending_turn(
+    *,
+    turn_id: str,
+    context: SmaiAssistantContext,
+    visible_question: str,
+    intent: CopilotIntent,
+) -> dict[str, str]:
+    return {
+        "turn_id": turn_id,
+        "status": "pending",
+        "context_id": context.context_id,
+        "context_label": copilot_context_label(context),
+        "intent": intent,
+        "intent_label": _preset_for_intent(intent).label,
+        "question": visible_question,
+        "answer": _pending_message_for_intent(intent),
+        "reasons": "",
+        "cautions": "",
+        "next_checkpoints": "",
+        "memo_points": "",
+        "executed_checks": "",
+        "tool_statuses": "",
+        "response_source": "",
+        "model": "",
+        "provider": "",
+        "profile": "",
+        "latency_ms": "",
+        "gateway_status": "",
+        "fallback_reason": "",
+        "request_id": "",
+        "timeout_sec": "",
+        "context_tokens_estimate": "",
+        "prompt_chars": "",
+        "response_chars": "",
+        "tool_execution_ms": "",
+        "llm_generation_ms": "",
+        "total_elapsed_ms": "",
+        "response_meta": "",
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }
+
+
+def _pending_message_for_intent(intent: CopilotIntent) -> str:
+    return {
+        "free_chat": "SMAIナビが考えています...",
+        "app_help": "SMAIナビが使い方を整理しています...",
+        "stock_summary": "SMAIナビが確認ポイントを整理しています...",
+        "forecast_risk_compare": "SMAIナビが予測とリスクを見比べています...",
+        "news_materials": "SMAIナビが材料を見ながらまとめています...",
+        "decision_report_draft": "SMAIナビがDecision Report向けに整理しています...",
+    }[intent]
+
+
+def _runtime_config_to_state(config: CopilotGatewayRuntimeConfig) -> dict[str, object]:
+    return {
+        "enabled": config.enabled,
+        "base_url": config.base_url,
+        "timeout_seconds": config.timeout_seconds,
+        "context_answer_path": config.context_answer_path,
+        "execution_mode": config.execution_mode,
+        "environment_profile": config.environment_profile,
+        "provider": config.provider,
+        "model": config.model,
+        "profile": config.profile,
+    }
+
+
+def _runtime_config_from_state(value: object) -> CopilotGatewayRuntimeConfig:
+    if not isinstance(value, dict):
+        return copilot_gateway_runtime_config()
+    return CopilotGatewayRuntimeConfig(
+        enabled=bool(value.get("enabled", True)),
+        base_url=str(value.get("base_url", "http://127.0.0.1:8088")),
+        timeout_seconds=float(value.get("timeout_seconds", 90.0) or 90.0),
+        context_answer_path=str(value.get("context_answer_path", "/api/v1/context-answer")),
+        execution_mode=str(value.get("execution_mode", "auto")),
+        environment_profile=str(value.get("environment_profile", "notebook")),
+        provider=str(value.get("provider", "ollama")),
+        model=str(value.get("model", "qwen3:4b")),
+        profile=str(value.get("profile", "notebook_dev")),
+    )
+
+
+def _handle_copilot_submit(
+    context: SmaiAssistantContext,
+    question: str,
+    *,
+    intent: CopilotIntent,
+    prompt_instruction: str,
+    visible_question: str,
+    runtime_config: CopilotGatewayRuntimeConfig,
+    pending_turn_id: str | None = None,
+) -> None:
+    normalized_question = question.strip()
+    if not normalized_question:
+        st.warning("質問を入力してください。")
+        return
 
     history = _copilot_history()
+    history_for_request = [
+        turn
+        for turn in history
+        if not pending_turn_id or str(turn.get("turn_id", "")) != pending_turn_id
+    ]
     conversation_id = _conversation_id()
     effective_context = _context_for_llm(
         intent=intent, context=context, question=normalized_question
@@ -650,7 +822,9 @@ def _handle_copilot_submit(
         effective_context,
         gateway_question,
         conversation_id=conversation_id,
-        message_history=() if intent == "free_chat" else copilot_history_messages(history),
+        message_history=(
+            () if intent == "free_chat" else copilot_history_messages(history_for_request)
+        ),
         referenced_context_ids=[] if intent == "free_chat" else [context.context_id],
         gateway_task_type=intent,
         settings=copilot_settings_from_gateway_runtime(runtime_config),
@@ -660,6 +834,7 @@ def _handle_copilot_submit(
         visible_question,
         response,
         intent=intent,
+        turn_id=pending_turn_id,
         executed_checks=[
             *([] if intent == "free_chat" else [_material_status_summary(context)]),
             *tool_summaries,
@@ -669,7 +844,20 @@ def _handle_copilot_submit(
             for result in (tool_plan.executed if tool_plan else ())
         ],
     )
-    history.append(turn)
+    if pending_turn_id:
+        replaced = False
+        next_history: list[dict[str, str]] = []
+        for item in history:
+            if str(item.get("turn_id", "")) == pending_turn_id:
+                next_history.append(turn)
+                replaced = True
+            else:
+                next_history.append(item)
+        if not replaced:
+            next_history.append(turn)
+        history = next_history
+    else:
+        history.append(turn)
     st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = history
     st.session_state[COPILOT_ACTIVE_INTENT_STATE_KEY] = intent
     st.session_state[COPILOT_PENDING_STREAM_STATE_KEY] = turn["turn_id"]
@@ -704,11 +892,13 @@ def _turn_from_response(
     response: AssistantResponse,
     *,
     intent: CopilotIntent = "stock_summary",
+    turn_id: str | None = None,
     executed_checks: list[str] | None = None,
     tool_statuses: list[str] | None = None,
 ) -> dict[str, str]:
     return {
-        "turn_id": uuid4().hex,
+        "turn_id": turn_id or uuid4().hex,
+        "status": "complete",
         "context_id": context.context_id,
         "context_label": copilot_context_label(context),
         "intent": intent,
@@ -820,17 +1010,28 @@ def _user_bubble_html(*, context_label: str, question: str) -> str:
     )
 
 
-def _assistant_bubble_html(*, answer: str, detail_html: str) -> str:
+def _assistant_bubble_html(*, answer: str, detail_html: str, is_pending: bool = False) -> str:
     image = _asset_data_uri(MASCOT_THUMB_ASSET)
+    card_class = "smai-copilot-message-card smai-copilot-message-card--assistant"
+    if is_pending:
+        card_class += " smai-copilot-message-card--pending"
+    pending_dots = (
+        '<div class="smai-copilot-pending-dots" aria-hidden="true">'
+        "<span></span><span></span><span></span>"
+        "</div>"
+        if is_pending
+        else ""
+    )
     return (
         '<section class="smai-copilot-message-row smai-copilot-message-row--assistant">'
         '<div class="smai-copilot-assistant-avatar" aria-hidden="true">'
         f'<img class="smai-copilot-assistant-avatar-image '
         f'smai-copilot-assistant-avatar-image--reply" src="{image}" alt="" loading="lazy" />'
         "</div>"
-        '<div class="smai-copilot-message-card smai-copilot-message-card--assistant">'
+        f'<div class="{card_class}">'
         '<div class="smai-copilot-message-meta">SMAIナビ</div>'
         f'<p class="smai-copilot-natural-lead">{html.escape(answer)}</p>'
+        f"{pending_dots}"
         f"{detail_html}"
         "</div>"
         "</section>"
@@ -956,6 +1157,11 @@ def _fallback_free_chat_answer(question: str, *, greeting: bool = False) -> str:
             "AI予測やニュースの見方を短く整理できます。"
         )
     topic = str(question or "").strip()
+    if _is_identity_question(topic):
+        return (
+            "私はSMAIナビです。Smart Market AIの中で、銘柄の見方、AI予測、ニュース、"
+            "根拠資料の確認ポイントを整理するお手伝いをします。"
+        )
     if topic:
         return (
             f"「{topic[:40]}」について、SMAIで確認する観点を整理します。"
@@ -964,6 +1170,22 @@ def _fallback_free_chat_answer(question: str, *, greeting: bool = False) -> str:
     return (
         "SMAIで確認したいことを、画面名や銘柄名と一緒に送ってください。"
         "見ている材料、注意点、次に確認することの順に整理します。"
+    )
+
+
+def _is_identity_question(question: str) -> bool:
+    normalized = str(question or "").strip().lower()
+    return any(
+        phrase in normalized
+        for phrase in (
+            "あなたの名前",
+            "君の名前",
+            "名前は",
+            "だれ",
+            "誰",
+            "who are you",
+            "your name",
+        )
     )
 
 
@@ -1043,7 +1265,12 @@ def _safe_response_body(answer: str, *, intent: CopilotIntent | None = None) -> 
         )
         if len(compact) < 40 or any(phrase in cleaned for phrase in weak_phrases):
             return ""
-    if intent in {"app_help", "forecast_risk_compare", "stock_summary", "news_materials"}:
+    if intent in {
+        "app_help",
+        "forecast_risk_compare",
+        "stock_summary",
+        "news_materials",
+    }:
         if len(compact) < 55:
             return ""
     return cleaned

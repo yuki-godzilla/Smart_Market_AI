@@ -258,6 +258,28 @@ def test_context_answer_service_free_chat_timeout_uses_conversation_fallback():
     assert "Free chat" not in response.answer
 
 
+def test_context_answer_service_free_chat_identity_timeout_stays_on_identity():
+    client = FakeLlmClient(
+        error=OllamaClientError(
+            "provider timed out",
+            code="provider_timeout",
+            retryable=True,
+            http_status=504,
+        )
+    )
+    service = ContextAnswerService(client)  # type: ignore[arg-type]
+    request = _request()
+    request.user_question = "あなたの名前は？"
+    request.task_type = "free_chat"
+
+    response = service.answer(request)
+
+    assert response.fallback_reason == "local_conversation_fallback"
+    assert "SMAIナビ" in response.answer
+    assert "Smart Market AI" in response.answer
+    assert "SMAIで確認する観点" not in response.answer
+
+
 def test_context_answer_service_free_chat_greeting_uses_fast_path_without_provider_call():
     client = FakeLlmClient()
     service = ContextAnswerService(client)  # type: ignore[arg-type]

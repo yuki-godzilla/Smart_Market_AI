@@ -777,7 +777,7 @@ def _chat_header_html(
         '<div class="smai-copilot-header-icon" aria-hidden="true">'
         f'<img src="{navi_image}" alt="" loading="lazy" />'
         "</div>"
-        "<div>"
+        '<div class="smai-copilot-header-title">'
         '<span class="smai-copilot-eyebrow">SMAIアシスタント</span>'
         "<h1>SMAIナビ</h1>"
         "<p>銘柄・予測・ニュース・根拠資料を横断して、確認すべき材料を整理します。</p>"

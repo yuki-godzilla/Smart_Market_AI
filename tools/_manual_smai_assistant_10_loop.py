@@ -103,6 +103,8 @@ def main() -> None:
     app = AppTest.from_file("ui/app.py", default_timeout=25)
     app.session_state["sidemenu_page"] = "copilot"
     app.run()
+    css = Path("ui/styles.py").read_text(encoding="utf-8")
+    shared_lane = "width: min(1120px, calc(100% - 48px));"
     page_text = "\n".join(
         str(element.value)
         for element in app.markdown
@@ -119,6 +121,15 @@ def main() -> None:
             "model_selector_present": "qwen3:4b" in page_text
             or any("qwen3:4b" in str(getattr(radio, "value", "")) for radio in app.radio),
             "large_greeting_card_absent": "こんにちは。SMAIナビです。" not in page_text,
+            "header_width_lane": shared_lane in css and ".smai-copilot-chat-topbar" in css,
+            "context_chip_width_lane": (
+                shared_lane in css and ".smai-copilot-material-status" in css
+            ),
+            "chat_thread_width_lane": shared_lane in css and ".smai-copilot-thread" in css,
+            "input_area_width_lane": (
+                shared_lane in css and ".smai-copilot-composer-toolbar" in css
+            ),
+            "main_sections_aligned": css.count(shared_lane) >= 5,
         }
     )
 

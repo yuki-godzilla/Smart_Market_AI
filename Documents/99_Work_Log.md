@@ -1679,6 +1679,20 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - The live validation covered Gateway greeting latency and Streamlit health. A full browser screenshot comparison remains useful after further visual tuning.
 
+## 2026-06-15 - SMAI Assistant header width and layout balance
+
+### Layout balance
+
+- Widened the SMAI Assistant main lane to `min(1120px, calc(100% - 48px))`.
+- Aligned the header, material chip panel, chat thread, initial quick cards, and bottom composer to the same centered lane.
+- Reworked the assistant header as a grid: icon and title block on the left, status card on the right.
+- Added responsive behavior under 900px so the status card moves below the title block and the lane uses a smaller side margin.
+
+### Validation updates
+
+- Added a UI regression test for the shared 1120px lane and header grid.
+- Extended the manual 10-loop helper with header width, context chip width, chat thread width, input area width, and main-section alignment checks.
+
 ## 2026-06-14 - SMAI Assistant Chat UI rebuild sprint
 
 ### UI rebuild

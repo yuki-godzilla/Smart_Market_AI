@@ -2435,13 +2435,14 @@ body,
 }
 
 .smai-copilot-chat-topbar {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    width: 100%;
-    max-width: 54rem;
-    margin: 0.85rem auto 0.82rem;
+    gap: 1.25rem;
+    width: min(1120px, calc(100% - 48px));
+    max-width: 1120px;
+    margin: 0.85rem auto 0.88rem;
+    box-sizing: border-box;
     border: 1px solid rgba(34, 211, 238, 0.3);
     border-radius: 8px;
     background:
@@ -2451,10 +2452,11 @@ body,
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.05),
         0 18px 48px rgba(0, 0, 0, 0.22);
-    padding: 0.95rem 1rem;
+    padding: 1.05rem 1.28rem;
 }
 
 .smai-copilot-header-identity {
+    grid-column: 1 / 3;
     display: flex;
     align-items: center;
     gap: 0.82rem;
@@ -2474,6 +2476,10 @@ body,
         0 0 24px rgba(34, 211, 238, 0.22),
         inset 0 1px 0 rgba(255, 255, 255, 0.08);
     overflow: hidden;
+}
+
+.smai-copilot-header-title {
+    min-width: 0;
 }
 
 .smai-copilot-header-icon img {
@@ -2505,9 +2511,11 @@ body,
     font-size: 0.92rem;
     line-height: 1.55;
     margin: 0.24rem 0 0;
+    max-width: 42rem;
 }
 
 .smai-copilot-statusbar {
+    grid-column: 3;
     display: grid;
     grid-template-columns: auto auto;
     align-items: center;
@@ -2518,7 +2526,9 @@ body,
         linear-gradient(135deg, rgba(20, 184, 166, 0.12), rgba(2, 8, 23, 0.2)),
         rgba(8, 47, 73, 0.28);
     padding: 0.55rem 0.72rem;
-    min-width: 10rem;
+    width: 13.75rem;
+    max-width: 15rem;
+    min-width: 0;
 }
 
 .smai-copilot-chat-status-dot {
@@ -2543,16 +2553,20 @@ body,
 }
 
 .smai-copilot-mode-label {
-    max-width: 64rem;
+    width: min(1120px, calc(100% - 48px));
+    max-width: 1120px;
     margin: 0 auto 0.36rem;
+    box-sizing: border-box;
     color: var(--text-ai-title);
     font-size: 0.8rem;
     font-weight: 840;
 }
 
 .smai-copilot-material-status {
-    max-width: 54rem;
+    width: min(1120px, calc(100% - 48px));
+    max-width: 1120px;
     margin: 0 auto 0.72rem;
+    box-sizing: border-box;
     border: 1px solid rgba(71, 85, 105, 0.44);
     border-radius: 8px;
     background: rgba(15, 23, 42, 0.46);
@@ -2577,8 +2591,10 @@ div[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {
 }
 
 .smai-copilot-suggestions-title {
-    max-width: 54rem;
+    width: min(1120px, calc(100% - 48px));
+    max-width: 1120px;
     margin: 0.86rem auto 0.44rem;
+    box-sizing: border-box;
     color: var(--text-ai-title);
     font-size: 0.82rem;
     font-weight: 840;
@@ -2588,8 +2604,8 @@ div[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {
     position: sticky;
     bottom: 0.75rem;
     z-index: 20;
-    width: min(54rem, calc(100% - 1.5rem));
-    max-width: 54rem;
+    width: min(1120px, calc(100% - 48px));
+    max-width: 1120px;
     margin: 0.8rem auto 0.46rem;
     box-sizing: border-box;
     padding: 0.5rem 0.58rem;
@@ -2620,8 +2636,8 @@ div[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {
 }
 
 div[data-testid="stChatInput"] {
-    width: min(54rem, calc(100% - 1.5rem));
-    max-width: 54rem;
+    width: min(1120px, calc(100% - 48px));
+    max-width: 1120px;
     margin-left: auto;
     margin-right: auto;
     box-sizing: border-box;
@@ -2652,9 +2668,10 @@ div[data-testid="stChatInput"] textarea:focus {
 .smai-copilot-thread {
     display: grid;
     gap: 0.38rem;
-    width: min(54rem, calc(100% - 1.5rem));
-    max-width: 54rem;
+    width: min(1120px, calc(100% - 48px));
+    max-width: 1120px;
     margin: 0.86rem auto 1.1rem;
+    box-sizing: border-box;
 }
 
 .smai-copilot-message-row {
@@ -2674,7 +2691,7 @@ div[data-testid="stChatInput"] textarea:focus {
 
 .smai-copilot-message-card {
     min-width: 0;
-    max-width: min(48rem, 100%);
+    max-width: min(58rem, 100%);
     border-radius: 8px;
     padding: 0.78rem 0.86rem;
 }
@@ -2719,7 +2736,7 @@ div[data-testid="stChatInput"] textarea:focus {
 }
 
 .smai-copilot-message-card--assistant {
-    width: min(48rem, calc(100% - 3.8rem));
+    width: min(58rem, calc(100% - 3.8rem));
     border: 1px solid rgba(45, 212, 191, 0.28);
     background:
         linear-gradient(90deg, rgba(34, 211, 238, 0.08), transparent 58%),
@@ -2729,7 +2746,7 @@ div[data-testid="stChatInput"] textarea:focus {
 }
 
 .smai-copilot-message-card--user {
-    max-width: min(34rem, 74%);
+    max-width: min(42rem, 74%);
     border: 1px solid rgba(96, 165, 250, 0.26);
     background:
         linear-gradient(180deg, rgba(30, 41, 59, 0.72), rgba(15, 23, 42, 0.58)),
@@ -2828,8 +2845,10 @@ div[data-testid="stChatInput"] textarea:focus {
 .smai-copilot-workspace-card {
     position: relative;
     overflow: hidden;
-    max-width: 54rem;
+    width: min(1120px, calc(100% - 48px));
+    max-width: 1120px;
     margin: 0.82rem auto 0;
+    box-sizing: border-box;
     border: 1px solid rgba(45, 212, 191, 0.22);
     border-radius: 8px;
     background:
@@ -3593,8 +3612,15 @@ div[data-testid="stChatInput"] textarea:focus {
     }
 
     .smai-copilot-chat-topbar {
-        align-items: flex-start;
-        flex-direction: column;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+        width: min(1120px, calc(100% - 24px));
+        gap: 0.82rem 0.92rem;
+        padding: 0.9rem 0.86rem;
+    }
+
+    .smai-copilot-header-identity {
+        grid-column: 1 / -1;
     }
 
     .smai-copilot-header-icon {
@@ -3603,7 +3629,19 @@ div[data-testid="stChatInput"] textarea:focus {
     }
 
     .smai-copilot-statusbar {
+        grid-column: 1 / -1;
         width: 100%;
+        max-width: none;
+    }
+
+    .smai-copilot-mode-label,
+    .smai-copilot-material-status,
+    .smai-copilot-suggestions-title,
+    .smai-copilot-composer-toolbar,
+    .smai-copilot-thread,
+    .smai-copilot-workspace-card,
+    div[data-testid="stChatInput"] {
+        width: min(1120px, calc(100% - 24px));
     }
 
     .smai-copilot-answer-grid {

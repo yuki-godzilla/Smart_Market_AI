@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from streamlit.testing.v1 import AppTest
 
 from backend.assistant import AssistantMessage, AssistantResponse
@@ -27,6 +29,19 @@ def _click_button_label(app: AppTest, label: str) -> None:
             button.click().run()
             return
     raise AssertionError(f"button not found: {label}")
+
+
+def test_copilot_layout_uses_shared_wide_lane():
+    css = Path("ui/styles.py").read_text(encoding="utf-8")
+
+    shared_lane = "width: min(1120px, calc(100% - 48px));"
+    assert css.count(shared_lane) >= 5
+    assert ".smai-copilot-chat-topbar" in css
+    assert "grid-template-columns: auto minmax(0, 1fr) auto;" in css
+    assert ".smai-copilot-material-status" in css
+    assert ".smai-copilot-thread" in css
+    assert ".smai-copilot-composer-toolbar" in css
+    assert "width: min(54rem, calc(100% - 1.5rem));" not in css
 
 
 def test_copilot_context_options_cover_core_workflows():

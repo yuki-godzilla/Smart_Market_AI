@@ -430,6 +430,13 @@ def _is_low_quality_text(text: str) -> bool:
         return True
     lowered = joined.lower().lstrip()
     reasoning_markers = (
+        "<think>",
+        "</think>",
+        "first, i need",
+        "i need to",
+        "i should",
+        "the answer should",
+        "the tool says",
         "we are given",
         "steps:",
         "we must return a json",
@@ -463,7 +470,10 @@ def _fallback_answer_for_request(
 
 def _is_simple_greeting(text: str) -> bool:
     normalized = str(text or "").strip().lower()
-    return normalized in {"こんにちは", "こんばんは", "おはよう", "hello", "hi"}
+    return normalized in {"こんにちは", "こんばんは", "おはよう", "hello", "hi"} or any(
+        normalized.startswith(prefix)
+        for prefix in ("こんにちは。", "こんにちは、", "こんばんは。", "こんばんは、", "hello ", "hi ")
+    )
 
 
 def _fallback_answer_from_sections(

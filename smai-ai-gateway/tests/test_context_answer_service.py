@@ -64,9 +64,9 @@ def test_context_answer_service_uses_structured_llm_payload():
     assert response.confidence == "high"
     assert response.safety_notes
     assert client.model == "qwen3:8b"
-    assert client.timeout_seconds == 15.0
+    assert client.timeout_seconds == 10.0
     assert client.max_tokens == 120
-    assert response.timeout_sec == 15.0
+    assert response.timeout_sec == 10.0
     assert response.context_tokens_estimate is not None
     assert response.context_tokens_estimate > 0
     assert response.prompt_chars is not None
@@ -178,8 +178,8 @@ def test_context_answer_service_routes_task_type_to_standard_profile():
     response = service.answer(request)
 
     assert response.profile == "notebook_dev"
-    assert client.timeout_seconds == 35.0
-    assert client.max_tokens == 700
+    assert client.timeout_seconds == 25.0
+    assert client.max_tokens == 600
 
 
 def test_context_answer_service_accepts_profile_alias():
@@ -191,7 +191,7 @@ def test_context_answer_service_accepts_profile_alias():
     response = service.answer(request)
 
     assert response.profile == "desktop_fast"
-    assert client.timeout_seconds == 15.0
+    assert client.timeout_seconds == 10.0
     assert client.max_tokens == 120
 
 
@@ -227,7 +227,7 @@ def test_context_answer_service_returns_fallback_metadata_when_provider_times_ou
     assert response.fallback_reason == "provider_timeout"
     assert response.provider == "ollama"
     assert response.model == "qwen3:8b"
-    assert response.timeout_sec == 15.0
+    assert response.timeout_sec == 10.0
     assert response.prompt_chars is not None
     assert response.context_tokens_estimate is not None
     assert response.tool_execution_ms == 0

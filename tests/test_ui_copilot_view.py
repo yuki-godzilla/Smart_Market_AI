@@ -21,6 +21,14 @@ from ui.views.copilot import (
 )
 
 
+def _click_button_label(app: AppTest, label: str) -> None:
+    for button in app.button:
+        if str(getattr(button, "label", "")) == label:
+            button.click().run()
+            return
+    raise AssertionError(f"button not found: {label}")
+
+
 def test_copilot_context_options_cover_core_workflows():
     options = copilot_context_options()
     labels = [copilot_context_label(context) for context in options]
@@ -317,8 +325,8 @@ def test_copilot_page_renders_with_streamlit_app(monkeypatch):
         if getattr(element, "value", None) is not None
     )
     button_labels = [str(getattr(element, "label", "")) for element in app.button]
-    chat_input_placeholders = [
-        str(getattr(element, "placeholder", "")) for element in app.chat_input
+    text_input_placeholders = [
+        str(getattr(element, "placeholder", "")) for element in app.text_input
     ]
 
     assert "SMAIナビ" in page_text
@@ -329,8 +337,9 @@ def test_copilot_page_renders_with_streamlit_app(monkeypatch):
     assert "smai-copilot-chat-topbar" in page_text
     assert "SMAIアシスタント" in button_labels
     assert (
-        "価格・予測・ニュース・根拠資料について確認したいことを入力..." in chat_input_placeholders
+        "価格・予測・ニュース・根拠資料について確認したいことを入力..." in text_input_placeholders
     )
+    assert "送信" in button_labels
     assert "新しい会話" in button_labels
     assert "SMAIの使い方を聞きたい" in button_labels
     assert "この銘柄を整理したい" in button_labels
@@ -347,16 +356,23 @@ def test_copilot_page_chat_input_appends_chat_turn(monkeypatch):
     app.session_state["sidemenu_page"] = "copilot"
     app.run()
 
-    app.chat_input[0].set_value("確認点を整理して").run()
+    app.text_input[0].set_value("確認点を整理して")
+    _click_button_label(app, "送信")
 
     assert not app.exception
     assert len(app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]) == 1
     button_labels = [str(getattr(element, "label", "")) for element in app.button]
+    page_text = "\n".join(
+        str(element.value)
+        for element in app.markdown
+        if getattr(element, "value", None) is not None
+    )
     assert "SMAIの使い方を聞きたい" not in button_labels
     assert "自由に会話する" not in button_labels
-    assert "予測だけ確認" in button_labels
-    assert "ニュースだけ再確認" in button_labels
-    assert "Decision Report下書きへ" in button_labels
+    assert "予測だけ確認" not in button_labels
+    assert "ニュースだけ再確認" not in button_labels
+    assert "Decision Report下書きへ" not in button_labels
+    assert "smai-copilot-actions-row--inside" in page_text
 
 
 def test_copilot_page_free_chat_does_not_render_fixed_cards(monkeypatch):
@@ -365,7 +381,8 @@ def test_copilot_page_free_chat_does_not_render_fixed_cards(monkeypatch):
     app.session_state["sidemenu_page"] = "copilot"
     app.run()
 
-    app.chat_input[0].set_value("こんにちは").run()
+    app.text_input[0].set_value("こんにちは")
+    _click_button_label(app, "送信")
 
     assert not app.exception
     history = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]

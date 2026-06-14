@@ -371,24 +371,38 @@ def _render_model_selector(
     return runtime_config
 
 
-def _render_composer_toolbar(
+def _render_chat_composer(
     runtime_config: CopilotGatewayRuntimeConfig,
-) -> CopilotGatewayRuntimeConfig:
+) -> tuple[str | None, CopilotGatewayRuntimeConfig]:
     st.markdown(
-        '<div class="smai-copilot-composer-toolbar" aria-label="LLM model selector">',
+        '<div class="smai-copilot-composer-toolbar" aria-label="SMAI chat composer">',
         unsafe_allow_html=True,
     )
-    model_col, status_col = st.columns([0.28, 0.72])
+    model_col, input_col = st.columns([0.24, 0.76])
     with model_col:
         selected = _render_model_selector(runtime_config)
-    with status_col:
+    submitted = False
+    prompt = ""
+    with input_col:
+        with st.form("smai_copilot_composer_form", clear_on_submit=True):
+            text_col, send_col = st.columns([0.84, 0.16])
+            with text_col:
+                prompt = st.text_input(
+                    "相談内容",
+                    placeholder="価格・予測・ニュース・根拠資料について確認したいことを入力...",
+                    key="smai_copilot_text_input",
+                    max_chars=240,
+                    label_visibility="collapsed",
+                )
+            with send_col:
+                submitted = st.form_submit_button("送信", use_container_width=True)
         st.caption(
             f"LLM: {selected.provider} / {selected.model} / {selected.profile}"
             if selected.enabled
             else "LLM: deterministic fallback"
         )
     st.markdown("</div>", unsafe_allow_html=True)
-    return selected
+    return (prompt.strip() if submitted else None), selected
 
 
 def copilot_settings_from_gateway_runtime(
@@ -429,7 +443,7 @@ def copilot_history_messages(
 def copilot_answer_detail_html(turn: dict[str, str]) -> str:
     intent = _normalize_intent(turn.get("intent", ""))
     if intent == "free_chat":
-        return _response_meta_html(turn)
+        return _response_meta_html(turn) + _assistant_action_links_html(turn)
     titles = _section_titles_for_intent(intent)
     reasons = _list_html(_split_lines(turn.get("reasons", "")))
     cautions = _list_html(_split_lines(turn.get("cautions", "")))
@@ -445,6 +459,7 @@ def copilot_answer_detail_html(turn: dict[str, str]) -> str:
             )
             + _execution_result_html(turn)
             + _response_meta_html(turn)
+            + _assistant_action_links_html(turn)
         )
     grid_class = "smai-copilot-answer-grid"
     if len(titles) == 4:
@@ -458,6 +473,7 @@ def copilot_answer_detail_html(turn: dict[str, str]) -> str:
         "</div>"
         f"{_execution_result_html(turn)}"
         f"{_response_meta_html(turn)}"
+        f"{_assistant_action_links_html(turn)}"
     )
 
 
@@ -495,29 +511,6 @@ def render_copilot_workspace_page() -> None:
         st.session_state[COPILOT_ACTIVE_INTENT_STATE_KEY] = "free_chat"
         st.rerun()
 
-    runtime_config = _render_composer_toolbar(runtime_config)
-
-    prompt = st.chat_input(
-        "価格・予測・ニュース・根拠資料について確認したいことを入力...",
-        key="smai_copilot_chat_input",
-        max_chars=240,
-    )
-
-    if prompt:
-        intent = _intent_from_message(prompt, fallback=_active_intent())
-        preset = _preset_for_intent(intent)
-        context = context_by_id.get(preset.context_id, contexts[0])
-        with st.spinner("SMAIナビが必要な材料を確認しています... LLMで回答を生成中"):
-            _handle_copilot_submit(
-                context,
-                prompt,
-                intent=intent,
-                prompt_instruction=preset.prompt_instruction,
-                visible_question=prompt,
-                runtime_config=runtime_config,
-            )
-        st.rerun()
-
     _render_chat_thread(history)
     suggested = _render_suggestion_buttons(has_history=bool(history))
 
@@ -530,6 +523,23 @@ def render_copilot_workspace_page() -> None:
                 intent=suggested.intent,
                 prompt_instruction=suggested.prompt_instruction,
                 visible_question=suggested.label,
+                runtime_config=runtime_config,
+            )
+        st.rerun()
+
+    prompt, runtime_config = _render_chat_composer(runtime_config)
+
+    if prompt:
+        intent = _intent_from_message(prompt, fallback=_active_intent())
+        preset = _preset_for_intent(intent)
+        context = context_by_id.get(preset.context_id, contexts[0])
+        with st.spinner("SMAIナビが必要な材料を確認しています... LLMで回答を生成中"):
+            _handle_copilot_submit(
+                context,
+                prompt,
+                intent=intent,
+                prompt_instruction=preset.prompt_instruction,
+                visible_question=prompt,
                 runtime_config=runtime_config,
             )
         st.rerun()
@@ -551,22 +561,21 @@ def _render_chat_thread(turns: list[dict[str, str]]) -> None:
             st.session_state[COPILOT_PENDING_STREAM_STATE_KEY] = ""
         else:
             st.markdown(copilot_turn_html(turn), unsafe_allow_html=True)
-        _render_turn_actions(turn, index=index)
 
 
 def _render_suggestion_buttons(
     *,
     has_history: bool,
 ) -> CopilotConversationPreset | None:
-    heading = "続けて相談" if has_history else "今日は何を相談しますか？"
+    if has_history:
+        return None
+    heading = "今日は何を相談しますか？"
     st.markdown(
         f'<div class="smai-copilot-suggestions-title">{html.escape(heading)}</div>',
         unsafe_allow_html=True,
     )
     _, suggestions_col, _ = st.columns([0.14, 0.72, 0.14])
     with suggestions_col:
-        if has_history:
-            return _render_followup_buttons()
         presets = copilot_conversation_presets()
         for row_start in range(0, len(presets), 3):
             columns = st.columns(3)
@@ -584,27 +593,6 @@ def _render_suggestion_buttons(
                     ):
                         st.session_state[COPILOT_ACTIVE_INTENT_STATE_KEY] = preset.intent
                         return preset
-    return None
-
-
-def _render_followup_buttons() -> CopilotConversationPreset | None:
-    followups: tuple[tuple[str, CopilotIntent], ...] = (
-        ("予測だけ確認", "forecast_risk_compare"),
-        ("ニュースだけ再確認", "news_materials"),
-        ("Decision Report下書きへ", "decision_report_draft"),
-    )
-    columns = st.columns(len(followups))
-    for index, (label, intent) in enumerate(followups):
-        preset = _preset_for_intent(intent)
-        with columns[index]:
-            if st.button(
-                label,
-                key=f"smai_copilot_followup_{intent}",
-                use_container_width=True,
-                help=preset.description,
-            ):
-                st.session_state[COPILOT_ACTIVE_INTENT_STATE_KEY] = intent
-                return preset
     return None
 
 
@@ -902,6 +890,11 @@ def _conversation_answer(
             return body
     if intent == "free_chat" and _is_simple_greeting(question):
         return "こんにちは。SMAIナビです。何を相談しますか？"
+    if intent == "free_chat":
+        body = _safe_response_body(response.answer, intent=intent)
+        if body:
+            return body
+        return "分かる範囲で短く整理します。SMAIの画面、確認材料、注意点について聞いてください。"
     if intent == "app_help" and response.response_source not in {"gateway", "llm"}:
         return (
             "SMAIは、目的別に画面を使い分けると分かりやすいです。\n\n"
@@ -935,14 +928,26 @@ def _conversation_answer(
 
 def _is_simple_greeting(question: str) -> bool:
     normalized = str(question or "").strip().lower()
-    return normalized in {
+    if normalized in {
         "こんにちは",
         "こんばんは",
         "おはよう",
         "おはようございます",
         "hello",
         "hi",
-    }
+    }:
+        return True
+    return any(
+        normalized.startswith(prefix)
+        for prefix in (
+            "こんにちは。",
+            "こんにちは、",
+            "こんばんは。",
+            "こんばんは、",
+            "hello ",
+            "hi ",
+        )
+    )
 
 
 def _safe_response_body(answer: str, *, intent: CopilotIntent | None = None) -> str:
@@ -960,7 +965,12 @@ def _safe_response_body(answer: str, *, intent: CopilotIntent | None = None) -> 
         "We are given",
         "We must return",
         "Final decision:",
+        "<think>",
         "</think>",
+        "Let me",
+        "Wait,",
+        "JSON fields",
+        "The response should",
     )
     if any(marker in text for marker in blocked_markers):
         return ""
@@ -1003,7 +1013,7 @@ def _response_meta_html(turn: dict[str, str]) -> str:
     return f'<div class="smai-copilot-response-meta">{html.escape(meta)}</div>'
 
 
-def _render_turn_actions(turn: dict[str, str], *, index: int) -> None:
+def _assistant_action_links_html(turn: dict[str, str]) -> str:
     actions = _actions_for_turn(turn)
     plain_text = copilot_turn_plain_text(turn)
     markdown = copilot_turn_markdown(turn)
@@ -1018,15 +1028,12 @@ def _render_turn_actions(turn: dict[str, str], *, index: int) -> None:
         )
         for label, kind in actions
     )
-    st.markdown(
-        (
-            '<div class="smai-copilot-thread smai-copilot-actions-thread">'
-            '<div class="smai-copilot-actions-row">'
-            f"{action_links}"
-            "</div>"
-            "</div>"
-        ),
-        unsafe_allow_html=True,
+    if not action_links:
+        return ""
+    return (
+        '<div class="smai-copilot-actions-row smai-copilot-actions-row--inside">'
+        f"{action_links}"
+        "</div>"
     )
 
 
@@ -1230,6 +1237,8 @@ def _active_intent() -> CopilotIntent:
 
 
 def _intent_from_message(message: str, *, fallback: CopilotIntent) -> CopilotIntent:
+    if _is_simple_greeting(message):
+        return "free_chat"
     decision = detect_assistant_intent(message)
     mapping: dict[str, CopilotIntent] = {
         "app_help": "app_help",

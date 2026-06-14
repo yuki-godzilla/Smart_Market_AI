@@ -1678,3 +1678,37 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 ### Remaining issues
 
 - The live validation covered Gateway greeting latency and Streamlit health. A full browser screenshot comparison remains useful after further visual tuning.
+
+## 2026-06-14 - SMAI Assistant Chat UI rebuild sprint
+
+### UI rebuild
+
+- Rebuilt the assistant screen around one chat structure: header, material chips, initial quick cards or chat thread, then a bottom composer.
+- Moved the model selector into the composer input area, left of the message input, with the send button on the same row.
+- Replaced the floating Streamlit `st.chat_input` path with a dedicated composer form so the input area stays at the bottom and does not interrupt the chat thread.
+- Removed the standalone post-response follow-up button row. Quick cards now appear only before a conversation starts.
+- Moved copy / Markdown / Decision Report action links into the assistant response block so response actions stay attached to the answer.
+- Kept user messages right-aligned and SMAI Navi replies left-aligned inside the same chat thread.
+
+### Runtime and output quality
+
+- Shortened Gateway runtime policy for notebook-friendly checks: `free_chat` 10 sec, `app_help` 12 sec, forecast compare 25 sec, news/RAG 35 sec, report/factor 45 sec.
+- Expanded free-chat greeting fast path so `こんにちは。20文字以内で返事して` also avoids Ollama wait.
+- Added extra internal-reasoning markers to Gateway and UI cleaning: `<think>`, `First, I need`, `The answer should`, `The tool says`, `Let me`, and related phrases.
+
+### 10-loop validation
+
+- Loop 1 Gateway health: `ok`.
+- Loop 2 initial UI: no exception, no `st.chat_input`, one composer text input, send visible, model selector visible, large greeting card absent.
+- Loop 3 app greeting: one history turn, `free_chat`, `qwen3:4b / live / notebook_dev / local_fast_path / free_chat / 0ms`, no internal-reasoning leak.
+- Loop 4 free-chat short greeting after fast-path fix: HTTP 200, wall time about 340 ms, `provider=local_fast_path`, `fallback_reason=null`, `timeout_sec=10.0`.
+- Loop 5 app_help live check: qwen3:4b timed out under the short notebook policy and returned deterministic fallback without internal-reasoning leak.
+- Loop 6 forecast compare live check: qwen3:4b timed out under the short notebook policy and returned deterministic fallback without internal-reasoning leak.
+- Loop 7 forecast quick card: card click became a user message in chat thread; answer stayed in thread; no internal-reasoning leak.
+- Loop 8 news materials live check: timed out under the short notebook policy and returned deterministic fallback without internal-reasoning leak.
+- Loop 9 Decision Report live check: timed out under the short notebook policy and returned deterministic fallback without internal-reasoning leak.
+- Loop 10 final UI layout: no exception, composer present, send visible, six quick cards only on the initial screen.
+
+### Remaining issues
+
+- qwen3:4b on the notebook still often times out for non-greeting tasks. The UI remains usable through deterministic fallback, but a faster model / desktop environment or more aggressive task-specific local fast paths would improve live LLM feel.

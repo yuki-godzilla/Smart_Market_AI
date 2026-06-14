@@ -2585,10 +2585,38 @@ div[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {
 }
 
 .smai-copilot-composer-toolbar {
+    position: sticky;
+    bottom: 0.75rem;
+    z-index: 20;
     width: min(54rem, calc(100% - 1.5rem));
     max-width: 54rem;
-    margin: 0.8rem auto 0.38rem;
+    margin: 0.8rem auto 0.46rem;
     box-sizing: border-box;
+    padding: 0.5rem 0.58rem;
+    border: 1px solid rgba(71, 85, 105, 0.42);
+    border-radius: 8px;
+    background: rgba(3, 10, 24, 0.74);
+    box-shadow: 0 18px 46px rgba(0, 0, 0, 0.18);
+}
+
+.smai-copilot-composer-toolbar div[data-testid="stForm"] {
+    border: 0;
+    padding: 0;
+    background: transparent;
+}
+
+.smai-copilot-composer-toolbar div[data-testid="stTextInput"] input {
+    min-width: 0;
+    box-sizing: border-box;
+    border-color: rgba(34, 211, 238, 0.28);
+    background: rgba(15, 23, 42, 0.72);
+}
+
+.smai-copilot-composer-toolbar div[data-testid="stButton"] button,
+.smai-copilot-composer-toolbar div[data-testid="stFormSubmitButton"] button {
+    min-height: 2.45rem;
+    white-space: nowrap;
+    border-radius: 8px;
 }
 
 div[data-testid="stChatInput"] {
@@ -2709,18 +2737,17 @@ div[data-testid="stChatInput"] textarea:focus {
     color: var(--text-value);
 }
 
-.smai-copilot-actions-thread {
-    margin-top: -0.34rem;
-    margin-bottom: 0.88rem;
-}
-
 .smai-copilot-actions-row {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.42rem;
-    width: min(48rem, calc(100% - 3.8rem));
-    margin-left: 3.72rem;
+    width: 100%;
+    margin-top: 0.72rem;
+}
+
+.smai-copilot-actions-row--inside {
+    margin-left: 0;
 }
 
 .smai-copilot-action-link {
@@ -3597,8 +3624,8 @@ div[data-testid="stChatInput"] textarea:focus {
     }
 
     .smai-copilot-actions-row {
-        width: calc(100% - 3rem);
-        margin-left: 3rem;
+        width: 100%;
+        margin-left: 0;
     }
 
     .smai-copilot-assistant-avatar {

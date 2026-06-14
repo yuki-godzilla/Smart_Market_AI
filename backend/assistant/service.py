@@ -76,10 +76,20 @@ class AssistantResponse(StrictBaseModel):
     cautions: list[str] = Field(default_factory=list)
     next_checkpoints: list[str] = Field(default_factory=list)
     citations: list[AssistantCitation] = Field(default_factory=list)
-    response_source: Literal["deterministic", "gateway", "fallback"] = "deterministic"
+    response_source: Literal[
+        "deterministic",
+        "llm",
+        "deterministic_fallback",
+        "gateway",
+        "fallback",
+    ] = "deterministic"
     model: str | None = Field(default=None, min_length=1)
     provider: str | None = Field(default=None, min_length=1)
     profile: str | None = Field(default=None, min_length=1)
+    latency_ms: int | None = Field(default=None, ge=0)
+    gateway_status: str | None = Field(default=None, min_length=1)
+    fallback_reason: str | None = Field(default=None, min_length=1)
+    request_id: str | None = Field(default=None, min_length=1)
     decision_support_note: str = DECISION_SUPPORT_NOTE
 
 

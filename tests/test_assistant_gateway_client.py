@@ -87,10 +87,12 @@ def test_gateway_backed_assistant_uses_gateway_response_when_valid():
     assert "スコアや予測値は変更していません。" in response.cautions
     assert response.next_checkpoints == ["モデル合意度を確認します。"]
     assert response.citations[0].section_title == "AI予測インサイト"
-    assert response.response_source == "gateway"
+    assert response.response_source == "llm"
     assert response.model == "mock-assistant-gateway"
     assert response.provider == "mock"
     assert response.profile == "assistant_standard"
+    assert response.gateway_status == "ok"
+    assert response.request_id == client.requests[0].request_id
     assert len(client.requests) == 1
     assert client.requests[0].constraints.no_investment_advice
     assert client.requests[0].context.sections[0].title == "AI予測インサイト"
@@ -139,7 +141,8 @@ def test_gateway_backed_assistant_falls_back_when_client_raises():
 
     assert "中心予測を主役" in response.answer
     assert response.intent == "forecast"
-    assert response.response_source == "fallback"
+    assert response.response_source == "deterministic_fallback"
+    assert response.fallback_reason == "gateway_unavailable"
     assert len(client.requests) == 1
 
 
@@ -161,7 +164,8 @@ def test_gateway_backed_assistant_falls_back_when_schema_is_invalid():
 
     assert "中心予測を主役" in response.answer
     assert response.intent == "forecast"
-    assert response.response_source == "fallback"
+    assert response.response_source == "deterministic_fallback"
+    assert response.fallback_reason == "response_validation_failure"
     assert len(client.requests) == 1
 
 
@@ -199,6 +203,8 @@ def test_http_assistant_gateway_client_posts_context_answer_request():
         observed["url"] = str(request.url)
         payload = request.read()
         observed["payload"] = json.loads(payload.decode("utf-8"))
+        request_payload = observed["payload"]
+        assert isinstance(request_payload, dict)
         return httpx.Response(
             200,
             json={
@@ -220,6 +226,8 @@ def test_http_assistant_gateway_client_posts_context_answer_request():
                 "model": "qwen3:8b",
                 "profile": "assistant_standard",
                 "elapsed_ms": 42,
+                "gateway_status": "ok",
+                "request_id": request_payload["request_id"],
             },
         )
 
@@ -252,10 +260,12 @@ def test_http_assistant_gateway_client_posts_context_answer_request():
     assert response.answer.startswith("Gateway実接続")
     assert response.reasons == ["AI予測インサイト", "中心予測"]
     assert "スコアや順位は変更していません。" in response.cautions
-    assert response.response_source == "gateway"
+    assert response.response_source == "llm"
     assert response.model == "qwen3:8b"
     assert response.provider == "ollama"
     assert response.profile == "assistant_standard"
+    assert response.gateway_status == "ok"
+    assert response.request_id == payload["request_id"]
 
 
 def test_http_assistant_gateway_client_timeout_raises_timeout_error():
@@ -294,7 +304,8 @@ def test_gateway_backed_assistant_falls_back_when_http_gateway_times_out():
 
     assert "中心予測を主役" in response.answer
     assert response.intent == "forecast"
-    assert response.response_source == "fallback"
+    assert response.response_source == "deterministic_fallback"
+    assert response.fallback_reason == "gateway_timeout"
 
 
 def test_http_assistant_gateway_client_raises_on_http_error():

@@ -576,6 +576,10 @@ def _turn_from_response(
         "model": response.model or "",
         "provider": response.provider or "",
         "profile": response.profile or "",
+        "latency_ms": str(response.latency_ms or ""),
+        "gateway_status": response.gateway_status or "",
+        "fallback_reason": response.fallback_reason or "",
+        "request_id": response.request_id or "",
         "response_meta": _response_meta_label(response=response, intent=intent),
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
@@ -732,9 +736,13 @@ def _conversation_answer(
     question: str,
     response: AssistantResponse,
 ) -> str:
+    if response.response_source == "llm":
+        body = _safe_response_body(response.answer, intent=intent)
+        if body:
+            return body
     if intent == "free_chat" and _is_simple_greeting(question):
         return "こんにちは。SMAIナビです。何を相談しますか？"
-    if intent == "app_help" and response.response_source != "gateway":
+    if intent == "app_help" and response.response_source not in {"gateway", "llm"}:
         return (
             "SMAIは、目的別に画面を使い分けると分かりやすいです。\n\n"
             "- 銘柄を深掘りする: 銘柄コックピット\n"
@@ -758,7 +766,7 @@ def _conversation_answer(
         "free_chat": "はい。分かる範囲で短く整理します。",
     }[intent]
     body = _safe_response_body(response.answer, intent=intent)
-    if response.response_source == "gateway" and body:
+    if response.response_source in {"gateway", "llm"} and body:
         return body
     if not body or body.startswith(lead):
         return lead
@@ -971,14 +979,16 @@ def _gateway_question(
 
 def _response_meta_label(*, response: AssistantResponse, intent: CopilotIntent) -> str:
     intent_label = intent
-    if response.response_source == "gateway":
+    if response.response_source in ("gateway", "llm"):
         model = response.model or "LLM"
         provider = response.provider or "Gateway"
         profile = response.profile or "assistant_profile"
-        return f"{model} / {profile} / {provider} / {intent_label}"
-    if response.response_source == "fallback":
-        return f"SMAI通常回答 / fallback / {intent_label}"
-    return f"SMAI通常回答 / deterministic / {intent_label}"
+        latency = " / " + str(response.latency_ms) + "ms" if response.latency_ms is not None else ""
+        return model + " / live / " + profile + " / " + provider + " / " + intent_label + latency
+    if response.response_source in ("fallback", "deterministic_fallback"):
+        reason = response.fallback_reason or "gateway_unavailable"
+        return "SMAI通常回答 / fallback: " + reason + " / " + intent_label
+    return "SMAI通常回答 / deterministic / " + intent_label
 
 
 def _render_material_status(context: SmaiAssistantContext) -> None:

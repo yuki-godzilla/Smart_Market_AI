@@ -120,10 +120,10 @@ def _route_for_profile(
     quality_model = "qwen3:8b" if environment_profile == "notebook" else "qwen3:14b"
     report_model = "qwen3:8b" if environment_profile == "notebook" else "qwen3:14b"
     profiles: dict[LlmProfileName, tuple[str, float, int]] = {
-        "assistant_fast": (default_model, 30.0, 700),
-        "assistant_standard": (default_model, 45.0, 1000),
-        "assistant_quality": (quality_model, 60.0, 1200),
-        "report_quality": (report_model, 75.0, 1600),
+        "assistant_fast": (default_model, 75.0, 700),
+        "assistant_standard": (default_model, 90.0, 1000),
+        "assistant_quality": (quality_model, 120.0, 1200),
+        "report_quality": (report_model, 150.0, 1600),
         "fallback": ("fallback", 0.0, 0),
     }
     model, timeout_seconds, max_tokens = profiles[profile]

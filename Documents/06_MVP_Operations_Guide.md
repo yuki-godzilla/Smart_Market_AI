@@ -100,7 +100,7 @@ assistant:
     environment_profile: "notebook" # notebook|desktop|server|offline
 ```
 
-SMAI 親は通常 `model` を固定指定せず、`task_type` と環境ヒントだけを Gateway に渡します。Gateway 側が `assistant_fast` / `assistant_standard` / `assistant_quality` / `report_quality` / `fallback` から model / timeout / token budget を選び、応答下部には `qwen3:8b / assistant_fast / ollama` のような控えめなメタ情報を表示します。
+SMAI 親は通常 `model` を固定指定せず、`task_type` と環境ヒントだけを Gateway に渡します。Gateway 側が `assistant_fast` / `assistant_standard` / `assistant_quality` / `report_quality` / `fallback` から model / timeout / token budget を選び、応答下部には `qwen3:8b / live / assistant_fast / ollama / free_chat / 4230ms` のような控えめなメタ情報を表示します。Gateway / provider / model / timeout / schema / empty-answer 失敗時だけ deterministic fallback に戻り、その場合は `fallback: gateway_timeout` のように理由を残します。
 
 Gateway 接続失敗時も `TemplateAssistantService` に戻るため、SMAI の予測、ランキング、Investment Score、Research Score、LLM Factor 参考列は変更されません。
 

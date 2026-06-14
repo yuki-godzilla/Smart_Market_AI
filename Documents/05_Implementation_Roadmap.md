@@ -2121,6 +2121,7 @@ Prompt 方針:
 
 - `SMAIアシスタント` 画面はUIにON/OFFを出さず、既定で `smai-ai-gateway` を使う。Gateway未起動や失敗時はdeterministic fallbackに戻る。
 - Gateway側の `/api/v1/context-answer` はLLMに `answer` / `materials` / `cautions` / `next_checkpoints` / `confidence` のJSON応答を求め、schema検証に通った場合だけ構造化フィールドへ採用する。さらに `task_type` と環境プロファイルから `assistant_fast` / `assistant_standard` / `assistant_quality` / `report_quality` / `fallback` を解決し、`model` / `profile` / `provider` を応答メタとして返す。
+- 親SMAI側は有効なGateway応答を `response_source=llm` として扱い、Gateway / provider / model / timeout / schema / empty-answer 失敗時だけ `response_source=deterministic_fallback` に落とす。`request_id`、`gateway_status`、`fallback_reason`、`latency_ms` を保持し、UI下部に控えめに表示する。
 - Gateway disabled / failure / timeout / schema validation failure 時は既存 deterministic Copilot に戻る。
 - 親SMAI側の `tests/test_assistant_gateway_live_smoke.py` は `SMAI_ASSISTANT_GATEWAY_LIVE_SMOKE=1` のときだけ実 Gateway に接続する。
 

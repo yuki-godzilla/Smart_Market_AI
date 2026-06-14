@@ -32,9 +32,7 @@ Response:
 ```json
 {
   "answer": "こんにちは。どのようなお手伝いをしましょうか。",
-  "task_type": "forecast_risk_compare",
-  "execution_mode": "auto",
-  "environment_profile": "notebook",
+  "model": "qwen3:8b",
   "provider": "ollama",
   "elapsed_ms": 120
 }
@@ -79,7 +77,10 @@ Request:
   "task": "explain",
   "language": "ja",
   "user_question": "AI予測インサイトでは何を見ればよいですか？",
-  "model": "qwen3:8b",
+  "task_type": "forecast_risk_compare",
+  "execution_mode": "auto",
+  "environment_profile": "notebook",
+  "request_id": "assistant-request-1",
   "context": {
     "schema_version": "assistant-context-bundle-v1",
     "bundle_id": "bundle-1",
@@ -139,6 +140,9 @@ Response:
   "model": "qwen3:8b",
   "profile": "assistant_standard",
   "elapsed_ms": 120,
+  "gateway_status": "ok",
+  "fallback_reason": null,
+  "request_id": "assistant-request-1",
   "decision_support_note": "この回答は判断材料の整理であり、投資助言ではありません。"
 }
 ```

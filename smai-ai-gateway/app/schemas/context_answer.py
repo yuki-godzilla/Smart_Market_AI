@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Literal
+from uuid import uuid4
 
 from pydantic import Field
 
@@ -18,6 +19,7 @@ CONTEXT_ANSWER_RESPONSE_SCHEMA_VERSION = "assistant-gateway-response-v1"
 ContextAnswerTask = Literal["explain", "summarize", "compare", "next_steps", "chat"]
 ContextAnswerLanguage = Literal["ja", "en"]
 ContextAnswerConfidence = Literal["low", "medium", "high"]
+ContextAnswerGatewayStatus = Literal["ok", "fallback"]
 
 
 class ContextSection(GatewayBaseModel):
@@ -87,6 +89,7 @@ class ContextAnswerRequest(GatewayBaseModel):
     execution_mode: LlmExecutionMode = "auto"
     environment_profile: LlmEnvironmentProfile = "notebook"
     preferred_profile: LlmProfileName | None = None
+    request_id: str = Field(default_factory=lambda: uuid4().hex, min_length=1)
 
 
 class ContextReferencedSection(GatewayBaseModel):
@@ -112,6 +115,9 @@ class ContextAnswerResponse(GatewayBaseModel):
     model: str = Field(min_length=1)
     profile: LlmProfileName = "fallback"
     elapsed_ms: int = Field(ge=0)
+    gateway_status: ContextAnswerGatewayStatus = "ok"
+    fallback_reason: str | None = Field(default=None, min_length=1)
+    request_id: str = Field(default_factory=lambda: uuid4().hex, min_length=1)
     decision_support_note: str = Field(
         default="This response is decision-support context, not investment advice.",
         min_length=1,

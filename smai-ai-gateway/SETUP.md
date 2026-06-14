@@ -116,6 +116,7 @@ assistant:
 ```
 
 SMAI 親は通常 `model` を固定指定せず、会話 intent から `task_type` を渡します。Gateway は `notebook` 環境では `qwen3:8b` を基本にし、`assistant_fast` / `assistant_standard` / `assistant_quality` / `report_quality` / `fallback` の profile を選んで timeout と token budget を決めます。高性能環境で `environment_profile: "desktop"` や `"server"` を使う場合は、quality profile を将来の大型モデルへ差し替えられます。
+ローカル `qwen3:8b` は初回応答や低速PCで30秒を超えることがあるため、既定 profile timeout は `assistant_fast=75s`、`assistant_standard=90s`、`assistant_quality=120s`、`report_quality=150s` にしています。
 
 SMAI 親アプリから Gateway へ接続する opt-in live smoke 確認例:
 

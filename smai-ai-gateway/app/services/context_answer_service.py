@@ -77,6 +77,9 @@ class ContextAnswerService:
                 model=route.model,
                 profile=route.profile,
                 elapsed_ms=0,
+                gateway_status="fallback",
+                fallback_reason=route.reason,
+                request_id=request.request_id,
                 decision_support_note=(
                     _JA_DECISION_SUPPORT_NOTE
                     if request.language == "ja"
@@ -95,6 +98,8 @@ class ContextAnswerService:
             if llm_payload is not None and not _is_low_quality_payload(llm_payload)
             else None
         )
+        gateway_status = "ok" if usable_payload is not None else "fallback"
+        fallback_reason = None if usable_payload is not None else "response_validation_failure"
         return ContextAnswerResponse(
             answer=(
                 usable_payload.answer
@@ -134,6 +139,9 @@ class ContextAnswerService:
             model=result.model,
             profile=route.profile,
             elapsed_ms=result.elapsed_ms,
+            gateway_status=gateway_status,
+            fallback_reason=fallback_reason,
+            request_id=request.request_id,
             decision_support_note=(
                 _JA_DECISION_SUPPORT_NOTE if request.language == "ja" else _EN_DECISION_SUPPORT_NOTE
             ),

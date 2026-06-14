@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Literal, Mapping, Sequence
+from uuid import uuid4
 
 from pydantic import Field
 
@@ -20,6 +21,7 @@ AssistantGatewayTask = Literal["explain", "summarize", "compare", "next_steps", 
 AssistantGatewayLanguage = Literal["ja", "en"]
 AssistantGatewayConfidence = Literal["low", "medium", "high"]
 AssistantGatewayAnswerFormat = Literal["materials_cautions_checkpoints"]
+AssistantGatewayStatus = Literal["ok", "fallback", "error"]
 AssistantGatewayTaskType = Literal[
     "free_chat",
     "app_help",
@@ -127,6 +129,7 @@ class AssistantGatewayRequest(StrictBaseModel):
     execution_mode: AssistantGatewayExecutionMode = "auto"
     environment_profile: AssistantGatewayEnvironmentProfile = "notebook"
     preferred_profile: AssistantGatewayProfileName | None = None
+    request_id: str = Field(default_factory=lambda: uuid4().hex, min_length=1)
 
 
 class AssistantGatewayReferencedSection(StrictBaseModel):
@@ -152,6 +155,9 @@ class AssistantGatewayResponse(StrictBaseModel):
     model: str | None = Field(default=None, min_length=1)
     profile: AssistantGatewayProfileName | None = None
     elapsed_ms: int | None = Field(default=None, ge=0)
+    gateway_status: AssistantGatewayStatus = "ok"
+    fallback_reason: str | None = Field(default=None, min_length=1)
+    request_id: str | None = Field(default=None, min_length=1)
     decision_support_note: str = DECISION_SUPPORT_NOTE
 
 

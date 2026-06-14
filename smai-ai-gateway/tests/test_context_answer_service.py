@@ -58,7 +58,7 @@ def test_context_answer_service_uses_structured_llm_payload():
     assert response.confidence == "high"
     assert response.safety_notes
     assert client.model == "qwen3:8b"
-    assert client.timeout_seconds == 30.0
+    assert client.timeout_seconds == 75.0
     assert client.max_tokens == 700
     assert any("AI予測インサイト" in message.content for message in client.messages)
     assert any("Return only valid JSON" in message.content for message in client.messages)
@@ -133,7 +133,7 @@ def test_context_answer_service_routes_task_type_to_standard_profile():
     response = service.answer(request)
 
     assert response.profile == "assistant_standard"
-    assert client.timeout_seconds == 45.0
+    assert client.timeout_seconds == 90.0
     assert client.max_tokens == 1000
 
 

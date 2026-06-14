@@ -102,7 +102,7 @@ def test_copilot_answer_detail_html_escapes_detail_lists():
             "next_checkpoints": "次 <3>",
             "memo_points": "温度差 <4>",
             "executed_checks": "現在文脈 <確認>",
-            "response_meta": "qwen3:8b / ollama / forecast_risk_compare",
+            "response_meta": "qwen3:8b / live / assistant_standard / ollama / forecast_risk_compare",
         }
     )
 
@@ -112,7 +112,7 @@ def test_copilot_answer_detail_html_escapes_detail_lists():
     assert "次 &lt;3&gt;" in markup
     assert "温度差 &lt;4&gt;" in markup
     assert "現在文脈 &lt;確認&gt;" in markup
-    assert "qwen3:8b / ollama / forecast_risk_compare" in markup
+    assert "qwen3:8b / live / assistant_standard / ollama / forecast_risk_compare" in markup
     assert "予測側の見方" in markup
     assert "リスク側の見方" in markup
     assert "<script>" not in markup
@@ -191,7 +191,7 @@ def test_copilot_turn_html_separates_user_and_smai_messages():
             "reasons": "価格トレンド",
             "cautions": "売買推奨ではありません",
             "next_checkpoints": "ニュースを見る",
-            "response_meta": "SMAI通常回答 / fallback / stock_summary",
+            "response_meta": "SMAI通常回答 / fallback: gateway_timeout / stock_summary",
         }
     )
 
@@ -200,7 +200,7 @@ def test_copilot_turn_html_separates_user_and_smai_messages():
     assert "あなたの確認" in markup
     assert "SMAIナビ" in markup
     assert "smai-copilot-natural-lead" in markup
-    assert "SMAI通常回答 / fallback / stock_summary" in markup
+    assert "SMAI通常回答 / fallback: gateway_timeout / stock_summary" in markup
     assert "smai-copilot-assistant-avatar" in markup
     assert "smai-copilot-assistant-avatar-image--reply" in markup
     assert "data:image/webp;base64," in markup
@@ -219,17 +219,23 @@ def test_copilot_turn_from_response_adds_natural_lead_and_meta():
             answer="銘柄コックピットから確認できます。",
             reasons=["銘柄を深掘りしたい -> 銘柄コックピット"],
             next_checkpoints=["気になる銘柄を入力します。"],
-            response_source="gateway",
+            response_source="llm",
             model="qwen3:8b",
             provider="ollama",
             profile="assistant_fast",
+            latency_ms=4230,
+            gateway_status="ok",
+            request_id="request-1",
         ),
         intent="app_help",
         executed_checks=["現在文脈を確認"],
     )
 
     assert turn["answer"] == "銘柄コックピットから確認できます。"
-    assert turn["response_meta"] == "qwen3:8b / assistant_fast / ollama / app_help"
+    assert turn["response_meta"] == "qwen3:8b / live / assistant_fast / ollama / app_help / 4230ms"
+    assert turn["latency_ms"] == "4230"
+    assert turn["gateway_status"] == "ok"
+    assert turn["request_id"] == "request-1"
 
 
 def test_copilot_turn_from_response_hides_internal_prompt_text():
@@ -241,14 +247,17 @@ def test_copilot_turn_from_response_hides_internal_prompt_text():
         AssistantResponse(
             intent="forecast",
             answer="SMAI Assistant intent: forecast_risk_compare\nBoundary: no advice",
-            response_source="fallback",
+            response_source="deterministic_fallback",
+            fallback_reason="gateway_timeout",
         ),
         intent="forecast_risk_compare",
     )
 
     assert turn["answer"].startswith("AI予測とリスクを分けて確認します。")
     assert "SMAI Assistant intent" not in turn["answer"]
-    assert turn["response_meta"] == "SMAI通常回答 / fallback / forecast_risk_compare"
+    assert (
+        turn["response_meta"] == "SMAI通常回答 / fallback: gateway_timeout / forecast_risk_compare"
+    )
 
 
 def test_stream_chunks_progressively_build_answer_text():

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
+from time import perf_counter
 from typing import Protocol
 
 import httpx
@@ -21,6 +23,8 @@ from backend.assistant.service import (
     TemplateAssistantService,
 )
 from backend.core.config import Settings, get_settings
+
+LOGGER = logging.getLogger(__name__)
 
 
 class AssistantGatewayError(Exception):
@@ -147,6 +151,7 @@ class GatewayBackedAssistantService:
         if request.report_context is None:
             return fallback_response
 
+        started = perf_counter()
         context_bundle = build_assistant_context_bundle(request.report_context)
         gateway_request = build_assistant_gateway_request(
             question=request.question,
@@ -164,15 +169,40 @@ class GatewayBackedAssistantService:
         try:
             raw_response = self.gateway_client.answer(gateway_request)
             gateway_response = _coerce_gateway_response(raw_response)
-        except (AssistantGatewayError, TimeoutError, ValidationError, ValueError):
-            return fallback_response.model_copy(update={"response_source": "fallback"})
+        except AssistantGatewayError as exc:
+            return _fallback_response(
+                fallback_response,
+                request_id=gateway_request.request_id,
+                started=started,
+                reason=_gateway_error_reason(exc),
+            )
+        except TimeoutError:
+            return _fallback_response(
+                fallback_response,
+                request_id=gateway_request.request_id,
+                started=started,
+                reason="gateway_timeout",
+            )
+        except (ValidationError, ValueError):
+            return _fallback_response(
+                fallback_response,
+                request_id=gateway_request.request_id,
+                started=started,
+                reason="response_validation_failure",
+            )
 
         if not gateway_response.answer.strip():
-            return fallback_response.model_copy(update={"response_source": "fallback"})
+            return _fallback_response(
+                fallback_response,
+                request_id=gateway_request.request_id,
+                started=started,
+                reason="empty_llm_answer",
+            )
 
         return _assistant_response_from_gateway_response(
             gateway_response,
             fallback_response=fallback_response,
+            request_id=gateway_request.request_id,
         )
 
 
@@ -188,7 +218,13 @@ def _assistant_response_from_gateway_response(
     response: AssistantGatewayResponse,
     *,
     fallback_response: AssistantResponse,
+    request_id: str,
 ) -> AssistantResponse:
+    is_fallback = (
+        response.gateway_status != "ok"
+        or response.profile == "fallback"
+        or response.provider == "deterministic"
+    )
     return AssistantResponse(
         intent=fallback_response.intent,
         answer=response.answer.strip(),
@@ -196,11 +232,50 @@ def _assistant_response_from_gateway_response(
         cautions=[*response.cautions, *response.safety_notes],
         next_checkpoints=response.next_checkpoints,
         citations=[_citation_from_gateway_reference(item) for item in response.referenced_sections],
-        response_source="gateway",
+        response_source="deterministic_fallback" if is_fallback else "llm",
         model=response.model,
         provider=response.provider,
         profile=response.profile,
+        latency_ms=response.elapsed_ms,
+        gateway_status=response.gateway_status,
+        fallback_reason=response.fallback_reason,
+        request_id=response.request_id or request_id,
     )
+
+
+def _fallback_response(
+    fallback_response: AssistantResponse,
+    *,
+    request_id: str,
+    started: float,
+    reason: str,
+) -> AssistantResponse:
+    latency_ms = int((perf_counter() - started) * 1000)
+    LOGGER.warning(
+        "Assistant Gateway fallback reason=%s request_id=%s latency_ms=%s",
+        reason,
+        request_id,
+        latency_ms,
+    )
+    return fallback_response.model_copy(
+        update={
+            "response_source": "deterministic_fallback",
+            "profile": "fallback",
+            "latency_ms": latency_ms,
+            "gateway_status": "error",
+            "fallback_reason": reason,
+            "request_id": request_id,
+        }
+    )
+
+
+def _gateway_error_reason(exc: AssistantGatewayError) -> str:
+    message = str(exc).lower()
+    if "http 404" in message:
+        return "model_unavailable"
+    if "http" in message:
+        return "gateway_http_error"
+    return "gateway_unavailable"
 
 
 def _citation_from_gateway_reference(
@@ -239,6 +314,8 @@ def _default_mock_gateway_response(request: AssistantGatewayRequest) -> Assistan
         model="mock-assistant-gateway",
         profile=request.preferred_profile or "assistant_fast",
         elapsed_ms=0,
+        gateway_status="ok",
+        request_id=request.request_id,
     )
 
 

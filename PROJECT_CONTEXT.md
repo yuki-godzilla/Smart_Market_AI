@@ -22,6 +22,7 @@ The product direction is to help users compare symbols, inspect provider-backed 
 - LLM-derived factors are considered for Forecast / Ranking / AI総合 / Investment Score integration only after historical validation, leakage checks, and baseline comparison.
 - Gateway / provider failures must fall back to deterministic behavior, and normal checks remain network-free.
 - LLM model selection is owned by `smai-ai-gateway`: SMAI parent sends `task_type`, `execution_mode`, `environment_profile`, and optional `preferred_profile`, while Gateway resolves `assistant_fast` / `assistant_standard` / `assistant_quality` / `report_quality` / `fallback` to provider/model/timeout/token settings and returns response metadata for the UI.
+- SMAI Assistant now treats valid Gateway answers as `response_source=llm` and reserves `response_source=deterministic_fallback` for Gateway/provider/model/timeout/schema/empty-answer failure paths. Assistant turns preserve `request_id`, `gateway_status`, `fallback_reason`, `latency_ms`, `provider`, `model`, and `profile`; the UI shows compact live/fallback metadata below the answer.
 
 Current focus is project maturity improvement rather than feature expansion. Functional spec issues and a manual UX review checklist have been introduced so confusing behavior, unclear role boundaries, and investment-advice-like wording can be reviewed before more advanced features are added.
 

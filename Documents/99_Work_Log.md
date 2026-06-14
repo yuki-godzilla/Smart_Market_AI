@@ -18,6 +18,16 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-14 - SMAI Assistant LLM-first Metadata and Fallback Visibility
+
+- Changed Gateway-backed Assistant success responses to use `response_source=llm` and fallback responses to use `response_source=deterministic_fallback`.
+- Added response metadata across the parent / Gateway boundary: `request_id`, `gateway_status`, `fallback_reason`, `latency_ms`, `provider`, `model`, and `profile`.
+- Limited deterministic fallback to Gateway/provider/model/timeout/schema/empty-answer failure paths and logged fallback reasons from `GatewayBackedAssistantService`.
+- Updated SMAI Assistant UI metadata to show live LLM responses as `model / live / profile / provider / intent / latency` and fallback responses as `fallback: reason`.
+- Raised Gateway profile timeouts for local `qwen3:8b` (`assistant_fast=75s`, `assistant_standard=90s`, `assistant_quality=120s`, `report_quality=150s`) after live smoke showed 30s was too short.
+- Restarted Gateway / Streamlit locally and confirmed `/api/v1/context-answer` returns `provider=ollama`, `model=qwen3:8b`, `profile=assistant_fast`, `gateway_status=ok`, and matching `request_id`; Streamlit responded with `200 OK` on `http://127.0.0.1:8502`.
+- Kept preset cards as conversation seeds: they set intent, context, and prompt guidance, then route through the LLM path instead of returning fixed card answers.
+
 ## 2026-06-14 - LLM Model Profile / Environment-aware Routing
 
 - Added Gateway-owned model routing for `task_type`, `execution_mode`, `environment_profile`, and optional `preferred_profile`.

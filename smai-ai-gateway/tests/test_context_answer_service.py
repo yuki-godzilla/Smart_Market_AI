@@ -64,9 +64,9 @@ def test_context_answer_service_uses_structured_llm_payload():
     assert response.confidence == "high"
     assert response.safety_notes
     assert client.model == "qwen3:8b"
-    assert client.timeout_seconds == 75.0
-    assert client.max_tokens == 400
-    assert response.timeout_sec == 75.0
+    assert client.timeout_seconds == 15.0
+    assert client.max_tokens == 120
+    assert response.timeout_sec == 15.0
     assert response.context_tokens_estimate is not None
     assert response.context_tokens_estimate > 0
     assert response.prompt_chars is not None
@@ -75,8 +75,7 @@ def test_context_answer_service_uses_structured_llm_payload():
     assert response.tool_execution_ms == 0
     assert response.llm_generation_ms == 7
     assert response.total_elapsed_ms is not None
-    assert any("AI予測インサイト" in message.content for message in client.messages)
-    assert any("Return only valid JSON" in message.content for message in client.messages)
+    assert any("Reply directly to the user" in message.content for message in client.messages)
 
 
 def test_context_answer_service_uses_active_section_when_payload_is_unstructured():
@@ -111,6 +110,7 @@ def test_context_answer_service_falls_back_when_llm_payload_is_invalid_json():
     client = FakeLlmClient(answer='{"answer": "", "materials": ["中心予測"]}')
     service = ContextAnswerService(client)  # type: ignore[arg-type]
     request = _request()
+    request.task_type = "forecast_risk_compare"
 
     response = service.answer(request)
 
@@ -130,6 +130,7 @@ def test_context_answer_service_falls_back_when_llm_payload_has_broken_text():
     )
     service = ContextAnswerService(client)  # type: ignore[arg-type]
     request = _request()
+    request.task_type = "forecast_risk_compare"
 
     response = service.answer(request)
 
@@ -158,6 +159,7 @@ def test_context_answer_service_prompt_includes_intent_specific_guide():
         "SMAI Assistant intent: forecast_risk_compare\n"
         "User question: 予測とリスクを比べて"
     )
+    request.task_type = "forecast_risk_compare"
 
     service.answer(request)
 
@@ -176,8 +178,8 @@ def test_context_answer_service_routes_task_type_to_standard_profile():
     response = service.answer(request)
 
     assert response.profile == "notebook_dev"
-    assert client.timeout_seconds == 90.0
-    assert client.max_tokens == 800
+    assert client.timeout_seconds == 35.0
+    assert client.max_tokens == 700
 
 
 def test_context_answer_service_accepts_profile_alias():
@@ -189,8 +191,8 @@ def test_context_answer_service_accepts_profile_alias():
     response = service.answer(request)
 
     assert response.profile == "desktop_fast"
-    assert client.timeout_seconds == 60.0
-    assert client.max_tokens == 400
+    assert client.timeout_seconds == 15.0
+    assert client.max_tokens == 120
 
 
 def test_context_answer_service_off_mode_uses_deterministic_fallback():
@@ -225,12 +227,51 @@ def test_context_answer_service_returns_fallback_metadata_when_provider_times_ou
     assert response.fallback_reason == "provider_timeout"
     assert response.provider == "ollama"
     assert response.model == "qwen3:8b"
-    assert response.timeout_sec == 75.0
+    assert response.timeout_sec == 15.0
     assert response.prompt_chars is not None
     assert response.context_tokens_estimate is not None
     assert response.tool_execution_ms == 0
     assert response.llm_generation_ms is not None
     assert response.total_elapsed_ms is not None
+
+
+def test_context_answer_service_free_chat_timeout_uses_conversation_fallback():
+    client = FakeLlmClient(
+        error=OllamaClientError(
+            "provider timed out",
+            code="provider_timeout",
+            retryable=True,
+            http_status=504,
+        )
+    )
+    service = ContextAnswerService(client)  # type: ignore[arg-type]
+    request = _request()
+    request.user_question = "SMAIについて短く教えて"
+    request.task_type = "free_chat"
+
+    response = service.answer(request)
+
+    assert response.gateway_status == "fallback"
+    assert response.fallback_reason == "provider_timeout"
+    assert response.answer.startswith("分かる範囲で短く整理します。")
+    assert "Free chat" not in response.answer
+
+
+def test_context_answer_service_free_chat_greeting_uses_fast_path_without_provider_call():
+    client = FakeLlmClient()
+    service = ContextAnswerService(client)  # type: ignore[arg-type]
+    request = _request()
+    request.user_question = "こんにちは"
+    request.task_type = "free_chat"
+
+    response = service.answer(request)
+
+    assert response.gateway_status == "ok"
+    assert response.fallback_reason is None
+    assert response.provider == "local_fast_path"
+    assert response.answer.startswith("こんにちは。SMAIナビです。")
+    assert response.llm_generation_ms == 0
+    assert client.messages == []
 
 
 def _request(*, active_context_id: str = "forecast-1") -> ContextAnswerRequest:

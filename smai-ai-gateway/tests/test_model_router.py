@@ -14,8 +14,8 @@ def test_router_uses_fast_profile_for_free_chat_on_notebook():
     assert route.provider == "ollama"
     assert route.model == "qwen3:4b"
     assert route.profile == "notebook_dev"
-    assert route.timeout_seconds == 75.0
-    assert route.max_tokens == 400
+    assert route.timeout_seconds == 15.0
+    assert route.max_tokens == 120
 
 
 def test_router_keeps_configured_notebook_profile_lightweight():
@@ -28,7 +28,7 @@ def test_router_keeps_configured_notebook_profile_lightweight():
 
     assert route.profile == "notebook_dev"
     assert route.model == "qwen3:4b"
-    assert route.timeout_seconds == 150.0
+    assert route.timeout_seconds == 90.0
     assert route.max_tokens == 800
 
 

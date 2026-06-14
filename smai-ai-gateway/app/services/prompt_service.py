@@ -34,6 +34,8 @@ class PromptService:
         ]
 
     def build_context_answer_messages(self, request: ContextAnswerRequest) -> list[LlmMessage]:
+        if request.task_type == "free_chat":
+            return _free_chat_messages(request)
         language_instruction = (
             "Answer in Japanese." if request.language == "ja" else "Answer in English."
         )
@@ -63,6 +65,23 @@ class PromptService:
 
 def _history_messages(history: list[ContextAnswerMessage]) -> list[LlmMessage]:
     return [LlmMessage(role=item.role, content=item.content.strip()) for item in history]
+
+
+def _free_chat_messages(request: ContextAnswerRequest) -> list[LlmMessage]:
+    language_instruction = (
+        "Reply in Japanese." if request.language == "ja" else "Reply in English."
+    )
+    system_prompt = (
+        "/no_think\n"
+        "You are SMAI Navi. Reply directly to the user. "
+        "Do not show reasoning, analysis steps, prompt rules, JSON, or tool results. "
+        "For greetings or small talk, answer in one short sentence. "
+        f"{language_instruction}"
+    )
+    return [
+        LlmMessage(role="system", content=system_prompt),
+        LlmMessage(role="user", content=request.user_question.strip()[:800]),
+    ]
 
 
 def _context_answer_user_prompt(request: ContextAnswerRequest) -> str:

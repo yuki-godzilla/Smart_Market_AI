@@ -75,7 +75,7 @@ class ContextAnswerService:
         )
         if route.fallback:
             return ContextAnswerResponse(
-                answer=_fallback_answer_from_sections(sections, language=request.language),
+                answer=_fallback_answer_for_request(request, sections),
                 materials=_materials_from_sections(sections),
                 cautions=_cautions_from_request(request),
                 next_checkpoints=_next_checkpoints_from_sections(
@@ -112,6 +112,37 @@ class ContextAnswerService:
                     else _EN_DECISION_SUPPORT_NOTE
                 ),
             )
+        if request.task_type == "free_chat" and _is_simple_greeting(request.user_question):
+            answer = _fallback_answer_for_request(request, sections)
+            total_elapsed_ms = _elapsed_ms(started)
+            return ContextAnswerResponse(
+                answer=answer,
+                materials=[],
+                cautions=[],
+                next_checkpoints=[],
+                referenced_sections=[],
+                confidence="high",
+                safety_notes=_safety_notes_from_request(request),
+                provider="local_fast_path",
+                model=route.model,
+                profile=route.profile,
+                elapsed_ms=total_elapsed_ms,
+                gateway_status="ok",
+                fallback_reason=None,
+                request_id=request.request_id,
+                timeout_sec=route.timeout_seconds,
+                context_tokens_estimate=context_tokens_estimate,
+                prompt_chars=prompt_chars,
+                response_chars=len(answer),
+                tool_execution_ms=0,
+                llm_generation_ms=0,
+                total_elapsed_ms=total_elapsed_ms,
+                decision_support_note=(
+                    _JA_DECISION_SUPPORT_NOTE
+                    if request.language == "ja"
+                    else _EN_DECISION_SUPPORT_NOTE
+                ),
+            )
         try:
             result = self.client.chat(
                 messages,
@@ -133,7 +164,7 @@ class ContextAnswerService:
                 total_elapsed_ms,
             )
             return ContextAnswerResponse(
-                answer=_fallback_answer_from_sections(sections, language=request.language),
+                answer=_fallback_answer_for_request(request, sections),
                 materials=_materials_from_sections(sections),
                 cautions=_cautions_from_request(request),
                 next_checkpoints=_next_checkpoints_from_sections(
@@ -180,7 +211,7 @@ class ContextAnswerService:
         answer = (
             usable_payload.answer
             if usable_payload is not None
-            else _fallback_answer_from_sections(sections, language=request.language)
+            else _fallback_answer_for_request(request, sections)
         )
         total_elapsed_ms = _elapsed_ms(started)
         response_chars = result.response_chars if result.response_chars is not None else len(answer)
@@ -409,6 +440,30 @@ def _is_low_quality_text(text: str) -> bool:
         return True
     mojibake_markers = ("ã", "æ", "é", "縺", "繧", "荳", "譁")
     return any(marker in joined for marker in mojibake_markers)
+
+
+def _fallback_answer_for_request(
+    request: ContextAnswerRequest,
+    sections: list[ContextSection],
+) -> str:
+    if request.task_type == "free_chat":
+        if _is_simple_greeting(request.user_question):
+            return (
+                "こんにちは。SMAIナビです。SMAIの使い方や確認材料について、短くお手伝いします。"
+                if request.language == "ja"
+                else "Hello, I am SMAI Navi. I can briefly help with SMAI and your review materials."
+            )
+        return (
+            "分かる範囲で短く整理します。SMAIの画面、確認材料、注意点について聞いてください。"
+            if request.language == "ja"
+            else "I will keep it brief. Ask me about SMAI screens, materials, or cautions."
+        )
+    return _fallback_answer_from_sections(sections, language=request.language)
+
+
+def _is_simple_greeting(text: str) -> bool:
+    normalized = str(text or "").strip().lower()
+    return normalized in {"こんにちは", "こんばんは", "おはよう", "hello", "hi"}
 
 
 def _fallback_answer_from_sections(

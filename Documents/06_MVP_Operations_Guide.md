@@ -110,6 +110,10 @@ Gateway 接続失敗時も `TemplateAssistantService` に戻るため、SMAI の
 
 Investment News dashboard はサイドメニューの `投資レーダー` から開けます。現時点では `backend/news` の snapshot / status / cache / refresh manager と deterministic dashboard builder を使い、保存済みsnapshotがなければ fake snapshot / fixture から市場ニュースヘッドライン、株式ヒートマップ風の投資ヒートマップ、3列のカテゴリ別ニュースカード、銘柄名付き関連銘柄の `銘柄コックピット` 導線を表示します。ニュースカードの関連銘柄は、本文に出た銘柄を最大8件まで優先表示し、残り枠に `SMAI推測候補` を補完します。投資ヒートマップはニュースに直接紐づいた関連銘柄だけでなく、ローカル銘柄ユニバース全体からカテゴリ適合、時価総額帯、データ品質、ニュース鮮度、材料タイプ、市場シグナルを見て注目度順の銘柄タイルを補完します。市場指標がある場合は値動き / 取引量を使い、欠ける場合はニュース材料から代理シグナルを補完します。銘柄タイルは企業名を主、シンボルを補助タグとして表示し、クリックすると同一アプリ内の該当 `銘柄コックピット` へ移動します。Investment Score / Research Score / Ranking order は変更しません。詳細フィルタ、Watchlist連動、通知、追加providerは後続範囲です。
 
+### SMAI Assistant free_chat runtime note
+
+SMAIアシスタントの自由会話 `free_chat` は、体感速度を優先する軽量経路です。SMAI 親側では銘柄特定 tool、RAG、news、長い会話履歴、銘柄固有 context を送らず、Gateway には短い user question と最小 context だけを渡します。Gateway 側は `free_chat` を 15 秒 / 120 tokens の短い runtime policy で処理し、単純な挨拶は local fast path で即時応答します。モデル選択 UI はアシスタント画面上部ではなく、チャット入力欄の近くにある composer toolbar から変更します。
+
 ## 3. API 起動と確認
 
 FastAPI を起動します。

@@ -2584,13 +2584,27 @@ div[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {
     font-weight: 840;
 }
 
+.smai-copilot-composer-toolbar {
+    width: min(54rem, calc(100% - 1.5rem));
+    max-width: 54rem;
+    margin: 0.8rem auto 0.38rem;
+    box-sizing: border-box;
+}
+
 div[data-testid="stChatInput"] {
+    width: min(54rem, calc(100% - 1.5rem));
     max-width: 54rem;
     margin-left: auto;
     margin-right: auto;
+    box-sizing: border-box;
+}
+
+div[data-testid="stChatInput"] > div {
+    box-sizing: border-box;
 }
 
 div[data-testid="stChatInput"] textarea {
+    box-sizing: border-box !important;
     border-color: rgba(34, 211, 238, 0.28) !important;
     background:
         linear-gradient(180deg, rgba(15, 23, 42, 0.78), rgba(2, 6, 23, 0.74)),

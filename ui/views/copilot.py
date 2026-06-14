@@ -371,6 +371,26 @@ def _render_model_selector(
     return runtime_config
 
 
+def _render_composer_toolbar(
+    runtime_config: CopilotGatewayRuntimeConfig,
+) -> CopilotGatewayRuntimeConfig:
+    st.markdown(
+        '<div class="smai-copilot-composer-toolbar" aria-label="LLM model selector">',
+        unsafe_allow_html=True,
+    )
+    model_col, status_col = st.columns([0.28, 0.72])
+    with model_col:
+        selected = _render_model_selector(runtime_config)
+    with status_col:
+        st.caption(
+            f"LLM: {selected.provider} / {selected.model} / {selected.profile}"
+            if selected.enabled
+            else "LLM: deterministic fallback"
+        )
+    st.markdown("</div>", unsafe_allow_html=True)
+    return selected
+
+
 def copilot_settings_from_gateway_runtime(
     runtime_config: CopilotGatewayRuntimeConfig,
     base_settings: Settings | None = None,
@@ -459,9 +479,7 @@ def render_copilot_workspace_page() -> None:
     history = _copilot_history()
     runtime_config = copilot_gateway_runtime_config()
 
-    model_col, _, clear_col = st.columns([0.22, 0.60, 0.18])
-    with model_col:
-        runtime_config = _render_model_selector(runtime_config)
+    _, clear_col = st.columns([0.82, 0.18])
     with clear_col:
         clear = st.button("新しい会話", use_container_width=True)
 
@@ -476,6 +494,8 @@ def render_copilot_workspace_page() -> None:
         st.session_state[COPILOT_CONVERSATION_ID_STATE_KEY] = _new_conversation_id()
         st.session_state[COPILOT_ACTIVE_INTENT_STATE_KEY] = "free_chat"
         st.rerun()
+
+    runtime_config = _render_composer_toolbar(runtime_config)
 
     prompt = st.chat_input(
         "価格・予測・ニュース・根拠資料について確認したいことを入力...",
@@ -604,23 +624,31 @@ def _handle_copilot_submit(
 
     history = _copilot_history()
     conversation_id = _conversation_id()
-    tool_plan = execute_assistant_tool_plan(
-        intent=intent,
-        message=normalized_question,
-        report_context=assistant_context_to_report_context(context),
+    effective_context = _context_for_llm(
+        intent=intent, context=context, question=normalized_question
     )
+    tool_plan = (
+        execute_assistant_tool_plan(
+            intent=intent,
+            message=normalized_question,
+            report_context=assistant_context_to_report_context(context),
+        )
+        if intent != "free_chat"
+        else None
+    )
+    tool_summaries = [result.summary for result in tool_plan.executed] if tool_plan else []
     gateway_question = _gateway_question(
         question=normalized_question,
         intent=intent,
         prompt_instruction=prompt_instruction,
-        tool_summaries=[result.summary for result in tool_plan.executed],
+        tool_summaries=tool_summaries,
     )
     response = assistant_response_for_context(
-        context,
+        effective_context,
         gateway_question,
         conversation_id=conversation_id,
-        message_history=copilot_history_messages(history),
-        referenced_context_ids=[context.context_id],
+        message_history=() if intent == "free_chat" else copilot_history_messages(history),
+        referenced_context_ids=[] if intent == "free_chat" else [context.context_id],
         gateway_task_type=intent,
         settings=copilot_settings_from_gateway_runtime(runtime_config),
     )
@@ -630,15 +658,41 @@ def _handle_copilot_submit(
         response,
         intent=intent,
         executed_checks=[
-            _material_status_summary(context),
-            *[result.summary for result in tool_plan.executed],
+            *([] if intent == "free_chat" else [_material_status_summary(context)]),
+            *tool_summaries,
         ],
-        tool_statuses=[f"{result.name}: {result.status}" for result in tool_plan.executed],
+        tool_statuses=[
+            f"{result.name}: {result.status}"
+            for result in (tool_plan.executed if tool_plan else ())
+        ],
     )
     history.append(turn)
     st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = history
     st.session_state[COPILOT_ACTIVE_INTENT_STATE_KEY] = intent
     st.session_state[COPILOT_PENDING_STREAM_STATE_KEY] = turn["turn_id"]
+
+
+def _context_for_llm(
+    *,
+    intent: CopilotIntent,
+    context: SmaiAssistantContext,
+    question: str,
+) -> SmaiAssistantContext:
+    if intent != "free_chat":
+        return context
+    return SmaiAssistantContext(
+        context_id="copilot_free_chat_minimal",
+        page_key="assistant",
+        page_label="SMAIアシスタント",
+        section_key="free_chat",
+        section_label="自由会話",
+        lead="SMAIナビとの短い会話です。",
+        summary={
+            "role": "SMAIナビ",
+            "message": question[:120],
+        },
+        priority=100,
+    )
 
 
 def _turn_from_response(
@@ -898,6 +952,15 @@ def _safe_response_body(answer: str, *, intent: CopilotIntent | None = None) -> 
         "Tool results already checked",
         "Response instruction:",
         "Boundary:",
+        "First, I need",
+        "I need to",
+        "I should",
+        "The answer should",
+        "The tool says",
+        "We are given",
+        "We must return",
+        "Final decision:",
+        "</think>",
     )
     if any(marker in text for marker in blocked_markers):
         return ""
@@ -1068,6 +1131,8 @@ def _gateway_question(
     prompt_instruction: str,
     tool_summaries: list[str],
 ) -> str:
+    if intent == "free_chat":
+        return question.strip()[:800]
     tool_block = "\n".join(f"- {summary}" for summary in tool_summaries) or "- なし"
     return (
         f"SMAI Assistant intent: {intent}\n"

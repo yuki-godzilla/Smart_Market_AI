@@ -123,15 +123,15 @@ _QUALITY_UPGRADES: dict[LlmTaskType, LlmProfileName] = {
 }
 
 _TASK_RUNTIME_POLICIES: dict[LlmTaskType, tuple[float, int]] = {
-    "free_chat": (30.0, 400),
-    "app_help": (30.0, 500),
-    "stock_summary": (90.0, 700),
-    "forecast_risk_compare": (90.0, 800),
-    "news_materials": (120.0, 900),
-    "rag_summary": (120.0, 900),
-    "decision_report_draft": (150.0, 1400),
-    "llm_factor_generation": (150.0, 1200),
-    "report_export_summary": (150.0, 1600),
+    "free_chat": (15.0, 120),
+    "app_help": (20.0, 300),
+    "stock_summary": (35.0, 600),
+    "forecast_risk_compare": (35.0, 700),
+    "news_materials": (60.0, 800),
+    "rag_summary": (60.0, 800),
+    "decision_report_draft": (90.0, 1200),
+    "llm_factor_generation": (90.0, 1000),
+    "report_export_summary": (90.0, 1200),
 }
 
 
@@ -189,10 +189,9 @@ def _route_for_profile(
 ) -> ModelRoute:
     profile_config = model_profile_for_name(profile, settings=settings)
     model = requested_model or profile_config.model
-    profile_timeout_seconds = profile_config.timeout_seconds
     profile_max_tokens = profile_config.max_tokens
     task_timeout_seconds, task_max_tokens = _TASK_RUNTIME_POLICIES[task_type]
-    timeout_seconds = max(profile_timeout_seconds, task_timeout_seconds)
+    timeout_seconds = task_timeout_seconds
     max_tokens = min(profile_max_tokens, task_max_tokens)
     return ModelRoute(
         provider=profile_config.provider,

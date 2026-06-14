@@ -1652,3 +1652,29 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added `think: false` to Gateway Ollama chat payloads to reduce qwen3 thinking latency and avoid exposing thinking output.
 - Added a Gateway answer-quality gate so malformed JSON, `????`, replacement characters, or mojibake markers fall back to safe context-derived answer/material/caution/checkpoint lists.
 - Verified a UTF-8 escaped context-answer smoke returns grounded Japanese fields for `AI予測インサイト`, `中心予測`, `予測レンジ`, and `モデル合意度`.
+
+## 2026-06-14 - SMAI Assistant serious runtime and layout improvement
+
+### Runtime
+
+- Made `free_chat` a lightweight path: no Assistant Tool Layer execution, no RAG/news/symbol-specific context, no chat-history payload, and a minimal prompt for direct short replies.
+- Added a local fast path for simple greetings such as `こんにちは`, returning a SMAI Navi greeting without waiting on Ollama.
+- Tightened task runtime policy: `free_chat` uses 15 sec / 120 tokens, `app_help` 20 sec / 300 tokens, stock/forecast tasks 35 sec, news/RAG 60 sec, and report/factor tasks 90 sec.
+- Live check: `こんにちは` via Gateway `/api/v1/context-answer` with `profile=notebook_dev`, `model=qwen3:4b`, `task_type=free_chat` returned `provider=local_fast_path`, `gateway_status=ok`, `fallback_reason=null`, `llm_generation_ms=0`, `timeout_sec=15.0`, wall time about 795 ms.
+
+### Output Cleaning
+
+- Strengthened prompt instructions with `/no_think` and explicit rules to show only the final user-facing answer.
+- Extended UI-side response cleaning for internal-reasoning markers such as `First, I need`, `I should`, `The tool says`, `The answer should`, and `</think>`.
+- Live greeting response contained no internal reasoning text and no fallback banner.
+
+### UI
+
+- Moved the model selector from the isolated top area to a compact composer toolbar beside the chat input, closer to the ChatGPT-style interaction point.
+- Added a small current-runtime caption beside the selector: `LLM: provider / model / profile`.
+- Adjusted chat input width and `box-sizing` so the input and send affordance stay inside the app column instead of clipping at the viewport edge.
+- Streamlit health check passed on `http://127.0.0.1:8502/_stcore/health`.
+
+### Remaining issues
+
+- The live validation covered Gateway greeting latency and Streamlit health. A full browser screenshot comparison remains useful after further visual tuning.

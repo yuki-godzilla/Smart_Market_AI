@@ -18,6 +18,50 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-15 - SMAI Assistant UI/LLM Quality Rebuild Sprint
+
+### Layout Validation
+
+- case 1 initial screen: header, material chips, suggestions, and composer keep the same page structure.
+- case 2 header width: header stays on the 1320px content lane.
+- case 3 context chips width: material status remains on the 1320px content lane.
+- case 4 input width: composer and chat input now use the 1180px chat lane.
+- case 5 model selector position: model selector stays inside the composer, left of the text input.
+- case 6 compact viewport: mobile/compact width uses the compact gutter and keeps composer aligned with the chat lane.
+- case 7 three-turn history: renderer builds one `.smai-copilot-thread` and appends all turns in order.
+- case 8 five-turn history: history uses the same renderer; user rows stay right and SMAI rows stay left.
+- case 9 latest turn after scroll: newest turn is rendered by the same thread path rather than a separate current-answer lane.
+- case 10 pending bubble: pseudo-streaming updates the whole thread placeholder so the pending SMAI bubble stays inside the chat thread.
+
+### LLM Quality Validation
+
+- case 11 `こんにちは`: local / UI fallback returns a natural SMAIナビ greeting, not a one-line weak template.
+- case 12 `あなたの名前は？`: free_chat uses the lightweight route and can fall back to SMAIナビ conversational wording.
+- case 13 `SMAIの使い方を教えて`: too-short app_help LLM output is rejected and supplemented by intent-specific guidance.
+- case 14 `何ができるの`: app_help remains structured but uses inline sections rather than fixed cards.
+- case 15 `AI予測と下振れ警戒を比べたい`: forecast/risk compare keeps intent-specific sections and avoids investment advice.
+- case 16 `ニュース材料を見たい`: news materials keeps materials / uncertainty / next checks separated.
+- case 17 `Decision Reportを作りたい`: report draft keeps memo-oriented sections and action links inside the assistant answer.
+- case 18 `猫にたとえて説明して`: free_chat no longer forces structured cards.
+- case 19 `10文字以内で返事して`: very short free_chat LLM text is treated as low quality and supplemented.
+- case 20 free card click: preset clicks append to the same conversation history and hide initial cards after the first turn.
+
+### Fixes
+
+- chat_thread: split turn-row HTML from thread HTML and render history through one thread container.
+- width: changed chat/composer lane from 1040px to 1180px while preserving the 1320px header/material lane.
+- input: kept model selector, text input, and send button grouped in the bottom composer.
+- pending bubble: pseudo-streaming now refreshes the full thread placeholder.
+- runtime info: moved response metadata into a folded `技術情報を表示` details block.
+- answer quality: added minimum-quality gates for free_chat and core intents, plus natural fallback text.
+- timeout: Gateway maps `free_chat` provider timeout to `local_conversation_fallback`.
+
+### Final Judgement
+
+- UI usable: code-level and AppTest validation passed; single-thread rendering and widths are corrected.
+- LLM quality: weak free_chat/app_help answers are filtered or supplemented; runtime metadata no longer dominates the answer.
+- remaining issues: final browser screenshot / manual visual smoke was not run in this turn, so pixel-level spacing should still be checked in Streamlit.
+
 ## 2026-06-14 - SMAI Assistant selectable LLM profiles
 
 - Changed Gateway default model routing to notebook-friendly `notebook_dev` / `qwen3:4b`, while keeping `desktop_fast` / `qwen3:8b`, `desktop_analysis` / `qwen3:14b`, and `desktop_heavy` / `qwen3:30b` selectable by config or request.

@@ -224,7 +224,7 @@ def test_context_answer_service_returns_fallback_metadata_when_provider_times_ou
     response = service.answer(request)
 
     assert response.gateway_status == "fallback"
-    assert response.fallback_reason == "provider_timeout"
+    assert response.fallback_reason == "local_conversation_fallback"
     assert response.provider == "ollama"
     assert response.model == "qwen3:8b"
     assert response.timeout_sec == 10.0
@@ -252,8 +252,9 @@ def test_context_answer_service_free_chat_timeout_uses_conversation_fallback():
     response = service.answer(request)
 
     assert response.gateway_status == "fallback"
-    assert response.fallback_reason == "provider_timeout"
-    assert response.answer.startswith("分かる範囲で短く整理します。")
+    assert response.fallback_reason == "local_conversation_fallback"
+    assert len(response.answer) >= 40
+    assert not response.answer.startswith("分かる範囲で短く整理します。")
     assert "Free chat" not in response.answer
 
 

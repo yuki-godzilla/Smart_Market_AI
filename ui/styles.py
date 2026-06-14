@@ -233,7 +233,7 @@ SMAI_GLOBAL_CSS = """
     /* Shared SMAI page geometry */
     --smai-page-max-width: 1440px;
     --smai-content-max-width: 1320px;
-    --smai-chat-main-width: 1040px;
+    --smai-chat-main-width: 1180px;
     --smai-side-panel-width: 280px;
     --smai-content-gutter: 48px;
     --smai-content-gutter-compact: 24px;
@@ -2612,8 +2612,8 @@ div[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {
     position: sticky;
     bottom: 0.75rem;
     z-index: 20;
-    width: min(var(--smai-content-max-width), calc(100% - var(--smai-content-gutter)));
-    max-width: var(--smai-content-max-width);
+    width: min(var(--smai-chat-main-width), calc(100% - var(--smai-content-gutter)));
+    max-width: var(--smai-chat-main-width);
     margin: 0.8rem auto 0.46rem;
     box-sizing: border-box;
     padding: 0.5rem 0.58rem;
@@ -2644,8 +2644,8 @@ div[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {
 }
 
 div[data-testid="stChatInput"] {
-    width: min(var(--smai-content-max-width), calc(100% - var(--smai-content-gutter)));
-    max-width: var(--smai-content-max-width);
+    width: min(var(--smai-chat-main-width), calc(100% - var(--smai-content-gutter)));
+    max-width: var(--smai-chat-main-width);
     margin-left: auto;
     margin-right: auto;
     box-sizing: border-box;
@@ -2674,8 +2674,9 @@ div[data-testid="stChatInput"] textarea:focus {
 }
 
 .smai-copilot-thread {
-    display: grid;
-    gap: 0.38rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
     width: min(var(--smai-chat-main-width), calc(100% - var(--smai-content-gutter)));
     max-width: var(--smai-chat-main-width);
     margin: 0.86rem auto 1.1rem;
@@ -2744,7 +2745,7 @@ div[data-testid="stChatInput"] textarea:focus {
 }
 
 .smai-copilot-message-card--assistant {
-    width: min(62rem, calc(100% - 3.8rem));
+    width: min(55rem, calc(100% - 3.8rem));
     border: 1px solid var(--smai-border);
     border-left: 3px solid var(--smai-teal);
     background:
@@ -2757,7 +2758,7 @@ div[data-testid="stChatInput"] textarea:focus {
 }
 
 .smai-copilot-message-card--user {
-    max-width: min(44rem, 74%);
+    max-width: min(38.75rem, 72%);
     border: 1px solid rgba(96, 165, 250, 0.26);
     background:
         linear-gradient(180deg, rgba(30, 41, 59, 0.72), rgba(15, 23, 42, 0.58)),
@@ -3036,6 +3037,49 @@ div[data-testid="stChatInput"] textarea:focus {
 
 .smai-copilot-response-meta {
     margin-top: 0.56rem;
+}
+
+.smai-copilot-response-meta summary {
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 760;
+    list-style-position: inside;
+}
+
+.smai-copilot-response-meta p {
+    margin: 0.42rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    line-height: 1.45;
+}
+
+.smai-copilot-response-meta ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.28rem;
+    list-style: none;
+    margin: 0.38rem 0 0;
+    padding: 0;
+}
+
+.smai-copilot-response-meta li {
+    border: 1px solid rgba(71, 85, 105, 0.42);
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.42);
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    line-height: 1.2;
+    padding: 0.24rem 0.42rem;
+}
+
+.smai-copilot-response-meta li span {
+    margin-right: 0.22rem;
+}
+
+.smai-copilot-response-meta li b {
+    color: var(--text-secondary);
+    font-weight: 760;
 }
 
 .smai-dashboard-header {
@@ -3660,12 +3704,18 @@ div[data-testid="stChatInput"] textarea:focus {
     .smai-copilot-mode-label,
     .smai-copilot-material-status,
     .smai-copilot-suggestions-title,
-    .smai-copilot-composer-toolbar,
     .smai-copilot-thread,
-    .smai-copilot-workspace-card,
-    div[data-testid="stChatInput"] {
+    .smai-copilot-workspace-card {
         width: min(
             var(--smai-content-max-width),
+            calc(100% - var(--smai-content-gutter-compact))
+        );
+    }
+
+    .smai-copilot-composer-toolbar,
+    div[data-testid="stChatInput"] {
+        width: min(
+            var(--smai-chat-main-width),
             calc(100% - var(--smai-content-gutter-compact))
         );
     }

@@ -152,6 +152,11 @@ class ContextAnswerService:
             )
         except OllamaClientError as exc:
             total_elapsed_ms = _elapsed_ms(started)
+            error_fallback_reason = (
+                "local_conversation_fallback"
+                if request.task_type == "free_chat" and exc.code == "provider_timeout"
+                else exc.code
+            )
             LOGGER.warning(
                 "[gateway.provider.result] request_id=%s status=error code=%s "
                 "provider=%s model=%s profile=%s timeout_sec=%s elapsed_ms=%s",
@@ -186,7 +191,7 @@ class ContextAnswerService:
                 profile=route.profile,
                 elapsed_ms=total_elapsed_ms,
                 gateway_status="fallback",
-                fallback_reason=exc.code,
+                fallback_reason=error_fallback_reason,
                 request_id=request.request_id,
                 timeout_sec=route.timeout_seconds,
                 context_tokens_estimate=context_tokens_estimate,
@@ -454,18 +459,35 @@ def _fallback_answer_for_request(
     sections: list[ContextSection],
 ) -> str:
     if request.task_type == "free_chat":
-        if _is_simple_greeting(request.user_question):
+        return _free_chat_fallback_answer(request)
+    return _fallback_answer_from_sections(sections, language=request.language)
+
+
+def _free_chat_fallback_answer(request: ContextAnswerRequest) -> str:
+    question = str(request.user_question or "").strip()
+    if request.language != "ja":
+        if _is_simple_greeting(question):
             return (
-                "こんにちは。SMAIナビです。SMAIの使い方や確認材料について、短くお手伝いします。"
-                if request.language == "ja"
-                else "Hello, I am SMAI Navi. I can briefly help with SMAI and your review materials."
+                "Hello, I am SMAI Navi. I can help organize SMAI screens, "
+                "review materials, cautions, and next checks."
             )
         return (
-            "分かる範囲で短く整理します。SMAIの画面、確認材料、注意点について聞いてください。"
-            if request.language == "ja"
-            else "I will keep it brief. Ask me about SMAI screens, materials, or cautions."
+            "I can organize this as SMAI review support. Separate the visible "
+            "price, forecast, news, evidence, and missing checks before treating it as a decision input."
         )
-    return _fallback_answer_from_sections(sections, language=request.language)
+    if _is_simple_greeting(question):
+        return (
+            "こんにちは。SMAIナビです。SMAIの使い方、銘柄の確認材料、"
+            "AI予測やニュースの見方を短く整理できます。"
+        )
+    if question:
+        return (
+            f"「{question[:40]}」について、SMAIで確認する観点を整理します。"
+            "価格・AI予測・ニュース・根拠資料を分けて見て、最後に不足している材料を確認すると判断しやすいです。"
+        )
+    return (
+        "SMAIで確認したいことを送ってください。見ている材料、注意点、次に確認することの順に整理します。"
+    )
 
 
 def _is_simple_greeting(text: str) -> bool:

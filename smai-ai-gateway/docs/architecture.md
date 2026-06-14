@@ -21,7 +21,7 @@ Ollama / OpenAI compatible API / vLLM / llama.cpp server
 - Gateway から SMAI 本体の Python module を import しない
 - provider routing、prompt 実行、timeout、error normalization は Gateway 側に寄せる
 - model routing も Gateway 側の責務とし、SMAI 親は `task_type` / `execution_mode` / `environment_profile` / optional `profile` / optional `model` を渡すだけにする。Gateway は `notebook_dev` / `desktop_fast` / `desktop_analysis` / `desktop_heavy` を provider / model / timeout / token budget に解決する。
-- Gateway response は `request_id`、`gateway_status`、`fallback_reason`、`elapsed_ms`、`provider`、`model`、`profile`、`timeout_sec`、`context_tokens_estimate`、`prompt_chars`、`response_chars`、`tool_execution_ms`、`llm_generation_ms`、`total_elapsed_ms` を返し、SMAI 親は valid LLM response を `response_source=llm`、失敗時の安全応答を `response_source=deterministic_fallback` としてUIへ渡す。
+- Gateway response は `request_id`、`gateway_status`、`fallback_reason`、`elapsed_ms`、`provider`、`model`、`profile`、`timeout_sec`、`context_tokens_estimate`、`prompt_chars`、`response_chars`、`tool_execution_ms`、`llm_generation_ms`、`total_elapsed_ms` を返し、SMAI 親は valid LLM response を `response_source=llm`、失敗時の安全応答を `response_source=deterministic_fallback` としてUIへ渡す。親 UI ではこれらの runtime metadata を通常回答の主表示に出さず、折りたたみ技術情報として扱う。
 - SMAI 側は context bundle 作成、schema validation、deterministic fallback を持つ
 - SMAI 親側の opt-in HTTP client は `assistant.gateway.enabled=true` のときだけ `/api/v1/context-answer` を呼び、失敗時は deterministic fallback に戻る
 - `context-answer` では、LLM は回答本文を作り、`materials` / `cautions` / `next_checkpoints` は Gateway が渡された context から安定生成する

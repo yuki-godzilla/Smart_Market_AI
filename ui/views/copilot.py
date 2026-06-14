@@ -378,7 +378,7 @@ def _render_chat_composer(
         '<div class="smai-copilot-composer-toolbar" aria-label="SMAI chat composer">',
         unsafe_allow_html=True,
     )
-    model_col, input_col = st.columns([0.24, 0.76])
+    model_col, input_col = st.columns([0.22, 0.78])
     with model_col:
         selected = _render_model_selector(runtime_config)
     submitted = False
@@ -478,15 +478,22 @@ def copilot_answer_detail_html(turn: dict[str, str]) -> str:
 
 
 def copilot_turn_html(turn: dict[str, str]) -> str:
+    return f'<div class="smai-copilot-thread">{_copilot_turn_rows_html(turn)}</div>'
+
+
+def _copilot_turn_rows_html(turn: dict[str, str]) -> str:
     context_label = str(turn.get("context_label", "")).strip()
     question = str(turn.get("question", "")).strip()
     answer = str(turn.get("answer", "")).strip()
     return (
-        '<div class="smai-copilot-thread">'
         f"{_user_bubble_html(context_label=context_label, question=question)}"
         f"{_assistant_bubble_html(answer=answer, detail_html=copilot_answer_detail_html(turn))}"
-        "</div>"
     )
+
+
+def _copilot_thread_html(turns: list[dict[str, str]]) -> str:
+    rows = "".join(_copilot_turn_rows_html(turn) for turn in turns)
+    return f'<div class="smai-copilot-thread">{rows}</div>'
 
 
 def render_copilot_workspace_page() -> None:
@@ -555,12 +562,20 @@ def _render_chat_thread(turns: list[dict[str, str]]) -> None:
         return
 
     pending_turn_id = str(st.session_state.get(COPILOT_PENDING_STREAM_STATE_KEY, "") or "")
-    for index, turn in enumerate(turns):
-        if pending_turn_id and str(turn.get("turn_id", "")) == pending_turn_id:
-            _render_streaming_turn(turn)
-            st.session_state[COPILOT_PENDING_STREAM_STATE_KEY] = ""
-        else:
-            st.markdown(copilot_turn_html(turn), unsafe_allow_html=True)
+    pending_index = next(
+        (
+            index
+            for index, turn in enumerate(turns)
+            if pending_turn_id and str(turn.get("turn_id", "")) == pending_turn_id
+        ),
+        None,
+    )
+    if pending_index is None:
+        st.markdown(_copilot_thread_html(turns), unsafe_allow_html=True)
+        return
+
+    _render_streaming_turn(turns[:pending_index], turns[pending_index])
+    st.session_state[COPILOT_PENDING_STREAM_STATE_KEY] = ""
 
 
 def _render_suggestion_buttons(
@@ -822,23 +837,31 @@ def _assistant_bubble_html(*, answer: str, detail_html: str) -> str:
     )
 
 
-def _render_streaming_turn(turn: dict[str, str]) -> None:
+def _render_streaming_turn(previous_turns: list[dict[str, str]], turn: dict[str, str]) -> None:
     context_label = str(turn.get("context_label", "")).strip()
     question = str(turn.get("question", "")).strip()
     answer = str(turn.get("answer", "")).strip()
-    st.markdown(
-        _user_bubble_html(context_label=context_label, question=question),
-        unsafe_allow_html=True,
-    )
+    previous_rows = "".join(_copilot_turn_rows_html(item) for item in previous_turns)
+    user_row = _user_bubble_html(context_label=context_label, question=question)
     placeholder = st.empty()
     for partial in _stream_chunks(answer):
         placeholder.markdown(
-            _assistant_bubble_html(answer=partial, detail_html=""),
+            (
+                '<div class="smai-copilot-thread">'
+                f"{previous_rows}{user_row}"
+                f'{_assistant_bubble_html(answer=partial, detail_html="")}'
+                "</div>"
+            ),
             unsafe_allow_html=True,
         )
         time.sleep(0.006)
     placeholder.markdown(
-        _assistant_bubble_html(answer=answer, detail_html=copilot_answer_detail_html(turn)),
+        (
+            '<div class="smai-copilot-thread">'
+            f"{previous_rows}{user_row}"
+            f"{_assistant_bubble_html(answer=answer, detail_html=copilot_answer_detail_html(turn))}"
+            "</div>"
+        ),
         unsafe_allow_html=True,
     )
 
@@ -888,13 +911,13 @@ def _conversation_answer(
         body = _safe_response_body(response.answer, intent=intent)
         if body:
             return body
-    if intent == "free_chat" and _is_simple_greeting(question):
-        return "こんにちは。SMAIナビです。何を相談しますか？"
     if intent == "free_chat":
+        if _is_simple_greeting(question):
+            return _fallback_free_chat_answer(question, greeting=True)
         body = _safe_response_body(response.answer, intent=intent)
         if body:
             return body
-        return "分かる範囲で短く整理します。SMAIの画面、確認材料、注意点について聞いてください。"
+        return _fallback_free_chat_answer(question)
     if intent == "app_help" and response.response_source not in {"gateway", "llm"}:
         return (
             "SMAIは、目的別に画面を使い分けると分かりやすいです。\n\n"
@@ -924,6 +947,24 @@ def _conversation_answer(
     if not body or body.startswith(lead):
         return lead
     return f"{lead}\n\n{body}"
+
+
+def _fallback_free_chat_answer(question: str, *, greeting: bool = False) -> str:
+    if greeting:
+        return (
+            "こんにちは。SMAIナビです。SMAIの使い方、銘柄の確認材料、"
+            "AI予測やニュースの見方を短く整理できます。"
+        )
+    topic = str(question or "").strip()
+    if topic:
+        return (
+            f"「{topic[:40]}」について、SMAIで確認する観点を整理します。"
+            "価格・AI予測・ニュース・根拠資料を分けて見て、最後に不足している材料を確認すると判断しやすいです。"
+        )
+    return (
+        "SMAIで確認したいことを、画面名や銘柄名と一緒に送ってください。"
+        "見ている材料、注意点、次に確認することの順に整理します。"
+    )
 
 
 def _is_simple_greeting(question: str) -> bool:
@@ -990,7 +1031,22 @@ def _safe_response_body(answer: str, *, intent: CopilotIntent | None = None) -> 
         ):
             continue
         filtered.append(line)
-    return "\n".join(filtered).strip()
+    cleaned = "\n".join(filtered).strip()
+    if not cleaned:
+        return ""
+    compact = cleaned.replace("\n", "")
+    if intent == "free_chat":
+        weak_phrases = (
+            "分かる範囲で短く整理します",
+            "SMAIの画面、確認材料、注意点について聞いてください",
+            "確認材料について聞いてください",
+        )
+        if len(compact) < 40 or any(phrase in cleaned for phrase in weak_phrases):
+            return ""
+    if intent in {"app_help", "forecast_risk_compare", "stock_summary", "news_materials"}:
+        if len(compact) < 55:
+            return ""
+    return cleaned
 
 
 def _execution_result_html(turn: dict[str, str]) -> str:
@@ -1010,7 +1066,27 @@ def _response_meta_html(turn: dict[str, str]) -> str:
     meta = str(turn.get("response_meta", "")).strip()
     if not meta:
         meta = "SMAI通常回答 / fallback"
-    return f'<div class="smai-copilot-response-meta">{html.escape(meta)}</div>'
+    details = [
+        ("source", str(turn.get("response_source", "")).strip()),
+        ("model", str(turn.get("model", "")).strip()),
+        ("provider", str(turn.get("provider", "")).strip()),
+        ("profile", str(turn.get("profile", "")).strip()),
+        ("fallback", str(turn.get("fallback_reason", "")).strip()),
+        ("latency", str(turn.get("latency_ms", "")).strip()),
+        ("request", str(turn.get("request_id", "")).strip()),
+    ]
+    items = "".join(
+        f"<li><span>{html.escape(label)}</span><b>{html.escape(value)}</b></li>"
+        for label, value in details
+        if value
+    )
+    return (
+        '<details class="smai-copilot-response-meta">'
+        "<summary>技術情報を表示</summary>"
+        f"<p>{html.escape(meta)}</p>"
+        f"<ul>{items}</ul>"
+        "</details>"
+    )
 
 
 def _assistant_action_links_html(turn: dict[str, str]) -> str:

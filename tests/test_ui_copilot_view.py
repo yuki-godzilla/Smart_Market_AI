@@ -38,7 +38,7 @@ def test_copilot_layout_uses_shared_wide_lane():
     shared_lane = f"width: min(var(--smai-content-max-width), {lane_gutter});"
     chat_lane = f"width: min(var(--smai-chat-main-width), {lane_gutter});"
     assert "--smai-content-max-width: 1320px;" in css
-    assert "--smai-chat-main-width: 1040px;" in css
+    assert "--smai-chat-main-width: 1180px;" in css
     assert css.count(shared_lane) >= 5
     assert chat_lane in css
     assert ".smai-copilot-chat-topbar" in css
@@ -46,6 +46,7 @@ def test_copilot_layout_uses_shared_wide_lane():
     assert ".smai-copilot-material-status" in css
     assert ".smai-copilot-thread" in css
     assert ".smai-copilot-composer-toolbar" in css
+    assert ".smai-copilot-response-meta summary" in css
     assert "border-left: 3px solid var(--smai-teal);" in css
     assert "width: min(54rem, calc(100% - 1.5rem));" not in css
 
@@ -227,12 +228,14 @@ def test_copilot_turn_html_separates_user_and_smai_messages():
 
     assert "smai-copilot-message-row--user" in markup
     assert "smai-copilot-message-row--assistant" in markup
+    assert markup.count("smai-copilot-thread") == 1
     assert "あなたの確認" in markup
     assert "SMAIナビ" in markup
     assert "smai-copilot-natural-lead" in markup
     assert "SMAI通常回答 / fallback: gateway_timeout / stock_summary" in markup
     assert "smai-copilot-assistant-avatar" in markup
     assert "smai-copilot-assistant-avatar-image--reply" in markup
+    assert "技術情報を表示" in markup
     assert "data:image/webp;base64," in markup
     assert "この銘柄の確認点は？" in markup
     assert "価格と材料を分けて確認します。" in markup
@@ -261,7 +264,7 @@ def test_copilot_turn_from_response_adds_natural_lead_and_meta():
         executed_checks=["現在文脈を確認"],
     )
 
-    assert turn["answer"] == "銘柄コックピットから確認できます。"
+    assert turn["answer"].startswith("はい。SMAIは目的別に画面を使い分ける")
     assert turn["response_meta"] == "qwen3:8b / live / assistant_fast / ollama / app_help / 4230ms"
     assert turn["latency_ms"] == "4230"
     assert turn["gateway_status"] == "ok"
@@ -419,4 +422,5 @@ def test_copilot_page_free_chat_does_not_render_fixed_cards(monkeypatch):
     assert "次に確認" not in page_text
     assert "実行した確認" not in page_text
     assert "売買推奨" not in history[-1]["answer"]
-    assert history[-1]["answer"] == "こんにちは。SMAIナビです。何を相談しますか？"
+    assert history[-1]["answer"].startswith("こんにちは。SMAIナビです。")
+    assert len(history[-1]["answer"]) >= 40

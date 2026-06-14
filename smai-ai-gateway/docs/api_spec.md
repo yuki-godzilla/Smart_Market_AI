@@ -157,7 +157,7 @@ Response:
 
 ## Error
 
-provider 呼び出しに失敗した場合は、分かりやすい detail を返します。Ollama 未起動や URL 誤りは `provider_unreachable`、timeout は `provider_timeout`、model 未取得は `model_not_found` として扱います。
+provider 呼び出しに失敗した場合は、分かりやすい detail を返します。Ollama 未起動や URL 誤りは `provider_unreachable`、timeout は `provider_timeout`、model 未取得は `model_not_found` として扱います。`/api/v1/context-answer` の `task_type=free_chat` だけは、timeout 時も通常会話を崩さないため `local_conversation_fallback` として自然な fallback answer を返します。
 
 ```json
 {

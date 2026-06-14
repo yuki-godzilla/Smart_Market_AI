@@ -32,7 +32,9 @@ Response:
 ```json
 {
   "answer": "こんにちは。どのようなお手伝いをしましょうか。",
-  "model": "qwen3:8b",
+  "task_type": "forecast_risk_compare",
+  "execution_mode": "auto",
+  "environment_profile": "notebook",
   "provider": "ollama",
   "elapsed_ms": 120
 }
@@ -135,6 +137,7 @@ Response:
   "safety_notes": ["スコア、予測値、ランキング順位は変更していません。"],
   "provider": "ollama",
   "model": "qwen3:8b",
+  "profile": "assistant_standard",
   "elapsed_ms": 120,
   "decision_support_note": "この回答は判断材料の整理であり、投資助言ではありません。"
 }

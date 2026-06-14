@@ -47,9 +47,10 @@ CopilotIntent = Literal[
 class CopilotGatewayRuntimeConfig:
     enabled: bool
     base_url: str
-    model: str
     timeout_seconds: float
     context_answer_path: str
+    execution_mode: str
+    environment_profile: str
 
     @property
     def mode_label(self) -> str:
@@ -277,9 +278,10 @@ def copilot_gateway_runtime_config(
     return CopilotGatewayRuntimeConfig(
         enabled=True,
         base_url=gateway.base_url,
-        model=gateway.model or "qwen3:8b",
         timeout_seconds=float(gateway.timeout_seconds),
         context_answer_path=gateway.context_answer_path,
+        execution_mode=gateway.execution_mode,
+        environment_profile=gateway.environment_profile,
     )
 
 
@@ -293,7 +295,9 @@ def copilot_settings_from_gateway_runtime(
         base_url=runtime_config.base_url,
         context_answer_path=runtime_config.context_answer_path,
         timeout_seconds=runtime_config.timeout_seconds,
-        model=runtime_config.model or None,
+        model=None,
+        execution_mode=runtime_config.execution_mode,
+        environment_profile=runtime_config.environment_profile,
     )
     assistant_config = settings.assistant.model_copy(update={"gateway": gateway})
     return settings.model_copy(update={"assistant": assistant_config})
@@ -390,9 +394,7 @@ def render_copilot_workspace_page() -> None:
         intent = _intent_from_message(prompt, fallback=_active_intent())
         preset = _preset_for_intent(intent)
         context = context_by_id.get(preset.context_id, contexts[0])
-        with st.spinner(
-            f"SMAIナビが必要な材料を確認しています... {runtime_config.model}で回答を生成中"
-        ):
+        with st.spinner("SMAIナビが必要な材料を確認しています... LLMで回答を生成中"):
             _handle_copilot_submit(
                 context,
                 prompt,
@@ -408,9 +410,7 @@ def render_copilot_workspace_page() -> None:
 
     if suggested is not None:
         context = context_by_id.get(suggested.context_id, contexts[0])
-        with st.spinner(
-            f"SMAIナビが必要な材料を確認しています... {runtime_config.model}で回答を生成中"
-        ):
+        with st.spinner("SMAIナビが必要な材料を確認しています... LLMで回答を生成中"):
             _handle_copilot_submit(
                 context,
                 suggested.default_question,
@@ -529,6 +529,7 @@ def _handle_copilot_submit(
         conversation_id=conversation_id,
         message_history=copilot_history_messages(history),
         referenced_context_ids=[context.context_id],
+        gateway_task_type=intent,
         settings=copilot_settings_from_gateway_runtime(runtime_config),
     )
     turn = _turn_from_response(
@@ -574,6 +575,7 @@ def _turn_from_response(
         "response_source": response.response_source,
         "model": response.model or "",
         "provider": response.provider or "",
+        "profile": response.profile or "",
         "response_meta": _response_meta_label(response=response, intent=intent),
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
@@ -673,7 +675,8 @@ def _render_streaming_turn(turn: dict[str, str]) -> None:
     question = str(turn.get("question", "")).strip()
     answer = str(turn.get("answer", "")).strip()
     st.markdown(
-        _user_bubble_html(context_label=context_label, question=question), unsafe_allow_html=True
+        _user_bubble_html(context_label=context_label, question=question),
+        unsafe_allow_html=True,
     )
     placeholder = st.empty()
     for partial in _stream_chunks(answer):
@@ -858,7 +861,11 @@ def _actions_for_turn(turn: dict[str, str]) -> tuple[tuple[str, str], ...]:
         return (("コピー", "copy"), ("Markdownで保存", "memo"))
     if intent == "decision_report_draft":
         return (("Markdownで保存", "memo"), ("Decision Reportに追加", "report"))
-    return (("コピー", "copy"), ("Markdownで保存", "memo"), ("Decision Reportに追加", "report"))
+    return (
+        ("コピー", "copy"),
+        ("Markdownで保存", "memo"),
+        ("Decision Reportに追加", "report"),
+    )
 
 
 def _download_action_link_html(*, label: str, data: str, file_name: str, mime: str) -> str:
@@ -967,7 +974,8 @@ def _response_meta_label(*, response: AssistantResponse, intent: CopilotIntent) 
     if response.response_source == "gateway":
         model = response.model or "LLM"
         provider = response.provider or "Gateway"
-        return f"{model} / {provider} / {intent_label} / context: current screen"
+        profile = response.profile or "assistant_profile"
+        return f"{model} / {profile} / {provider} / {intent_label}"
     if response.response_source == "fallback":
         return f"SMAI通常回答 / fallback / {intent_label}"
     return f"SMAI通常回答 / deterministic / {intent_label}"

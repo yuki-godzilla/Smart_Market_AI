@@ -142,6 +142,18 @@ class AssistantGatewayConfig(StrictConfigModel):
     context_answer_path: str = Field(default="/api/v1/context-answer", min_length=1)
     timeout_seconds: float = Field(default=10.0, gt=0)
     model: str | None = Field(default=None, min_length=1)
+    execution_mode: Literal["auto", "light", "quality", "off"] = "auto"
+    environment_profile: Literal["notebook", "desktop", "server", "offline"] = "notebook"
+    preferred_profile: (
+        Literal[
+            "assistant_fast",
+            "assistant_standard",
+            "assistant_quality",
+            "report_quality",
+            "fallback",
+        ]
+        | None
+    ) = None
 
 
 class AssistantConfig(StrictConfigModel):

@@ -18,6 +18,14 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-14 - LLM Model Profile / Environment-aware Routing
+
+- Added Gateway-owned model routing for `task_type`, `execution_mode`, `environment_profile`, and optional `preferred_profile`.
+- Implemented `assistant_fast`, `assistant_standard`, `assistant_quality`, `report_quality`, and `fallback` profiles with notebook-friendly `qwen3:8b` routing and future desktop/server quality-model paths.
+- Updated SMAI parent contracts so the Assistant sends routing hints instead of hardcoding a model in the UI flow, while Gateway responses return `model`, `profile`, and `provider` metadata.
+- Updated SMAI Assistant response metadata to show route details such as `qwen3:8b / assistant_fast / ollama`.
+- Added deterministic router/profile tests and kept normal checks network-free.
+
 ## 2026-06-14 - SMAI Assistant UX Score-Up Sprint
 
 - Shifted the dedicated SMAI Assistant workspace further toward an AI-chat-first experience: Gateway / LLM responses are now rendered as the primary answer without an added fixed lead sentence.

@@ -95,6 +95,9 @@ def test_assistant_gateway_request_defaults_to_safety_constraints_and_chat_field
         conversation_id="conversation-1",
         message_history=[AssistantGatewayMessage(role="user", content="前の質問")],
         referenced_context_ids=["cockpit_forecast"],
+        task_type="forecast_risk_compare",
+        execution_mode="quality",
+        environment_profile="notebook",
     )
 
     assert request.schema_version == ASSISTANT_GATEWAY_REQUEST_SCHEMA_VERSION
@@ -103,6 +106,9 @@ def test_assistant_gateway_request_defaults_to_safety_constraints_and_chat_field
     assert request.user_question == "AI予測インサイトはどう読む？"
     assert request.active_context_id == "cockpit_forecast"
     assert request.referenced_context_ids == ["cockpit_forecast"]
+    assert request.task_type == "forecast_risk_compare"
+    assert request.execution_mode == "quality"
+    assert request.environment_profile == "notebook"
     assert request.message_history[0].role == "user"
     assert request.constraints.no_investment_advice
     assert request.constraints.do_not_change_scores
@@ -127,6 +133,7 @@ def test_assistant_gateway_response_schema_is_ui_compatible():
         safety_notes=["売買判断ではなく確認材料として回答しました。"],
         provider="ollama",
         model="qwen3:8b",
+        profile="assistant_standard",
         elapsed_ms=120,
     )
 
@@ -134,6 +141,7 @@ def test_assistant_gateway_response_schema_is_ui_compatible():
     assert response.referenced_sections[0].section_id == "cockpit-1"
     assert response.confidence == "medium"
     assert response.provider == "ollama"
+    assert response.profile == "assistant_standard"
     assert response.elapsed_ms == 120
 
 

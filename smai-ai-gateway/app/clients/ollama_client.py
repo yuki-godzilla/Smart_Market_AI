@@ -37,7 +37,12 @@ class OllamaClient:
         self.settings = settings
 
     def chat(
-        self, messages: Sequence[LlmMessage], *, model: str | None = None
+        self,
+        messages: Sequence[LlmMessage],
+        *,
+        model: str | None = None,
+        timeout_seconds: float | None = None,
+        max_tokens: int | None = None,
     ) -> LlmProviderResult:
         selected_model = model or self.settings.DEFAULT_LLM_MODEL
         payload = {
@@ -46,9 +51,12 @@ class OllamaClient:
             "stream": False,
             "think": False,
         }
+        if max_tokens is not None:
+            payload["options"] = {"num_predict": max_tokens}
         started = perf_counter()
+        timeout = timeout_seconds or self.settings.REQUEST_TIMEOUT_SECONDS
         try:
-            with httpx.Client(timeout=self.settings.REQUEST_TIMEOUT_SECONDS) as client:
+            with httpx.Client(timeout=timeout) as client:
                 response = client.post(
                     f"{self.settings.OLLAMA_BASE_URL.rstrip('/')}/api/chat",
                     json=payload,
@@ -56,7 +64,7 @@ class OllamaClient:
                 response.raise_for_status()
         except httpx.TimeoutException as exc:
             raise OllamaClientError(
-                f"Ollama request timed out after {self.settings.REQUEST_TIMEOUT_SECONDS:g}s.",
+                f"Ollama request timed out after {timeout:g}s.",
                 code="provider_timeout",
                 retryable=True,
                 http_status=504,

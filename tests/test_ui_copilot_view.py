@@ -73,17 +73,20 @@ def test_copilot_settings_from_gateway_runtime_enables_session_gateway():
     runtime_config = CopilotGatewayRuntimeConfig(
         enabled=True,
         base_url="http://gateway.local",
-        model="qwen3:8b",
         timeout_seconds=5.0,
         context_answer_path="/api/v1/context-answer",
+        execution_mode="light",
+        environment_profile="notebook",
     )
 
     settings = copilot_settings_from_gateway_runtime(runtime_config, base_settings)
 
     assert settings.assistant.gateway.enabled
     assert settings.assistant.gateway.base_url == "http://gateway.local"
-    assert settings.assistant.gateway.model == "qwen3:8b"
+    assert settings.assistant.gateway.model is None
     assert settings.assistant.gateway.timeout_seconds == 5.0
+    assert settings.assistant.gateway.execution_mode == "light"
+    assert settings.assistant.gateway.environment_profile == "notebook"
     assert not base_settings.assistant.gateway.enabled
 
 
@@ -219,13 +222,14 @@ def test_copilot_turn_from_response_adds_natural_lead_and_meta():
             response_source="gateway",
             model="qwen3:8b",
             provider="ollama",
+            profile="assistant_fast",
         ),
         intent="app_help",
         executed_checks=["現在文脈を確認"],
     )
 
     assert turn["answer"] == "銘柄コックピットから確認できます。"
-    assert turn["response_meta"] == "qwen3:8b / ollama / app_help / context: current screen"
+    assert turn["response_meta"] == "qwen3:8b / assistant_fast / ollama / app_help"
 
 
 def test_copilot_turn_from_response_hides_internal_prompt_text():

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.config import GatewaySettings
 from app.schemas.common import LlmMessage, LlmProviderResult
 from app.schemas.context_answer import ContextAnswerRequest
 from app.services.context_answer_service import ContextAnswerService
@@ -9,6 +10,9 @@ class FakeLlmClient:
     def __init__(self, *, answer: str | None = None) -> None:
         self.messages: list[LlmMessage] = []
         self.model: str | None = None
+        self.timeout_seconds: float | None = None
+        self.max_tokens: int | None = None
+        self.settings = GatewaySettings(DEFAULT_LLM_MODEL="qwen3:8b")
         self.answer = answer or (
             '{"answer":"LLM structured answer.","materials":["LLM material 1","LLM material 2"],'
             '"cautions":["LLM caution"],"next_checkpoints":["LLM next check"],'
@@ -20,9 +24,13 @@ class FakeLlmClient:
         messages: list[LlmMessage],
         *,
         model: str | None = None,
+        timeout_seconds: float | None = None,
+        max_tokens: int | None = None,
     ) -> LlmProviderResult:
         self.messages = messages
         self.model = model
+        self.timeout_seconds = timeout_seconds
+        self.max_tokens = max_tokens
         return LlmProviderResult(
             answer=self.answer,
             model=model or "qwen3:8b",
@@ -41,6 +49,7 @@ def test_context_answer_service_uses_structured_llm_payload():
     assert response.answer == "LLM structured answer."
     assert response.provider == "fake"
     assert response.model == "qwen3:8b"
+    assert response.profile == "assistant_fast"
     assert response.elapsed_ms == 7
     assert response.materials == ["LLM material 1", "LLM material 2"]
     assert response.cautions == ["LLM caution"]
@@ -49,6 +58,8 @@ def test_context_answer_service_uses_structured_llm_payload():
     assert response.confidence == "high"
     assert response.safety_notes
     assert client.model == "qwen3:8b"
+    assert client.timeout_seconds == 30.0
+    assert client.max_tokens == 700
     assert any("AI予測インサイト" in message.content for message in client.messages)
     assert any("Return only valid JSON" in message.content for message in client.messages)
 
@@ -111,6 +122,33 @@ def test_context_answer_service_prompt_includes_intent_specific_guide():
     assert "Intent-specific response guide" in joined
     assert "Compare forecast-side information and risk-side information" in joined
     assert "SMAI Navi" in joined
+
+
+def test_context_answer_service_routes_task_type_to_standard_profile():
+    client = FakeLlmClient()
+    service = ContextAnswerService(client)  # type: ignore[arg-type]
+    request = _request()
+    request.task_type = "forecast_risk_compare"
+
+    response = service.answer(request)
+
+    assert response.profile == "assistant_standard"
+    assert client.timeout_seconds == 45.0
+    assert client.max_tokens == 1000
+
+
+def test_context_answer_service_off_mode_uses_deterministic_fallback():
+    client = FakeLlmClient()
+    service = ContextAnswerService(client)  # type: ignore[arg-type]
+    request = _request()
+    request.execution_mode = "off"
+
+    response = service.answer(request)
+
+    assert response.provider == "deterministic"
+    assert response.model == "fallback"
+    assert response.profile == "fallback"
+    assert client.messages == []
 
 
 def _request(*, active_context_id: str = "forecast-1") -> ContextAnswerRequest:

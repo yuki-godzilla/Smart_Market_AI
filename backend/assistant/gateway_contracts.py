@@ -20,6 +20,26 @@ AssistantGatewayTask = Literal["explain", "summarize", "compare", "next_steps", 
 AssistantGatewayLanguage = Literal["ja", "en"]
 AssistantGatewayConfidence = Literal["low", "medium", "high"]
 AssistantGatewayAnswerFormat = Literal["materials_cautions_checkpoints"]
+AssistantGatewayTaskType = Literal[
+    "free_chat",
+    "app_help",
+    "stock_summary",
+    "forecast_risk_compare",
+    "news_materials",
+    "rag_summary",
+    "decision_report_draft",
+    "llm_factor_generation",
+    "report_export_summary",
+]
+AssistantGatewayExecutionMode = Literal["auto", "light", "quality", "off"]
+AssistantGatewayEnvironmentProfile = Literal["notebook", "desktop", "server", "offline"]
+AssistantGatewayProfileName = Literal[
+    "assistant_fast",
+    "assistant_standard",
+    "assistant_quality",
+    "report_quality",
+    "fallback",
+]
 
 _DEFAULT_CONTEXT_PRIVACY_NOTES = (
     "Provider raw fields, debug logs, and full external source bodies are excluded.",
@@ -103,6 +123,10 @@ class AssistantGatewayRequest(StrictBaseModel):
     message_history: list[AssistantGatewayMessage] = Field(default_factory=list)
     active_context_id: str | None = Field(default=None, min_length=1)
     referenced_context_ids: list[str] = Field(default_factory=list)
+    task_type: AssistantGatewayTaskType = "free_chat"
+    execution_mode: AssistantGatewayExecutionMode = "auto"
+    environment_profile: AssistantGatewayEnvironmentProfile = "notebook"
+    preferred_profile: AssistantGatewayProfileName | None = None
 
 
 class AssistantGatewayReferencedSection(StrictBaseModel):
@@ -126,6 +150,7 @@ class AssistantGatewayResponse(StrictBaseModel):
     safety_notes: list[str] = Field(default_factory=list)
     provider: str | None = Field(default=None, min_length=1)
     model: str | None = Field(default=None, min_length=1)
+    profile: AssistantGatewayProfileName | None = None
     elapsed_ms: int | None = Field(default=None, ge=0)
     decision_support_note: str = DECISION_SUPPORT_NOTE
 
@@ -178,6 +203,10 @@ def build_assistant_gateway_request(
     message_history: Sequence[AssistantGatewayMessage] = (),
     active_context_id: str | None = None,
     referenced_context_ids: Sequence[str] = (),
+    task_type: AssistantGatewayTaskType = "free_chat",
+    execution_mode: AssistantGatewayExecutionMode = "auto",
+    environment_profile: AssistantGatewayEnvironmentProfile = "notebook",
+    preferred_profile: AssistantGatewayProfileName | None = None,
 ) -> AssistantGatewayRequest:
     """Build the network-free request object SMAI will later send to the Gateway."""
 
@@ -190,6 +219,10 @@ def build_assistant_gateway_request(
         message_history=list(message_history),
         active_context_id=active_context_id or context.active_context_id,
         referenced_context_ids=list(referenced_context_ids),
+        task_type=task_type,
+        execution_mode=execution_mode,
+        environment_profile=environment_profile,
+        preferred_profile=preferred_profile,
     )
 
 

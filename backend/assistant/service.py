@@ -25,6 +25,17 @@ AssistantIntent = Literal[
     "advice_boundary",
     "unknown",
 ]
+AssistantGatewayTaskType = Literal[
+    "free_chat",
+    "app_help",
+    "stock_summary",
+    "forecast_risk_compare",
+    "news_materials",
+    "rag_summary",
+    "decision_report_draft",
+    "llm_factor_generation",
+    "report_export_summary",
+]
 
 
 class AssistantMessage(StrictBaseModel):
@@ -52,6 +63,7 @@ class AssistantRequest(StrictBaseModel):
     message_history: list[AssistantMessage] = Field(default_factory=list)
     active_context_id: str | None = Field(default=None, min_length=1)
     referenced_context_ids: list[str] = Field(default_factory=list)
+    gateway_task_type: AssistantGatewayTaskType = "free_chat"
 
 
 class AssistantResponse(StrictBaseModel):
@@ -67,6 +79,7 @@ class AssistantResponse(StrictBaseModel):
     response_source: Literal["deterministic", "gateway", "fallback"] = "deterministic"
     model: str | None = Field(default=None, min_length=1)
     provider: str | None = Field(default=None, min_length=1)
+    profile: str | None = Field(default=None, min_length=1)
     decision_support_note: str = DECISION_SUPPORT_NOTE
 
 

@@ -21,6 +21,9 @@ def test_settings_defaults_are_local_and_mock_first():
     assert settings.assistant.gateway.context_answer_path == "/api/v1/context-answer"
     assert settings.assistant.gateway.timeout_seconds == 10.0
     assert settings.assistant.gateway.model is None
+    assert settings.assistant.gateway.execution_mode == "auto"
+    assert settings.assistant.gateway.environment_profile == "notebook"
+    assert settings.assistant.gateway.preferred_profile is None
 
 
 def test_settings_loads_yaml_overrides(monkeypatch):
@@ -69,6 +72,9 @@ def test_settings_can_load_explicit_assistant_gateway_opt_in():
                     "context_answer_path": "/api/v1/context-answer",
                     "timeout_seconds": 2.5,
                     "model": "qwen3:8b",
+                    "execution_mode": "light",
+                    "environment_profile": "notebook",
+                    "preferred_profile": "assistant_fast",
                 }
             }
         }
@@ -78,6 +84,9 @@ def test_settings_can_load_explicit_assistant_gateway_opt_in():
     assert settings.assistant.gateway.base_url == "http://127.0.0.1:8088"
     assert settings.assistant.gateway.timeout_seconds == 2.5
     assert settings.assistant.gateway.model == "qwen3:8b"
+    assert settings.assistant.gateway.execution_mode == "light"
+    assert settings.assistant.gateway.environment_profile == "notebook"
+    assert settings.assistant.gateway.preferred_profile == "assistant_fast"
 
 
 def test_settings_rejects_unknown_yaml_keys(monkeypatch):

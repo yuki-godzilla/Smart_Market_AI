@@ -69,6 +69,7 @@ def test_gateway_backed_assistant_uses_gateway_response_when_valid():
         safety_notes=["スコアや予測値は変更していません。"],
         provider="mock",
         model="mock-assistant-gateway",
+        profile="assistant_standard",
     )
     client = MockAssistantGatewayClient(response=gateway_response)
     service = GatewayBackedAssistantService(client)
@@ -89,6 +90,7 @@ def test_gateway_backed_assistant_uses_gateway_response_when_valid():
     assert response.response_source == "gateway"
     assert response.model == "mock-assistant-gateway"
     assert response.provider == "mock"
+    assert response.profile == "assistant_standard"
     assert len(client.requests) == 1
     assert client.requests[0].constraints.no_investment_advice
     assert client.requests[0].context.sections[0].title == "AI予測インサイト"
@@ -109,6 +111,7 @@ def test_gateway_backed_assistant_passes_chat_history_to_gateway_request():
             ],
             active_context_id="cockpit-forecast",
             referenced_context_ids=["cockpit-forecast"],
+            gateway_task_type="forecast_risk_compare",
         )
     )
 
@@ -120,6 +123,7 @@ def test_gateway_backed_assistant_passes_chat_history_to_gateway_request():
     assert [message.role for message in request.message_history] == ["user", "assistant"]
     assert request.active_context_id == "cockpit-forecast"
     assert request.referenced_context_ids == ["cockpit-forecast"]
+    assert request.task_type == "forecast_risk_compare"
 
 
 def test_gateway_backed_assistant_falls_back_when_client_raises():
@@ -214,6 +218,7 @@ def test_http_assistant_gateway_client_posts_context_answer_request():
                 "safety_notes": ["スコアや順位は変更していません。"],
                 "provider": "ollama",
                 "model": "qwen3:8b",
+                "profile": "assistant_standard",
                 "elapsed_ms": 42,
             },
         )
@@ -223,6 +228,8 @@ def test_http_assistant_gateway_client_posts_context_answer_request():
         context_answer_path="api/v1/context-answer",
         timeout_seconds=3.0,
         model="qwen3:8b",
+        execution_mode="quality",
+        environment_profile="desktop",
         transport=httpx.MockTransport(handler),
     )
     service = GatewayBackedAssistantService(client)
@@ -239,12 +246,16 @@ def test_http_assistant_gateway_client_posts_context_answer_request():
     assert isinstance(payload, dict)
     assert payload["schema_version"] == "assistant-gateway-request-v1"
     assert payload["model"] == "qwen3:8b"
+    assert payload["task_type"] == "free_chat"
+    assert payload["execution_mode"] == "quality"
+    assert payload["environment_profile"] == "desktop"
     assert response.answer.startswith("Gateway実接続")
     assert response.reasons == ["AI予測インサイト", "中心予測"]
     assert "スコアや順位は変更していません。" in response.cautions
     assert response.response_source == "gateway"
     assert response.model == "qwen3:8b"
     assert response.provider == "ollama"
+    assert response.profile == "assistant_standard"
 
 
 def test_http_assistant_gateway_client_timeout_raises_timeout_error():
@@ -316,6 +327,8 @@ def test_assistant_service_factory_uses_gateway_when_enabled():
                     "context_answer_path": "/api/v1/context-answer",
                     "timeout_seconds": 2.5,
                     "model": "qwen3:8b",
+                    "execution_mode": "light",
+                    "environment_profile": "notebook",
                 }
             }
         }
@@ -333,4 +346,6 @@ def test_assistant_service_factory_uses_gateway_when_enabled():
     assert isinstance(client, HttpAssistantGatewayClient)
     assert client.context_answer_url == "http://gateway.local/api/v1/context-answer"
     assert client.model == "qwen3:8b"
+    assert client.execution_mode == "light"
+    assert client.environment_profile == "notebook"
     assert isinstance(service, GatewayBackedAssistantService)

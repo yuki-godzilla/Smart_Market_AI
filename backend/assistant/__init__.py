@@ -30,6 +30,7 @@ from backend.assistant.intent_router import (
 from backend.assistant.service import (
     ASSISTANT_SCHEMA_VERSION,
     AssistantCitation,
+    AssistantGatewayTaskType,
     AssistantIntent,
     AssistantMessage,
     AssistantRequest,
@@ -62,6 +63,7 @@ __all__ = [
     "AssistantGatewayReferencedSection",
     "AssistantGatewayRequest",
     "AssistantGatewayResponse",
+    "AssistantGatewayTaskType",
     "AssistantIntent",
     "AssistantIntentDecision",
     "AssistantMessage",

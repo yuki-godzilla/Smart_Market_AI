@@ -8,6 +8,7 @@ from urllib.parse import urlencode
 import streamlit as st
 
 from backend.assistant import (
+    AssistantGatewayTaskType,
     AssistantMessage,
     AssistantRequest,
     AssistantResponse,
@@ -231,6 +232,7 @@ def assistant_response_for_context(
     conversation_id: str | None = None,
     message_history: Sequence[AssistantMessage] = (),
     referenced_context_ids: Sequence[str] = (),
+    gateway_task_type: AssistantGatewayTaskType = "free_chat",
     settings: Settings | None = None,
 ) -> AssistantResponse:
     return create_assistant_service_from_settings(settings).answer(
@@ -242,6 +244,7 @@ def assistant_response_for_context(
             message_history=list(message_history),
             active_context_id=context.context_id,
             referenced_context_ids=list(referenced_context_ids),
+            gateway_task_type=gateway_task_type,
         )
     )
 

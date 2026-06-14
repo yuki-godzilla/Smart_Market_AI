@@ -6,6 +6,12 @@ from typing import Literal
 from pydantic import Field
 
 from app.schemas.common import GatewayBaseModel
+from app.services.model_router import (
+    LlmEnvironmentProfile,
+    LlmExecutionMode,
+    LlmProfileName,
+    LlmTaskType,
+)
 
 CONTEXT_ANSWER_RESPONSE_SCHEMA_VERSION = "assistant-gateway-response-v1"
 
@@ -77,6 +83,10 @@ class ContextAnswerRequest(GatewayBaseModel):
     active_context_id: str | None = Field(default=None, min_length=1)
     referenced_context_ids: list[str] = Field(default_factory=list)
     model: str | None = Field(default=None, min_length=1)
+    task_type: LlmTaskType = "free_chat"
+    execution_mode: LlmExecutionMode = "auto"
+    environment_profile: LlmEnvironmentProfile = "notebook"
+    preferred_profile: LlmProfileName | None = None
 
 
 class ContextReferencedSection(GatewayBaseModel):
@@ -100,6 +110,7 @@ class ContextAnswerResponse(GatewayBaseModel):
     safety_notes: list[str] = Field(default_factory=list)
     provider: str = Field(min_length=1)
     model: str = Field(min_length=1)
+    profile: LlmProfileName = "fallback"
     elapsed_ms: int = Field(ge=0)
     decision_support_note: str = Field(
         default="This response is decision-support context, not investment advice.",

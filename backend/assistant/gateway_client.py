@@ -79,12 +79,18 @@ class HttpAssistantGatewayClient:
         context_answer_path: str = "/api/v1/context-answer",
         timeout_seconds: float = 10.0,
         model: str | None = None,
+        execution_mode: str = "auto",
+        environment_profile: str = "notebook",
+        preferred_profile: str | None = None,
         transport: httpx.BaseTransport | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.context_answer_path = "/" + context_answer_path.strip("/")
         self.timeout_seconds = timeout_seconds
         self.model = model
+        self.execution_mode = execution_mode
+        self.environment_profile = environment_profile
+        self.preferred_profile = preferred_profile
         self.transport = transport
 
     @property
@@ -95,6 +101,10 @@ class HttpAssistantGatewayClient:
         payload = request.model_dump(mode="json")
         if self.model:
             payload["model"] = self.model
+        payload["execution_mode"] = self.execution_mode
+        payload["environment_profile"] = self.environment_profile
+        if self.preferred_profile:
+            payload["preferred_profile"] = self.preferred_profile
 
         try:
             with httpx.Client(
@@ -142,6 +152,7 @@ class GatewayBackedAssistantService:
             question=request.question,
             context=context_bundle,
             task="chat" if request.message_history else "explain",
+            task_type=request.gateway_task_type,
             conversation_id=request.conversation_id,
             message_history=[
                 AssistantGatewayMessage(role=item.role, content=item.content)
@@ -188,6 +199,7 @@ def _assistant_response_from_gateway_response(
         response_source="gateway",
         model=response.model,
         provider=response.provider,
+        profile=response.profile,
     )
 
 
@@ -225,6 +237,7 @@ def _default_mock_gateway_response(request: AssistantGatewayRequest) -> Assistan
         ],
         provider="mock",
         model="mock-assistant-gateway",
+        profile=request.preferred_profile or "assistant_fast",
         elapsed_ms=0,
     )
 
@@ -245,6 +258,9 @@ def create_assistant_gateway_client_from_settings(
         context_answer_path=gateway.context_answer_path,
         timeout_seconds=gateway.timeout_seconds,
         model=gateway.model,
+        execution_mode=gateway.execution_mode,
+        environment_profile=gateway.environment_profile,
+        preferred_profile=gateway.preferred_profile,
         transport=transport,
     )
 

@@ -14,6 +14,7 @@ from app.schemas.context_answer import (
     ContextReferencedSection,
     ContextSection,
 )
+from app.services.model_router import resolve_model_route
 from app.services.prompt_service import PromptService
 
 _JA_DECISION_SUPPORT_NOTE = "この回答は判断材料の整理であり、投資助言ではありません。"
@@ -43,9 +44,51 @@ class ContextAnswerService:
         self.prompt_service = prompt_service or PromptService()
 
     def answer(self, request: ContextAnswerRequest) -> ContextAnswerResponse:
+        route = resolve_model_route(
+            settings=self.client.settings,
+            task_type=request.task_type,
+            execution_mode=request.execution_mode,
+            environment_profile=request.environment_profile,
+            preferred_profile=request.preferred_profile,
+            requested_model=request.model,
+        )
         messages = self.prompt_service.build_context_answer_messages(request)
-        result = self.client.chat(messages, model=request.model)
         sections = _selected_sections(request)
+        if route.fallback:
+            return ContextAnswerResponse(
+                answer=_fallback_answer_from_sections(sections, language=request.language),
+                materials=_materials_from_sections(sections),
+                cautions=_cautions_from_request(request),
+                next_checkpoints=_next_checkpoints_from_sections(
+                    sections,
+                    language=request.language,
+                ),
+                referenced_sections=[
+                    ContextReferencedSection(
+                        section_id=section.section_id,
+                        title=section.title,
+                        source_kind=section.source_kind,
+                    )
+                    for section in sections
+                ],
+                confidence=_confidence_from_request(request),
+                safety_notes=[*_safety_notes_from_request(request), route.reason],
+                provider=route.provider,
+                model=route.model,
+                profile=route.profile,
+                elapsed_ms=0,
+                decision_support_note=(
+                    _JA_DECISION_SUPPORT_NOTE
+                    if request.language == "ja"
+                    else _EN_DECISION_SUPPORT_NOTE
+                ),
+            )
+        result = self.client.chat(
+            messages,
+            model=route.model,
+            timeout_seconds=route.timeout_seconds,
+            max_tokens=route.max_tokens,
+        )
         llm_payload = _parse_llm_context_answer(result.answer)
         usable_payload = (
             llm_payload
@@ -89,6 +132,7 @@ class ContextAnswerService:
             safety_notes=_safety_notes_from_request(request),
             provider=result.provider,
             model=result.model,
+            profile=route.profile,
             elapsed_ms=result.elapsed_ms,
             decision_support_note=(
                 _JA_DECISION_SUPPORT_NOTE if request.language == "ja" else _EN_DECISION_SUPPORT_NOTE

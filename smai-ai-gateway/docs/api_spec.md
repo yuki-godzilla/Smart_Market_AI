@@ -23,7 +23,7 @@ Request:
 {
   "message": "こんにちは",
   "system_prompt": "You are a helpful assistant.",
-  "model": "qwen3:8b"
+  "profile": "notebook_dev"
 }
 ```
 
@@ -32,7 +32,7 @@ Response:
 ```json
 {
   "answer": "こんにちは。どのようなお手伝いをしましょうか。",
-  "model": "qwen3:8b",
+  "model": "qwen3:4b",
   "provider": "ollama",
   "elapsed_ms": 120
 }
@@ -48,7 +48,7 @@ Request:
 {
   "text": "...",
   "purpose": "general_summary",
-  "model": "qwen3:8b"
+  "profile": "desktop_fast"
 }
 ```
 
@@ -78,9 +78,17 @@ Request:
   "language": "ja",
   "user_question": "AI予測インサイトでは何を見ればよいですか？",
   "task_type": "forecast_risk_compare",
+  "profile": "notebook_dev",
   "execution_mode": "auto",
   "environment_profile": "notebook",
   "request_id": "assistant-request-1",
+  "timeout_sec": 90,
+  "context_tokens_estimate": 380,
+  "prompt_chars": 1200,
+  "response_chars": 240,
+  "tool_execution_ms": 0,
+  "llm_generation_ms": 120,
+  "total_elapsed_ms": 130,
   "context": {
     "schema_version": "assistant-context-bundle-v1",
     "bundle_id": "bundle-1",
@@ -137,8 +145,8 @@ Response:
   "confidence": "medium",
   "safety_notes": ["スコア、予測値、ランキング順位は変更していません。"],
   "provider": "ollama",
-  "model": "qwen3:8b",
-  "profile": "assistant_standard",
+  "model": "qwen3:4b",
+  "profile": "notebook_dev",
   "elapsed_ms": 120,
   "gateway_status": "ok",
   "fallback_reason": null,
@@ -167,10 +175,26 @@ model が未取得の場合:
 ```json
 {
   "detail": {
-    "error": "Ollama model 'qwen3:8b' was not found. Run `ollama pull qwen3:8b` or choose an installed model.",
+    "error": "Ollama model 'qwen3:4b' was not found. Run `ollama pull qwen3:4b` or choose an installed model.",
     "provider": "ollama",
     "code": "model_not_found",
     "retryable": false
   }
+}
+```
+
+## GET /models
+
+Ollama が起動しているか、設定中 model が導入済みかを確認します。
+
+```json
+{
+  "provider": "ollama",
+  "base_url": "http://localhost:11434",
+  "default_profile": "notebook_dev",
+  "default_model": "qwen3:4b",
+  "installed_models": ["qwen3:4b", "qwen3:8b"],
+  "configured_model_installed": true,
+  "install_hint": null
 }
 ```

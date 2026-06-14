@@ -27,6 +27,10 @@ from backend.core.config import Settings, get_settings
 LOGGER = logging.getLogger(__name__)
 
 
+def _estimated_context_tokens(request: AssistantGatewayRequest) -> int:
+    return max(1, len(request.context.model_dump_json()) // 4)
+
+
 class AssistantGatewayError(Exception):
     """Base error for optional external assistant gateway calls."""
 
@@ -166,6 +170,20 @@ class GatewayBackedAssistantService:
             active_context_id=request.active_context_id,
             referenced_context_ids=request.referenced_context_ids,
         )
+        context_tokens_estimate = _estimated_context_tokens(gateway_request)
+        prompt_chars = len(request.question.strip()) + len(
+            gateway_request.context.model_dump_json()
+        )
+        timeout_sec = getattr(self.gateway_client, "timeout_seconds", None)
+        LOGGER.info(
+            "[assistant.request.start] request_id=%s intent_task=%s "
+            "timeout_sec=%s prompt_chars=%s context_tokens_estimate=%s",
+            gateway_request.request_id,
+            request.gateway_task_type,
+            timeout_sec,
+            prompt_chars,
+            context_tokens_estimate,
+        )
         try:
             raw_response = self.gateway_client.answer(gateway_request)
             gateway_response = _coerce_gateway_response(raw_response)
@@ -175,6 +193,9 @@ class GatewayBackedAssistantService:
                 request_id=gateway_request.request_id,
                 started=started,
                 reason=_gateway_error_reason(exc),
+                timeout_sec=timeout_sec,
+                context_tokens_estimate=context_tokens_estimate,
+                prompt_chars=prompt_chars,
             )
         except TimeoutError:
             return _fallback_response(
@@ -182,6 +203,9 @@ class GatewayBackedAssistantService:
                 request_id=gateway_request.request_id,
                 started=started,
                 reason="gateway_timeout",
+                timeout_sec=timeout_sec,
+                context_tokens_estimate=context_tokens_estimate,
+                prompt_chars=prompt_chars,
             )
         except (ValidationError, ValueError):
             return _fallback_response(
@@ -189,6 +213,9 @@ class GatewayBackedAssistantService:
                 request_id=gateway_request.request_id,
                 started=started,
                 reason="response_validation_failure",
+                timeout_sec=timeout_sec,
+                context_tokens_estimate=context_tokens_estimate,
+                prompt_chars=prompt_chars,
             )
 
         if not gateway_response.answer.strip():
@@ -197,6 +224,9 @@ class GatewayBackedAssistantService:
                 request_id=gateway_request.request_id,
                 started=started,
                 reason="empty_llm_answer",
+                timeout_sec=timeout_sec,
+                context_tokens_estimate=context_tokens_estimate,
+                prompt_chars=prompt_chars,
             )
 
         return _assistant_response_from_gateway_response(
@@ -225,6 +255,20 @@ def _assistant_response_from_gateway_response(
         or response.profile == "fallback"
         or response.provider == "deterministic"
     )
+    LOGGER.info(
+        "[assistant.gateway.result] request_id=%s status=%s response_source=%s "
+        "provider=%s model=%s profile=%s elapsed_ms=%s timeout_sec=%s "
+        "fallback_reason=%s",
+        response.request_id or request_id,
+        response.gateway_status,
+        "deterministic_fallback" if is_fallback else "llm",
+        response.provider,
+        response.model,
+        response.profile,
+        response.elapsed_ms,
+        response.timeout_sec,
+        response.fallback_reason,
+    )
     return AssistantResponse(
         intent=fallback_response.intent,
         answer=response.answer.strip(),
@@ -240,6 +284,13 @@ def _assistant_response_from_gateway_response(
         gateway_status=response.gateway_status,
         fallback_reason=response.fallback_reason,
         request_id=response.request_id or request_id,
+        timeout_sec=response.timeout_sec,
+        context_tokens_estimate=response.context_tokens_estimate,
+        prompt_chars=response.prompt_chars,
+        response_chars=response.response_chars,
+        tool_execution_ms=response.tool_execution_ms,
+        llm_generation_ms=response.llm_generation_ms,
+        total_elapsed_ms=response.total_elapsed_ms,
     )
 
 
@@ -249,13 +300,20 @@ def _fallback_response(
     request_id: str,
     started: float,
     reason: str,
+    timeout_sec: float | None,
+    context_tokens_estimate: int,
+    prompt_chars: int,
 ) -> AssistantResponse:
     latency_ms = int((perf_counter() - started) * 1000)
     LOGGER.warning(
-        "Assistant Gateway fallback reason=%s request_id=%s latency_ms=%s",
-        reason,
+        "[assistant.gateway.result] request_id=%s status=fallback reason=%s "
+        "elapsed_ms=%s timeout_sec=%s prompt_chars=%s context_tokens_estimate=%s",
         request_id,
+        reason,
         latency_ms,
+        timeout_sec,
+        prompt_chars,
+        context_tokens_estimate,
     )
     return fallback_response.model_copy(
         update={
@@ -265,6 +323,13 @@ def _fallback_response(
             "gateway_status": "error",
             "fallback_reason": reason,
             "request_id": request_id,
+            "timeout_sec": timeout_sec,
+            "context_tokens_estimate": context_tokens_estimate,
+            "prompt_chars": prompt_chars,
+            "response_chars": len(fallback_response.answer),
+            "tool_execution_ms": 0,
+            "llm_generation_ms": 0,
+            "total_elapsed_ms": latency_ms,
         }
     )
 
@@ -316,6 +381,13 @@ def _default_mock_gateway_response(request: AssistantGatewayRequest) -> Assistan
         elapsed_ms=0,
         gateway_status="ok",
         request_id=request.request_id,
+        timeout_sec=0,
+        context_tokens_estimate=_estimated_context_tokens(request),
+        prompt_chars=len(request.user_question) + len(request.context.model_dump_json()),
+        response_chars=22,
+        tool_execution_ms=0,
+        llm_generation_ms=0,
+        total_elapsed_ms=0,
     )
 
 

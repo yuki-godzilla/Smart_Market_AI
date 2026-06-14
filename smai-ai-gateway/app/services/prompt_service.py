@@ -3,7 +3,7 @@ from __future__ import annotations
 from app.schemas.common import LlmMessage
 from app.schemas.context_answer import ContextAnswerMessage, ContextAnswerRequest, ContextSection
 
-DEFAULT_CHAT_SYSTEM_PROMPT = "You are a helpful assistant."
+DEFAULT_CHAT_SYSTEM_PROMPT = "/no_think\nYou are a helpful assistant. Answer directly."
 
 
 class PromptService:
@@ -19,6 +19,7 @@ class PromptService:
     def build_summarize_messages(self, *, text: str, purpose: str | None) -> list[LlmMessage]:
         normalized_purpose = (purpose or "general").strip()
         system_prompt = (
+            "/no_think\n"
             "You summarize text clearly and conservatively. "
             "Do not add facts that are not present in the input."
         )
@@ -37,10 +38,12 @@ class PromptService:
             "Answer in Japanese." if request.language == "ja" else "Answer in English."
         )
         system_prompt = (
+            "/no_think\n"
             "You are SMAI Navi, a careful context-grounded investment-decision support "
             "assistant. "
             "Use only the supplied context. "
             "Do not invent facts, recompute scores, rank symbols, or give investment advice. "
+            "Do not show reasoning or analysis steps. "
             "If the context is insufficient, say what should be checked next. "
             "Keep the tone natural, concise, and beginner-friendly. "
             "Start the answer as a natural conversational reply from SMAI Navi, then use "
@@ -89,7 +92,7 @@ def _context_answer_user_prompt(request: ContextAnswerRequest) -> str:
         "- cautions: array of 1 to 8 strings, including uncertainty or missing checks when relevant\n"
         "- next_checkpoints: array of 1 to 6 strings\n"
         "- confidence: one of low, medium, high\n"
-        "Do not wrap the JSON in markdown. Do not add fields."
+        "Do not wrap the JSON in markdown. Do not add fields. Output JSON only."
     )
 
 

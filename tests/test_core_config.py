@@ -19,7 +19,7 @@ def test_settings_defaults_are_local_and_mock_first():
     assert settings.assistant.gateway.enabled is False
     assert settings.assistant.gateway.base_url == "http://127.0.0.1:8088"
     assert settings.assistant.gateway.context_answer_path == "/api/v1/context-answer"
-    assert settings.assistant.gateway.timeout_seconds == 10.0
+    assert settings.assistant.gateway.timeout_seconds == 90.0
     assert settings.assistant.gateway.model is None
     assert settings.assistant.gateway.execution_mode == "auto"
     assert settings.assistant.gateway.environment_profile == "notebook"

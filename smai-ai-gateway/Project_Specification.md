@@ -95,12 +95,12 @@ flowchart LR
 
 | 資産 | 役割 | 仕様上の扱い |
 | --- | --- | --- |
-| `.env` | 実行時設定 | `APP_NAME`、`APP_ENV`、`OLLAMA_BASE_URL`、`DEFAULT_LLM_MODEL`、`REQUEST_TIMEOUT_SECONDS`、`ENABLE_DEBUG_LOG` を読み込む。存在しない場合は既定値で動く。 |
+| `.env` | 実行時設定 | `APP_NAME`、`APP_ENV`、`SMAI_OLLAMA_BASE_URL`、`SMAI_LLM_PROFILE`、`SMAI_OLLAMA_MODEL`、`REQUEST_TIMEOUT_SECONDS`、`ENABLE_DEBUG_LOG` を読み込む。legacy alias として `OLLAMA_BASE_URL`、`DEFAULT_LLM_MODEL` も受け付ける。存在しない場合は既定値で動く。 |
 | `.env.example` | 設定テンプレート | local setup の標準値を示す。secret は含めない。 |
 | SMAI `assistant.gateway` config | 親SMAI側の接続設定 | 既定は `enabled=false`。有効化時のみ `base_url`、`context_answer_path`、`timeout_seconds`、任意 `model` で `/api/v1/context-answer` を呼ぶ。 |
 | Chat request | chat API 入力 | `message` は必須。`system_prompt`、`model` は任意。未知 field は拒否する。 |
 | Summarize request | summarize API 入力 | `text` は必須。`purpose`、`model` は任意。未知 field は拒否する。 |
-| Ollama model | LLM 実行資産 | request model が指定されれば優先し、未指定なら `DEFAULT_LLM_MODEL` を使う。既定は `qwen3:8b`。 |
+| Ollama model | LLM 実行資産 | request model が指定されれば優先し、未指定なら `SMAI_LLM_PROFILE` / `SMAI_OLLAMA_MODEL` を使う。既定は `notebook_dev` / `qwen3:4b`。 |
 | Prompt templates | provider 入力の組み立て | 現時点では `PromptService` 内の最小実装。将来外部化しやすい service 境界に置く。 |
 
 ## 6. 実装構成
@@ -182,7 +182,7 @@ smai-ai-gateway/
 
 | Interface | 状態 | プロジェクト上の扱い |
 | --- | --- | --- |
-| Ollama `/api/chat` | 実装済み | 初期 provider。`OLLAMA_BASE_URL` と `DEFAULT_LLM_MODEL` で接続先と model を変える。 |
+| Ollama `/api/chat` | 実装済み | 初期 provider。`SMAI_OLLAMA_BASE_URL`、`SMAI_LLM_PROFILE`、`SMAI_OLLAMA_MODEL` で接続先と model を変える。 |
 | OpenAI compatible API | 未着手 | 将来 provider 候補。SMAI 側ではなく Gateway client 境界で追加する。 |
 | vLLM | 未着手 | 将来 provider 候補。 |
 | llama.cpp server | 未着手 | 将来 provider 候補。 |

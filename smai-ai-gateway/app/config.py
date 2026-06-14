@@ -15,7 +15,8 @@ class GatewaySettings(BaseModel):
     APP_NAME: str = Field(default="smai-ai-gateway", min_length=1)
     APP_ENV: str = Field(default="local", min_length=1)
     OLLAMA_BASE_URL: str = Field(default="http://localhost:11434", min_length=1)
-    DEFAULT_LLM_MODEL: str = Field(default="qwen3:8b", min_length=1)
+    DEFAULT_LLM_MODEL: str = Field(default="qwen3:4b", min_length=1)
+    DEFAULT_LLM_PROFILE: str = Field(default="notebook_dev", min_length=1)
     REQUEST_TIMEOUT_SECONDS: float = Field(default=30.0, gt=0)
     ENABLE_DEBUG_LOG: bool = False
 
@@ -25,11 +26,20 @@ def get_settings() -> GatewaySettings:
     """Load settings from .env and environment variables."""
 
     _load_dotenv(GATEWAY_ROOT / ".env")
+    base_url = os.getenv("SMAI_OLLAMA_BASE_URL") or os.getenv(
+        "OLLAMA_BASE_URL", "http://localhost:11434"
+    )
+    default_model = (
+        os.getenv("SMAI_OLLAMA_MODEL")
+        or os.getenv("DEFAULT_LLM_MODEL")
+        or "qwen3:4b"
+    )
     return GatewaySettings(
         APP_NAME=os.getenv("APP_NAME", "smai-ai-gateway"),
         APP_ENV=os.getenv("APP_ENV", "local"),
-        OLLAMA_BASE_URL=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
-        DEFAULT_LLM_MODEL=os.getenv("DEFAULT_LLM_MODEL", "qwen3:8b"),
+        OLLAMA_BASE_URL=base_url,
+        DEFAULT_LLM_MODEL=default_model,
+        DEFAULT_LLM_PROFILE=os.getenv("SMAI_LLM_PROFILE", "notebook_dev"),
         REQUEST_TIMEOUT_SECONDS=_env_float("REQUEST_TIMEOUT_SECONDS", 30.0),
         ENABLE_DEBUG_LOG=_env_bool("ENABLE_DEBUG_LOG", False),
     )

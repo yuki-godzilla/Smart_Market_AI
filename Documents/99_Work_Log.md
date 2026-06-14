@@ -18,6 +18,23 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-14 - SMAI Assistant selectable LLM profiles
+
+- Changed Gateway default model routing to notebook-friendly `notebook_dev` / `qwen3:4b`, while keeping `desktop_fast` / `qwen3:8b`, `desktop_analysis` / `qwen3:14b`, and `desktop_heavy` / `qwen3:30b` selectable by config or request.
+- Added `SMAI_LLM_PROFILE`, `SMAI_OLLAMA_MODEL`, and `SMAI_OLLAMA_BASE_URL` support, with request `model` overriding profile selection and legacy env aliases still accepted.
+- Added Gateway `/models` model discovery so the UI / developer can see installed Ollama models and get an `ollama pull <model>` hint when the configured model is missing.
+- Added a compact ChatGPT-like SMAI Assistant model picker above the chat header; it shows the current model as the button label and opens a small drawer with available profile/model choices.
+- Updated Gateway / parent docs, `.env.example`, setup instructions, roadmap, operations guide, and tests for the new model profile behavior.
+
+## 2026-06-14 - SMAI Assistant LLM Runtime Stabilization
+
+- Raised the parent SMAI Assistant Gateway HTTP timeout default from 10s to 90s so local `qwen3:8b` responses are not cut off before Gateway profile timeouts.
+- Added runtime metadata across Gateway and parent Assistant responses: `timeout_sec`, `context_tokens_estimate`, `prompt_chars`, `response_chars`, `tool_execution_ms`, `llm_generation_ms`, and `total_elapsed_ms`.
+- Added Assistant / Gateway runtime logs for request start, provider result, fallback reason, prompt size, and context size.
+- Added intent-aware max token caps so lightweight `free_chat` uses shorter responses while heavier forecast / news / report tasks can use larger budgets.
+- Converted Gateway provider failures such as `provider_timeout` into structured fallback responses with visible metadata instead of only HTTP errors.
+- Removed the large initial `こんにちは。SMAIナビです。` guidance card from the SMAI Assistant workspace; the initial screen now moves from header and referenced materials directly to the consultation cards and input bar.
+
 ## 2026-06-14 - SMAI Assistant LLM-first Metadata and Fallback Visibility
 
 - Changed Gateway-backed Assistant success responses to use `response_source=llm` and fallback responses to use `response_source=deterministic_fallback`.

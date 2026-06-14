@@ -19,6 +19,10 @@ LlmTaskType = Literal[
     "report_export_summary",
 ]
 LlmProfileName = Literal[
+    "notebook_dev",
+    "desktop_fast",
+    "desktop_analysis",
+    "desktop_heavy",
     "assistant_fast",
     "assistant_standard",
     "assistant_quality",
@@ -38,29 +42,96 @@ class ModelRoute:
     fallback: bool = False
 
 
+@dataclass(frozen=True)
+class LlmModelProfile:
+    provider: str
+    model: str
+    purpose: str
+    timeout_seconds: float
+    max_tokens: int
+
+
+MODEL_PROFILES: dict[str, LlmModelProfile] = {
+    "notebook_dev": LlmModelProfile(
+        provider="ollama",
+        model="qwen3:4b",
+        purpose="軽量開発・疎通確認",
+        timeout_seconds=75.0,
+        max_tokens=800,
+    ),
+    "desktop_fast": LlmModelProfile(
+        provider="ollama",
+        model="qwen3:8b",
+        purpose="通常Copilot・ニュース要約",
+        timeout_seconds=60.0,
+        max_tokens=1200,
+    ),
+    "desktop_analysis": LlmModelProfile(
+        provider="ollama",
+        model="qwen3:14b",
+        purpose="銘柄分析・RAG統合回答",
+        timeout_seconds=120.0,
+        max_tokens=2000,
+    ),
+    "desktop_heavy": LlmModelProfile(
+        provider="ollama",
+        model="qwen3:30b",
+        purpose="週次レポート・重要銘柄深掘り",
+        timeout_seconds=240.0,
+        max_tokens=3000,
+    ),
+}
+
+_PROFILE_ALIASES: dict[LlmProfileName, str] = {
+    "notebook_dev": "notebook_dev",
+    "desktop_fast": "desktop_fast",
+    "desktop_analysis": "desktop_analysis",
+    "desktop_heavy": "desktop_heavy",
+    "assistant_fast": "notebook_dev",
+    "assistant_standard": "desktop_fast",
+    "assistant_quality": "desktop_analysis",
+    "report_quality": "desktop_heavy",
+    "fallback": "notebook_dev",
+}
+
+
 _TASK_DEFAULTS: dict[LlmTaskType, LlmProfileName] = {
-    "free_chat": "assistant_fast",
-    "app_help": "assistant_fast",
-    "stock_summary": "assistant_standard",
-    "forecast_risk_compare": "assistant_standard",
-    "news_materials": "assistant_standard",
-    "rag_summary": "assistant_standard",
-    "decision_report_draft": "report_quality",
-    "llm_factor_generation": "assistant_quality",
-    "report_export_summary": "report_quality",
+    "free_chat": "notebook_dev",
+    "app_help": "notebook_dev",
+    "stock_summary": "desktop_fast",
+    "forecast_risk_compare": "desktop_fast",
+    "news_materials": "desktop_fast",
+    "rag_summary": "desktop_fast",
+    "decision_report_draft": "desktop_heavy",
+    "llm_factor_generation": "desktop_analysis",
+    "report_export_summary": "desktop_heavy",
 }
 
 _LIGHT_DOWNGRADES: dict[LlmProfileName, LlmProfileName] = {
-    "assistant_quality": "assistant_standard",
-    "report_quality": "assistant_standard",
+    "desktop_analysis": "desktop_fast",
+    "desktop_heavy": "desktop_fast",
+    "assistant_quality": "desktop_fast",
+    "report_quality": "desktop_fast",
 }
 
 _QUALITY_UPGRADES: dict[LlmTaskType, LlmProfileName] = {
-    "news_materials": "assistant_quality",
-    "rag_summary": "assistant_quality",
-    "llm_factor_generation": "assistant_quality",
-    "decision_report_draft": "report_quality",
-    "report_export_summary": "report_quality",
+    "news_materials": "desktop_analysis",
+    "rag_summary": "desktop_analysis",
+    "llm_factor_generation": "desktop_analysis",
+    "decision_report_draft": "desktop_heavy",
+    "report_export_summary": "desktop_heavy",
+}
+
+_TASK_RUNTIME_POLICIES: dict[LlmTaskType, tuple[float, int]] = {
+    "free_chat": (30.0, 400),
+    "app_help": (30.0, 500),
+    "stock_summary": (90.0, 700),
+    "forecast_risk_compare": (90.0, 800),
+    "news_materials": (120.0, 900),
+    "rag_summary": (120.0, 900),
+    "decision_report_draft": (150.0, 1400),
+    "llm_factor_generation": (150.0, 1200),
+    "report_export_summary": (150.0, 1600),
 }
 
 
@@ -86,21 +157,20 @@ def resolve_model_route(
             fallback=True,
         )
 
-    profile = preferred_profile or _TASK_DEFAULTS[task_type]
+    profile_locked = preferred_profile is not None or bool(settings.DEFAULT_LLM_PROFILE)
+    profile = preferred_profile or _default_profile_for_task(settings, task_type)
     reason = f"{task_type} uses {profile}."
 
-    if execution_mode == "light":
+    if not profile_locked and execution_mode == "light":
         profile = _LIGHT_DOWNGRADES.get(profile, profile)
         reason = f"light mode uses {profile} for {task_type}."
-    elif execution_mode == "quality":
+    elif not profile_locked and execution_mode == "quality":
         profile = _QUALITY_UPGRADES.get(task_type, profile)
         reason = f"quality mode uses {profile} for {task_type}."
 
-    if environment_profile == "notebook" and profile in {"assistant_quality", "report_quality"}:
-        reason = f"notebook keeps {profile} on the local 8b model."
-
     return _route_for_profile(
         profile=profile,
+        task_type=task_type,
         settings=settings,
         environment_profile=environment_profile,
         requested_model=requested_model,
@@ -111,27 +181,56 @@ def resolve_model_route(
 def _route_for_profile(
     *,
     profile: LlmProfileName,
+    task_type: LlmTaskType,
     settings: GatewaySettings,
     environment_profile: LlmEnvironmentProfile,
     requested_model: str | None,
     reason: str,
 ) -> ModelRoute:
-    default_model = requested_model or settings.DEFAULT_LLM_MODEL
-    quality_model = "qwen3:8b" if environment_profile == "notebook" else "qwen3:14b"
-    report_model = "qwen3:8b" if environment_profile == "notebook" else "qwen3:14b"
-    profiles: dict[LlmProfileName, tuple[str, float, int]] = {
-        "assistant_fast": (default_model, 75.0, 700),
-        "assistant_standard": (default_model, 90.0, 1000),
-        "assistant_quality": (quality_model, 120.0, 1200),
-        "report_quality": (report_model, 150.0, 1600),
-        "fallback": ("fallback", 0.0, 0),
-    }
-    model, timeout_seconds, max_tokens = profiles[profile]
+    profile_config = model_profile_for_name(profile, settings=settings)
+    model = requested_model or profile_config.model
+    profile_timeout_seconds = profile_config.timeout_seconds
+    profile_max_tokens = profile_config.max_tokens
+    task_timeout_seconds, task_max_tokens = _TASK_RUNTIME_POLICIES[task_type]
+    timeout_seconds = max(profile_timeout_seconds, task_timeout_seconds)
+    max_tokens = min(profile_max_tokens, task_max_tokens)
     return ModelRoute(
-        provider="ollama",
+        provider=profile_config.provider,
         model=model,
         profile=profile,
         timeout_seconds=timeout_seconds,
         max_tokens=max_tokens,
         reason=reason,
     )
+
+
+def _default_profile_for_task(settings: GatewaySettings, task_type: LlmTaskType) -> LlmProfileName:
+    configured = settings.DEFAULT_LLM_PROFILE
+    if configured:
+        return _profile_name(configured)
+    return _TASK_DEFAULTS[task_type]
+
+
+def model_profile_for_name(
+    profile: str,
+    *,
+    settings: GatewaySettings,
+) -> LlmModelProfile:
+    name = _PROFILE_ALIASES.get(_profile_name(profile), profile)
+    if name not in MODEL_PROFILES:
+        available = ", ".join(sorted(MODEL_PROFILES))
+        raise ValueError(f"Unknown LLM profile '{profile}'. Available profiles: {available}.")
+    base = MODEL_PROFILES[name]
+    if name == "notebook_dev" and settings.DEFAULT_LLM_MODEL:
+        return LlmModelProfile(
+            provider=base.provider,
+            model=settings.DEFAULT_LLM_MODEL,
+            purpose=base.purpose,
+            timeout_seconds=base.timeout_seconds,
+            max_tokens=base.max_tokens,
+        )
+    return base
+
+
+def _profile_name(profile: str) -> LlmProfileName:
+    return profile  # type: ignore[return-value]

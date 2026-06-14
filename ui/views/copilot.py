@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import html
+import os
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -32,6 +33,15 @@ COPILOT_CHAT_HISTORY_STATE_KEY = "smai_copilot_chat_history"
 COPILOT_CONVERSATION_ID_STATE_KEY = "smai_copilot_conversation_id"
 COPILOT_ACTIVE_INTENT_STATE_KEY = "smai_copilot_active_intent"
 COPILOT_PENDING_STREAM_STATE_KEY = "smai_copilot_pending_stream_turn_id"
+COPILOT_LLM_PROFILE_STATE_KEY = "smai_copilot_llm_profile"
+COPILOT_LLM_MODEL_STATE_KEY = "smai_copilot_llm_model"
+
+COPILOT_LLM_MODEL_OPTIONS: tuple[tuple[str, str, str], ...] = (
+    ("notebook_dev", "qwen3:4b", "ノートPC / 軽量開発"),
+    ("desktop_fast", "qwen3:8b", "デスクトップ通常 / Copilot・要約"),
+    ("desktop_analysis", "qwen3:14b", "デスクトップ高精度 / 銘柄分析・RAG"),
+    ("desktop_heavy", "qwen3:30b", "高負荷分析 / 週次・月次レポート"),
+)
 
 CopilotIntent = Literal[
     "app_help",
@@ -51,6 +61,9 @@ class CopilotGatewayRuntimeConfig:
     context_answer_path: str
     execution_mode: str
     environment_profile: str
+    provider: str = "ollama"
+    model: str = "qwen3:4b"
+    profile: str = "notebook_dev"
 
     @property
     def mode_label(self) -> str:
@@ -274,15 +287,88 @@ def copilot_gateway_runtime_config(
 ) -> CopilotGatewayRuntimeConfig:
     settings = base_settings or get_settings()
     gateway = settings.assistant.gateway
+    selected_profile, selected_model = _selected_llm_profile_model(gateway)
 
     return CopilotGatewayRuntimeConfig(
-        enabled=True,
+        enabled=not _is_network_free_app_test_mode(),
         base_url=gateway.base_url,
         timeout_seconds=float(gateway.timeout_seconds),
         context_answer_path=gateway.context_answer_path,
         execution_mode=gateway.execution_mode,
         environment_profile=gateway.environment_profile,
+        provider="ollama",
+        model=selected_model,
+        profile=selected_profile,
     )
+
+
+def _is_network_free_app_test_mode() -> bool:
+    return (
+        os.getenv("SMAI_DISABLE_BACKGROUND_WORKERS") == "1"
+        and os.getenv("SMAI_ASSISTANT_GATEWAY_LIVE_SMOKE") != "1"
+    )
+
+
+def _selected_llm_profile_model(gateway: AssistantGatewayConfig) -> tuple[str, str]:
+    default_profile = gateway.preferred_profile or os.getenv("SMAI_LLM_PROFILE") or "notebook_dev"
+    default_model = (
+        gateway.model
+        or os.getenv("SMAI_OLLAMA_MODEL")
+        or os.getenv("DEFAULT_LLM_MODEL")
+        or _model_for_profile(str(default_profile))
+    )
+    profile = str(st.session_state.get(COPILOT_LLM_PROFILE_STATE_KEY, default_profile))
+    model = str(st.session_state.get(COPILOT_LLM_MODEL_STATE_KEY, default_model))
+    return profile, model
+
+
+def _model_for_profile(profile: str) -> str:
+    for option_profile, option_model, _ in COPILOT_LLM_MODEL_OPTIONS:
+        if option_profile == profile:
+            return option_model
+    return "qwen3:4b"
+
+
+def _render_model_selector(
+    runtime_config: CopilotGatewayRuntimeConfig,
+) -> CopilotGatewayRuntimeConfig:
+    labels = [
+        f"{profile} / {model} - {purpose}" for profile, model, purpose in COPILOT_LLM_MODEL_OPTIONS
+    ]
+    current_index = next(
+        (
+            index
+            for index, (profile, model, _) in enumerate(COPILOT_LLM_MODEL_OPTIONS)
+            if profile == runtime_config.profile and model == runtime_config.model
+        ),
+        0,
+    )
+    with st.popover(runtime_config.model, use_container_width=True):
+        st.caption("LLM model")
+        selected_label = st.radio(
+            "使用モデル",
+            labels,
+            index=current_index,
+            key="smai_copilot_llm_model_radio",
+        )
+        selected_index = labels.index(selected_label)
+        profile, model, purpose = COPILOT_LLM_MODEL_OPTIONS[selected_index]
+        st.caption(f"現在: Ollama / {model} / {profile}")
+        st.caption(purpose)
+        st.session_state[COPILOT_LLM_PROFILE_STATE_KEY] = profile
+        st.session_state[COPILOT_LLM_MODEL_STATE_KEY] = model
+        return CopilotGatewayRuntimeConfig(
+            enabled=runtime_config.enabled,
+            base_url=runtime_config.base_url,
+            timeout_seconds=runtime_config.timeout_seconds,
+            context_answer_path=runtime_config.context_answer_path,
+            execution_mode=runtime_config.execution_mode,
+            environment_profile=runtime_config.environment_profile,
+            provider=runtime_config.provider,
+            model=model,
+            profile=profile,
+        )
+    return runtime_config
 
 
 def copilot_settings_from_gateway_runtime(
@@ -295,9 +381,10 @@ def copilot_settings_from_gateway_runtime(
         base_url=runtime_config.base_url,
         context_answer_path=runtime_config.context_answer_path,
         timeout_seconds=runtime_config.timeout_seconds,
-        model=None,
+        model=runtime_config.model,
         execution_mode=runtime_config.execution_mode,
         environment_profile=runtime_config.environment_profile,
+        preferred_profile=runtime_config.profile,  # type: ignore[arg-type]
     )
     assistant_config = settings.assistant.model_copy(update={"gateway": gateway})
     return settings.model_copy(update={"assistant": assistant_config})
@@ -372,11 +459,17 @@ def render_copilot_workspace_page() -> None:
     history = _copilot_history()
     runtime_config = copilot_gateway_runtime_config()
 
-    st.markdown(_chat_header_html(history_count=len(history)), unsafe_allow_html=True)
-    _render_material_status(_active_context_from_history(history, context_by_id))
-    _, clear_col = st.columns([0.82, 0.18])
+    model_col, _, clear_col = st.columns([0.22, 0.60, 0.18])
+    with model_col:
+        runtime_config = _render_model_selector(runtime_config)
     with clear_col:
         clear = st.button("新しい会話", use_container_width=True)
+
+    st.markdown(
+        _chat_header_html(history_count=len(history), runtime_config=runtime_config),
+        unsafe_allow_html=True,
+    )
+    _render_material_status(_active_context_from_history(history, context_by_id))
 
     if clear:
         st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = []
@@ -429,7 +522,6 @@ def render_copilot_workspace_page() -> None:
 
 def _render_chat_thread(turns: list[dict[str, str]]) -> None:
     if not turns:
-        st.markdown(_welcome_prompt_html(), unsafe_allow_html=True)
         return
 
     pending_turn_id = str(st.session_state.get(COPILOT_PENDING_STREAM_STATE_KEY, "") or "")
@@ -580,6 +672,13 @@ def _turn_from_response(
         "gateway_status": response.gateway_status or "",
         "fallback_reason": response.fallback_reason or "",
         "request_id": response.request_id or "",
+        "timeout_sec": str(response.timeout_sec or ""),
+        "context_tokens_estimate": str(response.context_tokens_estimate or ""),
+        "prompt_chars": str(response.prompt_chars or ""),
+        "response_chars": str(response.response_chars or ""),
+        "tool_execution_ms": str(response.tool_execution_ms or ""),
+        "llm_generation_ms": str(response.llm_generation_ms or ""),
+        "total_elapsed_ms": str(response.total_elapsed_ms or ""),
         "response_meta": _response_meta_label(response=response, intent=intent),
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
@@ -609,9 +708,26 @@ def _new_conversation_id() -> str:
     return f"smai-copilot-{uuid4().hex}"
 
 
-def _chat_header_html(*, history_count: int) -> str:
+def _chat_header_html(
+    *,
+    history_count: int,
+    runtime_config: CopilotGatewayRuntimeConfig | None = None,
+) -> str:
+    runtime_config = runtime_config or CopilotGatewayRuntimeConfig(
+        enabled=True,
+        base_url="http://127.0.0.1:8088",
+        timeout_seconds=90.0,
+        context_answer_path="/api/v1/context-answer",
+        execution_mode="auto",
+        environment_profile="notebook",
+    )
     status_label = "準備完了" if history_count == 0 else "確認中"
     status_detail = "SMAIナビ" if history_count == 0 else f"会話 {history_count}件"
+    llm_label = (
+        f"LLM: {runtime_config.provider} / {runtime_config.model} / {runtime_config.profile}"
+        if runtime_config.enabled
+        else "LLM: deterministic fallback"
+    )
     navi_image = _asset_data_uri(MASCOT_NAVI_CHAT_ASSET)
     return (
         '<section class="smai-copilot-chat-topbar">'
@@ -629,18 +745,8 @@ def _chat_header_html(*, history_count: int) -> str:
         '<span class="smai-copilot-chat-status-dot"></span>'
         f"<strong>{status_label}</strong>"
         f"<small>{html.escape(status_detail)}</small>"
+        f"<small>{html.escape(llm_label)}</small>"
         "</div>"
-        "</section>"
-    )
-
-
-def _welcome_prompt_html() -> str:
-    return (
-        '<section class="smai-copilot-workspace-card">'
-        '<div class="smai-copilot-card-kicker">SMAIナビ</div>'
-        "<h2>こんにちは。SMAIナビです。</h2>"
-        "<p>投資判断アシスタントとして、SMAIの使い方や銘柄・予測・ニュース・"
-        "根拠資料の整理をお手伝いします。今日は何を相談しますか？</p>"
         "</section>"
     )
 
@@ -987,7 +1093,13 @@ def _response_meta_label(*, response: AssistantResponse, intent: CopilotIntent) 
         return model + " / live / " + profile + " / " + provider + " / " + intent_label + latency
     if response.response_source in ("fallback", "deterministic_fallback"):
         reason = response.fallback_reason or "gateway_unavailable"
-        return "SMAI通常回答 / fallback: " + reason + " / " + intent_label
+        model = " / " + response.model if response.model else ""
+        duration = ""
+        if response.latency_ms is not None:
+            duration = " / " + str(response.latency_ms) + "ms"
+        elif response.timeout_sec is not None:
+            duration = " / " + str(response.timeout_sec) + "s"
+        return "SMAI通常回答 / fallback: " + reason + model + " / " + intent_label + duration
     return "SMAI通常回答 / deterministic / " + intent_label
 
 

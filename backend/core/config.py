@@ -140,12 +140,16 @@ class AssistantGatewayConfig(StrictConfigModel):
     enabled: bool = False
     base_url: str = Field(default="http://127.0.0.1:8088", min_length=1)
     context_answer_path: str = Field(default="/api/v1/context-answer", min_length=1)
-    timeout_seconds: float = Field(default=10.0, gt=0)
+    timeout_seconds: float = Field(default=90.0, gt=0)
     model: str | None = Field(default=None, min_length=1)
     execution_mode: Literal["auto", "light", "quality", "off"] = "auto"
     environment_profile: Literal["notebook", "desktop", "server", "offline"] = "notebook"
     preferred_profile: (
         Literal[
+            "notebook_dev",
+            "desktop_fast",
+            "desktop_analysis",
+            "desktop_heavy",
             "assistant_fast",
             "assistant_standard",
             "assistant_quality",

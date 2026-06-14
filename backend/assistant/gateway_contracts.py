@@ -36,6 +36,10 @@ AssistantGatewayTaskType = Literal[
 AssistantGatewayExecutionMode = Literal["auto", "light", "quality", "off"]
 AssistantGatewayEnvironmentProfile = Literal["notebook", "desktop", "server", "offline"]
 AssistantGatewayProfileName = Literal[
+    "notebook_dev",
+    "desktop_fast",
+    "desktop_analysis",
+    "desktop_heavy",
     "assistant_fast",
     "assistant_standard",
     "assistant_quality",
@@ -158,6 +162,13 @@ class AssistantGatewayResponse(StrictBaseModel):
     gateway_status: AssistantGatewayStatus = "ok"
     fallback_reason: str | None = Field(default=None, min_length=1)
     request_id: str | None = Field(default=None, min_length=1)
+    timeout_sec: float | None = Field(default=None, ge=0)
+    context_tokens_estimate: int | None = Field(default=None, ge=0)
+    prompt_chars: int | None = Field(default=None, ge=0)
+    response_chars: int | None = Field(default=None, ge=0)
+    tool_execution_ms: int | None = Field(default=None, ge=0)
+    llm_generation_ms: int | None = Field(default=None, ge=0)
+    total_elapsed_ms: int | None = Field(default=None, ge=0)
     decision_support_note: str = DECISION_SUPPORT_NOTE
 
 

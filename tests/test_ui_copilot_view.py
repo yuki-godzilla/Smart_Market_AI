@@ -83,10 +83,11 @@ def test_copilot_settings_from_gateway_runtime_enables_session_gateway():
 
     assert settings.assistant.gateway.enabled
     assert settings.assistant.gateway.base_url == "http://gateway.local"
-    assert settings.assistant.gateway.model is None
+    assert settings.assistant.gateway.model == "qwen3:4b"
     assert settings.assistant.gateway.timeout_seconds == 5.0
     assert settings.assistant.gateway.execution_mode == "light"
     assert settings.assistant.gateway.environment_profile == "notebook"
+    assert settings.assistant.gateway.preferred_profile == "notebook_dev"
     assert not base_settings.assistant.gateway.enabled
 
 
@@ -323,7 +324,8 @@ def test_copilot_page_renders_with_streamlit_app(monkeypatch):
     assert "SMAIナビ" in page_text
     assert "LLM接続" not in page_text
     assert "LLM Gateway" not in page_text
-    assert "こんにちは。SMAIナビです。" in page_text
+    assert "こんにちは。SMAIナビです。" not in page_text
+    assert "今日は何を相談しますか？" in page_text
     assert "smai-copilot-chat-topbar" in page_text
     assert "SMAIアシスタント" in button_labels
     assert (

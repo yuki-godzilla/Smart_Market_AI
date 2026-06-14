@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.clients.ollama_client import OllamaClient
 from app.schemas.chat import ChatRequest, ChatResponse
+from app.services.model_router import resolve_model_route
 from app.services.prompt_service import PromptService
 
 
@@ -22,5 +23,16 @@ class ChatService:
             message=request.message,
             system_prompt=request.system_prompt,
         )
-        result = self.client.chat(messages, model=request.model)
+        route = resolve_model_route(
+            settings=self.client.settings,
+            task_type="free_chat",
+            preferred_profile=request.profile,
+            requested_model=request.model,
+        )
+        result = self.client.chat(
+            messages,
+            model=route.model,
+            timeout_seconds=route.timeout_seconds,
+            max_tokens=route.max_tokens,
+        )
         return ChatResponse(**result.model_dump())

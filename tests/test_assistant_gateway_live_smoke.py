@@ -21,7 +21,7 @@ pytestmark = pytest.mark.skipif(
 def test_parent_smai_assistant_can_use_live_gateway_context_answer():
     base_url = os.getenv("SMAI_ASSISTANT_GATEWAY_BASE_URL", "http://127.0.0.1:8088")
     model = os.getenv("SMAI_ASSISTANT_GATEWAY_MODEL") or None
-    timeout_seconds = float(os.getenv("SMAI_ASSISTANT_GATEWAY_TIMEOUT_SECONDS", "30"))
+    timeout_seconds = float(os.getenv("SMAI_ASSISTANT_GATEWAY_TIMEOUT_SECONDS", "90"))
     settings = Settings.model_validate(
         {
             "assistant": {
@@ -53,6 +53,14 @@ def test_parent_smai_assistant_can_use_live_gateway_context_answer():
     assert response.cautions
     assert response.next_checkpoints
     assert response.intent == "forecast"
+    assert response.response_source == "llm"
+    assert response.provider == "ollama"
+    assert response.model == "qwen3:8b"
+    assert response.gateway_status == "ok"
+    assert response.fallback_reason is None
+    assert response.request_id
+    assert response.timeout_sec is not None
+    assert response.llm_generation_ms is not None
 
 
 def _sample_report_context():

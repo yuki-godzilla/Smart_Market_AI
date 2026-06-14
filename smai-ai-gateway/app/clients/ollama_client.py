@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from time import perf_counter
 from typing import Sequence
 
@@ -51,6 +52,7 @@ class OllamaClient:
             "stream": False,
             "think": False,
         }
+        prompt_chars = sum(len(message.content) for message in messages)
         if max_tokens is not None:
             payload["options"] = {"num_predict": max_tokens}
         started = perf_counter()
@@ -85,7 +87,7 @@ class OllamaClient:
                 "Ollama returned invalid JSON.",
                 code="invalid_provider_response",
             ) from exc
-        answer = str(data.get("message", {}).get("content", "")).strip()
+        answer = _strip_thinking_text(str(data.get("message", {}).get("content", "")))
         if not answer:
             raise OllamaClientError(
                 "Ollama returned an empty answer.",
@@ -97,6 +99,35 @@ class OllamaClient:
             model=str(data.get("model") or selected_model),
             provider=self.provider,
             elapsed_ms=elapsed_ms,
+            prompt_chars=prompt_chars,
+            response_chars=len(answer),
+        )
+
+    def list_models(self) -> list[str]:
+        try:
+            with httpx.Client(timeout=self.settings.REQUEST_TIMEOUT_SECONDS) as client:
+                response = client.get(f"{self.settings.OLLAMA_BASE_URL.rstrip('/')}/api/tags")
+                response.raise_for_status()
+        except httpx.RequestError as exc:
+            raise OllamaClientError(
+                "Ollama request failed. Check SMAI_OLLAMA_BASE_URL and whether Ollama is running.",
+                code="provider_unreachable",
+                retryable=True,
+            ) from exc
+        except httpx.HTTPStatusError as exc:
+            raise self._http_status_error(exc.response, self.settings.DEFAULT_LLM_MODEL) from exc
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise OllamaClientError(
+                "Ollama returned invalid JSON from /api/tags.",
+                code="invalid_provider_response",
+            ) from exc
+        models = data.get("models", []) if isinstance(data, dict) else []
+        return sorted(
+            str(item.get("name", "")).strip()
+            for item in models
+            if isinstance(item, dict) and str(item.get("name", "")).strip()
         )
 
     def _http_status_error(
@@ -134,3 +165,11 @@ def _extract_provider_error(response: httpx.Response) -> str:
         if error:
             return str(error).strip()
     return response.text.strip()
+
+
+def _strip_thinking_text(answer: str) -> str:
+    text = answer.strip()
+    text = re.sub(r"(?is)<think>.*?</think>", "", text).strip()
+    if "</think>" in text:
+        text = text.split("</think>")[-1].strip()
+    return text

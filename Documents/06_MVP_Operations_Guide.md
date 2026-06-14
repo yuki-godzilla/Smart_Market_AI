@@ -95,12 +95,12 @@ assistant:
     enabled: true
     base_url: "http://127.0.0.1:8088"
     context_answer_path: "/api/v1/context-answer"
-    timeout_seconds: 10
+    timeout_seconds: 90
     execution_mode: "auto"          # auto|light|quality|off
     environment_profile: "notebook" # notebook|desktop|server|offline
 ```
 
-SMAI 親は通常 `model` を固定指定せず、`task_type` と環境ヒントだけを Gateway に渡します。Gateway 側が `assistant_fast` / `assistant_standard` / `assistant_quality` / `report_quality` / `fallback` から model / timeout / token budget を選び、応答下部には `qwen3:8b / live / assistant_fast / ollama / free_chat / 4230ms` のような控えめなメタ情報を表示します。Gateway / provider / model / timeout / schema / empty-answer 失敗時だけ deterministic fallback に戻り、その場合は `fallback: gateway_timeout` のように理由を残します。
+SMAI 親は通常 `model` を固定指定せず、`task_type` と環境ヒントだけを Gateway に渡します。Gateway 側が `notebook_dev` / `desktop_fast` / `desktop_analysis` / `desktop_heavy` から model / timeout / token budget を選び、応答下部には `qwen3:4b / live / notebook_dev / ollama / free_chat / 4230ms` のような控えめなメタ情報を表示します。ノートPC開発の既定は `qwen3:4b` で、SMAIアシスタント上部の小さなモデルピッカーから `qwen3:8b` / `qwen3:14b` / `qwen3:30b` profile へ切り替えられます。親側 HTTP timeout 既定はローカルLLMの実測に合わせて 90 秒です。Gateway / provider / model / timeout / schema / empty-answer 失敗時だけ deterministic fallback に戻り、その場合は `fallback: gateway_timeout` や `fallback: provider_timeout` のように理由を残します。開発用 metadata として `request_id`、`timeout_sec`、`context_tokens_estimate`、`prompt_chars`、`response_chars`、`tool_execution_ms`、`llm_generation_ms`、`total_elapsed_ms` も保持します。
 
 Gateway 接続失敗時も `TemplateAssistantService` に戻るため、SMAI の予測、ランキング、Investment Score、Research Score、LLM Factor 参考列は変更されません。
 

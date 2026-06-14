@@ -75,3 +75,40 @@ def test_ollama_chat_disables_thinking_for_structured_gateway_tasks(monkeypatch)
     assert result.answer == '{"answer":"ok"}'
     payload = json.loads(str(observed["payload"]))
     assert payload["think"] is False
+
+
+def test_ollama_chat_strips_thinking_blocks(monkeypatch):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "model": "qwen3:4b",
+                "message": {
+                    "role": "assistant",
+                    "content": "internal reasoning</think>\n\nこんにちは",
+                },
+            },
+            request=request,
+        )
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def __enter__(self) -> "FakeClient":
+            return self
+
+        def __exit__(self, *args) -> None:
+            pass
+
+        def post(self, url: str, *, json: dict[str, object]) -> httpx.Response:
+            request = httpx.Request("POST", url, json=json)
+            return handler(request)
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+    client = OllamaClient(GatewaySettings())
+
+    result = client.chat([LlmMessage(role="user", content="hello")], model="qwen3:4b")
+
+    assert result.answer == "こんにちは"
+    assert result.response_chars == len("こんにちは")

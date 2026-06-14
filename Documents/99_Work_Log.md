@@ -18,6 +18,14 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-14 - SMAI Assistant UX Score-Up Sprint
+
+- Shifted the dedicated SMAI Assistant workspace further toward an AI-chat-first experience: Gateway / LLM responses are now rendered as the primary answer without an added fixed lead sentence.
+- Updated the Gateway prompt so the LLM treats SMAI read-only Tool Layer results as checked materials, uses them only when relevant, and asks for missing materials when the checked results are insufficient.
+- Simplified lightweight `free_chat` and `app_help` fallback replies: `こんにちは` now returns a short natural greeting without structured cards, execution checks, or repeated advice disclaimers.
+- Kept structured cards only for intent-specific support content such as stock summary, forecast/risk comparison, news materials, and Decision Report drafting.
+- Validated representative prompts: `こんにちは`, `SMAIの使い方を教えて`, `この銘柄で最初に確認する材料は？`, `AI予測インサイトと下振れ警戒をどう比べればいい？`, `ニュース材料を見たい`, and `Decision Reportに残す確認点を整理して`.
+
 ## 2026-06-14 - SMAI Assistant Chat Layout Fix
 
 - Reworked SMAI Assistant conversation layout into a centered single-column chat flow constrained to the same chat width for header, material status, thread, suggestions, and input.

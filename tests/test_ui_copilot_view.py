@@ -224,8 +224,7 @@ def test_copilot_turn_from_response_adds_natural_lead_and_meta():
         executed_checks=["現在文脈を確認"],
     )
 
-    assert turn["answer"].startswith("はい！SMAIの使い方ですね。")
-    assert "銘柄コックピットから確認できます。" in turn["answer"]
+    assert turn["answer"] == "銘柄コックピットから確認できます。"
     assert turn["response_meta"] == "qwen3:8b / ollama / app_help / context: current screen"
 
 
@@ -243,7 +242,7 @@ def test_copilot_turn_from_response_hides_internal_prompt_text():
         intent="forecast_risk_compare",
     )
 
-    assert turn["answer"].startswith("はい、予測とリスクを分けて確認しますね。")
+    assert turn["answer"].startswith("AI予測とリスクを分けて確認します。")
     assert "SMAI Assistant intent" not in turn["answer"]
     assert turn["response_meta"] == "SMAI通常回答 / fallback / forecast_risk_compare"
 
@@ -365,3 +364,6 @@ def test_copilot_page_free_chat_does_not_render_fixed_cards(monkeypatch):
     assert "見る材料" not in page_text
     assert "注意点" not in page_text
     assert "次に確認" not in page_text
+    assert "実行した確認" not in page_text
+    assert "売買推奨" not in history[-1]["answer"]
+    assert history[-1]["answer"] == "こんにちは。SMAIナビです。何を相談しますか？"

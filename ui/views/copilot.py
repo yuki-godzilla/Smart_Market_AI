@@ -318,7 +318,7 @@ def copilot_history_messages(
 def copilot_answer_detail_html(turn: dict[str, str]) -> str:
     intent = _normalize_intent(turn.get("intent", ""))
     if intent == "free_chat":
-        return f"{_execution_result_html(turn)}{_response_meta_html(turn)}"
+        return _response_meta_html(turn)
     titles = _section_titles_for_intent(intent)
     reasons = _list_html(_split_lines(turn.get("reasons", "")))
     cautions = _list_html(_split_lines(turn.get("cautions", "")))
@@ -390,7 +390,9 @@ def render_copilot_workspace_page() -> None:
         intent = _intent_from_message(prompt, fallback=_active_intent())
         preset = _preset_for_intent(intent)
         context = context_by_id.get(preset.context_id, contexts[0])
-        with st.spinner(f"SMAIナビが考えています... {runtime_config.model}で回答を生成中"):
+        with st.spinner(
+            f"SMAIナビが必要な材料を確認しています... {runtime_config.model}で回答を生成中"
+        ):
             _handle_copilot_submit(
                 context,
                 prompt,
@@ -406,7 +408,9 @@ def render_copilot_workspace_page() -> None:
 
     if suggested is not None:
         context = context_by_id.get(suggested.context_id, contexts[0])
-        with st.spinner(f"SMAIナビが考えています... {runtime_config.model}で回答を生成中"):
+        with st.spinner(
+            f"SMAIナビが必要な材料を確認しています... {runtime_config.model}で回答を生成中"
+        ):
             _handle_copilot_submit(
                 context,
                 suggested.default_question,
@@ -725,30 +729,52 @@ def _conversation_answer(
     question: str,
     response: AssistantResponse,
 ) -> str:
+    if intent == "free_chat" and _is_simple_greeting(question):
+        return "こんにちは。SMAIナビです。何を相談しますか？"
+    if intent == "app_help" and response.response_source != "gateway":
+        return (
+            "SMAIは、目的別に画面を使い分けると分かりやすいです。\n\n"
+            "- 銘柄を深掘りする: 銘柄コックピット\n"
+            "- 候補を探す: 銘柄ランキング\n"
+            "- 市場全体の材料を見る: 投資レーダー\n"
+            "- 判断メモを残す: Decision Report"
+        )
     lead = {
-        "app_help": "はい！SMAIの使い方ですね。目的別に見る画面を分けると分かりやすいです。",
-        "stock_summary": "承知しました。この銘柄について、まず確認する材料を整理しますね。",
+        "app_help": "はい。SMAIは目的別に画面を使い分けると分かりやすいです。",
+        "stock_summary": "まず、この銘柄で確認する材料を短く整理します。",
         "forecast_risk_compare": (
-            "はい、予測とリスクを分けて確認しますね。AI予測の方向感と、"
+            "AI予測とリスクを分けて確認します。AI予測の方向感と、"
             "下振れ警戒のバランスを見るのがポイントです。"
         ),
         "news_materials": (
-            "はい、ニュース材料を確認する流れですね。取得できている材料と、"
-            "まだ未確認の材料を分けて整理します。"
+            "ニュース材料は、取得済みの材料と、" "まだ未確認の材料を分けて整理します。"
         ),
         "decision_report_draft": (
-            "Decision Reportに残す前提で整理しますね。確認済み材料、"
-            "強気・弱気材料、未確認事項を分けます。"
+            "Decision Reportに残す前提で、確認済み材料、" "強気・弱気材料、未確認事項を分けます。"
         ),
-        "free_chat": "はい、SMAIナビです。会話の流れに沿って、分かる範囲で整理しますね。",
+        "free_chat": "はい。分かる範囲で短く整理します。",
     }[intent]
-    body = _safe_response_body(response.answer)
+    body = _safe_response_body(response.answer, intent=intent)
+    if response.response_source == "gateway" and body:
+        return body
     if not body or body.startswith(lead):
         return lead
     return f"{lead}\n\n{body}"
 
 
-def _safe_response_body(answer: str) -> str:
+def _is_simple_greeting(question: str) -> bool:
+    normalized = str(question or "").strip().lower()
+    return normalized in {
+        "こんにちは",
+        "こんばんは",
+        "おはよう",
+        "おはようございます",
+        "hello",
+        "hi",
+    }
+
+
+def _safe_response_body(answer: str, *, intent: CopilotIntent | None = None) -> str:
     text = str(answer or "").strip()
     blocked_markers = (
         "SMAI Assistant intent:",
@@ -758,7 +784,23 @@ def _safe_response_body(answer: str) -> str:
     )
     if any(marker in text for marker in blocked_markers):
         return ""
-    return text
+    lines = [line.strip() for line in text.splitlines()]
+    filtered: list[str] = []
+    repetitive_markers = (
+        "売買推奨",
+        "投資判断アシスタント",
+        "投資判断を補助",
+        "判断材料の整理",
+        "SMAI Assistant",
+        "本レポート",
+    )
+    for line in lines:
+        if intent in {"free_chat", "app_help"} and any(
+            marker in line for marker in repetitive_markers
+        ):
+            continue
+        filtered.append(line)
+    return "\n".join(filtered).strip()
 
 
 def _execution_result_html(turn: dict[str, str]) -> str:
@@ -911,7 +953,11 @@ def _gateway_question(
         f"User question: {question.strip()}\n"
         f"Response instruction: {prompt_instruction}\n"
         f"Tool results already checked by SMAI:\n{tool_block}\n"
-        "Tone: SMAIナビとして、初心者にも分かる日本語で、断定しすぎず自然に答える。\n"
+        "Agent behavior: You are the primary AI chat assistant. Read the user's intent, "
+        "use the SMAI tool results only when they help answer the question, and ask for "
+        "the next missing material when the checked results are insufficient.\n"
+        "Tone: SMAIナビとして、短く自然な日本語で答える。固定テンプレート、長い自己紹介、"
+        "毎回の免責文は避ける。\n"
         "Boundary: 売買推奨、スコア変更、ランキング変更、予測値の変更はしない。"
     )
 

@@ -24,6 +24,43 @@ _JA_DECISION_SUPPORT_NOTE = "この回答は判断材料の整理であり、投
 _EN_DECISION_SUPPORT_NOTE = "This response is decision-support context, not investment advice."
 LOGGER = logging.getLogger(__name__)
 
+_FORBIDDEN_PRESENTATION_PATTERNS: tuple[str, ...] = (
+    "provider raw fields",
+    "debug logs",
+    "full external source bodies",
+    "external source bodies",
+    "raw fields",
+    "provider fields",
+    "excluded",
+    "the bundle is",
+    "bundle is for explanation",
+    "confirmation support",
+    "not score",
+    "not ranking",
+    "ranking recomputation",
+    "score or ranking recomputation",
+    "privacy_notes",
+    "safety_notes",
+    "provider_notes",
+    "internal_notes",
+    "debug_notes",
+    "tool says",
+    "the tool says",
+    "i need to",
+    "first, i need",
+    "the answer should",
+    "json fields",
+    "内部情報",
+    "デバッグ情報",
+    "provider情報",
+    "raw field",
+    "外部ソース本文",
+    "ランキング再計算",
+    "スコア再計算",
+    "内部ログ",
+    "開発者向け",
+)
+
 
 class LlmContextAnswerPayload(GatewayBaseModel):
     """Structured payload requested from the LLM provider."""
@@ -453,6 +490,8 @@ def _is_low_quality_text(text: str, *, request: ContextAnswerRequest | None = No
     if "????" in joined or "�" in joined:
         return True
     lowered = joined.lower().lstrip()
+    if any(marker in lowered for marker in _FORBIDDEN_PRESENTATION_PATTERNS):
+        return True
     reasoning_markers = (
         "<think>",
         "</think>",
@@ -684,9 +723,6 @@ def _cautions_from_request(request: ContextAnswerRequest) -> list[str]:
     cautions: list[str] = []
     for section in _selected_sections(request):
         cautions.extend(section.warnings[:4])
-        if section.redacted_fields:
-            cautions.append(f"{section.title}: some raw or sensitive fields were excluded.")
-    cautions.extend(request.context.privacy_notes[:4])
     if request.constraints.no_investment_advice:
         cautions.append(
             "投資助言ではなく、確認材料の整理として扱ってください。"

@@ -17,6 +17,10 @@ from backend.assistant import (
     detect_assistant_intent,
     execute_assistant_tool_plan,
 )
+from backend.assistant.response_sanitizer import (
+    sanitize_presentation_items,
+    sanitize_presentation_text,
+)
 from backend.core.config import AssistantGatewayConfig, Settings, get_settings
 from ui.components.assistant import (
     SmaiAssistantContext,
@@ -446,7 +450,7 @@ def copilot_history_messages(
 
 def copilot_answer_detail_html(turn: dict[str, str]) -> str:
     intent = _normalize_intent(turn.get("intent", ""))
-    if intent in {"free_chat", "identity", "capability_help"}:
+    if _is_llm_micro_intent(intent):
         return _response_meta_html(turn) + _assistant_action_links_html(turn)
     titles = _section_titles_for_intent(intent)
     reasons = _list_html(_split_lines(turn.get("reasons", "")))
@@ -902,6 +906,27 @@ def _turn_from_response(
     executed_checks: list[str] | None = None,
     tool_statuses: list[str] | None = None,
 ) -> dict[str, str]:
+    answer = sanitize_presentation_text(
+        _conversation_answer(intent=intent, question=question, response=response)
+    )
+    if not answer:
+        answer = _intent_fallback_answer(intent=intent, question=question)
+    item_limit = _item_limit_for_intent(intent)
+    reasons = sanitize_presentation_items(response.reasons, limit=item_limit)
+    cautions = sanitize_presentation_items(response.cautions, limit=item_limit)
+    next_checkpoints = sanitize_presentation_items(
+        response.next_checkpoints,
+        limit=1 if _is_llm_micro_intent(intent) else item_limit,
+    )
+    memo_points = sanitize_presentation_items(
+        _memo_points_for_intent(intent, response), limit=item_limit
+    )
+    if _is_llm_micro_intent(intent):
+        reasons = []
+        cautions = []
+        memo_points = []
+        if intent not in {"app_help", "screen_guidance"}:
+            next_checkpoints = []
     return {
         "turn_id": turn_id or uuid4().hex,
         "status": "complete",
@@ -910,12 +935,12 @@ def _turn_from_response(
         "intent": intent,
         "intent_label": _preset_for_intent(intent).label,
         "question": question,
-        "answer": _conversation_answer(intent=intent, question=question, response=response),
-        "reasons": "\n".join(response.reasons),
-        "cautions": "\n".join(response.cautions),
-        "next_checkpoints": "\n".join(response.next_checkpoints),
-        "memo_points": "\n".join(_memo_points_for_intent(intent, response)),
-        "executed_checks": "\n".join(executed_checks or ()),
+        "answer": answer,
+        "reasons": "\n".join(reasons),
+        "cautions": "\n".join(cautions),
+        "next_checkpoints": "\n".join(next_checkpoints),
+        "memo_points": "\n".join(memo_points),
+        "executed_checks": "\n".join(sanitize_presentation_items(executed_checks or (), limit=6)),
         "tool_statuses": "\n".join(tool_statuses or ()),
         "response_source": response.response_source,
         "model": response.model or "",
@@ -1127,11 +1152,10 @@ def _conversation_answer(
         return _fallback_free_chat_answer(question)
     if intent == "app_help" and response.response_source not in {"gateway", "llm"}:
         return (
-            "SMAIは、目的別に画面を使い分けると分かりやすいです。\n\n"
-            "- 銘柄を深掘りする: 銘柄コックピット\n"
-            "- 候補を探す: 銘柄ランキング\n"
-            "- 市場全体の材料を見る: 投資レーダー\n"
-            "- 判断メモを残す: Decision Report"
+            "SMAIは、目的別に画面を使い分けると分かりやすいです。"
+            "銘柄を深掘りするなら「銘柄コックピット」、候補を探すなら「銘柄ランキング」、"
+            "市場全体を見るなら「投資レーダー」を使います。"
+            "迷ったら、気になる銘柄名を入れて「何を見ればいい？」と聞いてください。"
         )
     lead = {
         "app_help": "はい。SMAIは目的別に画面を使い分けると分かりやすいです。",
@@ -1183,6 +1207,25 @@ def _fallback_free_chat_answer(question: str, *, greeting: bool = False) -> str:
         "SMAIで確認したいことを、画面名や銘柄名と一緒に送ってください。"
         "見ている材料、注意点、次に確認することの順に整理します。"
     )
+
+
+def _intent_fallback_answer(*, intent: CopilotIntent, question: str) -> str:
+    if intent in {"free_chat", "identity", "capability_help"}:
+        return _fallback_free_chat_answer(question, greeting=_is_simple_greeting(question))
+    if intent == "app_help":
+        return (
+            "SMAIは、目的別に画面を使い分けると分かりやすいです。"
+            "銘柄を深掘りするなら「銘柄コックピット」、候補を探すなら「銘柄ランキング」、"
+            "市場全体を見るなら「投資レーダー」を使います。"
+            "迷ったら、気になる銘柄名を入れて「何を見ればいい？」と聞いてください。"
+        )
+    return "確認できる材料を整理しました。未確認の材料がある場合は、追加取得後にもう一度見直してください。"
+
+
+def _item_limit_for_intent(intent: CopilotIntent) -> int:
+    if _is_llm_micro_intent(intent):
+        return 1
+    return 3
 
 
 def _is_identity_question(question: str) -> bool:
@@ -1251,7 +1294,7 @@ def _is_simple_greeting(question: str) -> bool:
 
 
 def _safe_response_body(answer: str, *, intent: CopilotIntent | None = None) -> str:
-    text = str(answer or "").strip()
+    text = sanitize_presentation_text(str(answer or "").strip())
     blocked_markers = (
         "SMAI Assistant intent:",
         "Tool results already checked",
@@ -1317,7 +1360,7 @@ def _safe_response_body(answer: str, *, intent: CopilotIntent | None = None) -> 
 
 
 def _execution_result_html(turn: dict[str, str]) -> str:
-    executed = _split_lines(turn.get("executed_checks", ""))
+    executed = sanitize_presentation_items(_split_lines(turn.get("executed_checks", "")), limit=6)
     if not executed:
         return ""
     items = "".join(f"<li>{html.escape(item)}</li>" for item in executed[:6])
@@ -1382,12 +1425,14 @@ def _assistant_action_links_html(turn: dict[str, str]) -> str:
 
 def _actions_for_turn(turn: dict[str, str]) -> tuple[tuple[str, str], ...]:
     intent = _normalize_intent(turn.get("intent", ""))
-    if intent == "free_chat":
+    if _is_llm_micro_intent(intent):
         return (("コピー", "copy"),)
-    if intent == "app_help":
-        return (("コピー", "copy"), ("Markdownで保存", "memo"))
     if intent == "decision_report_draft":
-        return (("Markdownで保存", "memo"), ("Decision Reportに追加", "report"))
+        return (
+            ("コピー", "copy"),
+            ("Markdownで保存", "memo"),
+            ("Decision Reportに追加", "report"),
+        )
     return (
         ("コピー", "copy"),
         ("Markdownで保存", "memo"),
@@ -1407,22 +1452,25 @@ def _download_action_link_html(*, label: str, data: str, file_name: str, mime: s
 
 
 def copilot_turn_plain_text(turn: dict[str, str]) -> str:
+    intent = _normalize_intent(turn.get("intent", ""))
     lines = [
         f"相談モード: {turn.get('intent_label', '')}",
         f"対象: {turn.get('context_label', '')}",
         f"質問: {turn.get('question', '')}",
         "",
-        str(turn.get("answer", "")).strip(),
+        sanitize_presentation_text(str(turn.get("answer", "")).strip()),
     ]
-    executed = _split_lines(turn.get("executed_checks", ""))
+    executed = sanitize_presentation_items(_split_lines(turn.get("executed_checks", "")), limit=6)
     if executed:
         lines.extend(["", "実行した確認:"])
         lines.extend(f"- {item}" for item in executed)
+    if _is_llm_micro_intent(intent):
+        return "\n".join(line for line in lines if line != "").strip() + "\n"
     for title, key in zip(
-        _section_titles_for_intent(_normalize_intent(turn.get("intent", ""))),
+        _section_titles_for_intent(intent),
         ("reasons", "cautions", "next_checkpoints", "memo_points"),
     ):
-        items = _split_lines(turn.get(key, ""))
+        items = sanitize_presentation_items(_split_lines(turn.get(key, "")), limit=3)
         if not items:
             continue
         lines.extend(["", f"{title}:"])
@@ -1436,12 +1484,22 @@ def copilot_turn_markdown(turn: dict[str, str]) -> str:
     created_at = str(turn.get("created_at", "")).strip() or datetime.now().strftime(
         "%Y-%m-%d %H:%M"
     )
-    answer = str(turn.get("answer", "")).strip()
-    reasons = _markdown_list(_split_lines(turn.get("reasons", "")))
-    cautions = _markdown_list(_split_lines(turn.get("cautions", "")))
-    checkpoints = _markdown_list(_split_lines(turn.get("next_checkpoints", "")))
-    memo_points = _markdown_list(_split_lines(turn.get("memo_points", "")))
-    executed = _markdown_list(_split_lines(turn.get("executed_checks", "")))
+    answer = sanitize_presentation_text(str(turn.get("answer", "")).strip())
+    reasons = _markdown_list(
+        sanitize_presentation_items(_split_lines(turn.get("reasons", "")), limit=3)
+    )
+    cautions = _markdown_list(
+        sanitize_presentation_items(_split_lines(turn.get("cautions", "")), limit=3)
+    )
+    checkpoints = _markdown_list(
+        sanitize_presentation_items(_split_lines(turn.get("next_checkpoints", "")), limit=3)
+    )
+    memo_points = _markdown_list(
+        sanitize_presentation_items(_split_lines(turn.get("memo_points", "")), limit=3)
+    )
+    executed = _markdown_list(
+        sanitize_presentation_items(_split_lines(turn.get("executed_checks", "")), limit=6)
+    )
     return (
         "# SMAIアシスタント メモ\n\n"
         "## 対象\n"
@@ -1644,6 +1702,8 @@ def _section_titles_for_intent(intent: CopilotIntent) -> tuple[str, ...]:
         "news_materials": ("強気材料", "弱気材料", "次に見る資料", "未確認材料"),
         "decision_report_draft": ("確認した材料", "未確認事項", "次回確認", "メモ"),
         "free_chat": ("SMAIナビの見方", "注意点", "次にできること"),
+        "identity": ("SMAIナビの見方", "注意点", "次にできること"),
+        "capability_help": ("SMAIナビの使い方", "注意点", "次にできること"),
     }[intent]
 
 

@@ -23,6 +23,7 @@ from ui.views.copilot import (
     copilot_settings_from_gateway_runtime,
     copilot_turn_html,
     copilot_turn_markdown,
+    copilot_turn_plain_text,
 )
 
 
@@ -267,10 +268,11 @@ def test_copilot_answer_detail_html_uses_intent_specific_formats():
         }
     )
 
-    assert "目的別の使い方" in app_help
-    assert "smai-copilot-inline-sections" in app_help
+    assert "目的別の使い方" not in app_help
+    assert "smai-copilot-inline-sections" not in app_help
     assert "smai-copilot-answer-grid" not in app_help
     assert "見る材料" not in app_help
+    assert "Markdownで保存" not in app_help
     assert "予測側の見方" in forecast
     assert "リスク側の見方" in forecast
     assert "強気材料" in news
@@ -403,6 +405,63 @@ def test_copilot_free_chat_identity_answer_stays_on_identity():
     assert "SMAIで確認する観点" not in turn["answer"]
 
 
+def test_copilot_identity_and_capability_plain_text_do_not_require_section_cards():
+    base_turn = {
+        "intent_label": "SMAIアシスタント / SMAIの使い方",
+        "context_label": "SMAIアシスタント",
+        "question": "あなたの名前は何ですか？",
+        "answer": "私はSMAIナビです。",
+        "executed_checks": "",
+        "reasons": "",
+        "cautions": "",
+        "next_checkpoints": "",
+        "memo_points": "",
+    }
+
+    identity_text = copilot_turn_plain_text({**base_turn, "intent": "identity"})
+    capability_text = copilot_turn_plain_text(
+        {**base_turn, "intent": "capability_help", "question": "何ができるの？"}
+    )
+
+    assert "私はSMAIナビです。" in identity_text
+    assert "何ができるの？" in capability_text
+
+
+def test_copilot_actions_and_exports_are_sanitized_by_intent():
+    micro_turn = {
+        "intent": "identity",
+        "intent_label": "SMAIアシスタント / SMAIの使い方",
+        "context_label": "SMAIアシスタント",
+        "question": "あなたの名前は？",
+        "answer": "私はSMAIナビです。 Provider raw fields were excluded.",
+        "executed_checks": "debug logs omitted",
+        "reasons": "Provider raw fields",
+        "cautions": "privacy_notes",
+        "next_checkpoints": "score or ranking recomputation",
+        "memo_points": "",
+    }
+    stock_turn = {
+        **micro_turn,
+        "intent": "stock_summary",
+        "answer": "価格とニュースを分けて確認します。",
+        "reasons": "価格トレンド\ndebug logs omitted",
+        "cautions": "AI予測だけで判断しないでください。\nprovider raw fields",
+    }
+
+    micro_actions = copilot_answer_detail_html(micro_turn)
+    plain_text = copilot_turn_plain_text(micro_turn)
+    markdown = copilot_turn_markdown(stock_turn)
+
+    assert "コピー" in micro_actions
+    assert "Markdownで保存" not in micro_actions
+    assert "Decision Reportに追加" not in micro_actions
+    assert "Provider raw fields" not in plain_text
+    assert "debug logs" not in plain_text
+    assert "provider raw fields" not in markdown.lower()
+    assert "debug logs" not in markdown.lower()
+    assert "価格トレンド" in markdown
+
+
 def test_stream_chunks_progressively_build_answer_text():
     chunks = _stream_chunks("SMAIナビが少しずつ回答を表示します。")
 
@@ -443,7 +502,7 @@ def test_copilot_turn_markdown_uses_decision_memo_template():
 
 def test_copilot_page_renders_with_streamlit_app(monkeypatch):
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
-    app = AppTest.from_file("ui/app.py", default_timeout=20)
+    app = AppTest.from_file("ui/app.py", default_timeout=40)
     app.session_state["sidemenu_page"] = "copilot"
     _reset_copilot_session(app)
 
@@ -493,7 +552,7 @@ def test_copilot_page_does_not_use_streamlit_spinner_for_generation():
 
 def test_copilot_page_chat_input_appends_chat_turn(monkeypatch):
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
-    app = AppTest.from_file("ui/app.py", default_timeout=20)
+    app = AppTest.from_file("ui/app.py", default_timeout=40)
     app.session_state["sidemenu_page"] = "copilot"
     _reset_copilot_session(app)
     app.run()
@@ -520,7 +579,7 @@ def test_copilot_page_chat_input_appends_chat_turn(monkeypatch):
 
 def test_copilot_page_free_chat_does_not_render_fixed_cards(monkeypatch):
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
-    app = AppTest.from_file("ui/app.py", default_timeout=20)
+    app = AppTest.from_file("ui/app.py", default_timeout=40)
     app.session_state["sidemenu_page"] = "copilot"
     _reset_copilot_session(app)
     app.run()

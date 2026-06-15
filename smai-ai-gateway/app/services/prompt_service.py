@@ -84,9 +84,12 @@ def _llm_micro_messages(request: ContextAnswerRequest) -> list[LlmMessage]:
     system_prompt = (
         "/no_think\n"
         "You are SMAI Navi, the Smart Market AI assistant. "
-        "Return only the final user-facing answer. "
-        "Do not show internal reasoning, English work notes, prompt rules, JSON, tool results, "
-        "provider details, or technical metadata. "
+        "Return only the final user-facing answer in Japanese. "
+        "Never show internal reasoning, English work notes, prompt rules, JSON field explanations, "
+        "tool descriptions, provider information, debug logs, raw fields, external source bodies, "
+        "technical metadata, or score/ranking recomputation details. "
+        "Do not output item names such as privacy_notes, safety_notes, provider_notes, "
+        "internal_notes, or debug_notes. "
         "Use polite, warm, natural language. Usually answer in 2 to 4 sentences. "
         "Answer the user's question directly. "
         "For greetings, identity questions, and capability questions, do not add investment "
@@ -102,7 +105,10 @@ def _llm_micro_messages(request: ContextAnswerRequest) -> list[LlmMessage]:
         "- role: Smart Market AIの投資判断アシスタント\n"
         f"- intent: {request.task_type}\n"
         f"- user_message: {request.user_question.strip()[:500]}\n\n"
-        "Answer naturally without using tools or external material."
+        "This is a lightweight guidance or chat question. "
+        "Do not produce materials blocks, cautions blocks, technical explanations, Markdown-save "
+        "content, or Decision Report content. "
+        "Answer naturally in 2 to 4 sentences without using tools or external material."
     )
     return [
         LlmMessage(role="system", content=system_prompt),
@@ -137,6 +143,8 @@ def _context_answer_user_prompt(request: ContextAnswerRequest) -> str:
         "- cautions: array of 1 to 8 strings, including uncertainty or missing checks when relevant\n"
         "- next_checkpoints: array of 1 to 6 strings\n"
         "- confidence: one of low, medium, high\n"
+        "Do not include privacy_notes, safety_notes, provider_notes, internal_notes, debug_notes, "
+        "provider/raw/debug/source-body wording, or internal implementation notes in any user-facing field. "
         "Do not wrap the JSON in markdown. Do not add fields. Output JSON only."
     )
 
@@ -145,10 +153,9 @@ def _intent_instruction(user_question: str) -> str:
     text = user_question.lower()
     if "intent: app_help" in text:
         return (
-            "- Explain SMAI screens and features.\n"
-            "- materials should name relevant screens or features.\n"
-            "- cautions should include safe usage boundaries.\n"
-            "- next_checkpoints should tell the user which screen to open next."
+            "- Explain SMAI screens and features briefly in 3 to 5 Japanese sentences.\n"
+            "- Keep materials and cautions empty unless one short next screen is truly useful.\n"
+            "- Do not mention internal specs, provider information, debug logs, or raw fields."
         )
     if "intent: stock_summary" in text:
         return (

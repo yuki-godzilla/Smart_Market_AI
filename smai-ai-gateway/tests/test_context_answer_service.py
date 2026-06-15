@@ -89,6 +89,26 @@ def test_context_answer_service_uses_structured_llm_payload():
     assert any("Minimal context" in message.content for message in client.messages)
 
 
+def test_context_answer_service_drops_internal_notes_from_payload_lists():
+    client = FakeLlmClient(
+        answer=(
+            '{"answer":"SMAIナビでは、価格とニュースを分けて確認します。",'
+            '"materials":["価格トレンド","Provider raw fields were excluded"],'
+            '"cautions":["AI予測だけで判断しないでください","debug logs are omitted"],'
+            '"next_checkpoints":["ニュースを確認","score or ranking recomputation is not performed"],'
+            '"confidence":"medium"}'
+        )
+    )
+    service = ContextAnswerService(client)  # type: ignore[arg-type]
+    request = _request().model_copy(update={"task_type": "stock_summary"})
+
+    response = service.answer(request)
+
+    assert response.materials == ["価格トレンド"]
+    assert response.cautions == ["AI予測だけで判断しないでください"]
+    assert response.next_checkpoints == ["ニュースを確認"]
+
+
 def test_context_answer_service_uses_active_section_when_payload_is_unstructured():
     client = FakeLlmClient(answer="LLM plain answer")
     service = ContextAnswerService(client)  # type: ignore[arg-type]

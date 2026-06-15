@@ -26,6 +26,7 @@ Ollama / OpenAI compatible API / vLLM / llama.cpp server
 - SMAI 親側の opt-in HTTP client は `assistant.gateway.enabled=true` のときだけ `/api/v1/context-answer` を呼び、失敗時は deterministic fallback に戻る
 - `free_chat` / `identity` / `app_help` / `capability_help` / `screen_guidance` は LLM-first のまま `llm_micro` として扱い、SMAI 親は tool / RAG / news / symbol-specific context / 長い履歴を送らない。Gateway は最小 context、`/no_think`、Ollama `think: false`、1 回だけの品質再生成を使い、fallback は provider / Gateway / validation failure の最後の保険に限定する。notebook runtime は `free_chat` / `identity` が 25s / 160 tokens、`app_help` / `capability_help` / `screen_guidance` が 25s / 220 tokens。画面固有の `report_context` がない場合も、SMAI 親は最小アシスタント文脈で Gateway を呼ぶ。
 - `context-answer` では、LLM は回答本文を作り、`materials` / `cautions` / `next_checkpoints` は Gateway が渡された context から安定生成する
+- Gateway / SMAI parent は presentation sanitizer を通し、provider raw fields、debug logs、external source bodies、`privacy_notes` / `safety_notes` などの内部向け文言を通常回答、コピー、Markdown保存、Decision Report向け表示から除外する
 - 将来の `SMAI LLM Factor` では、Gateway は provider 呼び出しと prompt 実行の境界に留める。LLM factor の domain schema、source hash、file-backed cache、deterministic backtest evaluator、broader historical fixture / validation report、Cockpit / Ranking 参考表示は SMAI 本体側で実装済みで、cache policy expansion、UI 統合拡張も SMAI 本体側で扱う
 
 ## 現時点で移動しないもの

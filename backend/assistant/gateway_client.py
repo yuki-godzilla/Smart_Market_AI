@@ -16,6 +16,10 @@ from backend.assistant.gateway_contracts import (
     build_assistant_context_bundle,
     build_assistant_gateway_request,
 )
+from backend.assistant.response_sanitizer import (
+    sanitize_presentation_items,
+    sanitize_presentation_text,
+)
 from backend.assistant.service import (
     AssistantCitation,
     AssistantRequest,
@@ -299,10 +303,10 @@ def _assistant_response_from_gateway_response(
     )
     return AssistantResponse(
         intent=fallback_response.intent,
-        answer=response.answer.strip(),
-        reasons=response.materials,
-        cautions=[*response.cautions, *response.safety_notes],
-        next_checkpoints=response.next_checkpoints,
+        answer=sanitize_presentation_text(response.answer) or fallback_response.answer,
+        reasons=sanitize_presentation_items(response.materials, limit=8),
+        cautions=sanitize_presentation_items(response.cautions, limit=8),
+        next_checkpoints=sanitize_presentation_items(response.next_checkpoints, limit=6),
         citations=[_citation_from_gateway_reference(item) for item in response.referenced_sections],
         response_source="deterministic_fallback" if is_fallback else "llm",
         model=response.model,

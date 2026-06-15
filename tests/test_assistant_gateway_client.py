@@ -84,7 +84,7 @@ def test_gateway_backed_assistant_uses_gateway_response_when_valid():
     assert response.intent == "forecast"
     assert response.answer.startswith("Gateway側では")
     assert response.reasons == ["中心予測", "予測レンジ"]
-    assert "スコアや予測値は変更していません。" in response.cautions
+    assert response.cautions == ["予測は将来価格の保証ではありません。"]
     assert response.next_checkpoints == ["モデル合意度を確認します。"]
     assert response.citations[0].section_title == "AI予測インサイト"
     assert response.response_source == "llm"
@@ -197,7 +197,7 @@ def test_mock_assistant_gateway_client_returns_network_free_default_response():
 
     assert response.answer.startswith("Gateway mock response")
     assert "AI予測インサイト" in response.reasons
-    assert "スコア、ランキング、予測値は変更していません。" in response.cautions
+    assert response.cautions == ["これはMock応答であり、外部LLMや投資助言ではありません。"]
     assert len(client.requests) == 1
 
 
@@ -264,7 +264,7 @@ def test_http_assistant_gateway_client_posts_context_answer_request():
     assert payload["environment_profile"] == "desktop"
     assert response.answer.startswith("Gateway実接続")
     assert response.reasons == ["AI予測インサイト", "中心予測"]
-    assert "スコアや順位は変更していません。" in response.cautions
+    assert response.cautions == ["投資助言ではありません。"]
     assert response.response_source == "llm"
     assert response.model == "qwen3:8b"
     assert response.provider == "ollama"

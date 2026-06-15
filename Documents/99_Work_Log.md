@@ -18,6 +18,60 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-15 - SMAI Assistant Response Polish & Product Quality Sprint
+
+### Sanitizer
+
+- added: `backend/assistant/response_sanitizer.py` with sentence / bullet level presentation filtering.
+- forbidden patterns: provider raw fields, debug logs, full external source bodies, raw/provider fields, score/ranking recomputation, `privacy_notes`, `safety_notes`, `provider_notes`, `internal_notes`, `debug_notes`, and Japanese internal/debug/raw wording.
+- answer: sanitized in parent Gateway response adoption and UI turn view-model creation.
+- materials: sanitized and bounded before UI rendering / copy / Markdown output.
+- cautions: Gateway `safety_notes` are no longer merged into user cautions; privacy/raw exclusion notes are removed from Gateway fallback cautions.
+- actions: copy and Markdown output use sanitized presentation text.
+
+### Intent Display Policy
+
+- llm_micro: `free_chat` / `identity` / `app_help` / `capability_help` render as lightweight answer-first bubbles with copy only; materials, cautions, memo blocks, Markdown save, and Decision Report add are suppressed. `app_help` may keep at most one next checkpoint in the view model, but no heavy section cards are shown.
+- llm_light: stock / forecast style turns keep answer, materials, cautions, next checkpoints, copy, Markdown save, and Decision Report add with list lengths capped around three items.
+- llm_staged: news / Decision Report turns keep richer material classification and save/report actions, while sanitizer prevents internal implementation text from leaking.
+
+### Prompt Updates
+
+- common prompt: strengthened final-answer-only Japanese instruction and explicit bans on internal reasoning, English work notes, provider/debug/raw/source-body wording, JSON field explanations, tool descriptions, and note field names.
+- llm_micro: prompt now states lightweight guidance/chat, no materials blocks, no cautions blocks, no technical explanation, no Markdown-save or Decision Report content.
+- app_help: prompt now asks for brief 3-5 sentence screen guidance and no provider/internal/raw details.
+
+### UI Actions
+
+- copy: enabled for all assistant turns and sanitized.
+- markdown_save: disabled for llm_micro, enabled for denser stock/forecast/news/report turns.
+- decision_report_add: disabled for llm_micro, enabled for denser stock/forecast/news/report turns.
+
+### Validation
+
+- case 1-7 llm_micro: covered by unit/UI tests for identity, capability, app_help, free_chat lightweight rendering and action suppression; live browser manual run not completed in this environment.
+- case 8-11 llm_light: covered by UI detail rendering tests and bounded sanitizer/export tests.
+- case 12-14 llm_staged: covered by existing news/report rendering tests with sanitized action output.
+- case 15 copy: sanitized plain text test added.
+- case 16 Decision Report add: action text source now uses sanitized Markdown path; live add flow not manually exercised.
+- case 17 Markdown save: sanitized Markdown test added.
+- case 18 technical info: UI keeps runtime metadata in closed `技術情報を表示` details.
+- case 19 three-turn conversation: existing AppTest coverage retained; no live manual run.
+- case 20 narrow viewport: not manually checked in this environment.
+
+### Tests
+
+- added: `tests/test_assistant_response_sanitizer.py`.
+- updated: parent Gateway client tests, Gateway context-answer tests, SMAI Assistant UI tests.
+- passed: targeted sanitizer / Gateway client / Gateway context-answer / UI tests.
+- failed: no remaining targeted test failure at this checkpoint.
+
+### Final Judgement
+
+- product quality: improved by separating user-facing answer content from technical/internal notes and by making micro answers lighter.
+- internal noise removed: provider/raw/debug/source-body/note-field wording is filtered from normal UI/export paths.
+- remaining issues: full live browser 20-case manual validation remains to be executed with an interactive browser/Ollama setup.
+
 ## 2026-06-15 - SMAI Assistant LLM-first Runtime Tuning Sprint
 
 ### Changed

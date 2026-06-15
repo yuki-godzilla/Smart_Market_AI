@@ -5,6 +5,8 @@ from typing import Literal
 
 AssistantAgentIntent = Literal[
     "app_help",
+    "identity",
+    "capability_help",
     "stock_summary",
     "forecast_check",
     "forecast_risk_compare",
@@ -26,6 +28,39 @@ class AssistantIntentDecision:
 
 
 _INTENT_TERMS: tuple[tuple[AssistantAgentIntent, tuple[str, ...]], ...] = (
+    (
+        "identity",
+        (
+            "あなたの名前",
+            "あなたのなまえ",
+            "あなたは誰",
+            "あなたはだれ",
+            "君の名前",
+            "君は誰",
+            "名前は",
+            "名前を教えて",
+            "お名前",
+            "なまえ",
+            "だれ",
+            "誰",
+            "who are you",
+            "your name",
+        ),
+    ),
+    (
+        "capability_help",
+        (
+            "何ができる",
+            "なにができる",
+            "できること",
+            "何を相談",
+            "何を聞ける",
+            "どう使える",
+            "どんなことができる",
+            "help",
+            "capability",
+        ),
+    ),
     (
         "file_export",
         (

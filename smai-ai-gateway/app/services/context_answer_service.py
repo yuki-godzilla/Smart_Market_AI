@@ -123,7 +123,7 @@ class ContextAnswerService:
             total_elapsed_ms = _elapsed_ms(started)
             error_fallback_reason = (
                 "local_conversation_fallback"
-                if request.task_type == "free_chat" and exc.code == "provider_timeout"
+                if _is_llm_micro_request(request) and exc.code == "provider_timeout"
                 else exc.code
             )
             LOGGER.warning(
@@ -287,7 +287,13 @@ def _estimate_context_tokens(request: ContextAnswerRequest) -> int:
 
 
 def _is_llm_micro_request(request: ContextAnswerRequest) -> bool:
-    return request.task_type in {"free_chat", "app_help"}
+    return request.task_type in {
+        "free_chat",
+        "identity",
+        "app_help",
+        "capability_help",
+        "screen_guidance",
+    }
 
 
 def _quality_repair_messages(messages: list[LlmMessage]) -> list[LlmMessage]:
@@ -466,7 +472,7 @@ def _is_low_quality_text(text: str, *, request: ContextAnswerRequest | None = No
     mojibake_markers = ("ã", "æ", "é", "縺", "繧", "荳", "譁")
     if any(marker in joined for marker in mojibake_markers):
         return True
-    if request is None or request.task_type not in {"free_chat", "app_help"}:
+    if request is None or not _is_llm_micro_request(request):
         return False
     compact = re.sub(r"\s+", "", joined)
     weak_phrases = (
@@ -488,7 +494,7 @@ def _fallback_answer_for_request(
     request: ContextAnswerRequest,
     sections: list[ContextSection],
 ) -> str:
-    if request.task_type in {"free_chat", "app_help"}:
+    if _is_llm_micro_request(request):
         return _llm_micro_fallback_answer(request)
     return _fallback_answer_from_sections(sections, language=request.language)
 
@@ -496,6 +502,16 @@ def _fallback_answer_for_request(
 def _llm_micro_fallback_answer(request: ContextAnswerRequest) -> str:
     question = str(request.user_question or "").strip()
     if request.language != "ja":
+        if request.task_type == "identity":
+            return (
+                "I am SMAI Navi. I help organize Smart Market AI screens, symbol checks, "
+                "AI forecasts, news, evidence, and next checkpoints."
+            )
+        if request.task_type == "capability_help":
+            return (
+                "SMAI Navi can help with SMAI usage, symbol review order, forecast and risk "
+                "comparison, news material sorting, and Decision Report preparation."
+            )
         if request.task_type == "app_help":
             return (
                 "SMAI is easiest to use by purpose. Use the symbol cockpit for a single "
@@ -516,6 +532,17 @@ def _llm_micro_fallback_answer(request: ContextAnswerRequest) -> str:
             "I can organize this as SMAI review support. Separate the visible "
             "price, forecast, news, evidence, and missing checks before treating it as a decision input."
         )
+    if request.task_type == "identity" or _is_identity_question(question):
+        return (
+            "私はSMAIナビです。"
+            "Smart Market AIの中で、銘柄の見方やAI予測、ニュース、根拠資料の整理をお手伝いします。"
+        )
+    if request.task_type == "capability_help" or _is_capability_question(question):
+        return (
+            "SMAIナビでは、SMAIの使い方、銘柄の確認順、AI予測とリスクの見比べ方、"
+            "ニュース材料の整理をお手伝いできます。"
+            "迷ったときは「この銘柄で最初に見る材料は？」のように聞いてください。"
+        )
     if request.task_type == "app_help":
         return (
             "SMAIは、目的別に画面を使い分けると分かりやすいです。"
@@ -527,11 +554,6 @@ def _llm_micro_fallback_answer(request: ContextAnswerRequest) -> str:
         return (
             "こんにちは。SMAIナビです。SMAIの使い方、銘柄の確認材料、"
             "AI予測やニュースの見方を短く整理できます。"
-        )
-    if _is_identity_question(question):
-        return (
-            "私はSMAIナビです。Smart Market AIの中で、銘柄の見方、AI予測、ニュース、"
-            "根拠資料の確認ポイントを整理するお手伝いをします。"
         )
     if question:
         return (
@@ -549,12 +571,37 @@ def _is_identity_question(text: str) -> bool:
         phrase in normalized
         for phrase in (
             "あなたの名前",
+            "あなたのなまえ",
+            "あなたは誰",
+            "あなたはだれ",
             "君の名前",
+            "君は誰",
             "名前は",
+            "名前を教えて",
+            "お名前",
+            "なまえ",
             "だれ",
             "誰",
             "who are you",
             "your name",
+        )
+    )
+
+
+def _is_capability_question(text: str) -> bool:
+    normalized = str(text or "").strip().lower()
+    return any(
+        phrase in normalized
+        for phrase in (
+            "何ができる",
+            "なにができる",
+            "できること",
+            "何を相談",
+            "何を聞ける",
+            "どう使える",
+            "どんなことができる",
+            "help",
+            "capability",
         )
     )
 

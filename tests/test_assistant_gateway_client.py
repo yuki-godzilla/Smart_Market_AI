@@ -169,14 +169,19 @@ def test_gateway_backed_assistant_falls_back_when_schema_is_invalid():
     assert len(client.requests) == 1
 
 
-def test_gateway_backed_assistant_without_context_does_not_call_gateway():
+def test_gateway_backed_assistant_without_context_uses_minimal_gateway_context():
     client = MockAssistantGatewayClient()
     service = GatewayBackedAssistantService(client)
 
     response = service.answer(AssistantRequest(question="次に何を確認すればいい？"))
 
-    assert "一般的な確認順" in response.answer
-    assert client.requests == []
+    assert response.answer.startswith("Gateway mock response")
+    assert len(client.requests) == 1
+    request = client.requests[0]
+    assert request.context.title == "SMAI Assistant Minimal Context"
+    assert request.context.sections[0].title == "SMAIアシスタント / 最小文脈"
+    assert request.context.sections[0].summary["assistant_name"] == "SMAIナビ"
+    assert request.context.sections[0].summary["price"] == "false"
 
 
 def test_mock_assistant_gateway_client_returns_network_free_default_response():

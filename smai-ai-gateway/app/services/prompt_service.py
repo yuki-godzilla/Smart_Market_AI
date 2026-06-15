@@ -68,7 +68,13 @@ def _history_messages(history: list[ContextAnswerMessage]) -> list[LlmMessage]:
 
 
 def _is_llm_micro_request(request: ContextAnswerRequest) -> bool:
-    return request.task_type in {"free_chat", "app_help"}
+    return request.task_type in {
+        "free_chat",
+        "identity",
+        "app_help",
+        "capability_help",
+        "screen_guidance",
+    }
 
 
 def _llm_micro_messages(request: ContextAnswerRequest) -> list[LlmMessage]:

@@ -27,7 +27,10 @@ AssistantIntent = Literal[
 ]
 AssistantGatewayTaskType = Literal[
     "free_chat",
+    "identity",
     "app_help",
+    "capability_help",
+    "screen_guidance",
     "stock_summary",
     "forecast_risk_compare",
     "news_materials",

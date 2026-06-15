@@ -18,6 +18,23 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-15 - SMAI Assistant LLM-first Runtime Tuning Sprint
+
+### Changed
+
+- Kept short assistant turns LLM-first and added explicit `identity` / `capability_help` routing so name and capability questions no longer drift through generic free-chat handling.
+- Expanded `llm_micro` to `free_chat` / `identity` / `app_help` / `capability_help` / `screen_guidance`, with parent SMAI skipping tools, RAG, news, symbol context, and long history for those turns.
+- Raised Gateway runtime policy for notebook use: `free_chat` / `identity` 25s / 160 tokens, `app_help` / `capability_help` / `screen_guidance` 25s / 220 tokens, stock 45s / 600, forecast compare 45s / 700, news/RAG 60s / 900, decision report draft 75s / 1200, report export summary 75s / 1400, and LLM factor generation 90s / 1200.
+- Changed parent Gateway fallback behavior so missing screen-specific `report_context` still calls Gateway with a minimal SMAI Assistant context instead of immediately returning deterministic fallback.
+- Kept qwen thinking suppression on the micro path through `/no_think` and Ollama `think: false`, and broadened weak-answer filtering / natural fallback text for identity and capability questions.
+
+### Verification
+
+- Targeted tests: `66 passed` for Gateway router/context-answer, parent Gateway client, intent router, and SMAI Assistant UI tests.
+- Ruff targeted check passed for assistant/Gateway/UI/test files.
+- Black helper passed for 204 Python files after formatting `ui/views/copilot.py`.
+- Full local checks are recorded in the handoff for this work item.
+
 ## 2026-06-15 - SMAI Assistant LLM-first Lightweight Optimization Sprint
 
 ### LLM-first Policy

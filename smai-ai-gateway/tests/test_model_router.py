@@ -14,8 +14,28 @@ def test_router_uses_fast_profile_for_free_chat_on_notebook():
     assert route.provider == "ollama"
     assert route.model == "qwen3:4b"
     assert route.profile == "notebook_dev"
-    assert route.timeout_seconds == 12.0
-    assert route.max_tokens == 120
+    assert route.timeout_seconds == 25.0
+    assert route.max_tokens == 160
+
+
+def test_router_uses_micro_profile_for_identity_and_capability_help():
+    identity = resolve_model_route(
+        settings=GatewaySettings(),
+        task_type="identity",
+        environment_profile="notebook",
+    )
+    capability = resolve_model_route(
+        settings=GatewaySettings(),
+        task_type="capability_help",
+        environment_profile="notebook",
+    )
+
+    assert identity.profile == "notebook_dev"
+    assert identity.timeout_seconds == 25.0
+    assert identity.max_tokens == 160
+    assert capability.profile == "notebook_dev"
+    assert capability.timeout_seconds == 25.0
+    assert capability.max_tokens == 220
 
 
 def test_router_keeps_configured_notebook_profile_lightweight():
@@ -28,7 +48,7 @@ def test_router_keeps_configured_notebook_profile_lightweight():
 
     assert route.profile == "notebook_dev"
     assert route.model == "qwen3:4b"
-    assert route.timeout_seconds == 45.0
+    assert route.timeout_seconds == 75.0
     assert route.max_tokens == 800
 
 

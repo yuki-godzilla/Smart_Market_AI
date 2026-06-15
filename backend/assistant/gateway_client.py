@@ -23,6 +23,11 @@ from backend.assistant.service import (
     TemplateAssistantService,
 )
 from backend.core.config import Settings, get_settings
+from backend.reporting import (
+    DecisionReportContext,
+    build_decision_report_context,
+    build_report_section,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -152,11 +157,10 @@ class GatewayBackedAssistantService:
 
     def answer(self, request: AssistantRequest) -> AssistantResponse:
         fallback_response = self.fallback_service.answer(request)
-        if request.report_context is None:
-            return fallback_response
 
         started = perf_counter()
-        context_bundle = build_assistant_context_bundle(request.report_context)
+        report_context = request.report_context or _minimal_assistant_report_context()
+        context_bundle = build_assistant_context_bundle(report_context)
         gateway_request = build_assistant_gateway_request(
             question=request.question,
             context=context_bundle,
@@ -234,6 +238,30 @@ class GatewayBackedAssistantService:
             fallback_response=fallback_response,
             request_id=gateway_request.request_id,
         )
+
+
+def _minimal_assistant_report_context() -> DecisionReportContext:
+    section = build_report_section(
+        title="SMAIアシスタント / 最小文脈",
+        source_kind="manual",
+        summary={
+            "screen": "SMAIアシスタント",
+            "assistant_name": "SMAIナビ",
+            "price": "false",
+            "forecast": "false",
+            "news": "false",
+            "research": "false",
+            "decision_report": "false",
+        },
+        notes=[
+            "画面固有の銘柄、価格、AI予測、ニュース、根拠資料は渡していません。",
+        ],
+    )
+    return build_decision_report_context(
+        title="SMAI Assistant Minimal Context",
+        sections=[section],
+        tags=["assistant", "minimal"],
+    )
 
 
 def _coerce_gateway_response(

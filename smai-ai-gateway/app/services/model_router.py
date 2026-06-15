@@ -9,7 +9,10 @@ LlmExecutionMode = Literal["auto", "light", "quality", "off"]
 LlmEnvironmentProfile = Literal["notebook", "desktop", "server", "offline"]
 LlmTaskType = Literal[
     "free_chat",
+    "identity",
     "app_help",
+    "capability_help",
+    "screen_guidance",
     "stock_summary",
     "forecast_risk_compare",
     "news_materials",
@@ -97,7 +100,10 @@ _PROFILE_ALIASES: dict[LlmProfileName, str] = {
 
 _TASK_DEFAULTS: dict[LlmTaskType, LlmProfileName] = {
     "free_chat": "notebook_dev",
+    "identity": "notebook_dev",
     "app_help": "notebook_dev",
+    "capability_help": "notebook_dev",
+    "screen_guidance": "notebook_dev",
     "stock_summary": "desktop_fast",
     "forecast_risk_compare": "desktop_fast",
     "news_materials": "desktop_fast",
@@ -123,15 +129,18 @@ _QUALITY_UPGRADES: dict[LlmTaskType, LlmProfileName] = {
 }
 
 _TASK_RUNTIME_POLICIES: dict[LlmTaskType, tuple[float, int]] = {
-    "free_chat": (12.0, 120),
-    "app_help": (12.0, 120),
-    "stock_summary": (25.0, 500),
-    "forecast_risk_compare": (25.0, 600),
-    "news_materials": (35.0, 650),
-    "rag_summary": (35.0, 650),
-    "decision_report_draft": (45.0, 900),
-    "llm_factor_generation": (45.0, 800),
-    "report_export_summary": (45.0, 900),
+    "free_chat": (25.0, 160),
+    "identity": (25.0, 160),
+    "app_help": (25.0, 220),
+    "capability_help": (25.0, 220),
+    "screen_guidance": (25.0, 220),
+    "stock_summary": (45.0, 600),
+    "forecast_risk_compare": (45.0, 700),
+    "news_materials": (60.0, 900),
+    "rag_summary": (60.0, 900),
+    "decision_report_draft": (75.0, 1200),
+    "llm_factor_generation": (90.0, 1200),
+    "report_export_summary": (75.0, 1400),
 }
 
 

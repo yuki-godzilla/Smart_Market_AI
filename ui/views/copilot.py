@@ -47,6 +47,8 @@ COPILOT_LLM_MODEL_OPTIONS: tuple[tuple[str, str, str], ...] = (
 
 CopilotIntent = Literal[
     "app_help",
+    "identity",
+    "capability_help",
     "stock_summary",
     "forecast_risk_compare",
     "news_materials",
@@ -444,7 +446,7 @@ def copilot_history_messages(
 
 def copilot_answer_detail_html(turn: dict[str, str]) -> str:
     intent = _normalize_intent(turn.get("intent", ""))
-    if intent == "free_chat":
+    if intent in {"free_chat", "identity", "capability_help"}:
         return _response_meta_html(turn) + _assistant_action_links_html(turn)
     titles = _section_titles_for_intent(intent)
     reasons = _list_html(_split_lines(turn.get("reasons", "")))
@@ -739,6 +741,8 @@ def _pending_turn(
 def _pending_message_for_intent(intent: CopilotIntent) -> str:
     return {
         "free_chat": "SMAIナビが考えています...",
+        "identity": "SMAIナビが考えています...",
+        "capability_help": "SMAIナビができることを整理しています...",
         "app_help": "SMAIナビが使い方を整理しています...",
         "stock_summary": "SMAIナビが確認ポイントを整理しています...",
         "forecast_risk_compare": "SMAIナビが予測とリスクを見比べています...",
@@ -1114,7 +1118,7 @@ def _conversation_answer(
         body = _safe_response_body(response.answer, intent=intent)
         if body:
             return body
-    if intent == "free_chat":
+    if intent in {"free_chat", "identity", "capability_help"}:
         if _is_simple_greeting(question):
             return _fallback_free_chat_answer(question, greeting=True)
         body = _safe_response_body(response.answer, intent=intent)
@@ -1164,6 +1168,12 @@ def _fallback_free_chat_answer(question: str, *, greeting: bool = False) -> str:
             "私はSMAIナビです。Smart Market AIの中で、銘柄の見方、AI予測、ニュース、"
             "根拠資料の確認ポイントを整理するお手伝いをします。"
         )
+    if _is_capability_question(topic):
+        return (
+            "SMAIナビでは、SMAIの使い方、銘柄の確認順、AI予測とリスクの見比べ方、"
+            "ニュース材料の整理をお手伝いできます。"
+            "迷ったときは「この銘柄で最初に見る材料は？」のように聞いてください。"
+        )
     if topic:
         return (
             f"「{topic[:40]}」について、SMAIで確認する観点を整理します。"
@@ -1181,12 +1191,37 @@ def _is_identity_question(question: str) -> bool:
         phrase in normalized
         for phrase in (
             "あなたの名前",
+            "あなたのなまえ",
+            "あなたは誰",
+            "あなたはだれ",
             "君の名前",
+            "君は誰",
             "名前は",
+            "名前を教えて",
+            "お名前",
+            "なまえ",
             "だれ",
             "誰",
             "who are you",
             "your name",
+        )
+    )
+
+
+def _is_capability_question(question: str) -> bool:
+    normalized = str(question or "").strip().lower()
+    return any(
+        phrase in normalized
+        for phrase in (
+            "何ができる",
+            "なにができる",
+            "できること",
+            "何を相談",
+            "何を聞ける",
+            "どう使える",
+            "どんなことができる",
+            "help",
+            "capability",
         )
     )
 
@@ -1250,8 +1285,10 @@ def _safe_response_body(answer: str, *, intent: CopilotIntent | None = None) -> 
         "本レポート",
     )
     for line in lines:
-        if intent in {"free_chat", "app_help"} and any(
-            marker in line for marker in repetitive_markers
+        if (
+            intent is not None
+            and _is_llm_micro_intent(intent)
+            and any(marker in line for marker in repetitive_markers)
         ):
             continue
         filtered.append(line)
@@ -1259,11 +1296,12 @@ def _safe_response_body(answer: str, *, intent: CopilotIntent | None = None) -> 
     if not cleaned:
         return ""
     compact = cleaned.replace("\n", "")
-    if intent == "free_chat":
+    if intent is not None and _is_llm_micro_intent(intent):
         weak_phrases = (
             "分かる範囲で短く整理します",
             "SMAIの画面、確認材料、注意点について聞いてください",
             "確認材料について聞いてください",
+            "確認材料を整理します",
         )
         if len(compact) < 40 or any(phrase in cleaned for phrase in weak_phrases):
             return ""
@@ -1542,11 +1580,17 @@ def _active_intent() -> CopilotIntent:
 
 
 def _intent_from_message(message: str, *, fallback: CopilotIntent) -> CopilotIntent:
+    if _is_identity_question(message):
+        return "identity"
+    if _is_capability_question(message):
+        return "capability_help"
     if _is_simple_greeting(message):
         return "free_chat"
     decision = detect_assistant_intent(message)
     mapping: dict[str, CopilotIntent] = {
         "app_help": "app_help",
+        "identity": "identity",
+        "capability_help": "capability_help",
         "stock_summary": "stock_summary",
         "forecast_check": "forecast_risk_compare",
         "forecast_risk_compare": "forecast_risk_compare",
@@ -1563,12 +1607,21 @@ def _intent_from_message(message: str, *, fallback: CopilotIntent) -> CopilotInt
 
 def _normalize_intent(value: object) -> CopilotIntent:
     text = str(value or "").strip()
-    valid = {preset.intent for preset in copilot_conversation_presets()}
+    valid = {
+        "app_help",
+        "identity",
+        "capability_help",
+        "stock_summary",
+        "forecast_risk_compare",
+        "news_materials",
+        "decision_report_draft",
+        "free_chat",
+    }
     return text if text in valid else "free_chat"  # type: ignore[return-value]
 
 
 def _is_llm_micro_intent(intent: CopilotIntent) -> bool:
-    return intent in {"free_chat", "app_help"}
+    return intent in {"free_chat", "identity", "app_help", "capability_help"}
 
 
 def _preset_for_intent(intent: CopilotIntent) -> CopilotConversationPreset:

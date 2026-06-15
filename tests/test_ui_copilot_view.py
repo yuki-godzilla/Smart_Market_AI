@@ -12,6 +12,7 @@ from ui.views.copilot import (
     _chat_header_html,
     _context_for_llm,
     _gateway_question,
+    _intent_from_message,
     _stream_chunks,
     _turn_from_response,
     copilot_answer_detail_html,
@@ -110,6 +111,27 @@ def test_copilot_llm_micro_intents_use_minimal_context_and_prompt():
         )
         == "SMAIの使い方を教えて"
     )
+
+
+def test_copilot_identity_and_capability_route_to_llm_micro_intents():
+    assert _intent_from_message("あなたの名前は？", fallback="free_chat") == "identity"
+    assert _intent_from_message("何ができるの？", fallback="free_chat") == "capability_help"
+
+    identity_context = _context_for_llm(
+        intent="identity",
+        context=copilot_context_options()[0],
+        question="あなたの名前は？",
+    )
+    capability_context = _context_for_llm(
+        intent="capability_help",
+        context=copilot_context_options()[0],
+        question="何ができるの？",
+    )
+
+    assert identity_context.context_id == "copilot_identity_minimal"
+    assert capability_context.context_id == "copilot_capability_help_minimal"
+    assert identity_context.summary["message"] == "あなたの名前は？"
+    assert capability_context.summary["message"] == "何ができるの？"
 
 
 def test_copilot_conversation_presets_define_six_entry_intents():

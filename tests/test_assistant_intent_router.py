@@ -38,6 +38,18 @@ def test_detect_assistant_intent_rag_request():
     assert decision.intent == "rag_search"
 
 
+def test_detect_assistant_intent_identity_request():
+    decision = detect_assistant_intent("あなたの名前は？")
+
+    assert decision.intent == "identity"
+
+
+def test_detect_assistant_intent_capability_request():
+    decision = detect_assistant_intent("何ができるの？")
+
+    assert decision.intent == "capability_help"
+
+
 def test_detect_assistant_intent_unknown_falls_back_to_free_chat():
     decision = detect_assistant_intent("こんにちは")
 

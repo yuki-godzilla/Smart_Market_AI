@@ -32,7 +32,7 @@ Response:
 ```json
 {
   "answer": "こんにちは。どのようなお手伝いをしましょうか。",
-  "model": "qwen3:4b",
+  "model": "llama3.2:3b",
   "provider": "ollama",
   "elapsed_ms": 120
 }
@@ -145,7 +145,7 @@ Response:
   "confidence": "medium",
   "safety_notes": ["スコア、予測値、ランキング順位は変更していません。"],
   "provider": "ollama",
-  "model": "qwen3:4b",
+  "model": "llama3.2:3b",
   "profile": "notebook_dev",
   "elapsed_ms": 120,
   "gateway_status": "ok",
@@ -175,7 +175,7 @@ model が未取得の場合:
 ```json
 {
   "detail": {
-    "error": "Ollama model 'qwen3:4b' was not found. Run `ollama pull qwen3:4b` or choose an installed model.",
+    "error": "Ollama model 'llama3.2:3b' was not found. Run `ollama pull llama3.2:3b` or choose an installed model.",
     "provider": "ollama",
     "code": "model_not_found",
     "retryable": false
@@ -192,8 +192,8 @@ Ollama が起動しているか、設定中 model が導入済みかを確認し
   "provider": "ollama",
   "base_url": "http://localhost:11434",
   "default_profile": "notebook_dev",
-  "default_model": "qwen3:4b",
-  "installed_models": ["qwen3:4b", "qwen3:8b"],
+  "default_model": "llama3.2:3b",
+  "installed_models": ["llama3.2:3b", "qwen3:8b"],
   "configured_model_installed": true,
   "install_hint": null
 }

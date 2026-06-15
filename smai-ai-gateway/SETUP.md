@@ -18,7 +18,7 @@ python -m venv .venv
 Ollama を起動し、ノートPC開発用の軽量モデルを取得します。
 
 ```powershell
-ollama pull qwen3:4b
+ollama pull llama3.2:3b
 ```
 
 デスクトップ環境では必要に応じて `qwen3:8b`、`qwen3:14b`、`qwen3:30b` も取得します。
@@ -35,7 +35,7 @@ copy .env.example .env
 
 - `SMAI_OLLAMA_BASE_URL`: 既定 `http://localhost:11434`
 - `SMAI_LLM_PROFILE`: 既定 `notebook_dev`
-- `SMAI_OLLAMA_MODEL`: 既定 `qwen3:4b`
+- `SMAI_OLLAMA_MODEL`: 既定 `llama3.2:3b`
 - `OLLAMA_BASE_URL` / `DEFAULT_LLM_MODEL`: legacy alias
 - `REQUEST_TIMEOUT_SECONDS`: 既定 `30`
 
@@ -43,7 +43,7 @@ copy .env.example .env
 
 | 環境 | profile | 推奨モデル | 用途 |
 | --- | --- | --- | --- |
-| ノートPC | `notebook_dev` | `qwen3:4b` | 軽量開発・疎通確認 |
+| ノートPC | `notebook_dev` | `llama3.2:3b` | 軽量開発・疎通確認 |
 | デスクトップ通常 | `desktop_fast` | `qwen3:8b` | Copilot・要約 |
 | デスクトップ高精度 | `desktop_analysis` | `qwen3:14b` | 銘柄分析・RAG統合 |
 | 高負荷分析 | `desktop_heavy` | `qwen3:30b` | 週次/月次レポート |
@@ -97,7 +97,7 @@ curl http://127.0.0.1:8088/health
 curl http://127.0.0.1:8088/models
 ```
 
-設定中 model が未導入の場合は `Please run: ollama pull qwen3:4b` のような案内が返ります。
+設定中 model が未導入の場合は `Please run: ollama pull llama3.2:3b` のような案内が返ります。
 
 チャット確認例:
 
@@ -143,7 +143,7 @@ SMAI 親アプリから Gateway へ接続する opt-in live smoke 確認例:
 ```powershell
 $env:SMAI_ASSISTANT_GATEWAY_LIVE_SMOKE = "1"
 $env:SMAI_ASSISTANT_GATEWAY_BASE_URL = "http://127.0.0.1:8088"
-$env:SMAI_ASSISTANT_GATEWAY_MODEL = "qwen3:4b"
+$env:SMAI_ASSISTANT_GATEWAY_MODEL = "llama3.2:3b"
 ..\venv_SMAI\Scripts\python.exe -m pytest ..\tests\test_assistant_gateway_live_smoke.py -q
 Remove-Item Env:SMAI_ASSISTANT_GATEWAY_LIVE_SMOKE
 Remove-Item Env:SMAI_ASSISTANT_GATEWAY_BASE_URL
@@ -162,7 +162,7 @@ Qwen3 系は thinking 出力が長くなりやすいため、Gateway は Ollama 
 Ollama を起動し、モデル取得後にだけ実行します。通常 CI / 通常確認には含めません。
 
 ```powershell
-ollama pull qwen3:4b
+ollama pull llama3.2:3b
 $env:SMAI_AI_GATEWAY_LIVE_SMOKE = "1"
 .\.venv\Scripts\python.exe -m pytest tests/test_live_ollama_smoke.py -q
 Remove-Item Env:SMAI_AI_GATEWAY_LIVE_SMOKE

@@ -55,7 +55,7 @@ def test_parent_smai_assistant_can_use_live_gateway_context_answer():
     assert response.intent == "forecast"
     assert response.response_source == "llm"
     assert response.provider == "ollama"
-    assert response.model == "qwen3:8b"
+    assert response.model == (model or "llama3.2:3b")
     assert response.gateway_status == "ok"
     assert response.fallback_reason is None
     assert response.request_id

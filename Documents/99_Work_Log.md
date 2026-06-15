@@ -18,6 +18,18 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-16 - SMAI Gateway default model llama3.2:3b
+
+### Runtime and configuration
+
+- Pulled `llama3.2:3b` into the local Ollama model store and confirmed it appears in `ollama list`.
+- Changed the Gateway notebook default model from `qwen3:4b` to `llama3.2:3b` in code defaults, `.env.example`, and the SMAIアシスタント model picker.
+- Kept larger desktop profiles (`qwen3:8b` / `qwen3:14b` / `qwen3:30b`) available as explicit profile choices.
+
+### Documentation
+
+- Synchronized parent SMAI and `smai-ai-gateway` docs so setup, model routing, `/models` examples, and live-smoke examples point to `llama3.2:3b` as the notebook default.
+
 ## 2026-06-15 - SMAI Assistant Response Polish & Product Quality Sprint
 
 ### Sanitizer

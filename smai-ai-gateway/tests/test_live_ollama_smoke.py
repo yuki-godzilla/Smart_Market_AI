@@ -15,7 +15,7 @@ pytestmark = pytest.mark.skipif(
 
 def test_live_chat_endpoint_uses_local_ollama():
     client = TestClient(app)
-    model = os.getenv("DEFAULT_LLM_MODEL") or "qwen3:8b"
+    model = os.getenv("SMAI_OLLAMA_MODEL") or os.getenv("DEFAULT_LLM_MODEL") or "llama3.2:3b"
 
     response = client.post(
         "/api/v1/chat",

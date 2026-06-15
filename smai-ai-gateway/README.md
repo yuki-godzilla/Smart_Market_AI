@@ -148,7 +148,7 @@ flowchart LR
   <tr>
     <td>Ollama</td>
     <td>Local LLM provider <img alt="Ollama logo" src="https://cdn.simpleicons.org/ollama/111827" height="22"></td>
-    <td>初期 provider。既定は <code>http://localhost:11434</code> と <code>qwen3:4b</code> / <code>notebook_dev</code> です。</td>
+    <td>初期 provider。既定は <code>http://localhost:11434</code> と <code>llama3.2:3b</code> / <code>notebook_dev</code> です。</td>
   </tr>
   <tr>
     <td>OpenAI compatible API</td>
@@ -182,18 +182,18 @@ SMAI 親側には、`assistant.gateway.enabled=true` のときだけ `/api/v1/co
 
 ## LLM model profiles
 
-Ollama model はコードに固定せず、環境変数または request の `profile` / `model` で切り替えます。既定はノートPC開発向けの `notebook_dev` / `qwen3:4b` です。
+Ollama model はコードに固定せず、環境変数または request の `profile` / `model` で切り替えます。既定はノートPC開発向けの `notebook_dev` / `llama3.2:3b` です。
 
 | 環境 | profile | 推奨モデル | 用途 |
 | --- | --- | --- | --- |
-| ノートPC | `notebook_dev` | `qwen3:4b` | 軽量開発・疎通確認 |
+| ノートPC | `notebook_dev` | `llama3.2:3b` | 軽量開発・疎通確認 |
 | デスクトップ通常 | `desktop_fast` | `qwen3:8b` | Copilot・要約 |
 | デスクトップ高精度 | `desktop_analysis` | `qwen3:14b` | 銘柄分析・RAG統合 |
 | 高負荷分析 | `desktop_heavy` | `qwen3:30b` | 週次/月次レポート |
 
 ```powershell
 SMAI_LLM_PROFILE=notebook_dev
-SMAI_OLLAMA_MODEL=qwen3:4b
+SMAI_OLLAMA_MODEL=llama3.2:3b
 SMAI_OLLAMA_BASE_URL=http://localhost:11434
 ```
 

@@ -48,7 +48,7 @@ class FakeLlmClient:
         answer = self.answers[min(len(self.calls) - 1, len(self.answers) - 1)]
         return LlmProviderResult(
             answer=answer,
-            model=model or "qwen3:4b",
+            model=model or "llama3.2:3b",
             provider="fake",
             elapsed_ms=7,
             prompt_chars=sum(len(message.content) for message in messages),

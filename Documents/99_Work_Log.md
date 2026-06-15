@@ -18,6 +18,14 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-16 - CI mypy follow-up for Gateway model switch
+
+### CI fix
+
+- Fixed CI `mypy .` errors introduced around the Gateway model-default update by narrowing environment fallback values and Gateway response status types.
+- Cast the Copilot runtime `execution_mode` / `environment_profile` strings at the `AssistantGatewayConfig` boundary so parent-side strict config literals type-check.
+- Re-ran CI-equivalent lint, format, type, and pytest checks locally; full pytest passed with a workspace-local temp directory because the Windows default pytest temp root is permission-blocked in this environment.
+
 ## 2026-06-16 - SMAI Gateway default model llama3.2:3b
 
 ### Runtime and configuration

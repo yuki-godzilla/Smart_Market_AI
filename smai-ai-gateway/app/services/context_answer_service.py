@@ -12,6 +12,7 @@ from app.clients.ollama_client import OllamaClient, OllamaClientError
 from app.schemas.common import GatewayBaseModel, LlmMessage
 from app.schemas.context_answer import (
     ContextAnswerConfidence,
+    ContextAnswerGatewayStatus,
     ContextAnswerRequest,
     ContextAnswerResponse,
     ContextReferencedSection,
@@ -238,7 +239,9 @@ class ContextAnswerService:
                 )
                 if usable_payload is not None:
                     result = repair_result
-        gateway_status = "ok" if usable_payload is not None else "fallback"
+        gateway_status: ContextAnswerGatewayStatus = (
+            "ok" if usable_payload is not None else "fallback"
+        )
         fallback_reason = None if usable_payload is not None else "response_validation_failure"
         answer = (
             usable_payload.answer

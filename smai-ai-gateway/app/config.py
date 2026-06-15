@@ -26,8 +26,10 @@ def get_settings() -> GatewaySettings:
     """Load settings from .env and environment variables."""
 
     _load_dotenv(GATEWAY_ROOT / ".env")
-    base_url = os.getenv("SMAI_OLLAMA_BASE_URL") or os.getenv(
-        "OLLAMA_BASE_URL", "http://localhost:11434"
+    base_url: str = (
+        os.getenv("SMAI_OLLAMA_BASE_URL")
+        or os.getenv("OLLAMA_BASE_URL")
+        or "http://localhost:11434"
     )
     default_model = (
         os.getenv("SMAI_OLLAMA_MODEL")

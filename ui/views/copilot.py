@@ -6,7 +6,7 @@ import os
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal
+from typing import Literal, cast
 from uuid import uuid4
 
 import streamlit as st
@@ -424,8 +424,14 @@ def copilot_settings_from_gateway_runtime(
         context_answer_path=runtime_config.context_answer_path,
         timeout_seconds=runtime_config.timeout_seconds,
         model=runtime_config.model,
-        execution_mode=runtime_config.execution_mode,
-        environment_profile=runtime_config.environment_profile,
+        execution_mode=cast(
+            Literal["auto", "light", "quality", "off"],
+            runtime_config.execution_mode,
+        ),
+        environment_profile=cast(
+            Literal["notebook", "desktop", "server", "offline"],
+            runtime_config.environment_profile,
+        ),
         preferred_profile=runtime_config.profile,  # type: ignore[arg-type]
     )
     assistant_config = settings.assistant.model_copy(update={"gateway": gateway})

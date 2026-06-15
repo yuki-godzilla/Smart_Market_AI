@@ -9,7 +9,7 @@ from time import perf_counter
 from pydantic import Field, ValidationError
 
 from app.clients.ollama_client import OllamaClient, OllamaClientError
-from app.schemas.common import GatewayBaseModel
+from app.schemas.common import GatewayBaseModel, LlmMessage
 from app.schemas.context_answer import (
     ContextAnswerConfidence,
     ContextAnswerRequest,
@@ -58,7 +58,7 @@ class ContextAnswerService:
             requested_model=request.model,
         )
         messages = self.prompt_service.build_context_answer_messages(request)
-        sections = _selected_sections(request)
+        sections = [] if _is_llm_micro_request(request) else _selected_sections(request)
         prompt_chars = sum(len(message.content) for message in messages)
         context_tokens_estimate = _estimate_context_tokens(request)
         LOGGER.info(
@@ -106,37 +106,6 @@ class ContextAnswerService:
                 tool_execution_ms=0,
                 llm_generation_ms=0,
                 total_elapsed_ms=_elapsed_ms(started),
-                decision_support_note=(
-                    _JA_DECISION_SUPPORT_NOTE
-                    if request.language == "ja"
-                    else _EN_DECISION_SUPPORT_NOTE
-                ),
-            )
-        if request.task_type == "free_chat" and _is_simple_greeting(request.user_question):
-            answer = _fallback_answer_for_request(request, sections)
-            total_elapsed_ms = _elapsed_ms(started)
-            return ContextAnswerResponse(
-                answer=answer,
-                materials=[],
-                cautions=[],
-                next_checkpoints=[],
-                referenced_sections=[],
-                confidence="high",
-                safety_notes=_safety_notes_from_request(request),
-                provider="local_fast_path",
-                model=route.model,
-                profile=route.profile,
-                elapsed_ms=total_elapsed_ms,
-                gateway_status="ok",
-                fallback_reason=None,
-                request_id=request.request_id,
-                timeout_sec=route.timeout_seconds,
-                context_tokens_estimate=context_tokens_estimate,
-                prompt_chars=prompt_chars,
-                response_chars=len(answer),
-                tool_execution_ms=0,
-                llm_generation_ms=0,
-                total_elapsed_ms=total_elapsed_ms,
                 decision_support_note=(
                     _JA_DECISION_SUPPORT_NOTE
                     if request.language == "ja"
@@ -210,7 +179,28 @@ class ContextAnswerService:
         usable_payload = _usable_llm_payload(
             structured_payload=llm_payload,
             plain_answer=_strip_thinking_blocks(result.answer).strip(),
+            request=request,
         )
+        if usable_payload is None:
+            try:
+                repair_messages = _quality_repair_messages(messages)
+                repair_result = self.client.chat(
+                    repair_messages,
+                    model=route.model,
+                    timeout_seconds=route.timeout_seconds,
+                    max_tokens=route.max_tokens,
+                )
+            except OllamaClientError:
+                repair_result = None
+            if repair_result is not None:
+                repair_payload = _parse_llm_context_answer(repair_result.answer)
+                usable_payload = _usable_llm_payload(
+                    structured_payload=repair_payload,
+                    plain_answer=_strip_thinking_blocks(repair_result.answer).strip(),
+                    request=request,
+                )
+                if usable_payload is not None:
+                    result = repair_result
         gateway_status = "ok" if usable_payload is not None else "fallback"
         fallback_reason = None if usable_payload is not None else "response_validation_failure"
         answer = (
@@ -290,8 +280,23 @@ def _elapsed_ms(started: float) -> int:
 
 
 def _estimate_context_tokens(request: ContextAnswerRequest) -> int:
+    if _is_llm_micro_request(request):
+        return max(1, len(request.user_question.strip()) // 4)
     context_json = request.context.model_dump_json()
     return max(1, len(context_json) // 4)
+
+
+def _is_llm_micro_request(request: ContextAnswerRequest) -> bool:
+    return request.task_type in {"free_chat", "app_help"}
+
+
+def _quality_repair_messages(messages: list[LlmMessage]) -> list[LlmMessage]:
+    repair_instruction = (
+        "前回の回答が短すぎる、または質問に直接答えていません。"
+        "ユーザーの質問に直接答え、2～4文の自然な日本語で返してください。"
+        "内部説明や技術情報は出さないでください。"
+    )
+    return [*messages, LlmMessage(role="user", content=repair_instruction)]
 
 
 def _parse_llm_context_answer(answer: str) -> LlmContextAnswerPayload | None:
@@ -372,8 +377,12 @@ def _usable_llm_payload(
     *,
     structured_payload: LlmContextAnswerPayload | None,
     plain_answer: str,
+    request: ContextAnswerRequest,
 ) -> LlmContextAnswerPayload | None:
-    if structured_payload is not None and not _is_low_quality_payload(structured_payload):
+    if structured_payload is not None and not _is_low_quality_payload(
+        structured_payload,
+        request=request,
+    ):
         return LlmContextAnswerPayload(
             answer=structured_payload.answer,
             materials=_drop_low_quality_items(structured_payload.materials),
@@ -384,11 +393,11 @@ def _usable_llm_payload(
     text_payload = _coerce_answer_label_payload_from_text(
         plain_answer
     ) or _coerce_llm_context_answer_payload_from_text(plain_answer)
-    if text_payload is not None and not _is_low_quality_payload(text_payload):
+    if text_payload is not None and not _is_low_quality_payload(text_payload, request=request):
         return text_payload
     if plain_answer.lstrip().startswith("{") or plain_answer.lstrip().startswith("```"):
         return None
-    if plain_answer and not _is_low_quality_text(plain_answer):
+    if plain_answer and not _is_low_quality_text(plain_answer, request=request):
         return LlmContextAnswerPayload(answer=plain_answer, confidence="low")
     return None
 
@@ -421,15 +430,19 @@ def _extract_json_object(text: str) -> str | None:
     return normalized[start : end + 1]
 
 
-def _is_low_quality_payload(payload: LlmContextAnswerPayload) -> bool:
-    return _is_low_quality_text(payload.answer)
+def _is_low_quality_payload(
+    payload: LlmContextAnswerPayload,
+    *,
+    request: ContextAnswerRequest,
+) -> bool:
+    return _is_low_quality_text(payload.answer, request=request)
 
 
 def _drop_low_quality_items(values: list[str]) -> list[str]:
     return [value for value in values if not _is_low_quality_text(value)]
 
 
-def _is_low_quality_text(text: str) -> bool:
+def _is_low_quality_text(text: str, *, request: ContextAnswerRequest | None = None) -> bool:
     joined = str(text or "")
     if "????" in joined or "�" in joined:
         return True
@@ -451,21 +464,44 @@ def _is_low_quality_text(text: str) -> bool:
     if any(marker in lowered for marker in reasoning_markers):
         return True
     mojibake_markers = ("ã", "æ", "é", "縺", "繧", "荳", "譁")
-    return any(marker in joined for marker in mojibake_markers)
+    if any(marker in joined for marker in mojibake_markers):
+        return True
+    if request is None or request.task_type not in {"free_chat", "app_help"}:
+        return False
+    compact = re.sub(r"\s+", "", joined)
+    weak_phrases = (
+        "整理します",
+        "確認材料を整理します",
+        "SMAIで確認する観点を整理します",
+        "分かる範囲で短く整理します",
+    )
+    if len(compact) < 40:
+        return True
+    if any(phrase in joined for phrase in weak_phrases) and len(compact) < 70:
+        return True
+    if _is_identity_question(request.user_question) and "SMAIナビ" not in joined:
+        return True
+    return False
 
 
 def _fallback_answer_for_request(
     request: ContextAnswerRequest,
     sections: list[ContextSection],
 ) -> str:
-    if request.task_type == "free_chat":
-        return _free_chat_fallback_answer(request)
+    if request.task_type in {"free_chat", "app_help"}:
+        return _llm_micro_fallback_answer(request)
     return _fallback_answer_from_sections(sections, language=request.language)
 
 
-def _free_chat_fallback_answer(request: ContextAnswerRequest) -> str:
+def _llm_micro_fallback_answer(request: ContextAnswerRequest) -> str:
     question = str(request.user_question or "").strip()
     if request.language != "ja":
+        if request.task_type == "app_help":
+            return (
+                "SMAI is easiest to use by purpose. Use the symbol cockpit for a single "
+                "symbol, rankings to find candidates, and the investment radar to review "
+                "broader market materials."
+            )
         if _is_simple_greeting(question):
             return (
                 "Hello, I am SMAI Navi. I can help organize SMAI screens, "
@@ -479,6 +515,13 @@ def _free_chat_fallback_answer(request: ContextAnswerRequest) -> str:
         return (
             "I can organize this as SMAI review support. Separate the visible "
             "price, forecast, news, evidence, and missing checks before treating it as a decision input."
+        )
+    if request.task_type == "app_help":
+        return (
+            "SMAIは、目的別に画面を使い分けると分かりやすいです。"
+            "銘柄を深掘りするなら「銘柄コックピット」、候補を探すなら「銘柄ランキング」、"
+            "市場全体を見るなら「投資レーダー」を使います。"
+            "迷ったら、気になる銘柄名を入れて「何を見ればいい？」と聞いてください。"
         )
     if _is_simple_greeting(question):
         return (

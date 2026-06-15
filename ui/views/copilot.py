@@ -808,7 +808,7 @@ def _handle_copilot_submit(
             message=normalized_question,
             report_context=assistant_context_to_report_context(context),
         )
-        if intent != "free_chat"
+        if not _is_llm_micro_intent(intent)
         else None
     )
     tool_summaries = [result.summary for result in tool_plan.executed] if tool_plan else []
@@ -823,9 +823,9 @@ def _handle_copilot_submit(
         gateway_question,
         conversation_id=conversation_id,
         message_history=(
-            () if intent == "free_chat" else copilot_history_messages(history_for_request)
+            () if _is_llm_micro_intent(intent) else copilot_history_messages(history_for_request)
         ),
-        referenced_context_ids=[] if intent == "free_chat" else [context.context_id],
+        referenced_context_ids=[] if _is_llm_micro_intent(intent) else [context.context_id],
         gateway_task_type=intent,
         settings=copilot_settings_from_gateway_runtime(runtime_config),
     )
@@ -836,7 +836,7 @@ def _handle_copilot_submit(
         intent=intent,
         turn_id=pending_turn_id,
         executed_checks=[
-            *([] if intent == "free_chat" else [_material_status_summary(context)]),
+            *([] if _is_llm_micro_intent(intent) else [_material_status_summary(context)]),
             *tool_summaries,
         ],
         tool_statuses=[
@@ -869,17 +869,19 @@ def _context_for_llm(
     context: SmaiAssistantContext,
     question: str,
 ) -> SmaiAssistantContext:
-    if intent != "free_chat":
+    if not _is_llm_micro_intent(intent):
         return context
     return SmaiAssistantContext(
-        context_id="copilot_free_chat_minimal",
+        context_id=f"copilot_{intent}_minimal",
         page_key="assistant",
         page_label="SMAIアシスタント",
-        section_key="free_chat",
-        section_label="自由会話",
-        lead="SMAIナビとの短い会話です。",
+        section_key=intent,
+        section_label="SMAIナビとの軽い相談",
+        lead="SMAIナビが短く自然に答えるための最小文脈です。",
         summary={
-            "role": "SMAIナビ",
+            "assistant_name": "SMAIナビ",
+            "screen": "SMAIアシスタント",
+            "role": "Smart Market AIの投資判断アシスタント",
             "message": question[:120],
         },
         priority=100,
@@ -1441,8 +1443,8 @@ def _gateway_question(
     prompt_instruction: str,
     tool_summaries: list[str],
 ) -> str:
-    if intent == "free_chat":
-        return question.strip()[:800]
+    if _is_llm_micro_intent(intent):
+        return question.strip()[:500]
     tool_block = "\n".join(f"- {summary}" for summary in tool_summaries) or "- なし"
     return (
         f"SMAI Assistant intent: {intent}\n"
@@ -1563,6 +1565,10 @@ def _normalize_intent(value: object) -> CopilotIntent:
     text = str(value or "").strip()
     valid = {preset.intent for preset in copilot_conversation_presets()}
     return text if text in valid else "free_chat"  # type: ignore[return-value]
+
+
+def _is_llm_micro_intent(intent: CopilotIntent) -> bool:
+    return intent in {"free_chat", "app_help"}
 
 
 def _preset_for_intent(intent: CopilotIntent) -> CopilotConversationPreset:

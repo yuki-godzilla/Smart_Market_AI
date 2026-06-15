@@ -14,7 +14,7 @@ def test_router_uses_fast_profile_for_free_chat_on_notebook():
     assert route.provider == "ollama"
     assert route.model == "qwen3:4b"
     assert route.profile == "notebook_dev"
-    assert route.timeout_seconds == 10.0
+    assert route.timeout_seconds == 12.0
     assert route.max_tokens == 120
 
 

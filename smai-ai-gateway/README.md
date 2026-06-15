@@ -199,7 +199,7 @@ SMAI_OLLAMA_BASE_URL=http://localhost:11434
 
 `GET /models` は Ollama の導入済み model を確認し、設定中 model が未導入なら `ollama pull <model>` の案内を返します。
 
-`/api/v1/context-answer` の `task_type=free_chat` は軽量会話用です。短い prompt、10 秒 / 120 tokens の runtime policy、内部推論を見せない cleaning、単純な挨拶や挨拶で始まる短文向けの local fast path、名前 / 役割質問向けの identity fallback を使い、SMAI 側の Tool Layer / RAG / news / symbol-specific context には依存しません。free_chat の provider timeout は `local_conversation_fallback` として自然な会話 fallback に寄せ、銘柄分析、ニュース材料、Decision Report 草案などは task_type ごとの runtime policy と context payload を使います。
+`/api/v1/context-answer` の `task_type=free_chat` と `task_type=app_help` は `llm_micro` として扱います。短い prompt、最小 context、12 秒 / 120 tokens の runtime policy、`/no_think` と Ollama `think: false` による thinking 抑制を使い、SMAI 側の Tool Layer / RAG / news / symbol-specific context / 長い履歴には依存しません。短い挨拶、名前質問、使い方質問もまず LLM へ投げ、低品質な短文回答は 1 回だけ再生成し、それでも弱い場合や provider timeout の場合だけ自然な fallback に寄せます。銘柄分析、ニュース材料、Decision Report 草案などは task_type ごとの runtime policy と context payload を使います。
 
 ## 起動概要
 

@@ -18,6 +18,53 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-15 - SMAI Assistant LLM-first Lightweight Optimization Sprint
+
+### LLM-first Policy
+
+- greeting uses LLM: removed the Gateway `local_fast_path` greeting branch; short greetings now call the provider through `llm_micro`.
+- identity uses LLM: identity questions still route through `free_chat` / `llm_micro`; identity fallback is used only after provider / validation failure.
+- app_help uses LLM: `app_help` now uses the same `llm_micro` path instead of tool/context-heavy handling.
+- fallback only on failure: provider timeout, Gateway/provider unavailable, offline routing, and response validation remain the fallback paths.
+
+### llm_micro
+
+- tools disabled: parent SMAI skips the Assistant Tool Layer for `free_chat` and `app_help`.
+- context minimized: parent SMAI sends only assistant name, screen, role, and user message for `llm_micro`.
+- no_think: Gateway prompts start with `/no_think`; Ollama requests already include `think: false`.
+- timeout: `free_chat` / `app_help` use 12 seconds.
+- max_tokens: `free_chat` / `app_help` use 120 tokens.
+
+### Validation
+
+- case 1: `こんにちは` remains `free_chat` and calls the fake LLM in unit tests.
+- case 2: `あなたの名前は？` triggers quality regeneration if the first micro answer is too weak.
+- case 3: `名前は？` is covered by the shared identity detector.
+- case 4: `何ができるの？` stays in `free_chat` / `llm_micro`.
+- case 5: `SMAIの使い方を教えて` routes as `app_help` / `llm_micro`.
+- case 6: `今日は何を相談できますか？` stays in `free_chat` / `llm_micro`.
+- case 7: `AI予測と下振れ警戒を比べたい` remains `forecast_risk_compare` / light context.
+- case 8: `この銘柄を整理したい` remains `stock_summary` / light context.
+- case 9: `Decision Reportに残す確認点を整理したい` remains report-oriented context.
+- case 10: `ニュース材料を見たい` remains staged context.
+- case 11: `Decision Reportを作りたい` remains staged report context.
+- case 12: pending bubble remains in the chat thread.
+- case 13: runtime metadata remains folded under technical details.
+- case 14: three-turn history is suppressed only for `llm_micro`; heavier intents can still use history.
+- case 15: AppTest coverage keeps the first screen and chat submit flow rendering.
+
+### Runtime
+
+- provider_timeout count: deterministic tests use fake clients, so live timeout count was not measured.
+- average latency: deterministic tests use fake 7 ms provider latency; live latency was not measured.
+- fallback reasons: `local_conversation_fallback`, `response_validation_failure`, offline/fallback route, and provider/Gateway failures stay in metadata.
+
+### Final Judgement
+
+- LLM-first maintained: yes for greeting / identity / app_help / free_chat.
+- notebook usability: improved by minimal context, 12s timeout, 120-token budget, and no tool/RAG/news work for micro prompts.
+- remaining issues: live 15-case browser measurement was not run in this network-free implementation pass.
+
 ## 2026-06-15 - SMAI Assistant Pending Bubble / Answer Quality Sprint
 
 ### Loading UI

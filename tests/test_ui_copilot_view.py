@@ -10,6 +10,8 @@ from ui.views.copilot import (
     COPILOT_CHAT_HISTORY_STATE_KEY,
     CopilotGatewayRuntimeConfig,
     _chat_header_html,
+    _context_for_llm,
+    _gateway_question,
     _stream_chunks,
     _turn_from_response,
     copilot_answer_detail_html,
@@ -69,6 +71,45 @@ def test_copilot_context_options_cover_core_workflows():
     assert "銘柄コックピット / AI材料分析" in labels
     assert "リバランス / 配分見直し" in labels
     assert all(context.suggested_questions for context in options)
+
+
+def test_copilot_llm_micro_intents_use_minimal_context_and_prompt():
+    context = copilot_context_options()[0]
+
+    free_chat_context = _context_for_llm(
+        intent="free_chat",
+        context=context,
+        question="こんにちは",
+    )
+    app_help_context = _context_for_llm(
+        intent="app_help",
+        context=context,
+        question="SMAIの使い方を教えて",
+    )
+    stock_context = _context_for_llm(
+        intent="stock_summary",
+        context=context,
+        question="この銘柄を整理したい",
+    )
+
+    assert free_chat_context.context_id == "copilot_free_chat_minimal"
+    assert app_help_context.context_id == "copilot_app_help_minimal"
+    assert app_help_context.summary == {
+        "assistant_name": "SMAIナビ",
+        "screen": "SMAIアシスタント",
+        "role": "Smart Market AIの投資判断アシスタント",
+        "message": "SMAIの使い方を教えて",
+    }
+    assert stock_context is context
+    assert (
+        _gateway_question(
+            question="SMAIの使い方を教えて",
+            intent="app_help",
+            prompt_instruction="toolを使わない",
+            tool_summaries=["現在文脈を確認"],
+        )
+        == "SMAIの使い方を教えて"
+    )
 
 
 def test_copilot_conversation_presets_define_six_entry_intents():

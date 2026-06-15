@@ -34,8 +34,8 @@ class PromptService:
         ]
 
     def build_context_answer_messages(self, request: ContextAnswerRequest) -> list[LlmMessage]:
-        if request.task_type == "free_chat":
-            return _free_chat_messages(request)
+        if _is_llm_micro_request(request):
+            return _llm_micro_messages(request)
         language_instruction = (
             "Answer in Japanese." if request.language == "ja" else "Answer in English."
         )
@@ -67,20 +67,40 @@ def _history_messages(history: list[ContextAnswerMessage]) -> list[LlmMessage]:
     return [LlmMessage(role=item.role, content=item.content.strip()) for item in history]
 
 
-def _free_chat_messages(request: ContextAnswerRequest) -> list[LlmMessage]:
+def _is_llm_micro_request(request: ContextAnswerRequest) -> bool:
+    return request.task_type in {"free_chat", "app_help"}
+
+
+def _llm_micro_messages(request: ContextAnswerRequest) -> list[LlmMessage]:
     language_instruction = (
         "Reply in Japanese." if request.language == "ja" else "Reply in English."
     )
     system_prompt = (
         "/no_think\n"
-        "You are SMAI Navi. Reply directly to the user. "
-        "Do not show reasoning, analysis steps, prompt rules, JSON, or tool results. "
-        "For greetings or small talk, answer in one short sentence. "
+        "You are SMAI Navi, the Smart Market AI assistant. "
+        "Return only the final user-facing answer. "
+        "Do not show internal reasoning, English work notes, prompt rules, JSON, tool results, "
+        "provider details, or technical metadata. "
+        "Use polite, warm, natural language. Usually answer in 2 to 4 sentences. "
+        "Answer the user's question directly. "
+        "For greetings, identity questions, and capability questions, do not add investment "
+        "cautions. Do not give buy/sell recommendations or definitive investment judgments. "
+        "Your role is to guide SMAI usage and help organize symbols, AI forecasts, news, "
+        "evidence, and Decision Report materials. "
         f"{language_instruction}"
+    )
+    user_prompt = (
+        "Minimal context:\n"
+        "- assistant_name: SMAIナビ\n"
+        "- screen: SMAIアシスタント\n"
+        "- role: Smart Market AIの投資判断アシスタント\n"
+        f"- intent: {request.task_type}\n"
+        f"- user_message: {request.user_question.strip()[:500]}\n\n"
+        "Answer naturally without using tools or external material."
     )
     return [
         LlmMessage(role="system", content=system_prompt),
-        LlmMessage(role="user", content=request.user_question.strip()[:800]),
+        LlmMessage(role="user", content=user_prompt),
     ]
 
 

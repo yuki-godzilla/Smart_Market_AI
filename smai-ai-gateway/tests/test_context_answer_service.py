@@ -8,17 +8,26 @@ from app.services.context_answer_service import ContextAnswerService
 
 
 class FakeLlmClient:
-    def __init__(self, *, answer: str | None = None, error: OllamaClientError | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        answer: str | None = None,
+        answers: list[str] | None = None,
+        error: OllamaClientError | None = None,
+    ) -> None:
         self.messages: list[LlmMessage] = []
+        self.calls: list[list[LlmMessage]] = []
         self.model: str | None = None
         self.timeout_seconds: float | None = None
         self.max_tokens: int | None = None
         self.settings = GatewaySettings()
-        self.answer = answer or (
-            '{"answer":"LLM structured answer.","materials":["LLM material 1","LLM material 2"],'
+        default_answer = (
+            '{"answer":"SMAIナビとして、質問に直接答えます。画面の目的、確認材料、注意点を分けて見ると、次に確認することを決めやすくなります。",'
+            '"materials":["LLM material 1","LLM material 2"],'
             '"cautions":["LLM caution"],"next_checkpoints":["LLM next check"],'
             '"confidence":"high"}'
         )
+        self.answers = list(answers or ([answer] if answer is not None else [default_answer]))
         self.error = error
 
     def chat(
@@ -30,18 +39,20 @@ class FakeLlmClient:
         max_tokens: int | None = None,
     ) -> LlmProviderResult:
         self.messages = messages
+        self.calls.append(messages)
         self.model = model
         self.timeout_seconds = timeout_seconds
         self.max_tokens = max_tokens
         if self.error is not None:
             raise self.error
+        answer = self.answers[min(len(self.calls) - 1, len(self.answers) - 1)]
         return LlmProviderResult(
-            answer=self.answer,
+            answer=answer,
             model=model or "qwen3:4b",
             provider="fake",
             elapsed_ms=7,
             prompt_chars=sum(len(message.content) for message in messages),
-            response_chars=len(self.answer),
+            response_chars=len(answer),
         )
 
 
@@ -52,7 +63,7 @@ def test_context_answer_service_uses_structured_llm_payload():
 
     response = service.answer(request)
 
-    assert response.answer == "LLM structured answer."
+    assert response.answer.startswith("SMAIナビとして、質問に直接答えます。")
     assert response.provider == "fake"
     assert response.model == "qwen3:8b"
     assert response.profile == "notebook_dev"
@@ -60,28 +71,29 @@ def test_context_answer_service_uses_structured_llm_payload():
     assert response.materials == ["LLM material 1", "LLM material 2"]
     assert response.cautions == ["LLM caution"]
     assert response.next_checkpoints == ["LLM next check"]
-    assert response.referenced_sections[0].section_id == "forecast-1"
+    assert response.referenced_sections == []
     assert response.confidence == "high"
     assert response.safety_notes
     assert client.model == "qwen3:8b"
-    assert client.timeout_seconds == 10.0
+    assert client.timeout_seconds == 12.0
     assert client.max_tokens == 120
-    assert response.timeout_sec == 10.0
+    assert response.timeout_sec == 12.0
     assert response.context_tokens_estimate is not None
     assert response.context_tokens_estimate > 0
     assert response.prompt_chars is not None
     assert response.prompt_chars > 0
-    assert response.response_chars == len(client.answer)
+    assert response.response_chars == len(client.answers[0])
     assert response.tool_execution_ms == 0
     assert response.llm_generation_ms == 7
     assert response.total_elapsed_ms is not None
-    assert any("Reply directly to the user" in message.content for message in client.messages)
+    assert any("Minimal context" in message.content for message in client.messages)
 
 
 def test_context_answer_service_uses_active_section_when_payload_is_unstructured():
     client = FakeLlmClient(answer="LLM plain answer")
     service = ContextAnswerService(client)  # type: ignore[arg-type]
     request = _request(active_context_id="risk-1")
+    request.task_type = "forecast_risk_compare"
 
     response = service.answer(request)
 
@@ -99,6 +111,7 @@ def test_context_answer_service_extracts_answer_label_from_reasoning_text():
     )
     service = ContextAnswerService(client)  # type: ignore[arg-type]
     request = _request()
+    request.task_type = "forecast_risk_compare"
 
     response = service.answer(request)
 
@@ -191,7 +204,7 @@ def test_context_answer_service_accepts_profile_alias():
     response = service.answer(request)
 
     assert response.profile == "desktop_fast"
-    assert client.timeout_seconds == 10.0
+    assert client.timeout_seconds == 12.0
     assert client.max_tokens == 120
 
 
@@ -227,7 +240,7 @@ def test_context_answer_service_returns_fallback_metadata_when_provider_times_ou
     assert response.fallback_reason == "local_conversation_fallback"
     assert response.provider == "ollama"
     assert response.model == "qwen3:8b"
-    assert response.timeout_sec == 10.0
+    assert response.timeout_sec == 12.0
     assert response.prompt_chars is not None
     assert response.context_tokens_estimate is not None
     assert response.tool_execution_ms == 0
@@ -280,7 +293,7 @@ def test_context_answer_service_free_chat_identity_timeout_stays_on_identity():
     assert "SMAIで確認する観点" not in response.answer
 
 
-def test_context_answer_service_free_chat_greeting_uses_fast_path_without_provider_call():
+def test_context_answer_service_free_chat_greeting_uses_llm_micro_provider_call():
     client = FakeLlmClient()
     service = ContextAnswerService(client)  # type: ignore[arg-type]
     request = _request()
@@ -291,10 +304,35 @@ def test_context_answer_service_free_chat_greeting_uses_fast_path_without_provid
 
     assert response.gateway_status == "ok"
     assert response.fallback_reason is None
-    assert response.provider == "local_fast_path"
-    assert response.answer.startswith("こんにちは。SMAIナビです。")
-    assert response.llm_generation_ms == 0
-    assert client.messages == []
+    assert response.provider == "fake"
+    assert response.answer.startswith("SMAIナビとして、質問に直接答えます。")
+    assert response.llm_generation_ms == 7
+    assert len(client.calls) == 1
+    joined = "\n".join(message.content for message in client.messages)
+    assert "/no_think" in joined
+    assert "Minimal context" in joined
+    assert "銘柄コックピット" not in joined
+
+
+def test_context_answer_service_regenerates_once_when_micro_answer_is_weak():
+    client = FakeLlmClient(
+        answers=[
+            "分かる範囲で短く整理します。",
+            "私はSMAIナビです。Smart Market AIの中で、SMAIの使い方や確認材料の整理をお手伝いします。",
+        ]
+    )
+    service = ContextAnswerService(client)  # type: ignore[arg-type]
+    request = _request()
+    request.user_question = "あなたの名前は？"
+    request.task_type = "free_chat"
+
+    response = service.answer(request)
+
+    assert response.gateway_status == "ok"
+    assert response.fallback_reason is None
+    assert "SMAIナビ" in response.answer
+    assert len(client.calls) == 2
+    assert "前回の回答が短すぎる" in client.calls[1][-1].content
 
 
 def _request(*, active_context_id: str = "forecast-1") -> ContextAnswerRequest:

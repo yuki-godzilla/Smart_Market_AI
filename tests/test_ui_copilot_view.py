@@ -18,6 +18,7 @@ from ui.views.copilot import (
     _context_for_llm,
     _gateway_question,
     _intent_from_message,
+    _pending_detail_html,
     _pending_steps_for_intent,
     _probe_copilot_gateway_runtime,
     _stream_chunks,
@@ -458,18 +459,41 @@ def test_copilot_tool_plan_turn_renders_research_plan_card():
             "approval_reason": plan.approval_reason,
             "symbol_query": plan.symbol_query or "",
             "symbol": plan.symbol or "",
+            "company_name": plan.company_name or "",
             "tool_plan_tools": _tool_plan_tools_state(plan),
         }
     )
 
     assert "調査計画" in markup
-    assert "7203.T" in markup
-    assert "価格データ" in markup
-    assert "AI予測" in markup
-    assert "ニュース" in markup
-    assert "Research Evidence" in markup
+    assert "トヨタ自動車（7203.T）" in markup
+    assert "価格の動き" in markup
+    assert "AI予測・下振れ警戒" in markup
+    assert "最新ニュース" in markup
+    assert "根拠資料 / Research Evidence" in markup
     assert "外部取得あり" in markup
     assert "実行した確認" not in markup
+
+
+def test_copilot_tool_plan_pending_progress_uses_current_tool_status():
+    plan = build_assistant_research_tool_plan("トヨタはこれから上がるかな？")
+    assert plan is not None
+
+    markup = _pending_detail_html(
+        {
+            "status": "pending",
+            "tool_plan_choice": "approve",
+            "tool_plan_subject": "トヨタ自動車（7203.T）",
+            "tool_plan_tools": _tool_plan_tools_state(plan),
+            "pending_step_index": "3",
+        }
+    )
+
+    assert "SMAIナビが材料を確認しています" in markup
+    assert "✓" in markup
+    assert "銘柄を特定: トヨタ自動車（7203.T）" in markup
+    assert "価格の動きを確認" in markup
+    assert "AI予測・下振れ警戒を確認" in markup
+    assert "最新ニュースを確認中" in markup
 
 
 def test_copilot_turn_from_response_adds_natural_lead_and_meta():
@@ -820,11 +844,70 @@ def test_copilot_page_research_question_shows_tool_plan_before_execution(monkeyp
     )
     button_labels = [str(getattr(element, "label", "")) for element in app.button]
     assert "調査計画" in page_text
-    assert "価格データ" in page_text
+    assert "トヨタ自動車（7203.T）" in page_text
+    assert "価格の動き" in page_text
     assert "外部取得あり" in page_text
-    assert "はい、取得して分析する" in button_labels
+    assert "取得して分析する" in button_labels
     assert "取得済み情報だけで回答" in button_labels
     assert "キャンセル" in button_labels
+
+
+def test_copilot_page_tool_plan_approve_returns_material_summary(monkeypatch):
+    monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    app = AppTest.from_file("ui/app.py", default_timeout=40)
+    app.session_state["sidemenu_page"] = "copilot"
+    _reset_copilot_session(app)
+    app.run()
+
+    app.text_input[0].set_value("トヨタこれから上がるかな")
+    _click_button_label(app, "送信")
+    _click_button_label(app, "取得して分析する")
+
+    assert not app.exception
+    history = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]
+    assert history[-1]["status"] == "complete"
+    assert "トヨタ自動車（7203.T）について、取得できた材料を整理しました。" in history[-1]["answer"]
+    assert "買い/売りを断定するのではなく" in history[-1]["answer"]
+    assert "価格の動き" in history[-1]["executed_checks"]
+    assert "取得できませんでした" in history[-1]["executed_checks"]
+
+
+def test_copilot_page_tool_plan_cached_only_mentions_missing_materials(monkeypatch):
+    monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    app = AppTest.from_file("ui/app.py", default_timeout=40)
+    app.session_state["sidemenu_page"] = "copilot"
+    _reset_copilot_session(app)
+    app.run()
+
+    app.text_input[0].set_value("トヨタこれから上がるかな")
+    _click_button_label(app, "送信")
+    _click_button_label(app, "取得済み情報だけで回答")
+
+    assert not app.exception
+    history = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]
+    assert history[-1]["status"] == "complete"
+    assert history[-1]["answer"].startswith("取得済み情報だけで整理します。")
+    assert "未確認材料:" in history[-1]["answer"]
+    assert "最新ニュース" in history[-1]["answer"]
+    assert "根拠資料 / Research Evidence" in history[-1]["answer"]
+
+
+def test_copilot_page_tool_plan_cancel_is_natural(monkeypatch):
+    monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    app = AppTest.from_file("ui/app.py", default_timeout=40)
+    app.session_state["sidemenu_page"] = "copilot"
+    _reset_copilot_session(app)
+    app.run()
+
+    app.text_input[0].set_value("トヨタこれから上がるかな")
+    _click_button_label(app, "送信")
+    _click_button_label(app, "キャンセル")
+
+    assert not app.exception
+    history = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]
+    assert history[-1]["status"] == "complete"
+    assert "了解しました。外部情報の取得は行いません。" in history[-1]["answer"]
+    assert history[-1]["fallback_reason"] == "research_cancelled"
 
 
 def test_copilot_page_free_chat_does_not_render_fixed_cards(monkeypatch):

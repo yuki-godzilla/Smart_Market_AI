@@ -6,7 +6,7 @@ import os
 import time
 from dataclasses import dataclass, replace
 from datetime import datetime
-from typing import Any, Literal, cast
+from typing import Any, Literal, Mapping, cast
 from uuid import uuid4
 
 import httpx
@@ -894,6 +894,8 @@ def _queue_copilot_submit(
     prompt_instruction: str,
     visible_question: str,
     runtime_config: CopilotGatewayRuntimeConfig,
+    pending_overrides: Mapping[str, str] | None = None,
+    request_overrides: Mapping[str, str] | None = None,
 ) -> None:
     normalized_question = question.strip()
     if not normalized_question:
@@ -901,18 +903,18 @@ def _queue_copilot_submit(
         return
     turn_id = uuid4().hex
     history = _copilot_history()
-    history.append(
-        _pending_turn(
-            turn_id=turn_id,
-            context=context,
-            visible_question=visible_question,
-            intent=intent,
-            runtime_config=runtime_config,
-        )
+    pending_turn = _pending_turn(
+        turn_id=turn_id,
+        context=context,
+        visible_question=visible_question,
+        intent=intent,
+        runtime_config=runtime_config,
     )
+    pending_turn.update(dict(pending_overrides or {}))
+    history.append(pending_turn)
     st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = history
     st.session_state[COPILOT_ACTIVE_INTENT_STATE_KEY] = intent
-    st.session_state[COPILOT_PENDING_REQUEST_STATE_KEY] = {
+    pending_request = {
         "turn_id": turn_id,
         "context_id": context.context_id,
         "question": normalized_question,
@@ -921,6 +923,8 @@ def _queue_copilot_submit(
         "visible_question": visible_question,
         "runtime_config": _runtime_config_to_state(runtime_config),
     }
+    pending_request.update(dict(request_overrides or {}))
+    st.session_state[COPILOT_PENDING_REQUEST_STATE_KEY] = pending_request
 
 
 def _process_pending_copilot_request(
@@ -952,6 +956,12 @@ def _process_pending_copilot_request(
         visible_question=str(request.get("visible_question", "")),
         runtime_config=runtime_config,
         pending_turn_id=pending_turn_id,
+        tool_plan_choice=str(request.get("tool_plan_choice", "")),
+        tool_plan_subject=str(request.get("tool_plan_subject", "")),
+        tool_plan_missing_materials=_split_lines(
+            str(request.get("tool_plan_missing_materials", ""))
+        ),
+        tool_plan_tools=str(request.get("tool_plan_tools", "")),
     )
     return True
 
@@ -1038,6 +1048,7 @@ def _append_research_tool_plan_turn(
             "research_intent": research_plan.intent,
             "symbol_query": research_plan.symbol_query or "",
             "symbol": research_plan.symbol or "",
+            "company_name": research_plan.company_name or "",
             "approval_reason": research_plan.approval_reason,
             "tool_plan_tools": _tool_plan_tools_state(research_plan),
             "approval_choice": "",
@@ -1064,7 +1075,7 @@ def _render_tool_plan_actions(
     )
     columns = st.columns(3, gap="small")
     actions = (
-        ("approve", "はい、取得して分析する"),
+        ("approve", "取得して分析する"),
         ("cached_only", "取得済み情報だけで回答"),
         ("cancel", "キャンセル"),
     )
@@ -1115,6 +1126,7 @@ def _handle_tool_plan_choice(
         _append_tool_plan_cancel_turn(context=context, question=label)
         return
 
+    followup_state = _tool_plan_followup_state(turn=turn, choice=choice)
     _queue_copilot_submit(
         context,
         question,
@@ -1122,6 +1134,8 @@ def _handle_tool_plan_choice(
         prompt_instruction=_tool_plan_followup_instruction(turn=turn, choice=choice),
         visible_question=label,
         runtime_config=runtime_config,
+        pending_overrides=followup_state,
+        request_overrides=followup_state,
     )
 
 
@@ -1136,7 +1150,10 @@ def _append_tool_plan_cancel_turn(*, context: SmaiAssistantContext, question: st
             "intent": "free_chat",
             "intent_label": "調査キャンセル",
             "question": question,
-            "answer": "調査を中止しました。必要になったら、銘柄名や見たい材料を指定してもう一度聞いてください。",
+            "answer": (
+                "了解しました。外部情報の取得は行いません。"
+                "必要になったら、いつでも「材料を取得して分析して」と聞いてください。"
+            ),
             "reasons": "",
             "cautions": "",
             "next_checkpoints": "",
@@ -1155,17 +1172,48 @@ def _append_tool_plan_cancel_turn(*, context: SmaiAssistantContext, question: st
 def _tool_plan_followup_instruction(*, turn: dict[str, str], choice: str) -> str:
     tools = _tool_plan_tools_from_turn(turn)
     labels = "、".join(str(tool["label"]) for tool in tools) or "取得済み材料"
+    subject = _tool_plan_subject_from_turn(turn)
+    missing = _external_tool_labels_from_tools(tools)
+    missing_text = "、".join(missing) if missing else "外部取得が必要な材料"
     if choice == "cached_only":
         return (
             "ユーザーは外部取得を行わず、取得済み情報だけで回答することを選びました。"
-            f"対象材料: {labels}。不足している材料は未確認として明示してください。"
+            "冒頭は「取得済み情報だけで整理します。現時点では未取得の材料もあるため、"
+            "価格・AI予測・ニュースのうち確認できている範囲に絞って回答します。」としてください。"
+            f"対象は {subject} です。確認予定は {labels} です。"
+            f"未確認材料として {missing_text} を必ず明示してください。"
             "売買推奨、スコア変更、ランキング変更、予測値変更はしないでください。"
         )
     return (
         "ユーザーはTool Planを承認しました。今回の初期実装では、SMAI側のread-only文脈と"
         "取得済み材料を使って整理し、外部取得が未接続の材料は未確認として明示してください。"
-        f"計画された材料: {labels}。売買推奨、スコア変更、ランキング変更、予測値変更はしないでください。"
+        f"対象は {subject} です。計画された材料: {labels}。"
+        "冒頭は「取得できた材料を整理しました。買い/売りを断定するのではなく、"
+        "上昇方向を見る材料と注意すべき材料に分けて確認します。」の趣旨にしてください。"
+        "回答は「結論」「上昇方向を見る材料」「注意すべき材料」「未確認材料」「次に確認」に分けてください。"
+        "売買推奨、スコア変更、ランキング変更、予測値変更はしないでください。"
     )
+
+
+def _tool_plan_followup_state(*, turn: dict[str, str], choice: str) -> dict[str, str]:
+    tools = _tool_plan_tools_from_turn(turn)
+    missing = _external_tool_labels_from_tools(tools)
+    return {
+        "tool_plan_choice": choice,
+        "tool_plan_subject": _tool_plan_subject_from_turn(turn),
+        "tool_plan_tools": str(turn.get("tool_plan_tools", "")),
+        "tool_plan_missing_materials": "\n".join(missing),
+        "pending_steps": "\n".join(str(tool["label"]) for tool in tools),
+        "answer": (
+            "SMAIナビが材料を確認しています..."
+            if choice == "approve"
+            else "SMAIナビが取得済み情報を整理しています..."
+        ),
+    }
+
+
+def _external_tool_labels_from_tools(tools: list[dict[str, object]]) -> list[str]:
+    return [str(tool["label"]) for tool in tools if bool(tool.get("external"))]
 
 
 def _pending_message_for_intent(intent: CopilotIntent) -> str:
@@ -1233,6 +1281,8 @@ def _pending_steps_for_intent(intent: CopilotIntent, *, uses_llm: bool = True) -
 
 
 def _pending_detail_html(turn: dict[str, str]) -> str:
+    if str(turn.get("tool_plan_choice", "")).strip() == "approve":
+        return _tool_plan_progress_html(turn)
     steps = _split_lines(turn.get("pending_steps", ""))
     if not steps:
         intent = _normalize_intent(turn.get("intent", "free_chat"))
@@ -1247,6 +1297,75 @@ def _pending_detail_html(turn: dict[str, str]) -> str:
         "</div>"
         "</section>"
     )
+
+
+def _tool_plan_progress_html(turn: dict[str, str]) -> str:
+    tools = _tool_plan_tools_from_turn(turn)
+    if not tools:
+        return _pending_detail_html({**turn, "tool_plan_choice": ""})
+    subject = str(turn.get("tool_plan_subject", "")).strip()
+    raw_index = str(turn.get("pending_step_index", "0")).strip()
+    try:
+        step_index = int(raw_index)
+    except ValueError:
+        step_index = 0
+    bounded_index = max(0, min(step_index, len(tools) - 1))
+    items = "".join(
+        _tool_plan_progress_item_html(
+            tool=tool,
+            index=index,
+            current_index=bounded_index,
+            subject=subject,
+        )
+        for index, tool in enumerate(tools)
+    )
+    return (
+        '<section class="smai-copilot-tool-progress" aria-label="材料確認の進捗" '
+        'aria-live="polite">'
+        '<span class="smai-copilot-pending-caption">材料を確認中</span>'
+        '<p class="smai-copilot-tool-progress-lead">SMAIナビが材料を確認しています...</p>'
+        f"<ul>{items}</ul>"
+        "</section>"
+    )
+
+
+def _tool_plan_progress_item_html(
+    *,
+    tool: dict[str, object],
+    index: int,
+    current_index: int,
+    subject: str,
+) -> str:
+    label = str(tool["label"])
+    if index < current_index:
+        prefix = "✓"
+        text = _tool_plan_completed_progress_label(label=label, subject=subject)
+        state_class = "complete"
+    elif index == current_index:
+        prefix = "…"
+        text = f"{label}を確認中"
+        state_class = "current"
+    else:
+        prefix = "…"
+        text = f"{label}を確認中"
+        state_class = "pending"
+    return (
+        f'<li class="smai-copilot-tool-progress-item '
+        f'smai-copilot-tool-progress-item--{state_class}">'
+        f"<span>{html.escape(prefix)}</span>"
+        f"<b>{html.escape(text)}</b>"
+        "</li>"
+    )
+
+
+def _tool_plan_completed_progress_label(*, label: str, subject: str) -> str:
+    if label == "銘柄を特定" and subject:
+        return f"銘柄を特定: {subject}"
+    if label == "価格の動き":
+        return "価格の動きを確認"
+    if label == "AI予測・下振れ警戒":
+        return "AI予測・下振れ警戒を確認"
+    return f"{label}を確認"
 
 
 def _pending_current_step_label(*, turn: dict[str, str], steps: list[str]) -> str:
@@ -1331,6 +1450,10 @@ def _handle_copilot_submit(
     visible_question: str,
     runtime_config: CopilotGatewayRuntimeConfig,
     pending_turn_id: str | None = None,
+    tool_plan_choice: str = "",
+    tool_plan_subject: str = "",
+    tool_plan_missing_materials: list[str] | None = None,
+    tool_plan_tools: str = "",
 ) -> None:
     normalized_question = question.strip()
     if not normalized_question:
@@ -1357,6 +1480,15 @@ def _handle_copilot_submit(
         else None
     )
     tool_summaries = [result.summary for result in tool_plan.executed] if tool_plan else []
+    friendly_tool_summaries = (
+        _friendly_tool_execution_summaries(
+            tool_plan_tools=tool_plan_tools,
+            tool_plan=tool_plan,
+            subject=tool_plan_subject,
+        )
+        if tool_plan_choice
+        else tool_summaries
+    )
     gateway_question = _gateway_question(
         question=normalized_question,
         intent=intent,
@@ -1382,13 +1514,20 @@ def _handle_copilot_submit(
         turn_id=pending_turn_id,
         executed_checks=[
             *([] if _is_llm_micro_intent(intent) else [_material_status_summary(context)]),
-            *tool_summaries,
+            *friendly_tool_summaries,
         ],
         tool_statuses=[
             f"{result.name}: {result.status}"
             for result in (tool_plan.executed if tool_plan else ())
         ],
     )
+    if tool_plan_choice:
+        turn["answer"] = _with_tool_plan_answer_prefix(
+            answer=turn["answer"],
+            choice=tool_plan_choice,
+            subject=tool_plan_subject,
+            missing_materials=tool_plan_missing_materials or [],
+        )
     if pending_turn_id:
         replaced = False
         next_history: list[dict[str, str]] = []
@@ -1406,6 +1545,75 @@ def _handle_copilot_submit(
     st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = history
     st.session_state[COPILOT_ACTIVE_INTENT_STATE_KEY] = intent
     st.session_state[COPILOT_PENDING_STREAM_STATE_KEY] = turn["turn_id"]
+
+
+def _friendly_tool_execution_summaries(
+    *,
+    tool_plan_tools: str,
+    tool_plan: Any,
+    subject: str,
+) -> list[str]:
+    planned_tools = _tool_plan_tools_from_state(tool_plan_tools)
+    results = {str(result.name): result for result in (tool_plan.executed if tool_plan else ())}
+    items: list[str] = []
+    for tool in planned_tools:
+        result = results.get(_tool_result_name_for_plan_tool(str(tool["name"])))
+        label = str(tool["label"])
+        if result is None:
+            items.append(f"… {label}: 確認中")
+            continue
+        if result.status == "ok":
+            items.append(f"✓ {_tool_plan_completed_progress_label(label=label, subject=subject)}")
+        else:
+            items.append(f"… {label}: 取得できませんでした")
+    return items
+
+
+def _tool_result_name_for_plan_tool(name: str) -> str:
+    return {
+        "symbol_resolve": "resolve_symbol",
+        "price_fetch": "get_price_summary",
+        "forecast_fetch": "get_forecast_summary",
+        "news_fetch": "search_news_materials",
+        "research_fetch": "search_rag_materials",
+        "decision_report_draft": "build_decision_report",
+    }.get(name, name)
+
+
+def _with_tool_plan_answer_prefix(
+    *,
+    answer: str,
+    choice: str,
+    subject: str,
+    missing_materials: list[str],
+) -> str:
+    body = str(answer or "").strip()
+    clean_subject = subject.strip() or "対象銘柄"
+    missing = _missing_materials_block(missing_materials)
+    if choice == "cached_only":
+        prefix = (
+            "取得済み情報だけで整理します。\n"
+            "現時点では未取得の材料もあるため、価格・AI予測・ニュースのうち"
+            "確認できている範囲に絞って回答します。"
+        )
+        return _join_answer_parts(prefix, missing, body)
+    prefix = (
+        f"{clean_subject}について、取得できた材料を整理しました。\n"
+        "買い/売りを断定するのではなく、上昇方向を見る材料と注意すべき材料に分けて確認します。"
+    )
+    return _join_answer_parts(prefix, body)
+
+
+def _missing_materials_block(missing_materials: list[str]) -> str:
+    items = [item.strip() for item in missing_materials if item.strip()]
+    if not items:
+        return ""
+    lines = "\n".join(f"- {item}" for item in items)
+    return f"未確認材料:\n{lines}"
+
+
+def _join_answer_parts(*parts: str) -> str:
+    return "\n\n".join(part.strip() for part in parts if part and part.strip())
 
 
 def _context_for_llm(
@@ -1719,25 +1927,33 @@ def _action_card_intro_html(*, preset: CopilotConversationPreset) -> str:
 
 
 def _tool_plan_answer(plan: AssistantResearchToolPlan) -> str:
-    subject = plan.symbol or plan.symbol_query or "この相談"
+    subject = _tool_plan_subject_label(
+        symbol=plan.symbol,
+        symbol_query=plan.symbol_query,
+        company_name=plan.company_name,
+    )
+    approval_text = (
+        "外部情報の取得を含むため、実行前に確認します。"
+        if plan.has_external_tools
+        else "SMAI内の取得済み材料を整理する前に確認します。"
+    )
     return (
-        f"{subject}について、確認する材料の計画を作りました。"
-        "外部情報の取得が含まれる場合があるため、実行前に確認します。"
+        f"{subject}について、確認する材料を整理しました。"
+        "価格・AI予測・ニュースなどを確認すると、上昇材料と注意材料を分けて見やすくなります。"
+        f"{approval_text}"
     )
 
 
 def _tool_plan_detail_html(turn: dict[str, str]) -> str:
     tools = _tool_plan_tools_from_turn(turn)
-    subject = str(turn.get("symbol", "") or turn.get("symbol_query", "") or "未指定").strip()
-    approval = str(turn.get("approval_reason", "")).strip()
-    reason = str(turn.get("conversation_reason", "")).strip()
+    subject = _tool_plan_subject_from_turn(turn)
     approval_choice = str(turn.get("approval_choice", "")).strip()
     items = "".join(
         (
             "<li>"
             f'<b>{html.escape(str(tool["label"]))}</b>'
             f'<span>{html.escape(str(tool["reason"]))}</span>'
-            f'<small>{"外部取得あり" if bool(tool["external"]) else "SMAI内確認"}'
+            f'<small>{"外部取得あり" if bool(tool["external"]) else "SMAI内で確認"}'
             f' / {"必須" if bool(tool["required"]) else "任意"}</small>'
             "</li>"
         )
@@ -1752,12 +1968,34 @@ def _tool_plan_detail_html(turn: dict[str, str]) -> str:
         '<section class="smai-copilot-tool-plan">'
         '<span class="smai-copilot-tool-plan-title">調査計画</span>'
         f"<p>対象: {html.escape(subject)}</p>"
-        f"<p>{html.escape(reason)}</p>"
-        f"<p>{html.escape(approval)}</p>"
+        "<p>確認する材料を以下に分けて進めます。</p>"
         f"<ul>{items}</ul>"
         f"{choice_html}"
         "</section>"
     )
+
+
+def _tool_plan_subject_from_turn(turn: dict[str, str]) -> str:
+    return _tool_plan_subject_label(
+        symbol=str(turn.get("symbol", "")).strip() or None,
+        symbol_query=str(turn.get("symbol_query", "")).strip() or None,
+        company_name=str(turn.get("company_name", "")).strip() or None,
+    )
+
+
+def _tool_plan_subject_label(
+    *,
+    symbol: str | None,
+    symbol_query: str | None,
+    company_name: str | None,
+) -> str:
+    clean_symbol = str(symbol or "").strip()
+    clean_company = str(company_name or "").strip()
+    if clean_company and clean_symbol:
+        return f"{clean_company}（{clean_symbol}）"
+    if clean_symbol:
+        return clean_symbol
+    return str(symbol_query or "この相談").strip() or "この相談"
 
 
 def _tool_plan_tools_state(plan: AssistantResearchToolPlan) -> str:
@@ -1776,8 +2014,12 @@ def _tool_plan_tools_state(plan: AssistantResearchToolPlan) -> str:
 
 
 def _tool_plan_tools_from_turn(turn: dict[str, str]) -> list[dict[str, object]]:
+    return _tool_plan_tools_from_state(str(turn.get("tool_plan_tools", "")))
+
+
+def _tool_plan_tools_from_state(value: str) -> list[dict[str, object]]:
     tools: list[dict[str, object]] = []
-    for line in str(turn.get("tool_plan_tools", "")).splitlines():
+    for line in str(value).splitlines():
         parts = line.split("\t")
         if len(parts) != 5:
             continue

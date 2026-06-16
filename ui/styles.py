@@ -2907,6 +2907,59 @@ div[data-testid="stChatInput"] textarea:focus {
     line-height: 1.35;
 }
 
+.smai-copilot-tool-progress {
+    margin-top: 0.8rem;
+    padding: 0.78rem 0.9rem;
+    border: 1px solid rgba(45, 212, 191, 0.28);
+    border-radius: 8px;
+    background:
+        linear-gradient(135deg, rgba(20, 184, 166, 0.1), rgba(15, 23, 42, 0.16)),
+        rgba(8, 47, 73, 0.22);
+}
+
+.smai-copilot-tool-progress-lead {
+    color: var(--text-title);
+    font-size: 0.9rem;
+    font-weight: 760;
+    margin: 0.42rem 0 0.52rem;
+}
+
+.smai-copilot-tool-progress ul {
+    display: grid;
+    gap: 0.38rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.smai-copilot-tool-progress-item {
+    display: grid;
+    grid-template-columns: 1.15rem minmax(0, 1fr);
+    align-items: start;
+    gap: 0.42rem;
+    color: var(--text-muted);
+    font-size: 0.86rem;
+    line-height: 1.35;
+}
+
+.smai-copilot-tool-progress-item span {
+    color: var(--text-ai-title);
+    font-weight: 900;
+}
+
+.smai-copilot-tool-progress-item b {
+    color: inherit;
+    font-weight: 760;
+}
+
+.smai-copilot-tool-progress-item--complete {
+    color: rgba(216, 248, 255, 0.86);
+}
+
+.smai-copilot-tool-progress-item--current {
+    color: var(--text-title);
+}
+
 .smai-copilot-message-card--user {
     max-width: min(38.75rem, 72%);
     border: 1px solid rgba(96, 165, 250, 0.26);

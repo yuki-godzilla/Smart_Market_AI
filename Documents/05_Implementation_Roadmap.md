@@ -2179,7 +2179,7 @@ Prompt 方針:
 
 ### 5.17 Phase 26A: SMAI Assistant Command Center / Research Mode Integration
 
-状態: 初期スライス実装済み。`ConversationModeDecision` / rule-based Conversation Mode Router、`AssistantResearchToolPlan` / Tool Plan Builder、SMAIアシスタント chat thread 内のTool Planカード、`はい、取得して分析する` / `取得済み情報だけで回答` / `キャンセル` action、承認前に外部取得・LLM回答生成へ進まないAppTest確認まで実装済み。通常の待機中カードはintent別ステップを表示する。承認後の本格外部取得 / tool実行結果に連動するprogress bubble更新 / Context Aggregator拡張は後続範囲。
+状態: 初期スライス実装済み。`ConversationModeDecision` / rule-based Conversation Mode Router、`AssistantResearchToolPlan` / Tool Plan Builder、SMAIアシスタント chat thread 内の自然なTool Planカード、`取得して分析する` / `取得済み情報だけで回答` / `キャンセル` action、承認前に外部取得・LLM回答生成へ進まないAppTest確認まで実装済み。通常の待機中カードはintent別ステップを表示し、承認後はchat thread内でTool Plan項目のprogressを表示する。現時点の承認後実行はread-only Tool Layerと取得済み材料の整理が中心で、未取得 / 未接続の外部材料は `取得できませんでした` / 未確認材料として明示して回答を継続する。本格外部取得 / Context Aggregator拡張は後続範囲。
 
 目的: SMAIナビを、通常会話できるAIから、必要なSMAI機能を判断し、ユーザー承認を挟んで材料取得・整理・回答・Decision Report下書きまで進められる司令塔に拡張する。
 
@@ -2233,7 +2233,7 @@ Tool Plan Builder:
 
 Approval Flow:
 
-- `はい、取得して分析する`: 承認されたtoolだけを実行し、progress bubbleで進捗を見せ、結果をContext Aggregatorへ渡す。
+- `取得して分析する`: 承認されたtoolだけを実行し、progress bubbleで進捗を見せ、結果をContext Aggregatorへ渡す。
 - `取得済み情報だけで回答`: 外部取得を行わず、session_stateや現在contextにある材料だけで回答し、不足材料を明示する。
 - `キャンセル`: 調査を中止し、必要なら軽い通常回答だけ返す。
 

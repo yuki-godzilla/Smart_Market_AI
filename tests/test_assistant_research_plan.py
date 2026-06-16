@@ -24,6 +24,7 @@ def test_stock_forward_view_tool_plan_requires_approval_before_external_fetch():
     assert plan.intent == "stock_forward_view"
     assert plan.symbol_query == "トヨタ"
     assert plan.symbol == "7203.T"
+    assert plan.company_name == "トヨタ自動車"
     assert plan.requires_approval
     assert plan.has_external_tools
     assert [tool.name for tool in plan.tools] == [
@@ -32,6 +33,13 @@ def test_stock_forward_view_tool_plan_requires_approval_before_external_fetch():
         "forecast_fetch",
         "news_fetch",
         "research_fetch",
+    ]
+    assert [tool.label for tool in plan.tools] == [
+        "銘柄を特定",
+        "価格の動き",
+        "AI予測・下振れ警戒",
+        "最新ニュース",
+        "根拠資料 / Research Evidence",
     ]
     assert any(tool.external for tool in plan.tools)
     assert any(not tool.external for tool in plan.tools)

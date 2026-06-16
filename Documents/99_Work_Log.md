@@ -18,6 +18,40 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-16 - SMAI Assistant Research Plan UX Polish Sprint
+
+### Plan Card Text
+- before: `7203.Tについて、確認する材料の計画を作りました。外部情報の取得が含まれる場合があるため、実行前に確認します。`
+- after: `トヨタ自動車（7203.T）について、確認する材料を整理しました。価格・AI予測・ニュースなどを確認すると、上昇材料と注意材料を分けて見やすくなります。外部情報の取得を含むため、実行前に確認します。`
+
+### Tool Labels
+- symbol: `銘柄を特定`
+- price: `価格の動き`
+- forecast: `AI予測・下振れ警戒`
+- news: `最新ニュース`
+- research: `根拠資料 / Research Evidence`
+
+### Buttons
+- approve: `取得して分析する`
+- cached-only: `取得済み情報だけで回答`
+- cancel: `キャンセル`
+
+### Progress UI
+- implemented: chat thread内のSMAIナビpending bubbleで、Tool Plan項目をチェック済み / 確認中として表示。
+- failure handling: read-only Tool Layerで未取得 / 未接続の材料は `取得できませんでした` として `実行した確認` と最終回答の未確認材料に残し、取得済み材料で回答を継続。
+
+### Validation
+- Case 1: AppTestでTool Planカード、`トヨタ自動車（7203.T）`、ユーザー向けtool label、短縮approve buttonを確認。
+- Case 2: AppTestでapprove後の最終回答が取得材料整理 / 非売買断定の冒頭、実行結果、未取得材料を含むことを確認。
+- Case 3: AppTestでcached-onlyが外部取得なしの冒頭と未確認材料を含むことを確認。
+- Case 4: AppTestでcancelが自然なキャンセル返答になることを確認。
+- Case 5: AppTestで`こんにちは`がTool Planなしの通常会話になることを確認。
+
+### Final Judgement
+- plan card clarity: improved.
+- user friendliness: improved.
+- normal chat preserved: preserved.
+
 ## 2026-06-16 - Assistant second message submit fix
 
 ### Assistant UI

@@ -172,4 +172,82 @@ def _strip_thinking_text(answer: str) -> str:
     text = re.sub(r"(?is)<think>.*?</think>", "", text).strip()
     if "</think>" in text:
         text = text.split("</think>")[-1].strip()
+    labeled_answer = _extract_labeled_final_answer(text)
+    return labeled_answer or text
+
+
+def _extract_labeled_final_answer(text: str) -> str | None:
+    """Recover the user-facing answer when qwen emits untagged planning prose."""
+
+    label_pattern = re.compile(
+        r"(?is)\b(?:possible\s+(?:answer|response)|final\s+answer|answer|"
+        r"original\s+response\s+example|let\s+me\s+think)\s*:\s*"
+    )
+    for match in label_pattern.finditer(text):
+        candidate = text[match.end() :].strip()
+        candidate = re.split(
+            r"(?im)^\s*(?:wait|hmm|another\s+try|alternatively|first\s+sentence)\b",
+            candidate,
+            maxsplit=1,
+        )[0]
+        candidate = candidate.strip().strip("\"'`").strip()
+        candidate = _strip_wrapping_japanese_quote(candidate)
+        candidate = candidate.splitlines()[0].strip() if "\n" in candidate else candidate
+        candidate = candidate.strip().strip("\"'`").strip()
+        if _looks_like_final_answer(candidate):
+            return candidate
+    quoted_answer = _extract_quoted_final_answer(text)
+    if quoted_answer is not None:
+        return quoted_answer
+    return None
+
+
+def _strip_wrapping_japanese_quote(text: str) -> str:
+    if len(text) >= 2 and text[0] in {"「", "『"}:
+        closing = "」" if text[0] == "「" else "』"
+        end = text.find(closing, 1)
+        if end > 0:
+            return text[1:end].strip()
     return text
+
+
+def _looks_like_final_answer(text: str) -> bool:
+    if len(text) < 8:
+        return False
+    lowered = text.lower()
+    planning_markers = (
+        "let me",
+        "i need",
+        "i should",
+        "the user",
+        "possible answer",
+        "possible response",
+        "wait,",
+        "hmm,",
+    )
+    if any(marker in lowered for marker in planning_markers):
+        return False
+    return bool(re.search(r"[ぁ-んァ-ン一-龥A-Za-z]", text))
+
+
+def _extract_quoted_final_answer(text: str) -> str | None:
+    if not _looks_like_qwen_planning(text):
+        return None
+    quoted_values = [
+        match.group(1).strip()
+        for match in re.finditer(r'"([^"\n]{12,500})"', text)
+        if _looks_like_final_answer(match.group(1).strip())
+    ]
+    if not quoted_values:
+        return None
+    candidates = [
+        value
+        for value in quoted_values
+        if not any(marker in value for marker in ("短く自己紹介", "Please introduce"))
+    ]
+    return max(candidates or quoted_values, key=len)
+
+
+def _looks_like_qwen_planning(text: str) -> bool:
+    lowered = text.lower().lstrip()
+    return lowered.startswith(("okay, the user", "first, i need", "let me"))

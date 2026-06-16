@@ -15240,7 +15240,7 @@ def _render_market_chart(
         combined_chart = combined_chart.properties(title=title)
     st.altair_chart(
         combined_chart,
-        use_container_width=True,
+        use_container_width=False,
     )
 
 

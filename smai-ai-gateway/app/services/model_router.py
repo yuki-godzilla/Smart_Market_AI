@@ -138,8 +138,8 @@ _QUALITY_UPGRADES: dict[LlmTaskType, LlmProfileName] = {
 }
 
 _TASK_RUNTIME_POLICIES: dict[LlmTaskType, tuple[float, int]] = {
-    "free_chat": (25.0, 160),
-    "identity": (25.0, 160),
+    "free_chat": (25.0, 360),
+    "identity": (25.0, 360),
     "app_help": (25.0, 220),
     "capability_help": (25.0, 220),
     "screen_guidance": (25.0, 220),

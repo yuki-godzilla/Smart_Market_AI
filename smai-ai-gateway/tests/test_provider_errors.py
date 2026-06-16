@@ -85,7 +85,7 @@ def test_ollama_chat_strips_thinking_blocks(monkeypatch):
                 "model": "qwen3:4b",
                 "message": {
                     "role": "assistant",
-                    "content": "internal reasoning</think>\n\nこんにちは",
+                    "content": "internal reasoning</think>\n\nhello from final",
                 },
             },
             request=request,
@@ -110,5 +110,133 @@ def test_ollama_chat_strips_thinking_blocks(monkeypatch):
 
     result = client.chat([LlmMessage(role="user", content="hello")], model="qwen3:4b")
 
-    assert result.answer == "こんにちは"
-    assert result.response_chars == len("こんにちは")
+    assert result.answer == "hello from final"
+    assert result.response_chars == len("hello from final")
+
+
+def test_ollama_chat_extracts_labeled_final_answer_from_qwen_planning(monkeypatch):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "model": "qwen3:4b",
+                "message": {
+                    "role": "assistant",
+                    "content": (
+                        "Okay, the user wants a short self-introduction.\n\n"
+                        "Possible response: Hello, I am SMAI Navi. "
+                        "I can organize AI forecasts and news into short checkpoints.\n\n"
+                        "Wait, maybe make it shorter."
+                    ),
+                },
+            },
+            request=request,
+        )
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def __enter__(self) -> "FakeClient":
+            return self
+
+        def __exit__(self, *args) -> None:
+            pass
+
+        def post(self, url: str, *, json: dict[str, object]) -> httpx.Response:
+            request = httpx.Request("POST", url, json=json)
+            return handler(request)
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+    client = OllamaClient(GatewaySettings())
+
+    result = client.chat([LlmMessage(role="user", content="hello")], model="qwen3:4b")
+
+    assert (
+        result.answer
+        == "Hello, I am SMAI Navi. I can organize AI forecasts and news into short checkpoints."
+    )
+
+
+def test_ollama_chat_extracts_quoted_answer_after_let_me_think(monkeypatch):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "model": "qwen3:4b",
+                "message": {
+                    "role": "assistant",
+                    "content": (
+                        "Okay, the user wants a short self-introduction.\n\n"
+                        'Let me think: "Hello, I am SMAI Navi. I help with short checks."\n\n'
+                        "Wait, but maybe shorter."
+                    ),
+                },
+            },
+            request=request,
+        )
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def __enter__(self) -> "FakeClient":
+            return self
+
+        def __exit__(self, *args) -> None:
+            pass
+
+        def post(self, url: str, *, json: dict[str, object]) -> httpx.Response:
+            request = httpx.Request("POST", url, json=json)
+            return handler(request)
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+    client = OllamaClient(GatewaySettings())
+
+    result = client.chat([LlmMessage(role="user", content="hello")], model="qwen3:4b")
+
+    assert result.answer == "Hello, I am SMAI Navi. I help with short checks."
+
+
+def test_ollama_chat_extracts_longest_quoted_answer_from_qwen_planning(monkeypatch):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "model": "qwen3:4b",
+                "message": {
+                    "role": "assistant",
+                    "content": (
+                        'Okay, the user asked "Please introduce yourself briefly."\n\n'
+                        'I should answer: "Hello, I am SMAI Navi. '
+                        'I help organize forecasts, news, and next checkpoints."\n\n'
+                        "Maybe this is enough."
+                    ),
+                },
+            },
+            request=request,
+        )
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def __enter__(self) -> "FakeClient":
+            return self
+
+        def __exit__(self, *args) -> None:
+            pass
+
+        def post(self, url: str, *, json: dict[str, object]) -> httpx.Response:
+            request = httpx.Request("POST", url, json=json)
+            return handler(request)
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+    client = OllamaClient(GatewaySettings())
+
+    result = client.chat([LlmMessage(role="user", content="hello")], model="qwen3:4b")
+
+    assert (
+        result.answer
+        == "Hello, I am SMAI Navi. I help organize forecasts, news, and next checkpoints."
+    )

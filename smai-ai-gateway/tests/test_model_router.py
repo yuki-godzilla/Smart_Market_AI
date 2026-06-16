@@ -15,7 +15,7 @@ def test_router_uses_fast_profile_for_free_chat_on_notebook():
     assert route.model == "qwen3:1.7b"
     assert route.profile == "notebook_dev"
     assert route.timeout_seconds == 25.0
-    assert route.max_tokens == 160
+    assert route.max_tokens == 360
 
 
 def test_router_uses_micro_profile_for_identity_and_capability_help():
@@ -32,7 +32,7 @@ def test_router_uses_micro_profile_for_identity_and_capability_help():
 
     assert identity.profile == "notebook_dev"
     assert identity.timeout_seconds == 25.0
-    assert identity.max_tokens == 160
+    assert identity.max_tokens == 360
     assert capability.profile == "notebook_dev"
     assert capability.timeout_seconds == 25.0
     assert capability.max_tokens == 220
@@ -61,8 +61,8 @@ def test_router_supports_notebook_standard_qwen4b_profile():
 
     assert route.profile == "notebook_standard"
     assert route.model == "qwen3:4b"
-    assert route.timeout_seconds == 90.0
-    assert route.max_tokens == 1000
+    assert route.timeout_seconds == 45.0
+    assert route.max_tokens == 600
 
 
 def test_router_can_use_larger_analysis_profile_on_desktop():

@@ -2300,3 +2300,10 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - Changed `smai-ai-gateway/run_server.bat` to start Gateway with `python -m uvicorn` instead of the generated `uvicorn.exe` launcher.
 - This avoids stale WindowsApps Python paths embedded in console-script launchers after rebuilding `venv_SMAI` with Python 3.12.
+
+## 2026-06-17 Assistant qwen3:4b Response Recovery
+
+- Confirmed Ollama has `qwen3:4b` installed and Gateway can route requests with `model=qwen3:4b` / `profile=notebook_standard`.
+- Found qwen3:4b often emits untagged English planning text despite `/no_think` / `think=false`, causing `response_validation_failure` and deterministic fallback in the SMAI Assistant UI.
+- Increased lightweight chat token budget and added Gateway-side extraction for labeled or quoted final answers from qwen-style planning output.
+- Verified targeted Gateway tests and Playwright UI smoke with `qwen3:4b` selected: model/profile visible, no gateway/fallback error text, and an assistant answer visible.

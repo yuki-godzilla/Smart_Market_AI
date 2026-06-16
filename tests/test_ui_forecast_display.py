@@ -9220,7 +9220,7 @@ def test_render_market_chart_uses_currency_axis_title_and_expanded_width(monkeyp
         "予測: 直近値維持",
     ]
     assert chart_spec["layer"][0]["encoding"]["y"]["title"] == "終値 (USD)"
-    assert captured["use_container_width"] is True
+    assert captured["use_container_width"] is False
     assert markdown_calls == []
     assert any(param.get("select", {}).get("on") == "click" for param in spec["params"])
 

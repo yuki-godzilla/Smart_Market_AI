@@ -18,6 +18,18 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-16 - Assistant submit rerender smoothing
+
+### Assistant UI
+
+- Changed normal SMAIアシスタント submits to update the chat-thread placeholder from pending bubble to final answer without an extra post-submit rerun.
+- Kept Tool Plan / approval flows on the existing rerun-safe path.
+- Added minimum heights to pending / assistant message cards to reduce vertical jumping between analysis and final-answer states.
+
+### Verification
+
+- `tests/test_ui_copilot_view.py`: 31 passed.
+
 ## 2026-06-16 - Assistant pending progress visibility
 
 ### Assistant UI

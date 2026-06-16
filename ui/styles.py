@@ -2775,6 +2775,7 @@ div[data-testid="stChatInput"] textarea:focus {
 
 .smai-copilot-message-card--assistant {
     width: min(55rem, calc(100% - 3.8rem));
+    min-height: 6.5rem;
     border: 1px solid var(--smai-border);
     border-left: 3px solid var(--smai-teal);
     background:
@@ -2787,6 +2788,7 @@ div[data-testid="stChatInput"] textarea:focus {
 }
 
 .smai-copilot-message-card--pending {
+    min-height: 12rem;
     background:
         linear-gradient(90deg, rgba(45, 212, 191, 0.1), transparent 54%),
         linear-gradient(180deg, rgba(18, 29, 48, 0.82), rgba(8, 15, 28, 0.84));

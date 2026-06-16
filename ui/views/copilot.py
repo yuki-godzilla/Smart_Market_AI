@@ -6,7 +6,7 @@ import os
 import time
 from dataclasses import dataclass, replace
 from datetime import datetime
-from typing import Literal, cast
+from typing import Any, Literal, cast
 from uuid import uuid4
 
 import httpx
@@ -659,12 +659,14 @@ def render_copilot_workspace_page() -> None:
         st.session_state[COPILOT_SUPPRESS_SUBMIT_STATE_KEY] = False
         st.rerun()
 
-    _render_chat_thread(history)
+    chat_placeholder = st.empty()
+    _render_chat_thread(history, placeholder=chat_placeholder)
     if _process_pending_copilot_request(
         context_by_id=context_by_id,
         fallback_context=contexts[0],
     ):
-        st.rerun()
+        _render_chat_thread(_copilot_history(), placeholder=chat_placeholder)
+        history = _copilot_history()
     if _render_tool_plan_actions(
         _copilot_history(),
         context_by_id=context_by_id,
@@ -673,7 +675,9 @@ def render_copilot_workspace_page() -> None:
     ):
         st.rerun()
     suppress_submit = bool(st.session_state.pop(COPILOT_SUPPRESS_SUBMIT_STATE_KEY, False))
-    suggested = _render_suggestion_buttons(has_history=bool(history))
+    suggestions_placeholder = st.empty()
+    with suggestions_placeholder.container():
+        suggested = _render_suggestion_buttons(has_history=bool(history))
 
     if suggested is not None and not suppress_submit:
         context = context_by_id.get(suggested.context_id, contexts[0])
@@ -685,7 +689,13 @@ def render_copilot_workspace_page() -> None:
             visible_question=suggested.label,
             runtime_config=runtime_config,
         )
-        st.rerun()
+        suggestions_placeholder.empty()
+        _process_queued_copilot_request_inline(
+            chat_placeholder=chat_placeholder,
+            context_by_id=context_by_id,
+            fallback_context=contexts[0],
+        )
+        history = _copilot_history()
 
     prompt, runtime_config = _render_chat_composer(runtime_config)
 
@@ -702,6 +712,7 @@ def render_copilot_workspace_page() -> None:
                     research_plan=research_plan,
                     conversation_reason=conversation_decision.reason,
                 )
+                suggestions_placeholder.empty()
                 st.rerun()
         intent = _intent_from_message(prompt, fallback=_active_intent())
         preset = _preset_for_intent(intent)
@@ -714,7 +725,13 @@ def render_copilot_workspace_page() -> None:
             visible_question=prompt,
             runtime_config=runtime_config,
         )
-        st.rerun()
+        suggestions_placeholder.empty()
+        _process_queued_copilot_request_inline(
+            chat_placeholder=chat_placeholder,
+            context_by_id=context_by_id,
+            fallback_context=contexts[0],
+        )
+        history = _copilot_history()
 
     st.caption(
         "SMAIアシスタントは判断材料の整理を補助します。売買推奨、スコア変更、"
@@ -736,7 +753,7 @@ def _render_new_conversation_action() -> bool:
         )
 
 
-def _render_chat_thread(turns: list[dict[str, str]]) -> None:
+def _render_chat_thread(turns: list[dict[str, str]], *, placeholder: Any | None = None) -> None:
     if not turns:
         return
 
@@ -750,11 +767,32 @@ def _render_chat_thread(turns: list[dict[str, str]]) -> None:
         None,
     )
     if pending_index is None:
-        st.markdown(_copilot_thread_html(turns), unsafe_allow_html=True)
+        _render_chat_markup(_copilot_thread_html(turns), placeholder=placeholder)
         return
 
-    _render_streaming_turn(turns[:pending_index], turns[pending_index])
+    _render_streaming_turn(turns[:pending_index], turns[pending_index], placeholder=placeholder)
     st.session_state[COPILOT_PENDING_STREAM_STATE_KEY] = ""
+
+
+def _render_chat_markup(markup: str, *, placeholder: Any | None = None) -> None:
+    if placeholder is None:
+        st.markdown(markup, unsafe_allow_html=True)
+        return
+    placeholder.markdown(markup, unsafe_allow_html=True)
+
+
+def _process_queued_copilot_request_inline(
+    *,
+    chat_placeholder: Any,
+    context_by_id: dict[str, SmaiAssistantContext],
+    fallback_context: SmaiAssistantContext,
+) -> None:
+    _render_chat_thread(_copilot_history(), placeholder=chat_placeholder)
+    if _process_pending_copilot_request(
+        context_by_id=context_by_id,
+        fallback_context=fallback_context,
+    ):
+        _render_chat_thread(_copilot_history(), placeholder=chat_placeholder)
 
 
 def _render_suggestion_buttons(
@@ -1507,15 +1545,20 @@ def _assistant_bubble_html(*, answer: str, detail_html: str, is_pending: bool = 
     )
 
 
-def _render_streaming_turn(previous_turns: list[dict[str, str]], turn: dict[str, str]) -> None:
+def _render_streaming_turn(
+    previous_turns: list[dict[str, str]],
+    turn: dict[str, str],
+    *,
+    placeholder: Any | None = None,
+) -> None:
     context_label = str(turn.get("context_label", "")).strip()
     question = str(turn.get("question", "")).strip()
     answer = str(turn.get("answer", "")).strip()
     previous_rows = "".join(_copilot_turn_rows_html(item) for item in previous_turns)
     user_row = _user_bubble_html(context_label=context_label, question=question)
-    placeholder = st.empty()
+    stream_placeholder = placeholder or st.empty()
     for partial in _stream_chunks(answer):
-        placeholder.markdown(
+        stream_placeholder.markdown(
             (
                 '<div class="smai-copilot-thread">'
                 f"{previous_rows}{user_row}"
@@ -1525,7 +1568,7 @@ def _render_streaming_turn(previous_turns: list[dict[str, str]], turn: dict[str,
             unsafe_allow_html=True,
         )
         time.sleep(COPILOT_STREAM_DELAY_SECONDS)
-    placeholder.markdown(
+    stream_placeholder.markdown(
         (
             '<div class="smai-copilot-thread">'
             f"{previous_rows}{user_row}"

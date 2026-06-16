@@ -69,6 +69,8 @@ def test_copilot_layout_uses_shared_wide_lane():
     assert ".smai-copilot-composer-toolbar" in css
     assert ".smai-copilot-response-meta summary" in css
     assert "border-left: 3px solid var(--smai-teal);" in css
+    assert "min-height: 6.5rem;" in css
+    assert "min-height: 12rem;" in css
     assert "width: min(54rem, calc(100% - 1.5rem));" not in css
 
 
@@ -693,6 +695,15 @@ def test_copilot_page_does_not_use_streamlit_spinner_for_generation():
 
     assert "st.spinner" not in source
     assert "LLMで回答を生成中" not in source
+
+
+def test_copilot_submit_uses_inline_chat_placeholder_flow():
+    source = Path("ui/views/copilot.py").read_text(encoding="utf-8")
+
+    assert "chat_placeholder = st.empty()" in source
+    assert "_process_queued_copilot_request_inline(" in source
+    assert "_render_chat_thread(_copilot_history(), placeholder=chat_placeholder)" in source
+    assert "suggestions_placeholder.empty()" in source
 
 
 def test_copilot_page_chat_input_appends_chat_turn(monkeypatch):

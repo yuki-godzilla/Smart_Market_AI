@@ -31,14 +31,33 @@ if /I "%~1"=="--help" (
 )
 
 REM ---------- Pick Python ----------
-set "PYCMD=py -3.11"
-where py >nul 2>&1 || (
+set "PYCMD="
+where py >nul 2>&1
+if not errorlevel 1 (
+  py -3.11 -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 11) else 1)" >nul 2>&1
+  if not errorlevel 1 set "PYCMD=py -3.11"
+  if not defined PYCMD (
+    py -3.12 -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 12) else 1)" >nul 2>&1
+    if not errorlevel 1 set "PYCMD=py -3.12"
+  )
+)
+if not defined PYCMD (
   if exist "%LOCALAPPDATA%\Programs\Python\Python311\python.exe" (
     set "PYCMD=%LOCALAPPDATA%\Programs\Python\Python311\python.exe"
-  ) else (
-    echo [ERROR] Python 3.11 not found. Install from python.org and ensure PATH is set.
-    exit /b 1
+  ) else if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" (
+    set "PYCMD=%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
   )
+)
+if not defined PYCMD (
+  where python >nul 2>&1
+  if not errorlevel 1 (
+    python -c "import sys; raise SystemExit(0 if sys.version_info[:2] in ((3, 11), (3, 12)) else 1)" >nul 2>&1
+    if not errorlevel 1 set "PYCMD=python"
+  )
+)
+if not defined PYCMD (
+  echo [ERROR] Python 3.11 or 3.12 not found. Install from python.org and ensure PATH is set.
+  exit /b 1
 )
 
 echo [0/6] Repo root: %REPO_ROOT%

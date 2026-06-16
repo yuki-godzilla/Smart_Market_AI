@@ -2284,3 +2284,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 ### Remaining issues
 
 - qwen3:4b on the notebook still often times out for non-greeting tasks. The UI remains usable through deterministic fallback, but a faster model / desktop environment or more aggressive task-specific local fast paths would improve live LLM feel.
+
+## 2026-06-16 Setup Python Version Alignment
+
+- Updated `setup/setup.bat` to accept Python 3.11 or 3.12 instead of requiring only Python 3.11.
+- Aligned `README.md` and `setup/SETUP.md` setup wording with the 3.11 / 3.12 support policy.
+- Verified `cmd /c setup\setup.bat --help` succeeds without running the full dependency install.

@@ -18,6 +18,18 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-16 - Assistant current pending step display
+
+### Assistant UI
+
+- Changed the SMAIナビ pending bubble from a full planned-step list to one current processing step.
+- Added lightweight step progression that switches the current pending label before the final answer replaces the pending turn.
+- Kept the last displayed pending step on the LLM request phase while the Gateway response is pending.
+
+### Verification
+
+- `tests/test_ui_copilot_view.py`: 32 passed.
+
 ## 2026-06-16 - Assistant submit rerender smoothing
 
 ### Assistant UI

@@ -56,7 +56,7 @@ Research RAG は Phase 20 local evidence slice が決定的な土台として実
 未実装または今後の範囲:
 
 - `SMAI LLM Factor` の optional forecast integration。schema、1銘柄 Cockpit 参考表示、cache / reproducibility、Ranking 参考カラム、deterministic backtest evaluator、broader historical fixture pack、extended validation metrics / report は実装済み。初期段階では既存予測モデル、Ranking score、Forecast、Investment Score へ混ぜない
-- `SMAIアシスタント` の会話UX / Agentic Tool 基盤拡張。専用チャット画面、限定自由入力、SMAI から `smai-ai-gateway` への HTTP client wiring、既定 LLM Gateway 接続、Gateway側のLLM構造化JSON応答、親SMAI側の opt-in live smoke test path、6つの会話開始 intent、read-only `Assistant Tool Layer`、実行した確認表示、Markdownメモ出力導線、LLM回答主役のchat-first回答、中央1カラム会話レイアウト、チャット幅に揃えた `新しい会話`、コンパクトな回答下アクション、待機中カードのintent別ステップ表示、通常送信のchat placeholder内pending→final差し替え、pending / assistant カードの最小高さ、文/まとまり単位の擬似ストリーミング表示、不要な定型免責文削減は実装済み。`Command Center / Research Mode` は初期スライスとして normal chat / soft research suggestion / research plan の会話モード判定、承認付き Tool Plan contract、chat-thread内Tool Planカード、承認 / 取得済み情報だけ / キャンセル action を実装済み。外部大量取得、承認後の本格Tool Executor接続、tool実行結果に連動するprogress bubble更新、Context Aggregator拡張、永続Decision Report保存、複数銘柄一括RAG、実ファイル自動保存は確認付きの後続範囲
+- `SMAIアシスタント` の会話UX / Agentic Tool 基盤拡張。専用チャット画面、限定自由入力、SMAI から `smai-ai-gateway` への HTTP client wiring、既定 LLM Gateway 接続、Gateway側のLLM構造化JSON応答、親SMAI側の opt-in live smoke test path、6つの会話開始 intent、read-only `Assistant Tool Layer`、実行した確認表示、Markdownメモ出力導線、LLM回答主役のchat-first回答、中央1カラム会話レイアウト、チャット幅に揃えた `新しい会話`、コンパクトな回答下アクション、待機中カードの現在ステップ表示と順次切替、通常送信のchat placeholder内pending→final差し替え、pending / assistant カードの最小高さ、文/まとまり単位の擬似ストリーミング表示、不要な定型免責文削減は実装済み。`Command Center / Research Mode` は初期スライスとして normal chat / soft research suggestion / research plan の会話モード判定、承認付き Tool Plan contract、chat-thread内Tool Planカード、承認 / 取得済み情報だけ / キャンセル action を実装済み。外部大量取得、承認後の本格Tool Executor接続、tool実行結果に連動するprogress bubble更新、Context Aggregator拡張、永続Decision Report保存、複数銘柄一括RAG、実ファイル自動保存は確認付きの後続範囲
 - `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動、通知、ニュース根拠の Decision Report 反映
 - Research RAG の `ResearchFactSummary` 抽出対象拡張、追加 external source adapter、vector / hybrid search の運用UI
 - 銘柄DB background refresh の live provider refresh wiring。`backend/symbols` の foundation、Streamlit daemon worker、Cockpit / Ranking 共通の visible freshness 表示、Cockpit / Ranking 対象銘柄の自動優先更新、Cockpit の価格・予測取得後 background priority refresh + 30分TTL、Ranking 操作直前の軽量 preflight 更新は実装済みのため、残りは provider / opt-in 条件を決める運用接続タスクとして扱う
@@ -2141,7 +2141,7 @@ Prompt 方針:
 
 ### 5.16 Phase 26: Context-Aware / Agentic SMAI Assistant
 
-状態: 初期スライス実装済み。会話UX再設計、6つの開始 intent、ルールベース Intent Router、read-only `Assistant Tool Layer`、`実行した確認` の画面表示、Gatewayへのintent別prompt guide、Markdown memo出力導線、LLM回答主役の会話ファースト回答表示、待機中カードのintent別ステップ表示、通常送信のchat placeholder内pending→final差し替え、pending / assistant カードの最小高さ、文/まとまり単位の擬似ストリーミング、LLM / fallbackメタ表示、初期案内カードを出さないヘッダー→参照材料→相談カード→入力欄構成、代表6質問のStreamlitレンダリング確認まで実装済み。外部大量取得、永続Decision Report保存、複数銘柄一括RAG、複数ファイル生成は確認付きの後続範囲。
+状態: 初期スライス実装済み。会話UX再設計、6つの開始 intent、ルールベース Intent Router、read-only `Assistant Tool Layer`、`実行した確認` の画面表示、Gatewayへのintent別prompt guide、Markdown memo出力導線、LLM回答主役の会話ファースト回答表示、待機中カードの現在ステップ表示と順次切替、通常送信のchat placeholder内pending→final差し替え、pending / assistant カードの最小高さ、文/まとまり単位の擬似ストリーミング、LLM / fallbackメタ表示、初期案内カードを出さないヘッダー→参照材料→相談カード→入力欄構成、代表6質問のStreamlitレンダリング確認まで実装済み。外部大量取得、永続Decision Report保存、複数銘柄一括RAG、複数ファイル生成は確認付きの後続範囲。
 
 目的: SMAIアシスタントが「いま見ている画面・銘柄・候補・材料」と会話指示を理解し、許可されたSMAI内部機能を安全に呼び出して、ユーザーの確認作業とDecision Report下書きを短くする。
 
@@ -2155,7 +2155,7 @@ Prompt 方針:
 - 初期 Tool Layer は read-only とし、現在文脈、銘柄推定、価格文脈、予測文脈、ニュース/RAG文脈、Decision Report下書き、Markdown memoを扱う。
 - Tool結果は `実行した確認` としてUIとMarkdown memoに残す。
 - 回答は自然文の会話応答を先頭に置き、構造化整理、実行確認、次アクションを分けて表示する。
-- 送信直後の待機中カードでは、intent別に `銘柄を確認中`、`価格・予測材料を確認中`、`ニュース材料を整理中`、`LLMへ回答作成を依頼中` のような処理ステップを表示する。
+- 送信直後の待機中カードでは、`銘柄を確認中`、`価格・予測材料を確認中`、`ニュース材料を整理中`、`LLMへ回答作成を依頼中` のような intent 別ステップのうち、現在の処理だけを1件表示し、短い間隔で順次切り替える。
 - 通常送信では、チャットスレッド用placeholder内で pending turn を描画し、同じ実行内で最終回答へ差し替えることで、送信後の追加 rerun を減らす。
 - pending / assistant カードには最小高さを設定し、待機中から回答表示へ切り替わるときの縦方向の跳ねを抑える。
 - 最新ターンではUI側の擬似ストリーミングで自然文本文を文またはまとまり単位に段階表示し、画面更新間隔は約0.16秒に抑える。

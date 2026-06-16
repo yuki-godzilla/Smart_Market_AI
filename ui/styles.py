@@ -2788,7 +2788,7 @@ div[data-testid="stChatInput"] textarea:focus {
 }
 
 .smai-copilot-message-card--pending {
-    min-height: 12rem;
+    min-height: 8.5rem;
     background:
         linear-gradient(90deg, rgba(45, 212, 191, 0.1), transparent 54%),
         linear-gradient(180deg, rgba(18, 29, 48, 0.82), rgba(8, 15, 28, 0.84));
@@ -2838,47 +2838,29 @@ div[data-testid="stChatInput"] textarea:focus {
     line-height: 1.25;
 }
 
-.smai-copilot-pending-steps ol {
-    display: grid;
-    gap: 0.34rem;
-    margin: 0.48rem 0 0;
-    padding: 0;
-    list-style: none;
+.smai-copilot-pending-current {
+    display: flex;
+    align-items: center;
+    gap: 0.52rem;
+    min-height: 1.7rem;
+    margin-top: 0.5rem;
 }
 
-.smai-copilot-pending-step {
-    position: relative;
-    min-height: 1.1rem;
-    padding-left: 1.12rem;
-    color: var(--text-secondary);
-    font-size: 0.82rem;
-    font-weight: 680;
-    line-height: 1.35;
-}
-
-.smai-copilot-pending-step::before {
-    content: "";
-    position: absolute;
-    top: 0.46rem;
-    left: 0;
-    width: 0.42rem;
-    height: 0.42rem;
+.smai-copilot-pending-current-dot {
+    flex: 0 0 auto;
+    width: 0.46rem;
+    height: 0.46rem;
     border-radius: 999px;
     background: var(--text-ai-title);
     box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.34);
     animation: smai-copilot-pending-pulse 1.7s ease-in-out infinite;
 }
 
-.smai-copilot-pending-step:nth-child(2)::before {
-    animation-delay: 180ms;
-}
-
-.smai-copilot-pending-step:nth-child(3)::before {
-    animation-delay: 360ms;
-}
-
-.smai-copilot-pending-step:nth-child(4)::before {
-    animation-delay: 540ms;
+.smai-copilot-pending-current-label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 760;
+    line-height: 1.35;
 }
 
 .smai-copilot-message-card--user {
@@ -3849,7 +3831,7 @@ div[data-testid="stChatInput"] textarea:focus {
     .smai-loading-pulse,
     .smai-loading-dots span,
     .smai-copilot-pending-dots span,
-    .smai-copilot-pending-step::before {
+    .smai-copilot-pending-current-dot {
         animation: none;
     }
 }

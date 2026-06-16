@@ -70,7 +70,7 @@ def test_copilot_layout_uses_shared_wide_lane():
     assert ".smai-copilot-response-meta summary" in css
     assert "border-left: 3px solid var(--smai-teal);" in css
     assert "min-height: 6.5rem;" in css
-    assert "min-height: 12rem;" in css
+    assert "min-height: 8.5rem;" in css
     assert "width: min(54rem, calc(100% - 1.5rem));" not in css
 
 
@@ -399,11 +399,31 @@ def test_copilot_pending_turn_renders_as_smai_bubble_without_runtime_meta():
     assert "smai-copilot-message-card--pending" in markup
     assert "smai-copilot-pending-dots" in markup
     assert "smai-copilot-pending-steps" in markup
-    assert "分析中にしていること" in markup
+    assert "smai-copilot-pending-current" in markup
+    assert "現在の処理" in markup
     assert "質問の意図を確認中" in markup
-    assert "LLMへ短い回答を依頼中" in markup
+    assert "LLMへ短い回答を依頼中" not in markup
     assert "SMAIナビが考えています..." in markup
     assert "provider_timeout" not in markup
+
+
+def test_copilot_pending_turn_renders_only_selected_current_step():
+    markup = copilot_turn_html(
+        {
+            "status": "pending",
+            "context_label": "SMAI assistant",
+            "question": "この銘柄を整理したい",
+            "answer": "SMAIナビが銘柄・価格・材料を確認しています...",
+            "intent": "stock_summary",
+            "pending_steps": "\n".join(_pending_steps_for_intent("stock_summary")),
+            "pending_step_index": "2",
+        }
+    )
+
+    assert "ニュース材料を整理中" in markup
+    assert "銘柄を確認中" not in markup
+    assert "価格・予測材料を確認中" not in markup
+    assert "LLMへ回答作成を依頼中" not in markup
 
 
 def test_copilot_pending_steps_are_intent_specific():
@@ -702,6 +722,7 @@ def test_copilot_submit_uses_inline_chat_placeholder_flow():
 
     assert "chat_placeholder = st.empty()" in source
     assert "_process_queued_copilot_request_inline(" in source
+    assert "_render_pending_step_progression(chat_placeholder=chat_placeholder)" in source
     assert "_render_chat_thread(_copilot_history(), placeholder=chat_placeholder)" in source
     assert "suggestions_placeholder.empty()" in source
 

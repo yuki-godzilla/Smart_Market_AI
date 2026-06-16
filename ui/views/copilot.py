@@ -50,6 +50,7 @@ COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY = "smai_copilot_gateway_diagnostic"
 COPILOT_GATEWAY_DIAGNOSTIC_TTL_SECONDS = 20.0
 COPILOT_STREAM_DELAY_SECONDS = 0.16
 COPILOT_STREAM_MAX_CHUNKS = 8
+COPILOT_PENDING_STEP_DELAY_SECONDS = 0.34
 
 COPILOT_LLM_MODEL_OPTIONS: tuple[tuple[str, str, str], ...] = (
     ("notebook_dev", "qwen3:1.7b", "ノートPC / 軽量開発"),
@@ -661,6 +662,8 @@ def render_copilot_workspace_page() -> None:
 
     chat_placeholder = st.empty()
     _render_chat_thread(history, placeholder=chat_placeholder)
+    if isinstance(st.session_state.get(COPILOT_PENDING_REQUEST_STATE_KEY), dict):
+        _render_pending_step_progression(chat_placeholder=chat_placeholder)
     if _process_pending_copilot_request(
         context_by_id=context_by_id,
         fallback_context=contexts[0],
@@ -787,12 +790,51 @@ def _process_queued_copilot_request_inline(
     context_by_id: dict[str, SmaiAssistantContext],
     fallback_context: SmaiAssistantContext,
 ) -> None:
-    _render_chat_thread(_copilot_history(), placeholder=chat_placeholder)
+    _render_pending_step_progression(chat_placeholder=chat_placeholder)
     if _process_pending_copilot_request(
         context_by_id=context_by_id,
         fallback_context=fallback_context,
     ):
         _render_chat_thread(_copilot_history(), placeholder=chat_placeholder)
+
+
+def _render_pending_step_progression(*, chat_placeholder: Any) -> None:
+    request = st.session_state.get(COPILOT_PENDING_REQUEST_STATE_KEY)
+    if not isinstance(request, dict):
+        _render_chat_thread(_copilot_history(), placeholder=chat_placeholder)
+        return
+    pending_turn_id = str(request.get("turn_id", ""))
+    steps = _pending_steps_for_turn_id(pending_turn_id)
+    if not pending_turn_id or not steps:
+        _render_chat_thread(_copilot_history(), placeholder=chat_placeholder)
+        return
+    for index in range(len(steps)):
+        _set_pending_step_index(pending_turn_id, index)
+        _render_chat_thread(_copilot_history(), placeholder=chat_placeholder)
+        if index < len(steps) - 1:
+            time.sleep(COPILOT_PENDING_STEP_DELAY_SECONDS)
+
+
+def _pending_steps_for_turn_id(turn_id: str) -> list[str]:
+    if not turn_id:
+        return []
+    for turn in _copilot_history():
+        if str(turn.get("turn_id", "")) == turn_id and str(turn.get("status", "")) == "pending":
+            return _split_lines(turn.get("pending_steps", ""))
+    return []
+
+
+def _set_pending_step_index(turn_id: str, step_index: int) -> None:
+    history = _copilot_history()
+    next_history: list[dict[str, str]] = []
+    for turn in history:
+        if str(turn.get("turn_id", "")) == turn_id and str(turn.get("status", "")) == "pending":
+            updated = dict(turn)
+            updated["pending_step_index"] = str(max(0, step_index))
+            next_history.append(updated)
+        else:
+            next_history.append(turn)
+    st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = next_history
 
 
 def _render_suggestion_buttons(
@@ -918,6 +960,7 @@ def _pending_turn(
         "question": visible_question,
         "answer": _pending_message_for_intent(intent),
         "pending_steps": "\n".join(_pending_steps_for_intent(intent, uses_llm=uses_llm)),
+        "pending_step_index": "0",
         "reasons": "",
         "cautions": "",
         "next_checkpoints": "",
@@ -1179,15 +1222,28 @@ def _pending_detail_html(turn: dict[str, str]) -> str:
     if not steps:
         intent = _normalize_intent(turn.get("intent", "free_chat"))
         steps = list(_pending_steps_for_intent(intent))
-    items = "".join(
-        f'<li class="smai-copilot-pending-step">{html.escape(step)}</li>' for step in steps[:4]
-    )
+    current_step = _pending_current_step_label(turn=turn, steps=steps)
     return (
-        '<section class="smai-copilot-pending-steps" aria-label="分析中の処理">'
-        '<span class="smai-copilot-pending-caption">分析中にしていること</span>'
-        f"<ol>{items}</ol>"
+        '<section class="smai-copilot-pending-steps" aria-label="現在の処理" aria-live="polite">'
+        '<span class="smai-copilot-pending-caption">現在の処理</span>'
+        '<div class="smai-copilot-pending-current">'
+        '<span class="smai-copilot-pending-current-dot" aria-hidden="true"></span>'
+        f'<span class="smai-copilot-pending-current-label">{html.escape(current_step)}</span>'
+        "</div>"
         "</section>"
     )
+
+
+def _pending_current_step_label(*, turn: dict[str, str], steps: list[str]) -> str:
+    if not steps:
+        return "確認中"
+    raw_index = str(turn.get("pending_step_index", "0")).strip()
+    try:
+        step_index = int(raw_index)
+    except ValueError:
+        step_index = 0
+    bounded_index = max(0, min(step_index, len(steps) - 1))
+    return steps[bounded_index]
 
 
 def _runtime_config_to_state(config: CopilotGatewayRuntimeConfig) -> dict[str, object]:

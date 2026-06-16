@@ -2295,3 +2295,8 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - Added `notebook_standard` / `qwen3:4b` as a selectable SMAI Assistant model profile between the lightweight notebook and desktop-fast options.
 - Updated parent / Gateway profile contracts, Gateway model routing, docs, and unit tests for the available model list.
+
+## 2026-06-16 Gateway Windows Launcher Fix
+
+- Changed `smai-ai-gateway/run_server.bat` to start Gateway with `python -m uvicorn` instead of the generated `uvicorn.exe` launcher.
+- This avoids stale WindowsApps Python paths embedded in console-script launchers after rebuilding `venv_SMAI` with Python 3.12.

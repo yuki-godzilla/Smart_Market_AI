@@ -58,7 +58,7 @@ run_server.bat
 手動で起動する場合:
 
 ```powershell
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8088
+python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8088
 ```
 
 ## 5. 動作確認

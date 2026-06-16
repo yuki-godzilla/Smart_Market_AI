@@ -8,4 +8,4 @@ if exist ".venv\Scripts\activate.bat" (
   call "..\venv_SMAI\Scripts\activate.bat"
 )
 
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8088
+python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8088

@@ -18,6 +18,22 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-16 - SMAI Assistant Context Aggregator first slice
+
+### Context Aggregator
+- Added `AssistantResearchMaterial` and `AssistantResearchContextBundle` as the shared structure for LLM-facing Research Mode materials.
+- Aggregates read-only Tool Layer results into confirmed materials, missing materials, cautions, and next checkpoints.
+- `cached_only` marks planned external tools as missing without performing external fetches.
+
+### Research Answer
+- Gateway prompt now receives structured research context lines instead of only flat tool summaries.
+- Final Research Mode answers include `確認できた材料`, `注意すべき材料`, `未確認材料`, and `次に確認`.
+- Answer text, executed checks, and Markdown memo context are derived from the same bundle so the visible response and saved memo stay aligned.
+
+### Validation
+- Added backend tests for confirmed / missing grouping and cached-only external-missing behavior.
+- Added UI tests for approve and cached-only final answer structure.
+
 ## 2026-06-16 - SMAI Assistant Research Plan legacy object guard
 
 ### Bug Fix

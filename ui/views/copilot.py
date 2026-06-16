@@ -14,9 +14,11 @@ import streamlit as st
 
 from backend.assistant import (
     AssistantMessage,
+    AssistantResearchContextBundle,
     AssistantResearchToolPlan,
     AssistantResponse,
     HttpAssistantGatewayClient,
+    build_assistant_research_context_bundle,
     build_assistant_research_tool_plan,
     detect_assistant_intent,
     execute_assistant_tool_plan,
@@ -895,6 +897,12 @@ def copilot_answer_detail_html(turn: dict[str, str]) -> str:
     intent = _normalize_intent(turn.get("intent", ""))
     if _is_llm_micro_intent(intent):
         return _assistant_action_links_html(turn)
+    if str(turn.get("hide_answer_grid", "")).lower() == "true":
+        return (
+            _execution_result_html(turn)
+            + _response_meta_html(turn)
+            + _assistant_action_links_html(turn)
+        )
     titles = _section_titles_for_intent(intent)
     reasons = _list_html(_split_lines(turn.get("reasons", "")))
     cautions = _list_html(_split_lines(turn.get("cautions", "")))
@@ -1879,14 +1887,29 @@ def _handle_copilot_submit(
         if not _is_llm_micro_intent(intent)
         else None
     )
-    tool_summaries = [result.summary for result in tool_plan.executed] if tool_plan else []
-    friendly_tool_summaries = (
-        _friendly_tool_execution_summaries(
-            tool_plan_tools=tool_plan_tools,
-            tool_plan=tool_plan,
+    research_context_bundle = (
+        build_assistant_research_context_bundle(
             subject=tool_plan_subject,
+            choice=_research_choice_from_tool_plan_choice(tool_plan_choice),
+            tool_plan=tool_plan,
+            planned_tools=_tool_plan_tools_from_state(tool_plan_tools),
         )
-        if tool_plan_choice
+        if tool_plan_choice and tool_plan is not None
+        else None
+    )
+    if research_context_bundle is not None:
+        effective_context = _context_with_research_bundle(
+            context=effective_context,
+            bundle=research_context_bundle,
+        )
+    tool_summaries = (
+        list(research_context_bundle.llm_context_lines())
+        if research_context_bundle is not None
+        else [result.summary for result in tool_plan.executed] if tool_plan else []
+    )
+    friendly_tool_summaries = (
+        list(research_context_bundle.executed_check_lines())
+        if research_context_bundle is not None
         else tool_summaries
     )
     gateway_question = _gateway_question(
@@ -1941,7 +1964,11 @@ def _handle_copilot_submit(
             choice=tool_plan_choice,
             subject=tool_plan_subject,
             missing_materials=tool_plan_missing_materials or [],
+            research_context=research_context_bundle,
+            response_source=response.response_source,
         )
+        if research_context_bundle is not None:
+            _apply_research_context_to_turn(turn, research_context_bundle)
     if pending_turn_id:
         replaced = False
         next_history: list[dict[str, str]] = []
@@ -2077,22 +2104,146 @@ def _with_tool_plan_answer_prefix(
     choice: str,
     subject: str,
     missing_materials: list[str],
+    research_context: AssistantResearchContextBundle | None = None,
+    response_source: str = "",
 ) -> str:
     body = str(answer or "").strip()
+    if research_context is not None and (
+        response_source not in {"gateway", "llm"} or _is_research_context_echo(body)
+    ):
+        body = ""
     clean_subject = subject.strip() or "対象銘柄"
-    missing = _missing_materials_block(missing_materials)
+    missing = _missing_materials_block(
+        list(research_context.missing_labels()) if research_context else missing_materials
+    )
+    research_block = (
+        _research_context_answer_block(research_context) if research_context is not None else ""
+    )
     if choice == "cached_only":
         prefix = (
             "取得済み情報だけで整理します。\n"
             "現時点では未取得の材料もあるため、価格・AI予測・ニュースのうち"
             "確認できている範囲に絞って回答します。"
         )
-        return _join_answer_parts(prefix, missing, body)
+        return _join_answer_parts(prefix, research_block or missing, body)
     prefix = (
         f"{clean_subject}について、取得できた材料を整理しました。\n"
         "買い/売りを断定するのではなく、上昇方向を見る材料と注意すべき材料に分けて確認します。"
     )
-    return _join_answer_parts(prefix, body)
+    return _join_answer_parts(prefix, research_block, body)
+
+
+def _research_choice_from_tool_plan_choice(
+    choice: str,
+) -> Literal["approve", "cached_only", "normal"]:
+    if choice == "cached_only":
+        return "cached_only"
+    if choice == "approve":
+        return "approve"
+    return "normal"
+
+
+def _context_with_research_bundle(
+    *,
+    context: SmaiAssistantContext,
+    bundle: AssistantResearchContextBundle,
+) -> SmaiAssistantContext:
+    rows = [
+        {
+            "分類": "確認できた材料",
+            "項目": material.label,
+            "状態": "確認済み",
+            "要約": material.summary,
+        }
+        for material in bundle.confirmed_materials
+    ]
+    rows.extend(
+        {
+            "分類": "未確認材料",
+            "項目": material.label,
+            "状態": "未確認",
+            "要約": material.summary,
+        }
+        for material in bundle.missing_materials
+    )
+    summary = {
+        **{str(key): value for key, value in context.summary.items()},
+        "対象": bundle.subject,
+        "回答方針": (
+            "取得済み情報だけ" if bundle.choice == "cached_only" else "取得できた材料を整理"
+        ),
+        "確認できた材料": " / ".join(material.label for material in bundle.confirmed_materials)
+        or "なし",
+        "未確認材料": " / ".join(bundle.missing_labels()) or "なし",
+    }
+    return replace(
+        context,
+        summary=summary,
+        rows=tuple(rows),
+        warnings=tuple([*context.warnings, *bundle.caution_materials]),
+        notes=tuple([*context.notes, *bundle.next_checkpoints]),
+    )
+
+
+def _apply_research_context_to_turn(
+    turn: dict[str, str],
+    bundle: AssistantResearchContextBundle,
+) -> None:
+    turn["hide_answer_grid"] = "true"
+    confirmed = [f"{material.label}: {material.summary}" for material in bundle.confirmed_materials]
+    missing = [f"{material.label}: {material.summary}" for material in bundle.missing_materials]
+    turn["reasons"] = "\n".join(confirmed[:4])
+    turn["cautions"] = "\n".join([*bundle.caution_materials[:3], *missing[:2]])
+    turn["next_checkpoints"] = "\n".join(bundle.next_checkpoints[:4])
+    if not turn.get("memo_points", "").strip():
+        turn["memo_points"] = (
+            f"対象: {bundle.subject}\n"
+            f"確認済み: {', '.join(material.label for material in bundle.confirmed_materials) or 'なし'}\n"
+            f"未確認: {', '.join(bundle.missing_labels()) or 'なし'}"
+        )
+
+
+def _research_context_answer_block(bundle: AssistantResearchContextBundle | None) -> str:
+    if bundle is None:
+        return ""
+    confirmed = _markdown_bullets(
+        f"{material.label}: {material.summary}" for material in bundle.confirmed_materials
+    )
+    cautions = _markdown_bullets(bundle.caution_materials)
+    missing = _markdown_bullets(
+        f"{material.label}: {material.summary}" for material in bundle.missing_materials
+    )
+    next_steps = _markdown_bullets(bundle.next_checkpoints)
+    return _join_answer_parts(
+        f"確認できた材料:\n{confirmed}" if confirmed else "",
+        f"注意すべき材料:\n{cautions}" if cautions else "",
+        f"未確認材料:\n{missing}" if missing else "",
+        f"次に確認:\n{next_steps}" if next_steps else "",
+    )
+
+
+def _markdown_bullets(items: Any) -> str:
+    lines = [str(item).strip() for item in items if str(item).strip()]
+    return "\n".join(f"- {line}" for line in lines[:5])
+
+
+def _is_research_context_echo(body: str) -> bool:
+    clean_body = str(body or "").strip()
+    if (
+        len(clean_body) <= 160
+        and "取得できた材料を整理しました" in clean_body
+        and "買い/売りを断定" in clean_body
+    ):
+        return True
+    return all(
+        marker in clean_body
+        for marker in (
+            "見る材料",
+            "注意点",
+            "次に確認",
+            "銘柄を特定:",
+        )
+    )
 
 
 def _missing_materials_block(missing_materials: list[str]) -> str:
@@ -3077,10 +3228,10 @@ def _gateway_question(
         f"SMAI Assistant intent: {intent}\n"
         f"User question: {question.strip()}\n"
         f"Response instruction: {prompt_instruction}\n"
-        f"Tool results already checked by SMAI:\n{tool_block}\n"
+        f"Structured research context already checked by SMAI:\n{tool_block}\n"
         "Agent behavior: You are the primary AI chat assistant. Read the user's intent, "
-        "use the SMAI tool results only when they help answer the question, and ask for "
-        "the next missing material when the checked results are insufficient.\n"
+        "use confirmed materials as the answer basis, explicitly separate missing materials, "
+        "and ask for the next missing material when the checked results are insufficient.\n"
         "Tone: SMAIナビとして、短く自然な日本語で答える。固定テンプレート、長い自己紹介、"
         "毎回の免責文は避ける。\n"
         "Boundary: 売買推奨、スコア変更、ランキング変更、予測値の変更はしない。"

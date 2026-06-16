@@ -52,9 +52,12 @@ from backend.assistant.tool_plan import (
 )
 from backend.assistant.tools import (
     AssistantCurrentContext,
+    AssistantResearchContextBundle,
+    AssistantResearchMaterial,
     AssistantToolLayer,
     AssistantToolPlanResult,
     AssistantToolResult,
+    build_assistant_research_context_bundle,
     execute_assistant_tool_plan,
 )
 
@@ -87,6 +90,8 @@ __all__ = [
     "AssistantRequest",
     "AssistantResponse",
     "AssistantResearchIntent",
+    "AssistantResearchContextBundle",
+    "AssistantResearchMaterial",
     "AssistantResearchTool",
     "AssistantResearchToolPlan",
     "AssistantToolLayer",
@@ -98,6 +103,7 @@ __all__ = [
     "TemplateAssistantService",
     "build_assistant_context_bundle",
     "build_assistant_gateway_request",
+    "build_assistant_research_context_bundle",
     "create_assistant_gateway_client_from_settings",
     "create_assistant_service_from_settings",
     "build_assistant_research_tool_plan",

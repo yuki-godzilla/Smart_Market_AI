@@ -1,6 +1,10 @@
 from datetime import UTC, datetime
 
-from backend.assistant import AssistantToolLayer, execute_assistant_tool_plan
+from backend.assistant import (
+    AssistantToolLayer,
+    build_assistant_research_context_bundle,
+    execute_assistant_tool_plan,
+)
 from backend.reporting import build_decision_report_context, build_report_section
 
 
@@ -69,6 +73,86 @@ def test_execute_assistant_tool_plan_builds_decision_report_draft():
     assert plan.report_context is not None
     assert plan.report_context.title == "SMAIアシスタント Decision Report下書き"
     assert any(result.name == "get_forecast_summary" for result in plan.executed)
+
+
+def test_research_context_bundle_groups_confirmed_and_missing_materials():
+    plan = execute_assistant_tool_plan(
+        intent="stock_summary",
+        message="トヨタこれから上がるかな",
+        report_context=_sample_context(),
+    )
+    planned_tools = (
+        {"name": "symbol_resolve", "label": "銘柄を特定", "external": False, "required": True},
+        {"name": "price_fetch", "label": "価格の動き", "external": True, "required": True},
+        {
+            "name": "forecast_fetch",
+            "label": "AI予測・下振れ警戒",
+            "external": False,
+            "required": True,
+        },
+        {"name": "news_fetch", "label": "最新ニュース", "external": True, "required": False},
+        {
+            "name": "research_fetch",
+            "label": "根拠資料 / Research Evidence",
+            "external": True,
+            "required": False,
+        },
+    )
+
+    bundle = build_assistant_research_context_bundle(
+        subject="トヨタ自動車（7203.T）",
+        choice="approve",
+        tool_plan=plan,
+        planned_tools=planned_tools,
+    )
+
+    confirmed_labels = [material.label for material in bundle.confirmed_materials]
+    missing_labels = [material.label for material in bundle.missing_materials]
+    assert "銘柄を特定" in confirmed_labels
+    assert "価格の動き" in confirmed_labels
+    assert "AI予測・下振れ警戒" in confirmed_labels
+    assert "根拠資料 / Research Evidence" in confirmed_labels
+    assert "最新ニュース" in missing_labels
+    symbol_material = next(
+        material for material in bundle.confirmed_materials if material.label == "銘柄を特定"
+    )
+    assert symbol_material.summary == "7203.T"
+    assert any("未確認" in caution for caution in bundle.caution_materials)
+    assert any(line == "確認できた材料:" for line in bundle.llm_context_lines())
+    assert any(line == "未確認材料:" for line in bundle.llm_context_lines())
+    assert not any("銘柄を特定: 銘柄を特定" in line for line in bundle.llm_context_lines())
+
+
+def test_research_context_bundle_cached_only_marks_external_tools_missing():
+    plan = execute_assistant_tool_plan(
+        intent="stock_summary",
+        message="トヨタこれから上がるかな",
+        report_context=_sample_context(),
+    )
+    planned_tools = (
+        {"name": "price_fetch", "label": "価格の動き", "external": True, "required": True},
+        {
+            "name": "forecast_fetch",
+            "label": "AI予測・下振れ警戒",
+            "external": False,
+            "required": True,
+        },
+        {"name": "news_fetch", "label": "最新ニュース", "external": True, "required": False},
+    )
+
+    bundle = build_assistant_research_context_bundle(
+        subject="トヨタ自動車（7203.T）",
+        choice="cached_only",
+        tool_plan=plan,
+        planned_tools=planned_tools,
+    )
+
+    missing_labels = bundle.missing_labels()
+    confirmed_labels = tuple(material.label for material in bundle.confirmed_materials)
+    assert "価格の動き" in missing_labels
+    assert "最新ニュース" in missing_labels
+    assert "AI予測・下振れ警戒" in confirmed_labels
+    assert any("外部取得は行っていない" in caution for caution in bundle.caution_materials)
 
 
 def test_export_markdown_report_avoids_overwrite(tmp_path):

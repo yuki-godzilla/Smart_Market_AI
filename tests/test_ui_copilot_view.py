@@ -1149,6 +1149,15 @@ def test_copilot_page_tool_plan_approve_returns_material_summary(monkeypatch):
     assert history[-1]["conversation_mode"] == "research_answer"
     assert "トヨタ自動車（7203.T）について、取得できた材料を整理しました。" in history[-1]["answer"]
     assert "買い/売りを断定するのではなく" in history[-1]["answer"]
+    assert "確認できた材料:" in history[-1]["answer"]
+    assert "注意すべき材料:" in history[-1]["answer"]
+    assert "未確認材料:" in history[-1]["answer"]
+    assert "次に確認:" in history[-1]["answer"]
+    assert "銘柄を特定: 銘柄を特定" not in history[-1]["answer"]
+    assert "まず、この銘柄で確認する材料を短く整理します。" not in history[-1]["answer"]
+    assert "\n\n取得できた材料を整理しました。" not in history[-1]["answer"]
+    assert "見る材料\n銘柄を特定" not in history[-1]["answer"]
+    assert history[-1]["hide_answer_grid"] == "true"
     assert "価格の動き" in history[-1]["executed_checks"]
     assert "取得できませんでした" in history[-1]["executed_checks"]
 
@@ -1170,6 +1179,7 @@ def test_copilot_page_tool_plan_cached_only_mentions_missing_materials(monkeypat
     assert history[-1]["conversation_mode"] == "research_answer"
     assert history[-1]["answer"].startswith("取得済み情報だけで整理します。")
     assert "未確認材料:" in history[-1]["answer"]
+    assert "外部取得は行っていない" in history[-1]["answer"]
     assert "最新ニュース" in history[-1]["answer"]
     assert "根拠資料 / Research Evidence" in history[-1]["answer"]
 

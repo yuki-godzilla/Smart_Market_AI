@@ -56,6 +56,8 @@ def test_copilot_layout_uses_shared_wide_lane():
     assert chat_lane in css
     assert ".smai-copilot-chat-topbar" in css
     assert "grid-template-columns: auto minmax(0, 1fr) auto;" in css
+    assert ".smai-copilot-chat-actions-anchor" in css
+    assert 'div[data-testid="stHorizontalBlock"]' in css
     assert ".smai-copilot-material-status" in css
     assert ".smai-copilot-thread" in css
     assert ".smai-copilot-composer-toolbar" in css
@@ -606,6 +608,7 @@ def test_copilot_page_renders_with_streamlit_app(monkeypatch):
     assert "LLM Gateway" not in page_text
     assert "こんにちは。SMAIナビです。" not in page_text
     assert "smai-copilot-chat-topbar" in page_text
+    assert "smai-copilot-chat-actions-anchor" in page_text
     assert "SMAIアシスタント" in button_labels
     assert (
         "価格・予測・ニュース・根拠資料について確認したいことを入力..." in text_input_placeholders

@@ -18,6 +18,14 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-16 - SMAI Assistant new conversation action layout
+
+### UI polish
+
+- Moved the `新しい会話` action out of the page-wide top-right column and into a chat-width action row below the SMAIナビ header.
+- Added scoped CSS so the Streamlit columns for this action align with the assistant header lane on desktop and compact widths.
+- Added UI layout assertions for the new action anchor and kept Streamlit AppTest coverage for the SMAIアシスタント page.
+
 ## 2026-06-16 - SMAI Gateway default model qwen3:1.7b
 
 ### Runtime and configuration

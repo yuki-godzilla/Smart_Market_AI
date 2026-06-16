@@ -632,14 +632,11 @@ def render_copilot_workspace_page() -> None:
     history = _copilot_history()
     runtime_config = copilot_gateway_runtime_config()
 
-    _, clear_col = st.columns([0.82, 0.18])
-    with clear_col:
-        clear = st.button("新しい会話", use_container_width=True)
-
     st.markdown(
         _chat_header_html(history_count=len(history), runtime_config=runtime_config),
         unsafe_allow_html=True,
     )
+    clear = _render_new_conversation_action()
     _render_material_status(_active_context_from_history(history, context_by_id))
 
     if clear:
@@ -692,6 +689,20 @@ def render_copilot_workspace_page() -> None:
         "SMAIアシスタントは判断材料の整理を補助します。売買推奨、スコア変更、"
         "ランキング順位変更は行いません。"
     )
+
+
+def _render_new_conversation_action() -> bool:
+    st.markdown(
+        '<div class="smai-copilot-chat-actions-anchor" aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
+    _, clear_col = st.columns([0.78, 0.22], gap="small", vertical_alignment="center")
+    with clear_col:
+        return st.button(
+            "新しい会話",
+            key="smai_copilot_new_conversation",
+            use_container_width=True,
+        )
 
 
 def _render_chat_thread(turns: list[dict[str, str]]) -> None:

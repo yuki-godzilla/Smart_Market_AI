@@ -2560,6 +2560,35 @@ body,
     font-weight: 760;
 }
 
+.smai-copilot-chat-actions-anchor {
+    width: min(var(--smai-content-max-width), calc(100% - var(--smai-content-gutter)));
+    max-width: var(--smai-content-max-width);
+    height: 0;
+    margin: -0.3rem auto 0;
+}
+
+div[data-testid="stElementContainer"]:has(.smai-copilot-chat-actions-anchor)
+    + div[data-testid="stElementContainer"]
+    div[data-testid="stHorizontalBlock"],
+div[data-testid="stElementContainer"]:has(.smai-copilot-chat-actions-anchor)
+    + div[data-testid="stHorizontalBlock"] {
+    width: min(var(--smai-content-max-width), calc(100% - var(--smai-content-gutter)));
+    max-width: var(--smai-content-max-width);
+    margin: -0.3rem auto 0.62rem;
+    box-sizing: border-box;
+}
+
+div[data-testid="stElementContainer"]:has(.smai-copilot-chat-actions-anchor)
+    + div[data-testid="stElementContainer"]
+    div[data-testid="stButton"] button,
+div[data-testid="stElementContainer"]:has(.smai-copilot-chat-actions-anchor)
+    + div[data-testid="stHorizontalBlock"]
+    div[data-testid="stButton"] button {
+    min-height: 2.15rem;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+
 .smai-copilot-mode-label {
     width: min(var(--smai-content-max-width), calc(100% - var(--smai-content-gutter)));
     max-width: var(--smai-content-max-width);
@@ -3750,6 +3779,7 @@ div[data-testid="stChatInput"] textarea:focus {
     }
 
     .smai-copilot-mode-label,
+    .smai-copilot-chat-actions-anchor,
     .smai-copilot-material-status,
     .smai-copilot-suggestions-title,
     .smai-copilot-thread,
@@ -3766,6 +3796,18 @@ div[data-testid="stChatInput"] textarea:focus {
             var(--smai-chat-main-width),
             calc(100% - var(--smai-content-gutter-compact))
         );
+    }
+
+    div[data-testid="stElementContainer"]:has(.smai-copilot-chat-actions-anchor)
+        + div[data-testid="stElementContainer"]
+        div[data-testid="stHorizontalBlock"],
+    div[data-testid="stElementContainer"]:has(.smai-copilot-chat-actions-anchor)
+        + div[data-testid="stHorizontalBlock"] {
+        width: min(
+            var(--smai-content-max-width),
+            calc(100% - var(--smai-content-gutter-compact))
+        );
+        margin-top: -0.14rem;
     }
 
     .smai-copilot-answer-grid {

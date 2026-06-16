@@ -4557,14 +4557,7 @@ div[data-testid="stChatInput"] textarea:focus {
 }
 
 .vega-embed {
-    display: flex !important;
-    flex-direction: column !important;
-}
-
-[data-testid="stVegaLiteChart"] .vega-embed,
-[data-testid="stVegaLiteChart"] div:has(> .vega-bindings) {
-    display: flex !important;
-    flex-direction: column !important;
+    width: 100%;
 }
 
 .vega-bindings {

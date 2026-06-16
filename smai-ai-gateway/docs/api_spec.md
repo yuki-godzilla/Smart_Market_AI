@@ -13,6 +13,32 @@ Response:
 }
 ```
 
+## GET /health/ready
+
+Gateway process、Ollama API、設定中 model の導入状態をまとめて確認します。Ollama 未起動や model 未取得でも診断しやすいよう、endpoint 自体は JSON を返します。
+
+Response:
+
+```json
+{
+  "status": "ok",
+  "service": "smai-ai-gateway",
+  "gateway": "ok",
+  "ollama": "ok",
+  "provider": "ollama",
+  "ollama_base_url": "http://localhost:11434",
+  "default_profile": "notebook_dev",
+  "default_model": "llama3.2:3b",
+  "installed_models": ["llama3.2:3b"],
+  "configured_model_installed": true,
+  "error_code": null,
+  "error_message": null,
+  "install_hint": null
+}
+```
+
+Ollama 未起動や model 未取得時は `status: degraded` になり、`error_code` に `provider_unreachable` または `model_not_found`、`install_hint` に `ollama pull llama3.2:3b` などの次アクションを返します。
+
 ## POST /api/v1/chat
 
 汎用チャット API です。SMAI 専用の naming は使いません。

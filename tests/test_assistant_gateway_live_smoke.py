@@ -45,6 +45,7 @@ def test_parent_smai_assistant_can_use_live_gateway_context_answer():
             conversation_id="live-smoke-context-answer",
             active_context_id="cockpit_forecast",
             referenced_context_ids=["cockpit_forecast"],
+            gateway_task_type="forecast_risk_compare",
         )
     )
 

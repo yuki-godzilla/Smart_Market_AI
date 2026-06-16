@@ -4,16 +4,18 @@ import base64
 import html
 import os
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Literal, cast
 from uuid import uuid4
 
+import httpx
 import streamlit as st
 
 from backend.assistant import (
     AssistantMessage,
     AssistantResponse,
+    HttpAssistantGatewayClient,
     detect_assistant_intent,
     execute_assistant_tool_plan,
 )
@@ -41,6 +43,8 @@ COPILOT_PENDING_REQUEST_STATE_KEY = "smai_copilot_pending_request"
 COPILOT_SUPPRESS_SUBMIT_STATE_KEY = "smai_copilot_suppress_next_submit"
 COPILOT_LLM_PROFILE_STATE_KEY = "smai_copilot_llm_profile"
 COPILOT_LLM_MODEL_STATE_KEY = "smai_copilot_llm_model"
+COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY = "smai_copilot_gateway_diagnostic"
+COPILOT_GATEWAY_DIAGNOSTIC_TTL_SECONDS = 20.0
 
 COPILOT_LLM_MODEL_OPTIONS: tuple[tuple[str, str, str], ...] = (
     ("notebook_dev", "llama3.2:3b", "ノートPC / 軽量開発"),
@@ -72,6 +76,16 @@ class CopilotGatewayRuntimeConfig:
     provider: str = "ollama"
     model: str = "llama3.2:3b"
     profile: str = "notebook_dev"
+    readiness_status: str = "unchecked"
+    readiness_message: str = ""
+    gateway_url: str = ""
+    gateway_error_type: str = ""
+    gateway_error_message: str = ""
+    http_status: int | None = None
+    provider_error_type: str = ""
+    provider_error_message: str = ""
+    ollama_base_url: str = ""
+    installed_models: tuple[str, ...] = ()
 
     @property
     def mode_label(self) -> str:
@@ -80,6 +94,34 @@ class CopilotGatewayRuntimeConfig:
     @property
     def status_label(self) -> str:
         return "LLM接続: ON" if self.enabled else "LLM接続: OFF"
+
+    @property
+    def readiness_label(self) -> str:
+        if not self.enabled:
+            return "準備完了"
+        if self.readiness_status == "ready":
+            return "準備完了"
+        if self.readiness_status == "gateway_unavailable":
+            return "Gateway未接続"
+        if self.readiness_status == "gateway_timeout":
+            return "Gateway応答待ち"
+        if self.readiness_status == "provider_unavailable":
+            return "Ollama未接続"
+        if self.readiness_status == "model_missing":
+            return "モデル未取得"
+        if self.readiness_status == "gateway_error":
+            return "Gateway確認エラー"
+        return "準備確認中"
+
+    @property
+    def readiness_detail(self) -> str:
+        if not self.enabled:
+            return "deterministic fallback"
+        if self.readiness_message:
+            return self.readiness_message
+        if self.readiness_status == "ready":
+            return f"{self.model} 利用可能"
+        return "Gateway状態を確認中"
 
 
 @dataclass(frozen=True)
@@ -297,7 +339,7 @@ def copilot_gateway_runtime_config(
     gateway = settings.assistant.gateway
     selected_profile, selected_model = _selected_llm_profile_model(gateway)
 
-    return CopilotGatewayRuntimeConfig(
+    runtime_config = CopilotGatewayRuntimeConfig(
         enabled=not _is_network_free_app_test_mode(),
         base_url=gateway.base_url,
         timeout_seconds=float(gateway.timeout_seconds),
@@ -308,6 +350,7 @@ def copilot_gateway_runtime_config(
         model=selected_model,
         profile=selected_profile,
     )
+    return _with_cached_gateway_diagnostic(runtime_config)
 
 
 def _is_network_free_app_test_mode() -> bool:
@@ -436,6 +479,75 @@ def copilot_settings_from_gateway_runtime(
     )
     assistant_config = settings.assistant.model_copy(update={"gateway": gateway})
     return settings.model_copy(update={"assistant": assistant_config})
+
+
+def _with_cached_gateway_diagnostic(
+    runtime_config: CopilotGatewayRuntimeConfig,
+) -> CopilotGatewayRuntimeConfig:
+    if not runtime_config.enabled:
+        return runtime_config
+    if os.getenv("SMAI_SKIP_ASSISTANT_GATEWAY_STATUS_CHECK") == "1":
+        return runtime_config
+
+    cache_key = (
+        runtime_config.base_url,
+        runtime_config.context_answer_path,
+        runtime_config.model,
+        runtime_config.profile,
+    )
+    cached = st.session_state.get(COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY)
+    now = time.time()
+    if isinstance(cached, dict):
+        cached_at = float(cached.get("checked_at", 0.0) or 0.0)
+        if (
+            cached.get("cache_key") == cache_key
+            and now - cached_at < COPILOT_GATEWAY_DIAGNOSTIC_TTL_SECONDS
+        ):
+            return _runtime_config_from_state(cached.get("runtime_config"))
+
+    diagnosed = _probe_copilot_gateway_runtime(runtime_config)
+    st.session_state[COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY] = {
+        "checked_at": now,
+        "cache_key": cache_key,
+        "runtime_config": _runtime_config_to_state(diagnosed),
+    }
+    return diagnosed
+
+
+def _probe_copilot_gateway_runtime(
+    runtime_config: CopilotGatewayRuntimeConfig,
+    *,
+    transport: httpx.BaseTransport | None = None,
+) -> CopilotGatewayRuntimeConfig:
+    if not runtime_config.enabled:
+        return runtime_config
+    client = HttpAssistantGatewayClient(
+        base_url=runtime_config.base_url,
+        context_answer_path=runtime_config.context_answer_path,
+        timeout_seconds=runtime_config.timeout_seconds,
+        model=runtime_config.model,
+        execution_mode=runtime_config.execution_mode,
+        environment_profile=runtime_config.environment_profile,
+        preferred_profile=runtime_config.profile,
+        transport=transport,
+    )
+    diagnostic = client.diagnose(timeout_seconds=min(2.0, max(0.5, runtime_config.timeout_seconds)))
+    return replace(
+        runtime_config,
+        readiness_status=diagnostic.status,
+        readiness_message=diagnostic.message,
+        gateway_url=diagnostic.gateway_url,
+        gateway_error_type=diagnostic.gateway_error_type or "",
+        gateway_error_message=diagnostic.gateway_error_message or "",
+        http_status=diagnostic.http_status,
+        provider_error_type=diagnostic.provider_error_type or "",
+        provider_error_message=diagnostic.provider_error_message or "",
+        ollama_base_url=diagnostic.ollama_base_url or "",
+        installed_models=diagnostic.installed_models,
+        provider=diagnostic.provider or runtime_config.provider,
+        model=diagnostic.model or runtime_config.model,
+        profile=diagnostic.profile or runtime_config.profile,
+    )
 
 
 def copilot_history_messages(
@@ -735,6 +847,12 @@ def _pending_turn(
         "latency_ms": "",
         "gateway_status": "",
         "fallback_reason": "",
+        "gateway_error_type": "",
+        "gateway_error_message": "",
+        "gateway_url": "",
+        "http_status": "",
+        "provider_error_type": "",
+        "provider_error_message": "",
         "request_id": "",
         "timeout_sec": "",
         "context_tokens_estimate": "",
@@ -772,12 +890,29 @@ def _runtime_config_to_state(config: CopilotGatewayRuntimeConfig) -> dict[str, o
         "provider": config.provider,
         "model": config.model,
         "profile": config.profile,
+        "readiness_status": config.readiness_status,
+        "readiness_message": config.readiness_message,
+        "gateway_url": config.gateway_url,
+        "gateway_error_type": config.gateway_error_type,
+        "gateway_error_message": config.gateway_error_message,
+        "http_status": config.http_status,
+        "provider_error_type": config.provider_error_type,
+        "provider_error_message": config.provider_error_message,
+        "ollama_base_url": config.ollama_base_url,
+        "installed_models": list(config.installed_models),
     }
 
 
 def _runtime_config_from_state(value: object) -> CopilotGatewayRuntimeConfig:
     if not isinstance(value, dict):
         return copilot_gateway_runtime_config()
+    http_status_value = value.get("http_status")
+    http_status = (
+        int(http_status_value)
+        if http_status_value is not None and str(http_status_value).strip()
+        else None
+    )
+    raw_installed_models = value.get("installed_models", [])
     return CopilotGatewayRuntimeConfig(
         enabled=bool(value.get("enabled", True)),
         base_url=str(value.get("base_url", "http://127.0.0.1:8088")),
@@ -788,6 +923,20 @@ def _runtime_config_from_state(value: object) -> CopilotGatewayRuntimeConfig:
         provider=str(value.get("provider", "ollama")),
         model=str(value.get("model", "llama3.2:3b")),
         profile=str(value.get("profile", "notebook_dev")),
+        readiness_status=str(value.get("readiness_status", "unchecked")),
+        readiness_message=str(value.get("readiness_message", "")),
+        gateway_url=str(value.get("gateway_url", "")),
+        gateway_error_type=str(value.get("gateway_error_type", "")),
+        gateway_error_message=str(value.get("gateway_error_message", "")),
+        http_status=http_status,
+        provider_error_type=str(value.get("provider_error_type", "")),
+        provider_error_message=str(value.get("provider_error_message", "")),
+        ollama_base_url=str(value.get("ollama_base_url", "")),
+        installed_models=(
+            tuple(str(item).strip() for item in raw_installed_models if str(item).strip())
+            if isinstance(raw_installed_models, list)
+            else ()
+        ),
     )
 
 
@@ -955,6 +1104,12 @@ def _turn_from_response(
         "latency_ms": str(response.latency_ms or ""),
         "gateway_status": response.gateway_status or "",
         "fallback_reason": response.fallback_reason or "",
+        "gateway_error_type": response.gateway_error_type or "",
+        "gateway_error_message": response.gateway_error_message or "",
+        "gateway_url": response.gateway_url or "",
+        "http_status": str(response.http_status or ""),
+        "provider_error_type": response.provider_error_type or "",
+        "provider_error_message": response.provider_error_message or "",
         "request_id": response.request_id or "",
         "timeout_sec": str(response.timeout_sec or ""),
         "context_tokens_estimate": str(response.context_tokens_estimate or ""),
@@ -1005,8 +1160,12 @@ def _chat_header_html(
         execution_mode="auto",
         environment_profile="notebook",
     )
-    status_label = "準備完了" if history_count == 0 else "確認中"
-    status_detail = "SMAIナビ" if history_count == 0 else f"会話 {history_count}件"
+    status_label = runtime_config.readiness_label
+    if history_count and runtime_config.readiness_status == "ready":
+        status_label = "確認中"
+    status_detail = runtime_config.readiness_detail
+    if history_count and runtime_config.readiness_status in {"ready", "unchecked"}:
+        status_detail = f"会話 {history_count}件"
     llm_label = (
         f"LLM: {runtime_config.provider} / {runtime_config.model} / {runtime_config.profile}"
         if runtime_config.enabled
@@ -1388,6 +1547,12 @@ def _response_meta_html(turn: dict[str, str]) -> str:
         ("provider", str(turn.get("provider", "")).strip()),
         ("profile", str(turn.get("profile", "")).strip()),
         ("fallback", str(turn.get("fallback_reason", "")).strip()),
+        ("gateway_error", str(turn.get("gateway_error_type", "")).strip()),
+        ("gateway_message", str(turn.get("gateway_error_message", "")).strip()),
+        ("gateway_url", str(turn.get("gateway_url", "")).strip()),
+        ("http_status", str(turn.get("http_status", "")).strip()),
+        ("provider_error", str(turn.get("provider_error_type", "")).strip()),
+        ("provider_message", str(turn.get("provider_error_message", "")).strip()),
         ("latency", str(turn.get("latency_ms", "")).strip()),
         ("request", str(turn.get("request_id", "")).strip()),
     ]

@@ -129,7 +129,13 @@ def test_gateway_backed_assistant_passes_chat_history_to_gateway_request():
 
 
 def test_gateway_backed_assistant_falls_back_when_client_raises():
-    client = MockAssistantGatewayClient(error=AssistantGatewayError("gateway unavailable"))
+    client = MockAssistantGatewayClient(
+        error=AssistantGatewayError(
+            "gateway unavailable",
+            gateway_error_type="connection_refused",
+            gateway_url="http://127.0.0.1:8088/api/v1/context-answer",
+        )
+    )
     service = GatewayBackedAssistantService(client)
 
     response = service.answer(
@@ -143,6 +149,8 @@ def test_gateway_backed_assistant_falls_back_when_client_raises():
     assert response.intent == "forecast"
     assert response.response_source == "deterministic_fallback"
     assert response.fallback_reason == "gateway_unavailable"
+    assert response.gateway_error_type == "connection_refused"
+    assert response.gateway_url == "http://127.0.0.1:8088/api/v1/context-answer"
     assert len(client.requests) == 1
 
 
@@ -325,6 +333,76 @@ def test_http_assistant_gateway_client_raises_on_http_error():
         assert "HTTP 500" in str(exc)
     else:
         raise AssertionError("HTTP errors should become AssistantGatewayError")
+
+
+def test_gateway_provider_unreachable_keeps_provider_metadata():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            502,
+            json={
+                "detail": {
+                    "error": "Ollama request failed. Check SMAI_OLLAMA_BASE_URL.",
+                    "provider": "ollama",
+                    "code": "provider_unreachable",
+                    "retryable": True,
+                }
+            },
+            request=request,
+        )
+
+    client = HttpAssistantGatewayClient(
+        base_url="http://gateway.local",
+        transport=httpx.MockTransport(handler),
+    )
+    service = GatewayBackedAssistantService(client)
+
+    response = service.answer(
+        AssistantRequest(
+            question="AI予測インサイトをどう読む？",
+            report_context=_sample_report_context(),
+        )
+    )
+
+    assert response.response_source == "deterministic_fallback"
+    assert response.fallback_reason == "provider_unavailable"
+    assert response.gateway_error_type == "provider_error"
+    assert response.gateway_url == "http://gateway.local/api/v1/context-answer"
+    assert response.http_status == 502
+    assert response.provider_error_type == "provider_unreachable"
+    assert "SMAI_OLLAMA_BASE_URL" in str(response.provider_error_message)
+
+
+def test_http_assistant_gateway_diagnose_reports_missing_model():
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert str(request.url) == "http://gateway.local/models"
+        return httpx.Response(
+            200,
+            json={
+                "provider": "ollama",
+                "base_url": "http://localhost:11434",
+                "default_profile": "notebook_dev",
+                "default_model": "llama3.2:3b",
+                "installed_models": ["qwen3:8b"],
+                "configured_model_installed": False,
+                "install_hint": "Please run: ollama pull llama3.2:3b",
+            },
+            request=request,
+        )
+
+    client = HttpAssistantGatewayClient(
+        base_url="http://gateway.local",
+        model="llama3.2:3b",
+        preferred_profile="notebook_dev",
+        transport=httpx.MockTransport(handler),
+    )
+
+    diagnostic = client.diagnose()
+
+    assert diagnostic.status == "model_missing"
+    assert diagnostic.model == "llama3.2:3b"
+    assert diagnostic.profile == "notebook_dev"
+    assert diagnostic.provider_error_type == "model_not_found"
+    assert diagnostic.installed_models == ("qwen3:8b",)
 
 
 def test_assistant_service_factory_uses_template_when_gateway_disabled():

@@ -16,6 +16,22 @@ class HealthResponse(GatewayBaseModel):
     service: str = Field(min_length=1)
 
 
+class ReadinessResponse(GatewayBaseModel):
+    status: Literal["ok", "degraded"]
+    service: str = Field(min_length=1)
+    gateway: Literal["ok"] = "ok"
+    ollama: Literal["ok", "unavailable"]
+    provider: str = Field(min_length=1)
+    ollama_base_url: str = Field(min_length=1)
+    default_profile: str = Field(min_length=1)
+    default_model: str = Field(min_length=1)
+    installed_models: list[str] = Field(default_factory=list)
+    configured_model_installed: bool
+    error_code: str | None = Field(default=None, min_length=1)
+    error_message: str | None = Field(default=None, min_length=1)
+    install_hint: str | None = Field(default=None, min_length=1)
+
+
 class ModelsResponse(GatewayBaseModel):
     provider: str = Field(min_length=1)
     base_url: str = Field(min_length=1)

@@ -18,6 +18,43 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-16 - SMAI Assistant Gateway / Ollama Connectivity Sprint
+
+### Environment
+
+- OS: Windows local development workspace.
+- model: `llama3.2:3b`
+- SMAI Gateway URL: `http://127.0.0.1:8088`
+- Ollama base URL: `http://localhost:11434`
+
+### Ollama Check
+
+- `ollama list`: PASS. `llama3.2:3b` is installed.
+- `curl http://localhost:11434/api/tags`: PASS. `models` includes `llama3.2:3b`.
+
+### Gateway Check
+
+- Initial `curl http://127.0.0.1:8088/health`: no response before the Gateway process was confirmed.
+- Later `curl http://127.0.0.1:8088/health`: PASS. `smai-ai-gateway` returned `status=ok`.
+- `curl http://127.0.0.1:8088/health/ready`: PASS. Gateway, Ollama, and configured model all returned ok.
+- `curl http://127.0.0.1:8088/models`: PASS. `configured_model_installed=true` for `llama3.2:3b`.
+- Added `GET /health/ready` so Gateway process, Ollama connectivity, configured model, installed models, and install hints can be checked in one diagnostic response.
+
+### Error Diagnostics
+
+- Parent SMAI now distinguishes parent-to-Gateway reachability (`gateway_unavailable`) from Gateway-to-Ollama/provider failures (`provider_unavailable`, `provider_timeout`) and model missing (`model_not_found`).
+- Assistant fallback metadata now preserves `gateway_error_type`, `gateway_error_message`, `gateway_url`, `http_status`, `provider_error_type`, and `provider_error_message`.
+- `SMAIアシスタント` keeps diagnostic details inside `技術情報を表示`; the visible answer remains conversational.
+- The assistant header lightly probes Gateway `/models` with a short cache and shows `Gateway未接続`, `Ollama未接続`, or `モデル未取得` when applicable.
+
+### Final Judgement
+
+- Ollama/model layer is available on this PC.
+- `smai-ai-gateway` is reachable on `127.0.0.1:8088` during validation.
+- Parent SMAI live smoke passed with `SMAI_ASSISTANT_GATEWAY_LIVE_SMOKE=1`.
+- Service-level checks for `こんにちは` and `あなたの機能を教えて` returned `response_source=llm`, `gateway_status=ok`, `fallback_reason=None`, provider `ollama`, model `llama3.2:3b`.
+- Browser-level Streamlit visual validation is still a separate manual/UI check if needed.
+
 ## 2026-06-16 - CI mypy follow-up for Gateway model switch
 
 ### CI fix

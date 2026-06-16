@@ -174,6 +174,7 @@ smai-ai-gateway/
 | API | 入力 | 出力 | 確認観点 |
 | --- | --- | --- | --- |
 | `GET /health` | なし | `{ "status": "ok", "service": "smai-ai-gateway" }` | Gateway process が起動していること。 |
+| `GET /health/ready` | なし | Gateway / Ollama / model readiness と error detail | Gateway は起動しているが Ollama 未接続、model 未取得、base URL 誤りを切り分けられること。 |
 | `POST /api/v1/chat` | `message`, 任意 `system_prompt`, 任意 `model` | `answer`, `model`, `provider`, `elapsed_ms` | SMAI 専用 field を要求しないこと。model 指定が任意であること。 |
 | `POST /api/v1/summarize` | `text`, 任意 `purpose`, 任意 `model` | `answer`, `model`, `provider`, `elapsed_ms` | 入力テキストの要点整理として汎用利用でき、特定アプリ専用 field を要求しないこと。 |
 | `POST /api/v1/context-answer` | `user_question`, `context`, 任意 `constraints`, 任意 `model` | `answer`, `materials`, `cautions`, `next_checkpoints`, `referenced_sections`, `confidence`, `provider`, `model`, `elapsed_ms` | LLM がスコアや順位を変更せず、渡された context から説明補助だけを返すこと。 |
@@ -204,6 +205,7 @@ smai-ai-gateway/
 
 - 通常確認は Ollama / network に依存しない。
 - API schema、strict validation、health、provider error mapping を deterministic に確認する。
+- `/health/ready` は fake Ollama client で deterministic に確認し、通常CIでは実Ollamaへ接続しない。
 - 実 provider 接続は opt-in live smoke として分離する。
 - SMAI 本体からの実接続 client は親側で実装済みだが、通常確認は `httpx.MockTransport` を使う network-free tests を基準にする。
 

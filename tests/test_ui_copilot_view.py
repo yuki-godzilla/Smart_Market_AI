@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import httpx
 from streamlit.testing.v1 import AppTest
 
 from backend.assistant import AssistantMessage, AssistantResponse
@@ -13,6 +14,7 @@ from ui.views.copilot import (
     _context_for_llm,
     _gateway_question,
     _intent_from_message,
+    _probe_copilot_gateway_runtime,
     _stream_chunks,
     _turn_from_response,
     copilot_answer_detail_html,
@@ -192,6 +194,40 @@ def test_copilot_settings_from_gateway_runtime_enables_session_gateway():
     assert not base_settings.assistant.gateway.enabled
 
 
+def test_copilot_gateway_probe_reports_model_missing():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "provider": "ollama",
+                "base_url": "http://localhost:11434",
+                "default_profile": "notebook_dev",
+                "default_model": "llama3.2:3b",
+                "installed_models": [],
+                "configured_model_installed": False,
+                "install_hint": "Please run: ollama pull llama3.2:3b",
+            },
+            request=request,
+        )
+
+    runtime = _probe_copilot_gateway_runtime(
+        CopilotGatewayRuntimeConfig(
+            enabled=True,
+            base_url="http://gateway.local",
+            timeout_seconds=5.0,
+            context_answer_path="/api/v1/context-answer",
+            execution_mode="auto",
+            environment_profile="notebook",
+        ),
+        transport=httpx.MockTransport(handler),
+    )
+
+    assert runtime.readiness_status == "model_missing"
+    assert runtime.readiness_label == "モデル未取得"
+    assert runtime.provider_error_type == "model_not_found"
+    assert runtime.ollama_base_url == "http://localhost:11434"
+
+
 def test_copilot_answer_detail_html_escapes_detail_lists():
     markup = copilot_answer_detail_html(
         {
@@ -219,6 +255,29 @@ def test_copilot_answer_detail_html_escapes_detail_lists():
     assert "リスク側の見方" in markup
     assert "<script>" not in markup
     assert "smai-copilot-answer-grid" in markup
+
+
+def test_copilot_answer_detail_html_includes_gateway_diagnostics():
+    markup = copilot_answer_detail_html(
+        {
+            "intent": "free_chat",
+            "answer": "こんにちは。SMAIナビです。",
+            "response_source": "deterministic_fallback",
+            "fallback_reason": "gateway_unavailable",
+            "gateway_error_type": "connection_refused",
+            "gateway_error_message": "Failed to connect",
+            "gateway_url": "http://127.0.0.1:8088/api/v1/context-answer",
+            "http_status": "",
+            "provider_error_type": "",
+            "provider_error_message": "",
+            "response_meta": "SMAI通常回答 / fallback: gateway_unavailable / free_chat",
+        }
+    )
+
+    assert "gateway_error" in markup
+    assert "connection_refused" in markup
+    assert "gateway_url" in markup
+    assert "http://127.0.0.1:8088/api/v1/context-answer" in markup
 
 
 def test_copilot_answer_detail_html_uses_intent_specific_formats():
@@ -477,6 +536,25 @@ def test_copilot_header_uses_smai_navi_chat_icon():
     assert "data:image/png;base64," in markup
     assert "SMAIアシスタント" in markup
     assert "SMAIナビ" in markup
+
+
+def test_copilot_header_shows_gateway_readiness_status():
+    markup = _chat_header_html(
+        history_count=0,
+        runtime_config=CopilotGatewayRuntimeConfig(
+            enabled=True,
+            base_url="http://gateway.local",
+            timeout_seconds=5.0,
+            context_answer_path="/api/v1/context-answer",
+            execution_mode="auto",
+            environment_profile="notebook",
+            readiness_status="provider_unavailable",
+            readiness_message="Ollama APIに接続できません",
+        ),
+    )
+
+    assert "Ollama未接続" in markup
+    assert "Ollama APIに接続できません" in markup
 
 
 def test_copilot_turn_markdown_uses_decision_memo_template():

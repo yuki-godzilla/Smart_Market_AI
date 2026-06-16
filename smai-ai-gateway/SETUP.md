@@ -91,6 +91,32 @@ curl http://127.0.0.1:8088/health
 }
 ```
 
+Ollama / model まで含めた readiness 確認:
+
+```powershell
+curl http://127.0.0.1:8088/health/ready
+```
+
+期待例:
+
+```json
+{
+  "status": "ok",
+  "service": "smai-ai-gateway",
+  "gateway": "ok",
+  "ollama": "ok",
+  "provider": "ollama",
+  "ollama_base_url": "http://localhost:11434",
+  "default_profile": "notebook_dev",
+  "default_model": "llama3.2:3b",
+  "installed_models": ["llama3.2:3b"],
+  "configured_model_installed": true,
+  "error_code": null,
+  "error_message": null,
+  "install_hint": null
+}
+```
+
 モデル確認:
 
 ```powershell
@@ -98,6 +124,24 @@ curl http://127.0.0.1:8088/models
 ```
 
 設定中 model が未導入の場合は `Please run: ollama pull llama3.2:3b` のような案内が返ります。
+
+### 新PCで `gateway_unavailable` が出る場合の切り分け
+
+`gateway_unavailable` は「SMAI本体から `smai-ai-gateway` に到達できない」状態です。Ollama生成の遅さや `provider_timeout` とは分けて確認します。
+
+```powershell
+ollama list
+curl http://localhost:11434/api/tags
+curl http://127.0.0.1:8088/health
+curl http://127.0.0.1:8088/health/ready
+curl http://127.0.0.1:8088/models
+```
+
+- `ollama list` / `/api/tags` に `llama3.2:3b` が無い: `ollama pull llama3.2:3b`
+- `/api/tags` が応答しない: Ollama アプリ/サービス、`SMAI_OLLAMA_BASE_URL`、firewall を確認
+- `/health` が応答しない: `smai-ai-gateway` が未起動、または SMAI 側 `base_url` / port が不一致
+- `/health` はOKで `/health/ready` が `degraded`: Gateway は起動済み、Ollama未接続または model 未取得
+- SMAI画面だけ `gateway_unavailable`: SMAI 側 `assistant.gateway.base_url` が Gateway 起動URLと一致しているか確認
 
 チャット確認例:
 

@@ -175,6 +175,7 @@ SMAI 親側には、`assistant.gateway.enabled=true` のときだけ `/api/v1/co
 ## 初期 API
 
 - `GET /health`
+- `GET /health/ready`
 - `GET /models`
 - `POST /api/v1/chat`
 - `POST /api/v1/summarize`
@@ -197,7 +198,7 @@ SMAI_OLLAMA_MODEL=llama3.2:3b
 SMAI_OLLAMA_BASE_URL=http://localhost:11434
 ```
 
-`GET /models` は Ollama の導入済み model を確認し、設定中 model が未導入なら `ollama pull <model>` の案内を返します。
+`GET /health/ready` は Gateway process、Ollama API、設定中 model の導入状態をまとめて返します。`GET /models` は Ollama の導入済み model を確認し、設定中 model が未導入なら `ollama pull <model>` の案内を返します。
 
 `/api/v1/context-answer` の `task_type=free_chat` / `identity` / `app_help` / `capability_help` / `screen_guidance` は `llm_micro` として扱います。短い prompt、最小 context、`/no_think` と Ollama `think: false` による thinking 抑制を使い、SMAI 側の Tool Layer / RAG / news / symbol-specific context / 長い履歴には依存しません。notebook runtime は `free_chat` / `identity` が 25 秒 / 160 tokens、`app_help` / `capability_help` / `screen_guidance` が 25 秒 / 220 tokens です。短い挨拶、名前質問、できること質問、使い方質問もまず LLM へ投げ、低品質な短文回答は 1 回だけ再生成し、それでも弱い場合や provider timeout の場合だけ自然な fallback に寄せます。銘柄分析、ニュース材料、Decision Report 草案などは task_type ごとの runtime policy と context payload を使います。
 

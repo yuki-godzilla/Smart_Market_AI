@@ -48,6 +48,8 @@ COPILOT_LLM_PROFILE_STATE_KEY = "smai_copilot_llm_profile"
 COPILOT_LLM_MODEL_STATE_KEY = "smai_copilot_llm_model"
 COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY = "smai_copilot_gateway_diagnostic"
 COPILOT_GATEWAY_DIAGNOSTIC_TTL_SECONDS = 20.0
+COPILOT_STREAM_DELAY_SECONDS = 0.16
+COPILOT_STREAM_MAX_CHUNKS = 8
 
 COPILOT_LLM_MODEL_OPTIONS: tuple[tuple[str, str, str], ...] = (
     ("notebook_dev", "qwen3:1.7b", "ノートPC / 軽量開発"),
@@ -618,8 +620,10 @@ def _copilot_turn_rows_html(turn: dict[str, str]) -> str:
     is_pending = status == "pending"
     if status in {"tool_plan", "tool_plan_resolved"}:
         detail_html = _tool_plan_detail_html(turn)
+    elif is_pending:
+        detail_html = _pending_detail_html(turn)
     else:
-        detail_html = "" if is_pending else copilot_answer_detail_html(turn)
+        detail_html = copilot_answer_detail_html(turn)
     assistant_html = _assistant_bubble_html(
         answer=answer,
         detail_html=detail_html,
@@ -807,6 +811,7 @@ def _queue_copilot_submit(
             context=context,
             visible_question=visible_question,
             intent=intent,
+            runtime_config=runtime_config,
         )
     )
     st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = history
@@ -862,7 +867,9 @@ def _pending_turn(
     context: SmaiAssistantContext,
     visible_question: str,
     intent: CopilotIntent,
+    runtime_config: CopilotGatewayRuntimeConfig | None = None,
 ) -> dict[str, str]:
+    uses_llm = runtime_config.enabled if runtime_config is not None else True
     return {
         "turn_id": turn_id,
         "status": "pending",
@@ -872,6 +879,7 @@ def _pending_turn(
         "intent_label": _preset_for_intent(intent).label,
         "question": visible_question,
         "answer": _pending_message_for_intent(intent),
+        "pending_steps": "\n".join(_pending_steps_for_intent(intent, uses_llm=uses_llm)),
         "reasons": "",
         "cautions": "",
         "next_checkpoints": "",
@@ -1070,11 +1078,78 @@ def _pending_message_for_intent(intent: CopilotIntent) -> str:
         "identity": "SMAIナビが考えています...",
         "capability_help": "SMAIナビができることを整理しています...",
         "app_help": "SMAIナビが使い方を整理しています...",
-        "stock_summary": "SMAIナビが確認ポイントを整理しています...",
+        "stock_summary": "SMAIナビが銘柄・価格・材料を確認しています...",
         "forecast_risk_compare": "SMAIナビが予測とリスクを見比べています...",
-        "news_materials": "SMAIナビが材料を見ながらまとめています...",
+        "news_materials": "SMAIナビがニュース材料を整理しています...",
         "decision_report_draft": "SMAIナビがDecision Report向けに整理しています...",
     }[intent]
+
+
+def _pending_steps_for_intent(intent: CopilotIntent, *, uses_llm: bool = True) -> tuple[str, ...]:
+    answer_step = "LLMへ回答作成を依頼中" if uses_llm else "回答を作成中"
+    lightweight_answer_step = "LLMへ短い回答を依頼中" if uses_llm else "短い回答を作成中"
+    return {
+        "free_chat": (
+            "質問の意図を確認中",
+            "SMAIナビの文脈を準備中",
+            lightweight_answer_step,
+        ),
+        "identity": (
+            "質問の意図を確認中",
+            "SMAIナビの自己紹介文脈を準備中",
+            lightweight_answer_step,
+        ),
+        "capability_help": (
+            "相談内容を読み取り中",
+            "SMAIで使える機能を整理中",
+            lightweight_answer_step,
+        ),
+        "app_help": (
+            "相談内容を読み取り中",
+            "SMAIの画面・使い方を整理中",
+            answer_step,
+        ),
+        "stock_summary": (
+            "銘柄を確認中",
+            "価格・予測材料を確認中",
+            "ニュース材料を整理中",
+            answer_step,
+        ),
+        "forecast_risk_compare": (
+            "銘柄と期間を確認中",
+            "価格・予測材料を確認中",
+            "リスク材料を整理中",
+            answer_step,
+        ),
+        "news_materials": (
+            "相談テーマを確認中",
+            "ニュース材料を整理中",
+            "未確認材料を分けています",
+            answer_step,
+        ),
+        "decision_report_draft": (
+            "会話と参照材料を確認中",
+            "Decision Reportの見出しを準備中",
+            "未確認事項を整理中",
+            answer_step,
+        ),
+    }[intent]
+
+
+def _pending_detail_html(turn: dict[str, str]) -> str:
+    steps = _split_lines(turn.get("pending_steps", ""))
+    if not steps:
+        intent = _normalize_intent(turn.get("intent", "free_chat"))
+        steps = list(_pending_steps_for_intent(intent))
+    items = "".join(
+        f'<li class="smai-copilot-pending-step">{html.escape(step)}</li>' for step in steps[:4]
+    )
+    return (
+        '<section class="smai-copilot-pending-steps" aria-label="分析中の処理">'
+        '<span class="smai-copilot-pending-caption">分析中にしていること</span>'
+        f"<ol>{items}</ol>"
+        "</section>"
+    )
 
 
 def _runtime_config_to_state(config: CopilotGatewayRuntimeConfig) -> dict[str, object]:
@@ -1449,7 +1524,7 @@ def _render_streaming_turn(previous_turns: list[dict[str, str]], turn: dict[str,
             ),
             unsafe_allow_html=True,
         )
-        time.sleep(0.006)
+        time.sleep(COPILOT_STREAM_DELAY_SECONDS)
     placeholder.markdown(
         (
             '<div class="smai-copilot-thread">'
@@ -1465,10 +1540,57 @@ def _stream_chunks(text: str) -> list[str]:
     normalized = str(text or "").strip()
     if not normalized:
         return [""]
-    chunk_size = max(12, min(28, len(normalized) // 8 or 12))
-    chunks = [normalized[:index] for index in range(chunk_size, len(normalized), chunk_size)]
-    chunks.append(normalized)
-    return chunks[:16]
+    segments = _stream_segments(normalized)
+    if len(segments) > 1:
+        chunk_count = min(COPILOT_STREAM_MAX_CHUNKS, len(segments))
+        chunks = []
+        for step in range(1, chunk_count + 1):
+            boundary = (len(segments) * step + chunk_count - 1) // chunk_count
+            chunks.append("".join(segments[:boundary]).strip())
+        return _deduplicate_stream_chunks(chunks, normalized)
+    chunk_count = min(
+        COPILOT_STREAM_MAX_CHUNKS,
+        max(2, min(6, (len(normalized) + 23) // 24)),
+    )
+    chunks = [
+        normalized[: (len(normalized) * step + chunk_count - 1) // chunk_count]
+        for step in range(1, chunk_count + 1)
+    ]
+    return _deduplicate_stream_chunks(chunks, normalized)
+
+
+def _stream_segments(text: str) -> list[str]:
+    sentence_segments = _split_stream_segments(text, "。！？!?\n")
+    if len(sentence_segments) > 1:
+        return sentence_segments
+    phrase_segments = _split_stream_segments(text, "、，,;；:")
+    return phrase_segments if len(phrase_segments) > 1 else [text]
+
+
+def _split_stream_segments(text: str, break_chars: str) -> list[str]:
+    segments: list[str] = []
+    current: list[str] = []
+    for character in text:
+        current.append(character)
+        if character in break_chars:
+            segment = "".join(current).strip()
+            if segment:
+                segments.append(segment)
+            current = []
+    tail = "".join(current).strip()
+    if tail:
+        segments.append(tail)
+    return segments
+
+
+def _deduplicate_stream_chunks(chunks: list[str], final_text: str) -> list[str]:
+    deduplicated: list[str] = []
+    for chunk in chunks:
+        if chunk and (not deduplicated or chunk != deduplicated[-1]):
+            deduplicated.append(chunk)
+    if not deduplicated or deduplicated[-1] != final_text:
+        deduplicated.append(final_text)
+    return deduplicated
 
 
 def _action_card_intro_html(*, preset: CopilotConversationPreset) -> str:

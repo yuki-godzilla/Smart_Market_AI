@@ -18,6 +18,7 @@ from ui.views.copilot import (
     _context_for_llm,
     _gateway_question,
     _intent_from_message,
+    _pending_steps_for_intent,
     _probe_copilot_gateway_runtime,
     _stream_chunks,
     _tool_plan_tools_state,
@@ -395,8 +396,27 @@ def test_copilot_pending_turn_renders_as_smai_bubble_without_runtime_meta():
     assert "smai-copilot-message-row--assistant" in markup
     assert "smai-copilot-message-card--pending" in markup
     assert "smai-copilot-pending-dots" in markup
+    assert "smai-copilot-pending-steps" in markup
+    assert "分析中にしていること" in markup
+    assert "質問の意図を確認中" in markup
+    assert "LLMへ短い回答を依頼中" in markup
     assert "SMAIナビが考えています..." in markup
     assert "provider_timeout" not in markup
+
+
+def test_copilot_pending_steps_are_intent_specific():
+    stock_steps = _pending_steps_for_intent("stock_summary")
+    offline_stock_steps = _pending_steps_for_intent("stock_summary", uses_llm=False)
+    report_steps = _pending_steps_for_intent("decision_report_draft")
+
+    assert stock_steps == (
+        "銘柄を確認中",
+        "価格・予測材料を確認中",
+        "ニュース材料を整理中",
+        "LLMへ回答作成を依頼中",
+    )
+    assert offline_stock_steps[-1] == "回答を作成中"
+    assert "Decision Reportの見出しを準備中" in report_steps
 
 
 def test_copilot_tool_plan_turn_renders_research_plan_card():
@@ -563,6 +583,16 @@ def test_stream_chunks_progressively_build_answer_text():
     assert len(chunks) >= 2
     assert chunks[-1] == "SMAIナビが少しずつ回答を表示します。"
     assert all(chunks[index] != chunks[index + 1] for index in range(len(chunks) - 1))
+
+
+def test_stream_chunks_prefer_sentence_boundaries():
+    chunks = _stream_chunks("銘柄を確認しました。価格材料を整理します。ニュースも見ます。")
+
+    assert chunks == [
+        "銘柄を確認しました。",
+        "銘柄を確認しました。価格材料を整理します。",
+        "銘柄を確認しました。価格材料を整理します。ニュースも見ます。",
+    ]
 
 
 def test_copilot_header_uses_smai_navi_chat_icon():

@@ -18,6 +18,18 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-16 - Assistant pending progress visibility
+
+### Assistant UI
+
+- Added intent-specific pending steps inside the SMAIナビ waiting bubble, such as symbol confirmation, price / forecast material checks, news material sorting, and LLM answer generation.
+- Changed the newest-answer pseudo-streaming to update by sentence or bounded chunks with a 0.16 second interval instead of very small rapid text slices.
+- Kept this as parent-side Streamlit UI behavior; Gateway token streaming remains a separate future capability.
+
+### Verification
+
+- `tests/test_ui_copilot_view.py`: 30 passed.
+
 ## 2026-06-16 - Assistant Command Center first implementation slice
 
 ### Assistant

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import httpx
 from streamlit.testing.v1 import AppTest
@@ -26,6 +27,7 @@ from ui.views.copilot import (
     _pending_steps_for_intent,
     _probe_copilot_gateway_runtime,
     _stream_chunks,
+    _tool_plan_answer,
     _tool_plan_tools_state,
     _turn_from_response,
     _with_cached_gateway_diagnostic,
@@ -492,6 +494,47 @@ def test_copilot_tool_plan_turn_renders_research_plan_card():
     assert "根拠資料 / Research Evidence" in markup
     assert "外部取得あり" in markup
     assert "実行した確認" not in markup
+
+
+def test_copilot_tool_plan_answer_handles_legacy_plan_without_company_name():
+    plan = SimpleNamespace(
+        symbol="7203.T",
+        symbol_query="トヨタ",
+        has_external_tools=True,
+    )
+
+    answer = _tool_plan_answer(plan)  # type: ignore[arg-type]
+
+    assert "トヨタ自動車（7203.T）について、確認する材料を整理しました。" in answer
+    assert "外部情報の取得を含むため、実行前に確認します。" in answer
+
+
+def test_copilot_tool_plan_tools_state_normalizes_legacy_labels():
+    plan = SimpleNamespace(
+        tools=(
+            SimpleNamespace(
+                name="symbol_resolve",
+                label="銘柄特定",
+                reason="トヨタを銘柄コードに変換します。",
+                external=False,
+                required=True,
+            ),
+            SimpleNamespace(
+                name="price_fetch",
+                label="価格データ",
+                reason="直近の価格推移と変動を確認します。",
+                external=True,
+                required=True,
+            ),
+        )
+    )
+
+    state = _tool_plan_tools_state(plan)  # type: ignore[arg-type]
+
+    assert "銘柄を特定" in state
+    assert "入力された銘柄名から、対象銘柄を確認します。" in state
+    assert "価格の動き" in state
+    assert "価格データ" not in state
 
 
 def test_copilot_tool_plan_pending_progress_uses_current_tool_status():

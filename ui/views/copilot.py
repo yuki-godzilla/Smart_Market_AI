@@ -1433,7 +1433,7 @@ def _append_research_tool_plan_turn(
             "research_intent": research_plan.intent,
             "symbol_query": research_plan.symbol_query or "",
             "symbol": research_plan.symbol or "",
-            "company_name": research_plan.company_name or "",
+            "company_name": _research_plan_company_name(research_plan) or "",
             "approval_reason": research_plan.approval_reason,
             "tool_plan_tools": _tool_plan_tools_state(research_plan),
             "approval_choice": "",
@@ -2436,7 +2436,7 @@ def _tool_plan_answer(plan: AssistantResearchToolPlan) -> str:
     subject = _tool_plan_subject_label(
         symbol=plan.symbol,
         symbol_query=plan.symbol_query,
-        company_name=plan.company_name,
+        company_name=_research_plan_company_name(plan),
     )
     approval_text = (
         "外部情報の取得を含むため、実行前に確認します。"
@@ -2448,6 +2448,74 @@ def _tool_plan_answer(plan: AssistantResearchToolPlan) -> str:
         "価格・AI予測・ニュースなどを確認すると、上昇材料と注意材料を分けて見やすくなります。"
         f"{approval_text}"
     )
+
+
+def _research_plan_company_name(plan: AssistantResearchToolPlan) -> str | None:
+    value = getattr(plan, "company_name", None)
+    if value is not None:
+        return str(value).strip() or None
+    return _known_research_company_name(
+        symbol=getattr(plan, "symbol", None),
+        symbol_query=getattr(plan, "symbol_query", None),
+    )
+
+
+def _known_research_company_name(*, symbol: object, symbol_query: object) -> str | None:
+    aliases = {
+        "7203.T": "トヨタ自動車",
+        "6758.T": "ソニーグループ",
+        "9432.T": "日本電信電話",
+        "8058.T": "三菱商事",
+        "9532.T": "大阪ガス",
+        "トヨタ": "トヨタ自動車",
+        "toyota": "トヨタ自動車",
+        "ソニー": "ソニーグループ",
+        "sony": "ソニーグループ",
+        "ntt": "日本電信電話",
+        "三菱商事": "三菱商事",
+        "大阪ガス": "大阪ガス",
+    }
+    clean_symbol = str(symbol or "").strip()
+    if clean_symbol in aliases:
+        return aliases[clean_symbol]
+    clean_query = str(symbol_query or "").strip()
+    if clean_query in aliases:
+        return aliases[clean_query]
+    lowered_query = clean_query.lower()
+    if lowered_query in aliases:
+        return aliases[lowered_query]
+    return None
+
+
+def _tool_plan_display_copy(
+    *,
+    name: str,
+    label: str,
+    reason: str,
+) -> tuple[str, str]:
+    copy_by_name = {
+        "symbol_resolve": (
+            "銘柄を特定",
+            "入力された銘柄名から、対象銘柄を確認します。",
+        ),
+        "price_fetch": (
+            "価格の動き",
+            "直近の価格推移や変動を確認します。",
+        ),
+        "forecast_fetch": (
+            "AI予測・下振れ警戒",
+            "AI予測の方向感と、下振れリスクを確認します。",
+        ),
+        "news_fetch": (
+            "最新ニュース",
+            "直近ニュースや開示材料を確認します。",
+        ),
+        "research_fetch": (
+            "根拠資料 / Research Evidence",
+            "根拠資料や外部参照ソースを確認します。",
+        ),
+    }
+    return copy_by_name.get(name, (label, reason))
 
 
 def _tool_plan_detail_html(turn: dict[str, str]) -> str:
@@ -2482,10 +2550,14 @@ def _tool_plan_detail_html(turn: dict[str, str]) -> str:
 
 
 def _tool_plan_subject_from_turn(turn: dict[str, str]) -> str:
+    symbol = str(turn.get("symbol", "")).strip() or None
+    symbol_query = str(turn.get("symbol_query", "")).strip() or None
+    company_name = str(turn.get("company_name", "")).strip() or None
     return _tool_plan_subject_label(
-        symbol=str(turn.get("symbol", "")).strip() or None,
-        symbol_query=str(turn.get("symbol_query", "")).strip() or None,
-        company_name=str(turn.get("company_name", "")).strip() or None,
+        symbol=symbol,
+        symbol_query=symbol_query,
+        company_name=company_name
+        or _known_research_company_name(symbol=symbol, symbol_query=symbol_query),
     )
 
 
@@ -2505,18 +2577,25 @@ def _tool_plan_subject_label(
 
 
 def _tool_plan_tools_state(plan: AssistantResearchToolPlan) -> str:
-    return "\n".join(
-        "\t".join(
-            (
-                tool.name,
-                tool.label,
-                tool.reason,
-                "1" if tool.external else "0",
-                "1" if tool.required else "0",
+    rows: list[str] = []
+    for tool in plan.tools:
+        label, reason = _tool_plan_display_copy(
+            name=tool.name,
+            label=tool.label,
+            reason=tool.reason,
+        )
+        rows.append(
+            "\t".join(
+                (
+                    tool.name,
+                    label,
+                    reason,
+                    "1" if tool.external else "0",
+                    "1" if tool.required else "0",
+                )
             )
         )
-        for tool in plan.tools
-    )
+    return "\n".join(rows)
 
 
 def _tool_plan_tools_from_turn(turn: dict[str, str]) -> list[dict[str, object]]:

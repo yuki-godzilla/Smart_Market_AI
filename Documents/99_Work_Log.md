@@ -18,6 +18,17 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-16 - SMAI Assistant Research Plan legacy object guard
+
+### Bug Fix
+- Fixed `AttributeError: 'AssistantResearchToolPlan' object has no attribute 'company_name'` when a running Streamlit process held an older backend Tool Plan object while the UI expected the newer `company_name` field.
+- Added UI-side fallback company-name inference for known research symbols/aliases such as `トヨタ` / `7203.T`.
+- Normalized Tool Plan labels/reasons in the UI so stale backend objects still render the user-facing labels: `銘柄を特定`, `価格の動き`, `AI予測・下振れ警戒`, `最新ニュース`, `根拠資料 / Research Evidence`.
+
+### Validation
+- Added regression tests for legacy plan objects without `company_name` and legacy tool labels.
+- Confirmed the live Streamlit screen renders a Research Plan for `トヨタはこれから上がるかな？` without AttributeError.
+
 ## 2026-06-16 - SMAI Assistant initial status neutralization
 
 ### Header state

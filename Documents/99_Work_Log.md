@@ -18,6 +18,20 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-16 - Assistant second message submit fix
+
+### Assistant UI
+
+- Fixed a stale submit-suppression flag that could ignore the next user message after the first inline Copilot response.
+- Changed the workspace to clear any old suppression state without blocking current form submissions.
+- Added an AppTest regression that sends two chat messages in sequence and verifies both turns are appended.
+
+### Verification
+
+- `tests/test_ui_copilot_view.py`: 34 passed.
+- Focused second-message regression: 2 passed.
+- Ruff, black helper, mypy, and diff whitespace checks passed.
+
 ## 2026-06-16 - Assistant Gateway status severity display
 
 ### Assistant UI

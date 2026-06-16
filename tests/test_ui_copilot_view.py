@@ -777,6 +777,27 @@ def test_copilot_page_chat_input_appends_chat_turn(monkeypatch):
     assert "smai-copilot-actions-row--inside" in page_text
 
 
+def test_copilot_page_second_chat_input_appends_next_turn(monkeypatch):
+    monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    app = AppTest.from_file("ui/app.py", default_timeout=40)
+    app.session_state["sidemenu_page"] = "copilot"
+    _reset_copilot_session(app)
+    app.run()
+
+    app.text_input[0].set_value("こんにちは")
+    _click_button_label(app, "送信")
+    first_history = list(app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY])
+
+    app.text_input[0].set_value("あなたの名前は何ですか")
+    _click_button_label(app, "送信")
+    second_history = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]
+
+    assert not app.exception
+    assert len(first_history) == 1
+    assert len(second_history) == 2
+    assert second_history[-1]["question"] == "あなたの名前は何ですか"
+
+
 def test_copilot_page_research_question_shows_tool_plan_before_execution(monkeypatch):
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
     app = AppTest.from_file("ui/app.py", default_timeout=40)

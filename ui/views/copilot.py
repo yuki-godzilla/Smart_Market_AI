@@ -693,12 +693,12 @@ def render_copilot_workspace_page() -> None:
         runtime_config=runtime_config,
     ):
         st.rerun()
-    suppress_submit = bool(st.session_state.pop(COPILOT_SUPPRESS_SUBMIT_STATE_KEY, False))
+    st.session_state.pop(COPILOT_SUPPRESS_SUBMIT_STATE_KEY, None)
     suggestions_placeholder = st.empty()
     with suggestions_placeholder.container():
         suggested = _render_suggestion_buttons(has_history=bool(history))
 
-    if suggested is not None and not suppress_submit:
+    if suggested is not None:
         context = context_by_id.get(suggested.context_id, contexts[0])
         _queue_copilot_submit(
             context,
@@ -718,7 +718,7 @@ def render_copilot_workspace_page() -> None:
 
     prompt, runtime_config = _render_chat_composer(runtime_config)
 
-    if prompt and not suppress_submit:
+    if prompt:
         conversation_decision = route_assistant_conversation_mode(prompt)
         if conversation_decision.conversation_mode == "research_plan":
             research_plan = build_assistant_research_tool_plan(prompt, conversation_decision)
@@ -953,7 +953,6 @@ def _process_pending_copilot_request(
         runtime_config=runtime_config,
         pending_turn_id=pending_turn_id,
     )
-    st.session_state[COPILOT_SUPPRESS_SUBMIT_STATE_KEY] = True
     return True
 
 

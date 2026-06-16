@@ -67,6 +67,8 @@ def test_copilot_layout_uses_shared_wide_lane():
     assert ".smai-copilot-material-status" in css
     assert ".smai-copilot-thread" in css
     assert ".smai-copilot-composer-toolbar" in css
+    assert ".smai-copilot-statusbar--warning" in css
+    assert ".smai-copilot-statusbar--error" in css
     assert ".smai-copilot-response-meta summary" in css
     assert "border-left: 3px solid var(--smai-teal);" in css
     assert "min-height: 6.5rem;" in css
@@ -643,6 +645,27 @@ def test_copilot_header_shows_gateway_readiness_status():
 
     assert "Ollama未接続" in markup
     assert "Ollama APIに接続できません" in markup
+    assert "smai-copilot-statusbar--error" in markup
+
+
+def test_copilot_header_marks_gateway_timeout_as_warning():
+    markup = _chat_header_html(
+        history_count=0,
+        runtime_config=CopilotGatewayRuntimeConfig(
+            enabled=True,
+            base_url="http://gateway.local",
+            timeout_seconds=5.0,
+            context_answer_path="/api/v1/context-answer",
+            execution_mode="auto",
+            environment_profile="notebook",
+            readiness_status="gateway_timeout",
+            readiness_message="smai-ai-gateway の応答がタイムアウトしました。",
+        ),
+    )
+
+    assert "Gateway応答なし" in markup
+    assert "smai-ai-gateway の応答がタイムアウトしました。" in markup
+    assert "smai-copilot-statusbar--warning" in markup
 
 
 def test_copilot_turn_markdown_uses_decision_memo_template():

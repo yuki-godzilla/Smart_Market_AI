@@ -110,7 +110,7 @@ class CopilotGatewayRuntimeConfig:
         if self.readiness_status == "gateway_unavailable":
             return "Gateway未接続"
         if self.readiness_status == "gateway_timeout":
-            return "Gateway応答待ち"
+            return "Gateway応答なし"
         if self.readiness_status == "provider_unavailable":
             return "Ollama未接続"
         if self.readiness_status == "model_missing":
@@ -118,6 +118,22 @@ class CopilotGatewayRuntimeConfig:
         if self.readiness_status == "gateway_error":
             return "Gateway確認エラー"
         return "準備確認中"
+
+    @property
+    def readiness_tone(self) -> str:
+        if not self.enabled:
+            return "fallback"
+        if self.readiness_status == "ready":
+            return "ready"
+        if self.readiness_status in {"gateway_timeout", "model_missing"}:
+            return "warning"
+        if self.readiness_status in {
+            "gateway_unavailable",
+            "provider_unavailable",
+            "gateway_error",
+        }:
+            return "error"
+        return "checking"
 
     @property
     def readiness_detail(self) -> str:
@@ -1538,6 +1554,8 @@ def _chat_header_html(
         if runtime_config.enabled
         else "LLM: deterministic fallback"
     )
+    status_tone = runtime_config.readiness_tone
+    statusbar_class = f"smai-copilot-statusbar smai-copilot-statusbar--{status_tone}"
     navi_image = _asset_data_uri(MASCOT_NAVI_CHAT_ASSET)
     return (
         '<section class="smai-copilot-chat-topbar">'
@@ -1551,8 +1569,8 @@ def _chat_header_html(
         "<p>銘柄・予測・ニュース・根拠資料を横断して、確認すべき材料を整理します。</p>"
         "</div>"
         "</div>"
-        '<div class="smai-copilot-statusbar">'
-        '<span class="smai-copilot-chat-status-dot"></span>'
+        f'<div class="{statusbar_class}">'
+        '<span class="smai-copilot-chat-status-dot" aria-hidden="true"></span>'
         f"<strong>{status_label}</strong>"
         f"<small>{html.escape(status_detail)}</small>"
         f"<small>{html.escape(llm_label)}</small>"

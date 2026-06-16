@@ -2528,10 +2528,10 @@ body,
     grid-template-columns: auto auto;
     align-items: center;
     gap: 0.14rem 0.45rem;
-    border: 1px solid rgba(45, 212, 191, 0.34);
+    border: 1px solid rgba(56, 189, 248, 0.3);
     border-radius: 8px;
     background:
-        linear-gradient(135deg, rgba(20, 184, 166, 0.12), rgba(2, 8, 23, 0.2)),
+        linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(2, 8, 23, 0.2)),
         rgba(8, 47, 73, 0.28);
     padding: 0.55rem 0.72rem;
     width: 13.75rem;
@@ -2539,12 +2539,56 @@ body,
     min-width: 0;
 }
 
+.smai-copilot-statusbar--ready {
+    border-color: rgba(52, 211, 153, 0.36);
+    background:
+        linear-gradient(135deg, rgba(20, 184, 166, 0.12), rgba(2, 8, 23, 0.2)),
+        rgba(8, 47, 73, 0.28);
+}
+
+.smai-copilot-statusbar--fallback,
+.smai-copilot-statusbar--checking {
+    border-color: rgba(56, 189, 248, 0.34);
+    background:
+        linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(2, 8, 23, 0.2)),
+        rgba(15, 23, 42, 0.32);
+}
+
+.smai-copilot-statusbar--warning {
+    border-color: rgba(251, 191, 36, 0.44);
+    background:
+        linear-gradient(135deg, rgba(251, 191, 36, 0.14), rgba(2, 8, 23, 0.22)),
+        rgba(69, 26, 3, 0.24);
+}
+
+.smai-copilot-statusbar--error {
+    border-color: rgba(248, 113, 113, 0.44);
+    background:
+        linear-gradient(135deg, rgba(248, 113, 113, 0.14), rgba(2, 8, 23, 0.22)),
+        rgba(69, 10, 10, 0.22);
+}
+
 .smai-copilot-chat-status-dot {
     width: 0.58rem;
     height: 0.58rem;
     border-radius: 999px;
+    background: #38bdf8;
+    box-shadow: 0 0 0 0.2rem rgba(56, 189, 248, 0.12);
+}
+
+.smai-copilot-statusbar--ready .smai-copilot-chat-status-dot {
     background: #34d399;
     box-shadow: 0 0 0 0.2rem rgba(52, 211, 153, 0.12);
+}
+
+.smai-copilot-statusbar--warning .smai-copilot-chat-status-dot {
+    background: #fbbf24;
+    box-shadow: 0 0 0 0.2rem rgba(251, 191, 36, 0.16);
+}
+
+.smai-copilot-statusbar--error .smai-copilot-chat-status-dot {
+    background: #fb7185;
+    box-shadow: 0 0 0 0.2rem rgba(251, 113, 133, 0.16);
 }
 
 .smai-copilot-statusbar strong {

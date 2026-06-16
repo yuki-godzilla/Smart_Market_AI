@@ -18,6 +18,19 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-16 - Assistant Gateway status severity display
+
+### Assistant UI
+
+- Changed the SMAIアシスタント header connection card so Gateway timeout no longer appears with a healthy green status.
+- Added ready / checking / warning / error / fallback tone classes for the header status card.
+- Changed the timeout label from `Gateway応答待ち` to `Gateway応答なし`.
+
+### Verification
+
+- `tests/test_ui_copilot_view.py`: 33 passed.
+- Ruff, black helper, mypy, UTF-8 doc read, and diff whitespace checks passed.
+
 ## 2026-06-16 - Assistant current pending step display
 
 ### Assistant UI

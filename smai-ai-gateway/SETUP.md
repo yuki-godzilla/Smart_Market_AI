@@ -44,6 +44,7 @@ copy .env.example .env
 | 環境 | profile | 推奨モデル | 用途 |
 | --- | --- | --- | --- |
 | ノートPC | `notebook_dev` | `qwen3:1.7b` | 軽量開発・疎通確認 |
+| ノートPC標準 | `notebook_standard` | `qwen3:4b` | 標準開発・短めの整理 |
 | デスクトップ通常 | `desktop_fast` | `qwen3:8b` | Copilot・要約 |
 | デスクトップ高精度 | `desktop_analysis` | `qwen3:14b` | 銘柄分析・RAG統合 |
 | 高負荷分析 | `desktop_heavy` | `qwen3:30b` | 週次/月次レポート |
@@ -180,7 +181,7 @@ assistant:
     environment_profile: "notebook"
 ```
 
-SMAI 親は通常 `model` を固定指定せず、会話 intent から `task_type` を渡します。Gateway は `SMAI_LLM_PROFILE` または request の `profile` から `notebook_dev` / `desktop_fast` / `desktop_analysis` / `desktop_heavy` を選び、timeout と token budget を決めます。request の `model` は最優先で model 名を上書きします。
+SMAI 親は通常 `model` を固定指定せず、会話 intent から `task_type` を渡します。Gateway は `SMAI_LLM_PROFILE` または request の `profile` から `notebook_dev` / `notebook_standard` / `desktop_fast` / `desktop_analysis` / `desktop_heavy` を選び、timeout と token budget を決めます。request の `model` は最優先で model 名を上書きします。
 
 SMAI 親アプリから Gateway へ接続する opt-in live smoke 確認例:
 

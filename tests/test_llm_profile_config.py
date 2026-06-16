@@ -30,3 +30,18 @@ def test_assistant_gateway_profile_settings_accept_light_notebook_override():
     assert gateway.execution_mode == "light"
     assert gateway.environment_profile == "notebook"
     assert gateway.preferred_profile == "assistant_fast"
+
+
+def test_assistant_gateway_profile_settings_accept_notebook_standard():
+    settings = Settings.model_validate(
+        {
+            "assistant": {
+                "gateway": {
+                    "enabled": True,
+                    "preferred_profile": "notebook_standard",
+                }
+            }
+        }
+    )
+
+    assert settings.assistant.gateway.preferred_profile == "notebook_standard"

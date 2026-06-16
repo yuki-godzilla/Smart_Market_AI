@@ -258,7 +258,7 @@ Remove-Item Env:SMAI_AI_GATEWAY_LIVE_SMOKE
 | 汎用 API | 実装済み | `/health`、`/health/ready`、`/models`、`/api/v1/chat`、`/api/v1/summarize` を公開。 |
 | Provider | 実装済み | Ollama client boundary を実装済み。 |
 | Error normalization | 実装済み | provider error を `ErrorDetail` と HTTPException に変換。 |
-| Model routing | 実装済み | `notebook_dev` / `desktop_fast` / `desktop_analysis` / `desktop_heavy` profile を provider / model / timeout / token budget に解決し、notebook既定は `qwen3:1.7b`。 |
+| Model routing | 実装済み | `notebook_dev` / `notebook_standard` / `desktop_fast` / `desktop_analysis` / `desktop_heavy` profile を provider / model / timeout / token budget に解決し、notebook既定は `qwen3:1.7b`。 |
 | SMAI coupling | 境界維持 | Gateway から SMAI module は import しない。既存 SMAI RAG は移動しない。 |
 | Structured context answer | 実装済み | `materials` / `cautions` / `next_checkpoints` に対応する汎用 endpoint を追加済み。 |
 | SMAI parent client wiring | 親側実装済み | 親SMAIが `assistant.gateway.enabled=true` のとき `/api/v1/context-answer` を呼ぶ。失敗時は deterministic fallback。 |

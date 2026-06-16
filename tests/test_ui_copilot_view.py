@@ -14,6 +14,7 @@ from backend.assistant import (
 from backend.core.config import Settings
 from ui.views.copilot import (
     COPILOT_CHAT_HISTORY_STATE_KEY,
+    COPILOT_LLM_MODEL_OPTIONS,
     COPILOT_RUNTIME_STATUS_STATE_KEY,
     AssistantStatusEvent,
     CopilotGatewayRuntimeConfig,
@@ -182,6 +183,12 @@ def test_copilot_conversation_presets_define_six_entry_intents():
         "Decision Reportを作りたい",
         "自由に会話する",
     ]
+
+
+def test_copilot_llm_model_options_include_notebook_standard_qwen4b():
+    models = [model for _, model, _ in COPILOT_LLM_MODEL_OPTIONS]
+
+    assert models == ["qwen3:1.7b", "qwen3:4b", "qwen3:8b", "qwen3:14b", "qwen3:30b"]
 
 
 def test_copilot_history_messages_keeps_recent_chat_pairs():

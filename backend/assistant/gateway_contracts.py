@@ -40,6 +40,7 @@ AssistantGatewayExecutionMode = Literal["auto", "light", "quality", "off"]
 AssistantGatewayEnvironmentProfile = Literal["notebook", "desktop", "server", "offline"]
 AssistantGatewayProfileName = Literal[
     "notebook_dev",
+    "notebook_standard",
     "desktop_fast",
     "desktop_analysis",
     "desktop_heavy",

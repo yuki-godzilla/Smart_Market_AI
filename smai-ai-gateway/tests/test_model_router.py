@@ -52,6 +52,19 @@ def test_router_keeps_configured_notebook_profile_lightweight():
     assert route.max_tokens == 800
 
 
+def test_router_supports_notebook_standard_qwen4b_profile():
+    route = resolve_model_route(
+        settings=GatewaySettings(DEFAULT_LLM_PROFILE="notebook_standard"),
+        task_type="stock_summary",
+        environment_profile="notebook",
+    )
+
+    assert route.profile == "notebook_standard"
+    assert route.model == "qwen3:4b"
+    assert route.timeout_seconds == 90.0
+    assert route.max_tokens == 1000
+
+
 def test_router_can_use_larger_analysis_profile_on_desktop():
     route = resolve_model_route(
         settings=GatewaySettings(DEFAULT_LLM_PROFILE="desktop_analysis"),

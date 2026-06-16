@@ -23,6 +23,7 @@ LlmTaskType = Literal[
 ]
 LlmProfileName = Literal[
     "notebook_dev",
+    "notebook_standard",
     "desktop_fast",
     "desktop_analysis",
     "desktop_heavy",
@@ -62,6 +63,13 @@ MODEL_PROFILES: dict[str, LlmModelProfile] = {
         timeout_seconds=75.0,
         max_tokens=800,
     ),
+    "notebook_standard": LlmModelProfile(
+        provider="ollama",
+        model="qwen3:4b",
+        purpose="ノートPC標準開発・短めの整理",
+        timeout_seconds=90.0,
+        max_tokens=1000,
+    ),
     "desktop_fast": LlmModelProfile(
         provider="ollama",
         model="qwen3:8b",
@@ -87,6 +95,7 @@ MODEL_PROFILES: dict[str, LlmModelProfile] = {
 
 _PROFILE_ALIASES: dict[LlmProfileName, str] = {
     "notebook_dev": "notebook_dev",
+    "notebook_standard": "notebook_standard",
     "desktop_fast": "desktop_fast",
     "desktop_analysis": "desktop_analysis",
     "desktop_heavy": "desktop_heavy",

@@ -147,6 +147,7 @@ class AssistantGatewayConfig(StrictConfigModel):
     preferred_profile: (
         Literal[
             "notebook_dev",
+            "notebook_standard",
             "desktop_fast",
             "desktop_analysis",
             "desktop_heavy",

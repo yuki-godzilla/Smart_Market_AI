@@ -2290,3 +2290,8 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Updated `setup/setup.bat` to accept Python 3.11 or 3.12 instead of requiring only Python 3.11.
 - Aligned `README.md` and `setup/SETUP.md` setup wording with the 3.11 / 3.12 support policy.
 - Verified `cmd /c setup\setup.bat --help` succeeds without running the full dependency install.
+
+## 2026-06-16 SMAI Assistant qwen3:4b Model Picker
+
+- Added `notebook_standard` / `qwen3:4b` as a selectable SMAI Assistant model profile between the lightweight notebook and desktop-fast options.
+- Updated parent / Gateway profile contracts, Gateway model routing, docs, and unit tests for the available model list.

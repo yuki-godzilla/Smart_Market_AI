@@ -21,7 +21,7 @@ Model routing lives in Gateway, not SMAI parent: clients send `task_type`, `exec
 - SMAI 本体を主な利用元としつつ、将来ほかのローカルツールからも使える汎用 Gateway 境界にする
 - 現在の Assistant / context-answer 用途では、LLM の役割を説明、要約、確認観点の整理に限定し、数値予測やランキング決定を担当させない
 - 将来の `SMAI LLM Factor` 用途では、LLM を最終予測器ではなく、出典付きの定性材料を構造化 JSON 特徴量に変換する provider として扱う
-- SMAI 親側には専用 `SMAI Copilot` workspace first MVP があり、Gateway 有効化時は `/api/v1/context-answer` を汎用 HTTP 境界として利用する
+- SMAI 親側には専用 `SMAIアシスタント` workspace があり、SMAIナビ header、6つの相談カード、自由入力、チャット幅の `新しい会話` action、擬似ストリーミング表示を備え、Gateway 接続時は `/api/v1/context-answer` を汎用 HTTP 境界として利用する
 
 ## 主要ドキュメント
 
@@ -45,7 +45,7 @@ flowchart LR
   subgraph gateway["smai-ai-gateway"]
     api["FastAPI API 層<br/>/health<br/>/api/v1/chat<br/>/api/v1/summarize<br/>/api/v1/context-answer"]
     schemas["Pydantic Schemas<br/>request / response validation"]
-    services["Service 層<br/>chat / summarize / prompt"]
+    services["Service 層<br/>chat / summarize / context-answer / model routing"]
     config["Config<br/>.env / timeout / default model"]
     provider["Provider Client Boundary<br/>error normalization / elapsed_ms"]
   end
@@ -171,6 +171,7 @@ SMAI 本体は `AssistantContextBundle` などの必要な文脈だけを HTTP r
 Gateway は prompt 実行、provider 呼び出し、timeout、error normalization を担当し、SMAI 本体の Python module は import しません。
 LLM provider を変更する場合も、SMAI 側ではなく Gateway の provider client 境界を差し替える設計です。
 SMAI 親側には、`assistant.gateway.enabled=true` のときだけ `/api/v1/context-answer` を呼ぶ opt-in HTTP client wiring があり、既定は deterministic fallback のままです。
+専用 `SMAIアシスタント` workspace は画面内で Gateway 接続を既定で試し、Gateway / provider / model / timeout / schema 失敗時は同じ画面内で deterministic fallback に戻ります。
 
 ## 初期 API
 

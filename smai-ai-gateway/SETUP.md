@@ -167,7 +167,7 @@ curl -X POST http://127.0.0.1:8088/api/v1/context-answer ^
   -d "{\"user_question\":\"AI予測インサイトでは何を見る？\",\"profile\":\"notebook_dev\",\"context\":{\"bundle_id\":\"bundle-1\",\"title\":\"銘柄コックピット\",\"sections\":[{\"section_id\":\"forecast-1\",\"title\":\"AI予測インサイト\",\"source_kind\":\"forecast\",\"summary\":{\"中心予測\":\"+1.2%\",\"予測レンジ\":\"-3.0%〜+4.5%\"},\"included_fields\":[\"中心予測\",\"予測レンジ\",\"信頼度\"],\"warnings\":[\"予測レンジが広めです。\"],\"notes\":[\"根拠資料とデータ品質も確認します。\"]}]}}"
 ```
 
-SMAI 親アプリから試す場合は、Gateway を起動したまま、SMAI 側の `SMAI_CONFIG_FILE` に次のような設定を指定します。通常確認では使わず、既定の `enabled: false` を維持します。
+親SMAIの汎用 Assistant service から試す場合は、Gateway を起動したまま、SMAI 側の `SMAI_CONFIG_FILE` に次のような設定を指定します。通常確認では使わず、既定の `enabled: false` を維持します。専用 `SMAIアシスタント` workspace は画面内で Gateway 接続を既定で試し、失敗時は deterministic fallback に戻ります。
 
 ```yaml
 assistant:
@@ -195,6 +195,7 @@ Remove-Item Env:SMAI_ASSISTANT_GATEWAY_MODEL
 ```
 
 `SMAIアシスタント` 画面の通常チャット送信は、UIにON/OFFを出さずに Gateway 接続を既定で試します。Gateway が未起動、timeout、schema validation failure、LLM JSON不正、空応答の場合は SMAI 側の deterministic fallback に戻ります。
+画面上部は SMAIナビ header、チャット幅に揃えた `新しい会話` action、参照中の材料 chips、6つの相談カード、下部 composer の構成です。初回のSMAIナビ発話は、ユーザー送信またはカード選択後にだけ表示します。
 
 `free_chat` / `identity` / `app_help` / `capability_help` / `screen_guidance` は短い通常会話用の `llm_micro` 経路です。SMAI 親は Tool Layer / RAG / news / symbol-specific context / 長い履歴を送らず、Gateway 側は最小 context、`/no_think`、Ollama `think: false` で応答を軽量化します。notebook runtime は `free_chat` / `identity` が 25 秒 / 160 tokens、`app_help` / `capability_help` / `screen_guidance` が 25 秒 / 220 tokens です。挨拶、名前質問、できること質問、使い方質問もまず LLM へ投げ、低品質な短文回答は 1 回だけ再生成し、provider timeout などの失敗時だけ自然な fallback に寄せます。SMAI 親に画面固有の report context がない場合も、即時 fallback せず最小のSMAIアシスタント文脈で Gateway を呼びます。
 

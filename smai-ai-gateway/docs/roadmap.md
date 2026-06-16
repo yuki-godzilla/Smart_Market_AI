@@ -16,7 +16,7 @@
 ## Phase 2: SMAI から投資コメント生成に利用
 
 - SMAI 側 `AssistantContextBundle` から Gateway へ接続。親側 opt-in HTTP client wiring は実装済み
-- SMAI floating Copilot の説明補助と、親側 ChatGPT-style Copilot workspace / 質問候補 / 限定自由入力 first MVP は実装済み
+- SMAI floating Copilot の説明補助と、親側 `SMAIアシスタント` workspace / 質問候補 / 限定自由入力 / チャット幅の `新しい会話` / 擬似ストリーミング first slice は実装済み
 - context answer response の `materials` / `cautions` / `next_checkpoints` を UI 互換 `AssistantResponse` へ接続済み
 - deterministic fallback 維持。通常 tests は network-free、live smoke は後続の明示 opt-in 確認
 

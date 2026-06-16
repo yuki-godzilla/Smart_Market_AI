@@ -78,7 +78,7 @@ flowchart LR
 
 | 機能 | 状態 | 目的 | 主な内容 | 関連資料 |
 | --- | --- | --- | --- | --- |
-| Health check | 実装済み | Gateway 起動確認 | `GET /health` が service 名と status を返す | [docs/api_spec.md](docs/api_spec.md) |
+| Health / readiness check | 実装済み | Gateway 起動・Ollama/model疎通確認 | `GET /health` が service 名と status を返し、`GET /health/ready` と `GET /models` が Ollama 接続、設定中 model、導入済み model、install hint を返す | [docs/api_spec.md](docs/api_spec.md) |
 | Generic chat API | 実装済み | 汎用チャット実行 | message、system_prompt、model を受け取り、Ollama chat API を呼ぶ | [docs/api_spec.md](docs/api_spec.md) |
 | Generic summarize API | 実装済み | 汎用要約実行 | text、purpose、model を受け取り、保守的な要約 prompt を生成する | [docs/api_spec.md](docs/api_spec.md) |
 | Context answer API | 実装済み | 画面 / レポート文脈に基づく構造化回答 | context bundle と質問を受け取り、answer、materials、cautions、next_checkpoints、referenced_sections を返す | [docs/api_spec.md](docs/api_spec.md) |
@@ -87,7 +87,7 @@ flowchart LR
 | Network-free tests | 実装済み | 通常 CI を deterministic に保つ | schema、health、provider error mapping を Ollama なしで確認する | [SETUP.md](SETUP.md) |
 | Opt-in live Ollama smoke | 実装済み | 実 provider 接続確認 | `SMAI_AI_GATEWAY_LIVE_SMOKE=1` のときだけ実行する | [SETUP.md](SETUP.md) |
 | SMAI real Gateway connection | 親側実装済み | SMAI 本体から実 Gateway を呼ぶ | SMAI 側 `HttpAssistantGatewayClient`、`assistant.gateway` 設定、fallback、schema validation。Gateway 側に SMAI import は追加しない | 親側 roadmap |
-| SMAI Copilot workspace | 親側実装済み | 画面横断の相談 UI | SMAI 側サイドメニューに ChatGPT-style workspace を追加済み。context preset、質問候補、限定自由入力、native chat messages / input、session-local 履歴を持ち、Gateway は `/api/v1/context-answer` の汎用境界として使う | 親側 roadmap |
+| SMAIアシスタント workspace | 親側実装済み | 画面横断の相談 UI | SMAI 側サイドメニューに専用 workspace を追加済み。SMAIナビ header、参照材料 chips、6つの相談カード、限定自由入力、session-local 履歴、チャット幅の `新しい会話` action、擬似ストリーミング、Markdown memo を持ち、Gateway は `/api/v1/context-answer` の汎用境界として使う | 親側 roadmap |
 | SMAI LLM Factor structured extraction support | 将来範囲 | RAG / News / IR 由来の定性材料を構造化特徴量へ変換する補助 | SMAI 本体側の `LLMFactorResult` schema / fake service / file-backed cache / deterministic backtest evaluator / broader historical fixture / validation report / Cockpit 参考表示 / Ranking 参考表示は実装済み。Gateway は今後も provider / prompt 境界に留め、cache policy expansion、UI 統合は SMAI 本体側で扱う | 親側 roadmap / [docs/prompt_policy.md](docs/prompt_policy.md) |
 | 認証 / API key / rate limit | 未着手 | 運用時の保護 | local-first MVP 後の運用機能 | [docs/roadmap.md](docs/roadmap.md) |
 
@@ -135,6 +135,7 @@ smai-ai-gateway/
       summarize_service.py
       prompt_service.py
       context_answer_service.py
+      model_router.py
   tests/
     test_health.py
     test_chat_schema.py
@@ -148,7 +149,7 @@ smai-ai-gateway/
 
 | Python ファイル / モジュール | 主なクラス / 関数 | 役割 |
 | --- | --- | --- |
-| `app/main.py` | `app`, `health`, `chat`, `summarize`, `provider_error_to_http_exception` | FastAPI app と endpoint wiring。domain logic は service / client に委譲する。 |
+| `app/main.py` | `app`, `health`, `readiness`, `models`, `chat`, `summarize`, `context_answer`, `provider_error_to_http_exception` | FastAPI app と endpoint wiring。domain logic は service / client に委譲する。 |
 | `app/config.py` | `GatewaySettings`, `get_settings` | `.env` と environment variables から runtime settings を作る。 |
 | `app/clients/ollama_client.py` | `OllamaClient`, `OllamaClientError` | Ollama API 呼び出しと provider error normalization を担当する。 |
 | `app/schemas/common.py` | `GatewayBaseModel`, `HealthResponse`, `ErrorDetail`, `LlmMessage`, `LlmProviderResult` | 共通 schema と strict validation。 |
@@ -156,6 +157,7 @@ smai-ai-gateway/
 | `app/schemas/summarize.py` | `SummarizeRequest`, `SummarizeResponse` | 汎用 summarize API contract。 |
 | `app/schemas/context_answer.py` | `ContextAnswerRequest`, `ContextAnswerResponse` | context bundle に基づく構造化回答 API contract。 |
 | `app/services/prompt_service.py` | `PromptService` | API request から provider message を組み立てる。 |
+| `app/services/model_router.py` | `resolve_model_route`, `model_profile_for_name` | task_type / execution_mode / environment_profile / profile / request model から provider、model、timeout、token budget を解決する。 |
 | `app/services/chat_service.py` | `ChatService` | chat request を provider 呼び出しへ変換する。 |
 | `app/services/summarize_service.py` | `SummarizeService` | summarize request を要約 prompt と provider 呼び出しへ変換する。 |
 | `app/services/context_answer_service.py` | `ContextAnswerService` | LLM answer を context 由来の materials / cautions / next_checkpoints と一緒に返す。 |
@@ -235,12 +237,14 @@ Remove-Item Env:SMAI_AI_GATEWAY_LIVE_SMOKE
 | 2026-06-11 | Gateway tests | `smai-ai-gateway` / `venv_SMAI` | PASS。11 passed / 1 skipped。pytest cache permission warning のみ。 |
 | 2026-06-12 | SMAI parent Gateway client targeted tests | SMAI repo root / Windows | PASS。`tests/test_assistant_gateway_client.py` / `tests/test_core_config.py` / `tests/test_ui_assistant_component.py` 30 passed。pytest cache permission warning のみ。 |
 | 2026-06-12 | SMAI parent Copilot workspace checks | SMAI repo root / Windows | PASS。targeted Assistant / Copilot tests 30 passed、`tools/run_local_checks.py` 1391 passed、`mypy .` 220 source files passed。 |
+| 2026-06-16 | Gateway default model switch and readiness checks | Windows / Ollama / `qwen3:1.7b` | PASS。`ollama list` に `qwen3:1.7b` のみ、`/models` と `/health/ready` が `configured_model_installed=true`、parent Assistant live smoke passed。 |
+| 2026-06-16 | SMAIアシスタント layout checks | SMAI repo root / Windows | PASS。`tests/test_ui_copilot_view.py` / `tests/test_ui_styles.py` 31 passed。`新しい会話` action は chat header lane に合わせる CSS / AppTest で確認。 |
 
 ### 8.4 未確認範囲
 
-- 実 Ollama 起動状態での live smoke は opt-in。通常確認には含めない。
-- SMAI 本体から Gateway を呼ぶ real HTTP client は親側で実装済み。実Gateway / Ollama live smoke は未実行で、明示 opt-in 確認範囲。
-- `SMAI Copilot` の ChatGPT-style チャット画面、質問候補、限定自由入力、native chat messages / input、session-local 会話履歴の first MVP は親側で実装済み。実 Gateway / Ollama live smoke と、長い会話履歴・複数文脈参照の本格拡張は未実行 / 後続範囲。
+- 実 Ollama 起動状態での live smoke は opt-in。2026-06-16 のローカル確認では `qwen3:1.7b` で成功済みだが、通常確認には含めない。
+- SMAI 本体から Gateway を呼ぶ real HTTP client は親側で実装済み。実Gateway / Ollama live smoke は明示 opt-in 確認範囲。
+- `SMAIアシスタント` の専用チャット画面、質問候補、限定自由入力、session-local 会話履歴、チャット幅の `新しい会話` action、擬似ストリーミングの first slice は親側で実装済み。長い会話履歴・複数文脈参照の本格拡張は後続範囲。
 - `SMAI LLM Factor` 向けの structured extraction endpoint / prompt profile は未実装。domain schema / deterministic fake service / file-backed cache / deterministic backtest evaluator / broader historical fixture / validation report / Cockpit 参考表示 / Ranking 参考表示は SMAI 本体側にあり、cache policy expansion、UI 統合拡張も SMAI 本体側で扱う。
 - 認証、API key、rate limit、監査ログは未実装。
 - 別リポジトリ化 / Git submodule 化は未実施。
@@ -250,13 +254,14 @@ Remove-Item Env:SMAI_AI_GATEWAY_LIVE_SMOKE
 | 領域 | 状態 | 内容 |
 | --- | --- | --- |
 | Gateway scaffold | 実装済み | FastAPI app、schema、service、client、docs、tests を配置済み。 |
-| 汎用 API | 実装済み | `/health`、`/api/v1/chat`、`/api/v1/summarize` を公開。 |
+| 汎用 API | 実装済み | `/health`、`/health/ready`、`/models`、`/api/v1/chat`、`/api/v1/summarize` を公開。 |
 | Provider | 実装済み | Ollama client boundary を実装済み。 |
 | Error normalization | 実装済み | provider error を `ErrorDetail` と HTTPException に変換。 |
+| Model routing | 実装済み | `notebook_dev` / `desktop_fast` / `desktop_analysis` / `desktop_heavy` profile を provider / model / timeout / token budget に解決し、notebook既定は `qwen3:1.7b`。 |
 | SMAI coupling | 境界維持 | Gateway から SMAI module は import しない。既存 SMAI RAG は移動しない。 |
 | Structured context answer | 実装済み | `materials` / `cautions` / `next_checkpoints` に対応する汎用 endpoint を追加済み。 |
 | SMAI parent client wiring | 親側実装済み | 親SMAIが `assistant.gateway.enabled=true` のとき `/api/v1/context-answer` を呼ぶ。失敗時は deterministic fallback。 |
-| SMAI Copilot workspace | 親側実装済み | 親SMAIのサイドメニューに、context preset、質問候補、限定自由入力、native chat messages / input、session-local 履歴を持つ ChatGPT-style Copilot workspace first MVP を追加済み。Gateway 側は汎用 HTTP API 境界のまま。 |
+| SMAIアシスタント workspace | 親側実装済み | 親SMAIのサイドメニューに、SMAIナビ header、材料chips、context preset、質問候補、限定自由入力、session-local 履歴、チャット幅の `新しい会話` action、擬似ストリーミングを持つ dedicated workspace を追加済み。Gateway 側は汎用 HTTP API 境界のまま。 |
 | SMAI LLM Factor | 親側 validation slice 実装済み / Gateway は将来範囲 | LLM を最終予測器ではなく、source-bound qualitative feature generator として使う構想。SMAI 本体側に schema / fake service / file-backed cache / deterministic backtest evaluator / broader historical fixture / validation report / Cockpit 参考表示 / Ranking 参考表示を置き、Gateway 側は provider / prompt 実行境界に限定する。 |
 | Gateway operations | 未着手 | 認証、API key、rate limit、audit log、provider routing UI は未実装。 |
 

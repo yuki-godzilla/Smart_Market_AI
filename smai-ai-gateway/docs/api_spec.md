@@ -92,7 +92,7 @@ Response:
 ## POST /api/v1/context-answer
 
 context bundle をもとに、説明本文と `materials` / `cautions` / `next_checkpoints` を返す汎用 API です。
-SMAI Copilot や Decision Report 連携では、画面やレポートの安全な要約 context だけを渡します。Gateway はスコア、予測値、ランキング順位を変更しません。
+SMAIアシスタント や Decision Report 連携では、画面やレポートの安全な要約 context だけを渡します。Gateway はスコア、予測値、ランキング順位を変更しません。
 SMAI 親側では `assistant.gateway.enabled=true` のときだけこの endpoint を呼び、失敗時は deterministic fallback に戻します。
 
 Request:

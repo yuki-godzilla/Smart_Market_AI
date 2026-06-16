@@ -18,6 +18,13 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-16 - Current implementation documentation sync
+
+### Docs
+
+- Aligned parent SMAI and child `smai-ai-gateway` docs with the current `SMAIアシスタント` / Gateway implementation: `qwen3:1.7b` default, Gateway readiness / models endpoints, model routing, chat-width `新しい会話`, current intent normalization, and opt-in live-smoke status.
+- Clarified the boundary between the bottom-right floating `SMAI Copilot` quick helper and the side-menu `SMAIアシスタント` chat workspace.
+
 ## 2026-06-16 - SMAI Assistant new conversation action layout
 
 ### UI polish

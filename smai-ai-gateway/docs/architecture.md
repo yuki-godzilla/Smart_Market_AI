@@ -42,7 +42,7 @@ Ollama / OpenAI compatible API / vLLM / llama.cpp server
 
 ## 将来拡張
 
-- SMAI 親側の `SMAI Copilot` チャットワークスペース first MVP は実装済み。Gateway 側は汎用 `context-answer` 境界を保ち、長い会話履歴や複数文脈参照の本格拡張は後続で扱う
+- SMAI 親側の `SMAIアシスタント` チャットワークスペース first slice は実装済み。Gateway 側は汎用 `context-answer` 境界を保ち、SMAIナビ header、6つの相談カード、チャット幅の `新しい会話` action、擬似ストリーミングなどの UI は親側で扱う。長い会話履歴や複数文脈参照の本格拡張は後続で扱う
 - `SMAI LLM Factor` 向けの構造化 JSON 生成補助。ただし最終予測、ランキング順位、Investment Score 統合は SMAI 側の backtest 後に判断する
 - 他ローカルツールからの汎用 chat / summarize 利用
 - スマホ / PWA からの共通 AI API 利用

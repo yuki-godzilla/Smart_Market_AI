@@ -154,6 +154,8 @@ class CopilotGatewayRuntimeConfig:
             return "モデル未取得"
         if self.readiness_status == "gateway_error":
             return "簡易モードで回答中"
+        if self.readiness_status == "unchecked":
+            return "LLM待機中"
         return "接続確認中"
 
     @property
@@ -182,6 +184,8 @@ class CopilotGatewayRuntimeConfig:
             return self.readiness_message
         if self.readiness_status == "ready":
             return f"{self.model} 利用可能"
+        if self.readiness_status == "unchecked":
+            return "送信時にGateway接続を確認します。"
         return "Gateway / Ollama の状態を確認しています。"
 
 
@@ -395,6 +399,8 @@ def copilot_context_label(context: SmaiAssistantContext) -> str:
 
 def copilot_gateway_runtime_config(
     base_settings: Settings | None = None,
+    *,
+    probe_gateway: bool = False,
 ) -> CopilotGatewayRuntimeConfig:
     settings = base_settings or get_settings()
     gateway = settings.assistant.gateway
@@ -411,7 +417,10 @@ def copilot_gateway_runtime_config(
         model=selected_model,
         profile=selected_profile,
     )
-    return _with_cached_gateway_diagnostic(runtime_config)
+    return _with_cached_gateway_diagnostic(
+        runtime_config,
+        allow_probe=probe_gateway or _assistant_gateway_status_probe_enabled(),
+    )
 
 
 def _is_network_free_app_test_mode() -> bool:
@@ -550,10 +559,10 @@ def copilot_settings_from_gateway_runtime(
 
 def _with_cached_gateway_diagnostic(
     runtime_config: CopilotGatewayRuntimeConfig,
+    *,
+    allow_probe: bool = False,
 ) -> CopilotGatewayRuntimeConfig:
     if not runtime_config.enabled:
-        return runtime_config
-    if os.getenv("SMAI_SKIP_ASSISTANT_GATEWAY_STATUS_CHECK") == "1":
         return runtime_config
 
     cache_key = _gateway_diagnostic_cache_key(runtime_config)
@@ -567,12 +576,19 @@ def _with_cached_gateway_diagnostic(
         ):
             return _runtime_config_from_state(cached.get("runtime_config"))
 
+    if not allow_probe or os.getenv("SMAI_SKIP_ASSISTANT_GATEWAY_STATUS_CHECK") == "1":
+        return runtime_config
+
     diagnosed = _probe_copilot_gateway_runtime(runtime_config)
     _cache_gateway_runtime_config(diagnosed, checked_at=now)
     update_assistant_runtime_status(
         AssistantStatusEvent(name="health_checked", runtime_config=diagnosed)
     )
     return diagnosed
+
+
+def _assistant_gateway_status_probe_enabled() -> bool:
+    return os.getenv("SMAI_ASSISTANT_GATEWAY_STATUS_CHECK") == "1"
 
 
 def _gateway_diagnostic_cache_key(
@@ -751,6 +767,8 @@ def _assistant_runtime_status_copy(
         return "Ollama未接続", "Ollamaまたは選択モデルに接続できません。", "error"
     if state == "model_missing":
         return "モデル未取得", "選択中のモデルがOllamaに見つかりません。", "warning"
+    if state == "checking" and runtime_config.readiness_status == "unchecked":
+        return "LLM待機中", "送信時にGateway接続を確認します。", "checking"
     message = runtime_config.readiness_message or "Gateway / Ollama の状態を確認しています。"
     if response and response.gateway_error_message:
         message = "Gateway / Ollama の状態を確認しています。"

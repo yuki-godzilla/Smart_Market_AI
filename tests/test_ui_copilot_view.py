@@ -28,6 +28,7 @@ from ui.views.copilot import (
     _stream_chunks,
     _tool_plan_tools_state,
     _turn_from_response,
+    _with_cached_gateway_diagnostic,
     copilot_answer_detail_html,
     copilot_context_label,
     copilot_context_options,
@@ -669,6 +670,56 @@ def test_copilot_header_uses_smai_navi_chat_icon():
     assert "data:image/png;base64," in markup
     assert "SMAIアシスタント" in markup
     assert "SMAIナビ" in markup
+
+
+def test_copilot_header_uses_neutral_initial_gateway_state():
+    runtime_config = CopilotGatewayRuntimeConfig(
+        enabled=True,
+        base_url="http://gateway.local",
+        timeout_seconds=5.0,
+        context_answer_path="/api/v1/context-answer",
+        execution_mode="auto",
+        environment_profile="notebook",
+        readiness_status="unchecked",
+    )
+    status = _assistant_runtime_status_for_header(
+        history=[],
+        runtime_config=runtime_config,
+    )
+    markup = _chat_header_html(
+        history_count=0,
+        runtime_config=runtime_config,
+        runtime_status=status,
+    )
+
+    assert status.state == "checking"
+    assert status.label == "LLM待機中"
+    assert status.message == "送信時にGateway接続を確認します。"
+    assert "LLM接続エラー" not in markup
+    assert "smai-copilot-statusbar--error" not in markup
+    assert 'data-status-state="checking"' in markup
+
+
+def test_copilot_gateway_diagnostic_does_not_probe_by_default(monkeypatch):
+    def fail_probe(runtime_config: CopilotGatewayRuntimeConfig) -> CopilotGatewayRuntimeConfig:
+        raise AssertionError("initial render should not probe Gateway readiness")
+
+    monkeypatch.setattr("ui.views.copilot._probe_copilot_gateway_runtime", fail_probe)
+    runtime_config = CopilotGatewayRuntimeConfig(
+        enabled=True,
+        base_url="http://gateway.local",
+        timeout_seconds=5.0,
+        context_answer_path="/api/v1/context-answer",
+        execution_mode="auto",
+        environment_profile="notebook",
+        readiness_status="unchecked",
+    )
+
+    runtime = _with_cached_gateway_diagnostic(runtime_config)
+
+    assert runtime.readiness_status == "unchecked"
+    assert runtime.readiness_label == "LLM待機中"
+    assert runtime.readiness_detail == "送信時にGateway接続を確認します。"
 
 
 def test_copilot_header_shows_gateway_readiness_status():

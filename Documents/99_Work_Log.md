@@ -18,6 +18,17 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-16 - SMAI Assistant initial status neutralization
+
+### Header state
+- Fixed the first SMAIアシスタント render so it no longer performs an automatic Gateway readiness probe that can immediately show `LLM接続エラー`.
+- Initial unchecked Gateway state now displays as `LLM待機中` / `送信時にGateway接続を確認します。`.
+- Cached diagnostics and actual response results still update the header to ready / fallback / Gateway / provider / model states after interaction.
+
+### Validation
+- Added tests that the initial header is neutral, not error-colored.
+- Added a guard test that the cached diagnostic helper does not probe Gateway readiness by default.
+
 ## SMAI Assistant Status & Research Mode UX Polish Sprint
 
 ### Runtime Status

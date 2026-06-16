@@ -22,6 +22,7 @@ from ui.views.copilot import (
     _pending_detail_html,
     _pending_steps_for_intent,
     _probe_copilot_gateway_runtime,
+    _runtime_config_from_assistant_response,
     _stream_chunks,
     _tool_plan_tools_state,
     _turn_from_response,
@@ -705,6 +706,86 @@ def test_copilot_header_marks_gateway_timeout_as_warning():
     assert "smai-copilot-statusbar--warning" in markup
 
 
+def test_copilot_header_shows_pending_generation_state():
+    markup = _chat_header_html(
+        history_count=1,
+        has_pending=True,
+        runtime_config=CopilotGatewayRuntimeConfig(
+            enabled=True,
+            base_url="http://gateway.local",
+            timeout_seconds=5.0,
+            context_answer_path="/api/v1/context-answer",
+            execution_mode="auto",
+            environment_profile="notebook",
+            readiness_status="ready",
+            readiness_message="qwen3:1.7b 利用可能",
+        ),
+    )
+
+    assert "回答作成中" in markup
+    assert "最新の状態を確認しています" in markup
+    assert "smai-copilot-statusbar--checking" in markup
+
+
+def test_copilot_runtime_config_reflects_latest_gateway_success():
+    runtime = _runtime_config_from_assistant_response(
+        runtime_config=CopilotGatewayRuntimeConfig(
+            enabled=True,
+            base_url="http://gateway.local",
+            timeout_seconds=5.0,
+            context_answer_path="/api/v1/context-answer",
+            execution_mode="auto",
+            environment_profile="notebook",
+            readiness_status="gateway_timeout",
+            readiness_message="状態確認がタイムアウト",
+        ),
+        response=AssistantResponse(
+            intent="unknown",
+            answer="回答しました。",
+            response_source="llm",
+            gateway_status="ok",
+            provider="ollama",
+            model="qwen3:1.7b",
+            profile="notebook_dev",
+            latency_ms=1234,
+        ),
+    )
+
+    assert runtime.readiness_status == "ready"
+    assert runtime.readiness_label == "準備完了"
+    assert runtime.readiness_detail == "最新回答でGateway応答を確認しました（1234ms）。"
+    markup = _chat_header_html(history_count=1, runtime_config=runtime)
+    assert "Gateway応答あり" in markup
+    assert "最新回答でGateway応答を確認しました" in markup
+
+
+def test_copilot_runtime_config_reflects_latest_gateway_fallback():
+    runtime = _runtime_config_from_assistant_response(
+        runtime_config=CopilotGatewayRuntimeConfig(
+            enabled=True,
+            base_url="http://gateway.local",
+            timeout_seconds=5.0,
+            context_answer_path="/api/v1/context-answer",
+            execution_mode="auto",
+            environment_profile="notebook",
+            readiness_status="ready",
+        ),
+        response=AssistantResponse(
+            intent="unknown",
+            answer="取得済み材料で回答しました。",
+            response_source="deterministic_fallback",
+            fallback_reason="response_validation_failure",
+            provider="ollama",
+            model="qwen3:1.7b",
+            profile="notebook_dev",
+        ),
+    )
+
+    assert runtime.readiness_status == "gateway_error"
+    assert runtime.readiness_label == "Gateway確認エラー"
+    assert "Gateway応答の形式を確認できませんでした" in runtime.readiness_detail
+
+
 def test_copilot_turn_markdown_uses_decision_memo_template():
     markdown = copilot_turn_markdown(
         {
@@ -780,6 +861,8 @@ def test_copilot_page_does_not_use_streamlit_spinner_for_generation():
 def test_copilot_submit_uses_inline_chat_placeholder_flow():
     source = Path("ui/views/copilot.py").read_text(encoding="utf-8")
 
+    assert "header_placeholder = st.empty()" in source
+    assert "_refresh_copilot_header(" in source
     assert "chat_placeholder = st.empty()" in source
     assert "_process_queued_copilot_request_inline(" in source
     assert "_render_pending_step_progression(chat_placeholder=chat_placeholder)" in source

@@ -18,6 +18,23 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-16 - SMAI Assistant live status refresh
+
+### Header state
+
+- Re-rendered the SMAI Assistant header through a placeholder so it can update during the same chat interaction.
+- Added a pending header state: `回答作成中` / `最新の状態を確認しています`.
+- Updated the header after each assistant response using the actual `gateway_status` / `fallback_reason` instead of relying only on the cached `/models` preflight check.
+
+### Response mapping
+
+- `gateway_status=ok` / live LLM responses now refresh the header to `Gateway応答あり`.
+- Gateway timeout / unavailable, provider unavailable / timeout, model missing, schema failure, and empty-answer fallbacks now map back to the matching header status immediately.
+
+### Validation
+
+- Added UI tests for pending header display, latest Gateway success reflection, and latest Gateway fallback reflection.
+
 ## 2026-06-16 - SMAI Assistant normal chat status polish
 
 ### Display mismatch fix

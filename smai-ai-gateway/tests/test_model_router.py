@@ -15,7 +15,7 @@ def test_router_uses_fast_profile_for_free_chat_on_notebook():
     assert route.model == "qwen3:1.7b"
     assert route.profile == "notebook_dev"
     assert route.timeout_seconds == 25.0
-    assert route.max_tokens == 360
+    assert route.max_tokens == 280
 
 
 def test_router_uses_micro_profile_for_identity_and_capability_help():
@@ -32,10 +32,10 @@ def test_router_uses_micro_profile_for_identity_and_capability_help():
 
     assert identity.profile == "notebook_dev"
     assert identity.timeout_seconds == 25.0
-    assert identity.max_tokens == 360
+    assert identity.max_tokens == 280
     assert capability.profile == "notebook_dev"
     assert capability.timeout_seconds == 25.0
-    assert capability.max_tokens == 220
+    assert capability.max_tokens == 300
 
 
 def test_router_keeps_configured_notebook_profile_lightweight():
@@ -62,7 +62,7 @@ def test_router_supports_notebook_standard_qwen4b_profile():
     assert route.profile == "notebook_standard"
     assert route.model == "qwen3:4b"
     assert route.timeout_seconds == 45.0
-    assert route.max_tokens == 600
+    assert route.max_tokens == 700
 
 
 def test_router_can_use_larger_analysis_profile_on_desktop():
@@ -75,6 +75,8 @@ def test_router_can_use_larger_analysis_profile_on_desktop():
 
     assert route.profile == "desktop_analysis"
     assert route.model == "qwen3:14b"
+    assert route.timeout_seconds == 90.0
+    assert route.max_tokens == 1800
 
 
 def test_router_allows_request_model_to_override_profile_model():
@@ -87,6 +89,25 @@ def test_router_allows_request_model_to_override_profile_model():
 
     assert route.profile == "desktop_fast"
     assert route.model == "qwen3:14b"
+    assert route.max_tokens == 1200
+
+
+def test_router_uses_model_specific_tokens_for_qwen8b_and_qwen14b():
+    qwen8 = resolve_model_route(
+        settings=GatewaySettings(DEFAULT_LLM_PROFILE="desktop_fast"),
+        task_type="forecast_risk_compare",
+        environment_profile="desktop",
+    )
+    qwen14 = resolve_model_route(
+        settings=GatewaySettings(DEFAULT_LLM_PROFILE="desktop_analysis"),
+        task_type="forecast_risk_compare",
+        environment_profile="desktop",
+    )
+
+    assert qwen8.model == "qwen3:8b"
+    assert qwen8.max_tokens == 1100
+    assert qwen14.model == "qwen3:14b"
+    assert qwen14.max_tokens == 1400
 
 
 def test_router_rejects_unknown_profile_with_clear_message():

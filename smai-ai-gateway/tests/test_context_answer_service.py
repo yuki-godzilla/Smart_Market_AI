@@ -76,7 +76,7 @@ def test_context_answer_service_uses_structured_llm_payload():
     assert response.safety_notes
     assert client.model == "qwen3:8b"
     assert client.timeout_seconds == 25.0
-    assert client.max_tokens == 160
+    assert client.max_tokens == 360
     assert response.timeout_sec == 25.0
     assert response.context_tokens_estimate is not None
     assert response.context_tokens_estimate > 0
@@ -212,7 +212,7 @@ def test_context_answer_service_routes_task_type_to_standard_profile():
 
     assert response.profile == "notebook_dev"
     assert client.timeout_seconds == 45.0
-    assert client.max_tokens == 700
+    assert client.max_tokens == 1100
 
 
 def test_context_answer_service_accepts_profile_alias():
@@ -225,7 +225,7 @@ def test_context_answer_service_accepts_profile_alias():
 
     assert response.profile == "desktop_fast"
     assert client.timeout_seconds == 25.0
-    assert client.max_tokens == 160
+    assert client.max_tokens == 360
 
 
 def test_context_answer_service_off_mode_uses_deterministic_fallback():

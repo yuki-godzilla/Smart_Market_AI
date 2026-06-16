@@ -138,18 +138,91 @@ _QUALITY_UPGRADES: dict[LlmTaskType, LlmProfileName] = {
 }
 
 _TASK_RUNTIME_POLICIES: dict[LlmTaskType, tuple[float, int]] = {
-    "free_chat": (25.0, 360),
-    "identity": (25.0, 360),
-    "app_help": (25.0, 220),
-    "capability_help": (25.0, 220),
-    "screen_guidance": (25.0, 220),
-    "stock_summary": (45.0, 600),
-    "forecast_risk_compare": (45.0, 700),
-    "news_materials": (60.0, 900),
-    "rag_summary": (60.0, 900),
-    "decision_report_draft": (75.0, 1200),
-    "llm_factor_generation": (90.0, 1200),
+    "free_chat": (25.0, 320),
+    "identity": (25.0, 320),
+    "app_help": (25.0, 320),
+    "capability_help": (25.0, 320),
+    "screen_guidance": (25.0, 320),
+    "stock_summary": (45.0, 700),
+    "forecast_risk_compare": (45.0, 800),
+    "news_materials": (60.0, 1000),
+    "rag_summary": (60.0, 1000),
+    "decision_report_draft": (75.0, 1400),
+    "llm_factor_generation": (90.0, 1400),
     "report_export_summary": (75.0, 1400),
+}
+
+_MODEL_TASK_TOKEN_POLICIES: dict[str, dict[LlmTaskType, int]] = {
+    "qwen3:1.7b": {
+        "free_chat": 280,
+        "identity": 280,
+        "app_help": 300,
+        "capability_help": 300,
+        "screen_guidance": 300,
+        "stock_summary": 600,
+        "forecast_risk_compare": 700,
+        "news_materials": 800,
+        "rag_summary": 800,
+        "decision_report_draft": 800,
+        "llm_factor_generation": 800,
+        "report_export_summary": 800,
+    },
+    "qwen3:4b": {
+        "free_chat": 320,
+        "identity": 320,
+        "app_help": 320,
+        "capability_help": 320,
+        "screen_guidance": 320,
+        "stock_summary": 700,
+        "forecast_risk_compare": 800,
+        "news_materials": 1000,
+        "rag_summary": 1000,
+        "decision_report_draft": 1000,
+        "llm_factor_generation": 1000,
+        "report_export_summary": 1000,
+    },
+    "qwen3:8b": {
+        "free_chat": 360,
+        "identity": 360,
+        "app_help": 450,
+        "capability_help": 450,
+        "screen_guidance": 450,
+        "stock_summary": 900,
+        "forecast_risk_compare": 1100,
+        "news_materials": 1200,
+        "rag_summary": 1200,
+        "decision_report_draft": 1200,
+        "llm_factor_generation": 1200,
+        "report_export_summary": 1200,
+    },
+    "qwen3:14b": {
+        "free_chat": 360,
+        "identity": 360,
+        "app_help": 500,
+        "capability_help": 500,
+        "screen_guidance": 500,
+        "stock_summary": 1200,
+        "forecast_risk_compare": 1400,
+        "news_materials": 1800,
+        "rag_summary": 1800,
+        "decision_report_draft": 2000,
+        "llm_factor_generation": 1800,
+        "report_export_summary": 2000,
+    },
+    "qwen3:30b": {
+        "free_chat": 400,
+        "identity": 400,
+        "app_help": 600,
+        "capability_help": 600,
+        "screen_guidance": 600,
+        "stock_summary": 1400,
+        "forecast_risk_compare": 1600,
+        "news_materials": 2200,
+        "rag_summary": 2200,
+        "decision_report_draft": 2400,
+        "llm_factor_generation": 2200,
+        "report_export_summary": 2400,
+    },
 }
 
 
@@ -207,10 +280,16 @@ def _route_for_profile(
 ) -> ModelRoute:
     profile_config = model_profile_for_name(profile, settings=settings)
     model = requested_model or profile_config.model
-    profile_max_tokens = profile_config.max_tokens
+    model_max_tokens = _model_max_tokens(model=model, fallback=profile_config.max_tokens)
+    route_max_tokens = max(profile_config.max_tokens, model_max_tokens) if requested_model else profile_config.max_tokens
     task_timeout_seconds, task_max_tokens = _TASK_RUNTIME_POLICIES[task_type]
     timeout_seconds = task_timeout_seconds
-    max_tokens = min(profile_max_tokens, task_max_tokens)
+    model_task_max_tokens = _model_task_max_tokens(
+        model=model,
+        task_type=task_type,
+        fallback=task_max_tokens,
+    )
+    max_tokens = min(route_max_tokens, model_task_max_tokens)
     return ModelRoute(
         provider=profile_config.provider,
         model=model,
@@ -247,6 +326,22 @@ def model_profile_for_name(
             max_tokens=base.max_tokens,
         )
     return base
+
+
+def _model_task_max_tokens(
+    *,
+    model: str,
+    task_type: LlmTaskType,
+    fallback: int,
+) -> int:
+    normalized_model = model.strip().lower()
+    return _MODEL_TASK_TOKEN_POLICIES.get(normalized_model, {}).get(task_type, fallback)
+
+
+def _model_max_tokens(*, model: str, fallback: int) -> int:
+    normalized_model = model.strip().lower()
+    policy = _MODEL_TASK_TOKEN_POLICIES.get(normalized_model)
+    return max(policy.values()) if policy else fallback
 
 
 def _profile_name(profile: str) -> LlmProfileName:

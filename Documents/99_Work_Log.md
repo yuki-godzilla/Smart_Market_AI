@@ -2307,3 +2307,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Found qwen3:4b often emits untagged English planning text despite `/no_think` / `think=false`, causing `response_validation_failure` and deterministic fallback in the SMAI Assistant UI.
 - Increased lightweight chat token budget and added Gateway-side extraction for labeled or quoted final answers from qwen-style planning output.
 - Verified targeted Gateway tests and Playwright UI smoke with `qwen3:4b` selected: model/profile visible, no gateway/fallback error text, and an assistant answer visible.
+
+## 2026-06-17 Gateway Model-Specific Token Policy
+
+- Changed Gateway routing to keep task_type as the primary runtime policy while applying model-specific token budgets for `qwen3:1.7b`, `qwen3:4b`, `qwen3:8b`, `qwen3:14b`, and `qwen3:30b`.
+- Kept lightweight chat bounded for notebook models while allowing larger analysis/report budgets for 8B/14B class models.
+- Updated Gateway docs and operations guide to describe model-aware token budgets instead of a single notebook token value.

@@ -18,7 +18,7 @@ python -m venv .venv
 Ollama を起動し、ノートPC開発用の軽量モデルを取得します。
 
 ```powershell
-ollama pull llama3.2:3b
+ollama pull qwen3:1.7b
 ```
 
 デスクトップ環境では必要に応じて `qwen3:8b`、`qwen3:14b`、`qwen3:30b` も取得します。
@@ -35,7 +35,7 @@ copy .env.example .env
 
 - `SMAI_OLLAMA_BASE_URL`: 既定 `http://localhost:11434`
 - `SMAI_LLM_PROFILE`: 既定 `notebook_dev`
-- `SMAI_OLLAMA_MODEL`: 既定 `llama3.2:3b`
+- `SMAI_OLLAMA_MODEL`: 既定 `qwen3:1.7b`
 - `OLLAMA_BASE_URL` / `DEFAULT_LLM_MODEL`: legacy alias
 - `REQUEST_TIMEOUT_SECONDS`: 既定 `30`
 
@@ -43,7 +43,7 @@ copy .env.example .env
 
 | 環境 | profile | 推奨モデル | 用途 |
 | --- | --- | --- | --- |
-| ノートPC | `notebook_dev` | `llama3.2:3b` | 軽量開発・疎通確認 |
+| ノートPC | `notebook_dev` | `qwen3:1.7b` | 軽量開発・疎通確認 |
 | デスクトップ通常 | `desktop_fast` | `qwen3:8b` | Copilot・要約 |
 | デスクトップ高精度 | `desktop_analysis` | `qwen3:14b` | 銘柄分析・RAG統合 |
 | 高負荷分析 | `desktop_heavy` | `qwen3:30b` | 週次/月次レポート |
@@ -108,8 +108,8 @@ curl http://127.0.0.1:8088/health/ready
   "provider": "ollama",
   "ollama_base_url": "http://localhost:11434",
   "default_profile": "notebook_dev",
-  "default_model": "llama3.2:3b",
-  "installed_models": ["llama3.2:3b"],
+  "default_model": "qwen3:1.7b",
+  "installed_models": ["qwen3:1.7b"],
   "configured_model_installed": true,
   "error_code": null,
   "error_message": null,
@@ -123,7 +123,7 @@ curl http://127.0.0.1:8088/health/ready
 curl http://127.0.0.1:8088/models
 ```
 
-設定中 model が未導入の場合は `Please run: ollama pull llama3.2:3b` のような案内が返ります。
+設定中 model が未導入の場合は `Please run: ollama pull qwen3:1.7b` のような案内が返ります。
 
 ### 新PCで `gateway_unavailable` が出る場合の切り分け
 
@@ -137,7 +137,7 @@ curl http://127.0.0.1:8088/health/ready
 curl http://127.0.0.1:8088/models
 ```
 
-- `ollama list` / `/api/tags` に `llama3.2:3b` が無い: `ollama pull llama3.2:3b`
+- `ollama list` / `/api/tags` に `qwen3:1.7b` が無い: `ollama pull qwen3:1.7b`
 - `/api/tags` が応答しない: Ollama アプリ/サービス、`SMAI_OLLAMA_BASE_URL`、firewall を確認
 - `/health` が応答しない: `smai-ai-gateway` が未起動、または SMAI 側 `base_url` / port が不一致
 - `/health` はOKで `/health/ready` が `degraded`: Gateway は起動済み、Ollama未接続または model 未取得
@@ -187,7 +187,7 @@ SMAI 親アプリから Gateway へ接続する opt-in live smoke 確認例:
 ```powershell
 $env:SMAI_ASSISTANT_GATEWAY_LIVE_SMOKE = "1"
 $env:SMAI_ASSISTANT_GATEWAY_BASE_URL = "http://127.0.0.1:8088"
-$env:SMAI_ASSISTANT_GATEWAY_MODEL = "llama3.2:3b"
+$env:SMAI_ASSISTANT_GATEWAY_MODEL = "qwen3:1.7b"
 ..\venv_SMAI\Scripts\python.exe -m pytest ..\tests\test_assistant_gateway_live_smoke.py -q
 Remove-Item Env:SMAI_ASSISTANT_GATEWAY_LIVE_SMOKE
 Remove-Item Env:SMAI_ASSISTANT_GATEWAY_BASE_URL
@@ -206,7 +206,7 @@ Qwen3 系は thinking 出力が長くなりやすいため、Gateway は Ollama 
 Ollama を起動し、モデル取得後にだけ実行します。通常 CI / 通常確認には含めません。
 
 ```powershell
-ollama pull llama3.2:3b
+ollama pull qwen3:1.7b
 $env:SMAI_AI_GATEWAY_LIVE_SMOKE = "1"
 .\.venv\Scripts\python.exe -m pytest tests/test_live_ollama_smoke.py -q
 Remove-Item Env:SMAI_AI_GATEWAY_LIVE_SMOKE

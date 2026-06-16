@@ -18,6 +18,21 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-16 - SMAI Gateway default model qwen3:1.7b
+
+### Runtime and configuration
+
+- Pulled `qwen3:1.7b` into the local Ollama model store and removed `llama3.2:3b`.
+- Changed the Gateway notebook default model to `qwen3:1.7b` in code defaults, `.env.example`, and the SMAIアシスタント model picker.
+- Kept larger desktop profiles (`qwen3:8b` / `qwen3:14b` / `qwen3:30b`) available as explicit profile choices.
+- Restarted the local `smai-ai-gateway` process on `http://127.0.0.1:8088`; `/models` and `/health/ready` now report `default_model=qwen3:1.7b` and `configured_model_installed=true`.
+
+### Verification
+
+- `ollama list`: PASS. Only `qwen3:1.7b` is installed for the local Ollama model store.
+- Parent SMAI service-level check returned `response_source=llm`, `gateway_status=ok`, `fallback_reason=None`, provider `ollama`, model `qwen3:1.7b`.
+- Targeted Gateway / parent Assistant tests, ruff, black helper, mypy, full pytest, and opt-in parent Gateway live smoke passed.
+
 ## 2026-06-16 - SMAI Assistant Gateway / Ollama Connectivity Sprint
 
 ### Environment

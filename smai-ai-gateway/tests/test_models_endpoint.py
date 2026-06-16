@@ -20,7 +20,7 @@ def test_models_endpoint_reports_missing_configured_model(monkeypatch):
 
     assert response.provider == "ollama"
     assert response.default_profile == "notebook_dev"
-    assert response.default_model == "llama3.2:3b"
+    assert response.default_model == "qwen3:1.7b"
     assert response.installed_models == ["qwen3:8b"]
     assert response.configured_model_installed is False
-    assert response.install_hint == "Please run: ollama pull llama3.2:3b"
+    assert response.install_hint == "Please run: ollama pull qwen3:1.7b"

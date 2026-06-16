@@ -28,8 +28,8 @@ Response:
   "provider": "ollama",
   "ollama_base_url": "http://localhost:11434",
   "default_profile": "notebook_dev",
-  "default_model": "llama3.2:3b",
-  "installed_models": ["llama3.2:3b"],
+  "default_model": "qwen3:1.7b",
+  "installed_models": ["qwen3:1.7b"],
   "configured_model_installed": true,
   "error_code": null,
   "error_message": null,
@@ -37,7 +37,7 @@ Response:
 }
 ```
 
-Ollama 未起動や model 未取得時は `status: degraded` になり、`error_code` に `provider_unreachable` または `model_not_found`、`install_hint` に `ollama pull llama3.2:3b` などの次アクションを返します。
+Ollama 未起動や model 未取得時は `status: degraded` になり、`error_code` に `provider_unreachable` または `model_not_found`、`install_hint` に `ollama pull qwen3:1.7b` などの次アクションを返します。
 
 ## POST /api/v1/chat
 
@@ -58,7 +58,7 @@ Response:
 ```json
 {
   "answer": "こんにちは。どのようなお手伝いをしましょうか。",
-  "model": "llama3.2:3b",
+  "model": "qwen3:1.7b",
   "provider": "ollama",
   "elapsed_ms": 120
 }
@@ -171,7 +171,7 @@ Response:
   "confidence": "medium",
   "safety_notes": ["スコア、予測値、ランキング順位は変更していません。"],
   "provider": "ollama",
-  "model": "llama3.2:3b",
+  "model": "qwen3:1.7b",
   "profile": "notebook_dev",
   "elapsed_ms": 120,
   "gateway_status": "ok",
@@ -201,7 +201,7 @@ model が未取得の場合:
 ```json
 {
   "detail": {
-    "error": "Ollama model 'llama3.2:3b' was not found. Run `ollama pull llama3.2:3b` or choose an installed model.",
+    "error": "Ollama model 'qwen3:1.7b' was not found. Run `ollama pull qwen3:1.7b` or choose an installed model.",
     "provider": "ollama",
     "code": "model_not_found",
     "retryable": false
@@ -218,8 +218,8 @@ Ollama が起動しているか、設定中 model が導入済みかを確認し
   "provider": "ollama",
   "base_url": "http://localhost:11434",
   "default_profile": "notebook_dev",
-  "default_model": "llama3.2:3b",
-  "installed_models": ["llama3.2:3b", "qwen3:8b"],
+  "default_model": "qwen3:1.7b",
+  "installed_models": ["qwen3:1.7b", "qwen3:8b"],
   "configured_model_installed": true,
   "install_hint": null
 }

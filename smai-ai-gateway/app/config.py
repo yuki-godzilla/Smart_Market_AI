@@ -15,7 +15,7 @@ class GatewaySettings(BaseModel):
     APP_NAME: str = Field(default="smai-ai-gateway", min_length=1)
     APP_ENV: str = Field(default="local", min_length=1)
     OLLAMA_BASE_URL: str = Field(default="http://localhost:11434", min_length=1)
-    DEFAULT_LLM_MODEL: str = Field(default="llama3.2:3b", min_length=1)
+    DEFAULT_LLM_MODEL: str = Field(default="qwen3:1.7b", min_length=1)
     DEFAULT_LLM_PROFILE: str = Field(default="notebook_dev", min_length=1)
     REQUEST_TIMEOUT_SECONDS: float = Field(default=30.0, gt=0)
     ENABLE_DEBUG_LOG: bool = False
@@ -34,7 +34,7 @@ def get_settings() -> GatewaySettings:
     default_model = (
         os.getenv("SMAI_OLLAMA_MODEL")
         or os.getenv("DEFAULT_LLM_MODEL")
-        or "llama3.2:3b"
+        or "qwen3:1.7b"
     )
     return GatewaySettings(
         APP_NAME=os.getenv("APP_NAME", "smai-ai-gateway"),

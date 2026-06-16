@@ -186,7 +186,7 @@ def test_copilot_settings_from_gateway_runtime_enables_session_gateway():
 
     assert settings.assistant.gateway.enabled
     assert settings.assistant.gateway.base_url == "http://gateway.local"
-    assert settings.assistant.gateway.model == "llama3.2:3b"
+    assert settings.assistant.gateway.model == "qwen3:1.7b"
     assert settings.assistant.gateway.timeout_seconds == 5.0
     assert settings.assistant.gateway.execution_mode == "light"
     assert settings.assistant.gateway.environment_profile == "notebook"
@@ -202,10 +202,10 @@ def test_copilot_gateway_probe_reports_model_missing():
                 "provider": "ollama",
                 "base_url": "http://localhost:11434",
                 "default_profile": "notebook_dev",
-                "default_model": "llama3.2:3b",
+                "default_model": "qwen3:1.7b",
                 "installed_models": [],
                 "configured_model_installed": False,
-                "install_hint": "Please run: ollama pull llama3.2:3b",
+                "install_hint": "Please run: ollama pull qwen3:1.7b",
             },
             request=request,
         )
@@ -380,7 +380,7 @@ def test_copilot_pending_turn_renders_as_smai_bubble_without_runtime_meta():
             "question": "hello",
             "answer": "SMAIナビが考えています...",
             "intent": "free_chat",
-            "response_meta": "llama3.2:3b / live / provider_timeout",
+            "response_meta": "qwen3:1.7b / live / provider_timeout",
         }
     )
 

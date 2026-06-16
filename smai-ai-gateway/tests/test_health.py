@@ -21,7 +21,7 @@ class FakeOllamaClient:
         self.settings = settings
 
     def list_models(self) -> list[str]:
-        return ["llama3.2:3b"]
+        return ["qwen3:1.7b"]
 
 
 def test_readiness_returns_ollama_model_status(monkeypatch):
@@ -36,5 +36,5 @@ def test_readiness_returns_ollama_model_status(monkeypatch):
     assert payload["status"] == "ok"
     assert payload["gateway"] == "ok"
     assert payload["ollama"] == "ok"
-    assert payload["default_model"] == "llama3.2:3b"
+    assert payload["default_model"] == "qwen3:1.7b"
     assert payload["configured_model_installed"] is True

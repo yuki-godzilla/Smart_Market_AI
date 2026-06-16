@@ -47,7 +47,7 @@ COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY = "smai_copilot_gateway_diagnostic"
 COPILOT_GATEWAY_DIAGNOSTIC_TTL_SECONDS = 20.0
 
 COPILOT_LLM_MODEL_OPTIONS: tuple[tuple[str, str, str], ...] = (
-    ("notebook_dev", "llama3.2:3b", "ノートPC / 軽量開発"),
+    ("notebook_dev", "qwen3:1.7b", "ノートPC / 軽量開発"),
     ("desktop_fast", "qwen3:8b", "デスクトップ通常 / Copilot・要約"),
     ("desktop_analysis", "qwen3:14b", "デスクトップ高精度 / 銘柄分析・RAG"),
     ("desktop_heavy", "qwen3:30b", "高負荷分析 / 週次・月次レポート"),
@@ -74,7 +74,7 @@ class CopilotGatewayRuntimeConfig:
     execution_mode: str
     environment_profile: str
     provider: str = "ollama"
-    model: str = "llama3.2:3b"
+    model: str = "qwen3:1.7b"
     profile: str = "notebook_dev"
     readiness_status: str = "unchecked"
     readiness_message: str = ""
@@ -377,7 +377,7 @@ def _model_for_profile(profile: str) -> str:
     for option_profile, option_model, _ in COPILOT_LLM_MODEL_OPTIONS:
         if option_profile == profile:
             return option_model
-    return "llama3.2:3b"
+    return "qwen3:1.7b"
 
 
 def _render_model_selector(
@@ -921,7 +921,7 @@ def _runtime_config_from_state(value: object) -> CopilotGatewayRuntimeConfig:
         execution_mode=str(value.get("execution_mode", "auto")),
         environment_profile=str(value.get("environment_profile", "notebook")),
         provider=str(value.get("provider", "ollama")),
-        model=str(value.get("model", "llama3.2:3b")),
+        model=str(value.get("model", "qwen3:1.7b")),
         profile=str(value.get("profile", "notebook_dev")),
         readiness_status=str(value.get("readiness_status", "unchecked")),
         readiness_message=str(value.get("readiness_message", "")),

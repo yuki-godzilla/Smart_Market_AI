@@ -57,7 +57,7 @@ class LlmModelProfile:
 MODEL_PROFILES: dict[str, LlmModelProfile] = {
     "notebook_dev": LlmModelProfile(
         provider="ollama",
-        model="llama3.2:3b",
+        model="qwen3:1.7b",
         purpose="軽量開発・疎通確認",
         timeout_seconds=75.0,
         max_tokens=800,

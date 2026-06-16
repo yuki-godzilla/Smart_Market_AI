@@ -381,17 +381,17 @@ def test_http_assistant_gateway_diagnose_reports_missing_model():
                 "provider": "ollama",
                 "base_url": "http://localhost:11434",
                 "default_profile": "notebook_dev",
-                "default_model": "llama3.2:3b",
+                "default_model": "qwen3:1.7b",
                 "installed_models": ["qwen3:8b"],
                 "configured_model_installed": False,
-                "install_hint": "Please run: ollama pull llama3.2:3b",
+                "install_hint": "Please run: ollama pull qwen3:1.7b",
             },
             request=request,
         )
 
     client = HttpAssistantGatewayClient(
         base_url="http://gateway.local",
-        model="llama3.2:3b",
+        model="qwen3:1.7b",
         preferred_profile="notebook_dev",
         transport=httpx.MockTransport(handler),
     )
@@ -399,7 +399,7 @@ def test_http_assistant_gateway_diagnose_reports_missing_model():
     diagnostic = client.diagnose()
 
     assert diagnostic.status == "model_missing"
-    assert diagnostic.model == "llama3.2:3b"
+    assert diagnostic.model == "qwen3:1.7b"
     assert diagnostic.profile == "notebook_dev"
     assert diagnostic.provider_error_type == "model_not_found"
     assert diagnostic.installed_models == ("qwen3:8b",)

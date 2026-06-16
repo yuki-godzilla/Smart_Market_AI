@@ -18,6 +18,14 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-16 - SMAI Assistant Command Center roadmap
+
+### Roadmap
+
+- Added Phase 26A `SMAI Assistant Command Center / Research Mode Integration` to the implementation roadmap before live LLM Factor generation.
+- Defined `normal_chat` / `soft_research_suggestion` / `research_plan`, MVP intents, Tool Plan / approval flow, progress bubble, Context Aggregator, Decision Report draft handoff, safety guardrails, and test candidates.
+- Clarified that Tool Plan orchestration and SMAI feature execution live in the parent SMAI app, while `smai-ai-gateway` remains the generic LLM context-answer boundary.
+
 ## 2026-06-16 - Current implementation documentation sync
 
 ### Docs

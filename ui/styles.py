@@ -2593,7 +2593,7 @@ body,
 
 .smai-copilot-statusbar strong {
     color: var(--text-title);
-    font-size: 0.86rem;
+    font-size: 0.92rem;
     line-height: 1.2;
 }
 
@@ -2707,6 +2707,22 @@ div[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {
     box-sizing: border-box;
     border-color: rgba(34, 211, 238, 0.28);
     background: rgba(15, 23, 42, 0.72);
+}
+
+.smai-copilot-composer-toolbar div[data-testid="stTextInput"] input:focus,
+.smai-copilot-composer-toolbar div[data-testid="stTextInput"] input:focus-visible {
+    border-color: rgba(45, 212, 191, 0.64) !important;
+    outline: none !important;
+    box-shadow:
+        inset 0 0 0 1px rgba(45, 212, 191, 0.18),
+        0 0 0 0.18rem rgba(34, 211, 238, 0.12) !important;
+}
+
+.smai-copilot-composer-toolbar div[data-testid="stTextInput"] input[aria-invalid="true"] {
+    border-color: rgba(251, 113, 133, 0.68) !important;
+    box-shadow:
+        inset 0 0 0 1px rgba(251, 113, 133, 0.16),
+        0 0 0 0.18rem rgba(251, 113, 133, 0.12) !important;
 }
 
 .smai-copilot-composer-toolbar div[data-testid="stButton"] button,

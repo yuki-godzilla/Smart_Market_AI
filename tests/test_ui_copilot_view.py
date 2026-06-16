@@ -13,7 +13,10 @@ from backend.assistant import (
 from backend.core.config import Settings
 from ui.views.copilot import (
     COPILOT_CHAT_HISTORY_STATE_KEY,
+    COPILOT_RUNTIME_STATUS_STATE_KEY,
+    AssistantStatusEvent,
     CopilotGatewayRuntimeConfig,
+    _assistant_runtime_status_for_header,
     _chat_header_html,
     _context_for_llm,
     _fallback_free_chat_answer,
@@ -22,7 +25,6 @@ from ui.views.copilot import (
     _pending_detail_html,
     _pending_steps_for_intent,
     _probe_copilot_gateway_runtime,
-    _runtime_config_from_assistant_response,
     _stream_chunks,
     _tool_plan_tools_state,
     _turn_from_response,
@@ -35,6 +37,7 @@ from ui.views.copilot import (
     copilot_turn_html,
     copilot_turn_markdown,
     copilot_turn_plain_text,
+    derive_assistant_runtime_status,
 )
 
 
@@ -51,6 +54,7 @@ def _reset_copilot_session(app: AppTest) -> None:
     app.session_state["smai_copilot_pending_request"] = None
     app.session_state["smai_copilot_pending_stream_turn_id"] = ""
     app.session_state["smai_copilot_suppress_next_submit"] = False
+    app.session_state[COPILOT_RUNTIME_STATUS_STATE_KEY] = None
 
 
 def test_copilot_layout_uses_shared_wide_lane():
@@ -72,6 +76,10 @@ def test_copilot_layout_uses_shared_wide_lane():
     assert ".smai-copilot-composer-toolbar" in css
     assert ".smai-copilot-statusbar--warning" in css
     assert ".smai-copilot-statusbar--error" in css
+    copilot_source = Path("ui/views/copilot.py").read_text(encoding="utf-8")
+    assert "data-status-state" in copilot_source
+    assert '.smai-copilot-composer-toolbar div[data-testid="stTextInput"] input:focus' in css
+    assert 'input[aria-invalid="true"]' in css
     assert ".smai-copilot-response-meta summary" in css
     assert "border-left: 3px solid var(--smai-teal);" in css
     assert "min-height: 6.5rem;" in css
@@ -679,8 +687,9 @@ def test_copilot_header_shows_gateway_readiness_status():
     )
 
     assert "Ollama未接続" in markup
-    assert "Ollama APIに接続できません" in markup
+    assert "Ollamaまたは選択モデルに接続できません。" in markup
     assert "smai-copilot-statusbar--error" in markup
+    assert 'data-status-state="provider_unavailable"' in markup
 
 
 def test_copilot_header_marks_gateway_timeout_as_warning():
@@ -701,9 +710,10 @@ def test_copilot_header_marks_gateway_timeout_as_warning():
         ),
     )
 
-    assert "Gateway状態確認待ち" in markup
-    assert "smai-ai-gateway の状態確認がタイムアウトしました。" in markup
-    assert "smai-copilot-statusbar--warning" in markup
+    assert "LLM接続エラー" in markup
+    assert "Gatewayに接続できません。簡易モードで回答します。" in markup
+    assert "smai-copilot-statusbar--error" in markup
+    assert 'data-status-state="gateway_unavailable"' in markup
 
 
 def test_copilot_header_shows_pending_generation_state():
@@ -722,13 +732,43 @@ def test_copilot_header_shows_pending_generation_state():
         ),
     )
 
-    assert "回答作成中" in markup
-    assert "最新の状態を確認しています" in markup
+    assert "回答生成中" in markup
+    assert "SMAIナビが回答を整理しています。" in markup
     assert "smai-copilot-statusbar--checking" in markup
 
 
 def test_copilot_runtime_config_reflects_latest_gateway_success():
-    runtime = _runtime_config_from_assistant_response(
+    status = derive_assistant_runtime_status(
+        AssistantStatusEvent(
+            name="response_completed",
+            runtime_config=CopilotGatewayRuntimeConfig(
+                enabled=True,
+                base_url="http://gateway.local",
+                timeout_seconds=5.0,
+                context_answer_path="/api/v1/context-answer",
+                execution_mode="auto",
+                environment_profile="notebook",
+                readiness_status="gateway_timeout",
+                readiness_message="状態確認がタイムアウト",
+            ),
+            response=AssistantResponse(
+                intent="unknown",
+                answer="回答しました。",
+                response_source="llm",
+                gateway_status="ok",
+                provider="ollama",
+                model="qwen3:1.7b",
+                profile="notebook_dev",
+                latency_ms=1234,
+            ),
+        )
+    )
+
+    assert status.state == "ready"
+    assert status.label == "準備完了"
+    assert status.message == "SMAIナビは通常回答できます。"
+    markup = _chat_header_html(
+        history_count=1,
         runtime_config=CopilotGatewayRuntimeConfig(
             enabled=True,
             base_url="http://gateway.local",
@@ -736,54 +776,67 @@ def test_copilot_runtime_config_reflects_latest_gateway_success():
             context_answer_path="/api/v1/context-answer",
             execution_mode="auto",
             environment_profile="notebook",
-            readiness_status="gateway_timeout",
-            readiness_message="状態確認がタイムアウト",
         ),
-        response=AssistantResponse(
-            intent="unknown",
-            answer="回答しました。",
-            response_source="llm",
-            gateway_status="ok",
-            provider="ollama",
-            model="qwen3:1.7b",
-            profile="notebook_dev",
-            latency_ms=1234,
-        ),
+        runtime_status=status,
     )
-
-    assert runtime.readiness_status == "ready"
-    assert runtime.readiness_label == "準備完了"
-    assert runtime.readiness_detail == "最新回答でGateway応答を確認しました（1234ms）。"
-    markup = _chat_header_html(history_count=1, runtime_config=runtime)
-    assert "Gateway応答あり" in markup
-    assert "最新回答でGateway応答を確認しました" in markup
+    assert "準備完了" in markup
+    assert "SMAIナビは通常回答できます。" in markup
+    assert 'data-status-state="ready"' in markup
 
 
 def test_copilot_runtime_config_reflects_latest_gateway_fallback():
-    runtime = _runtime_config_from_assistant_response(
-        runtime_config=CopilotGatewayRuntimeConfig(
-            enabled=True,
-            base_url="http://gateway.local",
-            timeout_seconds=5.0,
-            context_answer_path="/api/v1/context-answer",
-            execution_mode="auto",
-            environment_profile="notebook",
-            readiness_status="ready",
-        ),
-        response=AssistantResponse(
-            intent="unknown",
-            answer="取得済み材料で回答しました。",
-            response_source="deterministic_fallback",
-            fallback_reason="response_validation_failure",
-            provider="ollama",
-            model="qwen3:1.7b",
-            profile="notebook_dev",
-        ),
+    status = derive_assistant_runtime_status(
+        AssistantStatusEvent(
+            name="response_completed",
+            runtime_config=CopilotGatewayRuntimeConfig(
+                enabled=True,
+                base_url="http://gateway.local",
+                timeout_seconds=5.0,
+                context_answer_path="/api/v1/context-answer",
+                execution_mode="auto",
+                environment_profile="notebook",
+                readiness_status="ready",
+            ),
+            response=AssistantResponse(
+                intent="unknown",
+                answer="取得済み材料で回答しました。",
+                response_source="deterministic_fallback",
+                fallback_reason="response_validation_failure",
+                provider="ollama",
+                model="qwen3:1.7b",
+                profile="notebook_dev",
+            ),
+        )
     )
 
-    assert runtime.readiness_status == "gateway_error"
-    assert runtime.readiness_label == "Gateway確認エラー"
-    assert "Gateway応答の形式を確認できませんでした" in runtime.readiness_detail
+    assert status.state == "degraded"
+    assert status.label == "簡易モードで回答中"
+    assert "LLM応答が不安定" in status.message
+
+
+def test_copilot_runtime_status_reflects_research_plan_and_running():
+    runtime_config = CopilotGatewayRuntimeConfig(
+        enabled=True,
+        base_url="http://gateway.local",
+        timeout_seconds=5.0,
+        context_answer_path="/api/v1/context-answer",
+        execution_mode="auto",
+        environment_profile="notebook",
+        readiness_status="ready",
+    )
+    planned = _assistant_runtime_status_for_header(
+        history=[{"status": "tool_plan"}],
+        runtime_config=runtime_config,
+    )
+    running = _assistant_runtime_status_for_header(
+        history=[{"status": "pending", "tool_plan_choice": "approve"}],
+        runtime_config=runtime_config,
+    )
+
+    assert planned.state == "research_planned"
+    assert planned.label == "調査計画あり"
+    assert running.state == "research_running"
+    assert running.label == "材料確認中"
 
 
 def test_copilot_turn_markdown_uses_decision_memo_template():
@@ -897,6 +950,42 @@ def test_copilot_page_chat_input_appends_chat_turn(monkeypatch):
     assert "smai-copilot-actions-row--inside" in page_text
 
 
+def test_copilot_page_new_conversation_clears_stale_runtime_status(monkeypatch):
+    monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    app = AppTest.from_file("ui/app.py", default_timeout=40)
+    app.session_state["sidemenu_page"] = "copilot"
+    _reset_copilot_session(app)
+    app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = [
+        {
+            "turn_id": "old",
+            "status": "complete",
+            "context_label": "SMAIアシスタント / SMAIの使い方",
+            "question": "こんにちは",
+            "answer": "こんにちは。",
+            "intent": "free_chat",
+            "fallback_reason": "provider_timeout",
+        }
+    ]
+    app.session_state[COPILOT_RUNTIME_STATUS_STATE_KEY] = {
+        "state": "degraded",
+        "label": "簡易モードで回答中",
+        "message": "LLM応答が不安定です。",
+        "severity": "warning",
+        "provider": "ollama",
+        "model": "qwen3:1.7b",
+        "profile": "notebook_dev",
+        "last_updated_at": "2026-06-16 10:00:00",
+        "fallback_reason": "provider_timeout",
+    }
+    app.run()
+
+    _click_button_label(app, "新しい会話")
+
+    assert not app.exception
+    assert app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] == []
+    assert COPILOT_RUNTIME_STATUS_STATE_KEY not in app.session_state
+
+
 def test_copilot_page_second_chat_input_appends_next_turn(monkeypatch):
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
     app = AppTest.from_file("ui/app.py", default_timeout=40)
@@ -939,6 +1028,7 @@ def test_copilot_page_research_question_shows_tool_plan_before_execution(monkeyp
         if getattr(element, "value", None) is not None
     )
     button_labels = [str(getattr(element, "label", "")) for element in app.button]
+    assert "調査計画あり" in page_text
     assert "調査計画" in page_text
     assert "トヨタ自動車（7203.T）" in page_text
     assert "価格の動き" in page_text
@@ -962,6 +1052,7 @@ def test_copilot_page_tool_plan_approve_returns_material_summary(monkeypatch):
     assert not app.exception
     history = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]
     assert history[-1]["status"] == "complete"
+    assert history[-1]["conversation_mode"] == "research_answer"
     assert "トヨタ自動車（7203.T）について、取得できた材料を整理しました。" in history[-1]["answer"]
     assert "買い/売りを断定するのではなく" in history[-1]["answer"]
     assert "価格の動き" in history[-1]["executed_checks"]
@@ -982,6 +1073,7 @@ def test_copilot_page_tool_plan_cached_only_mentions_missing_materials(monkeypat
     assert not app.exception
     history = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]
     assert history[-1]["status"] == "complete"
+    assert history[-1]["conversation_mode"] == "research_answer"
     assert history[-1]["answer"].startswith("取得済み情報だけで整理します。")
     assert "未確認材料:" in history[-1]["answer"]
     assert "最新ニュース" in history[-1]["answer"]
@@ -1019,6 +1111,7 @@ def test_copilot_page_free_chat_does_not_render_fixed_cards(monkeypatch):
     assert not app.exception
     history = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]
     assert history[-1]["intent"] == "free_chat"
+    assert history[-1]["conversation_mode"] == "normal_chat"
     latest_markup = copilot_turn_html(history[-1])
     assert "SMAI通常回答" not in latest_markup
     assert "技術情報を表示" not in latest_markup

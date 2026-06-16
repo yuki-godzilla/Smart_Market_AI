@@ -18,6 +18,45 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## SMAI Assistant Status & Research Mode UX Polish Sprint
+
+### Runtime Status
+- status model: added `AssistantRuntimeStatus` / `AssistantStatusEvent` and routed the header through the derived status model.
+- update events: initial health, model change, request start, response completion, Research Plan display, Research Tool execution, cancel, and new conversation reset.
+- ready: `準備完了` / `SMAIナビは通常回答できます。`
+- generating: `回答生成中` / `SMAIナビが回答を整理しています。`
+- research_planned: `調査計画あり` / `取得前の確認待ちです。`
+- research_running: `材料確認中` / `価格・予測・ニュースなどを確認しています。`
+- degraded: `簡易モードで回答中` / LLM fallback mode.
+- gateway_unavailable: `LLM接続エラー` / Gateway unreachable or timeout.
+- provider_unavailable: `Ollama未接続` / Ollama or selected model connection failure.
+
+### UI
+- status card: uses state-specific labels, messages, severity classes, and `data-status-state`.
+- input focus: composer focus is cyan; `aria-invalid=true` is the only red/error border path.
+- new conversation reset: clears chat history, pending request/stream state, runtime status, and cached Gateway diagnostic before rerun.
+
+### Validation
+- Case 1: normal chat path keeps `conversation_mode=normal_chat`; LLM success maps to `準備完了`.
+- Case 2: Research Plan card maps the header to `調査計画あり`.
+- Case 3: approved Tool Plan pending maps to `材料確認中` and final answer keeps `conversation_mode=research_answer`.
+- Case 4: fallback maps to `簡易モードで回答中`; Gateway/provider failures map to their own states.
+- Case 5: success after failure derives `ready`, clearing stale error state.
+- Case 6: `新しい会話` clears stale runtime status.
+- Case 7: input focus CSS uses cyan; validation error uses red.
+
+### Tests
+- added: runtime status derivation, Research Plan/running status, new conversation stale-status reset, input focus CSS assertions.
+- updated: header readiness/fallback expectations and conversation mode checks.
+- passed: targeted UI tests during implementation.
+- failed: none remaining.
+
+### Final Judgement
+- status updates correctly: yes, via one status model and event updates.
+- stale errors removed: yes, LLM success derives `ready` and new conversation clears cached status.
+- research mode status linked: yes, Tool Plan and Tool execution map to dedicated states.
+- remaining issues: in-app Browser was unavailable in this environment, so visual confirmation relies on Streamlit AppTest.
+
 ## 2026-06-16 - SMAI Assistant live status refresh
 
 ### Header state

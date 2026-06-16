@@ -47,6 +47,7 @@ COPILOT_SUPPRESS_SUBMIT_STATE_KEY = "smai_copilot_suppress_next_submit"
 COPILOT_LLM_PROFILE_STATE_KEY = "smai_copilot_llm_profile"
 COPILOT_LLM_MODEL_STATE_KEY = "smai_copilot_llm_model"
 COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY = "smai_copilot_gateway_diagnostic"
+COPILOT_RUNTIME_STATUS_STATE_KEY = "smai_copilot_runtime_status"
 COPILOT_GATEWAY_DIAGNOSTIC_TTL_SECONDS = 20.0
 COPILOT_STREAM_DELAY_SECONDS = 0.16
 COPILOT_STREAM_MAX_CHUNKS = 8
@@ -69,6 +70,42 @@ CopilotIntent = Literal[
     "decision_report_draft",
     "free_chat",
 ]
+
+AssistantRuntimeState = Literal[
+    "ready",
+    "checking",
+    "generating",
+    "research_planned",
+    "research_running",
+    "degraded",
+    "gateway_unavailable",
+    "provider_unavailable",
+    "model_missing",
+]
+AssistantStatusSeverity = Literal["ready", "checking", "warning", "error"]
+
+
+@dataclass(frozen=True)
+class AssistantRuntimeStatus:
+    state: AssistantRuntimeState
+    label: str
+    message: str
+    severity: AssistantStatusSeverity
+    provider: str | None
+    model: str | None
+    profile: str | None
+    last_updated_at: str
+    last_request_id: str | None = None
+    fallback_reason: str | None = None
+    gateway_error_type: str | None = None
+    latency_ms: int | None = None
+
+
+@dataclass(frozen=True)
+class AssistantStatusEvent:
+    name: str
+    runtime_config: "CopilotGatewayRuntimeConfig"
+    response: AssistantResponse | None = None
 
 
 @dataclass(frozen=True)
@@ -108,16 +145,16 @@ class CopilotGatewayRuntimeConfig:
         if self.readiness_status == "ready":
             return "準備完了"
         if self.readiness_status == "gateway_unavailable":
-            return "Gateway未接続"
+            return "LLM接続エラー"
         if self.readiness_status == "gateway_timeout":
-            return "Gateway状態確認待ち"
+            return "LLM接続エラー"
         if self.readiness_status == "provider_unavailable":
             return "Ollama未接続"
         if self.readiness_status == "model_missing":
             return "モデル未取得"
         if self.readiness_status == "gateway_error":
-            return "Gateway確認エラー"
-        return "準備確認中"
+            return "簡易モードで回答中"
+        return "接続確認中"
 
     @property
     def readiness_tone(self) -> str:
@@ -125,14 +162,16 @@ class CopilotGatewayRuntimeConfig:
             return "fallback"
         if self.readiness_status == "ready":
             return "ready"
-        if self.readiness_status in {"gateway_timeout", "model_missing"}:
+        if self.readiness_status == "model_missing":
             return "warning"
         if self.readiness_status in {
             "gateway_unavailable",
+            "gateway_timeout",
             "provider_unavailable",
-            "gateway_error",
         }:
             return "error"
+        if self.readiness_status == "gateway_error":
+            return "warning"
         return "checking"
 
     @property
@@ -143,7 +182,7 @@ class CopilotGatewayRuntimeConfig:
             return self.readiness_message
         if self.readiness_status == "ready":
             return f"{self.model} 利用可能"
-        return "Gateway状態を確認中"
+        return "Gateway / Ollama の状態を確認しています。"
 
 
 @dataclass(frozen=True)
@@ -430,7 +469,7 @@ def _render_model_selector(
         st.caption(purpose)
         st.session_state[COPILOT_LLM_PROFILE_STATE_KEY] = profile
         st.session_state[COPILOT_LLM_MODEL_STATE_KEY] = model
-        return CopilotGatewayRuntimeConfig(
+        selected_config = CopilotGatewayRuntimeConfig(
             enabled=runtime_config.enabled,
             base_url=runtime_config.base_url,
             timeout_seconds=runtime_config.timeout_seconds,
@@ -441,6 +480,12 @@ def _render_model_selector(
             model=model,
             profile=profile,
         )
+        if model != runtime_config.model or profile != runtime_config.profile:
+            st.session_state.pop(COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY, None)
+            update_assistant_runtime_status(
+                AssistantStatusEvent(name="model_changed", runtime_config=selected_config)
+            )
+        return selected_config
     return runtime_config
 
 
@@ -524,6 +569,9 @@ def _with_cached_gateway_diagnostic(
 
     diagnosed = _probe_copilot_gateway_runtime(runtime_config)
     _cache_gateway_runtime_config(diagnosed, checked_at=now)
+    update_assistant_runtime_status(
+        AssistantStatusEvent(name="health_checked", runtime_config=diagnosed)
+    )
     return diagnosed
 
 
@@ -583,6 +631,229 @@ def _probe_copilot_gateway_runtime(
         provider=diagnostic.provider or runtime_config.provider,
         model=diagnostic.model or runtime_config.model,
         profile=diagnostic.profile or runtime_config.profile,
+    )
+
+
+def derive_assistant_runtime_status(event: AssistantStatusEvent) -> AssistantRuntimeStatus:
+    state = _assistant_runtime_state_from_event(event)
+    response = event.response
+    label, message, severity = _assistant_runtime_status_copy(
+        state=state,
+        runtime_config=event.runtime_config,
+        response=response,
+    )
+    return AssistantRuntimeStatus(
+        state=state,
+        label=label,
+        message=message,
+        severity=severity,
+        provider=(
+            response.provider if response and response.provider else event.runtime_config.provider
+        ),
+        model=(response.model if response and response.model else event.runtime_config.model),
+        profile=(
+            response.profile if response and response.profile else event.runtime_config.profile
+        ),
+        last_updated_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        last_request_id=response.request_id if response else None,
+        fallback_reason=response.fallback_reason if response else None,
+        gateway_error_type=(
+            response.gateway_error_type
+            if response
+            else event.runtime_config.gateway_error_type or None
+        ),
+        latency_ms=response.latency_ms if response else None,
+    )
+
+
+def update_assistant_runtime_status(event: AssistantStatusEvent) -> AssistantRuntimeStatus:
+    status = derive_assistant_runtime_status(event)
+    st.session_state[COPILOT_RUNTIME_STATUS_STATE_KEY] = _runtime_status_to_state(status)
+    return status
+
+
+def _assistant_runtime_state_from_event(event: AssistantStatusEvent) -> AssistantRuntimeState:
+    if event.name == "model_changed":
+        return "checking"
+    if event.name in {"request_started", "generating"}:
+        return "generating"
+    if event.name == "research_planned":
+        return "research_planned"
+    if event.name == "research_running":
+        return "research_running"
+    if event.name == "cancelled":
+        return "ready"
+    if event.name == "response_completed" and event.response is not None:
+        return _assistant_runtime_state_from_response(event.response)
+    return _assistant_runtime_state_from_config(event.runtime_config)
+
+
+def _assistant_runtime_state_from_config(
+    runtime_config: CopilotGatewayRuntimeConfig,
+) -> AssistantRuntimeState:
+    if not runtime_config.enabled:
+        return "degraded"
+    if runtime_config.readiness_status == "ready":
+        return "ready"
+    if runtime_config.readiness_status in {"gateway_unavailable", "gateway_timeout"}:
+        return "gateway_unavailable"
+    if runtime_config.readiness_status == "provider_unavailable":
+        return "provider_unavailable"
+    if runtime_config.readiness_status == "model_missing":
+        return "model_missing"
+    if runtime_config.readiness_status == "gateway_error":
+        return "degraded"
+    return "checking"
+
+
+def _assistant_runtime_state_from_response(response: AssistantResponse) -> AssistantRuntimeState:
+    if response.gateway_status == "ok" or response.response_source in {"llm", "gateway"}:
+        return "ready"
+    reason = str(response.fallback_reason or "").strip()
+    if reason in {"gateway_unavailable", "gateway_timeout"}:
+        return "gateway_unavailable"
+    if reason in {"provider_unavailable", "provider_timeout"}:
+        return "provider_unavailable"
+    if reason == "model_not_found":
+        return "model_missing"
+    if reason or response.response_source in {"deterministic_fallback", "fallback"}:
+        return "degraded"
+    if response.gateway_error_type:
+        return "gateway_unavailable"
+    if response.provider_error_type:
+        return "provider_unavailable"
+    return "checking"
+
+
+def _assistant_runtime_status_copy(
+    *,
+    state: AssistantRuntimeState,
+    runtime_config: CopilotGatewayRuntimeConfig,
+    response: AssistantResponse | None,
+) -> tuple[str, str, AssistantStatusSeverity]:
+    if state == "ready":
+        return "準備完了", "SMAIナビは通常回答できます。", "ready"
+    if state == "generating":
+        return "回答生成中", "SMAIナビが回答を整理しています。", "checking"
+    if state == "research_planned":
+        return "調査計画あり", "取得前の確認待ちです。", "ready"
+    if state == "research_running":
+        return "材料確認中", "価格・予測・ニュースなどを確認しています。", "checking"
+    if state == "degraded":
+        return (
+            "簡易モードで回答中",
+            "LLM応答が不安定なため、簡易回答に切り替わる場合があります。",
+            "warning",
+        )
+    if state == "gateway_unavailable":
+        return "LLM接続エラー", "Gatewayに接続できません。簡易モードで回答します。", "error"
+    if state == "provider_unavailable":
+        return "Ollama未接続", "Ollamaまたは選択モデルに接続できません。", "error"
+    if state == "model_missing":
+        return "モデル未取得", "選択中のモデルがOllamaに見つかりません。", "warning"
+    message = runtime_config.readiness_message or "Gateway / Ollama の状態を確認しています。"
+    if response and response.gateway_error_message:
+        message = "Gateway / Ollama の状態を確認しています。"
+    return "接続確認中", message, "checking"
+
+
+def _runtime_status_to_state(status: AssistantRuntimeStatus) -> dict[str, object]:
+    return {
+        "state": status.state,
+        "label": status.label,
+        "message": status.message,
+        "severity": status.severity,
+        "provider": status.provider,
+        "model": status.model,
+        "profile": status.profile,
+        "last_updated_at": status.last_updated_at,
+        "last_request_id": status.last_request_id,
+        "fallback_reason": status.fallback_reason,
+        "gateway_error_type": status.gateway_error_type,
+        "latency_ms": status.latency_ms,
+    }
+
+
+def _runtime_status_from_state(value: object) -> AssistantRuntimeStatus | None:
+    if not isinstance(value, dict):
+        return None
+    raw_state = str(value.get("state", "")).strip()
+    if raw_state not in {
+        "ready",
+        "checking",
+        "generating",
+        "research_planned",
+        "research_running",
+        "degraded",
+        "gateway_unavailable",
+        "provider_unavailable",
+        "model_missing",
+    }:
+        return None
+    raw_severity = str(value.get("severity", "")).strip()
+    if raw_severity not in {"ready", "checking", "warning", "error"}:
+        raw_severity = "checking"
+    latency_value = value.get("latency_ms")
+    latency_ms = (
+        int(latency_value)
+        if latency_value is not None and str(latency_value).strip().isdigit()
+        else None
+    )
+    return AssistantRuntimeStatus(
+        state=cast(AssistantRuntimeState, raw_state),
+        label=str(value.get("label", "")).strip() or "接続確認中",
+        message=(
+            str(value.get("message", "")).strip() or "Gateway / Ollama の状態を確認しています。"
+        ),
+        severity=cast(AssistantStatusSeverity, raw_severity),
+        provider=str(value.get("provider", "")).strip() or None,
+        model=str(value.get("model", "")).strip() or None,
+        profile=str(value.get("profile", "")).strip() or None,
+        last_updated_at=str(value.get("last_updated_at", "")).strip(),
+        last_request_id=str(value.get("last_request_id", "")).strip() or None,
+        fallback_reason=str(value.get("fallback_reason", "")).strip() or None,
+        gateway_error_type=str(value.get("gateway_error_type", "")).strip() or None,
+        latency_ms=latency_ms,
+    )
+
+
+def _assistant_runtime_status_for_header(
+    *,
+    history: list[dict[str, str]],
+    runtime_config: CopilotGatewayRuntimeConfig,
+    has_pending: bool = False,
+) -> AssistantRuntimeStatus:
+    latest = history[-1] if history else {}
+    latest_status = str(latest.get("status", "")).strip()
+    if has_pending or latest_status == "pending":
+        event_name = (
+            "research_running"
+            if str(latest.get("tool_plan_choice", "")).strip()
+            else "request_started"
+        )
+        return derive_assistant_runtime_status(
+            AssistantStatusEvent(name=event_name, runtime_config=runtime_config)
+        )
+    if latest_status == "tool_plan":
+        return derive_assistant_runtime_status(
+            AssistantStatusEvent(name="research_planned", runtime_config=runtime_config)
+        )
+    stored = _runtime_status_from_state(st.session_state.get(COPILOT_RUNTIME_STATUS_STATE_KEY))
+    if stored is not None and _runtime_status_matches_runtime_config(stored, runtime_config):
+        return stored
+    return derive_assistant_runtime_status(
+        AssistantStatusEvent(name="health_checked", runtime_config=runtime_config)
+    )
+
+
+def _runtime_status_matches_runtime_config(
+    status: AssistantRuntimeStatus,
+    runtime_config: CopilotGatewayRuntimeConfig,
+) -> bool:
+    return (
+        (status.provider or runtime_config.provider) == runtime_config.provider
+        and (status.model or runtime_config.model) == runtime_config.model
+        and (status.profile or runtime_config.profile) == runtime_config.profile
     )
 
 
@@ -690,6 +961,8 @@ def render_copilot_workspace_page() -> None:
         st.session_state[COPILOT_PENDING_REQUEST_STATE_KEY] = None
         st.session_state[COPILOT_PENDING_STREAM_STATE_KEY] = ""
         st.session_state[COPILOT_SUPPRESS_SUBMIT_STATE_KEY] = False
+        st.session_state.pop(COPILOT_RUNTIME_STATUS_STATE_KEY, None)
+        st.session_state.pop(COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY, None)
         st.rerun()
 
     chat_placeholder = st.empty()
@@ -727,6 +1000,8 @@ def render_copilot_workspace_page() -> None:
             prompt_instruction=suggested.prompt_instruction,
             visible_question=suggested.label,
             runtime_config=runtime_config,
+            pending_overrides={"conversation_mode": "normal_chat"},
+            request_overrides={"conversation_mode": "normal_chat"},
         )
         suggestions_placeholder.empty()
         history = _copilot_history()
@@ -773,6 +1048,8 @@ def render_copilot_workspace_page() -> None:
             prompt_instruction=preset.prompt_instruction,
             visible_question=prompt,
             runtime_config=runtime_config,
+            pending_overrides={"conversation_mode": conversation_decision.conversation_mode},
+            request_overrides={"conversation_mode": conversation_decision.conversation_mode},
         )
         suggestions_placeholder.empty()
         history = _copilot_history()
@@ -804,11 +1081,15 @@ def _render_copilot_header(
     history: list[dict[str, str]],
     runtime_config: CopilotGatewayRuntimeConfig,
 ) -> None:
+    runtime_status = _assistant_runtime_status_for_header(
+        history=history,
+        runtime_config=runtime_config,
+    )
     header_placeholder.markdown(
         _chat_header_html(
             history_count=len(history),
             runtime_config=runtime_config,
-            has_pending=_has_pending_copilot_turn(history),
+            runtime_status=runtime_status,
         ),
         unsafe_allow_html=True,
     )
@@ -977,6 +1258,8 @@ def _queue_copilot_submit(
         return
     turn_id = uuid4().hex
     history = _copilot_history()
+    pending_state = dict(pending_overrides or {})
+    request_state = dict(request_overrides or {})
     pending_turn = _pending_turn(
         turn_id=turn_id,
         context=context,
@@ -984,10 +1267,18 @@ def _queue_copilot_submit(
         intent=intent,
         runtime_config=runtime_config,
     )
-    pending_turn.update(dict(pending_overrides or {}))
+    pending_turn.update(pending_state)
     history.append(pending_turn)
     st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = history
     st.session_state[COPILOT_ACTIVE_INTENT_STATE_KEY] = intent
+    update_assistant_runtime_status(
+        AssistantStatusEvent(
+            name=(
+                "research_running" if pending_state.get("tool_plan_choice") else "request_started"
+            ),
+            runtime_config=runtime_config,
+        )
+    )
     pending_request = {
         "turn_id": turn_id,
         "context_id": context.context_id,
@@ -997,7 +1288,7 @@ def _queue_copilot_submit(
         "visible_question": visible_question,
         "runtime_config": _runtime_config_to_state(runtime_config),
     }
-    pending_request.update(dict(request_overrides or {}))
+    pending_request.update(request_state)
     st.session_state[COPILOT_PENDING_REQUEST_STATE_KEY] = pending_request
 
 
@@ -1036,6 +1327,7 @@ def _process_pending_copilot_request(
             str(request.get("tool_plan_missing_materials", ""))
         ),
         tool_plan_tools=str(request.get("tool_plan_tools", "")),
+        conversation_mode=str(request.get("conversation_mode", "normal_chat")),
     )
     return True
 
@@ -1066,6 +1358,7 @@ def _pending_turn(
         "memo_points": "",
         "executed_checks": "",
         "tool_statuses": "",
+        "conversation_mode": "normal_chat",
         "response_source": "",
         "model": "",
         "provider": "",
@@ -1131,6 +1424,12 @@ def _append_research_tool_plan_turn(
     )
     st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = history
     st.session_state[COPILOT_ACTIVE_INTENT_STATE_KEY] = intent
+    update_assistant_runtime_status(
+        AssistantStatusEvent(
+            name="research_planned",
+            runtime_config=copilot_gateway_runtime_config(),
+        )
+    )
 
 
 def _render_tool_plan_actions(
@@ -1234,6 +1533,7 @@ def _append_tool_plan_cancel_turn(*, context: SmaiAssistantContext, question: st
             "memo_points": "",
             "executed_checks": "ユーザーが調査をキャンセル",
             "tool_statuses": "",
+            "conversation_mode": "research_plan",
             "response_source": "deterministic_fallback",
             "fallback_reason": "research_cancelled",
             "response_meta": "SMAI通常回答 / research_cancelled / free_chat",
@@ -1241,6 +1541,12 @@ def _append_tool_plan_cancel_turn(*, context: SmaiAssistantContext, question: st
         }
     )
     st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = history
+    update_assistant_runtime_status(
+        AssistantStatusEvent(
+            name="cancelled",
+            runtime_config=copilot_gateway_runtime_config(),
+        )
+    )
 
 
 def _tool_plan_followup_instruction(*, turn: dict[str, str], choice: str) -> str:
@@ -1277,6 +1583,7 @@ def _tool_plan_followup_state(*, turn: dict[str, str], choice: str) -> dict[str,
         "tool_plan_subject": _tool_plan_subject_from_turn(turn),
         "tool_plan_tools": str(turn.get("tool_plan_tools", "")),
         "tool_plan_missing_materials": "\n".join(missing),
+        "conversation_mode": "research_running",
         "pending_steps": "\n".join(str(tool["label"]) for tool in tools),
         "answer": (
             "SMAIナビが材料を確認しています..."
@@ -1528,6 +1835,7 @@ def _handle_copilot_submit(
     tool_plan_subject: str = "",
     tool_plan_missing_materials: list[str] | None = None,
     tool_plan_tools: str = "",
+    conversation_mode: str = "normal_chat",
 ) -> None:
     normalized_question = question.strip()
     if not normalized_question:
@@ -1586,6 +1894,13 @@ def _handle_copilot_submit(
             response=response,
         )
         _cache_gateway_runtime_config(runtime_config)
+    update_assistant_runtime_status(
+        AssistantStatusEvent(
+            name="response_completed",
+            runtime_config=runtime_config,
+            response=response,
+        )
+    )
     turn = _turn_from_response(
         context,
         visible_question,
@@ -1601,6 +1916,7 @@ def _handle_copilot_submit(
             for result in (tool_plan.executed if tool_plan else ())
         ],
     )
+    turn["conversation_mode"] = "research_answer" if tool_plan_choice else conversation_mode
     if tool_plan_choice:
         turn["answer"] = _with_tool_plan_answer_prefix(
             answer=turn["answer"],
@@ -1844,6 +2160,7 @@ def _turn_from_response(
         "memo_points": "\n".join(memo_points),
         "executed_checks": "\n".join(sanitize_presentation_items(executed_checks or (), limit=6)),
         "tool_statuses": "\n".join(tool_statuses or ()),
+        "conversation_mode": "normal_chat",
         "response_source": response.response_source,
         "model": response.model or "",
         "provider": response.provider or "",
@@ -1898,6 +2215,7 @@ def _chat_header_html(
     *,
     history_count: int,
     runtime_config: CopilotGatewayRuntimeConfig | None = None,
+    runtime_status: AssistantRuntimeStatus | None = None,
     has_pending: bool = False,
 ) -> str:
     runtime_config = runtime_config or CopilotGatewayRuntimeConfig(
@@ -1908,23 +2226,31 @@ def _chat_header_html(
         execution_mode="auto",
         environment_profile="notebook",
     )
-    status_label = runtime_config.readiness_label
-    if has_pending:
-        status_label = "回答作成中"
-    elif history_count and runtime_config.readiness_status == "ready":
-        status_label = "Gateway応答あり"
-    status_detail = runtime_config.readiness_detail
-    if has_pending:
-        status_detail = "最新の状態を確認しています"
-    elif history_count and runtime_config.readiness_status == "unchecked":
+    runtime_status = runtime_status or _assistant_runtime_status_for_header(
+        history=[],
+        runtime_config=runtime_config,
+        has_pending=has_pending,
+    )
+    status_label = runtime_status.label
+    status_detail = runtime_status.message
+    if (
+        history_count
+        and runtime_status.state == "checking"
+        and runtime_config.readiness_status == "unchecked"
+    ):
         status_detail = f"会話 {history_count}件"
     llm_label = (
-        f"LLM: {runtime_config.provider} / {runtime_config.model} / {runtime_config.profile}"
+        f"LLM: {runtime_status.provider or runtime_config.provider} / "
+        f"{runtime_status.model or runtime_config.model} / "
+        f"{runtime_status.profile or runtime_config.profile}"
         if runtime_config.enabled
         else "LLM: deterministic fallback"
     )
-    status_tone = "checking" if has_pending else runtime_config.readiness_tone
-    statusbar_class = f"smai-copilot-statusbar smai-copilot-statusbar--{status_tone}"
+    statusbar_class = (
+        "smai-copilot-statusbar "
+        f"smai-copilot-statusbar--{runtime_status.severity} "
+        f"smai-copilot-statusbar-state--{runtime_status.state}"
+    )
     navi_image = _asset_data_uri(MASCOT_NAVI_CHAT_ASSET)
     return (
         '<section class="smai-copilot-chat-topbar">'
@@ -1938,7 +2264,7 @@ def _chat_header_html(
         "<p>銘柄・予測・ニュース・根拠資料を横断して、確認すべき材料を整理します。</p>"
         "</div>"
         "</div>"
-        f'<div class="{statusbar_class}">'
+        f'<div class="{statusbar_class}" data-status-state="{html.escape(runtime_status.state)}">'
         '<span class="smai-copilot-chat-status-dot" aria-hidden="true"></span>'
         f"<strong>{status_label}</strong>"
         f"<small>{html.escape(status_detail)}</small>"
@@ -2478,6 +2804,7 @@ def _response_meta_html(turn: dict[str, str]) -> str:
     if not meta:
         meta = "SMAI通常回答 / fallback"
     details = [
+        ("mode", str(turn.get("conversation_mode", "")).strip()),
         ("source", str(turn.get("response_source", "")).strip()),
         ("model", str(turn.get("model", "")).strip()),
         ("provider", str(turn.get("provider", "")).strip()),

@@ -110,7 +110,7 @@ class CopilotGatewayRuntimeConfig:
         if self.readiness_status == "gateway_unavailable":
             return "Gateway未接続"
         if self.readiness_status == "gateway_timeout":
-            return "Gateway応答なし"
+            return "Gateway状態確認待ち"
         if self.readiness_status == "provider_unavailable":
             return "Ollama未接続"
         if self.readiness_status == "model_missing":
@@ -591,7 +591,7 @@ def copilot_history_messages(
 def copilot_answer_detail_html(turn: dict[str, str]) -> str:
     intent = _normalize_intent(turn.get("intent", ""))
     if _is_llm_micro_intent(intent):
-        return _response_meta_html(turn) + _assistant_action_links_html(turn)
+        return _assistant_action_links_html(turn)
     titles = _section_titles_for_intent(intent)
     reasons = _list_html(_split_lines(turn.get("reasons", "")))
     cautions = _list_html(_split_lines(turn.get("cautions", "")))
@@ -2101,6 +2101,11 @@ def _conversation_answer(
 
 def _fallback_free_chat_answer(question: str, *, greeting: bool = False) -> str:
     if greeting:
+        if _is_wellbeing_question(question):
+            return (
+                "こんにちは。元気です。SMAIナビとして、銘柄の確認材料やAI予測、"
+                "ニュースの見方を短く整理できます。"
+            )
         return (
             "こんにちは。SMAIナビです。SMAIの使い方、銘柄の確認材料、"
             "AI予測やニュースの見方を短く整理できます。"
@@ -2184,6 +2189,21 @@ def _is_capability_question(question: str) -> bool:
             "どんなことができる",
             "help",
             "capability",
+        )
+    )
+
+
+def _is_wellbeing_question(question: str) -> bool:
+    normalized = str(question or "").strip().lower()
+    return any(
+        phrase in normalized
+        for phrase in (
+            "元気",
+            "げんき",
+            "調子",
+            "ちょうし",
+            "how are you",
+            "how's it going",
         )
     )
 

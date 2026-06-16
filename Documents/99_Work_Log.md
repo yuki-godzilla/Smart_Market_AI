@@ -18,6 +18,23 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-16 - SMAI Assistant normal chat status polish
+
+### Display mismatch fix
+
+- Changed Gateway timeout header wording from a definitive answer failure to `Gateway状態確認待ち`.
+- Updated the Gateway `/models` diagnostic timeout message to clarify that only the state check timed out and the answer request will retry Gateway connection.
+
+### Normal chat fallback visibility
+
+- Hid `技術情報を表示` metadata for normal chat, identity, and capability-help turns so fallback reasons such as `response_validation_failure` do not appear in casual conversation bubbles.
+- Kept copy action available for normal chat and retained diagnostic metadata for analysis-style turns.
+- Added a natural deterministic fallback for `こんにちは、元気ですか？` so SMAIナビ answers the greeting before mentioning supported consultation topics.
+
+### Validation
+
+- Updated UI tests for the new timeout label, hidden normal-chat technical metadata, retained analysis diagnostics, and wellbeing greeting fallback.
+
 ## 2026-06-16 - SMAI Assistant Research Plan UX Polish Sprint
 
 ### Plan Card Text

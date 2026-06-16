@@ -202,7 +202,7 @@ class HttpAssistantGatewayClient:
         except httpx.TimeoutException as exc:
             return AssistantGatewayDiagnostic(
                 status="gateway_timeout",
-                message="smai-ai-gateway の応答がタイムアウトしました。",
+                message="smai-ai-gateway の状態確認がタイムアウトしました。回答時はGateway接続を再試行します。",
                 gateway_url=self.models_url,
                 gateway_error_type="gateway_timeout",
                 gateway_error_message=str(exc),

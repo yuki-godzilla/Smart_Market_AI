@@ -16,6 +16,7 @@ from ui.views.copilot import (
     CopilotGatewayRuntimeConfig,
     _chat_header_html,
     _context_for_llm,
+    _fallback_free_chat_answer,
     _gateway_question,
     _intent_from_message,
     _pending_detail_html,
@@ -273,8 +274,8 @@ def test_copilot_answer_detail_html_escapes_detail_lists():
 def test_copilot_answer_detail_html_includes_gateway_diagnostics():
     markup = copilot_answer_detail_html(
         {
-            "intent": "free_chat",
-            "answer": "こんにちは。SMAIナビです。",
+            "intent": "stock_summary",
+            "answer": "確認材料を整理します。",
             "response_source": "deterministic_fallback",
             "fallback_reason": "gateway_unavailable",
             "gateway_error_type": "connection_refused",
@@ -283,7 +284,7 @@ def test_copilot_answer_detail_html_includes_gateway_diagnostics():
             "http_status": "",
             "provider_error_type": "",
             "provider_error_message": "",
-            "response_meta": "SMAI通常回答 / fallback: gateway_unavailable / free_chat",
+            "response_meta": "SMAI通常回答 / fallback: gateway_unavailable / stock_summary",
         }
     )
 
@@ -353,7 +354,16 @@ def test_copilot_answer_detail_html_uses_intent_specific_formats():
     assert "次回確認" in report
     assert "smai-copilot-answer-grid" not in free_chat
     assert "固定カードにしない" not in free_chat
-    assert "SMAI通常回答 / deterministic / free_chat" in free_chat
+    assert "SMAI通常回答 / deterministic / free_chat" not in free_chat
+    assert "技術情報を表示" not in free_chat
+    assert "コピー" in free_chat
+
+
+def test_fallback_free_chat_answer_handles_wellbeing_greeting():
+    answer = _fallback_free_chat_answer("こんにちは、元気ですか？", greeting=True)
+
+    assert answer.startswith("こんにちは。元気です。")
+    assert "fallback" not in answer.lower()
 
 
 def test_copilot_turn_html_separates_user_and_smai_messages():
@@ -683,12 +693,15 @@ def test_copilot_header_marks_gateway_timeout_as_warning():
             execution_mode="auto",
             environment_profile="notebook",
             readiness_status="gateway_timeout",
-            readiness_message="smai-ai-gateway の応答がタイムアウトしました。",
+            readiness_message=(
+                "smai-ai-gateway の状態確認がタイムアウトしました。"
+                "回答時はGateway接続を再試行します。"
+            ),
         ),
     )
 
-    assert "Gateway応答なし" in markup
-    assert "smai-ai-gateway の応答がタイムアウトしました。" in markup
+    assert "Gateway状態確認待ち" in markup
+    assert "smai-ai-gateway の状態確認がタイムアウトしました。" in markup
     assert "smai-copilot-statusbar--warning" in markup
 
 
@@ -924,7 +937,8 @@ def test_copilot_page_free_chat_does_not_render_fixed_cards(monkeypatch):
     history = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]
     assert history[-1]["intent"] == "free_chat"
     latest_markup = copilot_turn_html(history[-1])
-    assert "SMAI通常回答" in latest_markup
+    assert "SMAI通常回答" not in latest_markup
+    assert "技術情報を表示" not in latest_markup
     assert "見る材料" not in latest_markup
     assert "注意点" not in latest_markup
     assert "次に確認" not in latest_markup

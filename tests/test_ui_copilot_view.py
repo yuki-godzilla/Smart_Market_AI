@@ -5,7 +5,11 @@ from pathlib import Path
 import httpx
 from streamlit.testing.v1 import AppTest
 
-from backend.assistant import AssistantMessage, AssistantResponse
+from backend.assistant import (
+    AssistantMessage,
+    AssistantResponse,
+    build_assistant_research_tool_plan,
+)
 from backend.core.config import Settings
 from ui.views.copilot import (
     COPILOT_CHAT_HISTORY_STATE_KEY,
@@ -16,6 +20,7 @@ from ui.views.copilot import (
     _intent_from_message,
     _probe_copilot_gateway_runtime,
     _stream_chunks,
+    _tool_plan_tools_state,
     _turn_from_response,
     copilot_answer_detail_html,
     copilot_context_label,
@@ -394,6 +399,35 @@ def test_copilot_pending_turn_renders_as_smai_bubble_without_runtime_meta():
     assert "provider_timeout" not in markup
 
 
+def test_copilot_tool_plan_turn_renders_research_plan_card():
+    plan = build_assistant_research_tool_plan("トヨタはこれから上がるかな？")
+    assert plan is not None
+
+    markup = copilot_turn_html(
+        {
+            "status": "tool_plan",
+            "context_label": "銘柄コックピット / 価格・予測・材料確認",
+            "question": plan.user_question,
+            "answer": "7203.Tについて、確認する材料の計画を作りました。",
+            "intent": "stock_summary",
+            "conversation_reason": "特定銘柄と将来見通しの質問です。",
+            "approval_reason": plan.approval_reason,
+            "symbol_query": plan.symbol_query or "",
+            "symbol": plan.symbol or "",
+            "tool_plan_tools": _tool_plan_tools_state(plan),
+        }
+    )
+
+    assert "調査計画" in markup
+    assert "7203.T" in markup
+    assert "価格データ" in markup
+    assert "AI予測" in markup
+    assert "ニュース" in markup
+    assert "Research Evidence" in markup
+    assert "外部取得あり" in markup
+    assert "実行した確認" not in markup
+
+
 def test_copilot_turn_from_response_adds_natural_lead_and_meta():
     context = copilot_context_options()[0]
 
@@ -656,6 +690,35 @@ def test_copilot_page_chat_input_appends_chat_turn(monkeypatch):
     assert "ニュースだけ再確認" not in button_labels
     assert "Decision Report下書きへ" not in button_labels
     assert "smai-copilot-actions-row--inside" in page_text
+
+
+def test_copilot_page_research_question_shows_tool_plan_before_execution(monkeypatch):
+    monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    app = AppTest.from_file("ui/app.py", default_timeout=40)
+    app.session_state["sidemenu_page"] = "copilot"
+    _reset_copilot_session(app)
+    app.run()
+
+    app.text_input[0].set_value("トヨタはこれから上がるかな？")
+    _click_button_label(app, "送信")
+
+    assert not app.exception
+    history = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]
+    assert history[-1]["status"] == "tool_plan"
+    assert history[-1]["research_intent"] == "stock_forward_view"
+    assert app.session_state["smai_copilot_pending_request"] is None
+    page_text = "\n".join(
+        str(element.value)
+        for element in app.markdown
+        if getattr(element, "value", None) is not None
+    )
+    button_labels = [str(getattr(element, "label", "")) for element in app.button]
+    assert "調査計画" in page_text
+    assert "価格データ" in page_text
+    assert "外部取得あり" in page_text
+    assert "はい、取得して分析する" in button_labels
+    assert "取得済み情報だけで回答" in button_labels
+    assert "キャンセル" in button_labels
 
 
 def test_copilot_page_free_chat_does_not_render_fixed_cards(monkeypatch):

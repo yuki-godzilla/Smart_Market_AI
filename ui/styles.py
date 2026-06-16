@@ -3098,6 +3098,56 @@ div[data-testid="stChatInput"] textarea:focus {
     padding: 0.28rem 0.48rem;
 }
 
+.smai-copilot-tool-plan {
+    border-top: 1px solid rgba(71, 85, 105, 0.46);
+    margin-top: 0.78rem;
+    padding-top: 0.72rem;
+}
+
+.smai-copilot-tool-plan-title {
+    color: var(--smai-teal);
+    display: block;
+    font-size: 0.76rem;
+    font-weight: 820;
+    margin-bottom: 0.36rem;
+}
+
+.smai-copilot-tool-plan p {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    margin: 0.24rem 0;
+}
+
+.smai-copilot-tool-plan ul {
+    display: grid;
+    gap: 0.42rem;
+    list-style: none;
+    margin: 0.62rem 0 0;
+    padding: 0;
+}
+
+.smai-copilot-tool-plan li {
+    border: 1px solid rgba(45, 212, 191, 0.22);
+    border-radius: 8px;
+    background: rgba(8, 47, 73, 0.2);
+    display: grid;
+    gap: 0.16rem;
+    padding: 0.52rem 0.62rem;
+}
+
+.smai-copilot-tool-plan li b {
+    color: var(--text-primary);
+    font-size: 0.82rem;
+}
+
+.smai-copilot-tool-plan li span,
+.smai-copilot-tool-plan li small,
+.smai-copilot-tool-plan-choice {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+}
+
 .smai-copilot-response-meta {
     margin-top: 0.56rem;
 }

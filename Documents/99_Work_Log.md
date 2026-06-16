@@ -18,6 +18,21 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-16 - Assistant Command Center first implementation slice
+
+### Assistant
+
+- Added a parent-side Conversation Mode Router that separates `normal_chat`, `soft_research_suggestion`, and `research_plan`.
+- Added `AssistantResearchToolPlan` / Tool Plan Builder for research requests such as `stock_forward_view`, `news_research`, and `decision_report_request`.
+- Updated the `SMAIアシスタント` workspace so clear research questions render a chat-thread Tool Plan card with approve / cached-only / cancel actions before any external fetch or LLM answer generation.
+- Kept Gateway as the generic context-answer boundary; Tool Plan orchestration remains in parent SMAI.
+
+### Verification
+
+- Targeted assistant / copilot tests passed: 54 passed.
+- Ruff, black helper, and targeted mypy passed.
+- In-app Browser was unavailable in this environment, so UI confirmation used Streamlit AppTest.
+
 ## 2026-06-16 - SMAI Assistant Command Center roadmap
 
 ### Roadmap

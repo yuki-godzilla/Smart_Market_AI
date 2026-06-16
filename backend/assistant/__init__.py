@@ -1,3 +1,9 @@
+from backend.assistant.conversation_mode import (
+    AssistantConversationMode,
+    AssistantConversationModeDecision,
+    AssistantResearchIntent,
+    route_assistant_conversation_mode,
+)
 from backend.assistant.gateway_client import (
     AssistantAnswerService,
     AssistantGatewayClient,
@@ -39,6 +45,11 @@ from backend.assistant.service import (
     AssistantResponse,
     TemplateAssistantService,
 )
+from backend.assistant.tool_plan import (
+    AssistantResearchTool,
+    AssistantResearchToolPlan,
+    build_assistant_research_tool_plan,
+)
 from backend.assistant.tools import (
     AssistantCurrentContext,
     AssistantToolLayer,
@@ -57,6 +68,8 @@ __all__ = [
     "AssistantCitation",
     "AssistantAgentIntent",
     "AssistantAnswerService",
+    "AssistantConversationMode",
+    "AssistantConversationModeDecision",
     "AssistantCurrentContext",
     "AssistantGatewayClient",
     "AssistantGatewayConstraints",
@@ -73,6 +86,9 @@ __all__ = [
     "AssistantMessage",
     "AssistantRequest",
     "AssistantResponse",
+    "AssistantResearchIntent",
+    "AssistantResearchTool",
+    "AssistantResearchToolPlan",
     "AssistantToolLayer",
     "AssistantToolPlanResult",
     "AssistantToolResult",
@@ -84,6 +100,8 @@ __all__ = [
     "build_assistant_gateway_request",
     "create_assistant_gateway_client_from_settings",
     "create_assistant_service_from_settings",
+    "build_assistant_research_tool_plan",
     "detect_assistant_intent",
     "execute_assistant_tool_plan",
+    "route_assistant_conversation_mode",
 ]

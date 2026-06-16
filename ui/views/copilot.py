@@ -14,10 +14,13 @@ import streamlit as st
 
 from backend.assistant import (
     AssistantMessage,
+    AssistantResearchToolPlan,
     AssistantResponse,
     HttpAssistantGatewayClient,
+    build_assistant_research_tool_plan,
     detect_assistant_intent,
     execute_assistant_tool_plan,
+    route_assistant_conversation_mode,
 )
 from backend.assistant.response_sanitizer import (
     sanitize_presentation_items,
@@ -611,8 +614,12 @@ def _copilot_turn_rows_html(turn: dict[str, str]) -> str:
     context_label = str(turn.get("context_label", "")).strip()
     question = str(turn.get("question", "")).strip()
     answer = str(turn.get("answer", "")).strip()
-    is_pending = str(turn.get("status", "")).strip() == "pending"
-    detail_html = "" if is_pending else copilot_answer_detail_html(turn)
+    status = str(turn.get("status", "")).strip()
+    is_pending = status == "pending"
+    if status in {"tool_plan", "tool_plan_resolved"}:
+        detail_html = _tool_plan_detail_html(turn)
+    else:
+        detail_html = "" if is_pending else copilot_answer_detail_html(turn)
     assistant_html = _assistant_bubble_html(
         answer=answer,
         detail_html=detail_html,
@@ -654,6 +661,13 @@ def render_copilot_workspace_page() -> None:
         fallback_context=contexts[0],
     ):
         st.rerun()
+    if _render_tool_plan_actions(
+        _copilot_history(),
+        context_by_id=context_by_id,
+        fallback_context=contexts[0],
+        runtime_config=runtime_config,
+    ):
+        st.rerun()
     suppress_submit = bool(st.session_state.pop(COPILOT_SUPPRESS_SUBMIT_STATE_KEY, False))
     suggested = _render_suggestion_buttons(has_history=bool(history))
 
@@ -672,6 +686,19 @@ def render_copilot_workspace_page() -> None:
     prompt, runtime_config = _render_chat_composer(runtime_config)
 
     if prompt and not suppress_submit:
+        conversation_decision = route_assistant_conversation_mode(prompt)
+        if conversation_decision.conversation_mode == "research_plan":
+            research_plan = build_assistant_research_tool_plan(prompt, conversation_decision)
+            if research_plan is not None:
+                intent = _intent_for_research_plan(research_plan.intent)
+                context = context_by_id.get(_context_id_for_intent(intent), contexts[0])
+                _append_research_tool_plan_turn(
+                    context=context,
+                    visible_question=prompt,
+                    research_plan=research_plan,
+                    conversation_reason=conversation_decision.reason,
+                )
+                st.rerun()
         intent = _intent_from_message(prompt, fallback=_active_intent())
         preset = _preset_for_intent(intent)
         context = context_by_id.get(preset.context_id, contexts[0])
@@ -875,6 +902,166 @@ def _pending_turn(
         "response_meta": "",
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
+
+
+def _append_research_tool_plan_turn(
+    *,
+    context: SmaiAssistantContext,
+    visible_question: str,
+    research_plan: AssistantResearchToolPlan,
+    conversation_reason: str,
+) -> None:
+    history = _copilot_history()
+    intent = _intent_for_research_plan(research_plan.intent)
+    history.append(
+        {
+            "turn_id": uuid4().hex,
+            "status": "tool_plan",
+            "context_id": context.context_id,
+            "context_label": copilot_context_label(context),
+            "intent": intent,
+            "intent_label": "調査計画",
+            "question": visible_question,
+            "answer": _tool_plan_answer(research_plan),
+            "reasons": "",
+            "cautions": "",
+            "next_checkpoints": "",
+            "memo_points": "",
+            "executed_checks": "",
+            "tool_statuses": "",
+            "conversation_mode": "research_plan",
+            "conversation_reason": conversation_reason,
+            "research_intent": research_plan.intent,
+            "symbol_query": research_plan.symbol_query or "",
+            "symbol": research_plan.symbol or "",
+            "approval_reason": research_plan.approval_reason,
+            "tool_plan_tools": _tool_plan_tools_state(research_plan),
+            "approval_choice": "",
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        }
+    )
+    st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = history
+    st.session_state[COPILOT_ACTIVE_INTENT_STATE_KEY] = intent
+
+
+def _render_tool_plan_actions(
+    history: list[dict[str, str]],
+    *,
+    context_by_id: dict[str, SmaiAssistantContext],
+    fallback_context: SmaiAssistantContext,
+    runtime_config: CopilotGatewayRuntimeConfig,
+) -> bool:
+    if not history or str(history[-1].get("status", "")) != "tool_plan":
+        return False
+    turn = history[-1]
+    st.markdown(
+        '<div class="smai-copilot-chat-actions-anchor" aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
+    columns = st.columns(3, gap="small")
+    actions = (
+        ("approve", "はい、取得して分析する"),
+        ("cached_only", "取得済み情報だけで回答"),
+        ("cancel", "キャンセル"),
+    )
+    for column, (choice, label) in zip(columns, actions):
+        with column:
+            if st.button(
+                label,
+                key=f"smai_copilot_tool_plan_{choice}_{turn.get('turn_id', '')}",
+                use_container_width=True,
+            ):
+                _handle_tool_plan_choice(
+                    turn,
+                    choice=choice,
+                    label=label,
+                    context_by_id=context_by_id,
+                    fallback_context=fallback_context,
+                    runtime_config=runtime_config,
+                )
+                return True
+    return False
+
+
+def _handle_tool_plan_choice(
+    turn: dict[str, str],
+    *,
+    choice: str,
+    label: str,
+    context_by_id: dict[str, SmaiAssistantContext],
+    fallback_context: SmaiAssistantContext,
+    runtime_config: CopilotGatewayRuntimeConfig,
+) -> None:
+    history = _copilot_history()
+    resolved_history: list[dict[str, str]] = []
+    for item in history:
+        if str(item.get("turn_id", "")) == str(turn.get("turn_id", "")):
+            resolved = dict(item)
+            resolved["status"] = "tool_plan_resolved"
+            resolved["approval_choice"] = label
+            resolved_history.append(resolved)
+        else:
+            resolved_history.append(item)
+    st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = resolved_history
+
+    context = context_by_id.get(str(turn.get("context_id", "")), fallback_context)
+    intent = _normalize_intent(turn.get("intent", "stock_summary"))
+    question = str(turn.get("question", "")).strip()
+    if choice == "cancel":
+        _append_tool_plan_cancel_turn(context=context, question=label)
+        return
+
+    _queue_copilot_submit(
+        context,
+        question,
+        intent=intent,
+        prompt_instruction=_tool_plan_followup_instruction(turn=turn, choice=choice),
+        visible_question=label,
+        runtime_config=runtime_config,
+    )
+
+
+def _append_tool_plan_cancel_turn(*, context: SmaiAssistantContext, question: str) -> None:
+    history = _copilot_history()
+    history.append(
+        {
+            "turn_id": uuid4().hex,
+            "status": "complete",
+            "context_id": context.context_id,
+            "context_label": copilot_context_label(context),
+            "intent": "free_chat",
+            "intent_label": "調査キャンセル",
+            "question": question,
+            "answer": "調査を中止しました。必要になったら、銘柄名や見たい材料を指定してもう一度聞いてください。",
+            "reasons": "",
+            "cautions": "",
+            "next_checkpoints": "",
+            "memo_points": "",
+            "executed_checks": "ユーザーが調査をキャンセル",
+            "tool_statuses": "",
+            "response_source": "deterministic_fallback",
+            "fallback_reason": "research_cancelled",
+            "response_meta": "SMAI通常回答 / research_cancelled / free_chat",
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        }
+    )
+    st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = history
+
+
+def _tool_plan_followup_instruction(*, turn: dict[str, str], choice: str) -> str:
+    tools = _tool_plan_tools_from_turn(turn)
+    labels = "、".join(str(tool["label"]) for tool in tools) or "取得済み材料"
+    if choice == "cached_only":
+        return (
+            "ユーザーは外部取得を行わず、取得済み情報だけで回答することを選びました。"
+            f"対象材料: {labels}。不足している材料は未確認として明示してください。"
+            "売買推奨、スコア変更、ランキング変更、予測値変更はしないでください。"
+        )
+    return (
+        "ユーザーはTool Planを承認しました。今回の初期実装では、SMAI側のread-only文脈と"
+        "取得済み材料を使って整理し、外部取得が未接続の材料は未確認として明示してください。"
+        f"計画された材料: {labels}。売買推奨、スコア変更、ランキング変更、予測値変更はしないでください。"
+    )
 
 
 def _pending_message_for_intent(intent: CopilotIntent) -> str:
@@ -1291,6 +1478,82 @@ def _action_card_intro_html(*, preset: CopilotConversationPreset) -> str:
         f"<p>{html.escape(preset.description)}</p>"
         "</div>"
     )
+
+
+def _tool_plan_answer(plan: AssistantResearchToolPlan) -> str:
+    subject = plan.symbol or plan.symbol_query or "この相談"
+    return (
+        f"{subject}について、確認する材料の計画を作りました。"
+        "外部情報の取得が含まれる場合があるため、実行前に確認します。"
+    )
+
+
+def _tool_plan_detail_html(turn: dict[str, str]) -> str:
+    tools = _tool_plan_tools_from_turn(turn)
+    subject = str(turn.get("symbol", "") or turn.get("symbol_query", "") or "未指定").strip()
+    approval = str(turn.get("approval_reason", "")).strip()
+    reason = str(turn.get("conversation_reason", "")).strip()
+    approval_choice = str(turn.get("approval_choice", "")).strip()
+    items = "".join(
+        (
+            "<li>"
+            f'<b>{html.escape(str(tool["label"]))}</b>'
+            f'<span>{html.escape(str(tool["reason"]))}</span>'
+            f'<small>{"外部取得あり" if bool(tool["external"]) else "SMAI内確認"}'
+            f' / {"必須" if bool(tool["required"]) else "任意"}</small>'
+            "</li>"
+        )
+        for tool in tools
+    )
+    choice_html = (
+        '<p class="smai-copilot-tool-plan-choice">' f"選択済み: {html.escape(approval_choice)}</p>"
+        if approval_choice
+        else ""
+    )
+    return (
+        '<section class="smai-copilot-tool-plan">'
+        '<span class="smai-copilot-tool-plan-title">調査計画</span>'
+        f"<p>対象: {html.escape(subject)}</p>"
+        f"<p>{html.escape(reason)}</p>"
+        f"<p>{html.escape(approval)}</p>"
+        f"<ul>{items}</ul>"
+        f"{choice_html}"
+        "</section>"
+    )
+
+
+def _tool_plan_tools_state(plan: AssistantResearchToolPlan) -> str:
+    return "\n".join(
+        "\t".join(
+            (
+                tool.name,
+                tool.label,
+                tool.reason,
+                "1" if tool.external else "0",
+                "1" if tool.required else "0",
+            )
+        )
+        for tool in plan.tools
+    )
+
+
+def _tool_plan_tools_from_turn(turn: dict[str, str]) -> list[dict[str, object]]:
+    tools: list[dict[str, object]] = []
+    for line in str(turn.get("tool_plan_tools", "")).splitlines():
+        parts = line.split("\t")
+        if len(parts) != 5:
+            continue
+        name, label, reason, external, required = parts
+        tools.append(
+            {
+                "name": name,
+                "label": label,
+                "reason": reason,
+                "external": external == "1",
+                "required": required == "1",
+            }
+        )
+    return tools
 
 
 def _inline_sections_html(sections: tuple[tuple[str, str], ...]) -> str:
@@ -1817,6 +2080,23 @@ def _active_context_from_history(
 
 def _active_intent() -> CopilotIntent:
     return _normalize_intent(st.session_state.get(COPILOT_ACTIVE_INTENT_STATE_KEY, "free_chat"))
+
+
+def _intent_for_research_plan(research_intent: object) -> CopilotIntent:
+    mapping: dict[str, CopilotIntent] = {
+        "stock_forward_view": "stock_summary",
+        "news_research": "news_materials",
+        "investment_material_scan": "news_materials",
+        "decision_report_request": "decision_report_draft",
+        "theme_stock_discovery": "stock_summary",
+        "ranking_query": "stock_summary",
+        "market_radar_query": "news_materials",
+    }
+    return mapping.get(str(research_intent), "stock_summary")
+
+
+def _context_id_for_intent(intent: CopilotIntent) -> str:
+    return _preset_for_intent(intent).context_id
 
 
 def _intent_from_message(message: str, *, fallback: CopilotIntent) -> CopilotIntent:

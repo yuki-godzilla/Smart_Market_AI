@@ -63,6 +63,7 @@ COPILOT_PENDING_REQUEST_STATE_KEY = "smai_copilot_pending_request"
 COPILOT_SUPPRESS_SUBMIT_STATE_KEY = "smai_copilot_suppress_next_submit"
 COPILOT_LLM_PROFILE_STATE_KEY = "smai_copilot_llm_profile"
 COPILOT_LLM_MODEL_STATE_KEY = "smai_copilot_llm_model"
+COPILOT_LLM_MODEL_RADIO_STATE_KEY = "smai_copilot_llm_model_radio"
 COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY = "smai_copilot_gateway_diagnostic"
 COPILOT_RUNTIME_STATUS_STATE_KEY = "smai_copilot_runtime_status"
 COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY = "pending_decision_report_draft"
@@ -459,6 +460,16 @@ def _selected_llm_profile_model(gateway: AssistantGatewayConfig) -> tuple[str, s
     )
     profile = str(st.session_state.get(COPILOT_LLM_PROFILE_STATE_KEY, default_profile))
     model = str(st.session_state.get(COPILOT_LLM_MODEL_STATE_KEY, default_model))
+    radio_label = str(st.session_state.get(COPILOT_LLM_MODEL_RADIO_STATE_KEY, ""))
+    radio_option = _llm_model_option_from_label(radio_label)
+    if radio_option is not None:
+        profile, model, _ = radio_option
+        st.session_state[COPILOT_LLM_PROFILE_STATE_KEY] = profile
+        st.session_state[COPILOT_LLM_MODEL_STATE_KEY] = model
+    elif not _llm_profile_model_matches_option(profile, model):
+        profile, model, _ = _llm_model_option_for_profile_model(profile, model)
+        st.session_state[COPILOT_LLM_PROFILE_STATE_KEY] = profile
+        st.session_state[COPILOT_LLM_MODEL_STATE_KEY] = model
     return profile, model
 
 
@@ -469,12 +480,48 @@ def _model_for_profile(profile: str) -> str:
     return "qwen3:1.7b"
 
 
+def _llm_model_option_label(profile: str, model: str, purpose: str) -> str:
+    return f"{profile} / {model} - {purpose}"
+
+
+def _llm_model_option_labels() -> list[str]:
+    return [
+        _llm_model_option_label(profile, model, purpose)
+        for profile, model, purpose in COPILOT_LLM_MODEL_OPTIONS
+    ]
+
+
+def _llm_model_option_from_label(label: str) -> tuple[str, str, str] | None:
+    for profile, model, purpose in COPILOT_LLM_MODEL_OPTIONS:
+        if label == _llm_model_option_label(profile, model, purpose):
+            return profile, model, purpose
+    return None
+
+
+def _llm_profile_model_matches_option(profile: str, model: str) -> bool:
+    return any(
+        option_profile == profile and option_model == model
+        for option_profile, option_model, _ in COPILOT_LLM_MODEL_OPTIONS
+    )
+
+
+def _llm_model_option_for_profile_model(profile: str, model: str) -> tuple[str, str, str]:
+    for option_profile, option_model, purpose in COPILOT_LLM_MODEL_OPTIONS:
+        if option_profile == profile and option_model == model:
+            return option_profile, option_model, purpose
+    for option_profile, option_model, purpose in COPILOT_LLM_MODEL_OPTIONS:
+        if option_profile == profile:
+            return option_profile, option_model, purpose
+    for option_profile, option_model, purpose in COPILOT_LLM_MODEL_OPTIONS:
+        if option_model == model:
+            return option_profile, option_model, purpose
+    return COPILOT_LLM_MODEL_OPTIONS[0]
+
+
 def _render_model_selector(
     runtime_config: CopilotGatewayRuntimeConfig,
 ) -> CopilotGatewayRuntimeConfig:
-    labels = [
-        f"{profile} / {model} - {purpose}" for profile, model, purpose in COPILOT_LLM_MODEL_OPTIONS
-    ]
+    labels = _llm_model_option_labels()
     current_index = next(
         (
             index
@@ -483,13 +530,19 @@ def _render_model_selector(
         ),
         0,
     )
-    with st.popover(runtime_config.model, use_container_width=True):
+    radio_label = str(st.session_state.get(COPILOT_LLM_MODEL_RADIO_STATE_KEY, ""))
+    if radio_label in labels:
+        current_index = labels.index(radio_label)
+    profile, model, purpose = COPILOT_LLM_MODEL_OPTIONS[current_index]
+    st.session_state[COPILOT_LLM_PROFILE_STATE_KEY] = profile
+    st.session_state[COPILOT_LLM_MODEL_STATE_KEY] = model
+    with st.popover(model, use_container_width=True):
         st.caption("LLM model")
         selected_label = st.radio(
             "使用モデル",
             labels,
             index=current_index,
-            key="smai_copilot_llm_model_radio",
+            key=COPILOT_LLM_MODEL_RADIO_STATE_KEY,
         )
         selected_index = labels.index(selected_label)
         profile, model, purpose = COPILOT_LLM_MODEL_OPTIONS[selected_index]

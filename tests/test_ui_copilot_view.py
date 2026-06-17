@@ -29,6 +29,9 @@ from ui.views.copilot import (
     _fallback_free_chat_answer,
     _gateway_question,
     _intent_from_message,
+    _llm_model_option_for_profile_model,
+    _llm_model_option_from_label,
+    _llm_model_option_label,
     _pending_detail_html,
     _pending_steps_for_intent,
     _probe_copilot_gateway_runtime,
@@ -230,7 +233,38 @@ def test_copilot_conversation_presets_define_six_entry_intents():
 def test_copilot_llm_model_options_include_notebook_standard_qwen4b():
     models = [model for _, model, _ in COPILOT_LLM_MODEL_OPTIONS]
 
-    assert models == ["qwen3:1.7b", "qwen3:4b", "qwen3:8b", "qwen3:14b", "qwen3:30b"]
+    assert models == [
+        "qwen3:1.7b",
+        "qwen3:4b",
+        "qwen3:8b",
+        "qwen3:14b",
+        "qwen3:30b",
+    ]
+
+
+def test_copilot_llm_model_option_normalizes_mismatched_profile_and_model():
+    profile, model, purpose = _llm_model_option_for_profile_model(
+        "desktop_analysis",
+        "qwen3:30b",
+    )
+
+    assert profile == "desktop_analysis"
+    assert model == "qwen3:14b"
+    assert purpose == "デスクトップ高精度 / 銘柄分析・RAG"
+
+
+def test_copilot_llm_model_option_label_round_trips():
+    label = _llm_model_option_label(
+        "desktop_analysis",
+        "qwen3:14b",
+        "デスクトップ高精度 / 銘柄分析・RAG",
+    )
+
+    assert _llm_model_option_from_label(label) == (
+        "desktop_analysis",
+        "qwen3:14b",
+        "デスクトップ高精度 / 銘柄分析・RAG",
+    )
 
 
 def test_copilot_history_messages_keeps_recent_chat_pairs():

@@ -6,6 +6,7 @@ import os
 import time
 from dataclasses import dataclass, replace
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Literal, Mapping, cast
 from uuid import uuid4
 
@@ -35,7 +36,13 @@ from backend.assistant.response_sanitizer import (
     sanitize_presentation_text,
 )
 from backend.core.config import AssistantGatewayConfig, Settings, get_settings
-from backend.reporting import DecisionReportContext, render_decision_report_markdown
+from backend.reporting import (
+    DecisionReportContext,
+    archive_assistant_decision_report_draft,
+    assistant_decision_report_zip_download,
+    build_assistant_decision_report_archive_entry,
+    render_decision_report_markdown,
+)
 from ui.components.assistant import (
     SmaiAssistantContext,
     assistant_context_to_report_context,
@@ -1556,26 +1563,32 @@ def _render_pending_decision_report_draft_preview() -> None:
     if not markdown:
         return
     status = str(draft.get("status", "draft_ready"))
-    if status == "saved_in_session":
-        st.success("Decision Report下書きを保存しました。会話内の判断メモとして保持しています。")
+    context = _decision_report_context_from_draft(draft)
+    if status == "archived":
+        saved_path = _display_path(str(draft.get("archive_markdown_path", "")))
+        st.success(f"Decision Report下書きを保存しました。保存先: {saved_path}")
+        if str(draft.get("manifest_status", "")) == "partial":
+            st.warning("下書きファイルは保存されましたが、manifestの更新に失敗しました。")
+    elif status == "archive_failed":
+        st.error(
+            "Decision Report下書きを保存できませんでした。ファイル権限または保存先を確認してください。"
+        )
     else:
         st.info("Decision Report下書きを作成しました。内容を確認して保存できます。")
     with st.expander("Decision Report下書きプレビュー", expanded=True):
         st.markdown(markdown)
-        save_col, download_col, cancel_col = st.columns(3, gap="small")
+        save_col, markdown_col, zip_col, cancel_col = st.columns(4, gap="small")
         with save_col:
             if st.button(
-                "Decision Reportに保存",
+                "下書きを保存",
                 key=f"smai_copilot_report_draft_save_{draft.get('turn_id', '')}",
                 use_container_width=True,
             ):
-                updated = dict(draft)
-                updated["status"] = "saved_in_session"
-                st.session_state[COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY] = updated
+                _archive_pending_decision_report_draft(draft, context=context)
                 st.rerun()
-        with download_col:
+        with markdown_col:
             st.download_button(
-                "Markdownで保存",
+                "Markdown保存",
                 data=markdown,
                 file_name=_memo_filename(
                     {
@@ -1589,6 +1602,37 @@ def _render_pending_decision_report_draft_preview() -> None:
                 key=f"smai_copilot_report_draft_download_{draft.get('turn_id', '')}",
                 use_container_width=True,
             )
+        with zip_col:
+            if context is not None:
+                zip_manifest = build_assistant_decision_report_archive_entry(
+                    context,
+                    markdown=markdown,
+                    markdown_filename="report.md",
+                    zip_filename="assistant_decision_report.zip",
+                )
+                st.download_button(
+                    "ZIP保存",
+                    data=assistant_decision_report_zip_download(markdown, zip_manifest),
+                    file_name=_memo_filename(
+                        {
+                            "intent": "decision_report_draft",
+                            "context_label": (
+                                draft.get("company_name") or draft.get("symbol") or "SMAI"
+                            ),
+                        },
+                        extension="zip",
+                    ),
+                    mime="application/zip",
+                    key=f"smai_copilot_report_draft_zip_{draft.get('turn_id', '')}",
+                    use_container_width=True,
+                )
+            else:
+                st.button(
+                    "ZIP保存",
+                    key=f"smai_copilot_report_draft_zip_disabled_{draft.get('turn_id', '')}",
+                    use_container_width=True,
+                    disabled=True,
+                )
         with cancel_col:
             if st.button(
                 "キャンセル",
@@ -1597,6 +1641,67 @@ def _render_pending_decision_report_draft_preview() -> None:
             ):
                 st.session_state.pop(COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY, None)
                 st.rerun()
+
+
+def _archive_pending_decision_report_draft(
+    draft: dict[str, object],
+    *,
+    context: DecisionReportContext | None,
+) -> None:
+    updated = dict(draft)
+    if context is None:
+        updated["status"] = "archive_failed"
+        st.session_state[COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY] = updated
+        return
+    try:
+        result = archive_assistant_decision_report_draft(
+            context,
+            _assistant_decision_report_archive_dir(),
+            markdown=str(draft.get("markdown", "")),
+            include_zip=True,
+        )
+    except OSError:
+        updated["status"] = "archive_failed"
+        st.session_state[COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY] = updated
+        return
+
+    updated.update(
+        {
+            "status": "archived",
+            "archive_draft_id": result.draft_id,
+            "archive_markdown_path": str(result.markdown_path),
+            "archive_manifest_path": str(result.manifest_path),
+            "archive_zip_path": str(result.zip_path or ""),
+            "manifest_status": "updated" if result.manifest_updated else "partial",
+        }
+    )
+    st.session_state[COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY] = updated
+    _mark_turn_report_draft_status(str(draft.get("turn_id", "")), "archived")
+
+
+def _decision_report_context_from_draft(
+    draft: Mapping[str, object]
+) -> DecisionReportContext | None:
+    raw_context = str(draft.get("context", "")).strip()
+    if not raw_context:
+        return None
+    try:
+        return DecisionReportContext.model_validate_json(raw_context)
+    except ValueError:
+        return None
+
+
+def _assistant_decision_report_archive_dir() -> Path:
+    return Path("exports") / "decision_reports"
+
+
+def _display_path(path: str) -> str:
+    if not path:
+        return "未確認"
+    try:
+        return Path(path).relative_to(Path.cwd()).as_posix()
+    except ValueError:
+        return Path(path).as_posix()
 
 
 def _latest_decision_report_ready_turn(

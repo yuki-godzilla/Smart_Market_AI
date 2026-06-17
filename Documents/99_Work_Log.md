@@ -2431,3 +2431,51 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - external fetch MVP connected: yes.
 - network-free tests maintained: yes, all normal coverage uses monkeypatch / fixtures and does not call live providers.
 - remaining issues: persistent Decision Report save/archive UX and broader Phase 27 live LLM Factor generation remain future work.
+
+## Phase 26A-5: SMAI Assistant Decision Report Draft Archive UX MVP
+
+### Scope
+
+- implemented: connected `pending_decision_report_draft` to a local archive helper that writes sanitized Markdown, ZIP, and `assistant_decision_report_manifest.json` under `exports/decision_reports/`.
+- not implemented: long-term Assistant memory, searchable report library UI, PDF/Excel export, and live LLM Factor generation.
+
+### Draft Model
+
+- fields: source, intent, symbol, company_name, title, created_at, cached_only, fetch_mode, tool_status, source_count, freshness_warnings, and markdown hash are persisted in the assistant archive manifest.
+- cached-only: report context now records `fetch_mode=cached_only`, and archive tool status maps planned external tools to `skipped`.
+- sources: compact source URL/provider/source_type/published/freshness strings remain in the report draft and saved Markdown.
+- tool status: saved Markdown includes a `Tool Status` section; manifest stores normalized success / failed / missing / skipped values.
+
+### Export / Archive
+
+- markdown: `下書きを保存` writes an overwrite-safe Markdown file with timestamp, symbol/topic slug, and short hash.
+- manifest: archive append updates `assistant_decision_report_manifest.json`; Markdown success with manifest failure is treated as partial success.
+- zip: archive writes a ZIP containing `report.md` and `manifest.json`; UI also exposes ZIP download from the draft card.
+
+### UI
+
+- Decision Reportに追加: creates the pending draft preview from the eligible Assistant turn.
+- 下書きを保存: archives the draft to `exports/decision_reports/` and shows the saved path.
+- Markdown保存: remains a browser download for a standalone Markdown file.
+- ZIP保存: downloads a compact report package without provider raw fields or fetched source bodies.
+
+### Validation
+
+- stock_forward_view save: covered by Copilot AppTest with mocked Toyota external fetch, archive write, manifest, and ZIP assertions.
+- cached-only save: covered by Copilot AppTest confirming external fetch is not called and archive manifest marks `news_fetch` / `research_fetch` as `skipped`.
+- news_research save: backend archive coverage verifies source URL and warning preservation for news/research-style material rows.
+- normal_chat no report action: existing Copilot test confirms normal chat does not expose Decision Report add.
+- Streamlit UI smoke: launched local app on `127.0.0.1:8509` with background workers disabled, ran Toyota research request through cached-only, `Decision Reportに追加`, and `下書きを保存`; external fetch was not triggered.
+
+### Tests
+
+- added: `tests/test_assistant_decision_report_archive.py`.
+- updated: `tests/test_ui_copilot_view.py`.
+- passed: targeted archive pytest and targeted Copilot archive/cached-only/no-report-action pytest.
+- failed: one interim assertion looked for `ZIP保存` in `app.button`, but Streamlit AppTest does not expose download buttons there; test now verifies ZIP file creation after archive save.
+
+### Final Judgement
+
+- archive UX connected: yes.
+- report content sanitized: yes, raw provider/debug/request metadata lines are stripped and not persisted.
+- remaining issues: searchable saved-report library and broader Phase 27 live LLM Factor generation remain future work.

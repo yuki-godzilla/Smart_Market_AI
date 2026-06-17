@@ -1,3 +1,12 @@
+from backend.reporting.assistant_archive import (
+    ASSISTANT_DECISION_REPORT_ARCHIVE_MANIFEST,
+    ASSISTANT_DECISION_REPORT_ARCHIVE_SCHEMA_VERSION,
+    AssistantDecisionReportArchiveResult,
+    archive_assistant_decision_report_draft,
+    assistant_decision_report_zip_download,
+    build_assistant_decision_report_archive_entry,
+    sanitize_assistant_decision_report_markdown,
+)
 from backend.reporting.service import (
     DECISION_REPORT_SCHEMA_VERSION,
     DECISION_SUPPORT_NOTE,
@@ -23,13 +32,19 @@ from backend.reporting.service import (
 )
 
 __all__ = [
+    "ASSISTANT_DECISION_REPORT_ARCHIVE_MANIFEST",
+    "ASSISTANT_DECISION_REPORT_ARCHIVE_SCHEMA_VERSION",
     "DECISION_REPORT_SCHEMA_VERSION",
     "DECISION_SUPPORT_NOTE",
+    "AssistantDecisionReportArchiveResult",
     "DecisionReportContext",
     "DecisionReportManifest",
     "DecisionReportSection",
     "DecisionReportSource",
     "ReportSourceKind",
+    "archive_assistant_decision_report_draft",
+    "assistant_decision_report_zip_download",
+    "build_assistant_decision_report_archive_entry",
     "build_data_confidence_section",
     "build_decision_checkpoints_section",
     "build_decision_report_context",
@@ -44,4 +59,5 @@ __all__ = [
     "decision_report_manifest_json_download",
     "decision_report_zip_download",
     "render_decision_report_markdown",
+    "sanitize_assistant_decision_report_markdown",
 ]

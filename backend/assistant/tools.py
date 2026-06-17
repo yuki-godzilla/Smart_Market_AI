@@ -403,6 +403,8 @@ def assistant_research_bundle_to_decision_report_context(
         summary={
             "source": "assistant_research_mode",
             "intent": clean_intent,
+            "fetch_mode": bundle.choice,
+            "cached_only": "true" if bundle.choice == "cached_only" else "false",
             "user_question": clean_question,
             "subject": _report_safe_text(bundle.subject),
             "company_name": company_name,
@@ -414,7 +416,11 @@ def assistant_research_bundle_to_decision_report_context(
             "SMAIアシスタント Research Mode の会話結果を、判断材料メモとして整理した下書きです。",
             "売買推奨ではなく、上昇方向を見る材料、注意材料、未確認材料、次の確認を分けて保存します。",
         ],
-        metadata={"source": "assistant_research_mode", "intent": clean_intent},
+        metadata={
+            "source": "assistant_research_mode",
+            "intent": clean_intent,
+            "fetch_mode": bundle.choice,
+        },
     )
     available_materials = build_report_section(
         title="確認できた材料",
@@ -521,6 +527,8 @@ def render_research_bundle_markdown_memo(context: DecisionReportContext) -> str:
     caution_lines = _row_summaries(cautions, row_types=("caution",))
     next_lines = _row_summaries(next_checks, row_types=("next_check",))
     source_lines = _row_summaries(sources, row_types=("source",))
+    fetch_condition_lines = _fetch_condition_lines(summary)
+    tool_status_lines = _tool_status_lines(available, cautions)
     if not available_lines:
         available_lines = ("確認済み材料はまだありません。",)
     if not caution_lines:
@@ -532,13 +540,22 @@ def render_research_bundle_markdown_memo(context: DecisionReportContext) -> str:
     overview_text = (
         assistant_answer or f"{subject}について、取得済み材料をもとに確認ポイントを整理しました。"
     )
+    fetch_condition_block = (
+        f"## 取得条件\n{_markdown_list(fetch_condition_lines)}\n\n" if fetch_condition_lines else ""
+    )
     sources_block = f"## 出典\n{_markdown_list(source_lines)}\n\n" if source_lines else ""
+    tool_status_block = (
+        f"## Tool Status\n{_markdown_list(tool_status_lines)}\n\n" if tool_status_lines else ""
+    )
     return (
         f"# Decision Report Draft: {subject}\n\n"
+        "## 作成元\n"
+        "SMAIアシスタント / Research Mode\n\n"
         "## ユーザー質問\n"
         f"{question}\n\n"
         "## 概要\n"
         f"{overview_text}\n\n"
+        f"{fetch_condition_block}"
         "## 上昇方向を見る材料\n"
         f"{_markdown_list(available_lines)}\n\n"
         "## 注意すべき材料\n"
@@ -546,6 +563,7 @@ def render_research_bundle_markdown_memo(context: DecisionReportContext) -> str:
         "## 未確認材料\n"
         f"{_markdown_list(missing_lines)}\n\n"
         f"{sources_block}"
+        f"{tool_status_block}"
         "## 次に確認すること\n"
         f"{_markdown_list(next_lines)}\n\n"
         "---\n\n"
@@ -849,6 +867,40 @@ def _row_summaries(
             continue
         rows.append(f"{label}: {summary}" if label and label not in summary else summary)
     return _dedupe_tuple(rows)
+
+
+def _fetch_condition_lines(summary: Mapping[str, str]) -> tuple[str, ...]:
+    fetch_mode = _report_safe_text(summary.get("fetch_mode", ""))
+    if fetch_mode == "cached_only" or summary.get("cached_only") == "true":
+        return (
+            "今回は取得済み情報のみで整理しています。",
+            "最新ニュースやResearch Evidenceは未確認材料として残します。",
+        )
+    if fetch_mode == "approve":
+        return (
+            "ユーザー承認後に、計画された外部ニュース / Research Evidence の取得結果を反映しています。",
+            "取得できなかった材料は未確認材料として残します。",
+        )
+    return ("取得済み材料を中心に整理しています。",)
+
+
+def _tool_status_lines(
+    available_section,
+    caution_section,
+) -> tuple[str, ...]:
+    rows = []
+    for section in (available_section, caution_section):
+        if section is not None:
+            rows.extend(section.rows)
+    lines: list[str] = []
+    for row in rows:
+        key = _report_safe_text(row.get("key", ""))
+        if not key:
+            continue
+        label = _report_safe_text(row.get("label", "")) or key
+        status = _report_safe_text(row.get("status", "")) or "unknown"
+        lines.append(f"{key}: {status} ({label})")
+    return _dedupe_tuple(lines)
 
 
 def _markdown_list(items: Sequence[str]) -> str:

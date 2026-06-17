@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, date, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -1180,8 +1181,12 @@ def test_copilot_page_research_question_shows_tool_plan_before_execution(monkeyp
     assert "キャンセル" in button_labels
 
 
-def test_copilot_page_tool_plan_approve_returns_material_summary(monkeypatch):
+def test_copilot_page_tool_plan_approve_returns_material_summary(monkeypatch, tmp_path):
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    monkeypatch.setattr(
+        "ui.views.copilot._assistant_decision_report_archive_dir",
+        lambda: tmp_path,
+    )
     fetch_calls: list[dict[str, object]] = []
 
     def fake_fetch(symbol: str, **kwargs: object) -> ExternalResearchFetchResult:
@@ -1246,9 +1251,34 @@ def test_copilot_page_tool_plan_approve_returns_material_summary(monkeypatch):
     updated_history = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]
     assert updated_history[-1]["report_draft_status"] == "pending_draft_created"
 
+    app.run()
+    assert "下書きを保存" in [str(getattr(element, "label", "")) for element in app.button]
+    _click_button_label(app, "下書きを保存")
 
-def test_copilot_page_tool_plan_cached_only_mentions_missing_materials(monkeypatch):
+    archived = app.session_state[COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY]
+    archive_path = Path(str(archived["archive_markdown_path"]))
+    zip_path = Path(str(archived["archive_zip_path"]))
+    manifest_path = tmp_path / "assistant_decision_report_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    assert archived["status"] == "archived"
+    assert archived["manifest_status"] == "updated"
+    assert archive_path.exists()
+    assert zip_path.exists()
+    assert "https://example.com/toyota-guidance" in archive_path.read_text(encoding="utf-8")
+    assert manifest["reports"][0]["symbol"] == "7203.T"
+    assert manifest["reports"][0]["cached_only"] is False
+    assert manifest["reports"][0]["tool_status"]["news_fetch"] == "success"
+    updated_history = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]
+    assert updated_history[-1]["report_draft_status"] == "archived"
+
+
+def test_copilot_page_tool_plan_cached_only_mentions_missing_materials(monkeypatch, tmp_path):
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    monkeypatch.setattr(
+        "ui.views.copilot._assistant_decision_report_archive_dir",
+        lambda: tmp_path,
+    )
 
     def fail_if_called(*_args: object, **_kwargs: object) -> ExternalResearchFetchResult:
         raise AssertionError("cached-only must not call external fetch")
@@ -1275,6 +1305,22 @@ def test_copilot_page_tool_plan_cached_only_mentions_missing_materials(monkeypat
     assert "根拠資料 / Research Evidence" in history[-1]["answer"]
     assert history[-1]["can_add_to_decision_report"] == "true"
     assert "## 未確認材料" in history[-1]["decision_report_markdown"]
+
+    _click_button_label(app, "Decision Reportに追加")
+    app.run()
+    _click_button_label(app, "下書きを保存")
+
+    archived = app.session_state[COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY]
+    archive_path = Path(str(archived["archive_markdown_path"]))
+    manifest = json.loads(
+        (tmp_path / "assistant_decision_report_manifest.json").read_text(encoding="utf-8")
+    )
+
+    assert archived["status"] == "archived"
+    assert "今回は取得済み情報のみで整理しています。" in archive_path.read_text(encoding="utf-8")
+    assert manifest["reports"][0]["cached_only"] is True
+    assert manifest["reports"][0]["tool_status"]["news_fetch"] == "skipped"
+    assert manifest["reports"][0]["tool_status"]["research_fetch"] == "skipped"
 
 
 def test_approved_external_fetch_failure_becomes_failed_tool_results(monkeypatch):

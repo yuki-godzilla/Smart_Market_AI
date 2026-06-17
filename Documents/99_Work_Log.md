@@ -2377,3 +2377,56 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Reproduced the CI-format failure locally with `tools/run_black_check.py`.
 - Fixed the remaining Black helper formatting issue in `tests/test_ui_styles.py` by normalizing the Vega selector assertion quote style.
 - Verified CI-equivalent checks locally: Ruff, Black helper, mypy, and full pytest with coverage all passed.
+
+## Phase 26A-4: SMAI Assistant approved external fetch MVP
+
+### Scope
+
+- implemented: connected approved Assistant Research Mode `news_fetch` / `research_fetch` to the existing transient `fetch_external_research_for_symbol()` path through a thin UI adapter, compressed source metadata into `AssistantResearchContextBundle`, and propagated source rows into Decision Report draft Markdown.
+- not implemented: permanent Decision Report save/archive UX, broader Assistant long-term memory, and any Ranking / Forecast / Investment Score integration.
+
+### Approval Behavior
+
+- approve: planned `news_fetch` / `research_fetch` call the external research fetch path only after `取得して分析する`.
+- cached-only: returns existing read-only materials and skipped/missing external fetch items without network access.
+- cancel: performs no tool execution and no external fetch.
+
+### External Fetch
+
+- fetch_external_research_for_symbol: called from `ui/views/copilot.py` only in the approved path with `allow_network=True`.
+- news_fetch: converts `news` / `tdnet` source entries into `search_news_materials` tool results.
+- research_fetch: converts all manifest entries into `search_rag_materials` tool results.
+
+### Bundle Compression
+
+- confirmed materials: fetched summaries are stored as short Assistant tool material summaries.
+- missing materials: empty or unavailable fetch results become missing materials.
+- cautions: fetch warnings, stale freshness, and safe failure messages flow into caution materials.
+- sources: title / provider / source_type / published_at / freshness_status / source_url are kept as compact source strings.
+- freshness warning: stale or provider warnings are retained without saving provider raw fields.
+
+### Decision Report
+
+- markdown: adds an `出典` section when source rows exist.
+- source URLs: source URL metadata reaches the report draft through source rows.
+- missing materials: failed or empty external fetches remain visible as unconfirmed materials and cautions.
+
+### Validation
+
+- stock_forward_view approve: covered by Copilot tests with a mocked Toyota external fetch and Decision Report source URL assertion.
+- stock_forward_view cached-only: covered by Copilot tests asserting external fetch is not called.
+- news_research approve: covered by approved tool-plan path and external fetch helper coverage for news / research entries.
+- failure case: covered by mocked fetch exception converting to failed tool results without raw exception details.
+
+### Tests
+
+- added: external fetch compression and failure coverage in `tests/test_assistant_tools.py`.
+- updated: Copilot approval / cached-only / cancel / Decision Report tests in `tests/test_ui_copilot_view.py`.
+- passed: targeted Assistant and Copilot pytest slices, targeted Ruff, targeted mypy, and targeted Black helper checks.
+- failed: one interim Copilot assertion expected stale missing-material text after a successful fetch; updated the assertion and reran successfully.
+
+### Final Judgement
+
+- external fetch MVP connected: yes.
+- network-free tests maintained: yes, all normal coverage uses monkeypatch / fixtures and does not call live providers.
+- remaining issues: persistent Decision Report save/archive UX and broader Phase 27 live LLM Factor generation remain future work.

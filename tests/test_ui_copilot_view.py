@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, date, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -10,8 +11,10 @@ from backend.assistant import (
     AssistantMessage,
     AssistantResponse,
     build_assistant_research_tool_plan,
+    execute_assistant_tool_plan,
 )
 from backend.core.config import Settings
+from backend.research import ExternalResearchFetchManifestEntry, ExternalResearchFetchResult
 from ui.views.copilot import (
     COPILOT_CHAT_HISTORY_STATE_KEY,
     COPILOT_LLM_MODEL_OPTIONS,
@@ -31,6 +34,7 @@ from ui.views.copilot import (
     _stream_chunks,
     _tool_plan_answer,
     _tool_plan_tools_state,
+    _tool_plan_with_approved_external_fetch,
     _turn_from_response,
     _with_cached_gateway_diagnostic,
     copilot_answer_detail_html,
@@ -60,6 +64,42 @@ def _reset_copilot_session(app: AppTest) -> None:
     app.session_state["smai_copilot_pending_stream_turn_id"] = ""
     app.session_state["smai_copilot_suppress_next_submit"] = False
     app.session_state[COPILOT_RUNTIME_STATUS_STATE_KEY] = None
+
+
+def _fake_external_research_result(symbol: str = "7203.T") -> ExternalResearchFetchResult:
+    fetched_at = datetime(2026, 6, 17, 6, 0, tzinfo=UTC)
+    return ExternalResearchFetchResult(
+        symbol=symbol,
+        provider="fake_external",
+        fetched_at=fetched_at,
+        entries=[
+            ExternalResearchFetchManifestEntry(
+                title="Toyota raises guidance",
+                symbol=symbol,
+                source_type="news",
+                source_url="https://example.com/toyota-guidance",
+                provider="fake_news",
+                published_at=date(2026, 6, 16),
+                fetched_at=fetched_at,
+                freshness_status="latest",
+                document_id="doc-news",
+                content_summary="Toyota raised guidance after stronger demand.",
+            ),
+            ExternalResearchFetchManifestEntry(
+                title="Toyota IR",
+                symbol=symbol,
+                source_type="company_ir",
+                source_url="https://example.com/toyota-ir",
+                provider="fake_ir",
+                published_at=None,
+                fetched_at=fetched_at,
+                freshness_status="unknown",
+                document_id="doc-ir",
+                content_summary="Official IR page was checked.",
+            ),
+        ],
+        warnings=["ニュースの鮮度は取得時点に依存します。"],
+    )
 
 
 def test_copilot_layout_uses_shared_wide_lane():
@@ -1142,6 +1182,14 @@ def test_copilot_page_research_question_shows_tool_plan_before_execution(monkeyp
 
 def test_copilot_page_tool_plan_approve_returns_material_summary(monkeypatch):
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    fetch_calls: list[dict[str, object]] = []
+
+    def fake_fetch(symbol: str, **kwargs: object) -> ExternalResearchFetchResult:
+        fetch_calls.append({"symbol": symbol, **kwargs})
+        return _fake_external_research_result(symbol)
+
+    monkeypatch.setattr("ui.views.copilot.fetch_external_research_for_symbol", fake_fetch)
+
     app = AppTest.from_file("ui/app.py", default_timeout=40)
     app.session_state["sidemenu_page"] = "copilot"
     _reset_copilot_session(app)
@@ -1159,18 +1207,32 @@ def test_copilot_page_tool_plan_approve_returns_material_summary(monkeypatch):
     assert "買い/売りを断定するのではなく" in history[-1]["answer"]
     assert "確認できた材料:" in history[-1]["answer"]
     assert "注意すべき材料:" in history[-1]["answer"]
-    assert "未確認材料:" in history[-1]["answer"]
     assert "次に確認:" in history[-1]["answer"]
+    assert fetch_calls == [
+        {
+            "symbol": "7203.T",
+            "company_name": "トヨタ自動車",
+            "related_keywords": [
+                "トヨタ自動車",
+                "トヨタ自動車（7203.T）",
+                "トヨタこれから上がるかな",
+            ],
+            "allow_network": True,
+        }
+    ]
     assert "銘柄を特定: 銘柄を特定" not in history[-1]["answer"]
     assert "まず、この銘柄で確認する材料を短く整理します。" not in history[-1]["answer"]
     assert "\n\n取得できた材料を整理しました。" not in history[-1]["answer"]
     assert "見る材料\n銘柄を特定" not in history[-1]["answer"]
     assert history[-1]["hide_answer_grid"] == "true"
+    assert "最新ニュース" in history[-1]["executed_checks"]
+    assert "根拠資料 / Research Evidence" in history[-1]["executed_checks"]
     assert "価格の動き" in history[-1]["executed_checks"]
-    assert "取得できませんでした" in history[-1]["executed_checks"]
     assert history[-1]["can_add_to_decision_report"] == "true"
     assert history[-1]["report_draft_status"] == "draft_ready"
     assert "Decision Report Draft: トヨタ自動車" in history[-1]["decision_report_markdown"]
+    assert "https://example.com/toyota-guidance" in history[-1]["decision_report_markdown"]
+    assert "https://example.com/toyota-ir" in history[-1]["decision_report_markdown"]
     assert "provider raw" not in history[-1]["decision_report_markdown"].lower()
     assert "Decision Reportに追加" in [str(getattr(element, "label", "")) for element in app.button]
 
@@ -1187,6 +1249,12 @@ def test_copilot_page_tool_plan_approve_returns_material_summary(monkeypatch):
 
 def test_copilot_page_tool_plan_cached_only_mentions_missing_materials(monkeypatch):
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+
+    def fail_if_called(*_args: object, **_kwargs: object) -> ExternalResearchFetchResult:
+        raise AssertionError("cached-only must not call external fetch")
+
+    monkeypatch.setattr("ui.views.copilot.fetch_external_research_for_symbol", fail_if_called)
+
     app = AppTest.from_file("ui/app.py", default_timeout=40)
     app.session_state["sidemenu_page"] = "copilot"
     _reset_copilot_session(app)
@@ -1209,8 +1277,48 @@ def test_copilot_page_tool_plan_cached_only_mentions_missing_materials(monkeypat
     assert "## 未確認材料" in history[-1]["decision_report_markdown"]
 
 
+def test_approved_external_fetch_failure_becomes_failed_tool_results(monkeypatch):
+    def failing_fetch(*_args: object, **_kwargs: object) -> ExternalResearchFetchResult:
+        raise RuntimeError("provider raw request_id=abc")
+
+    monkeypatch.setattr("ui.views.copilot.fetch_external_research_for_symbol", failing_fetch)
+    plan = execute_assistant_tool_plan(
+        intent="stock_summary",
+        message="トヨタこれから上がるかな",
+        report_context=None,
+    )
+    tool_plan_tools = "\n".join(
+        [
+            "news_fetch\t最新ニュース\t直近ニュースや開示材料を確認します。\t1\t0",
+            "research_fetch\t根拠資料 / Research Evidence\t根拠資料を確認します。\t1\t0",
+        ]
+    )
+
+    updated = _tool_plan_with_approved_external_fetch(
+        tool_plan=plan,
+        choice="approve",
+        subject="トヨタ自動車（7203.T）",
+        question="トヨタこれから上がるかな",
+        tool_plan_tools=tool_plan_tools,
+    )
+    result_by_name = {result.name: result for result in updated.executed}
+
+    assert result_by_name["search_news_materials"].status == "failed"
+    assert result_by_name["search_rag_materials"].status == "failed"
+    assert "取得結果を確認できません" in result_by_name["search_news_materials"].summary
+    assert "request_id" not in result_by_name["search_news_materials"].summary
+
+
 def test_copilot_page_decision_report_request_reuses_recent_research_draft(monkeypatch):
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    fetch_calls: list[str] = []
+
+    def fake_fetch(symbol: str, **_kwargs: object) -> ExternalResearchFetchResult:
+        fetch_calls.append(symbol)
+        return _fake_external_research_result(symbol)
+
+    monkeypatch.setattr("ui.views.copilot.fetch_external_research_for_symbol", fake_fetch)
+
     app = AppTest.from_file("ui/app.py", default_timeout=60)
     app.session_state["sidemenu_page"] = "copilot"
     _reset_copilot_session(app)
@@ -1233,6 +1341,7 @@ def test_copilot_page_decision_report_request_reuses_recent_research_draft(monke
     assert history[-1]["report_draft_status"] == "draft_ready_from_recent_research"
     assert history[-1]["decision_report_markdown"] == first_draft
     assert "直近の調査結果" in history[-1]["answer"]
+    assert fetch_calls == ["7203.T"]
 
 
 def test_copilot_page_normal_chat_does_not_show_report_add(monkeypatch):
@@ -1254,6 +1363,12 @@ def test_copilot_page_normal_chat_does_not_show_report_add(monkeypatch):
 
 def test_copilot_page_tool_plan_cancel_is_natural(monkeypatch):
     monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+
+    def fail_if_called(*_args: object, **_kwargs: object) -> ExternalResearchFetchResult:
+        raise AssertionError("cancel must not call external fetch")
+
+    monkeypatch.setattr("ui.views.copilot.fetch_external_research_for_symbol", fail_if_called)
+
     app = AppTest.from_file("ui/app.py", default_timeout=40)
     app.session_state["sidemenu_page"] = "copilot"
     _reset_copilot_session(app)

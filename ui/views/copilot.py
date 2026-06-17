@@ -17,8 +17,12 @@ from backend.assistant import (
     AssistantResearchContextBundle,
     AssistantResearchToolPlan,
     AssistantResponse,
+    AssistantToolPlanResult,
+    AssistantToolResult,
     HttpAssistantGatewayClient,
     assistant_research_bundle_to_decision_report_context,
+    assistant_tool_results_from_external_research_failure,
+    assistant_tool_results_from_external_research_fetch,
     build_assistant_research_context_bundle,
     build_assistant_research_tool_plan,
     detect_assistant_intent,
@@ -42,6 +46,7 @@ from ui.components.mascot import (
     MASCOT_THUMB_ASSET,
     _asset_data_uri,
 )
+from ui.research_state import fetch_external_research_for_symbol
 
 COPILOT_CHAT_HISTORY_STATE_KEY = "smai_copilot_chat_history"
 COPILOT_CONVERSATION_ID_STATE_KEY = "smai_copilot_conversation_id"
@@ -1732,8 +1737,9 @@ def _tool_plan_followup_instruction(*, turn: dict[str, str], choice: str) -> str
             "売買推奨、スコア変更、ランキング変更、予測値変更はしないでください。"
         )
     return (
-        "ユーザーはTool Planを承認しました。今回の初期実装では、SMAI側のread-only文脈と"
-        "取得済み材料を使って整理し、外部取得が未接続の材料は未確認として明示してください。"
+        "ユーザーはTool Planを承認しました。SMAI側のread-only文脈と、承認後に取得できた"
+        "外部ニュース・Research Evidenceを使って整理してください。取得失敗または未取得の材料は"
+        "未確認として明示してください。"
         f"対象は {subject} です。計画された材料: {labels}。"
         "冒頭は「取得できた材料を整理しました。買い/売りを断定するのではなく、"
         "上昇方向を見る材料と注意すべき材料に分けて確認します。」の趣旨にしてください。"
@@ -2029,6 +2035,14 @@ def _handle_copilot_submit(
         if not _is_llm_micro_intent(intent)
         else None
     )
+    if tool_plan is not None:
+        tool_plan = _tool_plan_with_approved_external_fetch(
+            tool_plan=tool_plan,
+            choice=tool_plan_choice,
+            subject=tool_plan_subject,
+            question=normalized_question,
+            tool_plan_tools=tool_plan_tools,
+        )
     research_context_bundle = (
         build_assistant_research_context_bundle(
             subject=tool_plan_subject,
@@ -2143,6 +2157,129 @@ def _handle_copilot_submit(
     st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = history
     st.session_state[COPILOT_ACTIVE_INTENT_STATE_KEY] = intent
     st.session_state[COPILOT_PENDING_STREAM_STATE_KEY] = turn["turn_id"]
+
+
+def _tool_plan_with_approved_external_fetch(
+    *,
+    tool_plan: AssistantToolPlanResult,
+    choice: str,
+    subject: str,
+    question: str,
+    tool_plan_tools: str,
+) -> AssistantToolPlanResult:
+    if choice != "approve":
+        return tool_plan
+    planned_tools = _tool_plan_tools_from_state(tool_plan_tools)
+    include_news = any(str(tool.get("name", "")) == "news_fetch" for tool in planned_tools)
+    include_research = any(str(tool.get("name", "")) == "research_fetch" for tool in planned_tools)
+    if not include_news and not include_research:
+        return tool_plan
+
+    symbol = _external_fetch_symbol_for_tool_plan(tool_plan=tool_plan, subject=subject)
+    if not symbol:
+        external_results = assistant_tool_results_from_external_research_failure(
+            message="対象銘柄を特定できなかったため、外部ニュースとResearch Evidenceは未確認です。",
+            include_news=include_news,
+            include_research=include_research,
+        )
+        return _replace_tool_plan_results(tool_plan, external_results)
+
+    company_name = _external_fetch_company_name(subject=subject, symbol=symbol)
+    related_keywords = _external_fetch_related_keywords(
+        subject=subject,
+        question=question,
+        company_name=company_name,
+    )
+    try:
+        fetch_result = fetch_external_research_for_symbol(
+            symbol,
+            company_name=company_name,
+            related_keywords=related_keywords,
+            allow_network=True,
+        )
+    except Exception:
+        external_results = assistant_tool_results_from_external_research_failure(
+            message="外部情報の取得結果を確認できませんでした。今回は取得済み材料を中心に整理します。",
+            include_news=include_news,
+            include_research=include_research,
+        )
+        return _replace_tool_plan_results(tool_plan, external_results)
+
+    external_results = assistant_tool_results_from_external_research_fetch(
+        fetch_result,
+        include_news=include_news,
+        include_research=include_research,
+    )
+    return _replace_tool_plan_results(tool_plan, external_results)
+
+
+def _replace_tool_plan_results(
+    tool_plan: AssistantToolPlanResult,
+    replacements: tuple[AssistantToolResult, ...],
+) -> AssistantToolPlanResult:
+    if not replacements:
+        return tool_plan
+    replacements_by_name = {result.name: result for result in replacements}
+    seen: set[str] = set()
+    executed: list[AssistantToolResult] = []
+    for result in tool_plan.executed:
+        replacement = replacements_by_name.get(result.name)
+        if replacement is not None:
+            executed.append(replacement)
+            seen.add(replacement.name)
+        else:
+            executed.append(result)
+    for result in replacements:
+        if result.name not in seen and not any(item.name == result.name for item in executed):
+            executed.append(result)
+    return replace(tool_plan, executed=tuple(executed))
+
+
+def _external_fetch_symbol_for_tool_plan(
+    *,
+    tool_plan: AssistantToolPlanResult,
+    subject: str,
+) -> str:
+    for result in tool_plan.executed:
+        symbol = str(result.details.get("symbol", "")).strip()
+        if symbol:
+            return symbol
+    if tool_plan.current_context.symbol:
+        return tool_plan.current_context.symbol
+    for token in str(subject or "").replace("（", "(").replace("）", ")").split("("):
+        clean = token.split(")", 1)[0].strip().upper()
+        if clean.endswith(".T") and clean[:-2].isdigit():
+            return clean
+        if clean.isascii() and clean.isalnum() and 1 <= len(clean) <= 5:
+            return clean
+    return ""
+
+
+def _external_fetch_company_name(*, subject: str, symbol: str) -> str | None:
+    clean_subject = str(subject or "").strip()
+    if not clean_subject:
+        return None
+    for separator in ("（", "("):
+        if separator in clean_subject:
+            company = clean_subject.split(separator, 1)[0].strip()
+            return company or None
+    if clean_subject.strip().upper() == symbol.strip().upper():
+        return None
+    return clean_subject
+
+
+def _external_fetch_related_keywords(
+    *,
+    subject: str,
+    question: str,
+    company_name: str | None,
+) -> list[str]:
+    keywords: list[str] = []
+    for value in (company_name, subject, question):
+        clean = str(value or "").strip()
+        if clean and clean not in keywords:
+            keywords.append(clean)
+    return keywords[:4]
 
 
 def _runtime_config_from_assistant_response(

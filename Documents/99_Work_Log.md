@@ -2313,3 +2313,182 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Changed Gateway routing to keep task_type as the primary runtime policy while applying model-specific token budgets for `qwen3:1.7b`, `qwen3:4b`, `qwen3:8b`, `qwen3:14b`, and `qwen3:30b`.
 - Kept lightweight chat bounded for notebook models while allowing larger analysis/report budgets for 8B/14B class models.
 - Updated Gateway docs and operations guide to describe model-aware token budgets instead of a single notebook token value.
+
+## 2026-06-17 - Phase 26A: connect Assistant research bundle to Decision Report draft
+
+### Scope
+
+- implemented: `AssistantResearchContextBundle` to `DecisionReportContext` conversion, human-facing Markdown memo rendering, Copilot turn report-draft fields, pending Decision Report draft session handoff, and representative tests.
+- not implemented: live `news_fetch` / `research_fetch` execution, full `AI調査を更新` integration, permanent report archive persistence, and Report screen redesign.
+
+### Bundle to Report Context
+
+- converter: `assistant_research_bundle_to_decision_report_context`.
+- fields: user question, intent, subject, symbol, company name, available materials, missing materials, cautions, next checks, assistant answer, and `assistant_research_mode` source metadata.
+- markdown: `render_research_bundle_markdown_memo` creates a draft with question, overview, upward-check materials, cautions, unknowns, and next checks while filtering provider/debug/request/latency style technical text.
+
+### Assistant Turn
+
+- report_context: stored as JSON in `decision_report_context`.
+- markdown: stored in `decision_report_markdown` and used by the Markdown action.
+- can_add_to_decision_report: set for Research Mode answers and Decision Report draft turns.
+
+### UI
+
+- Decision Reportに追加: creates `pending_decision_report_draft` from the latest eligible assistant turn.
+- Markdownで保存: remains a Markdown download and now prefers the turn's report-draft Markdown when present.
+- draft preview: added inline preview with save/download/cancel controls.
+- pending_decision_report_draft: stores source, turn id, symbol, company name, markdown, context JSON, created_at, and status.
+
+### Validation
+
+- stock_forward_view: `トヨタこれから上がるかな` approval path creates a report draft and pending draft.
+- news_research: representative news bundle generates a news-oriented report draft.
+- decision_report_request: recent Research Mode draft is reused when the user asks to make the current content a Decision Report.
+- cached-only: produces a draft with external materials marked as missing.
+- UI smoke: Streamlit started on port 8506 with background workers disabled and returned HTTP 200; in-app Browser `iab` was unavailable in this session, so detailed UI interaction was covered by Streamlit AppTest.
+
+### Tests
+
+- added: bundle-to-report and news-research conversion coverage in `tests/test_assistant_tools.py`; Copilot report draft handoff coverage in `tests/test_ui_copilot_view.py`.
+- updated: Copilot action behavior so normal chat does not expose Decision Report add.
+- passed: `tests/test_assistant_tools.py -q -p no:cacheprovider`, `tests/test_ui_copilot_view.py -q -p no:cacheprovider`.
+- failed: first `tests/test_assistant_tools.py` run hit Windows temp directory permission for `tmp_path`; rerun passed with workspace-local `TEMP/TMP`.
+- formatting: targeted Black helper passed for `backend/assistant/tools.py` and `tests/test_ui_copilot_view.py`; full Black helper still reports pre-existing `tests/test_ui_styles.py`.
+
+### Final Judgement
+
+- handoff completed: yes, Research Mode answers can now become Decision Report drafts.
+- remaining issues: live external tool execution and permanent report archive/save flow remain future Phase 26A/26B work.
+
+## 2026-06-17 - Playwright setup for Streamlit browser smoke
+
+### Scope
+
+- Added `playwright==1.60.0` to `setup/requirements-dev.txt`.
+- Updated `setup/setup.bat` to install Playwright Chromium during setup and verify `python -m playwright --version`.
+- Updated README / setup guide / project context to document Playwright as an optional Streamlit browser-smoke dependency.
+
+### Local Install
+
+- Installed `playwright==1.60.0` into `venv_SMAI`.
+- Installed Chromium browser binaries through `python -m playwright install chromium`.
+- Browser binaries were downloaded to the user Playwright cache.
+
+### Validation
+
+- `python -m playwright --version`: `Version 1.60.0`.
+- Minimal headless Chromium smoke: opened a data URL and printed `SMAI ok`.
+
+### Notes
+
+- Normal local checks remain network-free and do not require Playwright browser automation.
+- `setup/setup.bat` still requires network access for dependency installation; Playwright browser download adds a larger one-time download for UI smoke readiness.
+
+## 2026-06-17 - CI Black helper fix
+
+- Reproduced the CI-format failure locally with `tools/run_black_check.py`.
+- Fixed the remaining Black helper formatting issue in `tests/test_ui_styles.py` by normalizing the Vega selector assertion quote style.
+- Verified CI-equivalent checks locally: Ruff, Black helper, mypy, and full pytest with coverage all passed.
+
+## Phase 26A-4: SMAI Assistant approved external fetch MVP
+
+### Scope
+
+- implemented: connected approved Assistant Research Mode `news_fetch` / `research_fetch` to the existing transient `fetch_external_research_for_symbol()` path through a thin UI adapter, compressed source metadata into `AssistantResearchContextBundle`, and propagated source rows into Decision Report draft Markdown.
+- not implemented: permanent Decision Report save/archive UX, broader Assistant long-term memory, and any Ranking / Forecast / Investment Score integration.
+
+### Approval Behavior
+
+- approve: planned `news_fetch` / `research_fetch` call the external research fetch path only after `取得して分析する`.
+- cached-only: returns existing read-only materials and skipped/missing external fetch items without network access.
+- cancel: performs no tool execution and no external fetch.
+
+### External Fetch
+
+- fetch_external_research_for_symbol: called from `ui/views/copilot.py` only in the approved path with `allow_network=True`.
+- news_fetch: converts `news` / `tdnet` source entries into `search_news_materials` tool results.
+- research_fetch: converts all manifest entries into `search_rag_materials` tool results.
+
+### Bundle Compression
+
+- confirmed materials: fetched summaries are stored as short Assistant tool material summaries.
+- missing materials: empty or unavailable fetch results become missing materials.
+- cautions: fetch warnings, stale freshness, and safe failure messages flow into caution materials.
+- sources: title / provider / source_type / published_at / freshness_status / source_url are kept as compact source strings.
+- freshness warning: stale or provider warnings are retained without saving provider raw fields.
+
+### Decision Report
+
+- markdown: adds an `出典` section when source rows exist.
+- source URLs: source URL metadata reaches the report draft through source rows.
+- missing materials: failed or empty external fetches remain visible as unconfirmed materials and cautions.
+
+### Validation
+
+- stock_forward_view approve: covered by Copilot tests with a mocked Toyota external fetch and Decision Report source URL assertion.
+- stock_forward_view cached-only: covered by Copilot tests asserting external fetch is not called.
+- news_research approve: covered by approved tool-plan path and external fetch helper coverage for news / research entries.
+- failure case: covered by mocked fetch exception converting to failed tool results without raw exception details.
+- Streamlit UI smoke: launched local app on `127.0.0.1:8508`, opened `SMAIアシスタント`, and confirmed the Toyota research request stops at the approval card with `取得して分析する` / `取得済み情報だけで回答` / `キャンセル`; approval was not clicked, so no live external fetch was triggered.
+
+### Tests
+
+- added: external fetch compression and failure coverage in `tests/test_assistant_tools.py`.
+- updated: Copilot approval / cached-only / cancel / Decision Report tests in `tests/test_ui_copilot_view.py`.
+- passed: targeted Assistant and Copilot pytest slices, targeted Ruff, targeted mypy, and targeted Black helper checks.
+- failed: one interim Copilot assertion expected stale missing-material text after a successful fetch; updated the assertion and reran successfully.
+
+### Final Judgement
+
+- external fetch MVP connected: yes.
+- network-free tests maintained: yes, all normal coverage uses monkeypatch / fixtures and does not call live providers.
+- remaining issues: persistent Decision Report save/archive UX and broader Phase 27 live LLM Factor generation remain future work.
+
+## Phase 26A-5: SMAI Assistant Decision Report Draft Archive UX MVP
+
+### Scope
+
+- implemented: connected `pending_decision_report_draft` to a local archive helper that writes sanitized Markdown, ZIP, and `assistant_decision_report_manifest.json` under `exports/decision_reports/`.
+- not implemented: long-term Assistant memory, searchable report library UI, PDF/Excel export, and live LLM Factor generation.
+
+### Draft Model
+
+- fields: source, intent, symbol, company_name, title, created_at, cached_only, fetch_mode, tool_status, source_count, freshness_warnings, and markdown hash are persisted in the assistant archive manifest.
+- cached-only: report context now records `fetch_mode=cached_only`, and archive tool status maps planned external tools to `skipped`.
+- sources: compact source URL/provider/source_type/published/freshness strings remain in the report draft and saved Markdown.
+- tool status: saved Markdown includes a `Tool Status` section; manifest stores normalized success / failed / missing / skipped values.
+
+### Export / Archive
+
+- markdown: `下書きを保存` writes an overwrite-safe Markdown file with timestamp, symbol/topic slug, and short hash.
+- manifest: archive append updates `assistant_decision_report_manifest.json`; Markdown success with manifest failure is treated as partial success.
+- zip: archive writes a ZIP containing `report.md` and `manifest.json`; UI also exposes ZIP download from the draft card.
+
+### UI
+
+- Decision Reportに追加: creates the pending draft preview from the eligible Assistant turn.
+- 下書きを保存: archives the draft to `exports/decision_reports/` and shows the saved path.
+- Markdown保存: remains a browser download for a standalone Markdown file.
+- ZIP保存: downloads a compact report package without provider raw fields or fetched source bodies.
+
+### Validation
+
+- stock_forward_view save: covered by Copilot AppTest with mocked Toyota external fetch, archive write, manifest, and ZIP assertions.
+- cached-only save: covered by Copilot AppTest confirming external fetch is not called and archive manifest marks `news_fetch` / `research_fetch` as `skipped`.
+- news_research save: backend archive coverage verifies source URL and warning preservation for news/research-style material rows.
+- normal_chat no report action: existing Copilot test confirms normal chat does not expose Decision Report add.
+- Streamlit UI smoke: launched local app on `127.0.0.1:8509` with background workers disabled, ran Toyota research request through cached-only, `Decision Reportに追加`, and `下書きを保存`; external fetch was not triggered.
+
+### Tests
+
+- added: `tests/test_assistant_decision_report_archive.py`.
+- updated: `tests/test_ui_copilot_view.py`.
+- passed: targeted archive pytest and targeted Copilot archive/cached-only/no-report-action pytest.
+- failed: one interim assertion looked for `ZIP保存` in `app.button`, but Streamlit AppTest does not expose download buttons there; test now verifies ZIP file creation after archive save.
+
+### Final Judgement
+
+- archive UX connected: yes.
+- report content sanitized: yes, raw provider/debug/request metadata lines are stripped and not persisted.
+- remaining issues: searchable saved-report library and broader Phase 27 live LLM Factor generation remain future work.

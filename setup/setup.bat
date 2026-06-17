@@ -60,7 +60,7 @@ if not defined PYCMD (
   exit /b 1
 )
 
-echo [0/6] Repo root: %REPO_ROOT%
+echo [0/7] Repo root: %REPO_ROOT%
 echo        Using: %PYCMD%
 
 REM ---------- Check requirements ----------
@@ -78,11 +78,11 @@ if exist "%VENV_DIR%" (
   echo [info] Removing existing venv: %VENV_DIR%
   rmdir /s /q "%VENV_DIR%"
 )
-echo [1/6] Create virtual environment: %VENV_DIR% ...
+echo [1/7] Create virtual environment: %VENV_DIR% ...
 %PYCMD% -m venv "%VENV_DIR%" || (echo [ERROR] Failed to create venv & exit /b 1)
 
 REM ---------- Activate ----------
-echo [2/6] Activate virtual environment...
+echo [2/7] Activate virtual environment...
 call "%VENV_DIR%\Scripts\activate.bat" || (echo [ERROR] Failed to activate venv & exit /b 1)
 
 REM ---------- Configure tool cache ----------
@@ -91,19 +91,23 @@ setx BLACK_CACHE_DIR "%BLACK_CACHE_DIR%" >nul
 set "BLACK_CACHE_DIR=%BLACK_CACHE_DIR%"
 
 REM ---------- Upgrade pip ----------
-echo [3/6] Upgrade pip...
+echo [3/7] Upgrade pip...
 python -m pip install --upgrade pip || (echo [ERROR] pip upgrade failed & exit /b 1)
 
 REM ---------- Install deps ----------
-echo [4/6] Install dependencies from setup/...
+echo [4/7] Install dependencies from setup/...
 pip install -r "%REQ_MAIN%" -r "%REQ_DEV%" || (echo [ERROR] Dependency install failed & exit /b 1)
 
+REM ---------- Install Playwright browser ----------
+echo [5/7] Install Playwright Chromium browser...
+python -m playwright install chromium || (echo [ERROR] Playwright Chromium install failed & exit /b 1)
+
 REM ---------- Verify ----------
-echo [5/6] Verify tools...
-ruff --version && black --version && pytest --version || (echo [ERROR] Tool verification failed & exit /b 1)
+echo [6/7] Verify tools...
+ruff --version && black --version && pytest --version && python -m playwright --version || (echo [ERROR] Tool verification failed & exit /b 1)
 
 REM ---------- Done ----------
-echo [6/6] Setup finished successfully!
+echo [7/7] Setup finished successfully!
 echo.
 echo To activate later:
 echo   %VENV_NAME%\Scripts\Activate.ps1   (PowerShell)

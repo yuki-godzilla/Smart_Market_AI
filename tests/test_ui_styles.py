@@ -113,7 +113,7 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert '.smai-insight-range > div[data-case="upside"]' in SMAI_GLOBAL_CSS
     assert ".vega-embed" in SMAI_GLOBAL_CSS
     assert ".vega-embed {\n    width: 100%;" in SMAI_GLOBAL_CSS
-    assert "[data-testid=\"stVegaLiteChart\"] .vega-embed" not in SMAI_GLOBAL_CSS
+    assert '[data-testid="stVegaLiteChart"] .vega-embed' not in SMAI_GLOBAL_CSS
     assert ".smai-ranking-condition-card" in SMAI_GLOBAL_CSS
     assert ".smai-ranking-weight-grid" in SMAI_GLOBAL_CSS
     assert "@media print" in SMAI_GLOBAL_CSS

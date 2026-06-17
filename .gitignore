@@ -38,6 +38,7 @@ data/marketdata/**/*.bak
 outputs/work/pytest_tmp/
 outputs/work/pytest_*/
 outputs/work/symbol_metadata_probe/
+exports/decision_reports/
 data/cache/*.lock
 data/cache/*.sqlite
 data/cache/*.sqlite-*

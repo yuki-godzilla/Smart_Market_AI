@@ -2417,6 +2417,7 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - stock_forward_view cached-only: covered by Copilot tests asserting external fetch is not called.
 - news_research approve: covered by approved tool-plan path and external fetch helper coverage for news / research entries.
 - failure case: covered by mocked fetch exception converting to failed tool results without raw exception details.
+- Streamlit UI smoke: launched local app on `127.0.0.1:8508`, opened `SMAIアシスタント`, and confirmed the Toyota research request stops at the approval card with `取得して分析する` / `取得済み情報だけで回答` / `キャンセル`; approval was not clicked, so no live external fetch was triggered.
 
 ### Tests
 

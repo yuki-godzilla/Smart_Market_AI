@@ -5,7 +5,7 @@
 This file is the compact current-state summary for Smart Market AI.
 Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_Log.md).
 
-Last updated: 2026-06-17
+Last updated: 2026-06-18
 
 ## Project Summary
 
@@ -25,6 +25,8 @@ The product direction is to help users compare symbols, inspect provider-backed 
 - SMAI Assistant now treats valid Gateway answers as `response_source=llm` and reserves `response_source=deterministic_fallback` for Gateway/provider/model/timeout/schema/empty-answer failure paths. Assistant turns preserve `request_id`, `gateway_status`, `fallback_reason`, `latency_ms`, `provider`, `model`, `profile`, `timeout_sec`, `context_tokens_estimate`, `prompt_chars`, `response_chars`, `tool_execution_ms`, `llm_generation_ms`, `total_elapsed_ms`, conversation mode, and Gateway/provider diagnostic metadata. The UI keeps runtime metadata in a folded `技術情報を表示` block for analysis-style answers, but hides technical fallback metadata for normal chat / identity / capability turns. The header uses a centralized `AssistantRuntimeStatus` model for ready / checking / generating / research planned / research running / degraded / Gateway unavailable / provider unavailable / model missing states, keeps first display neutral as `LLM待機中`, and refreshes from pending events, cached diagnostics, or the latest answer response so success / fallback status stays aligned with the chat. New conversation clears stale runtime status and Gateway diagnostic cache.
 
 Current focus is project maturity improvement rather than feature expansion. Functional spec issues and a manual UX review checklist have been introduced so confusing behavior, unclear role boundaries, and investment-advice-like wording can be reviewed before more advanced features are added.
+
+Performance profile first slice is implemented with `SMAI_PERFORMANCE_PROFILE=notebook|workstation`. The profile currently controls Research RAG external fetch concurrency and request timeout through `DefaultExternalResearchAdapter`, while News dashboard refresh, MarketData live providers, Symbol DB background refresh, and processing worker settings remain follow-up scope. Streamlit `設定 / データ情報` shows the active profile and the latest AI Research external fetch summary.
 
 Current UI maturity work includes Ranking visualization polish: existing ranking results are being presented as screening / comparison candidates with summary cards, top-candidate cards, score and confidence charts, selected-candidate breakdown, and a detailed table, without changing backend ranking or scoring logic.
 

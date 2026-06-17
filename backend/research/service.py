@@ -21,8 +21,11 @@ from urllib.request import urlopen
 import yaml  # type: ignore[import-untyped]
 from pydantic import Field, ValidationError
 
+from backend.core.config import ExternalFetchPerformanceConfig, resolve_performance_profile
 from backend.core.data_contracts import DataQuality, StrictBaseModel
 from backend.core.errors import AppError, ProviderUnavailableError, ValidationAppError
+
+DEFAULT_EXTERNAL_RESEARCH_TIMEOUT_SECONDS = 10.0
 
 ResearchSourceType = Literal[
     "annual_report",
@@ -2877,6 +2880,7 @@ class GoogleNewsRSSResearchAdapter:
         ceid: str = "JP:ja",
         lookback_days: int = 14,
         max_results: int = 5,
+        request_timeout_sec: float = DEFAULT_EXTERNAL_RESEARCH_TIMEOUT_SECONDS,
     ) -> None:
         self._http_get = http_get
         self.hl = hl
@@ -2884,6 +2888,7 @@ class GoogleNewsRSSResearchAdapter:
         self.ceid = ceid
         self.lookback_days = max(1, lookback_days)
         self.max_results = max(1, max_results)
+        self.request_timeout_sec = max(0.1, float(request_timeout_sec))
 
     def fetch_sources(
         self,
@@ -2910,7 +2915,7 @@ class GoogleNewsRSSResearchAdapter:
             return self._http_get(url)
         try:
             url_request = UrlRequest(url, headers={"User-Agent": "SmartMarketAI/1.0"})
-            with urlopen(url_request, timeout=10) as response:  # noqa: S310
+            with urlopen(url_request, timeout=self.request_timeout_sec) as response:  # noqa: S310
                 return response.read().decode("utf-8", errors="replace")
         except Exception as exc:  # pragma: no cover - provider-specific network failure
             raise ResearchDocumentError(
@@ -2925,8 +2930,14 @@ class YahooFinanceResearchAdapter:
     provider = "yahoo_finance"
     requires_network = True
 
-    def __init__(self, ticker_factory: Callable[[str], Any] | None = None) -> None:
+    def __init__(
+        self,
+        ticker_factory: Callable[[str], Any] | None = None,
+        *,
+        request_timeout_sec: float = DEFAULT_EXTERNAL_RESEARCH_TIMEOUT_SECONDS,
+    ) -> None:
         self._ticker_factory = ticker_factory
+        self.request_timeout_sec = max(0.1, float(request_timeout_sec))
 
     def fetch_sources(
         self,
@@ -2984,12 +2995,14 @@ class CompanyIRSiteResearchAdapter:
         website_resolver: Callable[[ExternalResearchFetchRequest], str | None] | None = None,
         candidate_paths: Sequence[str] = COMPANY_IR_CANDIDATE_PATHS,
         max_results: int = 1,
+        request_timeout_sec: float = DEFAULT_EXTERNAL_RESEARCH_TIMEOUT_SECONDS,
     ) -> None:
         self._ticker_factory = ticker_factory
         self._http_get = http_get
         self._website_resolver = website_resolver
         self.candidate_paths = tuple(candidate_paths)
         self.max_results = max(1, max_results)
+        self.request_timeout_sec = max(0.1, float(request_timeout_sec))
 
     def fetch_sources(
         self,
@@ -3049,7 +3062,7 @@ class CompanyIRSiteResearchAdapter:
                 details={"provider": self.provider},
             ) from exc
         try:
-            with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+            with httpx.Client(timeout=self.request_timeout_sec, follow_redirects=True) as client:
                 response = client.get(url)
                 response.raise_for_status()
                 response.encoding = response.encoding or "utf-8"
@@ -3074,11 +3087,13 @@ class TDnetResearchAdapter:
         lookback_days: int = 7,
         max_pages_per_day: int = 3,
         max_results: int = 5,
+        request_timeout_sec: float = DEFAULT_EXTERNAL_RESEARCH_TIMEOUT_SECONDS,
     ) -> None:
         self._http_get = http_get
         self.lookback_days = max(1, lookback_days)
         self.max_pages_per_day = max(1, max_pages_per_day)
         self.max_results = max(1, max_results)
+        self.request_timeout_sec = max(0.1, float(request_timeout_sec))
 
     def fetch_sources(
         self,
@@ -3128,7 +3143,7 @@ class TDnetResearchAdapter:
                 details={"provider": self.provider},
             ) from exc
         try:
-            with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+            with httpx.Client(timeout=self.request_timeout_sec, follow_redirects=True) as client:
                 response = client.get(url)
                 response.raise_for_status()
                 response.encoding = response.encoding or "utf-8"
@@ -3153,11 +3168,13 @@ class EDINETResearchAdapter:
         api_key: str | None = None,
         lookback_days: int = 45,
         max_results: int = 5,
+        request_timeout_sec: float = DEFAULT_EXTERNAL_RESEARCH_TIMEOUT_SECONDS,
     ) -> None:
         self._http_get_json = http_get_json
         self.api_key = api_key if api_key is not None else os.getenv(EDINET_API_KEY_ENV, "")
         self.lookback_days = max(1, lookback_days)
         self.max_results = max(1, max_results)
+        self.request_timeout_sec = max(0.1, float(request_timeout_sec))
 
     def fetch_sources(
         self,
@@ -3194,7 +3211,7 @@ class EDINETResearchAdapter:
             return self._http_get_json(url)
         try:
             url_request = UrlRequest(url, headers={"User-Agent": "SmartMarketAI/1.0"})
-            with urlopen(url_request, timeout=10) as response:  # noqa: S310
+            with urlopen(url_request, timeout=self.request_timeout_sec) as response:  # noqa: S310
                 body = response.read().decode("utf-8")
         except Exception as exc:  # pragma: no cover - provider-specific network failure
             raise ResearchDocumentError(
@@ -3222,8 +3239,12 @@ class CompositeExternalResearchAdapter:
         adapters: Sequence[ExternalResearchSourceAdapter],
         *,
         provider: str | None = None,
+        external_fetch_config: ExternalFetchPerformanceConfig | None = None,
+        performance_profile_name: str | None = None,
     ) -> None:
         self.adapters = list(adapters)
+        self.external_fetch_config = external_fetch_config
+        self.performance_profile_name = performance_profile_name
         if provider is not None:
             self.provider = provider
         self.requires_network = any(adapter.requires_network for adapter in self.adapters)
@@ -3236,7 +3257,7 @@ class CompositeExternalResearchAdapter:
             return []
         payloads_by_index: dict[int, list[ExternalResearchSourcePayload]] = {}
         errors_by_index: dict[int, ResearchDocumentError] = {}
-        with ThreadPoolExecutor(max_workers=len(self.adapters)) as executor:
+        with ThreadPoolExecutor(max_workers=self._max_workers()) as executor:
             futures = {}
             for index, adapter in enumerate(self.adapters):
                 adapter_request = request.model_copy(update={"provider": adapter.provider})
@@ -3254,6 +3275,14 @@ class CompositeExternalResearchAdapter:
         if not payloads and errors_by_index:
             raise errors_by_index[min(errors_by_index)]
         return payloads
+
+    def _max_workers(self) -> int:
+        configured_workers = (
+            self.external_fetch_config.max_workers
+            if self.external_fetch_config is not None
+            else len(self.adapters)
+        )
+        return max(1, min(int(configured_workers), len(self.adapters)))
 
 
 def _external_research_registered_document(
@@ -3280,15 +3309,20 @@ class DefaultExternalResearchAdapter(CompositeExternalResearchAdapter):
     """Default live research source set for the Cockpit AI refresh flow."""
 
     def __init__(self) -> None:
+        profile = resolve_performance_profile()
+        external_fetch = profile.external_fetch
+        request_timeout_sec = external_fetch.request_timeout_sec
         super().__init__(
             [
-                EDINETResearchAdapter(),
-                TDnetResearchAdapter(),
-                CompanyIRSiteResearchAdapter(),
-                GoogleNewsRSSResearchAdapter(),
-                YahooFinanceResearchAdapter(),
+                EDINETResearchAdapter(request_timeout_sec=request_timeout_sec),
+                TDnetResearchAdapter(request_timeout_sec=request_timeout_sec),
+                CompanyIRSiteResearchAdapter(request_timeout_sec=request_timeout_sec),
+                GoogleNewsRSSResearchAdapter(request_timeout_sec=request_timeout_sec),
+                YahooFinanceResearchAdapter(request_timeout_sec=request_timeout_sec),
             ],
             provider="edinet_tdnet_company_ir_google_news_yahoo_finance",
+            external_fetch_config=external_fetch,
+            performance_profile_name=profile.selected_profile,
         )
 
 

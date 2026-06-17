@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 from typing import Literal
@@ -6,6 +7,10 @@ import yaml  # type: ignore[import-untyped]
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 CONFIG_FILE_ENV = "SMAI_CONFIG_FILE"
+PERFORMANCE_PROFILE_ENV = "SMAI_PERFORMANCE_PROFILE"
+DEFAULT_PERFORMANCE_PROFILE = "notebook"
+
+LOGGER = logging.getLogger(__name__)
 
 
 class StrictConfigModel(BaseModel):
@@ -35,6 +40,49 @@ class TimeoutConfig(StrictConfigModel):
 
     connect: int = Field(default=1000, gt=0)
     read: int = Field(default=5000, gt=0)
+
+
+class ExternalFetchPerformanceConfig(StrictConfigModel):
+    """External research/source fetch concurrency and timeout settings."""
+
+    max_workers: int = Field(default=4, gt=0)
+    per_source_workers: dict[str, int] = Field(default_factory=dict)
+    request_timeout_sec: float = Field(default=12.0, gt=0)
+    retry_count: int = Field(default=1, ge=0)
+    retry_backoff_sec: float = Field(default=1.5, ge=0)
+    cache_ttl_minutes: int = Field(default=30, gt=0)
+    batch_size: int = Field(default=8, gt=0)
+    max_symbols_per_refresh: int = Field(default=12, gt=0)
+
+
+class ProcessingPerformanceConfig(StrictConfigModel):
+    """Local processing concurrency settings for future staged profile use."""
+
+    rag_workers: int = Field(default=2, gt=0)
+    forecast_workers: int = Field(default=2, gt=0)
+    background_refresh_workers: int = Field(default=2, gt=0)
+    llm_workers: int = Field(default=1, gt=0)
+
+
+class PerformanceProfileConfig(StrictConfigModel):
+    """Named performance profile settings."""
+
+    external_fetch: ExternalFetchPerformanceConfig = Field(
+        default_factory=ExternalFetchPerformanceConfig
+    )
+    processing: ProcessingPerformanceConfig = Field(default_factory=ProcessingPerformanceConfig)
+
+
+class PerformanceProfileSelection(StrictConfigModel):
+    """Resolved performance profile and effective settings."""
+
+    requested_profile: str
+    selected_profile: str
+    available_profiles: list[str]
+    fallback_used: bool = False
+    fallback_reason: str | None = None
+    external_fetch: ExternalFetchPerformanceConfig
+    processing: ProcessingPerformanceConfig
 
 
 class DataAccessConfig(StrictConfigModel):
@@ -167,6 +215,59 @@ class AssistantConfig(StrictConfigModel):
     gateway: AssistantGatewayConfig = Field(default_factory=AssistantGatewayConfig)
 
 
+def _default_performance_profiles() -> dict[str, PerformanceProfileConfig]:
+    return {
+        "notebook": PerformanceProfileConfig(
+            external_fetch=ExternalFetchPerformanceConfig(
+                max_workers=4,
+                per_source_workers={
+                    "yahoo_finance": 2,
+                    "news": 3,
+                    "tdnet": 2,
+                    "edinet": 1,
+                    "ir_pages": 2,
+                },
+                request_timeout_sec=12.0,
+                retry_count=1,
+                retry_backoff_sec=1.5,
+                cache_ttl_minutes=30,
+                batch_size=8,
+                max_symbols_per_refresh=12,
+            ),
+            processing=ProcessingPerformanceConfig(
+                rag_workers=2,
+                forecast_workers=2,
+                background_refresh_workers=2,
+                llm_workers=1,
+            ),
+        ),
+        "workstation": PerformanceProfileConfig(
+            external_fetch=ExternalFetchPerformanceConfig(
+                max_workers=10,
+                per_source_workers={
+                    "yahoo_finance": 4,
+                    "news": 6,
+                    "tdnet": 3,
+                    "edinet": 2,
+                    "ir_pages": 4,
+                },
+                request_timeout_sec=15.0,
+                retry_count=2,
+                retry_backoff_sec=1.2,
+                cache_ttl_minutes=20,
+                batch_size=16,
+                max_symbols_per_refresh=30,
+            ),
+            processing=ProcessingPerformanceConfig(
+                rag_workers=4,
+                forecast_workers=4,
+                background_refresh_workers=6,
+                llm_workers=1,
+            ),
+        ),
+    }
+
+
 class Settings(StrictConfigModel):
     """Root settings object for Smart Market AI."""
 
@@ -178,6 +279,10 @@ class Settings(StrictConfigModel):
     scoring: ScoringConfig = Field(default_factory=ScoringConfig)
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
     assistant: AssistantConfig = Field(default_factory=AssistantConfig)
+    performance_profiles: dict[str, PerformanceProfileConfig] = Field(
+        default_factory=_default_performance_profiles,
+        min_length=1,
+    )
 
 
 def get_settings() -> Settings:
@@ -190,6 +295,53 @@ def get_settings() -> Settings:
     if not config_file:
         return Settings()
     return Settings.model_validate(_load_yaml_config(Path(config_file)))
+
+
+def resolve_performance_profile(settings: Settings | None = None) -> PerformanceProfileSelection:
+    """Resolve the active performance profile from settings and environment."""
+
+    resolved_settings = settings or get_settings()
+    available_profiles = sorted(resolved_settings.performance_profiles)
+    requested_profile = (
+        os.getenv(PERFORMANCE_PROFILE_ENV, DEFAULT_PERFORMANCE_PROFILE).strip()
+        or DEFAULT_PERFORMANCE_PROFILE
+    )
+    fallback_used = False
+    fallback_reason = None
+    if requested_profile in resolved_settings.performance_profiles:
+        selected_profile = requested_profile
+    else:
+        fallback_used = True
+        selected_profile = (
+            DEFAULT_PERFORMANCE_PROFILE
+            if DEFAULT_PERFORMANCE_PROFILE in resolved_settings.performance_profiles
+            else available_profiles[0]
+        )
+        fallback_reason = (
+            f"Unknown performance profile '{requested_profile}'. "
+            f"Available profiles: {', '.join(available_profiles)}"
+        )
+        LOGGER.warning("%s Falling back to '%s'.", fallback_reason, selected_profile)
+
+    profile = resolved_settings.performance_profiles[selected_profile]
+    LOGGER.info(
+        "Performance profile selected: requested=%s selected=%s "
+        "external_fetch_max_workers=%s llm_workers=%s available=%s",
+        requested_profile,
+        selected_profile,
+        profile.external_fetch.max_workers,
+        profile.processing.llm_workers,
+        ",".join(available_profiles),
+    )
+    return PerformanceProfileSelection(
+        requested_profile=requested_profile,
+        selected_profile=selected_profile,
+        available_profiles=available_profiles,
+        fallback_used=fallback_used,
+        fallback_reason=fallback_reason,
+        external_fetch=profile.external_fetch,
+        processing=profile.processing,
+    )
 
 
 def _load_yaml_config(path: Path) -> dict[str, object]:

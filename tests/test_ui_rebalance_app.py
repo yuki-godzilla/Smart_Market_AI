@@ -348,6 +348,7 @@ def test_build_rebalance_request_rejects_non_array_targets_json():
 
 def test_runtime_settings_summary_reports_default_provider(monkeypatch):
     monkeypatch.delenv("SMAI_CONFIG_FILE", raising=False)
+    monkeypatch.delenv("SMAI_PERFORMANCE_PROFILE", raising=False)
     monkeypatch.delenv(SCENARIO_DIR_ENV, raising=False)
 
     summary = runtime_settings_summary()
@@ -356,6 +357,12 @@ def test_runtime_settings_summary_reports_default_provider(monkeypatch):
     assert summary["config_file"] == "defaults"
     assert summary["csv_data_dir"] == "data/marketdata"
     assert summary["scenario_dir"] == str(PROJECT_ROOT / "examples/rebalance_scenarios")
+    assert summary["performance_profile"] == "notebook"
+    assert summary["performance_requested_profile"] == "notebook"
+    assert summary["performance_fallback_used"] == "False"
+    assert summary["external_fetch_max_workers"] == "4"
+    assert summary["external_fetch_timeout_sec"] == "12.0"
+    assert summary["llm_workers"] == "1"
 
 
 def test_provider_metadata_rows_include_default_provider_details(monkeypatch):

@@ -10,6 +10,7 @@ from typing import cast
 
 import streamlit as st
 
+from backend.core.config import PerformanceProfileSelection, resolve_performance_profile
 from backend.research import (
     CompanyResearchReport,
     CompanyResearchRequest,
@@ -34,6 +35,7 @@ RESEARCH_STORE_STATE_KEY = "research_local_store"
 RESEARCH_AUTOLOAD_STATE_KEY = "research_local_autoloaded_files"
 RESEARCH_EXTERNAL_FETCH_CACHE_STATE_KEY = "research_external_fetch_cache_v1"
 RESEARCH_EXTERNAL_FETCH_CACHE_INFO_STATE_KEY = "research_external_fetch_cache_info_v1"
+RESEARCH_EXTERNAL_FETCH_LAST_SUMMARY_STATE_KEY = "research_external_fetch_last_summary_v1"
 RESEARCH_EXTERNAL_FETCH_CACHE_TTL_SECONDS = 900
 RESEARCH_DOC_DIR = Path("data/research_docs")
 RESEARCH_UPLOAD_DIR = RESEARCH_DOC_DIR / "uploads"
@@ -137,6 +139,8 @@ def fetch_external_research_for_symbol(
 ) -> ExternalResearchFetchResult:
     """Fetch external sources and register them in the session-local RAG store."""
 
+    profile_selection = resolve_performance_profile()
+    started_at = perf_time.perf_counter()
     autoload_local_research_documents()
     store = research_store()
     ingestion = ResearchIngestionService(store, document_dirs=research_document_dirs())
@@ -155,38 +159,73 @@ def fetch_external_research_for_symbol(
         st.session_state[RESEARCH_EXTERNAL_FETCH_CACHE_INFO_STATE_KEY] = {
             "cache_hit": True,
             "provider": source_adapter.provider,
+            "performance_profile": profile_selection.selected_profile,
             "symbol": symbol.strip().upper(),
             "ttl_seconds": ttl_seconds,
         }
+        _set_external_fetch_last_summary(
+            profile_selection=profile_selection,
+            symbol=symbol,
+            source_count=_external_fetch_source_count(source_adapter),
+            result=cached_result,
+            elapsed_ms=_elapsed_ms(started_at),
+            cache_hit=True,
+        )
         return cached_result
 
-    result = ExternalResearchFetchService(
-        source_adapter,
-        ingestion,
-        index,
-    ).fetch_register_sources(
-        ExternalResearchFetchRequest(
-            symbol=symbol,
-            company_name=company_name,
-            related_keywords=related_keywords or [],
-            provider=source_adapter.provider,
-            as_of=as_of,
-            allow_network=allow_network,
+    try:
+        result = ExternalResearchFetchService(
+            source_adapter,
+            ingestion,
+            index,
+        ).fetch_register_sources(
+            ExternalResearchFetchRequest(
+                symbol=symbol,
+                company_name=company_name,
+                related_keywords=related_keywords or [],
+                provider=source_adapter.provider,
+                as_of=as_of,
+                allow_network=allow_network,
+            )
         )
-    )
+    except Exception as exc:
+        _set_external_fetch_last_summary(
+            profile_selection=profile_selection,
+            symbol=symbol,
+            source_count=_external_fetch_source_count(source_adapter),
+            result=None,
+            elapsed_ms=_elapsed_ms(started_at),
+            cache_hit=False,
+            error=str(exc),
+        )
+        raise
     _external_fetch_cache_set(cache_key, result)
     st.session_state[RESEARCH_EXTERNAL_FETCH_CACHE_INFO_STATE_KEY] = {
         "cache_hit": False,
         "provider": source_adapter.provider,
+        "performance_profile": profile_selection.selected_profile,
         "symbol": symbol.strip().upper(),
         "ttl_seconds": ttl_seconds,
     }
+    _set_external_fetch_last_summary(
+        profile_selection=profile_selection,
+        symbol=symbol,
+        source_count=_external_fetch_source_count(source_adapter),
+        result=result,
+        elapsed_ms=_elapsed_ms(started_at),
+        cache_hit=False,
+    )
     return result
 
 
 def external_research_fetch_cache_info() -> dict[str, object]:
     info = st.session_state.get(RESEARCH_EXTERNAL_FETCH_CACHE_INFO_STATE_KEY)
     return dict(info) if isinstance(info, dict) else {}
+
+
+def external_research_fetch_last_summary() -> dict[str, object]:
+    summary = st.session_state.get(RESEARCH_EXTERNAL_FETCH_LAST_SUMMARY_STATE_KEY)
+    return dict(summary) if isinstance(summary, dict) else {}
 
 
 def analyze_stock_news_for_symbol(
@@ -296,6 +335,66 @@ def _external_fetch_cache_set(cache_key: str, result: ExternalResearchFetchResul
         "stored_at_monotonic": perf_time.monotonic(),
         "result": result,
     }
+
+
+def _set_external_fetch_last_summary(
+    *,
+    profile_selection: PerformanceProfileSelection,
+    symbol: str,
+    source_count: int,
+    result: ExternalResearchFetchResult | None,
+    elapsed_ms: int,
+    cache_hit: bool,
+    error: str | None = None,
+) -> None:
+    warnings = list(result.warnings) if result is not None else []
+    if error:
+        warnings.append(error)
+    success_count = len(result.entries) if result is not None else 0
+    failed_count = _external_fetch_failed_count(result=result, warnings=warnings)
+    summary: dict[str, object] = {
+        "performance_profile": profile_selection.selected_profile,
+        "requested_performance_profile": profile_selection.requested_profile,
+        "profile_fallback_used": profile_selection.fallback_used,
+        "symbol": symbol.strip().upper(),
+        "elapsed_ms": elapsed_ms,
+        "success_count": success_count,
+        "failed_count": failed_count,
+        "timeout_count": _external_fetch_timeout_count(warnings),
+        "cache_hit_count": 1 if cache_hit else 0,
+        "source_count": max(1, source_count),
+        "timestamp": datetime.now(UTC).isoformat(),
+    }
+    if error:
+        summary["error"] = error
+    st.session_state[RESEARCH_EXTERNAL_FETCH_LAST_SUMMARY_STATE_KEY] = summary
+
+
+def _external_fetch_failed_count(
+    *,
+    result: ExternalResearchFetchResult | None,
+    warnings: list[str],
+) -> int:
+    if result is None:
+        return 1
+    if result.entries:
+        return 0
+    return 1 if warnings else 0
+
+
+def _external_fetch_timeout_count(warnings: list[str]) -> int:
+    return sum(1 for warning in warnings if "timeout" in warning.lower())
+
+
+def _external_fetch_source_count(adapter: ExternalResearchSourceAdapter) -> int:
+    adapters = getattr(adapter, "adapters", None)
+    if isinstance(adapters, (list, tuple)):
+        return len(adapters)
+    return 1
+
+
+def _elapsed_ms(started_at: float) -> int:
+    return max(0, int(round((perf_time.perf_counter() - started_at) * 1000)))
 
 
 def _symbol_from_research_filename(path: Path) -> str:

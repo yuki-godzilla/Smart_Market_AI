@@ -15,7 +15,7 @@ from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 from pydantic import ValidationError
 
 from backend.app.main import RebalanceCheckRequest, create_portfolio_risk_workflow
-from backend.core.config import CONFIG_FILE_ENV, get_settings
+from backend.core.config import CONFIG_FILE_ENV, get_settings, resolve_performance_profile
 from backend.core.data_contracts import (
     Bar,
     DailySnapshot,
@@ -751,11 +751,21 @@ def runtime_settings_summary() -> dict[str, str]:
     """Return the active local runtime settings relevant to the UI."""
 
     settings = get_settings()
+    performance_profile = resolve_performance_profile(settings)
     return {
         "provider": settings.dataaccess.provider,
         "csv_data_dir": settings.dataaccess.csv_data_dir,
         "config_file": os.getenv(CONFIG_FILE_ENV) or "defaults",
         "scenario_dir": str(rebalance_scenario_dir()),
+        "performance_profile": performance_profile.selected_profile,
+        "performance_requested_profile": performance_profile.requested_profile,
+        "performance_fallback_used": str(performance_profile.fallback_used),
+        "external_fetch_max_workers": str(performance_profile.external_fetch.max_workers),
+        "external_fetch_timeout_sec": str(performance_profile.external_fetch.request_timeout_sec),
+        "external_fetch_cache_ttl_minutes": str(
+            performance_profile.external_fetch.cache_ttl_minutes
+        ),
+        "llm_workers": str(performance_profile.processing.llm_workers),
     }
 
 

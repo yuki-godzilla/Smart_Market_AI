@@ -1,6 +1,11 @@
 from pydantic import ValidationError
 
-from backend.core.config import Settings, get_settings
+from backend.core.config import (
+    PERFORMANCE_PROFILE_ENV,
+    Settings,
+    get_settings,
+    resolve_performance_profile,
+)
 
 FIXTURE_DIR = "tests/fixtures/config"
 
@@ -24,6 +29,9 @@ def test_settings_defaults_are_local_and_mock_first():
     assert settings.assistant.gateway.execution_mode == "auto"
     assert settings.assistant.gateway.environment_profile == "notebook"
     assert settings.assistant.gateway.preferred_profile is None
+    assert settings.performance_profiles["notebook"].external_fetch.max_workers == 4
+    assert settings.performance_profiles["workstation"].external_fetch.max_workers == 10
+    assert settings.performance_profiles["notebook"].processing.llm_workers == 1
 
 
 def test_settings_loads_yaml_overrides(monkeypatch):
@@ -156,3 +164,50 @@ def test_settings_accepts_disabled_by_default_research_scoring_weight():
     )
 
     assert settings.scoring.weights.research == 0.10
+
+
+def test_performance_profile_defaults_to_notebook(monkeypatch):
+    monkeypatch.delenv(PERFORMANCE_PROFILE_ENV, raising=False)
+
+    selection = resolve_performance_profile(Settings())
+
+    assert selection.requested_profile == "notebook"
+    assert selection.selected_profile == "notebook"
+    assert selection.fallback_used is False
+    assert selection.external_fetch.max_workers == 4
+    assert selection.external_fetch.request_timeout_sec == 12.0
+
+
+def test_performance_profile_can_select_notebook_from_env(monkeypatch):
+    monkeypatch.setenv(PERFORMANCE_PROFILE_ENV, "notebook")
+
+    selection = resolve_performance_profile(Settings())
+
+    assert selection.selected_profile == "notebook"
+    assert selection.external_fetch.max_workers == 4
+    assert selection.external_fetch.cache_ttl_minutes == 30
+
+
+def test_performance_profile_can_select_workstation_from_env(monkeypatch):
+    monkeypatch.setenv(PERFORMANCE_PROFILE_ENV, "workstation")
+
+    selection = resolve_performance_profile(Settings())
+
+    assert selection.selected_profile == "workstation"
+    assert selection.external_fetch.max_workers == 10
+    assert selection.external_fetch.request_timeout_sec == 15.0
+    assert selection.external_fetch.max_symbols_per_refresh == 30
+    assert selection.processing.background_refresh_workers == 6
+
+
+def test_performance_profile_unknown_env_falls_back_with_warning(monkeypatch, caplog):
+    monkeypatch.setenv(PERFORMANCE_PROFILE_ENV, "missing-profile")
+
+    selection = resolve_performance_profile(Settings())
+
+    assert selection.requested_profile == "missing-profile"
+    assert selection.selected_profile == "notebook"
+    assert selection.fallback_used is True
+    assert selection.fallback_reason is not None
+    assert "Available profiles: notebook, workstation" in selection.fallback_reason
+    assert "missing-profile" in caplog.text

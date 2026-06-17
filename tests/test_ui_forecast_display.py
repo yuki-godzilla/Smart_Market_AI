@@ -386,6 +386,7 @@ from ui.research_state import (
     _source_type_from_research_filename,
     _symbol_from_research_filename,
     external_research_fetch_cache_info,
+    external_research_fetch_last_summary,
     fetch_external_research_for_symbol,
 )
 from ui.styles import FORECAST_ACTUAL_PRICE_COLOR, FORECAST_MODEL_COLORS, THEME_COLORS
@@ -3097,6 +3098,7 @@ def test_fetch_external_research_for_symbol_reuses_session_ttl_cache(monkeypatch
             ]
 
     session_state: dict[str, object] = {}
+    monkeypatch.delenv("SMAI_PERFORMANCE_PROFILE", raising=False)
     monkeypatch.setattr("ui.research_state.st.session_state", session_state)
     monkeypatch.setattr("ui.research_state.autoload_local_research_documents", lambda: 0)
     monkeypatch.setattr("ui.research_state.research_document_dirs", lambda: [tmp_path])
@@ -3112,6 +3114,12 @@ def test_fetch_external_research_for_symbol_reuses_session_ttl_cache(monkeypatch
     )
     assert adapter.calls == 1
     assert external_research_fetch_cache_info()["cache_hit"] is False
+    first_summary = external_research_fetch_last_summary()
+    assert first_summary["performance_profile"] == "notebook"
+    assert first_summary["symbol"] == "7203.T"
+    assert first_summary["success_count"] == 1
+    assert first_summary["failed_count"] == 0
+    assert first_summary["cache_hit_count"] == 0
 
     second = fetch_external_research_for_symbol(
         "7203.T",
@@ -3125,6 +3133,7 @@ def test_fetch_external_research_for_symbol_reuses_session_ttl_cache(monkeypatch
     assert adapter.calls == 1
     assert second is first
     assert external_research_fetch_cache_info()["cache_hit"] is True
+    assert external_research_fetch_last_summary()["cache_hit_count"] == 1
 
 
 def test_research_state_recognizes_dotted_symbol_and_source_type():

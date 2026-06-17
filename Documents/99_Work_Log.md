@@ -2505,3 +2505,22 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - no implementation behavior changed.
 - `PROJECT_CONTEXT.md` was not updated because this was a roadmap readability change, not a product state change.
+
+## 2026-06-18 - Performance Profile Phase 1-2 first slice
+
+### Scope
+
+- added `SMAI_PERFORMANCE_PROFILE=notebook|workstation` settings with fallback to `notebook` for unknown profile names.
+- applied the profile to Research RAG external fetch concurrency and adapter request timeout through `DefaultExternalResearchAdapter`.
+- added a session-local latest external fetch summary and surfaced the active profile / worker settings in Streamlit `設定 / データ情報`.
+
+### Boundary
+
+- implemented for Research external fetch only.
+- News dashboard refresh, MarketData live providers, Symbol DB background refresh, and processing worker fields remain follow-up scope.
+- LLM model selection remains separate through `SMAI_LLM_PROFILE` / Gateway model profiles.
+
+### Docs
+
+- added root `.env.example`.
+- updated README, operations guide, and project context for the current profile boundary.

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from backend.core.config import PERFORMANCE_PROFILE_ENV, ExternalFetchPerformanceConfig
 from backend.research import (
     CompanyBusinessProfile,
     CompanyIRSiteResearchAdapter,
@@ -3912,6 +3913,36 @@ def test_composite_external_research_adapter_continues_after_source_failure():
     assert [payload.provider for payload in payloads] == ["yahoo_finance"]
 
 
+def test_composite_external_research_adapter_uses_profile_worker_limit():
+    adapter = CompositeExternalResearchAdapter(
+        [
+            FakeExternalResearchAdapter([]),
+            FakeExternalResearchAdapter([]),
+            FakeExternalResearchAdapter([]),
+            FakeExternalResearchAdapter([]),
+        ],
+        external_fetch_config=ExternalFetchPerformanceConfig(max_workers=2),
+    )
+
+    assert adapter._max_workers() == 2
+
+
+def test_composite_external_research_adapter_caps_workers_by_adapter_count():
+    adapter = CompositeExternalResearchAdapter(
+        [FakeExternalResearchAdapter([]), FakeExternalResearchAdapter([])],
+        external_fetch_config=ExternalFetchPerformanceConfig(max_workers=10),
+    )
+
+    assert adapter._max_workers() == 2
+
+
+def test_external_research_adapters_accept_profile_timeout():
+    assert GoogleNewsRSSResearchAdapter(request_timeout_sec=7.5).request_timeout_sec == 7.5
+    assert CompanyIRSiteResearchAdapter(request_timeout_sec=7.5).request_timeout_sec == 7.5
+    assert TDnetResearchAdapter(request_timeout_sec=7.5).request_timeout_sec == 7.5
+    assert EDINETResearchAdapter(request_timeout_sec=7.5).request_timeout_sec == 7.5
+
+
 def test_default_external_research_adapter_includes_edinet_as_optional_source():
     adapter = DefaultExternalResearchAdapter()
 
@@ -3923,6 +3954,22 @@ def test_default_external_research_adapter_includes_edinet_as_optional_source():
         "google_news_rss",
         "yahoo_finance",
     ]
+
+
+def test_default_external_research_adapter_applies_workstation_profile(monkeypatch):
+    monkeypatch.setenv(PERFORMANCE_PROFILE_ENV, "workstation")
+
+    adapter = DefaultExternalResearchAdapter()
+
+    assert adapter.performance_profile_name == "workstation"
+    assert adapter.external_fetch_config is not None
+    assert adapter.external_fetch_config.max_workers == 10
+    assert adapter._max_workers() == len(adapter.adapters)
+    assert [
+        source.request_timeout_sec
+        for source in adapter.adapters
+        if hasattr(source, "request_timeout_sec")
+    ] == [15.0, 15.0, 15.0, 15.0, 15.0]
 
 
 def test_research_search_uses_category_query_expansion(tmp_path):

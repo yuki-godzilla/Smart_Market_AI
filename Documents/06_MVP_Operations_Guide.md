@@ -26,6 +26,10 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - Research RAG Phase 20 local evidence slice
   - local UTF-8 document registration, chunking, keyword evidence search, Research Summary / ResearchBrief
   - Settings upload, Cockpit `AI調査を更新`, Ranking modal `AI Research`, Cockpit Decision Report Research Evidence / Research Score
+- Performance Profile first slice
+  - `SMAI_PERFORMANCE_PROFILE=notebook|workstation` で、Research RAG external fetch の最大並列数と request timeout を切り替える
+  - 未指定時は `notebook`。未知のprofile名は warning を出して `notebook` にfallbackする
+  - News dashboard cache / MarketData live provider / Symbol DB background refresh への共通profile適用は後続範囲
 - News dashboard cache/update backend foundation
   - `NewsDashboardSnapshot` / `NewsUpdateStatus` contracts, latest snapshot cache, one-generation backup, atomic save, bounded cleanup, cache-size/status helpers
   - TTL / minimum-interval skip, bounded retry, failure fallback, rotating update logs
@@ -86,6 +90,8 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 現在の MVP は、ローカル検証と説明用です。
 外部 API へ接続する場合は明示 opt-in が必要で、broker や execution provider へ注文を送りません。
 Research RAG / News RAG は実運用では情報鮮度が重要です。標準導線では、`AI調査を更新` が EDINET securities-report metadata/link（`EDINET_API_KEY` 設定時のみ live call、未設定時 no-op）、TDnet 適時開示、企業IRサイト、Google News RSS headline search、Yahoo Finance profile / news を取得/参照し、source URL、provider、published_at、fetched_at、freshness warning を確認材料として表示します。Yahoo Finance を使う Research 側 adapter は MarketData 側と同じ yfinance cache / shared session 設定を使います。Google News RSS は一般ニュースのヘッドライン幅を広げる補助sourceで、検索語は会社名・関連キーワード・銘柄コードに決算/業績/株価/配当などの投資文脈語を添えます。ニュースURL表示自体は `外部参照ソース` と詳細データに実装済みです。Cockpit Research Summary では、`最新ニュース・開示サマリー` の直後に `投資ヒントとなるニュース` と `ニュース・開示の出典を表示（URL付きN件）` を置きます。サマリと注目材料は `Market Intelligence` の主表示カードとして扱い、出典は初期折りたたみの小さな citation list としてURL付きニュース・TDnet・企業IR・EDINET・Google News・Yahoo Finance を確認できるようにします。ニュース専用URLが無い場合も、外部参照ソース側に公式資料・provider URLがある可能性を案内します。取得本文は既定では保持せず、session-local の一時参照として扱います。通常検証は fake adapter / fixture / RSS fixture を使い、network 非依存を維持します。
+
+外部取得の実行環境profileは `SMAI_PERFORMANCE_PROFILE` で選択します。`notebook` は Research external fetch profile上限4 workers / timeout 12秒 / cache TTL 30分、`workstation` はprofile上限10 workers / timeout 15秒 / cache TTL 20分です。実際の worker 数は profile 上限と external source adapter 数の小さい方に抑えます。現時点でこのprofileが実際に制御するのは `DefaultExternalResearchAdapter` の並列度と EDINET / TDnet / 企業IR / Google News RSS / Yahoo Finance Research adapter の request timeout です。`processing.rag_workers`、`forecast_workers`、`background_refresh_workers`、`llm_workers` は設定として保持しますが、共通適用は後続フェーズです。`SMAI_LLM_PROFILE` はLLMモデル選択用であり、この performance profile とは分けて扱います。現在のprofileと直近のAI調査外部取得サマリは Streamlit `設定 / データ情報` で確認できます。
 
 親SMAIの汎用 Assistant service から Gateway 接続を試す場合は、`smai-ai-gateway` を別プロセスで起動したうえで、SMAI 側の `SMAI_CONFIG_FILE` に次のような設定を指定します。通常確認やCIではこの設定を使わず、`enabled: false` の既定値を維持します。専用 `SMAIアシスタント` workspace は画面内で Gateway 接続を既定で試し、失敗時は同じ画面内で deterministic fallback に戻ります。
 

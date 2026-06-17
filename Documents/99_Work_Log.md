@@ -2492,3 +2492,16 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - archive UX connected: yes.
 - report content sanitized: yes, raw provider/debug/request metadata lines are stripped and not persisted.
 - remaining issues: searchable saved-report library and broader Phase 27 live LLM Factor generation remain future work.
+
+## 2026-06-18 - Roadmap status label readability
+
+### Scope
+
+- added a status legend near the top of `Documents/05_Implementation_Roadmap.md` using colored symbols and bold labels so completion state is visible in Markdown views.
+- added a phase status summary table under `現在地` to show completed, in-progress, next, future, and deferred phases without reading the full document.
+- updated major phase status lines, section headings, and the implementation-order table to use the same labels.
+
+### Notes
+
+- no implementation behavior changed.
+- `PROJECT_CONTEXT.md` was not updated because this was a roadmap readability change, not a product state change.

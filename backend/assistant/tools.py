@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -45,6 +45,18 @@ class AssistantToolPlanResult:
     current_context: AssistantCurrentContext
     executed: tuple[AssistantToolResult, ...]
     report_context: DecisionReportContext | None = None
+
+
+_REPORT_TECHNICAL_MARKERS = (
+    "provider raw",
+    "debug logs",
+    "request_id",
+    "latency",
+    "gateway",
+    "http_status",
+    "privacy_notes",
+    "safety_notes",
+)
 
 
 @dataclass(frozen=True)
@@ -341,16 +353,179 @@ def execute_assistant_tool_plan(
     if intent in {"stock_summary", "rag_search", "decision_report_draft"}:
         executed.append(tools.search_rag_materials(report_context, message))
 
-    report = (
-        tools.build_decision_report(current_context, tuple(executed))
-        if intent in {"decision_report_draft", "file_export"}
-        else None
-    )
+    report = None
+    if intent in {"decision_report_draft", "file_export"}:
+        report = tools.build_decision_report(current_context, tuple(executed))
+        executed.append(
+            AssistantToolResult(
+                name="build_decision_report",
+                status="ok",
+                summary="Decision Report下書きを作成しました。",
+                details={"title": report.title},
+            )
+        )
     return AssistantToolPlanResult(
         intent=intent,
         current_context=current_context,
         executed=tuple(executed),
         report_context=report,
+    )
+
+
+def assistant_research_bundle_to_decision_report_context(
+    bundle: AssistantResearchContextBundle,
+    *,
+    user_question: str,
+    assistant_answer: str | None = None,
+    intent: str | None = None,
+    created_at: datetime | None = None,
+) -> DecisionReportContext:
+    """Build a reusable Decision Report draft from a Research Mode material bundle."""
+
+    symbol = _symbol_from_research_bundle(bundle)
+    company_name = _company_name_from_research_subject(bundle.subject, symbol=symbol)
+    clean_question = _report_safe_text(user_question) or "未入力"
+    clean_answer = _report_safe_text(assistant_answer or "")
+    clean_intent = _report_safe_text(intent or "research_answer")
+    confirmed_labels = (
+        ", ".join(material.label for material in bundle.confirmed_materials) or "なし"
+    )
+    missing_labels = ", ".join(material.label for material in bundle.missing_materials) or "なし"
+    title_subject = company_name or symbol or bundle.subject
+
+    overview = build_report_section(
+        title="SMAIアシスタント 調査概要",
+        source_kind="manual",
+        provider="assistant_research_mode",
+        symbol=symbol,
+        summary={
+            "source": "assistant_research_mode",
+            "intent": clean_intent,
+            "user_question": clean_question,
+            "subject": _report_safe_text(bundle.subject),
+            "company_name": company_name,
+            "available_materials": confirmed_labels,
+            "missing_materials": missing_labels,
+            "assistant_answer": clean_answer,
+        },
+        notes=[
+            "SMAIアシスタント Research Mode の会話結果を、判断材料メモとして整理した下書きです。",
+            "売買推奨ではなく、上昇方向を見る材料、注意材料、未確認材料、次の確認を分けて保存します。",
+        ],
+        metadata={"source": "assistant_research_mode", "intent": clean_intent},
+    )
+    available_materials = build_report_section(
+        title="確認できた材料",
+        source_kind="manual",
+        provider="assistant_research_mode",
+        symbol=symbol,
+        rows=[
+            _material_report_row(material, row_type="available_material")
+            for material in bundle.confirmed_materials
+        ]
+        or [
+            {
+                "row_type": "available_material",
+                "label": "確認できた材料",
+                "status": "missing",
+                "summary": "この会話では、Report化できる確認済み材料がまだありません。",
+            }
+        ],
+        notes=["確認済み材料も、スコア・ランキング・予測値を変更するものではありません。"],
+        metadata={"source": "assistant_research_mode", "intent": clean_intent},
+    )
+    cautions_and_unknowns = build_report_section(
+        title="注意材料と未確認事項",
+        source_kind="manual",
+        provider="assistant_research_mode",
+        symbol=symbol,
+        rows=[
+            _material_report_row(material, row_type="missing_material")
+            for material in bundle.missing_materials
+        ]
+        + [
+            {
+                "row_type": "caution",
+                "label": "注意材料",
+                "status": "caution",
+                "summary": _report_safe_text(caution),
+            }
+            for caution in bundle.caution_materials
+        ],
+        warnings=[_report_safe_text(item) for item in bundle.caution_materials],
+        notes=["未確認材料は、確認不足の整理であり、銘柄評価そのものではありません。"],
+        metadata={"source": "assistant_research_mode", "intent": clean_intent},
+    )
+    next_checks = build_report_section(
+        title="次に確認すること",
+        source_kind="manual",
+        provider="assistant_research_mode",
+        symbol=symbol,
+        rows=[
+            {
+                "row_type": "next_check",
+                "label": f"確認{index}",
+                "status": "planned",
+                "summary": _report_safe_text(checkpoint),
+            }
+            for index, checkpoint in enumerate(bundle.next_checkpoints, start=1)
+        ],
+        notes=["次の確認は、投資判断を補助するための作業メモです。"],
+        metadata={"source": "assistant_research_mode", "intent": clean_intent},
+    )
+    return build_decision_report_context(
+        title=f"SMAIアシスタント Decision Report下書き: {title_subject}",
+        sections=[overview, available_materials, cautions_and_unknowns, next_checks],
+        created_at=created_at or datetime.now(UTC),
+        tags=["assistant", "research-mode", "decision-report-draft"],
+    )
+
+
+def render_research_bundle_markdown_memo(context: DecisionReportContext) -> str:
+    """Render a compact human-facing Markdown memo for an Assistant report draft."""
+
+    overview = _section_by_title(context, "SMAIアシスタント 調査概要")
+    available = _section_by_title(context, "確認できた材料")
+    cautions = _section_by_title(context, "注意材料と未確認事項")
+    next_checks = _section_by_title(context, "次に確認すること")
+    summary = overview.summary if overview else {}
+    subject = _report_safe_text(
+        summary.get("company_name") or summary.get("subject") or context.title
+    )
+    question = _report_safe_text(summary.get("user_question") or "未入力")
+    assistant_answer = _report_safe_text(summary.get("assistant_answer") or "")
+    available_lines = _row_summaries(available, row_types=("available_material",))
+    missing_lines = _row_summaries(cautions, row_types=("missing_material",))
+    caution_lines = _row_summaries(cautions, row_types=("caution",))
+    next_lines = _row_summaries(next_checks, row_types=("next_check",))
+    if not available_lines:
+        available_lines = ("確認済み材料はまだありません。",)
+    if not caution_lines:
+        caution_lines = ("確認済み材料だけで判断を固定しないよう注意します。",)
+    if not missing_lines:
+        missing_lines = ("未確認材料はありません。必要に応じて前提の更新を確認します。",)
+    if not next_lines:
+        next_lines = ("価格・予測・ニュース・根拠資料の前提を必要に応じて再確認します。",)
+    overview_text = (
+        assistant_answer or f"{subject}について、取得済み材料をもとに確認ポイントを整理しました。"
+    )
+    return (
+        f"# Decision Report Draft: {subject}\n\n"
+        "## ユーザー質問\n"
+        f"{question}\n\n"
+        "## 概要\n"
+        f"{overview_text}\n\n"
+        "## 上昇方向を見る材料\n"
+        f"{_markdown_list(available_lines)}\n\n"
+        "## 注意すべき材料\n"
+        f"{_markdown_list(caution_lines)}\n\n"
+        "## 未確認材料\n"
+        f"{_markdown_list(missing_lines)}\n\n"
+        "## 次に確認すること\n"
+        f"{_markdown_list(next_lines)}\n\n"
+        "---\n\n"
+        "この下書きは投資判断を補助するための整理メモであり、"
+        "買い/売りを推奨するものではありません。\n"
     )
 
 
@@ -405,6 +580,93 @@ def build_assistant_research_context_bundle(
         next_checkpoints=next_checkpoints,
         report_context=tool_plan.report_context if tool_plan else None,
     )
+
+
+def _material_report_row(
+    material: AssistantResearchMaterial,
+    *,
+    row_type: str,
+) -> dict[str, str]:
+    return {
+        "row_type": row_type,
+        "key": material.key,
+        "label": material.label,
+        "status": material.status,
+        "external": "true" if material.external else "false",
+        "required": "true" if material.required else "false",
+        "summary": _report_safe_text(material.summary),
+        "sources": ", ".join(_report_safe_text(source) for source in material.sources),
+    }
+
+
+def _symbol_from_research_bundle(bundle: AssistantResearchContextBundle) -> str | None:
+    for material in bundle.confirmed_materials:
+        symbol = material.details.get("symbol")
+        if symbol:
+            return symbol
+    return _symbol_from_query(bundle.subject)
+
+
+def _company_name_from_research_subject(subject: str, *, symbol: str | None) -> str | None:
+    clean = str(subject or "").strip()
+    if "（" in clean and "）" in clean:
+        before = clean.split("（", 1)[0].strip()
+        if before:
+            return before
+    if "(" in clean and ")" in clean:
+        before = clean.split("(", 1)[0].strip()
+        if before and before != symbol:
+            return before
+    if symbol and clean and clean != symbol:
+        return clean
+    return None
+
+
+def _section_by_title(
+    context: DecisionReportContext,
+    title: str,
+):
+    return next((section for section in context.sections if section.title == title), None)
+
+
+def _row_summaries(
+    section,
+    *,
+    row_types: tuple[str, ...],
+) -> tuple[str, ...]:
+    if section is None:
+        return ()
+    rows: list[str] = []
+    for row in section.rows:
+        if str(row.get("row_type", "")).strip() not in row_types:
+            continue
+        label = _report_safe_text(row.get("label", ""))
+        summary = _report_safe_text(row.get("summary", ""))
+        if not summary:
+            continue
+        rows.append(f"{label}: {summary}" if label and label not in summary else summary)
+    return _dedupe_tuple(rows)
+
+
+def _markdown_list(items: Sequence[str]) -> str:
+    lines = [_report_safe_text(item) for item in items if _report_safe_text(item)]
+    return "\n".join(f"- {line}" for line in lines) or "- なし"
+
+
+def _report_safe_text(value: object) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    lines = []
+    for line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        clean = line.strip()
+        lowered = clean.lower()
+        if not clean:
+            continue
+        if any(marker in lowered for marker in _REPORT_TECHNICAL_MARKERS):
+            continue
+        lines.append(clean)
+    return "\n".join(lines)
 
 
 def _find_section(report_context: DecisionReportContext | None, terms: tuple[str, ...]):

@@ -15,6 +15,7 @@ from backend.core.config import Settings
 from ui.views.copilot import (
     COPILOT_CHAT_HISTORY_STATE_KEY,
     COPILOT_LLM_MODEL_OPTIONS,
+    COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY,
     COPILOT_RUNTIME_STATUS_STATE_KEY,
     AssistantStatusEvent,
     CopilotGatewayRuntimeConfig,
@@ -1167,6 +1168,21 @@ def test_copilot_page_tool_plan_approve_returns_material_summary(monkeypatch):
     assert history[-1]["hide_answer_grid"] == "true"
     assert "価格の動き" in history[-1]["executed_checks"]
     assert "取得できませんでした" in history[-1]["executed_checks"]
+    assert history[-1]["can_add_to_decision_report"] == "true"
+    assert history[-1]["report_draft_status"] == "draft_ready"
+    assert "Decision Report Draft: トヨタ自動車" in history[-1]["decision_report_markdown"]
+    assert "provider raw" not in history[-1]["decision_report_markdown"].lower()
+    assert "Decision Reportに追加" in [str(getattr(element, "label", "")) for element in app.button]
+
+    _click_button_label(app, "Decision Reportに追加")
+
+    draft = app.session_state[COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY]
+    assert draft["source"] == "assistant_research_mode"
+    assert draft["symbol"] == "7203.T"
+    assert "Decision Report Draft: トヨタ自動車" in draft["markdown"]
+    assert draft["context"]
+    updated_history = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]
+    assert updated_history[-1]["report_draft_status"] == "pending_draft_created"
 
 
 def test_copilot_page_tool_plan_cached_only_mentions_missing_materials(monkeypatch):
@@ -1189,6 +1205,51 @@ def test_copilot_page_tool_plan_cached_only_mentions_missing_materials(monkeypat
     assert "外部取得は行っていない" in history[-1]["answer"]
     assert "最新ニュース" in history[-1]["answer"]
     assert "根拠資料 / Research Evidence" in history[-1]["answer"]
+    assert history[-1]["can_add_to_decision_report"] == "true"
+    assert "## 未確認材料" in history[-1]["decision_report_markdown"]
+
+
+def test_copilot_page_decision_report_request_reuses_recent_research_draft(monkeypatch):
+    monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    app = AppTest.from_file("ui/app.py", default_timeout=60)
+    app.session_state["sidemenu_page"] = "copilot"
+    _reset_copilot_session(app)
+    app.run()
+
+    app.text_input[0].set_value("トヨタこれから上がるかな")
+    _click_button_label(app, "送信")
+    _click_button_label(app, "取得して分析する")
+    first_draft = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY][-1]["decision_report_markdown"]
+
+    app.text_input[0].set_value("この内容をDecision Reportにして")
+    _click_button_label(app, "送信")
+    assert app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY][-1]["status"] == "tool_plan"
+    _click_button_label(app, "取得して分析する")
+
+    history = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]
+    assert not app.exception
+    assert history[-1]["intent"] == "decision_report_draft"
+    assert history[-1]["can_add_to_decision_report"] == "true"
+    assert history[-1]["report_draft_status"] == "draft_ready_from_recent_research"
+    assert history[-1]["decision_report_markdown"] == first_draft
+    assert "直近の調査結果" in history[-1]["answer"]
+
+
+def test_copilot_page_normal_chat_does_not_show_report_add(monkeypatch):
+    monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    app = AppTest.from_file("ui/app.py", default_timeout=40)
+    app.session_state["sidemenu_page"] = "copilot"
+    _reset_copilot_session(app)
+    app.run()
+
+    app.text_input[0].set_value("あなたの名前は何ですか")
+    _click_button_label(app, "送信")
+
+    labels = [str(getattr(element, "label", "")) for element in app.button]
+    history = app.session_state[COPILOT_CHAT_HISTORY_STATE_KEY]
+    assert not app.exception
+    assert history[-1]["can_add_to_decision_report"] == ""
+    assert "Decision Reportに追加" not in labels
 
 
 def test_copilot_page_tool_plan_cancel_is_natural(monkeypatch):

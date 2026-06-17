@@ -18,10 +18,12 @@ from backend.assistant import (
     AssistantResearchToolPlan,
     AssistantResponse,
     HttpAssistantGatewayClient,
+    assistant_research_bundle_to_decision_report_context,
     build_assistant_research_context_bundle,
     build_assistant_research_tool_plan,
     detect_assistant_intent,
     execute_assistant_tool_plan,
+    render_research_bundle_markdown_memo,
     route_assistant_conversation_mode,
 )
 from backend.assistant.response_sanitizer import (
@@ -29,6 +31,7 @@ from backend.assistant.response_sanitizer import (
     sanitize_presentation_text,
 )
 from backend.core.config import AssistantGatewayConfig, Settings, get_settings
+from backend.reporting import DecisionReportContext, render_decision_report_markdown
 from ui.components.assistant import (
     SmaiAssistantContext,
     assistant_context_to_report_context,
@@ -50,6 +53,7 @@ COPILOT_LLM_PROFILE_STATE_KEY = "smai_copilot_llm_profile"
 COPILOT_LLM_MODEL_STATE_KEY = "smai_copilot_llm_model"
 COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY = "smai_copilot_gateway_diagnostic"
 COPILOT_RUNTIME_STATUS_STATE_KEY = "smai_copilot_runtime_status"
+COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY = "pending_decision_report_draft"
 COPILOT_GATEWAY_DIAGNOSTIC_TTL_SECONDS = 20.0
 COPILOT_STREAM_DELAY_SECONDS = 0.16
 COPILOT_STREAM_MAX_CHUNKS = 8
@@ -990,6 +994,7 @@ def render_copilot_workspace_page() -> None:
         st.session_state[COPILOT_SUPPRESS_SUBMIT_STATE_KEY] = False
         st.session_state.pop(COPILOT_RUNTIME_STATUS_STATE_KEY, None)
         st.session_state.pop(COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY, None)
+        st.session_state.pop(COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY, None)
         st.rerun()
 
     chat_placeholder = st.empty()
@@ -1013,6 +1018,9 @@ def render_copilot_workspace_page() -> None:
         runtime_config=runtime_config,
     ):
         st.rerun()
+    if _render_decision_report_draft_action(_copilot_history()):
+        st.rerun()
+    _render_pending_decision_report_draft_preview()
     st.session_state.pop(COPILOT_SUPPRESS_SUBMIT_STATE_KEY, None)
     suggestions_placeholder = st.empty()
     with suggestions_placeholder.container():
@@ -1408,6 +1416,14 @@ def _pending_turn(
         "llm_generation_ms": "",
         "total_elapsed_ms": "",
         "response_meta": "",
+        "research_bundle": "",
+        "decision_report_context": "",
+        "decision_report_markdown": "",
+        "can_add_to_decision_report": "",
+        "report_draft_status": "",
+        "decision_report_source": "",
+        "decision_report_symbol": "",
+        "decision_report_company_name": "",
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
 
@@ -1496,6 +1512,130 @@ def _render_tool_plan_actions(
                 )
                 return True
     return False
+
+
+def _render_decision_report_draft_action(history: list[dict[str, str]]) -> bool:
+    turn = _latest_decision_report_ready_turn(history)
+    if turn is None:
+        return False
+    draft = st.session_state.get(COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY)
+    if isinstance(draft, dict) and str(draft.get("turn_id", "")) == str(turn.get("turn_id", "")):
+        return False
+    label = (
+        "Decision Reportに保存"
+        if _normalize_intent(turn.get("intent", "")) == "decision_report_draft"
+        else "Decision Reportに追加"
+    )
+    st.markdown(
+        '<div class="smai-copilot-chat-actions-anchor" aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
+    _, action_col = st.columns([0.68, 0.32], gap="small")
+    with action_col:
+        if st.button(
+            label,
+            key=f"smai_copilot_add_decision_report_{turn.get('turn_id', '')}",
+            use_container_width=True,
+            help="この回答に紐づくDecision Report下書きを作成します。",
+        ):
+            _store_pending_decision_report_draft(turn, action_label=label)
+            return True
+    return False
+
+
+def _render_pending_decision_report_draft_preview() -> None:
+    draft = st.session_state.get(COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY)
+    if not isinstance(draft, dict):
+        return
+    markdown = str(draft.get("markdown", "")).strip()
+    if not markdown:
+        return
+    status = str(draft.get("status", "draft_ready"))
+    if status == "saved_in_session":
+        st.success("Decision Report下書きを保存しました。会話内の判断メモとして保持しています。")
+    else:
+        st.info("Decision Report下書きを作成しました。内容を確認して保存できます。")
+    with st.expander("Decision Report下書きプレビュー", expanded=True):
+        st.markdown(markdown)
+        save_col, download_col, cancel_col = st.columns(3, gap="small")
+        with save_col:
+            if st.button(
+                "Decision Reportに保存",
+                key=f"smai_copilot_report_draft_save_{draft.get('turn_id', '')}",
+                use_container_width=True,
+            ):
+                updated = dict(draft)
+                updated["status"] = "saved_in_session"
+                st.session_state[COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY] = updated
+                st.rerun()
+        with download_col:
+            st.download_button(
+                "Markdownで保存",
+                data=markdown,
+                file_name=_memo_filename(
+                    {
+                        "intent": "decision_report_draft",
+                        "context_label": (
+                            draft.get("company_name") or draft.get("symbol") or "SMAI"
+                        ),
+                    }
+                ),
+                mime="text/markdown",
+                key=f"smai_copilot_report_draft_download_{draft.get('turn_id', '')}",
+                use_container_width=True,
+            )
+        with cancel_col:
+            if st.button(
+                "キャンセル",
+                key=f"smai_copilot_report_draft_cancel_{draft.get('turn_id', '')}",
+                use_container_width=True,
+            ):
+                st.session_state.pop(COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY, None)
+                st.rerun()
+
+
+def _latest_decision_report_ready_turn(
+    history: list[dict[str, str]],
+) -> dict[str, str] | None:
+    for turn in reversed(history):
+        if (
+            str(turn.get("status", "")) == "complete"
+            and str(turn.get("can_add_to_decision_report", "")).lower() == "true"
+            and str(turn.get("decision_report_markdown", "")).strip()
+        ):
+            return turn
+    return None
+
+
+def _store_pending_decision_report_draft(turn: dict[str, str], *, action_label: str) -> None:
+    draft = {
+        "source": str(turn.get("decision_report_source", "assistant_research_mode")),
+        "turn_id": str(turn.get("turn_id", "")),
+        "symbol": str(turn.get("decision_report_symbol", "")),
+        "company_name": str(turn.get("decision_report_company_name", "")),
+        "markdown": str(turn.get("decision_report_markdown", "")),
+        "context": str(turn.get("decision_report_context", "")),
+        "created_at": str(turn.get("created_at", "")),
+        "status": "draft_ready",
+        "action_label": action_label,
+    }
+    st.session_state[COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY] = draft
+    _mark_turn_report_draft_status(str(turn.get("turn_id", "")), "pending_draft_created")
+
+
+def _mark_turn_report_draft_status(turn_id: str, status: str) -> None:
+    if not turn_id:
+        return
+    history = _copilot_history()
+    next_history: list[dict[str, str]] = []
+    for turn in history:
+        if str(turn.get("turn_id", "")) == turn_id:
+            updated = dict(turn)
+            updated["report_draft_status"] = status
+            next_history.append(updated)
+        else:
+            next_history.append(turn)
+    st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = next_history
 
 
 def _handle_tool_plan_choice(
@@ -1875,6 +2015,7 @@ def _handle_copilot_submit(
         for turn in history
         if not pending_turn_id or str(turn.get("turn_id", "")) != pending_turn_id
     ]
+    recent_report_draft = _latest_decision_report_draft_from_history(history_for_request)
     conversation_id = _conversation_id()
     effective_context = _context_for_llm(
         intent=intent, context=context, question=normalized_question
@@ -1970,6 +2111,21 @@ def _handle_copilot_submit(
         )
         if research_context_bundle is not None:
             _apply_research_context_to_turn(turn, research_context_bundle)
+            _attach_research_decision_report_draft(
+                turn,
+                research_context_bundle,
+                user_question=normalized_question,
+                intent=intent,
+            )
+    if intent == "decision_report_draft" and recent_report_draft is not None:
+        _copy_decision_report_draft_to_turn(turn, recent_report_draft)
+    elif (
+        intent == "decision_report_draft"
+        and tool_plan is not None
+        and tool_plan.report_context is not None
+        and str(turn.get("can_add_to_decision_report", "")).lower() != "true"
+    ):
+        _attach_tool_plan_decision_report_draft(turn, tool_plan.report_context)
     if pending_turn_id:
         replaced = False
         next_history: list[dict[str, str]] = []
@@ -2204,6 +2360,107 @@ def _apply_research_context_to_turn(
         )
 
 
+def _attach_research_decision_report_draft(
+    turn: dict[str, str],
+    bundle: AssistantResearchContextBundle,
+    *,
+    user_question: str,
+    intent: CopilotIntent,
+) -> None:
+    context = assistant_research_bundle_to_decision_report_context(
+        bundle,
+        user_question=user_question,
+        assistant_answer=turn.get("answer", ""),
+        intent=intent,
+    )
+    markdown = render_research_bundle_markdown_memo(context)
+    _attach_decision_report_context_to_turn(
+        turn,
+        context=context,
+        markdown=markdown,
+        source="assistant_research_mode",
+    )
+    turn["research_bundle"] = "\n".join(bundle.llm_context_lines())
+
+
+def _attach_tool_plan_decision_report_draft(
+    turn: dict[str, str],
+    context: DecisionReportContext,
+) -> None:
+    _attach_decision_report_context_to_turn(
+        turn,
+        context=context,
+        markdown=render_decision_report_markdown(context),
+        source="assistant_tool_layer",
+    )
+
+
+def _attach_decision_report_context_to_turn(
+    turn: dict[str, str],
+    *,
+    context: DecisionReportContext,
+    markdown: str,
+    source: str,
+) -> None:
+    turn["decision_report_context"] = context.model_dump_json(indent=2)
+    turn["decision_report_markdown"] = markdown
+    turn["can_add_to_decision_report"] = "true"
+    turn["report_draft_status"] = "draft_ready"
+    turn["decision_report_source"] = source
+    turn["decision_report_symbol"] = _decision_report_symbol(context)
+    turn["decision_report_company_name"] = _decision_report_company_name(context)
+
+
+def _copy_decision_report_draft_to_turn(
+    turn: dict[str, str],
+    draft_turn: dict[str, str],
+) -> None:
+    for key in (
+        "research_bundle",
+        "decision_report_context",
+        "decision_report_markdown",
+        "decision_report_source",
+        "decision_report_symbol",
+        "decision_report_company_name",
+    ):
+        turn[key] = str(draft_turn.get(key, ""))
+    turn["can_add_to_decision_report"] = "true"
+    turn["report_draft_status"] = "draft_ready_from_recent_research"
+    if "直近の調査結果" not in str(turn.get("answer", "")):
+        turn["answer"] = _join_answer_parts(
+            "直近の調査結果をDecision Report下書きとして整理しました。",
+            str(turn.get("answer", "")),
+        )
+
+
+def _latest_decision_report_draft_from_history(
+    history: list[dict[str, str]],
+) -> dict[str, str] | None:
+    for turn in reversed(history):
+        if (
+            str(turn.get("can_add_to_decision_report", "")).lower() == "true"
+            and str(turn.get("decision_report_markdown", "")).strip()
+            and str(turn.get("decision_report_context", "")).strip()
+        ):
+            return turn
+    return None
+
+
+def _decision_report_symbol(context: DecisionReportContext) -> str:
+    return next(
+        (section.source.symbol for section in context.sections if section.source.symbol),
+        "",
+    )
+
+
+def _decision_report_company_name(context: DecisionReportContext) -> str:
+    for section in context.sections:
+        value = section.summary.get("company_name")
+        if value:
+            return str(value)
+    return ""
+
+
 def _research_context_answer_block(bundle: AssistantResearchContextBundle | None) -> str:
     if bundle is None:
         return ""
@@ -2353,6 +2610,14 @@ def _turn_from_response(
         "llm_generation_ms": str(response.llm_generation_ms or ""),
         "total_elapsed_ms": str(response.total_elapsed_ms or ""),
         "response_meta": _response_meta_label(response=response, intent=intent),
+        "research_bundle": "",
+        "decision_report_context": "",
+        "decision_report_markdown": "",
+        "can_add_to_decision_report": "",
+        "report_draft_status": "",
+        "decision_report_source": "",
+        "decision_report_symbol": "",
+        "decision_report_company_name": "",
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
 
@@ -3110,16 +3375,9 @@ def _actions_for_turn(turn: dict[str, str]) -> tuple[tuple[str, str], ...]:
     intent = _normalize_intent(turn.get("intent", ""))
     if _is_llm_micro_intent(intent):
         return (("コピー", "copy"),)
-    if intent == "decision_report_draft":
-        return (
-            ("コピー", "copy"),
-            ("Markdownで保存", "memo"),
-            ("Decision Reportに追加", "report"),
-        )
     return (
         ("コピー", "copy"),
         ("Markdownで保存", "memo"),
-        ("Decision Reportに追加", "report"),
     )
 
 
@@ -3162,6 +3420,9 @@ def copilot_turn_plain_text(turn: dict[str, str]) -> str:
 
 
 def copilot_turn_markdown(turn: dict[str, str]) -> str:
+    report_markdown = str(turn.get("decision_report_markdown", "")).strip()
+    if report_markdown:
+        return report_markdown + ("\n" if not report_markdown.endswith("\n") else "")
     context_label = str(turn.get("context_label", "")).strip()
     intent_label = str(turn.get("intent_label", "")).strip()
     created_at = str(turn.get("created_at", "")).strip() or datetime.now().strftime(

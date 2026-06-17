@@ -1,9 +1,13 @@
 from datetime import UTC, datetime
 
 from backend.assistant import (
+    AssistantResearchContextBundle,
+    AssistantResearchMaterial,
     AssistantToolLayer,
+    assistant_research_bundle_to_decision_report_context,
     build_assistant_research_context_bundle,
     execute_assistant_tool_plan,
+    render_research_bundle_markdown_memo,
 )
 from backend.reporting import build_decision_report_context, build_report_section
 
@@ -153,6 +157,90 @@ def test_research_context_bundle_cached_only_marks_external_tools_missing():
     assert "最新ニュース" in missing_labels
     assert "AI予測・下振れ警戒" in confirmed_labels
     assert any("外部取得は行っていない" in caution for caution in bundle.caution_materials)
+
+
+def test_research_bundle_to_decision_report_context_carries_materials_without_debug():
+    plan = execute_assistant_tool_plan(
+        intent="stock_summary",
+        message="トヨタこれから上がるかな",
+        report_context=_sample_context(),
+    )
+    bundle = build_assistant_research_context_bundle(
+        subject="トヨタ自動車（7203.T）",
+        choice="approve",
+        tool_plan=plan,
+        planned_tools=(
+            {"name": "symbol_resolve", "label": "銘柄を特定", "external": False},
+            {"name": "price_fetch", "label": "価格の動き", "external": True},
+            {"name": "forecast_fetch", "label": "AI予測・下振れ警戒", "external": False},
+            {"name": "news_fetch", "label": "最新ニュース", "external": True},
+        ),
+    )
+
+    context = assistant_research_bundle_to_decision_report_context(
+        bundle,
+        user_question="トヨタはこれから上がるかな？",
+        assistant_answer="確認材料を整理しました。\nprovider raw fields\nrequest_id=abc\nlatency=10",
+        intent="stock_summary",
+        created_at=datetime(2026, 6, 14, 6, 30, tzinfo=UTC),
+    )
+    markdown = render_research_bundle_markdown_memo(context)
+
+    assert context.title == "SMAIアシスタント Decision Report下書き: トヨタ自動車"
+    assert context.sections[0].source.symbol == "7203.T"
+    assert context.sections[0].summary["company_name"] == "トヨタ自動車"
+    assert context.sections[0].summary["user_question"] == "トヨタはこれから上がるかな？"
+    assert "価格の動き" in context.sections[0].summary["available_materials"]
+    assert "最新ニュース" in context.sections[0].summary["missing_materials"]
+    assert markdown.startswith("# Decision Report Draft: トヨタ自動車")
+    assert "## 上昇方向を見る材料" in markdown
+    assert "## 注意すべき材料" in markdown
+    assert "## 未確認材料" in markdown
+    assert "最新ニュース" in markdown
+    assert "provider raw" not in markdown.lower()
+    assert "request_id" not in markdown
+    assert "latency" not in markdown.lower()
+
+
+def test_news_research_bundle_to_decision_report_context_keeps_news_materials():
+    bundle = AssistantResearchContextBundle(
+        subject="銀行ニュース",
+        choice="approve",
+        confirmed_materials=(
+            AssistantResearchMaterial(
+                key="news_fetch",
+                label="最新ニュース",
+                status="confirmed",
+                summary="銀行セクターの政策金利材料を確認しました。",
+                external=True,
+            ),
+        ),
+        missing_materials=(
+            AssistantResearchMaterial(
+                key="research_fetch",
+                label="根拠資料 / Research Evidence",
+                status="missing",
+                summary="個別銘柄の根拠資料は未確認です。",
+                external=True,
+            ),
+        ),
+        caution_materials=("ニュースだけで判断せず、価格・業績・開示も確認します。",),
+        next_checkpoints=("関連銘柄とセクター影響を確認します。",),
+    )
+
+    context = assistant_research_bundle_to_decision_report_context(
+        bundle,
+        user_question="銀行ニュースを見せてよ",
+        assistant_answer="注目材料を整理しました。",
+        intent="news_materials",
+        created_at=datetime(2026, 6, 14, 7, 0, tzinfo=UTC),
+    )
+    markdown = render_research_bundle_markdown_memo(context)
+
+    assert context.sections[1].rows[0]["label"] == "最新ニュース"
+    assert "銀行セクターの政策金利材料" in markdown
+    assert "根拠資料 / Research Evidence" in markdown
+    assert "関連銘柄とセクター影響" in markdown
 
 
 def test_export_markdown_report_avoids_overwrite(tmp_path):

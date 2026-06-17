@@ -2300,3 +2300,50 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - Changed `smai-ai-gateway/run_server.bat` to start Gateway with `python -m uvicorn` instead of the generated `uvicorn.exe` launcher.
 - This avoids stale WindowsApps Python paths embedded in console-script launchers after rebuilding `venv_SMAI` with Python 3.12.
+
+## 2026-06-17 - Phase 26A: connect Assistant research bundle to Decision Report draft
+
+### Scope
+
+- implemented: `AssistantResearchContextBundle` to `DecisionReportContext` conversion, human-facing Markdown memo rendering, Copilot turn report-draft fields, pending Decision Report draft session handoff, and representative tests.
+- not implemented: live `news_fetch` / `research_fetch` execution, full `AI調査を更新` integration, permanent report archive persistence, and Report screen redesign.
+
+### Bundle to Report Context
+
+- converter: `assistant_research_bundle_to_decision_report_context`.
+- fields: user question, intent, subject, symbol, company name, available materials, missing materials, cautions, next checks, assistant answer, and `assistant_research_mode` source metadata.
+- markdown: `render_research_bundle_markdown_memo` creates a draft with question, overview, upward-check materials, cautions, unknowns, and next checks while filtering provider/debug/request/latency style technical text.
+
+### Assistant Turn
+
+- report_context: stored as JSON in `decision_report_context`.
+- markdown: stored in `decision_report_markdown` and used by the Markdown action.
+- can_add_to_decision_report: set for Research Mode answers and Decision Report draft turns.
+
+### UI
+
+- Decision Reportに追加: creates `pending_decision_report_draft` from the latest eligible assistant turn.
+- Markdownで保存: remains a Markdown download and now prefers the turn's report-draft Markdown when present.
+- draft preview: added inline preview with save/download/cancel controls.
+- pending_decision_report_draft: stores source, turn id, symbol, company name, markdown, context JSON, created_at, and status.
+
+### Validation
+
+- stock_forward_view: `トヨタこれから上がるかな` approval path creates a report draft and pending draft.
+- news_research: representative news bundle generates a news-oriented report draft.
+- decision_report_request: recent Research Mode draft is reused when the user asks to make the current content a Decision Report.
+- cached-only: produces a draft with external materials marked as missing.
+- UI smoke: Streamlit started on port 8506 with background workers disabled and returned HTTP 200; in-app Browser `iab` was unavailable in this session, so detailed UI interaction was covered by Streamlit AppTest.
+
+### Tests
+
+- added: bundle-to-report and news-research conversion coverage in `tests/test_assistant_tools.py`; Copilot report draft handoff coverage in `tests/test_ui_copilot_view.py`.
+- updated: Copilot action behavior so normal chat does not expose Decision Report add.
+- passed: `tests/test_assistant_tools.py -q -p no:cacheprovider`, `tests/test_ui_copilot_view.py -q -p no:cacheprovider`.
+- failed: first `tests/test_assistant_tools.py` run hit Windows temp directory permission for `tmp_path`; rerun passed with workspace-local `TEMP/TMP`.
+- formatting: targeted Black helper passed for `backend/assistant/tools.py` and `tests/test_ui_copilot_view.py`; full Black helper still reports pre-existing `tests/test_ui_styles.py`.
+
+### Final Judgement
+
+- handoff completed: yes, Research Mode answers can now become Decision Report drafts.
+- remaining issues: live external tool execution and permanent report archive/save flow remain future Phase 26A/26B work.

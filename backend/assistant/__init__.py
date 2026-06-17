@@ -57,8 +57,10 @@ from backend.assistant.tools import (
     AssistantToolLayer,
     AssistantToolPlanResult,
     AssistantToolResult,
+    assistant_research_bundle_to_decision_report_context,
     build_assistant_research_context_bundle,
     execute_assistant_tool_plan,
+    render_research_bundle_markdown_memo,
 )
 
 __all__ = [
@@ -101,6 +103,7 @@ __all__ = [
     "HttpAssistantGatewayClient",
     "MockAssistantGatewayClient",
     "TemplateAssistantService",
+    "assistant_research_bundle_to_decision_report_context",
     "build_assistant_context_bundle",
     "build_assistant_gateway_request",
     "build_assistant_research_context_bundle",
@@ -109,5 +112,6 @@ __all__ = [
     "build_assistant_research_tool_plan",
     "detect_assistant_intent",
     "execute_assistant_tool_plan",
+    "render_research_bundle_markdown_memo",
     "route_assistant_conversation_mode",
 ]

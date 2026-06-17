@@ -2371,3 +2371,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - Normal local checks remain network-free and do not require Playwright browser automation.
 - `setup/setup.bat` still requires network access for dependency installation; Playwright browser download adds a larger one-time download for UI smoke readiness.
+
+## 2026-06-17 - CI Black helper fix
+
+- Reproduced the CI-format failure locally with `tools/run_black_check.py`.
+- Fixed the remaining Black helper formatting issue in `tests/test_ui_styles.py` by normalizing the Vega selector assertion quote style.
+- Verified CI-equivalent checks locally: Ruff, Black helper, mypy, and full pytest with coverage all passed.

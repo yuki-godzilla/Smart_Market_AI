@@ -2347,3 +2347,27 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - handoff completed: yes, Research Mode answers can now become Decision Report drafts.
 - remaining issues: live external tool execution and permanent report archive/save flow remain future Phase 26A/26B work.
+
+## 2026-06-17 - Playwright setup for Streamlit browser smoke
+
+### Scope
+
+- Added `playwright==1.60.0` to `setup/requirements-dev.txt`.
+- Updated `setup/setup.bat` to install Playwright Chromium during setup and verify `python -m playwright --version`.
+- Updated README / setup guide / project context to document Playwright as an optional Streamlit browser-smoke dependency.
+
+### Local Install
+
+- Installed `playwright==1.60.0` into `venv_SMAI`.
+- Installed Chromium browser binaries through `python -m playwright install chromium`.
+- Browser binaries were downloaded to the user Playwright cache.
+
+### Validation
+
+- `python -m playwright --version`: `Version 1.60.0`.
+- Minimal headless Chromium smoke: opened a data URL and printed `SMAI ok`.
+
+### Notes
+
+- Normal local checks remain network-free and do not require Playwright browser automation.
+- `setup/setup.bat` still requires network access for dependency installation; Playwright browser download adds a larger one-time download for UI smoke readiness.

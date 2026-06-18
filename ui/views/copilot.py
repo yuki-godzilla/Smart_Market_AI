@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import html
+import json
 import os
 import time
 from dataclasses import dataclass, replace
@@ -24,12 +25,16 @@ from backend.assistant import (
     assistant_research_bundle_to_decision_report_context,
     assistant_tool_results_from_external_research_failure,
     assistant_tool_results_from_external_research_fetch,
+    build_assistant_context,
     build_assistant_research_context_bundle,
     build_assistant_research_tool_plan,
+    build_deterministic_assistant_tool_plan,
     detect_assistant_intent,
     execute_assistant_tool_plan,
+    get_assistant_action,
     render_research_bundle_markdown_memo,
     route_assistant_conversation_mode,
+    validate_assistant_tool_plan,
 )
 from backend.assistant.response_sanitizer import (
     sanitize_presentation_items,
@@ -965,11 +970,13 @@ def copilot_history_messages(
 
 def copilot_answer_detail_html(turn: dict[str, str]) -> str:
     intent = _normalize_intent(turn.get("intent", ""))
+    tool_plan_panel = _assistant_tool_plan_panel_html(turn)
     if _is_llm_micro_intent(intent):
-        return _assistant_action_links_html(turn)
+        return tool_plan_panel + _assistant_action_links_html(turn)
     if str(turn.get("hide_answer_grid", "")).lower() == "true":
         return (
             _execution_result_html(turn)
+            + tool_plan_panel
             + _response_meta_html(turn)
             + _assistant_action_links_html(turn)
         )
@@ -987,6 +994,7 @@ def copilot_answer_detail_html(turn: dict[str, str]) -> str:
                 )
             )
             + _execution_result_html(turn)
+            + tool_plan_panel
             + _response_meta_html(turn)
             + _assistant_action_links_html(turn)
         )
@@ -1001,6 +1009,7 @@ def copilot_answer_detail_html(turn: dict[str, str]) -> str:
         f"{_block_html(titles[3], _list_html(_split_lines(turn.get('memo_points', '')))) if len(titles) == 4 else ''}"
         "</div>"
         f"{_execution_result_html(turn)}"
+        f"{tool_plan_panel}"
         f"{_response_meta_html(turn)}"
         f"{_assistant_action_links_html(turn)}"
     )
@@ -2867,6 +2876,10 @@ def _turn_from_response(
         memo_points = []
         if intent not in {"app_help", "screen_guidance"}:
             next_checkpoints = []
+    assistant_tool_plan = _assistant_tool_plan_state(
+        context=context,
+        question=question,
+    )
     return {
         "turn_id": turn_id or uuid4().hex,
         "status": "complete",
@@ -2914,7 +2927,61 @@ def _turn_from_response(
         "decision_report_symbol": "",
         "decision_report_company_name": "",
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "assistant_tool_plan": assistant_tool_plan,
     }
+
+
+def _assistant_tool_plan_state(
+    *,
+    context: SmaiAssistantContext,
+    question: str,
+) -> str:
+    material_state = {
+        _material_state_key(label): value
+        for label, value in _material_status(context)
+        if _material_state_key(label)
+    }
+    page_state = {
+        "current_context_id": context.context_id,
+        "section": context.section_label,
+        "active_symbol": context.summary.get("銘柄") or context.summary.get("symbol"),
+        "ranking_policy": context.summary.get("評価方針"),
+        "candidate_count": context.summary.get("候補数"),
+    }
+    assistant_context = build_assistant_context(
+        current_page=context.page_key,
+        user_question=question,
+        page_state={key: value for key, value in page_state.items() if value},
+        material_state=material_state,
+        report_context=assistant_context_to_report_context(context),
+        metadata={"ui_context_id": context.context_id},
+    )
+    plan = build_deterministic_assistant_tool_plan(assistant_context)
+    validation = validate_assistant_tool_plan(plan)
+    if not validation.valid:
+        plan = plan.model_copy(
+            update={
+                "generated_by": "fallback",
+                "warnings": [
+                    *plan.warnings,
+                    "Tool Planを安全側に検証しました。表示できない操作は実行しません。",
+                ],
+            }
+        )
+    elif validation.warnings:
+        plan = plan.model_copy(update={"warnings": [*plan.warnings, *validation.warnings]})
+    return plan.model_dump_json()
+
+
+def _material_state_key(label: str) -> str:
+    return {
+        "価格": "price_data_status",
+        "AI予測": "forecast_status",
+        "ニュース": "news_status",
+        "Research Evidence": "research_status",
+        "Decision Report": "decision_report_status",
+        "LLM": "llm_gateway_status",
+    }.get(label, "")
 
 
 def _copilot_history() -> list[dict[str, str]]:
@@ -3258,6 +3325,69 @@ def _tool_plan_detail_html(turn: dict[str, str]) -> str:
         f"<ul>{items}</ul>"
         f"{choice_html}"
         "</section>"
+    )
+
+
+def _assistant_tool_plan_panel_html(turn: dict[str, str]) -> str:
+    value = str(turn.get("assistant_tool_plan", "")).strip()
+    if not value:
+        return ""
+    try:
+        plan = json.loads(value)
+    except json.JSONDecodeError:
+        return ""
+    steps = plan.get("steps")
+    if not isinstance(steps, list) or not steps:
+        return ""
+    items = "".join(_assistant_tool_plan_step_html(step) for step in steps[:5])
+    if not items:
+        return ""
+    missing = _assistant_tool_plan_inline_items(plan.get("missing_materials"), "未確認")
+    warnings = _assistant_tool_plan_inline_items(plan.get("warnings"), "注意")
+    safety_note = str(plan.get("safety_note", "")).strip()
+    return (
+        '<section class="smai-copilot-tool-plan smai-copilot-tool-plan--next-actions">'
+        '<span class="smai-copilot-tool-plan-title">次にできること</span>'
+        f"<p>{html.escape(str(plan.get('overall_summary', '')).strip())}</p>"
+        f"<ul>{items}</ul>"
+        f"{missing}"
+        f"{warnings}"
+        f'<p class="smai-copilot-tool-plan-safety">{html.escape(safety_note)}</p>'
+        "</section>"
+    )
+
+
+def _assistant_tool_plan_step_html(step: object) -> str:
+    if not isinstance(step, dict):
+        return ""
+    title = str(step.get("title", "")).strip()
+    summary = str(step.get("summary", "")).strip()
+    action_id = str(step.get("action_id", "")).strip()
+    disabled_reason = str(step.get("disabled_reason", "")).strip()
+    requires_confirmation = bool(step.get("requires_confirmation"))
+    action = get_assistant_action(action_id) if action_id else None
+    action_label = action.label if action else action_id
+    confirmation = "実行前確認" if requires_confirmation else "画面確認"
+    disabled = f" / {disabled_reason}" if disabled_reason else ""
+    return (
+        "<li>"
+        f"<b>{html.escape(title)}</b>"
+        f"<span>{html.escape(summary)}</span>"
+        f"<small>{html.escape(action_label)} / {html.escape(confirmation + disabled)}</small>"
+        "</li>"
+    )
+
+
+def _assistant_tool_plan_inline_items(value: object, label: str) -> str:
+    if not isinstance(value, list):
+        return ""
+    items = [str(item).strip() for item in value if str(item).strip()]
+    if not items:
+        return ""
+    visible = " / ".join(items[:4])
+    return (
+        f'<p class="smai-copilot-tool-plan-note">{html.escape(label)}: '
+        f"{html.escape(visible)}</p>"
     )
 
 

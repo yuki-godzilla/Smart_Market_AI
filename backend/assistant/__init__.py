@@ -1,3 +1,7 @@
+from backend.assistant.context_builder import (
+    SMAIAssistantContext,
+    build_assistant_context,
+)
 from backend.assistant.conversation_mode import (
     AssistantConversationMode,
     AssistantConversationModeDecision,
@@ -35,6 +39,10 @@ from backend.assistant.intent_router import (
     AssistantIntentDecision,
     detect_assistant_intent,
 )
+from backend.assistant.plan_validation import (
+    AssistantPlanValidationResult,
+    validate_assistant_tool_plan,
+)
 from backend.assistant.service import (
     ASSISTANT_SCHEMA_VERSION,
     AssistantCitation,
@@ -46,9 +54,22 @@ from backend.assistant.service import (
     TemplateAssistantService,
 )
 from backend.assistant.tool_plan import (
+    ASSISTANT_TOOL_PLAN_PROMPT_VERSION,
+    ASSISTANT_TOOL_PLAN_SAFETY_NOTE,
+    ASSISTANT_TOOL_PLAN_SCHEMA_VERSION,
     AssistantResearchTool,
     AssistantResearchToolPlan,
+    AssistantToolPlan,
+    AssistantToolPlanStep,
     build_assistant_research_tool_plan,
+    build_deterministic_assistant_tool_plan,
+)
+from backend.assistant.tool_registry import (
+    AssistantActionSpec,
+    assistant_action_catalog,
+    assistant_action_registry,
+    assistant_actions_for_page,
+    get_assistant_action,
 )
 from backend.assistant.tools import (
     AssistantCurrentContext,
@@ -70,6 +91,10 @@ __all__ = [
     "ASSISTANT_GATEWAY_REQUEST_SCHEMA_VERSION",
     "ASSISTANT_GATEWAY_RESPONSE_SCHEMA_VERSION",
     "ASSISTANT_SCHEMA_VERSION",
+    "ASSISTANT_TOOL_PLAN_PROMPT_VERSION",
+    "ASSISTANT_TOOL_PLAN_SAFETY_NOTE",
+    "ASSISTANT_TOOL_PLAN_SCHEMA_VERSION",
+    "AssistantActionSpec",
     "AssistantContextBundle",
     "AssistantContextSection",
     "AssistantCitation",
@@ -91,6 +116,7 @@ __all__ = [
     "AssistantIntent",
     "AssistantIntentDecision",
     "AssistantMessage",
+    "AssistantPlanValidationResult",
     "AssistantRequest",
     "AssistantResponse",
     "AssistantResearchIntent",
@@ -98,24 +124,34 @@ __all__ = [
     "AssistantResearchMaterial",
     "AssistantResearchTool",
     "AssistantResearchToolPlan",
+    "AssistantToolPlan",
     "AssistantToolLayer",
+    "AssistantToolPlanStep",
     "AssistantToolPlanResult",
     "AssistantToolResult",
+    "SMAIAssistantContext",
     "GatewayBackedAssistantService",
     "HttpAssistantGatewayClient",
     "MockAssistantGatewayClient",
     "TemplateAssistantService",
     "assistant_research_bundle_to_decision_report_context",
+    "assistant_action_catalog",
+    "assistant_action_registry",
+    "assistant_actions_for_page",
     "assistant_tool_results_from_external_research_failure",
     "assistant_tool_results_from_external_research_fetch",
     "build_assistant_context_bundle",
     "build_assistant_gateway_request",
+    "build_assistant_context",
+    "build_deterministic_assistant_tool_plan",
     "build_assistant_research_context_bundle",
     "create_assistant_gateway_client_from_settings",
     "create_assistant_service_from_settings",
     "build_assistant_research_tool_plan",
     "detect_assistant_intent",
     "execute_assistant_tool_plan",
+    "get_assistant_action",
     "render_research_bundle_markdown_memo",
     "route_assistant_conversation_mode",
+    "validate_assistant_tool_plan",
 ]

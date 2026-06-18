@@ -3071,3 +3071,26 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py`.
 - passed: Markdown strict UTF-8 read.
 - passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe outputs\work\phase29b_cockpit_prefetch_smoke\cockpit_prefetch_smoke.py`; confirmed the filter summary remains visible, detail inputs are initially hidden, `絞り込み条件を変更` opens as an expander, and `データを取得` remains available.
+
+## 2026-06-18 Phase 30-A - SMAI Assistant Tool Plan MVP
+
+### Summary
+
+- Added Assistant context builder for current page and SMAI material state.
+- Added Assistant action registry for ranking, cockpit, research, news, report, navigation, and explanation actions.
+- Added deterministic Tool Plan schema and generation.
+- Added Tool Plan validation for unknown actions, unconfirmed external fetches, too many steps, and advice-like wording.
+- Added Assistant UI panel for `次にできること` below chat answers.
+- Added Assistant Agent Roadmap covering Phase 30-A through 30-G.
+
+### Safety
+
+- Assistant proposes actions only.
+- External fetch, ranking creation, and report creation require user confirmation in future phases.
+- No broker execution, automatic trading, score change, forecast change, ranking-score change, or trade recommendation.
+- Regular tests remain network-free.
+
+### Tests
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_assistant_tool_registry.py tests\test_assistant_context_builder.py tests\test_assistant_tool_plan.py tests\test_assistant_plan_validation.py tests\test_ui_assistant_tool_plan.py -q` with 14 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check backend\assistant ui\views\copilot.py tests\test_assistant_tool_registry.py tests\test_assistant_context_builder.py tests\test_assistant_tool_plan.py tests\test_assistant_plan_validation.py tests\test_ui_assistant_tool_plan.py --no-cache`.

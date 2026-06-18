@@ -2623,3 +2623,32 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 ### Next
 
 - R1-4 should split external fetch registration/manifest/payload persistence from `ExternalResearchFetchService`, or alternatively split Research summary builders next if the adapter boundary remains stable.
+
+## 2026-06-18 - Refactor Phase R1-4a External fetch registration helpers
+
+### Scope
+
+- moved external Research payload/archive helper logic to `backend/research/external_registration.py`.
+- extracted source payload Markdown rendering, stable content digest, source summary clipping, cache-safe filename fragments, session registered-source lookup, payload archive writing, and manifest JSON writing.
+- updated `ExternalResearchFetchService` to delegate helper work while keeping the service class in `backend/research/service.py` to avoid a circular dependency with `ResearchIngestionService` and `ResearchIndexService`.
+- added direct helper tests in `tests/test_research_external_registration.py`.
+
+### Boundary
+
+- did not move `ExternalResearchFetchService` class yet.
+- did not change external provider opt-in, session-local default retention, manifest schema, payload Markdown content, source reuse behavior, or stale-source warning wording.
+- no Ranking, Forecast, Investment Score, Research Score calculation, LLM Factor, Gateway, API, or Streamlit behavior changed.
+
+### Validation
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_research_external_registration.py tests\test_research_service.py::test_external_research_fetch_service_registers_sources_without_persisting_payloads tests\test_research_service.py::test_external_research_fetch_service_reuses_registered_source_by_url tests\test_research_service.py::test_external_research_fetch_service_warns_about_stale_sources -q --basetemp outputs\work\pytest_tmp\refactor_r1_external_registration -p no:cacheprovider`
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_research_service.py tests\test_research_external_contracts.py tests\test_research_external_fetch.py tests\test_research_external_registration.py tests\test_research_source_trace.py -q --basetemp outputs\work\pytest_tmp\refactor_r1_external_registration_full -p no:cacheprovider`
+- passed: `.\venv_SMAI\Scripts\python.exe -m mypy backend\research\external_registration.py backend\research\service.py`
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check backend\research tests --no-cache`
+- passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py`
+- passed: `git diff --check` with only existing line-ending normalization warnings for edited files.
+- passed: Playwright smoke against local Streamlit on `127.0.0.1:8518`: settings page rendered, `性能profile` and `AI調査 / 根拠資料` appeared, cockpit initial page rendered with `データを取得`; no external fetch button was clicked and no live provider call was made.
+
+### Next
+
+- R1-4b can either extract a small persistence coordinator around `ExternalResearchFetchService` or leave that service in place and move on to Research summary builder separation.

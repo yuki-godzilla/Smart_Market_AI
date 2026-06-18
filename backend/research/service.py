@@ -34,6 +34,20 @@ from backend.research.external_contracts import (
     ResearchSourceType,
     StockNewsFreshnessStatus,
 )
+from backend.research.external_registration import (
+    external_payload_markdown as _external_payload_markdown,
+)
+from backend.research.external_registration import (
+    external_research_content_summary as _external_research_content_summary,
+)
+from backend.research.external_registration import (
+    find_registered_external_document,
+    write_external_fetch_manifest,
+    write_external_payload_archive,
+)
+from backend.research.external_registration import (
+    safe_cache_fragment as _safe_cache_fragment,
+)
 
 ResearchLanguage = Literal["ja", "en", "unknown"]
 ResearchTopicCategory = Literal[
@@ -2597,7 +2611,11 @@ class ExternalResearchFetchService:
             existing_document = (
                 None
                 if self.persist_payloads
-                else _external_research_registered_document(self.ingestion, payload)
+                else find_registered_external_document(
+                    self.ingestion.list_documents(payload.symbol),
+                    self.ingestion.store.raw_text_by_document_id,
+                    payload,
+                )
             )
             if existing_document is not None:
                 document = existing_document
@@ -2677,15 +2695,7 @@ class ExternalResearchFetchService:
                 "External research archive requires a cache directory.",
                 details={"provider": self.adapter.provider, "symbol": payload.symbol},
             )
-        markdown = _external_payload_markdown(payload)
-        digest = hashlib.sha256(markdown.encode("utf-8")).hexdigest()[:12]
-        path = self.cache_dir / (
-            f"{_safe_cache_fragment(payload.symbol)}_"
-            f"{payload.source_type}_{_safe_cache_fragment(payload.provider)}_"
-            f"{payload.fetched_at:%Y%m%d%H%M%S}_{digest}.md"
-        )
-        path.write_text(markdown, encoding="utf-8")
-        return path
+        return write_external_payload_archive(self.cache_dir, payload)
 
     def _write_manifest(
         self,
@@ -2700,46 +2710,14 @@ class ExternalResearchFetchService:
                 "External research archive requires a cache directory.",
                 details={"provider": self.adapter.provider, "symbol": request.symbol},
             )
-        manifest = {
-            "schema_version": "external-research-fetch-manifest-v1",
-            "symbol": _normalize_symbol(request.symbol),
-            "provider": self.adapter.provider,
-            "fetched_at": fetched_at.isoformat(),
-            "allow_network": request.allow_network,
-            "entry_count": len(entries),
-            "entries": [entry.model_dump(mode="json") for entry in entries],
-            "warnings": warnings,
-        }
-        path = self.cache_dir / (
-            f"{_safe_cache_fragment(request.symbol)}_"
-            f"{_safe_cache_fragment(self.adapter.provider)}_"
-            f"manifest_{fetched_at:%Y%m%d%H%M%S}.json"
+        return write_external_fetch_manifest(
+            self.cache_dir,
+            request=request,
+            provider=self.adapter.provider,
+            fetched_at=fetched_at,
+            entries=entries,
+            warnings=warnings,
         )
-        path.write_text(
-            json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True),
-            encoding="utf-8",
-        )
-        return path
-
-
-def _external_research_registered_document(
-    ingestion: ResearchIngestionService,
-    payload: ExternalResearchSourcePayload,
-) -> ResearchDocument | None:
-    """Find an already registered session document for the same fetched source content."""
-
-    source_url = payload.source_url.strip()
-    if not source_url:
-        return None
-    digest_marker = f"- Content digest: {_external_payload_content_digest(payload)}"
-    source_markers = (f"- Source URL: {source_url}", f"url: {source_url}")
-    for document in ingestion.list_documents(payload.symbol):
-        if document.provider != payload.provider or document.source_type != payload.source_type:
-            continue
-        text = ingestion.store.raw_text_by_document_id.get(document.document_id, "")
-        if digest_marker in text and any(marker in text for marker in source_markers):
-            return document
-    return None
 
 
 def _is_allowed_path(path: Path, allowed_dirs: Sequence[Path]) -> bool:
@@ -2754,64 +2732,6 @@ def _stable_id(prefix: str, *parts: str) -> str:
     normalized = "|".join(part.strip().lower() for part in parts)
     digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
     return f"{prefix}-{digest}"
-
-
-def _safe_cache_fragment(value: str) -> str:
-    return re.sub(r"[^A-Za-z0-9_.-]+", "_", value.strip()).strip("._") or "source"
-
-
-def _external_payload_markdown(payload: ExternalResearchSourcePayload) -> str:
-    lines = [
-        f"# {payload.title}",
-        "",
-        "## Source",
-        "",
-        f"- Provider: {payload.provider}",
-        f"- Source URL: {payload.source_url}",
-        f"- Symbol: {_normalize_symbol(payload.symbol)}",
-        f"- Source type: {payload.source_type}",
-        f"- Fetched at: {payload.fetched_at.isoformat()}",
-        f"- Content digest: {_external_payload_content_digest(payload)}",
-    ]
-    if payload.published_at:
-        lines.append(f"- Published at: {payload.published_at.isoformat()}")
-    if payload.company_name:
-        lines.append(f"- Company: {payload.company_name}")
-    lines.extend(
-        [
-            "- Usage: Local Research RAG evidence only; not a buy/sell recommendation.",
-            "",
-            "## Content",
-            "",
-            f"source: {payload.provider}",
-            f"url: {payload.source_url}",
-            f"summary: {_excerpt(payload.content, max_chars=240)}",
-            "",
-            payload.content.strip(),
-        ]
-    )
-    return "\n".join(lines).strip() + "\n"
-
-
-def _external_payload_content_digest(payload: ExternalResearchSourcePayload) -> str:
-    stable_payload = {
-        "symbol": _normalize_symbol(payload.symbol),
-        "title": payload.title.strip(),
-        "content": payload.content.strip(),
-        "source_type": payload.source_type,
-        "source_url": payload.source_url.strip(),
-        "provider": payload.provider.strip(),
-        "company_name": (payload.company_name or "").strip(),
-        "published_at": (payload.published_at.isoformat() if payload.published_at else ""),
-        "reliability": str(payload.reliability),
-    }
-    serialized = json.dumps(stable_payload, ensure_ascii=False, sort_keys=True)
-    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()[:16]
-
-
-def _external_research_content_summary(payload: ExternalResearchSourcePayload) -> str:
-    max_chars = 1800 if payload.source_type == "provider_profile" else 360
-    return _excerpt(payload.content, max_chars=max_chars)
 
 
 def _external_text_value(value: object) -> str:

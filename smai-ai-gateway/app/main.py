@@ -7,9 +7,11 @@ from app.config import get_settings
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.schemas.common import ErrorDetail, HealthResponse, ModelsResponse, ReadinessResponse
 from app.schemas.context_answer import ContextAnswerRequest, ContextAnswerResponse
+from app.schemas.llm_factor import LLMFactorGenerationRequest, LLMFactorGenerationResponse
 from app.schemas.summarize import SummarizeRequest, SummarizeResponse
 from app.services.chat_service import ChatService
 from app.services.context_answer_service import ContextAnswerService
+from app.services.llm_factor_service import LLMFactorGenerationService
 from app.services.model_router import model_profile_for_name
 from app.services.summarize_service import SummarizeService
 
@@ -109,6 +111,15 @@ def context_answer(request: ContextAnswerRequest) -> ContextAnswerResponse:
     try:
         service = ContextAnswerService(OllamaClient(settings))
         return service.answer(request)
+    except OllamaClientError as exc:
+        raise provider_error_to_http_exception(exc) from exc
+
+
+@app.post("/api/v1/llm-factor/generate", response_model=LLMFactorGenerationResponse)
+def llm_factor_generate(request: LLMFactorGenerationRequest) -> LLMFactorGenerationResponse:
+    try:
+        service = LLMFactorGenerationService(OllamaClient(settings))
+        return service.generate(request)
     except OllamaClientError as exc:
         raise provider_error_to_http_exception(exc) from exc
 

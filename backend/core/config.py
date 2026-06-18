@@ -216,6 +216,44 @@ class AssistantConfig(StrictConfigModel):
     gateway: AssistantGatewayConfig = Field(default_factory=AssistantGatewayConfig)
 
 
+class LLMFactorLiveConfig(StrictConfigModel):
+    """Optional HTTP Gateway settings for live LLM Factor generation."""
+
+    enabled: bool = False
+    base_url: str = Field(default="http://127.0.0.1:8088", min_length=1)
+    endpoint_path: str = Field(default="/api/v1/llm-factor/generate", min_length=1)
+    timeout_seconds: float = Field(default=90.0, gt=0)
+    model: str | None = Field(default=None, min_length=1)
+    execution_mode: Literal["auto", "light", "quality", "off"] = "auto"
+    environment_profile: Literal["notebook", "desktop", "server", "offline"] = "notebook"
+    preferred_profile: (
+        Literal[
+            "notebook_dev",
+            "notebook_standard",
+            "desktop_fast",
+            "desktop_analysis",
+            "desktop_heavy",
+            "assistant_fast",
+            "assistant_standard",
+            "assistant_quality",
+            "report_quality",
+            "fallback",
+        ]
+        | None
+    ) = "desktop_analysis"
+    prompt_version: str = Field(default="llm_factor_live_mvp.v1", min_length=1)
+    response_schema_version: str = Field(default="llm_factor.v1", min_length=1)
+    max_evidence_items: int = Field(default=8, gt=0, le=20)
+    max_context_text_chars: int = Field(default=280, gt=40, le=1000)
+    cache_enabled: bool = True
+
+
+class LLMFactorConfig(StrictConfigModel):
+    """LLM Factor runtime settings."""
+
+    live: LLMFactorLiveConfig = Field(default_factory=LLMFactorLiveConfig)
+
+
 def _default_performance_profiles() -> dict[str, PerformanceProfileConfig]:
     return {
         "notebook": PerformanceProfileConfig(
@@ -282,6 +320,7 @@ class Settings(StrictConfigModel):
     scoring: ScoringConfig = Field(default_factory=ScoringConfig)
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
     assistant: AssistantConfig = Field(default_factory=AssistantConfig)
+    llm_factor: LLMFactorConfig = Field(default_factory=LLMFactorConfig)
     performance_profiles: dict[str, PerformanceProfileConfig] = Field(
         default_factory=_default_performance_profiles,
         min_length=1,

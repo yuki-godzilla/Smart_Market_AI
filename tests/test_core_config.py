@@ -32,6 +32,13 @@ def test_settings_defaults_are_external_yahoo_first(monkeypatch):
     assert settings.assistant.gateway.execution_mode == "auto"
     assert settings.assistant.gateway.environment_profile == "notebook"
     assert settings.assistant.gateway.preferred_profile is None
+    assert settings.llm_factor.live.enabled is False
+    assert settings.llm_factor.live.base_url == "http://127.0.0.1:8088"
+    assert settings.llm_factor.live.endpoint_path == "/api/v1/llm-factor/generate"
+    assert settings.llm_factor.live.prompt_version == "llm_factor_live_mvp.v1"
+    assert settings.llm_factor.live.response_schema_version == "llm_factor.v1"
+    assert settings.llm_factor.live.preferred_profile == "desktop_analysis"
+    assert settings.llm_factor.live.cache_enabled is True
     assert settings.performance_profiles["notebook"].external_fetch.max_workers == 4
     assert settings.performance_profiles["workstation"].external_fetch.max_workers == 10
     assert settings.performance_profiles["notebook"].external_fetch.global_timeout_sec == 30.0
@@ -107,6 +114,39 @@ def test_settings_can_load_explicit_assistant_gateway_opt_in():
     assert settings.assistant.gateway.execution_mode == "light"
     assert settings.assistant.gateway.environment_profile == "notebook"
     assert settings.assistant.gateway.preferred_profile == "assistant_fast"
+
+
+def test_settings_can_load_explicit_llm_factor_live_opt_in():
+    settings = Settings.model_validate(
+        {
+            "llm_factor": {
+                "live": {
+                    "enabled": True,
+                    "base_url": "http://gateway.local",
+                    "endpoint_path": "/api/v1/llm-factor/generate",
+                    "timeout_seconds": 12.5,
+                    "model": "qwen3:14b",
+                    "execution_mode": "quality",
+                    "environment_profile": "desktop",
+                    "preferred_profile": "desktop_analysis",
+                    "prompt_version": "llm_factor_live_mvp.v1",
+                    "response_schema_version": "llm_factor.v1",
+                    "max_evidence_items": 6,
+                    "max_context_text_chars": 320,
+                    "cache_enabled": False,
+                }
+            }
+        }
+    )
+
+    assert settings.llm_factor.live.enabled is True
+    assert settings.llm_factor.live.base_url == "http://gateway.local"
+    assert settings.llm_factor.live.timeout_seconds == 12.5
+    assert settings.llm_factor.live.model == "qwen3:14b"
+    assert settings.llm_factor.live.execution_mode == "quality"
+    assert settings.llm_factor.live.environment_profile == "desktop"
+    assert settings.llm_factor.live.max_evidence_items == 6
+    assert settings.llm_factor.live.cache_enabled is False
 
 
 def test_settings_rejects_unknown_yaml_keys(monkeypatch):

@@ -14,6 +14,8 @@ LLM_FACTOR_PROMPT_VERSION = "llm-factor-reference-v0"
 LLM_FACTOR_FAKE_MODEL_NAME = "deterministic_fake_llm_factor"
 
 LLMFactorCacheStatus = Literal["hit", "miss", "expired", "invalid"]
+LLMFactorGatewayStatus = Literal["ok", "fallback", "error"]
+LLMFactorSentimentLabel = Literal["positive", "neutral", "negative", "mixed", "unknown"]
 
 LLMFactorSourceType = Literal[
     "research_summary",
@@ -92,6 +94,12 @@ class LLMFactorResult(StrictBaseModel):
         min_length=1,
     )
     warnings: list[str] = Field(default_factory=list)
+    provider: str | None = Field(default=None, min_length=1)
+    gateway_profile: str | None = Field(default=None, min_length=1)
+    gateway_status: LLMFactorGatewayStatus = "ok"
+    fallback_reason: str | None = Field(default=None, min_length=1)
+    sentiment_label: LLMFactorSentimentLabel = "unknown"
+    missing_fields: list[str] = Field(default_factory=list)
 
 
 class LLMFactorCacheEntry(StrictBaseModel):

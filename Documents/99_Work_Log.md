@@ -2816,3 +2816,30 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - passed: `.\venv_SMAI\Scripts\python.exe -m ruff check backend\news\sources.py --no-cache`.
 - passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py backend\news\sources.py`.
 - passed: `.\venv_SMAI\Scripts\python.exe -m pytest -q --maxfail=1 --disable-warnings --cov --cov-report=xml --basetemp outputs\work\pytest_tmp\ci_symbol_v2_mypy_fix -p no:cacheprovider` with 1531 passed, 1 skipped.
+
+## 2026-06-18 - Phase 27-A LLM Factor live generation MVP
+
+### Scope
+
+- added `smai-ai-gateway` `POST /api/v1/llm-factor/generate` with `llm_factor.v1` structured JSON response, model routing through `llm_factor_generation`, evidence-id validation, and deterministic fallback JSON on provider / validation failure.
+- added SMAI parent-side LLM Factor live contracts, compact context builder, stable context hash, dedicated HTTP adapter, Gateway response validation, live cache key expansion with schema/profile, and deterministic fake/cache fallback.
+- wired Cockpit `AI材料分析` to use live generation only when `llm_factor.live.enabled=true`; default remains deterministic/network-free.
+- extended `LLMFactorResult` with optional provider/model profile/fallback/missing-field metadata and updated the panel to show `LLM接続` only on validated live results.
+- kept Ranking, Forecast, AI総合, Investment Score, Research Score, portfolio, and execution behavior unchanged.
+- updated README, project context, roadmap, Gateway README/API spec.
+
+### Boundary
+
+- normal tests use fake Gateway clients / mock transports and do not require Ollama or network.
+- live Gateway / Ollama execution remains opt-in via settings and was not run in this slice.
+- LLM Factor remains reference-only until later validation; no score or ranking integration was added.
+
+### Validation
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests/test_llm_factor.py tests/test_llm_factor_live_generation.py tests/test_core_config.py::test_settings_defaults_are_external_yahoo_first tests/test_core_config.py::test_settings_can_load_explicit_llm_factor_live_opt_in tests/test_ui_forecast_display.py::test_llm_factor_panel_html_is_reference_display_and_escapes_source_text tests/test_ui_forecast_display.py::test_llm_factor_panel_html_shows_live_gateway_metadata -q --basetemp outputs\work\pytest_tmp\phase27a_core -p no:cacheprovider` with 17 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest smai-ai-gateway/tests/test_llm_factor_service.py smai-ai-gateway/tests/test_llm_factor_endpoint.py -q --basetemp outputs\work\pytest_tmp\phase27a_gateway -p no:cacheprovider` with 5 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check backend/llm_factor backend/core/config.py ui/app.py smai-ai-gateway/app smai-ai-gateway/tests/test_llm_factor_service.py smai-ai-gateway/tests/test_llm_factor_endpoint.py tests/test_llm_factor_live_generation.py tests/test_core_config.py tests/test_ui_forecast_display.py --no-cache`.
+
+### Next
+
+- Phase 27-B candidates: opt-in live smoke against a running Gateway/Ollama, Cockpit Playwright review of live/fallback labels, and broader validation cases for low-evidence / stale-source / conflicting-material responses.

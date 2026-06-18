@@ -32,6 +32,8 @@ def llm_factor_cache_key(
     source_hash: str,
     model_name: str,
     prompt_version: str,
+    schema_version: str | None = None,
+    gateway_profile: str | None = None,
 ) -> str:
     """Return a stable cache key for a factor-generation contract."""
 
@@ -42,6 +44,10 @@ def llm_factor_cache_key(
         "model_name": model_name,
         "prompt_version": prompt_version,
     }
+    if schema_version:
+        payload["schema_version"] = schema_version
+    if gateway_profile:
+        payload["gateway_profile"] = gateway_profile
     raw = json.dumps(payload, ensure_ascii=False, sort_keys=True)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 

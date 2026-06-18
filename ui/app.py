@@ -30,13 +30,14 @@ from backend.core.data_contracts import (
 from backend.core.errors import AppError
 from backend.forecast import forecast_model_display_name
 from backend.llm_factor import (
-    CachedLLMFactorService,
+    LLM_FACTOR_FAKE_MODEL_NAME,
     EvidenceSource,
     LLMFactorCacheMetadata,
     LLMFactorRankingReference,
     LLMFactorResult,
     LLMFactorServiceResult,
     LLMFactorSourceType,
+    build_llm_factor_reference_result_from_settings,
     build_llm_factor_references_for_ranking_items,
     llm_factor_ranking_candidate_key,
 )
@@ -7588,10 +7589,11 @@ def _cockpit_llm_factor_result(preview: MarketDataPreview) -> LLMFactorServiceRe
         news_report=news_report,
         external_result=external_result,
     )
-    return CachedLLMFactorService().build_reference_result(
+    return build_llm_factor_reference_result_from_settings(
         ticker=symbol,
         as_of=as_of,
         evidence_sources=evidence_sources,
+        company_name=symbol_name(symbol) or None,
     )
 
 
@@ -7765,11 +7767,16 @@ def _llm_factor_panel_html(result: LLMFactorResult) -> str:
     )
     warnings = "".join(f"<li>{html.escape(warning)}</li>" for warning in result.warnings)
     warning_html = f"<ul>{warnings}</ul>" if warnings else "<p>特記事項なし</p>"
+    missing_html = ""
+    if result.missing_fields:
+        missing = "、".join(result.missing_fields)
+        missing_html = f"<p>不足項目: {html.escape(missing)}</p>"
+    runtime_html = _llm_factor_runtime_html(result)
     return (
         '<section class="research-result-brief hero">'
         '<div class="research-result-brief-header">'
         '<span class="research-evidence-pill positive">参考表示</span>'
-        '<span class="research-evidence-pill">LLM未接続</span>'
+        f'<span class="research-evidence-pill">{html.escape(_llm_factor_runtime_label(result))}</span>'
         "</div>"
         "<h4>AI材料分析</h4>"
         f"<p>{html.escape(result.summary)}</p>"
@@ -7786,11 +7793,38 @@ def _llm_factor_panel_html(result: LLMFactorResult) -> str:
         '<section class="research-brief-reading-item tone-warning">'
         "<h5>確認メモ</h5>"
         f"{warning_html}"
+        f"{missing_html}"
+        f"{runtime_html}"
         f"<p>{html.escape(result.disclaimer)}</p>"
         "</section>"
         "</div>"
         "</section>"
     )
+
+
+def _llm_factor_runtime_label(result: LLMFactorResult) -> str:
+    if result.fallback_reason or result.provider == "deterministic":
+        return "LLM未接続"
+    if result.model_name == LLM_FACTOR_FAKE_MODEL_NAME:
+        return "LLM未接続"
+    if result.provider:
+        return "LLM接続"
+    return "LLM未接続"
+
+
+def _llm_factor_runtime_html(result: LLMFactorResult) -> str:
+    items: list[str] = []
+    if result.provider:
+        items.append(f"provider: {result.provider}")
+    if result.model_name:
+        items.append(f"model: {result.model_name}")
+    if result.gateway_profile:
+        items.append(f"profile: {result.gateway_profile}")
+    if result.fallback_reason:
+        items.append(f"fallback: {result.fallback_reason}")
+    if not items:
+        return ""
+    return f"<p>{html.escape(' / '.join(items))}</p>"
 
 
 def _llm_factor_items_html(

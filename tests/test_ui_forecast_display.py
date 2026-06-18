@@ -9588,6 +9588,44 @@ def test_llm_factor_panel_html_is_reference_display_and_escapes_source_text() ->
     assert "<script>増配</script>" not in html
 
 
+def test_llm_factor_panel_html_shows_live_gateway_metadata() -> None:
+    source = app_module.EvidenceSource(
+        title="増配と自社株買いを発表",
+        source_type="company_ir",
+        source_url="https://example.com/ir/7203",
+        source_date=date(2026, 6, 12),
+        provider="fixture",
+        summary="増配と自社株買いが確認できます。",
+        reliability_score=Decimal("82"),
+    )
+    result = (
+        FakeLLMFactorService()
+        .build_reference_result(
+            ticker="7203.T",
+            as_of=date(2026, 6, 12),
+            evidence_sources=[source],
+            generated_at=datetime(2026, 6, 12, 10, 0, tzinfo=UTC),
+        )
+        .model_copy(
+            update={
+                "model_name": "qwen3:14b",
+                "prompt_version": "llm_factor_live_mvp.v1",
+                "provider": "ollama",
+                "gateway_profile": "desktop_analysis",
+                "sentiment_label": "positive",
+                "missing_fields": ["forecast_summary"],
+                "warnings": ["要確認"],
+            }
+        )
+    )
+
+    html = _llm_factor_panel_html(result)
+
+    assert "LLM接続" in html
+    assert "provider: ollama / model: qwen3:14b / profile: desktop_analysis" in html
+    assert "不足項目: forecast_summary" in html
+
+
 def test_llm_factor_cache_caption_shows_reproducibility_metadata() -> None:
     caption = _llm_factor_cache_caption(
         LLMFactorCacheMetadata(

@@ -181,9 +181,104 @@ Response:
 }
 ```
 
+## POST /api/v1/llm-factor/generate
+
+1銘柄の compact context から `llm_factor.v1` の構造化材料を返す API です。SMAI 親側では Cockpit `AI材料分析` の参考表示に使い、スコア、予測値、ランキング順位は変更しません。Provider failure、timeout、invalid JSON、schema validation failure は fallback JSON に変換され、親側でも追加 validation / cache / fallback を行います。
+
+Request:
+
+```json
+{
+  "schema_version": "llm-factor-gateway-request-v1",
+  "symbol": "7203.T",
+  "company_name": "Toyota Motor",
+  "as_of": "2026-06-12",
+  "language": "ja",
+  "prompt_version": "llm_factor_live_mvp.v1",
+  "response_schema_version": "llm_factor.v1",
+  "preferred_profile": "desktop_analysis",
+  "execution_mode": "auto",
+  "environment_profile": "notebook",
+  "context": {
+    "symbol_profile": {
+      "company_name": "Toyota Motor",
+      "symbol": "7203.T"
+    },
+    "research_summary": ["増配と自社株買いが確認できます。"],
+    "news_summary": [],
+    "forecast_summary": {
+      "中心予測": "+1.2%"
+    },
+    "evidence": [
+      {
+        "evidence_id": "evidence_001",
+        "title": "増配と自社株買いを発表",
+        "source_type": "company_ir",
+        "source_url": "https://example.com/ir/7203",
+        "source_date": "2026-06-12",
+        "provider": "fixture",
+        "summary": "増配と自社株買いが確認できます。",
+        "reliability_score": 82
+      }
+    ]
+  },
+  "constraints": {
+    "no_investment_advice": true,
+    "use_only_supplied_context": true,
+    "do_not_change_scores": true,
+    "do_not_rank_symbols": true,
+    "require_evidence_ids": true
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "schema_version": "llm_factor.v1",
+  "symbol": "7203.T",
+  "overall_summary": "出典付き材料では株主還元が確認できます。",
+  "sentiment_label": "positive",
+  "confidence": 0.78,
+  "factors": [
+    {
+      "title": "株主還元",
+      "direction": "positive",
+      "summary": "増配と自社株買いが確認できます。",
+      "strength": 0.82,
+      "evidence_ids": ["evidence_001"]
+    }
+  ],
+  "risks": [],
+  "opportunities": [],
+  "evidence": [
+    {
+      "evidence_id": "evidence_001",
+      "title": "増配と自社株買いを発表",
+      "source_type": "company_ir",
+      "source_url": "https://example.com/ir/7203",
+      "source_date": "2026-06-12",
+      "summary": "増配と自社株買いが確認できます。"
+    }
+  ],
+  "missing_fields": [],
+  "warnings": [],
+  "prompt_version": "llm_factor_live_mvp.v1",
+  "provider": "ollama",
+  "model": "qwen3:14b",
+  "profile": "desktop_analysis",
+  "generated_at": "2026-06-12T10:00:00Z",
+  "elapsed_ms": 120,
+  "gateway_status": "ok",
+  "fallback_reason": null,
+  "decision_support_note": "この結果は判断材料の整理であり、投資助言ではありません。"
+}
+```
+
 ## Error
 
-provider 呼び出しに失敗した場合は、分かりやすい detail を返します。Ollama 未起動や URL 誤りは `provider_unreachable`、timeout は `provider_timeout`、model 未取得は `model_not_found` として扱います。`/api/v1/context-answer` の `task_type=free_chat` だけは、timeout 時も通常会話を崩さないため `local_conversation_fallback` として自然な fallback answer を返します。
+provider 呼び出しに失敗した場合は、分かりやすい detail を返します。Ollama 未起動や URL 誤りは `provider_unreachable`、timeout は `provider_timeout`、model 未取得は `model_not_found` として扱います。`/api/v1/context-answer` の `task_type=free_chat` だけは、timeout 時も通常会話を崩さないため `local_conversation_fallback` として自然な fallback answer を返します。`/api/v1/llm-factor/generate` は provider / validation failure を原則 fallback JSON に変換します。
 
 ```json
 {

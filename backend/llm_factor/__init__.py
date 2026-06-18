@@ -9,6 +9,11 @@ from backend.llm_factor.backtest_contracts import (
     LLMFactorBacktestWarningSeverity,
     LLMFactorPriceBar,
 )
+from backend.llm_factor.cache import llm_factor_cache_key
+from backend.llm_factor.context_builder import (
+    build_llm_factor_generation_request,
+    llm_factor_context_hash,
+)
 from backend.llm_factor.contracts import (
     LLM_FACTOR_CACHE_ENTRY_SCHEMA_VERSION,
     LLM_FACTOR_FAKE_MODEL_NAME,
@@ -25,10 +30,26 @@ from backend.llm_factor.contracts import (
     LLMFactorServiceResult,
     LLMFactorSourceType,
 )
+from backend.llm_factor.gateway_adapter import (
+    HttpLLMFactorGatewayClient,
+    LLMFactorGatewayError,
+    LLMFactorGatewayTimeoutError,
+)
 from backend.llm_factor.historical_fixtures import (
     DEFAULT_LLM_FACTOR_HISTORICAL_FIXTURE_ID,
     build_llm_factor_historical_fixture_pack,
     load_llm_factor_historical_fixture_pack,
+)
+from backend.llm_factor.live_contracts import (
+    LLM_FACTOR_GATEWAY_REQUEST_SCHEMA_VERSION,
+    LLM_FACTOR_GATEWAY_RESPONSE_SCHEMA_VERSION,
+    LLM_FACTOR_LIVE_PROMPT_VERSION,
+    LLMFactorGenerationRequest,
+    LLMFactorGenerationResponse,
+)
+from backend.llm_factor.live_generation import (
+    LiveLLMFactorGenerationService,
+    build_llm_factor_reference_result_from_settings,
 )
 from backend.llm_factor.ranking_reference import (
     DEFAULT_LLM_FACTOR_RANKING_REFERENCE_MAX_CANDIDATES,
@@ -45,6 +66,10 @@ from backend.llm_factor.service import (
     LLMFactorValidationError,
     normalized_evidence_sources_for_factor,
     source_hash_for_evidence,
+)
+from backend.llm_factor.validation import (
+    LLMFactorLiveValidationError,
+    llm_factor_result_from_gateway_response,
 )
 from backend.llm_factor.validation_contracts import (
     LLM_FACTOR_VALIDATION_REPORT_SCHEMA_VERSION,
@@ -76,6 +101,9 @@ __all__ = [
     "LLM_FACTOR_CACHE_ENTRY_SCHEMA_VERSION",
     "LLM_FACTOR_BACKTEST_RESULT_SCHEMA_VERSION",
     "LLM_FACTOR_FAKE_MODEL_NAME",
+    "LLM_FACTOR_GATEWAY_REQUEST_SCHEMA_VERSION",
+    "LLM_FACTOR_GATEWAY_RESPONSE_SCHEMA_VERSION",
+    "LLM_FACTOR_LIVE_PROMPT_VERSION",
     "LLM_FACTOR_PROMPT_VERSION",
     "DEFAULT_LLM_FACTOR_RANKING_REFERENCE_MAX_CANDIDATES",
     "DEFAULT_LLM_FACTOR_HISTORICAL_FIXTURE_ID",
@@ -86,6 +114,7 @@ __all__ = [
     "CachedLLMFactorService",
     "EvidenceSource",
     "FakeLLMFactorService",
+    "HttpLLMFactorGatewayClient",
     "LLMFactorCacheEntry",
     "LLMFactorCacheLookup",
     "LLMFactorCacheMetadata",
@@ -103,6 +132,11 @@ __all__ = [
     "LLMFactorConfusionMatrix",
     "LLMFactorFixtureManifest",
     "LLMFactorHistoricalFixturePack",
+    "LLMFactorGenerationRequest",
+    "LLMFactorGenerationResponse",
+    "LLMFactorGatewayError",
+    "LLMFactorGatewayTimeoutError",
+    "LLMFactorLiveValidationError",
     "LLMFactorPredictionTask",
     "LLMFactorRankingReference",
     "LLMFactorRankingReferenceSourceType",
@@ -119,14 +153,20 @@ __all__ = [
     "LLMFactorValidationRecommendation",
     "LLMFactorValidationReport",
     "LLMFactorValidationSummary",
+    "LiveLLMFactorGenerationService",
     "NON_INTEGRATION_NOTICE_JA",
     "attach_llm_factor_references_to_ranking_items",
     "build_llm_factor_historical_fixture_pack",
+    "build_llm_factor_generation_request",
     "build_llm_factor_reference_for_ranking_item",
+    "build_llm_factor_reference_result_from_settings",
     "build_llm_factor_references_for_ranking_items",
     "build_llm_factor_validation_report_json",
     "build_llm_factor_validation_report_markdown",
     "llm_factor_ranking_candidate_key",
+    "llm_factor_cache_key",
+    "llm_factor_context_hash",
+    "llm_factor_result_from_gateway_response",
     "load_llm_factor_historical_fixture_pack",
     "normalized_evidence_sources_for_factor",
     "run_llm_factor_backtest",

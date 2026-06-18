@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 import logging
+import os
+import subprocess
+import sys
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from time import perf_counter
 from typing import Literal, Protocol
+from urllib.parse import urlparse
 
 import httpx
 from pydantic import ValidationError
@@ -35,6 +41,8 @@ from backend.reporting import (
 )
 
 LOGGER = logging.getLogger(__name__)
+_GATEWAY_AUTOSTART_LAST_ATTEMPT: dict[str, float] = {}
+_GATEWAY_AUTOSTART_RETRY_SECONDS = 45.0
 
 GatewayDiagnosticStatus = Literal[
     "unchecked",
@@ -220,6 +228,33 @@ class HttpAssistantGatewayClient:
                 profile=self.preferred_profile,
             )
         except httpx.RequestError as exc:
+            if self.transport is None and _try_autostart_local_gateway(self.base_url):
+                try:
+                    with httpx.Client(timeout=timeout_seconds) as client:
+                        response = client.get(self.models_url)
+                        response.raise_for_status()
+                except httpx.TimeoutException as retry_exc:
+                    return AssistantGatewayDiagnostic(
+                        status="gateway_timeout",
+                        message="smai-ai-gateway の自動起動後、状態確認がタイムアウトしました。",
+                        gateway_url=self.models_url,
+                        gateway_error_type="gateway_timeout",
+                        gateway_error_message=str(retry_exc),
+                        model=self.model,
+                        profile=self.preferred_profile,
+                    )
+                except httpx.HTTPStatusError as retry_exc:
+                    gateway_error = _gateway_error_from_http_response(
+                        retry_exc.response,
+                        gateway_url=self.models_url,
+                    )
+                    return _diagnostic_from_gateway_error(
+                        gateway_error,
+                        model=self.model,
+                        profile=self.preferred_profile,
+                    )
+                except httpx.RequestError:
+                    pass
             error_type = _request_error_type(exc)
             return AssistantGatewayDiagnostic(
                 status="gateway_unavailable",
@@ -311,6 +346,24 @@ class HttpAssistantGatewayClient:
                 gateway_url=self.context_answer_url,
             ) from exc
         except httpx.RequestError as exc:
+            if self.transport is None and _try_autostart_local_gateway(self.base_url):
+                try:
+                    with httpx.Client(timeout=self.timeout_seconds) as client:
+                        response = client.post(self.context_answer_url, json=payload)
+                        response.raise_for_status()
+                except httpx.TimeoutException as retry_exc:
+                    raise AssistantGatewayTimeoutError(
+                        "Assistant Gateway request timed out after autostart",
+                        gateway_url=self.context_answer_url,
+                        timeout_sec=self.timeout_seconds,
+                    ) from retry_exc
+                except httpx.HTTPStatusError as retry_exc:
+                    raise _gateway_error_from_http_response(
+                        retry_exc.response,
+                        gateway_url=self.context_answer_url,
+                    ) from retry_exc
+                except httpx.RequestError:
+                    pass
             raise AssistantGatewayError(
                 "Assistant Gateway request failed",
                 gateway_error_type=_request_error_type(exc),
@@ -333,6 +386,57 @@ class HttpAssistantGatewayClient:
                 gateway_url=self.context_answer_url,
             )
         return AssistantGatewayResponse.model_validate(response_payload)
+
+
+def _try_autostart_local_gateway(base_url: str) -> bool:
+    if os.getenv("SMAI_ASSISTANT_GATEWAY_AUTOSTART", "1") != "1":
+        return False
+    parsed = urlparse(base_url)
+    host = parsed.hostname or ""
+    if parsed.scheme != "http" or host not in {"127.0.0.1", "localhost"}:
+        return False
+    gateway_dir = Path(__file__).resolve().parents[2] / "smai-ai-gateway"
+    if not gateway_dir.exists():
+        return False
+    port = str(parsed.port or 8088)
+    attempt_key = f"{host}:{port}"
+    now = time.time()
+    last_attempt = _GATEWAY_AUTOSTART_LAST_ATTEMPT.get(attempt_key, 0.0)
+    if now - last_attempt < _GATEWAY_AUTOSTART_RETRY_SECONDS:
+        return False
+    _GATEWAY_AUTOSTART_LAST_ATTEMPT[attempt_key] = now
+
+    command = [
+        sys.executable,
+        "-m",
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        host,
+        "--port",
+        port,
+    ]
+    creationflags = 0
+    if os.name == "nt":
+        creationflags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(
+            subprocess, "CREATE_NO_WINDOW", 0
+        )
+    try:
+        subprocess.Popen(  # noqa: S603
+            command,
+            cwd=gateway_dir,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            close_fds=os.name != "nt",
+            creationflags=creationflags,
+        )
+    except OSError as exc:
+        LOGGER.info("Assistant Gateway autostart failed: %s", exc)
+        return False
+    time.sleep(1.2)
+    LOGGER.info("Assistant Gateway autostart requested for %s", base_url)
+    return True
 
 
 def _installed_models_from_models_payload(payload: Mapping[str, object]) -> tuple[str, ...]:

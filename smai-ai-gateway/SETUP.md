@@ -140,7 +140,7 @@ curl http://127.0.0.1:8088/models
 
 - `ollama list` / `/api/tags` に `qwen3:1.7b` が無い: `ollama pull qwen3:1.7b`
 - `/api/tags` が応答しない: Ollama アプリ/サービス、`SMAI_OLLAMA_BASE_URL`、firewall を確認
-- `/health` が応答しない: `smai-ai-gateway` が未起動、または SMAI 側 `base_url` / port が不一致
+- `/health` が応答しない: `smai-ai-gateway` が未起動、または SMAI 側 `base_url` / port が不一致。親SMAIの `HttpAssistantGatewayClient` は `http://127.0.0.1` / `localhost` の未起動 Gateway を画面遷移時の診断またはチャット送信時に自動起動します。自動起動を止める場合は `SMAI_ASSISTANT_GATEWAY_AUTOSTART=0` を指定します。
 - `/health` はOKで `/health/ready` が `degraded`: Gateway は起動済み、Ollama未接続または model 未取得
 - SMAI画面だけ `gateway_unavailable`: SMAI 側 `assistant.gateway.base_url` が Gateway 起動URLと一致しているか確認
 

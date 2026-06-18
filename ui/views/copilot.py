@@ -660,7 +660,7 @@ def _with_cached_gateway_diagnostic(
 
 
 def _assistant_gateway_status_probe_enabled() -> bool:
-    return os.getenv("SMAI_ASSISTANT_GATEWAY_STATUS_CHECK") == "1"
+    return os.getenv("SMAI_ASSISTANT_GATEWAY_STATUS_CHECK", "1") == "1"
 
 
 def _gateway_diagnostic_cache_key(

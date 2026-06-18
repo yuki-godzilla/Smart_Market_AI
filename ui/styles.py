@@ -8,20 +8,20 @@ import altair as alt
 import streamlit as st
 
 THEME_COLORS = {
-    "bg_app": "#020510",
-    "bg_surface": "#070D19",
-    "bg_card": "#111F35",
-    "bg_card_hover": "#17283F",
-    "bg_elevated": "#1A2B45",
+    "bg_app": "#040814",
+    "bg_surface": "#0A1220",
+    "bg_card": "#14233A",
+    "bg_card_hover": "#1B2E49",
+    "bg_elevated": "#213550",
     "text_title": "#F8FBFF",
-    "text_heading": "#EAF1FB",
-    "text_primary": "#D7E2F0",
-    "text_secondary": "#AEBBD0",
-    "text_muted": "#7F8DA3",
-    "text_disabled": "#596579",
+    "text_heading": "#F1F6FD",
+    "text_primary": "#E5EDF7",
+    "text_secondary": "#C8D4E3",
+    "text_muted": "#AAB8C8",
+    "text_disabled": "#77869A",
     "text_value": "#F1F5F9",
-    "text_label": "#91A3BA",
-    "text_caption": "#8492A8",
+    "text_label": "#C0CDDC",
+    "text_caption": "#B4C2D3",
     "text_ai_title": "#67E8F9",
     "text_ai_primary": "#D8F3FF",
     "text_ai_muted": "#9ACFE0",
@@ -30,9 +30,9 @@ THEME_COLORS = {
     "text_warning": "#FCD34D",
     "text_info": "#93C5FD",
     "text_neutral": "#CBD5E1",
-    "border_subtle": "#25344D",
-    "border_default": "#31425F",
-    "border_strong": "#49607F",
+    "border_subtle": "#354763",
+    "border_default": "#465B78",
+    "border_strong": "#6680A2",
     "ai_cyan": "#22D3EE",
     "ai_blue": "#60A5FA",
     "ai_purple": "#A78BFA",
@@ -153,25 +153,25 @@ SMAI_GLOBAL_CSS = """
 <style>
 :root {
     /* Background */
-    --bg-page: #070D19;
-    --bg-app: #020510;
-    --bg-surface: #070D19;
-    --bg-card: #111F35;
-    --bg-card-hover: #17283F;
-    --bg-elevated: #1A2B45;
+    --bg-page: #0A1220;
+    --bg-app: #040814;
+    --bg-surface: #0A1220;
+    --bg-card: #14233A;
+    --bg-card-hover: #1B2E49;
+    --bg-elevated: #213550;
 
     /* Text */
     --text-title: #F8FBFF;
-    --text-heading: #EAF1FB;
-    --text-primary: #D7E2F0;
-    --text-secondary: #AEBBD0;
-    --text-muted: #7F8DA3;
-    --text-disabled: #596579;
+    --text-heading: #F1F6FD;
+    --text-primary: #E5EDF7;
+    --text-secondary: #C8D4E3;
+    --text-muted: #AAB8C8;
+    --text-disabled: #77869A;
 
     /* Text hierarchy */
     --text-value: #F1F5F9;
-    --text-label: #91A3BA;
-    --text-caption: #8492A8;
+    --text-label: #C0CDDC;
+    --text-caption: #B4C2D3;
 
     /* AI Text */
     --text-ai-title: #67E8F9;
@@ -186,9 +186,9 @@ SMAI_GLOBAL_CSS = """
     --text-neutral: #CBD5E1;
 
     /* Border */
-    --border-subtle: #25344D;
-    --border-default: #31425F;
-    --border-strong: #49607F;
+    --border-subtle: #354763;
+    --border-default: #465B78;
+    --border-strong: #6680A2;
 
     /* AI Accent */
     --ai-cyan: #22D3EE;
@@ -215,8 +215,8 @@ SMAI_GLOBAL_CSS = """
 
     /* Table */
     --table-header-bg: #122038;
-    --table-row-bg: #070D19;
-    --table-row-hover: #17283F;
+    --table-row-bg: #0A1220;
+    --table-row-hover: #1B2E49;
 
     /* Button */
     --button-primary-bg: #0891B2;
@@ -225,8 +225,8 @@ SMAI_GLOBAL_CSS = """
     --button-secondary-border: #2C3B55;
 
     /* Surface treatment */
-    --surface-glass: rgba(16, 26, 43, 0.78);
-    --surface-raised: rgba(23, 35, 56, 0.82);
+    --surface-glass: rgba(20, 35, 58, 0.82);
+    --surface-raised: rgba(27, 46, 73, 0.86);
     --shadow-soft: 0 18px 46px rgba(0, 0, 0, 0.24);
     --shadow-subtle: 0 10px 26px rgba(0, 0, 0, 0.16);
 
@@ -243,7 +243,7 @@ SMAI_GLOBAL_CSS = """
     --smai-panel: var(--bg-surface);
     --smai-card: var(--bg-card);
     --smai-card-soft: var(--bg-elevated);
-    --smai-border: rgba(49, 66, 95, 0.92);
+    --smai-border: rgba(70, 91, 120, 0.95);
     --smai-border-strong: var(--border-strong);
     --smai-text: var(--text-title);
     --smai-body: var(--text-primary);
@@ -275,6 +275,14 @@ body,
 
 .stApp {
     color: var(--text-primary);
+}
+
+.stApp,
+.stApp p,
+.stApp li,
+.stApp span,
+.stApp label {
+    text-rendering: geometricPrecision;
 }
 
 .stApp,
@@ -317,8 +325,23 @@ body,
 }
 
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, var(--bg-app) 0%, var(--bg-surface) 100%);
+    background:
+        linear-gradient(180deg, rgba(6, 12, 27, 0.98) 0%, rgba(10, 18, 32, 0.98) 100%);
     border-right: 1px solid var(--smai-border);
+}
+
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] li,
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p {
+    color: var(--text-secondary) !important;
+    font-weight: 680;
+}
+
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] strong,
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h1,
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h2,
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h3 {
+    color: var(--text-title) !important;
 }
 
 [data-testid="stAppViewContainer"] .main .block-container {
@@ -330,9 +353,9 @@ body,
 
 [data-testid="stMarkdownContainer"] p,
 [data-testid="stMarkdownContainer"] li {
-    color: var(--text-secondary);
+    color: var(--text-primary);
     font-size: 0.95rem;
-    font-weight: 500;
+    font-weight: 580;
     line-height: 1.65;
     letter-spacing: 0;
 }
@@ -369,7 +392,7 @@ body,
 [data-testid="stCaptionContainer"] p {
     color: var(--text-caption);
     font-size: 0.9rem;
-    font-weight: 520;
+    font-weight: 620;
     line-height: 1.6;
     letter-spacing: 0;
 }
@@ -511,27 +534,53 @@ body,
 [data-baseweb="select"] > div,
 [data-testid="stTextInput"] input,
 [data-testid="stNumberInput"] input,
-[data-testid="stDateInput"] input {
-    border-color: var(--border-default);
-    background-color: rgba(16, 26, 43, 0.92);
-    color: var(--text-primary);
+[data-testid="stDateInput"] input,
+[data-testid="stTextArea"] textarea {
+    border-color: rgba(102, 128, 162, 0.72);
+    background-color: rgba(20, 31, 48, 0.96);
+    color: var(--text-value);
     border-radius: 8px;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.055),
+        0 0 0 1px rgba(2, 6, 23, 0.18);
     min-height: 2.35rem;
 }
 
 [data-baseweb="select"] > div:hover,
 [data-testid="stTextInput"] input:focus,
 [data-testid="stNumberInput"] input:focus,
-[data-testid="stDateInput"] input:focus {
-    border-color: var(--ai-blue);
-    box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.16);
+[data-testid="stDateInput"] input:focus,
+[data-testid="stTextArea"] textarea:focus {
+    border-color: rgba(125, 211, 252, 0.82);
+    box-shadow:
+        0 0 0 1px rgba(125, 211, 252, 0.22),
+        0 0 0.85rem rgba(34, 211, 238, 0.08);
+}
+
+[data-baseweb="select"] [role="combobox"],
+[data-baseweb="select"] span,
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stDateInput"] input,
+[data-testid="stTextArea"] textarea {
+    color: var(--text-value) !important;
+    font-weight: 680;
+}
+
+[data-testid="stTextInput"] input::placeholder,
+[data-testid="stNumberInput"] input::placeholder,
+[data-testid="stDateInput"] input::placeholder,
+[data-testid="stTextArea"] textarea::placeholder {
+    color: var(--text-muted);
+    opacity: 1;
+    font-weight: 640;
 }
 
 [data-testid="stTextInput"] input:disabled,
 [data-testid="stDateInput"] input:disabled,
-[data-testid="stNumberInput"] input:disabled {
-    background-color: rgba(16, 26, 43, 0.64);
+[data-testid="stNumberInput"] input:disabled,
+[data-testid="stTextArea"] textarea:disabled {
+    background-color: rgba(20, 31, 48, 0.72);
     color: var(--text-disabled);
     opacity: 1;
 }
@@ -540,22 +589,30 @@ body,
 [data-testid="stTextInput"] label,
 [data-testid="stNumberInput"] label,
 [data-testid="stDateInput"] label,
+[data-testid="stTextArea"] label,
 [data-testid="stCheckbox"] label {
     color: var(--text-label);
-    font-weight: 720;
+    font-weight: 780;
     letter-spacing: 0;
+}
+
+[data-testid="stCheckbox"] label p,
+[data-testid="stRadio"] label p {
+    color: var(--text-secondary) !important;
+    font-weight: 700;
 }
 
 [data-testid="stSidebar"] [data-testid="stButton"] button {
     border-radius: 8px;
-    border: 1px solid var(--smai-border);
-    background: rgba(21, 27, 46, 0.78);
+    border: 1px solid rgba(102, 128, 162, 0.6);
+    background: rgba(24, 35, 56, 0.9);
     color: var(--smai-text);
 }
 
 [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] {
-    border-color: rgba(56, 189, 248, 0.45);
-    background: rgba(56, 189, 248, 0.14);
+    border-color: rgba(56, 189, 248, 0.7);
+    background: rgba(8, 105, 130, 0.58);
+    color: #FFFFFF;
 }
 
 [data-testid="stMetric"] {
@@ -567,34 +624,55 @@ body,
 
 [data-testid="stMetricLabel"] {
     color: var(--text-label);
+    font-weight: 760;
 }
 
 [data-testid="stMetricValue"] {
     color: var(--text-value);
     letter-spacing: 0;
-    font-weight: 720;
+    font-weight: 820;
 }
 
 [data-testid="stExpander"] {
-    border: 1px solid var(--border-default);
+    border: 1px solid rgba(102, 128, 162, 0.72);
     border-radius: 8px;
     background:
-        linear-gradient(180deg, rgba(16, 26, 43, 0.74), rgba(11, 18, 32, 0.72));
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+        linear-gradient(180deg, rgba(20, 35, 58, 0.86), rgba(13, 24, 41, 0.84));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.055),
+        var(--shadow-subtle);
     margin: 0.65rem 0 1rem;
 }
 
 [data-testid="stExpander"] details summary {
     color: var(--text-heading);
     min-height: 2.75rem;
-    font-weight: 780;
+    font-weight: 840;
+}
+
+[data-testid="stExpander"] details summary p {
+    color: var(--text-heading) !important;
+    font-weight: 840 !important;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-cockpit-filter-expander-anchor)
+    + [data-testid="stExpander"] details summary,
+[data-testid="stMarkdownContainer"]:has(.smai-cockpit-filter-expander-anchor)
+    + [data-testid="stExpander"] details summary p {
+    color: #FFFFFF !important;
+    font-weight: 840 !important;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-cockpit-filter-expander-anchor)
+    + [data-testid="stExpander"] details summary p {
+    line-height: 1.55;
 }
 
 [data-testid="stVerticalBlockBorderWrapper"] {
     border-color: var(--border-default);
     border-radius: 8px;
     background:
-        linear-gradient(180deg, rgba(16, 26, 43, 0.88), rgba(11, 18, 32, 0.86));
+        linear-gradient(180deg, rgba(20, 35, 58, 0.9), rgba(13, 24, 41, 0.88));
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.035),
         var(--shadow-subtle);
@@ -636,6 +714,34 @@ body,
 
 .smai-card {
     padding: 0.95rem 1rem;
+}
+
+.smai-card p,
+.smai-ai-card p,
+.smai-section-card p,
+.smai-ranking-setup-block p,
+.smai-ranking-builder-head p,
+.smai-ranking-policy-builder p,
+.smai-ranking-target-summary span,
+.smai-state-box p {
+    color: var(--text-secondary) !important;
+    font-weight: 640;
+}
+
+.smai-card-label,
+.smai-insight-kicker,
+.smai-ranking-builder-subhead,
+.smai-cockpit-prefetch-heading {
+    color: var(--text-heading) !important;
+    font-weight: 840 !important;
+}
+
+.smai-ranking-builder-caption,
+.smai-cockpit-prefetch-caption,
+.smai-ranking-policy-caution,
+.smai-ranking-condition-load-message {
+    color: var(--text-secondary) !important;
+    font-weight: 680 !important;
 }
 
 .smai-card:hover {
@@ -4302,6 +4408,35 @@ div[data-testid="stChatInput"] textarea:focus {
     background: rgba(8, 13, 25, 0.58);
 }
 
+.smai-ranking-policy-select-anchor {
+    height: 0;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-ranking-policy-select-anchor)
+    + div[data-testid="stSelectbox"] {
+    border: 1px solid rgba(34, 211, 238, 0.34);
+    border-radius: 8px;
+    background:
+        linear-gradient(180deg, rgba(34, 211, 238, 0.12), rgba(15, 23, 42, 0.4)),
+        rgba(15, 23, 42, 0.44);
+    padding: 0.42rem 0.48rem 0.5rem;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-ranking-policy-select-anchor)
+    + div[data-testid="stSelectbox"]
+    label {
+    color: #FFFFFF !important;
+    font-size: 0.95rem !important;
+    font-weight: 860 !important;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-ranking-policy-select-anchor)
+    + div[data-testid="stSelectbox"]
+    div[data-baseweb="select"] > div {
+    border-color: rgba(34, 211, 238, 0.46) !important;
+    box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.08);
+}
+
 .smai-ranking-builder-head {
     border-color: rgba(34, 211, 238, 0.3);
     background:
@@ -4309,6 +4444,60 @@ div[data-testid="stChatInput"] textarea:focus {
         rgba(15, 23, 42, 0.82);
     padding: 0.54rem 0.68rem;
     margin: 0.55rem 0 0.55rem;
+}
+
+.smai-ranking-builder-head--load-caution {
+    border-color: rgba(250, 204, 21, 0.58);
+    background:
+        linear-gradient(90deg, rgba(250, 204, 21, 0.16), transparent 74%),
+        rgba(22, 24, 32, 0.87);
+}
+
+.smai-ranking-builder-head--load-warning {
+    border-color: rgba(251, 146, 60, 0.6);
+    background:
+        linear-gradient(90deg, rgba(251, 146, 60, 0.18), transparent 74%),
+        rgba(25, 24, 32, 0.88);
+}
+
+.smai-ranking-builder-head--load-danger {
+    border-color: rgba(248, 113, 113, 0.62);
+    background:
+        linear-gradient(90deg, rgba(248, 113, 113, 0.18), transparent 74%),
+        rgba(28, 23, 31, 0.89);
+}
+
+.smai-ranking-builder-head--load-caution .smai-ranking-builder-title-row strong {
+    color: var(--text-title);
+}
+
+.smai-ranking-builder-head--load-warning .smai-ranking-builder-title-row strong {
+    color: #FEF3C7;
+}
+
+.smai-ranking-builder-head--load-danger .smai-ranking-builder-title-row strong {
+    color: #FED7AA;
+}
+
+.smai-ranking-condition-load-message {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary) !important;
+    font-size: 0.82rem !important;
+    font-weight: 760;
+    margin-top: 0.58rem !important;
+    padding-top: 0.44rem;
+}
+
+.smai-ranking-builder-head--load-caution .smai-ranking-condition-load-message {
+    color: var(--text-secondary) !important;
+}
+
+.smai-ranking-builder-head--load-warning .smai-ranking-condition-load-message {
+    color: #D8C99E !important;
+}
+
+.smai-ranking-builder-head--load-danger .smai-ranking-condition-load-message {
+    color: #DFAE84 !important;
 }
 
 .smai-ranking-setup-block h4,
@@ -4483,6 +4672,27 @@ div[data-testid="stChatInput"] textarea:focus {
 .smai-ranking-target-summary--warning {
     border-color: rgba(250, 204, 21, 0.48);
     background: rgba(113, 63, 18, 0.26);
+}
+
+.smai-ranking-build-action-anchor + div[data-testid="stButton"] button,
+[data-testid="stMarkdownContainer"]:has(.smai-ranking-build-action-anchor)
+    + div[data-testid="stButton"] button {
+    min-height: 3.85rem;
+    border-width: 1px;
+    border-color: rgba(103, 232, 249, 0.72) !important;
+    background:
+        linear-gradient(180deg, rgba(34, 211, 238, 0.92), rgba(8, 145, 178, 0.88)) !important;
+    box-shadow:
+        0 0 0 1px rgba(103, 232, 249, 0.18),
+        0 14px 30px rgba(8, 145, 178, 0.28);
+}
+
+.smai-ranking-build-action-anchor + div[data-testid="stButton"] button *,
+[data-testid="stMarkdownContainer"]:has(.smai-ranking-build-action-anchor)
+    + div[data-testid="stButton"] button * {
+    color: #FFFFFF !important;
+    font-size: 1.16rem !important;
+    font-weight: 880 !important;
 }
 
 .smai-ranking-provider-note {
@@ -5278,7 +5488,7 @@ div[data-testid="stChatInput"] textarea:focus {
 
 .table-label {
     color: var(--text-label);
-    font-weight: 560;
+    font-weight: 700;
 }
 
 .table-value {
@@ -5288,20 +5498,23 @@ div[data-testid="stChatInput"] textarea:focus {
 
 .table-comment {
     color: var(--text-secondary);
+    font-weight: 620;
 }
 
 .table-muted {
     color: var(--text-muted);
+    font-weight: 620;
 }
 
 .card-title {
     color: var(--text-heading);
-    font-weight: 700;
+    font-weight: 820;
 }
 
 .card-label {
     color: var(--text-label);
     font-size: 0.85rem;
+    font-weight: 780;
 }
 
 .card-value {
@@ -5311,10 +5524,40 @@ div[data-testid="stChatInput"] textarea:focus {
 
 .card-description {
     color: var(--text-secondary);
+    font-weight: 640;
 }
 
 .card-meta {
     color: var(--text-muted);
+    font-weight: 620;
+}
+
+/* Final readability baseline: keep late component styles from fading text back out. */
+.stApp small,
+.stApp figcaption,
+.stApp [class*="caption"],
+.stApp [class*="Caption"],
+.stApp [class*="muted"],
+.stApp [class*="Muted"],
+.stApp [class*="meta"],
+.stApp [class*="Meta"] {
+    color: var(--text-caption);
+    font-weight: 620;
+}
+
+.stApp [class*="label"],
+.stApp [class*="Label"],
+.stApp [class*="kicker"],
+.stApp [class*="Kicker"] {
+    color: var(--text-label);
+    font-weight: 760;
+}
+
+.stApp [class*="title"],
+.stApp [class*="Title"],
+.stApp [class*="heading"],
+.stApp [class*="Heading"] {
+    color: var(--text-heading);
 }
 </style>
 """

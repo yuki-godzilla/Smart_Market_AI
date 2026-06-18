@@ -140,6 +140,7 @@ from ui.app import (
     _ranking_source_key_for_selection,
     _ranking_symbols_from_selected_labels,
     _render_cockpit_research_summary,
+    _render_cockpit_symbol_filter_panel,
     _render_company_research_summary_panel,
     _render_decision_report_download_buttons,
     _render_forecast_chart_filters,
@@ -193,15 +194,18 @@ from ui.app import (
     build_cockpit_decision_report_context,
     build_llm_factor_reference_display,
     build_ranking_decision_report_context,
+    clear_ranking_detail_condition_state,
     cockpit_decision_report_evidence_rows,
     cockpit_decision_report_overview,
     cockpit_decision_report_summary_lines,
     cockpit_detail_summary_rows,
+    cockpit_filter_expander_label,
     cockpit_filter_has_active_conditions_from_values,
     cockpit_filter_summary_chips_from_values,
     cockpit_filter_summary_chips_html,
     cockpit_filtered_symbol_rows,
     cockpit_investment_memo_rows,
+    cockpit_keyword_filtered_symbol_rows,
     cockpit_period_evaluation_rows,
     decision_report_json_download,
     decision_report_markdown_download,
@@ -239,6 +243,7 @@ from ui.app import (
     ranking_candidate_breakdown_rows,
     ranking_comparison_summary,
     ranking_condition_has_active_detail_from_values,
+    ranking_condition_load_state,
     ranking_condition_summary_chips_from_values,
     ranking_condition_summary_chips_html,
     ranking_creation_target_summary_html,
@@ -717,6 +722,33 @@ def test_cockpit_filtered_symbol_rows_default_keeps_full_candidate_master(monkey
     ]
 
 
+def test_cockpit_keyword_filtered_symbol_rows_matches_theme_and_alias():
+    rows = [
+        {
+            "symbol": "7203.T",
+            "name": "Toyota Motor",
+            "theme": "automobile",
+            "aliases": "トヨタ 自動車",
+        },
+        {
+            "symbol": "NVDA",
+            "name": "NVIDIA",
+            "theme": "semiconductor",
+            "aliases": "GPU AI",
+        },
+    ]
+
+    assert [row["symbol"] for row in cockpit_keyword_filtered_symbol_rows(rows, "半導体")] == [
+        "NVDA"
+    ]
+    assert [row["symbol"] for row in cockpit_keyword_filtered_symbol_rows(rows, "semiconductor")] == [
+        "NVDA"
+    ]
+    assert [row["symbol"] for row in cockpit_keyword_filtered_symbol_rows(rows, "トヨタ")] == [
+        "7203.T"
+    ]
+
+
 def test_cockpit_filter_summary_chips_show_default_state():
     chips = cockpit_filter_summary_chips_from_values(
         dict(MARKET_DATA_COCKPIT_FILTER_DEFAULTS),
@@ -734,6 +766,54 @@ def test_cockpit_filter_summary_chips_show_default_state():
     assert not cockpit_filter_has_active_conditions_from_values(
         dict(MARKET_DATA_COCKPIT_FILTER_DEFAULTS)
     )
+
+
+def test_cockpit_filter_expander_label_summarizes_current_conditions():
+    chips = cockpit_filter_summary_chips_from_values(
+        dict(MARKET_DATA_COCKPIT_FILTER_DEFAULTS),
+        candidate_count=9197,
+    )
+
+    assert (
+        cockpit_filter_expander_label(chips)
+        == "銘柄を絞り込む　現在の条件: 全体 / NISA指定なし / 商品指定なし / 条件なし / 候補 9197件"
+    )
+
+
+def test_cockpit_filter_panel_keeps_expander_open_when_filter_active(monkeypatch):
+    values = {
+        **MARKET_DATA_COCKPIT_FILTER_DEFAULTS,
+        "market_data_cockpit_region": "japan",
+    }
+    expander_calls: list[dict[str, object]] = []
+
+    monkeypatch.setattr("ui.app._cockpit_filter_state_snapshot", lambda: values)
+    monkeypatch.setattr(
+        "ui.app.cockpit_filtered_symbol_rows",
+        lambda rows: list(rows),
+    )
+    monkeypatch.setattr(
+        "ui.app._render_cockpit_symbol_filter_detail_fields",
+        lambda rows: list(rows),
+    )
+    monkeypatch.setattr("ui.app.st.markdown", lambda *_, **__: None)
+    monkeypatch.setattr("ui.app.st.button", lambda *_, **__: False)
+    monkeypatch.setattr("ui.app.st.warning", lambda *_, **__: None)
+
+    def fake_expander(label: str, *, expanded: bool = False):
+        expander_calls.append({"label": label, "expanded": expanded})
+        return _FakeExpander()
+
+    monkeypatch.setattr("ui.app.st.expander", fake_expander)
+
+    _render_cockpit_symbol_filter_panel([{"symbol": "7203.T", "name": "Toyota"}])
+
+    assert expander_calls == [
+        {
+            "label": "銘柄を絞り込む　現在の条件: 国内 / NISA指定なし / 商品指定なし / 候補 1件",
+            "expanded": True,
+        }
+    ]
 
 
 def test_cockpit_filter_summary_chips_show_active_conditions():
@@ -5100,6 +5180,42 @@ def test_clear_ranking_filter_state_resets_visible_filters_and_result_state(monk
     assert "market_data_ranking_selected_labels" not in session_state
 
 
+def test_clear_ranking_detail_condition_state_keeps_top_level_controls(monkeypatch):
+    session_state: dict[str, object] = {
+        "market_data_ranking_region": "us",
+        "market_data_ranking_product_type": "stock",
+        "market_data_ranking_policy": RANKING_PURPOSE_QUALITY_GROWTH,
+        "market_data_ranking_period": "medium",
+        "market_data_ranking_fetch_limit": "fast_100",
+        "market_data_ranking_currency": "USD",
+        "market_data_ranking_nisa": "growth",
+        "market_data_ranking_symbol_query": "toyota",
+        "market_data_ranking_per_enabled": True,
+        "market_data_ranking_rows": [{"symbol": "AAPL"}],
+        "market_data_ranking_error_rows": [{"symbol": "ERR"}],
+        "market_data_ranking_selected_labels": ["AAPL - Apple Inc."],
+    }
+    monkeypatch.setattr("ui.app.st.session_state", session_state)
+
+    clear_ranking_detail_condition_state()
+
+    assert session_state["market_data_ranking_region"] == "us"
+    assert session_state["market_data_ranking_product_type"] == "stock"
+    assert (
+        session_state["market_data_ranking_policy"]
+        == RANKING_PURPOSE_QUALITY_GROWTH
+    )
+    assert session_state["market_data_ranking_period"] == "medium"
+    assert session_state["market_data_ranking_fetch_limit"] == "fast_100"
+    assert session_state["market_data_ranking_currency"] == "all"
+    assert session_state["market_data_ranking_nisa"] == "all"
+    assert session_state["market_data_ranking_symbol_query"] == ""
+    assert session_state["market_data_ranking_per_enabled"] is False
+    assert "market_data_ranking_rows" not in session_state
+    assert "market_data_ranking_error_rows" not in session_state
+    assert "market_data_ranking_selected_labels" not in session_state
+
+
 def test_valid_ranking_selected_labels_keeps_only_available_options():
     assert valid_ranking_selected_labels(
         ["7203.T - Toyota Motor", "OLD - Removed"],
@@ -5253,17 +5369,28 @@ def test_apply_ranking_filter_state_selects_filtered_candidates(monkeypatch):
 def test_ranking_period_dates_use_beginner_presets():
     end = date(2026, 5, 17)
 
-    assert list(RANKING_PERIOD_PRESETS) == ["short", "standard", "medium", "long"]
+    assert list(RANKING_PERIOD_PRESETS) == [
+        "short",
+        "standard",
+        "medium",
+        "long",
+        "long_3y",
+        "long_5y",
+    ]
     assert ranking_period_label("standard") == "標準: 3か月"
     assert ranking_period_label("short") == "短期: 1か月"
     assert ranking_period_label("medium") == "中期: 6か月"
+    assert ranking_period_label("long_3y") == "長期: 3年"
+    assert ranking_period_label("long_5y") == "長期: 5年"
     assert ranking_period_dates("standard", end) == (date(2026, 2, 16), end)
     assert ranking_period_dates("short", end) == (date(2026, 4, 17), end)
     assert ranking_period_dates("medium", end) == (date(2025, 11, 18), end)
     assert ranking_period_dates("long", end) == (date(2025, 5, 17), end)
+    assert ranking_period_dates("long_3y", end) == (date(2023, 5, 17), end)
+    assert ranking_period_dates("long_5y", end) == (date(2021, 5, 17), end)
     assert "標準は3か月" in RANKING_FILTER_HELP_TEXTS["period"]
     assert "1か月は直近反応" in RANKING_FILTER_HELP_TEXTS["period"]
-    assert "安定性" in RANKING_FILTER_HELP_TEXTS["period"]
+    assert "3年/5年は長期トレンド" in RANKING_FILTER_HELP_TEXTS["period"]
 
 
 def test_build_market_data_ranking_rows_fetches_symbols_concurrently(monkeypatch):
@@ -6059,7 +6186,7 @@ def test_ranking_score_bar_chart_frame_matches_required_single_metric_sort_order
 def test_ranking_score_bar_chart_caption_separates_chart_metric_from_table_sort():
     caption = ranking_score_bar_chart_caption(RANKING_PURPOSE_QUALITY_VALUE, "PER", "asc")
 
-    assert "割安クオリティの評価方針" in caption
+    assert "割安クオリティのランキング基準" in caption
     assert "代表指標「PER」" in caption
     assert "低い順" in caption
     assert "詳細テーブルの列ヘッダー" in caption
@@ -7150,7 +7277,7 @@ def test_ranking_criteria_guide_rows_render_as_wrapping_table():
     table_html = symbol_detail_table_html(rows)
 
     assert "symbol-detail-table" in table_html
-    assert "評価方針" in table_html
+    assert "ランキング基準" in table_html
     assert "詳細条件" in table_html
     assert "条件適合度" in table_html
     assert "DB信頼度" in table_html
@@ -7285,9 +7412,25 @@ def test_ranking_condition_summary_html_is_embedded_in_condition_builder():
 
     assert "smai-ranking-builder-head" in markup
     assert "smai-ranking-current-conditions" not in markup
-    assert "ランキング条件" in markup
+    assert "ランキング候補" in markup
     assert "現在の条件" in markup
     assert "候補 9,197件" in markup
+
+
+def test_ranking_condition_summary_html_softly_warns_for_medium_build_target():
+    markup = _ranking_condition_summary_html(
+        {},
+        region="japan",
+        product_type="stock",
+        ranking_policy=RANKING_PURPOSE_MULTI_FACTOR,
+        period_preset="standard",
+        candidate_count=9197,
+        load_state=ranking_condition_load_state(300),
+    )
+
+    assert "smai-ranking-builder-head--load-caution" in markup
+    assert "候補 9,197件：候補が少し多めです" in markup
+    assert "作成に少し時間がかかる場合があります。" in markup
 
 
 def test_ranking_policy_builder_card_html_summarizes_policy_weights():
@@ -7296,7 +7439,7 @@ def test_ranking_policy_builder_card_html_summarizes_policy_weights():
         RANKING_PRESET_MULTI_FACTOR,
     )
 
-    assert "評価方針" in markup
+    assert "ランキング基準" in markup
     assert "AI総合" in markup
     assert "基礎評価" in markup
     assert "30%" in markup
@@ -7326,7 +7469,7 @@ def test_ranking_creation_target_summary_html_explains_effective_target_count():
     )
 
     assert "候補 9,197件から、300件を作成します" in markup
-    assert "評価方針: AI総合" in markup
+    assert "ランキング基準: AI総合" in markup
     assert "期間: 標準: 3か月" in markup
     assert "取得元: yahoo" in markup
     assert "詳細条件あり" in markup

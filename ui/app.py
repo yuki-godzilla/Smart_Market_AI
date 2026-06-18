@@ -203,9 +203,11 @@ from ui.ranking import (
     RANKING_DIVIDEND_LABELS,
     RANKING_FETCH_LIMIT_LABELS,
     RANKING_FETCH_LIMIT_PRESET,
+    RANKING_FILTER_DEFAULTS,
     RANKING_FILTER_HELP_TEXTS,
     RANKING_INDEX_FAMILY_LABELS,
     RANKING_MARKET_CAP_LABELS,
+    RANKING_METRIC_FILTER_DEFAULTS,
     RANKING_MVP_PRODUCT_TYPE_LABELS,
     RANKING_MVP_REGION_LABELS,
     RANKING_NISA_ELIGIBILITY_LABELS,
@@ -217,7 +219,6 @@ from ui.ranking import (
     apply_ranking_weight_preset,
     filter_symbol_universe_rows,
     limited_ranking_selected_labels,
-    live_ranking_symbol_warning_message,
     normalize_dividend_filter_values,
     rank_investment_score_rows,
     ranking_build_cache_key,
@@ -253,7 +254,6 @@ from ui.ranking import (
     symbol_universe_rows,
 )
 from ui.ranking_state import (
-    clear_ranking_filter_state,
     ensure_ranking_selection_widget_state,
     sync_ranking_selection_state,
 )
@@ -301,6 +301,7 @@ from ui.state import (
     MARKET_DATA_RANKING_BUILD_CACHE_STATE_KEY,
     MARKET_DATA_RANKING_DEEP_DIVE_SOURCE_STATE_KEY,
     MARKET_DATA_RANKING_ERROR_STATE_KEY,
+    MARKET_DATA_RANKING_FILTERS_STATE_KEY,
     MARKET_DATA_RANKING_RESEARCH_REPORTS_STATE_KEY,
     MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY,
     MARKET_DATA_RANKING_SOURCE_STATE_KEY,
@@ -4231,7 +4232,7 @@ def ranking_score_bar_chart_caption(
     focus_summary = ranking_purpose_focus_summary(ranking_purpose)
     metric_label = _ranking_display_column_label(metric_column)
     return (
-        f"{policy_label}の評価方針に基づく上位候補です。"
+        f"{policy_label}のランキング基準に基づく上位候補です。"
         f"代表指標「{metric_label}」は{order_text}に表示します。"
         f"{focus_summary}"
         "詳細テーブルの列ヘッダーで行を並べ替えても、グラフ指標は自動では切り替わりません。"
@@ -4591,14 +4592,14 @@ def _render_ranking_purpose_context(ranking_purpose: str, weight_preset: str) ->
             render_metric_card(
                 label,
                 value or item,
-                caption="この評価方針で重視する指標",
+                caption="このランキング基準で重視する指標",
                 badges=(badge_html("重み", "info"),),
                 tone="info",
                 progress=metric_progress_from_value(value),
             )
     st.caption(
         f"評価プロファイル: {ranking_weight_preset_label(weight_preset)}。"
-        "評価方針は売買推奨ではなく、比較・深掘り候補の採点軸です。"
+        "ランキング基準は売買推奨ではなく、比較・深掘り候補の採点軸です。"
     )
 
 
@@ -4644,7 +4645,7 @@ def _ranking_condition_card_html(
         f'<p class="smai-ranking-policy-summary">{html.escape(description["short_summary"])}</p>'
         '<div class="smai-ranking-condition-grid">'
         "<div>"
-        f'<div class="smai-insight-kicker">評価方針</div><strong>{html.escape(purpose)}</strong>'
+        f'<div class="smai-insight-kicker">ランキング基準</div><strong>{html.escape(purpose)}</strong>'
         f"<p>{html.escape(description['suited_for'])}</p>"
         "</div>"
         "<div>"
@@ -4726,9 +4727,9 @@ def ranking_forecast_term_explanation_rows() -> list[dict[str, str]]:
 
 
 def _render_ranking_criteria_guide() -> None:
-    with st.expander("評価方針・条件・信頼度の読み方", expanded=False):
+    with st.expander("ランキング基準・条件・信頼度の読み方", expanded=False):
         st.caption(
-            "評価方針は取得後の並べ替え、詳細条件は取得前の候補絞り込みです。"
+            "ランキング基準は取得後の並べ替え、詳細条件は取得前の候補絞り込みです。"
             "条件適合度とDB信頼度は、銘柄の良し悪しではなく評価材料のそろい方として読みます。"
         )
         st.markdown(SYMBOL_DETAIL_DIALOG_CSS, unsafe_allow_html=True)
@@ -4947,7 +4948,7 @@ def _render_ranking_profile_chart(
             "指定条件向けの列が不足している、または同じ値に偏っているため、"
             f"代替チャート `{selection.profile.title}` を表示しています。"
         )
-    st.caption("選択中の評価方針とは別に、候補の期待・警戒バランスを確認する補助グラフです。")
+    st.caption("選択中のランキング基準とは別に、候補の期待・警戒バランスを確認する補助グラフです。")
     st.caption(selection.profile.description)
     with st.expander("読み方", expanded=False):
         for item in selection.profile.how_to_read:
@@ -5468,6 +5469,41 @@ def ranking_condition_has_active_detail_from_values(values: Mapping[str, object]
     return any(_truthy_filter_value(values.get(key, False)) for key in metric_enabled_keys)
 
 
+def clear_ranking_detail_condition_state() -> None:
+    top_level_keys = {
+        "market_data_ranking_region",
+        "market_data_ranking_product_type",
+        "market_data_ranking_policy",
+        "market_data_ranking_purpose",
+        "market_data_ranking_fetch_limit",
+        "market_data_ranking_period",
+    }
+    detail_defaults = {
+        key: default
+        for key, default in {
+            **RANKING_FILTER_DEFAULTS,
+            **RANKING_METRIC_FILTER_DEFAULTS,
+        }.items()
+        if key not in top_level_keys
+    }
+    for key, default in detail_defaults.items():
+        if isinstance(default, bool):
+            st.session_state[key] = default
+        elif key.endswith(("_min", "_max")) or key in {
+            "market_data_ranking_min_dividend",
+            "market_data_ranking_dividend_max",
+            "market_data_ranking_max_expense",
+        }:
+            st.session_state[key] = float(default)
+        else:
+            st.session_state[key] = default
+    st.session_state.pop(MARKET_DATA_RANKING_FILTERS_STATE_KEY, None)
+    st.session_state.pop(MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY, None)
+    st.session_state.pop(MARKET_DATA_RANKING_STATE_KEY, None)
+    st.session_state.pop(MARKET_DATA_RANKING_ERROR_STATE_KEY, None)
+    st.session_state.pop(MARKET_DATA_RANKING_UPDATED_AT_STATE_KEY, None)
+
+
 def ranking_condition_summary_chips_from_values(
     values: Mapping[str, object],
     *,
@@ -5598,9 +5634,9 @@ def ranking_policy_builder_card_html(ranking_policy: str, weight_preset: str) ->
     )
     return (
         '<section class="smai-ranking-policy-builder">'
-        '<div class="smai-card-label">選択中の評価方針</div>'
+        '<div class="smai-card-label">選択中のランキング基準</div>'
         f"<h4>{html.escape(ranking_policy_label(ranking_policy))}</h4>"
-        f'<p>{html.escape(description["short_summary"])}</p>'
+        f'<p>この基準で候補を並べます。{html.escape(description["short_summary"])}</p>'
         f'<div class="smai-ranking-policy-weight-chips">{group_items}</div>'
         '<p class="smai-ranking-policy-caution">'
         "上位は買い推奨ではなく、Cockpitで深掘りする候補です。"
@@ -5628,7 +5664,7 @@ def ranking_creation_target_summary_html(
     detail_state = "詳細条件あり" if has_detail_conditions else "詳細条件なし"
     selection_note = f" / 選択: {selected_count:,}件" if selected_count != candidate_count else ""
     details = (
-        f"評価方針: {ranking_policy_label(ranking_policy)} / "
+        f"ランキング基準: {ranking_policy_label(ranking_policy)} / "
         f"期間: {ranking_period_label(period_preset)} / "
         f"取得元: {provider} / "
         f"作成対象: {fetch_limit_label} / "
@@ -5707,227 +5743,231 @@ def _render_ranking_filter_panel(
         product_type=product_type,
         purpose=purpose,
     )
-    summary_root = summary_container if summary_container is not None else st
-    summary_slot = summary_root.empty()
-    summary_slot.markdown(
-        _ranking_condition_summary_html(
-            _ranking_filter_state_snapshot(),
-            region=region,
-            product_type=product_type,
-            ranking_policy=ranking_policy,
-            period_preset=period_preset,
-            candidate_count=len(initial_rows),
-        ),
-        unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        '<div class="smai-ranking-builder-subhead">属性条件</div>'
-        '<p class="smai-ranking-builder-caption">銘柄の種類や投資スタイルで絞ります。</p>',
-        unsafe_allow_html=True,
-    )
-    columns = st.columns(4)
-    column_index = 0
-    dividend_category_value = _ranking_filter_value("market_data_ranking_dividend", "all")
-    dividend_range_enabled = _ranking_filter_bool("market_data_ranking_dividend_enabled", False)
-    dividend_category_disabled = dividend_range_enabled
-    dividend_range_disabled = dividend_category_value != "all"
-
-    def next_column():
-        nonlocal column_index
-        column = columns[column_index % len(columns)]
-        column_index += 1
-        return column
-
-    if "industry_or_sector" in detail_filters:
-        with next_column():
-            _render_detail_selectbox(
-                "業種/テーマ",
-                options=list(RANKING_THEME_LABELS),
-                key="market_data_ranking_theme",
-                format_func=lambda value: RANKING_THEME_LABELS[value],
-                help_text="業種や投資テーマで候補を絞ります。",
-            )
-    if "market_cap" in detail_filters:
-        with next_column():
-            _render_detail_selectbox(
-                "時価総額",
-                options=list(RANKING_MARKET_CAP_LABELS),
-                key="market_data_ranking_market_cap",
-                format_func=lambda value: RANKING_MARKET_CAP_LABELS[value],
-                help_text="大型株・中型株・小型株など、企業規模で候補を絞ります。",
-            )
-    if "risk_band" in detail_filters:
-        with next_column():
-            _render_detail_selectbox(
-                "市場感応度（β）",
-                options=list(RANKING_BETA_RISK_LABELS),
-                key="market_data_ranking_risk_band",
-                format_func=lambda value: _short_filter_label(RANKING_BETA_RISK_LABELS[value]),
-                help_text=(
-                    "市場全体に対する値動きの連動しやすさです。"
-                    "βが高いほど市場変動の影響を受けやすい傾向があります。"
-                ),
-            )
-    if "nisa_eligibility" in detail_filters:
-        with next_column():
-            _render_detail_selectbox(
-                "NISA",
-                options=list(RANKING_NISA_ELIGIBILITY_LABELS),
-                key="market_data_ranking_nisa",
-                format_func=lambda value: _short_filter_label(
-                    RANKING_NISA_ELIGIBILITY_LABELS[value]
-                ),
-                help_text="NISA対象銘柄に絞る場合に使います。",
-            )
-    if "benchmark_index" in detail_filters:
-        with next_column():
-            _render_detail_selectbox(
-                "連動指数",
-                options=list(RANKING_INDEX_FAMILY_LABELS),
-                key="market_data_ranking_index_family",
-                format_func=lambda value: RANKING_INDEX_FAMILY_LABELS[value],
-                help_text=RANKING_FILTER_HELP_TEXTS["benchmark_index"],
-            )
-    if "expense_ratio" in detail_filters:
-        with next_column():
-            st.number_input(
-                "信託報酬/経費率(%)以下",
-                min_value=0.0,
-                max_value=2.0,
-                value=float(_ranking_filter_value("market_data_ranking_max_expense", "1.00")),
-                step=0.01,
-                key="market_data_ranking_max_expense",
-                help=RANKING_FILTER_HELP_TEXTS["expense_ratio"],
-            )
-    if "complexity" in detail_filters:
-        with next_column():
-            _render_detail_selectbox(
-                "複雑さ",
-                options=list(RANKING_COMPLEXITY_LABELS),
-                key="market_data_ranking_complexity",
-                format_func=lambda value: RANKING_COMPLEXITY_LABELS[value],
-                help_text=RANKING_FILTER_HELP_TEXTS["complexity"],
-            )
-    if "dividend_yield" in detail_filters:
-        with next_column():
-            _render_detail_selectbox(
-                _dividend_category_filter_label(product_type),
-                options=list(RANKING_DIVIDEND_LABELS),
-                key="market_data_ranking_dividend",
-                format_func=lambda value: _dividend_category_option_label(
-                    value,
-                    product_type,
-                ),
-                help_text="配当・分配金の特徴で候補を絞ります。",
-                disabled=dividend_category_disabled,
-            )
-    with next_column():
-        _render_detail_selectbox(
-            "通貨",
-            options=list(RANKING_CURRENCY_LABELS),
-            key="market_data_ranking_currency",
-            format_func=lambda value: RANKING_CURRENCY_LABELS[value],
-            help_text="銘柄やETFの通貨で候補を絞ります。",
-        )
-
-    metric_filters: list[tuple[str, dict[str, object]]] = []
-    if "dividend_yield" in detail_filters:
-        metric_filters.append(
-            (
-                _dividend_yield_filter_label(product_type),
-                {
-                    "enabled_key": "market_data_ranking_dividend_enabled",
-                    "min_key": "market_data_ranking_min_dividend",
-                    "max_key": "market_data_ranking_dividend_max",
-                    "min_default": "3.0",
-                    "max_default": "10.0",
-                    "max_value": 15.0,
-                    "help_text": (
-                        "高配当候補を探す時に使います。" "高すぎる利回りは注意が必要です。"
-                    ),
-                    "disabled": dividend_range_disabled,
-                },
-            )
-        )
-    if "per" in detail_filters:
-        metric_filters.append(
-            (
-                "PER",
-                {
-                    "enabled_key": "market_data_ranking_per_enabled",
-                    "min_key": "market_data_ranking_per_min",
-                    "max_key": "market_data_ranking_per_max",
-                    "min_default": "2.0",
-                    "max_default": "20.0",
-                    "max_value": 80.0,
-                    "help_text": (
-                        "利益に対する株価の水準です。低いほど割安に見えますが、"
-                        "業績悪化の可能性も確認してください。"
-                    ),
-                },
-            )
-        )
-    if "pbr" in detail_filters:
-        metric_filters.append(
-            (
-                "PBR",
-                {
-                    "enabled_key": "market_data_ranking_pbr_enabled",
-                    "min_key": "market_data_ranking_pbr_min",
-                    "max_key": "market_data_ranking_pbr_max",
-                    "min_default": "0.5",
-                    "max_default": "2.0",
-                    "max_value": 20.0,
-                    "help_text": (
-                        "純資産に対する株価の水準です。低いほど割安に見えますが、"
-                        "低評価の理由も確認します。"
-                    ),
-                },
-            )
-        )
-    if "roe" in detail_filters:
-        metric_filters.append(
-            (
-                "ROE(%)",
-                {
-                    "enabled_key": "market_data_ranking_roe_enabled",
-                    "min_key": "market_data_ranking_roe_min",
-                    "max_key": "market_data_ranking_roe_max",
-                    "min_default": "8.0",
-                    "max_default": "30.0",
-                    "max_value": 60.0,
-                    "help_text": "資本効率を見る指標です。高いほど収益性が高い傾向があります。",
-                },
-            )
-        )
-    if metric_filters:
-        st.markdown(
-            '<div class="smai-ranking-builder-subhead">数値条件</div>'
-            '<p class="smai-ranking-builder-caption">'
-            "PER・PBR・ROE・配当利回りなどで絞ります。"
-            "</p>",
+    summary_slot = summary_container.empty() if summary_container is not None else None
+    if summary_slot is not None:
+        summary_slot.markdown(
+            _ranking_condition_summary_html(
+                _ranking_filter_state_snapshot(),
+                region=region,
+                product_type=product_type,
+                ranking_policy=ranking_policy,
+                period_preset=period_preset,
+                candidate_count=len(initial_rows),
+            ),
             unsafe_allow_html=True,
         )
-        _render_metric_filter_grid(metric_filters, columns_per_row=4, compact=True)
 
-    st.markdown(
-        '<div class="smai-ranking-builder-subhead">キーワード検索</div>'
-        '<p class="smai-ranking-builder-caption">銘柄コード、会社名、テーマで候補を探します。</p>',
-        unsafe_allow_html=True,
-    )
-    col_keyword, col_clear = st.columns([3.0, 0.8])
-    with col_keyword:
-        st.text_input(
-            "キーワード",
-            value=_ranking_filter_value("market_data_ranking_symbol_query", ""),
-            key="market_data_ranking_symbol_query",
-            placeholder="銘柄コード、会社名、テーマ",
-            help=RANKING_FILTER_HELP_TEXTS["keyword"],
+    with st.expander("詳細条件で候補を絞り込む", expanded=True):
+        st.markdown(
+            '<div class="smai-ranking-builder-subhead">属性条件</div>'
+            '<p class="smai-ranking-builder-caption">銘柄の種類や投資スタイルで絞ります。</p>',
+            unsafe_allow_html=True,
         )
-    with col_clear:
-        st.write("")
-        st.button("条件をクリア", on_click=clear_ranking_filter_state)
+        columns = st.columns(4)
+        column_index = 0
+        dividend_category_value = _ranking_filter_value("market_data_ranking_dividend", "all")
+        dividend_range_enabled = _ranking_filter_bool("market_data_ranking_dividend_enabled", False)
+        dividend_category_disabled = dividend_range_enabled
+        dividend_range_disabled = dividend_category_value != "all"
+
+        def next_column():
+            nonlocal column_index
+            column = columns[column_index % len(columns)]
+            column_index += 1
+            return column
+
+        if "industry_or_sector" in detail_filters:
+            with next_column():
+                _render_detail_selectbox(
+                    "業種/テーマ",
+                    options=list(RANKING_THEME_LABELS),
+                    key="market_data_ranking_theme",
+                    format_func=lambda value: RANKING_THEME_LABELS[value],
+                    help_text="業種や投資テーマで候補を絞ります。",
+                )
+        if "market_cap" in detail_filters:
+            with next_column():
+                _render_detail_selectbox(
+                    "時価総額",
+                    options=list(RANKING_MARKET_CAP_LABELS),
+                    key="market_data_ranking_market_cap",
+                    format_func=lambda value: RANKING_MARKET_CAP_LABELS[value],
+                    help_text="大型株・中型株・小型株など、企業規模で候補を絞ります。",
+                )
+        if "risk_band" in detail_filters:
+            with next_column():
+                _render_detail_selectbox(
+                    "市場感応度（β）",
+                    options=list(RANKING_BETA_RISK_LABELS),
+                    key="market_data_ranking_risk_band",
+                    format_func=lambda value: _short_filter_label(RANKING_BETA_RISK_LABELS[value]),
+                    help_text=(
+                        "市場全体に対する値動きの連動しやすさです。"
+                        "βが高いほど市場変動の影響を受けやすい傾向があります。"
+                    ),
+                )
+        if "nisa_eligibility" in detail_filters:
+            with next_column():
+                _render_detail_selectbox(
+                    "NISA",
+                    options=list(RANKING_NISA_ELIGIBILITY_LABELS),
+                    key="market_data_ranking_nisa",
+                    format_func=lambda value: _short_filter_label(
+                        RANKING_NISA_ELIGIBILITY_LABELS[value]
+                    ),
+                    help_text="NISA対象銘柄に絞る場合に使います。",
+                )
+        if "benchmark_index" in detail_filters:
+            with next_column():
+                _render_detail_selectbox(
+                    "連動指数",
+                    options=list(RANKING_INDEX_FAMILY_LABELS),
+                    key="market_data_ranking_index_family",
+                    format_func=lambda value: RANKING_INDEX_FAMILY_LABELS[value],
+                    help_text=RANKING_FILTER_HELP_TEXTS["benchmark_index"],
+                )
+        if "expense_ratio" in detail_filters:
+            with next_column():
+                st.number_input(
+                    "信託報酬/経費率(%)以下",
+                    min_value=0.0,
+                    max_value=2.0,
+                    value=float(_ranking_filter_value("market_data_ranking_max_expense", "1.00")),
+                    step=0.01,
+                    key="market_data_ranking_max_expense",
+                    help=RANKING_FILTER_HELP_TEXTS["expense_ratio"],
+                )
+        if "complexity" in detail_filters:
+            with next_column():
+                _render_detail_selectbox(
+                    "複雑さ",
+                    options=list(RANKING_COMPLEXITY_LABELS),
+                    key="market_data_ranking_complexity",
+                    format_func=lambda value: RANKING_COMPLEXITY_LABELS[value],
+                    help_text=RANKING_FILTER_HELP_TEXTS["complexity"],
+                )
+        if "dividend_yield" in detail_filters:
+            with next_column():
+                _render_detail_selectbox(
+                    _dividend_category_filter_label(product_type),
+                    options=list(RANKING_DIVIDEND_LABELS),
+                    key="market_data_ranking_dividend",
+                    format_func=lambda value: _dividend_category_option_label(
+                        value,
+                        product_type,
+                    ),
+                    help_text="配当・分配金の特徴で候補を絞ります。",
+                    disabled=dividend_category_disabled,
+                )
+        with next_column():
+            _render_detail_selectbox(
+                "通貨",
+                options=list(RANKING_CURRENCY_LABELS),
+                key="market_data_ranking_currency",
+                format_func=lambda value: RANKING_CURRENCY_LABELS[value],
+                help_text="銘柄やETFの通貨で候補を絞ります。",
+            )
+
+        metric_filters: list[tuple[str, dict[str, object]]] = []
+        if "dividend_yield" in detail_filters:
+            metric_filters.append(
+                (
+                    _dividend_yield_filter_label(product_type),
+                    {
+                        "enabled_key": "market_data_ranking_dividend_enabled",
+                        "min_key": "market_data_ranking_min_dividend",
+                        "max_key": "market_data_ranking_dividend_max",
+                        "min_default": "3.0",
+                        "max_default": "10.0",
+                        "max_value": 15.0,
+                        "help_text": (
+                            "高配当候補を探す時に使います。" "高すぎる利回りは注意が必要です。"
+                        ),
+                        "disabled": dividend_range_disabled,
+                    },
+                )
+            )
+        if "per" in detail_filters:
+            metric_filters.append(
+                (
+                    "PER",
+                    {
+                        "enabled_key": "market_data_ranking_per_enabled",
+                        "min_key": "market_data_ranking_per_min",
+                        "max_key": "market_data_ranking_per_max",
+                        "min_default": "2.0",
+                        "max_default": "20.0",
+                        "max_value": 80.0,
+                        "help_text": (
+                            "利益に対する株価の水準です。低いほど割安に見えますが、"
+                            "業績悪化の可能性も確認してください。"
+                        ),
+                    },
+                )
+            )
+        if "pbr" in detail_filters:
+            metric_filters.append(
+                (
+                    "PBR",
+                    {
+                        "enabled_key": "market_data_ranking_pbr_enabled",
+                        "min_key": "market_data_ranking_pbr_min",
+                        "max_key": "market_data_ranking_pbr_max",
+                        "min_default": "0.5",
+                        "max_default": "2.0",
+                        "max_value": 20.0,
+                        "help_text": (
+                            "純資産に対する株価の水準です。低いほど割安に見えますが、"
+                            "低評価の理由も確認します。"
+                        ),
+                    },
+                )
+            )
+        if "roe" in detail_filters:
+            metric_filters.append(
+                (
+                    "ROE(%)",
+                    {
+                        "enabled_key": "market_data_ranking_roe_enabled",
+                        "min_key": "market_data_ranking_roe_min",
+                        "max_key": "market_data_ranking_roe_max",
+                        "min_default": "8.0",
+                        "max_default": "30.0",
+                        "max_value": 60.0,
+                        "help_text": "資本効率を見る指標です。高いほど収益性が高い傾向があります。",
+                    },
+                )
+            )
+        if metric_filters:
+            st.markdown(
+                '<div class="smai-ranking-builder-subhead">数値条件</div>'
+                '<p class="smai-ranking-builder-caption">'
+                "PER・PBR・ROE・配当利回りなどで絞ります。"
+                "</p>",
+                unsafe_allow_html=True,
+            )
+            _render_metric_filter_grid(metric_filters, columns_per_row=4, compact=True)
+
+        st.markdown(
+            '<div class="smai-ranking-builder-subhead">キーワード検索</div>'
+            '<p class="smai-ranking-builder-caption">銘柄コード、会社名、テーマで候補を探します。</p>',
+            unsafe_allow_html=True,
+        )
+        col_keyword, col_clear = st.columns([3.0, 0.8])
+        with col_keyword:
+            st.text_input(
+                "キーワード",
+                value=_ranking_filter_value("market_data_ranking_symbol_query", ""),
+                key="market_data_ranking_symbol_query",
+                placeholder="銘柄コード、会社名、テーマ",
+                help=RANKING_FILTER_HELP_TEXTS["keyword"],
+            )
+        with col_clear:
+            st.write("")
+            st.button(
+                "詳細条件をクリア",
+                on_click=clear_ranking_detail_condition_state,
+            )
 
     filtered_rows = _ranking_filtered_symbol_rows_from_state(
         symbol_options,
@@ -5935,17 +5975,18 @@ def _render_ranking_filter_panel(
         product_type=product_type,
         purpose=purpose,
     )
-    summary_slot.markdown(
-        _ranking_condition_summary_html(
-            _ranking_filter_state_snapshot(),
-            region=region,
-            product_type=product_type,
-            ranking_policy=ranking_policy,
-            period_preset=period_preset,
-            candidate_count=len(filtered_rows),
-        ),
-        unsafe_allow_html=True,
-    )
+    if summary_slot is not None:
+        summary_slot.markdown(
+            _ranking_condition_summary_html(
+                _ranking_filter_state_snapshot(),
+                region=region,
+                product_type=product_type,
+                ranking_policy=ranking_policy,
+                period_preset=period_preset,
+                candidate_count=len(filtered_rows),
+            ),
+            unsafe_allow_html=True,
+        )
     return filtered_rows
 
 
@@ -5957,6 +5998,7 @@ def _ranking_condition_summary_html(
     ranking_policy: str,
     period_preset: str,
     candidate_count: int,
+    load_state: Mapping[str, str] | None = None,
 ) -> str:
     chips = ranking_condition_summary_chips_from_values(
         values,
@@ -5966,19 +6008,54 @@ def _ranking_condition_summary_html(
         period_preset=period_preset,
         candidate_count=candidate_count,
     )
+    load_tone = str((load_state or {}).get("tone", "ok"))
+    load_suffix = str((load_state or {}).get("suffix", "")).strip()
+    load_message = str((load_state or {}).get("message", "")).strip()
+    load_class = f" smai-ranking-builder-head--load-{html.escape(load_tone)}"
+    candidate_line = f"候補 {candidate_count:,}件"
+    if load_suffix:
+        candidate_line = f"{candidate_line}：{load_suffix}"
+    load_message_html = (
+        f'<p class="smai-ranking-condition-load-message">{html.escape(load_message)}</p>'
+        if load_message
+        else ""
+    )
     return (
-        '<section class="smai-ranking-builder-head">'
-        '<div class="smai-card-label">ランキング条件</div>'
+        f'<section class="smai-ranking-builder-head{load_class}">'
+        '<div class="smai-card-label">ランキング候補</div>'
         '<div class="smai-ranking-builder-title-row">'
-        "<strong>候補を絞り込む条件</strong>"
+        f"<strong>{html.escape(candidate_line)}</strong>"
         "</div>"
-        "<p>ここで絞った候補だけを、選択中の評価方針でランキングします。</p>"
+        "<p>ここで絞った候補だけを、選択中のランキング基準で並べます。</p>"
         '<div class="smai-ranking-current-inline">'
         '<span class="smai-ranking-current-heading">現在の条件</span>'
         f"{ranking_condition_summary_chips_html(chips)}"
         "</div>"
+        f"{load_message_html}"
         "</section>"
     )
+
+
+def ranking_condition_load_state(build_target_count: int) -> dict[str, str]:
+    if build_target_count <= 50:
+        return {"tone": "ok", "suffix": "", "message": ""}
+    if build_target_count <= 300:
+        return {
+            "tone": "caution",
+            "suffix": "候補が少し多めです",
+            "message": "作成に少し時間がかかる場合があります。",
+        }
+    if build_target_count <= 500:
+        return {
+            "tone": "warning",
+            "suffix": "候補が多めです",
+            "message": "作成に時間がかかる場合があります。",
+        }
+    return {
+        "tone": "danger",
+        "suffix": "候補が多めです",
+        "message": "絞り込むと、作成時間を短くできます。",
+    }
 
 
 def _cockpit_filter_state_snapshot() -> dict[str, str | bool]:
@@ -6049,6 +6126,14 @@ def cockpit_filter_summary_chips_html(chips: Sequence[Mapping[str, str]]) -> str
         for chip in chips
     )
     return f'<div class="smai-cockpit-filter-chip-row">{chip_html}</div>'
+
+
+def cockpit_filter_expander_label(chips: Sequence[Mapping[str, str]]) -> str:
+    labels = [str(chip.get("label", "")).strip() for chip in chips if chip.get("label")]
+    summary = " / ".join(labels)
+    if not summary:
+        return "銘柄を絞り込む"
+    return f"銘柄を絞り込む　現在の条件: {summary}"
 
 
 def _truthy_filter_value(value: object) -> bool:
@@ -6165,21 +6250,12 @@ def _render_cockpit_symbol_filter_panel(
         filter_values,
         candidate_count=len(filtered_rows),
     )
+    filter_active = cockpit_filter_has_active_conditions_from_values(filter_values)
     st.markdown(
-        '<section class="smai-cockpit-filter-summary">'
-        '<div class="smai-cockpit-prefetch-heading">絞り込み条件</div>'
-        '<p class="smai-cockpit-prefetch-caption">'
-        "候補リストだけを絞り込みます。取得期間や予測計算には影響しません。"
-        "</p>"
-        f"{cockpit_filter_summary_chips_html(chips)}"
-        "</section>",
+        '<div class="smai-cockpit-filter-expander-anchor"></div>',
         unsafe_allow_html=True,
     )
-    filter_active = cockpit_filter_has_active_conditions_from_values(filter_values)
-    with st.expander("絞り込み条件を変更", expanded=False):
-        st.caption(
-            "候補リストだけを絞り込む詳細条件です。開閉だけではデータ取得や予測計算は行いません。"
-        )
+    with st.expander(cockpit_filter_expander_label(chips), expanded=filter_active):
         if filter_active and st.button(
             "条件をクリア",
             key="market_data_cockpit_filter_clear",
@@ -6448,6 +6524,51 @@ def cockpit_filtered_symbol_rows_from_values(
     )
 
 
+def cockpit_keyword_filtered_symbol_rows(
+    rows: list[dict[str, str]],
+    query: str,
+) -> list[dict[str, str]]:
+    normalized_query = query.strip().lower()
+    if not normalized_query:
+        return rows
+    return [row for row in rows if normalized_query in _cockpit_symbol_keyword_text(row)]
+
+
+def _cockpit_symbol_keyword_text(row: Mapping[str, object]) -> str:
+    fields = (
+        "symbol",
+        "name",
+        "aliases",
+        "alias",
+        "theme",
+        "sector",
+        "industry",
+        "tags",
+        "asset_type",
+        "index_family",
+        "benchmark_index",
+        "market",
+        "currency",
+    )
+    values: list[str] = []
+    for field in fields:
+        value = row.get(field)
+        if isinstance(value, list | tuple | set):
+            values.extend(str(item) for item in value)
+        elif value is not None:
+            text = str(value)
+            values.append(text)
+            if field == "theme":
+                values.append(RANKING_THEME_LABELS.get(text, ""))
+            elif field == "asset_type":
+                values.append(RANKING_MVP_PRODUCT_TYPE_LABELS.get(text, ""))
+            elif field == "index_family":
+                values.append(RANKING_INDEX_FAMILY_LABELS.get(text, ""))
+            elif field == "currency":
+                values.append(RANKING_CURRENCY_LABELS.get(text, ""))
+    return " ".join(values).lower()
+
+
 def _cockpit_filter_value(key: str, default: str) -> str:
     value = st.session_state.get(key, MARKET_DATA_COCKPIT_FILTER_DEFAULTS.get(key, default))
     return str(value) if value is not None else default
@@ -6501,7 +6622,7 @@ def _render_market_data_cockpit() -> None:
         "cockpit",
     )
     symbol_options = symbol_universe_rows()
-    filtered_symbol_options = cockpit_filtered_symbol_rows(symbol_options)
+    filtered_symbol_options = _render_cockpit_symbol_filter_panel(symbol_options)
     st.markdown(
         '<section class="smai-cockpit-prefetch-header">'
         '<div class="smai-cockpit-prefetch-heading">銘柄を探す</div>'
@@ -6528,17 +6649,22 @@ def _render_market_data_cockpit() -> None:
             st.caption("Yahooからライブデータを取得します。")
     with col_search:
         symbol_query = st.text_input(
-            "銘柄検索",
+            "キーワード",
             value="",
             key="market_data_symbol_search",
-            placeholder="銘柄コードまたは会社名",
+            placeholder="銘柄コード、会社名、テーマ",
+            help="会社名、銘柄コード、テーマ、業種などで候補を部分一致検索します。",
         )
     with col_symbol:
+        local_candidate_rows = cockpit_keyword_filtered_symbol_rows(
+            filtered_symbol_options,
+            symbol_query,
+        )
         live_symbol_options = (
             yfinance_search_symbol_rows(symbol_query) if symbol_query.strip() else []
         )
-        candidate_rows = merged_symbol_candidate_rows(filtered_symbol_options, live_symbol_options)
-        symbol_option_labels = symbol_candidate_labels(candidate_rows, symbol_query)
+        candidate_rows = merged_symbol_candidate_rows(local_candidate_rows, live_symbol_options)
+        symbol_option_labels = symbol_candidate_labels(candidate_rows)
         if not symbol_option_labels:
             symbol_option_labels = [NO_SYMBOL_CANDIDATE_LABEL]
         _ensure_selectbox_state_value("market_data_symbol_candidate", symbol_option_labels)
@@ -6578,7 +6704,6 @@ def _render_market_data_cockpit() -> None:
     symbol_detail_row = _symbol_universe_row_for_symbol(symbol) if symbol else None
     if symbol_detail_row is not None:
         st.caption(symbol_universe_cache_status_text(symbol_detail_row))
-    _render_cockpit_symbol_filter_panel(symbol_options)
     col_period, col_start, col_end, _ = st.columns([1.2, 1.0, 1.0, 3.8])
     with col_period:
         period_preset = cast(
@@ -6714,18 +6839,10 @@ def _render_market_data_cockpit() -> None:
 
 
 def _render_market_data_ranking() -> None:
-    st.markdown(
-        '<section class="smai-page-title smai-page-title--ranking-compact" data-mascot="ranking">'
-        '<div class="smai-page-title-copy">'
-        '<div class="smai-page-title-row">'
-        '<h2 class="smai-page-title-heading">銘柄ランキング</h2>'
-        "</div>"
-        '<p class="smai-page-title-subtitle">'
-        "条件で絞り込み、深掘り候補をランキングします。売買推奨ではありません。"
-        "</p>"
-        "</div>"
-        "</section>",
-        unsafe_allow_html=True,
+    render_page_title(
+        "銘柄ランキング",
+        "条件で絞り込み、深掘り候補をランキングします。売買推奨ではありません。",
+        "ranking",
     )
     _register_ranking_setup_assistant_context()
     symbol_options = symbol_universe_rows()
@@ -6734,18 +6851,18 @@ def _render_market_data_ranking() -> None:
     st.markdown(
         '<section class="smai-ranking-creation-conditions">'
         '<div class="smai-card-label">ランキング作成条件</div>'
-        "<strong>ランキング対象・取得元・評価方針を選びます。</strong>"
+        "<strong>ランキング基準・対象・取得元を選びます。</strong>"
         "</section>",
         unsafe_allow_html=True,
     )
     (
+        col_policy,
         col_region,
         col_product,
         col_period,
         col_provider,
         col_limit,
-        col_policy,
-    ) = st.columns([0.72, 0.72, 0.9, 0.78, 1.06, 1.0])
+    ) = st.columns([1.16, 0.72, 0.72, 0.9, 0.78, 1.06])
     with col_region:
         region_options = list(RANKING_MVP_REGION_LABELS)
         _ensure_selectbox_state_value("market_data_ranking_region", region_options)
@@ -6779,6 +6896,33 @@ def _render_market_data_ranking() -> None:
             ),
         )
     _sync_ranking_policy_state(product_type)
+    with col_policy:
+        policy_options = ranking_policy_options(product_type)
+        _ensure_selectbox_state_value("market_data_ranking_policy", policy_options)
+        st.markdown(
+            '<div class="smai-ranking-policy-select-anchor"></div>',
+            unsafe_allow_html=True,
+        )
+        ranking_policy = cast(
+            str,
+            st.selectbox(
+                "ランキング基準",
+                policy_options,
+                index=_selectbox_index(
+                    policy_options,
+                    _ranking_filter_value(
+                        "market_data_ranking_policy",
+                        RANKING_PURPOSE_MULTI_FACTOR,
+                    ),
+                ),
+                key="market_data_ranking_policy",
+                format_func=ranking_policy_label,
+                help=(
+                    "どの見方で候補を並べるかを選びます。"
+                    "上位候補・グラフ・SMAIメモは、このランキング基準に基づいて表示されます。"
+                ),
+            ),
+        )
     with col_period:
         period_options = list(RANKING_PERIOD_PRESETS)
         _ensure_selectbox_state_value("market_data_ranking_period", period_options)
@@ -6830,36 +6974,7 @@ def _render_market_data_ranking() -> None:
                 ),
             ),
         )
-    with col_policy:
-        policy_options = ranking_policy_options(product_type)
-        _ensure_selectbox_state_value("market_data_ranking_policy", policy_options)
-        ranking_policy = cast(
-            str,
-            st.selectbox(
-                "評価方針",
-                policy_options,
-                index=_selectbox_index(
-                    policy_options,
-                    _ranking_filter_value(
-                        "market_data_ranking_policy",
-                        RANKING_PURPOSE_MULTI_FACTOR,
-                    ),
-                ),
-                key="market_data_ranking_policy",
-                format_func=ranking_policy_label,
-                help=(
-                    "どの観点で候補を評価するかを選びます。"
-                    "上位候補・グラフ・SMAIメモは、この評価方針に基づいて表示されます。"
-                ),
-            ),
-        )
     policy_preset = ranking_weight_preset_for_purpose(ranking_policy)
-    policy_summary_slot, ranking_condition_slot = st.columns([1.0, 1.12])
-    with policy_summary_slot:
-        st.markdown(
-            ranking_policy_builder_card_html(ranking_policy, policy_preset),
-            unsafe_allow_html=True,
-        )
     filtered_symbol_rows = _render_ranking_filter_panel(
         symbol_options,
         region=region,
@@ -6867,7 +6982,6 @@ def _render_market_data_ranking() -> None:
         ranking_policy=ranking_policy,
         period_preset=period_preset,
         purpose=purpose,
-        summary_container=ranking_condition_slot,
     )
     filter_values = _ranking_filter_state_snapshot()
     market = "all"
@@ -6952,6 +7066,27 @@ def _render_market_data_ranking() -> None:
         candidate_count=len(filtered_symbol_rows),
         selected_count=len(selected_labels_for_summary),
     )
+    load_state = ranking_condition_load_state(len(selected_labels_for_summary))
+
+    ranking_condition_slot, policy_summary_slot = st.columns([1.12, 1.0])
+    with ranking_condition_slot:
+        st.markdown(
+            _ranking_condition_summary_html(
+                filter_values,
+                region=region,
+                product_type=product_type,
+                ranking_policy=ranking_policy,
+                period_preset=period_preset,
+                candidate_count=len(filtered_symbol_rows),
+                load_state=load_state,
+            ),
+            unsafe_allow_html=True,
+        )
+    with policy_summary_slot:
+        st.markdown(
+            ranking_policy_builder_card_html(ranking_policy, policy_preset),
+            unsafe_allow_html=True,
+        )
 
     expander_label = f"比較する銘柄を確認・変更（{comparison_summary['selected']}）"
     with st.expander(expander_label, expanded=False):
@@ -6982,8 +7117,19 @@ def _render_market_data_ranking() -> None:
     )
     ranking_forecast_horizon_days = default_forecast_horizon_days(start_date, end_date)
     has_detail_conditions = ranking_condition_has_active_detail_from_values(filter_values)
-    warning_message = live_ranking_symbol_warning_message(provider, len(ranking_symbols))
-    action_summary_col, action_button_col = st.columns([3.35, 0.65])
+    action_button_col, action_summary_col = st.columns([0.95, 3.05])
+    with action_button_col:
+        st.markdown(
+            '<div class="smai-ranking-build-action-anchor"></div>',
+            unsafe_allow_html=True,
+        )
+        build_ranking_clicked = st.button(
+            "ランキング作成",
+            key="build_market_data_ranking",
+            type="primary",
+            disabled=not ranking_symbols,
+            use_container_width=True,
+        )
     with action_summary_col:
         st.markdown(
             ranking_creation_target_summary_html(
@@ -6998,21 +7144,6 @@ def _render_market_data_ranking() -> None:
             ),
             unsafe_allow_html=True,
         )
-    with action_button_col:
-        st.write("")
-        build_ranking_clicked = st.button(
-            "ランキング作成",
-            key="build_market_data_ranking",
-            type="primary",
-            disabled=not ranking_symbols,
-            use_container_width=True,
-        )
-    if warning_message is not None:
-        st.markdown(
-            f'<div class="smai-ranking-provider-note">{html.escape(warning_message)}</div>',
-            unsafe_allow_html=True,
-        )
-
     if build_ranking_clicked:
         sync_ranking_selection_state(selection_key, selected_labels)
         if not ranking_symbols:
@@ -7107,7 +7238,7 @@ def _render_market_data_ranking() -> None:
             "ランキング候補ダッシュボード",
             "比較候補と深掘り候補を整理するための画面です。買う銘柄を決める画面ではありません。",
             chips=[
-                ("評価方針", ranking_policy_label(ranking_policy)),
+                ("ランキング基準", ranking_policy_label(ranking_policy)),
                 ("評価プロファイル", ranking_weight_preset_label(policy_preset)),
                 (
                     "対象",

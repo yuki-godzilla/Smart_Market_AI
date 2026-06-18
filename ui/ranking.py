@@ -635,6 +635,13 @@ RANKING_PERIOD_PRESETS = {
     RANKING_DEFAULT_PERIOD_PRESET: 90,
     "medium": 180,
     "long": 365,
+    "long_3y": 365 * 3,
+    "long_5y": 365 * 5,
+}
+RANKING_YEAR_PERIOD_PRESETS = {
+    "long": 1,
+    "long_3y": 3,
+    "long_5y": 5,
 }
 RANKING_BETA_RISK_ALL = "all"
 RANKING_BETA_RISK_LOW = "low"
@@ -1172,7 +1179,19 @@ def ranking_detail_filters_for_category(region: str, product_type: str) -> list[
     ]
 
 
+def _shift_years(value: date, years: int) -> date:
+    target_year = value.year + years
+    try:
+        return value.replace(year=target_year)
+    except ValueError:
+        return value.replace(year=target_year, day=28)
+
+
 def ranking_period_dates(preset: str, end: date) -> tuple[date, date]:
+    years = RANKING_YEAR_PERIOD_PRESETS.get(preset)
+    if years is not None:
+        return _shift_years(end, -years), end
+
     days = RANKING_PERIOD_PRESETS.get(
         preset,
         RANKING_PERIOD_PRESETS[RANKING_DEFAULT_PERIOD_PRESET],

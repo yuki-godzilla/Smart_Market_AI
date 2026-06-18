@@ -569,13 +569,24 @@ def news_dashboard_lane_card_items(
     *,
     max_lanes: int = 9,
     max_cards_per_lane: int = 1,
+    exclude_top_headlines: int = 3,
 ) -> list[tuple[int, int, str, NewsHeadlineCard]]:
     """Return bounded category lane cards for the responsive lane grid."""
 
     items: list[tuple[int, int, str, NewsHeadlineCard]] = []
+    excluded = {
+        _news_headline_identity(card)
+        for card in snapshot.stream_headlines[: max(0, exclude_top_headlines)]
+    }
     for lane_index, lane in enumerate(snapshot.category_lanes[:max_lanes]):
-        for card_index, card in enumerate(lane.headlines[:max_cards_per_lane]):
+        displayed_count = 0
+        for card_index, card in enumerate(lane.headlines):
+            if _news_headline_identity(card) in excluded:
+                continue
             items.append((lane_index, card_index, lane.category, card))
+            displayed_count += 1
+            if displayed_count >= max_cards_per_lane:
+                break
     return items
 
 
@@ -694,6 +705,14 @@ def _news_dashboard_all_cards(
     for lane in snapshot.category_lanes:
         cards.extend(lane.headlines)
     return cards
+
+
+def _news_headline_identity(card: NewsHeadlineCard) -> str:
+    url = (card.url or "").strip().lower()
+    if url:
+        return re.sub(r"[?#].*$", "", url)
+    title = re.sub(r"\s+", " ", card.title.strip().lower())
+    return f"{card.category.strip().lower()}|{title}"
 
 
 def _sort_cards_by_watchlist(

@@ -362,6 +362,7 @@ def test_runtime_settings_summary_reports_default_provider(monkeypatch):
     assert summary["performance_fallback_used"] == "False"
     assert summary["external_fetch_max_workers"] == "4"
     assert summary["external_fetch_timeout_sec"] == "12.0"
+    assert summary["external_fetch_global_timeout_sec"] == "30.0"
     assert summary["llm_workers"] == "1"
 
 

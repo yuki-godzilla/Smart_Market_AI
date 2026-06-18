@@ -30,6 +30,7 @@ from backend.research.service import (
     ResearchIngestionService,
     _normalize_symbol,
 )
+from backend.research.source_trace import ResearchSourceTrace
 
 
 class ExternalResearchFetchService:
@@ -63,6 +64,7 @@ class ExternalResearchFetchService:
         fetched_at = datetime.now(UTC)
         as_of = request.as_of or fetched_at.date()
         payloads = self.adapter.fetch_sources(request)
+        provider_statuses = _external_fetch_provider_statuses(self.adapter)
         entries: list[ExternalResearchFetchManifestEntry] = []
         warnings: list[str] = []
         if self.persist_payloads:
@@ -135,6 +137,12 @@ class ExternalResearchFetchService:
 
         if not entries:
             warnings.append("External fetch returned no registerable URL-backed sources.")
+        warnings.extend(
+            _external_fetch_provider_status_warnings(
+                entries=entries,
+                provider_statuses=provider_statuses,
+            )
+        )
         manifest_path: Path | None = None
         if self.persist_payloads:
             manifest_path = self._write_manifest(
@@ -151,6 +159,7 @@ class ExternalResearchFetchService:
             retention_policy="archive" if self.persist_payloads else "session",
             manifest_path=str(manifest_path) if manifest_path is not None else None,
             warnings=warnings,
+            provider_statuses=provider_statuses,
         )
 
     def _write_payload(self, payload: ExternalResearchSourcePayload) -> Path:
@@ -182,3 +191,36 @@ class ExternalResearchFetchService:
             entries=entries,
             warnings=warnings,
         )
+
+
+def _external_fetch_provider_statuses(
+    adapter: ExternalResearchSourceAdapter,
+) -> list[ResearchSourceTrace]:
+    traces = getattr(adapter, "last_source_traces", None)
+    if not isinstance(traces, list):
+        return []
+    return [trace for trace in traces if isinstance(trace, ResearchSourceTrace)]
+
+
+def _external_fetch_provider_status_warnings(
+    *,
+    entries: list[ExternalResearchFetchManifestEntry],
+    provider_statuses: list[ResearchSourceTrace],
+) -> list[str]:
+    if not provider_statuses:
+        return []
+    warnings: list[str] = []
+    timeout_count = sum(1 for status in provider_statuses if status.status == "timeout")
+    failed_count = sum(1 for status in provider_statuses if status.status == "failed")
+    if timeout_count:
+        if entries:
+            warnings.append(
+                "一部の取得元は時間切れになりました。取得済みの情報のみ表示しています。"
+            )
+        else:
+            warnings.append("外部取得元が時間切れになりました。時間をおいて再実行してください。")
+    if failed_count and entries:
+        warnings.append(
+            "一部の取得元で取得できませんでした。取得済みの情報のみAI調査に反映しています。"
+        )
+    return warnings

@@ -48,6 +48,7 @@ class ExternalFetchPerformanceConfig(StrictConfigModel):
     max_workers: int = Field(default=4, gt=0)
     per_source_workers: dict[str, int] = Field(default_factory=dict)
     request_timeout_sec: float = Field(default=12.0, gt=0)
+    global_timeout_sec: float = Field(default=30.0, gt=0)
     retry_count: int = Field(default=1, ge=0)
     retry_backoff_sec: float = Field(default=1.5, ge=0)
     cache_ttl_minutes: int = Field(default=30, gt=0)
@@ -228,6 +229,7 @@ def _default_performance_profiles() -> dict[str, PerformanceProfileConfig]:
                     "ir_pages": 2,
                 },
                 request_timeout_sec=12.0,
+                global_timeout_sec=30.0,
                 retry_count=1,
                 retry_backoff_sec=1.5,
                 cache_ttl_minutes=30,
@@ -252,6 +254,7 @@ def _default_performance_profiles() -> dict[str, PerformanceProfileConfig]:
                     "ir_pages": 4,
                 },
                 request_timeout_sec=15.0,
+                global_timeout_sec=45.0,
                 retry_count=2,
                 retry_backoff_sec=1.2,
                 cache_ttl_minutes=20,

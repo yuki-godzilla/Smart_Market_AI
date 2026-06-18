@@ -404,6 +404,9 @@ def _external_fetch_source_summary_rows(
         if rows:
             return rows
 
+    if result is not None and result.provider_statuses:
+        return [status.to_summary_row() for status in result.provider_statuses]
+
     if error:
         lowered = error.lower()
         status = "timeout" if "timeout" in lowered or "timed out" in lowered else "failed"

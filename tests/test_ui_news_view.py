@@ -251,9 +251,21 @@ def test_news_dashboard_lane_card_items_keep_three_column_grid_reasonable():
     )
     items = news_dashboard_lane_card_items(snapshot)
 
-    assert len(items) == 8
+    assert len(items) == 5
     assert all(card.title for _, _, _, card in items)
-    assert len({category for _, _, category, _ in items}) == 8
+    assert len({category for _, _, category, _ in items}) == 5
+    assert not {card.title for _, _, _, card in items}.intersection(
+        {card.title for card in snapshot.stream_headlines[:3]}
+    )
+
+
+def test_news_dashboard_lane_card_items_can_include_top_headlines_when_requested():
+    snapshot = build_demo_news_dashboard_snapshot(
+        now=datetime(2026, 6, 4, 10, 0, tzinfo=UTC),
+    )
+    items = news_dashboard_lane_card_items(snapshot, exclude_top_headlines=0)
+
+    assert len(items) == 8
 
 
 def test_news_dashboard_unique_headline_count_deduplicates_lanes():

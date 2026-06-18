@@ -7,6 +7,7 @@ from typing import Literal, Protocol
 from pydantic import Field
 
 from backend.core.data_contracts import StrictBaseModel
+from backend.research.source_trace import ResearchSourceTrace
 
 ResearchSourceType = Literal[
     "annual_report",
@@ -78,6 +79,7 @@ class ExternalResearchFetchResult(StrictBaseModel):
     retention_policy: Literal["session", "archive"] = "session"
     manifest_path: str | None = None
     warnings: list[str] = Field(default_factory=list)
+    provider_statuses: list[ResearchSourceTrace] = Field(default_factory=list)
 
 
 class ExternalResearchSourceAdapter(Protocol):

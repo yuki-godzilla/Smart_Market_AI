@@ -43,7 +43,8 @@ def render_settings_page() -> None:
     col_profile.caption(
         "外部取得: "
         f"{settings['external_fetch_max_workers']} workers / "
-        f"{settings['external_fetch_timeout_sec']}秒"
+        f"provider {settings['external_fetch_timeout_sec']}秒 / "
+        f"全体 {settings['external_fetch_global_timeout_sec']}秒"
     )
     col_profile.caption(f"LLM並列: {settings['llm_workers']} worker")
     if settings["performance_fallback_used"] == "True":
@@ -60,25 +61,19 @@ def render_settings_page() -> None:
     if last_fetch_summary:
         with st.expander("直近のAI調査 外部取得", expanded=False):
             st.caption(_external_fetch_summary_caption(last_fetch_summary))
-            st.dataframe(
+            st.table(
                 user_facing_table_rows(_external_fetch_summary_overview_rows(last_fetch_summary)),
-                hide_index=True,
-                use_container_width=True,
             )
             source_rows = _external_fetch_source_rows(last_fetch_summary)
             if source_rows:
-                st.write("Sources")
-                st.dataframe(
+                st.write("取得元別ステータス")
+                st.table(
                     user_facing_table_rows(source_rows),
-                    hide_index=True,
-                    use_container_width=True,
                 )
 
     with st.expander("サンプル銘柄", expanded=True):
-        st.dataframe(
+        st.table(
             user_facing_table_rows(symbol_reference_rows()),
-            hide_index=True,
-            use_container_width=True,
         )
 
     with st.expander("ランキング銘柄候補", expanded=False):

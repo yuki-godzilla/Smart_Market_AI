@@ -18,6 +18,37 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-18 - External Fetch UX / Timeout Safety Patch
+
+### Background
+- Post-refactor live audit confirmed external fetch was functional but exposed timeout and UX safety issues.
+- Prior live checks: Google News RSS single-provider fetch for `9532.T / 大阪ガス` returned 3 items; Investment Radar standard refresh returned 100 normalized headlines with 10 category lanes and latest freshness; short-profile AI Research fetch for `7203.T` returned 9 items (TDnet 2, company IR 1, Google News RSS 5, Yahoo Finance profile 1, EDINET no result).
+- Default `AI調査を更新` for `9532.T` timed out after long waits in the normal profile path, so the next patch focused on global timeout, partial result handling, provider status visibility, and post-fetch UI stability.
+
+### Changes
+- Added `external_fetch.global_timeout_sec` to performance profiles: `notebook=30.0` seconds and `workstation=45.0` seconds by default.
+- Updated the composite external Research adapter to return completed provider results when the global timeout is reached, cancel not-yet-started futures, and record unfinished providers as `timeout` source traces.
+- Added `ExternalResearchFetchResult.provider_statuses` using existing `ResearchSourceTrace` so provider, status, result count, elapsed time, and short error/timeout messages travel with the fetch result.
+- Added Japanese partial-result warnings for timeout / failed provider cases while keeping 1+ fetched entries as usable partial success.
+- Updated Cockpit AI Research UI to show provider status chips and warnings near the external-source summary, including 0/no-report cases.
+- Cockpit MarketData provider default now follows `get_settings().dataaccess.provider`; normal local runs stay on `mock` unless configured otherwise.
+- Settings / Data Info now renders small diagnostic tables with stable `st.table` instead of dynamic `st.dataframe` in the recent external-fetch and sample-symbol sections, and shows both provider timeout and global timeout.
+- Investment Radar lower category cards exclude the top 3 stream headlines by normalized URL/title to reduce duplicate article density.
+- Market chart rendering now validates date/value data before creating Altair charts and shows a Japanese empty state for insufficient data instead of triggering Vega-Lite infinite extent warnings.
+
+### Validation
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_core_config.py tests\test_research_service.py tests\test_research_external_contracts.py tests\test_research_external_fetch.py -q --basetemp outputs\work\pytest_tmp\external_fetch_timeout_backend_full -p no:cacheprovider` with 128 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_forecast_display.py tests\test_ui_news_view.py tests\test_ui_rebalance_app.py tests\test_ui_settings_view.py -q --basetemp outputs\work\pytest_tmp\external_fetch_timeout_ui_full -p no:cacheprovider` with 366 passed.
+- passed: focused UI regressions after the final status-panel patch: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_forecast_display.py -q -k "external_research_overview or external_research_fetch_rows" --basetemp outputs\work\pytest_tmp\external_fetch_timeout_ui_patch2 -p no:cacheprovider`.
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check backend ui tests --no-cache`.
+- passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py`.
+- passed Playwright live UI audit on `127.0.0.1:8523` with a short audit profile (`request_timeout_sec=3.0`, `global_timeout_sec=10.0`): Cockpit default provider showed `mock`, `データを取得` worked, and `AI調査を更新` returned in about 10 seconds with provider statuses visible. The final run returned 0 items with all external providers timing out/no-result (`EDINET 0`, `TDnet timeout`, `企業IR timeout`, `Google News timeout`, `Yahoo Finance timeout`); an earlier run in the same audit returned 5 Google News items plus timeout statuses. `ニュース表示を更新` worked, and `設定 / データ情報` rendered after external fetch with no `Minified React error #185`, no `clientWidth` page error, and no Playwright page errors.
+
+### Boundary / Remaining Risks
+- Normal pytest checks remain network-free; live external checks stay manual/audit-profile only.
+- Existing Ranking, Forecast, Investment Score, Research Score, Assistant/Gateway, LLM Factor, and broker/execution logic were not changed.
+- Python cannot forcibly kill a provider thread that is already running; the global timeout returns the UI with partial results and cancels queued futures, while in-flight provider code may finish in the background.
+
 ## 2026-06-16 - SMAI Assistant Context Aggregator first slice
 
 ### Context Aggregator

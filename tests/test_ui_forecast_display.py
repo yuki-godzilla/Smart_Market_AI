@@ -46,6 +46,7 @@ from backend.research import (
     ResearchMetric,
     ResearchRetrievalQuality,
     ResearchScoreService,
+    ResearchSourceTrace,
     ResearchSummaryPoint,
     StockNewsEvidence,
     StockNewsReport,
@@ -112,6 +113,7 @@ from ui.app import (
     _llm_factor_evidence_display_rows,
     _llm_factor_evidence_sources,
     _llm_factor_panel_html,
+    _market_chart_has_displayable_data,
     _market_data_preview_advanced_forecast_consensus_rows,
     _market_data_preview_advanced_forecast_rows,
     _market_data_preview_symbol_label,
@@ -447,7 +449,16 @@ def test_market_data_period_help_explains_review_basis():
     assert "任意の期間" in market_data_period_help("unknown")
 
 
-def test_market_data_provider_defaults_to_yahoo():
+def test_market_data_provider_defaults_to_configured_mock():
+    assert default_market_data_provider() == "mock"
+
+
+def test_market_data_provider_defaults_to_configured_live_provider(monkeypatch):
+    monkeypatch.setattr(
+        "ui.app.get_settings",
+        lambda: SimpleNamespace(dataaccess=SimpleNamespace(provider="yahoo")),
+    )
+
     assert default_market_data_provider() == "yahoo"
 
 
@@ -2136,6 +2147,7 @@ def test_external_research_fetch_rows_show_transient_sources_without_storage_pat
         {"項目": "取得元", "内容": "yahoo_finance"},
         {"項目": "取得日時", "内容": "2026-05-27T12:30+00:00"},
         {"項目": "登録資料数", "内容": "1件"},
+        {"項目": "取得元別状況", "内容": "1件取得"},
         {"項目": "保持方針", "内容": "このセッションのみ"},
         {"項目": "注意", "内容": "追加ニュースは見つかりませんでした。"},
     ]
@@ -2241,6 +2253,65 @@ def test_external_research_source_cards_explain_how_to_read_each_source():
     assert "https://example.com" not in cards
     assert "出典を開く" in cards
     assert "external://" not in cards
+
+
+def test_external_research_overview_shows_provider_status_chips_and_timeout_warning():
+    result = ExternalResearchFetchResult(
+        symbol="7203.T",
+        provider="edinet_tdnet_company_ir_google_news_yahoo_finance",
+        fetched_at=datetime(2026, 5, 27, 12, 30, tzinfo=UTC),
+        entries=[
+            ExternalResearchFetchManifestEntry(
+                title="7203 TDnet 決算短信",
+                symbol="7203.T",
+                source_type="tdnet",
+                source_url="https://www.release.tdnet.info/inbs/example.pdf",
+                provider="tdnet",
+                published_at=date(2026, 5, 27),
+                fetched_at=datetime(2026, 5, 27, 12, 30, tzinfo=UTC),
+                freshness_status="latest",
+                document_id="research-doc-tdnet",
+                retention_policy="session",
+                content_summary="2026年3月期の決算短信です。",
+            )
+        ],
+        retention_policy="session",
+        warnings=["一部の取得元は時間切れになりました。取得済みの情報のみ表示しています。"],
+        provider_statuses=[
+            ResearchSourceTrace(
+                source="tdnet",
+                provider="tdnet",
+                status="success",
+                elapsed_ms=1200,
+                result_count=1,
+                timestamp=datetime(2026, 5, 27, 12, 30, tzinfo=UTC),
+            ),
+            ResearchSourceTrace(
+                source="yahoo_finance",
+                provider="yahoo_finance",
+                status="timeout",
+                elapsed_ms=30000,
+                error_type="TimeoutError",
+                error_message_short="Yahoo did not finish in time.",
+                result_count=0,
+                timestamp=datetime(2026, 5, 27, 12, 30, tzinfo=UTC),
+            ),
+        ],
+    )
+
+    overview = _external_research_fetch_overview_html(result)
+    rows = _external_research_fetch_summary_rows(result)
+
+    assert "1件取得" in overview
+    assert "TDnet（適時開示） 1件" in overview
+    assert "Yahoo Finance 時間切れ" in overview
+    assert "一部の取得元は時間切れ" in overview
+    expected_status_row = {
+        "項目": "取得元別状況",
+        "内容": "1件取得 / TDnet（適時開示） 1 / Yahoo Finance 時間切れ",
+    }
+    assert expected_status_row in rows
+    assert any(row["項目"] == "Yahoo Finance" and "TimeoutError" not in row["内容"] for row in rows)
 
 
 def test_news_source_link_rows_prioritize_url_sources_and_hide_raw_fields():
@@ -3659,7 +3730,7 @@ def test_navigation_query_params_open_news_symbol_in_cockpit(monkeypatch):
 
     assert session_state["sidemenu_page"] == "cockpit"
     assert session_state["market_data_mode"] == "cockpit"
-    assert session_state["market_data_provider_live_first"] == "yahoo"
+    assert session_state["market_data_provider_live_first"] == "mock"
     assert session_state["market_data_symbol_candidate"] == "7203.T - Toyota Motor"
     assert "market_data_preview" not in session_state
     assert "market_data_status_message" not in session_state
@@ -9031,6 +9102,29 @@ def test_forecast_chart_palette_highlights_actual_price_first():
     assert domain == ["実績価格", "予測: 直近値維持", "予測: 30日移動平均"]
     assert color_range[0] == FORECAST_ACTUAL_PRICE_COLOR
     assert color_range[1:] == list(FORECAST_MODEL_COLORS[:2])
+
+
+def test_market_chart_display_guard_rejects_insufficient_or_invalid_rows():
+    assert _market_chart_has_displayable_data([]) is False
+    assert _market_chart_has_displayable_data([{"ts": "2026-06-18", "close": "100"}]) is False
+    assert (
+        _market_chart_has_displayable_data(
+            [
+                {"ts": "2026-06-18", "close": ""},
+                {"ts": "2026-06-19", "close": "N/A"},
+            ]
+        )
+        is False
+    )
+    assert (
+        _market_chart_has_displayable_data(
+            [
+                {"ts": "2026-06-18", "close": "100"},
+                {"ts": "2026-06-19", "close": "101"},
+            ]
+        )
+        is True
+    )
 
 
 def test_forecast_chart_color_labels_keep_model_colors_stable_when_filtered():

@@ -762,6 +762,9 @@ def runtime_settings_summary() -> dict[str, str]:
         "performance_fallback_used": str(performance_profile.fallback_used),
         "external_fetch_max_workers": str(performance_profile.external_fetch.max_workers),
         "external_fetch_timeout_sec": str(performance_profile.external_fetch.request_timeout_sec),
+        "external_fetch_global_timeout_sec": str(
+            performance_profile.external_fetch.global_timeout_sec
+        ),
         "external_fetch_cache_ttl_minutes": str(
             performance_profile.external_fetch.cache_ttl_minutes
         ),

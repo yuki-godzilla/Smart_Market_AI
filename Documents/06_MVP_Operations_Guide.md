@@ -27,9 +27,10 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
   - local UTF-8 document registration, chunking, keyword evidence search, Research Summary / ResearchBrief
   - Settings upload, Cockpit `AI調査を更新`, Ranking modal `AI Research`, Cockpit Decision Report Research Evidence / Research Score
 - Performance Profile first slice
-  - `SMAI_PERFORMANCE_PROFILE=notebook|workstation` で、Research RAG external fetch の最大並列数と request timeout を切り替える
+  - `SMAI_PERFORMANCE_PROFILE=notebook|workstation` で、Research RAG external fetch の最大並列数、request timeout、global timeout を切り替える
   - 未指定時は `notebook`。未知のprofile名は warning を出して `notebook` にfallbackする
   - Phase 3Aで Research external fetch の provider -> profile source key mapping、source別実行summary、HTTP取得の retry / backoff、source別 limiter入口を追加
+  - global timeout 到達時は取得済みpartial resultを返し、未完了providerを `timeout` として source summary / UI に残す
   - News dashboard cache / MarketData live provider / Symbol DB background refresh への共通profile適用は後続範囲
 - News dashboard cache/update backend foundation
   - `NewsDashboardSnapshot` / `NewsUpdateStatus` contracts, latest snapshot cache, one-generation backup, atomic save, bounded cleanup, cache-size/status helpers
@@ -92,7 +93,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 外部 API へ接続する場合は明示 opt-in が必要で、broker や execution provider へ注文を送りません。
 Research RAG / News RAG は実運用では情報鮮度が重要です。標準導線では、`AI調査を更新` が EDINET securities-report metadata/link（`EDINET_API_KEY` 設定時のみ live call、未設定時 no-op）、TDnet 適時開示、企業IRサイト、Google News RSS headline search、Yahoo Finance profile / news を取得/参照し、source URL、provider、published_at、fetched_at、freshness warning を確認材料として表示します。Yahoo Finance を使う Research 側 adapter は MarketData 側と同じ yfinance cache / shared session 設定を使います。Google News RSS は一般ニュースのヘッドライン幅を広げる補助sourceで、検索語は会社名・関連キーワード・銘柄コードに決算/業績/株価/配当などの投資文脈語を添えます。ニュースURL表示自体は `外部参照ソース` と詳細データに実装済みです。Cockpit Research Summary では、`最新ニュース・開示サマリー` の直後に `投資ヒントとなるニュース` と `ニュース・開示の出典を表示（URL付きN件）` を置きます。サマリと注目材料は `Market Intelligence` の主表示カードとして扱い、出典は初期折りたたみの小さな citation list としてURL付きニュース・TDnet・企業IR・EDINET・Google News・Yahoo Finance を確認できるようにします。ニュース専用URLが無い場合も、外部参照ソース側に公式資料・provider URLがある可能性を案内します。取得本文は既定では保持せず、session-local の一時参照として扱います。通常検証は fake adapter / fixture / RSS fixture を使い、network 非依存を維持します。
 
-外部取得の実行環境profileは `SMAI_PERFORMANCE_PROFILE` で選択します。`notebook` は Research external fetch profile上限4 workers / timeout 12秒 / cache TTL 30分、`workstation` はprofile上限10 workers / timeout 15秒 / cache TTL 20分です。実際の worker 数は profile 上限と external source adapter 数の小さい方に抑えます。現時点でこのprofileが実際に制御するのは `DefaultExternalResearchAdapter` の並列度、source別 limiter入口、EDINET / TDnet / 企業IR / Google News RSS の request timeout と retry / backoff です。provider名は `edinet -> edinet`、`tdnet -> tdnet`、`company_ir_site -> ir_pages`、`google_news_rss -> news`、`yahoo_finance -> yahoo_finance` に正規化します。HTTP 5xx、timeout、一時的な接続失敗はretry対象、HTTP 4xx / 404、データなし、parse error はretry対象外です。直近summaryには source別に `success / failed / timeout / no_result / cache_hit`、elapsed、retry回数、result数を保存し、Streamlit `設定 / データ情報` の折りたたみで確認できます。`processing.rag_workers`、`forecast_workers`、`background_refresh_workers`、`llm_workers` は設定として保持しますが、共通適用は後続フェーズです。`SMAI_LLM_PROFILE` はLLMモデル選択用であり、この performance profile とは分けて扱います。Yahoo/yfinance timeoutの本格適用、adapter内部のURL/page単位並列化、News / MarketData / Symbol refresh へのprofile適用は後続範囲です。
+外部取得の実行環境profileは `SMAI_PERFORMANCE_PROFILE` で選択します。`notebook` は Research external fetch profile上限4 workers / provider timeout 12秒 / global timeout 30秒 / cache TTL 30分、`workstation` はprofile上限10 workers / provider timeout 15秒 / global timeout 45秒 / cache TTL 20分です。実際の worker 数は profile 上限と external source adapter 数の小さい方に抑えます。現時点でこのprofileが実際に制御するのは `DefaultExternalResearchAdapter` の並列度、全体待ち時間、source別 limiter入口、EDINET / TDnet / 企業IR / Google News RSS の request timeout と retry / backoff です。provider名は `edinet -> edinet`、`tdnet -> tdnet`、`company_ir_site -> ir_pages`、`google_news_rss -> news`、`yahoo_finance -> yahoo_finance` に正規化します。HTTP 5xx、timeout、一時的な接続失敗はretry対象、HTTP 4xx / 404、データなし、parse error はretry対象外です。global timeout 到達時は取得済み情報だけを返し、未完了providerを `timeout` として `ExternalResearchFetchResult.provider_statuses`、直近summary、Cockpitの外部参照ソース確認メモ、Streamlit `設定 / データ情報` に残します。直近summaryには source別に `success / failed / timeout / no_result / cache_hit`、elapsed、retry回数、result数を保存します。`processing.rag_workers`、`forecast_workers`、`background_refresh_workers`、`llm_workers` は設定として保持しますが、共通適用は後続フェーズです。`SMAI_LLM_PROFILE` はLLMモデル選択用であり、この performance profile とは分けて扱います。Yahoo/yfinance timeoutの本格適用、adapter内部のURL/page単位並列化、News / MarketData / Symbol refresh へのprofile適用は後続範囲です。
 
 親SMAIの汎用 Assistant service から Gateway 接続を試す場合は、`smai-ai-gateway` を別プロセスで起動したうえで、SMAI 側の `SMAI_CONFIG_FILE` に次のような設定を指定します。通常確認やCIではこの設定を使わず、`enabled: false` の既定値を維持します。専用 `SMAIアシスタント` workspace は画面内で Gateway 接続を既定で試し、失敗時は同じ画面内で deterministic fallback に戻ります。
 
@@ -629,7 +630,7 @@ Phase 16 final UI smoke checklist:
 - タイトル右上に `情報鮮度` とJST取得時刻を小さく表示する。上部の状態カードは置かず、更新ボタンと必要時の警告だけを表示する。ヒートマップ本体の top-line でセクター数と銘柄タイル数を確認する。
 - 市場ニュースヘッドライン。流れるヘッドラインバーとカードに title、source、published_at、freshness、category、AIコメント、確認ポイント、元記事リンクを表示する。ヘッドラインはピル内で2行まで読めるようにし、UI初期表示は20〜30件程度に抑え、保存上限100件を一度にカード描画しない。
 - 投資ヒートマップ。投資カテゴリをセクター枠、注目銘柄をシンボル＋銘柄名 / 企業名付きタイルとして詰める株式ヒートマップ風UIで、値動き、取引量の活発さ、ニュース件数、freshness、risk / positive / official source count から集計した確認用の温度感を見る。銘柄タイルはニュースに直接紐づく銘柄に加え、`data/marketdata/symbol_universe.csv` の広い候補からカテゴリ適合、時価総額帯、データ品質、市場シグナルを使って注目度順に補完する。市場指標が欠けるカテゴリは、ニュース材料の positive / risk / official / heat_score から `ニュース代理` のシグナルを表示する。
-- カテゴリ別ニュースレーン。カテゴリごとの代表ニュースを幅のある3列カードで確認し、関連銘柄は `本文に出た銘柄` と `SMAI推測候補` を分けて縦並びボタンで表示する。本文に出た銘柄は最大8件まで優先し、推測候補は残り枠に可変で補完する。
+- カテゴリ別ニュースレーン。カテゴリごとの代表ニュースを幅のある3列カードで確認し、上部ヘッドラインに出した上位記事は下部カード側から除外して重複感を抑える。関連銘柄は `本文に出た銘柄` と `SMAI推測候補` を分けて縦並びボタンで表示する。本文に出た銘柄は最大8件まで優先し、推測候補は残り枠に可変で補完する。
 - 関連銘柄ボタンにはシンボルと銘柄名 / 企業名を表示し、`銘柄コックピット` へ遷移する。Investment Score / Research Score / Ranking order は変更しない。
 
 運用上の注意:

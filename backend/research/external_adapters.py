@@ -9,7 +9,7 @@ import threading
 import time
 import xml.etree.ElementTree as ET
 from collections.abc import Iterable, Mapping, Sequence
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import Future, ThreadPoolExecutor, wait
 from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from email.utils import parsedate_to_datetime
@@ -622,17 +622,42 @@ class CompositeExternalResearchAdapter:
             return []
         payloads_by_index: dict[int, list[ExternalResearchSourcePayload]] = {}
         traces_by_index: dict[int, ResearchSourceTrace] = {}
-        with ThreadPoolExecutor(max_workers=self._max_workers()) as executor:
-            futures = {}
+        futures: dict[Future[tuple[list[ExternalResearchSourcePayload], ResearchSourceTrace]], int]
+        futures = {}
+        started_at = time.perf_counter()
+        executor = ThreadPoolExecutor(max_workers=self._max_workers())
+        try:
             for index, adapter in enumerate(self.adapters):
                 adapter_request = request.model_copy(update={"provider": adapter.provider})
                 future = executor.submit(self._fetch_adapter_with_trace, adapter, adapter_request)
                 futures[future] = index
-            for future in as_completed(futures):
+            done, not_done = wait(futures, timeout=self._global_timeout_sec())
+            for future in done:
                 index = futures[future]
-                adapter_payloads, trace = future.result()
+                try:
+                    adapter_payloads, trace = future.result()
+                except Exception as exc:  # pragma: no cover - defensive boundary
+                    adapter = self.adapters[index]
+                    adapter_payloads = []
+                    trace = research_source_trace_from_result(
+                        provider=adapter.provider,
+                        result_count=0,
+                        error=exc,
+                        elapsed_ms=max(0, int(round((time.perf_counter() - started_at) * 1000))),
+                    )
                 payloads_by_index[index] = adapter_payloads
                 traces_by_index[index] = trace
+            elapsed_ms = max(0, int(round((time.perf_counter() - started_at) * 1000)))
+            for future in not_done:
+                index = futures[future]
+                adapter = self.adapters[index]
+                future.cancel()
+                traces_by_index[index] = self._global_timeout_trace(
+                    adapter.provider,
+                    elapsed_ms=elapsed_ms,
+                )
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
         payloads: list[ExternalResearchSourcePayload] = []
         for index in range(len(self.adapters)):
             payloads.extend(payloads_by_index.get(index, []))
@@ -642,6 +667,31 @@ class CompositeExternalResearchAdapter:
             if index in traces_by_index
         ]
         return payloads
+
+    def _global_timeout_sec(self) -> float:
+        configured_timeout = (
+            self.external_fetch_config.global_timeout_sec
+            if self.external_fetch_config is not None
+            else DEFAULT_EXTERNAL_RESEARCH_TIMEOUT_SECONDS * 3
+        )
+        return max(0.1, float(configured_timeout))
+
+    def _global_timeout_trace(self, provider: str, *, elapsed_ms: int) -> ResearchSourceTrace:
+        timeout_sec = self._global_timeout_sec()
+        return ResearchSourceTrace(
+            source=research_profile_source_key_for_provider(provider),
+            provider=provider,
+            status="timeout",
+            elapsed_ms=elapsed_ms,
+            retry_attempts=0,
+            error_type="TimeoutError",
+            error_message_short=(
+                f"{provider} did not finish within the "
+                f"{timeout_sec:.1f}s AI research fetch limit."
+            ),
+            result_count=0,
+            timestamp=datetime.now(UTC),
+        )
 
     def _max_workers(self) -> int:
         configured_workers = (

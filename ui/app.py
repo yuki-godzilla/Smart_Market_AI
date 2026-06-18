@@ -712,6 +712,46 @@ div[data-testid="stDialog"] [data-testid="stMetricLabel"] {
     line-height: 1.65;
     margin-bottom: 0.75rem;
 }
+.research-provider-status-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.38rem;
+    margin-top: 0.7rem;
+}
+.research-provider-status-chip {
+    border: 1px solid rgba(148, 163, 184, 0.34);
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.08);
+    color: var(--text-ai-primary);
+    font-size: 0.78rem;
+    font-weight: 780;
+    line-height: 1.35;
+    padding: 0.2rem 0.54rem;
+}
+.research-provider-status-chip.success {
+    border-color: rgba(34, 197, 94, 0.48);
+    background: rgba(34, 197, 94, 0.09);
+}
+.research-provider-status-chip.no_result {
+    color: var(--text-caption);
+}
+.research-provider-status-chip.timeout,
+.research-provider-status-chip.failed {
+    border-color: rgba(245, 158, 11, 0.48);
+    background: rgba(245, 158, 11, 0.1);
+}
+.research-result-status-warning {
+    border-left: 3px solid rgba(245, 158, 11, 0.72);
+    color: var(--text-ai-primary);
+    font-size: 0.82rem;
+    line-height: 1.55;
+    margin-top: 0.65rem;
+    padding-left: 0.7rem;
+}
+.research-result-status-warning ul {
+    margin: 0;
+    padding-left: 1rem;
+}
 .research-summary-next-list {
     display: flex;
     flex-wrap: wrap;
@@ -2177,7 +2217,10 @@ def _provider_option_index(provider: str) -> int:
 
 
 def default_market_data_provider() -> str:
-    return "yahoo"
+    provider = get_settings().dataaccess.provider
+    if provider in MARKET_DATA_PROVIDER_OPTIONS:
+        return provider
+    return "mock"
 
 
 def _symbol_from_candidate(label: str) -> str | None:
@@ -7427,6 +7470,10 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
                 message="外部参照ソース、ニュース、保存済み資料を読み込み、企業リサーチレポートにまとめています。",
                 tone="info",
             )
+            st.caption(
+                "確認中: EDINET / TDnet / 企業IR / Google News / Yahoo Finance。"
+                "時間がかかる場合は全体timeoutで戻り、取得済みの情報だけ表示します。"
+            )
             progress_bar = st.progress(0.0)
             progress_status = st.empty()
         update_research_progress("調査対象と取得元を確認しています。", 0.08)
@@ -7448,7 +7495,11 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
                     st.info(
                         "直近の外部参照ソースを再利用しました。表示内容は同じ品質で更新します。"
                     )
-                for warning in external_result.warnings:
+                st.markdown(
+                    _external_research_fetch_overview_html(external_result),
+                    unsafe_allow_html=True,
+                )
+                for warning in external_result.warnings[3:]:
                     st.warning(warning)
             except AppError as exc:
                 st.warning(
@@ -7485,7 +7536,13 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
 
     report = _cockpit_research_report_from_state(preview)
     news_report = _cockpit_stock_news_report_from_state(preview)
+    external_research_result = _cockpit_external_research_fetch_result_from_state(preview)
     if report is None:
+        if external_research_result is not None:
+            st.markdown(
+                _external_research_fetch_overview_html(external_research_result),
+                unsafe_allow_html=True,
+            )
         st.info(RESEARCH_NOT_FETCHED_MESSAGE)
         if news_report is not None and news_report.news:
             _render_stock_news_cards_panel(news_report)
@@ -7494,7 +7551,7 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
             report,
             detail_expanded=False,
             news_report=news_report,
-            external_research_result=_cockpit_external_research_fetch_result_from_state(preview),
+            external_research_result=external_research_result,
             display_context="cockpit",
         )
 
@@ -7870,16 +7927,31 @@ def _external_research_fetch_summary_rows(
     result: ExternalResearchFetchResult,
 ) -> list[dict[str, str]]:
     warnings = " / ".join(result.warnings) if result.warnings else "なし"
-    return [
+    rows = [
         {"項目": "取得元", "内容": result.provider},
         {"項目": "取得日時", "内容": _datetime_display_text(result.fetched_at)},
         {"項目": "登録資料数", "内容": f"{len(result.entries)}件"},
+        {"項目": "取得元別状況", "内容": _external_research_provider_status_summary(result)},
         {
             "項目": "保持方針",
             "内容": "このセッションのみ" if result.retention_policy == "session" else "保存済み",
         },
         {"項目": "注意", "内容": warnings},
     ]
+    for status in result.provider_statuses:
+        status_label = _external_research_status_label(status.status)
+        provider_status_detail = (
+            f"{status_label} / {status.result_count}件 / " f"{status.elapsed_ms / 1000:.1f}秒"
+        )
+        if status.error_message_short and status.status in {"failed", "timeout"}:
+            provider_status_detail = f"{provider_status_detail} / {status.error_message_short}"
+        rows.append(
+            {
+                "項目": _external_research_provider_label(status.provider),
+                "内容": provider_status_detail,
+            }
+        )
+    return rows
 
 
 def _external_research_fetch_overview_html(result: ExternalResearchFetchResult) -> str:
@@ -7920,13 +7992,77 @@ def _external_research_fetch_overview_html(result: ExternalResearchFetchResult) 
         "</div>"
         for label, value in items
     )
+    status_markup = _external_research_provider_status_chips_html(result)
+    warning_markup = ""
+    if result.warnings:
+        warning_items = "".join(
+            f"<li>{html.escape(warning)}</li>" for warning in result.warnings[:3]
+        )
+        warning_markup = (
+            '<div class="research-result-status-warning">' f"<ul>{warning_items}</ul>" "</div>"
+        )
     return (
         '<section class="research-result-brief">'
         '<div class="research-result-brief-title">外部参照ソースの確認メモ</div>'
         f'<div class="research-result-brief-summary">{html.escape(summary)}</div>'
         f'<div class="research-result-brief-grid">{item_markup}</div>'
+        f"{status_markup}"
+        f"{warning_markup}"
         "</section>"
     )
+
+
+def _external_research_provider_status_summary(
+    result: ExternalResearchFetchResult,
+) -> str:
+    if not result.provider_statuses:
+        return f"{len(result.entries)}件取得"
+    parts = [f"{len(result.entries)}件取得"]
+    for status in result.provider_statuses:
+        label = _external_research_provider_label(status.provider)
+        if status.status == "success":
+            parts.append(f"{label} {status.result_count}")
+        elif status.status == "no_result":
+            parts.append(f"{label} 0")
+        else:
+            parts.append(f"{label} {_external_research_status_label(status.status)}")
+    return " / ".join(parts)
+
+
+def _external_research_provider_status_chips_html(
+    result: ExternalResearchFetchResult,
+) -> str:
+    if not result.provider_statuses:
+        return ""
+    chips: list[str] = [
+        (
+            '<span class="research-provider-status-chip success">'
+            f"{html.escape(str(len(result.entries)))}件取得</span>"
+        )
+    ]
+    for status in result.provider_statuses:
+        label = _external_research_provider_label(status.provider)
+        status_text = (
+            f"{status.result_count}件"
+            if status.status == "success"
+            else _external_research_status_label(status.status)
+        )
+        chips.append(
+            f'<span class="research-provider-status-chip {html.escape(status.status)}">'
+            f"{html.escape(label)} {html.escape(status_text)}</span>"
+        )
+    return f'<div class="research-provider-status-list">{"".join(chips)}</div>'
+
+
+def _external_research_status_label(status: str) -> str:
+    return {
+        "success": "取得",
+        "no_result": "0件",
+        "timeout": "時間切れ",
+        "failed": "失敗",
+        "skipped": "未実行",
+        "cache_hit": "再利用",
+    }.get(status, status or "未確認")
 
 
 def _external_research_source_cards_html(result: ExternalResearchFetchResult) -> str:
@@ -8672,6 +8808,11 @@ def _render_research_summary_panel(
     question_summary = summary_bundle.question_summary
     security_type = summary_bundle.security_type
     research_score = summary_bundle.research_score
+    if external_research_result is not None:
+        st.markdown(
+            _external_research_fetch_overview_html(external_research_result),
+            unsafe_allow_html=True,
+        )
     if security_type in {"etf", "fund"} and etf_summary is not None:
         _render_etf_research_summary_panel(etf_summary)
         _render_etf_metric_summary_panel(etf_summary)
@@ -15166,11 +15307,20 @@ def _render_market_chart(
     color_series_labels: Iterable[str] | None = None,
     legend_series_labels: Iterable[str] | None = None,
 ) -> None:
-    if not rows:
-        st.info(EMPTY_STATE_MESSAGES["chart_rows"])
+    if not _market_chart_has_displayable_data(rows):
+        st.info(
+            "表示できる期間データが不足しています。"
+            "データ取得後、または期間を広げるとチャートが表示されます。"
+        )
         return
     y_axis_title = f"終値 ({currency})" if currency else "終値"
     chart_data = market_chart_long_frame(rows)
+    if chart_data.empty:
+        st.info(
+            "表示できる期間データが不足しています。"
+            "データ取得後、または期間を広げるとチャートが表示されます。"
+        )
+        return
     color_domain = forecast_chart_color_domain(
         color_series_labels
         if color_series_labels is not None
@@ -15242,6 +15392,25 @@ def _render_market_chart(
         combined_chart,
         use_container_width=False,
     )
+
+
+def _market_chart_has_displayable_data(rows: list[dict[str, str]]) -> bool:
+    if len(rows) < 2:
+        return False
+    frame = market_chart_long_frame(rows)
+    if frame.empty or "date" not in frame or "value" not in frame:
+        return False
+    frame = frame.copy()
+    frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
+    frame["value"] = pd.to_numeric(frame["value"], errors="coerce")
+    frame = frame.dropna(subset=["date", "value"])
+    if len(frame) < 2:
+        return False
+    if frame["date"].nunique() < 2:
+        return False
+    minimum = frame["value"].min()
+    maximum = frame["value"].max()
+    return bool(pd.notna(minimum) and pd.notna(maximum))
 
 
 def _market_chart_group_visibility_controls(

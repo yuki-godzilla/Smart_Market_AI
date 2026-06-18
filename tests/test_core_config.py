@@ -31,6 +31,8 @@ def test_settings_defaults_are_local_and_mock_first():
     assert settings.assistant.gateway.preferred_profile is None
     assert settings.performance_profiles["notebook"].external_fetch.max_workers == 4
     assert settings.performance_profiles["workstation"].external_fetch.max_workers == 10
+    assert settings.performance_profiles["notebook"].external_fetch.global_timeout_sec == 30.0
+    assert settings.performance_profiles["workstation"].external_fetch.global_timeout_sec == 45.0
     assert settings.performance_profiles["notebook"].external_fetch.per_source_workers == {
         "yahoo_finance": 2,
         "news": 3,
@@ -183,6 +185,7 @@ def test_performance_profile_defaults_to_notebook(monkeypatch):
     assert selection.fallback_used is False
     assert selection.external_fetch.max_workers == 4
     assert selection.external_fetch.request_timeout_sec == 12.0
+    assert selection.external_fetch.global_timeout_sec == 30.0
 
 
 def test_performance_profile_can_select_notebook_from_env(monkeypatch):
@@ -210,6 +213,7 @@ def test_performance_profile_can_select_workstation_from_env(monkeypatch):
         "ir_pages": 4,
     }
     assert selection.external_fetch.request_timeout_sec == 15.0
+    assert selection.external_fetch.global_timeout_sec == 45.0
     assert selection.external_fetch.max_symbols_per_refresh == 30
     assert selection.processing.background_refresh_workers == 6
 

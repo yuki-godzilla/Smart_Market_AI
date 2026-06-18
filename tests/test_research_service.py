@@ -1,4 +1,5 @@
 import hashlib
+import time
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -113,6 +114,16 @@ class TimeoutExternalResearchAdapter(FakeExternalResearchAdapter):
         self, request: ExternalResearchFetchRequest
     ) -> list[ExternalResearchSourcePayload]:
         raise TimeoutError("provider timed out")
+
+
+class SlowExternalResearchAdapter(FakeExternalResearchAdapter):
+    provider = "slow_external"
+
+    def fetch_sources(
+        self, request: ExternalResearchFetchRequest
+    ) -> list[ExternalResearchSourcePayload]:
+        time.sleep(0.2)
+        return self.payloads
 
 
 class FakeHTTPStatusError(Exception):
@@ -3439,6 +3450,50 @@ def test_external_research_fetch_service_warns_about_stale_sources(tmp_path):
     assert any("公開日が古い" in warning for warning in result.warnings)
 
 
+def test_external_research_fetch_service_keeps_provider_statuses_and_partial_warning(tmp_path):
+    fetched_at = datetime(2026, 5, 25, 9, 0, tzinfo=UTC)
+    success = FakeExternalResearchAdapter(
+        [
+            ExternalResearchSourcePayload(
+                symbol="7203.T",
+                title="7203 Provider Profile",
+                content="Provider profile snapshot.",
+                source_type="provider_profile",
+                source_url="https://example.com/profile",
+                provider="fake_external",
+                company_name="Toyota",
+                published_at=date(2026, 5, 25),
+                fetched_at=fetched_at,
+                reliability=Decimal("0.65"),
+            )
+        ]
+    )
+    adapter = CompositeExternalResearchAdapter(
+        [success, SlowExternalResearchAdapter([])],
+        external_fetch_config=ExternalFetchPerformanceConfig(
+            max_workers=2,
+            global_timeout_sec=0.05,
+        ),
+    )
+    store = ResearchInMemoryStore()
+    ingestion = ResearchIngestionService(store, document_dirs=[tmp_path])
+    index = ResearchIndexService(store, max_chars=240)
+
+    result = ExternalResearchFetchService(adapter, ingestion, index).fetch_register_sources(
+        ExternalResearchFetchRequest(
+            symbol="7203.T",
+            company_name="Toyota",
+            provider=adapter.provider,
+            as_of=date(2026, 5, 25),
+            allow_network=True,
+        )
+    )
+
+    assert len(result.entries) == 1
+    assert [status.status for status in result.provider_statuses] == ["success", "timeout"]
+    assert any("時間切れ" in warning for warning in result.warnings)
+
+
 def test_external_research_fetch_service_reuses_registered_source_by_url(tmp_path):
     class RefreshingExternalResearchAdapter:
         provider = "fake_external"
@@ -4107,6 +4162,49 @@ def test_composite_external_research_adapter_all_failures_return_empty_with_trac
 
     assert payloads == []
     assert [trace.status for trace in adapter.last_source_traces] == ["failed", "timeout"]
+
+
+def test_composite_external_research_adapter_global_timeout_returns_partial_results():
+    fetched_at = datetime(2026, 5, 25, 9, 0, tzinfo=UTC)
+    success = FakeExternalResearchAdapter(
+        [
+            ExternalResearchSourcePayload(
+                symbol="7203.T",
+                title="7203 Provider Profile",
+                content="Provider profile snapshot.",
+                source_type="provider_profile",
+                source_url="https://example.com/profile",
+                provider="fake_external",
+                company_name="Toyota",
+                published_at=date(2026, 5, 25),
+                fetched_at=fetched_at,
+                reliability=Decimal("0.65"),
+            )
+        ]
+    )
+    slow = SlowExternalResearchAdapter([])
+    adapter = CompositeExternalResearchAdapter(
+        [success, slow],
+        external_fetch_config=ExternalFetchPerformanceConfig(
+            max_workers=2,
+            global_timeout_sec=0.05,
+        ),
+    )
+
+    payloads = adapter.fetch_sources(
+        ExternalResearchFetchRequest(
+            symbol="7203.T",
+            company_name="Toyota",
+            provider=adapter.provider,
+            as_of=date(2026, 5, 25),
+            allow_network=True,
+        )
+    )
+
+    assert [payload.provider for payload in payloads] == ["fake_external"]
+    assert [trace.status for trace in adapter.last_source_traces] == ["success", "timeout"]
+    assert adapter.last_source_traces[1].provider == "slow_external"
+    assert adapter.last_source_traces[1].error_type == "TimeoutError"
 
 
 def test_composite_external_research_adapter_source_worker_limit_uses_profile_source_key():

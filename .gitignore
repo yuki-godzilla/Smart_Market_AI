@@ -37,8 +37,10 @@ data/marketdata/**/*.bak
 # Local work/test outputs
 outputs/work/pytest_tmp/
 outputs/work/pytest_*/
+outputs/work/*_smoke/
 outputs/work/symbol_metadata_probe/
 exports/decision_reports/
+data/cache/llm_factor_results.json
 data/cache/*.lock
 data/cache/*.sqlite
 data/cache/*.sqlite-*

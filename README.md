@@ -51,7 +51,8 @@ SMAI は以下の思想を重視しています。
   - 方針として、取得本文は保持せず session-local に一時参照する。画面とDecision Reportには source URL / provider / fetched_at / published_at / freshness warning / 要約を表示する
 - Performance Profile first slice
   - `SMAI_PERFORMANCE_PROFILE=notebook|workstation` で実行環境に応じた外部取得の並列数・timeoutを切り替える
-  - 現時点の適用先は Research RAG の外部取得で、News / MarketData / Symbol refresh への共通適用は後続範囲
+  - Research RAG の外部取得では source別 summary、HTTP取得の retry / backoff、provider名とprofile source keyのmappingを持つ
+  - `per_source_workers` は Research source別 limiter の入口まで整備済み。adapter内部のURL/page単位並列制御、News / MarketData / Symbol refresh への共通適用は後続範囲
 - Research Summary local readability first slice
   - 外部LLMはいったん使わず、RAG evidence / provider profile / news / TDnet trace を表示専用 `ResearchBrief` に変換する
   - AI整理メモ、定量評価サマリー、企業概要、良材料候補、注意材料候補、不足根拠、次に確認すべき資料、出典カードの順に読める調査メモへ整理する
@@ -183,7 +184,9 @@ $env:SMAI_PERFORMANCE_PROFILE = "workstation"
 
 実行時の worker 数は、profile 上限と実際の external source adapter 数の小さい方に抑えます。
 
-この profile は `SMAI_LLM_PROFILE` とは別です。`SMAI_LLM_PROFILE` はLLMモデル選択、`SMAI_PERFORMANCE_PROFILE` はSMAI親アプリ側の並列度・timeoutの設定として扱います。通常の local checks / CI は引き続き network-free です。
+Research外部取得では、Google News RSS / TDnet / EDINET / 企業IRサイトのHTTP取得に限定して `retry_count` / `retry_backoff_sec` を使います。HTTP 5xx、timeout、一時的な接続失敗はretry対象ですが、404などのHTTP 4xx、データなし、parse errorはretryしません。設定画面の `直近のAI調査 外部取得` で source別の `success / failed / timeout / no_result / cache_hit`、elapsed、retry回数、result数を折りたたみ確認できます。
+
+この profile は `SMAI_LLM_PROFILE` とは別です。`SMAI_LLM_PROFILE` はLLMモデル選択、`SMAI_PERFORMANCE_PROFILE` はSMAI親アプリ側の並列度・timeout・Research外部取得retryの設定として扱います。通常の local checks / CI は引き続き network-free です。
 
 ## API の起動
 

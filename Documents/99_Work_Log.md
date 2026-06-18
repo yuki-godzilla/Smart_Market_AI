@@ -2524,3 +2524,17 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - added root `.env.example`.
 - updated README, operations guide, and project context for the current profile boundary.
+
+## 2026-06-18 - Performance Profile Phase 3A Research source summary
+
+### Scope
+
+- added Research provider -> performance profile source mapping for `edinet`, `tdnet`, `company_ir_site`, `google_news_rss`, and `yahoo_finance`.
+- added adapter-level external Research source traces with status, elapsed time, retry attempts, error summary, result count, and timestamp.
+- applied Research-only retry/backoff to Google News RSS, TDnet, EDINET, and company IR HTTP fetch calls while keeping Yahoo/yfinance timeout integration deferred.
+- extended the Streamlit latest external Research fetch summary with source rows and displayed them in the Settings page expander.
+
+### Boundary
+
+- kept News dashboard, MarketData, Symbol refresh, LLM worker queue, and adapter-internal URL/page parallelism out of this phase.
+- kept live network checks out of normal tests; coverage uses fake adapters and fake HTTP callables.

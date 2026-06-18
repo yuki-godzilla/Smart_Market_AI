@@ -25,10 +25,12 @@ from backend.research import (
     ResearchIngestionService,
     ResearchInMemoryStore,
     ResearchRetrievalService,
+    ResearchSourceTrace,
     ResearchSourceType,
     StockNewsAnalysisService,
     StockNewsReport,
     StockNewsRequest,
+    research_profile_source_key_for_provider,
 )
 
 RESEARCH_STORE_STATE_KEY = "research_local_store"
@@ -166,7 +168,7 @@ def fetch_external_research_for_symbol(
         _set_external_fetch_last_summary(
             profile_selection=profile_selection,
             symbol=symbol,
-            source_count=_external_fetch_source_count(source_adapter),
+            source_adapter=source_adapter,
             result=cached_result,
             elapsed_ms=_elapsed_ms(started_at),
             cache_hit=True,
@@ -192,7 +194,7 @@ def fetch_external_research_for_symbol(
         _set_external_fetch_last_summary(
             profile_selection=profile_selection,
             symbol=symbol,
-            source_count=_external_fetch_source_count(source_adapter),
+            source_adapter=source_adapter,
             result=None,
             elapsed_ms=_elapsed_ms(started_at),
             cache_hit=False,
@@ -210,7 +212,7 @@ def fetch_external_research_for_symbol(
     _set_external_fetch_last_summary(
         profile_selection=profile_selection,
         symbol=symbol,
-        source_count=_external_fetch_source_count(source_adapter),
+        source_adapter=source_adapter,
         result=result,
         elapsed_ms=_elapsed_ms(started_at),
         cache_hit=False,
@@ -341,56 +343,124 @@ def _set_external_fetch_last_summary(
     *,
     profile_selection: PerformanceProfileSelection,
     symbol: str,
-    source_count: int,
+    source_adapter: ExternalResearchSourceAdapter,
     result: ExternalResearchFetchResult | None,
     elapsed_ms: int,
     cache_hit: bool,
     error: str | None = None,
 ) -> None:
-    warnings = list(result.warnings) if result is not None else []
-    if error:
-        warnings.append(error)
-    success_count = len(result.entries) if result is not None else 0
-    failed_count = _external_fetch_failed_count(result=result, warnings=warnings)
+    sources = _external_fetch_source_summary_rows(
+        source_adapter=source_adapter,
+        result=result,
+        cache_hit=cache_hit,
+        error=error,
+    )
     summary: dict[str, object] = {
         "performance_profile": profile_selection.selected_profile,
         "requested_performance_profile": profile_selection.requested_profile,
         "profile_fallback_used": profile_selection.fallback_used,
         "symbol": symbol.strip().upper(),
         "elapsed_ms": elapsed_ms,
-        "success_count": success_count,
-        "failed_count": failed_count,
-        "timeout_count": _external_fetch_timeout_count(warnings),
-        "cache_hit_count": 1 if cache_hit else 0,
-        "source_count": max(1, source_count),
+        "success_count": _external_fetch_status_count(sources, "success"),
+        "failed_count": _external_fetch_status_count(sources, "failed"),
+        "timeout_count": _external_fetch_status_count(sources, "timeout"),
+        "no_result_count": _external_fetch_status_count(sources, "no_result"),
+        "cache_hit_count": _external_fetch_status_count(sources, "cache_hit"),
+        "source_count": max(1, len(sources)),
         "timestamp": datetime.now(UTC).isoformat(),
+        "sources": sources,
     }
     if error:
         summary["error"] = error
     st.session_state[RESEARCH_EXTERNAL_FETCH_LAST_SUMMARY_STATE_KEY] = summary
 
 
-def _external_fetch_failed_count(
+def _external_fetch_source_summary_rows(
     *,
+    source_adapter: ExternalResearchSourceAdapter,
     result: ExternalResearchFetchResult | None,
-    warnings: list[str],
-) -> int:
-    if result is None:
-        return 1
-    if result.entries:
-        return 0
-    return 1 if warnings else 0
+    cache_hit: bool,
+    error: str | None,
+) -> list[dict[str, object]]:
+    provider = getattr(source_adapter, "provider", "external_research")
+    if cache_hit:
+        return [
+            _external_fetch_summary_row(
+                source="cache",
+                provider=provider,
+                status="cache_hit",
+                result_count=len(result.entries) if result is not None else 0,
+            )
+        ]
+
+    traces = getattr(source_adapter, "last_source_traces", None)
+    if isinstance(traces, list) and traces:
+        rows: list[dict[str, object]] = []
+        for trace in traces:
+            if isinstance(trace, ResearchSourceTrace):
+                rows.append(trace.to_summary_row())
+            elif isinstance(trace, dict):
+                rows.append(dict(trace))
+        if rows:
+            return rows
+
+    if error:
+        lowered = error.lower()
+        status = "timeout" if "timeout" in lowered or "timed out" in lowered else "failed"
+        return [
+            _external_fetch_summary_row(
+                source=research_profile_source_key_for_provider(provider),
+                provider=provider,
+                status=status,
+                error_type="ExternalResearchFetchError",
+                error_message_short=_short_external_fetch_error(error),
+            )
+        ]
+
+    result_count = len(result.entries) if result is not None else 0
+    return [
+        _external_fetch_summary_row(
+            source=research_profile_source_key_for_provider(provider),
+            provider=provider,
+            status="success" if result_count else "no_result",
+            result_count=result_count,
+        )
+    ]
 
 
-def _external_fetch_timeout_count(warnings: list[str]) -> int:
-    return sum(1 for warning in warnings if "timeout" in warning.lower())
+def _external_fetch_summary_row(
+    *,
+    source: str,
+    provider: str,
+    status: str,
+    elapsed_ms: int = 0,
+    retry_attempts: int = 0,
+    error_type: str = "",
+    error_message_short: str = "",
+    result_count: int = 0,
+) -> dict[str, object]:
+    return {
+        "source": source,
+        "provider": provider,
+        "status": status,
+        "elapsed_ms": elapsed_ms,
+        "retry_attempts": retry_attempts,
+        "error_type": error_type,
+        "error_message_short": error_message_short,
+        "result_count": result_count,
+        "timestamp": datetime.now(UTC).isoformat(),
+    }
 
 
-def _external_fetch_source_count(adapter: ExternalResearchSourceAdapter) -> int:
-    adapters = getattr(adapter, "adapters", None)
-    if isinstance(adapters, (list, tuple)):
-        return len(adapters)
-    return 1
+def _external_fetch_status_count(sources: list[dict[str, object]], status: str) -> int:
+    return sum(1 for source in sources if source.get("status") == status)
+
+
+def _short_external_fetch_error(error: str, *, max_chars: int = 180) -> str:
+    normalized = error.replace("\n", " ").strip()
+    if len(normalized) <= max_chars:
+        return normalized
+    return normalized[: max_chars - 1].rstrip() + "..."
 
 
 def _elapsed_ms(started_at: float) -> int:

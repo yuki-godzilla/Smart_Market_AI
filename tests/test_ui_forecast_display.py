@@ -3119,7 +3119,11 @@ def test_fetch_external_research_for_symbol_reuses_session_ttl_cache(monkeypatch
     assert first_summary["symbol"] == "7203.T"
     assert first_summary["success_count"] == 1
     assert first_summary["failed_count"] == 0
+    assert first_summary["no_result_count"] == 0
     assert first_summary["cache_hit_count"] == 0
+    assert first_summary["source_count"] == 1
+    assert first_summary["sources"][0]["status"] == "success"
+    assert first_summary["sources"][0]["result_count"] == 1
 
     second = fetch_external_research_for_symbol(
         "7203.T",
@@ -3134,6 +3138,7 @@ def test_fetch_external_research_for_symbol_reuses_session_ttl_cache(monkeypatch
     assert second is first
     assert external_research_fetch_cache_info()["cache_hit"] is True
     assert external_research_fetch_last_summary()["cache_hit_count"] == 1
+    assert external_research_fetch_last_summary()["sources"][0]["status"] == "cache_hit"
 
 
 def test_research_state_recognizes_dotted_symbol_and_source_type():

@@ -6,6 +6,8 @@ import json
 import math
 import os
 import re
+import threading
+import time
 import xml.etree.ElementTree as ET
 from collections.abc import Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -13,7 +15,8 @@ from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from email.utils import parsedate_to_datetime
 from pathlib import Path
-from typing import Any, Callable, Literal, Protocol, Sequence, cast
+from typing import Any, Callable, Literal, Protocol, Sequence, TypeVar, cast
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urljoin, urlparse, urlunparse
 from urllib.request import Request as UrlRequest
 from urllib.request import urlopen
@@ -26,6 +29,15 @@ from backend.core.data_contracts import DataQuality, StrictBaseModel
 from backend.core.errors import AppError, ProviderUnavailableError, ValidationAppError
 
 DEFAULT_EXTERNAL_RESEARCH_TIMEOUT_SECONDS = 10.0
+RESEARCH_PROVIDER_TO_PROFILE_SOURCE = {
+    "edinet": "edinet",
+    "tdnet": "tdnet",
+    "company_ir_site": "ir_pages",
+    "google_news_rss": "news",
+    "yahoo_finance": "yahoo_finance",
+}
+
+_T = TypeVar("_T")
 
 ResearchSourceType = Literal[
     "annual_report",
@@ -58,6 +70,14 @@ StockNewsInvestmentViewpoint = Literal[
 ]
 StockNewsSentiment = Literal["positive", "negative", "neutral", "mixed", "unknown"]
 StockNewsFreshnessStatus = Literal["latest", "recent", "stale", "unknown"]
+ResearchSourceTraceStatus = Literal[
+    "success",
+    "failed",
+    "timeout",
+    "no_result",
+    "cache_hit",
+    "skipped",
+]
 ResearchSourceConfidence = Literal["high", "medium", "low", "unknown"]
 ResearchEvidenceLevel = Literal["high", "medium", "low", "missing"]
 SecurityResearchType = Literal[
@@ -332,6 +352,172 @@ class ResearchDocumentError(AppError):
     """Local research document registration failed."""
 
     code = "RESEARCH-1001"
+
+
+def _research_fetch_with_retry(
+    operation: Callable[[], _T],
+    *,
+    provider: str,
+    error_message: str,
+    retry_count: int,
+    retry_backoff_sec: float,
+    url: str | None = None,
+) -> tuple[_T, int]:
+    retry_attempts = 0
+    while True:
+        try:
+            return operation(), retry_attempts
+        except Exception as exc:
+            if retry_attempts >= retry_count or not _is_retryable_research_fetch_error(exc):
+                details: dict[str, object] = {
+                    "provider": provider,
+                    "retry_attempts": retry_attempts,
+                    "error_type": type(exc).__name__,
+                    "timeout": _is_timeout_research_fetch_error(exc),
+                }
+                status_code = _research_fetch_http_status(exc)
+                if status_code is not None:
+                    details["status_code"] = status_code
+                if url:
+                    details["url"] = url
+                raise ResearchDocumentError(error_message, details=details) from exc
+            retry_attempts += 1
+            if retry_backoff_sec > 0:
+                time.sleep(retry_backoff_sec * retry_attempts)
+
+
+def _is_retryable_research_fetch_error(exc: Exception) -> bool:
+    status_code = _research_fetch_http_status(exc)
+    if status_code is not None:
+        return 500 <= status_code <= 599
+    if _is_timeout_research_fetch_error(exc):
+        return True
+    if isinstance(exc, (ConnectionError, URLError)):
+        return True
+    message = str(exc).lower()
+    name = type(exc).__name__.lower()
+    return any(
+        marker in message or marker in name
+        for marker in (
+            "connection reset",
+            "connection aborted",
+            "temporarily unavailable",
+            "remote disconnected",
+            "server disconnected",
+            "network is unreachable",
+        )
+    )
+
+
+def _is_timeout_research_fetch_error(exc: Exception) -> bool:
+    if isinstance(exc, TimeoutError):
+        return True
+    message = str(exc).lower()
+    name = type(exc).__name__.lower()
+    return any(
+        marker in message or marker in name
+        for marker in (
+            "timeout",
+            "timed out",
+            "readtimeout",
+            "connecttimeout",
+            "pooltimeout",
+        )
+    )
+
+
+def _research_fetch_http_status(exc: Exception) -> int | None:
+    if isinstance(exc, HTTPError):
+        return int(exc.code)
+    response = getattr(exc, "response", None)
+    status_code = getattr(response, "status_code", None)
+    if isinstance(status_code, int):
+        return status_code
+    code = getattr(exc, "code", None)
+    return int(code) if isinstance(code, int) else None
+
+
+def _reset_research_adapter_trace_state(adapter: object) -> None:
+    setattr(adapter, "_last_retry_attempts", 0)
+    setattr(adapter, "_last_research_error", None)
+
+
+def _add_research_adapter_retry_attempts(adapter: object, retry_attempts: int) -> None:
+    current = getattr(adapter, "_last_retry_attempts", 0)
+    if isinstance(current, int):
+        setattr(adapter, "_last_retry_attempts", current + max(0, retry_attempts))
+    else:
+        setattr(adapter, "_last_retry_attempts", max(0, retry_attempts))
+
+
+def _remember_research_adapter_error(adapter: object, exc: ResearchDocumentError) -> None:
+    setattr(adapter, "_last_research_error", exc)
+
+
+def _short_research_error_message(exc: Exception, *, max_chars: int = 180) -> str:
+    message = getattr(exc, "message", None)
+    text = str(message or exc).replace("\n", " ").strip()
+    if len(text) <= max_chars:
+        return text
+    return text[: max_chars - 1].rstrip() + "..."
+
+
+def _research_source_trace_from_adapter(
+    *,
+    adapter: ExternalResearchSourceAdapter,
+    payloads: list[ExternalResearchSourcePayload],
+    error: Exception | None,
+    elapsed_ms: int,
+) -> ResearchSourceTrace:
+    recorded_error = error
+    if recorded_error is None and not payloads:
+        maybe_error = getattr(adapter, "_last_research_error", None)
+        if isinstance(maybe_error, Exception):
+            recorded_error = maybe_error
+    retry_attempts = getattr(adapter, "_last_retry_attempts", 0)
+    if not isinstance(retry_attempts, int):
+        retry_attempts = 0
+    status: ResearchSourceTraceStatus = "success" if payloads else "no_result"
+    if recorded_error is not None and not payloads:
+        status = _research_trace_status_for_error(recorded_error)
+    return ResearchSourceTrace(
+        source=research_profile_source_key_for_provider(adapter.provider),
+        provider=adapter.provider,
+        status=status,
+        elapsed_ms=elapsed_ms,
+        retry_attempts=max(0, retry_attempts),
+        error_type=type(recorded_error).__name__ if recorded_error is not None else "",
+        error_message_short=(
+            _short_research_error_message(recorded_error) if recorded_error is not None else ""
+        ),
+        result_count=len(payloads),
+        timestamp=datetime.now(UTC),
+    )
+
+
+def _research_trace_status_for_error(error: Exception) -> ResearchSourceTraceStatus:
+    if _research_error_is_timeout(error):
+        return "timeout"
+    status_code = _research_error_status_code(error)
+    if status_code == 404:
+        return "no_result"
+    return "failed"
+
+
+def _research_error_is_timeout(error: Exception) -> bool:
+    if isinstance(error, ResearchDocumentError):
+        timeout = error.details.get("timeout")
+        if isinstance(timeout, bool):
+            return timeout
+    return _is_timeout_research_fetch_error(error)
+
+
+def _research_error_status_code(error: Exception) -> int | None:
+    if isinstance(error, ResearchDocumentError):
+        status_code = error.details.get("status_code")
+        if isinstance(status_code, int):
+            return status_code
+    return _research_fetch_http_status(error)
 
 
 class ResearchParseError(AppError):
@@ -636,6 +822,30 @@ class StockNewsReport(StrictBaseModel):
     decision_support_note: str = (
         "News evidence is decision support only; not advice and not a score input."
     )
+
+
+class ResearchSourceTrace(StrictBaseModel):
+    """One source/adapter execution trace for external Research fetch diagnostics."""
+
+    source: str = Field(min_length=1)
+    provider: str = Field(min_length=1)
+    status: ResearchSourceTraceStatus
+    elapsed_ms: int = Field(default=0, ge=0)
+    retry_attempts: int = Field(default=0, ge=0)
+    error_type: str = ""
+    error_message_short: str = ""
+    result_count: int = Field(default=0, ge=0)
+    timestamp: datetime
+
+    def to_summary_row(self) -> dict[str, object]:
+        return self.model_dump(mode="json")
+
+
+def research_profile_source_key_for_provider(provider: str) -> str:
+    """Return the performance-profile source key for a research provider name."""
+
+    normalized = provider.strip()
+    return RESEARCH_PROVIDER_TO_PROFILE_SOURCE.get(normalized, normalized or "unknown")
 
 
 class ExternalResearchFetchRequest(StrictBaseModel):
@@ -2881,6 +3091,8 @@ class GoogleNewsRSSResearchAdapter:
         lookback_days: int = 14,
         max_results: int = 5,
         request_timeout_sec: float = DEFAULT_EXTERNAL_RESEARCH_TIMEOUT_SECONDS,
+        retry_count: int = 0,
+        retry_backoff_sec: float = 0.0,
     ) -> None:
         self._http_get = http_get
         self.hl = hl
@@ -2889,11 +3101,15 @@ class GoogleNewsRSSResearchAdapter:
         self.lookback_days = max(1, lookback_days)
         self.max_results = max(1, max_results)
         self.request_timeout_sec = max(0.1, float(request_timeout_sec))
+        self.retry_count = max(0, int(retry_count))
+        self.retry_backoff_sec = max(0.0, float(retry_backoff_sec))
+        _reset_research_adapter_trace_state(self)
 
     def fetch_sources(
         self,
         request: ExternalResearchFetchRequest,
     ) -> list[ExternalResearchSourcePayload]:
+        _reset_research_adapter_trace_state(self)
         query = _google_news_query(request, lookback_days=self.lookback_days)
         if not query:
             return []
@@ -2901,7 +3117,8 @@ class GoogleNewsRSSResearchAdapter:
         feed_url = _google_news_rss_url(query, hl=self.hl, gl=self.gl, ceid=self.ceid)
         try:
             rss_text = self._get_text(feed_url)
-        except ResearchDocumentError:
+        except ResearchDocumentError as exc:
+            _remember_research_adapter_error(self, exc)
             return []
         return _google_news_payloads_from_rss(
             request,
@@ -2911,17 +3128,23 @@ class GoogleNewsRSSResearchAdapter:
         )
 
     def _get_text(self, url: str) -> str:
-        if self._http_get is not None:
-            return self._http_get(url)
-        try:
+        def operation() -> str:
+            if self._http_get is not None:
+                return self._http_get(url)
             url_request = UrlRequest(url, headers={"User-Agent": "SmartMarketAI/1.0"})
             with urlopen(url_request, timeout=self.request_timeout_sec) as response:  # noqa: S310
                 return response.read().decode("utf-8", errors="replace")
-        except Exception as exc:  # pragma: no cover - provider-specific network failure
-            raise ResearchDocumentError(
-                "Google News RSS fetch failed.",
-                details={"provider": self.provider, "url": url},
-            ) from exc
+
+        text, retry_attempts = _research_fetch_with_retry(
+            operation,
+            provider=self.provider,
+            error_message="Google News RSS fetch failed.",
+            retry_count=self.retry_count,
+            retry_backoff_sec=self.retry_backoff_sec,
+            url=url,
+        )
+        _add_research_adapter_retry_attempts(self, retry_attempts)
+        return text
 
 
 class YahooFinanceResearchAdapter:
@@ -2938,11 +3161,13 @@ class YahooFinanceResearchAdapter:
     ) -> None:
         self._ticker_factory = ticker_factory
         self.request_timeout_sec = max(0.1, float(request_timeout_sec))
+        _reset_research_adapter_trace_state(self)
 
     def fetch_sources(
         self,
         request: ExternalResearchFetchRequest,
     ) -> list[ExternalResearchSourcePayload]:
+        _reset_research_adapter_trace_state(self)
         fetched_at = datetime.now(UTC)
         ticker = self._ticker(request.symbol)
         payloads: list[ExternalResearchSourcePayload] = []
@@ -2996,6 +3221,8 @@ class CompanyIRSiteResearchAdapter:
         candidate_paths: Sequence[str] = COMPANY_IR_CANDIDATE_PATHS,
         max_results: int = 1,
         request_timeout_sec: float = DEFAULT_EXTERNAL_RESEARCH_TIMEOUT_SECONDS,
+        retry_count: int = 0,
+        retry_backoff_sec: float = 0.0,
     ) -> None:
         self._ticker_factory = ticker_factory
         self._http_get = http_get
@@ -3003,11 +3230,15 @@ class CompanyIRSiteResearchAdapter:
         self.candidate_paths = tuple(candidate_paths)
         self.max_results = max(1, max_results)
         self.request_timeout_sec = max(0.1, float(request_timeout_sec))
+        self.retry_count = max(0, int(retry_count))
+        self.retry_backoff_sec = max(0.0, float(retry_backoff_sec))
+        _reset_research_adapter_trace_state(self)
 
     def fetch_sources(
         self,
         request: ExternalResearchFetchRequest,
     ) -> list[ExternalResearchSourcePayload]:
+        _reset_research_adapter_trace_state(self)
         fetched_at = datetime.now(UTC)
         website = self._official_website(request)
         if not website:
@@ -3020,7 +3251,8 @@ class CompanyIRSiteResearchAdapter:
             seen_urls.add(source_url)
             try:
                 html_text = self._get_text(source_url)
-            except ResearchDocumentError:
+            except ResearchDocumentError as exc:
+                _remember_research_adapter_error(self, exc)
                 continue
             if not _company_ir_page_is_relevant(html_text):
                 continue
@@ -3041,7 +3273,8 @@ class CompanyIRSiteResearchAdapter:
             return _normalize_external_url(self._website_resolver(request))
         try:
             info = _ticker_info(self._ticker(request.symbol))
-        except ResearchDocumentError:
+        except ResearchDocumentError as exc:
+            _remember_research_adapter_error(self, exc)
             return ""
         return _normalize_external_url(_external_text_value(info.get("website")))
 
@@ -3052,8 +3285,6 @@ class CompanyIRSiteResearchAdapter:
         return yf.Ticker(symbol, session=session)
 
     def _get_text(self, url: str) -> str:
-        if self._http_get is not None:
-            return self._http_get(url)
         try:
             import httpx
         except ImportError as exc:  # pragma: no cover - dependency is pinned for runtime
@@ -3061,17 +3292,26 @@ class CompanyIRSiteResearchAdapter:
                 "httpx is required for the company IR site research adapter.",
                 details={"provider": self.provider},
             ) from exc
-        try:
+
+        def operation() -> str:
+            if self._http_get is not None:
+                return self._http_get(url)
             with httpx.Client(timeout=self.request_timeout_sec, follow_redirects=True) as client:
                 response = client.get(url)
                 response.raise_for_status()
                 response.encoding = response.encoding or "utf-8"
                 return response.text
-        except Exception as exc:  # pragma: no cover - provider-specific network failure
-            raise ResearchDocumentError(
-                "Company IR site fetch failed.",
-                details={"provider": self.provider, "url": url},
-            ) from exc
+
+        text, retry_attempts = _research_fetch_with_retry(
+            operation,
+            provider=self.provider,
+            error_message="Company IR site fetch failed.",
+            retry_count=self.retry_count,
+            retry_backoff_sec=self.retry_backoff_sec,
+            url=url,
+        )
+        _add_research_adapter_retry_attempts(self, retry_attempts)
+        return text
 
 
 class TDnetResearchAdapter:
@@ -3088,17 +3328,23 @@ class TDnetResearchAdapter:
         max_pages_per_day: int = 3,
         max_results: int = 5,
         request_timeout_sec: float = DEFAULT_EXTERNAL_RESEARCH_TIMEOUT_SECONDS,
+        retry_count: int = 0,
+        retry_backoff_sec: float = 0.0,
     ) -> None:
         self._http_get = http_get
         self.lookback_days = max(1, lookback_days)
         self.max_pages_per_day = max(1, max_pages_per_day)
         self.max_results = max(1, max_results)
         self.request_timeout_sec = max(0.1, float(request_timeout_sec))
+        self.retry_count = max(0, int(retry_count))
+        self.retry_backoff_sec = max(0.0, float(retry_backoff_sec))
+        _reset_research_adapter_trace_state(self)
 
     def fetch_sources(
         self,
         request: ExternalResearchFetchRequest,
     ) -> list[ExternalResearchSourcePayload]:
+        _reset_research_adapter_trace_state(self)
         symbol_code = _tdnet_symbol_code(request.symbol)
         if not symbol_code:
             return []
@@ -3113,7 +3359,8 @@ class TDnetResearchAdapter:
                 list_url = TDNET_LIST_URL_TEMPLATE.format(page=page, yyyymmdd=yyyymmdd)
                 try:
                     html_text = self._get_text(list_url)
-                except ResearchDocumentError:
+                except ResearchDocumentError as exc:
+                    _remember_research_adapter_error(self, exc)
                     continue
                 if not html_text.strip():
                     continue
@@ -3133,8 +3380,6 @@ class TDnetResearchAdapter:
         return payloads
 
     def _get_text(self, url: str) -> str:
-        if self._http_get is not None:
-            return self._http_get(url)
         try:
             import httpx
         except ImportError as exc:  # pragma: no cover - dependency is pinned for runtime
@@ -3142,17 +3387,26 @@ class TDnetResearchAdapter:
                 "httpx is required for the TDnet research adapter.",
                 details={"provider": self.provider},
             ) from exc
-        try:
+
+        def operation() -> str:
+            if self._http_get is not None:
+                return self._http_get(url)
             with httpx.Client(timeout=self.request_timeout_sec, follow_redirects=True) as client:
                 response = client.get(url)
                 response.raise_for_status()
                 response.encoding = response.encoding or "utf-8"
                 return response.text
-        except Exception as exc:  # pragma: no cover - provider-specific network failure
-            raise ResearchDocumentError(
-                "TDnet disclosure list fetch failed.",
-                details={"provider": self.provider, "url": url},
-            ) from exc
+
+        text, retry_attempts = _research_fetch_with_retry(
+            operation,
+            provider=self.provider,
+            error_message="TDnet disclosure list fetch failed.",
+            retry_count=self.retry_count,
+            retry_backoff_sec=self.retry_backoff_sec,
+            url=url,
+        )
+        _add_research_adapter_retry_attempts(self, retry_attempts)
+        return text
 
 
 class EDINETResearchAdapter:
@@ -3169,17 +3423,23 @@ class EDINETResearchAdapter:
         lookback_days: int = 45,
         max_results: int = 5,
         request_timeout_sec: float = DEFAULT_EXTERNAL_RESEARCH_TIMEOUT_SECONDS,
+        retry_count: int = 0,
+        retry_backoff_sec: float = 0.0,
     ) -> None:
         self._http_get_json = http_get_json
         self.api_key = api_key if api_key is not None else os.getenv(EDINET_API_KEY_ENV, "")
         self.lookback_days = max(1, lookback_days)
         self.max_results = max(1, max_results)
         self.request_timeout_sec = max(0.1, float(request_timeout_sec))
+        self.retry_count = max(0, int(retry_count))
+        self.retry_backoff_sec = max(0.0, float(retry_backoff_sec))
+        _reset_research_adapter_trace_state(self)
 
     def fetch_sources(
         self,
         request: ExternalResearchFetchRequest,
     ) -> list[ExternalResearchSourcePayload]:
+        _reset_research_adapter_trace_state(self)
         if not self.api_key and self._http_get_json is None:
             return []
         fetched_at = datetime.now(UTC)
@@ -3191,7 +3451,8 @@ class EDINETResearchAdapter:
             list_url = _edinet_documents_list_url(submitted_at, api_key=self.api_key)
             try:
                 response = self._get_json(list_url)
-            except ResearchDocumentError:
+            except ResearchDocumentError as exc:
+                _remember_research_adapter_error(self, exc)
                 continue
             for payload in _edinet_payloads_from_response(
                 request,
@@ -3207,17 +3468,25 @@ class EDINETResearchAdapter:
         return payloads
 
     def _get_json(self, url: str) -> Mapping[str, Any]:
-        if self._http_get_json is not None:
-            return self._http_get_json(url)
-        try:
+        def operation() -> str | Mapping[str, Any]:
+            if self._http_get_json is not None:
+                return self._http_get_json(url)
             url_request = UrlRequest(url, headers={"User-Agent": "SmartMarketAI/1.0"})
             with urlopen(url_request, timeout=self.request_timeout_sec) as response:  # noqa: S310
-                body = response.read().decode("utf-8")
-        except Exception as exc:  # pragma: no cover - provider-specific network failure
-            raise ResearchDocumentError(
-                "EDINET document list fetch failed.",
-                details={"provider": self.provider, "url": _edinet_safe_url(url)},
-            ) from exc
+                return response.read().decode("utf-8")
+
+        response_or_body, retry_attempts = _research_fetch_with_retry(
+            operation,
+            provider=self.provider,
+            error_message="EDINET document list fetch failed.",
+            retry_count=self.retry_count,
+            retry_backoff_sec=self.retry_backoff_sec,
+            url=_edinet_safe_url(url),
+        )
+        _add_research_adapter_retry_attempts(self, retry_attempts)
+        if isinstance(response_or_body, Mapping):
+            return response_or_body
+        body = response_or_body
         try:
             parsed = json.loads(body)
         except json.JSONDecodeError as exc:  # pragma: no cover - provider response issue
@@ -3245,6 +3514,8 @@ class CompositeExternalResearchAdapter:
         self.adapters = list(adapters)
         self.external_fetch_config = external_fetch_config
         self.performance_profile_name = performance_profile_name
+        self.last_source_traces: list[ResearchSourceTrace] = []
+        self._source_limiters: dict[str, threading.BoundedSemaphore] = {}
         if provider is not None:
             self.provider = provider
         self.requires_network = any(adapter.requires_network for adapter in self.adapters)
@@ -3253,27 +3524,30 @@ class CompositeExternalResearchAdapter:
         self,
         request: ExternalResearchFetchRequest,
     ) -> list[ExternalResearchSourcePayload]:
+        self.last_source_traces = []
         if not self.adapters:
             return []
         payloads_by_index: dict[int, list[ExternalResearchSourcePayload]] = {}
-        errors_by_index: dict[int, ResearchDocumentError] = {}
+        traces_by_index: dict[int, ResearchSourceTrace] = {}
         with ThreadPoolExecutor(max_workers=self._max_workers()) as executor:
             futures = {}
             for index, adapter in enumerate(self.adapters):
                 adapter_request = request.model_copy(update={"provider": adapter.provider})
-                future = executor.submit(adapter.fetch_sources, adapter_request)
+                future = executor.submit(self._fetch_adapter_with_trace, adapter, adapter_request)
                 futures[future] = index
             for future in as_completed(futures):
                 index = futures[future]
-                try:
-                    payloads_by_index[index] = future.result()
-                except ResearchDocumentError as exc:
-                    errors_by_index[index] = exc
+                adapter_payloads, trace = future.result()
+                payloads_by_index[index] = adapter_payloads
+                traces_by_index[index] = trace
         payloads: list[ExternalResearchSourcePayload] = []
         for index in range(len(self.adapters)):
             payloads.extend(payloads_by_index.get(index, []))
-        if not payloads and errors_by_index:
-            raise errors_by_index[min(errors_by_index)]
+        self.last_source_traces = [
+            traces_by_index[index]
+            for index in range(len(self.adapters))
+            if index in traces_by_index
+        ]
         return payloads
 
     def _max_workers(self) -> int:
@@ -3283,6 +3557,47 @@ class CompositeExternalResearchAdapter:
             else len(self.adapters)
         )
         return max(1, min(int(configured_workers), len(self.adapters)))
+
+    def _source_worker_limit(self, provider: str) -> int:
+        source = research_profile_source_key_for_provider(provider)
+        configured_workers = (
+            self.external_fetch_config.per_source_workers.get(source)
+            if self.external_fetch_config is not None
+            else None
+        )
+        if configured_workers is None:
+            return 1
+        return max(1, int(configured_workers))
+
+    def _source_limiter(self, provider: str) -> threading.BoundedSemaphore:
+        source = research_profile_source_key_for_provider(provider)
+        limiter = self._source_limiters.get(source)
+        if limiter is None:
+            limiter = threading.BoundedSemaphore(self._source_worker_limit(provider))
+            self._source_limiters[source] = limiter
+        return limiter
+
+    def _fetch_adapter_with_trace(
+        self,
+        adapter: ExternalResearchSourceAdapter,
+        request: ExternalResearchFetchRequest,
+    ) -> tuple[list[ExternalResearchSourcePayload], ResearchSourceTrace]:
+        _reset_research_adapter_trace_state(adapter)
+        started_at = time.perf_counter()
+        error: Exception | None = None
+        payloads: list[ExternalResearchSourcePayload] = []
+        with self._source_limiter(adapter.provider):
+            try:
+                payloads = adapter.fetch_sources(request)
+            except Exception as exc:  # noqa: BLE001
+                error = exc
+        trace = _research_source_trace_from_adapter(
+            adapter=adapter,
+            payloads=payloads,
+            error=error,
+            elapsed_ms=max(0, int(round((time.perf_counter() - started_at) * 1000))),
+        )
+        return payloads, trace
 
 
 def _external_research_registered_document(
@@ -3312,12 +3627,30 @@ class DefaultExternalResearchAdapter(CompositeExternalResearchAdapter):
         profile = resolve_performance_profile()
         external_fetch = profile.external_fetch
         request_timeout_sec = external_fetch.request_timeout_sec
+        retry_count = external_fetch.retry_count
+        retry_backoff_sec = external_fetch.retry_backoff_sec
         super().__init__(
             [
-                EDINETResearchAdapter(request_timeout_sec=request_timeout_sec),
-                TDnetResearchAdapter(request_timeout_sec=request_timeout_sec),
-                CompanyIRSiteResearchAdapter(request_timeout_sec=request_timeout_sec),
-                GoogleNewsRSSResearchAdapter(request_timeout_sec=request_timeout_sec),
+                EDINETResearchAdapter(
+                    request_timeout_sec=request_timeout_sec,
+                    retry_count=retry_count,
+                    retry_backoff_sec=retry_backoff_sec,
+                ),
+                TDnetResearchAdapter(
+                    request_timeout_sec=request_timeout_sec,
+                    retry_count=retry_count,
+                    retry_backoff_sec=retry_backoff_sec,
+                ),
+                CompanyIRSiteResearchAdapter(
+                    request_timeout_sec=request_timeout_sec,
+                    retry_count=retry_count,
+                    retry_backoff_sec=retry_backoff_sec,
+                ),
+                GoogleNewsRSSResearchAdapter(
+                    request_timeout_sec=request_timeout_sec,
+                    retry_count=retry_count,
+                    retry_backoff_sec=retry_backoff_sec,
+                ),
                 YahooFinanceResearchAdapter(request_timeout_sec=request_timeout_sec),
             ],
             provider="edinet_tdnet_company_ir_google_news_yahoo_finance",

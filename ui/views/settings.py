@@ -59,16 +59,20 @@ def render_settings_page() -> None:
     last_fetch_summary = external_research_fetch_last_summary()
     if last_fetch_summary:
         with st.expander("直近のAI調査 外部取得", expanded=False):
+            st.caption(_external_fetch_summary_caption(last_fetch_summary))
             st.dataframe(
-                user_facing_table_rows(
-                    [
-                        {"field": key, "value": str(value)}
-                        for key, value in last_fetch_summary.items()
-                    ]
-                ),
+                user_facing_table_rows(_external_fetch_summary_overview_rows(last_fetch_summary)),
                 hide_index=True,
                 use_container_width=True,
             )
+            source_rows = _external_fetch_source_rows(last_fetch_summary)
+            if source_rows:
+                st.write("Sources")
+                st.dataframe(
+                    user_facing_table_rows(source_rows),
+                    hide_index=True,
+                    use_container_width=True,
+                )
 
     with st.expander("サンプル銘柄", expanded=True):
         st.dataframe(
@@ -155,3 +159,57 @@ def render_settings_page() -> None:
             )
         else:
             st.info("登録済みの根拠資料はまだありません。")
+
+
+def _external_fetch_summary_caption(summary: dict[str, object]) -> str:
+    elapsed_ms = _summary_int(summary.get("elapsed_ms"))
+    return (
+        f"profile={summary.get('performance_profile', '')} / "
+        f"symbol={summary.get('symbol', '')} / "
+        f"elapsed={elapsed_ms / 1000:.1f}s / "
+        f"success={summary.get('success_count', 0)} / "
+        f"failed={summary.get('failed_count', 0)} / "
+        f"timeout={summary.get('timeout_count', 0)} / "
+        f"no_result={summary.get('no_result_count', 0)} / "
+        f"cache_hit={summary.get('cache_hit_count', 0)}"
+    )
+
+
+def _summary_int(value: object) -> int:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str) and value.strip().isdigit():
+        return int(value)
+    return 0
+
+
+def _external_fetch_summary_overview_rows(
+    summary: dict[str, object],
+) -> list[dict[str, str]]:
+    return [
+        {"field": key, "value": str(value)} for key, value in summary.items() if key != "sources"
+    ]
+
+
+def _external_fetch_source_rows(summary: dict[str, object]) -> list[dict[str, str]]:
+    sources = summary.get("sources")
+    if not isinstance(sources, list):
+        return []
+    rows: list[dict[str, str]] = []
+    for source in sources:
+        if not isinstance(source, dict):
+            continue
+        rows.append(
+            {
+                "source": str(source.get("source", "")),
+                "provider": str(source.get("provider", "")),
+                "status": str(source.get("status", "")),
+                "elapsed_ms": str(source.get("elapsed_ms", "")),
+                "results": str(source.get("result_count", "")),
+                "retry": str(source.get("retry_attempts", "")),
+                "error": str(source.get("error_message_short", "")),
+            }
+        )
+    return rows

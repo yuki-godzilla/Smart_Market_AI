@@ -90,6 +90,7 @@ from backend.research.service import (
     ResearchSearchError,
     ResearchSearchRequest,
     ResearchSourceConfidence,
+    ResearchSourceTrace,
     ResearchSourceType,
     ResearchSummaryPoint,
     ResearchVectorIndexService,
@@ -104,6 +105,7 @@ from backend.research.service import (
     StockNewsRequest,
     TDnetResearchAdapter,
     YahooFinanceResearchAdapter,
+    research_profile_source_key_for_provider,
 )
 
 __all__ = [
@@ -197,6 +199,7 @@ __all__ = [
     "SecurityResearchType",
     "SecurityResearchTypeDetector",
     "ResearchSourceConfidence",
+    "ResearchSourceTrace",
     "ResearchSourceType",
     "ResearchScore",
     "ResearchScoreService",
@@ -212,4 +215,5 @@ __all__ = [
     "StockNewsRequest",
     "TDnetResearchAdapter",
     "YahooFinanceResearchAdapter",
+    "research_profile_source_key_for_provider",
 ]

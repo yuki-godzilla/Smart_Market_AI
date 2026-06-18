@@ -2,6 +2,7 @@ import hashlib
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -54,6 +55,7 @@ from backend.research import (
     ResearchScoreService,
     ResearchSearchError,
     ResearchSearchRequest,
+    ResearchSourceTrace,
     ResearchSummaryPoint,
     ResearchVectorIndexService,
     SecurityResearchTypeDetector,
@@ -63,6 +65,7 @@ from backend.research import (
     StockNewsRequest,
     TDnetResearchAdapter,
     YahooFinanceResearchAdapter,
+    research_profile_source_key_for_provider,
 )
 
 FORBIDDEN_RECOMMENDATION_WORDS = [
@@ -101,6 +104,21 @@ class FailingExternalResearchAdapter(FakeExternalResearchAdapter):
         self, request: ExternalResearchFetchRequest
     ) -> list[ExternalResearchSourcePayload]:
         raise ResearchDocumentError("provider failed")
+
+
+class TimeoutExternalResearchAdapter(FakeExternalResearchAdapter):
+    provider = "timeout_external"
+
+    def fetch_sources(
+        self, request: ExternalResearchFetchRequest
+    ) -> list[ExternalResearchSourcePayload]:
+        raise TimeoutError("provider timed out")
+
+
+class FakeHTTPStatusError(Exception):
+    def __init__(self, status_code: int) -> None:
+        super().__init__(f"HTTP {status_code}")
+        self.response = SimpleNamespace(status_code=status_code)
 
 
 class FakeYahooTicker:
@@ -3200,6 +3218,110 @@ def test_google_news_rss_adapter_ignores_invalid_feed_without_live_call():
     assert payloads == []
 
 
+def test_google_news_rss_adapter_does_not_retry_when_retry_count_zero():
+    calls = 0
+
+    def fake_http_get(url: str) -> str:
+        nonlocal calls
+        calls += 1
+        raise TimeoutError("feed timed out")
+
+    adapter = GoogleNewsRSSResearchAdapter(
+        http_get=fake_http_get,
+        retry_count=0,
+        retry_backoff_sec=0,
+    )
+
+    payloads = adapter.fetch_sources(
+        ExternalResearchFetchRequest(
+            symbol="AAPL",
+            company_name="Apple Inc.",
+            provider=adapter.provider,
+            as_of=date(2026, 6, 2),
+            allow_network=True,
+        )
+    )
+
+    assert payloads == []
+    assert calls == 1
+    assert adapter._last_retry_attempts == 0
+    assert adapter._last_research_error.details["timeout"] is True
+
+
+def test_google_news_rss_adapter_retries_transient_timeout_then_succeeds():
+    calls = 0
+    rss_text = """<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <item>
+      <title>Apple supplier update</title>
+      <link>https://news.google.com/rss/articles/apple</link>
+      <pubDate>Tue, 02 Jun 2026 09:30:00 GMT</pubDate>
+      <source url="https://example.com">Example News</source>
+      <description>Apple supplier update.</description>
+    </item>
+  </channel>
+</rss>
+"""
+
+    def fake_http_get(url: str) -> str:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise TimeoutError("feed timed out")
+        return rss_text
+
+    adapter = GoogleNewsRSSResearchAdapter(
+        http_get=fake_http_get,
+        retry_count=1,
+        retry_backoff_sec=0,
+    )
+
+    payloads = adapter.fetch_sources(
+        ExternalResearchFetchRequest(
+            symbol="AAPL",
+            company_name="Apple Inc.",
+            provider=adapter.provider,
+            as_of=date(2026, 6, 2),
+            allow_network=True,
+        )
+    )
+
+    assert calls == 2
+    assert len(payloads) == 1
+    assert adapter._last_retry_attempts == 1
+
+
+def test_google_news_rss_adapter_does_not_retry_http_404():
+    calls = 0
+
+    def fake_http_get(url: str) -> str:
+        nonlocal calls
+        calls += 1
+        raise FakeHTTPStatusError(404)
+
+    adapter = GoogleNewsRSSResearchAdapter(
+        http_get=fake_http_get,
+        retry_count=2,
+        retry_backoff_sec=0,
+    )
+
+    payloads = adapter.fetch_sources(
+        ExternalResearchFetchRequest(
+            symbol="AAPL",
+            company_name="Apple Inc.",
+            provider=adapter.provider,
+            as_of=date(2026, 6, 2),
+            allow_network=True,
+        )
+    )
+
+    assert payloads == []
+    assert calls == 1
+    assert adapter._last_retry_attempts == 0
+    assert adapter._last_research_error.details["status_code"] == 404
+
+
 def test_external_research_fetch_service_registers_sources_without_persisting_payloads(
     tmp_path,
 ):
@@ -3913,6 +4035,93 @@ def test_composite_external_research_adapter_continues_after_source_failure():
     assert [payload.provider for payload in payloads] == ["yahoo_finance"]
 
 
+def test_research_provider_to_profile_source_mapping():
+    assert research_profile_source_key_for_provider("edinet") == "edinet"
+    assert research_profile_source_key_for_provider("tdnet") == "tdnet"
+    assert research_profile_source_key_for_provider("company_ir_site") == "ir_pages"
+    assert research_profile_source_key_for_provider("google_news_rss") == "news"
+    assert research_profile_source_key_for_provider("yahoo_finance") == "yahoo_finance"
+    assert research_profile_source_key_for_provider("custom_provider") == "custom_provider"
+
+
+def test_composite_external_research_adapter_records_source_traces():
+    fetched_at = datetime(2026, 5, 25, 9, 0, tzinfo=UTC)
+    success = FakeExternalResearchAdapter(
+        [
+            ExternalResearchSourcePayload(
+                symbol="7203.T",
+                title="7203 Provider Profile",
+                content="Provider profile snapshot.",
+                source_type="provider_profile",
+                source_url="https://example.com/profile",
+                provider="fake_external",
+                company_name="Toyota",
+                published_at=date(2026, 5, 25),
+                fetched_at=fetched_at,
+                reliability=Decimal("0.65"),
+            )
+        ]
+    )
+    no_result = FakeExternalResearchAdapter([])
+    failed = FailingExternalResearchAdapter([])
+    timeout = TimeoutExternalResearchAdapter([])
+    adapter = CompositeExternalResearchAdapter([success, no_result, failed, timeout])
+
+    payloads = adapter.fetch_sources(
+        ExternalResearchFetchRequest(
+            symbol="7203.T",
+            company_name="Toyota",
+            provider=adapter.provider,
+            as_of=date(2026, 5, 25),
+            allow_network=True,
+        )
+    )
+
+    assert len(payloads) == 1
+    assert [trace.status for trace in adapter.last_source_traces] == [
+        "success",
+        "no_result",
+        "failed",
+        "timeout",
+    ]
+    assert isinstance(adapter.last_source_traces[0], ResearchSourceTrace)
+    assert adapter.last_source_traces[0].result_count == 1
+    assert adapter.last_source_traces[2].error_type == "ResearchDocumentError"
+    assert adapter.last_source_traces[3].error_type == "TimeoutError"
+
+
+def test_composite_external_research_adapter_all_failures_return_empty_with_traces():
+    adapter = CompositeExternalResearchAdapter(
+        [FailingExternalResearchAdapter([]), TimeoutExternalResearchAdapter([])]
+    )
+
+    payloads = adapter.fetch_sources(
+        ExternalResearchFetchRequest(
+            symbol="7203.T",
+            company_name="Toyota",
+            provider=adapter.provider,
+            as_of=date(2026, 5, 25),
+            allow_network=True,
+        )
+    )
+
+    assert payloads == []
+    assert [trace.status for trace in adapter.last_source_traces] == ["failed", "timeout"]
+
+
+def test_composite_external_research_adapter_source_worker_limit_uses_profile_source_key():
+    adapter = CompositeExternalResearchAdapter(
+        [FakeExternalResearchAdapter([])],
+        external_fetch_config=ExternalFetchPerformanceConfig(
+            max_workers=4,
+            per_source_workers={"ir_pages": 2},
+        ),
+    )
+
+    assert adapter._source_worker_limit("company_ir_site") == 2
+    assert adapter._source_worker_limit("unknown_provider") == 1
+
+
 def test_composite_external_research_adapter_uses_profile_worker_limit():
     adapter = CompositeExternalResearchAdapter(
         [
@@ -3970,6 +4179,14 @@ def test_default_external_research_adapter_applies_workstation_profile(monkeypat
         for source in adapter.adapters
         if hasattr(source, "request_timeout_sec")
     ] == [15.0, 15.0, 15.0, 15.0, 15.0]
+    assert [
+        source.retry_count for source in adapter.adapters if hasattr(source, "retry_count")
+    ] == [2, 2, 2, 2]
+    assert [
+        source.retry_backoff_sec
+        for source in adapter.adapters
+        if hasattr(source, "retry_backoff_sec")
+    ] == [1.2, 1.2, 1.2, 1.2]
 
 
 def test_research_search_uses_category_query_expansion(tmp_path):

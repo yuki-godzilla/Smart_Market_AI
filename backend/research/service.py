@@ -27,15 +27,13 @@ from pydantic import Field, ValidationError
 from backend.core.config import ExternalFetchPerformanceConfig, resolve_performance_profile
 from backend.core.data_contracts import DataQuality, StrictBaseModel
 from backend.core.errors import AppError, ProviderUnavailableError, ValidationAppError
+from backend.research.source_trace import (
+    ResearchSourceTrace,
+    research_profile_source_key_for_provider,
+    research_source_trace_from_result,
+)
 
 DEFAULT_EXTERNAL_RESEARCH_TIMEOUT_SECONDS = 10.0
-RESEARCH_PROVIDER_TO_PROFILE_SOURCE = {
-    "edinet": "edinet",
-    "tdnet": "tdnet",
-    "company_ir_site": "ir_pages",
-    "google_news_rss": "news",
-    "yahoo_finance": "yahoo_finance",
-}
 
 _T = TypeVar("_T")
 
@@ -70,14 +68,6 @@ StockNewsInvestmentViewpoint = Literal[
 ]
 StockNewsSentiment = Literal["positive", "negative", "neutral", "mixed", "unknown"]
 StockNewsFreshnessStatus = Literal["latest", "recent", "stale", "unknown"]
-ResearchSourceTraceStatus = Literal[
-    "success",
-    "failed",
-    "timeout",
-    "no_result",
-    "cache_hit",
-    "skipped",
-]
 ResearchSourceConfidence = Literal["high", "medium", "low", "unknown"]
 ResearchEvidenceLevel = Literal["high", "medium", "low", "missing"]
 SecurityResearchType = Literal[
@@ -454,14 +444,6 @@ def _remember_research_adapter_error(adapter: object, exc: ResearchDocumentError
     setattr(adapter, "_last_research_error", exc)
 
 
-def _short_research_error_message(exc: Exception, *, max_chars: int = 180) -> str:
-    message = getattr(exc, "message", None)
-    text = str(message or exc).replace("\n", " ").strip()
-    if len(text) <= max_chars:
-        return text
-    return text[: max_chars - 1].rstrip() + "..."
-
-
 def _research_source_trace_from_adapter(
     *,
     adapter: ExternalResearchSourceAdapter,
@@ -477,47 +459,13 @@ def _research_source_trace_from_adapter(
     retry_attempts = getattr(adapter, "_last_retry_attempts", 0)
     if not isinstance(retry_attempts, int):
         retry_attempts = 0
-    status: ResearchSourceTraceStatus = "success" if payloads else "no_result"
-    if recorded_error is not None and not payloads:
-        status = _research_trace_status_for_error(recorded_error)
-    return ResearchSourceTrace(
-        source=research_profile_source_key_for_provider(adapter.provider),
+    return research_source_trace_from_result(
         provider=adapter.provider,
-        status=status,
-        elapsed_ms=elapsed_ms,
-        retry_attempts=max(0, retry_attempts),
-        error_type=type(recorded_error).__name__ if recorded_error is not None else "",
-        error_message_short=(
-            _short_research_error_message(recorded_error) if recorded_error is not None else ""
-        ),
         result_count=len(payloads),
-        timestamp=datetime.now(UTC),
+        error=recorded_error,
+        elapsed_ms=elapsed_ms,
+        retry_attempts=retry_attempts,
     )
-
-
-def _research_trace_status_for_error(error: Exception) -> ResearchSourceTraceStatus:
-    if _research_error_is_timeout(error):
-        return "timeout"
-    status_code = _research_error_status_code(error)
-    if status_code == 404:
-        return "no_result"
-    return "failed"
-
-
-def _research_error_is_timeout(error: Exception) -> bool:
-    if isinstance(error, ResearchDocumentError):
-        timeout = error.details.get("timeout")
-        if isinstance(timeout, bool):
-            return timeout
-    return _is_timeout_research_fetch_error(error)
-
-
-def _research_error_status_code(error: Exception) -> int | None:
-    if isinstance(error, ResearchDocumentError):
-        status_code = error.details.get("status_code")
-        if isinstance(status_code, int):
-            return status_code
-    return _research_fetch_http_status(error)
 
 
 class ResearchParseError(AppError):
@@ -822,30 +770,6 @@ class StockNewsReport(StrictBaseModel):
     decision_support_note: str = (
         "News evidence is decision support only; not advice and not a score input."
     )
-
-
-class ResearchSourceTrace(StrictBaseModel):
-    """One source/adapter execution trace for external Research fetch diagnostics."""
-
-    source: str = Field(min_length=1)
-    provider: str = Field(min_length=1)
-    status: ResearchSourceTraceStatus
-    elapsed_ms: int = Field(default=0, ge=0)
-    retry_attempts: int = Field(default=0, ge=0)
-    error_type: str = ""
-    error_message_short: str = ""
-    result_count: int = Field(default=0, ge=0)
-    timestamp: datetime
-
-    def to_summary_row(self) -> dict[str, object]:
-        return self.model_dump(mode="json")
-
-
-def research_profile_source_key_for_provider(provider: str) -> str:
-    """Return the performance-profile source key for a research provider name."""
-
-    normalized = provider.strip()
-    return RESEARCH_PROVIDER_TO_PROFILE_SOURCE.get(normalized, normalized or "unknown")
 
 
 class ExternalResearchFetchRequest(StrictBaseModel):

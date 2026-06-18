@@ -2538,3 +2538,32 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - kept News dashboard, MarketData, Symbol refresh, LLM worker queue, and adapter-internal URL/page parallelism out of this phase.
 - kept live network checks out of normal tests; coverage uses fake adapters and fake HTTP callables.
+
+## 2026-06-18 - Refactor Phase R1-1/R1-2 Research source trace split
+
+### Current-State Survey
+
+- `backend/research/service.py` still owns several responsibilities: contracts/models, local ingestion/index/retrieval, query expansion, summary builders, Research Score, stock news analysis, external source adapters, retry helpers, and external fetch orchestration.
+- Public imports are primarily exposed through `backend.research`; direct `backend.research.service` compatibility is still preserved for the moved symbols used by existing callers.
+- The first safe split point was source trace / freshness diagnostics because it is pure classification/model logic and does not alter Ranking, Forecast, Investment Score, Research Score, LLM Factor, Gateway, or Streamlit behavior.
+
+### Moved Responsibilities
+
+- moved provider -> performance profile source-key mapping to `backend/research/source_trace.py`.
+- moved `ResearchSourceTrace`, trace status typing, result-to-trace construction, timeout/HTTP-status classification, and short error message shaping to `backend/research/source_trace.py`.
+- kept `backend.research` re-exports for `ResearchSourceTrace` and `research_profile_source_key_for_provider`.
+- kept `backend/research/service.py` as the orchestrator, delegating trace construction to the new module.
+
+### Validation
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_research_source_trace.py tests\test_research_service.py::test_research_provider_to_profile_source_mapping tests\test_research_service.py::test_composite_external_research_adapter_records_source_traces tests\test_research_service.py::test_composite_external_research_adapter_all_failures_return_empty_with_traces tests\test_research_service.py::test_composite_external_research_adapter_source_worker_limit_uses_profile_source_key -q --basetemp outputs\work\pytest_tmp\refactor_r1_source_trace -p no:cacheprovider`
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_research_service.py -q --basetemp outputs\work\pytest_tmp\refactor_r1_research_service -p no:cacheprovider`
+- passed: `.\venv_SMAI\Scripts\python.exe -m mypy backend\research\source_trace.py backend\research\service.py`
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check backend\research tests --no-cache`
+- passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py`
+- passed: `git diff --check` with only existing line-ending normalization warnings for edited files.
+
+### Next
+
+- R1-3 should split external Research fetch retry/orchestration/adapters into a focused module package while preserving public imports.
+- Later R1 slices can separate summary builders, retrieval/query expansion, and scoring/page view concerns after each compatibility checkpoint.

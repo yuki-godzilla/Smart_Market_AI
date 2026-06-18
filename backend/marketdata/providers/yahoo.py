@@ -26,7 +26,7 @@ _YAHOO_SESSION: Any | None = None
 
 
 class YahooMarketDataProviderAdapter:
-    """Opt-in Yahoo market-data adapter backed by yfinance."""
+    """Yahoo market-data adapter backed by yfinance."""
 
     def __init__(self, cfg: DataAccessConfig) -> None:
         self.cfg = cfg

@@ -2220,7 +2220,7 @@ def default_market_data_provider() -> str:
     provider = get_settings().dataaccess.provider
     if provider in MARKET_DATA_PROVIDER_OPTIONS:
         return provider
-    return "mock"
+    return "yahoo"
 
 
 def _symbol_from_candidate(label: str) -> str | None:

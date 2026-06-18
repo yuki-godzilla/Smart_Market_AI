@@ -12,8 +12,21 @@ from backend.marketdata import MarketDataProviderAdapter, create_market_data_pro
 from backend.marketdata.providers import yahoo
 
 
-def test_provider_factory_returns_mock_adapter_by_default():
+def test_provider_factory_returns_yahoo_adapter_by_default(monkeypatch):
+    monkeypatch.setattr(yahoo, "_yfinance_available", lambda: True)
+
     adapter = create_market_data_provider_adapter()
+
+    assert isinstance(adapter, MarketDataProviderAdapter)
+    assert adapter.healthcheck() == {
+        "provider": "yahoo",
+        "status": "available",
+        "adapter": "YahooMarketDataProviderAdapter",
+    }
+
+
+def test_provider_factory_returns_mock_adapter_when_configured_for_tests():
+    adapter = create_market_data_provider_adapter(DataAccessConfig(provider="mock"))
 
     assert isinstance(adapter, MarketDataProviderAdapter)
     assert adapter.healthcheck() == {"provider": "mock", "status": "ok"}
@@ -34,9 +47,11 @@ def test_provider_factory_returns_csv_adapter():
     assert fundamentals[0].market_cap_jpy == Decimal("450000000000000")
 
 
-def test_provider_factory_preserves_live_provider_opt_in_error():
+def test_provider_factory_preserves_live_provider_disabled_error():
     with pytest.raises(DataSourceError) as exc_info:
-        create_market_data_provider_adapter(DataAccessConfig(provider="yahoo"))
+        create_market_data_provider_adapter(
+            DataAccessConfig(provider="yahoo", allow_external_providers=False)
+        )
 
     details = exc_info.value.details
     assert details["provider"] == "yahoo"

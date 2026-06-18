@@ -4,6 +4,7 @@ from decimal import Decimal
 
 import pytest
 
+from backend.core.config import DataAccessConfig
 from backend.core.data_contracts import Position
 from backend.core.errors import ComputationError
 from backend.marketdata import DataAccess, FeatureBuilder
@@ -11,7 +12,7 @@ from backend.portfolio import PortfolioService, TargetAllocation
 
 
 def _service() -> PortfolioService:
-    return PortfolioService(FeatureBuilder(DataAccess()))
+    return PortfolioService(FeatureBuilder(DataAccess(DataAccessConfig(provider="mock"))))
 
 
 def test_snapshot_values_jpy_and_usd_positions_in_jpy():

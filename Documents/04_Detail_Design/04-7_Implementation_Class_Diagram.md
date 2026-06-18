@@ -29,7 +29,7 @@ Current implementation notes:
 
 現在の対象:
 - Core Foundation: 実装済み
-- MarketData MVP: 実装済み（mock / csv / opt-in yahoo path）
+- MarketData MVP: 実装済み（default yahoo / test-offline mock / csv path）
 - Feature Store Lite: 実装済み（Feature Snapshot）
 - Risk MVP: `RiskService`, `RiskDecision`, and pre-trade API implemented
 - Portfolio MVP: `PortfolioService`, snapshots, no-solver rebalance proposals, and Portfolio-to-Risk workflow implemented

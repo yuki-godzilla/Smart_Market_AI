@@ -1,7 +1,7 @@
 # Setup Guide (Python) — Smart Market AI
 
 このドキュメントは **Windows + PowerShell** 前提です。仮想環境名は **`venv_SMAI`** に統一します。
-2026-05-17 時点の実装では、FastAPI API、Streamlit UI、local check helper、mock / csv market-data provider を利用できます。
+2026-06-18 時点の実装では、FastAPI API、Streamlit UI、local check helper、既定の Yahoo live market-data provider、テスト / オフライン用の mock / csv provider を利用できます。
 
 ---
 
@@ -10,7 +10,7 @@
 - Python 3.11 または 3.12 系をインストールして PATH に通す
 - Python 3.11 / 3.12 以外を使う場合は、下の手動セットアップを使う
 - リポジトリ直下で以下の操作を行う
-- 通常確認は外部ネットワーク非依存の `mock` / `csv` provider を使う
+- 通常確認はテスト用 config で外部ネットワーク非依存の `mock` / `csv` provider を明示して使う
 
 ---
 
@@ -197,7 +197,7 @@ python -m playwright install chromium
 
 ### 外部 provider が使えない
 
-通常は外部 provider を使わない設計です。`allow_external_providers: true` を明示しない限り、live provider は通常経路に入りません。
+通常のデータ取得は `yahoo` live provider が既定です。ネットワーク制限や Yahoo 側の一時失敗がある場合は、テスト / オフライン確認用に `SMAI_CONFIG_FILE=.\config\csv_example.yaml` または mock 用 config を明示してください。
 
 ---
 

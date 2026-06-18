@@ -28,8 +28,8 @@ SMAI は以下の思想を重視しています。
   - `POST /forecast/evaluate`
   - `POST /scoring/investment-score`
 - Pydantic v2 の共通データ契約、設定モデル、ドメインエラー
-- deterministic な MarketData provider: `mock` / `csv`
-- 明示 opt-in の `yahoo` live provider adapter 経路
+- 既定の MarketData provider: `yahoo` live data
+- テスト / オフライン確認用の deterministic provider: `mock` / `csv`
 - `polygon` provider の capability metadata / 将来予約
 - 日次 snapshot、ADV、volatility、momentum、drawdown、data completeness の feature building
 - Feature Snapshot を使った Screening Score
@@ -103,7 +103,7 @@ SMAI は以下の思想を重視しています。
 - Execution / broker への注文送信
 - PDF / Excel export
 
-MVP の通常確認は引き続きネットワーク不要の `mock` / `csv` で維持します。一方、Streamlit の Market Data 画面は投資判断 UI として `yahoo` live data を初期表示・先頭表示にし、画面上で明示 opt-in した live provider として `yfinance` 経由で利用します。
+ユーザー向けのデータ取得は API / Streamlit とも `yahoo` live data を既定にします。`mock` / `csv` はテスト、オフライン確認、fixture 用として明示設定した場合に使います。通常確認は引き続き `tests/fixtures/config/local.yaml` や `config/csv_example.yaml` でネットワーク不要に保ちます。
 
 ## 現在のロードマップ上の位置
 
@@ -215,9 +215,8 @@ http://127.0.0.1:8000/openapi.json
 
 ## CSV MarketData で起動
 
-設定上のデフォルト provider は deterministic な `mock` です。
-Streamlit の Market Data 画面では provider 選択の初期表示と表示順先頭が `yahoo` です。通常の API / local checks は `mock` / `csv` を基準にしつつ、UI では生きた株価データを主導線として扱います。
-ローカル CSV サンプルデータを使う場合は、次のように設定します。
+設定上のデフォルト provider は `yahoo` です。
+Streamlit の Market Data 画面、Ranking、銘柄コックピット、API の通常データ取得は live data を主導線として扱います。ローカル CSV サンプルデータを使う場合は、次のように明示設定します。
 
 ```powershell
 $env:SMAI_CONFIG_FILE = ".\config\csv_example.yaml"

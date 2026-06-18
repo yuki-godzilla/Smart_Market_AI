@@ -18,8 +18,8 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - `POST /screening/score`
 - `POST /forecast/evaluate`
 - `POST /scoring/investment-score`
-- deterministic な `mock` / `csv` MarketData provider
-- 明示 opt-in の `yahoo` live provider adapter 経路
+- 既定の `yahoo` live MarketData provider
+- テスト / オフライン確認用の deterministic `mock` / `csv` MarketData provider
 - Feature Snapshot / Screening Score / Forecast Evaluation / Investment Score
 - Portfolio-to-Risk rebalance-check workflow
 - Decision Report context / Markdown / JSON / manifest / ZIP export for cockpit, ranking, and rebalance
@@ -90,7 +90,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - PDF / Excel export
 
 現在の MVP は、ローカル検証と説明用です。
-外部 API へ接続する場合は明示 opt-in が必要で、broker や execution provider へ注文を送りません。
+MarketData と Research / News の標準導線では外部 source を使いますが、通常検証は fake / fixture / mock config で network-free に保ちます。broker や execution provider への注文送信は行いません。
 Research RAG / News RAG は実運用では情報鮮度が重要です。標準導線では、`AI調査を更新` が EDINET securities-report metadata/link（`EDINET_API_KEY` 設定時のみ live call、未設定時 no-op）、TDnet 適時開示、企業IRサイト、Google News RSS headline search、Yahoo Finance profile / news を取得/参照し、source URL、provider、published_at、fetched_at、freshness warning を確認材料として表示します。Yahoo Finance を使う Research 側 adapter は MarketData 側と同じ yfinance cache / shared session 設定を使います。Google News RSS は一般ニュースのヘッドライン幅を広げる補助sourceで、検索語は会社名・関連キーワード・銘柄コードに決算/業績/株価/配当などの投資文脈語を添えます。ニュースURL表示自体は `外部参照ソース` と詳細データに実装済みです。Cockpit Research Summary では、`最新ニュース・開示サマリー` の直後に `投資ヒントとなるニュース` と `ニュース・開示の出典を表示（URL付きN件）` を置きます。サマリと注目材料は `Market Intelligence` の主表示カードとして扱い、出典は初期折りたたみの小さな citation list としてURL付きニュース・TDnet・企業IR・EDINET・Google News・Yahoo Finance を確認できるようにします。ニュース専用URLが無い場合も、外部参照ソース側に公式資料・provider URLがある可能性を案内します。取得本文は既定では保持せず、session-local の一時参照として扱います。通常検証は fake adapter / fixture / RSS fixture を使い、network 非依存を維持します。
 
 外部取得の実行環境profileは `SMAI_PERFORMANCE_PROFILE` で選択します。`notebook` は Research external fetch profile上限4 workers / provider timeout 12秒 / global timeout 30秒 / cache TTL 30分、`workstation` はprofile上限10 workers / provider timeout 15秒 / global timeout 45秒 / cache TTL 20分です。実際の worker 数は profile 上限と external source adapter 数の小さい方に抑えます。現時点でこのprofileが実際に制御するのは `DefaultExternalResearchAdapter` の並列度、全体待ち時間、source別 limiter入口、EDINET / TDnet / 企業IR / Google News RSS の request timeout と retry / backoff です。provider名は `edinet -> edinet`、`tdnet -> tdnet`、`company_ir_site -> ir_pages`、`google_news_rss -> news`、`yahoo_finance -> yahoo_finance` に正規化します。HTTP 5xx、timeout、一時的な接続失敗はretry対象、HTTP 4xx / 404、データなし、parse error はretry対象外です。global timeout 到達時は取得済み情報だけを返し、未完了providerを `timeout` として `ExternalResearchFetchResult.provider_statuses`、直近summary、Cockpitの外部参照ソース確認メモ、Streamlit `設定 / データ情報` に残します。直近summaryには source別に `success / failed / timeout / no_result / cache_hit`、elapsed、retry回数、result数を保存します。`processing.rag_workers`、`forecast_workers`、`background_refresh_workers`、`llm_workers` は設定として保持しますが、共通適用は後続フェーズです。`SMAI_LLM_PROFILE` はLLMモデル選択用であり、この performance profile とは分けて扱います。Yahoo/yfinance timeoutの本格適用、adapter内部のURL/page単位並列化、News / MarketData / Symbol refresh へのprofile適用は後続範囲です。
@@ -225,8 +225,8 @@ Invoke-RestMethod `
 
 ## 5. CSV MarketData provider
 
-設定上の既定 provider は deterministic な `mock` です。
-Streamlit の Market Data 画面では provider 選択の初期表示と表示順先頭が `yahoo` です。通常の API / local checks は `mock` / `csv` を基準にしつつ、UI では生きた株価データを主導線として扱います。
+設定上の既定 provider は `yahoo` です。
+Streamlit の Cockpit / Ranking / Market Data 画面では provider 選択の初期表示と表示順先頭が `yahoo` です。通常の API も live data を主導線として扱い、local checks / CI は `tests/fixtures/config/local.yaml` などで `mock` を明示して network-free に保ちます。
 Cockpit の単銘柄取得では、Yahoo の `Ticker.history` を先に使います。`possibly delisted` / `no price data` 系の一時的な失敗は、`raise_errors=False` と日足の非拡張終了日で再試行してから no-data として扱います。DNS / curl timeout 系の一時通信失敗も同じ条件で1回だけ再試行します。Ranking の多銘柄取得は速度と負荷を優先し、一括取得の成功/失敗をそのまま扱います。
 ローカル CSV を使う場合は、`SMAI_CONFIG_FILE` で設定ファイルを指定します。
 
@@ -426,7 +426,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 Symbol universe metadata refresh:
 
 - `tools/refresh_symbol_universe_metadata.py` は provider-neutral な metadata refresh command です。
-- 現在実装済みの provider は network 非依存の `curated_csv` と、明示 opt-in の `yahoo` です。
+- 現在実装済みの metadata provider は network 非依存の `curated_csv` と、明示実行する `yahoo` です。
 - 既定は dry-run で、CSV / manifest は書き換えません。
 
 ```powershell
@@ -666,15 +666,15 @@ Rebalance は `Rebalance Cockpit` として、次の順に確認します。
 
 現在使える provider:
 
-| provider | 状態 | opt-in | 主な用途 |
+| provider | 状態 | 既定/用途 | 主な用途 |
 | --- | --- | --- | --- |
-| `mock` | 実装済み | 不要 | 既定の MVP 確認 |
-| `csv` | 実装済み | 不要 | ローカル CSV 確認 |
-| `yahoo` | 実装済み経路あり | 必要 | yfinance による live data 確認 |
-| `polygon` | metadata のみ | 将来必要 | live provider 候補 |
+| `yahoo` | 実装済み | 既定 | yfinance による live data 取得 |
+| `mock` | 実装済み | テスト / オフライン用 | deterministic な MVP 確認 |
+| `csv` | 実装済み | テスト / オフライン用 | ローカル CSV 確認 |
+| `polygon` | metadata のみ | 将来候補 | live provider 候補 |
 
-`yahoo` を使う場合は、設定で `allow_external_providers: true` を明示します。
-通常の自動テストと local checks は外部 API に依存させません。
+`yahoo` は既定設定で `allow_external_providers: true` です。
+通常の自動テストと local checks は `tests/fixtures/config/local.yaml` などで `mock` を明示し、外部 API に依存させません。
 
 ## 8. ローカル検証
 

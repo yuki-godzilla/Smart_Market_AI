@@ -1,17 +1,22 @@
 from datetime import UTC, date, datetime
 
+from backend.core.config import DataAccessConfig
 from backend.marketdata import DataAccess, MarketDataProviderAdapter
 
 
+def _mock_data_access() -> DataAccess:
+    return DataAccess(DataAccessConfig(provider="mock"))
+
+
 def test_data_access_satisfies_market_data_provider_adapter_protocol():
-    adapter: MarketDataProviderAdapter = DataAccess()
+    adapter: MarketDataProviderAdapter = _mock_data_access()
 
     assert isinstance(adapter, MarketDataProviderAdapter)
     assert adapter.healthcheck() == {"provider": "mock", "status": "ok"}
 
 
 def test_market_data_provider_adapter_protocol_exposes_async_contracts():
-    adapter: MarketDataProviderAdapter = DataAccess()
+    adapter: MarketDataProviderAdapter = _mock_data_access()
 
     assert callable(adapter.fetch_ohlcv)
     assert callable(adapter.fetch_quotes)
@@ -32,13 +37,13 @@ async def _fetch_one_bar(adapter: MarketDataProviderAdapter) -> int:
 def test_market_data_provider_adapter_can_be_used_as_async_boundary():
     import asyncio
 
-    assert asyncio.run(_fetch_one_bar(DataAccess())) == 1
+    assert asyncio.run(_fetch_one_bar(_mock_data_access())) == 1
 
 
 def test_data_access_fetches_mock_fundamentals():
     import asyncio
 
-    fundamentals = asyncio.run(DataAccess().fetch_fundamentals(["AAPL"], date(2026, 4, 9)))
+    fundamentals = asyncio.run(_mock_data_access().fetch_fundamentals(["AAPL"], date(2026, 4, 9)))
 
     assert fundamentals[0].symbol == "AAPL"
     assert fundamentals[0].provider == "mock"

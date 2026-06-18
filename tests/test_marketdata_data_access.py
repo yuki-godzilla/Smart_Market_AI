@@ -10,8 +10,12 @@ from backend.core.errors import DataSourceError
 from backend.marketdata import DataAccess
 
 
+def _mock_data_access() -> DataAccess:
+    return DataAccess(DataAccessConfig(provider="mock", allow_external_providers=False))
+
+
 def test_fetch_ohlcv_returns_mock_bars():
-    da = DataAccess()
+    da = _mock_data_access()
 
     bars = asyncio.run(
         da.fetch_ohlcv(
@@ -29,7 +33,7 @@ def test_fetch_ohlcv_returns_mock_bars():
 
 
 def test_fetch_ohlcv_returns_recent_mock_bars_for_current_date_defaults():
-    da = DataAccess()
+    da = _mock_data_access()
     today = datetime.now(UTC).date()
 
     bars = asyncio.run(
@@ -72,7 +76,7 @@ def test_fetch_ohlcv_returns_csv_bars():
 
 
 def test_fetch_quotes_returns_latest_available_quote():
-    da = DataAccess()
+    da = _mock_data_access()
 
     quotes = asyncio.run(da.fetch_quotes(["7203.T"], at=datetime(2026, 4, 9, 12, 0, tzinfo=UTC)))
 
@@ -97,7 +101,7 @@ def test_fetch_quotes_returns_latest_available_csv_quote():
 
 
 def test_get_fx_rates_returns_usdjpy():
-    da = DataAccess()
+    da = _mock_data_access()
 
     rates = asyncio.run(da.get_fx_rates(["USDJPY"], at=datetime(2026, 4, 9, tzinfo=UTC)))
 
@@ -123,9 +127,9 @@ def test_get_fx_rates_returns_csv_usdjpy():
     assert rates[0].source == "csv"
 
 
-def test_live_provider_requires_explicit_opt_in():
+def test_live_provider_is_rejected_when_external_access_is_disabled():
     with pytest.raises(DataSourceError) as exc_info:
-        DataAccess(DataAccessConfig(provider="yahoo"))
+        DataAccess(DataAccessConfig(provider="yahoo", allow_external_providers=False))
 
     assert exc_info.value.to_dict() == {
         "code": "APP-2000",
@@ -220,7 +224,7 @@ def test_csv_missing_required_columns_is_rejected():
 
 
 def test_unsupported_symbol_is_rejected():
-    da = DataAccess()
+    da = _mock_data_access()
 
     with pytest.raises(DataSourceError) as exc_info:
         asyncio.run(
@@ -255,7 +259,7 @@ def test_unsupported_csv_symbol_is_rejected():
 
 
 def test_unsupported_fx_pair_is_rejected():
-    da = DataAccess()
+    da = _mock_data_access()
 
     with pytest.raises(DataSourceError) as exc_info:
         asyncio.run(da.get_fx_rates(["EURJPY"]))
@@ -264,7 +268,7 @@ def test_unsupported_fx_pair_is_rejected():
 
 
 def test_healthcheck_reports_mock_provider():
-    assert DataAccess().healthcheck() == {"provider": "mock", "status": "ok"}
+    assert _mock_data_access().healthcheck() == {"provider": "mock", "status": "ok"}
 
 
 def test_healthcheck_reports_csv_provider():

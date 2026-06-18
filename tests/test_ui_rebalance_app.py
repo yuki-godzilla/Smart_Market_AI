@@ -346,14 +346,14 @@ def test_build_rebalance_request_rejects_non_array_targets_json():
     assert str(exc_info.value) == "目標配分はJSON配列で入力してください。"
 
 
-def test_runtime_settings_summary_reports_default_provider(monkeypatch):
+def test_runtime_settings_summary_reports_external_default_provider(monkeypatch):
     monkeypatch.delenv("SMAI_CONFIG_FILE", raising=False)
     monkeypatch.delenv("SMAI_PERFORMANCE_PROFILE", raising=False)
     monkeypatch.delenv(SCENARIO_DIR_ENV, raising=False)
 
     summary = runtime_settings_summary()
 
-    assert summary["provider"] == "mock"
+    assert summary["provider"] == "yahoo"
     assert summary["config_file"] == "defaults"
     assert summary["csv_data_dir"] == "data/marketdata"
     assert summary["scenario_dir"] == str(PROJECT_ROOT / "examples/rebalance_scenarios")
@@ -399,6 +399,7 @@ def test_build_market_data_preview_returns_mock_rows(monkeypatch):
             symbol="AAPL",
             start=date(2026, 4, 7),
             end=date(2026, 4, 9),
+            provider_override="mock",
         )
     )
 
@@ -498,6 +499,7 @@ def test_build_market_data_preview_reuses_ohlcv_for_quote_and_features(monkeypat
             symbol="AAPL",
             start=date(2026, 4, 7),
             end=date(2026, 4, 9),
+            provider_override="mock",
         )
     )
 
@@ -574,6 +576,7 @@ def test_build_market_data_preview_uses_selected_forecast_horizon(monkeypatch):
             start=date(2026, 4, 7),
             end=date(2026, 4, 9),
             forecast_horizon_days=2,
+            provider_override="mock",
         )
     )
 

@@ -55,7 +55,7 @@ Research RAG は Phase 20 local evidence slice が決定的な土台として実
 
 - Core contracts / config / errors
 - deterministic な `mock` / `csv` MarketData provider
-- 明示 opt-in の `yahoo` live provider adapter 経路
+- 既定の `yahoo` live provider adapter 経路
 - provider registry / factory / capability metadata
 - Feature Snapshot / Feature Store Lite 相当
 - Screening Score

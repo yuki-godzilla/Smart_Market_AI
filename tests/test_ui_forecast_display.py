@@ -10,6 +10,7 @@ import pandas as pd
 import streamlit as st
 
 import ui.app as app_module
+from backend.core.config import CONFIG_FILE_ENV
 from backend.core.data_contracts import Bar, DailySnapshot, FundamentalSnapshot, Symbol
 from backend.core.errors import DataSourceError
 from backend.llm_factor import (
@@ -449,7 +450,18 @@ def test_market_data_period_help_explains_review_basis():
     assert "任意の期間" in market_data_period_help("unknown")
 
 
-def test_market_data_provider_defaults_to_configured_mock():
+def test_market_data_provider_defaults_to_yahoo_without_config(monkeypatch):
+    monkeypatch.delenv(CONFIG_FILE_ENV, raising=False)
+
+    assert default_market_data_provider() == "yahoo"
+
+
+def test_market_data_provider_uses_configured_mock(monkeypatch):
+    monkeypatch.setattr(
+        "ui.app.get_settings",
+        lambda: SimpleNamespace(dataaccess=SimpleNamespace(provider="mock")),
+    )
+
     assert default_market_data_provider() == "mock"
 
 
@@ -3715,6 +3727,7 @@ def test_select_ranking_symbol_for_cockpit_with_period_carries_ranking_window(mo
 
 
 def test_navigation_query_params_open_news_symbol_in_cockpit(monkeypatch):
+    monkeypatch.delenv(CONFIG_FILE_ENV, raising=False)
     session_state: dict[str, object] = {
         "market_data_preview": object(),
         "market_data_status_message": "old",
@@ -3730,7 +3743,7 @@ def test_navigation_query_params_open_news_symbol_in_cockpit(monkeypatch):
 
     assert session_state["sidemenu_page"] == "cockpit"
     assert session_state["market_data_mode"] == "cockpit"
-    assert session_state["market_data_provider_live_first"] == "mock"
+    assert session_state["market_data_provider_live_first"] == "yahoo"
     assert session_state["market_data_symbol_candidate"] == "7203.T - Toyota Motor"
     assert "market_data_preview" not in session_state
     assert "market_data_status_message" not in session_state

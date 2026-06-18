@@ -1,6 +1,7 @@
 from pydantic import ValidationError
 
 from backend.core.config import (
+    CONFIG_FILE_ENV,
     PERFORMANCE_PROFILE_ENV,
     Settings,
     get_settings,
@@ -10,12 +11,14 @@ from backend.core.config import (
 FIXTURE_DIR = "tests/fixtures/config"
 
 
-def test_settings_defaults_are_local_and_mock_first():
+def test_settings_defaults_are_external_yahoo_first(monkeypatch):
+    monkeypatch.delenv(CONFIG_FILE_ENV, raising=False)
+
     settings = get_settings()
 
     assert settings.app.base_currency == "JPY"
-    assert settings.dataaccess.provider == "mock"
-    assert settings.dataaccess.allow_external_providers is False
+    assert settings.dataaccess.provider == "yahoo"
+    assert settings.dataaccess.allow_external_providers is True
     assert settings.dataaccess.cache.backend == "memory"
     assert settings.portfolio.solver.backend == "none"
     assert settings.scoring.weights.screening == 0.5

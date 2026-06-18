@@ -3,9 +3,9 @@ app:
   log_json: true
 
 dataaccess:
-  provider: mock
+  provider: yahoo
   csv_data_dir: data/marketdata
-  allow_external_providers: false
+  allow_external_providers: true
 
 risk:
   thresholds:

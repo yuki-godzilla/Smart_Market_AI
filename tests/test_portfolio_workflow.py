@@ -2,6 +2,7 @@ import asyncio
 from datetime import date
 from decimal import Decimal
 
+from backend.core.config import DataAccessConfig
 from backend.core.data_contracts import Position
 from backend.marketdata import DataAccess, FeatureBuilder
 from backend.portfolio import PortfolioRiskWorkflow, PortfolioService, TargetAllocation
@@ -9,7 +10,7 @@ from backend.risk import RiskService
 
 
 def _workflow() -> PortfolioRiskWorkflow:
-    feature_builder = FeatureBuilder(DataAccess())
+    feature_builder = FeatureBuilder(DataAccess(DataAccessConfig(provider="mock")))
     return PortfolioRiskWorkflow(
         PortfolioService(feature_builder),
         RiskService(feature_builder),

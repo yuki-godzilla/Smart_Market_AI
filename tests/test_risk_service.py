@@ -2,15 +2,24 @@ import asyncio
 from datetime import date
 from decimal import Decimal
 
-from backend.core.config import FeatureBuilderConfig, RiskConfig, RiskThresholdsConfig
+from backend.core.config import (
+    DataAccessConfig,
+    FeatureBuilderConfig,
+    RiskConfig,
+    RiskThresholdsConfig,
+)
 from backend.core.data_contracts import TradeIntent
 from backend.marketdata import DataAccess, FeatureBuilder
 from backend.risk import RiskService
 
 
+def _mock_data_access() -> DataAccess:
+    return DataAccess(DataAccessConfig(provider="mock"))
+
+
 def test_pre_trade_check_allows_small_basket_when_soft_rules_are_relaxed():
     service = RiskService(
-        FeatureBuilder(DataAccess(), cfg=FeatureBuilderConfig(adv_window=2, vol_window=2)),
+        FeatureBuilder(_mock_data_access(), cfg=FeatureBuilderConfig(adv_window=2, vol_window=2)),
         cfg=RiskConfig(
             thresholds=RiskThresholdsConfig(
                 max_notional_per_symbol=3_000_000,
@@ -45,7 +54,7 @@ def test_pre_trade_check_allows_small_basket_when_soft_rules_are_relaxed():
 
 def test_pre_trade_check_reviews_when_dividend_data_is_missing():
     service = RiskService(
-        FeatureBuilder(DataAccess(), cfg=FeatureBuilderConfig(adv_window=2, vol_window=2)),
+        FeatureBuilder(_mock_data_access(), cfg=FeatureBuilderConfig(adv_window=2, vol_window=2)),
         cfg=RiskConfig(
             thresholds=RiskThresholdsConfig(
                 max_notional_per_symbol=3_000_000,
@@ -80,7 +89,7 @@ def test_pre_trade_check_reviews_when_dividend_data_is_missing():
 
 def test_pre_trade_check_blocks_when_symbol_notional_exceeds_threshold():
     service = RiskService(
-        FeatureBuilder(DataAccess(), cfg=FeatureBuilderConfig(adv_window=2, vol_window=2)),
+        FeatureBuilder(_mock_data_access(), cfg=FeatureBuilderConfig(adv_window=2, vol_window=2)),
         cfg=RiskConfig(
             thresholds=RiskThresholdsConfig(
                 max_notional_per_symbol=100_000,

@@ -20,8 +20,8 @@
   - `backend/risk`
   - `backend/portfolio`
 - Infrastructure-like adapters:
-  - deterministic `mock` / `csv`
-  - explicit opt-in `yahoo` live adapter path
+  - default `yahoo` live adapter path
+  - deterministic `mock` / `csv` for tests and offline checks
   - provider registry / factory / capability metadata
 
 Research RAG、Decision Report、Execution は設計上の将来コンポーネントです。

@@ -34,10 +34,10 @@ class MockBarPoint(TypedDict):
 
 
 class DataAccess:
-    """Read-only market-data access layer.
+    """Deterministic mock/CSV market-data access layer.
 
-    The current MVP supports deterministic mock and CSV providers so tests and
-    downstream feature work can stay offline.
+    Product paths should use create_market_data_provider_adapter so the
+    configured live provider default can be honored.
     """
 
     def __init__(self, cfg: DataAccessConfig | None = None) -> None:

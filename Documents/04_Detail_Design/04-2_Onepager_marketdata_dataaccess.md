@@ -4,8 +4,8 @@
 
 ## 0) Current Sync Status
 
-この文書は **2026-05-18 時点の実装に同期済み**です。
-現在の MarketData は `mock` / `csv` を通常利用し、`yahoo` は `yfinance` backed の明示 opt-in live adapter 経路を持ちます。
+この文書は **2026-06-18 時点の実装に同期済み**です。
+現在の MarketData は `yahoo` live data をユーザー向け既定とし、`mock` / `csv` はテスト / オフライン確認用の deterministic 経路として維持します。
 `polygon` は provider metadata / adapter boundary のみで、本体実装は未完了です。
 
 | 項目 | 状態 |
@@ -14,16 +14,16 @@
 | CSV provider | implemented |
 | provider registry | implemented |
 | live provider adapter foundation | implemented |
-| Yahoo provider file | implemented opt-in adapter |
+| Yahoo provider file | implemented default live adapter |
 | Polygon provider file | not implemented |
-| external provider default enable | disabled |
+| external provider default enable | enabled for Yahoo |
 | async external API retry/circuit breaker | not implemented |
 | cache backend implementation | config only / not implemented as storage layer |
 
 ## 1) Purpose & Scope
 
 市場データ取得を統一I/Fにまとめ、FeatureBuilder / Risk / Portfolio / Screening / Forecast / Scoring が同じデータ契約で動けるようにします。
-現在は deterministic local-first を優先し、通常テストでは外部ネットワークに依存しません。
+現在はユーザー向けデータ取得では live data を既定にしつつ、通常テストでは `mock` / `csv` を明示して外部ネットワークに依存しません。
 
 ## 2) Public Interfaces
 
@@ -61,13 +61,14 @@ class MarketDataProviderAdapter(Protocol):
 
 ### Provider selection
 
-- default: `mock`
+- default: `yahoo`
+- `mock`: `tests/fixtures/config/local.yaml` などテスト / オフライン確認で指定
 - `csv`: `config/csv_example.yaml` などで指定
-- `yahoo`: `allow_external_providers: true` または Streamlit provider selector での明示選択が必要
+- `yahoo`: API / Streamlit の通常データ取得で使う live provider
 - `polygon`: metadata のみ。adapter 本体は未実装
 
 補足: `provider_registry.SUPPORTED_PROVIDERS` は `DataAccess` が直接扱う deterministic provider (`mock`, `csv`) の一覧です。
-`yahoo` の実装有無は `live_provider_adapters.py` と provider factory の opt-in 経路で確認します。
+`yahoo` の実装有無は `live_provider_adapters.py` と provider factory の live adapter 経路で確認します。
 
 ### CSV assumptions
 
@@ -99,9 +100,9 @@ Current config model:
 
 ```yaml
 dataaccess:
-  provider: mock        # mock | csv | yahoo | polygon
+  provider: yahoo       # mock | csv | yahoo | polygon
   csv_data_dir: data/marketdata
-  allow_external_providers: false
+  allow_external_providers: true
   cache:
     backend: memory
     ttl_intraday_sec: 60

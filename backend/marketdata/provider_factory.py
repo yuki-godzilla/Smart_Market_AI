@@ -9,8 +9,8 @@ def create_market_data_provider_adapter(
 ) -> MarketDataProviderAdapter:
     """Create the configured market-data provider adapter.
 
-    The current deterministic providers are served by DataAccess. Future live
-    adapters should be registered here after they satisfy MarketDataProviderAdapter.
+    Deterministic mock/CSV providers are served by DataAccess. Live providers
+    such as Yahoo are routed to their adapter when enabled in settings.
     """
 
     resolved_cfg = cfg or DataAccessConfig()

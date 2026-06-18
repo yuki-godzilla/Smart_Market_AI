@@ -3,12 +3,17 @@ from datetime import date
 
 import pytest
 
+from backend.core.config import DataAccessConfig
 from backend.core.errors import DataSourceError
 from backend.marketdata import DataAccess, FeatureBuilder
 
 
+def _mock_feature_builder() -> FeatureBuilder:
+    return FeatureBuilder(DataAccess(DataAccessConfig(provider="mock")))
+
+
 def test_compute_adv_returns_non_negative_value():
-    fb = FeatureBuilder(DataAccess())
+    fb = _mock_feature_builder()
 
     adv = asyncio.run(fb.compute_adv("AAPL", date(2026, 4, 9)))
 
@@ -16,7 +21,7 @@ def test_compute_adv_returns_non_negative_value():
 
 
 def test_compute_vol_returns_non_negative_value():
-    fb = FeatureBuilder(DataAccess())
+    fb = _mock_feature_builder()
 
     vol = asyncio.run(fb.compute_vol("AAPL", date(2026, 4, 9)))
 
@@ -24,7 +29,7 @@ def test_compute_vol_returns_non_negative_value():
 
 
 def test_compute_vol_supports_parkinson_method():
-    fb = FeatureBuilder(DataAccess())
+    fb = _mock_feature_builder()
 
     vol = asyncio.run(fb.compute_vol("7203.T", date(2026, 4, 9), method="parkinson"))
 
@@ -32,7 +37,7 @@ def test_compute_vol_supports_parkinson_method():
 
 
 def test_compute_vol_rejects_unknown_method():
-    fb = FeatureBuilder(DataAccess())
+    fb = _mock_feature_builder()
 
     with pytest.raises(DataSourceError) as exc_info:
         asyncio.run(fb.compute_vol("AAPL", date(2026, 4, 9), method="unknown"))
@@ -41,7 +46,7 @@ def test_compute_vol_rejects_unknown_method():
 
 
 def test_build_daily_snapshot_returns_feature_rows():
-    fb = FeatureBuilder(DataAccess())
+    fb = _mock_feature_builder()
 
     snapshots = asyncio.run(fb.build_daily_snapshot(["AAPL", "7203.T"], date(2026, 4, 9)))
 
@@ -71,7 +76,7 @@ def test_build_daily_snapshot_returns_feature_rows():
 
 
 def test_build_feature_snapshot_returns_metadata_and_missing_summary():
-    fb = FeatureBuilder(DataAccess())
+    fb = _mock_feature_builder()
 
     snapshot = asyncio.run(fb.build_feature_snapshot(["AAPL", "7203.T"], date(2026, 4, 9)))
 

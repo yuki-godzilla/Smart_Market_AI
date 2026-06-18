@@ -1,3 +1,8 @@
+dataaccess:
+  provider: mock
+  csv_data_dir: data/marketdata
+  allow_external_providers: false
+
 risk:
   thresholds:
     max_concentration: 0.3

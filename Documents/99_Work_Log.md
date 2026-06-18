@@ -2742,3 +2742,34 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 ### Next
 
 - R1 can be treated as complete for the assigned refactor checkpoint. Future R2/R3 cleanup should target core ingestion/index/retrieval contract extraction and remaining private Research helper groups in small slices.
+
+## 2026-06-18 - MarketData default provider switched to Yahoo live
+
+### Scope
+
+- changed `DataAccessConfig` defaults to `provider=yahoo` and `allow_external_providers=true`.
+- kept Cockpit / Ranking / related Market Data provider selectors live-first by falling back to `yahoo` when config is missing or unknown.
+- updated `config/example.yaml`, README / setup / roadmap / requirements / design / operations docs to state that user-facing data fetch defaults to Yahoo live data.
+- added `tests/conftest.py` so normal tests explicitly use `tests/fixtures/config/local.yaml` with `mock`, and updated direct MarketData tests to pass `DataAccessConfig(provider="mock")` instead of relying on hidden defaults.
+- updated the no-opt-in fixture to set `allow_external_providers=false` explicitly now that the global default is true.
+
+### Boundary
+
+- `mock` / `csv` remain available for deterministic tests, fixtures, offline checks, and explicit local runs.
+- no Ranking, Forecast, Investment Score, Research Score, LLM Factor, Gateway, or scoring behavior changed.
+- symbol metadata refresh commands still require their own explicit live execution flags; this change is for MarketData product defaults.
+
+### Validation
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_core_config.py tests\test_marketdata_data_access.py tests\test_marketdata_feature_builder.py tests\test_marketdata_provider_adapters.py tests\test_marketdata_provider_factory.py tests\test_portfolio_service.py tests\test_portfolio_workflow.py tests\test_risk_service.py tests\test_ui_rebalance_app.py tests\test_ui_forecast_display.py::test_market_data_provider_defaults_to_yahoo_without_config tests\test_ui_forecast_display.py::test_market_data_provider_uses_configured_mock tests\test_ui_forecast_display.py::test_navigation_query_params_open_news_symbol_in_cockpit -q --basetemp outputs\work\pytest_tmp\default_live_provider -p no:cacheprovider` with 131 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_forecast_api.py tests\test_portfolio_api.py tests\test_risk_api.py tests\test_screening_api.py tests\test_scoring_api.py tests\test_manual_workflow_examples.py -q --basetemp outputs\work\pytest_tmp\default_live_provider_api -p no:cacheprovider` with 29 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_forecast_display.py -q --basetemp outputs\work\pytest_tmp\default_live_provider_ui_forecast -p no:cacheprovider` with 289 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests -q --maxfail=1 --disable-warnings --basetemp outputs\work\pytest_tmp\default_live_provider_full -p no:cacheprovider` with 1523 passed, 1 skipped, 31 warnings.
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check backend ui tests --no-cache`.
+- passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py`.
+- passed: `git diff --check` with only existing line-ending normalization warnings for edited files.
+- passed: Playwright smoke against local Streamlit on `127.0.0.1:8524`: Cockpit initial provider and Ranking initial provider both showed `yahoo` with the live Yahoo captions. No fetch button was clicked.
+
+### Next
+
+- If user-facing wording still exposes `requires_external_opt_in` in low-level provider metadata rows, consider renaming that diagnostic field in a separate UX-safe slice.

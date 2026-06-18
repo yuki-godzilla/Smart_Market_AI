@@ -18,6 +18,32 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-18 - IR Summary Classification v2
+
+### Summary
+
+- added rule-based IR category classification in `backend/research/ir_classification.py`.
+- introduced category-specific required / exclude keywords for 決算短信, 決算説明資料, 有価証券報告書, 中期経営計画, 配当・自社株買い, 業績予想修正, 公式IRサイト, and 適時開示.
+- stopped treating `tdnet` source type alone as 業績予想修正, 配当・自社株買い, 決算短信, 決算説明資料, or 中期経営計画.
+- suppressed duplicate use of the same source URL / title across IR categories, with specific categories preferred over generic 適時開示.
+- changed the user-facing `found` status label from `取得済み・要約済み` to `関連候補あり`.
+- added optional classification metadata to `IRSummaryItem`: reason, matched keywords, confidence, and source category.
+
+### Fixed Cases
+
+- RSU / restricted stock unit TDnet disclosure remains under 適時開示 and no longer appears under 配当・自社株買い or 業績予想修正.
+- 業績予想修正 requires explicit earnings-forecast / revision keywords.
+- 配当・自社株買い requires dividend / buyback / self-share acquisition keywords and excludes stock compensation / restricted-stock disposal wording.
+- 決算説明資料 no longer duplicates into 決算短信 only because it contains 決算-related wording.
+
+### Validation
+
+- `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ir_summary_classification.py -q` passed: 10 passed.
+- `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_research_service.py -q -k "ir or tdnet" --basetemp outputs\work\pytest_tmp_ir_v2_research` passed: 16 passed, 93 deselected.
+- `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_forecast_display.py -q -k "research_summary or ir_summary or foreign_stock_ir" --basetemp outputs\work\pytest_tmp_ir_v2_ui` passed: 5 passed, 291 deselected.
+- `.\venv_SMAI\Scripts\python.exe -m ruff check backend\research ui\app.py tests\test_ir_summary_classification.py tests\test_research_service.py tests\test_ui_forecast_display.py --no-cache` passed.
+- `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py backend\research\ir_classification.py backend\research\service.py ui\app.py tests\test_ir_summary_classification.py tests\test_research_service.py tests\test_ui_forecast_display.py` passed.
+
 ## 2026-06-18 - Ranking detail table UX split
 
 ### Scope

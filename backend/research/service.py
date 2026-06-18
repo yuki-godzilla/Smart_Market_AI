@@ -43,6 +43,13 @@ from backend.research.external_registration import (
 from backend.research.external_registration import (
     safe_cache_fragment as _safe_cache_fragment,
 )
+from backend.research.ir_classification import (
+    DEFAULT_IR_CATEGORY_RULES,
+    IRCategoryMatch,
+    IRCategoryRule,
+    IRDocumentCandidate,
+    classify_ir_document_candidates,
+)
 
 ResearchLanguage = Literal["ja", "en", "unknown"]
 ResearchTopicCategory = Literal[
@@ -770,6 +777,10 @@ class IRSummaryItem(StrictBaseModel):
     source_title: str | None = None
     source_url: str | None = None
     evidence_level: ResearchEvidenceLevel = "missing"
+    classification_reason: str | None = None
+    matched_keywords: list[str] = Field(default_factory=list)
+    classification_confidence: float | None = Field(default=None, ge=0, le=1)
+    source_category: str | None = None
 
     @property
     def status(self) -> InformationStatus:
@@ -4345,59 +4356,6 @@ def _company_research_ir_items(
     normalized_evidence: Sequence[CompanyResearchEvidence],
     external_research_result: ExternalResearchFetchResult | None,
 ) -> list[IRSummaryItem]:
-    specs: tuple[
-        tuple[str, IRDocumentType, tuple[ResearchSourceType, ...], tuple[str, ...]],
-        ...,
-    ] = (
-        (
-            "決算短信",
-            "earnings_summary",
-            ("earnings_report",),
-            ("決算短信", "financial results"),
-        ),
-        (
-            "決算説明資料",
-            "earnings_presentation",
-            ("earnings_presentation",),
-            ("決算説明", "presentation", "briefing"),
-        ),
-        (
-            "有価証券報告書",
-            "annual_report",
-            ("annual_report", "integrated_report"),
-            ("有価証券報告書", "annual securities report", "annual report"),
-        ),
-        (
-            "公式IRサイト",
-            "other",
-            ("company_ir",),
-            ("IR", "investor relations", "投資家", "株主"),
-        ),
-        (
-            "適時開示",
-            "timely_disclosure",
-            ("tdnet",),
-            ("適時開示", "TDnet", "timely disclosure"),
-        ),
-        (
-            "中期経営計画",
-            "medium_term_plan",
-            ("medium_term_plan",),
-            ("中期経営計画", "medium-term"),
-        ),
-        (
-            "配当・自社株買い",
-            "shareholder_return",
-            ("earnings_report", "tdnet"),
-            ("配当", "自己株式", "自社株買い", "株主還元", "dividend", "buyback"),
-        ),
-        (
-            "業績予想修正",
-            "forecast_revision",
-            ("tdnet", "earnings_report"),
-            ("業績予想修正", "上方修正", "下方修正", "forecast revision"),
-        ),
-    )
     cards = list(brief.source_cards)
     if external_research_result is not None:
         cards.extend(
@@ -4414,18 +4372,26 @@ def _company_research_ir_items(
             )
             for entry in external_research_result.entries
         )
+    candidates = _company_research_ir_candidates(report, cards, normalized_evidence)
+    matches_by_document_type = classify_ir_document_candidates(candidates)
+    rules_by_document_type = {rule.document_type: rule for rule in DEFAULT_IR_CATEGORY_RULES}
+    display_order = (
+        "決算短信",
+        "決算説明資料",
+        "有価証券報告書",
+        "公式IRサイト",
+        "適時開示",
+        "中期経営計画",
+        "配当・自社株買い",
+        "業績予想修正",
+    )
     return [
-        _company_research_ir_item_for_spec(
-            document_type=document_type,
-            ir_document_type=ir_document_type,
-            source_types=source_types,
-            keywords=keywords,
-            report=report,
+        _company_research_ir_item_for_rule(
+            rule=rules_by_document_type[document_type],
+            match=matches_by_document_type.get(document_type),
             brief=brief,
-            cards=cards,
-            normalized_evidence=normalized_evidence,
         )
-        for document_type, ir_document_type, source_types, keywords in specs
+        for document_type in display_order
     ]
 
 
@@ -7138,126 +7104,98 @@ def _company_research_metric_text_value(text: str, patterns: Sequence[str]) -> s
     return None
 
 
-def _company_research_ir_item_for_spec(
-    *,
-    document_type: str,
-    ir_document_type: IRDocumentType,
-    source_types: Sequence[ResearchSourceType],
-    keywords: Sequence[str],
+def _company_research_ir_candidates(
     report: CompanyResearchReport,
-    brief: ResearchBrief,
     cards: Sequence[ResearchBriefSourceCard],
     normalized_evidence: Sequence[CompanyResearchEvidence],
+) -> list[IRDocumentCandidate]:
+    candidates: list[IRDocumentCandidate] = []
+    for card in cards:
+        candidates.append(
+            IRDocumentCandidate(
+                title=card.title,
+                source_type=card.source_type,
+                summary=card.note,
+                body=card.note,
+                source_url=card.source_url,
+                source_id=card.source_url,
+                source_title=card.title,
+            )
+        )
+    for row in report.evidence:
+        candidates.append(
+            IRDocumentCandidate(
+                title=row.title,
+                source_type=row.source_type,
+                summary=row.excerpt,
+                body=_research_brief_evidence_text(row),
+                source_id=f"{row.document_id}:{row.chunk_id}",
+                source_title=row.title,
+            )
+        )
+    for item in normalized_evidence:
+        if item.kind not in {"ir_document", "tdnet_disclosure"}:
+            continue
+        candidates.append(
+            IRDocumentCandidate(
+                title=item.title,
+                source_type=item.source_type,
+                summary=item.body,
+                body=item.body,
+                source_url=item.source_url,
+                source_id=item.source_url or item.source_title or item.title,
+                source_title=item.source_title or item.title,
+            )
+        )
+    return candidates
+
+
+def _company_research_ir_item_for_rule(
+    *,
+    rule: IRCategoryRule,
+    match: IRCategoryMatch | None,
+    brief: ResearchBrief,
 ) -> IRSummaryItem:
-    matched_cards = [
-        card
-        for card in cards
-        if card.source_type in source_types
-        or (
-            _company_research_is_ir_evidence_source(card.source_type)
-            and (
-                _company_research_keyword_match(card.title, keywords)
-                or _company_research_keyword_match(card.note, keywords)
-            )
-        )
-    ]
-    matched_card = next(
-        (card for card in matched_cards if card.source_url),
-        matched_cards[0] if matched_cards else None,
-    )
-    matched_evidence = next(
-        (
-            row
-            for row in report.evidence
-            if row.source_type in source_types
-            or (
-                _company_research_is_ir_evidence_source(row.source_type)
-                and _company_research_keyword_match(_research_brief_evidence_text(row), keywords)
-            )
-        ),
-        None,
-    )
-    matched_normalized = next(
-        (
-            item
-            for item in normalized_evidence
-            if item.kind in {"ir_document", "tdnet_disclosure"}
-            and (
-                item.source_type in source_types
-                or _company_research_keyword_match(item.title, keywords)
-                or _company_research_keyword_match(item.body, keywords)
-            )
-        ),
-        None,
-    )
-    key_points = _company_research_ir_key_points(document_type, brief)
-    if not key_points and matched_evidence is not None:
-        key_points = [_clip_text(matched_evidence.excerpt, max_chars=120)]
-    information_status: InformationStatus = "found" if key_points else "unparsed"
-    if matched_card is not None:
+    ir_document_type = cast(IRDocumentType, rule.ir_document_type)
+    if match is None:
         return IRSummaryItem(
-            document_type=document_type,
+            document_type=rule.document_type,
             ir_document_type=ir_document_type,
-            title=matched_card.title,
-            availability="found",
-            information_status=information_status,
-            summary=_company_research_ir_summary(document_type, key_points, information_status),
-            key_points=key_points,
-            source_title=matched_card.title,
-            source_url=matched_card.source_url,
-            evidence_level=_company_research_evidence_level_from_source_types(
-                [matched_card.source_type]
-            ),
-        )
-    if matched_evidence is not None:
-        return IRSummaryItem(
-            document_type=document_type,
-            ir_document_type=ir_document_type,
-            title=matched_evidence.title,
-            availability="found",
-            information_status=information_status,
-            summary=_company_research_ir_summary(document_type, key_points, information_status),
-            key_points=key_points,
-            source_title=matched_evidence.title,
-            evidence_level=_company_research_evidence_level_from_source_types(
-                [matched_evidence.source_type]
-            ),
-        )
-    if matched_normalized is not None:
-        return IRSummaryItem(
-            document_type=document_type,
-            ir_document_type=ir_document_type,
-            title=matched_normalized.title,
-            availability="found",
-            information_status=matched_normalized.information_status,
-            summary=_company_research_ir_summary(
-                document_type,
-                [],
-                matched_normalized.information_status,
-            ),
+            title="未取得",
+            availability="missing",
+            information_status="missing",
+            summary=f"{rule.document_type}は未取得です。公式IR、TDnet、EDINETで追加確認してください。",
             key_points=[],
-            source_title=matched_normalized.source_title or matched_normalized.title,
-            source_url=matched_normalized.source_url,
-            evidence_level=_company_research_evidence_level_from_source_types(
-                [matched_normalized.source_type]
-            ),
+            evidence_level="missing",
+            classification_confidence=0.0,
         )
+    candidate = match.candidate
+    key_points = _company_research_ir_key_points(rule.document_type, brief)
+    if not key_points and candidate.body and candidate.source_type != "tdnet":
+        key_points = [_clip_text(candidate.body, max_chars=120)]
+    information_status: InformationStatus = "found"
     return IRSummaryItem(
-        document_type=document_type,
+        document_type=rule.document_type,
         ir_document_type=ir_document_type,
-        title="未取得",
-        availability="missing",
-        information_status="missing",
-        summary=f"{document_type}は未取得です。公式IR、TDnet、EDINETで追加確認してください。",
-        key_points=[],
-        evidence_level="missing",
+        title=candidate.title,
+        availability="found",
+        information_status=information_status,
+        summary=_company_research_ir_summary(
+            rule.document_type,
+            key_points,
+            information_status,
+        ),
+        key_points=key_points,
+        source_title=candidate.source_title or candidate.title,
+        source_url=candidate.source_url,
+        evidence_level=_company_research_evidence_level_from_source_types(
+            [cast(ResearchSourceType, candidate.source_type)]
+        ),
+        classification_reason=match.classification_reason,
+        matched_keywords=list(match.matched_keywords),
+        classification_confidence=match.classification_confidence,
+        source_category=candidate.source_type,
     )
-
-
-def _company_research_is_ir_evidence_source(
-    source_type: ResearchSourceType | str,
-) -> bool:
-    return source_type in _RESEARCH_BRIEF_HIGH_CONFIDENCE_SOURCES
 
 
 def _company_research_ir_key_points(
@@ -7293,7 +7231,11 @@ def _company_research_ir_summary(
     information_status: InformationStatus,
 ) -> str:
     if key_points:
-        return f"{document_type}から確認できる要点があります。"
+        return (
+            f"{document_type}に関連しそうな資料候補があります。内容はリンク先で確認してください。"
+        )
+    if information_status == "found":
+        return "関連しそうな資料候補があります。内容はリンク先で確認してください。"
     if information_status == "unparsed":
         return "資料タイトルは取得済みですが、本文は未解析です。詳細はリンク先で確認してください。"
     return f"{document_type}の出典は確認できています。詳細は出典カードで確認してください。"

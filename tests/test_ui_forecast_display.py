@@ -1633,6 +1633,7 @@ def test_company_research_summary_html_prioritizes_company_understanding():
                 document_type="決算短信",
                 title="取得済み",
                 availability="found",
+                information_status="found",
                 summary="決算短信から確認できる要点があります。",
                 key_points=["通期予想を確認できます。"],
                 source_title="7203 決算短信",
@@ -1669,6 +1670,8 @@ def test_company_research_summary_html_prioritizes_company_understanding():
     assert "定量情報サマリー" in markup
     assert "売上高" in markup
     assert "IR情報サマリー" in markup
+    assert "関連候補あり" in markup
+    assert "取得済み・要約済み" not in markup
     assert "最新ニュース・開示サマリー" in markup
     assert "market-intelligence-panel" in markup
     assert "Market Intelligence" in markup

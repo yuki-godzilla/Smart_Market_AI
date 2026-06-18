@@ -10566,7 +10566,7 @@ def _research_evidence_level_confidence_tone(level: str) -> str:
 
 def _information_status_label(status: str) -> str:
     labels = {
-        "found": "取得済み・要約済み",
+        "found": "関連候補あり",
         "missing": "未取得",
         "unparsed": "取得済み・本文未解析",
         "unverified": "公式未確認",

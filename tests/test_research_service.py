@@ -610,7 +610,8 @@ def test_company_research_summary_builder_splits_overview_metrics_ir_and_news():
     assert summary.quantitative.per == "12.5倍"
     assert summary.quantitative.market_cap == "35兆円"
     assert ir_by_type["決算短信"].availability == "found"
-    assert ir_by_type["適時開示"].source_url == "https://example.com/tdnet/7203"
+    assert ir_by_type["適時開示"].availability == "found"
+    assert ir_by_type["配当・自社株買い"].source_url == "https://example.com/tdnet/7203"
     assert summary.news_items[0].topic_type == "product"
     assert summary.news_items[0].impact_hint == "product"
     assert summary.news_items[0].official_confirmation_required is True
@@ -2290,12 +2291,16 @@ def test_company_research_summary_builder_distinguishes_ir_statuses_and_types():
     ir_by_type = {item.ir_document_type: item for item in summary.ir_items}
 
     assert ir_by_type["forecast_revision"].availability == "found"
-    assert ir_by_type["forecast_revision"].information_status == "unparsed"
-    assert ir_by_type["forecast_revision"].status == "unparsed"
+    assert ir_by_type["forecast_revision"].information_status == "found"
+    assert ir_by_type["forecast_revision"].status == "found"
     assert ir_by_type["forecast_revision"].source_url == "https://example.com/tdnet/forecast"
-    assert "本文は未解析" in ir_by_type["forecast_revision"].summary
+    assert "関連しそうな資料候補" in ir_by_type["forecast_revision"].summary
+    assert ir_by_type["forecast_revision"].matched_keywords
+    assert ir_by_type["forecast_revision"].classification_reason == (
+        "specific_required_keyword_match"
+    )
     assert ir_by_type["shareholder_return"].availability == "found"
-    assert ir_by_type["shareholder_return"].information_status == "unparsed"
+    assert ir_by_type["shareholder_return"].information_status == "found"
     assert ir_by_type["earnings_summary"].information_status == "missing"
     assert any(item.information_status == "missing" for item in summary.ir_items)
     assert summary.news_items
@@ -2328,6 +2333,60 @@ def test_company_research_summary_builder_distinguishes_ir_statuses_and_types():
         and item.official_confirmation_required is False
         for item in summary.news_items
     )
+
+
+def test_company_research_summary_builder_keeps_rsu_tdnet_out_of_return_and_forecast_ir():
+    report = CompanyResearchReport(
+        symbol="6856.T",
+        as_of=date(2026, 6, 18),
+        summary="Research summary.",
+        points=[],
+        evidence=[],
+        data_quality=ResearchDataQuality(
+            status="WARN",
+            latest_document_date=None,
+            document_count=0,
+            evidence_count=0,
+            warnings=[],
+        ),
+    )
+    external_result = ExternalResearchFetchResult(
+        symbol="6856.T",
+        provider="fake_tdnet",
+        fetched_at=datetime(2026, 6, 18, tzinfo=UTC),
+        entries=[
+            ExternalResearchFetchManifestEntry(
+                title=(
+                    "リストリクテッド・ストック・ユニット（RSU）付与制度としての"
+                    "自己株式処分の払込完了に関するお知らせ"
+                ),
+                symbol="6856.T",
+                source_type="tdnet",
+                source_url="https://example.com/tdnet/rsu",
+                provider="tdnet",
+                published_at=date(2026, 6, 15),
+                fetched_at=datetime(2026, 6, 18, tzinfo=UTC),
+                freshness_status="latest",
+                document_id="external-rsu",
+                content_summary="",
+            )
+        ],
+    )
+
+    summary = CompanyResearchSummaryBuilder().build(
+        report,
+        external_research_result=external_result,
+    )
+    ir_by_type = {item.ir_document_type: item for item in summary.ir_items}
+
+    assert ir_by_type["timely_disclosure"].availability == "found"
+    assert ir_by_type["timely_disclosure"].source_url == "https://example.com/tdnet/rsu"
+    assert ir_by_type["timely_disclosure"].classification_reason in {
+        "tdnet_generic_disclosure",
+        "optional_keyword_match",
+    }
+    assert ir_by_type["shareholder_return"].availability == "missing"
+    assert ir_by_type["forecast_revision"].availability == "missing"
 
 
 def test_company_research_summary_builder_does_not_treat_provider_profile_as_ir_document():

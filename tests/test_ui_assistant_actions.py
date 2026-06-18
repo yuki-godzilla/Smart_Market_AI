@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from backend.assistant import AssistantActionResult, get_assistant_action
 from ui.components.assistant_action_confirm import assistant_action_confirmation_html
 from ui.components.assistant_action_result import assistant_action_result_card_html
-from ui.views.copilot import copilot_answer_detail_html
+from ui.views.copilot import _first_confirmable_action_id, copilot_answer_detail_html
 
 
 def test_confirmation_html_explains_create_report_safety_boundary():
@@ -35,7 +35,10 @@ def test_confirmation_html_warns_for_external_fetch_actions():
     )
 
     assert "外部データ取得を行います" in markup
+    assert "TDnet" in markup
+    assert "EDINET" in markup
     assert "時間がかかる場合" in markup
+    assert "一部の取得元だけ成功" in markup
 
 
 def test_action_result_card_distinguishes_success_and_followups():
@@ -56,6 +59,78 @@ def test_action_result_card_distinguishes_success_and_followups():
     assert "確認レポートを作成しました" in markup
     assert "レポートを見る / 保存する" in markup
     assert "売買推奨ではありません" in markup
+
+
+def test_action_result_card_renders_update_research_partial_followups():
+    result = AssistantActionResult(
+        action_id="update_research",
+        status="partial_success",
+        title="AI調査を一部更新しました",
+        summary="7203.T の外部Research Evidenceを2件反映しました。",
+        user_message="取得できた材料だけをAI調査に反映しました。",
+        warnings=["EDINETは該当情報なしでした。"],
+        completed_at=datetime(2026, 6, 19, 9, 0, tzinfo=UTC),
+        followup_actions=[
+            "open_research_section",
+            "create_decision_report",
+            "retry_update_research",
+        ],
+    )
+
+    markup = assistant_action_result_card_html(result)
+
+    assert "実行結果: 一部成功" in markup
+    assert "AI調査を一部更新しました" in markup
+    assert "確認レポートを作る" in markup
+    assert "AI調査をもう一度更新する" in markup
+
+
+def test_first_confirmable_action_prefers_update_research_when_planned_first():
+    turn = {
+        "assistant_tool_plan": json.dumps(
+            {
+                "steps": [
+                    {"action_id": "update_research", "requires_confirmation": True},
+                    {
+                        "action_id": "create_decision_report",
+                        "requires_confirmation": True,
+                    },
+                ]
+            },
+            ensure_ascii=False,
+        )
+    }
+
+    assert _first_confirmable_action_id(turn) == "update_research"
+
+
+def test_first_confirmable_action_skips_already_recorded_action_result():
+    result = AssistantActionResult(
+        action_id="update_research",
+        status="success",
+        title="AI調査を更新しました",
+        summary="7203.T の外部Research Evidenceを2件反映しました。",
+        user_message="確認材料をAI調査に反映しました。",
+    )
+    turn = {
+        "assistant_action_results": json.dumps(
+            [result.model_dump(mode="json")], ensure_ascii=False
+        ),
+        "assistant_tool_plan": json.dumps(
+            {
+                "steps": [
+                    {"action_id": "update_research", "requires_confirmation": True},
+                    {
+                        "action_id": "create_decision_report",
+                        "requires_confirmation": True,
+                    },
+                ]
+            },
+            ensure_ascii=False,
+        ),
+    }
+
+    assert _first_confirmable_action_id(turn) == "create_decision_report"
 
 
 def test_copilot_answer_detail_html_renders_action_result_cards():

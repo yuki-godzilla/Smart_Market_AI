@@ -85,6 +85,7 @@ COPILOT_RUNTIME_STATUS_STATE_KEY = "smai_copilot_runtime_status"
 COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY = "pending_decision_report_draft"
 COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY = "smai_copilot_pending_action_confirm"
 COPILOT_ACTION_AUDIT_STATE_KEY = "smai_copilot_action_audit"
+COPILOT_CONFIRMABLE_ACTION_IDS = ("update_research", "create_decision_report")
 COPILOT_GATEWAY_DIAGNOSTIC_TTL_SECONDS = 20.0
 COPILOT_STREAM_DELAY_SECONDS = 0.16
 COPILOT_STREAM_MAX_CHUNKS = 8
@@ -1646,7 +1647,7 @@ def _render_confirmable_assistant_action(
     _, action_col = st.columns([0.62, 0.38], gap="small")
     with action_col:
         if st.button(
-            f"{action.label}を確認",
+            _assistant_action_confirm_label(action_id),
             key=f"smai_copilot_confirm_action_{action_id}_{turn.get('turn_id', '')}",
             use_container_width=True,
             help="実行前に対象、使用材料、変更しないものを確認します。",
@@ -1682,7 +1683,7 @@ def _render_assistant_action_confirmation(
     execute_col, cancel_col = st.columns(2, gap="small")
     with execute_col:
         if st.button(
-            "作成する",
+            _assistant_action_execute_label(action_id),
             key=f"smai_copilot_execute_action_{action_id}_{turn.get('turn_id', '')}",
             use_container_width=True,
         ):
@@ -1727,17 +1728,34 @@ def _execute_confirmed_assistant_action(
         context=context,
         question=str(turn.get("question", "")),
     )
-    return AssistantActionExecutor().execute(
+    return AssistantActionExecutor(research_fetcher=_fetch_research_for_assistant_action).execute(
         action_id,
         backend_context,
         payload={
             "report_context": assistant_context_to_report_context(context),
             "user_question": str(turn.get("question", "")),
             "assistant_answer": str(turn.get("answer", "")),
-            "symbol": str(turn.get("decision_report_symbol", "")),
-            "company_name": str(turn.get("decision_report_company_name", "")),
+            "symbol": _assistant_action_symbol(turn, context),
+            "company_name": _assistant_action_company_name(turn, context),
         },
         confirmed=True,
+    )
+
+
+def _fetch_research_for_assistant_action(
+    *,
+    symbol: str,
+    company_name: str | None = None,
+    related_keywords: list[str] | None = None,
+    allow_network: bool = True,
+    context: Mapping[str, object] | None = None,
+):
+    _ = context
+    return fetch_external_research_for_symbol(
+        symbol,
+        company_name=company_name,
+        related_keywords=related_keywords or [],
+        allow_network=allow_network,
     )
 
 
@@ -1855,7 +1873,9 @@ def _first_confirmable_action_id(turn: dict[str, str]) -> str:
         if not isinstance(step, dict):
             continue
         action_id = str(step.get("action_id", "")).strip()
-        if action_id != "create_decision_report":
+        if action_id not in COPILOT_CONFIRMABLE_ACTION_IDS:
+            continue
+        if _turn_has_action_result(turn, action_id):
             continue
         if not bool(step.get("requires_confirmation")):
             continue
@@ -1883,20 +1903,51 @@ def _assistant_action_target_label(
     turn: dict[str, str],
     context: SmaiAssistantContext,
 ) -> str:
-    symbol = (
-        str(turn.get("decision_report_symbol", "")).strip()
-        or str(context.summary.get("銘柄", "")).strip()
-        or str(context.summary.get("symbol", "")).strip()
-    )
-    company = (
-        str(turn.get("decision_report_company_name", "")).strip()
-        or str(context.summary.get("会社名", "")).strip()
-    )
+    symbol = _assistant_action_symbol(turn, context)
+    company = _assistant_action_company_name(turn, context)
     if symbol and company:
         return f"{symbol} - {company}"
     if symbol:
         return symbol
     return copilot_context_label(context)
+
+
+def _assistant_action_symbol(
+    turn: dict[str, str],
+    context: SmaiAssistantContext,
+) -> str:
+    return (
+        str(turn.get("decision_report_symbol", "")).strip()
+        or str(context.summary.get("銘柄", "")).strip()
+        or str(context.summary.get("symbol", "")).strip()
+    )
+
+
+def _assistant_action_company_name(
+    turn: dict[str, str],
+    context: SmaiAssistantContext,
+) -> str:
+    return (
+        str(turn.get("decision_report_company_name", "")).strip()
+        or str(context.summary.get("会社名", "")).strip()
+        or str(context.summary.get("company_name", "")).strip()
+    )
+
+
+def _assistant_action_confirm_label(action_id: str) -> str:
+    if action_id == "update_research":
+        return "AI調査を更新する前に確認"
+    if action_id == "create_decision_report":
+        return "確認レポートを作る前に確認"
+    return "実行前に確認"
+
+
+def _assistant_action_execute_label(action_id: str) -> str:
+    if action_id == "update_research":
+        return "AI調査を更新する"
+    if action_id == "create_decision_report":
+        return "作成する"
+    return "実行する"
 
 
 def _assistant_action_materials(context: SmaiAssistantContext) -> tuple[str, ...]:

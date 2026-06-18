@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections import Counter
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 from backend.assistant.action_result import AssistantActionResult, safe_action_error_message
@@ -15,8 +16,14 @@ from backend.reporting import DecisionReportContext, render_decision_report_mark
 class AssistantActionExecutor:
     """Execute user-confirmed Assistant actions through safe, bounded handlers."""
 
-    def __init__(self, *, tool_layer: AssistantToolLayer | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        tool_layer: AssistantToolLayer | None = None,
+        research_fetcher: Callable[..., Any] | None = None,
+    ) -> None:
         self._tool_layer = tool_layer or AssistantToolLayer()
+        self._research_fetcher = research_fetcher
 
     def execute(
         self,
@@ -52,6 +59,13 @@ class AssistantActionExecutor:
                     payload=payload or {},
                     started_at=started_at,
                 )
+            if action.action_id == "update_research":
+                return self._execute_update_research(
+                    action=action,
+                    context=context,
+                    payload=payload or {},
+                    started_at=started_at,
+                )
             return _result(
                 action_id=action.action_id,
                 status="not_available",
@@ -68,7 +82,7 @@ class AssistantActionExecutor:
                 action_id=action.action_id,
                 status="failed",
                 title="操作を完了できませんでした",
-                summary="確認レポート作成中に問題が発生しました。",
+                summary="確認済み操作の実行中に問題が発生しました。",
                 error_code="execution_error",
                 started_at=started_at,
                 requires_followup=True,
@@ -166,6 +180,279 @@ class AssistantActionExecutor:
             ],
             followup_actions=["download_decision_report", "open_research_section"],
         )
+
+    def _execute_update_research(
+        self,
+        *,
+        action: AssistantActionSpec,
+        context: SMAIAssistantContext,
+        payload: Mapping[str, Any],
+        started_at: datetime,
+    ) -> AssistantActionResult:
+        symbol = _symbol_for_action(context=context, report_context=None, payload=payload)
+        if not symbol:
+            return _result(
+                action_id=action.action_id,
+                status="failed",
+                title="AI調査を更新できませんでした",
+                summary="対象銘柄を特定できませんでした。",
+                error_code="symbol_missing",
+                started_at=started_at,
+                requires_followup=True,
+                followup_actions=["open_cockpit"],
+            )
+        if self._research_fetcher is None:
+            return _result(
+                action_id=action.action_id,
+                status="not_available",
+                title="AI調査を更新できませんでした",
+                summary="AI調査を更新する部品を利用できませんでした。",
+                error_code="research_fetcher_unavailable",
+                started_at=started_at,
+                details={"symbol": symbol},
+                requires_followup=True,
+                followup_actions=["answer_with_existing_materials", "open_cockpit"],
+            )
+
+        company_name = _clean_text(
+            payload.get("company_name")
+            or payload.get("symbol_name")
+            or context.page_state.get("company")
+        )
+        related_keywords = _research_related_keywords(
+            context=context,
+            payload=payload,
+            symbol=symbol,
+            company_name=company_name,
+        )
+        try:
+            fetch_result = self._research_fetcher(
+                symbol=symbol,
+                company_name=company_name or None,
+                related_keywords=related_keywords,
+                allow_network=True,
+                context={
+                    "current_page": context.current_page,
+                    "user_question": context.user_question,
+                    "action_id": action.action_id,
+                },
+            )
+        except TimeoutError:
+            return _result(
+                action_id=action.action_id,
+                status="failed",
+                title="AI調査を更新できませんでした",
+                summary="外部取得元の応答が時間切れになりました。",
+                error_code="provider_timeout",
+                started_at=started_at,
+                details={"symbol": symbol, "company_name": company_name},
+                warnings=["外部取得は完了していません。取得済み材料で確認してください。"],
+                requires_followup=True,
+                followup_actions=[
+                    "answer_with_existing_materials",
+                    "open_cockpit",
+                    "retry_update_research",
+                ],
+            )
+        except Exception:
+            return _result(
+                action_id=action.action_id,
+                status="failed",
+                title="AI調査を更新できませんでした",
+                summary="外部情報の取得結果を確認できませんでした。",
+                error_code="external_fetch_failed",
+                started_at=started_at,
+                details={"symbol": symbol, "company_name": company_name},
+                warnings=["providerの詳細エラーは画面に表示しません。"],
+                requires_followup=True,
+                followup_actions=[
+                    "answer_with_existing_materials",
+                    "open_cockpit",
+                    "retry_update_research",
+                ],
+            )
+
+        return _research_fetch_result_to_action_result(
+            action=action,
+            fetch_result=fetch_result,
+            symbol=symbol,
+            company_name=company_name,
+            started_at=started_at,
+        )
+
+
+def _research_fetch_result_to_action_result(
+    *,
+    action: AssistantActionSpec,
+    fetch_result: Any,
+    symbol: str,
+    company_name: str,
+    started_at: datetime,
+) -> AssistantActionResult:
+    entries = _as_sequence(_result_field(fetch_result, "entries", []))
+    explicit_count = _safe_int(_result_field(fetch_result, "entry_count", None))
+    entry_count = max(len(entries), explicit_count or 0)
+    source_counts = _research_source_counts(fetch_result=fetch_result, entries=entries)
+    failed_sources = _provider_sources_by_status(fetch_result, {"failed"})
+    timeout_sources = _provider_sources_by_status(fetch_result, {"timeout"})
+    no_result_sources = _provider_sources_by_status(fetch_result, {"no_result"})
+    warnings = _research_fetch_warnings(
+        fetch_result=fetch_result,
+        failed_sources=failed_sources,
+        timeout_sources=timeout_sources,
+        no_result_sources=no_result_sources,
+    )
+    fetched_at = _iso_timestamp(_result_field(fetch_result, "fetched_at", None))
+    details = {
+        "symbol": symbol,
+        "company_name": company_name,
+        "fetched_at": fetched_at,
+        "entry_count": entry_count,
+        "source_counts": source_counts,
+        "warning_count": len(warnings),
+        "failed_sources": failed_sources,
+        "timeout_sources": timeout_sources,
+        "no_result_sources": no_result_sources,
+        "retention_policy": _clean_text(_result_field(fetch_result, "retention_policy", "")),
+    }
+    status_hint = _clean_text(_result_field(fetch_result, "status", "")).lower()
+    has_provider_gap = bool(failed_sources or timeout_sources or no_result_sources)
+    if status_hint == "failed" or entry_count <= 0:
+        return _result(
+            action_id=action.action_id,
+            status="failed",
+            title="AI調査を更新できませんでした",
+            summary=f"{symbol} の外部Research Evidenceを取得できませんでした。",
+            user_message="外部情報を取得できませんでした。取得済み材料を使って確認できます。",
+            error_code=_clean_text(_result_field(fetch_result, "error_code", ""))
+            or "no_external_research_found",
+            started_at=started_at,
+            details=details,
+            warnings=warnings,
+            requires_followup=True,
+            followup_actions=[
+                "answer_with_existing_materials",
+                "open_cockpit",
+                "retry_update_research",
+            ],
+        )
+
+    if status_hint == "partial_success" or warnings or has_provider_gap:
+        return _result(
+            action_id=action.action_id,
+            status="partial_success",
+            title="AI調査を一部更新しました",
+            summary=f"{symbol} の外部Research Evidenceを{entry_count}件反映しました。",
+            user_message=(
+                "取得できた材料だけをAI調査に反映しました。"
+                "一部の取得元は未取得または該当なしです。"
+            ),
+            started_at=started_at,
+            details=details,
+            warnings=warnings,
+            followup_actions=[
+                "open_research_section",
+                "create_decision_report",
+                "retry_update_research",
+            ],
+        )
+
+    return _result(
+        action_id=action.action_id,
+        status="success",
+        title="AI調査を更新しました",
+        summary=f"{symbol} の外部Research Evidenceを{entry_count}件反映しました。",
+        user_message=(
+            f"{symbol}{' / ' + company_name if company_name else ''} のIR、開示、"
+            "ニュースなどの確認材料をAI調査に反映しました。"
+        ),
+        started_at=started_at,
+        details=details,
+        warnings=["取得本文やproviderの詳細ログは結果カードに表示していません。"],
+        followup_actions=[
+            "open_research_section",
+            "create_decision_report",
+            "summarize_next_checks",
+        ],
+    )
+
+
+def _research_fetch_warnings(
+    *,
+    fetch_result: Any,
+    failed_sources: list[str],
+    timeout_sources: list[str],
+    no_result_sources: list[str],
+) -> list[str]:
+    warnings = _clean_strings(_result_field(fetch_result, "warnings", []), limit=5)
+    if failed_sources:
+        warnings.append(f"一部の取得元を確認できませんでした: {', '.join(failed_sources)}")
+    if timeout_sources:
+        warnings.append(f"一部の取得元が時間切れになりました: {', '.join(timeout_sources)}")
+    if no_result_sources:
+        warnings.append(f"一部の取得元は該当情報なしでした: {', '.join(no_result_sources)}")
+    return _dedupe_strings(warnings)[:8]
+
+
+def _research_source_counts(*, fetch_result: Any, entries: Sequence[Any]) -> dict[str, int]:
+    explicit = _result_field(fetch_result, "source_counts", None)
+    if isinstance(explicit, Mapping):
+        counts: dict[str, int] = {}
+        for key, value in explicit.items():
+            source = _clean_text(key)
+            count = _safe_int(value)
+            if source and count is not None:
+                counts[source] = count
+        return counts
+    counter: Counter[str] = Counter()
+    for entry in entries:
+        source = _clean_text(_result_field(entry, "source_type", ""))
+        if source:
+            counter[source] += 1
+    return dict(counter)
+
+
+def _provider_sources_by_status(fetch_result: Any, statuses: set[str]) -> list[str]:
+    explicit_key = {
+        "failed": "failed_sources",
+        "timeout": "timeout_sources",
+        "no_result": "no_result_sources",
+    }
+    for status in statuses:
+        explicit = _clean_strings(_result_field(fetch_result, explicit_key.get(status, ""), []))
+        if explicit:
+            return explicit
+    sources: list[str] = []
+    for item in _as_sequence(_result_field(fetch_result, "provider_statuses", [])):
+        status = _clean_text(_result_field(item, "status", "")).lower()
+        if status not in statuses:
+            continue
+        source = _clean_text(_result_field(item, "source", "")) or _clean_text(
+            _result_field(item, "provider", "")
+        )
+        if source:
+            sources.append(source)
+    return _dedupe_strings(sources)
+
+
+def _research_related_keywords(
+    *,
+    context: SMAIAssistantContext,
+    payload: Mapping[str, Any],
+    symbol: str,
+    company_name: str,
+) -> list[str]:
+    explicit = _clean_strings(payload.get("related_keywords", []), limit=4)
+    if explicit:
+        return explicit
+    candidates = [
+        company_name,
+        _clean_text(payload.get("subject", "")),
+        _clean_text(payload.get("user_question", "")),
+        context.user_question,
+        symbol,
+    ]
+    return _dedupe_strings([item for item in candidates if item])[:4]
 
 
 def _validate_action_for_execution(
@@ -414,3 +701,58 @@ def _result(
 
 def _clean_text(value: Any) -> str:
     return str(value or "").strip()
+
+
+def _result_field(value: Any, name: str, default: Any = None) -> Any:
+    if not name:
+        return default
+    if isinstance(value, Mapping):
+        return value.get(name, default)
+    return getattr(value, name, default)
+
+
+def _as_sequence(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value] if value.strip() else []
+    if isinstance(value, Mapping):
+        return [value]
+    if isinstance(value, Sequence):
+        return list(value)
+    return [value]
+
+
+def _clean_strings(value: Any, *, limit: int | None = None) -> list[str]:
+    items = [_clean_text(item) for item in _as_sequence(value)]
+    cleaned = [item for item in items if item]
+    if limit is None:
+        return cleaned
+    return cleaned[: max(0, limit)]
+
+
+def _dedupe_strings(values: Sequence[str]) -> list[str]:
+    deduped: list[str] = []
+    for value in values:
+        clean = _clean_text(value)
+        if clean and clean not in deduped:
+            deduped.append(clean)
+    return deduped
+
+
+def _safe_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return int(value)
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _iso_timestamp(value: Any) -> str:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    text = _clean_text(value)
+    return text if text else datetime.now(UTC).isoformat()

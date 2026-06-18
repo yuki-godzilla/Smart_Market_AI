@@ -12,18 +12,14 @@ def assistant_action_confirmation_html(
     target_label: str,
     materials: Sequence[str],
 ) -> str:
-    external_note = (
-        "<li>この操作は外部データ取得を行います。取得に時間がかかる場合があります。</li>"
-        if action.is_external_fetch
-        else "<li>この操作では外部取得を行いません。</li>"
-    )
+    external_note = _external_fetch_note(action)
     material_items = "".join(
         f"<li>{html.escape(item)}</li>" for item in materials if str(item).strip()
     )
     return (
         '<section class="smai-copilot-action-confirm">'
         '<span class="smai-copilot-tool-plan-title">実行前確認</span>'
-        f"<h4>{html.escape(action.label)}します</h4>"
+        f"<h4>{html.escape(_action_heading(action))}</h4>"
         f"<p>対象: {html.escape(target_label or '現在の画面')}</p>"
         "<div>"
         "<strong>使用する材料</strong>"
@@ -40,3 +36,22 @@ def assistant_action_confirmation_html(
         "</div>"
         "</section>"
     )
+
+
+def _external_fetch_note(action: AssistantActionSpec) -> str:
+    if not action.is_external_fetch:
+        return "<li>この操作では外部取得を行いません。</li>"
+    if action.action_id == "update_research":
+        return (
+            "<li>この操作はTDnet、EDINET、IR、ニュースなどの外部データ取得を行います。</li>"
+            "<li>取得に時間がかかる場合があります。一部の取得元だけ成功する場合があります。</li>"
+        )
+    return "<li>この操作は外部データ取得を行います。取得に時間がかかる場合があります。</li>"
+
+
+def _action_heading(action: AssistantActionSpec) -> str:
+    if action.action_id == "update_research":
+        return "AI調査を更新します"
+    if action.action_id == "create_decision_report":
+        return "確認レポートを作成します"
+    return f"{action.label}します"

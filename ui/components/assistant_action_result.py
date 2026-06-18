@@ -57,8 +57,11 @@ def _followup_label(action_id: str) -> str:
     labels = {
         "download_decision_report": "レポートを見る / 保存する",
         "open_research_section": "Cockpitで根拠資料を確認する",
+        "create_decision_report": "確認レポートを作る",
         "open_cockpit": "銘柄コックピットで銘柄を選ぶ",
         "fetch_symbol_data": "データを取得する",
+        "retry_update_research": "AI調査をもう一度更新する",
+        "answer_with_existing_materials": "取得済み材料だけで確認する",
         "summarize_next_checks": "次の確認を整理する",
     }
     return labels.get(str(action_id), str(action_id))

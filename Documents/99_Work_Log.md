@@ -3142,3 +3142,29 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - passed: Markdown strict UTF-8 read.
 - passed: local Streamlit / Playwright smoke on `http://127.0.0.1:8522`: opened the app, clicked the side-menu `SMAIアシスタント`, and confirmed the assistant page, `新しい会話`, and `Decision Reportを作りたい` card rendered. No external fetch, Gateway request, ranking creation, report execution, or data-changing UI action was clicked.
 - note: full Black helper still reports pre-existing `tests\test_ui_forecast_display.py` would reformat; that file was not touched in this task.
+
+## 2026-06-19 Phase 30-C2 - Confirmable update_research Action
+
+### Summary
+
+- Connected `update_research` to `AssistantActionExecutor` with an injectable `research_fetcher`.
+- Kept `update_research` behind the existing confirmation panel and wired the SMAIアシスタント execute button to the existing `fetch_external_research_for_symbol` path only after confirmation.
+- Added success / partial_success / failed action results for AI調査更新, including fetched count, source counts, warning count, failed sources, timeout sources, and no-result sources.
+- Added result-card followups for 根拠資料確認, 確認レポート作成, retry, and cached-material fallback.
+- Updated Phase 30 docs and Gateway boundary docs to show that Gateway still does not execute tools; parent SMAI owns confirmed action execution.
+
+### Safety
+
+- No external Research fetch runs without explicit user confirmation.
+- Action results do not expose raw provider responses, source body text, or provider debug details.
+- Ranking score, Forecast, Investment Score, AI総合, Research Score, broker, and execution behavior were not changed.
+- Normal tests use fake/injected fetchers and remain network-free.
+
+### Tests
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_assistant_action_execution.py tests\test_ui_assistant_actions.py tests\test_assistant_tool_plan.py -q --basetemp outputs\work\phase30c2_pytest_tmp -p no:cacheprovider` with 21 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_assistant_action_execution.py tests\test_assistant_tools.py tests\test_assistant_tool_registry.py tests\test_assistant_context_builder.py tests\test_assistant_tool_plan.py tests\test_assistant_plan_validation.py tests\test_ui_assistant_actions.py tests\test_ui_assistant_tool_plan.py tests\test_ui_assistant_navigation.py -q -p no:cacheprovider --basetemp outputs\work\phase30c2_pytest_tmp` with 46 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check backend\assistant ui\views\copilot.py ui\components\assistant_action_confirm.py ui\components\assistant_action_result.py tests\test_assistant_action_execution.py tests\test_ui_assistant_actions.py --no-cache`.
+- passed: targeted Black helper for changed Python files: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py backend\assistant ui\views\copilot.py ui\components\assistant_action_confirm.py ui\components\assistant_action_result.py tests\test_assistant_action_execution.py tests\test_ui_assistant_actions.py`.
+- passed: Markdown strict UTF-8 read for updated docs.
+- passed: local Streamlit / Playwright smoke on `http://127.0.0.1:8523/?smai_page=copilot`; confirmed `SMAIアシスタント` and `新しい会話` rendered. No external fetch, report execution, ranking creation, score change, or data-changing action was clicked.

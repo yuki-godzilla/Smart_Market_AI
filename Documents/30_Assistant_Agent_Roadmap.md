@@ -38,7 +38,7 @@ Status: first MVP implemented. Navigation actions render same-app links using `s
 - ニュース更新
 - ランキング作成
 
-Status: first MVP implemented for `create_decision_report`. SMAIアシスタント now shows a confirmation panel before report creation, executes only after user confirmation, displays a success / failure / cancelled result card in the chat thread, and records minimal audit metadata in session state. This first slice does not run external fetch, ranking creation, score changes, forecast changes, or broker actions. `update_research`, `refresh_news`, and `create_ranking` remain follow-up actions.
+Status: MVP implemented for `create_decision_report` and `update_research`. SMAIアシスタント now shows a confirmation panel before report creation or AI調査更新, executes only after user confirmation, displays success / partial_success / failure / cancelled result cards in the chat thread, and records minimal audit metadata in session state. `update_research` uses the existing session-local external Research fetch path after confirmation and returns only safe summary fields such as fetched count, source counts, warnings, and failed / timed-out sources. Ranking creation, score changes, forecast changes, broker actions, raw provider responses, and source body display remain out of scope. `refresh_news` and `create_ranking` remain follow-up actions.
 
 ## Phase 30-D: Multi-step Guided Workflow
 

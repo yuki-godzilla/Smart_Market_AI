@@ -46,6 +46,10 @@ def safe_action_error_message(error_code: str | None) -> str:
         "symbol_missing": "対象銘柄が特定できません。先に銘柄コックピットで銘柄を選んでください。",
         "insufficient_materials": "価格やAI予測など、確認レポートに必要な材料が不足しています。",
         "report_builder_unavailable": "確認レポート作成に必要な部品を利用できませんでした。",
+        "research_fetcher_unavailable": "AI調査を更新する部品を利用できませんでした。",
+        "external_fetch_failed": "外部情報の取得結果を確認できませんでした。取得済み材料で確認してください。",
+        "provider_timeout": "一部の外部取得元が時間切れになりました。取得済み材料で確認してください。",
+        "no_external_research_found": "外部情報を取得できませんでした。取得済み材料で確認してください。",
         "not_implemented": "この操作はまだ実行接続されていません。",
         "execution_error": "操作中に問題が発生しました。入力材料を確認してもう一度試してください。",
     }

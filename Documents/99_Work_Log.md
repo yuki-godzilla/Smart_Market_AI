@@ -2595,3 +2595,31 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 ### Next
 
 - R1-3b can move external adapter classes and their source-specific helper functions into a dedicated module while keeping `backend.research` and `backend.research.service` compatibility.
+
+## 2026-06-18 - Refactor Phase R1-3b Research external contracts/adapters
+
+### Scope
+
+- moved external Research contracts to `backend/research/external_contracts.py`: `ResearchSourceType`, `StockNewsFreshnessStatus`, `ExternalResearchFetchRequest`, `ExternalResearchSourcePayload`, `ExternalResearchFetchManifestEntry`, `ExternalResearchFetchResult`, and `ExternalResearchSourceAdapter`.
+- moved external Research source adapters and source-specific helpers to `backend/research/external_adapters.py`: Google News RSS, Yahoo Finance, company IR site, TDnet, EDINET, composite adapter, default adapter, provider source trace state, provider query/payload helpers, and adapter-local formatting helpers.
+- kept compatibility for `backend.research.*` and `backend.research.service.*` imports by re-exporting adapter and contract symbols.
+- reduced `backend/research/service.py` by moving roughly 1.4k lines of external-source adapter code out of the main service module.
+
+### Boundary
+
+- kept `ExternalResearchFetchService`, local ingestion/index/retrieval, Research Summary, Research Score, StockNews services, and UI behavior in their existing modules.
+- did not change Ranking, Forecast, Investment Score, Research Score calculation, LLM Factor, Gateway, API behavior, or external provider opt-in rules.
+- live external source calls were not used; adapter validation remains fixture/fake based.
+
+### Validation
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_research_service.py tests\test_research_external_contracts.py tests\test_research_external_fetch.py tests\test_research_source_trace.py -q --basetemp outputs\work\pytest_tmp\refactor_r1_external_adapters_final -p no:cacheprovider`
+- passed: `.\venv_SMAI\Scripts\python.exe -m mypy backend\research\external_contracts.py backend\research\external_adapters.py backend\research\service.py`
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check backend\research tests --no-cache`
+- passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py`
+- passed: `git diff --check` with only existing line-ending normalization warnings for edited files.
+- passed: Playwright smoke against local Streamlit on `127.0.0.1:8517`: settings page rendered, `性能profile` and `AI調査 / 根拠資料` appeared, cockpit initial page rendered with `データを取得`; no external fetch button was clicked and no live provider call was made.
+
+### Next
+
+- R1-4 should split external fetch registration/manifest/payload persistence from `ExternalResearchFetchService`, or alternatively split Research summary builders next if the adapter boundary remains stable.

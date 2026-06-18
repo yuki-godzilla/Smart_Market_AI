@@ -415,7 +415,6 @@ MARKET_DATA_COCKPIT_FILTER_DEFAULTS: dict[str, str | bool] = {
     "market_data_cockpit_roe_min": "8.0",
     "market_data_cockpit_roe_max": "30.0",
 }
-COCKPIT_FILTER_DETAILS_OPEN_STATE_KEY = "market_data_cockpit_filter_details_open"
 
 
 @dataclass(frozen=True)
@@ -6177,31 +6176,26 @@ def _render_cockpit_symbol_filter_panel(
         unsafe_allow_html=True,
     )
     filter_active = cockpit_filter_has_active_conditions_from_values(filter_values)
-    details_open = bool(st.session_state.get(COCKPIT_FILTER_DETAILS_OPEN_STATE_KEY, False))
-    col_toggle, col_clear, _ = st.columns([1.55, 0.55, 3.9])
-    with col_toggle:
-        toggle_label = "絞り込み条件を閉じる" if details_open else "絞り込み条件を変更"
-        if st.button(
-            toggle_label,
-            key="market_data_cockpit_filter_details_toggle",
-            use_container_width=True,
-        ):
-            st.session_state[COCKPIT_FILTER_DETAILS_OPEN_STATE_KEY] = not details_open
-            st.rerun()
-    with col_clear:
+    with st.expander("絞り込み条件を変更", expanded=False):
+        st.caption(
+            "候補リストだけを絞り込む詳細条件です。開閉だけではデータ取得や予測計算は行いません。"
+        )
         if filter_active and st.button(
-            "クリア",
+            "条件をクリア",
             key="market_data_cockpit_filter_clear",
-            use_container_width=True,
         ):
             _clear_cockpit_symbol_filter_state()
             st.rerun()
+        filtered_rows = _render_cockpit_symbol_filter_detail_fields(symbol_options)
 
-    if not details_open:
-        if not filtered_rows:
-            st.warning("条件に合う銘柄候補がありません。条件を緩めるか、クリアしてください。")
-        return filtered_rows
+    if not filtered_rows:
+        st.warning("条件に合う銘柄候補がありません。条件を緩めるか、クリアしてください。")
+    return filtered_rows
 
+
+def _render_cockpit_symbol_filter_detail_fields(
+    symbol_options: list[dict[str, str]],
+) -> list[dict[str, str]]:
     st.markdown('<div class="smai-cockpit-filter-detail-anchor"></div>', unsafe_allow_html=True)
     col_region, col_product, col_nisa = st.columns(3)
     with col_region:

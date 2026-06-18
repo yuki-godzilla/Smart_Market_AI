@@ -3054,3 +3054,20 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ranking_chart_profiles.py tests\test_ranking_universe_policy.py -q` with 11 passed.
 - passed: `.\venv_SMAI\Scripts\python.exe -m ruff check ui\app.py ui\styles.py tests\test_ui_forecast_display.py outputs/work/phase29c_ranking_condition_builder_smoke/ranking_condition_builder_smoke.py --no-cache`.
 - passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe outputs\work\phase29c_ranking_condition_builder_smoke\ranking_condition_builder_smoke.py`; screenshots saved under `outputs/work/phase29c_ranking_condition_builder_smoke/`.
+
+## 2026-06-18 Phase 29-B Follow-up - Cockpit Filter Expander Restore
+
+### Summary
+
+- Replaced the Cockpit `絞り込み条件を変更` toggle button with a closed `st.expander` so opening / closing filter details no longer relies on a stateful button rerun.
+- Kept the `絞り込み条件` chip summary visible in the pre-fetch area.
+- Moved the clear action inside the expander and kept it visible only when a filter is active.
+- Kept filtering behavior limited to the symbol candidate list; date range, `データを取得`, Forecast, Ranking, Investment Score, LLM Factor, Research, and scoring logic were not changed.
+
+### Validation
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_forecast_display.py -q -k "cockpit_filter or symbol_candidate_labels or current_or_default_symbol_labels"` with 7 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check ui\app.py tests\test_ui_forecast_display.py --no-cache`.
+- passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py`.
+- passed: Markdown strict UTF-8 read.
+- passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe outputs\work\phase29b_cockpit_prefetch_smoke\cockpit_prefetch_smoke.py`; confirmed the filter summary remains visible, detail inputs are initially hidden, `絞り込み条件を変更` opens as an expander, and `データを取得` remains available.

@@ -19,6 +19,7 @@ LlmTaskType = Literal[
     "rag_summary",
     "decision_report_draft",
     "llm_factor_generation",
+    "cockpit_interpretation",
     "report_export_summary",
 ]
 LlmProfileName = Literal[
@@ -119,6 +120,7 @@ _TASK_DEFAULTS: dict[LlmTaskType, LlmProfileName] = {
     "rag_summary": "desktop_fast",
     "decision_report_draft": "desktop_heavy",
     "llm_factor_generation": "desktop_analysis",
+    "cockpit_interpretation": "desktop_fast",
     "report_export_summary": "desktop_heavy",
 }
 
@@ -133,6 +135,7 @@ _QUALITY_UPGRADES: dict[LlmTaskType, LlmProfileName] = {
     "news_materials": "desktop_analysis",
     "rag_summary": "desktop_analysis",
     "llm_factor_generation": "desktop_analysis",
+    "cockpit_interpretation": "desktop_analysis",
     "decision_report_draft": "desktop_heavy",
     "report_export_summary": "desktop_heavy",
 }
@@ -149,6 +152,7 @@ _TASK_RUNTIME_POLICIES: dict[LlmTaskType, tuple[float, int]] = {
     "rag_summary": (60.0, 1000),
     "decision_report_draft": (75.0, 1400),
     "llm_factor_generation": (90.0, 1400),
+    "cockpit_interpretation": (45.0, 1000),
     "report_export_summary": (75.0, 1400),
 }
 
@@ -165,6 +169,7 @@ _MODEL_TASK_TOKEN_POLICIES: dict[str, dict[LlmTaskType, int]] = {
         "rag_summary": 800,
         "decision_report_draft": 800,
         "llm_factor_generation": 800,
+        "cockpit_interpretation": 700,
         "report_export_summary": 800,
     },
     "qwen3:4b": {
@@ -179,6 +184,7 @@ _MODEL_TASK_TOKEN_POLICIES: dict[str, dict[LlmTaskType, int]] = {
         "rag_summary": 1000,
         "decision_report_draft": 1000,
         "llm_factor_generation": 1000,
+        "cockpit_interpretation": 900,
         "report_export_summary": 1000,
     },
     "qwen3:8b": {
@@ -193,6 +199,7 @@ _MODEL_TASK_TOKEN_POLICIES: dict[str, dict[LlmTaskType, int]] = {
         "rag_summary": 1200,
         "decision_report_draft": 1200,
         "llm_factor_generation": 1200,
+        "cockpit_interpretation": 1100,
         "report_export_summary": 1200,
     },
     "qwen3:14b": {
@@ -207,6 +214,7 @@ _MODEL_TASK_TOKEN_POLICIES: dict[str, dict[LlmTaskType, int]] = {
         "rag_summary": 1800,
         "decision_report_draft": 2000,
         "llm_factor_generation": 1800,
+        "cockpit_interpretation": 1400,
         "report_export_summary": 2000,
     },
     "qwen3:30b": {
@@ -221,6 +229,7 @@ _MODEL_TASK_TOKEN_POLICIES: dict[str, dict[LlmTaskType, int]] = {
         "rag_summary": 2200,
         "decision_report_draft": 2400,
         "llm_factor_generation": 2200,
+        "cockpit_interpretation": 1600,
         "report_export_summary": 2400,
     },
 }

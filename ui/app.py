@@ -29,6 +29,13 @@ from backend.core.data_contracts import (
 )
 from backend.core.errors import AppError
 from backend.forecast import forecast_model_display_name
+from backend.interpretation import (
+    CockpitInterpretationResult,
+    CockpitInterpretationServiceResult,
+    InterpretationBullet,
+    build_cockpit_interpretation_context,
+    build_cockpit_interpretation_from_settings,
+)
 from backend.llm_factor import (
     LLM_FACTOR_FAKE_MODEL_NAME,
     EvidenceSource,
@@ -7330,10 +7337,22 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         _render_symbol_detail_table(summary_rows)
 
     _render_cockpit_research_summary(preview)
-    _render_cockpit_llm_factor(preview)
+    llm_factor_response = _render_cockpit_llm_factor(preview)
+    _render_cockpit_interpretation(
+        preview,
+        llm_factor_result=llm_factor_response.result if llm_factor_response else None,
+        price_summary=summary_rows,
+        forecast_summary=forecast_consensus_display_rows(consensus_rows),
+        advanced_forecast_summary=(
+            advanced_forecast_consensus_display_rows(advanced_forecast_consensus_rows)
+            if advanced_forecast_consensus_rows
+            else []
+        ),
+        investment_score_summary=[score_row] if score_row is not None else score_display_rows[:1],
+    )
     _render_cockpit_decision_report(preview)
 
-    st.subheader("09 詳細データ")
+    st.subheader("10 詳細データ")
     st.caption(
         "取得元データや計算に使った詳細情報です。通常の投資判断では、必要な場合のみ確認してください。"
     )
@@ -7557,10 +7576,10 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
         )
 
 
-def _render_cockpit_llm_factor(preview: MarketDataPreview) -> None:
+def _render_cockpit_llm_factor(preview: MarketDataPreview) -> LLMFactorServiceResult | None:
     symbol = _market_data_preview_symbol(preview)
     if not symbol:
-        return
+        return None
     response = _cockpit_llm_factor_result(preview)
     result = response.result
     st.subheader("07 AI材料分析")
@@ -7574,6 +7593,69 @@ def _render_cockpit_llm_factor(preview: MarketDataPreview) -> None:
     if source_rows:
         with st.expander("AI材料分析の出典を表示", expanded=False):
             _render_compact_dataframe(source_rows)
+    return response
+
+
+def _render_cockpit_interpretation(
+    preview: MarketDataPreview,
+    *,
+    llm_factor_result: LLMFactorResult | None,
+    price_summary: list[dict[str, str]],
+    forecast_summary: list[dict[str, str]],
+    advanced_forecast_summary: list[dict[str, str]],
+    investment_score_summary: list[dict[str, str]],
+) -> None:
+    symbol = _market_data_preview_symbol(preview)
+    if not symbol:
+        return
+    response = _cockpit_interpretation_result(
+        preview,
+        llm_factor_result=llm_factor_result,
+        price_summary=price_summary,
+        forecast_summary=forecast_summary,
+        advanced_forecast_summary=advanced_forecast_summary,
+        investment_score_summary=investment_score_summary,
+    )
+    st.subheader("08 AI解釈メモ")
+    st.caption(
+        "価格・予測・Research Evidence・AI材料分析を、投資判断前にどう読むか整理する参考メモです。"
+    )
+    st.markdown(_cockpit_interpretation_panel_html(response.result), unsafe_allow_html=True)
+    st.caption(_cockpit_interpretation_cache_caption(response.cache))
+
+
+def _cockpit_interpretation_result(
+    preview: MarketDataPreview,
+    *,
+    llm_factor_result: LLMFactorResult | None,
+    price_summary: list[dict[str, str]],
+    forecast_summary: list[dict[str, str]],
+    advanced_forecast_summary: list[dict[str, str]],
+    investment_score_summary: list[dict[str, str]],
+) -> CockpitInterpretationServiceResult:
+    symbol = _market_data_preview_symbol(preview)
+    as_of = _date_from_iso_text(_market_data_as_of(preview)) or default_as_of_date()
+    report = _cockpit_research_report_from_state(preview)
+    news_report = _cockpit_stock_news_report_from_state(preview)
+    external_result = _cockpit_external_research_fetch_result_from_state(preview)
+    context = build_cockpit_interpretation_context(
+        symbol=symbol,
+        company_name=symbol_name(symbol) or None,
+        as_of=as_of,
+        price_summary=_summary_from_rows(price_summary),
+        forecast_summary=_summary_from_rows(
+            [*forecast_summary[:2], *advanced_forecast_summary[:2]]
+        ),
+        investment_score=_summary_from_rows(investment_score_summary[:1]),
+        research_evidence=_cockpit_interpretation_research_evidence_rows(
+            report=report,
+            news_report=news_report,
+            external_result=external_result,
+        ),
+        llm_factor=llm_factor_result,
+        warnings=_cockpit_interpretation_warnings(preview),
+    )
+    return build_cockpit_interpretation_from_settings(context)
 
 
 def _cockpit_llm_factor_result(preview: MarketDataPreview) -> LLMFactorServiceResult:
@@ -7595,6 +7677,75 @@ def _cockpit_llm_factor_result(preview: MarketDataPreview) -> LLMFactorServiceRe
         evidence_sources=evidence_sources,
         company_name=symbol_name(symbol) or None,
     )
+
+
+def _summary_from_rows(rows: list[dict[str, str]]) -> dict[str, str]:
+    if not rows:
+        return {}
+    result: dict[str, str] = {}
+    for row in rows[:3]:
+        for key, value in row.items():
+            normalized = str(value).strip()
+            if not normalized or key in result:
+                continue
+            result[str(key)] = normalized
+    return result
+
+
+def _cockpit_interpretation_research_evidence_rows(
+    *,
+    report: CompanyResearchReport | None,
+    news_report: StockNewsReport | None,
+    external_result: ExternalResearchFetchResult | None,
+) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    if report is not None:
+        for index, evidence in enumerate(report.evidence[:3], start=1):
+            rows.append(
+                {
+                    "evidence_id": f"research_{index:03d}",
+                    "source_type": evidence.source_type,
+                    "title": evidence.title,
+                    "summary": evidence.excerpt,
+                    "published_at": (
+                        evidence.published_at.isoformat() if evidence.published_at else ""
+                    ),
+                }
+            )
+    if news_report is not None:
+        for index, item in enumerate(news_report.news[:3], start=1):
+            rows.append(
+                {
+                    "evidence_id": f"news_{index:03d}",
+                    "source_type": "news",
+                    "title": item.title,
+                    "summary": item.summary,
+                    "published_at": item.published_at.isoformat() if item.published_at else "",
+                    "url": item.url or "",
+                }
+            )
+    if external_result is not None:
+        for index, entry in enumerate(external_result.entries[:3], start=1):
+            rows.append(
+                {
+                    "evidence_id": f"external_{index:03d}",
+                    "source_type": entry.source_type,
+                    "title": entry.title,
+                    "summary": entry.content_summary,
+                    "published_at": (entry.published_at.isoformat() if entry.published_at else ""),
+                    "url": entry.source_url,
+                }
+            )
+    return rows[:8]
+
+
+def _cockpit_interpretation_warnings(preview: MarketDataPreview) -> list[str]:
+    warnings: list[str] = []
+    for row in preview.error_rows[:4]:
+        message = row.get("エラー") or row.get("message") or row.get("詳細") or ""
+        if message:
+            warnings.append(str(message))
+    return warnings
 
 
 def _llm_factor_evidence_sources(
@@ -7882,6 +8033,141 @@ def _llm_factor_items_html(
         for factor in factors[:3]
     )
     return f"<ul>{items}</ul>"
+
+
+def _cockpit_interpretation_panel_html(result: CockpitInterpretationResult) -> str:
+    warnings = "".join(f"<li>{html.escape(warning)}</li>" for warning in result.warnings)
+    warning_html = f"<ul>{warnings}</ul>" if warnings else "<p>特記事項なし</p>"
+    missing_html = ""
+    if result.missing_fields:
+        missing_html = f"<p>不足項目: {html.escape('、'.join(result.missing_fields))}</p>"
+    return (
+        '<section class="research-result-brief hero">'
+        '<div class="research-result-brief-header">'
+        '<span class="research-evidence-pill positive">参考表示</span>'
+        f'<span class="research-evidence-pill">{html.escape(_cockpit_interpretation_status_label(result))}</span>'
+        "</div>"
+        "<h4>AI解釈メモ</h4>"
+        f"<p>{html.escape(result.overall_reading)}</p>"
+        "<p>このAI解釈メモは、価格・予測・Research Evidence・AI材料分析を読み解くための参考情報です。"
+        "売買推奨ではなく、Ranking・予測・Investment Scoreには反映していません。</p>"
+        '<div class="research-brief-reading-grid">'
+        '<section class="research-brief-reading-item tone-positive">'
+        "<h5>強材料</h5>"
+        f"{_interpretation_bullets_html(result.positive_points, empty_text='強材料として整理できる材料はまだ少なめです。')}"
+        "</section>"
+        '<section class="research-brief-reading-item tone-warning">'
+        "<h5>注意材料</h5>"
+        f"{_interpretation_bullets_html(result.caution_points, empty_text='注意材料として整理できる材料はまだ少なめです。')}"
+        "</section>"
+        '<section class="research-brief-reading-item tone-warning">'
+        "<h5>矛盾・不確実性</h5>"
+        f"{_interpretation_bullets_html([*result.contradictions, *result.uncertainties], empty_text='目立つ矛盾や不確実性はまだ少なめです。')}"
+        "</section>"
+        '<section class="research-brief-reading-item tone-neutral">'
+        "<h5>次に確認すべき材料</h5>"
+        f"{_interpretation_bullets_html(result.next_checks, empty_text='次に確認すべき材料は、価格・予測・根拠資料から順に確認してください。')}"
+        "</section>"
+        '<section class="research-brief-reading-item tone-warning">'
+        "<h5>確認メモ</h5>"
+        f"{warning_html}"
+        f"{missing_html}"
+        f"{_cockpit_interpretation_runtime_html(result)}"
+        "</section>"
+        "</div>"
+        "</section>"
+    )
+
+
+def _interpretation_bullets_html(
+    bullets: Sequence[InterpretationBullet],
+    *,
+    empty_text: str,
+) -> str:
+    if not bullets:
+        return f"<p>{html.escape(empty_text)}</p>"
+    items = "".join(
+        "<li>"
+        f"<strong>{html.escape(bullet.title)}</strong>"
+        f"<br><small>{html.escape(bullet.summary)}</small>"
+        f"<br><small>参考度: {html.escape(_interpretation_confidence_display(bullet.confidence))}</small>"
+        "</li>"
+        for bullet in bullets[:4]
+    )
+    return f"<ul>{items}</ul>"
+
+
+def _cockpit_interpretation_status_label(result: CockpitInterpretationResult) -> str:
+    return f"LLM接続: {result.status.replace('_', ' ')}"
+
+
+def _cockpit_interpretation_runtime_html(result: CockpitInterpretationResult) -> str:
+    items: list[str] = [f"状態: {_cockpit_interpretation_status_display(result.status)}"]
+    if result.provider:
+        items.append(f"provider: {result.provider}")
+    if result.model:
+        items.append(f"model: {result.model}")
+    if result.gateway_profile:
+        items.append(f"profile: {result.gateway_profile}")
+    if result.generated_at:
+        items.append(f"生成: {_llm_factor_datetime_display(result.generated_at)}")
+    if result.fallback_reason:
+        items.append(
+            f"理由: {_cockpit_interpretation_fallback_reason_label(result.fallback_reason)}"
+        )
+    return f"<p>{html.escape(' / '.join(items))}</p>"
+
+
+def _cockpit_interpretation_status_display(status: str) -> str:
+    return {
+        "live": "live生成を利用",
+        "fallback": "ローカル参考表示へ切替",
+        "disabled": "live生成は無効",
+        "validation_error": "検証エラーのため簡易表示",
+    }.get(status, "状態未確認")
+
+
+def _cockpit_interpretation_fallback_reason_label(reason: str) -> str:
+    labels = {
+        "disabled": "設定で無効",
+        "gateway_unavailable": "LLM Gatewayに接続できません",
+        "gateway_timeout": "LLM Gatewayタイムアウト",
+        "gateway_http_error": "LLM Gateway HTTPエラー",
+        "malformed_json": "JSON形式エラー",
+        "validation_error": "応答検証エラー",
+        "wrong_symbol": "銘柄不一致",
+        "unknown_evidence": "未提供の出典ID",
+        "policy_violation": "売買推奨などの禁止表現",
+        "cache_miss": "cache未取得",
+        "cache_corrupt": "cache読込失敗",
+        "provider_error": "LLM providerエラー",
+    }
+    return f"{labels.get(reason, '応答検証エラー')} ({reason})"
+
+
+def _interpretation_confidence_display(value: float) -> str:
+    if value >= 0.7:
+        return "高め"
+    if value >= 0.45:
+        return "中程度"
+    return "控えめ"
+
+
+def _cockpit_interpretation_cache_caption(cache: Any) -> str:
+    status_label = {
+        "hit": "cache利用",
+        "miss": "新規生成",
+        "disabled": "live生成無効",
+        "invalid": "cacheまたは応答検証エラー",
+    }.get(getattr(cache, "status", ""), "cache状態未確認")
+    generated_at = _llm_factor_datetime_display(getattr(cache, "generated_at", None))
+    expires_at = _llm_factor_datetime_display(getattr(cache, "expires_at", None))
+    model = getattr(cache, "model", None) or "fallback"
+    source_hash = str(getattr(cache, "context_hash", "") or "")
+    return (
+        f"{status_label} / 生成: {generated_at} / 有効期限: {expires_at} / "
+        f"model: {model} / source: {source_hash[:8] or '未確認'}"
+    )
 
 
 def _llm_factor_score_display(score: Decimal) -> str:
@@ -14230,7 +14516,7 @@ def _render_cockpit_decision_report(preview: MarketDataPreview) -> None:
     news_report = _cockpit_stock_news_report_from_state(preview)
     overview = cockpit_decision_report_overview(preview)
 
-    st.markdown("### 08 投資判断レポート")
+    st.markdown("### 09 投資判断レポート")
     st.info(DECISION_REPORT_SUPPORT_MESSAGE)
     st.markdown(_decision_report_overview_card_html(overview), unsafe_allow_html=True)
 
@@ -14262,7 +14548,7 @@ def _render_cockpit_decision_report(preview: MarketDataPreview) -> None:
         expander_label="投資判断レポート",
         json_file_name="decision_report_cockpit.json",
         markdown_file_name="decision_report_cockpit.md",
-        heading_prefix="08",
+        heading_prefix="09",
     )
 
 

@@ -95,6 +95,12 @@ context bundle をもとに、説明本文と `materials` / `cautions` / `next_c
 SMAIアシスタント や Decision Report 連携では、画面やレポートの安全な要約 context だけを渡します。Gateway はスコア、予測値、ランキング順位を変更しません。
 SMAI 親側では `assistant.gateway.enabled=true` のときだけこの endpoint を呼び、失敗時は deterministic fallback に戻します。
 
+主な `task_type`:
+
+- `free_chat` / `identity` / `app_help` / `capability_help` / `screen_guidance`: 軽量会話。
+- `stock_summary` / `forecast_risk_compare` / `news_materials` / `decision_report_draft`: SMAIアシスタントの材料整理。
+- `cockpit_interpretation`: Cockpit `AI解釈メモ`。価格、Forecast、Investment Score、Research Evidence、AI材料分析の要約contextを読み解く。SMAI側は別途 validation / cache / fallback を持ち、Gateway はスコア、順位、予測値、Decision Report本文を変更しない。
+
 Request:
 
 ```json

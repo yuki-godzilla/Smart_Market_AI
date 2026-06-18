@@ -183,6 +183,20 @@ assistant:
 
 SMAI 親は通常 `model` を固定指定せず、会話 intent から `task_type` を渡します。Gateway は `SMAI_LLM_PROFILE` または request の `profile` から `notebook_dev` / `notebook_standard` / `desktop_fast` / `desktop_analysis` / `desktop_heavy` を選び、timeout と token budget を決めます。request の `model` は最優先で model 名を上書きします。
 
+Cockpit `AI解釈メモ` を試す場合は、親SMAI側で次のように明示 opt-in します。通常確認では `enabled: false` の既定値を維持し、Gateway未起動やvalidation failure時はSMAI側のdeterministic fallback表示に戻します。
+
+```yaml
+llm_interpretation:
+  cockpit:
+    enabled: true
+    base_url: "http://127.0.0.1:8088"
+    context_answer_path: "/api/v1/context-answer"
+    timeout_seconds: 45
+    execution_mode: "auto"
+    environment_profile: "desktop"
+    preferred_profile: "desktop_fast"
+```
+
 SMAI 親アプリから Gateway へ接続する opt-in live smoke 確認例:
 
 ```powershell
@@ -200,7 +214,7 @@ Remove-Item Env:SMAI_ASSISTANT_GATEWAY_MODEL
 
 `free_chat` / `identity` / `app_help` / `capability_help` / `screen_guidance` は短い通常会話用の `llm_micro` 経路です。SMAI 親は Tool Layer / RAG / news / symbol-specific context / 長い履歴を送らず、Gateway 側は最小 context、`/no_think`、Ollama `think: false` で応答を軽量化します。runtime は task_type を主軸にしつつ、実際の Ollama model ごとに token budget を調整します。軽量会話の目安は `qwen3:1.7b` が 280-300 tokens、`qwen3:4b` が 320 tokens、`qwen3:8b` が 360-450 tokens、`qwen3:14b` が 360-500 tokens です。挨拶、名前質問、できること質問、使い方質問もまず LLM へ投げ、低品質な短文回答は 1 回だけ再生成し、provider timeout などの失敗時だけ自然な fallback に寄せます。SMAI 親に画面固有の report context がない場合も、即時 fallback せず最小のSMAIアシスタント文脈で Gateway を呼びます。
 
-SMAI 親側の context-answer 呼び出しは、SMAI Assistant intent と read-only Tool結果の要約を `user_question` 内に含めることがあります。Gateway は SMAI 固有moduleを importせず、`app_help`、`stock_summary`、`forecast_risk_compare`、`news_materials`、`decision_report_draft`、`free_chat` などの intent marker をプロンプト指示として読み、同じJSON response contractに沿って `materials` / `cautions` / `next_checkpoints` を返します。`answer` はSMAIナビの自然な会話応答から始め、構造化整理は必要に応じて各配列へ分けます。Gateway 側もスコア、ランキング、予測値、売買判断は変更しません。
+SMAI 親側の context-answer 呼び出しは、SMAI Assistant intent と read-only Tool結果の要約を `user_question` 内に含めることがあります。Gateway は SMAI 固有moduleを importせず、`app_help`、`stock_summary`、`forecast_risk_compare`、`news_materials`、`decision_report_draft`、`free_chat`、`cockpit_interpretation` などの intent marker をプロンプト指示として読み、同じJSON response contractに沿って `materials` / `cautions` / `next_checkpoints` を返します。`answer` はSMAIナビの自然な会話応答から始め、構造化整理は必要に応じて各配列へ分けます。Gateway 側もスコア、ランキング、予測値、売買判断は変更しません。
 Qwen3 系は thinking 出力が長くなりやすいため、Gateway は Ollama chat API に `think: false` を指定します。LLM の構造化JSONに文字化け、`????`、不正JSON、空項目がある場合も、画面には文脈由来の安全な回答を返します。
 
 ### Ollama ありの opt-in live smoke

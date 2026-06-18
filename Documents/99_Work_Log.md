@@ -2868,3 +2868,35 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 ### Next
 
 - Phase 28 screen-level LLM interpretation or Phase 29 Decision Report draft assistance can proceed next. LLM Factor model integration remains deferred until validation / backtest / leakage checks justify it.
+
+## 2026-06-18 - Phase 28-A Cockpit LLM Interpretation MVP
+
+### Scope
+
+- added `backend/interpretation` for Cockpit interpretation context compression, response validation, deterministic fallback, file-backed cache metadata, and Gateway adapter reuse of `/api/v1/context-answer`.
+- added disabled-by-default `llm_interpretation.cockpit` settings and `config/cockpit_interpretation_example.yaml`.
+- added `cockpit_interpretation` to SMAI Assistant Gateway contracts and `smai-ai-gateway` model routing / prompt policy.
+- wired Cockpit `AI解釈メモ` after `AI材料分析`, showing `disabled` / `fallback` / `live` / `validation_error`, runtime metadata, missing fields, warnings, and cache status.
+- kept Ranking, Forecast, AI総合, Investment Score, Research Score, Assistant tool execution, Decision Report contents, portfolio, and execution behavior unchanged.
+- synchronized README, roadmap, operations guide, project context, Gateway README / SETUP / docs / specification, and added `Documents/28A_Cockpit_LLM_Interpretation.md`.
+
+### Boundary
+
+- live Gateway generation runs only when `llm_interpretation.cockpit.enabled=true`.
+- normal tests use mock Gateway clients and deterministic fallback; no Ollama / network dependency is required.
+- the panel is interpretation support only and must not be treated as a buy / sell / hold instruction or as a source of score changes.
+
+### Validation
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\interpretation\test_cockpit_interpretation.py tests\test_ui_cockpit_interpretation.py -q --basetemp outputs\work\pytest_tmp_phase28a -p no:cacheprovider` with 10 passed.
+- passed: `..\venv_SMAI\Scripts\python.exe -m pytest tests\test_model_router.py tests\test_context_answer_schema.py tests\test_context_answer_service.py -q --basetemp ..\outputs\work\pytest_tmp_phase28a_gateway -p no:cacheprovider` with 31 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check backend\interpretation backend\assistant\gateway_contracts.py backend\core\config.py ui\app.py tests\interpretation\test_cockpit_interpretation.py tests\test_ui_cockpit_interpretation.py smai-ai-gateway\app\services\model_router.py smai-ai-gateway\app\services\prompt_service.py smai-ai-gateway\tests\test_model_router.py tools\playwright_cockpit_interpretation_panel_smoke.py --no-cache`.
+- passed: `.\venv_SMAI\Scripts\python.exe -m mypy backend\interpretation backend\core\config.py backend\assistant\gateway_contracts.py ui\app.py tests\interpretation\test_cockpit_interpretation.py tests\test_ui_cockpit_interpretation.py`.
+- passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py`.
+- passed: `.\venv_SMAI\Scripts\python.exe -c "from pathlib import Path; [p.read_text(encoding='utf-8') for p in Path('.').rglob('*.md') if '.git' not in p.parts and 'venv_SMAI' not in p.parts and '.venv' not in p.parts]; print('markdown utf-8 ok')"`.
+- passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe tools\playwright_cockpit_interpretation_panel_smoke.py`; screenshot saved under `outputs/work/playwright_cockpit_interpretation_panel_smoke/`.
+
+### Next
+
+- Phase 28-B Ranking interpretation, Phase 28-C/D Radar / News interpretation, or Phase 29 Decision Report draft assistance can proceed next.
+- LLM Factor model integration remains deferred until validation / backtest / leakage checks justify it.

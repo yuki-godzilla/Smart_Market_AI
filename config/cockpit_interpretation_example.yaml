@@ -1,0 +1,46 @@
+app:
+  timezone: UTC
+  log_json: true
+
+dataaccess:
+  provider: yahoo
+  csv_data_dir: data/marketdata
+  allow_external_providers: true
+
+llm_interpretation:
+  cockpit:
+    enabled: true
+    base_url: http://127.0.0.1:8088
+    context_answer_path: /api/v1/context-answer
+    timeout_seconds: 45.0
+    model: null
+    execution_mode: auto
+    environment_profile: notebook
+    preferred_profile: desktop_fast
+    prompt_version: cockpit_interpretation_mvp.v1
+    schema_version: cockpit_interpretation.v1
+    cache_enabled: true
+    max_research_evidence: 6
+    max_context_text_chars: 260
+
+risk:
+  thresholds:
+    max_notional_per_symbol: 3000000
+    max_notional_per_basket: 10000000
+    max_concentration: 0.25
+    min_adv: 50000000
+    min_dividend_yield: 0.03
+    max_volatility: 0.6
+
+portfolio:
+  solver:
+    backend: none
+    tolerance: 0.000001
+
+scoring:
+  weights:
+    screening: 0.50
+    forecast_agreement: 0.20
+    data_quality: 0.20
+    research: 0.00
+    risk_signal: 0.10

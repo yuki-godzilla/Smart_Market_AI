@@ -25,7 +25,7 @@
 - 親SMAI側で `normal_chat` / `soft_research_suggestion` / `research_plan` を切り替える Conversation Mode Router、承認付きTool Planカード、approve / cached-only / cancel action の初期スライスは実装済み。Tool Executor、Context Aggregator、Decision Report下書き導線の本格接続は後続で進める
 - Gateway は Tool Planの判断・外部取得・SMAI内部機能実行を担当しない。Gateway 側は、親SMAIが承認後に集約したcontextを受け取り、自然な回答・材料整理・注意点・次の確認を返す汎用 `context-answer` 境界を維持する
 - 外部取得や重いResearch RAG / news fetchは親SMAI側でユーザー承認を挟む。通常testsはfake adapter / fixtureでnetwork-freeに保つ
-- Gateway prompt profileは `stock_forward_view`、`news_research`、`decision_report_request` などのtask_typeを受け取れるように段階拡張するが、スコア・ランキング順位・予測値・売買判断は変更しない
+- Gateway prompt profileは `stock_forward_view`、`news_research`、`decision_report_request`、`cockpit_interpretation` などのtask_typeを受け取れるように段階拡張するが、スコア・ランキング順位・予測値・売買判断は変更しない
 
 ## Phase 2.5: 構造化特徴量生成の安全基盤
 
@@ -35,6 +35,13 @@
 - LLM は最終予測、ランキング順位、Investment Score、売買判断を決めない
 - source URL、source date、model name、prompt version を request / response に保持する
 - 通常 tests は network-free、live provider smoke は opt-in に分離する
+
+## Phase 2.6: Cockpit LLM interpretation support
+
+- 親SMAI側 Phase 28-A で Cockpit `AI解釈メモ` を実装済み。Gateway は `/api/v1/context-answer` の `task_type=cockpit_interpretation` として扱う
+- Gateway は価格、Forecast、Investment Score、Research Evidence、AI材料分析の要約contextから、強い材料、注意点、矛盾・不確実性、次の確認を整理する
+- context compression、Pydantic validation、cache、deterministic fallback、UI表示は親SMAI側の責務とする
+- Ranking、Forecast、AI総合、Investment Score、Research Score、Decision Report本文、売買判断は変更しない
 
 ## Phase 3: 他ローカルツールへ展開
 

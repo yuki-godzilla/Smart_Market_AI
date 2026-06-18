@@ -254,6 +254,44 @@ class LLMFactorConfig(StrictConfigModel):
     live: LLMFactorLiveConfig = Field(default_factory=LLMFactorLiveConfig)
 
 
+class CockpitInterpretationConfig(StrictConfigModel):
+    """Optional Gateway settings for Cockpit LLM interpretation."""
+
+    enabled: bool = False
+    base_url: str = Field(default="http://127.0.0.1:8088", min_length=1)
+    context_answer_path: str = Field(default="/api/v1/context-answer", min_length=1)
+    timeout_seconds: float = Field(default=45.0, gt=0)
+    model: str | None = Field(default=None, min_length=1)
+    execution_mode: Literal["auto", "light", "quality", "off"] = "auto"
+    environment_profile: Literal["notebook", "desktop", "server", "offline"] = "notebook"
+    preferred_profile: (
+        Literal[
+            "notebook_dev",
+            "notebook_standard",
+            "desktop_fast",
+            "desktop_analysis",
+            "desktop_heavy",
+            "assistant_fast",
+            "assistant_standard",
+            "assistant_quality",
+            "report_quality",
+            "fallback",
+        ]
+        | None
+    ) = "desktop_fast"
+    prompt_version: str = Field(default="cockpit_interpretation_mvp.v1", min_length=1)
+    schema_version: str = Field(default="cockpit_interpretation.v1", min_length=1)
+    cache_enabled: bool = True
+    max_research_evidence: int = Field(default=6, gt=0, le=12)
+    max_context_text_chars: int = Field(default=260, gt=40, le=800)
+
+
+class LLMInterpretationConfig(StrictConfigModel):
+    """LLM interpretation runtime settings."""
+
+    cockpit: CockpitInterpretationConfig = Field(default_factory=CockpitInterpretationConfig)
+
+
 def _default_performance_profiles() -> dict[str, PerformanceProfileConfig]:
     return {
         "notebook": PerformanceProfileConfig(
@@ -321,6 +359,7 @@ class Settings(StrictConfigModel):
     execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
     assistant: AssistantConfig = Field(default_factory=AssistantConfig)
     llm_factor: LLMFactorConfig = Field(default_factory=LLMFactorConfig)
+    llm_interpretation: LLMInterpretationConfig = Field(default_factory=LLMInterpretationConfig)
     performance_profiles: dict[str, PerformanceProfileConfig] = Field(
         default_factory=_default_performance_profiles,
         min_length=1,

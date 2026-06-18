@@ -79,6 +79,20 @@ def test_router_can_use_larger_analysis_profile_on_desktop():
     assert route.max_tokens == 1800
 
 
+def test_router_supports_cockpit_interpretation_profile():
+    route = resolve_model_route(
+        settings=GatewaySettings(),
+        task_type="cockpit_interpretation",
+        preferred_profile="desktop_fast",
+        environment_profile="desktop",
+    )
+
+    assert route.profile == "desktop_fast"
+    assert route.model == "qwen3:8b"
+    assert route.timeout_seconds == 45.0
+    assert route.max_tokens == 1100
+
+
 def test_router_allows_request_model_to_override_profile_model():
     route = resolve_model_route(
         settings=GatewaySettings(DEFAULT_LLM_PROFILE="desktop_fast"),

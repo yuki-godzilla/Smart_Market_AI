@@ -184,6 +184,17 @@ def _intent_instruction(user_question: str) -> str:
             "next review, and memo wording.\n"
             "- Keep it as a decision-support note, not a trading instruction."
         )
+    if "intent: cockpit_interpretation" in text:
+        return (
+            "- Organize the current Cockpit information into how to read it before a decision.\n"
+            "- materials should focus on supportive or strong points already visible in price, "
+            "forecast, Investment Score, Research Evidence, or AI material analysis.\n"
+            "- cautions should include weak points, contradictions, uncertainty, stale or missing "
+            "materials, and cases where short-term forecast and qualitative materials differ.\n"
+            "- next_checkpoints should name what the user should inspect next in the Cockpit.\n"
+            "- Do not say buy, sell, hold, strong buy, or strong sell. Do not change scores, "
+            "forecasts, rankings, or Investment Score."
+        )
     if "intent: free_chat" in text:
         return (
             "- Answer naturally as SMAI Navi.\n"

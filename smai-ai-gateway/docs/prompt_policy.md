@@ -43,6 +43,16 @@ LLM は `answer` の本文生成を担当し、`materials`、`cautions`、`next_
 将来的には、SMAI RAG / Research Evidence の要約済み context を Gateway 入力へ渡します。
 その場合も、全文を無制限に渡すのではなく、出典、公開日、要約、確認ポイントを構造化して渡します。
 
+## Cockpit 解釈支援
+
+`cockpit_interpretation` では、LLM は Cockpit に表示済みの価格、Forecast / AI予測インサイト、Investment Score、Research Evidence、AI材料分析を読み解く補助だけを担当します。
+
+- 強い材料、注意点、矛盾・不確実性、次の確認を整理する。
+- score、ランキング順位、Forecast値、AI総合、Investment Score、Research Score、Decision Report本文を変更しない。
+- 買う / 売る / 保有するなどの行動指示を出さない。
+- context にない根拠を追加しない。
+- 不明点は未確認事項として扱う。
+
 ## 構造化特徴量生成
 
 `SMAI LLM Factor` 用の prompt では、以下を必ず制約として含めます。

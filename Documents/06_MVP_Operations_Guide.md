@@ -69,6 +69,9 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
   - Cockpit shows `AI材料分析` as a reference-only panel using existing Research / News / external-source context when available, plus a small cache caption for reproducibility. It is not blended into Forecast, Ranking, Investment Score, or Research Score.
   - Cockpit displays `LLM接続: disabled` / `fallback` / `live` with provider, model, profile, generated time, fallback reason, validation warnings, missing fields, and a note that the result is not reflected in Ranking / Forecast / Investment Score.
   - Ranking shows display-only LLM material reference columns for displayed candidates: `LLM強気材料`, `LLM弱気材料`, `LLM確信度`, and `材料鮮度`. Cache hits reuse cached `LLMFactorResult`; cache misses use deterministic fake values. These columns are non-sortable in the first slice and do not change Ranking score, rank, Forecast, Investment Score, or default order.
+- Cockpit LLM Interpretation
+  - Phase 28-A adds a Cockpit-only `AI解釈メモ` reference panel. It compresses visible Cockpit price / forecast / Investment Score / Research Evidence / AI材料分析 into `AssistantContextBundle`, calls Gateway `/api/v1/context-answer` with `task_type=cockpit_interpretation` only when `llm_interpretation.cockpit.enabled=true`, validates the response, caches by context / prompt / schema / model / profile, and falls back to a deterministic reading memo when disabled or unavailable.
+  - The panel explains how to read existing Cockpit materials and shows strong points, cautions, contradictions / uncertainty, next checks, runtime metadata, missing fields, and warnings. It does not modify Ranking, Forecast, AI総合, Investment Score, Research Score, Assistant tool execution, or Decision Report contents.
 - Streamlit UI
   - Market Data: `銘柄コックピット` / `銘柄ランキング`
   - Investment News: `投資レーダー` dashboard with news stream, heatmap, category lanes, and related-symbol cockpit handoff
@@ -85,6 +88,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動、通知
 - Advanced Forecast ranking logic: Ranking retains and displays common-horizon advanced forecast fields, blends consensus-derived advanced upside / downside into Ranking direction signals at 25%, and `AI総合` lightly includes advanced upside / downside / quality scores. Other ranking profiles remain existing-profile centered unless explicitly changed later.
 - `SMAI LLM Factor` の予測モデル統合は後続範囲。実 LLM/Gateway 接続MVP、live smoke手順、cache / TTL / reproducibility、Ranking 参考カラム、deterministic backtest evaluator、broader historical fixture pack、extended validation report は実装済み。既存予測モデル / Ranking score / rank / Forecast / Investment Score には検証完了前に混ぜない
+- Cockpit `AI解釈メモ` は Phase 28-A MVP として実装済み。Ranking / Radar / News / Decision Report への展開、Assistant からの画面説明連携、Decision Report への自動挿入は後続範囲
 - Assistant の長い会話履歴、参照文脈の本格拡張は後続範囲。Streamlit の floating `SMAI Copilot` question-panel、専用 `SMAIアシスタント` workspace / limited free-text / live Gateway first slice、SMAI 親側の Gateway HTTP client wiring と opt-in live smoke path、承認後 `news_fetch` / `research_fetch` の外部取得MVP、Decision Report下書き保存/archive UX MVPは実装済み
 - 銘柄DB live provider refresh wiring は background refresh 基盤実装済み後の provider / opt-in 接続タスクとして扱う
 - broker への live order 送信

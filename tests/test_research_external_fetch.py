@@ -1,3 +1,4 @@
+from email.message import Message
 from urllib.error import HTTPError
 
 import pytest
@@ -9,6 +10,10 @@ from backend.research.external_fetch import (
     research_fetch_with_retry,
 )
 from backend.research.service import ResearchDocumentError as ServiceResearchDocumentError
+
+
+def _empty_headers() -> Message:
+    return Message()
 
 
 def test_research_document_error_public_exports_stay_compatible():
@@ -42,7 +47,13 @@ def test_research_fetch_with_retry_retries_timeout_then_succeeds():
 
 def test_research_fetch_with_retry_wraps_non_retryable_http_status():
     def operation() -> str:
-        raise HTTPError("https://example.invalid/missing", 404, "Not Found", hdrs=None, fp=None)
+        raise HTTPError(
+            "https://example.invalid/missing",
+            404,
+            "Not Found",
+            hdrs=_empty_headers(),
+            fp=None,
+        )
 
     with pytest.raises(ResearchDocumentError) as exc_info:
         research_fetch_with_retry(
@@ -63,8 +74,20 @@ def test_research_fetch_with_retry_wraps_non_retryable_http_status():
 
 
 def test_is_retryable_research_fetch_error_classifies_http_status():
-    retryable = HTTPError("https://example.invalid", 503, "Unavailable", hdrs=None, fp=None)
-    not_found = HTTPError("https://example.invalid", 404, "Not Found", hdrs=None, fp=None)
+    retryable = HTTPError(
+        "https://example.invalid",
+        503,
+        "Unavailable",
+        hdrs=_empty_headers(),
+        fp=None,
+    )
+    not_found = HTTPError(
+        "https://example.invalid",
+        404,
+        "Not Found",
+        hdrs=_empty_headers(),
+        fp=None,
+    )
 
     assert is_retryable_research_fetch_error(retryable) is True
     assert is_retryable_research_fetch_error(not_found) is False

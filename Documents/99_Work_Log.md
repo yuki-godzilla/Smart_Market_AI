@@ -2680,3 +2680,34 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 ### Next
 
 - R1 can continue with Research summary / page view model helper separation, or defer a fuller `ExternalResearchFetchService` move until ingestion/index contracts are split enough to avoid circular imports.
+
+## 2026-06-18 - Refactor Phase R1 completion checkpoint
+
+### Scope
+
+- moved Research summary / insight / question / page view model builders to `backend/research/summary_builders.py`.
+- moved `ExternalResearchFetchService` to `backend/research/external_fetch_service.py`.
+- kept public imports stable through `backend.research`, and preserved direct `backend.research.service.*` compatibility for the moved builder and fetch service symbols via lazy module exports.
+- kept the remaining ingestion, indexing, retrieval, scoring, stock news, and helper logic in `backend/research/service.py` for later, narrower contract splits.
+- fixed CI-level mypy compatibility in `tests/test_research_external_fetch.py` by passing an empty `email.message.Message` header object to `urllib.error.HTTPError` fixtures instead of `None`.
+
+### Boundary
+
+- no external provider opt-in behavior, Research manifest schema, archive/session retention, scoring, UI wording, Ranking, Forecast, LLM Factor, Gateway, or Streamlit behavior changed.
+- `summary_builders.py` intentionally loads private helper functions from `service.py` at method runtime so the public builder classes can move now without a broad helper rewrite in the same slice.
+- `ExternalResearchFetchService` still depends on `ResearchIngestionService` and `ResearchIndexService`; those core service contracts remain in `service.py`.
+
+### Validation
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_research_service.py tests\test_research_external_contracts.py tests\test_research_external_fetch.py tests\test_research_external_registration.py tests\test_research_source_trace.py -q --basetemp outputs\work\pytest_tmp\refactor_research_completion -p no:cacheprovider`
+- passed: `.\venv_SMAI\Scripts\python.exe -m mypy backend\research\external_fetch_service.py backend\research\summary_builders.py backend\research\service.py backend\research\__init__.py`
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check backend\research tests --no-cache`
+- passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py`
+- passed CI-equivalent static checks: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py`, `.\venv_SMAI\Scripts\python.exe -m ruff check . --no-cache`, and `.\venv_SMAI\Scripts\python.exe -m mypy .`.
+- passed CI-equivalent pytest with workspace-local temp: `.\venv_SMAI\Scripts\python.exe -m pytest -q --maxfail=1 --disable-warnings --cov --cov-report=xml --basetemp outputs\work\ci_pytest_basetemp` with `1515 passed, 1 skipped, 33 warnings`.
+- passed: Playwright smoke against local Streamlit on `127.0.0.1:8520`: settings page rendered, `性能profile` and `AI調査 / 根拠資料` appeared, cockpit initial page rendered with `データを取得`; no external fetch button was clicked and no live provider call was made.
+- note: the exact pytest command without workspace-local temp failed locally before test execution reached the target test because Windows denied access to `C:\Users\okuma\AppData\Local\Temp\pytest-of-okuma`; rerun with workspace temp passed.
+
+### Next
+
+- R1 can be treated as complete for the assigned refactor checkpoint. Future R2/R3 cleanup should target core ingestion/index/retrieval contract extraction and remaining private Research helper groups in small slices.

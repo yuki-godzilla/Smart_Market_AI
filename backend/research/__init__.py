@@ -16,6 +16,7 @@ from backend.research.external_contracts import (
     ExternalResearchSourcePayload,
     ResearchSourceType,
 )
+from backend.research.external_fetch_service import ExternalResearchFetchService
 from backend.research.service import (
     CompanyBusinessProfile,
     CompanyOverviewSummary,
@@ -23,10 +24,7 @@ from backend.research.service import (
     CompanyResearchReport,
     CompanyResearchRequest,
     CompanyResearchSummary,
-    CompanyResearchSummaryBuilder,
     ETFResearchSummary,
-    ETFResearchSummaryBuilder,
-    ExternalResearchFetchService,
     ExternalResearchStockNewsAdapter,
     ExternalStockNewsAdapter,
     ExternalStockNewsFetchService,
@@ -34,13 +32,11 @@ from backend.research.service import (
     InformationStatus,
     InvestmentActionHint,
     InvestmentInsight,
-    InvestmentInsightBuilder,
     InvestmentInsightItem,
     InvestmentQuestionAnswer,
     InvestmentQuestionCategory,
     InvestmentQuestionEvidenceLevel,
     InvestmentQuestionSummary,
-    InvestmentQuestionSummaryBuilder,
     InvestmentSignal,
     InvestmentViewStatus,
     IRDocumentType,
@@ -52,7 +48,6 @@ from backend.research.service import (
     QuantitativeSummary,
     ResearchAnalysisService,
     ResearchBrief,
-    ResearchBriefBuilder,
     ResearchBriefMaterial,
     ResearchBriefSourceCard,
     ResearchChunk,
@@ -85,7 +80,6 @@ from backend.research.service import (
     ResearchMissingItem,
     ResearchMissingItemCategory,
     ResearchPageViewModel,
-    ResearchPageViewModelBuilder,
     ResearchParseError,
     ResearchQueryExpansionResult,
     ResearchQueryExpansionService,
@@ -103,7 +97,6 @@ from backend.research.service import (
     ResearchVectorStore,
     ResearchWritableVectorStore,
     SecurityResearchType,
-    SecurityResearchTypeDetector,
     StockNewsAnalysisService,
     StockNewsEvidence,
     StockNewsReport,
@@ -112,6 +105,15 @@ from backend.research.service import (
 from backend.research.source_trace import (
     ResearchSourceTrace,
     research_profile_source_key_for_provider,
+)
+from backend.research.summary_builders import (
+    CompanyResearchSummaryBuilder,
+    ETFResearchSummaryBuilder,
+    InvestmentInsightBuilder,
+    InvestmentQuestionSummaryBuilder,
+    ResearchBriefBuilder,
+    ResearchPageViewModelBuilder,
+    SecurityResearchTypeDetector,
 )
 
 __all__ = [

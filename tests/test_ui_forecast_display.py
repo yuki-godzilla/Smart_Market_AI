@@ -5565,8 +5565,8 @@ def test_live_ranking_symbol_warning_message_only_warns_for_large_live_requests(
     assert live_ranking_symbol_warning_message("mock", 80) is None
     assert live_ranking_symbol_warning_message("yahoo", 30) is None
     assert live_ranking_symbol_warning_message("yahoo", 31) == (
-        "yahoo は外部通信のため、31 銘柄のランキング作成には時間がかかる場合があります。"
-        "通信が不安定な場合は、取得期間を短くするか、比較する銘柄を絞って再実行してください。"
+        "yahoo の 31 銘柄ランキングは時間がかかる場合があります。"
+        "遅い場合は期間や対象を絞ってください。"
     )
 
 

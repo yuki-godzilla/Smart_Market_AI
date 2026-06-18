@@ -1610,8 +1610,8 @@ def live_ranking_symbol_warning_message(provider: str, symbol_count: int) -> str
     if symbol_count <= LIVE_RANKING_WARNING_SYMBOL_THRESHOLD:
         return None
     return (
-        f"{provider} は外部通信のため、{symbol_count} 銘柄のランキング作成には時間がかかる場合があります。"
-        "通信が不安定な場合は、取得期間を短くするか、比較する銘柄を絞って再実行してください。"
+        f"{provider} の {symbol_count} 銘柄ランキングは時間がかかる場合があります。"
+        "遅い場合は期間や対象を絞ってください。"
     )
 
 

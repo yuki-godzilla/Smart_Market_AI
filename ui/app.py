@@ -6052,10 +6052,9 @@ def _render_market_data_ranking() -> None:
     )
     ranking_forecast_horizon_days = default_forecast_horizon_days(start_date, end_date)
     st.caption(
-        "評価方針: どの観点で候補を評価するかを選びます。"
-        "候補は選択中の評価方針スコア順に表示されます。"
-        "配当利回り、PER、PBR、ROEなどで並べ替えたい場合は、詳細テーブルの列名をクリックしてください。"
-        f" {ranking_policy_label(ranking_policy)}は{ranking_purpose_help(ranking_policy)}"
+        "評価方針を選んでランキングを作成します。配当利回り、PER、PBR、ROEなどの並べ替えは、"
+        f"作成後の詳細テーブル列から行えます。{ranking_policy_label(ranking_policy)}は"
+        f"{ranking_purpose_help(ranking_policy)}"
     )
     _render_ranking_condition_card(
         ranking_policy,
@@ -6064,10 +6063,9 @@ def _render_market_data_ranking() -> None:
     )
     _render_ranking_criteria_guide()
     if len(effective_selected_labels) < len(selected_labels):
-        st.info(
-            f"候補が多いため、{ranking_fetch_limit_label(fetch_limit)}として"
+        st.caption(
+            f"作成対象: {ranking_fetch_limit_label(fetch_limit)} / "
             f"{len(effective_selected_labels)}件を取得します。"
-            "総合マルチファクター基準の条件適合度とDB信頼度で事前に並べています。"
         )
     warning_message = live_ranking_symbol_warning_message(provider, len(ranking_symbols))
     if warning_message is not None:
@@ -6075,7 +6073,7 @@ def _render_market_data_ranking() -> None:
     with action_button_col:
         st.write("")
         build_ranking_clicked = st.button(
-            "最新データを取得して更新",
+            "ランキング作成",
             key="build_market_data_ranking",
             type="primary",
         )
@@ -6139,10 +6137,10 @@ def _render_market_data_ranking() -> None:
     )
     if (rows or error_rows) and not is_current_ranking_result:
         _clear_ranking_deep_dive_state()
-        st.info("条件が変わりました。最新データを取得して更新してください。")
+        st.info("条件が変わりました。ランキング作成で再作成してください。")
         render_mascot_panel(
             "guide",
-            message="条件を変えた後は、更新ボタンでもう一度候補を整理しましょう。",
+            message="条件を変えた後は、ランキング作成でもう一度候補を整理しましょう。",
             layout="compact",
         )
     elif rows:
@@ -6314,13 +6312,7 @@ def _render_market_data_ranking() -> None:
         _render_ranking_error_rows(cast(list[dict[str, str]], error_rows))
     else:
         _clear_ranking_deep_dive_state()
-        st.info("銘柄を選んで最新データを取得してください。")
-        render_mascot_panel(
-            "empty",
-            title="ランキング準備",
-            message="比較条件を選んで最新データを取得すると、SMAIが深掘り候補を整理します。",
-            layout="compact",
-        )
+        st.caption("比較条件を選んで `ランキング作成` を押すと、候補を整理します。")
 
 
 def _render_ranking_error_rows(error_rows: list[dict[str, str]]) -> None:

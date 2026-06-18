@@ -2900,3 +2900,18 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - Phase 28-B Ranking interpretation, Phase 28-C/D Radar / News interpretation, or Phase 29 Decision Report draft assistance can proceed next.
 - LLM Factor model integration remains deferred until validation / backtest / leakage checks justify it.
+
+## 2026-06-18 - Ranking creation wording polish
+
+### Scope
+
+- changed the Ranking action button from `最新データを取得して更新` to `ランキング作成`.
+- shortened the Ranking setup caption, large-live-provider warning, and empty-state guidance.
+- removed the duplicated initial `ランキング準備` mascot card below the controls.
+- updated FS-012 wording so the docs use the new button label.
+
+### Validation
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_forecast_display.py::test_live_ranking_symbol_warning_message_only_warns_for_large_live_requests -q --basetemp outputs\work\pytest_tmp_ranking_label -p no:cacheprovider`.
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check ui\app.py ui\ranking.py tests\test_ui_forecast_display.py --no-cache`.
+- passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py ui\app.py ui\ranking.py tests\test_ui_forecast_display.py`.

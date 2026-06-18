@@ -292,8 +292,10 @@ from ui.ranking import (
     RANKING_PRESET_ETF_INCOME,
     RANKING_PRESET_MIN_VOLATILITY,
     RANKING_PRESET_MULTI_FACTOR,
+    RANKING_PRESET_NISA_LONG_TERM,
     RANKING_PRESET_QUALITY_GROWTH,
     RANKING_PRESET_QUALITY_VALUE,
+    RANKING_PRESET_RISK_ADJUSTED,
     RANKING_PRESET_SMALL_GROWTH,
     RANKING_PRESET_SORT_DIVIDEND_YIELD,
     RANKING_PRESET_SORT_PBR,
@@ -347,6 +349,7 @@ from ui.ranking import (
     ranking_no_bars_error_row,
     ranking_period_dates,
     ranking_period_label,
+    ranking_policy_description,
     ranking_policy_for_purpose,
     ranking_policy_label,
     ranking_policy_options,
@@ -3607,15 +3610,16 @@ def test_ranking_result_aggrid_options_assigns_metric_sort_directions():
         assert column_defs[column]["sortingOrder"] == sorting_order
         assert column_defs[column]["unSortIcon"] is True
         assert "comparator" in column_defs[column]
-    assert column_defs["Screening"]["headerName"] == "スクリーニング"
+    assert column_defs["Screening"]["headerName"] == "基礎評価"
     assert column_defs["Risk"]["headerName"] == "リスク"
+    assert column_defs["データ品質"]["headerName"] == "データ信頼度"
 
 
 def test_ranking_table_sort_guidance_explains_low_sort_and_missing_values():
     assert "詳細テーブルでは、列名をクリックして各指標順に並べ替えできます" in (
         RANKING_TABLE_SORT_GUIDANCE
     )
-    assert "スクリーニング・上昇気配は高い順" in RANKING_TABLE_SORT_GUIDANCE
+    assert "基礎評価・上昇気配は高い順" in RANKING_TABLE_SORT_GUIDANCE
     assert "PER・PBR・ボラティリティ・リスク・下降警戒は低い順" in (RANKING_TABLE_SORT_GUIDANCE)
     assert "LLM材料列は参考表示" in RANKING_TABLE_SORT_GUIDANCE
     assert "N/Aは末尾" in RANKING_TABLE_SORT_GUIDANCE
@@ -4434,8 +4438,8 @@ def test_advanced_ranking_purposes_have_profiles_and_help_text():
         "経費率",
         "連動指数",
     )
-    assert "上昇気配 25%" in ranking_purpose_weight_summary(RANKING_PURPOSE_UPSIDE_SIGNAL)
-    assert "下降警戒控えめ 10%" in ranking_purpose_weight_summary(RANKING_PURPOSE_UPSIDE_SIGNAL)
+    assert "予測・上昇気配 25%" in ranking_purpose_weight_summary(RANKING_PURPOSE_UPSIDE_SIGNAL)
+    assert "下振れ警戒 10%" in ranking_purpose_weight_summary(RANKING_PURPOSE_UPSIDE_SIGNAL)
     assert ranking_purpose_weight_summary(RANKING_PURPOSE_SORT_PER) == (
         "PER低い順 100%",
         "N/A 末尾",
@@ -4469,7 +4473,7 @@ def test_ranking_policy_options_restore_composite_profiles_without_metric_sorts(
         "割安クオリティ",
         "高配当の持続性",
         "低ボラ・安定",
-        "リスク調整パフォーマンス",
+        "安定成長",
         "小型・成長探索",
         "NISA長期適合",
         "データ信頼度優先",
@@ -4488,6 +4492,20 @@ def test_ranking_policy_options_restore_composite_profiles_without_metric_sorts(
     assert RANKING_PURPOSE_SORT_MARKET_CAP not in ranking_policy_options()
     assert RANKING_PURPOSE_SORT_VOLUME not in ranking_policy_options()
     assert RANKING_PURPOSE_SORT_VOLATILITY not in ranking_policy_options()
+
+
+def test_ranking_policy_descriptions_cover_all_composite_options():
+    for purpose in ranking_policy_options():
+        description = ranking_policy_description(purpose)
+        assert description["short_summary"]
+        assert description["suited_for"]
+        assert description["main_focus"]
+        assert description["caution"]
+
+    risk_adjusted = ranking_policy_description(RANKING_PURPOSE_RISK_ADJUSTED)
+    assert "安定" in risk_adjusted["short_summary"]
+    assert "リスク" in risk_adjusted["main_focus"]
+    assert "売買推奨" in ranking_policy_description("unknown_policy")["caution"]
     assert RANKING_PURPOSE_SORT_RISK not in ranking_policy_options()
     assert RANKING_PURPOSE_SORT_DATA_QUALITY not in ranking_policy_options()
     assert ranking_policy_for_purpose(RANKING_PURPOSE_DIVIDEND) == (
@@ -6027,10 +6045,10 @@ def test_ranking_candidate_cards_and_breakdown_use_existing_display_values():
     assert "総合スコア 82" in card_html
     assert [row["観点"] for row in breakdown] == [
         "投資スコア",
-        "スクリーニング",
+        "基礎評価",
         "上昇気配・下降警戒",
         "データ信頼度",
-        "リスク確認",
+        "リスク",
         "根拠資料",
         "根拠スコア",
     ]
@@ -6978,11 +6996,11 @@ def test_ranking_weight_group_rows_summarize_ai_composite_profile():
     rows = ranking_weight_group_rows(RANKING_PRESET_MULTI_FACTOR)
 
     assert rows == [
-        {"group": "基礎スクリーニング", "weight": "23%"},
-        {"group": "予測シグナル", "weight": "29%"},
-        {"group": "リスク・データ品質", "weight": "28%"},
-        {"group": "DB条件・信頼度", "weight": "18%"},
-        {"group": "Research", "weight": "2%"},
+        {"group": "基礎評価", "weight": "30%"},
+        {"group": "予測・上昇気配", "weight": "30%"},
+        {"group": "リスク・下振れ警戒", "weight": "25%"},
+        {"group": "データ信頼度", "weight": "10%"},
+        {"group": "Research確認材料", "weight": "5%"},
     ]
 
 
@@ -6998,9 +7016,10 @@ def test_ranking_condition_card_html_explains_common_horizon_and_ai_weighting():
     assert "31日" in markup
     assert "同じランキング内では共通の予測期間で比較します" in markup
     assert "AI予測インサイトは順位を直接支配せず" in markup
-    assert "予測シグナル" in markup
-    assert "29%" in markup
-    assert "下降警戒と高度予測の下振れ警戒は低いほど良い" in markup
+    assert "予測・上昇気配" in markup
+    assert "30%" in markup
+    assert "下降警戒は低いほど良い指標です" in markup
+    assert "警戒が低いほど加点" in markup
     assert "売買推奨ではありません" in markup
 
 
@@ -7766,13 +7785,44 @@ def test_ranking_weight_presets_prefer_direction_signal_over_forecast_agreement(
     )
     assert RANKING_WEIGHT_PRESETS[RANKING_PRESET_SUSTAINABLE_INCOME][
         "upside_signal_score"
-    ] == Decimal("0.03")
+    ] == Decimal("0.05")
     assert RANKING_WEIGHT_PRESETS[RANKING_PRESET_MULTI_FACTOR][
         "advanced_forecast_upside_score"
-    ] == Decimal("0.06")
+    ] == Decimal("0.07")
     assert RANKING_WEIGHT_PRESETS[RANKING_PRESET_MULTI_FACTOR][
         "advanced_forecast_downside_score"
     ] == Decimal("0.03")
+
+
+def test_ranking_weight_presets_use_tuned_policy_weights():
+    for weights in RANKING_WEIGHT_PRESETS.values():
+        assert sum(weights.values(), Decimal("0")) == Decimal("1.00")
+        assert weights.get("research_score", Decimal("0")) <= Decimal("0.05")
+
+    assert RANKING_WEIGHT_PRESETS[RANKING_PRESET_MULTI_FACTOR]["screening_score"] == Decimal("0.30")
+    assert RANKING_WEIGHT_PRESETS[RANKING_PRESET_MULTI_FACTOR]["research_score"] == Decimal("0.05")
+    assert RANKING_WEIGHT_PRESETS[RANKING_PRESET_SMALL_GROWTH]["risk_signal_score"] == Decimal(
+        "0.15"
+    )
+    assert RANKING_WEIGHT_PRESETS[RANKING_PRESET_RISK_ADJUSTED]["risk_signal_score"] == Decimal(
+        "0.20"
+    )
+    assert RANKING_WEIGHT_PRESETS[RANKING_PRESET_RISK_ADJUSTED]["downside_signal_score"] == Decimal(
+        "0.05"
+    )
+    assert RANKING_WEIGHT_PRESETS[RANKING_PRESET_NISA_LONG_TERM]["research_score"] == Decimal(
+        "0.05"
+    )
+    assert (
+        RANKING_WEIGHT_PRESETS[RANKING_PRESET_ETF_CORE_COST]
+        != RANKING_WEIGHT_PRESETS[RANKING_PRESET_ETF_INCOME]
+    )
+    assert RANKING_WEIGHT_PRESETS[RANKING_PRESET_ETF_CORE_COST]["database_fit_score"] == Decimal(
+        "0.30"
+    )
+    assert RANKING_WEIGHT_PRESETS[RANKING_PRESET_ETF_INCOME]["database_fit_score"] == Decimal(
+        "0.35"
+    )
 
 
 def test_ai_multi_factor_profile_uses_advanced_forecast_without_penalizing_missing_data():
@@ -7798,6 +7848,32 @@ def test_ai_multi_factor_profile_uses_advanced_forecast_without_penalizing_missi
     assert ranked[1]["advanced_forecast_upside_score"] == "50"
     assert ranked[1]["advanced_forecast_downside_score"] == "50"
     assert ranked[1]["advanced_forecast_quality_score"] == "50"
+
+
+def test_ai_multi_factor_profile_rewards_lower_downside_warning():
+    rows = [
+        {
+            **_ranking_score_row("LOW_WARNING"),
+            "upside_signal_score": "55",
+            "downside_signal_score": "20",
+            "advanced_forecast_downside_score": "25",
+        },
+        {
+            **_ranking_score_row("HIGH_WARNING"),
+            "upside_signal_score": "55",
+            "downside_signal_score": "80",
+            "advanced_forecast_downside_score": "75",
+        },
+    ]
+    symbol_rows = {
+        "LOW_WARNING": _stock_symbol_metadata("LOW_WARNING"),
+        "HIGH_WARNING": _stock_symbol_metadata("HIGH_WARNING"),
+    }
+
+    ranked = apply_ranking_weight_preset(rows, RANKING_PRESET_MULTI_FACTOR, symbol_rows)
+
+    assert ranked[0]["symbol"] == "LOW_WARNING"
+    assert ranked[1]["symbol"] == "HIGH_WARNING"
 
 
 def test_advanced_forecast_enrichment_blends_upside_and_downside_signals():

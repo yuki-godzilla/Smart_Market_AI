@@ -41,6 +41,7 @@ def test_ui_modules_reference_content_catalogs():
     assert ui_ranking.RANKING_PURPOSE_LABELS is ranking_texts.RANKING_PURPOSE_LABELS
     assert ui_ranking.RANKING_WEIGHT_PRESET_LABELS is ranking_texts.RANKING_WEIGHT_PRESET_LABELS
     assert ui_ranking.RANKING_PURPOSE_HELP_TEXTS is ranking_texts.RANKING_PURPOSE_HELP_TEXTS
+    assert ui_ranking.RANKING_POLICY_DESCRIPTIONS is ranking_texts.RANKING_POLICY_DESCRIPTIONS
     assert ui_ranking.RANKING_FILTER_HELP_TEXTS is ranking_texts.RANKING_FILTER_HELP_TEXTS
     assert ui_ranking.RANKING_CRITERIA_GUIDE_ROWS is ranking_texts.RANKING_CRITERIA_GUIDE_ROWS
     assert ranking_texts.RANKING_CHART_PROFILE_TEXTS["upside_downside"]["title"]
@@ -64,6 +65,10 @@ def test_ranking_texts_keep_criteria_confidence_and_product_guardrails():
     assert "投資魅力度ではなく" in guide_rows["条件適合度"]["読み方"]
     assert "投資魅力度ではなく" in guide_rows["DB信頼度"]["読み方"]
     assert "売買推奨ではなく" in guide_rows["評価方針"]["読み方"]
+    assert ranking_texts.RANKING_SCORE_FIELD_LABELS["screening_score"] == "基礎評価"
+    assert ranking_texts.RANKING_SCORE_FIELD_LABELS["data_quality_score"] == "データ信頼度"
+    assert ranking_texts.RANKING_SCORE_FIELD_LABELS["research_score"] == "Research確認材料"
+    assert ranking_texts.RANKING_PURPOSE_LABELS["risk_adjusted"] == "安定成長"
 
 
 def test_major_ui_code_does_not_directly_use_ng_investment_advice_terms():

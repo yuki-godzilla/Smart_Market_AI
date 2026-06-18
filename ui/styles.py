@@ -4163,11 +4163,34 @@ div[data-testid="stChatInput"] textarea:focus {
 }
 
 .smai-ranking-condition-grid p,
+.smai-ranking-policy-summary,
 .smai-ranking-condition-note {
     color: var(--text-secondary);
     font-size: 0.84rem;
     line-height: 1.55;
     margin: 0.32rem 0 0;
+}
+
+.smai-ranking-policy-summary {
+    margin-top: 0.42rem;
+}
+
+.smai-ranking-focus-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.38rem;
+    margin-top: 0.7rem;
+}
+
+.smai-ranking-focus-chips span {
+    border: 1px solid rgba(34, 211, 238, 0.28);
+    border-radius: 999px;
+    color: var(--text-heading);
+    background: rgba(8, 145, 178, 0.12);
+    font-size: 0.76rem;
+    font-weight: 760;
+    line-height: 1.2;
+    padding: 0.28rem 0.5rem;
 }
 
 .smai-ranking-weight-grid {

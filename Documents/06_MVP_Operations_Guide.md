@@ -40,7 +40,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
   - Streamlit startup daemon worker that updates missing / stale local symbol records without blocking rendering
   - Cockpit selected symbols and Ranking comparison targets are registered as background priority hints without adding user-facing controls
   - Cockpit `データを取得` prioritizes price / forecast rendering, then registers the selected symbol for background priority refresh with a 30-minute in-session TTL
-  - Ranking `最新データを取得して更新` runs a bounded target preflight refresh before ranking creation
+  - Ranking `ランキング作成` runs a bounded target preflight refresh before ranking creation
   - Cockpit selected-symbol caption and the shared Ranking / Cockpit `銘柄データ` modal show saved symbol DB freshness, source, update times, and missing key fields
 - Phase 23 Advanced Forecast adapter registry + `advanced_linear` / `advanced_tree_sklearn` / `advanced_gbdt_sklearn` / `advanced_quantile` backend + API + Cockpit + Ranking auxiliary display slice
   - `advanced_linear` forecast adapter foundation for Cockpit / Ranking
@@ -50,7 +50,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
   - advanced forecast consensus layer that conservatively combines registered advanced adapters at one common horizon using confidence, error improvement, model agreement, and validation sample context
   - `POST /forecast/evaluate` accepts `adapter=advanced_linear`, `adapter=advanced_tree_sklearn`, `adapter=advanced_gbdt_sklearn`, or `adapter=advanced_quantile` with `horizon_days` 1-60 and returns predicted return, forecast close, validation metrics, confidence, and warnings. `advanced_quantile` also returns lower / upper predicted return and forecast close range fields.
   - Cockpit overlays advanced forecast context on the existing price / forecast chart using the same period-derived horizon as baseline forecasts. The default horizon is roughly one twelfth of the displayed period and capped at 60 days. The initial chart emphasizes actual price, `AI予測インサイト` as the consensus line, and its lower-to-upper prediction range band; advanced model lines and simple forecast lines can be added with two grouped chart checkboxes that only filter already-built chart rows, while the fixed-color chart legend dims individual displayed series. Individual advanced model cards remain visible below the chart for detail confirmation. Naive / moving-average / momentum simple forecasts stay available as backend baseline / detail context, but are not part of the default Cockpit chart or main model-card display. The chart legend sits below the chart, the right forecast-focus chart is titled `予測スコープ`, and the full chart restores small point markers while keeping the actual-price line thinner.
-  - Ranking rows retain one period-derived common-horizon advanced forecast consensus return (`advanced_forecast_predicted_return`), horizon days, score, confidence, and AI総合用の高度予測上昇 / 下降警戒 / 信頼スコア. Ranking の上昇気配 / 下降警戒にはAI予測インサイトを25%までブレンドし、`AI総合` はこれらを低信頼時に中立寄せしながら控えめに加味する。Ranking の理由表示、深掘り候補、score detail、Decision Report でも同じ文脈で説明する
+  - Ranking rows retain one period-derived common-horizon advanced forecast consensus return (`advanced_forecast_predicted_return`), horizon days, score, confidence, and AI総合用の高度予測上昇 / 下降警戒 / 信頼スコア. Ranking の上昇気配 / 下降警戒にはAI予測インサイトを25%までブレンドし、`AI総合` はこれらを `予測・上昇気配30%` / `リスク・下振れ警戒25%` の中で低信頼時に中立寄せしながら加味する。Ranking の理由表示、深掘り候補、score detail、Decision Report でも同じ文脈で説明する
   - Ridge-style lightweight deterministic forecasting, scikit-learn tree ensemble / histogram gradient boosting forecasting, and quantile range checks for 1-60 day forward returns
   - walk-forward / time-series validation, validation metrics, confidence, and feature contribution summary
   - designed to keep normal checks network-free; `scikit-learn` is pinned in setup requirements for tree / boosting adapters
@@ -86,7 +86,7 @@ API 仕様、CSV provider、Streamlit UI、手動確認、外部 provider の扱
 - 追加 Research RAG external source adapters / vector search の運用UI
 - Research Score によるランキング順位統合は現時点では見送り。Cockpit / Ranking Research Summary と Cockpit Decision Report への参考表示、Investment Score optional numeric input、disabled-by-default weight は対応済み
 - `投資レーダー` dashboard の追加ニュースprovider、詳細フィルタ、Watchlist連動、通知
-- Advanced Forecast ranking logic: Ranking retains and displays common-horizon advanced forecast fields, blends consensus-derived advanced upside / downside into Ranking direction signals at 25%, and `AI総合` lightly includes advanced upside / downside / quality scores. Other ranking profiles remain existing-profile centered unless explicitly changed later.
+- Advanced Forecast ranking logic: Ranking retains and displays common-horizon advanced forecast fields, blends consensus-derived advanced upside / downside into Ranking direction signals at 25%, and `AI総合` includes advanced upside / downside / quality as part of a tuned 30/30/25/10/5 evaluation profile. Other ranking profiles are tuned as comparison policies but still do not use LLM Factor or live interpretation results.
 - `SMAI LLM Factor` の予測モデル統合は後続範囲。実 LLM/Gateway 接続MVP、live smoke手順、cache / TTL / reproducibility、Ranking 参考カラム、deterministic backtest evaluator、broader historical fixture pack、extended validation report は実装済み。既存予測モデル / Ranking score / rank / Forecast / Investment Score には検証完了前に混ぜない
 - Cockpit `AI解釈メモ` は Phase 28-A MVP として実装済み。Ranking / Radar / News / Decision Report への展開、Assistant からの画面説明連携、Decision Report への自動挿入は後続範囲
 - Assistant の長い会話履歴、参照文脈の本格拡張は後続範囲。Streamlit の floating `SMAI Copilot` question-panel、専用 `SMAIアシスタント` workspace / limited free-text / live Gateway first slice、SMAI 親側の Gateway HTTP client wiring と opt-in live smoke path、承認後 `news_fetch` / `research_fetch` の外部取得MVP、Decision Report下書き保存/archive UX MVPは実装済み
@@ -349,26 +349,26 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - 地域 / 商品 / 評価方針
   - 地域: `国内` / `米国` / `全体`
   - 商品: `株式` / `ETF` / `指定なし`
-  - 評価方針: `AI総合` / `上昇気配重視` / `モメンタム・トレンド` / `成長クオリティ` / `割安クオリティ` / `高配当の持続性` / `低ボラ・安定` / `リスク調整パフォーマンス` / `小型・成長探索` / `NISA長期適合` / `データ信頼度優先` / `ETF低コスト・コア` / `ETFインカム・分散`
-- `評価方針` はSMAIの複合評価プロファイルを選ぶ主導線です（画面上では `最新データを取得して更新` ボタンの横で選択）。
+  - 評価方針: `AI総合` / `上昇気配重視` / `モメンタム・トレンド` / `成長クオリティ` / `割安クオリティ` / `高配当の持続性` / `低ボラ・安定` / `安定成長` / `小型・成長探索` / `NISA長期適合` / `データ信頼度優先` / `ETF低コスト・コア` / `ETFインカム・分散`
+- `評価方針` はSMAIの複合評価プロファイルを選ぶ主導線です（画面上では `ランキング作成` ボタンの横で選択）。
   - 右下の floating `SMAI Copilot` は、ランキング作成前、ランキング結果、深掘り候補の section に応じて固定質問を出す。順位の理由、深掘り比較、AI総合 / 上昇気配 / 下降警戒の読み分け、低信頼データの注意点を deterministic に説明し、ランキング再作成は走らせない。
-  - AI総合: `総合マルチファクター`。Screening、上昇気配・下降警戒、Risk、Data Quality、条件適合度、DB信頼度に加え、AI予測インサイトの上昇 / 下振れ警戒 / 信頼度を低信頼時に中立寄せしながら控えめに加味する既定条件。上昇気配・下降警戒自体も、AI予測インサイトがある場合は通常方向シグナルに25%までブレンドされる。
-  - 上昇気配重視: 上昇気配と下降警戒の差し引き、Screening、Data Qualityを重視する。買い推奨ではなく、短期的な深掘り候補の整理に使う。
-  - モメンタム・トレンド: 取得期間の価格評価、上昇気配・下降警戒、Screeningを重視し、追随リスクも確認する。
-  - 成長クオリティ: ROE、上昇気配、Screening、Data Qualityを重視し、PER/PBRは成長期待との釣り合い確認に使う。
-  - 割安クオリティ: PER/PBRの低さに加え、ROE、Risk、Data Qualityを確認し、割安に見える理由を確認しやすくする。
-  - 高配当の持続性: 配当利回り、配当カテゴリ、Risk、PBR、Data Qualityを組み合わせ、極端な高配当は減配リスク確認対象にする。
-  - 低ボラ・安定: Risk signal、β分類、Data Quality、銘柄規模を重視し、値動きの落ち着きを優先する。
-  - リスク調整パフォーマンス: リターンだけでなくRisk signal、Data Quality、条件適合度を合わせて見る。
-  - 小型・成長探索: 小型/中型、ROE、Screening、上昇気配を重視し、RiskとDB信頼度も確認する。
-  - NISA長期適合: NISA適合、投資スタイル、Risk、Data Quality、ROEを重視する。
-  - データ信頼度優先: metadata source、更新日、Data Quality、欠損の少なさを最優先する。
+  - AI総合: `総合マルチファクター`。重みは `基礎評価30%` / `予測・上昇気配30%` / `リスク・下振れ警戒25%` / `データ信頼度10%` / `Research確認材料5%`。上昇気配・下降警戒自体も、AI予測インサイトがある場合は通常方向シグナルに25%までブレンドされる。
+  - 上昇気配重視: 予測・上昇気配と下振れ警戒、基礎評価、データ信頼度を重視する。買い推奨ではなく、短期的な深掘り候補の整理に使う。
+  - モメンタム・トレンド: 取得期間の価格評価、上昇気配・下降警戒、基礎評価を重視し、追随リスクも確認する。
+  - 成長クオリティ: ROE、上昇気配、基礎評価、データ信頼度を重視し、PER/PBRは成長期待との釣り合い確認に使う。
+  - 割安クオリティ: PER/PBRの低さに加え、ROE、リスク、データ信頼度、Research確認材料を確認し、割安に見える理由を確認しやすくする。
+  - 高配当の持続性: 配当利回り、配当カテゴリ、リスク、PBR、データ信頼度、Research確認材料を組み合わせ、極端な高配当は減配リスク確認対象にする。
+  - 低ボラ・安定: リスク、β分類、データ信頼度、銘柄規模、Research確認材料を重視し、値動きの落ち着きを優先する。
+  - 安定成長: リターンだけでなくリスク、データ信頼度、条件適合度を合わせて見る。
+  - 小型・成長探索: 小型/中型、ROE、基礎評価、上昇気配を重視し、リスク15%とDB信頼度も確認する。
+  - NISA長期適合: NISA適合、投資スタイル、リスク、データ信頼度、ROE、Research確認材料を重視する。
+  - データ信頼度優先: metadata source、更新日、データ信頼度、欠損の少なさを最優先する。
   - ETF低コスト・コア: 経費率、連動指数、複雑性、NISA適合、DB信頼度を重視する。
-  - ETFインカム・分散: ETFの利回り、経費率、指数、通貨、複雑性、Data Qualityを重視する。
+  - ETFインカム・分散: ETFの利回り、経費率、指数、通貨、複雑性、データ信頼度、Research確認材料を重視する。
   - 旧来の `配当重視` / `成長重視` / `割安重視` / `安定重視` / `トレンド重視` は内部互換として残すが、上部UIでは代表プロファイルへ統合して重複表示しない。
-- ランキング結果画面では、`評価方針` で候補を採点し、そのスコア順に上位カード / Top 10棒グラフ / 確認メモを表示する。単一指標ソートは上部ドロップダウンには置かず、詳細テーブルの列ヘッダークリックで表示中データをローカルに並べ替える。詳細テーブルは `順位` / `銘柄` / `銘柄名` / `総合スコア` / `配当利回り` / `PER` / `PBR` / `ROE` / `見方` を常時表示する。`総合スコア` / `配当利回り` / `ROE` / `時価総額` / `出来高` / `データ品質` / `スクリーニング` / `上昇気配` は高い順、`PER` / `PBR` / `ボラティリティ` / `リスク` / `下降警戒` は低い順を最初に確認する。メインチャートは選択中の `評価方針` で使う代表指標の比較であり、詳細テーブルの列ソートでは自動切替しない。欠損値は `N/A` として表示し、ソート時は末尾に置く。データ品質 / 条件適合度 / DB信頼度 / 根拠状態は必要に応じて `信頼度/根拠` にまとめる。長い評価理由、確認ポイント、スコア内訳、取得状態は tooltip / 行クリック後の銘柄データで確認する。`AI予測インサイト` がある候補では、並べ替え理由と確認ポイントに、上昇気配 / 下降警戒へ25%まで反映していることと、低信頼時は控えめに読むことを表示する。
+- ランキング結果画面では、`評価方針` で候補を採点し、そのスコア順に上位カード / Top 10棒グラフ / 確認メモを表示する。単一指標ソートは上部ドロップダウンには置かず、詳細テーブルの列ヘッダークリックで表示中データをローカルに並べ替える。詳細テーブルは `順位` / `銘柄` / `銘柄名` / `総合スコア` / `配当利回り` / `PER` / `PBR` / `ROE` / `見方` を常時表示する。`総合スコア` / `配当利回り` / `ROE` / `時価総額` / `出来高` / `データ信頼度` / `基礎評価` / `上昇気配` は高い順、`PER` / `PBR` / `ボラティリティ` / `リスク` / `下降警戒` は低い順を最初に確認する。メインチャートは選択中の `評価方針` で使う代表指標の比較であり、詳細テーブルの列ソートでは自動切替しない。欠損値は `N/A` として表示し、ソート時は末尾に置く。データ信頼度 / 条件適合度 / DB信頼度 / 根拠状態は必要に応じて `信頼度/根拠` にまとめる。長い評価理由、確認ポイント、スコア内訳、取得状態は tooltip / 行クリック後の銘柄データで確認する。`AI予測インサイト` がある候補では、並べ替え理由と確認ポイントに、上昇気配 / 下降警戒へ25%まで反映していることと、低信頼時は控えめに読むことを表示する。
 - `上昇気配` / `下降警戒` は、予測エッジ、モデル別方向エッジ、価格モメンタム、トレンド確認を組み合わせる。予測変化率とモメンタムはボラティリティ調整し、モデル間の開きは直接加点せず、スコアを中立へ寄せる信頼度調整として扱う。ランキングは売買推奨ではなく、深掘り候補の比較優先度として扱う。
-- `作成対象` は、外部 provider 取得前の件数上限です。既定は `標準: 上位300件` で、候補が多い場合は総合マルチファクター基準の条件適合度とDB信頼度で事前に上位候補を選んでから価格データを取得します。`評価方針` の変更、詳細テーブルの列ソート、検索、絞り込みは取得対象を変えず、取得済みデータの再評価・再ソートとして扱います。外部取得は `最新データを取得して更新` を押した場合のみ実行します。全件取得も選べますが、Yahoo live data では時間がかかります。ランキング作成前の銘柄DB preflight 更新は、比較候補30件までは全件、31件以上は最大50件、対象スキャンは最大300件に制限し、残りはバックグラウンド優先更新へ回します。
+- `作成対象` は、外部 provider 取得前の件数上限です。既定は `標準: 上位300件` で、候補が多い場合は総合マルチファクター基準の条件適合度とDB信頼度で事前に上位候補を選んでから価格データを取得します。`評価方針` の変更、詳細テーブルの列ソート、検索、絞り込みは取得対象を変えず、取得済みデータの再評価・再ソートとして扱います。外部取得は `ランキング作成` を押した場合のみ実行します。全件取得も選べますが、Yahoo live data では時間がかかります。ランキング作成前の銘柄DB preflight 更新は、比較候補30件までは全件、31件以上は最大50件、対象スキャンは最大300件に制限し、残りはバックグラウンド優先更新へ回します。
 - ランキング結果の総合スコアには、取得期間の市場評価に加えて、条件適合度とDB信頼度を反映する。
   - 条件適合度: NISA、時価総額、配当、PER/PBR/ROE、ETF経費率、複雑性などを評価方針別に評価する。投資魅力度を直接保証するものではありません。
   - DB信頼度: `metadata_source`、`metadata_as_of` / `metadata_updated_at`、ランキング判断に使う主要項目の登録状況を評価する。
@@ -401,7 +401,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 - ranking result with ticker / company name / score / warnings
 - ranking result は AgGrid で表示し、銘柄行をクリックするとローカル銘柄マスタ `symbol_universe.csv` と保存済み銘柄キャッシュDB `symbols_cache.sqlite` の登録値をモーダルで確認できます
 - `銘柄データ` モーダルの `データ情報` タブでは、銘柄DB鮮度、銘柄DB最終更新、銘柄DB取得元、価格データ更新、財務データ更新、不足している主要項目を確認できます。これはデータ信頼度の確認材料であり、売買推奨やランキング順位変更ではありません。
-- Cockpit の `データを取得` では、価格・予測・Investment Score の表示を優先し、取得成功後に選択中1銘柄を background priority refresh へ登録します。同じセッションでは同じ銘柄の登録を30分TTLで抑制します。Ranking の `最新データを取得して更新` では、上記上限内の比較候補を同期 preflight 更新対象へ渡してから ranking creation を進めます。失敗しても前回保存データと通常の market-data fetch / ranking creation は継続します。
+- Cockpit の `データを取得` では、価格・予測・Investment Score の表示を優先し、取得成功後に選択中1銘柄を background priority refresh へ登録します。同じセッションでは同じ銘柄の登録を30分TTLで抑制します。Ranking の `ランキング作成` では、上記上限内の比較候補を同期 preflight 更新対象へ渡してから ranking creation を進めます。失敗しても前回保存データと通常の market-data fetch / ranking creation は継続します。
 - 銘柄データモーダルの `AI Research` タブでは、`AIで資料を確認` を押した場合だけ登録済みResearch資料を検索し、Research Summary、根拠資料名、資料日、根拠数、詳細 evidence を確認できます
 - 選択銘柄をコックピットへ渡す deep-dive flow
 
@@ -605,9 +605,9 @@ Phase 16 ranking implementation notes:
 - Yahoo OHLCV separates the stability-first Cockpit path from the speed-first Ranking path. Single-symbol Cockpit requests use `Ticker.history` first, retry transient DNS / curl timeout failures once with the same parameters, and retry Yahoo `possibly delisted` / `no price data` responses with `raise_errors=False` plus a non-expanded daily end date before surfacing a structured no-data error. Multi-symbol Ranking requests keep the smaller non-threaded yfinance `download` chunk path and retry empty batch responses once to absorb first-call warm-up / transient empty responses. The cockpit reuses one fetched OHLCV range for quote display and feature construction instead of fetching the same symbol again, and initial fetch skips live FX / fundamentals so price / forecast / score rows can render without waiting on nonessential live requests. SMAI shares one curl_cffi-backed yfinance session across `Search`, `download`, and `Ticker` calls so Yahoo cookie / crumb state stays attached to the same session. Because live Yahoo requests are network-dependent and can be slow or noisy, Streamlit ranking warns when selected symbols exceed 30 and suppresses yfinance's raw console noise in favor of structured UI error rows.
 - Ranking rows are cached in Streamlit session state by `provider + symbols + start + end`. Re-running the same request or changing only the ranking weight preset reuses fetched rows and only re-sorts the display.
 - Ranking display rows reuse a single symbol-master lookup map when building notes and modal guidance. This avoids repeated `symbol_universe.csv` scans during long-period ranking reruns and keeps row-click symbol-detail modal opening responsive.
-- Ranking rows can include common-horizon advanced forecast fields (`advanced_forecast_horizon_days`, `advanced_forecast_predicted_return`, `advanced_forecast_score`, `advanced_forecast_confidence`, `advanced_forecast_upside_score`, `advanced_forecast_downside_score`, `advanced_forecast_quality_score`). These are calculated from the advanced forecast consensus over registered adapters, currently `advanced_linear`, `advanced_tree_sklearn`, `advanced_gbdt_sklearn`, and `advanced_quantile`, then shown as `高度予測` / `高度予測日数` / `高度予測スコア` / confidence context in the ranking table and selected-candidate details when enough local history exists. The consensus uses capped weights from confidence, error improvement, model agreement, and validation sample context. Ranking blends derived advanced upside / downside into `上昇気配` / `下降警戒` at 25%, and `AI総合` uses the derived advanced scores at a modest combined weight; missing or low-confidence advanced data is pulled toward neutral 50 instead of being treated as zero.
+- Ranking rows can include common-horizon advanced forecast fields (`advanced_forecast_horizon_days`, `advanced_forecast_predicted_return`, `advanced_forecast_score`, `advanced_forecast_confidence`, `advanced_forecast_upside_score`, `advanced_forecast_downside_score`, `advanced_forecast_quality_score`). These are calculated from the advanced forecast consensus over registered adapters, currently `advanced_linear`, `advanced_tree_sklearn`, `advanced_gbdt_sklearn`, and `advanced_quantile`, then shown as `高度予測` / `高度予測日数` / `高度予測スコア` / confidence context in the ranking table and selected-candidate details when enough local history exists. The consensus uses capped weights from confidence, error improvement, model agreement, and validation sample context. Ranking blends derived advanced upside / downside into `上昇気配` / `下降警戒` at 25%, and `AI総合` places the derived advanced scores inside the `予測・上昇気配30%` and `リスク・下振れ警戒25%` groups; missing or low-confidence advanced data is pulled toward neutral 50 instead of being treated as zero.
 - Cockpit price / forecast display leads with `AI予測インサイト`. The card shows a short conclusion, `中心予測` as the main display name for the advanced-model consensus, downside / upside cases, forecast price, forecast range, confidence reason, model agreement, forecast dispersion, main reasons, cautions, and the forecast horizon. `中心予測` stays one row above the scenario cases, and the forecast price / range row follows the downside / upside comparison. Individual advanced model cards stay visible under the chart, while RMSE, error improvement, historical direction accuracy, relatively stable model, and simple forecast baseline comparisons are folded so the first view stays focused on the integrated forecast and uncertainty. The forecast remains decision-support context, not a future guarantee.
-- Ranking result pages show `今回のランキング条件` before the ranking guide. It displays the selected evaluation policy, common forecast horizon for that ranking run, grouped weight profile for `AI総合`, and a reminder that `下降警戒` / advanced downside caution are lower-is-better fields. The guide expander also includes beginner term rows for `AI総合`, `上昇気配`, `下降警戒`, `AI予測インサイト`, advanced upside / downside / confidence, and horizon.
+- Ranking result pages show `今回のランキング条件` before the ranking guide. It displays the selected evaluation policy, short summary, suited-for text, main-focus chips, common forecast horizon for that ranking run, grouped weight profile for `AI総合`, and a reminder that `下降警戒` / advanced downside caution are lower-is-better fields. The guide expander also includes beginner term rows for `AI総合`, `上昇気配`, `下降警戒`, `AI予測インサイト`, advanced upside / downside / confidence, and horizon.
 - The ranking progress indicator reports batch fetch, feature construction, direction signal calculation, and final sorting so large candidate sets do not look frozen.
 - Ranking deep-dive controls are rendered before the Decision Report block. The ranking Decision Report is generated lazily by `投資判断レポートを作成`, then reused for the same ranking source / evaluation policy so resorting and cockpit handoff remain responsive. Ranking report は上位候補メモとスコア詳細を分け、明細には symbol、銘柄名、評価方針、確認観点を並べて出力する。`AI予測インサイト` がある場合は、候補メモ、スコア詳細、分布、ファクター別上位、group checkpoint にも同じ予測文脈を残す。
 - Ranking remains decision support only. Click a ranking row to open the shared `銘柄データ` modal with short ranking context plus local master details. Use the cockpit for detailed price / forecast / score-reason review.

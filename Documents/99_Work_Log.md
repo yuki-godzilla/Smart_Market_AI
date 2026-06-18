@@ -18,6 +18,30 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-18 - Ranking Evaluation Policy UX / Weight Tuning
+
+### Scope
+
+- tuned `AI総合` to show grouped weights of `基礎評価30%` / `予測・上昇気配30%` / `リスク・下振れ警戒25%` / `データ信頼度10%` / `Research確認材料5%`.
+- added evaluation-policy metadata for short summary, suited-for text, main-focus chips, and caution text in the Ranking condition card.
+- renamed `リスク調整パフォーマンス` display to `安定成長`.
+- adjusted key policy weights for 小型・成長探索, 安定成長, NISA長期適合, ETF低コスト・コア, ETFインカム・分散, and selected Research 5% confirmation material while keeping LLM Factor / interpretation outside ranking scores.
+- aligned Ranking-facing labels toward `基礎評価`, `予測・上昇気配`, `下振れ警戒`, `リスク`, `データ信頼度`, `DB信頼度`, and `Research確認材料`.
+- updated README, project context, roadmap, operations guide, and functional spec issue notes.
+
+### Validation
+
+- passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py ui\ranking.py ui\content\ranking_texts.py ui\app.py ui\styles.py tests\test_ui_forecast_display.py tests\test_ui_content_texts.py`.
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check ui\ranking.py ui\content\ranking_texts.py ui\app.py ui\styles.py tests\test_ui_forecast_display.py tests\test_ui_content_texts.py --no-cache`.
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_content_texts.py tests\test_ui_forecast_display.py -q -k "ranking_policy or ranking_weight or downside_warning or advanced_ranking_purposes or aggrid_options_assigns_metric_sort or table_sort_guidance or candidate_cards_and_breakdown or forecast_term_explanation"` with 15 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ranking_chart_profiles.py -q` with 6 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_content_texts.py -q` with 6 passed.
+
+### Boundary / Remaining Risks
+
+- Browser smoke was not run for this slice; the change is covered by deterministic helper and wording tests, and no new Ranking Playwright smoke script was added.
+- Pytest emitted only existing cache-write permission warnings for `.pytest_cache`.
+
 ## 2026-06-18 - External Fetch UX / Timeout Safety Patch
 
 ### Background

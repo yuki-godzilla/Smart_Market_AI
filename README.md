@@ -90,7 +90,7 @@ SMAI は以下の思想を重視しています。
 - Streamlit UI
   - left side menu for `銘柄コックピット` / `銘柄ランキング` / `投資レーダー` / `SMAIアシスタント` / `リバランス` / `設定 / データ情報`
   - 銘柄コックピット: 価格・予測チャート、AI予測インサイト、Investment Score、投資判断メモ、Research Evidence、Decision Report、銘柄データ modal、warnings、downloads
-  - 銘柄ランキング: curated symbol metadata、候補条件 modal、ランキング preset、今回のランキング条件カード、AI総合 / 予測シグナル説明、AI予測インサイト込みの並べ替え理由と深掘り候補、行クリックで開く銘柄データ modal、AI Research tab、Decision Report
+  - 銘柄ランキング: curated symbol metadata、候補条件 modal、ランキング preset、今回のランキング条件カード、AI総合 / 予測・上昇気配 / 下振れ警戒説明、AI総合の重み 30/30/25/10/5、`安定成長` を含む評価方針メタデータ、AI予測インサイト込みの並べ替え理由と深掘り候補、行クリックで開く銘柄データ modal、AI Research tab、Decision Report
   - 投資レーダー: network-free demo snapshot と手動更新時の Google News RSS Standard Mode による市場ニュースヘッドライン、企業名主表示＋シンボル補助タグのクリック可能な株式ヒートマップ風投資ヒートマップ、3列カテゴリ別ニュースカード、銘柄名付き関連銘柄から銘柄コックピットへの導線
   - Rebalance Cockpit: summary flow、percentage target、allocation comparison chart、risk breach confirmation points、Decision Report
 - symbol universe metadata schema、source import、opt-in metadata refresh、SBI ranking universe policy columns / default exclusion helper
@@ -125,7 +125,7 @@ SMAI は以下の思想を重視しています。
 - Phase 20: Research RAG Evidence Layer は local evidence foundation が implementation complete
 - Phase 21: 高度Research RAG / Stock News RAG / external fresh-source fetch の first slices は implementation complete。追加 provider と運用UIは後続
 - Phase 22: Research Score / Cockpit deep-dive は first UI slices 実装済み。Phase 22.x `投資レーダー` (Investment News dashboard) は初期MVP実装済み、Phase 22.y news cache と Phase 22.z symbol DB background refresh は backend foundation 実装済み
-- Phase 23: Optional Adapter / 高度分析を先に進める。Advanced Forecast は `advanced_linear` / `advanced_tree_sklearn` / `advanced_gbdt_sklearn` / `advanced_quantile` の registry、forecast service / API adapter selection、Cockpit `AI予測インサイト` chart/card/detail、Ranking auxiliary 表示、上昇気配 / 下降警戒への控えめブレンド、AI総合への軽量統合、Ranking理由表示 / 深掘り候補 / Decision Report 連携まで実装済み。Cockpit の AI予測インサイト初期表示は、結論、中心予測（高度予測モデルの統合結果）、下振れ / 上振れケース、予測価格、予測レンジ、信頼度、モデル合意度、予測ばらつき、注意点に整理し、個別高度モデルカードは常時表示、RMSE / 方向一致率 / 単純予測比較は折りたたみ配下で確認する
+- Phase 23: Optional Adapter / 高度分析を先に進める。Advanced Forecast は `advanced_linear` / `advanced_tree_sklearn` / `advanced_gbdt_sklearn` / `advanced_quantile` の registry、forecast service / API adapter selection、Cockpit `AI予測インサイト` chart/card/detail、Ranking auxiliary 表示、上昇気配 / 下降警戒への控えめブレンド、AI総合の `予測・上昇気配30%` / `リスク・下振れ警戒25%` グループへの統合、Ranking理由表示 / 深掘り候補 / Decision Report 連携まで実装済み。Cockpit の AI予測インサイト初期表示は、結論、中心予測（高度予測モデルの統合結果）、下振れ / 上振れケース、予測価格、予測レンジ、信頼度、モデル合意度、予測ばらつき、注意点に整理し、個別高度モデルカードは常時表示、RMSE / 方向一致率 / 単純予測比較は折りたたみ配下で確認する
 - Phase 24-25: Template Assistant backend slice、SMAI Copilot floating UI、専用 Copilot workspace、Gateway schema / client / deterministic fallback、`smai-ai-gateway/` scaffold、`SMAIアシスタント` 画面からの既定 LLM Gateway 接続、Gateway側のLLM構造化JSON応答、親SMAI側の opt-in live smoke test path は実装済み
 - Phase 24A: `SMAI LLM Factor` の schema、deterministic fake / cache、Cockpit / Ranking 参考表示、validation foundation は実装済み
 - Phase 27-A / 27-B: LLM Factor live generation MVP と確認導線は実装済み。Gateway endpoint、親SMAI context builder / HTTP adapter / validation / fallback、Cockpit `AI材料分析` 参考表示、live smoke 設定例、Playwright panel smoke、validation深化を追加。モデル統合可否判断は後続

@@ -232,6 +232,7 @@ from ui.ranking import (
     ranking_no_bars_error_row,
     ranking_period_dates,
     ranking_period_label,
+    ranking_policy_description,
     ranking_policy_for_purpose,
     ranking_policy_label,
     ranking_policy_options,
@@ -518,7 +519,7 @@ RANKING_NUMERIC_SORT_DIRECTIONS = {
 }
 RANKING_TABLE_SORT_GUIDANCE = (
     "詳細テーブルでは、列名をクリックして各指標順に並べ替えできます。"
-    "総合スコア・配当利回り・ROE・時価総額・出来高・データ品質・スクリーニング・上昇気配は高い順、"
+    "総合スコア・配当利回り・ROE・時価総額・出来高・データ信頼度・基礎評価・上昇気配は高い順、"
     "PER・PBR・ボラティリティ・リスク・下降警戒は低い順から確認します。"
     "LLM材料列は参考表示のため初期表示順や順位計算には使いません。"
     "N/Aは末尾に置きます。"
@@ -544,8 +545,8 @@ FORECAST_DECISION_SUPPORT_NOTE = (
     "この予測は過去データに基づく参考情報であり、将来の値動きを保証するものではありません。"
 )
 RANKING_DOWNSIDE_LOW_IS_BETTER_NOTE = (
-    "下降警戒と高度予測の下振れ警戒は低いほど良い指標です。"
-    "ランキング内部では低警戒の候補を高く評価します。"
+    "下降警戒は低いほど良い指標です。ランキングでは、警戒が低いほど加点されます。"
+    "AI下振れ警戒も同じ考え方で扱います。"
 )
 RANKING_NUMERIC_SORT_COMPARATOR = JsCode(
     """
@@ -2971,8 +2972,9 @@ def _ranking_first_metric(row: dict[str, str], columns: tuple[str, ...]) -> tupl
 
 def _ranking_display_column_label(column: str) -> str:
     return {
-        "Screening": "スクリーニング",
-        "Risk": "リスク確認",
+        "Screening": "基礎評価",
+        "Risk": "リスク",
+        "データ品質": "データ信頼度",
     }.get(column, column)
 
 
@@ -3266,8 +3268,9 @@ def ranking_result_aggrid_options(
     ):
         if column in frame.columns:
             header_name = {
-                "Screening": "スクリーニング",
+                "Screening": "基礎評価",
                 "Risk": "リスク",
+                "データ品質": "データ信頼度",
             }.get(column, column)
             sort_direction = RANKING_NUMERIC_SORT_DIRECTIONS.get(column, "desc")
             sorting_order = (
@@ -4002,9 +4005,10 @@ def ranking_score_bar_chart_caption(
     order_text = "低い順" if sort_direction == "asc" else "高い順"
     policy_label = ranking_policy_label(ranking_purpose)
     focus_summary = ranking_purpose_focus_summary(ranking_purpose)
+    metric_label = _ranking_display_column_label(metric_column)
     return (
         f"{policy_label}の評価方針に基づく上位候補です。"
-        f"代表指標「{metric_column}」は{order_text}に表示します。"
+        f"代表指標「{metric_label}」は{order_text}に表示します。"
         f"{focus_summary}"
         "詳細テーブルの列ヘッダーで行を並べ替えても、グラフ指標は自動では切り替わりません。"
     )
@@ -4119,9 +4123,9 @@ def ranking_candidate_breakdown_rows(
             ),
         },
         {
-            "観点": "スクリーニング",
+            "観点": "基礎評価",
             "値": selected_row.get("Screening", "未計算"),
-            "確認ポイント": "市場データ由来の候補評価です。モメンタム、流動性、リスク確認の偏りを確認します。",
+            "確認ポイント": "市場データ由来の基礎評価です。モメンタム、流動性、リスクの偏りを確認します。",
         },
         {
             "観点": "上昇気配・下降警戒",
@@ -4139,7 +4143,7 @@ def ranking_candidate_breakdown_rows(
             ),
         },
         {
-            "観点": "リスク確認",
+            "観点": "リスク",
             "値": selected_row.get("Risk", "未接続"),
             "確認ポイント": truncate_text(
                 selected_row.get("注意点", "") or "価格変動、下落幅、品質警告がないか確認します。",
@@ -4396,6 +4400,7 @@ def _ranking_condition_card_html(
     *,
     forecast_horizon_days: int,
 ) -> str:
+    description = ranking_policy_description(ranking_purpose)
     group_rows = ranking_weight_group_rows(weight_preset)
     group_items = "".join(
         "<div>"
@@ -4404,15 +4409,19 @@ def _ranking_condition_card_html(
         "</div>"
         for row in group_rows
     )
+    focus_items = "".join(
+        f"<span>{html.escape(item)}</span>" for item in description["main_focus"][:5]
+    )
     purpose = ranking_policy_label(ranking_purpose)
     profile = ranking_weight_preset_label(weight_preset)
     return (
         '<div class="smai-section-card smai-ranking-condition-card">'
         '<div class="smai-card-label">今回のランキング条件</div>'
+        f'<p class="smai-ranking-policy-summary">{html.escape(description["short_summary"])}</p>'
         '<div class="smai-ranking-condition-grid">'
         "<div>"
         f'<div class="smai-insight-kicker">評価方針</div><strong>{html.escape(purpose)}</strong>'
-        f"<p>{html.escape(ranking_purpose_focus_summary(ranking_purpose))}</p>"
+        f"<p>{html.escape(description['suited_for'])}</p>"
         "</div>"
         "<div>"
         '<div class="smai-insight-kicker">ランキング評価用予測期間</div>'
@@ -4425,11 +4434,13 @@ def _ranking_condition_card_html(
         "<p>AI予測インサイトは順位を直接支配せず、上昇気配・下降警戒・信頼度として使います。</p>"
         "</div>"
         "</div>"
+        f'<div class="smai-ranking-focus-chips">{focus_items}</div>'
         '<div class="smai-ranking-weight-grid">'
         f"{group_items}"
         "</div>"
         f'<p class="smai-ranking-condition-note">評価プロファイル: {html.escape(profile)}。'
         f"{html.escape(RANKING_DOWNSIDE_LOW_IS_BETTER_NOTE)} "
+        f"{html.escape(description['caution'])} "
         "この画面は比較候補を整理するためのもので、売買推奨ではありません。</p>"
         "</div>"
     )
@@ -4441,9 +4452,9 @@ def ranking_forecast_term_explanation_rows() -> list[dict[str, str]]:
     return [
         {
             "表示": "AI総合",
-            "意味": "Screening、方向シグナル、Risk、データ品質、DB条件、AI予測インサイトをまとめた比較用スコアです。",
+            "意味": "基礎評価、予測・上昇気配、リスク、データ信頼度、Research確認材料をまとめた比較用スコアです。",
             "ランキングでの扱い": "既定の総合比較です。AI予測は控えめに加味し、単独で順位を決めません。",
-            "確認ポイント": "高順位でも、上昇気配・下降警戒・信頼度の偏りを一緒に確認します。",
+            "確認ポイント": "高順位でも、上昇気配・下降警戒・データ信頼度の偏りを一緒に確認します。",
         },
         {
             "表示": "上昇気配",
@@ -4505,7 +4516,7 @@ def _render_ranking_criteria_guide() -> None:
             symbol_detail_table_html(guide_rows),
             unsafe_allow_html=True,
         )
-        st.markdown("##### AI総合・予測シグナルの読み方")
+        st.markdown("##### AI総合・予測/警戒指標の読み方")
         st.markdown(
             symbol_detail_table_html(ranking_forecast_term_explanation_rows()),
             unsafe_allow_html=True,
@@ -12716,7 +12727,7 @@ def _render_score_breakdown_context(
 ) -> None:
     st.markdown("#### 04 評価の内訳")
     st.caption(
-        "チャートを見たあとに、総合スコアを構成する観点を確認します。投資スコア、予測、リスク確認は役割を分けて読みます。"
+        "チャートを見たあとに、総合スコアを構成する観点を確認します。投資スコア、予測、リスクは役割を分けて読みます。"
     )
     _render_score_breakdown_chart(score_component_rows(row))
 
@@ -12904,7 +12915,7 @@ def _cockpit_screening_check(row: Mapping[str, str]) -> str:
     if liquidity is not None and liquidity >= Decimal("70"):
         checks.append("流動性は確認しやすい")
     if risk is not None and risk < Decimal("50"):
-        checks.append("リスク確認は優先")
+        checks.append("リスク確認を優先")
     if checks:
         return "、".join(checks) + "です。候補として残った理由と注意点を分けて確認します。"
     return "候補として残った理由を、モメンタム・流動性・リスク確認に分けて確認します。"
@@ -14095,7 +14106,7 @@ def build_ranking_decision_report_context(
             as_of=end,
             rows=_ranking_factor_leader_rows(ranked_rows),
             notes=[
-                "総合順位だけでなく、スクリーニング、上昇気配、リスク確認、ROE、配当利回りなど別観点の上位候補を並べます。"
+                "総合順位だけでなく、基礎評価、上昇気配、リスク、ROE、配当利回りなど別観点の上位候補を並べます。"
             ],
         ),
     ]
@@ -14739,7 +14750,7 @@ def _investment_score_report_section(
             "上昇気配・下降警戒へ25%まで反映。信頼度が低い場合は控えめに読む。"
         )
     rows = [
-        {"component": "スクリーニング", "score": row.get("screening_score", "")},
+        {"component": "基礎評価", "score": row.get("screening_score", "")},
         {
             "component": "上昇気配",
             "score": row.get("upside_signal_score", ""),
@@ -14759,8 +14770,8 @@ def _investment_score_report_section(
         )
     rows.extend(
         [
-            {"component": "データ品質", "score": row.get("data_quality_score", "")},
-            {"component": "リスク確認", "score": row.get("risk_signal_score", "")},
+            {"component": "データ信頼度", "score": row.get("data_quality_score", "")},
+            {"component": "リスク", "score": row.get("risk_signal_score", "")},
         ]
     )
     return build_report_section(
@@ -15007,11 +15018,11 @@ def _ranking_distribution_summary(rows: list[dict[str, str]]) -> dict[str, str]:
         "1位スコア": _format_report_decimal(top_score),
         "20位スコア": _format_report_decimal(twentieth_score),
         "上位20件の平均総合スコア": _average_ranking_metric(rows[:20], "total_score"),
-        "平均スクリーニング": _average_ranking_metric(rows, "screening_score"),
+        "平均基礎評価": _average_ranking_metric(rows, "screening_score"),
         "平均上昇気配": _average_ranking_metric(rows, "upside_signal_score"),
         "平均下降警戒": _average_ranking_metric(rows, "downside_signal_score"),
-        "平均データ品質": _average_ranking_metric(rows, "data_quality_score"),
-        "平均リスク確認": _average_ranking_metric(rows, "risk_signal_score"),
+        "平均データ信頼度": _average_ranking_metric(rows, "data_quality_score"),
+        "平均リスク": _average_ranking_metric(rows, "risk_signal_score"),
         "AI予測インサイトあり": f"{advanced_count}/{len(rows)}",
         "平均AI予測信頼スコア": _average_ranking_metric(
             rows,
@@ -15038,12 +15049,12 @@ def _ranking_distribution_rows(rows: list[dict[str, str]]) -> list[dict[str, str
             "読み方": "上位候補内でもリスク確認を先にしたい候補数を確認します。",
         },
         {
-            "観点": "データ品質 90以上",
+            "観点": "データ信頼度 90以上",
             "件数": str(_count_rows_at_least(rows, "data_quality_score", Decimal("90"))),
             "読み方": "比較に使えるデータが十分な候補の多さを確認します。",
         },
         {
-            "観点": "リスク確認 50未満",
+            "観点": "リスク 50未満",
             "件数": str(_count_rows_below(rows, "risk_signal_score", Decimal("50"))),
             "読み方": "上位候補内でも先に警戒すべき銘柄数を確認します。",
         },
@@ -15069,13 +15080,13 @@ def _ranking_factor_leader_rows(rows: list[dict[str, str]]) -> list[dict[str, st
     leaders: list[dict[str, str]] = []
     for label, metric, prefer_low in [
         ("総合スコア", "total_score", False),
-        ("スクリーニング", "screening_score", False),
+        ("基礎評価", "screening_score", False),
         ("上昇気配", "upside_signal_score", False),
         ("下降警戒", "downside_signal_score", True),
         ("AI予測上昇", "advanced_forecast_upside_score", False),
         ("AI予測下振れ警戒", "advanced_forecast_downside_score", True),
-        ("データ品質", "data_quality_score", False),
-        ("リスク確認", "risk_signal_score", False),
+        ("データ信頼度", "data_quality_score", False),
+        ("リスク", "risk_signal_score", False),
     ]:
         row = _best_ranking_row_by_metric(rows, metric, prefer_low=prefer_low)
         if row is not None:
@@ -15132,13 +15143,13 @@ def _ranking_group_checkpoints(
             "finding": (
                 f"平均上昇気配は{_average_ranking_metric(rows, 'upside_signal_score')}、"
                 f"平均下降警戒は{_average_ranking_metric(rows, 'downside_signal_score')}、"
-                f"平均リスク確認は{_average_ranking_metric(rows, 'risk_signal_score')}です。"
+                f"平均リスクは{_average_ranking_metric(rows, 'risk_signal_score')}です。"
             ),
             "confirmation_point": "スコアの高さが一部要素だけに偏っていないか確認します。",
         },
         {
             "area": "ファクター",
-            "finding": "総合順位とは別に、スクリーニング、上昇気配、リスク確認、ROE、配当利回りの上位候補を抽出しています。",
+            "finding": "総合順位とは別に、基礎評価、上昇気配、リスク、ROE、配当利回りの上位候補を抽出しています。",
             "confirmation_point": "投資目的に近いファクターの候補から深掘り順を決めます。",
         },
         {

@@ -29,6 +29,7 @@ RANKING_MVP_PRODUCT_TYPE_LABELS = ranking_texts.RANKING_MVP_PRODUCT_TYPE_LABELS
 RANKING_MVP_REGION_LABELS = ranking_texts.RANKING_MVP_REGION_LABELS
 RANKING_NISA_ELIGIBILITY_LABELS = ranking_texts.RANKING_NISA_ELIGIBILITY_LABELS
 RANKING_PERIOD_LABELS = ranking_texts.RANKING_PERIOD_LABELS
+RANKING_POLICY_DESCRIPTIONS = ranking_texts.RANKING_POLICY_DESCRIPTIONS
 RANKING_PRODUCT_TYPE_LABELS = ranking_texts.RANKING_PRODUCT_TYPE_LABELS
 RANKING_PURPOSE_LABELS = ranking_texts.RANKING_PURPOSE_LABELS
 RANKING_REGION_LABELS = ranking_texts.RANKING_REGION_LABELS
@@ -460,17 +461,16 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
         "metadata_confidence_score": Decimal("0.10"),
     },
     RANKING_PRESET_MULTI_FACTOR: {
-        "screening_score": Decimal("0.23"),
-        "upside_signal_score": Decimal("0.12"),
+        "screening_score": Decimal("0.30"),
+        "upside_signal_score": Decimal("0.18"),
+        "advanced_forecast_upside_score": Decimal("0.07"),
+        "advanced_forecast_quality_score": Decimal("0.05"),
+        "risk_signal_score": Decimal("0.17"),
         "downside_signal_score": Decimal("0.05"),
-        "advanced_forecast_upside_score": Decimal("0.06"),
         "advanced_forecast_downside_score": Decimal("0.03"),
-        "advanced_forecast_quality_score": Decimal("0.03"),
-        "data_quality_score": Decimal("0.14"),
-        "risk_signal_score": Decimal("0.14"),
-        "database_fit_score": Decimal("0.09"),
-        "metadata_confidence_score": Decimal("0.09"),
-        "research_score": Decimal("0.02"),
+        "data_quality_score": Decimal("0.06"),
+        "metadata_confidence_score": Decimal("0.04"),
+        "research_score": Decimal("0.05"),
     },
     RANKING_PRESET_QUALITY_GROWTH: {
         "database_fit_score": Decimal("0.25"),
@@ -485,28 +485,28 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
         "database_fit_score": Decimal("0.30"),
         "screening_score": Decimal("0.20"),
         "risk_signal_score": Decimal("0.20"),
-        "data_quality_score": Decimal("0.15"),
-        "metadata_confidence_score": Decimal("0.10"),
+        "data_quality_score": Decimal("0.12"),
+        "metadata_confidence_score": Decimal("0.08"),
         "upside_signal_score": Decimal("0.03"),
         "downside_signal_score": Decimal("0.02"),
+        "research_score": Decimal("0.05"),
     },
     RANKING_PRESET_SUSTAINABLE_INCOME: {
         "database_fit_score": Decimal("0.30"),
         "risk_signal_score": Decimal("0.20"),
-        "data_quality_score": Decimal("0.20"),
-        "metadata_confidence_score": Decimal("0.15"),
-        "screening_score": Decimal("0.10"),
-        "upside_signal_score": Decimal("0.03"),
-        "downside_signal_score": Decimal("0.02"),
+        "data_quality_score": Decimal("0.15"),
+        "screening_score": Decimal("0.15"),
+        "metadata_confidence_score": Decimal("0.10"),
+        "upside_signal_score": Decimal("0.05"),
+        "research_score": Decimal("0.05"),
     },
     RANKING_PRESET_MIN_VOLATILITY: {
         "risk_signal_score": Decimal("0.30"),
         "data_quality_score": Decimal("0.20"),
         "metadata_confidence_score": Decimal("0.15"),
         "screening_score": Decimal("0.15"),
-        "database_fit_score": Decimal("0.10"),
-        "upside_signal_score": Decimal("0.05"),
-        "downside_signal_score": Decimal("0.05"),
+        "database_fit_score": Decimal("0.15"),
+        "research_score": Decimal("0.05"),
     },
     RANKING_PRESET_MOMENTUM: {
         "screening_score": Decimal("0.30"),
@@ -519,30 +519,29 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     },
     RANKING_PRESET_RISK_ADJUSTED: {
         "screening_score": Decimal("0.20"),
-        "upside_signal_score": Decimal("0.05"),
+        "upside_signal_score": Decimal("0.15"),
         "downside_signal_score": Decimal("0.05"),
         "data_quality_score": Decimal("0.15"),
-        "risk_signal_score": Decimal("0.30"),
+        "risk_signal_score": Decimal("0.20"),
         "database_fit_score": Decimal("0.15"),
         "metadata_confidence_score": Decimal("0.10"),
     },
     RANKING_PRESET_SMALL_GROWTH: {
         "screening_score": Decimal("0.25"),
-        "upside_signal_score": Decimal("0.18"),
-        "downside_signal_score": Decimal("0.07"),
+        "upside_signal_score": Decimal("0.20"),
         "data_quality_score": Decimal("0.10"),
-        "risk_signal_score": Decimal("0.10"),
+        "risk_signal_score": Decimal("0.15"),
         "database_fit_score": Decimal("0.25"),
         "metadata_confidence_score": Decimal("0.05"),
     },
     RANKING_PRESET_NISA_LONG_TERM: {
         "screening_score": Decimal("0.20"),
         "upside_signal_score": Decimal("0.10"),
-        "downside_signal_score": Decimal("0.05"),
         "data_quality_score": Decimal("0.20"),
         "risk_signal_score": Decimal("0.20"),
         "database_fit_score": Decimal("0.15"),
         "metadata_confidence_score": Decimal("0.10"),
+        "research_score": Decimal("0.05"),
     },
     RANKING_PRESET_DATA_CONFIDENCE: {
         "screening_score": Decimal("0.10"),
@@ -555,40 +554,39 @@ RANKING_WEIGHT_PRESETS: dict[str, dict[str, Decimal]] = {
     },
     RANKING_PRESET_ETF_CORE_COST: {
         "screening_score": Decimal("0.15"),
-        "upside_signal_score": Decimal("0.05"),
-        "downside_signal_score": Decimal("0.05"),
         "data_quality_score": Decimal("0.20"),
-        "risk_signal_score": Decimal("0.15"),
+        "risk_signal_score": Decimal("0.20"),
         "database_fit_score": Decimal("0.30"),
         "metadata_confidence_score": Decimal("0.10"),
+        "research_score": Decimal("0.05"),
     },
     RANKING_PRESET_ETF_INCOME: {
         "screening_score": Decimal("0.15"),
-        "upside_signal_score": Decimal("0.05"),
-        "downside_signal_score": Decimal("0.05"),
-        "data_quality_score": Decimal("0.20"),
-        "risk_signal_score": Decimal("0.15"),
-        "database_fit_score": Decimal("0.30"),
+        "data_quality_score": Decimal("0.15"),
+        "risk_signal_score": Decimal("0.20"),
+        "database_fit_score": Decimal("0.35"),
         "metadata_confidence_score": Decimal("0.10"),
+        "research_score": Decimal("0.05"),
     },
 }
 
 RANKING_WEIGHT_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
     RANKING_PRESET_MULTI_FACTOR: (
-        ("基礎スクリーニング", ("screening_score",)),
+        ("基礎評価", ("screening_score",)),
         (
-            "予測シグナル",
+            "予測・上昇気配",
             (
                 "upside_signal_score",
-                "downside_signal_score",
                 "advanced_forecast_upside_score",
-                "advanced_forecast_downside_score",
                 "advanced_forecast_quality_score",
             ),
         ),
-        ("リスク・データ品質", ("data_quality_score", "risk_signal_score")),
-        ("DB条件・信頼度", ("database_fit_score", "metadata_confidence_score")),
-        ("Research", ("research_score",)),
+        (
+            "リスク・下振れ警戒",
+            ("risk_signal_score", "downside_signal_score", "advanced_forecast_downside_score"),
+        ),
+        ("データ信頼度", ("data_quality_score", "metadata_confidence_score")),
+        ("Research確認材料", ("research_score",)),
     ),
 }
 RANKING_PURPOSE_WEIGHT_PRESETS = {
@@ -939,23 +937,23 @@ RANKING_PURPOSE_FOCUS_SUMMARIES = {
     RANKING_PURPOSE_SORT_DATA_QUALITY: (
         "データ品質が高い順です。欠損が少なく、取得状態が安定した候補から確認します。"
     ),
-    RANKING_PURPOSE_MULTI_FACTOR: "総合点だけでなく、上昇気配・下降警戒・Risk・品質の偏りを確認します。",
+    RANKING_PURPOSE_MULTI_FACTOR: "総合点だけでなく、上昇気配・下降警戒・リスク・データ信頼度の偏りを確認します。",
     RANKING_PURPOSE_UPSIDE_SIGNAL: "上向きシグナルが強く、下降警戒が相対的に低い深掘り候補を確認します。",
     RANKING_PURPOSE_MOMENTUM: "足元の価格評価と上昇気配・下降警戒がそろっているか、追随リスクも含めて確認します。",
     RANKING_PURPOSE_QUALITY_GROWTH: "成長条件に合う候補で、上昇気配と品質が伴っているかを確認します。",
-    RANKING_PURPOSE_QUALITY_VALUE: "割安に見える候補で、Riskやデータ不足が理由になっていないかを確認します。",
-    RANKING_PURPOSE_SUSTAINABLE_INCOME: "配当利回りだけでなく、持続性・Risk・データ品質を確認します。",
-    RANKING_PURPOSE_MIN_VOLATILITY: "値動きの落ち着きとデータ品質を優先し、下降警戒を確認します。",
-    RANKING_PURPOSE_RISK_ADJUSTED: "スコアの高さがRiskに見合うか、下降警戒も含めて確認します。",
-    RANKING_PURPOSE_SMALL_GROWTH: "小型・成長条件に合う候補で、上昇気配とRiskの釣り合いを確認します。",
-    RANKING_PURPOSE_NISA_LONG_TERM: "制度適合、長期確認のしやすさ、Risk、データ品質を確認します。",
+    RANKING_PURPOSE_QUALITY_VALUE: "割安に見える候補で、リスクやデータ不足が理由になっていないかを確認します。",
+    RANKING_PURPOSE_SUSTAINABLE_INCOME: "配当利回りだけでなく、持続性・リスク・データ信頼度を確認します。",
+    RANKING_PURPOSE_MIN_VOLATILITY: "値動きの落ち着きとデータ信頼度を優先し、下降警戒を確認します。",
+    RANKING_PURPOSE_RISK_ADJUSTED: "安定成長の候補として、リスク・下降警戒・データ信頼度の釣り合いを確認します。",
+    RANKING_PURPOSE_SMALL_GROWTH: "小型・成長条件に合う候補で、上昇気配とリスクの釣り合いを確認します。",
+    RANKING_PURPOSE_NISA_LONG_TERM: "制度適合、長期確認のしやすさ、リスク、データ信頼度を確認します。",
     RANKING_PURPOSE_DATA_CONFIDENCE: "まず根拠やデータがそろった候補から確認します。",
-    RANKING_PURPOSE_ETF_CORE_COST: "ETFのコア候補として、コスト・指数・複雑性・データ品質を確認します。",
+    RANKING_PURPOSE_ETF_CORE_COST: "ETFのコア候補として、コスト・指数・複雑性・データ信頼度を確認します。",
     RANKING_PURPOSE_ETF_INCOME: "ETFのインカム候補として、分配材料・コスト・分散性を確認します。",
     RANKING_PURPOSE_DIVIDEND: "旧来の配当重視として、配当材料と持続性の確認に寄せて表示します。",
     RANKING_PURPOSE_GROWTH: "旧来の成長重視として、成長条件と上昇気配・下降警戒の確認に寄せて表示します。",
     RANKING_PURPOSE_VALUE: "旧来の割安重視として、割安条件とRiskの確認に寄せて表示します。",
-    RANKING_PURPOSE_STABILITY: "旧来の安定重視として、Riskとデータ品質の確認に寄せて表示します。",
+    RANKING_PURPOSE_STABILITY: "旧来の安定重視として、リスクとデータ信頼度の確認に寄せて表示します。",
     RANKING_PURPOSE_TREND: "旧来のトレンド重視として、足元の勢いと上昇気配・下降警戒の確認に寄せて表示します。",
 }
 
@@ -1040,6 +1038,24 @@ def ranking_policy_for_purpose(purpose: str) -> str:
     if purpose in RANKING_POLICY_DISPLAY_ORDER:
         return purpose
     return RANKING_POLICY_PURPOSE_ALIASES.get(purpose, RANKING_PURPOSE_MULTI_FACTOR)
+
+
+def ranking_policy_description(purpose: str) -> ranking_texts.RankingPolicyDescription:
+    policy = (
+        purpose
+        if purpose in RANKING_POLICY_DESCRIPTIONS
+        else RANKING_POLICY_PURPOSE_ALIASES.get(purpose, "")
+    )
+    description = RANKING_POLICY_DESCRIPTIONS.get(policy)
+    if description is not None:
+        return description
+    label = ranking_policy_label(purpose)
+    return {
+        "short_summary": f"{label}の評価方針で候補を比較します。",
+        "suited_for": "選択中の観点で候補を並べたい時",
+        "main_focus": ("総合スコア",),
+        "caution": "ランキングは比較・深掘り候補の整理であり、売買推奨ではありません。",
+    }
 
 
 def ranking_policy_options(product_type: str = RANKING_PRODUCT_STOCK) -> list[str]:
@@ -1780,7 +1796,7 @@ def ranking_metric_sort_note(preset: str) -> str:
         RANKING_PRESET_SORT_RISK: (
             "リスク確認しやすい順です。安全保証ではなく、値動きと下落耐性の確認材料です。"
         ),
-        RANKING_PRESET_SORT_DATA_QUALITY: "データ品質順です。欠損が少ない候補から確認します。",
+        RANKING_PRESET_SORT_DATA_QUALITY: "データ信頼度順です。欠損が少ない候補から確認します。",
     }.get(preset, "比較候補を確認するための並べ替えです。")
 
 

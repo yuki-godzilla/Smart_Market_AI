@@ -16,6 +16,13 @@ class RankingCriteriaGuideRow(TypedDict):
     読み方: str
 
 
+class RankingPolicyDescription(TypedDict):
+    short_summary: str
+    suited_for: str
+    main_focus: tuple[str, ...]
+    caution: str
+
+
 RANKING_REGION_LABELS = {
     "japan": "国内",
     "us": "米国",
@@ -50,7 +57,7 @@ RANKING_PURPOSE_LABELS = {
     "sort_volume": "出来高多い順",
     "sort_volatility": "値動き小さい順",
     "sort_risk": "リスク確認しやすい順",
-    "sort_data_quality": "データ品質順",
+    "sort_data_quality": "データ信頼度順",
     "multi_factor": "総合マルチファクター",
     "upside_signal": "上昇気配重視",
     "momentum": "モメンタム・トレンド",
@@ -58,7 +65,7 @@ RANKING_PURPOSE_LABELS = {
     "quality_value": "割安クオリティ",
     "sustainable_income": "高配当の持続性",
     "min_volatility": "低ボラ・安定",
-    "risk_adjusted": "リスク調整パフォーマンス",
+    "risk_adjusted": "安定成長",
     "small_growth": "小型・成長探索",
     "nisa_long_term": "NISA長期適合",
     "data_confidence": "データ信頼度優先",
@@ -81,10 +88,10 @@ RANKING_WEIGHT_PRESET_LABELS = {
     "sort_volume": "出来高多い順",
     "sort_volatility": "値動き小さい順",
     "sort_risk": "リスク確認しやすい順",
-    "sort_data_quality": "データ品質順",
+    "sort_data_quality": "データ信頼度順",
     "balanced": "総合バランス",
     "forecast": "上昇気配重視",
-    "quality": "データ品質重視",
+    "quality": "データ信頼度重視",
     "risk": "リスク控えめ",
     "income": "配当・インカム重視",
     "growth_profile": "成長性重視",
@@ -98,7 +105,7 @@ RANKING_WEIGHT_PRESET_LABELS = {
     "sustainable_income_profile": "高配当の持続性",
     "min_volatility_profile": "低ボラ・安定",
     "momentum_profile": "モメンタム・トレンド",
-    "risk_adjusted_profile": "リスク調整パフォーマンス",
+    "risk_adjusted_profile": "安定成長",
     "small_growth_profile": "小型・成長探索",
     "nisa_long_term_profile": "NISA長期適合",
     "data_confidence_profile": "データ信頼度優先",
@@ -230,17 +237,17 @@ RANKING_DETAIL_FILTER_LABELS = {
     "complexity": "複雑さ",
 }
 RANKING_SCORE_FIELD_LABELS = {
-    "screening_score": "スクリーニング",
-    "upside_signal_score": "上昇気配",
-    "downside_signal_score": "下降警戒控えめ",
-    "advanced_forecast_upside_score": "高度予測上昇",
-    "advanced_forecast_downside_score": "高度予測警戒控えめ",
-    "advanced_forecast_quality_score": "高度予測信頼",
-    "data_quality_score": "データ品質",
-    "risk_signal_score": "リスク確認",
+    "screening_score": "基礎評価",
+    "upside_signal_score": "予測・上昇気配",
+    "downside_signal_score": "下振れ警戒",
+    "advanced_forecast_upside_score": "AI予測上昇",
+    "advanced_forecast_downside_score": "AI下振れ警戒",
+    "advanced_forecast_quality_score": "AI予測信頼度",
+    "data_quality_score": "データ信頼度",
+    "risk_signal_score": "リスク",
     "database_fit_score": "条件適合度",
     "metadata_confidence_score": "DB信頼度",
-    "research_score": "根拠資料",
+    "research_score": "Research確認材料",
 }
 
 RANKING_FILTER_HELP_TEXTS = {
@@ -303,14 +310,14 @@ RANKING_FILTER_HELP_TEXTS = {
     "period": (
         "ランキング計算に使う価格データの期間です。標準は3か月で、20日/60日系の予測材料を見やすくします。"
         "1か月は直近反応、6か月は中期トレンド、1年は大きな上下動を含めた安定性の確認に使います。"
-        "候補の絞り込み条件ではなく、スコア・リスク確認・上昇気配・下降警戒の見え方に影響します。"
+        "候補の絞り込み条件ではなく、スコア・リスク・上昇気配・下降警戒の見え方に影響します。"
     ),
 }
 
 RANKING_PURPOSE_HELP_TEXTS = {
     "sort_total_score": (
         "総合スコアが高い順に表示します。割安性・収益性・配当魅力・成長性・"
-        "リスク確認・データ品質などを統合した比較用スコアで、売買推奨ではありません。"
+        "リスク・データ信頼度などを統合した比較用スコアで、売買推奨ではありません。"
     ),
     "sort_dividend_yield": (
         "配当利回りが高い順に表示します。高配当でも、業績・財務・減配リスクを"
@@ -345,48 +352,48 @@ RANKING_PURPOSE_HELP_TEXTS = {
         "参考指標で、安全を保証するものではありません。"
     ),
     "sort_data_quality": (
-        "データ品質が高い順に表示します。欠損が少なく、取得状態が安定している候補を"
+        "データ信頼度が高い順に表示します。欠損が少なく、取得状態が安定している候補を"
         "優先して確認できます。"
     ),
     "multi_factor": (
-        "スクリーニング、上昇気配・下降警戒、リスク確認、データ品質、条件適合度をバランスよく見ます。"
+        "基礎評価、上昇気配・下降警戒、リスク、データ信頼度、条件適合度をバランスよく見ます。"
         "特定テーマに寄せず、まず深掘り候補を広く並べたい時の基準です。"
     ),
     "quality_growth": (
-        "ROE、上昇気配、スクリーニング、データ品質を重視します。"
+        "ROE、上昇気配、基礎評価、データ信頼度を重視します。"
         "高PER/PBRは単純減点ではなく、成長期待と価格水準の釣り合いを確認する材料として扱います。"
     ),
     "quality_value": (
-        "PER/PBRの低さだけでなく、ROE、データ品質、リスク確認も合わせて見ます。"
+        "PER/PBRの低さだけでなく、ROE、データ信頼度、リスクも合わせて見ます。"
         "割安に見える理由が業績不安やデータ不足ではないかを確認するための並べ替えです。"
     ),
     "sustainable_income": (
-        "配当利回り、配当カテゴリ、リスク確認、PBR、データ品質を重視します。"
+        "配当利回り、配当カテゴリ、リスク、PBR、データ信頼度を重視します。"
         "極端な高配当は魅力だけでなく、減配リスクの確認対象として扱います。"
     ),
     "min_volatility": (
-        "リスク確認、β分類、データ品質、銘柄規模を重視します。"
+        "リスク、β分類、データ信頼度、銘柄規模を重視します。"
         "上昇率よりも値動きの落ち着きと確認しやすさを優先する基準です。"
     ),
     "momentum": (
-        "取得期間の価格評価、上昇気配・下降警戒、スクリーニングを重視します。"
-        "上昇基調でもリスク確認が強い候補は確認対象として扱い、追随リスクを見落としにくくします。"
+        "取得期間の価格評価、上昇気配・下降警戒、基礎評価を重視します。"
+        "上昇基調でもリスクが目立つ候補は確認対象として扱い、追随リスクを見落としにくくします。"
     ),
     "risk_adjusted": (
-        "リターンだけでなくリスク確認、データ品質、条件適合度を合わせて見ます。"
-        "同じ上昇でも、値動きの荒さに対して見合うかを確認するための基準です。"
+        "リターンだけでなくリスク、データ信頼度、条件適合度を合わせて見ます。"
+        "同じ上昇でも、値動きの荒さに対して見合うかを確認する安定成長向けの基準です。"
     ),
     "small_growth": (
-        "小型・中型の成長余地、ROE、スクリーニング、上昇気配を重視します。"
-        "変動率や流動性の不確実性が出やすいため、リスク確認とDB信頼度も確認します。"
+        "小型・中型の成長余地、ROE、基礎評価、上昇気配を重視します。"
+        "変動率や流動性の不確実性が出やすいため、リスクとDB信頼度も確認します。"
     ),
     "nisa_long_term": (
-        "NISA適合、投資スタイル、リスク確認、データ品質、ROEを重視します。"
+        "NISA適合、投資スタイル、リスク、データ信頼度、ROEを重視します。"
         "制度上の候補条件と長期確認のしやすさを整理する基準です。"
         "投資適合性や安全性を保証するものではありません。"
     ),
     "data_confidence": (
-        "取得元情報、更新日、データ品質、欠損の少なさを最優先します。"
+        "取得元情報、更新日、データ信頼度、欠損の少なさを最優先します。"
         "判断前に、まず根拠がそろった銘柄から確認したい時に使います。"
     ),
     "etf_core_cost": (
@@ -394,7 +401,7 @@ RANKING_PURPOSE_HELP_TEXTS = {
         "低コスト・分散確認に寄せたETF比較条件です。万能評価や商品適合性の判定ではありません。"
     ),
     "etf_income": (
-        "ETFの利回り、経費率、指数、通貨、複雑性、データ品質を重視します。"
+        "ETFの利回り、経費率、指数、通貨、複雑性、データ信頼度を重視します。"
         "インカム候補でもコスト、分散性、分配方針を同時に確認します。"
         "分配金の継続や商品適合性を保証するものではありません。"
     ),
@@ -411,7 +418,7 @@ RANKING_PURPOSE_HELP_TEXTS = {
         "割安の質まで確認する場合は「割安クオリティ」を使います。"
     ),
     "stability": (
-        "旧来の安定重視です。リスク確認とデータ品質を中心に比較します。"
+        "旧来の安定重視です。リスクとデータ信頼度を中心に比較します。"
         "より低変動に寄せる場合は「低ボラ・安定」を使います。"
     ),
     "trend": (
@@ -419,9 +426,103 @@ RANKING_PURPOSE_HELP_TEXTS = {
         "外部ファクターのMomentumに近い見方は「モメンタム・トレンド」を使います。"
     ),
     "upside_signal": (
-        "上昇気配、下向きシグナルの低さ、スクリーニング、データ品質を重視します。"
+        "上昇気配、下向きシグナルの低さ、基礎評価、データ信頼度を重視します。"
         "売買の指示ではなく、短期的に深掘りする候補を整理するための基準です。"
     ),
+}
+
+
+RANKING_POLICY_DESCRIPTIONS: dict[str, RankingPolicyDescription] = {
+    "multi_factor": {
+        "short_summary": "基礎評価、予測、リスク、データ信頼度、Research確認材料を広く見る既定方針です。",
+        "suited_for": "まず深掘り候補を広く並べたい時",
+        "main_focus": (
+            "基礎評価",
+            "予測・上昇気配",
+            "リスク・下振れ警戒",
+            "データ信頼度",
+            "Research確認材料",
+        ),
+        "caution": "総合点が高くても、下降警戒やデータ不足があれば先に確認します。",
+    },
+    "upside_signal": {
+        "short_summary": "上向き材料が強く、下振れ警戒が相対的に低い候補を見つける方針です。",
+        "suited_for": "短期から中期の深掘り候補を探す時",
+        "main_focus": ("予測・上昇気配", "下振れ警戒", "基礎評価", "データ信頼度"),
+        "caution": "上昇気配が強くても、下降警戒が高い候補は値動きの荒さを確認します。",
+    },
+    "momentum": {
+        "short_summary": "足元の価格評価と上昇気配を中心に、追随リスクも見る方針です。",
+        "suited_for": "直近の勢いがある候補を比較したい時",
+        "main_focus": ("価格モメンタム", "予測・上昇気配", "下振れ警戒", "リスク"),
+        "caution": "勢いの強さは将来継続の保証ではないため、反転リスクを確認します。",
+    },
+    "quality_growth": {
+        "short_summary": "成長条件と収益性を見ながら、上昇気配とデータ信頼度を確認する方針です。",
+        "suited_for": "成長性と質の両方を見たい時",
+        "main_focus": ("ROE", "条件適合度", "予測・上昇気配", "データ信頼度"),
+        "caution": "高PER/PBRは単純減点ではなく、成長期待との釣り合いを確認します。",
+    },
+    "quality_value": {
+        "short_summary": "割安に見える候補を、収益性・リスク・資料確認も含めて見る方針です。",
+        "suited_for": "PER/PBRだけでなく割安の質を見たい時",
+        "main_focus": ("条件適合度", "基礎評価", "リスク", "データ信頼度", "Research確認材料"),
+        "caution": "割安の理由が業績不安や一時要因ではないか確認します。",
+    },
+    "sustainable_income": {
+        "short_summary": "高配当候補を、持続性・リスク・データ信頼度と合わせて確認する方針です。",
+        "suited_for": "配当利回りだけでなく減配リスクも見たい時",
+        "main_focus": ("条件適合度", "リスク", "データ信頼度", "基礎評価", "Research確認材料"),
+        "caution": "高配当は魅力だけでなく、減配や業績悪化の確認対象として扱います。",
+    },
+    "min_volatility": {
+        "short_summary": "値動きの落ち着きと確認しやすさを優先する方針です。",
+        "suited_for": "荒い値動きを避けて候補を比較したい時",
+        "main_focus": ("リスク", "データ信頼度", "DB信頼度", "基礎評価", "Research確認材料"),
+        "caution": "低ボラは安全保証ではなく、上昇余地が小さい場合もあります。",
+    },
+    "risk_adjusted": {
+        "short_summary": "安定成長の候補として、上昇材料とリスク・データ信頼度の釣り合いを見る方針です。",
+        "suited_for": "安定的に深掘りできる候補を探す時",
+        "main_focus": ("リスク", "基礎評価", "予測・上昇気配", "条件適合度", "データ信頼度"),
+        "caution": "安定成長は安全保証ではなく、下振れ警戒と個別材料を合わせて確認します。",
+    },
+    "small_growth": {
+        "short_summary": "小型・中型の成長候補を、リスクとデータ信頼度も含めて見る方針です。",
+        "suited_for": "成長余地を探しつつ不確実性も確認したい時",
+        "main_focus": ("条件適合度", "基礎評価", "予測・上昇気配", "リスク", "データ信頼度"),
+        "caution": "小型候補は変動率や流動性の影響が大きいため、リスク確認を省略しません。",
+    },
+    "nisa_long_term": {
+        "short_summary": "NISA制度上の候補条件と、長期確認のしやすさを合わせて見る方針です。",
+        "suited_for": "長期保有の検討材料を整理したい時",
+        "main_focus": ("基礎評価", "リスク", "データ信頼度", "条件適合度", "Research確認材料"),
+        "caution": "制度適合は投資適合性や安全性を保証するものではありません。",
+    },
+    "data_confidence": {
+        "short_summary": "取得元、更新日、欠損の少なさを優先し、確認材料がそろった候補から見る方針です。",
+        "suited_for": "まずデータが安定した候補を確認したい時",
+        "main_focus": ("データ信頼度", "DB信頼度", "条件適合度", "基礎評価"),
+        "caution": "データがそろっていることは、投資魅力度の高さそのものではありません。",
+    },
+    "etf_core_cost": {
+        "short_summary": "低コストで中核に置きやすいETF候補を、指数・複雑性・信頼度で確認する方針です。",
+        "suited_for": "ETFのコア候補を比較したい時",
+        "main_focus": ("条件適合度", "データ信頼度", "リスク", "基礎評価", "Research確認材料"),
+        "caution": "低コストでも、連動指数や為替、商品構造の確認が必要です。",
+    },
+    "etf_income": {
+        "short_summary": "ETFのインカム候補を、分配材料・コスト・分散性・複雑性で確認する方針です。",
+        "suited_for": "ETFの分配金候補を比較したい時",
+        "main_focus": (
+            "条件適合度",
+            "リスク・複雑性",
+            "データ信頼度",
+            "基礎評価",
+            "Research確認材料",
+        ),
+        "caution": "分配金の継続や商品適合性を保証するものではありません。",
+    },
 }
 
 
@@ -466,7 +567,7 @@ RANKING_CRITERIA_GUIDE_ROWS: tuple[RankingCriteriaGuideRow, ...] = (
 
 RANKING_CHART_PROFILE_TEXTS: dict[str, RankingChartProfileText] = {
     "score_risk": {
-        "title": "スコア x リスク確認",
+        "title": "スコア x リスク",
         "description": "スコアが高い候補の中で、リスクもあわせて確認できます。高スコアでもリスクが高い場合は、詳細確認に進むと安心です。",
         "how_to_read": (
             "スコア高め / リスク低め: 深掘り優先候補",
@@ -476,13 +577,13 @@ RANKING_CHART_PROFILE_TEXTS: dict[str, RankingChartProfileText] = {
         ),
     },
     "screening_risk": {
-        "title": "スクリーニング x リスク確認",
-        "description": "方向データが不足する場合でも、価格・出来高・モメンタム由来のスクリーニングとリスク確認を分けて確認できます。",
+        "title": "基礎評価 x リスク",
+        "description": "方向データが不足する場合でも、価格・出来高・モメンタム由来の基礎評価とリスクを分けて確認できます。",
         "how_to_read": (
-            "スクリーニング高め / リスク確認高め: 足元条件が強く、リスク面も比較しやすい候補",
-            "スクリーニング高め / リスク確認低め: 足元条件は強いが、値動きや下落耐性を確認",
-            "スクリーニング低め / リスク確認高め: 安定性はあるが、足元条件は弱め",
-            "スクリーニング低め / リスク確認低め: 優先度低め、またはデータ確認候補",
+            "基礎評価高め / リスク評価高め: 足元条件が強く、リスク面も比較しやすい候補",
+            "基礎評価高め / リスク評価低め: 足元条件は強いが、値動きや下落耐性を確認",
+            "基礎評価低め / リスク評価高め: 安定性はあるが、足元条件は弱め",
+            "基礎評価低め / リスク評価低め: 優先度低め、またはデータ確認候補",
         ),
     },
     "score_forecast": {
@@ -527,7 +628,7 @@ RANKING_CHART_PROFILE_TEXTS: dict[str, RankingChartProfileText] = {
         ),
     },
     "value_risk": {
-        "title": "割安性 x リスク確認",
+        "title": "割安性 x リスク",
         "description": "割安に見える候補について、リスクもあわせて確認できます。",
         "how_to_read": (
             "割安性高め / リスク低め: 割安観点で深掘りしやすい候補",
@@ -537,7 +638,7 @@ RANKING_CHART_PROFILE_TEXTS: dict[str, RankingChartProfileText] = {
         ),
     },
     "stability_risk": {
-        "title": "安定性 x リスク確認",
+        "title": "安定性 x リスク",
         "description": "安定性を重視する候補について、リスクの強さもあわせて確認できます。",
         "how_to_read": (
             "安定性高め / リスク低め: 安定観点で深掘りしやすい候補",
@@ -583,7 +684,7 @@ RANKING_CHART_PROFILE_TEXTS: dict[str, RankingChartProfileText] = {
             "上昇気配高め / 下降警戒低め: "
             "上向きシグナルが強く、警戒材料が相対的に少ない深掘り候補",
             "上昇気配高め / 下降警戒高め: 上向き材料はあるが、下降警戒も先に確認",
-            "上昇気配低め / 下降警戒高め: リスク確認候補",
+            "上昇気配低め / 下降警戒高め: リスク確認を優先する候補",
             "上昇気配低め / 下降警戒低め: 方向材料は限定的な比較候補",
         ),
     },
@@ -598,17 +699,17 @@ RANKING_CHART_PROFILE_TEXTS: dict[str, RankingChartProfileText] = {
         ),
     },
     "fit_risk": {
-        "title": "条件適合 x リスク確認",
-        "description": "条件に合う候補について、リスク確認とデータ品質をあわせて確認できます。",
+        "title": "条件適合 x リスク",
+        "description": "条件に合う候補について、リスクとデータ信頼度をあわせて確認できます。",
         "how_to_read": (
-            "適合度高め / リスク確認高め: 条件に合い、リスク面も比較しやすい候補",
-            "適合度高め / リスク確認低め: 条件には合うが、リスク要因を確認",
-            "適合度低め / リスク確認高め: 安定性はあるが、目的適合は低め",
-            "適合度低め / リスク確認低め: 優先度低め",
+            "適合度高め / リスク評価高め: 条件に合い、リスク面も比較しやすい候補",
+            "適合度高め / リスク評価低め: 条件には合うが、リスク要因を確認",
+            "適合度低め / リスク評価高め: 安定性はあるが、目的適合は低め",
+            "適合度低め / リスク評価低め: 優先度低め",
         ),
     },
     "confidence_quality": {
-        "title": "データ品質 x データ信頼度",
+        "title": "データ信頼度 x 価格データ品質",
         "description": "データ信頼度優先で見る候補について、DB信頼度と価格データ品質を分けて確認できます。",
         "how_to_read": (
             "信頼度高め / 品質高め: 根拠と価格データがそろった確認しやすい候補",
@@ -616,7 +717,7 @@ RANKING_CHART_PROFILE_TEXTS: dict[str, RankingChartProfileText] = {
             "信頼度低め / 品質高め: 価格評価はできるが、銘柄DBや根拠を確認",
             "信頼度低め / 品質低め: 先にデータ確認が必要",
         ),
-        "caution": "データ品質とDB信頼度は投資魅力度ではなく、評価に使えるデータの充実度です。",
+        "caution": "データ信頼度とDB信頼度は投資魅力度ではなく、評価に使えるデータの充実度です。",
     },
     "etf_fit_confidence": {
         "title": "ETF条件適合 x データ信頼度",

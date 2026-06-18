@@ -19,11 +19,11 @@ RESEARCH_INSUFFICIENT_REPORT_NOTE = (
     "AI Researchでは十分な根拠を確認できませんでした。資料登録や別資料の確認が必要です。"
 )
 RESEARCH_EVIDENCE_CHECK_FALLBACK = "AI Researchで資料根拠を確認します。"
-RESEARCH_COCKPIT_SECTION_TITLE = "06 根拠資料"
+RESEARCH_COCKPIT_SECTION_TITLE = "05 根拠資料"
 RESEARCH_RANKING_LOOKUP_TITLE = "AI調査 / 根拠資料"
 RESEARCH_COCKPIT_INTRO = (
-    "SMAIがニュース・外部情報・補足データを取得し、企業理解に使えるリサーチレポートへ整理します。"
-    "企業概要、事業内容、定量情報、IR、最新ニュース、追加確認が必要な情報を確認できます。"
+    "SMAIがニュース・外部情報・補足データを取得し、企業理解に使える根拠資料へ整理します。"
+    "企業概要、定量情報、IR、最新ニュース、追加確認が必要な情報を確認できます。"
 )
 RESEARCH_RANKING_LOOKUP_INTRO = (
     "この銘柄の保存済み資料から、企業概要、事業内容、定量情報、確認したい出典を整理します。"

@@ -1856,7 +1856,7 @@ def _register_cockpit_report_assistant_context(
             page_key=SIDEMENU_PAGE_COCKPIT,
             page_label=SIDEMENU_PAGE_LABELS[SIDEMENU_PAGE_COCKPIT],
             section_key="decision_report",
-            section_label="投資判断レポート",
+            section_label="確認レポート",
             lead="確認した材料を、あとで見返せる分析メモとして整理します。",
             summary={
                 "レポート": context.title,
@@ -1865,7 +1865,7 @@ def _register_cockpit_report_assistant_context(
             },
             rows=_decision_report_context_summary_rows(context),
             suggested_questions=(
-                "Decision Reportに残す確認ポイントは？",
+                "確認レポートに残す確認ポイントは？",
                 "レポートでは何を保存する？",
                 "AI予測とリスクをどう書き分ける？",
             ),
@@ -7597,7 +7597,7 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
     )
     render_mascot_panel(
         "cockpit",
-        message="まずKPIで全体感をつかみ、チャート、評価内訳、確認サマリーの順に見ていきます。",
+        message="KPIとチャートで全体感をつかみ、AI解釈メモ、スコア、根拠資料の順に確認します。",
         layout="compact",
     )
     score_row = _render_investment_score_section(
@@ -7615,20 +7615,8 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         advanced_forecast_consensus_rows,
         forecast_horizon_days=forecast_horizon_days,
     )
-    if score_row is not None:
-        _render_cockpit_direction_signal_section(score_row, consensus_rows)
-        _render_score_breakdown_context(preview, symbol_label, score_row, score_display_rows)
-
     summary_rows = cockpit_detail_summary_rows(preview, consensus_rows, metric_rows)
-    if summary_rows:
-        st.subheader("05 確認サマリー")
-        st.caption(
-            "詳細データのうち、深掘り前に見ておきたい代表項目を確認観点として整理しています。"
-        )
-        _render_symbol_detail_table(summary_rows)
-
-    _render_cockpit_research_summary(preview)
-    llm_factor_response = _render_cockpit_llm_factor(preview)
+    llm_factor_response = _cockpit_llm_factor_result(preview) if symbol else None
     _render_cockpit_interpretation(
         preview,
         llm_factor_result=llm_factor_response.result if llm_factor_response else None,
@@ -7641,11 +7629,18 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         ),
         investment_score_summary=[score_row] if score_row is not None else score_display_rows[:1],
     )
+    if score_row is not None:
+        _render_cockpit_direction_signal_section(score_row, consensus_rows)
+        _render_score_breakdown_context(preview, symbol_label, score_row, score_display_rows)
+    _render_cockpit_check_summary(summary_rows)
+
+    _render_cockpit_research_summary(preview)
+    _render_cockpit_llm_factor(preview, response=llm_factor_response)
     _render_cockpit_decision_report(preview)
 
-    st.subheader("10 詳細データ")
+    st.subheader("07 詳細データ")
     st.caption(
-        "取得元データや計算に使った詳細情報です。通常の投資判断では、必要な場合のみ確認してください。"
+        "取得元データや計算に使った詳細情報です。通常は閉じたまま、再確認が必要な場合だけ参照します。"
     )
     with st.expander("予測の詳細データを表示", expanded=False):
         st.caption(
@@ -7867,23 +7862,30 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
         )
 
 
-def _render_cockpit_llm_factor(preview: MarketDataPreview) -> LLMFactorServiceResult | None:
+def _render_cockpit_llm_factor(
+    preview: MarketDataPreview,
+    *,
+    response: LLMFactorServiceResult | None = None,
+) -> LLMFactorServiceResult | None:
     symbol = _market_data_preview_symbol(preview)
     if not symbol:
         return None
-    response = _cockpit_llm_factor_result(preview)
+    response = response or _cockpit_llm_factor_result(preview)
     result = response.result
-    st.subheader("07 AI材料分析")
+    st.markdown("#### AI材料分析")
     st.caption(
-        "RAG・ニュース・IR情報をLLMで構造化するための参考指標です。"
-        "初期段階ではスコアやランキングには反映しません。"
+        "根拠資料をLLMで上昇材料・注意材料へ整理する補助メモです。"
+        "スコアやランキングには反映しません。"
     )
     st.markdown(_llm_factor_panel_html(result), unsafe_allow_html=True)
-    st.caption(_llm_factor_cache_caption(response.cache))
     source_rows = _llm_factor_evidence_display_rows(result)
-    if source_rows:
-        with st.expander("AI材料分析の出典を表示", expanded=False):
+    with st.expander("AI材料分析の詳細（出典・実行情報）", expanded=False):
+        st.caption(_llm_factor_cache_caption(response.cache))
+        st.markdown(_llm_factor_runtime_html(result), unsafe_allow_html=True)
+        if source_rows:
             _render_compact_dataframe(source_rows)
+        else:
+            st.caption("出典付きの材料はまだ表示できません。")
     return response
 
 
@@ -7907,12 +7909,12 @@ def _render_cockpit_interpretation(
         advanced_forecast_summary=advanced_forecast_summary,
         investment_score_summary=investment_score_summary,
     )
-    st.subheader("08 AI解釈メモ")
-    st.caption(
-        "価格・予測・Research Evidence・AI材料分析を、投資判断前にどう読むか整理する参考メモです。"
-    )
+    st.subheader("03 AI解釈メモ")
+    st.caption("価格・予測・根拠資料・AI材料分析を、次に何を見るかの確認メモとして整理します。")
     st.markdown(_cockpit_interpretation_panel_html(response.result), unsafe_allow_html=True)
-    st.caption(_cockpit_interpretation_cache_caption(response.cache))
+    with st.expander("AI解釈メモの詳細（実行情報）", expanded=False):
+        st.caption(_cockpit_interpretation_cache_caption(response.cache))
+        st.markdown(_cockpit_interpretation_runtime_html(response.result), unsafe_allow_html=True)
 
 
 def _cockpit_interpretation_result(
@@ -8213,16 +8215,15 @@ def _llm_factor_panel_html(result: LLMFactorResult) -> str:
     if result.missing_fields:
         missing = "、".join(result.missing_fields)
         missing_html = f"<p>不足項目: {html.escape(missing)}</p>"
-    runtime_html = _llm_factor_runtime_html(result)
     return (
         '<section class="research-result-brief hero">'
         '<div class="research-result-brief-header">'
         '<span class="research-evidence-pill positive">参考表示</span>'
-        f'<span class="research-evidence-pill">{html.escape(_llm_factor_runtime_label(result))}</span>'
+        '<span class="research-evidence-pill">根拠資料の補助</span>'
         "</div>"
         "<h4>AI材料分析</h4>"
         f"<p>{html.escape(result.summary)}</p>"
-        "<p>このAI材料分析は参考情報です。Ranking・予測・Investment Scoreには反映していません。</p>"
+        "<p>このAI材料分析は根拠資料の読み取り補助です。Ranking・予測・Investment Scoreには反映していません。</p>"
         f'<div class="research-brief-metric-grid">{score_cards}</div>'
         '<div class="research-brief-reading-grid">'
         '<section class="research-brief-reading-item tone-positive">'
@@ -8237,7 +8238,6 @@ def _llm_factor_panel_html(result: LLMFactorResult) -> str:
         "<h5>確認メモ</h5>"
         f"{warning_html}"
         f"{missing_html}"
-        f"{runtime_html}"
         f"<p>{html.escape(result.disclaimer)}</p>"
         "</section>"
         "</div>"
@@ -8336,12 +8336,12 @@ def _cockpit_interpretation_panel_html(result: CockpitInterpretationResult) -> s
         '<section class="research-result-brief hero">'
         '<div class="research-result-brief-header">'
         '<span class="research-evidence-pill positive">参考表示</span>'
-        f'<span class="research-evidence-pill">{html.escape(_cockpit_interpretation_status_label(result))}</span>'
+        '<span class="research-evidence-pill">確認メモ</span>'
         "</div>"
         "<h4>AI解釈メモ</h4>"
         f"<p>{html.escape(result.overall_reading)}</p>"
-        "<p>このAI解釈メモは、価格・予測・Research Evidence・AI材料分析を読み解くための参考情報です。"
-        "売買推奨ではなく、Ranking・予測・Investment Scoreには反映していません。</p>"
+        "<p>このAI解釈メモは、価格・予測・根拠資料・AI材料分析を読み解くための参考情報です。"
+        "SMAIの表示は売買を推奨するものではなく、Ranking・予測・Investment Scoreには反映していません。</p>"
         '<div class="research-brief-reading-grid">'
         '<section class="research-brief-reading-item tone-positive">'
         "<h5>強材料</h5>"
@@ -8363,7 +8363,6 @@ def _cockpit_interpretation_panel_html(result: CockpitInterpretationResult) -> s
         "<h5>確認メモ</h5>"
         f"{warning_html}"
         f"{missing_html}"
-        f"{_cockpit_interpretation_runtime_html(result)}"
         "</section>"
         "</div>"
         "</section>"
@@ -12987,9 +12986,10 @@ def _render_cockpit_direction_signal_section(
     consensus_row = consensus_rows[0] if consensus_rows else {}
     detail_rows = cockpit_direction_signal_detail_rows(score_row, consensus_row)
     _register_cockpit_direction_assistant_context(score_row, consensus_row, detail_rows)
-    render_section_heading("03 シグナル読み取り")
+    render_section_heading("04 スコア・リスクの内訳")
     st.caption(
-        "主要KPIの方向シグナルを、価格チャート後の読み取りとして整理します。売買推奨ではありません。"
+        "総合スコア、上昇気配、下降警戒、予測のばらつきを分けて確認します。"
+        "SMAIの表示は売買を推奨するものではありません。"
     )
     insight_tone: Literal["caution", "forecast"] = (
         "caution"
@@ -13013,10 +13013,8 @@ def _render_score_breakdown_context(
     row: dict[str, str],
     rows: list[dict[str, str]],
 ) -> None:
-    st.markdown("#### 04 評価の内訳")
-    st.caption(
-        "チャートを見たあとに、総合スコアを構成する観点を確認します。投資スコア、予測、リスクは役割を分けて読みます。"
-    )
+    st.markdown("#### スコア構成と期間別評価")
+    st.caption("総合スコアを構成する観点と、取得期間に応じた値動きの見方をまとめます。")
     _render_score_breakdown_chart(score_component_rows(row))
 
     warning = row.get("注意点", "")
@@ -13032,17 +13030,13 @@ def _render_score_breakdown_context(
         st.caption(line)
     period_rows = cockpit_period_evaluation_rows(preview.bars)
     if period_rows:
-        st.subheader("期間別評価")
-        st.caption(
-            "取得した期間の長さに合わせて、値動きの確認観点を整理しています。売買判断ではなく、深掘り前の整理です。"
-        )
+        st.markdown("#### 期間別の見方")
+        st.caption("取得した期間の長さに合わせて、値動きの確認観点を整理しています。")
         _render_symbol_detail_table(period_rows)
     memo_rows = cockpit_investment_memo_rows(preview, row)
     if memo_rows:
-        st.subheader("投資判断メモ")
-        st.caption(
-            "銘柄データ、スコア、取得期間の値動きを合わせた深掘り観点です。売買推奨ではありません。"
-        )
+        st.markdown("#### 確認メモ")
+        st.caption("銘柄データ、スコア、取得期間の値動きを合わせた深掘り観点です。")
         _render_symbol_detail_table(memo_rows)
 
     with st.expander("投資スコアの詳細・ダウンロード"):
@@ -13068,6 +13062,17 @@ def _render_score_breakdown_context(
             file_name="investment_score.csv",
             mime="text/csv",
         )
+
+
+def _render_cockpit_check_summary(summary_rows: list[dict[str, str]]) -> None:
+    if not summary_rows:
+        return
+    st.markdown("#### 主要確認サマリー")
+    st.caption(
+        "価格・予測・データ品質の代表項目だけを抜き出しています。"
+        "元データは下部の詳細データで確認できます。"
+    )
+    _render_symbol_detail_table(summary_rows)
 
 
 def cockpit_detail_summary_rows(
@@ -14313,7 +14318,7 @@ def build_cockpit_decision_report_context(
     ):
         sections.append(_research_score_report_section(research_report))
     return build_decision_report_context(
-        title=f"投資判断レポート - {symbol or '選択銘柄'}",
+        title=f"確認レポート - {symbol or '選択銘柄'}",
         sections=sections,
         tags=["cockpit", "phase-19", "local-first"],
     )
@@ -14583,7 +14588,7 @@ def _decision_report_overview_card_html(overview: dict[str, str]) -> str:
         ("総合判断", overview.get("overall_judgement", "未判定")),
         ("スコア", f"{overview.get('total_score', '未計算')} / 100"),
         ("信頼度", overview.get("confidence", "低め")),
-        ("投資スタンス", overview.get("investment_stance", "様子見 / 追加根拠確認")),
+        ("確認スタンス", overview.get("investment_stance", "様子見 / 追加根拠確認")),
         ("注意材料", overview.get("key_risks", "価格トレンド・外部環境")),
     ]
     field_html = "".join(
@@ -14593,7 +14598,7 @@ def _decision_report_overview_card_html(overview: dict[str, str]) -> str:
         "</div>"
         for label, value in fields
     )
-    title = f"投資判断レポート - {overview.get('symbol', '選択銘柄')}"
+    title = f"確認レポート - {overview.get('symbol', '選択銘柄')}"
     company_name = overview.get("company_name", "")
     if company_name and company_name != "未取得":
         title = f"{title} / {company_name}"
@@ -14620,7 +14625,7 @@ def _render_cockpit_decision_report_sections(
     research_report: CompanyResearchReport | None,
     news_report: StockNewsReport | None,
 ) -> None:
-    st.markdown("#### 詳細レポート")
+    st.markdown("#### 確認項目の詳細")
     with st.container(border=True):
         st.markdown("##### 1. 要約")
         st.markdown(
@@ -14630,11 +14635,11 @@ def _render_cockpit_decision_report_sections(
             unsafe_allow_html=True,
         )
 
-    with st.expander("2. 投資判断", expanded=True):
+    with st.expander("2. 確認方針", expanded=True):
         _render_symbol_detail_table(
             [
                 {"項目": "総合判断", "内容": overview.get("overall_judgement", "")},
-                {"項目": "投資スタンス", "内容": overview.get("investment_stance", "")},
+                {"項目": "確認スタンス", "内容": overview.get("investment_stance", "")},
                 {"項目": "注意材料", "内容": overview.get("key_risks", "")},
             ]
         )
@@ -14807,7 +14812,7 @@ def _render_cockpit_decision_report(preview: MarketDataPreview) -> None:
     news_report = _cockpit_stock_news_report_from_state(preview)
     overview = cockpit_decision_report_overview(preview)
 
-    st.markdown("### 09 投資判断レポート")
+    st.markdown("### 06 確認レポート")
     st.info(DECISION_REPORT_SUPPORT_MESSAGE)
     st.markdown(_decision_report_overview_card_html(overview), unsafe_allow_html=True)
 
@@ -14836,10 +14841,10 @@ def _render_cockpit_decision_report(preview: MarketDataPreview) -> None:
 
     _render_decision_report_download_buttons(
         context,
-        expander_label="投資判断レポート",
+        expander_label="確認レポート",
         json_file_name="decision_report_cockpit.json",
         markdown_file_name="decision_report_cockpit.md",
-        heading_prefix="09",
+        heading_prefix="06",
     )
 
 

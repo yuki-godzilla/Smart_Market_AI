@@ -205,7 +205,7 @@ def test_assistant_trigger_label_varies_by_context():
             "上昇気配・下降警戒",
             "シグナルの理由を聞く",
         ),
-        ("cockpit_report", "cockpit", "decision_report", "投資判断レポート", "残す確認点を聞く"),
+        ("cockpit_report", "cockpit", "decision_report", "確認レポート", "残す確認点を聞く"),
         ("ranking_setup", "ranking", "setup", "ランキング作成前", "条件設定を確認する"),
         ("ranking_results", "ranking", "ranking_results", "ランキング結果", "上位理由を聞く"),
         ("ranking_deep_dive", "ranking", "deep_dive_candidate", "深掘り候補", "候補の比べ方を聞く"),

@@ -3,28 +3,30 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from backend.interpretation import CockpitInterpretationResult, InterpretationBullet
-from ui.app import _cockpit_interpretation_panel_html
+from ui.app import _cockpit_interpretation_panel_html, _cockpit_interpretation_runtime_html
 
 
 def test_cockpit_interpretation_panel_html_shows_disabled_state() -> None:
     result = _result(status="disabled", fallback_reason="disabled")
 
     html = _cockpit_interpretation_panel_html(result)
+    runtime_html = _cockpit_interpretation_runtime_html(result)
 
     assert "AI解釈メモ" in html
-    assert "LLM接続: disabled" in html
-    assert "設定で無効 (disabled)" in html
+    assert "確認メモ" in html
+    assert "設定で無効 (disabled)" in runtime_html
     assert "Ranking・予測・Investment Scoreには反映していません" in html
-    assert "売買推奨ではなく" in html
+    assert "売買を推奨するものではなく" in html
 
 
 def test_cockpit_interpretation_panel_html_shows_live_metadata() -> None:
     result = _result(status="live", fallback_reason=None)
 
     html = _cockpit_interpretation_panel_html(result)
+    runtime_html = _cockpit_interpretation_runtime_html(result)
 
-    assert "LLM接続: live" in html
-    assert "provider: ollama / model: qwen3:8b / profile: desktop_fast" in html
+    assert "provider: ollama / model: qwen3:8b / profile: desktop_fast" not in html
+    assert "provider: ollama / model: qwen3:8b / profile: desktop_fast" in runtime_html
     assert "強材料" in html
     assert "次に確認すべき材料" in html
 
@@ -33,9 +35,10 @@ def test_cockpit_interpretation_panel_html_shows_validation_error_reason() -> No
     result = _result(status="validation_error", fallback_reason="policy_violation")
 
     html = _cockpit_interpretation_panel_html(result)
+    runtime_html = _cockpit_interpretation_runtime_html(result)
 
-    assert "LLM接続: validation error" in html
-    assert "売買推奨などの禁止表現 (policy_violation)" in html
+    assert "LLM接続: validation error" not in html
+    assert "売買推奨などの禁止表現 (policy_violation)" in runtime_html
 
 
 def _result(

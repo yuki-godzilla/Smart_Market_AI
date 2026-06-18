@@ -114,6 +114,7 @@ from ui.app import (
     _llm_factor_evidence_display_rows,
     _llm_factor_evidence_sources,
     _llm_factor_panel_html,
+    _llm_factor_runtime_html,
     _market_chart_has_displayable_data,
     _market_data_preview_advanced_forecast_consensus_rows,
     _market_data_preview_advanced_forecast_rows,
@@ -7432,7 +7433,7 @@ def test_cockpit_decision_report_context_includes_metadata_confidence(monkeypatc
     markdown = decision_report_markdown_download(context)
     payload = decision_report_json_download(context)
 
-    assert context.title == "投資判断レポート - 6857.T"
+    assert context.title == "確認レポート - 6857.T"
     assert [section.title for section in context.sections] == [
         "データ取得状況と信頼性",
         "銘柄メタデータ",
@@ -9788,7 +9789,7 @@ def test_llm_factor_panel_html_is_reference_display_and_escapes_source_text() ->
 
     assert "AI材料分析" in html
     assert "参考表示" in html
-    assert "LLM接続: disabled" in html
+    assert "根拠資料の補助" in html
     assert "Ranking・予測・Investment Scoreには反映していません" in html
     assert "売買推奨ではありません" in html
     assert "&lt;script&gt;増配&lt;/script&gt;" in html
@@ -9827,9 +9828,10 @@ def test_llm_factor_panel_html_shows_live_gateway_metadata() -> None:
     )
 
     html = _llm_factor_panel_html(result)
+    runtime_html = _llm_factor_runtime_html(result)
 
-    assert "LLM接続: live" in html
-    assert "provider: ollama / model: qwen3:14b / profile: desktop_analysis" in html
+    assert "provider: ollama / model: qwen3:14b / profile: desktop_analysis" not in html
+    assert "provider: ollama / model: qwen3:14b / profile: desktop_analysis" in runtime_html
     assert "不足項目: forecast_summary" in html
 
 
@@ -9861,9 +9863,10 @@ def test_llm_factor_panel_html_shows_fallback_reason() -> None:
     )
 
     html = _llm_factor_panel_html(result)
+    runtime_html = _llm_factor_runtime_html(result)
 
-    assert "LLM接続: fallback" in html
-    assert "LLM Gatewayに接続できません (gateway_unavailable)" in html
+    assert "LLM接続: fallback" not in html
+    assert "LLM Gatewayに接続できません (gateway_unavailable)" in runtime_html
 
 
 def test_llm_factor_cache_caption_shows_reproducibility_metadata() -> None:

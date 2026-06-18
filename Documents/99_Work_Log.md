@@ -2982,3 +2982,26 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_forecast_display.py::test_live_ranking_symbol_warning_message_only_warns_for_large_live_requests -q --basetemp outputs\work\pytest_tmp_ranking_label -p no:cacheprovider`.
 - passed: `.\venv_SMAI\Scripts\python.exe -m ruff check ui\app.py ui\ranking.py tests\test_ui_forecast_display.py --no-cache`.
 - passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py ui\app.py ui\ranking.py tests\test_ui_forecast_display.py`.
+
+## 2026-06-18 - Phase 29-A Cockpit information architecture cleanup
+
+### Scope
+
+- reorganized the Cockpit post-forecast flow to `03 AI解釈メモ` -> `04 スコア・リスクの内訳` -> `05 根拠資料` -> `06 確認レポート` -> `07 詳細データ`.
+- moved `AI解釈メモ` before score/risk details and kept LLM/provider/cache runtime metadata in closed detail expanders.
+- kept `AI材料分析` as a reference-only memo under `05 根拠資料`; its source/runtime information is now folded under `AI材料分析の詳細（出典・実行情報）`.
+- softened Cockpit report wording from `投資判断レポート` to `確認レポート` in the normal UI and overview card while leaving existing export filenames/contracts compatible.
+- kept Forecast, Ranking, Investment Score, LLM Factor generation, and Research external-fetch logic unchanged.
+- synchronized roadmap, operations guide, project context, and functional-spec issues for Phase 29-A / FS-005 / FS-009.
+
+### Validation
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_cockpit_interpretation.py tests\test_ui_forecast_display.py tests\test_ui_assistant_component.py -q -k "cockpit_interpretation or llm_factor_panel_html or cockpit_decision_report_context_includes_metadata_confidence or assistant_trigger_label"` with 9 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check ui\app.py ui\content\research_texts.py tests\test_ui_cockpit_interpretation.py tests\test_ui_forecast_display.py tests\test_ui_assistant_component.py --no-cache`.
+- passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py`.
+- passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe outputs\work\phase29a_cockpit_playwright_smoke\cockpit_smoke.py`; clicked `データを取得` and `AI調査を更新`, confirmed 03/04/05/06/07 sections, and saved screenshots under `outputs/work/phase29a_cockpit_playwright_smoke/`.
+
+### Next
+
+- Phase 28-B Ranking interpretation, Radar / News interpretation, or Phase 29-B confirmation-report draft assistance can proceed next.
+- Continue keeping LLM Factor / interpretation outputs out of Ranking, Forecast, AI総合, and Investment Score until validation justifies a separate opt-in integration.

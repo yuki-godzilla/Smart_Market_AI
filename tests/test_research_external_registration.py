@@ -9,11 +9,15 @@ from backend.research.external_contracts import (
     ExternalResearchSourcePayload,
 )
 from backend.research.external_registration import (
+    external_fetch_manifest_entry,
     external_payload_content_digest,
     external_payload_markdown,
     external_research_content_summary,
+    external_source_freshness,
+    external_source_freshness_rank,
     find_registered_external_document,
     safe_cache_fragment,
+    stale_external_source_warning,
     write_external_fetch_manifest,
     write_external_payload_archive,
 )
@@ -24,6 +28,9 @@ class RegisteredDocument:
     document_id: str
     provider: str
     source_type: str
+    title: str = "7203 External IR Update"
+    symbol: str = "7203.T"
+    published_at: date | None = date(2026, 5, 24)
 
 
 def _payload(
@@ -126,6 +133,47 @@ def test_external_payload_archive_and_manifest_writers(tmp_path):
     assert manifest["provider"] == "fake_external"
     assert manifest["entry_count"] == 1
     assert manifest["warnings"] == ["check freshness"]
+
+
+def test_external_fetch_manifest_entry_builds_archive_and_session_rows(tmp_path):
+    payload = _payload()
+    document = RegisteredDocument(
+        document_id="doc-1",
+        provider="fake_external",
+        source_type="provider_profile",
+    )
+    local_path = tmp_path / "payload.md"
+
+    entry = external_fetch_manifest_entry(
+        payload=payload,
+        document=document,
+        as_of=date(2026, 5, 25),
+        retention_policy="archive",
+        local_path=local_path,
+        document_hash="hash-1",
+    )
+
+    assert entry.title == payload.title
+    assert entry.symbol == payload.symbol
+    assert entry.source_url == payload.source_url
+    assert entry.freshness_status == "latest"
+    assert entry.retention_policy == "archive"
+    assert entry.local_path == str(local_path)
+    assert entry.document_hash == "hash-1"
+
+
+def test_external_source_freshness_and_warning_text():
+    as_of = date(2026, 5, 25)
+
+    assert external_source_freshness(date(2026, 5, 25), as_of=as_of) == "latest"
+    assert external_source_freshness(date(2026, 5, 1), as_of=as_of) == "recent"
+    assert external_source_freshness(date(2026, 1, 1), as_of=as_of) == "stale"
+    assert external_source_freshness(None, as_of=as_of) == "unknown"
+    assert external_source_freshness_rank("latest") == 0
+    assert external_source_freshness_rank("stale") == 3
+    assert stale_external_source_warning("Old News") == (
+        "Old News: 公開日が古いため、最新資料と合わせて確認してください。"
+    )
 
 
 def test_safe_cache_fragment_falls_back_for_empty_values():

@@ -35,15 +35,20 @@ from backend.research.external_contracts import (
     StockNewsFreshnessStatus,
 )
 from backend.research.external_registration import (
+    external_fetch_manifest_entry,
+    find_registered_external_document,
+    stale_external_source_warning,
+    write_external_fetch_manifest,
+    write_external_payload_archive,
+)
+from backend.research.external_registration import (
     external_payload_markdown as _external_payload_markdown,
 )
 from backend.research.external_registration import (
-    external_research_content_summary as _external_research_content_summary,
+    external_source_freshness as _stock_news_freshness,
 )
 from backend.research.external_registration import (
-    find_registered_external_document,
-    write_external_fetch_manifest,
-    write_external_payload_archive,
+    external_source_freshness_rank as _stock_news_freshness_rank,
 )
 from backend.research.external_registration import (
     safe_cache_fragment as _safe_cache_fragment,
@@ -2648,23 +2653,14 @@ class ExternalResearchFetchService:
                 self.index.build_chunks(document.document_id)
             freshness_status = _stock_news_freshness(document.published_at, as_of=as_of)
             if freshness_status == "stale":
-                warnings.append(
-                    f"{document.title}: 公開日が古いため、最新資料と合わせて確認してください。"
-                )
+                warnings.append(stale_external_source_warning(document.title))
             entries.append(
-                ExternalResearchFetchManifestEntry(
-                    title=document.title,
-                    symbol=document.symbol,
-                    source_type=document.source_type,
-                    source_url=payload.source_url,
-                    provider=payload.provider,
-                    published_at=document.published_at,
-                    fetched_at=payload.fetched_at,
-                    freshness_status=freshness_status,
-                    document_id=document.document_id,
+                external_fetch_manifest_entry(
+                    payload=payload,
+                    document=document,
+                    as_of=as_of,
                     retention_policy="archive" if self.persist_payloads else "session",
-                    content_summary=_external_research_content_summary(payload),
-                    local_path=str(path) if path is not None else None,
+                    local_path=path,
                     document_hash=(document.document_hash if self.persist_payloads else None),
                 )
             )
@@ -10029,29 +10025,3 @@ def _stock_news_sentiment(text: str) -> StockNewsSentiment:
     if negative:
         return "negative"
     return "neutral" if normalized.strip() else "unknown"
-
-
-def _stock_news_freshness(
-    published_at: date | None,
-    *,
-    as_of: date,
-) -> StockNewsFreshnessStatus:
-    if published_at is None:
-        return "unknown"
-    age_days = (as_of - published_at).days
-    if age_days < 0:
-        return "latest"
-    if age_days <= 7:
-        return "latest"
-    if age_days <= 45:
-        return "recent"
-    return "stale"
-
-
-def _stock_news_freshness_rank(status: StockNewsFreshnessStatus) -> int:
-    return {
-        "latest": 0,
-        "recent": 1,
-        "unknown": 2,
-        "stale": 3,
-    }[status]

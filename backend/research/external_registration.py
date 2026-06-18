@@ -4,14 +4,15 @@ import hashlib
 import json
 import re
 from collections.abc import Iterable, Mapping
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
-from typing import Protocol, TypeVar
+from typing import Literal, Protocol, TypeVar
 
 from backend.research.external_contracts import (
     ExternalResearchFetchManifestEntry,
     ExternalResearchFetchRequest,
     ExternalResearchSourcePayload,
+    StockNewsFreshnessStatus,
 )
 
 
@@ -25,8 +26,18 @@ class RegisteredExternalDocument(Protocol):
     @property
     def source_type(self) -> object: ...
 
+    @property
+    def title(self) -> str: ...
+
+    @property
+    def symbol(self) -> str: ...
+
+    @property
+    def published_at(self) -> object: ...
+
 
 _DocumentT = TypeVar("_DocumentT", bound=RegisteredExternalDocument)
+_RetentionPolicy = Literal["session", "archive"]
 
 
 def safe_cache_fragment(value: str) -> str:
@@ -85,6 +96,64 @@ def external_payload_content_digest(payload: ExternalResearchSourcePayload) -> s
 def external_research_content_summary(payload: ExternalResearchSourcePayload) -> str:
     max_chars = 1800 if payload.source_type == "provider_profile" else 360
     return _excerpt(payload.content, max_chars=max_chars)
+
+
+def external_source_freshness(
+    published_at: object,
+    *,
+    as_of: object,
+) -> StockNewsFreshnessStatus:
+    published_date = _date_or_none(published_at)
+    as_of_date = _date_or_none(as_of)
+    if published_date is None or as_of_date is None:
+        return "unknown"
+    age_days = (as_of_date - published_date).days
+    if age_days < 0:
+        return "latest"
+    if age_days <= 7:
+        return "latest"
+    if age_days <= 45:
+        return "recent"
+    return "stale"
+
+
+def external_source_freshness_rank(status: StockNewsFreshnessStatus) -> int:
+    return {
+        "latest": 0,
+        "recent": 1,
+        "unknown": 2,
+        "stale": 3,
+    }[status]
+
+
+def stale_external_source_warning(title: str) -> str:
+    return f"{title}: 公開日が古いため、最新資料と合わせて確認してください。"
+
+
+def external_fetch_manifest_entry(
+    *,
+    payload: ExternalResearchSourcePayload,
+    document: RegisteredExternalDocument,
+    as_of: object,
+    retention_policy: _RetentionPolicy,
+    local_path: Path | None = None,
+    document_hash: str | None = None,
+) -> ExternalResearchFetchManifestEntry:
+    return ExternalResearchFetchManifestEntry(
+        title=document.title,
+        symbol=document.symbol,
+        source_type=payload.source_type,
+        source_url=payload.source_url,
+        provider=payload.provider,
+        published_at=_date_or_none(document.published_at),
+        fetched_at=payload.fetched_at,
+        freshness_status=external_source_freshness(document.published_at, as_of=as_of),
+        document_id=document.document_id,
+        retention_policy=retention_policy,
+        content_summary=external_research_content_summary(payload),
+        local_path=str(local_path) if local_path is not None else None,
+        document_hash=document_hash,
+    )
 
 
 def find_registered_external_document(
@@ -156,6 +225,14 @@ def write_external_fetch_manifest(
 
 def _normalize_symbol(symbol: str) -> str:
     return symbol.strip().upper()
+
+
+def _date_or_none(value: object) -> date | None:
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    return None
 
 
 def _excerpt(text: str, *, max_chars: int = 220) -> str:

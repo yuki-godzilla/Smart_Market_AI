@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import Literal
-from urllib.error import HTTPError
 
 from pydantic import Field
 
 from backend.core.data_contracts import StrictBaseModel
+from backend.research.external_fetch import (
+    is_timeout_research_fetch_error,
+    research_fetch_http_status,
+)
 
 RESEARCH_PROVIDER_TO_PROFILE_SOURCE = {
     "edinet": "edinet",
@@ -88,7 +91,7 @@ def research_error_is_timeout(error: Exception) -> bool:
         timeout = details.get("timeout")
         if isinstance(timeout, bool):
             return timeout
-    return _is_timeout_exception(error)
+    return is_timeout_research_fetch_error(error)
 
 
 def research_error_status_code(error: Exception) -> int | None:
@@ -97,7 +100,7 @@ def research_error_status_code(error: Exception) -> int | None:
         status_code = details.get("status_code")
         if isinstance(status_code, int):
             return status_code
-    return _exception_http_status(error)
+    return research_fetch_http_status(error)
 
 
 def short_research_error_message(error: Exception, *, max_chars: int = 180) -> str:
@@ -106,31 +109,3 @@ def short_research_error_message(error: Exception, *, max_chars: int = 180) -> s
     if len(text) <= max_chars:
         return text
     return text[: max_chars - 1].rstrip() + "..."
-
-
-def _exception_http_status(error: Exception) -> int | None:
-    if isinstance(error, HTTPError):
-        return int(error.code)
-    response = getattr(error, "response", None)
-    status_code = getattr(response, "status_code", None)
-    if isinstance(status_code, int):
-        return status_code
-    code = getattr(error, "code", None)
-    return int(code) if isinstance(code, int) else None
-
-
-def _is_timeout_exception(error: Exception) -> bool:
-    if isinstance(error, TimeoutError):
-        return True
-    message = str(error).lower()
-    name = type(error).__name__.lower()
-    return any(
-        marker in message or marker in name
-        for marker in (
-            "timeout",
-            "timed out",
-            "readtimeout",
-            "connecttimeout",
-            "pooltimeout",
-        )
-    )

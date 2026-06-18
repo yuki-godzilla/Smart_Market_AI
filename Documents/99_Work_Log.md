@@ -2567,3 +2567,31 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - R1-3 should split external Research fetch retry/orchestration/adapters into a focused module package while preserving public imports.
 - Later R1 slices can separate summary builders, retrieval/query expansion, and scoring/page view concerns after each compatibility checkpoint.
+
+## 2026-06-18 - Refactor Phase R1-3a Research external fetch helpers
+
+### Scope
+
+- moved `ResearchDocumentError` from `backend/research/service.py` to `backend/research/errors.py`.
+- moved external Research retry, timeout classification, HTTP status classification, and default timeout constant to `backend/research/external_fetch.py`.
+- updated `backend/research/source_trace.py` to reuse the external fetch timeout / HTTP status helpers instead of keeping duplicate classification logic.
+- kept `backend.research.ResearchDocumentError` and `backend.research.service.ResearchDocumentError` compatibility intact through imports/re-exports.
+
+### Boundary
+
+- did not move external adapter classes yet; `GoogleNewsRSSResearchAdapter`, `YahooFinanceResearchAdapter`, `CompanyIRSiteResearchAdapter`, `TDnetResearchAdapter`, `EDINETResearchAdapter`, `CompositeExternalResearchAdapter`, and `DefaultExternalResearchAdapter` remain in `service.py`.
+- no Ranking, Forecast, Investment Score, Research Score, LLM Factor, Gateway, API, or Streamlit behavior changed.
+- live external source calls remain opt-in and were not used for validation.
+
+### Validation
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_research_external_fetch.py tests\test_research_source_trace.py tests\test_research_service.py::test_google_news_rss_adapter_does_not_retry_when_retry_count_zero tests\test_research_service.py::test_google_news_rss_adapter_retries_transient_timeout_then_succeeds tests\test_research_service.py::test_google_news_rss_adapter_does_not_retry_http_404 tests\test_research_service.py::test_composite_external_research_adapter_records_source_traces -q --basetemp outputs\work\pytest_tmp\refactor_r1_external_fetch -p no:cacheprovider`
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_research_service.py -q --basetemp outputs\work\pytest_tmp\refactor_r1_external_research_service -p no:cacheprovider`
+- passed: `.\venv_SMAI\Scripts\python.exe -m mypy backend\research\errors.py backend\research\external_fetch.py backend\research\source_trace.py backend\research\service.py`
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check backend\research tests --no-cache`
+- passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py`
+- passed: `git diff --check` with only existing line-ending normalization warnings for edited files.
+
+### Next
+
+- R1-3b can move external adapter classes and their source-specific helper functions into a dedicated module while keeping `backend.research` and `backend.research.service` compatibility.

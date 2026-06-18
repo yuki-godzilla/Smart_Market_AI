@@ -15,8 +15,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from email.utils import parsedate_to_datetime
 from pathlib import Path
-from typing import Any, Callable, Literal, Protocol, Sequence, TypeVar, cast
-from urllib.error import HTTPError, URLError
+from typing import Any, Callable, Literal, Protocol, Sequence, cast
 from urllib.parse import urlencode, urljoin, urlparse, urlunparse
 from urllib.request import Request as UrlRequest
 from urllib.request import urlopen
@@ -27,15 +26,18 @@ from pydantic import Field, ValidationError
 from backend.core.config import ExternalFetchPerformanceConfig, resolve_performance_profile
 from backend.core.data_contracts import DataQuality, StrictBaseModel
 from backend.core.errors import AppError, ProviderUnavailableError, ValidationAppError
+from backend.research.errors import ResearchDocumentError
+from backend.research.external_fetch import (
+    DEFAULT_EXTERNAL_RESEARCH_TIMEOUT_SECONDS,
+)
+from backend.research.external_fetch import (
+    research_fetch_with_retry as _research_fetch_with_retry,
+)
 from backend.research.source_trace import (
     ResearchSourceTrace,
     research_profile_source_key_for_provider,
     research_source_trace_from_result,
 )
-
-DEFAULT_EXTERNAL_RESEARCH_TIMEOUT_SECONDS = 10.0
-
-_T = TypeVar("_T")
 
 ResearchSourceType = Literal[
     "annual_report",
@@ -336,95 +338,6 @@ DEFAULT_RESEARCH_QUERY_TERMS: dict[ResearchTopicCategory, tuple[str, ...]] = {
         "追加確認",
     ),
 }
-
-
-class ResearchDocumentError(AppError):
-    """Local research document registration failed."""
-
-    code = "RESEARCH-1001"
-
-
-def _research_fetch_with_retry(
-    operation: Callable[[], _T],
-    *,
-    provider: str,
-    error_message: str,
-    retry_count: int,
-    retry_backoff_sec: float,
-    url: str | None = None,
-) -> tuple[_T, int]:
-    retry_attempts = 0
-    while True:
-        try:
-            return operation(), retry_attempts
-        except Exception as exc:
-            if retry_attempts >= retry_count or not _is_retryable_research_fetch_error(exc):
-                details: dict[str, object] = {
-                    "provider": provider,
-                    "retry_attempts": retry_attempts,
-                    "error_type": type(exc).__name__,
-                    "timeout": _is_timeout_research_fetch_error(exc),
-                }
-                status_code = _research_fetch_http_status(exc)
-                if status_code is not None:
-                    details["status_code"] = status_code
-                if url:
-                    details["url"] = url
-                raise ResearchDocumentError(error_message, details=details) from exc
-            retry_attempts += 1
-            if retry_backoff_sec > 0:
-                time.sleep(retry_backoff_sec * retry_attempts)
-
-
-def _is_retryable_research_fetch_error(exc: Exception) -> bool:
-    status_code = _research_fetch_http_status(exc)
-    if status_code is not None:
-        return 500 <= status_code <= 599
-    if _is_timeout_research_fetch_error(exc):
-        return True
-    if isinstance(exc, (ConnectionError, URLError)):
-        return True
-    message = str(exc).lower()
-    name = type(exc).__name__.lower()
-    return any(
-        marker in message or marker in name
-        for marker in (
-            "connection reset",
-            "connection aborted",
-            "temporarily unavailable",
-            "remote disconnected",
-            "server disconnected",
-            "network is unreachable",
-        )
-    )
-
-
-def _is_timeout_research_fetch_error(exc: Exception) -> bool:
-    if isinstance(exc, TimeoutError):
-        return True
-    message = str(exc).lower()
-    name = type(exc).__name__.lower()
-    return any(
-        marker in message or marker in name
-        for marker in (
-            "timeout",
-            "timed out",
-            "readtimeout",
-            "connecttimeout",
-            "pooltimeout",
-        )
-    )
-
-
-def _research_fetch_http_status(exc: Exception) -> int | None:
-    if isinstance(exc, HTTPError):
-        return int(exc.code)
-    response = getattr(exc, "response", None)
-    status_code = getattr(response, "status_code", None)
-    if isinstance(status_code, int):
-        return status_code
-    code = getattr(exc, "code", None)
-    return int(code) if isinstance(code, int) else None
 
 
 def _reset_research_adapter_trace_state(adapter: object) -> None:

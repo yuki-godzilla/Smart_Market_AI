@@ -1,3 +1,4 @@
+from backend.research.errors import ResearchDocumentError
 from backend.research.service import (
     CompanyBusinessProfile,
     CompanyIRSiteResearchAdapter,
@@ -51,7 +52,6 @@ from backend.research.service import (
     ResearchDataQuality,
     ResearchDisabledVectorStore,
     ResearchDocument,
-    ResearchDocumentError,
     ResearchDocumentRegisterRequest,
     ResearchEmbedding,
     ResearchEmbeddingService,

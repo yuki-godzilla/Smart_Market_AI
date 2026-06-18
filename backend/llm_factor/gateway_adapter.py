@@ -130,13 +130,13 @@ class HttpLLMFactorGatewayClient:
         except ValueError as exc:
             raise LLMFactorGatewayError(
                 "LLM Factor Gateway returned non-JSON response",
-                gateway_error_type="invalid_gateway_response",
+                gateway_error_type="malformed_json",
                 gateway_url=self.generate_url,
             ) from exc
         if not isinstance(payload, Mapping):
             raise LLMFactorGatewayError(
                 "LLM Factor Gateway returned an invalid response shape",
-                gateway_error_type="invalid_gateway_response",
+                gateway_error_type="validation_error",
                 gateway_url=self.generate_url,
             )
         try:
@@ -144,7 +144,7 @@ class HttpLLMFactorGatewayClient:
         except ValidationError as exc:
             raise LLMFactorGatewayError(
                 "LLM Factor Gateway response failed validation",
-                gateway_error_type="invalid_gateway_response",
+                gateway_error_type="validation_error",
                 gateway_url=self.generate_url,
                 gateway_error_message=str(exc),
             ) from exc

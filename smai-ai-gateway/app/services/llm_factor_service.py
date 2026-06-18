@@ -110,7 +110,7 @@ class LLMFactorGenerationService:
                 started=started,
                 prompt_chars=prompt_chars,
                 context_tokens_estimate=context_tokens_estimate,
-                fallback_reason="response_validation_failure",
+                fallback_reason="validation_error",
                 provider=result.provider,
                 model=result.model,
                 warning="LLM response could not be validated as llm_factor.v1 JSON.",
@@ -187,6 +187,11 @@ def _parse_llm_factor_response(
     if not isinstance(payload, Mapping):
         return None
     data = dict(payload)
+    protocol_warnings: list[str] = []
+    if "schema_version" not in data:
+        protocol_warnings.append("missing schema_version")
+    if "prompt_version" not in data:
+        protocol_warnings.append("missing prompt_version")
     data.setdefault("schema_version", LLM_FACTOR_GATEWAY_RESPONSE_SCHEMA_VERSION)
     data.setdefault("symbol", request.symbol)
     data.setdefault("prompt_version", request.prompt_version)
@@ -202,6 +207,12 @@ def _parse_llm_factor_response(
     data.setdefault("prompt_chars", prompt_chars)
     data.setdefault("response_chars", response_chars)
     data.setdefault("decision_support_note", _decision_support_note(request))
+    if protocol_warnings:
+        existing_warnings = data.get("warnings")
+        if isinstance(existing_warnings, list):
+            data["warnings"] = [*existing_warnings, *protocol_warnings]
+        else:
+            data["warnings"] = protocol_warnings
     try:
         response = LLMFactorGenerationResponse.model_validate(data)
     except ValidationError:

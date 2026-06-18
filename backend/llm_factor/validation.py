@@ -18,9 +18,19 @@ from backend.llm_factor.live_contracts import (
 )
 from backend.llm_factor.service import FakeLLMFactorService
 
+_MAX_SUMMARY_CHARS = 700
+_MAX_FACTOR_REASON_CHARS = 320
+_MAX_SOURCE_SUMMARY_CHARS = 360
+_STALE_SOURCE_DAYS = 365
+_FUTURE_SOURCE_DAYS = 1
+
 
 class LLMFactorLiveValidationError(ValueError):
     """Raised when a live LLM Factor response cannot be trusted."""
+
+    def __init__(self, reason: str, message: str | None = None) -> None:
+        super().__init__(message or reason)
+        self.reason = reason
 
 
 def llm_factor_result_from_gateway_response(
@@ -33,17 +43,29 @@ def llm_factor_result_from_gateway_response(
     """Validate a Gateway response and map it into the existing SMAI result shape."""
 
     if response.gateway_status != "ok":
-        raise LLMFactorLiveValidationError(response.fallback_reason or "gateway_fallback")
+        raise LLMFactorLiveValidationError(response.fallback_reason or "validation_error")
     if response.symbol.strip().upper() != request.symbol.strip().upper():
-        raise LLMFactorLiveValidationError("symbol_mismatch")
+        raise LLMFactorLiveValidationError("wrong_symbol")
 
     valid_evidence_ids = {item.evidence_id for item in request.context.evidence}
     referenced_ids = _referenced_evidence_ids(response)
+    declared_ids = {item.evidence_id for item in response.evidence if item.evidence_id}
     if not referenced_ids and response.confidence > 0.7:
-        raise LLMFactorLiveValidationError("high_confidence_without_evidence")
-    unknown_ids = referenced_ids - valid_evidence_ids
+        raise LLMFactorLiveValidationError("validation_error")
+    unknown_ids = (referenced_ids | declared_ids) - valid_evidence_ids
     if unknown_ids:
-        raise LLMFactorLiveValidationError(f"unknown_evidence_ids:{','.join(sorted(unknown_ids))}")
+        raise LLMFactorLiveValidationError("unknown_evidence")
+
+    quality_warnings: list[str] = []
+    confidence_cap = Decimal("100")
+    if response.schema_version != request.response_schema_version:
+        quality_warnings.append("AI応答のschema_versionが想定と異なるため、参考度を下げています。")
+        confidence_cap = min(confidence_cap, Decimal("60"))
+    if response.prompt_version != request.prompt_version:
+        quality_warnings.append("AI応答のprompt_versionが想定と異なるため、参考度を下げています。")
+        confidence_cap = min(confidence_cap, Decimal("60"))
+    if _response_has_overlong_text(response):
+        quality_warnings.append("AI応答が長いため、画面表示用に一部を短くしました。")
 
     evidence_by_id = {item.evidence_id: item for item in request.context.evidence}
     result_sources = _evidence_sources_from_response(
@@ -54,6 +76,16 @@ def llm_factor_result_from_gateway_response(
     )
     if not result_sources:
         result_sources = fallback_sources
+    if _has_stale_or_future_source(result_sources, as_of=request.as_of):
+        quality_warnings.append(
+            "古い、または日付が未来の出典が含まれるため、AI材料分析の確信度を控えめに扱います。"
+        )
+        confidence_cap = min(confidence_cap, Decimal("55"))
+    if _has_contradictory_materials(response):
+        quality_warnings.append(
+            "強弱材料が同時に強く出ているため、AI材料分析の確信度を控えめに扱います。"
+        )
+        confidence_cap = min(confidence_cap, Decimal("55"))
 
     base = FakeLLMFactorService().build_reference_result(
         ticker=request.symbol,
@@ -71,10 +103,11 @@ def llm_factor_result_from_gateway_response(
         evidence_by_id=evidence_by_id,
         as_of=request.as_of,
     )
-    confidence = _score_from_unit(response.confidence)
+    confidence = min(_score_from_unit(response.confidence), confidence_cap)
     warnings = _dedupe(
         [
             *response.warnings,
+            *quality_warnings,
             *(
                 [f"不足項目: {', '.join(response.missing_fields)}"]
                 if response.missing_fields
@@ -108,7 +141,7 @@ def llm_factor_result_from_gateway_response(
             "bullish_factors": bullish_factors[:3],
             "bearish_factors": bearish_factors[:3],
             "evidence_sources": result_sources,
-            "summary": response.overall_summary,
+            "summary": _trim_text(response.overall_summary, _MAX_SUMMARY_CHARS),
             "warnings": warnings,
             "provider": response.provider,
             "gateway_profile": response.profile,
@@ -147,7 +180,7 @@ def _evidence_sources_from_response(
                 source_url=(context_item.source_url or f"smai://llm-factor/evidence/{evidence_id}"),
                 source_date=context_item.source_date or as_of,
                 provider=context_item.provider,
-                summary=context_item.summary,
+                summary=_trim_text(context_item.summary, _MAX_SOURCE_SUMMARY_CHARS),
                 reliability_score=_decimal_score(context_item.reliability_score, default=50),
             )
         )
@@ -167,9 +200,9 @@ def _bullish_factors_from_response(
         source = _first_evidence_for_item(item, evidence_by_id=evidence_by_id)
         factors.append(
             BullishFactor(
-                title=item.title[:48],
+                title=_trim_text(item.title, 48),
                 score=_score_from_unit(item.strength),
-                reason=item.summary,
+                reason=_trim_text(item.summary, _MAX_FACTOR_REASON_CHARS),
                 source_url=_source_url(source, item.evidence_ids),
                 source_date=source.source_date if source and source.source_date else as_of,
                 source_type=_source_type(source.source_type) if source else "other",
@@ -182,9 +215,9 @@ def _bullish_factors_from_response(
         )
         factors.append(
             BullishFactor(
-                title=opportunity.title[:48],
+                title=_trim_text(opportunity.title, 48),
                 score=_score_from_unit(opportunity.impact),
-                reason=opportunity.summary,
+                reason=_trim_text(opportunity.summary, _MAX_FACTOR_REASON_CHARS),
                 source_url=_source_url(source, opportunity.evidence_ids),
                 source_date=source.source_date if source and source.source_date else as_of,
                 source_type=_source_type(source.source_type) if source else "other",
@@ -206,9 +239,9 @@ def _bearish_factors_from_response(
         source = _first_evidence_for_item(item, evidence_by_id=evidence_by_id)
         factors.append(
             BearishFactor(
-                title=item.title[:48],
+                title=_trim_text(item.title, 48),
                 score=_score_from_unit(item.strength),
-                reason=item.summary,
+                reason=_trim_text(item.summary, _MAX_FACTOR_REASON_CHARS),
                 source_url=_source_url(source, item.evidence_ids),
                 source_date=source.source_date if source and source.source_date else as_of,
                 source_type=_source_type(source.source_type) if source else "other",
@@ -218,9 +251,9 @@ def _bearish_factors_from_response(
         source = _first_evidence_by_ids(risk.evidence_ids, evidence_by_id=evidence_by_id)
         factors.append(
             BearishFactor(
-                title=risk.title[:48],
+                title=_trim_text(risk.title, 48),
                 score=_score_from_unit(risk.severity),
-                reason=risk.summary,
+                reason=_trim_text(risk.summary, _MAX_FACTOR_REASON_CHARS),
                 source_url=_source_url(source, risk.evidence_ids),
                 source_date=source.source_date if source and source.source_date else as_of,
                 source_type=_source_type(source.source_type) if source else "other",
@@ -265,6 +298,60 @@ def _referenced_evidence_ids(response: LLMFactorGenerationResponse) -> set[str]:
     for opportunity in response.opportunities:
         referenced.update(opportunity.evidence_ids)
     return {item for item in referenced if item}
+
+
+def _response_has_overlong_text(response: LLMFactorGenerationResponse) -> bool:
+    if len(response.overall_summary) > _MAX_SUMMARY_CHARS:
+        return True
+    for factor in response.factors:
+        if len(factor.summary) > _MAX_FACTOR_REASON_CHARS or len(factor.title) > 48:
+            return True
+    for risk in response.risks:
+        if len(risk.summary) > _MAX_FACTOR_REASON_CHARS or len(risk.title) > 48:
+            return True
+    for opportunity in response.opportunities:
+        if len(opportunity.summary) > _MAX_FACTOR_REASON_CHARS or len(opportunity.title) > 48:
+            return True
+    return any(len(item.summary) > _MAX_SOURCE_SUMMARY_CHARS for item in response.evidence)
+
+
+def _has_stale_or_future_source(sources: list[EvidenceSource], *, as_of: date) -> bool:
+    for source in sources:
+        delta_days = (as_of - source.source_date).days
+        if delta_days > _STALE_SOURCE_DAYS or delta_days < -_FUTURE_SOURCE_DAYS:
+            return True
+    return False
+
+
+def _has_contradictory_materials(response: LLMFactorGenerationResponse) -> bool:
+    positive_strength = max(
+        [
+            *(item.strength for item in response.factors if item.direction == "positive"),
+            *(item.impact for item in response.opportunities),
+            0.0,
+        ]
+    )
+    negative_strength = max(
+        [
+            *(item.strength for item in response.factors if item.direction == "negative"),
+            *(item.severity for item in response.risks),
+            0.0,
+        ]
+    )
+    if positive_strength >= 0.7 and negative_strength >= 0.7:
+        return True
+    if response.sentiment_label == "positive" and negative_strength >= 0.75:
+        return True
+    if response.sentiment_label == "negative" and positive_strength >= 0.75:
+        return True
+    return False
+
+
+def _trim_text(value: str, max_chars: int) -> str:
+    normalized = value.strip()
+    if len(normalized) <= max_chars:
+        return normalized
+    return normalized[: max_chars - 3].rstrip() + "..."
 
 
 def _material_score(

@@ -7780,6 +7780,7 @@ def _llm_factor_panel_html(result: LLMFactorResult) -> str:
         "</div>"
         "<h4>AI材料分析</h4>"
         f"<p>{html.escape(result.summary)}</p>"
+        "<p>このAI材料分析は参考情報です。Ranking・予測・Investment Scoreには反映していません。</p>"
         f'<div class="research-brief-metric-grid">{score_cards}</div>'
         '<div class="research-brief-reading-grid">'
         '<section class="research-brief-reading-item tone-positive">'
@@ -7803,28 +7804,65 @@ def _llm_factor_panel_html(result: LLMFactorResult) -> str:
 
 
 def _llm_factor_runtime_label(result: LLMFactorResult) -> str:
-    if result.fallback_reason or result.provider == "deterministic":
-        return "LLM未接続"
-    if result.model_name == LLM_FACTOR_FAKE_MODEL_NAME:
-        return "LLM未接続"
-    if result.provider:
-        return "LLM接続"
-    return "LLM未接続"
+    return f"LLM接続: {_llm_factor_runtime_state(result)}"
 
 
 def _llm_factor_runtime_html(result: LLMFactorResult) -> str:
-    items: list[str] = []
-    if result.provider:
+    state = _llm_factor_runtime_state(result)
+    items: list[str] = [f"状態: {_llm_factor_runtime_state_label(state)}"]
+    if state in {"live", "fallback"} and result.provider:
         items.append(f"provider: {result.provider}")
-    if result.model_name:
+    if state in {"live", "fallback"} and result.model_name:
         items.append(f"model: {result.model_name}")
-    if result.gateway_profile:
+    if state in {"live", "fallback"} and result.gateway_profile:
         items.append(f"profile: {result.gateway_profile}")
-    if result.fallback_reason:
-        items.append(f"fallback: {result.fallback_reason}")
-    if not items:
-        return ""
+    if state in {"fallback", "disabled"}:
+        items.append(f"理由: {_llm_factor_fallback_reason_label(result.fallback_reason)}")
+    if state == "live":
+        items.append(f"生成: {_llm_factor_datetime_display(result.generated_at)}")
     return f"<p>{html.escape(' / '.join(items))}</p>"
+
+
+def _llm_factor_runtime_state(result: LLMFactorResult) -> str:
+    if result.fallback_reason == "disabled":
+        return "disabled"
+    if result.gateway_status == "fallback" or result.fallback_reason:
+        return "fallback"
+    if result.provider == "deterministic":
+        return "fallback"
+    if result.model_name == LLM_FACTOR_FAKE_MODEL_NAME and not result.provider:
+        return "disabled"
+    if result.provider:
+        return "live"
+    return "disabled"
+
+
+def _llm_factor_runtime_state_label(state: str) -> str:
+    return {
+        "live": "live生成を利用",
+        "fallback": "ローカル参考表示へ切替",
+        "disabled": "live生成は無効",
+    }.get(state, "状態未確認")
+
+
+def _llm_factor_fallback_reason_label(reason: str | None) -> str:
+    if not reason:
+        return "未確認"
+    labels = {
+        "disabled": "設定で無効",
+        "gateway_unavailable": "LLM Gatewayに接続できません",
+        "gateway_timeout": "LLM Gatewayタイムアウト",
+        "gateway_http_error": "LLM Gateway HTTPエラー",
+        "malformed_json": "JSON形式エラー",
+        "validation_error": "応答検証エラー",
+        "wrong_symbol": "銘柄不一致",
+        "unknown_evidence": "未提供の出典ID",
+        "stale_source": "古い、または未来日付の出典",
+        "cache_miss": "cache未取得",
+        "cache_corrupt": "cache読込失敗",
+        "provider_error": "LLM providerエラー",
+    }
+    return f"{labels.get(reason, '応答検証エラー')} ({reason})"
 
 
 def _llm_factor_items_html(

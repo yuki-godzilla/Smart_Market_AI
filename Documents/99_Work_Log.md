@@ -2843,3 +2843,28 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 ### Next
 
 - Phase 27-B candidates: opt-in live smoke against a running Gateway/Ollama, Cockpit Playwright review of live/fallback labels, and broader validation cases for low-evidence / stale-source / conflicting-material responses.
+
+## 2026-06-18 - Phase 27-B LLM Factor live smoke / Cockpit UX confirmation
+
+### Scope
+
+- added `config/llm_factor_live_example.yaml` and `Documents/27B_LLM_Factor_Live_Smoke.md` for opt-in Gateway / Ollama live smoke, cache behavior, Cockpit UX, Playwright panel smoke, and CI boundary.
+- standardized parent-side LLM Factor fallback reasons to `disabled`, `gateway_unavailable`, `gateway_timeout`, `gateway_http_error`, `malformed_json`, `validation_error`, `wrong_symbol`, `unknown_evidence`, `stale_source`, `cache_miss`, `cache_corrupt`, and `provider_error`.
+- strengthened live response validation for wrong symbol, unknown evidence, high confidence without evidence, stale / future source dates, contradictory materials, schema / prompt version mismatch, and overlong output.
+- updated Cockpit `AI材料分析` to show `LLM接続: disabled` / `fallback` / `live`, reason, provider, model, profile, generated time, missing fields, and a reference-only note that Ranking / Forecast / Investment Score are unchanged.
+- added a network-free Playwright panel smoke script for disabled / fallback / live rendering and an opt-in parent live smoke test guarded by `SMAI_LLM_FACTOR_GATEWAY_LIVE_SMOKE=1`.
+- synchronized SMAI and Gateway docs / roadmap / project context. No Ranking, Forecast, AI総合, Investment Score, Research Score, Assistant auto-run, batch generation, portfolio, or execution integration was added.
+
+### Validation
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_llm_factor_live_generation.py tests\test_llm_factor_gateway_live_smoke.py tests\test_ui_forecast_display.py::test_llm_factor_panel_html_is_reference_display_and_escapes_source_text tests\test_ui_forecast_display.py::test_llm_factor_panel_html_shows_live_gateway_metadata tests\test_ui_forecast_display.py::test_llm_factor_panel_html_shows_fallback_reason -q --basetemp outputs\work\pytest_tmp_phase27b -p no:cacheprovider` with 17 passed, 1 skipped.
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest smai-ai-gateway\tests\test_llm_factor_service.py -q --basetemp outputs\work\pytest_tmp_phase27b_gateway -p no:cacheprovider` with 7 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check backend\llm_factor ui\app.py tests\test_llm_factor_live_generation.py tests\test_llm_factor_gateway_live_smoke.py tests\test_ui_forecast_display.py smai-ai-gateway\app\services\llm_factor_service.py smai-ai-gateway\tests\test_llm_factor_service.py tools\playwright_llm_factor_panel_smoke.py --no-cache`.
+- passed: `.\venv_SMAI\Scripts\python.exe -m mypy backend\llm_factor ui\app.py tests\test_llm_factor_live_generation.py tests\test_llm_factor_gateway_live_smoke.py`.
+- passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py`.
+- passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe tools\playwright_llm_factor_panel_smoke.py`; screenshot saved under `outputs/work/playwright_llm_factor_panel_smoke/`.
+- not run: real Gateway / Ollama live smoke, because `curl.exe http://127.0.0.1:8088/health` could not connect to a running Gateway.
+
+### Next
+
+- Phase 28 screen-level LLM interpretation or Phase 29 Decision Report draft assistance can proceed next. LLM Factor model integration remains deferred until validation / backtest / leakage checks justify it.

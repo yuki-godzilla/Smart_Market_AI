@@ -1,0 +1,46 @@
+app:
+  timezone: UTC
+  log_json: true
+
+dataaccess:
+  provider: yahoo
+  csv_data_dir: data/marketdata
+  allow_external_providers: true
+
+llm_factor:
+  live:
+    enabled: true
+    base_url: http://127.0.0.1:8088
+    endpoint_path: /api/v1/llm-factor/generate
+    timeout_seconds: 90.0
+    model: null
+    execution_mode: auto
+    environment_profile: notebook
+    preferred_profile: desktop_analysis
+    prompt_version: llm_factor_live_mvp.v1
+    response_schema_version: llm_factor.v1
+    max_evidence_items: 8
+    max_context_text_chars: 280
+    cache_enabled: true
+
+risk:
+  thresholds:
+    max_notional_per_symbol: 3000000
+    max_notional_per_basket: 10000000
+    max_concentration: 0.25
+    min_adv: 50000000
+    min_dividend_yield: 0.03
+    max_volatility: 0.6
+
+portfolio:
+  solver:
+    backend: none
+    tolerance: 0.000001
+
+scoring:
+  weights:
+    screening: 0.50
+    forecast_agreement: 0.20
+    data_quality: 0.20
+    research: 0.00
+    risk_signal: 0.10

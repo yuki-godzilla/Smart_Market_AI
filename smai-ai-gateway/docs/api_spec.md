@@ -183,7 +183,7 @@ Response:
 
 ## POST /api/v1/llm-factor/generate
 
-1銘柄の compact context から `llm_factor.v1` の構造化材料を返す API です。SMAI 親側では Cockpit `AI材料分析` の参考表示に使い、スコア、予測値、ランキング順位は変更しません。Provider failure、timeout、invalid JSON、schema validation failure は fallback JSON に変換され、親側でも追加 validation / cache / fallback を行います。
+1銘柄の compact context から `llm_factor.v1` の構造化材料を返す API です。SMAI 親側では Cockpit `AI材料分析` の参考表示に使い、スコア、予測値、ランキング順位は変更しません。Provider failure、timeout、invalid JSON、schema validation failure は fallback JSON に変換され、親側でも追加 validation / cache / fallback を行います。親側の標準 fallback reason は `disabled`、`gateway_unavailable`、`gateway_timeout`、`gateway_http_error`、`malformed_json`、`validation_error`、`wrong_symbol`、`unknown_evidence`、`stale_source`、`cache_miss`、`cache_corrupt`、`provider_error` です。
 
 Request:
 

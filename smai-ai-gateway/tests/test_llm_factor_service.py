@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from app.clients.ollama_client import OllamaClientError
 from app.config import GatewaySettings
 from app.schemas.common import LlmMessage, LlmProviderResult
@@ -74,7 +76,7 @@ def test_llm_factor_service_falls_back_on_unknown_evidence_id() -> None:
     response = service.generate(_request())
 
     assert response.gateway_status == "fallback"
-    assert response.fallback_reason == "response_validation_failure"
+    assert response.fallback_reason == "validation_error"
     assert response.confidence <= 0.35
     assert "evidence" not in response.missing_fields
 
@@ -113,6 +115,38 @@ def test_llm_factor_service_off_mode_uses_deterministic_fallback() -> None:
     assert client.messages == []
 
 
+def test_llm_factor_service_falls_back_on_malformed_json() -> None:
+    client = FakeLlmClient(answer="not json")
+    service = LLMFactorGenerationService(client)  # type: ignore[arg-type]
+
+    response = service.generate(_request())
+
+    assert response.gateway_status == "fallback"
+    assert response.fallback_reason == "validation_error"
+    assert response.warnings
+
+
+def test_llm_factor_service_falls_back_on_out_of_range_confidence() -> None:
+    client = FakeLlmClient(answer=_llm_json_answer(confidence="1.4"))
+    service = LLMFactorGenerationService(client)  # type: ignore[arg-type]
+
+    response = service.generate(_request())
+
+    assert response.gateway_status == "fallback"
+    assert response.fallback_reason == "validation_error"
+
+
+def test_llm_factor_service_warns_when_protocol_versions_are_missing() -> None:
+    client = FakeLlmClient(answer=_llm_json_answer(include_versions=False))
+    service = LLMFactorGenerationService(client)  # type: ignore[arg-type]
+
+    response = service.generate(_request())
+
+    assert response.gateway_status == "ok"
+    assert "missing schema_version" in response.warnings
+    assert "missing prompt_version" in response.warnings
+
+
 def _request() -> LLMFactorGenerationRequest:
     return LLMFactorGenerationRequest.model_validate(
         {
@@ -143,24 +177,42 @@ def _request() -> LLMFactorGenerationRequest:
     )
 
 
-def _llm_json_answer(*, evidence_id: str = "evidence_001") -> str:
-    return (
-        "{"
-        '"schema_version":"llm_factor.v1",'
-        '"symbol":"7203.T",'
-        '"overall_summary":"株主還元が材料です。",'
-        '"sentiment_label":"positive",'
-        '"confidence":0.76,'
-        '"factors":[{"title":"株主還元","direction":"positive","summary":"増配と自社株買い。","strength":0.8,"evidence_ids":["'
-        + evidence_id
-        + '"]}],'
-        '"risks":[],'
-        '"opportunities":[],'
-        '"evidence":[{"evidence_id":"'
-        + evidence_id
-        + '","title":"増配と自社株買いを発表","source_type":"company_ir","source_url":"https://example.com/ir/7203","source_date":"2026-06-12","summary":"増配。"}],'
-        '"missing_fields":[],'
-        '"warnings":[],'
-        '"prompt_version":"llm_factor_live_mvp.v1"'
-        "}"
-    )
+def _llm_json_answer(
+    *,
+    evidence_id: str = "evidence_001",
+    confidence: str = "0.76",
+    include_versions: bool = True,
+) -> str:
+    payload: dict[str, object] = {
+        "symbol": "7203.T",
+        "overall_summary": "株主還元が材料です。",
+        "sentiment_label": "positive",
+        "confidence": float(confidence),
+        "factors": [
+            {
+                "title": "株主還元",
+                "direction": "positive",
+                "summary": "増配と自社株買い。",
+                "strength": 0.8,
+                "evidence_ids": [evidence_id],
+            }
+        ],
+        "risks": [],
+        "opportunities": [],
+        "evidence": [
+            {
+                "evidence_id": evidence_id,
+                "title": "増配と自社株買いを発表",
+                "source_type": "company_ir",
+                "source_url": "https://example.com/ir/7203",
+                "source_date": "2026-06-12",
+                "summary": "増配。",
+            }
+        ],
+        "missing_fields": [],
+        "warnings": [],
+    }
+    if include_versions:
+        payload["schema_version"] = "llm_factor.v1"
+        payload["prompt_version"] = "llm_factor_live_mvp.v1"
+    return json.dumps(payload, ensure_ascii=False)

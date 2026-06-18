@@ -39,6 +39,20 @@ from backend.llm_factor.validation import (
 
 _LIVE_FALLBACK_WARNING = "LLM Factor live生成に失敗したため、ローカル参考表示に切り替えました。"
 _LIVE_DISABLED_WARNING = "LLM Factor live生成は設定で無効のため、ローカル参考表示を使っています。"
+_FALLBACK_REASON_MESSAGES = {
+    "disabled": "LLM Factor live生成は設定で無効です。",
+    "gateway_unavailable": "LLM Gatewayに接続できませんでした。",
+    "gateway_timeout": "LLM Gatewayへの接続がタイムアウトしました。",
+    "gateway_http_error": "LLM GatewayがHTTPエラーを返しました。",
+    "malformed_json": "LLM Gatewayの応答がJSONとして読めませんでした。",
+    "validation_error": "LLM応答の検証に失敗しました。",
+    "wrong_symbol": "LLM応答の銘柄がリクエストと一致しませんでした。",
+    "unknown_evidence": "LLM応答に未提供の出典IDが含まれていました。",
+    "stale_source": "LLM応答に古い、または未来日付の出典が含まれていました。",
+    "cache_miss": "LLM Factor cacheが見つかりませんでした。",
+    "cache_corrupt": "LLM Factor cacheを読み取れませんでした。",
+    "provider_error": "LLM provider側でエラーが発生しました。",
+}
 
 
 class LiveLLMFactorGenerationService:
@@ -176,7 +190,7 @@ class LiveLLMFactorGenerationService:
                     [
                         *fallback.result.warnings,
                         _LIVE_FALLBACK_WARNING,
-                        reason,
+                        _fallback_reason_message(reason),
                     ]
                 ),
             }
@@ -209,7 +223,7 @@ def build_llm_factor_reference_result_from_settings(
         result = fallback.result.model_copy(
             update={
                 "gateway_status": "fallback",
-                "fallback_reason": "live_disabled",
+                "fallback_reason": "disabled",
                 "warnings": _dedupe([*fallback.result.warnings, _LIVE_DISABLED_WARNING]),
             }
         )
@@ -240,8 +254,35 @@ def build_llm_factor_reference_result_from_settings(
 
 def _fallback_reason(exc: Exception) -> str:
     if isinstance(exc, LLMFactorGatewayError):
-        return exc.provider_error_type or exc.gateway_error_type
-    return str(exc) or type(exc).__name__
+        return _normalize_fallback_reason(exc.provider_error_type or exc.gateway_error_type)
+    if isinstance(exc, LLMFactorLiveValidationError):
+        return _normalize_fallback_reason(exc.reason)
+    return _normalize_fallback_reason(str(exc) or type(exc).__name__)
+
+
+def _normalize_fallback_reason(reason: str | None) -> str:
+    normalized = (reason or "").strip().lower()
+    if normalized in _FALLBACK_REASON_MESSAGES:
+        return normalized
+    if normalized in {"live_disabled", "execution_mode_off", "gateway_fallback"}:
+        return "disabled"
+    if normalized in {"connection_refused", "connection_error", "request_error"}:
+        return "gateway_unavailable"
+    if normalized == "timeout":
+        return "gateway_timeout"
+    if normalized in {"invalid_gateway_response", "response_validation_failure"}:
+        return "validation_error"
+    if normalized in {"symbol_mismatch", "wrong_ticker"}:
+        return "wrong_symbol"
+    if normalized.startswith("unknown_evidence_ids"):
+        return "unknown_evidence"
+    if normalized.startswith("provider_") or normalized in {"model_not_found", "ollama_error"}:
+        return "provider_error"
+    return "validation_error"
+
+
+def _fallback_reason_message(reason: str) -> str:
+    return _FALLBACK_REASON_MESSAGES.get(reason, _FALLBACK_REASON_MESSAGES["validation_error"])
 
 
 def _cache_metadata(

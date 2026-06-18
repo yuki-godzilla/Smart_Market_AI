@@ -27,7 +27,7 @@ Ollama / OpenAI compatible API / vLLM / llama.cpp server
 - `free_chat` / `identity` / `app_help` / `capability_help` / `screen_guidance` は LLM-first のまま `llm_micro` として扱い、SMAI 親は tool / RAG / news / symbol-specific context / 長い履歴を送らない。Gateway は最小 context、`/no_think`、Ollama `think: false`、1 回だけの品質再生成を使い、fallback は provider / Gateway / validation failure の最後の保険に限定する。runtime は task_type を主軸にし、実際の Ollama model ごとの token policy で調整する。軽量会話は `qwen3:1.7b` で 280-300 tokens、`qwen3:4b` で 320 tokens、`qwen3:8b` で 360-450 tokens、`qwen3:14b` で 360-500 tokens を目安にする。画面固有の `report_context` がない場合も、SMAI 親は最小アシスタント文脈で Gateway を呼ぶ。
 - `context-answer` では、LLM は回答本文を作り、`materials` / `cautions` / `next_checkpoints` は Gateway が渡された context から安定生成する
 - Gateway / SMAI parent は presentation sanitizer を通し、provider raw fields、debug logs、external source bodies、`privacy_notes` / `safety_notes` などの内部向け文言を通常回答、コピー、Markdown保存、Decision Report向け表示から除外する
-- 将来の `SMAI LLM Factor` では、Gateway は provider 呼び出しと prompt 実行の境界に留める。LLM factor の domain schema、source hash、file-backed cache、deterministic backtest evaluator、broader historical fixture / validation report、Cockpit / Ranking 参考表示は SMAI 本体側で実装済みで、cache policy expansion、UI 統合拡張も SMAI 本体側で扱う
+- `SMAI LLM Factor` では、Gateway は `/api/v1/llm-factor/generate` による provider 呼び出しと prompt 実行の境界に留める。LLM factor の domain schema、source hash、file-backed cache、deterministic backtest evaluator、broader historical fixture / validation report、Cockpit / Ranking 参考表示、cache policy、UI 統合拡張は SMAI 本体側で扱う
 
 ## 現時点で移動しないもの
 
@@ -43,7 +43,7 @@ Ollama / OpenAI compatible API / vLLM / llama.cpp server
 ## 将来拡張
 
 - SMAI 親側の `SMAIアシスタント` チャットワークスペース first slice は実装済み。Gateway 側は汎用 `context-answer` 境界を保ち、SMAIナビ header、6つの相談カード、チャット幅の `新しい会話` action、擬似ストリーミングなどの UI は親側で扱う。長い会話履歴や複数文脈参照の本格拡張は後続で扱う
-- `SMAI LLM Factor` 向けの構造化 JSON 生成補助。ただし最終予測、ランキング順位、Investment Score 統合は SMAI 側の backtest 後に判断する
+- `SMAI LLM Factor` 向けの構造化 JSON 生成補助を継続改善する。ただし最終予測、ランキング順位、Investment Score 統合は SMAI 側の backtest 後に判断する
 - 他ローカルツールからの汎用 chat / summarize 利用
 - スマホ / PWA からの共通 AI API 利用
 - 認証、API key、rate limit、監査ログ

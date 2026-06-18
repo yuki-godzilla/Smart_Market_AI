@@ -9582,7 +9582,8 @@ def test_llm_factor_panel_html_is_reference_display_and_escapes_source_text() ->
 
     assert "AI材料分析" in html
     assert "参考表示" in html
-    assert "LLM未接続" in html
+    assert "LLM接続: disabled" in html
+    assert "Ranking・予測・Investment Scoreには反映していません" in html
     assert "売買推奨ではありません" in html
     assert "&lt;script&gt;増配&lt;/script&gt;" in html
     assert "<script>増配</script>" not in html
@@ -9621,9 +9622,42 @@ def test_llm_factor_panel_html_shows_live_gateway_metadata() -> None:
 
     html = _llm_factor_panel_html(result)
 
-    assert "LLM接続" in html
+    assert "LLM接続: live" in html
     assert "provider: ollama / model: qwen3:14b / profile: desktop_analysis" in html
     assert "不足項目: forecast_summary" in html
+
+
+def test_llm_factor_panel_html_shows_fallback_reason() -> None:
+    source = app_module.EvidenceSource(
+        title="増配と自社株買いを発表",
+        source_type="company_ir",
+        source_url="https://example.com/ir/7203",
+        source_date=date(2026, 6, 12),
+        provider="fixture",
+        summary="増配と自社株買いが確認できます。",
+        reliability_score=Decimal("82"),
+    )
+    result = (
+        FakeLLMFactorService()
+        .build_reference_result(
+            ticker="7203.T",
+            as_of=date(2026, 6, 12),
+            evidence_sources=[source],
+            generated_at=datetime(2026, 6, 12, 10, 0, tzinfo=UTC),
+        )
+        .model_copy(
+            update={
+                "provider": "deterministic",
+                "gateway_status": "fallback",
+                "fallback_reason": "gateway_unavailable",
+            }
+        )
+    )
+
+    html = _llm_factor_panel_html(result)
+
+    assert "LLM接続: fallback" in html
+    assert "LLM Gatewayに接続できません (gateway_unavailable)" in html
 
 
 def test_llm_factor_cache_caption_shows_reproducibility_metadata() -> None:

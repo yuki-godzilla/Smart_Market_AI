@@ -10,7 +10,7 @@
 - 確認観点の整理
 - ユーザーが見ている材料の読み方の補助
 
-将来の `SMAI LLM Factor` では、LLM を最終予測器ではなく、出典付きの定性材料を構造化特徴量へ変換する provider として扱う余地があります。
+`SMAI LLM Factor` では、LLM を最終予測器ではなく、出典付きの定性材料を構造化特徴量へ変換する provider として扱います。
 この場合も、LLM が直接「株価が上がる / 下がる」を予測したり、Ranking / Investment Score / Forecast の最終値を決定したりすることは禁止します。
 LLM が出す 0-100 の材料スコアは domain schema で検証される参考特徴量であり、SMAI 側の backtest と UI 境界を通るまで既存予測モデルへ統合しません。
 
@@ -43,7 +43,7 @@ LLM は `answer` の本文生成を担当し、`materials`、`cautions`、`next_
 将来的には、SMAI RAG / Research Evidence の要約済み context を Gateway 入力へ渡します。
 その場合も、全文を無制限に渡すのではなく、出典、公開日、要約、確認ポイントを構造化して渡します。
 
-## 将来の構造化特徴量生成
+## 構造化特徴量生成
 
 `SMAI LLM Factor` 用の prompt では、以下を必ず制約として含めます。
 

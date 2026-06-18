@@ -78,9 +78,10 @@ SMAI は以下の思想を重視しています。
   - SMAI では LLM を判断主体ではなく、解釈・理由付け・材料整理を支援する layer として扱う。
   - 初期段階の LLM は Copilot、画面文脈に沿った説明、ニュース / 材料要約、Decision Report 草案、LLM Factor 候補生成に使い、スコア、順位、予測値、投資判断は直接変更しない。
   - LLM 由来の特徴量を Ranking / Forecast に統合する場合は、backtest、leakage check、baseline 比較などの検証後に段階的に扱う。
-- LLM Factor live generation Phase 27-A
+- LLM Factor live generation Phase 27-A / 27-B
   - `smai-ai-gateway` の `/api/v1/llm-factor/generate` で 1銘柄の構造化材料を生成する opt-in MVP を実装済み
   - SMAI親側は Cockpit の Research / News / IR 出典を compact context に圧縮し、`llm_factor.v1` validation、context hash cache、deterministic fallback を通して `AI材料分析` に参考表示する
+  - Phase 27-B で live smoke 設定例、Gateway / Ollama 手順、Playwright panel smoke、fallback reason 標準化、stale / contradiction / version mismatch / overlong output の validation warning を追加
   - Ranking、Forecast、AI総合、Investment Score、Research Score、売買判断、execution には反映しない
 - Streamlit UI
   - left side menu for `銘柄コックピット` / `銘柄ランキング` / `投資レーダー` / `SMAIアシスタント` / `リバランス` / `設定 / データ情報`
@@ -123,12 +124,12 @@ SMAI は以下の思想を重視しています。
 - Phase 23: Optional Adapter / 高度分析を先に進める。Advanced Forecast は `advanced_linear` / `advanced_tree_sklearn` / `advanced_gbdt_sklearn` / `advanced_quantile` の registry、forecast service / API adapter selection、Cockpit `AI予測インサイト` chart/card/detail、Ranking auxiliary 表示、上昇気配 / 下降警戒への控えめブレンド、AI総合への軽量統合、Ranking理由表示 / 深掘り候補 / Decision Report 連携まで実装済み。Cockpit の AI予測インサイト初期表示は、結論、中心予測（高度予測モデルの統合結果）、下振れ / 上振れケース、予測価格、予測レンジ、信頼度、モデル合意度、予測ばらつき、注意点に整理し、個別高度モデルカードは常時表示、RMSE / 方向一致率 / 単純予測比較は折りたたみ配下で確認する
 - Phase 24-25: Template Assistant backend slice、SMAI Copilot floating UI、専用 Copilot workspace、Gateway schema / client / deterministic fallback、`smai-ai-gateway/` scaffold、`SMAIアシスタント` 画面からの既定 LLM Gateway 接続、Gateway側のLLM構造化JSON応答、親SMAI側の opt-in live smoke test path は実装済み
 - Phase 24A: `SMAI LLM Factor` の schema、deterministic fake / cache、Cockpit / Ranking 参考表示、validation foundation は実装済み
-- Phase 27-A: LLM Factor live generation MVP は実装済み。Gateway endpoint、親SMAI context builder / HTTP adapter / validation / fallback、Cockpit `AI材料分析` 参考表示を追加。実Gateway / Ollama smoke、validation深化、モデル統合可否判断は後続
+- Phase 27-A / 27-B: LLM Factor live generation MVP と確認導線は実装済み。Gateway endpoint、親SMAI context builder / HTTP adapter / validation / fallback、Cockpit `AI材料分析` 参考表示、live smoke 設定例、Playwright panel smoke、validation深化を追加。モデル統合可否判断は後続
 - Phase 28-30: Cockpit / Ranking / Radar / News / Decision Report への LLM 解釈展開、Decision Report草案、LLM Factor validation and gradual model integration を段階的に扱う
 - Phase 31: advanced export、Execution gate の順に整理
 - Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
-次の重点は Phase 27-B / Phase 28 以降の LLM 拡張を、既存の Assistant / LLM Factor / Decision Report 境界を壊さずに段階化することです。Phase 27-A の LLM Factor 実生成は Cockpit 参考表示までに留め、次は live smoke、UX確認、validation深化、各画面の解釈支援、Decision Report 草案、検証済み LLM-derived factor の段階的統合可否を扱います。早期段階では LLM が Ranking score、AI総合、Forecast、Investment Score、投資判断を直接変更しません。通常 checks は引き続き fake adapter / fixture で network 非依存を維持します。実 Gateway / Ollama smoke は明示 opt-in で分離します。
+次の重点は Phase 28 以降の LLM 拡張を、既存の Assistant / LLM Factor / Decision Report 境界を壊さずに段階化することです。Phase 27 の LLM Factor 実生成は Cockpit 参考表示までに留め、以降は各画面の解釈支援、Decision Report 草案、検証済み LLM-derived factor の段階的統合可否を扱います。早期段階では LLM が Ranking score、AI総合、Forecast、Investment Score、投資判断を直接変更しません。通常 checks は引き続き fake adapter / fixture で network 非依存を維持します。実 Gateway / Ollama smoke は明示 opt-in で分離します。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント
@@ -136,6 +137,7 @@ SMAI は以下の思想を重視しています。
 - [プロジェクト現在地](./PROJECT_CONTEXT.md)
 - [実装ロードマップ](./Documents/05_Implementation_Roadmap.md)
 - [MVP 運用ガイド](./Documents/06_MVP_Operations_Guide.md)
+- [Phase 27-B LLM Factor Live Smoke](./Documents/27B_LLM_Factor_Live_Smoke.md)
 - [UI 文言ポリシー](./Documents/07_UI_Wording_Policy.md)
 - [Phase 16 UI 改善計画](./Documents/08_Phase16_UI_Improvement_Plan.md)
 - [SBI 銘柄ユニバース方針](./Documents/09_SBI_Symbol_Universe_Policy.md)

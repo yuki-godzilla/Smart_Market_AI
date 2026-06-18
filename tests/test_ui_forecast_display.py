@@ -249,6 +249,7 @@ from ui.app import (
     ranking_score_bar_chart_frame,
     ranking_score_confidence_frame,
     ranking_score_detail_rows,
+    ranking_selected_detail_memo_rows,
     ranking_summary_cards,
     ranking_symbol_db_preflight_limit,
     ranking_symbol_db_preflight_symbols,
@@ -3526,8 +3527,8 @@ def test_ranking_result_aggrid_options_enable_single_row_click_selection():
     assert column_defs["ROE"]["sortingOrder"] == ["desc", "asc", None]
     assert column_defs["PER"]["unSortIcon"] is True
     assert "comparator" in column_defs["PER"]
-    assert "確認メモ" in column_defs
-    assert column_defs["確認メモ"]["tooltipField"] == "確認詳細"
+    assert "SMAIメモ" in column_defs
+    assert column_defs["SMAIメモ"]["tooltipField"] == "確認詳細"
     assert column_defs["確認詳細"]["hide"] is True
     assert "並べ替え理由" in column_defs
     assert column_defs["並べ替え理由"]["hide"] is True
@@ -3546,7 +3547,7 @@ def test_ranking_result_aggrid_options_keep_detail_table_cells_compact():
                     "PER": "8.2",
                     "PBR": "1.0",
                     "ROE": "11.7%",
-                    "確認メモ": "総合スコアと上昇気配、下降警戒、Risk、品質の偏りを確認します。",
+                    "SMAIメモ": "上昇気配あり。下降警戒は中程度。",
                     "確認詳細": "詳細な確認メモです。",
                 }
             ]
@@ -3560,11 +3561,11 @@ def test_ranking_result_aggrid_options_keep_detail_table_cells_compact():
     assert column_defs["総合スコア"]["width"] == 92
     assert column_defs["PER"]["cellStyle"]["whiteSpace"] == "nowrap"
     assert column_defs["PER"]["cellStyle"]["textAlign"] == "right"
-    assert column_defs["確認メモ"]["width"] == 420
-    assert "flex" not in column_defs["確認メモ"]
-    assert column_defs["確認メモ"]["wrapText"] is False
-    assert column_defs["確認メモ"]["autoHeight"] is False
-    assert column_defs["確認メモ"]["cellStyle"]["textOverflow"] == "ellipsis"
+    assert column_defs["SMAIメモ"]["width"] == 280
+    assert "flex" not in column_defs["SMAIメモ"]
+    assert column_defs["SMAIメモ"]["wrapText"] is False
+    assert column_defs["SMAIメモ"]["autoHeight"] is False
+    assert column_defs["SMAIメモ"]["cellStyle"]["textOverflow"] == "ellipsis"
 
 
 def test_ranking_result_aggrid_options_assigns_metric_sort_directions():
@@ -3616,13 +3617,11 @@ def test_ranking_result_aggrid_options_assigns_metric_sort_directions():
 
 
 def test_ranking_table_sort_guidance_explains_low_sort_and_missing_values():
-    assert "詳細テーブルでは、列名をクリックして各指標順に並べ替えできます" in (
-        RANKING_TABLE_SORT_GUIDANCE
-    )
-    assert "基礎評価・上昇気配は高い順" in RANKING_TABLE_SORT_GUIDANCE
-    assert "PER・PBR・ボラティリティ・リスク・下降警戒は低い順" in (RANKING_TABLE_SORT_GUIDANCE)
-    assert "LLM材料列は参考表示" in RANKING_TABLE_SORT_GUIDANCE
-    assert "N/Aは末尾" in RANKING_TABLE_SORT_GUIDANCE
+    assert "通常表示では投資判断に必要な列だけ" in RANKING_TABLE_SORT_GUIDANCE
+    assert "詳細列を表示する" in RANKING_TABLE_SORT_GUIDANCE
+    assert "ニュース材料はAI要約による参考情報" in RANKING_TABLE_SORT_GUIDANCE
+    assert "ランキング順位には反映していません" in RANKING_TABLE_SORT_GUIDANCE
+    assert "N/Aは未取得または未評価" in RANKING_TABLE_SORT_GUIDANCE
 
 
 def test_ranking_result_grid_custom_css_keeps_dark_table_readable():
@@ -6062,6 +6061,52 @@ def test_ranking_candidate_cards_and_breakdown_use_existing_display_values():
     assert "confidence" not in breakdown[6]["確認ポイント"]
 
 
+def test_ranking_selected_detail_memo_rows_summarize_clicked_candidate():
+    rows = [
+        {
+            "順位": "1",
+            "銘柄": "6856.T",
+            "銘柄名": "Horiba",
+            "総合スコア": "77.07",
+            "見方": "バランス型",
+            "上昇気配": "62.72",
+            "下降警戒": "44.43",
+            "予測変化率": "+1.17%",
+            "高度予測": "+1.30%",
+            "高度予測日数": "8日",
+            "高度予測スコア": "58.20",
+            "高度予測信頼度": "中くらい",
+            "方向一致": "上昇 3 / 下降 1 / 横ばい 0",
+            "PER": "14.2",
+            "PBR": "1.4",
+            "ROE": "11.8%",
+            "配当利回り": "2.2%",
+        }
+    ]
+
+    memo_rows = ranking_selected_detail_memo_rows(
+        rows,
+        "6856.T",
+        ranking_purpose=RANKING_PURPOSE_MULTI_FACTOR,
+    )
+
+    assert [row["項目"] for row in memo_rows] == [
+        "銘柄",
+        "総合スコア",
+        "判断方針",
+        "SMAI判断",
+        "予測根拠",
+        "確認ポイント",
+    ]
+    assert memo_rows[0]["内容"] == "6856.T Horiba"
+    assert memo_rows[1]["内容"] == "77.07"
+    assert memo_rows[2]["内容"] == "バランス型"
+    assert "上昇気配 62.72 / 下降警戒 44.43" in memo_rows[3]["内容"]
+    assert "方向感は上向き" in memo_rows[3]["内容"]
+    assert "+1.30%" in memo_rows[4]["内容"]
+    assert "上昇 3" in memo_rows[4]["内容"]
+
+
 def test_ranking_candidate_cards_fallback_when_direction_data_is_limited():
     rows = [
         {
@@ -6224,33 +6269,90 @@ def test_ranking_result_aggrid_frame_keeps_display_table_compact():
         "銘柄",
         "銘柄名",
         "総合スコア",
+        "判断方針",
         "配当利回り",
         "PER",
         "PBR",
         "ROE",
-        "見方",
         "上昇気配",
         "下降警戒",
-        "Risk",
-        "データ品質",
-        "信頼度/根拠",
-        "確認メモ",
+        "予測変化率",
+        "予測確度",
+        "SMAIメモ",
         "確認詳細",
         "並べ替え理由",
         "確認ポイント",
     ]
     assert frame.loc[0, "銘柄名"] == "Toyota Motor Corporation Long Name"
+    assert frame.loc[0, "判断方針"] == "比較候補"
     assert frame.loc[0, "PER"] == "N/A"
     assert frame.loc[0, "PBR"] == "N/A"
     assert frame.loc[0, "ROE"] == "N/A"
     assert frame.loc[0, "配当利回り"] == "N/A"
-    assert "品質90" in frame.loc[0, "信頼度/根拠"]
-    assert "条件86" in frame.loc[0, "信頼度/根拠"]
-    assert "DB88" in frame.loc[0, "信頼度/根拠"]
+    assert frame.loc[0, "予測確度"] == "N/A"
+    assert "信頼度/根拠" not in frame.columns
+    assert "Risk" not in frame.columns
+    assert "データ品質" not in frame.columns
     assert "総合スコア 82" in frame.loc[0, "並べ替え理由"]
-    assert "総合スコア 82" in frame.loc[0, "確認メモ"]
-    assert len(frame.loc[0, "確認メモ"]) <= 96
+    assert frame.loc[0, "SMAIメモ"] == "上昇気配あり。下降警戒は低め。"
+    assert len(frame.loc[0, "SMAIメモ"]) <= 42
     assert frame.loc[0, "確認詳細"].startswith("総合スコア 82")
+
+
+def test_ranking_result_aggrid_frame_adds_detail_columns_on_request():
+    frame = ranking_result_aggrid_frame(
+        [
+            {
+                "順位": "1",
+                "銘柄": "7203.T",
+                "銘柄名": "Toyota Motor",
+                "総合スコア": "82",
+                "上昇気配": "78",
+                "下降警戒": "42",
+                "Risk": "55",
+                "データ品質": "90",
+                "条件適合度": "86",
+                "Screening": "80",
+                "DB信頼度": "88",
+                "根拠状態": "根拠あり",
+                "見方": "比較候補",
+                "予測変化率": "1.25%",
+                "高度予測日数": "10日",
+                "高度予測スコア": "54.32",
+                "高度予測信頼度": "中くらい",
+                "方向一致": "上昇 2 / 下降 1 / 横ばい 1",
+            }
+        ],
+        include_detail_columns=True,
+    )
+
+    assert frame.columns.tolist()[:14] == [
+        "順位",
+        "銘柄",
+        "銘柄名",
+        "総合スコア",
+        "判断方針",
+        "配当利回り",
+        "PER",
+        "PBR",
+        "ROE",
+        "上昇気配",
+        "下降警戒",
+        "予測変化率",
+        "予測確度",
+        "SMAIメモ",
+    ]
+    assert "基礎評価" in frame.columns
+    assert "リスク" in frame.columns
+    assert "データ信頼度" in frame.columns
+    assert "モデル方向" in frame.columns
+    assert "予測根拠" in frame.columns
+    assert frame.loc[0, "基礎評価"] == "80"
+    assert frame.loc[0, "リスク"] == "55"
+    assert frame.loc[0, "データ信頼度"] == "90"
+    assert frame.loc[0, "予測確度"] == "54.32"
+    assert frame.loc[0, "予測日数"] == "10日"
+    assert "上昇 2" in frame.loc[0, "予測根拠"]
 
 
 def test_ranking_table_renders_llm_reference_columns():
@@ -6278,19 +6380,21 @@ def test_ranking_table_renders_llm_reference_columns():
     )
 
     frame = ranking_result_aggrid_frame(display_rows)
+    detail_frame = ranking_result_aggrid_frame(display_rows, include_detail_columns=True)
 
-    for column in ("LLM強気材料", "LLM弱気材料", "LLM確信度", "材料鮮度"):
-        assert column in frame.columns
-    assert frame.loc[0, "LLM強気材料"] == "72"
-    assert frame.loc[0, "LLM弱気材料"] == "18"
-    assert frame.loc[0, "LLM確信度"] == "84"
-    assert frame.loc[0, "材料鮮度"] == "91"
+    assert "ニュース材料" not in frame.columns
+    for column in ("ニュース材料", "材料件数", "材料信頼度", "材料の新しさ"):
+        assert column in detail_frame.columns
+    assert detail_frame.loc[0, "ニュース材料"] == "強気 72 / 弱気 18"
+    assert detail_frame.loc[0, "材料件数"] == "3"
+    assert detail_frame.loc[0, "材料信頼度"] == "84"
+    assert detail_frame.loc[0, "材料の新しさ"] == "91"
 
 
 def test_llm_reference_disclaimer_is_visible():
-    assert "参考指標" in LLM_FACTOR_RANKING_REFERENCE_NOTICE
+    assert "ニュース材料はAI要約による参考情報" in LLM_FACTOR_RANKING_REFERENCE_NOTICE
     assert "売買推奨ではありません" in LLM_FACTOR_RANKING_REFERENCE_NOTICE
-    assert "ランキング順位には未反映" in LLM_FACTOR_RANKING_REFERENCE_NOTICE
+    assert "ランキング順位には反映していません" in LLM_FACTOR_RANKING_REFERENCE_NOTICE
 
 
 def test_format_llm_factor_score():
@@ -6328,9 +6432,12 @@ def test_ranking_default_order_is_unchanged_with_llm_columns():
     )
 
     frame = ranking_result_aggrid_frame(display_rows)
+    detail_frame = ranking_result_aggrid_frame(display_rows, include_detail_columns=True)
 
     assert frame["銘柄"].tolist() == ["AAA", "BBB"]
     assert frame["順位"].tolist() == ["1", "2"]
+    assert detail_frame["銘柄"].tolist() == ["AAA", "BBB"]
+    assert detail_frame["順位"].tolist() == ["1", "2"]
 
 
 def test_llm_columns_do_not_change_rank_labels():
@@ -6348,9 +6455,11 @@ def test_llm_columns_do_not_change_rank_labels():
     )
 
     frame = ranking_result_aggrid_frame(display_rows)
+    detail_frame = ranking_result_aggrid_frame(display_rows, include_detail_columns=True)
 
     assert display_rows[0]["順位"] == "3"
     assert frame.loc[0, "順位"] == "3"
+    assert detail_frame.loc[0, "順位"] == "3"
 
 
 def test_missing_llm_reference_renders_dash():
@@ -6359,12 +6468,12 @@ def test_missing_llm_reference_renders_dash():
         {},
     )
 
-    frame = ranking_result_aggrid_frame(display_rows)
+    frame = ranking_result_aggrid_frame(display_rows, include_detail_columns=True)
 
-    assert frame.loc[0, "LLM強気材料"] == "—"
-    assert frame.loc[0, "LLM弱気材料"] == "—"
-    assert frame.loc[0, "LLM確信度"] == "—"
-    assert frame.loc[0, "材料鮮度"] == "—"
+    assert frame.loc[0, "ニュース材料"] == "強気 — / 弱気 —"
+    assert frame.loc[0, "材料件数"] == "—"
+    assert frame.loc[0, "材料信頼度"] == "—"
+    assert frame.loc[0, "材料の新しさ"] == "—"
 
 
 def test_no_buy_sell_recommendation_text_in_llm_column_labels():
@@ -6379,10 +6488,10 @@ def test_no_buy_sell_recommendation_text_in_llm_column_labels():
     )
     visible_text = " ".join(
         [
-            "LLM強気材料",
-            "LLM弱気材料",
-            "LLM確信度",
-            "材料鮮度",
+            "ニュース材料",
+            "材料件数",
+            "材料信頼度",
+            "材料の新しさ",
             *LLM_FACTOR_RANKING_COLUMN_TOOLTIPS.values(),
             display["bullishAriaLabel"],
             display["bearishAriaLabel"],
@@ -6406,8 +6515,8 @@ def test_llm_reference_tooltip_or_aria_label_mentions_reference():
         )
     )
 
-    assert "参考指標" in LLM_FACTOR_RANKING_COLUMN_TOOLTIPS["LLM強気材料"]
-    assert display["bullishAriaLabel"] == "LLM強気材料 72点 参考指標"
+    assert "参考値" in LLM_FACTOR_RANKING_COLUMN_TOOLTIPS["ニュース材料"]
+    assert display["bullishAriaLabel"] == "ニュース材料（強気） 72点 参考指標"
 
 
 def test_llm_columns_are_not_sortable_first_slice():
@@ -6424,11 +6533,11 @@ def test_llm_columns_are_not_sortable_first_slice():
         },
     )
     options = ranking_result_aggrid_options(
-        ranking_result_aggrid_frame(display_rows),
+        ranking_result_aggrid_frame(display_rows, include_detail_columns=True),
     )
     column_defs = {column["field"]: column for column in options["columnDefs"]}
 
-    for column in ("LLM強気材料", "LLM弱気材料", "LLM確信度", "材料鮮度"):
+    for column in ("ニュース材料", "材料件数", "材料信頼度", "材料の新しさ"):
         assert column_defs[column]["sortable"] is False
         assert "comparator" not in column_defs[column]
 
@@ -6458,6 +6567,7 @@ def test_ranking_display_rows_surface_advanced_forecast_as_auxiliary_context(mon
     )
 
     frame = ranking_result_aggrid_frame(display_rows)
+    detail_frame = ranking_result_aggrid_frame(display_rows, include_detail_columns=True)
     detail_rows = ranking_score_detail_rows(display_rows[0])
     breakdown = ranking_candidate_breakdown_rows(display_rows, "AAPL")
 
@@ -6465,13 +6575,15 @@ def test_ranking_display_rows_surface_advanced_forecast_as_auxiliary_context(mon
     assert display_rows[0]["高度予測日数"] == "10日"
     assert display_rows[0]["高度予測スコア"] == "54.32"
     assert display_rows[0]["高度予測信頼度"] == "中くらい"
-    assert "高度予測" in frame.columns
-    assert "高度予測日数" in frame.columns
-    assert "高度予測スコア" in frame.columns
-    assert frame.loc[0, "高度予測"] == "1.25%"
-    assert frame.loc[0, "高度予測日数"] == "10日"
-    assert frame.loc[0, "高度予測スコア"] == "54.32"
-    assert frame.loc[0, "高度予測信頼度"] == "中くらい"
+    assert "高度予測" not in frame.columns
+    assert "高度予測日数" not in frame.columns
+    assert "高度予測スコア" not in frame.columns
+    assert frame.loc[0, "予測変化率"] == "1.1%"
+    assert frame.loc[0, "予測確度"] == "54.32"
+    assert detail_frame.loc[0, "予測日数"] == "10日"
+    assert detail_frame.loc[0, "モデル方向"] == "上昇 0 / 下降 0 / 横ばい 0"
+    assert "1.25%" in detail_frame.loc[0, "予測根拠"]
+    assert "54.32" in detail_frame.loc[0, "予測根拠"]
     assert any(row["観点"] == "AI予測インサイト" for row in detail_rows)
     assert [row["観点"] for row in detail_rows][2] == "AI予測インサイト"
     assert [row["観点"] for row in breakdown][3] == "AI予測インサイト"
@@ -6626,60 +6738,75 @@ def test_ranking_result_aggrid_frame_prioritizes_upside_columns_for_upside_purpo
         ranking_purpose=RANKING_PURPOSE_UPSIDE_SIGNAL,
     )
 
-    assert frame.columns.tolist()[:12] == [
+    assert frame.columns.tolist()[:14] == [
         "順位",
         "銘柄",
         "銘柄名",
         "総合スコア",
+        "判断方針",
         "配当利回り",
         "PER",
         "PBR",
         "ROE",
-        "見方",
         "上昇気配",
         "下降警戒",
         "予測変化率",
+        "予測確度",
+        "SMAIメモ",
     ]
-    assert frame.columns.tolist()[12] == "方向一致"
+    assert "モデル方向" not in frame.columns
     assert "上昇気配 78" in frame.loc[0, "並べ替え理由"]
 
 
-def test_ranking_result_aggrid_frame_avoids_duplicate_confidence_for_data_purpose():
-    frame = ranking_result_aggrid_frame(
-        [
-            {
-                "順位": "1",
-                "銘柄": "7203.T",
-                "銘柄名": "Toyota Motor",
-                "総合スコア": "82",
-                "データ品質": "90",
-                "DB信頼度": "88",
-                "条件適合度": "86",
-                "根拠状態": "根拠あり",
-                "注意点": "",
-                "Risk": "55",
-            }
-        ],
+def test_ranking_result_aggrid_frame_moves_confidence_columns_to_detail_mode():
+    rows = [
+        {
+            "順位": "1",
+            "銘柄": "7203.T",
+            "銘柄名": "Toyota Motor",
+            "総合スコア": "82",
+            "データ品質": "90",
+            "DB信頼度": "88",
+            "条件適合度": "86",
+            "根拠状態": "根拠あり",
+            "注意点": "",
+            "Risk": "55",
+        }
+    ]
+    normal_frame = ranking_result_aggrid_frame(
+        rows,
         ranking_purpose=RANKING_PURPOSE_DATA_CONFIDENCE,
     )
+    frame = ranking_result_aggrid_frame(
+        rows,
+        ranking_purpose=RANKING_PURPOSE_DATA_CONFIDENCE,
+        include_detail_columns=True,
+    )
 
-    assert "信頼度/根拠" not in frame.columns
-    assert frame.columns.tolist()[:13] == [
+    assert "信頼度/根拠" not in normal_frame.columns
+    assert "データ信頼度" not in normal_frame.columns
+    assert "信頼度/根拠" in frame.columns
+    assert frame.columns.tolist()[:14] == [
         "順位",
         "銘柄",
         "銘柄名",
         "総合スコア",
+        "判断方針",
         "配当利回り",
         "PER",
         "PBR",
         "ROE",
-        "見方",
-        "データ品質",
-        "DB信頼度",
-        "根拠状態",
-        "条件適合度",
+        "上昇気配",
+        "下降警戒",
+        "予測変化率",
+        "予測確度",
+        "SMAIメモ",
     ]
-    assert frame.columns.tolist()[13] == "注意点"
+    assert "データ信頼度" in frame.columns
+    assert "DB信頼度" in frame.columns
+    assert "根拠状態" in frame.columns
+    assert "条件適合度" in frame.columns
+    assert "注意点" in frame.columns
 
 
 def test_ranking_result_aggrid_frame_keeps_zero_and_missing_fundamentals_distinct():

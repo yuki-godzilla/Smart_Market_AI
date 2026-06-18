@@ -476,23 +476,64 @@ RANKING_TABLE_BASE_COLUMNS = (
     "銘柄",
     "銘柄名",
     "総合スコア",
+    "判断方針",
     "配当利回り",
     "PER",
     "PBR",
     "ROE",
-    "見方",
+    "上昇気配",
+    "下降警戒",
+    "予測変化率",
+    "予測確度",
+    "SMAIメモ",
+)
+RANKING_TABLE_DETAIL_COLUMNS = (
+    "ニュース材料",
+    "材料件数",
+    "材料信頼度",
+    "材料の新しさ",
+    "予測日数",
+    "モデル方向",
+    "予測根拠",
+    "基礎評価",
+    "リスク",
+    "データ信頼度",
+    "条件適合度",
+    "DB信頼度",
+    "根拠状態",
+    "信頼度/根拠",
+    "現在値",
+    "時価総額",
+    "出来高",
+    "ボラティリティ",
+    "自己資本比率",
+    "営業利益率",
+    "売上成長率",
+    "経費率",
+    "NISA",
+    "投資スタイル",
+    "連動指数",
+    "通貨",
+    "複雑性",
+    "注意点",
+)
+RANKING_TABLE_HIDDEN_COLUMNS = (
+    "確認詳細",
+    "並べ替え理由",
+    "確認ポイント",
 )
 LLM_FACTOR_RANKING_COLUMNS = ("LLM強気材料", "LLM弱気材料", "LLM確信度", "材料鮮度")
 LLM_FACTOR_RANKING_REFERENCE_NOTICE = (
-    "LLM材料スコアは参考指標です。既存ランキング、Forecast、Investment Scoreには反映していません。"
-    "ランキング順位には未反映で、売買推奨ではありません。"
+    "ニュース材料はAI要約による参考情報であり、現在のランキング順位には反映していません。"
+    "売買推奨ではありません。"
 )
 LLM_FACTOR_RANKING_COLUMN_TOOLTIPS = {
-    "LLM強気材料": "高いほどポジティブ材料が強いことを示す参考指標です。",
-    "LLM弱気材料": "高いほどネガティブ材料が強いことを示す参考指標です。",
-    "LLM確信度": "材料抽出結果の確信度を示す参考指標です。",
-    "材料鮮度": "高いほど新しい材料に基づくことを示す参考指標です。",
+    "ニュース材料": "AI要約で確認したポジティブ/ネガティブ材料の参考値です。",
+    "材料件数": "AI要約に使ったニュース・開示などの材料数です。",
+    "材料信頼度": "材料抽出結果の信頼度を示す参考指標です。",
+    "材料の新しさ": "高いほど新しい材料に基づくことを示す参考指標です。",
 }
+LLM_FACTOR_RANKING_DETAIL_COLUMNS = tuple(LLM_FACTOR_RANKING_COLUMN_TOOLTIPS)
 LLM_FACTOR_RANKING_MISSING_DISPLAY = "—"
 RANKING_NUMERIC_SORT_DIRECTIONS = {
     "総合スコア": "desc",
@@ -504,6 +545,7 @@ RANKING_NUMERIC_SORT_DIRECTIONS = {
     "PBR": "asc",
     "ROE": "desc",
     "高度予測": "desc",
+    "予測確度": "desc",
     "高度予測日数": "desc",
     "高度予測スコア": "desc",
     "現在値": "desc",
@@ -514,17 +556,25 @@ RANKING_NUMERIC_SORT_DIRECTIONS = {
     "営業利益率": "desc",
     "売上成長率": "desc",
     "Risk": "asc",
+    "リスク": "asc",
     "データ品質": "desc",
+    "データ信頼度": "desc",
     "経費率": "asc",
 }
 RANKING_TABLE_SORT_GUIDANCE = (
-    "詳細テーブルでは、列名をクリックして各指標順に並べ替えできます。"
-    "総合スコア・配当利回り・ROE・時価総額・出来高・データ信頼度・基礎評価・上昇気配は高い順、"
-    "PER・PBR・ボラティリティ・リスク・下降警戒は低い順から確認します。"
-    "LLM材料列は参考表示のため初期表示順や順位計算には使いません。"
-    "N/Aは末尾に置きます。"
+    "通常表示では投資判断に必要な列だけを表示します。"
+    "ニュース材料やモデル別情報などの補助情報は「詳細列を表示する」で確認できます。"
+    "ニュース材料はAI要約による参考情報であり、現在のランキング順位には反映していません。"
+    "N/Aは未取得または未評価を表します。"
 )
-RANKING_LOW_VALUE_BETTER_COLUMNS = {"PER", "PBR", "ボラティリティ", "Risk", "下降警戒"}
+RANKING_LOW_VALUE_BETTER_COLUMNS = {
+    "PER",
+    "PBR",
+    "ボラティリティ",
+    "Risk",
+    "リスク",
+    "下降警戒",
+}
 SYMBOL_AUTO_REFRESH_REQUEST_STATE_KEY = "symbol_auto_refresh_requests"
 SYMBOL_AUTO_REFRESH_REQUEST_KEY_LIMIT = 100
 RANKING_AUTO_REFRESH_SYMBOL_LIMIT = 300
@@ -2753,24 +2803,36 @@ def _dedupe_columns(columns: tuple[str, ...]) -> list[str]:
     return ordered
 
 
+def _ranking_result_public_column(column: str) -> str:
+    return {
+        "Screening": "基礎評価",
+        "Risk": "リスク",
+        "データ品質": "データ信頼度",
+        "高度予測": "予測変化率",
+        "高度予測日数": "予測日数",
+        "高度予測信頼度": "予測確度",
+        "方向一致": "モデル方向",
+    }.get(column, column)
+
+
 def _ranking_result_columns(ranking_purpose: str) -> list[str]:
     focus_columns = ranking_purpose_primary_columns(ranking_purpose)
     focus_set = set(focus_columns)
     support_columns: tuple[str, ...] = (
         () if {"条件適合度", "DB信頼度", "根拠状態"}.intersection(focus_set) else ("信頼度/根拠",)
     )
+    standard_columns = set(RANKING_TABLE_BASE_COLUMNS).union(RANKING_TABLE_DETAIL_COLUMNS)
     secondary_focus_columns = tuple(
-        column for column in focus_columns if column not in set(RANKING_TABLE_BASE_COLUMNS)
+        public_column
+        for column in focus_columns
+        if (public_column := _ranking_result_public_column(column)) not in standard_columns
     )
     return _dedupe_columns(
         (
             *RANKING_TABLE_BASE_COLUMNS,
             *secondary_focus_columns,
             *support_columns,
-            "確認メモ",
-            "確認詳細",
-            "並べ替え理由",
-            "確認ポイント",
+            *RANKING_TABLE_HIDDEN_COLUMNS,
         )
     )
 
@@ -2778,37 +2840,38 @@ def _ranking_result_columns(ranking_purpose: str) -> list[str]:
 def _ranking_result_columns_with_optional_advanced_forecast(
     display_rows: list[dict[str, str]],
     ranking_purpose: str,
+    *,
+    include_detail_columns: bool = False,
 ) -> list[str]:
+    if not include_detail_columns:
+        return _dedupe_columns(
+            (
+                *RANKING_TABLE_BASE_COLUMNS,
+                *RANKING_TABLE_HIDDEN_COLUMNS,
+            )
+        )
     columns = _ranking_result_columns_with_optional_llm_factor(
-        _ranking_result_columns(ranking_purpose),
+        _dedupe_columns(
+            (
+                *RANKING_TABLE_BASE_COLUMNS,
+                *RANKING_TABLE_DETAIL_COLUMNS,
+                *_ranking_result_columns(ranking_purpose),
+            )
+        ),
         display_rows,
     )
     if not _ranking_has_advanced_forecast(display_rows):
         return columns
-    insert_after = "予測変化率"
-    if insert_after not in columns:
-        insert_after = "下降警戒" if "下降警戒" in columns else "見方"
-    advanced_columns = ("高度予測", "高度予測日数", "高度予測スコア", "高度予測信頼度")
-    next_columns: list[str] = []
-    for column in columns:
-        next_columns.append(column)
-        if column == insert_after:
-            next_columns.extend(advanced_columns)
-    return _dedupe_columns(tuple(next_columns))
+    return columns
 
 
 def _ranking_result_columns_with_optional_llm_factor(
     columns: list[str],
     display_rows: list[dict[str, str]],
 ) -> list[str]:
-    if not _ranking_has_llm_factor_reference(display_rows):
+    if _ranking_has_llm_factor_reference(display_rows):
         return columns
-    next_columns: list[str] = []
-    for column in columns:
-        next_columns.append(column)
-        if column == "総合スコア":
-            next_columns.extend(LLM_FACTOR_RANKING_COLUMNS)
-    return _dedupe_columns(tuple(next_columns))
+    return [column for column in columns if column not in LLM_FACTOR_RANKING_DETAIL_COLUMNS]
 
 
 def _ranking_has_advanced_forecast(display_rows: list[dict[str, str]]) -> bool:
@@ -2879,25 +2942,28 @@ def build_llm_factor_reference_display(
             _llm_factor_reference_value(reference, "freshness_score")
         ),
     }
+    source_count = str(_llm_factor_reference_value(reference, "source_count") or "").strip()
     return {
         "bullishLabel": values["bullish"],
         "bearishLabel": values["bearish"],
         "confidenceLabel": values["confidence"],
         "freshnessLabel": values["freshness"],
+        "newsMaterialLabel": f"強気 {values['bullish']} / 弱気 {values['bearish']}",
+        "sourceCountLabel": source_count if source_count else LLM_FACTOR_RANKING_MISSING_DISPLAY,
         "bullishAriaLabel": _llm_factor_reference_aria_label(
-            "LLM強気材料",
+            "ニュース材料（強気）",
             values["bullish"],
         ),
         "bearishAriaLabel": _llm_factor_reference_aria_label(
-            "LLM弱気材料",
+            "ニュース材料（弱気）",
             values["bearish"],
         ),
         "confidenceAriaLabel": _llm_factor_reference_aria_label(
-            "LLM確信度",
+            "材料信頼度",
             values["confidence"],
         ),
         "freshnessAriaLabel": _llm_factor_reference_aria_label(
-            "材料鮮度",
+            "材料の新しさ",
             values["freshness"],
         ),
         "sourceLabel": _llm_factor_reference_source_label(reference),
@@ -2920,6 +2986,7 @@ def ranking_display_rows_with_llm_factor_references(
                 "LLM弱気材料": display["bearishLabel"],
                 "LLM確信度": display["confidenceLabel"],
                 "材料鮮度": display["freshnessLabel"],
+                "LLM材料件数": display["sourceCountLabel"],
                 "LLM材料元": display["sourceLabel"],
                 "LLM材料補足": display["warning"],
             }
@@ -3111,14 +3178,80 @@ def _ranking_full_confirmation_note(reason: str, checkpoint: str) -> str:
     return reason or checkpoint
 
 
+def _ranking_compact_smai_memo(row: Mapping[str, str], checkpoint: str) -> str:
+    upside = _decimal_from_text(row.get("上昇気配"))
+    downside = _decimal_from_text(row.get("下降警戒"))
+    predicted_return = _decimal_from_text(row.get("予測変化率"))
+    dividend = _decimal_from_text(row.get("配当利回り"))
+    per = _decimal_from_text(row.get("PER"))
+    roe = _decimal_from_text(row.get("ROE"))
+    if (
+        predicted_return is not None
+        and predicted_return > 0
+        and (downside is not None and downside >= Decimal("65"))
+    ):
+        return "予測は上向きだが、下降警戒が高め。"
+    if upside is not None and upside >= Decimal("65"):
+        if downside is not None and downside < Decimal("50"):
+            return "上昇気配あり。下降警戒は低め。"
+        if downside is not None and downside >= Decimal("65"):
+            return "上昇気配あり。下降警戒も高め。"
+        return "上昇気配あり。下降警戒は中程度。"
+    if dividend is not None and dividend >= Decimal("4"):
+        return "配当利回りは高め。持続性を確認。"
+    if per is not None and per <= Decimal("12") and (roe is None or roe >= Decimal("8")):
+        return "割安感あり。ROEと配当利回りを確認。"
+    if downside is not None and downside >= Decimal("65"):
+        return "下降警戒が高め。価格トレンドを確認。"
+    if predicted_return is not None and predicted_return > 0:
+        return "予測は上向き。根拠と下降警戒を確認。"
+    return truncate_text(
+        checkpoint or "銘柄コックピットで価格・予測・リスクを確認。",
+        max_chars=42,
+    )
+
+
+def _ranking_news_material_display(row: Mapping[str, str]) -> str:
+    bullish = str(row.get("LLM強気材料", "")).strip()
+    bearish = str(row.get("LLM弱気材料", "")).strip()
+    if not bullish and not bearish:
+        return ""
+    bullish = bullish or LLM_FACTOR_RANKING_MISSING_DISPLAY
+    bearish = bearish or LLM_FACTOR_RANKING_MISSING_DISPLAY
+    return f"強気 {bullish} / 弱気 {bearish}"
+
+
+def _ranking_forecast_confidence_display(row: Mapping[str, str]) -> str:
+    return (
+        str(row.get("高度予測スコア", "")).strip()
+        or str(row.get("高度予測信頼度", "")).strip()
+        or RANKING_MISSING_DISPLAY
+    )
+
+
+def _ranking_forecast_basis(row: Mapping[str, str], checkpoint: str) -> str:
+    advanced = _ranking_advanced_forecast_display(row)
+    direction = str(row.get("方向一致", "")).strip()
+    if advanced and direction:
+        return f"{advanced} / {direction}"
+    if advanced:
+        return advanced
+    if direction:
+        return direction
+    return truncate_text(checkpoint, max_chars=72)
+
+
 def ranking_result_aggrid_frame(
     display_rows: list[dict[str, str]],
     ranking_purpose: str = "multi_factor",
+    *,
+    include_detail_columns: bool = False,
 ) -> pd.DataFrame:
     rows: list[dict[str, str]] = []
     result_columns = _ranking_result_columns_with_optional_advanced_forecast(
         display_rows,
         ranking_purpose,
+        include_detail_columns=include_detail_columns,
     )
     reason_columns = _ranking_reason_columns(display_rows, ranking_purpose)
     direction_limited = _ranking_direction_data_limited(display_rows)
@@ -3135,21 +3268,33 @@ def ranking_result_aggrid_frame(
             "銘柄": row.get("銘柄", ""),
             "銘柄名": truncate_text(row.get("銘柄名", ""), max_chars=56),
             "総合スコア": row.get("総合スコア", ""),
+            "判断方針": row.get("見方", ""),
+            "ニュース材料": _ranking_news_material_display(row),
+            "材料件数": row.get("LLM材料件数", ""),
+            "材料信頼度": row.get("LLM確信度", ""),
+            "材料の新しさ": row.get("材料鮮度", ""),
             "LLM強気材料": row.get("LLM強気材料", ""),
             "LLM弱気材料": row.get("LLM弱気材料", ""),
             "LLM確信度": row.get("LLM確信度", ""),
             "材料鮮度": row.get("材料鮮度", ""),
-            "Screening": row.get("Screening", ""),
+            "基礎評価": row.get("Screening", ""),
             "上昇気配": row.get("上昇気配", ""),
             "下降警戒": row.get("下降警戒", ""),
             "予測変化率": row.get("予測変化率", ""),
+            "予測確度": _ranking_forecast_confidence_display(row),
+            "予測日数": row.get("高度予測日数", ""),
+            "モデル方向": row.get("方向一致", ""),
+            "予測根拠": _ranking_forecast_basis(row, checkpoint),
             "高度予測": row.get("高度予測", ""),
             "高度予測日数": row.get("高度予測日数", ""),
             "高度予測スコア": row.get("高度予測スコア", ""),
             "高度予測信頼度": row.get("高度予測信頼度", ""),
             "方向一致": row.get("方向一致", ""),
+            "Screening": row.get("Screening", ""),
             "Risk": row.get("Risk", ""),
+            "リスク": row.get("Risk", ""),
             "データ品質": row.get("データ品質", ""),
+            "データ信頼度": row.get("データ品質", ""),
             "条件適合度": row.get("条件適合度") or row.get("DB適合", ""),
             "DB信頼度": row.get("DB信頼度", ""),
             "根拠状態": row.get("根拠状態", ""),
@@ -3174,6 +3319,7 @@ def ranking_result_aggrid_frame(
             "複雑性": row.get("複雑性", ""),
             "注意点": row.get("注意点", ""),
             "確認メモ": _ranking_compact_confirmation_note(reason, checkpoint),
+            "SMAIメモ": _ranking_compact_smai_memo(row, checkpoint),
             "確認詳細": _ranking_full_confirmation_note(reason, checkpoint),
             "並べ替え理由": reason,
             "確認ポイント": checkpoint,
@@ -3240,18 +3386,28 @@ def ranking_result_aggrid_options(
             autoHeight=False,
             cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
         )
+    if "判断方針" in frame.columns:
+        builder.configure_column(
+            "判断方針",
+            width=116,
+            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
+        )
     for column in (
         "総合スコア",
         "Screening",
+        "基礎評価",
         "上昇気配",
         "下降警戒",
         "予測変化率",
+        "予測確度",
         "高度予測",
         "高度予測日数",
         "高度予測スコア",
         "データ品質",
+        "データ信頼度",
         "条件適合度",
         "Risk",
+        "リスク",
         "DB信頼度",
         "PER",
         "PBR",
@@ -3288,23 +3444,41 @@ def ranking_result_aggrid_options(
                 autoHeight=False,
                 cellStyle=RANKING_GRID_NUMERIC_CELL_STYLE,
             )
-    for column in LLM_FACTOR_RANKING_COLUMNS:
+    for column in LLM_FACTOR_RANKING_DETAIL_COLUMNS:
         if column in frame.columns:
+            is_numeric_material_column = column != "ニュース材料"
             builder.configure_column(
                 column,
-                width=112,
+                width=128,
                 filter=False,
                 sortable=False,
                 headerTooltip=LLM_FACTOR_RANKING_COLUMN_TOOLTIPS[column],
                 wrapText=False,
                 autoHeight=False,
-                cellStyle=RANKING_GRID_NUMERIC_CELL_STYLE,
+                cellStyle=(
+                    RANKING_GRID_NUMERIC_CELL_STYLE
+                    if is_numeric_material_column
+                    else RANKING_GRID_NOWRAP_CELL_STYLE
+                ),
             )
     if "方向一致" in frame.columns:
         builder.configure_column(
             "方向一致",
             width=112,
             headerName="モデル方向",
+            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
+        )
+    if "モデル方向" in frame.columns:
+        builder.configure_column(
+            "モデル方向",
+            width=128,
+            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
+        )
+    if "予測根拠" in frame.columns:
+        builder.configure_column(
+            "予測根拠",
+            width=180,
+            tooltipField="予測根拠",
             cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
         )
     if "高度予測信頼度" in frame.columns:
@@ -3339,6 +3513,17 @@ def ranking_result_aggrid_options(
                 width=112,
                 cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
             )
+    if "SMAIメモ" in frame.columns:
+        builder.configure_column(
+            "SMAIメモ",
+            width=280,
+            minWidth=220,
+            maxWidth=360,
+            tooltipField="確認詳細",
+            wrapText=False,
+            autoHeight=False,
+            cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
+        )
     if "確認メモ" in frame.columns:
         builder.configure_column(
             "確認メモ",
@@ -3350,7 +3535,7 @@ def ranking_result_aggrid_options(
             autoHeight=False,
             cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
         )
-    for column in ("確認詳細", "並べ替え理由", "確認ポイント"):
+    for column in RANKING_TABLE_HIDDEN_COLUMNS:
         if column in frame.columns:
             builder.configure_column(column, hide=True, tooltipField=column)
     return cast(dict[str, object], builder.build())
@@ -4826,6 +5011,94 @@ def _render_selected_ranking_candidate_breakdown(
         st.caption(selected_row["補足"])
 
 
+def _ranking_forecast_direction_text(row: Mapping[str, str]) -> str:
+    predicted_return = _decimal_from_text(row.get("予測変化率"))
+    if predicted_return is None:
+        return "未判定"
+    if predicted_return > Decimal("0"):
+        return "上向き"
+    if predicted_return < Decimal("0"):
+        return "下向き"
+    return "横ばい"
+
+
+def ranking_selected_detail_memo_rows(
+    display_rows: list[dict[str, str]],
+    selected_symbol: str | None,
+    *,
+    ranking_purpose: str,
+) -> list[dict[str, str]]:
+    selected_row = _ranking_display_row_for_symbol(display_rows, selected_symbol or "")
+    if selected_row is None:
+        return []
+    direction_limited = _ranking_direction_data_limited(display_rows)
+    focus_columns = _ranking_reason_columns(display_rows, ranking_purpose)
+    reason = ranking_purpose_row_reason(
+        selected_row,
+        ranking_purpose,
+        focus_columns=focus_columns,
+        direction_limited=direction_limited,
+    )
+    checkpoint = ranking_purpose_row_checkpoint(selected_row, ranking_purpose)
+    forecast_return = _display_table_value(selected_row.get("予測変化率"))
+    direction_text = _ranking_forecast_direction_text(selected_row)
+    forecast_basis = _ranking_forecast_basis(selected_row, checkpoint)
+    if not forecast_basis:
+        forecast_basis = "複数指標の見方を銘柄コックピットで確認してください。"
+    confirmation = checkpoint
+    if not confirmation:
+        confirmation = "PER、PBR、ROE、配当利回り、直近ニュース・開示を確認してください。"
+    return [
+        {
+            "項目": "銘柄",
+            "内容": f"{selected_row.get('銘柄', '')} {selected_row.get('銘柄名', '')}".strip(),
+        },
+        {
+            "項目": "総合スコア",
+            "内容": selected_row.get("総合スコア", RANKING_MISSING_DISPLAY),
+        },
+        {
+            "項目": "判断方針",
+            "内容": selected_row.get("見方", RANKING_MISSING_DISPLAY),
+        },
+        {
+            "項目": "SMAI判断",
+            "内容": (
+                f"上昇気配 {selected_row.get('上昇気配', RANKING_MISSING_DISPLAY)} / "
+                f"下降警戒 {selected_row.get('下降警戒', RANKING_MISSING_DISPLAY)}。"
+                f"予測変化率 {forecast_return}、方向感は{direction_text}です。"
+            ),
+        },
+        {
+            "項目": "予測根拠",
+            "内容": forecast_basis,
+        },
+        {
+            "項目": "確認ポイント",
+            "内容": truncate_text(f"{confirmation} {reason}", max_chars=140),
+        },
+    ]
+
+
+def _render_ranking_selected_detail_memo(
+    display_rows: list[dict[str, str]],
+    selected_symbol: str | None,
+    *,
+    ranking_purpose: str,
+) -> None:
+    rows = ranking_selected_detail_memo_rows(
+        display_rows,
+        selected_symbol,
+        ranking_purpose=ranking_purpose,
+    )
+    if not rows:
+        return
+    st.markdown("##### 選択銘柄の詳細メモ")
+    st.caption("テーブル内に収めにくい判断理由と確認ポイントを、選択行に合わせて整理します。")
+    st.markdown(SYMBOL_DETAIL_DIALOG_CSS, unsafe_allow_html=True)
+    st.markdown(symbol_detail_table_html(rows), unsafe_allow_html=True)
+
+
 def _render_ranking_advanced_insights(
     display_rows: list[dict[str, str]],
     *,
@@ -4943,11 +5216,24 @@ def _render_ranking_result_table(
         return
     table_base_key = _ranking_result_table_base_key(ranking_source, weight_preset)
     grid_key = _ranking_result_grid_key(table_base_key)
-    st.caption("詳細確認用のテーブルです。銘柄データを見るには行をクリックしてください。")
+    st.caption(
+        "カードやグラフで気になる候補を絞ったあと、詳細を確認するためのテーブルです。"
+        "行をクリックすると、銘柄データや確認ポイントを確認できます。"
+    )
+    show_detail_columns = st.checkbox(
+        "詳細列を表示する",
+        value=False,
+        key=f"{table_base_key}_show_detail_columns",
+        help="ニュース材料、モデル方向、予測根拠、データ信頼度などの補助列を追加表示します。",
+    )
     if _ranking_has_llm_factor_reference(display_rows):
         st.caption(LLM_FACTOR_RANKING_REFERENCE_NOTICE)
     st.caption(RANKING_TABLE_SORT_GUIDANCE)
-    frame = ranking_result_aggrid_frame(display_rows, ranking_purpose=ranking_purpose)
+    frame = ranking_result_aggrid_frame(
+        display_rows,
+        ranking_purpose=ranking_purpose,
+        include_detail_columns=show_detail_columns,
+    )
     grid_response = AgGrid(
         frame,
         gridOptions=ranking_result_aggrid_options(frame, ranking_purpose=ranking_purpose),
@@ -4963,6 +5249,11 @@ def _render_ranking_result_table(
         allow_unsafe_jscode=True,
     )
     selected_symbol = ranking_detail_symbol_from_aggrid_response(grid_response)
+    _render_ranking_selected_detail_memo(
+        display_rows,
+        selected_symbol,
+        ranking_purpose=ranking_purpose,
+    )
     detail_event_token = ranking_detail_event_token_from_aggrid_response(
         grid_response,
         selected_symbol,
@@ -6022,7 +6313,7 @@ def _render_market_data_ranking() -> None:
                 format_func=ranking_policy_label,
                 help=(
                     "どの観点で候補を評価するかを選びます。"
-                    "上位候補・グラフ・確認メモは、この評価方針に基づいて表示されます。"
+                    "上位候補・グラフ・SMAIメモは、この評価方針に基づいて表示されます。"
                 ),
             ),
         )
@@ -6280,9 +6571,6 @@ def _render_market_data_ranking() -> None:
             include_confidence_map=ranking_policy != "data_confidence",
         )
         st.markdown("#### 詳細テーブル")
-        st.caption(
-            "カードとグラフで気になる候補を絞ったあと、詳細列を確認するためのテーブルです。行をクリックすると銘柄データを確認できます。"
-        )
         _render_ranking_result_table(
             display_rows,
             ranking_source=ranking_source,

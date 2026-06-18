@@ -1997,7 +1997,7 @@ smai-ai-gateway/
 
 ### 5.13 🟦 Phase 24A: SMAI LLM Factor / 定性特徴量化
 
-状態: 🟦 **実装済み / 継続確認**。Phase A-D と Phase E validation expansion の SMAI 側 MVP 実装済み。`backend/llm_factor` の Pydantic schema、deterministic fake service、file-backed cache、deterministic backtest evaluator、broader historical fixture pack、extended validation metrics / report、Ranking reference DTO / helper、銘柄コックピットの `AI材料分析` 参考表示、ランキング画面の `LLM強気材料` / `LLM弱気材料` / `LLM確信度` / `材料鮮度` 参考カラム、cache status / generated_at / expires_at / model / prompt version / source hash の表示まで。既存予測モデル、Ranking score / rank、Forecast、Investment Score には初期段階では混ぜない。
+状態: 🟦 **実装済み / 継続確認**。Phase A-D と Phase E validation expansion の SMAI 側 MVP 実装済み。`backend/llm_factor` の Pydantic schema、deterministic fake service、file-backed cache、deterministic backtest evaluator、broader historical fixture pack、extended validation metrics / report、Ranking reference DTO / helper、銘柄コックピットの `AI材料分析` 参考表示、ランキング詳細テーブルの `詳細列を表示する` 配下に置く `ニュース材料` / `材料件数` / `材料信頼度` / `材料の新しさ` 参考カラム、cache status / generated_at / expires_at / model / prompt version / source hash の表示まで。既存予測モデル、Ranking score / rank、Forecast、Investment Score には初期段階では混ぜない。
 
 仮称: `SMAI LLM Factor`。名称候補は `SMAI LLM Factor Model`、`SMAI Sentiment Alpha`、`SMAI Material Factor`、`SMAI Catalyst Score`。
 
@@ -2074,7 +2074,7 @@ LLM が生成する特徴量候補:
 - Phase A: `LLMFactorResult`、`BullishFactor`、`BearishFactor`、`EvidenceSource` schema を追加し、confidence、freshness、evidence_quality、source URL / date を必須化する。既存 RAG / News / Research Summary との接続点を整理する。初期 schema は `backend/llm_factor` に実装済み。
 - Phase B: 銘柄コックピットの 1 銘柄分析だけを対象に、既存 RAG / ニュース / 銘柄DBを入力し、LLM 構造化 prompt、JSON 出力、Pydantic 検証、UI 表示までの MVP を作る。現時点では実 LLM 呼び出し前の deterministic fake service と `AI材料分析` 参考表示まで実装済み。
 - Phase C: 同一銘柄 / 同一 source hash の cache、LLM 実行日時、使用 model、prompt version、TTL を保存し、再現性と cache 肥大化防止を両立する。初期 slice として `data/cache/llm_factor_results.json` の file-backed cache、cache key、source hash、generated_at、expires_at、model、prompt version、cache hit / miss / expired / invalid の metadata、Cockpit cache caption まで実装済み。
-- Phase D: ランキング画面に `LLM強気材料`、`LLM弱気材料`、`LLM確信度`、`材料鮮度` を参考カラムとして追加する。実装済み。表示対象は selected / displayed candidates のみに限定し、cache hit 時は cached `LLMFactorResult` を使用、cache miss 時は deterministic fake service を使用する。LLM列は first slice では non-sortable とし、既存 Ranking score / rank / Forecast / Investment Score には混ぜない。UI 上では「参考指標」「売買推奨ではない」「ランキング順位には未反映」を明記する。
+- Phase D: ランキング画面に `ニュース材料`、`材料件数`、`材料信頼度`、`材料の新しさ` を参考カラムとして追加する。実装済み。通常表示では出さず、`詳細列を表示する` を有効にしたときだけ表示する。表示対象は selected / displayed candidates のみに限定し、cache hit 時は cached `LLMFactorResult` を使用、cache miss 時は deterministic fake service を使用する。材料列は non-sortable とし、既存 Ranking score / rank / Forecast / Investment Score には混ぜない。UI 上ではAI要約による参考情報で、ランキング順位には未反映、売買推奨ではないことを明記する。
 - Phase E: `llm_bullish_score` と将来リターン、`llm_bearish_score` と下落率、`llm_catalyst_score` と短期リターン、`llm_risk_score` と drawdown、既存予測モデルに追加した場合の精度差分を backtest する。first slice として `run_llm_factor_backtest(case)` を実装済み。validation expansion として `load_llm_factor_historical_fixture_pack()`、`run_llm_factor_validation_report()`、JSON / Markdown export を追加済み。deterministic な broader historical fixture は国内大型株、米国大型株、ETF、高配当株、成長株、ニュース少なめ銘柄、大阪ガス `9532.T` fixture、mixed global を含み、Accuracy、Precision、Recall、F1、AUC、Top-N return、top / bottom quantile spread、Sharpe Ratio、最大ドローダウン、baseline comparison、segment別 metrics、AUC single-class / class imbalance / low evidence / overlapping horizon / Sharpe / baseline missing / segment small / multiple testing warnings をレポート化する。market-adjusted return、IC / rank IC、factor turnover、threshold optimization、walk-forward training は後続範囲。
 - Phase F: backtest で有効性が確認できた特徴量のみ、SMAI 独自予測モデルへ統合する。統合時は価格、財務、テクニカル、RAG / News、LLM 材料分析の寄与度を UI で可視化する。
 
@@ -2104,7 +2104,7 @@ Prompt 方針:
 - LLM出力は Pydantic 等で検証される。
 - 根拠 URL、日付、model name、prompt version、source hash、generated_at、expires_at が保持される。
 - LLM Factor backtest は fixture ベースで deterministic に実行でき、Ranking / Forecast weight へ直接つながらない。
-- ランキング画面の LLM材料列は表示対象候補だけに付与され、既存 Ranking score、rank、Forecast、Investment Score、default sort order を変更しない。
+- ランキング画面のニュース材料列は `詳細列を表示する` 配下で表示対象候補だけに付与され、既存 Ranking score、rank、Forecast、Investment Score、default sort order を変更しない。
 - LLM失敗時に graceful degradation する。
 - 銘柄コックピットで 1 銘柄単位の LLM 材料分析が表示できる。
 - JSON構造がテストで検証される。

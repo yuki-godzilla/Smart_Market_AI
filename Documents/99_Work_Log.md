@@ -18,6 +18,23 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-18 - Ranking detail table UX split
+
+### Scope
+
+- split the Ranking detail table into compact normal columns and optional detail columns behind `詳細列を表示する`.
+- normal display now prioritizes `順位`, `銘柄`, `銘柄名`, `総合スコア`, `判断方針`, `配当利回り`, `PER`, `PBR`, `ROE`, `上昇気配`, `下降警戒`, `予測変化率`, `予測確度`, and short `SMAIメモ`.
+- renamed user-facing material columns to `ニュース材料`, `材料件数`, `材料信頼度`, and `材料の新しさ`; internal LLM cache / result keys remain unchanged.
+- added a selected-row `選択銘柄の詳細メモ` below the table so longer forecast basis and confirmation points do not crowd the grid.
+- kept Ranking calculation, score, rank, forecast blending, LLM material non-integration, DB refresh, and RAG fetch behavior unchanged.
+
+### Validation
+
+- `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py ui\app.py tests\test_ui_forecast_display.py` passed.
+- `.\venv_SMAI\Scripts\python.exe -m ruff check ui\app.py tests\test_ui_forecast_display.py --no-cache` passed.
+- `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_forecast_display.py -q -k ranking` passed: 112 passed, 184 deselected. Pytest cache write warnings were local permission warnings only.
+- `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_content_texts.py tests\test_ranking_chart_profiles.py -q` passed: 12 passed. Pytest cache write warnings were local permission warnings only.
+
 ## 2026-06-18 - Ranking Evaluation Policy UX / Weight Tuning
 
 ### Scope

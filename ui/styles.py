@@ -1722,6 +1722,22 @@ body,
     margin: 0 0 1rem;
 }
 
+.smai-page-title--ranking-compact {
+    padding: 0.55rem 0.8rem 0.56rem 0.95rem;
+    margin: 0 0 0.45rem;
+}
+
+.smai-page-title--ranking-compact .smai-page-title-heading {
+    font-size: 1.45rem;
+    line-height: 1.12;
+}
+
+.smai-page-title--ranking-compact .smai-page-title-subtitle {
+    font-size: 0.84rem;
+    line-height: 1.35;
+    margin-top: 0.24rem;
+}
+
 .smai-page-title-accessory {
     position: absolute;
     top: 0.82rem;
@@ -4251,6 +4267,233 @@ div[data-testid="stChatInput"] textarea:focus {
     background: linear-gradient(180deg, rgba(23, 35, 56, 0.76), rgba(11, 18, 32, 0.76));
     padding: 0.95rem 1rem;
     margin: 0.35rem 0 0.7rem 0;
+}
+
+.smai-ranking-setup-block,
+.smai-ranking-creation-conditions,
+.smai-ranking-builder-head,
+.smai-ranking-current-conditions,
+.smai-ranking-policy-builder,
+.smai-ranking-target-summary {
+    border: 1px solid var(--smai-border);
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.78);
+    padding: 0.86rem 1rem;
+    margin: 0.55rem 0 0.72rem;
+}
+
+.smai-ranking-creation-conditions {
+    align-items: center;
+    border-color: rgba(34, 211, 238, 0.22);
+    background: rgba(8, 13, 25, 0.5);
+    display: flex;
+    gap: 0.65rem;
+    padding: 0.52rem 0.75rem;
+    margin: 0.4rem 0 0.35rem;
+}
+
+.smai-ranking-creation-conditions strong {
+    color: var(--text-heading);
+    font-size: 0.88rem;
+    line-height: 1.3;
+}
+
+.smai-ranking-setup-block {
+    background: rgba(8, 13, 25, 0.58);
+}
+
+.smai-ranking-builder-head {
+    border-color: rgba(34, 211, 238, 0.3);
+    background:
+        linear-gradient(90deg, rgba(34, 211, 238, 0.1), transparent 74%),
+        rgba(15, 23, 42, 0.82);
+    padding: 0.54rem 0.68rem;
+    margin: 0.55rem 0 0.55rem;
+}
+
+.smai-ranking-setup-block h4,
+.smai-ranking-builder-head h4,
+.smai-ranking-policy-builder h4 {
+    color: var(--text-title);
+    font-size: 1.02rem;
+    line-height: 1.35;
+    margin: 0.16rem 0 0;
+}
+
+.smai-ranking-builder-head strong {
+    color: var(--text-title);
+    font-size: 0.98rem;
+    line-height: 1.25;
+}
+
+.smai-ranking-setup-block p,
+.smai-ranking-builder-head p,
+.smai-ranking-policy-builder p,
+.smai-ranking-current-conditions p,
+.smai-ranking-target-summary p {
+    color: var(--text-secondary);
+    font-size: 0.84rem;
+    line-height: 1.55;
+    margin: 0.32rem 0 0;
+}
+
+.smai-ranking-builder-head p {
+    font-size: 0.8rem;
+    margin-top: 0.18rem;
+}
+
+.smai-ranking-current-conditions {
+    border-color: rgba(34, 211, 238, 0.24);
+    background: rgba(8, 47, 73, 0.38);
+}
+
+.smai-ranking-current-heading {
+    color: var(--text-title);
+    font-size: 0.88rem;
+    font-weight: 820;
+    line-height: 1.3;
+}
+
+.smai-ranking-current-inline {
+    margin-top: 0.42rem;
+}
+
+.smai-ranking-condition-chip-row,
+.smai-ranking-policy-weight-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.34rem;
+    margin-top: 0.44rem;
+}
+
+.smai-ranking-condition-chip,
+.smai-ranking-policy-weight-chips span {
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.74);
+    color: var(--text-secondary);
+    font-size: 0.76rem;
+    font-weight: 760;
+    line-height: 1.2;
+    padding: 0.3rem 0.55rem;
+}
+
+.smai-ranking-condition-chip--active {
+    border-color: rgba(16, 185, 129, 0.48);
+    background: rgba(6, 95, 70, 0.28);
+    color: #bbf7d0;
+}
+
+.smai-ranking-condition-chip--policy {
+    border-color: rgba(34, 211, 238, 0.52);
+    background: rgba(8, 145, 178, 0.22);
+    color: #cffafe;
+}
+
+.smai-ranking-condition-chip--count {
+    border-color: rgba(34, 211, 238, 0.58);
+    background: rgba(8, 145, 178, 0.26);
+    color: #cffafe;
+}
+
+.smai-ranking-condition-chip--warning {
+    border-color: rgba(250, 204, 21, 0.58);
+    background: rgba(113, 63, 18, 0.34);
+    color: #fde68a;
+}
+
+.smai-ranking-policy-builder {
+    border-color: rgba(34, 211, 238, 0.3);
+    background:
+        linear-gradient(90deg, rgba(8, 145, 178, 0.18), rgba(15, 23, 42, 0.84)),
+        rgba(15, 23, 42, 0.84);
+    padding: 0.54rem 0.68rem;
+    margin: 0.35rem 0 0.52rem;
+}
+
+.smai-ranking-policy-builder h4 {
+    font-size: 0.96rem;
+    margin-top: 0.1rem;
+}
+
+.smai-ranking-policy-builder p {
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+
+.smai-ranking-policy-weight-chips span {
+    border-color: rgba(34, 211, 238, 0.24);
+    color: var(--text-heading);
+}
+
+.smai-ranking-policy-weight-chips strong {
+    color: #67e8f9;
+    margin-left: 0.24rem;
+}
+
+.smai-ranking-policy-caution {
+    border-left: 3px solid rgba(250, 204, 21, 0.76);
+    padding-left: 0.6rem;
+    margin-top: 0.42rem !important;
+}
+
+.smai-ranking-builder-subhead {
+    color: var(--text-title);
+    font-size: 0.94rem;
+    font-weight: 820;
+    line-height: 1.35;
+    margin: 0.66rem 0 0.14rem;
+}
+
+.smai-ranking-builder-caption {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    margin: 0 0 0.44rem;
+}
+
+.smai-ranking-target-summary {
+    background: rgba(8, 47, 73, 0.42);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.38rem 0.8rem;
+    align-items: center;
+    padding: 0.54rem 0.72rem;
+    margin: 0.42rem 0 0.36rem;
+}
+
+.smai-ranking-target-summary strong {
+    color: var(--text-title);
+    display: inline;
+    font-size: 0.88rem;
+    line-height: 1.35;
+    margin-top: 0;
+}
+
+.smai-ranking-target-summary span {
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    line-height: 1.35;
+}
+
+.smai-ranking-target-summary--ready {
+    border-color: rgba(34, 211, 238, 0.38);
+}
+
+.smai-ranking-target-summary--warning {
+    border-color: rgba(250, 204, 21, 0.48);
+    background: rgba(113, 63, 18, 0.26);
+}
+
+.smai-ranking-provider-note {
+    border: 1px solid rgba(250, 204, 21, 0.28);
+    border-radius: 8px;
+    background: rgba(113, 63, 18, 0.18);
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    line-height: 1.35;
+    margin: 0.32rem 0 0.36rem;
+    padding: 0.42rem 0.62rem;
 }
 
 .smai-ranking-condition-card {

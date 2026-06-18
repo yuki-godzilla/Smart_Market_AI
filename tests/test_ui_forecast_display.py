@@ -130,6 +130,7 @@ from ui.app import (
     _ranking_advanced_forecast_fields,
     _ranking_candidate_card_html,
     _ranking_condition_card_html,
+    _ranking_condition_summary_html,
     _ranking_data_state_text,
     _ranking_decision_report_state_key,
     _ranking_result_grid_height,
@@ -237,6 +238,10 @@ from ui.app import (
     provider_error_summary_rows,
     ranking_candidate_breakdown_rows,
     ranking_comparison_summary,
+    ranking_condition_has_active_detail_from_values,
+    ranking_condition_summary_chips_from_values,
+    ranking_condition_summary_chips_html,
+    ranking_creation_target_summary_html,
     ranking_detail_event_token_from_aggrid_response,
     ranking_detail_symbol_from_aggrid_response,
     ranking_detail_symbol_to_open,
@@ -245,6 +250,7 @@ from ui.app import (
     ranking_forecast_term_explanation_rows,
     ranking_investment_detail_rows,
     ranking_investment_note,
+    ranking_policy_builder_card_html,
     ranking_research_status_from_documents,
     ranking_research_status_from_report,
     ranking_result_aggrid_frame,
@@ -7203,6 +7209,129 @@ def test_ranking_condition_card_html_explains_common_horizon_and_ai_weighting():
     assert "下降警戒は低いほど良い指標です" in markup
     assert "警戒が低いほど加点" in markup
     assert "売買推奨ではありません" in markup
+
+
+def test_ranking_condition_summary_chips_show_default_builder_state():
+    chips = ranking_condition_summary_chips_from_values(
+        {},
+        region="japan",
+        product_type="stock",
+        ranking_policy=RANKING_PURPOSE_MULTI_FACTOR,
+        period_preset="standard",
+        candidate_count=9197,
+    )
+
+    assert [chip["label"] for chip in chips] == [
+        "国内",
+        "株式",
+        "AI総合",
+        "標準: 3か月",
+        "詳細条件なし",
+        "候補 9,197件",
+    ]
+    assert chips[2]["tone"] == "policy"
+    assert chips[-1]["tone"] == "count"
+    assert not ranking_condition_has_active_detail_from_values({})
+
+
+def test_ranking_condition_summary_chips_surface_active_detail_conditions():
+    values = {
+        "market_data_ranking_nisa": "eligible",
+        "market_data_ranking_dividend": "high_dividend",
+        "market_data_ranking_per_enabled": True,
+        "market_data_ranking_per_min": "10.0",
+        "market_data_ranking_per_max": "20.0",
+        "market_data_ranking_symbol_query": "半導体",
+    }
+
+    chips = ranking_condition_summary_chips_from_values(
+        values,
+        region="japan",
+        product_type="stock",
+        ranking_policy=RANKING_PURPOSE_MULTI_FACTOR,
+        period_preset="standard",
+        candidate_count=248,
+    )
+    labels = [chip["label"] for chip in chips]
+
+    assert "NISA対象" in labels
+    assert "配当利回り 3%以上" in labels
+    assert "PER 10-20" in labels
+    assert "検索: 半導体" in labels
+    assert "詳細条件なし" not in labels
+    assert chips[-1] == {"label": "候補 248件", "tone": "count"}
+    assert ranking_condition_has_active_detail_from_values(values)
+
+
+def test_ranking_condition_summary_chips_html_escapes_labels():
+    markup = ranking_condition_summary_chips_html(
+        [{"label": "<script>bad</script>", "tone": "active"}]
+    )
+
+    assert "&lt;script&gt;bad&lt;/script&gt;" in markup
+    assert "<script>bad</script>" not in markup
+    assert "smai-ranking-condition-chip--active" in markup
+
+
+def test_ranking_condition_summary_html_is_embedded_in_condition_builder():
+    markup = _ranking_condition_summary_html(
+        {},
+        region="japan",
+        product_type="stock",
+        ranking_policy=RANKING_PURPOSE_MULTI_FACTOR,
+        period_preset="standard",
+        candidate_count=9197,
+    )
+
+    assert "smai-ranking-builder-head" in markup
+    assert "smai-ranking-current-conditions" not in markup
+    assert "ランキング条件" in markup
+    assert "現在の条件" in markup
+    assert "候補 9,197件" in markup
+
+
+def test_ranking_policy_builder_card_html_summarizes_policy_weights():
+    markup = ranking_policy_builder_card_html(
+        RANKING_PURPOSE_MULTI_FACTOR,
+        RANKING_PRESET_MULTI_FACTOR,
+    )
+
+    assert "評価方針" in markup
+    assert "AI総合" in markup
+    assert "基礎評価" in markup
+    assert "30%" in markup
+    assert "上位は買い推奨ではなく" in markup
+
+
+def test_ranking_creation_target_summary_html_explains_effective_target_count():
+    markup = ranking_creation_target_summary_html(
+        candidate_count=9197,
+        selected_count=9197,
+        effective_count=300,
+        fetch_limit_label="標準: 上位300件",
+        ranking_policy=RANKING_PURPOSE_MULTI_FACTOR,
+        period_preset="standard",
+        provider="yahoo",
+        has_detail_conditions=True,
+    )
+    empty_markup = ranking_creation_target_summary_html(
+        candidate_count=0,
+        selected_count=0,
+        effective_count=0,
+        fetch_limit_label="標準: 上位300件",
+        ranking_policy=RANKING_PURPOSE_MULTI_FACTOR,
+        period_preset="standard",
+        provider="yahoo",
+        has_detail_conditions=False,
+    )
+
+    assert "候補 9,197件から、300件を作成します" in markup
+    assert "評価方針: AI総合" in markup
+    assert "期間: 標準: 3か月" in markup
+    assert "取得元: yahoo" in markup
+    assert "詳細条件あり" in markup
+    assert "現在の条件では候補がありません" in empty_markup
+    assert "smai-ranking-target-summary--warning" in empty_markup
 
 
 def test_render_score_confidence_hierarchy_uses_wrapping_html_table(monkeypatch):

@@ -3029,3 +3029,28 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - Phase 28-B Ranking interpretation, Phase 28-C/D Radar / News interpretation, or Phase 29-C confirmation-report draft assistance can proceed next.
 - Keep LLM Factor / interpretation outputs outside Ranking, Forecast, AI総合, and Investment Score until separate validation justifies opt-in integration.
+
+## 2026-06-18 Phase 29-C - Ranking Initial View / Condition Builder UX
+
+### Summary
+
+- Reframed the Ranking initial view around a compact `ランキング作成条件` row for region, product, period, provider, target count, and evaluation policy.
+- Kept detailed ranking filters always visible because they are the main operation for ranking creation.
+- Merged the evaluation policy memo and current ranking-condition summary into side-by-side cards to reduce vertical distance.
+- Added current condition chips for region, product, policy, period, detail-condition state, and candidate count.
+- Improved attribute and numeric condition labels, helper text, and tooltips; numeric filters now use a compact four-column layout.
+- Kept `ランキング作成` below all condition inputs and added a thin creation summary showing candidate count and effective target count.
+- Reduced Ranking-only header weight so users reach the condition builder faster.
+
+### Safety
+
+- Ranking score calculation was not changed.
+- Forecast, Investment Score, Research Score, LLM Factor, and external fetch logic were not changed.
+- Detailed filters remain the main operation for ranking creation.
+
+### Tests
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_forecast_display.py -q -k "ranking_condition_summary_chips or ranking_condition_summary_html or ranking_policy_builder_card_html or ranking_creation_target_summary_html or ranking_condition_card_html"` with 7 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ranking_chart_profiles.py tests\test_ranking_universe_policy.py -q` with 11 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check ui\app.py ui\styles.py tests\test_ui_forecast_display.py outputs/work/phase29c_ranking_condition_builder_smoke/ranking_condition_builder_smoke.py --no-cache`.
+- passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe outputs\work\phase29c_ranking_condition_builder_smoke\ranking_condition_builder_smoke.py`; screenshots saved under `outputs/work/phase29c_ranking_condition_builder_smoke/`.

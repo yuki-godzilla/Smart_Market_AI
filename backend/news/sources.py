@@ -15,7 +15,12 @@ from urllib.request import Request as UrlRequest
 from urllib.request import urlopen
 
 from backend.news.cache import MAX_NEWS_ITEMS
-from backend.news.contracts import NewsDashboardSnapshot, NewsFreshnessStatus, NewsHeadlineCard
+from backend.news.contracts import (
+    NewsDashboardSnapshot,
+    NewsFreshnessStatus,
+    NewsHeadlineCard,
+    NewsSymbolMatch,
+)
 from backend.news.dashboard import build_demo_news_dashboard_snapshot, build_news_dashboard_snapshot
 
 STANDARD_NEWS_RAW_FETCH_TARGET = 250
@@ -26,8 +31,50 @@ STANDARD_NEWS_LOOKBACK_DAYS = 7
 GOOGLE_NEWS_RSS_SEARCH_URL = "https://news.google.com/rss/search"
 DIRECT_SYMBOL_EXTRACTION_LIMIT = 8
 INFERRED_SYMBOL_EXTRACTION_LIMIT = 4
+MARKET_PROXY_SYMBOL_EXTRACTION_LIMIT = 5
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SYMBOL_UNIVERSE_CSV = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe.csv"
+MARKET_CONFIRMATION_SYMBOLS = {
+    "1306.T",
+    "1488.T",
+    "2558.T",
+    "GLD",
+    "QQQ",
+    "SPY",
+    "TLT",
+    "USDJPY",
+    "US10Y",
+    "VTI",
+    "XLE",
+}
+SYMBOL_NAME_HINTS = {
+    "1306.T": "NEXT FUNDS TOPIX ETF",
+    "1488.T": "iFreeETF 東証REIT指数",
+    "2558.T": "MAXIS S&P500 ETF",
+    "6758.T": "Sony Group",
+    "6857.T": "Advantest",
+    "7203.T": "Toyota Motor",
+    "8035.T": "Tokyo Electron",
+    "8306.T": "Mitsubishi UFJ",
+    "8316.T": "Sumitomo Mitsui FG",
+    "AAPL": "Apple",
+    "AMD": "Advanced Micro Devices",
+    "AMZN": "Amazon",
+    "ASML": "ASML",
+    "BAC": "Bank of America",
+    "GLD": "SPDR Gold Shares",
+    "JPM": "JPMorgan Chase",
+    "MSFT": "Microsoft",
+    "NVDA": "NVIDIA",
+    "QQQ": "Invesco QQQ Trust",
+    "SPY": "SPDR S&P 500 ETF",
+    "TLT": "iShares 20+ Year Treasury Bond ETF",
+    "TSM": "Taiwan Semiconductor",
+    "USDJPY": "ドル円",
+    "US10Y": "米10年金利",
+    "VTI": "Vanguard Total Stock Market ETF",
+    "XLE": "Energy Select Sector SPDR Fund",
+}
 SYMBOL_ALIAS_BLOCKLIST = {
     "ai",
     "etf",
@@ -76,6 +123,14 @@ class NewsSourceFetchRequest:
     max_per_query: int = STANDARD_NEWS_PER_QUERY_LIMIT
     lookback_days: int = STANDARD_NEWS_LOOKBACK_DAYS
     category_queries: Sequence[NewsCategoryQuery] = ()
+
+
+@dataclass(frozen=True)
+class NewsSymbolExtractionResult:
+    related_symbols: list[str]
+    inferred_symbols: list[str]
+    macro_proxy_symbols: list[str]
+    symbol_matches: list[NewsSymbolMatch]
 
 
 class NewsSourceAdapter:
@@ -188,7 +243,7 @@ STANDARD_NEWS_CATEGORY_QUERIES: tuple[NewsCategoryQuery, ...] = (
         region="米国",
         material_type="macro",
         query="為替 金利 米国債 ドル円 株式市場",
-        related_symbols=("JPM", "QQQ", "1488.T", "SPY", "TLT", "8306.T"),
+        related_symbols=("TLT", "SPY", "QQQ", "USDJPY", "US10Y"),
     ),
     NewsCategoryQuery(
         category="金融",
@@ -237,7 +292,7 @@ STANDARD_NEWS_CATEGORY_QUERIES: tuple[NewsCategoryQuery, ...] = (
         region="米国",
         material_type="macro",
         query="米国株 S&P500 Nasdaq FRB 決算",
-        related_symbols=("NVDA", "JPM", "QQQ", "AAPL", "MSFT", "AMZN"),
+        related_symbols=("SPY", "QQQ", "VTI", "TLT", "US10Y"),
     ),
     NewsCategoryQuery(
         category="小売・消費",
@@ -377,21 +432,14 @@ def _google_news_dashboard_card_from_item(
     description = _description_text(_rss_child_text(item, "description"))
     published_at = _rss_datetime(_rss_child_text(item, "pubDate"))
     symbol_text = f"{title} {description}"
-    related_symbols = _symbols_from_text(
-        symbol_text,
-        fallback=category_query.related_symbols,
-    )
-    inferred_symbols = _inferred_symbols_from_text(
-        symbol_text,
-        related_symbols,
-        fallback=category_query.related_symbols,
-    )
+    symbol_extraction = _extract_news_symbols(symbol_text, category_query)
     ai_comment = _standard_news_ai_comment(
         category_query,
         title=title,
         summary=description,
-        related_symbols=related_symbols,
-        inferred_symbols=inferred_symbols,
+        related_symbols=symbol_extraction.related_symbols,
+        inferred_symbols=symbol_extraction.inferred_symbols,
+        macro_proxy_symbols=symbol_extraction.macro_proxy_symbols,
     )
     return NewsHeadlineCard(
         title=_clip_text(title, max_chars=120),
@@ -405,15 +453,18 @@ def _google_news_dashboard_card_from_item(
         category=category_query.category,
         region=category_query.region,
         material_type=category_query.material_type,
-        related_symbols=related_symbols,
-        inferred_symbols=inferred_symbols,
+        related_symbols=symbol_extraction.related_symbols,
+        inferred_symbols=symbol_extraction.inferred_symbols,
+        macro_proxy_symbols=symbol_extraction.macro_proxy_symbols,
+        symbol_matches=symbol_extraction.symbol_matches,
         ai_comment=ai_comment,
         investment_checkpoints=_standard_news_checkpoints(
             category_query,
             title=title,
             summary=description,
-            related_symbols=related_symbols,
-            inferred_symbols=inferred_symbols,
+            related_symbols=symbol_extraction.related_symbols,
+            inferred_symbols=symbol_extraction.inferred_symbols,
+            macro_proxy_symbols=symbol_extraction.macro_proxy_symbols,
         ),
     )
 
@@ -473,6 +524,60 @@ def _freshness_from_published_at(
     if age_days <= 7:
         return "recent"
     return "stale"
+
+
+def _extract_news_symbols(
+    text: str,
+    category_query: NewsCategoryQuery,
+) -> NewsSymbolExtractionResult:
+    related_symbols = _symbols_from_text(
+        text,
+        fallback=category_query.related_symbols,
+    )
+    macro_subthemes = _macro_subthemes_from_text(text, category_query)
+    macro_proxy_symbols = _macro_proxy_symbols_from_text(
+        text,
+        category_query,
+        related_symbols=related_symbols,
+        macro_subthemes=macro_subthemes,
+    )
+    inferred_symbols = _inferred_symbols_from_text(
+        text,
+        related_symbols,
+        fallback=category_query.related_symbols,
+        category_query=category_query,
+        macro_proxy_symbols=macro_proxy_symbols,
+        macro_subthemes=macro_subthemes,
+    )
+    symbol_matches = [
+        *_direct_symbol_matches_from_text(text, related_symbols),
+        *_symbol_matches_from_symbols(
+            inferred_symbols,
+            kind="category_inferred",
+            confidence=0.45,
+            evidence_field="category",
+            reason="ニュースカテゴリと本文キーワードからのSMAI推測候補",
+        ),
+        *_symbol_matches_from_symbols(
+            macro_proxy_symbols,
+            kind="macro_proxy",
+            confidence=0.62,
+            evidence_field="category",
+            reason="個別銘柄ではなく市場環境を確認するための代理指標",
+        ),
+        *_rejected_macro_fallback_matches(
+            category_query,
+            related_symbols=related_symbols,
+            inferred_symbols=inferred_symbols,
+            macro_proxy_symbols=macro_proxy_symbols,
+        ),
+    ]
+    return NewsSymbolExtractionResult(
+        related_symbols=related_symbols,
+        inferred_symbols=inferred_symbols,
+        macro_proxy_symbols=macro_proxy_symbols,
+        symbol_matches=symbol_matches,
+    )
 
 
 def _symbols_from_text(
@@ -546,7 +651,11 @@ def _symbols_from_text(
         matches[f"{match.group(1)}.T"] = (match.start(), -1)
     for match in re.finditer(r"[（(［\[](\d{4})[）)］\]]", text):
         matches[f"{match.group(1)}.T"] = (match.start(), -1)
-    for match in re.finditer(r"(?<![A-Za-z0-9])(\d{4})\.T(?![A-Za-z0-9])", text, re.IGNORECASE):
+    for match in re.finditer(
+        r"(?<![A-Za-z0-9])(\d{4})\.T(?![A-Za-z0-9])",
+        text,
+        re.IGNORECASE,
+    ):
         matches[f"{match.group(1)}.T"] = (match.start(), -1)
     for pattern_index, (pattern, symbol) in enumerate(symbol_patterns):
         pattern_match = re.search(pattern, text, flags=re.IGNORECASE)
@@ -575,8 +684,231 @@ def _symbols_from_text(
             matches[symbol] = candidate
     return [
         symbol
-        for symbol, _ in sorted(matches.items(), key=lambda item: (item[1][0], item[1][1], item[0]))
+        for symbol, _ in sorted(
+            matches.items(),
+            key=lambda item: (item[1][0], item[1][1], item[0]),
+        )
     ][:limit]
+
+
+def _direct_symbol_matches_from_text(
+    text: str,
+    symbols: Sequence[str],
+) -> list[NewsSymbolMatch]:
+    return [
+        NewsSymbolMatch(
+            symbol=symbol,
+            name=_symbol_name_hint(symbol),
+            kind=kind,
+            confidence=confidence,
+            evidence_text=evidence_text,
+            evidence_field="body",
+            reason="本文または見出しに出た銘柄として抽出",
+        )
+        for symbol in symbols
+        for kind, confidence, evidence_text in [_direct_symbol_evidence(text, symbol)]
+    ]
+
+
+def _direct_symbol_evidence(text: str, symbol: str) -> tuple[str, float, str | None]:
+    normalized = symbol.strip().upper()
+    if normalized.endswith(".T") and normalized[:-2].isdigit():
+        code = normalized[:-2]
+        for pattern in (
+            rf"【{re.escape(code)}】",
+            rf"[（(［\[]{re.escape(code)}[）)］\]]",
+            rf"(?<![A-Za-z0-9]){re.escape(normalized)}(?![A-Za-z0-9])",
+        ):
+            match = re.search(pattern, text, flags=re.IGNORECASE)
+            if match:
+                return "code_match", 0.98, match.group(0)
+    if re.fullmatch(r"[A-Z][A-Z0-9.-]{0,7}", normalized):
+        match = re.search(
+            rf"(?<![A-Za-z0-9]){re.escape(normalized)}(?![A-Za-z0-9])",
+            text,
+        )
+        if match:
+            return "ticker_match", 0.98, match.group(0)
+    lowered_text = text.casefold()
+    for alias, alias_symbol in _symbol_universe_aliases():
+        if alias_symbol != normalized:
+            continue
+        alias_match = _find_symbol_alias_match(text, lowered_text, alias)
+        if alias_match is None:
+            continue
+        start, end = alias_match
+        confidence = 0.8 if _is_ascii_symbol_alias(alias) else 0.95
+        return "alias_match", confidence, text[start:end]
+    return "direct_mention", 0.95, None
+
+
+def _symbol_matches_from_symbols(
+    symbols: Sequence[str],
+    *,
+    kind: str,
+    confidence: float,
+    evidence_field: str,
+    reason: str,
+) -> list[NewsSymbolMatch]:
+    return [
+        NewsSymbolMatch(
+            symbol=symbol,
+            name=_symbol_name_hint(symbol),
+            kind=kind,
+            confidence=confidence,
+            evidence_field=evidence_field,
+            reason=reason,
+        )
+        for symbol in symbols
+    ]
+
+
+def _macro_proxy_symbols_from_text(
+    text: str,
+    category_query: NewsCategoryQuery,
+    *,
+    related_symbols: Sequence[str],
+    macro_subthemes: set[str],
+    limit: int = MARKET_PROXY_SYMBOL_EXTRACTION_LIMIT,
+) -> list[str]:
+    if not _is_macro_news_context(category_query, macro_subthemes):
+        return []
+
+    candidates: list[str] = []
+    if "reit" in macro_subthemes:
+        candidates.extend(("1488.T", "TLT", "US10Y"))
+    if category_query.category == "為替・金利" or macro_subthemes.intersection(
+        {"fx", "rates", "bonds", "central_bank", "inflation"}
+    ):
+        candidates.extend(("TLT", "SPY", "QQQ", "USDJPY", "US10Y"))
+    if category_query.category == "米国株" or "us_market" in macro_subthemes:
+        candidates.extend(("SPY", "QQQ", "TLT", "US10Y", "VTI"))
+    if category_query.category == "日本株" or "japan_market" in macro_subthemes:
+        candidates.extend(("1306.T", "USDJPY", "1488.T", "SPY"))
+    if "gold" in macro_subthemes:
+        candidates.extend(("GLD", "TLT", "SPY"))
+    if "energy" in macro_subthemes:
+        candidates.extend(("XLE", "SPY", "USDJPY"))
+
+    if not candidates and category_query.material_type == "macro":
+        candidates.extend(category_query.related_symbols)
+    return _dedupe_symbol_candidates(
+        candidates,
+        exclude=related_symbols,
+        limit=limit,
+        allowed=MARKET_CONFIRMATION_SYMBOLS,
+    )
+
+
+def _macro_subthemes_from_text(
+    text: str,
+    category_query: NewsCategoryQuery,
+) -> set[str]:
+    lowered = text.casefold()
+    subthemes: set[str] = set()
+    if category_query.category == "為替・金利":
+        subthemes.update({"fx", "rates"})
+    if category_query.category == "米国株":
+        subthemes.add("us_market")
+    if category_query.category == "日本株":
+        subthemes.add("japan_market")
+    keyword_groups = (
+        (("為替", "ドル円", "円安", "円高", "yen", "usd/jpy", "dollar"), "fx"),
+        (
+            ("金利", "利回り", "米10年", "国債", "treasury", "yield", "利上げ", "利下げ"),
+            "rates",
+        ),
+        (("債券", "米国債", "bond"), "bonds"),
+        (("frb", "fomc", "fed", "日銀", "中央銀行"), "central_bank"),
+        (
+            ("米国株", "米国市場", "s&p", "sp500", "s&p500", "nasdaq", "ナスダック"),
+            "us_market",
+        ),
+        (("日本株", "日経平均", "topix", "東証"), "japan_market"),
+        (("銀行", "銀行株", "金融株", "利ざや", "jpmorgan", "bank stocks"), "banks"),
+        (("reit", "不動産投信", "東証reit"), "reit"),
+        (("インフレ", "物価", "cpi", "ppi"), "inflation"),
+        (("金価格", "金相場", "ゴールド", "gold"), "gold"),
+        (("原油", "石油", "opec", "lng", "エネルギー"), "energy"),
+    )
+    for keywords, subtheme in keyword_groups:
+        if any(keyword in lowered for keyword in keywords):
+            subthemes.add(subtheme)
+    return subthemes
+
+
+def _is_macro_news_context(
+    category_query: NewsCategoryQuery,
+    macro_subthemes: set[str],
+) -> bool:
+    if category_query.material_type == "macro":
+        return True
+    if category_query.category in {"為替・金利", "米国株", "日本株", "地政学・マクロリスク"}:
+        return True
+    return False
+
+
+def _rejected_macro_fallback_matches(
+    category_query: NewsCategoryQuery,
+    *,
+    related_symbols: Sequence[str],
+    inferred_symbols: Sequence[str],
+    macro_proxy_symbols: Sequence[str],
+) -> list[NewsSymbolMatch]:
+    if category_query.material_type != "macro":
+        return []
+    visible = {
+        symbol.strip().upper()
+        for symbol in [*related_symbols, *inferred_symbols, *macro_proxy_symbols]
+        if symbol.strip()
+    }
+    rejected = [
+        symbol.strip().upper()
+        for symbol in category_query.related_symbols
+        if _should_reject_macro_seed_symbol(symbol, visible)
+    ]
+    return _symbol_matches_from_symbols(
+        rejected,
+        kind="rejected",
+        confidence=0.12,
+        evidence_field="fallback",
+        reason="カテゴリseedだけでは個別銘柄候補として弱いため非表示",
+    )
+
+
+def _should_reject_macro_seed_symbol(symbol: str, visible_symbols: set[str]) -> bool:
+    normalized = symbol.strip().upper()
+    return bool(
+        normalized
+        and normalized not in visible_symbols
+        and normalized not in MARKET_CONFIRMATION_SYMBOLS
+    )
+
+
+def _dedupe_symbol_candidates(
+    candidates: Sequence[str],
+    *,
+    exclude: Sequence[str],
+    limit: int,
+    allowed: set[str] | None = None,
+) -> list[str]:
+    seen = {symbol.strip().upper() for symbol in exclude if symbol.strip()}
+    result: list[str] = []
+    for symbol in candidates:
+        normalized = symbol.strip().upper()
+        if not normalized or normalized in seen:
+            continue
+        if allowed is not None and normalized not in allowed:
+            continue
+        seen.add(normalized)
+        result.append(normalized)
+        if len(result) >= limit:
+            break
+    return result
+
+
+def _symbol_name_hint(symbol: str) -> str | None:
+    return SYMBOL_NAME_HINTS.get(symbol.strip().upper())
 
 
 @lru_cache(maxsize=1)
@@ -704,6 +1036,9 @@ def _inferred_symbols_from_text(
     related_symbols: Sequence[str],
     *,
     fallback: Sequence[str],
+    category_query: NewsCategoryQuery | None = None,
+    macro_proxy_symbols: Sequence[str] = (),
+    macro_subthemes: set[str] | None = None,
     limit: int = INFERRED_SYMBOL_EXTRACTION_LIMIT,
 ) -> list[str]:
     direct_count = len({symbol.strip().upper() for symbol in related_symbols if symbol.strip()})
@@ -716,6 +1051,27 @@ def _inferred_symbols_from_text(
     elif direct_count >= 1:
         limit = min(limit, 3)
     lowered = text.casefold()
+    subthemes = macro_subthemes or (
+        _macro_subthemes_from_text(text, category_query) if category_query else set()
+    )
+    is_macro_context = bool(category_query and _is_macro_news_context(category_query, subthemes))
+    if is_macro_context:
+        context_candidates: list[str] = []
+        if "banks" in subthemes:
+            context_candidates.extend(("JPM", "BAC", "8306.T", "8316.T"))
+        if "reit" in subthemes:
+            context_candidates.extend(("1488.T",))
+        if "energy" in subthemes:
+            context_candidates.extend(("XLE", "XOM", "CVX", "1605.T"))
+        if "gold" in subthemes:
+            context_candidates.extend(("GLD",))
+        return _dedupe_inferred_symbols(
+            related_symbols,
+            context_candidates,
+            limit=limit,
+            extra_exclude=macro_proxy_symbols,
+        )
+
     context_candidates: list[str] = []
     context_rules = (
         (
@@ -786,8 +1142,11 @@ def _dedupe_inferred_symbols(
     candidates: Sequence[str],
     *,
     limit: int,
+    extra_exclude: Sequence[str] = (),
 ) -> list[str]:
-    direct_symbols = {symbol.strip().upper() for symbol in related_symbols if symbol.strip()}
+    direct_symbols = {
+        symbol.strip().upper() for symbol in [*related_symbols, *extra_exclude] if symbol.strip()
+    }
     inferred: list[str] = []
     for symbol in candidates:
         normalized = symbol.strip().upper()
@@ -806,12 +1165,17 @@ def _standard_news_ai_comment(
     summary: str,
     related_symbols: Sequence[str],
     inferred_symbols: Sequence[str],
+    macro_proxy_symbols: Sequence[str],
 ) -> str:
     """Build a compact, RAG-style reading note for a dashboard headline."""
 
     profile = _news_reading_profile(category_query.material_type)
     topic = _topic_hint(title, summary, category_query)
-    source_distance = _symbol_distance_phrase(related_symbols, inferred_symbols)
+    source_distance = _symbol_distance_phrase(
+        related_symbols,
+        inferred_symbols,
+        macro_proxy_symbols,
+    )
     return (
         f"{profile['lead']} {topic}を中心に、{source_distance}。"
         f"{profile['rag']} ニュース単体では判断せず、公式資料・市場データ・銘柄コックピットで確認します。"
@@ -825,11 +1189,12 @@ def _standard_news_checkpoints(
     summary: str,
     related_symbols: Sequence[str],
     inferred_symbols: Sequence[str],
+    macro_proxy_symbols: Sequence[str],
 ) -> list[str]:
     profile = _news_reading_profile(category_query.material_type)
     checkpoints = [
         profile["checkpoint"],
-        _symbol_checkpoint(related_symbols, inferred_symbols),
+        _symbol_checkpoint(related_symbols, inferred_symbols, macro_proxy_symbols),
         _fresh_context_checkpoint(title, summary, category_query),
     ]
     return [checkpoint for checkpoint in checkpoints if checkpoint]
@@ -886,6 +1251,7 @@ def _news_reading_profile(material_type: str) -> dict[str, str]:
 def _symbol_distance_phrase(
     related_symbols: Sequence[str],
     inferred_symbols: Sequence[str],
+    macro_proxy_symbols: Sequence[str] = (),
 ) -> str:
     if related_symbols and inferred_symbols:
         return "本文に出た銘柄とSMAI推測候補を分けて確認します"
@@ -893,17 +1259,22 @@ def _symbol_distance_phrase(
         return "本文に出た銘柄を優先して確認します"
     if inferred_symbols:
         return "テーマから近そうな銘柄をSMAI推測候補として確認します"
+    if macro_proxy_symbols:
+        return "個別銘柄ではなく市場確認指標で背景を確認します"
     return "関連銘柄は追加確認候補として慎重に見ます"
 
 
 def _symbol_checkpoint(
     related_symbols: Sequence[str],
     inferred_symbols: Sequence[str],
+    macro_proxy_symbols: Sequence[str] = (),
 ) -> str:
     if related_symbols:
         return "本文に出た銘柄は、業績・開示・市場データを銘柄コックピットで確認します。"
     if inferred_symbols:
         return "SMAI推測候補は、テーマとの距離が近いかを事業内容で確認します。"
+    if macro_proxy_symbols:
+        return "市場確認指標は背景確認用として扱い、個別銘柄候補とは分けて見ます。"
     return "関連銘柄が薄い場合は、カテゴリ全体の材料として扱います。"
 
 

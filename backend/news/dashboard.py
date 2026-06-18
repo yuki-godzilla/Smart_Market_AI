@@ -115,19 +115,20 @@ def build_demo_news_dashboard_snapshot(
             ],
         ),
         _headline(
-            title="米金利の高止まりで金融株と高PER銘柄に見方の差",
-            summary="金利感応度の違いにより、金融、成長株、REITで材料の受け止めが分かれています。",
+            title="米金利とドル円の変動で市場の見方に差",
+            summary="米10年金利、ドル円、S&P500の反応から、リスク選好の強弱を確認する材料です。",
             category="為替・金利",
             region="米国",
             material_type="macro",
             source_name="SMAI Macro Fixture",
             minutes_ago=55,
             freshness_status="latest",
-            related_symbols=["JPM", "QQQ", "1488.T", "SPY", "TLT", "8306.T"],
-            ai_comment="金利材料はセクターごとの追い風と逆風を分け、価格変動リスクも確認します。",
+            related_symbols=[],
+            macro_proxy_symbols=["TLT", "SPY", "QQQ", "USDJPY", "US10Y"],
+            ai_comment="個別銘柄ではなく、市場確認指標で金利・為替・指数の反応を分けて確認します。",
             investment_checkpoints=[
-                "金利感応度とバリュエーションの関係を確認します。",
-                "ETFの場合は構成比率と為替ヘッジ有無を見ます。",
+                "市場確認指標は背景確認用として扱い、個別銘柄候補とは分けて見ます。",
+                "金利、為替、指数の反応が同じ方向かを確認します。",
             ],
         ),
         _headline(
@@ -310,6 +311,8 @@ def _headline(
     investment_checkpoints: list[str],
     source_type: str = "news",
     is_official_source: bool = False,
+    inferred_symbols: list[str] | None = None,
+    macro_proxy_symbols: list[str] | None = None,
 ) -> NewsHeadlineCard:
     base_time = datetime(2026, 6, 4, 9, 0, tzinfo=UTC)
     return NewsHeadlineCard(
@@ -325,6 +328,8 @@ def _headline(
         region=region,
         material_type=material_type,
         related_symbols=related_symbols,
+        inferred_symbols=inferred_symbols or [],
+        macro_proxy_symbols=macro_proxy_symbols or [],
         is_official_source=is_official_source,
         ai_comment=ai_comment,
         investment_checkpoints=investment_checkpoints,

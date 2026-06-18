@@ -35,7 +35,8 @@ NEWS_COCKPIT_QUERY_PAGE_PARAM = "smai_page"
 NEWS_COCKPIT_QUERY_SYMBOL_PARAM = "smai_symbol"
 NEWS_COCKPIT_QUERY_COCKPIT_VALUE = "cockpit"
 NEWS_DIRECT_SYMBOL_DISPLAY_LIMIT = 8
-NEWS_INFERRED_SYMBOL_DISPLAY_LIMIT = 4
+NEWS_INFERRED_SYMBOL_DISPLAY_LIMIT = 3
+NEWS_MARKET_PROXY_SYMBOL_DISPLAY_LIMIT = 5
 NEWS_SYMBOL_DISPLAY_TOTAL_LIMIT = 8
 NEWS_DISPLAY_TIMEZONE = ZoneInfo("Asia/Tokyo")
 NEWS_DISPLAY_TIMEZONE_LABEL = "JST"
@@ -65,6 +66,19 @@ _MATERIAL_TONES = {
     "risk": "risk",
     "shareholder_return": "positive",
     "theme": "news",
+}
+
+_NEWS_MARKET_PROXY_LABELS = {
+    "1306.T": "TOPIX ETF",
+    "1488.T": "東証REIT ETF",
+    "GLD": "金ETF",
+    "QQQ": "NASDAQ100 ETF",
+    "SPY": "S&P500 ETF",
+    "TLT": "米国債ETF",
+    "USDJPY": "ドル円",
+    "US10Y": "米10年金利",
+    "VTI": "全米株ETF",
+    "XLE": "エネルギーETF",
 }
 
 _HEATMAP_TILE_OFFSETS = (0.0, -0.35, 0.28, 0.62, -0.72, 0.18, -0.15, 0.45, -0.42, 0.08)
@@ -522,6 +536,20 @@ def _card_handoff_symbol_groups(card: NewsHeadlineCard) -> tuple[list[str], list
         exclude=set(direct),
     )
     return direct, inferred
+
+
+def news_card_market_proxy_symbols(
+    card: NewsHeadlineCard,
+    *,
+    limit: int = NEWS_MARKET_PROXY_SYMBOL_DISPLAY_LIMIT,
+) -> list[str]:
+    """Return market proxy indicators separately from cockpit handoff symbols."""
+
+    direct_symbols, inferred_symbols = _card_handoff_symbol_groups(card)
+    return _unique_normalized_symbols(
+        getattr(card, "macro_proxy_symbols", []),
+        exclude={*direct_symbols, *inferred_symbols},
+    )[: max(0, limit)]
 
 
 def news_card_symbol_handoff_groups(
@@ -1682,6 +1710,7 @@ def _render_symbol_handoff_buttons(
     symbol_name_map: dict[str, str],
     max_columns: int = 3,
 ) -> None:
+    _render_market_proxy_symbols(card, symbol_name_map=symbol_name_map)
     groups = news_card_symbol_handoff_groups(card)
     if not groups:
         return
@@ -1694,6 +1723,27 @@ def _render_symbol_handoff_buttons(
             symbol_name_map=symbol_name_map,
             max_columns=max_columns,
         )
+
+
+def _render_market_proxy_symbols(
+    card: NewsHeadlineCard,
+    *,
+    symbol_name_map: dict[str, str],
+) -> None:
+    symbols = news_card_market_proxy_symbols(card)
+    if not symbols:
+        return
+    labels = [
+        truncate_text(_market_proxy_label(symbol, symbol_name_map=symbol_name_map), max_chars=28)
+        for symbol in symbols
+    ]
+    st.caption(f"市場確認指標: {' / '.join(labels)}")
+
+
+def _market_proxy_label(symbol: str, *, symbol_name_map: dict[str, str]) -> str:
+    normalized = symbol.strip().upper()
+    display_name = _NEWS_MARKET_PROXY_LABELS.get(normalized) or symbol_name_map.get(normalized)
+    return f"{normalized} / {display_name}" if display_name else normalized
 
 
 def _render_symbol_button_group(

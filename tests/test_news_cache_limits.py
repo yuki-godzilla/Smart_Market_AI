@@ -15,6 +15,7 @@ from backend.news import (
     NewsDashboardSnapshot,
     NewsHeadlineCard,
     NewsHeatmapCell,
+    NewsSymbolMatch,
     contains_prohibited_recommendation_terms,
     news_snapshot_item_count,
     normalize_snapshot_for_cache,
@@ -142,6 +143,50 @@ def test_normalize_snapshot_for_cache_dedupes_related_symbols_and_strips_empty_t
     assert card.url is None
     assert card.source_name == "Example News"
     assert card.region == "Japan"
+
+
+def test_normalize_snapshot_for_cache_preserves_symbol_extraction_v2_fields():
+    headline = _headline(1).model_copy(
+        update={
+            "macro_proxy_symbols": ["TLT", "tlt", " USDJPY ", ""],
+            "symbol_matches": [
+                NewsSymbolMatch(
+                    symbol=" jpm ",
+                    kind="direct_mention",
+                    confidence=0.95,
+                    evidence_text="JPMorgan",
+                    evidence_field="body",
+                    reason=" " + ("直接言及" * 80),
+                ),
+                NewsSymbolMatch(
+                    symbol="JPM",
+                    kind="direct_mention",
+                    confidence=0.95,
+                ),
+                NewsSymbolMatch(
+                    symbol="TLT",
+                    kind="macro_proxy",
+                    confidence=0.62,
+                    reason="米金利の確認指標",
+                ),
+            ],
+        }
+    )
+    snapshot = NewsDashboardSnapshot(
+        generated_at=datetime(2026, 6, 3, 10, 0, tzinfo=UTC),
+        stream_headlines=[headline],
+    )
+
+    normalized = normalize_snapshot_for_cache(snapshot)
+    card = normalized.stream_headlines[0]
+
+    assert card.macro_proxy_symbols == ["TLT", "USDJPY"]
+    assert [(match.symbol, match.kind) for match in card.symbol_matches] == [
+        ("JPM", "direct_mention"),
+        ("TLT", "macro_proxy"),
+    ]
+    assert card.symbol_matches[0].reason is not None
+    assert len(card.symbol_matches[0].reason) <= 160
 
 
 def test_news_contracts_reject_raw_provider_fields():

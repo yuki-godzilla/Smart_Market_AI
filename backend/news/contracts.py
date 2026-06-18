@@ -10,6 +10,58 @@ from backend.core.data_contracts import StrictBaseModel
 NEWS_DASHBOARD_SCHEMA_VERSION = "news-dashboard-snapshot-v1"
 
 NewsFreshnessStatus = Literal["latest", "recent", "stale", "unknown"]
+NewsSymbolMatchKind = Literal[
+    "direct_mention",
+    "alias_match",
+    "ticker_match",
+    "code_match",
+    "macro_proxy",
+    "category_inferred",
+    "llm_verified_inferred",
+    "rejected",
+]
+NewsSymbolEvidenceField = Literal["title", "summary", "body", "category", "fallback"]
+
+
+class NewsSymbolMatch(StrictBaseModel):
+    """Classified symbol evidence for one Investment Radar headline."""
+
+    symbol: str = Field(min_length=1)
+    name: str | None = Field(default=None, min_length=1)
+    kind: NewsSymbolMatchKind
+    confidence: float = Field(ge=0.0, le=1.0)
+    evidence_text: str | None = Field(default=None, min_length=1)
+    evidence_field: NewsSymbolEvidenceField | None = None
+    reason: str | None = Field(default=None, min_length=1)
+
+
+class NewsSymbolUniverseAlias(StrictBaseModel):
+    """Minimal alias row shared with a future LLM recheck gateway."""
+
+    symbol: str = Field(min_length=1)
+    name: str | None = Field(default=None, min_length=1)
+    aliases: list[str] = Field(default_factory=list)
+
+
+class NewsSymbolLLMExtractionRequest(StrictBaseModel):
+    """Network-free contract boundary for future LLM-assisted symbol rechecks."""
+
+    title: str = Field(min_length=1)
+    summary: str | None = None
+    category: str = Field(min_length=1)
+    region: str | None = Field(default=None, min_length=1)
+    material_type: str = Field(min_length=1)
+    deterministic_candidates: list[NewsSymbolMatch] = Field(default_factory=list)
+    symbol_universe_aliases: list[NewsSymbolUniverseAlias] = Field(default_factory=list)
+
+
+class NewsSymbolLLMExtractionResponse(StrictBaseModel):
+    """LLM response contract; callers still decide what is displayed."""
+
+    direct_symbols: list[NewsSymbolMatch] = Field(default_factory=list)
+    inferred_symbols: list[NewsSymbolMatch] = Field(default_factory=list)
+    macro_proxy_symbols: list[NewsSymbolMatch] = Field(default_factory=list)
+    rejected_symbols: list[NewsSymbolMatch] = Field(default_factory=list)
 
 
 class NewsHeadlineCard(StrictBaseModel):
@@ -28,6 +80,8 @@ class NewsHeadlineCard(StrictBaseModel):
     material_type: str = Field(min_length=1)
     related_symbols: list[str] = Field(default_factory=list)
     inferred_symbols: list[str] = Field(default_factory=list)
+    macro_proxy_symbols: list[str] = Field(default_factory=list)
+    symbol_matches: list[NewsSymbolMatch] = Field(default_factory=list)
     is_official_source: bool = False
     ai_comment: str | None = None
     investment_checkpoints: list[str] = Field(default_factory=list)

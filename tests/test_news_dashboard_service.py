@@ -6,6 +6,9 @@ import pytest
 from backend.news import (
     NewsCategoryQuery,
     NewsHeadlineCard,
+    NewsSymbolLLMExtractionRequest,
+    NewsSymbolLLMExtractionResponse,
+    NewsSymbolMatch,
     StaticNewsSourceAdapter,
     build_demo_news_dashboard_snapshot,
     build_news_dashboard_snapshot,
@@ -14,6 +17,46 @@ from backend.news import (
     dedupe_news_headline_cards,
     google_news_dashboard_cards_from_rss,
 )
+
+
+def _single_news_item_rss(
+    *,
+    title: str,
+    description: str,
+    name: str,
+) -> str:
+    escaped_title = html.escape(title)
+    escaped_description = html.escape(description)
+    return f"""
+    <rss><channel>
+      <item>
+        <title>{escaped_title}</title>
+        <link>https://example.com/{name}</link>
+        <source>Example Market</source>
+        <pubDate>Thu, 04 Jun 2026 09:30:00 GMT</pubDate>
+        <description><![CDATA[<p>{escaped_description}</p>]]></description>
+      </item>
+    </channel></rss>
+    """
+
+
+def _single_news_card(
+    *,
+    title: str,
+    description: str,
+    category_query: NewsCategoryQuery,
+    name: str,
+) -> NewsHeadlineCard:
+    fetched_at = datetime(2026, 6, 4, 10, 0, tzinfo=UTC)
+    cards = google_news_dashboard_cards_from_rss(
+        _single_news_item_rss(title=title, description=description, name=name),
+        category_query=category_query,
+        fetched_at=fetched_at,
+        as_of=fetched_at.date(),
+        max_results=10,
+    )
+    assert len(cards) == 1
+    return cards[0]
 
 
 def test_build_news_dashboard_snapshot_groups_heatmap_and_lanes():
@@ -1817,6 +1860,152 @@ def test_google_news_related_symbols_do_not_invent_seed_symbols_for_generic_them
 
     assert cards[0].related_symbols == []
     assert cards[0].inferred_symbols == ["NVDA", "TSM", "ASML", "AMD"]
+
+
+def test_google_news_symbol_extraction_v2_keeps_fx_rates_macro_proxies_separate():
+    card = _single_news_card(
+        title="米国市場サマリー、米金利とドル円の変動を確認",
+        description=("FRBを巡る見方で米10年金利と為替が動き、" "S&P500先物は小幅に下落しました。"),
+        name="fx-rates-macro",
+        category_query=NewsCategoryQuery(
+            category="為替・金利",
+            region="米国",
+            material_type="macro",
+            query="為替 金利 米国債 ドル円 株式市場",
+            related_symbols=("TLT", "SPY", "QQQ", "USDJPY", "US10Y"),
+        ),
+    )
+
+    assert card.related_symbols == []
+    assert card.inferred_symbols == []
+    assert card.macro_proxy_symbols == ["TLT", "SPY", "QQQ", "USDJPY", "US10Y"]
+    assert not {"JPM", "8306.T", "1488.T"}.intersection(
+        {*card.related_symbols, *card.inferred_symbols, *card.macro_proxy_symbols}
+    )
+    assert {match.kind for match in card.symbol_matches} == {"macro_proxy"}
+
+
+def test_google_news_symbol_extraction_v2_keeps_direct_bank_mention_above_macro_context():
+    card = _single_news_card(
+        title="米金利上昇で銀行株に注目、JPMorganの利ざやを確認",
+        description="米10年金利の上昇を受け、銀行株の収益感応度が市場の焦点になっています。",
+        name="bank-rates-jpmorgan",
+        category_query=NewsCategoryQuery(
+            category="為替・金利",
+            region="米国",
+            material_type="macro",
+            query="為替 金利 米国債 ドル円 株式市場",
+            related_symbols=("TLT", "SPY", "QQQ", "USDJPY", "US10Y"),
+        ),
+    )
+
+    assert card.related_symbols == ["JPM"]
+    assert {"TLT", "SPY", "QQQ", "US10Y"}.issubset(set(card.macro_proxy_symbols))
+    assert "JPM" not in card.inferred_symbols
+    assert any(
+        match.symbol == "JPM" and match.kind == "direct_mention" for match in card.symbol_matches
+    )
+    assert any(
+        match.symbol == "TLT" and match.kind == "macro_proxy" for match in card.symbol_matches
+    )
+
+
+def test_google_news_symbol_extraction_v2_detects_toyota_as_direct_symbol():
+    card = _single_news_card(
+        title="トヨタがEV投資計画を更新",
+        description="Toyota Motorは電動車向けの投資計画と生産体制を説明しました。",
+        name="toyota-direct",
+        category_query=NewsCategoryQuery(
+            category="自動車",
+            region="日本",
+            material_type="theme",
+            query="自動車 EV 投資",
+            related_symbols=("7203.T",),
+        ),
+    )
+
+    assert card.related_symbols == ["7203.T"]
+    assert card.inferred_symbols == []
+    assert card.macro_proxy_symbols == []
+    assert any(
+        match.symbol == "7203.T" and match.kind in {"direct_mention", "alias_match"}
+        for match in card.symbol_matches
+    )
+
+
+def test_google_news_symbol_extraction_v2_us_market_summary_avoids_bank_candidates():
+    card = _single_news_card(
+        title="本日の米国株式市場、FRBの利上げ観測でS&P500先物が小幅安",
+        description=("米国市場では指数と長期金利の反応が注目され、" "個別企業名は出ていません。"),
+        name="us-market-summary",
+        category_query=NewsCategoryQuery(
+            category="米国株",
+            region="米国",
+            material_type="macro",
+            query="米国株 S&P500 Nasdaq FRB 決算",
+            related_symbols=("SPY", "QQQ", "VTI", "TLT", "US10Y"),
+        ),
+    )
+
+    assert card.related_symbols == []
+    assert card.inferred_symbols == []
+    assert {"SPY", "QQQ", "TLT", "US10Y"}.issubset(set(card.macro_proxy_symbols))
+    assert "JPM" not in card.macro_proxy_symbols
+    assert "JPM" not in card.inferred_symbols
+
+
+def test_google_news_symbol_extraction_v2_reit_context_uses_reit_proxy_not_bank_stock():
+    card = _single_news_card(
+        title="国内REIT市場は長期金利上昇を嫌気",
+        description="不動産投信は利回り差と資金流入の変化が確認材料になっています。",
+        name="reit-rates",
+        category_query=NewsCategoryQuery(
+            category="為替・金利",
+            region="日本",
+            material_type="macro",
+            query="為替 金利 REIT",
+            related_symbols=("TLT", "SPY", "QQQ", "USDJPY", "US10Y"),
+        ),
+    )
+
+    assert "1488.T" in card.macro_proxy_symbols
+    assert "JPM" not in card.related_symbols
+    assert "JPM" not in card.inferred_symbols
+    assert "JPM" not in card.macro_proxy_symbols
+
+
+def test_news_symbol_llm_extraction_contract_is_gateway_ready_without_runtime_call():
+    request = NewsSymbolLLMExtractionRequest(
+        title="米金利上昇で銀行株に注目",
+        summary="JPMorganと米10年金利を分けて確認します。",
+        category="為替・金利",
+        region="米国",
+        material_type="macro",
+        deterministic_candidates=[
+            NewsSymbolMatch(
+                symbol="JPM",
+                kind="direct_mention",
+                confidence=0.95,
+                evidence_text="JPMorgan",
+                evidence_field="body",
+            )
+        ],
+    )
+    response = NewsSymbolLLMExtractionResponse(
+        direct_symbols=request.deterministic_candidates,
+        macro_proxy_symbols=[
+            NewsSymbolMatch(
+                symbol="TLT",
+                kind="macro_proxy",
+                confidence=0.62,
+                reason="米金利の確認指標",
+            )
+        ],
+    )
+
+    assert request.deterministic_candidates[0].symbol == "JPM"
+    assert response.direct_symbols[0].kind == "direct_mention"
+    assert response.macro_proxy_symbols[0].symbol == "TLT"
 
 
 def test_dedupe_news_headline_cards_prefers_url_and_limit():

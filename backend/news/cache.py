@@ -10,6 +10,7 @@ from backend.news.contracts import (
     NewsDashboardSnapshot,
     NewsHeadlineCard,
     NewsHeatmapCell,
+    NewsSymbolMatch,
     NewsUpdateStatus,
 )
 
@@ -20,6 +21,7 @@ MAX_HEATMAP_CELLS = 30
 MAX_CHECKPOINTS_PER_NEWS = 3
 MAX_SUMMARY_CHARS = 300
 MAX_AI_COMMENT_CHARS = 240
+MAX_SYMBOL_MATCHES_PER_NEWS = 20
 
 NEWS_CACHE_DIR: Final[Path] = runtime_path_from_env(CACHE_DIR_ENV, "data/cache")
 NEWS_SNAPSHOT_FILENAME: Final[str] = "news_dashboard_snapshot.json"
@@ -262,6 +264,11 @@ def _normalize_headline_card(headline: NewsHeadlineCard) -> NewsHeadlineCard:
         material_type=_normalize_text(headline.material_type) or headline.material_type.strip(),
         related_symbols=_dedupe_symbols(headline.related_symbols),
         inferred_symbols=_dedupe_symbols(headline.inferred_symbols),
+        macro_proxy_symbols=_dedupe_symbols(headline.macro_proxy_symbols),
+        symbol_matches=_normalize_symbol_matches(
+            headline.symbol_matches,
+            limit=MAX_SYMBOL_MATCHES_PER_NEWS,
+        ),
         is_official_source=headline.is_official_source,
         ai_comment=_truncate_optional_text(headline.ai_comment, MAX_AI_COMMENT_CHARS),
         investment_checkpoints=_limit_text_items(
@@ -286,6 +293,36 @@ def _normalize_heatmap_cell(cell: NewsHeatmapCell) -> NewsHeatmapCell:
         heat_score=cell.heat_score,
         dominant_material_type=_normalize_optional_text(cell.dominant_material_type),
     )
+
+
+def _normalize_symbol_matches(
+    matches: Iterable[NewsSymbolMatch],
+    *,
+    limit: int,
+) -> list[NewsSymbolMatch]:
+    result: list[NewsSymbolMatch] = []
+    seen: set[tuple[str, str]] = set()
+    for match in matches:
+        if len(result) >= limit:
+            break
+        normalized_symbol = match.symbol.strip().upper()
+        if not normalized_symbol:
+            continue
+        key = (normalized_symbol, match.kind)
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(
+            match.model_copy(
+                update={
+                    "symbol": normalized_symbol,
+                    "name": _normalize_optional_text(match.name),
+                    "evidence_text": _truncate_optional_text(match.evidence_text, 120),
+                    "reason": _truncate_optional_text(match.reason, 160),
+                }
+            )
+        )
+    return result
 
 
 def _limit_text_items(

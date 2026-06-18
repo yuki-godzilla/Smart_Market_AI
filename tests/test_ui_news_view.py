@@ -8,6 +8,7 @@ from backend.news import (
 )
 from ui.views.news import (
     _news_ticker_html,
+    news_card_market_proxy_symbols,
     news_card_symbol_handoff_groups,
     news_dashboard_cockpit_href,
     news_dashboard_handoff_symbols,
@@ -242,6 +243,24 @@ def test_news_card_symbol_handoff_groups_keep_direct_until_high_count():
             "本文に出た銘柄",
             ["NVDA", "TSM", "ASML", "AMD", "AVGO", "AAPL", "MSFT", "AMZN"],
         )
+    ]
+
+
+def test_news_card_market_proxy_symbols_stay_out_of_cockpit_handoff_groups():
+    card = NewsHeadlineCard(
+        title="Rates and FX summary",
+        source_type="news",
+        category="為替・金利",
+        material_type="macro",
+        related_symbols=["JPM"],
+        inferred_symbols=["BAC"],
+        macro_proxy_symbols=["TLT", "SPY", "QQQ", "USDJPY", "US10Y", "JPM"],
+    )
+
+    assert news_card_market_proxy_symbols(card) == ["TLT", "SPY", "QQQ", "USDJPY", "US10Y"]
+    assert news_card_symbol_handoff_groups(card) == [
+        ("本文に出た銘柄", ["JPM"]),
+        ("SMAI推測候補", ["BAC"]),
     ]
 
 

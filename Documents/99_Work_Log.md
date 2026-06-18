@@ -2773,3 +2773,31 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 ### Next
 
 - If user-facing wording still exposes `requires_external_opt_in` in low-level provider metadata rows, consider renaming that diagnostic field in a separate UX-safe slice.
+
+## 2026-06-18 - Investment Radar Symbol Extraction v2
+
+### Scope
+
+- added classified news symbol evidence with `NewsSymbolMatch`, confidence, `macro_proxy_symbols`, and future LLM-gateway request / response contracts for symbol recheck.
+- split Investment Radar extraction into direct text mentions, conditional SMAI inferred candidates, and market confirmation indicators.
+- changed macro categories such as `為替・金利` / `米国株` so generic rates / FX / market-summary articles show TLT / SPY / QQQ / USDJPY / US10Y as market confirmation indicators instead of surfacing JPM / 8306.T / REIT ETFs from category seeds.
+- kept bank and REIT context conditional: JPM can be direct when JPMorgan appears, bank candidates appear only with bank context, and REIT context can surface 1488.T as a market proxy.
+- updated the Streamlit Investment Radar card handoff so market confirmation indicators are caption-only and do not become Symbol Cockpit buttons.
+- updated demo news data, cache normalization, roadmap, and project context for the new symbol extraction behavior.
+
+### Boundary
+
+- no Ranking, Forecast, Investment Score, Research Score, LLM Factor scoring, or Gateway runtime call behavior changed.
+- the LLM-gateway portion is schema/boundary only; normal news extraction remains deterministic and network-free in tests.
+- macro proxies are background confirmation indicators, not buy/sell/hold guidance and not ranking inputs.
+
+### Validation
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_news_dashboard_service.py tests\test_ui_news_view.py tests\test_news_cache_limits.py -q` with 457 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check backend\news\contracts.py backend\news\sources.py backend\news\cache.py backend\news\dashboard.py backend\news\__init__.py ui\views\news.py tests\test_news_dashboard_service.py tests\test_ui_news_view.py tests\test_news_cache_limits.py --no-cache`.
+- passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py`.
+- note: pytest emitted local `.pytest_cache` permission warnings, but all targeted tests passed.
+
+### Next
+
+- If needed, extend Phase 24B with source reliability / impact horizon / Watchlist prioritization, then decide separately whether LLM-gateway should perform optional low-confidence symbol rechecks.

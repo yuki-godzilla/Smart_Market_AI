@@ -3559,6 +3559,71 @@ div[data-testid="stChatInput"] textarea:focus {
     color: var(--text-primary);
 }
 
+.smai-copilot-action-confirm,
+.smai-copilot-action-result {
+    border: 1px solid rgba(45, 212, 191, 0.22);
+    border-radius: 8px;
+    background: rgba(8, 47, 73, 0.24);
+    margin: 0.72rem auto 0;
+    max-width: 1180px;
+    padding: 0.78rem 0.88rem;
+}
+
+.smai-copilot-action-confirm h4,
+.smai-copilot-action-result h4 {
+    color: var(--text-primary);
+    font-size: 0.92rem;
+    letter-spacing: 0;
+    margin: 0.18rem 0 0.42rem;
+}
+
+.smai-copilot-action-confirm p,
+.smai-copilot-action-result p,
+.smai-copilot-action-result small {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    margin: 0.28rem 0;
+}
+
+.smai-copilot-action-confirm strong,
+.smai-copilot-action-result strong,
+.smai-copilot-action-result > span {
+    color: var(--smai-teal);
+    font-size: 0.76rem;
+    font-weight: 820;
+}
+
+.smai-copilot-action-confirm ul,
+.smai-copilot-action-result ul {
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    line-height: 1.48;
+    margin: 0.3rem 0 0.52rem;
+    padding-left: 1.08rem;
+}
+
+.smai-copilot-action-result {
+    margin-top: 0.78rem;
+}
+
+.smai-copilot-action-result--failed,
+.smai-copilot-action-result--validation_error,
+.smai-copilot-action-result--not_available {
+    border-color: rgba(251, 113, 133, 0.34);
+    background: rgba(127, 29, 29, 0.18);
+}
+
+.smai-copilot-action-result--cancelled,
+.smai-copilot-action-result--skipped {
+    border-color: rgba(148, 163, 184, 0.32);
+    background: rgba(15, 23, 42, 0.28);
+}
+
+.smai-copilot-action-result-error {
+    color: #fecdd3 !important;
+}
+
 .smai-copilot-response-meta {
     margin-top: 0.56rem;
 }

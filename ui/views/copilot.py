@@ -6,7 +6,7 @@ import json
 import os
 import time
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal, Mapping, cast
 from urllib.parse import urlencode
@@ -16,6 +16,8 @@ import httpx
 import streamlit as st
 
 from backend.assistant import (
+    AssistantActionExecutor,
+    AssistantActionResult,
     AssistantMessage,
     AssistantResearchContextBundle,
     AssistantResearchToolPlan,
@@ -26,6 +28,7 @@ from backend.assistant import (
     assistant_research_bundle_to_decision_report_context,
     assistant_tool_results_from_external_research_failure,
     assistant_tool_results_from_external_research_fetch,
+    build_assistant_action_audit_entry,
     build_assistant_context,
     build_assistant_research_context_bundle,
     build_assistant_research_tool_plan,
@@ -54,6 +57,8 @@ from ui.components.assistant import (
     assistant_context_to_report_context,
     assistant_response_for_context,
 )
+from ui.components.assistant_action_confirm import assistant_action_confirmation_html
+from ui.components.assistant_action_result import assistant_action_result_card_html
 from ui.components.mascot import (
     MASCOT_NAVI_CHAT_ASSET,
     MASCOT_THUMB_ASSET,
@@ -78,6 +83,8 @@ COPILOT_LLM_MODEL_RADIO_STATE_KEY = "smai_copilot_llm_model_radio"
 COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY = "smai_copilot_gateway_diagnostic"
 COPILOT_RUNTIME_STATUS_STATE_KEY = "smai_copilot_runtime_status"
 COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY = "pending_decision_report_draft"
+COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY = "smai_copilot_pending_action_confirm"
+COPILOT_ACTION_AUDIT_STATE_KEY = "smai_copilot_action_audit"
 COPILOT_GATEWAY_DIAGNOSTIC_TTL_SECONDS = 20.0
 COPILOT_STREAM_DELAY_SECONDS = 0.16
 COPILOT_STREAM_MAX_CHUNKS = 8
@@ -977,11 +984,13 @@ def copilot_history_messages(
 def copilot_answer_detail_html(turn: dict[str, str]) -> str:
     intent = _normalize_intent(turn.get("intent", ""))
     tool_plan_panel = _assistant_tool_plan_panel_html(turn)
+    action_results = _assistant_action_results_panel_html(turn)
     if _is_llm_micro_intent(intent):
-        return tool_plan_panel + _assistant_action_links_html(turn)
+        return action_results + tool_plan_panel + _assistant_action_links_html(turn)
     if str(turn.get("hide_answer_grid", "")).lower() == "true":
         return (
             _execution_result_html(turn)
+            + action_results
             + tool_plan_panel
             + _response_meta_html(turn)
             + _assistant_action_links_html(turn)
@@ -1000,6 +1009,7 @@ def copilot_answer_detail_html(turn: dict[str, str]) -> str:
                 )
             )
             + _execution_result_html(turn)
+            + action_results
             + tool_plan_panel
             + _response_meta_html(turn)
             + _assistant_action_links_html(turn)
@@ -1015,6 +1025,7 @@ def copilot_answer_detail_html(turn: dict[str, str]) -> str:
         f"{_block_html(titles[3], _list_html(_split_lines(turn.get('memo_points', '')))) if len(titles) == 4 else ''}"
         "</div>"
         f"{_execution_result_html(turn)}"
+        f"{action_results}"
         f"{tool_plan_panel}"
         f"{_response_meta_html(turn)}"
         f"{_assistant_action_links_html(turn)}"
@@ -1075,6 +1086,7 @@ def render_copilot_workspace_page() -> None:
         st.session_state.pop(COPILOT_RUNTIME_STATUS_STATE_KEY, None)
         st.session_state.pop(COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY, None)
         st.session_state.pop(COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY, None)
+        st.session_state.pop(COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY, None)
         st.rerun()
 
     chat_placeholder = st.empty()
@@ -1096,6 +1108,12 @@ def render_copilot_workspace_page() -> None:
         context_by_id=context_by_id,
         fallback_context=contexts[0],
         runtime_config=runtime_config,
+    ):
+        st.rerun()
+    if _render_confirmable_assistant_action(
+        _copilot_history(),
+        context_by_id=context_by_id,
+        fallback_context=contexts[0],
     ):
         st.rerun()
     if _render_decision_report_draft_action(_copilot_history()):
@@ -1592,6 +1610,299 @@ def _render_tool_plan_actions(
                 )
                 return True
     return False
+
+
+def _render_confirmable_assistant_action(
+    history: list[dict[str, str]],
+    *,
+    context_by_id: dict[str, SmaiAssistantContext],
+    fallback_context: SmaiAssistantContext,
+) -> bool:
+    pending = st.session_state.get(COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY)
+    if isinstance(pending, dict):
+        turn = _turn_by_id(history, str(pending.get("turn_id", "")))
+        action_id = str(pending.get("action_id", "")).strip()
+        if turn is None or not action_id:
+            st.session_state.pop(COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY, None)
+            return True
+        return _render_assistant_action_confirmation(
+            turn,
+            action_id=action_id,
+            context_by_id=context_by_id,
+            fallback_context=fallback_context,
+        )
+
+    candidate = _latest_confirmable_assistant_action_turn(history)
+    if candidate is None:
+        return False
+    turn, action_id = candidate
+    action = get_assistant_action(action_id)
+    if action is None:
+        return False
+    st.markdown(
+        '<div class="smai-copilot-chat-actions-anchor" aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
+    _, action_col = st.columns([0.62, 0.38], gap="small")
+    with action_col:
+        if st.button(
+            f"{action.label}を確認",
+            key=f"smai_copilot_confirm_action_{action_id}_{turn.get('turn_id', '')}",
+            use_container_width=True,
+            help="実行前に対象、使用材料、変更しないものを確認します。",
+        ):
+            st.session_state[COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY] = {
+                "turn_id": str(turn.get("turn_id", "")),
+                "action_id": action_id,
+            }
+            return True
+    return False
+
+
+def _render_assistant_action_confirmation(
+    turn: dict[str, str],
+    *,
+    action_id: str,
+    context_by_id: dict[str, SmaiAssistantContext],
+    fallback_context: SmaiAssistantContext,
+) -> bool:
+    action = get_assistant_action(action_id)
+    if action is None:
+        st.session_state.pop(COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY, None)
+        return True
+    context = context_by_id.get(str(turn.get("context_id", "")), fallback_context)
+    st.markdown(
+        assistant_action_confirmation_html(
+            action=action,
+            target_label=_assistant_action_target_label(turn, context),
+            materials=_assistant_action_materials(context),
+        ),
+        unsafe_allow_html=True,
+    )
+    execute_col, cancel_col = st.columns(2, gap="small")
+    with execute_col:
+        if st.button(
+            "作成する",
+            key=f"smai_copilot_execute_action_{action_id}_{turn.get('turn_id', '')}",
+            use_container_width=True,
+        ):
+            result = _execute_confirmed_assistant_action(
+                turn,
+                action_id=action_id,
+                context=context,
+            )
+            _record_assistant_action_result(
+                turn_id=str(turn.get("turn_id", "")),
+                result=result,
+                context=context,
+                confirmed=True,
+            )
+            st.session_state.pop(COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY, None)
+            return True
+    with cancel_col:
+        if st.button(
+            "キャンセル",
+            key=f"smai_copilot_cancel_action_{action_id}_{turn.get('turn_id', '')}",
+            use_container_width=True,
+        ):
+            result = _cancelled_assistant_action_result(action_id)
+            _record_assistant_action_result(
+                turn_id=str(turn.get("turn_id", "")),
+                result=result,
+                context=context,
+                confirmed=False,
+            )
+            st.session_state.pop(COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY, None)
+            return True
+    return False
+
+
+def _execute_confirmed_assistant_action(
+    turn: dict[str, str],
+    *,
+    action_id: str,
+    context: SmaiAssistantContext,
+) -> AssistantActionResult:
+    backend_context = _assistant_backend_context_for_ui_context(
+        context=context,
+        question=str(turn.get("question", "")),
+    )
+    return AssistantActionExecutor().execute(
+        action_id,
+        backend_context,
+        payload={
+            "report_context": assistant_context_to_report_context(context),
+            "user_question": str(turn.get("question", "")),
+            "assistant_answer": str(turn.get("answer", "")),
+            "symbol": str(turn.get("decision_report_symbol", "")),
+            "company_name": str(turn.get("decision_report_company_name", "")),
+        },
+        confirmed=True,
+    )
+
+
+def _cancelled_assistant_action_result(action_id: str) -> AssistantActionResult:
+    now = datetime.now(UTC)
+    action = get_assistant_action(action_id)
+    label = action.label if action is not None else "操作"
+    return AssistantActionResult(
+        action_id=action_id,
+        status="cancelled",
+        title=f"{label}をキャンセルしました",
+        summary="ユーザー操作により、実行前にキャンセルしました。",
+        user_message="この操作ではデータ取得、レポート作成、スコア変更は行っていません。",
+        started_at=now,
+        completed_at=now,
+        followup_actions=["summarize_next_checks"],
+    )
+
+
+def _record_assistant_action_result(
+    *,
+    turn_id: str,
+    result: AssistantActionResult,
+    context: SmaiAssistantContext,
+    confirmed: bool,
+) -> None:
+    action = get_assistant_action(result.action_id)
+    backend_context = _assistant_backend_context_for_ui_context(
+        context=context,
+        question="",
+    )
+    audit = build_assistant_action_audit_entry(
+        result=result,
+        action=action,
+        context=backend_context,
+        confirmed=confirmed,
+    )
+    audit_log = st.session_state.get(COPILOT_ACTION_AUDIT_STATE_KEY)
+    if not isinstance(audit_log, list):
+        audit_log = []
+    audit_log.append(audit.model_dump(mode="json"))
+    st.session_state[COPILOT_ACTION_AUDIT_STATE_KEY] = audit_log[-50:]
+
+    history = _copilot_history()
+    next_history: list[dict[str, str]] = []
+    for item in history:
+        if str(item.get("turn_id", "")) != turn_id:
+            next_history.append(item)
+            continue
+        updated = dict(item)
+        updated["assistant_action_results"] = _append_action_result_state(
+            str(updated.get("assistant_action_results", "")),
+            result,
+        )
+        if result.status == "success" and result.action_id == "create_decision_report":
+            _attach_action_decision_report_draft(updated, result)
+        next_history.append(updated)
+    st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = next_history
+    if result.status == "success" and result.action_id == "create_decision_report":
+        updated_turn = _turn_by_id(_copilot_history(), turn_id)
+        if updated_turn is not None:
+            _store_pending_decision_report_draft(
+                updated_turn,
+                action_label="確認レポートを作る",
+            )
+
+
+def _attach_action_decision_report_draft(
+    turn: dict[str, str],
+    result: AssistantActionResult,
+) -> None:
+    raw_context = str(result.details.get("report_context_json", "") or "").strip()
+    markdown = str(result.details.get("report_markdown", "") or "").strip()
+    if not raw_context or not markdown:
+        return
+    try:
+        context = DecisionReportContext.model_validate_json(raw_context)
+    except ValueError:
+        return
+    _attach_decision_report_context_to_turn(
+        turn,
+        context=context,
+        markdown=markdown,
+        source="assistant_action_execution",
+    )
+
+
+def _append_action_result_state(value: str, result: AssistantActionResult) -> str:
+    items = _assistant_action_results_from_state(value)
+    items.append(result.model_dump(mode="json"))
+    return json.dumps(items[-5:], ensure_ascii=False)
+
+
+def _latest_confirmable_assistant_action_turn(
+    history: list[dict[str, str]],
+) -> tuple[dict[str, str], str] | None:
+    for turn in reversed(history):
+        if str(turn.get("status", "")) != "complete":
+            continue
+        action_id = _first_confirmable_action_id(turn)
+        if not action_id:
+            continue
+        if _turn_has_action_result(turn, action_id):
+            continue
+        return turn, action_id
+    return None
+
+
+def _first_confirmable_action_id(turn: dict[str, str]) -> str:
+    plan = _assistant_tool_plan_dict(turn)
+    steps = plan.get("steps")
+    if not isinstance(steps, list):
+        return ""
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        action_id = str(step.get("action_id", "")).strip()
+        if action_id != "create_decision_report":
+            continue
+        if not bool(step.get("requires_confirmation")):
+            continue
+        return action_id
+    return ""
+
+
+def _turn_has_action_result(turn: dict[str, str], action_id: str) -> bool:
+    for result in _assistant_action_results_from_state(
+        str(turn.get("assistant_action_results", ""))
+    ):
+        if str(result.get("action_id", "")) == action_id:
+            return True
+    return False
+
+
+def _turn_by_id(
+    history: list[dict[str, str]],
+    turn_id: str,
+) -> dict[str, str] | None:
+    return next((turn for turn in history if str(turn.get("turn_id", "")) == turn_id), None)
+
+
+def _assistant_action_target_label(
+    turn: dict[str, str],
+    context: SmaiAssistantContext,
+) -> str:
+    symbol = (
+        str(turn.get("decision_report_symbol", "")).strip()
+        or str(context.summary.get("銘柄", "")).strip()
+        or str(context.summary.get("symbol", "")).strip()
+    )
+    company = (
+        str(turn.get("decision_report_company_name", "")).strip()
+        or str(context.summary.get("会社名", "")).strip()
+    )
+    if symbol and company:
+        return f"{symbol} - {company}"
+    if symbol:
+        return symbol
+    return copilot_context_label(context)
+
+
+def _assistant_action_materials(context: SmaiAssistantContext) -> tuple[str, ...]:
+    return tuple(
+        f"{label}: {value}" for label, value in _material_status(context) if label != "LLM"
+    )
 
 
 def _render_decision_report_draft_action(history: list[dict[str, str]]) -> bool:
@@ -2932,6 +3243,7 @@ def _turn_from_response(
         "decision_report_source": "",
         "decision_report_symbol": "",
         "decision_report_company_name": "",
+        "assistant_action_results": "",
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "assistant_tool_plan": assistant_tool_plan,
     }
@@ -2942,6 +3254,32 @@ def _assistant_tool_plan_state(
     context: SmaiAssistantContext,
     question: str,
 ) -> str:
+    assistant_context = _assistant_backend_context_for_ui_context(
+        context=context,
+        question=question,
+    )
+    plan = build_deterministic_assistant_tool_plan(assistant_context)
+    validation = validate_assistant_tool_plan(plan)
+    if not validation.valid:
+        plan = plan.model_copy(
+            update={
+                "generated_by": "fallback",
+                "warnings": [
+                    *plan.warnings,
+                    "Tool Planを安全側に検証しました。表示できない操作は実行しません。",
+                ],
+            }
+        )
+    elif validation.warnings:
+        plan = plan.model_copy(update={"warnings": [*plan.warnings, *validation.warnings]})
+    return plan.model_dump_json()
+
+
+def _assistant_backend_context_for_ui_context(
+    *,
+    context: SmaiAssistantContext,
+    question: str,
+):
     material_state = {
         _material_state_key(label): value
         for label, value in _material_status(context)
@@ -2962,21 +3300,30 @@ def _assistant_tool_plan_state(
         report_context=assistant_context_to_report_context(context),
         metadata={"ui_context_id": context.context_id},
     )
-    plan = build_deterministic_assistant_tool_plan(assistant_context)
-    validation = validate_assistant_tool_plan(plan)
-    if not validation.valid:
-        plan = plan.model_copy(
-            update={
-                "generated_by": "fallback",
-                "warnings": [
-                    *plan.warnings,
-                    "Tool Planを安全側に検証しました。表示できない操作は実行しません。",
-                ],
-            }
-        )
-    elif validation.warnings:
-        plan = plan.model_copy(update={"warnings": [*plan.warnings, *validation.warnings]})
-    return plan.model_dump_json()
+    return assistant_context
+
+
+def _assistant_tool_plan_dict(turn: dict[str, str]) -> dict[str, object]:
+    value = str(turn.get("assistant_tool_plan", "")).strip()
+    if not value:
+        return {}
+    try:
+        plan = json.loads(value)
+    except json.JSONDecodeError:
+        return {}
+    return plan if isinstance(plan, dict) else {}
+
+
+def _assistant_action_results_from_state(value: str) -> list[dict[str, object]]:
+    if not value.strip():
+        return []
+    try:
+        raw = json.loads(value)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(raw, list):
+        return []
+    return [item for item in raw if isinstance(item, dict)]
 
 
 def _material_state_key(label: str) -> str:
@@ -3771,6 +4118,16 @@ def _execution_result_html(turn: dict[str, str]) -> str:
         f"<ul>{items}</ul>"
         "</section>"
     )
+
+
+def _assistant_action_results_panel_html(turn: dict[str, str]) -> str:
+    cards: list[str] = []
+    for item in _assistant_action_results_from_state(str(turn.get("assistant_action_results", ""))):
+        try:
+            cards.append(assistant_action_result_card_html(item))
+        except ValueError:
+            continue
+    return "".join(cards)
 
 
 def _response_meta_html(turn: dict[str, str]) -> str:

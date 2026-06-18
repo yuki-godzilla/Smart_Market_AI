@@ -3108,3 +3108,37 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_assistant_tool_plan.py tests\test_ui_assistant_navigation.py -q` with 4 passed.
 - passed: `.\venv_SMAI\Scripts\python.exe -m ruff check ui\app.py ui\views\copilot.py tests\test_ui_assistant_tool_plan.py tests\test_ui_assistant_navigation.py --no-cache`.
+
+## 2026-06-19 Phase 30-C - Assistant Confirmable Safe Actions MVP
+
+### Summary
+
+- Added Assistant Action Execution Layer with `AssistantActionExecutor`.
+- Added `AssistantActionResult` and minimal `AssistantActionAuditEntry`.
+- Connected `create_decision_report` as the first safe executable Assistant action.
+- Added SMAIアシスタント confirmation UI for `create_decision_report`.
+- Added chat-thread action result cards for success / failed / skipped / cancelled / not_available outcomes.
+- Successful report creation now feeds the existing Decision Report draft preview, Markdown download, ZIP download, and local archive save flow.
+- `update_research`, `refresh_news`, and `create_ranking` remain planned follow-up actions and return safe not-available results if called through the executor.
+
+### Safety
+
+- No action is executed without user confirmation.
+- `create_decision_report` performs no external fetch.
+- Ranking score, Forecast, Investment Score, AI総合, LLM Factor integration, and Research Score integration were not changed.
+- No broker or trade execution integration was added.
+- Audit metadata is session-local and stores action id, action type, confirmation flag, status, page context, symbol, timestamps, and error code only.
+
+### Docs
+
+- Updated `PROJECT_CONTEXT.md`, `Documents/05_Implementation_Roadmap.md`, `Documents/30_Assistant_Agent_Roadmap.md`, and `Documents/97_Functional_Spec_Issues.md` to align Phase 30-A / 30-B / 30-C status.
+
+### Tests
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_assistant_action_execution.py tests\test_ui_assistant_actions.py tests\test_ui_assistant_tool_plan.py -q` with 12 passed. Pytest emitted cache write warnings for `.pytest_cache` permission, but tests passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_assistant_action_execution.py tests\test_assistant_tools.py tests\test_assistant_tool_registry.py tests\test_assistant_context_builder.py tests\test_assistant_tool_plan.py tests\test_assistant_plan_validation.py tests\test_ui_assistant_actions.py tests\test_ui_assistant_tool_plan.py tests\test_ui_assistant_navigation.py -q -p no:cacheprovider --basetemp outputs\work\phase30c_pytest_tmp` with 38 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check backend\assistant ui\views\copilot.py ui\components\assistant_action_confirm.py ui\components\assistant_action_result.py tests\test_assistant_action_execution.py tests\test_ui_assistant_actions.py --no-cache`.
+- passed: targeted Black helper for changed Python files: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py backend\assistant ui\views\copilot.py ui\components\assistant_action_confirm.py ui\components\assistant_action_result.py tests\test_assistant_action_execution.py tests\test_ui_assistant_actions.py`.
+- passed: Markdown strict UTF-8 read.
+- passed: local Streamlit / Playwright smoke on `http://127.0.0.1:8522`: opened the app, clicked the side-menu `SMAIアシスタント`, and confirmed the assistant page, `新しい会話`, and `Decision Reportを作りたい` card rendered. No external fetch, Gateway request, ranking creation, report execution, or data-changing UI action was clicked.
+- note: full Black helper still reports pre-existing `tests\test_ui_forecast_display.py` would reformat; that file was not touched in this task.

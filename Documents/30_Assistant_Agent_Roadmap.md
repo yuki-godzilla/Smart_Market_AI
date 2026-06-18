@@ -28,11 +28,17 @@ Status: first MVP implemented. Navigation actions render same-app links using `s
 
 ## Phase 30-C: Confirmable Safe Actions
 
+- Action Execution Layer
+- `AssistantActionResult`
+- session-local action audit log
+- confirmation UI
+- action result card
+- 確認レポート作成
 - AI調査更新
 - ニュース更新
-- 確認レポート作成
 - ランキング作成
-- action audit log
+
+Status: first MVP implemented for `create_decision_report`. SMAIアシスタント now shows a confirmation panel before report creation, executes only after user confirmation, displays a success / failure / cancelled result card in the chat thread, and records minimal audit metadata in session state. This first slice does not run external fetch, ranking creation, score changes, forecast changes, or broker actions. `update_research`, `refresh_news`, and `create_ranking` remain follow-up actions.
 
 ## Phase 30-D: Multi-step Guided Workflow
 

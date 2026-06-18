@@ -5,7 +5,7 @@
 This file is the compact current-state summary for Smart Market AI.
 Historical work entries belong in [Documents/99_Work_Log.md](Documents/99_Work_Log.md).
 
-Last updated: 2026-06-18
+Last updated: 2026-06-19
 
 ## Project Summary
 
@@ -177,6 +177,7 @@ Partial or intentionally deferred:
 - Keep provider selection explicit and error messages understandable in UI.
 - Phase 30-A Assistant Tool Plan MVP is implemented as a proposal-only layer: `backend/assistant/context_builder.py` builds compact current-page/material context, `tool_registry.py` defines allowed action specs, `tool_plan.py` builds deterministic `AssistantToolPlan`, and `plan_validation.py` rejects unknown / unsafe / unconfirmed external actions. The `SMAIアシスタント` chat response now shows a separate `次にできること` panel with action labels, confirmation status, missing materials, warnings, and a non-advice safety note. No external fetch, ranking creation, report creation, score change, forecast change, or broker action is executed by this Phase 30-A plan display.
 - Phase 30-B confirmable navigation first MVP is implemented: navigation Tool Plan steps render same-app links for Ranking / Cockpit / News using the existing `smai_page` query param path, and `cockpit` can open without a symbol. Navigation links do not trigger AI Research refresh, ranking creation, report creation, external fetch, score changes, or forecast changes.
+- Phase 30-C Confirmable Safe Actions first MVP is implemented for `create_decision_report`: `AssistantActionExecutor`, `AssistantActionResult`, and minimal audit entries wrap user-confirmed action execution, the SMAIアシスタント UI shows an execution confirmation panel and action result card, and successful report creation feeds the existing Decision Report draft preview / save flow. `update_research`, `refresh_news`, and `create_ranking` remain not-yet-connected follow-up actions and return safe not-available results from the executor. No external fetch, ranking creation, score change, forecast change, AI総合 change, or broker action is performed by this slice.
 
 ## Known Documentation Rules
 

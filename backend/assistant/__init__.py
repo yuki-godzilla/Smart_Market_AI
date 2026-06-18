@@ -1,3 +1,13 @@
+from backend.assistant.action_audit import (
+    AssistantActionAuditEntry,
+    build_assistant_action_audit_entry,
+)
+from backend.assistant.action_execution import AssistantActionExecutor
+from backend.assistant.action_result import (
+    ActionExecutionStatus,
+    AssistantActionResult,
+    safe_action_error_message,
+)
 from backend.assistant.context_builder import (
     SMAIAssistantContext,
     build_assistant_context,
@@ -94,6 +104,10 @@ __all__ = [
     "ASSISTANT_TOOL_PLAN_PROMPT_VERSION",
     "ASSISTANT_TOOL_PLAN_SAFETY_NOTE",
     "ASSISTANT_TOOL_PLAN_SCHEMA_VERSION",
+    "ActionExecutionStatus",
+    "AssistantActionAuditEntry",
+    "AssistantActionExecutor",
+    "AssistantActionResult",
     "AssistantActionSpec",
     "AssistantContextBundle",
     "AssistantContextSection",
@@ -142,6 +156,7 @@ __all__ = [
     "assistant_tool_results_from_external_research_fetch",
     "build_assistant_context_bundle",
     "build_assistant_gateway_request",
+    "build_assistant_action_audit_entry",
     "build_assistant_context",
     "build_deterministic_assistant_tool_plan",
     "build_assistant_research_context_bundle",
@@ -153,5 +168,6 @@ __all__ = [
     "get_assistant_action",
     "render_research_bundle_markdown_memo",
     "route_assistant_conversation_mode",
+    "safe_action_error_message",
     "validate_assistant_tool_plan",
 ]

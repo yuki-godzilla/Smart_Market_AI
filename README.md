@@ -130,11 +130,11 @@ SMAI は以下の思想を重視しています。
 - Phase 24A: `SMAI LLM Factor` の schema、deterministic fake / cache、Cockpit / Ranking 参考表示、validation foundation は実装済み
 - Phase 27-A / 27-B: LLM Factor live generation MVP と確認導線は実装済み。Gateway endpoint、親SMAI context builder / HTTP adapter / validation / fallback、Cockpit `AI材料分析` 参考表示、live smoke 設定例、Playwright panel smoke、validation深化を追加。モデル統合可否判断は後続
 - Phase 28-A: Cockpit LLM Interpretation MVP は実装済み。Phase 28-B以降で Ranking / Radar / News / Decision Report への LLM 解釈展開、Decision Report草案、LLM Factor validation and gradual model integration を段階的に扱う
-- Phase 30-A: SMAI Assistant Tool Plan MVP は実装済み。現在画面 context、Action Catalog、deterministic Tool Plan、Plan Validation、`次にできること` 表示を追加し、外部取得・ランキング作成・確認レポート作成は確認前提の提案に留める
+- Phase 30-A / 30-B: SMAI Assistant Tool Plan MVP と navigation MVP は実装済み。現在画面 context、Action Catalog、deterministic Tool Plan、Plan Validation、`次にできること` 表示、Ranking / Cockpit / News への同一アプリ内リンクを追加し、外部取得・ランキング作成・確認レポート作成は確認前提の提案に留める
 - Phase 31: advanced export、Execution gate の順に整理
 - Execution / broker order: Decision Report と risk/audit 境界が固まるまで低優先度
 
-次の重点は Phase 30-B 以降の Assistant confirmable navigation / safe action 接続、または Phase 28-B 以降の LLM 解釈拡張を、既存の Assistant / LLM Factor / Decision Report 境界を壊さずに段階化することです。Phase 30-A の Tool Plan は提案表示であり、外部取得・ランキング作成・確認レポート作成を自動実行しません。早期段階では LLM が Ranking score、AI総合、Forecast、Investment Score、投資判断を直接変更しません。通常 checks は引き続き fake adapter / fixture で network 非依存を維持します。実 Gateway / Ollama smoke は明示 opt-in で分離します。
+次の重点は Phase 30-C の Assistant confirmable safe action 接続、または Phase 28-B 以降の LLM 解釈拡張を、既存の Assistant / LLM Factor / Decision Report 境界を壊さずに段階化することです。Phase 30-A / 30-B の Tool Plan は提案表示と安全な画面遷移であり、外部取得・ランキング作成・確認レポート作成を自動実行しません。早期段階では LLM が Ranking score、AI総合、Forecast、Investment Score、投資判断を直接変更しません。通常 checks は引き続き fake adapter / fixture で network 非依存を維持します。実 Gateway / Ollama smoke は明示 opt-in で分離します。
 詳細は [実装ロードマップ](./Documents/05_Implementation_Roadmap.md) を参照してください。
 
 ## ドキュメント

@@ -176,6 +176,7 @@ Partial or intentionally deferred:
 - 2026-06-04 documentation sync before Phase 22.x clarified the current implementation boundary across README / roadmap / operations / review docs: news cache and symbol DB refresh foundations are implemented, Assistant has backend deterministic service only, and the next product slice was the independent Investment News UI with fake fixture regression.
 - Keep provider selection explicit and error messages understandable in UI.
 - Phase 30-A Assistant Tool Plan MVP is implemented as a proposal-only layer: `backend/assistant/context_builder.py` builds compact current-page/material context, `tool_registry.py` defines allowed action specs, `tool_plan.py` builds deterministic `AssistantToolPlan`, and `plan_validation.py` rejects unknown / unsafe / unconfirmed external actions. The `SMAIアシスタント` chat response now shows a separate `次にできること` panel with action labels, confirmation status, missing materials, warnings, and a non-advice safety note. No external fetch, ranking creation, report creation, score change, forecast change, or broker action is executed by this Phase 30-A plan display.
+- Phase 30-B confirmable navigation first MVP is implemented: navigation Tool Plan steps render same-app links for Ranking / Cockpit / News using the existing `smai_page` query param path, and `cockpit` can open without a symbol. Navigation links do not trigger AI Research refresh, ranking creation, report creation, external fetch, score changes, or forecast changes.
 
 ## Known Documentation Rules
 

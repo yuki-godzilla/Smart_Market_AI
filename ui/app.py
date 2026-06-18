@@ -1698,6 +1698,8 @@ def _apply_navigation_query_params() -> None:
             _clear_navigation_query_params(params, (NEWS_COCKPIT_QUERY_PAGE_PARAM,))
         return
     if not symbol:
+        if _apply_sidemenu_page_query(page):
+            _clear_navigation_query_params(params, (NEWS_COCKPIT_QUERY_PAGE_PARAM,))
         return
     _select_news_symbol_for_cockpit(symbol.upper())
     _clear_navigation_query_params(
@@ -1711,6 +1713,7 @@ def _apply_sidemenu_page_query(page: str) -> bool:
     if page_key not in {
         SIDEMENU_PAGE_NEWS,
         SIDEMENU_PAGE_COPILOT,
+        SIDEMENU_PAGE_COCKPIT,
         SIDEMENU_PAGE_RANKING,
         SIDEMENU_PAGE_REBALANCE,
         SIDEMENU_PAGE_SETTINGS,

@@ -24,6 +24,8 @@ SMAI Assistant のエージェント化ロードマップです。
 - 実行前確認 UI
 - action result 表示
 
+Status: first MVP implemented. Navigation actions render same-app links using `smai_page` query params. They do not run external fetch, ranking creation, or report creation.
+
 ## Phase 30-C: Confirmable Safe Actions
 
 - AI調査更新

@@ -3094,3 +3094,17 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_assistant_tool_registry.py tests\test_assistant_context_builder.py tests\test_assistant_tool_plan.py tests\test_assistant_plan_validation.py tests\test_ui_assistant_tool_plan.py -q` with 14 passed.
 - passed: `.\venv_SMAI\Scripts\python.exe -m ruff check backend\assistant ui\views\copilot.py tests\test_assistant_tool_registry.py tests\test_assistant_context_builder.py tests\test_assistant_tool_plan.py tests\test_assistant_plan_validation.py tests\test_ui_assistant_tool_plan.py --no-cache`.
+
+## 2026-06-19 Phase 30-B - Assistant Confirmable Navigation Actions
+
+### Summary
+
+- Added same-app navigation links to Assistant Tool Plan navigation actions.
+- Connected `open_ranking`, `open_cockpit`, `open_symbol_from_ranking`, `open_news_radar`, `open_macro_news`, and `open_symbol_related_news` to `smai_page` query params.
+- Allowed `smai_page=cockpit` to open the cockpit without requiring a symbol.
+- Kept data fetch, ranking creation, report creation, RAG execution, score changes, and forecast changes out of navigation actions.
+
+### Tests
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_assistant_tool_plan.py tests\test_ui_assistant_navigation.py -q` with 4 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check ui\app.py ui\views\copilot.py tests\test_ui_assistant_tool_plan.py tests\test_ui_assistant_navigation.py --no-cache`.

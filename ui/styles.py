@@ -3539,6 +3539,26 @@ div[data-testid="stChatInput"] textarea:focus {
     font-size: 0.72rem;
 }
 
+.smai-copilot-tool-plan-link {
+    align-self: start;
+    border: 1px solid rgba(45, 212, 191, 0.32);
+    border-radius: 999px;
+    color: var(--smai-teal);
+    display: inline-flex;
+    font-size: 0.72rem;
+    font-weight: 760;
+    justify-self: start;
+    line-height: 1;
+    margin-top: 0.12rem;
+    padding: 0.34rem 0.56rem;
+    text-decoration: none;
+}
+
+.smai-copilot-tool-plan-link:hover {
+    background: rgba(45, 212, 191, 0.12);
+    color: var(--text-primary);
+}
+
 .smai-copilot-response-meta {
     margin-top: 0.56rem;
 }

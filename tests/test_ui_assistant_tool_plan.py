@@ -31,3 +31,28 @@ def test_copilot_answer_detail_html_renders_next_action_plan():
     assert "実行前確認" in markup
     assert "売買推奨ではありません" in markup
     assert "smai-copilot-tool-plan--next-actions" in markup
+
+
+def test_copilot_answer_detail_html_links_navigation_actions_only():
+    context = build_assistant_context(
+        current_page="assistant",
+        user_question="候補を探したい",
+    )
+    plan = build_deterministic_assistant_tool_plan(context)
+    turn = {
+        "intent": "app_help",
+        "answer": "次に開く画面を整理します。",
+        "reasons": "",
+        "cautions": "",
+        "next_checkpoints": "",
+        "memo_points": "",
+        "assistant_tool_plan": plan.model_dump_json(),
+    }
+
+    markup = copilot_answer_detail_html(turn)
+
+    assert "候補探しならランキングへ" in markup
+    assert 'href="?smai_page=ranking"' in markup
+    assert 'href="?smai_page=cockpit"' in markup
+    assert 'target="_self"' in markup
+    assert "ランキングを作成" not in markup

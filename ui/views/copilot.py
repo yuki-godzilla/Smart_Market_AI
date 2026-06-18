@@ -9,6 +9,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, Mapping, cast
+from urllib.parse import urlencode
 from uuid import uuid4
 
 import httpx
@@ -57,6 +58,11 @@ from ui.components.mascot import (
     MASCOT_NAVI_CHAT_ASSET,
     MASCOT_THUMB_ASSET,
     _asset_data_uri,
+)
+from ui.components.sidemenu import (
+    SIDEMENU_PAGE_COCKPIT,
+    SIDEMENU_PAGE_NEWS,
+    SIDEMENU_PAGE_RANKING,
 )
 from ui.research_state import fetch_external_research_for_symbol
 
@@ -3363,19 +3369,48 @@ def _assistant_tool_plan_step_html(step: object) -> str:
     title = str(step.get("title", "")).strip()
     summary = str(step.get("summary", "")).strip()
     action_id = str(step.get("action_id", "")).strip()
-    disabled_reason = str(step.get("disabled_reason", "")).strip()
+    disabled_reason = _clean_optional_tool_plan_text(step.get("disabled_reason"))
     requires_confirmation = bool(step.get("requires_confirmation"))
     action = get_assistant_action(action_id) if action_id else None
     action_label = action.label if action else action_id
     confirmation = "実行前確認" if requires_confirmation else "画面確認"
     disabled = f" / {disabled_reason}" if disabled_reason else ""
+    href = _assistant_tool_plan_navigation_href(action_id)
+    action_html = (
+        '<a class="smai-copilot-tool-plan-link" '
+        f'href="{html.escape(href, quote=True)}" target="_self">開く</a>'
+        if href and not disabled_reason
+        else ""
+    )
     return (
         "<li>"
         f"<b>{html.escape(title)}</b>"
         f"<span>{html.escape(summary)}</span>"
         f"<small>{html.escape(action_label)} / {html.escape(confirmation + disabled)}</small>"
+        f"{action_html}"
         "</li>"
     )
+
+
+def _clean_optional_tool_plan_text(value: object) -> str:
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def _assistant_tool_plan_navigation_href(action_id: str) -> str:
+    page_by_action = {
+        "open_ranking": SIDEMENU_PAGE_RANKING,
+        "open_cockpit": SIDEMENU_PAGE_COCKPIT,
+        "open_symbol_from_ranking": SIDEMENU_PAGE_COCKPIT,
+        "open_news_radar": SIDEMENU_PAGE_NEWS,
+        "open_macro_news": SIDEMENU_PAGE_NEWS,
+        "open_symbol_related_news": SIDEMENU_PAGE_NEWS,
+    }
+    page = page_by_action.get(action_id)
+    if not page:
+        return ""
+    return "?" + urlencode({"smai_page": page})
 
 
 def _assistant_tool_plan_inline_items(value: object, label: str) -> str:

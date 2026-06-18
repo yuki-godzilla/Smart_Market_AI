@@ -3005,3 +3005,27 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 - Phase 28-B Ranking interpretation, Radar / News interpretation, or Phase 29-B confirmation-report draft assistance can proceed next.
 - Continue keeping LLM Factor / interpretation outputs out of Ranking, Forecast, AI総合, and Investment Score until validation justifies a separate opt-in integration.
+
+## 2026-06-18 - Phase 29-B Cockpit pre-fetch header / search filter UI cleanup
+
+### Scope
+
+- replaced the Cockpit pre-fetch `銘柄候補フィルター` expander-first flow with a `銘柄を探す` header followed by provider, search, symbol selection, symbol detail, and company name controls.
+- added a `絞り込み条件` summary area with chips for region, NISA, product, active conditions, and candidate count.
+- kept detailed filters closed by default behind `絞り込み条件を変更`; the existing region, product, NISA, theme, market cap, beta, dividend/category, currency, dividend yield, PER, PBR, and ROE filters are still available.
+- hid the clear action when no filter condition is active, and kept filter behavior limited to the symbol candidate list.
+- reduced Cockpit page-title / assistant-card visual weight for the pre-fetch area.
+- kept date range controls, `データを取得`, post-fetch body, Ranking, Forecast, Investment Score, LLM Factor, Research, and scoring logic unchanged.
+- synchronized roadmap, operations guide, and project context.
+
+### Validation
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_forecast_display.py -q -k "cockpit_filter or symbol_candidate_labels or current_or_default_symbol_labels"` with 7 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check ui\app.py ui\styles.py tests\test_ui_forecast_display.py --no-cache`.
+- passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py`.
+- passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe outputs\work\phase29b_cockpit_prefetch_smoke\cockpit_prefetch_smoke.py`; confirmed initial chips, details-closed state, detail toggle, preserved `データを取得`, and screenshots under `outputs/work/phase29b_cockpit_prefetch_smoke/`.
+
+### Next
+
+- Phase 28-B Ranking interpretation, Phase 28-C/D Radar / News interpretation, or Phase 29-C confirmation-report draft assistance can proceed next.
+- Keep LLM Factor / interpretation outputs outside Ranking, Forecast, AI総合, and Investment Score until separate validation justifies opt-in integration.

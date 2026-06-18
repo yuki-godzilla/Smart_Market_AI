@@ -1907,6 +1907,119 @@ body,
     margin: 0.48rem 0 0;
 }
 
+.smai-page-title--copilot[data-mascot="cockpit"] {
+    grid-template-columns: minmax(22rem, 1fr) minmax(13rem, 17rem);
+    padding-top: 0.84rem;
+    padding-bottom: 0.82rem;
+}
+
+.smai-page-title--copilot[data-mascot="cockpit"] .smai-page-title-heading {
+    font-size: clamp(1.55rem, 2vw, 2rem);
+}
+
+.smai-page-title--copilot[data-mascot="cockpit"] .smai-page-title-subtitle {
+    margin-top: 0.42rem;
+    font-size: 0.9rem;
+}
+
+.smai-page-title--copilot[data-mascot="cockpit"] .smai-page-title-art {
+    width: clamp(4.4rem, 7vw, 6.6rem);
+    height: clamp(2.8rem, 4.7vw, 4.2rem);
+}
+
+.smai-page-title--copilot[data-mascot="cockpit"] .smai-copilot-panel {
+    grid-template-columns: 4.5rem minmax(0, 1fr);
+    gap: 0.58rem;
+    min-height: 5.85rem;
+    padding: 0.58rem 0.68rem;
+}
+
+.smai-page-title--copilot[data-mascot="cockpit"] .smai-copilot-figure {
+    min-width: 4.5rem;
+    height: 4.95rem;
+}
+
+.smai-page-title--copilot[data-mascot="cockpit"] .smai-copilot-aura {
+    width: 3.8rem;
+    height: 3.8rem;
+}
+
+.smai-page-title--copilot[data-mascot="cockpit"] .smai-copilot-image {
+    width: 4.15rem;
+    height: 4.95rem;
+}
+
+.smai-page-title--copilot[data-mascot="cockpit"] .smai-copilot-message {
+    margin-top: 0.36rem;
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+
+.smai-cockpit-prefetch-header,
+.smai-cockpit-filter-summary {
+    margin: 0.55rem 0 0.38rem;
+}
+
+.smai-cockpit-filter-summary {
+    border: 1px solid rgba(49, 66, 95, 0.62);
+    border-radius: 8px;
+    background: rgba(17, 31, 53, 0.28);
+    padding: 0.8rem 0.95rem;
+}
+
+.smai-cockpit-prefetch-heading {
+    color: var(--text-heading);
+    font-size: 0.98rem;
+    font-weight: 820;
+    line-height: 1.3;
+}
+
+.smai-cockpit-prefetch-caption {
+    color: var(--text-caption);
+    font-size: 0.83rem;
+    font-weight: 620;
+    line-height: 1.5;
+    margin: 0.22rem 0 0;
+}
+
+.smai-cockpit-filter-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.44rem;
+    margin-top: 0.58rem;
+}
+
+.smai-cockpit-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.72rem;
+    border: 1px solid rgba(49, 66, 95, 0.78);
+    border-radius: 999px;
+    background: rgba(7, 13, 25, 0.76);
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 720;
+    line-height: 1.25;
+    padding: 0.32rem 0.66rem;
+    white-space: nowrap;
+}
+
+.smai-cockpit-filter-chip--active {
+    border-color: rgba(34, 211, 238, 0.48);
+    background: rgba(8, 81, 104, 0.28);
+    color: var(--text-ai-primary);
+}
+
+.smai-cockpit-filter-chip--count {
+    border-color: rgba(96, 165, 250, 0.46);
+    background: rgba(29, 78, 216, 0.2);
+    color: var(--text-info);
+}
+
+.smai-cockpit-filter-detail-anchor {
+    height: 0.2rem;
+}
+
 .smai-floating-assistant {
     position: fixed;
     right: 0;

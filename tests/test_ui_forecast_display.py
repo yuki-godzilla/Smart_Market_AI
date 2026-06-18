@@ -196,6 +196,9 @@ from ui.app import (
     cockpit_decision_report_overview,
     cockpit_decision_report_summary_lines,
     cockpit_detail_summary_rows,
+    cockpit_filter_has_active_conditions_from_values,
+    cockpit_filter_summary_chips_from_values,
+    cockpit_filter_summary_chips_html,
     cockpit_filtered_symbol_rows,
     cockpit_investment_memo_rows,
     cockpit_period_evaluation_rows,
@@ -706,6 +709,54 @@ def test_cockpit_filtered_symbol_rows_default_keeps_full_candidate_master(monkey
         "8951.T",
         "MF-ACWI",
     ]
+
+
+def test_cockpit_filter_summary_chips_show_default_state():
+    chips = cockpit_filter_summary_chips_from_values(
+        dict(MARKET_DATA_COCKPIT_FILTER_DEFAULTS),
+        candidate_count=9197,
+    )
+
+    assert [chip["label"] for chip in chips] == [
+        "全体",
+        "NISA指定なし",
+        "商品指定なし",
+        "条件なし",
+        "候補 9197件",
+    ]
+    assert chips[-1]["tone"] == "count"
+    assert not cockpit_filter_has_active_conditions_from_values(
+        dict(MARKET_DATA_COCKPIT_FILTER_DEFAULTS)
+    )
+
+
+def test_cockpit_filter_summary_chips_show_active_conditions():
+    values = {
+        **MARKET_DATA_COCKPIT_FILTER_DEFAULTS,
+        "market_data_cockpit_region": "japan",
+        "market_data_cockpit_product_type": "stock",
+        "market_data_cockpit_nisa": "eligible",
+        "market_data_cockpit_market_cap": "large",
+        "market_data_cockpit_per_enabled": True,
+        "market_data_cockpit_per_min": "10.0",
+        "market_data_cockpit_per_max": "20.0",
+    }
+    chips = cockpit_filter_summary_chips_from_values(values, candidate_count=124)
+    labels = [chip["label"] for chip in chips]
+
+    assert labels[:3] == ["国内", "NISA対象", "株式"]
+    assert "規模: 大型" in labels
+    assert "PER 10-20" in labels
+    assert "条件なし" not in labels
+    assert labels[-1] == "候補 124件"
+    assert cockpit_filter_has_active_conditions_from_values(values)
+
+
+def test_cockpit_filter_summary_chips_html_escapes_labels():
+    rendered = cockpit_filter_summary_chips_html([{"label": "<条件>", "tone": "active"}])
+
+    assert "&lt;条件&gt;" in rendered
+    assert "<条件>" not in rendered
 
 
 def test_coerce_number_input_state_recovers_string_values(monkeypatch):

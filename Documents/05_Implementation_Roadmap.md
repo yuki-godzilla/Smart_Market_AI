@@ -2393,13 +2393,14 @@ Subphases:
 
 ### 5.20 🟨 Phase 29: Cockpit IA / LLM-Assisted Decision Report
 
-状態: 🟨 **MVP済み / 継続拡張**。Phase 29-A Cockpit情報設計整理は実装済み。LLM-assisted確認レポート草案支援は後続。
+状態: 🟨 **MVP済み / 継続拡張**。Phase 29-A Cockpit情報設計整理と Phase 29-B Cockpit取得前ヘッダー / 検索フィルターUI整理は実装済み。LLM-assisted確認レポート草案支援は後続。
 
 目的: 銘柄コックピットの情報階層を整理し、既存 Decision Report context を使ってユーザーが読み返しやすい分析メモの草案作成を支援する。
 
 範囲:
 
 - 29-A: Cockpitの取得後導線を `03 AI解釈メモ`、`04 スコア・リスクの内訳`、`05 根拠資料`、`06 確認レポート`、`07 詳細データ` に整理する。AI材料分析は根拠資料配下の参考メモ、実行情報は折りたたみ詳細へ移す。
+- 29-B: Cockpitの取得前導線を `銘柄を探す` と `絞り込み条件` に分ける。データ取得元 / 銘柄検索 / 銘柄選択 / 銘柄名を先に見せ、条件は `全体` / `NISA指定なし` / `商品指定なし` / `条件なし` / `候補N件` のチップで要約し、詳細条件は `絞り込み条件を変更` の明示操作で開く。
 - 今日確認した材料、強い / 弱い / 中立 evidence、未確認項目、買わない理由、監視する理由、次の確認、uncertainty、news / disclosure evidence、Forecast / Ranking / Research consistency を整理する。
 - 草案は structured sections とし、Markdown / JSON export の既存構造と整合させる。
 - 引用 section、source、確認時点を明示する。
@@ -2412,6 +2413,7 @@ Subphases:
 完了条件:
 
 - 29-A: `データを取得` と `AI調査を更新` 後の実画面で、03〜07の順序、折りたたみ詳細、確認レポート表現が確認できる。
+- 29-B: `データを取得` 前の実画面で、検索バー、条件チップ、詳細条件トグル、条件なし時のクリア非表示、既存詳細フィルターの保持、取得期間 / `データを取得` ボタン非変更が確認できる。
 - LLM disabled / failed 時も既存 deterministic report が出力できる。
 - LLM 草案は「投資判断支援メモ」として表示され、buy / sell / hold 指示を避ける。
 - Report の根拠と未確認項目がユーザーに追える。

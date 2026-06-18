@@ -19,7 +19,9 @@ from backend.news.contracts import (
     NewsDashboardSnapshot,
     NewsFreshnessStatus,
     NewsHeadlineCard,
+    NewsSymbolEvidenceField,
     NewsSymbolMatch,
+    NewsSymbolMatchKind,
 )
 from backend.news.dashboard import build_demo_news_dashboard_snapshot, build_news_dashboard_snapshot
 
@@ -710,7 +712,10 @@ def _direct_symbol_matches_from_text(
     ]
 
 
-def _direct_symbol_evidence(text: str, symbol: str) -> tuple[str, float, str | None]:
+def _direct_symbol_evidence(
+    text: str,
+    symbol: str,
+) -> tuple[NewsSymbolMatchKind, float, str | None]:
     normalized = symbol.strip().upper()
     if normalized.endswith(".T") and normalized[:-2].isdigit():
         code = normalized[:-2]
@@ -745,9 +750,9 @@ def _direct_symbol_evidence(text: str, symbol: str) -> tuple[str, float, str | N
 def _symbol_matches_from_symbols(
     symbols: Sequence[str],
     *,
-    kind: str,
+    kind: NewsSymbolMatchKind,
     confidence: float,
-    evidence_field: str,
+    evidence_field: NewsSymbolEvidenceField,
     reason: str,
 ) -> list[NewsSymbolMatch]:
     return [
@@ -1056,18 +1061,18 @@ def _inferred_symbols_from_text(
     )
     is_macro_context = bool(category_query and _is_macro_news_context(category_query, subthemes))
     if is_macro_context:
-        context_candidates: list[str] = []
+        macro_context_candidates: list[str] = []
         if "banks" in subthemes:
-            context_candidates.extend(("JPM", "BAC", "8306.T", "8316.T"))
+            macro_context_candidates.extend(("JPM", "BAC", "8306.T", "8316.T"))
         if "reit" in subthemes:
-            context_candidates.extend(("1488.T",))
+            macro_context_candidates.extend(("1488.T",))
         if "energy" in subthemes:
-            context_candidates.extend(("XLE", "XOM", "CVX", "1605.T"))
+            macro_context_candidates.extend(("XLE", "XOM", "CVX", "1605.T"))
         if "gold" in subthemes:
-            context_candidates.extend(("GLD",))
+            macro_context_candidates.extend(("GLD",))
         return _dedupe_inferred_symbols(
             related_symbols,
-            context_candidates,
+            macro_context_candidates,
             limit=limit,
             extra_exclude=macro_proxy_symbols,
         )

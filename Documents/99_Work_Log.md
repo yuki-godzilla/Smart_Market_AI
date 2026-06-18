@@ -2801,3 +2801,18 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 ### Next
 
 - If needed, extend Phase 24B with source reliability / impact horizon / Watchlist prioritization, then decide separately whether LLM-gateway should perform optional low-confidence symbol rechecks.
+
+## 2026-06-18 - CI fix for Symbol Extraction v2 mypy
+
+### Scope
+
+- fixed CI mypy errors in `backend/news/sources.py` by typing symbol match helper returns/arguments with `NewsSymbolMatchKind` and `NewsSymbolEvidenceField`.
+- renamed the macro-only inferred candidate list to avoid a mypy same-scope redefinition error.
+
+### Validation
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m mypy .`.
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_news_dashboard_service.py tests\test_ui_news_view.py tests\test_news_cache_limits.py -q`.
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check backend\news\sources.py --no-cache`.
+- passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py backend\news\sources.py`.
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest -q --maxfail=1 --disable-warnings --cov --cov-report=xml --basetemp outputs\work\pytest_tmp\ci_symbol_v2_mypy_fix -p no:cacheprovider` with 1531 passed, 1 skipped.

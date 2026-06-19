@@ -205,6 +205,8 @@ SMAI_OLLAMA_BASE_URL=http://localhost:11434
 
 `GET /health/ready` は Gateway process、Ollama API、設定中 model の導入状態をまとめて返します。`GET /models` は Ollama の導入済み model を確認し、設定中 model が未導入なら `ollama pull <model>` の案内を返します。
 
+親SMAIのPhase 30-Hでは、Assistant初回描画をブロックせずにbackground warmupを開始し、既存の `GET /models` を軽量readiness確認として利用します。新しいGateway endpointは追加せず、準備中・失敗・timeout時の状態表示、ニュースキャッシュ表示、deterministic fallbackは親SMAI側の責務です。
+
 `/api/v1/context-answer` の `task_type=free_chat` / `identity` / `app_help` / `capability_help` / `screen_guidance` は `llm_micro` として扱います。短い prompt、最小 context、`/no_think` と Ollama `think: false` による thinking 抑制を使い、SMAI 側の Tool Layer / RAG / news / symbol-specific context / 長い履歴には依存しません。runtime は task_type を主軸にしつつ、実際の Ollama model ごとに token budget を調整します。軽量会話の目安は `qwen3:1.7b` が 280-300 tokens、`qwen3:4b` が 320 tokens、`qwen3:8b` が 360-450 tokens、`qwen3:14b` が 360-500 tokens です。短い挨拶、名前質問、できること質問、使い方質問もまず LLM へ投げ、低品質な短文回答は 1 回だけ再生成し、それでも弱い場合や provider timeout の場合だけ自然な fallback に寄せます。銘柄分析、ニュース材料、Decision Report 草案などは task_type ごとの runtime policy と context payload を使います。
 
 `task_type=cockpit_interpretation` は SMAI 親側 Phase 28-A の Cockpit `AI解釈メモ` 用です。Gateway は渡された価格、Forecast、Investment Score、Research Evidence、AI材料分析の要約contextを読み解き、強い材料、注意点、矛盾・不確実性、次の確認を返します。スコア、ランキング順位、予測値、Decision Report 本文の自動変更は Gateway の責務ではありません。

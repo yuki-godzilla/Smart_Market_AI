@@ -76,6 +76,8 @@ _INTENT_TERMS: tuple[tuple[AssistantAgentIntent, tuple[str, ...]], ...] = (
         "decision_report_draft",
         (
             "レポートにして",
+            "確認レポート",
+            "レポートを作",
             "decision report",
             "判断メモ",
             "メモにまとめて",
@@ -144,6 +146,7 @@ _INTENT_TERMS: tuple[tuple[AssistantAgentIntent, tuple[str, ...]], ...] = (
             "画面",
             "操作",
             "smaiでは",
+            "何から見れば",
         ),
     ),
 )
@@ -163,7 +166,19 @@ def detect_assistant_intent(message: str) -> AssistantIntentDecision:
                 matched_terms=matched,
             )
 
-    if any(term in text for term in ("銘柄", "この株", "この会社", "トヨタ", "大阪ガス")):
+    if any(
+        term in text
+        for term in (
+            "銘柄",
+            "この株",
+            "この会社",
+            "トヨタ",
+            "任天堂",
+            "三菱ufj",
+            "大阪ガス",
+            "nvidia",
+        )
+    ):
         return AssistantIntentDecision(
             intent="stock_summary",
             confidence="medium",

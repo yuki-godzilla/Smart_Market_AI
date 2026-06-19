@@ -1,0 +1,14 @@
+[
+  {"id":"smalltalk","input":"こんにちは！今日はいい天気だったよ！","legacy_intent":"free_chat","conversation_mode":"normal_chat","forbidden":["取得して分析する"]},
+  {"id":"how_to_use","input":"SMAIって何から見ればいい？","legacy_intent":"app_help","conversation_mode":"normal_chat"},
+  {"id":"toyota","input":"トヨタの今後を見たい","legacy_intent":"stock_summary","conversation_mode":"research_plan","symbol":"7203.T"},
+  {"id":"nintendo_news","input":"任天堂の最新ニュースを教えて","legacy_intent":"news_materials","conversation_mode":"research_plan","symbol":"7974.T"},
+  {"id":"mufg_dividend","input":"三菱UFJは高配当目線でどう？","legacy_intent":"stock_summary","conversation_mode":"research_plan","symbol":"8306.T"},
+  {"id":"osaka_gas_quality","input":"大阪ガスの配当利回りっておかしくない？","legacy_intent":"stock_summary","conversation_mode":"research_plan","symbol":"9532.T"},
+  {"id":"nvidia","input":"NVIDIAの今後を見たい","legacy_intent":"stock_summary","conversation_mode":"research_plan","symbol":"NVDA"},
+  {"id":"fund","input":"eMAXIS Slim 米国株式を積み立ててるけど、今の状況を確認したい","legacy_intent":"free_chat","conversation_mode":"research_plan"},
+  {"id":"ambiguous_mitsubishi","input":"三菱って今どう？","legacy_intent":"free_chat","conversation_mode":"soft_research_suggestion"},
+  {"id":"semiconductor_theme","input":"半導体関連で強そうな銘柄を探したい","legacy_intent":"stock_summary","conversation_mode":"research_plan"},
+  {"id":"report","input":"この材料で確認レポートを作って","legacy_intent":"decision_report_draft","conversation_mode":"research_plan"},
+  {"id":"ambiguous_fund","input":"S&P 500 MAXIMを持ってるんだけど今後上がるかどうか知りたい","legacy_intent":"free_chat","conversation_mode":"soft_research_suggestion","forbidden":["対象: 500"]}
+]

@@ -542,9 +542,15 @@ def _symbol_for_query(symbol_query: str | None) -> str | None:
         "toyota": "7203.T",
         "ソニー": "6758.T",
         "sony": "6758.T",
+        "任天堂": "7974.T",
         "ntt": "9432.T",
+        "三菱ufj": "8306.T",
         "三菱商事": "8058.T",
         "大阪ガス": "9532.T",
+        "nvidia": "NVDA",
+        "microsoft": "MSFT",
+        "apple": "AAPL",
+        "tesla": "TSLA",
     }
     lowered = symbol_query.lower()
     if lowered in aliases:
@@ -565,16 +571,28 @@ def _company_name_for_symbol_or_query(
     aliases = {
         "7203.T": "トヨタ自動車",
         "6758.T": "ソニーグループ",
+        "7974.T": "任天堂",
         "9432.T": "日本電信電話",
+        "8306.T": "三菱UFJフィナンシャル・グループ",
         "8058.T": "三菱商事",
         "9532.T": "大阪ガス",
+        "NVDA": "NVIDIA",
+        "MSFT": "Microsoft",
+        "AAPL": "Apple",
+        "TSLA": "Tesla",
         "トヨタ": "トヨタ自動車",
         "toyota": "トヨタ自動車",
         "ソニー": "ソニーグループ",
         "sony": "ソニーグループ",
+        "任天堂": "任天堂",
         "ntt": "日本電信電話",
+        "三菱ufj": "三菱UFJフィナンシャル・グループ",
         "三菱商事": "三菱商事",
         "大阪ガス": "大阪ガス",
+        "nvidia": "NVIDIA",
+        "microsoft": "Microsoft",
+        "apple": "Apple",
+        "tesla": "Tesla",
     }
     if symbol and symbol in aliases:
         return aliases[symbol]

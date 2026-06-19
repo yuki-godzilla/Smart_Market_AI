@@ -18,6 +18,7 @@ import streamlit as st
 from backend.assistant import (
     AssistantActionExecutor,
     AssistantActionResult,
+    AssistantGatewayDiagnostic,
     AssistantGuidedWorkflow,
     AssistantMessage,
     AssistantResearchContextBundle,
@@ -25,6 +26,7 @@ from backend.assistant import (
     AssistantResponse,
     AssistantToolPlanResult,
     AssistantToolResult,
+    AssistantWarmupStatus,
     AssistantWorkflowSession,
     HttpAssistantGatewayClient,
     assistant_research_bundle_to_decision_report_context,
@@ -38,6 +40,8 @@ from backend.assistant import (
     detect_assistant_intent,
     execute_assistant_tool_plan,
     get_assistant_action,
+    get_assistant_warmup_manager,
+    load_assistant_loading_headlines,
     render_research_bundle_markdown_memo,
     route_assistant_conversation_mode,
 )
@@ -695,7 +699,92 @@ def _with_cached_gateway_diagnostic(
 
 
 def _assistant_gateway_status_probe_enabled() -> bool:
-    return os.getenv("SMAI_ASSISTANT_GATEWAY_STATUS_CHECK", "1") == "1"
+    return os.getenv("SMAI_ASSISTANT_GATEWAY_STATUS_CHECK", "0") == "1"
+
+
+def _start_copilot_llm_warmup(
+    runtime_config: CopilotGatewayRuntimeConfig,
+    *,
+    settings: Settings | None = None,
+) -> tuple[CopilotGatewayRuntimeConfig, AssistantWarmupStatus]:
+    app_settings = settings or get_settings()
+    warmup = app_settings.assistant.warmup
+    key = "|".join(_gateway_diagnostic_cache_key(runtime_config))
+    manager = get_assistant_warmup_manager(key)
+    client = HttpAssistantGatewayClient(
+        base_url=runtime_config.base_url,
+        context_answer_path=runtime_config.context_answer_path,
+        timeout_seconds=min(runtime_config.timeout_seconds, warmup.timeout_seconds),
+        model=runtime_config.model,
+        execution_mode=runtime_config.execution_mode,
+        environment_profile=runtime_config.environment_profile,
+        preferred_profile=runtime_config.profile,
+    )
+    manager.start(
+        lambda: _probe_copilot_warmup(
+            client=client,
+            runtime_config=runtime_config,
+            health_timeout_seconds=warmup.health_timeout_seconds,
+            chat_enabled=warmup.chat_enabled,
+            chat_timeout_seconds=warmup.timeout_seconds,
+        ),
+        enabled=bool(warmup.enabled and runtime_config.enabled),
+    )
+    status = manager.status()
+    if status.diagnostic is not None:
+        diagnostic = status.diagnostic
+        runtime_config = replace(
+            runtime_config,
+            readiness_status=diagnostic.status,
+            readiness_message=diagnostic.message,
+            gateway_url=diagnostic.gateway_url,
+            gateway_error_type=diagnostic.gateway_error_type or "",
+            gateway_error_message=diagnostic.gateway_error_message or "",
+            http_status=diagnostic.http_status,
+            provider_error_type=diagnostic.provider_error_type or "",
+            provider_error_message=diagnostic.provider_error_message or "",
+            ollama_base_url=diagnostic.ollama_base_url or "",
+            installed_models=diagnostic.installed_models,
+            provider=diagnostic.provider or runtime_config.provider,
+            model=diagnostic.model or runtime_config.model,
+            profile=diagnostic.profile or runtime_config.profile,
+        )
+        _cache_gateway_runtime_config(runtime_config)
+    elif status.state == "warming":
+        runtime_config = replace(
+            runtime_config,
+            readiness_status="warming",
+            readiness_message=status.message,
+        )
+    return runtime_config, status
+
+
+def _probe_copilot_warmup(
+    *,
+    client: HttpAssistantGatewayClient,
+    runtime_config: CopilotGatewayRuntimeConfig,
+    health_timeout_seconds: float,
+    chat_enabled: bool,
+    chat_timeout_seconds: float,
+) -> AssistantGatewayDiagnostic:
+    diagnostic = client.diagnose(timeout_seconds=health_timeout_seconds)
+    if diagnostic.status != "ready" or not chat_enabled:
+        return diagnostic
+    try:
+        response = httpx.post(
+            f"{runtime_config.base_url.rstrip('/')}/api/v1/chat",
+            json={
+                "message": "SMAI warmup. Reply OK.",
+                "system_prompt": "Reply only OK.",
+                "profile": runtime_config.profile,
+                "model": runtime_config.model,
+            },
+            timeout=chat_timeout_seconds,
+        )
+        response.raise_for_status()
+    except httpx.TimeoutException as exc:
+        raise TimeoutError("assistant chat warmup timed out") from exc
+    return diagnostic
 
 
 def _gateway_diagnostic_cache_key(
@@ -1088,7 +1177,12 @@ def render_copilot_workspace_page() -> None:
     contexts = copilot_context_options()
     context_by_id = {context.context_id: context for context in contexts}
     history = _copilot_history()
-    runtime_config = copilot_gateway_runtime_config()
+    settings = get_settings()
+    runtime_config = copilot_gateway_runtime_config(settings)
+    runtime_config, warmup_status = _start_copilot_llm_warmup(
+        runtime_config,
+        settings=settings,
+    )
 
     header_placeholder = st.empty()
     _render_copilot_header(
@@ -1098,6 +1192,7 @@ def render_copilot_workspace_page() -> None:
     )
     clear = _render_new_conversation_action()
     _render_material_status(_active_context_from_history(history, context_by_id))
+    _render_copilot_loading_panel(warmup_status, settings=settings)
 
     if clear:
         st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = []
@@ -1269,6 +1364,84 @@ def _refresh_copilot_header(
 
 def _has_pending_copilot_turn(history: list[dict[str, str]]) -> bool:
     return any(str(turn.get("status", "")).strip() == "pending" for turn in history)
+
+
+def _render_copilot_loading_panel(
+    status: AssistantWarmupStatus,
+    *,
+    settings: Settings,
+) -> None:
+    if status.state in {"ready", "disabled"}:
+        return
+    warmup = settings.assistant.warmup
+    headlines = (
+        load_assistant_loading_headlines(
+            max_items=warmup.loading_headline_max_items,
+            max_age_hours=warmup.loading_headline_cache_max_age_hours,
+        )
+        if warmup.loading_headlines_enabled
+        else None
+    )
+    state_label = {
+        "not_started": "LLM起動確認待ち",
+        "warming": "LLM起動確認中",
+        "degraded": "通常回答で対応中",
+        "fallback": "通常回答で対応中",
+        "failed": "LLM Gateway未接続",
+        "timeout": "LLM応答待ちが時間切れ",
+    }.get(status.state, "LLM起動確認中")
+    steps = [
+        "✓ SMAI本体を起動",
+        "✓ ニュースキャッシュを確認",
+        f"{'・' if status.state == 'warming' else '✓'} {html.escape(status.step)}",
+    ]
+    headline_html = ""
+    if headlines is not None:
+        freshness = "前回取得" if headlines.stale or headlines.source == "cache" else "サンプル"
+        updated = headlines.updated_at.astimezone().strftime("%Y-%m-%d %H:%M")
+        items = "".join(
+            "<li><span>"
+            + html.escape(item.category)
+            + "</span> "
+            + html.escape(item.title)
+            + "</li>"
+            for item in headlines.items
+        )
+        headline_html = (
+            '<div class="smai-warmup-headlines"><strong>市場ヘッドライン</strong>'
+            f"<small>{freshness}: {html.escape(updated)}</small><ul>{items}</ul></div>"
+        )
+    st.markdown(
+        """
+        <style>
+        .smai-warmup-panel{position:relative;overflow:hidden;margin:10px 0 18px;padding:18px;
+          border:1px solid rgba(56,189,248,.34);border-radius:16px;
+          background:linear-gradient(135deg,rgba(7,17,31,.97),rgba(13,42,57,.92));color:#e5edf7}
+        .smai-warmup-panel:after{content:"";position:absolute;inset:-70% 35%;border:1px solid rgba(34,211,238,.18);
+          border-radius:50%;animation:smaiRadar 5s linear infinite;pointer-events:none}
+        .smai-warmup-core{display:inline-flex;width:28px;height:28px;margin-right:10px;border-radius:50%;
+          border:2px solid #22d3ee;box-shadow:0 0 18px rgba(34,211,238,.55);animation:smaiPulse 1.8s ease-in-out infinite}
+        .smai-warmup-title{display:flex;align-items:center;font-weight:750;font-size:1.05rem}.smai-warmup-state{color:#67e8f9}
+        .smai-warmup-panel p{margin:8px 0;color:#cbd5e1}.smai-warmup-steps{display:grid;gap:4px;font-size:.9rem;color:#a5f3fc}
+        .smai-warmup-headlines{margin-top:14px;padding-top:12px;border-top:1px solid rgba(148,163,184,.2)}
+        .smai-warmup-headlines small{margin-left:10px;color:#94a3b8}.smai-warmup-headlines ul{margin:8px 0 0;padding-left:20px}
+        .smai-warmup-headlines li{margin:4px 0;color:#dbeafe}.smai-warmup-headlines li span{color:#7dd3fc;font-size:.82rem}
+        @keyframes smaiPulse{0%,100%{opacity:.58;transform:scale(.9)}50%{opacity:1;transform:scale(1.06)}}
+        @keyframes smaiRadar{to{transform:rotate(360deg)}}
+        @media (prefers-reduced-motion:reduce){.smai-warmup-core,.smai-warmup-panel:after{animation:none}}
+        </style>
+        """
+        + '<section class="smai-warmup-panel" aria-label="SMAIナビ準備状況">'
+        + '<div class="smai-warmup-title"><span class="smai-warmup-core"></span>'
+        + f'SMAIナビを起動しています… <span class="smai-warmup-state">{html.escape(state_label)}</span></div>'
+        + "<p>LLM準備中でも、SMAI標準ナビと安全な確認フローを利用できます（fallbackあり）。</p>"
+        + '<div class="smai-warmup-steps">'
+        + "".join(f"<span>{step}</span>" for step in steps)
+        + "</div>"
+        + headline_html
+        + "</section>",
+        unsafe_allow_html=True,
+    )
 
 
 def _render_new_conversation_action() -> bool:

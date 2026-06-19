@@ -3379,3 +3379,21 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - exact CI pytest command without a workspace temp override failed in this local Windows environment while creating `C:\Users\okuma\AppData\Local\Temp\pytest-of-okuma` (`PermissionError: [WinError 5]`).
 - passed after workspace temp override: `.\venv_SMAI\Scripts\python.exe -m pytest -q --maxfail=1 --disable-warnings --cov --cov-report=xml --basetemp outputs\work\ci_phase30g2_pytest_tmp` (`1677 passed, 2 skipped, 34 warnings`).
 - passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --output-dir outputs\work\phase30g2_playwright_static`.
+
+## 2026-06-19 Phase 30-H - Assistant Scenario QA / LLM Startup Warmup first slice
+
+### Summary
+
+- Added a 12-case data-driven Assistant scenario fixture spanning smalltalk, app help, Japanese/US stocks, funds, ambiguity, themes, reports, data-quality wording, and the S&P 500 MAXIM regression.
+- Expanded deterministic conversation/entity routing for Toyota, Nintendo, MUFG, Osaka Gas, NVIDIA, and representative US symbols while keeping ambiguous Mitsubishi/fund names out of automatic external fetch.
+- Added duplicate-safe background LLM warmup state management and configurable health/overall timeouts.
+- Added a non-blocking Assistant loading panel with reduced-motion-safe CSS and cached Investment Radar headlines, plus bundled-sample fallback.
+- Kept normal checks network-free and deterministic fallback available throughout startup/failure states.
+
+### Verification
+
+- passed: targeted warmup/loading/scenario/router tests (`39 passed`).
+- passed: Assistant/Copilot regression selection (`247 passed, 1 skipped`).
+- passed: targeted Ruff and project Black helper (`280 Python file(s)`).
+- passed: `tools/playwright_assistant_scenario_smoke.py` with 12 scenarios; generated screenshot was visually checked because the in-app browser was unavailable in this session.
+- passed: project `tools/run_local_checks.py` (`1695 passed, 2 skipped`; Black and Ruff passed; 32 existing deprecation/runtime warnings).

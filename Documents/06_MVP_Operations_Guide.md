@@ -119,6 +119,10 @@ SMAI 親は通常 `model` を固定指定せず、`task_type` と環境ヒント
 
 LLM Tool Planner を試す場合は、別設定 `assistant.llm_planner` を明示ONにします。既定は `enabled: false` で、通常確認・CI・Playwright smoke は network-free の deterministic Tool Plan / Guided Workflow を使います。ONの場合も Gateway `/api/v1/assistant/tool-plan` は action案のJSONを返すだけで、SMAI 親側が schema / action allowlist / confirmation / unsafe wording / unsupported action を検証し、valid plan だけを既存の `次にできること` / `確認フロー` に採用します。invalid / timeout / Gateway fallback / malformed response は非表示にし、fallback reason は `技術情報を表示` にだけ保持します。
 
+Phase 30-Hでは、SMAIアシスタント初回描画時に `assistant.warmup` 設定でbackground LLM warmupを開始します。初期値は health timeout 3秒、全体timeout 15秒、chat warmupはOFFです。画面描画はwarmupを待たず、準備中でもSMAI標準ナビと安全な確認フローを利用できます。Gateway / provider / model確認が失敗またはtimeoutになった場合もdeterministic fallbackで継続し、永久スピナーにはしません。
+
+準備中カードの市場ヘッドラインは `data/cache/news_dashboard_snapshot.json` の前回取得キャッシュを最大5件使い、キャッシュなし・破損時はbundled sampleへ戻ります。ロード表示のための同期外部ニュース取得は行いません。古いキャッシュは `前回取得` と最終更新時刻を表示します。
+
 Phase 30-G1 の Workflow Session は親SMAI側だけの session-local runtime です。validation gate を通った `AssistantGuidedWorkflow` だけを `AssistantWorkflowSession` に変換し、`SMAIアシスタント` の `確認フロー` カードに進行状態と現在stepを表示します。`update_research` / `create_decision_report` は従来どおり確認カードでユーザーが押した1 actionだけを実行し、成功・一部成功・失敗・キャンセルの結果を session step に反映します。`update_research` 成功後に `create_decision_report` が確認待ちになっても自動実行はしません。失敗時は session を failed にし、同じターンで Tool Plan 由来の確認promptへ自動fallbackしません。Gateway は workflow session、action execution、skip/cancel 状態管理を担当しません。
 
 Phase 30-G2 では、この session に最小限のUI操作を接続しています。active session では `AI調査をスキップ` / `レポート作成をスキップ` / `フローを中止` を表示し、failed session では `AI調査をもう一度更新` / `今ある材料で確認` / `フローを中止` を表示します。`もう一度更新` は step を確認待ちに戻すだけで、ユーザーが改めて確認カードを押すまで外部取得しません。`今ある材料で確認` は失敗したAI調査更新を skipped にし、確認レポート作成など次のstepを確認待ちにするだけです。スキップや中止も session-local JSON 更新だけで、保存・外部取得・スコア変更・broker操作は行いません。

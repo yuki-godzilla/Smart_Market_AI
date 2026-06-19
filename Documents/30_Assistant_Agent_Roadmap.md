@@ -79,3 +79,14 @@ Status: MVP implemented. `backend/assistant/agent_evaluation.py` can load fixtur
 Status: 30-G1 MVP implemented. 親SMAI側に session-local `AssistantWorkflowSession` と `workflow_runtime` state machine を追加し、validation gate を通った `AssistantGuidedWorkflow` だけを runtime session 化する。UI は既存の確認カード導線を維持しつつ、ターン内の `assistant_workflow_session` JSON に `planned` / `active` / `completed` / `cancelled` / `failed` と各stepの `planned` / `waiting_confirmation` / `running` / `done` / `failed` / `skipped` / `cancelled` / `blocked` を保持する。`update_research` 成功・一部成功後は `create_decision_report` を確認待ちとして見せるが自動実行せず、失敗時は session を failed にして Tool Plan への自動fallbackも止める。`create_decision_report` 成功時は workflow を完了にできる。確認必須actionは `confirmed=True` なしで running へ遷移できず、done/running step の重複実行は警告だけ返す。Gateway は引き続き plan JSON の提案のみで、workflow session / execution は親SMAI側の責務。
 
 Status: 30-G2 MVP implemented. `workflow_runtime.retry_step()` を追加し、SMAIアシスタント UI に session-local workflow controls を接続する。active session では現在stepのスキップとフロー中止、failed session では失敗stepの再試行、`update_research` 失敗後の `今ある材料で確認`、フロー中止を表示する。再試行はstepを `waiting_confirmation` に戻すだけで自動実行せず、`今ある材料で確認` は失敗したAI調査更新を skipped にして次の確認待ちへ進める。confirmable actionの実行は引き続き既存確認カード経由のみ。
+
+## Phase 30-H: Assistant Scenario QA / LLM Startup Warmup
+
+- 代表ユーザー発話をデータ駆動fixtureで回帰確認
+- 国内株、米国株、ETF / 投信、曖昧銘柄、テーマ探索、レポート作成を横断
+- LLM Startup Warmup と readiness status
+- Assistant loading experience
+- Investment Radar cache由来のloading headlines
+- LLM準備中・失敗時のdeterministic fallback
+
+Status: first slice implemented. `tests/fixtures/assistant_scenarios.json` に固定12シナリオを追加し、Intent Router / Conversation Mode / entity resolutionをnetwork-freeで回帰確認する。親SMAIはAssistant初回描画時に設定単位で重複しないbackground warmupを開始し、UIをブロックせず、準備中・準備完了・degraded・failed・timeoutを保持する。準備中は軽量なSMAIロードカードと既存ニュースキャッシュ（なければbundled sample）を最大5件表示する。同期ニュース取得、LLM必須化、自動売買、スコア・予測・ランキング変更は行わない。

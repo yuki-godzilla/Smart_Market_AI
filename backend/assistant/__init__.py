@@ -83,6 +83,11 @@ from backend.assistant.llm_tool_planner import (
     build_assistant_planner_request,
     build_assistant_planner_states,
 )
+from backend.assistant.loading_headlines import (
+    AssistantLoadingHeadline,
+    AssistantLoadingHeadlines,
+    load_assistant_loading_headlines,
+)
 from backend.assistant.plan_validation import (
     AssistantPlanValidationResult,
     validate_assistant_guided_workflow,
@@ -129,6 +134,12 @@ from backend.assistant.tools import (
     build_assistant_research_context_bundle,
     execute_assistant_tool_plan,
     render_research_bundle_markdown_memo,
+)
+from backend.assistant.warmup import (
+    AssistantWarmupManager,
+    AssistantWarmupState,
+    AssistantWarmupStatus,
+    get_assistant_warmup_manager,
 )
 from backend.assistant.workflow_runtime import (
     apply_action_result,
@@ -193,6 +204,8 @@ __all__ = [
     "AssistantIntent",
     "AssistantIntentDecision",
     "AssistantMessage",
+    "AssistantLoadingHeadline",
+    "AssistantLoadingHeadlines",
     "AssistantPlanValidationResult",
     "AssistantPlannerConstraints",
     "AssistantPlannerGatewayClient",
@@ -216,6 +229,9 @@ __all__ = [
     "AssistantWorkflowStep",
     "AssistantWorkflowRuntimeStep",
     "AssistantWorkflowSession",
+    "AssistantWarmupManager",
+    "AssistantWarmupState",
+    "AssistantWarmupStatus",
     "PlannerAvailableAction",
     "SMAIAssistantContext",
     "GatewayBackedAssistantService",
@@ -253,6 +269,7 @@ __all__ = [
     "cancel_session",
     "load_agent_evaluation_case",
     "load_agent_evaluation_cases",
+    "load_assistant_loading_headlines",
     "render_research_bundle_markdown_memo",
     "retry_step",
     "route_assistant_conversation_mode",
@@ -261,6 +278,7 @@ __all__ = [
     "set_waiting_confirmation",
     "skip_step",
     "start_session",
+    "get_assistant_warmup_manager",
     "validate_assistant_guided_workflow",
     "validate_assistant_tool_plan",
     "workflow_session_from_guided_workflow",

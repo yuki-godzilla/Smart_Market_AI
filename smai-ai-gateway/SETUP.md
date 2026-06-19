@@ -232,6 +232,8 @@ Remove-Item Env:SMAI_ASSISTANT_GATEWAY_MODEL
 ```
 
 `SMAIアシスタント` 画面の通常チャット送信は、UIにON/OFFを出さずに Gateway 接続を既定で試します。Gateway が未起動、timeout、schema validation failure、LLM JSON不正、空応答の場合は SMAI 側の deterministic fallback に戻ります。
+
+Phase 30-H以降は、親SMAIがAssistant初回描画時にbackgroundで `GET /models` を確認します。この確認はStreamlit初期表示を待たせず、失敗しても通常UIとdeterministic fallbackを利用できます。chat completionを使う追加warmupは親設定で既定OFFです。
 画面上部は SMAIナビ header、チャット幅に揃えた `新しい会話` action、参照中の材料 chips、6つの相談カード、下部 composer の構成です。初回のSMAIナビ発話は、ユーザー送信またはカード選択後にだけ表示します。
 
 `free_chat` / `identity` / `app_help` / `capability_help` / `screen_guidance` は短い通常会話用の `llm_micro` 経路です。SMAI 親は Tool Layer / RAG / news / symbol-specific context / 長い履歴を送らず、Gateway 側は最小 context、`/no_think`、Ollama `think: false` で応答を軽量化します。runtime は task_type を主軸にしつつ、実際の Ollama model ごとに token budget を調整します。軽量会話の目安は `qwen3:1.7b` が 280-300 tokens、`qwen3:4b` が 320 tokens、`qwen3:8b` が 360-450 tokens、`qwen3:14b` が 360-500 tokens です。挨拶、名前質問、できること質問、使い方質問もまず LLM へ投げ、低品質な短文回答は 1 回だけ再生成し、provider timeout などの失敗時だけ自然な fallback に寄せます。SMAI 親に画面固有の report context がない場合も、即時 fallback せず最小のSMAIアシスタント文脈で Gateway を呼びます。

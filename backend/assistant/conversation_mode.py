@@ -56,12 +56,26 @@ _NORMAL_CHAT_TERMS = (
 _KNOWN_SYMBOL_ALIASES = (
     "トヨタ",
     "ソニー",
+    "任天堂",
     "ntt",
+    "三菱ufj",
     "三菱商事",
     "大阪ガス",
+    "nvidia",
+    "microsoft",
+    "apple",
+    "tesla",
     "toyota",
     "sony",
 )
+
+_FUND_PRODUCT_TERMS = (
+    "emaxis slim 米国株式",
+    "sbi・v・s&p500",
+    "maxis米国株式",
+)
+
+_AMBIGUOUS_FUND_TERMS = ("s&p 500 maxim", "s&p500 maxim")
 
 _THEME_TERMS = (
     "半導体",
@@ -74,6 +88,11 @@ _THEME_TERMS = (
 )
 
 _FORWARD_VIEW_TERMS = (
+    "今後",
+    "見たい",
+    "確認したい",
+    "高配当目線",
+    "おかしくない",
     "上がる",
     "上昇",
     "伸びそう",
@@ -102,6 +121,8 @@ _REPORT_TERMS = (
     "保存したい",
     "まとめて",
     "未確認事項",
+    "確認レポート",
+    "レポートを作",
 )
 
 _RANKING_TERMS = (
@@ -143,6 +164,18 @@ def route_assistant_conversation_mode(message: str) -> AssistantConversationMode
             requires_approval=False,
             reason="挨拶、使い方、用語説明、画面説明に近いため通常会話で回答します。",
             matched_terms=normal_matches,
+        )
+
+    ambiguous_fund_matches = _matched_terms(normalized, _AMBIGUOUS_FUND_TERMS)
+    if ambiguous_fund_matches:
+        return AssistantConversationModeDecision(
+            conversation_mode="soft_research_suggestion",
+            intent="investment_material_scan",
+            confidence=0.9,
+            requires_research=False,
+            requires_approval=False,
+            reason="商品名が曖昧なため、外部取得前に投資信託・ETFの候補確認が必要です。",
+            matched_terms=ambiguous_fund_matches,
         )
 
     symbol_query = _extract_symbol_or_theme_query(text)
@@ -297,6 +330,9 @@ def _has_research_action_word(text: str) -> bool:
 
 def _extract_symbol_or_theme_query(message: str) -> str | None:
     normalized = message.lower()
+    for product in _FUND_PRODUCT_TERMS:
+        if product in normalized:
+            return product
     for alias in _KNOWN_SYMBOL_ALIASES:
         if alias.lower() in normalized:
             return alias

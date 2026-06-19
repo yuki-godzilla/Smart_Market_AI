@@ -240,11 +240,24 @@ class AssistantLLMPlannerConfig(StrictConfigModel):
     ) = "assistant_fast"
 
 
+class AssistantWarmupConfig(StrictConfigModel):
+    """Non-blocking Assistant LLM startup and loading-panel settings."""
+
+    enabled: bool = True
+    chat_enabled: bool = False
+    health_timeout_seconds: float = Field(default=3.0, gt=0, le=30)
+    timeout_seconds: float = Field(default=15.0, gt=0, le=120)
+    loading_headlines_enabled: bool = True
+    loading_headline_max_items: int = Field(default=5, ge=1, le=5)
+    loading_headline_cache_max_age_hours: int = Field(default=24, gt=0)
+
+
 class AssistantConfig(StrictConfigModel):
     """Assistant runtime settings."""
 
     gateway: AssistantGatewayConfig = Field(default_factory=AssistantGatewayConfig)
     llm_planner: AssistantLLMPlannerConfig = Field(default_factory=AssistantLLMPlannerConfig)
+    warmup: AssistantWarmupConfig = Field(default_factory=AssistantWarmupConfig)
 
 
 class LLMFactorLiveConfig(StrictConfigModel):

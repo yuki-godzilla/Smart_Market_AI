@@ -3221,3 +3221,16 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - passed: Markdown strict UTF-8 read for updated docs.
 - passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py`.
 - passed after escalated browser-driver execution with local Streamlit and `SMAI_DISABLE_BACKGROUND_WORKERS=1`: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --app-url http://127.0.0.1:8525`.
+
+## 2026-06-19 Cockpit Period Width Polish
+
+### Summary
+
+- Widened the Symbol Cockpit `取得期間` selectbox column by shifting unused right-side spacing from the same row.
+- Kept start/end date field widths, data-fetch behavior, forecast/scoring logic, and period presets unchanged.
+
+### Tests
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check ui\app.py --no-cache`.
+- passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py ui\app.py`.
+- passed after escalated browser-driver execution with local Streamlit and `SMAI_DISABLE_BACKGROUND_WORKERS=1`: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --app-url http://127.0.0.1:8526`.

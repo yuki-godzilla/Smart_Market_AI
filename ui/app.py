@@ -6707,7 +6707,7 @@ def _render_market_data_cockpit() -> None:
     symbol_detail_row = _symbol_universe_row_for_symbol(symbol) if symbol else None
     if symbol_detail_row is not None:
         st.caption(symbol_universe_cache_status_text(symbol_detail_row))
-    col_period, col_start, col_end, _ = st.columns([1.2, 1.0, 1.0, 3.8])
+    col_period, col_start, col_end, _ = st.columns([1.65, 1.0, 1.0, 3.35])
     with col_period:
         period_preset = cast(
             str,

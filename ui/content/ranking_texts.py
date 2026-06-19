@@ -530,7 +530,7 @@ RANKING_POLICY_DESCRIPTIONS: dict[str, RankingPolicyDescription] = {
 
 RANKING_CRITERIA_GUIDE_ROWS: tuple[RankingCriteriaGuideRow, ...] = (
     {
-        "表示": "ランキング基準",
+        "表示": "評価方針",
         "使う場面": "取得後の候補をどの観点で並べるかを選ぶ",
         "読み方": "売買推奨ではなく、比較・深掘り候補を整理する採点軸です。",
     },

@@ -11,7 +11,12 @@ from backend.assistant import (
 )
 from ui.components.assistant_action_confirm import assistant_action_confirmation_html
 from ui.components.assistant_action_result import assistant_action_result_card_html
-from ui.views.copilot import _first_confirmable_action_id, copilot_answer_detail_html
+from ui.views.copilot import (
+    _apply_workflow_session_control,
+    _first_confirmable_action_id,
+    _workflow_session_control_options,
+    copilot_answer_detail_html,
+)
 
 
 def test_confirmation_html_explains_create_report_safety_boundary():
@@ -271,6 +276,117 @@ def test_first_confirmable_action_does_not_fallback_when_session_failed():
     }
 
     assert _first_confirmable_action_id(turn) == ""
+
+
+def test_workflow_session_retry_control_allows_failed_research_confirmation_again():
+    context = build_assistant_context(
+        current_page="cockpit",
+        user_question="この銘柄を詳しく確認したい",
+        page_state={"selected_symbol": "7203.T"},
+        material_state={
+            "price_data_status": "available",
+            "forecast_status": "available",
+            "research_status": "missing",
+        },
+    )
+    workflow = build_deterministic_guided_workflow(context)
+    assert workflow is not None
+    session = start_session(workflow)
+    assert session is not None
+    failed = apply_action_result(
+        session,
+        "workflow_update_research",
+        AssistantActionResult(
+            action_id="update_research",
+            status="failed",
+            title="AI調査を更新できませんでした",
+            summary="外部情報を確認できませんでした。",
+            user_message="取得済み材料で確認してください。",
+            followup_actions=["answer_with_existing_materials", "retry_update_research"],
+        ),
+    )
+
+    options = _workflow_session_control_options(failed)
+    retried = _apply_workflow_session_control(
+        failed,
+        "retry_step",
+        "workflow_update_research",
+    )
+    turn = {
+        "assistant_workflow_session": retried.model_dump_json(),
+        "assistant_action_results": json.dumps(
+            [
+                {
+                    "action_id": "update_research",
+                    "status": "failed",
+                    "title": "AI調査を更新できませんでした",
+                    "summary": "外部情報を確認できませんでした。",
+                    "user_message": "取得済み材料で確認してください。",
+                }
+            ],
+            ensure_ascii=False,
+        ),
+    }
+
+    assert [option["label"] for option in options] == [
+        "AI調査をもう一度更新",
+        "今ある材料で確認",
+        "フローを中止",
+    ]
+    assert _first_confirmable_action_id(turn) == "update_research"
+
+
+def test_workflow_session_continue_existing_materials_moves_to_report_confirmation():
+    context = build_assistant_context(
+        current_page="cockpit",
+        user_question="この銘柄を詳しく確認したい",
+        page_state={"selected_symbol": "7203.T"},
+        material_state={
+            "price_data_status": "available",
+            "forecast_status": "available",
+            "research_status": "missing",
+        },
+    )
+    workflow = build_deterministic_guided_workflow(context)
+    assert workflow is not None
+    session = start_session(workflow)
+    assert session is not None
+    failed = apply_action_result(
+        session,
+        "workflow_update_research",
+        AssistantActionResult(
+            action_id="update_research",
+            status="failed",
+            title="AI調査を更新できませんでした",
+            summary="外部情報を確認できませんでした。",
+            user_message="取得済み材料で確認してください。",
+            followup_actions=["answer_with_existing_materials", "retry_update_research"],
+        ),
+    )
+
+    recovered = _apply_workflow_session_control(
+        failed,
+        "continue_with_existing_materials",
+        "workflow_update_research",
+    )
+    turn = {
+        "assistant_workflow_session": recovered.model_dump_json(),
+        "assistant_action_results": json.dumps(
+            [
+                {
+                    "action_id": "update_research",
+                    "status": "failed",
+                    "title": "AI調査を更新できませんでした",
+                    "summary": "外部情報を確認できませんでした。",
+                    "user_message": "取得済み材料で確認してください。",
+                }
+            ],
+            ensure_ascii=False,
+        ),
+    }
+
+    assert recovered.active_step_id == "workflow_create_report"
+    assert _first_confirmable_action_id(turn) == "create_decision_report"
 
 
 def test_first_confirmable_action_does_not_fallback_when_session_gate_blocked():

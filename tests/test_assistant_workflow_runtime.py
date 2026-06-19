@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 from backend.assistant import (
+    ActionExecutionStatus,
     AssistantActionResult,
     build_assistant_context,
     build_deterministic_guided_workflow,
@@ -9,6 +10,7 @@ from backend.assistant.workflow_runtime import (
     apply_action_result,
     cancel_session,
     mark_running,
+    retry_step,
     skip_step,
     start_session,
 )
@@ -102,6 +104,67 @@ def test_update_research_failure_stops_session_without_auto_report():
     assert _step_status(updated, "workflow_create_report") == "waiting_confirmation"
 
 
+def test_failed_update_research_can_be_skipped_to_existing_materials():
+    session = start_session(_workflow())
+    assert session is not None
+    failed = apply_action_result(
+        session,
+        "workflow_update_research",
+        _research_result(
+            "failed",
+            followups=["answer_with_existing_materials", "retry_update_research"],
+        ),
+    )
+
+    recovered = skip_step(
+        failed,
+        "workflow_update_research",
+        "今ある材料で確認するため、AI調査更新をスキップしました。",
+    )
+
+    assert recovered.status == "active"
+    assert recovered.active_step_id == "workflow_create_report"
+    assert _step_status(recovered, "workflow_update_research") == "skipped"
+    assert _step_status(recovered, "workflow_create_report") == "waiting_confirmation"
+
+
+def test_failed_update_research_can_be_retried_with_confirmation():
+    session = start_session(_workflow())
+    assert session is not None
+    failed = apply_action_result(
+        session,
+        "workflow_update_research",
+        _research_result(
+            "failed",
+            followups=["answer_with_existing_materials", "retry_update_research"],
+        ),
+    )
+
+    retried = retry_step(failed, "workflow_update_research")
+
+    research_step = _step(retried, "workflow_update_research")
+    assert retried.status == "active"
+    assert retried.active_step_id == "workflow_update_research"
+    assert research_step.status == "waiting_confirmation"
+    assert research_step.result_status is None
+    assert research_step.completed_at is None
+
+
+def test_done_step_cannot_be_retried():
+    session = start_session(_workflow())
+    assert session is not None
+    updated = apply_action_result(
+        session,
+        "workflow_update_research",
+        _research_result("success", followups=["create_decision_report"]),
+    )
+
+    rejected = retry_step(updated, "workflow_update_research")
+
+    assert _step_status(rejected, "workflow_update_research") == "done"
+    assert "再試行できる状態" in rejected.warnings[-1]
+
+
 def test_create_decision_report_success_can_complete_session():
     session = start_session(_workflow())
     assert session is not None
@@ -176,7 +239,7 @@ def _workflow():
 
 
 def _research_result(
-    status: str,
+    status: ActionExecutionStatus,
     *,
     warnings: list[str] | None = None,
     followups: list[str] | None = None,

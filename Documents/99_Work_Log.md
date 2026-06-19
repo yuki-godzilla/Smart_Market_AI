@@ -3351,3 +3351,31 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - passed: targeted Black helper for 7 changed Python files.
 - not run as a full-project Black check: existing unrelated `tests/test_ui_forecast_display.py` is still reported by the helper as needing formatting.
 - passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --output-dir outputs\work\phase30g_playwright_static`.
+
+## 2026-06-19 Phase 30-G2 - Workflow Session UI Controls / Recovery MVP
+
+### Summary
+
+- Added `retry_step()` to `backend/assistant/workflow_runtime.py`.
+- Connected session-local workflow controls in the SMAIアシスタント UI:
+  - active session: skip current step / cancel workflow
+  - failed session: retry failed step / continue with existing materials / cancel workflow
+- Updated session confirmable-action selection so runtime step state, not old action-result presence alone, controls retry eligibility.
+- Added static Playwright fixture coverage for the new recovery-control labels.
+
+### Safety
+
+- Retry only returns a failed / skipped / cancelled step to `waiting_confirmation` or `planned`; it does not execute the action.
+- `今ある材料で確認` marks the failed `update_research` step as skipped and advances to the next confirmation step without external fetch.
+- Workflow cancel / skip / recovery update only the session-local workflow JSON.
+- No score, forecast, Ranking, AI総合, Research Score, broker, execution, Gateway endpoint, or SMAI/Gateway import-boundary behavior was changed.
+
+### Tests
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_assistant_workflow_runtime.py tests\test_ui_assistant_actions.py tests\test_ui_copilot_view.py tests\test_assistant_llm_tool_planner.py tests\test_assistant_gateway_client.py tests\test_assistant_action_execution.py tests\test_ui_content_texts.py tests\test_ui_styles.py -q` (`54 passed`).
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check . --no-cache` (`All checks passed!`; Windows access warning printed once, exit code 0).
+- passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py` (`274 Python file(s)`).
+- passed: `.\venv_SMAI\Scripts\python.exe -m mypy .` (`Success: no issues found in 311 source files`).
+- exact CI pytest command without a workspace temp override failed in this local Windows environment while creating `C:\Users\okuma\AppData\Local\Temp\pytest-of-okuma` (`PermissionError: [WinError 5]`).
+- passed after workspace temp override: `.\venv_SMAI\Scripts\python.exe -m pytest -q --maxfail=1 --disable-warnings --cov --cov-report=xml --basetemp outputs\work\ci_phase30g2_pytest_tmp` (`1677 passed, 2 skipped, 34 warnings`).
+- passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --output-dir outputs\work\phase30g2_playwright_static`.

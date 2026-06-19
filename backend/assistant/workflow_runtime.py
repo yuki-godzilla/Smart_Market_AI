@@ -133,7 +133,7 @@ def skip_step(
     step = _step_by_id(session, step_id)
     if step is None:
         return _append_session_warning(session, "指定された手順が見つかりません。")
-    if step.status in _TERMINAL_STEP_STATUSES:
+    if step.status in {"done", "skipped", "cancelled", "blocked"}:
         return _append_session_warning(session, "終了済みの手順はスキップしません。")
     summary = reason.strip() if reason else "ユーザー操作により、この手順をスキップしました。"
     updated = _replace_step(
@@ -147,6 +147,40 @@ def skip_step(
         ),
     )
     return _refresh_session_progress(updated)
+
+
+def retry_step(
+    session: AssistantWorkflowSession,
+    step_id: str,
+    reason: str | None = None,
+) -> AssistantWorkflowSession:
+    step = _step_by_id(session, step_id)
+    if step is None:
+        return _append_session_warning(session, "指定された手順が見つかりません。")
+    if step.status not in {"failed", "cancelled", "skipped"}:
+        return _append_session_warning(session, "この手順は再試行できる状態ではありません。")
+    if step.disabled_reason or step.status == "blocked":
+        return _append_session_warning(session, "利用できない手順は再試行できません。")
+    next_status: WorkflowRuntimeStepStatus = (
+        "waiting_confirmation" if step.requires_confirmation else "planned"
+    )
+    summary = reason.strip() if reason else "もう一度実行前確認に戻しました。"
+    return _replace_step(
+        session,
+        step.model_copy(
+            update={
+                "status": next_status,
+                "result_status": None,
+                "result_summary": summary,
+                "warnings": [],
+                "started_at": None,
+                "completed_at": None,
+            }
+        ),
+        status="active",
+        active_step_id=step.step_id,
+        completed_at=None,
+    )
 
 
 def cancel_session(

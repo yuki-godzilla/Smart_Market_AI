@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 from collections.abc import Mapping
+from typing import Any, cast
 
 from backend.assistant import AssistantActionResult
 
@@ -107,7 +108,7 @@ def _int_detail(value: object) -> int | None:
     if isinstance(value, bool):
         return int(value)
     try:
-        return int(value)  # type: ignore[arg-type]
+        return int(cast(Any, value))
     except (TypeError, ValueError):
         return None
 

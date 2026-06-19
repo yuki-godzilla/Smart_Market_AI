@@ -11,7 +11,17 @@ import time as perf_time
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
-from typing import Any, Callable, Iterable, Literal, Mapping, MutableMapping, Sequence, cast
+from typing import (
+    Any,
+    Callable,
+    Iterable,
+    Literal,
+    Mapping,
+    MutableMapping,
+    Protocol,
+    Sequence,
+    cast,
+)
 
 import altair as alt
 import pandas as pd
@@ -381,6 +391,11 @@ __all__ = [
     "risk_breach_display_rows",
     "risk_breach_message",
 ]
+
+
+class _StreamlitEmptyContainer(Protocol):
+    def empty(self) -> Any: ...
+
 
 MARKET_DATA_PROVIDER_OPTIONS = ["yahoo", "csv", "mock"]
 MARKET_DATA_PROVIDER_WIDGET_KEY = "market_data_provider_live_first"
@@ -5735,7 +5750,7 @@ def _render_ranking_filter_panel(
     ranking_policy: str,
     period_preset: str,
     purpose: str,
-    summary_container: object | None = None,
+    summary_container: _StreamlitEmptyContainer | None = None,
 ) -> list[dict[str, str]]:
     detail_filters = set(ranking_detail_filters_for_category(region, product_type))
     if "dividend_yield" in detail_filters:

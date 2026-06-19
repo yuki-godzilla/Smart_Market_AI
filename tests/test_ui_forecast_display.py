@@ -741,9 +741,9 @@ def test_cockpit_keyword_filtered_symbol_rows_matches_theme_and_alias():
     assert [row["symbol"] for row in cockpit_keyword_filtered_symbol_rows(rows, "半導体")] == [
         "NVDA"
     ]
-    assert [row["symbol"] for row in cockpit_keyword_filtered_symbol_rows(rows, "semiconductor")] == [
-        "NVDA"
-    ]
+    assert [
+        row["symbol"] for row in cockpit_keyword_filtered_symbol_rows(rows, "semiconductor")
+    ] == ["NVDA"]
     assert [row["symbol"] for row in cockpit_keyword_filtered_symbol_rows(rows, "トヨタ")] == [
         "7203.T"
     ]
@@ -5201,10 +5201,7 @@ def test_clear_ranking_detail_condition_state_keeps_top_level_controls(monkeypat
 
     assert session_state["market_data_ranking_region"] == "us"
     assert session_state["market_data_ranking_product_type"] == "stock"
-    assert (
-        session_state["market_data_ranking_policy"]
-        == RANKING_PURPOSE_QUALITY_GROWTH
-    )
+    assert session_state["market_data_ranking_policy"] == RANKING_PURPOSE_QUALITY_GROWTH
     assert session_state["market_data_ranking_period"] == "medium"
     assert session_state["market_data_ranking_fetch_limit"] == "fast_100"
     assert session_state["market_data_ranking_currency"] == "all"
@@ -7443,10 +7440,7 @@ def test_ranking_policy_builder_card_html_summarizes_policy_weights():
     assert "AI総合" in markup
     assert "基礎評価" in markup
     assert "30%" in markup
-    assert (
-        "上位銘柄は、まず詳しく確認したい候補として見てください。"
-        in markup
-    )
+    assert "上位銘柄は、まず詳しく確認したい候補として見てください。" in markup
 
 
 def test_ranking_creation_target_summary_html_explains_effective_target_count():

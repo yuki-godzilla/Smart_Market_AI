@@ -45,6 +45,15 @@ from backend.assistant import (
     apply_action_result as apply_assistant_workflow_action_result,
 )
 from backend.assistant import (
+    cancel_session as cancel_assistant_workflow_session,
+)
+from backend.assistant import (
+    retry_step as retry_assistant_workflow_step,
+)
+from backend.assistant import (
+    skip_step as skip_assistant_workflow_step,
+)
+from backend.assistant import (
     start_session as start_assistant_workflow_session,
 )
 from backend.assistant.response_sanitizer import (
@@ -1130,6 +1139,8 @@ def render_copilot_workspace_page() -> None:
         fallback_context=contexts[0],
     ):
         st.rerun()
+    if _render_workflow_session_controls(_copilot_history()):
+        st.rerun()
     if _render_decision_report_draft_action(_copilot_history()):
         st.rerun()
     _render_pending_decision_report_draft_preview()
@@ -1673,6 +1684,231 @@ def _render_confirmable_assistant_action(
     return False
 
 
+def _render_workflow_session_controls(history: list[dict[str, str]]) -> bool:
+    if isinstance(st.session_state.get(COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY), dict):
+        return False
+    candidate = _latest_workflow_session_turn(history)
+    if candidate is None:
+        return False
+    turn, session = candidate
+    options = _workflow_session_control_options(session)
+    if not options:
+        return False
+    st.markdown(
+        '<div class="smai-copilot-chat-actions-anchor" aria-hidden="true"></div>',
+        unsafe_allow_html=True,
+    )
+    st.caption("確認フローの操作")
+    columns = st.columns(len(options), gap="small")
+    for column, option in zip(columns, options):
+        control = option["control"]
+        label = option["label"]
+        step_id = option["step_id"]
+        with column:
+            if st.button(
+                label,
+                key=f"smai_copilot_workflow_{control}_{step_id}_{turn.get('turn_id', '')}",
+                use_container_width=True,
+                help=option["help"],
+            ):
+                updated = _apply_workflow_session_control(session, control, step_id)
+                _record_workflow_session_state(
+                    turn_id=str(turn.get("turn_id", "")),
+                    session=updated,
+                )
+                st.session_state.pop(COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY, None)
+                if control == "cancel_session":
+                    update_assistant_runtime_status(
+                        AssistantStatusEvent(
+                            name="cancelled",
+                            runtime_config=copilot_gateway_runtime_config(),
+                        )
+                    )
+                return True
+    return False
+
+
+def _workflow_session_control_options(
+    session: AssistantWorkflowSession,
+) -> list[dict[str, str]]:
+    if session.status == "active":
+        active_step = _workflow_session_active_step(session)
+        if active_step is None:
+            return [
+                _workflow_control_option(
+                    "cancel_session",
+                    "フローを中止",
+                    "",
+                    "この確認フローをここで止めます。データ取得やレポート作成は行いません。",
+                )
+            ]
+        options: list[dict[str, str]] = []
+        if active_step.status in {"planned", "waiting_confirmation"}:
+            options.append(
+                _workflow_control_option(
+                    "skip_step",
+                    _workflow_skip_button_label(active_step.action_id),
+                    active_step.step_id,
+                    "現在の手順だけをスキップします。次の手順も自動実行はしません。",
+                )
+            )
+        options.append(
+            _workflow_control_option(
+                "cancel_session",
+                "フローを中止",
+                active_step.step_id,
+                "この確認フローをここで止めます。データ取得やレポート作成は行いません。",
+            )
+        )
+        return options
+    if session.status != "failed":
+        return []
+    failed_step = _workflow_session_failed_step(session)
+    if failed_step is None:
+        return [
+            _workflow_control_option(
+                "cancel_session",
+                "フローを中止",
+                "",
+                "この確認フローをここで止めます。",
+            )
+        ]
+    options = [
+        _workflow_control_option(
+            "retry_step",
+            _workflow_retry_button_label(failed_step.action_id),
+            failed_step.step_id,
+            "失敗した手順をもう一度、実行前確認に戻します。",
+        )
+    ]
+    if failed_step.action_id == "update_research":
+        options.append(
+            _workflow_control_option(
+                "continue_with_existing_materials",
+                "今ある材料で確認",
+                failed_step.step_id,
+                "AI調査更新をスキップし、取得済み材料で次の確認へ進みます。",
+            )
+        )
+    options.append(
+        _workflow_control_option(
+            "cancel_session",
+            "フローを中止",
+            failed_step.step_id,
+            "この確認フローをここで止めます。データ取得やレポート作成は行いません。",
+        )
+    )
+    return options
+
+
+def _workflow_control_option(
+    control: str,
+    label: str,
+    step_id: str,
+    help_text: str,
+) -> dict[str, str]:
+    return {"control": control, "label": label, "step_id": step_id, "help": help_text}
+
+
+def _apply_workflow_session_control(
+    session: AssistantWorkflowSession,
+    control: str,
+    step_id: str,
+) -> AssistantWorkflowSession:
+    if control == "cancel_session":
+        return cancel_assistant_workflow_session(
+            session,
+            "ユーザー操作により確認フローを中止しました。",
+        )
+    if control == "retry_step":
+        return retry_assistant_workflow_step(
+            session,
+            step_id,
+            "前回の結果を確認し、もう一度実行前確認に戻しました。",
+        )
+    if control == "continue_with_existing_materials":
+        return skip_assistant_workflow_step(
+            session,
+            step_id,
+            "今ある材料で確認するため、失敗したAI調査更新をスキップしました。",
+        )
+    if control == "skip_step":
+        return skip_assistant_workflow_step(
+            session,
+            step_id,
+            "ユーザー操作により、この手順をスキップしました。",
+        )
+    return session
+
+
+def _workflow_skip_button_label(action_id: str | None) -> str:
+    return {
+        "update_research": "AI調査をスキップ",
+        "create_decision_report": "レポート作成をスキップ",
+    }.get(str(action_id or ""), "この手順をスキップ")
+
+
+def _workflow_retry_button_label(action_id: str | None) -> str:
+    return {
+        "update_research": "AI調査をもう一度更新",
+        "create_decision_report": "レポート作成をもう一度試す",
+    }.get(str(action_id or ""), "もう一度試す")
+
+
+def _latest_workflow_session_turn(
+    history: list[dict[str, str]],
+) -> tuple[dict[str, str], AssistantWorkflowSession] | None:
+    for turn in reversed(history):
+        if str(turn.get("status", "")) != "complete":
+            continue
+        session = _workflow_session_from_turn(turn)
+        if session is None:
+            continue
+        if session.status in {"active", "failed"}:
+            return turn, session
+    return None
+
+
+def _workflow_session_from_turn(
+    turn: dict[str, str],
+) -> AssistantWorkflowSession | None:
+    value = str(turn.get("assistant_workflow_session", "")).strip()
+    if not value:
+        return None
+    try:
+        return AssistantWorkflowSession.model_validate_json(value)
+    except ValueError:
+        return None
+
+
+def _workflow_session_active_step(session: AssistantWorkflowSession):
+    active_step_id = str(session.active_step_id or "").strip()
+    if not active_step_id:
+        return None
+    return next((step for step in session.steps if step.step_id == active_step_id), None)
+
+
+def _workflow_session_failed_step(session: AssistantWorkflowSession):
+    return next((step for step in session.steps if step.status == "failed"), None)
+
+
+def _record_workflow_session_state(
+    *,
+    turn_id: str,
+    session: AssistantWorkflowSession,
+) -> None:
+    history = _copilot_history()
+    next_history: list[dict[str, str]] = []
+    for item in history:
+        if str(item.get("turn_id", "")) != turn_id:
+            next_history.append(item)
+            continue
+        updated = dict(item)
+        updated["assistant_workflow_session"] = session.model_dump_json()
+        next_history.append(updated)
+    st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = next_history
+
+
 def _render_assistant_action_confirmation(
     turn: dict[str, str],
     *,
@@ -1980,8 +2216,6 @@ def _first_confirmable_action_id_from_session(
             continue
         action_id = str(step.get("action_id", "")).strip()
         if action_id not in COPILOT_CONFIRMABLE_ACTION_IDS:
-            continue
-        if _turn_has_action_result(turn, action_id):
             continue
         if not bool(step.get("requires_confirmation")):
             continue

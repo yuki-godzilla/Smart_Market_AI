@@ -14,6 +14,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from backend.assistant import (  # noqa: E402
     AssistantActionResult,
+    apply_action_result,
     build_assistant_context,
     build_deterministic_assistant_tool_plan,
     build_deterministic_guided_workflow,
@@ -24,7 +25,10 @@ from ui.components.assistant_action_confirm import (  # noqa: E402
     assistant_action_confirmation_html,
 )
 from ui.components.assistant_action_result import assistant_action_result_card_html  # noqa: E402
-from ui.views.copilot import copilot_answer_detail_html  # noqa: E402
+from ui.views.copilot import (  # noqa: E402
+    _workflow_session_control_options,
+    copilot_answer_detail_html,
+)
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "outputs/work/playwright_assistant_action_smoke"
 HTML_PATH = "assistant_action_states.html"
@@ -179,6 +183,7 @@ def _static_body() -> str:
                     "research_status": "missing",
                 },
             ),
+            _section("Workflow Controls: failed research", _workflow_controls_fixture()),
             _section(
                 "Confirmation: create_decision_report",
                 assistant_action_confirmation_html(
@@ -280,6 +285,35 @@ def _workflow_section(
     return _section(title, copilot_answer_detail_html(turn))
 
 
+def _workflow_controls_fixture() -> str:
+    context = build_assistant_context(
+        current_page="cockpit",
+        user_question="この銘柄を詳しく確認したい",
+        page_state={"selected_symbol": "7203.T"},
+        material_state={
+            "price_data_status": "available",
+            "forecast_status": "available",
+            "research_status": "missing",
+        },
+    )
+    workflow = build_deterministic_guided_workflow(context)
+    if workflow is None:
+        raise RuntimeError("guided workflow was not generated for controls fixture")
+    session = start_session(workflow)
+    if session is None:
+        raise RuntimeError("workflow session was not generated for controls fixture")
+    failed = apply_action_result(
+        session,
+        "workflow_update_research",
+        _research_failure(),
+    )
+    buttons = "".join(
+        f'<button type="button">{option["label"]}</button>'
+        for option in _workflow_session_control_options(failed)
+    )
+    return f'<div class="smai-copilot-workflow-controls">{buttons}</div>'
+
+
 def _assert_static_component_states(page: Page) -> None:
     page.get_by_text("SMAIアシスタント").first.wait_for()
     page.get_by_text("LLM待機中").first.wait_for()
@@ -296,6 +330,9 @@ def _assert_static_component_states(page: Page) -> None:
     page.get_by_text("このフローは確認手順の案内です").first.wait_for()
     page.get_by_text("進行状態: 進行中").first.wait_for()
     page.get_by_text("確認待ち").first.wait_for()
+    page.get_by_role("button", name="AI調査をもう一度更新").wait_for()
+    page.get_by_role("button", name="今ある材料で確認").wait_for()
+    page.get_by_role("button", name="フローを中止").wait_for()
     page.get_by_text("実行前確認").first.wait_for()
     page.get_by_text("売買推奨ではありません").first.wait_for()
     assert page.locator('a[href="?smai_page=ranking"]').count() >= 1

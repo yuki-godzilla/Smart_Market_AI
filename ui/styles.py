@@ -8,13 +8,13 @@ import altair as alt
 import streamlit as st
 
 THEME_COLORS = {
-    "bg_app": "#040814",
+    "bg_app": "#020510",
     "bg_surface": "#0A1220",
-    "bg_card": "#14233A",
+    "bg_card": "#111F35",
     "bg_card_hover": "#1B2E49",
     "bg_elevated": "#213550",
     "text_title": "#F8FBFF",
-    "text_heading": "#F1F6FD",
+    "text_heading": "#EAF1FB",
     "text_primary": "#E5EDF7",
     "text_secondary": "#C8D4E3",
     "text_muted": "#AAB8C8",
@@ -153,16 +153,16 @@ SMAI_GLOBAL_CSS = """
 <style>
 :root {
     /* Background */
-    --bg-page: #0A1220;
-    --bg-app: #040814;
+    --bg-page: #070D19;
+    --bg-app: #020510;
     --bg-surface: #0A1220;
-    --bg-card: #14233A;
+    --bg-card: #111F35;
     --bg-card-hover: #1B2E49;
     --bg-elevated: #213550;
 
     /* Text */
     --text-title: #F8FBFF;
-    --text-heading: #F1F6FD;
+    --text-heading: #EAF1FB;
     --text-primary: #E5EDF7;
     --text-secondary: #C8D4E3;
     --text-muted: #AAB8C8;

@@ -307,6 +307,7 @@ def _tool_plan_from_planner_response(
             or (action and action.is_external_fetch)
         )
         enabled = True if action is None else action.enabled
+        disabled_reason = None if action is None or enabled else action.disabled_reason
         steps.append(
             AssistantToolPlanStep(
                 step_id=_safe_step_id(planner_step.step_id, index=index),
@@ -317,7 +318,7 @@ def _tool_plan_from_planner_response(
                 requires_confirmation=confirmation,
                 priority=planner_step.priority,
                 status="suggested" if enabled else "blocked",
-                disabled_reason=None if enabled else action.disabled_reason,
+                disabled_reason=disabled_reason,
             )
         )
     return AssistantToolPlan(
@@ -353,6 +354,7 @@ def _guided_workflow_from_planner_response(
             or (action and action.is_external_fetch)
         )
         enabled = True if action is None else action.enabled
+        disabled_reason = None if action is None or enabled else action.disabled_reason
         kind = _workflow_kind_for_action(action, requires_confirmation=requires_confirmation)
         steps.append(
             AssistantWorkflowStep(
@@ -365,7 +367,7 @@ def _guided_workflow_from_planner_response(
                 symbol=target_symbol,
                 requires_confirmation=requires_confirmation,
                 status=_workflow_status_for_step(kind, enabled=enabled),
-                disabled_reason=None if enabled else action.disabled_reason,
+                disabled_reason=disabled_reason,
                 followup_hint=planner_step.reason,
             )
         )

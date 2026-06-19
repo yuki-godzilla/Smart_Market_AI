@@ -22,6 +22,7 @@ from backend.assistant.gateway_contracts import (
     AssistantGatewayResponse,
     AssistantPlannerRequest,
     AssistantPlannerResponse,
+    AssistantPlannerStep,
     build_assistant_context_bundle,
     build_assistant_gateway_request,
 )
@@ -1008,16 +1009,16 @@ def _default_mock_planner_response(request: AssistantPlannerRequest) -> Assistan
         user_intent=request.user_question,
         overall_summary="Mock Plannerとして、確認だけを行う手順を提案します。",
         steps=[
-            {
-                "step_id": "mock_step_explain_current_page",
-                "title": "現在画面を確認",
-                "summary": "現在の画面と不足材料を確認します。",
-                "action_id": "explain_current_page",
-                "reason": "安全な確認順の入口にできるためです。",
-                "requires_confirmation": False,
-                "confidence": 0.7,
-                "priority": "medium",
-            }
+            AssistantPlannerStep(
+                step_id="mock_step_explain_current_page",
+                title="現在画面を確認",
+                summary="現在の画面と不足材料を確認します。",
+                action_id="explain_current_page",
+                reason="安全な確認順の入口にできるためです。",
+                requires_confirmation=False,
+                confidence=0.7,
+                priority="medium",
+            )
         ],
         safety_note="この提案は確認手順の整理であり、売買推奨ではありません。",
         planner_source="llm",

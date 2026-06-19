@@ -123,8 +123,12 @@ def _runtime_status_from_workflow_step(
 ) -> WorkflowRuntimeStepStatus:
     if step.disabled_reason or step.kind == "not_available" or step.status == "blocked":
         return "blocked"
-    if step.status in {"done", "skipped", "failed"}:
-        return step.status
+    if step.status == "done":
+        return "done"
+    if step.status == "skipped":
+        return "skipped"
+    if step.status == "failed":
+        return "failed"
     if step.requires_confirmation:
         return "waiting_confirmation"
     return "planned"

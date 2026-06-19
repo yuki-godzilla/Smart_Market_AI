@@ -7443,7 +7443,10 @@ def test_ranking_policy_builder_card_html_summarizes_policy_weights():
     assert "AI総合" in markup
     assert "基礎評価" in markup
     assert "30%" in markup
-    assert "上位は買い推奨ではなく" in markup
+    assert (
+        "上位銘柄は、まず詳しく確認したい候補として見てください。"
+        in markup
+    )
 
 
 def test_ranking_creation_target_summary_html_explains_effective_target_count():

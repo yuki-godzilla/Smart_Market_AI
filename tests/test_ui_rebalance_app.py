@@ -1448,7 +1448,9 @@ def test_rebalance_decision_report_downloads_explain_export_roles(monkeypatch):
     _render_rebalance_decision_report(result, request)
 
     assert any("売買指示ではありません" in info for info in infos)
-    assert any("買い・売り・保有の指示ではありません。" in caption for caption in captions)
+    assert any(
+        "あとから見返すための確認メモです" in caption for caption in captions
+    )
     assert (
         "Markdownは読む用、JSONは再現用、manifestは同梱内容の確認用、ZIPは一式保存用です。"
         in captions

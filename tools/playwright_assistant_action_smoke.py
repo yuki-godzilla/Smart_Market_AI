@@ -249,11 +249,9 @@ def _assert_static_component_states(page: Page) -> None:
     assert page.locator('a[href="?smai_page=cockpit"]').count() >= 1
     assert page.locator('a[href="?smai_page=news"]').count() >= 1
 
-    page.get_by_text("外部取得を行いません").first.wait_for()
-    page.get_by_text("TDnet、EDINET、企業IR、Google News、Yahoo Finance").first.wait_for()
-    page.get_by_text(
-        "Ranking score / Forecast / Investment Score / AI総合は変更しません"
-    ).first.wait_for()
+    page.get_by_text("最新情報の取得は行いません").first.wait_for()
+    page.get_by_text("最新のニュース・開示・IR候補を確認します").first.wait_for()
+    page.get_by_text("スコア・予測・AI総合は変更しません").first.wait_for()
     page.get_by_text("broker連携や注文操作は行いません").first.wait_for()
 
     page.get_by_text("確認レポートを作成しました").first.wait_for()
@@ -262,13 +260,13 @@ def _assert_static_component_states(page: Page) -> None:
     page.get_by_text("AI調査を一部更新しました").first.wait_for()
     page.get_by_text("AI調査を更新できませんでした").first.wait_for()
     page.get_by_text("取得件数: 3件").first.wait_for()
-    page.get_by_text("取得元別件数: tdnet 1件 / news 2件").first.wait_for()
-    page.get_by_text("警告数: 2件").first.wait_for()
+    page.get_by_text("資料別件数: tdnet 1件 / news 2件").first.wait_for()
+    page.get_by_text("注意点: 2件").first.wait_for()
     page.get_by_text("時間切れ: company_ir_site").first.wait_for()
     page.get_by_text("該当なし: edinet").first.wait_for()
     page.get_by_text("確認レポートを作る").first.wait_for()
     page.get_by_text("AI調査をもう一度更新する").first.wait_for()
-    page.get_by_text("取得済み材料だけで確認する").first.wait_for()
+    page.get_by_text("今ある材料で確認する").first.wait_for()
 
     body = page.locator("body").inner_text()
     for phrase in FORBIDDEN_COPY:
@@ -287,6 +285,12 @@ def _assert_streamlit_app_states(page: Page, base_url: str) -> None:
     }.items():
         page.goto(_with_smai_page(base_url, page_key), wait_until="domcontentloaded", timeout=60000)
         page.get_by_text(expected_text).first.wait_for(timeout=60000)
+        if page_key == "cockpit":
+            page.get_by_text("まずデータ取得").first.wait_for(timeout=60000)
+            page.get_by_text("銘柄と期間を選ぶと、価格・予測材料を確認します。").first.wait_for(
+                timeout=60000
+            )
+            assert "銘柄、取得期間、データ取得元" not in page.locator("body").inner_text()
     page.goto(_with_smai_page(base_url, "copilot"), wait_until="domcontentloaded", timeout=60000)
     page.get_by_text("新しい会話").first.wait_for(timeout=60000)
     page.get_by_role("button", name="送信").wait_for(timeout=60000)
@@ -369,7 +373,7 @@ def _research_success() -> AssistantActionResult:
         action_id="update_research",
         status="success",
         title="AI調査を更新しました",
-        summary="7203.T の外部Research Evidenceを3件反映しました。",
+        summary="7203.T の根拠資料を3件反映しました。",
         user_message="IR、開示、ニュースなどの確認材料をAI調査に反映しました。",
         details={
             "symbol": "7203.T",
@@ -394,8 +398,8 @@ def _research_partial() -> AssistantActionResult:
         action_id="update_research",
         status="partial_success",
         title="AI調査を一部更新しました",
-        summary="7203.T の外部Research Evidenceを2件反映しました。",
-        user_message="取得できた材料だけをAI調査に反映しました。",
+        summary="7203.T の根拠資料を2件反映しました。",
+        user_message="取得できた材料をAI調査に反映しました。",
         details={
             "symbol": "7203.T",
             "entry_count": 2,

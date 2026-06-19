@@ -3622,7 +3622,7 @@ def _tool_plan_answer(plan: AssistantResearchToolPlan) -> str:
         company_name=_research_plan_company_name(plan),
     )
     approval_text = (
-        "外部情報の取得を含むため、実行前に確認します。"
+        "最新のニュース・開示・IR候補を確認するため、実行前に確認します。"
         if plan.has_external_tools
         else "SMAI内の取得済み材料を整理する前に確認します。"
     )

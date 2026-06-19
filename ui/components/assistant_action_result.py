@@ -65,10 +65,10 @@ def _details_summary_html(value: AssistantActionResult) -> str:
         items.append(f"取得件数: {entry_count}件")
     source_counts = _source_counts_label(details.get("source_counts"))
     if source_counts:
-        items.append(f"取得元別件数: {source_counts}")
+        items.append(f"資料別件数: {source_counts}")
     warning_count = _int_detail(details.get("warning_count"))
     if warning_count is not None:
-        items.append(f"警告数: {warning_count}件")
+        items.append(f"注意点: {warning_count}件")
     failed_sources = _source_list_label(details.get("failed_sources"))
     if failed_sources:
         items.append(f"取得失敗: {failed_sources}")
@@ -120,7 +120,7 @@ def _followup_label(action_id: str) -> str:
         "open_cockpit": "銘柄コックピットで銘柄を選ぶ",
         "fetch_symbol_data": "データを取得する",
         "retry_update_research": "AI調査をもう一度更新する",
-        "answer_with_existing_materials": "取得済み材料だけで確認する",
+        "answer_with_existing_materials": "今ある材料で確認する",
         "summarize_next_checks": "次の確認を整理する",
     }
     return labels.get(str(action_id), str(action_id))

@@ -12,8 +12,9 @@ from backend.core.errors import ValidationAppError
 
 DECISION_REPORT_SCHEMA_VERSION = "decision-report-context-v1"
 DECISION_SUPPORT_NOTE = (
-    "このレポートは、ある時点の判断材料、根拠、不確実性、確認ポイントを保存する補助資料であり、"
-    "売買推奨ではありません。また、投資助言でもありません。"
+    "このレポートは、あとから見返すための確認メモです。"
+    "価格・予測・根拠資料・注意点を整理しています。"
+    "最終判断は、最新情報を確認したうえで行ってください。"
 )
 
 ReportSourceKind = Literal["cockpit", "ranking", "rebalance", "metadata", "manual", "research"]

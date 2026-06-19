@@ -41,7 +41,7 @@ Area-specific wording:
 - Investment Score は「売買判断」ではなく、「複数観点を統合した比較・分析用スコア」として表現する。
 - Database Fit / Metadata Confidence / Data Quality は「投資魅力度」ではなく、「評価に使えるデータの充実度・信頼度」として表現する。
 - Rebalance は「売買」ではなく、「配分見直し」「simulation」「review candidate」として表現する。
-- Decision Report は「投資推奨書」ではなく、「ある時点の判断材料、根拠、不確実性、確認ポイントの保存・説明」として表現する。
+- Decision Report は「あとから見返すための確認メモ」として表現し、価格・予測・根拠資料・注意点を整理するものだと伝える。
 - Research Evidence は「根拠」だが、確定情報や保証ではない。資料名、日付、source type、抜粋、信頼度、根拠不足 warning をできるだけ近くに表示する。
 - Forecast は「将来の保証」ではなく、「baseline model による参考予測、不確実性、モデル間の見方」として表現する。
 - Direction Signal は「上がる銘柄/下がる銘柄」ではなく、「上昇気配」「下降警戒」「深掘り候補」として表現する。ランキングと銘柄コックピットの主表示は `上昇気配` / `下降警戒` の2指標に絞る。

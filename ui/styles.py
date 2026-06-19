@@ -3886,8 +3886,9 @@ div[data-testid="stChatInput"] textarea:focus {
 
 .smai-mascot--compact {
     grid-template-columns: auto 1fr;
-    padding: 0.66rem 0.78rem;
-    margin: 0.55rem 0 0.85rem;
+    gap: 0.72rem;
+    padding: 0.72rem 0.86rem;
+    margin: 0.85rem 0 1rem;
 }
 
 .smai-mascot--compact .smai-mascot-image {

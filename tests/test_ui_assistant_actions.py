@@ -19,8 +19,8 @@ def test_confirmation_html_explains_create_report_safety_boundary():
 
     assert "実行前確認" in markup
     assert "7203.T - Toyota" in markup
-    assert "外部取得を行いません" in markup
-    assert "Ranking score / Forecast / Investment Score / AI総合は変更しません" in markup
+    assert "最新情報の取得は行いません" in markup
+    assert "スコア・予測・AI総合は変更しません" in markup
     assert "broker連携" in markup
 
 
@@ -34,13 +34,10 @@ def test_confirmation_html_warns_for_external_fetch_actions():
         materials=("Research Evidence: なし",),
     )
 
-    assert "外部データ取得を行います" in markup
-    assert "TDnet" in markup
-    assert "EDINET" in markup
-    assert "Google News" in markup
-    assert "Yahoo Finance" in markup
-    assert "時間がかかる場合" in markup
-    assert "一部の取得元だけ成功" in markup
+    assert "最新のニュース・開示・IR候補を確認します" in markup
+    assert "取得には少し時間がかかる場合" in markup
+    assert "一部だけ取得できることもあります" in markup
+    assert "この操作だけでは、スコアや予測値は変更されません" in markup
 
 
 def test_action_result_card_distinguishes_success_and_followups():
@@ -68,8 +65,8 @@ def test_action_result_card_renders_update_research_partial_followups():
         action_id="update_research",
         status="partial_success",
         title="AI調査を一部更新しました",
-        summary="7203.T の外部Research Evidenceを2件反映しました。",
-        user_message="取得できた材料だけをAI調査に反映しました。",
+        summary="7203.T の根拠資料を2件反映しました。",
+        user_message="取得できた材料をAI調査に反映しました。",
         details={
             "entry_count": 2,
             "source_counts": {"news": 1, "tdnet": 1},
@@ -91,8 +88,8 @@ def test_action_result_card_renders_update_research_partial_followups():
     assert "実行結果: 一部成功" in markup
     assert "AI調査を一部更新しました" in markup
     assert "取得件数: 2件" in markup
-    assert "取得元別件数: news 1件 / tdnet 1件" in markup
-    assert "警告数: 2件" in markup
+    assert "資料別件数: news 1件 / tdnet 1件" in markup
+    assert "注意点: 2件" in markup
     assert "時間切れ: company_ir" in markup
     assert "該当なし: edinet" in markup
     assert "確認レポートを作る" in markup
@@ -123,7 +120,7 @@ def test_first_confirmable_action_skips_already_recorded_action_result():
         action_id="update_research",
         status="success",
         title="AI調査を更新しました",
-        summary="7203.T の外部Research Evidenceを2件反映しました。",
+        summary="7203.T の根拠資料を2件反映しました。",
         user_message="確認材料をAI調査に反映しました。",
     )
     turn = {

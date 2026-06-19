@@ -305,4 +305,4 @@ def test_template_assistant_without_context_returns_general_confirmation_path():
     assert response.citations == []
     assert "一般的な確認順" in response.answer
     assert response.cautions[0].startswith("投資判断レポートや根拠資料が未指定")
-    assert "投資判断レポートを作成" in response.next_checkpoints[0]
+    assert "確認レポートを作成" in response.next_checkpoints[0]

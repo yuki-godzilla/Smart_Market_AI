@@ -206,7 +206,7 @@ class AssistantActionExecutor:
                 action_id=action.action_id,
                 status="not_available",
                 title="AI調査を更新できませんでした",
-                summary="AI調査を更新する部品を利用できませんでした。",
+                summary="AI調査を更新する準備ができていません。",
                 error_code="research_fetcher_unavailable",
                 started_at=started_at,
                 details={"symbol": symbol},
@@ -259,11 +259,11 @@ class AssistantActionExecutor:
                 action_id=action.action_id,
                 status="failed",
                 title="AI調査を更新できませんでした",
-                summary="外部情報の取得結果を確認できませんでした。",
+                summary="最新情報を確認できませんでした。",
                 error_code="external_fetch_failed",
                 started_at=started_at,
                 details={"symbol": symbol, "company_name": company_name},
-                warnings=["providerの詳細エラーは画面に表示しません。"],
+                warnings=["取得元の詳細エラーは通常表示していません。"],
                 requires_followup=True,
                 followup_actions=[
                     "answer_with_existing_materials",
@@ -322,8 +322,8 @@ def _research_fetch_result_to_action_result(
             action_id=action.action_id,
             status="failed",
             title="AI調査を更新できませんでした",
-            summary=f"{symbol} の外部Research Evidenceを取得できませんでした。",
-            user_message="外部情報を取得できませんでした。取得済み材料を使って確認できます。",
+            summary=f"{symbol} の新しい根拠資料は見つかりませんでした。",
+            user_message="取得済み材料を使って確認できます。必要に応じて条件を変えて再確認してください。",
             error_code=_clean_text(_result_field(fetch_result, "error_code", ""))
             or "no_external_research_found",
             started_at=started_at,
@@ -342,10 +342,10 @@ def _research_fetch_result_to_action_result(
             action_id=action.action_id,
             status="partial_success",
             title="AI調査を一部更新しました",
-            summary=f"{symbol} の外部Research Evidenceを{entry_count}件反映しました。",
+            summary=f"{symbol} の根拠資料を{entry_count}件反映しました。",
             user_message=(
-                "取得できた材料だけをAI調査に反映しました。"
-                "一部の取得元は未取得または該当なしです。"
+                "取得できた材料をAI調査に反映しました。"
+                "未取得の資料があるため、必要に応じて再確認してください。"
             ),
             started_at=started_at,
             details=details,
@@ -361,14 +361,14 @@ def _research_fetch_result_to_action_result(
         action_id=action.action_id,
         status="success",
         title="AI調査を更新しました",
-        summary=f"{symbol} の外部Research Evidenceを{entry_count}件反映しました。",
+        summary=f"{symbol} の根拠資料を{entry_count}件反映しました。",
         user_message=(
             f"{symbol}{' / ' + company_name if company_name else ''} のIR、開示、"
             "ニュースなどの確認材料をAI調査に反映しました。"
         ),
         started_at=started_at,
         details=details,
-        warnings=["取得本文やproviderの詳細ログは結果カードに表示していません。"],
+        warnings=[],
         followup_actions=[
             "open_research_section",
             "create_decision_report",

@@ -530,7 +530,7 @@ def _approval_reason_for_intent(intent: AssistantResearchIntent, *, has_external
     if intent == "decision_report_request":
         return "Decision Report下書きを作る前に、保存・整理する内容を確認します。"
     if has_external:
-        return "外部情報の取得を含むため、実行前に確認します。"
+        return "最新のニュース・開示・IR候補を確認するため、実行前に確認します。"
     return "SMAI内の材料を確認して整理するため、実行前に確認します。"
 
 

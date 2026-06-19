@@ -135,7 +135,7 @@ class TemplateAssistantService:
             )
             next_checkpoints = _dedupe(
                 [
-                    "銘柄コックピットまたはランキングで投資判断レポートを作成してから、同じ質問を確認します。",
+                    "銘柄コックピットまたはランキングで確認レポートを作成してから、同じ質問を確認します。",
                     *next_checkpoints,
                 ]
             )

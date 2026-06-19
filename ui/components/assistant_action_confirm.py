@@ -29,7 +29,7 @@ def assistant_action_confirmation_html(
         "<strong>この操作</strong>"
         "<ul>"
         "<li>売買判断ではありません。</li>"
-        "<li>Ranking score / Forecast / Investment Score / AI総合は変更しません。</li>"
+        "<li>スコア・予測・AI総合は変更しません。</li>"
         f"{external_note}"
         "<li>broker連携や注文操作は行いません。</li>"
         "</ul>"
@@ -40,13 +40,14 @@ def assistant_action_confirmation_html(
 
 def _external_fetch_note(action: AssistantActionSpec) -> str:
     if not action.is_external_fetch:
-        return "<li>この操作では外部取得を行いません。</li>"
+        return "<li>この操作では最新情報の取得は行いません。</li>"
     if action.action_id == "update_research":
         return (
-            "<li>この操作はTDnet、EDINET、企業IR、Google News、Yahoo Financeなどの外部データ取得を行います。</li>"
-            "<li>取得に時間がかかる場合があります。一部の取得元だけ成功する場合があります。</li>"
+            "<li>最新のニュース・開示・IR候補を確認します。</li>"
+            "<li>取得には少し時間がかかる場合があります。一部だけ取得できることもあります。</li>"
+            "<li>この操作だけでは、スコアや予測値は変更されません。</li>"
         )
-    return "<li>この操作は外部データ取得を行います。取得に時間がかかる場合があります。</li>"
+    return "<li>最新情報を確認します。取得に少し時間がかかる場合があります。</li>"
 
 
 def _action_heading(action: AssistantActionSpec) -> str:

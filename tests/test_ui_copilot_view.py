@@ -589,7 +589,7 @@ def test_copilot_tool_plan_answer_handles_legacy_plan_without_company_name():
     answer = _tool_plan_answer(plan)  # type: ignore[arg-type]
 
     assert "トヨタ自動車（7203.T）について、確認する材料を整理しました。" in answer
-    assert "外部情報の取得を含むため、実行前に確認します。" in answer
+    assert "最新のニュース・開示・IR候補を確認するため、実行前に確認します。" in answer
 
 
 def test_copilot_tool_plan_tools_state_normalizes_legacy_labels():

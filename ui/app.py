@@ -5642,7 +5642,7 @@ def ranking_policy_builder_card_html(ranking_policy: str, weight_preset: str) ->
         f'<p>この基準で候補を並べます。{html.escape(description["short_summary"])}</p>'
         f'<div class="smai-ranking-policy-weight-chips">{group_items}</div>'
         '<p class="smai-ranking-policy-caution">'
-        "上位は買い推奨ではなく、Cockpitで深掘りする候補です。"
+        "上位銘柄は、まず詳しく確認したい候補として見てください。"
         "</p>"
         "</section>"
     )
@@ -6824,7 +6824,8 @@ def _render_market_data_cockpit() -> None:
         _register_cockpit_setup_assistant_context(symbol)
         render_mascot_panel(
             "empty",
-            message="銘柄、取得期間、データ取得元を選んでデータを取得すると、確認ポイントをまとめます。",
+            title="まずデータ取得",
+            message="銘柄と期間を選ぶと、価格・予測材料を確認します。",
             layout="compact",
         )
         return
@@ -15137,7 +15138,7 @@ def build_ranking_decision_report_context(
                 )
                 for row in top_rows
             ],
-            notes=["上位候補メモは比較条件と確認観点の保存であり、売買推奨ではありません。"],
+            notes=["上位候補メモは、比較条件と確認観点をあとから見返すための確認メモです。"],
         ),
         build_report_section(
             title="上位候補スコア詳細",
@@ -15180,7 +15181,7 @@ def build_ranking_decision_report_context(
             )
         )
     return build_decision_report_context(
-        title="投資判断レポート - ランキング結果",
+        title="確認レポート - ランキング結果",
         sections=sections,
         tags=["ranking", "phase-19", "local-first"],
     )
@@ -15640,7 +15641,7 @@ def _render_ranking_decision_report(
     )
     _render_decision_report_downloads(
         context,
-        expander_label="投資判断レポート",
+        expander_label="確認レポート",
         json_file_name="decision_report_ranking.json",
         markdown_file_name="decision_report_ranking.md",
     )
@@ -15660,17 +15661,17 @@ def _render_ranking_decision_report_lazy(
 ) -> None:
     cached_context = st.session_state.get(report_state_key)
     if not isinstance(cached_context, DecisionReportContext):
-        st.markdown("### 投資判断レポート")
+        st.markdown("### 確認レポート")
         render_mascot_panel(
             "report",
             message="深掘り候補を確認したあと、必要なときだけ分析メモとしてレポート化できます。",
             layout="compact",
         )
         st.info(
-            "ランキング上位を推奨するものではなく、比較条件、分布、確認ポイントを保存する分析メモです。"
+            "上位候補をあとから見返すために、比較条件、分布、確認ポイントを確認メモとして整理します。"
             "作成後は同じ評価方針の間、ダウンロード用データを再利用します。"
         )
-        if st.button("投資判断レポートを作成", key=f"{report_state_key}_build"):
+        if st.button("確認レポートを作成", key=f"{report_state_key}_build"):
             with st.spinner("ランキングの比較レポートを作成しています。"):
                 cached_context = build_ranking_decision_report_context(
                     ranked_rows=ranked_rows,
@@ -15687,7 +15688,7 @@ def _render_ranking_decision_report_lazy(
     if isinstance(cached_context, DecisionReportContext):
         _render_decision_report_downloads(
             cached_context,
-            expander_label="投資判断レポート",
+            expander_label="確認レポート",
             json_file_name="decision_report_ranking.json",
             markdown_file_name="decision_report_ranking.md",
         )

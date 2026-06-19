@@ -3191,3 +3191,33 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - passed: `.\venv_SMAI\Scripts\python.exe -m ruff check tools\playwright_assistant_action_smoke.py ui\components\assistant_action_confirm.py ui\components\assistant_action_result.py tests\test_ui_assistant_actions.py --no-cache`.
 - passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py`.
 - passed after escalated browser-driver execution with local Streamlit and `SMAI_DISABLE_BACKGROUND_WORKERS=1`: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --app-url http://127.0.0.1:8524`.
+
+## 2026-06-19 Phase 31-A - Product Copy / UI Text Polish
+
+### Summary
+
+- Softened Priority 1 normal-display copy across SMAIアシスタント confirmation cards, action result cards, Ranking candidate guidance, and Decision Report support notes.
+- Replaced user-visible internal wording such as `外部Research Evidence`, `provider`, `Ranking score / Forecast / Investment Score` with shorter Japanese copy such as `根拠資料`, `取得元`, and `スコア・予測・AI総合は変更しません`.
+- Updated `update_research` confirmation copy to explain that it checks latest news / disclosure / IR candidates, may take time, and does not change scores or forecasts.
+- Updated Decision Report shared note to describe it as an after-the-fact `確認メモ` for price, forecast, evidence, and cautions.
+- Shortened the pre-fetch Cockpit empty-state card from the long `銘柄、取得期間、データ取得元...` copy to `まずデータ取得` with a shorter message, and gave the compact mascot card slightly more breathing room.
+- Extended `tools/playwright_assistant_action_smoke.py --app-url` to verify the Cockpit empty-state copy in a running Streamlit app.
+
+### Safety
+
+- No scoring, forecast, Research fetch, LLM, ranking order, broker, execution, or data-acquisition logic was changed.
+- Technical provider/raw-detail wording remains outside normal result cards or inside technical/detail contexts.
+- `data/cache/symbol_refresh_status.json` changed during the workspace session; it was inspected and left as a generated cache status update per project cache handling rules.
+
+### Docs
+
+- Updated `PROJECT_CONTEXT.md`, `Documents/05_Implementation_Roadmap.md`, `Documents/06_MVP_Operations_Guide.md`, `Documents/07_UI_Wording_Policy.md`, `Documents/03_Functional_design.md`, `Documents/96_Manual_UX_Review_Checklist.md`, and `Documents/97_Functional_Spec_Issues.md` for Phase 31-A wording status.
+
+### Tests
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_assistant_actions.py tests\test_assistant_action_execution.py tests\test_assistant_service.py tests\test_reporting_service.py tests\test_ui_copilot_view.py::test_copilot_tool_plan_answer_handles_legacy_plan_without_company_name tests\test_ui_forecast_display.py::test_ranking_policy_builder_card_html_summarizes_policy_weights tests\test_ui_rebalance_app.py::test_rebalance_decision_report_downloads_explain_export_roles -q -p no:cacheprovider --basetemp outputs\work\phase31a_pytest_tmp` with 44 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check backend\assistant backend\reporting ui\app.py ui\styles.py ui\views\copilot.py ui\components\assistant_action_confirm.py ui\components\assistant_action_result.py tools\playwright_assistant_action_smoke.py tests\test_assistant_service.py tests\test_ui_assistant_actions.py tests\test_ui_copilot_view.py tests\test_ui_forecast_display.py tests\test_ui_rebalance_app.py tests\test_reporting_service.py --no-cache`.
+- passed: targeted Black helper for 28 changed Python files, excluding known large legacy UI test files handled by targeted pytest: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py backend\assistant backend\reporting ui\app.py ui\styles.py ui\views\copilot.py ui\components\assistant_action_confirm.py ui\components\assistant_action_result.py tools\playwright_assistant_action_smoke.py tests\test_assistant_service.py tests\test_ui_assistant_actions.py tests\test_ui_copilot_view.py tests\test_reporting_service.py`.
+- passed: Markdown strict UTF-8 read for updated docs.
+- passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py`.
+- passed after escalated browser-driver execution with local Streamlit and `SMAI_DISABLE_BACKGROUND_WORKERS=1`: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --app-url http://127.0.0.1:8525`.

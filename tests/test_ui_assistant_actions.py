@@ -37,6 +37,8 @@ def test_confirmation_html_warns_for_external_fetch_actions():
     assert "外部データ取得を行います" in markup
     assert "TDnet" in markup
     assert "EDINET" in markup
+    assert "Google News" in markup
+    assert "Yahoo Finance" in markup
     assert "時間がかかる場合" in markup
     assert "一部の取得元だけ成功" in markup
 
@@ -68,6 +70,13 @@ def test_action_result_card_renders_update_research_partial_followups():
         title="AI調査を一部更新しました",
         summary="7203.T の外部Research Evidenceを2件反映しました。",
         user_message="取得できた材料だけをAI調査に反映しました。",
+        details={
+            "entry_count": 2,
+            "source_counts": {"news": 1, "tdnet": 1},
+            "warning_count": 2,
+            "timeout_sources": ["company_ir"],
+            "no_result_sources": ["edinet"],
+        },
         warnings=["EDINETは該当情報なしでした。"],
         completed_at=datetime(2026, 6, 19, 9, 0, tzinfo=UTC),
         followup_actions=[
@@ -81,6 +90,11 @@ def test_action_result_card_renders_update_research_partial_followups():
 
     assert "実行結果: 一部成功" in markup
     assert "AI調査を一部更新しました" in markup
+    assert "取得件数: 2件" in markup
+    assert "取得元別件数: news 1件 / tdnet 1件" in markup
+    assert "警告数: 2件" in markup
+    assert "時間切れ: company_ir" in markup
+    assert "該当なし: edinet" in markup
     assert "確認レポートを作る" in markup
     assert "AI調査をもう一度更新する" in markup
 

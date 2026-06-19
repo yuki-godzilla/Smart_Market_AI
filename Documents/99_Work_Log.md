@@ -3168,3 +3168,26 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - passed: targeted Black helper for changed Python files: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py backend\assistant ui\views\copilot.py ui\components\assistant_action_confirm.py ui\components\assistant_action_result.py tests\test_assistant_action_execution.py tests\test_ui_assistant_actions.py`.
 - passed: Markdown strict UTF-8 read for updated docs.
 - passed: local Streamlit / Playwright smoke on `http://127.0.0.1:8523/?smai_page=copilot`; confirmed `SMAIアシスタント` and `新しい会話` rendered. No external fetch, report execution, ranking creation, score change, or data-changing action was clicked.
+
+## 2026-06-19 Assistant Playwright Confirmation Sprint
+
+### Summary
+
+- Added `tools/playwright_assistant_action_smoke.py`, a network-free Playwright smoke harness for SMAIアシスタント Tool Plan and confirmable action UI states.
+- The static harness verifies initial-state fixture copy, Tool Plan sections, navigation links, `create_decision_report` / `update_research` confirmation cards, success / partial_success / failed result cards, safety copy, follow-up actions, and raw provider detail suppression.
+- Added optional `--app-url` mode to check a running Streamlit app can open SMAIアシスタント, Ranking, Cockpit, and 投資レーダー pages without browser console/page errors.
+- Improved `update_research` result cards so fetched count, source counts, warning count, timeout sources, no-result sources, and failed sources are visible without exposing source body or provider raw detail.
+- Updated operations guide with the new smoke command.
+
+### Safety
+
+- The default smoke is network-free and uses deterministic static UI states.
+- The optional Streamlit URL smoke does not click external fetch, report execution, ranking creation, score-changing, or broker actions.
+- `update_research` result card details remain limited to safe summary fields.
+
+### Tests
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_assistant_actions.py -q --basetemp outputs\work\assistant_action_sprint_pytest_tmp -p no:cacheprovider` with 7 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check tools\playwright_assistant_action_smoke.py ui\components\assistant_action_confirm.py ui\components\assistant_action_result.py tests\test_ui_assistant_actions.py --no-cache`.
+- passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py`.
+- passed after escalated browser-driver execution with local Streamlit and `SMAI_DISABLE_BACKGROUND_WORKERS=1`: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --app-url http://127.0.0.1:8524`.

@@ -26,6 +26,7 @@ def assistant_action_result_card_html(result: AssistantActionResult | Mapping[st
     warnings = "".join(
         f"<li>{html.escape(item)}</li>" for item in value.warnings if str(item).strip()
     )
+    details = _details_summary_html(value)
     followups = "".join(
         f"<li>{html.escape(_followup_label(item))}</li>"
         for item in value.followup_actions
@@ -46,11 +47,69 @@ def assistant_action_result_card_html(result: AssistantActionResult | Mapping[st
         f"<p>{html.escape(value.summary)}</p>"
         f"<p>{html.escape(value.user_message)}</p>"
         f"{error}"
+        f"{details}"
         f"{f'<small>作成時刻: {html.escape(created)}</small>' if created else ''}"
         f"{f'<div><strong>注意</strong><ul>{warnings}</ul></div>' if warnings else ''}"
         f"{f'<div><strong>次にできること</strong><ul>{followups}</ul></div>' if followups else ''}"
         "</section>"
     )
+
+
+def _details_summary_html(value: AssistantActionResult) -> str:
+    if value.action_id != "update_research":
+        return ""
+    details = value.details
+    items: list[str] = []
+    entry_count = _int_detail(details.get("entry_count"))
+    if entry_count is not None:
+        items.append(f"取得件数: {entry_count}件")
+    source_counts = _source_counts_label(details.get("source_counts"))
+    if source_counts:
+        items.append(f"取得元別件数: {source_counts}")
+    warning_count = _int_detail(details.get("warning_count"))
+    if warning_count is not None:
+        items.append(f"警告数: {warning_count}件")
+    failed_sources = _source_list_label(details.get("failed_sources"))
+    if failed_sources:
+        items.append(f"取得失敗: {failed_sources}")
+    timeout_sources = _source_list_label(details.get("timeout_sources"))
+    if timeout_sources:
+        items.append(f"時間切れ: {timeout_sources}")
+    no_result_sources = _source_list_label(details.get("no_result_sources"))
+    if no_result_sources:
+        items.append(f"該当なし: {no_result_sources}")
+    if not items:
+        return ""
+    item_markup = "".join(f"<li>{html.escape(item)}</li>" for item in items)
+    return f"<div><strong>取得サマリ</strong><ul>{item_markup}</ul></div>"
+
+
+def _source_counts_label(value: object) -> str:
+    if not isinstance(value, Mapping):
+        return ""
+    labels: list[str] = []
+    for key, count in value.items():
+        source = str(key or "").strip()
+        number = _int_detail(count)
+        if source and number is not None:
+            labels.append(f"{source} {number}件")
+    return " / ".join(labels[:8])
+
+
+def _source_list_label(value: object) -> str:
+    if not isinstance(value, list):
+        return ""
+    labels = [str(item).strip() for item in value if str(item).strip()]
+    return " / ".join(labels[:8])
+
+
+def _int_detail(value: object) -> int | None:
+    if isinstance(value, bool):
+        return int(value)
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
 
 
 def _followup_label(action_id: str) -> str:

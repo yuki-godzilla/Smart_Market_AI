@@ -709,6 +709,18 @@ Markdown UTF-8 check:
 .\venv_SMAI\Scripts\python.exe -c "from pathlib import Path; [p.read_text(encoding='utf-8') for p in Path('.').rglob('*.md') if '.git' not in p.parts]; print('markdown utf-8 ok')"
 ```
 
+SMAIアシスタント / Confirmable Action の Playwright smoke:
+
+```powershell
+.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py
+```
+
+このコマンドは network-free の静的HTML harnessを生成し、Tool Plan、navigation link、`create_decision_report` / `update_research` の確認カード、success / partial_success / failed result card、安全文言、raw provider detail 非表示を確認します。起動済み Streamlit も確認する場合だけ、別terminalで `SMAI_DISABLE_BACKGROUND_WORKERS=1` を指定してアプリを起動し、次のようにURLを渡します。
+
+```powershell
+.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --app-url http://127.0.0.1:8524
+```
+
 ## 9. 更新ルール
 
 - 実装状態が変わったら README / PROJECT_CONTEXT / Roadmap / Operations Guide を同期する。

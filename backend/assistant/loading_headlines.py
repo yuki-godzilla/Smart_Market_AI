@@ -33,7 +33,11 @@ def load_assistant_loading_headlines(
     now: datetime | None = None,
 ) -> AssistantLoadingHeadlines:
     current = now or datetime.now(UTC)
-    snapshot = load_cached_news_dashboard_snapshot(cache_dir=cache_dir)
+    snapshot = (
+        load_cached_news_dashboard_snapshot()
+        if cache_dir is None
+        else load_cached_news_dashboard_snapshot(cache_dir=cache_dir)
+    )
     source = "cache"
     if snapshot is None or not snapshot.stream_headlines:
         snapshot = build_demo_news_dashboard_snapshot(now=current)

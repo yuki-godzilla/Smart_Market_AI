@@ -20,6 +20,25 @@ def test_loading_headlines_use_cache_and_bound_items(tmp_path):
     assert result.stale is False
 
 
+def test_loading_headlines_uses_news_cache_default_when_directory_is_omitted(monkeypatch):
+    calls = 0
+
+    def fake_load_default():
+        nonlocal calls
+        calls += 1
+        return None
+
+    monkeypatch.setattr(
+        "backend.assistant.loading_headlines.load_cached_news_dashboard_snapshot",
+        fake_load_default,
+    )
+
+    result = load_assistant_loading_headlines()
+
+    assert calls == 1
+    assert result.source == "sample"
+
+
 def test_loading_headlines_use_sample_for_missing_or_malformed_cache(tmp_path):
     now = datetime(2026, 6, 19, 15, 30, tzinfo=UTC)
     (tmp_path / "news_dashboard_snapshot.json").write_text("{bad", encoding="utf-8")

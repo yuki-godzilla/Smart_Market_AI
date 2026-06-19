@@ -3397,3 +3397,9 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - passed: targeted Ruff and project Black helper (`280 Python file(s)`).
 - passed: `tools/playwright_assistant_scenario_smoke.py` with 12 scenarios; generated screenshot was visually checked because the in-app browser was unavailable in this session.
 - passed: project `tools/run_local_checks.py` (`1695 passed, 2 skipped`; Black and Ruff passed; 32 existing deprecation/runtime warnings).
+
+## 2026-06-19 Phase 30-H hotfix - Loading headline default cache path
+
+- Fixed Assistant loading headlines to omit the `cache_dir` argument when no override is supplied, allowing the news cache loader to use `NEWS_CACHE_DIR` instead of evaluating `Path(None)`.
+- Added a regression test for the same default-path call shape used by the Streamlit Assistant page.
+- passed: loading/warmup/Copilot targeted pytest (`61 passed`), targeted Ruff, and project Black helper.

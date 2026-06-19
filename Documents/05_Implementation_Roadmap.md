@@ -2422,7 +2422,7 @@ Subphases:
 
 ### 5.21 🟨 Phase 30: SMAI Assistant Agent Roadmap
 
-状態: 🟨 **Phase 30-A / 30-B / 30-C MVP済み / 継続拡張**。
+状態: 🟨 **Phase 30-A / 30-B / 30-C / 30-D MVP済み / 継続拡張**。
 
 目的: SMAIアシスタントを、単なるチャット応答から「現在画面と材料状態を理解し、次に確認できる操作を安全に提案するアシスタント」へ進める。基本設計は `Plan -> Confirm -> Execute` とし、Phase 30-A では提案表示までを中心に扱う。
 
@@ -2431,7 +2431,7 @@ Subphases:
 - Phase 30-A: Assistant State Context Builder、Action Catalog、Tool Plan schema、deterministic Tool Plan、Plan Validation、Assistant UI の `次にできること` 表示を実装する。実行はしない。
 - Phase 30-B: Tool Plan から Ranking / Cockpit / News への安全な navigation を接続する。実装済み。navigation は同一アプリ内 `smai_page` link として扱い、外部取得や重い処理は走らせない。
 - Phase 30-C: AI調査更新、ニュース更新、確認レポート作成、ランキング作成などの safe actions をユーザー確認付きで接続し、action result を表示する。`create_decision_report` と `update_research` は接続済み。Action Execution Layer、`AssistantActionResult`、session-local audit、確認UI、結果カードを追加し、確認レポート成功時は既存Decision Report下書きプレビュー / 保存導線に接続する。`update_research` は既存AI調査の外部Research fetch経路を確認後だけ呼び、取得件数 / 資料別件数 / 注意点 / 未取得元だけを結果カードに出す。`refresh_news` / `create_ranking` は後続接続。
-- Phase 30-D: Ranking -> Cockpit -> Research -> Report の guided workflow を、各ステップ確認付きで扱う。
+- Phase 30-D: Ranking -> Cockpit -> Research -> Report の guided workflow を、各ステップ確認付きで扱う。deterministic `AssistantGuidedWorkflow` と `確認フロー` UIを追加し、Ranking / Cockpit / Report intentで複数ステップの確認手順を表示する。navigation は画面遷移だけ、`update_research` / `create_decision_report` は既存の確認カード経由だけで実行し、ランキング作成・価格取得・外部取得・レポート作成は勝手に走らせない。
 - Phase 30-E: Gateway 経由の LLM Tool Planner を optional にし、available actions 限定、schema validation、deterministic fallback を必須にする。
 - Phase 30-F: fixture による Agent evaluation harness を作り、unsafe action、hallucinated action、missing material handling を回帰確認する。
 - Phase 30-G: ユーザー承認済み範囲内だけで、限定的な半自動 workflow を検討する。
@@ -2451,6 +2451,7 @@ Subphases:
 - 30-A: 通常 tests は network-free で、実Gateway / 実LLM / 実network を必須にしない。
 - 30-B: navigation action は Ranking / Cockpit / News の画面遷移だけを行い、AI調査更新、ランキング作成、確認レポート作成を起動しない。
 - 30-C MVP: `create_decision_report` と `update_research` は確認パネルで対象、使用材料、外部取得有無、変更しないものを示してから実行する。実行結果はsuccess / partial_success / failed / skipped / cancelled / not_availableを区別してchat threadに残し、最小限のaudit情報をsession-localに保持する。`update_research` の取得本文やprovider raw detailは通常表示しない。ランキング作成、スコア・予測値変更、broker操作は行わない。
+- 30-D MVP: Assistant UI に `確認フロー` カードを表示し、step番号、状態、navigation / review / confirmable action の違い、disabled理由、action result連動が分かる。通常テストとPlaywright smokeはnetwork-freeを維持し、LLM planner / LangGraph / 半自動連続実行は30-E以降に残す。
 
 ### 5.22 🟥 Phase 31: 高度ExportとExecution Gate
 

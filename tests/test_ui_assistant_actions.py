@@ -1,7 +1,12 @@
 import json
 from datetime import UTC, datetime
 
-from backend.assistant import AssistantActionResult, get_assistant_action
+from backend.assistant import (
+    AssistantActionResult,
+    build_assistant_context,
+    build_deterministic_guided_workflow,
+    get_assistant_action,
+)
 from ui.components.assistant_action_confirm import assistant_action_confirmation_html
 from ui.components.assistant_action_result import assistant_action_result_card_html
 from ui.views.copilot import _first_confirmable_action_id, copilot_answer_detail_html
@@ -142,6 +147,72 @@ def test_first_confirmable_action_skips_already_recorded_action_result():
     }
 
     assert _first_confirmable_action_id(turn) == "create_decision_report"
+
+
+def test_first_confirmable_action_reads_guided_workflow_before_tool_plan():
+    context = build_assistant_context(
+        current_page="cockpit",
+        user_question="この銘柄を詳しく確認したい",
+        page_state={"selected_symbol": "7203.T"},
+        material_state={
+            "price_data_status": "available",
+            "forecast_status": "available",
+            "research_status": "missing",
+        },
+    )
+    workflow = build_deterministic_guided_workflow(context)
+    assert workflow is not None
+    turn = {
+        "assistant_guided_workflow": workflow.model_dump_json(),
+        "assistant_tool_plan": json.dumps(
+            {
+                "steps": [
+                    {
+                        "action_id": "create_decision_report",
+                        "requires_confirmation": True,
+                    }
+                ]
+            },
+            ensure_ascii=False,
+        ),
+    }
+
+    assert _first_confirmable_action_id(turn) == "update_research"
+
+
+def test_copilot_answer_detail_html_renders_guided_workflow_card():
+    context = build_assistant_context(
+        current_page="cockpit",
+        user_question="この銘柄を詳しく確認したい",
+        page_state={"selected_symbol": "7203.T"},
+        material_state={
+            "price_data_status": "available",
+            "forecast_status": "available",
+            "research_status": "missing",
+        },
+    )
+    workflow = build_deterministic_guided_workflow(context)
+    assert workflow is not None
+    turn = {
+        "intent": "stock_summary",
+        "answer": "確認順を整理します。",
+        "reasons": "価格チャート",
+        "cautions": "売買推奨ではありません。",
+        "next_checkpoints": "根拠資料を確認します。",
+        "memo_points": "",
+        "assistant_guided_workflow": workflow.model_dump_json(),
+        "assistant_tool_plan": "",
+    }
+
+    markup = copilot_answer_detail_html(turn)
+
+    assert "確認フロー" in markup
+    assert "価格・予測を確認" in markup
+    assert "AI調査を更新" in markup
+    assert "実行前確認" in markup
+    assert "確認レポートを作る" in markup
+    assert "?smai_page=cockpit" in markup
+    assert "このフローは確認手順の案内です" in markup
 
 
 def test_copilot_answer_detail_html_renders_action_result_cards():

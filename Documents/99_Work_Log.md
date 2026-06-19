@@ -3234,3 +3234,32 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - passed: `.\venv_SMAI\Scripts\python.exe -m ruff check ui\app.py --no-cache`.
 - passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py ui\app.py`.
 - passed after escalated browser-driver execution with local Streamlit and `SMAI_DISABLE_BACKGROUND_WORKERS=1`: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --app-url http://127.0.0.1:8526`.
+
+## 2026-06-19 Phase 30-D - SMAI Assistant Guided Workflow MVP
+
+### Summary
+
+- Added deterministic `AssistantGuidedWorkflow` / `AssistantWorkflowStep` schema and builder for Ranking -> Cockpit -> AI調査 -> 確認レポート, current-Cockpit deep dive, and report-creation intents.
+- Added workflow validation for max step count, unknown actions, confirmation-required external fetch / report actions, disabled action state, create_ranking non-connection, and investment-advice / execution-like wording.
+- Added a SMAIアシスタント `確認フロー` card that shows step number, status, navigation links, disabled reason / follow-up hint, and action-result-linked status.
+- Connected guided workflow confirmable steps to the existing `update_research` / `create_decision_report` confirmation-card path without direct execution.
+- Extended the Playwright assistant smoke fixture to cover the workflow card.
+- Updated Phase 30 roadmap, project context, and FS-014 safety notes.
+
+### Safety
+
+- Guided workflows do not execute actions automatically.
+- `update_research` and `create_decision_report` still require user confirmation.
+- Ranking creation, price fetch, external fetch, report creation, score / forecast / AI総合 / Research Score changes, and broker / execution behavior were not changed.
+- LLM planner / LangGraph-style runtime remains Phase 30-E scope.
+- `data/cache/symbol_refresh_status.json` changed during local Streamlit verification; it was inspected and kept as a generated cache status update per project cache handling rules.
+
+### Tests
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_assistant_guided_workflow.py tests\test_ui_assistant_actions.py -q -p no:cacheprovider` with 16 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_assistant_tool_plan.py tests\test_assistant_plan_validation.py -q -p no:cacheprovider` with 7 passed.
+- passed after rerun with workspace basetemp: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_copilot_view.py -q -p no:cacheprovider --basetemp outputs\work\phase30d_pytest_tmp` with 54 passed. The first run without `--basetemp` hit Windows temp permission `WinError 5`.
+- passed: `.\venv_SMAI\Scripts\python.exe -m ruff check backend\assistant ui\views\copilot.py tests\test_assistant_guided_workflow.py tests\test_ui_assistant_actions.py tools\playwright_assistant_action_smoke.py --no-cache`.
+- passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py backend\assistant ui\views\copilot.py tests\test_assistant_guided_workflow.py tests\test_ui_assistant_actions.py tools\playwright_assistant_action_smoke.py`.
+- passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --output-dir outputs\work\playwright_assistant_action_smoke_phase30d`.
+- passed after setting `PYTHONPATH=C:\IDE_Workspace\Smart_Market_AI` and `SMAI_DISABLE_BACKGROUND_WORKERS=1` for local Streamlit: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --output-dir outputs\work\playwright_assistant_action_smoke_phase30d_app --app-url http://localhost:8517`.

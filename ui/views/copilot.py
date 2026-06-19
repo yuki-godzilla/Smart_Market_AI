@@ -33,11 +33,13 @@ from backend.assistant import (
     build_assistant_research_context_bundle,
     build_assistant_research_tool_plan,
     build_deterministic_assistant_tool_plan,
+    build_deterministic_guided_workflow,
     detect_assistant_intent,
     execute_assistant_tool_plan,
     get_assistant_action,
     render_research_bundle_markdown_memo,
     route_assistant_conversation_mode,
+    validate_assistant_guided_workflow,
     validate_assistant_tool_plan,
 )
 from backend.assistant.response_sanitizer import (
@@ -985,13 +987,17 @@ def copilot_history_messages(
 def copilot_answer_detail_html(turn: dict[str, str]) -> str:
     intent = _normalize_intent(turn.get("intent", ""))
     tool_plan_panel = _assistant_tool_plan_panel_html(turn)
+    workflow_panel = _assistant_guided_workflow_panel_html(turn)
     action_results = _assistant_action_results_panel_html(turn)
     if _is_llm_micro_intent(intent):
-        return action_results + tool_plan_panel + _assistant_action_links_html(turn)
+        return (
+            action_results + workflow_panel + tool_plan_panel + _assistant_action_links_html(turn)
+        )
     if str(turn.get("hide_answer_grid", "")).lower() == "true":
         return (
             _execution_result_html(turn)
             + action_results
+            + workflow_panel
             + tool_plan_panel
             + _response_meta_html(turn)
             + _assistant_action_links_html(turn)
@@ -1011,6 +1017,7 @@ def copilot_answer_detail_html(turn: dict[str, str]) -> str:
             )
             + _execution_result_html(turn)
             + action_results
+            + workflow_panel
             + tool_plan_panel
             + _response_meta_html(turn)
             + _assistant_action_links_html(turn)
@@ -1027,6 +1034,7 @@ def copilot_answer_detail_html(turn: dict[str, str]) -> str:
         "</div>"
         f"{_execution_result_html(turn)}"
         f"{action_results}"
+        f"{workflow_panel}"
         f"{tool_plan_panel}"
         f"{_response_meta_html(turn)}"
         f"{_assistant_action_links_html(turn)}"
@@ -1865,6 +1873,20 @@ def _latest_confirmable_assistant_action_turn(
 
 
 def _first_confirmable_action_id(turn: dict[str, str]) -> str:
+    workflow = _assistant_guided_workflow_dict(turn)
+    workflow_steps = workflow.get("steps")
+    if isinstance(workflow_steps, list):
+        for step in workflow_steps:
+            if not isinstance(step, dict):
+                continue
+            action_id = str(step.get("action_id", "")).strip()
+            if action_id not in COPILOT_CONFIRMABLE_ACTION_IDS:
+                continue
+            if _turn_has_action_result(turn, action_id):
+                continue
+            if not bool(step.get("requires_confirmation")):
+                continue
+            return action_id
     plan = _assistant_tool_plan_dict(turn)
     steps = plan.get("steps")
     if not isinstance(steps, list):
@@ -3248,6 +3270,10 @@ def _turn_from_response(
         context=context,
         question=question,
     )
+    assistant_guided_workflow = _assistant_guided_workflow_state(
+        context=context,
+        question=question,
+    )
     return {
         "turn_id": turn_id or uuid4().hex,
         "status": "complete",
@@ -3297,7 +3323,26 @@ def _turn_from_response(
         "assistant_action_results": "",
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "assistant_tool_plan": assistant_tool_plan,
+        "assistant_guided_workflow": assistant_guided_workflow,
     }
+
+
+def _assistant_guided_workflow_state(
+    *,
+    context: SmaiAssistantContext,
+    question: str,
+) -> str:
+    assistant_context = _assistant_backend_context_for_ui_context(
+        context=context,
+        question=question,
+    )
+    workflow = build_deterministic_guided_workflow(assistant_context)
+    if workflow is None:
+        return ""
+    validation = validate_assistant_guided_workflow(workflow)
+    if not validation.valid:
+        return ""
+    return workflow.model_dump_json()
 
 
 def _assistant_tool_plan_state(
@@ -3365,6 +3410,17 @@ def _assistant_tool_plan_dict(turn: dict[str, str]) -> dict[str, object]:
     return plan if isinstance(plan, dict) else {}
 
 
+def _assistant_guided_workflow_dict(turn: dict[str, str]) -> dict[str, object]:
+    value = str(turn.get("assistant_guided_workflow", "")).strip()
+    if not value:
+        return {}
+    try:
+        workflow = json.loads(value)
+    except json.JSONDecodeError:
+        return {}
+    return workflow if isinstance(workflow, dict) else {}
+
+
 def _assistant_action_results_from_state(value: str) -> list[dict[str, object]]:
     if not value.strip():
         return []
@@ -3375,6 +3431,17 @@ def _assistant_action_results_from_state(value: str) -> list[dict[str, object]]:
     if not isinstance(raw, list):
         return []
     return [item for item in raw if isinstance(item, dict)]
+
+
+def _assistant_action_result_by_action_id(
+    turn: dict[str, str],
+) -> dict[str, dict[str, object]]:
+    results: dict[str, dict[str, object]] = {}
+    for item in _assistant_action_results_from_state(str(turn.get("assistant_action_results", ""))):
+        action_id = str(item.get("action_id", "")).strip()
+        if action_id:
+            results[action_id] = item
+    return results
 
 
 def _material_state_key(label: str) -> str:
@@ -3759,6 +3826,119 @@ def _assistant_tool_plan_panel_html(turn: dict[str, str]) -> str:
         f'<p class="smai-copilot-tool-plan-safety">{html.escape(safety_note)}</p>'
         "</section>"
     )
+
+
+def _assistant_guided_workflow_panel_html(turn: dict[str, str]) -> str:
+    workflow = _assistant_guided_workflow_dict(turn)
+    steps = workflow.get("steps")
+    if not isinstance(steps, list) or not steps:
+        return ""
+    action_results = _assistant_action_result_by_action_id(turn)
+    items = "".join(
+        _assistant_guided_workflow_step_html(
+            step,
+            index=index,
+            action_results=action_results,
+        )
+        for index, step in enumerate(steps[:6], start=1)
+    )
+    if not items:
+        return ""
+    safety_note = str(workflow.get("safety_note", "")).strip()
+    return (
+        '<section class="smai-copilot-tool-plan smai-copilot-guided-workflow">'
+        '<span class="smai-copilot-tool-plan-title">確認フロー</span>'
+        f"<p>{html.escape(str(workflow.get('summary', '')).strip())}</p>"
+        f"<ul>{items}</ul>"
+        f'<p class="smai-copilot-tool-plan-safety">{html.escape(safety_note)}</p>'
+        "</section>"
+    )
+
+
+def _assistant_guided_workflow_step_html(
+    step: object,
+    *,
+    index: int,
+    action_results: dict[str, dict[str, object]],
+) -> str:
+    if not isinstance(step, dict):
+        return ""
+    title = str(step.get("title", "")).strip()
+    summary = str(step.get("summary", "")).strip()
+    action_id = str(step.get("action_id", "")).strip()
+    disabled_reason = _clean_optional_tool_plan_text(step.get("disabled_reason"))
+    followup_hint = _clean_optional_tool_plan_text(step.get("followup_hint"))
+    result = action_results.get(action_id)
+    status = _assistant_workflow_status_label(step, result)
+    action = get_assistant_action(action_id) if action_id else None
+    action_label = action.label if action else _workflow_kind_label(step)
+    href = _assistant_tool_plan_navigation_href(action_id)
+    action_html = (
+        '<a class="smai-copilot-tool-plan-link" '
+        f'href="{html.escape(href, quote=True)}" target="_self">開く</a>'
+        if href and not disabled_reason
+        else ""
+    )
+    result_summary = ""
+    if result:
+        result_summary = _clean_optional_tool_plan_text(result.get("summary"))
+    details = " / ".join(
+        item
+        for item in (
+            action_label,
+            status,
+            disabled_reason,
+            result_summary,
+            followup_hint,
+        )
+        if item
+    )
+    return (
+        "<li>"
+        f"<b>{index}. {html.escape(title)}</b>"
+        f"<span>{html.escape(summary)}</span>"
+        f"<small>{html.escape(details)}</small>"
+        f"{action_html}"
+        "</li>"
+    )
+
+
+def _assistant_workflow_status_label(
+    step: dict[str, object],
+    result: dict[str, object] | None,
+) -> str:
+    if result:
+        status = str(result.get("status", "")).strip()
+        return {
+            "success": "完了",
+            "partial_success": "一部完了",
+            "failed": "失敗",
+            "skipped": "未実行",
+            "cancelled": "キャンセル済み",
+            "not_available": "利用不可",
+            "validation_error": "確認エラー",
+        }.get(status, status or "結果あり")
+    status = str(step.get("status", "")).strip()
+    return {
+        "ready": "開けます",
+        "waiting_confirmation": "実行前確認",
+        "suggested": "必要なら確認",
+        "blocked": "利用不可",
+        "done": "完了",
+        "skipped": "未実行",
+        "failed": "失敗",
+    }.get(status, status or "提案")
+
+
+def _workflow_kind_label(step: dict[str, object]) -> str:
+    kind = str(step.get("kind", "")).strip()
+    return {
+        "navigation": "画面確認",
+        "confirmable_action": "確認付き操作",
+        "review": "材料確認",
+        "manual_check": "手動確認",
+        "not_available": "利用不可",
+    }.get(kind, "確認")
 
 
 def _assistant_tool_plan_step_html(step: object) -> str:

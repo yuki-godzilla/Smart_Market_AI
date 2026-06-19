@@ -44,6 +44,13 @@ from backend.assistant.gateway_contracts import (
     build_assistant_context_bundle,
     build_assistant_gateway_request,
 )
+from backend.assistant.guided_workflow import (
+    ASSISTANT_GUIDED_WORKFLOW_SAFETY_NOTE,
+    ASSISTANT_GUIDED_WORKFLOW_SCHEMA_VERSION,
+    AssistantGuidedWorkflow,
+    AssistantWorkflowStep,
+    build_deterministic_guided_workflow,
+)
 from backend.assistant.intent_router import (
     AssistantAgentIntent,
     AssistantIntentDecision,
@@ -51,6 +58,7 @@ from backend.assistant.intent_router import (
 )
 from backend.assistant.plan_validation import (
     AssistantPlanValidationResult,
+    validate_assistant_guided_workflow,
     validate_assistant_tool_plan,
 )
 from backend.assistant.service import (
@@ -100,6 +108,8 @@ __all__ = [
     "ASSISTANT_CONTEXT_BUNDLE_SCHEMA_VERSION",
     "ASSISTANT_GATEWAY_REQUEST_SCHEMA_VERSION",
     "ASSISTANT_GATEWAY_RESPONSE_SCHEMA_VERSION",
+    "ASSISTANT_GUIDED_WORKFLOW_SAFETY_NOTE",
+    "ASSISTANT_GUIDED_WORKFLOW_SCHEMA_VERSION",
     "ASSISTANT_SCHEMA_VERSION",
     "ASSISTANT_TOOL_PLAN_PROMPT_VERSION",
     "ASSISTANT_TOOL_PLAN_SAFETY_NOTE",
@@ -127,6 +137,7 @@ __all__ = [
     "AssistantGatewayResponse",
     "AssistantGatewayTaskType",
     "AssistantGatewayTimeoutError",
+    "AssistantGuidedWorkflow",
     "AssistantIntent",
     "AssistantIntentDecision",
     "AssistantMessage",
@@ -143,6 +154,7 @@ __all__ = [
     "AssistantToolPlanStep",
     "AssistantToolPlanResult",
     "AssistantToolResult",
+    "AssistantWorkflowStep",
     "SMAIAssistantContext",
     "GatewayBackedAssistantService",
     "HttpAssistantGatewayClient",
@@ -158,6 +170,7 @@ __all__ = [
     "build_assistant_gateway_request",
     "build_assistant_action_audit_entry",
     "build_assistant_context",
+    "build_deterministic_guided_workflow",
     "build_deterministic_assistant_tool_plan",
     "build_assistant_research_context_bundle",
     "create_assistant_gateway_client_from_settings",
@@ -169,5 +182,6 @@ __all__ = [
     "render_research_bundle_markdown_memo",
     "route_assistant_conversation_mode",
     "safe_action_error_message",
+    "validate_assistant_guided_workflow",
     "validate_assistant_tool_plan",
 ]

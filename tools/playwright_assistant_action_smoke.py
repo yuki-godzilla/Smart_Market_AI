@@ -16,6 +16,7 @@ from backend.assistant import (  # noqa: E402
     AssistantActionResult,
     build_assistant_context,
     build_deterministic_assistant_tool_plan,
+    build_deterministic_guided_workflow,
     get_assistant_action,
 )
 from ui.components.assistant_action_confirm import (  # noqa: E402
@@ -166,6 +167,17 @@ def _static_body() -> str:
                 page_state={},
                 material_state={"news_status": "missing"},
             ),
+            _workflow_section(
+                title="Guided Workflow: Cockpit to Report",
+                current_page="cockpit",
+                question="この銘柄を詳しく確認したい",
+                page_state={"selected_symbol": "7203.T"},
+                material_state={
+                    "price_data_status": "available",
+                    "forecast_status": "available",
+                    "research_status": "missing",
+                },
+            ),
             _section(
                 "Confirmation: create_decision_report",
                 assistant_action_confirmation_html(
@@ -233,6 +245,36 @@ def _tool_plan_section(
     return _section(title, copilot_answer_detail_html(turn))
 
 
+def _workflow_section(
+    *,
+    title: str,
+    current_page: str,
+    question: str,
+    page_state: dict[str, object],
+    material_state: dict[str, object],
+) -> str:
+    context = build_assistant_context(
+        current_page=current_page,
+        user_question=question,
+        page_state=page_state,
+        material_state=material_state,
+    )
+    workflow = build_deterministic_guided_workflow(context)
+    if workflow is None:
+        raise RuntimeError(f"guided workflow was not generated: {question}")
+    turn = {
+        "intent": "stock_summary",
+        "answer": "確認順を整理します。",
+        "reasons": "価格チャート",
+        "cautions": "売買推奨ではありません。",
+        "next_checkpoints": "根拠資料を確認します。",
+        "memo_points": "",
+        "assistant_guided_workflow": workflow.model_dump_json(),
+        "assistant_tool_plan": "",
+    }
+    return _section(title, copilot_answer_detail_html(turn))
+
+
 def _assert_static_component_states(page: Page) -> None:
     page.get_by_text("SMAIアシスタント").first.wait_for()
     page.get_by_text("LLM待機中").first.wait_for()
@@ -243,6 +285,10 @@ def _assert_static_component_states(page: Page) -> None:
     page.get_by_text("次にできること").first.wait_for()
     page.get_by_text("AI調査を更新").first.wait_for()
     page.get_by_text("確認レポートを作る").first.wait_for()
+    page.get_by_text("確認フロー").first.wait_for()
+    page.get_by_text("価格・予測を確認").first.wait_for()
+    page.get_by_text("根拠資料を確認").first.wait_for()
+    page.get_by_text("このフローは確認手順の案内です").first.wait_for()
     page.get_by_text("実行前確認").first.wait_for()
     page.get_by_text("売買推奨ではありません").first.wait_for()
     assert page.locator('a[href="?smai_page=ranking"]').count() >= 1

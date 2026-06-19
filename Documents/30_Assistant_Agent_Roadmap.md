@@ -47,6 +47,8 @@ Status: MVP implemented for `create_decision_report` and `update_research`. SMAI
 - 各ステップで確認
 - 中断・再開可能
 
+Status: MVP implemented with deterministic guided workflows. SMAIアシスタント can show a separate `確認フロー` card for Ranking -> Cockpit -> AI調査 -> 確認レポート, current-Cockpit deep dives, and report-creation intents. Workflow steps are guidance only: navigation links open SMAI pages, while `update_research` and `create_decision_report` still go through the existing confirmation card and action result flow. Ranking creation, price fetch, external fetch, report creation, score / forecast / AI総合 / Research Score changes, and broker actions are not auto-executed. LLM planning remains Phase 30-E scope.
+
 ## Phase 30-E: LLM Tool Planner
 
 - Gateway 経由の Plan 生成

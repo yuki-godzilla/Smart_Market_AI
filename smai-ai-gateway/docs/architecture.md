@@ -27,6 +27,7 @@ Ollama / OpenAI compatible API / vLLM / llama.cpp server
 - `free_chat` / `identity` / `app_help` / `capability_help` / `screen_guidance` は LLM-first のまま `llm_micro` として扱い、SMAI 親は tool / RAG / news / symbol-specific context / 長い履歴を送らない。Gateway は最小 context、`/no_think`、Ollama `think: false`、1 回だけの品質再生成を使い、fallback は provider / Gateway / validation failure の最後の保険に限定する。runtime は task_type を主軸にし、実際の Ollama model ごとの token policy で調整する。軽量会話は `qwen3:1.7b` で 280-300 tokens、`qwen3:4b` で 320 tokens、`qwen3:8b` で 360-450 tokens、`qwen3:14b` で 360-500 tokens を目安にする。画面固有の `report_context` がない場合も、SMAI 親は最小アシスタント文脈で Gateway を呼ぶ。
 - `context-answer` では、LLM は回答本文を作り、`materials` / `cautions` / `next_checkpoints` は Gateway が渡された context から安定生成する
 - `cockpit_interpretation` は `context-answer` の task_type で扱い、Gateway はSMAI親から渡された画面要約contextを読み解く。Cockpit context compression、response validation、cache、deterministic fallback、UI表示はSMAI親側の責務とする
+- `/api/v1/assistant/tool-plan` は optional LLM Tool Planner 用の汎用 JSON 提案 endpoint として扱う。Gateway は available actions を読んで plan 案を返すだけで、action実行、外部取得、Ranking作成、確認レポート作成、SMAI状態更新は行わない。親SMAI側が schema / allowlist / safety validation と deterministic fallback、既存 `次にできること` / `確認フロー` UI採用を担う
 - Gateway / SMAI parent は presentation sanitizer を通し、provider raw fields、debug logs、external source bodies、`privacy_notes` / `safety_notes` などの内部向け文言を通常回答、コピー、Markdown保存、Decision Report向け表示から除外する
 - `SMAI LLM Factor` では、Gateway は `/api/v1/llm-factor/generate` による provider 呼び出しと prompt 実行の境界に留める。LLM factor の domain schema、source hash、file-backed cache、deterministic backtest evaluator、broader historical fixture / validation report、Cockpit / Ranking 参考表示、cache policy、UI 統合拡張は SMAI 本体側で扱う
 
@@ -39,6 +40,7 @@ Ollama / OpenAI compatible API / vLLM / llama.cpp server
 - Decision Report 生成
 - SMAI LLM Factor の domain model / backtest / score integration
 - Cockpit interpretation の validation / cache / UI panel
+- Assistant Tool Plan / Guided Workflow の validation / fallback / action execution
 
 これらは当面 SMAI 本体側に残し、Gateway には必要な context だけを明示的に渡します。
 

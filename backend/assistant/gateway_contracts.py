@@ -16,12 +16,21 @@ from backend.reporting import (
 ASSISTANT_CONTEXT_BUNDLE_SCHEMA_VERSION = "assistant-context-bundle-v1"
 ASSISTANT_GATEWAY_REQUEST_SCHEMA_VERSION = "assistant-gateway-request-v1"
 ASSISTANT_GATEWAY_RESPONSE_SCHEMA_VERSION = "assistant-gateway-response-v1"
+ASSISTANT_PLANNER_REQUEST_SCHEMA_VERSION = "assistant_tool_planner_request.v1"
+ASSISTANT_PLANNER_RESPONSE_SCHEMA_VERSION = "assistant_tool_planner_response.v1"
+ASSISTANT_PLANNER_PROMPT_VERSION = "assistant_tool_planner_mvp.v1"
 
 AssistantGatewayTask = Literal["explain", "summarize", "compare", "next_steps", "chat"]
 AssistantGatewayLanguage = Literal["ja", "en"]
 AssistantGatewayConfidence = Literal["low", "medium", "high"]
 AssistantGatewayAnswerFormat = Literal["materials_cautions_checkpoints"]
 AssistantGatewayStatus = Literal["ok", "fallback", "error"]
+AssistantPlannerActionType = Literal[
+    "navigation", "state_change", "data_fetch", "report", "explain"
+]
+AssistantPlannerPlanType = Literal["tool_plan", "guided_workflow"]
+AssistantPlannerPriority = Literal["high", "medium", "low"]
+AssistantPlannerSource = Literal["llm", "fallback"]
 AssistantGatewayTaskType = Literal[
     "free_chat",
     "identity",
@@ -36,6 +45,7 @@ AssistantGatewayTaskType = Literal[
     "llm_factor_generation",
     "cockpit_interpretation",
     "report_export_summary",
+    "assistant_tool_plan",
 ]
 AssistantGatewayExecutionMode = Literal["auto", "light", "quality", "off"]
 AssistantGatewayEnvironmentProfile = Literal["notebook", "desktop", "server", "offline"]
@@ -175,6 +185,92 @@ class AssistantGatewayResponse(StrictBaseModel):
     llm_generation_ms: int | None = Field(default=None, ge=0)
     total_elapsed_ms: int | None = Field(default=None, ge=0)
     decision_support_note: str = DECISION_SUPPORT_NOTE
+
+
+class PlannerAvailableAction(StrictBaseModel):
+    """Action metadata the parent SMAI app allows the Gateway planner to reference."""
+
+    action_id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    description: str = Field(min_length=1)
+    action_type: AssistantPlannerActionType
+    requires_confirmation: bool = True
+    is_external_fetch: bool = False
+    enabled: bool = True
+    disabled_reason: str | None = Field(default=None, min_length=1)
+
+
+class AssistantPlannerConstraints(StrictBaseModel):
+    """Planner-specific safety constraints sent to the Gateway."""
+
+    no_investment_advice: bool = True
+    no_auto_execution: bool = True
+    do_not_change_scores: bool = True
+    do_not_rank_symbols: bool = True
+    require_confirmation_for_external_fetch: bool = True
+    max_steps: int = Field(default=5, gt=0, le=6)
+    allowed_action_ids: list[str] = Field(default_factory=list)
+
+
+class AssistantPlannerRequest(StrictBaseModel):
+    """Request contract for optional LLM-generated action plans."""
+
+    schema_version: str = ASSISTANT_PLANNER_REQUEST_SCHEMA_VERSION
+    prompt_version: str = ASSISTANT_PLANNER_PROMPT_VERSION
+    task_type: Literal["assistant_tool_plan"] = "assistant_tool_plan"
+    language: AssistantGatewayLanguage = "ja"
+    user_question: str = Field(min_length=1)
+    current_page: str = Field(min_length=1)
+    context_summary: str = Field(min_length=1)
+    material_state: dict[str, str] = Field(default_factory=dict)
+    available_actions: list[PlannerAvailableAction] = Field(default_factory=list)
+    constraints: AssistantPlannerConstraints = Field(default_factory=AssistantPlannerConstraints)
+    request_id: str = Field(default_factory=lambda: uuid4().hex, min_length=1)
+    model: str | None = Field(default=None, min_length=1)
+    profile: AssistantGatewayProfileName | None = None
+    execution_mode: AssistantGatewayExecutionMode = "auto"
+    environment_profile: AssistantGatewayEnvironmentProfile = "notebook"
+    preferred_profile: AssistantGatewayProfileName | None = None
+
+
+class AssistantPlannerStep(StrictBaseModel):
+    """One proposed planner step from the Gateway."""
+
+    step_id: str = Field(min_length=1)
+    title: str = Field(min_length=1, max_length=80)
+    summary: str = Field(min_length=1, max_length=240)
+    action_id: str | None = Field(default=None, min_length=1)
+    reason: str = Field(min_length=1, max_length=240)
+    requires_confirmation: bool = True
+    confidence: float = Field(default=0.5, ge=0, le=1)
+    priority: AssistantPlannerPriority = "medium"
+
+
+class AssistantPlannerResponse(StrictBaseModel):
+    """Gateway response contract for optional LLM-generated plans."""
+
+    schema_version: str = ASSISTANT_PLANNER_RESPONSE_SCHEMA_VERSION
+    plan_type: AssistantPlannerPlanType = "tool_plan"
+    user_intent: str = Field(min_length=1)
+    overall_summary: str = Field(min_length=1, max_length=320)
+    steps: list[AssistantPlannerStep] = Field(default_factory=list, max_length=6)
+    safety_note: str = Field(
+        default="この提案は確認手順の整理であり、売買推奨ではありません。",
+        min_length=1,
+    )
+    planner_source: AssistantPlannerSource = "llm"
+    provider: str | None = Field(default=None, min_length=1)
+    model: str | None = Field(default=None, min_length=1)
+    profile: AssistantGatewayProfileName | None = None
+    elapsed_ms: int | None = Field(default=None, ge=0)
+    gateway_status: AssistantGatewayStatus = "ok"
+    fallback_reason: str | None = Field(default=None, min_length=1)
+    request_id: str | None = Field(default=None, min_length=1)
+    timeout_sec: float | None = Field(default=None, ge=0)
+    prompt_chars: int | None = Field(default=None, ge=0)
+    response_chars: int | None = Field(default=None, ge=0)
+    llm_generation_ms: int | None = Field(default=None, ge=0)
+    total_elapsed_ms: int | None = Field(default=None, ge=0)
 
 
 def build_assistant_context_bundle(

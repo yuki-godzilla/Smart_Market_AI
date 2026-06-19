@@ -20,6 +20,8 @@ from backend.assistant.gateway_contracts import (
     AssistantGatewayReferencedSection,
     AssistantGatewayRequest,
     AssistantGatewayResponse,
+    AssistantPlannerRequest,
+    AssistantPlannerResponse,
     build_assistant_context_bundle,
     build_assistant_gateway_request,
 )
@@ -143,6 +145,16 @@ class AssistantGatewayClient(Protocol):
         """Return a Gateway response or a raw payload that can be schema-validated."""
 
 
+class AssistantPlannerGatewayClient(Protocol):
+    """Provider-neutral client boundary for optional LLM tool planner calls."""
+
+    def tool_plan(
+        self,
+        request: AssistantPlannerRequest,
+    ) -> AssistantPlannerResponse | Mapping[str, object]:
+        """Return a planner response or a raw payload that can be schema-validated."""
+
+
 class MockAssistantGatewayClient:
     """Network-free mock used by tests and local wiring before a real Gateway exists."""
 
@@ -151,10 +163,15 @@ class MockAssistantGatewayClient:
         *,
         response: AssistantGatewayResponse | Mapping[str, object] | None = None,
         error: Exception | None = None,
+        planner_response: AssistantPlannerResponse | Mapping[str, object] | None = None,
+        planner_error: Exception | None = None,
     ) -> None:
         self.response = response
         self.error = error
+        self.planner_response = planner_response
+        self.planner_error = planner_error
         self.requests: list[AssistantGatewayRequest] = []
+        self.planner_requests: list[AssistantPlannerRequest] = []
 
     def answer(
         self,
@@ -167,6 +184,17 @@ class MockAssistantGatewayClient:
             return self.response
         return _default_mock_gateway_response(request)
 
+    def tool_plan(
+        self,
+        request: AssistantPlannerRequest,
+    ) -> AssistantPlannerResponse | Mapping[str, object]:
+        self.planner_requests.append(request)
+        if self.planner_error is not None:
+            raise self.planner_error
+        if self.planner_response is not None:
+            return self.planner_response
+        return _default_mock_planner_response(request)
+
 
 class HttpAssistantGatewayClient:
     """HTTP client for the optional standalone SMAI AI Gateway."""
@@ -176,6 +204,7 @@ class HttpAssistantGatewayClient:
         *,
         base_url: str,
         context_answer_path: str = "/api/v1/context-answer",
+        tool_plan_path: str = "/api/v1/assistant/tool-plan",
         timeout_seconds: float = 10.0,
         model: str | None = None,
         execution_mode: str = "auto",
@@ -185,6 +214,7 @@ class HttpAssistantGatewayClient:
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.context_answer_path = "/" + context_answer_path.strip("/")
+        self.tool_plan_path = "/" + tool_plan_path.strip("/")
         self.timeout_seconds = timeout_seconds
         self.model = model
         self.execution_mode = execution_mode
@@ -195,6 +225,10 @@ class HttpAssistantGatewayClient:
     @property
     def context_answer_url(self) -> str:
         return f"{self.base_url}{self.context_answer_path}"
+
+    @property
+    def tool_plan_url(self) -> str:
+        return f"{self.base_url}{self.tool_plan_path}"
 
     @property
     def models_url(self) -> str:
@@ -386,6 +420,57 @@ class HttpAssistantGatewayClient:
                 gateway_url=self.context_answer_url,
             )
         return AssistantGatewayResponse.model_validate(response_payload)
+
+    def tool_plan(self, request: AssistantPlannerRequest) -> AssistantPlannerResponse:
+        payload = request.model_dump(mode="json")
+        if self.model:
+            payload["model"] = self.model
+        payload["execution_mode"] = self.execution_mode
+        payload["environment_profile"] = self.environment_profile
+        if self.preferred_profile:
+            payload["preferred_profile"] = self.preferred_profile
+
+        try:
+            with httpx.Client(
+                timeout=self.timeout_seconds,
+                transport=self.transport,
+            ) as client:
+                response = client.post(self.tool_plan_url, json=payload)
+                response.raise_for_status()
+        except httpx.TimeoutException as exc:
+            raise AssistantGatewayTimeoutError(
+                "Assistant Gateway planner request timed out",
+                gateway_url=self.tool_plan_url,
+                timeout_sec=self.timeout_seconds,
+            ) from exc
+        except httpx.HTTPStatusError as exc:
+            raise _gateway_error_from_http_response(
+                exc.response,
+                gateway_url=self.tool_plan_url,
+            ) from exc
+        except httpx.RequestError as exc:
+            raise AssistantGatewayError(
+                "Assistant Gateway planner request failed",
+                gateway_error_type=_request_error_type(exc),
+                gateway_url=self.tool_plan_url,
+                gateway_error_message=str(exc),
+            ) from exc
+
+        try:
+            response_payload = response.json()
+        except ValueError as exc:
+            raise AssistantGatewayError(
+                "Assistant Gateway planner returned non-JSON response",
+                gateway_error_type="invalid_gateway_response",
+                gateway_url=self.tool_plan_url,
+            ) from exc
+        if not isinstance(response_payload, Mapping):
+            raise AssistantGatewayError(
+                "Assistant Gateway planner returned an invalid response shape",
+                gateway_error_type="invalid_gateway_response",
+                gateway_url=self.tool_plan_url,
+            )
+        return AssistantPlannerResponse.model_validate(response_payload)
 
 
 def _try_autostart_local_gateway(base_url: str) -> bool:
@@ -917,6 +1002,39 @@ def _default_mock_gateway_response(request: AssistantGatewayRequest) -> Assistan
     )
 
 
+def _default_mock_planner_response(request: AssistantPlannerRequest) -> AssistantPlannerResponse:
+    return AssistantPlannerResponse(
+        plan_type="tool_plan",
+        user_intent=request.user_question,
+        overall_summary="Mock Plannerとして、確認だけを行う手順を提案します。",
+        steps=[
+            {
+                "step_id": "mock_step_explain_current_page",
+                "title": "現在画面を確認",
+                "summary": "現在の画面と不足材料を確認します。",
+                "action_id": "explain_current_page",
+                "reason": "安全な確認順の入口にできるためです。",
+                "requires_confirmation": False,
+                "confidence": 0.7,
+                "priority": "medium",
+            }
+        ],
+        safety_note="この提案は確認手順の整理であり、売買推奨ではありません。",
+        planner_source="llm",
+        provider="mock",
+        model="mock-assistant-planner",
+        profile=request.preferred_profile or "assistant_fast",
+        elapsed_ms=0,
+        gateway_status="ok",
+        request_id=request.request_id,
+        timeout_sec=0,
+        prompt_chars=len(request.user_question) + len(request.context_summary),
+        response_chars=0,
+        llm_generation_ms=0,
+        total_elapsed_ms=0,
+    )
+
+
 def create_assistant_gateway_client_from_settings(
     settings: Settings | None = None,
     *,
@@ -936,6 +1054,29 @@ def create_assistant_gateway_client_from_settings(
         execution_mode=gateway.execution_mode,
         environment_profile=gateway.environment_profile,
         preferred_profile=gateway.preferred_profile,
+        transport=transport,
+    )
+
+
+def create_assistant_planner_gateway_client_from_settings(
+    settings: Settings | None = None,
+    *,
+    transport: httpx.BaseTransport | None = None,
+) -> AssistantPlannerGatewayClient | None:
+    """Create an optional real Gateway planner client from application settings."""
+
+    resolved_settings = settings or get_settings()
+    planner = resolved_settings.assistant.llm_planner
+    if not planner.enabled:
+        return None
+    return HttpAssistantGatewayClient(
+        base_url=planner.gateway_url,
+        tool_plan_path=planner.endpoint_path,
+        timeout_seconds=planner.timeout_seconds,
+        model=planner.model,
+        execution_mode=planner.execution_mode,
+        environment_profile=planner.environment_profile,
+        preferred_profile=planner.preferred_profile,
         transport=transport,
     )
 

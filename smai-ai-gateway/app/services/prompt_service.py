@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
+
 from app.schemas.common import LlmMessage
 from app.schemas.context_answer import ContextAnswerMessage, ContextAnswerRequest, ContextSection
+from app.schemas.tool_plan import ToolPlannerRequest
 
 DEFAULT_CHAT_SYSTEM_PROMPT = "/no_think\nYou are a helpful assistant. Answer directly."
 
@@ -62,9 +65,70 @@ class PromptService:
         )
         return messages
 
+    def build_tool_plan_messages(self, request: ToolPlannerRequest) -> list[LlmMessage]:
+        language_instruction = (
+            "Return Japanese user-facing text." if request.language == "ja" else "Return English."
+        )
+        system_prompt = (
+            "/no_think\n"
+            "You are a conservative tool-plan planner for a client application. "
+            "You only propose steps; you never execute tools, fetch data, create reports, "
+            "change scores, rank symbols, or place broker orders. "
+            "Use only action_id values supplied in available_actions. "
+            "Every external fetch, report, or state-changing action must require confirmation. "
+            "Do not give buy, sell, hold, strong buy, strong sell, guaranteed profit, "
+            "broker, order, execution, or trading instructions. "
+            "Do not show internal reasoning. Output JSON only. "
+            f"{language_instruction}"
+        )
+        return [
+            LlmMessage(role="system", content=system_prompt),
+            LlmMessage(role="user", content=_tool_plan_user_prompt(request)),
+        ]
+
 
 def _history_messages(history: list[ContextAnswerMessage]) -> list[LlmMessage]:
     return [LlmMessage(role=item.role, content=item.content.strip()) for item in history]
+
+
+def _tool_plan_user_prompt(request: ToolPlannerRequest) -> str:
+    actions = [
+        {
+            "action_id": action.action_id,
+            "label": action.label,
+            "description": action.description,
+            "action_type": action.action_type,
+            "requires_confirmation": action.requires_confirmation,
+            "is_external_fetch": action.is_external_fetch,
+            "enabled": action.enabled,
+        }
+        for action in request.available_actions
+        if action.enabled
+    ]
+    return (
+        f"Task: {request.task_type}\n"
+        f"Question: {request.user_question.strip()}\n"
+        f"Current page: {request.current_page}\n"
+        f"Context summary: {request.context_summary}\n"
+        f"Material state JSON: {json.dumps(request.material_state, ensure_ascii=False)}\n"
+        f"Max steps: {request.constraints.max_steps}\n\n"
+        "Available actions JSON:\n"
+        f"{json.dumps(actions, ensure_ascii=False)}\n\n"
+        "Return only valid JSON with these exact keys:\n"
+        "- schema_version: assistant_tool_planner_response.v1\n"
+        "- plan_type: tool_plan or guided_workflow\n"
+        "- user_intent: short string\n"
+        "- overall_summary: short user-facing summary\n"
+        "- steps: array of objects with step_id, title, summary, action_id, reason, "
+        "requires_confirmation, confidence, priority\n"
+        "- safety_note: short non-advice note\n"
+        "- planner_source: llm\n"
+        "Rules:\n"
+        "- action_id must be null or one of the available action_id values.\n"
+        "- requires_confirmation must be true for external fetch, report, or state change actions.\n"
+        "- Do not include create_ranking or refresh_news as ready-to-execute work.\n"
+        "- Do not include Markdown fences or extra fields."
+    )
 
 
 def _is_llm_micro_request(request: ContextAnswerRequest) -> bool:
@@ -78,9 +142,7 @@ def _is_llm_micro_request(request: ContextAnswerRequest) -> bool:
 
 
 def _llm_micro_messages(request: ContextAnswerRequest) -> list[LlmMessage]:
-    language_instruction = (
-        "Reply in Japanese." if request.language == "ja" else "Reply in English."
-    )
+    language_instruction = "Reply in Japanese." if request.language == "ja" else "Reply in English."
     system_prompt = (
         "/no_think\n"
         "You are SMAI Navi, the Smart Market AI assistant. "
@@ -205,9 +267,7 @@ def _intent_instruction(user_question: str) -> str:
 
 
 def _section_prompt(section: ContextSection) -> str:
-    summary = "\n".join(
-        f"  - {key}: {value}" for key, value in list(section.summary.items())[:8]
-    )
+    summary = "\n".join(f"  - {key}: {value}" for key, value in list(section.summary.items())[:8])
     rows = "\n".join(
         "  - " + "; ".join(f"{key}: {value}" for key, value in row.items())
         for row in section.rows[:4]

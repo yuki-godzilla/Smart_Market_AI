@@ -22,6 +22,7 @@ Model routing lives in Gateway, not SMAI parent: clients send `task_type`, `exec
 - 現在の Assistant / context-answer 用途では、LLM の役割を説明、要約、確認観点の整理に限定し、数値予測やランキング決定を担当させない
 - `SMAI LLM Factor` 用途では、LLM を最終予測器ではなく、出典付きの定性材料を構造化 JSON 特徴量に変換する provider として扱う
 - SMAI 親側には専用 `SMAIアシスタント` workspace があり、SMAIナビ header、6つの相談カード、自由入力、チャット幅の `新しい会話` action、擬似ストリーミング表示を備え、Gateway 接続時は `/api/v1/context-answer` を汎用 HTTP 境界として利用する
+- optional LLM Tool Planner 用途では、Gateway は許可済み action catalog に基づく JSON plan 案を返すだけに限定し、SMAI 親側が validation / fallback / UI表示 / action実行を担当する
 
 ## 主要ドキュメント
 
@@ -43,9 +44,9 @@ flowchart LR
   end
 
   subgraph gateway["smai-ai-gateway"]
-    api["FastAPI API 層<br/>/health<br/>/api/v1/chat<br/>/api/v1/summarize<br/>/api/v1/context-answer"]
+    api["FastAPI API 層<br/>/health<br/>/api/v1/chat<br/>/api/v1/summarize<br/>/api/v1/context-answer<br/>/api/v1/assistant/tool-plan"]
     schemas["Pydantic Schemas<br/>request / response validation"]
-    services["Service 層<br/>chat / summarize / context-answer / model routing"]
+    services["Service 層<br/>chat / summarize / context-answer / tool-plan / model routing"]
     config["Config<br/>.env / timeout / default model"]
     provider["Provider Client Boundary<br/>error normalization / elapsed_ms"]
   end
@@ -123,7 +124,7 @@ flowchart LR
   <tr>
     <td>FastAPI API 層</td>
     <td>FastAPI / Uvicorn <img alt="FastAPI logo" src="https://cdn.simpleicons.org/fastapi/009688" height="22"> <img alt="Uvicorn badge" src="https://img.shields.io/badge/Uvicorn-ASGI-22C55E" height="20"></td>
-    <td><code>/health</code>、<code>/api/v1/chat</code>、<code>/api/v1/summarize</code>、<code>/api/v1/context-answer</code> を公開します。</td>
+    <td><code>/health</code>、<code>/api/v1/chat</code>、<code>/api/v1/summarize</code>、<code>/api/v1/context-answer</code>、<code>/api/v1/assistant/tool-plan</code> を公開します。</td>
   </tr>
   <tr>
     <td>Pydantic Schemas</td>
@@ -133,7 +134,7 @@ flowchart LR
   <tr>
     <td>Service 層</td>
     <td>Python service modules <img alt="Python logo" src="https://cdn.simpleicons.org/python/3776AB" height="22"></td>
-    <td>chat、summarize、prompt 生成を API 層から分離します。</td>
+    <td>chat、summarize、context-answer、tool-plan、prompt 生成を API 層から分離します。</td>
   </tr>
   <tr>
     <td>Config</td>
@@ -181,6 +182,7 @@ SMAI 親側には、`assistant.gateway.enabled=true` のときだけ `/api/v1/co
 - `POST /api/v1/chat`
 - `POST /api/v1/summarize`
 - `POST /api/v1/context-answer`
+- `POST /api/v1/assistant/tool-plan`
 - `POST /api/v1/llm-factor/generate`
 
 ## LLM model profiles
@@ -210,6 +212,8 @@ SMAI_OLLAMA_BASE_URL=http://localhost:11434
 Gateway / SMAI parent の両方で user-facing presentation を整形し、provider raw fields、debug logs、external source bodies、`privacy_notes` / `safety_notes` などの内部向け文言は通常回答・コピー・Markdown保存に出さない方針です。必要な runtime metadata は SMAI UI の `技術情報を表示` に閉じて扱います。
 
 `/api/v1/llm-factor/generate` は `task_type=llm_factor_generation` 相当の構造化 JSON endpoint です。SMAI 親側が渡す 1銘柄の compact context だけを使い、`llm_factor.v1` の `overall_summary`、`sentiment_label`、`confidence`、`factors`、`risks`、`opportunities`、`evidence`、`missing_fields`、`warnings` を返します。Provider failure、timeout、validation failure では deterministic fallback 形の JSON を返し、SMAI 親側はさらに Pydantic validation / cache / fallback を行います。Phase 27-B では親側の fallback reason を `disabled`、`gateway_unavailable`、`gateway_timeout`、`gateway_http_error`、`malformed_json`、`validation_error`、`wrong_symbol`、`unknown_evidence`、`stale_source`、`cache_miss`、`cache_corrupt`、`provider_error` に標準化しました。Ranking、Forecast、AI総合、Investment Score の変更は Gateway の責務ではありません。
+
+`/api/v1/assistant/tool-plan` は optional LLM Tool Planner 用の構造化 JSON endpoint です。SMAI 親側が `assistant_tool_plan` request と available actions を渡し、Gateway は `tool_plan` または `guided_workflow` の案を返します。Gateway は action を実行せず、SMAI module も import しません。親SMAI側は unknown action、未確認外部取得、unsafe wording、`create_ranking` / `refresh_news` などを検証し、採用できない場合は deterministic Tool Plan / Guided Workflow に戻します。
 
 ## 起動概要
 

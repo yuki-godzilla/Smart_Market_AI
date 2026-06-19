@@ -78,3 +78,40 @@ def test_advice_like_wording_is_rejected():
 
     assert not result.valid
     assert "plan contains investment-advice-like wording" in result.errors
+
+
+def test_ready_create_ranking_is_rejected_until_connected():
+    plan = AssistantToolPlan(
+        user_intent="ランキングを確認",
+        current_page="ranking",
+        overall_summary="確認順です。",
+        steps=[
+            AssistantToolPlanStep(
+                step_id="s1",
+                title="ランキングを作成",
+                summary="現在条件で候補を並べます。",
+                action_id="create_ranking",
+                reason="検証用です。",
+                status="ready",
+            )
+        ],
+    )
+
+    result = validate_assistant_tool_plan(plan)
+
+    assert not result.valid
+    assert "create_ranking is not connected for ready execution" in result.errors
+
+
+def test_execution_like_wording_is_rejected():
+    plan = AssistantToolPlan(
+        user_intent="注文を出す",
+        current_page="rebalance",
+        overall_summary="発注します。",
+        steps=[],
+    )
+
+    result = validate_assistant_tool_plan(plan)
+
+    assert not result.valid
+    assert "plan contains execution-like wording" in result.errors

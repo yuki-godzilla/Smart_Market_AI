@@ -12,12 +12,29 @@ from backend.core.data_contracts import StrictBaseModel
 _BANNED_ADVICE_TERMS = (
     "買うべき",
     "売るべき",
+    "保有すべき",
     "必ず上がる",
     "必ず下がる",
+    "確実に利益",
     "買い推奨",
     "売り推奨",
     "strong buy",
     "strong sell",
+    "buy this",
+    "sell this",
+    "hold this",
+    "guaranteed profit",
+)
+_BANNED_EXECUTION_TERMS = (
+    "broker",
+    "order sending",
+    "execution",
+    "place order",
+    "trade placement",
+    "注文",
+    "発注",
+    "約定",
+    "自動売買",
 )
 
 
@@ -51,6 +68,8 @@ def validate_assistant_tool_plan(
     ).lower()
     if any(term.lower() in text_blob for term in _BANNED_ADVICE_TERMS):
         errors.append("plan contains investment-advice-like wording")
+    if any(term.lower() in text_blob for term in _BANNED_EXECUTION_TERMS):
+        errors.append("plan contains execution-like wording")
 
     for step in plan.steps:
         if not step.action_id:
@@ -69,6 +88,8 @@ def validate_assistant_tool_plan(
             errors.append(f"disabled action cannot be ready: {step.action_id}")
         if not action.enabled and not step.disabled_reason:
             warnings.append(f"disabled action has no disabled_reason: {step.action_id}")
+        if step.action_id in {"create_ranking", "refresh_news"} and step.status == "ready":
+            errors.append(f"{step.action_id} is not connected for ready execution")
 
     return AssistantPlanValidationResult(valid=not errors, errors=errors, warnings=warnings)
 
@@ -98,7 +119,7 @@ def validate_assistant_guided_workflow(
     ).lower()
     if any(term.lower() in text_blob for term in _BANNED_ADVICE_TERMS):
         errors.append("workflow contains investment-advice-like wording")
-    if any(term in text_blob for term in ("broker", "order sending", "execution", "注文")):
+    if any(term.lower() in text_blob for term in _BANNED_EXECUTION_TERMS):
         errors.append("workflow contains execution-like wording")
 
     for step in workflow.steps:
@@ -121,6 +142,11 @@ def validate_assistant_guided_workflow(
             "waiting_confirmation",
         }:
             errors.append("create_ranking is not connected for guided workflow")
+        if step.action_id == "refresh_news" and step.status in {
+            "ready",
+            "waiting_confirmation",
+        }:
+            errors.append("refresh_news is not connected for guided workflow")
         if not action.enabled and step.status == "ready":
             errors.append(f"disabled workflow action cannot be ready: {step.action_id}")
         if not action.enabled and not step.disabled_reason:

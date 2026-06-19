@@ -187,6 +187,89 @@ Response:
 }
 ```
 
+## POST /api/v1/assistant/tool-plan
+
+available actions と現在文脈から、確認手順の JSON 案を返す optional endpoint です。Gateway は action を実行せず、外部取得・ランキング作成・レポート作成・スコア変更・注文送信を行いません。SMAI 親側では `assistant.llm_planner.enabled=true` のときだけ呼び、返却JSONをさらに schema / allowlist / safety validation に通してから既存の `次にできること` / `確認フロー` UI に採用します。
+
+Request:
+
+```json
+{
+  "schema_version": "assistant_tool_planner_request.v1",
+  "prompt_version": "assistant_tool_planner_mvp.v1",
+  "task_type": "assistant_tool_plan",
+  "language": "ja",
+  "user_question": "この銘柄の根拠を確認したい",
+  "current_page": "cockpit",
+  "context_summary": "現在画面: 銘柄コックピット / AI調査: missing",
+  "material_state": {
+    "research_status": "missing"
+  },
+  "available_actions": [
+    {
+      "action_id": "open_research_section",
+      "label": "根拠資料を見る",
+      "description": "Research Evidenceを確認します。",
+      "action_type": "navigation",
+      "requires_confirmation": false,
+      "is_external_fetch": false,
+      "enabled": true
+    },
+    {
+      "action_id": "update_research",
+      "label": "AI調査を更新",
+      "description": "外部ソース候補を確認します。",
+      "action_type": "data_fetch",
+      "requires_confirmation": true,
+      "is_external_fetch": true,
+      "enabled": true
+    }
+  ],
+  "constraints": {
+    "no_investment_advice": true,
+    "no_auto_execution": true,
+    "do_not_change_scores": true,
+    "do_not_rank_symbols": true,
+    "require_confirmation_for_external_fetch": true,
+    "max_steps": 5,
+    "allowed_action_ids": ["open_research_section", "update_research"]
+  },
+  "preferred_profile": "assistant_fast"
+}
+```
+
+Response:
+
+```json
+{
+  "schema_version": "assistant_tool_planner_response.v1",
+  "plan_type": "tool_plan",
+  "user_intent": "根拠資料を確認する",
+  "overall_summary": "取得済み資料を確認し、不足していればAI調査更新を確認します。",
+  "steps": [
+    {
+      "step_id": "s1",
+      "title": "根拠資料を見る",
+      "summary": "Research Evidenceの有無と不足材料を確認します。",
+      "action_id": "open_research_section",
+      "reason": "先に取得済み材料を分けるためです。",
+      "requires_confirmation": false,
+      "confidence": 0.72,
+      "priority": "high"
+    }
+  ],
+  "safety_note": "この提案は確認手順の整理であり、売買推奨ではありません。",
+  "planner_source": "llm",
+  "provider": "ollama",
+  "model": "qwen3:1.7b",
+  "profile": "assistant_fast",
+  "elapsed_ms": 120,
+  "gateway_status": "ok",
+  "fallback_reason": null,
+  "request_id": "planner-request-1"
+}
+```
+
 ## POST /api/v1/llm-factor/generate
 
 1銘柄の compact context から `llm_factor.v1` の構造化材料を返す API です。SMAI 親側では Cockpit `AI材料分析` の参考表示に使い、スコア、予測値、ランキング順位は変更しません。Provider failure、timeout、invalid JSON、schema validation failure は fallback JSON に変換され、親側でも追加 validation / cache / fallback を行います。親側の標準 fallback reason は `disabled`、`gateway_unavailable`、`gateway_timeout`、`gateway_http_error`、`malformed_json`、`validation_error`、`wrong_symbol`、`unknown_evidence`、`stale_source`、`cache_miss`、`cache_corrupt`、`provider_error` です。
@@ -284,7 +367,7 @@ Response:
 
 ## Error
 
-provider 呼び出しに失敗した場合は、分かりやすい detail を返します。Ollama 未起動や URL 誤りは `provider_unreachable`、timeout は `provider_timeout`、model 未取得は `model_not_found` として扱います。`/api/v1/context-answer` の `task_type=free_chat` だけは、timeout 時も通常会話を崩さないため `local_conversation_fallback` として自然な fallback answer を返します。`/api/v1/llm-factor/generate` は provider / validation failure を原則 fallback JSON に変換します。
+provider 呼び出しに失敗した場合は、分かりやすい detail を返します。Ollama 未起動や URL 誤りは `provider_unreachable`、timeout は `provider_timeout`、model 未取得は `model_not_found` として扱います。`/api/v1/context-answer` の `task_type=free_chat` だけは、timeout 時も通常会話を崩さないため `local_conversation_fallback` として自然な fallback answer を返します。`/api/v1/llm-factor/generate` と `/api/v1/assistant/tool-plan` は provider / validation failure を原則 fallback JSON に変換します。
 
 ```json
 {

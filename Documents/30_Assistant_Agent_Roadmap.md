@@ -57,6 +57,8 @@ Status: MVP implemented with deterministic guided workflows. SMAIアシスタン
 - deterministic fallback
 - Plan quality evaluation
 
+Status: MVP implemented as an optional, disabled-by-default planner. Parent SMAI can build an `assistant_tool_plan` request with redacted material state and allowed actions, call `smai-ai-gateway` `/api/v1/assistant/tool-plan`, validate schema / action allowlist / confirmation requirements / unsafe wording, and adopt only valid LLM plans into the existing `次にできること` or `確認フロー` UI. Invalid, unavailable, timeout, malformed, unsafe, unknown-action, `create_ranking` / `refresh_news`, or unconfirmed external-fetch plans are hidden and deterministic Tool Plan / Guided Workflow fallback is used. The Gateway remains generic and imports no SMAI modules; it proposes JSON only and never executes actions.
+
 ## Phase 30-F: Agent Evaluation Harness
 
 - fixture による Plan 評価

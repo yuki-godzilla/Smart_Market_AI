@@ -56,3 +56,24 @@ def test_copilot_answer_detail_html_links_navigation_actions_only():
     assert 'href="?smai_page=cockpit"' in markup
     assert 'target="_self"' in markup
     assert "ランキングを作成" not in markup
+
+
+def test_copilot_answer_detail_html_includes_planner_metadata_in_technical_details():
+    turn = {
+        "intent": "stock_summary",
+        "answer": "確認順を整理します。",
+        "reasons": "価格チャート",
+        "cautions": "売買推奨ではありません。",
+        "next_checkpoints": "根拠資料を確認します。",
+        "memo_points": "",
+        "assistant_tool_plan": "",
+        "assistant_planner_source": "fallback",
+        "assistant_planner_fallback_reason": "planner_validation_failure",
+        "assistant_planner_gateway_status": "ok",
+    }
+
+    markup = copilot_answer_detail_html(turn)
+
+    assert "planner" in markup
+    assert "fallback" in markup
+    assert "planner_validation_failure" in markup

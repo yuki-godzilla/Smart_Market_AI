@@ -37,7 +37,9 @@ AssistantGatewayTaskType = Literal[
     "rag_summary",
     "decision_report_draft",
     "llm_factor_generation",
+    "cockpit_interpretation",
     "report_export_summary",
+    "assistant_tool_plan",
 ]
 
 

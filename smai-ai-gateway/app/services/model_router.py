@@ -21,6 +21,7 @@ LlmTaskType = Literal[
     "llm_factor_generation",
     "cockpit_interpretation",
     "report_export_summary",
+    "assistant_tool_plan",
 ]
 LlmProfileName = Literal[
     "notebook_dev",
@@ -122,6 +123,7 @@ _TASK_DEFAULTS: dict[LlmTaskType, LlmProfileName] = {
     "llm_factor_generation": "desktop_analysis",
     "cockpit_interpretation": "desktop_fast",
     "report_export_summary": "desktop_heavy",
+    "assistant_tool_plan": "assistant_fast",
 }
 
 _LIGHT_DOWNGRADES: dict[LlmProfileName, LlmProfileName] = {
@@ -138,6 +140,7 @@ _QUALITY_UPGRADES: dict[LlmTaskType, LlmProfileName] = {
     "cockpit_interpretation": "desktop_analysis",
     "decision_report_draft": "desktop_heavy",
     "report_export_summary": "desktop_heavy",
+    "assistant_tool_plan": "desktop_fast",
 }
 
 _TASK_RUNTIME_POLICIES: dict[LlmTaskType, tuple[float, int]] = {
@@ -154,6 +157,7 @@ _TASK_RUNTIME_POLICIES: dict[LlmTaskType, tuple[float, int]] = {
     "llm_factor_generation": (90.0, 1400),
     "cockpit_interpretation": (45.0, 1000),
     "report_export_summary": (75.0, 1400),
+    "assistant_tool_plan": (25.0, 800),
 }
 
 _MODEL_TASK_TOKEN_POLICIES: dict[str, dict[LlmTaskType, int]] = {
@@ -171,6 +175,7 @@ _MODEL_TASK_TOKEN_POLICIES: dict[str, dict[LlmTaskType, int]] = {
         "llm_factor_generation": 800,
         "cockpit_interpretation": 700,
         "report_export_summary": 800,
+        "assistant_tool_plan": 600,
     },
     "qwen3:4b": {
         "free_chat": 320,
@@ -186,6 +191,7 @@ _MODEL_TASK_TOKEN_POLICIES: dict[str, dict[LlmTaskType, int]] = {
         "llm_factor_generation": 1000,
         "cockpit_interpretation": 900,
         "report_export_summary": 1000,
+        "assistant_tool_plan": 700,
     },
     "qwen3:8b": {
         "free_chat": 360,
@@ -201,6 +207,7 @@ _MODEL_TASK_TOKEN_POLICIES: dict[str, dict[LlmTaskType, int]] = {
         "llm_factor_generation": 1200,
         "cockpit_interpretation": 1100,
         "report_export_summary": 1200,
+        "assistant_tool_plan": 900,
     },
     "qwen3:14b": {
         "free_chat": 360,
@@ -216,6 +223,7 @@ _MODEL_TASK_TOKEN_POLICIES: dict[str, dict[LlmTaskType, int]] = {
         "llm_factor_generation": 1800,
         "cockpit_interpretation": 1400,
         "report_export_summary": 2000,
+        "assistant_tool_plan": 1200,
     },
     "qwen3:30b": {
         "free_chat": 400,
@@ -231,6 +239,7 @@ _MODEL_TASK_TOKEN_POLICIES: dict[str, dict[LlmTaskType, int]] = {
         "llm_factor_generation": 2200,
         "cockpit_interpretation": 1600,
         "report_export_summary": 2400,
+        "assistant_tool_plan": 1400,
     },
 }
 
@@ -290,7 +299,11 @@ def _route_for_profile(
     profile_config = model_profile_for_name(profile, settings=settings)
     model = requested_model or profile_config.model
     model_max_tokens = _model_max_tokens(model=model, fallback=profile_config.max_tokens)
-    route_max_tokens = max(profile_config.max_tokens, model_max_tokens) if requested_model else profile_config.max_tokens
+    route_max_tokens = (
+        max(profile_config.max_tokens, model_max_tokens)
+        if requested_model
+        else profile_config.max_tokens
+    )
     task_timeout_seconds, task_max_tokens = _TASK_RUNTIME_POLICIES[task_type]
     timeout_seconds = task_timeout_seconds
     model_task_max_tokens = _model_task_max_tokens(

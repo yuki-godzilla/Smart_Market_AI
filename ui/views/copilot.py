@@ -30,17 +30,14 @@ from backend.assistant import (
     assistant_tool_results_from_external_research_fetch,
     build_assistant_action_audit_entry,
     build_assistant_context,
+    build_assistant_planner_states,
     build_assistant_research_context_bundle,
     build_assistant_research_tool_plan,
-    build_deterministic_assistant_tool_plan,
-    build_deterministic_guided_workflow,
     detect_assistant_intent,
     execute_assistant_tool_plan,
     get_assistant_action,
     render_research_bundle_markdown_memo,
     route_assistant_conversation_mode,
-    validate_assistant_guided_workflow,
-    validate_assistant_tool_plan,
 )
 from backend.assistant.response_sanitizer import (
     sanitize_presentation_items,
@@ -3266,14 +3263,17 @@ def _turn_from_response(
         memo_points = []
         if intent not in {"app_help", "screen_guidance"}:
             next_checkpoints = []
-    assistant_tool_plan = _assistant_tool_plan_state(
+    planner_states = _assistant_planner_states(
         context=context,
         question=question,
     )
-    assistant_guided_workflow = _assistant_guided_workflow_state(
-        context=context,
-        question=question,
+    assistant_tool_plan = planner_states.tool_plan.model_dump_json()
+    assistant_guided_workflow = (
+        planner_states.guided_workflow.model_dump_json()
+        if planner_states.guided_workflow is not None
+        else ""
     )
+    planner_meta = planner_states.metadata
     return {
         "turn_id": turn_id or uuid4().hex,
         "status": "complete",
@@ -3324,7 +3324,28 @@ def _turn_from_response(
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "assistant_tool_plan": assistant_tool_plan,
         "assistant_guided_workflow": assistant_guided_workflow,
+        "assistant_planner_source": planner_meta.planner_source,
+        "assistant_planner_used_plan_type": planner_meta.used_plan_type or "",
+        "assistant_planner_fallback_reason": planner_meta.fallback_reason or "",
+        "assistant_planner_provider": planner_meta.provider or "",
+        "assistant_planner_model": planner_meta.model or "",
+        "assistant_planner_profile": planner_meta.profile or "",
+        "assistant_planner_gateway_status": planner_meta.gateway_status or "",
+        "assistant_planner_request_id": planner_meta.request_id or "",
+        "assistant_planner_meta": planner_meta.model_dump_json(),
     }
+
+
+def _assistant_planner_states(
+    *,
+    context: SmaiAssistantContext,
+    question: str,
+):
+    assistant_context = _assistant_backend_context_for_ui_context(
+        context=context,
+        question=question,
+    )
+    return build_assistant_planner_states(assistant_context)
 
 
 def _assistant_guided_workflow_state(
@@ -3332,17 +3353,13 @@ def _assistant_guided_workflow_state(
     context: SmaiAssistantContext,
     question: str,
 ) -> str:
-    assistant_context = _assistant_backend_context_for_ui_context(
+    states = _assistant_planner_states(
         context=context,
         question=question,
     )
-    workflow = build_deterministic_guided_workflow(assistant_context)
-    if workflow is None:
+    if states.guided_workflow is None:
         return ""
-    validation = validate_assistant_guided_workflow(workflow)
-    if not validation.valid:
-        return ""
-    return workflow.model_dump_json()
+    return states.guided_workflow.model_dump_json()
 
 
 def _assistant_tool_plan_state(
@@ -3350,25 +3367,11 @@ def _assistant_tool_plan_state(
     context: SmaiAssistantContext,
     question: str,
 ) -> str:
-    assistant_context = _assistant_backend_context_for_ui_context(
+    states = _assistant_planner_states(
         context=context,
         question=question,
     )
-    plan = build_deterministic_assistant_tool_plan(assistant_context)
-    validation = validate_assistant_tool_plan(plan)
-    if not validation.valid:
-        plan = plan.model_copy(
-            update={
-                "generated_by": "fallback",
-                "warnings": [
-                    *plan.warnings,
-                    "Tool Planを安全側に検証しました。表示できない操作は実行しません。",
-                ],
-            }
-        )
-    elif validation.warnings:
-        plan = plan.model_copy(update={"warnings": [*plan.warnings, *validation.warnings]})
-    return plan.model_dump_json()
+    return states.tool_plan.model_dump_json()
 
 
 def _assistant_backend_context_for_ui_context(
@@ -4380,6 +4383,17 @@ def _response_meta_html(turn: dict[str, str]) -> str:
         ("provider_message", str(turn.get("provider_error_message", "")).strip()),
         ("latency", str(turn.get("latency_ms", "")).strip()),
         ("request", str(turn.get("request_id", "")).strip()),
+        ("planner", str(turn.get("assistant_planner_source", "")).strip()),
+        ("planner_type", str(turn.get("assistant_planner_used_plan_type", "")).strip()),
+        (
+            "planner_fallback",
+            str(turn.get("assistant_planner_fallback_reason", "")).strip(),
+        ),
+        ("planner_status", str(turn.get("assistant_planner_gateway_status", "")).strip()),
+        ("planner_provider", str(turn.get("assistant_planner_provider", "")).strip()),
+        ("planner_model", str(turn.get("assistant_planner_model", "")).strip()),
+        ("planner_profile", str(turn.get("assistant_planner_profile", "")).strip()),
+        ("planner_request", str(turn.get("assistant_planner_request_id", "")).strip()),
     ]
     items = "".join(
         f"<li><span>{html.escape(label)}</span><b>{html.escape(value)}</b></li>"

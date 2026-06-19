@@ -210,10 +210,41 @@ class AssistantGatewayConfig(StrictConfigModel):
     ) = None
 
 
+class AssistantLLMPlannerConfig(StrictConfigModel):
+    """Optional HTTP Gateway settings for LLM-suggested assistant plans."""
+
+    enabled: bool = False
+    gateway_url: str = Field(default="http://127.0.0.1:8088", min_length=1)
+    endpoint_path: str = Field(default="/api/v1/assistant/tool-plan", min_length=1)
+    timeout_seconds: float = Field(default=15.0, gt=0)
+    max_steps: int = Field(default=5, gt=0, le=6)
+    fallback_to_deterministic: bool = True
+    show_source_details: bool = False
+    model: str | None = Field(default=None, min_length=1)
+    execution_mode: Literal["auto", "light", "quality", "off"] = "auto"
+    environment_profile: Literal["notebook", "desktop", "server", "offline"] = "notebook"
+    preferred_profile: (
+        Literal[
+            "notebook_dev",
+            "notebook_standard",
+            "desktop_fast",
+            "desktop_analysis",
+            "desktop_heavy",
+            "assistant_fast",
+            "assistant_standard",
+            "assistant_quality",
+            "report_quality",
+            "fallback",
+        ]
+        | None
+    ) = "assistant_fast"
+
+
 class AssistantConfig(StrictConfigModel):
     """Assistant runtime settings."""
 
     gateway: AssistantGatewayConfig = Field(default_factory=AssistantGatewayConfig)
+    llm_planner: AssistantLLMPlannerConfig = Field(default_factory=AssistantLLMPlannerConfig)
 
 
 class LLMFactorLiveConfig(StrictConfigModel):

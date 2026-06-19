@@ -168,6 +168,14 @@ curl -X POST http://127.0.0.1:8088/api/v1/context-answer ^
   -d "{\"user_question\":\"AI予測インサイトでは何を見る？\",\"profile\":\"notebook_dev\",\"context\":{\"bundle_id\":\"bundle-1\",\"title\":\"銘柄コックピット\",\"sections\":[{\"section_id\":\"forecast-1\",\"title\":\"AI予測インサイト\",\"source_kind\":\"forecast\",\"summary\":{\"中心予測\":\"+1.2%\",\"予測レンジ\":\"-3.0%〜+4.5%\"},\"included_fields\":[\"中心予測\",\"予測レンジ\",\"信頼度\"],\"warnings\":[\"予測レンジが広めです。\"],\"notes\":[\"根拠資料とデータ品質も確認します。\"]}]}}"
 ```
 
+Assistant Tool Planner 確認例:
+
+```powershell
+curl -X POST http://127.0.0.1:8088/api/v1/assistant/tool-plan ^
+  -H "Content-Type: application/json" ^
+  -d "{\"user_question\":\"この銘柄の根拠を確認したい\",\"current_page\":\"cockpit\",\"context_summary\":\"現在画面: 銘柄コックピット / AI調査: missing\",\"available_actions\":[{\"action_id\":\"open_research_section\",\"label\":\"根拠資料を見る\",\"description\":\"Research Evidenceを確認します。\",\"action_type\":\"navigation\",\"requires_confirmation\":false,\"is_external_fetch\":false,\"enabled\":true},{\"action_id\":\"update_research\",\"label\":\"AI調査を更新\",\"description\":\"外部ソース候補を確認します。\",\"action_type\":\"data_fetch\",\"requires_confirmation\":true,\"is_external_fetch\":true,\"enabled\":true}],\"constraints\":{\"allowed_action_ids\":[\"open_research_section\",\"update_research\"],\"max_steps\":5},\"preferred_profile\":\"assistant_fast\"}"
+```
+
 親SMAIの汎用 Assistant service から試す場合は、Gateway を起動したまま、SMAI 側の `SMAI_CONFIG_FILE` に次のような設定を指定します。通常確認では使わず、既定の `enabled: false` を維持します。専用 `SMAIアシスタント` workspace は画面内で Gateway 接続を既定で試し、失敗時は deterministic fallback に戻ります。
 
 ```yaml
@@ -179,6 +187,20 @@ assistant:
     timeout_seconds: 90
     execution_mode: "auto"
     environment_profile: "notebook"
+```
+
+optional LLM Tool Planner を親SMAIから試す場合は、別設定として明示ONにします。通常確認では `assistant.llm_planner.enabled=false` の既定値を維持します。Gateway は action 案を返すだけで、親SMAIが validation / fallback / UI採用を行います。
+
+```yaml
+assistant:
+  llm_planner:
+    enabled: true
+    gateway_url: "http://127.0.0.1:8088"
+    endpoint_path: "/api/v1/assistant/tool-plan"
+    timeout_seconds: 15
+    max_steps: 5
+    fallback_to_deterministic: true
+    preferred_profile: "assistant_fast"
 ```
 
 SMAI 親は通常 `model` を固定指定せず、会話 intent から `task_type` を渡します。Gateway は `SMAI_LLM_PROFILE` または request の `profile` から `notebook_dev` / `notebook_standard` / `desktop_fast` / `desktop_analysis` / `desktop_heavy` を選び、timeout と token budget を決めます。request の `model` は最優先で model 名を上書きします。

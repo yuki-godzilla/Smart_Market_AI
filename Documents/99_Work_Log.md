@@ -3263,3 +3263,34 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - passed: `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py backend\assistant ui\views\copilot.py tests\test_assistant_guided_workflow.py tests\test_ui_assistant_actions.py tools\playwright_assistant_action_smoke.py`.
 - passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --output-dir outputs\work\playwright_assistant_action_smoke_phase30d`.
 - passed after setting `PYTHONPATH=C:\IDE_Workspace\Smart_Market_AI` and `SMAI_DISABLE_BACKGROUND_WORKERS=1` for local Streamlit: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --output-dir outputs\work\playwright_assistant_action_smoke_phase30d_app --app-url http://localhost:8517`.
+
+## 2026-06-19 Phase 30-E - LLM Tool Planner Safety MVP
+
+### Summary
+
+- Added parent-side `AssistantPlannerRequest` / `AssistantPlannerResponse` contracts, `assistant.llm_planner` config, Gateway planner client method, network-free mock support, and `build_assistant_planner_states()`.
+- Added optional `smai-ai-gateway` `/api/v1/assistant/tool-plan` schema/service/route and model-router task policy. Gateway returns structured JSON plan proposals only and does not import SMAI modules or execute actions.
+- Parent SMAI validates LLM planner responses for schema, available action allowlist, confirmation-required actions, external fetch confirmation, unsafe wording, disabled actions, and unsupported `create_ranking` / `refresh_news` before adopting them.
+- Valid LLM plans are converted into existing `AssistantToolPlan` / `AssistantGuidedWorkflow` UI states; invalid / timeout / Gateway fallback / malformed responses are hidden and deterministic fallback is used.
+- SMAIアシスタント technical details now include planner source, used plan type, fallback reason, provider/model/profile/status/request metadata.
+
+### Safety
+
+- `assistant.llm_planner.enabled=false` by default; normal checks remain network-free.
+- No automatic action execution, external fetch, ranking creation, report creation, score change, forecast change, AI総合 change, Research Score change, broker action, or order-sending path was added.
+- `update_research` and `create_decision_report` remain confirmation-card actions only.
+- Gateway remains a generic HTTP boundary; it imports no SMAI Python modules.
+
+### Docs
+
+- Updated `PROJECT_CONTEXT.md`, `Documents/05_Implementation_Roadmap.md`, `Documents/06_MVP_Operations_Guide.md`, `Documents/30_Assistant_Agent_Roadmap.md`, `Documents/97_Functional_Spec_Issues.md`, `smai-ai-gateway/README.md`, `smai-ai-gateway/Project_Specification.md`, and Gateway docs.
+
+### Tests
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_assistant_llm_tool_planner.py tests\test_assistant_plan_validation.py tests\test_ui_assistant_tool_plan.py tests\test_core_config.py -q -p no:cacheprovider --basetemp outputs\work\phase30e_parent_pytest_tmp` with 31 passed.
+- passed: `..\venv_SMAI\Scripts\python.exe -m pytest tests\test_tool_plan_schema.py tests\test_tool_plan_service.py tests\test_tool_plan_endpoint.py tests\test_model_router.py -q -p no:cacheprovider --basetemp ..\outputs\work\phase30e_gateway_pytest_tmp` with 16 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_assistant_action_execution.py tests\test_assistant_tools.py tests\test_assistant_tool_registry.py tests\test_assistant_context_builder.py tests\test_assistant_tool_plan.py tests\test_assistant_guided_workflow.py tests\test_assistant_plan_validation.py tests\test_assistant_llm_tool_planner.py tests\test_ui_assistant_actions.py tests\test_ui_assistant_tool_plan.py tests\test_ui_assistant_navigation.py -q -p no:cacheprovider --basetemp outputs\work\phase30e_assistant_pytest_tmp` with 64 passed.
+- passed: targeted Ruff for parent Assistant/UI/config/tests and Gateway app/tool-plan tests.
+- passed: targeted Black helper for 20 changed Python files.
+- passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --output-dir outputs\work\phase30e_playwright_static`.
+- passed after setting `PYTHONPATH=C:\IDE_Workspace\Smart_Market_AI` and `SMAI_DISABLE_BACKGROUND_WORKERS=1` for local Streamlit on `http://127.0.0.1:8511`: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --app-url http://127.0.0.1:8511 --output-dir outputs\work\phase30e_playwright_app`.

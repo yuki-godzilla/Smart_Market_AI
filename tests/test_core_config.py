@@ -32,6 +32,12 @@ def test_settings_defaults_are_external_yahoo_first(monkeypatch):
     assert settings.assistant.gateway.execution_mode == "auto"
     assert settings.assistant.gateway.environment_profile == "notebook"
     assert settings.assistant.gateway.preferred_profile is None
+    assert settings.assistant.llm_planner.enabled is False
+    assert settings.assistant.llm_planner.gateway_url == "http://127.0.0.1:8088"
+    assert settings.assistant.llm_planner.endpoint_path == "/api/v1/assistant/tool-plan"
+    assert settings.assistant.llm_planner.timeout_seconds == 15.0
+    assert settings.assistant.llm_planner.max_steps == 5
+    assert settings.assistant.llm_planner.fallback_to_deterministic is True
     assert settings.llm_factor.live.enabled is False
     assert settings.llm_factor.live.base_url == "http://127.0.0.1:8088"
     assert settings.llm_factor.live.endpoint_path == "/api/v1/llm-factor/generate"
@@ -114,6 +120,38 @@ def test_settings_can_load_explicit_assistant_gateway_opt_in():
     assert settings.assistant.gateway.execution_mode == "light"
     assert settings.assistant.gateway.environment_profile == "notebook"
     assert settings.assistant.gateway.preferred_profile == "assistant_fast"
+
+
+def test_settings_can_load_explicit_assistant_llm_planner_opt_in():
+    settings = Settings.model_validate(
+        {
+            "assistant": {
+                "llm_planner": {
+                    "enabled": True,
+                    "gateway_url": "http://gateway.local",
+                    "endpoint_path": "/api/v1/assistant/tool-plan",
+                    "timeout_seconds": 4.5,
+                    "max_steps": 4,
+                    "fallback_to_deterministic": True,
+                    "show_source_details": True,
+                    "model": "qwen3:1.7b",
+                    "execution_mode": "light",
+                    "environment_profile": "notebook",
+                    "preferred_profile": "assistant_fast",
+                }
+            }
+        }
+    )
+
+    planner = settings.assistant.llm_planner
+    assert planner.enabled is True
+    assert planner.gateway_url == "http://gateway.local"
+    assert planner.timeout_seconds == 4.5
+    assert planner.max_steps == 4
+    assert planner.show_source_details is True
+    assert planner.model == "qwen3:1.7b"
+    assert planner.execution_mode == "light"
+    assert planner.preferred_profile == "assistant_fast"
 
 
 def test_settings_can_load_explicit_llm_factor_live_opt_in():

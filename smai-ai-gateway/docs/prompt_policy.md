@@ -38,6 +38,17 @@ Provider raw fields、debug logs、保存対象でない外部本文全文は通
 LLM は `answer` の本文生成を担当し、`materials`、`cautions`、`next_checkpoints`、`referenced_sections` は Gateway が受け取った context から安定生成します。
 これにより、SMAI 側 UI が必要とする表示順と安全境界を保ちます。
 
+## Tool Planner
+
+`/api/v1/assistant/tool-plan` では、LLM は許可済み action_id を使った確認手順案だけを JSON で返します。
+
+- action を実行しない。
+- 外部取得、レポート作成、state change は `requires_confirmation=true` にする。
+- `create_ranking` / `refresh_news` を ready 実行のように扱わない。
+- 買う / 売る / 保有する、利益保証、broker / order / execution などの文言を出さない。
+- スコア、ランキング順位、Forecast値、AI総合、Investment Score、Research Score、Decision Report本文を変更しない。
+- Gateway は plan案を返すだけで、親SMAI側が schema / allowlist / safety validation と deterministic fallback を行う。
+
 ## 将来の SMAI RAG context
 
 将来的には、SMAI RAG / Research Evidence の要約済み context を Gateway 入力へ渡します。

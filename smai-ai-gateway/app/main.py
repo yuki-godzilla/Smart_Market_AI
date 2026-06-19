@@ -9,11 +9,13 @@ from app.schemas.common import ErrorDetail, HealthResponse, ModelsResponse, Read
 from app.schemas.context_answer import ContextAnswerRequest, ContextAnswerResponse
 from app.schemas.llm_factor import LLMFactorGenerationRequest, LLMFactorGenerationResponse
 from app.schemas.summarize import SummarizeRequest, SummarizeResponse
+from app.schemas.tool_plan import ToolPlannerRequest, ToolPlannerResponse
 from app.services.chat_service import ChatService
 from app.services.context_answer_service import ContextAnswerService
 from app.services.llm_factor_service import LLMFactorGenerationService
 from app.services.model_router import model_profile_for_name
 from app.services.summarize_service import SummarizeService
+from app.services.tool_plan_service import ToolPlanService
 
 settings = get_settings()
 app = FastAPI(title=settings.APP_NAME, version="0.1.0")
@@ -120,6 +122,15 @@ def llm_factor_generate(request: LLMFactorGenerationRequest) -> LLMFactorGenerat
     try:
         service = LLMFactorGenerationService(OllamaClient(settings))
         return service.generate(request)
+    except OllamaClientError as exc:
+        raise provider_error_to_http_exception(exc) from exc
+
+
+@app.post("/api/v1/assistant/tool-plan", response_model=ToolPlannerResponse)
+def assistant_tool_plan(request: ToolPlannerRequest) -> ToolPlannerResponse:
+    try:
+        service = ToolPlanService(OllamaClient(settings))
+        return service.plan(request)
     except OllamaClientError as exc:
         raise provider_error_to_http_exception(exc) from exc
 

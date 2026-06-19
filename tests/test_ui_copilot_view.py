@@ -9,8 +9,11 @@ import httpx
 from streamlit.testing.v1 import AppTest
 
 from backend.assistant import (
+    AssistantLoadingHeadline,
+    AssistantLoadingHeadlines,
     AssistantMessage,
     AssistantResponse,
+    AssistantWarmupStatus,
     build_assistant_research_tool_plan,
     execute_assistant_tool_plan,
 )
@@ -21,8 +24,10 @@ from ui.views.copilot import (
     COPILOT_LLM_MODEL_OPTIONS,
     COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY,
     COPILOT_RUNTIME_STATUS_STATE_KEY,
+    COPILOT_WARMUP_AUTO_TRANSITION_STATE_KEY,
     AssistantStatusEvent,
     CopilotGatewayRuntimeConfig,
+    _apply_copilot_warmup_auto_transition,
     _assistant_runtime_status_for_header,
     _chat_header_html,
     _context_for_llm,
@@ -46,11 +51,13 @@ from ui.views.copilot import (
     copilot_context_options,
     copilot_conversation_presets,
     copilot_history_messages,
+    copilot_loading_panel_html,
     copilot_settings_from_gateway_runtime,
     copilot_turn_html,
     copilot_turn_markdown,
     copilot_turn_plain_text,
     derive_assistant_runtime_status,
+    investment_radar_loading_icon_html,
 )
 
 
@@ -103,6 +110,88 @@ def _fake_external_research_result(symbol: str = "7203.T") -> ExternalResearchFe
             ),
         ],
         warnings=["ニュースの鮮度は取得時点に依存します。"],
+    )
+
+
+def _warmup_status(state: str, *, attempt: int = 1) -> AssistantWarmupStatus:
+    return AssistantWarmupStatus(
+        state=state,  # type: ignore[arg-type]
+        step="LLM Gatewayに接続中",
+        message="test",
+        attempt=attempt,
+    )
+
+
+def _loading_headlines() -> AssistantLoadingHeadlines:
+    return AssistantLoadingHeadlines(
+        items=(
+            AssistantLoadingHeadline(
+                title="半導体決算の確認材料",
+                category="米国株",
+                source="前回ニュース",
+            ),
+        ),
+        updated_at=datetime(2026, 6, 19, 20, 50, tzinfo=UTC),
+        source="cache",
+        stale=False,
+    )
+
+
+def test_copilot_loading_panel_uses_investment_radar_asset_and_hides_when_ready():
+    markup = copilot_loading_panel_html(
+        _warmup_status("warming"),
+        headlines=_loading_headlines(),
+        radar_asset_uri="data:image/webp;base64,radar",
+    )
+
+    assert 'data-testid="assistant-loading-radar-icon"' in markup
+    assert 'alt="投資レーダー"' in markup
+    assert "SMAIナビが市場の気配を確認中です" in markup
+    assert "市場ヘッドライン" in markup
+    assert "前回取得: 2026-06-20 05:50" in markup
+    assert "前回ニュース" in markup
+    assert (
+        copilot_loading_panel_html(
+            _warmup_status("ready"),
+            headlines=_loading_headlines(),
+        )
+        == ""
+    )
+
+
+def test_copilot_loading_radar_icon_has_css_fallback():
+    markup = investment_radar_loading_icon_html("")
+
+    assert 'data-testid="assistant-loading-radar-icon"' in markup
+    assert "smai-warmup-radar-icon--fallback" in markup
+    assert 'aria-label="投資レーダー"' in markup
+
+
+def test_copilot_warmup_auto_transition_is_once_only_and_preserves_session_values():
+    history = [{"turn_id": "turn-1", "answer": "保持"}]
+    workflow = {"status": "active", "active_step_id": "research"}
+    state: dict[str, object] = {
+        "smai_copilot_text_input": "入力途中のテキスト",
+        COPILOT_CHAT_HISTORY_STATE_KEY: history,
+        "assistant_workflow_session": workflow,
+    }
+
+    assert _apply_copilot_warmup_auto_transition(_warmup_status("warming"), state) is False
+    assert _apply_copilot_warmup_auto_transition(_warmup_status("ready"), state) is True
+    assert _apply_copilot_warmup_auto_transition(_warmup_status("ready"), state) is False
+    assert state["smai_copilot_text_input"] == "入力途中のテキスト"
+    assert state[COPILOT_CHAT_HISTORY_STATE_KEY] is history
+    assert state["assistant_workflow_session"] is workflow
+    assert state[COPILOT_WARMUP_AUTO_TRANSITION_STATE_KEY] == "1:ready"
+
+
+def test_copilot_warmup_auto_transition_handles_failed_and_timeout_attempts():
+    state: dict[str, object] = {}
+
+    assert _apply_copilot_warmup_auto_transition(_warmup_status("failed"), state) is True
+    assert _apply_copilot_warmup_auto_transition(_warmup_status("failed"), state) is False
+    assert (
+        _apply_copilot_warmup_auto_transition(_warmup_status("timeout", attempt=2), state) is True
     )
 
 
@@ -1086,6 +1175,14 @@ def test_copilot_page_does_not_use_streamlit_spinner_for_generation():
 
     assert "st.spinner" not in source
     assert "LLMで回答を生成中" not in source
+
+
+def test_copilot_loading_monitor_uses_bounded_fragment_polling_and_guard():
+    source = Path("ui/views/copilot.py").read_text(encoding="utf-8")
+
+    assert "@st.fragment(run_every=COPILOT_WARMUP_POLL_SECONDS)" in source
+    assert "COPILOT_WARMUP_POLL_SECONDS = 2.0" in source
+    assert "_apply_copilot_warmup_auto_transition(status, st.session_state)" in source
 
 
 def test_copilot_submit_uses_inline_chat_placeholder_flow():

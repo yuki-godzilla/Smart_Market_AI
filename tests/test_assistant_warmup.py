@@ -37,6 +37,7 @@ def test_warmup_success_and_duplicate_start_prevention():
     assert manager.start(probe) is False
     assert _wait(manager) == "ready"
     assert calls == 1
+    assert manager.start(probe) is False
 
 
 def test_warmup_timeout_failure_disabled_and_retry():
@@ -57,3 +58,12 @@ def test_warmup_provider_unavailable_uses_degraded_fallback():
     manager.start(lambda: _diagnostic("provider_unavailable"))
     assert _wait(manager) == "degraded"
     assert "fallback" in manager.status().message
+
+
+def test_warmup_unexpected_probe_failure_becomes_failed():
+    manager = AssistantWarmupManager()
+
+    manager.start(lambda: (_ for _ in ()).throw(RuntimeError("provider raw")))
+
+    assert _wait(manager) == "failed"
+    assert "provider raw" not in manager.status().message

@@ -5,6 +5,7 @@ import html
 import json
 import os
 import time
+from collections.abc import MutableMapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -20,12 +21,14 @@ from backend.assistant import (
     AssistantActionResult,
     AssistantGatewayDiagnostic,
     AssistantGuidedWorkflow,
+    AssistantLoadingHeadlines,
     AssistantMessage,
     AssistantResearchContextBundle,
     AssistantResearchToolPlan,
     AssistantResponse,
     AssistantToolPlanResult,
     AssistantToolResult,
+    AssistantWarmupManager,
     AssistantWarmupStatus,
     AssistantWorkflowSession,
     HttpAssistantGatewayClient,
@@ -82,6 +85,7 @@ from ui.components.assistant_action_result import assistant_action_result_card_h
 from ui.components.mascot import (
     MASCOT_NAVI_CHAT_ASSET,
     MASCOT_THUMB_ASSET,
+    MASCOT_TITLE_ASSETS,
     _asset_data_uri,
 )
 from ui.components.sidemenu import (
@@ -102,6 +106,8 @@ COPILOT_LLM_MODEL_STATE_KEY = "smai_copilot_llm_model"
 COPILOT_LLM_MODEL_RADIO_STATE_KEY = "smai_copilot_llm_model_radio"
 COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY = "smai_copilot_gateway_diagnostic"
 COPILOT_RUNTIME_STATUS_STATE_KEY = "smai_copilot_runtime_status"
+COPILOT_WARMUP_AUTO_TRANSITION_STATE_KEY = "smai_copilot_warmup_auto_transition"
+COPILOT_WARMUP_READY_NOTICE_STATE_KEY = "smai_copilot_warmup_ready_notice"
 COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY = "pending_decision_report_draft"
 COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY = "smai_copilot_pending_action_confirm"
 COPILOT_ACTION_AUDIT_STATE_KEY = "smai_copilot_action_audit"
@@ -110,6 +116,7 @@ COPILOT_GATEWAY_DIAGNOSTIC_TTL_SECONDS = 20.0
 COPILOT_STREAM_DELAY_SECONDS = 0.16
 COPILOT_STREAM_MAX_CHUNKS = 8
 COPILOT_PENDING_STEP_DELAY_SECONDS = 0.34
+COPILOT_WARMUP_POLL_SECONDS = 2.0
 
 COPILOT_LLM_MODEL_OPTIONS: tuple[tuple[str, str, str], ...] = (
     ("notebook_dev", "qwen3:1.7b", "ノートPC / 軽量開発"),
@@ -709,8 +716,7 @@ def _start_copilot_llm_warmup(
 ) -> tuple[CopilotGatewayRuntimeConfig, AssistantWarmupStatus]:
     app_settings = settings or get_settings()
     warmup = app_settings.assistant.warmup
-    key = "|".join(_gateway_diagnostic_cache_key(runtime_config))
-    manager = get_assistant_warmup_manager(key)
+    manager = _warmup_manager_for_runtime(runtime_config)
     client = HttpAssistantGatewayClient(
         base_url=runtime_config.base_url,
         context_answer_path=runtime_config.context_answer_path,
@@ -731,6 +737,20 @@ def _start_copilot_llm_warmup(
         enabled=bool(warmup.enabled and runtime_config.enabled),
     )
     status = manager.status()
+    return _runtime_config_from_warmup_status(runtime_config, status), status
+
+
+def _warmup_manager_for_runtime(
+    runtime_config: CopilotGatewayRuntimeConfig,
+) -> AssistantWarmupManager:
+    key = "|".join(_gateway_diagnostic_cache_key(runtime_config))
+    return get_assistant_warmup_manager(key)
+
+
+def _runtime_config_from_warmup_status(
+    runtime_config: CopilotGatewayRuntimeConfig,
+    status: AssistantWarmupStatus,
+) -> CopilotGatewayRuntimeConfig:
     if status.diagnostic is not None:
         diagnostic = status.diagnostic
         runtime_config = replace(
@@ -756,7 +776,54 @@ def _start_copilot_llm_warmup(
             readiness_status="warming",
             readiness_message=status.message,
         )
-    return runtime_config, status
+    elif status.state == "timeout":
+        runtime_config = replace(
+            runtime_config,
+            readiness_status="gateway_timeout",
+            readiness_message=status.message,
+        )
+    elif status.state in {"failed", "fallback"}:
+        runtime_config = replace(
+            runtime_config,
+            readiness_status="gateway_unavailable",
+            readiness_message=status.message,
+        )
+    return runtime_config
+
+
+def _apply_copilot_warmup_auto_transition(
+    status: AssistantWarmupStatus,
+    state: MutableMapping[str, object],
+) -> bool:
+    if status.state not in {"ready", "degraded", "fallback", "failed", "timeout"}:
+        return False
+    marker = f"{status.attempt}:{status.state}"
+    if str(state.get(COPILOT_WARMUP_AUTO_TRANSITION_STATE_KEY, "")) == marker:
+        return False
+    state[COPILOT_WARMUP_AUTO_TRANSITION_STATE_KEY] = marker
+    if status.state == "ready":
+        state[COPILOT_WARMUP_READY_NOTICE_STATE_KEY] = True
+    return True
+
+
+@st.fragment(run_every=COPILOT_WARMUP_POLL_SECONDS)
+def _render_copilot_warmup_monitor(
+    *,
+    runtime_config: CopilotGatewayRuntimeConfig,
+    settings: Settings,
+    history: list[dict[str, str]],
+    header_placeholder: Any,
+) -> None:
+    status = _warmup_manager_for_runtime(runtime_config).status()
+    current_config = _runtime_config_from_warmup_status(runtime_config, status)
+    _render_copilot_header(
+        header_placeholder=header_placeholder,
+        history=history,
+        runtime_config=current_config,
+    )
+    _render_copilot_loading_panel(status, settings=settings)
+    if _apply_copilot_warmup_auto_transition(status, st.session_state):
+        st.rerun()
 
 
 def _probe_copilot_warmup(
@@ -1192,7 +1259,20 @@ def render_copilot_workspace_page() -> None:
     )
     clear = _render_new_conversation_action()
     _render_material_status(_active_context_from_history(history, context_by_id))
-    _render_copilot_loading_panel(warmup_status, settings=settings)
+    if warmup_status.state in {"not_started", "warming"}:
+        _render_copilot_warmup_monitor(
+            runtime_config=runtime_config,
+            settings=settings,
+            history=history,
+            header_placeholder=header_placeholder,
+        )
+    else:
+        _render_copilot_loading_panel(warmup_status, settings=settings)
+    if bool(st.session_state.pop(COPILOT_WARMUP_READY_NOTICE_STATE_KEY, False)):
+        st.toast(
+            "SMAIナビの準備ができました。銘柄・予測・ニュース・根拠資料を確認できます。",
+            icon="✅",
+        )
 
     if clear:
         st.session_state[COPILOT_CHAT_HISTORY_STATE_KEY] = []
@@ -1371,8 +1451,6 @@ def _render_copilot_loading_panel(
     *,
     settings: Settings,
 ) -> None:
-    if status.state in {"ready", "disabled"}:
-        return
     warmup = settings.assistant.warmup
     headlines = (
         load_assistant_loading_headlines(
@@ -1382,6 +1460,45 @@ def _render_copilot_loading_panel(
         if warmup.loading_headlines_enabled
         else None
     )
+    markup = copilot_loading_panel_html(
+        status,
+        headlines=headlines,
+        radar_asset_uri=_investment_radar_loading_asset_uri(),
+    )
+    if markup:
+        st.markdown(markup, unsafe_allow_html=True)
+
+
+def _investment_radar_loading_asset_uri() -> str:
+    try:
+        return _asset_data_uri(MASCOT_TITLE_ASSETS["investment_radar"])
+    except (OSError, ValueError):
+        return ""
+
+
+def investment_radar_loading_icon_html(radar_asset_uri: str = "") -> str:
+    if radar_asset_uri:
+        return (
+            '<span class="smai-warmup-radar-icon" '
+            'data-testid="assistant-loading-radar-icon">'
+            f'<img src="{html.escape(radar_asset_uri)}" alt="投資レーダー" loading="eager" />'
+            "</span>"
+        )
+    return (
+        '<span class="smai-warmup-radar-icon smai-warmup-radar-icon--fallback" '
+        'data-testid="assistant-loading-radar-icon" role="img" '
+        'aria-label="投資レーダー"><i></i><b></b><em></em></span>'
+    )
+
+
+def copilot_loading_panel_html(
+    status: AssistantWarmupStatus,
+    *,
+    headlines: AssistantLoadingHeadlines | None,
+    radar_asset_uri: str = "",
+) -> str:
+    if status.state in {"ready", "disabled"}:
+        return ""
     state_label = {
         "not_started": "LLM起動確認待ち",
         "warming": "LLM起動確認中",
@@ -1404,14 +1521,22 @@ def _render_copilot_loading_panel(
             + html.escape(item.category)
             + "</span> "
             + html.escape(item.title)
+            + f" <small>{html.escape(item.source)}</small>"
             + "</li>"
             for item in headlines.items
         )
         headline_html = (
-            '<div class="smai-warmup-headlines"><strong>市場ヘッドライン</strong>'
-            f"<small>{freshness}: {html.escape(updated)}</small><ul>{items}</ul></div>"
+            '<div class="smai-warmup-headlines"><div class="smai-warmup-headlines-header">'
+            + investment_radar_loading_icon_html(radar_asset_uri)
+            + "<div><strong>市場ヘッドライン</strong>"
+            + f"<small>{freshness}: {html.escape(updated)}</small></div></div><ul>{items}</ul></div>"
         )
-    st.markdown(
+    fallback_copy = (
+        "LLMの応答準備に時間がかかっています。いったんSMAI標準ナビで回答します。"
+        if status.state in {"degraded", "fallback", "failed", "timeout"}
+        else "市場データとAIの準備を進めています。準備中もSMAI標準ナビを利用できます。"
+    )
+    return (
         """
         <style>
         .smai-warmup-panel{position:relative;overflow:hidden;margin:10px 0 18px;padding:18px;
@@ -1423,9 +1548,15 @@ def _render_copilot_loading_panel(
           border:2px solid #22d3ee;box-shadow:0 0 18px rgba(34,211,238,.55);animation:smaiPulse 1.8s ease-in-out infinite}
         .smai-warmup-title{display:flex;align-items:center;font-weight:750;font-size:1.05rem}.smai-warmup-state{color:#67e8f9}
         .smai-warmup-panel p{margin:8px 0;color:#cbd5e1}.smai-warmup-steps{display:grid;gap:4px;font-size:.9rem;color:#a5f3fc}
-        .smai-warmup-headlines{margin-top:14px;padding-top:12px;border-top:1px solid rgba(148,163,184,.2)}
-        .smai-warmup-headlines small{margin-left:10px;color:#94a3b8}.smai-warmup-headlines ul{margin:8px 0 0;padding-left:20px}
-        .smai-warmup-headlines li{margin:4px 0;color:#dbeafe}.smai-warmup-headlines li span{color:#7dd3fc;font-size:.82rem}
+        .smai-warmup-headlines{margin-top:14px;padding:12px 14px;border:1px solid rgba(103,232,249,.16);border-radius:13px;background:rgba(5,20,36,.42)}
+        .smai-warmup-headlines-header{display:flex;align-items:center;gap:11px}.smai-warmup-headlines-header>div{display:grid;gap:2px}
+        .smai-warmup-headlines small{color:#94a3b8;font-size:.76rem}.smai-warmup-headlines ul{margin:10px 0 0;padding-left:20px}
+        .smai-warmup-headlines li{margin:5px 0;color:#dbeafe}.smai-warmup-headlines li span{color:#7dd3fc;font-size:.82rem}
+        .smai-warmup-headlines li small{margin-left:5px}.smai-warmup-radar-icon{position:relative;display:inline-grid;place-items:center;width:56px;height:56px;flex:0 0 56px;border-radius:50%;background:radial-gradient(circle,rgba(34,211,238,.16),rgba(8,47,73,.06));box-shadow:0 0 17px rgba(34,211,238,.2)}
+        .smai-warmup-radar-icon img{width:56px;height:56px;object-fit:contain;filter:drop-shadow(0 0 5px rgba(34,211,238,.32))}
+        .smai-warmup-radar-icon--fallback{overflow:hidden;border:1px solid rgba(103,232,249,.45);background:repeating-radial-gradient(circle,transparent 0 8px,rgba(34,211,238,.2) 9px 10px)}
+        .smai-warmup-radar-icon--fallback:after{content:"";position:absolute;width:50%;height:1px;left:50%;top:50%;transform-origin:left;transform:rotate(-32deg);background:#67e8f9;box-shadow:0 0 7px #22d3ee}
+        .smai-warmup-radar-icon--fallback i,.smai-warmup-radar-icon--fallback b,.smai-warmup-radar-icon--fallback em{position:absolute;width:5px;height:5px;border-radius:50%;background:#67e8f9;box-shadow:0 0 7px #22d3ee}.smai-warmup-radar-icon--fallback i{left:13px;top:18px}.smai-warmup-radar-icon--fallback b{right:11px;top:27px}.smai-warmup-radar-icon--fallback em{left:29px;bottom:10px}
         @keyframes smaiPulse{0%,100%{opacity:.58;transform:scale(.9)}50%{opacity:1;transform:scale(1.06)}}
         @keyframes smaiRadar{to{transform:rotate(360deg)}}
         @media (prefers-reduced-motion:reduce){.smai-warmup-core,.smai-warmup-panel:after{animation:none}}
@@ -1433,14 +1564,13 @@ def _render_copilot_loading_panel(
         """
         + '<section class="smai-warmup-panel" aria-label="SMAIナビ準備状況">'
         + '<div class="smai-warmup-title"><span class="smai-warmup-core"></span>'
-        + f'SMAIナビを起動しています… <span class="smai-warmup-state">{html.escape(state_label)}</span></div>'
-        + "<p>LLM準備中でも、SMAI標準ナビと安全な確認フローを利用できます（fallbackあり）。</p>"
+        + f'SMAIナビが市場の気配を確認中です… <span class="smai-warmup-state">{html.escape(state_label)}</span></div>'
+        + f"<p>{html.escape(fallback_copy)}（fallbackあり）</p>"
         + '<div class="smai-warmup-steps">'
         + "".join(f"<span>{step}</span>" for step in steps)
         + "</div>"
         + headline_html
-        + "</section>",
-        unsafe_allow_html=True,
+        + "</section>"
     )
 
 

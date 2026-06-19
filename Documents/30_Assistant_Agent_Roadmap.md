@@ -90,3 +90,5 @@ Status: 30-G2 MVP implemented. `workflow_runtime.retry_step()` を追加し、SM
 - LLM準備中・失敗時のdeterministic fallback
 
 Status: first slice implemented. `tests/fixtures/assistant_scenarios.json` に固定12シナリオを追加し、Intent Router / Conversation Mode / entity resolutionをnetwork-freeで回帰確認する。親SMAIはAssistant初回描画時に設定単位で重複しないbackground warmupを開始し、UIをブロックせず、準備中・準備完了・degraded・failed・timeoutを保持する。準備中は軽量なSMAIロードカードと既存ニュースキャッシュ（なければbundled sample）を最大5件表示する。同期ニュース取得、LLM必須化、自動売買、スコア・予測・ランキング変更は行わない。
+
+Loading UI polish slice: 投資レーダー既存assetを56pxのヘッダーアイコンとして再利用し、asset欠損時はCSSミニレーダーへfallbackする。warming中は2秒間隔のStreamlit fragmentでprocess-local warmup状態だけを監視し、ready / failed / timeout検知時にattempt単位のガード付きで1回だけ通常画面を再描画する。ready後はloading panelを残さず、fallback時も入力欄・相談カード・deterministic回答を利用できる。再描画処理は入力widget、chat history、workflow sessionを変更しない。

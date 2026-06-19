@@ -28,6 +28,7 @@
 - optional LLM Tool Planner MVP として `/api/v1/assistant/tool-plan` を追加済み。ただし Gateway は available actions から JSON plan 案を返すだけで、親SMAI側が schema / allowlist / safety validation、deterministic fallback、既存 UI 採用、確認付き action execution を担当する
 - 親SMAI側 Phase 30-F で fixture-based Agent Evaluation Harness を追加済み。Phase 30-G1/G2 では Workflow Session / runtime state machine / recovery UI controls も親SMAI側に追加済み。Gateway は引き続き action を実行せず、評価 / 採用 / fallback / session進行 / UI表示は親SMAI側の責務とする
 - 親SMAI側 Phase 30-H では、既存 `/models` を使う非同期startup warmup、readiness表示、loading headlines、deterministic fallback、データ駆動scenario QAを追加。Gateway API契約とSMAI/Gateway import境界は変更しない
+- Phase 30-H loading polishとして、親SMAI側にInvestment Radar icon、2秒fragment監視、ready / fallback auto transition、入力・履歴保持回帰を追加。Gateway側のendpoint追加は行わない
 - 外部取得や重いResearch RAG / news fetchは親SMAI側でユーザー承認を挟む。通常testsはfake adapter / fixtureでnetwork-freeに保つ
 - Gateway prompt profileは `stock_forward_view`、`news_research`、`decision_report_request`、`cockpit_interpretation` などのtask_typeを受け取れるように段階拡張するが、スコア・ランキング順位・予測値・売買判断は変更しない
 

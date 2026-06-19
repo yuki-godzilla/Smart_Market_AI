@@ -3403,3 +3403,16 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Fixed Assistant loading headlines to omit the `cache_dir` argument when no override is supplied, allowing the news cache loader to use `NEWS_CACHE_DIR` instead of evaluating `Path(None)`.
 - Added a regression test for the same default-path call shape used by the Streamlit Assistant page.
 - passed: loading/warmup/Copilot targeted pytest (`61 passed`), targeted Ruff, and project Black helper.
+
+## 2026-06-19 Phase 30-H - Assistant Loading UI polish / auto transition
+
+- Reused the Investment Radar title mascot as a compact loading-headline icon with a CSS-only radar fallback.
+- Added warmer loading/fallback wording, source/category labels, and softer headline card styling.
+- Added a 2-second Streamlit fragment monitor and an attempt-scoped terminal transition guard so ready / failed / timeout moves to the normal or fallback UI without manual refresh or endless full reruns.
+- Kept text input state, chat history, and workflow session outside the transition mutation path.
+- Extended unit/UI and static Playwright coverage for the radar icon, CSS fallback, loading hide-on-ready, fallback usability, single transition, and draft preservation.
+- passed: targeted loading/Copilot/workflow/evaluation pytest (`96 passed`), targeted Ruff, and Black helper.
+- passed: static Playwright 12-scenario smoke with actual production loading-panel HTML; loading and post-transition screenshots were generated and the loading image was visually reviewed.
+- passed: project `tools/run_local_checks.py` (`1702 passed, 2 skipped`; Ruff and Black passed; 32 existing warnings).
+- in-app Browser was unavailable in this session, so the Playwright production-HTML screenshot was used for visual QA.
+- Added and passed `tools/playwright_assistant_loading_streamlit_smoke.py`: real Streamlit + delayed fake Gateway verified ready auto transition with draft retention and failed-Gateway fallback with enabled input / no stack trace.

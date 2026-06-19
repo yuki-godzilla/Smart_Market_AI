@@ -3323,3 +3323,31 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - passed: targeted Black helper for 5 Python files.
 - passed: Markdown strict UTF-8 read for updated docs.
 - passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --output-dir outputs\work\phase30f_playwright_static`.
+
+## 2026-06-19 Phase 30-G1 - Limited Semi-automatic Workflow Session MVP
+
+### Summary
+
+- Added `backend/assistant/workflow_session.py` with session-local `AssistantWorkflowSession` and runtime step schemas.
+- Added `backend/assistant/workflow_runtime.py` with `start_session`, confirmation waiting, running, action-result reflection, skip, cancel, duplicate-prevention, and failure/completion transitions.
+- Wired the Copilot turn state to store `assistant_workflow_session`, show workflow progress/current step in the existing `確認フロー` card, and reflect `update_research` / `create_decision_report` results back into the session.
+- Added a workflow-session gate marker so invalid Guided Workflows do not fall back to Tool Plan confirmable prompts on the same turn.
+- Updated the Playwright static smoke fixture to assert session progress display.
+
+### Safety
+
+- Only validation-gated Guided Workflows become runtime sessions.
+- Confirmable actions still use the existing confirmation card. No action is auto-executed.
+- `update_research` success / partial_success marks the step done and exposes `create_decision_report` as confirmation-waiting only.
+- `update_research` failed marks the session failed and stops Tool Plan fallback prompts.
+- `create_decision_report` success can complete the workflow.
+- Confirmable steps cannot enter `running` without `confirmed=True`; done/running steps are not rerun by default.
+- No score, forecast, Ranking, AI総合, Research Score, broker, execution, Gateway endpoint, or SMAI/Gateway import-boundary behavior was changed.
+
+### Tests
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_assistant_workflow_runtime.py tests\test_ui_assistant_actions.py tests\test_assistant_guided_workflow.py tests\test_assistant_agent_evaluation.py tests\test_ui_assistant_tool_plan.py -q -p no:cacheprovider --basetemp outputs\work\phase30g_assistant_pytest_tmp` with 49 passed.
+- passed: targeted Ruff for workflow runtime/session, Assistant exports, Copilot UI, action UI tests, and Playwright smoke script.
+- passed: targeted Black helper for 7 changed Python files.
+- not run as a full-project Black check: existing unrelated `tests/test_ui_forecast_display.py` is still reported by the helper as needing formatting.
+- passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --output-dir outputs\work\phase30g_playwright_static`.

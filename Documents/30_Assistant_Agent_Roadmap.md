@@ -75,3 +75,5 @@ Status: MVP implemented. `backend/assistant/agent_evaluation.py` can load fixtur
 - 外部取得や重い処理は明示確認
 - 投資判断・売買は実行しない
 - Phase 30-F の evaluation gate を通した action / workflow だけを検討対象にする
+
+Status: 30-G1 MVP implemented. 親SMAI側に session-local `AssistantWorkflowSession` と `workflow_runtime` state machine を追加し、validation gate を通った `AssistantGuidedWorkflow` だけを runtime session 化する。UI は既存の確認カード導線を維持しつつ、ターン内の `assistant_workflow_session` JSON に `planned` / `active` / `completed` / `cancelled` / `failed` と各stepの `planned` / `waiting_confirmation` / `running` / `done` / `failed` / `skipped` / `cancelled` / `blocked` を保持する。`update_research` 成功・一部成功後は `create_decision_report` を確認待ちとして見せるが自動実行せず、失敗時は session を failed にして Tool Plan への自動fallbackも止める。`create_decision_report` 成功時は workflow を完了にできる。確認必須actionは `confirmed=True` なしで running へ遷移できず、done/running step の重複実行は警告だけ返す。Gateway は引き続き plan JSON の提案のみで、workflow session / execution は親SMAI側の責務。

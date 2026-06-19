@@ -18,12 +18,14 @@ import streamlit as st
 from backend.assistant import (
     AssistantActionExecutor,
     AssistantActionResult,
+    AssistantGuidedWorkflow,
     AssistantMessage,
     AssistantResearchContextBundle,
     AssistantResearchToolPlan,
     AssistantResponse,
     AssistantToolPlanResult,
     AssistantToolResult,
+    AssistantWorkflowSession,
     HttpAssistantGatewayClient,
     assistant_research_bundle_to_decision_report_context,
     assistant_tool_results_from_external_research_failure,
@@ -38,6 +40,12 @@ from backend.assistant import (
     get_assistant_action,
     render_research_bundle_markdown_memo,
     route_assistant_conversation_mode,
+)
+from backend.assistant import (
+    apply_action_result as apply_assistant_workflow_action_result,
+)
+from backend.assistant import (
+    start_session as start_assistant_workflow_session,
 )
 from backend.assistant.response_sanitizer import (
     sanitize_presentation_items,
@@ -1815,6 +1823,10 @@ def _record_assistant_action_result(
             str(updated.get("assistant_action_results", "")),
             result,
         )
+        updated["assistant_workflow_session"] = _apply_action_result_to_workflow_session_state(
+            str(updated.get("assistant_workflow_session", "")),
+            result,
+        )
         if result.status == "success" and result.action_id == "create_decision_report":
             _attach_action_decision_report_draft(updated, result)
         next_history.append(updated)
@@ -1854,6 +1866,52 @@ def _append_action_result_state(value: str, result: AssistantActionResult) -> st
     return json.dumps(items[-5:], ensure_ascii=False)
 
 
+def _apply_action_result_to_workflow_session_state(
+    value: str,
+    result: AssistantActionResult,
+) -> str:
+    if not value.strip():
+        return ""
+    try:
+        session = AssistantWorkflowSession.model_validate_json(value)
+    except ValueError:
+        return value
+    step_id = _workflow_session_step_id_for_action(session, result.action_id)
+    if not step_id:
+        return value
+    updated = apply_assistant_workflow_action_result(session, step_id, result)
+    return updated.model_dump_json()
+
+
+def _workflow_session_step_id_for_action(
+    session: AssistantWorkflowSession,
+    action_id: str,
+) -> str:
+    active = next(
+        (
+            step
+            for step in session.steps
+            if step.step_id == session.active_step_id and step.action_id == action_id
+        ),
+        None,
+    )
+    if active is not None:
+        return active.step_id
+    candidate = next(
+        (
+            step
+            for step in session.steps
+            if step.action_id == action_id
+            and step.status not in {"done", "failed", "skipped", "cancelled", "blocked"}
+        ),
+        None,
+    )
+    if candidate is not None:
+        return candidate.step_id
+    fallback = next((step for step in session.steps if step.action_id == action_id), None)
+    return fallback.step_id if fallback is not None else ""
+
+
 def _latest_confirmable_assistant_action_turn(
     history: list[dict[str, str]],
 ) -> tuple[dict[str, str], str] | None:
@@ -1870,6 +1928,11 @@ def _latest_confirmable_assistant_action_turn(
 
 
 def _first_confirmable_action_id(turn: dict[str, str]) -> str:
+    session = _assistant_workflow_session_dict(turn)
+    if session:
+        return _first_confirmable_action_id_from_session(turn, session)
+    if str(turn.get("assistant_workflow_session_gate", "")).strip() == "blocked":
+        return ""
     workflow = _assistant_guided_workflow_dict(turn)
     workflow_steps = workflow.get("steps")
     if isinstance(workflow_steps, list):
@@ -1897,6 +1960,32 @@ def _first_confirmable_action_id(turn: dict[str, str]) -> str:
         if _turn_has_action_result(turn, action_id):
             continue
         if not bool(step.get("requires_confirmation")):
+            continue
+        return action_id
+    return ""
+
+
+def _first_confirmable_action_id_from_session(
+    turn: dict[str, str],
+    session: dict[str, object],
+) -> str:
+    if str(session.get("status", "")).strip() in {"completed", "cancelled", "failed"}:
+        return ""
+    steps = session.get("steps")
+    if not isinstance(steps, list):
+        return ""
+    terminal_statuses = {"done", "running", "failed", "skipped", "cancelled", "blocked"}
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        action_id = str(step.get("action_id", "")).strip()
+        if action_id not in COPILOT_CONFIRMABLE_ACTION_IDS:
+            continue
+        if _turn_has_action_result(turn, action_id):
+            continue
+        if not bool(step.get("requires_confirmation")):
+            continue
+        if str(step.get("status", "")).strip() in terminal_statuses:
             continue
         return action_id
     return ""
@@ -3268,9 +3357,16 @@ def _turn_from_response(
         question=question,
     )
     assistant_tool_plan = planner_states.tool_plan.model_dump_json()
+    guided_workflow = planner_states.guided_workflow
+    assistant_workflow_session = _assistant_workflow_session_state(guided_workflow)
+    assistant_workflow_session_gate = (
+        "blocked"
+        if guided_workflow is not None and not assistant_workflow_session
+        else "passed" if assistant_workflow_session else "not_applicable"
+    )
     assistant_guided_workflow = (
-        planner_states.guided_workflow.model_dump_json()
-        if planner_states.guided_workflow is not None
+        guided_workflow.model_dump_json()
+        if guided_workflow is not None and assistant_workflow_session
         else ""
     )
     planner_meta = planner_states.metadata
@@ -3324,6 +3420,8 @@ def _turn_from_response(
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "assistant_tool_plan": assistant_tool_plan,
         "assistant_guided_workflow": assistant_guided_workflow,
+        "assistant_workflow_session": assistant_workflow_session,
+        "assistant_workflow_session_gate": assistant_workflow_session_gate,
         "assistant_planner_source": planner_meta.planner_source,
         "assistant_planner_used_plan_type": planner_meta.used_plan_type or "",
         "assistant_planner_fallback_reason": planner_meta.fallback_reason or "",
@@ -3360,6 +3458,17 @@ def _assistant_guided_workflow_state(
     if states.guided_workflow is None:
         return ""
     return states.guided_workflow.model_dump_json()
+
+
+def _assistant_workflow_session_state(
+    workflow: AssistantGuidedWorkflow | None,
+) -> str:
+    if workflow is None:
+        return ""
+    session = start_assistant_workflow_session(workflow)
+    if session is None:
+        return ""
+    return session.model_dump_json()
 
 
 def _assistant_tool_plan_state(
@@ -3422,6 +3531,17 @@ def _assistant_guided_workflow_dict(turn: dict[str, str]) -> dict[str, object]:
     except json.JSONDecodeError:
         return {}
     return workflow if isinstance(workflow, dict) else {}
+
+
+def _assistant_workflow_session_dict(turn: dict[str, str]) -> dict[str, object]:
+    value = str(turn.get("assistant_workflow_session", "")).strip()
+    if not value:
+        return {}
+    try:
+        session = json.loads(value)
+    except json.JSONDecodeError:
+        return {}
+    return session if isinstance(session, dict) else {}
 
 
 def _assistant_action_results_from_state(value: str) -> list[dict[str, object]]:
@@ -3832,6 +3952,9 @@ def _assistant_tool_plan_panel_html(turn: dict[str, str]) -> str:
 
 
 def _assistant_guided_workflow_panel_html(turn: dict[str, str]) -> str:
+    session = _assistant_workflow_session_dict(turn)
+    if session:
+        return _assistant_workflow_session_panel_html(session)
     workflow = _assistant_guided_workflow_dict(turn)
     steps = workflow.get("steps")
     if not isinstance(steps, list) or not steps:
@@ -3856,6 +3979,123 @@ def _assistant_guided_workflow_panel_html(turn: dict[str, str]) -> str:
         f'<p class="smai-copilot-tool-plan-safety">{html.escape(safety_note)}</p>'
         "</section>"
     )
+
+
+def _assistant_workflow_session_panel_html(session: dict[str, object]) -> str:
+    steps = session.get("steps")
+    if not isinstance(steps, list) or not steps:
+        return ""
+    active_step_id = str(session.get("active_step_id", "")).strip()
+    items = "".join(
+        _assistant_workflow_session_step_html(
+            step,
+            index=index,
+            active_step_id=active_step_id,
+        )
+        for index, step in enumerate(steps[:6], start=1)
+    )
+    if not items:
+        return ""
+    status = _assistant_workflow_session_status_label(str(session.get("status", "")).strip())
+    safety_note = str(session.get("safety_note", "")).strip()
+    summary = str(session.get("summary", "")).strip()
+    status_line = f"進行状態: {status}"
+    if active_step_id:
+        active_title = _assistant_workflow_active_step_title(steps, active_step_id)
+        if active_title:
+            status_line = f"{status_line} / 現在: {active_title}"
+    return (
+        '<section class="smai-copilot-tool-plan smai-copilot-guided-workflow">'
+        '<span class="smai-copilot-tool-plan-title">確認フロー</span>'
+        f"<p>{html.escape(summary)}</p>"
+        f'<p class="smai-copilot-tool-plan-note">{html.escape(status_line)}</p>'
+        f"<ul>{items}</ul>"
+        f'<p class="smai-copilot-tool-plan-safety">{html.escape(safety_note)}</p>'
+        "</section>"
+    )
+
+
+def _assistant_workflow_session_step_html(
+    step: object,
+    *,
+    index: int,
+    active_step_id: str,
+) -> str:
+    if not isinstance(step, dict):
+        return ""
+    title = str(step.get("title", "")).strip()
+    summary = str(step.get("summary", "")).strip()
+    action_id = str(step.get("action_id", "")).strip()
+    disabled_reason = _clean_optional_tool_plan_text(step.get("disabled_reason"))
+    followup_hint = _clean_optional_tool_plan_text(step.get("followup_hint"))
+    result_summary = _clean_optional_tool_plan_text(step.get("result_summary"))
+    status = _assistant_workflow_runtime_status_label(str(step.get("status", "")).strip())
+    active_label = "現在の手順" if str(step.get("step_id", "")).strip() == active_step_id else ""
+    action = get_assistant_action(action_id) if action_id else None
+    action_label = action.label if action else _workflow_kind_label(step)
+    href = _assistant_tool_plan_navigation_href(action_id)
+    action_html = (
+        '<a class="smai-copilot-tool-plan-link" '
+        f'href="{html.escape(href, quote=True)}" target="_self">開く</a>'
+        if href and not disabled_reason
+        else ""
+    )
+    details = " / ".join(
+        item
+        for item in (
+            action_label,
+            status,
+            active_label,
+            disabled_reason,
+            result_summary,
+            followup_hint,
+        )
+        if item
+    )
+    return (
+        "<li>"
+        f"<b>{index}. {html.escape(title)}</b>"
+        f"<span>{html.escape(summary)}</span>"
+        f"<small>{html.escape(details)}</small>"
+        f"{action_html}"
+        "</li>"
+    )
+
+
+def _assistant_workflow_active_step_title(
+    steps: list[object],
+    active_step_id: str,
+) -> str:
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        if str(step.get("step_id", "")).strip() == active_step_id:
+            return str(step.get("title", "")).strip()
+    return ""
+
+
+def _assistant_workflow_session_status_label(status: str) -> str:
+    return {
+        "planned": "計画済み",
+        "active": "進行中",
+        "paused": "一時停止",
+        "completed": "完了",
+        "cancelled": "中止",
+        "failed": "停止中",
+    }.get(status, status or "計画済み")
+
+
+def _assistant_workflow_runtime_status_label(status: str) -> str:
+    return {
+        "planned": "予定",
+        "waiting_confirmation": "確認待ち",
+        "running": "実行中",
+        "done": "完了",
+        "failed": "失敗",
+        "skipped": "スキップ",
+        "cancelled": "中止",
+        "blocked": "実行できません",
+    }.get(status, status or "予定")
 
 
 def _assistant_guided_workflow_step_html(

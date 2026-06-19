@@ -3,9 +3,11 @@ from datetime import UTC, datetime
 
 from backend.assistant import (
     AssistantActionResult,
+    apply_action_result,
     build_assistant_context,
     build_deterministic_guided_workflow,
     get_assistant_action,
+    start_session,
 )
 from ui.components.assistant_action_confirm import assistant_action_confirmation_html
 from ui.components.assistant_action_result import assistant_action_result_card_html
@@ -178,6 +180,153 @@ def test_first_confirmable_action_reads_guided_workflow_before_tool_plan():
     }
 
     assert _first_confirmable_action_id(turn) == "update_research"
+
+
+def test_first_confirmable_action_uses_workflow_session_progression():
+    context = build_assistant_context(
+        current_page="cockpit",
+        user_question="この銘柄を詳しく確認したい",
+        page_state={"selected_symbol": "7203.T"},
+        material_state={
+            "price_data_status": "available",
+            "forecast_status": "available",
+            "research_status": "missing",
+        },
+    )
+    workflow = build_deterministic_guided_workflow(context)
+    assert workflow is not None
+    session = start_session(workflow)
+    assert session is not None
+    result = AssistantActionResult(
+        action_id="update_research",
+        status="success",
+        title="AI調査を更新しました",
+        summary="7203.T の根拠資料を2件反映しました。",
+        user_message="取得結果を確認しました。",
+        followup_actions=["create_decision_report"],
+    )
+    updated_session = apply_action_result(session, "workflow_update_research", result)
+    turn = {
+        "assistant_workflow_session": updated_session.model_dump_json(),
+        "assistant_action_results": json.dumps(
+            [result.model_dump(mode="json")], ensure_ascii=False
+        ),
+        "assistant_tool_plan": json.dumps(
+            {
+                "steps": [
+                    {"action_id": "update_research", "requires_confirmation": True},
+                    {
+                        "action_id": "create_decision_report",
+                        "requires_confirmation": True,
+                    },
+                ]
+            },
+            ensure_ascii=False,
+        ),
+    }
+
+    assert _first_confirmable_action_id(turn) == "create_decision_report"
+
+
+def test_first_confirmable_action_does_not_fallback_when_session_failed():
+    context = build_assistant_context(
+        current_page="cockpit",
+        user_question="この銘柄を詳しく確認したい",
+        page_state={"selected_symbol": "7203.T"},
+        material_state={
+            "price_data_status": "available",
+            "forecast_status": "available",
+            "research_status": "missing",
+        },
+    )
+    workflow = build_deterministic_guided_workflow(context)
+    assert workflow is not None
+    session = start_session(workflow)
+    assert session is not None
+    result = AssistantActionResult(
+        action_id="update_research",
+        status="failed",
+        title="AI調査を更新できませんでした",
+        summary="外部情報を確認できませんでした。",
+        user_message="取得済み材料で確認してください。",
+        followup_actions=["answer_with_existing_materials", "retry_update_research"],
+    )
+    failed_session = apply_action_result(session, "workflow_update_research", result)
+    turn = {
+        "assistant_workflow_session": failed_session.model_dump_json(),
+        "assistant_action_results": json.dumps(
+            [result.model_dump(mode="json")], ensure_ascii=False
+        ),
+        "assistant_tool_plan": json.dumps(
+            {
+                "steps": [
+                    {
+                        "action_id": "create_decision_report",
+                        "requires_confirmation": True,
+                    }
+                ]
+            },
+            ensure_ascii=False,
+        ),
+    }
+
+    assert _first_confirmable_action_id(turn) == ""
+
+
+def test_first_confirmable_action_does_not_fallback_when_session_gate_blocked():
+    turn = {
+        "assistant_workflow_session_gate": "blocked",
+        "assistant_tool_plan": json.dumps(
+            {
+                "steps": [
+                    {"action_id": "update_research", "requires_confirmation": True},
+                    {
+                        "action_id": "create_decision_report",
+                        "requires_confirmation": True,
+                    },
+                ]
+            },
+            ensure_ascii=False,
+        ),
+    }
+
+    assert _first_confirmable_action_id(turn) == ""
+
+
+def test_copilot_answer_detail_html_renders_workflow_session_status_card():
+    context = build_assistant_context(
+        current_page="cockpit",
+        user_question="この銘柄を詳しく確認したい",
+        page_state={"selected_symbol": "7203.T"},
+        material_state={
+            "price_data_status": "available",
+            "forecast_status": "available",
+            "research_status": "missing",
+        },
+    )
+    workflow = build_deterministic_guided_workflow(context)
+    assert workflow is not None
+    session = start_session(workflow)
+    assert session is not None
+    turn = {
+        "intent": "stock_summary",
+        "answer": "確認順を整理します。",
+        "reasons": "価格チャート",
+        "cautions": "売買推奨ではありません。",
+        "next_checkpoints": "根拠資料を確認します。",
+        "memo_points": "",
+        "assistant_workflow_session": session.model_dump_json(),
+        "assistant_guided_workflow": workflow.model_dump_json(),
+        "assistant_tool_plan": "",
+    }
+
+    markup = copilot_answer_detail_html(turn)
+
+    assert "確認フロー" in markup
+    assert "進行状態: 進行中" in markup
+    assert "現在: AI調査を更新" in markup
+    assert "確認待ち" in markup
+    assert "実行できません" not in markup
 
 
 def test_copilot_answer_detail_html_renders_guided_workflow_card():

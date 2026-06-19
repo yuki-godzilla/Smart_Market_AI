@@ -119,6 +119,8 @@ SMAI 親は通常 `model` を固定指定せず、`task_type` と環境ヒント
 
 LLM Tool Planner を試す場合は、別設定 `assistant.llm_planner` を明示ONにします。既定は `enabled: false` で、通常確認・CI・Playwright smoke は network-free の deterministic Tool Plan / Guided Workflow を使います。ONの場合も Gateway `/api/v1/assistant/tool-plan` は action案のJSONを返すだけで、SMAI 親側が schema / action allowlist / confirmation / unsafe wording / unsupported action を検証し、valid plan だけを既存の `次にできること` / `確認フロー` に採用します。invalid / timeout / Gateway fallback / malformed response は非表示にし、fallback reason は `技術情報を表示` にだけ保持します。
 
+Phase 30-G1 の Workflow Session は親SMAI側だけの session-local runtime です。validation gate を通った `AssistantGuidedWorkflow` だけを `AssistantWorkflowSession` に変換し、`SMAIアシスタント` の `確認フロー` カードに進行状態と現在stepを表示します。`update_research` / `create_decision_report` は従来どおり確認カードでユーザーが押した1 actionだけを実行し、成功・一部成功・失敗・キャンセルの結果を session step に反映します。`update_research` 成功後に `create_decision_report` が確認待ちになっても自動実行はしません。失敗時は session を failed にし、同じターンで Tool Plan 由来の確認promptへ自動fallbackしません。Gateway は workflow session、action execution、skip/cancel 状態管理を担当しません。
+
 ```yaml
 assistant:
   llm_planner:
@@ -732,7 +734,7 @@ SMAIアシスタント / Confirmable Action の Playwright smoke:
 .\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py
 ```
 
-このコマンドは network-free の静的HTML harnessを生成し、Tool Plan、navigation link、`create_decision_report` / `update_research` の確認カード、success / partial_success / failed result card、安全文言、raw provider detail 非表示を確認します。起動済み Streamlit も確認する場合だけ、別terminalで `SMAI_DISABLE_BACKGROUND_WORKERS=1` を指定してアプリを起動し、次のようにURLを渡します。
+このコマンドは network-free の静的HTML harnessを生成し、Tool Plan、navigation link、Workflow Sessionの進行状態、`create_decision_report` / `update_research` の確認カード、success / partial_success / failed result card、安全文言、raw provider detail 非表示を確認します。起動済み Streamlit も確認する場合だけ、別terminalで `SMAI_DISABLE_BACKGROUND_WORKERS=1` を指定してアプリを起動し、次のようにURLを渡します。
 
 ```powershell
 .\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --app-url http://127.0.0.1:8524

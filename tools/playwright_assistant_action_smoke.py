@@ -18,6 +18,7 @@ from backend.assistant import (  # noqa: E402
     build_deterministic_assistant_tool_plan,
     build_deterministic_guided_workflow,
     get_assistant_action,
+    start_session,
 )
 from ui.components.assistant_action_confirm import (  # noqa: E402
     assistant_action_confirmation_html,
@@ -262,6 +263,9 @@ def _workflow_section(
     workflow = build_deterministic_guided_workflow(context)
     if workflow is None:
         raise RuntimeError(f"guided workflow was not generated: {question}")
+    session = start_session(workflow)
+    if session is None:
+        raise RuntimeError(f"guided workflow did not pass the workflow session gate: {question}")
     turn = {
         "intent": "stock_summary",
         "answer": "確認順を整理します。",
@@ -270,6 +274,7 @@ def _workflow_section(
         "next_checkpoints": "根拠資料を確認します。",
         "memo_points": "",
         "assistant_guided_workflow": workflow.model_dump_json(),
+        "assistant_workflow_session": session.model_dump_json(),
         "assistant_tool_plan": "",
     }
     return _section(title, copilot_answer_detail_html(turn))
@@ -289,6 +294,8 @@ def _assert_static_component_states(page: Page) -> None:
     page.get_by_text("価格・予測を確認").first.wait_for()
     page.get_by_text("根拠資料を確認").first.wait_for()
     page.get_by_text("このフローは確認手順の案内です").first.wait_for()
+    page.get_by_text("進行状態: 進行中").first.wait_for()
+    page.get_by_text("確認待ち").first.wait_for()
     page.get_by_text("実行前確認").first.wait_for()
     page.get_by_text("売買推奨ではありません").first.wait_for()
     assert page.locator('a[href="?smai_page=ranking"]').count() >= 1

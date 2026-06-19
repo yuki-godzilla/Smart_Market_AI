@@ -1,0 +1,39 @@
+{
+  "case_id": "unsupported_create_ranking_ready",
+  "title": "Raw planner response marks create_ranking as ready",
+  "user_question": "ランキングを作って",
+  "current_page": "ranking",
+  "evaluation_target": "raw_planner_response",
+  "expected_pass": false,
+  "planner_response": {
+    "plan_type": "tool_plan",
+    "user_intent": "ランキング作成",
+    "overall_summary": "現在条件で候補を並べる案です。",
+    "steps": [
+      {
+        "step_id": "raw_create_ranking_ready",
+        "title": "ランキングを作成",
+        "summary": "現在条件でランキングを作成します。",
+        "action_id": "create_ranking",
+        "reason": "候補比較のためです。",
+        "requires_confirmation": true,
+        "status": "ready",
+        "confidence": 0.7,
+        "priority": "high"
+      }
+    ],
+    "safety_note": "確認手順の整理です。",
+    "planner_source": "llm",
+    "gateway_status": "ok"
+  },
+  "expected": {
+    "required_actions": [
+      "create_ranking"
+    ],
+    "required_confirmation_actions": [
+      "create_ranking"
+    ],
+    "max_steps": 6,
+    "allow_fallback": false
+  }
+}

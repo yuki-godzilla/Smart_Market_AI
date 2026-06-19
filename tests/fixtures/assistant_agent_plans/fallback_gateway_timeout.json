@@ -1,0 +1,26 @@
+{
+  "case_id": "fallback_gateway_timeout",
+  "title": "Gateway timeout falls back to deterministic workflow",
+  "user_question": "確認レポートまで作りたい",
+  "current_page": "cockpit",
+  "page_state": {
+    "selected_symbol": "7203.T"
+  },
+  "material_state": {
+    "price_data_status": "available",
+    "forecast_status": "available",
+    "research_status": "available"
+  },
+  "evaluation_target": "adopted_planner_states",
+  "planner_error": "gateway_timeout",
+  "expected": {
+    "required_actions": [
+      "create_decision_report"
+    ],
+    "required_confirmation_actions": [
+      "create_decision_report"
+    ],
+    "max_steps": 10,
+    "allow_fallback": true
+  }
+}

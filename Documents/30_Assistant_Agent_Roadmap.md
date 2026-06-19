@@ -67,8 +67,11 @@ Status: MVP implemented as an optional, disabled-by-default planner. Parent SMAI
 - missing material handling
 - regression tests
 
+Status: MVP implemented. `backend/assistant/agent_evaluation.py` can load fixture cases, evaluate raw planner responses, adopted planner states, deterministic Tool Plans, and deterministic Guided Workflows, and return structured pass / fail / warning summaries. The fixture pack covers safe Ranking -> Cockpit workflows, Cockpit research/report workflows, unknown actions, unconfirmed external fetches, broker/order wording, buy/sell/hold wording, malformed response fallback, Gateway timeout fallback, missing Research material handling, and unsupported `create_ranking` ready state. Regular evaluation is pytest / fixture based and network-free. Live LLM output evaluation remains a future opt-in path.
+
 ## Phase 30-G: Limited Semi-automatic Workflow
 
 - ユーザー承認済み範囲内で連続実行
 - 外部取得や重い処理は明示確認
 - 投資判断・売買は実行しない
+- Phase 30-F の evaluation gate を通した action / workflow だけを検討対象にする

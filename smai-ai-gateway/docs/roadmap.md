@@ -26,6 +26,7 @@
 - 親SMAI側で `normal_chat` / `soft_research_suggestion` / `research_plan` を切り替える Conversation Mode Router、承認付きTool Planカード、approve / cached-only / cancel action、session-local Context Aggregator、Decision Report下書き導線、confirmable safe action executor の初期スライスは実装済み。`create_decision_report` と `update_research` は親SMAI側で確認後だけ実行する
 - Gateway は Tool Planの判断・外部取得・SMAI内部機能実行を担当しない。Gateway 側は、親SMAIが承認後に集約したcontextを受け取り、自然な回答・材料整理・注意点・次の確認を返す汎用 `context-answer` 境界を維持する
 - optional LLM Tool Planner MVP として `/api/v1/assistant/tool-plan` を追加済み。ただし Gateway は available actions から JSON plan 案を返すだけで、親SMAI側が schema / allowlist / safety validation、deterministic fallback、既存 UI 採用、確認付き action execution を担当する
+- 親SMAI側 Phase 30-F で fixture-based Agent Evaluation Harness を追加済み。Gateway は引き続き action を実行せず、評価 / 採用 / fallback / UI表示は親SMAI側の責務とする
 - 外部取得や重いResearch RAG / news fetchは親SMAI側でユーザー承認を挟む。通常testsはfake adapter / fixtureでnetwork-freeに保つ
 - Gateway prompt profileは `stock_forward_view`、`news_research`、`decision_report_request`、`cockpit_interpretation` などのtask_typeを受け取れるように段階拡張するが、スコア・ランキング順位・予測値・売買判断は変更しない
 

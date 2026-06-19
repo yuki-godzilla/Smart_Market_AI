@@ -1,0 +1,34 @@
+{
+  "case_id": "invalid_malformed_response",
+  "title": "Malformed planner response falls back to deterministic plan",
+  "user_question": "この銘柄を詳しく確認したい",
+  "current_page": "cockpit",
+  "page_state": {
+    "selected_symbol": "7203.T"
+  },
+  "material_state": {
+    "price_data_status": "available",
+    "forecast_status": "available",
+    "research_status": "missing"
+  },
+  "evaluation_target": "adopted_planner_states",
+  "planner_response": {
+    "unexpected": "shape",
+    "steps": "not-a-list"
+  },
+  "expected": {
+    "required_actions": [
+      "update_research",
+      "create_decision_report"
+    ],
+    "required_confirmation_actions": [
+      "update_research",
+      "create_decision_report"
+    ],
+    "expected_missing_materials": [
+      "AI調査 / Research Evidence"
+    ],
+    "max_steps": 10,
+    "allow_fallback": true
+  }
+}

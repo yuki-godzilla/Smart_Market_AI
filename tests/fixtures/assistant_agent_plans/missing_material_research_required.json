@@ -1,0 +1,45 @@
+{
+  "case_id": "missing_material_research_required",
+  "title": "Raw planner response reflects missing research material",
+  "user_question": "根拠資料がないなら確認したい",
+  "current_page": "cockpit",
+  "material_state": {
+    "price_data_status": "available",
+    "forecast_status": "available",
+    "research_status": "missing"
+  },
+  "evaluation_target": "raw_planner_response",
+  "planner_response": {
+    "plan_type": "tool_plan",
+    "user_intent": "不足資料を確認する",
+    "overall_summary": "Research Evidence が未取得なので、AI調査を確認してから読みます。",
+    "steps": [
+      {
+        "step_id": "raw_update_research_required",
+        "title": "AI調査を更新",
+        "summary": "根拠資料が不足しているため、最新のIR、開示、ニュース候補を確認します。",
+        "action_id": "update_research",
+        "reason": "Research Evidence の不足を埋めるためです。",
+        "requires_confirmation": true,
+        "confidence": 0.8,
+        "priority": "high"
+      }
+    ],
+    "safety_note": "確認手順の整理であり、売買推奨ではありません。",
+    "planner_source": "llm",
+    "gateway_status": "ok"
+  },
+  "expected": {
+    "required_actions": [
+      "update_research"
+    ],
+    "required_confirmation_actions": [
+      "update_research"
+    ],
+    "expected_missing_materials": [
+      "AI調査 / Research Evidence"
+    ],
+    "max_steps": 6,
+    "allow_fallback": false
+  }
+}

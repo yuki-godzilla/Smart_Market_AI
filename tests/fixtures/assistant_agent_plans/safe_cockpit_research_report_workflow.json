@@ -1,0 +1,36 @@
+{
+  "case_id": "safe_cockpit_research_report_workflow",
+  "title": "Safe cockpit research and report workflow",
+  "user_question": "この銘柄を詳しく確認したい",
+  "current_page": "cockpit",
+  "page_state": {
+    "selected_symbol": "7203.T"
+  },
+  "material_state": {
+    "price_data_status": "available",
+    "forecast_status": "available",
+    "research_status": "missing"
+  },
+  "evaluation_target": "deterministic_guided_workflow",
+  "expected": {
+    "required_actions": [
+      "open_cockpit",
+      "update_research",
+      "open_research_section",
+      "create_decision_report"
+    ],
+    "required_confirmation_actions": [
+      "update_research",
+      "create_decision_report"
+    ],
+    "expected_missing_materials": [
+      "AI調査 / Research Evidence"
+    ],
+    "forbidden_wording": [
+      "買うべき",
+      "guaranteed profit"
+    ],
+    "max_steps": 6,
+    "allow_fallback": false
+  }
+}

@@ -16,6 +16,7 @@ _BANNED_ADVICE_TERMS = (
     "必ず上がる",
     "必ず下がる",
     "確実に利益",
+    "利益が出ます",
     "買い推奨",
     "売り推奨",
     "strong buy",
@@ -24,12 +25,14 @@ _BANNED_ADVICE_TERMS = (
     "sell this",
     "hold this",
     "guaranteed profit",
+    "guaranteed return",
 )
 _BANNED_EXECUTION_TERMS = (
     "broker",
     "order sending",
     "execution",
     "place order",
+    "execute trade",
     "trade placement",
     "注文",
     "発注",

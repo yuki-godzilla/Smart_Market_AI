@@ -1,0 +1,31 @@
+{
+  "case_id": "safe_report_only_workflow",
+  "title": "Safe report creation workflow",
+  "user_question": "確認レポートまで作りたい",
+  "current_page": "cockpit",
+  "page_state": {
+    "selected_symbol": "7203.T"
+  },
+  "material_state": {
+    "price_data_status": "available",
+    "forecast_status": "available",
+    "research_status": "missing"
+  },
+  "evaluation_target": "deterministic_guided_workflow",
+  "expected": {
+    "required_actions": [
+      "summarize_next_checks",
+      "update_research",
+      "create_decision_report"
+    ],
+    "required_confirmation_actions": [
+      "update_research",
+      "create_decision_report"
+    ],
+    "expected_missing_materials": [
+      "AI調査 / Research Evidence"
+    ],
+    "max_steps": 6,
+    "allow_fallback": false
+  }
+}

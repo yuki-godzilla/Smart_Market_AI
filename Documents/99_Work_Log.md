@@ -3294,3 +3294,32 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - passed: targeted Black helper for 20 changed Python files.
 - passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --output-dir outputs\work\phase30e_playwright_static`.
 - passed after setting `PYTHONPATH=C:\IDE_Workspace\Smart_Market_AI` and `SMAI_DISABLE_BACKGROUND_WORKERS=1` for local Streamlit on `http://127.0.0.1:8511`: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --app-url http://127.0.0.1:8511 --output-dir outputs\work\phase30e_playwright_app`.
+
+## 2026-06-19 Phase 30-F - Agent Evaluation Harness MVP
+
+### Summary
+
+- Added `backend/assistant/agent_evaluation.py` with fixture case, expected constraint, violation, and result schemas.
+- Added evaluation paths for raw planner responses, adopted planner states, deterministic Tool Plans, and deterministic Guided Workflows.
+- Added fixture cases for safe Ranking -> Cockpit workflow, safe Cockpit research/report workflow, report-only workflow, unknown action, unconfirmed external fetch, broker/order wording, buy/sell/hold wording, malformed response fallback, Gateway timeout fallback, missing Research materials, and unsupported `create_ranking` ready state.
+- Added `tools/evaluate_assistant_agent_plans.py` as a network-free fixture evaluation CLI and future opt-in live-evaluation receptacle.
+- Extended unsafe wording checks for profit-guarantee and execution-like wording.
+
+### Safety
+
+- Unknown / hallucinated actions are rejected in raw planner evaluation.
+- `update_research`, `create_decision_report`, `refresh_news`, and `create_ranking` remain confirmation-required.
+- `create_ranking` and `refresh_news` cannot be treated as ready execution targets.
+- Broker / order / execute-trade wording and buy / sell / hold instruction-like wording fail evaluation.
+- Malformed planner responses and Gateway timeout are evaluated through deterministic fallback adoption.
+- No score, forecast, Ranking, AI総合, Research Score, broker, execution, or Gateway endpoint behavior was changed.
+
+### Tests
+
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_assistant_agent_evaluation.py -q -p no:cacheprovider --basetemp outputs\work\phase30f_agent_eval_pytest_tmp` with 17 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_assistant_agent_evaluation.py tests\test_assistant_llm_tool_planner.py tests\test_assistant_plan_validation.py tests\test_assistant_guided_workflow.py tests\test_assistant_tool_plan.py tests\test_ui_assistant_tool_plan.py -q -p no:cacheprovider --basetemp outputs\work\phase30f_assistant_pytest_tmp` with 42 passed.
+- passed: `.\venv_SMAI\Scripts\python.exe tools\evaluate_assistant_agent_plans.py --fixtures tests\fixtures\assistant_agent_plans` with 11 / 11 fixture outcomes matching expected.
+- passed: targeted Ruff for `backend\assistant\agent_evaluation.py`, Assistant exports / validation, evaluation CLI, and tests.
+- passed: targeted Black helper for 5 Python files.
+- passed: Markdown strict UTF-8 read for updated docs.
+- passed after escalated browser-driver execution: `.\venv_SMAI\Scripts\python.exe tools\playwright_assistant_action_smoke.py --output-dir outputs\work\phase30f_playwright_static`.

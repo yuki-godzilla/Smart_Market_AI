@@ -2917,35 +2917,85 @@ div[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {
 }
 
 .smai-copilot-composer-toolbar {
-    position: sticky;
-    bottom: 0.75rem;
-    z-index: 20;
-    width: min(var(--smai-chat-main-width), calc(100% - var(--smai-content-gutter)));
-    max-width: var(--smai-chat-main-width);
-    margin: 0.8rem auto 0.46rem;
-    box-sizing: border-box;
-    padding: 0.5rem 0.58rem;
-    border: 1px solid rgba(71, 85, 105, 0.42);
-    border-radius: 8px;
-    background: rgba(3, 10, 24, 0.74);
-    box-shadow: 0 18px 46px rgba(0, 0, 0, 0.18);
+    height: 0;
+    margin: 0;
+    overflow: hidden;
 }
 
-.smai-copilot-composer-toolbar div[data-testid="stForm"] {
+[data-testid="stAppViewContainer"] .main .block-container:has(.smai-copilot-composer-toolbar) {
+    padding-bottom: 8.5rem;
+}
+
+div[data-testid="stHorizontalBlock"]:has(.smai-copilot-composer-toolbar):has(
+        div[data-testid="stForm"]
+    ),
+div[data-testid="stElementContainer"]:has(.smai-copilot-composer-toolbar)
+    + div[data-testid="stHorizontalBlock"],
+div[data-testid="stElementContainer"]:has(.smai-copilot-composer-toolbar)
+    + div[data-testid="stElementContainer"]
+    div[data-testid="stHorizontalBlock"] {
+    position: fixed;
+    z-index: 850;
+    right: 0;
+    bottom: 0;
+    left: 21rem;
+    box-sizing: border-box;
+    width: auto;
+    margin: 0;
+    padding: 0.62rem max(1.5rem, calc((100vw - 21rem - var(--smai-chat-main-width)) / 2));
+    border-top: 1px solid rgba(71, 85, 105, 0.54);
+    background: linear-gradient(180deg, rgba(3, 10, 24, 0.9), rgba(3, 10, 24, 0.98));
+    box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.24);
+    backdrop-filter: blur(14px);
+}
+
+:is(
+        .smai-copilot-composer-toolbar,
+        div[data-testid="stHorizontalBlock"]:has(.smai-copilot-composer-toolbar):has(
+                div[data-testid="stForm"]
+            ),
+        div[data-testid="stElementContainer"]:has(.smai-copilot-composer-toolbar)
+            + div[data-testid="stHorizontalBlock"],
+        div[data-testid="stElementContainer"]:has(.smai-copilot-composer-toolbar)
+            + div[data-testid="stElementContainer"]
+            div[data-testid="stHorizontalBlock"]
+    )
+    div[data-testid="stForm"] {
     border: 0;
     padding: 0;
     background: transparent;
 }
 
-.smai-copilot-composer-toolbar div[data-testid="stTextInput"] input {
+:is(
+        .smai-copilot-composer-toolbar,
+        div[data-testid="stHorizontalBlock"]:has(.smai-copilot-composer-toolbar):has(
+                div[data-testid="stForm"]
+            ),
+        div[data-testid="stElementContainer"]:has(.smai-copilot-composer-toolbar)
+            + div[data-testid="stHorizontalBlock"],
+        div[data-testid="stElementContainer"]:has(.smai-copilot-composer-toolbar)
+            + div[data-testid="stElementContainer"]
+            div[data-testid="stHorizontalBlock"]
+    )
+    div[data-testid="stTextInput"] input {
     min-width: 0;
     box-sizing: border-box;
     border-color: rgba(34, 211, 238, 0.28);
     background: rgba(15, 23, 42, 0.72);
 }
 
-.smai-copilot-composer-toolbar div[data-testid="stTextInput"] input:focus,
-.smai-copilot-composer-toolbar div[data-testid="stTextInput"] input:focus-visible {
+:is(
+        .smai-copilot-composer-toolbar,
+        div[data-testid="stHorizontalBlock"]:has(.smai-copilot-composer-toolbar):has(
+                div[data-testid="stForm"]
+            ),
+        div[data-testid="stElementContainer"]:has(.smai-copilot-composer-toolbar)
+            + div[data-testid="stHorizontalBlock"],
+        div[data-testid="stElementContainer"]:has(.smai-copilot-composer-toolbar)
+            + div[data-testid="stElementContainer"]
+            div[data-testid="stHorizontalBlock"]
+    )
+    div[data-testid="stTextInput"] input:is(:focus, :focus-visible) {
     border-color: rgba(45, 212, 191, 0.64) !important;
     outline: none !important;
     box-shadow:
@@ -2953,15 +3003,37 @@ div[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {
         0 0 0 0.18rem rgba(34, 211, 238, 0.12) !important;
 }
 
-.smai-copilot-composer-toolbar div[data-testid="stTextInput"] input[aria-invalid="true"] {
+:is(
+        .smai-copilot-composer-toolbar,
+        div[data-testid="stHorizontalBlock"]:has(.smai-copilot-composer-toolbar):has(
+                div[data-testid="stForm"]
+            ),
+        div[data-testid="stElementContainer"]:has(.smai-copilot-composer-toolbar)
+            + div[data-testid="stHorizontalBlock"],
+        div[data-testid="stElementContainer"]:has(.smai-copilot-composer-toolbar)
+            + div[data-testid="stElementContainer"]
+            div[data-testid="stHorizontalBlock"]
+    )
+    div[data-testid="stTextInput"] input[aria-invalid="true"] {
     border-color: rgba(251, 113, 133, 0.68) !important;
     box-shadow:
         inset 0 0 0 1px rgba(251, 113, 133, 0.16),
         0 0 0 0.18rem rgba(251, 113, 133, 0.12) !important;
 }
 
-.smai-copilot-composer-toolbar div[data-testid="stButton"] button,
-.smai-copilot-composer-toolbar div[data-testid="stFormSubmitButton"] button {
+:is(
+        .smai-copilot-composer-toolbar,
+        div[data-testid="stHorizontalBlock"]:has(.smai-copilot-composer-toolbar):has(
+                div[data-testid="stForm"]
+            ),
+        div[data-testid="stElementContainer"]:has(.smai-copilot-composer-toolbar)
+            + div[data-testid="stHorizontalBlock"],
+        div[data-testid="stElementContainer"]:has(.smai-copilot-composer-toolbar)
+            + div[data-testid="stElementContainer"]
+            div[data-testid="stHorizontalBlock"]
+    )
+    :is(div[data-testid="stButton"], div[data-testid="stFormSubmitButton"])
+    button {
     min-height: 2.45rem;
     white-space: nowrap;
     border-radius: 8px;
@@ -4338,6 +4410,19 @@ div[data-testid="stChatInput"] textarea:focus {
             var(--smai-chat-main-width),
             calc(100% - var(--smai-content-gutter-compact))
         );
+    }
+
+    div[data-testid="stHorizontalBlock"]:has(.smai-copilot-composer-toolbar):has(
+            div[data-testid="stForm"]
+        ),
+    div[data-testid="stElementContainer"]:has(.smai-copilot-composer-toolbar)
+        + div[data-testid="stHorizontalBlock"],
+    div[data-testid="stElementContainer"]:has(.smai-copilot-composer-toolbar)
+        + div[data-testid="stElementContainer"]
+        div[data-testid="stHorizontalBlock"] {
+        left: 0;
+        padding-right: 0.75rem;
+        padding-left: 0.75rem;
     }
 
     div[data-testid="stElementContainer"]:has(.smai-copilot-chat-actions-anchor)

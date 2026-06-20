@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -166,6 +167,8 @@ def _run_scenario(
     )
     if mode == "no_cache":
         empty_cache_dir = output_dir / "no_cache_empty"
+        if empty_cache_dir.exists():
+            shutil.rmtree(empty_cache_dir)
         empty_cache_dir.mkdir(parents=True, exist_ok=True)
         env["SMAI_CACHE_DIR"] = str(empty_cache_dir)
     process = subprocess.Popen(
@@ -246,8 +249,21 @@ def _run_scenario(
                 assert "qwen3:30b" not in page.locator("body").inner_text()
                 model_select.click()
                 page.get_by_text("qwen3:1.7b", exact=False).last.click()
-                page.get_by_text("LLM: ollama / qwen3:1.7b", exact=True).wait_for(timeout=30000)
+                model_select.get_by_text("qwen3:1.7b", exact=False).wait_for(timeout=30000)
                 assert "desktop_fast" not in page.locator("body").inner_text()
+            body_text = page.locator("body").inner_text()
+            assert "画面で選択したモデル" not in body_text
+            assert "利用可能な中で最も高性能なモデル" not in body_text
+            assert "SMAIアシスタントは判断材料の整理を補助します。" not in body_text
+            composer = page.locator(
+                'div[data-testid="stHorizontalBlock"]:has(.smai-copilot-composer-toolbar)'
+                ':has(div[data-testid="stForm"])'
+            ).first
+            composer.wait_for(timeout=5000)
+            _assert_composer_fixed_to_viewport(page, composer)
+            page.mouse.wheel(0, -1800)
+            page.wait_for_timeout(250)
+            _assert_composer_fixed_to_viewport(page, composer)
         else:
             fallback_panel = page.locator('[data-testid="assistant-fallback-panel"]')
             fallback_panel.wait_for(timeout=30000)
@@ -268,6 +284,15 @@ def _run_scenario(
         log_file.close()
         gateway.shutdown()
         gateway.server_close()
+
+
+def _assert_composer_fixed_to_viewport(page: Page, composer) -> None:
+    box = composer.bounding_box()
+    assert box is not None
+    viewport = page.viewport_size
+    assert viewport is not None
+    assert abs((box["y"] + box["height"]) - viewport["height"]) <= 2
+    assert box["width"] >= 640
 
 
 def _free_port() -> int:

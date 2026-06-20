@@ -596,7 +596,6 @@ def _render_model_selector(
             disabled=True,
             key="smai_copilot_model_loading_select",
         )
-        st.caption("環境内のモデルを確認しています")
         return runtime_config
 
     available_models = [item.name for item in assistant_models_by_performance(catalog)]
@@ -630,8 +629,6 @@ def _render_model_selector(
         update_assistant_runtime_status(
             AssistantStatusEvent(name="model_changed", runtime_config=selected_config)
         )
-    feature, _ = _assistant_model_display(model)
-    st.caption(f"{feature} / {st.session_state[COPILOT_LLM_MODEL_REASON_STATE_KEY]}")
     return selected_config
 
 
@@ -652,14 +649,15 @@ def _assistant_model_choice_label(model: str, *, badge: str = "") -> str:
 def _render_chat_composer(
     runtime_config: CopilotGatewayRuntimeConfig,
 ) -> tuple[str | None, CopilotGatewayRuntimeConfig]:
-    st.markdown(
-        '<div class="smai-copilot-composer-toolbar" aria-label="SMAI chat composer">',
-        unsafe_allow_html=True,
-    )
     submitted = False
     prompt = ""
     model_col, composer_col = st.columns([0.3, 0.7], vertical_alignment="top")
     with model_col:
+        st.markdown(
+            '<span class="smai-copilot-composer-toolbar" '
+            'aria-label="SMAI chat composer"></span>',
+            unsafe_allow_html=True,
+        )
         selected = _render_model_selector(runtime_config)
     with composer_col:
         with st.form("smai_copilot_composer_form", clear_on_submit=True):
@@ -674,12 +672,6 @@ def _render_chat_composer(
                 )
             with send_col:
                 submitted = st.form_submit_button("送信", use_container_width=True)
-    st.caption(
-        f"LLM: {selected.provider} / {selected.model}"
-        if selected.enabled
-        else "LLM: deterministic fallback"
-    )
-    st.markdown("</div>", unsafe_allow_html=True)
     return (prompt.strip() if submitted else None), selected
 
 
@@ -1466,11 +1458,6 @@ def render_copilot_workspace_page() -> None:
             header_placeholder=header_placeholder,
             history=history,
         )
-
-    st.caption(
-        "SMAIアシスタントは判断材料の整理を補助します。売買推奨、スコア変更、"
-        "ランキング順位変更は行いません。"
-    )
 
 
 def _render_copilot_header(

@@ -245,6 +245,9 @@ def test_model_selector_is_environment_only_selectbox_next_to_chat():
     assert 'st.button("LLM接続を再確認"' not in source
     assert '"用途プロファイル"' not in source
     assert "現在: Ollama / {model} / {profile}" not in source
+    assert 'st.caption(f"{feature} /' not in source
+    assert 'f"LLM: {selected.provider} / {selected.model}"' not in source
+    assert "SMAIアシスタントは判断材料の整理を補助します。" not in source
     assert _assistant_model_display("qwen3:30b") == (
         "最高精度",
         "最高精度 / 詳細分析・レポート向け / 高負荷",
@@ -274,7 +277,10 @@ def test_copilot_layout_uses_shared_wide_lane():
     assert ".smai-copilot-statusbar--error" in css
     copilot_source = Path("ui/views/copilot.py").read_text(encoding="utf-8")
     assert "data-status-state" in copilot_source
-    assert '.smai-copilot-composer-toolbar div[data-testid="stTextInput"] input:focus' in css
+    assert ":has(.smai-copilot-composer-toolbar)" in css
+    assert "position: fixed;" in css
+    assert "padding-bottom: 8.5rem;" in css
+    assert 'div[data-testid="stTextInput"] input:is(:focus, :focus-visible)' in css
     assert 'input[aria-invalid="true"]' in css
     assert ".smai-copilot-response-meta summary" in css
     assert "border-left: 3px solid var(--smai-teal);" in css

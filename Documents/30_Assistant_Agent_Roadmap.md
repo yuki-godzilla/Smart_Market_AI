@@ -82,6 +82,8 @@ Status: 30-G2 MVP implemented. `workflow_runtime.retry_step()` を追加し、SM
 
 ## Phase 30-H: Assistant Scenario QA / LLM Startup Warmup
 
+- Assistant composerを画面下部へ常時固定し、環境取得model selectorとchat input / 送信を一体表示
+- composer下の重複するmodel選択理由、LLM接続先、一般注意captionを削除
 - 代表ユーザー発話をデータ駆動fixtureで回帰確認
 - 国内株、米国株、ETF / 投信、曖昧銘柄、テーマ探索、レポート作成を横断
 - LLM Startup Warmup と readiness status

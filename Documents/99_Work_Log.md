@@ -3447,3 +3447,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - ユーザー向け`LLM接続を再確認`、fallback retry controls、展開radio panelを削除し、自動warmup/retryへ統一。
 - Targeted tests: 72 passed。Real Streamlit Playwrightでenvironment-only options、qwen3:8b default、qwen3:1.7b manual selection、no reconnect buttonを確認。
 - Full local checks: 1713 passed / 2 skipped、Ruff / Black passed。
+
+## 2026-06-21 Phase 30-H - Bottom-fixed Assistant composer
+
+- `AIモデル` selectbox、chat input、送信ボタンをmain領域のviewport下端へ固定し、会話本文には固定bar分の下余白を追加。
+- composer下のmodel選択理由、LLM接続先、一般注意captionを削除し、操作に必要な要素だけを常時表示。
+- Copilot unit/UI tests 62件、Ruff、Black helperを通過。
+- Real Streamlit Playwrightでready / failed fallback / recovered / no-cacheの4状態、スクロール前後の固定位置、不要文言の非表示を確認。
+- Full local checks: 1713 passed / 2 skipped、Ruff / Black passed。

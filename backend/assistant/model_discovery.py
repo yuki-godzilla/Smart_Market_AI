@@ -82,17 +82,17 @@ def select_assistant_model(
     fallback_default: str = "qwen3:1.7b",
 ) -> AssistantModelSelection:
     names = {item.name for item in catalog.models}
-    priorities = (
-        (user_selected, "画面で選択したモデル"),
-        (previous_selected, "前回選択したモデル"),
-        (configured_model, "設定ファイルのモデル"),
-    )
-    for candidate, reason in priorities:
-        if candidate and (not names or candidate in names):
-            return AssistantModelSelection(candidate, reason)
-    if catalog.models:
+    if names:
+        if user_selected in names:
+            return AssistantModelSelection(user_selected, "画面で選択したモデル")
         highest = max(catalog.models, key=assistant_model_performance_key)
         return AssistantModelSelection(highest.name, "利用可能な中で最も高性能なモデル")
+    if user_selected:
+        return AssistantModelSelection(user_selected, "画面で選択したモデル")
+    if configured_model:
+        return AssistantModelSelection(configured_model, "モデル一覧取得前の接続確認モデル")
+    if previous_selected:
+        return AssistantModelSelection(previous_selected, "モデル一覧取得前の前回モデル")
     return AssistantModelSelection(fallback_default, "モデル一覧未取得時の既定値")
 
 

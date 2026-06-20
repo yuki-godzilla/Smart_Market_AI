@@ -29,7 +29,7 @@ class _GatewayHandler(BaseHTTPRequestHandler):
             return
         server.request_count = getattr(server, "request_count", 0) + 1
         mode = getattr(server, "response_mode", "ready")
-        if mode == "failed" or (mode == "recover" and server.request_count <= 4):
+        if mode == "failed" or (mode == "recover" and server.request_count <= 2):
             self._json_response(503, {"detail": "fake gateway unavailable"})
             return
         self._json_response(
@@ -234,22 +234,19 @@ def _run_scenario(
                 raise
         page.screenshot(path=str(output_dir / f"streamlit_{mode}_loading.png"), full_page=True)
 
-        if mode in {"ready", "no_cache"}:
+        if mode in {"ready", "recover", "no_cache"}:
             page.get_by_text("準備完了", exact=True).first.wait_for(timeout=30000)
             loading.wait_for(state="hidden", timeout=30000)
             draft.fill("通常画面で入力できます")
+            assert page.get_by_role("button", name="LLM接続を再確認").count() == 0
             if mode == "ready":
-                page.get_by_role("button", name="モデルを変更").click()
-                page.get_by_text("利用可能モデル", exact=True).wait_for(timeout=5000)
-                page.get_by_text("qwen3:8b", exact=False).last.wait_for(timeout=5000)
-                assert page.get_by_text("用途プロファイル", exact=True).count() == 0
-                assert page.get_by_role("combobox").count() == 0
-                page.get_by_text("qwen3:8b", exact=False).last.click()
-                page.get_by_text("AIモデル: qwen3:8b / バランス", exact=True).wait_for(
-                    timeout=30000
-                )
-                page.get_by_role("button", name="モデルを変更").click()
-                page.get_by_text("qwen3:8b  [選択中]", exact=False).wait_for(timeout=5000)
+                model_select = page.locator('[data-testid="stSelectbox"]').first
+                model_select.wait_for(timeout=5000)
+                assert "qwen3:8b" in model_select.inner_text()
+                assert "qwen3:30b" not in page.locator("body").inner_text()
+                model_select.click()
+                page.get_by_text("qwen3:1.7b", exact=False).last.click()
+                page.get_by_text("LLM: ollama / qwen3:1.7b", exact=True).wait_for(timeout=30000)
                 assert "desktop_fast" not in page.locator("body").inner_text()
         else:
             fallback_panel = page.locator('[data-testid="assistant-fallback-panel"]')
@@ -257,10 +254,6 @@ def _run_scenario(
             modal.wait_for(state="hidden", timeout=30000)
             assert draft.is_enabled()
             assert "Traceback" not in page.locator("body").inner_text()
-            if mode == "recover":
-                page.get_by_role("button", name="LLM接続を再確認").first.click()
-                page.get_by_text("準備完了", exact=True).first.wait_for(timeout=30000)
-                fallback_panel.wait_for(state="hidden", timeout=30000)
         page.screenshot(path=str(output_dir / f"streamlit_{mode}_final.png"), full_page=True)
         return {"status": "ok", "url": base_url, "log": str(log_path)}
     finally:

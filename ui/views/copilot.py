@@ -44,7 +44,6 @@ from backend.assistant import (
     build_assistant_research_context_bundle,
     build_assistant_research_tool_plan,
     detect_assistant_intent,
-    discover_assistant_models,
     execute_assistant_tool_plan,
     get_assistant_action,
     get_assistant_warmup_manager,
@@ -109,11 +108,10 @@ COPILOT_PENDING_REQUEST_STATE_KEY = "smai_copilot_pending_request"
 COPILOT_SUPPRESS_SUBMIT_STATE_KEY = "smai_copilot_suppress_next_submit"
 COPILOT_LLM_PROFILE_STATE_KEY = "smai_copilot_llm_profile"
 COPILOT_LLM_MODEL_STATE_KEY = "smai_copilot_llm_model"
-COPILOT_LLM_MODEL_RADIO_STATE_KEY = "smai_copilot_llm_model_radio"
+COPILOT_LLM_MODEL_SELECT_STATE_KEY = "smai_copilot_llm_model_select"
 COPILOT_LLM_MODEL_USER_STATE_KEY = "smai_copilot_llm_model_user_selected"
 COPILOT_LLM_MODEL_CATALOG_STATE_KEY = "smai_copilot_llm_model_catalog"
 COPILOT_LLM_MODEL_REASON_STATE_KEY = "smai_copilot_llm_model_reason"
-COPILOT_LLM_MODEL_PICKER_OPEN_STATE_KEY = "smai_copilot_llm_model_picker_open"
 COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY = "smai_copilot_gateway_diagnostic"
 COPILOT_RUNTIME_STATUS_STATE_KEY = "smai_copilot_runtime_status"
 COPILOT_WARMUP_AUTO_TRANSITION_STATE_KEY = "smai_copilot_warmup_auto_transition"
@@ -591,104 +589,50 @@ def _render_model_selector(
     runtime_config: CopilotGatewayRuntimeConfig,
 ) -> CopilotGatewayRuntimeConfig:
     catalog = st.session_state.get(COPILOT_LLM_MODEL_CATALOG_STATE_KEY)
-    available_models = (
-        [item.name for item in assistant_models_by_performance(catalog)]
-        if isinstance(catalog, AssistantModelCatalog) and catalog.models
-        else [model for _, model, _ in reversed(COPILOT_LLM_MODEL_OPTIONS)]
-    )
-    if runtime_config.model not in available_models:
-        st.warning(f"選択中のモデル {runtime_config.model} は現在のモデル一覧にありません。")
-    model = runtime_config.model
-    if model not in available_models:
-        model = available_models[0]
-    profile = _profile_for_model(model, fallback=runtime_config.profile)
-    feature, _ = _assistant_model_display(model)
-    manual_model = str(st.session_state.get(COPILOT_LLM_MODEL_USER_STATE_KEY, ""))
-    stored_radio = str(st.session_state.get(COPILOT_LLM_MODEL_RADIO_STATE_KEY, ""))
-    if stored_radio not in available_models:
-        st.session_state.pop(COPILOT_LLM_MODEL_RADIO_STATE_KEY, None)
-    st.session_state[COPILOT_LLM_PROFILE_STATE_KEY] = profile
-    st.session_state[COPILOT_LLM_MODEL_STATE_KEY] = model
-    summary_col, change_col, reconnect_col = st.columns([0.46, 0.27, 0.27])
-    with summary_col:
-        st.markdown(f"**AIモデル: {model} / {feature}**")
-        st.caption(
-            f"自動選択: {st.session_state.get(COPILOT_LLM_MODEL_REASON_STATE_KEY, '既定値')}"
-            if manual_model != model
-            else "ユーザーが選択中"
+    if not isinstance(catalog, AssistantModelCatalog) or not catalog.models:
+        st.selectbox(
+            "AIモデル",
+            ("モデル一覧を取得中",),
+            disabled=True,
+            key="smai_copilot_model_loading_select",
         )
-    with change_col:
-        if st.button("モデルを変更", key="copilot_toggle_model_picker", use_container_width=True):
-            is_open = bool(st.session_state.get(COPILOT_LLM_MODEL_PICKER_OPEN_STATE_KEY))
-            st.session_state[COPILOT_LLM_MODEL_PICKER_OPEN_STATE_KEY] = not is_open
-            st.rerun()
-    with reconnect_col:
-        if st.button("LLM接続を再確認", key="copilot_model_reconnect", use_container_width=True):
-            st.session_state.pop(COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY, None)
-            st.rerun()
+        st.caption("環境内のモデルを確認しています")
+        return runtime_config
 
-    if bool(st.session_state.get(COPILOT_LLM_MODEL_PICKER_OPEN_STATE_KEY)):
-        st.divider()
-        st.caption("モデルを変更")
-        selected_model = st.radio(
-            "利用可能モデル",
-            available_models,
-            index=(available_models.index(model) if model in available_models else 0),
-            format_func=lambda candidate: _assistant_model_choice_label(
-                candidate,
-                badge=(
-                    "選択中"
-                    if candidate == model and manual_model == model
-                    else "自動選択" if candidate == model else ""
-                ),
-            ),
-            key=COPILOT_LLM_MODEL_RADIO_STATE_KEY,
+    available_models = [item.name for item in assistant_models_by_performance(catalog)]
+    manual_model = str(st.session_state.get(COPILOT_LLM_MODEL_USER_STATE_KEY, ""))
+    if manual_model and manual_model not in available_models:
+        st.session_state.pop(COPILOT_LLM_MODEL_USER_STATE_KEY, None)
+        manual_model = ""
+    model = manual_model if manual_model in available_models else available_models[0]
+    stored_model = str(st.session_state.get(COPILOT_LLM_MODEL_SELECT_STATE_KEY, ""))
+    if stored_model not in available_models:
+        st.session_state.pop(COPILOT_LLM_MODEL_SELECT_STATE_KEY, None)
+    selected_model = st.selectbox(
+        "AIモデル",
+        available_models,
+        index=available_models.index(model),
+        format_func=_assistant_model_choice_label,
+        key=COPILOT_LLM_MODEL_SELECT_STATE_KEY,
+    )
+    if selected_model != model:
+        model = selected_model
+        st.session_state[COPILOT_LLM_MODEL_USER_STATE_KEY] = model
+        st.session_state[COPILOT_LLM_MODEL_REASON_STATE_KEY] = "画面で選択したモデル"
+    elif manual_model != model:
+        st.session_state[COPILOT_LLM_MODEL_REASON_STATE_KEY] = "利用可能な中で最も高性能なモデル"
+    profile = _profile_for_model(model, fallback=runtime_config.profile)
+    st.session_state[COPILOT_LLM_MODEL_STATE_KEY] = model
+    st.session_state[COPILOT_LLM_PROFILE_STATE_KEY] = profile
+    selected_config = replace(runtime_config, model=model, profile=profile)
+    if model != runtime_config.model or profile != runtime_config.profile:
+        st.session_state.pop(COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY, None)
+        update_assistant_runtime_status(
+            AssistantStatusEvent(name="model_changed", runtime_config=selected_config)
         )
-        if selected_model != model:
-            model = selected_model
-            profile = _profile_for_model(model, fallback=profile)
-            st.session_state[COPILOT_LLM_MODEL_USER_STATE_KEY] = model
-            st.session_state[COPILOT_LLM_MODEL_REASON_STATE_KEY] = "画面で選択したモデル"
-            st.session_state[COPILOT_LLM_MODEL_STATE_KEY] = model
-            st.session_state[COPILOT_LLM_PROFILE_STATE_KEY] = profile
-            st.session_state.pop(COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY, None)
-            st.rerun()
-        st.caption(f"現在: {model} / {feature}")
-        st.caption(
-            f"選択理由: {st.session_state.get(COPILOT_LLM_MODEL_REASON_STATE_KEY, '自動選択')}"
-        )
-        if isinstance(catalog, AssistantModelCatalog):
-            st.caption(
-                f"モデル一覧取得: {catalog.fetched_at.astimezone().strftime('%Y-%m-%d %H:%M:%S')}"
-            )
-        refresh_col, reconnect_col = st.columns(2)
-        if refresh_col.button("モデル一覧を再取得", key="copilot_refresh_models"):
-            refreshed = discover_assistant_models(runtime_config.base_url, timeout_seconds=3.0)
-            st.session_state[COPILOT_LLM_MODEL_CATALOG_STATE_KEY] = refreshed
-            st.rerun()
-        if reconnect_col.button("閉じる", key="copilot_close_model_picker"):
-            st.session_state[COPILOT_LLM_MODEL_PICKER_OPEN_STATE_KEY] = False
-            st.rerun()
-        st.session_state[COPILOT_LLM_PROFILE_STATE_KEY] = profile
-        st.session_state[COPILOT_LLM_MODEL_STATE_KEY] = model
-        selected_config = CopilotGatewayRuntimeConfig(
-            enabled=runtime_config.enabled,
-            base_url=runtime_config.base_url,
-            timeout_seconds=runtime_config.timeout_seconds,
-            context_answer_path=runtime_config.context_answer_path,
-            execution_mode=runtime_config.execution_mode,
-            environment_profile=runtime_config.environment_profile,
-            provider=runtime_config.provider,
-            model=model,
-            profile=profile,
-        )
-        if model != runtime_config.model or profile != runtime_config.profile:
-            st.session_state.pop(COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY, None)
-            update_assistant_runtime_status(
-                AssistantStatusEvent(name="model_changed", runtime_config=selected_config)
-            )
-        return selected_config
-    return runtime_config
+    feature, _ = _assistant_model_display(model)
+    st.caption(f"{feature} / {st.session_state[COPILOT_LLM_MODEL_REASON_STATE_KEY]}")
+    return selected_config
 
 
 def _assistant_model_display(model: str) -> tuple[str, str]:
@@ -712,21 +656,24 @@ def _render_chat_composer(
         '<div class="smai-copilot-composer-toolbar" aria-label="SMAI chat composer">',
         unsafe_allow_html=True,
     )
-    selected = _render_model_selector(runtime_config)
     submitted = False
     prompt = ""
-    with st.form("smai_copilot_composer_form", clear_on_submit=True):
-        text_col, send_col = st.columns([0.84, 0.16])
-        with text_col:
-            prompt = st.text_input(
-                "相談内容",
-                placeholder="価格・予測・ニュース・根拠資料について確認したいことを入力...",
-                key="smai_copilot_text_input",
-                max_chars=240,
-                label_visibility="collapsed",
-            )
-        with send_col:
-            submitted = st.form_submit_button("送信", use_container_width=True)
+    model_col, composer_col = st.columns([0.3, 0.7], vertical_alignment="top")
+    with model_col:
+        selected = _render_model_selector(runtime_config)
+    with composer_col:
+        with st.form("smai_copilot_composer_form", clear_on_submit=True):
+            text_col, send_col = st.columns([0.82, 0.18])
+            with text_col:
+                prompt = st.text_input(
+                    "相談内容",
+                    placeholder="価格・予測・ニュース・根拠資料について確認したいことを入力...",
+                    key="smai_copilot_text_input",
+                    max_chars=240,
+                    label_visibility="collapsed",
+                )
+            with send_col:
+                submitted = st.form_submit_button("送信", use_container_width=True)
     st.caption(
         f"LLM: {selected.provider} / {selected.model}"
         if selected.enabled
@@ -919,7 +866,7 @@ def _render_copilot_warmup_monitor(
         history=history,
         runtime_config=current_config,
     )
-    _render_copilot_loading_panel(status, settings=settings, runtime_config=current_config)
+    _render_copilot_loading_panel(status, settings=settings)
     if _apply_copilot_warmup_auto_transition(status, st.session_state):
         st.rerun()
 
@@ -1385,9 +1332,7 @@ def render_copilot_workspace_page() -> None:
             header_placeholder=header_placeholder,
         )
     else:
-        _render_copilot_loading_panel(
-            warmup_status, settings=settings, runtime_config=runtime_config
-        )
+        _render_copilot_loading_panel(warmup_status, settings=settings)
     if bool(st.session_state.pop(COPILOT_WARMUP_READY_NOTICE_STATE_KEY, False)):
         st.toast(
             "SMAIナビの準備ができました。銘柄・予測・ニュース・根拠資料を確認できます。",
@@ -1570,7 +1515,6 @@ def _render_copilot_loading_panel(
     status: AssistantWarmupStatus,
     *,
     settings: Settings,
-    runtime_config: CopilotGatewayRuntimeConfig | None = None,
 ) -> None:
     warmup = settings.assistant.warmup
     headlines = (
@@ -1588,43 +1532,6 @@ def _render_copilot_loading_panel(
     )
     if markup:
         st.markdown(markup, unsafe_allow_html=True)
-    if status.state in {"fallback", "degraded", "failed", "timeout"} and runtime_config:
-        retry_col, refresh_col, continue_col = st.columns(3)
-        if retry_col.button("LLM接続を再確認", key="copilot_fallback_retry"):
-            _retry_copilot_llm_warmup(runtime_config, settings=settings)
-            st.rerun()
-        if refresh_col.button("モデル一覧を再取得", key="copilot_fallback_models"):
-            st.session_state[COPILOT_LLM_MODEL_CATALOG_STATE_KEY] = discover_assistant_models(
-                runtime_config.base_url, timeout_seconds=3.0
-            )
-            st.rerun()
-        continue_col.button("fallbackで続ける", key="copilot_fallback_continue")
-
-
-def _retry_copilot_llm_warmup(
-    runtime_config: CopilotGatewayRuntimeConfig, *, settings: Settings
-) -> bool:
-    warmup = settings.assistant.warmup
-    client = HttpAssistantGatewayClient(
-        base_url=runtime_config.base_url,
-        context_answer_path=runtime_config.context_answer_path,
-        timeout_seconds=min(runtime_config.timeout_seconds, warmup.timeout_seconds),
-        model=runtime_config.model,
-        execution_mode=runtime_config.execution_mode,
-        environment_profile=runtime_config.environment_profile,
-        preferred_profile=runtime_config.profile,
-    )
-    return _warmup_manager_for_runtime(runtime_config).retry(
-        lambda: _probe_copilot_warmup(
-            client=client,
-            runtime_config=runtime_config,
-            health_timeout_seconds=warmup.health_timeout_seconds,
-            chat_enabled=warmup.chat_enabled,
-            chat_timeout_seconds=warmup.timeout_seconds,
-        ),
-        max_attempts=warmup.retry_count + 1,
-        retry_backoff_seconds=warmup.retry_backoff_seconds,
-    )
 
 
 def _investment_radar_loading_asset_uri() -> str:

@@ -3439,3 +3439,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - cache欠損時のdemo snapshotを廃止し、同期外部取得なしの案内cardへ変更。
 - Unit/UI 67件と、real Streamlit Playwrightのcached / no-cache / ready / fallback / recoveredを確認。
 - Full local checks: 1712 passed / 2 skipped、Ruff / Black passed。
+
+## 2026-06-21 Phase 30-H - Composer model selector / automatic reconnect cleanup
+
+- Model UIをchat input横のselectboxへ戻し、Gateway `/models` で取得したmodelだけを性能順表示。
+- catalog取得後はqwen3:1.7b/configをdefault固定せず、明示選択がなければ最高性能modelを選択。
+- ユーザー向け`LLM接続を再確認`、fallback retry controls、展開radio panelを削除し、自動warmup/retryへ統一。
+- Targeted tests: 72 passed。Real Streamlit Playwrightでenvironment-only options、qwen3:8b default、qwen3:1.7b manual selection、no reconnect buttonを確認。
+- Full local checks: 1713 passed / 2 skipped、Ruff / Black passed。

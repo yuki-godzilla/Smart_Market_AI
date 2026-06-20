@@ -233,11 +233,16 @@ def test_chat_auto_scroll_only_when_message_count_increases():
     assert should_auto_scroll_chat(3, 2) is False
 
 
-def test_model_selector_uses_one_user_facing_model_list():
+def test_model_selector_is_environment_only_selectbox_next_to_chat():
     source = Path("ui/views/copilot.py").read_text(encoding="utf-8")
 
-    assert 'st.radio(\n            "利用可能モデル"' in source
-    assert 'st.selectbox(\n            "利用可能モデル"' not in source
+    assert 'st.selectbox(\n        "AIモデル"' in source
+    assert "selected = _render_model_selector(runtime_config)" in source
+    assert "st.columns([0.3, 0.7]" in source
+    assert "assistant_models_by_performance(catalog)" in source
+    assert "reversed(COPILOT_LLM_MODEL_OPTIONS)" not in source
+    assert '"モデルを変更"' not in source
+    assert 'st.button("LLM接続を再確認"' not in source
     assert '"用途プロファイル"' not in source
     assert "現在: Ollama / {model} / {profile}" not in source
     assert _assistant_model_display("qwen3:30b") == (

@@ -39,7 +39,7 @@ def test_default_selection_prefers_performance_over_modified_at():
     assert select_assistant_model(catalog).model == "qwen3:30b"
 
 
-def test_model_selection_priority_and_missing_previous_fallback():
+def test_model_selection_keeps_user_choice_then_uses_highest_available():
     catalog = parse_assistant_model_catalog(
         {"installed_models": ["qwen3:4b", "qwen3:8b"]},
         fetched_at=datetime(2026, 6, 20, tzinfo=UTC),
@@ -55,10 +55,19 @@ def test_model_selection_priority_and_missing_previous_fallback():
     )
     assert (
         select_assistant_model(
-            catalog, previous_selected="missing", configured_model="qwen3:8b"
+            catalog, previous_selected="qwen3:4b", configured_model="qwen3:4b"
         ).model
         == "qwen3:8b"
     )
+
+
+def test_configured_model_is_only_used_before_catalog_is_available():
+    catalog = parse_assistant_model_catalog({"installed_models": []})
+
+    selected = select_assistant_model(catalog, configured_model="qwen3:1.7b")
+
+    assert selected.model == "qwen3:1.7b"
+    assert "一覧取得前" in selected.reason
 
 
 def test_model_discovery_failure_is_safe():

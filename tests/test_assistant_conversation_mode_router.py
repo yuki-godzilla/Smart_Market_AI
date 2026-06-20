@@ -57,3 +57,15 @@ def test_conversation_mode_theme_discovery_gets_research_plan():
     assert decision.conversation_mode == "research_plan"
     assert decision.intent == "theme_stock_discovery"
     assert decision.symbol_query == "半導体"
+
+
+def test_conversation_mode_broad_discovery_does_not_force_symbol_research():
+    decision = route_assistant_conversation_mode(
+        "今後上がりそうな銘柄やセクターについて教えてほしいな"
+    )
+
+    assert decision.conversation_mode == "soft_research_suggestion"
+    assert decision.intent == "investment_material_scan"
+    assert decision.symbol_query is None
+    assert not decision.tool_plan_enabled
+    assert not decision.requires_approval

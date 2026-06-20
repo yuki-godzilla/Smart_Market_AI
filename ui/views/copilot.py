@@ -43,6 +43,7 @@ from backend.assistant import (
     build_assistant_planner_states,
     build_assistant_research_context_bundle,
     build_assistant_research_tool_plan,
+    decide_assistant_action_cards,
     detect_assistant_intent,
     execute_assistant_tool_plan,
     get_assistant_action,
@@ -144,6 +145,8 @@ CopilotIntent = Literal[
     "news_materials",
     "decision_report_draft",
     "free_chat",
+    "concept_explanation",
+    "broad_discovery",
 ]
 
 AssistantRuntimeState = Literal[
@@ -4030,12 +4033,17 @@ def _turn_from_response(
         memo_points = []
         if intent not in {"app_help", "screen_guidance"}:
             next_checkpoints = []
-    planner_states = _assistant_planner_states(
-        context=context,
-        question=question,
+    intent_decision = detect_assistant_intent(question)
+    action_card_decision = decide_assistant_action_cards(question, intent_decision.intent)
+    planner_states = (
+        _assistant_planner_states(context=context, question=question)
+        if action_card_decision.show_cards
+        else None
     )
-    assistant_tool_plan = planner_states.tool_plan.model_dump_json()
-    guided_workflow = planner_states.guided_workflow
+    assistant_tool_plan = (
+        planner_states.tool_plan.model_dump_json() if planner_states is not None else ""
+    )
+    guided_workflow = planner_states.guided_workflow if planner_states is not None else None
     assistant_workflow_session = _assistant_workflow_session_state(guided_workflow)
     assistant_workflow_session_gate = (
         "blocked"
@@ -4047,7 +4055,7 @@ def _turn_from_response(
         if guided_workflow is not None and assistant_workflow_session
         else ""
     )
-    planner_meta = planner_states.metadata
+    planner_meta = planner_states.metadata if planner_states is not None else None
     return {
         "turn_id": turn_id or uuid4().hex,
         "status": "complete",
@@ -4100,15 +4108,23 @@ def _turn_from_response(
         "assistant_guided_workflow": assistant_guided_workflow,
         "assistant_workflow_session": assistant_workflow_session,
         "assistant_workflow_session_gate": assistant_workflow_session_gate,
-        "assistant_planner_source": planner_meta.planner_source,
-        "assistant_planner_used_plan_type": planner_meta.used_plan_type or "",
-        "assistant_planner_fallback_reason": planner_meta.fallback_reason or "",
-        "assistant_planner_provider": planner_meta.provider or "",
-        "assistant_planner_model": planner_meta.model or "",
-        "assistant_planner_profile": planner_meta.profile or "",
-        "assistant_planner_gateway_status": planner_meta.gateway_status or "",
-        "assistant_planner_request_id": planner_meta.request_id or "",
-        "assistant_planner_meta": planner_meta.model_dump_json(),
+        "assistant_action_card_level": str(action_card_decision.level),
+        "assistant_action_card_reason": action_card_decision.reason,
+        "assistant_planner_source": planner_meta.planner_source if planner_meta else "suppressed",
+        "assistant_planner_used_plan_type": (
+            planner_meta.used_plan_type or "" if planner_meta else ""
+        ),
+        "assistant_planner_fallback_reason": (
+            planner_meta.fallback_reason or "" if planner_meta else ""
+        ),
+        "assistant_planner_provider": planner_meta.provider or "" if planner_meta else "",
+        "assistant_planner_model": planner_meta.model or "" if planner_meta else "",
+        "assistant_planner_profile": planner_meta.profile or "" if planner_meta else "",
+        "assistant_planner_gateway_status": (
+            planner_meta.gateway_status or "" if planner_meta else ""
+        ),
+        "assistant_planner_request_id": planner_meta.request_id or "" if planner_meta else "",
+        "assistant_planner_meta": planner_meta.model_dump_json() if planner_meta else "",
     }
 
 
@@ -5022,8 +5038,18 @@ def _conversation_answer(
         body = _safe_response_body(response.answer, intent=intent)
         if body:
             return body
+    if intent == "concept_explanation":
+        body = _safe_response_body(response.answer, intent=intent)
+        return body or _concept_explanation_answer(question)
+    if intent == "broad_discovery":
+        body = _safe_response_body(response.answer, intent=intent)
+        return body or _broad_discovery_answer()
     if intent in {"free_chat", "identity", "capability_help"}:
-        if _is_simple_greeting(question):
+        if (
+            _is_simple_greeting(question)
+            and not _is_identity_question(question)
+            and not _is_capability_question(question)
+        ):
             return _fallback_free_chat_answer(question, greeting=True)
         body = _safe_response_body(response.answer, intent=intent)
         if body:
@@ -5072,8 +5098,10 @@ def _fallback_free_chat_answer(question: str, *, greeting: bool = False) -> str:
         )
     topic = str(question or "").strip()
     if _is_identity_question(topic):
+        user_name = _user_name_from_introduction(topic)
+        greeting_line = f"{user_name}さん、こんにちは。" if user_name else "こんにちは。"
         return (
-            "私はSMAIナビです。Smart Market AIの中で、銘柄の見方、AI予測、ニュース、"
+            f"{greeting_line}私はSMAIナビです。Smart Market AIの中で、銘柄の見方、AI予測、ニュース、"
             "根拠資料の確認ポイントを整理するお手伝いをします。"
         )
     if _is_capability_question(topic):
@@ -5093,7 +5121,63 @@ def _fallback_free_chat_answer(question: str, *, greeting: bool = False) -> str:
     )
 
 
+def _concept_explanation_answer(question: str) -> str:
+    normalized = str(question or "").lower()
+    if "セクター" in normalized:
+        return (
+            "セクターとは、企業を業種や事業領域ごとに分けた分類です。"
+            "たとえば、金融、半導体、医薬品、通信、エネルギーなどがあります。\n\n"
+            "SMAIでは、ニュースやランキングを見るときに、どの分野に材料が出ているか、"
+            "同じ業種の中で銘柄ごとの違いがあるかを整理するために使います。"
+        )
+    if "per" in normalized:
+        return (
+            "PERは、株価が1株あたり利益の何倍まで評価されているかを見る指標です。"
+            "単独で割安・割高を決めず、同業他社や利益の安定性とあわせて確認します。"
+        )
+    if "pbr" in normalized:
+        return (
+            "PBRは、株価が1株あたり純資産の何倍かを見る指標です。"
+            "業種差が大きいため、SMAIでは同業比較やROEなどと組み合わせて確認します。"
+        )
+    if "roe" in normalized:
+        return (
+            "ROEは、株主資本を使ってどれだけ利益を生み出したかを見る指標です。"
+            "高低だけでなく、一時要因や財務リスクもあわせて確認します。"
+        )
+    if "etf" in normalized:
+        return (
+            "ETFは、株式市場で売買できる投資信託です。指数連動型などがあり、"
+            "SMAIでは個別株とは分けて、連動対象、経費率、値動きの特徴を確認します。"
+        )
+    return "用語の意味と、SMAIの画面でどう使うかを分けて説明します。"
+
+
+def _broad_discovery_answer() -> str:
+    return (
+        "ざっくり候補を探す相談ですね。上がる銘柄を断定するのではなく、"
+        "まず市場テーマとセクターを分けて確認するのがよさそうです。\n\n"
+        "確認候補は、半導体・AI、金融、防衛・インフラ、高配当・通信などです。"
+        "それぞれ決算、設備投資、金利、政策、ニュースの鮮度を確認してください。\n\n"
+        "具体的な銘柄候補まで見たい場合は、ランキングで条件を絞って比較できます。"
+    )
+
+
+def _user_name_from_introduction(question: str) -> str | None:
+    marker = "私の名前は"
+    if marker not in question:
+        return None
+    candidate = question.split(marker, 1)[1].strip(" 　。！!？?")
+    if candidate.endswith("です"):
+        candidate = candidate[:-2].strip()
+    return candidate[:20] or None
+
+
 def _intent_fallback_answer(*, intent: CopilotIntent, question: str) -> str:
+    if intent == "concept_explanation":
+        return _concept_explanation_answer(question)
+    if intent == "broad_discovery":
+        return _broad_discovery_answer()
     if intent in {"free_chat", "identity", "capability_help"}:
         return _fallback_free_chat_answer(question, greeting=_is_simple_greeting(question))
     if intent == "app_help":
@@ -5586,18 +5670,29 @@ def _intent_from_message(message: str, *, fallback: CopilotIntent) -> CopilotInt
         return "free_chat"
     decision = detect_assistant_intent(message)
     mapping: dict[str, CopilotIntent] = {
+        "smai_how_to_use": "app_help",
         "app_help": "app_help",
+        "self_introduction": "identity",
         "identity": "identity",
         "capability_help": "capability_help",
+        "stock_analysis": "stock_summary",
+        "stock_candidate_search": "stock_summary",
         "stock_summary": "stock_summary",
         "forecast_check": "forecast_risk_compare",
         "forecast_risk_compare": "forecast_risk_compare",
         "chart_check": "stock_summary",
+        "news_lookup": "news_materials",
         "news_materials": "news_materials",
         "rag_search": "news_materials",
+        "report_creation": "decision_report_draft",
         "decision_report_draft": "decision_report_draft",
         "file_export": "decision_report_draft",
+        "concept_explanation": "concept_explanation",
+        "theme_or_sector_discovery": "broad_discovery",
+        "market_overview": "broad_discovery",
+        "smalltalk": "free_chat",
         "free_chat": fallback,
+        "unknown_or_ambiguous": "free_chat",
         "unknown": fallback,
     }
     return mapping.get(decision.intent, fallback)
@@ -5614,15 +5709,42 @@ def _normalize_intent(value: object) -> CopilotIntent:
         "news_materials",
         "decision_report_draft",
         "free_chat",
+        "concept_explanation",
+        "broad_discovery",
     }
     return text if text in valid else "free_chat"  # type: ignore[return-value]
 
 
 def _is_llm_micro_intent(intent: CopilotIntent) -> bool:
-    return intent in {"free_chat", "identity", "app_help", "capability_help"}
+    return intent in {
+        "free_chat",
+        "identity",
+        "app_help",
+        "capability_help",
+        "concept_explanation",
+        "broad_discovery",
+    }
 
 
 def _preset_for_intent(intent: CopilotIntent) -> CopilotConversationPreset:
+    if intent == "concept_explanation":
+        return CopilotConversationPreset(
+            intent="free_chat",
+            label="用語を知りたい",
+            description="用語の意味とSMAIでの使われ方を説明します。",
+            context_id="copilot_app_help",
+            default_question="用語の意味を教えてください。",
+            prompt_instruction="用語を平易に説明し、SMAIでの使われ方だけを短く補足してください。",
+        )
+    if intent == "broad_discovery":
+        return CopilotConversationPreset(
+            intent="free_chat",
+            label="テーマ・セクター探索",
+            description="特定銘柄を決めずに確認候補を整理します。",
+            context_id="copilot_news_overview",
+            default_question="注目テーマとセクターの確認観点を整理してください。",
+            prompt_instruction="売買を断定せず、テーマ、セクター、確認材料を整理してください。",
+        )
     for preset in copilot_conversation_presets():
         if preset.intent == intent:
             return preset
@@ -5644,6 +5766,8 @@ def _section_titles_for_intent(intent: CopilotIntent) -> tuple[str, ...]:
         "free_chat": ("SMAIナビの見方", "注意点", "次にできること"),
         "identity": ("SMAIナビの見方", "注意点", "次にできること"),
         "capability_help": ("SMAIナビの使い方", "注意点", "次にできること"),
+        "concept_explanation": ("意味", "SMAIでの使い方", "補足"),
+        "broad_discovery": ("確認候補", "見る材料", "注意点"),
     }[intent]
 
 

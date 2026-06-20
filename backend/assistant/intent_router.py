@@ -4,6 +4,19 @@ from dataclasses import dataclass
 from typing import Literal
 
 AssistantAgentIntent = Literal[
+    "smalltalk",
+    "self_introduction",
+    "concept_explanation",
+    "smai_how_to_use",
+    "market_overview",
+    "theme_or_sector_discovery",
+    "stock_candidate_search",
+    "stock_analysis",
+    "news_lookup",
+    "data_quality_check",
+    "report_creation",
+    "screen_navigation",
+    "unknown_or_ambiguous",
     "app_help",
     "identity",
     "capability_help",
@@ -29,7 +42,7 @@ class AssistantIntentDecision:
 
 _INTENT_TERMS: tuple[tuple[AssistantAgentIntent, tuple[str, ...]], ...] = (
     (
-        "identity",
+        "self_introduction",
         (
             "あなたの名前",
             "あなたのなまえ",
@@ -45,6 +58,23 @@ _INTENT_TERMS: tuple[tuple[AssistantAgentIntent, tuple[str, ...]], ...] = (
             "誰",
             "who are you",
             "your name",
+        ),
+    ),
+    (
+        "concept_explanation",
+        (
+            "セクターの意味",
+            "セクターって何",
+            "perって何",
+            "pbrって何",
+            "roeって何",
+            "etfって何",
+            "投信とetfの違い",
+            "下振れ警戒って何",
+            "ai予測ってどう見れば",
+            "とは何",
+            "どういう意味",
+            "意味わかりますか",
         ),
     ),
     (
@@ -73,7 +103,7 @@ _INTENT_TERMS: tuple[tuple[AssistantAgentIntent, tuple[str, ...]], ...] = (
         ),
     ),
     (
-        "decision_report_draft",
+        "report_creation",
         (
             "レポートにして",
             "確認レポート",
@@ -130,7 +160,7 @@ _INTENT_TERMS: tuple[tuple[AssistantAgentIntent, tuple[str, ...]], ...] = (
         ),
     ),
     (
-        "news_materials",
+        "news_lookup",
         (
             "ニュース",
             "材料を見",
@@ -139,7 +169,7 @@ _INTENT_TERMS: tuple[tuple[AssistantAgentIntent, tuple[str, ...]], ...] = (
         ),
     ),
     (
-        "app_help",
+        "smai_how_to_use",
         (
             "使い方",
             "どこを見",
@@ -155,7 +185,7 @@ _INTENT_TERMS: tuple[tuple[AssistantAgentIntent, tuple[str, ...]], ...] = (
 def detect_assistant_intent(message: str) -> AssistantIntentDecision:
     text = message.strip().lower()
     if not text:
-        return AssistantIntentDecision(intent="unknown", confidence="low")
+        return AssistantIntentDecision(intent="unknown_or_ambiguous", confidence="low")
 
     for intent, terms in _INTENT_TERMS:
         matched = tuple(term for term in terms if term in text)
@@ -165,6 +195,34 @@ def detect_assistant_intent(message: str) -> AssistantIntentDecision:
                 confidence="high" if len(matched) >= 2 else "medium",
                 matched_terms=matched,
             )
+
+    if _is_broad_discovery(text):
+        return AssistantIntentDecision(
+            intent="theme_or_sector_discovery",
+            confidence="high",
+            matched_terms=("テーマ・セクター探索",),
+        )
+
+    if any(term in text for term in ("ランキングで比較", "候補銘柄", "候補を出して")):
+        return AssistantIntentDecision(
+            intent="stock_candidate_search",
+            confidence="high",
+            matched_terms=("候補探索",),
+        )
+
+    if any(term in text for term in ("コックピットで", "詳しく見たい", "深掘り")):
+        return AssistantIntentDecision(
+            intent="stock_analysis",
+            confidence="high",
+            matched_terms=("銘柄深掘り",),
+        )
+
+    if any(term in text for term in ("データがおかしい", "更新日", "取得元", "異常値")):
+        return AssistantIntentDecision(
+            intent="data_quality_check",
+            confidence="high",
+            matched_terms=("データ品質",),
+        )
 
     if any(
         term in text
@@ -180,9 +238,29 @@ def detect_assistant_intent(message: str) -> AssistantIntentDecision:
         )
     ):
         return AssistantIntentDecision(
-            intent="stock_summary",
+            intent="stock_analysis",
             confidence="medium",
             matched_terms=("銘柄",),
         )
 
-    return AssistantIntentDecision(intent="free_chat", confidence="low")
+    if any(term in text for term in ("こんにちは", "こんばんは", "おはよう", "雑談")):
+        return AssistantIntentDecision(intent="smalltalk", confidence="medium")
+    return AssistantIntentDecision(intent="unknown_or_ambiguous", confidence="low")
+
+
+def _is_broad_discovery(text: str) -> bool:
+    broad_subject = any(
+        term in text
+        for term in (
+            "銘柄やセクター",
+            "注目のテーマ",
+            "注目テーマ",
+            "強そうな業界",
+            "どのセクター",
+            "投資先の候補",
+        )
+    )
+    discovery_word = any(
+        term in text for term in ("上がりそう", "良さそう", "注目", "候補", "ざっくり")
+    )
+    return broad_subject and discovery_word

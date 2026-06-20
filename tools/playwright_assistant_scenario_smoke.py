@@ -17,6 +17,7 @@ from backend.assistant import (  # noqa: E402
     AssistantLoadingHeadlines,
     AssistantWarmupStatus,
     build_assistant_research_tool_plan,
+    decide_assistant_action_cards,
     detect_assistant_intent,
     route_assistant_conversation_mode,
 )
@@ -69,10 +70,14 @@ def _document(scenarios: list[dict[str, object]]) -> str:
         message = str(scenario["input"])
         legacy = detect_assistant_intent(message)
         decision = route_assistant_conversation_mode(message)
+        card_decision = decide_assistant_action_cards(message, legacy.intent)
         plan = build_assistant_research_tool_plan(message, decision)
         subject = "候補確認"
         if plan is not None:
             subject = plan.company_name or plan.symbol or plan.symbol_query or "テーマ確認"
+        action_card = (
+            '<div class="action-card">次にできること</div>' if card_decision.show_cards else ""
+        )
         cards.append(
             '<article class="scenario" data-scenario="'
             + html.escape(str(scenario["id"]))
@@ -82,9 +87,13 @@ def _document(scenarios: list[dict[str, object]]) -> str:
             + html.escape(legacy.intent)
             + "</p><p>mode: "
             + html.escape(decision.conversation_mode)
+            + "</p><p>action-level: "
+            + str(card_decision.level)
             + "</p><p>対象: "
             + html.escape(subject)
-            + "</p><small>売買推奨ではありません</small></article>"
+            + "</p>"
+            + action_card
+            + "<small>売買推奨ではありません</small></article>"
         )
     loading_panel = copilot_loading_panel_html(
         AssistantWarmupStatus(
@@ -125,6 +134,12 @@ def _document(scenarios: list[dict[str, object]]) -> str:
 
 def _assert_scenarios(page: Page, scenarios: list[dict[str, object]]) -> None:
     page.get_by_text("SMAI Assistant Scenario QA").wait_for()
+    warming = page.locator('[data-state="warming"]')
+    warming.get_by_text("LLM起動確認中").wait_for()
+    warming.get_by_text("市場ヘッドライン").wait_for()
+    warming.locator('[data-testid="assistant-loading-radar-icon"]').wait_for()
+    draft = page.get_by_label("相談内容", exact=True)
+    draft.fill("入力途中のテキスト")
     assert page.locator("article.scenario").count() == len(scenarios)
     assert len(scenarios) >= 10
     for scenario in scenarios:
@@ -132,15 +147,15 @@ def _assert_scenarios(page: Page, scenarios: list[dict[str, object]]) -> None:
         card.get_by_text(str(scenario["input"]), exact=True).wait_for()
         card.get_by_text(f'intent: {scenario["legacy_intent"]}', exact=True).wait_for()
         card.get_by_text(f'mode: {scenario["conversation_mode"]}', exact=True).wait_for()
+        if "action_card_level" in scenario:
+            card.get_by_text(
+                f'action-level: {scenario["action_card_level"]}', exact=True
+            ).wait_for()
+            action_cards = card.locator(".action-card")
+            assert action_cards.count() == (1 if scenario["action_card_level"] == 2 else 0)
         text = card.inner_text()
         for forbidden in scenario.get("forbidden", []):
             assert str(forbidden) not in text
-    warming = page.locator('[data-state="warming"]')
-    warming.get_by_text("LLM起動確認中").wait_for()
-    warming.get_by_text("市場ヘッドライン").wait_for()
-    warming.locator('[data-testid="assistant-loading-radar-icon"]').wait_for()
-    draft = page.get_by_label("相談内容", exact=True)
-    draft.fill("入力途中のテキスト")
     page.locator('[data-state="ready"]').get_by_text("準備完了", exact=True).wait_for()
     assert warming.is_hidden()
     assert draft.input_value() == "入力途中のテキスト"

@@ -362,6 +362,20 @@ def test_copilot_identity_and_capability_route_to_llm_micro_intents():
     assert capability_context.summary["message"] == "何ができるの？"
 
 
+def test_copilot_routes_concept_and_broad_discovery_without_forcing_stock_analysis():
+    assert (
+        _intent_from_message("セクターの意味わかりますか？", fallback="free_chat")
+        == "concept_explanation"
+    )
+    assert (
+        _intent_from_message(
+            "今後上がりそうな銘柄やセクターについて教えてほしいな",
+            fallback="free_chat",
+        )
+        == "broad_discovery"
+    )
+
+
 def test_copilot_conversation_presets_define_six_entry_intents():
     presets = copilot_conversation_presets()
 
@@ -865,6 +879,62 @@ def test_copilot_free_chat_identity_answer_stays_on_identity():
     assert "SMAIナビ" in turn["answer"]
     assert "Smart Market AI" in turn["answer"]
     assert "SMAIで確認する観点" not in turn["answer"]
+
+
+def test_copilot_concept_answer_suppresses_action_plan():
+    turn = _turn_from_response(
+        copilot_context_options()[0],
+        "セクターの意味わかりますか？",
+        AssistantResponse(
+            intent="unknown",
+            answer="分かる範囲で短く整理します。",
+            response_source="deterministic_fallback",
+        ),
+        intent="concept_explanation",
+    )
+
+    assert "企業を業種や事業領域ごとに分けた分類" in turn["answer"]
+    assert turn["assistant_action_card_level"] == "0"
+    assert turn["assistant_tool_plan"] == ""
+    assert turn["assistant_guided_workflow"] == ""
+    assert "強気材料" not in copilot_answer_detail_html(turn)
+
+
+def test_copilot_broad_discovery_is_not_presented_as_missing_symbol_failure():
+    turn = _turn_from_response(
+        copilot_context_options()[0],
+        "今後上がりそうな銘柄やセクターについて教えてほしいな",
+        AssistantResponse(
+            intent="unknown",
+            answer="分かる範囲で短く整理します。",
+            response_source="deterministic_fallback",
+        ),
+        intent="broad_discovery",
+    )
+
+    assert "市場テーマとセクター" in turn["answer"]
+    assert "ランキングで条件を絞って比較" in turn["answer"]
+    assert "対象銘柄を特定できませんでした" not in turn["answer"]
+    assert turn["assistant_action_card_level"] == "1"
+    assert turn["assistant_tool_plan"] == ""
+
+
+def test_copilot_self_introduction_uses_user_name_without_action_plan():
+    turn = _turn_from_response(
+        copilot_context_options()[0],
+        "こんにちは！あなたの名前は何ですか？私の名前はYUKIです",
+        AssistantResponse(
+            intent="unknown",
+            answer="分かる範囲で短く整理します。",
+            response_source="deterministic_fallback",
+        ),
+        intent="identity",
+    )
+
+    assert "YUKIさん" in turn["answer"]
+    assert "SMAIナビ" in turn["answer"]
+    assert turn["assistant_action_card_level"] == "0"
+    assert turn["assistant_tool_plan"] == ""
 
 
 def test_copilot_identity_and_capability_plain_text_do_not_require_section_cards():

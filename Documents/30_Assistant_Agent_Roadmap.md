@@ -96,7 +96,14 @@ Status: 30-G2 MVP implemented. `workflow_runtime.retry_step()` を追加し、SM
 - Loading Modal News Readability Polish: 市場ヘッドラインをカテゴリbadge・2行title・source metadata付きmini news cardへ変更し、no-cache案内を追加
 - Investment Radar cache由来のloading headlines
 - LLM準備中・失敗時のdeterministic fallback
+- Assistant intent flexibility
+- Concept explanation mode
+- Broad discovery mode
+- Action card restraint policy
+- Explicit user intent driven navigation
 
-Status: first slice implemented. `tests/fixtures/assistant_scenarios.json` に固定12シナリオを追加し、Intent Router / Conversation Mode / entity resolutionをnetwork-freeで回帰確認する。親SMAIはAssistant初回描画時に設定単位で重複しないbackground warmupを開始し、UIをブロックせず、準備中・準備完了・degraded・failed・timeoutを保持する。準備中は軽量なSMAIロードカードと既存ニュースキャッシュ（なければbundled sample）を最大5件表示する。同期ニュース取得、LLM必須化、自動売買、スコア・予測・ランキング変更は行わない。
+Status: first slice implemented. `tests/fixtures/assistant_scenarios.json` に固定16シナリオを追加し、Intent Router / Conversation Mode / entity resolution / Action Card levelをnetwork-freeで回帰確認する。親SMAIはAssistant初回描画時に設定単位で重複しないbackground warmupを開始し、UIをブロックせず、準備中・準備完了・degraded・failed・timeoutを保持する。準備中は軽量なSMAIロードカードと既存ニュースキャッシュ（なければbundled sample）を最大5件表示する。同期ニュース取得、LLM必須化、自動売買、スコア・予測・ランキング変更は行わない。
 
 Loading UI polish slice: 投資レーダー既存assetを56pxのヘッダーアイコンとして再利用し、asset欠損時はCSSミニレーダーへfallbackする。warming中は2秒間隔のStreamlit fragmentでprocess-local warmup状態だけを監視し、ready / failed / timeout検知時にattempt単位のガード付きで1回だけ通常画面を再描画する。ready後はloading panelを残さず、fallback時も入力欄・相談カード・deterministic回答を利用できる。再描画処理は入力widget、chat history、workflow sessionを変更しない。
+
+Intent flexibility slice: 親SMAIのdeterministic policyでAction CardをLevel 0〜2に分け、雑談・自己紹介・用語説明ではカードを非表示、広いテーマ/セクター相談では文章内の軽い案内、明確な操作・調査・比較・作成依頼だけでTool Plan / Guided Workflowを表示する。銘柄未指定の広い相談は失敗ではなくBroad Discoveryとして扱い、特定銘柄の外部取得を開始しない。

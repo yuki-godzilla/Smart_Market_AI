@@ -3455,3 +3455,11 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Copilot unit/UI tests 62件、Ruff、Black helperを通過。
 - Real Streamlit Playwrightでready / failed fallback / recovered / no-cacheの4状態、スクロール前後の固定位置、不要文言の非表示を確認。
 - Full local checks: 1713 passed / 2 skipped、Ruff / Black passed。
+
+## 2026-06-21 Phase 30-H - Intent flexibility / Action Card restraint
+
+- Intent Routerに自己紹介、用語説明、Broad Discovery、候補探索、銘柄分析、ニュース、データ品質、レポート作成の分類を追加。
+- 親SMAIのdeterministic Action Card policyをLevel 0〜2で実装し、雑談・自己紹介・用語説明・広い探索相談からTool Plan / Guided Workflowを抑制。
+- セクター用語説明、銘柄未指定のテーマ/セクター探索、YUKIさん自己紹介fallbackを追加し、明確なランキング/コックピット/ニュース/レポート依頼では既存確認導線を維持。
+- data-driven scenario fixtureとPlaywright scenario smokeを、カードなし/軽い案内/明確なカード表示の回帰へ拡張。
+- Assistant関連テストは209 passed / 1 skipped。Playwright scenario smokeは16件pass。Full local checksは1728 passed / 2 skipped、Ruff / Black passed。

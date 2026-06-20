@@ -166,6 +166,21 @@ def route_assistant_conversation_mode(message: str) -> AssistantConversationMode
             matched_terms=normal_matches,
         )
 
+    if _is_broad_discovery_request(normalized):
+        return AssistantConversationModeDecision(
+            conversation_mode="soft_research_suggestion",
+            intent="investment_material_scan",
+            confidence=0.82,
+            requires_research=False,
+            requires_approval=False,
+            reason=(
+                "特定銘柄ではなくテーマ・セクターを探す相談のため、"
+                "外部取得を始めず探索観点を整理します。"
+            ),
+            tool_plan_enabled=False,
+            matched_terms=("broad_discovery",),
+        )
+
     ambiguous_fund_matches = _matched_terms(normalized, _AMBIGUOUS_FUND_TERMS)
     if ambiguous_fund_matches:
         return AssistantConversationModeDecision(
@@ -324,8 +339,27 @@ def _has_research_action_word(text: str) -> bool:
             "良さそう",
             "気にした",
             "注意",
+            "比較",
+            "開いて",
+            "深掘り",
         )
     )
+
+
+def _is_broad_discovery_request(text: str) -> bool:
+    subject = any(
+        term in text
+        for term in (
+            "銘柄やセクター",
+            "注目のテーマ",
+            "注目テーマ",
+            "強そうな業界",
+            "どのセクター",
+            "投資先の候補",
+        )
+    )
+    discovery = any(term in text for term in ("上がりそう", "良さそう", "注目", "候補", "ざっくり"))
+    return subject and discovery
 
 
 def _extract_symbol_or_theme_query(message: str) -> str | None:

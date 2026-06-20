@@ -4,7 +4,7 @@ from backend.assistant import detect_assistant_intent
 def test_detect_assistant_intent_report_request():
     decision = detect_assistant_intent("トヨタをニュースも含めてレポートにして")
 
-    assert decision.intent == "decision_report_draft"
+    assert decision.intent == "report_creation"
     assert decision.confidence in {"medium", "high"}
 
 
@@ -29,7 +29,7 @@ def test_detect_assistant_intent_forecast_request():
 def test_detect_assistant_intent_news_request():
     decision = detect_assistant_intent("ニュースを調べて")
 
-    assert decision.intent == "news_materials"
+    assert decision.intent == "news_lookup"
 
 
 def test_detect_assistant_intent_rag_request():
@@ -41,7 +41,7 @@ def test_detect_assistant_intent_rag_request():
 def test_detect_assistant_intent_identity_request():
     decision = detect_assistant_intent("あなたの名前は？")
 
-    assert decision.intent == "identity"
+    assert decision.intent == "self_introduction"
 
 
 def test_detect_assistant_intent_capability_request():
@@ -50,7 +50,25 @@ def test_detect_assistant_intent_capability_request():
     assert decision.intent == "capability_help"
 
 
-def test_detect_assistant_intent_unknown_falls_back_to_free_chat():
+def test_detect_assistant_intent_greeting_is_smalltalk():
     decision = detect_assistant_intent("こんにちは")
 
-    assert decision.intent == "free_chat"
+    assert decision.intent == "smalltalk"
+
+
+def test_detect_assistant_intent_concept_explanation():
+    decision = detect_assistant_intent("セクターの意味わかりますか？")
+
+    assert decision.intent == "concept_explanation"
+
+
+def test_detect_assistant_intent_broad_discovery():
+    decision = detect_assistant_intent("今後上がりそうな銘柄やセクターについて教えてほしいな")
+
+    assert decision.intent == "theme_or_sector_discovery"
+
+
+def test_detect_assistant_intent_explicit_candidate_search():
+    decision = detect_assistant_intent("半導体関連の候補銘柄をランキングで比較したい")
+
+    assert decision.intent == "stock_candidate_search"

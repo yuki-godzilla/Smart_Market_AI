@@ -2,6 +2,11 @@ from backend.assistant.action_audit import (
     AssistantActionAuditEntry,
     build_assistant_action_audit_entry,
 )
+from backend.assistant.action_card_policy import (
+    AssistantActionCardDecision,
+    AssistantActionCardLevel,
+    decide_assistant_action_cards,
+)
 from backend.assistant.action_execution import AssistantActionExecutor
 from backend.assistant.action_result import (
     ActionExecutionStatus,
@@ -270,6 +275,9 @@ __all__ = [
     "create_assistant_service_from_settings",
     "build_assistant_research_tool_plan",
     "detect_assistant_intent",
+    "AssistantActionCardDecision",
+    "AssistantActionCardLevel",
+    "decide_assistant_action_cards",
     "evaluate_agent_artifacts",
     "evaluate_agent_evaluation_case",
     "evaluate_raw_planner_response",

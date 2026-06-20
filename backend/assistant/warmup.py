@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
@@ -12,7 +13,13 @@ AssistantWarmupState = Literal[
     "disabled",
     "not_started",
     "warming",
+    "gateway_unreachable",
+    "provider_unavailable",
+    "model_missing",
+    "model_loading",
+    "retrying",
     "ready",
+    "recovered",
     "degraded",
     "fallback",
     "failed",
@@ -29,15 +36,18 @@ class AssistantWarmupStatus:
     completed_at: datetime | None = None
     diagnostic: AssistantGatewayDiagnostic | None = None
     attempt: int = 0
+    max_attempts: int = 1
+    last_failure_state: AssistantWarmupState | None = None
 
 
 class AssistantWarmupManager:
-    """Thread-safe, non-blocking startup probe with duplicate prevention."""
+    """Thread-safe background startup probe with bounded retries."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._status = AssistantWarmupStatus()
         self._thread: threading.Thread | None = None
+        self._recovering = False
 
     def status(self) -> AssistantWarmupStatus:
         with self._lock:
@@ -48,7 +58,11 @@ class AssistantWarmupManager:
         probe: Callable[[], AssistantGatewayDiagnostic],
         *,
         enabled: bool = True,
+        max_attempts: int = 1,
+        retry_backoff_seconds: float = 0.0,
+        sleep: Callable[[float], None] = time.sleep,
     ) -> bool:
+        max_attempts = max(1, max_attempts)
         with self._lock:
             if not enabled:
                 self._status = AssistantWarmupStatus(
@@ -62,51 +76,122 @@ class AssistantWarmupManager:
             if self._status.state != "not_started":
                 return False
             now = datetime.now(UTC)
+            next_attempt = self._status.attempt + 1
             self._status = AssistantWarmupStatus(
                 state="warming",
                 step="LLM Gatewayに接続中",
                 message="準備中もSMAI標準ナビを利用できます。",
                 started_at=now,
-                attempt=self._status.attempt + 1,
+                attempt=next_attempt,
+                max_attempts=max_attempts,
             )
             self._thread = threading.Thread(
                 target=self._run,
-                args=(probe,),
+                args=(probe, max_attempts, retry_backoff_seconds, sleep, next_attempt),
                 name="smai-assistant-warmup",
                 daemon=True,
             )
             self._thread.start()
             return True
 
-    def retry(self, probe: Callable[[], AssistantGatewayDiagnostic]) -> bool:
+    def retry(
+        self,
+        probe: Callable[[], AssistantGatewayDiagnostic],
+        *,
+        max_attempts: int = 1,
+        retry_backoff_seconds: float = 0.0,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> bool:
         with self._lock:
-            if self._status.state == "warming":
+            if self._status.state in {"warming", "retrying", "model_loading"}:
                 return False
+            self._recovering = self._status.state in {
+                "fallback",
+                "failed",
+                "timeout",
+                "degraded",
+                "gateway_unreachable",
+                "provider_unavailable",
+                "model_missing",
+            }
             self._status = replace(self._status, state="not_started")
-        return self.start(probe)
+        return self.start(
+            probe,
+            max_attempts=max_attempts,
+            retry_backoff_seconds=retry_backoff_seconds,
+            sleep=sleep,
+        )
 
-    def _run(self, probe: Callable[[], AssistantGatewayDiagnostic]) -> None:
-        try:
-            diagnostic = probe()
-        except TimeoutError:
-            self._complete(
-                state="timeout",
-                step="LLM応答が時間切れになりました",
-                message="通常回答で対応中です。後から再確認できます。",
-            )
-        except Exception:
-            self._complete(
-                state="failed",
-                step="LLM Gatewayを確認できませんでした",
-                message="Gateway未接続のため、通常回答で対応中です。",
-            )
-        else:
-            state, step, message = _status_from_diagnostic(diagnostic)
-            self._complete(
-                state=state,
-                step=step,
-                message=message,
-                diagnostic=diagnostic,
+    def _run(
+        self,
+        probe: Callable[[], AssistantGatewayDiagnostic],
+        max_attempts: int,
+        retry_backoff_seconds: float,
+        sleep: Callable[[float], None],
+        first_attempt: int,
+    ) -> None:
+        last_diagnostic: AssistantGatewayDiagnostic | None = None
+        last_failure: AssistantWarmupState = "failed"
+        for offset in range(max_attempts):
+            attempt = first_attempt + offset
+            if offset:
+                delay = retry_backoff_seconds * offset
+                self._update_retrying(attempt, max_attempts, last_failure, delay)
+                if delay:
+                    sleep(delay)
+            try:
+                diagnostic = probe()
+            except TimeoutError:
+                last_failure = "timeout"
+                diagnostic = None
+            except Exception:
+                last_failure = "gateway_unreachable"
+                diagnostic = None
+            else:
+                last_diagnostic = diagnostic
+                state, step, message = _status_from_diagnostic(diagnostic)
+                if state == "ready":
+                    with self._lock:
+                        recovered = self._recovering
+                        self._recovering = False
+                    self._complete(
+                        state="recovered" if recovered else "ready",
+                        step="モデル応答の準備完了",
+                        message=("LLM接続が復旧しました。" if recovered else message),
+                        diagnostic=diagnostic,
+                        attempt=attempt,
+                    )
+                    return
+                last_failure = state
+                if state == "model_missing":
+                    break
+            if offset + 1 >= max_attempts:
+                break
+        self._complete(
+            state="fallback",
+            step=_failure_step(last_failure),
+            message="LLMを確認できないため、SMAI標準ナビで回答します。",
+            diagnostic=last_diagnostic,
+            attempt=first_attempt + min(max_attempts, offset + 1) - 1,
+            last_failure_state=last_failure,
+        )
+
+    def _update_retrying(
+        self,
+        attempt: int,
+        max_attempts: int,
+        failure: AssistantWarmupState,
+        delay: float,
+    ) -> None:
+        with self._lock:
+            self._status = replace(
+                self._status,
+                state="retrying",
+                step=f"LLM接続を再確認中 ({attempt}/{max_attempts})",
+                message=f"{delay:.0f}秒待って再接続しています。",
+                attempt=attempt,
+                max_attempts=max_attempts,
+                last_failure_state=failure,
             )
 
     def _complete(
@@ -116,6 +201,8 @@ class AssistantWarmupManager:
         step: str,
         message: str,
         diagnostic: AssistantGatewayDiagnostic | None = None,
+        attempt: int | None = None,
+        last_failure_state: AssistantWarmupState | None = None,
     ) -> None:
         with self._lock:
             self._status = replace(
@@ -125,6 +212,8 @@ class AssistantWarmupManager:
                 message=message,
                 completed_at=datetime.now(UTC),
                 diagnostic=diagnostic,
+                attempt=self._status.attempt if attempt is None else attempt,
+                last_failure_state=last_failure_state,
             )
 
 
@@ -134,14 +223,23 @@ def _status_from_diagnostic(
     if diagnostic.status == "ready":
         return "ready", "モデル応答の準備完了", "LLM: 準備完了"
     if diagnostic.status == "gateway_timeout":
-        return "timeout", "LLM起動確認が時間切れ", "通常回答で対応中です。"
-    if diagnostic.status in {"provider_unavailable", "model_missing"}:
-        return (
-            "degraded",
-            "モデル準備を確認できません",
-            "fallbackありで利用できます。",
-        )
-    return "failed", "LLM Gatewayを確認できません", "fallbackありで利用できます。"
+        return "timeout", "LLM応答待ちが時間切れ", "接続を再確認します。"
+    if diagnostic.status == "gateway_unavailable":
+        return "gateway_unreachable", "LLM Gateway未接続", "接続を再確認します。"
+    if diagnostic.status == "provider_unavailable":
+        return "provider_unavailable", "LLM provider未接続", "providerを再確認します。"
+    if diagnostic.status == "model_missing":
+        return "model_missing", "選択モデルを確認できません", "別の利用可能モデルを選べます。"
+    return "failed", "LLM Gatewayを確認できません", "接続を再確認します。"
+
+
+def _failure_step(state: AssistantWarmupState) -> str:
+    return {
+        "timeout": "LLM応答待ちが時間切れ",
+        "gateway_unreachable": "LLM Gateway未接続",
+        "provider_unavailable": "LLM provider未接続",
+        "model_missing": "選択モデルが見つかりません",
+    }.get(state, "LLM接続を確認できません")
 
 
 _MANAGERS: dict[str, AssistantWarmupManager] = {}

@@ -405,6 +405,34 @@ def test_http_assistant_gateway_diagnose_reports_missing_model():
     assert diagnostic.installed_models == ("qwen3:8b",)
 
 
+def test_http_assistant_gateway_diagnose_preserves_selected_available_model():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "provider": "ollama",
+                "base_url": "http://localhost:11434",
+                "default_profile": "notebook_dev",
+                "default_model": "qwen3:1.7b",
+                "installed_models": ["qwen3:1.7b", "qwen3:8b"],
+                "configured_model_installed": True,
+            },
+            request=request,
+        )
+
+    client = HttpAssistantGatewayClient(
+        base_url="http://gateway.local",
+        model="qwen3:8b",
+        preferred_profile="desktop_fast",
+        transport=httpx.MockTransport(handler),
+    )
+
+    diagnostic = client.diagnose()
+
+    assert diagnostic.status == "ready"
+    assert diagnostic.model == "qwen3:8b"
+
+
 def test_assistant_service_factory_uses_template_when_gateway_disabled():
     service = create_assistant_service_from_settings(Settings())
 

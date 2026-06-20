@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from backend.assistant.loading_headlines import load_assistant_loading_headlines
+from backend.assistant.loading_headlines import _headline_priority, load_assistant_loading_headlines
 from backend.news import build_demo_news_dashboard_snapshot, save_cached_news_dashboard_snapshot
 
 
@@ -36,17 +36,18 @@ def test_loading_headlines_uses_news_cache_default_when_directory_is_omitted(mon
     result = load_assistant_loading_headlines()
 
     assert calls == 1
-    assert result.source == "sample"
+    assert result.source == "unavailable"
+    assert result.items == ()
 
 
-def test_loading_headlines_use_sample_for_missing_or_malformed_cache(tmp_path):
+def test_loading_headlines_use_empty_fallback_for_missing_or_malformed_cache(tmp_path):
     now = datetime(2026, 6, 19, 15, 30, tzinfo=UTC)
     (tmp_path / "news_dashboard_snapshot.json").write_text("{bad", encoding="utf-8")
 
     result = load_assistant_loading_headlines(cache_dir=tmp_path, now=now)
 
-    assert result.source == "sample"
-    assert result.items
+    assert result.source == "unavailable"
+    assert result.items == ()
 
 
 def test_loading_headlines_mark_old_cache_stale(tmp_path):
@@ -63,3 +64,14 @@ def test_loading_headlines_mark_old_cache_stale(tmp_path):
     )
 
     assert result.stale is True
+
+
+def test_loading_headline_priority_prefers_broad_market_then_earnings():
+    categories = ["半導体・AI", "決算・業績修正", "米国株", "地政学・マクロリスク"]
+
+    assert sorted(categories, key=_headline_priority) == [
+        "地政学・マクロリスク",
+        "米国株",
+        "決算・業績修正",
+        "半導体・AI",
+    ]

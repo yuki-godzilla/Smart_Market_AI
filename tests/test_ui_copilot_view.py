@@ -28,6 +28,8 @@ from ui.views.copilot import (
     AssistantStatusEvent,
     CopilotGatewayRuntimeConfig,
     _apply_copilot_warmup_auto_transition,
+    _assistant_model_choice_label,
+    _assistant_model_display,
     _assistant_runtime_status_for_header,
     _chat_header_html,
     _context_for_llm,
@@ -46,6 +48,8 @@ from ui.views.copilot import (
     _tool_plan_with_approved_external_fetch,
     _turn_from_response,
     _with_cached_gateway_diagnostic,
+    assistant_loading_headline_cards_html,
+    assistant_loading_headline_category_tone,
     copilot_answer_detail_html,
     copilot_context_label,
     copilot_context_options,
@@ -58,6 +62,7 @@ from ui.views.copilot import (
     copilot_turn_plain_text,
     derive_assistant_runtime_status,
     investment_radar_loading_icon_html,
+    should_auto_scroll_chat,
 )
 
 
@@ -145,11 +150,18 @@ def test_copilot_loading_panel_uses_investment_radar_asset_and_hides_when_ready(
     )
 
     assert 'data-testid="assistant-loading-radar-icon"' in markup
+    assert 'data-testid="assistant-loading-modal"' in markup
+    assert 'data-testid="assistant-loading-animation"' in markup
+    assert 'section[data-testid="stSidebar"]' in markup
     assert 'alt="投資レーダー"' in markup
     assert "SMAIナビが市場の気配を確認中です" in markup
     assert "市場ヘッドライン" in markup
     assert "前回取得: 2026-06-20 05:50" in markup
     assert "前回ニュース" in markup
+    assert 'data-testid="assistant-loading-news-card"' in markup
+    assert "smai-warmup-news-badge--indigo" in markup
+    assert "-webkit-line-clamp:2" in markup
+    assert "<ul>" not in markup
     assert (
         copilot_loading_panel_html(
             _warmup_status("ready"),
@@ -165,6 +177,26 @@ def test_copilot_loading_radar_icon_has_css_fallback():
     assert 'data-testid="assistant-loading-radar-icon"' in markup
     assert "smai-warmup-radar-icon--fallback" in markup
     assert 'aria-label="投資レーダー"' in markup
+
+
+def test_loading_headline_cards_have_category_tones_and_empty_fallback():
+    assert assistant_loading_headline_category_tone("地政学・マクロ") == "cyan"
+    assert assistant_loading_headline_category_tone("決算・業績修正") == "amber"
+    assert assistant_loading_headline_category_tone("小売・消費") == "mint"
+    assert assistant_loading_headline_category_tone("半導体・AI") == "violet"
+    assert assistant_loading_headline_category_tone("金利・為替") == "indigo"
+
+    empty = AssistantLoadingHeadlines(
+        items=(),
+        updated_at=datetime(2026, 6, 20, tzinfo=UTC),
+        source="unavailable",
+        stale=False,
+    )
+    markup = assistant_loading_headline_cards_html(empty)
+
+    assert 'data-testid="assistant-loading-headlines-empty"' in markup
+    assert "市場ヘッドラインを準備中です" in markup
+    assert "前回取得した市場ヘッドライン" in markup
 
 
 def test_copilot_warmup_auto_transition_is_once_only_and_preserves_session_values():
@@ -193,6 +225,27 @@ def test_copilot_warmup_auto_transition_handles_failed_and_timeout_attempts():
     assert (
         _apply_copilot_warmup_auto_transition(_warmup_status("timeout", attempt=2), state) is True
     )
+
+
+def test_chat_auto_scroll_only_when_message_count_increases():
+    assert should_auto_scroll_chat(1, 2) is True
+    assert should_auto_scroll_chat(2, 2) is False
+    assert should_auto_scroll_chat(3, 2) is False
+
+
+def test_model_selector_uses_one_user_facing_model_list():
+    source = Path("ui/views/copilot.py").read_text(encoding="utf-8")
+
+    assert 'st.radio(\n            "利用可能モデル"' in source
+    assert 'st.selectbox(\n            "利用可能モデル"' not in source
+    assert '"用途プロファイル"' not in source
+    assert "現在: Ollama / {model} / {profile}" not in source
+    assert _assistant_model_display("qwen3:30b") == (
+        "最高精度",
+        "最高精度 / 詳細分析・レポート向け / 高負荷",
+    )
+    assert "[自動選択]" in _assistant_model_choice_label("qwen3:30b", badge="自動選択")
+    assert "[選択中]" in _assistant_model_choice_label("qwen3:14b", badge="選択中")
 
 
 def test_copilot_layout_uses_shared_wide_lane():
@@ -339,20 +392,20 @@ def test_copilot_llm_model_option_normalizes_mismatched_profile_and_model():
 
     assert profile == "desktop_analysis"
     assert model == "qwen3:14b"
-    assert purpose == "デスクトップ高精度 / 銘柄分析・RAG"
+    assert purpose == "高精度 / 銘柄分析・RAG向け / 高負荷"
 
 
 def test_copilot_llm_model_option_label_round_trips():
     label = _llm_model_option_label(
         "desktop_analysis",
         "qwen3:14b",
-        "デスクトップ高精度 / 銘柄分析・RAG",
+        "高精度 / 銘柄分析・RAG向け / 高負荷",
     )
 
     assert _llm_model_option_from_label(label) == (
         "desktop_analysis",
         "qwen3:14b",
-        "デスクトップ高精度 / 銘柄分析・RAG",
+        "高精度 / 銘柄分析・RAG向け / 高負荷",
     )
 
 

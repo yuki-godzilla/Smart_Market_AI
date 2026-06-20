@@ -3416,3 +3416,26 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - passed: project `tools/run_local_checks.py` (`1702 passed, 2 skipped`; Ruff and Black passed; 32 existing warnings).
 - in-app Browser was unavailable in this session, so the Playwright production-HTML screenshot was used for visual QA.
 - Added and passed `tools/playwright_assistant_loading_streamlit_smoke.py`: real Streamlit + delayed fake Gateway verified ready auto transition with draft retention and failed-Gateway fallback with enabled input / no stack trace.
+## 2026-06-20 Phase 30-H - Loading modal / recovery / dynamic model selection
+
+- Main領域だけを覆うloading modal、bounded retry、failure分類、fallback manual recovery、`recovered` auto transitionを追加。
+- Gateway `/models` をmetadata付きで後方互換拡張し、実在モデル・選択優先順位・missing model警告をAssistant UIへ追加。
+- 新着メッセージ件数が増えた時だけのchat auto-scrollと、warmup / model discoveryのunit regressionを追加。
+- Targeted parent tests: 82 passed. Gateway contract tests: 10 passed. Full local checks: 1707 passed / 2 skipped、Ruff / Black passed.
+- Real Streamlit Playwright: ready、failed fallback、manual recovered の3シナリオがpass。loading modalのmain遮断とsidebar維持も確認。
+
+## 2026-06-20 Phase 30-H - LLM model list unification
+
+- `利用可能モデル` selectboxと`用途プロファイル` radioの二重UIを、特色・用途・負荷・選択ラベル付きの単一radioへ統合。
+- 内部profile名をheader / composer / model detailから隠し、内部mappingだけを維持。
+- 自動fallback selectionを更新日時基準から高性能モデル優先へ変更し、明示選択・前回・configの優先順位は維持。
+- Targeted model/Gateway/Copilot tests: 80 passed。Real Streamlit Playwrightのready / fallback / recoveredとqwen3:8b手動選択保持もpass。
+- Full local checks: 1710 passed / 2 skipped、Ruff / Black passed。
+
+## 2026-06-21 Phase 30-H - Loading modal news readability polish
+
+- Loading headlineの箇条書きを、カテゴリbadge・2行title・source / 取得状態を分離した最大5件のmini news cardへ変更。
+- 市場全体からsector材料までの表示priority、5系統の控えめなcategory color、mobile layout、古いcache注記を追加。
+- cache欠損時のdemo snapshotを廃止し、同期外部取得なしの案内cardへ変更。
+- Unit/UI 67件と、real Streamlit Playwrightのcached / no-cache / ready / fallback / recoveredを確認。
+- Full local checks: 1712 passed / 2 skipped、Ruff / Black passed。

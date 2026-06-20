@@ -32,12 +32,19 @@ class ReadinessResponse(GatewayBaseModel):
     install_hint: str | None = Field(default=None, min_length=1)
 
 
+class ModelInfo(GatewayBaseModel):
+    name: str = Field(min_length=1)
+    modified_at: str | None = None
+    size: int | None = Field(default=None, ge=0)
+
+
 class ModelsResponse(GatewayBaseModel):
     provider: str = Field(min_length=1)
     base_url: str = Field(min_length=1)
     default_profile: str = Field(min_length=1)
     default_model: str = Field(min_length=1)
     installed_models: list[str] = Field(default_factory=list)
+    models: list[ModelInfo] = Field(default_factory=list)
     configured_model_installed: bool
     install_hint: str | None = Field(default=None, min_length=1)
 

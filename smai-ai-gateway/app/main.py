@@ -5,7 +5,13 @@ from fastapi import FastAPI, HTTPException
 from app.clients.ollama_client import OllamaClient, OllamaClientError
 from app.config import get_settings
 from app.schemas.chat import ChatRequest, ChatResponse
-from app.schemas.common import ErrorDetail, HealthResponse, ModelsResponse, ReadinessResponse
+from app.schemas.common import (
+    ErrorDetail,
+    HealthResponse,
+    ModelInfo,
+    ModelsResponse,
+    ReadinessResponse,
+)
 from app.schemas.context_answer import ContextAnswerRequest, ContextAnswerResponse
 from app.schemas.llm_factor import LLMFactorGenerationRequest, LLMFactorGenerationResponse
 from app.schemas.summarize import SummarizeRequest, SummarizeResponse
@@ -73,7 +79,8 @@ def readiness() -> ReadinessResponse:
 def models() -> ModelsResponse:
     try:
         client = OllamaClient(settings)
-        installed_models = client.list_models()
+        model_details = client.list_model_details()
+        installed_models = sorted(str(item["name"]) for item in model_details)
     except OllamaClientError as exc:
         raise provider_error_to_http_exception(exc) from exc
     default_profile = model_profile_for_name(settings.DEFAULT_LLM_PROFILE, settings=settings)
@@ -85,6 +92,7 @@ def models() -> ModelsResponse:
         default_profile=settings.DEFAULT_LLM_PROFILE,
         default_model=configured_model,
         installed_models=installed_models,
+        models=[ModelInfo(**item) for item in model_details],
         configured_model_installed=installed,
         install_hint=None if installed else f"Please run: ollama pull {configured_model}",
     )

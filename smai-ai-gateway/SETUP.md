@@ -235,6 +235,8 @@ Remove-Item Env:SMAI_ASSISTANT_GATEWAY_MODEL
 
 Phase 30-H以降は、親SMAIがAssistant初回描画時にbackgroundで `GET /models` を確認します。この確認はStreamlit初期表示を待たせず、失敗しても通常UIとdeterministic fallbackを利用できます。chat completionを使う追加warmupは親設定で既定OFFです。
 
+`GET /models` の `models` 配列には `name`、`modified_at`、`size` が含まれ、親SMAIの動的モデル選択と最新モデル判定に使われます。従来の `installed_models` も互換性のため維持します。
+
 準備状態は親SMAI画面内で自動監視され、ready後は手動更新なしでloading panelが消えます。失敗・timeout時も入力欄は有効なままfallbackへ移り、Gatewayの再起動や画面更新を必須にはしません。
 画面上部は SMAIナビ header、チャット幅に揃えた `新しい会話` action、参照中の材料 chips、6つの相談カード、下部 composer の構成です。初回のSMAIナビ発話は、ユーザー送信またはカード選択後にだけ表示します。
 

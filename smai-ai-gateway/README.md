@@ -203,7 +203,7 @@ SMAI_OLLAMA_MODEL=qwen3:1.7b
 SMAI_OLLAMA_BASE_URL=http://localhost:11434
 ```
 
-`GET /health/ready` は Gateway process、Ollama API、設定中 model の導入状態をまとめて返します。`GET /models` は Ollama の導入済み model を確認し、設定中 model が未導入なら `ollama pull <model>` の案内を返します。
+`GET /health/ready` は Gateway process、Ollama API、設定中 model の導入状態をまとめて返します。`GET /models` は後方互換の `installed_models` に加え、Ollama `/api/tags` 由来の `models`（name / modified_at / size）を返します。設定中 model が未導入なら `ollama pull <model>` の案内を返します。
 
 親SMAIのPhase 30-Hでは、Assistant初回描画をブロックせずにbackground warmupを開始し、既存の `GET /models` を軽量readiness確認として利用します。新しいGateway endpointは追加せず、準備中・失敗・timeout時の状態表示、ニュースキャッシュ表示、deterministic fallbackは親SMAI側の責務です。
 

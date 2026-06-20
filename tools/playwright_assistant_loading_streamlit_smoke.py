@@ -27,7 +27,9 @@ class _GatewayHandler(BaseHTTPRequestHandler):
         if self.path != "/models":
             self.send_error(404)
             return
-        if getattr(server, "response_mode", "ready") == "failed":
+        server.request_count = getattr(server, "request_count", 0) + 1
+        mode = getattr(server, "response_mode", "ready")
+        if mode == "failed" or (mode == "recover" and server.request_count <= 4):
             self._json_response(503, {"detail": "fake gateway unavailable"})
             return
         self._json_response(
@@ -37,7 +39,19 @@ class _GatewayHandler(BaseHTTPRequestHandler):
                 "base_url": "http://127.0.0.1:11434",
                 "default_profile": "notebook_dev",
                 "default_model": "qwen3:1.7b",
-                "installed_models": ["qwen3:1.7b"],
+                "installed_models": ["qwen3:1.7b", "qwen3:8b"],
+                "models": [
+                    {
+                        "name": "qwen3:1.7b",
+                        "modified_at": "2026-06-19T10:00:00Z",
+                        "size": 1800000000,
+                    },
+                    {
+                        "name": "qwen3:8b",
+                        "modified_at": "2026-06-20T10:00:00Z",
+                        "size": 8000000000,
+                    },
+                ],
                 "configured_model_installed": True,
             },
         )
@@ -47,11 +61,14 @@ class _GatewayHandler(BaseHTTPRequestHandler):
 
     def _json_response(self, status: int, payload: dict[str, object]) -> None:
         body = json.dumps(payload).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+            return
 
 
 def main() -> None:
@@ -79,6 +96,18 @@ def main() -> None:
             mode="failed",
             response_delay=2.0,
         )
+        results["recovered"] = _run_scenario(
+            browser=browser,
+            output_dir=output_dir,
+            mode="recover",
+            response_delay=0.2,
+        )
+        results["no_cache"] = _run_scenario(
+            browser=browser,
+            output_dir=output_dir,
+            mode="no_cache",
+            response_delay=4.0,
+        )
         browser.close()
     print(json.dumps(results, ensure_ascii=False, indent=2))
 
@@ -87,7 +116,7 @@ def _run_scenario(
     *,
     browser,
     output_dir: Path,
-    mode: Literal["ready", "failed"],
+    mode: Literal["ready", "failed", "recover", "no_cache"],
     response_delay: float,
 ) -> dict[str, str]:
     gateway_port = _free_port()
@@ -114,6 +143,8 @@ def _run_scenario(
                         "chat_enabled": False,
                         "health_timeout_seconds": 8,
                         "timeout_seconds": 12,
+                        "retry_count": 2,
+                        "retry_backoff_seconds": 0.2,
                     },
                 }
             },
@@ -133,6 +164,10 @@ def _run_scenario(
             "SMAI_SYMBOL_STARTUP_REFRESH_ENABLED": "0",
         }
     )
+    if mode == "no_cache":
+        empty_cache_dir = output_dir / "no_cache_empty"
+        empty_cache_dir.mkdir(parents=True, exist_ok=True)
+        env["SMAI_CACHE_DIR"] = str(empty_cache_dir)
     process = subprocess.Popen(
         [
             sys.executable,
@@ -165,21 +200,67 @@ def _run_scenario(
         loading = page.locator(".smai-warmup-panel")
         loading.get_by_text("LLM起動確認中", exact=False).wait_for(timeout=30000)
         loading.locator('[data-testid="assistant-loading-radar-icon"]').wait_for()
+        loading.locator('[data-testid="assistant-loading-animation"]').wait_for()
+        if mode == "no_cache":
+            loading.locator('[data-testid="assistant-loading-headlines-empty"]').wait_for()
+            assert loading.locator('[data-testid="assistant-loading-news-card"]').count() == 0
+        else:
+            news_cards = loading.locator('[data-testid="assistant-loading-news-card"]')
+            news_cards.first.wait_for()
+            assert 3 <= news_cards.count() <= 5
+            assert news_cards.first.locator(
+                '[data-testid="assistant-loading-news-category"]'
+            ).is_visible()
+            assert news_cards.first.locator(
+                '[data-testid="assistant-loading-news-title"]'
+            ).is_visible()
+            assert news_cards.first.locator(
+                '[data-testid="assistant-loading-news-meta"]'
+            ).is_visible()
+            assert (news_cards.first.bounding_box() or {"width": 0})["width"] >= 480
+        modal = page.locator('[data-testid="assistant-loading-modal"]')
+        modal.wait_for()
+        sidebar = page.locator('section[data-testid="stSidebar"]')
+        assert sidebar.is_visible()
+        assert (sidebar.bounding_box() or {"x": 999})["x"] < (modal.bounding_box() or {"x": 0})["x"]
         draft = page.get_by_placeholder(
             "価格・予測・ニュース・根拠資料について確認したいことを入力..."
         )
-        draft.fill("入力途中のテキストを保持")
+        try:
+            draft.click(timeout=1000)
+            raise AssertionError("main composer must be blocked while loading modal is open")
+        except Exception as exc:  # Playwright actionability timeout is expected
+            if isinstance(exc, AssertionError):
+                raise
         page.screenshot(path=str(output_dir / f"streamlit_{mode}_loading.png"), full_page=True)
 
-        if mode == "ready":
+        if mode in {"ready", "no_cache"}:
             page.get_by_text("準備完了", exact=True).first.wait_for(timeout=30000)
             loading.wait_for(state="hidden", timeout=30000)
-            assert draft.input_value() == "入力途中のテキストを保持"
+            draft.fill("通常画面で入力できます")
+            if mode == "ready":
+                page.get_by_role("button", name="モデルを変更").click()
+                page.get_by_text("利用可能モデル", exact=True).wait_for(timeout=5000)
+                page.get_by_text("qwen3:8b", exact=False).last.wait_for(timeout=5000)
+                assert page.get_by_text("用途プロファイル", exact=True).count() == 0
+                assert page.get_by_role("combobox").count() == 0
+                page.get_by_text("qwen3:8b", exact=False).last.click()
+                page.get_by_text("AIモデル: qwen3:8b / バランス", exact=True).wait_for(
+                    timeout=30000
+                )
+                page.get_by_role("button", name="モデルを変更").click()
+                page.get_by_text("qwen3:8b  [選択中]", exact=False).wait_for(timeout=5000)
+                assert "desktop_fast" not in page.locator("body").inner_text()
         else:
-            page.get_by_text("LLM Gateway未接続", exact=False).first.wait_for(timeout=30000)
-            page.get_by_text("fallbackあり", exact=False).first.wait_for(timeout=30000)
+            fallback_panel = page.locator('[data-testid="assistant-fallback-panel"]')
+            fallback_panel.wait_for(timeout=30000)
+            modal.wait_for(state="hidden", timeout=30000)
             assert draft.is_enabled()
             assert "Traceback" not in page.locator("body").inner_text()
+            if mode == "recover":
+                page.get_by_role("button", name="LLM接続を再確認").first.click()
+                page.get_by_text("準備完了", exact=True).first.wait_for(timeout=30000)
+                fallback_panel.wait_for(state="hidden", timeout=30000)
         page.screenshot(path=str(output_dir / f"streamlit_{mode}_final.png"), full_page=True)
         return {"status": "ok", "url": base_url, "log": str(log_path)}
     finally:

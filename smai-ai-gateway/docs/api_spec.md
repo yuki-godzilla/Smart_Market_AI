@@ -395,6 +395,8 @@ model が未取得の場合:
 
 ## GET /models
 
+Responseは従来の `installed_models: string[]` に加え、`models: [{name, modified_at, size}]` を返す。詳細値はOllama `/api/tags` のローカル応答をそのまま型安全に縮約したもので、親UIはモデル一覧と更新日時による既定選択に利用できる。
+
 Ollama が起動しているか、設定中 model が導入済みかを確認します。
 
 ```json

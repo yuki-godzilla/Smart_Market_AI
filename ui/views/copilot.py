@@ -15,6 +15,7 @@ from uuid import uuid4
 
 import httpx
 import streamlit as st
+import streamlit.components.v1 as components
 
 from backend.assistant import (
     AssistantActionExecutor,
@@ -23,6 +24,7 @@ from backend.assistant import (
     AssistantGuidedWorkflow,
     AssistantLoadingHeadlines,
     AssistantMessage,
+    AssistantModelCatalog,
     AssistantResearchContextBundle,
     AssistantResearchToolPlan,
     AssistantResponse,
@@ -32,6 +34,7 @@ from backend.assistant import (
     AssistantWarmupStatus,
     AssistantWorkflowSession,
     HttpAssistantGatewayClient,
+    assistant_models_by_performance,
     assistant_research_bundle_to_decision_report_context,
     assistant_tool_results_from_external_research_failure,
     assistant_tool_results_from_external_research_fetch,
@@ -41,12 +44,15 @@ from backend.assistant import (
     build_assistant_research_context_bundle,
     build_assistant_research_tool_plan,
     detect_assistant_intent,
+    discover_assistant_models,
     execute_assistant_tool_plan,
     get_assistant_action,
     get_assistant_warmup_manager,
     load_assistant_loading_headlines,
+    parse_assistant_model_catalog,
     render_research_bundle_markdown_memo,
     route_assistant_conversation_mode,
+    select_assistant_model,
 )
 from backend.assistant import (
     apply_action_result as apply_assistant_workflow_action_result,
@@ -104,10 +110,15 @@ COPILOT_SUPPRESS_SUBMIT_STATE_KEY = "smai_copilot_suppress_next_submit"
 COPILOT_LLM_PROFILE_STATE_KEY = "smai_copilot_llm_profile"
 COPILOT_LLM_MODEL_STATE_KEY = "smai_copilot_llm_model"
 COPILOT_LLM_MODEL_RADIO_STATE_KEY = "smai_copilot_llm_model_radio"
+COPILOT_LLM_MODEL_USER_STATE_KEY = "smai_copilot_llm_model_user_selected"
+COPILOT_LLM_MODEL_CATALOG_STATE_KEY = "smai_copilot_llm_model_catalog"
+COPILOT_LLM_MODEL_REASON_STATE_KEY = "smai_copilot_llm_model_reason"
+COPILOT_LLM_MODEL_PICKER_OPEN_STATE_KEY = "smai_copilot_llm_model_picker_open"
 COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY = "smai_copilot_gateway_diagnostic"
 COPILOT_RUNTIME_STATUS_STATE_KEY = "smai_copilot_runtime_status"
 COPILOT_WARMUP_AUTO_TRANSITION_STATE_KEY = "smai_copilot_warmup_auto_transition"
 COPILOT_WARMUP_READY_NOTICE_STATE_KEY = "smai_copilot_warmup_ready_notice"
+COPILOT_CHAT_LAST_SCROLL_COUNT_STATE_KEY = "smai_copilot_chat_last_scroll_count"
 COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY = "pending_decision_report_draft"
 COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY = "smai_copilot_pending_action_confirm"
 COPILOT_ACTION_AUDIT_STATE_KEY = "smai_copilot_action_audit"
@@ -119,11 +130,11 @@ COPILOT_PENDING_STEP_DELAY_SECONDS = 0.34
 COPILOT_WARMUP_POLL_SECONDS = 2.0
 
 COPILOT_LLM_MODEL_OPTIONS: tuple[tuple[str, str, str], ...] = (
-    ("notebook_dev", "qwen3:1.7b", "ノートPC / 軽量開発"),
-    ("notebook_standard", "qwen3:4b", "ノートPC / 標準開発"),
-    ("desktop_fast", "qwen3:8b", "デスクトップ通常 / Copilot・要約"),
-    ("desktop_analysis", "qwen3:14b", "デスクトップ高精度 / 銘柄分析・RAG"),
-    ("desktop_heavy", "qwen3:30b", "高負荷分析 / 週次・月次レポート"),
+    ("notebook_dev", "qwen3:1.7b", "軽量・高速 / 短い相談向け / 低負荷"),
+    ("notebook_standard", "qwen3:4b", "標準 / 普段使い向け / 中低負荷"),
+    ("desktop_fast", "qwen3:8b", "バランス / 要約・確認向け / 中負荷"),
+    ("desktop_analysis", "qwen3:14b", "高精度 / 銘柄分析・RAG向け / 高負荷"),
+    ("desktop_heavy", "qwen3:30b", "最高精度 / 詳細分析・レポート向け / 高負荷"),
 )
 
 CopilotIntent = Literal[
@@ -505,18 +516,30 @@ def _selected_llm_profile_model(gateway: AssistantGatewayConfig) -> tuple[str, s
         or _model_for_profile(str(default_profile))
     )
     profile = str(st.session_state.get(COPILOT_LLM_PROFILE_STATE_KEY, default_profile))
-    model = str(st.session_state.get(COPILOT_LLM_MODEL_STATE_KEY, default_model))
-    radio_label = str(st.session_state.get(COPILOT_LLM_MODEL_RADIO_STATE_KEY, ""))
-    radio_option = _llm_model_option_from_label(radio_label)
-    if radio_option is not None:
-        profile, model, _ = radio_option
-        st.session_state[COPILOT_LLM_PROFILE_STATE_KEY] = profile
-        st.session_state[COPILOT_LLM_MODEL_STATE_KEY] = model
-    elif not _llm_profile_model_matches_option(profile, model):
-        profile, model, _ = _llm_model_option_for_profile_model(profile, model)
-        st.session_state[COPILOT_LLM_PROFILE_STATE_KEY] = profile
-        st.session_state[COPILOT_LLM_MODEL_STATE_KEY] = model
+    catalog = st.session_state.get(COPILOT_LLM_MODEL_CATALOG_STATE_KEY)
+    selection = select_assistant_model(
+        (
+            catalog
+            if isinstance(catalog, AssistantModelCatalog)
+            else AssistantModelCatalog((), datetime.now(UTC))
+        ),
+        user_selected=str(st.session_state.get(COPILOT_LLM_MODEL_USER_STATE_KEY, "")),
+        previous_selected=str(st.session_state.get(COPILOT_LLM_MODEL_STATE_KEY, "")),
+        configured_model=str(default_model),
+    )
+    model = selection.model
+    st.session_state[COPILOT_LLM_MODEL_REASON_STATE_KEY] = selection.reason
+    profile = _profile_for_model(model, fallback=profile)
+    st.session_state[COPILOT_LLM_PROFILE_STATE_KEY] = profile
+    st.session_state[COPILOT_LLM_MODEL_STATE_KEY] = model
     return profile, model
+
+
+def _profile_for_model(model: str, *, fallback: str = "notebook_dev") -> str:
+    for profile, option_model, _ in COPILOT_LLM_MODEL_OPTIONS:
+        if option_model == model:
+            return profile
+    return fallback
 
 
 def _model_for_profile(profile: str) -> str:
@@ -567,33 +590,85 @@ def _llm_model_option_for_profile_model(profile: str, model: str) -> tuple[str, 
 def _render_model_selector(
     runtime_config: CopilotGatewayRuntimeConfig,
 ) -> CopilotGatewayRuntimeConfig:
-    labels = _llm_model_option_labels()
-    current_index = next(
-        (
-            index
-            for index, (profile, model, _) in enumerate(COPILOT_LLM_MODEL_OPTIONS)
-            if profile == runtime_config.profile and model == runtime_config.model
-        ),
-        0,
+    catalog = st.session_state.get(COPILOT_LLM_MODEL_CATALOG_STATE_KEY)
+    available_models = (
+        [item.name for item in assistant_models_by_performance(catalog)]
+        if isinstance(catalog, AssistantModelCatalog) and catalog.models
+        else [model for _, model, _ in reversed(COPILOT_LLM_MODEL_OPTIONS)]
     )
-    radio_label = str(st.session_state.get(COPILOT_LLM_MODEL_RADIO_STATE_KEY, ""))
-    if radio_label in labels:
-        current_index = labels.index(radio_label)
-    profile, model, purpose = COPILOT_LLM_MODEL_OPTIONS[current_index]
+    if runtime_config.model not in available_models:
+        st.warning(f"選択中のモデル {runtime_config.model} は現在のモデル一覧にありません。")
+    model = runtime_config.model
+    if model not in available_models:
+        model = available_models[0]
+    profile = _profile_for_model(model, fallback=runtime_config.profile)
+    feature, _ = _assistant_model_display(model)
+    manual_model = str(st.session_state.get(COPILOT_LLM_MODEL_USER_STATE_KEY, ""))
+    stored_radio = str(st.session_state.get(COPILOT_LLM_MODEL_RADIO_STATE_KEY, ""))
+    if stored_radio not in available_models:
+        st.session_state.pop(COPILOT_LLM_MODEL_RADIO_STATE_KEY, None)
     st.session_state[COPILOT_LLM_PROFILE_STATE_KEY] = profile
     st.session_state[COPILOT_LLM_MODEL_STATE_KEY] = model
-    with st.popover(model, use_container_width=True):
-        st.caption("LLM model")
-        selected_label = st.radio(
-            "使用モデル",
-            labels,
-            index=current_index,
+    summary_col, change_col, reconnect_col = st.columns([0.46, 0.27, 0.27])
+    with summary_col:
+        st.markdown(f"**AIモデル: {model} / {feature}**")
+        st.caption(
+            f"自動選択: {st.session_state.get(COPILOT_LLM_MODEL_REASON_STATE_KEY, '既定値')}"
+            if manual_model != model
+            else "ユーザーが選択中"
+        )
+    with change_col:
+        if st.button("モデルを変更", key="copilot_toggle_model_picker", use_container_width=True):
+            is_open = bool(st.session_state.get(COPILOT_LLM_MODEL_PICKER_OPEN_STATE_KEY))
+            st.session_state[COPILOT_LLM_MODEL_PICKER_OPEN_STATE_KEY] = not is_open
+            st.rerun()
+    with reconnect_col:
+        if st.button("LLM接続を再確認", key="copilot_model_reconnect", use_container_width=True):
+            st.session_state.pop(COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY, None)
+            st.rerun()
+
+    if bool(st.session_state.get(COPILOT_LLM_MODEL_PICKER_OPEN_STATE_KEY)):
+        st.divider()
+        st.caption("モデルを変更")
+        selected_model = st.radio(
+            "利用可能モデル",
+            available_models,
+            index=(available_models.index(model) if model in available_models else 0),
+            format_func=lambda candidate: _assistant_model_choice_label(
+                candidate,
+                badge=(
+                    "選択中"
+                    if candidate == model and manual_model == model
+                    else "自動選択" if candidate == model else ""
+                ),
+            ),
             key=COPILOT_LLM_MODEL_RADIO_STATE_KEY,
         )
-        selected_index = labels.index(selected_label)
-        profile, model, purpose = COPILOT_LLM_MODEL_OPTIONS[selected_index]
-        st.caption(f"現在: Ollama / {model} / {profile}")
-        st.caption(purpose)
+        if selected_model != model:
+            model = selected_model
+            profile = _profile_for_model(model, fallback=profile)
+            st.session_state[COPILOT_LLM_MODEL_USER_STATE_KEY] = model
+            st.session_state[COPILOT_LLM_MODEL_REASON_STATE_KEY] = "画面で選択したモデル"
+            st.session_state[COPILOT_LLM_MODEL_STATE_KEY] = model
+            st.session_state[COPILOT_LLM_PROFILE_STATE_KEY] = profile
+            st.session_state.pop(COPILOT_GATEWAY_DIAGNOSTIC_STATE_KEY, None)
+            st.rerun()
+        st.caption(f"現在: {model} / {feature}")
+        st.caption(
+            f"選択理由: {st.session_state.get(COPILOT_LLM_MODEL_REASON_STATE_KEY, '自動選択')}"
+        )
+        if isinstance(catalog, AssistantModelCatalog):
+            st.caption(
+                f"モデル一覧取得: {catalog.fetched_at.astimezone().strftime('%Y-%m-%d %H:%M:%S')}"
+            )
+        refresh_col, reconnect_col = st.columns(2)
+        if refresh_col.button("モデル一覧を再取得", key="copilot_refresh_models"):
+            refreshed = discover_assistant_models(runtime_config.base_url, timeout_seconds=3.0)
+            st.session_state[COPILOT_LLM_MODEL_CATALOG_STATE_KEY] = refreshed
+            st.rerun()
+        if reconnect_col.button("閉じる", key="copilot_close_model_picker"):
+            st.session_state[COPILOT_LLM_MODEL_PICKER_OPEN_STATE_KEY] = False
+            st.rerun()
         st.session_state[COPILOT_LLM_PROFILE_STATE_KEY] = profile
         st.session_state[COPILOT_LLM_MODEL_STATE_KEY] = model
         selected_config = CopilotGatewayRuntimeConfig(
@@ -616,6 +691,20 @@ def _render_model_selector(
     return runtime_config
 
 
+def _assistant_model_display(model: str) -> tuple[str, str]:
+    for _, option_model, purpose in COPILOT_LLM_MODEL_OPTIONS:
+        if option_model == model:
+            feature = purpose.split(" / ", maxsplit=1)[0]
+            return feature, purpose
+    return "利用可能", "利用可能モデル / 性能・負荷は提供元の情報を確認"
+
+
+def _assistant_model_choice_label(model: str, *, badge: str = "") -> str:
+    _, purpose = _assistant_model_display(model)
+    badge_copy = f"  [{badge}]" if badge else ""
+    return f"{model}{badge_copy} — {purpose}"
+
+
 def _render_chat_composer(
     runtime_config: CopilotGatewayRuntimeConfig,
 ) -> tuple[str | None, CopilotGatewayRuntimeConfig]:
@@ -623,29 +712,26 @@ def _render_chat_composer(
         '<div class="smai-copilot-composer-toolbar" aria-label="SMAI chat composer">',
         unsafe_allow_html=True,
     )
-    model_col, input_col = st.columns([0.22, 0.78])
-    with model_col:
-        selected = _render_model_selector(runtime_config)
+    selected = _render_model_selector(runtime_config)
     submitted = False
     prompt = ""
-    with input_col:
-        with st.form("smai_copilot_composer_form", clear_on_submit=True):
-            text_col, send_col = st.columns([0.84, 0.16])
-            with text_col:
-                prompt = st.text_input(
-                    "相談内容",
-                    placeholder="価格・予測・ニュース・根拠資料について確認したいことを入力...",
-                    key="smai_copilot_text_input",
-                    max_chars=240,
-                    label_visibility="collapsed",
-                )
-            with send_col:
-                submitted = st.form_submit_button("送信", use_container_width=True)
-        st.caption(
-            f"LLM: {selected.provider} / {selected.model} / {selected.profile}"
-            if selected.enabled
-            else "LLM: deterministic fallback"
-        )
+    with st.form("smai_copilot_composer_form", clear_on_submit=True):
+        text_col, send_col = st.columns([0.84, 0.16])
+        with text_col:
+            prompt = st.text_input(
+                "相談内容",
+                placeholder="価格・予測・ニュース・根拠資料について確認したいことを入力...",
+                key="smai_copilot_text_input",
+                max_chars=240,
+                label_visibility="collapsed",
+            )
+        with send_col:
+            submitted = st.form_submit_button("送信", use_container_width=True)
+    st.caption(
+        f"LLM: {selected.provider} / {selected.model}"
+        if selected.enabled
+        else "LLM: deterministic fallback"
+    )
     st.markdown("</div>", unsafe_allow_html=True)
     return (prompt.strip() if submitted else None), selected
 
@@ -735,6 +821,8 @@ def _start_copilot_llm_warmup(
             chat_timeout_seconds=warmup.timeout_seconds,
         ),
         enabled=bool(warmup.enabled and runtime_config.enabled),
+        max_attempts=warmup.retry_count + 1,
+        retry_backoff_seconds=warmup.retry_backoff_seconds,
     )
     status = manager.status()
     return _runtime_config_from_warmup_status(runtime_config, status), status
@@ -753,6 +841,16 @@ def _runtime_config_from_warmup_status(
 ) -> CopilotGatewayRuntimeConfig:
     if status.diagnostic is not None:
         diagnostic = status.diagnostic
+        if diagnostic.model_details:
+            st.session_state[COPILOT_LLM_MODEL_CATALOG_STATE_KEY] = parse_assistant_model_catalog(
+                {
+                    "provider": diagnostic.provider or "ollama",
+                    "models": [
+                        {"name": name, "modified_at": modified_at, "size": size}
+                        for name, modified_at, size in diagnostic.model_details
+                    ],
+                }
+            )
         runtime_config = replace(
             runtime_config,
             readiness_status=diagnostic.status,
@@ -770,7 +868,7 @@ def _runtime_config_from_warmup_status(
             profile=diagnostic.profile or runtime_config.profile,
         )
         _cache_gateway_runtime_config(runtime_config)
-    elif status.state == "warming":
+    elif status.state in {"warming", "retrying", "model_loading"}:
         runtime_config = replace(
             runtime_config,
             readiness_status="warming",
@@ -795,13 +893,13 @@ def _apply_copilot_warmup_auto_transition(
     status: AssistantWarmupStatus,
     state: MutableMapping[str, object],
 ) -> bool:
-    if status.state not in {"ready", "degraded", "fallback", "failed", "timeout"}:
+    if status.state not in {"ready", "recovered", "degraded", "fallback", "failed", "timeout"}:
         return False
     marker = f"{status.attempt}:{status.state}"
     if str(state.get(COPILOT_WARMUP_AUTO_TRANSITION_STATE_KEY, "")) == marker:
         return False
     state[COPILOT_WARMUP_AUTO_TRANSITION_STATE_KEY] = marker
-    if status.state == "ready":
+    if status.state in {"ready", "recovered"}:
         state[COPILOT_WARMUP_READY_NOTICE_STATE_KEY] = True
     return True
 
@@ -821,7 +919,7 @@ def _render_copilot_warmup_monitor(
         history=history,
         runtime_config=current_config,
     )
-    _render_copilot_loading_panel(status, settings=settings)
+    _render_copilot_loading_panel(status, settings=settings, runtime_config=current_config)
     if _apply_copilot_warmup_auto_transition(status, st.session_state):
         st.rerun()
 
@@ -1237,7 +1335,27 @@ def _copilot_turn_rows_html(turn: dict[str, str]) -> str:
 
 def _copilot_thread_html(turns: list[dict[str, str]]) -> str:
     rows = "".join(_copilot_turn_rows_html(turn) for turn in turns)
-    return f'<div class="smai-copilot-thread">{rows}</div>'
+    return f'<div class="smai-copilot-thread">{rows}<div id="smai-copilot-latest"></div></div>'
+
+
+def should_auto_scroll_chat(previous_count: int, current_count: int) -> bool:
+    return current_count > previous_count
+
+
+def _auto_scroll_chat_if_needed(turns: list[dict[str, str]]) -> None:
+    current = len(turns)
+    previous = int(st.session_state.get(COPILOT_CHAT_LAST_SCROLL_COUNT_STATE_KEY, 0) or 0)
+    st.session_state[COPILOT_CHAT_LAST_SCROLL_COUNT_STATE_KEY] = current
+    if not should_auto_scroll_chat(previous, current):
+        return
+    components.html(
+        """<script>
+        const doc = window.parent.document;
+        const target = doc.getElementById('smai-copilot-latest');
+        if (target) target.scrollIntoView({behavior:'smooth', block:'end'});
+        </script>""",
+        height=0,
+    )
 
 
 def render_copilot_workspace_page() -> None:
@@ -1259,7 +1377,7 @@ def render_copilot_workspace_page() -> None:
     )
     clear = _render_new_conversation_action()
     _render_material_status(_active_context_from_history(history, context_by_id))
-    if warmup_status.state in {"not_started", "warming"}:
+    if warmup_status.state in {"not_started", "warming", "retrying", "model_loading"}:
         _render_copilot_warmup_monitor(
             runtime_config=runtime_config,
             settings=settings,
@@ -1267,7 +1385,9 @@ def render_copilot_workspace_page() -> None:
             header_placeholder=header_placeholder,
         )
     else:
-        _render_copilot_loading_panel(warmup_status, settings=settings)
+        _render_copilot_loading_panel(
+            warmup_status, settings=settings, runtime_config=runtime_config
+        )
     if bool(st.session_state.pop(COPILOT_WARMUP_READY_NOTICE_STATE_KEY, False)):
         st.toast(
             "SMAIナビの準備ができました。銘柄・予測・ニュース・根拠資料を確認できます。",
@@ -1450,6 +1570,7 @@ def _render_copilot_loading_panel(
     status: AssistantWarmupStatus,
     *,
     settings: Settings,
+    runtime_config: CopilotGatewayRuntimeConfig | None = None,
 ) -> None:
     warmup = settings.assistant.warmup
     headlines = (
@@ -1467,6 +1588,43 @@ def _render_copilot_loading_panel(
     )
     if markup:
         st.markdown(markup, unsafe_allow_html=True)
+    if status.state in {"fallback", "degraded", "failed", "timeout"} and runtime_config:
+        retry_col, refresh_col, continue_col = st.columns(3)
+        if retry_col.button("LLM接続を再確認", key="copilot_fallback_retry"):
+            _retry_copilot_llm_warmup(runtime_config, settings=settings)
+            st.rerun()
+        if refresh_col.button("モデル一覧を再取得", key="copilot_fallback_models"):
+            st.session_state[COPILOT_LLM_MODEL_CATALOG_STATE_KEY] = discover_assistant_models(
+                runtime_config.base_url, timeout_seconds=3.0
+            )
+            st.rerun()
+        continue_col.button("fallbackで続ける", key="copilot_fallback_continue")
+
+
+def _retry_copilot_llm_warmup(
+    runtime_config: CopilotGatewayRuntimeConfig, *, settings: Settings
+) -> bool:
+    warmup = settings.assistant.warmup
+    client = HttpAssistantGatewayClient(
+        base_url=runtime_config.base_url,
+        context_answer_path=runtime_config.context_answer_path,
+        timeout_seconds=min(runtime_config.timeout_seconds, warmup.timeout_seconds),
+        model=runtime_config.model,
+        execution_mode=runtime_config.execution_mode,
+        environment_profile=runtime_config.environment_profile,
+        preferred_profile=runtime_config.profile,
+    )
+    return _warmup_manager_for_runtime(runtime_config).retry(
+        lambda: _probe_copilot_warmup(
+            client=client,
+            runtime_config=runtime_config,
+            health_timeout_seconds=warmup.health_timeout_seconds,
+            chat_enabled=warmup.chat_enabled,
+            chat_timeout_seconds=warmup.timeout_seconds,
+        ),
+        max_attempts=warmup.retry_count + 1,
+        retry_backoff_seconds=warmup.retry_backoff_seconds,
+    )
 
 
 def _investment_radar_loading_asset_uri() -> str:
@@ -1491,17 +1649,69 @@ def investment_radar_loading_icon_html(radar_asset_uri: str = "") -> str:
     )
 
 
+def assistant_loading_headline_category_tone(category: str) -> str:
+    normalized = category.casefold()
+    if any(keyword in normalized for keyword in ("地政学", "マクロ", "国内株")):
+        return "cyan"
+    if any(keyword in normalized for keyword in ("決算", "業績", "修正")):
+        return "amber"
+    if any(keyword in normalized for keyword in ("小売", "消費")):
+        return "mint"
+    if any(keyword in normalized for keyword in ("半導体", "ai", "テクノロジー")):
+        return "violet"
+    if any(keyword in normalized for keyword in ("金利", "為替", "米国株")):
+        return "indigo"
+    return "neutral"
+
+
+def assistant_loading_headline_cards_html(
+    headlines: AssistantLoadingHeadlines | None,
+) -> str:
+    if headlines is None or not headlines.items:
+        return (
+            '<div class="smai-warmup-headlines-empty" '
+            'data-testid="assistant-loading-headlines-empty">'
+            "<strong>市場ヘッドラインを準備中です。</strong>"
+            "<span>ロード中は、前回取得した市場ヘッドラインがここに表示されます。</span>"
+            "</div>"
+        )
+    acquisition_label = "前回取得" if headlines.source == "cache" else "取得済み"
+    return (
+        '<div class="smai-warmup-news-list">'
+        + "".join(
+            (
+                '<article class="smai-warmup-news-card" '
+                'data-testid="assistant-loading-news-card">'
+                f'<span class="smai-warmup-news-badge smai-warmup-news-badge--{assistant_loading_headline_category_tone(item.category)}" data-testid="assistant-loading-news-category">'
+                f"{html.escape(item.category)}</span>"
+                f'<div class="smai-warmup-news-title" data-testid="assistant-loading-news-title" title="{html.escape(item.title)}">'
+                f"{html.escape(item.title)}</div>"
+                '<div class="smai-warmup-news-meta" data-testid="assistant-loading-news-meta">'
+                f"<span>{html.escape(item.source)}</span><i>・</i><span>{acquisition_label}</span>"
+                "</div></article>"
+            )
+            for item in headlines.items[:5]
+        )
+        + "</div>"
+    )
+
+
 def copilot_loading_panel_html(
     status: AssistantWarmupStatus,
     *,
     headlines: AssistantLoadingHeadlines | None,
     radar_asset_uri: str = "",
 ) -> str:
-    if status.state in {"ready", "disabled"}:
+    if status.state in {"ready", "recovered", "disabled"}:
         return ""
     state_label = {
         "not_started": "LLM起動確認待ち",
         "warming": "LLM起動確認中",
+        "model_loading": "モデルを読み込み中",
+        "retrying": "LLM接続を再確認中",
+        "gateway_unreachable": "LLM Gateway未接続",
+        "provider_unavailable": "LLM provider未接続",
+        "model_missing": "選択モデル未取得",
         "degraded": "通常回答で対応中",
         "fallback": "通常回答で対応中",
         "failed": "LLM Gateway未接続",
@@ -1510,67 +1720,102 @@ def copilot_loading_panel_html(
     steps = [
         "✓ SMAI本体を起動",
         "✓ ニュースキャッシュを確認",
-        f"{'・' if status.state == 'warming' else '✓'} {html.escape(status.step)}",
+        f"{'・' if status.state in {'warming', 'retrying', 'model_loading'} else '✓'} {html.escape(status.step)}",
     ]
     headline_html = ""
     if headlines is not None:
-        freshness = "前回取得" if headlines.stale or headlines.source == "cache" else "サンプル"
+        freshness = "前回取得"
         updated = headlines.updated_at.astimezone().strftime("%Y-%m-%d %H:%M")
-        items = "".join(
-            "<li><span>"
-            + html.escape(item.category)
-            + "</span> "
-            + html.escape(item.title)
-            + f" <small>{html.escape(item.source)}</small>"
-            + "</li>"
-            for item in headlines.items
+        stale_note = (
+            "<small>※前回取得したヘッドラインを表示しています</small>" if headlines.stale else ""
         )
         headline_html = (
             '<div class="smai-warmup-headlines"><div class="smai-warmup-headlines-header">'
             + investment_radar_loading_icon_html(radar_asset_uri)
             + "<div><strong>市場ヘッドライン</strong>"
-            + f"<small>{freshness}: {html.escape(updated)}</small></div></div><ul>{items}</ul></div>"
+            + (
+                f"<small>{freshness}: {html.escape(updated)}</small>{stale_note}"
+                if headlines.items
+                else "<small>キャッシュを待たずにSMAIナビを準備しています</small>"
+            )
+            + "</div></div>"
+            + assistant_loading_headline_cards_html(headlines)
+            + "</div>"
         )
     fallback_copy = (
         "LLMの応答準備に時間がかかっています。いったんSMAI標準ナビで回答します。"
-        if status.state in {"degraded", "fallback", "failed", "timeout"}
+        if status.state
+        in {
+            "degraded",
+            "fallback",
+            "failed",
+            "timeout",
+            "gateway_unreachable",
+            "provider_unavailable",
+            "model_missing",
+        }
         else "市場データとAIの準備を進めています。準備中もSMAI標準ナビを利用できます。"
+    )
+    modal = status.state in {"not_started", "warming", "retrying", "model_loading"}
+    wrapper_open = (
+        '<div class="smai-warmup-overlay" data-testid="assistant-loading-modal" role="dialog" aria-modal="true">'
+        if modal
+        else '<div class="smai-warmup-inline" data-testid="assistant-fallback-panel">'
     )
     return (
         """
         <style>
-        .smai-warmup-panel{position:relative;overflow:hidden;margin:10px 0 18px;padding:18px;
+        .smai-warmup-overlay{position:fixed;z-index:999;inset:3.75rem 0 0 21rem;display:grid;place-items:center;
+          padding:24px;background:rgba(2,8,23,.72);backdrop-filter:blur(4px);pointer-events:auto}
+        section[data-testid="stSidebar"]{z-index:1002!important}
+        .smai-warmup-inline{position:relative;margin:10px 0 18px}
+        .smai-warmup-panel{position:relative;overflow:hidden;width:min(760px,calc(100vw - 48px));max-height:calc(100vh - 100px);overflow-y:auto;margin:10px 0 18px;padding:18px;
           border:1px solid rgba(56,189,248,.34);border-radius:16px;
           background:linear-gradient(135deg,rgba(7,17,31,.97),rgba(13,42,57,.92));color:#e5edf7}
         .smai-warmup-panel:after{content:"";position:absolute;inset:-70% 35%;border:1px solid rgba(34,211,238,.18);
           border-radius:50%;animation:smaiRadar 5s linear infinite;pointer-events:none}
         .smai-warmup-core{display:inline-flex;width:28px;height:28px;margin-right:10px;border-radius:50%;
           border:2px solid #22d3ee;box-shadow:0 0 18px rgba(34,211,238,.55);animation:smaiPulse 1.8s ease-in-out infinite}
+        .smai-warmup-core:after{content:"•••";position:absolute;margin:28px 0 0 2px;color:#67e8f9;letter-spacing:3px;animation:smaiDots 1.4s steps(3,end) infinite;overflow:hidden;width:24px}
         .smai-warmup-title{display:flex;align-items:center;font-weight:750;font-size:1.05rem}.smai-warmup-state{color:#67e8f9}
         .smai-warmup-panel p{margin:8px 0;color:#cbd5e1}.smai-warmup-steps{display:grid;gap:4px;font-size:.9rem;color:#a5f3fc}
-        .smai-warmup-headlines{margin-top:14px;padding:12px 14px;border:1px solid rgba(103,232,249,.16);border-radius:13px;background:rgba(5,20,36,.42)}
+        .smai-warmup-headlines{margin-top:14px;padding:14px 15px;border:1px solid rgba(103,232,249,.16);border-radius:13px;background:rgba(5,20,36,.42)}
         .smai-warmup-headlines-header{display:flex;align-items:center;gap:11px}.smai-warmup-headlines-header>div{display:grid;gap:2px}
-        .smai-warmup-headlines small{color:#94a3b8;font-size:.76rem}.smai-warmup-headlines ul{margin:10px 0 0;padding-left:20px}
-        .smai-warmup-headlines li{margin:5px 0;color:#dbeafe}.smai-warmup-headlines li span{color:#7dd3fc;font-size:.82rem}
-        .smai-warmup-headlines li small{margin-left:5px}.smai-warmup-radar-icon{position:relative;display:inline-grid;place-items:center;width:56px;height:56px;flex:0 0 56px;border-radius:50%;background:radial-gradient(circle,rgba(34,211,238,.16),rgba(8,47,73,.06));box-shadow:0 0 17px rgba(34,211,238,.2)}
+        .smai-warmup-headlines small{color:#94a3b8;font-size:.72rem;line-height:1.45}.smai-warmup-news-list{display:grid;gap:8px;margin-top:12px}
+        .smai-warmup-news-card{display:grid;grid-template-columns:auto minmax(0,1fr);gap:5px 10px;padding:10px 12px;border:1px solid rgba(96,165,250,.15);border-radius:10px;background:linear-gradient(135deg,rgba(15,34,55,.72),rgba(8,29,45,.6));transition:background-color .16s ease,border-color .16s ease}
+        .smai-warmup-news-card:hover{border-color:rgba(103,232,249,.28);background:linear-gradient(135deg,rgba(17,43,66,.8),rgba(8,37,52,.7))}
+        .smai-warmup-news-badge{align-self:start;padding:2px 7px;border:1px solid rgba(148,163,184,.24);border-radius:999px;color:#cbd5e1;background:rgba(100,116,139,.13);font-size:.69rem;font-weight:760;line-height:1.45;white-space:nowrap}
+        .smai-warmup-news-badge--cyan{color:#a5f3fc;border-color:rgba(34,211,238,.28);background:rgba(8,145,178,.13)}
+        .smai-warmup-news-badge--amber{color:#fde68a;border-color:rgba(251,191,36,.28);background:rgba(217,119,6,.12)}
+        .smai-warmup-news-badge--mint{color:#a7f3d0;border-color:rgba(52,211,153,.26);background:rgba(5,150,105,.12)}
+        .smai-warmup-news-badge--violet{color:#ddd6fe;border-color:rgba(167,139,250,.28);background:rgba(124,58,237,.12)}
+        .smai-warmup-news-badge--indigo{color:#c7d2fe;border-color:rgba(129,140,248,.28);background:rgba(79,70,229,.12)}
+        .smai-warmup-news-title{min-width:0;color:#e6f2ff;font-size:.86rem;font-weight:680;line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+        .smai-warmup-news-meta{grid-column:2;display:flex;align-items:center;gap:5px;color:#8fa8bf;font-size:.7rem;line-height:1.45}.smai-warmup-news-meta i{font-style:normal;color:#526b82}
+        .smai-warmup-headlines-empty{display:grid;gap:4px;margin-top:12px;padding:13px;border:1px dashed rgba(103,232,249,.2);border-radius:10px;background:rgba(8,28,45,.48)}
+        .smai-warmup-headlines-empty strong{color:#dbeafe;font-size:.84rem}.smai-warmup-headlines-empty span{color:#8fa8bf;font-size:.75rem;line-height:1.55}
+        .smai-warmup-radar-icon{position:relative;display:inline-grid;place-items:center;width:56px;height:56px;flex:0 0 56px;border-radius:50%;background:radial-gradient(circle,rgba(34,211,238,.16),rgba(8,47,73,.06));box-shadow:0 0 17px rgba(34,211,238,.2)}
         .smai-warmup-radar-icon img{width:56px;height:56px;object-fit:contain;filter:drop-shadow(0 0 5px rgba(34,211,238,.32))}
         .smai-warmup-radar-icon--fallback{overflow:hidden;border:1px solid rgba(103,232,249,.45);background:repeating-radial-gradient(circle,transparent 0 8px,rgba(34,211,238,.2) 9px 10px)}
         .smai-warmup-radar-icon--fallback:after{content:"";position:absolute;width:50%;height:1px;left:50%;top:50%;transform-origin:left;transform:rotate(-32deg);background:#67e8f9;box-shadow:0 0 7px #22d3ee}
         .smai-warmup-radar-icon--fallback i,.smai-warmup-radar-icon--fallback b,.smai-warmup-radar-icon--fallback em{position:absolute;width:5px;height:5px;border-radius:50%;background:#67e8f9;box-shadow:0 0 7px #22d3ee}.smai-warmup-radar-icon--fallback i{left:13px;top:18px}.smai-warmup-radar-icon--fallback b{right:11px;top:27px}.smai-warmup-radar-icon--fallback em{left:29px;bottom:10px}
         @keyframes smaiPulse{0%,100%{opacity:.58;transform:scale(.9)}50%{opacity:1;transform:scale(1.06)}}
         @keyframes smaiRadar{to{transform:rotate(360deg)}}
+        @keyframes smaiDots{0%{width:0}100%{width:24px}}
+        @media(max-width:768px){.smai-warmup-overlay{inset:3.75rem 0 0 0;padding:12px}.smai-warmup-panel{width:calc(100vw - 24px)}.smai-warmup-news-card{grid-template-columns:1fr}.smai-warmup-news-meta{grid-column:1}}
         @media (prefers-reduced-motion:reduce){.smai-warmup-core,.smai-warmup-panel:after{animation:none}}
         </style>
         """
+        + wrapper_open
         + '<section class="smai-warmup-panel" aria-label="SMAIナビ準備状況">'
-        + '<div class="smai-warmup-title"><span class="smai-warmup-core"></span>'
+        + '<div class="smai-warmup-title"><span class="smai-warmup-core" data-testid="assistant-loading-animation"></span>'
         + f'SMAIナビが市場の気配を確認中です… <span class="smai-warmup-state">{html.escape(state_label)}</span></div>'
         + f"<p>{html.escape(fallback_copy)}（fallbackあり）</p>"
         + '<div class="smai-warmup-steps">'
         + "".join(f"<span>{step}</span>" for step in steps)
         + "</div>"
         + headline_html
-        + "</section>"
+        + "</section></div>"
     )
 
 
@@ -1603,10 +1848,12 @@ def _render_chat_thread(turns: list[dict[str, str]], *, placeholder: Any | None 
     )
     if pending_index is None:
         _render_chat_markup(_copilot_thread_html(turns), placeholder=placeholder)
+        _auto_scroll_chat_if_needed(turns)
         return
 
     _render_streaming_turn(turns[:pending_index], turns[pending_index], placeholder=placeholder)
     st.session_state[COPILOT_PENDING_STREAM_STATE_KEY] = ""
+    _auto_scroll_chat_if_needed(turns)
 
 
 def _render_chat_markup(markup: str, *, placeholder: Any | None = None) -> None:
@@ -2755,7 +3002,7 @@ def _archive_pending_decision_report_draft(
 
 
 def _decision_report_context_from_draft(
-    draft: Mapping[str, object]
+    draft: Mapping[str, object],
 ) -> DecisionReportContext | None:
     raw_context = str(draft.get("context", "")).strip()
     if not raw_context:
@@ -4169,8 +4416,7 @@ def _chat_header_html(
         status_detail = f"会話 {history_count}件"
     llm_label = (
         f"LLM: {runtime_status.provider or runtime_config.provider} / "
-        f"{runtime_status.model or runtime_config.model} / "
-        f"{runtime_status.profile or runtime_config.profile}"
+        f"{runtime_status.model or runtime_config.model}"
         if runtime_config.enabled
         else "LLM: deterministic fallback"
     )

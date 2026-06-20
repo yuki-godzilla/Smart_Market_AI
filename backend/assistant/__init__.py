@@ -88,6 +88,16 @@ from backend.assistant.loading_headlines import (
     AssistantLoadingHeadlines,
     load_assistant_loading_headlines,
 )
+from backend.assistant.model_discovery import (
+    AssistantModelCatalog,
+    AssistantModelInfo,
+    AssistantModelSelection,
+    assistant_model_performance_key,
+    assistant_models_by_performance,
+    discover_assistant_models,
+    parse_assistant_model_catalog,
+    select_assistant_model,
+)
 from backend.assistant.plan_validation import (
     AssistantPlanValidationResult,
     validate_assistant_guided_workflow,
@@ -279,6 +289,14 @@ __all__ = [
     "skip_step",
     "start_session",
     "get_assistant_warmup_manager",
+    "AssistantModelCatalog",
+    "AssistantModelInfo",
+    "AssistantModelSelection",
+    "assistant_model_performance_key",
+    "assistant_models_by_performance",
+    "discover_assistant_models",
+    "parse_assistant_model_catalog",
+    "select_assistant_model",
     "validate_assistant_guided_workflow",
     "validate_assistant_tool_plan",
     "workflow_session_from_guided_workflow",

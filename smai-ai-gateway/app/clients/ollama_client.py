@@ -104,6 +104,9 @@ class OllamaClient:
         )
 
     def list_models(self) -> list[str]:
+        return sorted(item["name"] for item in self.list_model_details())
+
+    def list_model_details(self) -> list[dict[str, object]]:
         try:
             with httpx.Client(timeout=self.settings.REQUEST_TIMEOUT_SECONDS) as client:
                 response = client.get(f"{self.settings.OLLAMA_BASE_URL.rstrip('/')}/api/tags")
@@ -124,11 +127,15 @@ class OllamaClient:
                 code="invalid_provider_response",
             ) from exc
         models = data.get("models", []) if isinstance(data, dict) else []
-        return sorted(
-            str(item.get("name", "")).strip()
+        return [
+            {
+                "name": str(item.get("name", "")).strip(),
+                "modified_at": item.get("modified_at"),
+                "size": item.get("size") if isinstance(item.get("size"), int) else None,
+            }
             for item in models
             if isinstance(item, dict) and str(item.get("name", "")).strip()
-        )
+        ]
 
     def _http_status_error(
         self, response: httpx.Response, selected_model: str

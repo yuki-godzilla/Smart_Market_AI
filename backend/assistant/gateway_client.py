@@ -81,6 +81,7 @@ class AssistantGatewayDiagnostic:
     provider_error_type: str | None = None
     provider_error_message: str | None = None
     installed_models: tuple[str, ...] = ()
+    model_details: tuple[tuple[str, str | None, int | None], ...] = ()
 
 
 def _estimated_context_tokens(request: AssistantGatewayRequest) -> int:
@@ -322,8 +323,13 @@ class HttpAssistantGatewayClient:
                 profile=self.preferred_profile,
             )
         installed_models = _installed_models_from_models_payload(payload)
-        configured_model = str(payload.get("default_model") or self.model or "").strip() or None
-        configured_installed = bool(payload.get("configured_model_installed"))
+        model_details = _model_details_from_models_payload(payload)
+        configured_model = str(self.model or payload.get("default_model") or "").strip() or None
+        configured_installed = (
+            configured_model in installed_models
+            if self.model and installed_models
+            else bool(payload.get("configured_model_installed"))
+        )
         provider = str(payload.get("provider") or "").strip() or None
         profile = (
             str(payload.get("default_profile") or self.preferred_profile or "").strip() or None
@@ -341,6 +347,7 @@ class HttpAssistantGatewayClient:
                 provider_error_type="model_not_found",
                 provider_error_message=str(payload.get("install_hint") or "").strip() or None,
                 installed_models=installed_models,
+                model_details=model_details,
             )
         return AssistantGatewayDiagnostic(
             status="ready",
@@ -351,6 +358,7 @@ class HttpAssistantGatewayClient:
             profile=profile,
             ollama_base_url=ollama_base_url,
             installed_models=installed_models,
+            model_details=model_details,
         )
 
     def answer(self, request: AssistantGatewayRequest) -> AssistantGatewayResponse:
@@ -530,6 +538,25 @@ def _installed_models_from_models_payload(payload: Mapping[str, object]) -> tupl
     if not isinstance(raw_models, list):
         return ()
     return tuple(str(item).strip() for item in raw_models if str(item).strip())
+
+
+def _model_details_from_models_payload(
+    payload: Mapping[str, object],
+) -> tuple[tuple[str, str | None, int | None], ...]:
+    raw_models = payload.get("models")
+    if not isinstance(raw_models, list):
+        return ()
+    details: list[tuple[str, str | None, int | None]] = []
+    for item in raw_models:
+        if not isinstance(item, Mapping):
+            continue
+        name = str(item.get("name") or "").strip()
+        if not name:
+            continue
+        modified_at = str(item.get("modified_at") or "").strip() or None
+        size = item.get("size") if isinstance(item.get("size"), int) else None
+        details.append((name, modified_at, size))
+    return tuple(details)
 
 
 def _request_error_type(exc: httpx.RequestError) -> str:

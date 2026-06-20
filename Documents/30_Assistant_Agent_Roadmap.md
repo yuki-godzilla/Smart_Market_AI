@@ -86,6 +86,12 @@ Status: 30-G2 MVP implemented. `workflow_runtime.retry_step()` を追加し、SM
 - 国内株、米国株、ETF / 投信、曖昧銘柄、テーマ探索、レポート作成を横断
 - LLM Startup Warmup と readiness status
 - Assistant loading experience
+- Main-area loading modal（sidebar操作は維持）と控えめなInvestment Radar animation
+- Gateway / provider / model failure別のbounded retry、fallback、手動再接続、recovered遷移
+- Gateway `/models` による動的モデル一覧、選択優先順位、missing model案内
+- 新着メッセージ時だけのchat auto-scrollと状態保持回帰
+- LLM model list unification: model名・特色・負荷・選択理由を単一radio listへ統合し、内部profile名をUIから非表示
+- Loading Modal News Readability Polish: 市場ヘッドラインをカテゴリbadge・2行title・source metadata付きmini news cardへ変更し、no-cache案内を追加
 - Investment Radar cache由来のloading headlines
 - LLM準備中・失敗時のdeterministic fallback
 

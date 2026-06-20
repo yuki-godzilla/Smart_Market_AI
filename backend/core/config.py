@@ -247,6 +247,8 @@ class AssistantWarmupConfig(StrictConfigModel):
     chat_enabled: bool = False
     health_timeout_seconds: float = Field(default=3.0, gt=0, le=30)
     timeout_seconds: float = Field(default=15.0, gt=0, le=120)
+    retry_count: int = Field(default=2, ge=0, le=3)
+    retry_backoff_seconds: float = Field(default=2.0, ge=0, le=5)
     loading_headlines_enabled: bool = True
     loading_headline_max_items: int = Field(default=5, ge=1, le=5)
     loading_headline_cache_max_age_hours: int = Field(default=24, gt=0)

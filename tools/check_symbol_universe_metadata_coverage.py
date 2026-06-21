@@ -11,9 +11,7 @@ from typing import Sequence
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CSV_PATH = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe.csv"
-DEFAULT_OUTPUT_PATH = (
-    PROJECT_ROOT / "data" / "marketdata" / "symbol_universe_metadata_coverage.json"
-)
+DEFAULT_OUTPUT_PATH = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe_quality_report.json"
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -24,17 +22,63 @@ from backend.marketdata.symbol_metadata_schema import (  # noqa: E402
 )
 
 DEFAULT_COVERAGE_COLUMNS = (
+    "sector",
+    "theme",
     "dividend_category",
     "dividend_yield_pct",
+    "market_cap",
     "market_cap_tier",
     "index_family",
     "expense_ratio_pct",
+    "asset_class",
+    "average_volume",
+    "aum",
     "complexity",
     "per",
     "pbr",
     "roe_pct",
     "consensus_rating",
     "risk_band",
+    "nisa_category",
+    "is_sbi_supported",
+)
+
+QUALITY_COVERAGE_FIELDS = {
+    "per": "per",
+    "pbr": "pbr",
+    "roe": "roe_pct",
+    "dividend_yield": "dividend_yield_pct",
+    "market_cap": "market_cap",
+    "market_cap_category": "market_cap_tier",
+    "sector": "sector",
+    "theme": "theme",
+    "nisa": "nisa_category",
+    "sbi_tradability": "is_sbi_supported",
+    "etf_expense_ratio": "expense_ratio_pct",
+    "etf_index_family": "index_family",
+    "etf_asset_class": "asset_class",
+}
+STOCK_QUALITY_FIELDS = (
+    "per",
+    "pbr",
+    "roe",
+    "dividend_yield",
+    "market_cap",
+    "market_cap_category",
+    "sector",
+    "theme",
+    "nisa",
+    "sbi_tradability",
+)
+ETF_QUALITY_FIELDS = (
+    "dividend_yield",
+    "etf_expense_ratio",
+    "etf_index_family",
+    "etf_asset_class",
+    "nisa",
+    "sbi_tradability",
+    "sector",
+    "theme",
 )
 
 
@@ -91,7 +135,7 @@ def build_metadata_coverage_report(
 ) -> dict[str, object]:
     """Return a compact coverage report for data-side ranking metadata."""
 
-    return {
+    report = {
         "operation": "symbol_universe_metadata_coverage",
         "csv": _report_path(csv_path),
         "checked_at": checked_at.isoformat(),
@@ -107,6 +151,16 @@ def build_metadata_coverage_report(
             ("asset_type", "metadata_source"),
         ),
     }
+    report.update(
+        {
+            "total_symbols": len(rows),
+            "by_region": _group_counts(rows, "market"),
+            "by_product_type": _group_counts(rows, "asset_type"),
+            "coverage": _named_coverage(rows),
+            "coverage_by_product_type": _product_scope_coverage(rows),
+        }
+    )
+    return report
 
 
 def _read_rows(path: Path) -> list[dict[str, str]]:
@@ -186,6 +240,57 @@ def _multi_group_coverage(
     ]
 
 
+def _group_counts(rows: Sequence[dict[str, str]], key: str) -> dict[str, int]:
+    counts: dict[str, int] = defaultdict(int)
+    for row in rows:
+        counts[row.get(key) or "(blank)"] += 1
+    return dict(sorted(counts.items()))
+
+
+def _named_coverage(
+    rows: Sequence[dict[str, str]],
+    fields: Sequence[str] | None = None,
+) -> dict[str, object]:
+    selected_fields = fields or tuple(QUALITY_COVERAGE_FIELDS)
+    return {name: _coverage_value(rows, QUALITY_COVERAGE_FIELDS[name]) for name in selected_fields}
+
+
+def _product_scope_coverage(
+    rows: Sequence[dict[str, str]],
+) -> dict[str, dict[str, object]]:
+    scopes = {
+        "stock_jp": (
+            [row for row in rows if row.get("asset_type") == "stock" and row.get("market") == "jp"],
+            STOCK_QUALITY_FIELDS,
+        ),
+        "stock_us": (
+            [row for row in rows if row.get("asset_type") == "stock" and row.get("market") == "us"],
+            STOCK_QUALITY_FIELDS,
+        ),
+        "etf": (
+            [row for row in rows if row.get("asset_type") == "etf"],
+            ETF_QUALITY_FIELDS,
+        ),
+    }
+    return {
+        scope: {
+            "total_symbols": len(scope_rows),
+            "coverage": _named_coverage(scope_rows, fields),
+        }
+        for scope, (scope_rows, fields) in scopes.items()
+    }
+
+
+def _coverage_value(rows: Sequence[dict[str, str]], column: str) -> dict[str, object]:
+    total = len(rows)
+    filled = sum(1 for row in rows if _has_metadata_value(row, column))
+    return {
+        "filled": filled,
+        "missing": total - filled,
+        "coverage": round(filled / total, 4) if total else 0,
+    }
+
+
 def _column_labels(columns: Sequence[str]) -> dict[str, str]:
     return {
         column: field.label
@@ -195,7 +300,8 @@ def _column_labels(columns: Sequence[str]) -> dict[str, str]:
 
 
 def _has_metadata_value(row: dict[str, str], column: str) -> bool:
-    return bool((row.get(column) or "").strip())
+    value = (row.get(column) or "").strip().lower()
+    return bool(value and value not in {"unknown", "n/a", "na", "null", "none"})
 
 
 def _parse_datetime(value: str) -> datetime:

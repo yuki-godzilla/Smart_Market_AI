@@ -65,6 +65,26 @@ def test_symbol_metadata_catalog_defines_sbi_universe_policy_fields():
         "false",
         "unknown",
     }
+    assert set(metadata_field_by_key("sbi_tradability_status").allowed_values) == {
+        "confirmed",
+        "estimated",
+        "unknown",
+        "not_supported",
+    }
+    assert metadata_field_by_key("nisa_growth_verified").required_column is False
+
+
+def test_symbol_metadata_catalog_supports_extended_classification_and_provenance():
+    assert metadata_field_by_key("sector_gics").required_column is False
+    assert metadata_field_by_key("smai_theme_tags").value_type == "csv_tags"
+    assert metadata_field_by_key("theme_confidence").maximum is not None
+    assert set(metadata_field_by_key("per_quality").allowed_values) == {
+        "confirmed",
+        "derived",
+        "estimated",
+        "unknown",
+        "stale",
+    }
 
 
 def test_symbol_metadata_catalog_marks_ranking_fields_with_source_policy():
@@ -94,6 +114,10 @@ def test_symbol_metadata_catalog_includes_fund_metadata_for_source_import():
     assert {
         "trust_fee_pct",
         "aum",
+        "average_volume",
+        "asset_class",
+        "region_exposure",
+        "is_hedged",
         "nisa_tsumitate_eligible",
         "nisa_growth_eligible",
         "installment_available",
@@ -103,6 +127,10 @@ def test_symbol_metadata_catalog_includes_fund_metadata_for_source_import():
     assert {
         "trust_fee_pct",
         "aum",
+        "average_volume",
+        "asset_class",
+        "region_exposure",
+        "is_hedged",
         "nisa_tsumitate_eligible",
         "nisa_growth_eligible",
         "installment_available",

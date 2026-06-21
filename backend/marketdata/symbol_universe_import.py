@@ -18,11 +18,20 @@ SYMBOL_UNIVERSE_SOURCE_ALIASES = {
     "currency": ("currency",),
     "theme": ("theme", "investment_theme", "テーマ"),
     "sector": ("sector", "industry", "gics_sector", "業種", "セクター"),
+    "sector_gics": ("sector_gics", "gics_sector"),
+    "industry_gics": ("industry_gics", "gics_industry"),
+    "subindustry_gics": ("subindustry_gics", "gics_subindustry"),
+    "tse_33_industry": ("tse_33_industry", "東証33業種"),
+    "topix_17": ("topix_17", "TOPIX-17"),
+    "smai_theme_tags": ("smai_theme_tags", "investment_theme_tags"),
+    "theme_confidence": ("theme_confidence",),
+    "theme_source": ("theme_source",),
     "aliases": ("aliases", "search_aliases", "検索別名"),
     "yahoo_symbol": ("yahoo_symbol", "yahoo_ticker", "provider_yahoo_symbol", "Yahoo用銘柄コード"),
     "dividend_category": ("dividend_category", "dividend_type", "配当カテゴリ"),
     "dividend_yield_pct": ("dividend_yield_pct", "dividend_yield", "配当利回り"),
     "market_cap_tier": ("market_cap_tier", "market_cap_size", "時価総額"),
+    "market_cap": ("market_cap", "market_cap_value"),
     "index_family": ("index_family", "underlying_index", "benchmark_index", "連動指数"),
     "expense_ratio_pct": ("expense_ratio_pct", "expense_ratio", "経費率", "信託報酬"),
     "complexity": ("complexity", "leverage_type", "複雑さ"),
@@ -34,9 +43,25 @@ SYMBOL_UNIVERSE_SOURCE_ALIASES = {
     "forecast_agreement": ("forecast_agreement", "予測一致"),
     "data_quality": ("data_quality", "データ品質"),
     "risk_band": ("risk_band", "risk", "リスク"),
+    "sbi_tradability_status": ("sbi_tradability_status",),
+    "sbi_tradability_verified": ("sbi_tradability_verified",),
+    "sbi_tradability_as_of": ("sbi_tradability_as_of",),
+    "sbi_tradability_source": ("sbi_tradability_source",),
+    "nisa_growth_status": ("nisa_growth_status",),
+    "nisa_growth_verified": ("nisa_growth_verified",),
+    "nisa_growth_as_of": ("nisa_growth_as_of",),
+    "nisa_growth_source": ("nisa_growth_source",),
+    "nisa_tsumitate_status": ("nisa_tsumitate_status",),
+    "nisa_tsumitate_verified": ("nisa_tsumitate_verified",),
+    "nisa_tsumitate_as_of": ("nisa_tsumitate_as_of",),
+    "nisa_tsumitate_source": ("nisa_tsumitate_source",),
     "nisa_category": ("nisa_category", "nisa_type", "nisa_eligibility"),
     "trust_fee_pct": ("trust_fee_pct", "trust_fee", "fee_pct"),
     "aum": ("aum", "total_net_assets", "net_assets"),
+    "average_volume": ("average_volume", "avg_volume"),
+    "asset_class": ("asset_class",),
+    "region_exposure": ("region_exposure",),
+    "is_hedged": ("is_hedged", "currency_hedged"),
     "nisa_tsumitate_eligible": (
         "nisa_tsumitate_eligible",
         "tsumitate_nisa",
@@ -242,6 +267,14 @@ SOURCE_PROFILES: dict[str, SymbolUniverseSourceProfile] = {
                     "nisa_category",
                     "nisa_tsumitate_eligible",
                     "nisa_growth_eligible",
+                    "nisa_growth_status",
+                    "nisa_growth_verified",
+                    "nisa_growth_as_of",
+                    "nisa_growth_source",
+                    "nisa_tsumitate_status",
+                    "nisa_tsumitate_verified",
+                    "nisa_tsumitate_as_of",
+                    "nisa_tsumitate_source",
                     "metadata_source",
                     "metadata_as_of",
                     "metadata_updated_at",
@@ -257,6 +290,10 @@ SOURCE_PROFILES: dict[str, SymbolUniverseSourceProfile] = {
                 {
                     "tradability",
                     "is_sbi_supported",
+                    "sbi_tradability_status",
+                    "sbi_tradability_verified",
+                    "sbi_tradability_as_of",
+                    "sbi_tradability_source",
                     "metadata_source",
                     "metadata_as_of",
                     "metadata_updated_at",
@@ -551,7 +588,74 @@ def _source_row_to_symbol_universe_row(
     row["metadata_source"] = row["metadata_source"] or source_name
     row["metadata_as_of"] = row["metadata_as_of"] or as_of.isoformat()
     row["metadata_updated_at"] = row["metadata_updated_at"] or updated_at.isoformat()
+    _apply_reliability_statuses(row, source_name=source_name, as_of=as_of)
     return row, None
+
+
+def _apply_reliability_statuses(
+    row: dict[str, str],
+    *,
+    source_name: str,
+    as_of: date,
+) -> None:
+    normalized_source = source_name.strip().lower()
+    if row.get("is_sbi_supported") in {"true", "false"}:
+        is_confirmed = normalized_source.startswith("sbi_")
+        row["sbi_tradability_status"] = row.get("sbi_tradability_status") or (
+            "confirmed"
+            if row["is_sbi_supported"] == "true" and is_confirmed
+            else "not_supported" if row["is_sbi_supported"] == "false" else "estimated"
+        )
+        row["sbi_tradability_verified"] = row.get("sbi_tradability_verified") or (
+            "true" if is_confirmed else "false"
+        )
+        row["sbi_tradability_as_of"] = row.get("sbi_tradability_as_of") or as_of.isoformat()
+        row["sbi_tradability_source"] = row.get("sbi_tradability_source") or source_name
+
+    official_nisa_source = normalized_source in {"fsa", "jpx_nisa_growth"}
+    category = row.get("nisa_category", "unknown")
+    _apply_nisa_status(
+        row,
+        prefix="nisa_growth",
+        eligible=category in {"growth", "both"},
+        explicitly_unsupported=category == "none",
+        official_source=official_nisa_source,
+        source_name=source_name,
+        as_of=as_of,
+    )
+    _apply_nisa_status(
+        row,
+        prefix="nisa_tsumitate",
+        eligible=category in {"tsumitate", "both"},
+        explicitly_unsupported=category == "none",
+        official_source=official_nisa_source,
+        source_name=source_name,
+        as_of=as_of,
+    )
+
+
+def _apply_nisa_status(
+    row: dict[str, str],
+    *,
+    prefix: str,
+    eligible: bool,
+    explicitly_unsupported: bool,
+    official_source: bool,
+    source_name: str,
+    as_of: date,
+) -> None:
+    if not eligible and not explicitly_unsupported:
+        return
+    row[f"{prefix}_status"] = row.get(f"{prefix}_status") or (
+        "confirmed"
+        if eligible and official_source
+        else "not_supported" if explicitly_unsupported else "estimated"
+    )
+    row[f"{prefix}_verified"] = row.get(f"{prefix}_verified") or (
+        "true" if official_source else "false"
+    )
+    row[f"{prefix}_as_of"] = row.get(f"{prefix}_as_of") or as_of.isoformat()
+    row[f"{prefix}_source"] = row.get(f"{prefix}_source") or source_name
 
 
 def _source_value(source_row: dict[str | None, Any], column: str) -> str:

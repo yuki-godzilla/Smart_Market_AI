@@ -134,6 +134,10 @@ def test_jpx_listed_stock_profile_applies_local_universe_defaults():
     assert imported_row["nisa_tsumitate_eligible"] == "false"
     assert imported_row["investment_style"] == "lump_sum"
     assert imported_row["is_sbi_supported"] == "true"
+    assert imported_row["sbi_tradability_status"] == "estimated"
+    assert imported_row["sbi_tradability_verified"] == "false"
+    assert imported_row["sbi_tradability_source"] == "jpx_listed_stock"
+    assert imported_row["nisa_growth_status"] == "estimated"
     assert result.manifest["source"] == "jpx_listed_stock"
 
 
@@ -284,6 +288,9 @@ def test_sbi_us_stock_profile_applies_policy_defaults():
     assert imported_row["nisa_growth_eligible"] == "true"
     assert imported_row["nisa_tsumitate_eligible"] == "false"
     assert imported_row["is_sbi_supported"] == "true"
+    assert imported_row["sbi_tradability_status"] == "confirmed"
+    assert imported_row["sbi_tradability_verified"] == "true"
+    assert imported_row["sbi_tradability_source"] == "sbi_us_stock"
     assert imported_row["is_active"] == "true"
     assert imported_row["is_leveraged"] == "false"
     assert imported_row["is_inverse"] == "false"
@@ -329,6 +336,9 @@ def test_nisa_eligibility_profile_updates_only_nisa_fields():
     assert updated_row["currency"] == "USD"
     assert updated_row["nisa_category"] == "growth"
     assert updated_row["nisa_growth_eligible"] == "true"
+    assert updated_row["nisa_growth_status"] == "confirmed"
+    assert updated_row["nisa_growth_verified"] == "true"
+    assert updated_row["nisa_growth_source"] == "fsa"
     assert updated_row["metadata_source"] == "fsa"
     assert result.manifest["updated_symbols"] == ["VOO"]
     assert result.manifest["update_columns"] == [
@@ -336,8 +346,16 @@ def test_nisa_eligibility_profile_updates_only_nisa_fields():
         "metadata_source",
         "metadata_updated_at",
         "nisa_category",
+        "nisa_growth_as_of",
         "nisa_growth_eligible",
+        "nisa_growth_source",
+        "nisa_growth_status",
+        "nisa_growth_verified",
+        "nisa_tsumitate_as_of",
         "nisa_tsumitate_eligible",
+        "nisa_tsumitate_source",
+        "nisa_tsumitate_status",
+        "nisa_tsumitate_verified",
     ]
 
 
@@ -400,6 +418,8 @@ def test_sbi_availability_profile_updates_only_broker_availability():
     assert updated_row["asset_type"] == "stock"
     assert updated_row["tradability"] == "not_tradable"
     assert updated_row["is_sbi_supported"] == "false"
+    assert updated_row["sbi_tradability_status"] == "not_supported"
+    assert updated_row["sbi_tradability_verified"] == "true"
     assert updated_row["metadata_source"] == "sbi_us_stock_removed"
     assert result.manifest["updated_symbols"] == ["ACLX"]
 

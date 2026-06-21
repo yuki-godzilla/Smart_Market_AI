@@ -62,6 +62,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Write proposed CSV and manifest. Without this flag the command is a dry-run.",
     )
     parser.add_argument(
+        "--fill-missing-only",
+        action="store_true",
+        help="Only fill blank cells; preserve existing canonical values.",
+    )
+    parser.add_argument(
         "--allow-live",
         action="store_true",
         help="Allow an external live provider such as yahoo. Never enabled by default.",
@@ -111,6 +116,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         updated_at=args.updated_at,
         dry_run=not args.write,
         validation_before=validation_before,
+        fill_missing_only=args.fill_missing_only,
     )
     validation_after = validate_symbol_universe_rows(
         cast(Sequence[dict[str | None, Any]], result.rows),

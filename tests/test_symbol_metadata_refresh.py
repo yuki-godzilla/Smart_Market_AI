@@ -117,9 +117,36 @@ def test_yahoo_provider_maps_ticker_info_to_catalog_fields_without_network():
         "per": "28.12",
         "pbr": "5.46",
         "roe_pct": "22.1",
+        "market_cap": "250000000000",
         "market_cap_tier": "mega",
         "risk_band": "HIGH",
     }
+
+
+def test_refresh_fill_missing_only_preserves_existing_values_and_adds_provenance():
+    provider = YahooSymbolMetadataProvider(
+        ticker_info_reader=lambda symbol: {
+            "trailingPE": 18,
+            "priceToBook": 2.5,
+        }
+    )
+
+    result = refresh_symbol_universe_metadata(
+        [{"symbol": "AAPL", "per": "20", "pbr": ""}],
+        provider=provider,
+        as_of=date(2026, 6, 21),
+        updated_at=datetime(2026, 6, 21, tzinfo=timezone.utc),
+        fill_missing_only=True,
+    )
+
+    row = result.rows[0]
+    assert row["per"] == "20"
+    assert "per_source" not in row
+    assert row["pbr"] == "2.5"
+    assert row["pbr_source"] == "yahoo"
+    assert row["pbr_as_of"] == "2026-06-21"
+    assert row["pbr_quality"] == "confirmed"
+    assert result.manifest["fill_missing_only"] is True
 
 
 def test_yahoo_provider_treats_trailing_annual_dividend_yield_as_ratio():

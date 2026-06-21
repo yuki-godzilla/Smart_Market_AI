@@ -5,10 +5,26 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Callable, Protocol, Sequence, runtime_checkable
 
+METADATA_PROVENANCE_FIELDS = (
+    "per",
+    "pbr",
+    "roe_pct",
+    "dividend_yield_pct",
+    "market_cap_tier",
+    "market_cap",
+    "expense_ratio_pct",
+    "aum",
+    "average_volume",
+)
 METADATA_REFRESH_COLUMNS = (
     "metadata_source",
     "metadata_as_of",
     "metadata_updated_at",
+    *(
+        f"{metric}_{suffix}"
+        for metric in METADATA_PROVENANCE_FIELDS
+        for suffix in ("source", "as_of", "quality")
+    ),
 )
 SUPPORTED_METADATA_REFRESH_PROVIDERS = ("curated_csv", "yahoo")
 PLANNED_METADATA_REFRESH_PROVIDERS = (
@@ -202,6 +218,7 @@ def refresh_symbol_universe_metadata(
     dry_run: bool = True,
     validation_before: Sequence[dict[str, str]] | None = None,
     validation_after: Sequence[dict[str, str]] | None = None,
+    fill_missing_only: bool = False,
 ) -> MetadataRefreshResult:
     """Apply provider-neutral metadata updates to symbol-universe rows."""
 
@@ -229,9 +246,24 @@ def refresh_symbol_universe_metadata(
             continue
         applied_updates += 1
         row = proposed_rows[row_index]
+        original_row = dict(row)
         row_changed = False
-        for column, value in update.values.items():
+        update_values = _with_metric_provenance(
+            update.values,
+            provider=provider.name,
+            as_of=as_of,
+        )
+        for column, value in update_values.items():
             normalized_value = "" if value is None else str(value)
+            provenance_metric = _provenance_metric_for_column(column)
+            if (
+                fill_missing_only
+                and provenance_metric
+                and original_row.get(provenance_metric, "").strip()
+            ):
+                continue
+            if fill_missing_only and row.get(column, "").strip():
+                continue
             if row.get(column, "") == normalized_value:
                 continue
             row[column] = normalized_value
@@ -244,6 +276,7 @@ def refresh_symbol_universe_metadata(
         "operation": "symbol_universe_metadata_refresh",
         "provider": provider.name,
         "dry_run": dry_run,
+        "fill_missing_only": fill_missing_only,
         "as_of": as_of.isoformat(),
         "updated_at": updated_at.isoformat(),
         "total_rows": len(proposed_rows),
@@ -266,6 +299,33 @@ def refresh_symbol_universe_metadata(
         "validation_after": summarize_validation_issues(validation_after or []),
     }
     return MetadataRefreshResult(rows=proposed_rows, manifest=manifest)
+
+
+def _with_metric_provenance(
+    values: dict[str, str],
+    *,
+    provider: str,
+    as_of: date,
+) -> dict[str, str]:
+    enriched = dict(values)
+    for metric in METADATA_PROVENANCE_FIELDS:
+        if not str(values.get(metric, "")).strip():
+            continue
+        enriched.setdefault(f"{metric}_source", provider)
+        enriched.setdefault(f"{metric}_as_of", as_of.isoformat())
+        enriched.setdefault(f"{metric}_quality", "confirmed")
+    return enriched
+
+
+def _provenance_metric_for_column(column: str) -> str | None:
+    for metric in METADATA_PROVENANCE_FIELDS:
+        if column in {
+            f"{metric}_source",
+            f"{metric}_as_of",
+            f"{metric}_quality",
+        }:
+            return metric
+    return None
 
 
 def summarize_validation_issues(issues: Sequence[dict[str, str]]) -> dict[str, int]:
@@ -341,6 +401,7 @@ def _yahoo_metadata_values(
 
     market_cap = _optional_decimal_info(info, "marketCap")
     if market_cap is not None:
+        values["market_cap"] = _format_decimal(market_cap)
         values["market_cap_tier"] = _market_cap_tier(
             market_cap,
             currency=str(info.get("currency") or row.get("currency") or ""),
@@ -354,6 +415,17 @@ def _yahoo_metadata_values(
     expense_ratio_pct = _yahoo_expense_ratio_pct(info)
     if row.get("asset_type") == "etf" and expense_ratio_pct is not None and expense_ratio_pct >= 0:
         values["expense_ratio_pct"] = _format_decimal(expense_ratio_pct)
+
+    if row.get("asset_type") == "etf":
+        aum = _optional_decimal_info(info, "totalAssets")
+        if aum is not None and aum >= 0:
+            values["aum"] = _format_decimal(aum)
+        average_volume = _optional_decimal_info(info, "averageVolume")
+        if average_volume is not None and average_volume >= 0:
+            values["average_volume"] = _format_decimal(average_volume)
+        asset_class = str(info.get("category") or "").strip()
+        if asset_class:
+            values["asset_class"] = asset_class
 
     return values
 

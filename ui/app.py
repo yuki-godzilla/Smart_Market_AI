@@ -125,6 +125,7 @@ from ui.components.assistant import (
 )
 from ui.components.mascot import (
     render_app_header,
+    render_mascot_loading,
     render_mascot_panel,
     render_page_title,
     smai_insight_html,
@@ -6563,6 +6564,12 @@ def _cockpit_symbol_keyword_text(row: Mapping[str, object]) -> str:
         "sector",
         "industry",
         "tags",
+        "smai_theme_tags",
+        "sector_gics",
+        "industry_gics",
+        "subindustry_gics",
+        "tse_33_industry",
+        "topix_17",
         "asset_type",
         "index_family",
         "benchmark_index",
@@ -8569,25 +8576,36 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
     should_rerun_after_refresh = False
     if fetch_clicked:
         loading_slot = st.empty()
+        with loading_slot.container():
+            render_mascot_loading(
+                "report",
+                title="AI調査を整理中",
+                message=(
+                    "外部参照ソース、ニュース、保存済み資料を読み込み、"
+                    "企業リサーチレポートにまとめています。"
+                ),
+                tone="info",
+            )
         loading_headlines, loading_headline_note = workflow_loading_headlines_from_cache()
         progress_bar: Any | None = None
         progress_status: Any | None = None
 
         def update_research_progress(message: str, ratio: float) -> None:
-            loading_slot.markdown(
-                workflow_loading_html(
-                    title="AI調査データを取得中",
-                    message=(
-                        "外部参照ソース、ニュース、保存済み資料を確認し、企業リサーチに整理しています。"
+            if hasattr(loading_slot, "markdown"):
+                loading_slot.markdown(
+                    workflow_loading_html(
+                        title="AI調査データを取得中",
+                        message=(
+                            "外部参照ソース、ニュース、保存済み資料を確認し、企業リサーチに整理しています。"
+                        ),
+                        current_step=message,
+                        progress=ratio,
+                        mode="blocking",
+                        headlines=loading_headlines,
+                        headline_note=loading_headline_note,
                     ),
-                    current_step=message,
-                    progress=ratio,
-                    mode="blocking",
-                    headlines=loading_headlines,
-                    headline_note=loading_headline_note,
-                ),
-                unsafe_allow_html=True,
-            )
+                    unsafe_allow_html=True,
+                )
             if progress_status is not None:
                 progress_status.caption(message)
             if progress_bar is not None:
@@ -10200,19 +10218,30 @@ def _render_ranking_symbol_research_lookup(symbol: str) -> None:
     if fetch_clicked:
         as_of = date.today()
         loading_slot = st.empty()
+        with loading_slot.container():
+            render_mascot_loading(
+                "report",
+                title="AI調査を整理中",
+                message=(
+                    "外部参照ソース、ニュース、保存済み資料を読み込み、"
+                    "企業リサーチレポートにまとめています。"
+                ),
+                tone="info",
+            )
         loading_headlines, loading_headline_note = workflow_loading_headlines_from_cache()
-        loading_slot.markdown(
-            workflow_loading_html(
-                title="AI調査データを取得中",
-                message="外部情報と保存済み資料を、根拠付きの企業リサーチメモに整理しています。",
-                current_step="外部参照ソースを確認しています。",
-                progress=0.18,
-                mode="blocking",
-                headlines=loading_headlines,
-                headline_note=loading_headline_note,
-            ),
-            unsafe_allow_html=True,
-        )
+        if hasattr(loading_slot, "markdown"):
+            loading_slot.markdown(
+                workflow_loading_html(
+                    title="AI調査データを取得中",
+                    message="外部情報と保存済み資料を、根拠付きの企業リサーチメモに整理しています。",
+                    current_step="外部参照ソースを確認しています。",
+                    progress=0.18,
+                    mode="blocking",
+                    headlines=loading_headlines,
+                    headline_note=loading_headline_note,
+                ),
+                unsafe_allow_html=True,
+            )
         try:
             try:
                 external_result = _fetch_external_research_for_symbol(
@@ -10231,20 +10260,21 @@ def _render_ranking_symbol_research_lookup(symbol: str) -> None:
                     "外部参照ソースを取得できませんでした。保存済み資料と既存データでAI調査を続行します。"
                 )
                 st.caption(_external_research_fetch_failure_caption(exc))
-            loading_slot.markdown(
-                workflow_loading_html(
-                    title="AI調査データを取得中",
-                    message=(
-                        "外部情報と保存済み資料を、根拠付きの企業リサーチメモに整理しています。"
+            if hasattr(loading_slot, "markdown"):
+                loading_slot.markdown(
+                    workflow_loading_html(
+                        title="AI調査データを取得中",
+                        message=(
+                            "外部情報と保存済み資料を、根拠付きの企業リサーチメモに整理しています。"
+                        ),
+                        current_step="企業リサーチメモを生成しています。",
+                        progress=0.72,
+                        mode="blocking",
+                        headlines=loading_headlines,
+                        headline_note=loading_headline_note,
                     ),
-                    current_step="企業リサーチメモを生成しています。",
-                    progress=0.72,
-                    mode="blocking",
-                    headlines=loading_headlines,
-                    headline_note=loading_headline_note,
-                ),
-                unsafe_allow_html=True,
-            )
+                    unsafe_allow_html=True,
+                )
             fetched_report = _build_research_report_for_symbol(
                 symbol,
                 as_of=as_of,

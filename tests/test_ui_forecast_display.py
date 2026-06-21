@@ -3092,7 +3092,7 @@ def test_fetch_external_research_for_preview_uses_external_source_and_stores(mon
     assert st.session_state[MARKET_DATA_EXTERNAL_RESEARCH_FETCH_STATE_KEY] is result
 
 
-def test_cockpit_research_refresh_uses_workflow_loading(monkeypatch):
+def test_cockpit_research_refresh_uses_mascot_loading(monkeypatch):
     progress_messages: list[str] = []
     progress_values: list[float] = []
 
@@ -3100,8 +3100,8 @@ def test_cockpit_research_refresh_uses_workflow_loading(monkeypatch):
         def __init__(self) -> None:
             self.cleared = False
 
-        def markdown(self, markup: str, **_: object) -> None:
-            loading_calls.append(markup)
+        def container(self):
+            return nullcontext()
 
         def caption(self, message: str) -> None:
             progress_messages.append(message)
@@ -3114,7 +3114,7 @@ def test_cockpit_research_refresh_uses_workflow_loading(monkeypatch):
             progress_values.append(value)
 
     slot = FakeLoadingSlot()
-    loading_calls: list[str] = []
+    loading_calls: list[tuple[str, dict[str, object]]] = []
     rerun_calls: list[bool] = []
     session_state: dict[str, object] = {}
     external_result = ExternalResearchFetchResult(
@@ -3151,8 +3151,8 @@ def test_cockpit_research_refresh_uses_workflow_loading(monkeypatch):
     monkeypatch.setattr("ui.app.st.info", lambda *_, **__: None)
     monkeypatch.setattr("ui.app.st.rerun", lambda: rerun_calls.append(True))
     monkeypatch.setattr(
-        "ui.app.workflow_loading_headlines_from_cache",
-        lambda **_: ((), "保存済みニュースはありません"),
+        "ui.app.render_mascot_loading",
+        lambda variant, **kwargs: loading_calls.append((variant, kwargs)),
     )
     monkeypatch.setattr(
         "ui.app._render_research_operation_card",
@@ -3179,10 +3179,19 @@ def test_cockpit_research_refresh_uses_workflow_loading(monkeypatch):
 
     _render_cockpit_research_summary(preview)
 
-    assert loading_calls
-    assert all("AI調査データを取得中" in markup for markup in loading_calls)
-    assert all('data-testid="smai-workflow-loading-blocking"' in markup for markup in loading_calls)
-    assert "AI調査の更新が完了しました。" in loading_calls[-1]
+    assert loading_calls == [
+        (
+            "report",
+            {
+                "title": "AI調査を整理中",
+                "message": (
+                    "外部参照ソース、ニュース、保存済み資料を読み込み、"
+                    "企業リサーチレポートにまとめています。"
+                ),
+                "tone": "info",
+            },
+        )
+    ]
     assert slot.cleared is True
     assert rerun_calls == [True]
     assert progress_values == [0.0, 0.08, 0.24, 0.52, 0.70, 0.86, 0.96, 1.0]
@@ -3202,14 +3211,13 @@ def test_ranking_symbol_research_lookup_reuses_cockpit_research_flow(monkeypatch
         def __init__(self) -> None:
             self.cleared = False
 
-        def markdown(self, markup: str, **_: object) -> None:
-            loading_markup.append(markup)
+        def container(self):
+            return nullcontext()
 
         def empty(self) -> None:
             self.cleared = True
 
     slot = FakeLoadingSlot()
-    loading_markup: list[str] = []
     calls: list[tuple[str, object]] = []
     stored: dict[str, object] = {}
     fake_report = object()
@@ -3228,10 +3236,7 @@ def test_ranking_symbol_research_lookup_reuses_cockpit_research_flow(monkeypatch
     monkeypatch.setattr("ui.app.st.info", lambda *_, **__: None)
     monkeypatch.setattr("ui.app.st.button", lambda *_, **__: True)
     monkeypatch.setattr("ui.app.st.empty", lambda: slot)
-    monkeypatch.setattr(
-        "ui.app.workflow_loading_headlines_from_cache",
-        lambda **_: ((), "保存済みニュースはありません"),
-    )
+    monkeypatch.setattr("ui.app.render_mascot_loading", lambda *_, **__: None)
 
     def fake_fetch(symbol: str, *, as_of: date | None):
         calls.append(("external", (symbol, as_of)))
@@ -3291,9 +3296,6 @@ def test_ranking_symbol_research_lookup_reuses_cockpit_research_flow(monkeypatch
     assert rendered["external_research_result"] is fake_external_result
     assert rendered["display_context"] == "ranking"
     assert slot.cleared is True
-    assert len(loading_markup) == 2
-    assert "AI調査データを取得中" in loading_markup[0]
-    assert "企業リサーチメモを生成しています。" in loading_markup[-1]
 
 
 def test_fetch_external_research_for_symbol_reuses_session_ttl_cache(monkeypatch, tmp_path):
@@ -4187,6 +4189,37 @@ def test_filter_symbol_universe_rows_filters_by_sector_theme_and_jpx_market_cap(
     ] == ["1301.T"]
     assert "small" in RANKING_MARKET_CAP_LABELS
     assert "industrial" in RANKING_THEME_LABELS
+
+
+def test_filter_symbol_universe_rows_uses_smai_theme_tags_for_theme_filter():
+    rows = symbol_universe_rows(
+        [
+            {
+                "symbol": "8035.T",
+                "name": "Tokyo Electron",
+                "theme": "technology",
+                "sector": "technology",
+                "smai_theme_tags": "semiconductor,technology",
+            },
+            {
+                "symbol": "AAPL",
+                "name": "Apple Inc.",
+                "theme": "technology",
+                "sector": "technology",
+                "smai_theme_tags": "technology",
+            },
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="japan",
+            product_type="stock",
+            theme="semiconductor",
+        )
+    ] == ["8035.T"]
 
 
 def test_ranking_filter_labels_show_quantitative_thresholds():

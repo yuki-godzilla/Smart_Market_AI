@@ -95,7 +95,7 @@ def test_quality_report_treats_unknown_status_as_missing_and_reports_etf_coverag
             "asset_type": "etf",
             "market": "us",
             "nisa_category": "unknown",
-            "is_sbi_supported": "true",
+            "sbi_tradability_status": "estimated",
             "expense_ratio_pct": "0.09",
             "index_family": "sp500",
             "asset_class": "equity",
@@ -111,7 +111,29 @@ def test_quality_report_treats_unknown_status_as_missing_and_reports_etf_coverag
     assert report["by_region"] == {"us": 1}
     assert report["coverage"]["nisa"]["coverage"] == 0.0
     assert report["coverage"]["sbi_tradability"]["coverage"] == 1.0
+    assert report["sbi_tradability_status_breakdown"] == {"estimated": 1}
     etf_coverage = report["coverage_by_product_type"]["etf"]["coverage"]
     assert etf_coverage["etf_expense_ratio"]["coverage"] == 1.0
     assert etf_coverage["etf_index_family"]["coverage"] == 1.0
     assert etf_coverage["etf_asset_class"]["coverage"] == 1.0
+
+
+def test_quality_report_treats_nisa_none_as_valid_non_missing_value():
+    rows = [
+        {
+            "symbol": "NO-NISA",
+            "asset_type": "stock",
+            "market": "jp",
+            "nisa_category": "none",
+            "sbi_tradability_status": "not_supported",
+        }
+    ]
+
+    report = build_metadata_coverage_report(
+        rows,
+        checked_at=datetime(2026, 6, 21, tzinfo=timezone.utc),
+        csv_path=Path("symbol_universe.csv"),
+    )
+
+    assert report["coverage"]["nisa"] == {"filled": 1, "missing": 0, "coverage": 1.0}
+    assert report["nisa_category_breakdown"] == {"none": 1}

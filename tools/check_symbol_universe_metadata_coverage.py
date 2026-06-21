@@ -53,7 +53,10 @@ QUALITY_COVERAGE_FIELDS = {
     "sector": "sector",
     "theme": "theme",
     "nisa": "nisa_category",
-    "sbi_tradability": "is_sbi_supported",
+    # Use the explicit reliability status instead of is_sbi_supported so unknown
+    # tradability is not reported as fully covered merely because a broker policy
+    # flag exists.
+    "sbi_tradability": "sbi_tradability_status",
     "etf_expense_ratio": "expense_ratio_pct",
     "etf_index_family": "index_family",
     "etf_asset_class": "asset_class",
@@ -158,6 +161,8 @@ def build_metadata_coverage_report(
             "by_product_type": _group_counts(rows, "asset_type"),
             "coverage": _named_coverage(rows),
             "coverage_by_product_type": _product_scope_coverage(rows),
+            "sbi_tradability_status_breakdown": _group_counts(rows, "sbi_tradability_status"),
+            "nisa_category_breakdown": _group_counts(rows, "nisa_category"),
         }
     )
     return report
@@ -299,9 +304,22 @@ def _column_labels(columns: Sequence[str]) -> dict[str, str]:
     }
 
 
+VALID_NONE_COLUMNS = {
+    "nisa_category",
+    "dividend_category",
+    "distribution_policy",
+}
+
+
 def _has_metadata_value(row: dict[str, str], column: str) -> bool:
     value = (row.get(column) or "").strip().lower()
-    return bool(value and value not in {"unknown", "n/a", "na", "null", "none"})
+    if not value or value in {"n/a", "na", "null"}:
+        return False
+    if value == "unknown":
+        return False
+    if value == "none" and column not in VALID_NONE_COLUMNS:
+        return False
+    return True
 
 
 def _parse_datetime(value: str) -> datetime:

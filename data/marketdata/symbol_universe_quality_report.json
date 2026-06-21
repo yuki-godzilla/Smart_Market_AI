@@ -103,9 +103,9 @@
     "etf": {
       "by_column": {
         "asset_class": {
-          "coverage": 0.0,
-          "filled": 0,
-          "missing": 1046
+          "coverage": 0.9837,
+          "filled": 1029,
+          "missing": 17
         },
         "aum": {
           "coverage": 0.0,
@@ -128,9 +128,9 @@
           "missing": 1041
         },
         "dividend_category": {
-          "coverage": 0.2677,
-          "filled": 280,
-          "missing": 766
+          "coverage": 0.9503,
+          "filled": 994,
+          "missing": 52
         },
         "dividend_yield_pct": {
           "coverage": 0.9503,
@@ -163,9 +163,9 @@
           "missing": 1040
         },
         "nisa_category": {
-          "coverage": 0.5421,
-          "filled": 567,
-          "missing": 479
+          "coverage": 1.0,
+          "filled": 1046,
+          "missing": 0
         },
         "pbr": {
           "coverage": 0.0813,
@@ -328,9 +328,9 @@
           "missing": 58
         },
         "dividend_category": {
-          "coverage": 0.7241,
-          "filled": 42,
-          "missing": 16
+          "coverage": 1.0,
+          "filled": 58,
+          "missing": 0
         },
         "dividend_yield_pct": {
           "coverage": 1.0,
@@ -428,9 +428,9 @@
           "missing": 7971
         },
         "dividend_category": {
-          "coverage": 0.402,
-          "filled": 3251,
-          "missing": 4836
+          "coverage": 0.9938,
+          "filled": 8037,
+          "missing": 50
         },
         "dividend_yield_pct": {
           "coverage": 0.9938,
@@ -612,9 +612,9 @@
       "coverage": {
         "by_column": {
           "asset_class": {
-            "coverage": 0.0,
-            "filled": 0,
-            "missing": 1046
+            "coverage": 0.9837,
+            "filled": 1029,
+            "missing": 17
           },
           "aum": {
             "coverage": 0.0,
@@ -637,9 +637,9 @@
             "missing": 1041
           },
           "dividend_category": {
-            "coverage": 0.2677,
-            "filled": 280,
-            "missing": 766
+            "coverage": 0.9503,
+            "filled": 994,
+            "missing": 52
           },
           "dividend_yield_pct": {
             "coverage": 0.9503,
@@ -672,9 +672,9 @@
             "missing": 1040
           },
           "nisa_category": {
-            "coverage": 0.5421,
-            "filled": 567,
-            "missing": 479
+            "coverage": 1.0,
+            "filled": 1046,
+            "missing": 0
           },
           "pbr": {
             "coverage": 0.0813,
@@ -849,9 +849,9 @@
             "missing": 58
           },
           "dividend_category": {
-            "coverage": 0.7241,
-            "filled": 42,
-            "missing": 16
+            "coverage": 1.0,
+            "filled": 58,
+            "missing": 0
           },
           "dividend_yield_pct": {
             "coverage": 1.0,
@@ -955,9 +955,9 @@
             "missing": 7971
           },
           "dividend_category": {
-            "coverage": 0.402,
-            "filled": 3251,
-            "missing": 4836
+            "coverage": 0.9938,
+            "filled": 8037,
+            "missing": 50
           },
           "dividend_yield_pct": {
             "coverage": 0.9938,
@@ -1037,9 +1037,9 @@
     "yahoo": {
       "by_column": {
         "asset_class": {
-          "coverage": 0.0,
-          "filled": 0,
-          "missing": 9197
+          "coverage": 0.1119,
+          "filled": 1029,
+          "missing": 8168
         },
         "aum": {
           "coverage": 0.0004,
@@ -1062,9 +1062,9 @@
           "missing": 9074
         },
         "dividend_category": {
-          "coverage": 0.3887,
-          "filled": 3575,
-          "missing": 5622
+          "coverage": 0.9885,
+          "filled": 9091,
+          "missing": 106
         },
         "dividend_yield_pct": {
           "coverage": 0.9885,
@@ -1097,9 +1097,9 @@
           "missing": 1083
         },
         "nisa_category": {
-          "coverage": 0.9476,
-          "filled": 8715,
-          "missing": 482
+          "coverage": 0.9997,
+          "filled": 9194,
+          "missing": 3
         },
         "pbr": {
           "coverage": 0.839,
@@ -1146,7 +1146,7 @@
     "jp": 4232,
     "us": 4965
   },
-  "checked_at": "2026-06-21T00:00:00+09:00",
+  "checked_at": "2026-06-21T16:35:00+09:00",
   "column_labels": {
     "complexity": "複雑さ",
     "consensus_rating": "コンセンサス",
@@ -1188,9 +1188,9 @@
       "missing": 106
     },
     "etf_asset_class": {
-      "coverage": 0.0,
-      "filled": 0,
-      "missing": 9197
+      "coverage": 0.1119,
+      "filled": 1029,
+      "missing": 8168
     },
     "etf_expense_ratio": {
       "coverage": 0.1117,
@@ -1213,9 +1213,9 @@
       "missing": 1083
     },
     "nisa": {
-      "coverage": 0.9476,
-      "filled": 8715,
-      "missing": 482
+      "coverage": 0.9997,
+      "filled": 9194,
+      "missing": 3
     },
     "pbr": {
       "coverage": 0.839,
@@ -1257,9 +1257,9 @@
           "missing": 52
         },
         "etf_asset_class": {
-          "coverage": 0.0,
-          "filled": 0,
-          "missing": 1046
+          "coverage": 0.9837,
+          "filled": 1029,
+          "missing": 17
         },
         "etf_expense_ratio": {
           "coverage": 0.9818,
@@ -1272,9 +1272,9 @@
           "missing": 0
         },
         "nisa": {
-          "coverage": 0.5421,
-          "filled": 567,
-          "missing": 479
+          "coverage": 1.0,
+          "filled": 1046,
+          "missing": 0
         },
         "sbi_tradability": {
           "coverage": 1.0,
@@ -1411,13 +1411,19 @@
     "market": "",
     "metadata_source": ""
   },
+  "nisa_category_breakdown": {
+    "both": 4,
+    "growth": 8711,
+    "none": 479,
+    "unknown": 3
+  },
   "operation": "symbol_universe_metadata_coverage",
   "overall": {
     "by_column": {
       "asset_class": {
-        "coverage": 0.0,
-        "filled": 0,
-        "missing": 9197
+        "coverage": 0.1119,
+        "filled": 1029,
+        "missing": 8168
       },
       "aum": {
         "coverage": 0.0004,
@@ -1440,9 +1446,9 @@
         "missing": 9074
       },
       "dividend_category": {
-        "coverage": 0.3887,
-        "filled": 3575,
-        "missing": 5622
+        "coverage": 0.9885,
+        "filled": 9091,
+        "missing": 106
       },
       "dividend_yield_pct": {
         "coverage": 0.9885,
@@ -1475,9 +1481,9 @@
         "missing": 1083
       },
       "nisa_category": {
-        "coverage": 0.9476,
-        "filled": 8715,
-        "missing": 482
+        "coverage": 0.9997,
+        "filled": 9194,
+        "missing": 3
       },
       "pbr": {
         "coverage": 0.839,
@@ -1511,6 +1517,11 @@
       }
     },
     "rows": 9197
+  },
+  "sbi_tradability_status_breakdown": {
+    "confirmed": 4895,
+    "estimated": 4278,
+    "not_supported": 24
   },
   "total_rows": 9197,
   "total_symbols": 9197

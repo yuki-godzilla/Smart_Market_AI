@@ -145,7 +145,7 @@ def test_news_headline_card_html_keeps_link_safe_and_hides_raw_url():
     assert html_text.count("<li>") == 1
 
 
-def test_news_ticker_html_uses_wrappable_scrolling_headline_items():
+def test_news_ticker_html_uses_paged_unique_headline_board():
     cards = [
         NewsHeadlineCard(
             title="長い市場ニュース見出しを折り返して表示できるようにするテスト",
@@ -163,10 +163,30 @@ def test_news_ticker_html_uses_wrappable_scrolling_headline_items():
 
     html_text = _news_ticker_html(cards)
 
-    assert html_text.count("investment-news-ticker-item") == 4
-    assert html_text.count('aria-hidden="true"') == 2
+    assert html_text.count("investment-news-ticker-item") == 2
+    assert "investment-news-board-page--0" in html_text
+    assert "investment-news-board-nav" not in html_text
     assert "investment-news-ticker-title" in html_text
     assert "長い市場ニュース見出しを折り返して表示できるようにするテスト" in html_text
+
+
+def test_news_ticker_html_groups_four_items_per_page_without_duplicates():
+    cards = [
+        NewsHeadlineCard(
+            title=f"ニュース{index}",
+            source_type="news",
+            category="日本株",
+            material_type="theme",
+        )
+        for index in range(5)
+    ]
+
+    html_text = _news_ticker_html(cards)
+
+    assert html_text.count('class="investment-news-board-page ') == 2
+    assert html_text.count("investment-news-ticker-item") == 5
+    assert "investment-news-board-page-1" in html_text
+    assert "investment-news-board-cycle" in html_text
 
 
 def test_news_dashboard_handoff_symbols_are_unique_in_display_order():

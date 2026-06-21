@@ -99,8 +99,8 @@ def test_global_css_defines_copilot_presence_and_insight_motion():
     assert ".investment-news-ticker-title" in SMAI_GLOBAL_CSS
     assert ".investment-news-card.compact" in SMAI_GLOBAL_CSS
     assert "height: auto;" in SMAI_GLOBAL_CSS
-    assert "animation: investment-news-ticker-scroll 68s linear infinite;" in SMAI_GLOBAL_CSS
-    assert "@keyframes investment-news-ticker-scroll" in SMAI_GLOBAL_CSS
+    assert ".investment-news-board-page" in SMAI_GLOBAL_CSS
+    assert "animation: investment-news-board-cycle" in SMAI_GLOBAL_CSS
     assert ".smai-insight" in SMAI_GLOBAL_CSS
     assert ".smai-insight-hero" in SMAI_GLOBAL_CSS
     assert ".smai-insight-center-forecast" in SMAI_GLOBAL_CSS

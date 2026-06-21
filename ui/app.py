@@ -125,10 +125,11 @@ from ui.components.assistant import (
 )
 from ui.components.mascot import (
     render_app_header,
-    render_mascot_loading,
     render_mascot_panel,
     render_page_title,
     smai_insight_html,
+    workflow_loading_headlines_from_cache,
+    workflow_loading_html,
 )
 from ui.components.sidemenu import (
     SIDEMENU_PAGE_COCKPIT,
@@ -2686,7 +2687,7 @@ def symbol_universe_investment_metric_rows(row: dict[str, str]) -> list[dict[str
             symbol_universe_detail_display_value(row, "market_cap_tier"),
         ),
         _symbol_detail_row(
-            "市場感応度",
+            "値動きリスク",
             symbol_universe_detail_display_value(row, "risk_band"),
         ),
         _symbol_detail_row(
@@ -5815,13 +5816,13 @@ def _render_ranking_filter_panel(
         if "risk_band" in detail_filters:
             with next_column():
                 _render_detail_selectbox(
-                    "市場感応度（β）",
+                    "値動きリスク",
                     options=list(RANKING_BETA_RISK_LABELS),
                     key="market_data_ranking_risk_band",
                     format_func=lambda value: _short_filter_label(RANKING_BETA_RISK_LABELS[value]),
                     help_text=(
-                        "市場全体に対する値動きの連動しやすさです。"
-                        "βが高いほど市場変動の影響を受けやすい傾向があります。"
+                        "取得元のbetaを低め・標準・高めの帯に整理した参考区分です。"
+                        "厳密なβ値そのものではなく、値動きの確認材料として使います。"
                     ),
                 )
         if "nisa_eligibility" in detail_filters:
@@ -6346,7 +6347,7 @@ def _render_cockpit_symbol_filter_detail_fields(
         )
     with attr_cols[2]:
         risk_band = _render_detail_selectbox(
-            "市場感応度（β）",
+            "値動きリスク",
             options=list(RANKING_BETA_RISK_LABELS),
             key="market_data_cockpit_risk_band",
             format_func=lambda value: RANKING_BETA_RISK_LABELS[value],
@@ -6781,10 +6782,23 @@ def _render_market_data_cockpit() -> None:
         help="選択した銘柄と取得期間で、価格・予測・投資スコアを再計算します。",
     ):
         loading_slot = st.empty()
+        loading_headlines, loading_headline_note = workflow_loading_headlines_from_cache()
         progress_bar: Any | None = None
         progress_status: Any | None = None
 
         def update_cockpit_progress(message: str, ratio: float) -> None:
+            loading_slot.markdown(
+                workflow_loading_html(
+                    title="市場データを取得中",
+                    message="価格、予測、スコアの材料をまとめています。",
+                    current_step=message,
+                    progress=ratio,
+                    mode="blocking",
+                    headlines=loading_headlines,
+                    headline_note=loading_headline_note,
+                ),
+                unsafe_allow_html=True,
+            )
             if progress_status is not None:
                 progress_status.caption(message)
             if progress_bar is not None:
@@ -6795,15 +6809,8 @@ def _render_market_data_cockpit() -> None:
             end_date = _single_date_from_input(end)
             forecast_horizon_days = default_forecast_horizon_days(start_date, end_date)
             st.session_state[MARKET_DATA_FORECAST_DAYS_STATE_KEY] = forecast_horizon_days
-            with loading_slot.container():
-                render_mascot_loading(
-                    "cockpit",
-                    title="市場データを取得中",
-                    message="価格、予測、スコアの材料をまとめています。少しだけお待ちください。",
-                    tone="forecast",
-                )
-                progress_bar = st.progress(0.0)
-                progress_status = st.empty()
+            progress_bar = st.progress(0.0)
+            progress_status = st.empty()
             update_cockpit_progress("入力条件と予測日数を確認しています。", 0.12)
             update_cockpit_progress("価格データと予測材料を取得しています。", 0.32)
             preview = asyncio.run(
@@ -6874,125 +6881,131 @@ def _render_market_data_ranking() -> None:
         "</section>",
         unsafe_allow_html=True,
     )
-    (
-        col_policy,
-        col_region,
-        col_product,
-        col_period,
-        col_provider,
-        col_limit,
-    ) = st.columns([1.16, 0.72, 0.72, 0.9, 0.78, 1.06])
-    with col_region:
-        region_options = list(RANKING_MVP_REGION_LABELS)
-        _ensure_selectbox_state_value("market_data_ranking_region", region_options)
-        region = cast(
-            str,
-            st.selectbox(
-                "地域",
-                region_options,
-                index=_selectbox_index(
-                    region_options,
-                    _ranking_filter_value("market_data_ranking_region", "japan"),
-                ),
-                key="market_data_ranking_region",
-                format_func=ranking_region_label,
-            ),
-        )
-    with col_product:
-        product_options = list(RANKING_MVP_PRODUCT_TYPE_LABELS)
-        _ensure_selectbox_state_value("market_data_ranking_product_type", product_options)
-        product_type = cast(
-            str,
-            st.selectbox(
-                "商品",
-                product_options,
-                index=_selectbox_index(
-                    product_options,
-                    _ranking_filter_value("market_data_ranking_product_type", "stock"),
-                ),
-                key="market_data_ranking_product_type",
-                format_func=ranking_product_type_label,
-            ),
-        )
-    _sync_ranking_policy_state(product_type)
-    with col_policy:
-        policy_options = ranking_policy_options(product_type)
-        _ensure_selectbox_state_value("market_data_ranking_policy", policy_options)
-        st.markdown(
-            '<div class="smai-ranking-policy-select-anchor"></div>',
-            unsafe_allow_html=True,
-        )
-        ranking_policy = cast(
-            str,
-            st.selectbox(
-                "ランキング基準",
-                policy_options,
-                index=_selectbox_index(
-                    policy_options,
-                    _ranking_filter_value(
-                        "market_data_ranking_policy",
-                        RANKING_PURPOSE_MULTI_FACTOR,
-                    ),
-                ),
-                key="market_data_ranking_policy",
-                format_func=ranking_policy_label,
-                help=(
-                    "どの見方で候補を並べるかを選びます。"
-                    "上位候補・グラフ・SMAIメモは、このランキング基準に基づいて表示されます。"
-                ),
-            ),
-        )
-    with col_period:
-        period_options = list(RANKING_PERIOD_PRESETS)
-        _ensure_selectbox_state_value("market_data_ranking_period", period_options)
-        period_preset = cast(
-            str,
-            st.selectbox(
-                "取得期間",
-                period_options,
-                index=_selectbox_index(
-                    period_options,
-                    _ranking_filter_value(
-                        "market_data_ranking_period",
-                        RANKING_DEFAULT_PERIOD_PRESET,
-                    ),
-                ),
-                key="market_data_ranking_period",
-                format_func=ranking_period_label,
-                help=RANKING_FILTER_HELP_TEXTS["period"],
-            ),
-        )
+    primary_conditions = st.container()
+    detail_conditions = st.container()
 
-    with col_provider:
-        provider = cast(
-            str,
-            st.selectbox(
-                "データ取得元",
-                MARKET_DATA_PROVIDER_OPTIONS,
-                index=_provider_option_index(default_market_data_provider()),
-                key=MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY,
-            ),
-        )
-    with col_limit:
-        fetch_limit_options = list(RANKING_FETCH_LIMIT_LABELS)
-        _ensure_selectbox_state_value("market_data_ranking_fetch_limit", fetch_limit_options)
-        fetch_limit = cast(
-            str,
-            st.selectbox(
-                "作成対象件数",
-                fetch_limit_options,
-                index=_selectbox_index(
+    with detail_conditions:
+        col_region, col_product, col_period, col_provider = st.columns(4)
+        with col_region:
+            region_options = list(RANKING_MVP_REGION_LABELS)
+            _ensure_selectbox_state_value("market_data_ranking_region", region_options)
+            region = cast(
+                str,
+                st.selectbox(
+                    "地域",
+                    region_options,
+                    index=_selectbox_index(
+                        region_options,
+                        _ranking_filter_value("market_data_ranking_region", "japan"),
+                    ),
+                    key="market_data_ranking_region",
+                    format_func=ranking_region_label,
+                ),
+            )
+        with col_product:
+            product_options = list(RANKING_MVP_PRODUCT_TYPE_LABELS)
+            _ensure_selectbox_state_value("market_data_ranking_product_type", product_options)
+            product_type = cast(
+                str,
+                st.selectbox(
+                    "商品",
+                    product_options,
+                    index=_selectbox_index(
+                        product_options,
+                        _ranking_filter_value("market_data_ranking_product_type", "stock"),
+                    ),
+                    key="market_data_ranking_product_type",
+                    format_func=ranking_product_type_label,
+                ),
+            )
+
+    _sync_ranking_policy_state(product_type)
+    with primary_conditions:
+        col_policy, col_limit = st.columns(2)
+        with col_policy:
+            policy_options = ranking_policy_options(product_type)
+            _ensure_selectbox_state_value("market_data_ranking_policy", policy_options)
+            st.markdown(
+                '<div class="smai-ranking-policy-select-anchor"></div>',
+                unsafe_allow_html=True,
+            )
+            ranking_policy = cast(
+                str,
+                st.selectbox(
+                    "ランキング基準",
+                    policy_options,
+                    index=_selectbox_index(
+                        policy_options,
+                        _ranking_filter_value(
+                            "market_data_ranking_policy",
+                            RANKING_PURPOSE_MULTI_FACTOR,
+                        ),
+                    ),
+                    key="market_data_ranking_policy",
+                    format_func=ranking_policy_label,
+                    help=(
+                        "どの見方で候補を並べるかを選びます。"
+                        "上位候補・グラフ・SMAIメモは、このランキング基準に基づいて表示されます。"
+                    ),
+                ),
+            )
+        with col_limit:
+            fetch_limit_options = list(RANKING_FETCH_LIMIT_LABELS)
+            _ensure_selectbox_state_value("market_data_ranking_fetch_limit", fetch_limit_options)
+            st.markdown(
+                '<div class="smai-ranking-policy-select-anchor"></div>',
+                unsafe_allow_html=True,
+            )
+            fetch_limit = cast(
+                str,
+                st.selectbox(
+                    "作成対象件数",
                     fetch_limit_options,
-                    _ranking_filter_value("market_data_ranking_fetch_limit", "balanced_300"),
+                    index=_selectbox_index(
+                        fetch_limit_options,
+                        _ranking_filter_value("market_data_ranking_fetch_limit", "balanced_300"),
+                    ),
+                    key="market_data_ranking_fetch_limit",
+                    format_func=ranking_fetch_limit_label,
+                    help=(
+                        "候補が多い場合、外部取得前に総合マルチファクター基準で上位に絞ります。"
+                        "全件取得も選べますが、Yahooライブデータでは時間がかかります。"
+                    ),
                 ),
-                key="market_data_ranking_fetch_limit",
-                format_func=ranking_fetch_limit_label,
-                help=(
-                    "候補が多い場合、外部取得前に総合マルチファクター基準で上位に絞ります。"
-                    "全件取得も選べますが、Yahooライブデータでは時間がかかります。"
+            )
+
+    with detail_conditions:
+        with col_period:
+            period_options = list(RANKING_PERIOD_PRESETS)
+            _ensure_selectbox_state_value("market_data_ranking_period", period_options)
+            period_preset = cast(
+                str,
+                st.selectbox(
+                    "取得期間",
+                    period_options,
+                    index=_selectbox_index(
+                        period_options,
+                        _ranking_filter_value(
+                            "market_data_ranking_period",
+                            RANKING_DEFAULT_PERIOD_PRESET,
+                        ),
+                    ),
+                    key="market_data_ranking_period",
+                    format_func=ranking_period_label,
+                    help=RANKING_FILTER_HELP_TEXTS["period"],
                 ),
-            ),
-        )
+            )
+
+        with col_provider:
+            provider = cast(
+                str,
+                st.selectbox(
+                    "データ取得元",
+                    MARKET_DATA_PROVIDER_OPTIONS,
+                    index=_provider_option_index(default_market_data_provider()),
+                    key=MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY,
+                ),
+            )
     policy_preset = ranking_weight_preset_for_purpose(ranking_policy)
     filtered_symbol_rows = _render_ranking_filter_panel(
         symbol_options,
@@ -7169,22 +7182,33 @@ def _render_market_data_ranking() -> None:
             st.error("対象の銘柄を1件以上選んでください。")
             return
         cache_key = current_ranking_source
-        loading_slot = st.empty()
-        with loading_slot.container():
-            render_mascot_loading(
-                "ranking",
-                title="ランキング更新中",
-                message="候補ごとの価格データを集めて、深掘り候補を整理しています。",
-                tone="success",
-            )
         progress_bar = st.progress(0.0)
         progress_status = st.empty()
+        loading_slot = st.empty()
+        loading_headlines, loading_headline_note = workflow_loading_headlines_from_cache(
+            max_items=4
+        )
 
         def update_progress(message: str, ratio: float) -> None:
             progress_status.caption(message)
             progress_bar.progress(max(0.0, min(1.0, ratio)))
+            loading_slot.markdown(
+                workflow_loading_html(
+                    title="ランキングを作成中",
+                    message=(
+                        "既存の結果を残したまま、候補ごとの価格データと比較材料を整理しています。"
+                    ),
+                    current_step=message,
+                    progress=ratio,
+                    mode="inline",
+                    headlines=loading_headlines,
+                    headline_note=loading_headline_note,
+                ),
+                unsafe_allow_html=True,
+            )
 
         try:
+            update_progress("ランキング対象と取得条件を確認しています。", 0.04)
             _run_symbol_database_preflight_refresh(
                 ranking_symbol_db_preflight_symbols(ranking_symbols),
                 context="ranking",
@@ -8545,28 +8569,32 @@ def _render_cockpit_research_summary(preview: MarketDataPreview) -> None:
     should_rerun_after_refresh = False
     if fetch_clicked:
         loading_slot = st.empty()
+        loading_headlines, loading_headline_note = workflow_loading_headlines_from_cache()
         progress_bar: Any | None = None
         progress_status: Any | None = None
 
         def update_research_progress(message: str, ratio: float) -> None:
+            loading_slot.markdown(
+                workflow_loading_html(
+                    title="AI調査データを取得中",
+                    message=(
+                        "外部参照ソース、ニュース、保存済み資料を確認し、企業リサーチに整理しています。"
+                    ),
+                    current_step=message,
+                    progress=ratio,
+                    mode="blocking",
+                    headlines=loading_headlines,
+                    headline_note=loading_headline_note,
+                ),
+                unsafe_allow_html=True,
+            )
             if progress_status is not None:
                 progress_status.caption(message)
             if progress_bar is not None:
                 progress_bar.progress(max(0.0, min(1.0, ratio)))
 
-        with loading_slot.container():
-            render_mascot_loading(
-                "report",
-                title="AI調査を整理中",
-                message="外部参照ソース、ニュース、保存済み資料を読み込み、企業リサーチレポートにまとめています。",
-                tone="info",
-            )
-            st.caption(
-                "確認中: EDINET / TDnet / 企業IR / Google News / Yahoo Finance。"
-                "時間がかかる場合は全体timeoutで戻り、取得済みの情報だけ表示します。"
-            )
-            progress_bar = st.progress(0.0)
-            progress_status = st.empty()
+        progress_bar = st.progress(0.0)
+        progress_status = st.empty()
         update_research_progress("調査対象と取得元を確認しています。", 0.08)
         try:
             refresh_started = perf_time.perf_counter()
@@ -10172,13 +10200,19 @@ def _render_ranking_symbol_research_lookup(symbol: str) -> None:
     if fetch_clicked:
         as_of = date.today()
         loading_slot = st.empty()
-        with loading_slot.container():
-            render_mascot_loading(
-                "report",
-                title="AI資料を確認中",
-                message="保存済み資料を読み込み、根拠付きの企業リサーチメモに整理しています。",
-                tone="info",
-            )
+        loading_headlines, loading_headline_note = workflow_loading_headlines_from_cache()
+        loading_slot.markdown(
+            workflow_loading_html(
+                title="AI調査データを取得中",
+                message="外部情報と保存済み資料を、根拠付きの企業リサーチメモに整理しています。",
+                current_step="外部参照ソースを確認しています。",
+                progress=0.18,
+                mode="blocking",
+                headlines=loading_headlines,
+                headline_note=loading_headline_note,
+            ),
+            unsafe_allow_html=True,
+        )
         try:
             try:
                 external_result = _fetch_external_research_for_symbol(
@@ -10197,6 +10231,20 @@ def _render_ranking_symbol_research_lookup(symbol: str) -> None:
                     "外部参照ソースを取得できませんでした。保存済み資料と既存データでAI調査を続行します。"
                 )
                 st.caption(_external_research_fetch_failure_caption(exc))
+            loading_slot.markdown(
+                workflow_loading_html(
+                    title="AI調査データを取得中",
+                    message=(
+                        "外部情報と保存済み資料を、根拠付きの企業リサーチメモに整理しています。"
+                    ),
+                    current_step="企業リサーチメモを生成しています。",
+                    progress=0.72,
+                    mode="blocking",
+                    headlines=loading_headlines,
+                    headline_note=loading_headline_note,
+                ),
+                unsafe_allow_html=True,
+            )
             fetched_report = _build_research_report_for_symbol(
                 symbol,
                 as_of=as_of,

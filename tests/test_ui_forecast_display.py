@@ -895,7 +895,7 @@ def test_symbol_universe_detail_display_value_translates_internal_codes():
     assert symbol_universe_detail_display_value(row, "metadata_source") == "Yahoo Finance"
     assert symbol_universe_detail_display_value(row, "dividend_yield_pct") == "2.84%"
     assert symbol_universe_detail_display_value(row, "market_cap_tier").startswith("大型")
-    assert symbol_universe_detail_display_value(row, "risk_band") == "低変動（β < 0.8目安）"
+    assert symbol_universe_detail_display_value(row, "risk_band") == "低め"
     assert symbol_universe_detail_display_value(row, "yahoo_symbol") == "表示銘柄と同じ"
 
 
@@ -3092,7 +3092,7 @@ def test_fetch_external_research_for_preview_uses_external_source_and_stores(mon
     assert st.session_state[MARKET_DATA_EXTERNAL_RESEARCH_FETCH_STATE_KEY] is result
 
 
-def test_cockpit_research_refresh_uses_mascot_loading(monkeypatch):
+def test_cockpit_research_refresh_uses_workflow_loading(monkeypatch):
     progress_messages: list[str] = []
     progress_values: list[float] = []
 
@@ -3100,8 +3100,8 @@ def test_cockpit_research_refresh_uses_mascot_loading(monkeypatch):
         def __init__(self) -> None:
             self.cleared = False
 
-        def container(self):
-            return nullcontext()
+        def markdown(self, markup: str, **_: object) -> None:
+            loading_calls.append(markup)
 
         def caption(self, message: str) -> None:
             progress_messages.append(message)
@@ -3114,7 +3114,7 @@ def test_cockpit_research_refresh_uses_mascot_loading(monkeypatch):
             progress_values.append(value)
 
     slot = FakeLoadingSlot()
-    loading_calls: list[tuple[str, dict[str, object]]] = []
+    loading_calls: list[str] = []
     rerun_calls: list[bool] = []
     session_state: dict[str, object] = {}
     external_result = ExternalResearchFetchResult(
@@ -3151,8 +3151,8 @@ def test_cockpit_research_refresh_uses_mascot_loading(monkeypatch):
     monkeypatch.setattr("ui.app.st.info", lambda *_, **__: None)
     monkeypatch.setattr("ui.app.st.rerun", lambda: rerun_calls.append(True))
     monkeypatch.setattr(
-        "ui.app.render_mascot_loading",
-        lambda variant, **kwargs: loading_calls.append((variant, kwargs)),
+        "ui.app.workflow_loading_headlines_from_cache",
+        lambda **_: ((), "保存済みニュースはありません"),
     )
     monkeypatch.setattr(
         "ui.app._render_research_operation_card",
@@ -3179,19 +3179,10 @@ def test_cockpit_research_refresh_uses_mascot_loading(monkeypatch):
 
     _render_cockpit_research_summary(preview)
 
-    assert loading_calls == [
-        (
-            "report",
-            {
-                "title": "AI調査を整理中",
-                "message": (
-                    "外部参照ソース、ニュース、保存済み資料を読み込み、"
-                    "企業リサーチレポートにまとめています。"
-                ),
-                "tone": "info",
-            },
-        )
-    ]
+    assert loading_calls
+    assert all("AI調査データを取得中" in markup for markup in loading_calls)
+    assert all('data-testid="smai-workflow-loading-blocking"' in markup for markup in loading_calls)
+    assert "AI調査の更新が完了しました。" in loading_calls[-1]
     assert slot.cleared is True
     assert rerun_calls == [True]
     assert progress_values == [0.0, 0.08, 0.24, 0.52, 0.70, 0.86, 0.96, 1.0]
@@ -3211,13 +3202,14 @@ def test_ranking_symbol_research_lookup_reuses_cockpit_research_flow(monkeypatch
         def __init__(self) -> None:
             self.cleared = False
 
-        def container(self):
-            return nullcontext()
+        def markdown(self, markup: str, **_: object) -> None:
+            loading_markup.append(markup)
 
         def empty(self) -> None:
             self.cleared = True
 
     slot = FakeLoadingSlot()
+    loading_markup: list[str] = []
     calls: list[tuple[str, object]] = []
     stored: dict[str, object] = {}
     fake_report = object()
@@ -3236,7 +3228,10 @@ def test_ranking_symbol_research_lookup_reuses_cockpit_research_flow(monkeypatch
     monkeypatch.setattr("ui.app.st.info", lambda *_, **__: None)
     monkeypatch.setattr("ui.app.st.button", lambda *_, **__: True)
     monkeypatch.setattr("ui.app.st.empty", lambda: slot)
-    monkeypatch.setattr("ui.app.render_mascot_loading", lambda *_, **__: None)
+    monkeypatch.setattr(
+        "ui.app.workflow_loading_headlines_from_cache",
+        lambda **_: ((), "保存済みニュースはありません"),
+    )
 
     def fake_fetch(symbol: str, *, as_of: date | None):
         calls.append(("external", (symbol, as_of)))
@@ -3296,6 +3291,9 @@ def test_ranking_symbol_research_lookup_reuses_cockpit_research_flow(monkeypatch
     assert rendered["external_research_result"] is fake_external_result
     assert rendered["display_context"] == "ranking"
     assert slot.cleared is True
+    assert len(loading_markup) == 2
+    assert "AI調査データを取得中" in loading_markup[0]
+    assert "企業リサーチメモを生成しています。" in loading_markup[-1]
 
 
 def test_fetch_external_research_for_symbol_reuses_session_ttl_cache(monkeypatch, tmp_path):
@@ -4658,9 +4656,9 @@ def test_ranking_policy_descriptions_cover_all_composite_options():
 
 
 def test_beta_risk_filter_labels_explain_thresholds():
-    assert RANKING_BETA_RISK_LABELS[RANKING_BETA_RISK_STANDARD_OR_LOWER] == ("標準以下（β <= 1.2）")
-    assert "β 0.8未満" in RANKING_FILTER_HELP_TEXTS["risk_band"]
-    assert "1.2超" in RANKING_FILTER_HELP_TEXTS["risk_band"]
+    assert RANKING_BETA_RISK_LABELS[RANKING_BETA_RISK_STANDARD_OR_LOWER] == "標準以下"
+    assert "値動きリスク" in RANKING_FILTER_HELP_TEXTS["risk_band"]
+    assert "厳密なβ値そのものではなく" in RANKING_FILTER_HELP_TEXTS["risk_band"]
 
 
 def test_filter_symbol_universe_rows_searches_japanese_aliases():

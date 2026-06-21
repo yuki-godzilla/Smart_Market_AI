@@ -773,45 +773,79 @@ body,
 }
 
 .investment-news-ticker {
+    position: relative;
+    min-height: 10.8rem;
+    overflow: hidden;
+    margin: 0.35rem 0 1rem;
+    padding: 0.72rem 0.78rem 0.55rem;
     border: 1px solid var(--border-subtle);
-    border-radius: 8px;
+    border-radius: 10px;
     background:
         linear-gradient(90deg, rgba(34, 211, 238, 0.13), rgba(251, 191, 36, 0.08)),
         linear-gradient(180deg, rgba(8, 27, 42, 0.95), rgba(11, 18, 32, 0.94));
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-    margin: 0.35rem 0 1rem;
-    min-height: 4.65rem;
-    overflow: hidden;
 }
 
-.investment-news-ticker-track {
-    display: inline-flex;
-    align-items: stretch;
-    gap: 0.58rem;
-    min-width: max-content;
-    padding: 0.58rem 0.68rem;
-    animation: investment-news-ticker-scroll 68s linear infinite;
-    will-change: transform;
+.investment-news-board-radio {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
 }
 
-.investment-news-ticker:hover .investment-news-ticker-track {
+.investment-news-board-viewport {
+    position: relative;
+    min-height: 8.45rem;
+}
+
+.investment-news-board-page {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(3.75rem, auto));
+    gap: 0.55rem;
+    opacity: 0;
+    pointer-events: none;
+    animation: investment-news-board-cycle var(--investment-news-board-duration) ease-in-out
+        infinite;
+    will-change: opacity, transform;
+}
+
+.investment-news-board-page:first-child {
+    opacity: 1;
+}
+
+.investment-news-ticker:hover .investment-news-board-page {
     animation-play-state: paused;
 }
 
 .investment-news-ticker-item {
-    display: inline-flex;
-    align-items: flex-start;
-    gap: 0.42rem;
-    flex: 0 0 clamp(22rem, 32vw, 32rem);
-    width: clamp(22rem, 32vw, 32rem);
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-content: start;
+    gap: 0.28rem 0.52rem;
+    min-width: 0;
+    padding: 0.52rem 0.62rem;
     border: 1px solid rgba(125, 211, 252, 0.18);
-    border-radius: 7px;
-    background: rgba(15, 23, 42, 0.38);
+    border-radius: 9px;
+    background: rgba(15, 23, 42, 0.5);
     color: var(--text-primary);
     font-size: 0.88rem;
     font-weight: 720;
-    line-height: 1.35;
-    padding: 0.32rem 0.44rem;
+    line-height: 1.42;
+    text-decoration: none;
+    transition:
+        border-color 0.16s ease,
+        background-color 0.16s ease,
+        transform 0.16s ease;
+}
+
+.investment-news-ticker-item:hover {
+    border-color: rgba(103, 232, 249, 0.42);
+    background: rgba(8, 47, 73, 0.62);
+    transform: translateY(-1px);
 }
 
 .investment-news-ticker-category {
@@ -836,35 +870,88 @@ body,
     -webkit-line-clamp: 2;
 }
 
-@keyframes investment-news-ticker-scroll {
-    from {
-        transform: translateX(0);
-    }
-    to {
-        transform: translateX(-50%);
-    }
+.investment-news-ticker-item small {
+    grid-column: 2;
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    font-weight: 620;
+}
+
+.investment-news-board-nav {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.42rem;
+    min-height: 1.25rem;
+    margin-top: 0.48rem;
+}
+
+.investment-news-board-nav label {
+    display: grid;
+    place-items: center;
+    width: 0.48rem;
+    height: 0.48rem;
+    overflow: hidden;
+    border-radius: 50%;
+    background: rgba(148, 163, 184, 0.42);
+    cursor: pointer;
+    transition:
+        background-color 0.16s ease,
+        transform 0.16s ease;
+}
+
+.investment-news-board-nav label:hover {
+    background: #67e8f9;
+    transform: scale(1.18);
+}
+
+.investment-news-board-nav label span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+}
+
+.investment-news-board-nav-note {
+    position: absolute;
+    right: 0.1rem;
+    color: var(--text-muted);
+    font-size: 0.65rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .investment-news-ticker {
-        overflow: visible;
-    }
-    .investment-news-ticker-track {
-        display: flex;
-        flex-wrap: wrap;
-        min-width: 0;
+    .investment-news-board-page {
+        position: relative;
+        display: none;
         animation: none;
     }
-    .investment-news-ticker-item {
-        flex: 1 1 min(28rem, 100%);
-        width: auto;
+
+    .investment-news-board-page:first-child {
+        display: grid;
+        opacity: 1;
+        pointer-events: auto;
     }
 }
 
 @media (max-width: 720px) {
-    .investment-news-ticker-item {
-        flex-basis: min(86vw, 24rem);
-        width: min(86vw, 24rem);
+    .investment-news-ticker {
+        min-height: 18.2rem;
+    }
+
+    .investment-news-board-viewport {
+        min-height: 15.8rem;
+    }
+
+    .investment-news-board-page {
+        grid-template-columns: 1fr;
+        grid-template-rows: repeat(4, minmax(3.45rem, auto));
+    }
+
+    .investment-news-board-nav-note {
+        display: none;
     }
 }
 
@@ -4037,6 +4124,280 @@ div[data-testid="stChatInput"] textarea:focus {
     animation-delay: 0.32s;
 }
 
+.smai-workflow-loading--blocking {
+    position: fixed;
+    z-index: 999;
+    inset: 3.75rem 0 0 21rem;
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+    background: rgba(2, 8, 23, 0.74);
+    backdrop-filter: blur(5px);
+    pointer-events: auto;
+}
+
+.smai-workflow-loading--inline {
+    position: relative;
+    margin: 0.55rem 0 0.9rem;
+}
+
+.smai-workflow-loading-panel {
+    position: relative;
+    isolation: isolate;
+    display: grid;
+    grid-template-columns: 6.4rem minmax(0, 1fr);
+    align-items: center;
+    gap: 1.15rem;
+    width: min(46rem, calc(100vw - 3rem));
+    max-height: calc(100vh - 6.5rem);
+    overflow: hidden;
+    overflow-y: auto;
+    border: 1px solid rgba(56, 189, 248, 0.38);
+    border-radius: 16px;
+    background:
+        radial-gradient(circle at 9% 50%, rgba(34, 211, 238, 0.14), transparent 28%),
+        linear-gradient(135deg, rgba(7, 17, 31, 0.98), rgba(13, 42, 57, 0.95));
+    box-shadow: 0 24px 70px rgba(2, 8, 23, 0.46);
+    padding: 1.15rem 1.3rem;
+}
+
+.smai-workflow-loading--inline .smai-workflow-loading-panel {
+    width: 100%;
+    grid-template-columns: 5.1rem minmax(0, 1fr);
+    border-radius: 12px;
+    box-shadow: 0 14px 34px rgba(2, 8, 23, 0.28);
+    padding: 0.85rem 1rem;
+}
+
+.smai-workflow-loading-visual {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 5.8rem;
+    height: 5.8rem;
+}
+
+.smai-workflow-loading--inline .smai-workflow-loading-visual {
+    width: 4.6rem;
+    height: 4.6rem;
+}
+
+.smai-workflow-loading-visual img {
+    position: relative;
+    z-index: 2;
+    width: 4.7rem;
+    height: 4.7rem;
+    border-radius: 12px;
+    object-fit: cover;
+    filter: drop-shadow(0 0 12px rgba(34, 211, 238, 0.35));
+    animation: smai-float 1.8s ease-in-out infinite;
+}
+
+.smai-workflow-loading--inline .smai-workflow-loading-visual img {
+    width: 3.75rem;
+    height: 3.75rem;
+}
+
+.smai-workflow-loading-orbit {
+    position: absolute;
+    inset: 0;
+    border: 1px solid rgba(103, 232, 249, 0.42);
+    border-radius: 50%;
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.18);
+    animation: smai-workflow-orbit 3.4s linear infinite;
+}
+
+.smai-workflow-loading-orbit::after {
+    content: "";
+    position: absolute;
+    top: 0.35rem;
+    left: 50%;
+    width: 0.48rem;
+    height: 0.48rem;
+    border-radius: 50%;
+    background: #67e8f9;
+    box-shadow: 0 0 11px #22d3ee;
+}
+
+.smai-workflow-loading-scan {
+    position: absolute;
+    z-index: 3;
+    width: 78%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #67e8f9, transparent);
+    box-shadow: 0 0 8px rgba(34, 211, 238, 0.76);
+    animation: smai-workflow-scan 1.8s ease-in-out infinite;
+}
+
+.smai-workflow-loading-copy {
+    min-width: 0;
+}
+
+.smai-workflow-loading-kicker {
+    color: #67e8f9;
+    font-size: 0.68rem;
+    font-weight: 820;
+    letter-spacing: 0.12em;
+}
+
+.smai-workflow-loading-title {
+    margin-top: 0.15rem;
+    color: #f8fafc;
+    font-size: 1.15rem;
+    font-weight: 840;
+    line-height: 1.35;
+}
+
+.smai-workflow-loading-copy p {
+    margin: 0.28rem 0 0.68rem;
+    color: #b7c7d9;
+    font-size: 0.84rem;
+    line-height: 1.55;
+}
+
+.smai-workflow-loading-current {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.48rem;
+    color: #a5f3fc;
+    font-size: 0.78rem;
+}
+
+.smai-workflow-loading-current span:last-child {
+    color: #94a3b8;
+    font-variant-numeric: tabular-nums;
+}
+
+.smai-workflow-loading-dot {
+    width: 0.48rem;
+    height: 0.48rem;
+    border-radius: 50%;
+    background: #22d3ee;
+    box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.42);
+    animation: smai-copilot-pending-pulse 1.4s ease-in-out infinite;
+}
+
+.smai-workflow-loading-track {
+    height: 0.35rem;
+    overflow: hidden;
+    margin-top: 0.48rem;
+    border-radius: 999px;
+    background: rgba(71, 85, 105, 0.52);
+}
+
+.smai-workflow-loading-track i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #0891b2, #67e8f9);
+    box-shadow: 0 0 12px rgba(34, 211, 238, 0.52);
+    transition: width 0.25s ease;
+}
+
+.smai-workflow-loading-news {
+    grid-column: 1 / -1;
+    margin-top: 0.95rem;
+    padding-top: 0.82rem;
+    border-top: 1px solid rgba(103, 232, 249, 0.14);
+}
+
+.smai-workflow-loading-news-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.8rem;
+}
+
+.smai-workflow-loading-news-head strong {
+    color: #dbeafe;
+    font-size: 0.82rem;
+}
+
+.smai-workflow-loading-news-head span {
+    color: #7f96ad;
+    font-size: 0.68rem;
+}
+
+.smai-workflow-loading-news-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.48rem;
+    margin-top: 0.58rem;
+}
+
+.smai-workflow-loading-news-card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.18rem 0.5rem;
+    min-width: 0;
+    padding: 0.58rem 0.68rem;
+    border: 1px solid rgba(96, 165, 250, 0.15);
+    border-radius: 9px;
+    background: rgba(8, 29, 45, 0.58);
+}
+
+.smai-workflow-loading-news-card span {
+    align-self: start;
+    padding: 0.08rem 0.38rem;
+    border: 1px solid rgba(34, 211, 238, 0.24);
+    border-radius: 999px;
+    color: #a5f3fc;
+    background: rgba(8, 145, 178, 0.12);
+    font-size: 0.62rem;
+    font-weight: 760;
+    white-space: nowrap;
+}
+
+.smai-workflow-loading-news-card strong {
+    min-width: 0;
+    overflow: hidden;
+    color: #e6f2ff;
+    font-size: 0.75rem;
+    font-weight: 680;
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.smai-workflow-loading-news-card small {
+    grid-column: 2;
+    color: #7890a7;
+    font-size: 0.64rem;
+}
+
+.smai-workflow-loading--inline .smai-workflow-loading-news-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.smai-workflow-loading--inline .smai-workflow-loading-news-card {
+    grid-template-columns: 1fr;
+}
+
+.smai-workflow-loading--inline .smai-workflow-loading-news-card strong,
+.smai-workflow-loading--inline .smai-workflow-loading-news-card small {
+    grid-column: 1;
+}
+
+@keyframes smai-workflow-orbit {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes smai-workflow-scan {
+    0%,
+    100% {
+        opacity: 0.25;
+        transform: translateY(-1.5rem);
+    }
+    50% {
+        opacity: 0.92;
+        transform: translateY(1.5rem);
+    }
+}
+
 @keyframes smai-float {
     0%,
     100% {
@@ -4336,6 +4697,10 @@ div[data-testid="stChatInput"] textarea:focus {
     .smai-mascot-image--loading,
     .smai-loading-pulse,
     .smai-loading-dots span,
+    .smai-workflow-loading-visual img,
+    .smai-workflow-loading-orbit,
+    .smai-workflow-loading-scan,
+    .smai-workflow-loading-dot,
     .smai-copilot-pending-dots span,
     .smai-copilot-pending-current-dot {
         animation: none;
@@ -4343,6 +4708,32 @@ div[data-testid="stChatInput"] textarea:focus {
 }
 
 @media (max-width: 720px) {
+    .smai-workflow-loading--blocking {
+        inset: 3.75rem 0 0 0;
+        padding: 0.75rem;
+    }
+
+    .smai-workflow-loading-panel,
+    .smai-workflow-loading--inline .smai-workflow-loading-panel {
+        grid-template-columns: 1fr;
+        width: 100%;
+    }
+
+    .smai-workflow-loading-visual {
+        justify-self: center;
+    }
+
+    .smai-workflow-loading-news-head {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.2rem;
+    }
+
+    .smai-workflow-loading-news-list,
+    .smai-workflow-loading--inline .smai-workflow-loading-news-list {
+        grid-template-columns: 1fr;
+    }
+
     .smai-app-header {
         grid-template-columns: 1fr;
         gap: 0.8rem;
@@ -4863,6 +5254,41 @@ div[data-testid="stChatInput"] textarea:focus {
     + div[data-testid="stButton"] button * {
     color: #FFFFFF !important;
     font-size: 1.16rem !important;
+    font-weight: 880 !important;
+}
+
+.smai-news-refresh-action-anchor {
+    height: 0;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-news-refresh-action-anchor)
+    + div[data-testid="stButton"] button {
+    min-height: 4rem;
+    width: 100%;
+    border: 1px solid rgba(103, 232, 249, 0.78) !important;
+    border-radius: 10px;
+    background:
+        linear-gradient(180deg, rgba(34, 211, 238, 0.96), rgba(8, 145, 178, 0.9)) !important;
+    box-shadow:
+        0 0 0 1px rgba(103, 232, 249, 0.2),
+        0 14px 30px rgba(8, 145, 178, 0.3);
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-news-refresh-action-anchor)
+    + div[data-testid="stButton"] button:hover {
+    border-color: rgba(165, 243, 252, 0.95) !important;
+    background:
+        linear-gradient(180deg, rgba(103, 232, 249, 0.98), rgba(6, 182, 212, 0.94)) !important;
+    box-shadow:
+        0 0 0 2px rgba(103, 232, 249, 0.24),
+        0 16px 34px rgba(8, 145, 178, 0.36);
+    transform: translateY(-1px);
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-news-refresh-action-anchor)
+    + div[data-testid="stButton"] button * {
+    color: #FFFFFF !important;
+    font-size: 1.12rem !important;
     font-weight: 880 !important;
 }
 

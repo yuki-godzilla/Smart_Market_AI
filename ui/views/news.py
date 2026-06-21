@@ -23,7 +23,11 @@ from backend.news import (
     load_news_update_status,
     refresh_news_dashboard_cache,
 )
-from ui.components.mascot import render_page_title
+from ui.components.mascot import (
+    render_page_title,
+    workflow_loading_headlines_from_cache,
+    workflow_loading_html,
+)
 from ui.styles import truncate_text
 from ui.symbol_universe import symbol_name, symbol_universe_csv_rows, symbol_universe_name_map
 
@@ -1510,18 +1514,56 @@ def _load_dashboard_snapshot() -> tuple[NewsDashboardSnapshot, NewsUpdateStatus]
 
 
 def _render_refresh_controls() -> None:
-    col_action, col_note = st.columns([0.8, 2.2])
+    col_action, col_note = st.columns([1.05, 1.95])
     with col_action:
-        if st.button("ニュース表示を更新", key="investment_news_refresh", type="secondary"):
+        st.markdown(
+            '<div class="smai-news-refresh-action-anchor"></div>',
+            unsafe_allow_html=True,
+        )
+        if st.button(
+            "ニュース表示を更新",
+            key="investment_news_refresh",
+            type="primary",
+            use_container_width=True,
+        ):
             now = datetime.now(UTC)
-            result = refresh_news_dashboard_cache(
-                lambda: build_standard_news_dashboard_snapshot(
-                    allow_network=True,
-                    now=now,
-                    fallback_to_demo=False,
+            loading_slot = st.empty()
+            loading_headlines, loading_headline_note = workflow_loading_headlines_from_cache()
+            loading_slot.markdown(
+                workflow_loading_html(
+                    title="最新ニュースを更新中",
+                    message="外部ニュースを取得し、重複を除いて確認材料に整理しています。",
+                    current_step="外部ニュースRSSへ接続しています。",
+                    progress=0.12,
+                    mode="blocking",
+                    headlines=loading_headlines,
+                    headline_note=loading_headline_note,
                 ),
-                force=True,
+                unsafe_allow_html=True,
             )
+            try:
+                result = refresh_news_dashboard_cache(
+                    lambda: build_standard_news_dashboard_snapshot(
+                        allow_network=True,
+                        now=now,
+                        fallback_to_demo=False,
+                    ),
+                    force=True,
+                )
+                loading_slot.markdown(
+                    workflow_loading_html(
+                        title="最新ニュースを更新中",
+                        message="外部ニュースを取得し、重複を除いて確認材料に整理しています。",
+                        current_step="ニュースを分類して表示を更新しています。",
+                        progress=0.9,
+                        mode="blocking",
+                        headlines=loading_headlines,
+                        headline_note=loading_headline_note,
+                    ),
+                    unsafe_allow_html=True,
+                )
+            finally:
+                loading_slot.empty()
             if result.refreshed:
                 st.session_state[NEWS_DASHBOARD_REFRESH_STATE_KEY] = "ニュース表示を更新しました。"
             elif result.used_fallback_cache:
@@ -1789,22 +1831,89 @@ def _lane_heading_html(category: str) -> str:
 def _news_ticker_html(cards: list[NewsHeadlineCard]) -> str:
     if not cards:
         return ""
-    items = "".join(_news_ticker_item_html(card) for card in cards)
-    repeated_items = "".join(_news_ticker_item_html(card, aria_hidden=True) for card in cards)
+    unique_cards = _unique_news_ticker_cards(cards)
+    pages = [unique_cards[index : index + 4] for index in range(0, len(unique_cards), 4)]
+    page_count = len(pages)
+    duration_seconds = max(6, page_count * 6)
+    visible_percent = round(100 / page_count, 4) if page_count > 1 else 100
+    animation_css = (
+        ""
+        if page_count == 1
+        else (
+            "<style>"
+            f"@keyframes investment-news-board-cycle{{0%,{visible_percent - 1}%{{opacity:1;transform:translateY(0);pointer-events:auto}}"
+            f"{visible_percent}%,100%{{opacity:0;transform:translateY(10px);pointer-events:none}}}}"
+            + "".join(
+                (
+                    f".investment-news-board-page--{index}{{animation-delay:{index * 6}s}}"
+                    f"#investment-news-board-page-{index}:checked~.investment-news-board-viewport .investment-news-board-page{{animation:none;opacity:0;transform:none;pointer-events:none}}"
+                    f"#investment-news-board-page-{index}:checked~.investment-news-board-viewport .investment-news-board-page--{index}{{opacity:1;pointer-events:auto}}"
+                    f"#investment-news-board-page-{index}:checked~.investment-news-board-nav label[for=investment-news-board-page-{index}]{{background:#67e8f9;transform:scale(1.18)}}"
+                )
+                for index in range(page_count)
+            )
+            + "</style>"
+        )
+    )
+    controls = "".join(
+        f'<input class="investment-news-board-radio" type="radio" name="investment-news-board-page" id="investment-news-board-page-{index}" />'
+        for index in range(page_count)
+    )
+    page_html = "".join(
+        (
+            f'<div class="investment-news-board-page investment-news-board-page--{page_index}" '
+            f'style="--investment-news-board-duration:{duration_seconds}s">'
+            + "".join(_news_ticker_item_html(card) for card in page)
+            + "</div>"
+        )
+        for page_index, page in enumerate(pages)
+    )
+    navigation = (
+        '<div class="investment-news-board-nav" aria-label="ヘッドラインページ">'
+        + "".join(
+            f'<label for="investment-news-board-page-{index}" title="{index + 1}ページ目"><span>{index + 1}</span></label>'
+            for index in range(page_count)
+        )
+        + '<span class="investment-news-board-nav-note">ホバーで一時停止</span></div>'
+        if page_count > 1
+        else ""
+    )
     return (
-        '<section class="investment-news-ticker" aria-label="market news stream">'
-        f'<div class="investment-news-ticker-track">{items}{repeated_items}</div>'
-        "</section>"
+        animation_css
+        + '<section class="investment-news-ticker investment-news-board" aria-label="市場ニュースヘッドライン">'
+        + controls
+        + f'<div class="investment-news-board-viewport">{page_html}</div>'
+        + navigation
+        + "</section>"
     )
 
 
-def _news_ticker_item_html(card: NewsHeadlineCard, *, aria_hidden: bool = False) -> str:
-    hidden_attr = ' aria-hidden="true"' if aria_hidden else ""
+def _unique_news_ticker_cards(cards: list[NewsHeadlineCard]) -> list[NewsHeadlineCard]:
+    unique: list[NewsHeadlineCard] = []
+    seen_titles: set[str] = set()
+    for card in cards:
+        normalized_title = " ".join(card.title.casefold().split())
+        if not normalized_title or normalized_title in seen_titles:
+            continue
+        seen_titles.add(normalized_title)
+        unique.append(card)
+    return unique
+
+
+def _news_ticker_item_html(card: NewsHeadlineCard) -> str:
+    tag = "a" if card.url else "article"
+    link_attributes = (
+        f' href="{html.escape(card.url or "", quote=True)}" target="_blank" rel="noopener noreferrer"'
+        if card.url
+        else ""
+    )
+    source = card.source_name or _source_type_label(card.source_type)
     return (
-        f'<span class="investment-news-ticker-item"{hidden_attr}>'
+        f'<{tag} class="investment-news-ticker-item"{link_attributes}>'
         f'<span class="investment-news-ticker-category">{html.escape(card.category)}</span>'
         f'<span class="investment-news-ticker-title">{html.escape(card.title)}</span>'
-        "</span>"
+        f"<small>{html.escape(source)}</small>"
+        f"</{tag}>"
     )
 
 

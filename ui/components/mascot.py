@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import html
+from collections.abc import Mapping, Sequence
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -19,6 +20,7 @@ MascotVariant = Literal[
 ]
 MascotLayout = Literal["sidebar", "compact", "panel"]
 MascotTone = Literal["info", "success", "forecast", "caution", "risk"]
+WorkflowLoadingMode = Literal["blocking", "inline"]
 TitleMascot = Literal["cockpit", "ranking", "investment_radar", "rebalance"]
 CopilotState = Literal["ready", "analyzing", "updated", "warning"]
 
@@ -297,6 +299,93 @@ def render_mascot_loading(
         mascot_loading_html(variant, title=title, message=message, tone=tone),
         unsafe_allow_html=True,
     )
+
+
+def workflow_loading_html(
+    *,
+    title: str,
+    message: str,
+    current_step: str,
+    progress: float,
+    mode: WorkflowLoadingMode = "blocking",
+    headlines: Sequence[Mapping[str, str]] = (),
+    headline_note: str = "前回取得したニュース",
+) -> str:
+    normalized_progress = max(0.0, min(1.0, progress))
+    progress_percent = round(normalized_progress * 100)
+    image = _asset_data_uri(MASCOT_LOADING_ASSET)
+    headline_cards = "".join(
+        (
+            '<article class="smai-workflow-loading-news-card">'
+            f'<span>{html.escape(str(item.get("category", "市場ニュース")))}</span>'
+            f'<strong>{html.escape(str(item.get("title", "")))}</strong>'
+            f'<small>{html.escape(str(item.get("source", "取得元未確認")))}</small>'
+            "</article>"
+        )
+        for item in headlines[:5]
+        if str(item.get("title", "")).strip()
+    )
+    news_html = (
+        '<div class="smai-workflow-loading-news">'
+        '<div class="smai-workflow-loading-news-head">'
+        "<strong>市場トピック</strong>"
+        f"<span>{html.escape(headline_note)}</span>"
+        "</div>"
+        f'<div class="smai-workflow-loading-news-list">{headline_cards}</div>'
+        "</div>"
+        if headline_cards
+        else ""
+    )
+    return (
+        f'<div class="smai-workflow-loading smai-workflow-loading--{mode}" '
+        f'data-testid="smai-workflow-loading-{mode}" '
+        f'role="{("dialog" if mode == "blocking" else "status")}" '
+        f'aria-modal="{("true" if mode == "blocking" else "false")}">'
+        '<section class="smai-workflow-loading-panel">'
+        '<div class="smai-workflow-loading-visual" aria-hidden="true">'
+        '<span class="smai-workflow-loading-orbit"></span>'
+        f'<img src="{image}" alt="" loading="eager" />'
+        '<span class="smai-workflow-loading-scan"></span>'
+        '</div><div class="smai-workflow-loading-copy">'
+        '<div class="smai-workflow-loading-kicker">SMAI PROCESS</div>'
+        f'<div class="smai-workflow-loading-title">{html.escape(title)}</div>'
+        f"<p>{html.escape(message)}</p>"
+        '<div class="smai-workflow-loading-current">'
+        '<span class="smai-workflow-loading-dot"></span>'
+        f"<strong>{html.escape(current_step)}</strong>"
+        f"<span>{progress_percent}%</span>"
+        '</div><div class="smai-workflow-loading-track" aria-hidden="true">'
+        f'<i style="width:{progress_percent}%"></i>'
+        f"</div>{news_html}</div></section></div>"
+    )
+
+
+def workflow_loading_headlines_from_cache(
+    *,
+    max_items: int = 5,
+    max_age_hours: int = 24,
+) -> tuple[tuple[dict[str, str], ...], str]:
+    from backend.assistant.loading_headlines import (  # noqa: PLC0415
+        load_assistant_loading_headlines,
+    )
+
+    cached = load_assistant_loading_headlines(
+        max_items=max_items,
+        max_age_hours=max_age_hours,
+    )
+    rows = tuple(
+        {
+            "title": item.title,
+            "category": item.category,
+            "source": item.source,
+        }
+        for item in cached.items
+    )
+    if not rows:
+        return (), "保存済みニュースはありません"
+    timestamp = cached.updated_at.astimezone().strftime("%Y-%m-%d %H:%M")
+    stale_label = "・古い可能性あり" if cached.stale else ""
+    return rows, f"前回取得 {timestamp}{stale_label}"
 
 
 def render_mascot_panel(

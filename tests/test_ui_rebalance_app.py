@@ -513,7 +513,7 @@ def test_build_market_data_preview_reuses_ohlcv_for_quote_and_features(monkeypat
     assert preview.error_rows == []
 
 
-def test_build_market_data_preview_skips_yahoo_aux_fetch_on_initial_fetch(monkeypatch):
+def test_build_market_data_preview_fetches_yahoo_fx_but_skips_fundamentals(monkeypatch):
     monkeypatch.delenv("SMAI_CONFIG_FILE", raising=False)
     adapter = _OptionalDataFailurePreviewAdapter()
     monkeypatch.setattr(
@@ -536,12 +536,12 @@ def test_build_market_data_preview_skips_yahoo_aux_fetch_on_initial_fetch(monkey
     assert preview.fx_rows == []
     assert preview.feature_rows[0]["provider"] == "yahoo"
     assert preview.screening_rows[0]["data_quality"] == "WARN"
-    assert adapter.get_fx_rates_calls == 0
+    assert adapter.get_fx_rates_calls == 1
     assert adapter.fetch_fundamentals_calls == 0
-    assert preview.error_rows == []
+    assert preview.error_rows[0]["message"] == "FX unavailable"
 
 
-def test_build_market_data_preview_skips_yahoo_aux_fetch_for_japan_symbol(monkeypatch):
+def test_build_market_data_preview_fetches_yahoo_fx_for_japan_symbol(monkeypatch):
     monkeypatch.delenv("SMAI_CONFIG_FILE", raising=False)
     adapter = _OptionalDataFailurePreviewAdapter()
     monkeypatch.setattr(
@@ -562,9 +562,9 @@ def test_build_market_data_preview_skips_yahoo_aux_fetch_for_japan_symbol(monkey
     assert preview.price_chart_rows
     assert preview.fx_rows == []
     assert preview.feature_rows[0]["provider"] == "yahoo"
-    assert adapter.get_fx_rates_calls == 0
+    assert adapter.get_fx_rates_calls == 1
     assert adapter.fetch_fundamentals_calls == 0
-    assert preview.error_rows == []
+    assert preview.error_rows[0]["message"] == "FX unavailable"
 
 
 def test_build_market_data_preview_uses_selected_forecast_horizon(monkeypatch):
@@ -644,7 +644,9 @@ def test_build_market_data_preview_returns_yahoo_live_rows(monkeypatch):
     assert preview.ohlcv_rows[0]["provider"] == "yahoo"
     assert preview.forecast_chart_rows[-1]["naive"] == "175.25"
     assert preview.forecast_metric_rows[0]["model"] == "naive"
-    assert preview.fx_rows == []
+    assert preview.fx_rows[0]["pair"] == "USDJPY"
+    assert preview.fx_rows[0]["rate"] == "150.12"
+    assert preview.fx_rows[0]["source"] == "yahoo"
     assert preview.feature_rows[0]["provider"] == "yahoo"
     assert preview.investment_score_rows[0]["total_score"] != ""
     assert preview.screening_rows[0]["total_score"] != ""

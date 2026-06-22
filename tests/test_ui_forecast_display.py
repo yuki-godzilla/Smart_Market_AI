@@ -194,6 +194,7 @@ from ui.app import (
     build_cockpit_decision_report_context,
     build_llm_factor_reference_display,
     build_ranking_decision_report_context,
+    chart_fx_rate_from_rows,
     clear_ranking_detail_condition_state,
     cockpit_decision_report_evidence_rows,
     cockpit_decision_report_overview,
@@ -207,6 +208,7 @@ from ui.app import (
     cockpit_investment_memo_rows,
     cockpit_keyword_filtered_symbol_rows,
     cockpit_period_evaluation_rows,
+    convert_market_chart_rows_currency,
     decision_report_json_download,
     decision_report_markdown_download,
     default_forecast_horizon_days,
@@ -9700,6 +9702,80 @@ def test_forecast_chart_color_labels_keep_model_colors_stable_when_filtered():
         full_colors[full_domain.index("予測: 20日移動平均")]
         != filtered_colors[filtered_domain.index("予測: 20日移動平均")]
     )
+
+
+def test_market_chart_currency_conversion_uses_usd_jpy_for_all_price_series():
+    rows = [
+        {
+            "ts": "2026-06-07T00:00:00+00:00",
+            "close": "100",
+            "advanced_consensus_5d": "101.5",
+            "advanced_consensus_5d_lower": "95",
+            "advanced_consensus_5d_upper": "110",
+        },
+        {
+            "ts": "2026-06-12T00:00:00+00:00",
+            "close": "",
+            "advanced_consensus_5d": "102",
+            "advanced_consensus_5d_lower": "96",
+            "advanced_consensus_5d_upper": "112",
+        },
+    ]
+    fx_rows = [
+        {
+            "pair": "USDJPY",
+            "rate": "150",
+            "ts": "2026-06-07T00:00:00+00:00",
+            "source": "mock",
+        }
+    ]
+
+    converted = convert_market_chart_rows_currency(
+        rows,
+        source_currency="USD",
+        display_currency="JPY",
+        usd_jpy_rate=chart_fx_rate_from_rows(fx_rows),
+    )
+
+    assert converted[0]["close"] == "15000"
+    assert converted[0]["advanced_consensus_5d"] == "15225"
+    assert converted[0]["advanced_consensus_5d_lower"] == "14250"
+    assert converted[0]["advanced_consensus_5d_upper"] == "16500"
+    assert converted[1]["close"] == ""
+    assert converted[1]["advanced_consensus_5d"] == "15300"
+
+
+def test_market_chart_currency_conversion_can_show_jpy_source_as_usd():
+    rows = [
+        {"ts": "2026-06-07T00:00:00+00:00", "close": "15000", "naive": ""},
+        {"ts": "2026-06-12T00:00:00+00:00", "close": "", "naive": "15150"},
+    ]
+
+    converted = convert_market_chart_rows_currency(
+        rows,
+        source_currency="JPY",
+        display_currency="USD",
+        usd_jpy_rate=Decimal("150"),
+    )
+
+    assert converted == [
+        {"ts": "2026-06-07T00:00:00+00:00", "close": "100", "naive": ""},
+        {"ts": "2026-06-12T00:00:00+00:00", "close": "", "naive": "101"},
+    ]
+
+
+def test_market_chart_currency_conversion_keeps_original_without_fx_rate():
+    rows = [{"ts": "2026-06-07T00:00:00+00:00", "close": "100"}]
+
+    converted = convert_market_chart_rows_currency(
+        rows,
+        source_currency="USD",
+        display_currency="JPY",
+        usd_jpy_rate=None,
+    )
+
+    assert converted == rows
+    assert converted is not rows
 
 
 def test_latest_actual_price_frame_marks_current_price_point():

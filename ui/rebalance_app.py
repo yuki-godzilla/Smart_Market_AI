@@ -945,7 +945,8 @@ async def build_market_data_preview(
 
 
 def _should_fetch_market_data_preview_fx(*, provider: str) -> bool:
-    return provider != "yahoo"
+    _ = provider
+    return True
 
 
 def _should_fetch_market_data_preview_fundamentals(*, provider: str) -> bool:

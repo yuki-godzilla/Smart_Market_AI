@@ -400,6 +400,7 @@ class _StreamlitEmptyContainer(Protocol):
 MARKET_DATA_PROVIDER_OPTIONS = ["yahoo", "csv", "mock"]
 MARKET_DATA_PROVIDER_WIDGET_KEY = "market_data_provider_live_first"
 MARKET_DATA_RANKING_PROVIDER_WIDGET_KEY = "market_data_ranking_provider_live_first"
+MARKET_CHART_DISPLAY_CURRENCY_STATE_KEY = "market_chart_display_currency"
 RANKING_BUILD_CACHE_VERSION = "signal-v4"
 RESEARCH_SUMMARY_BUILD_CACHE_STATE_KEY = "market_data_research_summary_build_cache_v1"
 RESEARCH_REFRESH_TRACE_STATE_KEY = "market_data_research_refresh_trace_v1"
@@ -6827,6 +6828,7 @@ def _render_market_data_cockpit() -> None:
 
         st.session_state[MARKET_DATA_PREVIEW_STATE_KEY] = preview
         st.session_state[MARKET_DATA_STATUS_STATE_KEY] = preview.status
+        st.session_state.pop(MARKET_CHART_DISPLAY_CURRENCY_STATE_KEY, None)
         if preview.status == "OK":
             update_cockpit_progress("表示内容を更新しています。", 0.96)
             st.session_state[MARKET_DATA_TOAST_STATE_KEY] = "データを取得しました。"
@@ -12819,7 +12821,7 @@ def _render_price_forecast_hero(
     forecast_horizon_days: int,
 ) -> None:
     st.subheader("02 価格・予測")
-    chart_currency = preview.bars[0].symbol.currency if preview.bars else ""
+    chart_currency = str(preview.bars[0].symbol.currency if preview.bars else "").upper()
     _render_advanced_forecast_status(advanced_forecast_rows, horizon_days=forecast_horizon_days)
     _render_advanced_forecast_consensus_cards(advanced_forecast_consensus_rows)
     _register_cockpit_forecast_assistant_context(
@@ -12829,9 +12831,16 @@ def _render_price_forecast_hero(
     )
     selected_chart_series = _render_forecast_chart_filters(forecast_rows)
     display_forecast_rows = filter_forecast_chart_rows(forecast_rows, selected_chart_series)
+    display_currency = _render_market_chart_currency_selector(chart_currency, preview.fx_rows)
+    display_forecast_rows = convert_market_chart_rows_currency(
+        display_forecast_rows,
+        source_currency=chart_currency,
+        display_currency=display_currency,
+        usd_jpy_rate=chart_fx_rate_from_rows(preview.fx_rows),
+    )
     _render_market_chart(
         display_forecast_rows,
-        currency=chart_currency,
+        currency=display_currency,
         title="",
         color_series_labels=forecast_chart_series_labels(forecast_rows),
         legend_series_labels=forecast_chart_series_labels(display_forecast_rows),
@@ -16736,6 +16745,156 @@ def _render_score_breakdown_chart(rows: list[dict[str, str]]) -> None:
         .properties(height=150)
     )
     st.altair_chart(style_altair_chart(chart), use_container_width=True)
+
+
+def _render_market_chart_currency_selector(
+    source_currency: str,
+    fx_rows: list[dict[str, str]],
+) -> str:
+    source = source_currency.strip().upper()
+    if source not in {"JPY", "USD"}:
+        return source
+
+    usd_jpy_rate = chart_fx_rate_from_rows(fx_rows)
+    if usd_jpy_rate is None:
+        return source
+    options = ["original", "JPY", "USD"]
+
+    current_value = st.session_state.get(MARKET_CHART_DISPLAY_CURRENCY_STATE_KEY)
+    if current_value not in options:
+        st.session_state[MARKET_CHART_DISPLAY_CURRENCY_STATE_KEY] = "original"
+
+    selected = cast(
+        str,
+        st.radio(
+            "表示通貨",
+            options=options,
+            key=MARKET_CHART_DISPLAY_CURRENCY_STATE_KEY,
+            horizontal=True,
+            format_func=lambda option: _market_chart_currency_option_label(
+                str(option),
+                source_currency=source,
+            ),
+            help="価格チャートの表示通貨だけを切り替えます。スコアや予測計算は変更しません。",
+        ),
+    )
+    st.caption(_market_chart_currency_caption(fx_rows, source_currency=source))
+    if selected == "original":
+        return source
+    return selected
+
+
+def _market_chart_currency_option_label(option: str, *, source_currency: str) -> str:
+    labels = {
+        "original": f"元の通貨 ({source_currency})",
+        "JPY": "円 (JPY)",
+        "USD": "$ (USD)",
+    }
+    return labels.get(option, option)
+
+
+def _market_chart_currency_caption(
+    fx_rows: list[dict[str, str]],
+    *,
+    source_currency: str,
+) -> str:
+    rate = chart_fx_rate_from_rows(fx_rows)
+    if rate is None:
+        return "表示通貨の初期値は取得できた通貨です。"
+    row = _market_chart_usd_jpy_row(fx_rows) or {}
+    source = row.get("source", "")
+    ts = _market_chart_fx_timestamp_label(row.get("ts", ""))
+    meta = " / ".join(part for part in [source, ts] if part)
+    suffix = f"（{meta}）" if meta else ""
+    return (
+        f"表示通貨の初期値は取得できた通貨（{source_currency}）です。"
+        f"円/ドル換算には USDJPY {format(rate.normalize(), 'f')} {suffix}を使います。"
+    )
+
+
+def _market_chart_fx_timestamp_label(value: object) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    parsed = pd.to_datetime(text, errors="coerce")
+    if pd.isna(parsed):
+        return text
+    return parsed.strftime("%Y/%m/%d %H:%M")
+
+
+def chart_fx_rate_from_rows(fx_rows: list[dict[str, str]]) -> Decimal | None:
+    row = _market_chart_usd_jpy_row(fx_rows)
+    if row is None:
+        return None
+    rate = _decimal_from_text(row.get("rate"))
+    if rate is None or rate <= 0:
+        return None
+    return rate
+
+
+def _market_chart_usd_jpy_row(fx_rows: list[dict[str, str]]) -> dict[str, str] | None:
+    for row in reversed(fx_rows):
+        if str(row.get("pair", "")).strip().upper() != "USDJPY":
+            continue
+        rate = _decimal_from_text(row.get("rate"))
+        if rate is not None and rate > 0:
+            return row
+    return None
+
+
+def convert_market_chart_rows_currency(
+    rows: list[dict[str, str]],
+    *,
+    source_currency: str,
+    display_currency: str,
+    usd_jpy_rate: Decimal | None,
+) -> list[dict[str, str]]:
+    factor = _market_chart_currency_factor(
+        source_currency=source_currency,
+        display_currency=display_currency,
+        usd_jpy_rate=usd_jpy_rate,
+    )
+    if factor is None or factor == Decimal("1"):
+        return [dict(row) for row in rows]
+
+    converted_rows: list[dict[str, str]] = []
+    for row in rows:
+        converted_row: dict[str, str] = {}
+        for key, value in row.items():
+            if key == "ts":
+                converted_row[key] = value
+                continue
+            decimal_value = _decimal_from_text(value)
+            if decimal_value is None:
+                converted_row[key] = value
+                continue
+            converted_row[key] = _format_market_chart_decimal(decimal_value * factor)
+        converted_rows.append(converted_row)
+    return converted_rows
+
+
+def _market_chart_currency_factor(
+    *,
+    source_currency: str,
+    display_currency: str,
+    usd_jpy_rate: Decimal | None,
+) -> Decimal | None:
+    source = source_currency.strip().upper()
+    target = display_currency.strip().upper()
+    if source == target or not source or not target:
+        return Decimal("1")
+    if usd_jpy_rate is None or usd_jpy_rate <= 0:
+        return None
+    if source == "USD" and target == "JPY":
+        return usd_jpy_rate
+    if source == "JPY" and target == "USD":
+        return Decimal("1") / usd_jpy_rate
+    return None
+
+
+def _format_market_chart_decimal(value: Decimal) -> str:
+    text = f"{value:.4f}".rstrip("0").rstrip(".")
+    return text if text else "0"
 
 
 def _render_market_chart(

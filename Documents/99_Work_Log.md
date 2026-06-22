@@ -18,6 +18,25 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-22 - Cockpit chart currency display chips
+
+### Summary
+
+- added `表示通貨` switching to the Symbol Cockpit price / forecast chart.
+- kept the default chart display in the fetched source currency, with optional JPY / USD display conversion using the fetched USDJPY rate.
+- applied conversion only to chart display rows, including actual price, forecast lines, and forecast range bands; scores, forecast calculations, Ranking, and reports are unchanged.
+- started fetching USDJPY in `build_market_data_preview` for Yahoo as a non-blocking auxiliary row; Yahoo fundamentals remain skipped during initial cockpit preview.
+- documented the chart-only currency conversion behavior in project context and operations guide.
+
+### Validation
+
+- `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_forecast_display.py -q -k "market_chart_currency or render_market_chart_uses_currency_axis_title"` passed: 4 passed, 309 deselected. Pytest cache write warnings were local permission warnings only.
+- `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_rebalance_app.py -q -k "market_data_preview"` passed: 8 passed, 53 deselected. Pytest cache write warnings were local permission warnings only.
+- `.\venv_SMAI\Scripts\python.exe -m ruff check ui\app.py ui\rebalance_app.py tests\test_ui_forecast_display.py tests\test_ui_rebalance_app.py --no-cache` passed.
+- `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py` passed for 283 Python files after rebasing onto the latest `origin/main`.
+- `.\venv_SMAI\Scripts\python.exe .\tools\run_local_checks.py` reached pytest after Black / Ruff passed, then failed because pytest could not scan `C:\Users\okuma\AppData\Local\Temp\pytest-of-okuma` due a Windows permission error.
+- `.\venv_SMAI\Scripts\python.exe -m pytest tests -q -p no:cacheprovider --basetemp outputs\work\pytest_tmp_cockpit_currency_full_post_rebase` passed after rebasing onto the latest `origin/main`: 1716 passed, 2 skipped, 32 warnings.
+
 ## 2026-06-18 - IR Summary Classification v2
 
 ### Summary

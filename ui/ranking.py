@@ -28,12 +28,14 @@ RANKING_MARKET_LABELS = ranking_texts.RANKING_MARKET_LABELS
 RANKING_MVP_PRODUCT_TYPE_LABELS = ranking_texts.RANKING_MVP_PRODUCT_TYPE_LABELS
 RANKING_MVP_REGION_LABELS = ranking_texts.RANKING_MVP_REGION_LABELS
 RANKING_NISA_ELIGIBILITY_LABELS = ranking_texts.RANKING_NISA_ELIGIBILITY_LABELS
+RANKING_OFFICIAL_SECTOR_LABELS = ranking_texts.RANKING_OFFICIAL_SECTOR_LABELS
 RANKING_PERIOD_LABELS = ranking_texts.RANKING_PERIOD_LABELS
 RANKING_POLICY_DESCRIPTIONS = ranking_texts.RANKING_POLICY_DESCRIPTIONS
 RANKING_PRODUCT_TYPE_LABELS = ranking_texts.RANKING_PRODUCT_TYPE_LABELS
 RANKING_PURPOSE_LABELS = ranking_texts.RANKING_PURPOSE_LABELS
 RANKING_REGION_LABELS = ranking_texts.RANKING_REGION_LABELS
 RANKING_RISK_BAND_LABELS = ranking_texts.RANKING_RISK_BAND_LABELS
+RANKING_INVESTMENT_THEME_LABELS = ranking_texts.RANKING_INVESTMENT_THEME_LABELS
 RANKING_SCORE_FIELD_LABELS = ranking_texts.RANKING_SCORE_FIELD_LABELS
 RANKING_THEME_LABELS = ranking_texts.RANKING_THEME_LABELS
 RANKING_WEIGHT_PRESET_LABELS = ranking_texts.RANKING_WEIGHT_PRESET_LABELS
@@ -583,7 +585,11 @@ RANKING_WEIGHT_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
         ),
         (
             "リスク・下振れ警戒",
-            ("risk_signal_score", "downside_signal_score", "advanced_forecast_downside_score"),
+            (
+                "risk_signal_score",
+                "downside_signal_score",
+                "advanced_forecast_downside_score",
+            ),
         ),
         ("データ信頼度", ("data_quality_score", "metadata_confidence_score")),
         ("Research確認材料", ("research_score",)),
@@ -650,7 +656,8 @@ RANKING_BETA_RISK_STANDARD = "standard"
 RANKING_BETA_RISK_HIGH = "high"
 RANKING_DETAIL_FILTERS_BY_CATEGORY = {
     (RANKING_REGION_JAPAN, RANKING_PRODUCT_STOCK): [
-        "industry_or_sector",
+        "official_sector",
+        "investment_theme",
         "market_cap",
         "risk_band",
         "dividend_yield",
@@ -660,7 +667,8 @@ RANKING_DETAIL_FILTERS_BY_CATEGORY = {
         "nisa_eligibility",
     ],
     (RANKING_REGION_US, RANKING_PRODUCT_STOCK): [
-        "industry_or_sector",
+        "official_sector",
+        "investment_theme",
         "market_cap",
         "risk_band",
         "dividend_yield",
@@ -669,7 +677,8 @@ RANKING_DETAIL_FILTERS_BY_CATEGORY = {
         "nisa_eligibility",
     ],
     (RANKING_REGION_ALL, RANKING_PRODUCT_STOCK): [
-        "industry_or_sector",
+        "official_sector",
+        "investment_theme",
         "market_cap",
         "risk_band",
         "dividend_yield",
@@ -703,6 +712,7 @@ RANKING_FILTER_DEFAULTS: dict[str, str] = {
     "market_data_ranking_complexity": "standard",
     "market_data_ranking_nisa": "all",
     "market_data_ranking_risk_band": "all",
+    "market_data_ranking_official_sector": "all",
     "market_data_ranking_theme": "all",
     "market_data_ranking_symbol_query": "",
 }
@@ -1165,7 +1175,8 @@ def ranking_detail_filters_for_category(region: str, product_type: str) -> list[
             return RANKING_DETAIL_FILTERS_BY_CATEGORY[(RANKING_REGION_US, RANKING_PRODUCT_STOCK)]
         return RANKING_DETAIL_FILTERS_BY_CATEGORY[(RANKING_REGION_ALL, RANKING_PRODUCT_STOCK)]
     return [
-        "industry_or_sector",
+        "official_sector",
+        "investment_theme",
         "market_cap",
         "risk_band",
         "dividend_yield",
@@ -1254,6 +1265,7 @@ def filter_symbol_universe_rows(
     nisa_eligibility: str = "all",
     installment_available: str = "all",
     risk_band: str = "all",
+    official_sector: str = "all",
     theme: str = "all",
     query: str = "",
     per_enabled: bool = False,
@@ -1298,6 +1310,7 @@ def filter_symbol_universe_rows(
     for row in rows:
         tags = _symbol_universe_values(row, "tags")
         theme_values = _symbol_theme_filter_values(row)
+        official_sector_values = _symbol_official_sector_filter_values(row)
         if apply_universe_policy and not symbol_allowed_by_ranking_universe_policy(row):
             continue
         if not _symbol_matches_region(row, region):
@@ -1364,7 +1377,20 @@ def filter_symbol_universe_rows(
             and row.get("installment_available") != installment_available
         ):
             continue
-        if "industry_or_sector" in detail_filters and theme != "all" and theme not in theme_values:
+        if (
+            "official_sector" in detail_filters
+            and official_sector != "all"
+            and official_sector not in official_sector_values
+        ):
+            continue
+        if "investment_theme" in detail_filters and theme != "all" and theme not in theme_values:
+            continue
+        if (
+            "industry_or_sector" in detail_filters
+            and theme != "all"
+            and theme not in theme_values
+            and theme not in official_sector_values
+        ):
             continue
         if (
             "per" in detail_filters
@@ -1449,6 +1475,7 @@ def ranking_filter_signature(
     nisa_eligibility: str = "all",
     installment_available: str = "all",
     risk_band: str = "all",
+    official_sector: str = "all",
     theme: str,
     query: str,
     per_enabled: bool = False,
@@ -1502,7 +1529,9 @@ def ranking_filter_signature(
         installment_available = "all"
     if "risk_band" not in detail_filters:
         risk_band = "all"
-    if "industry_or_sector" not in detail_filters:
+    if "official_sector" not in detail_filters:
+        official_sector = "all"
+    if "investment_theme" not in detail_filters and "industry_or_sector" not in detail_filters:
         theme = "all"
     if "per" not in detail_filters:
         per_enabled = False
@@ -1539,6 +1568,7 @@ def ranking_filter_signature(
             nisa_eligibility,
             installment_available,
             risk_band,
+            official_sector,
             theme,
             query.strip().lower(),
             str(per_enabled),
@@ -2207,18 +2237,104 @@ def _symbol_universe_values(row: dict[str, str], key: str) -> set[str]:
     return {value.strip() for value in row.get(key, "").split(",") if value.strip()}
 
 
-def _symbol_theme_filter_values(row: dict[str, str]) -> set[str]:
-    values = set()
+_OFFICIAL_SECTOR_NORMALIZED_VALUES = {
+    "basic materials": "materials",
+    "communication services": "communication",
+    "consumer cyclical": "consumer",
+    "consumer defensive": "consumer",
+    "consumer discretionary": "consumer",
+    "consumer staples": "consumer",
+    "financial services": "financial",
+    "financials": "financial",
+    "health care": "healthcare",
+    "information technology": "technology",
+    "industrials": "industrial",
+    "real estate": "real_estate",
+    "水産・農林業": "consumer",
+    "鉱業": "energy",
+    "建設業": "industrial",
+    "建設・資材": "industrial",
+    "食料品": "consumer",
+    "繊維製品": "consumer",
+    "パルプ・紙": "materials",
+    "化学": "materials",
+    "素材・化学": "materials",
+    "医薬品": "healthcare",
+    "石油・石炭製品": "energy",
+    "ゴム製品": "materials",
+    "ガラス・土石製品": "materials",
+    "鉄鋼": "materials",
+    "鉄鋼・非鉄": "materials",
+    "非鉄金属": "materials",
+    "金属製品": "materials",
+    "機械": "industrial",
+    "電気機器": "technology",
+    "電機・精密": "technology",
+    "輸送用機器": "industrial",
+    "自動車・輸送機": "industrial",
+    "精密機器": "technology",
+    "その他製品": "consumer",
+    "電気・ガス業": "utilities",
+    "電力・ガス": "utilities",
+    "陸運業": "industrial",
+    "海運業": "industrial",
+    "空運業": "industrial",
+    "倉庫・運輸関連業": "industrial",
+    "運輸・物流": "industrial",
+    "情報・通信業": "technology",
+    "情報通信・サービスその他": "technology",
+    "卸売業": "industrial",
+    "商社・卸売": "industrial",
+    "小売業": "consumer",
+    "銀行業": "financial",
+    "銀行": "financial",
+    "証券、商品先物取引業": "financial",
+    "保険業": "financial",
+    "その他金融業": "financial",
+    "金融（除く銀行）": "financial",
+    "不動産業": "real_estate",
+    "不動産": "real_estate",
+    "サービス業": "consumer",
+}
+
+
+def _normalized_official_sector_value(value: str) -> str:
+    stripped = value.strip()
+    if not stripped:
+        return ""
+    normalized = stripped.lower()
+    if normalized in RANKING_OFFICIAL_SECTOR_LABELS:
+        return normalized
+    return _OFFICIAL_SECTOR_NORMALIZED_VALUES.get(
+        normalized
+    ) or _OFFICIAL_SECTOR_NORMALIZED_VALUES.get(stripped, "")
+
+
+def _symbol_official_sector_filter_values(row: dict[str, str]) -> set[str]:
+    values: set[str] = set()
     for key in (
-        "tags",
-        "smai_theme_tags",
-        "theme",
         "sector",
         "sector_gics",
         "industry_gics",
         "subindustry_gics",
         "tse_33_industry",
         "topix_17",
+    ):
+        raw_value = row.get(key, "").strip()
+        if not raw_value:
+            continue
+        values.add(raw_value)
+        normalized = _normalized_official_sector_value(raw_value)
+        if normalized:
+            values.add(normalized)
+    return values
+
+
+def _symbol_theme_filter_values(row: dict[str, str]) -> set[str]:
+    values = set()
+    for key in (
+        "smai_theme_tags",
+        "theme",
         "index_family",
     ):
         raw_value = row.get(key, "").strip()

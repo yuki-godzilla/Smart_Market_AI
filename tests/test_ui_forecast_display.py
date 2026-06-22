@@ -305,9 +305,11 @@ from ui.ranking import (
     RANKING_FILTER_HELP_TEXTS,
     RANKING_INDEX_FAMILY_LABELS,
     RANKING_INVESTMENT_STYLE_METRICS,
+    RANKING_INVESTMENT_THEME_LABELS,
     RANKING_MARKET_CAP_LABELS,
     RANKING_MVP_PRODUCT_TYPE_LABELS,
     RANKING_NISA_ELIGIBILITY_LABELS,
+    RANKING_OFFICIAL_SECTOR_LABELS,
     RANKING_PERIOD_PRESETS,
     RANKING_PRESET_ETF_CORE_COST,
     RANKING_PRESET_ETF_INCOME,
@@ -4165,7 +4167,7 @@ def test_filter_symbol_universe_rows_filters_etf_database_values():
     ] == ["VOO"]
 
 
-def test_filter_symbol_universe_rows_filters_by_sector_theme_and_jpx_market_cap():
+def test_filter_symbol_universe_rows_filters_by_official_sector_and_jpx_market_cap():
     rows = symbol_universe_rows(
         [
             {"symbol": "1301.T", "name": "極洋"},
@@ -4180,7 +4182,7 @@ def test_filter_symbol_universe_rows_filters_by_sector_theme_and_jpx_market_cap(
             rows,
             region="japan",
             product_type="stock",
-            theme="industrial",
+            official_sector="industrial",
         )
     ] == ["1414.T"]
     assert [
@@ -4193,7 +4195,7 @@ def test_filter_symbol_universe_rows_filters_by_sector_theme_and_jpx_market_cap(
         )
     ] == ["1301.T"]
     assert "small" in RANKING_MARKET_CAP_LABELS
-    assert "industrial" in RANKING_THEME_LABELS
+    assert "industrial" in RANKING_OFFICIAL_SECTOR_LABELS
 
 
 def test_filter_symbol_universe_rows_uses_smai_theme_tags_for_theme_filter():
@@ -4227,12 +4229,46 @@ def test_filter_symbol_universe_rows_uses_smai_theme_tags_for_theme_filter():
     ] == ["8035.T"]
 
 
+def test_filter_symbol_universe_rows_keeps_sector_out_of_investment_theme_filter():
+    rows = symbol_universe_rows(
+        [
+            {
+                "symbol": "1414.T",
+                "name": "ショーボンドホールディングス",
+                "theme": "balanced",
+                "sector": "industrial",
+                "smai_theme_tags": "balanced",
+            },
+            {
+                "symbol": "8035.T",
+                "name": "Tokyo Electron",
+                "theme": "technology",
+                "sector": "technology",
+                "smai_theme_tags": "semiconductor,technology",
+            },
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="japan",
+            product_type="stock",
+            theme="industrial",
+        )
+    ] == []
+
+
 def test_ranking_filter_labels_show_quantitative_thresholds():
     assert RANKING_MARKET_CAP_LABELS["mega"] == "超大型（JP 10兆円以上 / US $200B以上）"
     assert RANKING_MARKET_CAP_LABELS["small"] == "小型（JP 100億〜1,000億円 / US $300M〜$2B）"
     assert RANKING_DIVIDEND_LABELS["high_dividend"] == "配当利回り 3%以上"
     assert RANKING_DIVIDEND_LABELS["dividend"] == "配当利回り 0%超〜3%未満"
     assert "bond" in RANKING_THEME_LABELS
+    assert "industrial" in RANKING_OFFICIAL_SECTOR_LABELS
+    assert "semiconductor" in RANKING_INVESTMENT_THEME_LABELS
+    assert "balanced" not in RANKING_INVESTMENT_THEME_LABELS
     assert "dividend" not in RANKING_THEME_LABELS
     assert "$200B/$10B/$2B/$300M" in RANKING_FILTER_HELP_TEXTS["market_cap"]
     assert "0%超〜3%未満" in RANKING_FILTER_HELP_TEXTS["dividend_category"]
@@ -4774,6 +4810,43 @@ def test_ranking_filter_signature_includes_ranking_classification():
         currency="all",
         dividend_category="all",
         complexity="standard",
+        theme="all",
+        query="",
+        limit=6,
+    )
+
+    assert base != changed
+
+
+def test_ranking_filter_signature_includes_official_sector_filter():
+    base = ranking_filter_signature(
+        region="japan",
+        product_type="stock",
+        ranking_purpose="dividend",
+        purpose="all",
+        period_preset="short",
+        market="all",
+        asset_type="all",
+        currency="all",
+        dividend_category="all",
+        complexity="standard",
+        official_sector="all",
+        theme="all",
+        query="",
+        limit=6,
+    )
+    changed = ranking_filter_signature(
+        region="japan",
+        product_type="stock",
+        ranking_purpose="dividend",
+        purpose="all",
+        period_preset="short",
+        market="all",
+        asset_type="all",
+        currency="all",
+        dividend_category="all",
+        complexity="standard",
+        official_sector="industrial",
         theme="all",
         query="",
         limit=6,

@@ -129,6 +129,7 @@ def ranking_filter_signature_from_state() -> str:
         complexity=ranking_filter_value("market_data_ranking_complexity", "standard"),
         nisa_eligibility=ranking_filter_value("market_data_ranking_nisa", "all"),
         risk_band=ranking_filter_value("market_data_ranking_risk_band", "all"),
+        official_sector=ranking_filter_value("market_data_ranking_official_sector", "all"),
         theme=ranking_filter_value("market_data_ranking_theme", "all"),
         query=ranking_filter_value("market_data_ranking_symbol_query", ""),
         per_enabled=ranking_filter_bool("market_data_ranking_per_enabled", False),

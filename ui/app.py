@@ -218,11 +218,13 @@ from ui.ranking import (
     RANKING_FILTER_DEFAULTS,
     RANKING_FILTER_HELP_TEXTS,
     RANKING_INDEX_FAMILY_LABELS,
+    RANKING_INVESTMENT_THEME_LABELS,
     RANKING_MARKET_CAP_LABELS,
     RANKING_METRIC_FILTER_DEFAULTS,
     RANKING_MVP_PRODUCT_TYPE_LABELS,
     RANKING_MVP_REGION_LABELS,
     RANKING_NISA_ELIGIBILITY_LABELS,
+    RANKING_OFFICIAL_SECTOR_LABELS,
     RANKING_PERIOD_PRESETS,
     RANKING_PRODUCT_ALL,
     RANKING_PRODUCT_ETF,
@@ -415,6 +417,7 @@ DEFAULT_MARKET_DATA_PERIOD_PRESET = MARKET_DATA_PERIOD_CUSTOM
 MARKET_DATA_COCKPIT_FILTER_DEFAULTS: dict[str, str | bool] = {
     "market_data_cockpit_region": "all",
     "market_data_cockpit_product_type": "all",
+    "market_data_cockpit_official_sector": "all",
     "market_data_cockpit_theme": "all",
     "market_data_cockpit_market_cap": "all",
     "market_data_cockpit_dividend": "all",
@@ -449,7 +452,8 @@ class ResearchSummaryBundle:
 
 MARKET_DATA_COCKPIT_DETAIL_FILTERS = frozenset(
     {
-        "industry_or_sector",
+        "official_sector",
+        "investment_theme",
         "market_cap",
         "risk_band",
         "dividend_yield",
@@ -2452,7 +2456,9 @@ def _symbol_detail_lookup_display(column: str, value: str) -> str:
     if not value.strip() or value.strip() == "-":
         return "未登録"
     if column in {"theme"}:
-        return RANKING_THEME_LABELS.get(value, value)
+        return RANKING_INVESTMENT_THEME_LABELS.get(value, RANKING_THEME_LABELS.get(value, value))
+    if column == "sector":
+        return RANKING_OFFICIAL_SECTOR_LABELS.get(value, value)
     if column == "dividend_category":
         return RANKING_DIVIDEND_LABELS.get(value, value)
     if column == "market_cap_tier":
@@ -5429,6 +5435,9 @@ def _ranking_filter_state_snapshot() -> dict[str, str | bool]:
         "market_data_ranking_risk_band": _ranking_filter_value(
             "market_data_ranking_risk_band", "all"
         ),
+        "market_data_ranking_official_sector": _ranking_filter_value(
+            "market_data_ranking_official_sector", "all"
+        ),
         "market_data_ranking_theme": _ranking_filter_value("market_data_ranking_theme", "all"),
         "market_data_ranking_symbol_query": _ranking_filter_value(
             "market_data_ranking_symbol_query", ""
@@ -5475,6 +5484,7 @@ def ranking_condition_has_active_detail_from_values(values: Mapping[str, object]
         "market_data_ranking_complexity": "standard",
         "market_data_ranking_nisa": "all",
         "market_data_ranking_risk_band": "all",
+        "market_data_ranking_official_sector": "all",
         "market_data_ranking_theme": "all",
         "market_data_ranking_symbol_query": "",
     }
@@ -5571,6 +5581,7 @@ def _ranking_detail_condition_chips(
     product_type: str,
 ) -> list[str]:
     chips: list[str] = []
+    official_sector = str(values.get("market_data_ranking_official_sector", "all"))
     theme = str(values.get("market_data_ranking_theme", "all"))
     market_cap_tier = str(values.get("market_data_ranking_market_cap", "all"))
     risk_band = str(values.get("market_data_ranking_risk_band", "all"))
@@ -5582,8 +5593,14 @@ def _ranking_detail_condition_chips(
     query = str(values.get("market_data_ranking_symbol_query", "")).strip()
     if nisa != "all":
         chips.append(_cockpit_nisa_chip_label(nisa))
+    if official_sector != "all":
+        label = _short_filter_label(
+            RANKING_OFFICIAL_SECTOR_LABELS.get(official_sector, official_sector)
+        )
+        chips.append(f"業種: {label}")
     if theme != "all":
-        chips.append(f"テーマ: {_short_filter_label(RANKING_THEME_LABELS.get(theme, theme))}")
+        label = _short_filter_label(RANKING_INVESTMENT_THEME_LABELS.get(theme, theme))
+        chips.append(f"テーマ: {label}")
     if market_cap_tier != "all":
         label = _short_filter_label(RANKING_MARKET_CAP_LABELS.get(market_cap_tier, market_cap_tier))
         chips.append(f"規模: {label}")
@@ -5726,6 +5743,7 @@ def _ranking_filtered_symbol_rows_from_state(
         complexity=str(values["market_data_ranking_complexity"]),
         nisa_eligibility=str(values["market_data_ranking_nisa"]),
         risk_band=str(values["market_data_ranking_risk_band"]),
+        official_sector=str(values["market_data_ranking_official_sector"]),
         theme=str(values["market_data_ranking_theme"]),
         query=str(values["market_data_ranking_symbol_query"]),
         per_enabled=bool(values["market_data_ranking_per_enabled"]),
@@ -5798,14 +5816,23 @@ def _render_ranking_filter_panel(
             column_index += 1
             return column
 
-        if "industry_or_sector" in detail_filters:
+        if "official_sector" in detail_filters:
             with next_column():
                 _render_detail_selectbox(
-                    "業種/テーマ",
-                    options=list(RANKING_THEME_LABELS),
+                    "業種・セクター",
+                    options=list(RANKING_OFFICIAL_SECTOR_LABELS),
+                    key="market_data_ranking_official_sector",
+                    format_func=lambda value: RANKING_OFFICIAL_SECTOR_LABELS[value],
+                    help_text=RANKING_FILTER_HELP_TEXTS["official_sector"],
+                )
+        if "investment_theme" in detail_filters:
+            with next_column():
+                _render_detail_selectbox(
+                    "投資テーマ",
+                    options=list(RANKING_INVESTMENT_THEME_LABELS),
                     key="market_data_ranking_theme",
-                    format_func=lambda value: RANKING_THEME_LABELS[value],
-                    help_text="業種や投資テーマで候補を絞ります。",
+                    format_func=lambda value: RANKING_INVESTMENT_THEME_LABELS[value],
+                    help_text=RANKING_FILTER_HELP_TEXTS["investment_theme"],
                 )
         if "market_cap" in detail_filters:
             with next_column():
@@ -6096,6 +6123,7 @@ def cockpit_filter_has_active_conditions_from_values(
     selector_keys = (
         "market_data_cockpit_region",
         "market_data_cockpit_product_type",
+        "market_data_cockpit_official_sector",
         "market_data_cockpit_theme",
         "market_data_cockpit_market_cap",
         "market_data_cockpit_dividend",
@@ -6208,13 +6236,20 @@ def _cockpit_filter_detail_chips(
     product_type: str,
 ) -> list[str]:
     chips: list[str] = []
+    official_sector = str(values.get("market_data_cockpit_official_sector", "all"))
     theme = str(values.get("market_data_cockpit_theme", "all"))
     market_cap_tier = str(values.get("market_data_cockpit_market_cap", "all"))
     dividend_category = str(values.get("market_data_cockpit_dividend", "all"))
     currency = str(values.get("market_data_cockpit_currency", "all"))
     risk_band = str(values.get("market_data_cockpit_risk_band", "all"))
+    if official_sector != "all":
+        label = _short_filter_label(
+            RANKING_OFFICIAL_SECTOR_LABELS.get(official_sector, official_sector)
+        )
+        chips.append(f"業種: {label}")
     if theme != "all":
-        chips.append(f"テーマ: {_short_filter_label(RANKING_THEME_LABELS.get(theme, theme))}")
+        label = _short_filter_label(RANKING_INVESTMENT_THEME_LABELS.get(theme, theme))
+        chips.append(f"テーマ: {label}")
     if market_cap_tier != "all":
         label = _short_filter_label(RANKING_MARKET_CAP_LABELS.get(market_cap_tier, market_cap_tier))
         chips.append(f"規模: {label}")
@@ -6327,17 +6362,28 @@ def _render_cockpit_symbol_filter_detail_fields(
         )
 
     st.markdown("**属性条件**")
-    attr_cols = st.columns(5)
+    attr_cols = st.columns(6)
     with attr_cols[0]:
-        theme = _render_detail_selectbox(
-            "業種/テーマ",
-            options=list(RANKING_THEME_LABELS),
-            key="market_data_cockpit_theme",
-            format_func=lambda value: RANKING_THEME_LABELS[value],
-            default_value=str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_theme"]),
-            help_text=RANKING_FILTER_HELP_TEXTS["industry_or_sector"],
+        official_sector = _render_detail_selectbox(
+            "業種・セクター",
+            options=list(RANKING_OFFICIAL_SECTOR_LABELS),
+            key="market_data_cockpit_official_sector",
+            format_func=lambda value: RANKING_OFFICIAL_SECTOR_LABELS[value],
+            default_value=str(
+                MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_official_sector"]
+            ),
+            help_text=RANKING_FILTER_HELP_TEXTS["official_sector"],
         )
     with attr_cols[1]:
+        theme = _render_detail_selectbox(
+            "投資テーマ",
+            options=list(RANKING_INVESTMENT_THEME_LABELS),
+            key="market_data_cockpit_theme",
+            format_func=lambda value: RANKING_INVESTMENT_THEME_LABELS[value],
+            default_value=str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_theme"]),
+            help_text=RANKING_FILTER_HELP_TEXTS["investment_theme"],
+        )
+    with attr_cols[2]:
         market_cap_tier = _render_detail_selectbox(
             "時価総額",
             options=list(RANKING_MARKET_CAP_LABELS),
@@ -6348,7 +6394,7 @@ def _render_cockpit_symbol_filter_detail_fields(
             ),
             help_text=RANKING_FILTER_HELP_TEXTS["market_cap"],
         )
-    with attr_cols[2]:
+    with attr_cols[3]:
         risk_band = _render_detail_selectbox(
             "値動きリスク",
             options=list(RANKING_BETA_RISK_LABELS),
@@ -6357,7 +6403,7 @@ def _render_cockpit_symbol_filter_detail_fields(
             default_value=str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_risk_band"]),
             help_text=RANKING_FILTER_HELP_TEXTS["risk_band"],
         )
-    with attr_cols[3]:
+    with attr_cols[4]:
         dividend_category = _render_detail_selectbox(
             _dividend_category_filter_label(product_type),
             options=list(RANKING_DIVIDEND_LABELS),
@@ -6370,7 +6416,7 @@ def _render_cockpit_symbol_filter_detail_fields(
             ),
             disabled=_cockpit_filter_bool("market_data_cockpit_dividend_enabled", False),
         )
-    with attr_cols[4]:
+    with attr_cols[5]:
         currency = _render_detail_selectbox(
             "通貨",
             options=list(RANKING_CURRENCY_LABELS),
@@ -6440,6 +6486,7 @@ def _render_cockpit_symbol_filter_detail_fields(
         market_cap_tier=market_cap_tier,
         nisa_eligibility=nisa_eligibility,
         risk_band=risk_band,
+        official_sector=official_sector,
         theme=theme,
         dividend_yield_enabled=dividend_enabled,
         min_dividend_yield_pct=min_dividend,
@@ -6469,6 +6516,7 @@ def cockpit_filtered_symbol_rows(rows: list[dict[str, str]]) -> list[dict[str, s
         market_cap_tier=_cockpit_filter_value("market_data_cockpit_market_cap", "all"),
         nisa_eligibility=_cockpit_filter_value("market_data_cockpit_nisa", "all"),
         risk_band=_cockpit_filter_value("market_data_cockpit_risk_band", "all"),
+        official_sector=_cockpit_filter_value("market_data_cockpit_official_sector", "all"),
         theme=_cockpit_filter_value("market_data_cockpit_theme", "all"),
         dividend_yield_enabled=_cockpit_filter_bool(
             "market_data_cockpit_dividend_enabled",
@@ -6504,6 +6552,7 @@ def cockpit_filtered_symbol_rows_from_values(
     market_cap_tier: str,
     nisa_eligibility: str,
     risk_band: str,
+    official_sector: str,
     theme: str,
     dividend_yield_enabled: bool,
     min_dividend_yield_pct: Decimal | str | int | float,
@@ -6527,6 +6576,7 @@ def cockpit_filtered_symbol_rows_from_values(
         market_cap_tier=market_cap_tier,
         nisa_eligibility=nisa_eligibility,
         risk_band=risk_band,
+        official_sector=official_sector,
         theme=theme,
         dividend_yield_enabled=dividend_yield_enabled,
         min_dividend_yield_pct=str(min_dividend_yield_pct),
@@ -6587,7 +6637,9 @@ def _cockpit_symbol_keyword_text(row: Mapping[str, object]) -> str:
             text = str(value)
             values.append(text)
             if field == "theme":
-                values.append(RANKING_THEME_LABELS.get(text, ""))
+                values.append(RANKING_INVESTMENT_THEME_LABELS.get(text, ""))
+            elif field == "sector":
+                values.append(RANKING_OFFICIAL_SECTOR_LABELS.get(text, ""))
             elif field == "asset_type":
                 values.append(RANKING_MVP_PRODUCT_TYPE_LABELS.get(text, ""))
             elif field == "index_family":
@@ -7037,6 +7089,7 @@ def _render_market_data_ranking() -> None:
     complexity = str(filter_values["market_data_ranking_complexity"])
     nisa_eligibility = str(filter_values["market_data_ranking_nisa"])
     risk_band = str(filter_values["market_data_ranking_risk_band"])
+    official_sector = str(filter_values["market_data_ranking_official_sector"])
     theme = str(filter_values["market_data_ranking_theme"])
     symbol_query = str(filter_values["market_data_ranking_symbol_query"])
     per_enabled = bool(filter_values["market_data_ranking_per_enabled"])
@@ -7071,6 +7124,7 @@ def _render_market_data_ranking() -> None:
         complexity=complexity,
         nisa_eligibility=nisa_eligibility,
         risk_band=risk_band,
+        official_sector=official_sector,
         theme=theme,
         query=symbol_query,
         per_enabled=per_enabled,

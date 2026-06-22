@@ -166,6 +166,37 @@ RANKING_THEME_LABELS = {
     "reit": "REIT",
     "commodity": "コモディティ",
 }
+RANKING_OFFICIAL_SECTOR_LABELS = {
+    "all": "指定なし",
+    "technology": "情報技術",
+    "communication": "通信・メディア",
+    "consumer": "消費関連",
+    "financial": "金融",
+    "healthcare": "ヘルスケア",
+    "energy": "エネルギー",
+    "industrial": "工業・資本財",
+    "materials": "素材",
+    "real_estate": "不動産",
+    "utilities": "公益",
+    "index": "指数・ETF",
+}
+RANKING_INVESTMENT_THEME_LABELS = {
+    "all": "指定なし",
+    "technology": "テクノロジー",
+    "communication": "通信・メディア",
+    "semiconductor": "半導体",
+    "financial": "金融",
+    "consumer": "消費財・サービス",
+    "healthcare": "ヘルスケア",
+    "energy": "エネルギー",
+    "automotive": "自動車",
+    "trading": "商社",
+    "high_dividend": "高配当",
+    "index": "インデックスETF",
+    "bond": "債券",
+    "reit": "REIT",
+    "commodity": "コモディティ",
+}
 RANKING_MARKET_CAP_LABELS = {
     "all": "指定なし",
     "mega": "超大型（JP 10兆円以上 / US $200B以上）",
@@ -227,6 +258,8 @@ RANKING_NISA_ELIGIBILITY_LABELS = {
 RANKING_INSTALLMENT_LABELS = {"all": "指定なし", "true": "積立可能", "false": "積立不可"}
 RANKING_DETAIL_FILTER_LABELS = {
     "industry_or_sector": "業種/テーマ",
+    "official_sector": "業種・セクター",
+    "investment_theme": "投資テーマ",
     "market_cap": "時価総額",
     "risk_band": "値動きリスク",
     "dividend_yield": "配当利回り",
@@ -256,6 +289,14 @@ RANKING_FILTER_HELP_TEXTS = {
     "industry_or_sector": (
         "業種やテーマで候補を絞ります。株式は主にsector/theme、ETFは指数・投資対象の"
         "分類を使います。"
+    ),
+    "official_sector": (
+        "公式または取得元に近い業種分類で候補を絞ります。日本株はJPXの33業種/TOPIX-17、"
+        "米国株はGICS系セクターを参考にし、DBでは見やすい大分類へ整理しています。"
+    ),
+    "investment_theme": (
+        "SMAIが銘柄名、別名、商品分類などから付けた投資テーマで絞ります。半導体、"
+        "自動車、高配当、債券など、業種分類だけでは拾いにくい観点です。"
     ),
     "market_cap": (
         "会社の規模感です。日本株は10兆円/1兆円/1,000億円/100億円、米国株は"

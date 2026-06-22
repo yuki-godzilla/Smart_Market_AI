@@ -115,7 +115,15 @@ def test_jpx_listed_stock_profile_applies_local_universe_defaults():
     profile = symbol_universe_source_profile("jpx_listed_stock")
     result = merge_symbol_universe_source_rows(
         [],
-        [{"code": "8058", "security_name": "Mitsubishi Corp", "sector": "industrial"}],
+        [
+            {
+                "code": "8058",
+                "security_name": "Mitsubishi Corp",
+                "sector": "industrial",
+                "source_industry_33": "卸売業",
+                "source_industry_17": "商社・卸売",
+            }
+        ],
         source_name=profile.source_name,
         as_of=date(2026, 5, 19),
         updated_at=datetime(2026, 5, 19, 0, 0, tzinfo=timezone.utc),
@@ -134,6 +142,8 @@ def test_jpx_listed_stock_profile_applies_local_universe_defaults():
     assert imported_row["nisa_tsumitate_eligible"] == "false"
     assert imported_row["investment_style"] == "lump_sum"
     assert imported_row["is_sbi_supported"] == "true"
+    assert imported_row["tse_33_industry"] == "卸売業"
+    assert imported_row["topix_17"] == "商社・卸売"
     assert imported_row["sbi_tradability_status"] == "estimated"
     assert imported_row["sbi_tradability_verified"] == "false"
     assert imported_row["sbi_tradability_source"] == "jpx_listed_stock"

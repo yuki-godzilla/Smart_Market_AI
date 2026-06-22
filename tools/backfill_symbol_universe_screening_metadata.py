@@ -15,12 +15,17 @@ DEFAULT_CSV_PATH = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe.csv"
 DEFAULT_MANIFEST_PATH = (
     PROJECT_ROOT / "data" / "marketdata" / "symbol_universe_screening_backfill_manifest.json"
 )
+DEFAULT_SOURCE_DIR = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe_sources"
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from backend.marketdata.symbol_metadata_refresh import METADATA_PROVENANCE_FIELDS  # noqa: E402
-from backend.marketdata.symbol_metadata_schema import symbol_universe_optional_columns  # noqa: E402
+from backend.marketdata.symbol_metadata_refresh import (  # noqa: E402
+    METADATA_PROVENANCE_FIELDS,
+)
+from backend.marketdata.symbol_metadata_schema import (  # noqa: E402
+    symbol_universe_optional_columns,
+)
 from ui.symbol_universe import validate_symbol_universe_rows  # noqa: E402
 
 # This tool deliberately performs deterministic, local-only metadata materialization.
@@ -103,7 +108,15 @@ THEME_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ),
     (
         "healthcare",
-        (r"医薬", r"製薬", r"pharma", r"pharmaceutical", r"biotech", r"healthcare", r"medical"),
+        (
+            r"医薬",
+            r"製薬",
+            r"pharma",
+            r"pharmaceutical",
+            r"biotech",
+            r"healthcare",
+            r"medical",
+        ),
     ),
     ("real_estate", (r"不動産", r"real estate", r"\breit\b", r"投資法人")),
     ("energy", (r"石油", r"資源", r"energy", r"\boil\b", r"exploration", r"drilling")),
@@ -180,6 +193,17 @@ REGION_EXPOSURE_BY_INDEX_FAMILY = {
     "reit": "global",
 }
 OFFICIAL_NISA_SOURCES = {"fsa", "jpx_nisa_growth"}
+ONE_TO_ONE_GICS_SECTOR_LABELS = {
+    "communication": "Communication Services",
+    "energy": "Energy",
+    "financial": "Financials",
+    "healthcare": "Health Care",
+    "industrial": "Industrials",
+    "materials": "Materials",
+    "real_estate": "Real Estate",
+    "technology": "Information Technology",
+    "utilities": "Utilities",
+}
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -191,6 +215,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--csv", type=Path, default=DEFAULT_CSV_PATH)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST_PATH)
+    parser.add_argument("--source-dir", type=Path, default=DEFAULT_SOURCE_DIR)
     parser.add_argument("--updated-at", type=_parse_datetime, default=datetime.now().astimezone())
     output_mode = parser.add_mutually_exclusive_group()
     output_mode.add_argument("--write", action="store_true")
@@ -207,7 +232,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         {column: row.get(column, "") for column in proposed_fieldnames} for row in rows
     ]
 
-    stats = _backfill_rows(proposed_rows)
+    official_source_path, jpx_official_classifications = _load_jpx_official_classifications(
+        args.source_dir
+    )
+    stats = _backfill_rows(
+        proposed_rows,
+        jpx_official_classifications=jpx_official_classifications,
+    )
     validation_after = validate_symbol_universe_rows(proposed_rows, fieldnames=proposed_fieldnames)
     validation_errors = [issue for issue in validation_after if issue.get("severity") == "error"]
     manifest = {
@@ -218,6 +249,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         "total_rows": len(proposed_rows),
         "added_columns": [column for column in proposed_fieldnames if column not in fieldnames],
         "changed_cells_by_column": dict(sorted(stats["changed_cells_by_column"].items())),
+        "official_classification_source": (
+            _report_path(official_source_path) if official_source_path else ""
+        ),
+        "official_classification_rows": stats["official_classification_rows"],
         "theme_tagged_rows": stats["theme_tagged_rows"],
         "reliability_status_rows": stats["reliability_status_rows"],
         "etf_classification_rows": stats["etf_classification_rows"],
@@ -273,8 +308,13 @@ def _materialized_fieldnames(fieldnames: Sequence[str]) -> list[str]:
     return result
 
 
-def _backfill_rows(rows: Sequence[dict[str, str]]) -> dict[str, object]:
+def _backfill_rows(
+    rows: Sequence[dict[str, str]],
+    *,
+    jpx_official_classifications: dict[str, dict[str, str]] | None = None,
+) -> dict[str, object]:
     changed_cells_by_column: defaultdict[str, int] = defaultdict(int)
+    official_classification_rows = 0
     theme_tagged_rows = 0
     reliability_status_rows = 0
     etf_classification_rows = 0
@@ -282,6 +322,10 @@ def _backfill_rows(rows: Sequence[dict[str, str]]) -> dict[str, object]:
 
     for row in rows:
         before = dict(row)
+        _backfill_official_classification(
+            row,
+            jpx_official_classifications=jpx_official_classifications or {},
+        )
         _backfill_reliability_status(row)
         _backfill_theme_tags(row)
         _backfill_etf_classification(row)
@@ -292,6 +336,10 @@ def _backfill_rows(rows: Sequence[dict[str, str]]) -> dict[str, object]:
         ]
         for column in changed_columns:
             changed_cells_by_column[column] += 1
+        if any(
+            column in changed_columns for column in ("sector_gics", "tse_33_industry", "topix_17")
+        ):
+            official_classification_rows += 1
         if any(
             column in changed_columns
             for column in ("smai_theme_tags", "theme_confidence", "theme_source")
@@ -311,11 +359,66 @@ def _backfill_rows(rows: Sequence[dict[str, str]]) -> dict[str, object]:
 
     return {
         "changed_cells_by_column": changed_cells_by_column,
+        "official_classification_rows": official_classification_rows,
         "theme_tagged_rows": theme_tagged_rows,
         "reliability_status_rows": reliability_status_rows,
         "etf_classification_rows": etf_classification_rows,
         "metric_provenance_rows": metric_provenance_rows,
     }
+
+
+def _load_jpx_official_classifications(
+    source_dir: Path,
+) -> tuple[Path | None, dict[str, dict[str, str]]]:
+    source_paths = sorted(source_dir.glob("jpx_listed_stock_*.csv"))
+    if not source_paths:
+        return None, {}
+    source_path = source_paths[-1]
+    classifications: dict[str, dict[str, str]] = {}
+    with source_path.open("r", encoding="utf-8-sig", newline="") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            code = (row.get("code") or row.get("symbol") or "").strip()
+            if not code:
+                continue
+            symbol = code if code.upper().endswith(".T") else f"{code}.T"
+            industry_33 = (
+                row.get("source_industry_33") or row.get("tse_33_industry") or ""
+            ).strip()
+            topix_17 = (row.get("source_industry_17") or row.get("topix_17") or "").strip()
+            if industry_33 or topix_17:
+                classifications[symbol.upper()] = {
+                    "tse_33_industry": industry_33,
+                    "topix_17": topix_17,
+                }
+    return source_path, classifications
+
+
+def _backfill_official_classification(
+    row: dict[str, str],
+    *,
+    jpx_official_classifications: dict[str, dict[str, str]],
+) -> None:
+    symbol = row.get("symbol", "").strip().upper()
+    if (
+        row.get("market") == "jp"
+        and row.get("asset_type") == "stock"
+        and symbol in jpx_official_classifications
+    ):
+        classification = jpx_official_classifications[symbol]
+        if not row.get("tse_33_industry", "").strip():
+            row["tse_33_industry"] = classification.get("tse_33_industry", "")
+        if not row.get("topix_17", "").strip():
+            row["topix_17"] = classification.get("topix_17", "")
+
+    if (
+        row.get("market") == "us"
+        and row.get("asset_type") == "stock"
+        and not row.get("sector_gics", "").strip()
+    ):
+        sector_gics = ONE_TO_ONE_GICS_SECTOR_LABELS.get(row.get("sector", "").strip())
+        if sector_gics:
+            row["sector_gics"] = sector_gics
 
 
 def _backfill_reliability_status(row: dict[str, str]) -> None:
@@ -433,6 +536,11 @@ def _searchable_text(row: dict[str, str]) -> str:
         "aliases",
         "theme",
         "sector",
+        "sector_gics",
+        "industry_gics",
+        "subindustry_gics",
+        "tse_33_industry",
+        "topix_17",
         "tags",
         "index_family",
         "asset_type",

@@ -3532,3 +3532,12 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - 投資レーダーの連続marqueeと複製headlineを廃止し、重複なし4件、2列×2段、6秒切替、hover停止、手動page dots、reduced-motion停止へ変更。
 - Ranking作成条件は、ランキング基準 / 作成対象件数を上段、地域 / 商品 / 取得期間 / 取得元を下段に整理。投資レーダー更新ボタンを主要actionとして強調。
 - UI targeted regression 352 passed。Full local checks 1,733 passed / 2 skipped / 32 existing warnings、Ruff / Black passed。
+
+## 2026-06-22 Phase 31-SDB - Official sector / SMAI theme split
+
+- GICS / JPX の公式分類体系をWeb確認し、Screening DBの `業種・セクター` とSMAI横断の `投資テーマ` を分離する方針で実装。
+- `jpx_listed_stock` source の `source_industry_33` / `source_industry_17` を `tse_33_industry` / `topix_17` に取り込む alias を追加。
+- deterministic backfillでJPX公式業種を日本株3,746件へ補完し、米国株は一対一対応できるGICS大分類のみ3,662件補完。Consumer Discretionary / Staples のように判別不能なものは空欄維持。
+- Ranking/Cockpitの詳細条件を `業種・セクター` と `投資テーマ` の2 selectboxへ分割し、投資テーマから旧 `balanced` / `telecom` / sector-only項目のUI表示を外した。
+- Theme filterは `theme` / `smai_theme_tags`、official sector filterは `sector` / GICS / JPX fields を参照するよう変更。候補cache signatureにも official sector を追加。
+- Targeted regression: symbol universe import/backfill 26 passed、ranking filter targeted 5 passed、targeted Ruff passed。`symbol_universe_quality_report.json` は2026-06-22基準で更新。

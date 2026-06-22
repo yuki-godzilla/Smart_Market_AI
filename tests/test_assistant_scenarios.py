@@ -7,6 +7,7 @@ import pytest
 
 from backend.assistant import (
     build_assistant_research_tool_plan,
+    decide_assistant_action_cards,
     detect_assistant_intent,
     route_assistant_conversation_mode,
 )
@@ -19,6 +20,7 @@ def test_assistant_scenario_routing(scenario: dict[str, object]):
     message = str(scenario["input"])
     intent = detect_assistant_intent(message)
     decision = route_assistant_conversation_mode(message)
+    card_decision = decide_assistant_action_cards(message, intent.intent)
 
     assert intent.intent == scenario["legacy_intent"]
     assert decision.conversation_mode == scenario["conversation_mode"]
@@ -29,3 +31,5 @@ def test_assistant_scenario_routing(scenario: dict[str, object]):
             assert plan.symbol == scenario["symbol"]
     else:
         assert build_assistant_research_tool_plan(message, decision) is None
+    if "action_card_level" in scenario:
+        assert card_decision.level == scenario["action_card_level"]

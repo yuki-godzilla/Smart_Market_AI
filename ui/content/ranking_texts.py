@@ -208,11 +208,11 @@ RANKING_RISK_BAND_LABELS = {
     "HIGH": "高め",
 }
 RANKING_BETA_RISK_LABELS = {
-    "all": "指定なし（βで絞らない）",
-    "low": "低変動のみ（β < 0.8）",
-    "standard_or_lower": "標準以下（β <= 1.2）",
-    "standard": "標準のみ（0.8 <= β <= 1.2）",
-    "high": "高変動のみ（β > 1.2）",
+    "all": "指定なし（値動きリスクで絞らない）",
+    "low": "低めのみ",
+    "standard_or_lower": "標準以下",
+    "standard": "標準のみ",
+    "high": "高めのみ",
 }
 RANKING_MANAGEMENT_STYLE_LABELS = {
     "all": "指定なし",
@@ -228,7 +228,7 @@ RANKING_INSTALLMENT_LABELS = {"all": "指定なし", "true": "積立可能", "fa
 RANKING_DETAIL_FILTER_LABELS = {
     "industry_or_sector": "業種/テーマ",
     "market_cap": "時価総額",
-    "risk_band": "市場感応度（β）",
+    "risk_band": "値動きリスク",
     "dividend_yield": "配当利回り",
     "per": "PER",
     "pbr": "PBR",
@@ -263,9 +263,8 @@ RANKING_FILTER_HELP_TEXTS = {
         "TOPIX Core30/Large70/Mid400/Smallなどを対応させています。"
     ),
     "risk_band": (
-        "市場感応度（β）は、市場平均を1.0とした値動きの大きさの目安です。"
-        "β 0.8未満は低変動、0.8〜1.2は市場並み、1.2超は高変動として扱います。"
-        "SMAIでは主にYahoo metadataのbetaから分類しています。"
+        "値動きリスクは、取得元のbetaを低め・標準・高めの帯に整理した参考区分です。"
+        "厳密なβ値そのものではなく、価格変動の確認材料として使います。"
         "将来の値動きや損失を保証するものではありません。"
     ),
     "nisa_eligibility": (

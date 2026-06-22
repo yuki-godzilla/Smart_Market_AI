@@ -3474,3 +3474,27 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Copilot unit/UI tests 62件、Ruff、Black helperを通過。
 - Real Streamlit Playwrightでready / failed fallback / recovered / no-cacheの4状態、スクロール前後の固定位置、不要文言の非表示を確認。
 - Full local checks: 1713 passed / 2 skipped、Ruff / Black passed。
+
+## 2026-06-21 Phase 30-H - Intent flexibility / Action Card restraint
+
+- Intent Routerに自己紹介、用語説明、Broad Discovery、候補探索、銘柄分析、ニュース、データ品質、レポート作成の分類を追加。
+- 親SMAIのdeterministic Action Card policyをLevel 0〜2で実装し、雑談・自己紹介・用語説明・広い探索相談からTool Plan / Guided Workflowを抑制。
+- セクター用語説明、銘柄未指定のテーマ/セクター探索、YUKIさん自己紹介fallbackを追加し、明確なランキング/コックピット/ニュース/レポート依頼では既存確認導線を維持。
+- data-driven scenario fixtureとPlaywright scenario smokeを、カードなし/軽い案内/明確なカード表示の回帰へ拡張。
+- Assistant関連テストは209 passed / 1 skipped。Playwright scenario smokeは16件pass。Full local checksは1728 passed / 2 skipped、Ruff / Black passed。
+
+## 2026-06-21 Phase 31-SDB - Screening DB Reliability
+
+- 銘柄metadata schemaへ公式業種分類、SMAIテーマ、SBI/NISA確認状態、ETF資産クラス/AUM/平均出来高、主要指標のsource/as-of/qualityをoptional追加し、既存CSV互換を維持。
+- Yahoo metadata補完へraw market cap、ETF AUM / average volume / asset classの受け口と `--fill-missing-only` を追加。既存正規値とprovenanceを上書きせず、不明値はnull維持。
+- `symbol_universe_quality_report.json` を生成し、9,197件の地域別・商品別・日本株/米国株/ETF別coverageを記録。ETF asset class 0%は次回明示live補完対象。
+- Ranking/Cockpitの `市場感応度（β）` を、厳密なbeta値と誤認しにくい `値動きリスク` へ変更。ETF/株式の既存条件構成とスコア計算は変更なし。
+- Targeted regression 402 passed。Full local checks 1,731 passed / 2 skipped / 32 existing warnings、Ruff / Black passed。live provider補完とStreamlit browser smokeは未実施。
+
+## 2026-06-21 UI polish - Shared loading / Investment Radar headline board
+
+- Cockpitデータ取得、AI調査、投資レーダー更新へ共通SMAIローディング画面を追加。現在工程、進捗率、保存済みcache由来の `市場トピック` を表示し、待機表示のための追加通信は行わない。
+- Ranking作成ではprogress bar直下の非モーダルカードとして表示し、画面を覆わない。同期rankingのbackground job化は後続。
+- 投資レーダーの連続marqueeと複製headlineを廃止し、重複なし4件、2列×2段、6秒切替、hover停止、手動page dots、reduced-motion停止へ変更。
+- Ranking作成条件は、ランキング基準 / 作成対象件数を上段、地域 / 商品 / 取得期間 / 取得元を下段に整理。投資レーダー更新ボタンを主要actionとして強調。
+- UI targeted regression 352 passed。Full local checks 1,733 passed / 2 skipped / 32 existing warnings、Ruff / Black passed。

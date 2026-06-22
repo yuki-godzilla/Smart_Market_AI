@@ -16,6 +16,7 @@ from ui.components.mascot import (
     mascot_panel_html,
     page_title_html,
     smai_insight_html,
+    workflow_loading_html,
 )
 
 
@@ -75,6 +76,30 @@ def test_mascot_loading_html_uses_animation_classes():
     assert "smai-mascot-image--loading" in markup
     assert "smai-loading-dots" in markup
     assert "取得中" in markup
+
+
+def test_workflow_loading_html_shows_progress_and_cached_market_topics():
+    markup = workflow_loading_html(
+        title="ランキングを作成中",
+        message="候補を整理しています。",
+        current_step="価格データを取得しています。",
+        progress=0.42,
+        mode="inline",
+        headlines=(
+            {
+                "category": "日本株",
+                "title": "市場ニュース見出し",
+                "source": "Example News",
+            },
+        ),
+        headline_note="前回取得 2026-06-21 09:00",
+    )
+
+    assert 'data-testid="smai-workflow-loading-inline"' in markup
+    assert "42%" in markup
+    assert "市場トピック" in markup
+    assert "市場ニュース見出し" in markup
+    assert "Example News" in markup
 
 
 def test_page_title_html_uses_screen_specific_mascot_asset_and_escapes_copy():

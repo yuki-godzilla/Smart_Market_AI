@@ -897,7 +897,7 @@ def test_symbol_universe_detail_display_value_translates_internal_codes():
     assert symbol_universe_detail_display_value(row, "metadata_source") == "Yahoo Finance"
     assert symbol_universe_detail_display_value(row, "dividend_yield_pct") == "2.84%"
     assert symbol_universe_detail_display_value(row, "market_cap_tier").startswith("大型")
-    assert symbol_universe_detail_display_value(row, "risk_band") == "低変動（β < 0.8目安）"
+    assert symbol_universe_detail_display_value(row, "risk_band") == "低め"
     assert symbol_universe_detail_display_value(row, "yahoo_symbol") == "表示銘柄と同じ"
 
 
@@ -4193,6 +4193,37 @@ def test_filter_symbol_universe_rows_filters_by_sector_theme_and_jpx_market_cap(
     assert "industrial" in RANKING_THEME_LABELS
 
 
+def test_filter_symbol_universe_rows_uses_smai_theme_tags_for_theme_filter():
+    rows = symbol_universe_rows(
+        [
+            {
+                "symbol": "8035.T",
+                "name": "Tokyo Electron",
+                "theme": "technology",
+                "sector": "technology",
+                "smai_theme_tags": "semiconductor,technology",
+            },
+            {
+                "symbol": "AAPL",
+                "name": "Apple Inc.",
+                "theme": "technology",
+                "sector": "technology",
+                "smai_theme_tags": "technology",
+            },
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="japan",
+            product_type="stock",
+            theme="semiconductor",
+        )
+    ] == ["8035.T"]
+
+
 def test_ranking_filter_labels_show_quantitative_thresholds():
     assert RANKING_MARKET_CAP_LABELS["mega"] == "超大型（JP 10兆円以上 / US $200B以上）"
     assert RANKING_MARKET_CAP_LABELS["small"] == "小型（JP 100億〜1,000億円 / US $300M〜$2B）"
@@ -4660,9 +4691,9 @@ def test_ranking_policy_descriptions_cover_all_composite_options():
 
 
 def test_beta_risk_filter_labels_explain_thresholds():
-    assert RANKING_BETA_RISK_LABELS[RANKING_BETA_RISK_STANDARD_OR_LOWER] == ("標準以下（β <= 1.2）")
-    assert "β 0.8未満" in RANKING_FILTER_HELP_TEXTS["risk_band"]
-    assert "1.2超" in RANKING_FILTER_HELP_TEXTS["risk_band"]
+    assert RANKING_BETA_RISK_LABELS[RANKING_BETA_RISK_STANDARD_OR_LOWER] == "標準以下"
+    assert "値動きリスク" in RANKING_FILTER_HELP_TEXTS["risk_band"]
+    assert "厳密なβ値そのものではなく" in RANKING_FILTER_HELP_TEXTS["risk_band"]
 
 
 def test_filter_symbol_universe_rows_searches_japanese_aliases():

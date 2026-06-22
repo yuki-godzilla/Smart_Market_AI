@@ -223,6 +223,58 @@ SYMBOL_METADATA_FIELDS: tuple[MetadataField, ...] = (
         ),
     ),
     MetadataField(
+        key="sector_gics",
+        label="GICSセクター",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+    ),
+    MetadataField(
+        key="industry_gics",
+        label="GICS業種",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+    ),
+    MetadataField(
+        key="subindustry_gics",
+        label="GICSサブ業種",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+    ),
+    MetadataField(
+        key="tse_33_industry",
+        label="東証33業種",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+    ),
+    MetadataField(
+        key="topix_17",
+        label="TOPIX-17業種",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+    ),
+    MetadataField(
+        key="smai_theme_tags",
+        label="SMAI投資テーマ",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+        value_type="csv_tags",
+    ),
+    MetadataField(
+        key="theme_confidence",
+        label="テーマ分類信頼度",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+        value_type="decimal",
+        minimum=Decimal("0"),
+        maximum=Decimal("1"),
+    ),
+    MetadataField(
+        key="theme_source",
+        label="テーマ分類出所",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+    ),
+    MetadataField(
         key="aliases",
         label="検索別名",
         tier=METADATA_TIER_CORE,
@@ -265,6 +317,16 @@ SYMBOL_METADATA_FIELDS: tuple[MetadataField, ...] = (
         source_required=True,
         freshness_days=180,
         allowed_values=frozenset({"mega", "large", "mid", "small", "micro"}),
+    ),
+    MetadataField(
+        key="market_cap",
+        label="時価総額（取得値）",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+        source_required=True,
+        freshness_days=90,
+        value_type="decimal",
+        minimum=Decimal("0"),
     ),
     MetadataField(
         key="index_family",
@@ -421,6 +483,90 @@ SYMBOL_METADATA_FIELDS: tuple[MetadataField, ...] = (
         allowed_values=frozenset({"LOW", "MEDIUM", "HIGH"}),
     ),
     MetadataField(
+        key="sbi_tradability_status",
+        label="SBI取扱確認状態",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+        allowed_values=frozenset({"confirmed", "estimated", "unknown", "not_supported"}),
+    ),
+    MetadataField(
+        key="sbi_tradability_verified",
+        label="SBI取扱確認済み",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+        value_type="bool",
+        allowed_values=frozenset({"true", "false", "unknown"}),
+    ),
+    MetadataField(
+        key="sbi_tradability_as_of",
+        label="SBI取扱確認日",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+        value_type="date",
+    ),
+    MetadataField(
+        key="sbi_tradability_source",
+        label="SBI取扱確認元",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+    ),
+    MetadataField(
+        key="nisa_growth_status",
+        label="NISA成長投資枠確認状態",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+        allowed_values=frozenset({"confirmed", "estimated", "unknown", "not_supported"}),
+    ),
+    MetadataField(
+        key="nisa_growth_verified",
+        label="NISA成長投資枠確認済み",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+        value_type="bool",
+        allowed_values=frozenset({"true", "false", "unknown"}),
+    ),
+    MetadataField(
+        key="nisa_growth_as_of",
+        label="NISA成長投資枠確認日",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+        value_type="date",
+    ),
+    MetadataField(
+        key="nisa_growth_source",
+        label="NISA成長投資枠確認元",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+    ),
+    MetadataField(
+        key="nisa_tsumitate_status",
+        label="NISAつみたて投資枠確認状態",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+        allowed_values=frozenset({"confirmed", "estimated", "unknown", "not_supported"}),
+    ),
+    MetadataField(
+        key="nisa_tsumitate_verified",
+        label="NISAつみたて投資枠確認済み",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+        value_type="bool",
+        allowed_values=frozenset({"true", "false", "unknown"}),
+    ),
+    MetadataField(
+        key="nisa_tsumitate_as_of",
+        label="NISAつみたて投資枠確認日",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+        value_type="date",
+    ),
+    MetadataField(
+        key="nisa_tsumitate_source",
+        label="NISAつみたて投資枠確認元",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+    ),
+    MetadataField(
         key="metadata_source",
         label="metadata出所",
         tier=METADATA_TIER_OPERATIONAL,
@@ -485,6 +631,36 @@ SYMBOL_METADATA_FIELDS: tuple[MetadataField, ...] = (
         minimum=Decimal("0"),
     ),
     MetadataField(
+        key="average_volume",
+        label="平均出来高",
+        tier=METADATA_TIER_FUND_EXTENDED,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+        source_required=True,
+        freshness_days=30,
+        value_type="decimal",
+        minimum=Decimal("0"),
+    ),
+    MetadataField(
+        key="asset_class",
+        label="資産クラス",
+        tier=METADATA_TIER_FUND_EXTENDED,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+    ),
+    MetadataField(
+        key="region_exposure",
+        label="投資地域",
+        tier=METADATA_TIER_FUND_EXTENDED,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+    ),
+    MetadataField(
+        key="is_hedged",
+        label="為替ヘッジ",
+        tier=METADATA_TIER_FUND_EXTENDED,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+        value_type="bool",
+        allowed_values=frozenset({"true", "false", "unknown"}),
+    ),
+    MetadataField(
         key="nisa_tsumitate_eligible",
         label="NISAつみたて投資枠",
         tier=METADATA_TIER_FUND_EXTENDED,
@@ -536,6 +712,35 @@ SYMBOL_METADATA_FIELDS: tuple[MetadataField, ...] = (
             {"none", "monthly", "quarterly", "semiannual", "annual", "irregular"}
         ),
     ),
+)
+
+METRIC_PROVENANCE_BASE_FIELDS: tuple[str, ...] = (
+    "per",
+    "pbr",
+    "roe_pct",
+    "dividend_yield_pct",
+    "market_cap_tier",
+    "market_cap",
+    "expense_ratio_pct",
+    "aum",
+    "average_volume",
+)
+
+SYMBOL_METADATA_FIELDS += tuple(
+    MetadataField(
+        key=f"{metric}_{suffix}",
+        label=f"{metric} {suffix}",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+        value_type="date" if suffix == "as_of" else "text",
+        allowed_values=(
+            frozenset({"confirmed", "derived", "estimated", "unknown", "stale"})
+            if suffix == "quality"
+            else frozenset()
+        ),
+    )
+    for metric in METRIC_PROVENANCE_BASE_FIELDS
+    for suffix in ("source", "as_of", "quality")
 )
 
 

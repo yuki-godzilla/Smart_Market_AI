@@ -1297,6 +1297,7 @@ def filter_symbol_universe_rows(
     _ = ranking_purpose
     for row in rows:
         tags = _symbol_universe_values(row, "tags")
+        theme_values = _symbol_theme_filter_values(row)
         if apply_universe_policy and not symbol_allowed_by_ranking_universe_policy(row):
             continue
         if not _symbol_matches_region(row, region):
@@ -1363,13 +1364,7 @@ def filter_symbol_universe_rows(
             and row.get("installment_available") != installment_available
         ):
             continue
-        if (
-            "industry_or_sector" in detail_filters
-            and theme != "all"
-            and theme not in tags
-            and row.get("theme") != theme
-            and row.get("sector") != theme
-        ):
+        if "industry_or_sector" in detail_filters and theme != "all" and theme not in theme_values:
             continue
         if (
             "per" in detail_filters
@@ -1417,6 +1412,12 @@ def filter_symbol_universe_rows(
                     row.get("symbol", ""),
                     row.get("name", ""),
                     row.get("theme", ""),
+                    row.get("sector", ""),
+                    row.get("smai_theme_tags", ""),
+                    row.get("sector_gics", ""),
+                    row.get("industry_gics", ""),
+                    row.get("tse_33_industry", ""),
+                    row.get("topix_17", ""),
                     row.get("dividend_category", ""),
                     row.get("tags", ""),
                     row.get("aliases", ""),
@@ -2185,6 +2186,12 @@ def _symbol_universe_row(row: dict[str, str]) -> dict[str, str]:
         "pbr": row.get("pbr", ""),
         "roe_pct": row.get("roe_pct", ""),
         "sector": row.get("sector", ""),
+        "smai_theme_tags": row.get("smai_theme_tags", ""),
+        "sector_gics": row.get("sector_gics", ""),
+        "industry_gics": row.get("industry_gics", ""),
+        "subindustry_gics": row.get("subindustry_gics", ""),
+        "tse_33_industry": row.get("tse_33_industry", ""),
+        "topix_17": row.get("topix_17", ""),
         "consensus_rating": row.get("consensus_rating", ""),
         "forecast_agreement": row.get("forecast_agreement", ""),
         "data_quality": row.get("data_quality", ""),
@@ -2198,6 +2205,30 @@ def _symbol_universe_row(row: dict[str, str]) -> dict[str, str]:
 
 def _symbol_universe_values(row: dict[str, str], key: str) -> set[str]:
     return {value.strip() for value in row.get(key, "").split(",") if value.strip()}
+
+
+def _symbol_theme_filter_values(row: dict[str, str]) -> set[str]:
+    values = set()
+    for key in (
+        "tags",
+        "smai_theme_tags",
+        "theme",
+        "sector",
+        "sector_gics",
+        "industry_gics",
+        "subindustry_gics",
+        "tse_33_industry",
+        "topix_17",
+        "index_family",
+    ):
+        raw_value = row.get(key, "").strip()
+        if not raw_value:
+            continue
+        if key in {"tags", "smai_theme_tags"}:
+            values.update(_symbol_universe_values(row, key))
+        else:
+            values.add(raw_value)
+    return values
 
 
 def _symbol_matches_region(row: dict[str, str], region: str) -> bool:

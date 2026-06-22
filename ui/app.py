@@ -14,6 +14,7 @@ from decimal import Decimal
 from typing import (
     Any,
     Callable,
+    Collection,
     Iterable,
     Literal,
     Mapping,
@@ -3901,7 +3902,8 @@ def _ranking_detail_filter_mode_caption(product_type: str) -> str:
     if product_type == RANKING_PRODUCT_STOCK:
         return (
             "株式向け条件です。公式業種、SMAI投資テーマ、時価総額、PER/PBR/ROE、"
-            "配当利回りを中心に表示します。"
+            "配当利回りを中心に表示します。米国以外の外国株ではPER/PBR/ROEを抑え、"
+            "通貨・データ品質・流動性確認を優先します。"
         )
     if product_type == RANKING_PRODUCT_MUTUAL_FUND:
         return "投信向け条件です。信託報酬、NISA、商品複雑性を中心に表示します。"
@@ -6565,7 +6567,7 @@ def _render_cockpit_symbol_filter_detail_fields(
             key="market_data_cockpit_region",
             format_func=lambda value: RANKING_MVP_REGION_LABELS[value],
             default_value=str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_region"]),
-            help_text="候補に含める市場地域です。国内株、米国株、全体から選びます。",
+            help_text="候補に含める市場地域です。国内、米国、中国/香港、韓国、ASEAN、その他海外から選びます。",
         )
     with col_product:
         product_type = _render_detail_selectbox(
@@ -7801,46 +7803,81 @@ def _latest_currency_by_symbol(bars_by_symbol: dict[str, list[Bar]]) -> dict[str
     return currencies
 
 
-async def _ranking_usd_jpy_rate(
+RANKING_JPY_FX_PAIRS_BY_CURRENCY: dict[str, str] = {
+    "USD": "USDJPY",
+    "HKD": "HKDJPY",
+    "KRW": "KRWJPY",
+    "VND": "VNDJPY",
+    "IDR": "IDRJPY",
+    "SGD": "SGDJPY",
+    "THB": "THBJPY",
+    "MYR": "MYRJPY",
+    "CNY": "CNYJPY",
+}
+
+
+def _jpy_fx_pair_for_currency(currency: str) -> str:
+    return RANKING_JPY_FX_PAIRS_BY_CURRENCY.get(currency.strip().upper(), "")
+
+
+async def _ranking_jpy_fx_rates(
     adapter: object,
+    currencies: Collection[str],
     *,
     at: datetime | None = None,
-) -> Decimal | None:
+) -> dict[str, Decimal]:
     get_fx_rates = getattr(adapter, "get_fx_rates", None)
     if get_fx_rates is None:
-        return None
+        return {}
+    requested_currencies = {currency.strip().upper() for currency in currencies}
+    pairs_by_currency = {
+        currency: pair
+        for currency in requested_currencies
+        if currency not in {"", "JPY"}
+        for pair in [_jpy_fx_pair_for_currency(currency)]
+        if pair
+    }
+    if not pairs_by_currency:
+        return {}
     try:
-        fx_rates = await get_fx_rates(["USDJPY"], at=at)
+        fx_rates = await get_fx_rates(sorted(set(pairs_by_currency.values())), at=at)
     except AppError:
-        return None
+        return {}
+    currency_by_pair = {pair: currency for currency, pair in pairs_by_currency.items()}
+    rates: dict[str, Decimal] = {}
     for rate in fx_rates:
-        if str(getattr(rate, "pair", "")).strip().upper() != "USDJPY":
+        pair = str(getattr(rate, "pair", "")).strip().upper()
+        currency = currency_by_pair.get(pair)
+        if not currency:
             continue
         value = getattr(rate, "rate", None)
         if isinstance(value, Decimal) and value > 0:
-            return value
+            rates[currency] = value
+            continue
         parsed = _decimal_from_text(value)
         if parsed is not None and parsed > 0:
-            return parsed
-    return None
+            rates[currency] = parsed
+    return rates
 
 
 def _ranking_current_price_jpy(
     price: Decimal | None,
     *,
     source_currency: str,
-    usd_jpy_rate: Decimal | None,
+    usd_jpy_rate: Decimal | None = None,
+    jpy_fx_rates: Mapping[str, Decimal] | None = None,
 ) -> Decimal | None:
     if price is None:
         return None
     source = source_currency.strip().upper()
     if source in {"", "JPY"}:
         return price
-    if source == "USD":
-        if usd_jpy_rate is None:
-            return None
-        return price * usd_jpy_rate
-    return None
+    rate = (jpy_fx_rates or {}).get(source)
+    if rate is None and source == "USD":
+        rate = usd_jpy_rate
+    if rate is None or rate <= 0:
+        return None
+    return price * rate
 
 
 def _enrich_ranking_rows_with_feature_details(
@@ -7850,6 +7887,7 @@ def _enrich_ranking_rows_with_feature_details(
     latest_volume_by_symbol: dict[str, str] | None = None,
     source_currency_by_symbol: Mapping[str, str] | None = None,
     usd_jpy_rate: Decimal | None = None,
+    jpy_fx_rates: Mapping[str, Decimal] | None = None,
     provider_name: str = "",
 ) -> list[dict[str, str]]:
     feature_by_symbol = {row.symbol.strip().upper(): row for row in feature_rows}
@@ -7874,6 +7912,7 @@ def _enrich_ranking_rows_with_feature_details(
                         feature.last,
                         source_currency=source_currency,
                         usd_jpy_rate=usd_jpy_rate,
+                        jpy_fx_rates=jpy_fx_rates,
                     )
                 ),
                 "current_price_currency": source_currency,
@@ -7904,6 +7943,7 @@ def _enrich_ranking_rows_with_feature_display_rows(
     *,
     source_currency: str = "",
     usd_jpy_rate: Decimal | None = None,
+    jpy_fx_rates: Mapping[str, Decimal] | None = None,
 ) -> list[dict[str, str]]:
     feature_by_symbol = {
         row.get("symbol", "").strip().upper(): row
@@ -7926,6 +7966,7 @@ def _enrich_ranking_rows_with_feature_display_rows(
                         _decimal_from_text(feature.get("last", "")),
                         source_currency=source_currency,
                         usd_jpy_rate=usd_jpy_rate,
+                        jpy_fx_rates=jpy_fx_rates,
                     )
                 ),
                 "current_price_currency": source_currency,
@@ -8335,8 +8376,8 @@ async def _build_market_data_ranking_rows_fast(
         currency or ("JPY" if symbol.endswith(".T") else "USD")
         for symbol, currency in source_currency_by_symbol.items()
     }
-    needs_usd_jpy_rate = "USD" in source_currencies
-    usd_jpy_rate = await _ranking_usd_jpy_rate(adapter) if needs_usd_jpy_rate else None
+    jpy_fx_rates = await _ranking_jpy_fx_rates(adapter, source_currencies)
+    usd_jpy_rate = jpy_fx_rates.get("USD")
 
     available_symbols: list[str] = []
     quotes: list[Quote] = []
@@ -8453,6 +8494,7 @@ async def _build_market_data_ranking_rows_fast(
         latest_volume_by_symbol=_latest_volume_by_symbol(bars_by_symbol),
         source_currency_by_symbol=source_currency_by_symbol,
         usd_jpy_rate=usd_jpy_rate,
+        jpy_fx_rates=jpy_fx_rates,
         provider_name=provider_name,
     )
     score_rows = _enrich_ranking_rows_with_advanced_forecast(
@@ -8630,13 +8672,17 @@ async def _build_market_data_ranking_rows_from_previews(
                 forecast_horizon_days=forecast_horizon_days,
             )
         preview_bars = getattr(preview, "bars", [])
+        preview_currency = str(preview_bars[0].symbol.currency).strip().upper() if preview_bars else ""
+        preview_fx_rate = chart_fx_rate_from_rows(
+            getattr(preview, "fx_rows", []),
+            source_currency=preview_currency,
+        )
         preview_rows = _enrich_ranking_rows_with_feature_display_rows(
             preview.investment_score_rows,
             getattr(preview, "feature_rows", []),
-            source_currency=(
-                str(preview_bars[0].symbol.currency).strip().upper() if preview_bars else ""
-            ),
-            usd_jpy_rate=chart_fx_rate_from_rows(getattr(preview, "fx_rows", [])),
+            source_currency=preview_currency,
+            usd_jpy_rate=preview_fx_rate,
+            jpy_fx_rates={preview_currency: preview_fx_rate} if preview_fx_rate is not None else {},
         )
         advanced_fields = _ranking_advanced_forecast_fields(
             _advanced_forecast_rows_for_ranking(
@@ -13316,7 +13362,7 @@ def _render_price_forecast_hero(
         display_forecast_rows,
         source_currency=chart_currency,
         display_currency=display_currency,
-        usd_jpy_rate=chart_fx_rate_from_rows(preview.fx_rows),
+        usd_jpy_rate=chart_fx_rate_from_rows(preview.fx_rows, source_currency=chart_currency),
     )
     _render_market_chart(
         display_forecast_rows,
@@ -17232,10 +17278,12 @@ def _render_market_chart_currency_selector(
     fx_rows: list[dict[str, str]],
 ) -> str:
     source = source_currency.strip().upper()
-    usd_jpy_rate = chart_fx_rate_from_rows(fx_rows)
-    if usd_jpy_rate is None:
+    jpy_fx_rate = chart_fx_rate_from_rows(fx_rows, source_currency=source)
+    if source == "JPY":
+        return "JPY"
+    if jpy_fx_rate is None:
         return _default_market_chart_display_currency(source)
-    options = ["JPY", "USD"]
+    options = [source, "JPY"]
     default_currency = _default_market_chart_display_currency(source)
 
     current_value = st.session_state.get(MARKET_CHART_DISPLAY_CURRENCY_STATE_KEY)
@@ -17252,15 +17300,16 @@ def _render_market_chart_currency_selector(
                 key=MARKET_CHART_DISPLAY_CURRENCY_STATE_KEY,
                 horizontal=True,
                 format_func=lambda option: _market_chart_currency_option_label(str(option)),
-                help="価格チャートの表示通貨だけを切り替えます。スコアや予測計算は変更しません。",
+                help="価格チャートの表示通貨だけを現地通貨/円換算で切り替えます。スコアや予測計算は変更しません。",
             ),
         )
     with rate_col:
+        pair = _jpy_fx_pair_for_currency(source)
         st.markdown(
             (
                 "<div style='padding-top:2.15rem;font-size:0.82rem;"
                 "font-weight:700;color:#b9c7da;'>"
-                f"＄円相場 {_format_market_chart_fx_rate(usd_jpy_rate)}"
+                f"{html.escape(pair or source + 'JPY')} {_format_market_chart_fx_rate(jpy_fx_rate)}"
                 "</div>"
             ),
             unsafe_allow_html=True,
@@ -17270,23 +17319,37 @@ def _render_market_chart_currency_selector(
 
 def _default_market_chart_display_currency(source_currency: str) -> str:
     source = source_currency.strip().upper()
-    return source if source in {"JPY", "USD"} else "JPY"
+    return source if source in {"JPY", *RANKING_JPY_FX_PAIRS_BY_CURRENCY} else "JPY"
 
 
 def _market_chart_currency_option_label(option: str) -> str:
     labels = {
         "JPY": "円 (JPY)",
         "USD": "$ (USD)",
+        "HKD": "香港ドル (HKD)",
+        "KRW": "韓国ウォン (KRW)",
+        "VND": "ベトナムドン (VND)",
+        "IDR": "インドネシアルピア (IDR)",
+        "SGD": "シンガポールドル (SGD)",
+        "THB": "タイバーツ (THB)",
+        "MYR": "マレーシアリンギット (MYR)",
+        "CNY": "人民元 (CNY)",
     }
     return labels.get(option, option)
 
 
 def _format_market_chart_fx_rate(rate: Decimal) -> str:
+    if rate < Decimal("0.1"):
+        return f"{rate:.4f}"
     return f"{rate:.2f}"
 
 
-def chart_fx_rate_from_rows(fx_rows: list[dict[str, str]]) -> Decimal | None:
-    row = _market_chart_usd_jpy_row(fx_rows)
+def chart_fx_rate_from_rows(
+    fx_rows: list[dict[str, str]],
+    *,
+    source_currency: str = "USD",
+) -> Decimal | None:
+    row = _market_chart_jpy_fx_row(fx_rows, source_currency=source_currency)
     if row is None:
         return None
     rate = _decimal_from_text(row.get("rate"))
@@ -17295,9 +17358,14 @@ def chart_fx_rate_from_rows(fx_rows: list[dict[str, str]]) -> Decimal | None:
     return rate
 
 
-def _market_chart_usd_jpy_row(fx_rows: list[dict[str, str]]) -> dict[str, str] | None:
+def _market_chart_jpy_fx_row(
+    fx_rows: list[dict[str, str]],
+    *,
+    source_currency: str,
+) -> dict[str, str] | None:
+    pair = _jpy_fx_pair_for_currency(source_currency) or "USDJPY"
     for row in reversed(fx_rows):
-        if str(row.get("pair", "")).strip().upper() != "USDJPY":
+        if str(row.get("pair", "")).strip().upper() != pair:
             continue
         rate = _decimal_from_text(row.get("rate"))
         if rate is not None and rate > 0:
@@ -17348,9 +17416,9 @@ def _market_chart_currency_factor(
         return Decimal("1")
     if usd_jpy_rate is None or usd_jpy_rate <= 0:
         return None
-    if source == "USD" and target == "JPY":
+    if source != "JPY" and target == "JPY":
         return usd_jpy_rate
-    if source == "JPY" and target == "USD":
+    if source == "JPY" and target in RANKING_JPY_FX_PAIRS_BY_CURRENCY:
         return Decimal("1") / usd_jpy_rate
     return None
 

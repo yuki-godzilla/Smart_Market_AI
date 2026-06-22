@@ -26,12 +26,19 @@ class RankingPolicyDescription(TypedDict):
 RANKING_REGION_LABELS = {
     "japan": "国内",
     "us": "米国",
+    "china_hk": "中国/香港",
+    "korea": "韓国",
+    "asean": "ASEAN",
     "other_global": "その他海外",
     "all": "全体",
 }
 RANKING_MVP_REGION_LABELS = {
     "japan": RANKING_REGION_LABELS["japan"],
     "us": RANKING_REGION_LABELS["us"],
+    "china_hk": RANKING_REGION_LABELS["china_hk"],
+    "korea": RANKING_REGION_LABELS["korea"],
+    "asean": RANKING_REGION_LABELS["asean"],
+    "other_global": RANKING_REGION_LABELS["other_global"],
     "all": RANKING_REGION_LABELS["all"],
 }
 
@@ -131,7 +138,19 @@ RANKING_PERIOD_LABELS = {
 
 RANKING_MARKET_LABELS = {"all": "すべて", "jp": "日本株", "us": "米国株", "etf": "ETF"}
 RANKING_ASSET_TYPE_LABELS = {"all": "すべて", "stock": "個別株", "etf": "ETF"}
-RANKING_CURRENCY_LABELS = {"all": "すべて", "JPY": "JPY", "USD": "USD"}
+RANKING_CURRENCY_LABELS = {
+    "all": "すべて",
+    "JPY": "JPY",
+    "USD": "USD",
+    "HKD": "HKD",
+    "KRW": "KRW",
+    "VND": "VND",
+    "IDR": "IDR",
+    "SGD": "SGD",
+    "THB": "THB",
+    "MYR": "MYR",
+    "CNY": "CNY",
+}
 RANKING_DIVIDEND_LABELS = {
     "all": "指定なし",
     "high_dividend": "配当利回り 3%以上",

@@ -93,6 +93,33 @@ SBI_US_ETF_SOURCE_FIELDNAMES = [
     "aliases",
 ]
 
+SBI_FOREIGN_STOCK_SOURCE_FIELDNAMES = [
+    "symbol",
+    "name",
+    "market",
+    "asset_type",
+    "currency",
+    "country",
+    "exchange",
+    "local_symbol",
+    "primary_listing_country",
+    "trading_currency",
+    "settlement_currency",
+    "quote_currency",
+    "fx_pair_to_jpy",
+    "foreign_market_group",
+    "country_risk_band",
+    "liquidity_tier",
+    "sector",
+    "theme",
+    "aliases",
+    "data_quality",
+    "risk_band",
+    "foreign_data_quality",
+    "foreign_data_quality_reasons",
+    "sbi_foreign_tradability",
+]
+
 NISA_ELIGIBILITY_SOURCE_FIELDNAMES = [
     "symbol",
     "nisa_category",
@@ -177,6 +204,8 @@ _SYMBOL_ALIASES = (
     "コード",
     "銘柄コードメイガラ",
 )
+_COUNTRY_ALIASES = ("country", "国", "国・地域", "取扱国")
+_EXCHANGE_ALIASES = ("exchange", "取引所", "市場")
 _US_NAME_ALIASES = (
     "name",
     "security_name",
@@ -1097,6 +1126,122 @@ def build_sbi_us_etf_source_rows(
     return SymbolUniverseSourceBuildResult(rows=output_rows, manifest=manifest)
 
 
+def build_sbi_hk_stock_source_rows(
+    raw_rows: Sequence[Mapping[str, Any]],
+    *,
+    as_of: date,
+) -> SymbolUniverseSourceBuildResult:
+    return _build_sbi_foreign_stock_source_rows(raw_rows, as_of=as_of, profile="sbi_hk_stock")
+
+
+def build_sbi_korea_stock_source_rows(
+    raw_rows: Sequence[Mapping[str, Any]],
+    *,
+    as_of: date,
+) -> SymbolUniverseSourceBuildResult:
+    return _build_sbi_foreign_stock_source_rows(raw_rows, as_of=as_of, profile="sbi_korea_stock")
+
+
+def build_sbi_vietnam_stock_source_rows(
+    raw_rows: Sequence[Mapping[str, Any]],
+    *,
+    as_of: date,
+) -> SymbolUniverseSourceBuildResult:
+    return _build_sbi_foreign_stock_source_rows(raw_rows, as_of=as_of, profile="sbi_vietnam_stock")
+
+
+def build_sbi_indonesia_stock_source_rows(
+    raw_rows: Sequence[Mapping[str, Any]],
+    *,
+    as_of: date,
+) -> SymbolUniverseSourceBuildResult:
+    return _build_sbi_foreign_stock_source_rows(raw_rows, as_of=as_of, profile="sbi_indonesia_stock")
+
+
+def build_sbi_singapore_stock_source_rows(
+    raw_rows: Sequence[Mapping[str, Any]],
+    *,
+    as_of: date,
+) -> SymbolUniverseSourceBuildResult:
+    return _build_sbi_foreign_stock_source_rows(raw_rows, as_of=as_of, profile="sbi_singapore_stock")
+
+
+def build_sbi_thailand_stock_source_rows(
+    raw_rows: Sequence[Mapping[str, Any]],
+    *,
+    as_of: date,
+) -> SymbolUniverseSourceBuildResult:
+    return _build_sbi_foreign_stock_source_rows(raw_rows, as_of=as_of, profile="sbi_thailand_stock")
+
+
+def build_sbi_malaysia_stock_source_rows(
+    raw_rows: Sequence[Mapping[str, Any]],
+    *,
+    as_of: date,
+) -> SymbolUniverseSourceBuildResult:
+    return _build_sbi_foreign_stock_source_rows(raw_rows, as_of=as_of, profile="sbi_malaysia_stock")
+
+
+def _build_sbi_foreign_stock_source_rows(
+    raw_rows: Sequence[Mapping[str, Any]],
+    *,
+    as_of: date,
+    profile: str,
+) -> SymbolUniverseSourceBuildResult:
+    defaults = _foreign_stock_defaults(profile)
+    output_rows: list[dict[str, str]] = []
+    skipped_rows: list[dict[str, str]] = []
+
+    for index, raw_row in enumerate(raw_rows, start=2):
+        local_symbol = _normalize_foreign_symbol(_first_value(raw_row, _SYMBOL_ALIASES))
+        name = _first_value(raw_row, _US_NAME_ALIASES)
+        sector_raw = _first_value(raw_row, _SECTOR_ALIASES)
+        if not local_symbol or not name:
+            skipped_rows.append(_skipped_row(index, local_symbol, "SBI-FOREIGN-MISSING-SYMBOL-OR-NAME"))
+            continue
+
+        theme, sector = _theme_sector_for_us_sector(sector_raw)
+        symbol = f"{local_symbol}{defaults['yahoo_suffix']}" if defaults["yahoo_suffix"] else local_symbol
+        output_rows.append(
+            {
+                "symbol": symbol,
+                "name": name,
+                "market": defaults["market"],
+                "asset_type": "stock",
+                "currency": defaults["currency"],
+                "country": _first_value(raw_row, _COUNTRY_ALIASES) or defaults["country"],
+                "exchange": _first_value(raw_row, _EXCHANGE_ALIASES) or defaults["exchange"],
+                "local_symbol": local_symbol,
+                "primary_listing_country": defaults["country"],
+                "trading_currency": defaults["currency"],
+                "settlement_currency": defaults["currency"],
+                "quote_currency": defaults["currency"],
+                "fx_pair_to_jpy": defaults["fx_pair_to_jpy"],
+                "foreign_market_group": defaults["foreign_market_group"],
+                "country_risk_band": defaults["country_risk_band"],
+                "liquidity_tier": _first_value(raw_row, ("liquidity_tier", "流動性ランク")) or "unknown",
+                "sector": sector,
+                "theme": theme,
+                "aliases": _aliases_for_values(name, sector_raw, defaults["country"], defaults["exchange"]),
+                "data_quality": _first_value(raw_row, _DATA_QUALITY_ALIASES) or "WARN",
+                "risk_band": _first_value(raw_row, _RISK_BAND_ALIASES) or "standard",
+                "foreign_data_quality": "WARN",
+                "foreign_data_quality_reasons": "new_foreign_source_requires_review",
+                "sbi_foreign_tradability": "tradable",
+            }
+        )
+
+    manifest = _source_build_manifest(
+        source_kind=profile,
+        as_of=as_of,
+        raw_rows=raw_rows,
+        output_rows=output_rows,
+        skipped_rows=skipped_rows,
+        fieldnames=SBI_FOREIGN_STOCK_SOURCE_FIELDNAMES,
+    )
+    return SymbolUniverseSourceBuildResult(rows=output_rows, manifest=manifest)
+
+
 def build_nisa_eligibility_source_rows(
     raw_rows: Sequence[Mapping[str, Any]],
     *,
@@ -1184,6 +1329,91 @@ def _normalize_us_symbol(value: str) -> str:
     }.get(text, text)
     text = text.replace(".", "-").replace("/", "-")
     return text if _US_SYMBOL_PATTERN.match(text) else ""
+
+
+def _normalize_foreign_symbol(value: str) -> str:
+    text = value.strip().upper().replace("$", "")
+    if not text:
+        return ""
+    text = text.split()[0]
+    text = text.replace(" ", "").replace("　", "")
+    return re.sub(r"[^0-9A-Z-]", "", text)
+
+
+def _foreign_stock_defaults(profile: str) -> dict[str, str]:
+    defaults = {
+        "sbi_hk_stock": {
+            "market": "hong_kong",
+            "currency": "HKD",
+            "country": "Hong Kong",
+            "exchange": "HKEX",
+            "foreign_market_group": "china_hk",
+            "country_risk_band": "MEDIUM",
+            "fx_pair_to_jpy": "HKDJPY",
+            "yahoo_suffix": ".HK",
+        },
+        "sbi_korea_stock": {
+            "market": "korea",
+            "currency": "KRW",
+            "country": "South Korea",
+            "exchange": "KRX",
+            "foreign_market_group": "korea",
+            "country_risk_band": "MEDIUM",
+            "fx_pair_to_jpy": "KRWJPY",
+            "yahoo_suffix": ".KS",
+        },
+        "sbi_vietnam_stock": {
+            "market": "vietnam",
+            "currency": "VND",
+            "country": "Vietnam",
+            "exchange": "HOSE",
+            "foreign_market_group": "asean",
+            "country_risk_band": "HIGH",
+            "fx_pair_to_jpy": "VNDJPY",
+            "yahoo_suffix": ".VN",
+        },
+        "sbi_indonesia_stock": {
+            "market": "indonesia",
+            "currency": "IDR",
+            "country": "Indonesia",
+            "exchange": "IDX",
+            "foreign_market_group": "asean",
+            "country_risk_band": "HIGH",
+            "fx_pair_to_jpy": "IDRJPY",
+            "yahoo_suffix": ".JK",
+        },
+        "sbi_singapore_stock": {
+            "market": "singapore",
+            "currency": "SGD",
+            "country": "Singapore",
+            "exchange": "SGX",
+            "foreign_market_group": "asean",
+            "country_risk_band": "MEDIUM",
+            "fx_pair_to_jpy": "SGDJPY",
+            "yahoo_suffix": ".SI",
+        },
+        "sbi_thailand_stock": {
+            "market": "thailand",
+            "currency": "THB",
+            "country": "Thailand",
+            "exchange": "SET",
+            "foreign_market_group": "asean",
+            "country_risk_band": "HIGH",
+            "fx_pair_to_jpy": "THBJPY",
+            "yahoo_suffix": ".BK",
+        },
+        "sbi_malaysia_stock": {
+            "market": "malaysia",
+            "currency": "MYR",
+            "country": "Malaysia",
+            "exchange": "BURSA",
+            "foreign_market_group": "asean",
+            "country_risk_band": "MEDIUM",
+            "fx_pair_to_jpy": "MYRJPY",
+            "yahoo_suffix": ".KL",
+        },
+    }
+    return defaults[profile]
 
 
 def _normalize_nisa_symbol(value: str) -> str:

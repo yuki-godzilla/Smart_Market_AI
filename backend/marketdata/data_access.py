@@ -21,6 +21,30 @@ from backend.marketdata.provider_registry import (
     provider_capability_details,
 )
 
+SUPPORTED_CURRENCIES = {
+    "JPY",
+    "USD",
+    "HKD",
+    "KRW",
+    "VND",
+    "IDR",
+    "SGD",
+    "THB",
+    "MYR",
+    "CNY",
+}
+SUPPORTED_JPY_FX_PAIRS: dict[str, Decimal] = {
+    "USDJPY": Decimal("150.00"),
+    "HKDJPY": Decimal("19.20"),
+    "KRWJPY": Decimal("0.11"),
+    "VNDJPY": Decimal("0.0059"),
+    "IDRJPY": Decimal("0.0092"),
+    "SGDJPY": Decimal("111.00"),
+    "THBJPY": Decimal("4.10"),
+    "MYRJPY": Decimal("31.50"),
+    "CNYJPY": Decimal("20.70"),
+}
+
 
 class MockBarPoint(TypedDict):
     """In-memory OHLCV row used by the mock market-data provider."""
@@ -128,9 +152,10 @@ class DataAccess:
         ts = _as_utc(at) if at else datetime.now(UTC)
         rates: list[FxRate] = []
         for pair in pairs:
-            if pair != "USDJPY":
+            rate = SUPPORTED_JPY_FX_PAIRS.get(pair)
+            if rate is None:
                 raise DataSourceError("Unsupported FX pair", details={"pair": pair})
-            rates.append(FxRate(pair="USDJPY", rate=Decimal("150.00"), ts=ts, source="mock"))
+            rates.append(FxRate(pair=pair, rate=rate, ts=ts, source="mock"))
 
         return rates
 
@@ -246,7 +271,7 @@ class DataAccess:
         rates: list[FxRate] = []
 
         for pair in pairs:
-            if pair != "USDJPY":
+            if pair not in SUPPORTED_JPY_FX_PAIRS:
                 raise DataSourceError("Unsupported FX pair", details={"pair": pair})
             matching = [
                 row for row in rows if row["pair"] == pair and _parse_datetime(row["ts"]) <= at_utc
@@ -259,7 +284,7 @@ class DataAccess:
             latest = max(matching, key=lambda row: _parse_datetime(row["ts"]))
             rates.append(
                 FxRate(
-                    pair="USDJPY",
+                    pair=pair,
                     rate=Decimal(latest["rate"]),
                     ts=_parse_datetime(latest["ts"]),
                     source=latest.get("source") or "csv",
@@ -378,10 +403,8 @@ def _parse_datetime(value: str) -> datetime:
 
 
 def _parse_currency(value: str, raw_symbol: str) -> Currency:
-    if value == "JPY":
-        return "JPY"
-    if value == "USD":
-        return "USD"
+    if value in SUPPORTED_CURRENCIES:
+        return value  # type: ignore[return-value]
     raise DataSourceError(
         "Unsupported csv currency",
         details={"symbol": raw_symbol, "currency": value},

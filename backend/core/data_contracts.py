@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-Currency = Literal["JPY", "USD"]
+Currency = Literal["JPY", "USD", "HKD", "KRW", "VND", "IDR", "SGD", "THB", "MYR", "CNY"]
 Side = Literal["BUY", "SELL"]
 OrderType = Literal["MKT", "LMT", "STP", "IOC"]
 Interval = Literal["1m", "5m", "15m", "1h", "1d"]
@@ -29,7 +29,7 @@ class Symbol(StrictBaseModel):
 class FxRate(StrictBaseModel):
     """Foreign-exchange rate normalized to UTC and a named source."""
 
-    pair: Literal["USDJPY"]
+    pair: Literal["USDJPY", "HKDJPY", "KRWJPY", "VNDJPY", "IDRJPY", "SGDJPY", "THBJPY", "MYRJPY", "CNYJPY"]
     rate: Decimal = Field(gt=0)
     ts: datetime
     source: str = "mock"

@@ -191,7 +191,8 @@ class PortfolioService:
     async def _fx_rate_jpy(self, currency: Currency) -> Decimal:
         if currency == "JPY":
             return _JPY_RATE
-        rates = await self.feature_builder.data_access.get_fx_rates(["USDJPY"])
+        pair = f"{currency}JPY"
+        rates = await self.feature_builder.data_access.get_fx_rates([pair])
         return rates[0].rate
 
 

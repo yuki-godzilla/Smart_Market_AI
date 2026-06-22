@@ -84,6 +84,7 @@ def test_symbol_metadata_catalog_supports_extended_classification_and_provenance
         "estimated",
         "unknown",
         "stale",
+        "missing",
     }
 
 

@@ -16,6 +16,22 @@ SYMBOL_UNIVERSE_SOURCE_ALIASES = {
     "market": ("market", "region"),
     "asset_type": ("asset_type", "product_type"),
     "currency": ("currency",),
+    "country": ("country", "region_name", "国", "国・地域", "取扱国"),
+    "exchange": ("exchange", "market_name", "取引所", "市場"),
+    "local_symbol": ("local_symbol", "local_code", "現地銘柄コード"),
+    "primary_listing_country": ("primary_listing_country", "listing_country", "主上場国"),
+    "trading_currency": ("trading_currency", "取引通貨"),
+    "settlement_currency": ("settlement_currency", "決済通貨"),
+    "quote_currency": ("quote_currency", "価格表示通貨"),
+    "fx_pair_to_jpy": ("fx_pair_to_jpy", "円換算FXペア"),
+    "foreign_market_group": ("foreign_market_group", "外国株市場グループ"),
+    "country_risk_band": ("country_risk_band", "カントリーリスク"),
+    "liquidity_tier": ("liquidity_tier", "流動性ランク"),
+    "foreign_data_quality": ("foreign_data_quality", "外国株データ品質"),
+    "foreign_data_quality_reasons": ("foreign_data_quality_reasons", "外国株データ品質理由"),
+    "sbi_foreign_tradability": ("sbi_foreign_tradability", "SBI外国株取扱"),
+    "sbi_foreign_tradability_as_of": ("sbi_foreign_tradability_as_of", "SBI外国株取扱確認日"),
+    "sbi_foreign_tradability_source": ("sbi_foreign_tradability_source", "SBI外国株取扱確認元"),
     "theme": ("theme", "investment_theme", "テーマ"),
     "sector": ("sector", "industry", "gics_sector", "業種", "セクター"),
     "sector_gics": ("sector_gics", "gics_sector", "source_sector_gics"),
@@ -125,7 +141,61 @@ SBI_POLICY_COLUMN_DEFAULTS = {
     "is_leveraged": "false",
     "is_inverse": "false",
 }
+FOREIGN_STOCK_COMMON_DEFAULTS = {
+    **SBI_POLICY_COLUMN_DEFAULTS,
+    "tradability": "tradable",
+    "sbi_foreign_tradability": "tradable",
+    "nisa_category": "unknown",
+    "nisa_growth_eligible": "false",
+    "nisa_tsumitate_eligible": "false",
+    "investment_style": "lump_sum",
+    "asset_type": "stock",
+    "theme": "balanced",
+    "sector": "consumer",
+    "complexity": "standard",
+    "foreign_data_quality": "WARN",
+    "foreign_data_quality_reasons": "new_foreign_source_requires_review",
+    "liquidity_tier": "unknown",
+    "data_quality": "WARN",
+    "risk_band": "standard",
+}
 MANIFEST_SYMBOL_SAMPLE_LIMIT = 200
+
+
+def _foreign_stock_profile(
+    *,
+    name: str,
+    market: str,
+    currency: str,
+    exchange: str,
+    country: str,
+    group: str,
+    country_risk_band: str,
+    yahoo_suffix: str = "",
+) -> SymbolUniverseSourceProfile:
+    return SymbolUniverseSourceProfile(
+        name=name,
+        source_name=name,
+        defaults=SymbolUniverseImportDefaults(
+            market=market,
+            asset_type="stock",
+            currency=currency,
+            symbol_suffix=yahoo_suffix,
+            column_defaults={
+                **FOREIGN_STOCK_COMMON_DEFAULTS,
+                "currency": currency,
+                "country": country,
+                "exchange": exchange,
+                "primary_listing_country": country,
+                "trading_currency": currency,
+                "settlement_currency": currency,
+                "quote_currency": currency,
+                "fx_pair_to_jpy": "" if currency == "JPY" else f"{currency}JPY",
+                "foreign_market_group": group,
+                "country_risk_band": country_risk_band,
+            },
+        ),
+    )
 
 SOURCE_PROFILES: dict[str, SymbolUniverseSourceProfile] = {
     "jpx_listed_stock": SymbolUniverseSourceProfile(
@@ -254,6 +324,76 @@ SOURCE_PROFILES: dict[str, SymbolUniverseSourceProfile] = {
                 "tags": "low_cost",
             },
         ),
+    ),
+    "sbi_hk_stock": _foreign_stock_profile(
+        name="sbi_hk_stock",
+        market="hong_kong",
+        currency="HKD",
+        exchange="HKEX",
+        country="Hong Kong",
+        group="china_hk",
+        country_risk_band="MEDIUM",
+        yahoo_suffix=".HK",
+    ),
+    "sbi_korea_stock": _foreign_stock_profile(
+        name="sbi_korea_stock",
+        market="korea",
+        currency="KRW",
+        exchange="KRX",
+        country="South Korea",
+        group="korea",
+        country_risk_band="MEDIUM",
+        yahoo_suffix=".KS",
+    ),
+    "sbi_vietnam_stock": _foreign_stock_profile(
+        name="sbi_vietnam_stock",
+        market="vietnam",
+        currency="VND",
+        exchange="HOSE",
+        country="Vietnam",
+        group="asean",
+        country_risk_band="HIGH",
+        yahoo_suffix=".VN",
+    ),
+    "sbi_indonesia_stock": _foreign_stock_profile(
+        name="sbi_indonesia_stock",
+        market="indonesia",
+        currency="IDR",
+        exchange="IDX",
+        country="Indonesia",
+        group="asean",
+        country_risk_band="HIGH",
+        yahoo_suffix=".JK",
+    ),
+    "sbi_singapore_stock": _foreign_stock_profile(
+        name="sbi_singapore_stock",
+        market="singapore",
+        currency="SGD",
+        exchange="SGX",
+        country="Singapore",
+        group="asean",
+        country_risk_band="MEDIUM",
+        yahoo_suffix=".SI",
+    ),
+    "sbi_thailand_stock": _foreign_stock_profile(
+        name="sbi_thailand_stock",
+        market="thailand",
+        currency="THB",
+        exchange="SET",
+        country="Thailand",
+        group="asean",
+        country_risk_band="HIGH",
+        yahoo_suffix=".BK",
+    ),
+    "sbi_malaysia_stock": _foreign_stock_profile(
+        name="sbi_malaysia_stock",
+        market="malaysia",
+        currency="MYR",
+        exchange="BURSA",
+        country="Malaysia",
+        group="asean",
+        country_risk_band="MEDIUM",
+        yahoo_suffix=".KL",
     ),
     "nisa_eligibility": SymbolUniverseSourceProfile(
         name="nisa_eligibility",
@@ -576,6 +716,11 @@ def _source_row_to_symbol_universe_row(
         row["asset_type"] = "stock"
     if not row["currency"]:
         row["currency"] = "JPY" if row["market"] == "jp" else "USD"
+    if not row.get("local_symbol", ""):
+        row["local_symbol"] = _local_symbol_from_provider_symbol(symbol)
+    if not row.get("yahoo_symbol", ""):
+        row["yahoo_symbol"] = symbol
+    _apply_foreign_operational_defaults(row)
     if not row["theme"] and row["asset_type"] == "etf":
         row["theme"] = "index"
     if not row["sector"] and row["asset_type"] == "etf":
@@ -678,6 +823,44 @@ def _apply_defaults(row: dict[str, str], defaults: SymbolUniverseImportDefaults)
     for column, value in defaults.column_defaults.items():
         if column in row and not row[column] and value:
             row[column] = value
+
+
+def _local_symbol_from_provider_symbol(symbol: str) -> str:
+    normalized = symbol.strip().upper()
+    for suffix in (".T", ".HK", ".KS", ".KQ", ".VN", ".HM", ".JK", ".SI", ".BK", ".KL"):
+        if normalized.endswith(suffix):
+            return normalized.removesuffix(suffix)
+    return normalized
+
+
+def _apply_foreign_operational_defaults(row: dict[str, str]) -> None:
+    currency = row.get("currency", "").strip().upper()
+    market = row.get("market", "").strip()
+    if not row.get("trading_currency", ""):
+        row["trading_currency"] = currency
+    if not row.get("settlement_currency", ""):
+        row["settlement_currency"] = currency
+    if not row.get("quote_currency", ""):
+        row["quote_currency"] = currency
+    if not row.get("fx_pair_to_jpy", "") and currency not in {"", "JPY"}:
+        row["fx_pair_to_jpy"] = f"{currency}JPY"
+    if row.get("sbi_foreign_tradability") == "tradable":
+        row["sbi_foreign_tradability_as_of"] = row.get("sbi_foreign_tradability_as_of") or row.get("metadata_as_of", "")
+        row["sbi_foreign_tradability_source"] = row.get("sbi_foreign_tradability_source") or row.get("metadata_source", "")
+    if not row.get("foreign_market_group", ""):
+        row["foreign_market_group"] = {
+            "jp": "japan",
+            "us": "us",
+            "hong_kong": "china_hk",
+            "china": "china_hk",
+            "korea": "korea",
+            "vietnam": "asean",
+            "indonesia": "asean",
+            "singapore": "asean",
+            "thailand": "asean",
+            "malaysia": "asean",
+            "russia": "other_global",
+        }.get(market, "unknown")
 
 
 def _normalize_symbol(symbol: str, *, suffix: str = "") -> str:

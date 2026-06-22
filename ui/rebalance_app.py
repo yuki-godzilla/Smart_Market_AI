@@ -78,6 +78,21 @@ _ONE_DAY = timedelta(days=1)
 MARKET_DATA_FEATURE_LOOKBACK_DAYS = 90
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SCENARIO_DIR = PROJECT_ROOT / "examples" / "rebalance_scenarios"
+JPY_FX_PAIRS_BY_CURRENCY = {
+    "USD": "USDJPY",
+    "HKD": "HKDJPY",
+    "KRW": "KRWJPY",
+    "VND": "VNDJPY",
+    "IDR": "IDRJPY",
+    "SGD": "SGDJPY",
+    "THB": "THBJPY",
+    "MYR": "MYRJPY",
+    "CNY": "CNYJPY",
+}
+
+
+def _jpy_fx_pair_for_currency(currency: str) -> str:
+    return JPY_FX_PAIRS_BY_CURRENCY.get(currency.strip().upper(), "")
 SCENARIO_DIR_ENV = "SMAI_REBALANCE_SCENARIO_DIR"
 DEFAULT_POSITIONS_JSON = """[
   {
@@ -779,7 +794,7 @@ async def build_market_data_preview(
     end: date,
     provider_override: str | None = None,
     forecast_horizon_days: int = 1,
-    fx_pair: str = "USDJPY",
+    fx_pair: str = "",
 ) -> MarketDataPreview:
     """Fetch a small market-data preview for the configured provider."""
 
@@ -817,8 +832,18 @@ async def build_market_data_preview(
         warning_rows: list[dict[str, str]] = []
         fx_rates: list[Any] = []
         if _should_fetch_market_data_preview_fx(provider=provider):
+            source_currency = (
+                str(feature_bars[-1].symbol.currency).strip().upper()
+                if feature_bars
+                else "USD"
+            )
+            effective_fx_pair = fx_pair or _jpy_fx_pair_for_currency(source_currency)
             try:
-                fx_rates = await adapter.get_fx_rates([fx_pair], at=end_dt)
+                fx_rates = (
+                    await adapter.get_fx_rates([effective_fx_pair], at=end_dt)
+                    if effective_fx_pair
+                    else []
+                )
             except AppError as exc:
                 warning_rows.append(_market_data_error_row(exc, component="fx"))
         if _should_fetch_market_data_preview_fundamentals(provider=provider):

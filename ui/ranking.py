@@ -61,8 +61,25 @@ RANKING_CROSS_ASSET_DETAIL_FILTERS = {
 
 RANKING_REGION_JAPAN = "japan"
 RANKING_REGION_US = "us"
+RANKING_REGION_CHINA_HK = "china_hk"
+RANKING_REGION_KOREA = "korea"
+RANKING_REGION_ASEAN = "asean"
 RANKING_REGION_OTHER_GLOBAL = "other_global"
 RANKING_REGION_ALL = "all"
+
+RANKING_ASEAN_MARKETS = {"vietnam", "indonesia", "singapore", "thailand", "malaysia"}
+RANKING_FOREIGN_NON_US_MARKETS = {
+    "hong_kong",
+    "china",
+    "korea",
+    "vietnam",
+    "indonesia",
+    "singapore",
+    "thailand",
+    "malaysia",
+    "russia",
+    "other_global",
+}
 
 RANKING_PRODUCT_STOCK = "stock"
 RANKING_PRODUCT_ETF = "etf"
@@ -683,6 +700,14 @@ RANKING_DETAIL_FILTERS_BY_CATEGORY = {
         "roe",
         "nisa_eligibility",
     ],
+    (RANKING_REGION_OTHER_GLOBAL, RANKING_PRODUCT_STOCK): [
+        "official_sector",
+        "investment_theme",
+        "market_cap",
+        "risk_band",
+        "dividend_yield",
+        "nisa_eligibility",
+    ],
     (RANKING_REGION_ALL, RANKING_PRODUCT_STOCK): [
         "official_sector",
         "investment_theme",
@@ -1197,6 +1222,15 @@ def ranking_detail_filters_for_category(region: str, product_type: str) -> list[
             return RANKING_DETAIL_FILTERS_BY_CATEGORY[(RANKING_REGION_JAPAN, RANKING_PRODUCT_STOCK)]
         if region == RANKING_REGION_US:
             return RANKING_DETAIL_FILTERS_BY_CATEGORY[(RANKING_REGION_US, RANKING_PRODUCT_STOCK)]
+        if region in {
+            RANKING_REGION_CHINA_HK,
+            RANKING_REGION_KOREA,
+            RANKING_REGION_ASEAN,
+            RANKING_REGION_OTHER_GLOBAL,
+        }:
+            return RANKING_DETAIL_FILTERS_BY_CATEGORY[
+                (RANKING_REGION_OTHER_GLOBAL, RANKING_PRODUCT_STOCK)
+            ]
         return RANKING_DETAIL_FILTERS_BY_CATEGORY[(RANKING_REGION_ALL, RANKING_PRODUCT_STOCK)]
     return RANKING_DETAIL_FILTERS_BY_CATEGORY[(RANKING_REGION_ALL, RANKING_PRODUCT_ALL)]
 
@@ -2448,12 +2482,19 @@ def symbol_universe_filter_value_counts(
 
 def _symbol_matches_region(row: dict[str, str], region: str) -> bool:
     market = row.get("market", "")
+    foreign_group = row.get("foreign_market_group", "")
     if region == RANKING_REGION_ALL:
         return True
     if region == RANKING_REGION_JAPAN:
         return market == "jp"
     if region == RANKING_REGION_US:
         return market == "us"
+    if region == RANKING_REGION_CHINA_HK:
+        return market in {"hong_kong", "china"} or foreign_group == "china_hk"
+    if region == RANKING_REGION_KOREA:
+        return market == "korea" or foreign_group == "korea"
+    if region == RANKING_REGION_ASEAN:
+        return market in RANKING_ASEAN_MARKETS or foreign_group == "asean"
     if region == RANKING_REGION_OTHER_GLOBAL:
         return market not in {"jp", "us"}
     return True

@@ -16,7 +16,17 @@ from backend.core.errors import DataSourceError, ProviderUnavailableError, Schem
 from backend.marketdata.live_provider_adapters import live_provider_adapter_details
 from backend.marketdata.provider_registry import provider_capability_details
 
-YAHOO_FX_TICKERS = {"USDJPY": "JPY=X"}
+YAHOO_FX_TICKERS = {
+    "USDJPY": "JPY=X",
+    "HKDJPY": "HKDJPY=X",
+    "KRWJPY": "KRWJPY=X",
+    "VNDJPY": "VNDJPY=X",
+    "IDRJPY": "IDRJPY=X",
+    "SGDJPY": "SGDJPY=X",
+    "THBJPY": "THBJPY=X",
+    "MYRJPY": "MYRJPY=X",
+    "CNYJPY": "CNYJPY=X",
+}
 YFINANCE_CACHE_DIR_ENV = "SMAI_YFINANCE_CACHE_DIR"
 YAHOO_DOWNLOAD_MAX_ATTEMPTS = 2
 YAHOO_DOWNLOAD_EMPTY_RETRY_DELAY_SECONDS = 0.25
@@ -129,7 +139,7 @@ class YahooMarketDataProviderAdapter:
             ts, row = _last_row(frame)
             rates.append(
                 FxRate(
-                    pair="USDJPY",
+                    pair=pair,
                     rate=_decimal_cell(row, "Close"),
                     ts=_normalize_timestamp(ts),
                     source="yahoo",
@@ -530,13 +540,26 @@ def _call_yfinance_silently(func: Any, *args: object, **kwargs: object) -> Any:
 
 
 def _normalize_symbol(raw_symbol: str) -> Symbol:
-    if raw_symbol.endswith(".T"):
-        return Symbol(
-            raw=raw_symbol,
-            exchange="TSE",
-            code=raw_symbol.removesuffix(".T"),
-            currency="JPY",
-        )
+    exchange_suffixes = (
+        (".T", "TSE", "JPY"),
+        (".HK", "HKEX", "HKD"),
+        (".KS", "KRX", "KRW"),
+        (".KQ", "KOSDAQ", "KRW"),
+        (".VN", "HOSE", "VND"),
+        (".HM", "HNX", "VND"),
+        (".JK", "IDX", "IDR"),
+        (".SI", "SGX", "SGD"),
+        (".BK", "SET", "THB"),
+        (".KL", "BURSA", "MYR"),
+    )
+    for suffix, exchange, currency in exchange_suffixes:
+        if raw_symbol.endswith(suffix):
+            return Symbol(
+                raw=raw_symbol,
+                exchange=exchange,
+                code=raw_symbol.removesuffix(suffix),
+                currency=currency,
+            )
     return Symbol(raw=raw_symbol, exchange="NASDAQ", code=raw_symbol, currency="USD")
 
 

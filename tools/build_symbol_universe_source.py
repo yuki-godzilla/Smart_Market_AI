@@ -24,14 +24,22 @@ from backend.marketdata.symbol_universe_source_build import (  # noqa: E402
     JPX_LISTED_STOCK_SOURCE_FIELDNAMES,
     JPX_REIT_SOURCE_FIELDNAMES,
     NISA_ELIGIBILITY_SOURCE_FIELDNAMES,
+    SBI_FOREIGN_STOCK_SOURCE_FIELDNAMES,
     SBI_US_ETF_SOURCE_FIELDNAMES,
     SBI_US_STOCK_SOURCE_FIELDNAMES,
+    build_sbi_hk_stock_source_rows,
+    build_sbi_indonesia_stock_source_rows,
+    build_sbi_korea_stock_source_rows,
+    build_sbi_malaysia_stock_source_rows,
+    build_sbi_singapore_stock_source_rows,
+    build_sbi_thailand_stock_source_rows,
     build_jpx_etf_source_rows,
     build_jpx_listed_stock_source_rows,
     build_jpx_reit_source_rows,
     build_nisa_eligibility_source_rows,
     build_sbi_us_etf_source_rows,
     build_sbi_us_stock_source_rows,
+    build_sbi_vietnam_stock_source_rows,
 )
 
 SOURCE_BUILDERS = {
@@ -59,6 +67,13 @@ SOURCE_BUILDERS = {
         build_nisa_eligibility_source_rows,
         NISA_ELIGIBILITY_SOURCE_FIELDNAMES,
     ),
+    "sbi_hk_stock": (build_sbi_hk_stock_source_rows, SBI_FOREIGN_STOCK_SOURCE_FIELDNAMES),
+    "sbi_korea_stock": (build_sbi_korea_stock_source_rows, SBI_FOREIGN_STOCK_SOURCE_FIELDNAMES),
+    "sbi_vietnam_stock": (build_sbi_vietnam_stock_source_rows, SBI_FOREIGN_STOCK_SOURCE_FIELDNAMES),
+    "sbi_indonesia_stock": (build_sbi_indonesia_stock_source_rows, SBI_FOREIGN_STOCK_SOURCE_FIELDNAMES),
+    "sbi_singapore_stock": (build_sbi_singapore_stock_source_rows, SBI_FOREIGN_STOCK_SOURCE_FIELDNAMES),
+    "sbi_thailand_stock": (build_sbi_thailand_stock_source_rows, SBI_FOREIGN_STOCK_SOURCE_FIELDNAMES),
+    "sbi_malaysia_stock": (build_sbi_malaysia_stock_source_rows, SBI_FOREIGN_STOCK_SOURCE_FIELDNAMES),
 }
 
 

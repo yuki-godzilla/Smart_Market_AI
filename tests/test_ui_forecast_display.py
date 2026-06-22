@@ -11,7 +11,7 @@ import streamlit as st
 
 import ui.app as app_module
 from backend.core.config import CONFIG_FILE_ENV
-from backend.core.data_contracts import Bar, DailySnapshot, FundamentalSnapshot, Symbol
+from backend.core.data_contracts import Bar, DailySnapshot, FundamentalSnapshot, FxRate, Symbol
 from backend.core.errors import DataSourceError
 from backend.llm_factor import (
     FakeLLMFactorService,
@@ -5661,6 +5661,80 @@ def test_build_market_data_ranking_rows_uses_batch_fast_path(monkeypatch):
     assert error_rows == []
 
 
+def test_build_market_data_ranking_rows_adds_current_price_jpy_for_usd(monkeypatch):
+    class FakeBatchAdapter:
+        def __init__(self) -> None:
+            self.fx_calls = 0
+
+        async def fetch_ohlcv(self, symbols, start, end, interval="1d"):
+            bars = []
+            for symbol in symbols:
+                contract = Symbol(raw=symbol, exchange="NASDAQ", code=symbol, currency="USD")
+                for day in range(30):
+                    close = Decimal("100") + Decimal(day)
+                    bars.append(
+                        Bar(
+                            symbol=contract,
+                            ts=datetime(2026, 4, day + 1, tzinfo=UTC),
+                            open=close,
+                            high=close + Decimal("1"),
+                            low=close - Decimal("1"),
+                            close=close,
+                            volume=Decimal("1000000"),
+                            interval=interval,
+                            provider="fake",
+                        )
+                    )
+            return bars
+
+        async def get_fx_rates(self, pairs, at=None, method="spot"):
+            self.fx_calls += 1
+            assert pairs == ["USDJPY"]
+            assert method == "spot"
+            return [FxRate(pair="USDJPY", rate=Decimal("150"), ts=at or datetime.now(UTC))]
+
+        async def fetch_fundamentals(self, symbols, as_of):
+            return [
+                FundamentalSnapshot(
+                    symbol=symbol,
+                    as_of=as_of,
+                    provider="fake",
+                    dividend_yield=Decimal("0.03"),
+                    market_cap_jpy=Decimal("1000000000000"),
+                )
+                for symbol in symbols
+            ]
+
+        def healthcheck(self):
+            return {"provider": "fake", "status": "ok"}
+
+    adapter = FakeBatchAdapter()
+    monkeypatch.setattr(
+        "ui.app.create_market_data_provider_adapter",
+        lambda _: adapter,
+    )
+
+    rows, error_rows = asyncio.run(
+        _build_market_data_ranking_rows(
+            ["AAPL"],
+            start=date(2026, 4, 20),
+            end=date(2026, 4, 30),
+            provider="mock",
+        )
+    )
+    display_rows = investment_score_display_rows(rows)
+    frame = ranking_result_aggrid_frame(display_rows)
+
+    assert adapter.fx_calls == 1
+    assert error_rows == []
+    assert rows[0]["current_price"] == "129"
+    assert rows[0]["current_price_currency"] == "USD"
+    assert rows[0]["current_price_jpy"] == "19350"
+    assert display_rows[0]["現在株価（円）"] == "19350"
+    assert display_rows[0]["現在値"] == "129"
+    assert frame.loc[0, "現在株価（円）"] == "19350"
+
+
 def test_build_market_data_ranking_rows_uses_feature_history_for_direction_signal(monkeypatch):
     class FakeBatchAdapter:
         async def fetch_ohlcv(self, symbols, start, end, interval="1d"):
@@ -6489,6 +6563,7 @@ def test_ranking_result_aggrid_frame_keeps_display_table_compact():
         "順位",
         "銘柄",
         "銘柄名",
+        "現在株価（円）",
         "総合スコア",
         "判断方針",
         "配当利回り",
@@ -6505,6 +6580,7 @@ def test_ranking_result_aggrid_frame_keeps_display_table_compact():
         "確認ポイント",
     ]
     assert frame.loc[0, "銘柄名"] == "Toyota Motor Corporation Long Name"
+    assert frame.loc[0, "現在株価（円）"] == "N/A"
     assert frame.loc[0, "判断方針"] == "比較候補"
     assert frame.loc[0, "PER"] == "N/A"
     assert frame.loc[0, "PBR"] == "N/A"
@@ -6547,10 +6623,11 @@ def test_ranking_result_aggrid_frame_adds_detail_columns_on_request():
         include_detail_columns=True,
     )
 
-    assert frame.columns.tolist()[:14] == [
+    assert frame.columns.tolist()[:15] == [
         "順位",
         "銘柄",
         "銘柄名",
+        "現在株価（円）",
         "総合スコア",
         "判断方針",
         "配当利回り",
@@ -6959,10 +7036,11 @@ def test_ranking_result_aggrid_frame_prioritizes_upside_columns_for_upside_purpo
         ranking_purpose=RANKING_PURPOSE_UPSIDE_SIGNAL,
     )
 
-    assert frame.columns.tolist()[:14] == [
+    assert frame.columns.tolist()[:15] == [
         "順位",
         "銘柄",
         "銘柄名",
+        "現在株価（円）",
         "総合スコア",
         "判断方針",
         "配当利回り",
@@ -7007,10 +7085,11 @@ def test_ranking_result_aggrid_frame_moves_confidence_columns_to_detail_mode():
     assert "信頼度/根拠" not in normal_frame.columns
     assert "データ信頼度" not in normal_frame.columns
     assert "信頼度/根拠" in frame.columns
-    assert frame.columns.tolist()[:14] == [
+    assert frame.columns.tolist()[:15] == [
         "順位",
         "銘柄",
         "銘柄名",
+        "現在株価（円）",
         "総合スコア",
         "判断方針",
         "配当利回り",

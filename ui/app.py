@@ -493,6 +493,7 @@ RANKING_TABLE_BASE_COLUMNS = (
     "順位",
     "銘柄",
     "銘柄名",
+    "現在株価（円）",
     "総合スコア",
     "判断方針",
     "配当利回り",
@@ -520,7 +521,6 @@ RANKING_TABLE_DETAIL_COLUMNS = (
     "DB信頼度",
     "根拠状態",
     "信頼度/根拠",
-    "現在値",
     "時価総額",
     "出来高",
     "ボラティリティ",
@@ -566,7 +566,7 @@ RANKING_NUMERIC_SORT_DIRECTIONS = {
     "予測確度": "desc",
     "高度予測日数": "desc",
     "高度予測スコア": "desc",
-    "現在値": "desc",
+    "現在株価（円）": "desc",
     "時価総額": "desc",
     "出来高": "desc",
     "ボラティリティ": "asc",
@@ -3328,6 +3328,7 @@ def ranking_result_aggrid_frame(
             "経費率": row.get("経費率", ""),
             "NISA": row.get("NISA", ""),
             "投資スタイル": row.get("投資スタイル", ""),
+            "現在株価（円）": _ranking_table_display_value(row.get("現在株価（円）", "")),
             "現在値": _ranking_table_display_value(row.get("現在値", "")),
             "時価総額": _ranking_table_display_value(row.get("時価総額", "")),
             "出来高": _ranking_table_display_value(row.get("出来高", "")),
@@ -3434,7 +3435,7 @@ def ranking_result_aggrid_options(
         "PBR",
         "ROE",
         "配当利回り",
-        "現在値",
+        "現在株価（円）",
         "時価総額",
         "出来高",
         "ボラティリティ",
@@ -7480,15 +7481,69 @@ def _latest_volume_by_symbol(bars_by_symbol: dict[str, list[Bar]]) -> dict[str, 
     return volumes
 
 
+def _latest_currency_by_symbol(bars_by_symbol: dict[str, list[Bar]]) -> dict[str, str]:
+    currencies: dict[str, str] = {}
+    for symbol, bars in bars_by_symbol.items():
+        if not bars:
+            continue
+        currencies[symbol.strip().upper()] = str(bars[-1].symbol.currency).strip().upper()
+    return currencies
+
+
+async def _ranking_usd_jpy_rate(
+    adapter: object,
+    *,
+    at: datetime | None = None,
+) -> Decimal | None:
+    get_fx_rates = getattr(adapter, "get_fx_rates", None)
+    if get_fx_rates is None:
+        return None
+    try:
+        fx_rates = await get_fx_rates(["USDJPY"], at=at)
+    except AppError:
+        return None
+    for rate in fx_rates:
+        if str(getattr(rate, "pair", "")).strip().upper() != "USDJPY":
+            continue
+        value = getattr(rate, "rate", None)
+        if isinstance(value, Decimal) and value > 0:
+            return value
+        parsed = _decimal_from_text(value)
+        if parsed is not None and parsed > 0:
+            return parsed
+    return None
+
+
+def _ranking_current_price_jpy(
+    price: Decimal | None,
+    *,
+    source_currency: str,
+    usd_jpy_rate: Decimal | None,
+) -> Decimal | None:
+    if price is None:
+        return None
+    source = source_currency.strip().upper()
+    if source in {"", "JPY"}:
+        return price
+    if source == "USD":
+        if usd_jpy_rate is None:
+            return None
+        return price * usd_jpy_rate
+    return None
+
+
 def _enrich_ranking_rows_with_feature_details(
     rows: list[dict[str, str]],
     feature_rows: list[DailySnapshot],
     *,
     latest_volume_by_symbol: dict[str, str] | None = None,
+    source_currency_by_symbol: Mapping[str, str] | None = None,
+    usd_jpy_rate: Decimal | None = None,
     provider_name: str = "",
 ) -> list[dict[str, str]]:
     feature_by_symbol = {row.symbol.strip().upper(): row for row in feature_rows}
     latest_volumes = latest_volume_by_symbol or {}
+    latest_currencies = source_currency_by_symbol or {}
     enriched_rows: list[dict[str, str]] = []
     for row in rows:
         symbol = row.get("symbol", "").strip().upper()
@@ -7496,10 +7551,21 @@ def _enrich_ranking_rows_with_feature_details(
         if feature is None:
             enriched_rows.append(row)
             continue
+        source_currency = latest_currencies.get(symbol) or (
+            "JPY" if symbol.endswith(".T") else "USD"
+        )
         enriched_rows.append(
             {
                 **row,
                 "current_price": _format_ranking_decimal_value(feature.last),
+                "current_price_jpy": _format_ranking_decimal_value(
+                    _ranking_current_price_jpy(
+                        feature.last,
+                        source_currency=source_currency,
+                        usd_jpy_rate=usd_jpy_rate,
+                    )
+                ),
+                "current_price_currency": source_currency,
                 "market_cap": _format_ranking_decimal_value(feature.market_cap_jpy),
                 "volume": latest_volumes.get(symbol, ""),
                 "volatility": _format_ranking_percent_value(feature.vol_20d),
@@ -7524,6 +7590,9 @@ def _percent_display_to_pct_text(value: object) -> str:
 def _enrich_ranking_rows_with_feature_display_rows(
     rows: list[dict[str, str]],
     feature_rows: list[dict[str, str]],
+    *,
+    source_currency: str = "",
+    usd_jpy_rate: Decimal | None = None,
 ) -> list[dict[str, str]]:
     feature_by_symbol = {
         row.get("symbol", "").strip().upper(): row
@@ -7541,6 +7610,14 @@ def _enrich_ranking_rows_with_feature_display_rows(
             {
                 **row,
                 "current_price": feature.get("last", ""),
+                "current_price_jpy": _format_ranking_decimal_value(
+                    _ranking_current_price_jpy(
+                        _decimal_from_text(feature.get("last", "")),
+                        source_currency=source_currency,
+                        usd_jpy_rate=usd_jpy_rate,
+                    )
+                ),
+                "current_price_currency": source_currency,
                 "market_cap": feature.get("market_cap_jpy", ""),
                 "volume": feature.get("adv_20d", ""),
                 "volatility": feature.get("vol_20d", ""),
@@ -7942,6 +8019,13 @@ async def _build_market_data_ranking_rows_fast(
     )
     _report_ranking_progress(progress_callback, "価格データを整理しています。", 0.45)
     bars_by_symbol = _ranking_bars_by_symbol(symbols, bars)
+    source_currency_by_symbol = _latest_currency_by_symbol(bars_by_symbol)
+    source_currencies = {
+        currency or ("JPY" if symbol.endswith(".T") else "USD")
+        for symbol, currency in source_currency_by_symbol.items()
+    }
+    needs_usd_jpy_rate = "USD" in source_currencies
+    usd_jpy_rate = await _ranking_usd_jpy_rate(adapter) if needs_usd_jpy_rate else None
 
     available_symbols: list[str] = []
     quotes: list[Quote] = []
@@ -8056,6 +8140,8 @@ async def _build_market_data_ranking_rows_fast(
         investment_score_rows(investment_scores),
         feature_rows,
         latest_volume_by_symbol=_latest_volume_by_symbol(bars_by_symbol),
+        source_currency_by_symbol=source_currency_by_symbol,
+        usd_jpy_rate=usd_jpy_rate,
         provider_name=provider_name,
     )
     score_rows = _enrich_ranking_rows_with_advanced_forecast(
@@ -8232,9 +8318,14 @@ async def _build_market_data_ranking_rows_from_previews(
                 provider_override=provider,
                 forecast_horizon_days=forecast_horizon_days,
             )
+        preview_bars = getattr(preview, "bars", [])
         preview_rows = _enrich_ranking_rows_with_feature_display_rows(
             preview.investment_score_rows,
             getattr(preview, "feature_rows", []),
+            source_currency=(
+                str(preview_bars[0].symbol.currency).strip().upper() if preview_bars else ""
+            ),
+            usd_jpy_rate=chart_fx_rate_from_rows(getattr(preview, "fx_rows", [])),
         )
         advanced_fields = _ranking_advanced_forecast_fields(
             _advanced_forecast_rows_for_ranking(
@@ -18222,7 +18313,7 @@ def ranking_score_detail_rows(ranking_row: dict[str, str]) -> list[dict[str, str
         f"ROE {ranking_row.get('ROE', RANKING_MISSING_DISPLAY)}",
     ]
     fetched_parts = [
-        f"現在値 {ranking_row.get('現在値', RANKING_MISSING_DISPLAY)}",
+        f"現在株価（円） {ranking_row.get('現在株価（円）', RANKING_MISSING_DISPLAY)}",
         f"時価総額 {ranking_row.get('時価総額', RANKING_MISSING_DISPLAY)}",
         f"出来高 {ranking_row.get('出来高', RANKING_MISSING_DISPLAY)}",
         f"ボラティリティ {ranking_row.get('ボラティリティ', RANKING_MISSING_DISPLAY)}",
@@ -18274,6 +18365,21 @@ def ranking_score_detail_rows(ranking_row: dict[str, str]) -> list[dict[str, str
             ),
         },
     ]
+
+
+def _ranking_display_current_price_jpy(
+    row: Mapping[str, str],
+    symbol_row: Mapping[str, str] | None,
+) -> str:
+    current_price_jpy = str(row.get("current_price_jpy", "")).strip()
+    if current_price_jpy:
+        return _ranking_optional_display(current_price_jpy)
+    source_currency = str(row.get("current_price_currency", "")).strip().upper()
+    if not source_currency and symbol_row is not None:
+        source_currency = str(symbol_row.get("currency", "")).strip().upper()
+    if source_currency == "JPY":
+        return _ranking_optional_display(row.get("current_price", ""))
+    return RANKING_MISSING_DISPLAY
 
 
 def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -18339,6 +18445,7 @@ def investment_score_display_rows(rows: list[dict[str, str]]) -> list[dict[str, 
                     symbol_row,
                     "investment_style",
                 ),
+                "現在株価（円）": _ranking_display_current_price_jpy(row, symbol_row),
                 "現在値": _ranking_optional_display(row.get("current_price", "")),
                 "時価総額": _ranking_optional_display(
                     row.get("market_cap", "")

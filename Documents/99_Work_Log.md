@@ -18,6 +18,23 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-22 - Ranking current price JPY column
+
+### Summary
+
+- added `現在株価（円）` to the Ranking detailed table's default visible columns.
+- kept raw source-currency `現在値` only as compatibility data while showing the user-facing price in JPY.
+- convert USD source prices to JPY with latest fetched USDJPY when Ranking data is built; non-convertible non-JPY prices remain `N/A`.
+- updated Ranking table tests and documentation for the JPY-unified display.
+
+### Validation
+
+- `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_forecast_display.py -q -k "fetches_symbols_concurrently or throttles_preview_progress or ranking_result_aggrid_frame or current_price_jpy or build_market_data_ranking_rows_uses_batch_fast_path" -p no:cacheprovider --basetemp outputs\work\pytest_tmp_ranking_current_price_jpy` -> 9 passed, 308 deselected
+- `.\venv_SMAI\Scripts\python.exe -m ruff check ui\app.py tests\test_ui_forecast_display.py --no-cache` -> passed
+- `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py` -> passed
+- `.\venv_SMAI\Scripts\python.exe -m pytest tests -q -p no:cacheprovider --basetemp outputs\work\pytest_tmp_ranking_current_price_jpy_full` -> 1744 passed, 2 skipped
+- docs UTF-8 read check -> passed
+
 ## 2026-06-22 - Cockpit chart currency selector simplification
 
 ### Summary

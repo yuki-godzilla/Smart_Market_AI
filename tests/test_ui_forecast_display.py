@@ -386,6 +386,7 @@ from ui.ranking import (
     ranking_symbol_chunks,
     ranking_symbol_options,
     ranking_symbols_state_key,
+    symbol_universe_filter_value_counts,
     ranking_weight_group_rows,
     ranking_weight_preset_for_purpose,
     ranking_weight_preset_label,
@@ -4229,6 +4230,38 @@ def test_filter_symbol_universe_rows_uses_smai_theme_tags_for_theme_filter():
     ] == ["8035.T"]
 
 
+def test_symbol_universe_filter_value_counts_uses_ui_filter_sources():
+    rows = symbol_universe_rows(
+        [
+            {
+                "symbol": "8035.T",
+                "name": "Tokyo Electron",
+                "theme": "technology",
+                "sector": "technology",
+                "smai_theme_tags": "semiconductor,technology",
+                "tse_33_industry": "電気機器",
+            },
+            {
+                "symbol": "8306.T",
+                "name": "Mitsubishi UFJ Financial Group",
+                "theme": "financial",
+                "sector": "financial",
+                "smai_theme_tags": "bank,financial,high_dividend",
+                "tse_33_industry": "銀行業",
+            },
+        ]
+    )
+
+    theme_counts = symbol_universe_filter_value_counts(rows, "investment_theme")
+    sector_counts = symbol_universe_filter_value_counts(rows, "official_sector")
+
+    assert theme_counts["semiconductor"] == 1
+    assert theme_counts["bank"] == 1
+    assert theme_counts["high_dividend"] == 1
+    assert sector_counts["technology"] == 1
+    assert sector_counts["financial"] == 1
+
+
 def test_filter_symbol_universe_rows_keeps_sector_out_of_investment_theme_filter():
     rows = symbol_universe_rows(
         [
@@ -4268,7 +4301,9 @@ def test_ranking_filter_labels_show_quantitative_thresholds():
     assert "bond" in RANKING_THEME_LABELS
     assert "industrial" in RANKING_OFFICIAL_SECTOR_LABELS
     assert "semiconductor" in RANKING_INVESTMENT_THEME_LABELS
-    assert "balanced" not in RANKING_INVESTMENT_THEME_LABELS
+    assert "balanced" in RANKING_INVESTMENT_THEME_LABELS
+    assert "bank" in RANKING_INVESTMENT_THEME_LABELS
+    assert "insurance" in RANKING_INVESTMENT_THEME_LABELS
     assert "dividend" not in RANKING_THEME_LABELS
     assert "$200B/$10B/$2B/$300M" in RANKING_FILTER_HELP_TEXTS["market_cap"]
     assert "0%超〜3%未満" in RANKING_FILTER_HELP_TEXTS["dividend_category"]

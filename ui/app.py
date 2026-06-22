@@ -259,6 +259,7 @@ from ui.ranking import (
     ranking_purpose_weight_summary,
     ranking_region_label,
     ranking_symbol_chunks,
+    symbol_universe_filter_value_counts,
     ranking_symbol_options,
     ranking_symbols_state_key,
     ranking_weight_group_rows,
@@ -2452,11 +2453,27 @@ def _symbol_detail_date_display(value: str) -> str:
         return value
 
 
+def _symbol_classification_list_display(value: str) -> str:
+    parts = [part.strip() for part in value.split(",") if part.strip()]
+    if not parts:
+        return "未登録"
+    labels = [
+        RANKING_INVESTMENT_THEME_LABELS.get(
+            part,
+            RANKING_THEME_LABELS.get(part, part),
+        )
+        for part in parts
+    ]
+    return "、".join(labels)
+
+
 def _symbol_detail_lookup_display(column: str, value: str) -> str:
     if not value.strip() or value.strip() == "-":
         return "未登録"
     if column in {"theme"}:
         return RANKING_INVESTMENT_THEME_LABELS.get(value, RANKING_THEME_LABELS.get(value, value))
+    if column in {"smai_theme_tags", "tags"}:
+        return _symbol_classification_list_display(value)
     if column == "sector":
         return RANKING_OFFICIAL_SECTOR_LABELS.get(value, value)
     if column == "dividend_category":
@@ -2672,7 +2689,20 @@ def symbol_universe_overview_rows(row: dict[str, str]) -> list[dict[str, str]]:
             symbol_universe_detail_display_value(row, "investment_style"),
         ),
         _symbol_detail_row("テーマ", symbol_universe_detail_display_value(row, "theme")),
+        _symbol_detail_row(
+            "SMAIテーマタグ",
+            symbol_universe_detail_display_value(row, "smai_theme_tags"),
+        ),
         _symbol_detail_row("業種/セクター", symbol_universe_detail_display_value(row, "sector")),
+        _symbol_detail_row(
+            "JPX 33業種",
+            symbol_universe_detail_display_value(row, "tse_33_industry"),
+        ),
+        _symbol_detail_row("TOPIX-17", symbol_universe_detail_display_value(row, "topix_17")),
+        _symbol_detail_row(
+            "GICSセクター",
+            symbol_universe_detail_display_value(row, "sector_gics"),
+        ),
         _symbol_detail_row("レバレッジ/インバース", symbol_universe_leverage_display(row)),
     ]
 
@@ -3818,6 +3848,45 @@ def _render_detail_selectbox(
             help=help_text,
             disabled=disabled,
         ),
+    )
+
+
+def _filter_options_with_available_counts(
+    labels: Mapping[str, str],
+    counts: Mapping[str, int],
+) -> list[str]:
+    options = ["all"] if "all" in labels else []
+    options.extend(
+        key
+        for key in labels
+        if key != "all" and int(counts.get(key, 0)) > 0
+    )
+    return options or list(labels)
+
+
+def _counted_filter_label(
+    labels: Mapping[str, str],
+    counts: Mapping[str, int],
+    value: str,
+) -> str:
+    label = labels.get(value, value)
+    if value == "all":
+        return label
+    return f"{label}（{int(counts.get(value, 0)):,}件）"
+
+
+def _classification_count_base_rows(
+    rows: list[dict[str, str]],
+    *,
+    region: str,
+    product_type: str,
+) -> list[dict[str, str]]:
+    return filter_symbol_universe_rows(
+        rows,
+        region=region,
+        product_type=product_type,
+        limit=len(rows),
+        active_detail_filters=(),
     )
 
 
@@ -5816,22 +5885,52 @@ def _render_ranking_filter_panel(
             column_index += 1
             return column
 
+        classification_base_rows = _classification_count_base_rows(
+            symbol_options,
+            region=region,
+            product_type=product_type,
+        )
+        official_sector_counts = symbol_universe_filter_value_counts(
+            classification_base_rows,
+            "official_sector",
+        )
+        investment_theme_counts = symbol_universe_filter_value_counts(
+            classification_base_rows,
+            "investment_theme",
+        )
+        official_sector_options = _filter_options_with_available_counts(
+            RANKING_OFFICIAL_SECTOR_LABELS,
+            official_sector_counts,
+        )
+        investment_theme_options = _filter_options_with_available_counts(
+            RANKING_INVESTMENT_THEME_LABELS,
+            investment_theme_counts,
+        )
+
         if "official_sector" in detail_filters:
             with next_column():
                 _render_detail_selectbox(
                     "業種・セクター",
-                    options=list(RANKING_OFFICIAL_SECTOR_LABELS),
+                    options=official_sector_options,
                     key="market_data_ranking_official_sector",
-                    format_func=lambda value: RANKING_OFFICIAL_SECTOR_LABELS[value],
+                    format_func=lambda value: _counted_filter_label(
+                        RANKING_OFFICIAL_SECTOR_LABELS,
+                        official_sector_counts,
+                        value,
+                    ),
                     help_text=RANKING_FILTER_HELP_TEXTS["official_sector"],
                 )
         if "investment_theme" in detail_filters:
             with next_column():
                 _render_detail_selectbox(
                     "投資テーマ",
-                    options=list(RANKING_INVESTMENT_THEME_LABELS),
+                    options=investment_theme_options,
                     key="market_data_ranking_theme",
-                    format_func=lambda value: RANKING_INVESTMENT_THEME_LABELS[value],
+                    format_func=lambda value: _counted_filter_label(
+                        RANKING_INVESTMENT_THEME_LABELS,
+                        investment_theme_counts,
+                        value,
+                    ),
                     help_text=RANKING_FILTER_HELP_TEXTS["investment_theme"],
                 )
         if "market_cap" in detail_filters:
@@ -6361,14 +6460,40 @@ def _render_cockpit_symbol_filter_detail_fields(
             help_text=RANKING_FILTER_HELP_TEXTS["nisa_eligibility"],
         )
 
+    classification_base_rows = _classification_count_base_rows(
+        symbol_options,
+        region=region,
+        product_type=product_type,
+    )
+    official_sector_counts = symbol_universe_filter_value_counts(
+        classification_base_rows,
+        "official_sector",
+    )
+    investment_theme_counts = symbol_universe_filter_value_counts(
+        classification_base_rows,
+        "investment_theme",
+    )
+    official_sector_options = _filter_options_with_available_counts(
+        RANKING_OFFICIAL_SECTOR_LABELS,
+        official_sector_counts,
+    )
+    investment_theme_options = _filter_options_with_available_counts(
+        RANKING_INVESTMENT_THEME_LABELS,
+        investment_theme_counts,
+    )
+
     st.markdown("**属性条件**")
     attr_cols = st.columns(6)
     with attr_cols[0]:
         official_sector = _render_detail_selectbox(
             "業種・セクター",
-            options=list(RANKING_OFFICIAL_SECTOR_LABELS),
+            options=official_sector_options,
             key="market_data_cockpit_official_sector",
-            format_func=lambda value: RANKING_OFFICIAL_SECTOR_LABELS[value],
+            format_func=lambda value: _counted_filter_label(
+                RANKING_OFFICIAL_SECTOR_LABELS,
+                official_sector_counts,
+                value,
+            ),
             default_value=str(
                 MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_official_sector"]
             ),
@@ -6377,9 +6502,13 @@ def _render_cockpit_symbol_filter_detail_fields(
     with attr_cols[1]:
         theme = _render_detail_selectbox(
             "投資テーマ",
-            options=list(RANKING_INVESTMENT_THEME_LABELS),
+            options=investment_theme_options,
             key="market_data_cockpit_theme",
-            format_func=lambda value: RANKING_INVESTMENT_THEME_LABELS[value],
+            format_func=lambda value: _counted_filter_label(
+                RANKING_INVESTMENT_THEME_LABELS,
+                investment_theme_counts,
+                value,
+            ),
             default_value=str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_theme"]),
             help_text=RANKING_FILTER_HELP_TEXTS["investment_theme"],
         )

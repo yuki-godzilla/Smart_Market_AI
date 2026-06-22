@@ -2347,6 +2347,34 @@ def _symbol_theme_filter_values(row: dict[str, str]) -> set[str]:
     return values
 
 
+def symbol_universe_filter_value_counts(
+    rows: list[dict[str, str]],
+    category: str,
+) -> dict[str, int]:
+    """Return UI filter counts using the same classification logic as ranking filters.
+
+    Counts are intentionally based on filter values rather than a single DB column.
+    For example, investment themes include ``theme``, ``smai_theme_tags`` and
+    ``index_family`` so the UI can surface categories that are present in the DB
+    even when the primary theme column is coarser.
+    """
+    counts: dict[str, int] = {}
+    if category == "official_sector":
+        allowed_values = set(RANKING_OFFICIAL_SECTOR_LABELS) - {"all"}
+        value_getter = _symbol_official_sector_filter_values
+    elif category == "investment_theme":
+        allowed_values = set(RANKING_INVESTMENT_THEME_LABELS) - {"all"}
+        value_getter = _symbol_theme_filter_values
+    else:
+        return counts
+
+    for row in rows:
+        row_values = {value for value in value_getter(row) if value in allowed_values}
+        for value in row_values:
+            counts[value] = counts.get(value, 0) + 1
+    return counts
+
+
 def _symbol_matches_region(row: dict[str, str], region: str) -> bool:
     market = row.get("market", "")
     if region == RANKING_REGION_ALL:

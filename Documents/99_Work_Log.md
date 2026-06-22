@@ -18,6 +18,23 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-22 - Cockpit chart currency selector simplification
+
+### Summary
+
+- removed the `元の通貨` option from the Cockpit price / forecast chart currency selector.
+- kept only `円 (JPY)` and `$ (USD)` as display currency choices, with JPY as the fallback default for non-JPY / non-USD or stale selector state.
+- replaced the long USDJPY explanatory caption with a short `＄円相場` value displayed beside the radio buttons.
+- kept conversion scoped to chart display rows only; scores, forecasts, Ranking, and reports are unchanged.
+
+### Validation
+
+- `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_forecast_display.py -q -k "market_chart_currency or price_forecast_hero_keeps_guidance_inside_cards" -p no:cacheprovider --basetemp outputs\work\pytest_tmp_currency_selector_simplify2` passed: 6 passed, 310 deselected.
+- `.\venv_SMAI\Scripts\python.exe -m ruff check ui\app.py tests\test_ui_forecast_display.py --no-cache` passed.
+- `.\venv_SMAI\Scripts\python.exe .\tools\run_black_check.py` passed for 287 Python files.
+- `.\venv_SMAI\Scripts\python.exe -m pytest tests -q -p no:cacheprovider --basetemp outputs\work\pytest_tmp_currency_selector_simplify_full` passed: 1743 passed, 2 skipped, 32 warnings.
+- `.\venv_SMAI\Scripts\python.exe -c "from pathlib import Path; [p.read_text(encoding='utf-8') for p in [Path('PROJECT_CONTEXT.md'), Path('Documents/06_MVP_Operations_Guide.md'), Path('Documents/99_Work_Log.md')]]; print('docs utf-8 ok')"` passed.
+
 ## 2026-06-22 - Cockpit chart currency display chips
 
 ### Summary

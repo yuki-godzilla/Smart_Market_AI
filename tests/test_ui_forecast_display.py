@@ -87,6 +87,7 @@ from ui.app import (
     _company_research_ai_notes_html,
     _company_research_summary_html,
     _current_or_default_symbol_labels,
+    _default_market_chart_display_currency,
     _dividend_category_filter_label,
     _dividend_category_option_label,
     _dividend_filter_help_text,
@@ -103,6 +104,7 @@ from ui.app import (
     _external_research_source_cards_html,
     _fetch_external_research_for_preview,
     _forecast_model_logic_help,
+    _format_market_chart_fx_rate,
     _investment_hint_news_panel_html,
     _investment_insight_panel_html,
     _investment_question_answers_html,
@@ -115,6 +117,7 @@ from ui.app import (
     _llm_factor_evidence_sources,
     _llm_factor_panel_html,
     _llm_factor_runtime_html,
+    _market_chart_currency_option_label,
     _market_chart_has_displayable_data,
     _market_data_preview_advanced_forecast_consensus_rows,
     _market_data_preview_advanced_forecast_rows,
@@ -9795,7 +9798,30 @@ def test_market_chart_currency_conversion_can_show_jpy_source_as_usd():
     ]
 
 
-def test_market_chart_currency_conversion_keeps_original_without_fx_rate():
+def test_market_chart_currency_selector_uses_jpy_usd_only_defaults():
+    assert _market_chart_currency_option_label("JPY") == "円 (JPY)"
+    assert _market_chart_currency_option_label("USD") == "$ (USD)"
+    assert _default_market_chart_display_currency("JPY") == "JPY"
+    assert _default_market_chart_display_currency("usd") == "USD"
+    assert _default_market_chart_display_currency("") == "JPY"
+    assert _default_market_chart_display_currency("EUR") == "JPY"
+    assert _format_market_chart_fx_rate(Decimal("161.46499633789062")) == "161.46"
+
+
+def test_market_chart_currency_conversion_treats_unknown_source_as_jpy():
+    rows = [{"ts": "2026-06-07T00:00:00+00:00", "close": "15000"}]
+
+    converted = convert_market_chart_rows_currency(
+        rows,
+        source_currency="",
+        display_currency="USD",
+        usd_jpy_rate=Decimal("150"),
+    )
+
+    assert converted == [{"ts": "2026-06-07T00:00:00+00:00", "close": "100"}]
+
+
+def test_market_chart_currency_conversion_keeps_values_without_fx_rate():
     rows = [{"ts": "2026-06-07T00:00:00+00:00", "close": "100"}]
 
     converted = convert_market_chart_rows_currency(

@@ -16830,74 +16830,57 @@ def _render_market_chart_currency_selector(
     fx_rows: list[dict[str, str]],
 ) -> str:
     source = source_currency.strip().upper()
-    if source not in {"JPY", "USD"}:
-        return source
-
     usd_jpy_rate = chart_fx_rate_from_rows(fx_rows)
     if usd_jpy_rate is None:
-        return source
-    options = ["original", "JPY", "USD"]
+        return _default_market_chart_display_currency(source)
+    options = ["JPY", "USD"]
+    default_currency = _default_market_chart_display_currency(source)
 
     current_value = st.session_state.get(MARKET_CHART_DISPLAY_CURRENCY_STATE_KEY)
     if current_value not in options:
-        st.session_state[MARKET_CHART_DISPLAY_CURRENCY_STATE_KEY] = "original"
+        st.session_state[MARKET_CHART_DISPLAY_CURRENCY_STATE_KEY] = default_currency
 
-    selected = cast(
-        str,
-        st.radio(
-            "表示通貨",
-            options=options,
-            key=MARKET_CHART_DISPLAY_CURRENCY_STATE_KEY,
-            horizontal=True,
-            format_func=lambda option: _market_chart_currency_option_label(
-                str(option),
-                source_currency=source,
+    currency_col, rate_col = st.columns([0.34, 0.66])
+    with currency_col:
+        selected = cast(
+            str,
+            st.radio(
+                "表示通貨",
+                options=options,
+                key=MARKET_CHART_DISPLAY_CURRENCY_STATE_KEY,
+                horizontal=True,
+                format_func=lambda option: _market_chart_currency_option_label(str(option)),
+                help="価格チャートの表示通貨だけを切り替えます。スコアや予測計算は変更しません。",
             ),
-            help="価格チャートの表示通貨だけを切り替えます。スコアや予測計算は変更しません。",
-        ),
-    )
-    st.caption(_market_chart_currency_caption(fx_rows, source_currency=source))
-    if selected == "original":
-        return source
+        )
+    with rate_col:
+        st.markdown(
+            (
+                "<div style='padding-top:2.15rem;font-size:0.82rem;"
+                "font-weight:700;color:#b9c7da;'>"
+                f"＄円相場 {_format_market_chart_fx_rate(usd_jpy_rate)}"
+                "</div>"
+            ),
+            unsafe_allow_html=True,
+        )
     return selected
 
 
-def _market_chart_currency_option_label(option: str, *, source_currency: str) -> str:
+def _default_market_chart_display_currency(source_currency: str) -> str:
+    source = source_currency.strip().upper()
+    return source if source in {"JPY", "USD"} else "JPY"
+
+
+def _market_chart_currency_option_label(option: str) -> str:
     labels = {
-        "original": f"元の通貨 ({source_currency})",
         "JPY": "円 (JPY)",
         "USD": "$ (USD)",
     }
     return labels.get(option, option)
 
 
-def _market_chart_currency_caption(
-    fx_rows: list[dict[str, str]],
-    *,
-    source_currency: str,
-) -> str:
-    rate = chart_fx_rate_from_rows(fx_rows)
-    if rate is None:
-        return "表示通貨の初期値は取得できた通貨です。"
-    row = _market_chart_usd_jpy_row(fx_rows) or {}
-    source = row.get("source", "")
-    ts = _market_chart_fx_timestamp_label(row.get("ts", ""))
-    meta = " / ".join(part for part in [source, ts] if part)
-    suffix = f"（{meta}）" if meta else ""
-    return (
-        f"表示通貨の初期値は取得できた通貨（{source_currency}）です。"
-        f"円/ドル換算には USDJPY {format(rate.normalize(), 'f')} {suffix}を使います。"
-    )
-
-
-def _market_chart_fx_timestamp_label(value: object) -> str:
-    text = str(value or "").strip()
-    if not text:
-        return ""
-    parsed = pd.to_datetime(text, errors="coerce")
-    if pd.isna(parsed):
-        return text
-    return parsed.strftime("%Y/%m/%d %H:%M")
+def _format_market_chart_fx_rate(rate: Decimal) -> str:
+    return f"{rate:.2f}"
 
 
 def chart_fx_rate_from_rows(fx_rows: list[dict[str, str]]) -> Decimal | None:
@@ -16957,9 +16940,9 @@ def _market_chart_currency_factor(
     display_currency: str,
     usd_jpy_rate: Decimal | None,
 ) -> Decimal | None:
-    source = source_currency.strip().upper()
+    source = _default_market_chart_display_currency(source_currency)
     target = display_currency.strip().upper()
-    if source == target or not source or not target:
+    if source == target or not target:
         return Decimal("1")
     if usd_jpy_rate is None or usd_jpy_rate <= 0:
         return None

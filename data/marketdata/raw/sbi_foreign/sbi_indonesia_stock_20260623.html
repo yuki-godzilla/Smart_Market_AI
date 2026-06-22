@@ -1,0 +1,1918 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="ja">
+
+<head>
+  <script type="text/javascript" src="https://sbisec.akamaized.net/sbisec/js/aa2ga1.0.0.min.js"
+    charset="UTF-8"></script>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta http-equiv="Content-Type" content="text/html; charset=Shift_JIS">
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <meta http-equiv="Content-Script-Type" content="text/javascript">
+  <title>SBI証券</title>
+  <script type='text/javascript' src='https://www.sbisec.co.jp/JavaScript/WPLCommon.js'></script>
+
+  <link rel="stylesheet" href="https://cdn.datatables.net/t/bs-3.3.6/jqc-1.12.0,dt-1.10.11/datatables.min.css" />
+  <script src="https://cdn.datatables.net/t/bs-3.3.6/jqc-1.12.0,dt-1.10.11/datatables.min.js"></script>
+  <script>
+    jQuery(function ($) {
+      $.extend($.fn.dataTable.defaults, {
+        language: {
+          url: "https://cdn.datatables.net/plug-ins/9dcbecd42ad/i18n/Japanese.json"
+        }
+      });
+
+      $('.foo_table').DataTable({
+        "paging": "true",
+        "pageLength": 10,//初期表示件数
+        "lengthMenu": [[10, 25, 50, 100, -1], [10, 25, 50, 100, "全件"]],//表示件数メニュー,
+        "order": [],
+        //"columnDefs": [{ "orderable": false, "targets": 2 }],//5列目をソート不可に
+      });
+    });
+  </script>
+
+  <script language="JavaScript">chgStyleSheet();</script>
+</head>
+
+<body>
+  <!--▽hedder-->
+  <table border="0" width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td background="//sbisec.akamaized.net/sbisec/images/common/common/g_back_head_lgray.gif" align="left"><img
+          src="//sbisec.akamaized.net/sbisec/images/common/common/logo_pop_lgray.gif" width="105" height="29"
+          border="0"></td>
+      <td background="//sbisec.akamaized.net/sbisec/images/common/common/g_back_head_lgray.gif" align="right"><a
+          href="javascript:window.close();"><img src="//sbisec.akamaized.net/sbisec/popwin/images/gr_close.gif"
+            width="43" height="11" border="0" alt="閉じる"></a></td>
+      <td width="10" background="//sbisec.akamaized.net/sbisec/images/common/common/g_back_head_lgray.gif"><img
+          src="//sbisec.akamaized.net/sbisec/images/common/common/trans.gif" width="1" height="1"></td>
+    </tr>
+  </table>
+  <!--△hedder-->
+  <!--▽-->
+  <div style="width:690px;text-align:left;" id="main">
+    <!------------------------▽contents start▽----------------------------->
+    <!--▽タブ-->
+    <div class="tab02 mgt10">
+      <div class="tab02T">
+        <table border="0" cellspacing="0" cellpadding="0" summary="layout" style="width: 690px;">
+          <tr valign="top">
+            <td><span><a href="pop6040_usequity_list.html">米国株式</a></span></td>
+            <td><span><a href="pop6040_usequity_margin_list.html">米国株式（信用）</a></span></td>
+            <td><span><a href="pop6040_hk_list.html">中国株式</a></span></td>
+            <td><span><a href="pop6040_kr_list.html">韓国株式</a></span></td>
+            <td><span><a href="pop6040_ru_list.html">ロシア株式</a></span></td>
+            <td><span><a href="pop6040_vn_list.html">ベトナム株式</a></span></td>
+            <td class="actR"><span><a href="pop6040_id_list.html">インドネシア株式</a></span></td>
+          </tr>
+          <tr class="tab02B">
+            <td><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3" alt=""></td>
+            <td><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3" alt=""></td>
+            <td><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3" alt=""></td>
+            <td><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3" alt=""></td>
+            <td><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3" alt=""></td>
+            <td><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3" alt=""></td>
+            <td class="actR"><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3"
+                alt=""></td>
+          </tr>
+        </table>
+      </div>
+      <div class="tab02T">
+        <table border="0" cellspacing="0" cellpadding="0" summary="layout" style="width: 690px;">
+          <tr valign="top">
+            <td style="width: 20%;"><span><a href="pop6040_sg_list.html">シンガポール株式</a></span></td>
+            <td style="width: 20%;"><span><a href="pop6040_th_list.html">タイ株式</a></span></td>
+            <td style="width: 20%;"><span><a href="pop6040_my_list.html">マレーシア株式</a></span></td>
+            <td class="Rm" style="width: 20%;"><span><a href="pop6040_etf.html">海外ETF</a></span></td>
+            <td class="Rr" style="width: 20%;">
+              <div class="tab02RrM">&nbsp;</div>
+            </td>
+          </tr>
+          <tr class="tab02B">
+            <td><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3" alt=""></td>
+            <td><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3" alt=""></td>
+            <td><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3" alt=""></td>
+            <td class="Rm"><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3"
+                alt=""></td>
+            <td class="Rr"><img src="https://sbisec.akamaized.net/sbisec/images/base/trans.gif" width="1" height="3"
+                alt=""></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+    <!--△タブ-->
+    <!--▽タイトル-->
+    <div class="mgt10">
+      <div class="headC01">
+        <div class="headC01T">
+          <div class="headC01B">
+            <h2 class="ttl">インドネシア株式取扱銘柄一覧</h2>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!--△タイトル-->
+    <!--▼新規追加銘柄一覧-->
+    <!--▽
+<div class="mgt15">
+<div class="headSBBl01"><div class="headSBBl01M">
+<h4 class="ttlM">インドネシア株式株式 2銘柄追加（3/12～）</h4>
+</div></div>
+</div>
+<div class="mgt10">
+<div class="accTbl01">
+<table border="0" cellspacing="0" cellpadding="0" summary="layout" style="width: 690px;">
+<thead>
+<tr>
+<th style="width: 10%;"><div class="thM"><p class="fm01">ティッカー</p></div></th>
+<th style="width: 30%;"><div class="thM"><p class="fm01">銘柄（英語）</p></div></th>
+<th><div class="thM"><p class="fm01">事業内容</p></div></th>
+<th style="width: 10%;"><div class="thM"><p class="fm01">市場</p></div></th>
+</tr>
+</thead>
+<tbody>
+<tr style="background-color:#ffffcc;">
+<th><div class="thM alC"><p class="fm01">MBB</p></div></th>
+<td><div class="tdM"><p class="fm01">ミリタリー商業銀行<br>Military Commercial JSB</p></div></td>
+<td><div class="tdM"><p class="fm01">商業銀行</p></div></td>
+<td><div class="tdM alC"><p class="fm01">HOSE</p></div></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!--△-->
+    <!--▽--
+<div class="mgt5 mgl10">
+<ul>
+<li class="fm01 fGray01">※新規取扱銘柄のご要望はログイン後の「リクエストフォーム＞取扱商品・手数料＞外国株式」欄からお寄せください。</li>
+<li class="fm01 fGray01">※直近の新規取扱銘柄は背景色黄色で表示しております。</li>
+</ul>
+</div>
+<!--△-->
+    <style>
+      .ttlM {
+        font-size: 16px !important;
+      }
+    </style>
+    <!--▲新規追加銘柄一覧-->
+    <!--▼-->
+    <!--▽-->
+    <div class="mgt20">
+      <div class="headBl01">
+        <h3 class="ttlM">インドネシア株式一覧</h3>
+      </div>
+    </div>
+    <!--△-->
+    <div class="floatClear">
+      <div class="mgt10 floatR">
+        <ul class="liNote01">
+          <li class="fm01">IDX：インドネシア証券取引所</li>
+        </ul>
+      </div>
+    </div>
+    <!--▽表-->
+    <div class="mgt10">
+      <div class="accTbl01">
+        <table border="0" class="foo_table" cellspacing="0" cellpadding="0" summary="layout" style="width: 690px;">
+          <thead>
+            <tr>
+              <th style="width: 10%;">
+                <div class="thM">
+                  <p class="fm01">ティッカー</p>
+                </div>
+              </th>
+              <th style="width: 38%;">
+                <div class="thM">
+                  <p class="fm01">銘柄</p>
+                </div>
+              </th>
+              <th>
+                <div class="thM">
+                  <p class="fm01">会社概要</p>
+                </div>
+              </th>
+              <th style="width: 10%;">
+                <div class="thM">
+                  <p class="fm01">市場</p>
+                </div>
+              </th>
+              <!-- <th style="width: 13%;"><div class="thM"><p class="fm01">外国証券内容説明書</p></div></th> -->
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">AALI</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">アストラ アグロ レスタリ<br>Astra Agro Lestari Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">農産会社</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/AAA.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">ACES</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">エース ハードウエア インドネシア<br>Ace Hardware Indonesia Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">芝生・園芸用品やペット用品などを販売している日用品小売業者。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">ADRO</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">アラムトリ リソーシズ インドネシア<br>Alamtri Resources Indonesia Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">石炭会社</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/AAM.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">AKRA</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">エーケーアール<br>Akr Corporindo Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">苛性ソーダやポリ塩化ビニル（PVC）樹脂などの化学品を販売している化学品販売会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">ALTO</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">トリ バニャン チルタ<br>Tri Banyan Tirta Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ミネラルウォーターを提供している飲料会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">ANTM</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">アネカ タンバン<br>Aneka Tambang Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">各種鉱物の採掘と金属生産に従事している企業。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">ASII</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">アストラ インターナショナル<br>Astra International Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">鉱業、金融、IT事業も手がける自動車メーカー</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/ABT.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">ASRI</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">アラム ステラ リアルティ<br>Alam Sutera Realty Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">住宅、商業、レジャー、娯楽プロジェクトの開発・管理を手掛けている総合不動産会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">AUTO</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">アストラ オートパーツ<br>Astra Otoparts Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">自動車・自動二輪部品の製造・販売をしている会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">BBCA</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">バンク セントラル アジア<br>Bank Central Asia Tbk PT
+                  </p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">商業銀行</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/ACB.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">BBNI</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">バンクネガラインドネシア<br>Bank Negara Indonesia Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">国有銀行</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/ACL.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">BBRI</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">バンク ラヤット インドネシア<br>Bank Rakyat Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">商業銀行</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/ADC.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">BBTN</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">バンク タブンガン ネガラ<br>Bank Tabungan Negara Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">商業銀行業務に従事している。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">BDMN</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">バンク ダナモン インドネシア<br>Bank Danamon Indonesia Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">商業銀行</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/AGC.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">BHIT</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">エムエヌアジアホールディングス<br>MNC Asia Holding Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">インドネシアの投資会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">BJBR</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">バンク ペムバングナン ダエラ ジャワ バラット ダン バンテン<br>Bank Pembangunan Daerah Jawa Barat dan Banten Tbk
+                    PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">多様な銀行商品とサービスを提供している商業銀行。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">BKSL</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">セントゥル シティ<br>Sentul City Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">オフィスビル、ショッピングセンターなどの開発から販売、運営、賃貸、改装までを手掛けている不動産開発会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">BMRI</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">バンク マンディリ<br>Bank Mandiri Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">国営銀行</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/AGD.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">BNBR</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">バクリエ アンド ブラザーズ<br>Bakrie &amp; Brothers PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">鋼管、波形金属製品、鋳鉄製品、およびセメント建築用製品の製造に従事している会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">BNII</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">バンク メイバンク インドネシア<br>Bank Maybank Indonesia Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">商業銀行</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/AGF.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">BSDE</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ブミ スルポン ダマイ<br>Bumi Serpong Damai PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">住宅インフラ、商業・工業用不動産、ゴルフ場、公共施設などを手掛けている不動産開発会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">BUMI</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ブミ リソーシズ<br>Bumi Resources Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">石炭・石油探査会社</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/AGR.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">BYAN</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">バヤン リソーシズ グループ<br>Bayan Resources Group Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">石炭会社</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/ALP.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">CNKO</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">エクスプロイタシ エネルギー インドネシア<br>Exploitasi Energi Indonesia</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">石炭の採掘・加工・取引会社。石炭火力発電所の開発を手掛けている会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/ALP.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">CPIN</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">チャルーン ポーカパン インドネシア<br>Charoen Pokphand Indonesia Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">動物飼料、養鶏設備などの製造販売および鶏肉加工会社</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/ALT.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">DOID</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ブマ インターナショナル・グループ<br>Buma Internasional Grup Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">子会社を通じて、インドネシアの石炭生産業者に石炭露天掘りサービスを提供している持株会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">ENRG</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">エナジー メガ プルサダ<br>Energi Mega Persada Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">原油と天然ガスを探査、開発、製造している石油会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">EXCL</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">エックスエルスマート テレコム セジャテラ<br>XLSMART Telecom Sejahtera Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">携帯通信サービス会社</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/ALV.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">GGRM</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">グダン ガラム<br>Gudang Garam Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">たばこメーカー</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/AME.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">GIAA</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ガルーダ インドネシア<br>Garuda Indonesia Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">航空会社</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/AMV.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">GJTL</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ガジャ トゥンガル<br>Gajah Tunggal Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ゴム製品メーカー。主に車両用タイヤとチューブを手掛けるゴム製品メーカー。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">GOTO</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ゴートゥー ゴジェック トコペディア<br>GoTo Gojek Tokopedia Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">配車サービスやインターネット通販事業などを営む。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">HEXA</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ヘキシンド アディペルカサ<br>HEXINDO ADIPERKASA Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">重機販売会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">HMSP</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ハンジャヤ マンダラ サンプルナ<br>PT Hanjaya Mandala Sampoerna</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">たばこ会社。手巻き・機械巻きのクローブ（丁子）たばこの製造に従事する。インドネシア国内外で製品を販売している。また、子会社を通じ、不動産開発も手掛けている。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/AMV.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">HRUM</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">HARUM エナジー<br>Harum Energy Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">石炭会社</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/ANV.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">ICBP</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">インドフードCBPスクセス マクムール<br>Indofood CBP Sukses Makmur Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">食品加工会社</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/APC.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">IMAS</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">インドモービル スクセス インターナショナル<br>Indomobil Sukses Internasion</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">自動車販売会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">INCO</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ヴァーレ インドネシア<br>Vale Indonesia Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">非鉄金属メーカー</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/APG.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">INDF</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">インドフード サクセス マクムール<br>Indofood Sukses Makmur Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">インスタント麺、ベビーフード、調味料、コーヒーなどの食品メーカー</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/API.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">INDY</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">インディカ エナジー<br>Indika Energy Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">石炭製造、エンジニアリング、調達、建設サービス、発電サービスの分野に注力しているエネルギー会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">INTP</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">インドセメント トゥンガル プラカルサ<br>Indocement Tunggal Prakarsa Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">建築資材、セメントメーカー</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/APP.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">ISAT</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">インドサット<br>Indosat Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">通信サービス会社</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/APS.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">ITMG</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">インド タムバンガラヤ メガウ<br>Indo Tambangraya Megah Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">鉱物探査会社</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/ARM.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">JSMR</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">JASA マルガ<br>Jasa Marga Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">道路計画事業、道路開発、高速道路等の管理事業会社</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/ASM.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">KIJA</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">カワサン インダストリ ジャバベカ<br>Kawasan Industri Jababeka Tbk</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">産業用不動産と関連施設・サービスの開発などに従事している不動産開発会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">KKGI</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">リソース アラム インドネシア<br>Resource Alam Indonesia Tbk</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">インドネシア産の熱性石炭の探査、生産、輸送、販売を手掛ける炭鉱会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">KLBF</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">カルベ ファルマ<br>Kalbe Farma Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">医薬品メーカー</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/ASP.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">KOBX</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">コベックスインドトラクター<br>Resource Alam Indonesia Tbk</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">工業製品の販売・レンタルをしている会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">KRAS</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">クラカタウ スチール ペルセロ<br>Krakatau Steel Persero Tbk</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">国営企業の鉄鋼メーカー。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">LPKR</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">リッポー カラワチ<br>Lippo Karawaci Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">不動産開発会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">LPLI</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">スター パシフィック<br>Star Pacific Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">インターネットや電子商取引サービスなどの情報技術サービスを提供している。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">LPPF</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">MDS リテーリング<br>MDS Retailing Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">さまざまな商品の小売販売に従事している百貨店。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">LSIP</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ペルサハーンパーケブナンロンドンスマトラインド<br>PP LONDON SUMATERA Indones PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">油ヤシ、ゴム、ココナツ、ココア、コーヒー、茶の栽培・収穫・加工に従事している会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">MEDC</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">メドコ エナジー インターナショナル<br>Medco Energi Internasional Tbk</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">発電所の運営、生物燃料などの再生燃料開発に従事している総合エネルギー会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">MNCN</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">メディア ヌサンタラ チトラ<br>Media Nusantara Citra Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">東南アジアの総合マルチメディア会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">NIRO</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シティ リテール ディベロップメンツ<br>City Retail Developments Tbk</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ショッピングセンター、住宅地などを開発・管理しているの不動産開発会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">PWON</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">パクウォン ジャティ<br>Pakuwon Jati Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">不動産開発会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">PGAS</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ペルサハーン ガス ネガラ ペルセロ<br>Perusahaan Gas Negara Persero Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">天然ガス会社</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/ATA.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">PTBA</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ブキット アサム ペルセロ<br>Bukit Asam Persero Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">炭鉱会社</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/AVF.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">PTSN</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">サット　ヌサプルサダ<br>Sat Nusapersada</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">電子機器受託製造サービス会社</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/AVF.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">RALS</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ラマヤナ レスタリ セントサ<br>Ramayana Lestari Sentosa Tbk</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">百貨店を経営。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">ROTI</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ニッポン インドサリ コーピンド<br>Nippon Indosari Corpindo Tbk</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">食パンやラザニア、およびシフォンカップケーキを提供しているパンメーカー。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">SILO</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">シロアム インターナショナル ホスピタルズ<br>Siloam International Hospita Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">病院の保有・経営をしている会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">SIMP</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">サリム イボマス プラタマ<br>Salim Ivomas Pratama Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">料理油、マーガリン、ショートニングの生産・製造・販売会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">SMCB</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ソルシ バングン インドネシア<br>Solusi Bangun Indonesia Tbk</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">生コンクリートおよびセメントの製造・販売のほか、石切り場を運営している建設資材メーカー。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">SMGR</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">セメン インドネシア<br>Semen Indonesia Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">国営セメントメーカー</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/B82.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">TELE</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">オムニ イノヴァシ インドネシア<br>Omni Inovasi Indonesia Tbk</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">携帯電話会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">TINS</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ティマ<br>Timah Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">子会社を通じて、鉱業に注力するほか、コンサルタント業をしている持株会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">TLKM</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">テレコム インドネシア<br>Telkom Indonesia Persero Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">通信サービス会社</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/BAS.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">TOWR</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">サラナ メナラ ヌサンタラ<br>Sarana Menara Nusantara PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">子会社を通じてモバイル通信タワーを建設している建設会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">TRAM</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">トラダ アラム ミネラ<br>Trada Alam Minera Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">オフショア石油産業に海上サービスおよびターミナルサービスを提供している海運会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">UNSP</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">バクリー スマトラ プランテーションズ<br>Bakrie Sumatera Plantations PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ゴム、ヤシ油、果物のプランテーションを経営している会社。</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">UNTR</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ユナイテッド トラクターズ<br>United Tractors Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">建設機械リース販売会社</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/BBC.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+            <tr>
+              <th>
+                <div class="thM alC">
+                  <p class="fm01">UNVR</p>
+                </div>
+              </th>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">ユニリーバ インドネシア<br>Unilever Indonesia Tbk PT</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM">
+                  <p class="fm01">石鹸、洗剤、飲料、化粧品などの一般消費財メーカー</p>
+                </div>
+              </td>
+              <td>
+                <div class="tdM alC">
+                  <p class="fm01">IDX</p>
+                </div>
+              </td>
+              <!-- <td><div class="tdM"><p class="fm01"><img src="//sbisec.akamaized.net/sbisec/images/base/i_pdf_02.gif" width="19" height="13" border="0" alt="PDFです。新しいウィンドウで開きます。" class="vaM"><a href="https://search.sbisec.co.jp/v2/popwin/info/connect/vnstock/BBS.pdf" target="_blank">外国証券内容説明書</a></p></div></td> -->
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!--△表-->
+    <!--▲-->
+    <!--▽ページトップへ-->
+    <div class="stext" style="text-align:right;margin-top:20px;margin-bottom:20px;"><img
+        src="//sbisec.akamaized.net/sbisec/images/common/common/i_top.gif" border="0" width="5" height="9">&nbsp;<a
+        href="#top">ページトップへ</a></div>
+    <!--△ページトップへ-->
+    <!------------------------△contents  end △----------------------------->
+  </div>
+  <!--△-->
+
+
+  <script type="text/javascript">_satellite.pageBottom();</script>
+
+  <!-- Google Tag Manager/// -->
+  <script>(function (w, d, s, l, i) {
+      w[l] = w[l] || []; w[l].push({
+        'gtm.start':
+          new Date().getTime(), event: 'gtm.js'
+      }); var f = d.getElementsByTagName(s)[0],
+        j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+          'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+    })(window, document, 'script', 'dataLayer', 'GTM-7SZV');</script>
+  <!-- ///End Google Tag Manager/// -->
+  <!-- Google Tag Manager (noscript)/// -->
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-7SZV" height="0" width="0"
+      style="display:none;visibility:hidden"></iframe></noscript>
+  <!-- ///End Google Tag Manager (noscript) -->
+
+  <!-- yahoo/// -->
+  <script type="text/javascript">
+    (function () {
+      var tagjs = document.createElement("script");
+      var s = document.getElementsByTagName("script")[0];
+      tagjs.async = true;
+      tagjs.src = "//s.yjtag.jp/tag.js#site=hAyydFq";
+      s.parentNode.insertBefore(tagjs, s);
+    }());
+  </script>
+  <noscript>
+    <iframe src="//s.thebrighttag.com/iframe?c=hAyydFq" width="1" height="1" frameborder="0" scrolling="no"
+      marginheight="0" marginwidth="0"></iframe>
+  </noscript>
+  <!-- ///yahoo -->
+
+</body>
+
+</html>

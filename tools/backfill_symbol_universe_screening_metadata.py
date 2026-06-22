@@ -46,16 +46,16 @@ THEME_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
             r"トヨタ",
             r"honda",
             r"ホンダ",
-            r"nissan",
-            r"日産",
+            r"nissan motor",
+            r"日産自動車",
             r"mazda",
             r"マツダ",
-            r"subaru",
-            r"スバル",
+            r"subaru corporation",
+            r"ＳＵＢＡＲＵ",
             r"suzuki",
             r"スズキ",
             r"tesla",
-            r"ford",
+            r"ford motor",
             r"general motors",
         ),
     ),
@@ -123,6 +123,24 @@ THEME_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("high_dividend", (r"高配当", r"high dividend")),
 )
 
+THEME_DENY_RULES: dict[str, tuple[str, ...]] = {
+    # ``金融（除く銀行）`` is a TOPIX-17 bucket for securities/insurance/other
+    # financials. The literal contains 銀行, but it must not create a bank tag.
+    "bank": (r"金融（除く銀行）", r"non[- ]?bank", r"excluding banks"),
+    # Avoid ticker/name false positives from broad strings such as Nissan/Ford when
+    # the company is chemical, securities, food, weather/oilfield services, etc.
+    "automotive": (
+        r"日産化学",
+        r"日産証券",
+        r"oxford",
+        r"weatherford",
+        r"hartford",
+        r"bridgford",
+        r"stanford",
+    ),
+}
+
+
 DIRECT_THEME_VALUES = {
     "technology",
     "communication",
@@ -131,6 +149,8 @@ DIRECT_THEME_VALUES = {
     "healthcare",
     "energy",
     "automotive",
+    "bank",
+    "insurance",
     "trading",
     "industrial",
     "materials",
@@ -341,6 +361,7 @@ def _backfill_rows(
         _backfill_reliability_status(row)
         _backfill_theme_tags(row)
         _backfill_etf_classification(row)
+        _backfill_metric_quality_reasons(row)
         _backfill_metric_provenance(row)
 
         changed_columns = [
@@ -510,6 +531,79 @@ def _backfill_nisa_prefix(
         row[f"{prefix}_source"] = source
 
 
+def _theme_rule_denied(tag: str, searchable_text: str) -> bool:
+    return any(
+        re.search(pattern, searchable_text, flags=re.IGNORECASE)
+        for pattern in THEME_DENY_RULES.get(tag, ())
+    )
+
+
+def _metric_decimal(row: dict[str, str], key: str) -> float | None:
+    raw_value = row.get(key, "").strip()
+    if not raw_value:
+        return None
+    try:
+        return float(raw_value)
+    except ValueError:
+        return None
+
+
+def _append_quality_reason(row: dict[str, str], reason: str) -> bool:
+    reasons = _csv_values(row.get("data_quality_reasons", ""))
+    if reason in reasons:
+        return False
+    reasons.add(reason)
+    row["data_quality_reasons"] = ",".join(sorted(reasons))
+    return True
+
+
+def _backfill_metric_quality_reasons(row: dict[str, str]) -> None:
+    """Attach deterministic data-quality reasons without fetching live data.
+
+    These reasons are intentionally asset-type aware. Stock fundamentals are not
+    treated as ETF screening signals, and fund costs are validated with explicit
+    guardrails. Informational reasons do not downgrade ``data_quality`` by
+    themselves; only true missing/extreme/out-of-range reasons create WARN.
+    """
+
+    asset_type = row.get("asset_type", "").strip()
+    warning_changed = False
+    per = _metric_decimal(row, "per")
+    pbr = _metric_decimal(row, "pbr")
+    roe = _metric_decimal(row, "roe_pct")
+    dividend_yield = _metric_decimal(row, "dividend_yield_pct")
+    expense_ratio = _metric_decimal(row, "expense_ratio_pct")
+    trust_fee = _metric_decimal(row, "trust_fee_pct")
+
+    if asset_type == "etf":
+        if any(value is not None for value in (per, pbr, roe)):
+            _append_quality_reason(row, "fundamental_metrics_not_primary_for_etf")
+        if expense_ratio is None:
+            warning_changed |= _append_quality_reason(row, "missing_expense_ratio")
+        elif expense_ratio < 0 or expense_ratio > 5:
+            warning_changed |= _append_quality_reason(row, "extreme_expense_ratio")
+    elif asset_type in {"mutual_fund", "fund", "investment_trust"}:
+        if trust_fee is None and expense_ratio is None:
+            warning_changed |= _append_quality_reason(row, "missing_fund_cost")
+        for key, value in (("trust_fee_pct", trust_fee), ("expense_ratio_pct", expense_ratio)):
+            if value is not None and (value < 0 or value > 5):
+                warning_changed |= _append_quality_reason(row, f"extreme_{key}")
+    elif asset_type in {"stock", "adr", "reit"}:
+        if dividend_yield is not None and (dividend_yield < 0 or dividend_yield > 20):
+            warning_changed |= _append_quality_reason(row, "extreme_dividend_yield")
+        if per is not None and (per <= 0 or per > 200):
+            warning_changed |= _append_quality_reason(row, "out_of_range_per")
+        if pbr is not None and (pbr <= 0 or pbr > 50):
+            warning_changed |= _append_quality_reason(row, "out_of_range_pbr")
+        if roe is not None and (roe < -100 or roe > 100):
+            warning_changed |= _append_quality_reason(row, "out_of_range_roe")
+        if asset_type == "stock" and not row.get("market_cap_tier", "").strip():
+            warning_changed |= _append_quality_reason(row, "missing_market_cap_tier")
+
+    if warning_changed and row.get("data_quality") == "OK":
+        row["data_quality"] = "WARN"
+
+
 def _backfill_theme_tags(row: dict[str, str]) -> None:
     existing_tags = _csv_values(row.get("smai_theme_tags", ""))
     tags = set(existing_tags)
@@ -530,8 +624,15 @@ def _backfill_theme_tags(row: dict[str, str]) -> None:
 
     searchable_text = _searchable_text(row)
     for tag, patterns in THEME_RULES:
+        if _theme_rule_denied(tag, searchable_text):
+            tags.discard(tag)
+            continue
         if any(re.search(pattern, searchable_text, flags=re.IGNORECASE) for pattern in patterns):
             tags.add(tag)
+
+    for tag in tuple(tags):
+        if _theme_rule_denied(tag, searchable_text):
+            tags.discard(tag)
 
     if tags != existing_tags:
         row["smai_theme_tags"] = ",".join(sorted(tags))

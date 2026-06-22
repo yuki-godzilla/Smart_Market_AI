@@ -228,6 +228,8 @@ from ui.ranking import (
     RANKING_PERIOD_PRESETS,
     RANKING_PRODUCT_ALL,
     RANKING_PRODUCT_ETF,
+    RANKING_PRODUCT_MUTUAL_FUND,
+    RANKING_PRODUCT_STOCK,
     RANKING_PURPOSE_MULTI_FACTOR,
     RANKING_THEME_LABELS,
     apply_ranking_weight_preset,
@@ -3890,6 +3892,51 @@ def _classification_count_base_rows(
     )
 
 
+def _ranking_detail_filter_mode_caption(product_type: str) -> str:
+    if product_type == RANKING_PRODUCT_ETF:
+        return (
+            "ETF向け条件です。連動指数・経費率・分配金・複雑さを中心に表示し、"
+            "PER/PBR/ROEなど個別株向け指標は表示しません。"
+        )
+    if product_type == RANKING_PRODUCT_STOCK:
+        return (
+            "株式向け条件です。公式業種、SMAI投資テーマ、時価総額、PER/PBR/ROE、"
+            "配当利回りを中心に表示します。"
+        )
+    if product_type == RANKING_PRODUCT_MUTUAL_FUND:
+        return "投信向け条件です。信託報酬、NISA、商品複雑性を中心に表示します。"
+    return (
+        "商品タイプ未指定のため、株式・ETFで共通して使いやすい条件を中心に表示します。"
+        "PER/PBR/ROEは、株式を選んだ時だけ表示します。"
+    )
+
+
+def _ranking_filter_counts_by_category(
+    rows: list[dict[str, str]],
+    categories: Iterable[str],
+) -> dict[str, dict[str, int]]:
+    return {
+        category: symbol_universe_filter_value_counts(rows, category) for category in categories
+    }
+
+
+def _ranking_counted_options(
+    labels: Mapping[str, str],
+    counts_by_category: Mapping[str, Mapping[str, int]],
+    category: str,
+) -> list[str]:
+    return _filter_options_with_available_counts(labels, counts_by_category.get(category, {}))
+
+
+def _ranking_counted_label(
+    labels: Mapping[str, str],
+    counts_by_category: Mapping[str, Mapping[str, int]],
+    category: str,
+    value: str,
+) -> str:
+    return _counted_filter_label(labels, counts_by_category.get(category, {}), value)
+
+
 def _render_metric_filter_grid(
     filters: list[tuple[str, dict[str, object]]],
     *,
@@ -5696,7 +5743,10 @@ def _ranking_detail_condition_chips(
                 "%",
             )
         )
-    if _truthy_filter_value(values.get("market_data_ranking_per_enabled", False)):
+    stock_metrics_visible = product_type == RANKING_PRODUCT_STOCK
+    if stock_metrics_visible and _truthy_filter_value(
+        values.get("market_data_ranking_per_enabled", False)
+    ):
         chips.append(
             _range_filter_chip(
                 "PER",
@@ -5704,7 +5754,9 @@ def _ranking_detail_condition_chips(
                 values.get("market_data_ranking_per_max", "20.0"),
             )
         )
-    if _truthy_filter_value(values.get("market_data_ranking_pbr_enabled", False)):
+    if stock_metrics_visible and _truthy_filter_value(
+        values.get("market_data_ranking_pbr_enabled", False)
+    ):
         chips.append(
             _range_filter_chip(
                 "PBR",
@@ -5712,7 +5764,9 @@ def _ranking_detail_condition_chips(
                 values.get("market_data_ranking_pbr_max", "2.0"),
             )
         )
-    if _truthy_filter_value(values.get("market_data_ranking_roe_enabled", False)):
+    if stock_metrics_visible and _truthy_filter_value(
+        values.get("market_data_ranking_roe_enabled", False)
+    ):
         chips.append(
             _range_filter_chip(
                 "ROE",
@@ -5890,21 +5944,33 @@ def _render_ranking_filter_panel(
             region=region,
             product_type=product_type,
         )
-        official_sector_counts = symbol_universe_filter_value_counts(
+        detail_filter_counts = _ranking_filter_counts_by_category(
             classification_base_rows,
+            (
+                "official_sector",
+                "investment_theme",
+                "market_cap",
+                "risk_band",
+                "nisa_eligibility",
+                "benchmark_index",
+                "complexity",
+                "dividend_category",
+                "currency",
+            ),
+        )
+        official_sector_options = _ranking_counted_options(
+            RANKING_OFFICIAL_SECTOR_LABELS,
+            detail_filter_counts,
             "official_sector",
         )
-        investment_theme_counts = symbol_universe_filter_value_counts(
-            classification_base_rows,
+        investment_theme_options = _ranking_counted_options(
+            RANKING_INVESTMENT_THEME_LABELS,
+            detail_filter_counts,
             "investment_theme",
         )
-        official_sector_options = _filter_options_with_available_counts(
-            RANKING_OFFICIAL_SECTOR_LABELS,
-            official_sector_counts,
-        )
-        investment_theme_options = _filter_options_with_available_counts(
-            RANKING_INVESTMENT_THEME_LABELS,
-            investment_theme_counts,
+        st.markdown(
+            f'<p class="smai-ranking-builder-caption">{html.escape(_ranking_detail_filter_mode_caption(product_type))}</p>',
+            unsafe_allow_html=True,
         )
 
         if "official_sector" in detail_filters:
@@ -5913,9 +5979,10 @@ def _render_ranking_filter_panel(
                     "業種・セクター",
                     options=official_sector_options,
                     key="market_data_ranking_official_sector",
-                    format_func=lambda value: _counted_filter_label(
+                    format_func=lambda value: _ranking_counted_label(
                         RANKING_OFFICIAL_SECTOR_LABELS,
-                        official_sector_counts,
+                        detail_filter_counts,
+                        "official_sector",
                         value,
                     ),
                     help_text=RANKING_FILTER_HELP_TEXTS["official_sector"],
@@ -5926,9 +5993,10 @@ def _render_ranking_filter_panel(
                     "投資テーマ",
                     options=investment_theme_options,
                     key="market_data_ranking_theme",
-                    format_func=lambda value: _counted_filter_label(
+                    format_func=lambda value: _ranking_counted_label(
                         RANKING_INVESTMENT_THEME_LABELS,
-                        investment_theme_counts,
+                        detail_filter_counts,
+                        "investment_theme",
                         value,
                     ),
                     help_text=RANKING_FILTER_HELP_TEXTS["investment_theme"],
@@ -5937,18 +6005,36 @@ def _render_ranking_filter_panel(
             with next_column():
                 _render_detail_selectbox(
                     "時価総額",
-                    options=list(RANKING_MARKET_CAP_LABELS),
+                    options=_ranking_counted_options(
+                        RANKING_MARKET_CAP_LABELS,
+                        detail_filter_counts,
+                        "market_cap",
+                    ),
                     key="market_data_ranking_market_cap",
-                    format_func=lambda value: RANKING_MARKET_CAP_LABELS[value],
+                    format_func=lambda value: _ranking_counted_label(
+                        RANKING_MARKET_CAP_LABELS,
+                        detail_filter_counts,
+                        "market_cap",
+                        value,
+                    ),
                     help_text="大型株・中型株・小型株など、企業規模で候補を絞ります。",
                 )
         if "risk_band" in detail_filters:
             with next_column():
                 _render_detail_selectbox(
                     "値動きリスク",
-                    options=list(RANKING_BETA_RISK_LABELS),
+                    options=_ranking_counted_options(
+                        RANKING_BETA_RISK_LABELS,
+                        detail_filter_counts,
+                        "risk_band",
+                    ),
                     key="market_data_ranking_risk_band",
-                    format_func=lambda value: _short_filter_label(RANKING_BETA_RISK_LABELS[value]),
+                    format_func=lambda value: _ranking_counted_label(
+                        RANKING_BETA_RISK_LABELS,
+                        detail_filter_counts,
+                        "risk_band",
+                        value,
+                    ),
                     help_text=(
                         "取得元のbetaを低め・標準・高めの帯に整理した参考区分です。"
                         "厳密なβ値そのものではなく、値動きの確認材料として使います。"
@@ -5958,10 +6044,17 @@ def _render_ranking_filter_panel(
             with next_column():
                 _render_detail_selectbox(
                     "NISA",
-                    options=list(RANKING_NISA_ELIGIBILITY_LABELS),
+                    options=_ranking_counted_options(
+                        RANKING_NISA_ELIGIBILITY_LABELS,
+                        detail_filter_counts,
+                        "nisa_eligibility",
+                    ),
                     key="market_data_ranking_nisa",
-                    format_func=lambda value: _short_filter_label(
-                        RANKING_NISA_ELIGIBILITY_LABELS[value]
+                    format_func=lambda value: _ranking_counted_label(
+                        RANKING_NISA_ELIGIBILITY_LABELS,
+                        detail_filter_counts,
+                        "nisa_eligibility",
+                        value,
                     ),
                     help_text="NISA対象銘柄に絞る場合に使います。",
                 )
@@ -5969,9 +6062,18 @@ def _render_ranking_filter_panel(
             with next_column():
                 _render_detail_selectbox(
                     "連動指数",
-                    options=list(RANKING_INDEX_FAMILY_LABELS),
+                    options=_ranking_counted_options(
+                        RANKING_INDEX_FAMILY_LABELS,
+                        detail_filter_counts,
+                        "benchmark_index",
+                    ),
                     key="market_data_ranking_index_family",
-                    format_func=lambda value: RANKING_INDEX_FAMILY_LABELS[value],
+                    format_func=lambda value: _ranking_counted_label(
+                        RANKING_INDEX_FAMILY_LABELS,
+                        detail_filter_counts,
+                        "benchmark_index",
+                        value,
+                    ),
                     help_text=RANKING_FILTER_HELP_TEXTS["benchmark_index"],
                 )
         if "expense_ratio" in detail_filters:
@@ -5989,20 +6091,37 @@ def _render_ranking_filter_panel(
             with next_column():
                 _render_detail_selectbox(
                     "複雑さ",
-                    options=list(RANKING_COMPLEXITY_LABELS),
+                    options=_ranking_counted_options(
+                        RANKING_COMPLEXITY_LABELS,
+                        detail_filter_counts,
+                        "complexity",
+                    ),
                     key="market_data_ranking_complexity",
-                    format_func=lambda value: RANKING_COMPLEXITY_LABELS[value],
+                    format_func=lambda value: _ranking_counted_label(
+                        RANKING_COMPLEXITY_LABELS,
+                        detail_filter_counts,
+                        "complexity",
+                        value,
+                    ),
                     help_text=RANKING_FILTER_HELP_TEXTS["complexity"],
                 )
         if "dividend_yield" in detail_filters:
             with next_column():
                 _render_detail_selectbox(
                     _dividend_category_filter_label(product_type),
-                    options=list(RANKING_DIVIDEND_LABELS),
+                    options=_ranking_counted_options(
+                        RANKING_DIVIDEND_LABELS,
+                        detail_filter_counts,
+                        "dividend_category",
+                    ),
                     key="market_data_ranking_dividend",
-                    format_func=lambda value: _dividend_category_option_label(
+                    format_func=lambda value: _counted_filter_label(
+                        {
+                            key: _dividend_category_option_label(key, product_type)
+                            for key in RANKING_DIVIDEND_LABELS
+                        },
+                        detail_filter_counts.get("dividend_category", {}),
                         value,
-                        product_type,
                     ),
                     help_text="配当・分配金の特徴で候補を絞ります。",
                     disabled=dividend_category_disabled,
@@ -6010,9 +6129,18 @@ def _render_ranking_filter_panel(
         with next_column():
             _render_detail_selectbox(
                 "通貨",
-                options=list(RANKING_CURRENCY_LABELS),
+                options=_ranking_counted_options(
+                    RANKING_CURRENCY_LABELS,
+                    detail_filter_counts,
+                    "currency",
+                ),
                 key="market_data_ranking_currency",
-                format_func=lambda value: RANKING_CURRENCY_LABELS[value],
+                format_func=lambda value: _ranking_counted_label(
+                    RANKING_CURRENCY_LABELS,
+                    detail_filter_counts,
+                    "currency",
+                    value,
+                ),
                 help_text="銘柄やETFの通貨で候補を絞ります。",
             )
 

@@ -51,6 +51,13 @@ RANKING_MAX_REASONABLE_PBR = Decimal("50")
 RANKING_MIN_REASONABLE_ROE_PCT = Decimal("-100")
 RANKING_MAX_REASONABLE_ROE_PCT = Decimal("100")
 RANKING_FUNDAMENTAL_METRIC_FIELDS = {"dividend_yield_pct", "per", "pbr", "roe_pct"}
+RANKING_STOCK_ONLY_DETAIL_FILTERS = {"market_cap", "per", "pbr", "roe"}
+RANKING_FUND_COST_DETAIL_FILTERS = {"benchmark_index", "expense_ratio", "complexity"}
+RANKING_CROSS_ASSET_DETAIL_FILTERS = {
+    "investment_theme",
+    "nisa_eligibility",
+    "dividend_yield",
+}
 
 RANKING_REGION_JAPAN = "japan"
 RANKING_REGION_US = "us"
@@ -687,11 +694,28 @@ RANKING_DETAIL_FILTERS_BY_CATEGORY = {
         "nisa_eligibility",
     ],
     (RANKING_REGION_ALL, RANKING_PRODUCT_ETF): [
-        "nisa_eligibility",
+        "investment_theme",
         "benchmark_index",
         "expense_ratio",
         "dividend_yield",
         "complexity",
+        "nisa_eligibility",
+    ],
+    (RANKING_REGION_ALL, RANKING_PRODUCT_MUTUAL_FUND): [
+        "expense_ratio",
+        "nisa_eligibility",
+        "complexity",
+    ],
+    (RANKING_REGION_ALL, RANKING_PRODUCT_ALL): [
+        "official_sector",
+        "investment_theme",
+        "market_cap",
+        "risk_band",
+        "dividend_yield",
+        "benchmark_index",
+        "expense_ratio",
+        "complexity",
+        "nisa_eligibility",
     ],
 }
 RANKING_FILTER_DEFAULTS: dict[str, str] = {
@@ -1167,27 +1191,14 @@ def ranking_detail_filters_for_category(region: str, product_type: str) -> list[
     if product_type == RANKING_PRODUCT_ETF:
         return RANKING_DETAIL_FILTERS_BY_CATEGORY[(RANKING_REGION_ALL, RANKING_PRODUCT_ETF)]
     if product_type == RANKING_PRODUCT_MUTUAL_FUND:
-        return []
+        return RANKING_DETAIL_FILTERS_BY_CATEGORY[(RANKING_REGION_ALL, RANKING_PRODUCT_MUTUAL_FUND)]
     if product_type == RANKING_PRODUCT_STOCK:
         if region == RANKING_REGION_JAPAN:
             return RANKING_DETAIL_FILTERS_BY_CATEGORY[(RANKING_REGION_JAPAN, RANKING_PRODUCT_STOCK)]
         if region == RANKING_REGION_US:
             return RANKING_DETAIL_FILTERS_BY_CATEGORY[(RANKING_REGION_US, RANKING_PRODUCT_STOCK)]
         return RANKING_DETAIL_FILTERS_BY_CATEGORY[(RANKING_REGION_ALL, RANKING_PRODUCT_STOCK)]
-    return [
-        "official_sector",
-        "investment_theme",
-        "market_cap",
-        "risk_band",
-        "dividend_yield",
-        "per",
-        "pbr",
-        "roe",
-        "benchmark_index",
-        "expense_ratio",
-        "complexity",
-        "nisa_eligibility",
-    ]
+    return RANKING_DETAIL_FILTERS_BY_CATEGORY[(RANKING_REGION_ALL, RANKING_PRODUCT_ALL)]
 
 
 def _shift_years(value: date, years: int) -> date:
@@ -2270,8 +2281,8 @@ _OFFICIAL_SECTOR_NORMALIZED_VALUES = {
     "機械": "industrial",
     "電気機器": "technology",
     "電機・精密": "technology",
-    "輸送用機器": "industrial",
-    "自動車・輸送機": "industrial",
+    "輸送用機器": "consumer",
+    "自動車・輸送機": "consumer",
     "精密機器": "technology",
     "その他製品": "consumer",
     "電気・ガス業": "utilities",
@@ -2281,8 +2292,8 @@ _OFFICIAL_SECTOR_NORMALIZED_VALUES = {
     "空運業": "industrial",
     "倉庫・運輸関連業": "industrial",
     "運輸・物流": "industrial",
-    "情報・通信業": "technology",
-    "情報通信・サービスその他": "technology",
+    "情報・通信業": "communication",
+    "情報通信・サービスその他": "communication",
     "卸売業": "industrial",
     "商社・卸売": "industrial",
     "小売業": "consumer",
@@ -2347,6 +2358,42 @@ def _symbol_theme_filter_values(row: dict[str, str]) -> set[str]:
     return values
 
 
+def _single_value_getter(key: str):
+    def getter(row: dict[str, str]) -> set[str]:
+        value = row.get(key, "").strip()
+        return {value} if value else set()
+
+    return getter
+
+
+def _risk_filter_values(row: dict[str, str]) -> set[str]:
+    risk_band = row.get("risk_band", "").strip()
+    values: set[str] = set()
+    if risk_band == "LOW":
+        values.update({RANKING_BETA_RISK_LOW, RANKING_BETA_RISK_STANDARD_OR_LOWER})
+    elif risk_band == "MEDIUM":
+        values.update({RANKING_BETA_RISK_STANDARD, RANKING_BETA_RISK_STANDARD_OR_LOWER})
+    elif risk_band == "HIGH":
+        values.add(RANKING_BETA_RISK_HIGH)
+    return values
+
+
+def _nisa_filter_values(row: dict[str, str]) -> set[str]:
+    return {
+        value
+        for value in RANKING_NISA_ELIGIBILITY_LABELS
+        if value != "all" and _symbol_matches_nisa_eligibility(row, value)
+    }
+
+
+def _complexity_filter_values(row: dict[str, str]) -> set[str]:
+    return {
+        value
+        for value in RANKING_COMPLEXITY_LABELS
+        if value != "all" and _symbol_complexity_allowed(row.get("complexity", "standard"), value)
+    }
+
+
 def symbol_universe_filter_value_counts(
     rows: list[dict[str, str]],
     category: str,
@@ -2356,8 +2403,11 @@ def symbol_universe_filter_value_counts(
     Counts are intentionally based on filter values rather than a single DB column.
     For example, investment themes include ``theme``, ``smai_theme_tags`` and
     ``index_family`` so the UI can surface categories that are present in the DB
-    even when the primary theme column is coarser.
+    even when the primary theme column is coarser. Generic filters also use the
+    same helper semantics as the actual screening condition, e.g. ``standard``
+    complexity means beginner + standard products.
     """
+
     counts: dict[str, int] = {}
     if category == "official_sector":
         allowed_values = set(RANKING_OFFICIAL_SECTOR_LABELS) - {"all"}
@@ -2365,6 +2415,27 @@ def symbol_universe_filter_value_counts(
     elif category == "investment_theme":
         allowed_values = set(RANKING_INVESTMENT_THEME_LABELS) - {"all"}
         value_getter = _symbol_theme_filter_values
+    elif category == "market_cap":
+        allowed_values = set(RANKING_MARKET_CAP_LABELS) - {"all"}
+        value_getter = _single_value_getter("market_cap_tier")
+    elif category == "risk_band":
+        allowed_values = set(RANKING_BETA_RISK_LABELS) - {"all"}
+        value_getter = _risk_filter_values
+    elif category == "nisa_eligibility":
+        allowed_values = set(RANKING_NISA_ELIGIBILITY_LABELS) - {"all"}
+        value_getter = _nisa_filter_values
+    elif category == "benchmark_index":
+        allowed_values = set(RANKING_INDEX_FAMILY_LABELS) - {"all"}
+        value_getter = _single_value_getter("index_family")
+    elif category == "complexity":
+        allowed_values = set(RANKING_COMPLEXITY_LABELS) - {"all"}
+        value_getter = _complexity_filter_values
+    elif category == "dividend_category":
+        allowed_values = set(RANKING_DIVIDEND_LABELS) - {"all"}
+        value_getter = _single_value_getter("dividend_category")
+    elif category == "currency":
+        allowed_values = set(RANKING_CURRENCY_LABELS) - {"all"}
+        value_getter = _single_value_getter("currency")
     else:
         return counts
 

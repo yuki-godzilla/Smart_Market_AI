@@ -3,6 +3,7 @@ from __future__ import annotations
 from tools.backfill_symbol_universe_screening_metadata import (
     _backfill_etf_classification,
     _backfill_official_classification,
+    _backfill_metric_quality_reasons,
     _backfill_reliability_status,
     _backfill_theme_tags,
 )
@@ -108,3 +109,63 @@ def test_screening_backfill_derives_etf_asset_class_from_index_family_without_li
     assert row["asset_class"] == "equity"
     assert row["region_exposure"] == "us"
     assert row["is_hedged"] == "unknown"
+
+
+def test_screening_backfill_does_not_tag_non_bank_financial_bucket_as_bank():
+    row = {
+        "symbol": "8604.T",
+        "name": "野村ホールディングス",
+        "asset_type": "stock",
+        "theme": "financial",
+        "sector": "financial",
+        "aliases": "証券、商品先物取引業 金融（除く銀行）",
+        "dividend_category": "none",
+        "smai_theme_tags": "financial",
+        "theme_confidence": "",
+        "theme_source": "",
+    }
+
+    _backfill_theme_tags(row)
+
+    assert "financial" in row["smai_theme_tags"].split(",")
+    assert "bank" not in row["smai_theme_tags"].split(",")
+
+
+def test_screening_backfill_removes_automotive_false_positive_names():
+    row = {
+        "symbol": "4021.T",
+        "name": "日産化学",
+        "asset_type": "stock",
+        "theme": "materials",
+        "sector": "materials",
+        "aliases": "日産化学 化学 素材・化学",
+        "dividend_category": "none",
+        "smai_theme_tags": "automotive,materials",
+        "theme_confidence": "0.80",
+        "theme_source": "rule_backfill_v1",
+    }
+
+    _backfill_theme_tags(row)
+
+    assert "materials" in row["smai_theme_tags"].split(",")
+    assert "automotive" not in row["smai_theme_tags"].split(",")
+
+
+def test_screening_backfill_adds_asset_type_aware_metric_quality_reasons():
+    row = {
+        "symbol": "ORR",
+        "asset_type": "etf",
+        "expense_ratio_pct": "10.91",
+        "per": "12.0",
+        "pbr": "1.2",
+        "roe_pct": "8.0",
+        "data_quality": "OK",
+        "data_quality_reasons": "",
+    }
+
+    _backfill_metric_quality_reasons(row)
+
+    reasons = set(row["data_quality_reasons"].split(","))
+    assert "extreme_expense_ratio" in reasons
+    assert "fundamental_metrics_not_primary_for_etf" in reasons
+    assert row["data_quality"] == "WARN"

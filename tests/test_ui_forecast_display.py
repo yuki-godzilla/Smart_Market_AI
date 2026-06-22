@@ -4260,6 +4260,51 @@ def test_symbol_universe_filter_value_counts_uses_ui_filter_sources():
     assert theme_counts["high_dividend"] == 1
     assert sector_counts["technology"] == 1
     assert sector_counts["financial"] == 1
+    assert sector_counts["電気機器"] == 1
+    assert sector_counts["銀行業"] == 1
+
+
+def test_filter_symbol_universe_rows_filters_by_raw_official_industry_values():
+    rows = symbol_universe_rows(
+        [
+            {
+                "symbol": "6758.T",
+                "name": "Sony Group",
+                "theme": "technology",
+                "sector": "technology",
+                "tse_33_industry": "電気機器",
+                "topix_17": "電機・精密",
+            },
+            {
+                "symbol": "8306.T",
+                "name": "Mitsubishi UFJ Financial Group",
+                "theme": "bank",
+                "sector": "financial",
+                "tse_33_industry": "銀行業",
+                "topix_17": "銀行",
+            },
+        ]
+    )
+
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="japan",
+            product_type="stock",
+            official_sector="電気機器",
+        )
+    ] == ["6758.T"]
+    assert [
+        row["symbol"]
+        for row in filter_symbol_universe_rows(
+            rows,
+            region="japan",
+            product_type="stock",
+            official_sector="銀行",
+        )
+    ] == ["8306.T"]
+
 
 
 def test_filter_symbol_universe_rows_keeps_sector_out_of_investment_theme_filter():
@@ -4300,9 +4345,12 @@ def test_ranking_filter_labels_show_quantitative_thresholds():
     assert RANKING_DIVIDEND_LABELS["dividend"] == "配当利回り 0%超〜3%未満"
     assert "bond" in RANKING_THEME_LABELS
     assert "industrial" in RANKING_OFFICIAL_SECTOR_LABELS
+    assert "電気機器" in RANKING_OFFICIAL_SECTOR_LABELS
+    assert "Information Technology" in RANKING_OFFICIAL_SECTOR_LABELS
     assert "semiconductor" in RANKING_INVESTMENT_THEME_LABELS
     assert "balanced" in RANKING_INVESTMENT_THEME_LABELS
     assert "bank" in RANKING_INVESTMENT_THEME_LABELS
+    assert "sp500" in RANKING_INVESTMENT_THEME_LABELS
     assert "insurance" in RANKING_INVESTMENT_THEME_LABELS
     assert "dividend" not in RANKING_THEME_LABELS
     assert "$200B/$10B/$2B/$300M" in RANKING_FILTER_HELP_TEXTS["market_cap"]
@@ -4645,9 +4693,10 @@ def test_ranking_detail_filters_change_by_region_and_product():
     assert "expense_ratio" in etf
     assert "per" not in etf
     assert "pbr" not in etf
-    assert set(japan_stock) < set(all_product)
-    assert set(etf) < set(all_product)
-    assert mutual_fund == []
+    assert {"official_sector", "investment_theme", "market_cap", "risk_band"} <= set(all_product)
+    assert {"benchmark_index", "expense_ratio", "complexity"} <= set(all_product)
+    assert {"per", "pbr", "roe"}.isdisjoint(all_product)
+    assert mutual_fund == ["expense_ratio", "nisa_eligibility", "complexity"]
     assert ranking_weight_preset_for_purpose("stability") == "stability_profile"
     assert "moving_average_signal" in RANKING_INVESTMENT_STYLE_METRICS["trend"]
 
@@ -10542,3 +10591,62 @@ def _bar(ts: str, *, close: int = 100, symbol: str = "AAPL") -> Bar:
         interval="1d",
         provider="test",
     )
+
+
+def test_ranking_detail_filters_switch_by_product_type():
+    stock_filters = set(ranking_detail_filters_for_category("japan", "stock"))
+    etf_filters = set(ranking_detail_filters_for_category("all", "etf"))
+    mixed_filters = set(ranking_detail_filters_for_category("all", "all"))
+
+    assert {"per", "pbr", "roe", "market_cap", "official_sector"} <= stock_filters
+    assert {"benchmark_index", "expense_ratio", "complexity", "investment_theme"} <= etf_filters
+    assert {"per", "pbr", "roe", "official_sector"}.isdisjoint(etf_filters)
+    assert {"per", "pbr", "roe"}.isdisjoint(mixed_filters)
+
+
+def test_symbol_universe_filter_value_counts_supports_detail_conditions():
+    rows = symbol_universe_rows(
+        [
+            {
+                "symbol": "7203.T",
+                "name": "Toyota Motor",
+                "market": "jp",
+                "asset_type": "stock",
+                "theme": "automotive",
+                "sector": "consumer",
+                "market_cap_tier": "large",
+                "risk_band": "MEDIUM",
+                "nisa_category": "growth",
+                "nisa_growth_eligible": "true",
+                "nisa_tsumitate_eligible": "false",
+                "dividend_category": "dividend",
+                "currency": "JPY",
+                "complexity": "standard",
+            },
+            {
+                "symbol": "SPY",
+                "name": "SPDR S&P 500 ETF",
+                "market": "us",
+                "asset_type": "etf",
+                "theme": "index",
+                "sector": "index",
+                "index_family": "sp500",
+                "risk_band": "LOW",
+                "nisa_category": "growth",
+                "nisa_growth_eligible": "true",
+                "nisa_tsumitate_eligible": "false",
+                "dividend_category": "dividend",
+                "currency": "USD",
+                "complexity": "beginner",
+            },
+        ]
+    )
+
+    assert symbol_universe_filter_value_counts(rows, "market_cap")["large"] == 1
+    assert symbol_universe_filter_value_counts(rows, "risk_band")["standard_or_lower"] == 2
+    assert symbol_universe_filter_value_counts(rows, "nisa_eligibility")["eligible"] == 2
+    assert symbol_universe_filter_value_counts(rows, "benchmark_index")["sp500"] == 1
+    assert symbol_universe_filter_value_counts(rows, "complexity")["standard"] == 2
+    assert symbol_universe_filter_value_counts(rows, "dividend_category")["dividend"] == 2
+    assert symbol_universe_filter_value_counts(rows, "currency")["JPY"] == 1
+    assert symbol_universe_filter_value_counts(rows, "currency")["USD"] == 1

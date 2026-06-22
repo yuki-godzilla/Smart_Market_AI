@@ -1,22 +1,23 @@
 {
-  "added_columns": [],
+  "added_columns": [
+    "data_quality_reasons"
+  ],
   "changed_cells_by_column": {
-    "sector_gics": 3662,
-    "smai_theme_tags": 10,
-    "topix_17": 3746,
-    "tse_33_industry": 3746
+    "data_quality": 9,
+    "data_quality_reasons": 718,
+    "smai_theme_tags": 92
   },
   "csv": "data/marketdata/symbol_universe.csv",
   "dry_run": false,
   "etf_classification_rows": 0,
-  "metric_provenance_rows": 0,
-  "official_classification_rows": 7408,
+  "metric_provenance_rows": 9,
+  "official_classification_rows": 0,
   "official_classification_source": "data/marketdata/symbol_universe_sources/jpx_listed_stock_20260520.csv",
   "operation": "symbol_universe_screening_metadata_backfill",
   "reliability_status_rows": 0,
-  "theme_tagged_rows": 10,
+  "theme_tagged_rows": 92,
   "total_rows": 9197,
-  "updated_at": "2026-06-22T00:00:00+09:00",
+  "updated_at": "2026-06-22T23:00:00+09:00",
   "validation_after": {
     "errors": 0,
     "total": 0,

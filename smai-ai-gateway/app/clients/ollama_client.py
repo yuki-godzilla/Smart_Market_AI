@@ -2,12 +2,18 @@ from __future__ import annotations
 
 import re
 from time import perf_counter
-from typing import Sequence
+from typing import Sequence, TypedDict
 
 import httpx
 
 from app.config import GatewaySettings
 from app.schemas.common import LlmMessage, LlmProviderResult
+
+
+class OllamaModelDetails(TypedDict):
+    name: str
+    modified_at: str | None
+    size: int | None
 
 
 class OllamaClientError(RuntimeError):
@@ -106,7 +112,7 @@ class OllamaClient:
     def list_models(self) -> list[str]:
         return sorted(item["name"] for item in self.list_model_details())
 
-    def list_model_details(self) -> list[dict[str, object]]:
+    def list_model_details(self) -> list[OllamaModelDetails]:
         try:
             with httpx.Client(timeout=self.settings.REQUEST_TIMEOUT_SECONDS) as client:
                 response = client.get(f"{self.settings.OLLAMA_BASE_URL.rstrip('/')}/api/tags")
@@ -127,15 +133,23 @@ class OllamaClient:
                 code="invalid_provider_response",
             ) from exc
         models = data.get("models", []) if isinstance(data, dict) else []
-        return [
-            {
-                "name": str(item.get("name", "")).strip(),
-                "modified_at": item.get("modified_at"),
-                "size": item.get("size") if isinstance(item.get("size"), int) else None,
-            }
-            for item in models
-            if isinstance(item, dict) and str(item.get("name", "")).strip()
-        ]
+        model_details: list[OllamaModelDetails] = []
+        for item in models:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name", "")).strip()
+            if not name:
+                continue
+            modified_at_raw = item.get("modified_at")
+            size_raw = item.get("size")
+            model_details.append(
+                {
+                    "name": name,
+                    "modified_at": str(modified_at_raw) if modified_at_raw is not None else None,
+                    "size": size_raw if isinstance(size_raw, int) else None,
+                }
+            )
+        return model_details
 
     def _http_status_error(
         self, response: httpx.Response, selected_model: str

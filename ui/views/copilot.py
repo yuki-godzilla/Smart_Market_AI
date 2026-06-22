@@ -21,6 +21,7 @@ from backend.assistant import (
     AssistantActionExecutor,
     AssistantActionResult,
     AssistantGatewayDiagnostic,
+    AssistantGatewayTaskType,
     AssistantGuidedWorkflow,
     AssistantLoadingHeadlines,
     AssistantMessage,
@@ -833,7 +834,7 @@ def _runtime_config_from_warmup_status(
 
 def _apply_copilot_warmup_auto_transition(
     status: AssistantWarmupStatus,
-    state: MutableMapping[str, object],
+    state: MutableMapping[Any, Any],
 ) -> bool:
     if status.state not in {"ready", "recovered", "degraded", "fallback", "failed", "timeout"}:
         return False
@@ -3406,7 +3407,7 @@ def _handle_copilot_submit(
             () if _is_llm_micro_intent(intent) else copilot_history_messages(history_for_request)
         ),
         referenced_context_ids=[] if _is_llm_micro_intent(intent) else [context.context_id],
-        gateway_task_type=intent,
+        gateway_task_type=_gateway_task_type_for_copilot_intent(intent),
         settings=copilot_settings_from_gateway_runtime(runtime_config),
     )
     if _readiness_status_from_assistant_response(response):
@@ -5713,6 +5714,22 @@ def _normalize_intent(value: object) -> CopilotIntent:
         "broad_discovery",
     }
     return text if text in valid else "free_chat"  # type: ignore[return-value]
+
+
+def _gateway_task_type_for_copilot_intent(intent: CopilotIntent) -> AssistantGatewayTaskType:
+    mapping: dict[CopilotIntent, AssistantGatewayTaskType] = {
+        "app_help": "app_help",
+        "identity": "identity",
+        "capability_help": "capability_help",
+        "stock_summary": "stock_summary",
+        "forecast_risk_compare": "forecast_risk_compare",
+        "news_materials": "news_materials",
+        "decision_report_draft": "decision_report_draft",
+        "free_chat": "free_chat",
+        "concept_explanation": "free_chat",
+        "broad_discovery": "free_chat",
+    }
+    return mapping[intent]
 
 
 def _is_llm_micro_intent(intent: CopilotIntent) -> bool:

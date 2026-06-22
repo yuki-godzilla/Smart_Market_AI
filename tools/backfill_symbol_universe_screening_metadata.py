@@ -8,7 +8,7 @@ import sys
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence, TypedDict, cast
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CSV_PATH = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe.csv"
@@ -206,6 +206,15 @@ ONE_TO_ONE_GICS_SECTOR_LABELS = {
 }
 
 
+class BackfillStats(TypedDict):
+    changed_cells_by_column: dict[str, int]
+    official_classification_rows: int
+    theme_tagged_rows: int
+    reliability_status_rows: int
+    etf_classification_rows: int
+    metric_provenance_rows: int
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -239,7 +248,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         proposed_rows,
         jpx_official_classifications=jpx_official_classifications,
     )
-    validation_after = validate_symbol_universe_rows(proposed_rows, fieldnames=proposed_fieldnames)
+    validation_after = validate_symbol_universe_rows(
+        cast(Sequence[dict[str | None, Any]], proposed_rows),
+        fieldnames=proposed_fieldnames,
+    )
     validation_errors = [issue for issue in validation_after if issue.get("severity") == "error"]
     manifest = {
         "operation": "symbol_universe_screening_metadata_backfill",
@@ -312,7 +324,7 @@ def _backfill_rows(
     rows: Sequence[dict[str, str]],
     *,
     jpx_official_classifications: dict[str, dict[str, str]] | None = None,
-) -> dict[str, object]:
+) -> BackfillStats:
     changed_cells_by_column: defaultdict[str, int] = defaultdict(int)
     official_classification_rows = 0
     theme_tagged_rows = 0
@@ -358,7 +370,7 @@ def _backfill_rows(
             metric_provenance_rows += 1
 
     return {
-        "changed_cells_by_column": changed_cells_by_column,
+        "changed_cells_by_column": dict(changed_cells_by_column),
         "official_classification_rows": official_classification_rows,
         "theme_tagged_rows": theme_tagged_rows,
         "reliability_status_rows": reliability_status_rows,

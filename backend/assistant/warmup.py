@@ -143,10 +143,8 @@ class AssistantWarmupManager:
                 diagnostic = probe()
             except TimeoutError:
                 last_failure = "timeout"
-                diagnostic = None
             except Exception:
                 last_failure = "gateway_unreachable"
-                diagnostic = None
             else:
                 last_diagnostic = diagnostic
                 state, step, message = _status_from_diagnostic(diagnostic)

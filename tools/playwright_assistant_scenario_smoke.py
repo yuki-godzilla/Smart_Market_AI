@@ -154,8 +154,10 @@ def _assert_scenarios(page: Page, scenarios: list[dict[str, object]]) -> None:
             action_cards = card.locator(".action-card")
             assert action_cards.count() == (1 if scenario["action_card_level"] == 2 else 0)
         text = card.inner_text()
-        for forbidden in scenario.get("forbidden", []):
-            assert str(forbidden) not in text
+        forbidden_items = scenario.get("forbidden", [])
+        if isinstance(forbidden_items, list):
+            for forbidden in forbidden_items:
+                assert str(forbidden) not in text
     page.locator('[data-state="ready"]').get_by_text("準備完了", exact=True).wait_for()
     assert warming.is_hidden()
     assert draft.input_value() == "入力途中のテキスト"

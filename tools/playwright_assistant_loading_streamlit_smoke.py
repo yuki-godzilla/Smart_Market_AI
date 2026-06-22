@@ -12,10 +12,10 @@ import time
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal, cast
 
 import yaml
-from playwright.sync_api import Page, sync_playwright
+from playwright.sync_api import Browser, Locator, Page, sync_playwright
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "outputs/work/playwright_assistant_loading_streamlit"
@@ -23,7 +23,7 @@ DEFAULT_OUTPUT_DIR = REPO_ROOT / "outputs/work/playwright_assistant_loading_stre
 
 class _GatewayHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
-        server = self.server
+        server = cast(Any, self.server)
         time.sleep(float(getattr(server, "response_delay", 0.0)))
         if self.path != "/models":
             self.send_error(404)
@@ -115,7 +115,7 @@ def main() -> None:
 
 def _run_scenario(
     *,
-    browser,
+    browser: Browser,
     output_dir: Path,
     mode: Literal["ready", "failed", "recover", "no_cache"],
     response_delay: float,
@@ -286,7 +286,7 @@ def _run_scenario(
         gateway.server_close()
 
 
-def _assert_composer_fixed_to_viewport(page: Page, composer) -> None:
+def _assert_composer_fixed_to_viewport(page: Page, composer: Locator) -> None:
     box = composer.bounding_box()
     assert box is not None
     viewport = page.viewport_size

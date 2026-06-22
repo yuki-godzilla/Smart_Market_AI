@@ -92,7 +92,14 @@ def models() -> ModelsResponse:
         default_profile=settings.DEFAULT_LLM_PROFILE,
         default_model=configured_model,
         installed_models=installed_models,
-        models=[ModelInfo(**item) for item in model_details],
+        models=[
+            ModelInfo(
+                name=item["name"],
+                modified_at=item["modified_at"],
+                size=item["size"],
+            )
+            for item in model_details
+        ],
         configured_model_installed=installed,
         install_hint=None if installed else f"Please run: ollama pull {configured_model}",
     )

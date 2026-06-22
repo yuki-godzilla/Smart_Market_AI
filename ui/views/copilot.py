@@ -16,6 +16,7 @@ from uuid import uuid4
 import httpx
 import streamlit as st
 import streamlit.components.v1 as components
+from zoneinfo import ZoneInfo
 
 from backend.assistant import (
     AssistantActionExecutor,
@@ -119,6 +120,7 @@ COPILOT_RUNTIME_STATUS_STATE_KEY = "smai_copilot_runtime_status"
 COPILOT_WARMUP_AUTO_TRANSITION_STATE_KEY = "smai_copilot_warmup_auto_transition"
 COPILOT_WARMUP_READY_NOTICE_STATE_KEY = "smai_copilot_warmup_ready_notice"
 COPILOT_CHAT_LAST_SCROLL_COUNT_STATE_KEY = "smai_copilot_chat_last_scroll_count"
+COPILOT_DISPLAY_TIMEZONE = ZoneInfo("Asia/Tokyo")
 COPILOT_PENDING_DECISION_REPORT_DRAFT_STATE_KEY = "pending_decision_report_draft"
 COPILOT_PENDING_ACTION_CONFIRM_STATE_KEY = "smai_copilot_pending_action_confirm"
 COPILOT_ACTION_AUDIT_STATE_KEY = "smai_copilot_action_audit"
@@ -1623,7 +1625,9 @@ def copilot_loading_panel_html(
     headline_html = ""
     if headlines is not None:
         freshness = "前回取得"
-        updated = headlines.updated_at.astimezone().strftime("%Y-%m-%d %H:%M")
+        updated = headlines.updated_at.astimezone(COPILOT_DISPLAY_TIMEZONE).strftime(
+            "%Y-%m-%d %H:%M"
+        )
         stale_note = (
             "<small>※前回取得したヘッドラインを表示しています</small>" if headlines.stale else ""
         )

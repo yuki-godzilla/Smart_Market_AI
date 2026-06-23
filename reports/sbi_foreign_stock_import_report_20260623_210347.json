@@ -1,0 +1,172 @@
+{
+  "as_of": "2026-06-23",
+  "duplicate_symbols": [],
+  "generated_at": "2026-06-23T21:03:50.301548+09:00",
+  "sources": {
+    "sbi_hk_stock": {
+      "by_asset_type": {
+        "etf": 23,
+        "reit": 5,
+        "stock": 1234
+      },
+      "by_market": {
+        "GEM": 74,
+        "HKEX": 1,
+        "メインボード": 1187
+      },
+      "rows": 1262,
+      "sample_symbols": [
+        "00001.HK",
+        "00002.HK",
+        "00003.HK",
+        "00004.HK",
+        "00005.HK",
+        "00006.HK",
+        "00007.HK",
+        "00008.HK",
+        "00010.HK",
+        "00012.HK"
+      ],
+      "url": "https://search.sbisec.co.jp/v2/popwin/info/stock/pop6040_hk_list.html"
+    },
+    "sbi_indonesia_stock": {
+      "by_asset_type": {
+        "stock": 74
+      },
+      "by_market": {
+        "IDX": 74
+      },
+      "rows": 74,
+      "sample_symbols": [
+        "AALI.JK",
+        "ACES.JK",
+        "ADRO.JK",
+        "AKRA.JK",
+        "ALTO.JK",
+        "ANTM.JK",
+        "ASII.JK",
+        "ASRI.JK",
+        "AUTO.JK",
+        "BBCA.JK"
+      ],
+      "url": "https://search.sbisec.co.jp/v2/popwin/info/stock/pop6040_id_list.html"
+    },
+    "sbi_korea_stock": {
+      "by_asset_type": {
+        "etf": 2,
+        "stock": 79
+      },
+      "by_market": {
+        "KOSDAQ": 11,
+        "KOSPI": 66,
+        "KSE": 4
+      },
+      "rows": 81,
+      "sample_symbols": [
+        "000270.KS",
+        "000660.KS",
+        "000720.KS",
+        "000810.KS",
+        "001040.KS",
+        "002790.KS",
+        "003230.KS",
+        "003490.KS",
+        "003540.KS",
+        "003550.KS"
+      ],
+      "url": "https://search.sbisec.co.jp/v2/popwin/info/stock/pop6040_kr_list.html"
+    },
+    "sbi_malaysia_stock": {
+      "by_asset_type": {
+        "stock": 43
+      },
+      "by_market": {
+        "メインボード": 43
+      },
+      "rows": 43,
+      "sample_symbols": [
+        "AIRX.KL",
+        "AMMB.KL",
+        "AXIA.KL",
+        "BATO.KL",
+        "BUAB.KL",
+        "CAPI.KL",
+        "CIMB.KL",
+        "DSOM.KL",
+        "GAMU.KL",
+        "GENM.KL"
+      ],
+      "url": "https://search.sbisec.co.jp/v2/popwin/info/stock/pop6040_my_list.html"
+    },
+    "sbi_singapore_stock": {
+      "by_asset_type": {
+        "etf": 1,
+        "stock": 35
+      },
+      "by_market": {
+        "メインボード": 36
+      },
+      "rows": 36,
+      "sample_symbols": [
+        "CAPN.SI",
+        "CMDG.SI",
+        "CTDM.SI",
+        "DBSM.SI",
+        "DELF.SI",
+        "FRNM.SI",
+        "FRPL.SI",
+        "GAGR.SI",
+        "OLAG.SI",
+        "GENS.SI"
+      ],
+      "url": "https://search.sbisec.co.jp/v2/popwin/info/stock/pop6040_sg_list.html"
+    },
+    "sbi_thailand_stock": {
+      "by_asset_type": {
+        "stock": 77
+      },
+      "by_market": {
+        "SET": 77
+      },
+      "rows": 77,
+      "sample_symbols": [
+        "AAV.BK",
+        "ADVANC.BK",
+        "AOT.BK",
+        "AS.BK",
+        "BA.BK",
+        "BANPU.BK",
+        "BAY.BK",
+        "BBL.BK",
+        "BCH.BK",
+        "BCP.BK"
+      ],
+      "url": "https://search.sbisec.co.jp/v2/popwin/info/stock/pop6040_th_list.html"
+    },
+    "sbi_vietnam_stock": {
+      "by_asset_type": {
+        "stock": 278
+      },
+      "by_market": {
+        "HNX": 88,
+        "HOSE": 190
+      },
+      "rows": 278,
+      "sample_symbols": [
+        "AAA.VN",
+        "AAM.VN",
+        "ABT.VN",
+        "ACB.VN",
+        "ACL.VN",
+        "ADC.VN",
+        "AGR.VN",
+        "AME.VN",
+        "AMV.VN",
+        "ANV.VN"
+      ],
+      "url": "https://search.sbisec.co.jp/v2/popwin/info/stock/pop6040_vn_list.html"
+    }
+  },
+  "total_rows": 1851,
+  "validation_errors": []
+}

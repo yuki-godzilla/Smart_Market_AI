@@ -32,6 +32,8 @@ YAHOO_DOWNLOAD_MAX_ATTEMPTS = 2
 YAHOO_DOWNLOAD_EMPTY_RETRY_DELAY_SECONDS = 0.25
 YAHOO_MAX_REASONABLE_DIVIDEND_YIELD_RATIO = Decimal("0.20")
 YAHOO_PERCENT_STYLE_DIVIDEND_YIELD_THRESHOLD = Decimal("0.20")
+YAHOO_OHLCV_COLUMNS = ("Open", "High", "Low", "Close", "Volume")
+YAHOO_CLOSE_COLUMNS = ("Close",)
 _YAHOO_SESSION: Any | None = None
 
 
@@ -87,21 +89,22 @@ class YahooMarketDataProviderAdapter:
             if getattr(symbol_frame, "empty", True):
                 continue
             _validate_history_columns(symbol_frame, operation=operation, symbol=raw_symbol)
+            symbol_frame = _drop_invalid_numeric_rows(
+                symbol_frame,
+                required_columns=YAHOO_OHLCV_COLUMNS,
+            )
+            if getattr(symbol_frame, "empty", True):
+                continue
             symbol = _normalize_symbol(raw_symbol)
             for ts, row in symbol_frame.iterrows():
-                bars.append(
-                    Bar(
-                        symbol=symbol,
-                        ts=_normalize_timestamp(ts),
-                        open=_decimal_cell(row, "Open"),
-                        high=_decimal_cell(row, "High"),
-                        low=_decimal_cell(row, "Low"),
-                        close=_decimal_cell(row, "Close"),
-                        volume=_decimal_cell(row, "Volume"),
-                        interval=interval,
-                        provider="yahoo",
-                    )
+                bar = _bar_from_history_row(
+                    row,
+                    ts=ts,
+                    symbol=symbol,
+                    interval=interval,
                 )
+                if bar is not None:
+                    bars.append(bar)
         return bars
 
     async def fetch_quotes(self, symbols: list[str], at: datetime | None = None) -> list[Quote]:
@@ -235,6 +238,16 @@ class YahooMarketDataProviderAdapter:
         if end is not None:
             kwargs["end"] = _exclusive_end_arg(end, interval)
 
+        request_context = {
+            "operation": operation,
+            "symbol": raw_symbol,
+            "interval": interval,
+            "start": start.isoformat() if start else None,
+            "end": end.isoformat() if end else None,
+            "period": period,
+        }
+        required_columns = _required_history_numeric_columns(operation)
+
         try:
             frame = await asyncio.to_thread(_call_yfinance_silently, ticker.history, **kwargs)
         except Exception as exc:
@@ -246,16 +259,21 @@ class YahooMarketDataProviderAdapter:
                     end=end,
                 )
                 if retry_frame is not None:
-                    return retry_frame
+                    return _normalize_history_frame_or_raise(
+                        retry_frame,
+                        operation=operation,
+                        symbol=raw_symbol,
+                        required_columns=required_columns,
+                        provider_details=self._provider_details(
+                            **request_context,
+                            retry_reason="no_price_data",
+                            error=str(exc),
+                        ),
+                    )
                 raise ProviderUnavailableError(
                     "Yahoo market-data provider returned no data",
                     details=self._provider_details(
-                        operation=operation,
-                        symbol=raw_symbol,
-                        interval=interval,
-                        start=start.isoformat() if start else None,
-                        end=end.isoformat() if end else None,
-                        period=period,
+                        **request_context,
                         retry_reason="no_price_data",
                         error=str(exc),
                     ),
@@ -268,16 +286,18 @@ class YahooMarketDataProviderAdapter:
                     kwargs,
                 )
                 if retry_frame is not None:
-                    return retry_frame
-            request_details = {
-                "operation": operation,
-                "symbol": raw_symbol,
-                "interval": interval,
-                "start": start.isoformat() if start else None,
-                "end": end.isoformat() if end else None,
-                "period": period,
-                "error": str(exc),
-            }
+                    return _normalize_history_frame_or_raise(
+                        retry_frame,
+                        operation=operation,
+                        symbol=raw_symbol,
+                        required_columns=required_columns,
+                        provider_details=self._provider_details(
+                            **request_context,
+                            retry_reason=retry_reason,
+                            error=str(exc),
+                        ),
+                    )
+            request_details = {**request_context, "error": str(exc)}
             if retry_reason is not None:
                 request_details["retry_reason"] = retry_reason
             raise ProviderUnavailableError(
@@ -293,20 +313,27 @@ class YahooMarketDataProviderAdapter:
                 end=end,
             )
             if retry_frame is not None:
-                return retry_frame
-            raise ProviderUnavailableError(
-                "Yahoo market-data provider returned no data",
-                details=self._provider_details(
+                return _normalize_history_frame_or_raise(
+                    retry_frame,
                     operation=operation,
                     symbol=raw_symbol,
-                    interval=interval,
-                    start=start.isoformat() if start else None,
-                    end=end.isoformat() if end else None,
-                    period=period,
-                ),
+                    required_columns=required_columns,
+                    provider_details=self._provider_details(
+                        **request_context,
+                        retry_reason="empty_history",
+                    ),
+                )
+            raise ProviderUnavailableError(
+                "Yahoo market-data provider returned no data",
+                details=self._provider_details(**request_context),
             )
-        _validate_history_columns(frame, operation=operation, symbol=raw_symbol)
-        return frame
+        return _normalize_history_frame_or_raise(
+            frame,
+            operation=operation,
+            symbol=raw_symbol,
+            required_columns=required_columns,
+            provider_details=self._provider_details(**request_context),
+        )
 
     async def _retry_history_after_transient_request_error(
         self,
@@ -576,6 +603,185 @@ def _normalize_timestamp(value: object) -> datetime:
     return value.astimezone(UTC)
 
 
+def _required_history_numeric_columns(operation: str) -> tuple[str, ...]:
+    if operation in {"fetch_quotes", "get_fx_rates"}:
+        return YAHOO_CLOSE_COLUMNS
+    return YAHOO_OHLCV_COLUMNS
+
+
+def _normalize_history_frame_or_raise(
+    frame: Any,
+    *,
+    operation: str,
+    symbol: str,
+    required_columns: tuple[str, ...],
+    provider_details: dict[str, object],
+) -> Any:
+    _validate_history_columns(
+        frame,
+        operation=operation,
+        symbol=symbol,
+        required_columns=required_columns,
+    )
+    clean_frame = _drop_invalid_numeric_rows(frame, required_columns=required_columns)
+    if not getattr(clean_frame, "empty", True):
+        return clean_frame
+
+    details = dict(provider_details)
+    request = details.get("request")
+    if isinstance(request, dict):
+        request = dict(request)
+        request["invalid_numeric_rows"] = "all"
+        request["required_numeric_columns"] = list(required_columns)
+        details["request"] = request
+    else:
+        details["invalid_numeric_rows"] = "all"
+        details["required_numeric_columns"] = list(required_columns)
+    raise ProviderUnavailableError(
+        "Yahoo market-data provider returned no valid numeric data",
+        details=details,
+    )
+
+
+def _drop_invalid_numeric_rows(
+    frame: Any,
+    *,
+    required_columns: tuple[str, ...],
+) -> Any:
+    if getattr(frame, "empty", True):
+        return frame
+    try:
+        clean_frame = frame.dropna(how="all")
+    except Exception:
+        clean_frame = frame
+    if getattr(clean_frame, "empty", True):
+        return clean_frame
+
+    valid_mask: Any | None = None
+    for column in required_columns:
+        column_mask = _valid_numeric_column_mask(clean_frame, column)
+        if column_mask is None:
+            return clean_frame.iloc[0:0]
+        valid_mask = column_mask if valid_mask is None else valid_mask & column_mask
+
+    if valid_mask is None:
+        return clean_frame
+    try:
+        return clean_frame.loc[valid_mask]
+    except Exception:
+        return clean_frame
+
+
+def _valid_numeric_column_mask(frame: Any, column: str) -> Any | None:
+    try:
+        column_values = frame[column]
+    except Exception:
+        return None
+
+    try:
+        import pandas as pd  # type: ignore[import-not-found]
+
+        numeric_values = pd.to_numeric(column_values, errors="coerce")
+        valid_values = numeric_values.notna()
+        if hasattr(valid_values, "columns"):
+            return valid_values.any(axis=1)
+        return valid_values
+    except Exception:
+        pass
+
+    try:
+        column_mask = column_values.map(_is_valid_numeric_value)
+    except AttributeError:
+        try:
+            column_mask = column_values.apply(_is_valid_numeric_value)
+        except AttributeError:
+            try:
+                return _is_valid_numeric_value(column_values)
+            except Exception:
+                return None
+    if hasattr(column_mask, "columns"):
+        try:
+            return column_mask.any(axis=1)
+        except Exception:
+            return None
+    return column_mask
+
+
+def _is_valid_numeric_value(value: object) -> bool:
+    try:
+        _decimal_numeric_value(value)
+    except SchemaMismatchError:
+        return False
+    return True
+
+
+def _decimal_numeric_value(value: object) -> Decimal:
+    if value is None:
+        raise SchemaMismatchError(
+            "Yahoo market-data response contains an empty numeric value"
+        )
+    text = str(value).strip()
+    if text.lower() in {
+        "",
+        "nan",
+        "nat",
+        "none",
+        "null",
+        "<na>",
+        "inf",
+        "+inf",
+        "-inf",
+        "infinity",
+        "+infinity",
+        "-infinity",
+    }:
+        raise SchemaMismatchError(
+            "Yahoo market-data response contains an empty numeric value"
+        )
+    try:
+        decimal_value = Decimal(text)
+    except (InvalidOperation, ValueError) as exc:
+        raise SchemaMismatchError(
+            "Yahoo market-data response contains an invalid numeric value"
+        ) from exc
+    if not decimal_value.is_finite():
+        raise SchemaMismatchError(
+            "Yahoo market-data response contains a non-finite numeric value"
+        )
+    return decimal_value
+
+
+def _bar_from_history_row(
+    row: Any,
+    *,
+    ts: object,
+    symbol: Symbol,
+    interval: Interval,
+) -> Bar | None:
+    """Build one normalized bar, skipping malformed Yahoo rows defensively.
+
+    Yahoo/yfinance occasionally returns placeholder rows with a partial OHLCV payload
+    for Japan tickers around the current trading day.  The frame-level cleaner should
+    remove those rows first, but this final guard prevents one dirty row from aborting
+    the whole cockpit/ranking request.
+    """
+
+    try:
+        return Bar(
+            symbol=symbol,
+            ts=_normalize_timestamp(ts),
+            open=_decimal_cell(row, "Open"),
+            high=_decimal_cell(row, "High"),
+            low=_decimal_cell(row, "Low"),
+            close=_decimal_cell(row, "Close"),
+            volume=_decimal_cell(row, "Volume"),
+            interval=interval,
+            provider="yahoo",
+        )
+    except SchemaMismatchError:
+        return None
+
+
 def _decimal_cell(row: Any, column: str) -> Decimal:
     try:
         value = row[column]
@@ -585,12 +791,45 @@ def _decimal_cell(row: Any, column: str) -> Decimal:
             details={"column": column},
         ) from exc
 
-    if value is None or str(value) == "nan":
-        raise SchemaMismatchError(
-            "Yahoo market-data response contains an empty numeric value",
-            details={"column": column},
-        )
-    return Decimal(str(value))
+    decimal_value = _first_valid_decimal_value(value)
+    if decimal_value is not None:
+        return decimal_value
+
+    raise SchemaMismatchError(
+        "Yahoo market-data response contains an empty numeric value",
+        details={"column": column, "value": _safe_numeric_debug_value(value)},
+    )
+
+
+def _first_valid_decimal_value(value: object) -> Decimal | None:
+    try:
+        return _decimal_numeric_value(value)
+    except SchemaMismatchError:
+        pass
+
+    # Duplicate columns or a not-yet-flattened MultiIndex row can make row[column]
+    # return a pandas Series.  Use the first finite numeric cell instead of treating
+    # the whole Series string representation as invalid.
+    if hasattr(value, "tolist"):
+        try:
+            values = value.tolist()
+        except Exception:
+            values = []
+        if not isinstance(values, list):
+            values = [values]
+        for item in values:
+            try:
+                return _decimal_numeric_value(item)
+            except SchemaMismatchError:
+                continue
+    return None
+
+
+def _safe_numeric_debug_value(value: object) -> str:
+    text = str(value)
+    if len(text) > 120:
+        return text[:117] + "..."
+    return text
 
 
 def _ticker_info(ticker: Any) -> dict[str, object]:
@@ -656,23 +895,47 @@ def _market_cap_jpy(info: dict[str, object], raw_symbol: str) -> Decimal | None:
 
 
 def _last_row(frame: Any) -> tuple[object, Any]:
-    return frame.index[-1], frame.iloc[-1]
+    clean_frame = _drop_invalid_numeric_rows(frame, required_columns=YAHOO_CLOSE_COLUMNS)
+    if getattr(clean_frame, "empty", True):
+        raise SchemaMismatchError(
+            "Yahoo market-data response contains no valid close rows",
+            details={"required_columns": list(YAHOO_CLOSE_COLUMNS)},
+        )
+    return clean_frame.index[-1], clean_frame.iloc[-1]
 
 
 def _download_symbol_frame(frame: Any, raw_symbol: str) -> Any:
     columns = getattr(frame, "columns", [])
     if not hasattr(columns, "nlevels") or columns.nlevels < 2:
         return frame
+
+    # yfinance can return MultiIndex columns as either
+    #   (ticker, field) ... older/group_by="ticker" shape
+    # or
+    #   (field, ticker) ... newer multi_level_index shape.
+    # Support both so domestic tickers such as 7203.T are not converted into an
+    # empty/partially invalid frame before OHLCV normalization.
     try:
-        return frame[raw_symbol].dropna(how="all")
+        if raw_symbol in columns.get_level_values(0):
+            return frame[raw_symbol].dropna(how="all")
     except Exception:
-        return frame.iloc[0:0]
+        pass
+    try:
+        if raw_symbol in columns.get_level_values(columns.nlevels - 1):
+            return frame.xs(raw_symbol, axis=1, level=columns.nlevels - 1).dropna(how="all")
+    except Exception:
+        pass
+    return frame.iloc[0:0]
 
 
-def _validate_history_columns(frame: Any, *, operation: str, symbol: str) -> None:
-    missing = [
-        column for column in ["Open", "High", "Low", "Close", "Volume"] if column not in frame
-    ]
+def _validate_history_columns(
+    frame: Any,
+    *,
+    operation: str,
+    symbol: str,
+    required_columns: tuple[str, ...] = YAHOO_OHLCV_COLUMNS,
+) -> None:
+    missing = [column for column in required_columns if column not in frame]
     if missing:
         raise SchemaMismatchError(
             "Yahoo market-data response is missing required columns",

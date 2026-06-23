@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 from backend.core.config import DataAccessConfig
-from backend.core.errors import DataSourceError, ProviderUnavailableError
+from backend.core.errors import DataSourceError, ProviderUnavailableError, SchemaMismatchError
 from backend.marketdata import MarketDataProviderAdapter, create_market_data_provider_adapter
 from backend.marketdata.providers import yahoo
 
@@ -247,6 +247,185 @@ def test_yahoo_adapter_uses_ticker_history_for_single_ohlcv(monkeypatch):
     assert [bar.close for bar in bars] == [Decimal("170.5"), Decimal("175.25")]
 
 
+
+def test_yahoo_adapter_drops_trailing_empty_japan_history_row(monkeypatch):
+    history_frame = pd.DataFrame(
+        {
+            "Open": [Decimal("2890"), Decimal("2900"), float("nan")],
+            "High": [Decimal("2910"), Decimal("2920"), float("nan")],
+            "Low": [Decimal("2880"), Decimal("2895"), float("nan")],
+            "Close": [Decimal("2905"), Decimal("2915"), float("nan")],
+            "Volume": [Decimal("21000000"), Decimal("22000000"), float("nan")],
+        },
+        index=pd.to_datetime(
+            [
+                "2026-06-22T00:00:00+09:00",
+                "2026-06-23T00:00:00+09:00",
+                "2026-06-24T00:00:00+09:00",
+            ]
+        ),
+    )
+    fake_yfinance = _FakeYFinance(history_frame=history_frame)
+    monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
+    monkeypatch.setattr(yahoo, "shared_yfinance_session", lambda: "shared-session")
+    adapter = create_market_data_provider_adapter(
+        DataAccessConfig(provider="yahoo", allow_external_providers=True)
+    )
+
+    bars = asyncio.run(
+        adapter.fetch_ohlcv(
+            ["7203.T"],
+            start=datetime(2026, 6, 22, tzinfo=UTC),
+            end=datetime(2026, 6, 23, tzinfo=UTC),
+        )
+    )
+
+    assert [bar.symbol.raw for bar in bars] == ["7203.T", "7203.T"]
+    assert [bar.symbol.currency for bar in bars] == ["JPY", "JPY"]
+    assert [bar.close for bar in bars] == [Decimal("2905"), Decimal("2915")]
+
+
+def test_yahoo_download_symbol_frame_supports_price_ticker_multiindex():
+    columns = pd.MultiIndex.from_product(
+        [["Open", "High", "Low", "Close", "Volume"], ["7203.T", "6758.T"]]
+    )
+    frame = pd.DataFrame(
+        [
+            [
+                Decimal("1"),
+                Decimal("2"),
+                Decimal("3"),
+                Decimal("4"),
+                Decimal("5"),
+                Decimal("6"),
+                Decimal("7"),
+                Decimal("8"),
+                Decimal("9"),
+                Decimal("10"),
+            ]
+        ],
+        columns=columns,
+        index=pd.to_datetime(["2026-06-23T00:00:00Z"]),
+    )
+
+    symbol_frame = yahoo._download_symbol_frame(frame, "7203.T")
+
+    assert list(symbol_frame.columns) == ["Open", "High", "Low", "Close", "Volume"]
+    assert symbol_frame.iloc[0]["Close"] == Decimal("7")
+
+
+def test_yahoo_bar_from_history_row_skips_lingering_invalid_close():
+    symbol = yahoo._normalize_symbol("7203.T")
+    row = pd.Series(
+        {
+            "Open": Decimal("2900"),
+            "High": Decimal("2920"),
+            "Low": Decimal("2895"),
+            "Close": float("nan"),
+            "Volume": Decimal("22000000"),
+        }
+    )
+
+    assert (
+        yahoo._bar_from_history_row(
+            row,
+            ts=pd.Timestamp("2026-06-23T00:00:00+09:00"),
+            symbol=symbol,
+            interval="1d",
+        )
+        is None
+    )
+
+
+def test_yahoo_adapter_quote_uses_last_valid_close_row(monkeypatch):
+    history_frame = pd.DataFrame(
+        {
+            "Open": [Decimal("174"), float("nan")],
+            "High": [Decimal("176"), float("nan")],
+            "Low": [Decimal("173"), float("nan")],
+            "Close": [Decimal("175.25"), float("nan")],
+            "Volume": [Decimal("62000000"), float("nan")],
+        },
+        index=pd.to_datetime(["2026-04-09T00:00:00Z", "2026-04-10T00:00:00Z"]),
+    )
+    fake_yfinance = _FakeYFinance(history_frame=history_frame)
+    monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
+    monkeypatch.setattr(yahoo, "shared_yfinance_session", lambda: "shared-session")
+    adapter = create_market_data_provider_adapter(
+        DataAccessConfig(provider="yahoo", allow_external_providers=True)
+    )
+
+    quotes = asyncio.run(adapter.fetch_quotes(["AAPL"], at=datetime(2026, 4, 10, tzinfo=UTC)))
+
+    assert quotes[0].last == Decimal("175.25")
+
+
+def test_yahoo_adapter_fx_uses_last_valid_close_row_even_when_volume_is_empty(monkeypatch):
+    history_frame = pd.DataFrame(
+        {
+            "Open": [float("nan"), float("nan")],
+            "High": [float("nan"), float("nan")],
+            "Low": [float("nan"), float("nan")],
+            "Close": [Decimal("150.12"), float("nan")],
+            "Volume": [float("nan"), float("nan")],
+        },
+        index=pd.to_datetime(["2026-04-09T00:00:00Z", "2026-04-10T00:00:00Z"]),
+    )
+    fake_yfinance = _FakeYFinance(history_frame=history_frame)
+    monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
+    monkeypatch.setattr(yahoo, "shared_yfinance_session", lambda: "shared-session")
+    adapter = create_market_data_provider_adapter(
+        DataAccessConfig(provider="yahoo", allow_external_providers=True)
+    )
+
+    rates = asyncio.run(adapter.get_fx_rates(["USDJPY"], at=datetime(2026, 4, 10, tzinfo=UTC)))
+
+    assert rates[0].rate == Decimal("150.12")
+
+
+def test_yahoo_adapter_reports_all_invalid_history_rows(monkeypatch):
+    history_frame = pd.DataFrame(
+        {
+            "Open": [float("nan")],
+            "High": [float("nan")],
+            "Low": [float("nan")],
+            "Close": [float("nan")],
+            "Volume": [float("nan")],
+        },
+        index=pd.to_datetime(["2026-06-24T00:00:00+09:00"]),
+    )
+    fake_yfinance = _FakeYFinance(history_frame=history_frame)
+    monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
+    monkeypatch.setattr(yahoo, "shared_yfinance_session", lambda: "shared-session")
+    adapter = create_market_data_provider_adapter(
+        DataAccessConfig(provider="yahoo", allow_external_providers=True)
+    )
+
+    with pytest.raises(ProviderUnavailableError) as exc_info:
+        asyncio.run(
+            adapter.fetch_ohlcv(
+                ["7203.T"],
+                start=datetime(2026, 6, 22, tzinfo=UTC),
+                end=datetime(2026, 6, 23, tzinfo=UTC),
+            )
+        )
+
+    assert exc_info.value.message == "Yahoo market-data provider returned no valid numeric data"
+    request = exc_info.value.details["request"]
+    assert request["invalid_numeric_rows"] == "all"
+    assert request["required_numeric_columns"] == ["Open", "High", "Low", "Close", "Volume"]
+
+
+@pytest.mark.parametrize(
+    "value",
+    [None, "", "NaN", "nan", Decimal("NaN"), float("inf"), float("-inf")],
+)
+def test_yahoo_decimal_cell_rejects_empty_or_non_finite_values(value):
+    row = pd.Series({"Close": value})
+
+    with pytest.raises(SchemaMismatchError):
+        yahoo._decimal_cell(row, "Close")
+
 def test_yahoo_adapter_reports_empty_single_history(monkeypatch):
     fake_yfinance = _FakeYFinance(empty=True)
     monkeypatch.setattr(yahoo, "_load_yfinance", lambda: fake_yfinance)
@@ -380,6 +559,7 @@ class _FakeYFinance:
         history_error: Exception | None = None,
         history_error_when_raise_errors: bool = False,
         history_errors: list[Exception] | None = None,
+        history_frame: pd.DataFrame | None = None,
     ) -> None:
         self.empty = empty
         self.empty_download_attempts = empty_download_attempts
@@ -387,6 +567,7 @@ class _FakeYFinance:
         self.history_error = history_error
         self.history_error_when_raise_errors = history_error_when_raise_errors
         self.history_errors = list(history_errors or [])
+        self.history_frame = history_frame
         self.download_calls = 0
         self.ticker_sessions: list[object] = []
         self.history_calls: list[dict[str, object]] = []
@@ -402,6 +583,7 @@ class _FakeYFinance:
             history_error_when_raise_errors=self.history_error_when_raise_errors,
             history_errors=self.history_errors,
             history_calls=self.history_calls,
+            history_frame=self.history_frame,
         )
 
     def download(self, **kwargs: object) -> pd.DataFrame:
@@ -447,6 +629,7 @@ class _FakeTicker:
         history_error_when_raise_errors: bool = False,
         history_errors: list[Exception] | None = None,
         history_calls: list[dict[str, object]] | None = None,
+        history_frame: pd.DataFrame | None = None,
     ) -> None:
         self.raw_symbol = raw_symbol
         self.empty = empty
@@ -454,6 +637,7 @@ class _FakeTicker:
         self.history_error_when_raise_errors = history_error_when_raise_errors
         self.history_errors = history_errors if history_errors is not None else []
         self.history_calls = history_calls if history_calls is not None else []
+        self.history_frame = history_frame
         default_info = {
             "dividendYield": Decimal("0.006"),
             "marketCap": Decimal("3200000000000"),
@@ -471,6 +655,8 @@ class _FakeTicker:
             raise self.history_error
         if self.empty:
             return pd.DataFrame()
+        if self.history_frame is not None:
+            return self.history_frame.copy()
         if self.raw_symbol == "JPY=X":
             return pd.DataFrame(
                 {

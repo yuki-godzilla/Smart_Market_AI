@@ -541,7 +541,7 @@ def test_build_market_data_preview_fetches_yahoo_fx_but_skips_fundamentals(monke
     assert preview.error_rows[0]["message"] == "FX unavailable"
 
 
-def test_build_market_data_preview_fetches_yahoo_fx_for_japan_symbol(monkeypatch):
+def test_build_market_data_preview_skips_fx_for_jpy_symbol(monkeypatch):
     monkeypatch.delenv("SMAI_CONFIG_FILE", raising=False)
     adapter = _OptionalDataFailurePreviewAdapter()
     monkeypatch.setattr(
@@ -562,9 +562,35 @@ def test_build_market_data_preview_fetches_yahoo_fx_for_japan_symbol(monkeypatch
     assert preview.price_chart_rows
     assert preview.fx_rows == []
     assert preview.feature_rows[0]["provider"] == "yahoo"
-    assert adapter.get_fx_rates_calls == 1
+    assert adapter.get_fx_rates_calls == 0
     assert adapter.fetch_fundamentals_calls == 0
-    assert preview.error_rows[0]["message"] == "FX unavailable"
+    assert preview.error_rows == []
+
+
+def test_build_market_data_preview_retries_yahoo_domestic_close_empty(monkeypatch):
+    monkeypatch.delenv("SMAI_CONFIG_FILE", raising=False)
+    adapter = _DomesticCloseRetryPreviewAdapter()
+    monkeypatch.setattr(
+        "ui.rebalance_app.create_market_data_provider_adapter",
+        lambda _: adapter,
+    )
+
+    preview = asyncio.run(
+        build_market_data_preview(
+            symbol="7203.T",
+            start=date(2026, 4, 7),
+            end=date(2026, 4, 9),
+            provider_override="yahoo",
+        )
+    )
+
+    assert preview.status == "OK"
+    assert adapter.fetch_ohlcv_calls == 2
+    assert adapter.fetch_ohlcv_ends[0] == datetime(2026, 4, 9, 23, 59, 59, 999999, tzinfo=UTC)
+    assert adapter.fetch_ohlcv_ends[1] == datetime(2026, 4, 8, 23, 59, 59, 999999, tzinfo=UTC)
+    assert preview.quote_rows[0]["last"] == "173"
+    assert preview.fx_rows == []
+    assert preview.error_rows[0]["code"] == "APP-WARN-YAHOO-DOMESTIC-RETRY"
 
 
 def test_build_market_data_preview_uses_selected_forecast_horizon(monkeypatch):
@@ -904,8 +930,17 @@ def test_forecast_consensus_rows_tolerates_cached_old_summarizer(monkeypatch):
 
 
 def _bar(symbol: str, ts: str, close: str) -> Bar:
+    if symbol.endswith(".T"):
+        contract_symbol = Symbol(
+            raw=symbol,
+            exchange="TSE",
+            code=symbol.removesuffix(".T"),
+            currency="JPY",
+        )
+    else:
+        contract_symbol = Symbol(raw=symbol, exchange="NASDAQ", code=symbol, currency="USD")
     return Bar(
-        symbol=Symbol(raw=symbol, exchange="NASDAQ", code=symbol, currency="USD"),
+        symbol=contract_symbol,
         ts=datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone(UTC),
         open=Decimal(close),
         high=Decimal(close),
@@ -1232,6 +1267,53 @@ class _CountingMarketDataPreviewAdapter:
 
     def healthcheck(self) -> dict[str, str]:
         return {"provider": "mock", "status": "ok"}
+
+
+class _DomesticCloseRetryPreviewAdapter(_CountingMarketDataPreviewAdapter):
+    def __init__(self) -> None:
+        super().__init__()
+        self.fetch_ohlcv_ends: list[datetime] = []
+
+    async def fetch_ohlcv(
+        self,
+        symbols: list[str],
+        start: datetime,
+        end: datetime,
+        interval: str = "1d",
+    ) -> list[Bar]:
+        assert symbols == ["7203.T"]
+        assert interval == "1d"
+        self.fetch_ohlcv_calls += 1
+        self.fetch_ohlcv_ends.append(end)
+        if self.fetch_ohlcv_calls == 1:
+            raise DataSourceError(
+                "Yahoo market-data response contains an empty numeric value",
+                details={"column": "Close"},
+            )
+        return [
+            _bar("7203.T", "2026-04-07T00:00:00Z", "170"),
+            _bar("7203.T", "2026-04-08T00:00:00Z", "173"),
+        ]
+
+    async def get_fx_rates(
+        self,
+        pairs: list[str],
+        at: datetime | None = None,
+        method: str = "spot",
+    ) -> list[FxRate]:
+        self.get_fx_rates_calls += 1
+        raise AssertionError("JPY domestic preview should not fetch FX rates")
+
+    async def fetch_fundamentals(
+        self,
+        symbols: list[str],
+        as_of: date,
+    ) -> list[FundamentalSnapshot]:
+        self.fetch_fundamentals_calls += 1
+        raise AssertionError("Yahoo preview should not fetch fundamentals")
+
+    def healthcheck(self) -> dict[str, str]:
+        return {"provider": "yahoo", "status": "ok"}
 
 
 class _OptionalDataFailurePreviewAdapter(_CountingMarketDataPreviewAdapter):

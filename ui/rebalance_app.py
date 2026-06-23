@@ -787,6 +787,72 @@ def runtime_settings_summary() -> dict[str, str]:
     }
 
 
+async def _fetch_market_data_preview_provider_bars(
+    adapter: Any,
+    *,
+    provider_symbol: str,
+    display_symbol: str,
+    provider: str,
+    start: datetime,
+    end: datetime,
+    warning_rows: list[dict[str, str]],
+) -> list[Bar]:
+    try:
+        return await adapter.fetch_ohlcv([provider_symbol], start=start, end=end)
+    except AppError as exc:
+        if not _should_retry_yahoo_domestic_price_fetch(
+            exc,
+            provider=provider,
+            provider_symbol=provider_symbol,
+        ):
+            raise
+        retry_end = end - timedelta(days=1)
+        if retry_end <= start:
+            raise
+        retry_bars = await adapter.fetch_ohlcv([provider_symbol], start=start, end=retry_end)
+        warning_rows.append(
+            {
+                "code": "APP-WARN-YAHOO-DOMESTIC-RETRY",
+                "message": (
+                    "Yahoo国内株の当日価格行に空値があったため、"
+                    "終了日を1日前にずらして再取得しました。"
+                ),
+                "details": json.dumps(
+                    {
+                        "symbol": display_symbol,
+                        "provider_symbol": provider_symbol,
+                        "original_end": end.isoformat(),
+                        "retry_end": retry_end.isoformat(),
+                        "cause": exc.message,
+                        "details": exc.details,
+                    },
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+            }
+        )
+        return retry_bars
+
+
+def _should_retry_yahoo_domestic_price_fetch(
+    exc: AppError,
+    *,
+    provider: str,
+    provider_symbol: str,
+) -> bool:
+    if provider != "yahoo" or not provider_symbol.endswith(".T"):
+        return False
+    details_text = json.dumps(exc.details, ensure_ascii=False, sort_keys=True).lower()
+    message_text = exc.message.lower()
+    return (
+        "empty numeric value" in message_text
+        or "empty numeric value" in details_text
+        or "no valid numeric data" in message_text
+        or "no valid numeric data" in details_text
+        or '"column": "close"' in details_text
+    )
+
+
 async def build_market_data_preview(
     *,
     symbol: str,
@@ -821,23 +887,27 @@ async def build_market_data_preview(
         adapter = create_market_data_provider_adapter(dataaccess_cfg)
         feature_start = min(start, end - timedelta(days=MARKET_DATA_FEATURE_LOOKBACK_DAYS))
         feature_start_dt = datetime.combine(feature_start, time.min, tzinfo=UTC)
-        provider_bars = await adapter.fetch_ohlcv(
-            [provider_symbol],
+        warning_rows: list[dict[str, str]] = []
+        provider_bars = await _fetch_market_data_preview_provider_bars(
+            adapter,
+            provider_symbol=provider_symbol,
+            display_symbol=symbol,
+            provider=provider,
             start=feature_start_dt,
             end=end_dt,
+            warning_rows=warning_rows,
         )
         feature_bars = _bars_with_display_symbol(provider_bars, display_symbol=symbol)
         bars = _bars_in_period(feature_bars, start=start_dt, end=end_dt)
         quotes = _quotes_from_latest_bars([symbol], feature_bars)
-        warning_rows: list[dict[str, str]] = []
         fx_rates: list[Any] = []
         if _should_fetch_market_data_preview_fx(provider=provider):
             source_currency = (
-                str(feature_bars[-1].symbol.currency).strip().upper()
-                if feature_bars
-                else "USD"
+                str(feature_bars[-1].symbol.currency).strip().upper() if feature_bars else ""
             )
-            effective_fx_pair = fx_pair or _jpy_fx_pair_for_currency(source_currency)
+            effective_fx_pair = (
+                fx_pair.strip().upper() if fx_pair else _jpy_fx_pair_for_currency(source_currency)
+            )
             try:
                 fx_rates = (
                     await adapter.get_fx_rates([effective_fx_pair], at=end_dt)

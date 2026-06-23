@@ -753,6 +753,7 @@ SYMBOL_METADATA_FIELDS: tuple[MetadataField, ...] = (
                 "polygon",
                 "sbi_us_etf_removed",
                 "sbi_us_etf",
+                "sbi_overseas_etf",
                 "sbi_us_stock_removed",
                 "sbi_us_stock",
                 "sbi_foreign_stock",

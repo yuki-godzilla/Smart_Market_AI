@@ -244,6 +244,7 @@ from ui.ranking import (
     ranking_dividend_yield_pct_is_abnormal,
     ranking_dividend_yield_pct_value,
     ranking_fetch_limit_label,
+    ranking_fetch_limit_value,
     ranking_filter_signature,
     ranking_fundamental_metric_is_abnormal,
     ranking_fundamental_metric_value,
@@ -270,6 +271,15 @@ from ui.ranking import (
     ranking_weight_preset_label,
     symbol_candidate_labels,
     symbol_universe_rows,
+)
+from ui.ranking_filter_chips import (
+    applied_exploration_filters,
+    apply_ranking_applied_exploration_filters,
+    exploration_filter_chip_labels as ranking_exploration_filter_chip_labels,
+    ranking_filter_dialog_is_open,
+    render_active_ranking_filter_dialog,
+    render_ranking_exploration_filter_cards,
+    sync_ranking_exploration_legacy_state,
 )
 from ui.ranking_state import (
     ensure_ranking_selection_widget_state,
@@ -2325,6 +2335,32 @@ def _name_from_candidate(label: str) -> str | None:
 
 def _ranking_symbols_from_selected_labels(selected_labels: list[str]) -> list[str]:
     return [symbol for label in selected_labels if (symbol := _symbol_from_candidate(label))]
+
+
+def _ranking_label_from_row(row: Mapping[str, str]) -> str:
+    symbol = str(row.get("symbol", ""))
+    return f"{symbol} - {row.get('name', symbol)}"
+
+
+def _default_effective_ranking_labels(
+    candidate_rows: list[dict[str, str]],
+    *,
+    preset: str,
+    limit_key: str,
+) -> list[str]:
+    """Return default ranking targets without materializing the multiselect labels.
+
+    The comparison multiselect is optional and expensive to build for a 10k+
+    universe.  In the default path we keep the user-facing meaning of "all
+    candidates are selected" while only materializing the final fetch target set.
+    """
+    limit = ranking_fetch_limit_value(limit_key)
+    if limit <= 0 or len(candidate_rows) <= limit:
+        return [_ranking_label_from_row(row) for row in candidate_rows]
+    # Keep the default route very cheap.  The previous multiselect route
+    # materialized labels for the whole universe on every render; here we only
+    # create the fetch-target labels needed by the current limit.
+    return [_ranking_label_from_row(row) for row in candidate_rows[:limit]]
 
 
 def _ranking_source_key_for_selection(
@@ -5851,7 +5887,8 @@ def _ranking_filtered_symbol_rows_from_state(
     purpose: str,
 ) -> list[dict[str, str]]:
     values = _ranking_filter_state_snapshot()
-    return filter_symbol_universe_rows(
+    sync_ranking_exploration_legacy_state()
+    base_rows = filter_symbol_universe_rows(
         symbol_options,
         region=region,
         product_type=product_type,
@@ -5887,6 +5924,256 @@ def _ranking_filtered_symbol_rows_from_state(
         consensus_max=str(values["market_data_ranking_consensus_max"]),
         limit=len(symbol_options),
     )
+    return apply_ranking_applied_exploration_filters(base_rows)
+
+
+_RANKING_FILTER_ROWS_CACHE_KEY = "market_data_ranking_filter_rows_cache_v3"
+_RANKING_CLASSIFICATION_COUNTS_CACHE_KEY = "market_data_ranking_classification_counts_cache_v3"
+_RANKING_LAST_APPLIED_ROWS_STATE_KEY = "market_data_ranking_last_applied_filtered_rows_v1"
+_RANKING_FILTER_COUNT_CATEGORIES = (
+    "official_sector",
+    "investment_theme",
+    "market_cap",
+    "risk_band",
+    "nisa_eligibility",
+    "benchmark_index",
+    "complexity",
+    "dividend_category",
+    "currency",
+)
+
+
+def _symbol_options_signature(symbol_options: list[dict[str, str]]) -> tuple[object, ...]:
+    if not symbol_options:
+        return (0,)
+    symbols = [str(row.get("symbol", "")) for row in symbol_options]
+    return (
+        len(symbol_options),
+        tuple(symbols[:8]),
+        tuple(symbols[-8:]),
+    )
+
+
+def _cacheable_filter_value(value: object) -> object:
+    if isinstance(value, (list, tuple, set)):
+        return tuple(str(item) for item in value)
+    if isinstance(value, dict):
+        return tuple(sorted((str(k), _cacheable_filter_value(v)) for k, v in value.items()))
+    return str(value)
+
+
+def _ranking_filter_rows_signature(
+    symbol_options: list[dict[str, str]],
+    *,
+    region: str,
+    product_type: str,
+    purpose: str,
+) -> tuple[object, ...]:
+    values = _ranking_filter_state_snapshot()
+    # Exploration filters are applied immediately to candidate rows, but ranking
+    # results are rebuilt only after the explicit ランキング作成 button.
+    applied_filters = applied_exploration_filters()
+    return (
+        _symbol_options_signature(symbol_options),
+        region,
+        product_type,
+        purpose,
+        tuple(sorted((str(k), _cacheable_filter_value(v)) for k, v in values.items())),
+        tuple(sorted((str(k), tuple(v)) for k, v in applied_filters.items())),
+    )
+
+
+def _ranking_filtered_symbol_rows_cache_lookup(
+    symbol_options: list[dict[str, str]],
+    *,
+    region: str,
+    product_type: str,
+    purpose: str,
+) -> list[dict[str, str]] | None:
+    signature = _ranking_filter_rows_signature(
+        symbol_options,
+        region=region,
+        product_type=product_type,
+        purpose=purpose,
+    )
+    cache = st.session_state.setdefault(_RANKING_FILTER_ROWS_CACHE_KEY, {})
+    cached = cache.get(signature)
+    if isinstance(cached, list):
+        return cast(list[dict[str, str]], cached)
+    return None
+
+
+def _ranking_filtered_symbol_rows_cached(
+    symbol_options: list[dict[str, str]],
+    *,
+    region: str,
+    product_type: str,
+    purpose: str,
+) -> list[dict[str, str]]:
+    cached = _ranking_filtered_symbol_rows_cache_lookup(
+        symbol_options,
+        region=region,
+        product_type=product_type,
+        purpose=purpose,
+    )
+    if cached is not None:
+        return cached
+    signature = _ranking_filter_rows_signature(
+        symbol_options,
+        region=region,
+        product_type=product_type,
+        purpose=purpose,
+    )
+    rows = _ranking_filtered_symbol_rows_from_state(
+        symbol_options,
+        region=region,
+        product_type=product_type,
+        purpose=purpose,
+    )
+    cache = st.session_state.setdefault(_RANKING_FILTER_ROWS_CACHE_KEY, {})
+    cache.clear()
+    cache[signature] = rows
+    return rows
+
+
+def _last_applied_filtered_rows() -> list[dict[str, str]]:
+    cached = st.session_state.get(_RANKING_LAST_APPLIED_ROWS_STATE_KEY)
+    return cast(list[dict[str, str]], cached) if isinstance(cached, list) else []
+
+
+def _set_last_applied_filtered_rows(rows: list[dict[str, str]]) -> None:
+    st.session_state[_RANKING_LAST_APPLIED_ROWS_STATE_KEY] = rows
+
+
+def _ranking_classification_counts_cache_lookup(
+    symbol_options: list[dict[str, str]],
+    *,
+    region: str,
+    product_type: str,
+) -> dict[str, dict[str, int]] | None:
+    signature = (_symbol_options_signature(symbol_options), region, product_type)
+    cache = st.session_state.setdefault(_RANKING_CLASSIFICATION_COUNTS_CACHE_KEY, {})
+    cached = cache.get(signature)
+    if isinstance(cached, dict):
+        return cast(dict[str, dict[str, int]], cached)
+    return None
+
+
+def _ranking_classification_counts_cached(
+    symbol_options: list[dict[str, str]],
+    *,
+    region: str,
+    product_type: str,
+) -> dict[str, dict[str, int]]:
+    signature = (_symbol_options_signature(symbol_options), region, product_type)
+    cache = st.session_state.setdefault(_RANKING_CLASSIFICATION_COUNTS_CACHE_KEY, {})
+    cached = cache.get(signature)
+    if cached is not None:
+        return cached
+    classification_base_rows = _classification_count_base_rows(
+        symbol_options,
+        region=region,
+        product_type=product_type,
+    )
+    counts = _ranking_filter_counts_by_category(
+        classification_base_rows,
+        _RANKING_FILTER_COUNT_CATEGORIES,
+    )
+    cache.clear()
+    cache[signature] = counts
+    return counts
+
+
+def _render_ranking_filter_panel_modal_backdrop(
+    symbol_options: list[dict[str, str]],
+    *,
+    product_type: str,
+) -> None:
+    """Draw a lightweight non-interactive backdrop while a filter dialog is open.
+
+    Streamlit reruns on every widget action, so the previous DOM cannot be kept
+    literally frozen from Python. This backdrop intentionally avoids rebuilding
+    selectboxes, numeric inputs, keyword inputs, candidate rows, and summary
+    counts. It preserves the user's visual context behind the modal with static
+    markup plus the exploration cards.
+    """
+    st.markdown(
+        """
+        <style>
+        .smai-filter-backdrop-static {
+            border: 1px solid rgba(105, 145, 190, 0.22);
+            border-radius: 0.9rem;
+            background: rgba(8, 23, 43, 0.54);
+            padding: 0.8rem;
+            margin-bottom: 0.75rem;
+        }
+        .smai-filter-backdrop-section-title {
+            color: #e5f2ff;
+            font-weight: 800;
+            margin: 0.2rem 0 0.25rem;
+        }
+        .smai-filter-backdrop-caption {
+            color: #a9bdd8;
+            font-size: 0.86rem;
+            margin: 0 0 0.65rem;
+        }
+        .smai-filter-backdrop-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.55rem;
+            margin-bottom: 0.75rem;
+        }
+        .smai-filter-backdrop-field {
+            min-height: 3.1rem;
+            border: 1px solid rgba(130, 170, 220, 0.20);
+            border-radius: 0.55rem;
+            background: rgba(10, 26, 48, 0.58);
+            padding: 0.45rem 0.6rem;
+        }
+        .smai-filter-backdrop-field span {
+            display: block;
+            color: #8fa7c7;
+            font-size: 0.72rem;
+            margin-bottom: 0.16rem;
+        }
+        .smai-filter-backdrop-field strong {
+            color: #dcecff;
+            font-size: 0.9rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    with st.expander("詳細条件で候補を絞り込む", expanded=True):
+        st.markdown(
+            """
+            <div class="smai-filter-backdrop-static">
+              <div class="smai-filter-backdrop-section-title">属性条件</div>
+              <p class="smai-filter-backdrop-caption">モーダル表示中は背景条件を固定表示しています。候補行・件数集計は再計算しません。</p>
+              <div class="smai-filter-backdrop-grid">
+                <div class="smai-filter-backdrop-field"><span>時価総額</span><strong>現在の設定を保持</strong></div>
+                <div class="smai-filter-backdrop-field"><span>値動きリスク</span><strong>現在の設定を保持</strong></div>
+                <div class="smai-filter-backdrop-field"><span>NISA</span><strong>現在の設定を保持</strong></div>
+                <div class="smai-filter-backdrop-field"><span>配当カテゴリ</span><strong>現在の設定を保持</strong></div>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        render_ranking_exploration_filter_cards(
+            symbol_options,
+            product_type=product_type,
+            render_dialog=False,
+        )
+        st.markdown(
+            """
+            <div class="smai-filter-backdrop-static">
+              <div class="smai-filter-backdrop-section-title">数値条件・キーワード検索</div>
+              <p class="smai-filter-backdrop-caption">モーダル表示中は入力欄を再生成せず、前回の条件を維持します。</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 
 def _render_ranking_filter_panel(
@@ -5899,17 +6186,39 @@ def _render_ranking_filter_panel(
     purpose: str,
     summary_container: _StreamlitEmptyContainer | None = None,
 ) -> list[dict[str, str]]:
+    sync_ranking_exploration_legacy_state()
+    modal_open = ranking_filter_dialog_is_open()
+
+    if modal_open:
+        # Fast path: opening a Streamlit dialog still reruns Python, but it should not
+        # rebuild detail widgets, recalculate candidates, or regenerate summaries.
+        # Draw only a static backdrop plus the active dialog. The dialog itself reads
+        # product-only static option caches and updates draft state only.
+        _render_ranking_filter_panel_modal_backdrop(
+            symbol_options,
+            product_type=product_type,
+        )
+        render_active_ranking_filter_dialog(
+            symbol_options,
+            product_type=product_type,
+        )
+        return _last_applied_filtered_rows()
+
     detail_filters = set(ranking_detail_filters_for_category(region, product_type))
     if "dividend_yield" in detail_filters:
         _normalize_dividend_filter_state()
-    initial_rows = _ranking_filtered_symbol_rows_from_state(
+
+    filtered_rows = _ranking_filtered_symbol_rows_cached(
         symbol_options,
         region=region,
         product_type=product_type,
         purpose=purpose,
     )
+    _set_last_applied_filtered_rows(filtered_rows)
+
     summary_slot = summary_container.empty() if summary_container is not None else None
     if summary_slot is not None:
+        summary_candidate_count = len(filtered_rows)
         summary_slot.markdown(
             _ranking_condition_summary_html(
                 _ranking_filter_state_snapshot(),
@@ -5917,7 +6226,9 @@ def _render_ranking_filter_panel(
                 product_type=product_type,
                 ranking_policy=ranking_policy,
                 period_preset=period_preset,
-                candidate_count=len(initial_rows),
+                candidate_count=summary_candidate_count,
+                extra_chips=ranking_exploration_filter_chip_labels(),
+                draft=False,
             ),
             unsafe_allow_html=True,
         )
@@ -5941,25 +6252,21 @@ def _render_ranking_filter_panel(
             column_index += 1
             return column
 
-        classification_base_rows = _classification_count_base_rows(
+        cached_detail_filter_counts = _ranking_classification_counts_cache_lookup(
             symbol_options,
             region=region,
             product_type=product_type,
         )
-        detail_filter_counts = _ranking_filter_counts_by_category(
-            classification_base_rows,
-            (
-                "official_sector",
-                "investment_theme",
-                "market_cap",
-                "risk_band",
-                "nisa_eligibility",
-                "benchmark_index",
-                "complexity",
-                "dividend_category",
-                "currency",
-            ),
-        )
+        if modal_open and cached_detail_filter_counts is not None:
+            detail_filter_counts = cached_detail_filter_counts
+        elif modal_open:
+            detail_filter_counts = {}
+        else:
+            detail_filter_counts = _ranking_classification_counts_cached(
+                symbol_options,
+                region=region,
+                product_type=product_type,
+            )
         official_sector_options = _ranking_counted_options(
             RANKING_OFFICIAL_SECTOR_LABELS,
             detail_filter_counts,
@@ -5975,7 +6282,7 @@ def _render_ranking_filter_panel(
             unsafe_allow_html=True,
         )
 
-        if "official_sector" in detail_filters:
+        if False and "official_sector" in detail_filters:
             with next_column():
                 _render_detail_selectbox(
                     "業種・セクター",
@@ -5989,7 +6296,7 @@ def _render_ranking_filter_panel(
                     ),
                     help_text=RANKING_FILTER_HELP_TEXTS["official_sector"],
                 )
-        if "investment_theme" in detail_filters:
+        if False and "investment_theme" in detail_filters:
             with next_column():
                 _render_detail_selectbox(
                     "投資テーマ",
@@ -6146,6 +6453,11 @@ def _render_ranking_filter_panel(
                 help_text="銘柄やETFの通貨で候補を絞ります。",
             )
 
+        render_ranking_exploration_filter_cards(
+            symbol_options,
+            product_type=product_type,
+        )
+
         metric_filters: list[tuple[str, dict[str, object]]] = []
         if "dividend_yield" in detail_filters:
             metric_filters.append(
@@ -6247,13 +6559,11 @@ def _render_ranking_filter_panel(
                 on_click=clear_ranking_detail_condition_state,
             )
 
-    filtered_rows = _ranking_filtered_symbol_rows_from_state(
-        symbol_options,
-        region=region,
-        product_type=product_type,
-        purpose=purpose,
-    )
+    # The dedicated candidate breakdown card was removed from the main path.
+    # Ranking candidates are summarized by _ranking_condition_summary_html instead,
+    # avoiding a second dynamic summary that made the lower page appear to redraw.
     if summary_slot is not None:
+        summary_candidate_count = len(filtered_rows)
         summary_slot.markdown(
             _ranking_condition_summary_html(
                 _ranking_filter_state_snapshot(),
@@ -6261,7 +6571,9 @@ def _render_ranking_filter_panel(
                 product_type=product_type,
                 ranking_policy=ranking_policy,
                 period_preset=period_preset,
-                candidate_count=len(filtered_rows),
+                candidate_count=summary_candidate_count,
+                extra_chips=ranking_exploration_filter_chip_labels(),
+                draft=False,
             ),
             unsafe_allow_html=True,
         )
@@ -6277,6 +6589,8 @@ def _ranking_condition_summary_html(
     period_preset: str,
     candidate_count: int,
     load_state: Mapping[str, str] | None = None,
+    extra_chips: Sequence[str] = (),
+    draft: bool = False,
 ) -> str:
     chips = ranking_condition_summary_chips_from_values(
         values,
@@ -6286,11 +6600,15 @@ def _ranking_condition_summary_html(
         period_preset=period_preset,
         candidate_count=candidate_count,
     )
+    if extra_chips:
+        insert_at = max(len(chips) - 1, 0)
+        for label in reversed(list(extra_chips)[:6]):
+            chips.insert(insert_at, {"label": label, "tone": "active"})
     load_tone = str((load_state or {}).get("tone", "ok"))
     load_suffix = str((load_state or {}).get("suffix", "")).strip()
     load_message = str((load_state or {}).get("message", "")).strip()
     load_class = f" smai-ranking-builder-head--load-{html.escape(load_tone)}"
-    candidate_line = f"候補 {candidate_count:,}件"
+    candidate_line = f"目安候補 {candidate_count:,}件" if draft else f"候補 {candidate_count:,}件"
     if load_suffix:
         candidate_line = f"{candidate_line}：{load_suffix}"
     load_message_html = (
@@ -6298,13 +6616,18 @@ def _ranking_condition_summary_html(
         if load_message
         else ""
     )
+    description_html = (
+        "<p>条件は変更されています。ランキング結果にはまだ反映していません。</p>"
+        if draft
+        else "<p>ここで絞った候補だけを、選択中のランキング基準で並べます。</p>"
+    )
     return (
         f'<section class="smai-ranking-builder-head{load_class}">'
         '<div class="smai-card-label">ランキング候補</div>'
         '<div class="smai-ranking-builder-title-row">'
         f"<strong>{html.escape(candidate_line)}</strong>"
         "</div>"
-        "<p>ここで絞った候補だけを、選択中のランキング基準で並べます。</p>"
+        f"{description_html}"
         '<div class="smai-ranking-current-inline">'
         '<span class="smai-ranking-current-heading">現在の条件</span>'
         f"{ranking_condition_summary_chips_html(chips)}"
@@ -7206,23 +7529,10 @@ def _render_market_data_ranking() -> None:
     detail_conditions = st.container()
 
     with detail_conditions:
-        col_region, col_product, col_period, col_provider = st.columns(4)
-        with col_region:
-            region_options = list(RANKING_MVP_REGION_LABELS)
-            _ensure_selectbox_state_value("market_data_ranking_region", region_options)
-            region = cast(
-                str,
-                st.selectbox(
-                    "地域",
-                    region_options,
-                    index=_selectbox_index(
-                        region_options,
-                        _ranking_filter_value("market_data_ranking_region", "japan"),
-                    ),
-                    key="market_data_ranking_region",
-                    format_func=ranking_region_label,
-                ),
-            )
+        # 地域は探索条件の「国・市場」に統合する。ランキング基礎フィルタは全地域を対象にする。
+        region = "all"
+        st.session_state["market_data_ranking_region"] = region
+        col_product, col_period, col_provider = st.columns(3)
         with col_product:
             product_options = list(RANKING_MVP_PRODUCT_TYPE_LABELS)
             _ensure_selectbox_state_value("market_data_ranking_product_type", product_options)
@@ -7336,6 +7646,9 @@ def _render_market_data_ranking() -> None:
         period_preset=period_preset,
         purpose=purpose,
     )
+    if ranking_filter_dialog_is_open():
+        st.caption("探索条件モーダルを表示中です。ランキング候補・結果の再描画はスキップしています。")
+        return
     filter_values = _ranking_filter_state_snapshot()
     market = "all"
     asset_type = "all"
@@ -7365,7 +7678,6 @@ def _render_market_data_ranking() -> None:
     consensus_enabled = bool(filter_values["market_data_ranking_consensus_enabled"])
     consensus_min = str(filter_values["market_data_ranking_consensus_min"])
     consensus_max = str(filter_values["market_data_ranking_consensus_max"])
-    labels = symbol_candidate_labels(filtered_symbol_rows)
     filter_signature = ranking_filter_signature(
         region=region,
         product_type=product_type,
@@ -7403,25 +7715,14 @@ def _render_market_data_ranking() -> None:
         limit=0,
     )
     selection_key = ranking_symbols_state_key(filter_signature)
-    stored_selected_labels = cast(
-        list[str],
-        st.session_state.get(MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY, []),
-    )
-    ensure_ranking_selection_widget_state(
-        selection_key=selection_key,
-        labels=labels,
-        stored_selected_labels=stored_selected_labels,
-    )
-    selected_labels_for_summary = cast(list[str], st.session_state.get(selection_key, []))
     end_date = default_market_data_end_date()
     start_date, end_date = ranking_period_dates(period_preset, end_date)
-    comparison_summary = ranking_comparison_summary(
-        start=start_date,
-        end=end_date,
-        candidate_count=len(filtered_symbol_rows),
-        selected_count=len(selected_labels_for_summary),
-    )
-    load_state = ranking_condition_load_state(len(selected_labels_for_summary))
+    draft_dirty = False
+    display_candidate_count = len(filtered_symbol_rows)
+    manual_selection_key = f"{selection_key}_manual_selection"
+    manual_selection_enabled = bool(st.session_state.get(manual_selection_key, False))
+    selected_count_for_summary = display_candidate_count
+    load_state = ranking_condition_load_state(selected_count_for_summary)
 
     ranking_condition_slot, policy_summary_slot = st.columns([1.12, 1.0])
     with ranking_condition_slot:
@@ -7432,8 +7733,10 @@ def _render_market_data_ranking() -> None:
                 product_type=product_type,
                 ranking_policy=ranking_policy,
                 period_preset=period_preset,
-                candidate_count=len(filtered_symbol_rows),
+                candidate_count=display_candidate_count,
                 load_state=load_state,
+                extra_chips=ranking_exploration_filter_chip_labels(),
+                draft=False,
             ),
             unsafe_allow_html=True,
         )
@@ -7443,25 +7746,65 @@ def _render_market_data_ranking() -> None:
             unsafe_allow_html=True,
         )
 
-    expander_label = f"比較する銘柄を確認・変更（{comparison_summary['selected']}）"
-    with st.expander(expander_label, expanded=False):
-        st.caption("候補は初期状態ですべて選択されています。変更する場合だけ開いてください。")
-        selected_labels = cast(
+    st.toggle(
+        "比較する銘柄を手動で選ぶ",
+        key=manual_selection_key,
+        help="開いた時だけ候補ラベルと multiselect を生成します。通常は現在の候補から取得上限まで自動選定します。",
+    )
+    manual_selection_enabled = bool(st.session_state.get(manual_selection_key, False))
+    if manual_selection_enabled:
+        labels = symbol_candidate_labels(filtered_symbol_rows)
+        stored_selected_labels = cast(
             list[str],
-            st.multiselect(
-                "比較する銘柄",
-                labels,
-                key=selection_key,
-            ),
+            st.session_state.get(MARKET_DATA_RANKING_SELECTED_LABELS_STATE_KEY, []),
         )
-    if not labels:
+        ensure_ranking_selection_widget_state(
+            selection_key=selection_key,
+            labels=labels,
+            stored_selected_labels=stored_selected_labels,
+        )
+        selected_labels_for_summary = cast(list[str], st.session_state.get(selection_key, []))
+        comparison_summary = ranking_comparison_summary(
+            start=start_date,
+            end=end_date,
+            candidate_count=len(filtered_symbol_rows),
+            selected_count=len(selected_labels_for_summary),
+        )
+        expander_label = f"比較する銘柄を確認・変更（{comparison_summary['selected']}）"
+        with st.expander(expander_label, expanded=True):
+            st.caption("手動選択時だけ候補リストを生成しています。候補が多い場合は条件で絞ると軽くなります。")
+            selected_labels = cast(
+                list[str],
+                st.multiselect(
+                    "比較する銘柄",
+                    labels,
+                    key=selection_key,
+                ),
+            )
+        effective_selected_labels = limited_ranking_selected_labels(
+            selected_labels,
+            filtered_symbol_rows,
+            preset=RANKING_FETCH_LIMIT_PRESET,
+            limit_key=fetch_limit,
+        )
+        selected_count_for_summary = len(selected_labels)
+    else:
+        st.caption("比較銘柄リストは未生成です。通常は現在の候補から取得上限まで自動選定します。")
+        effective_selected_labels = _default_effective_ranking_labels(
+            filtered_symbol_rows,
+            preset=RANKING_FETCH_LIMIT_PRESET,
+            limit_key=fetch_limit,
+        )
+        selected_labels = effective_selected_labels
+        selected_count_for_summary = display_candidate_count
+    if not filtered_symbol_rows:
         st.warning("この条件に合う候補がありません。候補条件を広げてください。")
 
-    effective_selected_labels = limited_ranking_selected_labels(
-        selected_labels,
-        filtered_symbol_rows,
-        preset=RANKING_FETCH_LIMIT_PRESET,
-        limit_key=fetch_limit,
+    comparison_summary = ranking_comparison_summary(
+        start=start_date,
+        end=end_date,
+        candidate_count=len(filtered_symbol_rows),
+        selected_count=selected_count_for_summary,
     )
     ranking_symbols = _ranking_symbols_from_selected_labels(effective_selected_labels)
     current_ranking_source = _ranking_source_key_for_selection(
@@ -7488,8 +7831,8 @@ def _render_market_data_ranking() -> None:
     with action_summary_col:
         st.markdown(
             ranking_creation_target_summary_html(
-                candidate_count=len(filtered_symbol_rows),
-                selected_count=len(selected_labels),
+                candidate_count=display_candidate_count,
+                selected_count=selected_count_for_summary,
                 effective_count=len(effective_selected_labels),
                 fetch_limit_label=ranking_fetch_limit_label(fetch_limit),
                 ranking_policy=ranking_policy,
@@ -7559,6 +7902,9 @@ def _render_market_data_ranking() -> None:
 
     _render_ranking_criteria_guide()
 
+    if ranking_filter_dialog_is_open():
+        st.caption("探索条件モーダルを表示中です。ランキング結果の再描画はスキップしています。")
+        return
     rows = st.session_state.get(MARKET_DATA_RANKING_STATE_KEY, [])
     error_rows = st.session_state.get(MARKET_DATA_RANKING_ERROR_STATE_KEY, [])
     ranking_source = str(st.session_state.get(MARKET_DATA_RANKING_SOURCE_STATE_KEY, ""))

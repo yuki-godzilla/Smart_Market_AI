@@ -49,15 +49,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         market=args.market,
         symbols=_parse_symbols(args.symbols),
     )
-    symbols = [row["symbol"] for row in selected_rows]
+    check_rows = _coverage_check_rows(selected_rows)
     if args.sample_size > 0:
-        symbols = _even_sample(symbols, args.sample_size)
+        selected_symbols = set(_even_sample([row["symbol"] for row in check_rows], args.sample_size))
+        check_rows = [row for row in check_rows if row["symbol"] in selected_symbols]
     if args.limit > 0:
-        symbols = symbols[: args.limit]
+        check_rows = check_rows[: args.limit]
 
     result = asyncio.run(
         _check_yahoo_coverage(
-            symbols,
+            check_rows,
             start=args.start,
             end=args.end,
             batch_size=args.batch_size,
@@ -115,6 +116,23 @@ def _select_rows(
     ]
 
 
+
+def _coverage_check_rows(rows: Sequence[dict[str, str]]) -> list[dict[str, str]]:
+    check_rows: list[dict[str, str]] = []
+    for row in rows:
+        symbol = row.get("symbol", "").strip()
+        provider_symbol = (row.get("yahoo_symbol", "") or symbol).strip()
+        if not symbol or not provider_symbol:
+            continue
+        check_rows.append(
+            {
+                "symbol": symbol,
+                "provider_symbol": provider_symbol,
+                "yahoo_symbol_status": row.get("yahoo_symbol_status", ""),
+            }
+        )
+    return check_rows
+
 def _even_sample(symbols: Sequence[str], sample_size: int) -> list[str]:
     if sample_size <= 0 or sample_size >= len(symbols):
         return list(symbols)
@@ -126,7 +144,7 @@ def _even_sample(symbols: Sequence[str], sample_size: int) -> list[str]:
 
 
 async def _check_yahoo_coverage(
-    symbols: Sequence[str],
+    rows: Sequence[dict[str, str]],
     *,
     start: date,
     end: date,
@@ -144,55 +162,66 @@ async def _check_yahoo_coverage(
     start_dt = datetime.combine(start, datetime.min.time(), tzinfo=UTC)
     end_dt = datetime.combine(end, datetime.min.time(), tzinfo=UTC)
 
-    for batch_index, batch in enumerate(_chunks(list(symbols), batch_size), start=1):
+    for batch_index, batch_rows in enumerate(_chunks(list(rows), batch_size), start=1):
+        provider_symbols = [row["provider_symbol"] for row in batch_rows]
         try:
-            bars = await provider.fetch_ohlcv(batch, start=start_dt, end=end_dt, interval="1d")
+            bars = await provider.fetch_ohlcv(provider_symbols, start=start_dt, end=end_dt, interval="1d")
         except AppError as exc:
             results.extend(
                 _failed_row(
-                    symbol,
+                    row,
                     status="batch_error",
                     code=str(exc.code),
                     message=str(exc.message),
                     batch_index=batch_index,
                 )
-                for symbol in batch
+                for row in batch_rows
             )
             continue
         except Exception as exc:  # pragma: no cover - live smoke guardrail
             results.extend(
                 _failed_row(
-                    symbol,
+                    row,
                     status="batch_error",
                     code=type(exc).__name__,
                     message=str(exc),
                     batch_index=batch_index,
                 )
-                for symbol in batch
+                for row in batch_rows
             )
             continue
 
         count_by_symbol = Counter(bar.symbol.raw for bar in bars)
-        for symbol in batch:
-            bar_count = count_by_symbol.get(symbol, 0)
+        timestamps_by_symbol: dict[str, list[datetime]] = {}
+        for bar in bars:
+            timestamps_by_symbol.setdefault(bar.symbol.raw, []).append(bar.ts)
+        for row in batch_rows:
+            provider_symbol = row["provider_symbol"]
+            bar_count = count_by_symbol.get(provider_symbol, 0)
+            timestamps = sorted(timestamps_by_symbol.get(provider_symbol, []))
             if bar_count:
                 results.append(
                     {
-                        "symbol": symbol,
+                        "symbol": row["symbol"],
+                        "provider_symbol": provider_symbol,
+                        "yahoo_symbol_status": row.get("yahoo_symbol_status", ""),
                         "status": "ok",
                         "bar_count": str(bar_count),
+                        "first_date": timestamps[0].date().isoformat() if timestamps else "",
+                        "last_date": timestamps[-1].date().isoformat() if timestamps else "",
                         "code": "",
                         "message": "",
+                        "recommended_action": _recommended_action("ok", row),
                         "batch_index": str(batch_index),
                     }
                 )
             else:
                 results.append(
                     _failed_row(
-                        symbol,
+                        row,
                         status="no_bars",
                         code="YAHOO-NO-BARS",
-                        message="Yahoo returned no OHLCV bars for this symbol.",
+                        message="Yahoo returned no OHLCV bars for this provider symbol.",
                         batch_index=batch_index,
                     )
                 )
@@ -200,7 +229,7 @@ async def _check_yahoo_coverage(
 
 
 def _failed_row(
-    symbol: str,
+    row: dict[str, str],
     *,
     status: str,
     code: str,
@@ -208,14 +237,28 @@ def _failed_row(
     batch_index: int,
 ) -> dict[str, str]:
     return {
-        "symbol": symbol,
+        "symbol": row.get("symbol", ""),
+        "provider_symbol": row.get("provider_symbol", ""),
+        "yahoo_symbol_status": row.get("yahoo_symbol_status", ""),
         "status": status,
         "bar_count": "0",
+        "first_date": "",
+        "last_date": "",
         "code": code,
         "message": message,
+        "recommended_action": _recommended_action(status, row),
         "batch_index": str(batch_index),
     }
 
+
+
+def _recommended_action(status: str, row: dict[str, str]) -> str:
+    if status == "ok":
+        return "mark_confirmed"
+    current_status = row.get("yahoo_symbol_status", "")
+    if current_status in {"confirmed", "generated", "stale"}:
+        return "review_or_mark_unavailable"
+    return "keep_requires_review_or_mark_unavailable"
 
 def _manifest(
     rows: Sequence[dict[str, str]],
@@ -274,7 +317,19 @@ def _write_outputs(
     with csv_path.open("w", encoding="utf-8", newline="") as file:
         writer = csv.DictWriter(
             file,
-            fieldnames=["symbol", "status", "bar_count", "code", "message", "batch_index"],
+            fieldnames=[
+                "symbol",
+                "provider_symbol",
+                "yahoo_symbol_status",
+                "status",
+                "bar_count",
+                "first_date",
+                "last_date",
+                "code",
+                "message",
+                "recommended_action",
+                "batch_index",
+            ],
         )
         writer.writeheader()
         writer.writerows(rows)

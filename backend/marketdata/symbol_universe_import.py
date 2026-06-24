@@ -44,6 +44,9 @@ SYMBOL_UNIVERSE_SOURCE_ALIASES = {
     "theme_source": ("theme_source",),
     "aliases": ("aliases", "search_aliases", "検索別名"),
     "yahoo_symbol": ("yahoo_symbol", "yahoo_ticker", "provider_yahoo_symbol", "Yahoo用銘柄コード"),
+    "yahoo_symbol_status": ("yahoo_symbol_status", "yahoo_status", "Yahoo銘柄コード確認状態"),
+    "yahoo_symbol_checked_at": ("yahoo_symbol_checked_at", "Yahoo銘柄コード確認日"),
+    "yahoo_symbol_note": ("yahoo_symbol_note", "Yahoo銘柄コードメモ"),
     "dividend_category": ("dividend_category", "dividend_type", "配当カテゴリ"),
     "dividend_yield_pct": ("dividend_yield_pct", "dividend_yield", "配当利回り"),
     "market_cap_tier": ("market_cap_tier", "market_cap_size", "時価総額"),
@@ -720,6 +723,8 @@ def _source_row_to_symbol_universe_row(
         row["local_symbol"] = _local_symbol_from_provider_symbol(symbol)
     if not row.get("yahoo_symbol", ""):
         row["yahoo_symbol"] = symbol
+    if not row.get("yahoo_symbol_status", ""):
+        row["yahoo_symbol_status"] = _default_yahoo_symbol_status(row)
     _apply_foreign_operational_defaults(row)
     if not row["theme"] and row["asset_type"] == "etf":
         row["theme"] = "index"
@@ -832,6 +837,23 @@ def _local_symbol_from_provider_symbol(symbol: str) -> str:
             return normalized.removesuffix(suffix)
     return normalized
 
+
+
+def _default_yahoo_symbol_status(row: dict[str, str]) -> str:
+    reasons = row.get("foreign_data_quality_reasons", "")
+    yahoo_symbol = row.get("yahoo_symbol", "").strip()
+    symbol = row.get("symbol", "").strip()
+    if "yahoo_symbol_unavailable" in reasons:
+        return "unavailable"
+    if "yahoo_symbol_stale" in reasons:
+        return "stale"
+    if "yahoo_symbol_requires_review" in reasons:
+        return "requires_review"
+    if yahoo_symbol and yahoo_symbol != symbol:
+        return "confirmed"
+    if yahoo_symbol:
+        return "generated"
+    return "requires_review"
 
 def _apply_foreign_operational_defaults(row: dict[str, str]) -> None:
     currency = row.get("currency", "").strip().upper()

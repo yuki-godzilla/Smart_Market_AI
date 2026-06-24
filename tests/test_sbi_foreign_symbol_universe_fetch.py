@@ -81,7 +81,8 @@ def test_parse_singapore_etf_section_marks_etf_and_review_yahoo() -> None:
     assert rows[0]["index_family"] == "singapore_equity"
     assert rows[0]["tags"] == "index"
     assert rows[0]["risk_band"] == "MEDIUM"
-    assert "yahoo_symbol_requires_review" in rows[0]["foreign_data_quality_reasons"]
+    assert rows[0]["yahoo_symbol"] == "G3B.SI"
+    assert rows[0]["yahoo_symbol_status"] == "generated"
 
 
 def test_ranking_tags_use_comma_separator() -> None:

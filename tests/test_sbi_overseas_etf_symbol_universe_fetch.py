@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from datetime import date
 
-from tools.fetch_sbi_overseas_etf_symbol_universe_source import parse_sbi_overseas_etf_html
+from tools.fetch_sbi_overseas_etf_symbol_universe_source import (
+    _normalize_source_row,
+    parse_sbi_overseas_etf_html,
+)
 
 
 def test_parse_us_etf_rows() -> None:
@@ -45,7 +48,8 @@ def test_parse_china_korea_singapore_etfs() -> None:
     assert symbols["02800.HK"]["market"] == "hong_kong"
     assert symbols["069500.KS"]["market"] == "korea"
     assert symbols["AMOG.SI"]["market"] == "singapore"
-    assert "yahoo_symbol_requires_review" in symbols["AMOG.SI"]["foreign_data_quality_reasons"]
+    assert symbols["AMOG.SI"]["yahoo_symbol"] == "A35.SI"
+    assert symbols["AMOG.SI"]["yahoo_symbol_status"] == "generated"
 
 
 def test_parse_reit_and_bond_classification() -> None:

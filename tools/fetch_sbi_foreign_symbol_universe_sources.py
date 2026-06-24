@@ -48,12 +48,98 @@ MARKET_CONFIGS: dict[str, MarketConfig] = {
     "sbi_malaysia_stock": MarketConfig("malaysia", "Malaysia", "asean", "MYR", "BURSA", "MEDIUM", ".KL", "sbi_malaysia_stock"),
 }
 
+
+SBI_FOREIGN_YAHOO_SYMBOL_OVERRIDES = {
+    "singapore": {
+        "CAPN": "9CI.SI",
+        "CMDG": "C52.SI",
+        "CTDM": "C09.SI",
+        "DBSM": "D05.SI",
+        "DELF": "P34.SI",
+        "FRNM": "F99.SI",
+        "FRPL": "TQ5.SI",
+        "GAGR": "E5H.SI",
+        "OLAG": "VC2.SI",
+        "GENS": "G13.SI",
+        "IFAR": "5JS.SI",
+        "JCYC": "C07.SI",
+        "KPLM": "BN4.SI",
+        "AMOL": "EVS.SI",
+        "AMOE": "G3B.SI",
+        "OCBC": "O39.SI",
+        "OVES": "LJ3.SI",
+        "SATS": "S58.SI",
+        "SCIL": "U96.SI",
+        "SEAT": "5E2.SI",
+        "SGXL": "S68.SI",
+        "SIAE": "S59.SI",
+        "SIAL": "C6L.SI",
+        "SIND": "U06.SI",
+        "SPOS": "S08.SI",
+        "SPRM": "T39.SI",
+        "STAR": "CC3.SI",
+        "STEG": "S63.SI",
+        "STEL": "Z74.SI",
+        "UOBH": "U11.SI",
+        "UTOS": "U14.SI",
+        "VENM": "V03.SI",
+        "WLIL": "F34.SI",
+        "YAZG": "BS6.SI",
+        "YNLG": "Z25.SI",
+        "YOMA": "Z59.SI",
+    },
+    "malaysia": {
+        "AIRX": "5238.KL",
+        "AMMB": "1015.KL",
+        "AXIA": "6888.KL",
+        "BATO": "4162.KL",
+        "BUAB": "5210.KL",
+        "CAPI": "5099.KL",
+        "CIMB": "1023.KL",
+        "DSOM": "6947.KL",
+        "GAMU": "5398.KL",
+        "GENM": "4715.KL",
+        "GENP": "2291.KL",
+        "GENT": "3182.KL",
+        "HLBB": "5819.KL",
+        "HLCB": "1082.KL",
+        "IHHH": "5225.KL",
+        "IJMS": "3336.KL",
+        "IOIB": "1961.KL",
+        "IOIP": "5249.KL",
+        "KLKK": "2445.KL",
+        "MBBM": "1155.KL",
+        "MHEB": "5186.KL",
+        "MISC": "3816.KL",
+        "MMCB": "2194.KL",
+        "MXSC": "6012.KL",
+        "NESM": "4707.KL",
+        "PCGB": "5183.KL",
+        "PEPT": "4065.KL",
+        "PETR": "5681.KL",
+        "PGAS": "6033.KL",
+        "PRKN": "5657.KL",
+        "PUBM": "1295.KL",
+        "RHBC": "1066.KL",
+        "SEVE": "5250.KL",
+        "SETI": "8664.KL",
+        "SIME": "4197.KL",
+        "TENA": "5347.KL",
+        "TLMM": "4863.KL",
+        "UMSB": "5148.KL",
+        "UMWS": "4588.KL",
+        "VELE": "5243.KL",
+        "YTLP": "6742.KL",
+        "YTLS": "4677.KL",
+    },
+}
+
 OUTPUT_FIELDNAMES = [
     "symbol", "name", "market", "asset_type", "currency", "broker", "tradability",
     "nisa_category", "investment_style", "is_sbi_supported", "is_active", "is_leveraged",
     "is_inverse", "theme", "sector", "aliases", "dividend_category", "market_cap_tier",
     "index_family", "expense_ratio_pct", "complexity", "tags", "data_quality", "risk_band",
-    "metadata_source", "metadata_as_of", "metadata_updated_at", "yahoo_symbol", "country",
+    "metadata_source", "metadata_as_of", "metadata_updated_at", "yahoo_symbol", "yahoo_symbol_status", "yahoo_symbol_checked_at", "yahoo_symbol_note", "country",
     "exchange", "local_symbol", "primary_listing_country", "trading_currency", "settlement_currency",
     "quote_currency", "fx_pair_to_jpy", "foreign_market_group", "country_risk_band",
     "liquidity_tier", "foreign_data_quality", "foreign_data_quality_reasons",
@@ -286,6 +372,9 @@ def _normalize_source_row(row: dict[str, str], *, section: str, config: MarketCo
         "metadata_as_of": as_of.isoformat(),
         "metadata_updated_at": datetime.now().astimezone().isoformat(),
         "yahoo_symbol": yahoo_symbol,
+        "yahoo_symbol_status": "requires_review" if yahoo_note else "generated",
+        "yahoo_symbol_checked_at": "",
+        "yahoo_symbol_note": yahoo_note,
         "country": config.country,
         "exchange": exchange,
         "local_symbol": local_symbol,
@@ -473,6 +562,12 @@ def _internal_symbol(local_symbol: str, config: MarketConfig, exchange: str) -> 
 
 
 def _best_effort_yahoo_symbol(local_symbol: str, config: MarketConfig, exchange: str) -> tuple[str, str]:
+    normalized_local_symbol = local_symbol.strip().upper()
+    override = SBI_FOREIGN_YAHOO_SYMBOL_OVERRIDES.get(config.market, {}).get(
+        normalized_local_symbol
+    )
+    if override:
+        return override, ""
     if config.market == "hong_kong" and local_symbol.isdigit():
         return f"{int(local_symbol):04d}.HK", ""
     if config.market == "korea":
@@ -482,7 +577,7 @@ def _best_effort_yahoo_symbol(local_symbol: str, config: MarketConfig, exchange:
     if config.market == "thailand":
         return f"{local_symbol}.BK", ""
     if config.market == "vietnam":
-        return f"{local_symbol}.VN", "yahoo_symbol_requires_review"
+        return f"{local_symbol}.VN", ""
     # SBI Singapore/Malaysia tickers are often broker aliases rather than exchange/Yahoo codes.
     return f"{local_symbol}{config.internal_suffix}", "yahoo_symbol_requires_review"
 

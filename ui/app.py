@@ -8701,16 +8701,31 @@ async def _build_market_data_ranking_rows_fast(
     feature_start = min(start, end - timedelta(days=90))
     feature_start_dt = datetime.combine(feature_start, time.min, tzinfo=UTC)
     bars: list[Bar] = []
+    error_rows: list[dict[str, str]] = []
+    provider_fetch_error_symbols: set[str] = set()
     provider_symbols_by_symbol = _provider_symbols_by_display_symbol(symbols, provider)
     fetch_symbols = _unique_provider_symbols(provider_symbols_by_symbol.values())
     symbol_chunks = ranking_symbol_chunks(fetch_symbols)
+    display_symbols_by_provider_symbol = _display_symbols_by_provider_symbol(
+        provider_symbols_by_symbol
+    )
     for index, symbol_chunk in enumerate(symbol_chunks, start=1):
         _report_ranking_progress(
             progress_callback,
             f"価格データをまとめて取得しています ({index}/{len(symbol_chunks)})。",
             0.1 + (0.35 * (index - 1) / len(symbol_chunks)),
         )
-        bars.extend(await adapter.fetch_ohlcv(symbol_chunk, start=feature_start_dt, end=end_dt))
+        chunk_bars, chunk_errors, chunk_failed_symbols = await _fetch_ranking_ohlcv_tolerant(
+            adapter,
+            symbol_chunk,
+            provider=provider,
+            start=feature_start_dt,
+            end=end_dt,
+            display_symbols_by_provider_symbol=display_symbols_by_provider_symbol,
+        )
+        bars.extend(chunk_bars)
+        error_rows.extend(chunk_errors)
+        provider_fetch_error_symbols.update(chunk_failed_symbols)
     bars = _bars_with_display_symbols(
         bars,
         provider_symbols_by_symbol=provider_symbols_by_symbol,
@@ -8727,10 +8742,11 @@ async def _build_market_data_ranking_rows_fast(
 
     available_symbols: list[str] = []
     quotes: list[Quote] = []
-    error_rows: list[dict[str, str]] = []
     for symbol in symbols:
         symbol_bars = bars_by_symbol[symbol]
         if not symbol_bars:
+            if symbol in provider_fetch_error_symbols:
+                continue
             error_rows.append(
                 ranking_no_bars_error_row(
                     provider=provider,
@@ -8762,7 +8778,14 @@ async def _build_market_data_ranking_rows_fast(
     provider_available_symbols = [
         provider_symbols_by_symbol[symbol] for symbol in available_symbols
     ]
-    provider_fundamentals = await adapter.fetch_fundamentals(provider_available_symbols, as_of=end)
+    provider_fundamentals, fundamental_error_rows = await _fetch_ranking_fundamentals_tolerant(
+        adapter,
+        provider_available_symbols,
+        provider=provider,
+        as_of=end,
+        display_symbols_by_provider_symbol=display_symbols_by_provider_symbol,
+    )
+    error_rows.extend(fundamental_error_rows)
     fundamentals = _fundamentals_with_display_symbols(
         provider_fundamentals,
         provider_symbols_by_symbol={
@@ -8851,6 +8874,79 @@ async def _build_market_data_ranking_rows_fast(
     _report_ranking_progress(progress_callback, "ランキングを並べ替えています。", 0.98)
     return ranked_rows, error_rows
 
+
+async def _fetch_ranking_ohlcv_tolerant(
+    adapter: Any,
+    symbol_chunk: list[str],
+    *,
+    provider: str,
+    start: datetime,
+    end: datetime,
+    display_symbols_by_provider_symbol: Mapping[str, list[str]],
+) -> tuple[list[Bar], list[dict[str, str]], set[str]]:
+    """Fetch ranking OHLCV without letting one unsupported ticker kill the whole ranking."""
+
+    if not symbol_chunk:
+        return [], [], set()
+    try:
+        return await adapter.fetch_ohlcv(symbol_chunk, start=start, end=end), [], set()
+    except AppError as exc:
+        if len(symbol_chunk) <= 1:
+            display_symbols = display_symbols_by_provider_symbol.get(
+                symbol_chunk[0], symbol_chunk
+            )
+            return [], ranking_provider_error_rows(provider, display_symbols, exc), set(display_symbols)
+
+    bars: list[Bar] = []
+    error_rows: list[dict[str, str]] = []
+    failed_display_symbols: set[str] = set()
+    for provider_symbol in symbol_chunk:
+        display_symbols = display_symbols_by_provider_symbol.get(
+            provider_symbol, [provider_symbol]
+        )
+        try:
+            bars.extend(await adapter.fetch_ohlcv([provider_symbol], start=start, end=end))
+        except AppError as exc:
+            error_rows.extend(ranking_provider_error_rows(provider, display_symbols, exc))
+            failed_display_symbols.update(display_symbols)
+    return bars, error_rows, failed_display_symbols
+
+
+async def _fetch_ranking_fundamentals_tolerant(
+    adapter: Any,
+    provider_symbols: list[str],
+    *,
+    provider: str,
+    as_of: date,
+    display_symbols_by_provider_symbol: Mapping[str, list[str]],
+) -> tuple[list[FundamentalSnapshot], list[dict[str, str]]]:
+    """Fetch optional fundamentals without failing an otherwise usable price ranking."""
+
+    try:
+        return await adapter.fetch_fundamentals(provider_symbols, as_of=as_of), []
+    except AppError:
+        pass
+
+    fundamentals: list[FundamentalSnapshot] = []
+    error_rows: list[dict[str, str]] = []
+    for provider_symbol in provider_symbols:
+        display_symbols = display_symbols_by_provider_symbol.get(
+            provider_symbol, [provider_symbol]
+        )
+        try:
+            fundamentals.extend(await adapter.fetch_fundamentals([provider_symbol], as_of=as_of))
+        except AppError as exc:
+            error_rows.extend(ranking_provider_error_rows(provider, display_symbols, exc))
+    return fundamentals, error_rows
+
+
+def _display_symbols_by_provider_symbol(
+    provider_symbols_by_symbol: Mapping[str, str]
+) -> dict[str, list[str]]:
+    display_symbols: dict[str, list[str]] = {}
+    for display_symbol, provider_symbol in provider_symbols_by_symbol.items():
+        display_symbols.setdefault(provider_symbol, []).append(display_symbol)
+    return display_symbols
 
 def _provider_symbols_by_display_symbol(
     symbols: list[str],

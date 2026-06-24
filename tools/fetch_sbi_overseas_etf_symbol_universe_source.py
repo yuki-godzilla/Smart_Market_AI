@@ -17,6 +17,23 @@ DEFAULT_OUTPUT_CSV = PROJECT_ROOT / "data" / "marketdata" / "symbol_universe_sou
 DEFAULT_RAW_DIR = PROJECT_ROOT / "data" / "marketdata" / "raw" / "sbi_overseas_etf"
 DEFAULT_REPORT = PROJECT_ROOT / "reports" / "sbi_overseas_etf_import_report.json"
 
+
+SBI_OVERSEAS_ETF_YAHOO_SYMBOL_OVERRIDES = {
+    "シンガポールETF": {
+        "AMOG": "A35.SI",
+        "CSOP": "SRU.SI",
+        "ICGB": "CYC.SI",
+        "INDI-D": "INDI.SI",
+        "LIOP": "CLR.SI",
+        "LISC": "ESG.SI",
+        "AMOL": "EVS.SI",
+        "AMOT": "MBH.SI",
+        "AMOE": "G3B.SI",
+        "AMON": "CFA.SI",
+        "UOBA": "GRN.SI",
+    },
+}
+
 OUTPUT_FIELDNAMES = [
     "symbol",
     "name",
@@ -46,6 +63,9 @@ OUTPUT_FIELDNAMES = [
     "metadata_as_of",
     "metadata_updated_at",
     "yahoo_symbol",
+    "yahoo_symbol_status",
+    "yahoo_symbol_checked_at",
+    "yahoo_symbol_note",
     "country",
     "exchange",
     "local_symbol",
@@ -333,6 +353,9 @@ def _normalize_source_row(raw: dict[str, str], *, section: str, as_of: date, sou
         "metadata_as_of": as_of.isoformat(),
         "metadata_updated_at": now,
         "yahoo_symbol": yahoo_symbol,
+        "yahoo_symbol_status": "requires_review" if yahoo_note else "generated",
+        "yahoo_symbol_checked_at": "",
+        "yahoo_symbol_note": yahoo_note,
         "country": config.country,
         "exchange": exchange,
         "local_symbol": local_symbol,
@@ -417,6 +440,12 @@ def _internal_symbol(section: str, local_symbol: str, exchange: str) -> str:
 
 
 def _best_effort_yahoo_symbol(section: str, local_symbol: str, exchange: str) -> tuple[str, str]:
+    normalized_local_symbol = local_symbol.strip().upper()
+    override = SBI_OVERSEAS_ETF_YAHOO_SYMBOL_OVERRIDES.get(section, {}).get(
+        normalized_local_symbol
+    )
+    if override:
+        return override, ""
     if section == "米国ETF":
         return local_symbol, ""
     if section == "中国ETF" and local_symbol.isdigit():

@@ -426,6 +426,25 @@ SYMBOL_METADATA_FIELDS: tuple[MetadataField, ...] = (
         storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
     ),
     MetadataField(
+        key="yahoo_symbol_status",
+        label="Yahoo銘柄コード確認状態",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+        allowed_values=frozenset({"confirmed", "generated", "requires_review", "unavailable", "stale"}),
+    ),
+    MetadataField(
+        key="yahoo_symbol_checked_at",
+        label="Yahoo銘柄コード確認日",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+    ),
+    MetadataField(
+        key="yahoo_symbol_note",
+        label="Yahoo銘柄コードメモ",
+        tier=METADATA_TIER_OPERATIONAL,
+        storage=METADATA_STORAGE_SYMBOL_UNIVERSE,
+    ),
+    MetadataField(
         key="dividend_category",
         label="配当カテゴリ",
         tier=METADATA_TIER_RANKING_FILTER,

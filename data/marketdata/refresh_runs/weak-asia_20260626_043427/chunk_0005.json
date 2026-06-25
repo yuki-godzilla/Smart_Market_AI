@@ -1,0 +1,88 @@
+{
+  "as_of": "2026-06-26",
+  "changed_columns": [],
+  "changed_rows": 0,
+  "changed_symbols": [],
+  "dry_run": false,
+  "failed_symbols": [],
+  "failures": [],
+  "fill_missing_only": true,
+  "operation": "symbol_universe_metadata_refresh",
+  "provider": "yahoo",
+  "selection": {
+    "filters": {
+      "asset_type": "",
+      "limit": 0,
+      "market": "singapore",
+      "metadata_source": "",
+      "missing_any": [
+        "per",
+        "pbr",
+        "roe_pct",
+        "dividend_yield_pct",
+        "market_cap",
+        "average_volume"
+      ],
+      "symbols": [
+        "DBSM.SI",
+        "GAGR.SI",
+        "AMOL.SI",
+        "NOBG.SI",
+        "OCBC.SI",
+        "OVES.SI",
+        "SPRM.SI",
+        "AMOG.SI",
+        "CSOP.SI",
+        "DCSX.SI",
+        "ICGB.SI",
+        "INDI-D.SI",
+        "LIOP.SI",
+        "LISC.SI",
+        "AMOM.SI",
+        "AMOT.SI",
+        "AMOE.SI",
+        "AMON.SI",
+        "UOBA.SI"
+      ]
+    },
+    "selected_rows": 19,
+    "selected_symbols": [
+      "DBSM.SI",
+      "GAGR.SI",
+      "AMOL.SI",
+      "NOBG.SI",
+      "OCBC.SI",
+      "OVES.SI",
+      "SPRM.SI",
+      "AMOG.SI",
+      "CSOP.SI",
+      "DCSX.SI",
+      "ICGB.SI",
+      "INDI-D.SI",
+      "LIOP.SI",
+      "LISC.SI",
+      "AMOM.SI",
+      "AMOT.SI",
+      "AMOE.SI",
+      "AMON.SI",
+      "UOBA.SI"
+    ],
+    "selected_symbols_truncated": false,
+    "total_rows": 11071
+  },
+  "total_rows": 11071,
+  "unknown_symbols": [],
+  "updated_at": "2026-06-26T04:38:34.309581+09:00",
+  "updates_applied": 19,
+  "updates_requested": 19,
+  "validation_after": {
+    "errors": 9786,
+    "total": 9786,
+    "warnings": 0
+  },
+  "validation_before": {
+    "errors": 9786,
+    "total": 9786,
+    "warnings": 0
+  }
+}

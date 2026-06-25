@@ -87,6 +87,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             "When set, timed-out symbols are skipped and reported as failures."
         ),
     )
+    parser.add_argument(
+        "--strict-validation",
+        action="store_true",
+        help=(
+            "Refuse --write whenever validation_after has any errors. "
+            "By default, pre-existing validation errors do not block writes unless "
+            "the refresh increases the error count."
+        ),
+    )
     args = parser.parse_args(argv)
 
     fieldnames, rows = _read_symbol_universe_csv(args.csv)
@@ -174,10 +183,32 @@ def main(argv: Sequence[str] | None = None) -> int:
         limit=args.limit,
     )
 
-    if args.write and validation_after_summary["errors"]:
+    validation_before_summary = summarize_validation_issues(validation_before)
+    if args.write and _should_refuse_write_due_to_validation(
+        validation_before_summary=validation_before_summary,
+        validation_after_summary=validation_after_summary,
+        strict_validation=args.strict_validation,
+    ):
         print(json.dumps(result.manifest, ensure_ascii=False, indent=2, sort_keys=True))
-        print("Refusing to write because validation_after has errors.", file=sys.stderr)
+        if args.strict_validation:
+            print("Refusing to write because --strict-validation is set and validation_after has errors.", file=sys.stderr)
+        else:
+            print("Refusing to write because validation_after introduced additional errors.", file=sys.stderr)
         return 2
+    if args.write and validation_after_summary["errors"]:
+        print(
+            json.dumps(
+                {
+                    "event": "validation_warning",
+                    "message": "Writing despite pre-existing validation errors because the refresh did not increase the error count.",
+                    "validation_before": validation_before_summary,
+                    "validation_after": validation_after_summary,
+                },
+                ensure_ascii=False,
+                sort_keys=True,
+            ),
+            file=sys.stderr,
+        )
 
     if args.write:
         _write_symbol_universe_csv(args.csv, result.rows, write_fieldnames)
@@ -185,6 +216,21 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     print(json.dumps(result.manifest, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
+
+
+def _should_refuse_write_due_to_validation(
+    *,
+    validation_before_summary: dict[str, int],
+    validation_after_summary: dict[str, int],
+    strict_validation: bool,
+) -> bool:
+    after_errors = int(validation_after_summary.get("errors", 0))
+    before_errors = int(validation_before_summary.get("errors", 0))
+    if after_errors <= 0:
+        return False
+    if strict_validation:
+        return True
+    return after_errors > before_errors
 
 
 class _ScopedSymbolMetadataProvider:

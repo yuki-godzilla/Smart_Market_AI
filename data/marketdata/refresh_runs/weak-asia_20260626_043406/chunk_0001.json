@@ -1,0 +1,70 @@
+{
+  "as_of": "2026-06-26",
+  "changed_columns": [],
+  "changed_rows": 0,
+  "changed_symbols": [],
+  "dry_run": false,
+  "failed_symbols": [],
+  "failures": [],
+  "fill_missing_only": true,
+  "operation": "symbol_universe_metadata_refresh",
+  "provider": "yahoo",
+  "selection": {
+    "filters": {
+      "asset_type": "",
+      "limit": 0,
+      "market": "vietnam",
+      "metadata_source": "",
+      "missing_any": [
+        "per",
+        "pbr",
+        "roe_pct",
+        "dividend_yield_pct",
+        "market_cap",
+        "average_volume"
+      ],
+      "symbols": [
+        "AAM.VN",
+        "ABT.VN",
+        "ACL.VN",
+        "ADC.VN",
+        "AME.VN",
+        "AMV.VN",
+        "APG.VN",
+        "API.VN",
+        "APS.VN",
+        "ASP.VN"
+      ]
+    },
+    "selected_rows": 10,
+    "selected_symbols": [
+      "AAM.VN",
+      "ABT.VN",
+      "ACL.VN",
+      "ADC.VN",
+      "AME.VN",
+      "AMV.VN",
+      "APG.VN",
+      "API.VN",
+      "APS.VN",
+      "ASP.VN"
+    ],
+    "selected_symbols_truncated": false,
+    "total_rows": 11071
+  },
+  "total_rows": 11071,
+  "unknown_symbols": [],
+  "updated_at": "2026-06-26T04:34:06.894654+09:00",
+  "updates_applied": 10,
+  "updates_requested": 10,
+  "validation_after": {
+    "errors": 9786,
+    "total": 9786,
+    "warnings": 0
+  },
+  "validation_before": {
+    "errors": 9786,
+    "total": 9786,
+    "warnings": 0
+  }
+}

@@ -481,3 +481,33 @@ def test_summarize_validation_issues_counts_default_severity_as_error():
         "errors": 1,
         "warnings": 1,
     }
+
+
+def test_refresh_tool_allows_preexisting_validation_errors_without_strict_mode():
+    from tools.refresh_symbol_universe_metadata import _should_refuse_write_due_to_validation
+
+    assert not _should_refuse_write_due_to_validation(
+        validation_before_summary={"total": 5, "errors": 5, "warnings": 0},
+        validation_after_summary={"total": 5, "errors": 5, "warnings": 0},
+        strict_validation=False,
+    )
+
+
+def test_refresh_tool_refuses_new_validation_errors_without_strict_mode():
+    from tools.refresh_symbol_universe_metadata import _should_refuse_write_due_to_validation
+
+    assert _should_refuse_write_due_to_validation(
+        validation_before_summary={"total": 5, "errors": 5, "warnings": 0},
+        validation_after_summary={"total": 6, "errors": 6, "warnings": 0},
+        strict_validation=False,
+    )
+
+
+def test_refresh_tool_strict_validation_refuses_any_after_errors():
+    from tools.refresh_symbol_universe_metadata import _should_refuse_write_due_to_validation
+
+    assert _should_refuse_write_due_to_validation(
+        validation_before_summary={"total": 5, "errors": 5, "warnings": 0},
+        validation_after_summary={"total": 5, "errors": 5, "warnings": 0},
+        strict_validation=True,
+    )

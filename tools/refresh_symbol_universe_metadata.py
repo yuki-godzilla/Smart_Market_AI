@@ -4,6 +4,7 @@ import argparse
 import csv
 import json
 import sys
+import time
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Sequence, cast
@@ -71,6 +72,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="Allow an external live provider such as yahoo. Never enabled by default.",
     )
+    parser.add_argument(
+        "--progress-every",
+        type=int,
+        default=25,
+        help="Print live progress every N processed symbols. 0 disables progress logs.",
+    )
+    parser.add_argument(
+        "--symbol-timeout-seconds",
+        type=float,
+        default=0,
+        help=(
+            "Per-symbol live Yahoo timeout. 0 disables subprocess timeout. "
+            "When set, timed-out symbols are skipped and reported as failures."
+        ),
+    )
     args = parser.parse_args(argv)
 
     fieldnames, rows = _read_symbol_universe_csv(args.csv)
@@ -86,6 +102,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 2
+    _configure_live_provider_runtime(
+        base_provider,
+        progress_every=args.progress_every,
+        symbol_timeout_seconds=args.symbol_timeout_seconds,
+    )
     selected_rows = _select_refresh_rows(
         rows,
         symbols=_parse_list(args.symbols),
@@ -108,6 +129,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         fieldnames=fieldnames,
     )
     write_fieldnames = _write_fieldnames(fieldnames, rows)
+
+    if args.progress_every > 0:
+        print(
+            json.dumps(
+                {
+                    "event": "selection",
+                    "provider": args.provider,
+                    "selected_rows": len(selected_rows),
+                    "total_rows": len(rows),
+                    "write": bool(args.write),
+                    "symbol_timeout_seconds": args.symbol_timeout_seconds,
+                },
+                ensure_ascii=False,
+                sort_keys=True,
+            ),
+            file=sys.stderr,
+            flush=True,
+        )
 
     result = refresh_symbol_universe_metadata(
         rows,
@@ -236,6 +275,38 @@ def _select_refresh_rows(
     if limit > 0:
         return selected_rows[:limit]
     return selected_rows
+
+
+def _configure_live_provider_runtime(
+    provider: SymbolMetadataProvider,
+    *,
+    progress_every: int,
+    symbol_timeout_seconds: float,
+) -> None:
+    if hasattr(provider, "symbol_timeout_seconds"):
+        setattr(provider, "symbol_timeout_seconds", max(0.0, float(symbol_timeout_seconds)))
+    if progress_every > 0 and hasattr(provider, "progress_callback"):
+        started_at = time.monotonic()
+
+        def _progress(payload: dict[str, object]) -> None:
+            event = str(payload.get("event") or "")
+            index = int(payload.get("index") or 0)
+            total = int(payload.get("total") or 0)
+            should_print = event in {"failure", "timeout"} or (
+                event == "done" and (index == 1 or index == total or index % progress_every == 0)
+            )
+            if not should_print:
+                return
+            elapsed = time.monotonic() - started_at
+            rate = index / elapsed if elapsed > 0 and index > 0 else 0
+            remaining = (total - index) / rate if rate > 0 and total >= index else None
+            message = dict(payload)
+            message["rate_symbols_per_second"] = round(rate, 4)
+            if remaining is not None:
+                message["eta_seconds"] = round(remaining, 1)
+            print(json.dumps(message, ensure_ascii=False, sort_keys=True), file=sys.stderr, flush=True)
+
+        setattr(provider, "progress_callback", _progress)
 
 
 def _selection_manifest(

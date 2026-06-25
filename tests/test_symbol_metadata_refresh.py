@@ -120,7 +120,31 @@ def test_yahoo_provider_maps_ticker_info_to_catalog_fields_without_network():
         "market_cap": "250000000000",
         "market_cap_tier": "mega",
         "risk_band": "HIGH",
+        "yahoo_symbol": "AAPL",
+        "yahoo_symbol_status": "confirmed",
+        "yahoo_symbol_checked_at": "2026-05-18T00:00:00+00:00",
     }
+
+
+def test_yahoo_provider_prefers_explicit_yahoo_symbol_without_network():
+    requested_symbols: list[str] = []
+
+    def _reader(symbol: str) -> dict[str, object]:
+        requested_symbols.append(symbol)
+        return {"marketCap": 10_000_000_000, "currency": "HKD"}
+
+    provider = YahooSymbolMetadataProvider(ticker_info_reader=_reader)
+
+    updates = provider.fetch_metadata(
+        [{"symbol": "00001.HK", "yahoo_symbol": "0001.HK", "asset_type": "stock", "currency": "HKD"}],
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert requested_symbols == ["0001.HK"]
+    assert updates[0].symbol == "00001.HK"
+    assert updates[0].values["market_cap"] == "10000000000"
+    assert updates[0].values["yahoo_symbol_status"] == "confirmed"
 
 
 def test_refresh_fill_missing_only_preserves_existing_values_and_adds_provenance():

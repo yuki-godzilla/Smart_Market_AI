@@ -1,9 +1,9 @@
 {
-  "last_attempt_at": "2026-06-24T23:55:28.942287Z",
-  "last_success_at": "2026-06-24T23:55:28.942287Z",
+  "last_attempt_at": "2026-06-25T12:33:41.413603Z",
+  "last_success_at": "2026-06-25T12:33:41.413603Z",
   "last_error_at": null,
   "last_error_type": null,
   "consecutive_failures": 0,
   "is_refreshing": false,
-  "cache_file_size_bytes": 241664
+  "cache_file_size_bytes": 263151
 }

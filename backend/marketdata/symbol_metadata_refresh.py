@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime
+import multiprocessing
+import os
+import queue
+import time
 from decimal import Decimal, InvalidOperation
 from typing import Callable, Protocol, Sequence, runtime_checkable
 
@@ -115,6 +119,8 @@ class YahooSymbolMetadataProvider:
     ticker_info_reader: Callable[[str], dict[str, object]] | None = None
     name: str = "yahoo"
     failures: list[SymbolMetadataFailure] = field(default_factory=list, init=False)
+    symbol_timeout_seconds: float = 0
+    progress_callback: Callable[[dict[str, object]], None] | None = None
 
     def fetch_metadata(
         self,
@@ -126,12 +132,50 @@ class YahooSymbolMetadataProvider:
         self.failures.clear()
         updates: list[SymbolMetadataUpdate] = []
         ticker_info_reader = self.ticker_info_reader or _read_yahoo_ticker_info
-        for row in rows:
+        total = len(rows)
+        started_at = time.monotonic()
+        for index, row in enumerate(rows, start=1):
             symbol = row.get("symbol", "").strip()
-            if not symbol:
+            yahoo_symbol = _yahoo_lookup_symbol(row)
+            if not symbol or not yahoo_symbol:
                 continue
+            symbol_started_at = time.monotonic()
+            self._emit_progress(
+                {
+                    "event": "start",
+                    "index": index,
+                    "total": total,
+                    "symbol": symbol,
+                    "lookup_symbol": yahoo_symbol,
+                    "elapsed_seconds": round(time.monotonic() - started_at, 2),
+                }
+            )
             try:
-                info = ticker_info_reader(symbol)
+                info = self._read_info(
+                    ticker_info_reader,
+                    yahoo_symbol,
+                    use_subprocess_timeout=self.ticker_info_reader is None,
+                )
+            except TimeoutError as exc:
+                self.failures.append(
+                    SymbolMetadataFailure(
+                        symbol=symbol,
+                        code="YAHOO-METADATA-TIMEOUT",
+                        message=str(exc),
+                    )
+                )
+                self._emit_progress(
+                    {
+                        "event": "timeout",
+                        "index": index,
+                        "total": total,
+                        "symbol": symbol,
+                        "lookup_symbol": yahoo_symbol,
+                        "duration_seconds": round(time.monotonic() - symbol_started_at, 2),
+                        "elapsed_seconds": round(time.monotonic() - started_at, 2),
+                    }
+                )
+                continue
             except Exception as exc:  # noqa: BLE001 - provider failures are reported per symbol.
                 self.failures.append(
                     SymbolMetadataFailure(
@@ -139,6 +183,18 @@ class YahooSymbolMetadataProvider:
                         code="YAHOO-METADATA-FAILED",
                         message=str(exc),
                     )
+                )
+                self._emit_progress(
+                    {
+                        "event": "failure",
+                        "index": index,
+                        "total": total,
+                        "symbol": symbol,
+                        "lookup_symbol": yahoo_symbol,
+                        "duration_seconds": round(time.monotonic() - symbol_started_at, 2),
+                        "elapsed_seconds": round(time.monotonic() - started_at, 2),
+                        "message": str(exc),
+                    }
                 )
                 continue
 
@@ -152,10 +208,55 @@ class YahooSymbolMetadataProvider:
                         message=str(exc),
                     )
                 )
+                self._emit_progress(
+                    {
+                        "event": "failure",
+                        "index": index,
+                        "total": total,
+                        "symbol": symbol,
+                        "lookup_symbol": yahoo_symbol,
+                        "duration_seconds": round(time.monotonic() - symbol_started_at, 2),
+                        "elapsed_seconds": round(time.monotonic() - started_at, 2),
+                        "message": str(exc),
+                    }
+                )
                 continue
             if values:
+                values.setdefault("yahoo_symbol", yahoo_symbol)
+                values["yahoo_symbol_status"] = "confirmed"
+                values["yahoo_symbol_checked_at"] = updated_at.isoformat()
                 updates.append(SymbolMetadataUpdate(symbol=symbol, values=values))
+            self._emit_progress(
+                {
+                    "event": "done",
+                    "index": index,
+                    "total": total,
+                    "symbol": symbol,
+                    "lookup_symbol": yahoo_symbol,
+                    "updated": bool(values),
+                    "duration_seconds": round(time.monotonic() - symbol_started_at, 2),
+                    "elapsed_seconds": round(time.monotonic() - started_at, 2),
+                }
+            )
         return updates
+
+    def _read_info(
+        self,
+        ticker_info_reader: Callable[[str], dict[str, object]],
+        symbol: str,
+        *,
+        use_subprocess_timeout: bool,
+    ) -> dict[str, object]:
+        if self.symbol_timeout_seconds <= 0:
+            return ticker_info_reader(symbol)
+        if not use_subprocess_timeout:
+            return ticker_info_reader(symbol)
+        return _read_yahoo_ticker_info_with_timeout(symbol, timeout_seconds=self.symbol_timeout_seconds)
+
+    def _emit_progress(self, payload: dict[str, object]) -> None:
+        if self.progress_callback is None:
+            return
+        self.progress_callback(payload)
 
 
 @dataclass(frozen=True)
@@ -340,6 +441,49 @@ def summarize_validation_issues(issues: Sequence[dict[str, str]]) -> dict[str, i
     }
 
 
+def _yahoo_lookup_symbol(row: dict[str, str]) -> str:
+    yahoo_symbol = row.get("yahoo_symbol", "").strip()
+    if yahoo_symbol:
+        return yahoo_symbol
+    return row.get("symbol", "").strip()
+
+
+def _read_yahoo_ticker_info_worker(symbol: str, result_queue: multiprocessing.Queue) -> None:
+    try:
+        result_queue.put(("ok", _read_yahoo_ticker_info(symbol)))
+    except BaseException as exc:  # noqa: BLE001 - subprocess boundary must report all failures.
+        result_queue.put(("error", f"{type(exc).__name__}: {exc}"))
+
+
+def _read_yahoo_ticker_info_with_timeout(
+    symbol: str,
+    *,
+    timeout_seconds: float,
+) -> dict[str, object]:
+    if timeout_seconds <= 0:
+        return _read_yahoo_ticker_info(symbol)
+    ctx = multiprocessing.get_context("spawn" if os.name == "nt" else "fork")
+    result_queue: multiprocessing.Queue = ctx.Queue(maxsize=1)
+    process = ctx.Process(target=_read_yahoo_ticker_info_worker, args=(symbol, result_queue))
+    process.daemon = True
+    process.start()
+    process.join(timeout_seconds)
+    if process.is_alive():
+        process.terminate()
+        process.join(timeout=2)
+        if process.is_alive():
+            process.kill()
+            process.join(timeout=2)
+        raise TimeoutError(f"Yahoo metadata request timed out after {timeout_seconds:g}s")
+    try:
+        status, payload = result_queue.get_nowait()
+    except queue.Empty as exc:
+        raise RuntimeError("Yahoo metadata subprocess exited without a result") from exc
+    if status == "ok" and isinstance(payload, dict):
+        return payload
+    raise RuntimeError(str(payload))
+
+
 def _read_yahoo_ticker_info(symbol: str) -> dict[str, object]:
     from backend.marketdata.providers.yahoo import (  # noqa: PLC0415
         _call_yfinance_silently,
@@ -416,13 +560,19 @@ def _yahoo_metadata_values(
     if row.get("asset_type") == "etf" and expense_ratio_pct is not None and expense_ratio_pct >= 0:
         values["expense_ratio_pct"] = _format_decimal(expense_ratio_pct)
 
-    if row.get("asset_type") == "etf":
+    average_volume = (
+        _optional_decimal_info(info, "averageVolume")
+        or _optional_decimal_info(info, "averageDailyVolume10Day")
+        or _optional_decimal_info(info, "averageVolume10days")
+        or _optional_decimal_info(info, "threeMonthAverageVolume")
+    )
+    if average_volume is not None and average_volume >= 0:
+        values["average_volume"] = _format_decimal(average_volume)
+
+    if row.get("asset_type") in {"etf", "fund"}:
         aum = _optional_decimal_info(info, "totalAssets")
         if aum is not None and aum >= 0:
             values["aum"] = _format_decimal(aum)
-        average_volume = _optional_decimal_info(info, "averageVolume")
-        if average_volume is not None and average_volume >= 0:
-            values["average_volume"] = _format_decimal(average_volume)
         asset_class = str(info.get("category") or "").strip()
         if asset_class:
             values["asset_class"] = asset_class

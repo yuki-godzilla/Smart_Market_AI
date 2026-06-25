@@ -172,3 +172,12 @@ def test_global_theme_tokens_define_dark_financial_ai_palette():
     assert RANKING_GRID_CUSTOM_CSS[".ag-cell"]["white-space"] == "nowrap"
     assert RANKING_GRID_CUSTOM_CSS[".ag-cell"]["text-overflow"] == "ellipsis"
     assert RANKING_GRID_CUSTOM_CSS[".ag-cell-value"]["white-space"] == "nowrap"
+
+
+def test_global_css_defines_ranking_deep_dive_cta_layout():
+    assert ".smai-ranking-deep-dive-select-anchor" in SMAI_GLOBAL_CSS
+    assert ".smai-ranking-deep-dive-cta-label" in SMAI_GLOBAL_CSS
+    assert ".smai-ranking-deep-dive-cta-anchor" in SMAI_GLOBAL_CSS
+    assert "min-height: 3.95rem;" in SMAI_GLOBAL_CSS
+    assert "rgba(14, 116, 144, 1)" in SMAI_GLOBAL_CSS
+    assert "0 0 34px rgba(34, 211, 238, 0.22)" in SMAI_GLOBAL_CSS

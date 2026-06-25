@@ -5257,6 +5257,102 @@ div[data-testid="stChatInput"] textarea:focus {
     font-weight: 880 !important;
 }
 
+
+.smai-ranking-deep-dive-select-anchor {
+    height: 0;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-ranking-deep-dive-select-anchor)
+    + div[data-testid="stSelectbox"] {
+    border: 1px solid rgba(34, 211, 238, 0.28);
+    border-radius: 10px;
+    background:
+        linear-gradient(180deg, rgba(34, 211, 238, 0.08), rgba(15, 23, 42, 0.42)),
+        rgba(8, 13, 25, 0.48);
+    padding: 0.42rem 0.5rem 0.54rem;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-ranking-deep-dive-select-anchor)
+    + div[data-testid="stSelectbox"] label {
+    color: #FFFFFF !important;
+    font-size: 0.95rem !important;
+    font-weight: 860 !important;
+}
+
+[data-testid="stMarkdownContainer"]:has(.smai-ranking-deep-dive-select-anchor)
+    + div[data-testid="stSelectbox"] div[data-baseweb="select"] > div {
+    min-height: 3.2rem;
+    border-color: rgba(103, 232, 249, 0.48) !important;
+    background-color: rgba(15, 31, 52, 0.98) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.07),
+        0 0 0 1px rgba(34, 211, 238, 0.08);
+}
+
+.smai-ranking-deep-dive-cta-label {
+    display: block;
+    min-height: 1.5rem;
+    color: var(--text-ai-title);
+    font-size: 0.95rem;
+    font-weight: 860;
+    line-height: 1.45;
+    margin: 0 0 0.42rem;
+}
+
+.smai-ranking-deep-dive-cta-anchor {
+    height: 0;
+}
+
+.smai-ranking-deep-dive-cta-anchor + div[data-testid="stButton"] button,
+[data-testid="stMarkdownContainer"]:has(.smai-ranking-deep-dive-cta-anchor)
+    + div[data-testid="stButton"] button {
+    min-height: 3.95rem;
+    width: 100%;
+    border-width: 1px;
+    border-color: rgba(186, 230, 253, 0.88) !important;
+    border-radius: 12px;
+    background:
+        linear-gradient(
+            135deg,
+            rgba(14, 116, 144, 1) 0%,
+            rgba(8, 145, 178, 0.98) 38%,
+            rgba(20, 184, 166, 0.98) 100%
+        ) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        0 0 0 1px rgba(103, 232, 249, 0.22),
+        0 16px 34px rgba(8, 145, 178, 0.34),
+        0 0 28px rgba(34, 211, 238, 0.16);
+}
+
+.smai-ranking-deep-dive-cta-anchor + div[data-testid="stButton"] button:hover,
+[data-testid="stMarkdownContainer"]:has(.smai-ranking-deep-dive-cta-anchor)
+    + div[data-testid="stButton"] button:hover {
+    border-color: rgba(224, 242, 254, 0.98) !important;
+    background:
+        linear-gradient(
+            135deg,
+            rgba(56, 189, 248, 1) 0%,
+            rgba(34, 211, 238, 0.98) 45%,
+            rgba(45, 212, 191, 0.98) 100%
+        ) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        0 0 0 2px rgba(103, 232, 249, 0.28),
+        0 18px 38px rgba(8, 145, 178, 0.4),
+        0 0 34px rgba(34, 211, 238, 0.22);
+    transform: translateY(-1px);
+}
+
+.smai-ranking-deep-dive-cta-anchor + div[data-testid="stButton"] button *,
+[data-testid="stMarkdownContainer"]:has(.smai-ranking-deep-dive-cta-anchor)
+    + div[data-testid="stButton"] button * {
+    color: #FFFFFF !important;
+    font-size: 1.1rem !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.01em !important;
+}
+
 .smai-news-refresh-action-anchor {
     height: 0;
 }

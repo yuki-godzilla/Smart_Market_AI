@@ -6145,6 +6145,11 @@ def _render_ranking_filter_panel_modal_backdrop(
         unsafe_allow_html=True,
     )
     with st.expander("詳細条件で候補を絞り込む", expanded=True):
+        render_ranking_exploration_filter_cards(
+            symbol_options,
+            product_type=product_type,
+            render_dialog=False,
+        )
         st.markdown(
             """
             <div class="smai-filter-backdrop-static">
@@ -6159,11 +6164,6 @@ def _render_ranking_filter_panel_modal_backdrop(
             </div>
             """,
             unsafe_allow_html=True,
-        )
-        render_ranking_exploration_filter_cards(
-            symbol_options,
-            product_type=product_type,
-            render_dialog=False,
         )
         st.markdown(
             """
@@ -6234,6 +6234,11 @@ def _render_ranking_filter_panel(
         )
 
     with st.expander("詳細条件で候補を絞り込む", expanded=True):
+        render_ranking_exploration_filter_cards(
+            symbol_options,
+            product_type=product_type,
+        )
+
         st.markdown(
             '<div class="smai-ranking-builder-subhead">属性条件</div>'
             '<p class="smai-ranking-builder-caption">銘柄の種類や投資スタイルで絞ります。</p>',
@@ -6452,11 +6457,6 @@ def _render_ranking_filter_panel(
                 ),
                 help_text="銘柄やETFの通貨で候補を絞ります。",
             )
-
-        render_ranking_exploration_filter_cards(
-            symbol_options,
-            product_type=product_type,
-        )
 
         metric_filters: list[tuple[str, dict[str, object]]] = []
         if "dividend_yield" in detail_filters:
@@ -8011,25 +8011,42 @@ def _render_market_data_ranking() -> None:
             if default_deep_dive_symbol is not None:
                 st.session_state["market_data_ranking_deep_dive_symbol"] = default_deep_dive_symbol
                 st.session_state[MARKET_DATA_RANKING_DEEP_DIVE_SOURCE_STATE_KEY] = deep_dive_source
-            st.markdown("#### 深掘り候補の選択")
+            st.markdown("#### ランキング結果を深掘り")
             st.caption(
                 "気になる銘柄を1つ選び、銘柄コックピットで価格・予測・スコア理由を確認します。"
             )
-            selected_symbol = cast(
-                str,
-                st.selectbox(
-                    "深掘りする銘柄",
-                    deep_dive_symbols,
-                    format_func=symbol_candidate_label,
-                    key="market_data_ranking_deep_dive_symbol",
-                ),
-            )
-            st.button(
-                "銘柄コックピットで確認",
-                key="market_data_ranking_open_cockpit",
-                on_click=_select_ranking_symbol_for_cockpit_with_period,
-                args=(selected_symbol, provider, start_date, end_date),
-            )
+            select_col, cta_col = st.columns([3.2, 1.15])
+            with select_col:
+                st.markdown(
+                    '<span class="smai-ranking-deep-dive-select-anchor"></span>',
+                    unsafe_allow_html=True,
+                )
+                selected_symbol = cast(
+                    str,
+                    st.selectbox(
+                        "深掘りする銘柄",
+                        deep_dive_symbols,
+                        format_func=symbol_candidate_label,
+                        key="market_data_ranking_deep_dive_symbol",
+                    ),
+                )
+            with cta_col:
+                st.markdown(
+                    '<span class="smai-ranking-deep-dive-cta-label">次のアクション</span>',
+                    unsafe_allow_html=True,
+                )
+                st.markdown(
+                    '<span class="smai-ranking-deep-dive-cta-anchor"></span>',
+                    unsafe_allow_html=True,
+                )
+                st.button(
+                    "コックピットを開く →",
+                    key="market_data_ranking_open_cockpit",
+                    type="primary",
+                    use_container_width=True,
+                    on_click=_select_ranking_symbol_for_cockpit_with_period,
+                    args=(selected_symbol, provider, start_date, end_date),
+                )
         selected_display_row = (
             _ranking_display_row_for_symbol(display_rows, selected_symbol)
             if selected_symbol

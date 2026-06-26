@@ -18,6 +18,36 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-26 - Screening DB reliability operational maintenance
+
+### Summary
+
+- expanded `data/marketdata/symbol_universe.csv` operational maintenance around Phase 31-SDB after the overseas-universe growth to 11,071 rows.
+- added `tools/normalize_symbol_universe_quality.py` to backfill missing metric provenance (`*_source`, `*_as_of`, `*_quality`) from existing metadata and to optionally mark obvious outliers as `suspicious`.
+- added checkpointed live refresh operations through `tools/run_symbol_universe_metadata_batch.py`, including chunk manifests, `chunks.jsonl`, `failed_symbols.csv`, and `no_update_symbols.csv`.
+- extended refresh manifests and provider/runtime wrappers so `no_update_symbols` and `unchanged_update_symbols` are recorded separately from outright failures.
+- kept the normal path deterministic and opt-in boundaries unchanged: live refresh still requires explicit provider selection and `--allow-live`.
+
+### Notes
+
+- this work was done manually before document sync, so per-command validation logs were not recorded in the work log at the time.
+- reviewed runtime artifacts for the weak-Asia batch run were committed under `data/marketdata/refresh_runs/weak-asia_20260626_*` for later audit.
+
+## 2026-06-26 - Reviewed metadata patch workflow and Korea PBR fill
+
+### Summary
+
+- added `tools/export_symbol_universe_metadata_gaps.py` plus `tests/test_export_symbol_universe_metadata_gaps.py` to export low-coverage reviewed-patch candidates by market / metric preset.
+- enhanced `tools/apply_symbol_universe_metadata_patch.py` so reviewed patch `source_url` values are also preserved in `data_quality_reasons` as `manual_source_url:<url>`.
+- added `data/marketdata/manual_metadata_patches/korea_pbr_manual_patch_33rows.csv` as the first reviewed Korea PBR patch set.
+- applied the Korea PBR reviewed patch to 33 rows in `data/marketdata/symbol_universe.csv` and preserved provenance in `pbr_source`, `pbr_as_of`, `pbr_quality`, and `data_quality_reasons`.
+- kept generated candidate/report artifacts out of normal git noise by ignoring `metadata_gap_candidates*.csv`, `metadata_gap_report*.json`, and `symbol_universe_manual_patch_report.json`.
+
+### Notes
+
+- the reviewed patch path is intended for trusted-source gap filling in smaller markets before adding more providers or broader scraping logic.
+- this manual session did not leave a historical validation command list, but the committed patch report shows 33 changed rows and no unknown symbols.
+
 ## 2026-06-22 - Ranking current price JPY column
 
 ### Summary

@@ -2,6 +2,20 @@
 
 #### [BACK TO README](../README.md)
 
+## 2026-06-26 Symbol Metadata Operations Update
+
+- `tools/normalize_symbol_universe_quality.py` backfills missing `*_source` / `*_as_of` / `*_quality` fields from existing metadata and can optionally mark obvious outliers as `suspicious`.
+- `tools/run_symbol_universe_metadata_batch.py` now supports checkpointed live refresh review with `chunks.jsonl`, chunk manifests, `failed_symbols.csv`, and `no_update_symbols.csv`.
+- `tools/export_symbol_universe_metadata_gaps.py` is the reviewed patch candidate exporter for low-coverage markets and targeted metrics such as Korea `pbr`.
+- `tools/apply_symbol_universe_metadata_patch.py` preserves `source_url` both as provenance and as `manual_source_url:<url>` in `data_quality_reasons`.
+
+```powershell
+.\venv_SMAI\Scripts\python.exe .\tools\normalize_symbol_universe_quality.py --write
+.\venv_SMAI\Scripts\python.exe .\tools\run_symbol_universe_metadata_batch.py --preset weak-asia --provider yahoo --allow-live --fill-missing-only --write
+.\venv_SMAI\Scripts\python.exe .\tools\export_symbol_universe_metadata_gaps.py --preset korea-pbr
+.\venv_SMAI\Scripts\python.exe .\tools\apply_symbol_universe_metadata_patch.py --patch data\marketdata\manual_metadata_patches\korea_pbr_manual_patch_33rows.csv --write
+```
+
 ## 1. 目的
 
 この文書は、現在の Smart Market AI MVP をローカルで起動、確認、説明するための運用ガイドです。

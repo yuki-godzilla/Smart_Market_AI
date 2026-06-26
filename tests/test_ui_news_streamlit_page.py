@@ -9,6 +9,7 @@ from backend.news import (
     build_news_dashboard_snapshot,
 )
 from ui.views.news import (
+    combine_news_watchlist_symbols,
     news_dashboard_filtered_snapshot,
     news_dashboard_freshness_badge_html,
     parse_news_watchlist_symbols,
@@ -135,6 +136,25 @@ def test_parse_news_watchlist_symbols_accepts_common_separators():
         "7203.T",
         "GLD",
         "QQQ",
+    ]
+
+
+def test_combine_news_watchlist_symbols_keeps_source_compatibility():
+    manual = ["7203.t", "NVDA"]
+    favorites = ["nvda", "6857.T"]
+
+    assert combine_news_watchlist_symbols(manual, favorites, source="manual_watchlist") == [
+        "7203.T",
+        "NVDA",
+    ]
+    assert combine_news_watchlist_symbols(manual, favorites, source="favorites_watchlist") == [
+        "NVDA",
+        "6857.T",
+    ]
+    assert combine_news_watchlist_symbols(manual, favorites, source="combined_watchlist") == [
+        "NVDA",
+        "6857.T",
+        "7203.T",
     ]
 
 

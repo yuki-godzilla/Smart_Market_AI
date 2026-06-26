@@ -28,7 +28,7 @@ from ui.components.mascot import (
     workflow_loading_headlines_from_cache,
     workflow_loading_html,
 )
-from ui.favorites import render_favorite_button
+from ui.favorites import favorite_symbols, render_favorite_button
 from ui.styles import truncate_text
 from ui.symbol_universe import symbol_name, symbol_universe_csv_rows, symbol_universe_name_map
 
@@ -799,6 +799,31 @@ def parse_news_watchlist_symbols(value: str) -> list[str]:
 
 def re_split_news_watchlist(value: str) -> list[str]:
     return [part for part in re.split(r"[\s,、;；]+", value.strip()) if part]
+
+
+def combine_news_watchlist_symbols(
+    manual_symbols: Sequence[str],
+    favorite_symbols: Sequence[str],
+    *,
+    source: str,
+) -> list[str]:
+    """Return watchlist symbols for Investment Radar without changing stored favorites."""
+
+    if source == "manual_watchlist":
+        candidates = manual_symbols
+    elif source == "favorites_watchlist":
+        candidates = favorite_symbols
+    else:
+        candidates = [*favorite_symbols, *manual_symbols]
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for symbol in candidates:
+        cleaned = symbol.strip().upper()
+        if not cleaned or cleaned in seen:
+            continue
+        seen.add(cleaned)
+        normalized.append(cleaned)
+    return normalized
 
 
 def news_dashboard_freshness_badge_html(
@@ -1638,12 +1663,24 @@ def _render_news_detail_filters(
                 key="investment_news_filter_sources",
             )
 
-        watch_col, priority_col, only_col = st.columns([1.8, 0.8, 0.8])
+        watch_col, source_col, priority_col, only_col = st.columns([1.5, 1.0, 0.8, 0.8])
         with watch_col:
             watchlist_value = st.text_input(
                 "Watchlist",
                 key=NEWS_DASHBOARD_WATCHLIST_STATE_KEY,
                 placeholder="NVDA, 7203.T, GLD",
+            )
+        favorite_watchlist_symbols = favorite_symbols()
+        with source_col:
+            watchlist_source = st.selectbox(
+                "Watchlist source",
+                ["favorites_watchlist", "combined_watchlist", "manual_watchlist"],
+                format_func=lambda value: {
+                    "favorites_watchlist": "Myウォッチリスト",
+                    "combined_watchlist": "My + 手入力",
+                    "manual_watchlist": "手入力のみ",
+                }.get(value, value),
+                key="investment_news_watchlist_source",
             )
         with priority_col:
             prioritize_watchlist = st.checkbox(
@@ -1658,7 +1695,12 @@ def _render_news_detail_filters(
                 key="investment_news_filter_watchlist_only",
             )
 
-        watchlist_symbols = parse_news_watchlist_symbols(watchlist_value)
+        manual_watchlist_symbols = parse_news_watchlist_symbols(watchlist_value)
+        watchlist_symbols = combine_news_watchlist_symbols(
+            manual_watchlist_symbols,
+            favorite_watchlist_symbols,
+            source=watchlist_source,
+        )
         filtered_snapshot = news_dashboard_filtered_snapshot(
             snapshot,
             categories=categories,
@@ -1674,6 +1716,11 @@ def _render_news_detail_filters(
         watchlist_note = (
             f" / Watchlist: {', '.join(watchlist_symbols)}" if watchlist_symbols else ""
         )
+        if favorite_watchlist_symbols:
+            st.caption(
+                "☆ Myウォッチリスト対象: "
+                f"{len(favorite_watchlist_symbols)}銘柄 / {', '.join(favorite_watchlist_symbols[:8])}"
+            )
         st.caption(f"表示中ニュース: {filtered_count}件 / 全体 {original_count}件{watchlist_note}")
         return filtered_snapshot
 

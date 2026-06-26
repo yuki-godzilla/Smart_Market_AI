@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping
@@ -22,6 +22,8 @@ class FavoriteStock:
     currency: str | None = None
     source_screen: str | None = None
     added_at: str | None = None
+    last_checked_at: str | None = None
+    last_research_at: str | None = None
     memo: str = ""
     tags: tuple[str, ...] = ()
 
@@ -65,6 +67,10 @@ def save_favorites(favorites: list[FavoriteStock], path: Path | None = None) -> 
     )
 
 
+def favorite_symbols() -> list[str]:
+    return [favorite.symbol for favorite in load_favorites()]
+
+
 def is_favorite(symbol: str) -> bool:
     normalized = normalize_favorite_symbol(symbol)
     if not normalized:
@@ -98,6 +104,44 @@ def remove_favorite(symbol: str) -> bool:
         return False
     save_favorites(remaining)
     return True
+
+
+def update_favorite(
+    symbol: str,
+    *,
+    memo: str | None = None,
+    tags: list[str] | tuple[str, ...] | None = None,
+    last_checked_at: str | None = None,
+    last_research_at: str | None = None,
+) -> FavoriteStock | None:
+    normalized = normalize_favorite_symbol(symbol)
+    if not normalized:
+        return None
+    favorites = load_favorites()
+    updated: list[FavoriteStock] = []
+    result: FavoriteStock | None = None
+    for favorite in favorites:
+        if favorite.symbol != normalized:
+            updated.append(favorite)
+            continue
+        result = replace(
+            favorite,
+            memo=favorite.memo if memo is None else memo,
+            tags=favorite.tags
+            if tags is None
+            else tuple(str(tag).strip() for tag in tags if str(tag).strip()),
+            last_checked_at=favorite.last_checked_at
+            if last_checked_at is None
+            else last_checked_at,
+            last_research_at=favorite.last_research_at
+            if last_research_at is None
+            else last_research_at,
+        )
+        updated.append(result)
+    if result is None:
+        return None
+    save_favorites(updated)
+    return result
 
 
 def toggle_favorite(
@@ -188,6 +232,8 @@ def _favorite_from_mapping(raw_item: Mapping[str, Any]) -> FavoriteStock | None:
         currency=_optional_text(raw_item.get("currency")),
         source_screen=_optional_text(raw_item.get("source_screen")),
         added_at=_optional_text(raw_item.get("added_at")),
+        last_checked_at=_optional_text(raw_item.get("last_checked_at")),
+        last_research_at=_optional_text(raw_item.get("last_research_at")),
         memo=str(raw_item.get("memo", "") or ""),
         tags=tuple(str(tag) for tag in tags if str(tag).strip()),
     )
@@ -205,6 +251,8 @@ def _favorite_from_metadata(symbol: str, metadata: Mapping[str, Any]) -> Favorit
         currency=_optional_text(metadata.get("currency")),
         source_screen=_optional_text(metadata.get("source_screen")),
         added_at=datetime.now().astimezone().isoformat(timespec="seconds"),
+        last_checked_at=_optional_text(metadata.get("last_checked_at")),
+        last_research_at=_optional_text(metadata.get("last_research_at")),
         memo=str(metadata.get("memo", "") or ""),
         tags=tuple(str(tag) for tag in tags if str(tag).strip()),
     )

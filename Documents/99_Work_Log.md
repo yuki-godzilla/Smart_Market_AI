@@ -18,6 +18,23 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-27 - Phase 32-B Myウォッチリスト cross-link MVP
+
+### Summary
+
+- connected `favorites.json` symbols to 投資レーダー Watchlist source selection with `Myウォッチリスト`, `My + 手入力`, and `手入力のみ` modes.
+- added combined watchlist de-duplication while preserving the existing manual Watchlist input behavior.
+- expanded Myウォッチリスト with summary chips, card/table display switching, a local `ウォッチリストを更新` button for last-checked timestamps, and memo/tags display.
+- extended the favorite store with `favorite_symbols()` and `update_favorite()` while keeping older favorites compatible.
+- kept update / AI調査 / レポート behavior explicit and local-first; no automatic external fetch, ranking-score change, Research update, or Decision Report generation was added.
+
+### Validation
+
+- `.\venv_SMAI\Scripts\python.exe -m py_compile ui\favorites.py ui\views\news.py ui\app.py tests\test_favorites.py tests\test_ui_news_streamlit_page.py` -> passed.
+- `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_favorites.py tests\test_ui_news_streamlit_page.py -q -k "favorite or watchlist or symbol"` -> 11 passed, 4 deselected.
+- `.\venv_SMAI\Scripts\ruff.exe check ui\favorites.py ui\views\news.py tests\test_favorites.py tests\test_ui_news_streamlit_page.py --no-cache` -> passed.
+- `.\venv_SMAI\Scripts\ruff.exe check ui\app.py --select F401,F821,F841,E999 --no-cache` -> passed with a Ruff deprecation warning for `E999`.
+
 ## 2026-06-27 - Phase 32-A Myウォッチリスト MVP
 
 ### Summary

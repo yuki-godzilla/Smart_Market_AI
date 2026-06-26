@@ -10,6 +10,8 @@
 - The watchlist page shows saved symbol cards with local symbol metadata when available. Missing price / score / status-like fields are shown as `未取得`.
 - Card actions move the selected symbol to Cockpit. `AI調査` and `レポート` keep external fetch / report generation as explicit follow-up actions in Cockpit rather than auto-running them.
 - `data/user/favorites.json` is ignored by Git because it is user-local state.
+- Phase 32-B connects favorites to 投資レーダー `Watchlist source`. Users can choose `Myウォッチリスト`, `My + 手入力`, or `手入力のみ`; combined mode de-duplicates symbols while preserving manual watchlist compatibility.
+- Myウォッチリスト now supports `カード表示` / `テーブル表示`, local `ウォッチリストを更新` for last-checked timestamps, and memo / tags display. The update button is local-first and does not automatically run external fetch, AI調査, or Decision Report generation.
 
 ## 2026-06-26 Symbol Metadata Operations Update
 

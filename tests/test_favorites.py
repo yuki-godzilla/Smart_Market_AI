@@ -42,6 +42,24 @@ def test_toggle_favorite_adds_then_removes(tmp_path, monkeypatch):
     assert not favorites.is_favorite("NVDA")
 
 
+def test_favorite_symbols_and_update_metadata(tmp_path, monkeypatch):
+    monkeypatch.setattr(favorites, "FAVORITES_FILE_PATH", tmp_path / "favorites.json")
+
+    favorites.add_favorite("nvda", {"name": "NVIDIA", "tags": ["AI関連"]})
+    updated = favorites.update_favorite(
+        "NVDA",
+        memo="決算後に確認",
+        tags=["AI関連", "要注意"],
+        last_checked_at="2026-06-27T10:00:00+09:00",
+    )
+
+    assert favorites.favorite_symbols() == ["NVDA"]
+    assert updated is not None
+    assert updated.memo == "決算後に確認"
+    assert updated.tags == ("AI関連", "要注意")
+    assert updated.last_checked_at == "2026-06-27T10:00:00+09:00"
+
+
 def test_load_favorites_broken_json_returns_empty(tmp_path, monkeypatch):
     path = tmp_path / "favorites.json"
     path.write_text("{broken", encoding="utf-8")

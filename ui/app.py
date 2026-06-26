@@ -210,6 +210,7 @@ from ui.favorites import (
     load_favorites,
     remove_favorite,
     render_favorite_button,
+    update_favorite,
 )
 from ui.ranking import (
     LIVE_MARKET_DATA_PROVIDERS,
@@ -9756,19 +9757,52 @@ def _render_my_watchlist_page() -> None:
     universe_by_symbol = _symbol_universe_rows_by_symbol()
     enriched = [_favorite_display_payload(favorite, universe_by_symbol) for favorite in favorites]
     missing_count = sum(1 for item in enriched if item["status"] == "未取得")
+    upside_count = sum(1 for item in enriched if item["status"] == "上昇候補")
+    downside_count = sum(1 for item in enriched if item["status"] == "下振れ注意")
     st.markdown(
         " ".join(
             [
                 f"`お気に入り {len(enriched)}件`",
+                f"`上昇候補 {upside_count}件`",
+                f"`下振れ注意 {downside_count}件`",
                 f"`未取得 {missing_count}件`",
             ]
         )
     )
-    for row_start in range(0, len(enriched), 2):
-        cols = st.columns(2)
-        for column, payload in zip(cols, enriched[row_start : row_start + 2]):
-            with column:
-                _render_favorite_card(payload)
+    st.caption(
+        "Myウォッチリスト関連ニュースは、投資レーダーの Watchlist source で "
+        "「Myウォッチリスト」または「My + 手入力」を選ぶと優先表示できます。"
+    )
+    update_col, radar_col = st.columns([1, 1])
+    with update_col:
+        if st.button("ウォッチリストを更新", use_container_width=True):
+            checked_at = datetime.now().astimezone().isoformat(timespec="seconds")
+            updated = 0
+            for favorite in favorites:
+                if update_favorite(favorite.symbol, last_checked_at=checked_at) is not None:
+                    updated += 1
+            st.success(f"ローカル確認日時を更新しました: {updated}件")
+            st.rerun()
+    with radar_col:
+        if st.button("投資レーダーで関連ニュースを見る", use_container_width=True):
+            st.session_state[SIDEMENU_STATE_KEY] = SIDEMENU_PAGE_NEWS
+            st.session_state["investment_news_watchlist_source"] = "favorites_watchlist"
+            st.rerun()
+
+    display_mode = st.radio(
+        "表示形式",
+        ["カード表示", "テーブル表示"],
+        horizontal=True,
+        key="market_data_watchlist_display_mode",
+    )
+    if display_mode == "テーブル表示":
+        _render_favorite_table(enriched)
+    else:
+        for row_start in range(0, len(enriched), 2):
+            cols = st.columns(2)
+            for column, payload in zip(cols, enriched[row_start : row_start + 2]):
+                with column:
+                    _render_favorite_card(payload)
 
 
 def _render_favorite_next_action_hint() -> None:
@@ -9812,11 +9846,17 @@ def _favorite_display_payload(
         "asset_type": asset_type,
         "currency": currency,
         "added_at": favorite.added_at or "未取得",
+        "last_checked_at": favorite.last_checked_at or "未確認",
         "source_screen": favorite.source_screen or "unknown",
         "price": price or "未取得",
         "ai_score": ai_score or "未取得",
         "upside": upside or "未取得",
         "downside": downside or "未取得",
+        "research_status": "未調査",
+        "latest_news": "未確認",
+        "checkpoint": _favorite_checkpoint_label(status),
+        "memo": favorite.memo or "メモなし",
+        "tags": " / ".join(favorite.tags) if favorite.tags else "タグなし",
         "status": status,
     }
 
@@ -9845,6 +9885,39 @@ def _favorite_status_label(
     return "横ばい"
 
 
+def _favorite_checkpoint_label(status: str) -> str:
+    if status == "上昇候補":
+        return "上昇気配は強めです。決算・ニュース変化を確認します。"
+    if status == "下振れ注意":
+        return "下振れ警戒が高めです。価格下落や材料悪化を確認します。"
+    if status == "未取得":
+        return "データ更新が必要です。"
+    return "横ばいです。次の材料や価格変化を確認します。"
+
+
+def _render_favorite_table(rows: list[dict[str, str]]) -> None:
+    table_rows = [
+        {
+            "☆": "★",
+            "銘柄": row["symbol"],
+            "銘柄名": row["name"],
+            "市場": row["market"],
+            "AI総合": row["ai_score"],
+            "上昇気配": row["upside"],
+            "下振れ警戒": row["downside"],
+            "Research": row["research_status"],
+            "最新ニュース": row["latest_news"],
+            "確認ポイント": row["checkpoint"],
+            "最終確認日": row["last_checked_at"],
+            "タグ": row["tags"],
+            "メモ": row["memo"],
+        }
+        for row in rows
+    ]
+    st.dataframe(table_rows, hide_index=True, use_container_width=True)
+    st.caption("解除やAI調査・レポートへの移動はカード表示で行えます。")
+
+
 def _render_favorite_card(payload: Mapping[str, str]) -> None:
     symbol = payload["symbol"]
     st.markdown(f"#### {payload['symbol']} / {payload['name']}")
@@ -9859,9 +9932,13 @@ def _render_favorite_card(payload: Mapping[str, str]) -> None:
                 f"`AI総合: {payload['ai_score']}`",
                 f"`上昇: {payload['upside']}`",
                 f"`下振れ: {payload['downside']}`",
+                f"`最終確認: {payload['last_checked_at']}`",
             ]
         )
     )
+    st.caption(f"確認ポイント: {payload['checkpoint']}")
+    st.caption(f"タグ: {payload['tags']}")
+    st.caption(f"メモ: {payload['memo']}")
     col_cockpit, col_research, col_report, col_remove = st.columns(4)
     with col_cockpit:
         if st.button("Cockpit", key=f"watchlist_cockpit_{symbol}", use_container_width=True):

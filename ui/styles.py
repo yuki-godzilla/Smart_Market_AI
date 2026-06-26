@@ -591,6 +591,25 @@ body,
     color: inherit !important;
 }
 
+.investment-news-symbol-chip-open-anchor + div[data-testid="stButton"] button,
+[data-testid="stMarkdownContainer"]:has(.investment-news-symbol-chip-open-anchor)
+    + div[data-testid="stButton"] button {
+    min-height: 2.35rem;
+    border-color: rgba(96, 165, 250, 0.34) !important;
+    background: rgba(15, 23, 42, 0.44) !important;
+    color: #EAF3FF !important;
+    font-weight: 760;
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.investment-news-symbol-chip-open-anchor + div[data-testid="stButton"] button:hover,
+[data-testid="stMarkdownContainer"]:has(.investment-news-symbol-chip-open-anchor)
+    + div[data-testid="stButton"] button:hover {
+    border-color: rgba(103, 232, 249, 0.54) !important;
+    background: rgba(8, 47, 73, 0.5) !important;
+}
+
 [data-baseweb="select"] > div,
 [data-testid="stTextInput"] input,
 [data-testid="stNumberInput"] input,
@@ -5496,6 +5515,23 @@ div[data-testid="stChatInput"] textarea:focus {
     font-weight: 680;
     line-height: 1.45;
     overflow-wrap: anywhere;
+}
+
+.smai-watchlist-decision-title {
+    border-top: 1px solid rgba(70, 91, 120, 0.44);
+    color: var(--text-heading);
+    font-size: 0.82rem;
+    font-weight: 860;
+    letter-spacing: 0;
+    line-height: 1.3;
+    margin-top: 0.86rem;
+    padding-top: 0.78rem;
+}
+
+.smai-watchlist-decision {
+    border-top: 0;
+    margin-top: 0.42rem;
+    padding-top: 0;
 }
 
 @media (max-width: 900px) {

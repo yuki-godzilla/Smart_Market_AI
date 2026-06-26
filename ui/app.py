@@ -206,11 +206,15 @@ from ui.content.symbol_texts import (
     SYMBOL_UNIVERSE_RISK_BAND_SHORT_LABELS,
 )
 from ui.favorites import (
+    FAVORITE_DECISION_STATUS_OPTIONS,
     FavoriteStock,
+    build_favorite_radar_items,
     evaluate_favorite_refresh_status,
     load_favorites,
+    normalize_favorite_symbol,
     remove_favorite,
     render_favorite_button,
+    update_favorite_decision_note,
     update_favorite_refresh_metadata,
 )
 from ui.ranking import (
@@ -9733,6 +9737,22 @@ def _select_news_symbol_for_cockpit(symbol: str) -> None:
 def _select_favorite_symbol_for_cockpit(symbol: str, action: str = "cockpit") -> None:
     _select_news_symbol_for_cockpit(symbol)
     st.session_state["market_data_favorite_next_action"] = action
+    favorite = next(
+        (item for item in load_favorites() if item.symbol == normalize_favorite_symbol(symbol)),
+        None,
+    )
+    if favorite is not None:
+        st.session_state["watchlist_context"] = {
+            "symbol": favorite.symbol,
+            "watch_reason": favorite.watch_reason,
+            "decision_status": favorite.decision_status,
+            "decision_note": favorite.decision_note,
+            "next_check_label": favorite.next_check_label,
+        }
+    if action == "research":
+        st.session_state["smai_next_action_hint"] = "research"
+    elif action == "report":
+        st.session_state["smai_next_action_hint"] = "decision_report"
 
 
 def _render_my_watchlist_page() -> None:
@@ -9759,12 +9779,21 @@ def _render_my_watchlist_page() -> None:
 
     universe_by_symbol = _symbol_universe_rows_by_symbol()
     enriched = [_favorite_display_payload(favorite, universe_by_symbol) for favorite in favorites]
+    enriched_by_symbol = {item["symbol"]: item for item in enriched}
+    radar_items = build_favorite_radar_items(favorites, enriched_by_symbol)
+    radar_by_symbol = {item.favorite.symbol: item for item in radar_items}
+    for item in enriched:
+        radar_item = radar_by_symbol.get(item["symbol"])
+        if radar_item is None:
+            continue
+        item["radar_priority"] = str(radar_item.priority)
+        item["radar_categories"] = " / ".join(radar_item.categories)
+        item["radar_reasons"] = " / ".join(radar_item.reasons)
+        item["radar_next_action"] = radar_item.next_action
     missing_count = sum(1 for item in enriched if item["status"] == "未取得")
     upside_count = sum(1 for item in enriched if item["status"] == "上昇候補")
     downside_count = sum(1 for item in enriched if item["status"] == "下振れ注意")
-    refresh_attention_count = sum(
-        1 for item in enriched if item["refresh_status"] != "fresh"
-    )
+    refresh_attention_count = sum(1 for item in enriched if item["refresh_status"] != "fresh")
     st.markdown(
         " ".join(
             [
@@ -9780,6 +9809,7 @@ def _render_my_watchlist_page() -> None:
         "Myウォッチリスト関連ニュースは、投資レーダーの Watchlist source で "
         "「Myウォッチリスト」または「My + 手入力」を選ぶと優先表示できます。"
     )
+    _render_my_radar_summary(radar_items)
     _render_watchlist_refresh_summary()
     limit_col, update_col, radar_col = st.columns([0.8, 1, 1])
     with limit_col:
@@ -9798,13 +9828,11 @@ def _render_my_watchlist_page() -> None:
                 enriched,
                 key=lambda item: (-int(item["refresh_priority"]), item["symbol"]),
             )
-            selected_targets = [
-                item for item in targets if item["refresh_status"] != "fresh"
-            ][: int(refresh_limit)]
-            success_symbols: list[str] = []
-            skipped_symbols = [
-                item["symbol"] for item in enriched if item not in selected_targets
+            selected_targets = [item for item in targets if item["refresh_status"] != "fresh"][
+                : int(refresh_limit)
             ]
+            success_symbols: list[str] = []
+            skipped_symbols = [item["symbol"] for item in enriched if item not in selected_targets]
             for item in selected_targets:
                 updated = update_favorite_refresh_metadata(
                     item["symbol"],
@@ -9838,6 +9866,8 @@ def _render_my_watchlist_page() -> None:
             st.session_state["investment_news_watchlist_source"] = "favorites_watchlist"
             st.rerun()
 
+    filtered_enriched = _favorite_filter_and_sort_rows(enriched)
+
     display_mode = st.radio(
         "表示形式",
         ["カード表示", "テーブル表示"],
@@ -9845,13 +9875,122 @@ def _render_my_watchlist_page() -> None:
         key="market_data_watchlist_display_mode",
     )
     if display_mode == "テーブル表示":
-        _render_favorite_table(enriched)
+        _render_favorite_table(filtered_enriched)
     else:
-        for row_start in range(0, len(enriched), 2):
+        for row_start in range(0, len(filtered_enriched), 2):
             cols = st.columns(2)
-            for column, payload in zip(cols, enriched[row_start : row_start + 2]):
+            for column, payload in zip(cols, filtered_enriched[row_start : row_start + 2]):
                 with column:
                     _render_favorite_card(payload)
+
+
+def _render_my_radar_summary(radar_items: Sequence[Any]) -> None:
+    category_order = (
+        "今日見る候補",
+        "注意候補",
+        "更新候補",
+        "調査候補",
+        "メモ未入力候補",
+    )
+    counts = {
+        category: sum(1 for item in radar_items if category in item.categories)
+        for category in category_order
+    }
+    st.markdown("#### My Radar")
+    st.markdown(" ".join(f"`{category} {count}件`" for category, count in counts.items()))
+    radar_cols = st.columns(3)
+    for index, category in enumerate(category_order):
+        candidates = [item for item in radar_items if category in item.categories][:3]
+        if not candidates:
+            continue
+        with radar_cols[index % 3]:
+            st.markdown(f"**{category}**")
+            for item in candidates:
+                reason = " / ".join(item.reasons[:2])
+                label = item.favorite.name or item.favorite.symbol
+                st.caption(f"{label}: {reason}")
+
+
+def _favorite_filter_and_sort_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    filter_options = [
+        "すべて",
+        "要確認",
+        "上昇傾向",
+        "下落注意",
+        "未確認",
+        "古い",
+        "前回失敗",
+        "メモ未入力",
+        "AI調査候補",
+        "レポート候補",
+    ]
+    sort_options = [
+        "Radar優先度",
+        "更新が古い順",
+        "追加日が新しい順",
+        "AI総合が高い順",
+        "上昇気配が高い順",
+        "下振れ警戒が高い順",
+        "銘柄コード順",
+    ]
+    filter_col, sort_col = st.columns([1.2, 1])
+    with filter_col:
+        selected_filter = st.segmented_control(
+            "表示フィルター",
+            filter_options,
+            default="すべて",
+            key="market_data_watchlist_filter",
+        )
+    with sort_col:
+        selected_sort = st.selectbox(
+            "並び順",
+            sort_options,
+            key="market_data_watchlist_sort",
+        )
+    filtered = [row for row in rows if _favorite_row_matches_filter(row, selected_filter)]
+    sorted_rows = sorted(filtered, key=lambda row: _favorite_sort_key(row, selected_sort))
+    st.caption(f"表示中: {len(sorted_rows)}件 / 全体 {len(rows)}件")
+    return sorted_rows
+
+
+def _favorite_row_matches_filter(row: Mapping[str, str], selected_filter: str | None) -> bool:
+    if not selected_filter or selected_filter == "すべて":
+        return True
+    if selected_filter == "要確認":
+        return row.get("refresh_status") == "needs_attention"
+    if selected_filter == "上昇傾向":
+        return row.get("status") == "上昇候補"
+    if selected_filter == "下落注意":
+        return row.get("status") == "下振れ注意"
+    if selected_filter == "未確認":
+        return row.get("refresh_status") == "never_checked"
+    if selected_filter == "古い":
+        return row.get("refresh_status") == "stale"
+    if selected_filter == "前回失敗":
+        return row.get("refresh_status") == "failed"
+    if selected_filter == "メモ未入力":
+        return "メモ未入力候補" in row.get("radar_categories", "")
+    if selected_filter == "AI調査候補":
+        return "調査候補" in row.get("radar_categories", "")
+    if selected_filter == "レポート候補":
+        return bool(row.get("decision_note") and row.get("watch_reason"))
+    return True
+
+
+def _favorite_sort_key(row: Mapping[str, str], selected_sort: str) -> tuple[Any, ...]:
+    if selected_sort == "更新が古い順":
+        return (_date_sort_value(row.get("last_checked_at")), row.get("symbol", ""))
+    if selected_sort == "追加日が新しい順":
+        return (-_date_sort_value(row.get("added_at")), row.get("symbol", ""))
+    if selected_sort == "AI総合が高い順":
+        return (-_decimal_sort_value(row.get("ai_score")), row.get("symbol", ""))
+    if selected_sort == "上昇気配が高い順":
+        return (-_decimal_sort_value(row.get("upside")), row.get("symbol", ""))
+    if selected_sort == "下振れ警戒が高い順":
+        return (-_decimal_sort_value(row.get("downside")), row.get("symbol", ""))
+    if selected_sort == "銘柄コード順":
+        return (row.get("symbol", ""),)
+    return (-int(row.get("radar_priority") or "0"), row.get("symbol", ""))
 
 
 def _render_favorite_next_action_hint() -> None:
@@ -9928,12 +10067,23 @@ def _favorite_display_payload(
         "upside": upside or "未取得",
         "downside": downside or "未取得",
         "research_status": "未調査",
-        "latest_news": "未確認",
+        "latest_news": "投資レーダーで確認" if favorite.last_news_checked_at else "未確認",
+        "related_news": "あり" if favorite.last_news_checked_at else "未確認",
         "checkpoint": _favorite_checkpoint_label(status),
         "memo": favorite.memo or "メモなし",
         "tags": " / ".join(favorite.tags) if favorite.tags else "タグなし",
         "status": status,
         "status_label": _favorite_status_display_label(status),
+        "watch_reason": favorite.watch_reason or "未入力",
+        "decision_status": favorite.decision_status or "未設定",
+        "decision_note": favorite.decision_note or "未入力",
+        "next_check_at": favorite.next_check_at or "",
+        "next_check_label": favorite.next_check_label or "未設定",
+        "decision_updated_at": favorite.decision_updated_at or "",
+        "decision_updated_label": _format_watchlist_date_label(
+            favorite.decision_updated_at,
+            fallback="未更新",
+        ),
     }
 
 
@@ -10009,6 +10159,45 @@ def _favorite_display_value(value: object, *, fallback: str = "未取得") -> st
     return text
 
 
+def _format_watchlist_date_label(value: str | None, *, fallback: str = "未設定") -> str:
+    parsed = _parse_watchlist_datetime(value)
+    if parsed is None:
+        return fallback
+    if "T" not in str(value):
+        return parsed.strftime("%Y/%m/%d")
+    return parsed.astimezone().strftime("%Y/%m/%d %H:%M")
+
+
+def _parse_watchlist_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        try:
+            parsed_date = date.fromisoformat(str(value))
+        except ValueError:
+            return None
+        return datetime.combine(parsed_date, time.min).replace(tzinfo=UTC)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed
+
+
+def _date_sort_value(value: str | None) -> float:
+    parsed = _parse_watchlist_datetime(value)
+    if parsed is None:
+        return 0.0
+    return parsed.timestamp()
+
+
+def _decimal_sort_value(value: str | None) -> Decimal:
+    try:
+        return Decimal(str(value))
+    except Exception:  # noqa: BLE001
+        return Decimal("-1")
+
+
 def _favorite_metric_html(label: str, value: object, *, fallback: str = "未取得") -> str:
     display_value = _favorite_display_value(value, fallback=fallback)
     return (
@@ -10064,12 +10253,30 @@ def _favorite_card_html(payload: Mapping[str, str]) -> str:
             _favorite_info_row_html("メモ", payload.get("memo"), fallback="メモなし"),
         ]
     )
+    decision_rows = "".join(
+        [
+            _favorite_info_row_html("判断状態", payload.get("decision_status"), fallback="未設定"),
+            _favorite_info_row_html("Watch理由", payload.get("watch_reason"), fallback="未入力"),
+            _favorite_info_row_html("現在の見方", payload.get("decision_note"), fallback="未入力"),
+            _favorite_info_row_html("次の確認", payload.get("next_check_label"), fallback="未設定"),
+            _favorite_info_row_html(
+                "最終メモ更新",
+                payload.get("decision_updated_label"),
+                fallback="未更新",
+            ),
+            _favorite_info_row_html(
+                "関連ニュース",
+                payload.get("related_news"),
+                fallback="未確認",
+            ),
+        ]
+    )
     return (
         '<section class="smai-watchlist-card">'
         '<div class="smai-watchlist-card-header">'
         "<div>"
-        f'<div class="smai-watchlist-card-symbol">{html.escape(symbol)}</div>'
-        f'<div class="smai-watchlist-card-name">{html.escape(name)}</div>'
+        f'<div class="smai-watchlist-card-symbol">{html.escape(name)}</div>'
+        f'<div class="smai-watchlist-card-name">{html.escape(symbol)}</div>'
         "</div>"
         f'<div class="smai-watchlist-card-added">追加日<br><strong>{added_at}</strong></div>'
         "</div>"
@@ -10082,6 +10289,8 @@ def _favorite_card_html(payload: Mapping[str, str]) -> str:
         "</div>"
         f'<div class="smai-watchlist-metric-grid">{metrics}</div>'
         f'<div class="smai-watchlist-info">{info_rows}</div>'
+        '<div class="smai-watchlist-decision-title">判断メモ</div>'
+        f'<div class="smai-watchlist-info smai-watchlist-decision">{decision_rows}</div>'
         "</section>"
     )
 
@@ -10100,6 +10309,11 @@ def _render_favorite_table(rows: list[dict[str, str]]) -> None:
             "最新ニュース": row["latest_news"],
             "更新状態": row["refresh_label"],
             "次の確認": row["refresh_next_action"],
+            "判断状態": row["decision_status"],
+            "判断メモ": row["decision_note"],
+            "メモ更新日": row["decision_updated_label"],
+            "Radar優先度": row.get("radar_priority", "0"),
+            "Radar理由": row.get("radar_reasons", ""),
             "前回エラー": row["refresh_error"],
             "確認ポイント": row["checkpoint"],
             "最終確認日": row["last_checked_at"],
@@ -10133,6 +10347,69 @@ def _render_favorite_card(payload: Mapping[str, str]) -> None:
             remove_favorite(symbol)
             st.toast("Myウォッチリストから解除しました。")
             st.rerun()
+    with st.expander("判断メモを編集"):
+        _render_favorite_decision_form(payload)
+
+
+def _render_favorite_decision_form(payload: Mapping[str, str]) -> None:
+    symbol = payload["symbol"]
+    status_options = ["未設定", *FAVORITE_DECISION_STATUS_OPTIONS]
+    current_status = payload.get("decision_status") or "未設定"
+    status_index = status_options.index(current_status) if current_status in status_options else 0
+    with st.form(f"watchlist_decision_form_{symbol}", clear_on_submit=False):
+        decision_status = st.selectbox(
+            "判断状態",
+            status_options,
+            index=status_index,
+            key=f"watchlist_decision_status_{symbol}",
+        )
+        watch_reason = st.text_area(
+            "Watch理由",
+            value=(
+                "" if payload.get("watch_reason") == "未入力" else payload.get("watch_reason", "")
+            ),
+            height=84,
+            key=f"watchlist_watch_reason_{symbol}",
+        )
+        decision_note = st.text_area(
+            "現在の判断メモ",
+            value=(
+                "" if payload.get("decision_note") == "未入力" else payload.get("decision_note", "")
+            ),
+            height=84,
+            key=f"watchlist_decision_note_{symbol}",
+        )
+        next_check_label = st.text_input(
+            "次の確認",
+            value=(
+                ""
+                if payload.get("next_check_label") == "未設定"
+                else payload.get("next_check_label", "")
+            ),
+            key=f"watchlist_next_check_label_{symbol}",
+        )
+        next_check_at = st.text_input(
+            "次回確認日",
+            value=payload.get("next_check_at", ""),
+            placeholder="2026-07-01",
+            key=f"watchlist_next_check_at_{symbol}",
+        )
+        submitted = st.form_submit_button("保存", use_container_width=True)
+    if not submitted:
+        return
+    updated = update_favorite_decision_note(
+        symbol,
+        watch_reason=watch_reason,
+        decision_status="" if decision_status == "未設定" else decision_status,
+        decision_note=decision_note,
+        next_check_at=next_check_at,
+        next_check_label=next_check_label,
+    )
+    if updated is None:
+        st.warning("判断メモを保存できませんでした。対象銘柄を確認してください。")
+        return
+    st.toast("判断メモを保存しました。")
+    st.rerun()
 
 
 def _clear_ranking_deep_dive_state() -> None:

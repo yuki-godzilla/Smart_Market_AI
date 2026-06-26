@@ -86,6 +86,94 @@ def test_update_favorite_refresh_metadata_preserves_memo_and_tags(tmp_path, monk
     assert payload["favorites"][0]["last_news_checked_at"] == "2026-06-27T10:00:00+09:00"
 
 
+def test_load_favorites_accepts_legacy_items_without_decision_fields(tmp_path, monkeypatch):
+    path = tmp_path / "favorites.json"
+    path.write_text(
+        json.dumps(
+            {
+                "favorites": [
+                    {
+                        "symbol": "7203.T",
+                        "name": "トヨタ自動車",
+                        "memo": "確認中",
+                        "tags": ["長期候補"],
+                    }
+                ]
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(favorites, "FAVORITES_FILE_PATH", path)
+
+    loaded = favorites.load_favorites()
+
+    assert loaded[0].watch_reason is None
+    assert loaded[0].decision_status is None
+    assert loaded[0].decision_trail == ()
+    assert loaded[0].memo == "確認中"
+
+
+def test_update_favorite_decision_note_preserves_existing_metadata(tmp_path, monkeypatch):
+    monkeypatch.setattr(favorites, "FAVORITES_FILE_PATH", tmp_path / "favorites.json")
+    favorites.add_favorite(
+        "7203.T",
+        {"memo": "決算後に確認", "tags": ["長期候補"], "refresh_status": "stale"},
+    )
+
+    updated = favorites.update_favorite_decision_note(
+        "7203.T",
+        watch_reason="大型株として継続確認",
+        decision_status="監視中",
+        decision_note="為替影響と決算前後の値動きを確認する。",
+        next_check_at="2026-07-01",
+        next_check_label="次回ニュースを確認",
+    )
+
+    assert updated is not None
+    assert updated.watch_reason == "大型株として継続確認"
+    assert updated.decision_status == "監視中"
+    assert updated.decision_note == "為替影響と決算前後の値動きを確認する。"
+    assert updated.next_check_at == "2026-07-01"
+    assert updated.next_check_label == "次回ニュースを確認"
+    assert updated.decision_updated_at
+    assert updated.memo == "決算後に確認"
+    assert updated.tags == ("長期候補",)
+    assert updated.refresh_status == "stale"
+
+
+def test_build_favorite_radar_items_classifies_priority_reasons():
+    now = datetime(2026, 6, 27, 12, 0, tzinfo=UTC)
+    items = favorites.build_favorite_radar_items(
+        [
+            favorites.FavoriteStock(
+                symbol="NVDA",
+                name="NVIDIA",
+                refresh_status="failed",
+                tags=("要注意",),
+            ),
+            favorites.FavoriteStock(
+                symbol="7203.T",
+                name="トヨタ自動車",
+                last_checked_at=now.isoformat(),
+                watch_reason="大型株として確認",
+                next_check_at="2026-06-28",
+            ),
+        ],
+        {"NVDA": {"downside": "70"}, "7203.T": {"upside": "75"}},
+        now=now,
+    )
+
+    assert items[0].favorite.symbol == "NVDA"
+    assert "注意候補" in items[0].categories
+    assert "更新候補" in items[0].categories
+    assert "前回更新に失敗" in items[0].reasons
+    assert any(item.favorite.symbol == "7203.T" for item in items)
+    toyota = next(item for item in items if item.favorite.symbol == "7203.T")
+    assert "今日見る候補" in toyota.categories
+    assert "メモ未入力候補" in toyota.categories
+
+
 def test_evaluate_favorite_refresh_status_states():
     now = datetime(2026, 6, 27, 12, 0, tzinfo=UTC)
     stale_time = (now - timedelta(hours=30)).isoformat()
@@ -221,6 +309,8 @@ def test_sidemenu_exposes_my_watchlist_page():
     assert sidemenu.SIDEMENU_PAGE_LABELS[sidemenu.SIDEMENU_PAGE_WATCHLIST] == "Myウォッチリスト"
 
     menu_order = list(sidemenu.SIDEMENU_PAGE_LABELS)
-    assert menu_order.index(sidemenu.SIDEMENU_PAGE_NEWS) < menu_order.index(
-        sidemenu.SIDEMENU_PAGE_WATCHLIST
-    ) < menu_order.index(sidemenu.SIDEMENU_PAGE_COPILOT)
+    assert (
+        menu_order.index(sidemenu.SIDEMENU_PAGE_NEWS)
+        < menu_order.index(sidemenu.SIDEMENU_PAGE_WATCHLIST)
+        < menu_order.index(sidemenu.SIDEMENU_PAGE_COPILOT)
+    )

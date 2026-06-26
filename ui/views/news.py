@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import html
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from functools import lru_cache
 from typing import cast
@@ -28,7 +28,12 @@ from ui.components.mascot import (
     workflow_loading_headlines_from_cache,
     workflow_loading_html,
 )
-from ui.favorites import evaluate_favorite_refresh_status, load_favorites, render_favorite_button
+from ui.favorites import (
+    evaluate_favorite_refresh_status,
+    is_favorite,
+    load_favorites,
+    render_favorite_button,
+)
 from ui.styles import truncate_text
 from ui.symbol_universe import symbol_name, symbol_universe_csv_rows, symbol_universe_name_map
 
@@ -1721,9 +1726,7 @@ def _render_news_detail_filters(
             refresh_states = [
                 evaluate_favorite_refresh_status(favorite) for favorite in favorite_watchlist
             ]
-            refresh_attention_count = sum(
-                1 for state in refresh_states if state.status != "fresh"
-            )
+            refresh_attention_count = sum(1 for state in refresh_states if state.status != "fresh")
             st.caption(
                 "☆ Myウォッチリスト対象: "
                 f"{len(favorite_watchlist_symbols)}銘柄 / "
@@ -1854,25 +1857,55 @@ def _render_symbol_button_group(
     symbol_name_map: dict[str, str],
     max_columns: int,
 ) -> None:
+    _ = max_columns
     st.caption(caption)
-    cols = st.columns(min(max_columns, len(symbols)))
     for index, symbol in enumerate(symbols):
+        normalized = symbol.strip().upper()
+        if not normalized:
+            continue
         label = news_symbol_handoff_label(symbol, symbol_name_map=symbol_name_map)
-        with cols[index % len(cols)]:
-            st.button(
-                truncate_text(label, max_chars=34),
-                key=f"investment_news_open_{key_prefix}_{symbol}",
-                help=f"{label}を投資コックピットで確認します。",
-                use_container_width=True,
-                on_click=open_symbol_callback,
-                args=(symbol,),
-            )
-            render_favorite_button(
-                symbol,
-                name=symbol_name_map.get(symbol.strip().upper()),
-                source_screen="news",
-                key=f"investment_news_favorite_{key_prefix}_{symbol}",
-            )
+        with st.container(border=True):
+            symbol_col, favorite_col = st.columns([1.7, 1])
+            with symbol_col:
+                st.markdown(
+                    '<span class="investment-news-symbol-chip-open-anchor"></span>',
+                    unsafe_allow_html=True,
+                )
+                st.button(
+                    truncate_text(label, max_chars=42),
+                    key=f"investment_news_open_{key_prefix}_{normalized}_{index}",
+                    help=f"{label}を投資コックピットで確認します。",
+                    use_container_width=True,
+                    on_click=open_symbol_callback,
+                    args=(normalized,),
+                )
+            with favorite_col:
+                render_favorite_button(
+                    normalized,
+                    name=symbol_name_map.get(normalized),
+                    source_screen="news",
+                    key=f"investment_news_favorite_{key_prefix}_{normalized}_{index}",
+                )
+
+
+def _news_symbol_chip_preview_rows(
+    symbols: Sequence[str],
+    *,
+    symbol_name_map: Mapping[str, str],
+) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for symbol in symbols:
+        normalized = symbol.strip().upper()
+        if not normalized:
+            continue
+        rows.append(
+            {
+                "symbol": normalized,
+                "label": news_symbol_handoff_label(normalized, symbol_name_map=symbol_name_map),
+                "favorite_label": "★ お気に入り中" if is_favorite(normalized) else "☆ お気に入り",
+            }
+        )
+    return rows
 
 
 def _news_symbol_name_map() -> dict[str, str]:

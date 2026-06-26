@@ -10,6 +10,7 @@ from backend.news import (
 )
 from ui import favorites
 from ui.views.news import (
+    _news_symbol_chip_preview_rows,
     combine_news_watchlist_symbols,
     news_dashboard_filtered_snapshot,
     news_dashboard_freshness_badge_html,
@@ -157,6 +158,37 @@ def test_combine_news_watchlist_symbols_keeps_source_compatibility():
         "6857.T",
         "7203.T",
     ]
+
+
+def test_news_symbol_chip_rows_show_favorite_state_and_skip_missing_symbol(tmp_path, monkeypatch):
+    monkeypatch.setattr(favorites, "FAVORITES_FILE_PATH", tmp_path / "favorites.json")
+
+    rows = _news_symbol_chip_preview_rows(
+        ["5932.T", ""],
+        symbol_name_map={"5932.T": "三協立山"},
+    )
+
+    assert rows == [
+        {
+            "symbol": "5932.T",
+            "label": "5932.T / 三協立山",
+            "favorite_label": "☆ お気に入り",
+        }
+    ]
+
+    favorites.add_favorite("5932.T", {"name": "三協立山", "source_screen": "news"})
+    active_rows = _news_symbol_chip_preview_rows(
+        ["5932.T"],
+        symbol_name_map={"5932.T": "三協立山"},
+    )
+    assert active_rows[0]["favorite_label"] == "★ お気に入り中"
+
+    favorites.remove_favorite("5932.T")
+    inactive_rows = _news_symbol_chip_preview_rows(
+        ["5932.T"],
+        symbol_name_map={"5932.T": "三協立山"},
+    )
+    assert inactive_rows[0]["favorite_label"] == "☆ お気に入り"
 
 
 def test_investment_news_page_renders_with_streamlit_app(monkeypatch):

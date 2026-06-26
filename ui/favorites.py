@@ -5,8 +5,9 @@ import json
 import logging
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 import streamlit as st
 
@@ -28,6 +29,15 @@ FAVORITE_REFRESH_STATUS_VALUES = {
     FAVORITE_REFRESH_STATUS_PARTIAL,
     FAVORITE_REFRESH_STATUS_UNKNOWN,
 }
+FAVORITE_DECISION_STATUS_OPTIONS = (
+    "監視中",
+    "調査中",
+    "確認待ち",
+    "様子見",
+    "保留",
+    "確認完了",
+    "見送りメモ",
+)
 
 
 @dataclass(frozen=True)
@@ -55,8 +65,24 @@ class FavoriteStock:
     last_news_checked_at: str | None = None
     last_research_at: str | None = None
     last_research_hint_at: str | None = None
+    watch_reason: str | None = None
+    decision_status: str | None = None
+    decision_note: str | None = None
+    next_check_at: str | None = None
+    next_check_label: str | None = None
+    decision_updated_at: str | None = None
+    decision_trail: tuple[Mapping[str, Any], ...] = ()
     memo: str = ""
     tags: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class FavoriteRadarItem:
+    favorite: FavoriteStock
+    priority: int
+    categories: tuple[str, ...]
+    reasons: tuple[str, ...]
+    next_action: str
 
 
 def normalize_favorite_symbol(symbol: str) -> str:
@@ -158,15 +184,17 @@ def update_favorite(
         result = replace(
             favorite,
             memo=favorite.memo if memo is None else memo,
-            tags=favorite.tags
-            if tags is None
-            else tuple(str(tag).strip() for tag in tags if str(tag).strip()),
-            last_checked_at=favorite.last_checked_at
-            if last_checked_at is None
-            else last_checked_at,
-            last_research_at=favorite.last_research_at
-            if last_research_at is None
-            else last_research_at,
+            tags=(
+                favorite.tags
+                if tags is None
+                else tuple(str(tag).strip() for tag in tags if str(tag).strip())
+            ),
+            last_checked_at=(
+                favorite.last_checked_at if last_checked_at is None else last_checked_at
+            ),
+            last_research_at=(
+                favorite.last_research_at if last_research_at is None else last_research_at
+            ),
         )
         updated.append(result)
     if result is None:
@@ -197,30 +225,136 @@ def update_favorite_refresh_metadata(
             continue
         result = replace(
             favorite,
-            refresh_status=(
-                favorite.refresh_status if refresh_status is None else refresh_status
+            refresh_status=(favorite.refresh_status if refresh_status is None else refresh_status),
+            refresh_error=favorite.refresh_error if refresh_error is None else refresh_error[:240],
+            last_checked_at=(
+                favorite.last_checked_at if last_checked_at is None else last_checked_at
             ),
-            refresh_error=favorite.refresh_error
-            if refresh_error is None
-            else refresh_error[:240],
-            last_checked_at=favorite.last_checked_at
-            if last_checked_at is None
-            else last_checked_at,
-            last_price_checked_at=favorite.last_price_checked_at
-            if last_price_checked_at is None
-            else last_price_checked_at,
-            last_news_checked_at=favorite.last_news_checked_at
-            if last_news_checked_at is None
-            else last_news_checked_at,
-            last_research_hint_at=favorite.last_research_hint_at
-            if last_research_hint_at is None
-            else last_research_hint_at,
+            last_price_checked_at=(
+                favorite.last_price_checked_at
+                if last_price_checked_at is None
+                else last_price_checked_at
+            ),
+            last_news_checked_at=(
+                favorite.last_news_checked_at
+                if last_news_checked_at is None
+                else last_news_checked_at
+            ),
+            last_research_hint_at=(
+                favorite.last_research_hint_at
+                if last_research_hint_at is None
+                else last_research_hint_at
+            ),
         )
         updated.append(result)
     if result is None:
         return None
     save_favorites(updated)
     return result
+
+
+def update_favorite_decision_note(
+    symbol: str,
+    *,
+    watch_reason: str | None = None,
+    decision_status: str | None = None,
+    decision_note: str | None = None,
+    next_check_at: str | None = None,
+    next_check_label: str | None = None,
+    append_trail: bool = False,
+) -> FavoriteStock | None:
+    normalized = normalize_favorite_symbol(symbol)
+    if not normalized:
+        return None
+    favorites = load_favorites()
+    updated: list[FavoriteStock] = []
+    result: FavoriteStock | None = None
+    updated_at = datetime.now().astimezone().isoformat(timespec="seconds")
+    for favorite in favorites:
+        if favorite.symbol != normalized:
+            updated.append(favorite)
+            continue
+        new_trail = favorite.decision_trail
+        new_status = _normalize_decision_status(decision_status)
+        if append_trail:
+            new_trail = (
+                *new_trail,
+                {
+                    "updated_at": updated_at,
+                    "before": {
+                        "decision_status": favorite.decision_status,
+                        "watch_reason": favorite.watch_reason,
+                        "decision_note": favorite.decision_note,
+                        "next_check_at": favorite.next_check_at,
+                        "next_check_label": favorite.next_check_label,
+                    },
+                    "after": {
+                        "decision_status": (
+                            favorite.decision_status if decision_status is None else new_status
+                        ),
+                        "watch_reason": (
+                            favorite.watch_reason
+                            if watch_reason is None
+                            else _optional_text(watch_reason)
+                        ),
+                        "decision_note": (
+                            favorite.decision_note
+                            if decision_note is None
+                            else _optional_text(decision_note)
+                        ),
+                        "next_check_at": (
+                            favorite.next_check_at
+                            if next_check_at is None
+                            else _optional_text(next_check_at)
+                        ),
+                        "next_check_label": (
+                            favorite.next_check_label
+                            if next_check_label is None
+                            else _optional_text(next_check_label)
+                        ),
+                    },
+                },
+            )
+        result = replace(
+            favorite,
+            watch_reason=(
+                favorite.watch_reason if watch_reason is None else _optional_text(watch_reason)
+            ),
+            decision_status=favorite.decision_status if decision_status is None else new_status,
+            decision_note=(
+                favorite.decision_note if decision_note is None else _optional_text(decision_note)
+            ),
+            next_check_at=(
+                favorite.next_check_at if next_check_at is None else _optional_text(next_check_at)
+            ),
+            next_check_label=(
+                favorite.next_check_label
+                if next_check_label is None
+                else _optional_text(next_check_label)
+            ),
+            decision_updated_at=updated_at,
+            decision_trail=new_trail,
+        )
+        updated.append(result)
+    if result is None:
+        return None
+    save_favorites(updated)
+    return result
+
+
+def build_favorite_radar_items(
+    favorites: Sequence[FavoriteStock],
+    computed_rows: Mapping[str, Mapping[str, Any]] | None = None,
+    *,
+    now: datetime | None = None,
+) -> list[FavoriteRadarItem]:
+    current_time = now or datetime.now(UTC)
+    rows = computed_rows or {}
+    radar_items = [
+        _build_favorite_radar_item(favorite, rows.get(favorite.symbol, {}), now=current_time)
+        for favorite in favorites
+    ]
+    return sorted(radar_items, key=lambda item: (-item.priority, item.favorite.symbol))
 
 
 def evaluate_favorite_refresh_status(
@@ -269,9 +403,10 @@ def evaluate_favorite_refresh_status(
         )
 
     news_checked_at = _parse_datetime(favorite.last_news_checked_at)
-    if news_checked_at is None or news_checked_at + timedelta(
-        hours=news_stale_after_hours
-    ) < current_time:
+    if (
+        news_checked_at is None
+        or news_checked_at + timedelta(hours=news_stale_after_hours) < current_time
+    ):
         return FavoriteRefreshState(
             status=FAVORITE_REFRESH_STATUS_NEEDS_ATTENTION,
             label="要確認",
@@ -281,9 +416,10 @@ def evaluate_favorite_refresh_status(
         )
 
     research_hint_at = _parse_datetime(favorite.last_research_hint_at)
-    if research_hint_at is None or research_hint_at + timedelta(
-        hours=research_hint_stale_after_hours
-    ) < current_time:
+    if (
+        research_hint_at is None
+        or research_hint_at + timedelta(hours=research_hint_stale_after_hours) < current_time
+    ):
         return FavoriteRefreshState(
             status=FAVORITE_REFRESH_STATUS_NEEDS_ATTENTION,
             label="要確認",
@@ -307,6 +443,110 @@ def evaluate_favorite_refresh_status(
         priority=10,
         next_action="最新状態です",
     )
+
+
+def _build_favorite_radar_item(
+    favorite: FavoriteStock,
+    row: Mapping[str, Any],
+    *,
+    now: datetime,
+) -> FavoriteRadarItem:
+    refresh_state = evaluate_favorite_refresh_status(favorite, now=now)
+    priority = 0
+    categories: list[str] = []
+    reasons: list[str] = []
+
+    if refresh_state.status == FAVORITE_REFRESH_STATUS_FAILED:
+        priority += 40
+        categories.extend(["注意候補", "更新候補", "今日見る候補"])
+        reasons.append("前回更新に失敗")
+    elif refresh_state.status == FAVORITE_REFRESH_STATUS_NEVER_CHECKED:
+        priority += 35
+        categories.extend(["更新候補", "今日見る候補"])
+        reasons.append("まだ未確認")
+    elif refresh_state.status == FAVORITE_REFRESH_STATUS_STALE:
+        priority += 25
+        categories.extend(["更新候補", "今日見る候補"])
+        reasons.append("確認日時が古い")
+    elif refresh_state.status == FAVORITE_REFRESH_STATUS_NEEDS_ATTENTION:
+        priority += 25
+        categories.append("今日見る候補")
+        reasons.append(refresh_state.label)
+
+    downside = _numeric_row_value(row, "downside", "downside_risk_score", "下振れ警戒")
+    if downside is not None and downside >= 60:
+        priority += 25
+        categories.extend(["注意候補", "今日見る候補"])
+        reasons.append("下振れ警戒が高め")
+
+    upside = _numeric_row_value(row, "upside", "upside_score", "上昇気配")
+    if upside is not None and upside >= 70:
+        priority += 10
+        categories.append("今日見る候補")
+        reasons.append("上昇気配が強め")
+
+    next_check = _parse_datetime(favorite.next_check_at)
+    if next_check is not None and next_check <= now + timedelta(days=3):
+        priority += 15
+        categories.append("今日見る候補")
+        reasons.append("次回確認日が近い")
+
+    if not favorite.decision_status:
+        priority += 10
+        categories.append("メモ未入力候補")
+        reasons.append("判断状態が未設定")
+    if not favorite.watch_reason:
+        priority += 10
+        categories.append("メモ未入力候補")
+        reasons.append("Watch理由が未入力")
+    if not favorite.decision_note:
+        priority += 10
+        categories.extend(["メモ未入力候補", "調査候補"])
+        reasons.append("判断メモが未入力")
+
+    tag_text = " ".join(favorite.tags)
+    if any(keyword in tag_text for keyword in ("要注意", "注意", "下落")):
+        priority += 15
+        categories.append("注意候補")
+        reasons.append("注意タグあり")
+    if any(keyword in tag_text for keyword in ("決算", "IR", "ニュース")):
+        priority += 10
+        categories.extend(["今日見る候補", "調査候補"])
+        reasons.append("確認予定タグあり")
+
+    if favorite.watch_reason and not favorite.decision_note:
+        priority += 5
+        categories.append("調査候補")
+        reasons.append("理由あり・見方未入力")
+
+    latest_news = str(row.get("latest_news") or row.get("related_news") or "").strip()
+    if latest_news and latest_news not in {"未確認", "なし", "未取得"}:
+        priority += 20
+        categories.extend(["今日見る候補", "調査候補"])
+        reasons.append("関連ニュースあり")
+
+    ordered_categories = tuple(dict.fromkeys(categories or ["今日見る候補"]))
+    ordered_reasons = tuple(dict.fromkeys(reasons or [refresh_state.next_action]))
+    next_action = _radar_next_action(ordered_categories, refresh_state.next_action)
+    return FavoriteRadarItem(
+        favorite=favorite,
+        priority=priority,
+        categories=ordered_categories,
+        reasons=ordered_reasons,
+        next_action=next_action,
+    )
+
+
+def _radar_next_action(categories: Sequence[str], fallback: str) -> str:
+    if "更新候補" in categories:
+        return "価格・ニュースを確認"
+    if "注意候補" in categories:
+        return "注意材料を確認"
+    if "調査候補" in categories:
+        return "AI調査で材料確認"
+    if "メモ未入力候補" in categories:
+        return "判断メモを整理"
+    return fallback
 
 
 def toggle_favorite(
@@ -383,7 +623,9 @@ def render_favorite_button(
             },
         )
         st.toast(
-            "Myウォッチリストに追加しました。" if now_active else "Myウォッチリストから解除しました。"
+            "Myウォッチリストに追加しました。"
+            if now_active
+            else "Myウォッチリストから解除しました。"
         )
         st.rerun()
         return now_active
@@ -405,6 +647,9 @@ def _favorite_from_mapping(raw_item: Mapping[str, Any]) -> FavoriteStock | None:
     tags = raw_item.get("tags", [])
     if not isinstance(tags, list | tuple):
         tags = []
+    decision_trail = raw_item.get("decision_trail", ())
+    if not isinstance(decision_trail, list | tuple):
+        decision_trail = ()
     return FavoriteStock(
         symbol=symbol,
         name=_optional_text(raw_item.get("name")),
@@ -420,6 +665,13 @@ def _favorite_from_mapping(raw_item: Mapping[str, Any]) -> FavoriteStock | None:
         last_news_checked_at=_optional_text(raw_item.get("last_news_checked_at")),
         last_research_at=_optional_text(raw_item.get("last_research_at")),
         last_research_hint_at=_optional_text(raw_item.get("last_research_hint_at")),
+        watch_reason=_optional_text(raw_item.get("watch_reason")),
+        decision_status=_normalize_decision_status(raw_item.get("decision_status")),
+        decision_note=_optional_text(raw_item.get("decision_note")),
+        next_check_at=_optional_text(raw_item.get("next_check_at")),
+        next_check_label=_optional_text(raw_item.get("next_check_label")),
+        decision_updated_at=_optional_text(raw_item.get("decision_updated_at")),
+        decision_trail=tuple(item for item in decision_trail if isinstance(item, Mapping)),
         memo=str(raw_item.get("memo", "") or ""),
         tags=tuple(str(tag) for tag in tags if str(tag).strip()),
     )
@@ -429,6 +681,9 @@ def _favorite_from_metadata(symbol: str, metadata: Mapping[str, Any]) -> Favorit
     tags = metadata.get("tags", ())
     if not isinstance(tags, list | tuple):
         tags = ()
+    decision_trail = metadata.get("decision_trail", ())
+    if not isinstance(decision_trail, list | tuple):
+        decision_trail = ()
     return FavoriteStock(
         symbol=symbol,
         name=_optional_text(metadata.get("name")),
@@ -444,6 +699,13 @@ def _favorite_from_metadata(symbol: str, metadata: Mapping[str, Any]) -> Favorit
         last_news_checked_at=_optional_text(metadata.get("last_news_checked_at")),
         last_research_at=_optional_text(metadata.get("last_research_at")),
         last_research_hint_at=_optional_text(metadata.get("last_research_hint_at")),
+        watch_reason=_optional_text(metadata.get("watch_reason")),
+        decision_status=_normalize_decision_status(metadata.get("decision_status")),
+        decision_note=_optional_text(metadata.get("decision_note")),
+        next_check_at=_optional_text(metadata.get("next_check_at")),
+        next_check_label=_optional_text(metadata.get("next_check_label")),
+        decision_updated_at=_optional_text(metadata.get("decision_updated_at")),
+        decision_trail=tuple(item for item in decision_trail if isinstance(item, Mapping)),
         memo=str(metadata.get("memo", "") or ""),
         tags=tuple(str(tag) for tag in tags if str(tag).strip()),
     )
@@ -452,6 +714,7 @@ def _favorite_from_metadata(symbol: str, metadata: Mapping[str, Any]) -> Favorit
 def _favorite_to_json_item(favorite: FavoriteStock) -> dict[str, Any]:
     item = asdict(favorite)
     item["tags"] = list(favorite.tags)
+    item["decision_trail"] = list(favorite.decision_trail)
     return item
 
 
@@ -467,6 +730,25 @@ def _normalize_refresh_status(value: Any) -> str | None:
     if text is None:
         return None
     return text if text in FAVORITE_REFRESH_STATUS_VALUES else FAVORITE_REFRESH_STATUS_UNKNOWN
+
+
+def _normalize_decision_status(value: Any) -> str | None:
+    text = _optional_text(value)
+    if text is None:
+        return None
+    return text if text in FAVORITE_DECISION_STATUS_OPTIONS else None
+
+
+def _numeric_row_value(row: Mapping[str, Any], *keys: str) -> Decimal | None:
+    for key in keys:
+        value = row.get(key)
+        if value in (None, ""):
+            continue
+        try:
+            return Decimal(str(value))
+        except Exception:  # noqa: BLE001
+            continue
+    return None
 
 
 def _parse_datetime(value: str | None) -> datetime | None:

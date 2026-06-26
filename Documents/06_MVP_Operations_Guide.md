@@ -18,6 +18,9 @@
 - Phase 32-C2 makes the shared favorite button state visually explicit: unregistered symbols use `☆ お気に入り` with a navy/blue-gray treatment, and registered symbols use `★ お気に入り中` with a restrained gold/amber treatment across Ranking / Cockpit / 投資レーダー / Myウォッチリスト entry points.
 - Myウォッチリスト card display is now grouped into header, status badge row, refresh badge, metric cards (`価格`, `AI総合`, `上昇気配`, `下振れ警戒`, `最終確認`), confirmation information, and action buttons. Missing values remain non-fatal and display as `未取得` or `未確認`.
 - The `watchlist` title mascot points to replaceable `smai-title-watchlist.webp`; if the file is not present yet, title rendering falls back to the Investment Radar mascot art.
+- Investment Radar news-card related symbols now use one horizontal chip per symbol for `本文に出た銘柄` and `SMAI推測候補`: left side opens the symbol in Cockpit, right side uses the existing `☆ お気に入り` / `★ お気に入り中` favorite toggle. Empty / unclear symbols are skipped.
+- Phase 32-D adds Decision Trail fields to `favorites.json` with backward compatibility: `watch_reason`, `decision_status`, `decision_note`, `next_check_at`, `next_check_label`, `decision_updated_at`, and `decision_trail`. Myウォッチリスト cards and tables show these fields, and each card has a compact `判断メモを編集` form.
+- Phase 32-E adds a display-only `My Radar` summary and filter/sort controls. Radar priority uses refresh state, note completeness, tags, next-check date, and displayed local metrics only; it does not change Ranking score, AI総合, Research Score, provider fetch behavior, or the saved order in `favorites.json`.
 
 ## 2026-06-26 Symbol Metadata Operations Update
 

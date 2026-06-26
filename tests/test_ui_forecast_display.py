@@ -452,13 +452,24 @@ def test_favorite_card_html_groups_watchlist_fields_and_handles_missing_values()
             "checkpoint": "",
             "tags": "",
             "memo": "",
+            "watch_reason": "AI関連として確認",
+            "decision_status": "監視中",
+            "decision_note": "決算前後の値動きを確認",
+            "next_check_label": "次回決算",
+            "decision_updated_label": "2026/06/27 20:00",
+            "related_news": "あり",
         }
     )
 
     assert 'class="smai-watchlist-card"' in markup
     assert "NVDA" in markup
+    assert markup.index("NVIDIA") < markup.index("NVDA")
     assert "上昇傾向" in markup
     assert "前回失敗" in markup
+    assert "判断メモ" in markup
+    assert "監視中" in markup
+    assert "AI関連として確認" in markup
+    assert "決算前後の値動きを確認" in markup
     assert "smai-watchlist-status--upside" in markup
     assert "smai-watchlist-refresh--failed" in markup
     assert "価格" in markup
@@ -4427,7 +4438,6 @@ def test_filter_symbol_universe_rows_filters_by_raw_official_industry_values():
             official_sector="銀行",
         )
     ] == ["8306.T"]
-
 
 
 def test_filter_symbol_universe_rows_keeps_sector_out_of_investment_theme_filter():

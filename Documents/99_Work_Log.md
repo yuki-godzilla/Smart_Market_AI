@@ -18,6 +18,22 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-27 - Phase 32-D/E Myウォッチリスト Decision Trail / My Radar
+
+### Summary
+
+- added backward-compatible Decision Trail fields to favorites: Watch理由, 判断状態, 判断メモ, 次の確認, 最終メモ更新, and future trail entries.
+- added `update_favorite_decision_note()` plus display-only Radar priority helper and My Radar categories for 今日見る候補 / 注意候補 / 更新候補 / 調査候補 / メモ未入力候補.
+- updated Myウォッチリスト cards/tables with 判断メモ display, one-symbol edit form, My Radar summary, filter/sort controls, and company-name-first card headers.
+- updated Cockpit / AI調査 / レポート handoff to carry watchlist context and explicit next-action hints without auto-running external fetch, AI調査, or report generation.
+- added Phase 32-C2 follow-up UI polish for 投資レーダー news-card related symbols: `本文に出た銘柄` and `SMAI推測候補` now use one horizontal chip per symbol with the existing favorite toggle on the right.
+
+### Validation
+
+- `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_favorites.py tests\test_ui_news_streamlit_page.py tests\test_ui_styles.py tests\test_ui_forecast_display.py::test_favorite_card_html_groups_watchlist_fields_and_handles_missing_values -q` -> 31 passed, 1 Streamlit deprecation warning.
+- `.\venv_SMAI\Scripts\python.exe -m ruff check ui\favorites.py ui\app.py ui\views\news.py tests\test_favorites.py tests\test_ui_news_streamlit_page.py tests\test_ui_forecast_display.py tests\test_ui_styles.py --no-cache` -> passed.
+- Broader `tests\test_ui_forecast_display.py` run still shows 3 existing Ranking filter/signature failures unrelated to this watchlist/news change.
+
 ## 2026-06-27 - Phase 32-C2 Myウォッチリスト UI Polish
 
 ### Summary

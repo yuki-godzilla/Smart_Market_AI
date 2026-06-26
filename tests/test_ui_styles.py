@@ -158,8 +158,10 @@ def test_global_theme_tokens_define_dark_financial_ai_palette():
     assert "rgba(251, 191, 36, 0.82)" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-card" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-metric-grid" in SMAI_GLOBAL_CSS
+    assert ".smai-watchlist-decision-title" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-refresh--fresh" in SMAI_GLOBAL_CSS
     assert ".smai-watchlist-refresh--failed" in SMAI_GLOBAL_CSS
+    assert ".investment-news-symbol-chip-open-anchor" in SMAI_GLOBAL_CSS
     assert '"Inter", "Noto Sans JP", "BIZ UDPGothic"' in SMAI_GLOBAL_CSS
     assert "color: #F8FDFF;" in SMAI_GLOBAL_CSS
     assert "rgba(11, 58, 102, 0.98)" in SMAI_GLOBAL_CSS

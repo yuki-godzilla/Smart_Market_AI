@@ -434,12 +434,15 @@ MARKET_DATA_COCKPIT_FILTER_DEFAULTS: dict[str, str | bool] = {
     "market_data_cockpit_official_sector": "all",
     "market_data_cockpit_theme": "all",
     "market_data_cockpit_market_cap": "all",
+    "market_data_cockpit_index_family": "all",
+    "market_data_cockpit_max_expense": "2.00",
+    "market_data_cockpit_complexity": "all",
     "market_data_cockpit_dividend": "all",
     "market_data_cockpit_currency": "all",
     "market_data_cockpit_nisa": "all",
     "market_data_cockpit_risk_band": "all",
     "market_data_cockpit_dividend_enabled": False,
-    "market_data_cockpit_min_dividend": "0.0",
+    "market_data_cockpit_min_dividend": "3.0",
     "market_data_cockpit_dividend_max": "10.0",
     "market_data_cockpit_per_enabled": False,
     "market_data_cockpit_per_min": "2.0",
@@ -463,20 +466,6 @@ class ResearchSummaryBundle:
     question_summary: InvestmentQuestionSummary | None
     research_score: ResearchScore
 
-
-MARKET_DATA_COCKPIT_DETAIL_FILTERS = frozenset(
-    {
-        "official_sector",
-        "investment_theme",
-        "market_cap",
-        "risk_band",
-        "dividend_yield",
-        "per",
-        "pbr",
-        "roe",
-        "nisa_eligibility",
-    }
-)
 
 MARKET_DATA_MODE_COCKPIT = "cockpit"
 MARKET_DATA_MODE_RANKING = "ranking"
@@ -6669,30 +6658,54 @@ def _cockpit_filter_state_snapshot() -> dict[str, str | bool]:
     return snapshot
 
 
+def cockpit_detail_filters_for_category(region: str, product_type: str) -> frozenset[str]:
+    return frozenset(ranking_detail_filters_for_category(region, product_type))
+
+
 def cockpit_filter_has_active_conditions_from_values(
     values: Mapping[str, object],
 ) -> bool:
-    selector_keys = (
+    region = str(values.get("market_data_cockpit_region", "all"))
+    product_type = str(values.get("market_data_cockpit_product_type", "all"))
+    detail_filters = cockpit_detail_filters_for_category(region, product_type)
+    selector_keys = [
         "market_data_cockpit_region",
         "market_data_cockpit_product_type",
-        "market_data_cockpit_official_sector",
-        "market_data_cockpit_theme",
-        "market_data_cockpit_market_cap",
-        "market_data_cockpit_dividend",
         "market_data_cockpit_currency",
-        "market_data_cockpit_nisa",
-        "market_data_cockpit_risk_band",
-    )
+    ]
+    if "official_sector" in detail_filters:
+        selector_keys.append("market_data_cockpit_official_sector")
+    if "investment_theme" in detail_filters:
+        selector_keys.append("market_data_cockpit_theme")
+    if "market_cap" in detail_filters:
+        selector_keys.append("market_data_cockpit_market_cap")
+    if "dividend_yield" in detail_filters:
+        selector_keys.append("market_data_cockpit_dividend")
+    if "nisa_eligibility" in detail_filters:
+        selector_keys.append("market_data_cockpit_nisa")
+    if "risk_band" in detail_filters:
+        selector_keys.append("market_data_cockpit_risk_band")
+    if "benchmark_index" in detail_filters:
+        selector_keys.append("market_data_cockpit_index_family")
+    if "complexity" in detail_filters:
+        selector_keys.append("market_data_cockpit_complexity")
     for key in selector_keys:
         default = MARKET_DATA_COCKPIT_FILTER_DEFAULTS[key]
         if str(values.get(key, default)) != str(default):
             return True
-    metric_enabled_keys = (
-        "market_data_cockpit_dividend_enabled",
-        "market_data_cockpit_per_enabled",
-        "market_data_cockpit_pbr_enabled",
-        "market_data_cockpit_roe_enabled",
-    )
+    if "expense_ratio" in detail_filters:
+        default = str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_max_expense"])
+        if str(values.get("market_data_cockpit_max_expense", default)).strip() != default:
+            return True
+    metric_enabled_keys: list[str] = []
+    if "dividend_yield" in detail_filters:
+        metric_enabled_keys.append("market_data_cockpit_dividend_enabled")
+    if "per" in detail_filters:
+        metric_enabled_keys.append("market_data_cockpit_per_enabled")
+    if "pbr" in detail_filters:
+        metric_enabled_keys.append("market_data_cockpit_pbr_enabled")
+    if "roe" in detail_filters:
+        metric_enabled_keys.append("market_data_cockpit_roe_enabled")
     return any(_truthy_filter_value(values.get(key, False)) for key in metric_enabled_keys)
 
 
@@ -6709,7 +6722,7 @@ def cockpit_filter_summary_chips_from_values(
         {"label": _cockpit_nisa_chip_label(nisa), "tone": "neutral"},
         {"label": _cockpit_product_chip_label(product_type), "tone": "neutral"},
     ]
-    detail_chips = _cockpit_filter_detail_chips(values, product_type=product_type)
+    detail_chips = _cockpit_filter_detail_chips_v2(values, product_type=product_type)
     if detail_chips:
         chips.extend({"label": label, "tone": "active"} for label in detail_chips)
     elif not cockpit_filter_has_active_conditions_from_values(values):
@@ -6850,6 +6863,110 @@ def _cockpit_filter_detail_chips(
     return chips
 
 
+def _cockpit_filter_detail_chips_v2(
+    values: Mapping[str, object],
+    *,
+    product_type: str,
+) -> list[str]:
+    chips: list[str] = []
+    region = str(values.get("market_data_cockpit_region", "all"))
+    detail_filters = cockpit_detail_filters_for_category(region, product_type)
+    official_sector = str(values.get("market_data_cockpit_official_sector", "all"))
+    theme = str(values.get("market_data_cockpit_theme", "all"))
+    market_cap_tier = str(values.get("market_data_cockpit_market_cap", "all"))
+    index_family = str(values.get("market_data_cockpit_index_family", "all"))
+    max_expense_ratio_pct = str(
+        values.get(
+            "market_data_cockpit_max_expense",
+            MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_max_expense"],
+        )
+    )
+    complexity = str(
+        values.get(
+            "market_data_cockpit_complexity",
+            MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_complexity"],
+        )
+    )
+    dividend_category = str(values.get("market_data_cockpit_dividend", "all"))
+    currency = str(values.get("market_data_cockpit_currency", "all"))
+    risk_band = str(values.get("market_data_cockpit_risk_band", "all"))
+    if "official_sector" in detail_filters and official_sector != "all":
+        label = _short_filter_label(
+            RANKING_OFFICIAL_SECTOR_LABELS.get(official_sector, official_sector)
+        )
+        chips.append(f"讌ｭ遞ｮ: {label}")
+    if "investment_theme" in detail_filters and theme != "all":
+        label = _short_filter_label(RANKING_INVESTMENT_THEME_LABELS.get(theme, theme))
+        chips.append(f"繝・・繝・ {label}")
+    if "market_cap" in detail_filters and market_cap_tier != "all":
+        label = _short_filter_label(RANKING_MARKET_CAP_LABELS.get(market_cap_tier, market_cap_tier))
+        chips.append(f"隕乗ｨ｡: {label}")
+    if "risk_band" in detail_filters and risk_band != "all":
+        label = _short_filter_label(RANKING_BETA_RISK_LABELS.get(risk_band, risk_band))
+        chips.append(f"ﾎｲ: {label}")
+    if "benchmark_index" in detail_filters and index_family != "all":
+        chips.append(f"謖・焚: {RANKING_INDEX_FAMILY_LABELS.get(index_family, index_family)}")
+    if (
+        "expense_ratio" in detail_filters
+        and max_expense_ratio_pct
+        != str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_max_expense"])
+    ):
+        chips.append(f"邨瑚ｲｻ邇・ {_compact_filter_number(max_expense_ratio_pct)}%莉･荳・")
+    if (
+        "complexity" in detail_filters
+        and complexity != str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_complexity"])
+    ):
+        chips.append(f"隍・尅縺・ {RANKING_COMPLEXITY_LABELS.get(complexity, complexity)}")
+    if "dividend_yield" in detail_filters and dividend_category != "all":
+        label = _dividend_category_option_label(dividend_category, product_type)
+        chips.append(f"驟榊ｽ・ {_short_filter_label(label)}")
+    if currency != "all":
+        chips.append(f"騾夊ｲｨ: {RANKING_CURRENCY_LABELS.get(currency, currency)}")
+    if "dividend_yield" in detail_filters and _truthy_filter_value(
+        values.get("market_data_cockpit_dividend_enabled", False)
+    ):
+        chips.append(
+            _range_filter_chip(
+                "驟榊ｽ灘茜蝗槭ｊ",
+                values.get("market_data_cockpit_min_dividend", "3.0"),
+                values.get("market_data_cockpit_dividend_max", "10.0"),
+                "%",
+            )
+        )
+    if "per" in detail_filters and _truthy_filter_value(
+        values.get("market_data_cockpit_per_enabled", False)
+    ):
+        chips.append(
+            _range_filter_chip(
+                "PER",
+                values.get("market_data_cockpit_per_min", "2.0"),
+                values.get("market_data_cockpit_per_max", "20.0"),
+            )
+        )
+    if "pbr" in detail_filters and _truthy_filter_value(
+        values.get("market_data_cockpit_pbr_enabled", False)
+    ):
+        chips.append(
+            _range_filter_chip(
+                "PBR",
+                values.get("market_data_cockpit_pbr_min", "0.5"),
+                values.get("market_data_cockpit_pbr_max", "2.0"),
+            )
+        )
+    if "roe" in detail_filters and _truthy_filter_value(
+        values.get("market_data_cockpit_roe_enabled", False)
+    ):
+        chips.append(
+            _range_filter_chip(
+                "ROE",
+                values.get("market_data_cockpit_roe_min", "8.0"),
+                values.get("market_data_cockpit_roe_max", "30.0"),
+                "%",
+            )
+        )
+    return chips
+
+
 def _render_cockpit_symbol_filter_panel(
     symbol_options: list[dict[str, str]],
 ) -> list[dict[str, str]]:
@@ -6871,7 +6988,7 @@ def _render_cockpit_symbol_filter_panel(
         ):
             _clear_cockpit_symbol_filter_state()
             st.rerun()
-        filtered_rows = _render_cockpit_symbol_filter_detail_fields(symbol_options)
+        filtered_rows = _render_cockpit_symbol_filter_detail_fields_v2(symbol_options)
 
     if not filtered_rows:
         st.warning("条件に合う銘柄候補がありません。条件を緩めるか、クリアしてください。")
@@ -7088,11 +7205,375 @@ def _render_cockpit_symbol_filter_detail_fields(
     return filtered_rows
 
 
+def _render_cockpit_symbol_filter_detail_fields_v2(
+    symbol_options: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    st.markdown('<div class="smai-cockpit-filter-detail-anchor"></div>', unsafe_allow_html=True)
+    col_region, col_product, col_nisa = st.columns(3)
+    with col_region:
+        region = _render_detail_selectbox(
+            "地域",
+            options=list(RANKING_MVP_REGION_LABELS),
+            key="market_data_cockpit_region",
+            format_func=lambda value: RANKING_MVP_REGION_LABELS[value],
+            default_value=str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_region"]),
+            help_text="候補に含める地域を選びます。",
+        )
+    with col_product:
+        product_type = _render_detail_selectbox(
+            "商品",
+            options=list(RANKING_MVP_PRODUCT_TYPE_LABELS),
+            key="market_data_cockpit_product_type",
+            format_func=lambda value: RANKING_MVP_PRODUCT_TYPE_LABELS[value],
+            default_value=str(
+                MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_product_type"]
+            ),
+            help_text="株式やETFなど、比較したい商品を選びます。",
+        )
+    with col_nisa:
+        nisa_eligibility = _render_detail_selectbox(
+            "NISA",
+            options=list(RANKING_NISA_ELIGIBILITY_LABELS),
+            key="market_data_cockpit_nisa",
+            format_func=lambda value: RANKING_NISA_ELIGIBILITY_LABELS[value],
+            default_value=str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_nisa"]),
+            help_text=RANKING_FILTER_HELP_TEXTS["nisa_eligibility"],
+        )
+
+    detail_filters = cockpit_detail_filters_for_category(region, product_type)
+    classification_base_rows = _classification_count_base_rows(
+        symbol_options,
+        region=region,
+        product_type=product_type,
+    )
+    official_sector_counts = symbol_universe_filter_value_counts(
+        classification_base_rows,
+        "official_sector",
+    )
+    investment_theme_counts = symbol_universe_filter_value_counts(
+        classification_base_rows,
+        "investment_theme",
+    )
+    benchmark_index_counts = symbol_universe_filter_value_counts(
+        classification_base_rows,
+        "benchmark_index",
+    )
+    complexity_counts = symbol_universe_filter_value_counts(
+        classification_base_rows,
+        "complexity",
+    )
+    dividend_category_counts = symbol_universe_filter_value_counts(
+        classification_base_rows,
+        "dividend_category",
+    )
+    currency_counts = symbol_universe_filter_value_counts(
+        classification_base_rows,
+        "currency",
+    )
+
+    official_sector = "all"
+    theme = "all"
+    market_cap_tier = "all"
+    risk_band = "all"
+    index_family = "all"
+    max_expense_ratio_pct = _coerce_number_input_state("market_data_cockpit_max_expense", "2.00")
+    complexity = "all"
+    dividend_category = "all"
+    currency = "all"
+
+    st.markdown("**属性条件**")
+    attr_cols = st.columns(4)
+    attr_column_index = 0
+
+    def next_attr_column():
+        nonlocal attr_column_index
+        column = attr_cols[attr_column_index % len(attr_cols)]
+        attr_column_index += 1
+        return column
+
+    if "official_sector" in detail_filters:
+        with next_attr_column():
+            official_sector = _render_detail_selectbox(
+                "業種・セクター",
+                options=_filter_options_with_available_counts(
+                    RANKING_OFFICIAL_SECTOR_LABELS,
+                    official_sector_counts,
+                ),
+                key="market_data_cockpit_official_sector",
+                format_func=lambda value: _counted_filter_label(
+                    RANKING_OFFICIAL_SECTOR_LABELS,
+                    official_sector_counts,
+                    value,
+                ),
+                default_value=str(
+                    MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_official_sector"]
+                ),
+                help_text=RANKING_FILTER_HELP_TEXTS["official_sector"],
+            )
+    if "investment_theme" in detail_filters:
+        with next_attr_column():
+            theme = _render_detail_selectbox(
+                "投資テーマ",
+                options=_filter_options_with_available_counts(
+                    RANKING_INVESTMENT_THEME_LABELS,
+                    investment_theme_counts,
+                ),
+                key="market_data_cockpit_theme",
+                format_func=lambda value: _counted_filter_label(
+                    RANKING_INVESTMENT_THEME_LABELS,
+                    investment_theme_counts,
+                    value,
+                ),
+                default_value=str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_theme"]),
+                help_text=RANKING_FILTER_HELP_TEXTS["investment_theme"],
+            )
+    if "market_cap" in detail_filters:
+        with next_attr_column():
+            market_cap_tier = _render_detail_selectbox(
+                "時価総額帯",
+                options=list(RANKING_MARKET_CAP_LABELS),
+                key="market_data_cockpit_market_cap",
+                format_func=lambda value: RANKING_MARKET_CAP_LABELS[value],
+                default_value=str(
+                    MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_market_cap"]
+                ),
+                help_text=RANKING_FILTER_HELP_TEXTS["market_cap"],
+            )
+    if "risk_band" in detail_filters:
+        with next_attr_column():
+            risk_band = _render_detail_selectbox(
+                "値動きリスク",
+                options=list(RANKING_BETA_RISK_LABELS),
+                key="market_data_cockpit_risk_band",
+                format_func=lambda value: RANKING_BETA_RISK_LABELS[value],
+                default_value=str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_risk_band"]),
+                help_text=RANKING_FILTER_HELP_TEXTS["risk_band"],
+            )
+    if "benchmark_index" in detail_filters:
+        with next_attr_column():
+            index_family = _render_detail_selectbox(
+                "連動指数",
+                options=_filter_options_with_available_counts(
+                    RANKING_INDEX_FAMILY_LABELS,
+                    benchmark_index_counts,
+                ),
+                key="market_data_cockpit_index_family",
+                format_func=lambda value: _counted_filter_label(
+                    RANKING_INDEX_FAMILY_LABELS,
+                    benchmark_index_counts,
+                    value,
+                ),
+                default_value=str(
+                    MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_index_family"]
+                ),
+                help_text=RANKING_FILTER_HELP_TEXTS["benchmark_index"],
+            )
+    if "expense_ratio" in detail_filters:
+        with next_attr_column():
+            max_expense_ratio_pct = st.number_input(
+                "信託報酬/経費率(%)以下",
+                min_value=0.0,
+                max_value=2.0,
+                value=max_expense_ratio_pct,
+                step=0.01,
+                format="%.2f",
+                key="market_data_cockpit_max_expense",
+                help=RANKING_FILTER_HELP_TEXTS["expense_ratio"],
+            )
+    if "complexity" in detail_filters:
+        with next_attr_column():
+            complexity = _render_detail_selectbox(
+                "複雑さ",
+                options=_filter_options_with_available_counts(
+                    RANKING_COMPLEXITY_LABELS,
+                    complexity_counts,
+                ),
+                key="market_data_cockpit_complexity",
+                format_func=lambda value: _counted_filter_label(
+                    RANKING_COMPLEXITY_LABELS,
+                    complexity_counts,
+                    value,
+                ),
+                default_value=str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_complexity"]),
+                help_text=RANKING_FILTER_HELP_TEXTS["complexity"],
+            )
+    if "dividend_yield" in detail_filters:
+        with next_attr_column():
+            dividend_labels = {
+                key: _dividend_category_option_label(key, product_type)
+                for key in RANKING_DIVIDEND_LABELS
+            }
+            dividend_category = _render_detail_selectbox(
+                _dividend_category_filter_label(product_type),
+                options=_filter_options_with_available_counts(
+                    dividend_labels,
+                    dividend_category_counts,
+                ),
+                key="market_data_cockpit_dividend",
+                format_func=lambda value: _counted_filter_label(
+                    dividend_labels,
+                    dividend_category_counts,
+                    value,
+                ),
+                default_value=str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_dividend"]),
+                help_text=_dividend_filter_help_text(
+                    RANKING_FILTER_HELP_TEXTS["dividend_category"],
+                    product_type,
+                ),
+                disabled=_cockpit_filter_bool("market_data_cockpit_dividend_enabled", False),
+            )
+    with next_attr_column():
+        currency = _render_detail_selectbox(
+            "通貨",
+            options=_filter_options_with_available_counts(
+                RANKING_CURRENCY_LABELS,
+                currency_counts,
+            ),
+            key="market_data_cockpit_currency",
+            format_func=lambda value: _counted_filter_label(
+                RANKING_CURRENCY_LABELS,
+                currency_counts,
+                value,
+            ),
+            default_value=str(MARKET_DATA_COCKPIT_FILTER_DEFAULTS["market_data_cockpit_currency"]),
+            help_text=RANKING_FILTER_HELP_TEXTS["currency"],
+        )
+
+    dividend_enabled = False
+    min_dividend = "3.0"
+    max_dividend = "10.0"
+    per_enabled = False
+    per_min = "2.0"
+    per_max = "20.0"
+    pbr_enabled = False
+    pbr_min = "0.5"
+    pbr_max = "2.0"
+    roe_enabled = False
+    roe_min = "8.0"
+    roe_max = "30.0"
+
+    metric_filters: list[tuple[str, dict[str, object]]] = []
+    if "dividend_yield" in detail_filters:
+        metric_filters.append(
+            (
+                _dividend_yield_filter_label(product_type),
+                {
+                    "enabled_key": "market_data_cockpit_dividend_enabled",
+                    "min_key": "market_data_cockpit_min_dividend",
+                    "max_key": "market_data_cockpit_dividend_max",
+                    "min_default": "3.0",
+                    "max_default": "10.0",
+                    "max_value": 15.0,
+                    "help_text": _dividend_filter_help_text(
+                        RANKING_FILTER_HELP_TEXTS["dividend_yield"],
+                        product_type,
+                    ),
+                    "disabled": dividend_category != "all",
+                },
+            )
+        )
+    if "per" in detail_filters:
+        metric_filters.append(
+            (
+                "PER",
+                {
+                    "enabled_key": "market_data_cockpit_per_enabled",
+                    "min_key": "market_data_cockpit_per_min",
+                    "max_key": "market_data_cockpit_per_max",
+                    "min_default": "2.0",
+                    "max_default": "20.0",
+                    "max_value": 80.0,
+                    "help_text": RANKING_FILTER_HELP_TEXTS["per"],
+                },
+            )
+        )
+    if "pbr" in detail_filters:
+        metric_filters.append(
+            (
+                "PBR",
+                {
+                    "enabled_key": "market_data_cockpit_pbr_enabled",
+                    "min_key": "market_data_cockpit_pbr_min",
+                    "max_key": "market_data_cockpit_pbr_max",
+                    "min_default": "0.5",
+                    "max_default": "2.0",
+                    "max_value": 20.0,
+                    "help_text": RANKING_FILTER_HELP_TEXTS["pbr"],
+                },
+            )
+        )
+    if "roe" in detail_filters:
+        metric_filters.append(
+            (
+                "ROE(%)",
+                {
+                    "enabled_key": "market_data_cockpit_roe_enabled",
+                    "min_key": "market_data_cockpit_roe_min",
+                    "max_key": "market_data_cockpit_roe_max",
+                    "min_default": "8.0",
+                    "max_default": "30.0",
+                    "max_value": 60.0,
+                    "help_text": RANKING_FILTER_HELP_TEXTS["roe"],
+                },
+            )
+        )
+
+    if metric_filters:
+        st.markdown("**数値条件**")
+        for start_index in range(0, len(metric_filters), 2):
+            metric_cols = st.columns(2)
+            for column, (label, config) in zip(metric_cols, metric_filters[start_index : start_index + 2]):
+                with column:
+                    enabled, lower, upper = _render_metric_range_filter(label, **config)
+                if config["enabled_key"] == "market_data_cockpit_dividend_enabled":
+                    dividend_enabled, min_dividend, max_dividend = enabled, lower, upper
+                elif config["enabled_key"] == "market_data_cockpit_per_enabled":
+                    per_enabled, per_min, per_max = enabled, lower, upper
+                elif config["enabled_key"] == "market_data_cockpit_pbr_enabled":
+                    pbr_enabled, pbr_min, pbr_max = enabled, lower, upper
+                elif config["enabled_key"] == "market_data_cockpit_roe_enabled":
+                    roe_enabled, roe_min, roe_max = enabled, lower, upper
+
+    filtered_rows = cockpit_filtered_symbol_rows_from_values(
+        symbol_options,
+        region=region,
+        product_type=product_type,
+        currency=currency,
+        dividend_category=dividend_category,
+        market_cap_tier=market_cap_tier,
+        nisa_eligibility=nisa_eligibility,
+        risk_band=risk_band,
+        official_sector=official_sector,
+        theme=theme,
+        index_family=index_family,
+        max_expense_ratio_pct=max_expense_ratio_pct,
+        complexity=complexity,
+        dividend_yield_enabled=dividend_enabled,
+        min_dividend_yield_pct=min_dividend,
+        dividend_yield_max_pct=max_dividend,
+        per_enabled=per_enabled,
+        per_min=per_min,
+        per_max=per_max,
+        pbr_enabled=pbr_enabled,
+        pbr_min=pbr_min,
+        pbr_max=pbr_max,
+        roe_enabled=roe_enabled,
+        roe_min_pct=roe_min,
+        roe_max_pct=roe_max,
+        active_detail_filters=detail_filters,
+    )
+    if not filtered_rows:
+        st.warning("条件に合う銘柄候補がありません。条件をゆるめるか、クリアしてください。")
+    return filtered_rows
+
+
 def cockpit_filtered_symbol_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    region = _cockpit_filter_value("market_data_cockpit_region", "all")
+    product_type = _cockpit_filter_value("market_data_cockpit_product_type", "all")
     return cockpit_filtered_symbol_rows_from_values(
         rows,
-        region=_cockpit_filter_value("market_data_cockpit_region", "all"),
-        product_type=_cockpit_filter_value("market_data_cockpit_product_type", "all"),
+        region=region,
+        product_type=product_type,
         currency=_cockpit_filter_value("market_data_cockpit_currency", "all"),
         dividend_category=_cockpit_filter_value("market_data_cockpit_dividend", "all"),
         market_cap_tier=_cockpit_filter_value("market_data_cockpit_market_cap", "all"),
@@ -7100,13 +7581,16 @@ def cockpit_filtered_symbol_rows(rows: list[dict[str, str]]) -> list[dict[str, s
         risk_band=_cockpit_filter_value("market_data_cockpit_risk_band", "all"),
         official_sector=_cockpit_filter_value("market_data_cockpit_official_sector", "all"),
         theme=_cockpit_filter_value("market_data_cockpit_theme", "all"),
+        index_family=_cockpit_filter_value("market_data_cockpit_index_family", "all"),
+        max_expense_ratio_pct=_cockpit_filter_value("market_data_cockpit_max_expense", "2.00"),
+        complexity=_cockpit_filter_value("market_data_cockpit_complexity", "all"),
         dividend_yield_enabled=_cockpit_filter_bool(
             "market_data_cockpit_dividend_enabled",
             False,
         ),
         min_dividend_yield_pct=_cockpit_filter_value(
             "market_data_cockpit_min_dividend",
-            "0.0",
+            "3.0",
         ),
         dividend_yield_max_pct=_cockpit_filter_value(
             "market_data_cockpit_dividend_max",
@@ -7121,6 +7605,7 @@ def cockpit_filtered_symbol_rows(rows: list[dict[str, str]]) -> list[dict[str, s
         roe_enabled=_cockpit_filter_bool("market_data_cockpit_roe_enabled", False),
         roe_min_pct=_cockpit_filter_value("market_data_cockpit_roe_min", "8.0"),
         roe_max_pct=_cockpit_filter_value("market_data_cockpit_roe_max", "30.0"),
+        active_detail_filters=cockpit_detail_filters_for_category(region, product_type),
     )
 
 
@@ -7136,6 +7621,9 @@ def cockpit_filtered_symbol_rows_from_values(
     risk_band: str,
     official_sector: str,
     theme: str,
+    index_family: str,
+    max_expense_ratio_pct: Decimal | str | int | float,
+    complexity: str,
     dividend_yield_enabled: bool,
     min_dividend_yield_pct: Decimal | str | int | float,
     dividend_yield_max_pct: Decimal | str | int | float,
@@ -7148,6 +7636,7 @@ def cockpit_filtered_symbol_rows_from_values(
     roe_enabled: bool,
     roe_min_pct: Decimal | str | int | float,
     roe_max_pct: Decimal | str | int | float,
+    active_detail_filters: frozenset[str] | None = None,
 ) -> list[dict[str, str]]:
     return filter_symbol_universe_rows(
         rows,
@@ -7156,6 +7645,9 @@ def cockpit_filtered_symbol_rows_from_values(
         currency=currency,
         dividend_category=dividend_category,
         market_cap_tier=market_cap_tier,
+        index_family=index_family,
+        max_expense_ratio_pct=str(max_expense_ratio_pct),
+        complexity=complexity,
         nisa_eligibility=nisa_eligibility,
         risk_band=risk_band,
         official_sector=official_sector,
@@ -7174,7 +7666,7 @@ def cockpit_filtered_symbol_rows_from_values(
         roe_max_pct=str(roe_max_pct),
         limit=len(rows),
         apply_universe_policy=False,
-        active_detail_filters=MARKET_DATA_COCKPIT_DETAIL_FILTERS,
+        active_detail_filters=active_detail_filters,
     )
 
 
@@ -7717,7 +8209,6 @@ def _render_market_data_ranking() -> None:
     selection_key = ranking_symbols_state_key(filter_signature)
     end_date = default_market_data_end_date()
     start_date, end_date = ranking_period_dates(period_preset, end_date)
-    draft_dirty = False
     display_candidate_count = len(filtered_symbol_rows)
     manual_selection_key = f"{selection_key}_manual_selection"
     manual_selection_enabled = bool(st.session_state.get(manual_selection_key, False))

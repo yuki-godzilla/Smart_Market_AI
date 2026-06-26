@@ -374,6 +374,7 @@ Streamlit UI は左サイドメニューで画面を切り替えます。
 
 - provider / symbol / company name / period
 - `銘柄を探す`: データ取得元、銘柄検索、銘柄選択、銘柄名を先に表示する。候補の絞り込みは直下の `絞り込み条件` チップで現在状態を確認し、詳細条件は `絞り込み条件を変更` expander を開いた時だけ表示する。条件なしでは `全体` / `NISA指定なし` / `商品指定なし` / `条件なし` / `候補N件` を表示し、クリアボタンは出さない。
+- コックピットの `絞り込み条件` 項目は、ランキング画面のカテゴリ別条件セットに追従する。日本株/米国株/ETF など商品に応じて、`業種・セクター` / `投資テーマ` / `時価総額帯` / `連動指数` / `信託報酬/経費率` / `複雑さ` / `PER` / `PBR` / `ROE` などの表示対象を切り替える。通貨条件は共通で表示し、コックピット既定値では候補母集団を狭めすぎないよう広めに保つ。
 - Detail filters narrow the Symbol select list by preference: region, product, NISA, market cap, theme/sector, beta band, dividend/category, currency, PER/PBR/ROE/dividend yield ranges. Product defaults to `指定なし`, which does not narrow by stock / ETF. These filters affect only the candidate list and do not change period selection, provider fetch, Forecast, Ranking, or scoring logic.
 - cockpit period preset: `カスタム`, `短期: 1週間`, `短期: 1か月`, `中期: 3か月`, `中期: 6か月`, `年初来`, `長期: 1年`, `長期: 3年`, `長期: 5年`
 - default cockpit period is `カスタム`; preset選択時は Start / End を自動表示し、`カスタム` の時だけ手入力する

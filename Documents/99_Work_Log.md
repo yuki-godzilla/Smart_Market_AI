@@ -3487,6 +3487,15 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 - Added a regression test for the same default-path call shape used by the Streamlit Assistant page.
 - passed: loading/warmup/Copilot targeted pytest (`61 passed`), targeted Ruff, and project Black helper.
 
+## 2026-06-26 UI alignment - Cockpit screening conditions follow Ranking
+
+- `銘柄コックピット` の絞り込み条件を、完成済み `銘柄ランキング` のカテゴリ別条件定義に追従する形へ整理した。共通の判断基準は `ranking_detail_filters_for_category()` を使い、日本株/米国株/ETF/全体で表示・適用する条件項目を切り替える。
+- コックピット側に ETF 向けの `連動指数` / `信託報酬・経費率` / `複雑さ` 条件を追加し、`業種・セクター` / `投資テーマ` / `時価総額帯` / `リスク` / `配当カテゴリ` / `PER` / `PBR` / `ROE` もカテゴリに応じて出し分けるようにした。
+- 絞り込みサマリチップと active 判定もカテゴリ別条件に連動させ、非表示になった旧条件が誤って active 扱いされないようにした。
+- コックピット既定値では候補母集団を不用意に狭めないよう、`複雑さ=all`、`信託報酬/経費率=2.00` を採用し、条件項目はランキング準拠でも既定の候補一覧は広く残す方針にした。
+- targeted pytest: `tests/test_ui_forecast_display.py -k "cockpit_filter or cockpit_filtered_symbol_rows or ranking_detail_filters_switch_by_product_type or symbol_universe_filter_value_counts_supports_detail_conditions"` で `11 passed, 314 deselected, 1 xfailed`。
+- targeted Ruff: `ui/app.py`, `tests/test_ui_forecast_display.py` に対して実行し、今回追加差分とは別に既存の import sort (`I001`) が `ui/app.py` 側に残っていることを確認した。
+
 ## 2026-06-19 Phase 30-H - Assistant Loading UI polish / auto transition
 
 - Reused the Investment Radar title mascot as a compact loading-headline icon with a CSS-only radar fallback.

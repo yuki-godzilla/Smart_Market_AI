@@ -272,23 +272,25 @@ from ui.ranking import (
     ranking_purpose_weight_summary,
     ranking_region_label,
     ranking_symbol_chunks,
-    symbol_universe_filter_value_counts,
     ranking_symbol_options,
     ranking_symbols_state_key,
     ranking_weight_group_rows,
     ranking_weight_preset_for_purpose,
     ranking_weight_preset_label,
     symbol_candidate_labels,
+    symbol_universe_filter_value_counts,
     symbol_universe_rows,
 )
 from ui.ranking_filter_chips import (
     applied_exploration_filters,
     apply_ranking_applied_exploration_filters,
-    exploration_filter_chip_labels as ranking_exploration_filter_chip_labels,
     ranking_filter_dialog_is_open,
     render_active_ranking_filter_dialog,
     render_ranking_exploration_filter_cards,
     sync_ranking_exploration_legacy_state,
+)
+from ui.ranking_filter_chips import (
+    exploration_filter_chip_labels as ranking_exploration_filter_chip_labels,
 )
 from ui.ranking_state import (
     ensure_ranking_selection_widget_state,
@@ -9931,6 +9933,7 @@ def _favorite_display_payload(
         "memo": favorite.memo or "メモなし",
         "tags": " / ".join(favorite.tags) if favorite.tags else "タグなし",
         "status": status,
+        "status_label": _favorite_status_display_label(status),
     }
 
 
@@ -9968,6 +9971,121 @@ def _favorite_checkpoint_label(status: str) -> str:
     return "横ばいです。次の材料や価格変化を確認します。"
 
 
+def _favorite_status_display_label(status: str) -> str:
+    if status == "上昇候補":
+        return "上昇傾向"
+    if status == "下振れ注意":
+        return "下落注意"
+    if status == "未取得":
+        return "判定保留"
+    return "横ばい"
+
+
+def _favorite_status_tone(status: str) -> str:
+    if status == "上昇候補":
+        return "upside"
+    if status == "下振れ注意":
+        return "downside"
+    if status == "未取得":
+        return "unknown"
+    return "flat"
+
+
+def _favorite_refresh_tone(refresh_status: str) -> str:
+    return {
+        "fresh": "fresh",
+        "never_checked": "never-checked",
+        "stale": "stale",
+        "needs_attention": "needs-attention",
+        "failed": "failed",
+        "partial": "partial",
+    }.get(refresh_status, "unknown")
+
+
+def _favorite_display_value(value: object, *, fallback: str = "未取得") -> str:
+    text = str(value or "").strip()
+    if not text or text in {"-", "None", "null"}:
+        return fallback
+    return text
+
+
+def _favorite_metric_html(label: str, value: object, *, fallback: str = "未取得") -> str:
+    display_value = _favorite_display_value(value, fallback=fallback)
+    return (
+        '<div class="smai-watchlist-metric">'
+        f'<span class="smai-watchlist-metric-label">{html.escape(label)}</span>'
+        f'<strong class="smai-watchlist-metric-value">{html.escape(display_value)}</strong>'
+        "</div>"
+    )
+
+
+def _favorite_info_row_html(label: str, value: object, *, fallback: str = "未確認") -> str:
+    display_value = _favorite_display_value(value, fallback=fallback)
+    return (
+        '<div class="smai-watchlist-info-row">'
+        f"<span>{html.escape(label)}</span>"
+        f"<strong>{html.escape(display_value)}</strong>"
+        "</div>"
+    )
+
+
+def _favorite_card_html(payload: Mapping[str, str]) -> str:
+    symbol = _favorite_display_value(payload.get("symbol"), fallback="未取得")
+    name = _favorite_display_value(payload.get("name"), fallback=symbol)
+    status = payload.get("status", "")
+    status_label = _favorite_display_value(
+        payload.get("status_label") or _favorite_status_display_label(status),
+        fallback="判定保留",
+    )
+    refresh_status = payload.get("refresh_status", "")
+    refresh_label = _favorite_display_value(payload.get("refresh_label"), fallback="未確認")
+    meta = " / ".join(
+        html.escape(_favorite_display_value(payload.get(key), fallback="未取得"))
+        for key in ("market", "asset_type", "currency")
+    )
+    added_at = html.escape(_favorite_display_value(payload.get("added_at"), fallback="未確認"))
+    metrics = "".join(
+        [
+            _favorite_metric_html("価格", payload.get("price")),
+            _favorite_metric_html("AI総合", payload.get("ai_score")),
+            _favorite_metric_html("上昇気配", payload.get("upside")),
+            _favorite_metric_html("下振れ警戒", payload.get("downside")),
+            _favorite_metric_html("最終確認", payload.get("last_checked_at"), fallback="未確認"),
+        ]
+    )
+    info_rows = "".join(
+        [
+            _favorite_info_row_html("次の確認", payload.get("refresh_next_action")),
+            _favorite_info_row_html(
+                "確認ポイント",
+                payload.get("checkpoint") or payload.get("refresh_reason"),
+            ),
+            _favorite_info_row_html("タグ", payload.get("tags"), fallback="タグなし"),
+            _favorite_info_row_html("メモ", payload.get("memo"), fallback="メモなし"),
+        ]
+    )
+    return (
+        '<section class="smai-watchlist-card">'
+        '<div class="smai-watchlist-card-header">'
+        "<div>"
+        f'<div class="smai-watchlist-card-symbol">{html.escape(symbol)}</div>'
+        f'<div class="smai-watchlist-card-name">{html.escape(name)}</div>'
+        "</div>"
+        f'<div class="smai-watchlist-card-added">追加日<br><strong>{added_at}</strong></div>'
+        "</div>"
+        f'<div class="smai-watchlist-card-meta">{meta}</div>'
+        '<div class="smai-watchlist-badge-row">'
+        f'<span class="smai-watchlist-badge smai-watchlist-status--{html.escape(_favorite_status_tone(status))}">'
+        f"{html.escape(status_label)}</span>"
+        f'<span class="smai-watchlist-badge smai-watchlist-refresh--{html.escape(_favorite_refresh_tone(refresh_status))}">'
+        f"{html.escape(refresh_label)}</span>"
+        "</div>"
+        f'<div class="smai-watchlist-metric-grid">{metrics}</div>'
+        f'<div class="smai-watchlist-info">{info_rows}</div>'
+        "</section>"
+    )
+
+
 def _render_favorite_table(rows: list[dict[str, str]]) -> None:
     table_rows = [
         {
@@ -9996,27 +10114,7 @@ def _render_favorite_table(rows: list[dict[str, str]]) -> None:
 
 def _render_favorite_card(payload: Mapping[str, str]) -> None:
     symbol = payload["symbol"]
-    st.markdown(f"#### {payload['symbol']} / {payload['name']}")
-    st.caption(
-        f"{payload['market']} / {payload['asset_type']} / {payload['currency']} / 追加日 {payload['added_at']}"
-    )
-    st.markdown(
-        " ".join(
-            [
-                f"`状態: {payload['status']}`",
-                f"`価格: {payload['price']}`",
-                f"`AI総合: {payload['ai_score']}`",
-                f"`上昇: {payload['upside']}`",
-                f"`下振れ: {payload['downside']}`",
-                f"`更新状態: {payload['refresh_label']}`",
-                f"`最終確認: {payload['last_checked_at']}`",
-            ]
-        )
-    )
-    st.caption(f"次の確認: {payload['refresh_next_action']} / {payload['refresh_reason']}")
-    st.caption(f"確認ポイント: {payload['checkpoint']}")
-    st.caption(f"タグ: {payload['tags']}")
-    st.caption(f"メモ: {payload['memo']}")
+    st.markdown(_favorite_card_html(payload), unsafe_allow_html=True)
     col_cockpit, col_research, col_report, col_remove = st.columns(4)
     with col_cockpit:
         if st.button("Cockpit", key=f"watchlist_cockpit_{symbol}", use_container_width=True):

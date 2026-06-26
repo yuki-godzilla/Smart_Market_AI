@@ -102,6 +102,7 @@ from ui.app import (
     _external_research_fetch_result_rows,
     _external_research_fetch_summary_rows,
     _external_research_source_cards_html,
+    _favorite_card_html,
     _fetch_external_research_for_preview,
     _forecast_model_logic_help,
     _format_market_chart_fx_rate,
@@ -386,11 +387,11 @@ from ui.ranking import (
     ranking_symbol_chunks,
     ranking_symbol_options,
     ranking_symbols_state_key,
-    symbol_universe_filter_value_counts,
     ranking_weight_group_rows,
     ranking_weight_preset_for_purpose,
     ranking_weight_preset_label,
     symbol_candidate_labels,
+    symbol_universe_filter_value_counts,
     symbol_universe_rows,
     valid_ranking_selected_labels,
 )
@@ -422,6 +423,7 @@ from ui.research_state import (
 from ui.styles import FORECAST_ACTUAL_PRICE_COLOR, FORECAST_MODEL_COLORS, THEME_COLORS
 from ui.symbol_universe import symbol_universe_csv_rows
 
+
 class _FakeExpander:
     def __enter__(self):
         return self
@@ -431,6 +433,38 @@ class _FakeExpander:
 
 
 pytest = __import__("pytest")
+
+
+def test_favorite_card_html_groups_watchlist_fields_and_handles_missing_values():
+    markup = _favorite_card_html(
+        {
+            "symbol": "NVDA",
+            "name": "NVIDIA",
+            "market": "us",
+            "asset_type": "stock",
+            "currency": "USD",
+            "added_at": "2026-06-27",
+            "status": "上昇候補",
+            "status_label": "上昇傾向",
+            "refresh_status": "failed",
+            "refresh_label": "前回失敗",
+            "refresh_next_action": "",
+            "checkpoint": "",
+            "tags": "",
+            "memo": "",
+        }
+    )
+
+    assert 'class="smai-watchlist-card"' in markup
+    assert "NVDA" in markup
+    assert "上昇傾向" in markup
+    assert "前回失敗" in markup
+    assert "smai-watchlist-status--upside" in markup
+    assert "smai-watchlist-refresh--failed" in markup
+    assert "価格" in markup
+    assert "AI総合" in markup
+    assert "未取得" in markup
+    assert "未確認" in markup
 
 
 def test_default_forecast_horizon_days_uses_chart_period():

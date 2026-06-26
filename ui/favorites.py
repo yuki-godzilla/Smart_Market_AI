@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import json
 import logging
 from dataclasses import asdict, dataclass, replace
@@ -347,8 +348,12 @@ def render_favorite_button(
 ) -> bool:
     normalized = normalize_favorite_symbol(symbol)
     if not normalized:
+        st.markdown(
+            '<span class="smai-favorite-button-anchor" data-active="false"></span>',
+            unsafe_allow_html=True,
+        )
         st.button(
-            "お気に入り",
+            "☆ お気に入り",
             key=key,
             disabled=True,
             use_container_width=use_container_width,
@@ -356,6 +361,10 @@ def render_favorite_button(
         return False
     active = is_favorite(normalized)
     label = "★ お気に入り中" if active else "☆ お気に入り"
+    st.markdown(
+        favorite_button_anchor_html(active=active, symbol=normalized),
+        unsafe_allow_html=True,
+    )
     clicked = st.button(
         label,
         key=key or f"favorite_{source_screen}_{normalized}",
@@ -379,6 +388,14 @@ def render_favorite_button(
         st.rerun()
         return now_active
     return active
+
+
+def favorite_button_anchor_html(*, active: bool, symbol: str) -> str:
+    return (
+        '<span class="smai-favorite-button-anchor" '
+        f'data-active="{str(active).lower()}" '
+        f'data-symbol="{html.escape(symbol)}"></span>'
+    )
 
 
 def _favorite_from_mapping(raw_item: Mapping[str, Any]) -> FavoriteStock | None:

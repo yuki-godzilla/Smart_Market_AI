@@ -531,6 +531,66 @@ body,
     transform: none;
 }
 
+.smai-favorite-button-anchor {
+    height: 0;
+}
+
+.smai-favorite-button-anchor + div[data-testid="stButton"] button,
+[data-testid="stMarkdownContainer"]:has(.smai-favorite-button-anchor)
+    + div[data-testid="stButton"] button {
+    border-color: rgba(102, 128, 162, 0.7) !important;
+    background:
+        linear-gradient(180deg, rgba(17, 31, 53, 0.78), rgba(8, 15, 29, 0.82)) !important;
+    color: #EAF6FF !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        0 0 0 1px rgba(34, 211, 238, 0.06);
+}
+
+.smai-favorite-button-anchor + div[data-testid="stButton"] button:hover,
+[data-testid="stMarkdownContainer"]:has(.smai-favorite-button-anchor)
+    + div[data-testid="stButton"] button:hover {
+    border-color: rgba(125, 211, 252, 0.78) !important;
+    background:
+        linear-gradient(180deg, rgba(21, 43, 70, 0.92), rgba(10, 24, 44, 0.9)) !important;
+    box-shadow:
+        0 0 0 1px rgba(103, 232, 249, 0.14),
+        0 10px 22px rgba(8, 145, 178, 0.14);
+}
+
+.smai-favorite-button-anchor[data-active="true"] + div[data-testid="stButton"] button,
+[data-testid="stMarkdownContainer"]:has(.smai-favorite-button-anchor[data-active="true"])
+    + div[data-testid="stButton"] button {
+    border-color: rgba(251, 191, 36, 0.82) !important;
+    background:
+        linear-gradient(180deg, rgba(146, 92, 14, 0.84), rgba(92, 55, 11, 0.86)) !important;
+    color: #FFF7CC !important;
+    text-shadow:
+        0 1px 0 rgba(17, 24, 39, 0.34),
+        0 0 12px rgba(250, 204, 21, 0.22);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 0 0 1px rgba(250, 204, 21, 0.18),
+        0 10px 24px rgba(245, 158, 11, 0.16);
+}
+
+.smai-favorite-button-anchor[data-active="true"] + div[data-testid="stButton"] button:hover,
+[data-testid="stMarkdownContainer"]:has(.smai-favorite-button-anchor[data-active="true"])
+    + div[data-testid="stButton"] button:hover {
+    border-color: rgba(254, 240, 138, 0.92) !important;
+    background:
+        linear-gradient(180deg, rgba(180, 111, 18, 0.9), rgba(120, 72, 12, 0.92)) !important;
+    box-shadow:
+        0 0 0 1px rgba(250, 204, 21, 0.24),
+        0 12px 28px rgba(245, 158, 11, 0.2);
+}
+
+.smai-favorite-button-anchor + div[data-testid="stButton"] button *,
+[data-testid="stMarkdownContainer"]:has(.smai-favorite-button-anchor)
+    + div[data-testid="stButton"] button * {
+    color: inherit !important;
+}
+
 [data-baseweb="select"] > div,
 [data-testid="stTextInput"] input,
 [data-testid="stNumberInput"] input,
@@ -5234,6 +5294,231 @@ div[data-testid="stChatInput"] textarea:focus {
 .smai-ranking-target-summary--warning {
     border-color: rgba(250, 204, 21, 0.48);
     background: rgba(113, 63, 18, 0.26);
+}
+
+.smai-watchlist-card {
+    border: 1px solid rgba(70, 91, 120, 0.78);
+    border-radius: 16px;
+    background:
+        radial-gradient(circle at 12% 0%, rgba(34, 211, 238, 0.12), transparent 34%),
+        linear-gradient(180deg, rgba(17, 31, 53, 0.96), rgba(7, 13, 25, 0.94));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        0 18px 38px rgba(0, 0, 0, 0.18);
+    margin: 0 0 0.86rem;
+    padding: 1rem;
+}
+
+.smai-watchlist-card-header {
+    display: flex;
+    gap: 0.85rem;
+    align-items: flex-start;
+    justify-content: space-between;
+}
+
+.smai-watchlist-card-symbol {
+    color: var(--text-title);
+    font-size: 1.12rem;
+    font-weight: 880;
+    line-height: 1.25;
+}
+
+.smai-watchlist-card-name {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 680;
+    line-height: 1.45;
+    margin-top: 0.16rem;
+}
+
+.smai-watchlist-card-added {
+    min-width: 5.6rem;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 720;
+    line-height: 1.35;
+    text-align: right;
+}
+
+.smai-watchlist-card-added strong {
+    color: var(--text-heading);
+    font-size: 0.78rem;
+}
+
+.smai-watchlist-card-meta {
+    color: var(--text-caption);
+    font-size: 0.78rem;
+    font-weight: 650;
+    line-height: 1.45;
+    margin-top: 0.42rem;
+}
+
+.smai-watchlist-badge-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.42rem;
+    margin-top: 0.74rem;
+}
+
+.smai-watchlist-badge {
+    border: 1px solid rgba(148, 163, 184, 0.42);
+    border-radius: 999px;
+    color: var(--text-heading);
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.6rem;
+    padding: 0.24rem 0.62rem;
+    font-size: 0.78rem;
+    font-weight: 820;
+    line-height: 1.1;
+}
+
+.smai-watchlist-status--upside {
+    border-color: rgba(52, 211, 153, 0.48);
+    background: rgba(6, 78, 59, 0.34);
+    color: #BAF7DD;
+}
+
+.smai-watchlist-status--downside {
+    border-color: rgba(251, 113, 133, 0.5);
+    background: rgba(127, 29, 29, 0.28);
+    color: #FFD1D8;
+}
+
+.smai-watchlist-status--flat {
+    border-color: rgba(96, 165, 250, 0.48);
+    background: rgba(30, 64, 175, 0.24);
+    color: #D7EAFE;
+}
+
+.smai-watchlist-status--unknown,
+.smai-watchlist-refresh--unknown {
+    border-color: rgba(148, 163, 184, 0.42);
+    background: rgba(71, 85, 105, 0.24);
+    color: #DDE6F2;
+}
+
+.smai-watchlist-refresh--fresh {
+    border-color: rgba(34, 211, 238, 0.54);
+    background: rgba(8, 145, 178, 0.26);
+    color: #CFFAFE;
+}
+
+.smai-watchlist-refresh--never-checked {
+    border-color: rgba(100, 116, 139, 0.56);
+    background: rgba(30, 41, 59, 0.44);
+    color: #D7DEE9;
+}
+
+.smai-watchlist-refresh--stale {
+    border-color: rgba(251, 191, 36, 0.54);
+    background: rgba(113, 63, 18, 0.3);
+    color: #FDE68A;
+}
+
+.smai-watchlist-refresh--needs-attention {
+    border-color: rgba(251, 146, 60, 0.58);
+    background: rgba(124, 45, 18, 0.3);
+    color: #FED7AA;
+}
+
+.smai-watchlist-refresh--failed {
+    border-color: rgba(248, 113, 113, 0.58);
+    background: rgba(127, 29, 29, 0.3);
+    color: #FECACA;
+}
+
+.smai-watchlist-refresh--partial {
+    border-color: rgba(167, 139, 250, 0.58);
+    background: rgba(49, 46, 129, 0.32);
+    color: #DDD6FE;
+}
+
+.smai-watchlist-metric-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.48rem;
+    margin-top: 0.82rem;
+}
+
+.smai-watchlist-metric {
+    border: 1px solid rgba(70, 91, 120, 0.5);
+    border-radius: 10px;
+    background: rgba(2, 6, 23, 0.28);
+    min-width: 0;
+    padding: 0.48rem 0.52rem;
+}
+
+.smai-watchlist-metric-label {
+    color: var(--text-muted);
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 760;
+    line-height: 1.25;
+    margin-bottom: 0.18rem;
+}
+
+.smai-watchlist-metric-value {
+    color: var(--text-value);
+    display: block;
+    font-size: 0.88rem;
+    font-weight: 860;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+.smai-watchlist-info {
+    border-top: 1px solid rgba(70, 91, 120, 0.44);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.46rem 0.72rem;
+    margin-top: 0.86rem;
+    padding-top: 0.78rem;
+}
+
+.smai-watchlist-info-row {
+    min-width: 0;
+}
+
+.smai-watchlist-info-row span {
+    color: var(--text-muted);
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 780;
+    line-height: 1.3;
+    margin-bottom: 0.12rem;
+}
+
+.smai-watchlist-info-row strong {
+    color: var(--text-secondary);
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 680;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+    .smai-watchlist-metric-grid,
+    .smai-watchlist-info {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .smai-watchlist-card-header {
+        flex-direction: column;
+    }
+
+    .smai-watchlist-card-added {
+        min-width: 0;
+        text-align: left;
+    }
+
+    .smai-watchlist-metric-grid,
+    .smai-watchlist-info {
+        grid-template-columns: 1fr;
+    }
 }
 
 .smai-ranking-build-action-anchor + div[data-testid="stButton"] button,

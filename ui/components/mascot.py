@@ -34,12 +34,13 @@ MASCOT_NAVI_CHAT_ASSET = "smai-navi-chat-cutout.png"
 MASCOT_THUMB_ASSET = "smai-mascot-thumb.webp"
 MASCOT_PANEL_ASSET = "smai-mascot-panel.webp"
 MASCOT_LOADING_ASSET = "smai-mascot-loading.webp"
+MASCOT_WATCHLIST_TITLE_ASSET = "smai-title-watchlist.webp"
 MASCOT_TITLE_ASSETS: dict[TitleMascot, str] = {
     "cockpit": "smai-title-cockpit.webp",
     "ranking": "smai-title-ranking.webp",
     "investment_radar": "smai-title-investment-radar.webp",
     "rebalance": "smai-title-rebalance.webp",
-    "watchlist": "smai-title-investment-radar.webp",
+    "watchlist": MASCOT_WATCHLIST_TITLE_ASSET,
 }
 MASCOT_VARIANT_ASSETS: dict[MascotVariant, str] = {
     "brand": MASCOT_PANEL_ASSET,
@@ -203,6 +204,16 @@ def render_app_header(
     st.markdown(app_header_html(title, message=message), unsafe_allow_html=True)
 
 
+def _title_asset_data_uri(mascot: str) -> str:
+    asset_name = MASCOT_TITLE_ASSETS.get(
+        mascot,  # type: ignore[arg-type]
+        MASCOT_TITLE_ASSETS["investment_radar"],
+    )
+    if not (MASCOT_ASSET_DIR / asset_name).is_file():
+        asset_name = MASCOT_TITLE_ASSETS["investment_radar"]
+    return _asset_data_uri(asset_name)
+
+
 def page_title_html(
     title: str,
     subtitle: str,
@@ -210,12 +221,11 @@ def page_title_html(
     *,
     accessory_html: str | None = None,
 ) -> str:
-    asset_key = mascot if mascot in MASCOT_TITLE_ASSETS else "investment_radar"
     accessory = (
         f'<div class="smai-page-title-accessory">{accessory_html}</div>' if accessory_html else ""
     )
     if mascot == "cockpit":
-        title_art = _asset_data_uri(MASCOT_TITLE_ASSETS[asset_key])
+        title_art = _title_asset_data_uri(mascot)
         return (
             '<section class="smai-page-title smai-page-title--copilot" data-mascot="cockpit">'
             f"{accessory}"
@@ -229,7 +239,7 @@ def page_title_html(
             f'<p class="smai-page-title-subtitle">{html.escape(subtitle)}</p>'
             "</div>" + copilot_presence_panel_html() + "</section>"
         )
-    image = _asset_data_uri(MASCOT_TITLE_ASSETS[asset_key])
+    image = _title_asset_data_uri(mascot)
     return (
         f'<section class="smai-page-title" data-mascot="{html.escape(mascot)}">'
         f"{accessory}"

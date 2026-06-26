@@ -155,10 +155,16 @@ def test_favorite_metadata_from_row_maps_symbol_universe_fields():
 def test_render_favorite_button_toggles_store(tmp_path, monkeypatch):
     class FakeStreamlit:
         def __init__(self) -> None:
+            self.button_labels: list[str] = []
+            self.markdown_calls: list[str] = []
             self.toast_message = ""
             self.rerun_called = False
 
-        def button(self, *_args, **_kwargs) -> bool:
+        def markdown(self, body: str, **_kwargs) -> None:
+            self.markdown_calls.append(body)
+
+        def button(self, label: str, **_kwargs) -> bool:
+            self.button_labels.append(label)
             return True
 
         def toast(self, message: str) -> None:
@@ -173,8 +179,42 @@ def test_render_favorite_button_toggles_store(tmp_path, monkeypatch):
 
     assert favorites.render_favorite_button(" nvda ", name="NVIDIA", source_screen="ranking")
     assert favorites.is_favorite("NVDA")
+    assert fake_st.button_labels == ["☆ お気に入り"]
+    assert 'data-active="false"' in fake_st.markdown_calls[0]
     assert fake_st.rerun_called
     assert fake_st.toast_message == "Myウォッチリストに追加しました。"
+
+
+def test_render_favorite_button_uses_active_label_and_anchor(tmp_path, monkeypatch):
+    class FakeStreamlit:
+        def __init__(self) -> None:
+            self.button_labels: list[str] = []
+            self.markdown_calls: list[str] = []
+
+        def markdown(self, body: str, **_kwargs) -> None:
+            self.markdown_calls.append(body)
+
+        def button(self, label: str, **_kwargs) -> bool:
+            self.button_labels.append(label)
+            return False
+
+    fake_st = FakeStreamlit()
+    monkeypatch.setattr(favorites, "FAVORITES_FILE_PATH", tmp_path / "favorites.json")
+    monkeypatch.setattr(favorites, "st", fake_st)
+    favorites.add_favorite("NVDA", metadata={"name": "NVIDIA"})
+
+    assert favorites.render_favorite_button("NVDA", name="NVIDIA", source_screen="cockpit")
+    assert fake_st.button_labels == ["★ お気に入り中"]
+    assert 'class="smai-favorite-button-anchor"' in fake_st.markdown_calls[0]
+    assert 'data-active="true"' in fake_st.markdown_calls[0]
+    assert 'data-symbol="NVDA"' in fake_st.markdown_calls[0]
+
+
+def test_favorite_button_anchor_html_escapes_symbol():
+    markup = favorites.favorite_button_anchor_html(active=True, symbol='NVDA"><script>')
+
+    assert 'data-active="true"' in markup
+    assert "NVDA&quot;&gt;&lt;script&gt;" in markup
 
 
 def test_sidemenu_exposes_my_watchlist_page():

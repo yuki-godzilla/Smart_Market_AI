@@ -18,6 +18,25 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-27 - Phase 32-C2 Myウォッチリスト UI Polish
+
+### Summary
+
+- updated the shared favorite button rendering path with a CSS anchor so `☆ お気に入り` and `★ お気に入り中` can have distinct visual treatments across Ranking / Cockpit / 投資レーダー / Myウォッチリスト without changing add/remove logic.
+- added restrained gold/amber styling for registered favorites and navy/blue-gray styling for unregistered favorites.
+- rebuilt Myウォッチリスト cards as grouped mini-cockpit cards: header, status/refresh badges, metric cards, confirmation information, and existing Cockpit / AI調査 / レポート / 解除 actions.
+- added refresh/status badge tone classes and safe `未取得` / `未確認` fallback display for missing card values.
+- prepared a dedicated `smai-title-watchlist.webp` mascot asset key while falling back to Investment Radar art when the file is not yet placed or an unknown mascot key is used.
+- kept the detailed table favorite state as a lightweight `★` display and left sorting/selection behavior untouched.
+
+### Validation
+
+- `.\venv_SMAI\Scripts\python.exe -m py_compile ui\app.py ui\favorites.py ui\components\mascot.py ui\styles.py` -> passed.
+- `.\venv_SMAI\Scripts\python.exe -m ruff check ui\app.py ui\favorites.py ui\components\mascot.py ui\styles.py tests\test_favorites.py tests\test_ui_mascot.py tests\test_ui_styles.py tests\test_ui_forecast_display.py --no-cache` -> passed.
+- `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_favorites.py tests\test_ui_mascot.py tests\test_ui_styles.py -q` -> 32 passed.
+- `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_forecast_display.py -q -k favorite_card_html` -> 1 passed, 326 deselected.
+- `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_news_streamlit_page.py -q -k "watchlist or investment_news_page_renders"` -> 5 passed, 3 deselected, 1 Streamlit deprecation warning.
+
 ## 2026-06-27 - Phase 32-C Favorites-aware Refresh MVP
 
 ### Summary

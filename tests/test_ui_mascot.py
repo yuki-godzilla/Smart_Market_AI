@@ -10,6 +10,7 @@ from ui.components.mascot import (
     MASCOT_TITLE_ASSETS,
     MASCOT_VARIANT_ASSETS,
     MASCOT_VARIANT_DEFAULTS,
+    MASCOT_WATCHLIST_TITLE_ASSET,
     app_header_html,
     copilot_presence_panel_html,
     mascot_loading_html,
@@ -141,7 +142,8 @@ def test_page_title_html_supports_watchlist_and_unknown_fallback():
         "unknown",  # type: ignore[arg-type]
     )
 
-    assert MASCOT_TITLE_ASSETS["watchlist"] == "smai-title-investment-radar.webp"
+    assert MASCOT_TITLE_ASSETS["watchlist"] == MASCOT_WATCHLIST_TITLE_ASSET
+    assert MASCOT_WATCHLIST_TITLE_ASSET == "smai-title-watchlist.webp"
     assert 'data-mascot="watchlist"' in watchlist_markup
     assert "data:image/webp;base64," in watchlist_markup
     assert 'data-mascot="unknown"' in fallback_markup
@@ -211,7 +213,7 @@ def test_mascot_expression_assets_exist_for_situation_variants():
         MASCOT_REFERENCE_ASSET,
         MASCOT_LOADING_ASSET,
         *MASCOT_VARIANT_ASSETS.values(),
-        *MASCOT_TITLE_ASSETS.values(),
+        *(asset for asset in MASCOT_TITLE_ASSETS.values() if asset != MASCOT_WATCHLIST_TITLE_ASSET),
     }:
         assert (MASCOT_ASSET_DIR / filename).is_file()
 

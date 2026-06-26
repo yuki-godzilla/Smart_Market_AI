@@ -15,6 +15,9 @@
 - Phase 32-C adds refresh metadata fields (`refresh_status`, `refresh_error`, `last_price_checked_at`, `last_news_checked_at`, `last_research_hint_at`) and status labels such as `未確認`, `古い`, `要確認`, `最新`, `前回失敗`.
 - `ウォッチリストを更新` now updates prioritized non-fresh favorites up to the selected maximum count and stores a short `watchlist_refresh_summary` in session state. It remains local-first and does not auto-run provider fetch, AI調査, or Decision Report generation.
 - The page-title mascot now supports `watchlist`; unknown title mascot keys fall back to the Investment Radar title asset instead of raising `KeyError`.
+- Phase 32-C2 makes the shared favorite button state visually explicit: unregistered symbols use `☆ お気に入り` with a navy/blue-gray treatment, and registered symbols use `★ お気に入り中` with a restrained gold/amber treatment across Ranking / Cockpit / 投資レーダー / Myウォッチリスト entry points.
+- Myウォッチリスト card display is now grouped into header, status badge row, refresh badge, metric cards (`価格`, `AI総合`, `上昇気配`, `下振れ警戒`, `最終確認`), confirmation information, and action buttons. Missing values remain non-fatal and display as `未取得` or `未確認`.
+- The `watchlist` title mascot points to replaceable `smai-title-watchlist.webp`; if the file is not present yet, title rendering falls back to the Investment Radar mascot art.
 
 ## 2026-06-26 Symbol Metadata Operations Update
 

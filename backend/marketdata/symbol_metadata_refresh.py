@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import date, datetime
 import multiprocessing
 import os
 import queue
 import time
+from dataclasses import dataclass, field
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Callable, Protocol, Sequence, runtime_checkable
 
@@ -119,6 +119,7 @@ class YahooSymbolMetadataProvider:
     ticker_info_reader: Callable[[str], dict[str, object]] | None = None
     name: str = "yahoo"
     failures: list[SymbolMetadataFailure] = field(default_factory=list, init=False)
+    no_update_symbols: list[str] = field(default_factory=list, init=False)
     symbol_timeout_seconds: float = 0
     progress_callback: Callable[[dict[str, object]], None] | None = None
 
@@ -130,6 +131,7 @@ class YahooSymbolMetadataProvider:
         updated_at: datetime,
     ) -> list[SymbolMetadataUpdate]:
         self.failures.clear()
+        self.no_update_symbols.clear()
         updates: list[SymbolMetadataUpdate] = []
         ticker_info_reader = self.ticker_info_reader or _read_yahoo_ticker_info
         total = len(rows)
@@ -221,11 +223,14 @@ class YahooSymbolMetadataProvider:
                     }
                 )
                 continue
+            has_substantive_values = _has_substantive_metadata_values(values)
             if values:
                 values.setdefault("yahoo_symbol", yahoo_symbol)
                 values["yahoo_symbol_status"] = "confirmed"
                 values["yahoo_symbol_checked_at"] = updated_at.isoformat()
                 updates.append(SymbolMetadataUpdate(symbol=symbol, values=values))
+            if not has_substantive_values:
+                self.no_update_symbols.append(symbol)
             self._emit_progress(
                 {
                     "event": "done",
@@ -233,7 +238,7 @@ class YahooSymbolMetadataProvider:
                     "total": total,
                     "symbol": symbol,
                     "lookup_symbol": yahoo_symbol,
-                    "updated": bool(values),
+                    "updated": bool(has_substantive_values),
                     "duration_seconds": round(time.monotonic() - symbol_started_at, 2),
                     "elapsed_seconds": round(time.monotonic() - started_at, 2),
                 }
@@ -336,6 +341,7 @@ def refresh_symbol_universe_metadata(
     changed_columns: set[str] = set()
     unknown_symbols: list[str] = []
     applied_updates = 0
+    unchanged_update_symbols: set[str] = set()
 
     for update in updates:
         normalized_symbol = update.symbol.strip().upper()
@@ -372,6 +378,10 @@ def refresh_symbol_universe_metadata(
             row_changed = True
         if row_changed:
             changed_symbols.add(row.get("symbol", update.symbol))
+        else:
+            unchanged_update_symbols.add(row.get("symbol", update.symbol))
+
+    no_update_symbols = list(getattr(provider, "no_update_symbols", []))
 
     manifest = {
         "operation": "symbol_universe_metadata_refresh",
@@ -388,6 +398,8 @@ def refresh_symbol_universe_metadata(
         "changed_columns": sorted(changed_columns),
         "unknown_symbols": unknown_symbols,
         "failed_symbols": [failure.symbol for failure in failures],
+        "no_update_symbols": sorted({symbol for symbol in no_update_symbols if symbol}),
+        "unchanged_update_symbols": sorted({symbol for symbol in unchanged_update_symbols if symbol}),
         "failures": [
             {
                 "symbol": failure.symbol,
@@ -578,6 +590,18 @@ def _yahoo_metadata_values(
             values["asset_class"] = asset_class
 
     return values
+
+
+def _has_substantive_metadata_values(values: dict[str, str]) -> bool:
+    ignored = {
+        "metadata_source",
+        "metadata_as_of",
+        "metadata_updated_at",
+        "yahoo_symbol",
+        "yahoo_symbol_status",
+        "yahoo_symbol_checked_at",
+    }
+    return any(str(value).strip() for key, value in values.items() if key not in ignored)
 
 
 def _optional_decimal_info(info: dict[str, object], key: str) -> Decimal | None:

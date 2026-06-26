@@ -84,6 +84,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     failure_path = run_dir / "failed_symbols.csv"
     attempted_symbols: set[str] = set()
     failures: list[dict[str, str]] = []
+    no_update_rows: list[dict[str, str]] = []
     chunks_run = 0
 
     print(
@@ -165,10 +166,33 @@ def main(argv: Sequence[str] | None = None) -> int:
                 for failure in manifest.get("failures", []):
                     if isinstance(failure, dict):
                         failures.append({str(k): str(v) for k, v in failure.items()})
+                no_update_symbols = manifest.get("no_update_symbols", [])
+                if isinstance(no_update_symbols, list):
+                    no_update_rows.extend(
+                        {
+                            "symbol": str(symbol),
+                            "market": market or "",
+                            "reason": "provider_returned_no_metadata",
+                            "manifest": _display_path(manifest_path),
+                        }
+                        for symbol in no_update_symbols
+                    )
+                unchanged_symbols = manifest.get("unchanged_update_symbols", [])
+                if isinstance(unchanged_symbols, list):
+                    no_update_rows.extend(
+                        {
+                            "symbol": str(symbol),
+                            "market": market or "",
+                            "reason": "metadata_fetched_but_no_blank_target_changed",
+                            "manifest": _display_path(manifest_path),
+                        }
+                        for symbol in unchanged_symbols
+                    )
             _append_jsonl(jsonl_path, chunk_record)
             print(json.dumps(chunk_record, ensure_ascii=False, sort_keys=True), flush=True)
             if completed.returncode != 0:
                 _write_failures(failure_path, failures)
+                _write_no_updates(run_dir / "no_update_symbols.csv", no_update_rows)
                 print(
                     json.dumps(
                         {"event": "batch_aborted", "returncode": completed.returncode},
@@ -180,6 +204,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 return completed.returncode
             if args.max_chunks and chunks_run >= args.max_chunks:
                 _write_failures(failure_path, failures)
+                _write_no_updates(run_dir / "no_update_symbols.csv", no_update_rows)
                 print(
                     json.dumps(
                         {"event": "batch_stopped", "reason": "max_chunks", "chunks": chunks_run},
@@ -190,7 +215,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
                 return 0
 
+    no_update_path = run_dir / "no_update_symbols.csv"
     _write_failures(failure_path, failures)
+    _write_no_updates(no_update_path, no_update_rows)
     print(
         json.dumps(
             {
@@ -199,6 +226,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "attempted_symbols": len(attempted_symbols),
                 "failure_rows": len(failures),
                 "failure_csv": _display_path(failure_path),
+                "no_update_rows": len(no_update_rows),
+                "no_update_csv": _display_path(no_update_path),
                 "chunks_jsonl": _display_path(jsonl_path),
             },
             ensure_ascii=False,
@@ -307,6 +336,15 @@ def _write_failures(path: Path, failures: Sequence[dict[str, str]]) -> None:
         writer = csv.DictWriter(file, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(failures)
+
+
+def _write_no_updates(path: Path, rows: Sequence[dict[str, str]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames = ["symbol", "market", "reason", "manifest"]
+    with path.open("w", encoding="utf-8", newline="") as file:
+        writer = csv.DictWriter(file, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
 
 
 def _append_jsonl(path: Path, record: dict[str, object]) -> None:

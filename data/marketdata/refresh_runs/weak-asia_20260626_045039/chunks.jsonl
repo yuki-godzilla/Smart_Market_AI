@@ -1,0 +1,7 @@
+{"changed_rows": 0, "chunk": 1, "event": "chunk_done", "failed_symbols": 0, "manifest": "data/marketdata/refresh_runs/weak-asia_20260626_045039/chunk_0001.json", "market": "vietnam", "returncode": 0}
+{"changed_rows": 0, "chunk": 2, "event": "chunk_done", "failed_symbols": 0, "manifest": "data/marketdata/refresh_runs/weak-asia_20260626_045039/chunk_0002.json", "market": "vietnam", "returncode": 0}
+{"changed_rows": 0, "chunk": 3, "event": "chunk_done", "failed_symbols": 0, "manifest": "data/marketdata/refresh_runs/weak-asia_20260626_045039/chunk_0003.json", "market": "vietnam", "returncode": 0}
+{"changed_rows": 0, "chunk": 4, "event": "chunk_done", "failed_symbols": 0, "manifest": "data/marketdata/refresh_runs/weak-asia_20260626_045039/chunk_0004.json", "market": "vietnam", "returncode": 0}
+{"changed_rows": 0, "chunk": 5, "event": "chunk_done", "failed_symbols": 0, "manifest": "data/marketdata/refresh_runs/weak-asia_20260626_045039/chunk_0005.json", "market": "singapore", "returncode": 0}
+{"changed_rows": 0, "chunk": 6, "event": "chunk_done", "failed_symbols": 0, "manifest": "data/marketdata/refresh_runs/weak-asia_20260626_045039/chunk_0006.json", "market": "korea", "returncode": 0}
+{"changed_rows": 0, "chunk": 7, "event": "chunk_done", "failed_symbols": 0, "manifest": "data/marketdata/refresh_runs/weak-asia_20260626_045039/chunk_0007.json", "market": "korea", "returncode": 0}

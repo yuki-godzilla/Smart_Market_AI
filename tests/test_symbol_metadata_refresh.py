@@ -511,3 +511,35 @@ def test_refresh_tool_strict_validation_refuses_any_after_errors():
         validation_after_summary={"total": 5, "errors": 5, "warnings": 0},
         strict_validation=True,
     )
+
+
+def test_yahoo_provider_tracks_no_update_symbols_when_info_has_no_values():
+    provider = YahooSymbolMetadataProvider(ticker_info_reader=lambda symbol: {})
+
+    result = refresh_symbol_universe_metadata(
+        [{"symbol": "EMPTY", "asset_type": "stock", "currency": "USD"}],
+        provider=provider,
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+    )
+
+    assert result.manifest["updates_requested"] == 1
+    assert result.manifest["no_update_symbols"] == ["EMPTY"]
+
+
+def test_refresh_manifest_tracks_unchanged_update_symbols_with_fill_missing_only():
+    provider = YahooSymbolMetadataProvider(
+        ticker_info_reader=lambda symbol: {"marketCap": 123456, "currency": "USD"}
+    )
+
+    result = refresh_symbol_universe_metadata(
+        [{"symbol": "HASMC", "asset_type": "stock", "currency": "USD", "market_cap": "123456"}],
+        provider=provider,
+        as_of=date(2026, 5, 18),
+        updated_at=datetime(2026, 5, 18, 0, 0, tzinfo=timezone.utc),
+        fill_missing_only=True,
+    )
+
+    assert result.manifest["updates_requested"] == 1
+    assert result.manifest["changed_rows"] == 1
+    assert result.manifest["unchanged_update_symbols"] == []

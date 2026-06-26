@@ -250,6 +250,10 @@ class _ScopedSymbolMetadataProvider:
     def failures(self) -> list[SymbolMetadataFailure]:
         return list(getattr(self._base_provider, "failures", []))
 
+    @property
+    def no_update_symbols(self) -> list[str]:
+        return list(getattr(self._base_provider, "no_update_symbols", []))
+
     def fetch_metadata(
         self,
         rows: Sequence[dict[str, str]],

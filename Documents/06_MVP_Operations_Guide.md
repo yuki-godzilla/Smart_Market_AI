@@ -2,6 +2,15 @@
 
 #### [BACK TO README](../README.md)
 
+## 2026-06-27 Myウォッチリスト MVP
+
+- `Myウォッチリスト` is available in the Streamlit side menu between `投資レーダー` and `SMAIアシスタント`.
+- Favorites are stored locally in `data/user/favorites.json`. The app creates `data/user/` when saving, writes UTF-8 JSON with `ensure_ascii=false` / `indent=2`, and treats missing or broken JSON as an empty list with a warning instead of crashing.
+- `☆ お気に入り` / `★ お気に入り中` buttons are shared by Ranking, Cockpit, and 投資レーダー related-symbol actions. Symbols are normalized by trim + uppercase and duplicates are ignored.
+- The watchlist page shows saved symbol cards with local symbol metadata when available. Missing price / score / status-like fields are shown as `未取得`.
+- Card actions move the selected symbol to Cockpit. `AI調査` and `レポート` keep external fetch / report generation as explicit follow-up actions in Cockpit rather than auto-running them.
+- `data/user/favorites.json` is ignored by Git because it is user-local state.
+
 ## 2026-06-26 Symbol Metadata Operations Update
 
 - `tools/normalize_symbol_universe_quality.py` backfills missing `*_source` / `*_as_of` / `*_quality` fields from existing metadata and can optionally mark obvious outliers as `suspicious`.

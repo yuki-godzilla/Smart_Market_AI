@@ -18,6 +18,23 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-27 - Phase 32-A Myウォッチリスト MVP
+
+### Summary
+
+- added a local favorite-symbol store at `data/user/favorites.json` with symbol normalization, duplicate prevention, UTF-8 JSON persistence, and broken/missing JSON fallback.
+- added shared `☆ お気に入り` / `★ お気に入り中` UI behavior for Ranking, Cockpit, and 投資レーダー related-symbol actions.
+- added the side-menu `Myウォッチリスト` page between 投資レーダー and SMAIアシスタント, with favorite cards, Cockpit / AI調査 / レポート handoff actions, and local metadata fallback display.
+- ignored `data/user/favorites.json` because it is user-local state.
+
+### Validation
+
+- `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_favorites.py -q` -> 7 passed.
+- `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_ui_news_streamlit_page.py -q -k "watchlist or symbol"` -> 2 passed, 4 deselected.
+- `.\venv_SMAI\Scripts\python.exe -m py_compile ui\app.py ui\views\news.py ui\components\sidemenu.py ui\favorites.py` -> passed.
+- `.\venv_SMAI\Scripts\ruff.exe check ui\favorites.py ui\components\sidemenu.py ui\views\news.py tests\test_favorites.py --no-cache` -> passed.
+- `.\venv_SMAI\Scripts\ruff.exe check ui\app.py --select F401,F821,F841,E999 --no-cache` -> passed with a Ruff deprecation warning for `E999`.
+
 ## 2026-06-26 - Screening DB reliability operational maintenance
 
 ### Summary

@@ -141,6 +141,7 @@ from ui.components.sidemenu import (
     SIDEMENU_PAGE_RANKING,
     SIDEMENU_PAGE_REBALANCE,
     SIDEMENU_PAGE_SETTINGS,
+    SIDEMENU_PAGE_WATCHLIST,
     SIDEMENU_STATE_KEY,
     render_sidemenu,
 )
@@ -203,6 +204,12 @@ from ui.content.symbol_texts import (
     SYMBOL_UNIVERSE_DISPLAY_LABELS,
     SYMBOL_UNIVERSE_NISA_SHORT_LABELS,
     SYMBOL_UNIVERSE_RISK_BAND_SHORT_LABELS,
+)
+from ui.favorites import (
+    FavoriteStock,
+    load_favorites,
+    remove_favorite,
+    render_favorite_button,
 )
 from ui.ranking import (
     LIVE_MARKET_DATA_PROVIDERS,
@@ -1699,6 +1706,8 @@ def main() -> None:
         _render_market_data_ranking()
     elif selected_page == SIDEMENU_PAGE_NEWS:
         render_news_dashboard_page(open_symbol_callback=_select_news_symbol_for_cockpit)
+    elif selected_page == SIDEMENU_PAGE_WATCHLIST:
+        _render_my_watchlist_page()
     elif selected_page == SIDEMENU_PAGE_COPILOT:
         render_copilot_workspace_page()
     elif selected_page == SIDEMENU_PAGE_REBALANCE:
@@ -1742,6 +1751,7 @@ def _apply_sidemenu_page_query(page: str) -> bool:
         SIDEMENU_PAGE_RANKING,
         SIDEMENU_PAGE_REBALANCE,
         SIDEMENU_PAGE_SETTINGS,
+        SIDEMENU_PAGE_WATCHLIST,
     }:
         return False
     st.session_state[SIDEMENU_STATE_KEY] = page_key
@@ -8538,6 +8548,19 @@ def _render_market_data_ranking() -> None:
                     on_click=_select_ranking_symbol_for_cockpit_with_period,
                     args=(selected_symbol, provider, start_date, end_date),
                 )
+                selected_universe_row = _symbol_universe_rows_by_symbol().get(
+                    selected_symbol.strip().upper(),
+                    {},
+                )
+                render_favorite_button(
+                    selected_symbol,
+                    name=str(selected_universe_row.get("name") or ""),
+                    market=str(selected_universe_row.get("market") or ""),
+                    asset_type=str(selected_universe_row.get("asset_type") or ""),
+                    currency=str(selected_universe_row.get("currency") or ""),
+                    source_screen="ranking",
+                    key=f"market_data_ranking_favorite_{selected_symbol}",
+                )
         selected_display_row = (
             _ranking_display_row_for_symbol(display_rows, selected_symbol)
             if selected_symbol
@@ -9703,6 +9726,162 @@ def _select_news_symbol_for_cockpit(symbol: str) -> None:
     st.session_state.pop(MARKET_DATA_STATUS_STATE_KEY, None)
 
 
+def _select_favorite_symbol_for_cockpit(symbol: str, action: str = "cockpit") -> None:
+    _select_news_symbol_for_cockpit(symbol)
+    st.session_state["market_data_favorite_next_action"] = action
+
+
+def _render_my_watchlist_page() -> None:
+    render_page_title(
+        "Myウォッチリスト",
+        "★を付けた銘柄をまとめて確認します。気になる銘柄を継続的に追うための一覧です。",
+        "watchlist",
+    )
+    favorites = load_favorites()
+    if not favorites:
+        st.info(
+            "まだお気に入り銘柄はありません。ランキング、銘柄コックピット、投資レーダーで「☆ お気に入り」を押すと、ここに表示されます。"
+        )
+        col_ranking, col_news = st.columns(2)
+        with col_ranking:
+            if st.button("銘柄ランキングで探す", use_container_width=True):
+                st.session_state[SIDEMENU_STATE_KEY] = SIDEMENU_PAGE_RANKING
+                st.rerun()
+        with col_news:
+            if st.button("投資レーダーを見る", use_container_width=True):
+                st.session_state[SIDEMENU_STATE_KEY] = SIDEMENU_PAGE_NEWS
+                st.rerun()
+        return
+
+    universe_by_symbol = _symbol_universe_rows_by_symbol()
+    enriched = [_favorite_display_payload(favorite, universe_by_symbol) for favorite in favorites]
+    missing_count = sum(1 for item in enriched if item["status"] == "未取得")
+    st.markdown(
+        " ".join(
+            [
+                f"`お気に入り {len(enriched)}件`",
+                f"`未取得 {missing_count}件`",
+            ]
+        )
+    )
+    for row_start in range(0, len(enriched), 2):
+        cols = st.columns(2)
+        for column, payload in zip(cols, enriched[row_start : row_start + 2]):
+            with column:
+                _render_favorite_card(payload)
+
+
+def _render_favorite_next_action_hint() -> None:
+    action = st.session_state.pop("market_data_favorite_next_action", "")
+    if action == "research":
+        st.info(
+            "MyウォッチリストからAI調査を確認しに来ました。"
+            "下の「05 根拠資料」にある「AI調査を更新」から、最新情報を確認できます。"
+        )
+    elif action == "report":
+        st.info(
+            "Myウォッチリストから確認レポートを確認しに来ました。"
+            "下の「06 確認レポート」で、この銘柄の確認メモを作成・更新できます。"
+        )
+
+
+def _favorite_display_payload(
+    favorite: FavoriteStock,
+    universe_by_symbol: Mapping[str, Mapping[str, str]],
+) -> dict[str, str]:
+    symbol = favorite.symbol
+    row = universe_by_symbol.get(symbol, {})
+    name = str(row.get("name") or favorite.name or symbol)
+    market = str(row.get("market") or favorite.market or "未取得")
+    asset_type = str(row.get("asset_type") or favorite.asset_type or "未取得")
+    currency = str(row.get("currency") or favorite.currency or "未取得")
+    price = str(row.get("last_price") or row.get("close") or "")
+    ai_score = str(row.get("ai_score") or row.get("investment_score") or "")
+    upside = str(row.get("upside_score") or row.get("forecast_agreement") or "")
+    downside = str(row.get("downside_risk_score") or "")
+    status = _favorite_status_label(
+        price=price,
+        ai_score=ai_score,
+        upside=upside,
+        downside=downside,
+    )
+    return {
+        "symbol": symbol,
+        "name": name,
+        "market": market,
+        "asset_type": asset_type,
+        "currency": currency,
+        "added_at": favorite.added_at or "未取得",
+        "source_screen": favorite.source_screen or "unknown",
+        "price": price or "未取得",
+        "ai_score": ai_score or "未取得",
+        "upside": upside or "未取得",
+        "downside": downside or "未取得",
+        "status": status,
+    }
+
+
+def _favorite_status_label(
+    *,
+    price: str,
+    ai_score: str,
+    upside: str,
+    downside: str,
+) -> str:
+    if not any([price, ai_score, upside, downside]):
+        return "未取得"
+    try:
+        upside_value = Decimal(str(upside))
+    except Exception:  # noqa: BLE001
+        upside_value = Decimal("0")
+    try:
+        downside_value = Decimal(str(downside))
+    except Exception:  # noqa: BLE001
+        downside_value = Decimal("0")
+    if upside_value >= Decimal("70"):
+        return "上昇候補"
+    if downside_value >= Decimal("60"):
+        return "下振れ注意"
+    return "横ばい"
+
+
+def _render_favorite_card(payload: Mapping[str, str]) -> None:
+    symbol = payload["symbol"]
+    st.markdown(f"#### {payload['symbol']} / {payload['name']}")
+    st.caption(
+        f"{payload['market']} / {payload['asset_type']} / {payload['currency']} / 追加日 {payload['added_at']}"
+    )
+    st.markdown(
+        " ".join(
+            [
+                f"`状態: {payload['status']}`",
+                f"`価格: {payload['price']}`",
+                f"`AI総合: {payload['ai_score']}`",
+                f"`上昇: {payload['upside']}`",
+                f"`下振れ: {payload['downside']}`",
+            ]
+        )
+    )
+    col_cockpit, col_research, col_report, col_remove = st.columns(4)
+    with col_cockpit:
+        if st.button("Cockpit", key=f"watchlist_cockpit_{symbol}", use_container_width=True):
+            _select_favorite_symbol_for_cockpit(symbol, "cockpit")
+            st.rerun()
+    with col_research:
+        if st.button("AI調査", key=f"watchlist_research_{symbol}", use_container_width=True):
+            _select_favorite_symbol_for_cockpit(symbol, "research")
+            st.rerun()
+    with col_report:
+        if st.button("レポート", key=f"watchlist_report_{symbol}", use_container_width=True):
+            _select_favorite_symbol_for_cockpit(symbol, "report")
+            st.rerun()
+    with col_remove:
+        if st.button("解除", key=f"watchlist_remove_{symbol}", use_container_width=True):
+            remove_favorite(symbol)
+            st.toast("Myウォッチリストから解除しました。")
+            st.rerun()
+
+
 def _clear_ranking_deep_dive_state() -> None:
     st.session_state.pop("market_data_ranking_deep_dive_symbol", None)
     st.session_state.pop(MARKET_DATA_RANKING_DEEP_DIVE_SOURCE_STATE_KEY, None)
@@ -9816,6 +9995,7 @@ def _render_market_data_preview_result(preview: MarketDataPreview) -> None:
         message="KPIとチャートで全体感をつかみ、AI解釈メモ、スコア、根拠資料の順に確認します。",
         layout="compact",
     )
+    _render_favorite_next_action_hint()
     score_row = _render_investment_score_section(
         preview,
         symbol_label,
@@ -14282,6 +14462,19 @@ def _render_market_data_cockpit_header(
             f"対象: {symbol_label} / データ取得元: {provider_name} / "
             f"基準日: {as_of or '未取得'} / 参照期間: {reference_period}日"
         )
+        cockpit_symbol = _market_data_preview_symbol(preview)
+        if cockpit_symbol:
+            universe_row = _symbol_universe_rows_by_symbol().get(cockpit_symbol.upper(), {})
+            render_favorite_button(
+                cockpit_symbol,
+                name=str(universe_row.get("name") or symbol_label),
+                market=str(universe_row.get("market") or ""),
+                asset_type=str(universe_row.get("asset_type") or ""),
+                currency=str(universe_row.get("currency") or ""),
+                source_screen="cockpit",
+                key=f"market_data_cockpit_favorite_{cockpit_symbol}",
+                use_container_width=False,
+            )
     return forecast_horizon_days
 
 

@@ -28,6 +28,7 @@ from ui.components.mascot import (
     workflow_loading_headlines_from_cache,
     workflow_loading_html,
 )
+from ui.favorites import render_favorite_button
 from ui.styles import truncate_text
 from ui.symbol_universe import symbol_name, symbol_universe_csv_rows, symbol_universe_name_map
 
@@ -1809,6 +1810,12 @@ def _render_symbol_button_group(
                 use_container_width=True,
                 on_click=open_symbol_callback,
                 args=(symbol,),
+            )
+            render_favorite_button(
+                symbol,
+                name=symbol_name_map.get(symbol.strip().upper()),
+                source_screen="news",
+                key=f"investment_news_favorite_{key_prefix}_{symbol}",
             )
 
 

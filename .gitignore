@@ -38,6 +38,7 @@ data/marketdata/manual_metadata_patches/metadata_gap_report*.json
 data/marketdata/symbol_universe_manual_patch_report.json
 
 # Local work/test outputs
+data/user/favorites.json
 outputs/work/pytest_tmp/
 outputs/work/pytest_*/
 outputs/work/*_smoke/

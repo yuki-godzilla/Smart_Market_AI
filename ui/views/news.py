@@ -28,7 +28,7 @@ from ui.components.mascot import (
     workflow_loading_headlines_from_cache,
     workflow_loading_html,
 )
-from ui.favorites import favorite_symbols, render_favorite_button
+from ui.favorites import evaluate_favorite_refresh_status, load_favorites, render_favorite_button
 from ui.styles import truncate_text
 from ui.symbol_universe import symbol_name, symbol_universe_csv_rows, symbol_universe_name_map
 
@@ -1670,7 +1670,8 @@ def _render_news_detail_filters(
                 key=NEWS_DASHBOARD_WATCHLIST_STATE_KEY,
                 placeholder="NVDA, 7203.T, GLD",
             )
-        favorite_watchlist_symbols = favorite_symbols()
+        favorite_watchlist = load_favorites()
+        favorite_watchlist_symbols = [favorite.symbol for favorite in favorite_watchlist]
         with source_col:
             watchlist_source = st.selectbox(
                 "Watchlist source",
@@ -1717,9 +1718,17 @@ def _render_news_detail_filters(
             f" / Watchlist: {', '.join(watchlist_symbols)}" if watchlist_symbols else ""
         )
         if favorite_watchlist_symbols:
+            refresh_states = [
+                evaluate_favorite_refresh_status(favorite) for favorite in favorite_watchlist
+            ]
+            refresh_attention_count = sum(
+                1 for state in refresh_states if state.status != "fresh"
+            )
             st.caption(
                 "☆ Myウォッチリスト対象: "
-                f"{len(favorite_watchlist_symbols)}銘柄 / {', '.join(favorite_watchlist_symbols[:8])}"
+                f"{len(favorite_watchlist_symbols)}銘柄 / "
+                f"更新推奨 {refresh_attention_count}件 / "
+                f"{', '.join(favorite_watchlist_symbols[:8])}"
             )
         st.caption(f"表示中ニュース: {filtered_count}件 / 全体 {original_count}件{watchlist_note}")
         return filtered_snapshot

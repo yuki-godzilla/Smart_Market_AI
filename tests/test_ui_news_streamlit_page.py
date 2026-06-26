@@ -8,6 +8,7 @@ from backend.news import (
     build_demo_news_dashboard_snapshot,
     build_news_dashboard_snapshot,
 )
+from ui import favorites
 from ui.views.news import (
     combine_news_watchlist_symbols,
     news_dashboard_filtered_snapshot,
@@ -197,3 +198,14 @@ def test_investment_news_page_renders_with_streamlit_app(monkeypatch):
     assert {"カテゴリ", "鮮度", "source"}.issubset(set(multiselect_labels))
     assert "関連銘柄" in selectbox_labels
     assert {"Watchlist一致を優先表示", "Watchlist一致だけ表示"}.issubset(set(checkbox_labels))
+
+
+def test_my_watchlist_page_renders_without_mascot_keyerror(tmp_path, monkeypatch):
+    monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    monkeypatch.setattr(favorites, "FAVORITES_FILE_PATH", tmp_path / "favorites.json")
+    app = AppTest.from_file("ui/app.py", default_timeout=20)
+    app.session_state["sidemenu_page"] = "watchlist"
+
+    app.run()
+
+    assert not app.exception

@@ -129,6 +129,24 @@ def test_page_title_html_can_include_top_right_accessory():
     assert 'class="smai-page-title-accessory"' in markup
     assert '<span class="demo-accessory">情報鮮度 最新</span>' in markup
 
+def test_page_title_html_supports_watchlist_and_unknown_fallback():
+    watchlist_markup = page_title_html(
+        "Myウォッチリスト",
+        "気になる銘柄を確認します。",
+        "watchlist",
+    )
+    fallback_markup = page_title_html(
+        "Unknown",
+        "fallback",
+        "unknown",  # type: ignore[arg-type]
+    )
+
+    assert MASCOT_TITLE_ASSETS["watchlist"] == "smai-title-investment-radar.webp"
+    assert 'data-mascot="watchlist"' in watchlist_markup
+    assert "data:image/webp;base64," in watchlist_markup
+    assert 'data-mascot="unknown"' in fallback_markup
+    assert "data:image/webp;base64," in fallback_markup
+
 
 def test_cockpit_page_title_uses_copilot_presence_panel():
     markup = page_title_html(

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import asdict, dataclass, replace
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -11,6 +11,31 @@ import streamlit as st
 
 LOGGER = logging.getLogger(__name__)
 FAVORITES_FILE_PATH = Path("data/user/favorites.json")
+FAVORITE_REFRESH_STATUS_NEVER_CHECKED = "never_checked"
+FAVORITE_REFRESH_STATUS_FRESH = "fresh"
+FAVORITE_REFRESH_STATUS_STALE = "stale"
+FAVORITE_REFRESH_STATUS_NEEDS_ATTENTION = "needs_attention"
+FAVORITE_REFRESH_STATUS_FAILED = "failed"
+FAVORITE_REFRESH_STATUS_PARTIAL = "partial"
+FAVORITE_REFRESH_STATUS_UNKNOWN = "unknown"
+FAVORITE_REFRESH_STATUS_VALUES = {
+    FAVORITE_REFRESH_STATUS_NEVER_CHECKED,
+    FAVORITE_REFRESH_STATUS_FRESH,
+    FAVORITE_REFRESH_STATUS_STALE,
+    FAVORITE_REFRESH_STATUS_NEEDS_ATTENTION,
+    FAVORITE_REFRESH_STATUS_FAILED,
+    FAVORITE_REFRESH_STATUS_PARTIAL,
+    FAVORITE_REFRESH_STATUS_UNKNOWN,
+}
+
+
+@dataclass(frozen=True)
+class FavoriteRefreshState:
+    status: str
+    label: str
+    reason: str
+    priority: int
+    next_action: str
 
 
 @dataclass(frozen=True)
@@ -22,8 +47,13 @@ class FavoriteStock:
     currency: str | None = None
     source_screen: str | None = None
     added_at: str | None = None
+    refresh_status: str | None = None
+    refresh_error: str | None = None
     last_checked_at: str | None = None
+    last_price_checked_at: str | None = None
+    last_news_checked_at: str | None = None
     last_research_at: str | None = None
+    last_research_hint_at: str | None = None
     memo: str = ""
     tags: tuple[str, ...] = ()
 
@@ -144,6 +174,140 @@ def update_favorite(
     return result
 
 
+def update_favorite_refresh_metadata(
+    symbol: str,
+    *,
+    refresh_status: str | None = None,
+    refresh_error: str | None = None,
+    last_checked_at: str | None = None,
+    last_price_checked_at: str | None = None,
+    last_news_checked_at: str | None = None,
+    last_research_hint_at: str | None = None,
+) -> FavoriteStock | None:
+    normalized = normalize_favorite_symbol(symbol)
+    if not normalized:
+        return None
+    favorites = load_favorites()
+    updated: list[FavoriteStock] = []
+    result: FavoriteStock | None = None
+    for favorite in favorites:
+        if favorite.symbol != normalized:
+            updated.append(favorite)
+            continue
+        result = replace(
+            favorite,
+            refresh_status=(
+                favorite.refresh_status if refresh_status is None else refresh_status
+            ),
+            refresh_error=favorite.refresh_error
+            if refresh_error is None
+            else refresh_error[:240],
+            last_checked_at=favorite.last_checked_at
+            if last_checked_at is None
+            else last_checked_at,
+            last_price_checked_at=favorite.last_price_checked_at
+            if last_price_checked_at is None
+            else last_price_checked_at,
+            last_news_checked_at=favorite.last_news_checked_at
+            if last_news_checked_at is None
+            else last_news_checked_at,
+            last_research_hint_at=favorite.last_research_hint_at
+            if last_research_hint_at is None
+            else last_research_hint_at,
+        )
+        updated.append(result)
+    if result is None:
+        return None
+    save_favorites(updated)
+    return result
+
+
+def evaluate_favorite_refresh_status(
+    favorite: FavoriteStock,
+    *,
+    now: datetime | None = None,
+    stale_after_hours: int = 24,
+    news_stale_after_hours: int = 24,
+    research_hint_stale_after_hours: int = 72,
+) -> FavoriteRefreshState:
+    current_time = now or datetime.now(UTC)
+    explicit_status = (favorite.refresh_status or "").strip()
+    if explicit_status == FAVORITE_REFRESH_STATUS_FAILED:
+        return FavoriteRefreshState(
+            status=FAVORITE_REFRESH_STATUS_FAILED,
+            label="前回失敗",
+            reason=favorite.refresh_error or "前回更新に失敗しました。",
+            priority=100,
+            next_action="前回失敗を再確認",
+        )
+    if explicit_status == FAVORITE_REFRESH_STATUS_PARTIAL:
+        return FavoriteRefreshState(
+            status=FAVORITE_REFRESH_STATUS_PARTIAL,
+            label="一部更新",
+            reason="前回は一部だけ更新されました。",
+            priority=80,
+            next_action="不足データを確認",
+        )
+
+    checked_at = _parse_datetime(favorite.last_checked_at)
+    if checked_at is None:
+        return FavoriteRefreshState(
+            status=FAVORITE_REFRESH_STATUS_NEVER_CHECKED,
+            label="未確認",
+            reason="まだウォッチリスト上で確認されていません。",
+            priority=90,
+            next_action="初回データ確認",
+        )
+    if checked_at + timedelta(hours=stale_after_hours) < current_time:
+        return FavoriteRefreshState(
+            status=FAVORITE_REFRESH_STATUS_STALE,
+            label="古い",
+            reason="前回確認から時間が経っています。",
+            priority=70,
+            next_action="価格・ニュースを確認",
+        )
+
+    news_checked_at = _parse_datetime(favorite.last_news_checked_at)
+    if news_checked_at is None or news_checked_at + timedelta(
+        hours=news_stale_after_hours
+    ) < current_time:
+        return FavoriteRefreshState(
+            status=FAVORITE_REFRESH_STATUS_NEEDS_ATTENTION,
+            label="要確認",
+            reason="ニュース確認が未実施または古くなっています。",
+            priority=60,
+            next_action="ニュースを確認",
+        )
+
+    research_hint_at = _parse_datetime(favorite.last_research_hint_at)
+    if research_hint_at is None or research_hint_at + timedelta(
+        hours=research_hint_stale_after_hours
+    ) < current_time:
+        return FavoriteRefreshState(
+            status=FAVORITE_REFRESH_STATUS_NEEDS_ATTENTION,
+            label="要確認",
+            reason="AI調査の確認ヒントが未確認または古くなっています。",
+            priority=50,
+            next_action="AI調査の確認準備",
+        )
+
+    if explicit_status and explicit_status not in FAVORITE_REFRESH_STATUS_VALUES:
+        return FavoriteRefreshState(
+            status=FAVORITE_REFRESH_STATUS_UNKNOWN,
+            label="判定保留",
+            reason="更新状態を判定できませんでした。",
+            priority=40,
+            next_action="状態を確認",
+        )
+    return FavoriteRefreshState(
+        status=FAVORITE_REFRESH_STATUS_FRESH,
+        label="最新",
+        reason="直近で確認されています。",
+        priority=10,
+        next_action="最新状態です",
+    )
+
+
 def toggle_favorite(
     symbol: str,
     metadata: Mapping[str, Any] | None = None,
@@ -232,8 +396,13 @@ def _favorite_from_mapping(raw_item: Mapping[str, Any]) -> FavoriteStock | None:
         currency=_optional_text(raw_item.get("currency")),
         source_screen=_optional_text(raw_item.get("source_screen")),
         added_at=_optional_text(raw_item.get("added_at")),
+        refresh_status=_normalize_refresh_status(raw_item.get("refresh_status")),
+        refresh_error=_optional_text(raw_item.get("refresh_error")),
         last_checked_at=_optional_text(raw_item.get("last_checked_at")),
+        last_price_checked_at=_optional_text(raw_item.get("last_price_checked_at")),
+        last_news_checked_at=_optional_text(raw_item.get("last_news_checked_at")),
         last_research_at=_optional_text(raw_item.get("last_research_at")),
+        last_research_hint_at=_optional_text(raw_item.get("last_research_hint_at")),
         memo=str(raw_item.get("memo", "") or ""),
         tags=tuple(str(tag) for tag in tags if str(tag).strip()),
     )
@@ -251,8 +420,13 @@ def _favorite_from_metadata(symbol: str, metadata: Mapping[str, Any]) -> Favorit
         currency=_optional_text(metadata.get("currency")),
         source_screen=_optional_text(metadata.get("source_screen")),
         added_at=datetime.now().astimezone().isoformat(timespec="seconds"),
+        refresh_status=_normalize_refresh_status(metadata.get("refresh_status")),
+        refresh_error=_optional_text(metadata.get("refresh_error")),
         last_checked_at=_optional_text(metadata.get("last_checked_at")),
+        last_price_checked_at=_optional_text(metadata.get("last_price_checked_at")),
+        last_news_checked_at=_optional_text(metadata.get("last_news_checked_at")),
         last_research_at=_optional_text(metadata.get("last_research_at")),
+        last_research_hint_at=_optional_text(metadata.get("last_research_hint_at")),
         memo=str(metadata.get("memo", "") or ""),
         tags=tuple(str(tag) for tag in tags if str(tag).strip()),
     )
@@ -269,3 +443,22 @@ def _optional_text(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _normalize_refresh_status(value: Any) -> str | None:
+    text = _optional_text(value)
+    if text is None:
+        return None
+    return text if text in FAVORITE_REFRESH_STATUS_VALUES else FAVORITE_REFRESH_STATUS_UNKNOWN
+
+
+def _parse_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)

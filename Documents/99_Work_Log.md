@@ -18,6 +18,24 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-27 - Phase 32-C Favorites-aware Refresh MVP
+
+### Summary
+
+- fixed the Myウォッチリスト page-title crash by adding the `watchlist` mascot title asset mapping and fallback behavior for unknown title mascot keys.
+- extended `FavoriteStock` / `favorites.json` compatibility with refresh metadata fields: `refresh_status`, `refresh_error`, `last_price_checked_at`, `last_news_checked_at`, and `last_research_hint_at`.
+- added refresh-state evaluation for `未確認`, `古い`, `要確認`, `最新`, `前回失敗`, `一部更新`, and `判定保留`.
+- added refresh status / next action / last checked display to Myウォッチリスト cards and table, plus prioritized max-count local updates and session-backed refresh summary.
+- added Investment Radar caption context for favorite watchlist refresh attention counts.
+- kept refresh local-first: no startup auto-refresh, background fetch, AI調査 auto-run, Decision Report generation, or ranking-score change.
+
+### Validation
+
+- `.\venv_SMAI\Scripts\python.exe -m py_compile ui\favorites.py ui\app.py ui\views\news.py ui\components\mascot.py tests\test_favorites.py tests\test_ui_mascot.py tests\test_ui_news_streamlit_page.py` -> passed.
+- `.\venv_SMAI\Scripts\python.exe -m pytest tests\test_favorites.py tests\test_ui_mascot.py tests\test_ui_news_streamlit_page.py -q -k "favorite or refresh or watchlist or mascot or page_title or renders_with_streamlit_app"` -> 29 passed, 3 deselected, 1 Streamlit deprecation warning.
+- `.\venv_SMAI\Scripts\ruff.exe check ui\favorites.py ui\components\mascot.py ui\views\news.py tests\test_favorites.py tests\test_ui_mascot.py tests\test_ui_news_streamlit_page.py --no-cache` -> passed.
+- `.\venv_SMAI\Scripts\ruff.exe check ui\app.py --select F401,F821,F841,E999 --no-cache` -> passed with a Ruff deprecation warning for `E999`.
+
 ## 2026-06-27 - Phase 32-B Myウォッチリスト cross-link MVP
 
 ### Summary

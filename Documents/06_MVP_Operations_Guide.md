@@ -12,6 +12,9 @@
 - `data/user/favorites.json` is ignored by Git because it is user-local state.
 - Phase 32-B connects favorites to 投資レーダー `Watchlist source`. Users can choose `Myウォッチリスト`, `My + 手入力`, or `手入力のみ`; combined mode de-duplicates symbols while preserving manual watchlist compatibility.
 - Myウォッチリスト now supports `カード表示` / `テーブル表示`, local `ウォッチリストを更新` for last-checked timestamps, and memo / tags display. The update button is local-first and does not automatically run external fetch, AI調査, or Decision Report generation.
+- Phase 32-C adds refresh metadata fields (`refresh_status`, `refresh_error`, `last_price_checked_at`, `last_news_checked_at`, `last_research_hint_at`) and status labels such as `未確認`, `古い`, `要確認`, `最新`, `前回失敗`.
+- `ウォッチリストを更新` now updates prioritized non-fresh favorites up to the selected maximum count and stores a short `watchlist_refresh_summary` in session state. It remains local-first and does not auto-run provider fetch, AI調査, or Decision Report generation.
+- The page-title mascot now supports `watchlist`; unknown title mascot keys fall back to the Investment Radar title asset instead of raising `KeyError`.
 
 ## 2026-06-26 Symbol Metadata Operations Update
 

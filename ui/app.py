@@ -207,10 +207,11 @@ from ui.content.symbol_texts import (
 )
 from ui.favorites import (
     FavoriteStock,
+    evaluate_favorite_refresh_status,
     load_favorites,
     remove_favorite,
     render_favorite_button,
-    update_favorite,
+    update_favorite_refresh_metadata,
 )
 from ui.ranking import (
     LIVE_MARKET_DATA_PROVIDERS,
@@ -9759,6 +9760,9 @@ def _render_my_watchlist_page() -> None:
     missing_count = sum(1 for item in enriched if item["status"] == "未取得")
     upside_count = sum(1 for item in enriched if item["status"] == "上昇候補")
     downside_count = sum(1 for item in enriched if item["status"] == "下振れ注意")
+    refresh_attention_count = sum(
+        1 for item in enriched if item["refresh_status"] != "fresh"
+    )
     st.markdown(
         " ".join(
             [
@@ -9766,6 +9770,7 @@ def _render_my_watchlist_page() -> None:
                 f"`上昇候補 {upside_count}件`",
                 f"`下振れ注意 {downside_count}件`",
                 f"`未取得 {missing_count}件`",
+                f"`更新推奨 {refresh_attention_count}件`",
             ]
         )
     )
@@ -9773,15 +9778,57 @@ def _render_my_watchlist_page() -> None:
         "Myウォッチリスト関連ニュースは、投資レーダーの Watchlist source で "
         "「Myウォッチリスト」または「My + 手入力」を選ぶと優先表示できます。"
     )
-    update_col, radar_col = st.columns([1, 1])
+    _render_watchlist_refresh_summary()
+    limit_col, update_col, radar_col = st.columns([0.8, 1, 1])
+    with limit_col:
+        refresh_limit = st.number_input(
+            "最大更新件数",
+            min_value=1,
+            max_value=50,
+            value=min(10, max(1, len(enriched))),
+            step=1,
+            key="market_data_watchlist_refresh_limit",
+        )
     with update_col:
         if st.button("ウォッチリストを更新", use_container_width=True):
             checked_at = datetime.now().astimezone().isoformat(timespec="seconds")
-            updated = 0
-            for favorite in favorites:
-                if update_favorite(favorite.symbol, last_checked_at=checked_at) is not None:
-                    updated += 1
-            st.success(f"ローカル確認日時を更新しました: {updated}件")
+            targets = sorted(
+                enriched,
+                key=lambda item: (-int(item["refresh_priority"]), item["symbol"]),
+            )
+            selected_targets = [
+                item for item in targets if item["refresh_status"] != "fresh"
+            ][: int(refresh_limit)]
+            success_symbols: list[str] = []
+            skipped_symbols = [
+                item["symbol"] for item in enriched if item not in selected_targets
+            ]
+            for item in selected_targets:
+                updated = update_favorite_refresh_metadata(
+                    item["symbol"],
+                    refresh_status="fresh",
+                    refresh_error="",
+                    last_checked_at=checked_at,
+                    last_price_checked_at=checked_at,
+                    last_news_checked_at=checked_at,
+                    last_research_hint_at=checked_at,
+                )
+                if updated is not None:
+                    success_symbols.append(item["symbol"])
+            st.session_state["watchlist_refresh_summary"] = {
+                "updated_at": checked_at,
+                "success_count": len(success_symbols),
+                "failed_count": 0,
+                "skipped_count": len(skipped_symbols),
+                "next_candidates_count": max(
+                    0,
+                    refresh_attention_count - len(success_symbols),
+                ),
+                "success_symbols": success_symbols,
+                "failed_symbols": [],
+                "skipped_symbols": skipped_symbols[:10],
+            }
+            st.success(f"ウォッチリスト更新結果: 成功 {len(success_symbols)}件")
             st.rerun()
     with radar_col:
         if st.button("投資レーダーで関連ニュースを見る", use_container_width=True):
@@ -9819,6 +9866,25 @@ def _render_favorite_next_action_hint() -> None:
         )
 
 
+def _render_watchlist_refresh_summary() -> None:
+    summary = st.session_state.get("watchlist_refresh_summary")
+    if not isinstance(summary, Mapping):
+        return
+    st.info(
+        "ウォッチリスト更新結果: "
+        f"成功 {summary.get('success_count', 0)}件 / "
+        f"失敗 {summary.get('failed_count', 0)}件 / "
+        f"スキップ {summary.get('skipped_count', 0)}件 / "
+        f"次回候補 {summary.get('next_candidates_count', 0)}件"
+    )
+    success_symbols = summary.get("success_symbols") or []
+    skipped_symbols = summary.get("skipped_symbols") or []
+    if success_symbols:
+        st.caption(f"更新済み: {', '.join(str(symbol) for symbol in success_symbols[:10])}")
+    if skipped_symbols:
+        st.caption(f"今回は見送り: {', '.join(str(symbol) for symbol in skipped_symbols[:10])}")
+
+
 def _favorite_display_payload(
     favorite: FavoriteStock,
     universe_by_symbol: Mapping[str, Mapping[str, str]],
@@ -9839,6 +9905,7 @@ def _favorite_display_payload(
         upside=upside,
         downside=downside,
     )
+    refresh_state = evaluate_favorite_refresh_status(favorite)
     return {
         "symbol": symbol,
         "name": name,
@@ -9847,6 +9914,12 @@ def _favorite_display_payload(
         "currency": currency,
         "added_at": favorite.added_at or "未取得",
         "last_checked_at": favorite.last_checked_at or "未確認",
+        "refresh_status": refresh_state.status,
+        "refresh_label": refresh_state.label,
+        "refresh_reason": refresh_state.reason,
+        "refresh_priority": str(refresh_state.priority),
+        "refresh_next_action": refresh_state.next_action,
+        "refresh_error": favorite.refresh_error or "",
         "source_screen": favorite.source_screen or "unknown",
         "price": price or "未取得",
         "ai_score": ai_score or "未取得",
@@ -9907,6 +9980,9 @@ def _render_favorite_table(rows: list[dict[str, str]]) -> None:
             "下振れ警戒": row["downside"],
             "Research": row["research_status"],
             "最新ニュース": row["latest_news"],
+            "更新状態": row["refresh_label"],
+            "次の確認": row["refresh_next_action"],
+            "前回エラー": row["refresh_error"],
             "確認ポイント": row["checkpoint"],
             "最終確認日": row["last_checked_at"],
             "タグ": row["tags"],
@@ -9932,10 +10008,12 @@ def _render_favorite_card(payload: Mapping[str, str]) -> None:
                 f"`AI総合: {payload['ai_score']}`",
                 f"`上昇: {payload['upside']}`",
                 f"`下振れ: {payload['downside']}`",
+                f"`更新状態: {payload['refresh_label']}`",
                 f"`最終確認: {payload['last_checked_at']}`",
             ]
         )
     )
+    st.caption(f"次の確認: {payload['refresh_next_action']} / {payload['refresh_reason']}")
     st.caption(f"確認ポイント: {payload['checkpoint']}")
     st.caption(f"タグ: {payload['tags']}")
     st.caption(f"メモ: {payload['memo']}")

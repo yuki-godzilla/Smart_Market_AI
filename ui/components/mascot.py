@@ -21,7 +21,7 @@ MascotVariant = Literal[
 MascotLayout = Literal["sidebar", "compact", "panel"]
 MascotTone = Literal["info", "success", "forecast", "caution", "risk"]
 WorkflowLoadingMode = Literal["blocking", "inline"]
-TitleMascot = Literal["cockpit", "ranking", "investment_radar", "rebalance"]
+TitleMascot = Literal["cockpit", "ranking", "investment_radar", "rebalance", "watchlist"]
 CopilotState = Literal["ready", "analyzing", "updated", "warning"]
 
 ASSET_DIR = Path(__file__).resolve().parents[1] / "assets"
@@ -39,6 +39,7 @@ MASCOT_TITLE_ASSETS: dict[TitleMascot, str] = {
     "ranking": "smai-title-ranking.webp",
     "investment_radar": "smai-title-investment-radar.webp",
     "rebalance": "smai-title-rebalance.webp",
+    "watchlist": "smai-title-investment-radar.webp",
 }
 MASCOT_VARIANT_ASSETS: dict[MascotVariant, str] = {
     "brand": MASCOT_PANEL_ASSET,
@@ -209,11 +210,12 @@ def page_title_html(
     *,
     accessory_html: str | None = None,
 ) -> str:
+    asset_key = mascot if mascot in MASCOT_TITLE_ASSETS else "investment_radar"
     accessory = (
         f'<div class="smai-page-title-accessory">{accessory_html}</div>' if accessory_html else ""
     )
     if mascot == "cockpit":
-        title_art = _asset_data_uri(MASCOT_TITLE_ASSETS[mascot])
+        title_art = _asset_data_uri(MASCOT_TITLE_ASSETS[asset_key])
         return (
             '<section class="smai-page-title smai-page-title--copilot" data-mascot="cockpit">'
             f"{accessory}"
@@ -227,7 +229,7 @@ def page_title_html(
             f'<p class="smai-page-title-subtitle">{html.escape(subtitle)}</p>'
             "</div>" + copilot_presence_panel_html() + "</section>"
         )
-    image = _asset_data_uri(MASCOT_TITLE_ASSETS[mascot])
+    image = _asset_data_uri(MASCOT_TITLE_ASSETS[asset_key])
     return (
         f'<section class="smai-page-title" data-mascot="{html.escape(mascot)}">'
         f"{accessory}"

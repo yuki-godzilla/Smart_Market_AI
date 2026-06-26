@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import sys
 from datetime import date, datetime
 from pathlib import Path
 from typing import Sequence
@@ -131,14 +130,16 @@ def apply_patch_rows(
                     changed_columns.add(provenance_column)
 
         note = patch.get("note", "").strip()
+        source_url = patch.get("source_url", "").strip()
+        reasons = {part.strip() for part in row.get("data_quality_reasons", "").split(";") if part.strip()}
         if note:
-            reason = f"manual_patch:{note}"
-            reasons = {part.strip() for part in row.get("data_quality_reasons", "").split(";") if part.strip()}
-            if reason not in reasons:
-                reasons.add(reason)
-                row["data_quality_reasons"] = ";".join(sorted(reasons))
-                row_changed = True
-                changed_columns.add("data_quality_reasons")
+            reasons.add(f"manual_patch:{note}")
+        if source_url:
+            reasons.add(f"manual_source_url:{source_url}")
+        if reasons and ";".join(sorted(reasons)) != row.get("data_quality_reasons", ""):
+            row["data_quality_reasons"] = ";".join(sorted(reasons))
+            row_changed = True
+            changed_columns.add("data_quality_reasons")
         if row_changed:
             changed_symbols.add(symbol)
 

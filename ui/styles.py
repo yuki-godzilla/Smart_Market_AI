@@ -5315,17 +5315,56 @@ div[data-testid="stChatInput"] textarea:focus {
     background: rgba(113, 63, 18, 0.26);
 }
 
+.smai-watchlist-radar {
+    border-block: 1px solid rgba(70, 91, 120, 0.5);
+    margin: 0.25rem 0 0.55rem;
+    padding: 0.7rem 0;
+}
+
+.smai-watchlist-radar-heading {
+    color: var(--text-heading);
+    font-size: 0.82rem;
+    font-weight: 850;
+    margin-bottom: 0.5rem;
+}
+
+.smai-watchlist-radar-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.42rem;
+}
+
+.smai-watchlist-radar-item {
+    border-left: 2px solid rgba(34, 211, 238, 0.48);
+    min-width: 0;
+    padding: 0.12rem 0.5rem;
+}
+
+.smai-watchlist-radar-item span {
+    color: var(--text-muted);
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 720;
+    line-height: 1.2;
+}
+
+.smai-watchlist-radar-item strong {
+    color: var(--text-value);
+    display: block;
+    font-size: 1.08rem;
+    line-height: 1.3;
+    margin-top: 0.08rem;
+}
+
 .smai-watchlist-card {
     border: 1px solid rgba(70, 91, 120, 0.78);
-    border-radius: 16px;
-    background:
-        radial-gradient(circle at 12% 0%, rgba(34, 211, 238, 0.12), transparent 34%),
-        linear-gradient(180deg, rgba(17, 31, 53, 0.96), rgba(7, 13, 25, 0.94));
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(17, 31, 53, 0.96), rgba(7, 13, 25, 0.94));
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.06),
         0 18px 38px rgba(0, 0, 0, 0.18);
     margin: 0 0 0.86rem;
-    padding: 1rem;
+    padding: 0.9rem;
 }
 
 .smai-watchlist-card-header {
@@ -5453,6 +5492,12 @@ div[data-testid="stChatInput"] textarea:focus {
     color: #DDD6FE;
 }
 
+.smai-watchlist-decision-badge {
+    border-color: rgba(148, 163, 184, 0.4);
+    background: rgba(30, 41, 59, 0.38);
+    color: #DCE6F2;
+}
+
 .smai-watchlist-metric-grid {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -5462,10 +5507,15 @@ div[data-testid="stChatInput"] textarea:focus {
 
 .smai-watchlist-metric {
     border: 1px solid rgba(70, 91, 120, 0.5);
-    border-radius: 10px;
+    border-radius: 6px;
     background: rgba(2, 6, 23, 0.28);
     min-width: 0;
     padding: 0.48rem 0.52rem;
+}
+
+.smai-watchlist-metric--muted .smai-watchlist-metric-value {
+    color: var(--text-muted);
+    font-weight: 700;
 }
 
 .smai-watchlist-metric-label {
@@ -5534,7 +5584,32 @@ div[data-testid="stChatInput"] textarea:focus {
     padding-top: 0;
 }
 
+.smai-watchlist-decision-empty {
+    border-top: 1px solid rgba(70, 91, 120, 0.44);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.78rem;
+    padding-top: 0.68rem;
+}
+
+.smai-watchlist-decision-empty span {
+    color: var(--text-muted);
+    font-size: 0.74rem;
+    font-weight: 760;
+}
+
+.smai-watchlist-decision-empty strong {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    font-weight: 720;
+}
+
 @media (max-width: 900px) {
+    .smai-watchlist-radar-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
     .smai-watchlist-metric-grid,
     .smai-watchlist-info {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -5542,6 +5617,10 @@ div[data-testid="stChatInput"] textarea:focus {
 }
 
 @media (max-width: 640px) {
+    .smai-watchlist-radar-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .smai-watchlist-card-header {
         flex-direction: column;
     }

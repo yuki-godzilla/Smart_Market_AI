@@ -18,6 +18,22 @@ When adding a new work-log entry, append it to the top of the Work Log section.
 
 ## Work Log / 作業ログ
 
+## 2026-06-27 - Phase 32-E2 My Radar Compact Polish
+
+### Summary
+
+- replaced the always-visible three-column My Radar reason lists with a five-count compact summary and a collapsed reason expander.
+- moved `最大更新件数` into `更新オプション`, kept update/news actions side by side, and retained the older-Streamlit radio fallback for filter and display controls.
+- compacted empty Decision Trail cards to one missing-note state; populated cards still show judgment status, Watch reason, current view, next check, and last update.
+- preserved favorites JSON, Radar priority, local-first refresh, and explicit-only AI調査 / Decision Report behavior.
+
+### Validation
+
+- watchlist/Radar targeted tests: 27 passed. AppTest interaction smoke: 8 passed, including empty state, filter selection, count update, and card/table switching.
+- related UI regression: 359 passed / 1 xfailed; 3 pre-existing Ranking filter/signature failures remain unrelated to this phase.
+- Ruff passed. Black helper reported the same 26 pre-existing files as `would reformat`.
+- in-app Playwright could not run because the browser control execution tool was unavailable in this session; Streamlit AppTest interaction coverage and HTTP smoke were used instead.
+
 ## 2026-06-27 - Phase 32-D/E Myウォッチリスト Decision Trail / My Radar
 
 ### Summary

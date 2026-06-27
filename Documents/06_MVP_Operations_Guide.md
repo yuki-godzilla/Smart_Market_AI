@@ -21,6 +21,7 @@
 - Investment Radar news-card related symbols now use one horizontal chip per symbol for `本文に出た銘柄` and `SMAI推測候補`: left side opens the symbol in Cockpit, right side uses the existing `☆ お気に入り` / `★ お気に入り中` favorite toggle. Empty / unclear symbols are skipped.
 - Phase 32-D adds Decision Trail fields to `favorites.json` with backward compatibility: `watch_reason`, `decision_status`, `decision_note`, `next_check_at`, `next_check_label`, `decision_updated_at`, and `decision_trail`. Myウォッチリスト cards and tables show these fields, and each card has a compact `判断メモを編集` form.
 - Phase 32-E adds a display-only `My Radar` summary and filter/sort controls. Radar priority uses refresh state, note completeness, tags, next-check date, and displayed local metrics only; it does not change Ranking score, AI総合, Research Score, provider fetch behavior, or the saved order in `favorites.json`.
+- Phase 32-E2 keeps that logic and storage contract unchanged while compacting the daily workflow. My Radar shows five summary counts and keeps candidate reasons in `My Radarの判定理由を見る`; `最大更新件数` is under `更新オプション`; update/news actions remain explicit; empty Decision Trail cards show one `判断メモ: 未入力` state and an add form, while populated cards show the full decision details.
 
 ## 2026-06-26 Symbol Metadata Operations Update
 

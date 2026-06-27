@@ -478,6 +478,52 @@ def test_favorite_card_html_groups_watchlist_fields_and_handles_missing_values()
     assert "未確認" in markup
 
 
+def test_favorite_card_html_compacts_empty_decision_trail():
+    markup = _favorite_card_html(
+        {
+            "symbol": "5932.T",
+            "name": "三協立山",
+            "market": "jp",
+            "asset_type": "stock",
+            "currency": "JPY",
+            "added_at": "2026-06-27",
+            "status": "未取得",
+            "refresh_status": "never_checked",
+            "refresh_label": "未確認",
+            "watch_reason": "未入力",
+            "decision_status": "未設定",
+            "decision_note": "未入力",
+            "next_check_at": "",
+            "next_check_label": "未設定",
+            "decision_updated_label": "未更新",
+        }
+    )
+
+    assert "smai-watchlist-decision-empty" in markup
+    assert "メモ未入力" in markup
+    assert "Watch理由" not in markup
+    assert "現在の見方" not in markup
+    assert "最終更新" not in markup
+
+
+def test_favorite_radar_summary_html_renders_compact_counts():
+    markup = app_module._favorite_radar_summary_html(
+        [
+            ("今日見る", 3),
+            ("要確認", 1),
+            ("更新推奨", 2),
+            ("メモ未入力", 3),
+            ("下落注意", 0),
+        ]
+    )
+
+    assert 'class="smai-watchlist-radar-grid"' in markup
+    assert markup.count('class="smai-watchlist-radar-item"') == 5
+    assert "今日見る" in markup
+    assert "更新推奨" in markup
+    assert "下落注意" in markup
+
+
 def test_render_segmented_or_radio_uses_segmented_control_when_available(monkeypatch):
     calls: list[tuple[str, list[str], str, str]] = []
 

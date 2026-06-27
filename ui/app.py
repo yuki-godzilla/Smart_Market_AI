@@ -9790,29 +9790,11 @@ def _render_my_watchlist_page() -> None:
         item["radar_categories"] = " / ".join(radar_item.categories)
         item["radar_reasons"] = " / ".join(radar_item.reasons)
         item["radar_next_action"] = radar_item.next_action
-    missing_count = sum(1 for item in enriched if item["status"] == "未取得")
-    upside_count = sum(1 for item in enriched if item["status"] == "上昇候補")
-    downside_count = sum(1 for item in enriched if item["status"] == "下振れ注意")
     refresh_attention_count = sum(1 for item in enriched if item["refresh_status"] != "fresh")
-    st.markdown(
-        " ".join(
-            [
-                f"`お気に入り {len(enriched)}件`",
-                f"`上昇候補 {upside_count}件`",
-                f"`下振れ注意 {downside_count}件`",
-                f"`未取得 {missing_count}件`",
-                f"`更新推奨 {refresh_attention_count}件`",
-            ]
-        )
-    )
-    st.caption(
-        "Myウォッチリスト関連ニュースは、投資レーダーの Watchlist source で "
-        "「Myウォッチリスト」または「My + 手入力」を選ぶと優先表示できます。"
-    )
     _render_my_radar_summary(radar_items)
     _render_watchlist_refresh_summary()
-    limit_col, update_col, radar_col = st.columns([0.8, 1, 1])
-    with limit_col:
+
+    with st.expander("更新オプション"):
         refresh_limit = st.number_input(
             "最大更新件数",
             min_value=1,
@@ -9821,6 +9803,9 @@ def _render_my_watchlist_page() -> None:
             step=1,
             key="market_data_watchlist_refresh_limit",
         )
+        st.caption("更新はボタンを押したときだけ実行され、最大件数までをローカルで確認します。")
+
+    update_col, radar_col = st.columns(2)
     with update_col:
         if st.button("ウォッチリストを更新", use_container_width=True):
             checked_at = datetime.now().astimezone().isoformat(timespec="seconds")
@@ -9867,11 +9852,10 @@ def _render_my_watchlist_page() -> None:
             st.rerun()
 
     filtered_enriched = _favorite_filter_and_sort_rows(enriched)
-
-    display_mode = st.radio(
+    display_mode = _render_segmented_or_radio(
         "表示形式",
         ["カード表示", "テーブル表示"],
-        horizontal=True,
+        default="カード表示",
         key="market_data_watchlist_display_mode",
     )
     if display_mode == "テーブル表示":
@@ -9885,30 +9869,52 @@ def _render_my_watchlist_page() -> None:
 
 
 def _render_my_radar_summary(radar_items: Sequence[Any]) -> None:
-    category_order = (
-        "今日見る候補",
-        "注意候補",
-        "更新候補",
-        "調査候補",
-        "メモ未入力候補",
+    summary_items = (
+        ("今日見る", "今日見る候補"),
+        ("要確認", "注意候補"),
+        ("更新推奨", "更新候補"),
+        ("メモ未入力", "メモ未入力候補"),
+        ("下落注意", "下落注意"),
     )
-    counts = {
-        category: sum(1 for item in radar_items if category in item.categories)
-        for category in category_order
-    }
-    st.markdown("#### My Radar")
-    st.markdown(" ".join(f"`{category} {count}件`" for category, count in counts.items()))
-    radar_cols = st.columns(3)
-    for index, category in enumerate(category_order):
-        candidates = [item for item in radar_items if category in item.categories][:3]
-        if not candidates:
-            continue
-        with radar_cols[index % 3]:
-            st.markdown(f"**{category}**")
+    counts = []
+    for label, category in summary_items:
+        if category == "下落注意":
+            count = sum(1 for item in radar_items if "下振れ警戒が高め" in item.reasons)
+        else:
+            count = sum(1 for item in radar_items if category in item.categories)
+        counts.append((label, count))
+    st.markdown(_favorite_radar_summary_html(counts), unsafe_allow_html=True)
+    with st.expander("My Radarの判定理由を見る"):
+        for label, category in summary_items:
+            if category == "下落注意":
+                candidates = [
+                    item for item in radar_items if "下振れ警戒が高め" in item.reasons
+                ][:3]
+            else:
+                candidates = [item for item in radar_items if category in item.categories][:3]
+            if not candidates:
+                continue
+            st.markdown(f"**{label}**")
             for item in candidates:
                 reason = " / ".join(item.reasons[:2])
                 label = item.favorite.name or item.favorite.symbol
                 st.caption(f"{label}: {reason}")
+
+
+def _favorite_radar_summary_html(summary_items: Sequence[tuple[str, int]]) -> str:
+    items = "".join(
+        '<div class="smai-watchlist-radar-item">'
+        f"<span>{html.escape(label)}</span>"
+        f"<strong>{count}</strong>"
+        "</div>"
+        for label, count in summary_items
+    )
+    return (
+        '<section class="smai-watchlist-radar">'
+        '<div class="smai-watchlist-radar-heading">My Radar</div>'
+        f'<div class="smai-watchlist-radar-grid">{items}</div>'
+        "</section>"
+    )
 
 
 def _render_segmented_or_radio(
@@ -9964,7 +9970,8 @@ def _favorite_filter_and_sort_rows(rows: list[dict[str, str]]) -> list[dict[str,
         "下振れ警戒が高い順",
         "銘柄コード順",
     ]
-    filter_col, sort_col = st.columns([1.2, 1])
+    st.markdown("##### 表示を整理")
+    filter_col, sort_col = st.columns([2, 1])
     with filter_col:
         selected_filter = _render_segmented_or_radio(
             "表示フィルター",
@@ -10231,8 +10238,13 @@ def _decimal_sort_value(value: str | None) -> Decimal:
 
 def _favorite_metric_html(label: str, value: object, *, fallback: str = "未取得") -> str:
     display_value = _favorite_display_value(value, fallback=fallback)
+    muted_class = (
+        " smai-watchlist-metric--muted"
+        if display_value in {"未取得", "未確認", "未設定", "未更新"}
+        else ""
+    )
     return (
-        '<div class="smai-watchlist-metric">'
+        f'<div class="smai-watchlist-metric{muted_class}">'
         f'<span class="smai-watchlist-metric-label">{html.escape(label)}</span>'
         f'<strong class="smai-watchlist-metric-value">{html.escape(display_value)}</strong>'
         "</div>"
@@ -10264,6 +10276,12 @@ def _favorite_card_html(payload: Mapping[str, str]) -> str:
         for key in ("market", "asset_type", "currency")
     )
     added_at = html.escape(_favorite_display_value(payload.get("added_at"), fallback="未確認"))
+    has_decision_details = _favorite_has_decision_details(payload)
+    decision_badge = (
+        _favorite_display_value(payload.get("decision_status"), fallback="判断メモあり")
+        if has_decision_details
+        else "メモ未入力"
+    )
     metrics = "".join(
         [
             _favorite_metric_html("価格", payload.get("price")),
@@ -10273,35 +10291,56 @@ def _favorite_card_html(payload: Mapping[str, str]) -> str:
             _favorite_metric_html("最終確認", payload.get("last_checked_at"), fallback="未確認"),
         ]
     )
-    info_rows = "".join(
+    confirmation_rows = "".join(
         [
             _favorite_info_row_html("次の確認", payload.get("refresh_next_action")),
             _favorite_info_row_html(
                 "確認ポイント",
                 payload.get("checkpoint") or payload.get("refresh_reason"),
             ),
-            _favorite_info_row_html("タグ", payload.get("tags"), fallback="タグなし"),
-            _favorite_info_row_html("メモ", payload.get("memo"), fallback="メモなし"),
         ]
     )
-    decision_rows = "".join(
-        [
-            _favorite_info_row_html("判断状態", payload.get("decision_status"), fallback="未設定"),
-            _favorite_info_row_html("Watch理由", payload.get("watch_reason"), fallback="未入力"),
-            _favorite_info_row_html("現在の見方", payload.get("decision_note"), fallback="未入力"),
-            _favorite_info_row_html("次の確認", payload.get("next_check_label"), fallback="未設定"),
-            _favorite_info_row_html(
-                "最終メモ更新",
-                payload.get("decision_updated_label"),
-                fallback="未更新",
-            ),
-            _favorite_info_row_html(
-                "関連ニュース",
-                payload.get("related_news"),
-                fallback="未確認",
-            ),
-        ]
-    )
+    if has_decision_details:
+        decision_content = (
+            '<div class="smai-watchlist-decision-title">判断メモ</div>'
+            '<div class="smai-watchlist-info smai-watchlist-decision">'
+            + "".join(
+                [
+                    _favorite_info_row_html(
+                        "判断状態",
+                        payload.get("decision_status"),
+                        fallback="未設定",
+                    ),
+                    _favorite_info_row_html(
+                        "Watch理由",
+                        payload.get("watch_reason"),
+                        fallback="未入力",
+                    ),
+                    _favorite_info_row_html(
+                        "現在の見方",
+                        payload.get("decision_note"),
+                        fallback="未入力",
+                    ),
+                    _favorite_info_row_html(
+                        "次の確認",
+                        payload.get("next_check_label") or payload.get("next_check_at"),
+                        fallback="未設定",
+                    ),
+                    _favorite_info_row_html(
+                        "最終更新",
+                        payload.get("decision_updated_label"),
+                        fallback="未更新",
+                    ),
+                ]
+            )
+            + "</div>"
+        )
+    else:
+        decision_content = (
+            '<div class="smai-watchlist-decision-empty">'
+            "<span>判断メモ</span><strong>未入力</strong>"
+            "</div>"
+        )
     return (
         '<section class="smai-watchlist-card">'
         '<div class="smai-watchlist-card-header">'
@@ -10317,12 +10356,21 @@ def _favorite_card_html(payload: Mapping[str, str]) -> str:
         f"{html.escape(status_label)}</span>"
         f'<span class="smai-watchlist-badge smai-watchlist-refresh--{html.escape(_favorite_refresh_tone(refresh_status))}">'
         f"{html.escape(refresh_label)}</span>"
+        '<span class="smai-watchlist-badge smai-watchlist-decision-badge">'
+        f"{html.escape(decision_badge)}</span>"
         "</div>"
         f'<div class="smai-watchlist-metric-grid">{metrics}</div>'
-        f'<div class="smai-watchlist-info">{info_rows}</div>'
-        '<div class="smai-watchlist-decision-title">判断メモ</div>'
-        f'<div class="smai-watchlist-info smai-watchlist-decision">{decision_rows}</div>'
+        f'<div class="smai-watchlist-info">{confirmation_rows}</div>'
+        f"{decision_content}"
         "</section>"
+    )
+
+
+def _favorite_has_decision_details(payload: Mapping[str, str]) -> bool:
+    empty_values = {"", "未入力", "未設定", "未更新", "None", "null"}
+    return any(
+        str(payload.get(key) or "").strip() not in empty_values
+        for key in ("watch_reason", "decision_note", "next_check_at", "next_check_label")
     )
 
 
@@ -10378,7 +10426,10 @@ def _render_favorite_card(payload: Mapping[str, str]) -> None:
             remove_favorite(symbol)
             st.toast("Myウォッチリストから解除しました。")
             st.rerun()
-    with st.expander("判断メモを編集"):
+    decision_expander_label = (
+        "判断メモを編集" if _favorite_has_decision_details(payload) else "判断メモを追加"
+    )
+    with st.expander(decision_expander_label):
         _render_favorite_decision_form(payload)
 
 

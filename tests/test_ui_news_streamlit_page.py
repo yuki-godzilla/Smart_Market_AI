@@ -241,3 +241,44 @@ def test_my_watchlist_page_renders_without_mascot_keyerror(tmp_path, monkeypatch
     app.run()
 
     assert not app.exception
+
+
+def test_my_watchlist_page_renders_compact_controls_with_favorite(tmp_path, monkeypatch):
+    monkeypatch.setenv("SMAI_DISABLE_BACKGROUND_WORKERS", "1")
+    monkeypatch.setattr(favorites, "FAVORITES_FILE_PATH", tmp_path / "favorites.json")
+    favorites.add_favorite(
+        "5932.T",
+        {
+            "name": "三協立山",
+            "market": "jp",
+            "asset_type": "stock",
+            "currency": "JPY",
+            "source_screen": "news",
+        },
+    )
+    app = AppTest.from_file("ui/app.py", default_timeout=20)
+    app.session_state["sidemenu_page"] = "watchlist"
+
+    app.run()
+
+    assert not app.exception
+    assert {item.label for item in app.expander} >= {
+        "My Radarの判定理由を見る",
+        "更新オプション",
+        "判断メモを追加",
+    }
+    assert {item.label for item in app.radio} >= {"表示フィルター", "表示形式"}
+    assert {item.label for item in app.selectbox} >= {"並び順"}
+    assert {item.label for item in app.number_input} >= {"最大更新件数"}
+    assert {item.label for item in app.button} >= {
+        "ウォッチリストを更新",
+        "投資レーダーで関連ニュースを見る",
+    }
+
+    app.radio(key="market_data_watchlist_filter").set_value("未確認").run()
+    assert not app.exception
+    assert any("表示中: 1件 / 全体 1件" in str(item.value) for item in app.caption)
+
+    app.radio(key="market_data_watchlist_display_mode").set_value("テーブル表示").run()
+    assert not app.exception
+    assert len(app.dataframe) == 1

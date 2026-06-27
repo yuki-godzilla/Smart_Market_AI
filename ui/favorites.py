@@ -593,14 +593,14 @@ def render_favorite_button(
             unsafe_allow_html=True,
         )
         st.button(
-            "☆ お気に入り",
+            "☆ お気に入りに追加",
             key=key,
             disabled=True,
             use_container_width=use_container_width,
         )
         return False
     active = is_favorite(normalized)
-    label = "★ お気に入り中" if active else "☆ お気に入り"
+    label = "★ お気に入り中" if active else "☆ お気に入りに追加"
     st.markdown(
         favorite_button_anchor_html(active=active, symbol=normalized),
         unsafe_allow_html=True,

@@ -267,7 +267,7 @@ def test_render_favorite_button_toggles_store(tmp_path, monkeypatch):
 
     assert favorites.render_favorite_button(" nvda ", name="NVIDIA", source_screen="ranking")
     assert favorites.is_favorite("NVDA")
-    assert fake_st.button_labels == ["☆ お気に入り"]
+    assert fake_st.button_labels == ["☆ お気に入りに追加"]
     assert 'data-active="false"' in fake_st.markdown_calls[0]
     assert fake_st.rerun_called
     assert fake_st.toast_message == "Myウォッチリストに追加しました。"

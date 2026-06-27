@@ -258,6 +258,7 @@ from ui.app import (
     ranking_detail_symbol_to_open,
     ranking_display_rows_with_llm_factor_references,
     ranking_display_rows_with_research_status,
+    ranking_favorite_symbol_from_aggrid_response,
     ranking_forecast_term_explanation_rows,
     ranking_investment_detail_rows,
     ranking_investment_note,
@@ -4369,6 +4370,8 @@ def test_ranking_result_aggrid_options_enable_single_row_click_selection():
     column_defs = {column["field"]: column for column in options["columnDefs"]}
     assert column_defs["順位"]["pinned"] == "left"
     assert column_defs["銘柄"]["pinned"] == "left"
+    assert column_defs["お気に入り"]["pinned"] == "left"
+    assert column_defs["お気に入り"]["sortable"] is False
     assert column_defs["総合スコア"]["sortingOrder"] == ["desc", "asc", None]
     assert column_defs["配当利回り"]["sortingOrder"] == ["desc", "asc", None]
     assert column_defs["PER"]["sortingOrder"] == ["asc", "desc", None]
@@ -4502,6 +4505,23 @@ def test_ranking_detail_symbol_from_aggrid_response_handles_dataframe_and_dict()
     )
     assert ranking_detail_symbol_from_aggrid_response(SimpleNamespace(selected_rows=None)) is None
     assert ranking_detail_symbol_from_aggrid_response({"selected_rows": []}) is None
+
+
+def test_ranking_favorite_symbol_from_aggrid_response_only_accepts_favorite_cell():
+    favorite_click = {
+        "eventData": {
+            "colId": "お気に入り",
+            "data": {"銘柄": " 7203.t "},
+        }
+    }
+
+    assert ranking_favorite_symbol_from_aggrid_response(favorite_click) == "7203.T"
+    assert (
+        ranking_favorite_symbol_from_aggrid_response(
+            {"eventData": {"colId": "銘柄", "data": {"銘柄": "7203.T"}}}
+        )
+        is None
+    )
 
 
 def test_ranking_detail_event_token_tracks_row_clicks():
@@ -7418,6 +7438,7 @@ def test_ranking_result_aggrid_frame_keeps_display_table_compact():
     assert frame.columns.tolist() == [
         "順位",
         "銘柄",
+        "お気に入り",
         "銘柄名",
         "現在株価（円）",
         "総合スコア",
@@ -7436,6 +7457,7 @@ def test_ranking_result_aggrid_frame_keeps_display_table_compact():
         "確認ポイント",
     ]
     assert frame.loc[0, "銘柄名"] == "Toyota Motor Corporation Long Name"
+    assert frame.loc[0, "お気に入り"] in {"☆ 追加", "★ 登録済"}
     assert frame.loc[0, "現在株価（円）"] == "N/A"
     assert frame.loc[0, "判断方針"] == "比較候補"
     assert frame.loc[0, "PER"] == "N/A"
@@ -7479,9 +7501,10 @@ def test_ranking_result_aggrid_frame_adds_detail_columns_on_request():
         include_detail_columns=True,
     )
 
-    assert frame.columns.tolist()[:15] == [
+    assert frame.columns.tolist()[:16] == [
         "順位",
         "銘柄",
+        "お気に入り",
         "銘柄名",
         "現在株価（円）",
         "総合スコア",
@@ -7892,9 +7915,10 @@ def test_ranking_result_aggrid_frame_prioritizes_upside_columns_for_upside_purpo
         ranking_purpose=RANKING_PURPOSE_UPSIDE_SIGNAL,
     )
 
-    assert frame.columns.tolist()[:15] == [
+    assert frame.columns.tolist()[:16] == [
         "順位",
         "銘柄",
+        "お気に入り",
         "銘柄名",
         "現在株価（円）",
         "総合スコア",
@@ -7941,9 +7965,10 @@ def test_ranking_result_aggrid_frame_moves_confidence_columns_to_detail_mode():
     assert "信頼度/根拠" not in normal_frame.columns
     assert "データ信頼度" not in normal_frame.columns
     assert "信頼度/根拠" in frame.columns
-    assert frame.columns.tolist()[:15] == [
+    assert frame.columns.tolist()[:16] == [
         "順位",
         "銘柄",
+        "お気に入り",
         "銘柄名",
         "現在株価（円）",
         "総合スコア",

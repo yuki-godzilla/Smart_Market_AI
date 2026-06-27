@@ -214,6 +214,7 @@ from ui.favorites import (
     normalize_favorite_symbol,
     remove_favorite,
     render_favorite_button,
+    toggle_favorite,
     update_favorite_decision_note,
     update_favorite_refresh_metadata,
 )
@@ -522,6 +523,7 @@ RANKING_ABNORMAL_DIVIDEND_DISPLAY = "要確認"
 RANKING_TABLE_BASE_COLUMNS = (
     "順位",
     "銘柄",
+    "お気に入り",
     "銘柄名",
     "現在株価（円）",
     "総合スコア",
@@ -3365,6 +3367,7 @@ def ranking_result_aggrid_frame(
     include_detail_columns: bool = False,
 ) -> pd.DataFrame:
     rows: list[dict[str, str]] = []
+    favorite_symbols = {favorite.symbol for favorite in load_favorites()}
     result_columns = _ranking_result_columns_with_optional_advanced_forecast(
         display_rows,
         ranking_purpose,
@@ -3383,6 +3386,11 @@ def ranking_result_aggrid_frame(
         record = {
             "順位": row.get("順位", ""),
             "銘柄": row.get("銘柄", ""),
+            "お気に入り": (
+                "★ 登録済"
+                if normalize_favorite_symbol(str(row.get("銘柄", ""))) in favorite_symbols
+                else "☆ 追加"
+            ),
             "銘柄名": truncate_text(row.get("銘柄名", ""), max_chars=56),
             "総合スコア": row.get("総合スコア", ""),
             "判断方針": row.get("見方", ""),
@@ -3491,6 +3499,37 @@ def ranking_result_aggrid_options(
             width=92,
             pinned="left",
             cellStyle=RANKING_GRID_NOWRAP_CELL_STYLE,
+        )
+    if "お気に入り" in frame.columns:
+        builder.configure_column(
+            "お気に入り",
+            width=108,
+            pinned="left",
+            sortable=False,
+            filter=False,
+            suppressMenu=True,
+            cellStyle=JsCode(
+                """
+                function(params) {
+                    const active = String(params.value || '').startsWith('★');
+                    return {
+                        color: active ? '#facc15' : '#dbeafe',
+                        backgroundColor: active
+                            ? 'rgba(245, 158, 11, 0.14)'
+                            : 'rgba(15, 23, 42, 0.72)',
+                        border: active
+                            ? '1px solid rgba(250, 204, 21, 0.34)'
+                            : '1px solid rgba(96, 165, 250, 0.24)',
+                        borderRadius: '999px',
+                        fontWeight: '800',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        lineHeight: '26px',
+                        marginTop: '5px'
+                    };
+                }
+                """
+            ),
         )
     if "銘柄名" in frame.columns:
         builder.configure_column(
@@ -3700,6 +3739,25 @@ def ranking_detail_symbol_from_aggrid_response(grid_response: object) -> str | N
     else:
         return None
     return _ranking_symbol_from_row(row)
+
+
+def ranking_favorite_symbol_from_aggrid_response(grid_response: object) -> str | None:
+    event_data = _aggrid_event_data(grid_response)
+    column_id = str(event_data.get("colId") or "").strip()
+    column = event_data.get("column")
+    if not column_id and isinstance(column, dict):
+        column_id = str(column.get("colId") or "").strip()
+    if column_id != "お気に入り":
+        return None
+    symbol = _ranking_symbol_from_row(event_data.get("data"))
+    if symbol:
+        return normalize_favorite_symbol(symbol)
+    node = event_data.get("node")
+    if isinstance(node, dict):
+        symbol = _ranking_symbol_from_row(node.get("data"))
+        if symbol:
+            return normalize_favorite_symbol(symbol)
+    return None
 
 
 def ranking_detail_event_token_from_aggrid_response(
@@ -5481,7 +5539,7 @@ def _render_ranking_result_table(
         frame,
         gridOptions=ranking_result_aggrid_options(frame, ranking_purpose=ranking_purpose),
         height=_ranking_result_grid_height(display_rows),
-        update_on=["rowClicked"],
+        update_on=["cellClicked"],
         data_return_mode=DataReturnMode.AS_INPUT,
         theme="dark",
         custom_css=RANKING_RESULT_GRID_CUSTOM_CSS,
@@ -5491,6 +5549,26 @@ def _render_ranking_result_table(
         show_download_button=False,
         allow_unsafe_jscode=True,
     )
+    favorite_symbol = ranking_favorite_symbol_from_aggrid_response(grid_response)
+    if favorite_symbol:
+        universe_row = _symbol_universe_rows_by_symbol().get(favorite_symbol, {})
+        now_active = toggle_favorite(
+            favorite_symbol,
+            metadata={
+                "name": universe_row.get("name") or universe_row.get("銘柄名"),
+                "market": universe_row.get("market") or universe_row.get("市場"),
+                "asset_type": universe_row.get("asset_type") or universe_row.get("商品"),
+                "currency": universe_row.get("currency") or universe_row.get("通貨"),
+                "source_screen": "ranking_table",
+            },
+        )
+        st.toast(
+            "Myウォッチリストに追加しました。"
+            if now_active
+            else "Myウォッチリストから解除しました。"
+        )
+        st.rerun()
+        return
     selected_symbol = ranking_detail_symbol_from_aggrid_response(grid_response)
     _render_ranking_selected_detail_memo(
         display_rows,
@@ -15706,7 +15784,6 @@ def _render_market_data_cockpit_header(
     preview: MarketDataPreview,
     symbol_label: str,
 ) -> int:
-    st.subheader("銘柄コックピット")
     metadata_col, horizon_col = st.columns([4.0, 1.0])
     provider_name = _metadata_value(preview.provider_rows, "provider") or "unknown"
     as_of = _market_data_as_of(preview)
@@ -15724,23 +15801,32 @@ def _render_market_data_cockpit_header(
         )
     reference_period = forecast_reference_period(preview.bars, horizon_days=forecast_horizon_days)
     with metadata_col:
-        st.caption(
-            f"対象: {symbol_label} / データ取得元: {provider_name} / "
-            f"基準日: {as_of or '未取得'} / 参照期間: {reference_period}日"
-        )
         cockpit_symbol = _market_data_preview_symbol(preview)
-        if cockpit_symbol:
-            universe_row = _symbol_universe_rows_by_symbol().get(cockpit_symbol.upper(), {})
-            render_favorite_button(
-                cockpit_symbol,
-                name=str(universe_row.get("name") or symbol_label),
-                market=str(universe_row.get("market") or ""),
-                asset_type=str(universe_row.get("asset_type") or ""),
-                currency=str(universe_row.get("currency") or ""),
-                source_screen="cockpit",
-                key=f"market_data_cockpit_favorite_{cockpit_symbol}",
-                use_container_width=False,
-            )
+        with st.container(border=True):
+            title_col, favorite_col = st.columns([3.2, 1.35], vertical_alignment="top")
+            with title_col:
+                st.markdown(f"### {symbol_label}")
+                st.caption(
+                    "価格・予測・スコア・根拠資料を1画面で確認する分析ビューです。"
+                )
+                st.caption(
+                    f"データ取得元: {provider_name} / 基準日: {as_of or '未取得'} / "
+                    f"参照期間: {reference_period}日"
+                )
+            with favorite_col:
+                if cockpit_symbol:
+                    universe_row = _symbol_universe_rows_by_symbol().get(
+                        cockpit_symbol.upper(), {}
+                    )
+                    render_favorite_button(
+                        cockpit_symbol,
+                        name=str(universe_row.get("name") or symbol_label),
+                        market=str(universe_row.get("market") or ""),
+                        asset_type=str(universe_row.get("asset_type") or ""),
+                        currency=str(universe_row.get("currency") or ""),
+                        source_screen="cockpit",
+                        key=f"market_data_cockpit_favorite_{cockpit_symbol}",
+                    )
     return forecast_horizon_days
 
 

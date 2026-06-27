@@ -143,9 +143,9 @@ def test_page_title_html_supports_watchlist_and_unknown_fallback():
     )
 
     assert MASCOT_TITLE_ASSETS["watchlist"] == MASCOT_WATCHLIST_TITLE_ASSET
-    assert MASCOT_WATCHLIST_TITLE_ASSET == "smai-title-watchlist.webp"
+    assert MASCOT_WATCHLIST_TITLE_ASSET == "smai-title-watchlist-transparent.png"
     assert 'data-mascot="watchlist"' in watchlist_markup
-    assert "data:image/webp;base64," in watchlist_markup
+    assert "data:image/png;base64," in watchlist_markup
     assert 'data-mascot="unknown"' in fallback_markup
     assert "data:image/webp;base64," in fallback_markup
 

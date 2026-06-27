@@ -34,7 +34,7 @@ MASCOT_NAVI_CHAT_ASSET = "smai-navi-chat-cutout.png"
 MASCOT_THUMB_ASSET = "smai-mascot-thumb.webp"
 MASCOT_PANEL_ASSET = "smai-mascot-panel.webp"
 MASCOT_LOADING_ASSET = "smai-mascot-loading.webp"
-MASCOT_WATCHLIST_TITLE_ASSET = "smai-title-watchlist.webp"
+MASCOT_WATCHLIST_TITLE_ASSET = "smai-title-watchlist-transparent.png"
 MASCOT_TITLE_ASSETS: dict[TitleMascot, str] = {
     "cockpit": "smai-title-cockpit.webp",
     "ranking": "smai-title-ranking.webp",
